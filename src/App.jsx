@@ -1,6 +1,7 @@
 import React, { useEffect, useState } from "react";
 import { BrowserRouter, Navigate, Route, Routes, useNavigate } from "react-router-dom";
 import { supabase } from "./supabaseClient";
+import PedidosScreen from "./screens/PedidosScreen";
 
 // Screens (ya las tenés)
 import PanolScreen from "./screens/PanolScreen";
@@ -307,7 +308,14 @@ export default function App() {
             </RequireAuth>
           }
         />
-
+<Route
+  path="/pedidos"
+  element={
+    <RequireAuth session={session}>
+      <PedidosScreen profile={profile} signOut={signOut} />
+    </RequireAuth>
+  }
+/>
         <Route
           path="/admin"
           element={

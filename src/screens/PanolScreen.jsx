@@ -305,8 +305,10 @@ export default function PanolScreen({ profile, signOut }) {
           <Link to="/panol" style={{ textDecoration: "none" }}>
             <button type="button" style={S.navBtn(true)}>Operación</button>
           </Link>
-
-          {(role === "admin" || role === "oficina") && (
+          
+		  <Link to="/pedidos" style={S.navBtn(false)}>Pedidos</Link>
+          
+		  {(role === "admin" || role === "oficina") && (
             <>
               <Link to="/admin" style={{ textDecoration: "none" }}>
                 <button type="button" style={S.navBtn(false)}>Inventario</button>
