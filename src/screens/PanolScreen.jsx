@@ -14,6 +14,7 @@ function fmt(ts) {
 
 export default function PanolScreen({ profile, signOut }) {
   const role = profile?.role ?? "panol";
+  const isAdmin = !!profile?.is_admin;
   const username = profile?.username ?? "—";
 
   const [modo, setModo] = useState("EGRESO"); // EGRESO / INGRESO
@@ -212,8 +213,10 @@ export default function PanolScreen({ profile, signOut }) {
     brand: { display: "flex", alignItems: "center", gap: 12, marginBottom: 18 },
     logoK: { width: 28, height: 28, objectFit: "contain", opacity: 0.95 },
     brandText: { fontFamily: "Montserrat, system-ui, Arial", fontWeight: 900, letterSpacing: 3, color: "#fff" },
+
     navBtn: (active) => ({
       width: "100%",
+      display: "block",
       textAlign: "left",
       padding: "10px 12px",
       borderRadius: 12,
@@ -223,7 +226,18 @@ export default function PanolScreen({ profile, signOut }) {
       cursor: "pointer",
       marginTop: 8,
       fontWeight: 800,
+      textDecoration: "none",
     }),
+
+    groupTitle: {
+      marginTop: 10,
+      marginBottom: 6,
+      fontSize: 12,
+      opacity: 0.7,
+      fontWeight: 900,
+      letterSpacing: 1,
+    },
+
     foot: { position: "absolute", left: 18, right: 18, bottom: 18, opacity: 0.85, fontSize: 12 },
 
     main: { padding: 18, display: "flex", justifyContent: "center" },
@@ -292,31 +306,36 @@ export default function PanolScreen({ profile, signOut }) {
     }),
   };
 
+  // Solo admin/oficina ven los submódulos de maderas (Inventario/Movimientos/Pedidos)
+  const puedeVerAdminMaderas = role === "admin" || role === "oficina" || isAdmin;
+
   return (
     <div style={S.page}>
       <div style={S.layout}>
         {/* SIDEBAR */}
-        <div style={S.sidebar}>
+        <aside style={S.sidebar}>
           <div style={S.brand}>
             <img src={logoK} alt="K" style={S.logoK} />
             <div style={S.brandText}>KLASE A</div>
           </div>
 
-          <Link to="/panol" style={{ textDecoration: "none" }}>
-            <button type="button" style={S.navBtn(true)}>Operación</button>
-          </Link>
-          
-		  <Link to="/pedidos" style={S.navBtn(false)}>Pedidos</Link>
-          
-		  {(role === "admin" || role === "oficina") && (
-            <>
-              <Link to="/admin" style={{ textDecoration: "none" }}>
-                <button type="button" style={S.navBtn(false)}>Inventario</button>
-              </Link>
+          {/* ===== MADERAS ===== */}
+          <div style={S.groupTitle}>MADERAS</div>
+          <Link to="/panol" style={S.navBtn(true)}>Operación</Link>
 
-              <Link to="/movimientos" style={{ textDecoration: "none" }}>
-                <button type="button" style={S.navBtn(false)}>Movimientos</button>
-              </Link>
+          {puedeVerAdminMaderas && (
+            <>
+              <Link to="/admin" style={S.navBtn(false)}>Inventario</Link>
+              <Link to="/movimientos" style={S.navBtn(false)}>Movimientos</Link>
+              <Link to="/pedidos" style={S.navBtn(false)}>Pedidos</Link>
+            </>
+          )}
+
+          {/* ===== PRODUCCIÓN (solo admin) ===== */}
+          {isAdmin && (
+            <>
+              <div style={{ ...S.groupTitle, marginTop: 16 }}>PRODUCCIÓN</div>
+              <Link to="/marmoleria" style={S.navBtn(false)}>Marmolería</Link>
             </>
           )}
 
@@ -324,156 +343,152 @@ export default function PanolScreen({ profile, signOut }) {
             <div>Usuario: <b>{username}</b></div>
             <div>Rol: <b>{role}</b></div>
             <div style={{ marginTop: 8 }}>
-              <button type="button" style={S.navBtn(false)} onClick={signOut}>Cerrar sesión</button>
+              <button
+                type="button"
+                style={{ ...S.navBtn(false), cursor: "pointer" }}
+                onClick={signOut}
+              >
+                Cerrar sesión
+              </button>
             </div>
           </div>
-        </div>
+        </aside>
 
         {/* MAIN */}
-        <div style={S.main}>
+        <main style={S.main}>
           <div style={S.content}>
             <div style={S.topbar}>
               <h2 style={S.title}>Operación</h2>
               <div style={{ display: "flex", gap: 10 }}>
-                <button type="button" style={S.btnTop(modo === "EGRESO")} onClick={() => setModo("EGRESO")}>RETIRAR</button>
-                <button type="button" style={S.btnTop(modo === "INGRESO")} onClick={() => setModo("INGRESO")}>INGRESAR</button>
+                <button type="button" style={S.btnTop(modo === "EGRESO")} onClick={() => setModo("EGRESO")}>
+                  EGRESO
+                </button>
+                <button type="button" style={S.btnTop(modo === "INGRESO")} onClick={() => setModo("INGRESO")}>
+                  INGRESO
+                </button>
               </div>
             </div>
 
             <div style={S.grid}>
-              <form style={S.card} onSubmit={confirmar}>
+              {/* FORM */}
+              <div style={S.card}>
                 <div style={S.row}>
-                  <div style={S.label}>MATERIAL</div>
-                  <div style={{ display: "grid", gap: 8 }}>
-                    <input style={S.input} placeholder="Buscar material..." value={q} onChange={(e) => setQ(e.target.value)} />
-                    <select style={S.select} value={materialId} onChange={(e) => setMaterialId(e.target.value)}>
-                      {filtrados.map((m) => (
-                        <option key={m.id} value={m.id}>
-                          {m.nombre} · stock {num(m.stock_actual)}
-                        </option>
-                      ))}
-                    </select>
-                  </div>
-                </div>
-
-                {/* ✅ CANTIDAD + botones */}
-                <div style={S.row}>
-                  <div style={S.label}>CANTIDAD</div>
-                  <div style={S.qtyWrap}>
-                    <input
-                      style={S.input}
-                      placeholder="Ingresá cantidad"
-                      value={cantidad}
-                      onChange={(e) => {
-                        setCantidad(e.target.value);
-                        setCantidadRevisada(true);
-                      }}
-                      onBlur={() => setCantidadRevisada(true)}
-                      inputMode="numeric"
-                    />
-
-                    <div style={S.qtyBtns}>
-                      <button type="button" style={S.qtyBtn} onClick={() => ajustarCantidad(-5)}>-5</button>
-                      <button type="button" style={S.qtyBtn} onClick={() => ajustarCantidad(-1)}>-1</button>
-                      <button type="button" style={S.qtyBtn} onClick={() => ajustarCantidad(+1)}>+1</button>
-                      <button type="button" style={S.qtyBtn} onClick={() => ajustarCantidad(+5)}>+5</button>
-                    </div>
-
-                    {!cantidadRevisada && (
-                      <div style={S.warn}>⚠ Revisá la cantidad antes de confirmar.</div>
-                    )}
-                  </div>
+                  <div style={S.label}>Buscar</div>
+                  <input style={S.input} value={q} onChange={(e) => setQ(e.target.value)} placeholder="Buscar material..." />
                 </div>
 
                 <div style={S.row}>
-                  <div style={S.label}>OBRA</div>
-                  <input style={S.input} placeholder="Ej: K43-01" value={obra} onChange={(e) => setObra(e.target.value)} />
+                  <div style={S.label}>Material</div>
+                  <select style={S.select} value={materialId} onChange={(e) => setMaterialId(e.target.value)}>
+                    {filtrados.map((m) => (
+                      <option key={m.id} value={m.id}>
+                        {m.nombre}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+
+                <div style={S.row}>
+                  <div style={S.label}>Obra</div>
+                  <input style={S.input} value={obra} onChange={(e) => setObra(e.target.value)} placeholder="Ej: K37 / K55 / Taller..." />
                 </div>
 
                 {modo === "EGRESO" ? (
                   <>
                     <div style={S.row}>
-                      <div style={S.label}>RETIRA</div>
-                      <input style={S.input} value={retira} onChange={(e) => setRetira(e.target.value)} />
+                      <div style={S.label}>Retira</div>
+                      <input style={S.input} value={retira} onChange={(e) => setRetira(e.target.value)} placeholder="Nombre" />
                     </div>
                     <div style={S.row}>
-                      <div style={S.label}>PAÑOL</div>
-                      <input style={S.input} value={entrega} onChange={(e) => setEntrega(e.target.value)} />
+                      <div style={S.label}>Entrega</div>
+                      <input style={S.input} value={entrega} onChange={(e) => setEntrega(e.target.value)} placeholder="Empleado de pañol" />
                     </div>
                   </>
                 ) : (
                   <>
                     <div style={S.row}>
-                      <div style={S.label}>PROVEEDOR</div>
-                      <input style={S.input} value={proveedor} onChange={(e) => setProveedor(e.target.value)} />
+                      <div style={S.label}>Proveedor</div>
+                      <input style={S.input} value={proveedor} onChange={(e) => setProveedor(e.target.value)} placeholder="Proveedor" />
                     </div>
                     <div style={S.row}>
-                      <div style={S.label}>RECIBE</div>
-                      <input style={S.input} value={recibe} onChange={(e) => setRecibe(e.target.value)} />
+                      <div style={S.label}>Recibe</div>
+                      <input style={S.input} value={recibe} onChange={(e) => setRecibe(e.target.value)} placeholder="Empleado de pañol" />
                     </div>
                   </>
                 )}
 
                 <div style={S.row}>
-                  <div style={S.label}>OBS</div>
-                  <input style={S.input} value={obs} onChange={(e) => setObs(e.target.value)} />
-                </div>
+                  <div style={S.label}>Cantidad</div>
+                  <div style={S.qtyWrap}>
+                    <input
+                      style={S.input}
+                      value={cantidad}
+                      onChange={(e) => {
+                        setCantidad(e.target.value);
+                        setCantidadRevisada(true);
+                      }}
+                      placeholder="Ej: 2 / 1.5 / 10"
+                    />
+                    <div style={S.qtyBtns}>
+                      <button type="button" style={S.qtyBtn} onClick={() => ajustarCantidad(-10)}>-10</button>
+                      <button type="button" style={S.qtyBtn} onClick={() => ajustarCantidad(-1)}>-1</button>
+                      <button type="button" style={S.qtyBtn} onClick={() => ajustarCantidad(+1)}>+1</button>
+                      <button type="button" style={S.qtyBtn} onClick={() => ajustarCantidad(+10)}>+10</button>
+                    </div>
 
-                <div style={{ marginTop: 14, display: "grid", gap: 10 }}>
-                  <button type="submit" style={S.btn}>
-                    {modo === "EGRESO" ? "CONFIRMAR EGRESO" : "CONFIRMAR INGRESO"}
-                  </button>
-                  <button type="button" style={S.btn} onClick={limpiar}>LIMPIAR</button>
-                </div>
-
-                {msg && <div style={S.ok}>{msg}</div>}
-                {err && <div style={S.bad}>ERROR: {err}</div>}
-              </form>
-
-              <div style={S.card}>
-                <div style={{ display: "flex", justifyContent: "space-between", alignItems: "baseline" }}>
-                  <div style={{ fontFamily: "Montserrat, system-ui, Arial", color: "#fff", fontWeight: 900 }}>
-                    Últimos movimientos
+                    {!cantidadRevisada && (
+                      <div style={S.warn}>⚠️ Revisá la cantidad antes de confirmar (para evitar olvidos).</div>
+                    )}
                   </div>
-                  {(role === "admin" || role === "oficina") && (
-                    <Link to="/movimientos" style={{ color: "#bdbdbd", textDecoration: "none", fontSize: 12 }}>
-                      ver todo →
-                    </Link>
-                  )}
                 </div>
 
-                <div style={{ marginTop: 10 }}>
-                  {movs.map((m) => {
-                    const tipo = num(m.delta) >= 0 ? "ING" : "EGR";
-                    const abs = Math.abs(num(m.delta));
-                    const obsTxt = m.obs_ui ?? "";
-                    return (
-                      <div key={m.id} style={S.movRow}>
-                        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 10 }}>
-                          <div style={{ color: "#fff", fontWeight: 900 }}>
-                            {m.material_nombre || "—"}
-                          </div>
-                          <span style={S.pill(tipo)}>{tipo} {abs}</span>
-                        </div>
-                        <div style={{ marginTop: 4, fontSize: 12, opacity: 0.75 }}>
-                          {fmt(m.created_at)} · Obra {m.obra || "—"}
-                        </div>
-                        {obsTxt && (
-                          <div style={{ marginTop: 4, fontSize: 12, opacity: 0.7 }}>
-                            Obs: {obsTxt}
-                          </div>
-                        )}
-                      </div>
-                    );
-                  })}
-                  {!movs.length && <div style={{ opacity: 0.7, marginTop: 10 }}>Sin movimientos todavía.</div>}
+                <div style={S.row}>
+                  <div style={S.label}>Obs</div>
+                  <input style={S.input} value={obs} onChange={(e) => setObs(e.target.value)} placeholder="Opcional" />
+                </div>
+
+                <div style={{ marginTop: 14 }}>
+                  <button type="button" style={S.btn} onClick={confirmar}>
+                    Confirmar
+                  </button>
+
+                  {msg ? <div style={S.ok}>{msg}</div> : null}
+                  {err ? <div style={S.bad}>{err}</div> : null}
                 </div>
               </div>
+
+              {/* MOVIMIENTOS */}
+              <div style={S.card}>
+                <h3 style={{ marginTop: 0, color: "#fff" }}>Últimos movimientos</h3>
+
+                {movs.map((m) => {
+                  const tipo = num(m.delta) >= 0 ? "ING" : "EGR";
+                  return (
+                    <div key={m.id} style={S.movRow}>
+                      <div style={{ display: "flex", justifyContent: "space-between", gap: 10 }}>
+                        <div style={{ fontWeight: 900, color: "#fff" }}>{m.material_nombre}</div>
+                        <div style={S.pill(tipo)}>{tipo}</div>
+                      </div>
+
+                      <div style={{ opacity: 0.85, marginTop: 6, fontSize: 13 }}>
+                        <div><b>Delta:</b> {m.delta}</div>
+                        <div><b>Obra:</b> {m.obra}</div>
+                        {m.usuario ? <div><b>Retira:</b> {m.usuario}</div> : null}
+                        {m.entregado_por ? <div><b>Entrega:</b> {m.entregado_por}</div> : null}
+                        {m.proveedor ? <div><b>Proveedor:</b> {m.proveedor}</div> : null}
+                        {m.recibe ? <div><b>Recibe:</b> {m.recibe}</div> : null}
+                        {m.obs_ui ? <div><b>Obs:</b> {m.obs_ui}</div> : null}
+                        <div style={{ opacity: 0.7 }}><b>Fecha:</b> {fmt(m.created_at)}</div>
+                      </div>
+                    </div>
+                  );
+                })}
+
+                {!movs.length ? <div style={{ opacity: 0.75 }}>Sin movimientos.</div> : null}
+              </div>
             </div>
-
           </div>
-        </div>
-
+        </main>
       </div>
     </div>
   );

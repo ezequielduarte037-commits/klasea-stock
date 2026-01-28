@@ -145,12 +145,23 @@ export default function AdminDashboard({ profile, signOut }) {
             <div style={S.brandText}>KLASE A</div>
           </div>
 
-          <Link to="/panol" style={S.navBtn(false)}>Operación (Pañol)</Link>
-          <Link to="/admin" style={S.navBtn(true)}>Inventario (Admin)</Link>
-          <Link to="/movimientos" style={S.navBtn(false)}>Movimientos</Link>
-          <Link to="/pedidos" style={S.navBtn(false)}>Pedidos</Link>
+      <div style={{ marginTop: 10, marginBottom: 6, fontSize: 12, opacity: 0.7, fontWeight: 900, letterSpacing: 1 }}>
+  MADERAS
+</div>
 
-          <div style={S.foot}>
+<Link to="/panol" style={S.navBtn(false)}>Operación</Link>
+<Link to="/admin" style={S.navBtn(true)}>Inventario</Link>
+<Link to="/movimientos" style={S.navBtn(false)}>Movimientos</Link>
+<Link to="/pedidos" style={S.navBtn(false)}>Pedidos</Link>
+
+{/* ===== PRODUCCIÓN ===== */}
+<div style={{ marginTop: 16, marginBottom: 6, fontSize: 12, opacity: 0.7, fontWeight: 900, letterSpacing: 1 }}>
+  PRODUCCIÓN
+</div>
+
+<Link to="/marmoleria" style={S.navBtn(false)}>Marmolería</Link>
+          
+		  <div style={S.foot}>
             <div><b>Usuario:</b> {username}</div>
             <div style={{ marginTop: 10 }}>
               <button style={S.btnGhost} onClick={signOut}>Cerrar sesión</button>

@@ -2,6 +2,7 @@ import React, { useEffect, useState } from "react";
 import { BrowserRouter, Navigate, Route, Routes, useNavigate } from "react-router-dom";
 import { supabase } from "./supabaseClient";
 import PedidosScreen from "./screens/PedidosScreen";
+import MarmoleriaScreen from "./screens/MarmoleriaScreen";
 
 // Screens (ya las tenés)
 import PanolScreen from "./screens/PanolScreen";
@@ -259,10 +260,10 @@ export default function App() {
     }
 
     const { data, error } = await supabase
-      .from("profiles")
-      .select("id,username,role")
-      .eq("id", s.user.id)
-      .single();
+  .from("profiles")
+  .select("id,username,role,is_admin")
+  .eq("id", s.user.id)
+  .single();
 
     if (!error) setProfile(data);
     setLoadingProfile(false);
@@ -308,6 +309,17 @@ export default function App() {
             </RequireAuth>
           }
         />
+		
+		<Route
+  path="/marmoleria"
+  element={
+    <RequireAuth session={session}>
+      <MarmoleriaScreen profile={profile} signOut={signOut} />
+    </RequireAuth>
+  }
+/>
+		
+		
 <Route
   path="/pedidos"
   element={
