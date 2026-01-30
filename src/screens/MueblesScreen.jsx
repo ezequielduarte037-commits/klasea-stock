@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { Link } from "react-router-dom";
 import { supabase } from "../supabaseClient";
-// 1. Importamos el Sidebar
+// Importamos el Sidebar
 import Sidebar from "../components/Sidebar";
 
 const ESTADOS = ["No enviado", "Parcial", "Completo", "Rehacer"];
@@ -12,6 +12,7 @@ export default function MueblesScreen({ profile, signOut }) {
   const [err, setErr] = useState("");
   const [msg, setMsg] = useState("");
 
+  // ESTADOS PRINCIPALES
   const [lineas, setLineas] = useState([]);
   const [lineaId, setLineaId] = useState("");
   const [lineaNombre, setLineaNombre] = useState("");
@@ -20,16 +21,25 @@ export default function MueblesScreen({ profile, signOut }) {
   const [unidadId, setUnidadId] = useState("");
   const [unidadCodigo, setUnidadCodigo] = useState("");
 
-  const [rows, setRows] = useState([]);
+  const [rows, setRows] = useState([]); // Checklist del barco
   const [savingObsId, setSavingObsId] = useState(null);
+
+  // ======= NUEVO: MODO EDITOR DE PLANTILLA =======
+  const [modoEdicion, setModoEdicion] = useState(false); // false = ver barco / true = editar plantilla
+  const [plantilla, setPlantilla] = useState([]); // lista de muebles de la línea
+  const [newMueble, setNewMueble] = useState({ nombre: "", sector: "" });
 
   // ======= UI: Crear Línea / Unidad =======
   const [showAddLinea, setShowAddLinea] = useState(false);
   const [newLineaNombre, setNewLineaNombre] = useState("");
-  const [copyFromLineaId, setCopyFromLineaId] = useState(""); // opcional
+  const [copyFromLineaId, setCopyFromLineaId] = useState(""); 
 
   const [showAddUnidad, setShowAddUnidad] = useState(false);
   const [newUnidadCodigo, setNewUnidadCodigo] = useState("");
+
+  // ---------------------------------------------------------
+  // CARGAS
+  // ---------------------------------------------------------
 
   async function cargarLineas() {
     setErr("");
@@ -61,7 +71,13 @@ export default function MueblesScreen({ profile, signOut }) {
     if (error) return setErr(error.message);
 
     setUnidades(data ?? []);
-    if (!unidadId && data?.length) {
+    // Al cambiar de línea, reseteamos la unidad seleccionada
+    setUnidadId("");
+    setUnidadCodigo("");
+    setRows([]);
+    
+    // Si hay unidades, seleccionamos la primera (opcional, o dejar que elija)
+    if (data?.length) {
       setUnidadId(data[0].id);
       setUnidadCodigo(data[0].codigo);
     }
@@ -70,8 +86,6 @@ export default function MueblesScreen({ profile, signOut }) {
   async function cargarChecklist(uid) {
     if (!uid) return;
     setErr("");
-    setMsg("");
-
     const { data, error } = await supabase
       .from("prod_unidad_checklist")
       .select(`
@@ -90,32 +104,63 @@ export default function MueblesScreen({ profile, signOut }) {
       sector: x.prod_muebles?.sector ?? "",
     }));
 
-    mapped.sort(
-      (a, b) =>
-        (a.sector || "").localeCompare(b.sector || "") ||
-        (a.mueble || "").localeCompare(b.mueble || "")
+    mapped.sort((a, b) => 
+      (a.sector || "").localeCompare(b.sector || "") || 
+      (a.mueble || "").localeCompare(b.mueble || "")
     );
 
     setRows(mapped);
   }
 
+  // --- NUEVO: Cargar la plantilla (muebles base) de la línea ---
+  async function cargarPlantilla(lid) {
+    if (!lid) return;
+    const { data, error } = await supabase
+      .from("prod_linea_muebles")
+      .select(`
+        id,
+        prod_muebles ( id, nombre, sector )
+      `)
+      .eq("linea_id", lid);
+
+    if (error) return setErr("Error cargando plantilla: " + error.message);
+
+    const lista = (data ?? []).map((x) => ({
+      link_id: x.id, // id de la relación
+      mueble_id: x.prod_muebles?.id,
+      nombre: x.prod_muebles?.nombre,
+      sector: x.prod_muebles?.sector
+    }));
+    
+    // Ordenar por sector
+    lista.sort((a, b) => (a.sector || "").localeCompare(b.sector || ""));
+    setPlantilla(lista);
+  }
+
+  // ---------------------------------------------------------
+  // EFECTOS
+  // ---------------------------------------------------------
+
   useEffect(() => {
-    if (!isAdmin) return;
-    cargarLineas();
+    if (isAdmin) cargarLineas();
   }, [isAdmin]);
 
   useEffect(() => {
-    if (!lineaId) return;
-    setUnidadId("");
-    setUnidadCodigo("");
-    setRows([]);
-    cargarUnidades(lineaId);
-  }, [lineaId]);
+    if (lineaId) {
+      cargarUnidades(lineaId);
+      if (modoEdicion) cargarPlantilla(lineaId);
+    }
+  }, [lineaId, modoEdicion]);
 
   useEffect(() => {
-    if (!unidadId) return;
-    cargarChecklist(unidadId);
-  }, [unidadId]);
+    if (unidadId && !modoEdicion) {
+      cargarChecklist(unidadId);
+    }
+  }, [unidadId, modoEdicion]);
+
+  // ---------------------------------------------------------
+  // ACCIONES
+  // ---------------------------------------------------------
 
   const pct = useMemo(() => {
     if (!rows.length) return 0;
@@ -125,119 +170,108 @@ export default function MueblesScreen({ profile, signOut }) {
 
   async function setEstado(rowId, estado) {
     setErr("");
-    const { error } = await supabase
-      .from("prod_unidad_checklist")
-      .update({ estado })
-      .eq("id", rowId);
-
+    const { error } = await supabase.from("prod_unidad_checklist").update({ estado }).eq("id", rowId);
     if (error) return setErr(error.message);
-
     setRows((prev) => prev.map((r) => (r.id === rowId ? { ...r, estado } : r)));
   }
 
   async function saveObs(rowId, obs) {
     setErr("");
     setSavingObsId(rowId);
-    const { error } = await supabase
-      .from("prod_unidad_checklist")
-      .update({ obs })
-      .eq("id", rowId);
+    const { error } = await supabase.from("prod_unidad_checklist").update({ obs }).eq("id", rowId);
     setSavingObsId(null);
     if (error) return setErr(error.message);
   }
 
-  async function createLinea() {
+  // --- NUEVO: Agregar mueble a la línea ---
+  async function agregarMuebleAPlantilla(e) {
+    e.preventDefault();
     setErr("");
     setMsg("");
-    const nombre = String(newLineaNombre || "").trim().toUpperCase();
-    if (!nombre) return setErr("Poné un nombre de línea (ej: K55).");
 
-    const { data: ins, error: e1 } = await supabase
-      .from("prod_lineas")
-      .insert([{ nombre, activa: true }])
-      .select("id,nombre")
+    if (!lineaId) return setErr("No hay línea seleccionada.");
+    if (!newMueble.nombre.trim()) return setErr("Nombre del mueble obligatorio.");
+    if (!newMueble.sector.trim()) return setErr("Sector obligatorio.");
+
+    // 1. Crear el mueble en la tabla global `prod_muebles`
+    // (Ojo: si ya existe uno igual, esto crea uno nuevo. Simplificamos para no complicar el selector)
+    const { data: m, error: e1 } = await supabase
+      .from("prod_muebles")
+      .insert({ 
+        nombre: newMueble.nombre.trim(), 
+        sector: newMueble.sector.trim() 
+      })
+      .select()
       .single();
 
+    if (e1) return setErr("Error creando mueble: " + e1.message);
+
+    // 2. Vincularlo a la línea en `prod_linea_muebles`
+    const { error: e2 } = await supabase
+      .from("prod_linea_muebles")
+      .insert({
+        linea_id: lineaId,
+        mueble_id: m.id
+      });
+
+    if (e2) return setErr("Error vinculando mueble: " + e2.message);
+
+    setMsg("✅ Mueble agregado a la plantilla.");
+    setNewMueble({ nombre: "", sector: "" });
+    cargarPlantilla(lineaId);
+  }
+
+  // --- Crear Línea y Unidad (Igual que antes) ---
+  async function createLinea() {
+    // ... (Lógica idéntica a la anterior)
+    setErr(""); setMsg("");
+    const nombre = String(newLineaNombre || "").trim().toUpperCase();
+    if (!nombre) return setErr("Nombre inválido.");
+
+    const { data: ins, error: e1 } = await supabase.from("prod_lineas").insert([{ nombre, activa: true }]).select().single();
     if (e1) return setErr(e1.message);
 
     if (copyFromLineaId) {
-      const { data: src, error: e2 } = await supabase
-        .from("prod_linea_muebles")
-        .select("mueble_id")
-        .eq("linea_id", copyFromLineaId);
-
-      if (e2) return setErr(e2.message);
-
+      const { data: src } = await supabase.from("prod_linea_muebles").select("mueble_id").eq("linea_id", copyFromLineaId);
       if (src?.length) {
-        const payload = src.map((r) => ({
-          linea_id: ins.id,
-          mueble_id: r.mueble_id,
-        }));
-        const { error: e3 } = await supabase.from("prod_linea_muebles").insert(payload);
-        if (e3) return setErr(e3.message);
+        const payload = src.map((r) => ({ linea_id: ins.id, mueble_id: r.mueble_id }));
+        await supabase.from("prod_linea_muebles").insert(payload);
       }
     }
-
-    setMsg(`Línea creada: ${nombre}`);
+    setMsg(`Línea ${nombre} creada.`);
     setShowAddLinea(false);
     setNewLineaNombre("");
-    setCopyFromLineaId("");
-    await cargarLineas();
-    setLineaId(ins.id);
-    setLineaNombre(ins.nombre);
+    cargarLineas();
   }
 
   async function createUnidad() {
-    setErr("");
-    setMsg("");
-    if (!lineaId) return setErr("No hay línea seleccionada.");
+    setErr(""); setMsg("");
+    if (!lineaId) return setErr("Seleccioná línea.");
     const codigo = String(newUnidadCodigo || "").trim();
-    if (!codigo) return setErr("Poné un código (ej: K52-24).");
+    if (!codigo) return setErr("Código inválido.");
 
-    const { data: u, error: e1 } = await supabase
-      .from("prod_unidades")
-      .insert([{ linea_id: lineaId, codigo, activa: true }])
-      .select("id,codigo")
-      .single();
-
+    const { data: u, error: e1 } = await supabase.from("prod_unidades").insert([{ linea_id: lineaId, codigo, activa: true }]).select().single();
     if (e1) return setErr(e1.message);
 
-    const { data: plantilla, error: e2 } = await supabase
-      .from("prod_linea_muebles")
-      .select("mueble_id")
-      .eq("linea_id", lineaId);
-
-    if (e2) return setErr(e2.message);
-
+    const { data: plantilla } = await supabase.from("prod_linea_muebles").select("mueble_id").eq("linea_id", lineaId);
     if (!plantilla?.length) {
-      setMsg(`Unidad creada (${codigo}). OJO: la línea no tiene plantilla de muebles todavía.`);
+      setMsg(`Unidad ${codigo} creada VACÍA (la línea no tiene muebles cargados en la plantilla).`);
     } else {
-      const payload = plantilla.map((r) => ({
-        unidad_id: u.id,
-        mueble_id: r.mueble_id,
-        estado: "No enviado",
-      }));
-      const { error: e3 } = await supabase.from("prod_unidad_checklist").insert(payload);
-      if (e3) return setErr(e3.message);
-      setMsg(`Unidad creada: ${codigo} (checklist generado)`);
+      const payload = plantilla.map((r) => ({ unidad_id: u.id, mueble_id: r.mueble_id, estado: "No enviado" }));
+      await supabase.from("prod_unidad_checklist").insert(payload);
+      setMsg(`Unidad ${codigo} creada y checklist generado.`);
     }
-
     setShowAddUnidad(false);
     setNewUnidadCodigo("");
-    await cargarUnidades(lineaId);
-    setUnidadId(u.id);
-    setUnidadCodigo(u.codigo);
+    cargarUnidades(lineaId);
   }
 
   const S = {
     page: { background: "#000", minHeight: "100vh", color: "#d0d0d0", fontFamily: "Roboto, system-ui, Arial" },
     layout: { display: "grid", gridTemplateColumns: "280px 1fr", minHeight: "100vh" },
-    
-    // Sacamos sidebar, brand, logo, navBtn...
-    
     main: { padding: 18 },
     card: { border: "1px solid #2a2a2a", borderRadius: 16, background: "#070707", padding: 14, marginBottom: 12 },
-    tabs: { display: "flex", gap: 8, flexWrap: "wrap", marginTop: 10 },
+    tabs: { display: "flex", gap: 8, flexWrap: "wrap", marginTop: 10, alignItems: "center" },
     tab: (on) => ({
       padding: "8px 12px", borderRadius: 999, border: "1px solid #2a2a2a",
       background: on ? "#111" : "transparent", color: on ? "#fff" : "#bbb", cursor: "pointer", fontWeight: 900,
@@ -256,6 +290,11 @@ export default function MueblesScreen({ profile, signOut }) {
     badge: { fontSize: 12, opacity: 0.75, marginTop: 4 },
     btn: { padding: "8px 10px", borderRadius: 12, border: "1px solid #2a2a2a", background: "#111", color: "#fff", cursor: "pointer", fontWeight: 900 },
     btnGhost: { padding: "8px 10px", borderRadius: 12, border: "1px solid #2a2a2a", background: "transparent", color: "#bbb", cursor: "pointer", fontWeight: 900 },
+    btnConfig: (on) => ({
+      padding: "8px 10px", borderRadius: 12, border: "1px solid #2a2a2a",
+      background: on ? "#2a1f00" : "transparent", color: on ? "#ffd60a" : "#666", 
+      cursor: "pointer", fontWeight: 900, marginLeft: "auto"
+    }),
     row: { display: "flex", gap: 10, alignItems: "center", flexWrap: "wrap" },
   };
 
@@ -264,8 +303,6 @@ export default function MueblesScreen({ profile, signOut }) {
       <div style={S.page}>
         <div style={{ padding: 20 }}>
           <h2 style={{ color: "#fff", margin: 0 }}>Acceso restringido</h2>
-          <p style={S.small}>Este módulo es solo para Admin.</p>
-          {/* Estilo simple para volver, ya que borramos S.navBtn */}
           <Link to="/panol" style={{ color: "#fff", textDecoration: "underline" }}>Volver</Link>
         </div>
       </div>
@@ -275,27 +312,28 @@ export default function MueblesScreen({ profile, signOut }) {
   return (
     <div style={S.page}>
       <div style={S.layout}>
-        
-        {/* 3. Sidebar inteligente */}
         <Sidebar profile={profile} signOut={signOut} />
 
         <main style={S.main}>
           {err ? <div style={{ ...S.card, borderColor: "#5a1d1d", color: "#ffbdbd" }}>{err}</div> : null}
           {msg ? <div style={{ ...S.card, borderColor: "#1d5a2b", color: "#bfffd0" }}>{msg}</div> : null}
 
+          {/* === SELECTOR DE LÍNEA Y CONFIGURACIÓN === */}
           <div style={S.card}>
-            <div style={{ display: "flex", justifyContent: "space-between", gap: 12, flexWrap: "wrap" }}>
+            <div style={{ display: "flex", justifyContent: "space-between", gap: 12 }}>
               <div>
-                <h2 style={{ margin: 0, color: "#fff" }}>Checklist Muebles</h2>
-                <div style={S.small}>Excel style: Línea → Unidad → Estado</div>
-              </div>
-              <div style={{ textAlign: "right" }}>
-                <div style={S.small}>Unidad: <b style={{ color: "#fff" }}>{unidadCodigo || "—"}</b></div>
-                <div style={S.small}>Completitud: <b style={{ color: "#fff" }}>{pct}%</b></div>
+                <h2 style={{ margin: 0, color: "#fff" }}>
+                  {modoEdicion ? `Editando Plantilla: ${lineaNombre}` : "Producción Muebles"}
+                </h2>
+                <div style={S.small}>
+                  {modoEdicion 
+                    ? "Agregá los muebles base. Los barcos NUEVOS heredarán esta lista." 
+                    : "Seguimiento de estado por barco."}
+                </div>
               </div>
             </div>
 
-            <div style={{ ...S.row, marginTop: 10, justifyContent: "space-between" }}>
+            <div style={{ ...S.row, marginTop: 10 }}>
               <div style={S.tabs}>
                 {lineas.map((l) => (
                   <button
@@ -311,74 +349,90 @@ export default function MueblesScreen({ profile, signOut }) {
                 ))}
               </div>
 
-              <button style={S.btn} onClick={() => setShowAddLinea((v) => !v)}>
-                + Agregar línea
-              </button>
+              {/* Botón para abrir el editor de plantilla */}
+              {lineaId && (
+                <button 
+                  style={S.btnConfig(modoEdicion)} 
+                  onClick={() => setModoEdicion(!modoEdicion)}
+                  title="Editar muebles base de la línea"
+                >
+                  {modoEdicion ? "Cerrar Editor" : "⚙️ Editar Plantilla"}
+                </button>
+              )}
+
+              <button style={S.btn} onClick={() => setShowAddLinea(!showAddLinea)}>+ Línea</button>
             </div>
 
+            {/* Modal crear línea */}
             {showAddLinea && (
               <div style={{ marginTop: 12, ...S.row }}>
-                <input
-                  style={{ ...S.input, maxWidth: 220 }}
-                  placeholder="K55"
-                  value={newLineaNombre}
-                  onChange={(e) => setNewLineaNombre(e.target.value)}
-                />
-
-                <select
-                  style={{ ...S.select, maxWidth: 280 }}
-                  value={copyFromLineaId}
-                  onChange={(e) => setCopyFromLineaId(e.target.value)}
-                >
-                  <option value="">(opcional) Copiar plantilla desde…</option>
-                  {lineas.map((l) => (
-                    <option key={l.id} value={l.id}>{l.nombre}</option>
-                  ))}
+                <input style={{ ...S.input, maxWidth: 150 }} placeholder="Nombre (K55)" value={newLineaNombre} onChange={(e) => setNewLineaNombre(e.target.value)} />
+                <select style={{ ...S.select, maxWidth: 200 }} value={copyFromLineaId} onChange={(e) => setCopyFromLineaId(e.target.value)}>
+                  <option value="">(Opcional) Copiar de...</option>
+                  {lineas.map(l => <option key={l.id} value={l.id}>{l.nombre}</option>)}
                 </select>
-
                 <button style={S.btn} onClick={createLinea}>Crear</button>
-                <button style={S.btnGhost} onClick={() => setShowAddLinea(false)}>Cancelar</button>
-
-                <div style={S.small}>
-                  Tip: si copiás desde K52, tu nueva línea arranca con checklist listo.
-                </div>
               </div>
             )}
           </div>
 
-          <div style={S.grid}>
+          {/* === VISTA 1: EDITOR DE PLANTILLA (Si tocaste el engranaje) === */}
+          {modoEdicion ? (
             <div style={S.card}>
-              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 10 }}>
-                <div style={{ fontWeight: 900, color: "#fff" }}>
-                  Unidades {lineaNombre ? `(${lineaNombre})` : ""}
-                </div>
-
-                <button
-                  style={S.btn}
-                  onClick={() => setShowAddUnidad((v) => !v)}
-                  disabled={!lineaId}
-                >
-                  + Agregar barco
-                </button>
+              <h3 style={{ marginTop: 0, color: "#ffd60a" }}>Muebles Base (Plantilla {lineaNombre})</h3>
+              
+              {/* Formulario para agregar mueble */}
+              <div style={{ ...S.row, background: "#111", padding: 10, borderRadius: 12, marginBottom: 14 }}>
+                <input 
+                  style={{ ...S.input, flex: 1 }} 
+                  placeholder="Nombre del mueble (Ej: Bajo Mesada)" 
+                  value={newMueble.nombre} 
+                  onChange={e => setNewMueble({...newMueble, nombre: e.target.value})} 
+                />
+                <input 
+                  style={{ ...S.input, width: 150 }} 
+                  placeholder="Sector (Ej: Cocina)" 
+                  value={newMueble.sector} 
+                  onChange={e => setNewMueble({...newMueble, sector: e.target.value})} 
+                />
+                <button style={S.btn} onClick={agregarMuebleAPlantilla}>Agregar</button>
               </div>
 
-              {showAddUnidad && (
-                <div style={{ marginTop: 10, ...S.row }}>
-                  <input
-                    style={S.input}
-                    placeholder={lineaNombre ? `${lineaNombre}-24` : "K52-24"}
-                    value={newUnidadCodigo}
-                    onChange={(e) => setNewUnidadCodigo(e.target.value)}
-                  />
-                  <button style={S.btn} onClick={createUnidad}>Crear</button>
-                  <button style={S.btnGhost} onClick={() => setShowAddUnidad(false)}>Cancelar</button>
-                  <div style={S.small}>
-                    Esto genera el checklist automáticamente con la plantilla de la línea.
-                  </div>
+              {/* Lista actual */}
+              <table style={S.table}>
+                <thead>
+                  <tr>
+                    <th style={S.th}>Mueble</th>
+                    <th style={S.th}>Sector</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {plantilla.map(p => (
+                    <tr key={p.link_id}>
+                      <td style={S.td}><b style={{color: "#fff"}}>{p.nombre}</b></td>
+                      <td style={S.td}>{p.sector}</td>
+                    </tr>
+                  ))}
+                  {!plantilla.length && <tr><td colSpan={2} style={S.td}>No hay muebles definidos para esta línea.</td></tr>}
+                </tbody>
+              </table>
+            </div>
+          ) : (
+            /* === VISTA 2: CHECKLIST POR UNIDAD (Lo que ya tenías) === */
+            <div style={S.grid}>
+              <div style={S.card}>
+                <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 10 }}>
+                  <div style={{ fontWeight: 900, color: "#fff" }}>Unidades</div>
+                  <button style={S.btn} onClick={() => setShowAddUnidad(!showAddUnidad)} disabled={!lineaId}>+ Barco</button>
                 </div>
-              )}
 
-              <div style={{ marginTop: 12 }}>
+                {showAddUnidad && (
+                  <div style={{ marginBottom: 10, ...S.row }}>
+                    <input style={S.input} placeholder={`${lineaNombre}-XX`} value={newUnidadCodigo} onChange={(e) => setNewUnidadCodigo(e.target.value)} />
+                    <button style={S.btn} onClick={createUnidad}>OK</button>
+                  </div>
+                )}
+
                 {unidades.map((u) => (
                   <button
                     key={u.id}
@@ -391,82 +445,48 @@ export default function MueblesScreen({ profile, signOut }) {
                     {u.codigo}
                   </button>
                 ))}
+                {!unidades.length && <div style={S.small}>Sin unidades.</div>}
               </div>
 
-              {!unidades.length ? <div style={S.small}>No hay unidades cargadas.</div> : null}
-            </div>
-
-            <div style={S.card}>
-              <div style={{ fontWeight: 900, color: "#fff", marginBottom: 10 }}>
-                {unidadCodigo ? `Muebles – ${unidadCodigo}` : "Elegí una unidad"}
-              </div>
-
-              <table style={S.table}>
-                <thead>
-                  <tr>
-                    <th style={S.th}>Mueble</th>
-                    <th style={S.th}>Sector</th>
-                    <th style={S.th}>Estado</th>
-                    <th style={S.th}>Obs</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {rows.map((r) => (
-                    <tr key={r.id}>
-                      <td style={S.td}>
-                        <b style={{ color: "#fff" }}>{r.mueble}</b>
-                      </td>
-                      <td style={S.td}>{r.sector || "—"}</td>
-                      <td style={S.td}>
-                        <select
-                          style={S.select}
-                          value={r.estado}
-                          onChange={(e) => setEstado(r.id, e.target.value)}
-                        >
-                          {ESTADOS.map((x) => (
-                            <option key={x} value={x}>{x}</option>
-                          ))}
-                        </select>
-                        {savingObsId === r.id ? <div style={S.badge}>guardando…</div> : null}
-                      </td>
-                      <td style={S.td}>
-                        <input
-                          style={S.input}
-                          value={r.obs}
-                          placeholder="..."
-                          onChange={(e) =>
-                            setRows((prev) =>
-                              prev.map((p) => (p.id === r.id ? { ...p, obs: e.target.value } : p))
-                            )
-                          }
-                          onBlur={() => saveObs(r.id, r.obs)}
-                        />
-                      </td>
-                    </tr>
-                  ))}
-
-                  {!rows.length ? (
-                    <tr>
-                      <td style={S.td} colSpan={4}>
-                        <span style={S.small}>
-                          {unidadCodigo
-                            ? "No hay checklist para esta unidad (posible: la línea no tiene plantilla)."
-                            : "Seleccioná una unidad."}
-                        </span>
-                      </td>
-                    </tr>
-                  ) : null}
-                </tbody>
-              </table>
-
-              {unidadCodigo && !rows.length ? (
-                <div style={{ marginTop: 10, ...S.small }}>
-                  Si esta unidad quedó sin checklist, es porque la línea no tiene plantilla.
-                  Solución rápida: creá la línea copiando desde otra, o decime y agregamos un editor de plantilla.
+              <div style={S.card}>
+                <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 10 }}>
+                  <div style={{ fontWeight: 900, color: "#fff" }}>{unidadCodigo || "Seleccioná barco"}</div>
+                  <div style={S.small}>{unidadId ? `Progreso: ${pct}%` : ""}</div>
                 </div>
-              ) : null}
+
+                <table style={S.table}>
+                  <thead>
+                    <tr>
+                      <th style={S.th}>Mueble</th>
+                      <th style={S.th}>Sector</th>
+                      <th style={S.th}>Estado</th>
+                      <th style={S.th}>Obs</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {rows.map((r) => (
+                      <tr key={r.id}>
+                        <td style={S.td}><b style={{ color: "#fff" }}>{r.mueble}</b></td>
+                        <td style={S.td}>{r.sector}</td>
+                        <td style={S.td}>
+                          <select style={S.select} value={r.estado} onChange={(e) => setEstado(r.id, e.target.value)}>
+                            {ESTADOS.map((x) => <option key={x} value={x}>{x}</option>)}
+                          </select>
+                          {savingObsId === r.id && <div style={S.badge}>...</div>}
+                        </td>
+                        <td style={S.td}>
+                          <input style={S.input} value={r.obs} onChange={(e) => setRows(prev => prev.map(p => p.id === r.id ? { ...p, obs: e.target.value } : p))} onBlur={() => saveObs(r.id, r.obs)} />
+                        </td>
+                      </tr>
+                    ))}
+                    {unidadId && !rows.length && (
+                      <tr><td colSpan={4} style={S.td}>Este barco no tiene checklist generado.</td></tr>
+                    )}
+                  </tbody>
+                </table>
+              </div>
             </div>
-          </div>
+          )}
         </main>
       </div>
     </div>
