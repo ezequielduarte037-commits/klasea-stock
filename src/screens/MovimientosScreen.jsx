@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState } from "react";
-import { Link } from "react-router-dom";
 import { supabase } from "../supabaseClient";
-import logoK from "../assets/logo-k.png";
+// 1. Importamos la Pieza de Lego
+import Sidebar from "../components/Sidebar";
 
 function num(v) {
   const x = Number(v);
@@ -13,9 +13,9 @@ function fmt(ts) {
 }
 
 export default function MovimientosScreen({ profile, signOut }) {
-  const role = profile?.role ?? "oficina";
-  const username = profile?.username ?? "—";
-
+  // El rol y username ahora se manejan visualmente en el Sidebar, 
+  // pero mantenemos profile aquí para pasárselo.
+  
   const [rows, setRows] = useState([]);
   const [q, setQ] = useState("");
   const [err, setErr] = useState("");
@@ -34,6 +34,7 @@ export default function MovimientosScreen({ profile, signOut }) {
       return;
     }
 
+    // Fallback a tabla original si no existe la vista
     const r2 = await supabase
       .from("movimientos")
       .select("id,created_at,delta,obra,usuario,entregado_por,proveedor,recibe,obs,material_id")
@@ -60,7 +61,7 @@ export default function MovimientosScreen({ profile, signOut }) {
       .channel("rt-movs")
       .on("postgres_changes", { event: "*", schema: "public", table: "movimientos" }, cargar)
       .subscribe();
-    return () => supabase.removeChannel(ch);
+    return () => { supabase.removeChannel(ch); };
   }, []);
 
   const filtrados = useMemo(() => {
@@ -75,33 +76,19 @@ export default function MovimientosScreen({ profile, signOut }) {
     });
   }, [rows, q]);
 
+  // 2. Limpiamos estilos (sacamos sidebar, brand, logoK, navBtn, foot)
   const S = {
     page: { background: "#000", minHeight: "100vh", color: "#d0d0d0", fontFamily: "Roboto, system-ui, Arial" },
+    
+    // Grid intacto
     layout: { display: "grid", gridTemplateColumns: "280px 1fr", minHeight: "100vh" },
-    sidebar: { borderRight: "1px solid #2a2a2a", padding: 18, background: "#050505", position: "relative" },
-    brand: { display: "flex", alignItems: "center", gap: 12, marginBottom: 18 },
-    logoK: { width: 28, height: 28, objectFit: "contain", opacity: 0.95 },
-    brandText: { fontFamily: "Montserrat, system-ui, Arial", fontWeight: 900, letterSpacing: 3, color: "#fff" },
-    navBtn: (active) => ({
-      width: "100%",
-      textAlign: "left",
-      padding: "10px 12px",
-      borderRadius: 12,
-      border: "1px solid #2a2a2a",
-      background: active ? "#111" : "transparent",
-      color: active ? "#fff" : "#bdbdbd",
-      cursor: "pointer",
-      marginTop: 8,
-      fontWeight: 800,
-    }),
-    foot: { position: "absolute", left: 18, right: 18, bottom: 18, opacity: 0.85, fontSize: 12 },
 
     main: { padding: 18, display: "flex", justifyContent: "center" },
     content: { width: "min(1300px, 100%)" },
 
     title: { fontFamily: "Montserrat, system-ui, Arial", fontSize: 20, margin: 0, color: "#fff" },
     card: { border: "1px solid #2a2a2a", borderRadius: 16, background: "#070707", padding: 16 },
-    input: { background: "#0b0b0b", border: "1px solid #2a2a2a", color: "#fff", padding: "12px 14px", borderRadius: 12, width: "100%" },
+    input: { background: "#0b0b0b", border: "1px solid #2a2a2a", color: "#fff", padding: "12px 14px", borderRadius: 12, width: "100%", outline: "none" },
 
     tableWrap: { marginTop: 14, border: "1px solid #2a2a2a", borderRadius: 14, overflow: "hidden" },
     head: {
@@ -132,30 +119,9 @@ export default function MovimientosScreen({ profile, signOut }) {
   return (
     <div style={S.page}>
       <div style={S.layout}>
-        <div style={S.sidebar}>
-          <div style={S.brand}>
-            <img src={logoK} alt="K" style={S.logoK} />
-            <div style={S.brandText}>KLASE A</div>
-          </div>
-
-          <Link to="/admin" style={{ textDecoration: "none" }}>
-            <button type="button" style={S.navBtn(false)}>Inventario</button>
-          </Link>
-          <Link to="/movimientos" style={{ textDecoration: "none" }}>
-            <button type="button" style={S.navBtn(true)}>Movimientos</button>
-          </Link>
-          <Link to="/panol" style={{ textDecoration: "none" }}>
-            <button type="button" style={S.navBtn(false)}>Operación</button>
-          </Link>
-
-          <div style={S.foot}>
-            <div>Usuario: <b>{username}</b></div>
-            <div>Rol: <b>{role}</b></div>
-            <div style={{ marginTop: 8 }}>
-              <button type="button" style={S.navBtn(false)} onClick={signOut}>Cerrar sesión</button>
-            </div>
-          </div>
-        </div>
+        
+        {/* 3. Reemplazamos el div del sidebar viejo por el componente Sidebar */}
+        <Sidebar profile={profile} signOut={signOut} />
 
         <div style={S.main}>
           <div style={S.content}>

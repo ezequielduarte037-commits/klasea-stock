@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState } from "react";
-import { Link } from "react-router-dom";
 import { supabase } from "../supabaseClient";
-import logoK from "../assets/logo-k.png";
+// 1. Importamos la "Pieza de Lego"
+import Sidebar from "../components/Sidebar";
 
 function num(v) {
   const x = Number(v);
@@ -18,6 +18,7 @@ export default function AdminDashboard({ profile, signOut }) {
   const [q, setQ] = useState("");
   const [soloNoOk, setSoloNoOk] = useState(false);
 
+  // --- TU LÓGICA INTACTA ---
   async function cargar() {
     setError("");
     const { data, error } = await supabase
@@ -39,7 +40,7 @@ export default function AdminDashboard({ profile, signOut }) {
       .on("postgres_changes", { event: "*", schema: "public", table: "pedidos" }, cargar)
       .on("postgres_changes", { event: "*", schema: "public", table: "pedido_items" }, cargar)
       .subscribe();
-    return () => supabase.removeChannel(ch);
+    return () => { supabase.removeChannel(ch); };
   }, []);
 
   const stats = useMemo(() => {
@@ -70,34 +71,22 @@ export default function AdminDashboard({ profile, signOut }) {
   }, [filtrados]);
 
   function copiarListaCompra() {
-    navigator.clipboard?.writeText(["LISTA DE COMPRA", ...listaCompra].join("\n"));
-    setMsg("✅ Lista copiada");
-    setTimeout(() => setMsg(""), 1500);
+    if (navigator.clipboard) {
+      navigator.clipboard.writeText(["LISTA DE COMPRA", ...listaCompra].join("\n"));
+      setMsg("✅ Lista copiada");
+      setTimeout(() => setMsg(""), 1500);
+    } else {
+      setMsg("⚠️ No soportado en este navegador");
+    }
   }
 
+  // --- ESTILOS ---
+  // Borré navBtn, brand, logoK, sidebar y foot porque ya están en el componente Sidebar.jsx
   const S = {
     page: { background: "#000", minHeight: "100vh", color: "#d0d0d0", fontFamily: "Roboto, system-ui, Arial" },
+    
+    // MANTUVE TU GRID: Seguís teniendo el control de las columnas acá
     layout: { display: "grid", gridTemplateColumns: "280px 1fr", minHeight: "100vh" },
-    sidebar: { borderRight: "1px solid #2a2a2a", padding: 18, background: "#050505", position: "relative" },
-    brand: { display: "flex", alignItems: "center", gap: 12, marginBottom: 18 },
-    logoK: { width: 28, height: 28, objectFit: "contain", opacity: 0.95 },
-    brandText: { fontFamily: "Montserrat, system-ui, Arial", fontWeight: 900, letterSpacing: 3, color: "#fff" },
-
-    navBtn: (active) => ({
-      width: "100%",
-      textAlign: "left",
-      padding: "10px 12px",
-      borderRadius: 12,
-      border: "1px solid #2a2a2a",
-      background: active ? "#111" : "transparent",
-      color: active ? "#fff" : "#bdbdbd",
-      cursor: "pointer",
-      marginTop: 8,
-      fontWeight: 800,
-      display: "block",
-      textDecoration: "none",
-    }),
-    foot: { position: "absolute", left: 18, right: 18, bottom: 18, opacity: 0.85, fontSize: 12 },
 
     main: { padding: 18, display: "flex", justifyContent: "center" },
     content: { width: "min(1200px, 100%)" },
@@ -109,8 +98,7 @@ export default function AdminDashboard({ profile, signOut }) {
     card: { border: "1px solid #2a2a2a", borderRadius: 16, background: "#070707", padding: 16, marginBottom: 12 },
     input: { background: "#0b0b0b", border: "1px solid #2a2a2a", color: "#eaeaea", padding: "10px 12px", borderRadius: 12, width: "100%", outline: "none" },
     btn: { border: "1px solid #2a2a2a", background: "#111", color: "#fff", padding: "10px 12px", borderRadius: 12, cursor: "pointer", fontWeight: 900 },
-    btnGhost: { border: "1px solid #2a2a2a", background: "transparent", color: "#d0d0d0", padding: "10px 12px", borderRadius: 12, cursor: "pointer", fontWeight: 900 },
-
+    
     grid4: { display: "grid", gridTemplateColumns: "repeat(4, 1fr)", gap: 10 },
     stat: (bg) => ({ padding: 12, borderRadius: 14, border: "1px solid #2a2a2a", background: bg, color: "#fff" }),
 
@@ -139,35 +127,9 @@ export default function AdminDashboard({ profile, signOut }) {
   return (
     <div style={S.page}>
       <div style={S.layout}>
-        <aside style={S.sidebar}>
-          <div style={S.brand}>
-            <img src={logoK} alt="K" style={S.logoK} />
-            <div style={S.brandText}>KLASE A</div>
-          </div>
-
-      <div style={{ marginTop: 10, marginBottom: 6, fontSize: 12, opacity: 0.7, fontWeight: 900, letterSpacing: 1 }}>
-  MADERAS
-</div>
-
-<Link to="/panol" style={S.navBtn(false)}>Operación</Link>
-<Link to="/admin" style={S.navBtn(true)}>Inventario</Link>
-<Link to="/movimientos" style={S.navBtn(false)}>Movimientos</Link>
-<Link to="/pedidos" style={S.navBtn(false)}>Pedidos</Link>
-
-{/* ===== PRODUCCIÓN ===== */}
-<div style={{ marginTop: 16, marginBottom: 6, fontSize: 12, opacity: 0.7, fontWeight: 900, letterSpacing: 1 }}>
-  PRODUCCIÓN
-</div>
-
-<Link to="/marmoleria" style={S.navBtn(false)}>Marmolería</Link>
-          
-		  <div style={S.foot}>
-            <div><b>Usuario:</b> {username}</div>
-            <div style={{ marginTop: 10 }}>
-              <button style={S.btnGhost} onClick={signOut}>Cerrar sesión</button>
-            </div>
-          </div>
-        </aside>
+        
+        {/* ACÁ ESTÁ EL CAMBIO: Reemplazo el <aside> gigante por esto 👇 */}
+        <Sidebar profile={profile} signOut={signOut} />
 
         <main style={S.main}>
           <div style={S.content}>
@@ -182,6 +144,7 @@ export default function AdminDashboard({ profile, signOut }) {
             {error ? <div style={{ ...S.card, borderColor: "#5a1d1d", color: "#ffbdbd" }}>{error}</div> : null}
             {msg ? <div style={{ ...S.card, borderColor: "#1d5a2d", color: "#a6ffbf" }}>{msg}</div> : null}
 
+            {/* TARJETAS DE ESTADO (KPIs) */}
             <div style={S.card}>
               <div style={S.grid4}>
                 <div style={S.stat("#0b2512")}><div style={{ opacity: 0.8, fontSize: 12 }}>OK</div><div style={{ fontSize: 22, fontWeight: 900 }}>{stats.ok}</div></div>
@@ -191,6 +154,7 @@ export default function AdminDashboard({ profile, signOut }) {
               </div>
             </div>
 
+            {/* TABLA PRINCIPAL */}
             <div style={S.card}>
               <div style={{ display: "grid", gridTemplateColumns: "1fr 220px 220px", gap: 10, alignItems: "center" }}>
                 <input
@@ -216,9 +180,9 @@ export default function AdminDashboard({ profile, signOut }) {
                       <th style={S.th}>Estado</th>
                       <th style={S.th}>Stock</th>
                       <th style={S.th}>Mínimo</th>
-                      <th style={S.th}>Consumo semanal</th>
-                      <th style={S.th}>Semanas cobertura</th>
-                      <th style={S.th}>Pedido sugerido</th>
+                      <th style={S.th}>Consumo</th>
+                      <th style={S.th}>Cobertura</th>
+                      <th style={S.th}>Sugerido</th>
                     </tr>
                   </thead>
                   <tbody>

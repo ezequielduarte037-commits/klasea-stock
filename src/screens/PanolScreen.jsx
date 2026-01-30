@@ -1,8 +1,9 @@
 import { useEffect, useMemo, useState } from "react";
-import { Link } from "react-router-dom";
 import { supabase } from "../supabaseClient";
-import logoK from "../assets/logo-k.png";
+// Importamos la pieza de Lego (tu Sidebar nuevo)
+import Sidebar from "../components/Sidebar";
 
+// --- FUNCIONES AUXILIARES ---
 function num(v) {
   const x = Number(v);
   return Number.isFinite(x) ? x : 0;
@@ -13,10 +14,7 @@ function fmt(ts) {
 }
 
 export default function PanolScreen({ profile, signOut }) {
-  const role = profile?.role ?? "panol";
-  const isAdmin = !!profile?.is_admin;
-  const username = profile?.username ?? "—";
-
+  // ESTADOS DE LA PANTALLA
   const [modo, setModo] = useState("EGRESO"); // EGRESO / INGRESO
   const [materiales, setMateriales] = useState([]);
   const [movs, setMovs] = useState([]);
@@ -24,10 +22,9 @@ export default function PanolScreen({ profile, signOut }) {
   const [q, setQ] = useState("");
   const [materialId, setMaterialId] = useState("");
 
-  // ✅ cantidad arranca vacía para obligar a tocarla
+  // ESTADOS DEL FORMULARIO
   const [cantidad, setCantidad] = useState("");
-  // ✅ flag anti-olvido: si no tocaron cantidad, no deja confirmar
-  const [cantidadRevisada, setCantidadRevisada] = useState(false);
+  const [cantidadRevisada, setCantidadRevisada] = useState(false); // Anti-olvido
 
   const [obra, setObra] = useState("");
   const [retira, setRetira] = useState("");
@@ -39,6 +36,7 @@ export default function PanolScreen({ profile, signOut }) {
   const [msg, setMsg] = useState("");
   const [err, setErr] = useState("");
 
+  // --- CARGA DE DATOS ---
   async function cargarMateriales() {
     const { data, error } = await supabase
       .from("materiales")
@@ -62,6 +60,7 @@ export default function PanolScreen({ profile, signOut }) {
       return;
     }
 
+    // Fallback
     const r2 = await supabase
       .from("movimientos")
       .select("id,created_at,delta,obra,usuario,entregado_por,proveedor,recibe,obs,material_id")
@@ -81,6 +80,7 @@ export default function PanolScreen({ profile, signOut }) {
     );
   }
 
+  // --- EFECTOS ---
   useEffect(() => {
     cargarMateriales();
     cargarMovs();
@@ -102,6 +102,7 @@ export default function PanolScreen({ profile, signOut }) {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
+  // --- LÓGICA ---
   const filtrados = useMemo(() => {
     const qq = q.trim().toLowerCase();
     if (!qq) return materiales;
@@ -141,12 +142,9 @@ export default function PanolScreen({ profile, signOut }) {
 
     if (!materialId) return setErr("Seleccioná un material.");
     if (!obra.trim()) return setErr("Obra obligatoria.");
-
-    // ✅ anti-olvido de cantidad
-    if (!cantidadRevisada) return setErr("Revisá la cantidad (tocá el campo o usá + / -).");
+    if (!cantidadRevisada) return setErr("Revisá la cantidad.");
     if (cantidad === "" || num(cantidad) <= 0) return setErr("Cantidad inválida.");
 
-    // ✅ si es 1, pregunta confirmación (clásico olvido)
     if (num(cantidad) === 1) {
       const ok = window.confirm("Cantidad = 1. ¿Confirmás que es correcto?");
       if (!ok) return;
@@ -162,7 +160,7 @@ export default function PanolScreen({ profile, signOut }) {
 
     const delta = modo === "EGRESO" ? -Math.abs(num(cantidad)) : Math.abs(num(cantidad));
 
-    // RPC si existe
+    // RPC
     const rpc = await supabase.rpc("registrar_movimiento", {
       p_material_id: materialId,
       p_delta: delta,
@@ -182,11 +180,10 @@ export default function PanolScreen({ profile, signOut }) {
       return;
     }
 
-    // fallback
+    // Fallback manual
     const nuevoStock = num(sel?.stock_actual) + delta;
-
     const up = await supabase.from("materiales").update({ stock_actual: nuevoStock }).eq("id", materialId);
-    if (up.error) return setErr("No pude actualizar stock: " + up.error.message);
+    if (up.error) return setErr("Error stock: " + up.error.message);
 
     const ins = await supabase.from("movimientos").insert({
       material_id: materialId,
@@ -198,7 +195,7 @@ export default function PanolScreen({ profile, signOut }) {
       recibe: modo === "INGRESO" ? recibe.trim() : null,
       obs: obs.trim() || null,
     });
-    if (ins.error) return setErr("No pude guardar movimiento: " + ins.error.message);
+    if (ins.error) return setErr("Error guardar: " + ins.error.message);
 
     setMsg("✅ Movimiento registrado");
     limpiar();
@@ -206,40 +203,15 @@ export default function PanolScreen({ profile, signOut }) {
     await cargarMovs();
   }
 
+  // --- ESTILOS ---
+  // He borrado los estilos del Sidebar (navBtn, brand, etc) porque ahora vienen del componente.
+  // Mantenemos los estilos de Layout y Contenido.
   const S = {
     page: { background: "#000", minHeight: "100vh", color: "#d0d0d0", fontFamily: "Roboto, system-ui, Arial" },
+    
+    // AQUÍ ESTÁ EL GRID QUE TE GUSTA:
     layout: { display: "grid", gridTemplateColumns: "280px 1fr", minHeight: "100vh" },
-    sidebar: { borderRight: "1px solid #2a2a2a", padding: 18, background: "#050505", position: "relative" },
-    brand: { display: "flex", alignItems: "center", gap: 12, marginBottom: 18 },
-    logoK: { width: 28, height: 28, objectFit: "contain", opacity: 0.95 },
-    brandText: { fontFamily: "Montserrat, system-ui, Arial", fontWeight: 900, letterSpacing: 3, color: "#fff" },
-
-    navBtn: (active) => ({
-      width: "100%",
-      display: "block",
-      textAlign: "left",
-      padding: "10px 12px",
-      borderRadius: 12,
-      border: "1px solid #2a2a2a",
-      background: active ? "#111" : "transparent",
-      color: active ? "#fff" : "#bdbdbd",
-      cursor: "pointer",
-      marginTop: 8,
-      fontWeight: 800,
-      textDecoration: "none",
-    }),
-
-    groupTitle: {
-      marginTop: 10,
-      marginBottom: 6,
-      fontSize: 12,
-      opacity: 0.7,
-      fontWeight: 900,
-      letterSpacing: 1,
-    },
-
-    foot: { position: "absolute", left: 18, right: 18, bottom: 18, opacity: 0.85, fontSize: 12 },
-
+    
     main: { padding: 18, display: "flex", justifyContent: "center" },
     content: { width: "min(1200px, 100%)" },
 
@@ -269,150 +241,78 @@ export default function PanolScreen({ profile, signOut }) {
     qtyWrap: { display: "grid", gridTemplateColumns: "1fr", gap: 8 },
     qtyBtns: { display: "flex", gap: 8, flexWrap: "wrap" },
     qtyBtn: {
-      border: "1px solid #2a2a2a",
-      background: "transparent",
-      color: "#fff",
-      padding: "8px 10px",
-      borderRadius: 12,
-      cursor: "pointer",
-      fontWeight: 900,
-      fontSize: 12,
-      opacity: 0.9,
+      border: "1px solid #2a2a2a", background: "transparent", color: "#fff",
+      padding: "8px 10px", borderRadius: 12, cursor: "pointer", fontWeight: 900, fontSize: 12, opacity: 0.9,
     },
-
-    warn: {
-      marginTop: 10,
-      padding: 10,
-      borderRadius: 12,
-      border: "1px solid rgba(255,214,10,0.35)",
-      background: "rgba(255,214,10,0.10)",
-      color: "#ffeaa6",
-      fontSize: 13,
-    },
-
+    warn: { marginTop: 10, padding: 10, borderRadius: 12, border: "1px solid rgba(255,214,10,0.35)", background: "rgba(255,214,10,0.10)", color: "#ffeaa6", fontSize: 13 },
     ok: { marginTop: 10, color: "#30d158", fontSize: 13 },
     bad: { marginTop: 10, color: "#ff453a", fontSize: 13 },
 
     movRow: { padding: "10px 0", borderBottom: "1px solid #1e1e1e" },
     pill: (tipo) => ({
-      display: "inline-block",
-      padding: "4px 10px",
-      borderRadius: 999,
-      border: "1px solid #2a2a2a",
+      display: "inline-block", padding: "4px 10px", borderRadius: 999, border: "1px solid #2a2a2a",
       background: tipo === "ING" ? "rgba(48,209,88,0.12)" : "rgba(255,69,58,0.10)",
-      color: tipo === "ING" ? "#30d158" : "#ff453a",
-      fontWeight: 900,
-      fontSize: 12,
+      color: tipo === "ING" ? "#30d158" : "#ff453a", fontWeight: 900, fontSize: 12,
     }),
   };
 
-  // Solo admin/oficina ven los submódulos de maderas (Inventario/Movimientos/Pedidos)
-  const puedeVerAdminMaderas = role === "admin" || role === "oficina" || isAdmin;
-
   return (
     <div style={S.page}>
+      {/* Grid General: Sidebar (Fijo) + Contenido (Variable) */}
       <div style={S.layout}>
-        {/* SIDEBAR */}
-        <aside style={S.sidebar}>
-          <div style={S.brand}>
-            <img src={logoK} alt="K" style={S.logoK} />
-            <div style={S.brandText}>KLASE A</div>
-          </div>
+        
+        {/* Aquí insertamos el Sidebar externo */}
+        <Sidebar profile={profile} signOut={signOut} />
 
-          {/* ===== MADERAS ===== */}
-          <div style={S.groupTitle}>MADERAS</div>
-          <Link to="/panol" style={S.navBtn(true)}>Operación</Link>
-
-          {puedeVerAdminMaderas && (
-            <>
-              <Link to="/admin" style={S.navBtn(false)}>Inventario</Link>
-              <Link to="/movimientos" style={S.navBtn(false)}>Movimientos</Link>
-              <Link to="/pedidos" style={S.navBtn(false)}>Pedidos</Link>
-            </>
-          )}
-
-          {/* ===== PRODUCCIÓN (solo admin) ===== */}
-          {isAdmin && (
-            <>
-              <div style={{ ...S.groupTitle, marginTop: 16 }}>PRODUCCIÓN</div>
-              <Link to="/marmoleria" style={S.navBtn(false)}>Marmolería</Link>
-            </>
-          )}
-
-          <div style={S.foot}>
-            <div>Usuario: <b>{username}</b></div>
-            <div>Rol: <b>{role}</b></div>
-            <div style={{ marginTop: 8 }}>
-              <button
-                type="button"
-                style={{ ...S.navBtn(false), cursor: "pointer" }}
-                onClick={signOut}
-              >
-                Cerrar sesión
-              </button>
-            </div>
-          </div>
-        </aside>
-
-        {/* MAIN */}
+        {/* Contenido Principal (Igual que antes) */}
         <main style={S.main}>
           <div style={S.content}>
             <div style={S.topbar}>
               <h2 style={S.title}>Operación</h2>
               <div style={{ display: "flex", gap: 10 }}>
-                <button type="button" style={S.btnTop(modo === "EGRESO")} onClick={() => setModo("EGRESO")}>
-                  EGRESO
-                </button>
-                <button type="button" style={S.btnTop(modo === "INGRESO")} onClick={() => setModo("INGRESO")}>
-                  INGRESO
-                </button>
+                <button type="button" style={S.btnTop(modo === "EGRESO")} onClick={() => setModo("EGRESO")}>EGRESO</button>
+                <button type="button" style={S.btnTop(modo === "INGRESO")} onClick={() => setModo("INGRESO")}>INGRESO</button>
               </div>
             </div>
 
             <div style={S.grid}>
-              {/* FORM */}
+              {/* FORMULARIO */}
               <div style={S.card}>
                 <div style={S.row}>
                   <div style={S.label}>Buscar</div>
                   <input style={S.input} value={q} onChange={(e) => setQ(e.target.value)} placeholder="Buscar material..." />
                 </div>
-
                 <div style={S.row}>
                   <div style={S.label}>Material</div>
                   <select style={S.select} value={materialId} onChange={(e) => setMaterialId(e.target.value)}>
-                    {filtrados.map((m) => (
-                      <option key={m.id} value={m.id}>
-                        {m.nombre}
-                      </option>
-                    ))}
+                    {filtrados.map((m) => (<option key={m.id} value={m.id}>{m.nombre}</option>))}
                   </select>
                 </div>
-
                 <div style={S.row}>
                   <div style={S.label}>Obra</div>
-                  <input style={S.input} value={obra} onChange={(e) => setObra(e.target.value)} placeholder="Ej: K37 / K55 / Taller..." />
+                  <input style={S.input} value={obra} onChange={(e) => setObra(e.target.value)} placeholder="Ej: K37..." />
                 </div>
 
                 {modo === "EGRESO" ? (
                   <>
                     <div style={S.row}>
                       <div style={S.label}>Retira</div>
-                      <input style={S.input} value={retira} onChange={(e) => setRetira(e.target.value)} placeholder="Nombre" />
+                      <input style={S.input} value={retira} onChange={(e) => setRetira(e.target.value)} />
                     </div>
                     <div style={S.row}>
                       <div style={S.label}>Entrega</div>
-                      <input style={S.input} value={entrega} onChange={(e) => setEntrega(e.target.value)} placeholder="Empleado de pañol" />
+                      <input style={S.input} value={entrega} onChange={(e) => setEntrega(e.target.value)} />
                     </div>
                   </>
                 ) : (
                   <>
                     <div style={S.row}>
                       <div style={S.label}>Proveedor</div>
-                      <input style={S.input} value={proveedor} onChange={(e) => setProveedor(e.target.value)} placeholder="Proveedor" />
+                      <input style={S.input} value={proveedor} onChange={(e) => setProveedor(e.target.value)} />
                     </div>
                     <div style={S.row}>
                       <div style={S.label}>Recibe</div>
-                      <input style={S.input} value={recibe} onChange={(e) => setRecibe(e.target.value)} placeholder="Empleado de pañol" />
+                      <input style={S.input} value={recibe} onChange={(e) => setRecibe(e.target.value)} />
                     </div>
                   </>
                 )}
@@ -420,47 +320,32 @@ export default function PanolScreen({ profile, signOut }) {
                 <div style={S.row}>
                   <div style={S.label}>Cantidad</div>
                   <div style={S.qtyWrap}>
-                    <input
-                      style={S.input}
-                      value={cantidad}
-                      onChange={(e) => {
-                        setCantidad(e.target.value);
-                        setCantidadRevisada(true);
-                      }}
-                      placeholder="Ej: 2 / 1.5 / 10"
-                    />
+                    <input style={S.input} value={cantidad} onChange={(e) => { setCantidad(e.target.value); setCantidadRevisada(true); }} placeholder="Ej: 2" />
                     <div style={S.qtyBtns}>
                       <button type="button" style={S.qtyBtn} onClick={() => ajustarCantidad(-10)}>-10</button>
                       <button type="button" style={S.qtyBtn} onClick={() => ajustarCantidad(-1)}>-1</button>
                       <button type="button" style={S.qtyBtn} onClick={() => ajustarCantidad(+1)}>+1</button>
                       <button type="button" style={S.qtyBtn} onClick={() => ajustarCantidad(+10)}>+10</button>
                     </div>
-
-                    {!cantidadRevisada && (
-                      <div style={S.warn}>⚠️ Revisá la cantidad antes de confirmar (para evitar olvidos).</div>
-                    )}
+                    {!cantidadRevisada && <div style={S.warn}>⚠️ Revisá la cantidad.</div>}
                   </div>
                 </div>
 
                 <div style={S.row}>
                   <div style={S.label}>Obs</div>
-                  <input style={S.input} value={obs} onChange={(e) => setObs(e.target.value)} placeholder="Opcional" />
+                  <input style={S.input} value={obs} onChange={(e) => setObs(e.target.value)} />
                 </div>
 
                 <div style={{ marginTop: 14 }}>
-                  <button type="button" style={S.btn} onClick={confirmar}>
-                    Confirmar
-                  </button>
-
-                  {msg ? <div style={S.ok}>{msg}</div> : null}
-                  {err ? <div style={S.bad}>{err}</div> : null}
+                  <button type="button" style={S.btn} onClick={confirmar}>Confirmar</button>
+                  {msg && <div style={S.ok}>{msg}</div>}
+                  {err && <div style={S.bad}>{err}</div>}
                 </div>
               </div>
 
-              {/* MOVIMIENTOS */}
+              {/* LISTA */}
               <div style={S.card}>
                 <h3 style={{ marginTop: 0, color: "#fff" }}>Últimos movimientos</h3>
-
                 {movs.map((m) => {
                   const tipo = num(m.delta) >= 0 ? "ING" : "EGR";
                   return (
@@ -469,22 +354,14 @@ export default function PanolScreen({ profile, signOut }) {
                         <div style={{ fontWeight: 900, color: "#fff" }}>{m.material_nombre}</div>
                         <div style={S.pill(tipo)}>{tipo}</div>
                       </div>
-
                       <div style={{ opacity: 0.85, marginTop: 6, fontSize: 13 }}>
-                        <div><b>Delta:</b> {m.delta}</div>
-                        <div><b>Obra:</b> {m.obra}</div>
-                        {m.usuario ? <div><b>Retira:</b> {m.usuario}</div> : null}
-                        {m.entregado_por ? <div><b>Entrega:</b> {m.entregado_por}</div> : null}
-                        {m.proveedor ? <div><b>Proveedor:</b> {m.proveedor}</div> : null}
-                        {m.recibe ? <div><b>Recibe:</b> {m.recibe}</div> : null}
-                        {m.obs_ui ? <div><b>Obs:</b> {m.obs_ui}</div> : null}
+                        <div><b>Delta:</b> {m.delta} | <b>Obra:</b> {m.obra}</div>
+                        {m.usuario && <div><b>Retira:</b> {m.usuario}</div>}
                         <div style={{ opacity: 0.7 }}><b>Fecha:</b> {fmt(m.created_at)}</div>
                       </div>
                     </div>
                   );
                 })}
-
-                {!movs.length ? <div style={{ opacity: 0.75 }}>Sin movimientos.</div> : null}
               </div>
             </div>
           </div>

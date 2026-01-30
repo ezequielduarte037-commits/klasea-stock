@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState } from "react";
-import { Link } from "react-router-dom";
 import { supabase } from "../supabaseClient";
-import logoK from "../assets/logo-k.png";
+// 1. Importamos el Sidebar
+import Sidebar from "../components/Sidebar";
 
 function num(v) {
   const x = Number(v);
@@ -27,8 +27,6 @@ const ESTADOS = [
 ];
 
 export default function PedidosScreen({ profile, signOut }) {
-  const username = profile?.username ?? "—";
-
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
 
@@ -85,7 +83,6 @@ export default function PedidosScreen({ profile, signOut }) {
   }
 
   async function cargarMateriales() {
-    // Para mapear items a material_id
     const { data, error } = await supabase
       .from("materiales")
       .select("id,nombre,unidad_medida")
@@ -198,13 +195,10 @@ export default function PedidosScreen({ profile, signOut }) {
 
   async function cambiarEstado(pedidoId, estado) {
     setError("");
-
     const { data: auth } = await supabase.auth.getUser().catch(() => ({ data: { user: null } }));
     const userId = auth?.user?.id ?? null;
 
     const patch = { estado };
-
-    // Auditoría al recibir
     if (estado === "recibido") patch.recibido_por = userId;
 
     const { error } = await supabase.from("pedidos").update(patch).eq("id", pedidoId);
@@ -217,16 +211,13 @@ export default function PedidosScreen({ profile, signOut }) {
     }
   }
 
+  // 2. Limpiamos estilos del Sidebar
   const S = {
     page: { background: "#000", minHeight: "100vh", color: "#d0d0d0", fontFamily: "Roboto, system-ui, Arial" },
+    
+    // Grid intacto
     layout: { display: "grid", gridTemplateColumns: "280px 1fr", minHeight: "100vh" },
-    sidebar: { borderRight: "1px solid #2a2a2a", padding: 18, background: "#050505", position: "relative" },
-    brand: { display: "flex", alignItems: "center", gap: 12, marginBottom: 18 },
-    logoK: { width: 28, height: 28, objectFit: "contain", opacity: 0.95 },
-    brandText: { fontFamily: "Montserrat, system-ui, Arial", fontWeight: 900, letterSpacing: 3, color: "#fff" },
-    navBtn: { width: "100%", textAlign: "left", padding: "10px 12px", borderRadius: 12, border: "1px solid #2a2a2a", background: "#111", color: "#fff", cursor: "pointer", marginTop: 8, fontWeight: 800, display: "block", textDecoration: "none" },
-    navBtn2: { width: "100%", textAlign: "left", padding: "10px 12px", borderRadius: 12, border: "1px solid #2a2a2a", background: "transparent", color: "#bdbdbd", cursor: "pointer", marginTop: 8, fontWeight: 800, display: "block", textDecoration: "none" },
-    foot: { position: "absolute", left: 18, right: 18, bottom: 18, opacity: 0.85, fontSize: 12 },
+
     main: { padding: 18, display: "flex", justifyContent: "center" },
     content: { width: "min(1200px, 100%)" },
     topbar: { display: "flex", justifyContent: "space-between", alignItems: "center", gap: 12, marginBottom: 12 },
@@ -262,24 +253,9 @@ export default function PedidosScreen({ profile, signOut }) {
   return (
     <div style={S.page}>
       <div style={S.layout}>
-        <aside style={S.sidebar}>
-          <div style={S.brand}>
-            <img src={logoK} alt="K" style={S.logoK} />
-            <div style={S.brandText}>KLASE A</div>
-          </div>
-
-          <Link to="/panol" style={S.navBtn2}>Operación (Pañol)</Link>
-          <Link to="/admin" style={S.navBtn2}>Inventario (Admin)</Link>
-          <Link to="/movimientos" style={S.navBtn2}>Movimientos</Link>
-          <Link to="/pedidos" style={S.navBtn}>Pedidos</Link>
-
-          <div style={S.foot}>
-            <div><b>Usuario:</b> {username}</div>
-            <div style={{ marginTop: 10 }}>
-              <button style={S.btnGhost} onClick={signOut}>Cerrar sesión</button>
-            </div>
-          </div>
-        </aside>
+        
+        {/* 3. Reemplazamos aside por Sidebar */}
+        <Sidebar profile={profile} signOut={signOut} />
 
         <main style={S.main}>
           <div style={S.content}>

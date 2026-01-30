@@ -1,12 +1,14 @@
 import { useEffect, useMemo, useState } from "react";
 import { Link } from "react-router-dom";
 import { supabase } from "../supabaseClient";
-import logoK from "../assets/logo-k.png";
+// 1. Importamos la Pieza de Lego
+import Sidebar from "../components/Sidebar";
 
 const ESTADOS = ["En proceso", "Proceso finalizado", "Reenviado", "No se va a usar"];
 
 export default function MarmoleriaScreen({ profile, signOut }) {
   const isAdmin = !!profile?.is_admin;
+  // El username ya no lo usamos acá para el sidebar, pero lo dejamos por si querés mostrarlo en otro lado
   const username = profile?.username ?? "—";
 
   const [rows, setRows] = useState([]);
@@ -45,7 +47,7 @@ export default function MarmoleriaScreen({ profile, signOut }) {
       .channel("rt-marmoleria")
       .on("postgres_changes", { event: "*", schema: "public", table: "marmoleria_envios" }, cargar)
       .subscribe();
-    return () => supabase.removeChannel(ch);
+    return () => { supabase.removeChannel(ch); };
   }, []);
 
   const filtrados = useMemo(() => {
@@ -118,20 +120,13 @@ export default function MarmoleriaScreen({ profile, signOut }) {
 
   const S = {
     page: { background: "#000", minHeight: "100vh", color: "#d0d0d0", fontFamily: "Roboto, system-ui, Arial" },
+    
+    // Mantenemos Grid
     layout: { display: "grid", gridTemplateColumns: "280px 1fr", minHeight: "100vh" },
-    sidebar: { borderRight: "1px solid #2a2a2a", padding: 18, background: "#050505", position: "relative" },
-    brand: { display: "flex", alignItems: "center", gap: 12, marginBottom: 18 },
-    logoK: { width: 28, height: 28, objectFit: "contain", opacity: 0.95 },
-    brandText: { fontFamily: "Montserrat, system-ui, Arial", fontWeight: 900, letterSpacing: 3, color: "#fff" },
-    navBtn: (active) => ({
-      width: "100%", textAlign: "left", padding: "10px 12px", borderRadius: 12,
-      border: "1px solid #2a2a2a", background: active ? "#111" : "transparent",
-      color: active ? "#fff" : "#bdbdbd", cursor: "pointer", marginTop: 8, fontWeight: 800,
-      display: "block", textDecoration: "none",
-    }),
-    foot: { position: "absolute", left: 18, right: 18, bottom: 18, opacity: 0.85, fontSize: 12 },
+
     main: { padding: 18, display: "flex", justifyContent: "center" },
     content: { width: "min(1200px, 100%)" },
+    
     card: { border: "1px solid #2a2a2a", borderRadius: 16, background: "#070707", padding: 16, marginBottom: 12 },
     input: { background: "#0b0b0b", border: "1px solid #2a2a2a", color: "#eaeaea", padding: "10px 12px", borderRadius: 12, width: "100%", outline: "none" },
     row2: { display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10 },
@@ -142,6 +137,8 @@ export default function MarmoleriaScreen({ profile, signOut }) {
     th: { textAlign: "left", fontSize: 12, opacity: 0.75, padding: "10px 8px", borderBottom: "1px solid #1d1d1d" },
     td: { padding: "10px 8px", borderBottom: "1px solid #111", verticalAlign: "top" },
     small: { fontSize: 12, opacity: 0.75 },
+    
+    // Estilos de Sidebar y navBtn eliminados (ya están en el componente)
   };
 
   if (!isAdmin) {
@@ -150,7 +147,7 @@ export default function MarmoleriaScreen({ profile, signOut }) {
         <div style={{ padding: 20 }}>
           <h2 style={{ color: "#fff", margin: 0 }}>Acceso restringido</h2>
           <p style={S.small}>Este módulo es solo para Admin.</p>
-          <Link to="/panol" style={S.navBtn(false)}>Volver</Link>
+          <Link to="/panol" style={{ color: "#fff", textDecoration: "underline" }}>Volver</Link>
         </div>
       </div>
     );
@@ -159,25 +156,9 @@ export default function MarmoleriaScreen({ profile, signOut }) {
   return (
     <div style={S.page}>
       <div style={S.layout}>
-        <aside style={S.sidebar}>
-          <div style={S.brand}>
-            <img src={logoK} alt="K" style={S.logoK} />
-            <div style={S.brandText}>KLASE A</div>
-          </div>
-
-          <Link to="/panol" style={S.navBtn(false)}>Operación (Pañol)</Link>
-          <Link to="/admin" style={S.navBtn(false)}>Inventario (Admin)</Link>
-          <Link to="/movimientos" style={S.navBtn(false)}>Movimientos</Link>
-          <Link to="/pedidos" style={S.navBtn(false)}>Pedidos</Link>
-          <Link to="/marmoleria" style={S.navBtn(true)}>Marmolería</Link>
-
-          <div style={S.foot}>
-            <div><b>Usuario:</b> {username}</div>
-            <div style={{ marginTop: 10 }}>
-              <button style={S.btnGhost} onClick={signOut}>Cerrar sesión</button>
-            </div>
-          </div>
-        </aside>
+        
+        {/* 3. Reemplazamos aside por Sidebar */}
+        <Sidebar profile={profile} signOut={signOut} />
 
         <main style={S.main}>
           <div style={S.content}>
