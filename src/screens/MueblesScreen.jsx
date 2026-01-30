@@ -1,10 +1,55 @@
 import { useEffect, useMemo, useState } from "react";
 import { Link } from "react-router-dom";
 import { supabase } from "../supabaseClient";
-// Importamos el Sidebar
 import Sidebar from "../components/Sidebar";
 
 const ESTADOS = ["No enviado", "Parcial", "Completo", "Rehacer"];
+
+// Colores para diferenciar sectores visualmente
+const SECTOR_COLORS = {
+  "Cocina": "#ffd60a",  // Amarillo
+  "Baño": "#30d158",    // Verde
+  "Baños": "#30d158",
+  "Cockpit": "#0a84ff", // Azul
+  "Camarote": "#bf5af2", // Violeta
+  "Exterior": "#ff9f0a", // Naranja
+  "Salón": "#ff453a",   // Rojo
+  "General": "#8e8e93"  // Gris
+};
+
+function getSectorColor(sector) {
+  const key = Object.keys(SECTOR_COLORS).find(k => (sector || "").includes(k));
+  return key ? SECTOR_COLORS[key] : SECTOR_COLORS["General"];
+}
+
+// Lógica de colores para el ESTADO (Verde si está OK, Rojo si falla)
+function getStatusStyle(estado) {
+  let color = "#666"; // Por defecto (No enviado)
+  let borderColor = "#333";
+
+  if (estado === "Completo") {
+    color = "#30d158"; // Verde
+    borderColor = "#30d158";
+  } else if (estado === "Rehacer") {
+    color = "#ff453a"; // Rojo
+    borderColor = "#ff453a";
+  } else if (estado === "Parcial") {
+    color = "#ffd60a"; // Amarillo
+    borderColor = "#ffd60a";
+  }
+
+  return {
+    background: "#0b0b0b",
+    color: color,
+    border: `1px solid ${borderColor}`,
+    padding: "6px 10px",
+    borderRadius: 10,
+    width: "100%",
+    fontWeight: estado === "No enviado" ? "400" : "900", // Negrita si tiene estado activo
+    cursor: "pointer",
+    outline: "none"
+  };
+}
 
 export default function MueblesScreen({ profile, signOut }) {
   const isAdmin = !!profile?.is_admin;
@@ -21,36 +66,30 @@ export default function MueblesScreen({ profile, signOut }) {
   const [unidadId, setUnidadId] = useState("");
   const [unidadCodigo, setUnidadCodigo] = useState("");
 
-  const [rows, setRows] = useState([]); // Checklist del barco
+  const [rows, setRows] = useState([]); 
   const [savingObsId, setSavingObsId] = useState(null);
 
-  // ======= NUEVO: MODO EDITOR DE PLANTILLA =======
-  const [modoEdicion, setModoEdicion] = useState(false); // false = ver barco / true = editar plantilla
-  const [plantilla, setPlantilla] = useState([]); // lista de muebles de la línea
+  // MODO EDICION
+  const [modoEdicion, setModoEdicion] = useState(false);
+  const [plantilla, setPlantilla] = useState([]);
   const [newMueble, setNewMueble] = useState({ nombre: "", sector: "" });
+  
+  // Edición puntual (rename)
+  const [editingMuebleId, setEditingMuebleId] = useState(null);
+  const [editForm, setEditForm] = useState({ nombre: "", sector: "" });
 
-  // ======= UI: Crear Línea / Unidad =======
+  // UI CREACIÓN
   const [showAddLinea, setShowAddLinea] = useState(false);
   const [newLineaNombre, setNewLineaNombre] = useState("");
   const [copyFromLineaId, setCopyFromLineaId] = useState(""); 
-
   const [showAddUnidad, setShowAddUnidad] = useState(false);
   const [newUnidadCodigo, setNewUnidadCodigo] = useState("");
 
-  // ---------------------------------------------------------
-  // CARGAS
-  // ---------------------------------------------------------
-
+  // --- CARGAS ---
   async function cargarLineas() {
     setErr("");
-    const { data, error } = await supabase
-      .from("prod_lineas")
-      .select("id,nombre")
-      .eq("activa", true)
-      .order("nombre");
-
+    const { data, error } = await supabase.from("prod_lineas").select("id,nombre").eq("activa", true).order("nombre");
     if (error) return setErr(error.message);
-
     setLineas(data ?? []);
     if (!lineaId && data?.length) {
       setLineaId(data[0].id);
@@ -61,22 +100,10 @@ export default function MueblesScreen({ profile, signOut }) {
   async function cargarUnidades(lid) {
     if (!lid) return;
     setErr("");
-    const { data, error } = await supabase
-      .from("prod_unidades")
-      .select("id,codigo")
-      .eq("linea_id", lid)
-      .eq("activa", true)
-      .order("codigo");
-
+    const { data, error } = await supabase.from("prod_unidades").select("id,codigo").eq("linea_id", lid).eq("activa", true).order("codigo");
     if (error) return setErr(error.message);
-
     setUnidades(data ?? []);
-    // Al cambiar de línea, reseteamos la unidad seleccionada
-    setUnidadId("");
-    setUnidadCodigo("");
-    setRows([]);
-    
-    // Si hay unidades, seleccionamos la primera (opcional, o dejar que elija)
+    setUnidadId(""); setUnidadCodigo(""); setRows([]);
     if (data?.length) {
       setUnidadId(data[0].id);
       setUnidadCodigo(data[0].codigo);
@@ -85,13 +112,10 @@ export default function MueblesScreen({ profile, signOut }) {
 
   async function cargarChecklist(uid) {
     if (!uid) return;
-    setErr("");
+    setErr(""); setMsg("");
     const { data, error } = await supabase
       .from("prod_unidad_checklist")
-      .select(`
-        id, estado, obs,
-        prod_muebles ( nombre, sector )
-      `)
+      .select(`id, estado, obs, prod_muebles ( nombre, sector )`)
       .eq("unidad_id", uid);
 
     if (error) return setErr(error.message);
@@ -101,66 +125,52 @@ export default function MueblesScreen({ profile, signOut }) {
       estado: x.estado,
       obs: x.obs ?? "",
       mueble: x.prod_muebles?.nombre ?? "",
-      sector: x.prod_muebles?.sector ?? "",
+      sector: x.prod_muebles?.sector ?? "General",
     }));
 
-    mapped.sort((a, b) => 
-      (a.sector || "").localeCompare(b.sector || "") || 
-      (a.mueble || "").localeCompare(b.mueble || "")
-    );
-
+    mapped.sort((a, b) => a.sector.localeCompare(b.sector) || a.mueble.localeCompare(b.mueble));
     setRows(mapped);
   }
 
-  // --- NUEVO: Cargar la plantilla (muebles base) de la línea ---
   async function cargarPlantilla(lid) {
     if (!lid) return;
     const { data, error } = await supabase
       .from("prod_linea_muebles")
-      .select(`
-        id,
-        prod_muebles ( id, nombre, sector )
-      `)
+      .select(`id, prod_muebles ( id, nombre, sector )`)
       .eq("linea_id", lid);
 
-    if (error) return setErr("Error cargando plantilla: " + error.message);
+    if (error) return setErr("Error plantilla: " + error.message);
 
     const lista = (data ?? []).map((x) => ({
-      link_id: x.id, // id de la relación
+      link_id: x.id,
       mueble_id: x.prod_muebles?.id,
       nombre: x.prod_muebles?.nombre,
       sector: x.prod_muebles?.sector
     }));
-    
-    // Ordenar por sector
     lista.sort((a, b) => (a.sector || "").localeCompare(b.sector || ""));
     setPlantilla(lista);
   }
 
-  // ---------------------------------------------------------
-  // EFECTOS
-  // ---------------------------------------------------------
-
-  useEffect(() => {
-    if (isAdmin) cargarLineas();
-  }, [isAdmin]);
-
-  useEffect(() => {
+  // --- EFECTOS ---
+  useEffect(() => { if (isAdmin) cargarLineas(); }, [isAdmin]);
+  useEffect(() => { 
     if (lineaId) {
       cargarUnidades(lineaId);
       if (modoEdicion) cargarPlantilla(lineaId);
     }
   }, [lineaId, modoEdicion]);
+  useEffect(() => { if (unidadId && !modoEdicion) cargarChecklist(unidadId); }, [unidadId, modoEdicion]);
 
-  useEffect(() => {
-    if (unidadId && !modoEdicion) {
-      cargarChecklist(unidadId);
-    }
-  }, [unidadId, modoEdicion]);
-
-  // ---------------------------------------------------------
-  // ACCIONES
-  // ---------------------------------------------------------
+  // --- AGRUPACIÓN ---
+  const checklistPorSector = useMemo(() => {
+    const grupos = {};
+    rows.forEach(r => {
+      const s = r.sector || "General";
+      if (!grupos[s]) grupos[s] = [];
+      grupos[s].push(r);
+    });
+    return grupos;
+  }, [rows]);
 
   const pct = useMemo(() => {
     if (!rows.length) return 0;
@@ -168,6 +178,7 @@ export default function MueblesScreen({ profile, signOut }) {
     return Math.round((ok / rows.length) * 100);
   }, [rows]);
 
+  // --- ACCIONES ---
   async function setEstado(rowId, estado) {
     setErr("");
     const { error } = await supabase.from("prod_unidad_checklist").update({ estado }).eq("id", rowId);
@@ -176,94 +187,80 @@ export default function MueblesScreen({ profile, signOut }) {
   }
 
   async function saveObs(rowId, obs) {
-    setErr("");
-    setSavingObsId(rowId);
+    setErr(""); setSavingObsId(rowId);
     const { error } = await supabase.from("prod_unidad_checklist").update({ obs }).eq("id", rowId);
     setSavingObsId(null);
     if (error) return setErr(error.message);
   }
 
-  // --- NUEVO: Agregar mueble a la línea ---
   async function agregarMuebleAPlantilla(e) {
-    e.preventDefault();
+    e.preventDefault(); setErr(""); setMsg("");
+    if (!lineaId || !newMueble.nombre.trim()) return setErr("Faltan datos.");
+
+    const { data: m, error: e1 } = await supabase.from("prod_muebles")
+      .insert({ nombre: newMueble.nombre.trim(), sector: newMueble.sector.trim() })
+      .select().single();
+
+    if (e1) return setErr(e1.message);
+
+    const { error: e2 } = await supabase.from("prod_linea_muebles")
+      .insert({ linea_id: lineaId, mueble_id: m.id });
+
+    if (e2) return setErr(e2.message);
+    setMsg("✅ Agregado"); setNewMueble({ nombre: "", sector: "" }); cargarPlantilla(lineaId);
+  }
+
+  async function borrarDePlantilla(linkId) {
+    if (!confirm("¿Sacar este mueble de la línea?")) return;
     setErr("");
-    setMsg("");
-
-    if (!lineaId) return setErr("No hay línea seleccionada.");
-    if (!newMueble.nombre.trim()) return setErr("Nombre del mueble obligatorio.");
-    if (!newMueble.sector.trim()) return setErr("Sector obligatorio.");
-
-    // 1. Crear el mueble en la tabla global `prod_muebles`
-    // (Ojo: si ya existe uno igual, esto crea uno nuevo. Simplificamos para no complicar el selector)
-    const { data: m, error: e1 } = await supabase
-      .from("prod_muebles")
-      .insert({ 
-        nombre: newMueble.nombre.trim(), 
-        sector: newMueble.sector.trim() 
-      })
-      .select()
-      .single();
-
-    if (e1) return setErr("Error creando mueble: " + e1.message);
-
-    // 2. Vincularlo a la línea en `prod_linea_muebles`
-    const { error: e2 } = await supabase
-      .from("prod_linea_muebles")
-      .insert({
-        linea_id: lineaId,
-        mueble_id: m.id
-      });
-
-    if (e2) return setErr("Error vinculando mueble: " + e2.message);
-
-    setMsg("✅ Mueble agregado a la plantilla.");
-    setNewMueble({ nombre: "", sector: "" });
+    const { error } = await supabase.from("prod_linea_muebles").delete().eq("id", linkId);
+    if (error) return setErr(error.message);
     cargarPlantilla(lineaId);
   }
 
-  // --- Crear Línea y Unidad (Igual que antes) ---
-  async function createLinea() {
-    // ... (Lógica idéntica a la anterior)
-    setErr(""); setMsg("");
-    const nombre = String(newLineaNombre || "").trim().toUpperCase();
-    if (!nombre) return setErr("Nombre inválido.");
+  async function guardarEdicionMueble(muebleId) {
+    setErr("");
+    const { error } = await supabase.from("prod_muebles")
+      .update({ nombre: editForm.nombre, sector: editForm.sector })
+      .eq("id", muebleId);
+    
+    if (error) return setErr(error.message);
+    setEditingMuebleId(null);
+    cargarPlantilla(lineaId);
+  }
 
+  function startEdit(m) {
+    setEditingMuebleId(m.mueble_id);
+    setEditForm({ nombre: m.nombre, sector: m.sector });
+  }
+
+  async function createLinea() {
+    setErr(""); setMsg("");
+    const nombre = String(newLineaNombre).trim().toUpperCase();
+    if (!nombre) return setErr("Nombre inválido");
     const { data: ins, error: e1 } = await supabase.from("prod_lineas").insert([{ nombre, activa: true }]).select().single();
     if (e1) return setErr(e1.message);
-
     if (copyFromLineaId) {
       const { data: src } = await supabase.from("prod_linea_muebles").select("mueble_id").eq("linea_id", copyFromLineaId);
       if (src?.length) {
-        const payload = src.map((r) => ({ linea_id: ins.id, mueble_id: r.mueble_id }));
-        await supabase.from("prod_linea_muebles").insert(payload);
+        await supabase.from("prod_linea_muebles").insert(src.map(r => ({ linea_id: ins.id, mueble_id: r.mueble_id })));
       }
     }
-    setMsg(`Línea ${nombre} creada.`);
-    setShowAddLinea(false);
-    setNewLineaNombre("");
-    cargarLineas();
+    setMsg(`Línea ${nombre} creada.`); setShowAddLinea(false); setNewLineaNombre(""); cargarLineas();
   }
 
   async function createUnidad() {
     setErr(""); setMsg("");
-    if (!lineaId) return setErr("Seleccioná línea.");
-    const codigo = String(newUnidadCodigo || "").trim();
-    if (!codigo) return setErr("Código inválido.");
-
+    if (!lineaId) return setErr("Seleccioná línea");
+    const codigo = String(newUnidadCodigo).trim();
+    if (!codigo) return setErr("Código inválido");
     const { data: u, error: e1 } = await supabase.from("prod_unidades").insert([{ linea_id: lineaId, codigo, activa: true }]).select().single();
     if (e1) return setErr(e1.message);
-
-    const { data: plantilla } = await supabase.from("prod_linea_muebles").select("mueble_id").eq("linea_id", lineaId);
-    if (!plantilla?.length) {
-      setMsg(`Unidad ${codigo} creada VACÍA (la línea no tiene muebles cargados en la plantilla).`);
-    } else {
-      const payload = plantilla.map((r) => ({ unidad_id: u.id, mueble_id: r.mueble_id, estado: "No enviado" }));
-      await supabase.from("prod_unidad_checklist").insert(payload);
-      setMsg(`Unidad ${codigo} creada y checklist generado.`);
+    const { data: p } = await supabase.from("prod_linea_muebles").select("mueble_id").eq("linea_id", lineaId);
+    if (p?.length) {
+      await supabase.from("prod_unidad_checklist").insert(p.map(r => ({ unidad_id: u.id, mueble_id: r.mueble_id, estado: "No enviado" })));
     }
-    setShowAddUnidad(false);
-    setNewUnidadCodigo("");
-    cargarUnidades(lineaId);
+    setMsg(`Unidad ${codigo} creada.`); setShowAddUnidad(false); setNewUnidadCodigo(""); cargarUnidades(lineaId);
   }
 
   const S = {
@@ -281,33 +278,32 @@ export default function MueblesScreen({ profile, signOut }) {
       width: "100%", textAlign: "left", padding: "10px 12px", borderRadius: 12, border: "1px solid #2a2a2a",
       background: on ? "#111" : "transparent", color: on ? "#fff" : "#bbb", cursor: "pointer", fontWeight: 900, marginBottom: 8,
     }),
-    table: { width: "100%", borderCollapse: "collapse" },
-    th: { textAlign: "left", fontSize: 12, opacity: 0.75, padding: "10px 8px", borderBottom: "1px solid #1d1d1d" },
-    td: { padding: "10px 8px", borderBottom: "1px solid #111", verticalAlign: "top" },
-    select: { background: "#0b0b0b", border: "1px solid #2a2a2a", color: "#fff", padding: "8px 10px", borderRadius: 10, width: "100%" },
     input: { background: "#0b0b0b", border: "1px solid #2a2a2a", color: "#fff", padding: "8px 10px", borderRadius: 10, width: "100%" },
+    select: { background: "#0b0b0b", border: "1px solid #2a2a2a", color: "#fff", padding: "8px 10px", borderRadius: 10, width: "100%" },
     small: { fontSize: 12, opacity: 0.75 },
-    badge: { fontSize: 12, opacity: 0.75, marginTop: 4 },
     btn: { padding: "8px 10px", borderRadius: 12, border: "1px solid #2a2a2a", background: "#111", color: "#fff", cursor: "pointer", fontWeight: 900 },
-    btnGhost: { padding: "8px 10px", borderRadius: 12, border: "1px solid #2a2a2a", background: "transparent", color: "#bbb", cursor: "pointer", fontWeight: 900 },
     btnConfig: (on) => ({
       padding: "8px 10px", borderRadius: 12, border: "1px solid #2a2a2a",
       background: on ? "#2a1f00" : "transparent", color: on ? "#ffd60a" : "#666", 
       cursor: "pointer", fontWeight: 900, marginLeft: "auto"
     }),
     row: { display: "flex", gap: 10, alignItems: "center", flexWrap: "wrap" },
+    
+    sectorHeader: (sector) => ({
+      marginTop: 16, marginBottom: 8, paddingLeft: 10, 
+      borderLeft: `4px solid ${getSectorColor(sector)}`,
+      fontWeight: 900, color: "#fff", fontSize: 14, letterSpacing: 1
+    }),
+    itemRow: {
+      display: "grid", gridTemplateColumns: "1fr 140px 1fr", gap: 10, 
+      alignItems: "center", padding: "10px 0", borderBottom: "1px solid #1a1a1a"
+    },
+    table: { width: "100%", borderCollapse: "collapse" },
+    th: { textAlign: "left", fontSize: 12, opacity: 0.75, padding: "10px 8px", borderBottom: "1px solid #1d1d1d" },
+    td: { padding: "10px 8px", borderBottom: "1px solid #111", verticalAlign: "top" },
   };
 
-  if (!isAdmin) {
-    return (
-      <div style={S.page}>
-        <div style={{ padding: 20 }}>
-          <h2 style={{ color: "#fff", margin: 0 }}>Acceso restringido</h2>
-          <Link to="/panol" style={{ color: "#fff", textDecoration: "underline" }}>Volver</Link>
-        </div>
-      </div>
-    );
-  }
+  if (!isAdmin) return <div style={S.page}><div style={{ padding: 20 }}>Acceso restringido <Link to="/panol">Volver</Link></div></div>;
 
   return (
     <div style={S.page}>
@@ -315,20 +311,18 @@ export default function MueblesScreen({ profile, signOut }) {
         <Sidebar profile={profile} signOut={signOut} />
 
         <main style={S.main}>
-          {err ? <div style={{ ...S.card, borderColor: "#5a1d1d", color: "#ffbdbd" }}>{err}</div> : null}
-          {msg ? <div style={{ ...S.card, borderColor: "#1d5a2b", color: "#bfffd0" }}>{msg}</div> : null}
+          {err && <div style={{ ...S.card, borderColor: "#5a1d1d", color: "#ffbdbd" }}>{err}</div>}
+          {msg && <div style={{ ...S.card, borderColor: "#1d5a2b", color: "#bfffd0" }}>{msg}</div>}
 
-          {/* === SELECTOR DE LÍNEA Y CONFIGURACIÓN === */}
+          {/* CABECERA */}
           <div style={S.card}>
             <div style={{ display: "flex", justifyContent: "space-between", gap: 12 }}>
               <div>
                 <h2 style={{ margin: 0, color: "#fff" }}>
-                  {modoEdicion ? `Editando Plantilla: ${lineaNombre}` : "Producción Muebles"}
+                  {modoEdicion ? `🛠️ Editando: ${lineaNombre}` : "Producción Muebles"}
                 </h2>
                 <div style={S.small}>
-                  {modoEdicion 
-                    ? "Agregá los muebles base. Los barcos NUEVOS heredarán esta lista." 
-                    : "Seguimiento de estado por barco."}
+                  {modoEdicion ? "Agregá, editá o borrá muebles de la plantilla base." : "Seleccioná un barco para ver el checklist."}
                 </div>
               </div>
             </div>
@@ -336,39 +330,24 @@ export default function MueblesScreen({ profile, signOut }) {
             <div style={{ ...S.row, marginTop: 10 }}>
               <div style={S.tabs}>
                 {lineas.map((l) => (
-                  <button
-                    key={l.id}
-                    style={S.tab(l.id === lineaId)}
-                    onClick={() => {
-                      setLineaId(l.id);
-                      setLineaNombre(l.nombre);
-                    }}
-                  >
+                  <button key={l.id} style={S.tab(l.id === lineaId)} onClick={() => { setLineaId(l.id); setLineaNombre(l.nombre); }}>
                     {l.nombre}
                   </button>
                 ))}
               </div>
-
-              {/* Botón para abrir el editor de plantilla */}
               {lineaId && (
-                <button 
-                  style={S.btnConfig(modoEdicion)} 
-                  onClick={() => setModoEdicion(!modoEdicion)}
-                  title="Editar muebles base de la línea"
-                >
-                  {modoEdicion ? "Cerrar Editor" : "⚙️ Editar Plantilla"}
+                <button style={S.btnConfig(modoEdicion)} onClick={() => setModoEdicion(!modoEdicion)}>
+                  {modoEdicion ? "Cerrar Editor" : "⚙️ Plantilla"}
                 </button>
               )}
-
               <button style={S.btn} onClick={() => setShowAddLinea(!showAddLinea)}>+ Línea</button>
             </div>
-
-            {/* Modal crear línea */}
+            
             {showAddLinea && (
               <div style={{ marginTop: 12, ...S.row }}>
-                <input style={{ ...S.input, maxWidth: 150 }} placeholder="Nombre (K55)" value={newLineaNombre} onChange={(e) => setNewLineaNombre(e.target.value)} />
+                <input style={{ ...S.input, maxWidth: 150 }} placeholder="K55" value={newLineaNombre} onChange={(e) => setNewLineaNombre(e.target.value)} />
                 <select style={{ ...S.select, maxWidth: 200 }} value={copyFromLineaId} onChange={(e) => setCopyFromLineaId(e.target.value)}>
-                  <option value="">(Opcional) Copiar de...</option>
+                  <option value="">(Opcional) Copiar...</option>
                   {lineas.map(l => <option key={l.id} value={l.id}>{l.nombre}</option>)}
                 </select>
                 <button style={S.btn} onClick={createLinea}>Crear</button>
@@ -376,72 +355,59 @@ export default function MueblesScreen({ profile, signOut }) {
             )}
           </div>
 
-          {/* === VISTA 1: EDITOR DE PLANTILLA (Si tocaste el engranaje) === */}
+          {/* === MODO EDITOR === */}
           {modoEdicion ? (
             <div style={S.card}>
-              <h3 style={{ marginTop: 0, color: "#ffd60a" }}>Muebles Base (Plantilla {lineaNombre})</h3>
-              
-              {/* Formulario para agregar mueble */}
               <div style={{ ...S.row, background: "#111", padding: 10, borderRadius: 12, marginBottom: 14 }}>
-                <input 
-                  style={{ ...S.input, flex: 1 }} 
-                  placeholder="Nombre del mueble (Ej: Bajo Mesada)" 
-                  value={newMueble.nombre} 
-                  onChange={e => setNewMueble({...newMueble, nombre: e.target.value})} 
-                />
-                <input 
-                  style={{ ...S.input, width: 150 }} 
-                  placeholder="Sector (Ej: Cocina)" 
-                  value={newMueble.sector} 
-                  onChange={e => setNewMueble({...newMueble, sector: e.target.value})} 
-                />
+                <input style={{ ...S.input, flex: 1 }} placeholder="Nuevo Mueble" value={newMueble.nombre} onChange={e => setNewMueble({...newMueble, nombre: e.target.value})} />
+                <input style={{ ...S.input, width: 150 }} placeholder="Sector" value={newMueble.sector} onChange={e => setNewMueble({...newMueble, sector: e.target.value})} />
                 <button style={S.btn} onClick={agregarMuebleAPlantilla}>Agregar</button>
               </div>
 
-              {/* Lista actual */}
-              <table style={S.table}>
-                <thead>
-                  <tr>
-                    <th style={S.th}>Mueble</th>
-                    <th style={S.th}>Sector</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {plantilla.map(p => (
-                    <tr key={p.link_id}>
-                      <td style={S.td}><b style={{color: "#fff"}}>{p.nombre}</b></td>
-                      <td style={S.td}>{p.sector}</td>
-                    </tr>
-                  ))}
-                  {!plantilla.length && <tr><td colSpan={2} style={S.td}>No hay muebles definidos para esta línea.</td></tr>}
-                </tbody>
-              </table>
+              {plantilla.map(p => (
+                <div key={p.link_id} style={S.itemRow}>
+                  {editingMuebleId === p.mueble_id ? (
+                    <>
+                      <input style={S.input} value={editForm.nombre} onChange={e => setEditForm({...editForm, nombre: e.target.value})} />
+                      <input style={S.input} value={editForm.sector} onChange={e => setEditForm({...editForm, sector: e.target.value})} />
+                      <div style={{display:"flex", gap:5}}>
+                        <button style={S.btn} onClick={() => guardarEdicionMueble(p.mueble_id)}>💾</button>
+                        <button style={S.btnConfig(false)} onClick={() => setEditingMuebleId(null)}>❌</button>
+                      </div>
+                    </>
+                  ) : (
+                    <>
+                      <div>
+                        <b style={{ color: "#fff" }}>{p.nombre}</b>
+                        <div style={{ fontSize: 11, color: getSectorColor(p.sector) }}>{p.sector}</div>
+                      </div>
+                      <div style={S.small}>ID: {p.mueble_id}</div>
+                      <div style={{ textAlign: "right", display: "flex", gap: 5, justifyContent: "flex-end" }}>
+                        <button style={S.btnConfig(false)} onClick={() => startEdit(p)} title="Editar">✏️</button>
+                        <button style={{...S.btnConfig(false), color: "#ff453a"}} onClick={() => borrarDePlantilla(p.link_id)} title="Borrar">🗑️</button>
+                      </div>
+                    </>
+                  )}
+                </div>
+              ))}
+              {!plantilla.length && <div style={{padding:20, textAlign:"center", opacity:0.5}}>No hay muebles en esta plantilla.</div>}
             </div>
           ) : (
-            /* === VISTA 2: CHECKLIST POR UNIDAD (Lo que ya tenías) === */
+            /* === MODO CHECKLIST VISUAL === */
             <div style={S.grid}>
               <div style={S.card}>
-                <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 10 }}>
+                <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 10 }}>
                   <div style={{ fontWeight: 900, color: "#fff" }}>Unidades</div>
                   <button style={S.btn} onClick={() => setShowAddUnidad(!showAddUnidad)} disabled={!lineaId}>+ Barco</button>
                 </div>
-
                 {showAddUnidad && (
                   <div style={{ marginBottom: 10, ...S.row }}>
                     <input style={S.input} placeholder={`${lineaNombre}-XX`} value={newUnidadCodigo} onChange={(e) => setNewUnidadCodigo(e.target.value)} />
                     <button style={S.btn} onClick={createUnidad}>OK</button>
                   </div>
                 )}
-
                 {unidades.map((u) => (
-                  <button
-                    key={u.id}
-                    style={S.unitBtn(u.id === unidadId)}
-                    onClick={() => {
-                      setUnidadId(u.id);
-                      setUnidadCodigo(u.codigo);
-                    }}
-                  >
+                  <button key={u.id} style={S.unitBtn(u.id === unidadId)} onClick={() => { setUnidadId(u.id); setUnidadCodigo(u.codigo); }}>
                     {u.codigo}
                   </button>
                 ))}
@@ -449,41 +415,48 @@ export default function MueblesScreen({ profile, signOut }) {
               </div>
 
               <div style={S.card}>
-                <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 10 }}>
+                <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 10 }}>
                   <div style={{ fontWeight: 900, color: "#fff" }}>{unidadCodigo || "Seleccioná barco"}</div>
                   <div style={S.small}>{unidadId ? `Progreso: ${pct}%` : ""}</div>
                 </div>
 
-                <table style={S.table}>
-                  <thead>
-                    <tr>
-                      <th style={S.th}>Mueble</th>
-                      <th style={S.th}>Sector</th>
-                      <th style={S.th}>Estado</th>
-                      <th style={S.th}>Obs</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {rows.map((r) => (
-                      <tr key={r.id}>
-                        <td style={S.td}><b style={{ color: "#fff" }}>{r.mueble}</b></td>
-                        <td style={S.td}>{r.sector}</td>
-                        <td style={S.td}>
-                          <select style={S.select} value={r.estado} onChange={(e) => setEstado(r.id, e.target.value)}>
-                            {ESTADOS.map((x) => <option key={x} value={x}>{x}</option>)}
-                          </select>
-                          {savingObsId === r.id && <div style={S.badge}>...</div>}
-                        </td>
-                        <td style={S.td}>
-                          <input style={S.input} value={r.obs} onChange={(e) => setRows(prev => prev.map(p => p.id === r.id ? { ...p, obs: e.target.value } : p))} onBlur={() => saveObs(r.id, r.obs)} />
-                        </td>
-                      </tr>
+                {Object.entries(checklistPorSector).map(([sector, items]) => (
+                  <div key={sector}>
+                    <div style={S.sectorHeader(sector)}>{sector.toUpperCase()}</div>
+                    {items.map(r => (
+                      <div key={r.id} style={S.itemRow}>
+                        <div style={{ color: "#d0d0d0", fontWeight: 500 }}>{r.mueble}</div>
+                        
+                        {/* Selector con color condicional */}
+                        <div>
+                           <select 
+                              style={getStatusStyle(r.estado)} 
+                              value={r.estado} 
+                              onChange={(e) => setEstado(r.id, e.target.value)}
+                           >
+                              {ESTADOS.map((x) => <option key={x} value={x} style={{color:"#000"}}>{x}</option>)}
+                           </select>
+                        </div>
+
+                        <div>
+                          <input 
+                            style={{ ...S.input, padding: "6px 10px", fontSize: 12, background: "transparent", border: "none", borderBottom: "1px solid #333" }} 
+                            value={r.obs} 
+                            placeholder="Observación..."
+                            onChange={(e) => setRows(prev => prev.map(p => p.id === r.id ? { ...p, obs: e.target.value } : p))} 
+                            onBlur={() => saveObs(r.id, r.obs)} 
+                          />
+                        </div>
+                      </div>
                     ))}
-                    {unidadId && !rows.length && (
-                      <tr><td colSpan={4} style={S.td}>Este barco no tiene checklist generado.</td></tr>
-                    )}
-                  </tbody>
-                </table>
+                  </div>
+                ))}
+                
+                {unidadId && !rows.length && (
+                  <div style={{ padding: 20, textAlign: "center", opacity: 0.6 }}>
+                    No hay muebles asignados. Revisá la plantilla (⚙️).
+                  </div>
+                )}
               </div>
             </div>
           )}
