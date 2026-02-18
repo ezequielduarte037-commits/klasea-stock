@@ -2,21 +2,17 @@ import React, { useEffect, useState } from "react";
 import { BrowserRouter, Navigate, Route, Routes, useNavigate } from "react-router-dom";
 import { supabase } from "./supabaseClient";
 
-// SCREENS
 import PedidosScreen from "./screens/PedidosScreen";
 import MarmoleriaScreen from "./screens/MarmoleriaScreen";
 import MueblesScreen from "./screens/MueblesScreen";
 import PanolScreen from "./screens/PanolScreen";
 import AdminDashboard from "./screens/AdminDashboard";
 import MovimientosScreen from "./screens/MovimientosScreen";
+import LaminacionScreen from "./screens/LaminacionScreen";
 
-// ASSETS
 import logoK from "./assets/logo-k.png";
 
-// --- FUNCIONES AUXILIARES ---
-
 function toInternalEmail(username) {
-  // Usa el usuario tipo ADMIN / PANOL1 / OFICINA1
   const u = String(username || "").trim().toLowerCase();
   return `${u}@klasea.local`;
 }
@@ -32,8 +28,6 @@ function RequireRole({ profile, allow, children }) {
   return children;
 }
 
-// --- COMPONENTE LOGIN (Restaurado original) ---
-
 function LoginScreen({ onLoggedIn }) {
   const nav = useNavigate();
   const [username, setUsername] = useState("");
@@ -45,19 +39,10 @@ function LoginScreen({ onLoggedIn }) {
     e.preventDefault();
     setErr("");
     setBusy(true);
-
     try {
       const email = toInternalEmail(username);
-      const { data, error } = await supabase.auth.signInWithPassword({
-        email,
-        password,
-      });
-
-      if (error) {
-        setErr("Credenciales incorrectas.");
-        return;
-      }
-
+      const { data, error } = await supabase.auth.signInWithPassword({ email, password });
+      if (error) { setErr("Credenciales incorrectas."); return; }
       await onLoggedIn?.(data?.session);
       nav("/", { replace: true });
     } catch {
@@ -68,22 +53,9 @@ function LoginScreen({ onLoggedIn }) {
   }
 
   const S = {
-    page: {
-      position: "fixed", inset: 0, background: "#000",
-      display: "flex", alignItems: "center", justifyContent: "center",
-      overflow: "hidden", fontFamily: "Roboto, system-ui, Arial",
-      color: "#fff", padding: 24,
-    },
-    overlay: {
-      position: "absolute", inset: 0, zIndex: 0,
-      background: "linear-gradient(to top, rgba(0,0,0,0.95), rgba(0,0,0,0.60), rgba(0,0,0,0.85))",
-    },
-    card: {
-      width: "min(420px, 92vw)", borderRadius: 18,
-      border: "1px solid rgba(255,255,255,0.10)", background: "rgba(0,0,0,0.60)",
-      backdropFilter: "blur(18px)", WebkitBackdropFilter: "blur(18px)",
-      boxShadow: "0 25px 50px -12px rgba(0,0,0,0.60)", padding: "34px 34px 28px", zIndex: 1,
-    },
+    page: { position: "fixed", inset: 0, background: "#000", display: "flex", alignItems: "center", justifyContent: "center", overflow: "hidden", fontFamily: "Roboto, system-ui, Arial", color: "#fff", padding: 24 },
+    overlay: { position: "absolute", inset: 0, zIndex: 0, background: "linear-gradient(to top, rgba(0,0,0,0.95), rgba(0,0,0,0.60), rgba(0,0,0,0.85))" },
+    card: { width: "min(420px, 92vw)", borderRadius: 18, border: "1px solid rgba(255,255,255,0.10)", background: "rgba(0,0,0,0.60)", backdropFilter: "blur(18px)", WebkitBackdropFilter: "blur(18px)", boxShadow: "0 25px 50px -12px rgba(0,0,0,0.60)", padding: "34px 34px 28px", zIndex: 1 },
     brandRow: { display: "flex", alignItems: "center", justifyContent: "center", gap: 12, marginBottom: 12 },
     logoK: { width: 44, height: 44, objectFit: "contain", opacity: 0.95 },
     brandText: { fontFamily: "Montserrat, system-ui, Arial", fontWeight: 900, letterSpacing: 3, fontSize: 18, opacity: 0.95 },
@@ -118,7 +90,7 @@ function LoginScreen({ onLoggedIn }) {
           <div>
             <div style={S.label}>Contraseña</div>
             <div style={S.inputWrap}>
-              <span style={S.icon}>🔒</span>
+              <span style={S.icon}>🔑</span>
               <input style={S.input} type="password" placeholder="••••••••" value={password} onChange={(e) => setPassword(e.target.value)} />
             </div>
           </div>
@@ -132,8 +104,6 @@ function LoginScreen({ onLoggedIn }) {
   );
 }
 
-// --- APP PRINCIPAL ---
-
 export default function App() {
   const [session, setSession] = useState(null);
   const [profile, setProfile] = useState(null);
@@ -142,18 +112,12 @@ export default function App() {
   async function loadProfile(s) {
     setLoadingProfile(true);
     setProfile(null);
-
-    if (!s?.user?.id) {
-      setLoadingProfile(false);
-      return;
-    }
-
+    if (!s?.user?.id) { setLoadingProfile(false); return; }
     const { data, error } = await supabase
       .from("profiles")
       .select("id,username,role,is_admin")
       .eq("id", s.user.id)
       .single();
-
     if (!error) setProfile(data);
     setLoadingProfile(false);
   }
@@ -163,18 +127,14 @@ export default function App() {
       setSession(data.session ?? null);
       loadProfile(data.session);
     });
-
     const { data: sub } = supabase.auth.onAuthStateChange((_event, s) => {
       setSession(s ?? null);
       loadProfile(s);
     });
-
     return () => sub?.subscription?.unsubscribe?.();
   }, []);
 
-  async function signOut() {
-    await supabase.auth.signOut();
-  }
+  async function signOut() { await supabase.auth.signOut(); }
 
   function HomeRedirect() {
     if (!session) return <Navigate to="/login" replace />;
@@ -195,19 +155,26 @@ export default function App() {
             <PanolScreen profile={profile} signOut={signOut} />
           </RequireAuth>
         } />
-        
+
+        {/* NUEVO: Laminación — accesible para todos los roles autenticados */}
+        <Route path="/laminacion" element={
+          <RequireAuth session={session}>
+            <LaminacionScreen profile={profile} signOut={signOut} />
+          </RequireAuth>
+        } />
+
         <Route path="/marmoleria" element={
           <RequireAuth session={session}>
             <MarmoleriaScreen profile={profile} signOut={signOut} />
           </RequireAuth>
         } />
-        
+
         <Route path="/pedidos" element={
           <RequireAuth session={session}>
             <PedidosScreen profile={profile} signOut={signOut} />
           </RequireAuth>
         } />
-        
+
         <Route path="/admin" element={
           <RequireAuth session={session}>
             <RequireRole profile={profile} allow={["admin", "oficina"]}>
@@ -215,7 +182,7 @@ export default function App() {
             </RequireRole>
           </RequireAuth>
         } />
-        
+
         <Route path="/muebles" element={
           <RequireAuth session={session}>
             <MueblesScreen profile={profile} signOut={signOut} />
