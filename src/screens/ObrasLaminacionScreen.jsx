@@ -168,23 +168,46 @@ export default function ObrasLaminacionScreen({ profile, signOut }) {
   }, [obras, obraMats, movimientos]);
 
   // ── CREAR OBRA ────────────────────────────────────────────
-  async function crearObra(e) {
-    e.preventDefault();
-    if (!formObra.nombre.trim()) return setErr("El nombre de la obra es obligatorio.");
-    const { error } = await supabase.from("laminacion_obras").insert({
-      nombre:      formObra.nombre.trim().toUpperCase(),
-      descripcion: formObra.descripcion.trim() || null,
-      estado:      formObra.estado,
-      fecha_inicio: formObra.fecha_inicio || null,
-      fecha_fin:   formObra.fecha_fin || null,
-    });
-    if (error) return setErr(error.message);
-    setMsg(`✅ Obra ${formObra.nombre.toUpperCase()} creada.`);
-    setFormObra({ nombre: "", descripcion: "", estado: "activa",
-      fecha_inicio: new Date().toISOString().slice(0,10), fecha_fin: "" });
-    setShowNuevaObra(false);
-    await cargar();
+ async function crearObra(e) {
+  e.preventDefault();
+  if (!formObra.nombre.trim()) {
+    return setErr("El nombre de la obra es obligatorio.");
   }
+
+  // 1️⃣ Crear obra
+  const { data: obraData, error: errObra } = await supabase
+    .from("laminacion_obras")
+    .insert({
+      nombre: formObra.nombre.trim().toUpperCase(),
+      descripcion: formObra.descripcion.trim() || null,
+      estado: formObra.estado,
+      fecha_inicio: formObra.fecha_inicio || null,
+      fecha_fin: formObra.fecha_fin || null,
+    })
+    .select()
+    .single();
+
+  if (errObra) return setErr(errObra.message);
+
+  // 2️⃣ Insertar plantilla base (TODOS los materiales)
+  const plantilla = materiales.map(mat => ({
+    obra_id: obraData.id,
+    material_id: mat.id,
+    cantidad_necesaria: 0, // después lo editás
+  }));
+
+  const { error: errPlantilla } = await supabase
+    .from("laminacion_obra_materiales")
+    .insert(plantilla);
+
+  if (errPlantilla) return setErr(errPlantilla.message);
+
+  setMsg(`✅ Obra ${obraData.nombre} creada con plantilla base.`);
+  setShowNuevaObra(false);
+
+  await cargar();
+}
+
 
   // ── CAMBIAR ESTADO OBRA ───────────────────────────────────
   async function cambiarEstado(obraId, nuevoEstado) {
