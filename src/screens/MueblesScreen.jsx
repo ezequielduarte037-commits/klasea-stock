@@ -31,10 +31,12 @@ function getStatusStyle(estado) {
   };
 }
 
-// --- COMPONENTE MODAL (FICHA TÉCNICA) ---
+// --- COMPONENTE MODAL (FICHA TÉCNICA + EDICIÓN TOTAL) ---
 function MuebleModal({ mueble, onClose, isEditMode, onSave }) {
   // Estado local para el formulario del modal
   const [form, setForm] = useState({
+    nombre: mueble.nombre || "",
+    sector: mueble.sector || "",
     descripcion: mueble.descripcion || "",
     medidas: mueble.medidas || "",
     material: mueble.material || "",
@@ -52,11 +54,14 @@ function MuebleModal({ mueble, onClose, isEditMode, onSave }) {
     label: { color: "#888", fontSize: 12, marginTop: 12, display: "block", marginBottom: 4 },
     textDisplay: { color: "#ddd", fontSize: 15, lineHeight: 1.5 },
     input: { background: "#222", border: "1px solid #444", color: "#fff", padding: "10px", borderRadius: 8, width: "100%", fontSize: 14 },
+    inputTitle: { background: "#222", border: "1px solid #444", color: "#fff", padding: "10px", borderRadius: 8, width: "100%", fontSize: 18, fontWeight: 900, marginBottom: 8 },
     textArea: { background: "#222", border: "1px solid #444", color: "#fff", padding: "10px", borderRadius: 8, width: "100%", fontSize: 14, minHeight: 80, resize: "vertical" },
     btnSave: { marginTop: 20, width: "100%", padding: 12, background: "#fff", color: "#000", fontWeight: 900, border: "none", borderRadius: 10, cursor: "pointer" }
   };
 
   const handleSave = () => {
+    // Validar mínimo
+    if (!form.nombre.trim()) return alert("El nombre es obligatorio");
     onSave(mueble.id, form);
     onClose();
   };
@@ -66,8 +71,30 @@ function MuebleModal({ mueble, onClose, isEditMode, onSave }) {
       <div style={S_Modal.card} onClick={e => e.stopPropagation()}>
         <button style={S_Modal.closeBtn} onClick={onClose}>&times;</button>
         
-        <h2 style={S_Modal.title}>{mueble.nombre}</h2>
-        <div style={S_Modal.sector}>{mueble.sector}</div>
+        {/* CABECERA EDITABLE */}
+        {isEditMode ? (
+          <div style={{ marginBottom: 20, borderBottom: "1px solid #333", paddingBottom: 15 }}>
+             <label style={S_Modal.label}>Nombre del Mueble</label>
+             <input 
+               style={S_Modal.inputTitle} 
+               value={form.nombre} 
+               onChange={e => setForm({...form, nombre: e.target.value})} 
+               placeholder="Ej: Bajo Mesada"
+             />
+             <label style={S_Modal.label}>Sector (Cocina, Baño, etc)</label>
+             <input 
+               style={S_Modal.input} 
+               value={form.sector} 
+               onChange={e => setForm({...form, sector: e.target.value})} 
+               placeholder="Ej: Cocina"
+             />
+          </div>
+        ) : (
+          <>
+            <h2 style={S_Modal.title}>{mueble.nombre}</h2>
+            <div style={S_Modal.sector}>{mueble.sector}</div>
+          </>
+        )}
 
         {/* AREA DE IMAGEN */}
         <div style={S_Modal.imageBox}>
@@ -78,7 +105,7 @@ function MuebleModal({ mueble, onClose, isEditMode, onSave }) {
           )}
         </div>
 
-        {/* SI ESTAMOS EDITANDO (SOLO ADMIN PUEDE ENTRAR A ESTE MODO) */}
+        {/* FORMULARIO */}
         {isEditMode ? (
           <div style={{marginTop: 20}}>
             <label style={S_Modal.label}>URL de Imagen (Click derecho en foto -> Copiar dirección)</label>
@@ -98,7 +125,7 @@ function MuebleModal({ mueble, onClose, isEditMode, onSave }) {
             <label style={S_Modal.label}>Descripción / Notas de Armado</label>
             <textarea style={S_Modal.textArea} value={form.descripcion} onChange={e => setForm({...form, descripcion: e.target.value})} />
 
-            <button style={S_Modal.btnSave} onClick={handleSave}>GUARDAR FICHA TÉCNICA</button>
+            <button style={S_Modal.btnSave} onClick={handleSave}>GUARDAR CAMBIOS</button>
           </div>
         ) : (
           /* MODO LECTURA */
@@ -213,7 +240,6 @@ export default function MueblesScreen({ profile, signOut }) {
       material: row.material,
       imagen_url: row.imagen_url
     });
-    // Si es admin, puede que quiera editar. Por defecto abre en lectura, pero ponemos un boton.
     setEditModeModal(false); 
     setModalOpen(true);
   }
@@ -224,7 +250,7 @@ export default function MueblesScreen({ profile, signOut }) {
     const { error } = await supabase.from("prod_muebles").update(newValues).eq("id", muebleId);
     if (error) return setErr("Error guardando ficha: " + error.message);
     
-    setMsg("✅ Ficha técnica actualizada");
+    setMsg("✅ Ficha y nombre actualizados");
     setTimeout(() => setMsg(""), 3000);
     cargarChecklist(unidadId); // Recargar para ver cambios
   }
