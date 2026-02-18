@@ -1,5 +1,4 @@
 import { useEffect, useMemo, useState } from "react";
-import { Link } from "react-router-dom";
 import { supabase } from "../supabaseClient";
 import Sidebar from "../components/Sidebar";
 
@@ -31,12 +30,13 @@ function getStatusStyle(estado) {
   };
 }
 
-// --- MODAL: FICHA TÉCNICA + EDICIÓN ---
-function MuebleModal({ mueble, onClose, isEditMode, onSave }) {
+// --- MODAL (FICHA TÉCNICA) ---
+function MuebleModal({ mueble, onClose, onSave, onDelete, isAdmin }) {
+  const [isEditMode, setIsEditMode] = useState(false);
+  
   const [form, setForm] = useState({
     nombre: mueble.nombre || "",
     sector: mueble.sector || "",
-    color: mueble.color || "", // NUEVO CAMPO
     descripcion: mueble.descripcion || "",
     medidas: mueble.medidas || "",
     material: mueble.material || "",
@@ -47,7 +47,11 @@ function MuebleModal({ mueble, onClose, isEditMode, onSave }) {
     overlay: { position: "fixed", inset: 0, background: "rgba(0,0,0,0.85)", backdropFilter: "blur(5px)", display: "flex", justifyContent: "center", alignItems: "center", zIndex: 999 },
     card: { background: "#111", border: "1px solid #333", borderRadius: 16, width: "min(600px, 90vw)", padding: 24, maxHeight: "90vh", overflowY: "auto", position: "relative" },
     closeBtn: { position: "absolute", top: 16, right: 16, background: "transparent", border: "none", color: "#fff", fontSize: 24, cursor: "pointer" },
+    
+    headerRow: { display: "flex", alignItems: "center", gap: 10, paddingRight: 30 },
     title: { margin: 0, color: "#fff", fontSize: 22, fontFamily: "Montserrat, sans-serif" },
+    editBtn: { background: "#333", border: "none", borderRadius: "50%", width: 32, height: 32, cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 16 },
+    
     sector: { color: getSectorColor(mueble.sector), fontSize: 13, fontWeight: 900, textTransform: "uppercase", marginTop: 4, letterSpacing: 1 },
     imageBox: { width: "100%", height: 250, background: "#000", border: "1px dashed #333", borderRadius: 12, marginTop: 20, display: "flex", alignItems: "center", justifyContent: "center", overflow: "hidden" },
     img: { width: "100%", height: "100%", objectFit: "contain" },
@@ -56,13 +60,21 @@ function MuebleModal({ mueble, onClose, isEditMode, onSave }) {
     input: { background: "#222", border: "1px solid #444", color: "#fff", padding: "10px", borderRadius: 8, width: "100%", fontSize: 14 },
     inputTitle: { background: "#222", border: "1px solid #444", color: "#fff", padding: "10px", borderRadius: 8, width: "100%", fontSize: 18, fontWeight: 900, marginBottom: 8 },
     textArea: { background: "#222", border: "1px solid #444", color: "#fff", padding: "10px", borderRadius: 8, width: "100%", fontSize: 14, minHeight: 80, resize: "vertical" },
-    btnSave: { marginTop: 20, width: "100%", padding: 12, background: "#fff", color: "#000", fontWeight: 900, border: "none", borderRadius: 10, cursor: "pointer" }
+    btnSave: { marginTop: 20, width: "100%", padding: 12, background: "#fff", color: "#000", fontWeight: 900, border: "none", borderRadius: 10, cursor: "pointer" },
+    btnDelete: { marginTop: 10, width: "100%", padding: 12, background: "rgba(255, 69, 58, 0.1)", color: "#ff453a", fontWeight: 900, border: "1px solid #ff453a", borderRadius: 10, cursor: "pointer" }
   };
 
   const handleSave = () => {
     if (!form.nombre.trim()) return alert("El nombre es obligatorio");
     onSave(mueble.id, form);
-    onClose();
+    setIsEditMode(false);
+  };
+  
+  const handleDelete = () => {
+    if (window.confirm("⚠️ ¿Estás seguro de borrar este mueble DEL CATÁLOGO?\n\nSe borrará de TODOS los barcos.")) {
+       onDelete(mueble.id);
+       onClose();
+    }
   };
 
   return (
@@ -70,56 +82,55 @@ function MuebleModal({ mueble, onClose, isEditMode, onSave }) {
       <div style={S_Modal.card} onClick={e => e.stopPropagation()}>
         <button style={S_Modal.closeBtn} onClick={onClose}>&times;</button>
         
+        <div style={S_Modal.headerRow}>
+           {!isEditMode && <h2 style={S_Modal.title}>{form.nombre}</h2>}
+           {isAdmin && !isEditMode && (
+             <button style={S_Modal.editBtn} onClick={() => setIsEditMode(true)} title="Editar Ficha">✏️</button>
+           )}
+        </div>
+
+        {!isEditMode && <div style={S_Modal.sector}>{form.sector}</div>}
+
         {isEditMode ? (
-          <div style={{ marginBottom: 20, borderBottom: "1px solid #333", paddingBottom: 15 }}>
-             <label style={S_Modal.label}>Nombre</label>
-             <input style={S_Modal.inputTitle} value={form.nombre} onChange={e => setForm({...form, nombre: e.target.value})} placeholder="Ej: Bajo Mesada" />
+          <div style={{ marginTop: 20 }}>
+             <label style={S_Modal.label}>Nombre del Mueble</label>
+             <input style={S_Modal.inputTitle} value={form.nombre} onChange={e => setForm({...form, nombre: e.target.value})} />
+             <label style={S_Modal.label}>Sector</label>
+             <input style={S_Modal.input} value={form.sector} onChange={e => setForm({...form, sector: e.target.value})} />
+             
+             <label style={S_Modal.label}>URL Imagen</label>
+             <input style={S_Modal.input} value={form.imagen_url} onChange={e => setForm({...form, imagen_url: e.target.value})} />
+
              <div style={{display:"grid", gridTemplateColumns:"1fr 1fr", gap:10}}>
-                <div>
-                   <label style={S_Modal.label}>Sector</label>
-                   <input style={S_Modal.input} value={form.sector} onChange={e => setForm({...form, sector: e.target.value})} placeholder="Ej: Cocina" />
-                </div>
-                <div>
-                   <label style={S_Modal.label}>Color / Acabado</label>
-                   <input style={S_Modal.input} value={form.color} onChange={e => setForm({...form, color: e.target.value})} placeholder="Ej: Roble Claro" />
-                </div>
-             </div>
+              <div><label style={S_Modal.label}>Medidas</label><input style={S_Modal.input} value={form.medidas} onChange={e => setForm({...form, medidas: e.target.value})} /></div>
+              <div><label style={S_Modal.label}>Material</label><input style={S_Modal.input} value={form.material} onChange={e => setForm({...form, material: e.target.value})} /></div>
+            </div>
+
+            <label style={S_Modal.label}>Descripción</label>
+            <textarea style={S_Modal.textArea} value={form.descripcion} onChange={e => setForm({...form, descripcion: e.target.value})} />
+
+            <button style={S_Modal.btnSave} onClick={handleSave}>GUARDAR CAMBIOS</button>
+            <button style={S_Modal.btnDelete} onClick={handleDelete}>ELIMINAR DEL SISTEMA</button>
+            <button style={{...S_Modal.btnDelete, background:"transparent", border:"none", marginTop:0, color:"#888"}} onClick={() => setIsEditMode(false)}>Cancelar</button>
           </div>
         ) : (
           <>
-            <h2 style={S_Modal.title}>{mueble.nombre}</h2>
-            <div style={S_Modal.sector}>{mueble.sector} {mueble.color ? `• ${mueble.color}` : ""}</div>
+            <div style={S_Modal.imageBox}>
+              {form.imagen_url ? (
+                <img src={form.imagen_url} alt="Plano" style={S_Modal.img} />
+              ) : (
+                <span style={{color:"#444"}}>Sin imagen</span>
+              )}
+            </div>
+            
+            <div style={{marginTop: 20}}>
+              <div style={{display:"grid", gridTemplateColumns:"1fr 1fr", gap:20, marginBottom: 15}}>
+                <div><span style={S_Modal.label}>MEDIDAS</span><div style={S_Modal.textDisplay}>{form.medidas || "—"}</div></div>
+                <div><span style={S_Modal.label}>MATERIAL</span><div style={S_Modal.textDisplay}>{form.material || "—"}</div></div>
+              </div>
+              <div><span style={S_Modal.label}>DESCRIPCIÓN</span><div style={S_Modal.textDisplay}>{form.descripcion || "Sin descripción."}</div></div>
+            </div>
           </>
-        )}
-
-        <div style={S_Modal.imageBox}>
-          {form.imagen_url ? (
-            <img src={form.imagen_url} alt="Plano" style={S_Modal.img} />
-          ) : (
-            <span style={{color:"#444"}}>Sin imagen</span>
-          )}
-        </div>
-
-        {isEditMode ? (
-          <div style={{marginTop: 20}}>
-            <label style={S_Modal.label}>URL Imagen</label>
-            <input style={S_Modal.input} value={form.imagen_url} onChange={e => setForm({...form, imagen_url: e.target.value})} />
-            <div style={{display:"grid", gridTemplateColumns:"1fr 1fr", gap:10}}>
-              <div><label style={S_Modal.label}>Medidas</label><input style={S_Modal.input} value={form.medidas} onChange={e => setForm({...form, medidas: e.target.value})} /></div>
-              <div><label style={S_Modal.label}>Material Base</label><input style={S_Modal.input} value={form.material} onChange={e => setForm({...form, material: e.target.value})} /></div>
-            </div>
-            <label style={S_Modal.label}>Descripción</label>
-            <textarea style={S_Modal.textArea} value={form.descripcion} onChange={e => setForm({...form, descripcion: e.target.value})} />
-            <button style={S_Modal.btnSave} onClick={handleSave}>GUARDAR CAMBIOS</button>
-          </div>
-        ) : (
-          <div style={{marginTop: 20}}>
-            <div style={{display:"grid", gridTemplateColumns:"1fr 1fr", gap:20, marginBottom: 15}}>
-              <div><span style={S_Modal.label}>MEDIDAS</span><div style={S_Modal.textDisplay}>{form.medidas || "—"}</div></div>
-              <div><span style={S_Modal.label}>MATERIAL</span><div style={S_Modal.textDisplay}>{form.material || "—"}</div></div>
-            </div>
-            <div><span style={S_Modal.label}>DESCRIPCIÓN</span><div style={S_Modal.textDisplay}>{form.descripcion || "Sin descripción."}</div></div>
-          </div>
         )}
       </div>
     </div>
@@ -130,8 +141,6 @@ export default function MueblesScreen({ profile, signOut }) {
   const isAdmin = !!profile?.is_admin;
   const [err, setErr] = useState("");
   const [msg, setMsg] = useState("");
-  
-  // MODO CONFIGURACIÓN (Restaurado)
   const [modoConfig, setModoConfig] = useState(false);
 
   // DATA
@@ -139,6 +148,10 @@ export default function MueblesScreen({ profile, signOut }) {
   const [lineaId, setLineaId] = useState("");
   const [unidades, setUnidades] = useState([]);
   const [unidadId, setUnidadId] = useState("");
+  
+  // DATOS DE LA UNIDAD SELECCIONADA (Color, etc)
+  const [unidadData, setUnidadData] = useState(null);
+
   const [rows, setRows] = useState([]); 
 
   // CREACIÓN
@@ -149,7 +162,6 @@ export default function MueblesScreen({ profile, signOut }) {
   // MODAL
   const [modalOpen, setModalOpen] = useState(false);
   const [selectedMuebleData, setSelectedMuebleData] = useState(null);
-  const [editModeModal, setEditModeModal] = useState(false);
 
   // --- CARGAS ---
   async function cargarLineas() {
@@ -160,10 +172,21 @@ export default function MueblesScreen({ profile, signOut }) {
 
   async function cargarUnidades(lid) {
     if (!lid) { setUnidades([]); return; }
-    const { data } = await supabase.from("prod_unidades").select("id,codigo").eq("linea_id", lid).eq("activa", true).order("codigo");
+    // AHORA TRAEMOS EL COLOR TAMBIÉN
+    const { data } = await supabase.from("prod_unidades").select("id,codigo,color").eq("linea_id", lid).eq("activa", true).order("codigo");
     setUnidades(data ?? []);
     if (!unidadId && data?.length) setUnidadId(data[0].id);
   }
+
+  // EFECTO PARA ACTUALIZAR DATOS DE LA UNIDAD ACTUAL
+  useEffect(() => {
+    if (unidadId && unidades.length) {
+      const u = unidades.find(x => x.id === unidadId);
+      setUnidadData(u || null);
+    } else {
+      setUnidadData(null);
+    }
+  }, [unidadId, unidades]);
 
   async function cargarChecklist(uid) {
     if (!uid) { setRows([]); return; }
@@ -171,21 +194,19 @@ export default function MueblesScreen({ profile, signOut }) {
       .from("prod_unidad_checklist")
       .select(`
         id, estado, obs, 
-        prod_muebles ( id, nombre, sector, color, descripcion, medidas, material, imagen_url )
+        prod_muebles ( id, nombre, sector, descripcion, medidas, material, imagen_url )
       `)
       .eq("unidad_id", uid);
 
     if (error) return setErr(error.message);
 
     const mapped = (data ?? []).map((x) => ({
-      id: x.id, // ID del checklist
+      id: x.id,
       estado: x.estado,
       obs: x.obs ?? "",
-      // Datos del Catálogo
       mueble_id: x.prod_muebles?.id,
       nombre: x.prod_muebles?.nombre ?? "Desconocido",
       sector: x.prod_muebles?.sector ?? "General",
-      color: x.prod_muebles?.color, // NUEVO
       descripcion: x.prod_muebles?.descripcion,
       medidas: x.prod_muebles?.medidas,
       material: x.prod_muebles?.material,
@@ -196,82 +217,70 @@ export default function MueblesScreen({ profile, signOut }) {
     setRows(mapped);
   }
 
-  // --- EFECTOS ---
   useEffect(() => { if (isAdmin) cargarLineas(); }, [isAdmin]);
   useEffect(() => { if (lineaId) { cargarUnidades(lineaId); setUnidadId(""); } }, [lineaId]);
   useEffect(() => { if (unidadId) cargarChecklist(unidadId); else setRows([]); }, [unidadId]);
 
-  // --- ACCIONES DE GESTIÓN (Restauradas) ---
-  
+  // --- ACCIONES GESTION ---
   async function crearLinea() {
     if (!newLinea.trim()) return;
-    const { data, error } = await supabase.from("prod_lineas").insert({ nombre: newLinea.trim(), activa: true }).select().single();
+    const { error } = await supabase.from("prod_lineas").insert({ nombre: newLinea.trim(), activa: true });
     if (error) return setErr(error.message);
-    setNewLinea("");
-    cargarLineas();
+    setNewLinea(""); cargarLineas();
   }
-
   async function borrarLinea() {
-    if (!lineaId) return;
-    if (!confirm("⚠️ ¿BORRAR LÍNEA ENTERA? Se borrarán todos los barcos asociados.")) return;
+    if (!lineaId || !confirm("¿Borrar línea?")) return;
     await supabase.from("prod_lineas").delete().eq("id", lineaId);
-    setLineaId("");
-    cargarLineas();
+    setLineaId(""); cargarLineas();
   }
-
   async function crearUnidad() {
     if (!lineaId || !newUnidad.trim()) return;
-    // 1. Crear unidad
     const { data: u, error } = await supabase.from("prod_unidades").insert({ linea_id: lineaId, codigo: newUnidad.trim(), activa: true }).select().single();
     if (error) return setErr(error.message);
     
-    // 2. Copiar plantilla de muebles a la unidad (Checklist inicial)
     const { data: plantilla } = await supabase.from("prod_linea_muebles").select("mueble_id").eq("linea_id", lineaId);
     if (plantilla?.length) {
       const inserts = plantilla.map(p => ({ unidad_id: u.id, mueble_id: p.mueble_id, estado: "No enviado" }));
       await supabase.from("prod_unidad_checklist").insert(inserts);
     }
-
-    setNewUnidad("");
-    cargarUnidades(lineaId);
+    setNewUnidad(""); cargarUnidades(lineaId);
   }
-
   async function borrarUnidad() {
-    if (!unidadId) return;
-    if (!confirm("¿Borrar barco y su checklist?")) return;
+    if (!unidadId || !confirm("¿Borrar barco?")) return;
     await supabase.from("prod_unidades").delete().eq("id", unidadId);
-    setUnidadId("");
-    cargarUnidades(lineaId);
+    setUnidadId(""); cargarUnidades(lineaId);
   }
 
   async function agregarMueble(e) {
     e.preventDefault();
     if (!lineaId || !newMueble.nombre) return;
-    
-    // 1. Crear mueble en catálogo global
-    const { data: m, error: e1 } = await supabase.from("prod_muebles")
-      .insert({ nombre: newMueble.nombre, sector: newMueble.sector }).select().single();
+    const { data: m, error: e1 } = await supabase.from("prod_muebles").insert({ nombre: newMueble.nombre, sector: newMueble.sector }).select().single();
     if (e1) return setErr(e1.message);
-
-    // 2. Vincular a la Línea (Plantilla)
     const { error: e2 } = await supabase.from("prod_linea_muebles").insert({ linea_id: lineaId, mueble_id: m.id });
     if (e2) return setErr(e2.message);
-
-    // 3. Si hay un barco seleccionado, agregarlo también ahí para verlo ya
     if (unidadId) {
       await supabase.from("prod_unidad_checklist").insert({ unidad_id: unidadId, mueble_id: m.id, estado: "No enviado" });
       cargarChecklist(unidadId);
     }
-    
     setNewMueble({ nombre: "", sector: "" });
-    setMsg("✅ Mueble agregado");
-    setTimeout(() => setMsg(""), 2000);
+    setMsg("✅ Mueble agregado"); setTimeout(() => setMsg(""), 2000);
   }
 
   async function borrarMueble(row) {
-    if (!confirm("¿Quitar mueble de este barco? (No se borra del catálogo)")) return;
+    if (!confirm("¿Quitar mueble de este barco?")) return;
     await supabase.from("prod_unidad_checklist").delete().eq("id", row.id);
     cargarChecklist(unidadId);
+  }
+
+  // --- ACCIONES DE COLOR DE LA UNIDAD ---
+  async function updateUnidadColor(newColor) {
+    if (!unidadId) return;
+    const { error } = await supabase.from("prod_unidades").update({ color: newColor }).eq("id", unidadId);
+    if (error) return setErr("Error color: " + error.message);
+    // Actualizamos localmente para que se vea rápido
+    setUnidadData(prev => ({ ...prev, color: newColor }));
+    // También actualizamos la lista global para que persista al cambiar de barco
+    setUnidades(prev => prev.map(u => u.id === unidadId ? { ...u, color: newColor } : u));
   }
 
   // --- ACCIONES OPERATIVAS ---
@@ -282,24 +291,25 @@ export default function MueblesScreen({ profile, signOut }) {
   async function saveObs(rowId, obs) {
     await supabase.from("prod_unidad_checklist").update({ obs }).eq("id", rowId);
   }
-
-  // MODAL
   function openMuebleDetail(row) {
     setSelectedMuebleData({
       id: row.mueble_id,
       nombre: row.nombre,
       sector: row.sector,
-      color: row.color,
       descripcion: row.descripcion,
       medidas: row.medidas,
       material: row.material,
       imagen_url: row.imagen_url
     });
-    setEditModeModal(false); 
     setModalOpen(true);
   }
   async function saveMuebleCatalog(muebleId, newValues) {
     const { error } = await supabase.from("prod_muebles").update(newValues).eq("id", muebleId);
+    if (error) return setErr(error.message);
+    cargarChecklist(unidadId);
+  }
+  async function deleteMuebleCatalog(muebleId) {
+    const { error } = await supabase.from("prod_muebles").delete().eq("id", muebleId);
     if (error) return setErr(error.message);
     cargarChecklist(unidadId);
   }
@@ -332,7 +342,12 @@ export default function MueblesScreen({ profile, signOut }) {
     iconBtn: { background: "transparent", border: "none", cursor: "pointer", fontSize: 18, opacity: 0.7, padding:0, display:"flex", alignItems:"center" },
     tabs: { display: "flex", gap: 8, flexWrap: "wrap", marginBottom: 10 },
     tab: (on) => ({ padding: "6px 12px", borderRadius: 999, border: "1px solid #333", background: on ? "#eee" : "transparent", color: on ? "#000" : "#888", cursor: "pointer", fontWeight: 700, fontSize: 12 }),
-    configPanel: { background: "#1a1a1a", padding: 15, borderRadius: 12, marginBottom: 20, border: "1px dashed #444" }
+    configPanel: { background: "#1a1a1a", padding: 15, borderRadius: 12, marginBottom: 20, border: "1px dashed #444" },
+    
+    // Header especial de Unidad
+    unitHeader: { background: "linear-gradient(90deg, #111 0%, #070707 100%)", border: "1px solid #333", borderRadius: 12, padding: "16px 20px", marginBottom: 20, display: "flex", alignItems: "center", gap: 15 },
+    unitTitle: { fontSize: 20, fontWeight: 900, color: "#fff", margin: 0, letterSpacing: 1 },
+    unitColorInput: { background: "transparent", border: "none", borderBottom: "1px dashed #666", color: "#ffd60a", fontSize: 20, fontWeight: 900, width: 250, outline: "none" }
   };
 
   if (!isAdmin) return <div style={S.page}><div style={{ padding: 20 }}>Acceso restringido</div></div>;
@@ -345,19 +360,15 @@ export default function MueblesScreen({ profile, signOut }) {
           {err && <div style={{...S.card, borderColor: "#5a1d1d", color: "#ffbdbd"}}>{err}</div>}
           {msg && <div style={{...S.card, borderColor: "#1d5a2b", color: "#a6ffbf"}}>{msg}</div>}
 
-          {/* CABECERA Y MODOS */}
+          {/* CABECERA */}
           <div style={S.card}>
             <div style={{display:"flex", justifyContent:"space-between", alignItems:"center"}}>
                <h2 style={{color:"#fff", margin:0}}>Producción Muebles</h2>
-               <button 
-                 style={{...S.btn, background: modoConfig ? "#ffd60a" : "#111", color: modoConfig ? "#000" : "#fff"}} 
-                 onClick={() => setModoConfig(!modoConfig)}
-               >
-                 {modoConfig ? "⚙️ MODO CONFIGURACIÓN (ON)" : "🔧 Configurar"}
+               <button style={{...S.btn, background: modoConfig ? "#ffd60a" : "#111", color: modoConfig ? "#000" : "#fff"}} onClick={() => setModoConfig(!modoConfig)}>
+                 {modoConfig ? "⚙️ CONFIG (ON)" : "🔧 Configurar"}
                </button>
             </div>
             
-            {/* PANEL DE CONFIGURACIÓN (SOLO VISIBLE SI SE ACTIVA) */}
             {modoConfig && (
               <div style={{marginTop: 20}}>
                 <div style={S.configPanel}>
@@ -365,59 +376,68 @@ export default function MueblesScreen({ profile, signOut }) {
                   <div style={{display:"flex", gap:10}}>
                     <input style={{...S.input, background:"#000", border:"1px solid #333", borderRadius:6, padding:8}} placeholder="Nueva Línea (ej: K60)" value={newLinea} onChange={e=>setNewLinea(e.target.value)} />
                     <button style={S.btn} onClick={crearLinea}>+ Crear</button>
-                    {lineaId && <button style={S.btnDanger} onClick={borrarLinea}>Borrar Línea {lineas.find(l=>l.id===lineaId)?.nombre}</button>}
+                    {lineaId && <button style={S.btnDanger} onClick={borrarLinea}>Borrar Línea</button>}
                   </div>
                 </div>
-
                 {lineaId && (
                   <div style={S.configPanel}>
-                    <h4 style={{marginTop:0, color:"#fff"}}>2. Gestionar Barcos (en {lineas.find(l=>l.id===lineaId)?.nombre})</h4>
+                    <h4 style={{marginTop:0, color:"#fff"}}>2. Gestionar Barcos</h4>
                     <div style={{display:"flex", gap:10}}>
                       <input style={{...S.input, background:"#000", border:"1px solid #333", borderRadius:6, padding:8}} placeholder="Nuevo Barco (ej: 60-01)" value={newUnidad} onChange={e=>setNewUnidad(e.target.value)} />
                       <button style={S.btn} onClick={crearUnidad}>+ Crear</button>
-                      {unidadId && <button style={S.btnDanger} onClick={borrarUnidad}>Borrar Barco {unidades.find(u=>u.id===unidadId)?.codigo}</button>}
+                      {unidadId && <button style={S.btnDanger} onClick={borrarUnidad}>Borrar Barco</button>}
                     </div>
                   </div>
                 )}
-
                 {lineaId && (
                   <div style={S.configPanel}>
-                    <h4 style={{marginTop:0, color:"#fff"}}>3. Agregar Mueble a la Plantilla</h4>
+                    <h4 style={{marginTop:0, color:"#fff"}}>3. Mueble a Plantilla</h4>
                     <form onSubmit={agregarMueble} style={{display:"flex", gap:10}}>
-                      <input style={{...S.input, background:"#000", border:"1px solid #333", borderRadius:6, padding:8}} placeholder="Nombre Mueble" value={newMueble.nombre} onChange={e=>setNewMueble({...newMueble, nombre:e.target.value})} />
+                      <input style={{...S.input, background:"#000", border:"1px solid #333", borderRadius:6, padding:8}} placeholder="Nombre" value={newMueble.nombre} onChange={e=>setNewMueble({...newMueble, nombre:e.target.value})} />
                       <input style={{...S.input, background:"#000", border:"1px solid #333", borderRadius:6, padding:8}} placeholder="Sector" value={newMueble.sector} onChange={e=>setNewMueble({...newMueble, sector:e.target.value})} />
                       <button style={S.btn} type="submit">+ Agregar</button>
                     </form>
-                    <div style={{fontSize:12, opacity:0.6, marginTop:5}}>
-                      Tip: Al agregar un mueble acá, se agrega al catálogo y al barco seleccionado.
-                    </div>
                   </div>
                 )}
               </div>
             )}
 
-            {/* SELECTORES NORMALES */}
-            <div style={{marginTop: 15, display:"flex", gap:20, alignItems:"flex-start", opacity: modoConfig ? 0.5 : 1}}>
+            <div style={{marginTop: 15, display:"flex", gap:20, opacity: modoConfig ? 0.5 : 1}}>
               <div style={{flex:1}}>
-                <div style={{fontSize:11, opacity:0.5, marginBottom:6}}>LÍNEA</div>
                 <div style={S.tabs}>
-                  {lineas.map(l => (
-                    <button key={l.id} style={S.tab(l.id === lineaId)} onClick={() => setLineaId(l.id)}>{l.nombre}</button>
-                  ))}
+                  {lineas.map(l => <button key={l.id} style={S.tab(l.id === lineaId)} onClick={() => setLineaId(l.id)}>{l.nombre}</button>)}
                 </div>
               </div>
               <div style={{flex:1}}>
-                 <div style={{fontSize:11, opacity:0.5, marginBottom:6}}>BARCO</div>
                  <div style={{display:"flex", gap:8, flexWrap:"wrap"}}>
-                    {unidades.map(u => (
-                      <button key={u.id} style={S.tab(u.id === unidadId)} onClick={() => setUnidadId(u.id)}>{u.codigo}</button>
-                    ))}
+                    {unidades.map(u => <button key={u.id} style={S.tab(u.id === unidadId)} onClick={() => setUnidadId(u.id)}>{u.codigo}</button>)}
                  </div>
               </div>
             </div>
           </div>
 
-          {/* LISTA PRINCIPAL (CHECKLIST) */}
+          {/* HEADER DE UNIDAD (NUEVO: AQUÍ VA EL COLOR GLOBAL) */}
+          {unidadData && (
+            <div style={S.unitHeader}>
+               <div style={{fontSize: 24}}>⛵</div>
+               <div>
+                  <div style={{fontSize: 12, opacity: 0.6, letterSpacing: 1.5}}>FICHA TÉCNICA</div>
+                  <div style={S.unitTitle}>BARCO {unidadData.codigo}</div>
+               </div>
+               <div style={{height: 40, width: 1, background: "#333", margin: "0 20px"}}></div>
+               <div>
+                  <div style={{fontSize: 12, opacity: 0.6, letterSpacing: 1.5}}>ACABADO / CHAPA</div>
+                  <input 
+                    style={S.unitColorInput} 
+                    value={unidadData.color || ""} 
+                    placeholder="Definir Color..." 
+                    onChange={(e) => updateUnidadColor(e.target.value)}
+                  />
+               </div>
+            </div>
+          )}
+
+          {/* LISTA */}
           {unidadId && (
              <div style={S.card}>
                <div style={{display:"flex", justifyContent:"space-between", marginBottom:10}}>
@@ -429,29 +449,23 @@ export default function MueblesScreen({ profile, signOut }) {
                    <div style={S.sectorHeader(sector)}>{sector}</div>
                    {items.map(r => (
                      <div key={r.id} style={S.itemRow}>
-                       
                        <button style={S.iconBtn} onClick={() => openMuebleDetail(r)} title="Ficha Técnica">
                           {r.imagen_url ? "📸" : "📄"}
                        </button>
-
                        <div style={{color: "#fff", fontWeight: 500, cursor: "pointer"}} onClick={() => openMuebleDetail(r)}>
                           {r.nombre}
-                          <div style={{fontSize:10, opacity:0.5}}>
-                             {r.color && <span style={{color:"#ffd60a", marginRight:6}}>● {r.color}</span>}
-                             {r.medidas}
-                          </div>
+                          <div style={{fontSize:10, opacity:0.5}}>{r.medidas}</div>
                        </div>
-
+                       
+                       {/* Selector de Estado con FIX VISUAL */}
                        <select style={getStatusStyle(r.estado)} value={r.estado} onChange={(e) => setEstado(r.id, e.target.value)}>
-                          {ESTADOS.map(x => <option key={x} value={x} style={{color:"#ffffff"}}>{x}</option>)}
+                          {ESTADOS.map(x => (
+                            <option key={x} value={x} style={{background: "#111", color: "#fff"}}>{x}</option>
+                          ))}
                        </select>
 
                        <input style={S.input} value={r.obs} placeholder="Nota..." onChange={(e) => setRows(prev => prev.map(p => p.id === r.id ? { ...p, obs: e.target.value } : p))} onBlur={() => saveObs(r.id, r.obs)} />
-                       
-                       {/* BOTON DE BORRAR (SOLO EN MODO CONFIG) */}
-                       {modoConfig && (
-                         <button style={{...S.iconBtn, color:"#ff453a", opacity:1}} onClick={() => borrarMueble(r)} title="Borrar del barco">🗑️</button>
-                       )}
+                       {modoConfig && <button style={{...S.iconBtn, color:"#ff453a", opacity:1}} onClick={() => borrarMueble(r)}>🗑️</button>}
                      </div>
                    ))}
                  </div>
@@ -460,25 +474,14 @@ export default function MueblesScreen({ profile, signOut }) {
              </div>
           )}
 
-          {/* MODAL */}
           {modalOpen && selectedMuebleData && (
             <MuebleModal 
                mueble={selectedMuebleData} 
                onClose={() => setModalOpen(false)}
-               isEditMode={editModeModal}
                onSave={saveMuebleCatalog}
+               onDelete={deleteMuebleCatalog}
+               isAdmin={isAdmin}
             />
-          )}
-
-          {modalOpen && isAdmin && (
-             <div style={{position:"fixed", bottom:20, right:20, zIndex:1000}}>
-                <button 
-                  style={{background: editModeModal ? "#ffd60a" : "#333", color: editModeModal ? "#000" : "#fff", border:"none", padding:"10px 20px", borderRadius:20, fontWeight:900, cursor:"pointer", boxShadow:"0 4px 12px rgba(0,0,0,0.5)"}}
-                  onClick={() => setEditModeModal(!editModeModal)}
-                >
-                   {editModeModal ? "Modo Lectura" : "✏️ Editar Ficha"}
-                </button>
-             </div>
           )}
         </main>
       </div>
