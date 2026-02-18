@@ -9,7 +9,7 @@ function num(v) {
 }
 function fmt(ts) {
   if (!ts) return "—";
-  return new Date(ts).toLocaleString();
+  return new Date(ts).toLocaleString("es-AR");
 }
 
 export default function PanolScreen({ profile, signOut }) {

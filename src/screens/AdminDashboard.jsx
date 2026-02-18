@@ -9,8 +9,6 @@ function num(v) {
 }
 
 export default function AdminDashboard({ profile, signOut }) {
-  const username = profile?.username ?? "—";
-
   const [rows, setRows] = useState([]);
   const [error, setError] = useState("");
   const [msg, setMsg] = useState("");

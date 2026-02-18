@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
+import { useLocation } from "react-router-dom";
 import { supabase } from "../supabaseClient";
 import Sidebar from "../components/Sidebar";
 
@@ -20,11 +21,28 @@ function fmtTs(ts) {
 }
 
 export default function LaminacionScreen({ profile, signOut }) {
+  const location = useLocation();
   const role = profile?.role ?? "invitado";
   const isAdmin = !!profile?.is_admin;
   const puedeCargar = isAdmin || role === "admin" || role === "panol";
 
-  const [tab, setTab] = useState("Stock");
+  // Tabs disponibles según rol: pañol solo ve Ingresos y Egresos
+  const esPanol = role === "panol" && !isAdmin;
+  const tabsDisponibles = esPanol
+    ? ["Ingresos", "Egresos"]
+    : ["Stock", "Ingresos", "Egresos", "Movimientos", "Pedidos"];
+
+  function tabFromSearch(search) {
+    const t = new URLSearchParams(search).get("tab");
+    if (tabsDisponibles.includes(t)) return t;
+    return tabsDisponibles[0]; // default: Stock para gestión, Ingresos para pañol
+  }
+  const [tab, setTab] = useState(() => tabFromSearch(location.search));
+
+  // Sincronizar tab cuando el usuario navega desde el Sidebar
+  useEffect(() => {
+    setTab(tabFromSearch(location.search));
+  }, [location.search]);
   const [materiales, setMateriales] = useState([]);
   const [movimientos, setMovimientos] = useState([]);
   const [pedidos, setPedidos] = useState([]);
@@ -270,7 +288,7 @@ export default function LaminacionScreen({ profile, signOut }) {
                 <h1 style={{ fontFamily: "Montserrat, system-ui, Arial", fontSize: 20, margin: 0, color: "#fff" }}>
                   Laminación
                 </h1>
-                <div style={S.small}>Control de stock · Ingresos · Egresos · Pedidos</div>
+                <div style={S.small}>{esPanol ? "Ingresos · Egresos" : "Control de stock · Ingresos · Egresos · Pedidos"}</div>
               </div>
               <div style={{ display: "flex", gap: 8 }}>
                 {isAdmin && (
@@ -324,7 +342,7 @@ export default function LaminacionScreen({ profile, signOut }) {
               <input style={S.input} placeholder="Buscar material, proveedor, persona, obra, destino..."
                 value={q} onChange={e => setQ(e.target.value)} />
               <div style={{ display: "flex", gap: 6, marginTop: 12 }}>
-                {TABS.map(t => (
+                {tabsDisponibles.map(t => (
                   <button key={t} style={S.tab(tab === t)} onClick={() => { setTab(t); setQ(""); }}>
                     {t}
                     {t === "Pedidos" && pedidos.filter(p => p.estado === "pendiente").length > 0 && (
@@ -587,6 +605,67 @@ export default function LaminacionScreen({ profile, signOut }) {
                   </table>
                 </div>
               </>
+            )}
+
+            {/* ===== TAB MOVIMIENTOS ===== */}
+            {tab === "Movimientos" && (
+              <div style={S.card}>
+                <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 12 }}>
+                  <h3 style={{ margin: 0, color: "#fff" }}>
+                    Movimientos
+                    <span style={{ ...S.small, marginLeft: 8 }}>({movimientos.length} registros)</span>
+                  </h3>
+                </div>
+                <div style={{ overflowX: "auto" }}>
+                  <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 13 }}>
+                    <thead>
+                      <tr style={{ borderBottom: "1px solid #2a2a2a" }}>
+                        {["Fecha","Tipo","Material","Cantidad","Proveedor / Destino","Persona","Obra","Obs"].map(h => (
+                          <th key={h} style={{ ...S.label, padding: "6px 10px", textAlign: "left", fontWeight: 700 }}>{h}</th>
+                        ))}
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {movimientos
+                        .filter(m => {
+                          const qq = q.toLowerCase();
+                          if (!qq) return true;
+                          return [
+                            m.laminacion_materiales?.nombre,
+                            m.proveedor, m.destino, m.nombre_persona, m.obra, m.observaciones
+                          ].some(v => (v ?? "").toLowerCase().includes(qq));
+                        })
+                        .map(m => {
+                          const esIngreso = m.tipo === "ingreso";
+                          return (
+                            <tr key={m.id} style={{ borderBottom: "1px solid #1a1a1a" }}>
+                              <td style={{ padding: "8px 10px", opacity: 0.7 }}>{fmtDate(m.fecha || m.created_at)}</td>
+                              <td style={{ padding: "8px 10px" }}>
+                                <span style={{
+                                  padding: "2px 8px", borderRadius: 999, fontSize: 11, fontWeight: 700,
+                                  background: esIngreso ? "rgba(48,209,88,0.12)" : "rgba(255,69,58,0.10)",
+                                  color: esIngreso ? "#30d158" : "#ff453a",
+                                  border: esIngreso ? "1px solid rgba(48,209,88,0.25)" : "1px solid rgba(255,69,58,0.25)",
+                                }}>
+                                  {esIngreso ? "ING" : "EGR"}
+                                </span>
+                              </td>
+                              <td style={{ padding: "8px 10px", color: "#fff", fontWeight: 500 }}>{m.laminacion_materiales?.nombre ?? "—"}</td>
+                              <td style={{ padding: "8px 10px" }}>{m.cantidad} {m.laminacion_materiales?.unidad ?? ""}</td>
+                              <td style={{ padding: "8px 10px", opacity: 0.8 }}>{esIngreso ? (m.proveedor ?? "—") : (m.destino ?? "—")}</td>
+                              <td style={{ padding: "8px 10px", opacity: 0.8 }}>{m.nombre_persona ?? "—"}</td>
+                              <td style={{ padding: "8px 10px", opacity: 0.8 }}>{m.obra ?? "—"}</td>
+                              <td style={{ padding: "8px 10px", opacity: 0.6 }}>{m.observaciones ?? "—"}</td>
+                            </tr>
+                          );
+                        })}
+                    </tbody>
+                  </table>
+                  {movimientos.length === 0 && (
+                    <div style={{ padding: 20, opacity: 0.5, textAlign: "center" }}>Sin movimientos registrados.</div>
+                  )}
+                </div>
+              </div>
             )}
 
             {/* ===== TAB PEDIDOS ===== */}

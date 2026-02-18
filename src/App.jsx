@@ -9,6 +9,7 @@ import PanolScreen from "./screens/PanolScreen";
 import AdminDashboard from "./screens/AdminDashboard";
 import MovimientosScreen from "./screens/MovimientosScreen";
 import LaminacionScreen from "./screens/LaminacionScreen";
+import ObrasLaminacionScreen from "./screens/ObrasLaminacionScreen";
 
 import logoK from "./assets/logo-k.png";
 
@@ -163,9 +164,19 @@ export default function App() {
           </RequireAuth>
         } />
 
+        <Route path="/obras-laminacion" element={
+          <RequireAuth session={session}>
+            <RequireRole profile={profile} allow={["admin", "oficina"]}>
+              <ObrasLaminacionScreen profile={profile} signOut={signOut} />
+            </RequireRole>
+          </RequireAuth>
+        } />
+
         <Route path="/marmoleria" element={
           <RequireAuth session={session}>
-            <MarmoleriaScreen profile={profile} signOut={signOut} />
+            <RequireRole profile={profile} allow={["admin", "oficina"]}>
+              <MarmoleriaScreen profile={profile} signOut={signOut} />
+            </RequireRole>
           </RequireAuth>
         } />
 
