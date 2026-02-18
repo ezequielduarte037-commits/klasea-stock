@@ -149,8 +149,11 @@ export default function MueblesScreen({ profile, signOut }) {
   const [unidades, setUnidades] = useState([]);
   const [unidadId, setUnidadId] = useState("");
   
-  // DATOS DE LA UNIDAD SELECCIONADA (Color, etc)
+  // DATOS DE LA UNIDAD SELECCIONADA
   const [unidadData, setUnidadData] = useState(null);
+  
+  // --- NUEVO: ESTADO TEMPORAL PARA EL COLOR ---
+  const [tempColor, setTempColor] = useState("");
 
   const [rows, setRows] = useState([]); 
 
@@ -172,19 +175,21 @@ export default function MueblesScreen({ profile, signOut }) {
 
   async function cargarUnidades(lid) {
     if (!lid) { setUnidades([]); return; }
-    // AHORA TRAEMOS EL COLOR TAMBIÉN
+    // IMPORTANTE: Asegurate de haber corrido el SQL para agregar la columna 'color'
     const { data } = await supabase.from("prod_unidades").select("id,codigo,color").eq("linea_id", lid).eq("activa", true).order("codigo");
     setUnidades(data ?? []);
     if (!unidadId && data?.length) setUnidadId(data[0].id);
   }
 
-  // EFECTO PARA ACTUALIZAR DATOS DE LA UNIDAD ACTUAL
+  // EFECTO PARA ACTUALIZAR DATOS DE LA UNIDAD ACTUAL Y EL INPUT TEMPORAL
   useEffect(() => {
     if (unidadId && unidades.length) {
       const u = unidades.find(x => x.id === unidadId);
       setUnidadData(u || null);
+      setTempColor(u?.color || ""); // Prellenamos el input con lo que venga de la base
     } else {
       setUnidadData(null);
+      setTempColor("");
     }
   }, [unidadId, unidades]);
 
@@ -272,15 +277,17 @@ export default function MueblesScreen({ profile, signOut }) {
     cargarChecklist(unidadId);
   }
 
-  // --- ACCIONES DE COLOR DE LA UNIDAD ---
-  async function updateUnidadColor(newColor) {
+  // --- ACCION: GUARDAR COLOR (AHORA ES MANUAL) ---
+  async function saveColorToDb() {
     if (!unidadId) return;
-    const { error } = await supabase.from("prod_unidades").update({ color: newColor }).eq("id", unidadId);
+    const { error } = await supabase.from("prod_unidades").update({ color: tempColor }).eq("id", unidadId);
     if (error) return setErr("Error color: " + error.message);
-    // Actualizamos localmente para que se vea rápido
-    setUnidadData(prev => ({ ...prev, color: newColor }));
-    // También actualizamos la lista global para que persista al cambiar de barco
-    setUnidades(prev => prev.map(u => u.id === unidadId ? { ...u, color: newColor } : u));
+    
+    // Actualizamos localmente y mostramos feedback
+    setUnidadData(prev => ({ ...prev, color: tempColor }));
+    setUnidades(prev => prev.map(u => u.id === unidadId ? { ...u, color: tempColor } : u));
+    setMsg("✅ Color guardado");
+    setTimeout(() => setMsg(""), 2000);
   }
 
   // --- ACCIONES OPERATIVAS ---
@@ -337,6 +344,7 @@ export default function MueblesScreen({ profile, signOut }) {
     sectorHeader: (sector) => ({ marginTop: 20, marginBottom: 10, paddingLeft: 10, borderLeft: `4px solid ${getSectorColor(sector)}`, fontWeight: 900, color: "#fff", fontSize: 14, letterSpacing: 1, textTransform: "uppercase" }),
     itemRow: { display: "grid", gridTemplateColumns: "40px 1fr 140px 1fr 30px", gap: 12, alignItems: "center", padding: "12px 0", borderBottom: "1px solid #1a1a1a" },
     btn: { padding: "8px 12px", borderRadius: 10, border: "1px solid #333", background: "#111", color: "#fff", cursor: "pointer", fontWeight: 700 },
+    btnSaveSmall: { padding: "6px 12px", borderRadius: 8, border: "none", background: "#ffd60a", color: "#000", cursor: "pointer", fontWeight: 900, fontSize: 13, marginLeft: 10 },
     btnDanger: { padding: "8px 12px", borderRadius: 10, border: "1px solid #5a1d1d", background: "#2a0b0b", color: "#ffbdbd", cursor: "pointer", fontWeight: 700 },
     input: { background: "transparent", border: "none", borderBottom: "1px solid #333", color: "#ddd", padding: "5px", width: "100%", fontSize: 13, outline: "none" },
     iconBtn: { background: "transparent", border: "none", cursor: "pointer", fontSize: 18, opacity: 0.7, padding:0, display:"flex", alignItems:"center" },
@@ -347,7 +355,7 @@ export default function MueblesScreen({ profile, signOut }) {
     // Header especial de Unidad
     unitHeader: { background: "linear-gradient(90deg, #111 0%, #070707 100%)", border: "1px solid #333", borderRadius: 12, padding: "16px 20px", marginBottom: 20, display: "flex", alignItems: "center", gap: 15 },
     unitTitle: { fontSize: 20, fontWeight: 900, color: "#fff", margin: 0, letterSpacing: 1 },
-    unitColorInput: { background: "transparent", border: "none", borderBottom: "1px dashed #666", color: "#ffd60a", fontSize: 20, fontWeight: 900, width: 250, outline: "none" }
+    unitColorInput: { background: "transparent", border: "none", borderBottom: "1px dashed #666", color: "#ffd60a", fontSize: 20, fontWeight: 900, width: 200, outline: "none" }
   };
 
   if (!isAdmin) return <div style={S.page}><div style={{ padding: 20 }}>Acceso restringido</div></div>;
@@ -416,7 +424,7 @@ export default function MueblesScreen({ profile, signOut }) {
             </div>
           </div>
 
-          {/* HEADER DE UNIDAD (NUEVO: AQUÍ VA EL COLOR GLOBAL) */}
+          {/* HEADER DE UNIDAD (ARREGLADO: INPUT RÁPIDO + BOTÓN GUARDAR) */}
           {unidadData && (
             <div style={S.unitHeader}>
                <div style={{fontSize: 24}}>⛵</div>
@@ -425,14 +433,20 @@ export default function MueblesScreen({ profile, signOut }) {
                   <div style={S.unitTitle}>BARCO {unidadData.codigo}</div>
                </div>
                <div style={{height: 40, width: 1, background: "#333", margin: "0 20px"}}></div>
-               <div>
-                  <div style={{fontSize: 12, opacity: 0.6, letterSpacing: 1.5}}>ACABADO / CHAPA</div>
-                  <input 
-                    style={S.unitColorInput} 
-                    value={unidadData.color || ""} 
-                    placeholder="Definir Color..." 
-                    onChange={(e) => updateUnidadColor(e.target.value)}
-                  />
+               <div style={{display: "flex", alignItems: "center"}}>
+                  <div>
+                    <div style={{fontSize: 12, opacity: 0.6, letterSpacing: 1.5}}>ACABADO / CHAPA</div>
+                    <input 
+                        style={S.unitColorInput} 
+                        value={tempColor} 
+                        placeholder="Definir Color..." 
+                        onChange={(e) => setTempColor(e.target.value)}
+                    />
+                  </div>
+                  {/* Botón de guardar explícito */}
+                  <button style={S.btnSaveSmall} onClick={saveColorToDb}>
+                     💾 GUARDAR
+                  </button>
                </div>
             </div>
           )}
