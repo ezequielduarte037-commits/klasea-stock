@@ -195,7 +195,8 @@ export default function AdminDashboard({ profile, signOut }) {
                           <td style={S.td}>{num(r.stock_actual).toFixed(2)}</td>
                           <td style={S.td}>{num(r.stock_minimo).toFixed(2)}</td>
                           <td style={S.td}>{num(r.consumo_semanal).toFixed(2)}</td>
-                          <td style={S.td}>{num(r.semanas_cobertura).toFixed(2)}</td>
+                       <td style={S.td}>
+                                      {r.semanas_cobertura >= 999 ? "—" : num(r.semanas_cobertura).toFixed(2)}</td>
                           <td style={S.td}>
                             {r.pedido_pendiente ? (
                               <span style={{ fontWeight: 900, color: "#b5c8ff" }}>YA PEDIDO</span>
