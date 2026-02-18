@@ -1,6 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
 import { supabase } from "../supabaseClient";
-// Importamos la pieza de Lego (tu Sidebar nuevo)
 import Sidebar from "../components/Sidebar";
 
 // --- FUNCIONES AUXILIARES ---
@@ -45,7 +44,11 @@ export default function PanolScreen({ profile, signOut }) {
 
     if (error) return setErr(error.message);
     setMateriales(data ?? []);
-    if (!materialId && (data ?? []).length) setMaterialId(data[0].id);
+    
+    // Solo setear inicial si no hay nada seleccionado
+    if (!materialId && (data ?? []).length) {
+      setMaterialId(data[0].id);
+    }
   }
 
   async function cargarMovs() {
@@ -102,7 +105,7 @@ export default function PanolScreen({ profile, signOut }) {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  // --- LÓGICA ---
+  // --- LÓGICA DE FILTRADO Y AUTO-SELECCIÓN (EL FIX) ---
   const filtrados = useMemo(() => {
     const qq = q.trim().toLowerCase();
     if (!qq) return materiales;
@@ -114,6 +117,20 @@ export default function PanolScreen({ profile, signOut }) {
   }, [q, materiales]);
 
   const sel = useMemo(() => materiales.find((m) => m.id === materialId), [materialId, materiales]);
+
+  // FIX: Lógica de auto-selección protegida
+  useEffect(() => {
+    if (filtrados.length > 0) {
+      // Chequeamos si el material seleccionado sigue estando visible en la lista filtrada
+      const sigueSiendoValido = filtrados.find(m => m.id === materialId);
+      
+      // SOLO si desapareció de la lista (porque filtré algo distinto), saltamos al primero.
+      // Si sigue estando (ej: refresh de stock), NO tocamos nada.
+      if (!sigueSiendoValido) {
+        setMaterialId(filtrados[0].id);
+      }
+    }
+  }, [filtrados, materialId]); // Importante: dependencia materialId para que la comparación sea fresca
 
   function limpiar() {
     setCantidad("");
@@ -173,7 +190,7 @@ export default function PanolScreen({ profile, signOut }) {
     });
 
     if (!rpc.error) {
-      setMsg("✅ Movimiento registrado");
+      setMsg(`✅ Movimiento OK: ${sel?.nombre}`);
       limpiar();
       await cargarMateriales();
       await cargarMovs();
@@ -197,21 +214,16 @@ export default function PanolScreen({ profile, signOut }) {
     });
     if (ins.error) return setErr("Error guardar: " + ins.error.message);
 
-    setMsg("✅ Movimiento registrado");
+    setMsg(`✅ Movimiento OK: ${sel?.nombre}`);
     limpiar();
     await cargarMateriales();
     await cargarMovs();
   }
 
   // --- ESTILOS ---
-  // He borrado los estilos del Sidebar (navBtn, brand, etc) porque ahora vienen del componente.
-  // Mantenemos los estilos de Layout y Contenido.
   const S = {
     page: { background: "#000", minHeight: "100vh", color: "#d0d0d0", fontFamily: "Roboto, system-ui, Arial" },
-    
-    // AQUÍ ESTÁ EL GRID QUE TE GUSTA:
     layout: { display: "grid", gridTemplateColumns: "280px 1fr", minHeight: "100vh" },
-    
     main: { padding: 18, display: "flex", justifyContent: "center" },
     content: { width: "min(1200px, 100%)" },
 
@@ -258,13 +270,8 @@ export default function PanolScreen({ profile, signOut }) {
 
   return (
     <div style={S.page}>
-      {/* Grid General: Sidebar (Fijo) + Contenido (Variable) */}
       <div style={S.layout}>
-        
-        {/* Aquí insertamos el Sidebar externo */}
         <Sidebar profile={profile} signOut={signOut} />
-
-        {/* Contenido Principal (Igual que antes) */}
         <main style={S.main}>
           <div style={S.content}>
             <div style={S.topbar}>
@@ -280,13 +287,19 @@ export default function PanolScreen({ profile, signOut }) {
               <div style={S.card}>
                 <div style={S.row}>
                   <div style={S.label}>Buscar</div>
-                  <input style={S.input} value={q} onChange={(e) => setQ(e.target.value)} placeholder="Buscar material..." />
+                  <input style={S.input} value={q} onChange={(e) => setQ(e.target.value)} placeholder="Ej: Fibro..." />
                 </div>
                 <div style={S.row}>
                   <div style={S.label}>Material</div>
-                  <select style={S.select} value={materialId} onChange={(e) => setMaterialId(e.target.value)}>
-                    {filtrados.map((m) => (<option key={m.id} value={m.id}>{m.nombre}</option>))}
-                  </select>
+                  <div style={{ width: "100%" }}>
+                    <select style={S.select} value={materialId} onChange={(e) => setMaterialId(e.target.value)}>
+                      {filtrados.map((m) => (<option key={m.id} value={m.id}>{m.nombre}</option>))}
+                    </select>
+                    {/* CONFIRMACIÓN VISUAL */}
+                    <div style={{ fontSize: 11, color: "#30d158", marginTop: 4, textAlign: "right" }}>
+                       {sel ? `Seleccionado: ${sel.nombre}` : "—"}
+                    </div>
+                  </div>
                 </div>
                 <div style={S.row}>
                   <div style={S.label}>Obra</div>
