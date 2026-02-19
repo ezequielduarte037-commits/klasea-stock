@@ -95,13 +95,12 @@ export default function ProcedimientosScreen({ profile, signOut }) {
     
     let currentPdfUrl = form.pdf_url;
 
-    // Si el usuario seleccionó un archivo nuevo, lo subimos a Supabase Storage
     if (fileToUpload) {
       const fileExt = fileToUpload.name.split('.').pop();
       const fileName = `${Date.now()}_${Math.random().toString(36).substring(2,9)}.${fileExt}`;
       
-      const { error: uploadError, data } = await supabase.storage
-        .from("documentos") // Nombre del bucket en Supabase
+      const { error: uploadError } = await supabase.storage
+        .from("documentos")
         .upload(fileName, fileToUpload);
 
       if (uploadError) {
@@ -162,7 +161,6 @@ export default function ProcedimientosScreen({ profile, signOut }) {
     btnPrim: { border: "none", background: "#fff", color: "#000", padding: "10px 20px", borderRadius: 10, cursor: "pointer", fontWeight: 800, fontSize: 13 },
     btnSm:   { border: "1px solid rgba(255,255,255,0.1)", background: "rgba(255,255,255,0.05)", color: "#fff", padding: "6px 12px", borderRadius: 8, cursor: "pointer", fontSize: 12 },
     
-    // GRILLA ESTILO GOOGLE DRIVE
     grid: { display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(210px, 1fr))", gap: 20, marginTop: 20 },
     docCard: {
       background: "#1e1e1e", border: "1px solid #333", borderRadius: 10, overflow: "hidden", cursor: "pointer",
@@ -176,15 +174,12 @@ export default function ProcedimientosScreen({ profile, signOut }) {
     },
     docTitle: { color: "#e8eaed", fontSize: 13, fontWeight: 500, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis", flex: 1 },
     
-    // Modales
     overlay: { position: "fixed", inset: 0, background: "rgba(0,0,0,0.85)", backdropFilter: "blur(5px)", display: "flex", justifyContent: "center", alignItems: "center", zIndex: 9999, padding: "20px" },
     modalForm: { background: "#111", border: "1px solid #333", borderRadius: 16, padding: 30, width: "100%", maxWidth: 540, maxHeight: "90vh", overflowY: "auto" },
   };
 
   return (
     <div style={S.page}>
-        
-      {/* MAGIA PDF: Al imprimir, solo se ve la hoja A4, el resto desaparece */}
       <style>{`
         @media print {
           body * { visibility: hidden; }
@@ -240,24 +235,41 @@ export default function ProcedimientosScreen({ profile, signOut }) {
                     </div>
                     
                     <div style={S.docPreview}>
-                      <div style={S.hojaBlanca}>
-                        <div style={{ fontSize: 8, fontWeight: 800, color: "#000", marginBottom: 4 }}>{p.titulo}</div>
+                      <div style={{...S.hojaBlanca, padding: p.pdf_url ? 0 : "14px"}}>
                         
                         {p.pdf_url ? (
-                           <div style={{ display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", height: "100%", opacity: 0.5 }}>
-                             <div style={{ fontSize: 24 }}>📄</div>
-                             <div style={{ fontSize: 8, color: "#333", marginTop: 4, fontWeight: "bold" }}>DOCUMENTO PDF</div>
-                           </div>
+                           <>
+                             {/* TRUCO VISUAL: Iframe gigante escalado hacia abajo para generar una miniatura real */}
+                             <iframe 
+                               src={`${p.pdf_url}#toolbar=0&navpanes=0&scrollbar=0&view=FitH`}
+                               style={{
+                                 position: "absolute", top: 0, left: 0,
+                                 width: "400%", height: "400%", // Lo hacemos 4 veces más grande
+                                 transform: "scale(0.25)",      // Lo achicamos al tamaño de la tarjeta
+                                 transformOrigin: "top left",
+                                 border: "none",
+                                 pointerEvents: "none"          // Bloqueamos clics para que actúe como imagen
+                               }}
+                               title={`preview-${p.id}`}
+                               tabIndex={-1}
+                             />
+                             {/* Capa protectora para evitar que el mouse interactúe con el iframe */}
+                             <div style={{ position: "absolute", inset: 0, zIndex: 10 }} />
+                           </>
                         ) : (
-                          <div style={{ fontSize: 6, color: "#333", lineHeight: 1.4 }}>
-                            {p.descripcion ? p.descripcion : "Procedimiento operativo estándar."}
-                            <br/><br/>
-                            {Array.isArray(p.pasos) && p.pasos.map((paso, i) => (
-                              <div key={i} style={{ marginBottom: 3 }}>{i+1}. {typeof paso === "string" ? paso : paso.texto}</div>
-                            ))}
-                          </div>
+                          <>
+                            <div style={{ fontSize: 8, fontWeight: 800, color: "#000", marginBottom: 4 }}>{p.titulo}</div>
+                            <div style={{ fontSize: 6, color: "#333", lineHeight: 1.4 }}>
+                              {p.descripcion ? p.descripcion : "Procedimiento operativo estándar."}
+                              <br/><br/>
+                              {Array.isArray(p.pasos) && p.pasos.map((paso, i) => (
+                                <div key={i} style={{ marginBottom: 3 }}>{i+1}. {typeof paso === "string" ? paso : paso.texto}</div>
+                              ))}
+                            </div>
+                            <div style={{ position: "absolute", bottom: 0, left: 0, right: 0, height: 30, background: "linear-gradient(transparent, #fff)" }} />
+                          </>
                         )}
-                        <div style={{ position: "absolute", bottom: 0, left: 0, right: 0, height: 30, background: "linear-gradient(transparent, #fff)" }} />
+                        
                       </div>
                     </div>
                   </div>
@@ -295,14 +307,12 @@ export default function ProcedimientosScreen({ profile, signOut }) {
           </div>
 
           {selItem.pdf_url ? (
-            // Visor de PDF embebido
             <iframe 
-              src={selItem.pdf_url} 
+              src={`${selItem.pdf_url}#toolbar=0`} 
               style={{ width: "100%", maxWidth: 1000, height: "85vh", marginTop: 60, border: "none", borderRadius: 8, background: "#fff" }} 
               title="Visor PDF"
             />
           ) : (
-            // Visor de texto normal (Hoja A4)
             <div id="printable-doc" style={{ background: "#fff", width: "100%", maxWidth: 800, marginTop: 60, padding: "50px 60px", borderRadius: 4, boxShadow: "0 4px 20px rgba(0,0,0,0.5)", color: "#000", minHeight: "80vh" }}>
               <div style={{ borderBottom: "2px solid #000", paddingBottom: 10, marginBottom: 20, display: "flex", justifyContent: "space-between", alignItems: "flex-end" }}>
                  <div>
@@ -339,10 +349,6 @@ export default function ProcedimientosScreen({ profile, signOut }) {
                   <div style={{ fontSize: 14, lineHeight: 1.6, whiteSpace: "pre-wrap" }}>{selItem.contenido}</div>
                 </div>
               )}
-
-              <div style={{ marginTop: 50, borderTop: "1px solid #ccc", paddingTop: 10, fontSize: 10, color: "#666", textAlign: "center", fontFamily: "Arial, sans-serif" }}>
-                Documento generado por Sistema de Producción Klase A
-              </div>
             </div>
           )}
         </div>
