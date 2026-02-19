@@ -1,90 +1,84 @@
 import { useEffect, useMemo, useState } from "react";
 import { supabase } from "../supabaseClient";
 import Sidebar from "../components/Sidebar";
+import NotificacionesBell from "../components/NotificacionesBell";
+
+const ROLES = ["todos", "admin", "oficina", "laminacion", "muebles", "panol", "mecanica", "electricidad"];
 
 export default function ProcedimientosScreen({ profile, signOut }) {
   const role    = profile?.role ?? "invitado";
-  const isAdmin = !!profile?.is_admin;
+  const isAdmin = !!profile?.is_admin || role === "admin";
 
-  const [procedimientos, setProcedimientos] = useState([]);
-  const [procesos,       setProcesos]       = useState([]);
-  const [loading,        setLoading]        = useState(true);
-  const [selId,          setSelId]          = useState(null);
-  const [q,              setQ]              = useState("");
-  const [filtroProc,     setFiltroProc]     = useState("todos");
-  const [err,            setErr]            = useState("");
-  const [msg,            setMsg]            = useState("");
+  const [items,   setItems]   = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [selId,   setSelId]   = useState(null);
+  const [q,       setQ]       = useState("");
+  const [filtCat, setFiltCat] = useState("todas");
+  const [err,     setErr]     = useState("");
+  const [msg,     setMsg]     = useState("");
 
-  // Modal edición (solo admin)
-  const [showModal,   setShowModal]   = useState(false);
-  const [editTarget,  setEditTarget]  = useState(null); // null = nuevo
-  const [form, setForm] = useState({
-    titulo: "", descripcion: "", contenido: "",
-    proceso_id: "", rol_visible: "todos", orden: "", area: "",
-  });
-  const [pasosForm, setPasosForm] = useState([""]);
+  const [showModal,  setShowModal]  = useState(false);
+  const [editTarget, setEditTarget] = useState(null);
+  const [form, setForm] = useState({ titulo: "", descripcion: "", contenido: "", categoria: "", rol_visible: "todos" });
+  const [pasos, setPasos] = useState([""]);
 
   async function cargar() {
     setLoading(true);
-    const [r1, r2] = await Promise.all([
-      supabase
-        .from("procedimientos")
-        .select("*, procesos(nombre,icono,color)")
-        .eq("activo", true)
-        .order("orden"),
-      supabase.from("procesos").select("*").eq("activo", true).order("orden"),
-    ]);
+    const { data } = await supabase
+      .from("procedimientos")
+      .select("id,titulo,descripcion,contenido,pasos,categoria,area,rol_visible,orden,activo,created_at")
+      .eq("activo", true)
+      .order("orden", { ascending: true, nullsFirst: false });
 
-    let datos = r1.data ?? [];
+    let lista = data ?? [];
     // Filtrar por rol si no es admin
     if (!isAdmin) {
-      datos = datos.filter(p =>
-        Array.isArray(p.rol_visible)
-          ? p.rol_visible.includes(role) || p.rol_visible.includes("todos")
-          : true
-      );
+      lista = lista.filter(p => {
+        const rv = Array.isArray(p.rol_visible) ? p.rol_visible : [p.rol_visible ?? "todos"];
+        return rv.includes(role) || rv.includes("todos");
+      });
     }
-
-    setProcedimientos(datos);
-    setProcesos(r2.data ?? []);
+    setItems(lista);
     setLoading(false);
   }
 
   useEffect(() => { cargar(); }, []);
 
+  // Categorías únicas de los procedimientos existentes
+  const categorias = useMemo(() => {
+    const cats = new Set(items.map(p => (p.categoria || p.area || "General").trim()).filter(Boolean));
+    return ["todas", ...Array.from(cats).sort()];
+  }, [items]);
+
   const filtrados = useMemo(() => {
     const qq = q.toLowerCase();
-    return procedimientos.filter(p => {
-      if (filtroProc !== "todos" && String(p.proceso_id) !== filtroProc) return false;
+    return items.filter(p => {
+      const cat = (p.categoria || p.area || "General").trim();
+      if (filtCat !== "todas" && cat !== filtCat) return false;
       if (qq && !p.titulo.toLowerCase().includes(qq) && !(p.descripcion ?? "").toLowerCase().includes(qq)) return false;
       return true;
     });
-  }, [procedimientos, q, filtroProc]);
+  }, [items, q, filtCat]);
 
-  const selProced = useMemo(() => procedimientos.find(p => p.id === selId), [procedimientos, selId]);
+  const selItem = useMemo(() => items.find(p => p.id === selId), [items, selId]);
 
   function abrirNuevo() {
     setEditTarget(null);
-    setForm({ titulo: "", descripcion: "", contenido: "", proceso_id: "", rol_visible: "todos", orden: "", area: "" });
-    setPasosForm([""]);
+    setForm({ titulo: "", descripcion: "", contenido: "", categoria: "", rol_visible: "todos" });
+    setPasos([""]);
     setShowModal(true);
   }
 
   function abrirEditar(p) {
     setEditTarget(p.id);
     setForm({
-      titulo:       p.titulo ?? "",
-      descripcion:  p.descripcion ?? "",
-      contenido:    p.contenido ?? "",
-      proceso_id:   p.proceso_id ?? "",
-      rol_visible:  Array.isArray(p.rol_visible) ? p.rol_visible[0] : "todos",
-      orden:        p.orden ?? "",
-      area:         p.area ?? "",
+      titulo:      p.titulo ?? "",
+      descripcion: p.descripcion ?? "",
+      contenido:   p.contenido ?? "",
+      categoria:   p.categoria || p.area || "",
+      rol_visible: Array.isArray(p.rol_visible) ? (p.rol_visible[0] ?? "todos") : "todos",
     });
-    const pasos = Array.isArray(p.pasos) && p.pasos.length > 0
-      ? p.pasos.map(ps => (typeof ps === "string" ? ps : ps.texto ?? ""))
-      : [""];
-    setPasosForm(pasos);
+    setPasos(Array.isArray(p.pasos) && p.pasos.length ? p.pasos.map(s => s.texto ?? s) : [""]);
     setShowModal(true);
   }
 
@@ -93,28 +87,29 @@ export default function ProcedimientosScreen({ profile, signOut }) {
     if (!form.titulo.trim()) return setErr("El título es obligatorio.");
 
     const payload = {
-      titulo:       form.titulo.trim(),
-      descripcion:  form.descripcion.trim() || null,
-      contenido:    form.contenido.trim() || null,
-      proceso_id:   form.proceso_id || null,
-      rol_visible:  form.rol_visible === "todos" ? ["todos"] : [form.rol_visible],
-      orden:        form.orden ? Number(form.orden) : null,
-      area:         form.area.trim() || null,
-      pasos:        pasosForm
-                      .filter(p => p.trim())
-                      .map((texto, i) => ({ orden: i + 1, texto })),
+      titulo:      form.titulo.trim(),
+      descripcion: form.descripcion.trim() || null,
+      contenido:   form.contenido.trim() || null,
+      categoria:   form.categoria.trim() || null,
+      area:        form.categoria.trim() || null,
+      rol_visible: [form.rol_visible],
+      pasos:       pasos.filter(p => p.trim()).map((texto, i) => ({ orden: i + 1, texto })),
+      activo:      true,
     };
 
-    const { error } = editTarget
-      ? await supabase.from("procedimientos").update(payload).eq("id", editTarget)
-      : await supabase.from("procedimientos").insert({ ...payload, activo: true });
+    let error;
+    if (editTarget) {
+      ({ error } = await supabase.from("procedimientos").update(payload).eq("id", editTarget));
+    } else {
+      ({ error } = await supabase.from("procedimientos").insert(payload));
+    }
 
     if (error) return setErr(error.message);
-
-    setMsg(editTarget ? "✅ Procedimiento actualizado." : "✅ Procedimiento creado.");
+    setMsg(editTarget ? "✅ Actualizado." : "✅ Procedimiento creado.");
     setShowModal(false);
-    setTimeout(() => setMsg(""), 2500);
+    setSelId(null);
     cargar();
+    setTimeout(() => setMsg(""), 2500);
   }
 
   async function archivar(id) {
@@ -123,197 +118,195 @@ export default function ProcedimientosScreen({ profile, signOut }) {
     cargar();
   }
 
-  const ROLES = ["todos", "admin", "oficina", "laminacion", "muebles", "panol", "mecanica", "electricidad"];
-
   const S = {
-    page:    { background: "#000", minHeight: "100vh", color: "#d0d0d0", fontFamily: "Roboto, system-ui, Arial" },
+    page:    { background: "#000", minHeight: "100vh", color: "#d0d0d0", fontFamily: "-apple-system, 'Helvetica Neue', sans-serif" },
     layout:  { display: "grid", gridTemplateColumns: "280px 1fr", minHeight: "100vh" },
-    main:    { padding: 20, overflowY: "auto" },
-    content: { width: "min(1200px,100%)", margin: "0 auto" },
-    card:    { border: "1px solid #1e1e1e", borderRadius: 14, background: "#070707", padding: 16, marginBottom: 10 },
-    input:   { background: "#0b0b0b", border: "1px solid #2a2a2a", color: "#fff", padding: "8px 12px", borderRadius: 10, width: "100%", fontSize: 13, outline: "none" },
-    textarea:{ background: "#0b0b0b", border: "1px solid #2a2a2a", color: "#fff", padding: "8px 12px", borderRadius: 10, width: "100%", fontSize: 13, resize: "vertical", minHeight: 80, outline: "none" },
-    label:   { fontSize: 10, letterSpacing: 1.5, opacity: 0.45, display: "block", marginBottom: 5, textTransform: "uppercase" },
-    btn:     { border: "1px solid #2a2a2a", background: "#111", color: "#fff", padding: "7px 14px", borderRadius: 10, cursor: "pointer", fontWeight: 700, fontSize: 13 },
-    btnPrim: { border: "none", background: "#fff", color: "#000", padding: "9px 18px", borderRadius: 10, cursor: "pointer", fontWeight: 900, fontSize: 13 },
-    btnSm:   { border: "1px solid #2a2a2a", background: "transparent", color: "#888", padding: "4px 10px", borderRadius: 8, cursor: "pointer", fontSize: 11 },
-    filterBtn: (act, color) => ({
-      border: act ? `1px solid ${color ?? "#444"}` : "1px solid transparent",
-      background: act ? (color ? `${color}15` : "#1a1a1a") : "transparent",
-      color: act ? (color ?? "#fff") : "#555",
-      padding: "5px 12px", borderRadius: 8, cursor: "pointer", fontSize: 11, fontWeight: act ? 700 : 400,
+    main:    { padding: "20px 24px", overflow: "auto" },
+    content: { width: "min(1300px,100%)", margin: "0 auto" },
+    card:    { border: "1px solid rgba(255,255,255,0.07)", borderRadius: 14, background: "rgba(255,255,255,0.02)", padding: 16, marginBottom: 12 },
+    input:   { background: "rgba(255,255,255,0.04)", border: "1px solid rgba(255,255,255,0.1)", color: "#fff", padding: "8px 12px", borderRadius: 10, fontSize: 13, outline: "none" },
+    textarea:{ background: "rgba(255,255,255,0.04)", border: "1px solid rgba(255,255,255,0.1)", color: "#fff", padding: "8px 12px", borderRadius: 10, fontSize: 13, outline: "none", resize: "vertical", minHeight: 100 },
+    label:   { fontSize: 10, letterSpacing: 1.5, opacity: 0.4, display: "block", marginBottom: 5, textTransform: "uppercase", fontWeight: 600 },
+    btn:     { border: "1px solid rgba(255,255,255,0.1)", background: "rgba(255,255,255,0.04)", color: "#fff", padding: "8px 14px", borderRadius: 10, cursor: "pointer", fontWeight: 600, fontSize: 13 },
+    btnPrim: { border: "1px solid rgba(255,255,255,0.2)", background: "#fff", color: "#000", padding: "8px 18px", borderRadius: 10, cursor: "pointer", fontWeight: 800, fontSize: 13 },
+    btnSm:   { border: "1px solid rgba(255,255,255,0.08)", background: "transparent", color: "#888", padding: "4px 10px", borderRadius: 7, cursor: "pointer", fontSize: 11 },
+    small:   { fontSize: 11, opacity: 0.4 },
+    split:   { display: "grid", gridTemplateColumns: "300px 1fr", gap: 16, alignItems: "start" },
+
+    catBadge: { fontSize: 10, fontWeight: 600, padding: "2px 8px", borderRadius: 6, background: "rgba(10,132,255,0.12)", color: "#0a84ff", border: "1px solid rgba(10,132,255,0.2)" },
+    rolBadge: { fontSize: 10, fontWeight: 600, padding: "2px 8px", borderRadius: 6, background: "rgba(255,255,255,0.05)", color: "#888", border: "1px solid rgba(255,255,255,0.08)" },
+
+    filterBtn: (act) => ({
+      border:  act ? "1px solid rgba(255,255,255,0.2)" : "1px solid transparent",
+      background: act ? "rgba(255,255,255,0.06)" : "transparent",
+      color:   act ? "#fff" : "rgba(255,255,255,0.35)",
+      padding: "5px 12px", borderRadius: 8, cursor: "pointer",
+      fontSize: 12, fontWeight: act ? 700 : 400, whiteSpace: "nowrap",
     }),
-    procCard: (sel) => ({
-      border: sel ? "1px solid #3a3a3a" : "1px solid #141414",
-      borderRadius: 12, background: sel ? "#0f0f0f" : "#070707",
-      padding: "12px 14px", marginBottom: 8, cursor: "pointer",
-      transition: "all 0.15s",
+    itemCard: (sel) => ({
+      border: sel ? "1px solid rgba(255,255,255,0.15)" : "1px solid rgba(255,255,255,0.05)",
+      borderRadius: 12, background: sel ? "rgba(255,255,255,0.04)" : "rgba(255,255,255,0.01)",
+      padding: "12px 14px", cursor: "pointer", marginBottom: 7, transition: "all 0.15s",
     }),
-    paso: {
-      display: "flex", gap: 12, marginBottom: 10,
-      background: "#0d0d0d", borderRadius: 10, padding: "10px 14px",
-      border: "1px solid #1a1a1a",
-    },
-    numBadge: {
-      width: 24, height: 24, borderRadius: "50%",
-      background: "#1e1e1e", display: "flex", alignItems: "center", justifyContent: "center",
-      fontSize: 11, fontWeight: 900, color: "#666", flexShrink: 0,
-    },
-    overlay: { position: "fixed", inset: 0, background: "rgba(0,0,0,0.88)", backdropFilter: "blur(6px)", display: "flex", justifyContent: "center", alignItems: "flex-start", zIndex: 9999, padding: "40px 20px", overflowY: "auto" },
-    modal:   { background: "#0d0d0d", border: "1px solid #2a2a2a", borderRadius: 16, padding: 28, width: "100%", maxWidth: 560 },
+    paso: (done) => ({
+      display: "flex", alignItems: "flex-start", gap: 12,
+      padding: "10px 0", borderBottom: "1px solid rgba(255,255,255,0.04)",
+    }),
+    overlay: { position: "fixed", inset: 0, background: "rgba(0,0,0,0.85)", backdropFilter: "blur(8px)", display: "flex", justifyContent: "center", alignItems: "flex-start", zIndex: 9999, padding: "40px 20px", overflowY: "auto" },
+    modal:   { background: "rgba(8,8,8,0.98)", border: "1px solid rgba(255,255,255,0.1)", borderRadius: 18, padding: 28, width: "100%", maxWidth: 540, boxShadow: "0 30px 80px rgba(0,0,0,0.9)" },
   };
 
   return (
     <div style={S.page}>
+      <NotificacionesBell profile={profile} />
       <div style={S.layout}>
         <Sidebar profile={profile} signOut={signOut} />
         <main style={S.main}>
           <div style={S.content}>
 
             {/* Header */}
-            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 18 }}>
+            <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 18 }}>
               <div>
-                <h1 style={{ fontFamily: "Montserrat, system-ui, Arial", fontSize: 22, margin: 0, color: "#fff" }}>
+                <div style={{ fontSize: 10, letterSpacing: 3, opacity: 0.3, marginBottom: 5, textTransform: "uppercase", fontWeight: 600 }}>Instrucciones</div>
+                <h1 style={{ fontFamily: "Montserrat, system-ui", fontSize: 24, margin: 0, color: "#fff", fontWeight: 900, letterSpacing: -0.5 }}>
                   Procedimientos
                 </h1>
-                <div style={{ fontSize: 12, opacity: 0.45, marginTop: 3 }}>
-                  Instrucciones y SOP por área · solo ves los que te corresponden
-                </div>
               </div>
-              {isAdmin && (
-                <button style={S.btnPrim} onClick={abrirNuevo}>+ Nuevo</button>
-              )}
+              {isAdmin && <button style={S.btnPrim} onClick={abrirNuevo}>+ Nuevo</button>}
             </div>
 
-            {err && <div style={{ ...S.card, borderColor: "#5a1d1d", color: "#ffbdbd" }}>{err}</div>}
-            {msg && <div style={{ ...S.card, borderColor: "#1d5a2d", color: "#a6ffbf" }}>{msg}</div>}
+            {err && <div style={{ ...S.card, borderColor: "rgba(255,69,58,0.3)", color: "#ff6b6b", background: "rgba(255,69,58,0.05)" }}>{err}</div>}
+            {msg && <div style={{ ...S.card, borderColor: "rgba(48,209,88,0.3)", color: "#a6ffbf", background: "rgba(48,209,88,0.05)" }}>{msg}</div>}
 
-            <div style={{ display: "grid", gridTemplateColumns: "300px 1fr", gap: 16, alignItems: "start" }}>
+            {/* Filtros */}
+            <div style={{ display: "flex", gap: 6, marginBottom: 12, flexWrap: "wrap" }}>
+              {categorias.map(cat => (
+                <button key={cat} style={S.filterBtn(filtCat === cat)} onClick={() => setFiltCat(cat)}>
+                  {cat === "todas" ? "Todas las categorías" : cat}
+                </button>
+              ))}
+            </div>
+
+            <div style={S.split}>
 
               {/* ── LISTA ── */}
               <div>
-                <input style={{ ...S.input, marginBottom: 10 }}
-                  placeholder="Buscar…" value={q} onChange={e => setQ(e.target.value)} />
+                <input style={{ ...S.input, width: "100%", marginBottom: 10 }} placeholder="Buscar…" value={q} onChange={e => setQ(e.target.value)} />
 
-                {/* Filtro por proceso */}
-                <div style={{ display: "flex", gap: 5, flexWrap: "wrap", marginBottom: 12 }}>
-                  <button style={S.filterBtn(filtroProc === "todos")} onClick={() => setFiltroProc("todos")}>
-                    Todos
-                  </button>
-                  {procesos.map(p => (
-                    <button key={p.id}
-                      style={S.filterBtn(filtroProc === String(p.id), p.color)}
-                      onClick={() => setFiltroProc(String(p.id))}>
-                      {p.icono} {p.nombre}
-                    </button>
-                  ))}
-                </div>
+                {loading && <div style={{ ...S.card, textAlign: "center", opacity: 0.4 }}>Cargando…</div>}
 
-                {loading && <div style={{ opacity: 0.4, fontSize: 13 }}>Cargando…</div>}
                 {!loading && filtrados.length === 0 && (
-                  <div style={{ opacity: 0.35, fontSize: 13, padding: 20, textAlign: "center" }}>
-                    Sin procedimientos disponibles.
+                  <div style={{ ...S.card, textAlign: "center", opacity: 0.35, padding: 30 }}>
+                    {items.length === 0
+                      ? isAdmin
+                        ? "Aún no hay procedimientos. Hacé clic en "+ Nuevo" para crear el primero."
+                        : "No hay procedimientos disponibles para tu rol."
+                      : "Sin resultados para este filtro."
+                    }
                   </div>
                 )}
 
-                {filtrados.map(p => (
-                  <div key={p.id}
-                    style={S.procCard(selId === p.id)}
-                    onClick={() => setSelId(selId === p.id ? null : p.id)}>
-                    <div style={{ display: "flex", alignItems: "flex-start", gap: 10 }}>
-                      <span style={{ fontSize: 20, flexShrink: 0 }}>
-                        {p.procesos?.icono ?? "📄"}
-                      </span>
-                      <div style={{ flex: 1, minWidth: 0 }}>
-                        <div style={{ color: "#fff", fontWeight: 600, fontSize: 13, lineHeight: 1.3 }}>
-                          {p.titulo}
+                {filtrados.map(p => {
+                  const cat = (p.categoria || p.area || "General").trim();
+                  const rv  = Array.isArray(p.rol_visible) ? p.rol_visible : [p.rol_visible ?? "todos"];
+                  const sel = selId === p.id;
+                  return (
+                    <div key={p.id} style={S.itemCard(sel)} onClick={() => setSelId(sel ? null : p.id)}>
+                      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", gap: 8 }}>
+                        <div style={{ flex: 1 }}>
+                          <div style={{ color: "#fff", fontWeight: 700, fontSize: 14 }}>{p.titulo}</div>
+                          {p.descripcion && <div style={{ ...S.small, marginTop: 3, lineHeight: 1.4 }}>{p.descripcion}</div>}
                         </div>
-                        {p.procesos?.nombre && (
-                          <div style={{ fontSize: 10, opacity: 0.4, marginTop: 3 }}>{p.procesos.nombre}</div>
-                        )}
-                        {p.descripcion && (
-                          <div style={{ fontSize: 11, opacity: 0.45, marginTop: 4, lineHeight: 1.4,
-                            overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
-                            {p.descripcion}
-                          </div>
-                        )}
+                        <span style={S.catBadge}>{cat}</span>
+                      </div>
+                      <div style={{ marginTop: 8, display: "flex", gap: 6, flexWrap: "wrap", alignItems: "center" }}>
                         {Array.isArray(p.pasos) && p.pasos.length > 0 && (
-                          <div style={{ fontSize: 10, opacity: 0.35, marginTop: 4 }}>
-                            {p.pasos.length} paso{p.pasos.length !== 1 ? "s" : ""}
-                          </div>
+                          <span style={S.small}>{p.pasos.length} paso{p.pasos.length > 1 ? "s" : ""}</span>
                         )}
+                        {!rv.includes("todos") && rv.map(r => (
+                          <span key={r} style={S.rolBadge}>{r}</span>
+                        ))}
                       </div>
                     </div>
-                  </div>
-                ))}
+                  );
+                })}
               </div>
 
               {/* ── DETALLE ── */}
               <div>
-                {!selProced ? (
-                  <div style={{ ...S.card, textAlign: "center", padding: 60, opacity: 0.3 }}>
-                    Seleccioná un procedimiento para ver los detalles
+                {!selItem ? (
+                  <div style={{ ...S.card, textAlign: "center", opacity: 0.3, padding: 60 }}>
+                    Seleccioná un procedimiento para leerlo
                   </div>
                 ) : (
                   <div style={S.card}>
-                    {/* Header detalle */}
-                    <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: 16 }}>
-                      <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
-                        <span style={{ fontSize: 28 }}>{selProced.procesos?.icono ?? "📄"}</span>
-                        <div>
-                          <h2 style={{ margin: 0, color: "#fff", fontSize: 18, fontFamily: "Montserrat, system-ui" }}>
-                            {selProced.titulo}
-                          </h2>
-                          <div style={{ fontSize: 11, opacity: 0.4, marginTop: 3, display: "flex", gap: 10 }}>
-                            {selProced.procesos?.nombre && <span>{selProced.procesos.nombre}</span>}
-                            {selProced.area && <span>· {selProced.area}</span>}
-                            {Array.isArray(selProced.rol_visible) && (
-                              <span>· {selProced.rol_visible.join(", ")}</span>
-                            )}
-                          </div>
+                    {/* Header */}
+                    <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: 14 }}>
+                      <div style={{ flex: 1, marginRight: 12 }}>
+                        <div style={{ display: "flex", gap: 8, alignItems: "center", marginBottom: 6, flexWrap: "wrap" }}>
+                          <span style={S.catBadge}>{(selItem.categoria || selItem.area || "General").trim()}</span>
+                          {(() => {
+                            const rv = Array.isArray(selItem.rol_visible) ? selItem.rol_visible : [selItem.rol_visible ?? "todos"];
+                            return !rv.includes("todos") ? rv.map(r => <span key={r} style={S.rolBadge}>{r}</span>) : null;
+                          })()}
                         </div>
+                        <h2 style={{ margin: 0, color: "#fff", fontSize: 20, fontFamily: "Montserrat, system-ui", fontWeight: 900 }}>
+                          {selItem.titulo}
+                        </h2>
+                        {selItem.descripcion && (
+                          <p style={{ margin: "8px 0 0", fontSize: 13, opacity: 0.55, lineHeight: 1.6 }}>{selItem.descripcion}</p>
+                        )}
                       </div>
                       {isAdmin && (
-                        <div style={{ display: "flex", gap: 6 }}>
-                          <button style={S.btnSm} onClick={() => abrirEditar(selProced)}>✏️ Editar</button>
-                          <button style={{ ...S.btnSm, color: "#ff453a", borderColor: "#ff453a44" }}
-                            onClick={() => { if (confirm("¿Archivar este procedimiento?")) archivar(selProced.id); }}>
-                            Archivar
-                          </button>
+                        <div style={{ display: "flex", gap: 6, flexShrink: 0 }}>
+                          <button style={S.btnSm} onClick={() => abrirEditar(selItem)}>✏️ Editar</button>
+                          <button style={{ ...S.btnSm, color: "#ff453a", borderColor: "rgba(255,69,58,0.2)" }} onClick={() => archivar(selItem.id)}>🗑</button>
                         </div>
                       )}
                     </div>
 
-                    {/* Descripción */}
-                    {selProced.descripcion && (
-                      <div style={{ fontSize: 13, opacity: 0.7, lineHeight: 1.6, marginBottom: 16,
-                        padding: "10px 14px", background: "#0d0d0d", borderRadius: 10, border: "1px solid #1a1a1a" }}>
-                        {selProced.descripcion}
+                    {/* Descripción larga */}
+                    {selItem.contenido && (
+                      <div style={{ marginBottom: 20, padding: "12px 16px", background: "rgba(255,255,255,0.02)", borderRadius: 10, border: "1px solid rgba(255,255,255,0.05)" }}>
+                        <div style={{ fontSize: 10, opacity: 0.4, letterSpacing: 1.5, marginBottom: 8, textTransform: "uppercase", fontWeight: 600 }}>Descripción</div>
+                        <div style={{ fontSize: 13, lineHeight: 1.7, whiteSpace: "pre-wrap", color: "#c8c8c8" }}>{selItem.contenido}</div>
                       </div>
                     )}
 
                     {/* Pasos */}
-                    {Array.isArray(selProced.pasos) && selProced.pasos.length > 0 && (
-                      <div style={{ marginBottom: 16 }}>
-                        <div style={{ fontSize: 10, letterSpacing: 1.5, opacity: 0.4, marginBottom: 10, textTransform: "uppercase" }}>
-                          Pasos ({selProced.pasos.length})
+                    {Array.isArray(selItem.pasos) && selItem.pasos.length > 0 && (
+                      <div>
+                        <div style={{ fontSize: 10, opacity: 0.4, letterSpacing: 1.5, marginBottom: 12, textTransform: "uppercase", fontWeight: 600 }}>
+                          Pasos ({selItem.pasos.length})
                         </div>
-                        {selProced.pasos.map((paso, i) => (
-                          <div key={i} style={S.paso}>
-                            <div style={S.numBadge}>{i + 1}</div>
-                            <div style={{ fontSize: 13, lineHeight: 1.6, color: "#ccc", paddingTop: 2 }}>
-                              {typeof paso === "string" ? paso : paso.texto ?? JSON.stringify(paso)}
+                        {selItem.pasos.map((paso, i) => {
+                          const texto = typeof paso === "string" ? paso : paso.texto;
+                          return (
+                            <div key={i} style={S.paso()}>
+                              <div style={{
+                                width: 26, height: 26, borderRadius: "50%",
+                                border: "1px solid rgba(255,255,255,0.1)",
+                                background: "rgba(255,255,255,0.04)",
+                                display: "flex", alignItems: "center", justifyContent: "center",
+                                fontSize: 11, fontWeight: 800, color: "#fff",
+                                flexShrink: 0, fontFamily: "Montserrat, system-ui",
+                              }}>
+                                {i + 1}
+                              </div>
+                              <div style={{ flex: 1, paddingTop: 4, fontSize: 14, lineHeight: 1.5, color: "#d0d0d0" }}>
+                                {texto}
+                              </div>
                             </div>
-                          </div>
-                        ))}
+                          );
+                        })}
                       </div>
                     )}
 
-                    {/* Contenido libre */}
-                    {selProced.contenido && (
-                      <div style={{ fontSize: 13, opacity: 0.6, lineHeight: 1.7, whiteSpace: "pre-wrap",
-                        borderTop: "1px solid #1a1a1a", paddingTop: 14, marginTop: 8 }}>
-                        {selProced.contenido}
+                    {/* Vacío */}
+                    {!selItem.contenido && (!Array.isArray(selItem.pasos) || !selItem.pasos.length) && (
+                      <div style={{ textAlign: "center", opacity: 0.3, padding: "30px 0", fontSize: 13 }}>
+                        Este procedimiento no tiene contenido aún.
+                        {isAdmin && <span> Hacé clic en "Editar" para agregarlo.</span>}
                       </div>
                     )}
                   </div>
@@ -322,102 +315,71 @@ export default function ProcedimientosScreen({ profile, signOut }) {
             </div>
           </div>
 
-          {/* ── MODAL CREAR/EDITAR ── */}
-          {showModal && isAdmin && (
+          {/* ── MODAL NUEVO / EDITAR ── */}
+          {showModal && (
             <div style={S.overlay} onClick={e => e.target === e.currentTarget && setShowModal(false)}>
               <div style={S.modal}>
-                <h2 style={{ margin: "0 0 20px", color: "#fff", fontSize: 17 }}>
+                <h2 style={{ margin: "0 0 20px", color: "#fff", fontSize: 16, fontFamily: "Montserrat, system-ui", fontWeight: 800 }}>
                   {editTarget ? "Editar procedimiento" : "Nuevo procedimiento"}
                 </h2>
-
                 <form onSubmit={guardar}>
-                  <div style={{ marginBottom: 14 }}>
+                  <div style={{ marginBottom: 12 }}>
                     <label style={S.label}>Título *</label>
-                    <input style={S.input} required value={form.titulo}
-                      onChange={e => setForm(f => ({ ...f, titulo: e.target.value }))} autoFocus />
+                    <input style={{ ...S.input, width: "100%" }} required value={form.titulo} onChange={e => setForm(f => ({ ...f, titulo: e.target.value }))} autoFocus />
                   </div>
 
-                  <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10, marginBottom: 14 }}>
+                  <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10, marginBottom: 12 }}>
                     <div>
-                      <label style={S.label}>Proceso</label>
-                      <select style={S.input} value={form.proceso_id}
-                        onChange={e => setForm(f => ({ ...f, proceso_id: e.target.value }))}>
-                        <option value="">— General —</option>
-                        {procesos.map(p => (
-                          <option key={p.id} value={p.id}>{p.icono} {p.nombre}</option>
-                        ))}
-                      </select>
+                      <label style={S.label}>Categoría</label>
+                      <input
+                        style={{ ...S.input, width: "100%" }}
+                        placeholder="Ej: Seguridad, Calidad…"
+                        list="cats-list"
+                        value={form.categoria}
+                        onChange={e => setForm(f => ({ ...f, categoria: e.target.value }))}
+                      />
+                      <datalist id="cats-list">
+                        {categorias.filter(c => c !== "todas").map(c => <option key={c} value={c} />)}
+                      </datalist>
                     </div>
                     <div>
                       <label style={S.label}>Visible para</label>
-                      <select style={S.input} value={form.rol_visible}
-                        onChange={e => setForm(f => ({ ...f, rol_visible: e.target.value }))}>
-                        {ROLES.map(r => (
-                          <option key={r} value={r}>{r}</option>
-                        ))}
+                      <select style={{ ...S.input, width: "100%" }} value={form.rol_visible} onChange={e => setForm(f => ({ ...f, rol_visible: e.target.value }))}>
+                        {ROLES.map(r => <option key={r} value={r}>{r === "todos" ? "Todos" : r}</option>)}
                       </select>
                     </div>
                   </div>
 
-                  <div style={{ display: "grid", gridTemplateColumns: "1fr 80px", gap: 10, marginBottom: 14 }}>
-                    <div>
-                      <label style={S.label}>Área</label>
-                      <input style={S.input} placeholder="Ej: Laminación" value={form.area}
-                        onChange={e => setForm(f => ({ ...f, area: e.target.value }))} />
-                    </div>
-                    <div>
-                      <label style={S.label}>Orden</label>
-                      <input type="number" style={S.input} value={form.orden}
-                        onChange={e => setForm(f => ({ ...f, orden: e.target.value }))} />
-                    </div>
-                  </div>
-
-                  <div style={{ marginBottom: 14 }}>
+                  <div style={{ marginBottom: 12 }}>
                     <label style={S.label}>Descripción breve</label>
-                    <input style={S.input} value={form.descripcion}
-                      onChange={e => setForm(f => ({ ...f, descripcion: e.target.value }))} />
+                    <input style={{ ...S.input, width: "100%" }} placeholder="Resumen en una línea…" value={form.descripcion} onChange={e => setForm(f => ({ ...f, descripcion: e.target.value }))} />
                   </div>
 
-                  {/* Pasos dinámicos */}
                   <div style={{ marginBottom: 14 }}>
-                    <label style={S.label}>Pasos del procedimiento</label>
-                    {pasosForm.map((paso, i) => (
+                    <label style={S.label}>Contenido / notas</label>
+                    <textarea style={{ ...S.textarea, width: "100%" }} placeholder="Detalles, advertencias, notas técnicas…" value={form.contenido} onChange={e => setForm(f => ({ ...f, contenido: e.target.value }))} />
+                  </div>
+
+                  <div style={{ marginBottom: 16 }}>
+                    <label style={S.label}>Pasos</label>
+                    {pasos.map((p, i) => (
                       <div key={i} style={{ display: "flex", gap: 6, marginBottom: 6, alignItems: "center" }}>
-                        <span style={{ width: 20, opacity: 0.35, fontSize: 12, textAlign: "right", flexShrink: 0 }}>
-                          {i + 1}.
-                        </span>
-                        <input style={{ ...S.input, flex: 1 }} placeholder={`Paso ${i + 1}…`}
-                          value={paso}
-                          onChange={e => {
-                            const n = [...pasosForm];
-                            n[i] = e.target.value;
-                            setPasosForm(n);
-                          }} />
-                        <button type="button" style={S.btnSm}
-                          onClick={() => setPasosForm(p => p.filter((_, j) => j !== i))}>✕</button>
+                        <span style={{ width: 20, opacity: 0.3, fontSize: 11, flexShrink: 0, textAlign: "right" }}>{i + 1}.</span>
+                        <input
+                          style={{ ...S.input, flex: 1 }}
+                          placeholder={`Paso ${i + 1}…`}
+                          value={p}
+                          onChange={e => { const n = [...pasos]; n[i] = e.target.value; setPasos(n); }}
+                        />
+                        <button type="button" style={S.btnSm} onClick={() => setPasos(prev => prev.filter((_, j) => j !== i))}>✕</button>
                       </div>
                     ))}
-                    <button type="button" style={{ ...S.btnSm, marginTop: 4 }}
-                      onClick={() => setPasosForm(p => [...p, ""])}>
-                      + Agregar paso
-                    </button>
+                    <button type="button" style={{ ...S.btnSm, marginTop: 4 }} onClick={() => setPasos(p => [...p, ""])}>+ Paso</button>
                   </div>
-
-                  <div style={{ marginBottom: 20 }}>
-                    <label style={S.label}>Notas adicionales (texto libre)</label>
-                    <textarea style={S.textarea} value={form.contenido}
-                      onChange={e => setForm(f => ({ ...f, contenido: e.target.value }))} />
-                  </div>
-
-                  {err && <div style={{ color: "#ff6b6b", fontSize: 12, marginBottom: 10 }}>{err}</div>}
 
                   <div style={{ display: "flex", gap: 8 }}>
-                    <button type="submit" style={S.btnPrim}>
-                      {editTarget ? "Guardar cambios" : "Crear procedimiento"}
-                    </button>
-                    <button type="button" style={S.btn} onClick={() => setShowModal(false)}>
-                      Cancelar
-                    </button>
+                    <button type="submit" style={S.btnPrim}>{editTarget ? "Guardar cambios" : "Crear"}</button>
+                    <button type="button" style={S.btn} onClick={() => setShowModal(false)}>Cancelar</button>
                   </div>
                 </form>
               </div>
