@@ -1,7 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
 import { supabase } from "../supabaseClient";
 import Sidebar from "../components/Sidebar";
-import NotificacionesBell from "../components/NotificacionesBell";
 
 const ROLES = ["todos", "admin", "oficina", "laminacion", "muebles", "panol", "mecanica", "electricidad"];
 
@@ -12,25 +11,31 @@ export default function ProcedimientosScreen({ profile, signOut }) {
   const [items,   setItems]   = useState([]);
   const [loading, setLoading] = useState(true);
   const [q,       setQ]       = useState("");
-  const [filtCat, setFiltCat] = useState("todas");
   const [err,     setErr]     = useState("");
   const [msg,     setMsg]     = useState("");
 
   // Modales
-  const [selItem,    setSelItem]    = useState(null); // Para leer el doc
-  const [showModal,  setShowModal]  = useState(false); // Para crear/editar
+  const [selItem,    setSelItem]    = useState(null); // Visor de lectura (Drive)
+  const [showModal,  setShowModal]  = useState(false); // Formulario
   const [editTarget, setEditTarget] = useState(null);
 
-  const [form, setForm] = useState({ titulo: "", descripcion: "", contenido: "", categoria: "", rol_visible: "todos" });
+  const [form, setForm] = useState({ titulo: "", descripcion: "", contenido: "", rol_visible: "todos" });
   const [pasos, setPasos] = useState([""]);
 
   async function cargar() {
     setLoading(true);
-    const { data } = await supabase
+    // FIX: Eliminamos 'categoria' y 'area' para que no tire error en Supabase
+    const { data, error } = await supabase
       .from("procedimientos")
-      .select("id,titulo,descripcion,contenido,pasos,categoria,area,rol_visible,orden,activo,created_at")
+      .select("id,titulo,descripcion,contenido,pasos,rol_visible,orden,activo,created_at")
       .eq("activo", true)
       .order("created_at", { ascending: false });
+
+    if (error) {
+      setErr(error.message);
+      setLoading(false);
+      return;
+    }
 
     let lista = data ?? [];
     if (!isAdmin) {
@@ -45,36 +50,29 @@ export default function ProcedimientosScreen({ profile, signOut }) {
 
   useEffect(() => { cargar(); }, []);
 
-  const categorias = useMemo(() => {
-    const cats = new Set(items.map(p => (p.categoria || p.area || "General").trim()).filter(Boolean));
-    return ["todas", ...Array.from(cats).sort()];
-  }, [items]);
-
   const filtrados = useMemo(() => {
     const qq = q.toLowerCase();
-    return items.filter(p => {
-      const cat = (p.categoria || p.area || "General").trim();
-      if (filtCat !== "todas" && cat !== filtCat) return false;
-      if (qq && !p.titulo.toLowerCase().includes(qq) && !(p.descripcion ?? "").toLowerCase().includes(qq)) return false;
-      return true;
-    });
-  }, [items, q, filtCat]);
+    if (!qq) return items;
+    return items.filter(p => 
+      (p.titulo || "").toLowerCase().includes(qq) || 
+      (p.descripcion || "").toLowerCase().includes(qq)
+    );
+  }, [items, q]);
 
   function abrirNuevo() {
     setEditTarget(null);
-    setForm({ titulo: "", descripcion: "", contenido: "", categoria: "", rol_visible: "todos" });
+    setForm({ titulo: "", descripcion: "", contenido: "", rol_visible: "todos" });
     setPasos([""]);
     setShowModal(true);
   }
 
   function abrirEditar(p) {
-    setSelItem(null); // Cierra el visor
+    setSelItem(null); 
     setEditTarget(p.id);
     setForm({
       titulo:      p.titulo ?? "",
       descripcion: p.descripcion ?? "",
       contenido:   p.contenido ?? "",
-      categoria:   p.categoria || p.area || "",
       rol_visible: Array.isArray(p.rol_visible) ? (p.rol_visible[0] ?? "todos") : "todos",
     });
     setPasos(Array.isArray(p.pasos) && p.pasos.length ? p.pasos.map(s => s.texto ?? s) : [""]);
@@ -89,8 +87,6 @@ export default function ProcedimientosScreen({ profile, signOut }) {
       titulo:      form.titulo.trim(),
       descripcion: form.descripcion.trim() || null,
       contenido:   form.contenido.trim() || null,
-      categoria:   form.categoria.trim() || null,
-      area:        form.categoria.trim() || null,
       rol_visible: [form.rol_visible],
       pasos:       pasos.filter(p => p.trim()).map((texto, i) => ({ orden: i + 1, texto })),
       activo:      true,
@@ -104,7 +100,7 @@ export default function ProcedimientosScreen({ profile, signOut }) {
     }
 
     if (error) return setErr(error.message);
-    setMsg(editTarget ? "✅ Actualizado." : "✅ Procedimiento creado.");
+    setMsg(editTarget ? "✅ Actualizado." : "✅ Documento creado.");
     setShowModal(false);
     cargar();
     setTimeout(() => setMsg(""), 2500);
@@ -123,77 +119,66 @@ export default function ProcedimientosScreen({ profile, signOut }) {
 
   // ── ESTILOS ──────────────────────────────────────────────
   const S = {
-    page:    { background: "#000", minHeight: "100vh", color: "#d0d0d0", fontFamily: "-apple-system, 'Helvetica Neue', sans-serif" },
+    page:    { background: "#000", minHeight: "100vh", color: "#d0d0d0", fontFamily: "Roboto, 'Helvetica Neue', sans-serif" },
     layout:  { display: "grid", gridTemplateColumns: "280px 1fr", minHeight: "100vh" },
-    main:    { padding: "20px 24px", overflow: "auto" },
-    content: { width: "min(1300px,100%)", margin: "0 auto" },
-    card:    { border: "1px solid rgba(255,255,255,0.07)", borderRadius: 14, background: "rgba(255,255,255,0.02)", padding: 16, marginBottom: 12 },
-    input:   { background: "rgba(255,255,255,0.04)", border: "1px solid rgba(255,255,255,0.1)", color: "#fff", padding: "8px 12px", borderRadius: 10, fontSize: 13, outline: "none" },
-    textarea:{ background: "rgba(255,255,255,0.04)", border: "1px solid rgba(255,255,255,0.1)", color: "#fff", padding: "8px 12px", borderRadius: 10, fontSize: 13, outline: "none", resize: "vertical", minHeight: 100 },
-    label:   { fontSize: 10, letterSpacing: 1.5, opacity: 0.4, display: "block", marginBottom: 5, textTransform: "uppercase", fontWeight: 600 },
-    btn:     { border: "1px solid rgba(255,255,255,0.1)", background: "rgba(255,255,255,0.04)", color: "#fff", padding: "8px 14px", borderRadius: 10, cursor: "pointer", fontWeight: 600, fontSize: 13 },
-    btnPrim: { border: "1px solid rgba(255,255,255,0.2)", background: "#fff", color: "#000", padding: "8px 18px", borderRadius: 10, cursor: "pointer", fontWeight: 800, fontSize: 13 },
-    btnSm:   { border: "1px solid rgba(255,255,255,0.08)", background: "transparent", color: "#888", padding: "4px 10px", borderRadius: 7, cursor: "pointer", fontSize: 11 },
+    main:    { padding: "24px", overflow: "auto" },
+    content: { width: "100%", maxWidth: 1400, margin: "0 auto" },
+    input:   { background: "rgba(255,255,255,0.05)", border: "1px solid rgba(255,255,255,0.1)", color: "#fff", padding: "10px 14px", borderRadius: 10, fontSize: 13, outline: "none", width: "100%" },
+    label:   { fontSize: 11, letterSpacing: 1, opacity: 0.6, display: "block", marginBottom: 6, textTransform: "uppercase", fontWeight: 600 },
+    btnPrim: { border: "none", background: "#fff", color: "#000", padding: "10px 20px", borderRadius: 10, cursor: "pointer", fontWeight: 800, fontSize: 13 },
+    btnSm:   { border: "1px solid rgba(255,255,255,0.1)", background: "rgba(255,255,255,0.05)", color: "#fff", padding: "6px 12px", borderRadius: 8, cursor: "pointer", fontSize: 12 },
     
-    // Grilla estilo Drive
+    // GRILLA ESTILO GOOGLE DRIVE
     grid: {
       display: "grid",
-      gridTemplateColumns: "repeat(auto-fill, minmax(220px, 1fr))",
+      gridTemplateColumns: "repeat(auto-fill, minmax(210px, 1fr))",
       gap: 20,
       marginTop: 20
     },
     docCard: {
-      background: "#161616", border: "1px solid rgba(255,255,255,0.08)",
-      borderRadius: 12, overflow: "hidden", cursor: "pointer",
-      display: "flex", flexDirection: "column", height: 240,
+      background: "#1e1e1e", border: "1px solid #333",
+      borderRadius: 10, overflow: "hidden", cursor: "pointer",
+      display: "flex", flexDirection: "column", height: 260,
       transition: "background 0.2s, border-color 0.2s",
     },
     docHeader: {
       padding: "12px 14px", display: "flex", alignItems: "center", gap: 10,
-      borderBottom: "1px solid rgba(255,255,255,0.05)"
+      background: "#1e1e1e"
     },
     docPreview: {
-      flex: 1, background: "#ffffff", margin: "14px 14px 0",
-      borderRadius: "6px 6px 0 0", padding: "16px",
-      overflow: "hidden", position: "relative",
-      boxShadow: "0 -2px 10px rgba(0,0,0,0.2)"
+      flex: 1, background: "#28292c", padding: "12px",
+      display: "flex", justifyContent: "center"
+    },
+    hojaBlanca: {
+      background: "#fff", width: "100%", height: "100%",
+      borderRadius: 4, boxShadow: "0 1px 4px rgba(0,0,0,0.4)",
+      padding: "14px", overflow: "hidden", position: "relative"
     },
     docTitle: {
-      color: "#fff", fontSize: 13, fontWeight: 600, 
-      whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis"
+      color: "#e8eaed", fontSize: 13, fontWeight: 500, 
+      whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis", flex: 1
     },
     
     // Modales
-    overlay: { position: "fixed", inset: 0, background: "rgba(0,0,0,0.85)", backdropFilter: "blur(8px)", display: "flex", justifyContent: "center", alignItems: "flex-start", zIndex: 9999, padding: "40px 20px", overflowY: "auto" },
-    modalForm: { background: "rgba(8,8,8,0.98)", border: "1px solid rgba(255,255,255,0.1)", borderRadius: 18, padding: 28, width: "100%", maxWidth: 540, boxShadow: "0 30px 80px rgba(0,0,0,0.9)" },
-    modalReader: { background: "#080808", border: "1px solid rgba(255,255,255,0.1)", borderRadius: 18, padding: 40, width: "100%", maxWidth: 800, boxShadow: "0 30px 80px rgba(0,0,0,0.9)" },
-    
-    filterBtn: (act) => ({
-      border:  act ? "1px solid rgba(255,255,255,0.2)" : "1px solid transparent",
-      background: act ? "rgba(255,255,255,0.06)" : "transparent",
-      color:   act ? "#fff" : "rgba(255,255,255,0.35)",
-      padding: "5px 12px", borderRadius: 8, cursor: "pointer",
-      fontSize: 12, fontWeight: act ? 700 : 400, whiteSpace: "nowrap",
-    }),
+    overlay: { position: "fixed", inset: 0, background: "rgba(0,0,0,0.85)", backdropFilter: "blur(5px)", display: "flex", justifyContent: "center", alignItems: "center", zIndex: 9999, padding: "20px" },
+    modalForm: { background: "#111", border: "1px solid #333", borderRadius: 16, padding: 30, width: "100%", maxWidth: 540, maxHeight: "90vh", overflowY: "auto" },
   };
 
   return (
     <div style={S.page}>
         
-      {/* MAGIA PDF: Solo se imprime el visor del documento */}
+      {/* MAGIA PDF: Al imprimir, solo se ve la hoja A4, el resto desaparece */}
       <style>{`
         @media print {
           body * { visibility: hidden; }
           #printable-doc, #printable-doc * { visibility: visible; }
           #printable-doc {
             position: absolute; left: 0; top: 0; width: 100%; padding: 0;
-            background: white !important; color: black !important;
+            background: white !important; color: black !important; border: none !important;
           }
           .no-print { display: none !important; }
         }
       `}</style>
-
-      <NotificacionesBell profile={profile} />
       
       <div style={S.layout} className="no-print">
         <Sidebar profile={profile} signOut={signOut} />
@@ -201,145 +186,133 @@ export default function ProcedimientosScreen({ profile, signOut }) {
         <main style={S.main}>
           <div style={S.content}>
 
-            {/* Header */}
-            <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 18 }}>
-              <div>
-                <div style={{ fontSize: 10, letterSpacing: 3, opacity: 0.3, marginBottom: 5, textTransform: "uppercase", fontWeight: 600 }}>Instrucciones</div>
-                <h1 style={{ fontFamily: "Montserrat, system-ui", fontSize: 24, margin: 0, color: "#fff", fontWeight: 900, letterSpacing: -0.5 }}>
-                  Procedimientos
-                </h1>
-              </div>
-              {isAdmin && <button style={S.btnPrim} onClick={abrirNuevo}>+ Nuevo</button>}
+            {/* Header y Buscador */}
+            <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 24 }}>
+              <h1 style={{ fontFamily: "Montserrat, system-ui", fontSize: 24, margin: 0, color: "#fff", fontWeight: 700 }}>
+                Procedimientos
+              </h1>
+              {isAdmin && <button style={S.btnPrim} onClick={abrirNuevo}>+ Nuevo documento</button>}
             </div>
 
-            {err && <div style={{ ...S.card, borderColor: "rgba(255,69,58,0.3)", color: "#ff6b6b" }}>{err}</div>}
-            {msg && <div style={{ ...S.card, borderColor: "rgba(48,209,88,0.3)", color: "#a6ffbf" }}>{msg}</div>}
-
-            {/* Búsqueda y Filtros */}
-            <div style={{ display: "flex", gap: 12, marginBottom: 12, flexWrap: "wrap", alignItems: "center" }}>
-              <input style={{ ...S.input, width: 250 }} placeholder="Buscar procedimiento…" value={q} onChange={e => setQ(e.target.value)} />
-              <div style={{ width: 1, height: 20, background: "rgba(255,255,255,0.1)", margin: "0 5px" }} />
-              {categorias.map(cat => (
-                <button key={cat} style={S.filterBtn(filtCat === cat)} onClick={() => setFiltCat(cat)}>
-                  {cat === "todas" ? "Todas las categorías" : cat}
-                </button>
-              ))}
+            <div style={{ maxWidth: 400, marginBottom: 20 }}>
+              <input style={S.input} placeholder="🔍 Buscar documento en Drive..." value={q} onChange={e => setQ(e.target.value)} />
             </div>
 
-            {loading && <div style={{ textAlign: "center", opacity: 0.4, padding: 40 }}>Cargando documentos…</div>}
-            
-            {!loading && filtrados.length === 0 && (
-              <div style={{ textAlign: "center", opacity: 0.35, padding: 60 }}>
-                No hay procedimientos para mostrar.
-              </div>
-            )}
+            {err && <div style={{ padding: 12, background: "rgba(255,69,58,0.1)", border: "1px solid #ff453a", color: "#ff453a", borderRadius: 8, marginBottom: 16 }}>{err}</div>}
+            {msg && <div style={{ padding: 12, background: "rgba(48,209,88,0.1)", border: "1px solid #30d158", color: "#30d158", borderRadius: 8, marginBottom: 16 }}>{msg}</div>}
 
-            {/* GRILLA TIPO DRIVE */}
-            <div style={S.grid}>
-              {filtrados.map(p => {
-                const cat = (p.categoria || p.area || "General").trim();
-                return (
+            {loading ? (
+              <div style={{ color: "#666", marginTop: 40 }}>Cargando documentos...</div>
+            ) : filtrados.length === 0 ? (
+              <div style={{ color: "#666", marginTop: 40 }}>No hay documentos para mostrar.</div>
+            ) : (
+              /* GRILLA ESTILO GOOGLE DRIVE */
+              <div style={S.grid}>
+                {filtrados.map(p => (
                   <div 
                     key={p.id} 
                     style={S.docCard} 
                     onClick={() => setSelItem(p)}
-                    onMouseEnter={e => e.currentTarget.style.borderColor = "rgba(255,255,255,0.3)"}
-                    onMouseLeave={e => e.currentTarget.style.borderColor = "rgba(255,255,255,0.08)"}
+                    onMouseEnter={e => e.currentTarget.style.background = "#2a2b2e"}
+                    onMouseLeave={e => e.currentTarget.style.background = "#1e1e1e"}
                   >
-                    {/* Icono + Título */}
+                    {/* Header: Icono Documento + Titulo + 3 puntos */}
                     <div style={S.docHeader}>
-                      <div style={{ background: "#0a84ff", width: 18, height: 18, borderRadius: 4, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 10, color: "#fff", flexShrink: 0 }}>
-                        P
+                      <div style={{ background: "#4285F4", width: 16, height: 16, borderRadius: 2, display: "flex", alignItems: "center", justifyContent: "center", color: "#fff", fontSize: 10, flexShrink: 0 }}>
+                        📄
                       </div>
                       <div style={S.docTitle} title={p.titulo}>{p.titulo}</div>
+                      <div style={{ color: "#9aa0a6", fontSize: 18, lineHeight: 0, paddingBottom: 6 }}>⋮</div>
                     </div>
                     
-                    {/* Vista previa (Hoja Blanca) */}
+                    {/* Vista Previa: Fondo gris con una hoja blanca adentro */}
                     <div style={S.docPreview}>
-                      <div style={{ fontSize: 14, fontWeight: 800, color: "#111", marginBottom: 6 }}>{p.titulo}</div>
-                      <div style={{ fontSize: 9, color: "#666", lineHeight: 1.5, maxHeight: 100, overflow: "hidden" }}>
-                        {p.descripcion ? p.descripcion : "Procedimiento operativo estándar."}
-                        <br/><br/>
-                        {Array.isArray(p.pasos) && p.pasos.map((paso, i) => (
-                          <div key={i} style={{ marginBottom: 4 }}>{i+1}. {typeof paso === "string" ? paso : paso.texto}</div>
-                        ))}
+                      <div style={S.hojaBlanca}>
+                        <div style={{ fontSize: 8, fontWeight: 800, color: "#000", marginBottom: 4 }}>{p.titulo}</div>
+                        <div style={{ fontSize: 6, color: "#333", lineHeight: 1.4 }}>
+                          {p.descripcion ? p.descripcion : "Procedimiento operativo estándar."}
+                          <br/><br/>
+                          {Array.isArray(p.pasos) && p.pasos.map((paso, i) => (
+                            <div key={i} style={{ marginBottom: 3 }}>{i+1}. {typeof paso === "string" ? paso : paso.texto}</div>
+                          ))}
+                        </div>
+                        {/* Difuminado inferior para dar efecto de "sigue leyendo" */}
+                        <div style={{ position: "absolute", bottom: 0, left: 0, right: 0, height: 30, background: "linear-gradient(transparent, #fff)" }} />
                       </div>
-                      {/* Degradado para difuminar el texto hacia abajo */}
-                      <div style={{ position: "absolute", bottom: 0, left: 0, right: 0, height: 40, background: "linear-gradient(transparent, #ffffff)" }} />
                     </div>
                   </div>
-                );
-              })}
-            </div>
+                ))}
+              </div>
+            )}
 
           </div>
         </main>
       </div>
 
-      {/* ── VISOR DE LECTURA (Reemplaza al panel derecho) ── */}
+      {/* ── VISOR DE LECTURA (TIPO DRIVE PREVIEW) ── */}
       {selItem && (
         <div style={{...S.overlay, zIndex: 9990}} onClick={e => e.target === e.currentTarget && setSelItem(null)} className="no-print">
-          <div style={S.modalReader} id="printable-doc">
+          
+          {/* Barra superior de herramientas del visor */}
+          <div className="no-print" style={{ position: "absolute", top: 0, left: 0, right: 0, height: 60, background: "rgba(0,0,0,0.6)", display: "flex", justifyContent: "space-between", alignItems: "center", padding: "0 20px" }}>
+            <div style={{ color: "#fff", fontSize: 16, display: "flex", alignItems: "center", gap: 10 }}>
+              <span style={{ color: "#4285F4" }}>📄</span> {selItem.titulo}
+            </div>
+            <div style={{ display: "flex", gap: 10, alignItems: "center" }}>
+              <button style={S.btnSm} onClick={imprimirPDF}>📥 Descargar PDF / Imprimir</button>
+              {isAdmin && (
+                <>
+                  <button style={S.btnSm} onClick={() => abrirEditar(selItem)}>✏️ Editar</button>
+                  <button style={{ ...S.btnSm, color: "#ff453a", borderColor: "rgba(255,69,58,0.3)" }} onClick={() => archivar(selItem.id)}>🗑 Borrar</button>
+                </>
+              )}
+              <button style={{ background: "transparent", border: "none", color: "#fff", fontSize: 24, cursor: "pointer", marginLeft: 10 }} onClick={() => setSelItem(null)}>✕</button>
+            </div>
+          </div>
+
+          {/* Hoja A4 para leer el contenido */}
+          <div id="printable-doc" style={{ background: "#fff", width: "100%", maxWidth: 800, marginTop: 60, padding: "50px 60px", borderRadius: 4, boxShadow: "0 4px 20px rgba(0,0,0,0.5)", color: "#000", minHeight: "80vh" }}>
             
-            {/* Header del Visor */}
-            <div className="no-print" style={{ display: "flex", justifyContent: "space-between", alignItems: "center", borderBottom: "1px solid rgba(255,255,255,0.1)", paddingBottom: 20, marginBottom: 20 }}>
-              <div style={{ display: "flex", gap: 10 }}>
-                {isAdmin && (
-                  <>
-                    <button style={S.btnSm} onClick={() => abrirEditar(selItem)}>✏️ Editar</button>
-                    <button style={{ ...S.btnSm, color: "#ff453a", borderColor: "rgba(255,69,58,0.2)" }} onClick={() => archivar(selItem.id)}>🗑 Archivar</button>
-                  </>
-                )}
-                <button style={{ ...S.btnSm, color: "#fff", borderColor: "#fff" }} onClick={imprimirPDF}>📥 Descargar PDF</button>
-              </div>
-              <button style={{ ...S.btnSm, fontSize: 18, padding: "2px 10px", border: "none" }} onClick={() => setSelItem(null)}>✕</button>
+            <div style={{ borderBottom: "2px solid #000", paddingBottom: 10, marginBottom: 20, display: "flex", justifyContent: "space-between", alignItems: "flex-end" }}>
+               <div>
+                 <h1 style={{ margin: 0, fontSize: 24, textTransform: "uppercase", fontFamily: "Arial, sans-serif" }}>{selItem.titulo}</h1>
+                 <div style={{ fontSize: 12, color: "#555", marginTop: 4 }}>PROCEDIMIENTO OPERATIVO ESTÁNDAR</div>
+               </div>
+               <img src="/logo-k.png" alt="Klase A" style={{ height: 30, opacity: 0.8 }} />
             </div>
 
-            {/* Contenido del Documento */}
-            <div>
-              <div style={{ fontSize: 10, fontWeight: 600, color: "#0a84ff", letterSpacing: 1.5, textTransform: "uppercase", marginBottom: 8 }}>
-                {(selItem.categoria || selItem.area || "General").trim()}
+            {selItem.descripcion && (
+              <div style={{ marginBottom: 20, fontSize: 14 }}>
+                <strong>OBJETIVO: </strong> {selItem.descripcion}
               </div>
-              <h1 style={{ margin: "0 0 10px", color: "#fff", fontSize: 28, fontFamily: "Montserrat, system-ui", fontWeight: 900 }}>
-                {selItem.titulo}
-              </h1>
-              {selItem.descripcion && (
-                <p style={{ margin: "0 0 30px", fontSize: 14, opacity: 0.6, lineHeight: 1.6 }}>{selItem.descripcion}</p>
-              )}
+            )}
 
-              {/* Pasos */}
-              {Array.isArray(selItem.pasos) && selItem.pasos.length > 0 && (
-                <div style={{ marginBottom: 30 }}>
-                  <div style={{ fontSize: 11, opacity: 0.4, letterSpacing: 1.5, marginBottom: 16, textTransform: "uppercase", fontWeight: 700 }}>Pasos operativos</div>
-                  {selItem.pasos.map((paso, i) => {
-                    const texto = typeof paso === "string" ? paso : paso.texto;
-                    return (
-                      <div key={i} style={{ display: "flex", alignItems: "flex-start", gap: 14, marginBottom: 12 }}>
-                        <div style={{
-                          width: 24, height: 24, borderRadius: "50%", background: "rgba(255,255,255,0.05)",
-                          display: "flex", alignItems: "center", justifyContent: "center",
-                          fontSize: 11, fontWeight: 800, color: "#fff", flexShrink: 0
-                        }}>
-                          {i + 1}
-                        </div>
-                        <div style={{ paddingTop: 3, fontSize: 15, lineHeight: 1.6, color: "#d0d0d0" }}>
-                          {texto}
-                        </div>
-                      </div>
-                    );
-                  })}
+            {Array.isArray(selItem.pasos) && selItem.pasos.length > 0 && (
+              <div style={{ marginBottom: 30 }}>
+                <div style={{ background: "#eee", padding: "6px 10px", fontWeight: "bold", fontSize: 13, borderTop: "1px solid #000", borderBottom: "1px solid #000", marginBottom: 15 }}>
+                  DESARROLLO / PASOS
                 </div>
-              )}
+                <ol style={{ paddingLeft: 24, margin: 0, fontSize: 14, lineHeight: 1.6 }}>
+                  {selItem.pasos.map((paso, i) => (
+                    <li key={i} style={{ marginBottom: 8 }}>{typeof paso === "string" ? paso : paso.texto}</li>
+                  ))}
+                </ol>
+              </div>
+            )}
 
-              {/* Contenido / Notas */}
-              {selItem.contenido && (
-                <div style={{ marginTop: 20, paddingTop: 20, borderTop: "1px solid rgba(255,255,255,0.05)" }}>
-                  <div style={{ fontSize: 11, opacity: 0.4, letterSpacing: 1.5, marginBottom: 12, textTransform: "uppercase", fontWeight: 700 }}>Notas adicionales</div>
-                  <div style={{ fontSize: 14, lineHeight: 1.7, whiteSpace: "pre-wrap", color: "#b0b0b0" }}>{selItem.contenido}</div>
+            {selItem.contenido && (
+              <div>
+                <div style={{ background: "#eee", padding: "6px 10px", fontWeight: "bold", fontSize: 13, borderTop: "1px solid #000", borderBottom: "1px solid #000", marginBottom: 15 }}>
+                  NOTAS ADICIONALES
                 </div>
-              )}
+                <div style={{ fontSize: 14, lineHeight: 1.6, whiteSpace: "pre-wrap" }}>{selItem.contenido}</div>
+              </div>
+            )}
+
+            {/* Pie de página del PDF */}
+            <div style={{ marginTop: 50, borderTop: "1px solid #ccc", paddingTop: 10, fontSize: 10, color: "#666", textAlign: "center", fontFamily: "Arial, sans-serif" }}>
+              Documento generado por Sistema de Producción Klase A
             </div>
-            
           </div>
         </div>
       )}
@@ -348,73 +321,57 @@ export default function ProcedimientosScreen({ profile, signOut }) {
       {showModal && (
         <div className="no-print" style={{...S.overlay, zIndex: 9995}} onClick={e => e.target === e.currentTarget && setShowModal(false)}>
           <div style={S.modalForm}>
-            <h2 style={{ margin: "0 0 20px", color: "#fff", fontSize: 16, fontFamily: "Montserrat, system-ui", fontWeight: 800 }}>
-              {editTarget ? "Editar procedimiento" : "Nuevo procedimiento"}
+            <h2 style={{ margin: "0 0 20px", color: "#fff", fontSize: 18 }}>
+              {editTarget ? "Editar Documento" : "Nuevo Documento"}
             </h2>
             <form onSubmit={guardar}>
-              <div style={{ marginBottom: 12 }}>
-                <label style={S.label}>Título *</label>
-                <input style={{ ...S.input, width: "100%" }} required value={form.titulo} onChange={e => setForm(f => ({ ...f, titulo: e.target.value }))} autoFocus />
-              </div>
-
-              <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10, marginBottom: 12 }}>
-                <div>
-                  <label style={S.label}>Categoría</label>
-                  <input
-                    style={{ ...S.input, width: "100%" }}
-                    placeholder="Ej: Seguridad, Calidad…"
-                    list="cats-list"
-                    value={form.categoria}
-                    onChange={e => setForm(f => ({ ...f, categoria: e.target.value }))}
-                  />
-                  <datalist id="cats-list">
-                    {categorias.filter(c => c !== "todas").map(c => <option key={c} value={c} />)}
-                  </datalist>
-                </div>
-                <div>
-                  <label style={S.label}>Visible para</label>
-                  <select style={{ ...S.input, width: "100%" }} value={form.rol_visible} onChange={e => setForm(f => ({ ...f, rol_visible: e.target.value }))}>
-                    {ROLES.map(r => <option key={r} value={r}>{r === "todos" ? "Todos" : r}</option>)}
-                  </select>
-                </div>
-              </div>
-
-              <div style={{ marginBottom: 12 }}>
-                <label style={S.label}>Descripción breve</label>
-                <input style={{ ...S.input, width: "100%" }} placeholder="Resumen en una línea…" value={form.descripcion} onChange={e => setForm(f => ({ ...f, descripcion: e.target.value }))} />
-              </div>
-
-              <div style={{ marginBottom: 14 }}>
-                <label style={S.label}>Contenido / notas (opcional)</label>
-                <textarea style={{ ...S.textarea, width: "100%" }} placeholder="Detalles técnicos, advertencias…" value={form.contenido} onChange={e => setForm(f => ({ ...f, contenido: e.target.value }))} />
+              <div style={{ marginBottom: 16 }}>
+                <label style={S.label}>Título del documento *</label>
+                <input style={S.input} required value={form.titulo} onChange={e => setForm(f => ({ ...f, titulo: e.target.value }))} autoFocus />
               </div>
 
               <div style={{ marginBottom: 16 }}>
-                <label style={S.label}>Pasos</label>
+                <label style={S.label}>Visible para</label>
+                <select style={S.input} value={form.rol_visible} onChange={e => setForm(f => ({ ...f, rol_visible: e.target.value }))}>
+                  {ROLES.map(r => <option key={r} value={r}>{r === "todos" ? "Todos los roles" : r}</option>)}
+                </select>
+              </div>
+
+              <div style={{ marginBottom: 16 }}>
+                <label style={S.label}>Descripción / Objetivo</label>
+                <input style={S.input} placeholder="Resumen en una línea..." value={form.descripcion} onChange={e => setForm(f => ({ ...f, descripcion: e.target.value }))} />
+              </div>
+
+              <div style={{ marginBottom: 16 }}>
+                <label style={S.label}>Pasos a seguir</label>
                 {pasos.map((p, i) => (
-                  <div key={i} style={{ display: "flex", gap: 6, marginBottom: 6, alignItems: "center" }}>
-                    <span style={{ width: 20, opacity: 0.3, fontSize: 11, flexShrink: 0, textAlign: "right" }}>{i + 1}.</span>
+                  <div key={i} style={{ display: "flex", gap: 6, marginBottom: 8, alignItems: "center" }}>
+                    <span style={{ width: 20, opacity: 0.5, fontSize: 12, textAlign: "right" }}>{i + 1}.</span>
                     <input
                       style={{ ...S.input, flex: 1 }}
-                      placeholder={`Paso ${i + 1}…`}
+                      placeholder={`Escribir paso ${i + 1}...`}
                       value={p}
                       onChange={e => { const n = [...pasos]; n[i] = e.target.value; setPasos(n); }}
                     />
-                    <button type="button" style={S.btnSm} onClick={() => setPasos(prev => prev.filter((_, j) => j !== i))}>✕</button>
+                    <button type="button" style={{...S.btnSm, background: "transparent", border: "none", color: "#666"}} onClick={() => setPasos(prev => prev.filter((_, j) => j !== i))}>✕</button>
                   </div>
                 ))}
-                <button type="button" style={{ ...S.btnSm, marginTop: 4 }} onClick={() => setPasos(p => [...p, ""])}>+ Paso</button>
+                <button type="button" style={{ ...S.btnSm, marginTop: 4 }} onClick={() => setPasos(p => [...p, ""])}>+ Agregar Paso</button>
               </div>
 
-              <div style={{ display: "flex", gap: 8 }}>
-                <button type="submit" style={S.btnPrim}>{editTarget ? "Guardar cambios" : "Crear"}</button>
-                <button type="button" style={S.btn} onClick={() => setShowModal(false)}>Cancelar</button>
+              <div style={{ marginBottom: 24 }}>
+                <label style={S.label}>Notas técnicas extras (opcional)</label>
+                <textarea style={{...S.input, minHeight: 80, resize: "vertical"}} placeholder="Advertencias, aclaraciones..." value={form.contenido} onChange={e => setForm(f => ({ ...f, contenido: e.target.value }))} />
+              </div>
+
+              <div style={{ display: "flex", gap: 10 }}>
+                <button type="submit" style={S.btnPrim}>{editTarget ? "Guardar cambios" : "Crear Documento"}</button>
+                <button type="button" style={{...S.btnPrim, background: "#333", color: "#fff", border: "none"}} onClick={() => setShowModal(false)}>Cancelar</button>
               </div>
             </form>
           </div>
         </div>
       )}
-
     </div>
   );
 }
