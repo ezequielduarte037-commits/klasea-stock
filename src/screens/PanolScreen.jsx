@@ -256,7 +256,7 @@ export default function PanolScreen({ profile, signOut }) {
       border: "1px solid #2a2a2a", background: "transparent", color: "#fff",
       padding: "8px 10px", borderRadius: 12, cursor: "pointer", fontWeight: 900, fontSize: 12, opacity: 0.9,
     },
-    warn: { marginTop: 10, padding: 10, borderRadius: 12, border: "1px solid rgba(255,214,10,0.35)", background: "rgba(255,214,10,0.10)", color: "#ffeaa6", fontSize: 13 },
+    warn: { marginTop: 6, padding: "6px 10px", borderRadius: 8, border: "1px solid rgba(255,255,255,0.08)", background: "rgba(255,255,255,0.03)", color: "#666", fontSize: 11 },
     ok: { marginTop: 10, color: "#30d158", fontSize: 13 },
     bad: { marginTop: 10, color: "#ff453a", fontSize: 13 },
 
@@ -340,7 +340,7 @@ export default function PanolScreen({ profile, signOut }) {
                       <button type="button" style={S.qtyBtn} onClick={() => ajustarCantidad(+1)}>+1</button>
                       <button type="button" style={S.qtyBtn} onClick={() => ajustarCantidad(+10)}>+10</button>
                     </div>
-                    {!cantidadRevisada && <div style={S.warn}>⚠️ Revisá la cantidad.</div>}
+                    {!cantidadRevisada && <div style={S.warn}>Revisá la cantidad antes de confirmar</div>}
                   </div>
                 </div>
 

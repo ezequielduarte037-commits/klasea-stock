@@ -1,135 +1,143 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useState, useRef } from "react";
 import { supabase } from "../supabaseClient";
 import Sidebar from "../components/Sidebar";
 
+// ── HELPERS ──────────────────────────────────────────────────────
 const ESTADOS = ["No enviado", "Parcial", "Completo", "Rehacer"];
 
-// --- COLORES & ESTILOS AUXILIARES ---
-const SECTOR_COLORS = {
-  "Cocina": "#ffd60a", "Baño": "#30d158", "Baños": "#30d158",
-  "Cockpit": "#0a84ff", "Camarote": "#bf5af2", "Exterior": "#ff9f0a",
-  "Salón": "#ff453a", "General": "#8e8e93"
+const ESTADO_META = {
+  "No enviado": { color: "#555",    bg: "transparent",             label: "—"       },
+  "Parcial":    { color: "#a0a0a0", bg: "rgba(160,160,160,0.08)",  label: "Parcial" },
+  "Completo":   { color: "#30d158", bg: "rgba(48,209,88,0.10)",    label: "✓"       },
+  "Rehacer":    { color: "#ff453a", bg: "rgba(255,69,58,0.10)",    label: "↺ Rehacer"},
 };
 
-function getSectorColor(sector) {
-  const key = Object.keys(SECTOR_COLORS).find(k => (sector || "").includes(k));
-  return key ? SECTOR_COLORS[key] : SECTOR_COLORS["General"];
+function progreso(rows) {
+  if (!rows.length) return 0;
+  return Math.round((rows.filter(r => r.estado === "Completo").length / rows.length) * 100);
 }
 
-function getStatusStyle(estado) {
-  let color = "#666"; 
-  let borderColor = "#333";
-  if (estado === "Completo") { color = "#30d158"; borderColor = "#30d158"; }
-  else if (estado === "Rehacer") { color = "#ff453a"; borderColor = "#ff453a"; }
-  else if (estado === "Parcial") { color = "#ffd60a"; borderColor = "#ffd60a"; }
-
-  return {
-    background: "#0b0b0b", color: color, border: `1px solid ${borderColor}`,
-    padding: "6px 10px", borderRadius: 10, width: "100%",
-    fontWeight: estado === "No enviado" ? "400" : "900", cursor: "pointer", outline: "none"
-  };
-}
-
-// --- MODAL (FICHA TÉCNICA) ---
+// ── MODAL MUEBLE ────────────────────────────────────────────────
 function MuebleModal({ mueble, onClose, onSave, onDelete, isAdmin }) {
-  const [isEditMode, setIsEditMode] = useState(false);
-  
+  const [edit, setEdit] = useState(false);
   const [form, setForm] = useState({
-    nombre: mueble.nombre || "",
-    sector: mueble.sector || "",
+    nombre:      mueble.nombre      || "",
+    sector:      mueble.sector      || "",
     descripcion: mueble.descripcion || "",
-    medidas: mueble.medidas || "",
-    material: mueble.material || "",
-    imagen_url: mueble.imagen_url || ""
+    medidas:     mueble.medidas     || "",
+    material:    mueble.material    || "",
+    imagen_url:  mueble.imagen_url  || "",
   });
 
-  const S_Modal = {
-    overlay: { position: "fixed", inset: 0, background: "rgba(0,0,0,0.85)", backdropFilter: "blur(5px)", display: "flex", justifyContent: "center", alignItems: "center", zIndex: 999 },
-    card: { background: "#111", border: "1px solid #333", borderRadius: 16, width: "min(600px, 90vw)", padding: 24, maxHeight: "90vh", overflowY: "auto", position: "relative" },
-    closeBtn: { position: "absolute", top: 16, right: 16, background: "transparent", border: "none", color: "#fff", fontSize: 24, cursor: "pointer" },
-    
-    headerRow: { display: "flex", alignItems: "center", gap: 10, paddingRight: 30 },
-    title: { margin: 0, color: "#fff", fontSize: 22, fontFamily: "Montserrat, sans-serif" },
-    editBtn: { background: "#333", border: "none", borderRadius: "50%", width: 32, height: 32, cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 16 },
-    
-    sector: { color: getSectorColor(mueble.sector), fontSize: 13, fontWeight: 900, textTransform: "uppercase", marginTop: 4, letterSpacing: 1 },
-    imageBox: { width: "100%", height: 250, background: "#000", border: "1px dashed #333", borderRadius: 12, marginTop: 20, display: "flex", alignItems: "center", justifyContent: "center", overflow: "hidden" },
-    img: { width: "100%", height: "100%", objectFit: "contain" },
-    label: { color: "#888", fontSize: 12, marginTop: 12, display: "block", marginBottom: 4 },
-    textDisplay: { color: "#ddd", fontSize: 15, lineHeight: 1.5 },
-    input: { background: "#222", border: "1px solid #444", color: "#fff", padding: "10px", borderRadius: 8, width: "100%", fontSize: 14 },
-    inputTitle: { background: "#222", border: "1px solid #444", color: "#fff", padding: "10px", borderRadius: 8, width: "100%", fontSize: 18, fontWeight: 900, marginBottom: 8 },
-    textArea: { background: "#222", border: "1px solid #444", color: "#fff", padding: "10px", borderRadius: 8, width: "100%", fontSize: 14, minHeight: 80, resize: "vertical" },
-    btnSave: { marginTop: 20, width: "100%", padding: 12, background: "#fff", color: "#000", fontWeight: 900, border: "none", borderRadius: 10, cursor: "pointer" },
-    btnDelete: { marginTop: 10, width: "100%", padding: 12, background: "rgba(255, 69, 58, 0.1)", color: "#ff453a", fontWeight: 900, border: "1px solid #ff453a", borderRadius: 10, cursor: "pointer" }
-  };
-
-  const handleSave = () => {
-    if (!form.nombre.trim()) return alert("El nombre es obligatorio");
-    onSave(mueble.id, form);
-    setIsEditMode(false);
-  };
-  
-  const handleDelete = () => {
-    if (window.confirm("⚠️ ¿Estás seguro de borrar este mueble DEL CATÁLOGO?\n\nSe borrará de TODOS los barcos.")) {
-       onDelete(mueble.id);
-       onClose();
-    }
+  const S = {
+    overlay: {
+      position: "fixed", inset: 0, zIndex: 1000,
+      background: "rgba(0,0,0,0.75)",
+      backdropFilter: "blur(12px)", WebkitBackdropFilter: "blur(12px)",
+      display: "flex", alignItems: "center", justifyContent: "center",
+    },
+    card: {
+      background: "rgba(10,10,10,0.95)",
+      border: "1px solid rgba(255,255,255,0.08)",
+      borderRadius: 18, padding: 28,
+      width: "min(580px, 92vw)", maxHeight: "88vh", overflowY: "auto",
+      position: "relative",
+      boxShadow: "0 32px 64px rgba(0,0,0,0.8)",
+    },
+    closeBtn: {
+      position: "absolute", top: 16, right: 16,
+      background: "rgba(255,255,255,0.06)", border: "1px solid rgba(255,255,255,0.1)",
+      color: "#fff", width: 32, height: 32, borderRadius: "50%",
+      cursor: "pointer", fontSize: 18, display: "flex", alignItems: "center", justifyContent: "center",
+    },
+    label: { fontSize: 10, letterSpacing: 1.5, opacity: 0.45, display: "block", marginBottom: 5, marginTop: 14 },
+    input: {
+      background: "rgba(255,255,255,0.04)", border: "1px solid rgba(255,255,255,0.1)",
+      color: "#fff", padding: "10px 12px", borderRadius: 10, width: "100%", fontSize: 14,
+    },
+    textarea: {
+      background: "rgba(255,255,255,0.04)", border: "1px solid rgba(255,255,255,0.1)",
+      color: "#fff", padding: "10px 12px", borderRadius: 10, width: "100%",
+      fontSize: 14, minHeight: 80, resize: "vertical",
+    },
+    btnSave: {
+      marginTop: 20, width: "100%", padding: "12px",
+      background: "#fff", color: "#000", fontWeight: 900,
+      border: "none", borderRadius: 10, cursor: "pointer", fontSize: 14,
+    },
+    btnDelete: {
+      marginTop: 10, width: "100%", padding: "12px",
+      background: "rgba(255,69,58,0.08)", color: "#ff453a",
+      border: "1px solid rgba(255,69,58,0.25)", borderRadius: 10,
+      cursor: "pointer", fontSize: 14, fontWeight: 700,
+    },
   };
 
   return (
-    <div style={S_Modal.overlay} onClick={onClose}>
-      <div style={S_Modal.card} onClick={e => e.stopPropagation()}>
-        <button style={S_Modal.closeBtn} onClick={onClose}>&times;</button>
-        
-        <div style={S_Modal.headerRow}>
-           {!isEditMode && <h2 style={S_Modal.title}>{form.nombre}</h2>}
-           {isAdmin && !isEditMode && (
-             <button style={S_Modal.editBtn} onClick={() => setIsEditMode(true)} title="Editar Ficha">✏️</button>
-           )}
-        </div>
+    <div style={S.overlay} onClick={onClose}>
+      <div style={S.card} onClick={e => e.stopPropagation()}>
+        <button style={S.closeBtn} onClick={onClose}>×</button>
 
-        {!isEditMode && <div style={S_Modal.sector}>{form.sector}</div>}
-
-        {isEditMode ? (
-          <div style={{ marginTop: 20 }}>
-             <label style={S_Modal.label}>Nombre del Mueble</label>
-             <input style={S_Modal.inputTitle} value={form.nombre} onChange={e => setForm({...form, nombre: e.target.value})} />
-             <label style={S_Modal.label}>Sector</label>
-             <input style={S_Modal.input} value={form.sector} onChange={e => setForm({...form, sector: e.target.value})} />
-             
-             <label style={S_Modal.label}>URL Imagen</label>
-             <input style={S_Modal.input} value={form.imagen_url} onChange={e => setForm({...form, imagen_url: e.target.value})} />
-
-             <div style={{display:"grid", gridTemplateColumns:"1fr 1fr", gap:10}}>
-              <div><label style={S_Modal.label}>Medidas</label><input style={S_Modal.input} value={form.medidas} onChange={e => setForm({...form, medidas: e.target.value})} /></div>
-              <div><label style={S_Modal.label}>Material</label><input style={S_Modal.input} value={form.material} onChange={e => setForm({...form, material: e.target.value})} /></div>
+        {!edit ? (
+          <>
+            <div style={{ paddingRight: 32 }}>
+              <div style={{ fontSize: 11, opacity: 0.4, letterSpacing: 2, textTransform: "uppercase", marginBottom: 6 }}>
+                {form.sector}
+              </div>
+              <h2 style={{ margin: 0, color: "#fff", fontFamily: "Montserrat, system-ui", fontSize: 20 }}>
+                {form.nombre}
+              </h2>
             </div>
 
-            <label style={S_Modal.label}>Descripción</label>
-            <textarea style={S_Modal.textArea} value={form.descripcion} onChange={e => setForm({...form, descripcion: e.target.value})} />
+            {form.imagen_url && (
+              <div style={{ marginTop: 16, borderRadius: 12, overflow: "hidden", border: "1px solid rgba(255,255,255,0.07)" }}>
+                <img src={form.imagen_url} alt={form.nombre} style={{ width: "100%", maxHeight: 220, objectFit: "contain", background: "#000" }} />
+              </div>
+            )}
 
-            <button style={S_Modal.btnSave} onClick={handleSave}>GUARDAR CAMBIOS</button>
-            <button style={S_Modal.btnDelete} onClick={handleDelete}>ELIMINAR DEL SISTEMA</button>
-            <button style={{...S_Modal.btnDelete, background:"transparent", border:"none", marginTop:0, color:"#888"}} onClick={() => setIsEditMode(false)}>Cancelar</button>
-          </div>
+            {[["Descripción", form.descripcion], ["Medidas", form.medidas], ["Material", form.material]].map(([k, v]) =>
+              v ? (
+                <div key={k}>
+                  <span style={S.label}>{k.toUpperCase()}</span>
+                  <div style={{ color: "#ccc", fontSize: 14, lineHeight: 1.6 }}>{v}</div>
+                </div>
+              ) : null
+            )}
+
+            {isAdmin && (
+              <button style={{ ...S.btnSave, background: "rgba(255,255,255,0.08)", color: "#fff", marginTop: 20 }}
+                onClick={() => setEdit(true)}>✏️ Editar ficha</button>
+            )}
+            {isAdmin && (
+              <button style={S.btnDelete}
+                onClick={() => { if (window.confirm("¿Borrar este mueble del catálogo?\nSe eliminará de todos los barcos.")) { onDelete(mueble.id); onClose(); } }}>
+                🗑 Eliminar del catálogo
+              </button>
+            )}
+          </>
         ) : (
           <>
-            <div style={S_Modal.imageBox}>
-              {form.imagen_url ? (
-                <img src={form.imagen_url} alt="Plano" style={S_Modal.img} />
-              ) : (
-                <span style={{color:"#444"}}>Sin imagen</span>
-              )}
-            </div>
-            
-            <div style={{marginTop: 20}}>
-              <div style={{display:"grid", gridTemplateColumns:"1fr 1fr", gap:20, marginBottom: 15}}>
-                <div><span style={S_Modal.label}>MEDIDAS</span><div style={S_Modal.textDisplay}>{form.medidas || "—"}</div></div>
-                <div><span style={S_Modal.label}>MATERIAL</span><div style={S_Modal.textDisplay}>{form.material || "—"}</div></div>
+            <h3 style={{ margin: "0 0 4px", color: "#fff" }}>Editar ficha</h3>
+            {[
+              ["Nombre", "nombre", "input"],
+              ["Sector", "sector", "input"],
+              ["Descripción", "descripcion", "textarea"],
+              ["Medidas", "medidas", "input"],
+              ["Material", "material", "input"],
+              ["URL imagen", "imagen_url", "input"],
+            ].map(([label, key, type]) => (
+              <div key={key}>
+                <label style={S.label}>{label.toUpperCase()}</label>
+                {type === "textarea"
+                  ? <textarea style={S.textarea} value={form[key]} onChange={e => setForm(f => ({...f, [key]: e.target.value}))} />
+                  : <input style={S.input} value={form[key]} onChange={e => setForm(f => ({...f, [key]: e.target.value}))} />
+                }
               </div>
-              <div><span style={S_Modal.label}>DESCRIPCIÓN</span><div style={S_Modal.textDisplay}>{form.descripcion || "Sin descripción."}</div></div>
-            </div>
+            ))}
+            <button style={S.btnSave} onClick={() => { if (!form.nombre.trim()) return alert("Nombre requerido"); onSave(mueble.id, form); setEdit(false); }}>
+              Guardar cambios
+            </button>
+            <button style={{ ...S.btnDelete, marginTop: 10 }} onClick={() => setEdit(false)}>Cancelar</button>
           </>
         )}
       </div>
@@ -137,36 +145,39 @@ function MuebleModal({ mueble, onClose, onSave, onDelete, isAdmin }) {
   );
 }
 
+// ── MAIN SCREEN ──────────────────────────────────────────────────
 export default function MueblesScreen({ profile, signOut }) {
   const isAdmin = !!profile?.is_admin;
-  const [err, setErr] = useState("");
-  const [msg, setMsg] = useState("");
-  const [modoConfig, setModoConfig] = useState(false);
+  const role    = profile?.role ?? "invitado";
+  const esAdmin = isAdmin || role === "admin" || role === "oficina";
 
-  // DATA
-  const [lineas, setLineas] = useState([]);
-  const [lineaId, setLineaId] = useState("");
+  // ── STATE ─────────────────────────────────────────────────────
+  const [lineas,   setLineas]   = useState([]);
   const [unidades, setUnidades] = useState([]);
-  const [unidadId, setUnidadId] = useState("");
-  
-  // DATOS DE LA UNIDAD SELECCIONADA
-  const [unidadData, setUnidadData] = useState(null);
-  
-  // --- NUEVO: ESTADO TEMPORAL PARA EL COLOR ---
-  const [tempColor, setTempColor] = useState("");
+  const [checklist,setChecklist]= useState([]);
 
-  const [rows, setRows] = useState([]); 
+  const [lineaId,  setLineaId]  = useState(null);
+  const [unidadId, setUnidadId] = useState(null);
+  const [q,        setQ]        = useState("");
 
-  // CREACIÓN
-  const [newLinea, setNewLinea] = useState("");
-  const [newUnidad, setNewUnidad] = useState("");
-  const [newMueble, setNewMueble] = useState({ nombre: "", sector: "" });
+  const [loading, setLoading] = useState(false);
+  const [err,     setErr]     = useState("");
 
-  // MODAL
-  const [modalOpen, setModalOpen] = useState(false);
-  const [selectedMuebleData, setSelectedMuebleData] = useState(null);
+  // Crear nueva unidad
+  const [newUnidad,  setNewUnidad]  = useState("");
+  // Crear nueva linea
+  const [newLinea,   setNewLinea]   = useState("");
+  // Crear nuevo mueble en checklist
+  const [newMueble,  setNewMueble]  = useState({ nombre: "", sector: "" });
+  const [showAddMueble, setShowAddMueble] = useState(false);
 
-  // --- CARGAS ---
+  // Modal
+  const [modalData, setModalData] = useState(null);
+
+  // Filtro estado
+  const [filtroEstado, setFiltroEstado] = useState("todos");
+
+  // ── CARGA ─────────────────────────────────────────────────────
   async function cargarLineas() {
     const { data } = await supabase.from("prod_lineas").select("id,nombre").eq("activa", true).order("nombre");
     setLineas(data ?? []);
@@ -174,331 +185,518 @@ export default function MueblesScreen({ profile, signOut }) {
   }
 
   async function cargarUnidades(lid) {
-    if (!lid) { setUnidades([]); return; }
-    // IMPORTANTE: Asegurate de haber corrido el SQL para agregar la columna 'color'
     const { data } = await supabase.from("prod_unidades").select("id,codigo,color").eq("linea_id", lid).eq("activa", true).order("codigo");
     setUnidades(data ?? []);
-    if (!unidadId && data?.length) setUnidadId(data[0].id);
   }
-
-  // EFECTO PARA ACTUALIZAR DATOS DE LA UNIDAD ACTUAL Y EL INPUT TEMPORAL
-  useEffect(() => {
-    if (unidadId && unidades.length) {
-      const u = unidades.find(x => x.id === unidadId);
-      setUnidadData(u || null);
-      setTempColor(u?.color || ""); // Prellenamos el input con lo que venga de la base
-    } else {
-      setUnidadData(null);
-      setTempColor("");
-    }
-  }, [unidadId, unidades]);
 
   async function cargarChecklist(uid) {
-    if (!uid) { setRows([]); return; }
+    setLoading(true);
     const { data, error } = await supabase
       .from("prod_unidad_checklist")
-      .select(`
-        id, estado, obs, 
-        prod_muebles ( id, nombre, sector, descripcion, medidas, material, imagen_url )
-      `)
-      .eq("unidad_id", uid);
-
-    if (error) return setErr(error.message);
-
-    const mapped = (data ?? []).map((x) => ({
-      id: x.id,
-      estado: x.estado,
-      obs: x.obs ?? "",
-      mueble_id: x.prod_muebles?.id,
-      nombre: x.prod_muebles?.nombre ?? "Desconocido",
-      sector: x.prod_muebles?.sector ?? "General",
-      descripcion: x.prod_muebles?.descripcion,
-      medidas: x.prod_muebles?.medidas,
-      material: x.prod_muebles?.material,
-      imagen_url: x.prod_muebles?.imagen_url
-    }));
-
-    mapped.sort((a, b) => a.sector.localeCompare(b.sector) || a.nombre.localeCompare(b.nombre));
-    setRows(mapped);
+      .select("id, estado, obs, mueble_id, prod_muebles(id, nombre, sector, descripcion, medidas, material, imagen_url)")
+      .eq("unidad_id", uid)
+      .order("prod_muebles(sector)")
+      .order("prod_muebles(nombre)");
+    if (error) setErr(error.message);
+    setChecklist(data ?? []);
+    setLoading(false);
   }
 
-  useEffect(() => { if (isAdmin) cargarLineas(); }, [isAdmin]);
-  useEffect(() => { if (lineaId) { cargarUnidades(lineaId); setUnidadId(""); } }, [lineaId]);
-  useEffect(() => { if (unidadId) cargarChecklist(unidadId); else setRows([]); }, [unidadId]);
+  useEffect(() => { cargarLineas(); }, []);
+  useEffect(() => { if (lineaId) { cargarUnidades(lineaId); setUnidadId(null); setChecklist([]); } }, [lineaId]);
+  useEffect(() => { if (unidadId) cargarChecklist(unidadId); }, [unidadId]);
 
-  // --- ACCIONES GESTION ---
+  // ── ACCIONES ──────────────────────────────────────────────────
   async function crearLinea() {
     if (!newLinea.trim()) return;
-    const { error } = await supabase.from("prod_lineas").insert({ nombre: newLinea.trim(), activa: true });
-    if (error) return setErr(error.message);
-    setNewLinea(""); cargarLineas();
+    await supabase.from("prod_lineas").insert({ nombre: newLinea.trim(), activa: true });
+    setNewLinea("");
+    cargarLineas();
   }
-  async function borrarLinea() {
-    if (!lineaId || !confirm("¿Borrar línea?")) return;
-    await supabase.from("prod_lineas").delete().eq("id", lineaId);
-    setLineaId(""); cargarLineas();
+
+  async function eliminarLinea(lid) {
+    if (!window.confirm("¿Eliminar esta línea y todas sus unidades?")) return;
+    await supabase.from("prod_lineas").delete().eq("id", lid);
+    setLineaId(null);
+    cargarLineas();
   }
+
   async function crearUnidad() {
-    if (!lineaId || !newUnidad.trim()) return;
-    const { data: u, error } = await supabase.from("prod_unidades").insert({ linea_id: lineaId, codigo: newUnidad.trim(), activa: true }).select().single();
+    if (!newUnidad.trim() || !lineaId) return;
+    const { data: u, error } = await supabase
+      .from("prod_unidades")
+      .insert({ linea_id: lineaId, codigo: newUnidad.trim(), activa: true })
+      .select().single();
     if (error) return setErr(error.message);
-    
+    // Copiar plantilla de la línea
     const { data: plantilla } = await supabase.from("prod_linea_muebles").select("mueble_id").eq("linea_id", lineaId);
     if (plantilla?.length) {
-      const inserts = plantilla.map(p => ({ unidad_id: u.id, mueble_id: p.mueble_id, estado: "No enviado" }));
-      await supabase.from("prod_unidad_checklist").insert(inserts);
+      await supabase.from("prod_unidad_checklist").insert(plantilla.map(p => ({ unidad_id: u.id, mueble_id: p.mueble_id, estado: "No enviado" })));
     }
-    setNewUnidad(""); cargarUnidades(lineaId);
-  }
-  async function borrarUnidad() {
-    if (!unidadId || !confirm("¿Borrar barco?")) return;
-    await supabase.from("prod_unidades").delete().eq("id", unidadId);
-    setUnidadId(""); cargarUnidades(lineaId);
+    setNewUnidad("");
+    cargarUnidades(lineaId);
+    setUnidadId(u.id);
   }
 
-  async function agregarMueble(e) {
-    e.preventDefault();
-    if (!lineaId || !newMueble.nombre) return;
-    const { data: m, error: e1 } = await supabase.from("prod_muebles").insert({ nombre: newMueble.nombre, sector: newMueble.sector }).select().single();
-    if (e1) return setErr(e1.message);
-    const { error: e2 } = await supabase.from("prod_linea_muebles").insert({ linea_id: lineaId, mueble_id: m.id });
-    if (e2) return setErr(e2.message);
-    if (unidadId) {
-      await supabase.from("prod_unidad_checklist").insert({ unidad_id: unidadId, mueble_id: m.id, estado: "No enviado" });
-      cargarChecklist(unidadId);
-    }
+  async function eliminarUnidad(uid) {
+    if (!window.confirm("¿Eliminar esta unidad y su checklist?")) return;
+    await supabase.from("prod_unidades").delete().eq("id", uid);
+    setUnidadId(null);
+    setChecklist([]);
+    cargarUnidades(lineaId);
+  }
+
+  async function agregarMueble() {
+    if (!newMueble.nombre.trim() || !lineaId) return;
+    const { data: m, error } = await supabase
+      .from("prod_muebles").insert({ nombre: newMueble.nombre.trim(), sector: newMueble.sector.trim() }).select().single();
+    if (error) return setErr(error.message);
+    await supabase.from("prod_linea_muebles").insert({ linea_id: lineaId, mueble_id: m.id });
+    if (unidadId) await supabase.from("prod_unidad_checklist").insert({ unidad_id: unidadId, mueble_id: m.id, estado: "No enviado" });
     setNewMueble({ nombre: "", sector: "" });
-    setMsg("✅ Mueble agregado"); setTimeout(() => setMsg(""), 2000);
+    setShowAddMueble(false);
+    if (unidadId) cargarChecklist(unidadId);
   }
 
-  async function borrarMueble(row) {
-    if (!confirm("¿Quitar mueble de este barco?")) return;
-    await supabase.from("prod_unidad_checklist").delete().eq("id", row.id);
+  async function eliminarItemChecklist(rowId) {
+    if (!window.confirm("¿Quitar este ítem del checklist de esta unidad?")) return;
+    await supabase.from("prod_unidad_checklist").delete().eq("id", rowId);
     cargarChecklist(unidadId);
   }
 
-  // --- ACCION: GUARDAR COLOR (AHORA ES MANUAL) ---
-  async function saveColorToDb() {
-    if (!unidadId) return;
-    const { error } = await supabase.from("prod_unidades").update({ color: tempColor }).eq("id", unidadId);
-    if (error) return setErr("Error color: " + error.message);
-    
-    // Actualizamos localmente y mostramos feedback
-    setUnidadData(prev => ({ ...prev, color: tempColor }));
-    setUnidades(prev => prev.map(u => u.id === unidadId ? { ...u, color: tempColor } : u));
-    setMsg("✅ Color guardado");
-    setTimeout(() => setMsg(""), 2000);
+  async function setEstado(rowId, estado) {
+    await supabase.from("prod_unidad_checklist").update({ estado }).eq("id", rowId);
+    setChecklist(prev => prev.map(r => r.id === rowId ? { ...r, estado } : r));
   }
 
-  // --- ACCIONES OPERATIVAS ---
-  async function setEstado(rowId, estado) {
-    const { error } = await supabase.from("prod_unidad_checklist").update({ estado }).eq("id", rowId);
-    if (!error) setRows(prev => prev.map(r => r.id === rowId ? { ...r, estado } : r));
-  }
-  async function saveObs(rowId, obs) {
+  async function setObs(rowId, obs) {
     await supabase.from("prod_unidad_checklist").update({ obs }).eq("id", rowId);
   }
-  function openMuebleDetail(row) {
-    setSelectedMuebleData({
-      id: row.mueble_id,
-      nombre: row.nombre,
-      sector: row.sector,
-      descripcion: row.descripcion,
-      medidas: row.medidas,
-      material: row.material,
-      imagen_url: row.imagen_url
+
+  async function editarMueble(muebleId, form) {
+    await supabase.from("prod_muebles").update(form).eq("id", muebleId);
+    if (unidadId) cargarChecklist(unidadId);
+    setModalData(null);
+  }
+
+  async function eliminarMuebleCatalogo(muebleId) {
+    await supabase.from("prod_muebles").delete().eq("id", muebleId);
+    if (unidadId) cargarChecklist(unidadId);
+  }
+
+  // ── DATOS DERIVADOS ───────────────────────────────────────────
+  const unidadSel = useMemo(() => unidades.find(u => u.id === unidadId), [unidades, unidadId]);
+
+  const checklistFiltrado = useMemo(() => {
+    let rows = checklist;
+    if (filtroEstado !== "todos") rows = rows.filter(r => r.estado === filtroEstado);
+    const qq = q.toLowerCase();
+    if (qq) rows = rows.filter(r =>
+      (r.prod_muebles?.nombre ?? "").toLowerCase().includes(qq) ||
+      (r.prod_muebles?.sector ?? "").toLowerCase().includes(qq)
+    );
+    return rows;
+  }, [checklist, filtroEstado, q]);
+
+  // Agrupar por sector
+  const porSector = useMemo(() => {
+    const map = {};
+    checklistFiltrado.forEach(r => {
+      const s = r.prod_muebles?.sector || "General";
+      if (!map[s]) map[s] = [];
+      map[s].push(r);
     });
-    setModalOpen(true);
-  }
-  async function saveMuebleCatalog(muebleId, newValues) {
-    const { error } = await supabase.from("prod_muebles").update(newValues).eq("id", muebleId);
-    if (error) return setErr(error.message);
-    cargarChecklist(unidadId);
-  }
-  async function deleteMuebleCatalog(muebleId) {
-    const { error } = await supabase.from("prod_muebles").delete().eq("id", muebleId);
-    if (error) return setErr(error.message);
-    cargarChecklist(unidadId);
-  }
+    return map;
+  }, [checklistFiltrado]);
 
-  const checklistPorSector = useMemo(() => {
-    const grupos = {};
-    rows.forEach(r => {
-      if (!grupos[r.sector]) grupos[r.sector] = [];
-      grupos[r.sector].push(r);
-    });
-    return grupos;
-  }, [rows]);
+  const pct = useMemo(() => progreso(checklist), [checklist]);
 
-  const pct = useMemo(() => {
-    if (!rows.length) return 0;
-    const ok = rows.filter((r) => r.estado === "Completo").length;
-    return Math.round((ok / rows.length) * 100);
-  }, [rows]);
+  // Stats para la unidad
+  const stats = useMemo(() => ({
+    total:    checklist.length,
+    completo: checklist.filter(r => r.estado === "Completo").length,
+    rehacer:  checklist.filter(r => r.estado === "Rehacer").length,
+    parcial:  checklist.filter(r => r.estado === "Parcial").length,
+  }), [checklist]);
 
+  // Progress bar color
+  const pctColor = pct === 100 ? "#30d158" : pct >= 60 ? "#a0a0a0" : "#555";
+
+  // ── ESTILOS ───────────────────────────────────────────────────
   const S = {
-    page: { background: "#000", minHeight: "100vh", color: "#d0d0d0", fontFamily: "Roboto, system-ui, Arial" },
-    layout: { display: "grid", gridTemplateColumns: "280px 1fr", minHeight: "100vh" },
-    main: { padding: 18 },
-    card: { border: "1px solid #2a2a2a", borderRadius: 16, background: "#070707", padding: 14, marginBottom: 12 },
-    sectorHeader: (sector) => ({ marginTop: 20, marginBottom: 10, paddingLeft: 10, borderLeft: `4px solid ${getSectorColor(sector)}`, fontWeight: 900, color: "#fff", fontSize: 14, letterSpacing: 1, textTransform: "uppercase" }),
-    itemRow: { display: "grid", gridTemplateColumns: "40px 1fr 140px 1fr 30px", gap: 12, alignItems: "center", padding: "12px 0", borderBottom: "1px solid #1a1a1a" },
-    btn: { padding: "8px 12px", borderRadius: 10, border: "1px solid #333", background: "#111", color: "#fff", cursor: "pointer", fontWeight: 700 },
-    btnSaveSmall: { padding: "6px 12px", borderRadius: 8, border: "none", background: "#ffd60a", color: "#000", cursor: "pointer", fontWeight: 900, fontSize: 13, marginLeft: 10 },
-    btnDanger: { padding: "8px 12px", borderRadius: 10, border: "1px solid #5a1d1d", background: "#2a0b0b", color: "#ffbdbd", cursor: "pointer", fontWeight: 700 },
-    input: { background: "transparent", border: "none", borderBottom: "1px solid #333", color: "#ddd", padding: "5px", width: "100%", fontSize: 13, outline: "none" },
-    iconBtn: { background: "transparent", border: "none", cursor: "pointer", fontSize: 18, opacity: 0.7, padding:0, display:"flex", alignItems:"center" },
-    tabs: { display: "flex", gap: 8, flexWrap: "wrap", marginBottom: 10 },
-    tab: (on) => ({ padding: "6px 12px", borderRadius: 999, border: "1px solid #333", background: on ? "#eee" : "transparent", color: on ? "#000" : "#888", cursor: "pointer", fontWeight: 700, fontSize: 12 }),
-    configPanel: { background: "#1a1a1a", padding: 15, borderRadius: 12, marginBottom: 20, border: "1px dashed #444" },
-    
-    // Header especial de Unidad
-    unitHeader: { background: "linear-gradient(90deg, #111 0%, #070707 100%)", border: "1px solid #333", borderRadius: 12, padding: "16px 20px", marginBottom: 20, display: "flex", alignItems: "center", gap: 15 },
-    unitTitle: { fontSize: 20, fontWeight: 900, color: "#fff", margin: 0, letterSpacing: 1 },
-    unitColorInput: { background: "transparent", border: "none", borderBottom: "1px dashed #666", color: "#ffd60a", fontSize: 20, fontWeight: 900, width: 200, outline: "none" }
+    page:    { background: "#000", minHeight: "100vh", color: "#d0d0d0", fontFamily: "Roboto, system-ui, Arial" },
+    layout:  { display: "grid", gridTemplateColumns: "280px 1fr", minHeight: "100vh" },
+    main:    { display: "grid", gridTemplateColumns: "280px 1fr", gap: 0, overflow: "hidden", height: "100vh" },
+    panel:   { height: "100vh", overflowY: "auto", borderRight: "1px solid rgba(255,255,255,0.06)" },
+    detail:  { height: "100vh", overflowY: "auto", padding: 24 },
+
+    // Cards con efecto glass sutil
+    card: {
+      border: "1px solid rgba(255,255,255,0.07)",
+      borderRadius: 14, background: "rgba(255,255,255,0.02)",
+      padding: 16, marginBottom: 10,
+    },
+    cardHover: {
+      border: "1px solid rgba(255,255,255,0.12)",
+      background: "rgba(255,255,255,0.04)",
+    },
+
+    input: {
+      background: "rgba(255,255,255,0.04)", border: "1px solid rgba(255,255,255,0.1)",
+      color: "#fff", padding: "9px 12px", borderRadius: 10,
+      fontSize: 13, width: "100%",
+    },
+    inputSm: {
+      background: "rgba(255,255,255,0.04)", border: "1px solid rgba(255,255,255,0.1)",
+      color: "#fff", padding: "7px 10px", borderRadius: 8, fontSize: 12,
+    },
+    btn: {
+      border: "1px solid rgba(255,255,255,0.12)", background: "rgba(255,255,255,0.06)",
+      color: "#fff", padding: "8px 14px", borderRadius: 10,
+      cursor: "pointer", fontWeight: 700, fontSize: 12,
+    },
+    btnPrim: {
+      border: "1px solid rgba(255,255,255,0.2)", background: "#fff",
+      color: "#000", padding: "9px 18px", borderRadius: 10,
+      cursor: "pointer", fontWeight: 900, fontSize: 13,
+    },
+    btnGhost: {
+      border: "1px solid transparent", background: "transparent",
+      color: "#555", padding: "4px 8px", borderRadius: 6,
+      cursor: "pointer", fontSize: 12,
+    },
+    btnDanger: {
+      border: "1px solid rgba(255,69,58,0.2)", background: "rgba(255,69,58,0.06)",
+      color: "#ff453a", padding: "5px 10px", borderRadius: 8,
+      cursor: "pointer", fontSize: 11,
+    },
+    label:   { fontSize: 10, letterSpacing: 1.5, opacity: 0.4, display: "block", marginBottom: 4 },
+    small:   { fontSize: 11, opacity: 0.4 },
+    tag:     { display: "inline-block", padding: "2px 8px", borderRadius: 99, fontSize: 10, fontWeight: 700 },
   };
 
-  if (!isAdmin) return <div style={S.page}><div style={{ padding: 20 }}>Acceso restringido</div></div>;
+  const lineaBtn = (sel) => ({
+    width: "100%", textAlign: "left", padding: "10px 16px",
+    border: "none", borderBottom: "1px solid rgba(255,255,255,0.04)",
+    background: sel ? "rgba(255,255,255,0.06)" : "transparent",
+    color: sel ? "#fff" : "#888", cursor: "pointer",
+    fontWeight: sel ? 700 : 400, fontSize: 13,
+    display: "flex", justifyContent: "space-between", alignItems: "center",
+  });
 
+  const unidadBtn = (sel) => ({
+    ...lineaBtn(sel),
+    paddingLeft: 24, fontSize: 12,
+    borderLeft: sel ? "2px solid rgba(255,255,255,0.3)" : "2px solid transparent",
+    borderBottom: "1px solid rgba(255,255,255,0.03)",
+  });
+
+  const estadoSelect = (estado) => {
+    const m = ESTADO_META[estado] ?? ESTADO_META["No enviado"];
+    return {
+      background: m.bg, color: m.color,
+      border: `1px solid ${m.color}33`,
+      padding: "5px 10px", borderRadius: 8,
+      cursor: "pointer", fontSize: 12, fontWeight: 600,
+      outline: "none",
+    };
+  };
+
+  // ── RENDER ────────────────────────────────────────────────────
   return (
     <div style={S.page}>
       <div style={S.layout}>
         <Sidebar profile={profile} signOut={signOut} />
-        <main style={S.main}>
-          {err && <div style={{...S.card, borderColor: "#5a1d1d", color: "#ffbdbd"}}>{err}</div>}
-          {msg && <div style={{...S.card, borderColor: "#1d5a2b", color: "#a6ffbf"}}>{msg}</div>}
 
-          {/* CABECERA */}
-          <div style={S.card}>
-            <div style={{display:"flex", justifyContent:"space-between", alignItems:"center"}}>
-               <h2 style={{color:"#fff", margin:0}}>Producción Muebles</h2>
-               <button style={{...S.btn, background: modoConfig ? "#ffd60a" : "#111", color: modoConfig ? "#000" : "#fff"}} onClick={() => setModoConfig(!modoConfig)}>
-                 {modoConfig ? "⚙️ CONFIG (ON)" : "🔧 Configurar"}
-               </button>
+        {/* MAIN: 2 paneles internos */}
+        <div style={S.main}>
+
+          {/* ── PANEL IZQUIERDO: Líneas + Unidades ── */}
+          <div style={S.panel}>
+            {/* Header panel izq */}
+            <div style={{ padding: "18px 16px 10px", borderBottom: "1px solid rgba(255,255,255,0.06)" }}>
+              <div style={{ fontFamily: "Montserrat, system-ui", fontSize: 15, color: "#fff", fontWeight: 700 }}>
+                Muebles
+              </div>
+              <div style={{ ...S.small, marginTop: 2 }}>Líneas de producción</div>
             </div>
-            
-            {modoConfig && (
-              <div style={{marginTop: 20}}>
-                <div style={S.configPanel}>
-                  <h4 style={{marginTop:0, color:"#fff"}}>1. Gestionar Líneas</h4>
-                  <div style={{display:"flex", gap:10}}>
-                    <input style={{...S.input, background:"#000", border:"1px solid #333", borderRadius:6, padding:8}} placeholder="Nueva Línea (ej: K60)" value={newLinea} onChange={e=>setNewLinea(e.target.value)} />
-                    <button style={S.btn} onClick={crearLinea}>+ Crear</button>
-                    {lineaId && <button style={S.btnDanger} onClick={borrarLinea}>Borrar Línea</button>}
-                  </div>
+
+            {lineas.map(l => {
+              const selLinea = lineaId === l.id;
+              const unidsLinea = selLinea ? unidades : [];
+
+              return (
+                <div key={l.id}>
+                  {/* Botón línea */}
+                  <button style={lineaBtn(selLinea)} onClick={() => { setLineaId(l.id); setUnidadId(null); }}>
+                    <span>📐 {l.nombre}</span>
+                    {esAdmin && selLinea && (
+                      <span style={S.btnDanger}
+                        onClick={e => { e.stopPropagation(); eliminarLinea(l.id); }}>🗑</span>
+                    )}
+                  </button>
+
+                  {/* Unidades de esta línea */}
+                  {selLinea && (
+                    <>
+                      {unidsLinea.map(u => {
+                        const selU = unidadId === u.id;
+                        return (
+                          <button key={u.id} style={unidadBtn(selU)} onClick={() => setUnidadId(u.id)}>
+                            <span style={{ display: "flex", alignItems: "center", gap: 6 }}>
+                              {u.color && (
+                                <span style={{ width: 8, height: 8, borderRadius: "50%", background: u.color, flexShrink: 0 }} />
+                              )}
+                              {u.codigo}
+                            </span>
+                            {esAdmin && selU && (
+                              <span style={S.btnDanger}
+                                onClick={e => { e.stopPropagation(); eliminarUnidad(u.id); }}>🗑</span>
+                            )}
+                          </button>
+                        );
+                      })}
+
+                      {/* Agregar unidad */}
+                      {esAdmin && (
+                        <div style={{ padding: "6px 16px 10px 24px", display: "flex", gap: 6 }}>
+                          <input
+                            style={{ ...S.inputSm, flex: 1 }}
+                            placeholder="Nueva unidad (ej: 37-26)"
+                            value={newUnidad}
+                            onChange={e => setNewUnidad(e.target.value)}
+                            onKeyDown={e => e.key === "Enter" && crearUnidad()}
+                          />
+                          <button style={S.btn} onClick={crearUnidad}>+</button>
+                        </div>
+                      )}
+                    </>
+                  )}
                 </div>
-                {lineaId && (
-                  <div style={S.configPanel}>
-                    <h4 style={{marginTop:0, color:"#fff"}}>2. Gestionar Barcos</h4>
-                    <div style={{display:"flex", gap:10}}>
-                      <input style={{...S.input, background:"#000", border:"1px solid #333", borderRadius:6, padding:8}} placeholder="Nuevo Barco (ej: 60-01)" value={newUnidad} onChange={e=>setNewUnidad(e.target.value)} />
-                      <button style={S.btn} onClick={crearUnidad}>+ Crear</button>
-                      {unidadId && <button style={S.btnDanger} onClick={borrarUnidad}>Borrar Barco</button>}
-                    </div>
-                  </div>
-                )}
-                {lineaId && (
-                  <div style={S.configPanel}>
-                    <h4 style={{marginTop:0, color:"#fff"}}>3. Mueble a Plantilla</h4>
-                    <form onSubmit={agregarMueble} style={{display:"flex", gap:10}}>
-                      <input style={{...S.input, background:"#000", border:"1px solid #333", borderRadius:6, padding:8}} placeholder="Nombre" value={newMueble.nombre} onChange={e=>setNewMueble({...newMueble, nombre:e.target.value})} />
-                      <input style={{...S.input, background:"#000", border:"1px solid #333", borderRadius:6, padding:8}} placeholder="Sector" value={newMueble.sector} onChange={e=>setNewMueble({...newMueble, sector:e.target.value})} />
-                      <button style={S.btn} type="submit">+ Agregar</button>
-                    </form>
-                  </div>
-                )}
+              );
+            })}
+
+            {/* Nueva línea */}
+            {esAdmin && (
+              <div style={{ padding: "12px 16px", borderTop: "1px solid rgba(255,255,255,0.06)", marginTop: 8 }}>
+                <div style={S.label}>NUEVA LÍNEA</div>
+                <div style={{ display: "flex", gap: 6 }}>
+                  <input style={{ ...S.inputSm, flex: 1 }} placeholder="Ej: K52"
+                    value={newLinea} onChange={e => setNewLinea(e.target.value)}
+                    onKeyDown={e => e.key === "Enter" && crearLinea()} />
+                  <button style={S.btn} onClick={crearLinea}>+</button>
+                </div>
               </div>
             )}
-
-            <div style={{marginTop: 15, display:"flex", gap:20, opacity: modoConfig ? 0.5 : 1}}>
-              <div style={{flex:1}}>
-                <div style={S.tabs}>
-                  {lineas.map(l => <button key={l.id} style={S.tab(l.id === lineaId)} onClick={() => setLineaId(l.id)}>{l.nombre}</button>)}
-                </div>
-              </div>
-              <div style={{flex:1}}>
-                 <div style={{display:"flex", gap:8, flexWrap:"wrap"}}>
-                    {unidades.map(u => <button key={u.id} style={S.tab(u.id === unidadId)} onClick={() => setUnidadId(u.id)}>{u.codigo}</button>)}
-                 </div>
-              </div>
-            </div>
           </div>
 
-          {/* HEADER DE UNIDAD (ARREGLADO: INPUT RÁPIDO + BOTÓN GUARDAR) */}
-          {unidadData && (
-            <div style={S.unitHeader}>
-               <div style={{fontSize: 24}}>⛵</div>
-               <div>
-                  <div style={{fontSize: 12, opacity: 0.6, letterSpacing: 1.5}}>FICHA TÉCNICA</div>
-                  <div style={S.unitTitle}>BARCO {unidadData.codigo}</div>
-               </div>
-               <div style={{height: 40, width: 1, background: "#333", margin: "0 20px"}}></div>
-               <div style={{display: "flex", alignItems: "center"}}>
+          {/* ── PANEL DERECHO: Checklist ── */}
+          <div style={S.detail}>
+            {!unidadId ? (
+              <div style={{ display: "flex", alignItems: "center", justifyContent: "center", height: "100%", opacity: 0.3, flexDirection: "column", gap: 8 }}>
+                <div style={{ fontSize: 32 }}>🪑</div>
+                <div style={{ fontSize: 14 }}>Seleccioná una unidad</div>
+              </div>
+            ) : (
+              <>
+                {/* Header unidad */}
+                <div style={{ display: "flex", alignItems: "flex-start", justifyContent: "space-between", marginBottom: 20 }}>
                   <div>
-                    <div style={{fontSize: 12, opacity: 0.6, letterSpacing: 1.5}}>ACABADO / CHAPA</div>
-                    <input 
-                        style={S.unitColorInput} 
-                        value={tempColor} 
-                        placeholder="Definir Color..." 
-                        onChange={(e) => setTempColor(e.target.value)}
-                    />
+                    <h2 style={{ fontFamily: "Montserrat, system-ui", fontSize: 22, margin: 0, color: "#fff" }}>
+                      {unidadSel?.codigo}
+                    </h2>
+                    <div style={{ ...S.small, marginTop: 3 }}>
+                      {lineas.find(l => l.id === lineaId)?.nombre} · {checklist.length} ítems
+                    </div>
                   </div>
-                  {/* Botón de guardar explícito */}
-                  <button style={S.btnSaveSmall} onClick={saveColorToDb}>
-                     💾 GUARDAR
-                  </button>
-               </div>
-            </div>
-          )}
+                  <div style={{ display: "flex", gap: 8 }}>
+                    {esAdmin && (
+                      <button style={S.btn} onClick={() => setShowAddMueble(v => !v)}>
+                        {showAddMueble ? "✕" : "+ Mueble"}
+                      </button>
+                    )}
+                  </div>
+                </div>
 
-          {/* LISTA */}
-          {unidadId && (
-             <div style={S.card}>
-               <div style={{display:"flex", justifyContent:"space-between", marginBottom:10}}>
-                  <div style={{fontWeight:900, color:"#fff"}}>Progreso: {pct}%</div>
-               </div>
+                {err && <div style={{ ...S.card, borderColor: "rgba(255,69,58,0.3)", color: "#ffbdbd", marginBottom: 12 }}>{err}</div>}
 
-               {Object.entries(checklistPorSector).map(([sector, items]) => (
-                 <div key={sector}>
-                   <div style={S.sectorHeader(sector)}>{sector}</div>
-                   {items.map(r => (
-                     <div key={r.id} style={S.itemRow}>
-                       <button style={S.iconBtn} onClick={() => openMuebleDetail(r)} title="Ficha Técnica">
-                          {r.imagen_url ? "📸" : "📄"}
-                       </button>
-                       <div style={{color: "#fff", fontWeight: 500, cursor: "pointer"}} onClick={() => openMuebleDetail(r)}>
-                          {r.nombre}
-                          <div style={{fontSize:10, opacity:0.5}}>{r.medidas}</div>
-                       </div>
-                       
-                       {/* Selector de Estado con FIX VISUAL */}
-                       <select style={getStatusStyle(r.estado)} value={r.estado} onChange={(e) => setEstado(r.id, e.target.value)}>
-                          {ESTADOS.map(x => (
-                            <option key={x} value={x} style={{background: "#111", color: "#fff"}}>{x}</option>
-                          ))}
-                       </select>
+                {/* Progress bar */}
+                <div style={{ ...S.card, padding: "14px 16px" }}>
+                  <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 10 }}>
+                    <div style={{ display: "flex", gap: 16, fontSize: 12 }}>
+                      <span style={{ color: "#30d158" }}>✓ {stats.completo}</span>
+                      <span style={{ color: "#a0a0a0" }}>◑ {stats.parcial}</span>
+                      <span style={{ color: "#ff453a" }}>↺ {stats.rehacer}</span>
+                      <span style={{ opacity: 0.4 }}>— {stats.total - stats.completo - stats.parcial - stats.rehacer}</span>
+                    </div>
+                    <span style={{ fontFamily: "Montserrat, system-ui", fontSize: 20, fontWeight: 900, color: pctColor }}>
+                      {pct}%
+                    </span>
+                  </div>
+                  <div style={{ height: 4, background: "rgba(255,255,255,0.06)", borderRadius: 99, overflow: "hidden" }}>
+                    <div style={{ height: "100%", width: `${pct}%`, background: pctColor, borderRadius: 99, transition: "width 0.5s ease" }} />
+                  </div>
+                </div>
 
-                       <input style={S.input} value={r.obs} placeholder="Nota..." onChange={(e) => setRows(prev => prev.map(p => p.id === r.id ? { ...p, obs: e.target.value } : p))} onBlur={() => saveObs(r.id, r.obs)} />
-                       {modoConfig && <button style={{...S.iconBtn, color:"#ff453a", opacity:1}} onClick={() => borrarMueble(r)}>🗑️</button>}
-                     </div>
-                   ))}
-                 </div>
-               ))}
-               {!rows.length && <div style={{padding:20, opacity:0.5, textAlign:"center"}}>Sin muebles.</div>}
-             </div>
-          )}
+                {/* Filtros */}
+                <div style={{ display: "flex", gap: 6, marginBottom: 12, flexWrap: "wrap" }}>
+                  {["todos", ...ESTADOS].map(e => (
+                    <button key={e} style={{
+                      ...S.btn,
+                      background: filtroEstado === e ? "rgba(255,255,255,0.12)" : "transparent",
+                      color: filtroEstado === e ? "#fff" : "#555",
+                      border: filtroEstado === e ? "1px solid rgba(255,255,255,0.2)" : "1px solid rgba(255,255,255,0.06)",
+                      fontSize: 11, padding: "5px 10px",
+                    }} onClick={() => setFiltroEstado(e)}>
+                      {e === "todos" ? "Todos" : e}
+                    </button>
+                  ))}
+                  <input style={{ ...S.inputSm, flex: 1, minWidth: 120 }}
+                    placeholder="Buscar…" value={q} onChange={e => setQ(e.target.value)} />
+                </div>
 
-          {modalOpen && selectedMuebleData && (
-            <MuebleModal 
-               mueble={selectedMuebleData} 
-               onClose={() => setModalOpen(false)}
-               onSave={saveMuebleCatalog}
-               onDelete={deleteMuebleCatalog}
-               isAdmin={isAdmin}
-            />
-          )}
-        </main>
+                {/* Agregar mueble */}
+                {showAddMueble && esAdmin && (
+                  <div style={{ ...S.card, marginBottom: 12, borderColor: "rgba(255,255,255,0.1)" }}>
+                    <div style={{ display: "grid", gridTemplateColumns: "1fr 120px", gap: 8 }}>
+                      <input style={S.input} placeholder="Nombre del mueble" value={newMueble.nombre}
+                        onChange={e => setNewMueble(f => ({...f, nombre: e.target.value}))} />
+                      <input style={S.input} placeholder="Sector" value={newMueble.sector}
+                        onChange={e => setNewMueble(f => ({...f, sector: e.target.value}))} />
+                    </div>
+                    <button style={{ ...S.btnPrim, marginTop: 10 }} onClick={agregarMueble}>Agregar al checklist</button>
+                  </div>
+                )}
+
+                {/* Checklist por sector */}
+                {loading ? (
+                  <div style={{ textAlign: "center", opacity: 0.4, padding: 40 }}>Cargando…</div>
+                ) : Object.keys(porSector).length === 0 ? (
+                  <div style={{ textAlign: "center", opacity: 0.35, padding: 40 }}>
+                    {q || filtroEstado !== "todos" ? "Sin resultados con este filtro" : "Sin ítems. Agregá un mueble arriba."}
+                  </div>
+                ) : (
+                  Object.entries(porSector).map(([sector, rows]) => (
+                    <div key={sector} style={{ marginBottom: 20 }}>
+                      {/* Sector header */}
+                      <div style={{
+                        fontSize: 10, letterSpacing: 2, fontWeight: 700, opacity: 0.4,
+                        textTransform: "uppercase", marginBottom: 6,
+                        paddingBottom: 6, borderBottom: "1px solid rgba(255,255,255,0.05)",
+                      }}>
+                        {sector}
+                        <span style={{ marginLeft: 8, fontWeight: 400 }}>
+                          {rows.filter(r => r.estado === "Completo").length}/{rows.length}
+                        </span>
+                      </div>
+
+                      {rows.map(r => {
+                        const m = r.prod_muebles;
+                        const meta = ESTADO_META[r.estado] ?? ESTADO_META["No enviado"];
+                        return (
+                          <div key={r.id} style={{
+                            display: "grid", gridTemplateColumns: "1fr 130px auto",
+                            gap: 10, alignItems: "start",
+                            padding: "10px 0", borderBottom: "1px solid rgba(255,255,255,0.04)",
+                          }}>
+                            {/* Nombre + obs */}
+                            <div>
+                              <div
+                                style={{ color: r.estado === "Completo" ? "#555" : "#d0d0d0", fontSize: 13, fontWeight: 500, cursor: "pointer" }}
+                                onClick={() => setModalData(m)}
+                              >
+                                {r.estado === "Completo" && <span style={{ marginRight: 6, color: "#30d158", fontSize: 11 }}>✓</span>}
+                                {m?.nombre ?? "—"}
+                              </div>
+                              <ObsInline
+                                value={r.obs ?? ""}
+                                rowId={r.id}
+                                onSave={setObs}
+                              />
+                            </div>
+
+                            {/* Estado select */}
+                            <select style={estadoSelect(r.estado)}
+                              value={r.estado}
+                              onChange={e => setEstado(r.id, e.target.value)}>
+                              {ESTADOS.map(e => <option key={e} value={e}>{e}</option>)}
+                            </select>
+
+                            {/* Acciones */}
+                            <div style={{ display: "flex", gap: 4 }}>
+                              {esAdmin && (
+                                <button style={S.btnGhost} title="Quitar de esta unidad"
+                                  onClick={() => eliminarItemChecklist(r.id)}>🗑</button>
+                              )}
+                            </div>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  ))
+                )}
+              </>
+            )}
+          </div>
+        </div>
       </div>
+
+      {/* Modal */}
+      {modalData && (
+        <MuebleModal
+          mueble={modalData}
+          onClose={() => setModalData(null)}
+          onSave={editarMueble}
+          onDelete={eliminarMuebleCatalogo}
+          isAdmin={esAdmin}
+        />
+      )}
     </div>
+  );
+}
+
+// ── OBS INLINE ────────────────────────────────────────────────────
+function ObsInline({ value, rowId, onSave }) {
+  const [editing, setEditing] = useState(false);
+  const [val, setVal] = useState(value);
+  const ref = useRef(null);
+
+  useEffect(() => { if (editing) ref.current?.focus(); }, [editing]);
+
+  function guardar() {
+    setEditing(false);
+    if (val !== value) onSave(rowId, val);
+  }
+
+  if (!editing && !val) {
+    return (
+      <div style={{ fontSize: 11, color: "#333", marginTop: 2, cursor: "text" }}
+        onClick={() => setEditing(true)}>
+        + nota
+      </div>
+    );
+  }
+
+  if (!editing) {
+    return (
+      <div style={{ fontSize: 11, color: "#666", marginTop: 3, cursor: "text", fontStyle: "italic" }}
+        onClick={() => setEditing(true)}>
+        {val}
+      </div>
+    );
+  }
+
+  return (
+    <input
+      ref={ref}
+      style={{
+        background: "transparent", border: "none", borderBottom: "1px solid rgba(255,255,255,0.15)",
+        color: "#aaa", fontSize: 11, padding: "2px 0", marginTop: 3, width: "100%", outline: "none",
+      }}
+      value={val}
+      onChange={e => setVal(e.target.value)}
+      onBlur={guardar}
+      onKeyDown={e => { if (e.key === "Enter") guardar(); if (e.key === "Escape") { setVal(value); setEditing(false); } }}
+    />
   );
 }

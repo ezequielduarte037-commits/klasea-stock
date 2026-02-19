@@ -2,14 +2,17 @@ import React, { useEffect, useState } from "react";
 import { BrowserRouter, Navigate, Route, Routes, useNavigate } from "react-router-dom";
 import { supabase } from "./supabaseClient";
 
-import PedidosScreen from "./screens/PedidosScreen";
-import MarmoleriaScreen from "./screens/MarmoleriaScreen";
-import MueblesScreen from "./screens/MueblesScreen";
-import PanolScreen from "./screens/PanolScreen";
-import AdminDashboard from "./screens/AdminDashboard";
-import MovimientosScreen from "./screens/MovimientosScreen";
-import LaminacionScreen from "./screens/LaminacionScreen";
+import PedidosScreen         from "./screens/PedidosScreen";
+import MarmoleriaScreen      from "./screens/MarmoleriaScreen";
+import MueblesScreen         from "./screens/MueblesScreen";
+import PanolScreen           from "./screens/PanolScreen";
+import AdminDashboard        from "./screens/AdminDashboard";
+import MovimientosScreen     from "./screens/MovimientosScreen";
+import LaminacionScreen      from "./screens/LaminacionScreen";
 import ObrasLaminacionScreen from "./screens/ObrasLaminacionScreen";
+import ObrasScreen           from "./screens/ObrasScreen";
+import ConfiguracionScreen   from "./screens/ConfiguracionScreen";
+import ProcedimientosScreen  from "./screens/ProcedimientosScreen";
 
 import logoK from "./assets/logo-k.png";
 
@@ -33,7 +36,7 @@ function LoginScreen({ onLoggedIn }) {
   const nav = useNavigate();
   const [username, setUsername] = useState("");
   const [password, setPassword] = useState("");
-  const [err, setErr] = useState("");
+  const [err,  setErr]  = useState("");
   const [busy, setBusy] = useState(false);
 
   async function handleLogin(e) {
@@ -54,60 +57,97 @@ function LoginScreen({ onLoggedIn }) {
   }
 
   const S = {
-    page: { position: "fixed", inset: 0, background: "#000", display: "flex", alignItems: "center", justifyContent: "center", overflow: "hidden", fontFamily: "Roboto, system-ui, Arial", color: "#fff", padding: 24 },
-    overlay: { position: "absolute", inset: 0, zIndex: 0, background: "linear-gradient(to top, rgba(0,0,0,0.95), rgba(0,0,0,0.60), rgba(0,0,0,0.85))" },
-    card: { width: "min(420px, 92vw)", borderRadius: 18, border: "1px solid rgba(255,255,255,0.10)", background: "rgba(0,0,0,0.60)", backdropFilter: "blur(18px)", WebkitBackdropFilter: "blur(18px)", boxShadow: "0 25px 50px -12px rgba(0,0,0,0.60)", padding: "34px 34px 28px", zIndex: 1 },
-    brandRow: { display: "flex", alignItems: "center", justifyContent: "center", gap: 12, marginBottom: 12 },
-    logoK: { width: 44, height: 44, objectFit: "contain", opacity: 0.95 },
-    brandText: { fontFamily: "Montserrat, system-ui, Arial", fontWeight: 900, letterSpacing: 3, fontSize: 18, opacity: 0.95 },
-    title: { marginTop: 8, marginBottom: 22, textAlign: "center", fontFamily: "Montserrat, system-ui, Arial", fontSize: 14, letterSpacing: 6, opacity: 0.65, textTransform: "uppercase" },
-    label: { fontSize: 11, letterSpacing: 2.2, opacity: 0.7, textTransform: "uppercase", marginLeft: 6, marginBottom: 8 },
+    page: {
+      position: "fixed", inset: 0, background: "#000",
+      display: "flex", alignItems: "center", justifyContent: "center",
+      overflow: "hidden", fontFamily: "-apple-system, 'Helvetica Neue', sans-serif",
+      color: "#fff", padding: 24,
+    },
+    grid: {
+      position: "absolute", inset: 0, zIndex: 0,
+      backgroundImage: "linear-gradient(rgba(255,255,255,0.03) 1px, transparent 1px), linear-gradient(90deg, rgba(255,255,255,0.03) 1px, transparent 1px)",
+      backgroundSize: "60px 60px",
+    },
+    card: {
+      width: "min(420px, 92vw)",
+      borderRadius: 20,
+      border: "1px solid rgba(255,255,255,0.08)",
+      background: "rgba(10,10,10,0.85)",
+      backdropFilter: "blur(40px)",
+      WebkitBackdropFilter: "blur(40px)",
+      boxShadow: "0 30px 80px rgba(0,0,0,0.7), inset 0 1px 0 rgba(255,255,255,0.05)",
+      padding: "38px 36px 30px",
+      zIndex: 1,
+    },
+    brandRow:  { display: "flex", alignItems: "center", justifyContent: "center", gap: 12, marginBottom: 10 },
+    logoK:     { width: 40, height: 40, objectFit: "contain", opacity: 0.95 },
+    brandText: { fontFamily: "Montserrat, system-ui", fontWeight: 900, letterSpacing: 4, fontSize: 17, opacity: 0.95 },
+    title:     { marginTop: 6, marginBottom: 28, textAlign: "center", fontFamily: "Montserrat, system-ui", fontSize: 10, letterSpacing: 6, opacity: 0.4, textTransform: "uppercase" },
+    label:     { fontSize: 10, letterSpacing: 2, opacity: 0.5, textTransform: "uppercase", marginBottom: 7, display: "block", fontWeight: 600 },
     inputWrap: { position: "relative" },
-    icon: { position: "absolute", left: 14, top: 12, opacity: 0.55, fontSize: 14 },
-    input: { width: "100%", borderRadius: 12, padding: "11px 12px 11px 38px", border: "1px solid rgba(255,255,255,0.12)", background: "rgba(255,255,255,0.06)", color: "#fff", outline: "none" },
-    btn: { width: "100%", marginTop: 18, borderRadius: 12, padding: "12px 14px", border: "1px solid rgba(255,255,255,0.10)", background: "#fff", color: "#000", fontWeight: 900, letterSpacing: 2, cursor: "pointer" },
-    error: { marginTop: 12, padding: 10, borderRadius: 12, border: "1px solid rgba(255,69,58,0.35)", background: "rgba(255,69,58,0.15)", color: "#ffd7d4", fontSize: 13, textAlign: "center" },
-    help: { marginTop: 18, paddingTop: 14, borderTop: "1px solid rgba(255,255,255,0.10)", textAlign: "center", fontSize: 12, opacity: 0.6 },
-    footer: { position: "absolute", bottom: 16, width: "100%", textAlign: "center", fontSize: 12, opacity: 0.45, zIndex: 1 },
+    icon:      { position: "absolute", left: 14, top: 12, opacity: 0.4, fontSize: 13 },
+    input:     {
+      width: "100%", borderRadius: 12, padding: "11px 12px 11px 38px",
+      border: "1px solid rgba(255,255,255,0.1)",
+      background: "rgba(255,255,255,0.04)", color: "#fff", outline: "none",
+      fontSize: 14, transition: "border-color 0.2s",
+    },
+    btn: {
+      width: "100%", marginTop: 20, borderRadius: 12, padding: "12px 14px",
+      border: "1px solid rgba(255,255,255,0.15)",
+      background: "#fff", color: "#000", fontWeight: 800, letterSpacing: 2,
+      cursor: "pointer", fontSize: 13,
+    },
+    error: {
+      marginTop: 12, padding: "10px 14px", borderRadius: 12,
+      border: "1px solid rgba(255,69,58,0.3)",
+      background: "rgba(255,69,58,0.08)", color: "#ff8580", fontSize: 13, textAlign: "center",
+    },
+    help:   { marginTop: 18, paddingTop: 14, borderTop: "1px solid rgba(255,255,255,0.06)", textAlign: "center", fontSize: 11, opacity: 0.4 },
+    footer: { position: "absolute", bottom: 16, width: "100%", textAlign: "center", fontSize: 11, opacity: 0.3, zIndex: 1 },
   };
 
   return (
     <div style={S.page}>
-      <div style={S.overlay} />
+      <div style={S.grid} />
       <div style={S.card}>
         <div style={S.brandRow}>
           <img src={logoK} alt="K" style={S.logoK} />
           <div style={S.brandText}>KLASE A</div>
         </div>
-        <div style={S.title}>ACCESO</div>
+        <div style={S.title}>Sistema de gestión</div>
         <form onSubmit={handleLogin}>
           <div style={{ marginBottom: 14 }}>
-            <div style={S.label}>Usuario</div>
+            <label style={S.label}>Usuario</label>
             <div style={S.inputWrap}>
               <span style={S.icon}>✉</span>
-              <input style={S.input} placeholder="ADMIN / PANOL1 / OFICINA1" value={username} onChange={(e) => setUsername(e.target.value)} autoFocus />
+              <input style={S.input} placeholder="ADMIN / PANOL1 / OFICINA1" value={username}
+                onChange={(e) => setUsername(e.target.value)} autoFocus />
             </div>
           </div>
           <div>
-            <div style={S.label}>Contraseña</div>
+            <label style={S.label}>Contraseña</label>
             <div style={S.inputWrap}>
-              <span style={S.icon}>🔑</span>
-              <input style={S.input} type="password" placeholder="••••••••" value={password} onChange={(e) => setPassword(e.target.value)} />
+              <span style={S.icon}>🔒</span>
+              <input style={S.input} type="password" placeholder="••••••••" value={password}
+                onChange={(e) => setPassword(e.target.value)} />
             </div>
           </div>
-          <button style={S.btn} type="submit" disabled={busy}>{busy ? "INGRESANDO..." : "INGRESAR"}</button>
+          <button style={S.btn} type="submit" disabled={busy}>
+            {busy ? "INGRESANDO…" : "INGRESAR"}
+          </button>
           {err ? <div style={S.error}>{err}</div> : null}
         </form>
-        <div style={S.help}>¿Olvidó su contraseña? Contacte a soporte.</div>
+        <div style={S.help}>¿Olvidó su contraseña? Contacte al administrador.</div>
       </div>
-      <div style={S.footer}>© 2026 Astillero Klase A. Todos los derechos reservados.</div>
+      <div style={S.footer}>© 2026 Astillero Klase A</div>
     </div>
   );
 }
 
 export default function App() {
-  const [session, setSession] = useState(null);
-  const [profile, setProfile] = useState(null);
+  const [session,        setSession]        = useState(null);
+  const [profile,        setProfile]        = useState(null);
   const [loadingProfile, setLoadingProfile] = useState(true);
 
   async function loadProfile(s) {
@@ -139,11 +179,17 @@ export default function App() {
 
   function HomeRedirect() {
     if (!session) return <Navigate to="/login" replace />;
-    if (loadingProfile) return <div style={{ background: "#000", color: "#fff", minHeight: "100vh", padding: 20 }}>Cargando…</div>;
+    if (loadingProfile) return (
+      <div style={{ background: "#000", color: "rgba(255,255,255,0.4)", minHeight: "100vh", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 13 }}>
+        Cargando…
+      </div>
+    );
     if (!profile) return <Navigate to="/login" replace />;
     if (profile.role === "panol") return <Navigate to="/panol" replace />;
     return <Navigate to="/admin" replace />;
   }
+
+  const A = { profile, signOut };
 
   return (
     <BrowserRouter>
@@ -151,59 +197,71 @@ export default function App() {
         <Route path="/login" element={<LoginScreen onLoggedIn={loadProfile} />} />
         <Route path="/" element={<HomeRedirect />} />
 
+        {/* ── MOVIMIENTOS ─────────────────────── */}
         <Route path="/panol" element={
-          <RequireAuth session={session}>
-            <PanolScreen profile={profile} signOut={signOut} />
-          </RequireAuth>
+          <RequireAuth session={session}><PanolScreen {...A} /></RequireAuth>
         } />
-
-        {/* NUEVO: Laminación — accesible para todos los roles autenticados */}
         <Route path="/laminacion" element={
-          <RequireAuth session={session}>
-            <LaminacionScreen profile={profile} signOut={signOut} />
-          </RequireAuth>
+          <RequireAuth session={session}><LaminacionScreen {...A} /></RequireAuth>
         } />
 
-        <Route path="/obras-laminacion" element={
+        {/* ── PRODUCCIÓN ──────────────────────── */}
+        <Route path="/obras" element={
           <RequireAuth session={session}>
-            <RequireRole profile={profile} allow={["admin", "oficina"]}>
-              <ObrasLaminacionScreen profile={profile} signOut={signOut} />
+            <RequireRole profile={profile} allow={["admin","oficina"]}>
+              <ObrasScreen {...A} />
             </RequireRole>
           </RequireAuth>
         } />
-
         <Route path="/marmoleria" element={
           <RequireAuth session={session}>
-            <RequireRole profile={profile} allow={["admin", "oficina"]}>
-              <MarmoleriaScreen profile={profile} signOut={signOut} />
+            <RequireRole profile={profile} allow={["admin","oficina"]}>
+              <MarmoleriaScreen {...A} />
+            </RequireRole>
+          </RequireAuth>
+        } />
+        <Route path="/muebles" element={
+          <RequireAuth session={session}><MueblesScreen {...A} /></RequireAuth>
+        } />
+
+        {/* ── INSTRUCCIONES ───────────────────── */}
+        <Route path="/procedimientos" element={
+          <RequireAuth session={session}><ProcedimientosScreen {...A} /></RequireAuth>
+        } />
+
+        {/* ── GESTIÓN LAMINACIÓN ──────────────── */}
+        <Route path="/obras-laminacion" element={
+          <RequireAuth session={session}>
+            <RequireRole profile={profile} allow={["admin","oficina"]}>
+              <ObrasLaminacionScreen {...A} />
             </RequireRole>
           </RequireAuth>
         } />
 
-        <Route path="/pedidos" element={
-          <RequireAuth session={session}>
-            <PedidosScreen profile={profile} signOut={signOut} />
-          </RequireAuth>
-        } />
-
+        {/* ── GESTIÓN MADERAS ─────────────────── */}
         <Route path="/admin" element={
           <RequireAuth session={session}>
-            <RequireRole profile={profile} allow={["admin", "oficina"]}>
-              <AdminDashboard profile={profile} signOut={signOut} />
+            <RequireRole profile={profile} allow={["admin","oficina"]}>
+              <AdminDashboard {...A} />
             </RequireRole>
           </RequireAuth>
         } />
-
-        <Route path="/muebles" element={
-          <RequireAuth session={session}>
-            <MueblesScreen profile={profile} signOut={signOut} />
-          </RequireAuth>
-        } />
-
         <Route path="/movimientos" element={
           <RequireAuth session={session}>
-            <RequireRole profile={profile} allow={["admin", "oficina"]}>
-              <MovimientosScreen profile={profile} signOut={signOut} />
+            <RequireRole profile={profile} allow={["admin","oficina"]}>
+              <MovimientosScreen {...A} />
+            </RequireRole>
+          </RequireAuth>
+        } />
+        <Route path="/pedidos" element={
+          <RequireAuth session={session}><PedidosScreen {...A} /></RequireAuth>
+        } />
+
+        {/* ── SISTEMA ─────────────────────────── */}
+        <Route path="/configuracion" element={
+          <RequireAuth session={session}>
+            <RequireRole profile={profile} allow={["admin"]}>
+              <ConfiguracionScreen {...A} />
             </RequireRole>
           </RequireAuth>
         } />
