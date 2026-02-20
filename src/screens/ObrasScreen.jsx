@@ -11,30 +11,33 @@ const today = () => new Date().toISOString().slice(0, 10);
 
 // ── TOKENS DE DISEÑO ─────────────────────────────────────────────
 const C = {
-  bg:       "#000",
-  s0:       "#050505",   // surface base
-  s1:       "#0a0a0a",   // surface mid
-  s2:       "#111",      // surface hi
-  b0:       "rgba(255,255,255,0.055)",   // border normal
-  b1:       "rgba(255,255,255,0.11)",    // border highlight
-  b2:       "rgba(255,255,255,0.18)",    // border strong
-  t0:       "#b8b8b8",   // text primary
-  t1:       "#545454",   // text dim
-  t2:       "#282828",   // text muted
+  // Fondos y superficies — tinte azul profundo muy sutil
+  bg:  "#03050c",
+  s0:  "rgba(255,255,255,0.028)",   // surface base (glass)
+  s1:  "rgba(255,255,255,0.048)",   // surface mid
+  s2:  "rgba(255,255,255,0.072)",   // surface highlight
+  // Bordes
+  b0:  "rgba(255,255,255,0.08)",    // border normal
+  b1:  "rgba(255,255,255,0.15)",    // border highlight
+  b2:  "rgba(255,255,255,0.26)",    // border strong
+  // Texto
+  t0:  "#dde2ea",   // text primary
+  t1:  "#566070",   // text dim
+  t2:  "#2c3040",   // text muted
   // Estados de obra
-  activa:   { dot: "#4a8c5c", label: "Activa",    chip: ["rgba(74,140,92,0.12)",  "rgba(74,140,92,0.28)"  ] },
-  pausada:  { dot: "#8c7a3a", label: "Pausada",   chip: ["rgba(140,122,58,0.12)", "rgba(140,122,58,0.28)" ] },
-  terminada:{ dot: "#484848", label: "Terminada", chip: ["rgba(72,72,72,0.15)",   "rgba(72,72,72,0.3)"    ] },
-  cancelada:{ dot: "#8c3a3a", label: "Cancelada", chip: ["rgba(140,58,58,0.12)",  "rgba(140,58,58,0.28)"  ] },
+  activa:    { dot: "#3dce6a", label: "Activa",    chip: ["rgba(61,206,106,0.1)",  "rgba(61,206,106,0.28)"] },
+  pausada:   { dot: "#e0b040", label: "Pausada",   chip: ["rgba(224,176,64,0.1)",  "rgba(224,176,64,0.28)"] },
+  terminada: { dot: "#4a5060", label: "Terminada", chip: ["rgba(74,80,96,0.15)",   "rgba(74,80,96,0.3)"]    },
+  cancelada: { dot: "#e04848", label: "Cancelada", chip: ["rgba(224,72,72,0.1)",   "rgba(224,72,72,0.28)"]  },
   // Estados de proceso
-  pendiente:  { bar: "#0d0d0d",             text: "#2a2a2a",  glow: false },
-  en_curso:   { bar: "rgba(110,90,40,0.65)",  text: "#c8a040",  glow: true  },
-  completado: { bar: "rgba(44,88,60,0.65)",   text: "#50a060",  glow: false },
-  demorado:   { bar: "rgba(110,44,44,0.7)",   text: "#c05050",  glow: true  },
+  pendiente:  { bar: "rgba(255,255,255,0.018)", text: "#2e3440", glow: false },
+  en_curso:   { bar: "rgba(200,150,20,0.22)",   text: "#e0b040", glow: true  },
+  completado: { bar: "rgba(40,110,65,0.25)",    text: "#3dce6a", glow: false },
+  demorado:   { bar: "rgba(200,50,50,0.28)",    text: "#e04848", glow: true  },
   // Tipo aviso
-  aviso:        { color: "#607898", label: "Aviso"       },
-  compra:       { color: "#8a6a38", label: "Compra"      },
-  recordatorio: { color: "#5a5a5a", label: "Recordatorio"},
+  aviso:        { color: "#6888b8", label: "Aviso"        },
+  compra:       { color: "#c89040", label: "Compra"       },
+  recordatorio: { color: "#606878", label: "Recordatorio" },
 };
 
 // ── DRAG-AND-DROP LIST ────────────────────────────────────────────
@@ -72,14 +75,18 @@ function DragList({ items, onReorder, renderItem }) {
 function Toggle({ on, onChange }) {
   return (
     <button type="button" onClick={onChange} style={{
-      width: 30, height: 17, borderRadius: 99, border: "none", flexShrink: 0,
-      background: on ? "#909090" : "#1c1c1c", position: "relative", cursor: "pointer",
-      transition: "background .18s",
+      width: 32, height: 18, borderRadius: 99, flexShrink: 0,
+      border: `1px solid ${on ? "rgba(61,206,106,0.4)" : "rgba(255,255,255,0.12)"}`,
+      background: on ? "rgba(61,206,106,0.2)" : "rgba(255,255,255,0.04)",
+      position: "relative", cursor: "pointer",
+      transition: "background .2s, border-color .2s",
     }}>
       <div style={{
-        position: "absolute", top: 3, left: on ? 14 : 3,
-        width: 11, height: 11, borderRadius: "50%",
-        background: on ? "#000" : "#3a3a3a", transition: "left .18s",
+        position: "absolute", top: 3, left: on ? 15 : 3,
+        width: 10, height: 10, borderRadius: "50%",
+        background: on ? "#3dce6a" : "rgba(255,255,255,0.3)",
+        transition: "left .2s, background .2s",
+        boxShadow: on ? "0 0 6px rgba(61,206,106,0.5)" : "none",
       }} />
     </button>
   );
@@ -90,8 +97,11 @@ function Chip({ estado }) {
   const m = C[estado] ?? C.activa;
   return (
     <span style={{
-      fontSize: 9, letterSpacing: 1.5, textTransform: "uppercase", padding: "2px 8px",
-      borderRadius: 99, background: m.chip[0], color: m.dot, border: `1px solid ${m.chip[1]}`,
+      fontSize: 8, letterSpacing: 2, textTransform: "uppercase", padding: "3px 9px",
+      borderRadius: 99, background: m.chip[0], color: m.dot,
+      border: `1px solid ${m.chip[1]}`,
+      fontWeight: 600,
+      boxShadow: `0 0 8px ${m.dot}22`,
     }}>
       {m.label}
     </span>
@@ -415,42 +425,97 @@ export default function ObrasScreen({ profile, signOut }) {
   }
 
   // ── ESTILOS ───────────────────────────────────────────────────
+  const GLASS = {
+    background: C.s0,
+    backdropFilter: "blur(40px) saturate(130%)",
+    WebkitBackdropFilter: "blur(40px) saturate(130%)",
+  };
+
   const S = {
-    page:   { background: C.bg, minHeight: "100vh", color: C.t0, fontFamily: "'Geist', 'IBM Plex Sans', system-ui, sans-serif" },
+    page:   { background: C.bg, minHeight: "100vh", color: C.t0, fontFamily: "'Outfit', 'IBM Plex Sans', system-ui, sans-serif" },
     layout: { display: "grid", gridTemplateColumns: "280px 1fr", minHeight: "100vh" },
     main:   { display: "flex", flexDirection: "column", height: "100vh", overflow: "hidden" },
 
     topbar: {
-      background: C.s0, borderBottom: `1px solid ${C.b0}`,
-      padding: "0 20px", height: 48, display: "flex", alignItems: "center", gap: 12, flexShrink: 0,
+      ...GLASS,
+      background: "rgba(3,5,12,0.80)",
+      borderBottom: `1px solid ${C.b0}`,
+      padding: "0 22px", height: 52,
+      display: "flex", alignItems: "center", gap: 14, flexShrink: 0,
+      position: "sticky", top: 0, zIndex: 200,
     },
     filterbar: {
-      background: C.s0, borderBottom: `1px solid ${C.b0}`,
-      padding: "0 20px", height: 38, display: "flex", alignItems: "center", gap: 6, flexShrink: 0, overflowX: "auto",
+      ...GLASS,
+      background: "rgba(3,5,12,0.72)",
+      borderBottom: `1px solid ${C.b0}`,
+      padding: "0 22px", height: 40,
+      display: "flex", alignItems: "center", gap: 5, flexShrink: 0, overflowX: "auto",
     },
-    scroll: { flex: 1, overflowY: "auto", padding: "18px 20px" },
+    scroll: { flex: 1, overflowY: "auto", padding: "20px 22px" },
 
-    card:   { border: `1px solid ${C.b0}`, borderRadius: 10, background: C.s0, padding: 14, marginBottom: 8 },
-    cardHi: { border: `1px solid ${C.b1}`, borderRadius: 10, background: C.s1, padding: 14, marginBottom: 8 },
+    card:   { border: `1px solid ${C.b0}`, borderRadius: 12, ...GLASS, padding: 16, marginBottom: 8 },
+    cardHi: { border: `1px solid ${C.b1}`, borderRadius: 12, ...GLASS, background: C.s1, padding: 16, marginBottom: 8 },
 
-    input:  { background: "rgba(255,255,255,0.04)", border: `1px solid ${C.b0}`, color: "#d0d0d0", padding: "7px 11px", borderRadius: 7, fontSize: 12, outline: "none", width: "100%" },
-    label:  { fontSize: 9, letterSpacing: 2, color: C.t1, display: "block", marginBottom: 4, textTransform: "uppercase" },
+    input:  {
+      background: "rgba(255,255,255,0.05)", border: `1px solid ${C.b0}`,
+      color: C.t0, padding: "8px 12px", borderRadius: 8, fontSize: 12,
+      outline: "none", width: "100%",
+      transition: "border-color 0.15s",
+    },
+    label:  { fontSize: 9, letterSpacing: 2.2, color: C.t1, display: "block", marginBottom: 5, textTransform: "uppercase", fontWeight: 600 },
 
-    btn:    { border: `1px solid ${C.b0}`, background: "rgba(255,255,255,0.04)", color: C.t0, padding: "6px 14px", borderRadius: 7, cursor: "pointer", fontSize: 12 },
-    btnPri: { border: "none", background: "#c0c0c0", color: "#000", padding: "7px 16px", borderRadius: 7, cursor: "pointer", fontWeight: 700, fontSize: 12 },
-    btnSm:  { border: `1px solid ${C.b0}`, background: "transparent", color: C.t1, padding: "3px 9px", borderRadius: 6, cursor: "pointer", fontSize: 11 },
-    btnGh:  { border: "1px solid transparent", background: "transparent", color: C.t1, padding: "3px 8px", borderRadius: 6, cursor: "pointer", fontSize: 11 },
+    btn:    {
+      border: `1px solid ${C.b0}`, background: "rgba(255,255,255,0.05)",
+      color: C.t0, padding: "6px 14px", borderRadius: 8, cursor: "pointer", fontSize: 12,
+      transition: "border-color 0.15s, background 0.15s",
+    },
+    btnPri: {
+      border: "1px solid rgba(255,255,255,0.25)",
+      background: "rgba(255,255,255,0.92)",
+      color: "#080c14", padding: "7px 18px", borderRadius: 8,
+      cursor: "pointer", fontWeight: 700, fontSize: 12, letterSpacing: 0.2,
+      transition: "opacity 0.15s",
+    },
+    btnSm:  {
+      border: `1px solid ${C.b0}`, background: "transparent",
+      color: C.t1, padding: "3px 10px", borderRadius: 6,
+      cursor: "pointer", fontSize: 11,
+      transition: "border-color 0.15s, color 0.15s",
+    },
+    btnGh:  { border: "1px solid transparent", background: "transparent", color: C.t1, padding: "3px 8px", borderRadius: 6, cursor: "pointer", fontSize: 13 },
 
     pill: (act) => ({
-      border: act ? `1px solid ${C.b1}` : "1px solid transparent",
-      background: act ? "rgba(255,255,255,0.07)" : "transparent",
-      color: act ? C.t0 : C.t1, padding: "3px 12px", borderRadius: 5,
+      border: act ? `1px solid ${C.b1}` : "1px solid rgba(255,255,255,0.04)",
+      background: act ? "rgba(255,255,255,0.08)" : "transparent",
+      color: act ? C.t0 : C.t1, padding: "4px 12px", borderRadius: 6,
       cursor: "pointer", fontSize: 11, whiteSpace: "nowrap",
+      transition: "all 0.13s",
     }),
 
-    overlay: { position: "fixed", inset: 0, background: "rgba(0,0,0,0.9)", backdropFilter: "blur(12px)", display: "flex", justifyContent: "center", alignItems: "flex-start", zIndex: 9000, padding: "32px 16px", overflowY: "auto" },
-    modal:   { background: "#070707", border: `1px solid ${C.b1}`, borderRadius: 12, padding: 24, width: "100%", maxWidth: 520 },
-    modalLg: { background: "#070707", border: `1px solid ${C.b1}`, borderRadius: 12, padding: 26, width: "100%", maxWidth: 900 },
+    overlay: {
+      position: "fixed", inset: 0,
+      background: "rgba(3,5,12,0.88)",
+      backdropFilter: "blur(28px) saturate(140%)",
+      WebkitBackdropFilter: "blur(28px) saturate(140%)",
+      display: "flex", justifyContent: "center", alignItems: "flex-start",
+      zIndex: 9000, padding: "40px 16px", overflowY: "auto",
+    },
+    modal: {
+      background: "rgba(8,12,22,0.92)",
+      backdropFilter: "blur(60px) saturate(160%)",
+      WebkitBackdropFilter: "blur(60px) saturate(160%)",
+      border: `1px solid ${C.b1}`, borderRadius: 16, padding: 28,
+      width: "100%", maxWidth: 520,
+      boxShadow: "0 32px 80px rgba(0,0,0,0.7), inset 0 1px 0 rgba(255,255,255,0.06)",
+    },
+    modalLg: {
+      background: "rgba(8,12,22,0.92)",
+      backdropFilter: "blur(60px) saturate(160%)",
+      WebkitBackdropFilter: "blur(60px) saturate(160%)",
+      border: `1px solid ${C.b1}`, borderRadius: 16, padding: 28,
+      width: "100%", maxWidth: 900,
+      boxShadow: "0 32px 80px rgba(0,0,0,0.7), inset 0 1px 0 rgba(255,255,255,0.06)",
+    },
   };
 
   // ═══════════════════════════════════════════════════════════════
@@ -458,7 +523,7 @@ export default function ObrasScreen({ profile, signOut }) {
   // ═══════════════════════════════════════════════════════════════
   function GanttView() {
     if (!obrasFilt.length)
-      return <div style={{ ...S.card, textAlign: "center", padding: 48, color: C.t2 }}>Sin obras con este filtro</div>;
+      return <div style={{ ...S.card, textAlign: "center", padding: 64, color: C.t2, fontSize: 12, letterSpacing: 2, textTransform: "uppercase", fontFamily: "'JetBrains Mono', monospace" }}>Sin obras con este filtro</div>;
 
     // Agrupar por línea
     const grupos = {};
@@ -483,22 +548,30 @@ export default function ObrasScreen({ profile, signOut }) {
 
               {/* ── Cabecera de línea ── */}
               <div style={{
-                display: "flex", alignItems: "center", gap: 8,
-                marginBottom: 6, paddingBottom: 6, borderBottom: `1px solid ${C.b0}`,
+                display: "flex", alignItems: "center", gap: 10,
+                marginBottom: 8, paddingBottom: 8,
+                borderBottom: `1px solid ${C.b0}`,
               }}>
-                {linInfo && <div style={{ width: 7, height: 7, borderRadius: "50%", background: linInfo.color }} />}
-                <span style={{ fontSize: 10, letterSpacing: 2.5, color: C.t1, textTransform: "uppercase" }}>{key}</span>
-                <span style={{ fontSize: 10, color: C.t2 }}>— {grupo.obras.length} obra{grupo.obras.length !== 1 ? "s" : ""}</span>
+                {linInfo && (
+                  <div style={{
+                    width: 8, height: 8, borderRadius: "50%",
+                    background: linInfo.color,
+                    boxShadow: `0 0 8px ${linInfo.color}88`,
+                    flexShrink: 0,
+                  }} />
+                )}
+                <span style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: 11, letterSpacing: 3, color: C.t0, textTransform: "uppercase", fontWeight: 500 }}>{key}</span>
+                <span style={{ fontSize: 10, color: C.t2, letterSpacing: 0.5 }}>· {grupo.obras.length} obra{grupo.obras.length !== 1 ? "s" : ""}</span>
               </div>
 
               {/* ── Headers de proceso ── */}
-              <div style={{ display: "flex", paddingLeft: 130, marginBottom: 3 }}>
+              <div style={{ display: "flex", paddingLeft: 130, marginBottom: 4 }}>
                 {procs.map(p => (
                   <div key={p.id} style={{
                     flex: num(p.dias_estimados ?? p.dias_esperados) / totalDias,
-                    fontSize: 9, color: C.t2, letterSpacing: 0.5,
+                    fontSize: 8, color: C.t2, letterSpacing: 1.2,
                     overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap",
-                    paddingRight: 3, minWidth: 0, textTransform: "uppercase",
+                    paddingRight: 3, minWidth: 0, textTransform: "uppercase", fontWeight: 600,
                   }}>
                     {p.nombre}
                   </div>
@@ -523,7 +596,9 @@ export default function ObrasScreen({ profile, signOut }) {
                       style={{
                         display: "flex", alignItems: "center", gap: 0,
                         padding: "4px 0", cursor: "pointer", borderRadius: 6,
-                        background: sel ? "rgba(255,255,255,0.025)" : "transparent",
+                        background: sel ? "rgba(255,255,255,0.04)" : "transparent",
+                        borderRadius: 8,
+                        transition: "background 0.15s",
                       }}
                       onClick={() => setSelId(sel ? null : obra.id)}
                     >
@@ -532,9 +607,10 @@ export default function ObrasScreen({ profile, signOut }) {
                         <div style={{ display: "flex", alignItems: "center", gap: 5 }}>
                           <div style={{ width: 5, height: 5, borderRadius: "50%", background: est.dot, flexShrink: 0 }} />
                           <span style={{
-                            fontFamily: "'IBM Plex Mono', monospace", fontSize: 12,
-                            color: sel ? "#e0e0e0" : "#8a8a8a", fontWeight: sel ? 600 : 400,
-                            letterSpacing: 0.5,
+                            fontFamily: "'JetBrains Mono', monospace", fontSize: 12,
+                            color: sel ? C.t0 : "#7a8090", fontWeight: sel ? 600 : 400,
+                            letterSpacing: 0.8,
+                            transition: "color 0.15s",
                           }}>
                             {obra.codigo}
                           </span>
@@ -546,8 +622,10 @@ export default function ObrasScreen({ profile, signOut }) {
 
                       {/* Barra Gantt */}
                       <div style={{
-                        flex: 1, height: 26, display: "flex", overflow: "hidden",
-                        borderRadius: 4, border: `1px solid ${C.b0}`, background: "#060606",
+                        flex: 1, height: 28, display: "flex", overflow: "hidden",
+                        borderRadius: 6, border: `1px solid ${C.b0}`,
+                        background: "rgba(255,255,255,0.02)",
+                        boxShadow: "inset 0 1px 3px rgba(0,0,0,0.5)",
                       }}>
                         {procs.map((p, pi) => {
                           const t    = isLinea
@@ -559,10 +637,15 @@ export default function ObrasScreen({ profile, signOut }) {
                           return (
                             <div key={p.id} style={{
                               flex, height: "100%",
-                              background: col.bar,
-                              borderRight: pi < procs.length - 1 ? "1px solid rgba(0,0,0,0.5)" : "none",
-                              transition: "background .3s",
-                              ...(pulse ? { animation: "gantt-pulse 2.5s ease-in-out infinite" } : {}),
+                              background: t?.estado === "completado"
+                                ? `linear-gradient(90deg, ${col.bar}, rgba(40,120,70,0.35))`
+                                : t?.estado === "en_curso"
+                                  ? `linear-gradient(90deg, ${col.bar}, rgba(200,150,20,0.32))`
+                                  : col.bar,
+                              borderRight: pi < procs.length - 1 ? "1px solid rgba(0,0,0,0.3)" : "none",
+                              transition: "background .4s",
+                              position: "relative",
+                              ...(t?.estado === "en_curso" ? { animation: "gantt-pulse 2.5s ease-in-out infinite" } : {}),
                             }}
                               title={`${p.nombre} · ${t?.estado ?? "pendiente"} · ${p.dias_estimados ?? p.dias_esperados}d est.`}
                             />
@@ -572,7 +655,7 @@ export default function ObrasScreen({ profile, signOut }) {
 
                       {/* Días */}
                       <div style={{ width: 80, paddingLeft: 10, flexShrink: 0, textAlign: "right" }}>
-                        <span style={{ fontFamily: "'IBM Plex Mono', monospace", fontSize: 11, color: timeColor }}>
+                        <span style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: 11, color: timeColor }}>
                           {diasReales}/{diasEst}d
                         </span>
                       </div>
@@ -603,14 +686,18 @@ export default function ObrasScreen({ profile, signOut }) {
 
     return (
       <div style={{
-        margin: "4px 0 12px 130px", padding: "14px 16px",
-        background: C.s1, border: `1px solid ${C.b1}`, borderRadius: 10,
+        margin: "6px 0 14px 130px", padding: "18px 20px",
+        background: "rgba(255,255,255,0.032)",
+        backdropFilter: "blur(40px) saturate(130%)",
+        WebkitBackdropFilter: "blur(40px) saturate(130%)",
+        border: `1px solid ${C.b1}`, borderRadius: 12,
+        boxShadow: "0 8px 32px rgba(0,0,0,0.35), inset 0 1px 0 rgba(255,255,255,0.06)",
       }}>
         {/* Header */}
         <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: 14 }}>
           <div>
             <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 4 }}>
-              <span style={{ fontFamily: "'IBM Plex Mono', monospace", fontSize: 16, color: "#e0e0e0", fontWeight: 600 }}>
+              <span style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: 17, color: C.t0, fontWeight: 700, letterSpacing: 1 }}>
                 {obra.codigo}
               </span>
               <Chip estado={obra.estado} />
@@ -650,25 +737,33 @@ export default function ObrasScreen({ profile, signOut }) {
               <div key={p.id} style={{
                 display: "grid", gridTemplateColumns: "200px 1fr 100px 130px",
                 gap: 10, alignItems: "center",
-                padding: "7px 0",
-                borderTop: idx > 0 ? `1px solid rgba(255,255,255,0.03)` : "none",
+                padding: "8px 10px",
+                margin: "2px 0",
+                borderRadius: 8,
+                background: t ? "rgba(255,255,255,0.02)" : "transparent",
+                border: t ? `1px solid rgba(255,255,255,0.04)` : "1px solid transparent",
+                transition: "background 0.2s",
               }}>
                 {/* Nombre */}
                 <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
-                  <div style={{ width: 6, height: 6, borderRadius: "50%", background: t ? col.text : C.t2, flexShrink: 0 }} />
+                  <div style={{ width: 7, height: 7, borderRadius: "50%", background: t ? col.text : C.t2, flexShrink: 0, boxShadow: t && t.estado !== "pendiente" ? `0 0 6px ${col.text}88` : "none" }} />
                   <span style={{ fontSize: 12, color: t ? "#a8a8a8" : C.t1 }}>{p.nombre}</span>
                   {p.genera_aviso && <span style={{ fontSize: 8, color: C[p.tipo_aviso]?.color ?? C.t2, letterSpacing: 0.5 }}>·aviso</span>}
                 </div>
 
                 {/* Barra */}
-                <div style={{ height: 4, background: "#0a0a0a", borderRadius: 99, overflow: "hidden" }}>
-                  <div style={{ height: "100%", width: `${pctBar}%`, background: col.text, borderRadius: 99, transition: "width .4s ease" }} />
+                <div style={{ height: 3, background: "rgba(255,255,255,0.06)", borderRadius: 99, overflow: "hidden" }}>
+                  <div style={{
+                    height: "100%", width: `${pctBar}%`,
+                    background: `linear-gradient(90deg, ${col.text}cc, ${col.text})`,
+                    borderRadius: 99, transition: "width .5s ease",
+                  }} />
                 </div>
 
                 {/* Días */}
                 <div style={{ textAlign: "right" }}>
                   {diasAct != null ? (
-                    <span style={{ fontFamily: "'IBM Plex Mono', monospace", fontSize: 11, color: col.text }}>
+                    <span style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: 11, color: col.text }}>
                       {diasAct}/{est2}d
                     </span>
                   ) : (
@@ -697,7 +792,7 @@ export default function ObrasScreen({ profile, signOut }) {
                       </button>
                     )}
                     {t?.estado === "completado" && (
-                      <span style={{ fontSize: 10, color: C.t2, fontFamily: "'IBM Plex Mono', monospace" }}>
+                      <span style={{ fontSize: 10, color: C.t2, fontFamily: "'JetBrains Mono', monospace" }}>
                         {fmtDate(t.fecha_fin)}
                       </span>
                     )}
@@ -720,13 +815,13 @@ export default function ObrasScreen({ profile, signOut }) {
             .map(([label, val]) => (
               <div key={label}>
                 <div style={S.label}>{label}</div>
-                <div style={{ fontFamily: "'IBM Plex Mono', monospace", fontSize: 11, color: "#808080" }}>{fmtDate(val)}</div>
+                <div style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: 11, color: C.t0, opacity: 0.65, letterSpacing: 0.5 }}>{fmtDate(val)}</div>
               </div>
             ))}
           {obra.fecha_inicio && !obra.fecha_fin_real && (
             <div>
               <div style={S.label}>En producción</div>
-              <div style={{ fontFamily: "'IBM Plex Mono', monospace", fontSize: 11, color: "#808080" }}>
+              <div style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: 11, color: C.t0, opacity: 0.65, letterSpacing: 0.5 }}>
                 {diasDesde(obra.fecha_inicio)}d
               </div>
             </div>
@@ -759,13 +854,14 @@ export default function ObrasScreen({ profile, signOut }) {
               style={{
                 ...S.card, cursor: "pointer", marginBottom: 0,
                 border: `1px solid ${sel ? C.b1 : C.b0}`,
-                background: sel ? C.s1 : C.s0,
+                background: sel ? "rgba(255,255,255,0.055)" : C.s0,
+                transition: "background 0.15s, border-color 0.15s, transform 0.12s",
               }}
               onClick={() => setSelId(sel ? null : obra.id)}
             >
               <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: 10 }}>
                 <div>
-                  <span style={{ fontFamily: "'IBM Plex Mono', monospace", fontSize: 15, color: "#d8d8d8", fontWeight: 600 }}>
+                  <span style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: 15, color: "#d8d8d8", fontWeight: 600 }}>
                     {obra.codigo}
                   </span>
                   {linInfo && (
@@ -777,7 +873,7 @@ export default function ObrasScreen({ profile, signOut }) {
                 <div style={{ display: "flex", gap: 4, flexDirection: "column", alignItems: "flex-end" }}>
                   <Chip estado={obra.estado} />
                   {avisPend > 0 && (
-                    <span style={{ fontSize: 9, padding: "2px 6px", borderRadius: 99, background: "rgba(140,100,40,0.15)", color: C.compra.color, border: `1px solid rgba(140,100,40,0.3)`, letterSpacing: 0.5 }}>
+                    <span style={{ fontSize: 9, padding: "2px 6px", borderRadius: 99, background: "rgba(200,144,64,0.1)", color: C.compra.color, border: "1px solid rgba(200,144,64,0.28)", letterSpacing: 0.5 }}>
                       {avisPend} aviso{avisPend !== 1 ? "s" : ""}
                     </span>
                   )}
@@ -785,13 +881,17 @@ export default function ObrasScreen({ profile, signOut }) {
               </div>
 
               {/* Barra mini */}
-              <div style={{ height: 3, background: "#0a0a0a", borderRadius: 99, overflow: "hidden", marginBottom: 8 }}>
-                <div style={{ height: "100%", width: `${pct}%`, background: timeCol, borderRadius: 99, transition: "width .5s" }} />
+              <div style={{ height: 2, background: "rgba(255,255,255,0.06)", borderRadius: 99, overflow: "hidden", marginBottom: 9 }}>
+                <div style={{
+                  height: "100%", width: `${pct}%`,
+                  background: `linear-gradient(90deg, ${timeCol}88, ${timeCol})`,
+                  borderRadius: 99, transition: "width .5s",
+                }} />
               </div>
 
               <div style={{ display: "flex", justifyContent: "space-between" }}>
                 <span style={{ fontSize: 11, color: C.t1 }}>{pct}% completado</span>
-                <span style={{ fontFamily: "'IBM Plex Mono', monospace", fontSize: 11, color: timeCol }}>
+                <span style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: 11, color: timeCol }}>
                   {diasR}/{diasEst}d
                 </span>
               </div>
@@ -813,12 +913,12 @@ export default function ObrasScreen({ profile, signOut }) {
     return (
       <div style={S.overlay} onClick={e => e.target === e.currentTarget && setShowAvisos(false)}>
         <div style={{ ...S.modalLg, maxWidth: 640 }}>
-          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 18 }}>
+          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 20 }}>
             <div>
-              <div style={{ fontSize: 15, color: "#d8d8d8", fontWeight: 500 }}>Avisos internos</div>
-              <div style={{ fontSize: 11, color: C.t1, marginTop: 2 }}>{avisosPend.length} pendiente{avisosPend.length !== 1 ? "s" : ""}</div>
+              <div style={{ fontSize: 16, color: C.t0, fontWeight: 600, letterSpacing: 0.2 }}>Avisos internos</div>
+              <div style={{ fontSize: 11, color: C.t1, marginTop: 3 }}>{avisosPend.length} pendiente{avisosPend.length !== 1 ? "s" : ""}</div>
             </div>
-            <button style={S.btnGh} onClick={() => setShowAvisos(false)}>×</button>
+            <button style={{ ...S.btnGh, fontSize: 18, lineHeight: 1 }} onClick={() => setShowAvisos(false)}>×</button>
           </div>
 
           {avisos.length === 0 && (
@@ -838,10 +938,12 @@ export default function ObrasScreen({ profile, signOut }) {
                   return (
                     <div key={a.id} style={{
                       display: "flex", gap: 10, alignItems: "flex-start",
-                      padding: "10px 12px", borderRadius: 8, marginBottom: 4,
-                      background: estado === "pendiente" ? C.s1 : "transparent",
+                      padding: "11px 14px", borderRadius: 10, marginBottom: 5,
+                      background: estado === "pendiente" ? "rgba(255,255,255,0.04)" : "transparent",
+                      backdropFilter: estado === "pendiente" ? "blur(20px)" : "none",
                       border: `1px solid ${estado === "pendiente" ? C.b0 : "transparent"}`,
-                      opacity: estado === "resuelto" ? 0.38 : 1,
+                      opacity: estado === "resuelto" ? 0.35 : 1,
+                      transition: "opacity 0.2s",
                     }}>
                       <span style={{
                         fontSize: 8, padding: "3px 7px", borderRadius: 4, letterSpacing: 1,
@@ -850,7 +952,7 @@ export default function ObrasScreen({ profile, signOut }) {
                       }}>{ti.label}</span>
                       <div style={{ flex: 1, minWidth: 0 }}>
                         <div style={{ display: "flex", gap: 8, alignItems: "baseline" }}>
-                          <span style={{ fontFamily: "'IBM Plex Mono', monospace", fontSize: 12, color: "#a0a0a0" }}>{a.obra_codigo}</span>
+                          <span style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: 12, color: "#a0a0a0" }}>{a.obra_codigo}</span>
                           <span style={{ fontSize: 11, color: C.t1 }}>{a.proceso_nombre}</span>
                         </div>
                         <div style={{ fontSize: 12, color: "#888", marginTop: 2 }}>{a.mensaje}</div>
@@ -885,9 +987,12 @@ export default function ObrasScreen({ profile, signOut }) {
     return (
       <div style={S.overlay} onClick={e => e.target === e.currentTarget && setShowConfig(false)}>
         <div style={S.modalLg}>
-          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 18 }}>
-            <div style={{ fontSize: 15, color: "#d8d8d8", fontWeight: 500 }}>Líneas de producción</div>
-            <button style={S.btnGh} onClick={() => setShowConfig(false)}>×</button>
+          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 20 }}>
+            <div>
+              <div style={{ fontSize: 16, color: C.t0, fontWeight: 600, letterSpacing: 0.2 }}>Líneas de producción</div>
+              <div style={{ fontSize: 11, color: C.t1, marginTop: 3 }}>Configuración de líneas y etapas</div>
+            </div>
+            <button style={{ ...S.btnGh, fontSize: 18, lineHeight: 1 }} onClick={() => setShowConfig(false)}>×</button>
           </div>
 
           {/* Sub-tabs */}
@@ -905,14 +1010,18 @@ export default function ObrasScreen({ profile, signOut }) {
                 {lineas.map(l => (
                   <div key={l.id} style={{
                     display: "flex", justifyContent: "space-between", alignItems: "center",
-                    padding: "9px 12px", borderRadius: 8, marginBottom: 4, cursor: "pointer",
-                    background: cfgLinea === l.id ? C.s2 : C.s1, border: `1px solid ${cfgLinea === l.id ? C.b1 : C.b0}`,
+                    padding: "10px 14px", borderRadius: 10, marginBottom: 5, cursor: "pointer",
+                    background: cfgLinea === l.id ? "rgba(255,255,255,0.07)" : "rgba(255,255,255,0.03)",
+                    border: `1px solid ${cfgLinea === l.id ? C.b1 : C.b0}`,
+                    backdropFilter: "blur(20px)",
+                    transition: "background 0.15s, border-color 0.15s",
+                    boxShadow: cfgLinea === l.id ? "inset 0 1px 0 rgba(255,255,255,0.06)" : "none",
                   }}
                     onClick={() => { setCfgLinea(l.id); setCfgTab("procesos"); }}
                   >
                     <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-                      <div style={{ width: 8, height: 8, borderRadius: "50%", background: l.color }} />
-                      <span style={{ fontSize: 13, color: "#c0c0c0" }}>{l.nombre}</span>
+                      <div style={{ width: 8, height: 8, borderRadius: "50%", background: l.color, boxShadow: `0 0 8px ${l.color}88` }} />
+                      <span style={{ fontSize: 13, color: C.t0 }}>{l.nombre}</span>
                       <span style={{ fontSize: 10, color: C.t1 }}>
                         {lProcs.filter(p => p.linea_id === l.id).length} etapas
                       </span>
@@ -920,7 +1029,7 @@ export default function ObrasScreen({ profile, signOut }) {
                     <button style={S.btnGh} onClick={e => { e.stopPropagation(); eliminarLinea(l.id); }}>×</button>
                   </div>
                 ))}
-                {!lineas.length && <div style={{ color: C.t2, fontSize: 12, padding: "10px 0" }}>Sin líneas configuradas.</div>}
+                {!lineas.length && <div style={{ color: C.t2, fontSize: 11, padding: "16px 0", letterSpacing: 1.5, textTransform: "uppercase", fontFamily: "'JetBrains Mono', monospace", textAlign: "center" }}>Sin líneas configuradas</div>}
               </div>
 
               <div>
@@ -965,9 +1074,12 @@ export default function ObrasScreen({ profile, signOut }) {
                         <div style={{
                           display: "grid", gridTemplateColumns: "14px 1fr 52px 32px 24px",
                           gap: 8, alignItems: "center",
-                          padding: "7px 10px", borderRadius: 7, marginBottom: 3,
-                          background: C.s1, border: `1px solid ${C.b0}`,
+                          padding: "8px 12px", borderRadius: 8, marginBottom: 3,
+                          background: "rgba(255,255,255,0.04)",
+                          backdropFilter: "blur(20px)",
+                          border: `1px solid ${C.b0}`,
                           opacity: p.activo ? 1 : 0.3,
+                          transition: "opacity 0.2s",
                         }}>
                           <span style={{ color: C.t2, fontSize: 13, cursor: "grab", userSelect: "none" }}>⠿</span>
                           <div>
@@ -978,14 +1090,14 @@ export default function ObrasScreen({ profile, signOut }) {
                               </div>
                             )}
                           </div>
-                          <span style={{ fontFamily: "'IBM Plex Mono', monospace", fontSize: 10, color: C.t1, textAlign: "right" }}>{p.dias_estimados}d</span>
+                          <span style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: 10, color: C.t1, textAlign: "right" }}>{p.dias_estimados}d</span>
                           <Toggle on={p.activo} onChange={() => toggleProc(p.id, p.activo)} />
                           <button style={S.btnGh} onClick={() => eliminarProc(p.id)}>×</button>
                         </div>
                       )}
                     />
                     {!procsDeLinea.length && (
-                      <div style={{ color: C.t2, fontSize: 12, textAlign: "center", padding: "16px 0" }}>Sin etapas. Creá la primera.</div>
+                      <div style={{ color: C.t2, fontSize: 11, textAlign: "center", padding: "24px 0", letterSpacing: 1.5, textTransform: "uppercase", fontFamily: "'JetBrains Mono', monospace" }}>Sin etapas · Creá la primera</div>
                     )}
                   </div>
 
@@ -1057,17 +1169,37 @@ export default function ObrasScreen({ profile, signOut }) {
   //  RENDER
   // ═══════════════════════════════════════════════════════════════
   return (
-    <div style={S.page}>
+    <div style={{ ...S.page, position: "relative" }}>
       <style>{`
-        @import url('https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;600&family=IBM+Plex+Sans:wght@300;400;500;700&display=swap');
+        @import url('https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500;700&display=swap');
         * { box-sizing: border-box; }
-        select option { background: #0d0d0d; color: #c0c0c0; }
+        select option { background: #080c18; color: #c8ccd8; }
         ::-webkit-scrollbar { width: 3px; height: 3px; }
         ::-webkit-scrollbar-track { background: transparent; }
-        ::-webkit-scrollbar-thumb { background: #1c1c1c; border-radius: 99px; }
+        ::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.1); border-radius: 99px; }
+        ::-webkit-scrollbar-thumb:hover { background: rgba(255,255,255,0.18); }
+        .obras-bg-glow {
+          position: fixed; inset: 0; pointer-events: none; z-index: 0;
+          background:
+            radial-gradient(ellipse 80% 40% at 50% -8%, rgba(18,44,100,0.18) 0%, transparent 70%),
+            radial-gradient(ellipse 40% 30% at 90% 90%, rgba(10,30,60,0.12) 0%, transparent 60%);
+        }
+        .obras-layout { position: relative; z-index: 1; }
+        @keyframes gantt-pulse { 0%,100%{opacity:1} 50%{opacity:0.65} }
+        @keyframes glow-pulse {
+          0%,100%{ box-shadow: 0 0 6px rgba(224,176,64,0.35), 0 0 18px rgba(224,176,64,0.10); }
+          50%    { box-shadow: 0 0 14px rgba(224,176,64,0.55), 0 0 36px rgba(224,176,64,0.18); }
+        }
+        @keyframes glow-red {
+          0%,100%{ box-shadow: 0 0 6px rgba(224,72,72,0.35), 0 0 18px rgba(224,72,72,0.10); }
+          50%    { box-shadow: 0 0 14px rgba(224,72,72,0.55), 0 0 36px rgba(224,72,72,0.18); }
+        }
+        input:focus, select:focus { border-color: rgba(255,255,255,0.22) !important; }
+        button:hover { opacity: 0.85; }
       `}</style>
+      <div className="obras-bg-glow" />
 
-      <div style={S.layout}>
+      <div style={S.layout} className="obras-layout">
         <Sidebar profile={profile} signOut={signOut} />
 
         <div style={S.main}>
@@ -1076,17 +1208,23 @@ export default function ObrasScreen({ profile, signOut }) {
           <div style={S.topbar}>
 
             {/* Stats */}
-            <div style={{ display: "flex", gap: 20, flex: 1 }}>
+            <div style={{ display: "flex", gap: 8, flex: 1 }}>
               {[
                 { label: "Activas",    val: stats.activas,    c: C.activa.dot    },
                 { label: "Pausadas",   val: stats.pausadas,   c: C.pausada.dot   },
                 { label: "Terminadas", val: stats.terminadas, c: C.terminada.dot },
               ].map(({ label, val, c }) => (
-                <div key={label} style={{ display: "flex", alignItems: "baseline", gap: 5 }}>
-                  <span style={{ fontFamily: "'IBM Plex Mono', monospace", fontSize: 17, fontWeight: 600, color: c }}>
+                <div key={label} style={{
+                  display: "flex", alignItems: "center", gap: 7,
+                  padding: "5px 12px 5px 10px", borderRadius: 8,
+                  background: "rgba(255,255,255,0.04)",
+                  border: `1px solid ${C.b0}`,
+                  borderLeft: `2px solid ${c}`,
+                }}>
+                  <span style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: 16, fontWeight: 700, color: c, lineHeight: 1 }}>
                     {val}
                   </span>
-                  <span style={{ fontSize: 9, color: C.t1, letterSpacing: 1.5, textTransform: "uppercase" }}>
+                  <span style={{ fontSize: 9, color: C.t1, letterSpacing: 1.8, textTransform: "uppercase", fontWeight: 600 }}>
                     {label}
                   </span>
                 </div>
@@ -1101,7 +1239,7 @@ export default function ObrasScreen({ profile, signOut }) {
             </div>
 
             {/* Avisos */}
-            <button style={{ ...S.btn, position: "relative", paddingRight: avisosPend.length ? 22 : 14 }}
+            <button style={{ ...S.btn, position: "relative", paddingRight: avisosPend.length ? 26 : 14 }}
               onClick={() => setShowAvisos(true)}>
               Avisos
               {avisosPend.length > 0 && (
@@ -1161,7 +1299,7 @@ export default function ObrasScreen({ profile, signOut }) {
             )}
 
             {loading ? (
-              <div style={{ textAlign: "center", padding: "60px 0", color: C.t2, fontSize: 13 }}>Cargando…</div>
+              <div style={{ textAlign: "center", padding: "80px 0", color: C.t2, fontSize: 12, letterSpacing: 3, textTransform: "uppercase", fontFamily: "'JetBrains Mono', monospace" }}>Cargando…</div>
             ) : view === "gantt" ? <GanttView /> : <CardsView />}
           </div>
         </div>
@@ -1171,9 +1309,12 @@ export default function ObrasScreen({ profile, signOut }) {
       {showNueva && (
         <div style={S.overlay} onClick={e => e.target === e.currentTarget && setShowNueva(false)}>
           <div style={S.modal}>
-            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 20 }}>
-              <div style={{ fontSize: 15, color: "#d8d8d8", fontWeight: 500 }}>Nueva obra</div>
-              <button style={S.btnGh} onClick={() => setShowNueva(false)}>×</button>
+            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 22 }}>
+              <div>
+                <div style={{ fontSize: 16, color: C.t0, fontWeight: 600, letterSpacing: 0.2 }}>Nueva obra</div>
+                <div style={{ fontSize: 11, color: C.t1, marginTop: 3, letterSpacing: 0.3 }}>Completá los campos y asigná una línea de producción</div>
+              </div>
+              <button style={{ ...S.btnGh, fontSize: 18, lineHeight: 1 }} onClick={() => setShowNueva(false)}>×</button>
             </div>
             <form onSubmit={crearObra}>
               <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10, marginBottom: 10 }}>
@@ -1214,7 +1355,7 @@ export default function ObrasScreen({ profile, signOut }) {
                   onChange={e => setFormObra(f => ({ ...f, notas: e.target.value }))} />
               </div>
               {formObra.linea_id && (
-                <div style={{ fontSize: 11, color: C.t1, marginBottom: 16, padding: "8px 11px", background: "#080808", borderRadius: 7, border: `1px solid ${C.b0}` }}>
+                <div style={{ fontSize: 11, color: C.t1, marginBottom: 16, padding: "10px 14px", background: "rgba(61,206,106,0.05)", borderRadius: 8, border: `1px solid rgba(61,206,106,0.18)` }}>
                   Se crean automáticamente {lProcs.filter(p => p.linea_id === formObra.linea_id).length} etapas
                   de la línea {lineas.find(l => l.id === formObra.linea_id)?.nombre}.
                 </div>
