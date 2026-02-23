@@ -8,6 +8,23 @@ function num(v) {
   return Number.isFinite(x) ? x : 0;
 }
 
+
+// ── CSV Export ──────────────────────────────────────────────────
+function descargarCSV(filas, nombre) {
+  if (!filas.length) return;
+  const cols = Object.keys(filas[0]);
+  const esc  = v => {
+    const s = v == null ? "" : String(v);
+    return (s.includes(",") || s.includes('"') || s.includes("\n"))
+      ? `"${s.replace(/"/g, '""')}"` : s;
+  };
+  const csv = [cols.map(esc).join(","), ...filas.map(r => cols.map(k => esc(r[k])).join(","))].join("\n");
+  const blob = new Blob(["\uFEFF" + csv], { type: "text/csv;charset=utf-8;" });
+  const url  = URL.createObjectURL(blob);
+  Object.assign(document.createElement("a"), { href: url, download: nombre }).click();
+  URL.revokeObjectURL(url);
+}
+
 export default function AdminDashboard({ profile, signOut }) {
   const [rows, setRows] = useState([]);
   const [error, setError] = useState("");
@@ -99,6 +116,23 @@ export default function AdminDashboard({ profile, signOut }) {
       .filter((r) => !r.pedido_pendiente)
       .map((r) => `${r.nombre} -> PEDIR: ${num(r.pedido_sugerido).toFixed(2)} ${r.unidad_medida || ""}`.trim());
   }, [filtrados]);
+
+
+  function exportarInventario() {
+    const hoy = new Date().toLocaleDateString("es-AR").replace(/[/]/g, "-");
+    const filas = filtrados.map(r => ({
+      Material:       r.nombre,
+      Categoria:      r.categoria ?? "—",
+      Unidad:         r.unidad_medida ?? "—",
+      Stock_actual:   num(r.stock_actual).toFixed(2),
+      Stock_minimo:   num(r.stock_minimo).toFixed(2),
+      Consumo_semanal: num(r.consumo_semanal).toFixed(2),
+      Cobertura_sem:  r.semanas_cobertura >= 999 ? "—" : num(r.semanas_cobertura).toFixed(2),
+      Estado:         String(r.estado_ui || r.estado || "").toUpperCase(),
+      Pedido_sugerido: r.pedido_pendiente ? "YA PEDIDO" : (num(r.pedido_sugerido) > 0 ? num(r.pedido_sugerido).toFixed(2) : "—"),
+    }));
+    descargarCSV(filas, `inventario_maderas_${hoy}.csv`);
+  }
 
   function copiarListaCompra() {
     if (navigator.clipboard) {
@@ -195,9 +229,26 @@ export default function AdminDashboard({ profile, signOut }) {
                   <input type="checkbox" checked={soloNoOk} onChange={(e) => setSoloNoOk(e.target.checked)} />
                   Solo no OK
                 </label>
-                <button style={S.btn} onClick={copiarListaCompra} disabled={!listaCompra.length}>
-                  Copiar lista compra ({listaCompra.length})
-                </button>
+                <div style={{ display: "flex", gap: 8 }}>
+                  <button
+                    onClick={exportarInventario} disabled={!filtrados.length}
+                    style={{
+                      border: filtrados.length ? "1px solid rgba(48,209,88,0.28)" : "1px solid #2a2a2a",
+                      background: filtrados.length ? "rgba(48,209,88,0.07)" : "transparent",
+                      color: filtrados.length ? "#a6ffbf" : "#444",
+                      padding: "10px 14px", borderRadius: 12,
+                      cursor: filtrados.length ? "pointer" : "not-allowed",
+                      fontWeight: 700, fontSize: 13,
+                      display: "flex", alignItems: "center", gap: 5,
+                    }}
+                    title="Exporta la tabla con los filtros actuales"
+                  >
+                    ↓ CSV <span style={{ fontSize: 11, opacity: 0.65 }}>({filtrados.length})</span>
+                  </button>
+                  <button style={S.btn} onClick={copiarListaCompra} disabled={!listaCompra.length}>
+                    📋 Lista compra ({listaCompra.length})
+                  </button>
+                </div>
               </div>
 
               <div style={{ marginTop: 12 }}>

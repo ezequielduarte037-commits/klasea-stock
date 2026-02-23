@@ -12,6 +12,23 @@ function fmt(ts) {
   return new Date(ts).toLocaleString();
 }
 
+
+// ── CSV Export ──────────────────────────────────────────────────
+function descargarCSV(filas, nombre) {
+  if (!filas.length) return;
+  const cols = Object.keys(filas[0]);
+  const esc  = v => {
+    const s = v == null ? "" : String(v);
+    return (s.includes(",") || s.includes('"') || s.includes("\n"))
+      ? `"${s.replace(/"/g, '""')}"` : s;
+  };
+  const csv = [cols.map(esc).join(","), ...filas.map(r => cols.map(k => esc(r[k])).join(","))].join("\n");
+  const blob = new Blob(["\uFEFF" + csv], { type: "text/csv;charset=utf-8;" });
+  const url  = URL.createObjectURL(blob);
+  Object.assign(document.createElement("a"), { href: url, download: nombre }).click();
+  URL.revokeObjectURL(url);
+}
+
 export default function MovimientosScreen({ profile, signOut }) {
   // El rol y username ahora se manejan visualmente en el Sidebar, 
   // pero mantenemos profile aquí para pasárselo.
@@ -63,6 +80,23 @@ export default function MovimientosScreen({ profile, signOut }) {
       .subscribe();
     return () => { supabase.removeChannel(ch); };
   }, []);
+
+
+  function exportarMovimientos() {
+    const hoy = new Date().toLocaleDateString("es-AR").replace(/[/]/g, "-");
+    const filas = filtrados.map(r => ({
+      Fecha:         new Date(r.created_at).toLocaleDateString("es-AR"),
+      Hora:          new Date(r.created_at).toLocaleTimeString("es-AR", { hour: "2-digit", minute: "2-digit" }),
+      Tipo:          num(r.delta) >= 0 ? "Ingreso" : "Egreso",
+      Material:      r.material_nombre ?? "—",
+      Cantidad:      Math.abs(num(r.delta)),
+      Obra:          r.obra ?? "—",
+      Persona:       r.usuario ?? r.proveedor ?? "—",
+      Panol:         r.entregado_por ?? r.recibe ?? "—",
+      Observaciones: r.obs_ui ?? "—",
+    }));
+    descargarCSV(filas, `movimientos_maderas_${hoy}.csv`);
+  }
 
   const filtrados = useMemo(() => {
     const qq = q.trim().toLowerCase();
@@ -125,7 +159,26 @@ export default function MovimientosScreen({ profile, signOut }) {
 
         <div style={S.main}>
           <div style={S.content}>
-            <h2 style={S.title}>Movimientos</h2>
+            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 4 }}>
+              <h2 style={{ ...S.title, margin: 0 }}>Movimientos</h2>
+              <button
+                onClick={exportarMovimientos}
+                disabled={!filtrados.length}
+                style={{
+                  border: filtrados.length ? "1px solid rgba(48,209,88,0.28)" : "1px solid #2a2a2a",
+                  background: filtrados.length ? "rgba(48,209,88,0.07)" : "transparent",
+                  color: filtrados.length ? "#a6ffbf" : "#444",
+                  padding: "7px 16px", borderRadius: 10, cursor: filtrados.length ? "pointer" : "not-allowed",
+                  fontSize: 12, fontWeight: 700, display: "flex", alignItems: "center", gap: 6,
+                }}
+                title={filtrados.length !== rows.length ? `Exporta ${filtrados.length} registros filtrados` : `Exporta los ${rows.length} registros`}
+              >
+                ↓ CSV
+                <span style={{ fontSize: 10, opacity: 0.7 }}>
+                  {filtrados.length !== rows.length ? `${filtrados.length} filtrados` : `${rows.length} registros`}
+                </span>
+              </button>
+            </div>
 
             <div style={{ ...S.card, marginTop: 12 }}>
               <input

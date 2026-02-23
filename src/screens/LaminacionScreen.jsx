@@ -20,6 +20,27 @@ function fmtTs(ts) {
   return new Date(ts).toLocaleString("es-AR");
 }
 
+// ── EXPORT UTIL ─────────────────────────────────────────────────
+function descargarCSV(filas, nombre) {
+  if (!filas.length) return;
+  const encabezado = Object.keys(filas[0]);
+  const escape = (v) => {
+    const s = v == null ? "" : String(v);
+    return s.includes(",") || s.includes('"') || s.includes("\n")
+      ? `"${s.replace(/"/g, '""')}"` : s;
+  };
+  const csv = [
+    encabezado.map(escape).join(","),
+    ...filas.map(row => encabezado.map(k => escape(row[k])).join(",")),
+  ].join("\n");
+  // BOM UTF-8 para que Excel abra acentos correctamente
+  const blob = new Blob(["\uFEFF" + csv], { type: "text/csv;charset=utf-8;" });
+  const url  = URL.createObjectURL(blob);
+  const a    = Object.assign(document.createElement("a"), { href: url, download: nombre });
+  a.click();
+  URL.revokeObjectURL(url);
+}
+
 export default function LaminacionScreen({ profile, signOut }) {
   const location = useLocation();
   const role = profile?.role ?? "invitado";
@@ -173,6 +194,57 @@ export default function LaminacionScreen({ profile, signOut }) {
     enFiltro:  movimientosFiltrados.length,
   }), [movimientos, movimientosFiltrados]);
 
+  // ── Funciones de exportación ────────────────────────────────────
+  function exportarMovimientos(soloFiltrados = true) {
+    const datos = soloFiltrados ? movimientosFiltrados : movimientos;
+    const filas = datos.map(m => ({
+      Fecha:        m.fecha || m.created_at
+                      ? new Date(m.fecha || m.created_at).toLocaleDateString("es-AR")
+                      : "—",
+      Hora:         m.created_at
+                      ? new Date(m.created_at).toLocaleTimeString("es-AR", { hour: "2-digit", minute: "2-digit" })
+                      : "—",
+      Tipo:         m.tipo === "ingreso" ? "Ingreso" : "Egreso",
+      Material:     m.laminacion_materiales?.nombre ?? "—",
+      Cantidad:     m.tipo === "ingreso" ? m.cantidad : -m.cantidad,
+      Unidad:       m.laminacion_materiales?.unidad ?? "—",
+      Proveedor:    m.tipo === "ingreso" ? (m.proveedor ?? "—") : "—",
+      Destino:      m.tipo === "egreso"  ? (m.destino  ?? "—") : "—",
+      Persona:      m.nombre_persona ?? "—",
+      Obra:         m.obra ?? "—",
+      Observaciones: m.observaciones ?? "—",
+    }));
+    const hoy = new Date().toLocaleDateString("es-AR").replace(/[/]/g, "-");
+    const sufijo = soloFiltrados && movStats.enFiltro !== movStats.total ? "_filtrado" : "";
+    descargarCSV(filas, `movimientos_laminacion${sufijo}_${hoy}.csv`);
+  }
+
+  function exportarStock() {
+    const filas = materiales.map(m => ({
+      Material:       m.nombre,
+      Categoria:      m.categoria ?? "—",
+      Unidad:         m.unidad ?? "—",
+      Stock_actual:   m.stock ?? 0,
+      Stock_minimo:   m.stock_minimo ?? 0,
+      Estado:         m.estado ?? "—",
+    }));
+    const hoy = new Date().toLocaleDateString("es-AR").replace(/[/]/g, "-");
+    descargarCSV(filas, `stock_laminacion_${hoy}.csv`);
+  }
+
+  function exportarPedidos() {
+    const filas = pedidosFiltrados.map(p => ({
+      Fecha:         new Date(p.created_at).toLocaleDateString("es-AR"),
+      Material:      p.laminacion_materiales?.nombre ?? "—",
+      Unidad:        p.laminacion_materiales?.unidad  ?? "—",
+      Cantidad:      p.cantidad,
+      Estado:        p.estado,
+      Observaciones: p.observaciones ?? "—",
+    }));
+    const hoy = new Date().toLocaleDateString("es-AR").replace(/[/]/g, "-");
+    descargarCSV(filas, `pedidos_laminacion_${hoy}.csv`);
+  }
+
   const pedidosFiltrados = useMemo(() => {
     const qq = q.trim().toLowerCase();
     if (!qq) return pedidos;
@@ -304,6 +376,13 @@ export default function LaminacionScreen({ profile, signOut }) {
       const cfg = { OK: ["#0b2512", "#a6ffbf"], ATENCION: ["#2a1f00", "#ffe7a6"], CRITICO: ["#2a0b0b", "#ffbdbd"] }[st] || ["#111", "#fff"];
       return { display: "inline-block", padding: "3px 10px", borderRadius: 999, fontSize: 11, fontWeight: 900, background: cfg[0], color: cfg[1] };
     },
+    btnExport: {
+      border: "1px solid #2a2a2a", background: "rgba(255,255,255,0.04)",
+      color: "#a0b0c8", padding: "6px 14px", borderRadius: 10,
+      cursor: "pointer", fontWeight: 700, fontSize: 12,
+      display: "inline-flex", alignItems: "center", gap: 5,
+      transition: "border-color 0.15s, color 0.15s",
+    },
     pillPedido: (st) => {
       const cfg = { pendiente: ["#2a1f00", "#ffe7a6"], entregado: ["#0b2512", "#a6ffbf"], cancelado: ["#2a0b0b", "#ffbdbd"] }[st] || ["#111", "#fff"];
       return { display: "inline-block", padding: "3px 10px", borderRadius: 999, fontSize: 11, fontWeight: 900, background: cfg[0], color: cfg[1] };
@@ -398,15 +477,18 @@ export default function LaminacionScreen({ profile, signOut }) {
             {/* ===== TAB STOCK ===== */}
             {tab === "Stock" && (
               <div style={S.card}>
-                <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 12 }}>
+                <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 12, flexWrap: "wrap", gap: 8 }}>
                   <h3 style={{ margin: 0, color: "#fff" }}>
                     Stock actual
                     <span style={{ ...S.small, marginLeft: 8 }}>({stockRows.length} materiales)</span>
                   </h3>
-                  <div style={{ display: "flex", gap: 10, fontSize: 12 }}>
-                    <span style={{ color: "#a6ffbf" }}>● OK: {stockRows.filter(r => r.estado === "OK").length}</span>
-                    <span style={{ color: "#ffe7a6" }}>● Atención: {stockRows.filter(r => r.estado === "ATENCION").length}</span>
-                    <span style={{ color: "#ffbdbd" }}>● Crítico: {stockRows.filter(r => r.estado === "CRITICO").length}</span>
+                  <div style={{ display: "flex", alignItems: "center", gap: 12, flexWrap: "wrap" }}>
+                    <span style={{ color: "#a6ffbf", fontSize: 12 }}>● OK: {stockRows.filter(r => r.estado === "OK").length}</span>
+                    <span style={{ color: "#ffe7a6", fontSize: 12 }}>● Atención: {stockRows.filter(r => r.estado === "ATENCION").length}</span>
+                    <span style={{ color: "#ffbdbd", fontSize: 12 }}>● Crítico: {stockRows.filter(r => r.estado === "CRITICO").length}</span>
+                    <button onClick={exportarStock} disabled={!stockRows.length} style={S.btnExport}>
+                      ↓ CSV
+                    </button>
                   </div>
                 </div>
                 <table style={S.table}>
@@ -732,6 +814,9 @@ export default function LaminacionScreen({ profile, signOut }) {
                         ✕ Limpiar
                       </button>
                     )}
+                    <button onClick={exportarMovimientos} disabled={!movimientosFiltrados.length} style={{ ...S.btnExport, flexShrink: 0 }}>
+                      ↓ Exportar CSV
+                    </button>
                   </div>
 
                   {/* Resultado del filtro */}
@@ -740,6 +825,41 @@ export default function LaminacionScreen({ profile, signOut }) {
                       Mostrando <strong style={{ color: "#aaa" }}>{movStats.enFiltro}</strong> de {movStats.total} registros
                     </div>
                   )}
+
+                  {/* ── Exportar ── */}
+                  <div style={{ marginTop: 12, paddingTop: 12, borderTop: "1px solid #1a1a1a", display: "flex", gap: 8, flexWrap: "wrap", alignItems: "center" }}>
+                    <span style={{ fontSize: 10, color: "#444", letterSpacing: 1.5, textTransform: "uppercase", marginRight: 2 }}>Exportar</span>
+                    <button
+                      onClick={() => exportarMovimientos(true)}
+                      disabled={movimientosFiltrados.length === 0}
+                      style={{
+                        border: movimientosFiltrados.length > 0 ? "1px solid rgba(48,209,88,0.28)" : "1px solid #2a2a2a",
+                        background: movimientosFiltrados.length > 0 ? "rgba(48,209,88,0.07)" : "transparent",
+                        color: movimientosFiltrados.length > 0 ? "#a6ffbf" : "#444",
+                        padding: "7px 14px", borderRadius: 10, cursor: movimientosFiltrados.length > 0 ? "pointer" : "not-allowed",
+                        fontSize: 12, fontWeight: 700, display: "flex", alignItems: "center", gap: 6,
+                      }}
+                    >
+                      ↓ CSV
+                      <span style={{ fontSize: 10, opacity: 0.7 }}>
+                        {movStats.enFiltro !== movStats.total
+                          ? `${movStats.enFiltro} filtrados`
+                          : `${movStats.total} registros`}
+                      </span>
+                    </button>
+                    {movStats.enFiltro !== movStats.total && (
+                      <button
+                        onClick={() => exportarMovimientos(false)}
+                        style={{
+                          border: "1px solid #2a2a2a", background: "transparent",
+                          color: "#666", padding: "7px 14px", borderRadius: 10,
+                          cursor: "pointer", fontSize: 12, fontWeight: 700,
+                        }}
+                      >
+                        ↓ CSV completo ({movStats.total})
+                      </button>
+                    )}
+                  </div>
                 </div>
 
                 {/* ── Tabla ── */}
@@ -890,7 +1010,12 @@ export default function LaminacionScreen({ profile, signOut }) {
                 )}
 
                 <div style={S.card}>
-                  <h3 style={{ marginTop: 0, color: "#fff" }}>Pedidos</h3>
+                  <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 12 }}>
+                    <h3 style={{ margin: 0, color: "#fff" }}>Pedidos</h3>
+                    <button onClick={exportarPedidos} disabled={!pedidosFiltrados.length} style={S.btnExport}>
+                      ↓ Exportar CSV
+                    </button>
+                  </div>
                   <table style={S.table}>
                     <thead>
                       <tr>

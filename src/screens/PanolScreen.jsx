@@ -12,6 +12,23 @@ function fmt(ts) {
   return new Date(ts).toLocaleString("es-AR");
 }
 
+
+// ── CSV Export ──────────────────────────────────────────────────
+function descargarCSV(filas, nombre) {
+  if (!filas.length) return;
+  const cols = Object.keys(filas[0]);
+  const esc  = v => {
+    const s = v == null ? "" : String(v);
+    return (s.includes(",") || s.includes('"') || s.includes("\n"))
+      ? `"${s.replace(/"/g, '""')}"` : s;
+  };
+  const csv = [cols.map(esc).join(","), ...filas.map(r => cols.map(k => esc(r[k])).join(","))].join("\n");
+  const blob = new Blob(["\uFEFF" + csv], { type: "text/csv;charset=utf-8;" });
+  const url  = URL.createObjectURL(blob);
+  Object.assign(document.createElement("a"), { href: url, download: nombre }).click();
+  URL.revokeObjectURL(url);
+}
+
 export default function PanolScreen({ profile, signOut }) {
   // ESTADOS DE LA PANTALLA
   const [modo, setModo] = useState("EGRESO"); // EGRESO / INGRESO
@@ -131,6 +148,52 @@ export default function PanolScreen({ profile, signOut }) {
       }
     }
   }, [filtrados, materialId]); // Importante: dependencia materialId para que la comparación sea fresca
+
+
+  // ── Estado y funciones de exportación ─────────────────────────
+  const [exportando, setExportando] = useState(false);
+
+  async function exportarStockMaderas() {
+    const hoy = new Date().toLocaleDateString("es-AR").replace(/[/]/g, "-");
+    const filas = materiales.map(m => ({
+      Material:      m.nombre,
+      Categoria:     m.categoria ?? "—",
+      Unidad:        m.unidad_medida ?? "—",
+      Stock_actual:  num(m.stock_actual),
+      Stock_minimo:  num(m.stock_minimo),
+      Estado:        num(m.stock_actual) <= 0 ? "CRÍTICO"
+                       : num(m.stock_actual) <= num(m.stock_minimo) ? "ATENCIÓN"
+                       : "OK",
+    }));
+    descargarCSV(filas, `stock_maderas_${hoy}.csv`);
+  }
+
+  async function exportarMovimientosMaderas() {
+    setExportando(true);
+    const hoy = new Date().toLocaleDateString("es-AR").replace(/[/]/g, "-");
+    // Traer todos los movimientos sin el límite de 12
+    const r = await supabase
+      .from("movimientos_ui")
+      .select("id,created_at,delta,obra,usuario,entregado_por,proveedor,recibe,obs_ui,material_nombre")
+      .order("created_at", { ascending: false });
+    const datos = r.data ?? movs;
+    const mats = await supabase.from("materiales").select("id,nombre");
+    const matMap = new Map((mats.data ?? []).map(m => [m.id, m.nombre]));
+    const filas = datos.map(m => ({
+      Fecha:         new Date(m.created_at).toLocaleDateString("es-AR"),
+      Hora:          new Date(m.created_at).toLocaleTimeString("es-AR", { hour: "2-digit", minute: "2-digit" }),
+      Tipo:          num(m.delta) >= 0 ? "Ingreso" : "Egreso",
+      Material:      m.material_nombre ?? matMap.get(m.material_id) ?? "—",
+      Cantidad:      Math.abs(num(m.delta)),
+      Obra:          m.obra ?? "—",
+      Persona:       m.usuario ?? "—",
+      Panol:         m.entregado_por ?? m.recibe ?? "—",
+      Proveedor:     m.proveedor ?? "—",
+      Observaciones: m.obs_ui ?? "—",
+    }));
+    descargarCSV(filas, `movimientos_maderas_${hoy}.csv`);
+    setExportando(false);
+  }
 
   function limpiar() {
     setCantidad("");
@@ -275,8 +338,26 @@ export default function PanolScreen({ profile, signOut }) {
         <main style={S.main}>
           <div style={S.content}>
             <div style={S.topbar}>
-              <h2 style={S.title}>Operación</h2>
-              <div style={{ display: "flex", gap: 10 }}>
+              <div>
+                <h2 style={S.title}>Operación</h2>
+                <div style={{ fontSize: 11, opacity: 0.5, marginTop: 2 }}>Pañol · Maderas</div>
+              </div>
+              <div style={{ display: "flex", gap: 8, flexWrap: "wrap", alignItems: "center" }}>
+                <button
+                  type="button" onClick={exportarStockMaderas}
+                  style={{ ...S.btn, fontSize: 12, padding: "8px 14px", color: "#a6ffbf", borderColor: "rgba(48,209,88,0.25)", background: "rgba(48,209,88,0.07)" }}
+                  title="Exporta el stock actual de todos los materiales"
+                >
+                  ↓ Stock CSV
+                </button>
+                <button
+                  type="button" onClick={exportarMovimientosMaderas} disabled={exportando}
+                  style={{ ...S.btn, fontSize: 12, padding: "8px 14px", color: "#b5c8ff", borderColor: "rgba(100,150,255,0.25)", background: "rgba(100,150,255,0.07)" }}
+                  title="Exporta todos los movimientos históricos"
+                >
+                  {exportando ? "Exportando…" : "↓ Movimientos CSV"}
+                </button>
+                <div style={{ width: 1, height: 24, background: "#2a2a2a" }} />
                 <button type="button" style={S.btnTop(modo === "EGRESO")} onClick={() => setModo("EGRESO")}>EGRESO</button>
                 <button type="button" style={S.btnTop(modo === "INGRESO")} onClick={() => setModo("INGRESO")}>INGRESO</button>
               </div>
