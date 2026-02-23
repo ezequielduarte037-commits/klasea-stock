@@ -64,6 +64,12 @@ export default function LaminacionScreen({ profile, signOut }) {
   const [formPedido, setFormPedido] = useState({ material_id: "", cantidad: "", observaciones: "" });
   const [formMaterial, setFormMaterial] = useState({ nombre: "", categoria: "", unidad: "unidad", stock_minimo: 0 });
 
+  // ── Estado específico del tab Movimientos ────────────────────
+  const [qMov,        setQMov]        = useState("");
+  const [filtroTipo,  setFiltroTipo]  = useState("todos");   // todos | ingreso | egreso
+  const [filtroMatId, setFiltroMatId] = useState("");        // "" = todos
+  const [movSort,     setMovSort]     = useState("fecha_desc"); // fecha_desc | fecha_asc
+
   async function cargarMateriales() {
     const { data } = await supabase.from("laminacion_materiales").select("*").order("nombre");
     setMateriales(data ?? []);
@@ -132,6 +138,40 @@ export default function LaminacionScreen({ profile, signOut }) {
       return t.includes(qq);
     });
   }, [movimientos, q]);
+
+  // Filtrado específico del tab Movimientos (independiente del buscador global)
+  const movimientosFiltrados = useMemo(() => {
+    let rows = [...movimientos];
+    // Filtro tipo
+    if (filtroTipo !== "todos") rows = rows.filter(m => m.tipo === filtroTipo);
+    // Filtro material
+    if (filtroMatId) rows = rows.filter(m => m.material_id === filtroMatId);
+    // Búsqueda texto
+    const qq = qMov.trim().toLowerCase();
+    if (qq) rows = rows.filter(m => {
+      const t = [
+        m.laminacion_materiales?.nombre,
+        m.proveedor, m.destino, m.nombre_persona, m.obra, m.observaciones,
+        m.tipo,
+      ].filter(Boolean).join(" ").toLowerCase();
+      return t.includes(qq);
+    });
+    // Orden
+    rows.sort((a, b) => {
+      const da = new Date(a.fecha || a.created_at).getTime();
+      const db = new Date(b.fecha || b.created_at).getTime();
+      return movSort === "fecha_asc" ? da - db : db - da;
+    });
+    return rows;
+  }, [movimientos, filtroTipo, filtroMatId, qMov, movSort]);
+
+  // Stats de movimientos
+  const movStats = useMemo(() => ({
+    total:     movimientos.length,
+    ingresos:  movimientos.filter(m => m.tipo === "ingreso").length,
+    egresos:   movimientos.filter(m => m.tipo === "egreso").length,
+    enFiltro:  movimientosFiltrados.length,
+  }), [movimientos, movimientosFiltrados]);
 
   const pedidosFiltrados = useMemo(() => {
     const qq = q.trim().toLowerCase();
@@ -609,63 +649,208 @@ export default function LaminacionScreen({ profile, signOut }) {
 
             {/* ===== TAB MOVIMIENTOS ===== */}
             {tab === "Movimientos" && (
-              <div style={S.card}>
-                <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 12 }}>
-                  <h3 style={{ margin: 0, color: "#fff" }}>
-                    Movimientos
-                    <span style={{ ...S.small, marginLeft: 8 }}>({movimientos.length} registros)</span>
-                  </h3>
+              <>
+                {/* ── Stats bar ── */}
+                <div style={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: 10, marginBottom: 12 }}>
+                  {[
+                    { label: "Total registros", val: movStats.total,    color: "#a0aabe" },
+                    { label: "Ingresos",         val: movStats.ingresos, color: "#30d158" },
+                    { label: "Egresos",          val: movStats.egresos,  color: "#ff453a" },
+                  ].map(({ label, val, color }) => (
+                    <div key={label} style={{
+                      ...S.card, marginBottom: 0, padding: "12px 16px",
+                      borderLeft: `3px solid ${color}55`,
+                      display: "flex", alignItems: "center", gap: 12,
+                    }}>
+                      <span style={{ fontFamily: "monospace", fontSize: 22, fontWeight: 700, color, lineHeight: 1 }}>{val}</span>
+                      <span style={{ ...S.small, letterSpacing: 1 }}>{label}</span>
+                    </div>
+                  ))}
                 </div>
-                <div style={{ overflowX: "auto" }}>
-                  <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 13 }}>
-                    <thead>
-                      <tr style={{ borderBottom: "1px solid #2a2a2a" }}>
-                        {["Fecha","Tipo","Material","Cantidad","Proveedor / Destino","Persona","Obra","Obs"].map(h => (
-                          <th key={h} style={{ ...S.label, padding: "6px 10px", textAlign: "left", fontWeight: 700 }}>{h}</th>
-                        ))}
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {movimientos
-                        .filter(m => {
-                          const qq = q.toLowerCase();
-                          if (!qq) return true;
-                          return [
-                            m.laminacion_materiales?.nombre,
-                            m.proveedor, m.destino, m.nombre_persona, m.obra, m.observaciones
-                          ].some(v => (v ?? "").toLowerCase().includes(qq));
-                        })
-                        .map(m => {
+
+                {/* ── Buscador y filtros ── */}
+                <div style={{ ...S.card, marginBottom: 10 }}>
+                  <div style={{ display: "flex", gap: 10, flexWrap: "wrap", alignItems: "center" }}>
+                    {/* Búsqueda */}
+                    <div style={{ flex: "1 1 220px", position: "relative" }}>
+                      <span style={{ position: "absolute", left: 12, top: "50%", transform: "translateY(-50%)", opacity: 0.35, fontSize: 14, pointerEvents: "none" }}>⌕</span>
+                      <input
+                        style={{ ...S.input, paddingLeft: 34, fontSize: 13 }}
+                        placeholder="Buscar material, persona, obra, proveedor…"
+                        value={qMov}
+                        onChange={e => setQMov(e.target.value)}
+                      />
+                    </div>
+
+                    {/* Filtro tipo */}
+                    <div style={{ display: "flex", gap: 4 }}>
+                      {[
+                        { val: "todos",   label: "Todos"    },
+                        { val: "ingreso", label: "↑ Ing",   color: "#30d158" },
+                        { val: "egreso",  label: "↓ Egr",   color: "#ff453a" },
+                      ].map(({ val, label, color }) => (
+                        <button key={val} onClick={() => setFiltroTipo(val)} style={{
+                          padding: "8px 14px", borderRadius: 10, cursor: "pointer", fontSize: 12, fontWeight: 700,
+                          border: filtroTipo === val
+                            ? `1px solid ${color ?? "rgba(255,255,255,0.3)"}`
+                            : "1px solid #2a2a2a",
+                          background: filtroTipo === val
+                            ? color ? `${color}18` : "rgba(255,255,255,0.08)"
+                            : "transparent",
+                          color: filtroTipo === val ? (color ?? "#fff") : "#666",
+                          transition: "all 0.13s",
+                        }}>
+                          {label}
+                        </button>
+                      ))}
+                    </div>
+
+                    {/* Filtro material */}
+                    <select
+                      value={filtroMatId}
+                      onChange={e => setFiltroMatId(e.target.value)}
+                      style={{ ...S.select, flex: "1 1 180px", maxWidth: 220, fontSize: 13 }}
+                    >
+                      <option value="">Todos los materiales</option>
+                      {materiales.map(m => (
+                        <option key={m.id} value={m.id}>{m.nombre}</option>
+                      ))}
+                    </select>
+
+                    {/* Orden fecha */}
+                    <button onClick={() => setMovSort(s => s === "fecha_desc" ? "fecha_asc" : "fecha_desc")} style={{
+                      ...S.btn, padding: "8px 14px", fontSize: 12, display: "flex", alignItems: "center", gap: 5,
+                      color: "#aaa", flexShrink: 0,
+                    }}>
+                      {movSort === "fecha_desc" ? "↓ Más reciente" : "↑ Más antiguo"}
+                    </button>
+
+                    {/* Reset filtros */}
+                    {(qMov || filtroTipo !== "todos" || filtroMatId) && (
+                      <button onClick={() => { setQMov(""); setFiltroTipo("todos"); setFiltroMatId(""); }}
+                        style={{ ...S.btn, padding: "8px 12px", fontSize: 12, color: "#888", flexShrink: 0 }}>
+                        ✕ Limpiar
+                      </button>
+                    )}
+                  </div>
+
+                  {/* Resultado del filtro */}
+                  {movStats.enFiltro !== movStats.total && (
+                    <div style={{ marginTop: 10, fontSize: 11, color: "#666" }}>
+                      Mostrando <strong style={{ color: "#aaa" }}>{movStats.enFiltro}</strong> de {movStats.total} registros
+                    </div>
+                  )}
+                </div>
+
+                {/* ── Tabla ── */}
+                <div style={{ ...S.card, padding: 0, overflow: "hidden" }}>
+                  <div style={{ overflowX: "auto" }}>
+                    <table style={{ ...S.table, fontSize: 13, minWidth: 700 }}>
+                      <thead>
+                        <tr style={{ borderBottom: "1px solid #1e1e1e" }}>
+                          {[
+                            { key: "fecha",    label: "Fecha"            },
+                            { key: "tipo",     label: "Tipo"             },
+                            { key: "material", label: "Material"         },
+                            { key: "cantidad", label: "Cantidad"         },
+                            { key: "origen",   label: "Proveedor / Dest" },
+                            { key: "persona",  label: "Persona"          },
+                            { key: "obra",     label: "Obra"             },
+                            { key: "obs",      label: "Obs"              },
+                          ].map(col => (
+                            <th key={col.key} style={{
+                              ...S.th, padding: "12px 14px",
+                              background: "#050505",
+                              position: "sticky", top: 0,
+                              whiteSpace: "nowrap",
+                            }}>
+                              {col.label}
+                            </th>
+                          ))}
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {movimientosFiltrados.map((m, idx) => {
                           const esIngreso = m.tipo === "ingreso";
                           return (
-                            <tr key={m.id} style={{ borderBottom: "1px solid #1a1a1a" }}>
-                              <td style={{ padding: "8px 10px", opacity: 0.7 }}>{fmtDate(m.fecha || m.created_at)}</td>
-                              <td style={{ padding: "8px 10px" }}>
+                            <tr key={m.id} style={{
+                              borderBottom: "1px solid #111",
+                              background: idx % 2 === 0 ? "transparent" : "rgba(255,255,255,0.012)",
+                              transition: "background 0.1s",
+                            }}>
+                              <td style={{ ...S.td, padding: "10px 14px", whiteSpace: "nowrap", color: "#888", fontFamily: "monospace", fontSize: 12 }}>
+                                {fmtDate(m.fecha || m.created_at)}
+                              </td>
+                              <td style={{ ...S.td, padding: "10px 14px" }}>
                                 <span style={{
-                                  padding: "2px 8px", borderRadius: 999, fontSize: 11, fontWeight: 700,
-                                  background: esIngreso ? "rgba(48,209,88,0.12)" : "rgba(255,69,58,0.10)",
+                                  display: "inline-flex", alignItems: "center", gap: 4,
+                                  padding: "3px 9px", borderRadius: 999, fontSize: 10, fontWeight: 800, letterSpacing: 1,
+                                  background: esIngreso ? "rgba(48,209,88,0.1)" : "rgba(255,69,58,0.09)",
                                   color: esIngreso ? "#30d158" : "#ff453a",
-                                  border: esIngreso ? "1px solid rgba(48,209,88,0.25)" : "1px solid rgba(255,69,58,0.25)",
+                                  border: esIngreso ? "1px solid rgba(48,209,88,0.22)" : "1px solid rgba(255,69,58,0.22)",
                                 }}>
-                                  {esIngreso ? "ING" : "EGR"}
+                                  {esIngreso ? "↑" : "↓"} {esIngreso ? "ING" : "EGR"}
                                 </span>
                               </td>
-                              <td style={{ padding: "8px 10px", color: "#fff", fontWeight: 500 }}>{m.laminacion_materiales?.nombre ?? "—"}</td>
-                              <td style={{ padding: "8px 10px" }}>{m.cantidad} {m.laminacion_materiales?.unidad ?? ""}</td>
-                              <td style={{ padding: "8px 10px", opacity: 0.8 }}>{esIngreso ? (m.proveedor ?? "—") : (m.destino ?? "—")}</td>
-                              <td style={{ padding: "8px 10px", opacity: 0.8 }}>{m.nombre_persona ?? "—"}</td>
-                              <td style={{ padding: "8px 10px", opacity: 0.8 }}>{m.obra ?? "—"}</td>
-                              <td style={{ padding: "8px 10px", opacity: 0.6 }}>{m.observaciones ?? "—"}</td>
+                              <td style={{ ...S.td, padding: "10px 14px" }}>
+                                <span style={{ color: "#e0e0e0", fontWeight: 500 }}>
+                                  {m.laminacion_materiales?.nombre ?? <span style={{ opacity: 0.3 }}>—</span>}
+                                </span>
+                              </td>
+                              <td style={{ ...S.td, padding: "10px 14px", whiteSpace: "nowrap" }}>
+                                <span style={{
+                                  fontFamily: "monospace", fontSize: 13, fontWeight: 700,
+                                  color: esIngreso ? "#30d158" : "#ff453a",
+                                }}>
+                                  {esIngreso ? "+" : "−"}{m.cantidad}
+                                </span>
+                                <span style={{ fontSize: 11, color: "#555", marginLeft: 4 }}>
+                                  {m.laminacion_materiales?.unidad ?? ""}
+                                </span>
+                              </td>
+                              <td style={{ ...S.td, padding: "10px 14px", maxWidth: 160 }}>
+                                <span style={{ color: "#aaa", fontSize: 12 }}>
+                                  {esIngreso ? (m.proveedor || <span style={{ opacity: 0.25 }}>—</span>) : (m.destino || <span style={{ opacity: 0.25 }}>—</span>)}
+                                </span>
+                              </td>
+                              <td style={{ ...S.td, padding: "10px 14px" }}>
+                                <span style={{ color: "#aaa", fontSize: 12 }}>{m.nombre_persona || <span style={{ opacity: 0.25 }}>—</span>}</span>
+                              </td>
+                              <td style={{ ...S.td, padding: "10px 14px" }}>
+                                {m.obra
+                                  ? <span style={{ padding: "2px 8px", borderRadius: 6, background: "rgba(255,255,255,0.06)", color: "#ccc", fontSize: 11, fontFamily: "monospace" }}>{m.obra}</span>
+                                  : <span style={{ opacity: 0.2, fontSize: 12 }}>—</span>
+                                }
+                              </td>
+                              <td style={{ ...S.td, padding: "10px 14px", maxWidth: 180 }}>
+                                <span style={{ color: "#666", fontSize: 11, display: "block", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+                                  {m.observaciones || <span style={{ opacity: 0.2 }}>—</span>}
+                                </span>
+                              </td>
                             </tr>
                           );
                         })}
-                    </tbody>
-                  </table>
-                  {movimientos.length === 0 && (
-                    <div style={{ padding: 20, opacity: 0.5, textAlign: "center" }}>Sin movimientos registrados.</div>
-                  )}
+                      </tbody>
+                    </table>
+
+                    {movimientosFiltrados.length === 0 && (
+                      <div style={{ padding: "40px 20px", textAlign: "center" }}>
+                        <div style={{ fontSize: 13, color: "#444", letterSpacing: 1 }}>
+                          {movimientos.length === 0
+                            ? "Sin movimientos registrados"
+                            : "Sin resultados · probá cambiando los filtros"}
+                        </div>
+                        {(qMov || filtroTipo !== "todos" || filtroMatId) && (
+                          <button onClick={() => { setQMov(""); setFiltroTipo("todos"); setFiltroMatId(""); }}
+                            style={{ marginTop: 12, ...S.btn, fontSize: 12 }}>
+                            Limpiar filtros
+                          </button>
+                        )}
+                      </div>
+                    )}
+                  </div>
                 </div>
-              </div>
+              </>
             )}
 
             {/* ===== TAB PEDIDOS ===== */}

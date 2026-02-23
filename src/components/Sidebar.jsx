@@ -15,14 +15,13 @@ export default function Sidebar({ profile, signOut }) {
   const esGestion = isAdmin || role === "admin" || role === "oficina";
   const esAdmin   = isAdmin || role === "admin";
 
-  // Paleta de alta visibilidad sobre negro
   const colors = {
     bg: "#000000",
     border: "rgba(255,255,255,0.1)",
-    groupTitle: "#FFFFFF", // Blanco puro para que se lea perfecto
-    textMain: "#A0A0A0",   // Gris claro para items
-    textActive: "#FFFFFF", // Blanco para el seleccionado
-    textSub: "#707070",    // Gris para sub-items
+    groupTitle: "#FFFFFF",
+    textMain: "#A0A0A0",
+    textActive: "#FFFFFF",
+    textSub: "#707070",
     accent: "#FFFFFF"
   };
 
@@ -151,6 +150,14 @@ export default function Sidebar({ profile, signOut }) {
           <>
             {group("Sistema")}
             {item("/configuracion", "Configuración")}
+          </>
+        )}
+
+        {/* ── SECCIÓN POST VENTA AL FINAL ── */}
+        {esGestion && (
+          <>
+            {group("Post Venta")}
+            {item("/postventa", "Barcos Entregados")}
           </>
         )}
       </nav>

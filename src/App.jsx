@@ -13,6 +13,7 @@ import ObrasLaminacionScreen from "./screens/ObrasLaminacionScreen";
 import ObrasScreen           from "./screens/ObrasScreen";
 import ConfiguracionScreen   from "./screens/ConfiguracionScreen";
 import ProcedimientosScreen  from "./screens/ProcedimientosScreen";
+import PostVentaScreen       from "./screens/PostVentaScreen"; // <-- IMPORT NUEVO
 
 import logoK from "./assets/logo-k.png";
 
@@ -222,6 +223,15 @@ export default function App() {
         } />
         <Route path="/muebles" element={
           <RequireAuth session={session}><MueblesScreen {...A} /></RequireAuth>
+        } />
+        
+        {/* ── POST VENTA ──────────────────────── */}
+        <Route path="/postventa" element={
+          <RequireAuth session={session}>
+            <RequireRole profile={profile} allow={["admin","oficina"]}>
+              <PostVentaScreen {...A} />
+            </RequireRole>
+          </RequireAuth>
         } />
 
         {/* ── INSTRUCCIONES ───────────────────── */}
