@@ -147,21 +147,31 @@ function LoginScreen({ onLoggedIn }) {
 }
 
 export default function App() {
-  const [session,        setSession]        = useState(null);
-  const [profile,        setProfile]        = useState(null);
-  const [loadingProfile, setLoadingProfile] = useState(true);
+  const [session, setSession] = useState(null);
+  const [profile, setProfile] = useState(null);
+  
+  // 🔥 EL ARREGLO: Un estado general que frena toda la app hasta que Supabase conteste
+  const [isInitializing, setIsInitializing] = useState(true);
 
   async function loadProfile(s) {
-    setLoadingProfile(true);
-    setProfile(null);
-    if (!s?.user?.id) { setLoadingProfile(false); return; }
+    // Si no hay sesión válida, cortamos la carga y dejamos que lo mande al login
+    if (!s?.user?.id) { 
+      setProfile(null);
+      setIsInitializing(false); 
+      return; 
+    }
+    
+    // Si hay sesión, buscamos el perfil
     const { data, error } = await supabase
       .from("profiles")
       .select("id,username,role,is_admin")
       .eq("id", s.user.id)
       .single();
+      
     if (!error) setProfile(data);
-    setLoadingProfile(false);
+    
+    // Terminamos de cargar, ahora sí mostramos la app
+    setIsInitializing(false); 
   }
 
   useEffect(() => {
@@ -169,22 +179,28 @@ export default function App() {
       setSession(data.session ?? null);
       loadProfile(data.session);
     });
+    
     const { data: sub } = supabase.auth.onAuthStateChange((_event, s) => {
       setSession(s ?? null);
       loadProfile(s);
     });
+    
     return () => sub?.subscription?.unsubscribe?.();
   }, []);
 
   async function signOut() { await supabase.auth.signOut(); }
 
-  function HomeRedirect() {
-    if (!session) return <Navigate to="/login" replace />;
-    if (loadingProfile) return (
-      <div style={{ background: "#000", color: "rgba(255,255,255,0.4)", minHeight: "100vh", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 13 }}>
-        Cargando…
+  // 🔥 PANTALLA DE CARGA GLOBAL: Evita que el Router te expulse prematuramente
+  if (isInitializing) {
+    return (
+      <div style={{ background: "#000", color: "#555", minHeight: "100vh", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 11, letterSpacing: 3, textTransform: "uppercase", fontFamily: "system-ui" }}>
+        Sincronizando sesión...
       </div>
     );
+  }
+
+  function HomeRedirect() {
+    if (!session) return <Navigate to="/login" replace />;
     if (!profile) return <Navigate to="/login" replace />;
     if (profile.role === "panol") return <Navigate to="/panol" replace />;
     return <Navigate to="/admin" replace />;
