@@ -786,10 +786,11 @@ export default function ObrasScreen({ profile, signOut }) {
   // NOTA: Se restauró la lógica exacta de captura de errores para no ocultar info clave.
  function pedirBorrado(item, tipo) {
     const ads = {
-      obra:  "Esta acción es irreversible. Se borrarán también sus etapas y tareas si la base de datos tiene cascada.",
+      obra:  "Esta acción es irreversible. Se borrarán sus etapas, tareas y el historial en Laminación.",
       etapa: "Esta acción es irreversible. Se borrarán las tareas de esta etapa.",
       tarea: "Esta acción es irreversible y la tarea se eliminará por completo.",
     };
+    
     setConfirmModal({
       nombre: item.nombre ?? item.codigo,
       tipo,
@@ -797,8 +798,16 @@ export default function ObrasScreen({ profile, signOut }) {
       async onConfirm() {
         try {
           if (tipo === "obra") {
+            // 1. Borrar la obra principal
             const { error } = await supabase.from("produccion_obras").delete().eq("id", item.id);
             if (error) alert("Error al borrar la obra: " + error.message);
+
+            // 2. Borrar el registro espejo en laminación
+            await supabase.from("laminacion_obras").delete().eq("nombre", item.codigo);
+
+            // 3. Borrar el historial de movimientos de esa obra en Laminación
+            await supabase.from("laminacion_movimientos").delete().eq("obra", item.codigo);
+
           } else if (tipo === "etapa") {
             const { error } = await supabase.from("obra_etapas").delete().eq("id", item.id);
             if (error) alert("Error al borrar la etapa: " + error.message);

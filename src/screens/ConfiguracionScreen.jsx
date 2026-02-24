@@ -280,35 +280,31 @@ export default function ConfiguracionScreen({ profile, signOut }) {
     cargar();
   }
 
-  // ── sistema actions ───────────────────────────────────────────
-  async function guardarConfig(clave) {
-    const valor = editConf[clave];
-    if (valor === undefined) return;
-    const { error } = await supabase.from("sistema_config")
-      .update({ valor: String(valor), updated_at: new Date().toISOString() })
-      .eq("clave", clave);
-    if (error) return flash(false, error.message);
-    flash(true, "Guardado.");
-    setEditConf(p => { const n = { ...p }; delete n[clave]; return n; });
+// ── usuarios actions ──────────────────────────────────────────
+  async function crearUsuario(e) {
+    e.preventDefault();
+    if (!newUser.username.trim() || !newUser.password) {
+      return flash(false, "Usuario y contraseña obligatorios.");
+    }
+    
+    // Llamamos a la nueva función SQL secreta de creación de usuarios
+    const { error } = await supabase.rpc("crear_usuario_admin", {
+      p_username: newUser.username.trim(),
+      p_password: newUser.password,
+      p_role:     newUser.role,
+      p_is_admin: newUser.is_admin
+    });
+
+    if (error) {
+      console.error(error);
+      return flash(false, "Error: " + error.message);
+    }
+    
+    flash(true, `Usuario ${newUser.username.toUpperCase()} creado.`);
+    setShowNewUser(false);
+    setNewUser({ username: "", password: "", role: "panol", is_admin: false });
     cargar();
   }
-
-  const configGrupos = useMemo(() => {
-    const g = {};
-    config.forEach(c => { if (!g[c.grupo]) g[c.grupo] = []; g[c.grupo].push(c); });
-    return g;
-  }, [config]);
-
-  const maxDias = useMemo(() =>
-    Math.max(1, ...procesos.map(p => num(p.dias_esperados))), [procesos]);
-
-  const stats = useMemo(() => ({
-    procsActivos: procesos.filter(p => p.activo).length,
-    usuariosTotal: usuarios.length,
-    admins: usuarios.filter(u => u.is_admin).length,
-  }), [procesos, usuarios]);
-
-  const selProc = procesos.find(p => p.id === selProcId);
 
   // ─── render ───────────────────────────────────────────────────
   if (!isAdmin) {
