@@ -1,1166 +1,1183 @@
+/**
+ * ObrasScreen v5
+ * — Jerarquía: Obra → Etapas (obra_etapas) → Tareas (obra_tareas)
+ * — Tablas nuevas opcionales: si no existen, el componente funciona igual
+ *   con la capa legacy (obra_timeline + linea_procesos).
+ * — Soft delete con cascada vía función SQL; fallback a tabla simple si no existe.
+ */
 import { useEffect, useMemo, useState, useCallback, useRef } from "react";
 import { supabase } from "../supabaseClient";
 import Sidebar from "../components/Sidebar";
 
-// ── UTILS ────────────────────────────────────────────────────────
-const num = v => { const x = Number(v); return Number.isFinite(x) ? x : 0; };
-const fmtDate = d => !d ? "—" : new Date(d + "T00:00:00").toLocaleDateString("es-AR", { day: "2-digit", month: "2-digit" });
-const diasDesde = f => !f ? 0 : Math.max(0, Math.floor((Date.now() - new Date(f + "T00:00:00").getTime()) / 86400000));
-const diasEntre = (a, b) => (!a || !b) ? null : Math.floor((new Date(b + "T00:00:00") - new Date(a + "T00:00:00")) / 86400000);
-const today = () => new Date().toISOString().slice(0, 10);
+// ─── UTILS ────────────────────────────────────────────────────────────────────
+const num        = v => { const x = Number(v); return Number.isFinite(x) ? x : 0; };
+const today      = () => new Date().toISOString().slice(0, 10);
+const fmtDate    = d => !d ? "—" : new Date(d + "T00:00:00").toLocaleDateString("es-AR", { day: "2-digit", month: "2-digit" });
+const fmtDateFull= d => !d ? "—" : new Date(d + "T00:00:00").toLocaleDateString("es-AR", { day: "2-digit", month: "2-digit", year: "numeric" });
+const diasDesde  = f => !f ? 0 : Math.max(0, Math.floor((Date.now() - new Date(f + "T00:00:00")) / 86400000));
+const diasEntre  = (a, b) => (!a || !b) ? null : Math.floor((new Date(b + "T00:00:00") - new Date(a + "T00:00:00")) / 86400000);
+const pct        = (done, total) => total > 0 ? Math.round((done / total) * 100) : 0;
 
-// ── TOKENS DE DISEÑO ─────────────────────────────────────────────
-const C = {
-  // Fondos y superficies — tinte azul profundo muy sutil
-  bg:  "#03050c",
-  s0:  "rgba(255,255,255,0.028)",   // surface base (glass)
-  s1:  "rgba(255,255,255,0.048)",   // surface mid
-  s2:  "rgba(255,255,255,0.072)",   // surface highlight
-  // Bordes
-  b0:  "rgba(255,255,255,0.08)",    // border normal
-  b1:  "rgba(255,255,255,0.15)",    // border highlight
-  b2:  "rgba(255,255,255,0.26)",    // border strong
-  // Texto
-  t0:  "#dde2ea",   // text primary
-  t1:  "#566070",   // text dim
-  t2:  "#2c3040",   // text muted
-  // Estados de obra
-  activa:    { dot: "#3dce6a", label: "Activa",    chip: ["rgba(61,206,106,0.1)",  "rgba(61,206,106,0.28)"] },
-  pausada:   { dot: "#e0b040", label: "Pausada",   chip: ["rgba(224,176,64,0.1)",  "rgba(224,176,64,0.28)"] },
-  terminada: { dot: "#4a5060", label: "Terminada", chip: ["rgba(74,80,96,0.15)",   "rgba(74,80,96,0.3)"]    },
-  cancelada: { dot: "#e04848", label: "Cancelada", chip: ["rgba(224,72,72,0.1)",   "rgba(224,72,72,0.28)"]  },
-  // Estados de proceso
-  pendiente:  { bar: "rgba(255,255,255,0.018)", text: "#2e3440", glow: false },
-  en_curso:   { bar: "rgba(200,150,20,0.22)",   text: "#e0b040", glow: true  },
-  completado: { bar: "rgba(40,110,65,0.25)",    text: "#3dce6a", glow: false },
-  demorado:   { bar: "rgba(200,50,50,0.28)",    text: "#e04848", glow: true  },
-  // Tipo aviso
-  aviso:        { color: "#6888b8", label: "Aviso"        },
-  compra:       { color: "#c89040", label: "Compra"       },
-  recordatorio: { color: "#606878", label: "Recordatorio" },
-};
-
-// ── DRAG-AND-DROP LIST ────────────────────────────────────────────
-function DragList({ items, onReorder, renderItem }) {
-  const drag = useRef(null);
-  const [over, setOver] = useState(null);
-  return (
-    <div>
-      {items.map((item, i) => (
-        <div key={item.id ?? i} draggable
-          onDragStart={() => { drag.current = i; }}
-          onDragOver={e  => { e.preventDefault(); setOver(i); }}
-          onDrop={e => {
-            e.preventDefault();
-            if (drag.current == null || drag.current === i) { setOver(null); return; }
-            const next = [...items];
-            const [m] = next.splice(drag.current, 1);
-            next.splice(i, 0, m);
-            drag.current = null; setOver(null);
-            onReorder(next);
-          }}
-          onDragEnd={() => { drag.current = null; setOver(null); }}
-          style={{
-            opacity: drag.current === i ? 0.3 : 1,
-            borderTop: over === i && drag.current !== i ? `2px solid ${C.b2}` : "2px solid transparent",
-          }}>
-          {renderItem(item, i)}
-        </div>
-      ))}
-    </div>
-  );
+// query defensiva: devuelve [] si la tabla no existe o da error
+async function safeQuery(query) {
+  try {
+    const { data, error } = await query;
+    if (error) return [];
+    return data ?? [];
+  } catch { return []; }
 }
 
-// ── TOGGLE ────────────────────────────────────────────────────────
-function Toggle({ on, onChange }) {
+// ─── PALETA ────────────────────────────────────────────────────────────────────
+// Dirección estética: "Sala de control industrial marítima"
+// Fondos muy oscuros con tinte verde-negro. Acentos ámbar cálido y teal.
+// Nada de azul-gris genérico.
+const C = {
+  bg:    "#050807",          // casi negro con tinte verde forestal muy sutil
+  s0:    "rgba(255,255,255,0.022)",
+  s1:    "rgba(255,255,255,0.040)",
+  s2:    "rgba(255,255,255,0.065)",
+  b0:    "rgba(255,255,255,0.07)",
+  b1:    "rgba(255,255,255,0.13)",
+  b2:    "rgba(255,255,255,0.22)",
+  t0:    "#d4dbd2",          // blanco ligeramente verdoso
+  t1:    "#4a5c4a",          // texto dim, verde musgo
+  t2:    "#263326",          // texto muted
+  mono:  "'JetBrains Mono', 'IBM Plex Mono', monospace",
+  sans:  "'Outfit', system-ui, sans-serif",
+  // Acentos
+  amber: "#d4914a",          // ámbar cálido, no amarillo
+  teal:  "#4a9488",          // teal profundo
+  sage:  "#6a8c6a",          // verde salvia
+  // Obra estados
+  obra: {
+    activa:    { dot: "#4ab870", bg: "rgba(74,184,112,0.08)",  border: "rgba(74,184,112,0.22)",  label: "Activa"    },
+    pausada:   { dot: "#d4914a", bg: "rgba(212,145,74,0.08)",  border: "rgba(212,145,74,0.22)",  label: "Pausada"   },
+    terminada: { dot: "#4a9488", bg: "rgba(74,148,136,0.08)",  border: "rgba(74,148,136,0.22)",  label: "Terminada" },
+    cancelada: { dot: "#b85050", bg: "rgba(184,80,80,0.08)",   border: "rgba(184,80,80,0.22)",   label: "Cancelada" },
+  },
+  // Etapa estados
+  etapa: {
+    pendiente:  { dot: "#2a3a2a", bar: "rgba(255,255,255,0.04)", text: "#3a4a3a", label: "Pendiente"  },
+    en_curso:   { dot: "#d4914a", bar: "rgba(212,145,74,0.16)",  text: "#d4914a", label: "En curso"   },
+    completado: { dot: "#4ab870", bar: "rgba(74,184,112,0.16)",  text: "#4ab870", label: "Completado" },
+    bloqueado:  { dot: "#b85050", bar: "rgba(184,80,80,0.14)",   text: "#b85050", label: "Bloqueado"  },
+  },
+  // Tarea estados
+  tarea: {
+    pendiente:   { dot: "#2a3a2a", text: "#4a5a4a", label: "Pendiente"    },
+    en_progreso: { dot: "#d4914a", text: "#d4914a", label: "En progreso"  },
+    finalizada:  { dot: "#4ab870", text: "#4ab870", label: "Finalizada"   },
+    bloqueada:   { dot: "#b85050", text: "#b85050", label: "Bloqueada"    },
+    cancelada:   { dot: "#506050", text: "#506050", label: "Cancelada"    },
+  },
+};
+
+const GLASS = {
+  backdropFilter: "blur(32px) saturate(130%)",
+  WebkitBackdropFilter: "blur(32px) saturate(130%)",
+};
+
+// ─── COMPONENTES BASE ─────────────────────────────────────────────────────────
+
+const Dot = ({ color, size = 7, glow = false }) => (
+  <div style={{
+    width: size, height: size, borderRadius: "50%", background: color, flexShrink: 0,
+    boxShadow: glow ? `0 0 7px ${color}90` : "none",
+  }} />
+);
+
+const Chip = ({ label, dot, bg, border }) => (
+  <span style={{
+    fontSize: 8, letterSpacing: 2, textTransform: "uppercase",
+    padding: "3px 8px", borderRadius: 99,
+    background: bg, color: dot, border: `1px solid ${border}`,
+    fontWeight: 600, whiteSpace: "nowrap",
+  }}>
+    {label}
+  </span>
+);
+
+const ProgressBar = ({ value, color, height = 3 }) => (
+  <div style={{ height, background: "rgba(255,255,255,0.05)", borderRadius: 99, overflow: "hidden" }}>
+    <div style={{
+      height: "100%", width: `${Math.min(100, Math.max(0, value))}%`,
+      background: `linear-gradient(90deg, ${color}70, ${color})`,
+      borderRadius: 99, transition: "width .5s ease",
+    }} />
+  </div>
+);
+
+function Btn({ onClick, type = "button", children, variant = "ghost", disabled = false, style: sx = {} }) {
+  const V = {
+    ghost:   { border: "1px solid transparent", background: "transparent", color: C.t1, padding: "4px 10px", borderRadius: 6, fontSize: 11 },
+    outline: { border: `1px solid ${C.b0}`, background: C.s0, color: C.t0, padding: "6px 14px", borderRadius: 8, fontSize: 12 },
+    primary: { border: "1px solid rgba(212,145,74,0.35)", background: "rgba(212,145,74,0.15)", color: C.amber, padding: "7px 18px", borderRadius: 8, fontSize: 12, fontWeight: 600 },
+    danger:  { border: "1px solid rgba(184,80,80,0.3)", background: "rgba(184,80,80,0.08)", color: "#b86060", padding: "6px 14px", borderRadius: 8, fontSize: 12 },
+    sm:      { border: `1px solid ${C.b0}`, background: "transparent", color: C.t1, padding: "2px 8px", borderRadius: 5, fontSize: 10 },
+    confirm: { border: "1px solid rgba(184,80,80,0.4)", background: "rgba(184,80,80,0.12)", color: "#c07070", padding: "7px 18px", borderRadius: 8, fontSize: 12, fontWeight: 600 },
+  };
   return (
-    <button type="button" onClick={onChange} style={{
-      width: 32, height: 18, borderRadius: 99, flexShrink: 0,
-      border: `1px solid ${on ? "rgba(61,206,106,0.4)" : "rgba(255,255,255,0.12)"}`,
-      background: on ? "rgba(61,206,106,0.2)" : "rgba(255,255,255,0.04)",
-      position: "relative", cursor: "pointer",
-      transition: "background .2s, border-color .2s",
+    <button type={type} onClick={onClick} disabled={disabled} style={{
+      cursor: disabled ? "not-allowed" : "pointer",
+      opacity: disabled ? 0.4 : 1,
+      fontFamily: C.sans,
+      transition: "opacity .15s, background .15s",
+      ...V[variant], ...sx,
     }}>
-      <div style={{
-        position: "absolute", top: 3, left: on ? 15 : 3,
-        width: 10, height: 10, borderRadius: "50%",
-        background: on ? "#3dce6a" : "rgba(255,255,255,0.3)",
-        transition: "left .2s, background .2s",
-        boxShadow: on ? "0 0 6px rgba(61,206,106,0.5)" : "none",
-      }} />
+      {children}
     </button>
   );
 }
 
-// ── CHIP ESTADO ───────────────────────────────────────────────────
-function Chip({ estado }) {
-  const m = C[estado] ?? C.activa;
+function InputSt({ label, children }) {
   return (
-    <span style={{
-      fontSize: 8, letterSpacing: 2, textTransform: "uppercase", padding: "3px 9px",
-      borderRadius: 99, background: m.chip[0], color: m.dot,
-      border: `1px solid ${m.chip[1]}`,
-      fontWeight: 600,
-      boxShadow: `0 0 8px ${m.dot}22`,
-    }}>
-      {m.label}
-    </span>
+    <div style={{ marginBottom: 12 }}>
+      {label && <label style={{ fontSize: 9, letterSpacing: 2, color: C.t1, display: "block", marginBottom: 5, textTransform: "uppercase", fontWeight: 600 }}>{label}</label>}
+      {children}
+    </div>
   );
 }
 
-// ══════════════════════════════════════════════════════════════════
-//  MAIN COMPONENT
-// ══════════════════════════════════════════════════════════════════
-export default function ObrasScreen({ profile, signOut }) {
-  const role      = profile?.role ?? "invitado";
-  const isAdmin   = !!profile?.is_admin;
-  const esGestion = isAdmin || role === "admin" || role === "oficina";
+const INP = {
+  background: "rgba(255,255,255,0.04)", border: `1px solid ${C.b0}`,
+  color: C.t0, padding: "8px 12px", borderRadius: 8, fontSize: 12,
+  outline: "none", width: "100%",
+};
 
-  // ── Data ─────────────────────────────────────────────────────
-  const [obras,      setObras]      = useState([]);
-  const [timeline,   setTimeline]   = useState([]);   // obra_timeline con linea_procesos
-  const [lineas,     setLineas]     = useState([]);
-  const [lProcs,     setLProcs]     = useState([]);   // linea_procesos
-  const [procGlobal, setProcGlobal] = useState([]);   // procesos (legado)
-  const [avisos,     setAvisos]     = useState([]);
-  const [config,     setConfig]     = useState({});
-  const [loading,    setLoading]    = useState(true);
-  const [err,        setErr]        = useState("");
-  const [msg,        setMsg]        = useState("");
+function Overlay({ onClose, children, maxWidth = 540 }) {
+  return (
+    <div
+      onClick={e => e.target === e.currentTarget && onClose?.()}
+      style={{
+        position: "fixed", inset: 0, zIndex: 9000,
+        background: "rgba(3,6,3,0.90)", ...GLASS,
+        display: "flex", justifyContent: "center", alignItems: "flex-start",
+        padding: "40px 16px", overflowY: "auto",
+      }}
+    >
+      <div style={{
+        background: "rgba(6,10,6,0.97)", border: `1px solid ${C.b1}`,
+        borderRadius: 14, padding: 26, width: "100%", maxWidth,
+        boxShadow: "0 32px 80px rgba(0,0,0,0.75), inset 0 1px 0 rgba(255,255,255,0.05)",
+        animation: "slideUp .18s ease", fontFamily: C.sans,
+      }}>
+        {children}
+      </div>
+    </div>
+  );
+}
 
-  // ── UI state ─────────────────────────────────────────────────
-  const [view,         setView]         = useState("gantt");   // gantt | cards
-  const [selId,        setSelId]        = useState(null);
-  const [filtroEstado, setFiltroEstado] = useState("activa");
-  const [filtroLinea,  setFiltroLinea]  = useState("todas");
-  const [showNueva,    setShowNueva]    = useState(false);
-  const [showAvisos,   setShowAvisos]   = useState(false);
-  const [showConfig,   setShowConfig]   = useState(false);
-  const [cfgTab,       setCfgTab]       = useState("lineas");
-  const [cfgLinea,     setCfgLinea]     = useState(null);
+// ─── MODAL DE CONFIRMACIÓN ────────────────────────────────────────────────────
+function ConfirmModal({ nombre, tipo, advertencia, onConfirm, onCancel }) {
+  return (
+    <Overlay onClose={onCancel} maxWidth={400}>
+      <div style={{ textAlign: "center", padding: "4px 0" }}>
+        <div style={{
+          width: 44, height: 44, borderRadius: "50%", margin: "0 auto 14px",
+          background: "rgba(184,80,80,0.12)", border: "1px solid rgba(184,80,80,0.25)",
+          display: "flex", alignItems: "center", justifyContent: "center", fontSize: 18,
+        }}>⚠</div>
+        <div style={{ fontSize: 14, color: C.t0, fontWeight: 600, marginBottom: 6 }}>
+          Eliminar {tipo}
+        </div>
+        <div style={{ fontFamily: C.mono, fontSize: 13, color: C.amber, marginBottom: 8 }}>
+          {nombre}
+        </div>
+        <div style={{ fontSize: 12, color: C.t1, marginBottom: 8, lineHeight: 1.6 }}>
+          {advertencia}
+        </div>
+        <div style={{ fontSize: 10, color: C.t2, marginBottom: 22, padding: "7px 12px", background: C.s0, borderRadius: 7, border: `1px solid ${C.b0}` }}>
+          Soft delete · un admin puede restaurarlo
+        </div>
+        <div style={{ display: "flex", gap: 8, justifyContent: "center" }}>
+          <Btn variant="confirm" onClick={onConfirm}>Sí, eliminar</Btn>
+          <Btn variant="outline" onClick={onCancel}>Cancelar</Btn>
+        </div>
+      </div>
+    </Overlay>
+  );
+}
 
-  const [formObra, setFormObra] = useState({
-    codigo: "", descripcion: "", linea_id: "",
-    fecha_inicio: today(), fecha_fin_estimada: "", notas: "",
-  });
-  const [formLinea, setFormLinea] = useState({ nombre: "", color: "#5a6870" });
-  const [formProc,  setFormProc]  = useState({
-    nombre: "", dias_estimados: "7", color: "#5a5a5a",
-    genera_aviso: false, tipo_aviso: "aviso", aviso_mensaje: "",
-  });
+// ─── MODAL OBRA ───────────────────────────────────────────────────────────────
+function ObraModal({ lineas, lProcs, onSave, onClose }) {
+  const [form, setForm] = useState({ codigo: "", descripcion: "", linea_id: "", fecha_inicio: today(), fecha_fin_estimada: "", notas: "" });
+  const [saving, setSaving] = useState(false);
+  const [err, setErr] = useState("");
+  const set = (k, v) => setForm(f => ({ ...f, [k]: v }));
 
-  function flash(ok, txt) {
-    if (ok) setMsg(txt); else setErr(txt);
-    setTimeout(() => { setMsg(""); setErr(""); }, 3500);
+  const lineaSel = lineas.find(l => l.id === form.linea_id);
+  const procsLinea = form.linea_id ? lProcs.filter(p => p.linea_id === form.linea_id).sort((a, b) => (a.orden ?? 0) - (b.orden ?? 0)) : [];
+
+  async function handleSubmit(e) {
+    e.preventDefault();
+    if (!form.codigo.trim()) { setErr("El código es obligatorio."); return; }
+    setSaving(true);
+    setErr("");
+    try {
+      // 1. Crear la obra
+      const { data: nueva, error: errObra } = await supabase.from("produccion_obras").insert({
+        codigo:             form.codigo.trim().toUpperCase(),
+        descripcion:        form.descripcion.trim() || null,
+        tipo:               "barco",
+        estado:             "activa",
+        linea_id:           form.linea_id || null,
+        linea_nombre:       lineaSel?.nombre ?? null,
+        fecha_inicio:       form.fecha_inicio || null,
+        fecha_fin_estimada: form.fecha_fin_estimada || null,
+        notas:              form.notas.trim() || null,
+      }).select().single();
+
+      if (errObra) { setErr(errObra.message); setSaving(false); return; }
+
+      // 2. Sync laminacion (no crítico, ignorar error)
+      await supabase.from("laminacion_obras").upsert(
+        { nombre: form.codigo.trim().toUpperCase(), estado: "activa", fecha_inicio: form.fecha_inicio || null },
+        { onConflict: "nombre", ignoreDuplicates: true }
+      ).then(() => {});
+
+      // 3. Crear obra_etapas desde template (solo si la tabla existe)
+      if (form.linea_id && procsLinea.length && nueva?.id) {
+        try {
+          await supabase.from("obra_etapas").insert(
+            procsLinea.map((p, i) => ({
+              obra_id:          nueva.id,
+              linea_proceso_id: p.id,
+              nombre:           p.nombre,
+              orden:            p.orden ?? i + 1,
+              color:            p.color ?? "#5a6870",
+              dias_estimados:   p.dias_estimados,
+              estado:           "pendiente",
+            }))
+          );
+          // Fallback legacy: también crear obra_timeline
+          await supabase.from("obra_timeline").insert(
+            procsLinea.map(p => ({ obra_id: nueva.id, linea_proceso_id: p.id, estado: "pendiente" }))
+          );
+        } catch { /* tabla nueva no existe aún, ignorar */ }
+      } else if (!form.linea_id && nueva?.id) {
+        // Sin línea: intentar crear en obra_timeline legacy si hay procesos globales
+        // (no bloqueante)
+      }
+
+      onSave(nueva);
+    } catch (ex) {
+      setErr(ex?.message ?? "Error inesperado.");
+      setSaving(false);
+    }
   }
 
-  // ── CARGA ─────────────────────────────────────────────────────
+  return (
+    <Overlay onClose={onClose} maxWidth={520}>
+      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: 20 }}>
+        <div>
+          <div style={{ fontSize: 15, color: C.t0, fontWeight: 600 }}>Nueva obra</div>
+          <div style={{ fontSize: 11, color: C.t1, marginTop: 3 }}>Asigná una línea para pre-cargar las etapas</div>
+        </div>
+        <Btn variant="ghost" onClick={onClose} sx={{ fontSize: 18, lineHeight: 1 }}>×</Btn>
+      </div>
+
+      {err && (
+        <div style={{ padding: "8px 12px", marginBottom: 12, background: "rgba(184,80,80,0.08)", border: "1px solid rgba(184,80,80,0.25)", borderRadius: 7, fontSize: 12, color: "#c07070" }}>
+          {err}
+        </div>
+      )}
+
+      <form onSubmit={handleSubmit}>
+        <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10, marginBottom: 12 }}>
+          <InputSt label="Código *">
+            <input style={{ ...INP, fontFamily: C.mono }} required placeholder="37-105" autoFocus
+              value={form.codigo} onChange={e => set("codigo", e.target.value)} />
+          </InputSt>
+          <InputSt label="Línea de producción">
+            <select style={INP} value={form.linea_id} onChange={e => set("linea_id", e.target.value)}>
+              <option value="">Sin asignar</option>
+              {lineas.map(l => <option key={l.id} value={l.id}>{l.nombre}</option>)}
+            </select>
+          </InputSt>
+        </div>
+        <InputSt label="Descripción">
+          <input style={INP} value={form.descripcion} onChange={e => set("descripcion", e.target.value)} />
+        </InputSt>
+        <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10, marginBottom: 12 }}>
+          <InputSt label="Fecha inicio">
+            <input type="date" style={INP} value={form.fecha_inicio} onChange={e => set("fecha_inicio", e.target.value)} />
+          </InputSt>
+          <InputSt label="Fin estimado">
+            <input type="date" style={INP} value={form.fecha_fin_estimada} onChange={e => set("fecha_fin_estimada", e.target.value)} />
+          </InputSt>
+        </div>
+        <InputSt label="Notas">
+          <input style={INP} value={form.notas} onChange={e => set("notas", e.target.value)} />
+        </InputSt>
+
+        {procsLinea.length > 0 && (
+          <div style={{ marginBottom: 16, padding: "10px 14px", background: "rgba(74,184,112,0.05)", borderRadius: 8, border: "1px solid rgba(74,184,112,0.18)" }}>
+            <div style={{ fontSize: 11, color: "#4ab870", marginBottom: 6 }}>
+              Se crean {procsLinea.length} etapas desde {lineaSel?.nombre}
+            </div>
+            <div style={{ display: "flex", gap: 4, flexWrap: "wrap" }}>
+              {procsLinea.map(p => (
+                <span key={p.id} style={{ fontSize: 9, padding: "2px 7px", borderRadius: 4, background: C.s0, color: C.t1, border: `1px solid ${C.b0}` }}>
+                  {p.nombre}
+                </span>
+              ))}
+            </div>
+          </div>
+        )}
+
+        <div style={{ display: "flex", gap: 8 }}>
+          <button type="submit" disabled={saving} style={{
+            border: "1px solid rgba(212,145,74,0.4)", background: "rgba(212,145,74,0.14)",
+            color: C.amber, padding: "8px 20px", borderRadius: 8, cursor: saving ? "wait" : "pointer",
+            fontWeight: 600, fontSize: 12, fontFamily: C.sans, opacity: saving ? 0.6 : 1,
+          }}>
+            {saving ? "Creando…" : "Crear obra"}
+          </button>
+          <Btn variant="outline" onClick={onClose}>Cancelar</Btn>
+        </div>
+      </form>
+    </Overlay>
+  );
+}
+
+// ─── MODAL ETAPA ──────────────────────────────────────────────────────────────
+function EtapaModal({ etapa, obraId, onSave, onClose }) {
+  const isEdit = !!etapa?.id;
+  const [form, setForm] = useState({
+    nombre:             etapa?.nombre             ?? "",
+    descripcion:        etapa?.descripcion        ?? "",
+    color:              etapa?.color              ?? "#4a7070",
+    dias_estimados:     etapa?.dias_estimados     ?? "",
+    fecha_inicio:       etapa?.fecha_inicio       ?? "",
+    fecha_fin_estimada: etapa?.fecha_fin_estimada ?? "",
+  });
+  const [saving, setSaving] = useState(false);
+  const set = (k, v) => setForm(f => ({ ...f, [k]: v }));
+  const PRESETS = ["#4a7070", "#6a7a4a", "#7a5a3a", "#5a4a7a", "#7a3a3a", "#3a7868", "#8a6830", "#4a6880"];
+
+  async function handleSubmit(e) {
+    e.preventDefault();
+    if (!form.nombre.trim()) return;
+    setSaving(true);
+    const payload = {
+      nombre:             form.nombre.trim(),
+      descripcion:        form.descripcion.trim() || null,
+      color:              form.color,
+      dias_estimados:     form.dias_estimados !== "" ? num(form.dias_estimados) : null,
+      fecha_inicio:       form.fecha_inicio        || null,
+      fecha_fin_estimada: form.fecha_fin_estimada  || null,
+    };
+    try {
+      if (isEdit) {
+        await supabase.from("obra_etapas").update(payload).eq("id", etapa.id);
+      } else {
+        await supabase.from("obra_etapas").insert({ ...payload, obra_id: obraId, orden: 999, estado: "pendiente" });
+      }
+      onSave();
+    } catch { setSaving(false); }
+  }
+
+  return (
+    <Overlay onClose={onClose} maxWidth={460}>
+      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 20 }}>
+        <div style={{ fontSize: 15, color: C.t0, fontWeight: 600 }}>{isEdit ? "Editar etapa" : "Nueva etapa"}</div>
+        <Btn variant="ghost" onClick={onClose} sx={{ fontSize: 18 }}>×</Btn>
+      </div>
+      <form onSubmit={handleSubmit}>
+        <InputSt label="Nombre *">
+          <input style={INP} required autoFocus placeholder="Ej: Estructura"
+            value={form.nombre} onChange={e => set("nombre", e.target.value)} />
+        </InputSt>
+        <InputSt label="Descripción">
+          <input style={INP} value={form.descripcion} onChange={e => set("descripcion", e.target.value)} />
+        </InputSt>
+        <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10, marginBottom: 12 }}>
+          <InputSt label="Días estimados">
+            <input type="number" min="0" step="0.5" style={INP}
+              value={form.dias_estimados} onChange={e => set("dias_estimados", e.target.value)} />
+          </InputSt>
+          <InputSt label="Color">
+            <div style={{ display: "flex", gap: 6, alignItems: "center" }}>
+              <input type="color" value={form.color} onChange={e => set("color", e.target.value)}
+                style={{ width: 32, height: 30, border: "none", background: "none", cursor: "pointer", flexShrink: 0 }} />
+              <div style={{ display: "flex", gap: 3, flexWrap: "wrap" }}>
+                {PRESETS.map(c => (
+                  <div key={c} onClick={() => set("color", c)} style={{
+                    width: 15, height: 15, borderRadius: 3, background: c, cursor: "pointer",
+                    border: form.color === c ? "2px solid rgba(255,255,255,0.7)" : "2px solid transparent",
+                  }} />
+                ))}
+              </div>
+            </div>
+          </InputSt>
+        </div>
+        <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10, marginBottom: 20 }}>
+          <InputSt label="Inicio"><input type="date" style={INP} value={form.fecha_inicio} onChange={e => set("fecha_inicio", e.target.value)} /></InputSt>
+          <InputSt label="Fin estimado"><input type="date" style={INP} value={form.fecha_fin_estimada} onChange={e => set("fecha_fin_estimada", e.target.value)} /></InputSt>
+        </div>
+        <div style={{ display: "flex", gap: 8 }}>
+          <button type="submit" disabled={saving} style={{ border: "1px solid rgba(212,145,74,0.4)", background: "rgba(212,145,74,0.14)", color: C.amber, padding: "8px 20px", borderRadius: 8, cursor: saving ? "wait" : "pointer", fontWeight: 600, fontSize: 12, fontFamily: C.sans }}>
+            {saving ? "Guardando…" : isEdit ? "Guardar" : "Crear etapa"}
+          </button>
+          <Btn variant="outline" onClick={onClose}>Cancelar</Btn>
+        </div>
+      </form>
+    </Overlay>
+  );
+}
+
+// ─── MODAL TAREA ──────────────────────────────────────────────────────────────
+function TareaModal({ tarea, etapaId, obraId, onSave, onClose }) {
+  const isEdit = !!tarea?.id;
+  const [form, setForm] = useState({
+    nombre:              tarea?.nombre              ?? "",
+    descripcion:         tarea?.descripcion         ?? "",
+    estado:              tarea?.estado              ?? "pendiente",
+    fecha_inicio:        tarea?.fecha_inicio        ?? "",
+    fecha_fin_estimada:  tarea?.fecha_fin_estimada  ?? "",
+    fecha_fin_real:      tarea?.fecha_fin_real      ?? "",
+    horas_estimadas:     tarea?.horas_estimadas     ?? "",
+    horas_reales:        tarea?.horas_reales        ?? "",
+    personas_necesarias: tarea?.personas_necesarias ?? "",
+    responsable:         tarea?.responsable         ?? "",
+    observaciones:       tarea?.observaciones       ?? "",
+  });
+  const [showPlanning, setShowPlanning] = useState(isEdit && !!(tarea?.fecha_inicio || tarea?.horas_estimadas || tarea?.responsable));
+  const [saving, setSaving] = useState(false);
+  const set = (k, v) => setForm(f => ({ ...f, [k]: v }));
+
+  async function handleSubmit(e) {
+    e.preventDefault();
+    if (!form.nombre.trim()) return;
+    setSaving(true);
+    const payload = {
+      nombre:              form.nombre.trim(),
+      descripcion:         form.descripcion.trim()  || null,
+      estado:              form.estado,
+      fecha_inicio:        form.fecha_inicio         || null,
+      fecha_fin_estimada:  form.fecha_fin_estimada   || null,
+      fecha_fin_real:      form.fecha_fin_real        || null,
+      horas_estimadas:     form.horas_estimadas      !== "" ? num(form.horas_estimadas)      : null,
+      horas_reales:        form.horas_reales         !== "" ? num(form.horas_reales)         : null,
+      personas_necesarias: form.personas_necesarias  !== "" ? parseInt(form.personas_necesarias) : null,
+      responsable:         form.responsable.trim()   || null,
+      observaciones:       form.observaciones.trim() || null,
+    };
+    try {
+      if (isEdit) {
+        await supabase.from("obra_tareas").update(payload).eq("id", tarea.id);
+      } else {
+        await supabase.from("obra_tareas").insert({ ...payload, etapa_id: etapaId, obra_id: obraId, orden: 999 });
+      }
+      onSave();
+    } catch { setSaving(false); }
+  }
+
+  const secBorder = { padding: "12px 14px", background: C.s0, border: `1px solid ${C.b0}`, borderRadius: 8, marginBottom: 12 };
+
+  return (
+    <Overlay onClose={onClose} maxWidth={540}>
+      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: 18 }}>
+        <div>
+          <div style={{ fontSize: 15, color: C.t0, fontWeight: 600 }}>{isEdit ? "Editar tarea" : "Nueva tarea"}</div>
+          <div style={{ fontSize: 11, color: C.t1, marginTop: 3 }}>Solo el nombre es obligatorio</div>
+        </div>
+        <Btn variant="ghost" onClick={onClose} sx={{ fontSize: 18 }}>×</Btn>
+      </div>
+      <form onSubmit={handleSubmit}>
+        <InputSt label="Nombre *">
+          <input style={INP} required autoFocus placeholder="Ej: Excavación de pilares"
+            value={form.nombre} onChange={e => set("nombre", e.target.value)} />
+        </InputSt>
+
+        {/* Estado selector visual */}
+        <div style={{ marginBottom: 12 }}>
+          <label style={{ fontSize: 9, letterSpacing: 2, color: C.t1, display: "block", marginBottom: 7, textTransform: "uppercase", fontWeight: 600 }}>Estado</label>
+          <div style={{ display: "flex", gap: 4, flexWrap: "wrap" }}>
+            {Object.entries(C.tarea).map(([k, v]) => (
+              <button key={k} type="button" onClick={() => set("estado", k)} style={{
+                padding: "5px 12px", borderRadius: 6, cursor: "pointer", fontSize: 10,
+                border: form.estado === k ? `1px solid ${v.text}44` : `1px solid ${C.b0}`,
+                background: form.estado === k ? `${v.text}14` : C.s0,
+                color: form.estado === k ? v.text : C.t1,
+                fontFamily: C.sans, transition: "all .12s",
+              }}>{v.label}</button>
+            ))}
+          </div>
+        </div>
+
+        <InputSt label="Descripción">
+          <textarea style={{ ...INP, resize: "vertical", minHeight: 52 }}
+            value={form.descripcion} onChange={e => set("descripcion", e.target.value)} />
+        </InputSt>
+
+        {/* Toggle planning */}
+        <button type="button" onClick={() => setShowPlanning(x => !x)} style={{
+          width: "100%", padding: "7px 12px", borderRadius: 7, cursor: "pointer",
+          border: `1px dashed ${C.b0}`, background: "transparent", color: C.t1,
+          fontSize: 10, letterSpacing: 0.5, marginBottom: 12, fontFamily: C.sans,
+          display: "flex", alignItems: "center", justifyContent: "center", gap: 6,
+        }}>
+          {showPlanning ? "▲ Ocultar" : "▼ Ver"} planificación
+          <span style={{ fontSize: 9, color: C.t2 }}>fechas · horas · responsable</span>
+        </button>
+
+        {showPlanning && (
+          <>
+            <div style={secBorder}>
+              <div style={{ fontSize: 8, letterSpacing: 2.5, color: C.t2, marginBottom: 10, textTransform: "uppercase" }}>Fechas</div>
+              <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 8 }}>
+                {[["fecha_inicio", "Inicio"], ["fecha_fin_estimada", "Fin est."], ["fecha_fin_real", "Fin real"]].map(([k, l]) => (
+                  <InputSt key={k} label={l}><input type="date" style={INP} value={form[k]} onChange={e => set(k, e.target.value)} /></InputSt>
+                ))}
+              </div>
+            </div>
+            <div style={secBorder}>
+              <div style={{ fontSize: 8, letterSpacing: 2.5, color: C.t2, marginBottom: 10, textTransform: "uppercase" }}>Recursos</div>
+              <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 8, marginBottom: 8 }}>
+                {[["horas_estimadas", "Hs estimadas"], ["horas_reales", "Hs reales"], ["personas_necesarias", "Personas"]].map(([k, l]) => (
+                  <InputSt key={k} label={l}><input type="number" min="0" step={k.includes("personas") ? "1" : "0.5"} style={INP} value={form[k]} onChange={e => set(k, e.target.value)} /></InputSt>
+                ))}
+              </div>
+              <InputSt label="Responsable"><input style={INP} placeholder="Nombre" value={form.responsable} onChange={e => set("responsable", e.target.value)} /></InputSt>
+            </div>
+            <InputSt label="Observaciones">
+              <textarea style={{ ...INP, resize: "vertical", minHeight: 60 }} value={form.observaciones} onChange={e => set("observaciones", e.target.value)} />
+            </InputSt>
+          </>
+        )}
+
+        <div style={{ display: "flex", gap: 8, marginTop: 4 }}>
+          <button type="submit" disabled={saving} style={{ border: "1px solid rgba(212,145,74,0.4)", background: "rgba(212,145,74,0.14)", color: C.amber, padding: "8px 20px", borderRadius: 8, cursor: saving ? "wait" : "pointer", fontWeight: 600, fontSize: 12, fontFamily: C.sans }}>
+            {saving ? "Guardando…" : isEdit ? "Guardar" : "Crear tarea"}
+          </button>
+          <Btn variant="outline" onClick={onClose}>Cancelar</Btn>
+        </div>
+      </form>
+    </Overlay>
+  );
+}
+
+// ─── PANEL DETALLE ────────────────────────────────────────────────────────────
+function DetailPanel({ item, type, onClose, onEdit, onDelete }) {
+  if (!item) return null;
+
+  const isObra  = type === "obra";
+  const isEtapa = type === "etapa";
+  const isTarea = type === "tarea";
+
+  const getChip = () => {
+    if (isObra)  { const m = C.obra[item.estado]  ?? C.obra.activa;  return <Chip label={m.label}  dot={m.dot}  bg={m.bg}  border={m.border} />; }
+    if (isEtapa) { const m = C.etapa[item.estado] ?? C.etapa.pendiente; return <Chip label={m.label} dot={m.dot} bg={`${m.dot}14`} border={`${m.dot}28`} />; }
+    if (isTarea) { const m = C.tarea[item.estado] ?? C.tarea.pendiente; return <Chip label={m.label} dot={m.text} bg={`${m.text}14`} border={`${m.text}28`} />; }
+  };
+
+  const Info = ({ label, value, mono }) => value ? (
+    <div style={{ display: "flex", justifyContent: "space-between", padding: "5px 0", borderBottom: `1px solid ${C.b0}` }}>
+      <span style={{ fontSize: 10, color: C.t1 }}>{label}</span>
+      <span style={{ fontSize: 11, color: "#8a9a8a", fontFamily: mono ? C.mono : C.sans }}>{value}</span>
+    </div>
+  ) : null;
+
+  const Sec = ({ title, children }) => (
+    <div style={{ marginBottom: 14 }}>
+      <div style={{ fontSize: 8, letterSpacing: 3, color: C.t2, marginBottom: 7, textTransform: "uppercase" }}>{title}</div>
+      {children}
+    </div>
+  );
+
+  return (
+    <div style={{
+      width: 300, flexShrink: 0,
+      borderLeft: `1px solid ${C.b0}`,
+      background: "rgba(4,8,4,0.96)", ...GLASS,
+      overflow: "auto", padding: "18px 16px",
+      display: "flex", flexDirection: "column",
+      animation: "slideLeft .18s ease",
+    }}>
+      {/* Header */}
+      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: 16, paddingBottom: 14, borderBottom: `1px solid ${C.b0}` }}>
+        <div style={{ flex: 1, minWidth: 0 }}>
+          <div style={{ fontSize: 8, letterSpacing: 3, color: C.t2, textTransform: "uppercase", marginBottom: 5 }}>
+            {isObra ? "Obra" : isEtapa ? "Etapa" : "Tarea"}
+          </div>
+          {isEtapa && item.color && (
+            <div style={{ width: 20, height: 3, background: item.color, borderRadius: 99, marginBottom: 6 }} />
+          )}
+          <div style={{ fontFamily: isObra ? C.mono : C.sans, fontSize: isObra ? 17 : 14, color: C.t0, fontWeight: 600, wordBreak: "break-word", marginBottom: 8 }}>
+            {item.nombre ?? item.codigo}
+          </div>
+          {getChip()}
+        </div>
+        <Btn variant="ghost" onClick={onClose} sx={{ fontSize: 16, marginLeft: 6, flexShrink: 0 }}>×</Btn>
+      </div>
+
+      {item.descripcion && (
+        <div style={{ fontSize: 11, color: "#5a6a5a", marginBottom: 14, lineHeight: 1.6, fontStyle: "italic" }}>{item.descripcion}</div>
+      )}
+
+      {/* Info sections */}
+      {(item.fecha_inicio || item.fecha_fin_estimada || item.fecha_fin_real) && (
+        <Sec title="Fechas">
+          <Info label="Inicio"        value={fmtDateFull(item.fecha_inicio)} mono />
+          <Info label="Fin estimado"  value={fmtDateFull(item.fecha_fin_estimada)} mono />
+          <Info label="Fin real"      value={fmtDateFull(item.fecha_fin_real)} mono />
+          {item.fecha_inicio && !item.fecha_fin_real && (
+            <Info label="Transcurrido" value={`${diasDesde(item.fecha_inicio)} días`} mono />
+          )}
+        </Sec>
+      )}
+
+      {isTarea && (item.horas_estimadas || item.horas_reales || item.personas_necesarias || item.responsable) && (
+        <Sec title="Recursos">
+          <Info label="Hs estimadas" value={item.horas_estimadas ? `${item.horas_estimadas} hs` : null} mono />
+          <Info label="Hs reales"    value={item.horas_reales    ? `${item.horas_reales} hs`    : null} mono />
+          <Info label="Personas"     value={item.personas_necesarias ? `${item.personas_necesarias}` : null} />
+          <Info label="Responsable"  value={item.responsable} />
+        </Sec>
+      )}
+
+      {isEtapa && item.dias_estimados && (
+        <Sec title="Planificación">
+          <Info label="Días estimados" value={`${item.dias_estimados}d`} mono />
+        </Sec>
+      )}
+
+      {isObra && item.notas && (
+        <Sec title="Notas">
+          <div style={{ fontSize: 11, color: "#5a6a5a", lineHeight: 1.6 }}>{item.notas}</div>
+        </Sec>
+      )}
+
+      {isTarea && item.observaciones && (
+        <Sec title="Observaciones">
+          <div style={{ fontSize: 11, color: "#5a6a5a", lineHeight: 1.6, padding: "9px 11px", background: C.s0, borderRadius: 7, border: `1px solid ${C.b0}` }}>
+            {item.observaciones}
+          </div>
+        </Sec>
+      )}
+
+      {/* Acciones */}
+      <div style={{ marginTop: "auto", paddingTop: 14, borderTop: `1px solid ${C.b0}`, display: "flex", gap: 7 }}>
+        {!isObra && <Btn variant="outline" onClick={() => onEdit(item, type)} sx={{ flex: 1 }}>Editar</Btn>}
+        <Btn variant="danger" onClick={() => onDelete(item, type)} sx={{ flex: 1 }}>Eliminar</Btn>
+      </div>
+    </div>
+  );
+}
+
+// ─── COMPONENTE PRINCIPAL ─────────────────────────────────────────────────────
+export default function ObrasScreen({ profile, signOut }) {
+  const isAdmin   = !!profile?.is_admin;
+  const esGestion = isAdmin || ["admin", "oficina"].includes(profile?.role);
+
+  // ── Data ─────────────────────────────────────────────────────
+  const [obras,    setObras]    = useState([]);
+  const [etapas,   setEtapas]   = useState([]);
+  const [tareas,   setTareas]   = useState([]);
+  const [lineas,   setLineas]   = useState([]);
+  const [lProcs,   setLProcs]   = useState([]);
+  const [timeline, setTimeline] = useState([]);  // legacy
+  const [loading,  setLoading]  = useState(true);
+
+  // ── UI ───────────────────────────────────────────────────────
+  const [filtroEstado,   setFiltroEstado]   = useState("activa");
+  const [filtroLinea,    setFiltroLinea]    = useState("todas");
+  const [expandedObras,  setExpandedObras]  = useState(new Set());
+  const [expandedEtapas, setExpandedEtapas] = useState(new Set());
+
+  // ── Modales ──────────────────────────────────────────────────
+  const [showObraModal, setShowObraModal] = useState(false);
+  const [etapaModal,    setEtapaModal]    = useState(null);  // { etapa?, obraId }
+  const [tareaModal,    setTareaModal]    = useState(null);  // { tarea?, etapaId, obraId }
+  const [confirmModal,  setConfirmModal]  = useState(null);
+  const [detail,        setDetail]        = useState(null);  // { item, type }
+
+  // ── CARGA DEFENSIVA ───────────────────────────────────────────
   async function cargar() {
     setLoading(true);
-    const [r1, r2, r3, r4, r5, r6, r7] = await Promise.all([
-      supabase.from("produccion_obras").select("*").order("created_at", { ascending: false }),
-      // Carga timeline con join a linea_procesos Y procesos (legado)
-      supabase.from("obra_timeline")
-        .select("*, linea_procesos(id,nombre,orden,dias_estimados,color,genera_aviso,tipo_aviso,aviso_mensaje), procesos(id,nombre,orden,dias_esperados,color)")
-        .order("created_at"),
+    const [r1, r2, r3, r4, r5, r6] = await Promise.all([
+      // obras: intentar con deleted_at, fallback sin él
+      supabase.from("produccion_obras").select("*").order("created_at", { ascending: false })
+        .then(({ data, error }) => {
+          if (error) return supabase.from("produccion_obras").select("*").order("created_at", { ascending: false });
+          // Filtrar soft-deleted en cliente si la columna existe
+          return { data: (data ?? []).filter(o => !o.deleted_at) };
+        }),
+      safeQuery(supabase.from("obra_etapas").select("*").is("deleted_at", null).order("obra_id").order("orden")),
+      safeQuery(supabase.from("obra_tareas").select("*").is("deleted_at", null).order("etapa_id").order("orden")),
       supabase.from("lineas_produccion").select("*").eq("activa", true).order("orden"),
       supabase.from("linea_procesos").select("*").eq("activo", true).order("linea_id").order("orden"),
-      supabase.from("procesos").select("*").eq("activo", true).order("orden"),
-      supabase.from("produccion_avisos").select("*").order("created_at", { ascending: false }).limit(60),
-      supabase.from("sistema_config").select("*"),
+      safeQuery(supabase.from("obra_timeline")
+        .select("*, linea_procesos(id,nombre,orden,dias_estimados,color), procesos(id,nombre,orden,dias_esperados,color)")
+        .order("created_at")),
     ]);
-    setObras(r1.data ?? []);
-    setTimeline(r2.data ?? []);
-    setLineas(r3.data ?? []);
-    setLProcs(r4.data ?? []);
-    setProcGlobal(r5.data ?? []);
-    setAvisos(r6.data ?? []);
-    // Parse config
-    const cfg = {};
-    (r7.data ?? []).forEach(row => {
-      try { cfg[row.clave] = row.tipo === "number" ? num(row.valor) : row.tipo === "boolean" ? row.valor === "true" : row.valor; }
-      catch { cfg[row.clave] = row.valor; }
-    });
-    setConfig(cfg);
+    setObras(Array.isArray(r1) ? r1 : (r1?.data ?? []));
+    setEtapas(r2);
+    setTareas(r3);
+    setLineas(r4.data ?? []);
+    setLProcs(r5.data ?? []);
+    setTimeline(r6);
     setLoading(false);
   }
 
   useEffect(() => {
     cargar();
-    const ch = supabase.channel("rt-obras-v2")
+    const ch = supabase.channel("rt-obras-v5")
       .on("postgres_changes", { event: "*", schema: "public", table: "produccion_obras" }, cargar)
-      .on("postgres_changes", { event: "*", schema: "public", table: "obra_timeline" }, cargar)
-      .on("postgres_changes", { event: "*", schema: "public", table: "produccion_avisos" }, cargar)
+      .on("postgres_changes", { event: "*", schema: "public", table: "obra_etapas"      }, cargar)
+      .on("postgres_changes", { event: "*", schema: "public", table: "obra_tareas"      }, cargar)
       .subscribe();
     return () => supabase.removeChannel(ch);
   }, []);
 
-  // ── HELPERS DE DATOS ──────────────────────────────────────────
-  // Procesos de la línea de una obra (según linea_id), ordenados
-  const procsDeObra = useCallback((obra) => {
-    if (obra?.linea_id) {
-      return lProcs.filter(p => p.linea_id === obra.linea_id).sort((a, b) => a.orden - b.orden);
-    }
-    return procGlobal;  // fallback legacy
-  }, [lProcs, procGlobal]);
-
-  // Timeline entries de una obra
-  const tlDeObra = useCallback((obraId) =>
-    timeline.filter(t => t.obra_id === obraId), [timeline]);
-
-  // Estado del proceso para una obra: match por linea_proceso_id o proceso_id
-  const estadoProc = useCallback((obraId, proc, isLinea) => {
-    const tl = tlDeObra(obraId);
-    if (isLinea) return tl.find(t => t.linea_proceso_id === proc.id) ?? null;
-    return tl.find(t => t.proceso_id === proc.id) ?? null;
-  }, [tlDeObra]);
-
-  // % completado de una obra
-  const pctObra = useCallback((obra) => {
-    const procs = procsDeObra(obra);
-    if (!procs.length) return 0;
-    const tl   = tlDeObra(obra.id);
-    const isLinea = !!obra.linea_id;
-    const done = procs.filter(p => {
-      const t = isLinea ? tl.find(x => x.linea_proceso_id === p.id) : tl.find(x => x.proceso_id === p.id);
-      return t?.estado === "completado";
-    }).length;
-    return Math.round((done / procs.length) * 100);
-  }, [procsDeObra, tlDeObra]);
-
-  // Días totales estimados de la línea
-  const diasEstimados = useCallback((obra) =>
-    procsDeObra(obra).reduce((s, p) => s + num(p.dias_estimados ?? p.dias_esperados), 0),
-    [procsDeObra]);
-
-  // Colores de estado de proceso
-  function procColor(t, proc) {
-    if (!t || t.estado === "pendiente" || !t.estado) return C.pendiente;
-    if (t.estado === "completado") return C.completado;
-    if (t.estado === "en_curso") {
-      const est = num(proc?.dias_estimados ?? proc?.dias_esperados ?? 999);
-      const real = diasDesde(t.fecha_inicio);
-      return real > est * 1.2 ? C.demorado : C.en_curso;
-    }
-    return C.pendiente;
-  }
-
-  // Promedios históricos por proceso (para alertas)
-  const promedios = useMemo(() => {
-    const map = {};
-    timeline.forEach(t => {
-      if (!t.fecha_inicio || !t.fecha_fin) return;
-      const id  = t.linea_proceso_id ?? t.proceso_id;
-      const dias = diasEntre(t.fecha_inicio, t.fecha_fin);
-      if (!id || dias == null) return;
-      if (!map[id]) map[id] = [];
-      map[id].push(dias);
+  // ── HELPERS ───────────────────────────────────────────────────
+  const etapasDeObra = useCallback((obraId) => {
+    // Preferir obra_etapas; si vacío, sintetizar desde obra_timeline
+    const fromNew = etapas.filter(e => e.obra_id === obraId).sort((a, b) => (a.orden ?? 0) - (b.orden ?? 0));
+    if (fromNew.length) return fromNew;
+    // Legacy: generar etapas virtuales desde obra_timeline
+    const obra = obras.find(o => o.id === obraId);
+    if (!obra?.linea_id) return [];
+    const procs = lProcs.filter(p => p.linea_id === obra.linea_id).sort((a, b) => (a.orden ?? 0) - (b.orden ?? 0));
+    return procs.map(p => {
+      const tl = timeline.find(t => t.obra_id === obraId && t.linea_proceso_id === p.id);
+      return {
+        id: `virtual-${obraId}-${p.id}`, obra_id: obraId, isVirtual: true,
+        linea_proceso_id: p.id,
+        nombre: p.nombre, orden: p.orden, color: p.color,
+        dias_estimados: p.dias_estimados,
+        estado: tl?.estado === "completado" ? "completado" : tl?.estado === "en_curso" ? "en_curso" : "pendiente",
+        fecha_inicio: tl?.fecha_inicio, fecha_fin_real: tl?.fecha_fin,
+      };
     });
-    const result = {};
-    Object.entries(map).forEach(([id, vals]) =>
-      result[id] = vals.reduce((a, b) => a + b, 0) / vals.length);
-    return result;
-  }, [timeline]);
+  }, [etapas, timeline, obras, lProcs]);
 
-  // Avisos pendientes
-  const avisosPend = useMemo(() => avisos.filter(a => a.estado === "pendiente"), [avisos]);
+  const tareasDeEtapa = useCallback((etapaId) =>
+    tareas.filter(t => t.etapa_id === etapaId).sort((a, b) => (a.orden ?? 0) - (b.orden ?? 0)),
+    [tareas]);
 
-  // Obras filtradas
-  const obrasFilt = useMemo(() => obras.filter(o => {
-    if (filtroEstado !== "todos" && o.estado !== filtroEstado) return false;
-    if (filtroLinea !== "todas" && o.linea_id !== filtroLinea) return false;
-    return true;
-  }), [obras, filtroEstado, filtroLinea]);
+  const pctEtapa = useCallback((etapaId) => {
+    if (String(etapaId).startsWith("virtual")) return 0;
+    const ts = tareasDeEtapa(etapaId);
+    if (!ts.length) return 0;
+    return pct(ts.filter(t => t.estado === "finalizada").length, ts.length);
+  }, [tareasDeEtapa]);
 
-  // Stats
-  const stats = useMemo(() => ({
-    activas:    obras.filter(o => o.estado === "activa").length,
-    pausadas:   obras.filter(o => o.estado === "pausada").length,
-    terminadas: obras.filter(o => o.estado === "terminada").length,
-    avisos:     avisosPend.length,
-  }), [obras, avisosPend]);
-
-  const obraSel = useMemo(() => obras.find(o => o.id === selId), [obras, selId]);
-
-  // ── ACCIONES ──────────────────────────────────────────────────
-  async function crearObra(e) {
-    e.preventDefault();
-    if (!formObra.codigo.trim()) return flash(false, "Código obligatorio.");
-    const linea = lineas.find(l => l.id === formObra.linea_id);
-    const { data: nueva, error } = await supabase.from("produccion_obras").insert({
-      codigo:             formObra.codigo.trim().toUpperCase(),
-      descripcion:        formObra.descripcion.trim() || null,
-      tipo:               "barco",
-      estado:             "activa",
-      linea_id:           formObra.linea_id || null,
-      linea_nombre:       linea?.nombre ?? null,
-      fecha_inicio:       formObra.fecha_inicio || null,
-      fecha_fin_estimada: formObra.fecha_fin_estimada || null,
-      notas:              formObra.notas.trim() || null,
-    }).select().single();
-    if (error) return flash(false, error.message);
-
-    // Sync a laminacion_obras
-    await supabase.from("laminacion_obras").upsert({
-      nombre: formObra.codigo.trim().toUpperCase(), estado: "activa",
-      fecha_inicio: formObra.fecha_inicio || null,
-    }, { onConflict: "nombre", ignoreDuplicates: true });
-
-    // Crear timeline entries para cada proceso de la línea
-    if (formObra.linea_id && nueva?.id) {
-      const procs = lProcs.filter(p => p.linea_id === formObra.linea_id);
-      if (procs.length) {
-        await supabase.from("obra_timeline").insert(
-          procs.map(p => ({ obra_id: nueva.id, linea_proceso_id: p.id, estado: "pendiente" }))
-        );
-      }
+  const pctObra = useCallback((obraId) => {
+    const es = etapasDeObra(obraId);
+    if (!es.length) return 0;
+    const allTareas = es.flatMap(e => !e.isVirtual ? tareasDeEtapa(e.id) : []);
+    if (allTareas.length) {
+      return pct(allTareas.filter(t => t.estado === "finalizada").length, allTareas.length);
     }
+    return pct(es.filter(e => e.estado === "completado").length, es.length);
+  }, [etapasDeObra, tareasDeEtapa]);
 
-    flash(true, `Obra ${formObra.codigo.toUpperCase()} creada.`);
-    setFormObra({ codigo: "", descripcion: "", linea_id: "", fecha_inicio: today(), fecha_fin_estimada: "", notas: "" });
-    setShowNueva(false);
-    cargar();
-  }
+  // ── ACCIONES ─────────────────────────────────────────────────
+  const toggleObra  = id => setExpandedObras(s  => { const n = new Set(s); n.has(id) ? n.delete(id) : n.add(id); return n; });
+  const toggleEtapa = id => setExpandedEtapas(s => { const n = new Set(s); n.has(id) ? n.delete(id) : n.add(id); return n; });
 
-  async function cambiarEstado(obraId, estado) {
+  async function cambiarEstadoObra(obraId, estado) {
     const upd = { estado };
     if (estado === "terminada") upd.fecha_fin_real = today();
     await supabase.from("produccion_obras").update(upd).eq("id", obraId);
     cargar();
   }
 
-  async function iniciarProc(obraId, tlId, proc, isLinea) {
-    // Si ya tiene un registro, actualizarlo; si no, insertar
-    if (tlId) {
-      await supabase.from("obra_timeline").update({
-        estado: "en_curso", fecha_inicio: today(),
-        registrado_por: profile?.username ?? "sistema",
-      }).eq("id", tlId);
-    } else {
-      const row = { obra_id: obraId, estado: "en_curso", fecha_inicio: today(), registrado_por: profile?.username ?? "sistema" };
-      if (isLinea) row.linea_proceso_id = proc.id; else row.proceso_id = proc.id;
-      await supabase.from("obra_timeline").insert(row);
-    }
-    // Generar aviso si corresponde
-    if (proc?.genera_aviso && proc?.aviso_mensaje) {
-      const obra = obras.find(o => o.id === obraId);
-      await supabase.from("produccion_avisos").insert({
-        obra_id: obraId, obra_codigo: obra?.codigo ?? "—",
-        proceso_nombre: proc.nombre, tipo: proc.tipo_aviso ?? "aviso",
-        mensaje: proc.aviso_mensaje, estado: "pendiente",
-      });
-    }
+  async function cambiarEstadoEtapa(etapaId, estado) {
+    if (String(etapaId).startsWith("virtual")) return;
+    await supabase.from("obra_etapas").update({ estado }).eq("id", etapaId);
     cargar();
   }
 
-  async function completarProc(tlId) {
-    await supabase.from("obra_timeline").update({
-      estado: "completado", fecha_fin: today(),
-    }).eq("id", tlId);
+  async function cambiarEstadoTarea(tareaId, estado) {
+    const upd = { estado };
+    if (estado === "finalizada") upd.fecha_fin_real = today();
+    await supabase.from("obra_tareas").update(upd).eq("id", tareaId);
     cargar();
   }
 
-  async function resolverAviso(id) {
-    await supabase.from("produccion_avisos").update({
-      estado: "resuelto", resuelto_at: new Date().toISOString(),
-      resuelto_por: profile?.username ?? "sistema",
-    }).eq("id", id);
-    cargar();
-  }
-
-  // Config
-  async function crearLinea(e) {
-    e.preventDefault();
-    if (!formLinea.nombre.trim()) return;
-    const maxOrd = Math.max(0, ...lineas.map(l => l.orden ?? 0));
-    const { error } = await supabase.from("lineas_produccion")
-      .insert({ nombre: formLinea.nombre.trim().toUpperCase(), color: formLinea.color, orden: maxOrd + 1 });
-    if (error) return flash(false, error.message);
-    setFormLinea({ nombre: "", color: "#5a6870" });
-    cargar(); flash(true, "Línea creada.");
-  }
-
-  async function crearProc(e) {
-    e.preventDefault();
-    if (!cfgLinea || !formProc.nombre.trim()) return;
-    const maxOrd = Math.max(0, ...lProcs.filter(p => p.linea_id === cfgLinea).map(p => p.orden ?? 0));
-    const { error } = await supabase.from("linea_procesos").insert({
-      linea_id:      cfgLinea,
-      nombre:        formProc.nombre.trim(),
-      orden:         maxOrd + 1,
-      dias_estimados: num(formProc.dias_estimados) || 7,
-      color:         formProc.color,
-      genera_aviso:  formProc.genera_aviso,
-      tipo_aviso:    formProc.tipo_aviso,
-      aviso_mensaje: formProc.aviso_mensaje.trim() || null,
-      activo:        true,
-    });
-    if (error) return flash(false, error.message);
-    setFormProc({ nombre: "", dias_estimados: "7", color: "#5a5a5a", genera_aviso: false, tipo_aviso: "aviso", aviso_mensaje: "" });
-    cargar(); flash(true, "Etapa creada.");
-  }
-
-  async function reordenarProcs(newList) {
-    await Promise.all(newList.map((p, i) =>
-      supabase.from("linea_procesos").update({ orden: i + 1 }).eq("id", p.id)));
-    cargar();
-  }
-
-  async function toggleProc(id, activo) {
-    await supabase.from("linea_procesos").update({ activo: !activo }).eq("id", id);
-    cargar();
-  }
-
-  async function eliminarLinea(id) {
-    if (!window.confirm("¿Eliminar esta línea y todos sus procesos?")) return;
-    await supabase.from("lineas_produccion").update({ activa: false }).eq("id", id);
-    if (cfgLinea === id) setCfgLinea(null);
-    cargar();
-  }
-
-  async function eliminarProc(id) {
-    if (!window.confirm("¿Eliminar esta etapa?")) return;
-    await supabase.from("linea_procesos").delete().eq("id", id);
-    cargar();
-  }
-
-  // ── ESTILOS ───────────────────────────────────────────────────
-  const GLASS = {
-    background: C.s0,
-    backdropFilter: "blur(40px) saturate(130%)",
-    WebkitBackdropFilter: "blur(40px) saturate(130%)",
-  };
-
-  const S = {
-    page:   { background: C.bg, minHeight: "100vh", color: C.t0, fontFamily: "'Outfit', 'IBM Plex Sans', system-ui, sans-serif" },
-    layout: { display: "grid", gridTemplateColumns: "280px 1fr", minHeight: "100vh" },
-    main:   { display: "flex", flexDirection: "column", height: "100vh", overflow: "hidden" },
-
-    topbar: {
-      ...GLASS,
-      background: "rgba(3,5,12,0.80)",
-      borderBottom: `1px solid ${C.b0}`,
-      padding: "0 22px", height: 52,
-      display: "flex", alignItems: "center", gap: 14, flexShrink: 0,
-      position: "sticky", top: 0, zIndex: 200,
-    },
-    filterbar: {
-      ...GLASS,
-      background: "rgba(3,5,12,0.72)",
-      borderBottom: `1px solid ${C.b0}`,
-      padding: "0 22px", height: 40,
-      display: "flex", alignItems: "center", gap: 5, flexShrink: 0, overflowX: "auto",
-    },
-    scroll: { flex: 1, overflowY: "auto", padding: "20px 22px" },
-
-    card:   { border: `1px solid ${C.b0}`, borderRadius: 12, ...GLASS, padding: 16, marginBottom: 8 },
-    cardHi: { border: `1px solid ${C.b1}`, borderRadius: 12, ...GLASS, background: C.s1, padding: 16, marginBottom: 8 },
-
-    input:  {
-      background: "rgba(255,255,255,0.05)", border: `1px solid ${C.b0}`,
-      color: C.t0, padding: "8px 12px", borderRadius: 8, fontSize: 12,
-      outline: "none", width: "100%",
-      transition: "border-color 0.15s",
-    },
-    label:  { fontSize: 9, letterSpacing: 2.2, color: C.t1, display: "block", marginBottom: 5, textTransform: "uppercase", fontWeight: 600 },
-
-    btn:    {
-      border: `1px solid ${C.b0}`, background: "rgba(255,255,255,0.05)",
-      color: C.t0, padding: "6px 14px", borderRadius: 8, cursor: "pointer", fontSize: 12,
-      transition: "border-color 0.15s, background 0.15s",
-    },
-    btnPri: {
-      border: "1px solid rgba(255,255,255,0.25)",
-      background: "rgba(255,255,255,0.92)",
-      color: "#080c14", padding: "7px 18px", borderRadius: 8,
-      cursor: "pointer", fontWeight: 700, fontSize: 12, letterSpacing: 0.2,
-      transition: "opacity 0.15s",
-    },
-    btnSm:  {
-      border: `1px solid ${C.b0}`, background: "transparent",
-      color: C.t1, padding: "3px 10px", borderRadius: 6,
-      cursor: "pointer", fontSize: 11,
-      transition: "border-color 0.15s, color 0.15s",
-    },
-    btnGh:  { border: "1px solid transparent", background: "transparent", color: C.t1, padding: "3px 8px", borderRadius: 6, cursor: "pointer", fontSize: 13 },
-
-    pill: (act) => ({
-      border: act ? `1px solid ${C.b1}` : "1px solid rgba(255,255,255,0.04)",
-      background: act ? "rgba(255,255,255,0.08)" : "transparent",
-      color: act ? C.t0 : C.t1, padding: "4px 12px", borderRadius: 6,
-      cursor: "pointer", fontSize: 11, whiteSpace: "nowrap",
-      transition: "all 0.13s",
-    }),
-
-    overlay: {
-      position: "fixed", inset: 0,
-      background: "rgba(3,5,12,0.88)",
-      backdropFilter: "blur(28px) saturate(140%)",
-      WebkitBackdropFilter: "blur(28px) saturate(140%)",
-      display: "flex", justifyContent: "center", alignItems: "flex-start",
-      zIndex: 9000, padding: "40px 16px", overflowY: "auto",
-    },
-    modal: {
-      background: "rgba(8,12,22,0.92)",
-      backdropFilter: "blur(60px) saturate(160%)",
-      WebkitBackdropFilter: "blur(60px) saturate(160%)",
-      border: `1px solid ${C.b1}`, borderRadius: 16, padding: 28,
-      width: "100%", maxWidth: 520,
-      boxShadow: "0 32px 80px rgba(0,0,0,0.7), inset 0 1px 0 rgba(255,255,255,0.06)",
-    },
-    modalLg: {
-      background: "rgba(8,12,22,0.92)",
-      backdropFilter: "blur(60px) saturate(160%)",
-      WebkitBackdropFilter: "blur(60px) saturate(160%)",
-      border: `1px solid ${C.b1}`, borderRadius: 16, padding: 28,
-      width: "100%", maxWidth: 900,
-      boxShadow: "0 32px 80px rgba(0,0,0,0.7), inset 0 1px 0 rgba(255,255,255,0.06)",
-    },
-  };
-
-  // ═══════════════════════════════════════════════════════════════
-  //  GANTT VIEW
-  // ═══════════════════════════════════════════════════════════════
-  function GanttView() {
-    if (!obrasFilt.length)
-      return <div style={{ ...S.card, textAlign: "center", padding: 64, color: C.t2, fontSize: 12, letterSpacing: 2, textTransform: "uppercase", fontFamily: "'JetBrains Mono', monospace" }}>Sin obras con este filtro</div>;
-
-    // Agrupar por línea
-    const grupos = {};
-    obrasFilt.forEach(o => {
-      const key = o.linea_nombre ?? "Sin línea";
-      if (!grupos[key]) grupos[key] = { linea_id: o.linea_id, obras: [] };
-      grupos[key].obras.push(o);
-    });
-
-    return (
-      <div>
-        {Object.entries(grupos).map(([key, grupo]) => {
-          const isLinea  = !!grupo.linea_id;
-          const procs    = isLinea
-            ? lProcs.filter(p => p.linea_id === grupo.linea_id).sort((a, b) => a.orden - b.orden)
-            : procGlobal;
-          const totalDias = procs.reduce((s, p) => s + num(p.dias_estimados ?? p.dias_esperados), 0) || 1;
-          const linInfo  = lineas.find(l => l.id === grupo.linea_id);
-
-          return (
-            <div key={key} style={{ marginBottom: 32 }}>
-
-              {/* ── Cabecera de línea ── */}
-              <div style={{
-                display: "flex", alignItems: "center", gap: 10,
-                marginBottom: 8, paddingBottom: 8,
-                borderBottom: `1px solid ${C.b0}`,
-              }}>
-                {linInfo && (
-                  <div style={{
-                    width: 8, height: 8, borderRadius: "50%",
-                    background: linInfo.color,
-                    boxShadow: `0 0 8px ${linInfo.color}88`,
-                    flexShrink: 0,
-                  }} />
-                )}
-                <span style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: 11, letterSpacing: 3, color: C.t0, textTransform: "uppercase", fontWeight: 500 }}>{key}</span>
-                <span style={{ fontSize: 10, color: C.t2, letterSpacing: 0.5 }}>· {grupo.obras.length} obra{grupo.obras.length !== 1 ? "s" : ""}</span>
-              </div>
-
-              {/* ── Headers de proceso ── */}
-              <div style={{ display: "flex", paddingLeft: 130, marginBottom: 4 }}>
-                {procs.map(p => (
-                  <div key={p.id} style={{
-                    flex: num(p.dias_estimados ?? p.dias_esperados) / totalDias,
-                    fontSize: 8, color: C.t2, letterSpacing: 1.2,
-                    overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap",
-                    paddingRight: 3, minWidth: 0, textTransform: "uppercase", fontWeight: 600,
-                  }}>
-                    {p.nombre}
-                  </div>
-                ))}
-                <div style={{ width: 80, flexShrink: 0 }} />
-              </div>
-
-              {/* ── Filas de obras ── */}
-              {grupo.obras.map(obra => {
-                const sel       = selId === obra.id;
-                const tl        = tlDeObra(obra.id);
-                const pct       = pctObra(obra);
-                const diasEst   = diasEstimados(obra);
-                const diasReales= diasDesde(obra.fecha_inicio);
-                const ratio     = diasEst > 0 ? diasReales / diasEst : 0;
-                const timeColor = ratio <= 0.85 ? C.completado.text : ratio <= 1.1 ? C.en_curso.text : C.demorado.text;
-                const est       = C[obra.estado] ?? C.activa;
-
-                return (
-                  <div key={obra.id}>
-                    <div
-                      style={{
-                        display: "flex", alignItems: "center", gap: 0,
-                        padding: "4px 0", cursor: "pointer", borderRadius: 6,
-                        background: sel ? "rgba(255,255,255,0.04)" : "transparent",
-                        borderRadius: 8,
-                        transition: "background 0.15s",
-                      }}
-                      onClick={() => setSelId(sel ? null : obra.id)}
-                    >
-                      {/* Label */}
-                      <div style={{ width: 130, flexShrink: 0, paddingRight: 10 }}>
-                        <div style={{ display: "flex", alignItems: "center", gap: 5 }}>
-                          <div style={{ width: 5, height: 5, borderRadius: "50%", background: est.dot, flexShrink: 0 }} />
-                          <span style={{
-                            fontFamily: "'JetBrains Mono', monospace", fontSize: 12,
-                            color: sel ? C.t0 : "#7a8090", fontWeight: sel ? 600 : 400,
-                            letterSpacing: 0.8,
-                            transition: "color 0.15s",
-                          }}>
-                            {obra.codigo}
-                          </span>
-                        </div>
-                        <div style={{ fontSize: 9, color: C.t2, paddingLeft: 10, marginTop: 1 }}>
-                          {pct}% · {diasReales}d
-                        </div>
-                      </div>
-
-                      {/* Barra Gantt */}
-                      <div style={{
-                        flex: 1, height: 28, display: "flex", overflow: "hidden",
-                        borderRadius: 6, border: `1px solid ${C.b0}`,
-                        background: "rgba(255,255,255,0.02)",
-                        boxShadow: "inset 0 1px 3px rgba(0,0,0,0.5)",
-                      }}>
-                        {procs.map((p, pi) => {
-                          const t    = isLinea
-                            ? tl.find(x => x.linea_proceso_id === p.id)
-                            : tl.find(x => x.proceso_id === p.id);
-                          const col  = procColor(t, p);
-                          const flex = num(p.dias_estimados ?? p.dias_esperados) / totalDias;
-                          const pulse = t?.estado === "en_curso" && col === C.en_curso;
-                          return (
-                            <div key={p.id} style={{
-                              flex, height: "100%",
-                              background: t?.estado === "completado"
-                                ? `linear-gradient(90deg, ${col.bar}, rgba(40,120,70,0.35))`
-                                : t?.estado === "en_curso"
-                                  ? `linear-gradient(90deg, ${col.bar}, rgba(200,150,20,0.32))`
-                                  : col.bar,
-                              borderRight: pi < procs.length - 1 ? "1px solid rgba(0,0,0,0.3)" : "none",
-                              transition: "background .4s",
-                              position: "relative",
-                              ...(t?.estado === "en_curso" ? { animation: "gantt-pulse 2.5s ease-in-out infinite" } : {}),
-                            }}
-                              title={`${p.nombre} · ${t?.estado ?? "pendiente"} · ${p.dias_estimados ?? p.dias_esperados}d est.`}
-                            />
-                          );
-                        })}
-                      </div>
-
-                      {/* Días */}
-                      <div style={{ width: 80, paddingLeft: 10, flexShrink: 0, textAlign: "right" }}>
-                        <span style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: 11, color: timeColor }}>
-                          {diasReales}/{diasEst}d
-                        </span>
-                      </div>
-                    </div>
-
-                    {/* ── Detalle expandido ── */}
-                    {sel && <GanttDetail obra={obra} procs={procs} isLinea={isLinea} />}
-                  </div>
+  function pedirBorrado(item, tipo) {
+    const ads = {
+      obra:  "Se archivarán también sus etapas y tareas.",
+      etapa: "Se archivarán las tareas de esta etapa.",
+      tarea: "La tarea quedará archivada.",
+    };
+    setConfirmModal({
+      nombre: item.nombre ?? item.codigo,
+      tipo,
+      advertencia: ads[tipo],
+      async onConfirm() {
+        const by = profile?.username ?? "sistema";
+        try {
+          if (tipo === "obra") {
+            try {
+              await supabase.rpc("soft_delete_obra", { p_obra_id: item.id, p_deleted_by: by });
+            } catch {
+              // fallback si la función no existe
+              await supabase.from("produccion_obras")
+                .update({ deleted_at: new Date().toISOString() } ).eq("id", item.id)
+                .then(() => {})
+                .catch(() =>
+                  // si deleted_at no existe, simplemente dejar sin borrar y notificar
+                  alert("Para eliminar obras, ejecutá el SQL de migración (obras_v3_schema.sql)")
                 );
-              })}
-            </div>
-          );
-        })}
-
-        <style>{`
-          @keyframes gantt-pulse { 0%,100%{opacity:1} 50%{opacity:.7} }
-          @import url('https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;600&family=IBM+Plex+Sans:wght@300;400;500;700&display=swap');
-        `}</style>
-      </div>
-    );
+            }
+          } else if (tipo === "etapa") {
+            await supabase.from("obra_etapas").update({ deleted_at: new Date().toISOString() }).eq("id", item.id);
+          } else if (tipo === "tarea") {
+            await supabase.from("obra_tareas").update({ deleted_at: new Date().toISOString() }).eq("id", item.id);
+          }
+        } catch {}
+        if (detail?.item?.id === item.id) setDetail(null);
+        setConfirmModal(null);
+        cargar();
+      },
+    });
   }
 
-  // ── DETALLE EXPANDIDO ─────────────────────────────────────────
-  function GanttDetail({ obra, procs, isLinea }) {
-    const tl     = tlDeObra(obra.id);
-    const est    = C[obra.estado] ?? C.activa;
-    const linInfo = lineas.find(l => l.id === obra.linea_id);
+  // ── DERIVADOS ─────────────────────────────────────────────────
+  const obrasFilt = useMemo(() => obras.filter(o => {
+    if (filtroEstado !== "todos" && o.estado !== filtroEstado) return false;
+    if (filtroLinea  !== "todas" && o.linea_id !== filtroLinea) return false;
+    return true;
+  }), [obras, filtroEstado, filtroLinea]);
 
+  const stats = useMemo(() => ({
+    activas:    obras.filter(o => o.estado === "activa").length,
+    pausadas:   obras.filter(o => o.estado === "pausada").length,
+    terminadas: obras.filter(o => o.estado === "terminada").length,
+  }), [obras]);
+
+  // ═══════════════════════════════════════════════════════════════
+  //  ÁRBOL — panel izquierdo
+  // ═══════════════════════════════════════════════════════════════
+  function TreePanel() {
     return (
       <div style={{
-        margin: "6px 0 14px 130px", padding: "18px 20px",
-        background: "rgba(255,255,255,0.032)",
-        backdropFilter: "blur(40px) saturate(130%)",
-        WebkitBackdropFilter: "blur(40px) saturate(130%)",
-        border: `1px solid ${C.b1}`, borderRadius: 12,
-        boxShadow: "0 8px 32px rgba(0,0,0,0.35), inset 0 1px 0 rgba(255,255,255,0.06)",
+        width: 290, flexShrink: 0,
+        borderRight: `1px solid ${C.b0}`,
+        background: "rgba(4,7,4,0.85)",
+        overflow: "auto", display: "flex", flexDirection: "column",
       }}>
-        {/* Header */}
-        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: 14 }}>
-          <div>
-            <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 4 }}>
-              <span style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: 17, color: C.t0, fontWeight: 700, letterSpacing: 1 }}>
-                {obra.codigo}
-              </span>
-              <Chip estado={obra.estado} />
-              {linInfo && (
-                <span style={{ fontSize: 9, color: C.t1, letterSpacing: 2, textTransform: "uppercase" }}>
-                  {linInfo.nombre}
-                </span>
-              )}
-            </div>
-            {obra.descripcion && <div style={{ fontSize: 11, color: C.t1 }}>{obra.descripcion}</div>}
-          </div>
+        <div style={{ padding: "12px 14px 10px", borderBottom: `1px solid ${C.b0}`, display: "flex", justifyContent: "space-between", alignItems: "center", flexShrink: 0 }}>
+          <span style={{ fontSize: 9, letterSpacing: 3, color: C.t2, textTransform: "uppercase" }}>Proyectos</span>
           {esGestion && (
-            <div style={{ display: "flex", gap: 5 }}>
-              {obra.estado !== "activa"    && <button style={S.btnSm} onClick={() => cambiarEstado(obra.id, "activa")}>Activar</button>}
-              {obra.estado !== "pausada"   && <button style={S.btnSm} onClick={() => cambiarEstado(obra.id, "pausada")}>Pausar</button>}
-              {obra.estado !== "terminada" && (
-                <button style={{ ...S.btnSm, color: C.completado.text, borderColor: "rgba(50,100,70,0.3)" }}
-                  onClick={() => cambiarEstado(obra.id, "terminada")}>
-                  Terminar
-                </button>
-              )}
-            </div>
+            <button type="button" onClick={() => setShowObraModal(true)} style={{ border: "1px solid rgba(212,145,74,0.35)", background: "rgba(212,145,74,0.1)", color: C.amber, padding: "4px 11px", borderRadius: 6, cursor: "pointer", fontFamily: C.sans, fontSize: 10, fontWeight: 600 }}>
+              + Obra
+            </button>
           )}
         </div>
 
-        {/* Tabla de procesos */}
-        <div style={{ borderTop: `1px solid ${C.b0}`, paddingTop: 10 }}>
-          {procs.map((p, idx) => {
-            const t        = isLinea ? tl.find(x => x.linea_proceso_id === p.id) : tl.find(x => x.proceso_id === p.id);
-            const col      = procColor(t, p);
-            const est2     = num(p.dias_estimados ?? p.dias_esperados);
-            const diasAct  = t?.fecha_inicio ? (t.fecha_fin ? diasEntre(t.fecha_inicio, t.fecha_fin) : diasDesde(t.fecha_inicio)) : null;
-            const prom     = promedios[p.id];
-            const pctBar   = diasAct != null && est2 > 0 ? Math.min(100, Math.round((diasAct / est2) * 100)) : 0;
+        <div style={{ flex: 1, overflowY: "auto", padding: "6px 0" }}>
+          {loading && <div style={{ textAlign: "center", padding: 40, color: C.t2, fontSize: 11 }}>Cargando…</div>}
+
+          {!loading && obrasFilt.map(obra => {
+            const obraEtapas = etapasDeObra(obra.id);
+            const expanded   = expandedObras.has(obra.id);
+            const obrapct    = pctObra(obra.id);
+            const oC         = C.obra[obra.estado] ?? C.obra.activa;
+            const isDetail   = detail?.item?.id === obra.id && detail?.type === "obra";
 
             return (
-              <div key={p.id} style={{
-                display: "grid", gridTemplateColumns: "200px 1fr 100px 130px",
-                gap: 10, alignItems: "center",
-                padding: "8px 10px",
-                margin: "2px 0",
-                borderRadius: 8,
-                background: t ? "rgba(255,255,255,0.02)" : "transparent",
-                border: t ? `1px solid rgba(255,255,255,0.04)` : "1px solid transparent",
-                transition: "background 0.2s",
-              }}>
-                {/* Nombre */}
-                <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
-                  <div style={{ width: 7, height: 7, borderRadius: "50%", background: t ? col.text : C.t2, flexShrink: 0, boxShadow: t && t.estado !== "pendiente" ? `0 0 6px ${col.text}88` : "none" }} />
-                  <span style={{ fontSize: 12, color: t ? "#a8a8a8" : C.t1 }}>{p.nombre}</span>
-                  {p.genera_aviso && <span style={{ fontSize: 8, color: C[p.tipo_aviso]?.color ?? C.t2, letterSpacing: 0.5 }}>·aviso</span>}
+              <div key={obra.id}>
+                {/* OBRA */}
+                <div onClick={() => { toggleObra(obra.id); setDetail({ item: obra, type: "obra" }); }} style={{
+                  display: "flex", alignItems: "center", gap: 7, padding: "7px 14px 7px 10px", cursor: "pointer",
+                  background: isDetail ? C.s1 : "transparent",
+                  borderLeft: isDetail ? `2px solid ${oC.dot}` : "2px solid transparent",
+                  transition: "background .13s",
+                }}>
+                  <span style={{ fontSize: 8, color: C.t2, width: 10, flexShrink: 0, display: "inline-block", transform: expanded ? "rotate(90deg)" : "none", transition: "transform .18s" }}>▶</span>
+                  <Dot color={oC.dot} size={6} glow />
+                  <div style={{ flex: 1, minWidth: 0 }}>
+                    <div style={{ fontFamily: C.mono, fontSize: 12, color: isDetail ? C.t0 : "#7a9070", letterSpacing: 0.5, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{obra.codigo}</div>
+                    <ProgressBar value={obrapct} color={oC.dot} height={2} />
+                  </div>
+                  <span style={{ fontSize: 9, color: C.t2, fontFamily: C.mono }}>{obrapct}%</span>
                 </div>
 
-                {/* Barra */}
-                <div style={{ height: 3, background: "rgba(255,255,255,0.06)", borderRadius: 99, overflow: "hidden" }}>
-                  <div style={{
-                    height: "100%", width: `${pctBar}%`,
-                    background: `linear-gradient(90deg, ${col.text}cc, ${col.text})`,
-                    borderRadius: 99, transition: "width .5s ease",
-                  }} />
-                </div>
+                {/* ETAPAS */}
+                {expanded && (
+                  <div>
+                    {obraEtapas.map(etapa => {
+                      const etapaT = tareasDeEtapa(etapa.id);
+                      const etExp  = expandedEtapas.has(etapa.id);
+                      const epct   = pctEtapa(etapa.id);
+                      const eD     = detail?.item?.id === etapa.id && detail?.type === "etapa";
 
-                {/* Días */}
-                <div style={{ textAlign: "right" }}>
-                  {diasAct != null ? (
-                    <span style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: 11, color: col.text }}>
-                      {diasAct}/{est2}d
-                    </span>
-                  ) : (
-                    <span style={{ fontSize: 11, color: C.t2 }}>{est2}d est.</span>
-                  )}
-                  {prom && diasAct != null && (
-                    <div style={{ fontSize: 9, color: C.t2, marginTop: 1 }}>
-                      prom. {Math.round(prom)}d
-                    </div>
-                  )}
-                </div>
+                      return (
+                        <div key={etapa.id}>
+                          <div onClick={() => { toggleEtapa(etapa.id); setDetail({ item: etapa, type: "etapa" }); }} style={{
+                            display: "flex", alignItems: "center", gap: 6, padding: "5px 14px 5px 26px", cursor: "pointer",
+                            background: eD ? C.s0 : "transparent", transition: "background .13s",
+                          }}>
+                            <span style={{ fontSize: 7, color: C.t2, width: 8, flexShrink: 0, display: "inline-block", transform: etExp ? "rotate(90deg)" : "none", transition: "transform .18s" }}>▶</span>
+                            <div style={{ width: 3, height: 18, borderRadius: 2, background: etapa.color ?? C.t1, flexShrink: 0 }} />
+                            <div style={{ flex: 1, minWidth: 0 }}>
+                              <div style={{ fontSize: 11, color: eD ? "#9aaa90" : "#4a6040", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{etapa.nombre}</div>
+                              {etapaT.length > 0 && <ProgressBar value={epct} color={C.etapa[etapa.estado]?.dot ?? C.t1} height={1.5} />}
+                            </div>
+                            <span style={{ fontSize: 9, color: C.t2, fontFamily: C.mono }}>{etapaT.length || ""}</span>
+                          </div>
 
-                {/* Acciones */}
-                {esGestion ? (
-                  <div style={{ display: "flex", gap: 4, justifyContent: "flex-end" }}>
-                    {(!t || t.estado === "pendiente") && (
-                      <button style={{ ...S.btnSm, fontSize: 10 }}
-                        onClick={() => iniciarProc(obra.id, t?.id ?? null, p, isLinea)}>
-                        Iniciar
-                      </button>
-                    )}
-                    {t?.estado === "en_curso" && (
-                      <button style={{ ...S.btnSm, fontSize: 10, color: C.completado.text, borderColor: "rgba(44,100,70,0.3)" }}
-                        onClick={() => completarProc(t.id)}>
-                        Completar
-                      </button>
-                    )}
-                    {t?.estado === "completado" && (
-                      <span style={{ fontSize: 10, color: C.t2, fontFamily: "'JetBrains Mono', monospace" }}>
-                        {fmtDate(t.fecha_fin)}
-                      </span>
+                          {etExp && (
+                            <div>
+                              {etapaT.map(tarea => {
+                                const tc = C.tarea[tarea.estado] ?? C.tarea.pendiente;
+                                const tD = detail?.item?.id === tarea.id && detail?.type === "tarea";
+                                return (
+                                  <div key={tarea.id} onClick={() => setDetail({ item: tarea, type: "tarea" })} style={{
+                                    display: "flex", alignItems: "center", gap: 5, padding: "4px 14px 4px 44px",
+                                    cursor: "pointer", background: tD ? C.s0 : "transparent", transition: "background .12s",
+                                  }}>
+                                    <Dot color={tc.text} size={5} glow={tarea.estado === "en_progreso"} />
+                                    <span style={{ fontSize: 10, color: tD ? "#8a9a80" : "#3a4838", flex: 1, minWidth: 0, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{tarea.nombre}</span>
+                                  </div>
+                                );
+                              })}
+                              {!etapa.isVirtual && esGestion && (
+                                <div onClick={() => setTareaModal({ etapaId: etapa.id, obraId: etapa.obra_id })} style={{ padding: "3px 14px 3px 44px", cursor: "pointer" }}>
+                                  <span style={{ fontSize: 9, color: C.t2 }}>+ tarea</span>
+                                </div>
+                              )}
+                            </div>
+                          )}
+                        </div>
+                      );
+                    })}
+                    {esGestion && (
+                      <div onClick={() => setEtapaModal({ obraId: obra.id })} style={{ padding: "4px 14px 4px 26px", cursor: "pointer" }}>
+                        <span style={{ fontSize: 9, color: C.t2 }}>+ etapa</span>
+                      </div>
                     )}
                   </div>
-                ) : <div />}
+                )}
               </div>
             );
           })}
-          {!procs.length && (
-            <div style={{ color: C.t2, fontSize: 12, textAlign: "center", padding: "10px 0" }}>
-              Sin procesos asignados. Asigná una línea a la obra para ver etapas.
-            </div>
-          )}
-        </div>
 
-        {/* Fechas */}
-        <div style={{ display: "flex", gap: 18, marginTop: 12, paddingTop: 10, borderTop: `1px solid ${C.b0}` }}>
-          {[["Inicio", obra.fecha_inicio], ["Fin est.", obra.fecha_fin_estimada], ["Fin real", obra.fecha_fin_real]]
-            .filter(([, v]) => v)
-            .map(([label, val]) => (
-              <div key={label}>
-                <div style={S.label}>{label}</div>
-                <div style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: 11, color: C.t0, opacity: 0.65, letterSpacing: 0.5 }}>{fmtDate(val)}</div>
-              </div>
-            ))}
-          {obra.fecha_inicio && !obra.fecha_fin_real && (
-            <div>
-              <div style={S.label}>En producción</div>
-              <div style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: 11, color: C.t0, opacity: 0.65, letterSpacing: 0.5 }}>
-                {diasDesde(obra.fecha_inicio)}d
-              </div>
-            </div>
+          {!loading && !obrasFilt.length && (
+            <div style={{ textAlign: "center", padding: "32px 16px", color: C.t2, fontSize: 11 }}>Sin obras</div>
           )}
         </div>
       </div>
     );
   }
 
-  // ── CARDS VIEW ────────────────────────────────────────────────
-  function CardsView() {
+  // ═══════════════════════════════════════════════════════════════
+  //  GANTT CENTRAL
+  // ═══════════════════════════════════════════════════════════════
+  function GanttMain() {
+    if (loading) return (
+      <div style={{ flex: 1, display: "flex", alignItems: "center", justifyContent: "center", color: C.t2, fontSize: 11, letterSpacing: 3, fontFamily: C.mono }}>
+        Cargando…
+      </div>
+    );
+    if (!obrasFilt.length) return (
+      <div style={{ flex: 1, display: "flex", alignItems: "center", justifyContent: "center" }}>
+        <div style={{ textAlign: "center" }}>
+          <div style={{ fontSize: 28, color: C.t2, marginBottom: 10, letterSpacing: 8 }}>◦</div>
+          <div style={{ color: C.t2, fontSize: 11, letterSpacing: 2 }}>Sin obras con este filtro</div>
+          {esGestion && (
+            <button type="button" onClick={() => setShowObraModal(true)} style={{ marginTop: 16, border: "1px solid rgba(212,145,74,0.3)", background: "rgba(212,145,74,0.1)", color: C.amber, padding: "8px 20px", borderRadius: 8, cursor: "pointer", fontFamily: C.sans, fontSize: 12 }}>
+              + Nueva obra
+            </button>
+          )}
+        </div>
+      </div>
+    );
+
     return (
-      <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill,minmax(280px,1fr))", gap: 8 }}>
+      <div style={{ flex: 1, overflowY: "auto", padding: "16px 18px" }}>
         {obrasFilt.map(obra => {
-          const procs    = procsDeObra(obra);
-          const isLinea  = !!obra.linea_id;
-          const tl       = tlDeObra(obra.id);
-          const pct      = pctObra(obra);
-          const diasEst  = diasEstimados(obra);
-          const diasR    = diasDesde(obra.fecha_inicio);
-          const ratio    = diasEst > 0 ? diasR / diasEst : 0;
-          const timeCol  = ratio <= 0.85 ? C.completado.text : ratio <= 1.1 ? C.en_curso.text : C.demorado.text;
-          const est      = C[obra.estado] ?? C.activa;
-          const avisPend = avisos.filter(a => a.obra_id === obra.id && a.estado === "pendiente").length;
-          const linInfo  = lineas.find(l => l.id === obra.linea_id);
-          const sel      = selId === obra.id;
+          const obraEtapas = etapasDeObra(obra.id);
+          const totalDias  = obraEtapas.reduce((s, e) => s + num(e.dias_estimados), 0) || 1;
+          const diasR      = diasDesde(obra.fecha_inicio);
+          const obrapct    = pctObra(obra.id);
+          const oC         = C.obra[obra.estado] ?? C.obra.activa;
+          const expanded   = expandedObras.has(obra.id);
 
           return (
-            <div key={obra.id}
-              style={{
-                ...S.card, cursor: "pointer", marginBottom: 0,
-                border: `1px solid ${sel ? C.b1 : C.b0}`,
-                background: sel ? "rgba(255,255,255,0.055)" : C.s0,
-                transition: "background 0.15s, border-color 0.15s, transform 0.12s",
-              }}
-              onClick={() => setSelId(sel ? null : obra.id)}
-            >
-              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: 10 }}>
-                <div>
-                  <span style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: 15, color: "#d8d8d8", fontWeight: 600 }}>
-                    {obra.codigo}
-                  </span>
-                  {linInfo && (
-                    <div style={{ fontSize: 9, color: C.t1, letterSpacing: 2, textTransform: "uppercase", marginTop: 2 }}>
-                      {linInfo.nombre}
-                    </div>
-                  )}
+            <div key={obra.id} style={{ marginBottom: 20 }}>
+              {/* ── OBRA ROW ── */}
+              <div onClick={() => { toggleObra(obra.id); setDetail({ item: obra, type: "obra" }); }} style={{
+                display: "flex", alignItems: "center", gap: 10, padding: "8px 12px", borderRadius: 9,
+                background: C.s0, border: `1px solid ${C.b0}`, cursor: "pointer",
+                transition: "border-color .13s, background .13s",
+                borderLeft: `3px solid ${oC.dot}`,
+              }}>
+                <span style={{ fontSize: 10, color: C.t2, transform: expanded ? "rotate(90deg)" : "none", transition: "transform .2s", flexShrink: 0 }}>▶</span>
+                <span style={{ fontFamily: C.mono, fontSize: 14, color: "#8a9a80", fontWeight: 600, letterSpacing: 1, flex: "0 0 108px" }}>{obra.codigo}</span>
+                {obra.linea_nombre && (
+                  <span style={{ fontSize: 8, color: C.t2, letterSpacing: 2, textTransform: "uppercase", flex: "0 0 60px", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{obra.linea_nombre}</span>
+                )}
+                <div style={{ flex: 1 }}>
+                  <ProgressBar value={obrapct} color={oC.dot} height={4} />
                 </div>
-                <div style={{ display: "flex", gap: 4, flexDirection: "column", alignItems: "flex-end" }}>
-                  <Chip estado={obra.estado} />
-                  {avisPend > 0 && (
-                    <span style={{ fontSize: 9, padding: "2px 6px", borderRadius: 99, background: "rgba(200,144,64,0.1)", color: C.compra.color, border: "1px solid rgba(200,144,64,0.28)", letterSpacing: 0.5 }}>
-                      {avisPend} aviso{avisPend !== 1 ? "s" : ""}
-                    </span>
-                  )}
-                </div>
+                <span style={{ fontFamily: C.mono, fontSize: 10, color: C.t1, flex: "0 0 32px", textAlign: "right" }}>{obrapct}%</span>
+                <span style={{ fontFamily: C.mono, fontSize: 9, color: C.t2, flex: "0 0 40px", textAlign: "right" }}>{diasR}d</span>
+                {esGestion && (
+                  <div style={{ display: "flex", gap: 4 }}>
+                    <Btn variant="sm" onClick={e => { e.stopPropagation(); cambiarEstadoObra(obra.id, obra.estado === "activa" ? "pausada" : "activa"); }}>
+                      {obra.estado === "activa" ? "Pausar" : "Activar"}
+                    </Btn>
+                    {obra.estado !== "terminada" && (
+                      <Btn variant="sm" sx={{ color: C.etapa.completado.text, borderColor: "rgba(40,100,65,0.3)" }}
+                        onClick={e => { e.stopPropagation(); cambiarEstadoObra(obra.id, "terminada"); }}>
+                        Terminar
+                      </Btn>
+                    )}
+                    <button type="button" onClick={e => { e.stopPropagation(); pedirBorrado(obra, "obra"); }} style={{ border: "none", background: "transparent", color: C.t2, cursor: "pointer", fontSize: 13, padding: "2px 5px" }}>×</button>
+                  </div>
+                )}
               </div>
 
-              {/* Barra mini */}
-              <div style={{ height: 2, background: "rgba(255,255,255,0.06)", borderRadius: 99, overflow: "hidden", marginBottom: 9 }}>
-                <div style={{
-                  height: "100%", width: `${pct}%`,
-                  background: `linear-gradient(90deg, ${timeCol}88, ${timeCol})`,
-                  borderRadius: 99, transition: "width .5s",
-                }} />
-              </div>
-
-              <div style={{ display: "flex", justifyContent: "space-between" }}>
-                <span style={{ fontSize: 11, color: C.t1 }}>{pct}% completado</span>
-                <span style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: 11, color: timeCol }}>
-                  {diasR}/{diasEst}d
-                </span>
-              </div>
-
-              {sel && (
-                <div style={{ marginTop: 12, borderTop: `1px solid ${C.b0}`, paddingTop: 10 }}>
-                  <GanttDetail obra={obra} procs={procs} isLinea={isLinea} />
-                </div>
-              )}
-            </div>
-          );
-        })}
-      </div>
-    );
-  }
-
-  // ── MODAL AVISOS ──────────────────────────────────────────────
-  function ModalAvisos() {
-    return (
-      <div style={S.overlay} onClick={e => e.target === e.currentTarget && setShowAvisos(false)}>
-        <div style={{ ...S.modalLg, maxWidth: 640 }}>
-          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 20 }}>
-            <div>
-              <div style={{ fontSize: 16, color: C.t0, fontWeight: 600, letterSpacing: 0.2 }}>Avisos internos</div>
-              <div style={{ fontSize: 11, color: C.t1, marginTop: 3 }}>{avisosPend.length} pendiente{avisosPend.length !== 1 ? "s" : ""}</div>
-            </div>
-            <button style={{ ...S.btnGh, fontSize: 18, lineHeight: 1 }} onClick={() => setShowAvisos(false)}>×</button>
-          </div>
-
-          {avisos.length === 0 && (
-            <div style={{ textAlign: "center", padding: "24px 0", color: C.t2, fontSize: 13 }}>Sin avisos generados</div>
-          )}
-
-          {["pendiente", "resuelto"].map(estado => {
-            const rows = avisos.filter(a => a.estado === estado);
-            if (!rows.length) return null;
-            return (
-              <div key={estado} style={{ marginBottom: 16 }}>
-                <div style={{ fontSize: 9, letterSpacing: 2.5, color: C.t2, marginBottom: 7, textTransform: "uppercase" }}>
-                  {estado === "pendiente" ? "Pendientes" : "Resueltos"}
-                </div>
-                {rows.map(a => {
-                  const ti = C[a.tipo] ?? C.aviso;
-                  return (
-                    <div key={a.id} style={{
-                      display: "flex", gap: 10, alignItems: "flex-start",
-                      padding: "11px 14px", borderRadius: 10, marginBottom: 5,
-                      background: estado === "pendiente" ? "rgba(255,255,255,0.04)" : "transparent",
-                      backdropFilter: estado === "pendiente" ? "blur(20px)" : "none",
-                      border: `1px solid ${estado === "pendiente" ? C.b0 : "transparent"}`,
-                      opacity: estado === "resuelto" ? 0.35 : 1,
-                      transition: "opacity 0.2s",
-                    }}>
-                      <span style={{
-                        fontSize: 8, padding: "3px 7px", borderRadius: 4, letterSpacing: 1,
-                        color: ti.color, border: `1px solid ${ti.color}44`, background: `${ti.color}14`,
-                        flexShrink: 0, marginTop: 1, textTransform: "uppercase",
-                      }}>{ti.label}</span>
-                      <div style={{ flex: 1, minWidth: 0 }}>
-                        <div style={{ display: "flex", gap: 8, alignItems: "baseline" }}>
-                          <span style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: 12, color: "#a0a0a0" }}>{a.obra_codigo}</span>
-                          <span style={{ fontSize: 11, color: C.t1 }}>{a.proceso_nombre}</span>
+              {/* ── ETAPAS EXPANDIDAS ── */}
+              {expanded && (
+                <div style={{ paddingLeft: 20, paddingTop: 6 }}>
+                  {/* Mini gantt timeline */}
+                  {obraEtapas.length > 0 && (
+                    <>
+                      {/* Label row */}
+                      <div style={{ display: "flex", paddingLeft: 128, marginBottom: 2 }}>
+                        {obraEtapas.map(e => (
+                          <div key={e.id} style={{ flex: num(e.dias_estimados) / totalDias, fontSize: 7, color: C.t2, letterSpacing: 1, textTransform: "uppercase", overflow: "hidden", textOverflow: "clip", whiteSpace: "nowrap", textAlign: "center", paddingRight: 2 }}>
+                            {e.nombre}
+                          </div>
+                        ))}
+                        <div style={{ flex: "0 0 44px" }} />
+                      </div>
+                      {/* Timeline bar */}
+                      <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 6, paddingLeft: 4 }}>
+                        <div style={{ width: 116, flexShrink: 0, fontSize: 9, color: C.t2 }}>Timeline</div>
+                        <div style={{ flex: 1, height: 16, display: "flex", borderRadius: 4, overflow: "hidden", border: `1px solid ${C.b0}`, background: "rgba(0,0,0,0.3)" }}>
+                          {obraEtapas.map((e, idx) => {
+                            const ec = C.etapa[e.estado] ?? C.etapa.pendiente;
+                            return (
+                              <div key={e.id} title={`${e.nombre} · ${e.estado}`}
+                                onClick={() => !e.isVirtual && setDetail({ item: e, type: "etapa" })}
+                                style={{
+                                  flex: num(e.dias_estimados) / totalDias, height: "100%",
+                                  background: e.estado === "completado"
+                                    ? `linear-gradient(90deg, ${ec.bar}, rgba(74,184,112,0.28))`
+                                    : e.estado === "en_curso"
+                                      ? `linear-gradient(90deg, ${ec.bar}, rgba(212,145,74,0.28))`
+                                      : ec.bar,
+                                  borderRight: idx < obraEtapas.length - 1 ? "1px solid rgba(0,0,0,0.3)" : "none",
+                                  cursor: !e.isVirtual ? "pointer" : "default",
+                                  ...(e.estado === "en_curso" ? { animation: "gPulse 2.5s ease infinite" } : {}),
+                                }}
+                              />
+                            );
+                          })}
                         </div>
-                        <div style={{ fontSize: 12, color: "#888", marginTop: 2 }}>{a.mensaje}</div>
-                        <div style={{ fontSize: 9, color: C.t2, marginTop: 3 }}>
-                          {new Date(a.created_at).toLocaleString("es-AR", { day: "2-digit", month: "2-digit", hour: "2-digit", minute: "2-digit" })}
+                        <div style={{ flex: "0 0 36px", textAlign: "right" }}>
+                          <span style={{ fontFamily: C.mono, fontSize: 9, color: C.t2 }}>{diasR}d</span>
                         </div>
                       </div>
-                      {estado === "pendiente" && esGestion && (
-                        <button style={{ ...S.btnSm, fontSize: 10, color: C.completado.text, borderColor: "rgba(44,100,70,0.3)", flexShrink: 0 }}
-                          onClick={() => resolverAviso(a.id)}>
-                          Resolver
-                        </button>
-                      )}
-                    </div>
-                  );
-                })}
-              </div>
-            );
-          })}
-        </div>
-      </div>
-    );
-  }
+                    </>
+                  )}
 
-  // ── MODAL CONFIG LÍNEAS ───────────────────────────────────────
-  function ModalConfig() {
-    const procsDeLinea = cfgLinea
-      ? lProcs.filter(p => p.linea_id === cfgLinea).sort((a, b) => a.orden - b.orden)
-      : [];
-    const lineaSel = lineas.find(l => l.id === cfgLinea);
+                  {/* Filas de etapas */}
+                  {obraEtapas.map(etapa => {
+                    const etapaT = tareasDeEtapa(etapa.id);
+                    const etExp  = expandedEtapas.has(etapa.id);
+                    const ec     = C.etapa[etapa.estado] ?? C.etapa.pendiente;
+                    const epct   = pctEtapa(etapa.id);
 
-    return (
-      <div style={S.overlay} onClick={e => e.target === e.currentTarget && setShowConfig(false)}>
-        <div style={S.modalLg}>
-          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 20 }}>
-            <div>
-              <div style={{ fontSize: 16, color: C.t0, fontWeight: 600, letterSpacing: 0.2 }}>Líneas de producción</div>
-              <div style={{ fontSize: 11, color: C.t1, marginTop: 3 }}>Configuración de líneas y etapas</div>
-            </div>
-            <button style={{ ...S.btnGh, fontSize: 18, lineHeight: 1 }} onClick={() => setShowConfig(false)}>×</button>
-          </div>
-
-          {/* Sub-tabs */}
-          <div style={{ display: "flex", gap: 3, borderBottom: `1px solid ${C.b0}`, marginBottom: 18, paddingBottom: 6 }}>
-            {[["lineas", "Líneas"], ["procesos", "Etapas de línea"]].map(([v, l]) => (
-              <button key={v} style={S.pill(cfgTab === v)} onClick={() => setCfgTab(v)}>{l}</button>
-            ))}
-          </div>
-
-          {/* TAB LÍNEAS */}
-          {cfgTab === "lineas" && (
-            <div style={{ display: "grid", gridTemplateColumns: "1fr 280px", gap: 20 }}>
-              <div>
-                <div style={{ fontSize: 9, letterSpacing: 2, color: C.t1, marginBottom: 10, textTransform: "uppercase" }}>Líneas activas</div>
-                {lineas.map(l => (
-                  <div key={l.id} style={{
-                    display: "flex", justifyContent: "space-between", alignItems: "center",
-                    padding: "10px 14px", borderRadius: 10, marginBottom: 5, cursor: "pointer",
-                    background: cfgLinea === l.id ? "rgba(255,255,255,0.07)" : "rgba(255,255,255,0.03)",
-                    border: `1px solid ${cfgLinea === l.id ? C.b1 : C.b0}`,
-                    backdropFilter: "blur(20px)",
-                    transition: "background 0.15s, border-color 0.15s",
-                    boxShadow: cfgLinea === l.id ? "inset 0 1px 0 rgba(255,255,255,0.06)" : "none",
-                  }}
-                    onClick={() => { setCfgLinea(l.id); setCfgTab("procesos"); }}
-                  >
-                    <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-                      <div style={{ width: 8, height: 8, borderRadius: "50%", background: l.color, boxShadow: `0 0 8px ${l.color}88` }} />
-                      <span style={{ fontSize: 13, color: C.t0 }}>{l.nombre}</span>
-                      <span style={{ fontSize: 10, color: C.t1 }}>
-                        {lProcs.filter(p => p.linea_id === l.id).length} etapas
-                      </span>
-                    </div>
-                    <button style={S.btnGh} onClick={e => { e.stopPropagation(); eliminarLinea(l.id); }}>×</button>
-                  </div>
-                ))}
-                {!lineas.length && <div style={{ color: C.t2, fontSize: 11, padding: "16px 0", letterSpacing: 1.5, textTransform: "uppercase", fontFamily: "'JetBrains Mono', monospace", textAlign: "center" }}>Sin líneas configuradas</div>}
-              </div>
-
-              <div>
-                <div style={{ fontSize: 9, letterSpacing: 2, color: C.t1, marginBottom: 10, textTransform: "uppercase" }}>Nueva línea</div>
-                <form onSubmit={crearLinea}>
-                  <label style={S.label}>Nombre</label>
-                  <input style={{ ...S.input, marginBottom: 10 }} required placeholder="K65"
-                    value={formLinea.nombre} onChange={e => setFormLinea(f => ({ ...f, nombre: e.target.value }))} />
-                  <label style={S.label}>Color</label>
-                  <div style={{ display: "flex", gap: 8, marginBottom: 14 }}>
-                    <input type="color" style={{ width: 30, height: 30, border: "none", background: "none", cursor: "pointer" }}
-                      value={formLinea.color} onChange={e => setFormLinea(f => ({ ...f, color: e.target.value }))} />
-                    <input style={S.input} value={formLinea.color} onChange={e => setFormLinea(f => ({ ...f, color: e.target.value }))} />
-                  </div>
-                  <button type="submit" style={S.btnPri}>Crear línea</button>
-                </form>
-              </div>
-            </div>
-          )}
-
-          {/* TAB ETAPAS */}
-          {cfgTab === "procesos" && (
-            <div>
-              {!cfgLinea ? (
-                <div style={{ color: C.t2, fontSize: 13, textAlign: "center", padding: "20px 0" }}>
-                  Seleccioná una línea en el tab anterior
-                </div>
-              ) : (
-                <div style={{ display: "grid", gridTemplateColumns: "1fr 300px", gap: 20 }}>
-
-                  {/* Lista drag & drop */}
-                  <div>
-                    <div style={{ display: "flex", gap: 6, alignItems: "center", marginBottom: 10 }}>
-                      {lineaSel && <div style={{ width: 7, height: 7, borderRadius: "50%", background: lineaSel.color }} />}
-                      <span style={{ fontSize: 12, color: "#b0b0b0" }}>{lineaSel?.nombre}</span>
-                      <span style={{ fontSize: 10, color: C.t1 }}>— arrastrá ⠿ para reordenar</span>
-                    </div>
-                    <DragList
-                      items={procsDeLinea}
-                      onReorder={reordenarProcs}
-                      renderItem={(p) => (
-                        <div style={{
-                          display: "grid", gridTemplateColumns: "14px 1fr 52px 32px 24px",
-                          gap: 8, alignItems: "center",
-                          padding: "8px 12px", borderRadius: 8, marginBottom: 3,
-                          background: "rgba(255,255,255,0.04)",
-                          backdropFilter: "blur(20px)",
-                          border: `1px solid ${C.b0}`,
-                          opacity: p.activo ? 1 : 0.3,
-                          transition: "opacity 0.2s",
+                    return (
+                      <div key={etapa.id} style={{ marginBottom: 3 }}>
+                        <div onClick={() => { toggleEtapa(etapa.id); !etapa.isVirtual && setDetail({ item: etapa, type: "etapa" }); }} style={{
+                          display: "flex", alignItems: "center", gap: 7, padding: "5px 8px", borderRadius: 7,
+                          background: etExp ? C.s0 : "transparent", cursor: "pointer", transition: "background .12s",
                         }}>
-                          <span style={{ color: C.t2, fontSize: 13, cursor: "grab", userSelect: "none" }}>⠿</span>
-                          <div>
-                            <div style={{ fontSize: 12, color: "#a8a8a8" }}>{p.nombre}</div>
-                            {p.genera_aviso && (
-                              <div style={{ fontSize: 9, color: C[p.tipo_aviso]?.color ?? C.t1, letterSpacing: 0.5 }}>
-                                {C[p.tipo_aviso]?.label}
+                          <span style={{ fontSize: 7, color: C.t2, width: 8, flexShrink: 0, transform: etExp ? "rotate(90deg)" : "none", display: "inline-block", transition: "transform .15s" }}>▶</span>
+                          <div style={{ width: 3, height: 22, borderRadius: 2, background: etapa.color ?? "#4a6870", flexShrink: 0 }} />
+                          <div style={{ width: 100, flexShrink: 0 }}>
+                            <div style={{ fontSize: 11, color: "#4a6040", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{etapa.nombre}</div>
+                            {etapaT.length > 0 && <div style={{ fontSize: 9, color: C.t2 }}>{etapaT.filter(t => t.estado === "finalizada").length}/{etapaT.length}</div>}
+                          </div>
+                          <div style={{ flex: 1 }}>
+                            <ProgressBar value={epct} color={ec.dot} height={3} />
+                          </div>
+                          <span style={{ fontFamily: C.mono, fontSize: 9, color: ec.text, flex: "0 0 30px", textAlign: "right" }}>{epct}%</span>
+                          <span style={{ fontFamily: C.mono, fontSize: 9, color: C.t2, flex: "0 0 32px", textAlign: "right" }}>{etapa.dias_estimados ?? 0}d</span>
+                          {esGestion && !etapa.isVirtual && (
+                            <div style={{ display: "flex", gap: 2 }}>
+                              {[["pendiente","—"],["en_curso","▶"],["completado","✓"]].map(([est, ico]) => (
+                                <button key={est} type="button" onClick={e => { e.stopPropagation(); cambiarEstadoEtapa(etapa.id, est); }}
+                                  style={{ width: 18, height: 18, borderRadius: 4, border: "none", cursor: "pointer", fontSize: 9,
+                                    background: etapa.estado === est ? `${(C.etapa[est] ?? C.etapa.pendiente).dot}28` : "rgba(255,255,255,0.03)",
+                                    color: etapa.estado === est ? (C.etapa[est] ?? C.etapa.pendiente).dot : C.t2 }}>
+                                  {ico}
+                                </button>
+                              ))}
+                              <button type="button" onClick={e => { e.stopPropagation(); pedirBorrado(etapa, "etapa"); }}
+                                style={{ border: "none", background: "transparent", color: C.t2, cursor: "pointer", fontSize: 11, padding: "1px 4px" }}>×</button>
+                            </div>
+                          )}
+                        </div>
+
+                        {/* TAREAS */}
+                        {etExp && (
+                          <div style={{ paddingLeft: 20 }}>
+                            {etapaT.map(tarea => {
+                              const tc = C.tarea[tarea.estado] ?? C.tarea.pendiente;
+                              return (
+                                <div key={tarea.id} onClick={() => setDetail({ item: tarea, type: "tarea" })} style={{
+                                  display: "flex", alignItems: "center", gap: 7, padding: "4px 8px", borderRadius: 5,
+                                  cursor: "pointer", transition: "background .12s",
+                                }}>
+                                  <Dot color={tc.text} size={5} glow={tarea.estado === "en_progreso"} />
+                                  <span style={{ flex: "0 0 108px", fontSize: 10, color: "#384838", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{tarea.nombre}</span>
+                                  <div style={{ flex: 1, display: "flex", alignItems: "center", gap: 8 }}>
+                                    {tarea.horas_estimadas && <span style={{ fontSize: 9, color: C.t2, fontFamily: C.mono }}>{tarea.horas_estimadas}h</span>}
+                                    {tarea.responsable && <span style={{ fontSize: 9, color: C.t2, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", maxWidth: 80 }}>{tarea.responsable}</span>}
+                                    {(tarea.fecha_inicio || tarea.fecha_fin_estimada) && (
+                                      <span style={{ fontSize: 9, color: C.t2, fontFamily: C.mono }}>
+                                        {fmtDate(tarea.fecha_inicio)} → {fmtDate(tarea.fecha_fin_estimada)}
+                                      </span>
+                                    )}
+                                  </div>
+                                  <span style={{ fontSize: 9, color: tc.text }}>{tc.label}</span>
+                                  {esGestion && (
+                                    <div style={{ display: "flex", gap: 3 }}>
+                                      {tarea.estado === "pendiente" && (
+                                        <Btn variant="sm" sx={{ fontSize: 9, padding: "1px 6px" }} onClick={e => { e.stopPropagation(); cambiarEstadoTarea(tarea.id, "en_progreso"); }}>Iniciar</Btn>
+                                      )}
+                                      {tarea.estado === "en_progreso" && (
+                                        <Btn variant="sm" sx={{ fontSize: 9, padding: "1px 6px", color: C.etapa.completado.text, borderColor: "rgba(40,100,65,0.3)" }} onClick={e => { e.stopPropagation(); cambiarEstadoTarea(tarea.id, "finalizada"); }}>Finalizar</Btn>
+                                      )}
+                                      <Btn variant="sm" sx={{ fontSize: 9, padding: "1px 6px" }} onClick={e => { e.stopPropagation(); setTareaModal({ tarea, etapaId: tarea.etapa_id, obraId: tarea.obra_id }); }}>✎</Btn>
+                                      <button type="button" onClick={e => { e.stopPropagation(); pedirBorrado(tarea, "tarea"); }} style={{ border: "none", background: "transparent", color: C.t2, cursor: "pointer", fontSize: 11, padding: "0 3px" }}>×</button>
+                                    </div>
+                                  )}
+                                </div>
+                              );
+                            })}
+                            {esGestion && (
+                              <div onClick={() => setTareaModal({ etapaId: etapa.id, obraId: etapa.obra_id })} style={{ padding: "3px 8px 3px 16px", cursor: "pointer" }}>
+                                <span style={{ fontSize: 9, color: C.t2 }}>+ nueva tarea</span>
                               </div>
                             )}
                           </div>
-                          <span style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: 10, color: C.t1, textAlign: "right" }}>{p.dias_estimados}d</span>
-                          <Toggle on={p.activo} onChange={() => toggleProc(p.id, p.activo)} />
-                          <button style={S.btnGh} onClick={() => eliminarProc(p.id)}>×</button>
-                        </div>
-                      )}
-                    />
-                    {!procsDeLinea.length && (
-                      <div style={{ color: C.t2, fontSize: 11, textAlign: "center", padding: "24px 0", letterSpacing: 1.5, textTransform: "uppercase", fontFamily: "'JetBrains Mono', monospace" }}>Sin etapas · Creá la primera</div>
-                    )}
-                  </div>
-
-                  {/* Form nueva etapa */}
-                  <div>
-                    <div style={{ fontSize: 9, letterSpacing: 2, color: C.t1, marginBottom: 10, textTransform: "uppercase" }}>Nueva etapa</div>
-                    <form onSubmit={crearProc}>
-                      <label style={S.label}>Nombre *</label>
-                      <input style={{ ...S.input, marginBottom: 10 }} required placeholder="Ej: Mecánica etapa 1"
-                        value={formProc.nombre} onChange={e => setFormProc(f => ({ ...f, nombre: e.target.value }))} />
-
-                      <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8, marginBottom: 10 }}>
-                        <div>
-                          <label style={S.label}>Días estimados</label>
-                          <input type="number" min="0.5" step="0.5" style={S.input}
-                            value={formProc.dias_estimados} onChange={e => setFormProc(f => ({ ...f, dias_estimados: e.target.value }))} />
-                        </div>
-                        <div>
-                          <label style={S.label}>Color</label>
-                          <div style={{ display: "flex", gap: 6 }}>
-                            <input type="color" style={{ width: 30, height: 30, border: "none", background: "none", cursor: "pointer" }}
-                              value={formProc.color} onChange={e => setFormProc(f => ({ ...f, color: e.target.value }))} />
-                            <input style={{ ...S.input }} value={formProc.color} onChange={e => setFormProc(f => ({ ...f, color: e.target.value }))} />
-                          </div>
-                        </div>
+                        )}
                       </div>
+                    );
+                  })}
 
-                      <label style={{ display: "flex", alignItems: "center", gap: 8, cursor: "pointer", marginBottom: 10 }}>
-                        <Toggle on={formProc.genera_aviso} onChange={() => setFormProc(f => ({ ...f, genera_aviso: !f.genera_aviso }))} />
-                        <span style={{ fontSize: 11, color: "#808080" }}>Genera aviso al iniciar</span>
-                      </label>
-
-                      {formProc.genera_aviso && (
-                        <>
-                          <label style={S.label}>Tipo</label>
-                          <select style={{ ...S.input, marginBottom: 8 }}
-                            value={formProc.tipo_aviso} onChange={e => setFormProc(f => ({ ...f, tipo_aviso: e.target.value }))}>
-                            <option value="aviso">Aviso</option>
-                            <option value="compra">Orden de compra</option>
-                            <option value="recordatorio">Recordatorio</option>
-                          </select>
-                          <label style={S.label}>Mensaje</label>
-                          <input style={{ ...S.input, marginBottom: 10 }} placeholder="Ej: Verificar stock herrajes"
-                            value={formProc.aviso_mensaje} onChange={e => setFormProc(f => ({ ...f, aviso_mensaje: e.target.value }))} />
-                        </>
-                      )}
-
-                      <button type="submit" style={{ ...S.btnPri, width: "100%", marginTop: 4 }}>Agregar etapa</button>
-                    </form>
-                  </div>
+                  {esGestion && (
+                    <div onClick={() => setEtapaModal({ obraId: obra.id })} style={{ paddingLeft: 12, paddingTop: 2, paddingBottom: 4, cursor: "pointer" }}>
+                      <span style={{ fontSize: 9, color: C.t2 }}>+ nueva etapa</span>
+                    </div>
+                  )}
                 </div>
               )}
             </div>
-          )}
-
-          {(err || msg) && (
-            <div style={{ marginTop: 14, padding: "8px 12px", borderRadius: 7, fontSize: 12,
-              background: err ? "rgba(180,60,60,0.08)" : "rgba(44,100,70,0.08)",
-              color: err ? "#c07070" : "#60b070", border: `1px solid ${err ? "rgba(180,60,60,0.2)" : "rgba(44,100,70,0.2)"}` }}>
-              {err || msg}
-            </div>
-          )}
-        </div>
+          );
+        })}
       </div>
     );
   }
@@ -1169,208 +1186,123 @@ export default function ObrasScreen({ profile, signOut }) {
   //  RENDER
   // ═══════════════════════════════════════════════════════════════
   return (
-    <div style={{ ...S.page, position: "relative" }}>
+    <div style={{ background: C.bg, minHeight: "100vh", color: C.t0, fontFamily: C.sans }}>
       <style>{`
         @import url('https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500;700&display=swap');
-        * { box-sizing: border-box; }
-        select option { background: #080c18; color: #c8ccd8; }
+        *, *::before, *::after { box-sizing: border-box; }
+        select option { background: #060c06; color: #c8d4c0; }
         ::-webkit-scrollbar { width: 3px; height: 3px; }
         ::-webkit-scrollbar-track { background: transparent; }
-        ::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.1); border-radius: 99px; }
-        ::-webkit-scrollbar-thumb:hover { background: rgba(255,255,255,0.18); }
-        .obras-bg-glow {
+        ::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.07); border-radius: 99px; }
+        input:focus, select:focus, textarea:focus { border-color: rgba(212,145,74,0.35) !important; outline: none; }
+        @keyframes slideUp   { from{opacity:0;transform:translateY(12px)} to{opacity:1;transform:translateY(0)} }
+        @keyframes slideLeft { from{opacity:0;transform:translateX(10px)} to{opacity:1;transform:translateX(0)} }
+        @keyframes gPulse    { 0%,100%{opacity:1} 50%{opacity:.6} }
+        button:not([disabled]):hover { opacity: 0.8; }
+        .bg-glow {
           position: fixed; inset: 0; pointer-events: none; z-index: 0;
           background:
-            radial-gradient(ellipse 80% 40% at 50% -8%, rgba(18,44,100,0.18) 0%, transparent 70%),
-            radial-gradient(ellipse 40% 30% at 90% 90%, rgba(10,30,60,0.12) 0%, transparent 60%);
+            radial-gradient(ellipse 70% 38% at 50% -6%, rgba(20,50,18,0.20) 0%, transparent 65%),
+            radial-gradient(ellipse 40% 28% at 92% 88%, rgba(212,145,74,0.04) 0%, transparent 55%);
         }
-        .obras-layout { position: relative; z-index: 1; }
-        @keyframes gantt-pulse { 0%,100%{opacity:1} 50%{opacity:0.65} }
-        @keyframes glow-pulse {
-          0%,100%{ box-shadow: 0 0 6px rgba(224,176,64,0.35), 0 0 18px rgba(224,176,64,0.10); }
-          50%    { box-shadow: 0 0 14px rgba(224,176,64,0.55), 0 0 36px rgba(224,176,64,0.18); }
-        }
-        @keyframes glow-red {
-          0%,100%{ box-shadow: 0 0 6px rgba(224,72,72,0.35), 0 0 18px rgba(224,72,72,0.10); }
-          50%    { box-shadow: 0 0 14px rgba(224,72,72,0.55), 0 0 36px rgba(224,72,72,0.18); }
-        }
-        input:focus, select:focus { border-color: rgba(255,255,255,0.22) !important; }
-        button:hover { opacity: 0.85; }
       `}</style>
-      <div className="obras-bg-glow" />
+      <div className="bg-glow" />
 
-      <div style={S.layout} className="obras-layout">
+      <div style={{ display: "grid", gridTemplateColumns: "280px 1fr", minHeight: "100vh", position: "relative", zIndex: 1 }}>
         <Sidebar profile={profile} signOut={signOut} />
 
-        <div style={S.main}>
-
-          {/* ── TOP BAR ── */}
-          <div style={S.topbar}>
-
-            {/* Stats */}
-            <div style={{ display: "flex", gap: 8, flex: 1 }}>
+        <div style={{ display: "flex", flexDirection: "column", height: "100vh", overflow: "hidden" }}>
+          {/* TOPBAR */}
+          <div style={{
+            height: 50, background: "rgba(4,7,4,0.92)", ...GLASS,
+            borderBottom: `1px solid ${C.b0}`, padding: "0 18px",
+            display: "flex", alignItems: "center", gap: 10, flexShrink: 0,
+          }}>
+            <div style={{ display: "flex", gap: 7, flex: 1 }}>
               {[
-                { label: "Activas",    val: stats.activas,    c: C.activa.dot    },
-                { label: "Pausadas",   val: stats.pausadas,   c: C.pausada.dot   },
-                { label: "Terminadas", val: stats.terminadas, c: C.terminada.dot },
-              ].map(({ label, val, c }) => (
-                <div key={label} style={{
-                  display: "flex", alignItems: "center", gap: 7,
-                  padding: "5px 12px 5px 10px", borderRadius: 8,
-                  background: "rgba(255,255,255,0.04)",
-                  border: `1px solid ${C.b0}`,
-                  borderLeft: `2px solid ${c}`,
-                }}>
-                  <span style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: 16, fontWeight: 700, color: c, lineHeight: 1 }}>
-                    {val}
-                  </span>
-                  <span style={{ fontSize: 9, color: C.t1, letterSpacing: 1.8, textTransform: "uppercase", fontWeight: 600 }}>
-                    {label}
-                  </span>
+                { label: "Activas",    n: stats.activas,    c: C.obra.activa.dot    },
+                { label: "Pausadas",   n: stats.pausadas,   c: C.obra.pausada.dot   },
+                { label: "Terminadas", n: stats.terminadas, c: C.obra.terminada.dot },
+              ].map(({ label, n, c }) => (
+                <div key={label} style={{ display: "flex", alignItems: "center", gap: 6, padding: "4px 10px", borderRadius: 7, background: C.s0, border: `1px solid ${C.b0}`, borderLeft: `2px solid ${c}` }}>
+                  <span style={{ fontFamily: C.mono, fontSize: 15, fontWeight: 700, color: c, lineHeight: 1 }}>{n}</span>
+                  <span style={{ fontSize: 8, color: C.t1, letterSpacing: 2, textTransform: "uppercase" }}>{label}</span>
                 </div>
               ))}
             </div>
-
-            {/* View toggle */}
-            <div style={{ display: "flex", gap: 1, background: "#070707", border: `1px solid ${C.b0}`, borderRadius: 6, padding: 2 }}>
-              {[["gantt", "Gantt"], ["cards", "Cards"]].map(([v, l]) => (
-                <button key={v} style={{ ...S.pill(view === v), borderRadius: 4 }} onClick={() => setView(v)}>{l}</button>
-              ))}
-            </div>
-
-            {/* Avisos */}
-            <button style={{ ...S.btn, position: "relative", paddingRight: avisosPend.length ? 26 : 14 }}
-              onClick={() => setShowAvisos(true)}>
-              Avisos
-              {avisosPend.length > 0 && (
-                <span style={{
-                  position: "absolute", top: 4, right: 5,
-                  width: 14, height: 14, borderRadius: "50%",
-                  background: C.compra.color, color: "#fff",
-                  fontSize: 8, fontWeight: 700, display: "flex", alignItems: "center", justifyContent: "center",
-                }}>
-                  {avisosPend.length}
-                </span>
-              )}
-            </button>
-
-            {/* Config líneas */}
             {esGestion && (
-              <button style={S.btn} onClick={() => setShowConfig(true)}>Líneas</button>
-            )}
-
-            {/* Nueva obra */}
-            {esGestion && (
-              <button style={S.btnPri} onClick={() => setShowNueva(true)}>+ Nueva obra</button>
+              <button type="button" onClick={() => setShowObraModal(true)} style={{ border: "1px solid rgba(212,145,74,0.4)", background: "rgba(212,145,74,0.12)", color: C.amber, padding: "7px 18px", borderRadius: 8, cursor: "pointer", fontWeight: 600, fontSize: 12, fontFamily: C.sans }}>
+                + Nueva obra
+              </button>
             )}
           </div>
 
-          {/* ── FILTER BAR ── */}
-          <div style={S.filterbar}>
-            <span style={{ fontSize: 9, color: C.t2, letterSpacing: 1.5, textTransform: "uppercase", flexShrink: 0 }}>Estado</span>
-            {["todos", "activa", "pausada", "terminada"].map(e => (
-              <button key={e} style={S.pill(filtroEstado === e)} onClick={() => setFiltroEstado(e)}>
-                {e === "todos" ? "Todos" : (C[e]?.label ?? e)}
-              </button>
+          {/* FILTERBAR */}
+          <div style={{
+            height: 36, background: "rgba(4,7,4,0.85)", ...GLASS,
+            borderBottom: `1px solid ${C.b0}`, padding: "0 18px",
+            display: "flex", alignItems: "center", gap: 4, flexShrink: 0, overflowX: "auto",
+          }}>
+            <span style={{ fontSize: 8, color: C.t2, letterSpacing: 2, textTransform: "uppercase", flexShrink: 0 }}>Estado</span>
+            {[["todos","Todos"],["activa","Activas"],["pausada","Pausadas"],["terminada","Terminadas"]].map(([v, l]) => (
+              <button key={v} type="button" onClick={() => setFiltroEstado(v)} style={{
+                border: filtroEstado === v ? `1px solid ${C.b1}` : "1px solid rgba(255,255,255,0.04)",
+                background: filtroEstado === v ? C.s1 : "transparent",
+                color: filtroEstado === v ? C.t0 : C.t1,
+                padding: "3px 11px", borderRadius: 5, cursor: "pointer", fontSize: 10, whiteSpace: "nowrap", fontFamily: C.sans,
+              }}>{l}</button>
             ))}
-            <div style={{ width: 1, height: 14, background: C.b0, margin: "0 4px", flexShrink: 0 }} />
-            <span style={{ fontSize: 9, color: C.t2, letterSpacing: 1.5, textTransform: "uppercase", flexShrink: 0 }}>Línea</span>
-            <button style={S.pill(filtroLinea === "todas")} onClick={() => setFiltroLinea("todas")}>Todas</button>
+            <div style={{ width: 1, height: 12, background: C.b0, margin: "0 3px", flexShrink: 0 }} />
+            <span style={{ fontSize: 8, color: C.t2, letterSpacing: 2, textTransform: "uppercase", flexShrink: 0 }}>Línea</span>
+            <button key="todas" type="button" onClick={() => setFiltroLinea("todas")} style={{ border: filtroLinea === "todas" ? `1px solid ${C.b1}` : "1px solid rgba(255,255,255,0.04)", background: filtroLinea === "todas" ? C.s1 : "transparent", color: filtroLinea === "todas" ? C.t0 : C.t1, padding: "3px 11px", borderRadius: 5, cursor: "pointer", fontSize: 10, fontFamily: C.sans }}>Todas</button>
             {lineas.map(l => (
-              <button key={l.id} style={{
-                ...S.pill(filtroLinea === l.id),
-                borderLeft: `2px solid ${filtroLinea === l.id ? l.color : "transparent"}`,
-              }}
-                onClick={() => setFiltroLinea(filtroLinea === l.id ? "todas" : l.id)}>
+              <button key={l.id} type="button" onClick={() => setFiltroLinea(filtroLinea === l.id ? "todas" : l.id)} style={{ border: filtroLinea === l.id ? `1px solid ${C.b1}` : "1px solid rgba(255,255,255,0.04)", borderLeft: filtroLinea === l.id ? `2px solid ${l.color}` : undefined, background: filtroLinea === l.id ? C.s1 : "transparent", color: filtroLinea === l.id ? C.t0 : C.t1, padding: "3px 11px", borderRadius: 5, cursor: "pointer", fontSize: 10, whiteSpace: "nowrap", fontFamily: C.sans }}>
                 {l.nombre}
               </button>
             ))}
           </div>
 
-          {/* ── CONTENT ── */}
-          <div style={S.scroll}>
-            {(err || msg) && (
-              <div style={{ padding: "8px 12px", borderRadius: 7, fontSize: 12, marginBottom: 10,
-                background: err ? "rgba(180,60,60,0.08)" : "rgba(44,100,70,0.08)",
-                color: err ? "#c07070" : "#60b070",
-                border: `1px solid ${err ? "rgba(180,60,60,0.2)" : "rgba(44,100,70,0.2)"}` }}>
-                {err || msg}
-              </div>
+          {/* MAIN */}
+          <div style={{ flex: 1, display: "flex", overflow: "hidden" }}>
+            <TreePanel />
+            <GanttMain />
+            {detail && (
+              <DetailPanel
+                item={detail.item}
+                type={detail.type}
+                onClose={() => setDetail(null)}
+                onEdit={(item, type) => {
+                  if (type === "etapa") setEtapaModal({ etapa: item, obraId: item.obra_id });
+                  if (type === "tarea") setTareaModal({ tarea: item, etapaId: item.etapa_id, obraId: item.obra_id });
+                }}
+                onDelete={pedirBorrado}
+              />
             )}
-
-            {loading ? (
-              <div style={{ textAlign: "center", padding: "80px 0", color: C.t2, fontSize: 12, letterSpacing: 3, textTransform: "uppercase", fontFamily: "'JetBrains Mono', monospace" }}>Cargando…</div>
-            ) : view === "gantt" ? <GanttView /> : <CardsView />}
           </div>
         </div>
       </div>
 
-      {/* ── MODAL NUEVA OBRA ── */}
-      {showNueva && (
-        <div style={S.overlay} onClick={e => e.target === e.currentTarget && setShowNueva(false)}>
-          <div style={S.modal}>
-            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 22 }}>
-              <div>
-                <div style={{ fontSize: 16, color: C.t0, fontWeight: 600, letterSpacing: 0.2 }}>Nueva obra</div>
-                <div style={{ fontSize: 11, color: C.t1, marginTop: 3, letterSpacing: 0.3 }}>Completá los campos y asigná una línea de producción</div>
-              </div>
-              <button style={{ ...S.btnGh, fontSize: 18, lineHeight: 1 }} onClick={() => setShowNueva(false)}>×</button>
-            </div>
-            <form onSubmit={crearObra}>
-              <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10, marginBottom: 10 }}>
-                <div>
-                  <label style={S.label}>Código *</label>
-                  <input style={S.input} required placeholder="37-42"
-                    value={formObra.codigo} onChange={e => setFormObra(f => ({ ...f, codigo: e.target.value }))} autoFocus />
-                </div>
-                <div>
-                  <label style={S.label}>Línea de producción</label>
-                  <select style={S.input} value={formObra.linea_id}
-                    onChange={e => setFormObra(f => ({ ...f, linea_id: e.target.value }))}>
-                    <option value="">Sin asignar</option>
-                    {lineas.map(l => <option key={l.id} value={l.id}>{l.nombre}</option>)}
-                  </select>
-                </div>
-              </div>
-              <div style={{ marginBottom: 10 }}>
-                <label style={S.label}>Descripción</label>
-                <input style={S.input} value={formObra.descripcion}
-                  onChange={e => setFormObra(f => ({ ...f, descripcion: e.target.value }))} />
-              </div>
-              <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10, marginBottom: 10 }}>
-                <div>
-                  <label style={S.label}>Fecha inicio</label>
-                  <input type="date" style={S.input} value={formObra.fecha_inicio}
-                    onChange={e => setFormObra(f => ({ ...f, fecha_inicio: e.target.value }))} />
-                </div>
-                <div>
-                  <label style={S.label}>Fin estimado</label>
-                  <input type="date" style={S.input} value={formObra.fecha_fin_estimada}
-                    onChange={e => setFormObra(f => ({ ...f, fecha_fin_estimada: e.target.value }))} />
-                </div>
-              </div>
-              <div style={{ marginBottom: 16 }}>
-                <label style={S.label}>Notas</label>
-                <input style={S.input} value={formObra.notas}
-                  onChange={e => setFormObra(f => ({ ...f, notas: e.target.value }))} />
-              </div>
-              {formObra.linea_id && (
-                <div style={{ fontSize: 11, color: C.t1, marginBottom: 16, padding: "10px 14px", background: "rgba(61,206,106,0.05)", borderRadius: 8, border: `1px solid rgba(61,206,106,0.18)` }}>
-                  Se crean automáticamente {lProcs.filter(p => p.linea_id === formObra.linea_id).length} etapas
-                  de la línea {lineas.find(l => l.id === formObra.linea_id)?.nombre}.
-                </div>
-              )}
-              <div style={{ display: "flex", gap: 8 }}>
-                <button type="submit" style={S.btnPri}>Crear obra</button>
-                <button type="button" style={S.btn} onClick={() => setShowNueva(false)}>Cancelar</button>
-              </div>
-            </form>
-          </div>
-        </div>
+      {/* MODALES */}
+      {showObraModal && (
+        <ObraModal
+          lineas={lineas} lProcs={lProcs}
+          onSave={nueva => { setShowObraModal(false); cargar(); if (nueva?.id) setExpandedObras(s => new Set(s).add(nueva.id)); }}
+          onClose={() => setShowObraModal(false)}
+        />
       )}
-
-      {showAvisos && <ModalAvisos />}
-      {showConfig && <ModalConfig />}
+      {etapaModal && (
+        <EtapaModal etapa={etapaModal.etapa} obraId={etapaModal.obraId}
+          onSave={() => { setEtapaModal(null); cargar(); }}
+          onClose={() => setEtapaModal(null)} />
+      )}
+      {tareaModal && (
+        <TareaModal tarea={tareaModal.tarea} etapaId={tareaModal.etapaId} obraId={tareaModal.obraId}
+          onSave={() => { setTareaModal(null); cargar(); }}
+          onClose={() => setTareaModal(null)} />
+      )}
+      {confirmModal && (
+        <ConfirmModal {...confirmModal} onCancel={() => setConfirmModal(null)} />
+      )}
     </div>
   );
 }
