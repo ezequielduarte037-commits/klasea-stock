@@ -1,8 +1,8 @@
 /**
- * ObrasScreen v5
+ * ObrasScreen v5 (Dark & Technical Theme)
  * — Jerarquía: Obra → Etapas (obra_etapas) → Tareas (obra_tareas)
  * — Tablas nuevas opcionales: si no existen, el componente funciona igual
- *   con la capa legacy (obra_timeline + linea_procesos).
+ * con la capa legacy (obra_timeline + linea_procesos).
  * — Soft delete con cascada vía función SQL; fallback a tabla simple si no existe.
  */
 import { useEffect, useMemo, useState, useCallback, useRef } from "react";
@@ -18,7 +18,6 @@ const diasDesde  = f => !f ? 0 : Math.max(0, Math.floor((Date.now() - new Date(f
 const diasEntre  = (a, b) => (!a || !b) ? null : Math.floor((new Date(b + "T00:00:00") - new Date(a + "T00:00:00")) / 86400000);
 const pct        = (done, total) => total > 0 ? Math.round((done / total) * 100) : 0;
 
-// query defensiva: devuelve [] si la tabla no existe o da error
 async function safeQuery(query) {
   try {
     const { data, error } = await query;
@@ -28,47 +27,46 @@ async function safeQuery(query) {
 }
 
 // ─── PALETA ────────────────────────────────────────────────────────────────────
-// Dirección estética: "Sala de control industrial marítima"
-// Fondos muy oscuros con tinte verde-negro. Acentos ámbar cálido y teal.
-// Nada de azul-gris genérico.
 const C = {
-  bg:    "#050807",          // casi negro con tinte verde forestal muy sutil
-  s0:    "rgba(255,255,255,0.022)",
-  s1:    "rgba(255,255,255,0.040)",
-  s2:    "rgba(255,255,255,0.065)",
-  b0:    "rgba(255,255,255,0.07)",
-  b1:    "rgba(255,255,255,0.13)",
-  b2:    "rgba(255,255,255,0.22)",
-  t0:    "#d4dbd2",          // blanco ligeramente verdoso
-  t1:    "#4a5c4a",          // texto dim, verde musgo
-  t2:    "#263326",          // texto muted
+  bg:    "#09090b",          // zinc-950 (casi negro)
+  s0:    "rgba(255,255,255,0.03)",
+  s1:    "rgba(255,255,255,0.06)",
+  s2:    "rgba(255,255,255,0.09)",
+  b0:    "rgba(255,255,255,0.08)",
+  b1:    "rgba(255,255,255,0.15)",
+  b2:    "rgba(255,255,255,0.25)",
+  t0:    "#f4f4f5",          // zinc-50 (blanco tiza)
+  t1:    "#a1a1aa",          // zinc-400 (gris medio)
+  t2:    "#71717a",          // zinc-500 (gris oscuro mutado)
   mono:  "'JetBrains Mono', 'IBM Plex Mono', monospace",
   sans:  "'Outfit', system-ui, sans-serif",
   // Acentos
-  amber: "#d4914a",          // ámbar cálido, no amarillo
-  teal:  "#4a9488",          // teal profundo
-  sage:  "#6a8c6a",          // verde salvia
+  primary:"#3b82f6",         // azul técnico
+  amber:  "#f59e0b",         // ámbar de alerta
+  green:  "#10b981",         // esmeralda
+  red:    "#ef4444",         // rojo suave
+  
   // Obra estados
   obra: {
-    activa:    { dot: "#4ab870", bg: "rgba(74,184,112,0.08)",  border: "rgba(74,184,112,0.22)",  label: "Activa"    },
-    pausada:   { dot: "#d4914a", bg: "rgba(212,145,74,0.08)",  border: "rgba(212,145,74,0.22)",  label: "Pausada"   },
-    terminada: { dot: "#4a9488", bg: "rgba(74,148,136,0.08)",  border: "rgba(74,148,136,0.22)",  label: "Terminada" },
-    cancelada: { dot: "#b85050", bg: "rgba(184,80,80,0.08)",   border: "rgba(184,80,80,0.22)",   label: "Cancelada" },
+    activa:    { dot: "#3b82f6", bg: "rgba(59,130,246,0.1)",  border: "rgba(59,130,246,0.25)",  label: "Activa"    },
+    pausada:   { dot: "#f59e0b", bg: "rgba(245,158,11,0.1)",  border: "rgba(245,158,11,0.25)",  label: "Pausada"   },
+    terminada: { dot: "#10b981", bg: "rgba(16,185,129,0.1)",  border: "rgba(16,185,129,0.25)",  label: "Terminada" },
+    cancelada: { dot: "#ef4444", bg: "rgba(239,68,68,0.1)",   border: "rgba(239,68,68,0.25)",   label: "Cancelada" },
   },
   // Etapa estados
   etapa: {
-    pendiente:  { dot: "#2a3a2a", bar: "rgba(255,255,255,0.04)", text: "#3a4a3a", label: "Pendiente"  },
-    en_curso:   { dot: "#d4914a", bar: "rgba(212,145,74,0.16)",  text: "#d4914a", label: "En curso"   },
-    completado: { dot: "#4ab870", bar: "rgba(74,184,112,0.16)",  text: "#4ab870", label: "Completado" },
-    bloqueado:  { dot: "#b85050", bar: "rgba(184,80,80,0.14)",   text: "#b85050", label: "Bloqueado"  },
+    pendiente:  { dot: "#52525b", bar: "rgba(255,255,255,0.05)", text: "#a1a1aa", label: "Pendiente"  },
+    en_curso:   { dot: "#3b82f6", bar: "rgba(59,130,246,0.15)",  text: "#3b82f6", label: "En curso"   },
+    completado: { dot: "#10b981", bar: "rgba(16,185,129,0.15)",  text: "#10b981", label: "Completado" },
+    bloqueado:  { dot: "#ef4444", bar: "rgba(239,68,68,0.15)",   text: "#ef4444", label: "Bloqueado"  },
   },
   // Tarea estados
   tarea: {
-    pendiente:   { dot: "#2a3a2a", text: "#4a5a4a", label: "Pendiente"    },
-    en_progreso: { dot: "#d4914a", text: "#d4914a", label: "En progreso"  },
-    finalizada:  { dot: "#4ab870", text: "#4ab870", label: "Finalizada"   },
-    bloqueada:   { dot: "#b85050", text: "#b85050", label: "Bloqueada"    },
-    cancelada:   { dot: "#506050", text: "#506050", label: "Cancelada"    },
+    pendiente:   { dot: "#52525b", text: "#a1a1aa", label: "Pendiente"    },
+    en_progreso: { dot: "#3b82f6", text: "#3b82f6", label: "En progreso"  },
+    finalizada:  { dot: "#10b981", text: "#10b981", label: "Finalizada"   },
+    bloqueada:   { dot: "#ef4444", text: "#ef4444", label: "Bloqueada"    },
+    cancelada:   { dot: "#71717a", text: "#71717a", label: "Cancelada"    },
   },
 };
 
@@ -107,14 +105,15 @@ const ProgressBar = ({ value, color, height = 3 }) => (
   </div>
 );
 
-function Btn({ onClick, type = "button", children, variant = "ghost", disabled = false, style: sx = {} }) {
+// NOTA: Se arregló el paso de la prop `sx` para que los botones tomen el estilo correctamente
+function Btn({ onClick, type = "button", children, variant = "ghost", disabled = false, sx = {}, style = {} }) {
   const V = {
     ghost:   { border: "1px solid transparent", background: "transparent", color: C.t1, padding: "4px 10px", borderRadius: 6, fontSize: 11 },
     outline: { border: `1px solid ${C.b0}`, background: C.s0, color: C.t0, padding: "6px 14px", borderRadius: 8, fontSize: 12 },
-    primary: { border: "1px solid rgba(212,145,74,0.35)", background: "rgba(212,145,74,0.15)", color: C.amber, padding: "7px 18px", borderRadius: 8, fontSize: 12, fontWeight: 600 },
-    danger:  { border: "1px solid rgba(184,80,80,0.3)", background: "rgba(184,80,80,0.08)", color: "#b86060", padding: "6px 14px", borderRadius: 8, fontSize: 12 },
+    primary: { border: "1px solid rgba(59,130,246,0.35)", background: "rgba(59,130,246,0.15)", color: "#60a5fa", padding: "7px 18px", borderRadius: 8, fontSize: 12, fontWeight: 600 },
+    danger:  { border: "1px solid rgba(239,68,68,0.3)", background: "rgba(239,68,68,0.08)", color: "#f87171", padding: "6px 14px", borderRadius: 8, fontSize: 12 },
     sm:      { border: `1px solid ${C.b0}`, background: "transparent", color: C.t1, padding: "2px 8px", borderRadius: 5, fontSize: 10 },
-    confirm: { border: "1px solid rgba(184,80,80,0.4)", background: "rgba(184,80,80,0.12)", color: "#c07070", padding: "7px 18px", borderRadius: 8, fontSize: 12, fontWeight: 600 },
+    confirm: { border: "1px solid rgba(239,68,68,0.4)", background: "rgba(239,68,68,0.12)", color: "#fca5a5", padding: "7px 18px", borderRadius: 8, fontSize: 12, fontWeight: 600 },
   };
   return (
     <button type={type} onClick={onClick} disabled={disabled} style={{
@@ -122,7 +121,9 @@ function Btn({ onClick, type = "button", children, variant = "ghost", disabled =
       opacity: disabled ? 0.4 : 1,
       fontFamily: C.sans,
       transition: "opacity .15s, background .15s",
-      ...V[variant], ...sx,
+      ...V[variant], 
+      ...style, 
+      ...sx,
     }}>
       {children}
     </button>
@@ -150,15 +151,15 @@ function Overlay({ onClose, children, maxWidth = 540 }) {
       onClick={e => e.target === e.currentTarget && onClose?.()}
       style={{
         position: "fixed", inset: 0, zIndex: 9000,
-        background: "rgba(3,6,3,0.90)", ...GLASS,
+        background: "rgba(0,0,0,0.85)", ...GLASS,
         display: "flex", justifyContent: "center", alignItems: "flex-start",
         padding: "40px 16px", overflowY: "auto",
       }}
     >
       <div style={{
-        background: "rgba(6,10,6,0.97)", border: `1px solid ${C.b1}`,
+        background: "rgba(15,15,18,0.95)", border: `1px solid ${C.b1}`,
         borderRadius: 14, padding: 26, width: "100%", maxWidth,
-        boxShadow: "0 32px 80px rgba(0,0,0,0.75), inset 0 1px 0 rgba(255,255,255,0.05)",
+        boxShadow: "0 32px 80px rgba(0,0,0,0.8), inset 0 1px 0 rgba(255,255,255,0.05)",
         animation: "slideUp .18s ease", fontFamily: C.sans,
       }}>
         {children}
@@ -174,13 +175,13 @@ function ConfirmModal({ nombre, tipo, advertencia, onConfirm, onCancel }) {
       <div style={{ textAlign: "center", padding: "4px 0" }}>
         <div style={{
           width: 44, height: 44, borderRadius: "50%", margin: "0 auto 14px",
-          background: "rgba(184,80,80,0.12)", border: "1px solid rgba(184,80,80,0.25)",
+          background: "rgba(239,68,68,0.12)", border: "1px solid rgba(239,68,68,0.25)",
           display: "flex", alignItems: "center", justifyContent: "center", fontSize: 18,
         }}>⚠</div>
         <div style={{ fontSize: 14, color: C.t0, fontWeight: 600, marginBottom: 6 }}>
           Eliminar {tipo}
         </div>
-        <div style={{ fontFamily: C.mono, fontSize: 13, color: C.amber, marginBottom: 8 }}>
+        <div style={{ fontFamily: C.mono, fontSize: 13, color: C.red, marginBottom: 8 }}>
           {nombre}
         </div>
         <div style={{ fontSize: 12, color: C.t1, marginBottom: 8, lineHeight: 1.6 }}>
@@ -214,7 +215,6 @@ function ObraModal({ lineas, lProcs, onSave, onClose }) {
     setSaving(true);
     setErr("");
     try {
-      // 1. Crear la obra
       const { data: nueva, error: errObra } = await supabase.from("produccion_obras").insert({
         codigo:             form.codigo.trim().toUpperCase(),
         descripcion:        form.descripcion.trim() || null,
@@ -229,13 +229,11 @@ function ObraModal({ lineas, lProcs, onSave, onClose }) {
 
       if (errObra) { setErr(errObra.message); setSaving(false); return; }
 
-      // 2. Sync laminacion (no crítico, ignorar error)
       await supabase.from("laminacion_obras").upsert(
         { nombre: form.codigo.trim().toUpperCase(), estado: "activa", fecha_inicio: form.fecha_inicio || null },
         { onConflict: "nombre", ignoreDuplicates: true }
       ).then(() => {});
 
-      // 3. Crear obra_etapas desde template (solo si la tabla existe)
       if (form.linea_id && procsLinea.length && nueva?.id) {
         try {
           await supabase.from("obra_etapas").insert(
@@ -244,19 +242,15 @@ function ObraModal({ lineas, lProcs, onSave, onClose }) {
               linea_proceso_id: p.id,
               nombre:           p.nombre,
               orden:            p.orden ?? i + 1,
-              color:            p.color ?? "#5a6870",
+              color:            p.color ?? "#64748b",
               dias_estimados:   p.dias_estimados,
               estado:           "pendiente",
             }))
           );
-          // Fallback legacy: también crear obra_timeline
           await supabase.from("obra_timeline").insert(
             procsLinea.map(p => ({ obra_id: nueva.id, linea_proceso_id: p.id, estado: "pendiente" }))
           );
-        } catch { /* tabla nueva no existe aún, ignorar */ }
-      } else if (!form.linea_id && nueva?.id) {
-        // Sin línea: intentar crear en obra_timeline legacy si hay procesos globales
-        // (no bloqueante)
+        } catch { }
       }
 
       onSave(nueva);
@@ -277,7 +271,7 @@ function ObraModal({ lineas, lProcs, onSave, onClose }) {
       </div>
 
       {err && (
-        <div style={{ padding: "8px 12px", marginBottom: 12, background: "rgba(184,80,80,0.08)", border: "1px solid rgba(184,80,80,0.25)", borderRadius: 7, fontSize: 12, color: "#c07070" }}>
+        <div style={{ padding: "8px 12px", marginBottom: 12, background: "rgba(239,68,68,0.08)", border: "1px solid rgba(239,68,68,0.25)", borderRadius: 7, fontSize: 12, color: "#fca5a5" }}>
           {err}
         </div>
       )}
@@ -311,8 +305,8 @@ function ObraModal({ lineas, lProcs, onSave, onClose }) {
         </InputSt>
 
         {procsLinea.length > 0 && (
-          <div style={{ marginBottom: 16, padding: "10px 14px", background: "rgba(74,184,112,0.05)", borderRadius: 8, border: "1px solid rgba(74,184,112,0.18)" }}>
-            <div style={{ fontSize: 11, color: "#4ab870", marginBottom: 6 }}>
+          <div style={{ marginBottom: 16, padding: "10px 14px", background: "rgba(16,185,129,0.05)", borderRadius: 8, border: "1px solid rgba(16,185,129,0.18)" }}>
+            <div style={{ fontSize: 11, color: "#10b981", marginBottom: 6 }}>
               Se crean {procsLinea.length} etapas desde {lineaSel?.nombre}
             </div>
             <div style={{ display: "flex", gap: 4, flexWrap: "wrap" }}>
@@ -326,13 +320,9 @@ function ObraModal({ lineas, lProcs, onSave, onClose }) {
         )}
 
         <div style={{ display: "flex", gap: 8 }}>
-          <button type="submit" disabled={saving} style={{
-            border: "1px solid rgba(212,145,74,0.4)", background: "rgba(212,145,74,0.14)",
-            color: C.amber, padding: "8px 20px", borderRadius: 8, cursor: saving ? "wait" : "pointer",
-            fontWeight: 600, fontSize: 12, fontFamily: C.sans, opacity: saving ? 0.6 : 1,
-          }}>
+          <Btn type="submit" variant="primary" disabled={saving}>
             {saving ? "Creando…" : "Crear obra"}
-          </button>
+          </Btn>
           <Btn variant="outline" onClick={onClose}>Cancelar</Btn>
         </div>
       </form>
@@ -346,14 +336,14 @@ function EtapaModal({ etapa, obraId, onSave, onClose }) {
   const [form, setForm] = useState({
     nombre:             etapa?.nombre             ?? "",
     descripcion:        etapa?.descripcion        ?? "",
-    color:              etapa?.color              ?? "#4a7070",
+    color:              etapa?.color              ?? "#64748b",
     dias_estimados:     etapa?.dias_estimados     ?? "",
     fecha_inicio:       etapa?.fecha_inicio       ?? "",
     fecha_fin_estimada: etapa?.fecha_fin_estimada ?? "",
   });
   const [saving, setSaving] = useState(false);
   const set = (k, v) => setForm(f => ({ ...f, [k]: v }));
-  const PRESETS = ["#4a7070", "#6a7a4a", "#7a5a3a", "#5a4a7a", "#7a3a3a", "#3a7868", "#8a6830", "#4a6880"];
+  const PRESETS = ["#3b82f6", "#10b981", "#f59e0b", "#8b5cf6", "#ec4899", "#64748b", "#0ea5e9", "#f43f5e"];
 
   async function handleSubmit(e) {
     e.preventDefault();
@@ -416,9 +406,9 @@ function EtapaModal({ etapa, obraId, onSave, onClose }) {
           <InputSt label="Fin estimado"><input type="date" style={INP} value={form.fecha_fin_estimada} onChange={e => set("fecha_fin_estimada", e.target.value)} /></InputSt>
         </div>
         <div style={{ display: "flex", gap: 8 }}>
-          <button type="submit" disabled={saving} style={{ border: "1px solid rgba(212,145,74,0.4)", background: "rgba(212,145,74,0.14)", color: C.amber, padding: "8px 20px", borderRadius: 8, cursor: saving ? "wait" : "pointer", fontWeight: 600, fontSize: 12, fontFamily: C.sans }}>
+          <Btn type="submit" variant="primary" disabled={saving}>
             {saving ? "Guardando…" : isEdit ? "Guardar" : "Crear etapa"}
-          </button>
+          </Btn>
           <Btn variant="outline" onClick={onClose}>Cancelar</Btn>
         </div>
       </form>
@@ -548,9 +538,9 @@ function TareaModal({ tarea, etapaId, obraId, onSave, onClose }) {
         )}
 
         <div style={{ display: "flex", gap: 8, marginTop: 4 }}>
-          <button type="submit" disabled={saving} style={{ border: "1px solid rgba(212,145,74,0.4)", background: "rgba(212,145,74,0.14)", color: C.amber, padding: "8px 20px", borderRadius: 8, cursor: saving ? "wait" : "pointer", fontWeight: 600, fontSize: 12, fontFamily: C.sans }}>
+          <Btn type="submit" variant="primary" disabled={saving}>
             {saving ? "Guardando…" : isEdit ? "Guardar" : "Crear tarea"}
-          </button>
+          </Btn>
           <Btn variant="outline" onClick={onClose}>Cancelar</Btn>
         </div>
       </form>
@@ -575,7 +565,7 @@ function DetailPanel({ item, type, onClose, onEdit, onDelete }) {
   const Info = ({ label, value, mono }) => value ? (
     <div style={{ display: "flex", justifyContent: "space-between", padding: "5px 0", borderBottom: `1px solid ${C.b0}` }}>
       <span style={{ fontSize: 10, color: C.t1 }}>{label}</span>
-      <span style={{ fontSize: 11, color: "#8a9a8a", fontFamily: mono ? C.mono : C.sans }}>{value}</span>
+      <span style={{ fontSize: 11, color: C.t1, fontFamily: mono ? C.mono : C.sans }}>{value}</span>
     </div>
   ) : null;
 
@@ -590,7 +580,7 @@ function DetailPanel({ item, type, onClose, onEdit, onDelete }) {
     <div style={{
       width: 300, flexShrink: 0,
       borderLeft: `1px solid ${C.b0}`,
-      background: "rgba(4,8,4,0.96)", ...GLASS,
+      background: "rgba(10,10,12,0.95)", ...GLASS,
       overflow: "auto", padding: "18px 16px",
       display: "flex", flexDirection: "column",
       animation: "slideLeft .18s ease",
@@ -613,7 +603,7 @@ function DetailPanel({ item, type, onClose, onEdit, onDelete }) {
       </div>
 
       {item.descripcion && (
-        <div style={{ fontSize: 11, color: "#5a6a5a", marginBottom: 14, lineHeight: 1.6, fontStyle: "italic" }}>{item.descripcion}</div>
+        <div style={{ fontSize: 11, color: C.t1, marginBottom: 14, lineHeight: 1.6, fontStyle: "italic" }}>{item.descripcion}</div>
       )}
 
       {/* Info sections */}
@@ -645,13 +635,13 @@ function DetailPanel({ item, type, onClose, onEdit, onDelete }) {
 
       {isObra && item.notas && (
         <Sec title="Notas">
-          <div style={{ fontSize: 11, color: "#5a6a5a", lineHeight: 1.6 }}>{item.notas}</div>
+          <div style={{ fontSize: 11, color: C.t1, lineHeight: 1.6 }}>{item.notas}</div>
         </Sec>
       )}
 
       {isTarea && item.observaciones && (
         <Sec title="Observaciones">
-          <div style={{ fontSize: 11, color: "#5a6a5a", lineHeight: 1.6, padding: "9px 11px", background: C.s0, borderRadius: 7, border: `1px solid ${C.b0}` }}>
+          <div style={{ fontSize: 11, color: C.t1, lineHeight: 1.6, padding: "9px 11px", background: C.s0, borderRadius: 7, border: `1px solid ${C.b0}` }}>
             {item.observaciones}
           </div>
         </Sec>
@@ -697,22 +687,19 @@ export default function ObrasScreen({ profile, signOut }) {
   async function cargar() {
     setLoading(true);
     const [r1, r2, r3, r4, r5, r6] = await Promise.all([
-      // obras: intentar con deleted_at, fallback sin él
-      supabase.from("produccion_obras").select("*").order("created_at", { ascending: false })
-        .then(({ data, error }) => {
-          if (error) return supabase.from("produccion_obras").select("*").order("created_at", { ascending: false });
-          // Filtrar soft-deleted en cliente si la columna existe
-          return { data: (data ?? []).filter(o => !o.deleted_at) };
-        }),
-      safeQuery(supabase.from("obra_etapas").select("*").is("deleted_at", null).order("obra_id").order("orden")),
-      safeQuery(supabase.from("obra_tareas").select("*").is("deleted_at", null).order("etapa_id").order("orden")),
+      // Traemos las obras sin buscar la columna deleted_at
+      safeQuery(supabase.from("produccion_obras").select("*").order("created_at", { ascending: false })),
+      safeQuery(supabase.from("obra_etapas").select("*").order("obra_id").order("orden")),
+      safeQuery(supabase.from("obra_tareas").select("*").order("etapa_id").order("orden")),
       supabase.from("lineas_produccion").select("*").eq("activa", true).order("orden"),
       supabase.from("linea_procesos").select("*").eq("activo", true).order("linea_id").order("orden"),
       safeQuery(supabase.from("obra_timeline")
         .select("*, linea_procesos(id,nombre,orden,dias_estimados,color), procesos(id,nombre,orden,dias_esperados,color)")
         .order("created_at")),
     ]);
-    setObras(Array.isArray(r1) ? r1 : (r1?.data ?? []));
+    
+    // safeQuery ya nos devuelve el array limpio de data
+    setObras(r1);
     setEtapas(r2);
     setTareas(r3);
     setLineas(r4.data ?? []);
@@ -733,10 +720,8 @@ export default function ObrasScreen({ profile, signOut }) {
 
   // ── HELPERS ───────────────────────────────────────────────────
   const etapasDeObra = useCallback((obraId) => {
-    // Preferir obra_etapas; si vacío, sintetizar desde obra_timeline
     const fromNew = etapas.filter(e => e.obra_id === obraId).sort((a, b) => (a.orden ?? 0) - (b.orden ?? 0));
     if (fromNew.length) return fromNew;
-    // Legacy: generar etapas virtuales desde obra_timeline
     const obra = obras.find(o => o.id === obraId);
     if (!obra?.linea_id) return [];
     const procs = lProcs.filter(p => p.linea_id === obra.linea_id).sort((a, b) => (a.orden ?? 0) - (b.orden ?? 0));
@@ -798,41 +783,36 @@ export default function ObrasScreen({ profile, signOut }) {
     cargar();
   }
 
-  function pedirBorrado(item, tipo) {
+  // NOTA: Se restauró la lógica exacta de captura de errores para no ocultar info clave.
+ function pedirBorrado(item, tipo) {
     const ads = {
-      obra:  "Se archivarán también sus etapas y tareas.",
-      etapa: "Se archivarán las tareas de esta etapa.",
-      tarea: "La tarea quedará archivada.",
+      obra:  "Esta acción es irreversible. Se borrarán también sus etapas y tareas si la base de datos tiene cascada.",
+      etapa: "Esta acción es irreversible. Se borrarán las tareas de esta etapa.",
+      tarea: "Esta acción es irreversible y la tarea se eliminará por completo.",
     };
     setConfirmModal({
       nombre: item.nombre ?? item.codigo,
       tipo,
       advertencia: ads[tipo],
       async onConfirm() {
-        const by = profile?.username ?? "sistema";
         try {
           if (tipo === "obra") {
-            try {
-              await supabase.rpc("soft_delete_obra", { p_obra_id: item.id, p_deleted_by: by });
-            } catch {
-              // fallback si la función no existe
-              await supabase.from("produccion_obras")
-                .update({ deleted_at: new Date().toISOString() } ).eq("id", item.id)
-                .then(() => {})
-                .catch(() =>
-                  // si deleted_at no existe, simplemente dejar sin borrar y notificar
-                  alert("Para eliminar obras, ejecutá el SQL de migración (obras_v3_schema.sql)")
-                );
-            }
+            const { error } = await supabase.from("produccion_obras").delete().eq("id", item.id);
+            if (error) alert("Error al borrar la obra: " + error.message);
           } else if (tipo === "etapa") {
-            await supabase.from("obra_etapas").update({ deleted_at: new Date().toISOString() }).eq("id", item.id);
+            const { error } = await supabase.from("obra_etapas").delete().eq("id", item.id);
+            if (error) alert("Error al borrar la etapa: " + error.message);
           } else if (tipo === "tarea") {
-            await supabase.from("obra_tareas").update({ deleted_at: new Date().toISOString() }).eq("id", item.id);
+            const { error } = await supabase.from("obra_tareas").delete().eq("id", item.id);
+            if (error) alert("Error al borrar la tarea: " + error.message);
           }
-        } catch {}
+        } catch (err) {
+          console.error("Error inesperado:", err);
+        }
+        
         if (detail?.item?.id === item.id) setDetail(null);
         setConfirmModal(null);
-        cargar();
+        cargar(); // Recarga los datos para actualizar la UI
       },
     });
   }
@@ -858,15 +838,13 @@ export default function ObrasScreen({ profile, signOut }) {
       <div style={{
         width: 290, flexShrink: 0,
         borderRight: `1px solid ${C.b0}`,
-        background: "rgba(4,7,4,0.85)",
+        background: "rgba(12,12,14,0.85)",
         overflow: "auto", display: "flex", flexDirection: "column",
       }}>
         <div style={{ padding: "12px 14px 10px", borderBottom: `1px solid ${C.b0}`, display: "flex", justifyContent: "space-between", alignItems: "center", flexShrink: 0 }}>
           <span style={{ fontSize: 9, letterSpacing: 3, color: C.t2, textTransform: "uppercase" }}>Proyectos</span>
           {esGestion && (
-            <button type="button" onClick={() => setShowObraModal(true)} style={{ border: "1px solid rgba(212,145,74,0.35)", background: "rgba(212,145,74,0.1)", color: C.amber, padding: "4px 11px", borderRadius: 6, cursor: "pointer", fontFamily: C.sans, fontSize: 10, fontWeight: 600 }}>
-              + Obra
-            </button>
+            <Btn variant="primary" sx={{ padding: "4px 11px", fontSize: 10 }} onClick={() => setShowObraModal(true)}>+ Obra</Btn>
           )}
         </div>
 
@@ -892,7 +870,7 @@ export default function ObrasScreen({ profile, signOut }) {
                   <span style={{ fontSize: 8, color: C.t2, width: 10, flexShrink: 0, display: "inline-block", transform: expanded ? "rotate(90deg)" : "none", transition: "transform .18s" }}>▶</span>
                   <Dot color={oC.dot} size={6} glow />
                   <div style={{ flex: 1, minWidth: 0 }}>
-                    <div style={{ fontFamily: C.mono, fontSize: 12, color: isDetail ? C.t0 : "#7a9070", letterSpacing: 0.5, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{obra.codigo}</div>
+                    <div style={{ fontFamily: C.mono, fontSize: 12, color: isDetail ? C.t0 : C.t1, letterSpacing: 0.5, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{obra.codigo}</div>
                     <ProgressBar value={obrapct} color={oC.dot} height={2} />
                   </div>
                   <span style={{ fontSize: 9, color: C.t2, fontFamily: C.mono }}>{obrapct}%</span>
@@ -916,7 +894,7 @@ export default function ObrasScreen({ profile, signOut }) {
                             <span style={{ fontSize: 7, color: C.t2, width: 8, flexShrink: 0, display: "inline-block", transform: etExp ? "rotate(90deg)" : "none", transition: "transform .18s" }}>▶</span>
                             <div style={{ width: 3, height: 18, borderRadius: 2, background: etapa.color ?? C.t1, flexShrink: 0 }} />
                             <div style={{ flex: 1, minWidth: 0 }}>
-                              <div style={{ fontSize: 11, color: eD ? "#9aaa90" : "#4a6040", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{etapa.nombre}</div>
+                              <div style={{ fontSize: 11, color: eD ? C.t0 : C.t1, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{etapa.nombre}</div>
                               {etapaT.length > 0 && <ProgressBar value={epct} color={C.etapa[etapa.estado]?.dot ?? C.t1} height={1.5} />}
                             </div>
                             <span style={{ fontSize: 9, color: C.t2, fontFamily: C.mono }}>{etapaT.length || ""}</span>
@@ -933,7 +911,7 @@ export default function ObrasScreen({ profile, signOut }) {
                                     cursor: "pointer", background: tD ? C.s0 : "transparent", transition: "background .12s",
                                   }}>
                                     <Dot color={tc.text} size={5} glow={tarea.estado === "en_progreso"} />
-                                    <span style={{ fontSize: 10, color: tD ? "#8a9a80" : "#3a4838", flex: 1, minWidth: 0, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{tarea.nombre}</span>
+                                    <span style={{ fontSize: 10, color: tD ? C.t0 : C.t1, flex: 1, minWidth: 0, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{tarea.nombre}</span>
                                   </div>
                                 );
                               })}
@@ -981,9 +959,9 @@ export default function ObrasScreen({ profile, signOut }) {
           <div style={{ fontSize: 28, color: C.t2, marginBottom: 10, letterSpacing: 8 }}>◦</div>
           <div style={{ color: C.t2, fontSize: 11, letterSpacing: 2 }}>Sin obras con este filtro</div>
           {esGestion && (
-            <button type="button" onClick={() => setShowObraModal(true)} style={{ marginTop: 16, border: "1px solid rgba(212,145,74,0.3)", background: "rgba(212,145,74,0.1)", color: C.amber, padding: "8px 20px", borderRadius: 8, cursor: "pointer", fontFamily: C.sans, fontSize: 12 }}>
-              + Nueva obra
-            </button>
+            <div style={{ marginTop: 16 }}>
+              <Btn variant="primary" onClick={() => setShowObraModal(true)}>+ Nueva obra</Btn>
+            </div>
           )}
         </div>
       </div>
@@ -1009,7 +987,7 @@ export default function ObrasScreen({ profile, signOut }) {
                 borderLeft: `3px solid ${oC.dot}`,
               }}>
                 <span style={{ fontSize: 10, color: C.t2, transform: expanded ? "rotate(90deg)" : "none", transition: "transform .2s", flexShrink: 0 }}>▶</span>
-                <span style={{ fontFamily: C.mono, fontSize: 14, color: "#8a9a80", fontWeight: 600, letterSpacing: 1, flex: "0 0 108px" }}>{obra.codigo}</span>
+                <span style={{ fontFamily: C.mono, fontSize: 14, color: C.t0, fontWeight: 600, letterSpacing: 1, flex: "0 0 108px" }}>{obra.codigo}</span>
                 {obra.linea_nombre && (
                   <span style={{ fontSize: 8, color: C.t2, letterSpacing: 2, textTransform: "uppercase", flex: "0 0 60px", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{obra.linea_nombre}</span>
                 )}
@@ -1024,7 +1002,7 @@ export default function ObrasScreen({ profile, signOut }) {
                       {obra.estado === "activa" ? "Pausar" : "Activar"}
                     </Btn>
                     {obra.estado !== "terminada" && (
-                      <Btn variant="sm" sx={{ color: C.etapa.completado.text, borderColor: "rgba(40,100,65,0.3)" }}
+                      <Btn variant="sm" sx={{ color: C.etapa.completado.text, borderColor: "rgba(16,185,129,0.3)" }}
                         onClick={e => { e.stopPropagation(); cambiarEstadoObra(obra.id, "terminada"); }}>
                         Terminar
                       </Btn>
@@ -1052,7 +1030,7 @@ export default function ObrasScreen({ profile, signOut }) {
                       {/* Timeline bar */}
                       <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 6, paddingLeft: 4 }}>
                         <div style={{ width: 116, flexShrink: 0, fontSize: 9, color: C.t2 }}>Timeline</div>
-                        <div style={{ flex: 1, height: 16, display: "flex", borderRadius: 4, overflow: "hidden", border: `1px solid ${C.b0}`, background: "rgba(0,0,0,0.3)" }}>
+                        <div style={{ flex: 1, height: 16, display: "flex", borderRadius: 4, overflow: "hidden", border: `1px solid ${C.b0}`, background: "rgba(0,0,0,0.4)" }}>
                           {obraEtapas.map((e, idx) => {
                             const ec = C.etapa[e.estado] ?? C.etapa.pendiente;
                             return (
@@ -1061,11 +1039,11 @@ export default function ObrasScreen({ profile, signOut }) {
                                 style={{
                                   flex: num(e.dias_estimados) / totalDias, height: "100%",
                                   background: e.estado === "completado"
-                                    ? `linear-gradient(90deg, ${ec.bar}, rgba(74,184,112,0.28))`
+                                    ? `linear-gradient(90deg, ${ec.bar}, rgba(16,185,129,0.28))`
                                     : e.estado === "en_curso"
-                                      ? `linear-gradient(90deg, ${ec.bar}, rgba(212,145,74,0.28))`
+                                      ? `linear-gradient(90deg, ${ec.bar}, rgba(59,130,246,0.28))`
                                       : ec.bar,
-                                  borderRight: idx < obraEtapas.length - 1 ? "1px solid rgba(0,0,0,0.3)" : "none",
+                                  borderRight: idx < obraEtapas.length - 1 ? "1px solid rgba(0,0,0,0.5)" : "none",
                                   cursor: !e.isVirtual ? "pointer" : "default",
                                   ...(e.estado === "en_curso" ? { animation: "gPulse 2.5s ease infinite" } : {}),
                                 }}
@@ -1094,9 +1072,9 @@ export default function ObrasScreen({ profile, signOut }) {
                           background: etExp ? C.s0 : "transparent", cursor: "pointer", transition: "background .12s",
                         }}>
                           <span style={{ fontSize: 7, color: C.t2, width: 8, flexShrink: 0, transform: etExp ? "rotate(90deg)" : "none", display: "inline-block", transition: "transform .15s" }}>▶</span>
-                          <div style={{ width: 3, height: 22, borderRadius: 2, background: etapa.color ?? "#4a6870", flexShrink: 0 }} />
+                          <div style={{ width: 3, height: 22, borderRadius: 2, background: etapa.color ?? "#64748b", flexShrink: 0 }} />
                           <div style={{ width: 100, flexShrink: 0 }}>
-                            <div style={{ fontSize: 11, color: "#4a6040", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{etapa.nombre}</div>
+                            <div style={{ fontSize: 11, color: C.t1, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{etapa.nombre}</div>
                             {etapaT.length > 0 && <div style={{ fontSize: 9, color: C.t2 }}>{etapaT.filter(t => t.estado === "finalizada").length}/{etapaT.length}</div>}
                           </div>
                           <div style={{ flex: 1 }}>
@@ -1131,7 +1109,7 @@ export default function ObrasScreen({ profile, signOut }) {
                                   cursor: "pointer", transition: "background .12s",
                                 }}>
                                   <Dot color={tc.text} size={5} glow={tarea.estado === "en_progreso"} />
-                                  <span style={{ flex: "0 0 108px", fontSize: 10, color: "#384838", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{tarea.nombre}</span>
+                                  <span style={{ flex: "0 0 108px", fontSize: 10, color: C.t1, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{tarea.nombre}</span>
                                   <div style={{ flex: 1, display: "flex", alignItems: "center", gap: 8 }}>
                                     {tarea.horas_estimadas && <span style={{ fontSize: 9, color: C.t2, fontFamily: C.mono }}>{tarea.horas_estimadas}h</span>}
                                     {tarea.responsable && <span style={{ fontSize: 9, color: C.t2, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", maxWidth: 80 }}>{tarea.responsable}</span>}
@@ -1148,7 +1126,7 @@ export default function ObrasScreen({ profile, signOut }) {
                                         <Btn variant="sm" sx={{ fontSize: 9, padding: "1px 6px" }} onClick={e => { e.stopPropagation(); cambiarEstadoTarea(tarea.id, "en_progreso"); }}>Iniciar</Btn>
                                       )}
                                       {tarea.estado === "en_progreso" && (
-                                        <Btn variant="sm" sx={{ fontSize: 9, padding: "1px 6px", color: C.etapa.completado.text, borderColor: "rgba(40,100,65,0.3)" }} onClick={e => { e.stopPropagation(); cambiarEstadoTarea(tarea.id, "finalizada"); }}>Finalizar</Btn>
+                                        <Btn variant="sm" sx={{ fontSize: 9, padding: "1px 6px", color: C.etapa.completado.text, borderColor: "rgba(16,185,129,0.3)" }} onClick={e => { e.stopPropagation(); cambiarEstadoTarea(tarea.id, "finalizada"); }}>Finalizar</Btn>
                                       )}
                                       <Btn variant="sm" sx={{ fontSize: 9, padding: "1px 6px" }} onClick={e => { e.stopPropagation(); setTareaModal({ tarea, etapaId: tarea.etapa_id, obraId: tarea.obra_id }); }}>✎</Btn>
                                       <button type="button" onClick={e => { e.stopPropagation(); pedirBorrado(tarea, "tarea"); }} style={{ border: "none", background: "transparent", color: C.t2, cursor: "pointer", fontSize: 11, padding: "0 3px" }}>×</button>
@@ -1190,11 +1168,11 @@ export default function ObrasScreen({ profile, signOut }) {
       <style>{`
         @import url('https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500;700&display=swap');
         *, *::before, *::after { box-sizing: border-box; }
-        select option { background: #060c06; color: #c8d4c0; }
+        select option { background: #0f0f12; color: #a1a1aa; }
         ::-webkit-scrollbar { width: 3px; height: 3px; }
         ::-webkit-scrollbar-track { background: transparent; }
         ::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.07); border-radius: 99px; }
-        input:focus, select:focus, textarea:focus { border-color: rgba(212,145,74,0.35) !important; outline: none; }
+        input:focus, select:focus, textarea:focus { border-color: rgba(59,130,246,0.35) !important; outline: none; }
         @keyframes slideUp   { from{opacity:0;transform:translateY(12px)} to{opacity:1;transform:translateY(0)} }
         @keyframes slideLeft { from{opacity:0;transform:translateX(10px)} to{opacity:1;transform:translateX(0)} }
         @keyframes gPulse    { 0%,100%{opacity:1} 50%{opacity:.6} }
@@ -1202,8 +1180,8 @@ export default function ObrasScreen({ profile, signOut }) {
         .bg-glow {
           position: fixed; inset: 0; pointer-events: none; z-index: 0;
           background:
-            radial-gradient(ellipse 70% 38% at 50% -6%, rgba(20,50,18,0.20) 0%, transparent 65%),
-            radial-gradient(ellipse 40% 28% at 92% 88%, rgba(212,145,74,0.04) 0%, transparent 55%);
+            radial-gradient(ellipse 70% 38% at 50% -6%, rgba(59,130,246,0.07) 0%, transparent 65%),
+            radial-gradient(ellipse 40% 28% at 92% 88%, rgba(245,158,11,0.02) 0%, transparent 55%);
         }
       `}</style>
       <div className="bg-glow" />
@@ -1214,7 +1192,7 @@ export default function ObrasScreen({ profile, signOut }) {
         <div style={{ display: "flex", flexDirection: "column", height: "100vh", overflow: "hidden" }}>
           {/* TOPBAR */}
           <div style={{
-            height: 50, background: "rgba(4,7,4,0.92)", ...GLASS,
+            height: 50, background: "rgba(12,12,14,0.92)", ...GLASS,
             borderBottom: `1px solid ${C.b0}`, padding: "0 18px",
             display: "flex", alignItems: "center", gap: 10, flexShrink: 0,
           }}>
@@ -1231,15 +1209,13 @@ export default function ObrasScreen({ profile, signOut }) {
               ))}
             </div>
             {esGestion && (
-              <button type="button" onClick={() => setShowObraModal(true)} style={{ border: "1px solid rgba(212,145,74,0.4)", background: "rgba(212,145,74,0.12)", color: C.amber, padding: "7px 18px", borderRadius: 8, cursor: "pointer", fontWeight: 600, fontSize: 12, fontFamily: C.sans }}>
-                + Nueva obra
-              </button>
+              <Btn variant="primary" onClick={() => setShowObraModal(true)}>+ Nueva obra</Btn>
             )}
           </div>
 
           {/* FILTERBAR */}
           <div style={{
-            height: 36, background: "rgba(4,7,4,0.85)", ...GLASS,
+            height: 36, background: "rgba(12,12,14,0.85)", ...GLASS,
             borderBottom: `1px solid ${C.b0}`, padding: "0 18px",
             display: "flex", alignItems: "center", gap: 4, flexShrink: 0, overflowX: "auto",
           }}>
