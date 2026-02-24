@@ -250,7 +250,6 @@ export default function ConfiguracionScreen({ profile, signOut }) {
       return flash(false, "Usuario y contraseña obligatorios.");
     }
     
-    // Llamamos a la nueva función SQL secreta de creación de usuarios
     const { error } = await supabase.rpc("crear_usuario_admin", {
       p_username: newUser.username.trim(),
       p_password: newUser.password,
@@ -276,6 +275,17 @@ export default function ConfiguracionScreen({ profile, signOut }) {
       .eq("id", editUserModal.id);
     if (error) return flash(false, error.message);
     flash(true, "Permisos actualizados.");
+    setEditUserModal(null);
+    cargar();
+  }
+
+  async function eliminarUsuario(id) {
+    if (!window.confirm("¿Seguro que querés eliminar este usuario permanentemente?")) return;
+    
+    const { error } = await supabase.rpc("borrar_usuario_admin", { p_user_id: id });
+    if (error) return flash(false, "Error al eliminar: " + error.message);
+    
+    flash(true, "Usuario eliminado correctamente.");
     setEditUserModal(null);
     cargar();
   }
@@ -992,6 +1002,13 @@ export default function ConfiguracionScreen({ profile, signOut }) {
           <div style={{ display: "flex", gap: 8 }}>
             <button style={Sx.btnPrimary} onClick={guardarRolUsuario}>Guardar cambios</button>
             <button style={Sx.btnSecondary} onClick={() => setEditUserModal(null)}>Cancelar</button>
+            <div style={{ flex: 1 }} />
+            <button 
+              style={{ ...Sx.btnOutline, color: "#c07070", borderColor: "rgba(184,80,80,0.3)" }} 
+              onClick={() => eliminarUsuario(editUserModal.id)}
+            >
+              Eliminar
+            </button>
           </div>
         </Overlay>
       )}
