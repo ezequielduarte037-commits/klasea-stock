@@ -268,7 +268,47 @@ export default function ConfiguracionScreen({ profile, signOut }) {
     setNewUser({ username: "", password: "", role: "panol", is_admin: false });
     cargar();
   }
-  
+
+  async function guardarRolUsuario() {
+    if (!editUserModal) return;
+    const { error } = await supabase.from("profiles")
+      .update({ role: formEditUser.role, is_admin: formEditUser.is_admin })
+      .eq("id", editUserModal.id);
+    if (error) return flash(false, error.message);
+    flash(true, "Permisos actualizados.");
+    setEditUserModal(null);
+    cargar();
+  }
+
+  // ── sistema actions ───────────────────────────────────────────
+  async function guardarConfig(clave) {
+    const valor = editConf[clave];
+    if (valor === undefined) return;
+    const { error } = await supabase.from("sistema_config")
+      .update({ valor: String(valor), updated_at: new Date().toISOString() })
+      .eq("clave", clave);
+    if (error) return flash(false, error.message);
+    flash(true, "Guardado.");
+    setEditConf(p => { const n = { ...p }; delete n[clave]; return n; });
+    cargar();
+  }
+
+  const configGrupos = useMemo(() => {
+    const g = {};
+    config.forEach(c => { if (!g[c.grupo]) g[c.grupo] = []; g[c.grupo].push(c); });
+    return g;
+  }, [config]);
+
+  const maxDias = useMemo(() =>
+    Math.max(1, ...procesos.map(p => num(p.dias_esperados))), [procesos]);
+
+  const stats = useMemo(() => ({
+    procsActivos: procesos.filter(p => p.activo).length,
+    usuariosTotal: usuarios.length,
+    admins: usuarios.filter(u => u.is_admin).length,
+  }), [procesos, usuarios]);
+
+  const selProc = procesos.find(p => p.id === selProcId);
 
   // ─── render ───────────────────────────────────────────────────
   if (!isAdmin) {
@@ -897,7 +937,7 @@ export default function ConfiguracionScreen({ profile, signOut }) {
             </div>
 
             <div style={{ fontSize: 10, color: "#524030", marginBottom: 16, padding: "8px 12px", background: "rgba(160,110,40,0.05)", border: "1px solid rgba(160,110,40,0.12)", borderRadius: 7 }}>
-              Si Supabase requiere confirmación de email, activar el usuario desde el panel Auth.
+              El usuario podrá ingresar directamente, sin necesidad de confirmar email.
             </div>
 
             <div style={{ display: "flex", gap: 8 }}>
