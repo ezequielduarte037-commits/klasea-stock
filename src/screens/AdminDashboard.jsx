@@ -1,65 +1,104 @@
 import { useEffect, useMemo, useState } from "react";
 import { supabase } from "../supabaseClient";
-// 1. Importamos la "Pieza de Lego"
 import Sidebar from "../components/Sidebar";
 
-function num(v) {
-  const x = Number(v);
-  return Number.isFinite(x) ? x : 0;
-}
-
+function num(v) { const x = Number(v); return Number.isFinite(x) ? x : 0; }
 
 // ── CSV Export ──────────────────────────────────────────────────
 function descargarCSV(filas, nombre) {
   if (!filas.length) return;
   const cols = Object.keys(filas[0]);
-  const esc  = v => {
-    const s = v == null ? "" : String(v);
-    return (s.includes(",") || s.includes('"') || s.includes("\n"))
-      ? `"${s.replace(/"/g, '""')}"` : s;
-  };
+  const esc = v => { const s = v == null ? "" : String(v); return (s.includes(",") || s.includes('"') || s.includes("\n")) ? `"${s.replace(/"/g, '""')}"` : s; };
   const csv = [cols.map(esc).join(","), ...filas.map(r => cols.map(k => esc(r[k])).join(","))].join("\n");
   const blob = new Blob(["\uFEFF" + csv], { type: "text/csv;charset=utf-8;" });
-  const url  = URL.createObjectURL(blob);
+  const url = URL.createObjectURL(blob);
   Object.assign(document.createElement("a"), { href: url, download: nombre }).click();
   URL.revokeObjectURL(url);
+}
+
+// ─── PALETA ────────────────────────────────────────────────────
+const C = {
+  bg: "#09090b",
+  s0: "rgba(255,255,255,0.03)",
+  s1: "rgba(255,255,255,0.06)",
+  b0: "rgba(255,255,255,0.08)",
+  b1: "rgba(255,255,255,0.15)",
+  t0: "#f4f4f5",
+  t1: "#a1a1aa",
+  t2: "#71717a",
+  mono: "'JetBrains Mono', 'IBM Plex Mono', monospace",
+  sans: "'Outfit', system-ui, sans-serif",
+  primary: "#3b82f6",
+  amber: "#f59e0b",
+  green: "#10b981",
+  red: "#ef4444",
+};
+
+const GLASS = {
+  backdropFilter: "blur(32px) saturate(130%)",
+  WebkitBackdropFilter: "blur(32px) saturate(130%)",
+};
+
+const INP = {
+  background: "rgba(255,255,255,0.04)",
+  border: `1px solid ${C.b0}`,
+  color: C.t0, padding: "8px 12px", borderRadius: 8, fontSize: 12,
+  outline: "none", width: "100%", fontFamily: C.sans,
+};
+
+// ─── ESTADO CONFIG ─────────────────────────────────────────────
+const ESTADO_META = {
+  OK:       { color: C.green,   bg: "rgba(16,185,129,0.1)",  border: "rgba(16,185,129,0.25)"  },
+  ATENCION: { color: C.amber,   bg: "rgba(245,158,11,0.1)",  border: "rgba(245,158,11,0.25)"  },
+  CRITICO:  { color: C.red,     bg: "rgba(239,68,68,0.1)",   border: "rgba(239,68,68,0.25)"   },
+  PEDIDO:   { color: "#93c5fd", bg: "rgba(59,130,246,0.1)",  border: "rgba(59,130,246,0.25)"  },
+};
+
+function EstadoChip({ estado }) {
+  const meta = ESTADO_META[String(estado).toUpperCase()] ?? ESTADO_META.OK;
+  return (
+    <span style={{
+      fontSize: 8, letterSpacing: 1.5, textTransform: "uppercase",
+      padding: "2px 8px", borderRadius: 99, fontWeight: 700,
+      background: meta.bg, color: meta.color, border: `1px solid ${meta.border}`,
+      whiteSpace: "nowrap",
+    }}>
+      {estado}
+    </span>
+  );
+}
+
+function KpiCard({ label, value, color, bg, border }) {
+  return (
+    <div style={{ background: bg, border: `1px solid ${border}`, borderRadius: 10, padding: "12px 16px", borderLeft: `2px solid ${color}` }}>
+      <div style={{ fontSize: 9, letterSpacing: 2, textTransform: "uppercase", color: C.t2, marginBottom: 6 }}>{label}</div>
+      <div style={{ fontFamily: C.mono, fontSize: 24, fontWeight: 700, color, lineHeight: 1 }}>{value}</div>
+    </div>
+  );
 }
 
 export default function AdminDashboard({ profile, signOut }) {
   const [rows, setRows] = useState([]);
   const [error, setError] = useState("");
   const [msg, setMsg] = useState("");
-
   const [q, setQ] = useState("");
   const [soloNoOk, setSoloNoOk] = useState(false);
-
-  // --- ESTADOS PARA AGREGAR MATERIAL ---
   const [showModal, setShowModal] = useState(false);
-  const [newMat, setNewMat] = useState({
-    nombre: "",
-    categoria: "Maderas", // Default para facilitarte la vida
-    unidad_medida: "u",
-    stock_minimo: 5
-  });
+  const [newMat, setNewMat] = useState({ nombre: "", categoria: "Maderas", unidad_medida: "u", stock_minimo: 5 });
 
-  // --- TU LÓGICA INTACTA ---
   async function cargar() {
     setError("");
     const { data, error } = await supabase
       .from("materiales_kpi_pedidos")
-      .select(
-        "id,nombre,unidad_medida,stock_actual,stock_minimo,consumo_semanal,semanas_cobertura,estado,pedido_sugerido,pedido_pendiente,estado_ui,categoria"
-      )
+      .select("id,nombre,unidad_medida,stock_actual,stock_minimo,consumo_semanal,semanas_cobertura,estado,pedido_sugerido,pedido_pendiente,estado_ui,categoria")
       .order("nombre", { ascending: true });
-
     if (error) return setError(error.message);
     setRows(data ?? []);
   }
 
   useEffect(() => {
     cargar();
-    const ch = supabase
-      .channel("rt-admin-materiales")
+    const ch = supabase.channel("rt-admin-materiales")
       .on("postgres_changes", { event: "*", schema: "public", table: "materiales" }, cargar)
       .on("postgres_changes", { event: "*", schema: "public", table: "pedidos" }, cargar)
       .on("postgres_changes", { event: "*", schema: "public", table: "pedido_items" }, cargar)
@@ -67,41 +106,36 @@ export default function AdminDashboard({ profile, signOut }) {
     return () => { supabase.removeChannel(ch); };
   }, []);
 
-  // --- NUEVA FUNCIÓN: CREAR MATERIAL ---
   async function crearMaterial() {
     if (!newMat.nombre.trim()) return alert("Poné un nombre al material");
-    
     const { error } = await supabase.from("materiales").insert({
-        nombre: newMat.nombre,
-        categoria: newMat.categoria,
-        unidad_medida: newMat.unidad_medida,
-        stock_minimo: newMat.stock_minimo,
-        stock_actual: 0
+      nombre: newMat.nombre, categoria: newMat.categoria,
+      unidad_medida: newMat.unidad_medida, stock_minimo: newMat.stock_minimo, stock_actual: 0,
     });
-
-    if (error) {
-        alert("Error: " + error.message);
-    } else {
-        setMsg("✅ Material creado exitosamente");
-        setShowModal(false);
-        setNewMat({ nombre: "", categoria: "Maderas", unidad_medida: "u", stock_minimo: 5 });
-        setTimeout(() => setMsg(""), 2000);
-        cargar();
+    if (error) { alert("Error: " + error.message); }
+    else {
+      setMsg("✅ Material creado exitosamente");
+      setShowModal(false);
+      setNewMat({ nombre: "", categoria: "Maderas", unidad_medida: "u", stock_minimo: 5 });
+      setTimeout(() => setMsg(""), 2000);
+      cargar();
     }
   }
 
   const stats = useMemo(() => {
-    const st = (r) => String(r.estado_ui || r.estado || "").toUpperCase();
-    const ok = rows.filter((r) => st(r) === "OK").length;
-    const at = rows.filter((r) => st(r) === "ATENCION").length;
-    const cr = rows.filter((r) => st(r) === "CRITICO").length;
-    const pe = rows.filter((r) => st(r) === "PEDIDO").length;
-    return { ok, at, cr, pe, total: rows.length };
+    const st = r => String(r.estado_ui || r.estado || "").toUpperCase();
+    return {
+      ok:    rows.filter(r => st(r) === "OK").length,
+      at:    rows.filter(r => st(r) === "ATENCION").length,
+      cr:    rows.filter(r => st(r) === "CRITICO").length,
+      pe:    rows.filter(r => st(r) === "PEDIDO").length,
+      total: rows.length,
+    };
   }, [rows]);
 
   const filtrados = useMemo(() => {
     const qq = q.trim().toLowerCase();
-    return rows.filter((r) => {
+    return rows.filter(r => {
       const est = String(r.estado_ui || r.estado || "").toUpperCase();
       if (soloNoOk && est === "OK") return false;
       if (!qq) return true;
@@ -109,26 +143,19 @@ export default function AdminDashboard({ profile, signOut }) {
     });
   }, [rows, q, soloNoOk]);
 
-  // Lista de compra: NO incluir lo ya pedido
-  const listaCompra = useMemo(() => {
-    return filtrados
-      .filter((r) => num(r.pedido_sugerido) > 0)
-      .filter((r) => !r.pedido_pendiente)
-      .map((r) => `${r.nombre} -> PEDIR: ${num(r.pedido_sugerido).toFixed(2)} ${r.unidad_medida || ""}`.trim());
-  }, [filtrados]);
-
+  const listaCompra = useMemo(() =>
+    filtrados.filter(r => num(r.pedido_sugerido) > 0 && !r.pedido_pendiente)
+      .map(r => `${r.nombre} -> PEDIR: ${num(r.pedido_sugerido).toFixed(2)} ${r.unidad_medida || ""}`.trim()),
+  [filtrados]);
 
   function exportarInventario() {
     const hoy = new Date().toLocaleDateString("es-AR").replace(/[/]/g, "-");
     const filas = filtrados.map(r => ({
-      Material:       r.nombre,
-      Categoria:      r.categoria ?? "—",
-      Unidad:         r.unidad_medida ?? "—",
-      Stock_actual:   num(r.stock_actual).toFixed(2),
-      Stock_minimo:   num(r.stock_minimo).toFixed(2),
+      Material: r.nombre, Categoria: r.categoria ?? "—", Unidad: r.unidad_medida ?? "—",
+      Stock_actual: num(r.stock_actual).toFixed(2), Stock_minimo: num(r.stock_minimo).toFixed(2),
       Consumo_semanal: num(r.consumo_semanal).toFixed(2),
-      Cobertura_sem:  r.semanas_cobertura >= 999 ? "—" : num(r.semanas_cobertura).toFixed(2),
-      Estado:         String(r.estado_ui || r.estado || "").toUpperCase(),
+      Cobertura_sem: r.semanas_cobertura >= 999 ? "—" : num(r.semanas_cobertura).toFixed(2),
+      Estado: String(r.estado_ui || r.estado || "").toUpperCase(),
       Pedido_sugerido: r.pedido_pendiente ? "YA PEDIDO" : (num(r.pedido_sugerido) > 0 ? num(r.pedido_sugerido).toFixed(2) : "—"),
     }));
     descargarCSV(filas, `inventario_maderas_${hoy}.csv`);
@@ -139,207 +166,221 @@ export default function AdminDashboard({ profile, signOut }) {
       navigator.clipboard.writeText(["LISTA DE COMPRA", ...listaCompra].join("\n"));
       setMsg("✅ Lista copiada");
       setTimeout(() => setMsg(""), 1500);
-    } else {
-      setMsg("⚠️ No soportado en este navegador");
-    }
+    } else { setMsg("⚠️ No soportado en este navegador"); }
   }
 
-  // --- ESTILOS ---
-  const S = {
-    page: { background: "#000", minHeight: "100vh", color: "#d0d0d0", fontFamily: "Roboto, system-ui, Arial" },
-    layout: { display: "grid", gridTemplateColumns: "280px 1fr", minHeight: "100vh" },
-    main: { padding: 18, display: "flex", justifyContent: "center" },
-    content: { width: "min(1200px, 100%)" },
-
-    topbar: { display: "flex", justifyContent: "space-between", alignItems: "center", gap: 12, marginBottom: 12 },
-    title: { fontFamily: "Montserrat, system-ui, Arial", fontSize: 20, margin: 0, color: "#fff" },
-    meta: { fontSize: 12, opacity: 0.75 },
-
-    card: { border: "1px solid #2a2a2a", borderRadius: 16, background: "#070707", padding: 16, marginBottom: 12 },
-    input: { background: "#0b0b0b", border: "1px solid #2a2a2a", color: "#eaeaea", padding: "10px 12px", borderRadius: 12, width: "100%", outline: "none" },
-    
-    // Botones
-    btn: { border: "1px solid #2a2a2a", background: "#111", color: "#fff", padding: "10px 12px", borderRadius: 12, cursor: "pointer", fontWeight: 900 },
-    btnNew: { border: "none", background: "#ffd60a", color: "#000", padding: "10px 20px", borderRadius: 12, cursor: "pointer", fontWeight: 900, fontSize: "13px", boxShadow: "0 0 10px rgba(255,214,10,0.2)" },
-    
-    grid4: { display: "grid", gridTemplateColumns: "repeat(4, 1fr)", gap: 10 },
-    stat: (bg) => ({ padding: 12, borderRadius: 14, border: "1px solid #2a2a2a", background: bg, color: "#fff" }),
-
-    table: { width: "100%", borderCollapse: "collapse" },
-    th: { textAlign: "left", fontSize: 12, opacity: 0.75, padding: "10px 8px", borderBottom: "1px solid #1d1d1d" },
-    td: { padding: "10px 8px", borderBottom: "1px solid #111", verticalAlign: "top" },
-
-    pill: (st) => {
-      const s = String(st || "").toUpperCase();
-      const bg = s === "OK" ? "#0b2512" : s === "ATENCION" ? "#2a1f00" : s === "CRITICO" ? "#2a0b0b" : s === "PEDIDO" ? "#13224a" : "#111";
-      const fg = s === "OK" ? "#a6ffbf" : s === "ATENCION" ? "#ffe7a6" : s === "CRITICO" ? "#ffbdbd" : s === "PEDIDO" ? "#b5c8ff" : "#fff";
-      return { display: "inline-block", padding: "4px 10px", borderRadius: 999, fontSize: 12, fontWeight: 900, border: "1px solid #2a2a2a", background: bg, color: fg };
-    },
-
-    // Estilos del Modal
-    overlay: { position: "fixed", inset: 0, background: "rgba(0,0,0,0.85)", backdropFilter: "blur(5px)", display: "flex", justifyContent: "center", alignItems: "center", zIndex: 9999 },
-    modalBox: { background: "#111", border: "1px solid #333", borderRadius: 16, padding: 30, width: "400px", maxWidth: "90%" },
-    label: { display: "block", fontSize: 11, fontWeight: 900, color: "#888", marginBottom: 6, textTransform: "uppercase" },
-    modalBtn: { width: "100%", padding: 12, borderRadius: 10, border: "none", background: "#fff", color: "#000", fontWeight: 900, cursor: "pointer", marginTop: 15 },
-    modalClose: { width: "100%", padding: 12, borderRadius: 10, border: "1px solid #333", background: "transparent", color: "#fff", fontWeight: 700, cursor: "pointer", marginTop: 8 }
-  };
+  const TH = { padding: "8px 12px", textAlign: "left", fontSize: 9, letterSpacing: 2, textTransform: "uppercase", color: C.t2, fontWeight: 700, borderBottom: `1px solid ${C.b0}`, whiteSpace: "nowrap" };
+  const TD = { padding: "9px 12px", fontSize: 12, borderBottom: `1px solid rgba(255,255,255,0.03)`, color: C.t1 };
 
   return (
-    <div style={S.page}>
-      <div style={S.layout}>
-        
+    <div style={{ background: C.bg, minHeight: "100vh", color: C.t0, fontFamily: C.sans }}>
+      <style>{`
+        @import url('https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500;700&display=swap');
+        *, *::before, *::after { box-sizing: border-box; }
+        select option { background: #0f0f12; color: #a1a1aa; }
+        ::-webkit-scrollbar { width: 3px; height: 3px; }
+        ::-webkit-scrollbar-track { background: transparent; }
+        ::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.07); border-radius: 99px; }
+        input:focus, select:focus { border-color: rgba(59,130,246,0.35) !important; outline: none; }
+        @keyframes slideUp { from{opacity:0;transform:translateY(10px)} to{opacity:1;transform:translateY(0)} }
+        @keyframes fadeIn  { from{opacity:0} to{opacity:1} }
+        button:not([disabled]):hover { opacity: 0.8; }
+        .bg-glow {
+          position: fixed; inset: 0; pointer-events: none; z-index: 0;
+          background: radial-gradient(ellipse 70% 38% at 50% -6%, rgba(59,130,246,0.06) 0%, transparent 65%),
+                      radial-gradient(ellipse 40% 28% at 92% 88%, rgba(245,158,11,0.02) 0%, transparent 55%);
+        }
+        tr:hover td { background: rgba(255,255,255,0.015); }
+      `}</style>
+      <div className="bg-glow" />
+
+      <div style={{ display: "grid", gridTemplateColumns: "280px 1fr", minHeight: "100vh", position: "relative", zIndex: 1 }}>
         <Sidebar profile={profile} signOut={signOut} />
 
-        <main style={S.main}>
-          <div style={S.content}>
-            <div style={S.topbar}>
-              <div>
-                <h1 style={S.title}>Inventario (Admin)</h1>
-                <div style={S.meta}>Semáforo + pedido sugerido + estado “PEDIDO” si ya fue ordenado.</div>
-              </div>
-              <div style={{display:"flex", gap:10}}>
-                <button style={S.btnNew} onClick={() => setShowModal(true)}>+ NUEVO MATERIAL</button>
-                <button style={S.btn} onClick={cargar}>Refrescar</button>
-              </div>
-            </div>
-
-            {error ? <div style={{ ...S.card, borderColor: "#5a1d1d", color: "#ffbdbd" }}>{error}</div> : null}
-            {msg ? <div style={{ ...S.card, borderColor: "#1d5a2d", color: "#a6ffbf" }}>{msg}</div> : null}
-
-            {/* TARJETAS DE ESTADO (KPIs) */}
-            <div style={S.card}>
-              <div style={S.grid4}>
-                <div style={S.stat("#0b2512")}><div style={{ opacity: 0.8, fontSize: 12 }}>OK</div><div style={{ fontSize: 22, fontWeight: 900 }}>{stats.ok}</div></div>
-                <div style={S.stat("#2a1f00")}><div style={{ opacity: 0.8, fontSize: 12 }}>ATENCIÓN</div><div style={{ fontSize: 22, fontWeight: 900 }}>{stats.at}</div></div>
-                <div style={S.stat("#2a0b0b")}><div style={{ opacity: 0.8, fontSize: 12 }}>CRÍTICO</div><div style={{ fontSize: 22, fontWeight: 900 }}>{stats.cr}</div></div>
-                <div style={S.stat("#13224a")}><div style={{ opacity: 0.8, fontSize: 12 }}>PEDIDO</div><div style={{ fontSize: 22, fontWeight: 900 }}>{stats.pe}</div></div>
-              </div>
-            </div>
-
-            {/* TABLA PRINCIPAL */}
-            <div style={S.card}>
-              <div style={{ display: "grid", gridTemplateColumns: "1fr 220px 220px", gap: 10, alignItems: "center" }}>
-                <input
-                  style={S.input}
-                  placeholder="Buscar material o categoría..."
-                  value={q}
-                  onChange={(e) => setQ(e.target.value)}
-                />
-                <label style={{ display: "flex", gap: 8, alignItems: "center", justifyContent: "flex-end", opacity: 0.9 }}>
-                  <input type="checkbox" checked={soloNoOk} onChange={(e) => setSoloNoOk(e.target.checked)} />
-                  Solo no OK
-                </label>
-                <div style={{ display: "flex", gap: 8 }}>
-                  <button
-                    onClick={exportarInventario} disabled={!filtrados.length}
-                    style={{
-                      border: filtrados.length ? "1px solid rgba(48,209,88,0.28)" : "1px solid #2a2a2a",
-                      background: filtrados.length ? "rgba(48,209,88,0.07)" : "transparent",
-                      color: filtrados.length ? "#a6ffbf" : "#444",
-                      padding: "10px 14px", borderRadius: 12,
-                      cursor: filtrados.length ? "pointer" : "not-allowed",
-                      fontWeight: 700, fontSize: 13,
-                      display: "flex", alignItems: "center", gap: 5,
-                    }}
-                    title="Exporta la tabla con los filtros actuales"
-                  >
-                    ↓ CSV <span style={{ fontSize: 11, opacity: 0.65 }}>({filtrados.length})</span>
-                  </button>
-                  <button style={S.btn} onClick={copiarListaCompra} disabled={!listaCompra.length}>
-                    📋 Lista compra ({listaCompra.length})
-                  </button>
+        <div style={{ display: "flex", flexDirection: "column", height: "100vh", overflow: "hidden" }}>
+          {/* ── TOPBAR ── */}
+          <div style={{
+            height: 50, background: "rgba(12,12,14,0.92)", ...GLASS,
+            borderBottom: `1px solid ${C.b0}`, padding: "0 18px",
+            display: "flex", alignItems: "center", gap: 10, flexShrink: 0,
+          }}>
+            <div style={{ display: "flex", gap: 7, flex: 1 }}>
+              {[
+                { label: "OK",       n: stats.ok, ...ESTADO_META.OK       },
+                { label: "Atención", n: stats.at, ...ESTADO_META.ATENCION },
+                { label: "Crítico",  n: stats.cr, ...ESTADO_META.CRITICO  },
+                { label: "Pedido",   n: stats.pe, ...ESTADO_META.PEDIDO   },
+              ].map(({ label, n, color, bg, border }) => (
+                <div key={label} style={{ display: "flex", alignItems: "center", gap: 6, padding: "4px 10px", borderRadius: 7, background: bg, border: `1px solid ${border}`, borderLeft: `2px solid ${color}` }}>
+                  <span style={{ fontFamily: C.mono, fontSize: 15, fontWeight: 700, color, lineHeight: 1 }}>{n}</span>
+                  <span style={{ fontSize: 8, color: C.t1, letterSpacing: 2, textTransform: "uppercase" }}>{label}</span>
                 </div>
-              </div>
-
-              <div style={{ marginTop: 12 }}>
-                <table style={S.table}>
-                  <thead>
-                    <tr>
-                      <th style={S.th}>Material</th>
-                      <th style={S.th}>Cat</th>
-                      <th style={S.th}>Estado</th>
-                      <th style={S.th}>Stock</th>
-                      <th style={S.th}>Mínimo</th>
-                      <th style={S.th}>Consumo</th>
-                      <th style={S.th}>Cobertura</th>
-                      <th style={S.th}>Sugerido</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {filtrados.map((r) => {
-                      const st = r.estado_ui || r.estado;
-                      return (
-                        <tr key={r.id}>
-                          <td style={S.td}><b style={{ color: "#fff" }}>{r.nombre}</b><div style={{ opacity: 0.7, fontSize: 12 }}>{r.unidad_medida || ""}</div></td>
-                          <td style={S.td}><div style={{ opacity: 0.5, fontSize: 11 }}>{r.categoria || "—"}</div></td>
-                          <td style={S.td}><span style={S.pill(st)}>{String(st || "").toUpperCase()}</span></td>
-                          <td style={S.td}>{num(r.stock_actual).toFixed(2)}</td>
-                          <td style={S.td}>{num(r.stock_minimo).toFixed(2)}</td>
-                          <td style={S.td}>{num(r.consumo_semanal).toFixed(2)}</td>
-                       <td style={S.td}>
-                                      {r.semanas_cobertura >= 999 ? "—" : num(r.semanas_cobertura).toFixed(2)}</td>
-                          <td style={S.td}>
-                            {r.pedido_pendiente ? (
-                              <span style={{ fontWeight: 900, color: "#b5c8ff" }}>YA PEDIDO</span>
-                            ) : (
-                              num(r.pedido_sugerido) > 0 ? <b style={{ color: "#fff" }}>{num(r.pedido_sugerido).toFixed(2)}</b> : "—"
-                            )}
-                          </td>
-                        </tr>
-                      );
-                    })}
-                    {!filtrados.length ? (
-                      <tr><td style={S.td} colSpan={8}>Sin resultados.</td></tr>
-                    ) : null}
-                  </tbody>
-                </table>
-              </div>
+              ))}
             </div>
-
+            <button onClick={cargar} style={{ border: `1px solid ${C.b0}`, background: "transparent", color: C.t2, padding: "5px 10px", borderRadius: 7, cursor: "pointer", fontFamily: C.sans, fontSize: 11 }}>↻</button>
+            <button onClick={() => setShowModal(true)} style={{ border: "1px solid rgba(59,130,246,0.35)", background: "rgba(59,130,246,0.15)", color: "#60a5fa", padding: "7px 16px", borderRadius: 8, cursor: "pointer", fontFamily: C.sans, fontSize: 12, fontWeight: 600 }}>+ Material</button>
           </div>
 
-          {/* MODAL PARA AGREGAR MATERIAL */}
-          {showModal && (
-            <div style={S.overlay}>
-              <div style={S.modalBox}>
-                <h2 style={{margin:"0 0 20px 0", color:"#fff"}}>Alta de Material</h2>
-                
-                <div style={{marginBottom:15}}>
-                    <label style={S.label}>Nombre (Ej: Tablón Cedro)</label>
-                    <input style={S.input} value={newMat.nombre} onChange={e => setNewMat({...newMat, nombre: e.target.value})} autoFocus />
-                </div>
+          {/* ── FILTERBAR ── */}
+          <div style={{
+            height: 42, background: "rgba(12,12,14,0.85)", ...GLASS,
+            borderBottom: `1px solid ${C.b0}`, padding: "0 18px",
+            display: "flex", alignItems: "center", gap: 8, flexShrink: 0,
+          }}>
+            <input
+              style={{ ...INP, width: 260, padding: "5px 10px", fontSize: 11 }}
+              placeholder="Buscar material o categoría…"
+              value={q} onChange={e => setQ(e.target.value)}
+            />
+            <label style={{ display: "flex", gap: 6, alignItems: "center", fontSize: 11, color: C.t2, cursor: "pointer", userSelect: "none", whiteSpace: "nowrap" }}>
+              <input type="checkbox" checked={soloNoOk} onChange={e => setSoloNoOk(e.target.checked)} style={{ accentColor: C.amber }} />
+              Solo no OK
+            </label>
+            <div style={{ flex: 1 }} />
+            <button
+              onClick={exportarInventario} disabled={!filtrados.length}
+              style={{
+                border: filtrados.length ? "1px solid rgba(16,185,129,0.28)" : `1px solid ${C.b0}`,
+                background: filtrados.length ? "rgba(16,185,129,0.07)" : "transparent",
+                color: filtrados.length ? "#34d399" : C.t2,
+                padding: "5px 12px", borderRadius: 7, cursor: filtrados.length ? "pointer" : "not-allowed",
+                fontFamily: C.sans, fontSize: 11,
+              }}
+            >↓ CSV <span style={{ fontFamily: C.mono, opacity: 0.7 }}>({filtrados.length})</span></button>
+            <button
+              onClick={copiarListaCompra} disabled={!listaCompra.length}
+              style={{
+                border: listaCompra.length ? "1px solid rgba(245,158,11,0.28)" : `1px solid ${C.b0}`,
+                background: listaCompra.length ? "rgba(245,158,11,0.07)" : "transparent",
+                color: listaCompra.length ? "#fbbf24" : C.t2,
+                padding: "5px 12px", borderRadius: 7, cursor: listaCompra.length ? "pointer" : "not-allowed",
+                fontFamily: C.sans, fontSize: 11,
+              }}
+            >📋 Lista compra <span style={{ fontFamily: C.mono, opacity: 0.7 }}>({listaCompra.length})</span></button>
+          </div>
 
-                <div style={{display:"grid", gridTemplateColumns:"1fr 1fr", gap:10, marginBottom:15}}>
-                    <div>
-                        <label style={S.label}>Categoría</label>
-                        <input style={S.input} value={newMat.categoria} onChange={e => setNewMat({...newMat, categoria: e.target.value})} />
-                    </div>
-                    <div>
-                        <label style={S.label}>Unidad</label>
-                        <select style={S.input} value={newMat.unidad_medida} onChange={e => setNewMat({...newMat, unidad_medida: e.target.value})}>
-                            <option value="u">Unidad (u)</option>
-                            <option value="m">Metros (m)</option>
-                            <option value="m2">m2</option>
-                            <option value="kg">Kilos</option>
-                            <option value="l">Litros</option>
-                            <option value="ft">Pies</option>
-                        </select>
-                    </div>
-                </div>
+          {/* ── MAIN ── */}
+          <div style={{ flex: 1, overflow: "auto", padding: "16px 22px" }}>
+            {error && <div style={{ padding: "8px 12px", borderRadius: 8, background: "rgba(239,68,68,0.08)", border: "1px solid rgba(239,68,68,0.2)", color: "#f87171", fontSize: 12, marginBottom: 10 }}>{error}</div>}
+            {msg   && <div style={{ padding: "8px 12px", borderRadius: 8, background: "rgba(16,185,129,0.08)", border: "1px solid rgba(16,185,129,0.2)", color: "#34d399", fontSize: 12, marginBottom: 10 }}>{msg}</div>}
 
-                <div style={{marginBottom:15}}>
-                    <label style={S.label}>Stock Mínimo (Alerta)</label>
-                    <input type="number" style={S.input} value={newMat.stock_minimo} onChange={e => setNewMat({...newMat, stock_minimo: e.target.value})} />
-                </div>
+            {/* KPIs */}
+            <div style={{ display: "grid", gridTemplateColumns: "repeat(4,1fr)", gap: 10, marginBottom: 16 }}>
+              <KpiCard label="OK"       value={stats.ok} color={C.green}   bg="rgba(16,185,129,0.06)"  border="rgba(16,185,129,0.15)" />
+              <KpiCard label="Atención" value={stats.at} color={C.amber}   bg="rgba(245,158,11,0.06)"  border="rgba(245,158,11,0.15)" />
+              <KpiCard label="Crítico"  value={stats.cr} color={C.red}     bg="rgba(239,68,68,0.06)"   border="rgba(239,68,68,0.15)"  />
+              <KpiCard label="Pedido"   value={stats.pe} color="#93c5fd"   bg="rgba(59,130,246,0.06)"  border="rgba(59,130,246,0.15)" />
+            </div>
 
-                <button style={S.modalBtn} onClick={crearMaterial}>GUARDAR MATERIAL</button>
-                <button style={S.modalClose} onClick={() => setShowModal(false)}>Cancelar</button>
+            {/* Tabla */}
+            <div style={{ background: C.s0, border: `1px solid ${C.b0}`, borderRadius: 12, overflow: "hidden", animation: "slideUp .3s ease" }}>
+              <table style={{ width: "100%", borderCollapse: "collapse" }}>
+                <thead>
+                  <tr>
+                    {["Material", "Categoría", "Estado", "Stock", "Mínimo", "Consumo / sem", "Cobertura", "Pedido sugerido"].map(h => (
+                      <th key={h} style={TH}>{h}</th>
+                    ))}
+                  </tr>
+                </thead>
+                <tbody>
+                  {filtrados.map(r => {
+                    const st = String(r.estado_ui || r.estado || "").toUpperCase();
+                    return (
+                      <tr key={r.id}>
+                        <td style={TD}>
+                          <div style={{ color: C.t0, fontWeight: 600, fontSize: 12 }}>{r.nombre}</div>
+                          <div style={{ fontSize: 10, color: C.t2, marginTop: 1 }}>{r.unidad_medida}</div>
+                        </td>
+                        <td style={{ ...TD, fontSize: 10, color: C.t2 }}>{r.categoria || "—"}</td>
+                        <td style={TD}><EstadoChip estado={st} /></td>
+                        <td style={{ ...TD, fontFamily: C.mono, fontWeight: 600, color: C.t0 }}>{num(r.stock_actual).toFixed(2)}</td>
+                        <td style={{ ...TD, fontFamily: C.mono, color: C.t2 }}>{num(r.stock_minimo).toFixed(2)}</td>
+                        <td style={{ ...TD, fontFamily: C.mono, color: C.t2 }}>{num(r.consumo_semanal).toFixed(2)}</td>
+                        <td style={{ ...TD, fontFamily: C.mono, color: C.t2 }}>
+                          {r.semanas_cobertura >= 999 ? <span style={{ opacity: 0.3 }}>—</span> : num(r.semanas_cobertura).toFixed(2)}
+                        </td>
+                        <td style={TD}>
+                          {r.pedido_pendiente ? (
+                            <span style={{ fontSize: 10, color: "#93c5fd", fontWeight: 700 }}>YA PEDIDO</span>
+                          ) : num(r.pedido_sugerido) > 0 ? (
+                            <span style={{ fontFamily: C.mono, fontWeight: 700, color: C.amber }}>{num(r.pedido_sugerido).toFixed(2)}</span>
+                          ) : (
+                            <span style={{ opacity: 0.3 }}>—</span>
+                          )}
+                        </td>
+                      </tr>
+                    );
+                  })}
+                  {!filtrados.length && (
+                    <tr>
+                      <td colSpan={8} style={{ ...TD, textAlign: "center", padding: "40px", color: C.t2, fontSize: 11 }}>
+                        Sin resultados para la búsqueda actual
+                      </td>
+                    </tr>
+                  )}
+                </tbody>
+              </table>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      {/* ── MODAL NUEVO MATERIAL ── */}
+      {showModal && (
+        <div
+          onClick={e => e.target === e.currentTarget && setShowModal(false)}
+          style={{
+            position: "fixed", inset: 0, zIndex: 9000,
+            background: "rgba(0,0,0,0.85)", backdropFilter: "blur(32px)",
+            display: "flex", justifyContent: "center", alignItems: "center",
+            animation: "fadeIn .15s ease",
+          }}
+        >
+          <div style={{ background: "#0d0d10", border: `1px solid ${C.b1}`, borderRadius: 14, padding: 28, width: "min(440px,92vw)", position: "relative" }}>
+            <button
+              onClick={() => setShowModal(false)}
+              style={{ position: "absolute", top: 14, right: 14, background: C.s0, border: `1px solid ${C.b0}`, color: C.t0, width: 28, height: 28, borderRadius: "50%", cursor: "pointer", fontSize: 15, display: "flex", alignItems: "center", justifyContent: "center" }}
+            >×</button>
+            <div style={{ fontSize: 9, letterSpacing: 2, color: C.t2, textTransform: "uppercase", marginBottom: 4 }}>Nuevo material</div>
+            <h2 style={{ margin: "0 0 20px", fontSize: 16, color: C.t0 }}>Alta de Material</h2>
+
+            <div style={{ marginBottom: 12 }}>
+              <label style={{ fontSize: 9, letterSpacing: 2, color: C.t2, display: "block", marginBottom: 5, textTransform: "uppercase", fontWeight: 600 }}>Nombre</label>
+              <input style={INP} value={newMat.nombre} onChange={e => setNewMat({ ...newMat, nombre: e.target.value })} placeholder="Ej: Tablón Cedro" autoFocus />
+            </div>
+            <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10, marginBottom: 12 }}>
+              <div>
+                <label style={{ fontSize: 9, letterSpacing: 2, color: C.t2, display: "block", marginBottom: 5, textTransform: "uppercase", fontWeight: 600 }}>Categoría</label>
+                <input style={INP} value={newMat.categoria} onChange={e => setNewMat({ ...newMat, categoria: e.target.value })} />
+              </div>
+              <div>
+                <label style={{ fontSize: 9, letterSpacing: 2, color: C.t2, display: "block", marginBottom: 5, textTransform: "uppercase", fontWeight: 600 }}>Unidad</label>
+                <select style={{ ...INP, cursor: "pointer" }} value={newMat.unidad_medida} onChange={e => setNewMat({ ...newMat, unidad_medida: e.target.value })}>
+                  <option value="u">Unidad (u)</option>
+                  <option value="m">Metros (m)</option>
+                  <option value="m2">m²</option>
+                  <option value="kg">Kilos (kg)</option>
+                  <option value="l">Litros (l)</option>
+                  <option value="ft">Pies (ft)</option>
+                </select>
               </div>
             </div>
-          )}
+            <div style={{ marginBottom: 20 }}>
+              <label style={{ fontSize: 9, letterSpacing: 2, color: C.t2, display: "block", marginBottom: 5, textTransform: "uppercase", fontWeight: 600 }}>Stock mínimo (alerta)</label>
+              <input type="number" style={INP} value={newMat.stock_minimo} onChange={e => setNewMat({ ...newMat, stock_minimo: e.target.value })} />
+            </div>
 
-        </main>
-      </div>
+            <button
+              onClick={crearMaterial}
+              style={{ width: "100%", padding: "11px", border: "1px solid rgba(59,130,246,0.35)", background: "rgba(59,130,246,0.15)", color: "#60a5fa", fontWeight: 700, borderRadius: 10, cursor: "pointer", fontFamily: C.sans, fontSize: 13, marginBottom: 8 }}
+            >Guardar material</button>
+            <button
+              onClick={() => setShowModal(false)}
+              style={{ width: "100%", padding: "11px", border: `1px solid ${C.b0}`, background: "transparent", color: C.t2, borderRadius: 10, cursor: "pointer", fontFamily: C.sans, fontSize: 12 }}
+            >Cancelar</button>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

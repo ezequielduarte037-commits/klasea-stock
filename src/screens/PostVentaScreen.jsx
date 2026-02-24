@@ -29,19 +29,24 @@ const NewIcon = L.divIcon({
   popupAnchor: [0, -16],
 });
 
-// ── TOKENS DE DISEÑO ────────────────────────────
+// ── TOKENS DE DISEÑO (igual que ObrasScreen) ─────
 const C = {
-  bg:     "#03050c",
-  s0:     "rgba(255,255,255,0.028)",
-  s1:     "rgba(255,255,255,0.052)",
-  b0:     "rgba(255,255,255,0.08)",
-  b1:     "rgba(255,255,255,0.15)",
-  b2:     "rgba(255,255,255,0.26)",
-  t0:     "#dde2ea",
-  t1:     "#566070",
-  t2:     "#2c3040",
-  green:  "#3dce6a",
-  blue:   "#4a90e2",
+  bg:      "#09090b",
+  s0:      "rgba(255,255,255,0.03)",
+  s1:      "rgba(255,255,255,0.06)",
+  b0:      "rgba(255,255,255,0.08)",
+  b1:      "rgba(255,255,255,0.15)",
+  b2:      "rgba(255,255,255,0.25)",
+  t0:      "#f4f4f5",
+  t1:      "#a1a1aa",
+  t2:      "#71717a",
+  mono:    "'JetBrains Mono', 'IBM Plex Mono', monospace",
+  sans:    "'Outfit', system-ui, sans-serif",
+  primary: "#3b82f6",
+  amber:   "#f59e0b",
+  green:   "#10b981",
+  red:     "#ef4444",
+  blue:    "#3b82f6",
 };
 
 // ── COMPONENTE PARA CAPTURAR CLICS EN EL MAPA ──
@@ -179,11 +184,11 @@ export default function PostVentaScreen({ profile, signOut }) {
 
   const S = {
     page: { position: "fixed", inset: 0, background: C.bg, color: C.t0,
-      fontFamily: "'Outfit', 'IBM Plex Sans', system-ui, sans-serif", overflow: "hidden" },
+      fontFamily: C.sans, overflow: "hidden" },
     mapLayer: { position: "absolute", inset: 0, zIndex: 0 },
 
     uiLayer: { position: "absolute", inset: 0, zIndex: 10, display: "flex", pointerEvents: "none" },
-    sidebarWrap: { width: "280px", height: "100%", pointerEvents: "auto", background: C.bg },
+    sidebarWrap: { width: "280px", height: "100%", pointerEvents: "auto", background: "#09090b" },
     mainUI: { flex: 1, position: "relative", pointerEvents: "none" },
 
     topbar: {
@@ -309,7 +314,7 @@ export default function PostVentaScreen({ profile, signOut }) {
   return (
     <div style={S.page}>
       <style>{`
-        @import url('https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap');
+        @import url('https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500;700&display=swap');
         * { box-sizing: border-box; }
 
         /* ── Map marker ── */
@@ -351,10 +356,10 @@ export default function PostVentaScreen({ profile, signOut }) {
         ${isSelecting ? '.leaflet-container { cursor: crosshair !important; }' : ''}
 
         /* ── Select options ── */
-        select option { background: #080c18; color: #c8ccd8; }
+        select option { background: #0f0f12; color: #a1a1aa; }
 
         /* ── Input focus ── */
-        input:focus { border-color: rgba(255,255,255,0.22) !important; }
+        input:focus { border-color: rgba(59,130,246,0.35) !important; }
       `}</style>
 
       {/* ── 1. EL MAPA DE FONDO ── */}

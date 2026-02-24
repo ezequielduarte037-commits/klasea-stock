@@ -2,6 +2,38 @@ import { useEffect, useMemo, useState } from "react";
 import { supabase } from "../supabaseClient";
 import Sidebar from "../components/Sidebar";
 
+// ─── PALETA ──────────────────────────────────────────────────────────────────
+const C = {
+  bg:   "#09090b",
+  s0:   "rgba(255,255,255,0.03)",
+  s1:   "rgba(255,255,255,0.06)",
+  b0:   "rgba(255,255,255,0.08)",
+  b1:   "rgba(255,255,255,0.15)",
+  t0:   "#f4f4f5",
+  t1:   "#a1a1aa",
+  t2:   "#71717a",
+  mono: "'JetBrains Mono', 'IBM Plex Mono', monospace",
+  sans: "'Outfit', system-ui, sans-serif",
+  primary: "#3b82f6",
+  amber:   "#f59e0b",
+  green:   "#10b981",
+  red:     "#ef4444",
+};
+const GLASS = {
+  backdropFilter: "blur(32px) saturate(130%)",
+  WebkitBackdropFilter: "blur(32px) saturate(130%)",
+};
+const INP = {
+  background: "rgba(255,255,255,0.04)", border: `1px solid ${C.b0}`,
+  color: C.t0, padding: "9px 12px", borderRadius: 8, fontSize: 12,
+  outline: "none", width: "100%", fontFamily: "'Outfit', system-ui",
+  boxSizing: "border-box",
+};
+const LABEL = {
+  fontSize: 9, letterSpacing: 2, color: C.t1, display: "block",
+  marginBottom: 6, textTransform: "uppercase", fontWeight: 600,
+};
+
 const ROLES = ["todos", "admin", "oficina", "laminacion", "muebles", "panol", "mecanica", "electricidad"];
 
 export default function ProcedimientosScreen({ profile, signOut }) {
@@ -14,17 +46,15 @@ export default function ProcedimientosScreen({ profile, signOut }) {
   const [err,     setErr]     = useState("");
   const [msg,     setMsg]     = useState("");
 
-  // Modales
-  const [selItem,    setSelItem]    = useState(null); 
-  const [showModal,  setShowModal]  = useState(false); 
+  const [selItem,    setSelItem]    = useState(null);
+  const [showModal,  setShowModal]  = useState(false);
   const [editTarget, setEditTarget] = useState(null);
 
   const [form, setForm] = useState({ titulo: "", descripcion: "", contenido: "", rol_visible: "todos", pdf_url: "" });
   const [pasos, setPasos] = useState([""]);
-  
-  // Estado para el archivo PDF
+
   const [fileToUpload, setFileToUpload] = useState(null);
-  const [uploading, setUploading]       = useState(false);
+  const [uploading,    setUploading]    = useState(false);
 
   async function cargar() {
     setLoading(true);
@@ -34,11 +64,7 @@ export default function ProcedimientosScreen({ profile, signOut }) {
       .eq("activo", true)
       .order("created_at", { ascending: false });
 
-    if (error) {
-      setErr(error.message);
-      setLoading(false);
-      return;
-    }
+    if (error) { setErr(error.message); setLoading(false); return; }
 
     let lista = data ?? [];
     if (!isAdmin) {
@@ -47,8 +73,7 @@ export default function ProcedimientosScreen({ profile, signOut }) {
         return rv.includes(role) || rv.includes("todos");
       });
     }
-    setItems(lista);
-    setLoading(false);
+    setItems(lista); setLoading(false);
   }
 
   useEffect(() => { cargar(); }, []);
@@ -56,8 +81,8 @@ export default function ProcedimientosScreen({ profile, signOut }) {
   const filtrados = useMemo(() => {
     const qq = q.toLowerCase();
     if (!qq) return items;
-    return items.filter(p => 
-      (p.titulo || "").toLowerCase().includes(qq) || 
+    return items.filter(p =>
+      (p.titulo || "").toLowerCase().includes(qq) ||
       (p.descripcion || "").toLowerCase().includes(qq)
     );
   }, [items, q]);
@@ -65,14 +90,11 @@ export default function ProcedimientosScreen({ profile, signOut }) {
   function abrirNuevo() {
     setEditTarget(null);
     setForm({ titulo: "", descripcion: "", contenido: "", rol_visible: "todos", pdf_url: "" });
-    setPasos([""]);
-    setFileToUpload(null);
-    setShowModal(true);
+    setPasos([""]); setFileToUpload(null); setShowModal(true);
   }
 
   function abrirEditar(p) {
-    setSelItem(null); 
-    setEditTarget(p.id);
+    setSelItem(null); setEditTarget(p.id);
     setForm({
       titulo:      p.titulo ?? "",
       descripcion: p.descripcion ?? "",
@@ -81,33 +103,20 @@ export default function ProcedimientosScreen({ profile, signOut }) {
       rol_visible: Array.isArray(p.rol_visible) ? (p.rol_visible[0] ?? "todos") : "todos",
     });
     setPasos(Array.isArray(p.pasos) && p.pasos.length ? p.pasos.map(s => s.texto ?? s) : [""]);
-    setFileToUpload(null);
-    setShowModal(true);
+    setFileToUpload(null); setShowModal(true);
   }
 
   async function guardar(e) {
     e.preventDefault();
     if (!form.titulo.trim()) return setErr("El título es obligatorio.");
-    
-    setUploading(true);
-    setErr("");
-    
+    setUploading(true); setErr("");
+
     let currentPdfUrl = form.pdf_url;
-
     if (fileToUpload) {
-      const fileExt = fileToUpload.name.split('.').pop();
-      const fileName = `${Date.now()}_${Math.random().toString(36).substring(2,9)}.${fileExt}`;
-      
-      const { error: uploadError } = await supabase.storage
-        .from("documentos")
-        .upload(fileName, fileToUpload);
-
-      if (uploadError) {
-        setErr("Error subiendo PDF: " + uploadError.message);
-        setUploading(false);
-        return;
-      }
-      
+      const fileExt = fileToUpload.name.split(".").pop();
+      const fileName = `${Date.now()}_${Math.random().toString(36).substring(2, 9)}.${fileExt}`;
+      const { error: uploadError } = await supabase.storage.from("documentos").upload(fileName, fileToUpload);
+      if (uploadError) { setErr("Error subiendo PDF: " + uploadError.message); setUploading(false); return; }
       const { data: publicUrlData } = supabase.storage.from("documentos").getPublicUrl(fileName);
       currentPdfUrl = publicUrlData.publicUrl;
     }
@@ -123,211 +132,180 @@ export default function ProcedimientosScreen({ profile, signOut }) {
     };
 
     let error;
-    if (editTarget) {
-      ({ error } = await supabase.from("procedimientos").update(payload).eq("id", editTarget));
-    } else {
-      ({ error } = await supabase.from("procedimientos").insert(payload));
-    }
+    if (editTarget) { ({ error } = await supabase.from("procedimientos").update(payload).eq("id", editTarget)); }
+    else             { ({ error } = await supabase.from("procedimientos").insert(payload)); }
 
     setUploading(false);
-
     if (error) return setErr(error.message);
     setMsg(editTarget ? "✅ Actualizado." : "✅ Documento creado.");
-    setShowModal(false);
-    cargar();
+    setShowModal(false); cargar();
     setTimeout(() => setMsg(""), 2500);
   }
 
   async function archivar(id) {
     if (!window.confirm("¿Seguro que querés archivar este documento?")) return;
     await supabase.from("procedimientos").update({ activo: false }).eq("id", id);
-    setSelItem(null);
-    cargar();
+    setSelItem(null); cargar();
   }
 
-  function imprimirPDF() {
-    window.print();
-  }
+  function imprimirPDF() { window.print(); }
 
-  // ── ESTILOS ──────────────────────────────────────────────
-  const S = {
-    page:    { background: "#03050c", minHeight: "100vh", color: "#dde2ea",
-      fontFamily: "'Outfit', 'IBM Plex Sans', system-ui, sans-serif" },
-    layout:  { display: "grid", gridTemplateColumns: "280px 1fr", minHeight: "100vh" },
-    main:    { padding: "24px 28px", overflow: "auto" },
-    content: { width: "100%", maxWidth: 1400, margin: "0 auto" },
-
-    input: {
-      background: "rgba(255,255,255,0.04)", border: "1px solid rgba(255,255,255,0.09)",
-      color: "#dde2ea", padding: "10px 14px", borderRadius: 9, fontSize: 13,
-      outline: "none", width: "100%", boxSizing: "border-box",
-      transition: "border-color 0.15s",
-    },
-    label: {
-      fontSize: 9, letterSpacing: 2, color: "#566070", display: "block",
-      marginBottom: 6, textTransform: "uppercase", fontWeight: 600,
-    },
-    btnPrim: {
-      border: "1px solid rgba(255,255,255,0.2)",
-      background: "rgba(255,255,255,0.9)", color: "#080c14",
-      padding: "9px 20px", borderRadius: 9, cursor: "pointer",
-      fontWeight: 700, fontSize: 13, transition: "opacity 0.15s",
-    },
-    btnSm: {
-      border: "1px solid rgba(255,255,255,0.09)",
-      background: "rgba(255,255,255,0.04)", color: "#a8b4c4",
-      padding: "6px 14px", borderRadius: 8, cursor: "pointer", fontSize: 12,
-      transition: "border-color 0.15s, color 0.15s",
-      textDecoration: "none", display: "inline-block",
-    },
-    btnDanger: {
-      border: "1px solid rgba(224,72,72,0.25)",
-      background: "rgba(224,72,72,0.08)", color: "#e04848",
-      padding: "6px 14px", borderRadius: 8, cursor: "pointer", fontSize: 12,
-    },
-
-    grid: { display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(240px, 1fr))", gap: 14, marginTop: 20 },
-    docCard: {
-      background: "rgba(255,255,255,0.025)", border: "1px solid rgba(255,255,255,0.07)",
-      borderRadius: 14, overflow: "hidden", cursor: "pointer",
-      display: "flex", flexDirection: "column", height: 280,
-      transition: "border-color 0.15s, background 0.15s",
-      backdropFilter: "blur(20px)",
-    },
-    docPreview: {
-      flex: 1, background: "rgba(255,255,255,0.015)",
-      display: "flex", justifyContent: "center", alignItems: "center",
-      overflow: "hidden", position: "relative",
-    },
-    hojaBlanca: {
-      background: "#fff", width: "calc(100% - 20px)", height: "calc(100% - 16px)",
-      borderRadius: 4, boxShadow: "0 2px 12px rgba(0,0,0,0.6)",
-      padding: "12px", overflow: "hidden", position: "relative",
-    },
-    docTitle: {
-      color: "#dde2ea", fontSize: 13, fontWeight: 600,
-      overflow: "hidden", textOverflow: "ellipsis",
-      display: "-webkit-box", WebkitLineClamp: 2, WebkitBoxOrient: "vertical",
-    },
-
-    overlay: {
-      position: "fixed", inset: 0,
-      background: "rgba(3,5,12,0.9)",
-      backdropFilter: "blur(32px) saturate(140%)",
-      WebkitBackdropFilter: "blur(32px) saturate(140%)",
-      display: "flex", flexDirection: "column", justifyContent: "center", alignItems: "center",
-      zIndex: 9999, padding: "20px",
-    },
-    modalForm: {
-      background: "rgba(6,10,22,0.96)",
-      backdropFilter: "blur(60px)",
-      WebkitBackdropFilter: "blur(60px)",
-      border: "1px solid rgba(255,255,255,0.12)",
-      borderRadius: 18, padding: "28px 26px", width: "100%", maxWidth: 540,
-      maxHeight: "90vh", overflowY: "auto",
-      boxShadow: "0 32px 80px rgba(0,0,0,0.8), inset 0 1px 0 rgba(255,255,255,0.06)",
-    },
+  // Estilos específicos del componente
+  const DOCCARD = {
+    background: C.s0, border: `1px solid ${C.b0}`,
+    borderRadius: 12, overflow: "hidden", cursor: "pointer",
+    display: "flex", flexDirection: "column", height: 280,
+    transition: "border-color 0.15s, background 0.15s",
+  };
+  const MODAL = {
+    background: "rgba(9,9,11,0.97)", ...GLASS,
+    border: `1px solid ${C.b1}`,
+    borderRadius: 16, padding: "26px 24px", width: "100%", maxWidth: 520,
+    maxHeight: "90vh", overflowY: "auto",
+    boxShadow: "0 32px 80px rgba(0,0,0,0.8), inset 0 1px 0 rgba(255,255,255,0.06)",
   };
 
   return (
-    <div style={S.page}>
+    <div style={{ background: C.bg, minHeight: "100vh", color: C.t0, fontFamily: C.sans }}>
       <style>{`
-        @import url('https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap');
-        * { box-sizing: border-box; }
+        @import url('https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500;700&display=swap');
+        *, *::before, *::after { box-sizing: border-box; }
+        select option { background: #0f0f12; color: #a1a1aa; }
         ::-webkit-scrollbar { width: 3px; height: 3px; }
         ::-webkit-scrollbar-track { background: transparent; }
-        ::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.1); border-radius: 99px; }
-        .doc-card:hover { border-color: rgba(255,255,255,0.15) !important; background: rgba(255,255,255,0.045) !important; }
-        .btn-sm-h:hover { border-color: rgba(255,255,255,0.18) !important; color: #dde2ea !important; }
-        input:focus, select:focus, textarea:focus { border-color: rgba(255,255,255,0.2) !important; }
-        select option { background: #080c18; color: #dde2ea; }
+        ::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.07); border-radius: 99px; }
+        input:focus, select:focus, textarea:focus { border-color: rgba(59,130,246,0.35) !important; outline: none; }
+        button:not([disabled]):hover { opacity: 0.8; }
+        .bg-glow {
+          position: fixed; inset: 0; pointer-events: none; z-index: 0;
+          background:
+            radial-gradient(ellipse 70% 38% at 50% -6%, rgba(59,130,246,0.07) 0%, transparent 65%),
+            radial-gradient(ellipse 40% 28% at 92% 88%, rgba(245,158,11,0.02) 0%, transparent 55%);
+        }
+        .doc-card:hover { border-color: rgba(255,255,255,0.14) !important; background: rgba(255,255,255,0.05) !important; }
         @media print {
           body * { visibility: hidden; }
           #printable-doc, #printable-doc * { visibility: visible; }
-          #printable-doc {
-            position: absolute; left: 0; top: 0; width: 100%; padding: 0;
-            background: white !important; color: black !important; border: none !important;
-          }
+          #printable-doc { position: absolute; left: 0; top: 0; width: 100%; padding: 0; background: white !important; color: black !important; border: none !important; }
           .no-print { display: none !important; }
         }
       `}</style>
-      
-      <div style={S.layout} className="no-print">
+      <div className="bg-glow" />
+
+      <div className="no-print" style={{ display: "grid", gridTemplateColumns: "280px 1fr", minHeight: "100vh", position: "relative", zIndex: 1 }}>
         <Sidebar profile={profile} signOut={signOut} />
-        
-        <main style={S.main}>
-          <div style={S.content}>
 
-            <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 22 }}>
-              <div>
-                <div style={{ fontSize: 18, color: "#dde2ea", fontWeight: 700, letterSpacing: 0.4 }}>Procedimientos</div>
-                <div style={{ fontSize: 11, color: "#566070", marginTop: 3 }}>
-                  {filtrados.length} documento{filtrados.length !== 1 ? "s" : ""}
-                </div>
+        <div style={{ display: "flex", flexDirection: "column", height: "100vh", overflow: "hidden" }}>
+
+          {/* ── TOPBAR ── */}
+          <div style={{
+            height: 50, background: "rgba(12,12,14,0.92)", ...GLASS,
+            borderBottom: `1px solid ${C.b0}`, padding: "0 18px",
+            display: "flex", alignItems: "center", gap: 8, flexShrink: 0,
+          }}>
+            <div style={{ flex: 1 }}>
+              <div style={{ fontSize: 13, fontWeight: 600, color: C.t0 }}>Procedimientos</div>
+              <div style={{ fontSize: 9, color: C.t2, letterSpacing: 1.5, textTransform: "uppercase", marginTop: 1 }}>
+                {filtrados.length} documento{filtrados.length !== 1 ? "s" : ""}
               </div>
-              {isAdmin && <button style={S.btnPrim} onClick={abrirNuevo}>+ Nuevo</button>}
             </div>
 
-            <div style={{ maxWidth: 380, marginBottom: 22, position: "relative" }}>
-              <span style={{ position: "absolute", left: 13, top: "50%", transform: "translateY(-50%)", fontSize: 13, color: "#566070", pointerEvents: "none" }}>⌕</span>
-              <input
-                style={{ ...S.input, paddingLeft: 36 }}
-                placeholder="Buscar documentos…"
-                value={q} onChange={e => setQ(e.target.value)}
-              />
+            <div style={{
+              display: "flex", alignItems: "center", gap: 5, padding: "4px 10px",
+              borderRadius: 7, background: C.s0, border: `1px solid ${C.b0}`,
+              borderLeft: `2px solid ${C.primary}`,
+            }}>
+              <span style={{ fontFamily: C.mono, fontSize: 15, fontWeight: 700, color: C.primary }}>{items.length}</span>
+              <span style={{ fontSize: 8, color: C.t1, letterSpacing: 1.5, textTransform: "uppercase" }}>Total</span>
             </div>
 
-            {err && <div style={{ padding: 12, background: "rgba(255,69,58,0.1)", border: "1px solid #ff453a", color: "#ff453a", borderRadius: 8, marginBottom: 16 }}>{err}</div>}
-            {msg && <div style={{ padding: 12, background: "rgba(48,209,88,0.1)", border: "1px solid #30d158", color: "#30d158", borderRadius: 8, marginBottom: 16 }}>{msg}</div>}
+            {isAdmin && (
+              <button onClick={abrirNuevo} style={{
+                border: "1px solid rgba(59,130,246,0.35)", background: "rgba(59,130,246,0.15)",
+                color: "#60a5fa", padding: "7px 18px", borderRadius: 8, cursor: "pointer",
+                fontSize: 12, fontWeight: 600, fontFamily: C.sans,
+              }}>
+                + Nuevo
+              </button>
+            )}
+          </div>
+
+          {/* ── SEARCH ── */}
+          <div style={{
+            height: 44, background: "rgba(12,12,14,0.85)", ...GLASS,
+            borderBottom: `1px solid ${C.b0}`, padding: "0 18px",
+            display: "flex", alignItems: "center", flexShrink: 0,
+          }}>
+            <input
+              style={{
+                background: "transparent", border: "none",
+                color: C.t0, fontSize: 12, fontFamily: C.sans,
+                outline: "none", width: "100%", maxWidth: 400,
+              }}
+              placeholder="⌕  Buscar documentos…"
+              value={q} onChange={e => setQ(e.target.value)}
+            />
+          </div>
+
+          {/* ── CONTENT ── */}
+          <div style={{ flex: 1, overflowY: "auto", padding: "16px 18px" }}>
+
+            {err && (
+              <div style={{ padding: "10px 14px", borderRadius: 8, marginBottom: 14,
+                background: "rgba(239,68,68,0.08)", border: "1px solid rgba(239,68,68,0.3)", color: C.red, fontSize: 12 }}>
+                {err}
+              </div>
+            )}
+            {msg && (
+              <div style={{ padding: "10px 14px", borderRadius: 8, marginBottom: 14,
+                background: "rgba(16,185,129,0.08)", border: "1px solid rgba(16,185,129,0.25)", color: C.green, fontSize: 12 }}>
+                {msg}
+              </div>
+            )}
 
             {loading ? (
-              <div style={{ fontSize: 11, color: "#2c3040", letterSpacing: 2, textTransform: "uppercase", marginTop: 40, fontFamily: "'JetBrains Mono',monospace" }}>Cargando…</div>
+              <div style={{ textAlign: "center", color: C.t2, padding: 40, fontSize: 11,
+                letterSpacing: 2, textTransform: "uppercase", fontFamily: C.mono }}>
+                Cargando…
+              </div>
             ) : filtrados.length === 0 ? (
-              <div style={{ fontSize: 11, color: "#2c3040", letterSpacing: 2, textTransform: "uppercase", marginTop: 40 }}>Sin documentos</div>
+              <div style={{ textAlign: "center", color: C.t2, padding: 40, fontSize: 12 }}>
+                Sin documentos
+              </div>
             ) : (
-              <div style={S.grid}>
+              <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(240px, 1fr))", gap: 12 }}>
                 {filtrados.map(p => {
-                  const isPdf = !!p.pdf_url;
+                  const isPdf     = !!p.pdf_url;
                   const pasoCount = Array.isArray(p.pasos) ? p.pasos.filter(x => (typeof x === "string" ? x : x?.texto)?.trim()).length : 0;
-                  const dateStr = p.created_at ? new Date(p.created_at).toLocaleDateString("es-AR", { day:"2-digit", month:"short", year:"numeric" }) : "";
-                  const rolLabel = Array.isArray(p.rol_visible)
-                    ? (p.rol_visible[0] === "todos" || !p.rol_visible[0] ? null : p.rol_visible[0])
-                    : null;
+                  const dateStr   = p.created_at ? new Date(p.created_at).toLocaleDateString("es-AR", { day: "2-digit", month: "short", year: "numeric" }) : "";
+                  const rolLabel  = Array.isArray(p.rol_visible) ? (p.rol_visible[0] === "todos" || !p.rol_visible[0] ? null : p.rol_visible[0]) : null;
+
                   return (
-                    <div
-                      key={p.id}
-                      style={S.docCard}
-                      className="doc-card"
-                      onClick={() => setSelItem(p)}
-                    >
-                      {/* ── Preview área ── */}
-                      <div style={S.docPreview}>
+                    <div key={p.id} style={DOCCARD} className="doc-card" onClick={() => setSelItem(p)}>
+                      {/* Preview */}
+                      <div style={{ flex: 1, background: "rgba(255,255,255,0.015)", display: "flex",
+                        justifyContent: "center", alignItems: "center", overflow: "hidden", position: "relative" }}>
                         {isPdf ? (
-                          <div style={S.hojaBlanca}>
+                          <div style={{ background: "#fff", width: "calc(100% - 20px)", height: "calc(100% - 16px)",
+                            borderRadius: 4, boxShadow: "0 2px 12px rgba(0,0,0,0.6)", padding: 12, overflow: "hidden", position: "relative" }}>
                             <iframe
                               src={`${p.pdf_url}#toolbar=0&navpanes=0&scrollbar=0&view=FitH`}
-                              style={{
-                                position: "absolute", top: 0, left: 0,
-                                width: "400%", height: "400%",
-                                transform: "scale(0.25)", transformOrigin: "top left",
-                                border: "none", pointerEvents: "none",
-                              }}
-                              title={`preview-${p.id}`}
-                              tabIndex={-1}
+                              style={{ position: "absolute", top: 0, left: 0, width: "400%", height: "400%",
+                                transform: "scale(0.25)", transformOrigin: "top left", border: "none", pointerEvents: "none" }}
+                              title={`preview-${p.id}`} tabIndex={-1}
                             />
                             <div style={{ position: "absolute", inset: 0, zIndex: 10 }} />
                           </div>
                         ) : (
-                          <div style={S.hojaBlanca}>
-                            <div style={{ fontSize: 7, fontWeight: 800, color: "#1a1a2e", marginBottom: 5, letterSpacing: 0.3, lineHeight: 1.3 }}>{p.titulo}</div>
-                            {p.descripcion && (
-                              <div style={{ fontSize: 5.5, color: "#555", lineHeight: 1.5, marginBottom: 4 }}>{p.descripcion}</div>
-                            )}
+                          <div style={{ background: "#fff", width: "calc(100% - 20px)", height: "calc(100% - 16px)",
+                            borderRadius: 4, boxShadow: "0 2px 12px rgba(0,0,0,0.6)", padding: 12, overflow: "hidden", position: "relative" }}>
+                            <div style={{ fontSize: 7, fontWeight: 800, color: "#1a1a2e", marginBottom: 5, lineHeight: 1.3 }}>{p.titulo}</div>
+                            {p.descripcion && <div style={{ fontSize: 5.5, color: "#555", lineHeight: 1.5, marginBottom: 4 }}>{p.descripcion}</div>}
                             {pasoCount > 0 && (
                               <div style={{ fontSize: 5.5, color: "#333", lineHeight: 1.5 }}>
                                 {p.pasos.slice(0, 6).map((paso, i) => (
                                   <div key={i} style={{ marginBottom: 2, display: "flex", gap: 3 }}>
-                                    <span style={{ opacity: 0.5 }}>{i+1}.</span>
+                                    <span style={{ opacity: 0.5 }}>{i + 1}.</span>
                                     <span>{typeof paso === "string" ? paso : paso.texto}</span>
                                   </div>
                                 ))}
@@ -338,32 +316,29 @@ export default function ProcedimientosScreen({ profile, signOut }) {
                         )}
                       </div>
 
-                      {/* ── Info footer ── */}
-                      <div style={{ padding: "12px 14px 13px", borderTop: "1px solid rgba(255,255,255,0.05)", flexShrink: 0 }}>
-                        <div style={S.docTitle}>{p.titulo}</div>
+                      {/* Footer */}
+                      <div style={{ padding: "11px 14px 12px", borderTop: `1px solid ${C.b0}`, flexShrink: 0 }}>
+                        <div style={{ color: C.t0, fontSize: 12, fontWeight: 600, overflow: "hidden", textOverflow: "ellipsis",
+                          display: "-webkit-box", WebkitLineClamp: 2, WebkitBoxOrient: "vertical" }}>
+                          {p.titulo}
+                        </div>
                         {p.descripcion && (
-                          <div style={{ fontSize: 11, color: "#566070", marginTop: 3, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+                          <div style={{ fontSize: 11, color: C.t2, marginTop: 3, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
                             {p.descripcion}
                           </div>
                         )}
                         <div style={{ display: "flex", alignItems: "center", gap: 6, marginTop: 7 }}>
-                          <div style={{
+                          <span style={{
                             padding: "2px 7px", borderRadius: 5, fontSize: 9, fontWeight: 700,
                             letterSpacing: 0.8, textTransform: "uppercase",
-                            background: isPdf ? "rgba(224,72,72,0.1)" : "rgba(74,144,226,0.1)",
-                            color: isPdf ? "#e04848" : "#4a90e2",
-                            border: isPdf ? "1px solid rgba(224,72,72,0.2)" : "1px solid rgba(74,144,226,0.2)",
+                            background: isPdf ? "rgba(239,68,68,0.1)" : "rgba(59,130,246,0.1)",
+                            color: isPdf ? C.red : C.primary,
+                            border: isPdf ? "1px solid rgba(239,68,68,0.2)" : "1px solid rgba(59,130,246,0.2)",
                           }}>
                             {isPdf ? "PDF" : `${pasoCount} pasos`}
-                          </div>
-                          {rolLabel && (
-                            <div style={{ fontSize: 9, color: "#2c3040", letterSpacing: 0.8, textTransform: "uppercase" }}>
-                              · {rolLabel}
-                            </div>
-                          )}
-                          <div style={{ marginLeft: "auto", fontSize: 9, color: "#2c3040", fontFamily: "'JetBrains Mono',monospace" }}>
-                            {dateStr}
-                          </div>
+                          </span>
+                          {rolLabel && <span style={{ fontSize: 9, color: C.t2, letterSpacing: 0.8, textTransform: "uppercase" }}>· {rolLabel}</span>}
+                          <span style={{ marginLeft: "auto", fontSize: 9, color: C.t2, fontFamily: C.mono }}>{dateStr}</span>
                         </div>
                       </div>
                     </div>
@@ -371,83 +346,96 @@ export default function ProcedimientosScreen({ profile, signOut }) {
                 })}
               </div>
             )}
-
           </div>
-        </main>
+        </div>
       </div>
 
-      {/* ── VISOR DE LECTURA ── */}
+      {/* ── VISOR ── */}
       {selItem && (
-        <div style={{...S.overlay, zIndex: 9990}} onClick={e => e.target === e.currentTarget && setSelItem(null)} className="no-print">
-          
-          <div className="no-print" style={{
-            position: "absolute", top: 16, left: "50%", transform: "translateX(-50%)",
-            maxWidth: 900, width: "calc(100% - 40px)",
-            background: "rgba(6,10,22,0.92)",
-            backdropFilter: "blur(20px)", WebkitBackdropFilter: "blur(20px)",
-            border: "1px solid rgba(255,255,255,0.1)",
-            borderRadius: 12, height: 52,
+        <div className="no-print"
+          style={{ position: "fixed", inset: 0, zIndex: 9990, background: "rgba(0,0,0,0.88)", ...GLASS,
+            display: "flex", flexDirection: "column", alignItems: "center", padding: "40px 16px", overflowY: "auto" }}
+          onClick={e => e.target === e.currentTarget && setSelItem(null)}
+        >
+          {/* Toolbar del visor */}
+          <div style={{
+            position: "sticky", top: 0,
+            width: "100%", maxWidth: 900,
+            background: "rgba(9,9,11,0.95)", ...GLASS,
+            border: `1px solid ${C.b0}`, borderRadius: 10, height: 50,
             display: "flex", justifyContent: "space-between", alignItems: "center",
-            padding: "0 16px", zIndex: 10,
-            boxShadow: "0 8px 32px rgba(0,0,0,0.6)",
+            padding: "0 14px", zIndex: 10, marginBottom: 16,
           }}>
             <div style={{ display: "flex", alignItems: "center", gap: 10, minWidth: 0, flex: 1 }}>
-              <div style={{
+              <span style={{
                 padding: "2px 8px", borderRadius: 5, fontSize: 9, fontWeight: 700, letterSpacing: 1,
-                background: selItem.pdf_url ? "rgba(224,72,72,0.12)" : "rgba(74,144,226,0.12)",
-                color: selItem.pdf_url ? "#e04848" : "#4a90e2",
-                border: selItem.pdf_url ? "1px solid rgba(224,72,72,0.2)" : "1px solid rgba(74,144,226,0.2)",
+                background: selItem.pdf_url ? "rgba(239,68,68,0.12)" : "rgba(59,130,246,0.12)",
+                color: selItem.pdf_url ? C.red : C.primary,
+                border: selItem.pdf_url ? "1px solid rgba(239,68,68,0.2)" : "1px solid rgba(59,130,246,0.2)",
                 flexShrink: 0,
               }}>
                 {selItem.pdf_url ? "PDF" : "DOC"}
-              </div>
-              <span style={{ color: "#dde2ea", fontSize: 13, fontWeight: 600, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+              </span>
+              <span style={{ color: C.t0, fontSize: 13, fontWeight: 600, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
                 {selItem.titulo}
               </span>
             </div>
             <div style={{ display: "flex", gap: 6, alignItems: "center", flexShrink: 0, marginLeft: 12 }}>
               {selItem.pdf_url ? (
-                <a href={selItem.pdf_url} target="_blank" rel="noreferrer" style={{...S.btnSm}} className="btn-sm-h">↗ Abrir</a>
+                <a href={selItem.pdf_url} target="_blank" rel="noreferrer" style={{
+                  border: `1px solid ${C.b0}`, background: C.s0, color: C.t1,
+                  padding: "5px 12px", borderRadius: 7, cursor: "pointer", fontSize: 11, textDecoration: "none",
+                }}>↗ Abrir</a>
               ) : (
-                <button style={S.btnSm} className="btn-sm-h" onClick={imprimirPDF}>↓ Imprimir</button>
+                <button style={{ border: `1px solid ${C.b0}`, background: C.s0, color: C.t1,
+                  padding: "5px 12px", borderRadius: 7, cursor: "pointer", fontSize: 11, fontFamily: C.sans }}
+                  onClick={imprimirPDF}>↓ Imprimir</button>
               )}
               {isAdmin && (
                 <>
-                  <button style={S.btnSm} className="btn-sm-h" onClick={() => abrirEditar(selItem)}>Editar</button>
-                  <button style={S.btnDanger} onClick={() => archivar(selItem.id)}>Archivar</button>
+                  <button style={{ border: `1px solid ${C.b0}`, background: C.s0, color: C.t1,
+                    padding: "5px 12px", borderRadius: 7, cursor: "pointer", fontSize: 11, fontFamily: C.sans }}
+                    onClick={() => abrirEditar(selItem)}>Editar</button>
+                  <button style={{ border: "1px solid rgba(239,68,68,0.25)", background: "rgba(239,68,68,0.08)",
+                    color: C.red, padding: "5px 12px", borderRadius: 7, cursor: "pointer", fontSize: 11, fontFamily: C.sans }}
+                    onClick={() => archivar(selItem.id)}>Archivar</button>
                 </>
               )}
-              <button style={{ background: "transparent", border: "1px solid rgba(255,255,255,0.08)", color: "rgba(255,255,255,0.4)", fontSize: 18, lineHeight:1, cursor: "pointer", padding: "4px 9px", borderRadius: 7, marginLeft: 4 }} onClick={() => setSelItem(null)}>×</button>
+              <button style={{ background: "transparent", border: `1px solid ${C.b0}`, color: C.t2,
+                fontSize: 18, lineHeight: 1, cursor: "pointer", padding: "4px 9px", borderRadius: 7, marginLeft: 4 }}
+                onClick={() => setSelItem(null)}>×</button>
             </div>
           </div>
 
           {selItem.pdf_url ? (
-            <iframe 
-              src={`${selItem.pdf_url}#toolbar=0`} 
-              style={{ width: "100%", maxWidth: 1000, height: "80vh", marginTop: 84, border: "none", borderRadius: 10, background: "#fff" }} 
+            <iframe
+              src={`${selItem.pdf_url}#toolbar=0`}
+              style={{ width: "100%", maxWidth: 1000, height: "80vh", border: "none", borderRadius: 10, background: "#fff" }}
               title="Visor PDF"
             />
           ) : (
-            <div id="printable-doc" style={{ background: "#fff", width: "100%", maxWidth: 800, marginTop: 84, padding: "50px 60px", borderRadius: 10, boxShadow: "0 8px 40px rgba(0,0,0,0.6)", color: "#000", minHeight: "80vh" }}>
-              <div style={{ borderBottom: "2px solid #000", paddingBottom: 10, marginBottom: 20, display: "flex", justifyContent: "space-between", alignItems: "flex-end" }}>
-                 <div>
-                   <h1 style={{ margin: 0, fontSize: 24, textTransform: "uppercase", fontFamily: "Arial, sans-serif" }}>{selItem.titulo}</h1>
-                   <div style={{ fontSize: 12, color: "#555", marginTop: 4 }}>PROCEDIMIENTO OPERATIVO ESTÁNDAR</div>
-                 </div>
-                 <img src="/logo-k.png" alt="Klase A" style={{ height: 30, opacity: 0.8 }} />
+            <div id="printable-doc" style={{
+              background: "#fff", width: "100%", maxWidth: 800,
+              padding: "50px 60px", borderRadius: 10, boxShadow: "0 8px 40px rgba(0,0,0,0.6)",
+              color: "#000", minHeight: "80vh",
+            }}>
+              <div style={{ borderBottom: "2px solid #000", paddingBottom: 10, marginBottom: 20,
+                display: "flex", justifyContent: "space-between", alignItems: "flex-end" }}>
+                <div>
+                  <h1 style={{ margin: 0, fontSize: 24, textTransform: "uppercase", fontFamily: "Arial, sans-serif" }}>{selItem.titulo}</h1>
+                  <div style={{ fontSize: 12, color: "#555", marginTop: 4 }}>PROCEDIMIENTO OPERATIVO ESTÁNDAR</div>
+                </div>
+                <img src="/logo-k.png" alt="Klase A" style={{ height: 30, opacity: 0.8 }} />
               </div>
-
               {selItem.descripcion && (
                 <div style={{ marginBottom: 20, fontSize: 14 }}>
-                  <strong>OBJETIVO: </strong> {selItem.descripcion}
+                  <strong>OBJETIVO: </strong>{selItem.descripcion}
                 </div>
               )}
-
               {Array.isArray(selItem.pasos) && selItem.pasos.length > 0 && (
                 <div style={{ marginBottom: 30 }}>
-                  <div style={{ background: "#eee", padding: "6px 10px", fontWeight: "bold", fontSize: 13, borderTop: "1px solid #000", borderBottom: "1px solid #000", marginBottom: 15 }}>
-                    DESARROLLO / PASOS
-                  </div>
+                  <div style={{ background: "#eee", padding: "6px 10px", fontWeight: "bold", fontSize: 13,
+                    borderTop: "1px solid #000", borderBottom: "1px solid #000", marginBottom: 15 }}>DESARROLLO / PASOS</div>
                   <ol style={{ paddingLeft: 24, margin: 0, fontSize: 14, lineHeight: 1.6 }}>
                     {selItem.pasos.map((paso, i) => (
                       <li key={i} style={{ marginBottom: 8 }}>{typeof paso === "string" ? paso : paso.texto}</li>
@@ -455,12 +443,10 @@ export default function ProcedimientosScreen({ profile, signOut }) {
                   </ol>
                 </div>
               )}
-
               {selItem.contenido && (
                 <div>
-                  <div style={{ background: "#eee", padding: "6px 10px", fontWeight: "bold", fontSize: 13, borderTop: "1px solid #000", borderBottom: "1px solid #000", marginBottom: 15 }}>
-                    NOTAS ADICIONALES
-                  </div>
+                  <div style={{ background: "#eee", padding: "6px 10px", fontWeight: "bold", fontSize: 13,
+                    borderTop: "1px solid #000", borderBottom: "1px solid #000", marginBottom: 15 }}>NOTAS ADICIONALES</div>
                   <div style={{ fontSize: 14, lineHeight: 1.6, whiteSpace: "pre-wrap" }}>{selItem.contenido}</div>
                 </div>
               )}
@@ -471,101 +457,106 @@ export default function ProcedimientosScreen({ profile, signOut }) {
 
       {/* ── MODAL NUEVO / EDITAR ── */}
       {showModal && (
-        <div className="no-print" style={{...S.overlay, zIndex: 9995}} onClick={e => !uploading && e.target === e.currentTarget && setShowModal(false)}>
-          <div style={S.modalForm}>
+        <div className="no-print"
+          style={{ position: "fixed", inset: 0, zIndex: 9995, background: "rgba(0,0,0,0.88)", ...GLASS,
+            display: "flex", justifyContent: "center", alignItems: "flex-start", padding: "40px 16px", overflowY: "auto" }}
+          onClick={e => !uploading && e.target === e.currentTarget && setShowModal(false)}
+        >
+          <div style={MODAL}>
             {/* Header */}
-            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: 24 }}>
+            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: 22 }}>
               <div>
-                <div style={{ fontSize: 16, color: "#dde2ea", fontWeight: 700 }}>
+                <div style={{ fontSize: 15, color: C.t0, fontWeight: 700 }}>
                   {editTarget ? "Editar documento" : "Nuevo documento"}
                 </div>
-                <div style={{ fontSize: 11, color: "#566070", marginTop: 3 }}>Procedimiento operativo</div>
+                <div style={{ fontSize: 11, color: C.t2, marginTop: 3 }}>Procedimiento operativo</div>
               </div>
-              <button
-                type="button"
-                onClick={() => setShowModal(false)}
-                style={{ background: "rgba(255,255,255,0.05)", border: "1px solid rgba(255,255,255,0.09)", color: "rgba(255,255,255,0.4)", width: 28, height: 28, borderRadius: "50%", cursor: "pointer", fontSize: 18, lineHeight: 1, display: "flex", alignItems: "center", justifyContent: "center" }}
-              >×</button>
+              <button type="button" onClick={() => setShowModal(false)} style={{
+                background: C.s0, border: `1px solid ${C.b0}`, color: C.t2,
+                width: 28, height: 28, borderRadius: "50%", cursor: "pointer",
+                fontSize: 17, lineHeight: 1, display: "flex", alignItems: "center", justifyContent: "center",
+              }}>×</button>
             </div>
 
             <form onSubmit={guardar}>
               {/* Título */}
-              <div style={{ marginBottom: 14 }}>
-                <label style={S.label}>Título *</label>
-                <input style={S.input} required value={form.titulo} onChange={e => setForm(f => ({ ...f, titulo: e.target.value }))} autoFocus placeholder="Nombre del procedimiento" />
+              <div style={{ marginBottom: 12 }}>
+                <label style={LABEL}>Título *</label>
+                <input style={INP} required value={form.titulo} autoFocus placeholder="Nombre del procedimiento"
+                  onChange={e => setForm(f => ({ ...f, titulo: e.target.value }))} />
               </div>
 
               {/* Descripción */}
-              <div style={{ marginBottom: 14 }}>
-                <label style={S.label}>Descripción / objetivo</label>
-                <input style={S.input} placeholder="Resumen en una línea…" value={form.descripcion} onChange={e => setForm(f => ({ ...f, descripcion: e.target.value }))} />
+              <div style={{ marginBottom: 12 }}>
+                <label style={LABEL}>Descripción / objetivo</label>
+                <input style={INP} placeholder="Resumen en una línea…" value={form.descripcion}
+                  onChange={e => setForm(f => ({ ...f, descripcion: e.target.value }))} />
               </div>
 
-              {/* Visible para + PDF en fila */}
-              <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12, marginBottom: 14 }}>
+              {/* Visible para + PDF */}
+              <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10, marginBottom: 12 }}>
                 <div>
-                  <label style={S.label}>Visible para</label>
-                  <select style={S.input} value={form.rol_visible} onChange={e => setForm(f => ({ ...f, rol_visible: e.target.value }))}>
+                  <label style={LABEL}>Visible para</label>
+                  <select style={INP} value={form.rol_visible} onChange={e => setForm(f => ({ ...f, rol_visible: e.target.value }))}>
                     {ROLES.map(r => <option key={r} value={r}>{r === "todos" ? "Todos" : r}</option>)}
                   </select>
                 </div>
                 <div>
-                  <label style={{ ...S.label, color: "#4a90e2" }}>Adjuntar PDF</label>
-                  <div style={{ padding: "7px 10px", background: "rgba(74,144,226,0.05)", border: "1px solid rgba(74,144,226,0.2)", borderRadius: 9 }}>
-                    <input
-                      type="file" accept="application/pdf"
+                  <label style={{ ...LABEL, color: C.primary }}>Adjuntar PDF</label>
+                  <div style={{ padding: "7px 10px", background: "rgba(59,130,246,0.05)", border: "1px solid rgba(59,130,246,0.2)", borderRadius: 8 }}>
+                    <input type="file" accept="application/pdf"
                       onChange={e => setFileToUpload(e.target.files[0])}
-                      style={{ color: "#a8b4c4", fontSize: 11, width: "100%" }}
-                    />
+                      style={{ color: C.t1, fontSize: 11, width: "100%" }} />
                   </div>
                   {form.pdf_url && !fileToUpload && (
-                    <div style={{ fontSize: 10, color: "#566070", marginTop: 4 }}>PDF guardado · nuevo reemplaza</div>
+                    <div style={{ fontSize: 10, color: C.t2, marginTop: 4 }}>PDF guardado · nuevo reemplaza</div>
                   )}
                   {fileToUpload && (
-                    <div style={{ fontSize: 10, color: "#4a90e2", marginTop: 4 }}>← {fileToUpload.name}</div>
+                    <div style={{ fontSize: 10, color: C.primary, marginTop: 4 }}>← {fileToUpload.name}</div>
                   )}
                 </div>
               </div>
 
-              {/* Pasos — solo si no hay PDF */}
+              {/* Pasos */}
               {!fileToUpload && (
-                <div style={{ marginBottom: 14 }}>
-                  <label style={S.label}>Pasos {form.pdf_url ? "(ya tiene PDF)" : ""}</label>
+                <div style={{ marginBottom: 12 }}>
+                  <label style={LABEL}>Pasos {form.pdf_url ? "(ya tiene PDF)" : ""}</label>
                   {pasos.map((p, i) => (
-                    <div key={i} style={{ display: "flex", gap: 6, marginBottom: 7, alignItems: "center" }}>
-                      <span style={{ width: 18, fontSize: 10, color: "#2c3040", textAlign: "right", fontFamily: "'JetBrains Mono',monospace", flexShrink: 0 }}>{i + 1}</span>
-                      <input
-                        style={{ ...S.input, flex: 1 }}
-                        placeholder={`Paso ${i + 1}…`}
-                        value={p}
-                        onChange={e => { const n = [...pasos]; n[i] = e.target.value; setPasos(n); }}
-                      />
+                    <div key={i} style={{ display: "flex", gap: 6, marginBottom: 6, alignItems: "center" }}>
+                      <span style={{ width: 18, fontSize: 10, color: C.t2, textAlign: "right", fontFamily: C.mono, flexShrink: 0 }}>{i + 1}</span>
+                      <input style={{ ...INP, flex: 1 }} placeholder={`Paso ${i + 1}…`} value={p}
+                        onChange={e => { const n = [...pasos]; n[i] = e.target.value; setPasos(n); }} />
                       <button type="button"
-                        style={{ background: "transparent", border: "none", color: "#2c3040", cursor: "pointer", fontSize: 16, padding: "0 4px", lineHeight: 1, flexShrink: 0 }}
-                        onClick={() => setPasos(prev => prev.filter((_, j) => j !== i))}
-                      >×</button>
+                        style={{ background: "transparent", border: "none", color: C.t2, cursor: "pointer", fontSize: 16, padding: "0 4px", flexShrink: 0 }}
+                        onClick={() => setPasos(prev => prev.filter((_, j) => j !== i))}>×</button>
                     </div>
                   ))}
-                  <button type="button" style={{ ...S.btnSm, marginTop: 4, fontSize: 11 }} onClick={() => setPasos(p => [...p, ""])}>+ Paso</button>
+                  <button type="button"
+                    style={{ border: `1px solid ${C.b0}`, background: C.s0, color: C.t1,
+                      padding: "5px 12px", borderRadius: 7, cursor: "pointer", fontSize: 11, fontFamily: C.sans, marginTop: 4 }}
+                    onClick={() => setPasos(p => [...p, ""])}>+ Paso</button>
                 </div>
               )}
 
-              {/* Notas extra */}
-              <div style={{ marginBottom: 22 }}>
-                <label style={S.label}>Notas adicionales</label>
-                <textarea
-                  style={{ ...S.input, minHeight: 60, resize: "vertical" }}
-                  placeholder="Advertencias, aclaraciones…"
-                  value={form.contenido}
-                  onChange={e => setForm(f => ({ ...f, contenido: e.target.value }))}
-                />
+              {/* Notas */}
+              <div style={{ marginBottom: 20 }}>
+                <label style={LABEL}>Notas adicionales</label>
+                <textarea style={{ ...INP, minHeight: 60, resize: "vertical" }} placeholder="Advertencias, aclaraciones…"
+                  value={form.contenido} onChange={e => setForm(f => ({ ...f, contenido: e.target.value }))} />
               </div>
 
               <div style={{ display: "flex", gap: 8 }}>
-                <button type="submit" disabled={uploading} style={{ ...S.btnPrim, flex: 1, padding: "12px", opacity: uploading ? 0.6 : 1 }}>
+                <button type="submit" disabled={uploading} style={{
+                  flex: 1, border: "1px solid rgba(59,130,246,0.35)", background: "rgba(59,130,246,0.15)",
+                  color: "#60a5fa", padding: "11px", borderRadius: 8, cursor: "pointer",
+                  fontSize: 13, fontWeight: 600, fontFamily: C.sans, opacity: uploading ? 0.6 : 1,
+                }}>
                   {uploading ? "Subiendo…" : (editTarget ? "Guardar cambios" : "Crear documento")}
                 </button>
-                <button type="button" disabled={uploading} style={{ background: "transparent", border: "1px solid rgba(255,255,255,0.09)", color: "#566070", padding: "12px 20px", borderRadius: 9, cursor: "pointer", fontWeight: 600, fontSize: 13 }} onClick={() => setShowModal(false)}>
+                <button type="button" disabled={uploading} onClick={() => setShowModal(false)} style={{
+                  background: "transparent", border: `1px solid ${C.b0}`, color: C.t2,
+                  padding: "11px 20px", borderRadius: 8, cursor: "pointer", fontSize: 12, fontFamily: C.sans,
+                }}>
                   Cancelar
                 </button>
               </div>

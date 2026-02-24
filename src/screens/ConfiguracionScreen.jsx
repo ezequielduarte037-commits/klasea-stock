@@ -99,7 +99,7 @@ function Toast({ toast }) {
     <div style={{
       position: "fixed", bottom: 28, right: 28, zIndex: 10000,
       padding: "11px 20px", borderRadius: 9, fontSize: 12,
-      fontFamily: "'IBM Plex Sans', system-ui",
+      fontFamily: "'Outfit', system-ui",
       background: toast.ok ? "#091510" : "#150909",
       border: `1px solid ${toast.ok ? "rgba(60,140,80,0.5)" : "rgba(180,60,60,0.5)"}`,
       color: toast.ok ? "#70c080" : "#c07070",
@@ -323,7 +323,7 @@ export default function ConfiguracionScreen({ profile, signOut }) {
   // ─── render ───────────────────────────────────────────────────
   if (!isAdmin) {
     return (
-      <div style={{ background: "#000", minHeight: "100vh", display: "grid", gridTemplateColumns: "280px 1fr" }}>
+      <div style={{ background: "#09090b", minHeight: "100vh", display: "grid", gridTemplateColumns: "280px 1fr" }}>
         <Sidebar profile={profile} signOut={signOut} />
         <div style={{ display: "flex", alignItems: "center", justifyContent: "center", color: "#252525", fontSize: 12, letterSpacing: 1 }}>
           Solo administradores pueden acceder.
@@ -334,29 +334,37 @@ export default function ConfiguracionScreen({ profile, signOut }) {
 
   return (
     <div style={{
-      background: "#000", minHeight: "100vh",
+      background: "#09090b", minHeight: "100vh",
       color: "#b0b0b0",
-      fontFamily: "'IBM Plex Sans', system-ui, sans-serif",
-      display: "grid", gridTemplateColumns: "280px 1fr",
+      fontFamily: "'Outfit', system-ui, sans-serif",
     }}>
       <style>{`
-        @import url('https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600&family=IBM+Plex+Sans:wght@300;400;500;600&display=swap');
+        @import url('https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500;700&display=swap');
         *, *::before, *::after { box-sizing: border-box; }
         ::-webkit-scrollbar { width: 3px; height: 3px; }
         ::-webkit-scrollbar-track { background: transparent; }
-        ::-webkit-scrollbar-thumb { background: #1e1e1e; border-radius: 99px; }
+        ::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.07); border-radius: 99px; }
         button:focus-visible { outline: 1px solid rgba(255,255,255,0.2); outline-offset: 2px; }
-        input:focus, select:focus, textarea:focus { outline: none; border-color: rgba(255,255,255,0.2) !important; }
+        input:focus, select:focus, textarea:focus { outline: none; border-color: rgba(59,130,246,0.35) !important; }
         input[type=color] { padding: 0 2px; cursor: pointer; }
-        select option { background: #0d0d0d; color: #c0c0c0; }
+        select option { background: #0f0f12; color: #a1a1aa; }
         @keyframes toastIn { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
         @keyframes fadeIn  { from { opacity: 0; } to { opacity: 1; } }
         @keyframes slideUp { from { opacity: 0; transform: translateY(16px); } to { opacity: 1; transform: translateY(0); } }
+        button:not([disabled]):hover { opacity: 0.8; }
+        .bg-glow {
+          position: fixed; inset: 0; pointer-events: none; z-index: 0;
+          background:
+            radial-gradient(ellipse 70% 38% at 50% -6%, rgba(59,130,246,0.07) 0%, transparent 65%),
+            radial-gradient(ellipse 40% 28% at 92% 88%, rgba(245,158,11,0.02) 0%, transparent 55%);
+        }
         .proc-row:hover { background: rgba(255,255,255,0.025) !important; }
         .proc-row.sel   { background: rgba(255,255,255,0.045) !important; }
         .role-card:hover { border-color: rgba(255,255,255,0.1) !important; }
         .cfg-row:hover td { background: rgba(255,255,255,0.012); }
       `}</style>
+      <div className="bg-glow" />
+      <div style={{ display: "grid", gridTemplateColumns: "280px 1fr", minHeight: "100vh", position: "relative", zIndex: 1 }}>
 
       <Sidebar profile={profile} signOut={signOut} />
       <NotificacionesBell profile={profile} />
@@ -368,8 +376,10 @@ export default function ConfiguracionScreen({ profile, signOut }) {
         {/* ── TOPBAR ── */}
         <div style={{
           height: 52, flexShrink: 0, display: "flex", alignItems: "stretch",
-          borderBottom: "1px solid rgba(255,255,255,0.06)",
-          background: "#050505",
+          borderBottom: "1px solid rgba(255,255,255,0.08)",
+          background: "rgba(12,12,14,0.92)",
+          backdropFilter: "blur(32px) saturate(130%)",
+          WebkitBackdropFilter: "blur(32px) saturate(130%)",
           paddingLeft: 28,
         }}>
           {/* Tabs */}
@@ -385,13 +395,13 @@ export default function ConfiguracionScreen({ profile, signOut }) {
                 height: "100%", padding: "0 22px",
                 border: "none", background: "transparent", cursor: "pointer",
                 fontSize: 11, letterSpacing: 1.8, textTransform: "uppercase",
-                color: tab === t.id ? "#d0d0d0" : "#303030",
+                color: tab === t.id ? "#f4f4f5" : "#52525b",
                 borderBottom: tab === t.id
-                  ? "2px solid rgba(200,200,200,0.55)"
+                  ? "2px solid rgba(59,130,246,0.6)"
                   : "2px solid transparent",
                 fontWeight: tab === t.id ? 500 : 400,
                 transition: "color .15s, border-color .15s",
-                fontFamily: "'IBM Plex Sans', system-ui",
+                fontFamily: "'Outfit', system-ui",
                 marginBottom: -1,
               }}
             >
@@ -403,13 +413,16 @@ export default function ConfiguracionScreen({ profile, signOut }) {
           <div style={{ flex: 1 }} />
           <div style={{ display: "flex", alignItems: "center", gap: 28, paddingRight: 28 }}>
             {[
-              { n: stats.procsActivos,  label: "etapas",   c: "#508068" },
-              { n: stats.usuariosTotal, label: "usuarios",  c: "#506880" },
-              { n: stats.admins,        label: "admins",    c: "#806858" },
+              { n: stats.procsActivos,  label: "etapas",   c: "#10b981" },
+              { n: stats.usuariosTotal, label: "usuarios",  c: "#3b82f6" },
+              { n: stats.admins,        label: "admins",    c: "#f59e0b" },
             ].map(({ n, label, c }) => (
-              <div key={label} style={{ display: "flex", alignItems: "baseline", gap: 5 }}>
-                <span style={{ fontFamily: "'IBM Plex Mono', monospace", fontSize: 18, fontWeight: 600, color: c, lineHeight: 1 }}>{n}</span>
-                <span style={{ fontSize: 9, color: "#242424", letterSpacing: 1.5, textTransform: "uppercase" }}>{label}</span>
+              <div key={label} style={{ display: "flex", alignItems: "center", gap: 5,
+                padding: "4px 10px", borderRadius: 7,
+                background: "rgba(255,255,255,0.03)", border: "1px solid rgba(255,255,255,0.08)",
+                borderLeft: `2px solid ${c}` }}>
+                <span style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: 15, fontWeight: 700, color: c, lineHeight: 1 }}>{n}</span>
+                <span style={{ fontSize: 8, color: "#71717a", letterSpacing: 1.5, textTransform: "uppercase" }}>{label}</span>
               </div>
             ))}
           </div>
@@ -441,7 +454,7 @@ export default function ConfiguracionScreen({ profile, signOut }) {
                       </div>
                       <button
                         onClick={() => setShowNewProc(true)}
-                        style={{ border: "none", background: "#b8b8b8", color: "#000", padding: "7px 16px", borderRadius: 8, cursor: "pointer", fontWeight: 600, fontSize: 11, letterSpacing: 0.5, fontFamily: "'IBM Plex Sans', system-ui" }}
+                        style={{ border: "none", background: "#b8b8b8", color: "#000", padding: "7px 16px", borderRadius: 8, cursor: "pointer", fontWeight: 600, fontSize: 11, letterSpacing: 0.5, fontFamily: "'Outfit', system-ui" }}
                       >
                         + Nueva etapa
                       </button>
@@ -620,7 +633,7 @@ export default function ConfiguracionScreen({ profile, signOut }) {
                               background: formDirty ? "#b8b8b8" : "#111",
                               color: formDirty ? "#000" : "#2a2a2a",
                               fontWeight: 600, fontSize: 12, transition: "all .15s",
-                              fontFamily: "'IBM Plex Sans', system-ui",
+                              fontFamily: "'Outfit', system-ui",
                             }}
                           >
                             {formDirty ? "Guardar cambios" : "Sin cambios"}
@@ -652,7 +665,7 @@ export default function ConfiguracionScreen({ profile, signOut }) {
                     </div>
                     <button
                       onClick={() => setShowNewUser(true)}
-                      style={{ border: "none", background: "#b8b8b8", color: "#000", padding: "7px 16px", borderRadius: 8, cursor: "pointer", fontWeight: 600, fontSize: 11, letterSpacing: 0.5, fontFamily: "'IBM Plex Sans', system-ui" }}
+                      style={{ border: "none", background: "#b8b8b8", color: "#000", padding: "7px 16px", borderRadius: 8, cursor: "pointer", fontWeight: 600, fontSize: 11, letterSpacing: 0.5, fontFamily: "'Outfit', system-ui" }}
                     >
                       + Nuevo usuario
                     </button>
@@ -809,7 +822,7 @@ export default function ConfiguracionScreen({ profile, signOut }) {
                                   {isDirty ? (
                                     <button
                                       onClick={() => guardarConfig(c.clave)}
-                                      style={{ padding: "5px 14px", borderRadius: 7, border: "none", background: "#b8b8b8", color: "#000", fontWeight: 600, fontSize: 11, cursor: "pointer", fontFamily: "'IBM Plex Sans', system-ui" }}
+                                      style={{ padding: "5px 14px", borderRadius: 7, border: "none", background: "#b8b8b8", color: "#000", fontWeight: 600, fontSize: 11, cursor: "pointer", fontFamily: "'Outfit', system-ui" }}
                                     >
                                       Guardar
                                     </button>
@@ -913,7 +926,7 @@ export default function ConfiguracionScreen({ profile, signOut }) {
                         color: sel ? rm.color : "#383838",
                         fontSize: 11, letterSpacing: 0.3,
                         transition: "all .12s",
-                        fontFamily: "'IBM Plex Sans', system-ui",
+                        fontFamily: "'Outfit', system-ui",
                       }}>
                       {rm.label}
                     </button>
@@ -982,7 +995,7 @@ export default function ConfiguracionScreen({ profile, signOut }) {
                       border: `1px solid ${sel ? rm.color + "40" : "rgba(255,255,255,0.06)"}`,
                       color: sel ? rm.color : "#383838",
                       fontSize: 11, transition: "all .12s",
-                      fontFamily: "'IBM Plex Sans', system-ui",
+                      fontFamily: "'Outfit', system-ui",
                     }}>
                     {rm.label}
                   </button>
@@ -1013,6 +1026,7 @@ export default function ConfiguracionScreen({ profile, signOut }) {
         </Overlay>
       )}
 
+      </div>
     </div>
   );
 }
@@ -1021,7 +1035,7 @@ export default function ConfiguracionScreen({ profile, signOut }) {
 function Field({ label, children }) {
   return (
     <div style={{ marginBottom: 14 }}>
-      <label style={{ fontSize: 9, letterSpacing: 2.2, color: "#484848", display: "block", marginBottom: 5, textTransform: "uppercase", fontFamily: "'IBM Plex Sans', system-ui" }}>
+      <label style={{ fontSize: 9, letterSpacing: 2.2, color: "#484848", display: "block", marginBottom: 5, textTransform: "uppercase", fontFamily: "'Outfit', system-ui" }}>
         {label}
       </label>
       {children}
@@ -1047,7 +1061,7 @@ function Overlay({ onClose, children, maxWidth = 500 }) {
       style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.9)", backdropFilter: "blur(10px)", display: "flex", justifyContent: "center", alignItems: "flex-start", zIndex: 9999, padding: "40px 16px", overflowY: "auto" }}
       onClick={e => e.target === e.currentTarget && onClose()}
     >
-      <div style={{ background: "#080808", border: "1px solid rgba(255,255,255,0.1)", borderRadius: 14, padding: 26, width: "100%", maxWidth, animation: "slideUp .2s ease", fontFamily: "'IBM Plex Sans', system-ui" }}>
+      <div style={{ background: "#080808", border: "1px solid rgba(255,255,255,0.1)", borderRadius: 14, padding: 26, width: "100%", maxWidth, animation: "slideUp .2s ease", fontFamily: "'Outfit', system-ui" }}>
         {children}
       </div>
     </div>
@@ -1059,22 +1073,22 @@ const Sx = {
   input: {
     background: "rgba(255,255,255,0.04)", border: "1px solid rgba(255,255,255,0.09)",
     color: "#d0d0d0", padding: "8px 12px", borderRadius: 8, fontSize: 13,
-    width: "100%", outline: "none", fontFamily: "'IBM Plex Sans', system-ui",
+    width: "100%", outline: "none", fontFamily: "'Outfit', system-ui",
   },
   btnPrimary: {
     border: "none", background: "#b8b8b8", color: "#000", padding: "8px 20px",
     borderRadius: 8, cursor: "pointer", fontWeight: 600, fontSize: 12,
-    fontFamily: "'IBM Plex Sans', system-ui",
+    fontFamily: "'Outfit', system-ui",
   },
   btnSecondary: {
     border: "1px solid rgba(255,255,255,0.09)", background: "rgba(255,255,255,0.04)",
     color: "#909090", padding: "8px 16px", borderRadius: 8, cursor: "pointer", fontSize: 12,
-    fontFamily: "'IBM Plex Sans', system-ui",
+    fontFamily: "'Outfit', system-ui",
   },
   btnOutline: {
     border: "1px solid rgba(255,255,255,0.07)", background: "transparent",
     color: "#505050", padding: "6px 10px", borderRadius: 7, cursor: "pointer", fontSize: 11,
-    fontFamily: "'IBM Plex Sans', system-ui",
+    fontFamily: "'Outfit', system-ui",
   },
   btnGhost: {
     border: "1px solid transparent", background: "transparent",

@@ -349,43 +349,43 @@ export default function LaminacionScreen({ profile, signOut }) {
   }
 
   const S = {
-    page: { background: "#000", minHeight: "100vh", color: "#d0d0d0", fontFamily: "Roboto, system-ui, Arial" },
+    page: { background: "#09090b", minHeight: "100vh", color: "#f4f4f5", fontFamily: "'Outfit', system-ui, sans-serif" },
     layout: { display: "grid", gridTemplateColumns: "280px 1fr", minHeight: "100vh" },
     main: { padding: 18, display: "flex", justifyContent: "center" },
     content: { width: "min(1300px, 100%)" },
-    card: { border: "1px solid #2a2a2a", borderRadius: 16, background: "#070707", padding: 16, marginBottom: 12 },
-    input: { background: "#0b0b0b", border: "1px solid #2a2a2a", color: "#eaeaea", padding: "10px 12px", borderRadius: 12, width: "100%", outline: "none", fontSize: 14, boxSizing: "border-box" },
-    select: { background: "#0b0b0b", border: "1px solid #2a2a2a", color: "#eaeaea", padding: "10px 12px", borderRadius: 12, width: "100%", outline: "none", fontSize: 14, boxSizing: "border-box" },
-    btn: { border: "1px solid #2a2a2a", background: "#111", color: "#fff", padding: "10px 14px", borderRadius: 12, cursor: "pointer", fontWeight: 900, fontSize: 13 },
-    btnPrimary: { border: "1px solid rgba(255,255,255,0.2)", background: "#fff", color: "#000", padding: "10px 18px", borderRadius: 12, cursor: "pointer", fontWeight: 900, fontSize: 13 },
-    btnSmall: (color) => ({ border: `1px solid ${color}40`, background: `${color}18`, color, padding: "5px 10px", borderRadius: 8, cursor: "pointer", fontWeight: 700, fontSize: 11, marginRight: 4 }),
+    card: { border: "1px solid rgba(255,255,255,0.08)", borderRadius: 12, background: "rgba(255,255,255,0.03)", padding: 16, marginBottom: 12 },
+    input: { background: "rgba(255,255,255,0.04)", border: "1px solid rgba(255,255,255,0.08)", color: "#f4f4f5", padding: "9px 12px", borderRadius: 8, width: "100%", outline: "none", fontSize: 13, boxSizing: "border-box", fontFamily: "'Outfit', system-ui" },
+    select: { background: "rgba(255,255,255,0.04)", border: "1px solid rgba(255,255,255,0.08)", color: "#f4f4f5", padding: "9px 12px", borderRadius: 8, width: "100%", outline: "none", fontSize: 13, boxSizing: "border-box", fontFamily: "'Outfit', system-ui" },
+    btn: { border: "1px solid rgba(255,255,255,0.08)", background: "rgba(255,255,255,0.05)", color: "#f4f4f5", padding: "9px 14px", borderRadius: 8, cursor: "pointer", fontWeight: 700, fontSize: 12, fontFamily: "'Outfit', system-ui" },
+    btnPrimary: { border: "1px solid rgba(59,130,246,0.35)", background: "rgba(59,130,246,0.15)", color: "#60a5fa", padding: "9px 18px", borderRadius: 8, cursor: "pointer", fontWeight: 700, fontSize: 12, fontFamily: "'Outfit', system-ui" },
+    btnSmall: (color) => ({ border: `1px solid ${color}40`, background: `${color}15`, color, padding: "4px 10px", borderRadius: 6, cursor: "pointer", fontWeight: 700, fontSize: 11, marginRight: 4, fontFamily: "'Outfit', system-ui" }),
     row2: { display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10 },
     row3: { display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 10 },
     table: { width: "100%", borderCollapse: "collapse" },
-    th: { textAlign: "left", fontSize: 11, opacity: 0.65, padding: "10px 8px", borderBottom: "1px solid #1d1d1d", textTransform: "uppercase", letterSpacing: 1 },
-    td: { padding: "10px 8px", borderBottom: "1px solid #0f0f0f", verticalAlign: "middle", fontSize: 13 },
-    small: { fontSize: 12, opacity: 0.65 },
-    label: { display: "block", fontSize: 11, opacity: 0.6, textTransform: "uppercase", letterSpacing: 1.5, marginBottom: 6 },
+    th: { textAlign: "left", fontSize: 9, color: "#71717a", padding: "10px 8px", borderBottom: "1px solid rgba(255,255,255,0.06)", textTransform: "uppercase", letterSpacing: 2 },
+    td: { padding: "10px 8px", borderBottom: "1px solid rgba(255,255,255,0.04)", verticalAlign: "middle", fontSize: 12 },
+    small: { fontSize: 11, color: "#71717a" },
+    label: { display: "block", fontSize: 9, color: "#71717a", textTransform: "uppercase", letterSpacing: 2, marginBottom: 6 },
     tab: (active) => ({
-      padding: "9px 16px", borderRadius: 12, border: "1px solid #2a2a2a",
-      background: active ? "#fff" : "transparent",
-      color: active ? "#000" : "#bdbdbd",
-      cursor: "pointer", fontWeight: 800, fontSize: 13,
+      padding: "6px 14px", borderRadius: 7,
+      border: active ? "1px solid rgba(255,255,255,0.15)" : "1px solid rgba(255,255,255,0.04)",
+      background: active ? "rgba(255,255,255,0.08)" : "transparent",
+      color: active ? "#f4f4f5" : "#71717a",
+      cursor: "pointer", fontWeight: active ? 600 : 400, fontSize: 11, fontFamily: "'Outfit', system-ui",
     }),
     pillStock: (st) => {
-      const cfg = { OK: ["#0b2512", "#a6ffbf"], ATENCION: ["#2a1f00", "#ffe7a6"], CRITICO: ["#2a0b0b", "#ffbdbd"] }[st] || ["#111", "#fff"];
-      return { display: "inline-block", padding: "3px 10px", borderRadius: 999, fontSize: 11, fontWeight: 900, background: cfg[0], color: cfg[1] };
+      const cfg = { OK: ["rgba(16,185,129,0.1)","#10b981"], ATENCION: ["rgba(245,158,11,0.1)","#f59e0b"], CRITICO: ["rgba(239,68,68,0.1)","#ef4444"] }[st] || ["rgba(255,255,255,0.05)","#a1a1aa"];
+      return { display: "inline-block", padding: "2px 9px", borderRadius: 5, fontSize: 10, fontWeight: 700, background: cfg[0], color: cfg[1] };
     },
     btnExport: {
-      border: "1px solid #2a2a2a", background: "rgba(255,255,255,0.04)",
-      color: "#a0b0c8", padding: "6px 14px", borderRadius: 10,
-      cursor: "pointer", fontWeight: 700, fontSize: 12,
-      display: "inline-flex", alignItems: "center", gap: 5,
-      transition: "border-color 0.15s, color 0.15s",
+      border: "1px solid rgba(255,255,255,0.08)", background: "rgba(255,255,255,0.03)",
+      color: "#a1a1aa", padding: "6px 14px", borderRadius: 8,
+      cursor: "pointer", fontWeight: 600, fontSize: 11,
+      display: "inline-flex", alignItems: "center", gap: 5, fontFamily: "'Outfit', system-ui",
     },
     pillPedido: (st) => {
-      const cfg = { pendiente: ["#2a1f00", "#ffe7a6"], entregado: ["#0b2512", "#a6ffbf"], cancelado: ["#2a0b0b", "#ffbdbd"] }[st] || ["#111", "#fff"];
-      return { display: "inline-block", padding: "3px 10px", borderRadius: 999, fontSize: 11, fontWeight: 900, background: cfg[0], color: cfg[1] };
+      const cfg = { pendiente: ["rgba(245,158,11,0.1)","#f59e0b"], entregado: ["rgba(16,185,129,0.1)","#10b981"], cancelado: ["rgba(239,68,68,0.1)","#ef4444"] }[st] || ["rgba(255,255,255,0.05)","#a1a1aa"];
+      return { display: "inline-block", padding: "2px 9px", borderRadius: 5, fontSize: 10, fontWeight: 700, background: cfg[0], color: cfg[1] };
     },
   };
 
@@ -395,7 +395,25 @@ export default function LaminacionScreen({ profile, signOut }) {
 
   return (
     <div style={S.page}>
-      <div style={S.layout}>
+      <style>{`
+        @import url('https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500;700&display=swap');
+        *, *::before, *::after { box-sizing: border-box; }
+        select option { background: #0f0f12; color: #a1a1aa; }
+        ::-webkit-scrollbar { width: 3px; height: 3px; }
+        ::-webkit-scrollbar-track { background: transparent; }
+        ::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.07); border-radius: 99px; }
+        input:focus, select:focus, textarea:focus { border-color: rgba(59,130,246,0.35) !important; outline: none; }
+        button:not([disabled]):hover { opacity: 0.8; }
+        .bg-glow {
+          position: fixed; inset: 0; pointer-events: none; z-index: 0;
+          background:
+            radial-gradient(ellipse 70% 38% at 50% -6%, rgba(59,130,246,0.07) 0%, transparent 65%),
+            radial-gradient(ellipse 40% 28% at 92% 88%, rgba(245,158,11,0.02) 0%, transparent 55%);
+        }
+        .lam-row:hover td { background: rgba(255,255,255,0.02) !important; }
+      `}</style>
+      <div className="bg-glow" />
+      <div style={{ ...S.layout, position: "relative", zIndex: 1 }}>
         <Sidebar profile={profile} signOut={signOut} />
 
         <main style={S.main}>
@@ -404,7 +422,7 @@ export default function LaminacionScreen({ profile, signOut }) {
             {/* Header */}
             <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 14 }}>
               <div>
-                <h1 style={{ fontFamily: "Montserrat, system-ui, Arial", fontSize: 20, margin: 0, color: "#fff" }}>
+                <h1 style={{ fontFamily: "'Outfit', system-ui", fontSize: 18, margin: 0, color: "#f4f4f5", fontWeight: 700 }}>
                   Laminación
                 </h1>
                 <div style={S.small}>{esPanol ? "Ingresos · Egresos" : "Control de stock · Ingresos · Egresos · Pedidos"}</div>
@@ -425,7 +443,7 @@ export default function LaminacionScreen({ profile, signOut }) {
             {/* Nuevo material */}
             {showNuevoMaterial && isAdmin && (
               <div style={S.card}>
-                <h3 style={{ marginTop: 0, color: "#fff" }}>Nuevo material</h3>
+                <h3 style={{ marginTop: 0, color: "#f4f4f5" }}>Nuevo material</h3>
                 <form onSubmit={crearMaterial}>
                   <div style={S.row3}>
                     <div>
@@ -478,7 +496,7 @@ export default function LaminacionScreen({ profile, signOut }) {
             {tab === "Stock" && (
               <div style={S.card}>
                 <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 12, flexWrap: "wrap", gap: 8 }}>
-                  <h3 style={{ margin: 0, color: "#fff" }}>
+                  <h3 style={{ margin: 0, color: "#f4f4f5" }}>
                     Stock actual
                     <span style={{ ...S.small, marginLeft: 8 }}>({stockRows.length} materiales)</span>
                   </h3>
@@ -505,7 +523,7 @@ export default function LaminacionScreen({ profile, signOut }) {
                     {stockRows.map(m => (
                       <tr key={m.id}>
                         <td style={S.td}>
-                          <b style={{ color: "#fff" }}>{m.nombre}</b>
+                          <b style={{ color: "#f4f4f5" }}>{m.nombre}</b>
                           <div style={S.small}>{m.unidad}</div>
                         </td>
                         <td style={S.td}><span style={S.small}>{m.categoria || "—"}</span></td>
@@ -542,7 +560,7 @@ export default function LaminacionScreen({ profile, signOut }) {
               <>
                 {puedeCargar && (
                   <div style={S.card}>
-                    <h3 style={{ marginTop: 0, color: "#fff" }}>Registrar ingreso</h3>
+                    <h3 style={{ marginTop: 0, color: "#f4f4f5" }}>Registrar ingreso</h3>
                     <form onSubmit={crearIngreso}>
                       <div style={S.row3}>
                         <div>
@@ -593,7 +611,7 @@ export default function LaminacionScreen({ profile, signOut }) {
                 )}
 
                 <div style={S.card}>
-                  <h3 style={{ marginTop: 0, color: "#fff" }}>
+                  <h3 style={{ marginTop: 0, color: "#f4f4f5" }}>
                     Historial de ingresos
                     <span style={{ ...S.small, marginLeft: 8 }}>
                       ({movFiltrados.filter(m => m.tipo === "ingreso").length})
@@ -615,7 +633,7 @@ export default function LaminacionScreen({ profile, signOut }) {
                         <tr key={m.id}>
                           <td style={S.td}><span style={S.small}>{fmtDate(m.fecha || m.created_at)}</span></td>
                           <td style={S.td}>
-                            <b style={{ color: "#fff" }}>{m.laminacion_materiales?.nombre ?? "—"}</b>
+                            <b style={{ color: "#f4f4f5" }}>{m.laminacion_materiales?.nombre ?? "—"}</b>
                             <div style={S.small}>{m.laminacion_materiales?.unidad}</div>
                           </td>
                           <td style={S.td}><b style={{ color: "#30d158", fontSize: 15 }}>+{num(m.cantidad)}</b></td>
@@ -638,7 +656,7 @@ export default function LaminacionScreen({ profile, signOut }) {
               <>
                 {puedeCargar && (
                   <div style={S.card}>
-                    <h3 style={{ marginTop: 0, color: "#fff" }}>Registrar egreso</h3>
+                    <h3 style={{ marginTop: 0, color: "#f4f4f5" }}>Registrar egreso</h3>
                     <form onSubmit={crearEgreso}>
                       <div style={S.row3}>
                         <div>
@@ -689,7 +707,7 @@ export default function LaminacionScreen({ profile, signOut }) {
                 )}
 
                 <div style={S.card}>
-                  <h3 style={{ marginTop: 0, color: "#fff" }}>
+                  <h3 style={{ marginTop: 0, color: "#f4f4f5" }}>
                     Historial de egresos
                     <span style={{ ...S.small, marginLeft: 8 }}>
                       ({movFiltrados.filter(m => m.tipo === "egreso").length})
@@ -711,7 +729,7 @@ export default function LaminacionScreen({ profile, signOut }) {
                         <tr key={m.id}>
                           <td style={S.td}><span style={S.small}>{fmtDate(m.fecha || m.created_at)}</span></td>
                           <td style={S.td}>
-                            <b style={{ color: "#fff" }}>{m.laminacion_materiales?.nombre ?? "—"}</b>
+                            <b style={{ color: "#f4f4f5" }}>{m.laminacion_materiales?.nombre ?? "—"}</b>
                             <div style={S.small}>{m.laminacion_materiales?.unidad}</div>
                           </td>
                           <td style={S.td}><b style={{ color: "#ff453a", fontSize: 15 }}>-{num(m.cantidad)}</b></td>
@@ -772,15 +790,15 @@ export default function LaminacionScreen({ profile, signOut }) {
                         { val: "egreso",  label: "↓ Egr",   color: "#ff453a" },
                       ].map(({ val, label, color }) => (
                         <button key={val} onClick={() => setFiltroTipo(val)} style={{
-                          padding: "8px 14px", borderRadius: 10, cursor: "pointer", fontSize: 12, fontWeight: 700,
+                          padding: "8px 14px", borderRadius: 8, cursor: "pointer", fontSize: 11, fontWeight: 600,
                           border: filtroTipo === val
-                            ? `1px solid ${color ?? "rgba(255,255,255,0.3)"}`
-                            : "1px solid #2a2a2a",
+                            ? `1px solid ${color ?? "rgba(255,255,255,0.15)"}`
+                            : "1px solid rgba(255,255,255,0.04)",
                           background: filtroTipo === val
-                            ? color ? `${color}18` : "rgba(255,255,255,0.08)"
+                            ? color ? `${color}18` : "rgba(255,255,255,0.06)"
                             : "transparent",
-                          color: filtroTipo === val ? (color ?? "#fff") : "#666",
-                          transition: "all 0.13s",
+                          color: filtroTipo === val ? (color ?? "#f4f4f5") : "#71717a",
+                          fontFamily: "'Outfit', system-ui",
                         }}>
                           {label}
                         </button>
@@ -880,7 +898,7 @@ export default function LaminacionScreen({ profile, signOut }) {
                           ].map(col => (
                             <th key={col.key} style={{
                               ...S.th, padding: "12px 14px",
-                              background: "#050505",
+                              background: "rgba(0,0,0,0.4)",
                               position: "sticky", top: 0,
                               whiteSpace: "nowrap",
                             }}>
@@ -978,7 +996,7 @@ export default function LaminacionScreen({ profile, signOut }) {
               <>
                 {puedeCargar && (
                   <div style={S.card}>
-                    <h3 style={{ marginTop: 0, color: "#fff" }}>Nuevo pedido</h3>
+                    <h3 style={{ marginTop: 0, color: "#f4f4f5" }}>Nuevo pedido</h3>
                     <form onSubmit={crearPedido}>
                       <div style={S.row3}>
                         <div>
@@ -1011,7 +1029,7 @@ export default function LaminacionScreen({ profile, signOut }) {
 
                 <div style={S.card}>
                   <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 12 }}>
-                    <h3 style={{ margin: 0, color: "#fff" }}>Pedidos</h3>
+                    <h3 style={{ margin: 0, color: "#f4f4f5" }}>Pedidos</h3>
                     <button onClick={exportarPedidos} disabled={!pedidosFiltrados.length} style={S.btnExport}>
                       ↓ Exportar CSV
                     </button>
@@ -1032,7 +1050,7 @@ export default function LaminacionScreen({ profile, signOut }) {
                         <tr key={p.id}>
                           <td style={S.td}><span style={S.small}>{fmtTs(p.created_at)}</span></td>
                           <td style={S.td}>
-                            <b style={{ color: "#fff" }}>{p.laminacion_materiales?.nombre ?? "—"}</b>
+                            <b style={{ color: "#f4f4f5" }}>{p.laminacion_materiales?.nombre ?? "—"}</b>
                             <div style={S.small}>{p.laminacion_materiales?.unidad}</div>
                           </td>
                           <td style={S.td}>{num(p.cantidad)}</td>
