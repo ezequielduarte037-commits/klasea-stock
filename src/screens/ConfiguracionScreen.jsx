@@ -15,7 +15,7 @@ const ROLE_META = {
   muebles:      { color: "#788050", accent: "#585830", label: "Muebles"       },
   panol:        { color: "#507860", accent: "#385848", label: "Pañol"         },
   mecanica:     { color: "#786060", accent: "#584040", label: "Mecánica"      },
-  electricidad: { color: "#7a7050", accent: "#5a5030", label: "Electricidad"  },
+  electricidad: { color: "#a09060", accent: "#5a5030", label: "Electricidad"  },
 };
 
 const COLOR_PRESETS = [
@@ -325,7 +325,7 @@ export default function ConfiguracionScreen({ profile, signOut }) {
     return (
       <div style={{ background: "#09090b", minHeight: "100vh", display: "grid", gridTemplateColumns: "280px 1fr" }}>
         <Sidebar profile={profile} signOut={signOut} />
-        <div style={{ display: "flex", alignItems: "center", justifyContent: "center", color: "#252525", fontSize: 12, letterSpacing: 1 }}>
+        <div style={{ display: "flex", alignItems: "center", justifyContent: "center", color: "#71717a", fontSize: 12, letterSpacing: 1 }}>
           Solo administradores pueden acceder.
         </div>
       </div>
@@ -335,7 +335,7 @@ export default function ConfiguracionScreen({ profile, signOut }) {
   return (
     <div style={{
       background: "#09090b", minHeight: "100vh",
-      color: "#b0b0b0",
+      color: "#a1a1aa",
       fontFamily: "'Outfit', system-ui, sans-serif",
     }}>
       <style>{`
@@ -375,7 +375,7 @@ export default function ConfiguracionScreen({ profile, signOut }) {
 
         {/* ── TOPBAR ── */}
         <div style={{
-          height: 52, flexShrink: 0, display: "flex", alignItems: "stretch",
+          height: 50, flexShrink: 0, display: "flex", alignItems: "stretch",
           borderBottom: "1px solid rgba(255,255,255,0.08)",
           background: "rgba(12,12,14,0.92)",
           backdropFilter: "blur(32px) saturate(130%)",
@@ -392,7 +392,7 @@ export default function ConfiguracionScreen({ profile, signOut }) {
               key={t.id}
               onClick={() => setTab(t.id)}
               style={{
-                height: "100%", padding: "0 22px",
+                height: "100%", padding: "0 18px",
                 border: "none", background: "transparent", cursor: "pointer",
                 fontSize: 11, letterSpacing: 1.8, textTransform: "uppercase",
                 color: tab === t.id ? "#f4f4f5" : "#52525b",
@@ -411,7 +411,7 @@ export default function ConfiguracionScreen({ profile, signOut }) {
 
           {/* Stats — spacer then right side */}
           <div style={{ flex: 1 }} />
-          <div style={{ display: "flex", alignItems: "center", gap: 28, paddingRight: 28 }}>
+          <div style={{ display: "flex", alignItems: "center", gap: 8, paddingRight: 20 }}>
             {[
               { n: stats.procsActivos,  label: "etapas",   c: "#10b981" },
               { n: stats.usuariosTotal, label: "usuarios",  c: "#3b82f6" },
@@ -431,7 +431,7 @@ export default function ConfiguracionScreen({ profile, signOut }) {
         {/* ── CONTENT ── */}
         <div style={{ flex: 1, overflow: "hidden", display: "flex" }}>
           {loading ? (
-            <div style={{ flex: 1, display: "flex", alignItems: "center", justifyContent: "center", color: "#1e1e1e", fontSize: 12 }}>
+            <div style={{ flex: 1, display: "flex", alignItems: "center", justifyContent: "center", color: "#71717a", fontSize: 12 }}>
               Cargando…
             </div>
           ) : (
@@ -447,14 +447,14 @@ export default function ConfiguracionScreen({ profile, signOut }) {
                   <div style={{ overflow: "auto", padding: "22px 20px 22px 28px", borderRight: "1px solid rgba(255,255,255,0.05)" }}>
                     <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 18 }}>
                       <div>
-                        <div style={{ fontSize: 13, color: "#c0c0c0", fontWeight: 500 }}>Etapas de producción</div>
-                        <div style={{ fontSize: 10, color: "#343434", marginTop: 3 }}>
+                        <div style={{ fontSize: 13, color: "#f4f4f5", fontWeight: 500 }}>Etapas de producción</div>
+                        <div style={{ fontSize: 10, color: "#71717a", marginTop: 3 }}>
                           Arrastrá ⠿ para reordenar · clic para editar
                         </div>
                       </div>
                       <button
                         onClick={() => setShowNewProc(true)}
-                        style={{ border: "none", background: "#b8b8b8", color: "#000", padding: "7px 16px", borderRadius: 8, cursor: "pointer", fontWeight: 600, fontSize: 11, letterSpacing: 0.5, fontFamily: "'Outfit', system-ui" }}
+                        style={{ border: "none", background: "rgba(255,255,255,0.92)", color: "#080c14", padding: "7px 16px", borderRadius: 8, cursor: "pointer", fontWeight: 600, fontSize: 11, letterSpacing: 0.5, fontFamily: "'Outfit', system-ui" }}
                       >
                         + Nueva etapa
                       </button>
@@ -484,7 +484,7 @@ export default function ConfiguracionScreen({ profile, signOut }) {
                             }}
                           >
                             {/* drag handle */}
-                            <span style={{ color: "#262626", fontSize: 14, cursor: "grab", textAlign: "center", lineHeight: 1 }}>⠿</span>
+                            <span style={{ color: "#52525b", fontSize: 14, cursor: "grab", textAlign: "center", lineHeight: 1 }}>⠿</span>
 
                             {/* color stripe */}
                             <div style={{ width: 3, height: 32, borderRadius: 2, background: p.color ?? "#3a3a3a", opacity: p.activo ? 0.7 : 0.3 }} />
@@ -499,11 +499,11 @@ export default function ConfiguracionScreen({ profile, signOut }) {
                                 <div style={{ width: 80, height: 2, background: "#111", borderRadius: 99 }}>
                                   <div style={{ width: `${barPct}%`, height: "100%", background: p.color ?? "#444", borderRadius: 99, opacity: 0.55 }} />
                                 </div>
-                                <span style={{ fontFamily: "'IBM Plex Mono', monospace", fontSize: 10, color: "#343434" }}>
+                                <span style={{ fontFamily: "'IBM Plex Mono', monospace", fontSize: 10, color: "#71717a" }}>
                                   {p.dias_esperados ?? 0}d
                                 </span>
                                 {p.area_responsable && (
-                                  <span style={{ fontSize: 9, color: rm?.color ?? "#343434", letterSpacing: 0.5 }}>
+                                  <span style={{ fontSize: 9, color: rm?.color ?? "#71717a", letterSpacing: 0.5 }}>
                                     {p.area_responsable}
                                   </span>
                                 )}
@@ -521,7 +521,7 @@ export default function ConfiguracionScreen({ profile, signOut }) {
                     />
 
                     {!procesos.length && (
-                      <div style={{ textAlign: "center", padding: "40px 0", color: "#1e1e1e", fontSize: 12 }}>
+                      <div style={{ textAlign: "center", padding: "40px 0", color: "#71717a", fontSize: 12 }}>
                         Sin etapas. Creá la primera.
                       </div>
                     )}
@@ -549,8 +549,8 @@ export default function ConfiguracionScreen({ profile, signOut }) {
                           <div style={{ display: "flex", gap: 10, alignItems: "center" }}>
                             <div style={{ width: 4, height: 24, borderRadius: 2, background: editForm.color ?? "#3a3a3a" }} />
                             <div>
-                              <div style={{ fontSize: 14, color: "#c8c8c8", fontWeight: 500 }}>{selProc.nombre}</div>
-                              <div style={{ fontSize: 9, color: "#2a2a2a", marginTop: 2 }}>ID {selProc.id.slice(0, 8)}</div>
+                              <div style={{ fontSize: 14, color: "#f4f4f5", fontWeight: 500 }}>{selProc.nombre}</div>
+                              <div style={{ fontSize: 9, color: "#52525b", marginTop: 2 }}>ID {selProc.id.slice(0, 8)}</div>
                             </div>
                           </div>
                           <button onClick={() => setSelProcId(null)} style={Sx.btnGhost}>×</button>
@@ -615,8 +615,8 @@ export default function ConfiguracionScreen({ profile, signOut }) {
                           ].map(({ key, label, sub }) => (
                             <div key={key} style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "8px 0", borderBottom: key === "activo" ? "1px solid rgba(255,255,255,0.04)" : "none" }}>
                               <div>
-                                <div style={{ fontSize: 12, color: "#808080" }}>{label}</div>
-                                <div style={{ fontSize: 10, color: "#2e2e2e", marginTop: 2 }}>{sub}</div>
+                                <div style={{ fontSize: 12, color: "#a1a1aa" }}>{label}</div>
+                                <div style={{ fontSize: 10, color: "#52525b", marginTop: 2 }}>{sub}</div>
                               </div>
                               <Toggle on={editForm[key] ?? false} onChange={() => ef(key, !editForm[key])} />
                             </div>
@@ -640,7 +640,7 @@ export default function ConfiguracionScreen({ profile, signOut }) {
                           </button>
                           <button
                             onClick={eliminarProceso}
-                            style={{ padding: "9px 14px", borderRadius: 8, border: "1px solid rgba(180,60,60,0.25)", background: "transparent", color: "#904040", cursor: "pointer", fontSize: 12 }}
+                            style={{ padding: "9px 14px", borderRadius: 8, border: "1px solid rgba(180,60,60,0.25)", background: "transparent", color: "#ef4444", cursor: "pointer", fontSize: 12 }}
                           >
                             Eliminar
                           </button>
@@ -658,14 +658,14 @@ export default function ConfiguracionScreen({ profile, signOut }) {
                 <div style={{ flex: 1, overflow: "auto", padding: "22px 28px" }}>
                   <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 20 }}>
                     <div>
-                      <div style={{ fontSize: 13, color: "#c0c0c0", fontWeight: 500 }}>Usuarios del sistema</div>
-                      <div style={{ fontSize: 10, color: "#343434", marginTop: 3 }}>
+                      <div style={{ fontSize: 13, color: "#f4f4f5", fontWeight: 500 }}>Usuarios del sistema</div>
+                      <div style={{ fontSize: 10, color: "#71717a", marginTop: 3 }}>
                         {usuarios.length} usuarios · {stats.admins} administrador{stats.admins !== 1 ? "es" : ""}
                       </div>
                     </div>
                     <button
                       onClick={() => setShowNewUser(true)}
-                      style={{ border: "none", background: "#b8b8b8", color: "#000", padding: "7px 16px", borderRadius: 8, cursor: "pointer", fontWeight: 600, fontSize: 11, letterSpacing: 0.5, fontFamily: "'Outfit', system-ui" }}
+                      style={{ border: "none", background: "rgba(255,255,255,0.92)", color: "#080c14", padding: "7px 16px", borderRadius: 8, cursor: "pointer", fontWeight: 600, fontSize: 11, letterSpacing: 0.5, fontFamily: "'Outfit', system-ui" }}
                     >
                       + Nuevo usuario
                     </button>
@@ -682,7 +682,7 @@ export default function ConfiguracionScreen({ profile, signOut }) {
                           style={{
                             border: "1px solid rgba(255,255,255,0.06)",
                             borderRadius: 10,
-                            background: "#070707",
+                            background: "rgba(255,255,255,0.02)",
                             padding: "14px 16px",
                             display: "flex", flexDirection: "column", gap: 11,
                             transition: "border-color .15s",
@@ -701,10 +701,10 @@ export default function ConfiguracionScreen({ profile, signOut }) {
                               {initials}
                             </div>
                             <div style={{ flex: 1, minWidth: 0 }}>
-                              <div style={{ fontSize: 13, color: "#c0c0c0", fontWeight: 500, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", fontFamily: "'IBM Plex Mono', monospace" }}>
+                              <div style={{ fontSize: 13, color: "#f4f4f5", fontWeight: 500, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", fontFamily: "'IBM Plex Mono', monospace" }}>
                                 {u.username}
                               </div>
-                              <div style={{ fontSize: 9, color: "#242424", marginTop: 2 }}>
+                              <div style={{ fontSize: 9, color: "#52525b", marginTop: 2 }}>
                                 {u.id.slice(0, 8)}…
                               </div>
                             </div>
@@ -725,7 +725,7 @@ export default function ConfiguracionScreen({ profile, signOut }) {
                               {rm.label}
                             </span>
                             {u.created_at && (
-                              <span style={{ fontSize: 9, color: "#242424" }}>
+                              <span style={{ fontSize: 9, color: "#52525b" }}>
                                 {new Date(u.created_at).toLocaleDateString("es-AR", { day: "2-digit", month: "2-digit", year: "2-digit" })}
                               </span>
                             )}
@@ -743,7 +743,7 @@ export default function ConfiguracionScreen({ profile, signOut }) {
                     })}
 
                     {!usuarios.length && (
-                      <div style={{ gridColumn: "1/-1", textAlign: "center", padding: "40px 0", color: "#1e1e1e", fontSize: 12 }}>
+                      <div style={{ gridColumn: "1/-1", textAlign: "center", padding: "40px 0", color: "#71717a", fontSize: 12 }}>
                         Sin usuarios.
                       </div>
                     )}
@@ -757,19 +757,19 @@ export default function ConfiguracionScreen({ profile, signOut }) {
               {tab === "sistema" && (
                 <div style={{ flex: 1, overflow: "auto", padding: "22px 28px" }}>
                   <div style={{ marginBottom: 20 }}>
-                    <div style={{ fontSize: 13, color: "#c0c0c0", fontWeight: 500 }}>Parámetros del sistema</div>
-                    <div style={{ fontSize: 10, color: "#343434", marginTop: 3 }}>Los cambios se aplican de inmediato</div>
+                    <div style={{ fontSize: 13, color: "#f4f4f5", fontWeight: 500 }}>Parámetros del sistema</div>
+                    <div style={{ fontSize: 10, color: "#71717a", marginTop: 3 }}>Los cambios se aplican de inmediato</div>
                   </div>
 
                   {Object.keys(configGrupos).length === 0 ? (
-                    <div style={{ textAlign: "center", padding: "40px 0", color: "#1e1e1e", fontSize: 12 }}>
+                    <div style={{ textAlign: "center", padding: "40px 0", color: "#71717a", fontSize: 12 }}>
                       Sin configuración. Ejecutá el SQL de sistema_produccion primero.
                     </div>
                   ) : Object.entries(configGrupos).map(([grupo, items]) => (
-                    <div key={grupo} style={{ marginBottom: 10, border: "1px solid rgba(255,255,255,0.06)", borderRadius: 10, background: "#070707", overflow: "hidden" }}>
+                    <div key={grupo} style={{ marginBottom: 10, border: "1px solid rgba(255,255,255,0.06)", borderRadius: 10, background: "rgba(255,255,255,0.02)", overflow: "hidden" }}>
                       {/* Grupo header */}
                       <div style={{ padding: "10px 18px", borderBottom: "1px solid rgba(255,255,255,0.05)", background: "rgba(255,255,255,0.015)" }}>
-                        <span style={{ fontSize: 9, letterSpacing: 3, color: "#303030", textTransform: "uppercase", fontWeight: 600 }}>
+                        <span style={{ fontSize: 9, letterSpacing: 3, color: "#71717a", textTransform: "uppercase", fontWeight: 600 }}>
                           {grupo}
                         </span>
                       </div>
@@ -786,8 +786,8 @@ export default function ConfiguracionScreen({ profile, signOut }) {
                               <tr key={c.clave} className="cfg-row" style={{ borderBottom: ci < items.length - 1 ? "1px solid rgba(255,255,255,0.04)" : "none" }}>
                                 {/* Descripción */}
                                 <td style={{ padding: "14px 18px", verticalAlign: "middle", width: "50%" }}>
-                                  <div style={{ fontSize: 12, color: "#989898" }}>{c.descripcion ?? c.clave}</div>
-                                  <div style={{ fontFamily: "'IBM Plex Mono', monospace", fontSize: 9, color: "#242424", marginTop: 3, letterSpacing: 0.5 }}>
+                                  <div style={{ fontSize: 12, color: "#a1a1aa" }}>{c.descripcion ?? c.clave}</div>
+                                  <div style={{ fontFamily: "'IBM Plex Mono', monospace", fontSize: 9, color: "#52525b", marginTop: 3, letterSpacing: 0.5 }}>
                                     {c.clave}
                                   </div>
                                 </td>
@@ -822,12 +822,12 @@ export default function ConfiguracionScreen({ profile, signOut }) {
                                   {isDirty ? (
                                     <button
                                       onClick={() => guardarConfig(c.clave)}
-                                      style={{ padding: "5px 14px", borderRadius: 7, border: "none", background: "#b8b8b8", color: "#000", fontWeight: 600, fontSize: 11, cursor: "pointer", fontFamily: "'Outfit', system-ui" }}
+                                      style={{ padding: "5px 14px", borderRadius: 7, border: "none", background: "rgba(255,255,255,0.92)", color: "#080c14", fontWeight: 600, fontSize: 11, cursor: "pointer", fontFamily: "'Outfit', system-ui" }}
                                     >
                                       Guardar
                                     </button>
                                   ) : (
-                                    <span style={{ fontSize: 10, color: "#1e1e1e" }}>—</span>
+                                    <span style={{ fontSize: 10, color: "#71717a" }}>—</span>
                                   )}
                                 </td>
                               </tr>
@@ -850,8 +850,8 @@ export default function ConfiguracionScreen({ profile, signOut }) {
       ════════════════════════════════════════════════════════════ */}
       {showNewProc && (
         <Overlay onClose={() => setShowNewProc(false)}>
-          <div style={{ fontSize: 15, color: "#d0d0d0", fontWeight: 500, marginBottom: 4 }}>Nueva etapa</div>
-          <div style={{ fontSize: 10, color: "#383838", marginBottom: 22 }}>Se agrega al final · editarla luego desde el panel</div>
+          <div style={{ fontSize: 15, color: "#f4f4f5", fontWeight: 500, marginBottom: 4 }}>Nueva etapa</div>
+          <div style={{ fontSize: 10, color: "#52525b", marginBottom: 22 }}>Se agrega al final · editarla luego desde el panel</div>
 
           <form onSubmit={crearProceso}>
             <Field label="Nombre *">
@@ -896,8 +896,8 @@ export default function ConfiguracionScreen({ profile, signOut }) {
       ════════════════════════════════════════════════════════════ */}
       {showNewUser && (
         <Overlay onClose={() => setShowNewUser(false)}>
-          <div style={{ fontSize: 15, color: "#d0d0d0", fontWeight: 500, marginBottom: 4 }}>Nuevo usuario</div>
-          <div style={{ fontSize: 10, color: "#383838", marginBottom: 22 }}>
+          <div style={{ fontSize: 15, color: "#f4f4f5", fontWeight: 500, marginBottom: 4 }}>Nuevo usuario</div>
+          <div style={{ fontSize: 10, color: "#52525b", marginBottom: 22 }}>
             Email automático: usuario@klasea.local
           </div>
 
@@ -912,7 +912,7 @@ export default function ConfiguracionScreen({ profile, signOut }) {
             </Field>
 
             <div style={{ marginBottom: 14 }}>
-              <label style={{ fontSize: 9, letterSpacing: 2.2, color: "#484848", display: "block", marginBottom: 8, textTransform: "uppercase" }}>Rol</label>
+              <label style={{ fontSize: 9, letterSpacing: 2.2, color: "#71717a", display: "block", marginBottom: 8, textTransform: "uppercase" }}>Rol</label>
               <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 5 }}>
                 {ROLES.map(r => {
                   const rm  = ROLE_META[r] ?? { color: "#505050", label: r };
@@ -923,7 +923,7 @@ export default function ConfiguracionScreen({ profile, signOut }) {
                         padding: "8px 12px", borderRadius: 7, cursor: "pointer", textAlign: "left",
                         background: sel ? `${rm.color}14` : "rgba(255,255,255,0.02)",
                         border: `1px solid ${sel ? rm.color + "40" : "rgba(255,255,255,0.06)"}`,
-                        color: sel ? rm.color : "#383838",
+                        color: sel ? rm.color : "#52525b",
                         fontSize: 11, letterSpacing: 0.3,
                         transition: "all .12s",
                         fontFamily: "'Outfit', system-ui",
@@ -945,7 +945,7 @@ export default function ConfiguracionScreen({ profile, signOut }) {
                   </div>
                   <div>
                     <div style={{ fontSize: 12, color: rm.color, fontFamily: "'IBM Plex Mono', monospace" }}>{newUser.username.toUpperCase()}</div>
-                    <div style={{ fontSize: 9, color: "#383838" }}>{rm.label}{newUser.is_admin ? " · Admin" : ""}</div>
+                    <div style={{ fontSize: 9, color: "#52525b" }}>{rm.label}{newUser.is_admin ? " · Admin" : ""}</div>
                   </div>
                 </div>
               );
@@ -953,13 +953,13 @@ export default function ConfiguracionScreen({ profile, signOut }) {
 
             <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "10px 14px", background: "rgba(255,255,255,0.02)", border: "1px solid rgba(255,255,255,0.05)", borderRadius: 8, marginBottom: 16 }}>
               <div>
-                <div style={{ fontSize: 12, color: "#707070" }}>Acceso de administrador</div>
-                <div style={{ fontSize: 9, color: "#2a2a2a", marginTop: 1 }}>Puede editar configuración y usuarios</div>
+                <div style={{ fontSize: 12, color: "#a1a1aa" }}>Acceso de administrador</div>
+                <div style={{ fontSize: 9, color: "#52525b", marginTop: 1 }}>Puede editar configuración y usuarios</div>
               </div>
               <Toggle on={newUser.is_admin} onChange={() => setNewUser(f => ({ ...f, is_admin: !f.is_admin }))} />
             </div>
 
-            <div style={{ fontSize: 10, color: "#524030", marginBottom: 16, padding: "8px 12px", background: "rgba(160,110,40,0.05)", border: "1px solid rgba(160,110,40,0.12)", borderRadius: 7 }}>
+            <div style={{ fontSize: 10, color: "#92795a", marginBottom: 16, padding: "8px 12px", background: "rgba(160,110,40,0.05)", border: "1px solid rgba(160,110,40,0.12)", borderRadius: 7 }}>
               El usuario podrá ingresar directamente, sin necesidad de confirmar email.
             </div>
 
@@ -976,13 +976,13 @@ export default function ConfiguracionScreen({ profile, signOut }) {
       ════════════════════════════════════════════════════════════ */}
       {editUserModal && (
         <Overlay onClose={() => setEditUserModal(null)} maxWidth={400}>
-          <div style={{ fontSize: 15, color: "#d0d0d0", fontWeight: 500, marginBottom: 4 }}>Permisos de acceso</div>
-          <div style={{ fontFamily: "'IBM Plex Mono', monospace", fontSize: 11, color: "#484848", marginBottom: 22 }}>
+          <div style={{ fontSize: 15, color: "#f4f4f5", fontWeight: 500, marginBottom: 4 }}>Permisos de acceso</div>
+          <div style={{ fontFamily: "'IBM Plex Mono', monospace", fontSize: 11, color: "#71717a", marginBottom: 22 }}>
             {editUserModal.username}
           </div>
 
           <div style={{ marginBottom: 14 }}>
-            <label style={{ fontSize: 9, letterSpacing: 2.2, color: "#484848", display: "block", marginBottom: 8, textTransform: "uppercase" }}>Rol</label>
+            <label style={{ fontSize: 9, letterSpacing: 2.2, color: "#71717a", display: "block", marginBottom: 8, textTransform: "uppercase" }}>Rol</label>
             <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 5 }}>
               {ROLES.map(r => {
                 const rm  = ROLE_META[r] ?? { color: "#505050", label: r };
@@ -993,7 +993,7 @@ export default function ConfiguracionScreen({ profile, signOut }) {
                       padding: "9px 12px", borderRadius: 7, cursor: "pointer", textAlign: "left",
                       background: sel ? `${rm.color}14` : "rgba(255,255,255,0.02)",
                       border: `1px solid ${sel ? rm.color + "40" : "rgba(255,255,255,0.06)"}`,
-                      color: sel ? rm.color : "#383838",
+                      color: sel ? rm.color : "#52525b",
                       fontSize: 11, transition: "all .12s",
                       fontFamily: "'Outfit', system-ui",
                     }}>
@@ -1006,8 +1006,8 @@ export default function ConfiguracionScreen({ profile, signOut }) {
 
           <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "11px 14px", background: "rgba(255,255,255,0.02)", border: "1px solid rgba(255,255,255,0.05)", borderRadius: 8, marginBottom: 22 }}>
             <div>
-              <div style={{ fontSize: 12, color: "#707070" }}>Acceso de administrador</div>
-              <div style={{ fontSize: 9, color: "#2a2a2a", marginTop: 1 }}>Configuración, usuarios y sistema</div>
+              <div style={{ fontSize: 12, color: "#a1a1aa" }}>Acceso de administrador</div>
+              <div style={{ fontSize: 9, color: "#52525b", marginTop: 1 }}>Configuración, usuarios y sistema</div>
             </div>
             <Toggle on={formEditUser.is_admin ?? false} onChange={() => setFormEditUser(f => ({ ...f, is_admin: !f.is_admin }))} />
           </div>
@@ -1035,7 +1035,7 @@ export default function ConfiguracionScreen({ profile, signOut }) {
 function Field({ label, children }) {
   return (
     <div style={{ marginBottom: 14 }}>
-      <label style={{ fontSize: 9, letterSpacing: 2.2, color: "#484848", display: "block", marginBottom: 5, textTransform: "uppercase", fontFamily: "'Outfit', system-ui" }}>
+      <label style={{ fontSize: 9, letterSpacing: 2.2, color: "#71717a", display: "block", marginBottom: 5, textTransform: "uppercase", fontFamily: "'Outfit', system-ui" }}>
         {label}
       </label>
       {children}
@@ -1058,10 +1058,10 @@ function Chip({ color, text }) {
 function Overlay({ onClose, children, maxWidth = 500 }) {
   return (
     <div
-      style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.9)", backdropFilter: "blur(10px)", display: "flex", justifyContent: "center", alignItems: "flex-start", zIndex: 9999, padding: "40px 16px", overflowY: "auto" }}
+      style={{ position:"fixed", inset:0, background:"rgba(9,9,11,0.88)", backdropFilter:"blur(40px) saturate(140%)", WebkitBackdropFilter:"blur(40px) saturate(140%)", display:"flex", justifyContent:"center", alignItems:"flex-start", zIndex:9999, padding:"40px 16px", overflowY:"auto" }}
       onClick={e => e.target === e.currentTarget && onClose()}
     >
-      <div style={{ background: "#080808", border: "1px solid rgba(255,255,255,0.1)", borderRadius: 14, padding: 26, width: "100%", maxWidth, animation: "slideUp .2s ease", fontFamily: "'Outfit', system-ui" }}>
+      <div style={{ background:"rgba(6,10,22,0.96)", backdropFilter:"blur(60px)", WebkitBackdropFilter:"blur(60px)", border:"1px solid rgba(255,255,255,0.12)", borderRadius:16, padding:"26px 26px", width:"100%", maxWidth, animation:"slideUp .2s ease", fontFamily:"'Outfit', system-ui", boxShadow:"0 32px 80px rgba(0,0,0,0.8), inset 0 1px 0 rgba(255,255,255,0.06)" }}>
         {children}
       </div>
     </div>
@@ -1071,27 +1071,27 @@ function Overlay({ onClose, children, maxWidth = 500 }) {
 // ─── shared styles ────────────────────────────────────────────────────────────
 const Sx = {
   input: {
-    background: "rgba(255,255,255,0.04)", border: "1px solid rgba(255,255,255,0.09)",
-    color: "#d0d0d0", padding: "8px 12px", borderRadius: 8, fontSize: 13,
+    background: "rgba(255,255,255,0.04)", border: "1px solid rgba(255,255,255,0.08)",
+    color: "#f4f4f5", padding: "8px 12px", borderRadius: 8, fontSize: 13,
     width: "100%", outline: "none", fontFamily: "'Outfit', system-ui",
   },
   btnPrimary: {
-    border: "none", background: "#b8b8b8", color: "#000", padding: "8px 20px",
-    borderRadius: 8, cursor: "pointer", fontWeight: 600, fontSize: 12,
+    border: "none", background: "rgba(255,255,255,0.92)", color: "#080c14", padding: "9px 20px",
+    borderRadius: 8, cursor: "pointer", fontWeight: 700, fontSize: 12,
     fontFamily: "'Outfit', system-ui",
   },
   btnSecondary: {
-    border: "1px solid rgba(255,255,255,0.09)", background: "rgba(255,255,255,0.04)",
-    color: "#909090", padding: "8px 16px", borderRadius: 8, cursor: "pointer", fontSize: 12,
+    border: "1px solid rgba(255,255,255,0.08)", background: "rgba(255,255,255,0.04)",
+    color: "#a1a1aa", padding: "9px 16px", borderRadius: 8, cursor: "pointer", fontSize: 12,
     fontFamily: "'Outfit', system-ui",
   },
   btnOutline: {
-    border: "1px solid rgba(255,255,255,0.07)", background: "transparent",
-    color: "#505050", padding: "6px 10px", borderRadius: 7, cursor: "pointer", fontSize: 11,
+    border: "1px solid rgba(255,255,255,0.08)", background: "transparent",
+    color: "#71717a", padding: "6px 10px", borderRadius: 7, cursor: "pointer", fontSize: 11,
     fontFamily: "'Outfit', system-ui",
   },
   btnGhost: {
     border: "1px solid transparent", background: "transparent",
-    color: "#404040", padding: "3px 8px", borderRadius: 6, cursor: "pointer", fontSize: 14,
+    color: "#52525b", padding: "3px 8px", borderRadius: 6, cursor: "pointer", fontSize: 14,
   },
 };
