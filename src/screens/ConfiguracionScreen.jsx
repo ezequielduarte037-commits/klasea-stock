@@ -246,43 +246,6 @@ export default function ConfiguracionScreen({ profile, signOut }) {
   // ── usuarios actions ──────────────────────────────────────────
   async function crearUsuario(e) {
     e.preventDefault();
-    if (!newUser.username.trim() || !newUser.password)
-      return flash(false, "Usuario y contraseña obligatorios.");
-    const email = `${newUser.username.trim().toLowerCase()}@klasea.local`;
-    const { data, error } = await supabase.auth.signUp({
-      email, password: newUser.password,
-      options: { data: { username: newUser.username.trim(), role: newUser.role } },
-    });
-    if (error) return flash(false, error.message);
-    const uid = data?.user?.id;
-    if (uid) {
-      await supabase.from("profiles").upsert({
-        id: uid,
-        username: newUser.username.trim().toUpperCase(),
-        role:     newUser.role,
-        is_admin: newUser.is_admin,
-      }, { onConflict: "id" });
-    }
-    flash(true, `Usuario ${newUser.username.toUpperCase()} creado.`);
-    setShowNewUser(false);
-    setNewUser({ username: "", password: "", role: "panol", is_admin: false });
-    cargar();
-  }
-
-  async function guardarRolUsuario() {
-    if (!editUserModal) return;
-    const { error } = await supabase.from("profiles")
-      .update({ role: formEditUser.role, is_admin: formEditUser.is_admin })
-      .eq("id", editUserModal.id);
-    if (error) return flash(false, error.message);
-    flash(true, "Permisos actualizados.");
-    setEditUserModal(null);
-    cargar();
-  }
-
-// ── usuarios actions ──────────────────────────────────────────
-  async function crearUsuario(e) {
-    e.preventDefault();
     if (!newUser.username.trim() || !newUser.password) {
       return flash(false, "Usuario y contraseña obligatorios.");
     }
@@ -305,6 +268,7 @@ export default function ConfiguracionScreen({ profile, signOut }) {
     setNewUser({ username: "", password: "", role: "panol", is_admin: false });
     cargar();
   }
+  
 
   // ─── render ───────────────────────────────────────────────────
   if (!isAdmin) {
