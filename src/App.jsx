@@ -47,6 +47,8 @@ function LoginScreen({ onLoggedIn }) {
     try {
       const email = toInternalEmail(username);
       const { data, error } = await supabase.auth.signInWithPassword({ email, password });
+console.log("DATA:", data);
+console.log("ERROR:", error);
       if (error) { setErr("Credenciales incorrectas."); return; }
       await onLoggedIn?.(data?.session);
       nav("/", { replace: true });
