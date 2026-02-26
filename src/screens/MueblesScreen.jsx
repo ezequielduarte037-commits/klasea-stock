@@ -36,6 +36,65 @@ function progreso(rows) {
   return Math.round(rows.filter(r => r.estado === "Completo").length / rows.length * 100);
 }
 
+// ─── Thumbnail cache & hook ─────────────────────────────────────────
+const thumbCache = {};
+function useThumbnail(muebleId) {
+  const [url, setUrl] = useState(thumbCache[muebleId] ?? null);
+  useEffect(() => {
+    if (!muebleId || thumbCache[muebleId] !== undefined) return;
+    thumbCache[muebleId] = null; // mark loading
+    supabase
+      .from("prod_mueble_imagenes")
+      .select("url")
+      .eq("mueble_id", muebleId)
+      .order("created_at", { ascending: true })
+      .limit(1)
+      .single()
+      .then(({ data }) => {
+        const u = data?.url ?? null;
+        thumbCache[muebleId] = u;
+        setUrl(u);
+      });
+  }, [muebleId]);
+  return url;
+}
+
+// ─── MiniThumb ─────────────────────────────────────────────────────
+function MiniThumb({ muebleId, size = 52, onClick }) {
+  const url = useThumbnail(muebleId);
+  if (!url) return (
+    <div
+      onClick={onClick}
+      style={{
+        width: size, height: size, borderRadius: 8, flexShrink: 0,
+        background: "rgba(255,255,255,0.04)",
+        border: "1px solid rgba(255,255,255,0.07)",
+        display: "flex", alignItems: "center", justifyContent: "center",
+        fontSize: 16, color: "rgba(255,255,255,0.1)",
+        cursor: onClick ? "pointer" : "default",
+      }}
+    >🪑</div>
+  );
+  return (
+    <div
+      onClick={onClick}
+      style={{
+        width: size, height: size, borderRadius: 8, flexShrink: 0,
+        overflow: "hidden", cursor: onClick ? "pointer" : "default",
+        border: "1px solid rgba(255,255,255,0.1)",
+        background: "rgba(255,255,255,0.03)",
+      }}
+    >
+      <img
+        src={url}
+        alt=""
+        loading="lazy"
+        style={{ width: "100%", height: "100%", objectFit: "cover", display: "block" }}
+      />
+    </div>
+  );
+}
+
 // ─── Lightbox ──────────────────────────────────────────────────────
 function Lightbox({ images, index, onClose, setIndex }) {
   useEffect(() => {
@@ -324,12 +383,12 @@ function CatalogoLinea({ lineaId, lineaNombre, esAdmin, onOpenMueble }) {
   const LBL = { fontSize: 9, letterSpacing: 2, color: C.t2, display: "block", marginBottom: 4, textTransform: "uppercase", fontWeight: 600 };
 
   return (
-    <div style={{ padding: 24 }}>
+    <div style={{ padding: "28px 28px 40px" }}>
       {/* Header */}
-      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: 20 }}>
+      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: 24 }}>
         <div>
-          <div style={{ fontSize: 20, fontWeight: 700, color: C.t0 }}>{lineaNombre}</div>
-          <div style={{ fontSize: 11, color: C.t2, marginTop: 3, fontFamily: C.mono }}>{muebles.length} muebles en el catálogo</div>
+          <div style={{ fontSize: 22, fontWeight: 700, color: C.t0 }}>{lineaNombre}</div>
+          <div style={{ fontSize: 11, color: C.t2, marginTop: 4, fontFamily: C.mono }}>{muebles.length} muebles en el catálogo</div>
         </div>
         {esAdmin && (
           <button onClick={() => setShowAdd(v => !v)} style={{ padding: "8px 16px", background: showAdd ? C.s1 : "rgba(59,130,246,0.12)", border: `1px solid ${showAdd ? C.b1 : "rgba(59,130,246,0.3)"}`, color: showAdd ? C.t1 : "#60a5fa", borderRadius: 8, cursor: "pointer", fontSize: 12, fontWeight: 600, fontFamily: C.sans }}>
@@ -374,10 +433,13 @@ function CatalogoLinea({ lineaId, lineaNombre, esAdmin, onOpenMueble }) {
         <div style={{ color: C.t2, fontSize: 12, padding: "40px 0", textAlign: "center" }}>Sin resultados para "{q}"</div>
       ) : (
         Object.entries(porSector).map(([sector, rows]) => (
-          <div key={sector} style={{ marginBottom: 22 }}>
+          <div key={sector} style={{ marginBottom: 28 }}>
             {/* Sector header */}
-            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "0 0 7px", borderBottom: `1px solid rgba(255,255,255,0.05)`, marginBottom: 4 }}>
-              <span style={{ fontSize: 9, letterSpacing: 2, color: C.t2, textTransform: "uppercase", fontWeight: 600 }}>{sector}</span>
+            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "0 0 10px", borderBottom: `1px solid rgba(255,255,255,0.06)`, marginBottom: 6 }}>
+              <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                <div style={{ width: 3, height: 3, borderRadius: "50%", background: "rgba(255,255,255,0.25)" }} />
+                <span style={{ fontSize: 10, letterSpacing: "0.15em", color: C.t1, textTransform: "uppercase", fontWeight: 600 }}>{sector}</span>
+              </div>
               <span style={{ fontSize: 10, color: C.t2, fontFamily: C.mono }}>{rows.length}</span>
             </div>
 
@@ -405,24 +467,31 @@ function CatalogoLinea({ lineaId, lineaNombre, esAdmin, onOpenMueble }) {
                   /* ── Fila normal ── */
                   <div
                     className="mueble-row"
-                    style={{ display: "flex", alignItems: "center", gap: 12, padding: "10px 12px", borderRadius: 9, marginBottom: 3, cursor: "pointer", transition: "background .15s" }}
+                    style={{
+                      display: "flex", alignItems: "center", gap: 14,
+                      padding: "12px 14px", borderRadius: 10, marginBottom: 4,
+                      cursor: "pointer", transition: "background .15s",
+                      border: "1px solid transparent",
+                    }}
                     onClick={() => onOpenMueble(m)}
                   >
-                    {/* Mini thumbnail si tiene imágenes — opcional, omitido por perf */}
+                    <MiniThumb muebleId={m.id} size={50} />
                     <div style={{ flex: 1, minWidth: 0 }}>
                       <div style={{ fontSize: 13, color: C.t0, fontWeight: 500, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{m.nombre}</div>
-                      {m.descripcion && <div style={{ fontSize: 11, color: C.t2, marginTop: 2, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{m.descripcion}</div>}
+                      <div style={{ display: "flex", gap: 10, marginTop: 3, alignItems: "center" }}>
+                        {m.descripcion && <div style={{ fontSize: 11, color: C.t2, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis", flex: 1 }}>{m.descripcion}</div>}
+                        {m.medidas && <div style={{ fontSize: 10, color: C.t2, fontFamily: C.mono, whiteSpace: "nowrap", flexShrink: 0 }}>{m.medidas}</div>}
+                      </div>
                     </div>
-                    {m.medidas && <div style={{ fontSize: 10, color: C.t2, fontFamily: C.mono, whiteSpace: "nowrap" }}>{m.medidas}</div>}
                     {esAdmin && (
                       <div style={{ display: "flex", gap: 4, flexShrink: 0 }} onClick={e => e.stopPropagation()}>
                         <button
                           onClick={() => { setEditId(m.id); setEditForm({ nombre: m.nombre ?? "", sector: m.sector ?? "", descripcion: m.descripcion ?? "", medidas: m.medidas ?? "", material: m.material ?? "" }); }}
-                          style={{ padding: "4px 10px", background: C.s0, border: `1px solid ${C.b0}`, color: C.t1, borderRadius: 6, cursor: "pointer", fontSize: 11, fontFamily: C.sans }}
+                          style={{ padding: "5px 12px", background: C.s0, border: `1px solid ${C.b0}`, color: C.t1, borderRadius: 7, cursor: "pointer", fontSize: 11, fontFamily: C.sans }}
                         >Editar</button>
                         <button
                           onClick={() => eliminar(m.id)}
-                          style={{ padding: "4px 8px", background: "transparent", border: "1px solid rgba(239,68,68,0.2)", color: "#f87171", borderRadius: 6, cursor: "pointer", fontSize: 11, fontFamily: C.sans }}
+                          style={{ padding: "5px 10px", background: "transparent", border: "1px solid rgba(239,68,68,0.2)", color: "#f87171", borderRadius: 7, cursor: "pointer", fontSize: 11, fontFamily: C.sans }}
                         >×</button>
                       </div>
                     )}
@@ -433,7 +502,7 @@ function CatalogoLinea({ lineaId, lineaNombre, esAdmin, onOpenMueble }) {
           </div>
         ))
       )}
-      <style>{`.mueble-row:hover{background:rgba(255,255,255,0.04)!important}`}</style>
+      <style>{`.mueble-row:hover{background:rgba(255,255,255,0.04)!important;border-color:rgba(255,255,255,0.07)!important}`}</style>
     </div>
   );
 }
@@ -498,7 +567,7 @@ export default function MueblesScreen({ profile, signOut }) {
   const lineaNavBtn  = sel => ({ width: "100%", textAlign: "left", padding: "9px 14px", border: "none", borderBottom: `1px solid rgba(255,255,255,0.03)`, background: sel ? C.s1 : "transparent", color: sel ? C.t0 : C.t2, cursor: "pointer", fontSize: 12, fontWeight: sel ? 600 : 400, display: "flex", justifyContent: "space-between", alignItems: "center", fontFamily: C.sans });
   const unidadNavBtn = sel => ({ ...lineaNavBtn(sel), paddingLeft: 22, fontSize: 11, borderLeft: sel ? `2px solid ${C.b1}` : "2px solid transparent" });
   const estadoSt     = est => { const m = ESTADO_META[est] ?? ESTADO_META["No enviado"]; return { background: m.bg, color: m.color, border: `1px solid ${m.color === C.t2 ? C.b0 : m.color+"44"}`, padding: "5px 9px", borderRadius: 7, fontSize: 11, fontWeight: 500, cursor: "pointer", outline: "none", fontFamily: C.sans }; };
-  const filterTabSt  = act => ({ border: act ? `1px solid ${C.b1}` : "1px solid transparent", background: act ? C.s1 : "transparent", color: act ? C.t0 : C.t2, padding: "4px 12px", borderRadius: 6, cursor: "pointer", fontSize: 10, fontFamily: C.sans });
+  const filterTabSt  = act => ({ border: act ? `1px solid ${C.b1}` : "1px solid transparent", background: act ? C.s1 : "transparent", color: act ? C.t0 : C.t2, padding: "5px 14px", borderRadius: 7, cursor: "pointer", fontSize: 11, fontFamily: C.sans, transition: "all .15s" });
 
   return (
     <div style={{ background: C.bg, minHeight: "100vh", color: C.t0, fontFamily: C.sans }}>
@@ -511,19 +580,20 @@ export default function MueblesScreen({ profile, signOut }) {
         input:focus, select:focus, textarea:focus { border-color: rgba(59,130,246,0.35) !important; outline: none; }
         select option { background: #0f0f12; color: #a1a1aa; }
         .bg-glow { position: fixed; inset: 0; pointer-events: none; z-index: 0; background: radial-gradient(ellipse 70% 38% at 50% -6%, rgba(59,130,246,0.07) 0%, transparent 65%); }
+        .checklist-row:hover { background: rgba(255,255,255,0.03) !important; }
       `}</style>
       <div className="bg-glow" />
 
       <div style={{ display: "grid", gridTemplateColumns: "280px 1fr", minHeight: "100vh", position: "relative", zIndex: 1 }}>
         <Sidebar profile={profile} signOut={signOut} />
 
-        <div style={{ display: "grid", gridTemplateColumns: "220px 1fr", height: "100vh", overflow: "hidden" }}>
+        <div style={{ display: "grid", gridTemplateColumns: "240px 1fr", height: "100vh", overflow: "hidden" }}>
 
           {/* ── LEFT NAV ── */}
           <div style={{ height: "100vh", overflowY: "auto", borderRight: `1px solid ${C.b0}`, background: "rgba(9,9,11,0.98)", display: "flex", flexDirection: "column" }}>
-            <div style={{ padding: "14px 14px 10px", borderBottom: `1px solid ${C.b0}`, flexShrink: 0 }}>
-              <div style={{ fontSize: 12, fontWeight: 600, color: C.t0 }}>Muebles</div>
-              <div style={{ fontSize: 10, color: C.t2, marginTop: 2 }}>Líneas de producción</div>
+            <div style={{ padding: "18px 16px 12px", borderBottom: `1px solid ${C.b0}`, flexShrink: 0 }}>
+              <div style={{ fontSize: 13, fontWeight: 600, color: C.t0 }}>Muebles</div>
+              <div style={{ fontSize: 10, color: C.t2, marginTop: 3 }}>Líneas de producción</div>
             </div>
             <div style={{ flex: 1, overflowY: "auto" }}>
               {lineas.map(l => {
@@ -583,37 +653,37 @@ export default function MueblesScreen({ profile, signOut }) {
 
             ) : (
               /* ── CHECKLIST DE LA UNIDAD ── */
-              <div style={{ padding: 22 }}>
+              <div style={{ padding: "28px 28px 40px" }}>
                 {/* Header */}
-                <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: 16 }}>
+                <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: 20 }}>
                   <div>
-                    <div style={{ fontSize: 18, fontWeight: 700, color: C.t0 }}>{unidadSel?.codigo}</div>
-                    <div style={{ fontSize: 11, color: C.t2, marginTop: 2 }}>{lineaSel?.nombre} — {checklist.length} ítems</div>
+                    <div style={{ fontSize: 22, fontWeight: 700, color: C.t0 }}>{unidadSel?.codigo}</div>
+                    <div style={{ fontSize: 11, color: C.t2, marginTop: 4 }}>{lineaSel?.nombre} · {checklist.length} ítems</div>
                   </div>
                 </div>
 
                 {err && <div style={{ padding: "8px 12px", borderRadius: 7, background: "rgba(239,68,68,0.08)", border: "1px solid rgba(239,68,68,0.25)", color: "#f87171", fontSize: 12, marginBottom: 12 }}>{err}</div>}
 
                 {/* Progress */}
-                <div style={{ background: C.s0, border: `1px solid ${C.b0}`, borderRadius: 10, padding: "12px 14px", marginBottom: 14 }}>
-                  <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 8 }}>
-                    <div style={{ display: "flex", gap: 12, fontSize: 11, color: C.t2 }}>
-                      <span style={{ color: C.green }}>{stats.completo} completo{stats.completo !== 1 ? "s" : ""}</span>
+                <div style={{ background: C.s0, border: `1px solid ${C.b0}`, borderRadius: 12, padding: "16px 20px", marginBottom: 18 }}>
+                  <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 10 }}>
+                    <div style={{ display: "flex", gap: 16, fontSize: 12, alignItems: "center" }}>
+                      <span style={{ color: C.green, fontWeight: 500 }}>{stats.completo} completo{stats.completo !== 1 ? "s" : ""}</span>
                       {stats.parcial > 0 && <span style={{ color: C.t1 }}>{stats.parcial} parcial</span>}
                       {stats.rehacer > 0 && <span style={{ color: C.red }}>{stats.rehacer} rehacer</span>}
-                      <span>{stats.total - stats.completo - stats.parcial - stats.rehacer} pendientes</span>
+                      <span style={{ color: C.t2 }}>{stats.total - stats.completo - stats.parcial - stats.rehacer} pendientes</span>
                     </div>
-                    <span style={{ fontFamily: C.mono, fontSize: 22, fontWeight: 700, color: pctColor }}>{pct}%</span>
+                    <span style={{ fontFamily: C.mono, fontSize: 26, fontWeight: 700, color: pctColor, letterSpacing: "-0.02em" }}>{pct}%</span>
                   </div>
-                  <div style={{ height: 3, background: "rgba(255,255,255,0.05)", borderRadius: 99, overflow: "hidden" }}>
+                  <div style={{ height: 4, background: "rgba(255,255,255,0.05)", borderRadius: 99, overflow: "hidden" }}>
                     <div style={{ height: "100%", width: `${pct}%`, background: pctColor, borderRadius: 99, transition: "width .5s ease" }} />
                   </div>
                 </div>
 
                 {/* Filters */}
-                <div style={{ display: "flex", gap: 4, marginBottom: 14, flexWrap: "wrap", alignItems: "center" }}>
+                <div style={{ display: "flex", gap: 5, marginBottom: 18, flexWrap: "wrap", alignItems: "center" }}>
                   {["todos", ...ESTADOS].map(e => <button key={e} style={filterTabSt(filtro === e)} onClick={() => setFiltro(e)}>{e === "todos" ? "Todos" : e}</button>)}
-                  <input style={{ ...INP, flex: 1, minWidth: 100, padding: "4px 10px", fontSize: 11 }} placeholder="Buscar…" value={q} onChange={e => setQ(e.target.value)} />
+                  <input style={{ ...INP, flex: 1, minWidth: 120, padding: "5px 12px", fontSize: 12 }} placeholder="Buscar…" value={q} onChange={e => setQ(e.target.value)} />
                 </div>
 
                 {/* List */}
@@ -625,24 +695,51 @@ export default function MueblesScreen({ profile, signOut }) {
                   Object.entries(porSector).map(([sector, rows]) => {
                     const completados = rows.filter(r => r.estado === "Completo").length;
                     return (
-                      <div key={sector} style={{ marginBottom: 18 }}>
-                        <div style={{ display: "flex", justifyContent: "space-between", padding: "0 0 6px", borderBottom: `1px solid rgba(255,255,255,0.05)`, marginBottom: 2 }}>
-                          <span style={{ fontSize: 9, letterSpacing: 2, color: C.t2, textTransform: "uppercase", fontWeight: 600 }}>{sector}</span>
+                      <div key={sector} style={{ marginBottom: 24 }}>
+                        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "0 0 10px", borderBottom: `1px solid rgba(255,255,255,0.06)`, marginBottom: 4 }}>
+                          <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                            <div style={{ width: 3, height: 3, borderRadius: "50%", background: "rgba(255,255,255,0.25)" }} />
+                            <span style={{ fontSize: 10, letterSpacing: "0.15em", color: C.t1, textTransform: "uppercase", fontWeight: 600 }}>{sector}</span>
+                          </div>
                           <span style={{ fontSize: 10, color: C.t2, fontFamily: C.mono }}>{completados}/{rows.length}</span>
                         </div>
                         {rows.map(r => {
                           const m = r.prod_muebles;
                           return (
-                            <div key={r.id} style={{ display: "grid", gridTemplateColumns: "1fr 120px 28px", gap: 10, alignItems: "start", padding: "8px 0", borderBottom: "1px solid rgba(255,255,255,0.03)" }}>
+                            <div
+                              key={r.id}
+                              className="checklist-row"
+                              style={{
+                                display: "grid",
+                                gridTemplateColumns: "50px 1fr 130px 28px",
+                                gap: 14, alignItems: "center",
+                                padding: "10px 8px",
+                                borderRadius: 9,
+                                borderBottom: "1px solid rgba(255,255,255,0.03)",
+                                transition: "background .15s",
+                              }}
+                            >
+                              {/* Thumbnail */}
+                              <MiniThumb
+                                muebleId={m?.id}
+                                size={46}
+                                onClick={m ? () => setModalMueble(m) : undefined}
+                              />
+                              {/* Nombre + obs */}
                               <div>
-                                <span style={{ color: r.estado === "Completo" ? C.t2 : C.t0, fontSize: 12, cursor: "pointer", textDecoration: r.estado === "Completo" ? "line-through" : "none" }} onClick={() => m && setModalMueble(m)}>{m?.nombre ?? "—"}</span>
+                                <span
+                                  style={{ color: r.estado === "Completo" ? C.t2 : C.t0, fontSize: 13, cursor: "pointer", textDecoration: r.estado === "Completo" ? "line-through" : "none", fontWeight: 400 }}
+                                  onClick={() => m && setModalMueble(m)}
+                                >{m?.nombre ?? "—"}</span>
                                 <ObsInline value={r.obs} rowId={r.id} onSave={setObs} />
                               </div>
+                              {/* Estado */}
                               <select style={estadoSt(r.estado)} value={r.estado} onChange={e => setEstado(r.id, e.target.value)}>
                                 {ESTADOS.map(e => <option key={e} value={e}>{e}</option>)}
                               </select>
+                              {/* Eliminar */}
                               {esAdmin
-                                ? <button style={{ border: "none", background: "transparent", color: C.t2, cursor: "pointer", fontSize: 14, padding: "2px" }} onClick={() => eliminarItem(r.id)}>×</button>
+                                ? <button style={{ border: "none", background: "transparent", color: C.t2, cursor: "pointer", fontSize: 15, padding: "2px", opacity: 0.5 }} onClick={() => eliminarItem(r.id)}>×</button>
                                 : <div />
                               }
                             </div>

@@ -11,6 +11,7 @@
 import { useEffect, useMemo, useState, useCallback, useRef } from "react";
 import { supabase } from "../supabaseClient";
 import Sidebar from "../components/Sidebar";
+import AvisosCompraView from "./AvisosCompraView";
 
 // ─── UTILS ────────────────────────────────────────────────────────────────────
 const num        = v => { const x = Number(v); return Number.isFinite(x) ? x : 0; };
@@ -199,7 +200,7 @@ function ConfirmModal({ nombre, tipo, advertencia, onConfirm, onCancel }) {
 }
 
 // ─── MODAL OBRA ───────────────────────────────────────────────────────────────
-function ObraModal({ lineas, lProcs, onSave, onClose }) {
+function ObraModal({ lineas, lProcs, lTareas = [], onSave, onClose }) {
   const [form, setForm] = useState({ codigo: "", descripcion: "", linea_id: "", fecha_inicio: today(), fecha_fin_estimada: "", notas: "" });
   const [saving, setSaving] = useState(false);
   const [err, setErr] = useState("");
@@ -231,6 +232,27 @@ function ObraModal({ lineas, lProcs, onSave, onClose }) {
             orden_compra_dias_previo: p.orden_compra_dias_previo ?? 7,
           })));
           await supabase.from("obra_timeline").insert(procsLinea.map(p => ({ obra_id: nueva.id, linea_proceso_id: p.id, estado: "pendiente" })));
+          // Copiar tareas de plantilla — fetch directo de DB para no depender del prop lTareas
+          const etapasIns = await supabase.from("obra_etapas").select("id, linea_proceso_id").eq("obra_id", nueva.id);
+          if (!etapasIns.error && etapasIns.data?.length) {
+            const procIds = etapasIns.data.map(e => e.linea_proceso_id).filter(Boolean);
+            if (procIds.length) {
+              const { data: tPlantilla } = await supabase
+                .from("linea_proceso_tareas")
+                .select("*")
+                .in("linea_proceso_id", procIds)
+                .order("orden");
+              if (tPlantilla?.length) {
+                const tareasAInsertar = [];
+                for (const etapa of etapasIns.data) {
+                  for (const tp of tPlantilla.filter(t => t.linea_proceso_id === etapa.linea_proceso_id)) {
+                    tareasAInsertar.push({ obra_id: nueva.id, etapa_id: etapa.id, nombre: tp.nombre, orden: tp.orden ?? 999, estado: "pendiente", prioridad: tp.prioridad ?? "media", horas_estimadas: tp.horas_estimadas ?? null, personas_necesarias: tp.personas_necesarias ?? null, observaciones: tp.observaciones ?? null });
+                  }
+                }
+                if (tareasAInsertar.length) await supabase.from("obra_tareas").insert(tareasAInsertar);
+              }
+            }
+          }
         } catch { }
       }
       onSave(nueva);
@@ -846,14 +868,87 @@ function TareaDetalleModal({ tarea, onClose, onEditar, esGestion }) {
   );
 }
 
+// ─── MODAL AVISO PREDECESORES ────────────────────────────────────────────────
+function PredecessorWarnModal({ tareaActual, bloqueantes, onConfirm, onCancel }) {
+  return (
+    <Overlay onClose={onCancel} maxWidth={420}>
+      <div style={{ padding: 26 }}>
+        <div style={{ display: "flex", alignItems: "center", gap: 12, marginBottom: 18 }}>
+          <div style={{ width: 40, height: 40, borderRadius: "50%", background: "rgba(245,158,11,0.12)", border: "1px solid rgba(245,158,11,0.3)", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 18, flexShrink: 0 }}>⚠</div>
+          <div>
+            <div style={{ fontSize: 14, color: C.t0, fontWeight: 600 }}>Tarea con predecesoras pendientes</div>
+            <div style={{ fontSize: 11, color: C.t2, marginTop: 2 }}>Hay tareas anteriores que todavía no se completaron</div>
+          </div>
+        </div>
+
+        <div style={{ fontSize: 11, color: C.t1, marginBottom: 10 }}>
+          Querés iniciar <span style={{ color: C.t0, fontWeight: 600 }}>"{tareaActual}"</span> pero las siguientes tareas de esta etapa aún no finalizaron:
+        </div>
+
+        <div style={{ marginBottom: 20, display: "flex", flexDirection: "column", gap: 5 }}>
+          {bloqueantes.map(t => (
+            <div key={t.id} style={{ display: "flex", alignItems: "center", gap: 8, padding: "7px 10px", borderRadius: 7, background: "rgba(245,158,11,0.05)", border: "1px solid rgba(245,158,11,0.2)" }}>
+              <div style={{ width: 6, height: 6, borderRadius: "50%", background: C.tarea[t.estado]?.dot ?? C.t2, flexShrink: 0 }} />
+              <span style={{ fontSize: 11, color: C.t1, flex: 1 }}>{t.nombre}</span>
+              <span style={{ fontSize: 9, color: C.tarea[t.estado]?.text ?? C.t2, background: `${C.tarea[t.estado]?.text ?? C.t2}14`, padding: "2px 7px", borderRadius: 4, border: `1px solid ${C.tarea[t.estado]?.text ?? C.t2}28` }}>
+                {C.tarea[t.estado]?.label ?? t.estado}
+              </span>
+            </div>
+          ))}
+        </div>
+
+        <div style={{ fontSize: 11, color: C.t2, marginBottom: 20, padding: "10px 12px", borderRadius: 7, background: C.s0, border: `1px solid ${C.b0}` }}>
+          ¿Seguro que querés iniciarla igual?
+        </div>
+
+        <div style={{ display: "flex", gap: 8 }}>
+          <Btn variant="amber" onClick={onConfirm}>Sí, iniciar igual</Btn>
+          <Btn variant="outline" onClick={onCancel}>Cancelar</Btn>
+        </div>
+      </div>
+    </Overlay>
+  );
+}
+
 // ─── SECCIÓN DE TAREAS DENTRO DE ETAPA ───────────────────────────────────────
 function EtapaTareasSection({ etapa, tareas, archivosCount, esGestion, onCambiarEstado, onEditar, onDetalle, onEliminar, onNueva }) {
   const finalizadas = tareas.filter(t => t.estado === "finalizada").length;
   const epct = pct(finalizadas, tareas.length);
   const ec   = C.etapa[etapa.estado] ?? C.etapa.pendiente;
+  const [predWarn, setPredWarn] = useState(null); // { tareaId, tareaActual, bloqueantes, nuevoEstado }
+
+  function handleCambiarEstado(tareaId, nuevoEstado) {
+    // Solo chequeamos al iniciar (pendiente → en_progreso)
+    if (nuevoEstado !== "en_progreso") { onCambiarEstado(tareaId, nuevoEstado); return; }
+
+    const tarea = tareas.find(t => t.id === tareaId);
+    if (!tarea) { onCambiarEstado(tareaId, nuevoEstado); return; }
+
+    // Tareas con orden menor que no están finalizadas
+    const bloqueantes = tareas.filter(t =>
+      t.id !== tareaId &&
+      (t.orden ?? 0) < (tarea.orden ?? 0) &&
+      t.estado !== "finalizada" &&
+      t.estado !== "cancelada"
+    );
+
+    if (bloqueantes.length === 0) { onCambiarEstado(tareaId, nuevoEstado); return; }
+
+    setPredWarn({ tareaId, tareaActual: tarea.nombre, bloqueantes, nuevoEstado });
+  }
 
   return (
     <div style={{ marginTop: 4, paddingLeft: 14, paddingBottom: 4 }}>
+      {/* Modal aviso predecesores */}
+      {predWarn && (
+        <PredecessorWarnModal
+          tareaActual={predWarn.tareaActual}
+          bloqueantes={predWarn.bloqueantes}
+          onConfirm={() => { onCambiarEstado(predWarn.tareaId, predWarn.nuevoEstado); setPredWarn(null); }}
+          onCancel={() => setPredWarn(null)}
+        />
+      )}
+
       {/* Resumen mini */}
       {tareas.length > 0 && (
         <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 8, padding: "4px 0" }}>
@@ -869,7 +964,7 @@ function EtapaTareasSection({ etapa, tareas, archivosCount, esGestion, onCambiar
           tarea={tarea}
           esGestion={esGestion}
           archivosCount={archivosCount[tarea.id] ?? 0}
-          onCambiarEstado={onCambiarEstado}
+          onCambiarEstado={handleCambiarEstado}
           onEditar={onEditar}
           onDetalle={onDetalle}
           onEliminar={onEliminar}
@@ -1004,15 +1099,102 @@ function OrdenCompraModal({ oc, obras, onSave, onClose }) {
 }
 
 // ─── PLANTILLA LÍNEA ─────────────────────────────────────────────────────────
-function LineasEtapasModal({ linea, lProcs, onClose, onSaved }) {
-  const etapasLinea = lProcs.filter(p => p.linea_id === linea.id).sort((a, b) => (a.orden ?? 0) - (b.orden ?? 0));
-  const [items, setItems] = useState(etapasLinea);
-  const [editIdx, setEditIdx] = useState(null);
-  const [adding, setAdding] = useState(false);
-  const [newForm, setNewForm] = useState({ nombre: "", dias_estimados: "", color: "#64748b", genera_orden_compra: false, orden_compra_tipo: "aviso", orden_compra_descripcion: "", orden_compra_monto_estimado: "", orden_compra_dias_previo: 7 });
-  const [saving, setSaving] = useState(false);
-  const [toast, setToast] = useState(null);
-  const [editBuf, setEditBuf] = useState({});
+function LineasEtapasModal({ linea, lProcs, lTareas = [], onClose, onSaved }) {
+  const [items,       setItems]       = useState(lProcs.filter(p => p.linea_id === linea.id).sort((a, b) => (a.orden ?? 0) - (b.orden ?? 0)));
+  const [loadingAll,  setLoadingAll]  = useState(true);
+  const [editIdx,     setEditIdx]     = useState(null);
+  const [adding,      setAdding]      = useState(false);
+  const [newForm,     setNewForm]     = useState({ nombre: "", dias_estimados: "", color: "#64748b", genera_orden_compra: false, orden_compra_tipo: "aviso", orden_compra_descripcion: "", orden_compra_monto_estimado: "", orden_compra_dias_previo: 7 });
+  const [saving,      setSaving]      = useState(false);
+  const [toast,       setToast]       = useState(null);
+  const [editBuf,     setEditBuf]     = useState({});
+
+  // ── Tareas de plantilla ──────────────────────────────────────
+  const [expandedProc,  setExpandedProc]  = useState(null);
+  const [tareasState,   setTareasState]   = useState([]);
+  const [loadingTareas, setLoadingTareas] = useState(true);
+  const [addingTarea,   setAddingTarea]   = useState(null);
+  const [editingTarea,  setEditingTarea]  = useState(null);
+  const [tareaForm,     setTareaForm]     = useState({ nombre: "", horas_estimadas: "", personas_necesarias: "", observaciones: "", prioridad: "media" });
+  const [tareaEditBuf,  setTareaEditBuf]  = useState({});
+
+  // Cargar etapas Y tareas directamente desde DB al abrir el modal
+  useEffect(() => {
+    async function fetchAll() {
+      setLoadingAll(true);
+      setLoadingTareas(true);
+
+      // 1. Cargar linea_procesos frescos desde DB (incluye los creados por el script SQL)
+      const { data: procs } = await supabase
+        .from("linea_procesos")
+        .select("*")
+        .eq("linea_id", linea.id)
+        .order("orden");
+      if (procs?.length) setItems(procs);
+      setLoadingAll(false);
+
+      // 2. Cargar tareas usando los IDs reales que vienen de la DB
+      const procIds = (procs ?? []).map(p => p.id);
+      if (!procIds.length) { setLoadingTareas(false); return; }
+
+      const { data: tData, error: tErr } = await supabase
+        .from("linea_proceso_tareas")
+        .select("*")
+        .in("linea_proceso_id", procIds)
+        .order("linea_proceso_id")
+        .order("orden");
+      if (tErr) console.error("fetchTareas:", tErr.message);
+      if (!tErr && tData) setTareasState(tData);
+      setLoadingTareas(false);
+    }
+    fetchAll();
+  }, [linea.id]);
+
+  function tareasDeProc(procId) {
+    return tareasState.filter(t => t.linea_proceso_id === procId).sort((a, b) => (a.orden ?? 0) - (b.orden ?? 0));
+  }
+
+  async function agregarTarea(procId) {
+    if (!tareaForm.nombre.trim()) return;
+    setSaving(true);
+    const tDeProc = tareasDeProc(procId);
+    const maxOrden = tDeProc.length ? Math.max(...tDeProc.map(t => t.orden ?? 0)) : 0;
+    const { data, error } = await supabase.from("linea_proceso_tareas").insert({
+      linea_proceso_id: procId, nombre: tareaForm.nombre.trim(), orden: maxOrden + 1,
+      horas_estimadas: tareaForm.horas_estimadas !== "" ? num(tareaForm.horas_estimadas) : null,
+      personas_necesarias: tareaForm.personas_necesarias !== "" ? parseInt(tareaForm.personas_necesarias) : null,
+      observaciones: tareaForm.observaciones.trim() || null, prioridad: tareaForm.prioridad,
+    }).select().single();
+    if (error) { flash(false, error.message); setSaving(false); return; }
+    setTareasState(prev => [...prev, data]);
+    setAddingTarea(null);
+    setTareaForm({ nombre: "", horas_estimadas: "", personas_necesarias: "", observaciones: "", prioridad: "media" });
+    flash(true, "Tarea agregada."); setSaving(false); onSaved();
+  }
+
+  async function guardarTarea(tareaId) {
+    setSaving(true);
+    const payload = {
+      nombre: tareaEditBuf.nombre?.trim() || undefined,
+      horas_estimadas: tareaEditBuf.horas_estimadas !== "" ? num(tareaEditBuf.horas_estimadas) : null,
+      personas_necesarias: tareaEditBuf.personas_necesarias !== "" ? parseInt(tareaEditBuf.personas_necesarias) : null,
+      observaciones: tareaEditBuf.observaciones?.trim() || null,
+      prioridad: tareaEditBuf.prioridad ?? "media",
+    };
+    const { error } = await supabase.from("linea_proceso_tareas").update(payload).eq("id", tareaId);
+    if (error) { flash(false, error.message); setSaving(false); return; }
+    setTareasState(prev => prev.map(t => t.id === tareaId ? { ...t, ...payload } : t));
+    setEditingTarea(null); setTareaEditBuf({});
+    flash(true, "Tarea actualizada."); setSaving(false); onSaved();
+  }
+
+  async function eliminarTarea(tarea) {
+    if (!window.confirm("Eliminar tarea: " + tarea.nombre + " de la plantilla?")) return;
+    const { error } = await supabase.from("linea_proceso_tareas").delete().eq("id", tarea.id);
+    if (error) { flash(false, error.message); return; }
+    setTareasState(prev => prev.filter(t => t.id !== tarea.id));
+    flash(true, "Tarea eliminada."); onSaved();
+  }
 
   function flash(ok, text) { setToast({ ok, text }); setTimeout(() => setToast(null), 2500); }
   function startEdit(idx) { setEditIdx(idx); setEditBuf({ ...items[idx] }); }
@@ -1083,8 +1265,9 @@ function LineasEtapasModal({ linea, lProcs, onClose, onSaved }) {
           <Btn variant="ghost" onClick={onClose} sx={{ fontSize: 18 }}>×</Btn>
         </div>
         <div style={{ maxHeight: "55vh", overflowY: "auto", marginBottom: 12 }}>
-          {items.length === 0 && !adding && <div style={{ textAlign: "center", padding: "28px 0", color: C.t2, fontSize: 12 }}>Sin etapas en esta plantilla</div>}
-          {items.map((item, idx) => {
+          {loadingAll && <div style={{ textAlign: "center", padding: "28px 0", color: C.t2, fontSize: 12 }}>Cargando plantilla...</div>}
+          {!loadingAll && items.length === 0 && !adding && <div style={{ textAlign: "center", padding: "28px 0", color: C.t2, fontSize: 12 }}>Sin etapas en esta plantilla</div>}
+          {!loadingAll && items.map((item, idx) => {
             const isEditing = editIdx === idx;
             return (
               <div key={item.id} style={{ border: `1px solid ${isEditing ? "rgba(59,130,246,0.3)" : C.b0}`, borderRadius: 9, marginBottom: 6, background: isEditing ? "rgba(59,130,246,0.04)" : C.s0 }}>
@@ -1100,6 +1283,69 @@ function LineasEtapasModal({ linea, lProcs, onClose, onSaved }) {
                     <button type="button" onClick={() => deleteEtapa(item)} style={{ ...btnIcon, color: C.red }}>×</button>
                   </div>
                 </div>
+
+                {/* ── Tareas de plantilla ── */}
+                <div style={{ borderTop: `1px solid ${C.b0}`, margin: "0 0 0 0" }}>
+                  <button type="button" onClick={() => setExpandedProc(expandedProc === item.id ? null : item.id)}
+                    style={{ width: "100%", background: "transparent", border: "none", color: C.t2, cursor: "pointer", fontSize: 10, padding: "6px 12px", display: "flex", alignItems: "center", gap: 6, fontFamily: C.sans }}>
+                    <span style={{ transform: expandedProc === item.id ? "rotate(90deg)" : "none", transition: "transform .15s", display: "inline-block", fontSize: 8 }}>▶</span>
+                    <span>
+                      {loadingTareas ? "cargando tareas…" : tareasDeProc(item.id).length + " tarea" + (tareasDeProc(item.id).length !== 1 ? "s" : "") + " en plantilla"}
+                    </span>
+                    <span style={{ marginLeft: "auto", fontSize: 9, color: C.primary }}>{expandedProc === item.id ? "cerrar" : "ver/editar"}</span>
+                  </button>
+                  {expandedProc === item.id && (
+                    <div style={{ padding: "0 10px 10px" }}>
+                      {tareasDeProc(item.id).map((tarea, ti) => (
+                        <div key={tarea.id} style={{ borderRadius: 6, background: editingTarea === tarea.id ? "rgba(59,130,246,0.05)" : "rgba(255,255,255,0.02)", border: "1px solid " + (editingTarea === tarea.id ? "rgba(59,130,246,0.25)" : C.b0), marginBottom: 3, padding: "6px 10px" }}>
+                          {editingTarea !== tarea.id ? (
+                            <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                              <span style={{ fontSize: 9, color: C.t2, fontFamily: C.mono, minWidth: 18 }}>{ti + 1}.</span>
+                              <span style={{ flex: 1, fontSize: 11, color: C.t0 }}>{tarea.nombre}</span>
+                              {tarea.horas_estimadas && <span style={{ fontSize: 9, color: C.t2, fontFamily: C.mono }}>{tarea.horas_estimadas}h</span>}
+                              {tarea.personas_necesarias && <span style={{ fontSize: 9, color: C.t2 }}>x{tarea.personas_necesarias}</span>}
+                              <button type="button" onClick={() => { setEditingTarea(tarea.id); setTareaEditBuf({ nombre: tarea.nombre, horas_estimadas: tarea.horas_estimadas ?? "", personas_necesarias: tarea.personas_necesarias ?? "", observaciones: tarea.observaciones ?? "", prioridad: tarea.prioridad ?? "media" }); }} style={{ ...btnIcon }}>✎</button>
+                              <button type="button" onClick={() => eliminarTarea(tarea)} style={{ ...btnIcon, color: C.red }}>x</button>
+                            </div>
+                          ) : (
+                            <div>
+                              <div style={{ display: "grid", gridTemplateColumns: "1fr 70px 60px", gap: 6, marginBottom: 6 }}>
+                                <InputSt label="Nombre"><input style={INP} autoFocus value={tareaEditBuf.nombre} onChange={e => setTareaEditBuf(f => ({ ...f, nombre: e.target.value }))} /></InputSt>
+                                <InputSt label="Horas"><input type="number" min="0" step="0.5" style={INP} value={tareaEditBuf.horas_estimadas} onChange={e => setTareaEditBuf(f => ({ ...f, horas_estimadas: e.target.value }))} /></InputSt>
+                                <InputSt label="Pers."><input type="number" min="1" style={INP} value={tareaEditBuf.personas_necesarias} onChange={e => setTareaEditBuf(f => ({ ...f, personas_necesarias: e.target.value }))} /></InputSt>
+                              </div>
+                              <InputSt label="Observaciones"><input style={INP} value={tareaEditBuf.observaciones} onChange={e => setTareaEditBuf(f => ({ ...f, observaciones: e.target.value }))} /></InputSt>
+                              <div style={{ display: "flex", gap: 6, marginTop: 6 }}>
+                                <Btn variant="primary" onClick={() => guardarTarea(tarea.id)} disabled={saving}>Guardar</Btn>
+                                <Btn variant="outline" onClick={() => { setEditingTarea(null); setTareaEditBuf({}); }}>Cancelar</Btn>
+                              </div>
+                            </div>
+                          )}
+                        </div>
+                      ))}
+                      {addingTarea === item.id ? (
+                        <div style={{ background: "rgba(59,130,246,0.04)", border: "1px solid rgba(59,130,246,0.2)", borderRadius: 7, padding: 10, marginTop: 6 }}>
+                          <div style={{ display: "grid", gridTemplateColumns: "1fr 70px 60px", gap: 6, marginBottom: 6 }}>
+                            <InputSt label="Nombre *"><input style={INP} autoFocus placeholder="Ej: Laminado de fondo" value={tareaForm.nombre} onChange={e => setTareaForm(f => ({ ...f, nombre: e.target.value }))} /></InputSt>
+                            <InputSt label="Horas"><input type="number" min="0" step="0.5" style={INP} placeholder="0" value={tareaForm.horas_estimadas} onChange={e => setTareaForm(f => ({ ...f, horas_estimadas: e.target.value }))} /></InputSt>
+                            <InputSt label="Pers."><input type="number" min="1" style={INP} placeholder="1" value={tareaForm.personas_necesarias} onChange={e => setTareaForm(f => ({ ...f, personas_necesarias: e.target.value }))} /></InputSt>
+                          </div>
+                          <InputSt label="Observaciones"><input style={INP} placeholder="Rubro, plano, referencia..." value={tareaForm.observaciones} onChange={e => setTareaForm(f => ({ ...f, observaciones: e.target.value }))} /></InputSt>
+                          <div style={{ display: "flex", gap: 6, marginTop: 8 }}>
+                            <Btn variant="primary" onClick={() => agregarTarea(item.id)} disabled={saving || !tareaForm.nombre.trim()}>Agregar tarea</Btn>
+                            <Btn variant="outline" onClick={() => { setAddingTarea(null); setTareaForm({ nombre: "", horas_estimadas: "", personas_necesarias: "", observaciones: "", prioridad: "media" }); }}>Cancelar</Btn>
+                          </div>
+                        </div>
+                      ) : (
+                        <button type="button" onClick={() => { setAddingTarea(item.id); setTareaForm({ nombre: "", horas_estimadas: "", personas_necesarias: "", observaciones: "", prioridad: "media" }); }}
+                          style={{ width: "100%", marginTop: 4, padding: "5px", border: "1px dashed " + C.b0, borderRadius: 5, background: "transparent", color: C.t2, fontSize: 10, cursor: "pointer", fontFamily: C.sans }}>
+                          + agregar tarea a plantilla
+                        </button>
+                      )}
+                    </div>
+                  )}
+                </div>
+
                 {isEditing && (
                   <div style={{ padding: "0 12px 12px" }}>
                     <div style={{ display: "grid", gridTemplateColumns: "1fr 100px", gap: 8, marginBottom: 8 }}>
@@ -1285,6 +1531,7 @@ export default function ObrasScreen({ profile, signOut }) {
   const [tareas,   setTareas]   = useState([]);
   const [lineas,   setLineas]   = useState([]);
   const [lProcs,   setLProcs]   = useState([]);
+  const [lTareas,  setLTareas]  = useState([]); // plantilla de tareas por linea_proceso
   const [timeline, setTimeline] = useState([]);
   const [ordenes,  setOrdenes]  = useState([]);
   const [archCounts, setArchCounts] = useState({}); // { tarea_id: count }
@@ -1307,18 +1554,19 @@ export default function ObrasScreen({ profile, signOut }) {
   // ── CARGA ─────────────────────────────────────────────────────
   async function cargar() {
     setLoading(true);
-    const [r1, r2, r3, r4, r5, r6, r7] = await Promise.all([
+    const [r1, r2, r3, r4, r5, r6, r7, r8] = await Promise.all([
       safeQuery(supabase.from("produccion_obras").select("*").order("created_at", { ascending: false })),
       safeQuery(supabase.from("obra_etapas").select("*").order("obra_id").order("orden")),
       safeQuery(supabase.from("obra_tareas").select("*").order("etapa_id").order("orden")),
       supabase.from("lineas_produccion").select("*").eq("activa", true).order("orden"),
       supabase.from("linea_procesos").select("*").eq("activo", true).order("linea_id").order("orden"),
+      safeQuery(supabase.from("linea_proceso_tareas").select("*").order("linea_proceso_id").order("orden")),
       safeQuery(supabase.from("obra_timeline").select("*, linea_procesos(id,nombre,orden,dias_estimados,color), procesos(id,nombre,orden,dias_esperados,color)").order("created_at")),
       safeQuery(supabase.from("ordenes_compra").select("*").order("created_at", { ascending: false })),
     ]);
     setObras(r1); setEtapas(r2); setTareas(r3);
     setLineas(r4.data ?? []); setLProcs(r5.data ?? []);
-    setTimeline(r6); setOrdenes(r7);
+    setTimeline(r6); setOrdenes(r7); setLTareas(r8);
 
     // Conteo de archivos por tarea
     const counts = await safeQuery(supabase.from("obra_tarea_archivos").select("tarea_id").not("tarea_id", "is", null));
@@ -1377,6 +1625,14 @@ export default function ObrasScreen({ profile, signOut }) {
     if (!["pendiente","solicitada"].includes(oc.estado)) return false;
     const u = ocUrgencia(oc); return u && ["vencida","hoy","urgente","proxima"].includes(u.nivel);
   }).length, [ordenes]);
+
+  const alertCountAvisos = useMemo(() => {
+    const avisosEtapas = etapas.filter(e => e.genera_orden_compra && !e.isVirtual);
+    return avisosEtapas.filter(e => {
+      if (!["completado", "en_curso"].includes(e.estado)) return false;
+      return !ordenes.some(oc => oc.obra_id === e.obra_id && oc.etapa_nombre === e.nombre);
+    }).length;
+  }, [etapas, ordenes]);
 
   // ── ACCIONES ─────────────────────────────────────────────────
   const toggleObra  = id => setExpandedObras(s  => { const n = new Set(s); n.has(id) ? n.delete(id) : n.add(id); return n; });
@@ -1724,6 +1980,10 @@ export default function ObrasScreen({ profile, signOut }) {
                 🛒 Compras
                 {alertCountOC > 0 && <span style={{ position: "absolute", top: -4, right: -4, minWidth: 16, height: 16, borderRadius: 8, background: C.red, color: "#fff", fontSize: 9, fontWeight: 700, display: "flex", alignItems: "center", justifyContent: "center", padding: "0 4px" }}>{alertCountOC}</span>}
               </button>
+              <button type="button" onClick={() => setMainView("avisos")} style={{ padding: "5px 14px", borderRadius: 7, cursor: "pointer", fontSize: 11, fontFamily: C.sans, border: mainView === "avisos" ? `1px solid rgba(245,158,11,0.4)` : `1px solid ${C.b0}`, background: mainView === "avisos" ? "rgba(245,158,11,0.08)" : "transparent", color: mainView === "avisos" ? C.amber : C.t1, position: "relative" }}>
+                🔔 Avisos
+                {alertCountAvisos > 0 && <span style={{ position: "absolute", top: -4, right: -4, minWidth: 16, height: 16, borderRadius: 8, background: C.red, color: "#fff", fontSize: 9, fontWeight: 700, display: "flex", alignItems: "center", justifyContent: "center", padding: "0 4px" }}>{alertCountAvisos}</span>}
+              </button>
             </div>
             {mainView === "obras" && esGestion && <Btn variant="primary" onClick={() => setShowObraModal(true)}>+ Nueva obra</Btn>}
           </div>
@@ -1757,16 +2017,30 @@ export default function ObrasScreen({ profile, signOut }) {
           {mainView === "ordenes" && (
             <OrdenesCompraView ordenes={ordenes} obras={obras} esGestion={esGestion} onEditOC={oc => setOcModal(oc)} onRefresh={cargar} />
           )}
+
+          {mainView === "avisos" && (
+            <AvisosCompraView
+              obras={obras}
+              etapas={etapas}
+              lineas={lineas}
+              lProcs={lProcs}
+              ordenes={ordenes}
+              esGestion={esGestion}
+              onNuevaOC={preload => setOcModal(preload)}
+              onEditOC={oc => setOcModal(oc)}
+              onRefresh={cargar}
+            />
+          )}
         </div>
       </div>
 
       {/* MODALES */}
-      {showObraModal && <ObraModal lineas={lineas} lProcs={lProcs} onSave={nueva => { setShowObraModal(false); cargar(); if (nueva?.id) setExpandedObras(s => new Set(s).add(nueva.id)); }} onClose={() => setShowObraModal(false)} />}
+      {showObraModal && <ObraModal lineas={lineas} lProcs={lProcs} lTareas={lTareas} onSave={nueva => { setShowObraModal(false); cargar(); if (nueva?.id) setExpandedObras(s => new Set(s).add(nueva.id)); }} onClose={() => setShowObraModal(false)} />}
       {etapaModal    && <EtapaModal etapa={etapaModal.etapa} obraId={etapaModal.obraId} onSave={() => { setEtapaModal(null); cargar(); }} onClose={() => setEtapaModal(null)} />}
       {tareaModal    && <TareaModal tarea={tareaModal.tarea} etapaId={tareaModal.etapaId} obraId={tareaModal.obraId} onSave={() => { setTareaModal(null); cargar(); }} onClose={() => setTareaModal(null)} />}
       {tareaDetalle  && <TareaDetalleModal tarea={tareaDetalle} esGestion={esGestion} onClose={() => setTareaDetalle(null)} onEditar={t => { setTareaDetalle(null); setTareaModal({ tarea: t, etapaId: t.etapa_id, obraId: t.obra_id }); }} />}
       {confirmModal  && <ConfirmModal {...confirmModal} onCancel={() => setConfirmModal(null)} />}
-      {lineasModal   && <LineasEtapasModal linea={lineasModal.linea} lProcs={lProcs} onClose={() => setLineasModal(null)} onSaved={cargar} />}
+      {lineasModal   && <LineasEtapasModal linea={lineasModal.linea} lProcs={lProcs} lTareas={lTareas} onClose={() => setLineasModal(null)} onSaved={cargar} />}
       {ocModal       && <OrdenCompraModal oc={ocModal} obras={obras} onSave={() => { setOcModal(null); cargar(); }} onClose={() => setOcModal(null)} />}
     </div>
   );
