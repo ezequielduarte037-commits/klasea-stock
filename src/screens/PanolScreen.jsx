@@ -206,8 +206,8 @@ export default function PanolScreen({ profile, signOut }) {
     setErr(""); setMsg("");
     if (!materialId) return setErr("Seleccioná un material.");
     if (!obra.trim()) return setErr("Obra obligatoria.");
-    if (!cantidadRevisada) return setErr("Revisá la cantidad.");
-    if (cantidad === "" || num(cantidad) <= 0) return setErr("Cantidad inválida.");
+    if (cantidad === "" || num(cantidad) <= 0) return setErr("Cantidad inválida — usá el campo o los botones +/−.");
+    if (!cantidadRevisada) return setErr("Revisá la cantidad antes de confirmar.");
     if (num(cantidad) === 1) { const ok = window.confirm("Cantidad = 1. ¿Confirmás que es correcto?"); if (!ok) return; }
     if (modo === "EGRESO") {
       if (!retira.trim()) return setErr("Falta nombre de quien retira.");
@@ -375,7 +375,7 @@ export default function PanolScreen({ profile, signOut }) {
                       placeholder="0"
                     />
                     {[-10, -1, +1, +10].map(d => (
-                      <button key={d} onClick={() => ajustarCantidad(d)} style={{
+                      <button key={d} type="button" onClick={() => ajustarCantidad(d)} style={{
                         border: `1px solid ${C.b0}`, background: "transparent", color: C.t1,
                         padding: "7px 8px", borderRadius: 7, cursor: "pointer", fontSize: 11,
                         fontFamily: C.mono, fontWeight: 700, minWidth: 36,
