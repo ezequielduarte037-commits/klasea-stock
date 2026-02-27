@@ -11,7 +11,7 @@
 import { useEffect, useMemo, useState, useCallback, useRef } from "react";
 import { supabase } from "../supabaseClient";
 import Sidebar from "../components/Sidebar";
-import AvisosCompraView from "./AvisosCompraView";
+import PlanificacionView from "./PlanificacionView";
 
 // ─── UTILS ────────────────────────────────────────────────────────────────────
 const num        = v => { const x = Number(v); return Number.isFinite(x) ? x : 0; };
@@ -1980,8 +1980,8 @@ export default function ObrasScreen({ profile, signOut }) {
                 🛒 Compras
                 {alertCountOC > 0 && <span style={{ position: "absolute", top: -4, right: -4, minWidth: 16, height: 16, borderRadius: 8, background: C.red, color: "#fff", fontSize: 9, fontWeight: 700, display: "flex", alignItems: "center", justifyContent: "center", padding: "0 4px" }}>{alertCountOC}</span>}
               </button>
-              <button type="button" onClick={() => setMainView("avisos")} style={{ padding: "5px 14px", borderRadius: 7, cursor: "pointer", fontSize: 11, fontFamily: C.sans, border: mainView === "avisos" ? `1px solid rgba(245,158,11,0.4)` : `1px solid ${C.b0}`, background: mainView === "avisos" ? "rgba(245,158,11,0.08)" : "transparent", color: mainView === "avisos" ? C.amber : C.t1, position: "relative" }}>
-                🔔 Avisos
+              <button type="button" onClick={() => setMainView("planificacion")} style={{ padding: "5px 14px", borderRadius: 7, cursor: "pointer", fontSize: 11, fontFamily: C.sans, border: mainView === "planificacion" ? `1px solid rgba(245,158,11,0.4)` : `1px solid ${C.b0}`, background: mainView === "planificacion" ? "rgba(245,158,11,0.08)" : "transparent", color: mainView === "planificacion" ? C.amber : C.t1, position: "relative" }}>
+                Planificación
                 {alertCountAvisos > 0 && <span style={{ position: "absolute", top: -4, right: -4, minWidth: 16, height: 16, borderRadius: 8, background: C.red, color: "#fff", fontSize: 9, fontWeight: 700, display: "flex", alignItems: "center", justifyContent: "center", padding: "0 4px" }}>{alertCountAvisos}</span>}
               </button>
             </div>
@@ -2018,17 +2018,18 @@ export default function ObrasScreen({ profile, signOut }) {
             <OrdenesCompraView ordenes={ordenes} obras={obras} esGestion={esGestion} onEditOC={oc => setOcModal(oc)} onRefresh={cargar} />
           )}
 
-          {mainView === "avisos" && (
-            <AvisosCompraView
+          {mainView === "planificacion" && (
+            <PlanificacionView
               obras={obras}
               etapas={etapas}
-              lineas={lineas}
               lProcs={lProcs}
               ordenes={ordenes}
               esGestion={esGestion}
               onNuevaOC={preload => setOcModal(preload)}
-              onEditOC={oc => setOcModal(oc)}
-              onRefresh={cargar}
+              onUpdateObra={async (id, fields) => {
+                await supabase.from("produccion_obras").update(fields).eq("id", id);
+                cargar();
+              }}
             />
           )}
         </div>

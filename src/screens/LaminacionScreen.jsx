@@ -12,7 +12,22 @@ function num(v) {
 
 function fmtDate(ts) {
   if (!ts) return "—";
-  return new Date(ts).toLocaleDateString("es-AR");
+  // Fechas solo-fecha (YYYY-MM-DD) se parsean como UTC midnight por JS.
+  // Agregamos T00:00:00 SIN 'Z' para que las tome como hora local (Argentina UTC-3)
+  // y no muestre el día anterior.
+  const d = /^\d{4}-\d{2}-\d{2}$/.test(ts)
+    ? new Date(ts + "T00:00:00")
+    : new Date(ts);
+  return d.toLocaleDateString("es-AR");
+}
+
+// Fecha de hoy en hora LOCAL (evita que UTC-3 dé el día siguiente al usar toISOString)
+function hoyLocal() {
+  const d = new Date();
+  const y = d.getFullYear();
+  const m = String(d.getMonth() + 1).padStart(2, "0");
+  const day = String(d.getDate()).padStart(2, "0");
+  return `${y}-${m}-${day}`;
 }
 
 function fmtTs(ts) {
@@ -74,12 +89,12 @@ export default function LaminacionScreen({ profile, signOut }) {
 
   const [formIngreso, setFormIngreso] = useState({
     material_id: "", cantidad: "",
-    fecha: new Date().toISOString().slice(0, 10),
+    fecha: hoyLocal(),
     proveedor: "", obra: "", observaciones: "",
   });
   const [formEgreso, setFormEgreso] = useState({
     material_id: "", cantidad: "",
-    fecha: new Date().toISOString().slice(0, 10),
+    fecha: hoyLocal(),
     destino: "", nombre_persona: "", observaciones: "",
   });
   const [formPedido, setFormPedido] = useState({ material_id: "", cantidad: "", observaciones: "" });
@@ -631,7 +646,14 @@ export default function LaminacionScreen({ profile, signOut }) {
                     <tbody>
                       {movFiltrados.filter(m => m.tipo === "ingreso").map(m => (
                         <tr key={m.id}>
-                          <td style={S.td}><span style={S.small}>{fmtDate(m.fecha || m.created_at)}</span></td>
+                          <td style={S.td}>
+                            <span style={S.small}>{fmtDate(m.fecha || m.created_at)}</span>
+                            {m.created_at && (
+                              <div style={{ fontSize: 10, color: "#555", marginTop: 2, fontFamily: "monospace" }}>
+                                {new Date(m.created_at).toLocaleTimeString("es-AR", { hour: "2-digit", minute: "2-digit" })}
+                              </div>
+                            )}
+                          </td>
                           <td style={S.td}>
                             <b style={{ color: "#f4f4f5" }}>{m.laminacion_materiales?.nombre ?? "—"}</b>
                             <div style={S.small}>{m.laminacion_materiales?.unidad}</div>
@@ -727,7 +749,14 @@ export default function LaminacionScreen({ profile, signOut }) {
                     <tbody>
                       {movFiltrados.filter(m => m.tipo === "egreso").map(m => (
                         <tr key={m.id}>
-                          <td style={S.td}><span style={S.small}>{fmtDate(m.fecha || m.created_at)}</span></td>
+                          <td style={S.td}>
+                            <span style={S.small}>{fmtDate(m.fecha || m.created_at)}</span>
+                            {m.created_at && (
+                              <div style={{ fontSize: 10, color: "#555", marginTop: 2, fontFamily: "monospace" }}>
+                                {new Date(m.created_at).toLocaleTimeString("es-AR", { hour: "2-digit", minute: "2-digit" })}
+                              </div>
+                            )}
+                          </td>
                           <td style={S.td}>
                             <b style={{ color: "#f4f4f5" }}>{m.laminacion_materiales?.nombre ?? "—"}</b>
                             <div style={S.small}>{m.laminacion_materiales?.unidad}</div>
