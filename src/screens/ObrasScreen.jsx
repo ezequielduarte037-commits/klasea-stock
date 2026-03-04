@@ -36,11 +36,11 @@ function extIcon(nombre) {
   const ext = (nombre ?? "").split(".").pop().toLowerCase();
   if (["pdf"].includes(ext)) return "📄";
   if (["jpg","jpeg","png","gif","webp","svg"].includes(ext)) return "🖼";
-  if (["dwg","dxf"].includes(ext)) return "📐";
+  if (["dwg","dxf"].includes(ext)) return "DWG";
   if (["xlsx","xls","csv"].includes(ext)) return "📊";
   if (["docx","doc","txt"].includes(ext)) return "📝";
-  if (["zip","rar","7z"].includes(ext)) return "📦";
-  return "📎";
+  if (["zip","rar","7z"].includes(ext)) return "ZIP";
+  return "FILE";
 }
 
 function fmtBytes(b) {
@@ -51,6 +51,34 @@ function fmtBytes(b) {
 }
 
 // ─── PALETA ────────────────────────────────────────────────────────────────────
+// ─── Nav icons (SVG inline, no deps) ─────────────────────────────────────────
+const NavIcon = {
+  Grid: () => (
+    <svg width="12" height="12" viewBox="0 0 14 14" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round">
+      <rect x="1" y="1" width="5" height="5" rx="1"/><rect x="8" y="1" width="5" height="5" rx="1"/>
+      <rect x="1" y="8" width="5" height="5" rx="1"/><rect x="8" y="8" width="5" height="5" rx="1"/>
+    </svg>
+  ),
+  Cart: () => (
+    <svg width="12" height="12" viewBox="0 0 14 14" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round">
+      <path d="M1 1h2l1.8 7h6.4l1.3-4H4.2"/><circle cx="6.2" cy="12" r="0.9"/><circle cx="10.8" cy="12" r="0.9"/>
+    </svg>
+  ),
+  Cal: () => (
+    <svg width="12" height="12" viewBox="0 0 14 14" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round">
+      <rect x="1" y="2.5" width="12" height="10.5" rx="1.5"/>
+      <path d="M1 6h12M4.5 1v3M9.5 1v3"/>
+    </svg>
+  ),
+  Gear: () => (
+    <svg width="10" height="10" viewBox="0 0 14 14" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round">
+      <circle cx="7" cy="7" r="2.2"/>
+      <path d="M7 1v1.5M7 11.5V13M1 7h1.5M11.5 7H13M2.64 2.64l1.06 1.06M10.3 10.3l1.06 1.06M2.64 11.36l1.06-1.06M10.3 3.7l1.06-1.06"/>
+    </svg>
+  ),
+};
+
+
 const C = {
   bg:    "#09090b",
   s0:    "rgba(255,255,255,0.03)",
@@ -281,7 +309,7 @@ function ObraModal({ lineas, lProcs, lTareas = [], onSave, onClose }) {
           {procsLinea.length > 0 && (
             <div style={{ marginBottom: 16, padding: "10px 14px", background: "rgba(16,185,129,0.05)", borderRadius: 8, border: "1px solid rgba(16,185,129,0.18)" }}>
               <div style={{ fontSize: 11, color: "#10b981", marginBottom: 6 }}>Se crean {procsLinea.length} etapas desde {lineaSel?.nombre}</div>
-              <div style={{ display: "flex", gap: 4, flexWrap: "wrap" }}>{procsLinea.map(p => <span key={p.id} style={{ fontSize: 9, padding: "2px 7px", borderRadius: 4, background: C.s0, color: C.t1, border: `1px solid ${C.b0}` }}>{p.nombre}{p.genera_orden_compra ? " 🛒" : ""}</span>)}</div>
+              <div style={{ display: "flex", gap: 4, flexWrap: "wrap" }}>{procsLinea.map(p => <span key={p.id} style={{ fontSize: 9, padding: "2px 7px", borderRadius: 4, background: C.s0, color: C.t1, border: `1px solid ${C.b0}` }}>{p.nombre}{p.genera_orden_compra ? " ●" : ""}</span>)}</div>
             </div>
           )}
           <div style={{ display: "flex", gap: 8 }}>
@@ -470,7 +498,7 @@ function TareaModal({ tarea, etapaId, obraId, onSave, onClose }) {
         </div>
         {/* Tabs */}
         <div style={{ display: "flex", gap: 0, marginBottom: -1 }}>
-          {[["general","📋 General"],["archivos",`📎 Archivos${archivos.length ? ` (${archivos.length})` : ""}`]].map(([k, l]) => (
+          {[["general","General"],["archivos",`Archivos${archivos.length ? ` (${archivos.length})` : ""}`]].map(([k, l]) => (
             <button key={k} type="button" onClick={() => setTab(k)} style={{ padding: "7px 18px", border: "none", borderBottom: tab === k ? `2px solid ${C.primary}` : "2px solid transparent", background: "transparent", color: tab === k ? C.t0 : C.t1, fontSize: 12, cursor: "pointer", fontFamily: C.sans, fontWeight: tab === k ? 600 : 400 }}>{l}</button>
           ))}
         </div>
@@ -573,7 +601,7 @@ function TareaModal({ tarea, etapaId, obraId, onSave, onClose }) {
                   files.forEach(f => subirArchivo(f));
                 }}
                 style={{ border: `2px dashed ${C.b1}`, borderRadius: 10, padding: "28px 20px", textAlign: "center", cursor: "pointer", marginBottom: 16, transition: "border-color .2s", background: C.s0 }}>
-                <div style={{ fontSize: 28, marginBottom: 8 }}>{uploading ? "⏳" : "📎"}</div>
+                <div style={{ fontSize: 28, marginBottom: 8 }}>"↑"</div>
                 <div style={{ fontSize: 12, color: C.t0, fontWeight: 500, marginBottom: 4 }}>{uploading ? "Subiendo…" : "Arrastrá archivos aquí o hacé click"}</div>
                 <div style={{ fontSize: 10, color: C.t2 }}>Planos (DWG, DXF), PDFs, imágenes, documentos</div>
                 <input ref={fileRef} type="file" multiple style={{ display: "none" }} onChange={e => { [...(e.target.files ?? [])].forEach(f => subirArchivo(f)); e.target.value = ""; }} />
@@ -610,7 +638,7 @@ function TareaModal({ tarea, etapaId, obraId, onSave, onClose }) {
       <div style={{ padding: "14px 24px", borderTop: `1px solid ${C.b0}`, display: "flex", gap: 8, flexShrink: 0 }}>
         {tab === "general" && <Btn type="submit" form="tarea-form" variant="primary" disabled={saving}>{saving ? "Guardando…" : isEdit ? "Guardar cambios" : "Crear tarea"}</Btn>}
         <Btn variant="outline" onClick={onClose}>Cancelar</Btn>
-        {isEdit && tab === "general" && <Btn variant="outline" sx={{ marginLeft: "auto" }} onClick={() => setTab("archivos")}>📎 Ver archivos ({archivos.length})</Btn>}
+        {isEdit && tab === "general" && <Btn variant="outline" sx={{ marginLeft: "auto" }} onClick={() => setTab("archivos")}>Archivos ({archivos.length})</Btn>}
       </div>
     </Overlay>
   );
@@ -647,7 +675,7 @@ function TareaCard({ tarea, esGestion, archivosCount, onCambiarEstado, onEditar,
           <div style={{ display: "flex", alignItems: "center", gap: 6, flexWrap: "wrap", marginBottom: 4 }}>
             <span style={{ fontSize: 12, color: C.t0, fontWeight: 500, wordBreak: "break-word" }}>{tarea.nombre}</span>
             {atrasada && <span style={{ fontSize: 8, padding: "1px 6px", borderRadius: 3, background: "rgba(239,68,68,0.12)", color: C.red, border: "1px solid rgba(239,68,68,0.25)", flexShrink: 0 }}>ATRASADA</span>}
-            {urgente && !atrasada && <span style={{ fontSize: 8, padding: "1px 6px", borderRadius: 3, background: "rgba(245,158,11,0.1)", color: C.amber, border: "1px solid rgba(245,158,11,0.25)", flexShrink: 0 }}>HOY/MAÑANA</span>}
+            {urgente && !atrasada && <span style={{ fontSize: 8, padding: "1px 6px", borderRadius: 3, background: "rgba(245,158,11,0.1)", color: C.amber, border: "1px solid rgba(245,158,11,0.25)", flexShrink: 0 }}>VENCE PRONTO</span>}
           </div>
 
           {tarea.descripcion && (
@@ -667,7 +695,7 @@ function TareaCard({ tarea, esGestion, archivosCount, onCambiarEstado, onEditar,
             {/* Responsable */}
             {tarea.responsable && (
               <span style={{ fontSize: 9, color: C.t1, display: "flex", alignItems: "center", gap: 3 }}>
-                👤 {tarea.responsable}
+                {tarea.responsable}
                 {tarea.personas_necesarias > 1 && ` +${tarea.personas_necesarias - 1}`}
               </span>
             )}
@@ -690,7 +718,7 @@ function TareaCard({ tarea, esGestion, archivosCount, onCambiarEstado, onEditar,
 
             {/* Archivos */}
             {archivosCount > 0 && (
-              <span style={{ fontSize: 9, color: C.primary }}>📎 {archivosCount}</span>
+              <span style={{ fontSize: 9, color: C.primary }}>{archivosCount} arch.</span>
             )}
           </div>
         </div>
@@ -715,7 +743,7 @@ function TareaCard({ tarea, esGestion, archivosCount, onCambiarEstado, onEditar,
             </div>
             <div style={{ display: "flex", gap: 3 }}>
               <button type="button" onClick={() => onEditar(tarea)}
-                style={{ fontSize: 10, padding: "3px 8px", borderRadius: 5, border: `1px solid ${C.b0}`, background: "transparent", color: C.t1, cursor: "pointer" }}>✎</button>
+                style={{ fontSize: 10, padding: "3px 8px", borderRadius: 5, border: `1px solid ${C.b0}`, background: "transparent", color: C.t1, cursor: "pointer" }}>editar</button>
               <button type="button" onClick={() => onEliminar(tarea)}
                 style={{ fontSize: 10, padding: "3px 8px", borderRadius: 5, border: "none", background: "transparent", color: C.t2, cursor: "pointer" }}>×</button>
             </div>
@@ -775,7 +803,7 @@ function TareaDetalleModal({ tarea, onClose, onEditar, esGestion }) {
             </div>
           </div>
           <div style={{ display: "flex", gap: 7, flexShrink: 0 }}>
-            {esGestion && <Btn variant="outline" onClick={() => { onClose(); onEditar(tarea); }}>✎ Editar</Btn>}
+            {esGestion && <Btn variant="outline" onClick={() => { onClose(); onEditar(tarea); }}>Editar</Btn>}
             <Btn variant="ghost" onClick={onClose} sx={{ fontSize: 18 }}>×</Btn>
           </div>
         </div>
@@ -795,7 +823,7 @@ function TareaDetalleModal({ tarea, onClose, onEditar, esGestion }) {
           {/* Equipo */}
           <div style={{ padding: "14px 16px", background: C.s0, border: `1px solid ${C.b0}`, borderRadius: 8 }}>
             <div style={{ fontSize: 9, letterSpacing: 2, color: C.t2, marginBottom: 10, textTransform: "uppercase" }}>Equipo</div>
-            <Row icon="👤" label="Responsable" value={tarea.responsable} />
+            <Row icon="·" label="Responsable" value={tarea.responsable} />
             <Row icon="👥" label="Personas" value={tarea.personas_necesarias ? `${tarea.personas_necesarias} persona${tarea.personas_necesarias > 1 ? "s" : ""}` : null} />
           </div>
 
@@ -803,7 +831,7 @@ function TareaDetalleModal({ tarea, onClose, onEditar, esGestion }) {
           <div style={{ padding: "14px 16px", background: C.s0, border: `1px solid ${C.b0}`, borderRadius: 8 }}>
             <div style={{ fontSize: 9, letterSpacing: 2, color: C.t2, marginBottom: 10, textTransform: "uppercase" }}>Tiempo</div>
             <Row icon="📅" label="Días estimados"  value={tarea.dias_estimados ? `${tarea.dias_estimados}d` : null} mono />
-            <Row icon="⏱" label="Horas estimadas" value={tarea.horas_estimadas ? `${tarea.horas_estimadas} hs` : null} mono />
+            <Row icon="" label="Horas estimadas" value={tarea.horas_estimadas ? `${tarea.horas_estimadas} hs` : null} mono />
             <Row icon="⏰" label="Horas reales"    value={tarea.horas_reales    ? `${tarea.horas_reales} hs`    : null} mono />
             {tarea.horas_estimadas && tarea.horas_reales && (
               <div style={{ marginTop: 8 }}>
@@ -990,7 +1018,7 @@ function OrdenCompraSection({ genera, tipo, desc, monto, diasPrevio = 7, onChang
   return (
     <div style={{ padding: "10px 12px", background: genera ? "rgba(245,158,11,0.05)" : C.s0, border: `1px solid ${genera ? "rgba(245,158,11,0.2)" : C.b0}`, borderRadius: 8, marginTop: 8, transition: "all .2s" }}>
       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: genera ? 10 : 0 }}>
-        <span style={{ fontSize: 11, color: genera ? C.amber : C.t2 }}>🛒 Orden de compra al completar</span>
+        <span style={{ fontSize: 11, color: genera ? C.amber : C.t2 }}>Orden de compra al completar</span>
         <button type="button" onClick={() => onChange("genera_orden_compra", !genera)} style={{ width: 34, height: 18, borderRadius: 99, border: "none", flexShrink: 0, cursor: "pointer", background: genera ? "rgba(245,158,11,0.5)" : "rgba(255,255,255,0.07)", position: "relative", transition: "background .2s" }}>
           <div style={{ position: "absolute", top: 3, left: genera ? 15 : 3, width: 12, height: 12, borderRadius: "50%", background: genera ? "#fbbf24" : "#383838", transition: "left .18s" }} />
         </button>
@@ -1275,11 +1303,11 @@ function LineasEtapasModal({ linea, lProcs, lTareas = [], onClose, onSaved }) {
                   <div style={{ width: 3, height: 22, borderRadius: 2, background: item.color ?? "#64748b", flexShrink: 0 }} />
                   <span style={{ flex: 1, fontSize: 12, color: C.t0, fontWeight: 500 }}>{item.nombre}</span>
                   {item.dias_estimados && <span style={{ fontSize: 10, color: C.t2, fontFamily: C.mono }}>{item.dias_estimados}d</span>}
-                  {item.genera_orden_compra && <span style={{ fontSize: 9, color: C.amber, background: "rgba(245,158,11,0.1)", border: "1px solid rgba(245,158,11,0.2)", padding: "1px 7px", borderRadius: 4 }}>🛒</span>}
+                  {item.genera_orden_compra && <span style={{ fontSize: 9, color: C.amber, background: "rgba(245,158,11,0.1)", border: "1px solid rgba(245,158,11,0.2)", padding: "1px 7px", borderRadius: 4 }}><span style={{fontFamily:"monospace",fontSize:8,opacity:.7}}>OC</span></span>}
                   <div style={{ display: "flex", gap: 3 }}>
                     <button type="button" onClick={() => moveItem(idx, -1)} disabled={idx === 0} style={{ ...btnIcon, opacity: idx === 0 ? 0.2 : 1 }}>↑</button>
                     <button type="button" onClick={() => moveItem(idx, 1)} disabled={idx === items.length - 1} style={{ ...btnIcon, opacity: idx === items.length - 1 ? 0.2 : 1 }}>↓</button>
-                    <button type="button" onClick={() => isEditing ? cancelEdit() : startEdit(idx)} style={{ ...btnIcon, color: isEditing ? C.primary : C.t2 }}>{isEditing ? "✕" : "✎"}</button>
+                    <button type="button" onClick={() => isEditing ? cancelEdit() : startEdit(idx)} style={{ ...btnIcon, color: isEditing ? C.primary : C.t2 }}>{isEditing ? "✕" : "✏"}</button>
                     <button type="button" onClick={() => deleteEtapa(item)} style={{ ...btnIcon, color: C.red }}>×</button>
                   </div>
                 </div>
@@ -1304,7 +1332,7 @@ function LineasEtapasModal({ linea, lProcs, lTareas = [], onClose, onSaved }) {
                               <span style={{ flex: 1, fontSize: 11, color: C.t0 }}>{tarea.nombre}</span>
                               {tarea.horas_estimadas && <span style={{ fontSize: 9, color: C.t2, fontFamily: C.mono }}>{tarea.horas_estimadas}h</span>}
                               {tarea.personas_necesarias && <span style={{ fontSize: 9, color: C.t2 }}>x{tarea.personas_necesarias}</span>}
-                              <button type="button" onClick={() => { setEditingTarea(tarea.id); setTareaEditBuf({ nombre: tarea.nombre, horas_estimadas: tarea.horas_estimadas ?? "", personas_necesarias: tarea.personas_necesarias ?? "", observaciones: tarea.observaciones ?? "", prioridad: tarea.prioridad ?? "media" }); }} style={{ ...btnIcon }}>✎</button>
+                              <button type="button" onClick={() => { setEditingTarea(tarea.id); setTareaEditBuf({ nombre: tarea.nombre, horas_estimadas: tarea.horas_estimadas ?? "", personas_necesarias: tarea.personas_necesarias ?? "", observaciones: tarea.observaciones ?? "", prioridad: tarea.prioridad ?? "media" }); }} style={{ ...btnIcon }}>editar</button>
                               <button type="button" onClick={() => eliminarTarea(tarea)} style={{ ...btnIcon, color: C.red }}>x</button>
                             </div>
                           ) : (
@@ -1439,7 +1467,7 @@ function OrdenesCompraView({ ordenes, obras, esGestion, onEditOC, onRefresh }) {
         </div>
       )}
       <div style={{ padding: "8px 20px", background: "rgba(12,12,14,0.85)", borderBottom: `1px solid ${C.b0}`, display: "flex", alignItems: "center", gap: 10, flexShrink: 0, flexWrap: "wrap" }}>
-        <input style={{ ...INP, width: 200, padding: "5px 10px", fontSize: 11 }} placeholder="🔍 Buscar obra, proveedor…" value={busqueda} onChange={e => setBusqueda(e.target.value)} />
+        <input style={{ ...INP, width: 200, padding: "5px 10px", fontSize: 11 }} placeholder="Buscar obra, proveedor…" value={busqueda} onChange={e => setBusqueda(e.target.value)} />
         <div style={{ display: "flex", gap: 3 }}>
           {[["activas","Activas"],["cerradas","Cerradas"],["todas","Todas"]].map(([v, l]) => (
             <button key={v} type="button" onClick={() => setFiltroOCEstado(v)} style={{ border: filtroOCEstado === v ? `1px solid ${C.b1}` : `1px solid ${C.b0}`, background: filtroOCEstado === v ? C.s1 : "transparent", color: filtroOCEstado === v ? C.t0 : C.t1, padding: "4px 11px", borderRadius: 5, cursor: "pointer", fontSize: 10, fontFamily: C.sans }}>{l}</button>
@@ -1454,9 +1482,9 @@ function OrdenesCompraView({ ordenes, obras, esGestion, onEditOC, onRefresh }) {
       <div style={{ flex: 1, overflowY: "auto", padding: "16px 20px" }}>
         {porObra.length === 0 && (
           <div style={{ textAlign: "center", padding: "60px 0", color: C.t2 }}>
-            <div style={{ fontSize: 28, marginBottom: 10 }}>📋</div>
+            
             <div style={{ fontSize: 12, letterSpacing: 2 }}>Sin órdenes de compra</div>
-            <div style={{ fontSize: 10, marginTop: 6 }}>Las órdenes se generan al completar etapas con 🛒</div>
+            <div style={{ fontSize: 10, marginTop: 6 }}>Las órdenes se generan al completar etapas en etapas configuradas</div>
           </div>
         )}
         {porObra.map(({ obra, ocs }) => {
@@ -1483,9 +1511,9 @@ function OrdenesCompraView({ ordenes, obras, esGestion, onEditOC, onRefresh }) {
                     <div style={{ flex: 1, minWidth: 0 }}>
                       <div style={{ fontSize: 12, color: C.t0, fontWeight: 500, marginBottom: 2 }}>{oc.etapa_nombre ?? "—"}{oc.numero_oc && <span style={{ fontFamily: C.mono, fontSize: 9, color: C.primary, marginLeft: 8, background: "rgba(59,130,246,0.1)", padding: "1px 6px", borderRadius: 4 }}>{oc.numero_oc}</span>}</div>
                       {oc.descripcion && <div style={{ fontSize: 10, color: C.t2, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{oc.descripcion}</div>}
-                      {oc.proveedor && <div style={{ fontSize: 10, color: C.t1, marginTop: 2 }}>📦 {oc.proveedor}</div>}
+                      {oc.proveedor && <div style={{ fontSize: 10, color: C.t1, marginTop: 2 }}>{oc.proveedor}</div>}
                       <div style={{ display: "flex", gap: 12, marginTop: 5, flexWrap: "wrap" }}>
-                        {oc.fecha_limite_pedido && <span style={{ fontSize: 9, color: urg?.color ?? C.t2 }}>{urg ? `⏱ ${urg.label}` : `Límite: ${fmtDate(oc.fecha_limite_pedido)}`}</span>}
+                        {oc.fecha_limite_pedido && <span style={{ fontSize: 9, color: urg?.color ?? C.t2 }}>{urg ? urg.label : `Límite: ${fmtDate(oc.fecha_limite_pedido)}`}</span>}
                         {oc.fecha_pedido && <span style={{ fontSize: 9, color: C.t2 }}>Pedido: {fmtDate(oc.fecha_pedido)}</span>}
                         {oc.fecha_estimada_entrega && <span style={{ fontSize: 9, color: C.t2 }}>Entrega: {fmtDate(oc.fecha_estimada_entrega)}</span>}
                       </div>
@@ -1499,7 +1527,7 @@ function OrdenesCompraView({ ordenes, obras, esGestion, onEditOC, onRefresh }) {
                     )}
                     {esGestion && (
                       <div style={{ flexShrink: 0, display: "flex", flexDirection: "column", gap: 4, alignItems: "flex-end" }}>
-                        <Btn variant="outline" sx={{ padding: "3px 10px", fontSize: 10 }} onClick={() => onEditOC(oc)}>✎ Editar</Btn>
+                        <Btn variant="outline" sx={{ padding: "3px 10px", fontSize: 10 }} onClick={() => onEditOC(oc)}>Editar</Btn>
                         {!["recibida","cancelada"].includes(oc.estado) && (
                           <div style={{ display: "flex", gap: 3 }}>
                             {OC_FLOW.indexOf(oc.estado) < OC_FLOW.length - 1 && (
@@ -1875,7 +1903,7 @@ export default function ObrasScreen({ profile, signOut }) {
 
                           <div style={{ width: 110, flexShrink: 0 }}>
                             <div style={{ fontSize: 12, color: C.t0, fontWeight: 600, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
-                              {etapa.nombre}{etapa.genera_orden_compra ? " 🛒" : ""}
+                              {etapa.nombre}{etapa.genera_orden_compra ? " ●" : ""}
                             </div>
                             <div style={{ fontSize: 9, color: C.t2, marginTop: 1 }}>
                               {etapaT.length > 0 ? `${etapaT.filter(t => t.estado === "finalizada").length}/${etapaT.length} tareas` : "Sin tareas"}
@@ -1896,7 +1924,7 @@ export default function ObrasScreen({ profile, signOut }) {
                                   {ico}
                                 </button>
                               ))}
-                              <button type="button" onClick={() => setEtapaModal({ etapa, obraId: etapa.obra_id })} style={{ width: 20, height: 20, borderRadius: 4, border: "none", cursor: "pointer", fontSize: 9, background: "transparent", color: C.t2 }}>✎</button>
+                              <button type="button" onClick={() => setEtapaModal({ etapa, obraId: etapa.obra_id })} style={{ width: 20, height: 20, borderRadius: 4, border: "none", cursor: "pointer", fontSize: 9, background: "transparent", color: C.t2 }}>editar</button>
                               <button type="button" onClick={() => pedirBorrado(etapa, "etapa")} style={{ border: "none", background: "transparent", color: C.t2, cursor: "pointer", fontSize: 12, padding: "0 2px" }}>×</button>
                             </div>
                           )}
@@ -1975,9 +2003,9 @@ export default function ObrasScreen({ profile, signOut }) {
               ))}
             </div>
             <div style={{ display: "flex", gap: 3 }}>
-              <button type="button" onClick={() => setMainView("obras")} style={{ padding: "5px 14px", borderRadius: 7, cursor: "pointer", fontSize: 11, fontFamily: C.sans, border: mainView === "obras" ? `1px solid ${C.b1}` : `1px solid ${C.b0}`, background: mainView === "obras" ? C.s1 : "transparent", color: mainView === "obras" ? C.t0 : C.t1 }}>📐 Obras</button>
+              <button type="button" onClick={() => setMainView("obras")} style={{ padding: "5px 14px", borderRadius: 7, cursor: "pointer", fontSize: 11, fontFamily: C.sans, border: mainView === "obras" ? `1px solid ${C.b1}` : `1px solid ${C.b0}`, background: mainView === "obras" ? C.s1 : "transparent", color: mainView === "obras" ? C.t0 : C.t1 }}><span style={{display:"flex",alignItems:"center",gap:5}}><NavIcon.Grid />Obras</span></button>
               <button type="button" onClick={() => setMainView("ordenes")} style={{ padding: "5px 14px", borderRadius: 7, cursor: "pointer", fontSize: 11, fontFamily: C.sans, border: mainView === "ordenes" ? `1px solid rgba(245,158,11,0.4)` : `1px solid ${C.b0}`, background: mainView === "ordenes" ? "rgba(245,158,11,0.08)" : "transparent", color: mainView === "ordenes" ? C.amber : C.t1, position: "relative" }}>
-                🛒 Compras
+                <span style={{display:"flex",alignItems:"center",gap:5}}><NavIcon.Cart />Compras</span>
                 {alertCountOC > 0 && <span style={{ position: "absolute", top: -4, right: -4, minWidth: 16, height: 16, borderRadius: 8, background: C.red, color: "#fff", fontSize: 9, fontWeight: 700, display: "flex", alignItems: "center", justifyContent: "center", padding: "0 4px" }}>{alertCountOC}</span>}
               </button>
               <button type="button" onClick={() => setMainView("planificacion")} style={{ padding: "5px 14px", borderRadius: 7, cursor: "pointer", fontSize: 11, fontFamily: C.sans, border: mainView === "planificacion" ? `1px solid rgba(245,158,11,0.4)` : `1px solid ${C.b0}`, background: mainView === "planificacion" ? "rgba(245,158,11,0.08)" : "transparent", color: mainView === "planificacion" ? C.amber : C.t1, position: "relative" }}>
@@ -2002,7 +2030,7 @@ export default function ObrasScreen({ profile, signOut }) {
                 {lineas.map(l => (
                   <div key={l.id} style={{ display: "flex", alignItems: "center", gap: 1 }}>
                     <button type="button" onClick={() => setFiltroLinea(filtroLinea === l.id ? "todas" : l.id)} style={{ border: filtroLinea === l.id ? `1px solid ${C.b1}` : `1px solid rgba(255,255,255,0.04)`, borderLeft: filtroLinea === l.id ? `2px solid ${l.color}` : undefined, background: filtroLinea === l.id ? C.s1 : "transparent", color: filtroLinea === l.id ? C.t0 : C.t1, padding: "3px 11px", borderRadius: "5px 0 0 5px", cursor: "pointer", fontSize: 10, fontFamily: C.sans }}>{l.nombre}</button>
-                    {esGestion && <button type="button" onClick={() => setLineasModal({ linea: l })} style={{ border: filtroLinea === l.id ? `1px solid ${C.b1}` : `1px solid rgba(255,255,255,0.04)`, borderLeft: "none", background: filtroLinea === l.id ? C.s1 : "transparent", color: C.t2, padding: "3px 6px", borderRadius: "0 5px 5px 0", cursor: "pointer", fontSize: 9, fontFamily: C.sans }}>⚙</button>}
+                    {esGestion && <button type="button" onClick={() => setLineasModal({ linea: l })} style={{ border: filtroLinea === l.id ? `1px solid ${C.b1}` : `1px solid rgba(255,255,255,0.04)`, borderLeft: "none", background: filtroLinea === l.id ? C.s1 : "transparent", color: C.t2, padding: "3px 6px", borderRadius: "0 5px 5px 0", cursor: "pointer", fontSize: 9, fontFamily: C.sans }}><NavIcon.Gear /></button>}
                   </div>
                 ))}
               </div>
@@ -2028,6 +2056,13 @@ export default function ObrasScreen({ profile, signOut }) {
               onNuevaOC={preload => setOcModal(preload)}
               onUpdateObra={async (id, fields) => {
                 await supabase.from("produccion_obras").update(fields).eq("id", id);
+                cargar();
+              }}
+              onUpdateOCEstado={async (ocId, nuevoEstado) => {
+                const extra = nuevoEstado === "pedida"   ? { fecha_pedido: today() }
+                            : nuevoEstado === "recibida" ? { fecha_recepcion: today() }
+                            : {};
+                await supabase.from("ordenes_compra").update({ estado: nuevoEstado, ...extra }).eq("id", ocId);
                 cargar();
               }}
             />
