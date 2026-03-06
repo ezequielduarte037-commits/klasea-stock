@@ -1,17 +1,20 @@
 /**
- * ObrasScreen v8
- * CAMBIOS:
- * — TareaCard: tarjetas ricas con prioridad, responsable, fechas, horas, archivos adjuntos
- * — TareaDetalleModal: vista completa de una tarea con todos los campos + lista de archivos
- * — TareaModal: tiene sección de "Archivos" con upload de planos, PDFs, imágenes
- * — EtapaTareasSection: reemplaza las filas simples por un grid de cards dentro del desplegable
- * — Supabase Storage: bucket "obra-archivos" para planos y documentos de tareas
- * — Vista de archivos en DetailPanel de tarea también actualizada
+ * ObrasScreen v9
+ * CAMBIOS v9:
+ * — Vista "Mapa": HMI interactivo del galpón con puestos de trabajo sobre SVG
+ * — MapaProduccion: cada barco es un slot interactivo, coloreado por estado de obra
+ * — PanelDetallesObra: panel lateral con detalle de obra, etapas y OC críticas
+ * — Campo `puesto_mapa` en produccion_obras para vincular obra con slot del mapa
+ *
+ * CAMBIOS v8 anteriores:
+ * — TareaCard, TareaDetalleModal, TareaModal con archivos, EtapaTareasSection, Supabase Storage
  */
 import { useEffect, useMemo, useState, useCallback, useRef } from "react";
 import { supabase } from "../supabaseClient";
 import Sidebar from "../components/Sidebar";
 import PlanificacionView from "./PlanificacionView";
+import MapaProduccion    from "./MapaProduccion";
+import PanelDetallesObra from "./PanelDetallesObra";
 
 // ─── UTILS ────────────────────────────────────────────────────────────────────
 const num        = v => { const x = Number(v); return Number.isFinite(x) ? x : 0; };
@@ -57,6 +60,12 @@ const NavIcon = {
     <svg width="12" height="12" viewBox="0 0 14 14" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round">
       <rect x="1" y="1" width="5" height="5" rx="1"/><rect x="8" y="1" width="5" height="5" rx="1"/>
       <rect x="1" y="8" width="5" height="5" rx="1"/><rect x="8" y="8" width="5" height="5" rx="1"/>
+    </svg>
+  ),
+  Map: () => (
+    <svg width="12" height="12" viewBox="0 0 14 14" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round">
+      <polygon points="1,3 5,1 9,3 13,1 13,11 9,13 5,11 1,13"/>
+      <line x1="5" y1="1" x2="5" y2="11"/><line x1="9" y1="3" x2="9" y2="13"/>
     </svg>
   ),
   Cart: () => (
@@ -1578,6 +1587,7 @@ export default function ObrasScreen({ profile, signOut }) {
   const [confirmModal,  setConfirmModal]  = useState(null);
   const [lineasModal,   setLineasModal]   = useState(null);
   const [ocModal,       setOcModal]       = useState(null);
+  const [mapaPanel,     setMapaPanel]     = useState(null); // { puesto, obra } — vista mapa
 
   // ── CARGA ─────────────────────────────────────────────────────
   async function cargar() {
@@ -1740,6 +1750,12 @@ export default function ObrasScreen({ profile, signOut }) {
     pausadas:   obras.filter(o => o.estado === "pausada").length,
     terminadas: obras.filter(o => o.estado === "terminada").length,
   }), [obras]);
+
+  // Obras enriquecidas con _pct para el mapa interactivo
+  const obrasConPct = useMemo(
+    () => obras.map(o => ({ ...o, _pct: pctObra(o.id) })),
+    [obras, pctObra]
+  );
 
   // ═══════════════════════════════════════════════════════════════
   //  ÁRBOL LATERAL
@@ -1969,7 +1985,7 @@ export default function ObrasScreen({ profile, signOut }) {
   //  RENDER
   // ═══════════════════════════════════════════════════════════════
   return (
-    <div style={{ background: C.bg, minHeight: "100vh", color: C.t0, fontFamily: C.sans }}>
+    <div style={{ position: "fixed", inset: 0, background: C.bg, color: C.t0, fontFamily: C.sans, zIndex: 0 }}>
       <style>{`
         @import url('https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500;700&display=swap');
         *, *::before, *::after { box-sizing: border-box; }
@@ -1988,12 +2004,12 @@ export default function ObrasScreen({ profile, signOut }) {
       `}</style>
       <div className="bg-glow" />
 
-      <div style={{ display: "grid", gridTemplateColumns: "280px 1fr", minHeight: "100vh", position: "relative", zIndex: 1 }}>
+      <div style={{ display: "grid", gridTemplateColumns: "220px 1fr", height: "100vh", overflow: "hidden", position: "relative", zIndex: 1 }}>
         <Sidebar profile={profile} signOut={signOut} />
 
         <div style={{ display: "flex", flexDirection: "column", height: "100vh", overflow: "hidden" }}>
           {/* TOPBAR */}
-          <div style={{ height: 50, background: "rgba(12,12,14,0.92)", ...GLASS, borderBottom: `1px solid ${C.b0}`, padding: "0 18px", display: "flex", alignItems: "center", gap: 10, flexShrink: 0 }}>
+          <div style={{ height: 42, background: "rgba(12,12,14,0.92)", ...GLASS, borderBottom: `1px solid ${C.b0}`, padding: "0 18px", display: "flex", alignItems: "center", gap: 10, flexShrink: 0 }}>
             <div style={{ display: "flex", gap: 7, flex: 1 }}>
               {[{label:"Activas",n:stats.activas,c:C.obra.activa.dot},{label:"Pausadas",n:stats.pausadas,c:C.obra.pausada.dot},{label:"Terminadas",n:stats.terminadas,c:C.obra.terminada.dot}].map(({label,n,c}) => (
                 <div key={label} style={{ display: "flex", alignItems: "center", gap: 6, padding: "4px 10px", borderRadius: 7, background: C.s0, border: `1px solid ${C.b0}`, borderLeft: `2px solid ${c}` }}>
@@ -2004,6 +2020,7 @@ export default function ObrasScreen({ profile, signOut }) {
             </div>
             <div style={{ display: "flex", gap: 3 }}>
               <button type="button" onClick={() => setMainView("obras")} style={{ padding: "5px 14px", borderRadius: 7, cursor: "pointer", fontSize: 11, fontFamily: C.sans, border: mainView === "obras" ? `1px solid ${C.b1}` : `1px solid ${C.b0}`, background: mainView === "obras" ? C.s1 : "transparent", color: mainView === "obras" ? C.t0 : C.t1 }}><span style={{display:"flex",alignItems:"center",gap:5}}><NavIcon.Grid />Obras</span></button>
+              <button type="button" onClick={() => { setMainView("mapa"); setMapaPanel(null); }} style={{ padding: "5px 14px", borderRadius: 7, cursor: "pointer", fontSize: 11, fontFamily: C.sans, border: mainView === "mapa" ? "1px solid rgba(139,92,246,0.4)" : `1px solid ${C.b0}`, background: mainView === "mapa" ? "rgba(139,92,246,0.10)" : "transparent", color: mainView === "mapa" ? "#a78bfa" : C.t1 }}><span style={{display:"flex",alignItems:"center",gap:5}}><NavIcon.Map />Mapa</span></button>
               <button type="button" onClick={() => setMainView("ordenes")} style={{ padding: "5px 14px", borderRadius: 7, cursor: "pointer", fontSize: 11, fontFamily: C.sans, border: mainView === "ordenes" ? `1px solid rgba(245,158,11,0.4)` : `1px solid ${C.b0}`, background: mainView === "ordenes" ? "rgba(245,158,11,0.08)" : "transparent", color: mainView === "ordenes" ? C.amber : C.t1, position: "relative" }}>
                 <span style={{display:"flex",alignItems:"center",gap:5}}><NavIcon.Cart />Compras</span>
                 {alertCountOC > 0 && <span style={{ position: "absolute", top: -4, right: -4, minWidth: 16, height: 16, borderRadius: 8, background: C.red, color: "#fff", fontSize: 9, fontWeight: 700, display: "flex", alignItems: "center", justifyContent: "center", padding: "0 4px" }}>{alertCountOC}</span>}
@@ -2040,6 +2057,40 @@ export default function ObrasScreen({ profile, signOut }) {
                 <GanttMain />
               </div>
             </>
+          )}
+
+          {mainView === "mapa" && (
+            <div style={{ flex: 1, display: "flex", overflow: "hidden", position: "relative" }}>
+              <MapaProduccion
+                obras={obrasConPct}
+                esGestion={esGestion}
+                onPuestoClick={({ puesto, obra }) => setMapaPanel({ puesto, obra })}
+                onAsignarObra={async (puestoId, obraId) => {
+                  await supabase.from("produccion_obras").update({ puesto_mapa: puestoId }).eq("id", obraId);
+                  cargar();
+                }}
+              />
+              {mapaPanel && (
+                <PanelDetallesObra
+                  puesto={mapaPanel.puesto}
+                  obra={mapaPanel.obra}
+                  etapas={etapas}
+                  ordenes={ordenes}
+                  esGestion={esGestion}
+                  onClose={() => setMapaPanel(null)}
+                  onEditarObra={obra => {
+                    setMapaPanel(null);
+                    // Si querés abrir el modal de edición de obra, activarlo acá
+                    // setObraModal(obra);
+                  }}
+                  onAsignarPuesto={async (puesto, obra) => {
+                    await supabase.from("produccion_obras").update({ puesto_mapa: null }).eq("id", obra.id);
+                    cargar();
+                    setMapaPanel(null);
+                  }}
+                />
+              )}
+            </div>
           )}
 
           {mainView === "ordenes" && (

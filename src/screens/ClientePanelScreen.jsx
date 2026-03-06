@@ -13,7 +13,9 @@ import {
   Wind, Thermometer, Activity, Battery, AlertTriangle, Check,
   RefreshCw, ChevronDown, ChevronRight, X, Wifi,
   MapPin, Power, Gauge, RotateCcw, Phone, Flame, Droplets, Radio,
-  Navigation, ShieldAlert, Info, Wrench, Eye, EyeOff
+  Navigation, ShieldAlert, Info, Wrench, Eye, EyeOff,
+  FileText, Upload, Paperclip, Image as ImageIcon, Video as VideoIcon,
+  Trash2, ZoomIn
 } from "lucide-react";
 
 /* ─────────────────────────────────────────────────────────────
@@ -283,6 +285,46 @@ details[open] .arr{transform:rotate(90deg)}
 .tab-btn:hover:not(.on){color:var(--t2)}
 
 /* ── MOBILE ── */
+/* ── UPLOAD ZONE ── */
+.upzone{
+  border:1px dashed var(--e2);border-radius:1px;padding:22px 18px;text-align:center;
+  cursor:pointer;transition:border-color .18s,background .18s;background:transparent
+}
+.upzone:hover,.upzone.drag{border-color:rgba(255,255,255,.3);background:rgba(255,255,255,.018)}
+.upzone input[type=file]{position:absolute;inset:0;opacity:0;cursor:pointer;width:100%;height:100%}
+
+/* ── MEDIA THUMBS ── */
+.mthumb{
+  position:relative;aspect-ratio:16/9;overflow:hidden;border-radius:1px;
+  border:1px solid var(--e1);cursor:pointer;background:var(--s1)
+}
+.mthumb img,.mthumb video{width:100%;height:100%;object-fit:cover}
+.mthumb-del{
+  position:absolute;top:5px;right:5px;
+  width:22px;height:22px;border-radius:50%;
+  background:rgba(192,72,72,.85);border:none;cursor:pointer;
+  display:flex;align-items:center;justify-content:center;opacity:0;transition:opacity .18s
+}
+.mthumb:hover .mthumb-del{opacity:1}
+.mthumb-overlay{
+  position:absolute;inset:0;background:rgba(3,3,4,.5);
+  display:flex;align-items:center;justify-content:center;
+  opacity:0;transition:opacity .2s
+}
+.mthumb:hover .mthumb-overlay{opacity:1}
+
+/* ── PHOTO GALLERY (tableros) ── */
+.pgallery{display:grid;grid-template-columns:repeat(auto-fill,minmax(160px,1fr));gap:1px}
+.pgallery-item{position:relative;aspect-ratio:4/3;overflow:hidden;cursor:pointer;background:var(--s1);border:1px solid var(--e1)}
+.pgallery-item img{width:100%;height:100%;object-fit:cover;transition:transform .35s var(--ez)}
+.pgallery-item:hover img{transform:scale(1.04)}
+.pgallery-add{
+  aspect-ratio:4/3;border:1px dashed var(--e2);display:flex;flex-direction:column;
+  align-items:center;justify-content:center;gap:7px;cursor:pointer;
+  background:transparent;transition:background .18s,border-color .18s;position:relative
+}
+.pgallery-add:hover{background:rgba(255,255,255,.012);border-color:rgba(255,255,255,.2)}
+
 @media(max-width:820px){
   .sidebar{transform:translateX(-100%);transition:transform .28s var(--ez)}
   .sidebar.open{transform:translateX(0)}
@@ -353,170 +395,65 @@ function Divider(){
   return <div style={{height:1,background:"var(--e1)",margin:"0"}}/>
 }
 
-/* ─────────────────────────────────────────────────────────────
-   BATTERY WIDGET (new telemetry component)
-   ───────────────────────────────────────────────────────────── */
-function BatteryWidget(){
-  const banks=[
-    {label:"BANCO SERVICIO",pct:87,volts:"12.8V",amps:"4.2A",status:"NOMINAL"},
-    {label:"BANCO PRINCIPAL",pct:94,volts:"12.9V",amps:"2.1A",status:"CARGANDO"},
-  ];
-  return(
-    <div className="card" style={{padding:"20px 22px"}}>
-      <div style={{display:"flex",alignItems:"center",gap:8,marginBottom:18}}>
-        <Battery size={11} color="var(--t3)"/>
-        <Cap>Sistema de Baterías</Cap>
-        <span style={{marginLeft:"auto",width:5,height:5,borderRadius:"50%",background:"var(--ok)",animation:"pulse 2.5s ease-in-out infinite"}}/>
-      </div>
-      {banks.map((b,i)=>(
-        <div key={b.label} style={{marginBottom:i===0?16:0}}>
-          <div style={{display:"flex",alignItems:"center",gap:10,marginBottom:10}}>
-            <div style={{display:"flex",flexDirection:"column",alignItems:"center",gap:1}}>
-              <div className="bat-cap"/>
-              <div className="bat-bar" style={{height:52}}>
-                <div className="bat-fill" style={{height:b.pct+"%",background:b.pct>60?"var(--ok)":b.pct>30?"var(--warn)":"var(--err)"}}/>
-              </div>
-            </div>
-            <div style={{flex:1}}>
-              <Cap sm style={{display:"block",marginBottom:5}}>{b.label}</Cap>
-              <div style={{fontFamily:"var(--font-mono)",fontSize:18,fontWeight:400,color:"var(--t1)",lineHeight:1,marginBottom:4}}>{b.pct}<span style={{fontSize:10,color:"var(--t3)",marginLeft:1}}>%</span></div>
-              <div style={{display:"flex",gap:10}}>
-                <span style={{fontFamily:"var(--font-mono)",fontSize:9,color:"var(--t2)"}}>{b.volts}</span>
-                <span style={{fontFamily:"var(--font-mono)",fontSize:9,color:"var(--t3)"}}>/ {b.amps}</span>
-              </div>
-            </div>
-            <span style={{fontFamily:"var(--font-mono)",fontSize:8,color:b.status==="CARGANDO"?"var(--info)":"var(--ok)",letterSpacing:".08em"}}>{b.status}</span>
-          </div>
-          <div className="pbar"><div className="pbar-fill" style={{width:b.pct+"%",background:b.pct>60?"var(--ok)":b.pct>30?"var(--warn)":"var(--err)"+(b.status==="CARGANDO"?", var(--info)":"")  }}/></div>
-          {i===0&&<div style={{height:12}}/>}
-        </div>
-      ))}
-    </div>
-  );
-}
 
-/* ─────────────────────────────────────────────────────────────
-   SYSTEM STATUS CONSOLE (new telemetry component)
-   ───────────────────────────────────────────────────────────── */
-function SystemConsole(){
-  const [cursor,setCursor]=useState(true);
-  useEffect(()=>{const t=setInterval(()=>setCursor(c=>!c),620);return()=>clearInterval(t)},[]);
-  const lines=[
-    {key:"SYS",val:"NOMINAL",ok:true},
-    {key:"MOTORES",val:"STANDBY",ok:true},
-    {key:"ACHIQUE",val:"SECO",ok:true},
-    {key:"GPS",val:"ADQUIRIENDO",ok:true},
-    {key:"VHF CH-16",val:"ACTIVO",ok:true},
-    {key:"ANCLA",val:"IZADA",ok:true},
-    {key:"COMBUSTIBLE",val:"47 %",ok:true},
-  ];
-  return(
-    <div className="card" style={{padding:"20px 22px",background:"#050609"}}>
-      <div style={{display:"flex",alignItems:"center",gap:8,marginBottom:14}}>
-        <Activity size={11} color="var(--ok)"/>
-        <Cap style={{color:"rgba(47,186,122,0.5)"}}>Estado del Sistema</Cap>
-        <span style={{marginLeft:"auto",fontFamily:"var(--font-mono)",fontSize:8,color:"rgba(47,186,122,0.3)"}}>v2.4.1</span>
-      </div>
-      <div style={{height:1,background:"rgba(47,186,122,0.1)",marginBottom:12}}/>
-      {lines.map((l,i)=>(
-        <div key={l.key} className="console-line" style={{animationDelay:i*0.06+"s",animation:"fup .4s var(--ez) both"}}>
-          <span className="console-dim">&gt; </span>
-          <span style={{display:"inline-block",minWidth:112,color:"rgba(47,186,122,0.55)"}}>{l.key}</span>
-          <span className="console-muted">{"·".repeat(Math.max(2,14-l.key.length))}</span>
-          <span style={{color:l.ok?"#2fba7a":"var(--err)"}}> {l.val}</span>
-        </div>
-      ))}
-      <div style={{height:1,background:"rgba(47,186,122,0.1)",margin:"10px 0 8px"}}/>
-      <div className="console-line">
-        <span className="console-dim">&gt; </span>
-        <span style={{color:"rgba(47,186,122,0.5)"}}>ALL SYSTEMS </span>
-        <span style={{color:"#2fba7a",fontWeight:500}}>NOMINAL</span>
-        <span style={{opacity:cursor?1:0,marginLeft:3,color:"#2fba7a"}}>_</span>
-      </div>
-    </div>
-  );
-}
 
-/* ─────────────────────────────────────────────────────────────
-   COORDINATE DISPLAY (new telemetry component)
-   ───────────────────────────────────────────────────────────── */
-function CoordDisplay({wx}){
-  const [coords,setCoords]=useState(null);
-  useEffect(()=>{
-    if(navigator.geolocation)navigator.geolocation.getCurrentPosition(
-      p=>setCoords({lat:p.coords.latitude,lon:p.coords.longitude,acc:Math.round(p.coords.accuracy)}),
-      ()=>setCoords({lat:-34.4258,lon:-58.5441,acc:null})
-    );
-    else setCoords({lat:-34.4258,lon:-58.5441,acc:null});
-  },[]);
-  const fmtLat = v=>{if(!v)return"--";const d=Math.abs(v).toFixed(4);return(v<0?"S":"N")+" "+d+"°"};
-  const fmtLon = v=>{if(!v)return"--";const d=Math.abs(v).toFixed(4);return(v<0?"W":"E")+" "+d+"°"};
-  return(
-    <div className="card" style={{padding:"20px 22px"}}>
-      <div style={{display:"flex",alignItems:"center",gap:8,marginBottom:14}}>
-        <MapPin size={11} color="var(--t3)"/>
-        <Cap>Posición GPS</Cap>
-        {coords&&<span style={{marginLeft:"auto",width:5,height:5,borderRadius:"50%",background:"var(--ok)",animation:"pulse 3s ease-in-out infinite"}}/>}
-      </div>
-      <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:16,marginBottom:14}}>
-        {[{l:"LAT",v:fmtLat(coords?.lat)},{l:"LON",v:fmtLon(coords?.lon)}].map(c=>(
-          <div key={c.l}>
-            <Cap sm style={{display:"block",marginBottom:5}}>{c.l}</Cap>
-            <span style={{fontFamily:"var(--font-mono)",fontSize:11,color:"var(--t1)",letterSpacing:".04em"}}>{c.v}</span>
-          </div>
-        ))}
-      </div>
-      {wx&&(
-        <div style={{display:"flex",gap:12,paddingTop:12,borderTop:"1px solid var(--e1)"}}>
-          {[{i:<Thermometer size={10}/>,v:`${wx.t}°C`},{i:<Wind size={10}/>,v:`${wx.d} ${wx.w} km/h`}].map((m,i)=>(
-            <div key={i} style={{display:"flex",alignItems:"center",gap:5}}>
-              <span style={{color:"var(--t3)",display:"flex"}}>{m.i}</span>
-              <span style={{fontFamily:"var(--font-mono)",fontSize:9.5,color:"var(--t2)"}}>{m.v}</span>
-            </div>
-          ))}
-          {coords?.acc&&<span style={{fontFamily:"var(--font-mono)",fontSize:8,color:"var(--t3)",marginLeft:"auto"}}>±{coords.acc}m</span>}
-        </div>
-      )}
-    </div>
-  );
-}
+
+
+
 
 /* ─────────────────────────────────────────────────────────────
    WINDY EMBED WIDGET
    ───────────────────────────────────────────────────────────── */
 function WindyWidget(){
   const [loaded,setLoaded]=useState(false);
-  const src="https://embed.windy.com/embed2.html?lat=-34.425&lon=-58.544&detailLat=-34.425&detailLon=-58.544&width=650&height=420&zoom=5&level=surface&overlay=wind&product=ecmwf&menu=&message=true&marker=&calendar=now&pressure=&type=map&location=coordinates&detail=&metricWind=km%2Fh&metricTemp=%C2%B0C&radarRange=-1";
+  const src="https://embed.windy.com/embed.html?type=map&location=coordinates&metricRain=default&metricTemp=%C2%B0C&metricWind=km%2Fh&zoom=10&overlay=wind&product=ecmwf&level=surface&lat=-34.40&lon=-58.58";
   return(
     <div style={{border:"1px solid var(--e2)",borderRadius:1,overflow:"hidden",background:"var(--s1)"}}>
       {/* Header */}
-      <div style={{display:"flex",alignItems:"center",gap:10,padding:"12px 18px",borderBottom:"1px solid var(--e1)",background:"rgba(5,6,9,0.8)"}}>
-        <Wind size={12} color="var(--t3)"/>
-        <Cap>Radar Meteorológico · Tiempo Real</Cap>
+      <div style={{display:"flex",alignItems:"center",gap:10,padding:"11px 18px",borderBottom:"1px solid var(--e1)",background:"rgba(5,6,9,0.9)"}}>
+        <Wind size={11} color="var(--t3)"/>
+        <Cap>Radar Meteorológico · ECMWF</Cap>
         <div style={{display:"flex",alignItems:"center",gap:6,marginLeft:"auto"}}>
           {loaded&&<><span style={{width:5,height:5,borderRadius:"50%",background:"var(--ok)",animation:"pulse 2s ease-in-out infinite"}}/>
           <span style={{fontFamily:"var(--font-mono)",fontSize:8,color:"var(--ok)",letterSpacing:".08em"}}>LIVE</span></>}
+          {!loaded&&<span style={{fontFamily:"var(--font-mono)",fontSize:8,color:"var(--t3)",letterSpacing:".06em"}}>CARGANDO…</span>}
         </div>
-        <span style={{fontFamily:"var(--font-mono)",fontSize:7.5,color:"var(--t3)",marginLeft:8,letterSpacing:".06em"}}>WINDY · ECMWF MODEL</span>
+        <span style={{fontFamily:"var(--font-mono)",fontSize:7.5,color:"var(--t3)",marginLeft:8,letterSpacing:".06em"}}>POWERED BY WINDY</span>
       </div>
-      {/* Scanline aesthetic on load */}
-      {!loaded&&(
-        <div style={{height:380,display:"flex",alignItems:"center",justifyContent:"center",background:"#050609"}}>
-          <div style={{textAlign:"center"}}>
-            <div style={{display:"flex",flexDirection:"column",gap:4,alignItems:"center",marginBottom:14}}>
-              {[100,75,55,75,100].map((w,i)=><div key={i} className="shim" style={{height:2,width:w+"%",maxWidth:200}}/>)}
+      {/* Iframe wrapper with filter overlay */}
+      <div style={{position:"relative",overflow:"hidden",height:420}}>
+        {/* Monochrome overlay — pointer-events:none so the map sigue siendo interactivo */}
+        <div style={{
+          position:"absolute",inset:0,zIndex:2,pointerEvents:"none",
+          background:"rgba(5,5,8,0.28)",
+          boxShadow:"inset 0 0 0 1px rgba(255,255,255,0.04)"
+        }}/>
+        {!loaded&&(
+          <div style={{position:"absolute",inset:0,zIndex:3,display:"flex",alignItems:"center",justifyContent:"center",background:"#050609"}}>
+            <div style={{textAlign:"center"}}>
+              <div style={{display:"flex",flexDirection:"column",gap:3,alignItems:"center",marginBottom:14}}>
+                {[100,70,50,70,100].map((w,i)=><div key={i} className="shim" style={{height:2,width:w+"%",maxWidth:180}}/>)}
+              </div>
+              <Cap sm style={{color:"var(--t3)"}}>Iniciando radar...</Cap>
             </div>
-            <Cap sm style={{color:"var(--t3)"}}>Cargando radar...</Cap>
           </div>
-        </div>
-      )}
-      <iframe
-        src={src}
-        onLoad={()=>setLoaded(true)}
-        style={{width:"100%",height:380,border:"none",display:loaded?"block":"none",filter:"saturate(0.7) brightness(0.9)"}}
-        title="Windy Weather Radar"
-        loading="lazy"
-      />
+        )}
+        <iframe
+          src={src}
+          onLoad={()=>setLoaded(true)}
+          width="100%"
+          height="100%"
+          style={{
+            border:"none",
+            display:"block",
+            filter:"grayscale(75%) contrast(115%) brightness(0.88)",
+            width:"100%",height:"100%"
+          }}
+          title="Windy Weather Radar"
+          loading="lazy"
+          allow="geolocation"
+        />
+      </div>
     </div>
   );
 }
@@ -592,7 +529,13 @@ function SecBienvenida({cliente,goTo}){
               </div>
             </div>
           )}
-          <div style={{display:"flex",gap:8,marginTop:30,animation:"fup .8s .42s var(--ez) both",flexWrap:"wrap"}}>
+          {/* Warm greeting */}
+          <div style={{marginTop:16,animation:"fup .8s .36s var(--ez) both"}}>
+            <p style={{fontFamily:"var(--font-nm)",fontSize:14,fontWeight:300,color:"rgba(255,255,255,0.45)",lineHeight:1.6,maxWidth:440}}>
+              Bienvenido a su manual digital. Aquí encontrará todo lo que necesita para operar y mantener su embarcación con confianza.
+            </p>
+          </div>
+          <div style={{display:"flex",gap:8,marginTop:26,animation:"fup .8s .46s var(--ez) both",flexWrap:"wrap"}}>
             <button onClick={()=>goTo("soporte")}
               style={{padding:"12px 28px",background:"var(--white)",color:"#030304",border:"none",fontFamily:"var(--font-nm)",fontWeight:600,fontSize:9,letterSpacing:".2em",textTransform:"uppercase",cursor:"pointer",borderRadius:1,transition:"opacity .2s,transform .2s"}}
               onMouseEnter={e=>{e.currentTarget.style.opacity=".88";e.currentTarget.style.transform="translateY(-1px)"}}
@@ -611,15 +554,8 @@ function SecBienvenida({cliente,goTo}){
         <div style={{position:"absolute",bottom:0,left:0,right:0,height:1,background:"linear-gradient(90deg,rgba(255,255,255,0.18),rgba(255,255,255,0.04),transparent 70%)"}}/>
       </div>
 
-      {/* ── TELEMETRY STRIP ── */}
-      <div className="stg" style={{display:"grid",gridTemplateColumns:"1fr 1fr 1fr",gap:1,marginTop:1}}>
-        <BatteryWidget/>
-        <CoordDisplay wx={wx}/>
-        <SystemConsole/>
-      </div>
-
       {/* ── WINDY RADAR ── */}
-      <div style={{padding:"1px 0 0",background:"var(--void)"}}>
+      <div style={{background:"var(--void)"}}>
         <WindyWidget/>
       </div>
 
@@ -863,7 +799,90 @@ function SecEnergia({mc}){
             {ct.note&&<div style={{padding:"13px 16px",borderLeft:"1.5px solid rgba(212,137,42,.5)",background:"var(--warn2)"}}><p style={{color:"var(--warn)",fontSize:12,fontWeight:400,lineHeight:1.7,fontFamily:"var(--font-nm)"}}>{ct.note}</p></div>}
           </div>
         </div>
+        {/* ── FOTO TABLEROS ── */}
+        <TableroFotos/>
       </div>
+    </div>
+  );
+}
+
+/* ─────────────────────────────────────────────────────────────
+   TABLERO FOTOS (galería de referencia visual)
+   ───────────────────────────────────────────────────────────── */
+function TableroFotos(){
+  const [fotos,setFotos]=useState([]);
+  const [lightbox,setLb]=useState(null);
+  const [uploading,setUploading]=useState(false);
+  const inputRef=useRef();
+
+  const handleFiles=async(files)=>{
+    const validos=[...files].filter(f=>f.type.startsWith("image/"));
+    if(!validos.length)return;
+    setUploading(true);
+    const nuevas=await Promise.all(validos.map(f=>new Promise(res=>{
+      const r=new FileReader();
+      r.onload=e=>res({url:e.target.result,name:f.name,id:Date.now()+Math.random()});
+      r.readAsDataURL(f);
+    })));
+    setFotos(p=>[...p,...nuevas]);
+    setUploading(false);
+  };
+
+  const [drag,setDrag]=useState(false);
+  return(
+    <div className="card" style={{padding:"28px"}}>
+      <div style={{display:"flex",alignItems:"center",gap:7,marginBottom:18}}>
+        <ImageIcon size={11} color="var(--t3)"/>
+        <Cap>Referencia Visual — Tableros y Paneles</Cap>
+        <span style={{marginLeft:"auto",fontFamily:"var(--font-mono)",fontSize:8,color:"var(--t3)"}}>{fotos.length} foto{fotos.length!==1?"s":""}</span>
+      </div>
+      <p style={{color:"var(--t3)",fontSize:12,fontWeight:300,lineHeight:1.65,marginBottom:18}}>
+        Agregue fotos de sus tableros, paneles y componentes para tenerlos como referencia rápida. Se guardan solo en este dispositivo.
+      </p>
+      <div className="pgallery" style={{marginBottom:fotos.length?12:0}}>
+        {fotos.map((f,i)=>(
+          <div key={f.id} className="pgallery-item" onClick={()=>setLb(i)}>
+            <img src={f.url} alt={f.name}/>
+            <div style={{position:"absolute",inset:0,background:"rgba(3,3,4,.5)",opacity:0,transition:"opacity .2s",display:"flex",alignItems:"center",justifyContent:"center"}}
+              onMouseEnter={e=>e.currentTarget.style.opacity=1} onMouseLeave={e=>e.currentTarget.style.opacity=0}>
+              <ZoomIn size={18} color="rgba(255,255,255,0.8)"/>
+            </div>
+            <button
+              onClick={e=>{e.stopPropagation();setFotos(p=>p.filter(x=>x.id!==f.id))}}
+              style={{position:"absolute",top:5,right:5,width:22,height:22,borderRadius:"50%",background:"rgba(192,72,72,.85)",border:"none",cursor:"pointer",display:"flex",alignItems:"center",justifyContent:"center",opacity:0,transition:"opacity .18s"}}
+              onMouseEnter={e=>{e.currentTarget.style.opacity=1;e.stopPropagation()}}
+              onMouseLeave={e=>e.currentTarget.style.opacity=0}>
+              <Trash2 size={9} color="#fff"/>
+            </button>
+          </div>
+        ))}
+        {/* Add button */}
+        <div
+          className={`pgallery-add${drag?" drag":""}`}
+          onDragOver={e=>{e.preventDefault();setDrag(true)}}
+          onDragLeave={()=>setDrag(false)}
+          onDrop={e=>{e.preventDefault();setDrag(false);handleFiles(e.dataTransfer.files)}}
+          onClick={()=>inputRef.current?.click()}>
+          <input ref={inputRef} type="file" accept="image/*" multiple style={{display:"none"}} onChange={e=>handleFiles(e.target.files)}/>
+          {uploading
+            ?<div className="shim" style={{width:28,height:28,borderRadius:"50%"}}/>
+            :<><Upload size={14} color="var(--t3)"/><Cap sm>Agregar foto</Cap></>}
+        </div>
+      </div>
+      {fotos.length===0&&(
+        <p style={{fontFamily:"var(--font-mono)",fontSize:9,color:"var(--t3)",textAlign:"center",padding:"8px 0"}}>Sin fotos guardadas · las imágenes no se suben a ningún servidor</p>
+      )}
+      {/* Lightbox */}
+      {lightbox!==null&&(
+        <div onClick={()=>setLb(null)} style={{position:"fixed",inset:0,background:"rgba(0,0,0,.96)",zIndex:99999,display:"flex",alignItems:"center",justifyContent:"center",padding:24,animation:"fin .2s both"}}>
+          <button onClick={()=>setLb(null)} style={{position:"absolute",top:20,right:20,background:"transparent",border:"1px solid var(--e2)",color:"var(--t2)",padding:"7px 14px",cursor:"pointer",fontFamily:"var(--font-nm)",fontSize:9,letterSpacing:".14em",borderRadius:1,display:"flex",gap:6,alignItems:"center"}}><X size={11}/>CERRAR</button>
+          <img src={fotos[lightbox]?.url} alt="" style={{maxWidth:"100%",maxHeight:"90vh",objectFit:"contain",animation:"fup .3s var(--ez) both"}}/>
+          {fotos.length>1&&<>
+            <button onClick={e=>{e.stopPropagation();setLb(i=>(i-1+fotos.length)%fotos.length)}} style={{position:"absolute",left:20,top:"50%",transform:"translateY(-50%)",background:"rgba(255,255,255,.06)",border:"1px solid var(--e2)",color:"var(--t2)",padding:"12px 10px",cursor:"pointer",borderRadius:1,fontSize:16}}>‹</button>
+            <button onClick={e=>{e.stopPropagation();setLb(i=>(i+1)%fotos.length)}} style={{position:"absolute",right:20,top:"50%",transform:"translateY(-50%)",background:"rgba(255,255,255,.06)",border:"1px solid var(--e2)",color:"var(--t2)",padding:"12px 10px",cursor:"pointer",borderRadius:1,fontSize:16}}>›</button>
+          </>}
+        </div>
+      )}
     </div>
   );
 }
@@ -1164,10 +1183,14 @@ function SecTutoriales(){
 /* ─────────────────────────────────────────────────────────────
    SEC SOPORTE
    ───────────────────────────────────────────────────────────── */
-function SecSoporte({clienteId,nombreBarco,push}){
+function SecSoporte({clienteId,nombreBarco,obraId,push}){
   const AREAS=["Electricidad / Tableros","Motores / Propulsión","Agua / Baños","Casco / Fibra / Filtraciones","Malacate / Bow Thruster","Climatización","Otros"];
   const B={area:"",desc:"",phone:"",ubi:""};
   const [fm,setFm]=useState(B),[send,setSend]=useState(false),[tks,setTks]=useState([]),[load,setLoad]=useState(true),[done,setDone]=useState(false);
+  const [archivos,setArchivos]=useState([]);
+  const [drag,setDrag]=useState(false);
+  const [lightbox,setLb]=useState(null);
+  const inputRef=useRef();
 
   const fetch2=useCallback(async()=>{
     if(!clienteId)return;
@@ -1179,22 +1202,85 @@ function SecSoporte({clienteId,nombreBarco,push}){
 
   useEffect(()=>{fetch2();},[fetch2]);
 
+  const handleFiles=async(files)=>{
+    const validos=[...files].filter(f=>f.type.startsWith("image/")||f.type.startsWith("video/"));
+    if(!validos.length)return;
+    const nuevos=await Promise.all(validos.map(f=>new Promise(res=>{
+      const r=new FileReader();
+      r.onload=e=>res({url:e.target.result,name:f.name,type:f.type,size:f.size,id:Date.now()+Math.random(),file:f});
+      r.readAsDataURL(f);
+    })));
+    setArchivos(p=>[...p,...nuevos]);
+  };
+
+  const removeFile=id=>setArchivos(p=>p.filter(x=>x.id!==id));
+
+  const uploadToStorage=async(file,ticketId)=>{
+    const ext=file.name.split(".").pop().toLowerCase();
+    const path=`tickets/${ticketId}/${Date.now()}_${file.name.replace(/[^a-zA-Z0-9._-]/g,"_")}`;
+    console.log("[upload] intentando subir:", path, "tamaño:", file.size);
+    const{data:upData,error}=await supabase.storage
+      .from("ticket-attachments")
+      .upload(path,file,{cacheControl:"3600",upsert:true});
+    if(error){
+      console.error("[upload] ERROR:", error);
+      throw new Error(error.message || JSON.stringify(error));
+    }
+    console.log("[upload] subido OK:", upData);
+    const{data}=supabase.storage.from("ticket-attachments").getPublicUrl(path);
+    console.log("[upload] URL pública:", data.publicUrl);
+    return data.publicUrl;
+  };
+
   const submit=async()=>{
     if(!fm.area){push("Seleccione el área afectada","err");return}
     if(!fm.desc||fm.desc.trim().length<10){push("Descripción muy breve — agregue más detalle","err");return}
     if(!fm.phone){push("Ingrese número de WhatsApp","err");return}
     setSend(true);
-    const{error}=await supabase.from("tickets").insert([{cliente_id:clienteId,area:fm.area,descripcion:fm.desc.trim(),telefono:fm.phone,ubicacion_barco:fm.ubi,nombre_barco_ticket:nombreBarco,estado:"pendiente"}]);
-    if(error){push("Error: "+error.message,"err")}
-    else{setFm(B);setDone(true);push("Reporte enviado correctamente","ok");await fetch2()}
+    try{
+      // 1. Insert ticket
+      const{data:tkData,error:tkErr}=await supabase.from("tickets").insert([{
+        cliente_id:clienteId,area:fm.area,descripcion:fm.desc.trim(),
+        telefono:fm.phone,ubicacion_barco:fm.ubi,
+        nombre_barco_ticket:nombreBarco,estado:"pendiente",
+      }]).select().single();
+      if(tkErr)throw tkErr;
+
+      // 2. Upload archivos if any
+      let uploadedCount=0;
+      if(archivos.length>0){
+        const urls=[];
+        for(const a of archivos){
+          try{
+            const url=await uploadToStorage(a.file,tkData.id);
+            urls.push(url);
+            uploadedCount++;
+          }catch(e){
+            push("Error subiendo "+a.name+": "+e.message,"err");
+          }
+        }
+        if(urls.length>0){
+          const{error:updErr}=await supabase.from("tickets").update({adjuntos:urls}).eq("id",tkData.id);
+          if(updErr) push("Error guardando adjuntos: "+updErr.message,"err");
+        }
+      }
+
+      setFm(B);setArchivos([]);setDone(true);
+      push(`Reporte enviado${uploadedCount?" con "+uploadedCount+" archivo(s)":""}`, "ok");
+      await fetch2();
+    }catch(e){
+      push("Error: "+e.message,"err");
+    }
     setSend(false);
   };
+
+  const fmtSize=b=>b<1024*1024?(b/1024).toFixed(0)+" KB":(b/1024/1024).toFixed(1)+" MB";
 
   return(
     <div className="senter">
       <SH eyebrow="Post-Venta" title="Garantía y Soporte Técnico"/>
       <div className="stg" style={{display:"grid",gridTemplateColumns:"repeat(auto-fit,minmax(310px,1fr))",gap:1}}>
-        {/* Form */}
+        {/* ── FORM ── */}
         <div className="card" style={{padding:"34px 28px"}}>
           <div style={{display:"flex",alignItems:"center",gap:7,marginBottom:22}}><MessageSquare size={11} color="var(--t3)"/><Cap>Nuevo Reporte</Cap></div>
           {done?(
@@ -1204,22 +1290,84 @@ function SecSoporte({clienteId,nombreBarco,push}){
               </div>
               <p style={{fontFamily:"var(--font-nm)",fontSize:20,fontWeight:300,color:"var(--t1)",marginBottom:8,letterSpacing:"-.02em"}}>Enviado</p>
               <p style={{color:"var(--t3)",fontSize:13,lineHeight:1.8,fontWeight:300}}>Nuestro equipo revisará su reporte y se contactará por WhatsApp a la brevedad.</p>
-              <button onClick={()=>setDone(false)} style={{marginTop:18,padding:"9px 18px",background:"transparent",border:"1px solid var(--e2)",color:"var(--t3)",fontFamily:"var(--font-nm)",fontSize:8.5,letterSpacing:".16em",textTransform:"uppercase",cursor:"pointer",transition:"all .22s",borderRadius:1}} onMouseEnter={e=>{e.currentTarget.style.borderColor="var(--e3)";e.currentTarget.style.color="var(--t2)"}} onMouseLeave={e=>{e.currentTarget.style.borderColor="var(--e2)";e.currentTarget.style.color="var(--t3)"}}>NUEVO REPORTE</button>
+              <button onClick={()=>setDone(false)} style={{marginTop:18,padding:"9px 18px",background:"transparent",border:"1px solid var(--e2)",color:"var(--t3)",fontFamily:"var(--font-nm)",fontSize:8.5,letterSpacing:".16em",textTransform:"uppercase",cursor:"pointer",transition:"all .22s",borderRadius:1}}
+                onMouseEnter={e=>{e.currentTarget.style.borderColor="var(--e3)";e.currentTarget.style.color="var(--t2)"}}
+                onMouseLeave={e=>{e.currentTarget.style.borderColor="var(--e2)";e.currentTarget.style.color="var(--t3)"}}>NUEVO REPORTE</button>
             </div>
           ):(
             <div>
-              <div style={{marginBottom:20}}><Lbl>Área Afectada *</Lbl><select className="sel" value={fm.area} onChange={e=>setFm(f=>({...f,area:e.target.value}))}><option value="">Seleccione…</option>{AREAS.map(a=><option key={a} value={a}>{a}</option>)}</select></div>
-              <div style={{marginBottom:20}}><Lbl>Ubicación del Barco</Lbl><input className="inp" value={fm.ubi} onChange={e=>setFm(f=>({...f,ubi:e.target.value}))} placeholder="Puerto Madero · Amarra 24"/></div>
-              <div style={{marginBottom:20}}><Lbl>Descripción del Problema *</Lbl><textarea className="ta" value={fm.desc} onChange={e=>setFm(f=>({...f,desc:e.target.value}))} placeholder="Describa la falla — cuándo ocurrió, síntomas, condiciones…"/></div>
-              <div style={{marginBottom:28}}><Lbl>WhatsApp *</Lbl><input className="inp" type="tel" value={fm.phone} onChange={e=>setFm(f=>({...f,phone:e.target.value}))} placeholder="+54 9 ···· ··· ····"/></div>
+              <div style={{marginBottom:20}}><Lbl>Área Afectada *</Lbl>
+                <select className="sel" value={fm.area} onChange={e=>setFm(f=>({...f,area:e.target.value}))}>
+                  <option value="">Seleccione…</option>{AREAS.map(a=><option key={a} value={a}>{a}</option>)}
+                </select>
+              </div>
+              <div style={{marginBottom:20}}><Lbl>Ubicación del Barco</Lbl>
+                <input className="inp" value={fm.ubi} onChange={e=>setFm(f=>({...f,ubi:e.target.value}))} placeholder="Puerto Madero · Amarra 24"/>
+              </div>
+              <div style={{marginBottom:20}}><Lbl>Descripción del Problema *</Lbl>
+                <textarea className="ta" value={fm.desc} onChange={e=>setFm(f=>({...f,desc:e.target.value}))} placeholder="Describa la falla — cuándo ocurrió, síntomas, condiciones…"/>
+              </div>
+              <div style={{marginBottom:20}}><Lbl>WhatsApp *</Lbl>
+                <input className="inp" type="tel" value={fm.phone} onChange={e=>setFm(f=>({...f,phone:e.target.value}))} placeholder="+54 9 ···· ··· ····"/>
+              </div>
+
+              {/* ── ADJUNTOS ── */}
+              <div style={{marginBottom:24}}>
+                <div style={{display:"flex",alignItems:"center",gap:7,marginBottom:10}}>
+                  <Paperclip size={10} color="var(--t3)"/>
+                  <Lbl>Fotos y Videos</Lbl>
+                  <span style={{fontFamily:"var(--font-mono)",fontSize:8,color:"var(--t3)",marginLeft:"auto"}}>{archivos.length}/10 archivos</span>
+                </div>
+
+                {/* Previews */}
+                {archivos.length>0&&(
+                  <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fill,minmax(80px,1fr))",gap:6,marginBottom:10}}>
+                    {archivos.map(a=>(
+                      <div key={a.id} className="mthumb" style={{cursor:"pointer"}} onClick={()=>setLb(a)}>
+                        {a.type.startsWith("image/")
+                          ?<img src={a.url} alt={a.name}/>
+                          :<div style={{width:"100%",height:"100%",display:"flex",flexDirection:"column",alignItems:"center",justifyContent:"center",gap:4,background:"var(--s3)"}}>
+                            <VideoIcon size={18} color="var(--t3)"/>
+                            <span style={{fontFamily:"var(--font-mono)",fontSize:7,color:"var(--t3)",textAlign:"center",padding:"0 4px",lineHeight:1.3}}>{a.name.slice(0,14)}</span>
+                          </div>}
+                        <div className="mthumb-overlay"><ZoomIn size={12} color="rgba(255,255,255,.8)"/></div>
+                        <button className="mthumb-del" onClick={e=>{e.stopPropagation();removeFile(a.id)}}><Trash2 size={8} color="#fff"/></button>
+                        <div style={{position:"absolute",bottom:0,left:0,right:0,padding:"3px 5px",background:"rgba(0,0,0,.65)"}}>
+                          <span style={{fontFamily:"var(--font-mono)",fontSize:7,color:"rgba(255,255,255,.5)"}}>{fmtSize(a.size)}</span>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                )}
+
+                {/* Drop zone */}
+                {archivos.length<10&&(
+                  <div
+                    className={`upzone${drag?" drag":""}`}
+                    style={{position:"relative"}}
+                    onDragOver={e=>{e.preventDefault();setDrag(true)}}
+                    onDragLeave={()=>setDrag(false)}
+                    onDrop={e=>{e.preventDefault();setDrag(false);handleFiles(e.dataTransfer.files)}}
+                    onClick={()=>inputRef.current?.click()}>
+                    <input ref={inputRef} type="file" accept="image/*,video/*" multiple style={{display:"none"}} onChange={e=>handleFiles(e.target.files)}/>
+                    <div style={{display:"flex",flexDirection:"column",alignItems:"center",gap:7,pointerEvents:"none"}}>
+                      <Upload size={16} color="var(--t3)"/>
+                      <Cap sm>Arrastrá o hacé clic para adjuntar</Cap>
+                      <span style={{fontFamily:"var(--font-mono)",fontSize:8,color:"var(--t3)"}}>JPG · PNG · MP4 · MOV</span>
+                    </div>
+                  </div>
+                )}
+              </div>
+
               <button onClick={submit} disabled={send}
                 style={{width:"100%",padding:"14px",background:send?"var(--s3)":"var(--white)",color:send?"var(--t3)":"#030304",border:"none",fontFamily:"var(--font-nm)",fontWeight:600,fontSize:9,letterSpacing:".22em",textTransform:"uppercase",cursor:send?"not-allowed":"pointer",transition:"all .22s",borderRadius:1}}>
-                {send?"ENVIANDO…":"ENVIAR REPORTE A POST-VENTA"}
+                {send?"ENVIANDO…":`ENVIAR REPORTE${archivos.length?" + "+archivos.length+" ARCH.":""}`}
               </button>
             </div>
           )}
         </div>
-        {/* History */}
+
+        {/* ── HISTORY ── */}
         <div className="card" style={{padding:"34px 28px"}}>
           <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:20}}>
             <div style={{display:"flex",alignItems:"center",gap:7}}><Activity size={11} color="var(--t3)"/><Cap>Historial de Reportes</Cap></div>
@@ -1239,13 +1387,44 @@ function SecSoporte({clienteId,nombreBarco,push}){
             </div>
           ):(
             tks.map(t=>(
-              <div key={t.id} style={{padding:"16px 8px",borderBottom:"1px solid rgba(255,255,255,.035)",transition:"background .18s",borderRadius:1}} onMouseEnter={e=>e.currentTarget.style.background="rgba(255,255,255,.01)"} onMouseLeave={e=>e.currentTarget.style.background="transparent"}>
+              <div key={t.id} style={{padding:"16px 8px",borderBottom:"1px solid rgba(255,255,255,.035)",transition:"background .18s",borderRadius:1}}
+                onMouseEnter={e=>e.currentTarget.style.background="rgba(255,255,255,.01)"} onMouseLeave={e=>e.currentTarget.style.background="transparent"}>
                 <div style={{display:"flex",justifyContent:"space-between",alignItems:"flex-start",marginBottom:9,gap:8}}>
                   <SBadge estado={t.estado}/>
                   <span style={{fontFamily:"var(--font-mono)",fontSize:8.5,color:"var(--t3)",flexShrink:0}}>#{String(t.id).slice(-6)}</span>
                 </div>
                 <p style={{color:"var(--t1)",fontSize:13,fontWeight:400,marginBottom:3}}>{t.area}</p>
                 <p style={{color:"var(--t3)",fontSize:12,fontWeight:300,lineHeight:1.65,marginBottom:7}}>{t.descripcion}</p>
+                {/* Adjuntos del historial */}
+                {t.adjuntos?.length>0&&(
+                  <div style={{display:"flex",gap:8,flexWrap:"wrap",marginBottom:10}}>
+                    {t.adjuntos.map((url,i)=>{
+                      const ext=url.split("?")[0].split(".").pop().toLowerCase();
+                      const isVideo=["mp4","mov","webm","avi"].includes(ext);
+                      const isImage=["jpg","jpeg","png","gif","webp","heic"].includes(ext);
+                      if(isVideo) return(
+                        <video key={i} controls style={{width:"100%",borderRadius:6,maxHeight:220,background:"#000",border:"1px solid var(--e1)"}}>
+                          <source src={url}/>
+                        </video>
+                      );
+                      if(isImage) return(
+                        <a key={i} href={url} target="_blank" rel="noopener noreferrer" style={{display:"block",width:"100%"}}>
+                          <img src={url} alt={"adj "+(i+1)}
+                            style={{width:"100%",maxHeight:220,objectFit:"cover",borderRadius:6,border:"1px solid var(--e1)",cursor:"zoom-in",display:"block"}}
+                            onError={e=>{e.target.style.display="none"}}
+                          />
+                        </a>
+                      );
+                      return(
+                        <a key={i} href={url} target="_blank" rel="noopener noreferrer"
+                          style={{display:"flex",alignItems:"center",gap:4,padding:"4px 10px",border:"1px solid var(--e1)",borderRadius:4,textDecoration:"none"}}>
+                          <span style={{fontSize:12}}>📎</span>
+                          <span style={{fontFamily:"var(--font-mono)",fontSize:8,color:"var(--t3)"}}>adj.{i+1}</span>
+                        </a>
+                      );
+                    })}
+                  </div>
+                )}
                 <div style={{display:"flex",gap:10,flexWrap:"wrap"}}>
                   {t.fecha_creacion&&<span style={{fontFamily:"var(--font-mono)",fontSize:8.5,color:"var(--t3)"}}>{df(t.fecha_creacion)} · {tf(t.fecha_creacion)}</span>}
                   {t.ubicacion_barco&&<span style={{fontSize:10,color:"var(--t3)",fontWeight:300,display:"flex",alignItems:"center",gap:3}}><MapPin size={8}/>{t.ubicacion_barco}</span>}
@@ -1261,6 +1440,16 @@ function SecSoporte({clienteId,nombreBarco,push}){
           )}
         </div>
       </div>
+
+      {/* Lightbox adjunto */}
+      {lightbox&&(
+        <div onClick={()=>setLb(null)} style={{position:"fixed",inset:0,background:"rgba(0,0,0,.97)",zIndex:99999,display:"flex",alignItems:"center",justifyContent:"center",padding:24,animation:"fin .2s both"}}>
+          <button onClick={()=>setLb(null)} style={{position:"absolute",top:20,right:20,background:"transparent",border:"1px solid var(--e2)",color:"var(--t2)",padding:"7px 14px",cursor:"pointer",fontFamily:"var(--font-nm)",fontSize:9,letterSpacing:".14em",borderRadius:1,display:"flex",gap:6,alignItems:"center"}}><X size={11}/>CERRAR</button>
+          {lightbox.type?.startsWith("image/")
+            ?<img src={lightbox.url} alt="" style={{maxWidth:"100%",maxHeight:"90vh",objectFit:"contain",animation:"fup .3s var(--ez) both"}}/>
+            :<video src={lightbox.url} controls style={{maxWidth:"100%",maxHeight:"90vh",animation:"fup .3s var(--ez) both"}}/>}
+        </div>
+      )}
     </div>
   );
 }
@@ -1318,7 +1507,7 @@ export default function ClientePanelScreen({session,onSignOut}){
     </div>
   );
 
-  const sp={cliente,mc,goTo:go,clienteId:session?.user?.id,nombreBarco:cliente?.nombre_barco,push};
+  const sp={cliente,mc,goTo:go,clienteId:session?.user?.id,nombreBarco:cliente?.nombre_barco,obraId:cliente?.obra_id,push};
 
   return(
     <div className="grain" style={{background:"#030304",minHeight:"100vh"}}>

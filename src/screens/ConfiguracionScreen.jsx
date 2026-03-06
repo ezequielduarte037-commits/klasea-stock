@@ -3,6 +3,30 @@ import { supabase } from "../supabaseClient";
 import { createClient } from "@supabase/supabase-js";
 import Sidebar from "../components/Sidebar";
 import NotificacionesBell from "../components/NotificacionesBell";
+import {
+  User,
+  Anchor,
+  Wrench,
+  Settings2,
+  Key,
+  X as XIcon,
+  Zap,
+  RefreshCcw,
+  Gamepad2,
+  Fuel,
+  Droplets,
+  Pencil,
+  Link2,
+  MapPin,
+  Ship,
+  CheckCircle2,
+  Ticket,
+  Phone,
+  Crosshair,
+  ExternalLink,
+  AlertTriangle,
+  Recycle // ← ESTA LÍNEA ES LA QUE FALTABA
+} from "lucide-react";
 
 function getAdminClient() {
   const url = import.meta.env.VITE_SUPABASE_URL;
@@ -516,7 +540,7 @@ function ModalCliente({ cliente, modelos, onClose, onSaved, flash }) {
                 fontFamily:"'Outfit',system-ui",
               }}
             >
-              {showNuevaObra ? "✕ Cancelar" : "+ Nueva obra"}
+              {showNuevaObra ? <><XIcon size={10} style={{marginRight:4}}/> Cancelar</> : "+ Nueva obra"}
             </button>
           </div>
 
@@ -607,7 +631,7 @@ function ModalCliente({ cliente, modelos, onClose, onSaved, flash }) {
 
         {esNuevo && (
           <div style={{ padding:"9px 14px", borderRadius:8, background:"rgba(16,185,129,0.06)", border:"1px solid rgba(16,185,129,0.2)", marginBottom:16, display:"flex", alignItems:"center", gap:8 }}>
-            <span style={{ fontSize:14 }}>⛵</span>
+            <Ship size={16} color="#6ee7b7"/>
             <span style={{ fontSize:11, color:"#6ee7b7" }}>
               Al crear el cliente se agrega automáticamente a <strong>Post-Venta</strong>. Completá la ubicación GPS desde allí.
             </span>
@@ -741,10 +765,10 @@ function ModalModelo({ modelo, onClose, onSaved, flash }) {
 export default function ConfiguracionScreen({ profile, signOut }) {
   const isAdmin = !!profile?.is_admin || profile?.role === "admin";
   const TABS = [
-    { id:"usuarios", label:"Personal",   icon:"👤" },
-    { id:"clientes", label:"Clientes",   icon:"⛵" },
-    { id:"modelos",  label:"Modelos",    icon:"🛠" },
-    { id:"sistema",  label:"Sistema",    icon:"⚙️" },
+    { id:"usuarios", label:"Personal",   icon:<User size={12}/>  },
+    { id:"clientes", label:"Clientes",   icon:<Ship size={12}/> },
+    { id:"modelos",  label:"Modelos",    icon:<Wrench size={12}/> },
+    { id:"sistema",  label:"Sistema",    icon:<Settings2 size={12}/> },
   ];
   const [tab,      setTab]      = useState("usuarios");
   const [loading,  setLoading]  = useState(true);
@@ -879,8 +903,10 @@ export default function ConfiguracionScreen({ profile, signOut }) {
                 fontWeight: tab===t.id ? 500 : 400,
                 transition:"color .15s, border-color .15s",
                 fontFamily:"'Outfit',system-ui", marginBottom:-1, whiteSpace:"nowrap",
+                display:"flex", alignItems:"center", gap:7,
               }}>
-                {t.icon} {t.label}
+                <span style={{ opacity: tab===t.id ? 1 : 0.5, display:"flex" }}>{t.icon}</span>
+                {t.label}
               </button>
             ))}
             <div style={{ flex:1 }} />
@@ -984,8 +1010,8 @@ export default function ConfiguracionScreen({ profile, signOut }) {
                             <div style={{ fontSize:12, color:"#71717a" }}>{c.nombre_barco || "—"}</div>
                             <div style={{ display:"flex", gap:5 }}>
                               <button style={{ ...Sx.btnOutline, fontSize:10, padding:"4px 10px" }} onClick={()=>setMCliente(c)}>Editar</button>
-                              <button style={{ ...Sx.btnOutline, fontSize:10, padding:"4px 10px", color:"#7070a0" }} onClick={()=>setMPwCliente(c)}>🔑</button>
-                              <button style={{ ...Sx.btnDanger, fontSize:10, padding:"4px 10px" }} onClick={()=>eliminarCliente(c)}>✕</button>
+                              <button style={{ ...Sx.btnOutline, fontSize:10, padding:"4px 8px", color:"#7070a0", display:"flex", alignItems:"center", gap:4 }} onClick={()=>setMPwCliente(c)}><Key size={10}/>PW</button>
+                              <button style={{ ...Sx.btnDanger, fontSize:10, padding:"4px 8px", display:"flex", alignItems:"center" }} onClick={()=>eliminarCliente(c)}><XIcon size={10}/></button>
                             </div>
                           </div>
                         ))}
@@ -1018,26 +1044,26 @@ export default function ConfiguracionScreen({ profile, signOut }) {
                                   <div style={{ fontFamily:"'JetBrains Mono',monospace", fontSize:22, fontWeight:700, color:"#f4f4f5", letterSpacing:-0.5 }}>{m.modelo_barco}</div>
                                   <div style={{ fontSize:9.5, color:"#52525b", marginTop:3 }}>{clientesConModelo} cliente{clientesConModelo!==1?"s":""} asignados</div>
                                 </div>
-                                <div style={{ display:"flex", gap:4, fontSize:16 }}>
-                                  {c.tiene_grupo && <span title="Grupo electrógeno">⚡</span>}
-                                  {c.tiene_aguas && <span title="Aguas negras">♻️</span>}
-                                  {c.tiene_mando && <span title="Mando electrónico">🎮</span>}
+                                <div style={{ display:"flex", gap:6, alignItems:"center" }}>
+                                  {c.tiene_grupo && <span title="Grupo electrógeno" style={{ color:"#a0a0c0", display:"flex" }}><Zap size={13}/></span>}
+                                  {c.tiene_aguas && <span title="Aguas negras" style={{ color:"#60a090", display:"flex" }}><Recycle size={13}/></span>}
+                                  {c.tiene_mando && <span title="Mando electrónico" style={{ color:"#7090c0", display:"flex" }}><Gamepad2 size={13}/></span>}
                                 </div>
                               </div>
                               <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr", gap:6, marginBottom:14 }}>
                                 {[
-                                  { icon:"⛽", label:"Combustible", val:`${c.combustible??"-"} L` },
-                                  { icon:"💧", label:"Agua",        val:`${c.agua??"-"} L` },
+                                  { ico:<Fuel size={10}/>,     label:"Combustible", val:`${c.combustible??"-"} L` },
+                                  { ico:<Droplets size={10}/>, label:"Agua",        val:`${c.agua??"-"} L` },
                                 ].map(s=>(
                                   <div key={s.label} style={{ padding:"8px 12px", borderRadius:7, background:"rgba(255,255,255,0.025)", border:"1px solid rgba(255,255,255,0.05)" }}>
-                                    <div style={{ fontSize:8.5, color:"#52525b", textTransform:"uppercase", letterSpacing:1, marginBottom:3 }}>{s.icon} {s.label}</div>
+                                    <div style={{ fontSize:8.5, color:"#52525b", textTransform:"uppercase", letterSpacing:1, marginBottom:3, display:"flex", alignItems:"center", gap:4 }}><span style={{ opacity:0.6, display:"flex" }}>{s.ico}</span>{s.label}</div>
                                     <div style={{ fontFamily:"'JetBrains Mono',monospace", fontSize:13, color:"#a1a1aa" }}>{s.val}</div>
                                   </div>
                                 ))}
                               </div>
                               <div style={{ display:"flex", gap:6 }}>
-                                <button style={{ ...Sx.btnOutline, flex:1, textAlign:"center" }} onClick={()=>setMModelo(m)}>✏️ Editar specs</button>
-                                <button style={Sx.btnDanger} onClick={()=>eliminarModelo(m)}>✕</button>
+                                <button style={{ ...Sx.btnOutline, flex:1, textAlign:"center", display:"flex", alignItems:"center", justifyContent:"center", gap:5 }} onClick={()=>setMModelo(m)}><Pencil size={10}/>Editar specs</button>
+                                <button style={{ ...Sx.btnDanger, display:"flex", alignItems:"center" }} onClick={()=>eliminarModelo(m)}><XIcon size={11}/></button>
                               </div>
                             </div>
                           );

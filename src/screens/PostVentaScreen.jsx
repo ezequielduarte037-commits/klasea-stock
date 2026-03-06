@@ -2,6 +2,11 @@
 // SINCRONIZACIÓN: Los clientes creados en ConfiguracionScreen aparecen
 // automáticamente aquí. Los que no tienen GPS muestran un aviso para completar la ubicación.
 import React, { useEffect, useState, useRef } from "react";
+import {
+  MapPin, Crosshair, Pencil, Ticket, ExternalLink,
+  Phone, CheckCircle2, Link2, AlertTriangle, X as XIcon,
+  Circle, Navigation
+} from "lucide-react";
 import { supabase } from "../supabaseClient";
 import Sidebar from "../components/Sidebar";
 import { MapContainer, TileLayer, Marker, Popup, useMapEvents, useMap } from "react-leaflet";
@@ -72,7 +77,7 @@ function ObraSelector({ value, onChange, obras }) {
   const obraActual = obras.find(o=>o.id===value);
   return (
     <div style={{ padding:"14px 16px", borderRadius:10, background:"rgba(59,130,246,0.04)", border:"1px solid rgba(59,130,246,0.18)", marginBottom:14 }}>
-      <div style={{ fontSize:9, letterSpacing:2.5, color:"#4a7aaa", textTransform:"uppercase", marginBottom:12, fontWeight:600 }}>🔗 Obra vinculada</div>
+      <div style={{ fontSize:9, letterSpacing:2.5, color:"#4a7aaa", textTransform:"uppercase", marginBottom:12, fontWeight:600 }}><Link2 size={11} style={{marginRight:5}}/> Obra vinculada</div>
       <div>
         <label style={LBL}>Código de obra</label>
         {obras.length === 0 ? (
@@ -92,7 +97,7 @@ function ObraSelector({ value, onChange, obras }) {
       </div>
       {obraActual && (
         <div style={{ marginTop:8, padding:"6px 10px", borderRadius:7, background:"rgba(59,130,246,0.08)", border:"1px solid rgba(59,130,246,0.2)", fontSize:11, color:"#93c5fd" }}>
-          ✅ Obra {obraActual.codigo}
+          <CheckCircle2 size={11} style={{marginRight:5,verticalAlign:"middle"}}/> Obra {obraActual.codigo}
         </div>
       )}
     </div>
@@ -177,7 +182,7 @@ function EditModal({ barco, obras, onSave, onClose, autoFocusGps = false }) {
         {/* Aviso GPS pendiente */}
         {!barco.latitud && !barco.longitud && (
           <div style={{ padding:"10px 14px", borderRadius:9, background:"rgba(245,158,11,0.08)", border:"1px solid rgba(245,158,11,0.3)", fontSize:12, color:"#fcd34d", marginBottom:16, display:"flex", alignItems:"center", gap:8 }}>
-            <span>📍</span>
+            <MapPin size={14} color="#f59e0b" style={{flexShrink:0}}/>
             <span>Este barco fue creado desde Configuración. Completá la ubicación GPS para que aparezca en el mapa.</span>
           </div>
         )}
@@ -241,12 +246,12 @@ function TicketPopupContent({ barco, tickets, onVerTodos }) {
           <div style={{ display:"flex", gap:8, marginBottom:12, flexWrap:"wrap" }}>
             {pendientes.length > 0 && (
               <span style={{ padding:"3px 10px", borderRadius:99, background:"rgba(239,68,68,0.15)", border:"1px solid rgba(239,68,68,0.35)", color:"#ef4444", fontSize:10, fontWeight:700 }}>
-                🔴 {pendientes.length} pendiente{pendientes.length>1?"s":""}
+                <Circle size={7} color="#ef4444" fill="#ef4444" style={{marginRight:4}}/> {pendientes.length} pendiente{pendientes.length>1?"s":""}
               </span>
             )}
             {enProceso.length > 0 && (
               <span style={{ padding:"3px 10px", borderRadius:99, background:"rgba(245,158,11,0.15)", border:"1px solid rgba(245,158,11,0.35)", color:"#f59e0b", fontSize:10, fontWeight:700 }}>
-                🟡 {enProceso.length} en proceso
+                <Circle size={7} color="#f59e0b" fill="#f59e0b" style={{marginRight:4}}/> {enProceso.length} en proceso
               </span>
             )}
           </div>
@@ -254,7 +259,7 @@ function TicketPopupContent({ barco, tickets, onVerTodos }) {
             <div style={{ padding:"10px 12px", borderRadius:8, background:"rgba(255,255,255,0.04)", border:"1px solid rgba(255,255,255,0.1)", marginBottom:10 }}>
               <div style={{ fontSize:9, color:"#566070", letterSpacing:2, textTransform:"uppercase", marginBottom:4 }}>{top.area}</div>
               <div style={{ fontSize:12, color:"#a8b4c0", lineHeight:1.5 }}>{top.descripcion?.slice(0,80)}{top.descripcion?.length>80?"…":""}</div>
-              {top.telefono && <div style={{ fontSize:10, color:"#566070", marginTop:6 }}>📱 {top.telefono}</div>}
+              {top.telefono && <div style={{ fontSize:10, color:"#566070", marginTop:6, display:"flex", alignItems:"center", gap:4 }}><Phone size={9}/> {top.telefono}</div>}
             </div>
           )}
           <button onClick={onVerTodos} style={{ width:"100%", padding:"8px 12px", background:"rgba(239,68,68,0.1)", border:"1px solid rgba(239,68,68,0.25)", color:"#ef4444", borderRadius:8, cursor:"pointer", fontSize:11, fontWeight:700 }}>
@@ -275,8 +280,31 @@ function TicketPopupContent({ barco, tickets, onVerTodos }) {
 }
 
 // ── PANEL DE TICKETS (side drawer) ───────────────────────────────────
+// Extrae el path de storage desde una URL pública o path directo
 function TicketDrawer({ barco, tickets, onClose, onUpdateStatus }) {
-  const [updating, setUpdating] = useState(null);
+  const [updating,      setUpdating]      = useState(null);
+  const [filtroEst,     setFiltroEst]     = useState("activos");
+  const [seguimientoId, setSeguimientoId] = useState(null); // ticket id en edición
+  const [seguimientoTx, setSeguimientoTx] = useState("");   // texto del seguimiento
+  const [savingSeg,     setSavingSeg]     = useState(false);
+
+  // Bucket público → URL directa, sin signed URLs
+  const resolveUrl = (url) => url;
+
+  const abrirSeguimiento = (t) => {
+    setSeguimientoId(t.id);
+    setSeguimientoTx(t.seguimiento ?? "");
+  };
+
+  const guardarSeguimiento = async () => {
+    if (!seguimientoId) return;
+    setSavingSeg(true);
+    await supabase.from("tickets").update({ seguimiento: seguimientoTx.trim() || null }).eq("id", seguimientoId);
+    onUpdateStatus(seguimientoId, null, seguimientoTx.trim() || null);
+    setSeguimientoId(null);
+    setSeguimientoTx("");
+    setSavingSeg(false);
+  };
   const ESTADO = {
     pendiente:   { color:"#ef4444", label:"Pendiente"  },
     en_proceso:  { color:"#f59e0b", label:"En Proceso" },
@@ -288,26 +316,56 @@ function TicketDrawer({ barco, tickets, onClose, onUpdateStatus }) {
     onUpdateStatus(ticketId, nuevoEstado);
     setUpdating(null);
   };
+  const ticketsFiltrados = tickets.filter(t => {
+    if (filtroEst === "activos")     return t.estado === "pendiente" || t.estado === "en_proceso";
+    if (filtroEst === "solucionado") return t.estado === "solucionado";
+    return true; // "todos"
+  });
+  const cntActivos = tickets.filter(t=>t.estado==="pendiente"||t.estado==="en_proceso").length;
+  const cntSol     = tickets.filter(t=>t.estado==="solucionado").length;
   return (
     <div style={{ position:"fixed", inset:0, background:"rgba(3,5,12,0.88)", backdropFilter:"blur(20px)", display:"flex", alignItems:"flex-start", justifyContent:"flex-end", zIndex:9999, padding:16 }}
       onClick={e=>e.target===e.currentTarget && onClose()}>
       <div style={{ background:"rgba(6,10,20,0.98)", border:`1px solid ${C.b1}`, borderRadius:16, width:"min(480px,95vw)", maxHeight:"90vh", overflowY:"auto", boxShadow:"0 24px 60px rgba(0,0,0,0.8)" }}>
-        <div style={{ padding:"20px 24px", borderBottom:`1px solid ${C.b0}`, position:"sticky", top:0, background:"rgba(6,10,20,0.98)", display:"flex", justifyContent:"space-between", alignItems:"center" }}>
-          <div>
-            <div style={{ fontSize:16, color:C.t0, fontWeight:700 }}>{barco.nombre_barco}</div>
-            <div style={{ display:"flex", gap:8, alignItems:"center", marginTop:4 }}>
-              {barco.obras && (
-                <span style={{ fontFamily:C.mono, fontSize:10, padding:"1px 7px", borderRadius:5, background:"rgba(59,130,246,0.1)", border:"1px solid rgba(59,130,246,0.2)", color:"#93c5fd" }}>
-                  Obra {barco.obras.codigo}
-                </span>
-              )}
-              <span style={{ fontSize:11, color:C.t1 }}>{barco.propietario} · {tickets.length} ticket{tickets.length!==1?"s":""}</span>
+        <div style={{ padding:"20px 24px", borderBottom:`1px solid ${C.b0}`, position:"sticky", top:0, background:"rgba(6,10,20,0.98)" }}>
+          <div style={{ display:"flex", justifyContent:"space-between", alignItems:"flex-start", marginBottom:12 }}>
+            <div>
+              <div style={{ fontSize:16, color:C.t0, fontWeight:700 }}>{barco.nombre_barco}</div>
+              <div style={{ display:"flex", gap:8, alignItems:"center", marginTop:4 }}>
+                {barco.obras && (
+                  <span style={{ fontFamily:C.mono, fontSize:10, padding:"1px 7px", borderRadius:5, background:"rgba(59,130,246,0.1)", border:"1px solid rgba(59,130,246,0.2)", color:"#93c5fd" }}>
+                    Obra {barco.obras.codigo}
+                  </span>
+                )}
+                <span style={{ fontSize:11, color:C.t1 }}>{barco.propietario}</span>
+              </div>
             </div>
+            <button onClick={onClose} style={{ background:"transparent", border:"none", color:C.t1, cursor:"pointer", fontSize:22 }}>×</button>
           </div>
-          <button onClick={onClose} style={{ background:"transparent", border:"none", color:C.t1, cursor:"pointer", fontSize:22 }}>×</button>
+          {/* Filtros de estado */}
+          <div style={{ display:"flex", gap:6 }}>
+            {[
+              { key:"activos",     label:`Activos (${cntActivos})`,      color:"#f59e0b" },
+              { key:"solucionado", label:`Solucionados (${cntSol})`,     color:"#10b981" },
+              { key:"todos",       label:`Todos (${tickets.length})`,    color:"#60a5fa" },
+            ].map(f=>(
+              <button key={f.key} onClick={()=>setFiltroEst(f.key)}
+                style={{ padding:"4px 10px", borderRadius:7, fontSize:10, cursor:"pointer", fontWeight: filtroEst===f.key?700:400,
+                  background: filtroEst===f.key?`${f.color}18`:"transparent",
+                  border: `1px solid ${filtroEst===f.key?f.color+"55":C.b0}`,
+                  color: filtroEst===f.key?f.color:C.t2, transition:"all 0.15s" }}>
+                {f.label}
+              </button>
+            ))}
+          </div>
         </div>
         <div style={{ padding:"16px 24px", display:"flex", flexDirection:"column", gap:12 }}>
-          {tickets.map(t => {
+          {ticketsFiltrados.length === 0 && (
+            <div style={{ fontSize:12, color:C.t2, textAlign:"center", padding:"24px 0", fontStyle:"italic" }}>
+              Sin tickets en esta categoría
+            </div>
+          )}
+          {ticketsFiltrados.map(t => {
             const est = ESTADO[t.estado] || ESTADO.pendiente;
             return (
               <div key={t.id} style={{ padding:16, borderRadius:12, border:`1px solid ${C.b0}`, background:"rgba(255,255,255,0.02)", borderLeft:`3px solid ${est.color}` }}>
@@ -321,16 +379,94 @@ function TicketDrawer({ barco, tickets, onClose, onUpdateStatus }) {
                   <span style={{ color:C.t2, fontSize:10, fontFamily:C.mono }}>#{t.id}</span>
                 </div>
                 <p style={{ color:"#888", fontSize:12, margin:"0 0 12px", lineHeight:1.6 }}>{t.descripcion}</p>
-                {t.ubicacion_barco && <div style={{ color:C.t2, fontSize:11, marginBottom:8 }}>📍 {t.ubicacion_barco}</div>}
-                {t.telefono        && <div style={{ color:C.t2, fontSize:11, marginBottom:12 }}>📱 {t.telefono}</div>}
-                <div style={{ display:"flex", gap:6 }}>
-                  {["pendiente","en_proceso","solucionado"].map(s=>(
-                    <button key={s} disabled={t.estado===s || updating===t.id}
-                      onClick={()=>cambiarEstado(t.id, s)}
-                      style={{ flex:1, padding:"6px 8px", borderRadius:7, border:`1px solid ${ESTADO[s].color}44`, background:t.estado===s?`${ESTADO[s].color}22`:"transparent", color:t.estado===s?ESTADO[s].color:C.t2, fontSize:10, cursor:t.estado===s?"default":"pointer", fontWeight:t.estado===s?700:400, transition:"all 0.15s" }}>
-                      {s==="pendiente"?"🔴 Pendiente":s==="en_proceso"?"🟡 En Proceso":"🟢 Solucionar"}
+                {t.ubicacion_barco && <div style={{ color:C.t2, fontSize:11, marginBottom:6 }}>{t.ubicacion_barco}</div>}
+                {t.telefono        && <div style={{ color:C.t2, fontSize:11, marginBottom:8, fontFamily:C.mono }}>{t.telefono}</div>}
+                {t.adjuntos?.length > 0 && (
+                  <div style={{ display:"flex", flexDirection:"column", gap:8, marginBottom:10 }}>
+                    {t.adjuntos.map((url,i) => {
+                      const isVideo = /\.(mp4|mov|webm|avi|mkv)$/i.test(url.split("?")[0]);
+                      const isImage = /\.(jpg|jpeg|png|gif|webp|heic)$/i.test(url.split("?")[0]);
+                      if (isVideo) return (
+                        <video key={i} controls style={{ width:"100%", borderRadius:8, border:`1px solid ${C.b0}`, background:"#000", maxHeight:300 }}>
+                          <source src={url} />
+                        </video>
+                      );
+                      if (isImage) return (
+                        <a key={i} href={url} target="_blank" rel="noopener noreferrer">
+                          <img src={url} alt={`adj ${i+1}`}
+                            style={{ width:"100%", borderRadius:8, border:`1px solid ${C.b0}`, maxHeight:300, objectFit:"cover", display:"block", cursor:"zoom-in" }}
+                            onError={e=>{ e.target.style.display="none"; e.target.nextSibling.style.display="flex"; }}
+                          />
+                          <a href={url} target="_blank" rel="noopener noreferrer"
+                            style={{ display:"none", alignItems:"center", gap:8, padding:"8px 12px", borderRadius:8, border:`1px solid ${C.b0}`, fontSize:11, color:C.t1, textDecoration:"none", background:"rgba(255,255,255,0.03)" }}>
+                            <span>📎</span><span>Adjunto {i+1}</span><span style={{ marginLeft:"auto", fontSize:10, color:C.t2 }}>↗ abrir</span>
+                          </a>
+                        </a>
+                      );
+                      return (
+                        <a key={i} href={url} target="_blank" rel="noopener noreferrer"
+                          style={{ display:"flex", alignItems:"center", gap:8, padding:"8px 12px", borderRadius:8, border:`1px solid ${C.b0}`, fontSize:11, color:C.t1, textDecoration:"none", background:"rgba(255,255,255,0.03)" }}>
+                          <span style={{ fontSize:16 }}>📎</span>
+                          <span>Adjunto {i+1}</span>
+                          <span style={{ marginLeft:"auto", fontSize:10, color:C.t2 }}>↗ abrir</span>
+                        </a>
+                      );
+                    })}
+                  </div>
+                )}
+                {/* Seguimiento existente */}
+                {seguimientoId !== t.id && t.seguimiento && (
+                  <div style={{ padding:"10px 12px", borderRadius:8, background:"rgba(59,130,246,0.07)", border:"1px solid rgba(59,130,246,0.2)", marginBottom:10 }}>
+                    <div style={{ display:"flex", justifyContent:"space-between", alignItems:"center", marginBottom:4 }}>
+                      <span style={{ fontSize:9, color:"#4a7aaa", letterSpacing:2, textTransform:"uppercase" }}>Seguimiento</span>
+                      <button onClick={()=>abrirSeguimiento(t)} style={{ background:"transparent", border:"none", color:"#4a7aaa", cursor:"pointer", fontSize:10 }}>✎ editar</button>
+                    </div>
+                    <p style={{ fontSize:12, color:"#7aabdc", lineHeight:1.6, margin:0 }}>{t.seguimiento}</p>
+                  </div>
+                )}
+
+                {/* Editor de seguimiento */}
+                {seguimientoId === t.id ? (
+                  <div style={{ marginBottom:10 }}>
+                    <textarea
+                      autoFocus
+                      value={seguimientoTx}
+                      onChange={e=>setSeguimientoTx(e.target.value)}
+                      placeholder="Escribí el seguimiento para el cliente..."
+                      style={{ width:"100%", boxSizing:"border-box", background:"rgba(59,130,246,0.06)", border:"1px solid rgba(59,130,246,0.3)", color:C.t0, padding:"10px 12px", borderRadius:8, fontSize:12, lineHeight:1.6, minHeight:80, resize:"vertical", outline:"none", fontFamily:C.sans }}
+                    />
+                    <div style={{ display:"flex", gap:6, marginTop:6 }}>
+                      <button onClick={guardarSeguimiento} disabled={savingSeg}
+                        style={{ flex:1, padding:"7px", borderRadius:7, background:"rgba(59,130,246,0.2)", border:"1px solid rgba(59,130,246,0.4)", color:"#93c5fd", fontSize:11, fontWeight:700, cursor:"pointer" }}>
+                        {savingSeg ? "Guardando…" : "✓ Guardar seguimiento"}
+                      </button>
+                      <button onClick={()=>setSeguimientoId(null)}
+                        style={{ padding:"7px 12px", borderRadius:7, background:"transparent", border:`1px solid ${C.b0}`, color:C.t2, fontSize:11, cursor:"pointer" }}>
+                        Cancelar
+                      </button>
+                    </div>
+                  </div>
+                ) : (
+                  !t.seguimiento && (
+                    <button onClick={()=>abrirSeguimiento(t)}
+                      style={{ width:"100%", padding:"6px", marginBottom:10, borderRadius:7, background:"transparent", border:`1px dashed ${C.b0}`, color:C.t2, fontSize:10, cursor:"pointer", textAlign:"left" }}>
+                      + Agregar seguimiento
                     </button>
-                  ))}
+                  )
+                )}
+
+                {/* Cambiar estado */}
+                <div style={{ display:"flex", gap:6 }}>
+                  {["pendiente","en_proceso","solucionado"].map(s=>{
+                    const col = ESTADO[s].color;
+                    return (
+                      <button key={s} disabled={t.estado===s || updating===t.id}
+                        onClick={()=>cambiarEstado(t.id, s)}
+                        style={{ flex:1, padding:"7px 8px", borderRadius:7, border:`1px solid ${col}44`, background:t.estado===s?`${col}22`:"transparent", color:t.estado===s?col:C.t2, fontSize:10, cursor:t.estado===s?"default":"pointer", fontWeight:t.estado===s?700:400, transition:"all 0.15s" }}>
+                        {s==="pendiente"?"Pendiente":s==="en_proceso"?"En Proceso":"Solucionado"}
+                      </button>
+                    );
+                  })}
                 </div>
                 <div style={{ fontSize:10, color:C.t2, marginTop:8, textAlign:"right", fontFamily:C.mono }}>
                   {new Date(t.fecha_creacion).toLocaleString("es-AR")}
@@ -395,24 +531,24 @@ export default function PostVentaScreen({ profile, signOut }) {
     } catch(e) { console.warn("join obras:", e.message); }
     setFlota(flotaFinal);
 
-    // Tickets activos
+    // Todos los tickets (activos + solucionados)
     const { data: tData } = await supabase
       .from("tickets")
-      .select("*, clientes(obra_id)")
-      .in("estado", ["pendiente", "en_proceso"])
+      .select("*")
       .order("fecha_creacion", { ascending: false });
+
     const map = {};
+    const addMap = (key, ticket) => {
+      if (!key) return;
+      if (!map[key]) map[key] = [];
+      if (!map[key].find(x => x.id === ticket.id)) map[key].push(ticket);
+    };
     (tData ?? []).forEach(t => {
-      const obraId = t.clientes?.obra_id;
-      if (obraId) {
-        if (!map[`obra_${obraId}`]) map[`obra_${obraId}`] = [];
-        map[`obra_${obraId}`].push(t);
-      }
+      // 1. Por cliente_id del ticket → matchea con postventa_flota.cliente_id
+      if (t.cliente_id) addMap(`cli_${t.cliente_id}`, t);
+      // 2. Por nombre del barco (fallback para registros sin cliente_id vinculado)
       const barcoName = t.nombre_barco_ticket?.trim().toLowerCase();
-      if (barcoName) {
-        if (!map[`nombre_${barcoName}`]) map[`nombre_${barcoName}`] = [];
-        map[`nombre_${barcoName}`].push(t);
-      }
+      if (barcoName) addMap(`nombre_${barcoName}`, t);
     });
     setTicketMap(map);
 
@@ -434,10 +570,16 @@ export default function PostVentaScreen({ profile, signOut }) {
   useEffect(()=>{ cargarFlota(); }, []);
 
   const getTickets = (barco) => {
-    if (barco.obra_id && ticketMap[`obra_${barco.obra_id}`]?.length)
-      return ticketMap[`obra_${barco.obra_id}`];
-    const key = `nombre_${barco.nombre_barco?.trim().toLowerCase()}`;
-    return ticketMap[key] ?? [];
+    const results = new Map();
+    const add = (arr) => (arr ?? []).forEach(t => results.set(t.id, t));
+
+    // 1. Por cliente_id del barco (postventa_flota.cliente_id → ticket.cliente_id)
+    if (barco.cliente_id) add(ticketMap[`cli_${barco.cliente_id}`]);
+    // 2. Por nombre del barco (fallback — cuando cliente_id es null en postventa_flota)
+    const barcoName = barco.nombre_barco?.trim().toLowerCase();
+    if (barcoName) add(ticketMap[`nombre_${barcoName}`]);
+
+    return [...results.values()];
   };
 
   function handleMapsInput(e) {
@@ -472,7 +614,9 @@ export default function PostVentaScreen({ profile, signOut }) {
       detalle_ubicacion: form.detalle_ubicacion,
       latitud:           parseFloat(String(form.latitud).replace(",",".")),
       longitud:          parseFloat(String(form.longitud).replace(",",".")),
-      obra_id:           form.obra_id || null,
+      obra_id: form.obra_id && obras.some(o => o.id === form.obra_id)
+  ? form.obra_id
+  : null,
     }]);
     if (error) { alert("Error al registrar: "+error.message); return; }
     setShowModal(false); setShowLocPrev(false);
@@ -503,12 +647,17 @@ export default function PostVentaScreen({ profile, signOut }) {
     window.open(`https://wa.me/?text=${encodeURIComponent(msj)}`,"_blank");
   }
 
-  const updateTicketStatus = (ticketId, nuevoEstado) => {
+  const updateTicketStatus = (ticketId, nuevoEstado, nuevoSeguimiento) => {
     setTicketMap(prev => {
       const next = {...prev};
       Object.keys(next).forEach(k => {
-        next[k] = next[k].map(t=>t.id===ticketId?{...t,estado:nuevoEstado}:t)
-                         .filter(t=>t.estado!=="solucionado");
+        next[k] = next[k].map(t => {
+          if (t.id !== ticketId) return t;
+          const upd = {...t};
+          if (nuevoEstado    !== null && nuevoEstado    !== undefined) upd.estado      = nuevoEstado;
+          if (nuevoSeguimiento !== undefined) upd.seguimiento = nuevoSeguimiento;
+          return upd;
+        });
       });
       return next;
     });
@@ -609,7 +758,7 @@ export default function PostVentaScreen({ profile, signOut }) {
                 </div>
                 {totalTicketsPendientes > 0 && (
                   <div style={{ padding:"2px 10px", borderRadius:99, background:"rgba(239,68,68,0.15)", border:"1px solid rgba(239,68,68,0.35)", fontSize:11, fontFamily:C.mono, color:"#ef4444", fontWeight:700 }}>
-                    🔴 {totalTicketsPendientes} pendiente{totalTicketsPendientes>1?"s":""}
+                    <Circle size={7} color="#ef4444" fill="#ef4444" style={{marginRight:4}}/> {totalTicketsPendientes} pendiente{totalTicketsPendientes>1?"s":""}
                   </div>
                 )}
                 {/* Badge de barcos sin GPS */}
@@ -619,7 +768,7 @@ export default function PostVentaScreen({ profile, signOut }) {
                     style={{ padding:"2px 10px", borderRadius:99, background: soloSinGps ? "rgba(245,158,11,0.2)" : "rgba(245,158,11,0.08)", border: soloSinGps ? "1px solid rgba(245,158,11,0.6)" : "1px solid rgba(245,158,11,0.3)", fontSize:11, fontFamily:C.mono, color:"#f59e0b", fontWeight:600, cursor:"pointer", pointerEvents:"auto" }}
                     title="Barcos sin ubicación GPS — clic para filtrar"
                   >
-                    📍 {sinGpsCount} sin GPS
+                    <MapPin size={9} style={{marginRight:3}}/> {sinGpsCount} sin GPS
                   </div>
                 )}
               </div>
@@ -644,7 +793,7 @@ export default function PostVentaScreen({ profile, signOut }) {
                   </button>
                   {sinGpsCount > 0 && (
                     <button onClick={()=>setSoloSinGps(s=>!s)} style={{ display:"flex", alignItems:"center", gap:7, padding:"5px 12px", borderRadius:8, border:soloSinGps?"1px solid rgba(245,158,11,0.5)":`1px solid ${C.b0}`, background:soloSinGps?"rgba(245,158,11,0.12)":"transparent", color:soloSinGps?"#f59e0b":C.t1, fontSize:11, fontWeight:600, cursor:"pointer", transition:"all 0.15s" }}>
-                      📍 {soloSinGps ? `Sin GPS (${sinGpsCount})` : "Todos"}
+                      <MapPin size={9} style={{marginRight:3}}/> {soloSinGps ? `Sin GPS (${sinGpsCount})` : "Todos"}
                     </button>
                   )}
                 </div>
@@ -663,6 +812,7 @@ export default function PostVentaScreen({ profile, signOut }) {
                   const bTickets  = getTickets(b);
                   const pendCount = bTickets.filter(t=>t.estado==="pendiente").length;
                   const procCount = bTickets.filter(t=>t.estado==="en_proceso").length;
+                  const solCount  = bTickets.filter(t=>t.estado==="solucionado").length;
                   const sinGps    = !b.latitud || !b.longitud;
                   return (
                     <div key={b.id} style={{ ...S.card, borderLeft: sinGps ? "2px solid rgba(245,158,11,0.4)" : "2px solid transparent" }} className="boat-card" onClick={()=>!sinGps && centrarMapa(b.latitud,b.longitud)}>
@@ -681,6 +831,7 @@ export default function PostVentaScreen({ profile, signOut }) {
                         <div style={{ display:"flex", gap:5, flexShrink:0, marginLeft:8 }}>
                           {pendCount > 0 && <span style={{ padding:"2px 8px", borderRadius:99, background:"rgba(239,68,68,0.15)", border:"1px solid rgba(239,68,68,0.35)", color:"#ef4444", fontSize:9, fontWeight:700 }}>{pendCount}</span>}
                           {procCount > 0 && <span style={{ padding:"2px 8px", borderRadius:99, background:"rgba(245,158,11,0.15)", border:"1px solid rgba(245,158,11,0.35)", color:"#f59e0b", fontSize:9, fontWeight:700 }}>{procCount}</span>}
+                          {solCount  > 0 && <span style={{ padding:"2px 8px", borderRadius:99, background:"rgba(16,185,129,0.15)", border:"1px solid rgba(16,185,129,0.35)", color:"#10b981", fontSize:9, fontWeight:700 }}>✓{solCount}</span>}
                           <button onClick={e=>eliminarBarco(e,b.id,b.nombre_barco)} style={{ background:"transparent", border:"none", color:C.t2, cursor:"pointer", fontSize:16, padding:"2px 4px" }} title="Eliminar">×</button>
                         </div>
                       </div>
@@ -709,7 +860,7 @@ export default function PostVentaScreen({ profile, signOut }) {
                         {/* Si tiene GPS, mostrar centrar. Si no, ocultar centrar */}
                         {!sinGps && (
                           <button style={{ background:"rgba(255,255,255,0.04)", border:`1px solid ${C.b0}`, color:C.t1, padding:"5px 12px", borderRadius:7, fontSize:11, fontWeight:600, cursor:"pointer" }}
-                            onClick={e=>{ e.stopPropagation(); centrarMapa(b.latitud,b.longitud); }}>⌖ Centrar</button>
+                            onClick={e=>{ e.stopPropagation(); centrarMapa(b.latitud,b.longitud); }}><Crosshair size={11} style={{marginRight:4}}/> Centrar</button>
                         )}
 
                         {/* Editar siempre visible */}
@@ -734,7 +885,7 @@ export default function PostVentaScreen({ profile, signOut }) {
                           </button>
                         )}
                         <button style={{ background:"rgba(61,206,106,0.1)", border:"1px solid rgba(61,206,106,0.3)", color:C.green, padding:"5px 10px", borderRadius:7, fontSize:11, cursor:"pointer" }}
-                          onClick={e=>compartirWhatsApp(e,b)}>↗</button>
+                          onClick={e=>compartirWhatsApp(e,b)} title="Compartir por WhatsApp"><ExternalLink size={11}/></button>
                       </div>
                     </div>
                   );
@@ -783,7 +934,7 @@ export default function PostVentaScreen({ profile, signOut }) {
               </div>
               <button type="button" style={{ width:"100%", background:"rgba(255,255,255,0.04)", border:`1px solid ${C.b1}`, color:C.t0, padding:"12px 16px", borderRadius:10, fontSize:13, fontWeight:600, cursor:"pointer", marginBottom:14, textAlign:"left", display:"flex", alignItems:"center", gap:10 }}
                 onClick={()=>{ setShowModal(false); setIsSelecting(true); }}>
-                <div style={{ width:28, height:28, borderRadius:8, background:"rgba(255,255,255,0.06)", border:`1px solid ${C.b0}`, display:"flex", alignItems:"center", justifyContent:"center", fontSize:14, flexShrink:0 }}>⌖</div>
+                <div style={{ width:28, height:28, borderRadius:8, background:"rgba(255,255,255,0.06)", border:`1px solid ${C.b0}`, display:"flex", alignItems:"center", justifyContent:"center", flexShrink:0 }}><Crosshair size={14}/></div>
                 <div><div style={{ fontSize:12, fontWeight:600, color:C.t0 }}>Opción B · Marcar en el mapa</div><div style={{ fontSize:11, color:C.t1, marginTop:2 }}>Hacé clic directo en el lugar exacto</div></div>
               </button>
             </div>
@@ -825,7 +976,7 @@ export default function PostVentaScreen({ profile, signOut }) {
       {drawerBarco && (
         <TicketDrawer
           barco={drawerBarco.barco}
-          tickets={drawerBarco.tickets}
+          tickets={getTickets(drawerBarco.barco)}
           onClose={()=>setDrawerBarco(null)}
           onUpdateStatus={updateTicketStatus}
         />

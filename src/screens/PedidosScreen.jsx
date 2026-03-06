@@ -18,6 +18,7 @@ const C = {
   amber:   "#f59e0b",
   green:   "#10b981",
   red:     "#ef4444",
+  violet:  "#8b5cf6",
 };
 const GLASS = {
   backdropFilter: "blur(32px) saturate(130%)",
@@ -40,9 +41,10 @@ function fmtTS(ts) {
 }
 
 const ESTADOS = [
-  { value: "pedido",   label: "Pedido",      color: C.amber,   bg: "rgba(245,158,11,0.1)",  border: "rgba(245,158,11,0.25)"  },
-  { value: "transito", label: "En tránsito", color: C.primary, bg: "rgba(59,130,246,0.1)",  border: "rgba(59,130,246,0.25)"  },
-  { value: "recibido", label: "Recibido ✅",  color: C.green,   bg: "rgba(16,185,129,0.1)",  border: "rgba(16,185,129,0.25)"  },
+  { value: "pedido",   label: "Pedido",        color: C.amber,   bg: "rgba(245,158,11,0.1)",  border: "rgba(245,158,11,0.25)"  },
+  { value: "transito", label: "En tránsito",   color: C.primary, bg: "rgba(59,130,246,0.1)",  border: "rgba(59,130,246,0.25)"  },
+  { value: "parcial",  label: "Parcial ⚠️",    color: C.violet,  bg: "rgba(139,92,246,0.1)",  border: "rgba(139,92,246,0.25)"  },
+  { value: "recibido", label: "Recibido ✅",    color: C.green,   bg: "rgba(16,185,129,0.1)",  border: "rgba(16,185,129,0.25)"  },
 ];
 
 const ESTADO_META = Object.fromEntries(ESTADOS.map(e => [e.value, e]));
@@ -158,19 +160,23 @@ export default function PedidosScreen({ profile, signOut }) {
     const { data: auth } = await supabase.auth.getUser().catch(() => ({ data: { user: null } }));
     const userId = auth?.user?.id ?? null;
     const patch  = { estado };
-    if (estado === "recibido") patch.recibido_por = userId;
+    if (estado === "recibido") {
+      patch.recibido_por = userId;
+      patch.recibido_en  = new Date().toISOString();
+    }
     const { error } = await supabase.from("pedidos").update(patch).eq("id", pedidoId);
     if (error) return setError(error.message);
+
     await cargarPedidos();
     if (pedidoSel?.id === pedidoId) {
-      const actualizado = pedidos.find(p => p.id === pedidoId) ?? pedidoSel;
-      setPedidoSel({ ...actualizado, estado });
+      setPedidoSel(prev => ({ ...prev, estado }));
     }
   }
 
   // Estadísticas topbar
   const statPedido   = pedidos.filter(p => p.estado === "pedido").length;
   const statTransito = pedidos.filter(p => p.estado === "transito").length;
+  const statParcial  = pedidos.filter(p => p.estado === "parcial").length;
   const statRecibido = pedidos.filter(p => p.estado === "recibido").length;
 
   // Chips de estado
@@ -223,13 +229,14 @@ export default function PedidosScreen({ profile, signOut }) {
             <div style={{ flex: 1 }}>
               <div style={{ fontSize: 13, fontWeight: 600, color: C.t0 }}>Pedidos</div>
               <div style={{ fontSize: 9, color: C.t2, letterSpacing: 1.5, textTransform: "uppercase", marginTop: 1 }}>
-                Gestión de proveedores
+                Registro y seguimiento
               </div>
             </div>
 
             {[
               { label: "Pedido",    val: statPedido,   color: C.amber   },
               { label: "Tránsito",  val: statTransito, color: C.primary },
+              { label: "Parcial",   val: statParcial,  color: C.violet  },
               { label: "Recibido",  val: statRecibido, color: C.green   },
             ].map(s => (
               <div key={s.label} style={{
@@ -314,9 +321,11 @@ export default function PedidosScreen({ profile, signOut }) {
                     Ayuda
                   </div>
                   <div style={{ fontSize: 12, color: C.t1, lineHeight: 1.6 }}>
-                    Creá un pedido y abrilo para agregar items.<br />
-                    Vinculá cada item a un material para que el Inventario muestre{" "}
-                    <span style={{ fontFamily: C.mono, fontSize: 10, color: C.amber }}>PEDIDO</span>.
+                    Creá un pedido, agregá items y actualizá el estado a medida que avanza.<br />
+                    <span style={{ color: C.t2 }}>
+                      Los pedidos son solo registro — <strong style={{ color: C.t0 }}>no modifican el stock</strong>.<br />
+                      Cargá ingresos y egresos manualmente desde el Inventario.
+                    </span>
                   </div>
                 </div>
               </div>
@@ -395,7 +404,7 @@ export default function PedidosScreen({ profile, signOut }) {
                       }} onClick={() => setPedidoSel(null)}>
                         Cerrar
                       </button>
-                      {["pedido", "transito", "recibido"].map(est => {
+                      {["pedido", "transito", "parcial", "recibido"].map(est => {
                         const m = ESTADO_META[est];
                         return (
                           <button key={est} style={{
@@ -443,17 +452,17 @@ export default function PedidosScreen({ profile, signOut }) {
                     {/* Lista de items */}
                     <div style={{ background: "rgba(0,0,0,0.2)", borderRadius: 8, overflow: "hidden" }}>
                       <div style={{
-                        display: "grid", gridTemplateColumns: "1fr 80px 70px 80px 80px",
+                        display: "grid", gridTemplateColumns: "1fr 80px 70px 80px 1fr 80px",
                         gap: 10, padding: "8px 12px",
                         borderBottom: `1px solid ${C.b0}`,
                       }}>
-                        {["Descripción", "Cantidad", "Unidad", "Vinculado", "Acción"].map(h => (
+                        {["Descripción", "Cantidad", "Unidad", "Vinculado", "Nota recepción", "Acción"].map(h => (
                           <div key={h} style={{ fontSize: 9, color: C.t2, letterSpacing: 2, textTransform: "uppercase" }}>{h}</div>
                         ))}
                       </div>
                       {items.map(it => (
                         <div key={it.id} className="item-row" style={{
-                          display: "grid", gridTemplateColumns: "1fr 80px 70px 80px 80px",
+                          display: "grid", gridTemplateColumns: "1fr 80px 70px 80px 1fr 80px",
                           gap: 10, padding: "10px 12px",
                           borderBottom: `1px solid rgba(255,255,255,0.04)`,
                           alignItems: "center",
@@ -464,6 +473,21 @@ export default function PedidosScreen({ profile, signOut }) {
                           <div style={{ fontSize: 11, color: it.material_id ? C.green : C.t2 }}>
                             {it.material_id ? "✅" : "—"}
                           </div>
+                          <input
+                            style={{
+                              background: "transparent", border: `1px solid ${C.b0}`,
+                              color: C.t1, fontSize: 11, borderRadius: 6,
+                              padding: "4px 8px", fontFamily: C.sans, outline: "none", width: "100%",
+                            }}
+                            placeholder="Ej: vinieron 3 de 5…"
+                            defaultValue={it.nota_recepcion ?? ""}
+                            onBlur={async e => {
+                              const val = e.target.value.trim();
+                              await supabase.from("pedido_items")
+                                .update({ nota_recepcion: val || null })
+                                .eq("id", it.id);
+                            }}
+                          />
                           <div>
                             <button style={{
                               border: "1px solid rgba(239,68,68,0.25)", background: "rgba(239,68,68,0.08)",
