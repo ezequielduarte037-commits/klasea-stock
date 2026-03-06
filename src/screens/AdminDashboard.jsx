@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { supabase } from "../supabaseClient";
 import Sidebar from "../components/Sidebar";
+import StockChartsPanel from "./StockChartsPanel";
 
 function num(v) { const x = Number(v); return Number.isFinite(x) ? x : 0; }
 
@@ -271,6 +272,7 @@ export default function AdminDashboard({ profile, signOut }) {
               <KpiCard label="Crítico"  value={stats.cr} color={C.red}     bg="rgba(239,68,68,0.06)"   border="rgba(239,68,68,0.15)"  />
               <KpiCard label="Pedido"   value={stats.pe} color="#93c5fd"   bg="rgba(59,130,246,0.06)"  border="rgba(59,130,246,0.15)" />
             </div>
+<StockChartsPanel rows={filtrados} />
 
             {/* Tabla */}
             <div style={{ background: C.s0, border: `1px solid ${C.b0}`, borderRadius: 12, overflow: "hidden", animation: "slideUp .3s ease" }}>

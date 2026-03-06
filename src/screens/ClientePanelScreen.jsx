@@ -17,6 +17,7 @@ import {
   FileText, Upload, Paperclip, Image as ImageIcon, Video as VideoIcon,
   Trash2, ZoomIn
 } from "lucide-react";
+import { SecEstado, SecBienvenidaPlus, ENHANCED_CSS } from "./PanelEnhanced";
 
 /* ─────────────────────────────────────────────────────────────
    CSS — TITANIUM SYSTEM
@@ -332,6 +333,8 @@ details[open] .arr{transform:rotate(90deg)}
   .mob-hdr{display:flex!important}
   .mob-ovl{display:block!important}
 }
+
+${ENHANCED_CSS}
 `;
 
 /* ─────────────────────────────────────────────────────────────
@@ -1459,6 +1462,7 @@ function SecSoporte({clienteId,nombreBarco,obraId,push}){
    ───────────────────────────────────────────────────────────── */
 const NAV_ITEMS = [
   {id:"bienvenida",    l:"Inicio",            ico:<Home size={13}/>},
+  {id:"estado",        l:"Estado",            ico:<Activity size={13}/>},
   {id:"configuracion", l:"Identidad",          ico:<Settings size={13}/>},
   {id:"resumen",       l:"Planificador",       ico:<Navigation size={13}/>},
   {id:"energia",       l:"Energía y Tableros", ico:<Zap size={13}/>},
@@ -1576,15 +1580,16 @@ export default function ClientePanelScreen({session,onSignOut}){
           {/* Section */}
           <div key={sec} className="senter"
             style={{padding:sec==="bienvenida"?"0":"clamp(20px,4vw,48px) clamp(16px,4vw,48px)"}}>
-            {sec==="bienvenida"    &&<SecBienvenida    {...sp}/>}
-            {sec==="configuracion" &&<SecIdentidad     {...sp}/>}
-            {sec==="resumen"       &&<SecPlanificador  {...sp}/>}
-            {sec==="energia"       &&<SecEnergia       {...sp}/>}
-            {sec==="propulsion"    &&<SecPropulsion    {...sp}/>}
-            {sec==="sistemas"      &&<SecSistemas      {...sp}/>}
-            {sec==="seguridad"     &&<SecSeguridad     {...sp}/>}
-            {sec==="tutoriales"    &&<SecTutoriales    {...sp}/>}
-            {sec==="soporte"       &&<SecSoporte       {...sp}/>}
+            {sec==="bienvenida"    &&<SecBienvenidaPlus {...sp}/>}
+            {sec==="estado"        &&<SecEstado         {...sp}/>}
+            {sec==="configuracion" &&<SecIdentidad      {...sp}/>}
+            {sec==="resumen"       &&<SecPlanificador   {...sp}/>}
+            {sec==="energia"       &&<SecEnergia        {...sp}/>}
+            {sec==="propulsion"    &&<SecPropulsion     {...sp}/>}
+            {sec==="sistemas"      &&<SecSistemas       {...sp}/>}
+            {sec==="seguridad"     &&<SecSeguridad      {...sp}/>}
+            {sec==="tutoriales"    &&<SecTutoriales     {...sp}/>}
+            {sec==="soporte"       &&<SecSoporte        {...sp}/>}
           </div>
         </main>
       </div>
