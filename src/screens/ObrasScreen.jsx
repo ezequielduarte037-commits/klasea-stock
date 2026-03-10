@@ -15,7 +15,6 @@ import Sidebar from "../components/Sidebar";
 import PlanificacionView from "./PlanificacionView";
 import MapaProduccion    from "./MapaProduccion";
 import PanelDetallesObra from "./PanelDetallesObra";
-import { PLANTILLA_K42, PLANTILLA_K52 } from "./plantillas_data";
 
 // ─── UTILS ────────────────────────────────────────────────────────────────────
 const num        = v => { const x = Number(v); return Number.isFinite(x) ? x : 0; };
@@ -1143,15 +1142,7 @@ function LineasEtapasModal({ linea, lProcs, lTareas = [], onClose, onSaved }) {
   const [saving,      setSaving]      = useState(false);
   const [toast,       setToast]       = useState(null);
   const [editBuf,     setEditBuf]     = useState({});
-  const [importing,   setImporting]   = useState(false);
-  const [importPreview, setImportPreview] = useState(null);
 
-  // Detectar si esta línea tiene plantilla disponible
-  const nombreLower = linea.nombre.toLowerCase();
-  const plantillaDisponible =
-    nombreLower.includes("k42") || nombreLower.includes("42") ? { data: PLANTILLA_K42, label: "K42" } :
-    nombreLower.includes("k52") || nombreLower.includes("52") ? { data: PLANTILLA_K52, label: "K52" } :
-    null;
 
   // ── Tareas de plantilla ──────────────────────────────────────
   const [expandedProc,  setExpandedProc]  = useState(null);
@@ -1295,82 +1286,6 @@ function LineasEtapasModal({ linea, lProcs, lTareas = [], onClose, onSaved }) {
     onSaved();
   }
 
-  async function recargar() {
-    setLoadingAll(true); setLoadingTareas(true);
-    const { data: procs } = await supabase.from("linea_procesos").select("*").eq("linea_id", linea.id).order("orden");
-    if (procs?.length) setItems(procs);
-    setLoadingAll(false);
-    const procIds = (procs ?? []).map(p => p.id);
-    if (!procIds.length) { setLoadingTareas(false); return; }
-    const { data: tData } = await supabase.from("linea_proceso_tareas").select("*").in("linea_proceso_id", procIds).order("linea_proceso_id").order("orden");
-    if (tData) setTareasState(tData);
-    setLoadingTareas(false);
-  }
-
-  async function importarPlantillaCompleta(plantillaData) {
-    setImporting(true);
-    setImportPreview(null);
-    let creados = 0, tareasCreadas = 0, errores = [];
-    try {
-      // Cargar procesos actuales de la línea, ordenados
-      const { data: procsActuales } = await supabase
-        .from("linea_procesos").select("*").eq("linea_id", linea.id).order("orden");
-      const dbOrden = (procsActuales ?? []).sort((a, b) => (a.orden ?? 0) - (b.orden ?? 0));
-      const jsOrden = [...plantillaData].sort((a, b) => (a.orden ?? 0) - (b.orden ?? 0));
-
-      for (let i = 0; i < jsOrden.length; i++) {
-        const proc = jsOrden[i];
-        let procId;
-
-        // 1. Match por nombre exacto (insensible a mayúsculas)
-        const porNombre = dbOrden.find(p => p.nombre.toLowerCase().trim() === proc.nombre.toLowerCase().trim());
-
-        if (porNombre) {
-          // Existe en DB con el mismo nombre → reusar
-          procId = porNombre.id;
-        } else if (dbOrden[i]) {
-          // Match por posición: el i-ésimo proceso de DB recibe las tareas del i-ésimo de la plantilla
-          // NO se crea un proceso nuevo ni se cambia el nombre en DB
-          procId = dbOrden[i].id;
-        } else {
-          // Solo crear si realmente no hay proceso en esa posición
-          const { data: newProc, error: eProc } = await supabase.from("linea_procesos").insert({
-            linea_id: linea.id, nombre: proc.nombre, orden: proc.orden,
-            color: proc.color, dias_estimados: proc.dias_estimados, activo: true,
-          }).select().single();
-          if (eProc) { errores.push(proc.nombre + ": " + eProc.message); continue; }
-          procId = newProc.id;
-          creados++;
-        }
-
-        // Insertar tareas evitando duplicados por nombre
-        const { data: tareasExistentes } = await supabase
-          .from("linea_proceso_tareas").select("nombre").eq("linea_proceso_id", procId);
-        const namesSet = new Set((tareasExistentes ?? []).map(t => t.nombre.toLowerCase().trim()));
-        const nuevas = proc.tareas.filter(t => !namesSet.has(t.nombre.toLowerCase().trim()));
-        if (nuevas.length > 0) {
-          const inserts = nuevas.map(t => ({
-            linea_proceso_id: procId, nombre: t.nombre, orden: t.orden,
-            horas_estimadas: t.horas_estimadas, personas_necesarias: t.personas_necesarias,
-            observaciones: t.observaciones, prioridad: "media",
-          }));
-          const { error: eTareas } = await supabase.from("linea_proceso_tareas").insert(inserts);
-          if (eTareas) errores.push("tareas de " + proc.nombre + ": " + eTareas.message);
-          else tareasCreadas += nuevas.length;
-        }
-      }
-
-      await recargar();
-      onSaved();
-      if (errores.length) flash(false, "Importado con errores: " + errores[0]);
-      else flash(true, `✓ ${creados} etapas nuevas, ${tareasCreadas} tareas cargadas en plantilla`);
-    } catch (e) {
-      flash(false, "Error: " + e.message);
-    } finally {
-      setImporting(false);
-    }
-  }
-
   const btnIcon = { border: `1px solid ${C.b0}`, background: "transparent", color: C.t2, cursor: "pointer", fontSize: 11, padding: "2px 7px", borderRadius: 5, fontFamily: C.sans };
 
   return (
@@ -1382,48 +1297,8 @@ function LineasEtapasModal({ linea, lProcs, lTareas = [], onClose, onSaved }) {
             <div style={{ fontSize: 15, color: C.t0, fontWeight: 600 }}>Plantilla de etapas</div>
             <div style={{ fontSize: 11, color: C.t1, marginTop: 3, display: "flex", alignItems: "center", gap: 6 }}><div style={{ width: 8, height: 8, borderRadius: "50%", background: linea.color ?? C.t2 }} />{linea.nombre}</div>
           </div>
-          <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-            {plantillaDisponible && (
-              <button
-                type="button"
-                disabled={importing}
-                onClick={() => setImportPreview(plantillaDisponible)}
-                style={{ padding: "6px 14px", borderRadius: 8, cursor: importing ? "not-allowed" : "pointer", fontSize: 11, fontFamily: C.sans, fontWeight: 600, border: "1px solid rgba(16,185,129,0.4)", background: "rgba(16,185,129,0.10)", color: importing ? C.t2 : "#34d399", opacity: importing ? 0.5 : 1 }}
-              >
-                {importing ? "Importando…" : `⬇ Importar ${plantillaDisponible.label}`}
-              </button>
-            )}
-            <Btn variant="ghost" onClick={onClose} sx={{ fontSize: 18 }}>×</Btn>
-          </div>
+          <Btn variant="ghost" onClick={onClose} sx={{ fontSize: 18 }}>×</Btn>
         </div>
-
-        {/* ── MODAL DE PREVIEW DE IMPORTACIÓN ── */}
-        {importPreview && (
-          <div style={{ marginBottom: 16, padding: 16, borderRadius: 10, background: "rgba(16,185,129,0.06)", border: "1px solid rgba(16,185,129,0.25)" }}>
-            <div style={{ fontSize: 13, color: "#34d399", fontWeight: 600, marginBottom: 8 }}>
-              ⬇ Importar plantilla {importPreview.label}
-            </div>
-            <div style={{ fontSize: 11, color: C.t1, marginBottom: 12, lineHeight: 1.6 }}>
-              Se importarán <strong style={{color:C.t0}}>{importPreview.data.length} etapas</strong> y <strong style={{color:C.t0}}>{importPreview.data.reduce((s,p)=>s+p.tareas.length,0)} tareas</strong> a la plantilla de esta línea.
-              Los procesos y tareas que ya existan <strong style={{color:C.t0}}>no serán duplicados</strong>.
-            </div>
-            <div style={{ maxHeight: 160, overflowY: "auto", marginBottom: 12, display: "flex", flexDirection: "column", gap: 4 }}>
-              {importPreview.data.map(proc => (
-                <div key={proc.nombre} style={{ display: "flex", alignItems: "center", gap: 8, padding: "4px 8px", borderRadius: 5, background: C.s0 }}>
-                  <div style={{ width: 8, height: 8, borderRadius: "50%", background: proc.color, flexShrink: 0 }} />
-                  <span style={{ fontSize: 11, color: C.t0, flex: 1 }}>{proc.nombre}</span>
-                  <span style={{ fontSize: 10, color: C.t2, fontFamily: C.mono }}>{proc.tareas.length} tareas · {proc.dias_estimados}d</span>
-                </div>
-              ))}
-            </div>
-            <div style={{ display: "flex", gap: 8 }}>
-              <Btn variant="green" disabled={importing} onClick={() => importarPlantillaCompleta(importPreview.data)}>
-                {importing ? "Importando…" : "✓ Confirmar importación"}
-              </Btn>
-              <Btn variant="outline" onClick={() => setImportPreview(null)}>Cancelar</Btn>
-            </div>
-          </div>
-        )}
         <div style={{ maxHeight: "55vh", overflowY: "auto", marginBottom: 12 }}>
           {loadingAll && <div style={{ textAlign: "center", padding: "28px 0", color: C.t2, fontSize: 12 }}>Cargando plantilla...</div>}
           {!loadingAll && items.length === 0 && !adding && <div style={{ textAlign: "center", padding: "28px 0", color: C.t2, fontSize: 12 }}>Sin etapas en esta plantilla</div>}
