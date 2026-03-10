@@ -1,14 +1,15 @@
 /**
- * MapaProduccion.jsx  v11 — "Ghost Protocol Edition"
+ * MapaProduccion.jsx  v12 — "PNG Blueprint Edition"
  * ─────────────────────────────────────────────────────────────────────────────
- * MAPEO DE PLANOS REALES:
- *   green  (img 1) → k37  Express Sport Cruiser (horizontal, amplio)
- *   cyan   (img 5) → k42  Open Sport Runabout  (vertical, proa afilada)
- *   pink   (img 2) → k43  Utility / Fishing    (horizontal, compartimentos)
- *   orange (img 3) → k52  Motor Cruiser Cabina (vertical, con cabina)
- *   red    (img 4) → k64  Yate Clásico Largo   (vertical, arcos góticos)
+ * MAPEO DE PLANOS REALES (PNG fondo negro, blend: screen):
+ *   k37  Express Sport Cruiser  → líneas cyan
+ *   k42  Open Sport Runabout    → líneas cyan
+ *   k43  Utility / Fishing      → líneas naranja/dorado
+ *   k52  Motor Cruiser Cabina   → líneas verde
+ *   k55  Sport Cruiser 55'      → líneas blanco/plata
+ *   k64  Yate Clásico Largo     → líneas rosa/lila
  *
- * FEATURES v11:
+ * FEATURES v12 (= v11 + PNGs reales):
  *  ① Menú Radial Contextual (click derecho)
  *  ② Command Palette ⌘K
  *  ③ Modo Cinemático / Foco (F)
@@ -16,9 +17,16 @@
  *  ⑤ Radar HUD minimap
  *  ⑥ Keyboard shortcuts (E R ± F Esc ⌘K)
  *  ⑦ Center-on-puesto desde palette
+ *  ⑧ PNG blend-mode screen (fondo negro = transparente)
  * ─────────────────────────────────────────────────────────────────────────────
  */
 import { useState, useMemo, useRef, useCallback, useEffect, useLayoutEffect } from "react";
+import k37Img from "./k37.png";
+import k42Img from "./k42.png";
+import k43Img from "./k43.png";
+import k52Img from "./k52.png";
+import k55Img from "./k55.png";
+import k64Img from "./k64.png";
 
 /* ─── PALETA ─────────────────────────────────────────────────── */
 const C = {
@@ -67,310 +75,19 @@ const WALLS=[
   [1025,618,1025,835],[560,525,740,525],[1305,5,1305,835],
 ];
 
-/* ─── HULL PATH ──────────────────────────────────────────────── */
-function hullPath(cx,cy,w,h){
-  const hw=w/2,t=cy-h/2,b=cy+h/2,mid=cy-h*0.08,bw=w*0.415,tw=w*0.355;
-  return `M ${cx} ${t} C ${cx+hw*0.38} ${t+h*0.11} ${cx+bw} ${t+h*0.32} ${cx+bw} ${mid} L ${cx+tw} ${b-h*0.06} Q ${cx+tw} ${b} ${cx+tw-2} ${b} L ${cx-tw+2} ${b} Q ${cx-tw} ${b} ${cx-tw} ${b-h*0.06} L ${cx-bw} ${mid} C ${cx-bw} ${t+h*0.32} ${cx-hw*0.38} ${t+h*0.11} ${cx} ${t} Z`;
-}
-
-/* ═══════════════════════════════════════════════════════════════
-   BOAT BLUEPRINTS — stroke-only (sin fills para no tapar el casco)
-   Coordenadas normalizadas:
-     X(f) = cx + f*(w/2)    f ∈ [-1..1]
-     Y(f) = t  + f*h        f ∈ [0..1]   (0=proa, 1=popa)
-═══════════════════════════════════════════════════════════════ */
-function BoatTypeDetails({cx,cy,w,h,tipo,col}){
-  const t=cy-h/2;
-  const s={pointerEvents:"none"};
-  // Stroke-only: NO fills sobre el casco sólido
-  const SO=0.75, SO2=0.40, SW=1.0, SW2=0.65;
-  const N="none"; // fill siempre none
-  const X=(f)=>cx+f*(w/2);
-  const Y=(f)=>t+f*h;
-
-  if(tipo==="k37") return(
-    <g style={s}>
-      <path d={`M${cx} ${Y(0.03)} C${X(0.20)} ${Y(0.09)} ${X(0.41)} ${Y(0.23)} ${X(0.42)} ${Y(0.41)} L${X(0.42)} ${Y(0.76)} C${X(0.40)} ${Y(0.91)} ${X(0.25)} ${Y(0.97)} ${cx} ${Y(0.99)}`} fill={N} stroke={col} strokeOpacity={SO2} strokeWidth={SW2}/>
-      <path d={`M${cx} ${Y(0.03)} C${X(-0.20)} ${Y(0.09)} ${X(-0.41)} ${Y(0.23)} ${X(-0.42)} ${Y(0.41)} L${X(-0.42)} ${Y(0.76)} C${X(-0.40)} ${Y(0.91)} ${X(-0.25)} ${Y(0.97)} ${cx} ${Y(0.99)}`} fill={N} stroke={col} strokeOpacity={SO2} strokeWidth={SW2}/>
-      <path d={`M${cx} ${Y(0.035)} C${X(0.12)} ${Y(0.10)} ${X(0.30)} ${Y(0.24)} ${X(0.31)} ${Y(0.42)} L${X(0.31)} ${Y(0.76)}`} fill={N} stroke={col} strokeOpacity={SO2*0.5} strokeWidth={SW2*0.6}/>
-      <path d={`M${cx} ${Y(0.035)} C${X(-0.12)} ${Y(0.10)} ${X(-0.30)} ${Y(0.24)} ${X(-0.31)} ${Y(0.42)} L${X(-0.31)} ${Y(0.76)}`} fill={N} stroke={col} strokeOpacity={SO2*0.5} strokeWidth={SW2*0.6}/>
-      <rect x={X(-0.15)} y={Y(0.08)} width={w*0.30} height={h*0.11} rx="3" fill={N} stroke={col} strokeOpacity={SO} strokeWidth={SW}/>
-      <line x1={cx} y1={Y(0.08)} x2={cx} y2={Y(0.19)} stroke={col} strokeOpacity={SO2} strokeWidth={SW2}/>
-      <line x1={X(-0.15)} y1={Y(0.135)} x2={X(0.15)} y2={Y(0.135)} stroke={col} strokeOpacity={SO2} strokeWidth={SW2}/>
-      <path d={`M${X(-0.38)} ${Y(0.225)} C${X(-0.28)} ${Y(0.185)} ${X(0.28)} ${Y(0.185)} ${X(0.38)} ${Y(0.225)}`} fill={N} stroke={col} strokeOpacity={SO} strokeWidth={SW}/>
-      <rect x={X(-0.38)} y={Y(0.225)} width={w*0.76} height={h*0.275} rx="4" fill={N} stroke={col} strokeOpacity={SO} strokeWidth={SW}/>
-      <rect x={X(-0.36)} y={Y(0.240)} width={w*0.30} height={h*0.245} rx="3" fill={N} stroke={col} strokeOpacity={SO*0.75} strokeWidth={SW2}/>
-      <line x1={X(-0.36)} y1={Y(0.360)} x2={X(-0.06)} y2={Y(0.360)} stroke={col} strokeOpacity={SO2} strokeWidth={SW2}/>
-      <rect x={X(-0.04)} y={Y(0.295)} width={w*0.11} height={h*0.160} rx="2" fill={N} stroke={col} strokeOpacity={SO2} strokeWidth={SW2}/>
-      <rect x={X(0.09)} y={Y(0.240)} width={w*0.27} height={h*0.110} rx="2" fill={N} stroke={col} strokeOpacity={SO*0.65} strokeWidth={SW2}/>
-      <rect x={X(0.09)} y={Y(0.355)} width={w*0.27} height={h*0.130} rx="2" fill={N} stroke={col} strokeOpacity={SO*0.65} strokeWidth={SW2}/>
-      <line x1={X(-0.42)} y1={Y(0.512)} x2={X(0.42)} y2={Y(0.512)} stroke={col} strokeOpacity={SO} strokeWidth={SW}/>
-      <rect x={X(0.04)} y={Y(0.518)} width={w*0.36} height={h*0.125} rx="3" fill={N} stroke={col} strokeOpacity={SO} strokeWidth={SW}/>
-      <circle cx={X(0.26)} cy={Y(0.580)} r={w*0.090} fill={N} stroke={col} strokeOpacity={SO} strokeWidth={SW}/>
-      <line x1={X(0.26)} y1={Y(0.580)-w*0.090} x2={X(0.26)} y2={Y(0.580)+w*0.090} stroke={col} strokeOpacity={SO*0.38} strokeWidth={SW2*0.7}/>
-      <line x1={X(0.26)-w*0.090} y1={Y(0.580)} x2={X(0.26)+w*0.090} y2={Y(0.580)} stroke={col} strokeOpacity={SO*0.38} strokeWidth={SW2*0.7}/>
-      {[0,1].map(i=><rect key={i} x={X(0.06)} y={Y(0.524+i*0.048)} width={w*0.11} height={h*0.036} rx="1" fill={N} stroke={col} strokeOpacity={SO2} strokeWidth={SW2}/>)}
-      <rect x={X(-0.42)} y={Y(0.518)} width={w*0.40} height={h*0.145} rx="3" fill={N} stroke={col} strokeOpacity={SO} strokeWidth={SW}/>
-      <line x1={X(-0.42)} y1={Y(0.534)} x2={X(-0.02)} y2={Y(0.534)} stroke={col} strokeOpacity={SO2} strokeWidth={SW2}/>
-      <line x1={X(-0.42)} y1={Y(0.675)} x2={X(0.42)} y2={Y(0.675)} stroke={col} strokeOpacity={SO} strokeWidth={SW}/>
-      <rect x={X(-0.42)} y={Y(0.678)} width={w*0.84} height={h*0.130} rx="3" fill={N} stroke={col} strokeOpacity={SO2} strokeWidth={SW2}/>
-      <line x1={cx} y1={Y(0.678)} x2={cx} y2={Y(0.808)} stroke={col} strokeOpacity={SO2*0.4} strokeWidth={SW2*0.5} strokeDasharray="4 3"/>
-      <line x1={X(-0.30)} y1={Y(0.815)} x2={X(0.30)} y2={Y(0.815)} stroke={col} strokeOpacity={SO} strokeWidth={SW}/>
-      <rect x={X(-0.30)} y={Y(0.815)} width={w*0.60} height={h*0.105} rx="2" fill={N} stroke={col} strokeOpacity={SO2} strokeWidth={SW2}/>
-      {[0,1,2,3,4,5].map(i=><line key={i} x1={X(-0.28)} y1={Y(0.825+i*0.016)} x2={X(0.28)} y2={Y(0.825+i*0.016)} stroke={col} strokeOpacity={SO2*0.35} strokeWidth={SW2*0.4}/>)}
-      <circle cx={X(-0.11)} cy={Y(0.952)} r={w*0.067} fill={N} stroke={col} strokeOpacity={SO2*0.8} strokeWidth={SW2*0.8}/>
-      <circle cx={X(0.11)} cy={Y(0.952)} r={w*0.067} fill={N} stroke={col} strokeOpacity={SO2*0.8} strokeWidth={SW2*0.8}/>
-    </g>
-  );
-
-  /* ── k42 ── CYAN ── Open Sport Runabout (vertical, proa muy afilada)
-     Imagen 5: proa con Y-cleat, windshield angosto, consola central,
-     asientos laterales, banco U popa, estribor con curvas orgánicas */
-  if(tipo==="k42") return(
-    <g style={s}>
-      {/* Bow cleat Y */}
-      <circle cx={cx} cy={Y(0.018)} r={w*0.038} fill="none" stroke={col} strokeOpacity={SO} strokeWidth={SW*0.65}/>
-      <path d={`M${cx} ${Y(0.0)} L${X(-0.06)} ${Y(0.006)} M${cx} ${Y(0.0)} L${X(0.06)} ${Y(0.006)} M${cx} ${Y(0.0)} L${cx} ${Y(0.010)}`} fill="none" stroke={col} strokeOpacity={SO*0.7} strokeWidth={SW*0.5}/>
-
-      {/* Inner rails dobles */}
-      <path d={`M${cx} ${Y(0.03)} C${X(0.18)} ${Y(0.09)} ${X(0.40)} ${Y(0.22)} ${X(0.41)} ${Y(0.42)} L${X(0.41)} ${Y(0.80)} C${X(0.39)} ${Y(0.91)} ${X(0.23)} ${Y(0.97)} ${cx} ${Y(0.99)}`} fill="none" stroke={col} strokeOpacity={SO2} strokeWidth={SW2}/>
-      <path d={`M${cx} ${Y(0.03)} C${X(-0.18)} ${Y(0.09)} ${X(-0.40)} ${Y(0.22)} ${X(-0.41)} ${Y(0.42)} L${X(-0.41)} ${Y(0.80)} C${X(-0.39)} ${Y(0.91)} ${X(-0.23)} ${Y(0.97)} ${cx} ${Y(0.99)}`} fill="none" stroke={col} strokeOpacity={SO2} strokeWidth={SW2}/>
-      <path d={`M${cx} ${Y(0.035)} C${X(0.11)} ${Y(0.10)} ${X(0.29)} ${Y(0.23)} ${X(0.30)} ${Y(0.43)} L${X(0.30)} ${Y(0.80)}`} fill="none" stroke={col} strokeOpacity={SO2*0.5} strokeWidth={SW2*0.55}/>
-      <path d={`M${cx} ${Y(0.035)} C${X(-0.11)} ${Y(0.10)} ${X(-0.29)} ${Y(0.23)} ${X(-0.30)} ${Y(0.43)} L${X(-0.30)} ${Y(0.80)}`} fill="none" stroke={col} strokeOpacity={SO2*0.5} strokeWidth={SW2*0.55}/>
-
-      {/* Forward bow seat curved */}
-      <path d={`M${X(-0.28)} ${Y(0.265)} C${X(-0.22)} ${Y(0.190)} ${X(0.22)} ${Y(0.190)} ${X(0.28)} ${Y(0.265)}`} fill="none" stroke={col} strokeOpacity={SO} strokeWidth={SW}/>
-      <path d={`M${X(-0.20)} ${Y(0.265)} C${X(-0.14)} ${Y(0.200)} ${X(0.14)} ${Y(0.200)} ${X(0.20)} ${Y(0.265)} L${X(0.20)} ${Y(0.265)} L${X(-0.20)} ${Y(0.265)} Z`} fill="none" stroke={col} strokeOpacity={SO2} strokeWidth={SW2}/>
-      <rect x={X(-0.05)} y={Y(0.200)} width={w*0.10} height={h*0.040} rx="2" fill="none" stroke={col} strokeOpacity={SO2} strokeWidth={SW2}/>
-
-      {/* Windshield */}
-      <path d={`M${X(-0.28)} ${Y(0.268)} L${X(-0.28)} ${Y(0.340)} C${X(-0.18)} ${Y(0.360)} ${X(0.18)} ${Y(0.360)} ${X(0.28)} ${Y(0.340)} L${X(0.28)} ${Y(0.268)}`} fill="none" stroke={col} strokeOpacity={SO} strokeWidth={SW}/>
-      <path d={`M${X(-0.28)} ${Y(0.268)} C${X(-0.16)} ${Y(0.240)} ${X(0.16)} ${Y(0.240)} ${X(0.28)} ${Y(0.268)}`} fill="none" stroke={col} strokeOpacity={SO} strokeWidth={SW}/>
-
-      {/* Centro consola + timón */}
-      <rect x={X(-0.20)} y={Y(0.342)} width={w*0.40} height={h*0.110} rx="3" fill="none" stroke={col} strokeOpacity={SO} strokeWidth={SW}/>
-      <circle cx={cx} cy={Y(0.397)} r={w*0.088} fill="none" stroke={col} strokeOpacity={SO} strokeWidth={SW}/>
-      <circle cx={cx} cy={Y(0.397)} r={w*0.024} fill="none"/>
-      <line x1={cx} y1={Y(0.397)-w*0.088} x2={cx} y2={Y(0.397)+w*0.088} stroke={col} strokeOpacity={SO*0.38} strokeWidth={SW2*0.7}/>
-      <line x1={cx-w*0.088} y1={Y(0.397)} x2={cx+w*0.088} y2={Y(0.397)} stroke={col} strokeOpacity={SO*0.38} strokeWidth={SW2*0.7}/>
-      {[0,1].map(i=><rect key={i} x={X(-0.18)} y={Y(0.350+i*0.038)} width={w*0.07} height={h*0.030} rx="1.5" fill="none" stroke={col} strokeOpacity={SO2} strokeWidth={SW2}/>)}
-      {[0,1].map(i=><rect key={i} x={X(0.11)} y={Y(0.350+i*0.038)} width={w*0.07} height={h*0.030} rx="1.5" fill="none" stroke={col} strokeOpacity={SO2} strokeWidth={SW2}/>)}
-
-      {/* Asientos laterales mid */}
-      <rect x={X(-0.42)} y={Y(0.485)} width={w*0.12} height={h*0.150} rx="2" fill="none" stroke={col} strokeOpacity={SO} strokeWidth={SW*0.7}/>
-      <rect x={X(0.30)} y={Y(0.485)} width={w*0.12} height={h*0.150} rx="2" fill="none" stroke={col} strokeOpacity={SO} strokeWidth={SW*0.7}/>
-      <line x1={X(-0.42)} y1={Y(0.504)} x2={X(-0.30)} y2={Y(0.504)} stroke={col} strokeOpacity={SO2} strokeWidth={SW2}/>
-      <line x1={X(0.30)} y1={Y(0.504)} x2={X(0.42)} y2={Y(0.504)} stroke={col} strokeOpacity={SO2} strokeWidth={SW2}/>
-
-      {/* Banco U popa — curvas orgánicas (característica cyan) */}
-      <rect x={X(-0.42)} y={Y(0.660)} width={w*0.12} height={h*0.175} rx="3" fill="none" stroke={col} strokeOpacity={SO} strokeWidth={SW}/>
-      <rect x={X(0.30)} y={Y(0.660)} width={w*0.12} height={h*0.175} rx="3" fill="none" stroke={col} strokeOpacity={SO} strokeWidth={SW}/>
-      <rect x={X(-0.42)} y={Y(0.820)} width={w*0.84} height={h*0.065} rx="3" fill="none" stroke={col} strokeOpacity={SO} strokeWidth={SW}/>
-      {/* Curva interior asiento (la forma orgánica visible en imagen) */}
-      <path d={`M${X(-0.30)} ${Y(0.700)} C${X(-0.16)} ${Y(0.680)} ${X(0.16)} ${Y(0.680)} ${X(0.30)} ${Y(0.700)}`} fill="none" stroke={col} strokeOpacity={SO2} strokeWidth={SW2}/>
-      <path d={`M${X(-0.24)} ${Y(0.730)} C${X(-0.12)} ${Y(0.710)} ${X(0.12)} ${Y(0.710)} ${X(0.24)} ${Y(0.730)}`} fill="none" stroke={col} strokeOpacity={SO2*0.8} strokeWidth={SW2*0.7}/>
-
-      {/* Engine hatch */}
-      <rect x={X(-0.18)} y={Y(0.892)} width={w*0.36} height={h*0.055} rx="2" fill="none" stroke={col} strokeOpacity={SO2} strokeWidth={SW2}/>
-      {/* Outboard lines */}
-      {[0,1,2].map(i=><line key={i} x1={X(-0.32+i*0.16)} y1={Y(0.963)} x2={X(-0.32+i*0.16)} y2={Y(0.990)} stroke={col} strokeOpacity={SO2*(0.8-i*0.2)} strokeWidth={SW2*(0.9-i*0.2)}/>)}
-      <line x1={X(-0.32)} y1={Y(0.963)} x2={X(0.32)} y2={Y(0.963)} stroke={col} strokeOpacity={SO2*0.7} strokeWidth={SW2*0.6}/>
-    </g>
-  );
-
-  /* ── k43 ── PINK ── Utility / Fishing (horizontal, proa a derecha, casco rompe-ola)
-     Imagen 2: perfil bajo y largo, bow pointy, compartimentos pequeños en proa,
-     centro abierto, grilla de compartimentos en popa */
-  if(tipo==="k43") return(
-    <g style={s}>
-      {/* Inner rail simple */}
-      <path d={`M${cx} ${Y(0.04)} C${X(0.16)} ${Y(0.11)} ${X(0.37)} ${Y(0.25)} ${X(0.38)} ${Y(0.43)} L${X(0.38)} ${Y(0.82)} C${X(0.36)} ${Y(0.92)} ${X(0.22)} ${Y(0.97)} ${cx} ${Y(0.99)}`} fill="none" stroke={col} strokeOpacity={SO2} strokeWidth={SW2}/>
-      <path d={`M${cx} ${Y(0.04)} C${X(-0.16)} ${Y(0.11)} ${X(-0.37)} ${Y(0.25)} ${X(-0.38)} ${Y(0.43)} L${X(-0.38)} ${Y(0.82)} C${X(-0.36)} ${Y(0.92)} ${X(-0.22)} ${Y(0.97)} ${cx} ${Y(0.99)}`} fill="none" stroke={col} strokeOpacity={SO2} strokeWidth={SW2}/>
-
-      {/* Proa: compartimentos pequeños 2x2 cada banda */}
-      <rect x={X(-0.37)} y={Y(0.11)} width={w*0.17} height={h*0.090} rx="2" fill="none" stroke={col} strokeOpacity={SO} strokeWidth={SW*0.75}/>
-      <rect x={X(-0.37)} y={Y(0.205)} width={w*0.17} height={h*0.090} rx="2" fill="none" stroke={col} strokeOpacity={SO} strokeWidth={SW*0.75}/>
-      <rect x={X(0.20)} y={Y(0.11)} width={w*0.17} height={h*0.090} rx="2" fill="none" stroke={col} strokeOpacity={SO} strokeWidth={SW*0.75}/>
-      <rect x={X(0.20)} y={Y(0.205)} width={w*0.17} height={h*0.090} rx="2" fill="none" stroke={col} strokeOpacity={SO} strokeWidth={SW*0.75}/>
-
-      {/* Centro proa hatch */}
-      <rect x={X(-0.12)} y={Y(0.120)} width={w*0.24} height={h*0.140} rx="3" fill="none" stroke={col} strokeOpacity={SO2} strokeWidth={SW2}/>
-      <line x1={cx} y1={Y(0.120)} x2={cx} y2={Y(0.260)} stroke={col} strokeOpacity={SO2*0.6} strokeWidth={SW2*0.6}/>
-
-      {/* Bulkhead proa */}
-      <line x1={X(-0.37)} y1={Y(0.310)} x2={X(0.37)} y2={Y(0.310)} stroke={col} strokeOpacity={SO*0.65} strokeWidth={SW*0.8}/>
-
-      {/* Hull central open (keel dashed) */}
-      <line x1={X(-0.37)} y1={Y(0.310)} x2={X(-0.37)} y2={Y(0.640)} stroke={col} strokeOpacity={SO2} strokeWidth={SW2}/>
-      <line x1={X(0.37)} y1={Y(0.310)} x2={X(0.37)} y2={Y(0.640)} stroke={col} strokeOpacity={SO2} strokeWidth={SW2}/>
-      <line x1={cx} y1={Y(0.310)} x2={cx} y2={Y(0.640)} stroke={col} strokeOpacity={SO2*0.35} strokeWidth={SW2*0.5} strokeDasharray="4 4"/>
-
-      {/* Aft bulkhead */}
-      <line x1={X(-0.38)} y1={Y(0.645)} x2={X(0.38)} y2={Y(0.645)} stroke={col} strokeOpacity={SO} strokeWidth={SW}/>
-
-      {/* Grid popa: 3 filas x 4 columnas */}
-      {/* Fila 1 */}
-      <rect x={X(-0.38)} y={Y(0.648)} width={w*0.21} height={h*0.088} rx="1.5" fill="none" stroke={col} strokeOpacity={SO} strokeWidth={SW*0.7}/>
-      <rect x={X(-0.16)} y={Y(0.648)} width={w*0.14} height={h*0.088} rx="1.5" fill="none" stroke={col} strokeOpacity={SO} strokeWidth={SW*0.7}/>
-      <rect x={X(-0.01)} y={Y(0.648)} width={w*0.14} height={h*0.088} rx="1.5" fill="none" stroke={col} strokeOpacity={SO} strokeWidth={SW*0.7}/>
-      <rect x={X(0.15)} y={Y(0.648)} width={w*0.23} height={h*0.088} rx="1.5" fill="none" stroke={col} strokeOpacity={SO} strokeWidth={SW*0.7}/>
-      {/* Fila 2 */}
-      <rect x={X(-0.38)} y={Y(0.742)} width={w*0.21} height={h*0.088} rx="1.5" fill="none" stroke={col} strokeOpacity={SO} strokeWidth={SW*0.7}/>
-      <rect x={X(-0.16)} y={Y(0.742)} width={w*0.29} height={h*0.088} rx="1.5" fill="none" stroke={col} strokeOpacity={SO} strokeWidth={SW*0.7}/>
-      <rect x={X(0.15)} y={Y(0.742)} width={w*0.23} height={h*0.088} rx="1.5" fill="none" stroke={col} strokeOpacity={SO} strokeWidth={SW*0.7}/>
-      {/* Fila 3 bench */}
-      <rect x={X(-0.37)} y={Y(0.836)} width={w*0.74} height={h*0.068} rx="2" fill="none" stroke={col} strokeOpacity={SO2} strokeWidth={SW2}/>
-
-      {/* Stern motor */}
-      <rect x={X(-0.17)} y={Y(0.916)} width={w*0.34} height={h*0.055} rx="2" fill="none" stroke={col} strokeOpacity={SO2} strokeWidth={SW2}/>
-    </g>
-  );
-
-  /* ── k52 ── ORANGE ── Motor Cruiser con Cabina (vertical)
-     Imagen 3: proa con ornamento Y, doble rail, cabina grande,
-     litera proa, helm stbd con instrumentos columna, asiento port,
-     cockpit popa, swim platform teca, 2 outdrives */
-  if(tipo==="k52") return(
-    <g style={s}>
-      {/* Ornamento Y en proa */}
-      <circle cx={cx} cy={Y(0.018)} r={w*0.038} fill="none" stroke={col} strokeOpacity={SO} strokeWidth={SW*0.65}/>
-      <path d={`M${cx} ${Y(0.0)} L${X(-0.06)} ${Y(0.005)} M${cx} ${Y(0.0)} L${X(0.06)} ${Y(0.005)} M${cx} ${Y(0.0)} L${cx} ${Y(0.010)}`} fill="none" stroke={col} strokeOpacity={SO*0.7} strokeWidth={SW*0.55}/>
-
-      {/* Doble rail */}
-      <path d={`M${cx} ${Y(0.03)} C${X(0.16)} ${Y(0.09)} ${X(0.37)} ${Y(0.21)} ${X(0.38)} ${Y(0.37)} L${X(0.38)} ${Y(0.82)} C${X(0.36)} ${Y(0.93)} ${X(0.20)} ${Y(0.97)} ${cx} ${Y(0.99)}`} fill="none" stroke={col} strokeOpacity={SO2} strokeWidth={SW2}/>
-      <path d={`M${cx} ${Y(0.03)} C${X(-0.16)} ${Y(0.09)} ${X(-0.37)} ${Y(0.21)} ${X(-0.38)} ${Y(0.37)} L${X(-0.38)} ${Y(0.82)} C${X(-0.36)} ${Y(0.93)} ${X(-0.20)} ${Y(0.97)} ${cx} ${Y(0.99)}`} fill="none" stroke={col} strokeOpacity={SO2} strokeWidth={SW2}/>
-      <path d={`M${cx} ${Y(0.035)} C${X(0.10)} ${Y(0.09)} ${X(0.28)} ${Y(0.22)} ${X(0.29)} ${Y(0.38)} L${X(0.29)} ${Y(0.82)}`} fill="none" stroke={col} strokeOpacity={SO2*0.5} strokeWidth={SW2*0.6}/>
-      <path d={`M${cx} ${Y(0.035)} C${X(-0.10)} ${Y(0.09)} ${X(-0.28)} ${Y(0.22)} ${X(-0.29)} ${Y(0.38)} L${X(-0.29)} ${Y(0.82)}`} fill="none" stroke={col} strokeOpacity={SO2*0.5} strokeWidth={SW2*0.6}/>
-
-      {/* Windshield cabin front */}
-      <path d={`M${X(-0.35)} ${Y(0.155)} C${X(-0.26)} ${Y(0.105)} ${X(0.26)} ${Y(0.105)} ${X(0.35)} ${Y(0.155)}`} fill="none" stroke={col} strokeOpacity={SO} strokeWidth={SW}/>
-      <path d={`M${X(-0.26)} ${Y(0.155)} C${X(-0.18)} ${Y(0.115)} ${X(0.18)} ${Y(0.115)} ${X(0.26)} ${Y(0.155)}`} fill="none" stroke={col} strokeOpacity={SO2} strokeWidth={SW2}/>
-
-      {/* Cabina outline */}
-      <rect x={X(-0.35)} y={Y(0.155)} width={w*0.70} height={h*0.270} rx="3" fill="none" stroke={col} strokeOpacity={SO} strokeWidth={SW}/>
-
-      {/* Litera doble proa */}
-      <rect x={X(-0.27)} y={Y(0.175)} width={w*0.54} height={h*0.148} rx="4" fill="none" stroke={col} strokeOpacity={SO*0.75} strokeWidth={SW2}/>
-      <line x1={cx} y1={Y(0.175)} x2={cx} y2={Y(0.323)} stroke={col} strokeOpacity={SO2*0.6} strokeWidth={SW2*0.6}/>
-
-      {/* Bulkhead interior */}
-      <line x1={X(-0.35)} y1={Y(0.333)} x2={X(0.35)} y2={Y(0.333)} stroke={col} strokeOpacity={SO2} strokeWidth={SW2}/>
-      {/* Baño (port) */}
-      <rect x={X(-0.34)} y={Y(0.335)} width={w*0.18} height={h*0.085} rx="2" fill="none" stroke={col} strokeOpacity={SO2} strokeWidth={SW2}/>
-      {/* Galley (stbd) */}
-      <rect x={X(0.16)} y={Y(0.335)} width={w*0.18} height={h*0.085} rx="2" fill="none" stroke={col} strokeOpacity={SO2} strokeWidth={SW2}/>
-
-      {/* Bulkhead cockpit */}
-      <line x1={X(-0.38)} y1={Y(0.435)} x2={X(0.38)} y2={Y(0.435)} stroke={col} strokeOpacity={SO} strokeWidth={SW}/>
-
-      {/* Pasaje central con trama (stripe area visible en imagen) */}
-      <rect x={X(-0.09)} y={Y(0.437)} width={w*0.18} height={h*0.258} rx="2" fill="none" stroke={col} strokeOpacity={SO2} strokeWidth={SW2}/>
-      {[0,1,2,3,4,5,6,7].map(i=><line key={i} x1={X(-0.08)} y1={Y(0.447+i*0.029)} x2={X(0.08)} y2={Y(0.447+i*0.029)} stroke={col} strokeOpacity={SO2*0.45} strokeWidth={SW2*0.5}/>)}
-
-      {/* Helm console stbd + instrumentos columna */}
-      <rect x={X(0.08)} y={Y(0.440)} width={w*0.29} height={h*0.210} rx="3" fill="none" stroke={col} strokeOpacity={SO} strokeWidth={SW}/>
-      {[0,1,2,3].map(i=><rect key={i} x={X(0.10)} y={Y(0.450+i*0.044)} width={w*0.10} height={h*0.033} rx="1" fill="none" stroke={col} strokeOpacity={SO2} strokeWidth={SW2}/>)}
-      {[0,1,2].map(i=><rect key={i} x={X(0.24)} y={Y(0.452+i*0.055)} width={w*0.11} height={h*0.040} rx="1.5" fill="none" stroke={col} strokeOpacity={SO2} strokeWidth={SW2}/>)}
-
-      {/* Asiento port cockpit */}
-      <rect x={X(-0.38)} y={Y(0.440)} width={w*0.27} height={h*0.160} rx="3" fill="none" stroke={col} strokeOpacity={SO} strokeWidth={SW}/>
-      <line x1={X(-0.38)} y1={Y(0.455)} x2={X(-0.11)} y2={Y(0.455)} stroke={col} strokeOpacity={SO2} strokeWidth={SW2}/>
-
-      {/* Aft bulkhead */}
-      <line x1={X(-0.38)} y1={Y(0.706)} x2={X(0.38)} y2={Y(0.706)} stroke={col} strokeOpacity={SO} strokeWidth={SW}/>
-
-      {/* Aft cockpit seating */}
-      <rect x={X(-0.38)} y={Y(0.710)} width={w*0.22} height={h*0.135} rx="3" fill="none" stroke={col} strokeOpacity={SO} strokeWidth={SW}/>
-      <rect x={X(0.16)} y={Y(0.710)} width={w*0.22} height={h*0.135} rx="3" fill="none" stroke={col} strokeOpacity={SO} strokeWidth={SW}/>
-      <rect x={X(-0.10)} y={Y(0.715)} width={w*0.20} height={h*0.120} rx="2" fill="none" stroke={col} strokeOpacity={SO2} strokeWidth={SW2}/>
-
-      {/* Swim platform teca */}
-      <line x1={X(-0.32)} y1={Y(0.855)} x2={X(0.32)} y2={Y(0.855)} stroke={col} strokeOpacity={SO} strokeWidth={SW}/>
-      <rect x={X(-0.32)} y={Y(0.855)} width={w*0.64} height={h*0.095} rx="2" fill="none" stroke={col} strokeOpacity={SO2} strokeWidth={SW2}/>
-      {[0,1,2,3,4].map(i=><line key={i} x1={X(-0.30)} y1={Y(0.864+i*0.017)} x2={X(0.30)} y2={Y(0.864+i*0.017)} stroke={col} strokeOpacity={SO2*0.38} strokeWidth={SW2*0.45}/>)}
-
-      {/* Outdrives x2 */}
-      <circle cx={X(-0.10)} cy={Y(0.965)} r={w*0.060} fill="none" stroke={col} strokeOpacity={SO2} strokeWidth={SW2}/>
-      <circle cx={X(0.10)} cy={Y(0.965)} r={w*0.060} fill="none" stroke={col} strokeOpacity={SO2} strokeWidth={SW2}/>
-    </g>
-  );
-
-  /* ── k64 ── RED ── Yate Clásico Alargado (vertical, muy elongado)
-     Imagen 4: 3 rails, arcos góticos en proa (feature MÁS ICÓNICA),
-     grilla de marcos estructurales, sección media, helm, cover curvo motor,
-     compartimentos popa, transom */
-  if(tipo==="k64") return(
-    <g style={s}>
-      {/* 3 rails internos (muy visible en imagen) */}
-      <path d={`M${cx} ${Y(0.02)} C${X(0.10)} ${Y(0.065)} ${X(0.30)} ${Y(0.155)} ${X(0.32)} ${Y(0.260)} L${X(0.32)} ${Y(0.830)} C${X(0.30)} ${Y(0.930)} ${X(0.18)} ${Y(0.970)} ${cx} ${Y(0.990)}`} fill="none" stroke={col} strokeOpacity={SO2} strokeWidth={SW2}/>
-      <path d={`M${cx} ${Y(0.02)} C${X(-0.10)} ${Y(0.065)} ${X(-0.30)} ${Y(0.155)} ${X(-0.32)} ${Y(0.260)} L${X(-0.32)} ${Y(0.830)} C${X(-0.30)} ${Y(0.930)} ${X(-0.18)} ${Y(0.970)} ${cx} ${Y(0.990)}`} fill="none" stroke={col} strokeOpacity={SO2} strokeWidth={SW2}/>
-      <path d={`M${cx} ${Y(0.025)} C${X(0.065)} ${Y(0.07)} ${X(0.22)} ${Y(0.165)} ${X(0.24)} ${Y(0.268)} L${X(0.24)} ${Y(0.830)}`} fill="none" stroke={col} strokeOpacity={SO2*0.55} strokeWidth={SW2*0.6}/>
-      <path d={`M${cx} ${Y(0.025)} C${X(-0.065)} ${Y(0.07)} ${X(-0.22)} ${Y(0.165)} ${X(-0.24)} ${Y(0.268)} L${X(-0.24)} ${Y(0.830)}`} fill="none" stroke={col} strokeOpacity={SO2*0.55} strokeWidth={SW2*0.6}/>
-      <path d={`M${cx} ${Y(0.030)} C${X(0.035)} ${Y(0.075)} ${X(0.14)} ${Y(0.175)} ${X(0.16)} ${Y(0.278)} L${X(0.16)} ${Y(0.830)}`} fill="none" stroke={col} strokeOpacity={SO2*0.35} strokeWidth={SW2*0.5}/>
-      <path d={`M${cx} ${Y(0.030)} C${X(-0.035)} ${Y(0.075)} ${X(-0.14)} ${Y(0.175)} ${X(-0.16)} ${Y(0.278)} L${X(-0.16)} ${Y(0.830)}`} fill="none" stroke={col} strokeOpacity={SO2*0.35} strokeWidth={SW2*0.5}/>
-
-      {/* ★ ARCOS GÓTICOS en proa — feature más icónica de la imagen 4 */}
-      <path d={`M${X(-0.30)} ${Y(0.118)} C${X(-0.22)} ${Y(0.055)} ${X(0.22)} ${Y(0.055)} ${X(0.30)} ${Y(0.118)}`} fill="none" stroke={col} strokeOpacity={SO} strokeWidth={SW}/>
-      <path d={`M${X(-0.22)} ${Y(0.116)} C${X(-0.15)} ${Y(0.065)} ${X(0.15)} ${Y(0.065)} ${X(0.22)} ${Y(0.116)}`} fill="none" stroke={col} strokeOpacity={SO*0.75} strokeWidth={SW2}/>
-      <path d={`M${X(-0.14)} ${Y(0.113)} C${X(-0.09)} ${Y(0.075)} ${X(0.09)} ${Y(0.075)} ${X(0.14)} ${Y(0.113)}`} fill="none" stroke={col} strokeOpacity={SO*0.55} strokeWidth={SW2*0.7}/>
-      <path d={`M${X(-0.07)} ${Y(0.109)} C${X(-0.04)} ${Y(0.083)} ${X(0.04)} ${Y(0.083)} ${X(0.07)} ${Y(0.109)}`} fill="none" stroke={col} strokeOpacity={SO*0.35} strokeWidth={SW2*0.5}/>
-      {/* Gate horizontal */}
-      <line x1={X(-0.30)} y1={Y(0.118)} x2={X(0.30)} y2={Y(0.118)} stroke={col} strokeOpacity={SO} strokeWidth={SW}/>
-
-      {/* GRILLA ESTRUCTURAL (18 marcos, muy característico) */}
-      <line x1={X(-0.30)} y1={Y(0.118)} x2={X(-0.30)} y2={Y(0.475)} stroke={col} strokeOpacity={SO} strokeWidth={SW}/>
-      <line x1={X(0.30)} y1={Y(0.118)} x2={X(0.30)} y2={Y(0.475)} stroke={col} strokeOpacity={SO} strokeWidth={SW}/>
-      <line x1={cx} y1={Y(0.118)} x2={cx} y2={Y(0.475)} stroke={col} strokeOpacity={SO2} strokeWidth={SW2}/>
-      {[0.178,0.238,0.298,0.358,0.418,0.475].map(fy=><line key={fy} x1={X(-0.30)} y1={Y(fy)} x2={X(0.30)} y2={Y(fy)} stroke={col} strokeOpacity={SO2*(fy<0.400?1:0.7)} strokeWidth={SW2}/>)}
-
-      {/* Bulkhead mid */}
-      <line x1={X(-0.32)} y1={Y(0.480)} x2={X(0.32)} y2={Y(0.480)} stroke={col} strokeOpacity={SO} strokeWidth={SW}/>
-
-      {/* Sección media */}
-      <rect x={X(-0.28)} y={Y(0.482)} width={w*0.56} height={h*0.125} rx="2" fill="none" stroke={col} strokeOpacity={SO2} strokeWidth={SW2}/>
-      <line x1={cx} y1={Y(0.482)} x2={cx} y2={Y(0.607)} stroke={col} strokeOpacity={SO2*0.5} strokeWidth={SW2*0.5}/>
-
-      {/* Bulkhead cockpit */}
-      <line x1={X(-0.32)} y1={Y(0.615)} x2={X(0.32)} y2={Y(0.615)} stroke={col} strokeOpacity={SO} strokeWidth={SW}/>
-
-      {/* Helm stbd */}
-      <rect x={X(0.02)} y={Y(0.618)} width={w*0.28} height={h*0.120} rx="3" fill="none" stroke={col} strokeOpacity={SO} strokeWidth={SW}/>
-      <circle cx={X(0.18)} cy={Y(0.678)} r={w*0.080} fill="none" stroke={col} strokeOpacity={SO} strokeWidth={SW}/>
-      <circle cx={X(0.18)} cy={Y(0.678)} r={w*0.022} fill="none"/>
-      <line x1={X(0.18)} y1={Y(0.678)-w*0.080} x2={X(0.18)} y2={Y(0.678)+w*0.080} stroke={col} strokeOpacity={SO*0.35} strokeWidth={SW2*0.65}/>
-      <line x1={X(0.18)-w*0.080} y1={Y(0.678)} x2={X(0.18)+w*0.080} y2={Y(0.678)} stroke={col} strokeOpacity={SO*0.35} strokeWidth={SW2*0.65}/>
-
-      {/* Asiento port cockpit */}
-      <rect x={X(-0.32)} y={Y(0.618)} width={w*0.28} height={h*0.120} rx="3" fill="none" stroke={col} strokeOpacity={SO} strokeWidth={SW}/>
-
-      {/* Aft bulkhead */}
-      <line x1={X(-0.32)} y1={Y(0.752)} x2={X(0.32)} y2={Y(0.752)} stroke={col} strokeOpacity={SO} strokeWidth={SW}/>
-
-      {/* Cover motor CURVO (elemento muy visible en imagen) */}
-      <path d={`M${X(-0.28)} ${Y(0.800)} C${X(-0.28)} ${Y(0.754)} ${X(0.28)} ${Y(0.754)} ${X(0.28)} ${Y(0.800)}`} fill="none" stroke={col} strokeOpacity={SO} strokeWidth={SW}/>
-      <line x1={X(-0.28)} y1={Y(0.752)} x2={X(-0.28)} y2={Y(0.840)} stroke={col} strokeOpacity={SO2} strokeWidth={SW2}/>
-      <line x1={X(0.28)} y1={Y(0.752)} x2={X(0.28)} y2={Y(0.840)} stroke={col} strokeOpacity={SO2} strokeWidth={SW2}/>
-      <line x1={X(-0.28)} y1={Y(0.838)} x2={X(0.28)} y2={Y(0.838)} stroke={col} strokeOpacity={SO} strokeWidth={SW}/>
-
-      {/* Stern */}
-      <line x1={X(-0.32)} y1={Y(0.843)} x2={X(0.32)} y2={Y(0.843)} stroke={col} strokeOpacity={SO*0.65} strokeWidth={SW*0.8}/>
-      <rect x={X(-0.32)} y={Y(0.845)} width={w*0.28} height={h*0.090} rx="2" fill="none" stroke={col} strokeOpacity={SO} strokeWidth={SW*0.75}/>
-      <rect x={X(0.04)} y={Y(0.845)} width={w*0.28} height={h*0.090} rx="2" fill="none" stroke={col} strokeOpacity={SO} strokeWidth={SW*0.75}/>
-
-      {/* Transom + planks */}
-      <line x1={X(-0.28)} y1={Y(0.945)} x2={X(0.28)} y2={Y(0.945)} stroke={col} strokeOpacity={SO} strokeWidth={SW}/>
-      {[0,1,2].map(i=><line key={i} x1={X(-0.26)} y1={Y(0.952+i*0.015)} x2={X(0.26)} y2={Y(0.952+i*0.015)} stroke={col} strokeOpacity={SO2*0.38} strokeWidth={SW2*0.4}/>)}
-    </g>
-  );
-
-  /* Fallback */
-  return(
-    <g style={s}>
-      <rect x={cx-w*0.30} y={t+h*0.13} width={w*0.60} height={h*0.34} rx="4" fill="none" stroke={col} strokeOpacity={0.60} strokeWidth={1.5}/>
-      <path d={`M${cx-w*0.30},${t+h*0.26} Q${cx},${t+h*0.13} ${cx+w*0.30},${t+h*0.26}`} fill="none" stroke={col} strokeOpacity={0.60} strokeWidth={1.5}/>
-    </g>
-  );
-}
+/* ─── BOAT IMAGE MAP ─────────────────────────────────────────────
+   Los PNG tienen fondo negro. Con mixBlendMode:"screen" sobre el
+   fondo oscuro del SVG (#05050a) el negro desaparece y solo
+   quedan visibles las líneas de color del plano.
+─────────────────────────────────────────────────────────────────── */
+const BOAT_IMGS = {
+  k37: k37Img,
+  k42: k42Img,
+  k43: k43Img,
+  k52: k52Img,
+  k55: k55Img,
+  k64: k64Img,
+};
 
 /* ─── PUESTOS INICIALES ──────────────────────────────────────── */
 let _nextN=23;
@@ -397,8 +114,8 @@ const PUESTOS_INITIAL=[
   {id:"puesto-17", label:"17", cx:1220, cy:706, w:97,  h:208, rot:0, tipo:"k52"},
   {id:"puesto-18", label:"18", cx:1335, cy:706, w:97,  h:208, rot:0, tipo:"k52"},
   {id:"puesto-19", label:"19", cx:1450, cy:706, w:97,  h:208, rot:0, tipo:"k52"},
-  {id:"puesto-20", label:"20", cx:1590, cy:490, w:102, h:285, rot:0, tipo:"k64"},
-  {id:"puesto-21", label:"21", cx:1710, cy:490, w:102, h:285, rot:0, tipo:"k64"},
+  {id:"puesto-20", label:"20", cx:1590, cy:490, w:128, h:285, rot:0, tipo:"k64"},
+  {id:"puesto-21", label:"21", cx:1710, cy:490, w:128, h:285, rot:0, tipo:"k64"},
 ].filter(p=>p.w>0&&p.h>0);
 
 const LEGEND=[
@@ -639,7 +356,8 @@ function CinematicCallouts({p,obra,oC}){
         <line x1={p.cx} y1={p.cy-18} x2={p.cx} y2={p.cy+18} stroke="rgba(255,255,255,0.18)" strokeWidth="0.5"/>
         <circle cx={p.cx} cy={p.cy} r="4" fill="none" stroke="rgba(255,255,255,0.35)" strokeWidth="0.6"/>
       </g>
-      <path d={hullPath(p.cx,p.cy,p.w+16,p.h+16)} fill="none" stroke={oC.glow} strokeWidth="1.5" strokeOpacity="0.4" style={{animation:"focusIn 0.4s ease both",filter:`drop-shadow(0 0 6px ${oC.glow})`}}/>
+      {/* Glow outline sobre la imagen PNG — rect con bordes redondeados aproxima bien el casco */}
+      <rect x={p.cx-(p.w+16)/2} y={p.cy-(p.h+16)/2} width={p.w+16} height={p.h+16} rx={Math.min(p.w,p.h)*0.18} fill="none" stroke={oC.glow} strokeWidth="1.5" strokeOpacity="0.4" style={{animation:"focusIn 0.4s ease both",filter:`drop-shadow(0 0 6px ${oC.glow})`}}/>
     </g>
   );
 }
@@ -821,7 +539,7 @@ export default function MapaProduccion({obras=[],onPuestoClick,onAsignarObra,onC
   function addPuesto(){
     const v=vpRef.current,rect=svgRef.current?.getBoundingClientRect();
     const cx=rect?(rect.width/2-v.x)/v.scale:VB_W/2,cy=rect?(rect.height/2-v.y)/v.scale:VB_H/2;
-    const sizes={chico:{w:60,h:112,tipo:"k37"},mediano:{w:80,h:155,tipo:"k42"},grande:{w:94,h:185,tipo:"k52"},xl:{w:104,h:290,tipo:"k64"}};
+    const sizes={chico:{w:60,h:112,tipo:"k37"},mediano:{w:80,h:155,tipo:"k42"},utility:{w:75,h:158,tipo:"k43"},grande:{w:94,h:185,tipo:"k52"},crucero:{w:110,h:228,tipo:"k55"},xl:{w:128,h:285,tipo:"k64"}};
     setPuestos(prev=>[...prev,{id:genId(),label:String(_nextN-1).padStart(2,"0"),cx,cy,rot:0,...sizes[newPuestoSize]}]);
   }
   function removePuesto(id){setPuestos(prev=>prev.filter(p=>p.id!==id));setConfirmDel(null);}
@@ -851,6 +569,59 @@ export default function MapaProduccion({obras=[],onPuestoClick,onAsignarObra,onC
     const canDrop=!!obraDragPos&&isEmpty&&p.id!==dragRef.current?.fromId;
     const isDrop=obraDragOver===p.id;
     const sc=(isHov&&!editMode&&!isDragging)?1.03:1;
+    const imgSrc=BOAT_IMGS[p.tipo]??BOAT_IMGS.k52;
+    const ix=p.cx-p.w/2, iy=p.cy-p.h/2;
+    const clipId=`clip-${p.id}`;
+
+    /* ── Orientación correcta para PNGs horizontales en puestos verticales ──
+       Todos los PNG son horizontales (proa a la izquierda).
+       Si el puesto es vertical (h > w), rotamos la imagen 90° sobre su centro
+       para que encaje sin deformarse.
+       width  del <image> = lado largo  = Math.max(p.w, p.h)
+       height del <image> = lado corto  = Math.min(p.w, p.h)
+       x      del <image> = p.cx - Math.max(p.w, p.h) / 2
+       y      del <image> = p.cy - Math.min(p.w, p.h) / 2
+       Usamos preserveAspectRatio="none" para que llene exactamente la caja.
+    ─────────────────────────────────────────────────────────────────────── */
+    const isVertical = p.h > p.w;
+    const imgW = Math.max(p.w, p.h);
+    const imgH = Math.min(p.w, p.h);
+    const imgX = p.cx - imgW / 2;
+    const imgY = p.cy - imgH / 2;
+    const imgRot = isVertical ? `rotate(90,${p.cx},${p.cy})` : undefined;
+
+    const glowFilter=isEmpty
+      ? "none"
+      : isHov
+        ? `drop-shadow(0 0 14px ${oC.glow}) drop-shadow(0 0 5px ${oC.glow}) drop-shadow(0 5px 12px rgba(0,0,0,0.9))`
+        : `drop-shadow(0 0 6px ${oC.glow}90) drop-shadow(0 4px 10px rgba(0,0,0,0.85))`;
+
+    /* Helper que devuelve el <image> listo, con orientación corregida.
+       La rotación va en un <g> contenedor — más fiable cross-browser que
+       poner transform directo en <image> (especialmente en puestos verticales). */
+    const BoatImage = ({opacity=1, dx=0, dy=0, blur=false}) => {
+      const img = (
+        <image
+          href={imgSrc}
+          x={imgX+dx} y={imgY+dy} width={imgW} height={imgH}
+          preserveAspectRatio="none"
+          opacity={opacity}
+          draggable={false}
+          style={{pointerEvents:"none", userSelect:"none", mixBlendMode:"screen",
+                  ...(blur?{filter:"blur(4px)"}:{})}}
+        />
+      );
+      /* Para puestos verticales envolvemos en un <g> que rota 90°.
+         Esto evita bugs de renderizado SVG con transform en <image>. */
+      return isVertical
+        ? <g transform={imgRot}>{img}</g>
+        : img;
+    };
+
+    /* Posición del bloque info (pill + barra) — debajo de la caja, siempre horizontal.
+       Usamos la transformación inversa a p.rot para anular la rotación del <g> padre. */
+    const infoY = p.cy + Math.max(p.w,p.h)/2 + 18;
+
     return(
       <g key={p.id} transform={`rotate(${p.rot||0},${p.cx},${p.cy})`} style={{cursor:editMode?"grab":canDrop?"copy":"pointer"}}
         onMouseDown={e=>startPuestoDrag(e,p)}
@@ -859,66 +630,107 @@ export default function MapaProduccion({obras=[],onPuestoClick,onAsignarObra,onC
         onMouseMove={e=>!obraDragPos&&setTooltip({cx:e.clientX,cy:e.clientY,puesto:p})}
         onClick={e=>{if(dragRef.current&&!dragRef.current.moved){e.stopPropagation();handlePuestoClick(p);}}}
         onContextMenu={e=>handleContextMenu(e,p)}>
-        <g transform={sc!==1?`translate(${p.cx*(1-sc)},${p.cy*(1-sc)}) scale(${sc})`:undefined} style={{transition:"transform 0.2s cubic-bezier(0.175,0.885,0.32,1.275)"}}>
+      {/* Rect transparente de hit-area — único elemento que captura eventos del mouse */}
+      <rect x={ix} y={iy} width={p.w} height={p.h} fill="transparent" style={{cursor:"inherit"}}/>
+      <g transform={sc!==1?`translate(${p.cx*(1-sc)},${p.cy*(1-sc)}) scale(${sc})`:undefined} style={{transition:"transform 0.2s cubic-bezier(0.175,0.885,0.32,1.275)"}}>
 
           {/* Sonar ping para pausadas */}
           {isPaused&&(
-            <g style={{pointerEvents:"none"}}>
+            <g style={{pointerEvents:"none", userSelect:"none"}}>
               <circle cx={p.cx} cy={p.cy} r="0" fill="none" stroke="#f59e0b" strokeWidth="1.5" style={{animation:"sonarPing 2.8s ease-out infinite"}}/>
               <circle cx={p.cx} cy={p.cy} r="0" fill="none" stroke="#f59e0b" strokeWidth="1"   style={{animation:"sonarPing 2.8s ease-out 0.9s infinite"}}/>
               <g transform={`translate(${p.cx+p.w*0.28},${p.cy-p.h*0.52})`}>
                 <circle r="8" fill="rgba(245,158,11,0.9)" stroke="rgba(0,0,0,0.5)" strokeWidth="1.5"/>
-                <text textAnchor="middle" dominantBaseline="middle" y="0.5" fill="#000" fontSize="9" fontWeight="800" fontFamily="system-ui" style={{pointerEvents:"none"}}>!</text>
+                <text textAnchor="middle" dominantBaseline="middle" y="0.5" fill="#000" fontSize="9" fontWeight="800" fontFamily="system-ui" style={{pointerEvents:"none",userSelect:"none"}}>!</text>
               </g>
             </g>
           )}
 
           {isEmpty?(
-            <g>
-              <path d={hullPath(p.cx,p.cy,p.w,p.h)} fill="rgba(255,255,255,0.015)" stroke="rgba(255,255,255,0.25)" strokeWidth="1.5" strokeDasharray="6 4" style={{animation:"scan-line 15s linear infinite"}}/>
-              <rect x={p.cx-p.w*0.22} y={p.cy-p.h*0.35} width={p.w*0.44} height={p.h*0.22} rx="4" fill="transparent" stroke="rgba(255,255,255,0.12)" strokeWidth="1"/>
-              <rect x={p.cx-p.w*0.35} y={p.cy-p.h*0.1} width={p.w*0.7} height={p.h*0.4} rx="6" fill="transparent" stroke="rgba(255,255,255,0.15)" strokeWidth="1"/>
-              <line x1={p.cx} y1={p.cy-p.h*0.45} x2={p.cx} y2={p.cy+p.h*0.45} stroke="rgba(255,255,255,0.1)" strokeWidth="1" strokeDasharray="4 4"/>
-              <path d={`M${p.cx-14},${p.cy+p.h*0.05} L${p.cx+14},${p.cy+p.h*0.05} M${p.cx},${p.cy+p.h*0.05-14} L${p.cx},${p.cy+p.h*0.05+14}`} stroke="rgba(255,255,255,0.4)" strokeWidth="1.5"/>
-              <text x={p.cx+p.w*0.32} y={p.cy-p.h*0.42} textAnchor="start" dominantBaseline="middle" fill="rgba(255,255,255,0.4)" fontSize={Math.max(10,p.w*0.16)} fontFamily={C.mono} fontWeight="600" letterSpacing="1" style={{pointerEvents:"none"}}>{p.label}</text>
-              <text x={p.cx} y={p.cy+p.h*0.40} textAnchor="middle" dominantBaseline="middle" fill="rgba(255,255,255,0.3)" fontSize={Math.max(10,p.w*0.16)} fontFamily={C.mono} fontWeight="600" letterSpacing="1" style={{pointerEvents:"none"}}>{p.label}</text>
-              {canDrop&&<text x={p.cx} y={p.cy} textAnchor="middle" dominantBaseline="middle" fill="rgba(167,139,250,0.9)" fontSize={p.w*0.5} fontWeight="300" style={{pointerEvents:"none"}}>⊕</text>}
-              {canDrop&&<path d={hullPath(p.cx,p.cy,p.w+14,p.h+14)} fill="rgba(167,139,250,0.05)" stroke="#a78bfa" strokeWidth="2" strokeDasharray="8 6" style={{animation:"dash-run .5s linear infinite"}}/>}
+            /* ── PUESTO VACÍO ── */
+            <g style={{pointerEvents:"none", userSelect:"none"}} clipPath={`url(#${clipId})`}>
+              <BoatImage opacity={0.60}/>
+              <rect x={ix} y={iy} width={p.w} height={p.h} rx={Math.min(p.w,p.h)*0.06}
+                fill="none" stroke="rgba(255,255,255,0.20)" strokeWidth="1.2"
+                strokeDasharray="6 4" style={{animation:"scan-line 15s linear infinite"}}/>
+              <path d={`M${p.cx-10},${p.cy} L${p.cx+10},${p.cy} M${p.cx},${p.cy-10} L${p.cx},${p.cy+10}`}
+                stroke="rgba(255,255,255,0.35)" strokeWidth="1.2"/>
+              {canDrop&&<text x={p.cx} y={p.cy} textAnchor="middle" dominantBaseline="middle" fill="rgba(167,139,250,0.9)" fontSize={Math.min(p.w,p.h)*0.35} fontWeight="300">⊕</text>}
+              {canDrop&&<rect x={ix-6} y={iy-6} width={p.w+12} height={p.h+12} rx={Math.min(p.w,p.h)*0.08}
+                fill="rgba(167,139,250,0.04)" stroke="#a78bfa" strokeWidth="1.5"
+                strokeDasharray="8 6" style={{animation:"dash-run .5s linear infinite"}}/>}
             </g>
           ):(
-            <g>
-              <path d={hullPath(p.cx+4,p.cy+8,p.w,p.h)} fill="rgba(0,0,0,0.6)" filter="url(#sh)" style={{pointerEvents:"none"}}/>
-              <path d={hullPath(p.cx,p.cy,p.w,p.h)} fill={oC.glow} fillOpacity={isHov?0.95:0.85} stroke={oC.glow} strokeWidth={isHov?3:2}/>
-              <BoatTypeDetails cx={p.cx} cy={p.cy} w={p.w} h={p.h} tipo={p.tipo} col="rgba(255,255,255,0.72)"/>
-              <path d={hullPath(p.cx,p.cy,p.w,p.h)} fill="url(#hl)" style={{pointerEvents:"none",mixBlendMode:"overlay"}}/>
-              {isHov&&<path d={hullPath(p.cx,p.cy,p.w,p.h)} fill="transparent" stroke="#fff" strokeWidth="1" style={{pointerEvents:"none"}}/>}
-              {isHov&&<path d={hullPath(p.cx,p.cy,p.w+12,p.h+12)} fill="transparent" stroke={oC.glow} strokeWidth="2" strokeOpacity="0.5" filter={`url(#gl-${obra.estado})`} style={{pointerEvents:"none"}}/>}
-              <g transform={`translate(${p.cx+p.w*0.35},${p.cy-p.h*0.25}) rotate(-90)`}><text x={0} y={0} textAnchor="middle" dominantBaseline="middle" fill="rgba(255,255,255,0.7)" fontSize={Math.max(12,p.w*0.18)} fontFamily={C.mono} fontWeight="700" letterSpacing="1" style={{pointerEvents:"none",filter:"drop-shadow(0 2px 4px rgba(0,0,0,0.5))"}}>{p.label}</text></g>
-              <g transform={`translate(${p.cx-p.w*0.35},${p.cy+p.h*0.25}) rotate(-90)`}><text x={0} y={0} textAnchor="middle" dominantBaseline="middle" fill="rgba(255,255,255,0.5)" fontSize={Math.max(12,p.w*0.18)} fontFamily={C.mono} fontWeight="700" letterSpacing="1" style={{pointerEvents:"none",filter:"drop-shadow(0 2px 4px rgba(0,0,0,0.5))"}}>{p.label}</text></g>
-              <g transform={`translate(${p.cx},${p.cy-p.h*0.02})`}>
-                <rect x={-p.w*0.48} y={-14} width={p.w*0.96} height={28} rx="14" fill="rgba(5,5,10,0.85)" stroke="rgba(255,255,255,0.2)" strokeWidth="1.5" style={{pointerEvents:"none",filter:"drop-shadow(0 4px 8px rgba(0,0,0,0.5))"}}/>
-                <text x={0} y={1.5} textAnchor="middle" dominantBaseline="middle" fill="#ffffff" fontSize={Math.max(10,p.w*0.18)} fontFamily={C.mono} fontWeight="800" letterSpacing="1.5" style={{pointerEvents:"none"}}>{obra.codigo}</text>
+            /* ── PUESTO OCUPADO ── */
+            <g style={{pointerEvents:"none", userSelect:"none"}}>
+              {/* Sombra desplazada */}
+              <g clipPath={`url(#${clipId})`}>
+                <BoatImage opacity={0.20} dx={3} dy={5} blur={true}/>
               </g>
-              {(()=>{const bw=p.w*0.6,bx=p.cx-bw/2,by=p.cy+p.h*0.18,bh=4;return(<g style={{pointerEvents:"none",filter:"drop-shadow(0 2px 4px rgba(0,0,0,0.5))"}}>
-                <rect x={bx} y={by} width={bw} height={bh} rx="2" fill="rgba(0,0,0,0.8)"/>
-                <rect x={bx} y={by} width={bw*(obra._pct??0)/100} height={bh} rx="2" fill="#ffffff"/>
-              </g>);})()} 
+              {/* Imagen principal con glow de estado */}
+              <g style={{filter:glowFilter, transition:"filter 0.25s ease"}} clipPath={`url(#${clipId})`}>
+                <BoatImage opacity={1}/>
+              </g>
+              {/* Tint de color de estado */}
+              <rect x={ix} y={iy} width={p.w} height={p.h} rx={Math.min(p.w,p.h)*0.05}
+                fill={oC.glow} fillOpacity={isHov?0.15:0.07}
+                style={{mixBlendMode:"screen",transition:"fill-opacity 0.2s"}}/>
+              {isHov&&<rect x={ix-1} y={iy-1} width={p.w+2} height={p.h+2} rx={Math.min(p.w,p.h)*0.06}
+                fill="none" stroke="rgba(255,255,255,0.55)" strokeWidth="0.8"/>}
+              {isHov&&<rect x={ix-6} y={iy-6} width={p.w+12} height={p.h+12} rx={Math.min(p.w,p.h)*0.08}
+                fill="none" stroke={oC.glow} strokeWidth="1.5" strokeOpacity="0.5"
+                filter={`url(#gl-${obra.estado})`}/>}
+
+              {/* ── INFO BLOCK: pill + barra ──
+                  Contra-rotado respecto a p.rot para que siempre quede horizontal.
+                  Posicionado DEBAJO del bounding box del puesto. */}
+              <g transform={`rotate(${-(p.rot||0)},${p.cx},${p.cy})`}>
+                <g transform={`translate(${p.cx},${infoY})`}>
+                  {(()=>{
+                    const codigo=obra.codigo??"";
+                    const minSide=Math.min(p.w,p.h);
+                    const pillW=Math.max(52, Math.min(codigo.length*8+20, minSide*0.9));
+                    const pillH=20; const fs=Math.max(8,Math.min(12, pillW/(Math.max(codigo.length,1)+1)));
+                    const bw=Math.min(minSide*0.72,88), bh=3;
+                    return(<>
+                      {/* Pill código */}
+                      <rect x={-pillW/2} y={-pillH/2} width={pillW} height={pillH} rx={pillH/2}
+                        fill="rgba(4,4,10,0.92)" stroke={`${oC.glow}55`} strokeWidth="1"
+                        style={{filter:"drop-shadow(0 2px 5px rgba(0,0,0,0.85))"}}/>
+                      <text x={0} y={1} textAnchor="middle" dominantBaseline="middle"
+                        fill="#fff" fontSize={fs} fontFamily={C.mono} fontWeight="800" letterSpacing="0.8"
+                        style={{userSelect:"none"}}>{codigo}</text>
+                      {/* Barra de progreso — debajo de la pill */}
+                      <rect x={-bw/2} y={pillH/2+4} width={bw} height={bh} rx="1.5" fill="rgba(0,0,0,0.6)"/>
+                      <rect x={-bw/2} y={pillH/2+4} width={bw*(obra._pct??0)/100} height={bh} rx="1.5"
+                        fill={oC.glow} style={{filter:`drop-shadow(0 0 3px ${oC.glow})`}}/>
+                    </>);
+                  })()}
+                </g>
+              </g>
+
+              {/* Beacon activa */}
               {isAct&&(<>
-                <circle cx={p.cx} cy={p.cy} r="0" fill="none" stroke="#fff" style={{animation:"pulse-r 3s cubic-bezier(0.1,0.8,0.3,1) infinite"}}/>
-                <circle cx={p.cx} cy={p.cy} r="5" fill="#fff" style={{animation:"beacon 2.5s ease-in-out infinite",filter:"drop-shadow(0 0 8px rgba(255,255,255,0.8))"}}/>
+                <circle cx={p.cx} cy={p.cy} r="0" fill="none" stroke={oC.glow}
+                  style={{animation:"pulse-r 3s cubic-bezier(0.1,0.8,0.3,1) infinite"}}/>
+                <circle cx={p.cx} cy={p.cy} r="4" fill={oC.glow}
+                  style={{animation:"beacon 2.5s ease-in-out infinite",filter:`drop-shadow(0 0 6px ${oC.glow})`}}/>
               </>)}
             </g>
           )}
 
+          {/* ── EDIT MODE OVERLAY ── */}
           {editMode&&(<>
-            <path d={hullPath(p.cx,p.cy,p.w,p.h)} fill="rgba(251,191,36,0.07)" stroke="rgba(251,191,36,0.40)" strokeWidth="1.4" strokeDasharray="4 3" style={{pointerEvents:"none"}}/>
-            <g transform={`rotate(${-(p.rot||0)},${p.cx+p.w*0.39-9},${p.cy-p.h/2+9})`} style={{cursor:"pointer"}} onClick={e=>{e.stopPropagation();toggleRot(p.id);}}>
-              <circle cx={p.cx+p.w*0.39-9} cy={p.cy-p.h/2+9} r="8.5" fill="rgba(251,191,36,0.93)"/>
-              <text x={p.cx+p.w*0.39-9} y={p.cy-p.h/2+10} textAnchor="middle" dominantBaseline="middle" fill="#000" fontSize="10" fontFamily="system-ui">↻</text>
+            <rect x={ix} y={iy} width={p.w} height={p.h} rx={Math.min(p.w,p.h)*0.07} fill="rgba(251,191,36,0.06)" stroke="rgba(251,191,36,0.38)" strokeWidth="1.3" strokeDasharray="4 3" style={{pointerEvents:"none"}}/>
+            {/* Botón ELIMINAR — esquina sup. izquierda, contra-rotado */}
+            <g transform={`rotate(${-(p.rot||0)},${ix+11},${iy+11})`} style={{cursor:"pointer"}} onClick={e=>{e.stopPropagation();setConfirmDel(p.id);}}>
+              <circle cx={ix+11} cy={iy+11} r="10" fill="rgba(239,68,68,0.93)" stroke="rgba(0,0,0,0.4)" strokeWidth="1"/>
+              <text x={ix+11} y={iy+12} textAnchor="middle" dominantBaseline="middle" fill="#fff" fontSize="12" fontFamily="system-ui" fontWeight="700" style={{userSelect:"none"}}>×</text>
             </g>
-            <g transform={`rotate(${-(p.rot||0)},${p.cx-p.w*0.39+9},${p.cy-p.h/2+9})`} style={{cursor:"pointer"}} onClick={e=>{e.stopPropagation();setConfirmDel(p.id);}}>
-              <circle cx={p.cx-p.w*0.39+9} cy={p.cy-p.h/2+9} r="8.5" fill="rgba(239,68,68,0.93)"/>
-              <text x={p.cx-p.w*0.39+9} y={p.cy-p.h/2+10} textAnchor="middle" dominantBaseline="middle" fill="#fff" fontSize="11" fontFamily="system-ui">×</text>
+            {/* Botón ROTAR — esquina sup. derecha, contra-rotado */}
+            <g transform={`rotate(${-(p.rot||0)},${ix+p.w-11},${iy+11})`} style={{cursor:"pointer"}} onClick={e=>{e.stopPropagation();toggleRot(p.id);}}>
+              <circle cx={ix+p.w-11} cy={iy+11} r="10" fill="rgba(251,191,36,0.93)" stroke="rgba(0,0,0,0.4)" strokeWidth="1"/>
+              <text x={ix+p.w-11} y={iy+12} textAnchor="middle" dominantBaseline="middle" fill="#000" fontSize="11" fontFamily="system-ui" fontWeight="700" style={{userSelect:"none"}}>↻</text>
             </g>
           </>)}
         </g>
@@ -953,6 +765,12 @@ export default function MapaProduccion({obras=[],onPuestoClick,onAsignarObra,onC
             </filter>
           ))}
           <filter id="sh" x="-40%" y="-40%" width="180%" height="180%"><feDropShadow dx="0" dy="8" stdDeviation="12" floodColor="rgba(0,0,0,0.85)"/></filter>
+          {/* ClipPaths por puesto para recortar el PNG sobredimensionado */}
+          {puestos.map(p=>(
+            <clipPath key={`clip-${p.id}`} id={`clip-${p.id}`}>
+              <rect x={p.cx-p.w/2} y={p.cy-p.h/2} width={p.w} height={p.h} rx={p.w*0.05}/>
+            </clipPath>
+          ))}
           <pattern id="dotGrid" x={gsx} y={gsy} width={gsz} height={gsz} patternUnits="userSpaceOnUse">
             <circle cx="2" cy="2" r="1.5" fill="rgba(255,255,255,0.08)"/>
             <circle cx={gsz/2} cy={gsz/2} r="1" fill="rgba(255,255,255,0.03)"/>
@@ -1019,7 +837,7 @@ export default function MapaProduccion({obras=[],onPuestoClick,onAsignarObra,onC
             </button>
             {editMode&&(
               <div style={{display:"flex",gap:4,alignItems:"center",background:"rgba(0,0,0,0.3)",borderRadius:8,padding:"4px",border:"1px solid rgba(16,185,129,0.3)"}}>
-                {[{key:"chico",l:"37'"},{key:"mediano",l:"42'"},{key:"grande",l:"52'"},{key:"xl",l:"64'"}].map(({key,l})=>(
+                {[{key:"chico",l:"37'"},{key:"mediano",l:"42'"},{key:"utility",l:"43'"},{key:"grande",l:"52'"},{key:"crucero",l:"55'"},{key:"xl",l:"64'"}].map(({key,l})=>(
                   <button key={key} onClick={()=>setNewPuestoSize(key)} style={{padding:"4px 10px",borderRadius:6,cursor:"pointer",fontSize:10,fontFamily:C.mono,fontWeight:600,border:"none",background:newPuestoSize===key?"rgba(16,185,129,0.2)":"transparent",color:newPuestoSize===key?"#34d399":C.t2,transition:"all .2s"}}>{l}</button>
                 ))}
                 <div style={{width:1,height:16,background:C.b1,margin:"0 4px"}}/>

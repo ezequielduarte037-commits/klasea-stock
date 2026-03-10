@@ -280,203 +280,345 @@ function TicketPopupContent({ barco, tickets, onVerTodos }) {
 }
 
 // ── PANEL DE TICKETS (side drawer) ───────────────────────────────────
-// Extrae el path de storage desde una URL pública o path directo
 function TicketDrawer({ barco, tickets, onClose, onUpdateStatus }) {
   const [updating,      setUpdating]      = useState(null);
   const [filtroEst,     setFiltroEst]     = useState("activos");
-  const [seguimientoId, setSeguimientoId] = useState(null); // ticket id en edición
-  const [seguimientoTx, setSeguimientoTx] = useState("");   // texto del seguimiento
+  const [seguimientoId, setSeguimientoId] = useState(null);
+  const [seguimientoTx, setSeguimientoTx] = useState("");
   const [savingSeg,     setSavingSeg]     = useState(false);
+  const [lightbox,      setLightbox]      = useState(null); // { url, tipo: "img"|"vid" }
+  const [imgErrors,     setImgErrors]     = useState({});   // { "ticketId-index": true }
 
-  // Bucket público → URL directa, sin signed URLs
-  const resolveUrl = (url) => url;
-
-  const abrirSeguimiento = (t) => {
-    setSeguimientoId(t.id);
-    setSeguimientoTx(t.seguimiento ?? "");
+  const ESTADO = {
+    pendiente:   { color:"#ef4444", bg:"rgba(239,68,68,0.1)",  label:"Pendiente"   },
+    en_proceso:  { color:"#f59e0b", bg:"rgba(245,158,11,0.1)", label:"En Proceso"  },
+    solucionado: { color:"#10b981", bg:"rgba(16,185,129,0.1)", label:"Solucionado" },
   };
+
+  const abrirSeguimiento = (t) => { setSeguimientoId(t.id); setSeguimientoTx(t.seguimiento ?? ""); };
 
   const guardarSeguimiento = async () => {
     if (!seguimientoId) return;
     setSavingSeg(true);
-    await supabase.from("tickets").update({ seguimiento: seguimientoTx.trim() || null }).eq("id", seguimientoId);
-    onUpdateStatus(seguimientoId, null, seguimientoTx.trim() || null);
+    const val = seguimientoTx.trim() || null;
+    await supabase.from("tickets").update({ seguimiento: val }).eq("id", seguimientoId);
+    onUpdateStatus(seguimientoId, null, val);
     setSeguimientoId(null);
     setSeguimientoTx("");
     setSavingSeg(false);
   };
-  const ESTADO = {
-    pendiente:   { color:"#ef4444", label:"Pendiente"  },
-    en_proceso:  { color:"#f59e0b", label:"En Proceso" },
-    solucionado: { color:"#10b981", label:"Solucionado"},
-  };
+
   const cambiarEstado = async (ticketId, nuevoEstado) => {
     setUpdating(ticketId);
-    await supabase.from("tickets").update({ estado:nuevoEstado }).eq("id",ticketId);
+    await supabase.from("tickets").update({ estado: nuevoEstado }).eq("id", ticketId);
     onUpdateStatus(ticketId, nuevoEstado);
     setUpdating(null);
   };
+
   const ticketsFiltrados = tickets.filter(t => {
     if (filtroEst === "activos")     return t.estado === "pendiente" || t.estado === "en_proceso";
     if (filtroEst === "solucionado") return t.estado === "solucionado";
-    return true; // "todos"
+    return true;
   });
-  const cntActivos = tickets.filter(t=>t.estado==="pendiente"||t.estado==="en_proceso").length;
-  const cntSol     = tickets.filter(t=>t.estado==="solucionado").length;
-  return (
-    <div style={{ position:"fixed", inset:0, background:"rgba(3,5,12,0.88)", backdropFilter:"blur(20px)", display:"flex", alignItems:"flex-start", justifyContent:"flex-end", zIndex:9999, padding:16 }}
-      onClick={e=>e.target===e.currentTarget && onClose()}>
-      <div style={{ background:"rgba(6,10,20,0.98)", border:`1px solid ${C.b1}`, borderRadius:16, width:"min(480px,95vw)", maxHeight:"90vh", overflowY:"auto", boxShadow:"0 24px 60px rgba(0,0,0,0.8)" }}>
-        <div style={{ padding:"20px 24px", borderBottom:`1px solid ${C.b0}`, position:"sticky", top:0, background:"rgba(6,10,20,0.98)" }}>
-          <div style={{ display:"flex", justifyContent:"space-between", alignItems:"flex-start", marginBottom:12 }}>
-            <div>
-              <div style={{ fontSize:16, color:C.t0, fontWeight:700 }}>{barco.nombre_barco}</div>
-              <div style={{ display:"flex", gap:8, alignItems:"center", marginTop:4 }}>
-                {barco.obras && (
-                  <span style={{ fontFamily:C.mono, fontSize:10, padding:"1px 7px", borderRadius:5, background:"rgba(59,130,246,0.1)", border:"1px solid rgba(59,130,246,0.2)", color:"#93c5fd" }}>
-                    Obra {barco.obras.codigo}
-                  </span>
-                )}
-                <span style={{ fontSize:11, color:C.t1 }}>{barco.propietario}</span>
-              </div>
-            </div>
-            <button onClick={onClose} style={{ background:"transparent", border:"none", color:C.t1, cursor:"pointer", fontSize:22 }}>×</button>
-          </div>
-          {/* Filtros de estado */}
-          <div style={{ display:"flex", gap:6 }}>
-            {[
-              { key:"activos",     label:`Activos (${cntActivos})`,      color:"#f59e0b" },
-              { key:"solucionado", label:`Solucionados (${cntSol})`,     color:"#10b981" },
-              { key:"todos",       label:`Todos (${tickets.length})`,    color:"#60a5fa" },
-            ].map(f=>(
-              <button key={f.key} onClick={()=>setFiltroEst(f.key)}
-                style={{ padding:"4px 10px", borderRadius:7, fontSize:10, cursor:"pointer", fontWeight: filtroEst===f.key?700:400,
-                  background: filtroEst===f.key?`${f.color}18`:"transparent",
-                  border: `1px solid ${filtroEst===f.key?f.color+"55":C.b0}`,
-                  color: filtroEst===f.key?f.color:C.t2, transition:"all 0.15s" }}>
-                {f.label}
-              </button>
-            ))}
-          </div>
+
+  const cntActivos = tickets.filter(t => t.estado === "pendiente" || t.estado === "en_proceso").length;
+  const cntSol     = tickets.filter(t => t.estado === "solucionado").length;
+
+  const shortId = id => String(id).slice(-6).toUpperCase();
+
+  const fmtDate = d => {
+    if (!d) return "";
+    const dt = new Date(d);
+    return dt.toLocaleDateString("es-AR", { day:"2-digit", month:"short" }) + " · " + dt.toLocaleTimeString("es-AR", { hour:"2-digit", minute:"2-digit" });
+  };
+
+  // ── Adjuntos renderer ────────────────────────────────────────────
+  const renderAdjuntos = (t) => {
+    const adjuntos = Array.isArray(t.adjuntos) ? t.adjuntos : [];
+    if (adjuntos.length === 0) return null;
+
+    return (
+      <div>
+        <div style={{ fontSize:9, color:C.t2, letterSpacing:2, textTransform:"uppercase", marginBottom:10, display:"flex", alignItems:"center", gap:5 }}>
+          📎 {adjuntos.length} archivo{adjuntos.length > 1 ? "s" : ""} adjunto{adjuntos.length > 1 ? "s" : ""}
         </div>
-        <div style={{ padding:"16px 24px", display:"flex", flexDirection:"column", gap:12 }}>
-          {ticketsFiltrados.length === 0 && (
-            <div style={{ fontSize:12, color:C.t2, textAlign:"center", padding:"24px 0", fontStyle:"italic" }}>
-              Sin tickets en esta categoría
-            </div>
-          )}
-          {ticketsFiltrados.map(t => {
-            const est = ESTADO[t.estado] || ESTADO.pendiente;
+        <div style={{ display:"flex", flexDirection:"column", gap:8 }}>
+          {adjuntos.map((url, i) => {
+            const cleanUrl  = url.split("?")[0].toLowerCase();
+            const isVideo   = /\.(mp4|mov|webm|avi|mkv)$/.test(cleanUrl);
+            const couldBeImg = !isVideo; // intentamos mostrar imagen para todo lo no-video
+            const errKey    = `${t.id}-${i}`;
+            const hasErr    = imgErrors[errKey];
+            // Nombre corto del archivo para mostrar
+            const fileName  = decodeURIComponent(url.split("/").pop().split("?")[0]).slice(0, 40);
+
+            if (isVideo) return (
+              <div key={i} style={{ borderRadius:10, border:`1px solid ${C.b1}`, overflow:"hidden", background:"rgba(255,255,255,0.03)" }}>
+                <video
+                  controls
+                  style={{ width:"100%", display:"block", maxHeight:260, background:"#000", borderRadius:10 }}
+                  onError={() => setImgErrors(p => ({ ...p, [errKey]: true }))}
+                >
+                  <source src={url}/>
+                </video>
+                <div style={{ padding:"8px 12px", display:"flex", justifyContent:"space-between", alignItems:"center" }}>
+                  <span style={{ fontSize:10, color:C.t2, fontFamily:C.mono }}>▶ {fileName}</span>
+                  <a href={url} target="_blank" rel="noopener noreferrer"
+                    style={{ fontSize:10, color:C.primary, textDecoration:"none", fontWeight:700 }}>
+                    Descargar ↗
+                  </a>
+                </div>
+              </div>
+            );
+
+            // Imagen (o cualquier archivo que intenta mostrarse como imagen)
+            if (couldBeImg && !hasErr) return (
+              <div key={i} style={{ borderRadius:10, border:`1px solid ${C.b1}`, overflow:"hidden", background:"rgba(255,255,255,0.03)", cursor:"zoom-in" }}
+                onClick={() => setLightbox({ url, tipo:"img" })}>
+                <img
+                  src={url}
+                  alt={`Adjunto ${i+1}`}
+                  style={{ width:"100%", display:"block", maxHeight:320, objectFit:"contain", background:"#050508" }}
+                  onError={() => setImgErrors(p => ({ ...p, [errKey]: true }))}
+                />
+                <div style={{ padding:"8px 12px", display:"flex", justifyContent:"space-between", alignItems:"center", borderTop:`1px solid ${C.b0}` }}>
+                  <span style={{ fontSize:10, color:C.t2, fontFamily:C.mono, overflow:"hidden", textOverflow:"ellipsis", whiteSpace:"nowrap", maxWidth:"70%" }}>
+                    🖼 {fileName}
+                  </span>
+                  <div style={{ display:"flex", gap:8, flexShrink:0 }}>
+                    <span style={{ fontSize:10, color:C.t2 }}>🔍 ver</span>
+                    <a href={url} target="_blank" rel="noopener noreferrer"
+                      onClick={e => e.stopPropagation()}
+                      style={{ fontSize:10, color:C.primary, textDecoration:"none", fontWeight:700 }}>
+                      Abrir ↗
+                    </a>
+                  </div>
+                </div>
+              </div>
+            );
+
+            // Fallback total — archivo no renderizable o error de imagen
             return (
-              <div key={t.id} style={{ padding:16, borderRadius:12, border:`1px solid ${C.b0}`, background:"rgba(255,255,255,0.02)", borderLeft:`3px solid ${est.color}` }}>
-                <div style={{ display:"flex", justifyContent:"space-between", alignItems:"flex-start", marginBottom:10 }}>
-                  <div>
-                    <span style={{ padding:"2px 10px", borderRadius:99, background:`${est.color}22`, border:`1px solid ${est.color}44`, color:est.color, fontSize:10, fontWeight:700 }}>
-                      {est.label}
-                    </span>
-                    <div style={{ color:C.t0, fontWeight:600, fontSize:13, marginTop:8 }}>{t.area}</div>
+              <div key={i} style={{ borderRadius:10, border:`1px solid rgba(245,158,11,0.3)`, background:"rgba(245,158,11,0.05)", padding:"12px 16px", display:"flex", alignItems:"center", gap:12 }}>
+                <span style={{ fontSize:24, flexShrink:0 }}>📎</span>
+                <div style={{ flex:1, minWidth:0 }}>
+                  <div style={{ fontSize:11, color:C.t1, fontFamily:C.mono, overflow:"hidden", textOverflow:"ellipsis", whiteSpace:"nowrap", marginBottom:4 }}>
+                    {fileName || `Archivo ${i+1}`}
                   </div>
-                  <span style={{ color:C.t2, fontSize:10, fontFamily:C.mono }}>#{t.id}</span>
+                  <div style={{ fontSize:10, color:"#f59e0b" }}>
+                    {hasErr ? "No se pudo previsualizar — abrí el link directo" : "Archivo adjunto"}
+                  </div>
                 </div>
-                <p style={{ color:"#888", fontSize:12, margin:"0 0 12px", lineHeight:1.6 }}>{t.descripcion}</p>
-                {t.ubicacion_barco && <div style={{ color:C.t2, fontSize:11, marginBottom:6 }}>{t.ubicacion_barco}</div>}
-                {t.telefono        && <div style={{ color:C.t2, fontSize:11, marginBottom:8, fontFamily:C.mono }}>{t.telefono}</div>}
-                {t.adjuntos?.length > 0 && (
-                  <div style={{ display:"flex", flexDirection:"column", gap:8, marginBottom:10 }}>
-                    {t.adjuntos.map((url,i) => {
-                      const isVideo = /\.(mp4|mov|webm|avi|mkv)$/i.test(url.split("?")[0]);
-                      const isImage = /\.(jpg|jpeg|png|gif|webp|heic)$/i.test(url.split("?")[0]);
-                      if (isVideo) return (
-                        <video key={i} controls style={{ width:"100%", borderRadius:8, border:`1px solid ${C.b0}`, background:"#000", maxHeight:300 }}>
-                          <source src={url} />
-                        </video>
-                      );
-                      if (isImage) return (
-                        <a key={i} href={url} target="_blank" rel="noopener noreferrer">
-                          <img src={url} alt={`adj ${i+1}`}
-                            style={{ width:"100%", borderRadius:8, border:`1px solid ${C.b0}`, maxHeight:300, objectFit:"cover", display:"block", cursor:"zoom-in" }}
-                            onError={e=>{ e.target.style.display="none"; e.target.nextSibling.style.display="flex"; }}
-                          />
-                          <a href={url} target="_blank" rel="noopener noreferrer"
-                            style={{ display:"none", alignItems:"center", gap:8, padding:"8px 12px", borderRadius:8, border:`1px solid ${C.b0}`, fontSize:11, color:C.t1, textDecoration:"none", background:"rgba(255,255,255,0.03)" }}>
-                            <span>📎</span><span>Adjunto {i+1}</span><span style={{ marginLeft:"auto", fontSize:10, color:C.t2 }}>↗ abrir</span>
-                          </a>
-                        </a>
-                      );
-                      return (
-                        <a key={i} href={url} target="_blank" rel="noopener noreferrer"
-                          style={{ display:"flex", alignItems:"center", gap:8, padding:"8px 12px", borderRadius:8, border:`1px solid ${C.b0}`, fontSize:11, color:C.t1, textDecoration:"none", background:"rgba(255,255,255,0.03)" }}>
-                          <span style={{ fontSize:16 }}>📎</span>
-                          <span>Adjunto {i+1}</span>
-                          <span style={{ marginLeft:"auto", fontSize:10, color:C.t2 }}>↗ abrir</span>
-                        </a>
-                      );
-                    })}
-                  </div>
-                )}
-                {/* Seguimiento existente */}
-                {seguimientoId !== t.id && t.seguimiento && (
-                  <div style={{ padding:"10px 12px", borderRadius:8, background:"rgba(59,130,246,0.07)", border:"1px solid rgba(59,130,246,0.2)", marginBottom:10 }}>
-                    <div style={{ display:"flex", justifyContent:"space-between", alignItems:"center", marginBottom:4 }}>
-                      <span style={{ fontSize:9, color:"#4a7aaa", letterSpacing:2, textTransform:"uppercase" }}>Seguimiento</span>
-                      <button onClick={()=>abrirSeguimiento(t)} style={{ background:"transparent", border:"none", color:"#4a7aaa", cursor:"pointer", fontSize:10 }}>✎ editar</button>
-                    </div>
-                    <p style={{ fontSize:12, color:"#7aabdc", lineHeight:1.6, margin:0 }}>{t.seguimiento}</p>
-                  </div>
-                )}
-
-                {/* Editor de seguimiento */}
-                {seguimientoId === t.id ? (
-                  <div style={{ marginBottom:10 }}>
-                    <textarea
-                      autoFocus
-                      value={seguimientoTx}
-                      onChange={e=>setSeguimientoTx(e.target.value)}
-                      placeholder="Escribí el seguimiento para el cliente..."
-                      style={{ width:"100%", boxSizing:"border-box", background:"rgba(59,130,246,0.06)", border:"1px solid rgba(59,130,246,0.3)", color:C.t0, padding:"10px 12px", borderRadius:8, fontSize:12, lineHeight:1.6, minHeight:80, resize:"vertical", outline:"none", fontFamily:C.sans }}
-                    />
-                    <div style={{ display:"flex", gap:6, marginTop:6 }}>
-                      <button onClick={guardarSeguimiento} disabled={savingSeg}
-                        style={{ flex:1, padding:"7px", borderRadius:7, background:"rgba(59,130,246,0.2)", border:"1px solid rgba(59,130,246,0.4)", color:"#93c5fd", fontSize:11, fontWeight:700, cursor:"pointer" }}>
-                        {savingSeg ? "Guardando…" : "✓ Guardar seguimiento"}
-                      </button>
-                      <button onClick={()=>setSeguimientoId(null)}
-                        style={{ padding:"7px 12px", borderRadius:7, background:"transparent", border:`1px solid ${C.b0}`, color:C.t2, fontSize:11, cursor:"pointer" }}>
-                        Cancelar
-                      </button>
-                    </div>
-                  </div>
-                ) : (
-                  !t.seguimiento && (
-                    <button onClick={()=>abrirSeguimiento(t)}
-                      style={{ width:"100%", padding:"6px", marginBottom:10, borderRadius:7, background:"transparent", border:`1px dashed ${C.b0}`, color:C.t2, fontSize:10, cursor:"pointer", textAlign:"left" }}>
-                      + Agregar seguimiento
-                    </button>
-                  )
-                )}
-
-                {/* Cambiar estado */}
-                <div style={{ display:"flex", gap:6 }}>
-                  {["pendiente","en_proceso","solucionado"].map(s=>{
-                    const col = ESTADO[s].color;
-                    return (
-                      <button key={s} disabled={t.estado===s || updating===t.id}
-                        onClick={()=>cambiarEstado(t.id, s)}
-                        style={{ flex:1, padding:"7px 8px", borderRadius:7, border:`1px solid ${col}44`, background:t.estado===s?`${col}22`:"transparent", color:t.estado===s?col:C.t2, fontSize:10, cursor:t.estado===s?"default":"pointer", fontWeight:t.estado===s?700:400, transition:"all 0.15s" }}>
-                        {s==="pendiente"?"Pendiente":s==="en_proceso"?"En Proceso":"Solucionado"}
-                      </button>
-                    );
-                  })}
-                </div>
-                <div style={{ fontSize:10, color:C.t2, marginTop:8, textAlign:"right", fontFamily:C.mono }}>
-                  {new Date(t.fecha_creacion).toLocaleString("es-AR")}
-                </div>
+                <a href={url} target="_blank" rel="noopener noreferrer"
+                  style={{ flexShrink:0, padding:"7px 14px", borderRadius:8, background:"rgba(59,130,246,0.15)", border:"1px solid rgba(59,130,246,0.4)", color:"#60a5fa", fontSize:11, fontWeight:700, textDecoration:"none" }}>
+                  Abrir ↗
+                </a>
               </div>
             );
           })}
         </div>
       </div>
-    </div>
+    );
+  };
+
+  return (
+    <>
+      {/* ── DRAWER ── */}
+      <div
+        style={{ position:"fixed", inset:0, background:"rgba(3,5,12,0.92)", backdropFilter:"blur(24px)", WebkitBackdropFilter:"blur(24px)", display:"flex", alignItems:"center", justifyContent:"center", zIndex:9999 }}
+        onClick={e => e.target === e.currentTarget && onClose()}>
+        <div style={{ background:"rgba(6,10,20,0.98)", border:`1px solid ${C.b1}`, borderRadius:16, width:"min(680px,95vw)", height:"min(88vh,880px)", display:"flex", flexDirection:"column", boxShadow:"0 32px 80px rgba(0,0,0,0.9), 0 0 0 1px rgba(255,255,255,0.04)", overflow:"hidden" }}>
+
+          {/* Header sticky */}
+          <div style={{ padding:"20px 24px 14px", borderBottom:`1px solid ${C.b0}`, flexShrink:0, background:"rgba(6,10,20,0.98)" }}>
+            <div style={{ display:"flex", justifyContent:"space-between", alignItems:"flex-start", marginBottom:14 }}>
+              <div>
+                <div style={{ fontSize:17, color:C.t0, fontWeight:700, marginBottom:5 }}>{barco.nombre_barco}</div>
+                <div style={{ display:"flex", gap:7, alignItems:"center", flexWrap:"wrap" }}>
+                  {barco.obras && (
+                    <span style={{ fontFamily:C.mono, fontSize:10, padding:"2px 8px", borderRadius:5, background:"rgba(59,130,246,0.12)", border:"1px solid rgba(59,130,246,0.25)", color:"#93c5fd" }}>
+                      Obra {barco.obras.codigo}
+                    </span>
+                  )}
+                  {barco.propietario && <span style={{ fontSize:11, color:C.t1 }}>{barco.propietario}</span>}
+                  {barco.ubicacion_general && <span style={{ fontSize:11, color:C.t2 }}>· {barco.ubicacion_general}</span>}
+                </div>
+              </div>
+              <button onClick={onClose}
+                style={{ background:"rgba(255,255,255,0.06)", border:`1px solid ${C.b1}`, color:C.t1, cursor:"pointer", width:30, height:30, borderRadius:8, fontSize:16, display:"flex", alignItems:"center", justifyContent:"center", flexShrink:0 }}>
+                ×
+              </button>
+            </div>
+
+            {/* Filtros */}
+            <div style={{ display:"flex", gap:5 }}>
+              {[
+                { key:"activos",     label:`Activos`,      cnt:cntActivos,        color:"#f59e0b" },
+                { key:"solucionado", label:`Solucionados`, cnt:cntSol,            color:"#10b981" },
+                { key:"todos",       label:`Todos`,        cnt:tickets.length,    color:"#60a5fa" },
+              ].map(f => (
+                <button key={f.key} onClick={() => setFiltroEst(f.key)}
+                  style={{ padding:"5px 11px", borderRadius:7, fontSize:10, cursor:"pointer", fontWeight: filtroEst===f.key ? 700 : 400,
+                    background: filtroEst===f.key ? `${f.color}18` : "transparent",
+                    border: `1px solid ${filtroEst===f.key ? f.color+"55" : C.b0}`,
+                    color: filtroEst===f.key ? f.color : C.t2, transition:"all 0.15s", display:"flex", gap:5, alignItems:"center" }}>
+                  {f.label}
+                  <span style={{ fontFamily:C.mono, fontSize:9, background:"rgba(255,255,255,0.07)", padding:"0 5px", borderRadius:4 }}>{f.cnt}</span>
+                </button>
+              ))}
+            </div>
+          </div>
+
+          {/* Ticket list */}
+          <div style={{ flex:1, overflowY:"auto", padding:"14px 20px" }}>
+            {ticketsFiltrados.length === 0 ? (
+              <div style={{ fontSize:12, color:C.t2, textAlign:"center", padding:"36px 0", fontStyle:"italic" }}>
+                Sin tickets en esta categoría
+              </div>
+            ) : ticketsFiltrados.map(t => {
+              const est = ESTADO[t.estado] || ESTADO.pendiente;
+              const hasAdjuntos = Array.isArray(t.adjuntos) && t.adjuntos.length > 0;
+              const hasMeta = t.ubicacion_barco || t.telefono;
+              return (
+                <div key={t.id} style={{
+                  borderRadius:12,
+                  border:`1px solid ${C.b0}`,
+                  borderLeft:`3px solid ${est.color}`,
+                  background:"rgba(255,255,255,0.02)",
+                  marginBottom:10,
+                }}>
+
+                  {/* ── HEADER ── */}
+                  <div style={{ padding:"14px 16px 12px", borderBottom:`1px solid rgba(255,255,255,0.05)` }}>
+                    {/* Top row: status + ID + date */}
+                    <div style={{ display:"flex", justifyContent:"space-between", alignItems:"flex-start", marginBottom:10 }}>
+                      <div style={{ display:"flex", gap:6, alignItems:"center", flexWrap:"wrap" }}>
+                        <span style={{ padding:"3px 10px", borderRadius:99, background:est.bg, border:`1px solid ${est.color}44`, color:est.color, fontSize:9, fontWeight:700, letterSpacing:0.5 }}>
+                          {est.label}
+                        </span>
+                        {hasAdjuntos && (
+                          <span style={{ padding:"2px 8px", borderRadius:99, background:"rgba(255,255,255,0.06)", border:`1px solid rgba(255,255,255,0.1)`, color:C.t1, fontSize:9, fontFamily:C.mono }}>
+                            📎 {t.adjuntos.length} foto{t.adjuntos.length > 1 ? "s" : ""}
+                          </span>
+                        )}
+                      </div>
+                      <div style={{ textAlign:"right", flexShrink:0, marginLeft:10 }}>
+                        <div style={{ color:C.t2, fontSize:9, fontFamily:C.mono, letterSpacing:1 }}>#{shortId(t.id)}</div>
+                        {t.fecha_creacion && (
+                          <div style={{ color:C.t2, fontSize:9, fontFamily:C.mono, marginTop:2 }}>{fmtDate(t.fecha_creacion)}</div>
+                        )}
+                      </div>
+                    </div>
+
+                    {/* Area + descripción */}
+                    <div style={{ color:C.t0, fontWeight:700, fontSize:14, marginBottom:5 }}>{t.area}</div>
+                    <p style={{ color:C.t1, fontSize:12, margin:0, lineHeight:1.7 }}>{t.descripcion}</p>
+                  </div>
+
+                  {/* ── META (tel + ubicación) ── */}
+                  {hasMeta && (
+                    <div style={{ padding:"10px 16px", borderBottom:`1px solid rgba(255,255,255,0.05)`, display:"flex", gap:10, flexWrap:"wrap", alignItems:"center", background:"rgba(255,255,255,0.01)" }}>
+                      {t.telefono && (
+                        <a href={`https://wa.me/${t.telefono?.replace(/\D/g,"")}`} target="_blank" rel="noopener noreferrer"
+                          style={{ display:"inline-flex", alignItems:"center", gap:5, padding:"5px 12px", borderRadius:8, background:"rgba(37,211,102,0.1)", border:"1px solid rgba(37,211,102,0.35)", color:"#25d366", fontSize:10, fontWeight:700, textDecoration:"none", fontFamily:C.mono }}
+                          onClick={e => e.stopPropagation()}>
+                          <Phone size={11}/> {t.telefono}
+                        </a>
+                      )}
+                      {t.ubicacion_barco && (
+                        <span style={{ fontSize:11, color:C.t2, display:"flex", alignItems:"center", gap:4 }}>
+                          <MapPin size={10}/>{t.ubicacion_barco}
+                        </span>
+                      )}
+                    </div>
+                  )}
+
+                  {/* ── ADJUNTOS / FOTOS ── */}
+                  {hasAdjuntos && (
+                    <div style={{ padding:"12px 16px", borderBottom:`1px solid rgba(255,255,255,0.05)` }}>
+                      {renderAdjuntos(t)}
+                    </div>
+                  )}
+
+                  {/* ── SEGUIMIENTO ── */}
+                  <div style={{ padding:"12px 16px", borderBottom:`1px solid rgba(255,255,255,0.05)` }}>
+                    {seguimientoId === t.id ? (
+                      <div>
+                        <textarea autoFocus value={seguimientoTx} onChange={e => setSeguimientoTx(e.target.value)}
+                          placeholder="Escribí el seguimiento visible para el cliente…"
+                          style={{ width:"100%", boxSizing:"border-box", background:"rgba(59,130,246,0.06)", border:"1px solid rgba(59,130,246,0.35)", color:C.t0, padding:"10px 12px", borderRadius:8, fontSize:12, lineHeight:1.6, minHeight:80, resize:"vertical", outline:"none", fontFamily:C.sans }} />
+                        <div style={{ display:"flex", gap:6, marginTop:8 }}>
+                          <button onClick={guardarSeguimiento} disabled={savingSeg}
+                            style={{ flex:1, padding:"8px", borderRadius:8, background:"rgba(59,130,246,0.2)", border:"1px solid rgba(59,130,246,0.4)", color:"#93c5fd", fontSize:11, fontWeight:700, cursor:"pointer" }}>
+                            {savingSeg ? "Guardando…" : "✓ Guardar"}
+                          </button>
+                          <button onClick={() => setSeguimientoId(null)}
+                            style={{ padding:"8px 14px", borderRadius:8, background:"transparent", border:`1px solid ${C.b0}`, color:C.t2, fontSize:11, cursor:"pointer" }}>
+                            Cancelar
+                          </button>
+                        </div>
+                      </div>
+                    ) : t.seguimiento ? (
+                      <div style={{ padding:"10px 12px", borderRadius:8, background:"rgba(59,130,246,0.07)", border:"1px solid rgba(59,130,246,0.2)" }}>
+                        <div style={{ display:"flex", justifyContent:"space-between", alignItems:"center", marginBottom:6 }}>
+                          <span style={{ fontSize:9, color:"#4a7aaa", letterSpacing:2, textTransform:"uppercase", fontWeight:700 }}>Respuesta técnica</span>
+                          <button onClick={() => abrirSeguimiento(t)} style={{ background:"transparent", border:"none", color:"#4a7aaa", cursor:"pointer", fontSize:10, padding:0 }}>✎ editar</button>
+                        </div>
+                        <p style={{ fontSize:12, color:"#7aabdc", lineHeight:1.7, margin:0 }}>{t.seguimiento}</p>
+                      </div>
+                    ) : (
+                      <button onClick={() => abrirSeguimiento(t)}
+                        style={{ width:"100%", padding:"8px", borderRadius:8, background:"transparent", border:`1px dashed rgba(255,255,255,0.1)`, color:C.t2, fontSize:10, cursor:"pointer", textAlign:"center", transition:"border-color .15s, color .15s" }}
+                        onMouseEnter={e => { e.currentTarget.style.borderColor = C.b2; e.currentTarget.style.color = C.t1; }}
+                        onMouseLeave={e => { e.currentTarget.style.borderColor = "rgba(255,255,255,0.1)"; e.currentTarget.style.color = C.t2; }}>
+                        + Agregar respuesta técnica
+                      </button>
+                    )}
+                  </div>
+
+                  {/* ── CAMBIAR ESTADO ── */}
+                  <div style={{ padding:"10px 16px", display:"flex", gap:6 }}>
+                    {["pendiente","en_proceso","solucionado"].map(s => {
+                      const col = ESTADO[s].color;
+                      const active = t.estado === s;
+                      return (
+                        <button key={s} disabled={active || updating === t.id}
+                          onClick={() => cambiarEstado(t.id, s)}
+                          style={{ flex:1, padding:"8px 4px", borderRadius:8, border:`1px solid ${active ? col+"66" : C.b0}`, background:active ? `${col}20` : "transparent", color:active ? col : C.t2, fontSize:10, cursor:active ? "default" : "pointer", fontWeight:active ? 700 : 400, transition:"all 0.15s" }}>
+                          {s === "pendiente" ? "⏳ Pendiente" : s === "en_proceso" ? "🔧 En Proceso" : "✓ Solucionado"}
+                        </button>
+                      );
+                    })}
+                  </div>
+
+                </div>
+              );
+            })}
+          </div>
+        </div>
+      </div>
+
+      {/* ── LIGHTBOX ── */}
+      {lightbox && (
+        <div
+          onClick={() => setLightbox(null)}
+          style={{ position:"fixed", inset:0, background:"rgba(0,0,0,0.97)", zIndex:99999, display:"flex", alignItems:"center", justifyContent:"center", padding:24 }}>
+          <button onClick={() => setLightbox(null)}
+            style={{ position:"absolute", top:18, right:18, background:"rgba(255,255,255,0.08)", border:`1px solid ${C.b1}`, color:C.t1, padding:"7px 14px", cursor:"pointer", fontSize:11, borderRadius:8, display:"flex", gap:6, alignItems:"center" }}>
+            ✕ Cerrar
+          </button>
+          <a href={lightbox.url} target="_blank" rel="noopener noreferrer"
+            onClick={e => e.stopPropagation()}
+            style={{ position:"absolute", top:18, left:18, background:"rgba(255,255,255,0.08)", border:`1px solid ${C.b1}`, color:C.t1, padding:"7px 14px", cursor:"pointer", fontSize:11, borderRadius:8, textDecoration:"none" }}>
+            ↗ Abrir original
+          </a>
+          {lightbox.tipo === "img"
+            ? <img src={lightbox.url} alt="" style={{ maxWidth:"92vw", maxHeight:"88vh", objectFit:"contain", borderRadius:8, boxShadow:"0 0 80px rgba(0,0,0,0.8)" }} />
+            : <video src={lightbox.url} controls autoPlay style={{ maxWidth:"92vw", maxHeight:"88vh", borderRadius:8 }} />
+          }
+        </div>
+      )}
+    </>
   );
 }
 
@@ -663,7 +805,12 @@ export default function PostVentaScreen({ profile, signOut }) {
     });
   };
 
-  const totalTicketsPendientes = Object.values(ticketMap).reduce((s,ts)=>s+ts.filter(t=>t.estado==="pendiente").length, 0);
+  // Deduplicar por id antes de contar para evitar x2 (tickets con cli_X y nombre_X)
+  const totalTicketsPendientes = (() => {
+    const seen = new Set();
+    Object.values(ticketMap).forEach(ts => ts.forEach(t => { if (t.estado === "pendiente") seen.add(t.id); }));
+    return seen.size;
+  })();
   const sinGpsCount = flota.filter(b => !b.latitud || !b.longitud).length;
 
   const barcosFiltrados = flota.filter(b => {

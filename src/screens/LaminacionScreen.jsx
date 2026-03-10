@@ -364,8 +364,8 @@ export default function LaminacionScreen({ profile, signOut }) {
   }
 
   const S = {
-    page: { background: "#09090b", minHeight: "100vh", color: "#f4f4f5", fontFamily: "'Outfit', system-ui, sans-serif" },
-    layout: { display: "grid", gridTemplateColumns: "280px 1fr", minHeight: "100vh" },
+    page: { position: "fixed", inset: 0, background: "#09090b", color: "#f4f4f5", fontFamily: "'Outfit', system-ui, sans-serif", display: "grid", gridTemplateColumns: "280px 1fr", overflow: "hidden" },
+    layout: { display: "contents" },
     main: { padding: 18, display: "flex", justifyContent: "center" },
     content: { width: "min(1300px, 100%)" },
     card: { border: "1px solid rgba(255,255,255,0.08)", borderRadius: 12, background: "rgba(255,255,255,0.03)", padding: 16, marginBottom: 12 },

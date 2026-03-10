@@ -2,463 +2,412 @@ import React, { useState } from "react";
 import { Link, useLocation } from "react-router-dom";
 import logoK from "../assets/logo-k.png";
 
-const Icon = ({ name, size = 14, color = "currentColor" }) => {
-  const icons = {
-    wood:     <><rect x="2" y="6" width="20" height="2.5" rx="1.25"/><rect x="2" y="11" width="20" height="2.5" rx="1.25"/><rect x="2" y="16" width="13" height="2.5" rx="1.25"/></>,
-    layers:   <><polygon points="12 2 22 8.5 12 15 2 8.5"/><polyline points="2 12 12 18.5 22 12"/></>,
-    ship:     <><path d="M3 17l1.5-9h15L21 17"/><path d="M12 3v5"/><path d="M8 8h8"/><path d="M2 20c2 2 4 2 5 0s3-2 5 0 3 2 5 0"/></>,
-    diamond:  <><path d="M6 3h12l4 6-10 13L2 9z"/><path d="M2 9h20"/></>,
-    sofa:     <><path d="M20 9V6a2 2 0 0 0-2-2H6a2 2 0 0 0-2 2v3"/><path d="M2 11v5a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2v-5a2 2 0 0 0-4 0v2H6v-2a2 2 0 0 0-4 0z"/></>,
-    book:     <><path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20"/><path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z"/></>,
-    layers2:  <><path d="M12 2L2 7l10 5 10-5-10-5z"/><path d="M2 17l10 5 10-5"/><path d="M2 12l10 5 10-5"/></>,
-    grid:     <><rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/><rect x="3" y="14" width="7" height="7" rx="1"/><rect x="14" y="14" width="7" height="7" rx="1"/></>,
-    arrowud:  <><line x1="12" y1="3" x2="12" y2="21"/><polyline points="18 15 12 21 6 15"/><polyline points="18 9 12 3 6 9"/></>,
-    cart:     <><circle cx="9" cy="21" r="1"/><circle cx="20" cy="21" r="1"/><path d="M1 1h4l2.68 13.39a2 2 0 0 0 2 1.61h9.72a2 2 0 0 0 2-1.61L23 6H6"/></>,
-    settings: <><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></>,
-    anchor:   <><circle cx="12" cy="5" r="3"/><line x1="12" y1="22" x2="12" y2="8"/><path d="M5 12H2a10 10 0 0 0 20 0h-3"/></>,
-    logout:   <><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><polyline points="16 17 21 12 16 7"/><line x1="21" y1="12" x2="9" y2="12"/></>,
-    chevron:  <><polyline points="9 18 15 12 9 6"/></>,
-  };
-  return (
-    <svg width={size} height={size} viewBox="0 0 24 24" fill="none"
-      stroke={color} strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round">
-      {icons[name]}
-    </svg>
-  );
+const ICONS = {
+  "/panol":            "⬡",
+  "/laminacion":       "◈",
+  "/obras":            "⬤",
+  "/marmoleria":       "◆",
+  "/muebles":          "▪",
+  "/procedimientos":   "≡",
+  "/obras-laminacion": "⬡",
+  "/admin":            "▤",
+  "/movimientos":      "⇅",
+  "/pedidos":          "⊕",
+  "/configuracion":    "⚙",
+  "/postventa":        "⊙",
 };
 
-const NAV = [
-  {
-    id: "movimientos", label: "Movimientos", color: "#a78bfa",
-    roles: ["panol", "admin", "oficina", "__admin__"],
-    items: [
-      { href: "/panol",      label: "Maderas",    icon: "wood"   },
-      { href: "/laminacion", label: "Laminación", icon: "layers" },
-    ]
-  },
-  {
-    id: "produccion", label: "Producción", color: "#60a5fa",
-    roles: ["admin", "oficina", "__admin__"],
-    items: [
-      { href: "/obras",      label: "Obras",      icon: "ship"    },
-      { href: "/marmoleria", label: "Marmolería", icon: "diamond" },
-      { href: "/muebles",    label: "Muebles",    icon: "sofa"    },
-    ]
-  },
-  {
-    id: "instrucciones", label: "Instrucciones", color: "#94a3b8",
-    roles: ["*"],
-    items: [
-      { href: "/procedimientos", label: "Procedimientos", icon: "book" },
-    ]
-  },
-  {
-    id: "gestion_lam", label: "Laminación", color: "#34d399",
-    roles: ["admin", "oficina", "__admin__"],
-    items: [
-      { href: "/obras-laminacion", label: "Por obra",    icon: "layers2", exact: false },
-      { href: "/laminacion", label: "Ingresos",    icon: null, qs: "?tab=Ingresos"    },
-      { href: "/laminacion", label: "Egresos",     icon: null, qs: "?tab=Egresos"     },
-      { href: "/laminacion", label: "Movimientos", icon: null, qs: "?tab=Movimientos" },
-      { href: "/laminacion", label: "Pedidos",     icon: null, qs: "?tab=Pedidos"     },
-    ]
-  },
-  {
-    id: "gestion_mad", label: "Maderas", color: "#fbbf24",
-    roles: ["admin", "oficina", "__admin__"],
-    items: [
-      { href: "/admin",       label: "Inventario",  icon: "grid"    },
-      { href: "/movimientos", label: "Movimientos", icon: "arrowud" },
-      { href: "/pedidos",     label: "Pedidos",     icon: "cart"    },
-    ]
-  },
-  {
-    id: "sistema", label: "Sistema", color: "#f87171",
-    roles: ["admin", "__admin__"],
-    items: [
-      { href: "/configuracion", label: "Configuración", icon: "settings" },
-    ]
-  },
-  {
-    id: "postventa", label: "Post Venta", color: "#22d3ee",
-    roles: ["admin", "oficina", "__admin__"],
-    items: [
-      { href: "/postventa", label: "Barcos Entregados", icon: "anchor" },
-    ]
-  },
-];
+const SC = {
+  movimientos:        "#a78bfa",
+  produccion:         "#60a5fa",
+  instrucciones:      "#94a3b8",
+  gestion_laminacion: "#34d399",
+  gestion_maderas:    "#fbbf24",
+  sistema:            "#f87171",
+  postventa:          "#67e8f9",
+};
+
+const CSS = `
+  @keyframes sb-slide-in {
+    from { opacity:0; transform:translateX(-10px); }
+    to   { opacity:1; transform:translateX(0); }
+  }
+  @keyframes sb-brand-down {
+    from { opacity:0; transform:translateY(-6px); }
+    to   { opacity:1; transform:translateY(0); }
+  }
+  @keyframes sb-footer-up {
+    from { opacity:0; transform:translateY(8px); }
+    to   { opacity:1; transform:translateY(0); }
+  }
+
+  /* ── ACTIVE ITEM: titilando ── */
+  @keyframes sb-active-bg {
+    0%,100% { background: rgba(255,255,255,0.06); }
+    50%      { background: rgba(255,255,255,0.11); }
+  }
+  @keyframes sb-active-bar {
+    0%,100% { opacity:1;   box-shadow: var(--bar-glow-lo); }
+    50%      { opacity:0.6; box-shadow: var(--bar-glow-hi); }
+  }
+  @keyframes sb-active-dot {
+    0%,100% { transform:scale(1);   opacity:1; }
+    50%      { transform:scale(1.6); opacity:0.6; }
+  }
+  @keyframes sb-active-icon {
+    0%,100% { opacity:1; }
+    50%      { opacity:0.5; }
+  }
+  @keyframes sb-active-text {
+    0%,100% { opacity:1; }
+    50%      { opacity:0.75; }
+  }
+
+  /* ── ONLINE DOT ── */
+  @keyframes sb-online {
+    0%,100% { box-shadow:0 0 4px #22c55e; opacity:1; }
+    50%      { box-shadow:0 0 12px #22c55e, 0 0 24px #22c55e44; opacity:0.8; }
+  }
+
+  .sb-aside {
+    animation: sb-slide-in 0.32s cubic-bezier(.22,1,.36,1) both;
+  }
+  .sb-brand  { animation: sb-brand-down 0.38s cubic-bezier(.22,1,.36,1) 0.06s both; }
+  .sb-footer { animation: sb-footer-up  0.38s cubic-bezier(.22,1,.36,1) 0.10s both; }
+
+  /* item base */
+  .sb-item {
+    position: relative;
+    overflow: hidden;
+    transition: color 0.18s, background 0.18s;
+  }
+  /* icon bounce on hover */
+  .sb-icon {
+    transition: color 0.18s, transform 0.22s cubic-bezier(.34,1.56,.64,1);
+    flex-shrink: 0;
+  }
+  .sb-item:hover .sb-icon { transform: scale(1.22); }
+
+  /* hover shine */
+  .sb-shine {
+    position: absolute; inset: 0; border-radius: 8px;
+    opacity: 0; pointer-events: none;
+    transition: opacity 0.18s;
+  }
+  .sb-item:hover .sb-shine { opacity: 1; }
+
+  /* active item: background pulse */
+  .sb-item.is-active {
+    animation: sb-active-bg 2s ease-in-out infinite;
+  }
+  /* active bar */
+  .sb-active-bar {
+    animation: sb-active-bar 2s ease-in-out infinite;
+  }
+  /* active dot */
+  .sb-active-dot {
+    animation: sb-active-dot 2s ease-in-out infinite;
+  }
+  /* active icon flicker */
+  .sb-item.is-active .sb-icon {
+    animation: sb-active-icon 2s ease-in-out infinite;
+  }
+  /* active label flicker */
+  .sb-item.is-active .sb-label {
+    animation: sb-active-text 2s ease-in-out infinite;
+  }
+
+  .sb-online { animation: sb-online 3s ease-in-out infinite; }
+
+  /* sign-out hover */
+  .sb-out { transition: color .18s, background .18s, border-color .18s; }
+  .sb-out:hover {
+    color: #f87171 !important;
+    border-color: rgba(248,113,113,.35) !important;
+    background: rgba(248,113,113,.06) !important;
+  }
+`;
 
 export default function Sidebar({ profile, signOut }) {
-  const location  = useLocation();
-  const path      = location.pathname;
-  const search    = location.search;
-  const [hovered, setHovered] = useState(null);
-  const [collapsed, setCollapsed] = useState({});
+  const loc    = useLocation();
+  const path   = loc.pathname;
+  const search = loc.search;
+  const [hov, setHov] = useState(null);
 
-  const role     = profile?.role    ?? "invitado";
+  const role     = profile?.role ?? "invitado";
   const isAdmin  = !!profile?.is_admin;
   const username = profile?.username ?? "—";
-  const initials = username.split(" ").map(w => w[0]).slice(0, 2).join("").toUpperCase();
+  const esPanol   = role === "panol";
+  const esGestion = isAdmin || role === "admin" || role === "oficina";
+  const esAdmin   = isAdmin || role === "admin";
+  const initials  = username.split(" ").map(w => w[0]).slice(0, 2).join("").toUpperCase();
 
-  function hasAccess(roles) {
-    if (roles.includes("*")) return true;
-    if (roles.includes("__admin__") && isAdmin) return true;
-    if (roles.includes(role)) return true;
-    return false;
-  }
+  // ── NAV ITEM ─────────────────────────────────────────────────
+  const item = (href, label, c, exact = true, delay = 0) => {
+    const on  = exact ? path === href : path.startsWith(href);
+    const isH = hov === href;
+    const col = c ?? "#a0a0a0";
+    return (
+      <Link
+        key={href}
+        to={href}
+        className={`sb-item${on ? " is-active" : ""}`}
+        onMouseEnter={() => setHov(href)}
+        onMouseLeave={() => setHov(null)}
+        style={{
+          display: "flex", alignItems: "center", gap: 10,
+          padding: "8px 16px 8px 20px", margin: "1px 8px", borderRadius: 8,
+          color: on ? "#ffffff" : isH ? "#d4d4d8" : "#6b7280",
+          fontSize: 11, letterSpacing: "1.2px",
+          fontWeight: on ? 600 : 400, textTransform: "uppercase", textDecoration: "none",
+          background: on ? "rgba(255,255,255,.07)" : isH ? "rgba(255,255,255,.04)" : "transparent",
+          animation: `sb-slide-in .3s cubic-bezier(.22,1,.36,1) ${delay}ms both`,
+        }}
+      >
+        {/* hover shine */}
+        <div className="sb-shine" style={{ background: `linear-gradient(90deg,${col}14,transparent 60%)` }} />
 
-  function isActive(item) {
-    if (item.qs)              return path === item.href && search === item.qs;
-    if (item.exact === false) return path.startsWith(item.href);
-    return path === item.href;
-  }
+        {/* active side bar */}
+        {on && (
+          <div
+            className="sb-active-bar"
+            style={{
+              position: "absolute", left: 0, top: "15%", bottom: "15%",
+              width: 2, borderRadius: "0 2px 2px 0",
+              background: col,
+              "--bar-glow-lo": `0 0 8px ${col}70`,
+              "--bar-glow-hi": `0 0 18px ${col}cc, 0 0 32px ${col}44`,
+            }}
+          />
+        )}
 
-  function toggleSection(id) {
-    setCollapsed(p => ({ ...p, [id]: !p[id] }));
-  }
+        {/* icon */}
+        <span className="sb-icon" style={{
+          fontSize: 10, width: 14, textAlign: "center", position: "relative",
+          color: on ? col : isH ? `${col}aa` : "rgba(255,255,255,.2)",
+        }}>
+          {ICONS[href] ?? "·"}
+        </span>
 
-  const visibleSections = NAV.filter(s => hasAccess(s.roles));
+        {/* label */}
+        <span className="sb-label" style={{ position: "relative" }}>{label}</span>
 
-  // Color de la sección activa para el glow del brand
-  const activeSection = visibleSections.find(s => s.items.some(i => isActive(i)));
-  const accentColor   = activeSection?.color ?? "#a78bfa";
+        {/* active dot */}
+        {on && (
+          <div
+            className="sb-active-dot"
+            style={{
+              marginLeft: "auto", width: 4, height: 4, borderRadius: "50%",
+              background: col, boxShadow: `0 0 6px ${col}`, flexShrink: 0,
+            }}
+          />
+        )}
+      </Link>
+    );
+  };
+
+  // ── SUB ITEM ─────────────────────────────────────────────────
+  const subItem = (href, label, qs = "", c, delay = 0) => {
+    const key = `${href}${qs}`;
+    const on  = path === href && (qs ? search === qs : !search);
+    const isH = hov === key;
+    const col = c ?? "#6b7280";
+    return (
+      <Link
+        key={key}
+        to={key}
+        className={`sb-item${on ? " is-active" : ""}`}
+        onMouseEnter={() => setHov(key)}
+        onMouseLeave={() => setHov(null)}
+        style={{
+          display: "flex", alignItems: "center", gap: 8,
+          padding: "6px 16px 6px 44px", margin: "1px 8px", borderRadius: 7,
+          color: on ? "#d4d4d8" : isH ? "#9ca3af" : "#4b5563",
+          fontSize: 10, letterSpacing: "1px", textTransform: "uppercase", textDecoration: "none",
+          fontWeight: on ? 600 : 400,
+          background: on ? "rgba(255,255,255,.04)" : isH ? "rgba(255,255,255,.02)" : "transparent",
+          animation: `sb-slide-in .3s cubic-bezier(.22,1,.36,1) ${delay}ms both`,
+          transition: "color .18s, background .18s",
+        }}
+      >
+        <div style={{
+          width: 3, height: 3, borderRadius: "50%", flexShrink: 0,
+          background: on ? col : "rgba(255,255,255,.15)",
+          transition: "background .18s",
+        }} />
+        <span className="sb-label">{label}</span>
+      </Link>
+    );
+  };
+
+  // ── GROUP HEADER ──────────────────────────────────────────────
+  const group = (label, c, delay = 0) => (
+    <div style={{
+      display: "flex", alignItems: "center", gap: 8,
+      padding: "18px 20px 6px",
+      animation: `sb-slide-in .3s cubic-bezier(.22,1,.36,1) ${delay}ms both`,
+    }}>
+      <div style={{
+        width: 3, height: 3, borderRadius: "50%", flexShrink: 0,
+        background: c ?? "rgba(255,255,255,.25)",
+        boxShadow: c ? `0 0 6px ${c}88` : "none",
+      }} />
+      <span style={{
+        fontSize: 9, letterSpacing: "2.5px",
+        color: c ? `${c}bb` : "rgba(255,255,255,.25)",
+        textTransform: "uppercase", fontWeight: 700,
+      }}>
+        {label}
+      </span>
+    </div>
+  );
+
+  const divider = () => (
+    <div style={{
+      height: 1, margin: "6px 20px",
+      background: "linear-gradient(90deg,transparent,rgba(255,255,255,.06),transparent)",
+    }} />
+  );
 
   return (
-    <aside style={{
-      width: "100%", height: "100%",
-      background: "#060608",
-      display: "flex", flexDirection: "column",
-      borderRight: "1px solid rgba(255,255,255,0.05)",
-      fontFamily: "'Outfit', system-ui, sans-serif",
-      userSelect: "none",
-      position: "relative",
-      overflow: "hidden",
-    }}>
-      <style>{`
-        @import url('https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700&display=swap');
-        .sb-item { transition: background 0.14s; }
-        .sb-item:hover { background: rgba(255,255,255,0.04) !important; }
-        .sb-item:hover .sb-lbl  { color: rgba(255,255,255,0.82) !important; }
-        .sb-item:hover .sb-ico  { border-color: rgba(255,255,255,0.1) !important; }
-        .sb-sub:hover  { color: rgba(255,255,255,0.65) !important; }
-        .sb-section-hd:hover { opacity: 0.7; }
-        .sb-logout:hover { color: rgba(248,113,113,0.65) !important; border-color: rgba(248,113,113,0.18) !important; }
-      `}</style>
-
-      {/* Glow ambiental que cambia con la sección activa */}
-      <div style={{
-        position: "absolute",
-        top: -60, left: -40,
-        width: 200, height: 200,
-        borderRadius: "50%",
-        background: `radial-gradient(circle, ${accentColor}12 0%, transparent 70%)`,
-        pointerEvents: "none",
-        transition: "background 0.8s ease",
-        zIndex: 0,
-      }} />
-
-      {/* ── BRAND ── */}
-      <div style={{
-        padding: "20px 18px 16px",
-        borderBottom: "1px solid rgba(255,255,255,0.05)",
-        flexShrink: 0,
-        position: "relative", zIndex: 1,
+    <>
+      <style>{CSS}</style>
+      <aside className="sb-aside" style={{
+        background: "#000", height: "100%", display: "flex", flexDirection: "column",
+        borderRight: "1px solid rgba(255,255,255,.07)", position: "relative",
       }}>
-        <div style={{ display: "flex", alignItems: "center", gap: 11 }}>
-          <div style={{
-            width: 36, height: 36, borderRadius: 11, flexShrink: 0,
-            background: `linear-gradient(145deg, ${accentColor}22 0%, rgba(255,255,255,0.04) 100%)`,
-            border: `1px solid ${accentColor}30`,
-            display: "flex", alignItems: "center", justifyContent: "center",
-            boxShadow: `0 0 16px ${accentColor}18`,
-            transition: "all 0.8s ease",
-          }}>
-            <img src={logoK} alt="K" style={{ width: 16, height: 16, objectFit: "contain", opacity: 0.9 }} />
-          </div>
-          <div>
+        {/* top glow */}
+        <div style={{
+          position: "absolute", top: 0, left: 0, right: 0, height: 120, pointerEvents: "none",
+          background: "radial-gradient(ellipse at 30% 0%, rgba(255,255,255,.05) 0%, transparent 70%)",
+        }} />
+
+        {/* BRAND */}
+        <div className="sb-brand" style={{
+          padding: "22px 20px 18px",
+          borderBottom: "1px solid rgba(255,255,255,.06)",
+          position: "relative",
+        }}>
+          <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
             <div style={{
-              fontSize: 14, fontWeight: 700,
-              color: "rgba(255,255,255,0.9)",
-              letterSpacing: "0.06em", lineHeight: 1,
+              width: 28, height: 28, borderRadius: 7,
+              background: "rgba(255,255,255,.06)", border: "1px solid rgba(255,255,255,.12)",
+              display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0,
             }}>
-              Klase A
+              <img src={logoK} alt="K" style={{ width: 14, height: 14, objectFit: "contain" }} />
             </div>
-            <div style={{
-              fontSize: 9, color: "rgba(255,255,255,0.2)",
-              letterSpacing: "0.16em", marginTop: 4,
-              textTransform: "uppercase", fontWeight: 500,
-            }}>
-              Sistema de producción
+            <div>
+              <div style={{ fontWeight: 800, letterSpacing: "3px", color: "#fff", fontSize: 11, lineHeight: 1 }}>KLASE A</div>
+              <div style={{ fontSize: 8, letterSpacing: "1.5px", color: "rgba(255,255,255,.25)", textTransform: "uppercase", marginTop: 3, fontWeight: 500 }}>
+                Sistema de producción
+              </div>
             </div>
           </div>
         </div>
-      </div>
 
-      {/* ── NAV ── */}
-      <nav style={{ flex: 1, overflowY: "auto", padding: "6px 0 12px", position: "relative", zIndex: 1 }}>
-        {visibleSections.map((section, si) => {
-          const hasActive  = section.items.some(i => isActive(i));
-          const isOpen     = !collapsed[section.id]; // abierto por defecto
+        {/* NAV */}
+        <nav style={{ flex: 1, overflowY: "auto", paddingBottom: 8, paddingTop: 4 }}>
 
-          return (
-            <div key={section.id} style={{ marginBottom: 1 }}>
+          {/* 1 · MOVIMIENTOS */}
+          {(esPanol || esGestion) && <>
+            {group("Movimientos", SC.movimientos, 60)}
+            {item("/panol",      "Maderas",    SC.movimientos, true, 80)}
+            {item("/laminacion", "Laminación", SC.movimientos, true, 100)}
+          </>}
 
-              {/* Section header — clickable para colapsar */}
-              <div
-                className="sb-section-hd"
-                onClick={() => toggleSection(section.id)}
-                style={{
-                  display: "flex", alignItems: "center",
-                  padding: "10px 16px 4px",
-                  cursor: "pointer",
-                  transition: "opacity 0.15s",
-                }}
-              >
-                {/* Línea de color */}
-                <div style={{
-                  width: 12, height: 1.5,
-                  background: hasActive ? section.color : "rgba(255,255,255,0.12)",
-                  borderRadius: 99,
-                  marginRight: 8,
-                  flexShrink: 0,
-                  boxShadow: hasActive ? `0 0 6px ${section.color}` : "none",
-                  transition: "background 0.3s, box-shadow 0.3s",
-                }} />
+          {/* 2 · PRODUCCIÓN */}
+          {esGestion && <>
+            {divider()}
+            {group("Producción", SC.produccion, 120)}
+            {item("/obras",      "Obras",      SC.produccion, true, 140)}
+            {item("/marmoleria", "Marmolería", SC.produccion, true, 160)}
+            {item("/muebles",    "Muebles",    SC.produccion, true, 180)}
+          </>}
 
-                <span style={{
-                  flex: 1,
-                  fontSize: 9, fontWeight: 600,
-                  color: hasActive
-                    ? `${section.color}ee`
-                    : "rgba(255,255,255,0.35)",
-                  letterSpacing: "0.16em",
-                  textTransform: "uppercase",
-                  transition: "color 0.3s",
-                }}>
-                  {section.label}
-                </span>
+          {/* 3 · GESTIÓN LAMINACIÓN */}
+          {esGestion && <>
+            {divider()}
+            {group("Gestión Laminación", SC.gestion_laminacion, 200)}
+            {item("/obras-laminacion", "Por obra",   SC.gestion_laminacion, false, 220)}
+            {subItem("/laminacion", "Ingresos",    "?tab=Ingresos",    SC.gestion_laminacion, 235)}
+            {subItem("/laminacion", "Egresos",     "?tab=Egresos",     SC.gestion_laminacion, 250)}
+            {subItem("/laminacion", "Movimientos", "?tab=Movimientos", SC.gestion_laminacion, 265)}
+            {subItem("/laminacion", "Pedidos",     "?tab=Pedidos",     SC.gestion_laminacion, 280)}
+          </>}
 
-                {/* Chevron */}
-                <div style={{
-                  opacity: 0.3,
-                  transform: isOpen ? "rotate(90deg)" : "rotate(0deg)",
-                  transition: "transform 0.2s",
-                  display: "flex",
-                }}>
-                  <Icon name="chevron" size={10} color="rgba(255,255,255,0.5)" />
-                </div>
-              </div>
+          {/* 4 · GESTIÓN MADERAS */}
+          {esGestion && <>
+            {divider()}
+            {group("Gestión Maderas", SC.gestion_maderas, 300)}
+            {item("/admin",       "Inventario",  SC.gestion_maderas, true, 320)}
+            {item("/movimientos", "Movimientos", SC.gestion_maderas, true, 335)}
+            {item("/pedidos",     "Pedidos",     SC.gestion_maderas, true, 350)}
+          </>}
 
-              {/* Items */}
-              {isOpen && section.items.map((item, ii) => {
-                const active   = isActive(item);
-                const isSub    = !item.icon;
-                const hoverKey = `${section.id}-${ii}`;
+          {/* 5 · POST VENTA */}
+          {esGestion && <>
+            {divider()}
+            {group("Post Venta", SC.postventa, 370)}
+            {item("/postventa", "Barcos Entregados", SC.postventa, true, 390)}
+          </>}
 
-                if (isSub) {
-                  return (
-                    <Link
-                      key={ii}
-                      to={`${item.href}${item.qs ?? ""}`}
-                      className="sb-sub"
-                      style={{
-                        display: "flex", alignItems: "center", gap: 8,
-                        padding: "5px 18px 5px 50px",
-                        textDecoration: "none",
-                        color: active
-                          ? "rgba(255,255,255,0.88)"
-                          : "rgba(255,255,255,0.42)",
-                        fontSize: 11,
-                        fontWeight: active ? 500 : 400,
-                        letterSpacing: "0.02em",
-                        transition: "color 0.12s",
-                        position: "relative",
-                      }}
-                    >
-                      <div style={{
-                        position: "absolute", left: 34,
-                        width: active ? 4 : 3,
-                        height: active ? 4 : 3,
-                        borderRadius: "50%",
-                        background: active ? section.color : "rgba(255,255,255,0.12)",
-                        boxShadow: active ? `0 0 5px ${section.color}` : "none",
-                        transition: "all 0.2s",
-                      }} />
-                      {item.label}
-                    </Link>
-                  );
-                }
+          {/* 6 · SISTEMA */}
+          {esAdmin && <>
+            {divider()}
+            {group("Sistema", SC.sistema, 410)}
+            {item("/configuracion", "Configuración", SC.sistema, true, 430)}
+          </>}
 
-                return (
-                  <Link
-                    key={ii}
-                    to={`${item.href}${item.qs ?? ""}`}
-                    className="sb-item"
-                    onMouseEnter={() => setHovered(hoverKey)}
-                    onMouseLeave={() => setHovered(null)}
-                    style={{
-                      display: "flex", alignItems: "center", gap: 10,
-                      margin: "1px 10px",
-                      padding: "7px 10px",
-                      borderRadius: 10,
-                      textDecoration: "none",
-                      position: "relative",
-                      background: active
-                        ? `linear-gradient(135deg, ${section.color}14 0%, ${section.color}06 100%)`
-                        : "transparent",
-                      border: active
-                        ? `1px solid ${section.color}20`
-                        : "1px solid transparent",
-                    }}
-                  >
-                    {/* Barra izquierda */}
-                    <div style={{
-                      position: "absolute",
-                      left: -10, top: "18%", bottom: "18%",
-                      width: active ? 2.5 : 0,
-                      borderRadius: "0 3px 3px 0",
-                      background: section.color,
-                      boxShadow: `0 0 10px ${section.color}`,
-                      transition: "width 0.2s",
-                    }} />
+          {/* 7 · INSTRUCCIONES — siempre al fondo */}
+          <>
+            {divider()}
+            {group("Instrucciones", SC.instrucciones, 450)}
+            {item("/procedimientos", "Procedimientos", SC.instrucciones, true, 470)}
+          </>
 
-                    {/* Ícono */}
-                    <div
-                      className="sb-ico"
-                      style={{
-                        width: 30, height: 30, borderRadius: 8, flexShrink: 0,
-                        display: "flex", alignItems: "center", justifyContent: "center",
-                        background: active
-                          ? `${section.color}18`
-                          : "rgba(255,255,255,0.03)",
-                        border: active
-                          ? `1px solid ${section.color}28`
-                          : "1px solid rgba(255,255,255,0.07)",
-                        transition: "all 0.15s",
-                        boxShadow: active
-                          ? `0 2px 10px ${section.color}20`
-                          : "none",
-                      }}
-                    >
-                      <Icon
-                        name={item.icon}
-                        size={13}
-                        color={active ? section.color : "rgba(255,255,255,0.28)"}
-                      />
-                    </div>
+        </nav>
 
-                    {/* Label */}
-                    <span
-                      className="sb-lbl"
-                      style={{
-                        fontSize: 12,
-                        fontWeight: active ? 600 : 400,
-                        color: active
-                          ? "rgba(255,255,255,0.95)"
-                          : "rgba(255,255,255,0.58)",
-                        letterSpacing: "0.01em",
-                        transition: "color 0.12s",
-                        flex: 1,
-                      }}
-                    >
-                      {item.label}
-                    </span>
-
-                    {/* Dot cuando activo */}
-                    {active && (
-                      <div style={{
-                        width: 4, height: 4, borderRadius: "50%",
-                        background: section.color,
-                        boxShadow: `0 0 7px ${section.color}`,
-                        flexShrink: 0,
-                      }} />
-                    )}
-                  </Link>
-                );
-              })}
-            </div>
-          );
-        })}
-      </nav>
-
-      {/* ── FOOTER ── */}
-      <div style={{
-        position: "relative", zIndex: 1,
-        borderTop: "1px solid rgba(255,255,255,0.05)",
-        padding: "12px 12px",
-        flexShrink: 0,
-        background: "rgba(0,0,0,0.3)",
-      }}>
-        <div style={{
-          display: "flex", alignItems: "center", gap: 9,
-          padding: "8px 10px",
-          borderRadius: 10,
-          background: "rgba(255,255,255,0.025)",
-          border: "1px solid rgba(255,255,255,0.06)",
+        {/* PIE */}
+        <div className="sb-footer" style={{
+          borderTop: "1px solid rgba(255,255,255,.06)",
+          padding: "14px 16px", display: "flex", alignItems: "center", gap: 10,
         }}>
-          {/* Avatar con inicial */}
           <div style={{
-            width: 32, height: 32, borderRadius: 9, flexShrink: 0,
-            background: `linear-gradient(145deg, ${accentColor}25 0%, ${accentColor}08 100%)`,
-            border: `1px solid ${accentColor}25`,
+            width: 30, height: 30, borderRadius: 8,
+            background: "rgba(255,255,255,.07)", border: "1px solid rgba(255,255,255,.1)",
             display: "flex", alignItems: "center", justifyContent: "center",
-            fontSize: 11, fontWeight: 700,
-            color: accentColor,
-            letterSpacing: "0.04em",
-            boxShadow: `0 0 12px ${accentColor}15`,
-            transition: "all 0.8s ease",
+            fontSize: 10, fontWeight: 700, color: "rgba(255,255,255,.6)", letterSpacing: .5, flexShrink: 0,
           }}>
             {initials || "?"}
           </div>
 
-          {/* Info */}
           <div style={{ flex: 1, minWidth: 0 }}>
             <div style={{
-              fontSize: 12, fontWeight: 500,
-              color: "rgba(255,255,255,0.82)",
-              overflow: "hidden", textOverflow: "ellipsis",
-              whiteSpace: "nowrap", marginBottom: 3,
+              fontSize: 11, color: "#e4e4e7", letterSpacing: ".5px", fontWeight: 600,
+              overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", marginBottom: 2,
             }}>
               {username}
             </div>
-            <div style={{ display: "flex", alignItems: "center", gap: 5 }}>
-              <div style={{
-                width: 4, height: 4, borderRadius: "50%",
-                background: "#22c55e",
-                boxShadow: "0 0 6px #22c55e",
-                flexShrink: 0,
-              }} />
-              <span style={{
-                fontSize: 9, color: "rgba(255,255,255,0.35)",
-                textTransform: "uppercase",
-                letterSpacing: "0.14em", fontWeight: 500,
-              }}>
+            <div style={{ display: "inline-flex", alignItems: "center", gap: 4 }}>
+              <div className="sb-online" style={{ width: 4, height: 4, borderRadius: "50%", background: "#22c55e", flexShrink: 0 }} />
+              <span style={{ fontSize: 8, color: "rgba(255,255,255,.3)", letterSpacing: "1.5px", textTransform: "uppercase", fontWeight: 600 }}>
                 {role}
               </span>
             </div>
           </div>
 
-          {/* Logout */}
-          <button
-            type="button"
-            onClick={signOut}
-            title="Cerrar sesión"
-            className="sb-logout"
+          <button type="button" onClick={signOut} title="Cerrar sesión" className="sb-out"
             style={{
-              background: "transparent",
-              border: "1px solid rgba(255,255,255,0.07)",
-              borderRadius: 7,
-              width: 28, height: 28,
-              display: "flex", alignItems: "center", justifyContent: "center",
-              cursor: "pointer", flexShrink: 0,
-              color: "rgba(255,255,255,0.22)",
-              transition: "color 0.15s, border-color 0.15s",
-            }}
-          >
-            <Icon name="logout" size={12} color="currentColor" />
+              background: "transparent", border: "1px solid rgba(255,255,255,.08)",
+              borderRadius: 7, color: "rgba(255,255,255,.25)",
+              width: 26, height: 26, display: "flex", alignItems: "center", justifyContent: "center",
+              cursor: "pointer", fontSize: 12, flexShrink: 0,
+            }}>
+            ↪
           </button>
         </div>
-      </div>
-    </aside>
+
+      </aside>
+    </>
   );
 }

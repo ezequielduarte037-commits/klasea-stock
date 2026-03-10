@@ -151,6 +151,7 @@ export default function MarmoleriaScreen({ profile, signOut }) {
   const [unidades, setUnidades] = useState([]);
   const [piezas,   setPiezas]   = useState([]);   
   const [dashboard, setDashboard] = useState([]); // Datos para el panel global
+  const [plantilla, setPlantilla] = useState([]); // Datos de la plantilla base
 
   // UI
   const [lineaId,  setLineaId]  = useState(null);
@@ -209,7 +210,14 @@ export default function MarmoleriaScreen({ profile, signOut }) {
   async function cargarLineas() {
     const { data } = await supabase.from("marm_lineas").select("id,nombre").eq("activa",true).order("nombre");
     setLineas(data ?? []);
-    if (!lineaId && data?.length) setLineaId(data[0].id);
+    if (!lineaId && data?.length) {
+      setLineaId(data[0].id);
+    }
+  }
+
+  async function cargarPlantilla(lid) {
+    const { data } = await supabase.from("marm_linea_piezas").select("*").eq("linea_id", lid).order("sector");
+    setPlantilla(data ?? []);
   }
 
   async function cargarUnidades(lid) {
@@ -257,6 +265,7 @@ export default function MarmoleriaScreen({ profile, signOut }) {
   useEffect(() => { 
     if (lineaId) { 
       cargarUnidades(lineaId); 
+      cargarPlantilla(lineaId);
       setUnidadId(null); 
       setPiezas([]); 
     } 
@@ -306,14 +315,14 @@ export default function MarmoleriaScreen({ profile, signOut }) {
     if (error) return setErr(error.message);
 
     // 2. Copiar plantilla de la línea automáticamente
-    const { data: plantilla } = await supabase
+    const { data: plantillaDB } = await supabase
       .from("marm_linea_piezas")
       .select("*")
       .eq("linea_id", lineaId)
       .order("orden");
 
-    if (plantilla?.length) {
-      const inserts = plantilla.map(p => ({
+    if (plantillaDB?.length) {
+      const inserts = plantillaDB.map(p => ({
         unidad_id: u.id,
         pieza_id:  p.id,
         pieza:     p.pieza,
@@ -410,10 +419,18 @@ export default function MarmoleriaScreen({ profile, signOut }) {
         sector:    lp.sector,
         estado:    "Pendiente",
       });
+      cargarPiezas(unidadId);
+    } else {
+      cargarPlantilla(lineaId);
     }
     setFormPieza({ pieza:"", sector:"" });
     setShowAddPieza(false);
-    if (unidadId) cargarPiezas(unidadId);
+  }
+
+  async function eliminarPiezaPlantilla(id) {
+    if (!window.confirm("¿Eliminar de la plantilla base? No afectará a los barcos que ya están creados.")) return;
+    await supabase.from("marm_linea_piezas").delete().eq("id", id);
+    setPlantilla(prev => prev.filter(p => p.id !== id));
   }
 
   // ── EXPORTACIÓN GLOBAL A PDF CON LOGO ─────────────────────────────
@@ -542,7 +559,7 @@ export default function MarmoleriaScreen({ profile, signOut }) {
 
   // ── RENDER ────────────────────────────────────────────────────
   return (
-    <div style={{ background: C2.bg, minHeight:"100vh", color: C2.t0, fontFamily: C2.sans }}>
+    <div style={{ position: "fixed", inset: 0, background: C2.bg, color: C2.t0, fontFamily: C2.sans, display: "grid", gridTemplateColumns: "280px 1fr", overflow: "hidden" }}>
       <style>{`
         @import url('https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500;700&display=swap');
         *, *::before, *::after { box-sizing: border-box; }
@@ -565,7 +582,7 @@ export default function MarmoleriaScreen({ profile, signOut }) {
       `}</style>
       <div className="bg-glow" />
 
-      <div style={{ display:"grid", gridTemplateColumns:"280px 1fr", minHeight:"100vh", position:"relative", zIndex:1 }}>
+      <div style={{ display: "contents" }}>
         <Sidebar profile={profile} signOut={signOut} />
 
         <div style={{ display:"flex", flexDirection:"column", height:"100vh", overflow:"hidden" }}>
@@ -580,7 +597,7 @@ export default function MarmoleriaScreen({ profile, signOut }) {
               <span style={{ fontSize:13, fontWeight:600, color:C2.t0 }}>Marmolería</span>
               <div style={{ width:1, height:14, background:C2.b1 }} />
               <span style={{ fontSize:10, color:C2.t2, letterSpacing:1 }}>
-                {unidadId ? `${lineaSel?.nombre} › ${unidadSel?.codigo}` : "Panel general"}
+                {unidadId ? `${lineaSel?.nombre} › ${unidadSel?.codigo}` : lineaId ? `Configuración: ${lineaSel?.nombre}` : "Panel general"}
               </span>
 
               {/* Stats chips — cuando hay barco seleccionado */}
@@ -604,8 +621,8 @@ export default function MarmoleriaScreen({ profile, signOut }) {
                 </div>
               )}
 
-              {/* Stats globales — cuando NO hay barco */}
-              {!unidadId && dashboard.length > 0 && (
+              {/* Stats globales — cuando NO hay barco ni línea seleccionada */}
+              {!unidadId && !lineaId && dashboard.length > 0 && (
                 <div style={{ display:"flex", gap:6, marginLeft:10 }}>
                   {[
                     { label:"Enviadas", n: dashboard.filter(p=>p.estado==="Enviado").length,  c: C2.t1 },
@@ -676,16 +693,16 @@ export default function MarmoleriaScreen({ profile, signOut }) {
 
               {/* Dashboard link */}
               <button
-                onClick={() => setUnidadId(null)}
+                onClick={() => { setLineaId(null); setUnidadId(null); }}
                 style={{
                   width:"100%", textAlign:"left", padding:"11px 14px",
                   border:"none", borderBottom:`1px solid ${C2.b0}`,
-                  background: !unidadId ? C2.s1 : "transparent",
-                  color: !unidadId ? C2.t0 : C2.t2,
-                  cursor:"pointer", fontSize:11, fontWeight: !unidadId ? 600 : 400,
+                  background: (!unidadId && !lineaId) ? C2.s1 : "transparent",
+                  color: (!unidadId && !lineaId) ? C2.t0 : C2.t2,
+                  cursor:"pointer", fontSize:11, fontWeight: (!unidadId && !lineaId) ? 600 : 400,
                   display:"flex", alignItems:"center", gap:7, fontFamily:C2.sans,
                   letterSpacing:1, textTransform:"uppercase",
-                  borderLeft: !unidadId ? `2px solid ${C2.primary}` : "2px solid transparent",
+                  borderLeft: (!unidadId && !lineaId) ? `2px solid ${C2.primary}` : "2px solid transparent",
                 }}
               >
                 <span style={{ fontSize:9 }}>◈</span> Panel general
@@ -752,67 +769,115 @@ export default function MarmoleriaScreen({ profile, signOut }) {
             {/* ── PANEL DERECHO ── */}
             <div style={{ height:"100%", overflowY:"auto" }}>
 
-              {/* ══════════════════ DASHBOARD GLOBAL ══════════════════ */}
+              {/* ══════════════════ DASHBOARD O PLANTILLA ══════════════════ */}
               {!unidadId && (
                 <div style={{ padding:"22px 26px", animation:"slideUp .25s ease" }}>
-
-                  {/* Header */}
-                  <div style={{ marginBottom:20 }}>
-                    <div style={{ fontSize:9, color:C2.t2, letterSpacing:2, textTransform:"uppercase", marginBottom:4 }}>Producción</div>
-                    <h1 style={{ margin:0, fontSize:20, fontWeight:700, color:C2.t0 }}>Panel General de Envíos</h1>
-                    <p style={{ color:C2.t2, fontSize:11, marginTop:4, margin:0 }}>
-                      Piezas en estado Enviado o Rehacer en toda la fábrica
-                    </p>
-                  </div>
-
-                  {dashboard.length === 0 ? (
-                    <div style={{ textAlign:"center", padding:"60px 40px", color:C2.t2, background:C2.s0, borderRadius:14, border:`1px dashed ${C2.b0}` }}>
-                      <div style={{ fontSize:24, marginBottom:10 }}>✓</div>
-                      <div style={{ fontSize:11, letterSpacing:2, textTransform:"uppercase" }}>Todo al día — sin piezas pendientes</div>
-                    </div>
-                  ) : (
-                    <div style={{ background:C2.s0, border:`1px solid ${C2.b0}`, borderRadius:12, overflow:"hidden" }}>
-                      {/* Table header */}
-                      <div style={{ display:"grid", gridTemplateColumns:"90px 1.5fr 1fr 110px 110px 40px", gap:12, padding:"8px 16px", borderBottom:`1px solid ${C2.b0}` }}>
-                        {["Barco","Pieza","Prioridad","Fecha envío","Estado",""].map((h,i) => (
-                          <div key={i} style={{ fontSize:8, letterSpacing:2, textTransform:"uppercase", color:C2.t2, fontWeight:700 }}>{h}</div>
-                        ))}
+                  
+                  {!lineaId ? (
+                    <>
+                      {/* VISTA: PANEL GENERAL */}
+                      <div style={{ marginBottom:20 }}>
+                        <div style={{ fontSize:9, color:C2.t2, letterSpacing:2, textTransform:"uppercase", marginBottom:4 }}>Producción</div>
+                        <h1 style={{ margin:0, fontSize:20, fontWeight:700, color:C2.t0 }}>Panel General de Envíos</h1>
+                        <p style={{ color:C2.t2, fontSize:11, marginTop:4, margin:0 }}>
+                          Piezas en estado Enviado o Rehacer en toda la fábrica
+                        </p>
                       </div>
-                      {dashboard.map(p => {
-                        const prio = PRIORIDAD_META[p.prioridad] || PRIORIDAD_META["Media"];
-                        const m    = ESTADO_META[p.estado] ?? ESTADO_META["Pendiente"];
-                        return (
-                          <div key={p.id} className="dash-row" style={{
-                            display:"grid", gridTemplateColumns:"90px 1.5fr 1fr 110px 110px 40px",
-                            gap:12, alignItems:"center", padding:"10px 16px",
-                            borderBottom:`1px solid rgba(255,255,255,0.03)`,
-                          }}>
-                            <div style={{ fontFamily:C2.mono, color:C2.t0, fontWeight:700, fontSize:12 }}>{p.codigo_barco}</div>
-                            <div>
-                              <div style={{ color:C2.t0, fontSize:12, fontWeight:600 }}>{p.pieza}</div>
-                              <div style={{ color:C2.t2, fontSize:10, marginTop:2 }}>{p.sector}{p.color ? ` · ${p.color}` : ""}</div>
-                            </div>
-                            <div>
-                              <span style={{ fontSize:8, letterSpacing:1.5, textTransform:"uppercase", padding:"3px 7px", borderRadius:99, fontWeight:700, background:prio.bg, color:prio.color }}>
-                                {p.prioridad || "Media"}
-                              </span>
-                            </div>
-                            <div style={{ fontFamily:C2.mono, fontSize:11, color:C2.t2 }}>
-                              {p.fecha_envio ? p.fecha_envio.split("-").reverse().join("/") : "—"}
-                            </div>
-                            <div>
-                              <span style={{ fontSize:9, letterSpacing:1, textTransform:"uppercase", padding:"3px 8px", borderRadius:99, fontWeight:700, background:m.bg, color:m.color, border:`1px solid ${m.border}` }}>
-                                {p.estado}
-                              </span>
-                            </div>
-                            <button
-                              onClick={() => setModalPieza(p)}
-                              style={{ border:"none", background:"transparent", color:C2.t2, cursor:"pointer", fontSize:13, padding:"4px" }}
-                            >✎</button>
+
+                      {dashboard.length === 0 ? (
+                        <div style={{ textAlign:"center", padding:"60px 40px", color:C2.t2, background:C2.s0, borderRadius:14, border:`1px dashed ${C2.b0}` }}>
+                          <div style={{ fontSize:24, marginBottom:10 }}>✓</div>
+                          <div style={{ fontSize:11, letterSpacing:2, textTransform:"uppercase" }}>Todo al día — sin piezas pendientes</div>
+                        </div>
+                      ) : (
+                        <div style={{ background:C2.s0, border:`1px solid ${C2.b0}`, borderRadius:12, overflow:"hidden" }}>
+                          {/* Table header */}
+                          <div style={{ display:"grid", gridTemplateColumns:"90px 1.5fr 1fr 110px 110px 40px", gap:12, padding:"8px 16px", borderBottom:`1px solid ${C2.b0}` }}>
+                            {["Barco","Pieza","Prioridad","Fecha envío","Estado",""].map((h,i) => (
+                              <div key={i} style={{ fontSize:8, letterSpacing:2, textTransform:"uppercase", color:C2.t2, fontWeight:700 }}>{h}</div>
+                            ))}
                           </div>
-                        );
-                      })}
-                    </div>
+                          {dashboard.map(p => {
+                            const prio = PRIORIDAD_META[p.prioridad] || PRIORIDAD_META["Media"];
+                            const m    = ESTADO_META[p.estado] ?? ESTADO_META["Pendiente"];
+                            return (
+                              <div key={p.id} className="dash-row" style={{
+                                display:"grid", gridTemplateColumns:"90px 1.5fr 1fr 110px 110px 40px",
+                                gap:12, alignItems:"center", padding:"10px 16px",
+                                borderBottom:`1px solid rgba(255,255,255,0.03)`,
+                              }}>
+                                <div style={{ fontFamily:C2.mono, color:C2.t0, fontWeight:700, fontSize:12 }}>{p.codigo_barco}</div>
+                                <div>
+                                  <div style={{ color:C2.t0, fontSize:12, fontWeight:600 }}>{p.pieza}</div>
+                                  <div style={{ color:C2.t2, fontSize:10, marginTop:2 }}>{p.sector}{p.color ? ` · ${p.color}` : ""}</div>
+                                </div>
+                                <div>
+                                  <span style={{ fontSize:8, letterSpacing:1.5, textTransform:"uppercase", padding:"3px 7px", borderRadius:99, fontWeight:700, background:prio.bg, color:prio.color }}>
+                                    {p.prioridad || "Media"}
+                                  </span>
+                                </div>
+                                <div style={{ fontFamily:C2.mono, fontSize:11, color:C2.t2 }}>
+                                  {p.fecha_envio ? p.fecha_envio.split("-").reverse().join("/") : "—"}
+                                </div>
+                                <div>
+                                  <span style={{ fontSize:9, letterSpacing:1, textTransform:"uppercase", padding:"3px 8px", borderRadius:99, fontWeight:700, background:m.bg, color:m.color, border:`1px solid ${m.border}` }}>
+                                    {p.estado}
+                                  </span>
+                                </div>
+                                <button
+                                  onClick={() => setModalPieza(p)}
+                                  style={{ border:"none", background:"transparent", color:C2.t2, cursor:"pointer", fontSize:13, padding:"4px" }}
+                                >✎</button>
+                              </div>
+                            );
+                          })}
+                        </div>
+                      )}
+                    </>
+                  ) : (
+                    <>
+                      {/* VISTA: GESTOR DE PLANTILLA DE LA LÍNEA */}
+                      <div style={{ marginBottom:20 }}>
+                        <div style={{ fontSize:9, color:C2.t2, letterSpacing:2, textTransform:"uppercase", marginBottom:4 }}>Configuración</div>
+                        <h1 style={{ margin:0, fontSize:20, fontWeight:700, color:C2.t0 }}>Plantilla Base: {lineaSel?.nombre}</h1>
+                        <p style={{ color:C2.t2, fontSize:11, marginTop:4, margin:0 }}>
+                          Estas piezas se copiarán automáticamente cuando crees un nuevo barco de esta línea.
+                        </p>
+                      </div>
+
+                      {esAdmin && (
+                        <div style={{ background:C2.s0, border:`1px solid ${C2.b1}`, borderRadius:10, padding:14, marginBottom:20 }}>
+                          <div style={{ fontSize:9, letterSpacing:2, textTransform:"uppercase", color:C2.t2, marginBottom:8 }}>Agregar a la plantilla</div>
+                          <div style={{ display:"grid", gridTemplateColumns:"1fr 140px", gap:8, marginBottom:10 }}>
+                            <input style={INP} placeholder="Nombre de la pieza" value={formPieza.pieza} onChange={e => setFormPieza(f=>({...f,pieza:e.target.value}))} />
+                            <input style={INP} placeholder="Sector" value={formPieza.sector} onChange={e => setFormPieza(f=>({...f,sector:e.target.value}))} />
+                          </div>
+                          <button onClick={agregarPiezaAPlantilla} style={{ border:`1px solid ${C2.b0}`, background:C2.s1, color:C2.t0, padding:"7px 14px", borderRadius:8, cursor:"pointer", fontSize:12 }}>
+                            + Guardar en plantilla
+                          </button>
+                        </div>
+                      )}
+
+                      {plantilla.length === 0 ? (
+                        <div style={{ textAlign:"center", padding:"40px", color:C2.t2, background:C2.s0, borderRadius:12, border:`1px dashed ${C2.b0}` }}>
+                          Plantilla vacía. Agregá la primera pieza arriba.
+                        </div>
+                      ) : (
+                        <div style={{ display:"flex", flexDirection:"column", gap:6 }}>
+                          {plantilla.map(p => (
+                            <div key={p.id} style={{ display:"flex", justifyContent:"space-between", alignItems:"center", padding:"10px 16px", background:"rgba(255,255,255,0.02)", border:`1px solid ${C2.b0}`, borderRadius:8 }}>
+                              <div>
+                                <div style={{ fontWeight:600, fontSize:13 }}>{p.pieza}</div>
+                                <div style={{ fontSize:10, color:C2.t2 }}>Sector: {p.sector}</div>
+                              </div>
+                              {esAdmin && (
+                                <button onClick={() => eliminarPiezaPlantilla(p.id)} style={{ border:"none", background:"transparent", color:C2.red, cursor:"pointer", fontSize:16 }}>×</button>
+                              )}
+                            </div>
+                          ))}
+                        </div>
+                      )}
+                    </>
                   )}
                 </div>
               )}

@@ -850,7 +850,7 @@ export default function ConfiguracionScreen({ profile, signOut }) {
 
   if (!isAdmin) {
     return (
-      <div style={{ background:"#09090b", minHeight:"100vh", display:"grid", gridTemplateColumns:"280px 1fr" }}>
+      <div style={{ position:"fixed", inset:0, background:"#09090b", display:"grid", gridTemplateColumns:"280px 1fr", overflow:"hidden" }}>
         <Sidebar profile={profile} signOut={signOut} />
         <div style={{ display:"flex", alignItems:"center", justifyContent:"center", color:"#71717a", fontSize:12, letterSpacing:1 }}>
           Solo administradores pueden acceder.
@@ -860,7 +860,7 @@ export default function ConfiguracionScreen({ profile, signOut }) {
   }
 
   return (
-    <div style={{ background:"#09090b", minHeight:"100vh", color:"#a1a1aa", fontFamily:"'Outfit',system-ui,sans-serif" }}>
+    <div style={{ position:"fixed", inset:0, background:"#09090b", color:"#a1a1aa", fontFamily:"'Outfit',system-ui,sans-serif", display:"grid", gridTemplateColumns:"280px 1fr", overflow:"hidden" }}>
       <style>{`
         @import url('https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500;700&display=swap');
         *,*::before,*::after{box-sizing:border-box;}
@@ -880,7 +880,7 @@ export default function ConfiguracionScreen({ profile, signOut }) {
         .hcard:hover{border-color:rgba(255,255,255,0.1)!important;}
       `}</style>
       <div className="bg-glow" />
-      <div style={{ display:"grid", gridTemplateColumns:"280px 1fr", minHeight:"100vh", position:"relative", zIndex:1 }}>
+      <div style={{ display:"contents" }}>
         <Sidebar profile={profile} signOut={signOut} />
         <NotificacionesBell profile={profile} />
         <Toast toast={toast} />

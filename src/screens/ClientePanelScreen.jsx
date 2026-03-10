@@ -17,7 +17,6 @@ import {
   FileText, Upload, Paperclip, Image as ImageIcon, Video as VideoIcon,
   Trash2, ZoomIn
 } from "lucide-react";
-import { SecEstado, SecBienvenidaPlus, ENHANCED_CSS } from "./PanelEnhanced";
 
 /* ─────────────────────────────────────────────────────────────
    CSS — TITANIUM SYSTEM
@@ -333,8 +332,6 @@ details[open] .arr{transform:rotate(90deg)}
   .mob-hdr{display:flex!important}
   .mob-ovl{display:block!important}
 }
-
-${ENHANCED_CSS}
 `;
 
 /* ─────────────────────────────────────────────────────────────
@@ -1218,20 +1215,13 @@ function SecSoporte({clienteId,nombreBarco,obraId,push}){
 
   const removeFile=id=>setArchivos(p=>p.filter(x=>x.id!==id));
 
-  const uploadToStorage=async(file,ticketId)=>{
-    const ext=file.name.split(".").pop().toLowerCase();
-    const path=`tickets/${ticketId}/${Date.now()}_${file.name.replace(/[^a-zA-Z0-9._-]/g,"_")}`;
-    console.log("[upload] intentando subir:", path, "tamaño:", file.size);
+  const uploadToStorage=async(file,tempId)=>{
+    const path=`tickets/${tempId}/${Date.now()}_${file.name.replace(/[^a-zA-Z0-9._-]/g,"_")}`;
     const{data:upData,error}=await supabase.storage
       .from("ticket-attachments")
       .upload(path,file,{cacheControl:"3600",upsert:true});
-    if(error){
-      console.error("[upload] ERROR:", error);
-      throw new Error(error.message || JSON.stringify(error));
-    }
-    console.log("[upload] subido OK:", upData);
+    if(error) throw new Error(error.message||JSON.stringify(error));
     const{data}=supabase.storage.from("ticket-attachments").getPublicUrl(path);
-    console.log("[upload] URL pública:", data.publicUrl);
     return data.publicUrl;
   };
 
@@ -1239,42 +1229,47 @@ function SecSoporte({clienteId,nombreBarco,obraId,push}){
     if(!fm.area){push("Seleccione el área afectada","err");return}
     if(!fm.desc||fm.desc.trim().length<10){push("Descripción muy breve — agregue más detalle","err");return}
     if(!fm.phone){push("Ingrese número de WhatsApp","err");return}
+    if(send)return;
     setSend(true);
     try{
-      // 1. Insert ticket
-      const{data:tkData,error:tkErr}=await supabase.from("tickets").insert([{
-        cliente_id:clienteId,area:fm.area,descripcion:fm.desc.trim(),
-        telefono:fm.phone,ubicacion_barco:fm.ubi,
-        nombre_barco_ticket:nombreBarco,estado:"pendiente",
-      }]).select().single();
-      if(tkErr)throw tkErr;
-
-      // 2. Upload archivos if any
-      let uploadedCount=0;
+      // 1. Subir archivos PRIMERO usando clienteId como carpeta temporal
+      let urls=[];
       if(archivos.length>0){
-        const urls=[];
+        push(`Subiendo ${archivos.length} archivo(s)…`,"inf");
+        const tempFolder=`${clienteId}_${Date.now()}`;
         for(const a of archivos){
           try{
-            const url=await uploadToStorage(a.file,tkData.id);
+            const url=await uploadToStorage(a.file,tempFolder);
             urls.push(url);
-            uploadedCount++;
           }catch(e){
-            push("Error subiendo "+a.name+": "+e.message,"err");
+            push(`✗ ${a.name.slice(0,24)}: ${e.message}`,"err");
+            console.error("[upload fail]",a.name,e);
           }
-        }
-        if(urls.length>0){
-          const{error:updErr}=await supabase.from("tickets").update({adjuntos:urls}).eq("id",tkData.id);
-          if(updErr) push("Error guardando adjuntos: "+updErr.message,"err");
         }
       }
 
+      // 2. Insert ticket con adjuntos YA incluidos (un solo INSERT, sin UPDATE)
+      const{error:tkErr}=await supabase.from("tickets").insert([{
+        cliente_id:clienteId,
+        area:fm.area,
+        descripcion:fm.desc.trim(),
+        telefono:fm.phone,
+        ubicacion_barco:fm.ubi,
+        nombre_barco_ticket:nombreBarco,
+        estado:"pendiente",
+        adjuntos:urls,          // ← se guarda en el insert directo
+      }]);
+      if(tkErr)throw tkErr;
+
       setFm(B);setArchivos([]);setDone(true);
-      push(`Reporte enviado${uploadedCount?" con "+uploadedCount+" archivo(s)":""}`, "ok");
-      await fetch2();
+      push(`Reporte enviado${urls.length?" con "+urls.length+" foto(s)":""}`, "ok");
+      setTimeout(()=>fetch2(),800);
     }catch(e){
       push("Error: "+e.message,"err");
+      console.error("[submit fail]",e);
+    }finally{
+      setSend(false);
     }
-    setSend(false);
   };
 
   const fmtSize=b=>b<1024*1024?(b/1024).toFixed(0)+" KB":(b/1024/1024).toFixed(1)+" MB";
@@ -1390,52 +1385,110 @@ function SecSoporte({clienteId,nombreBarco,obraId,push}){
             </div>
           ):(
             tks.map(t=>(
-              <div key={t.id} style={{padding:"16px 8px",borderBottom:"1px solid rgba(255,255,255,.035)",transition:"background .18s",borderRadius:1}}
-                onMouseEnter={e=>e.currentTarget.style.background="rgba(255,255,255,.01)"} onMouseLeave={e=>e.currentTarget.style.background="transparent"}>
-                <div style={{display:"flex",justifyContent:"space-between",alignItems:"flex-start",marginBottom:9,gap:8}}>
-                  <SBadge estado={t.estado}/>
-                  <span style={{fontFamily:"var(--font-mono)",fontSize:8.5,color:"var(--t3)",flexShrink:0}}>#{String(t.id).slice(-6)}</span>
+              <div key={t.id} style={{borderBottom:"1px solid rgba(255,255,255,.04)",transition:"background .18s",borderRadius:1,overflow:"hidden"}}
+                onMouseEnter={e=>e.currentTarget.style.background="rgba(255,255,255,.012)"} onMouseLeave={e=>e.currentTarget.style.background="transparent"}>
+
+                {/* Header del ticket */}
+                <div style={{padding:"14px 8px 10px",display:"flex",justifyContent:"space-between",alignItems:"flex-start",gap:8}}>
+                  <div style={{flex:1,minWidth:0}}>
+                    <div style={{display:"flex",alignItems:"center",gap:8,marginBottom:7}}>
+                      <SBadge estado={t.estado}/>
+                      {Array.isArray(t.adjuntos)&&t.adjuntos.length>0&&(
+                        <span style={{display:"flex",alignItems:"center",gap:3,padding:"2px 7px",borderRadius:4,background:"rgba(255,255,255,0.05)",border:"1px solid rgba(255,255,255,0.08)"}}>
+                          <Paperclip size={8} color="var(--t3)"/>
+                          <span style={{fontFamily:"var(--font-mono)",fontSize:7.5,color:"var(--t3)"}}>{t.adjuntos.length}</span>
+                        </span>
+                      )}
+                    </div>
+                    <p style={{color:"var(--t1)",fontSize:13,fontWeight:500,marginBottom:4,lineHeight:1.2}}>{t.area}</p>
+                    <p style={{color:"var(--t3)",fontSize:12,fontWeight:300,lineHeight:1.65,margin:0}}>{t.descripcion}</p>
+                  </div>
+                  <span style={{fontFamily:"var(--font-mono)",fontSize:8,color:"var(--t3)",flexShrink:0,letterSpacing:"0.08em"}}>#{String(t.id).slice(-6)}</span>
                 </div>
-                <p style={{color:"var(--t1)",fontSize:13,fontWeight:400,marginBottom:3}}>{t.area}</p>
-                <p style={{color:"var(--t3)",fontSize:12,fontWeight:300,lineHeight:1.65,marginBottom:7}}>{t.descripcion}</p>
-                {/* Adjuntos del historial */}
-                {t.adjuntos?.length>0&&(
-                  <div style={{display:"flex",gap:8,flexWrap:"wrap",marginBottom:10}}>
-                    {t.adjuntos.map((url,i)=>{
-                      const ext=url.split("?")[0].split(".").pop().toLowerCase();
-                      const isVideo=["mp4","mov","webm","avi"].includes(ext);
-                      const isImage=["jpg","jpeg","png","gif","webp","heic"].includes(ext);
-                      if(isVideo) return(
-                        <video key={i} controls style={{width:"100%",borderRadius:6,maxHeight:220,background:"#000",border:"1px solid var(--e1)"}}>
-                          <source src={url}/>
-                        </video>
-                      );
-                      if(isImage) return(
-                        <a key={i} href={url} target="_blank" rel="noopener noreferrer" style={{display:"block",width:"100%"}}>
-                          <img src={url} alt={"adj "+(i+1)}
-                            style={{width:"100%",maxHeight:220,objectFit:"cover",borderRadius:6,border:"1px solid var(--e1)",cursor:"zoom-in",display:"block"}}
-                            onError={e=>{e.target.style.display="none"}}
-                          />
-                        </a>
-                      );
-                      return(
-                        <a key={i} href={url} target="_blank" rel="noopener noreferrer"
-                          style={{display:"flex",alignItems:"center",gap:4,padding:"4px 10px",border:"1px solid var(--e1)",borderRadius:4,textDecoration:"none"}}>
-                          <span style={{fontSize:12}}>📎</span>
-                          <span style={{fontFamily:"var(--font-mono)",fontSize:8,color:"var(--t3)"}}>adj.{i+1}</span>
-                        </a>
-                      );
-                    })}
+
+                {/* Adjuntos — grid con lightbox */}
+                {Array.isArray(t.adjuntos)&&t.adjuntos.length>0&&(
+                  <div style={{padding:"0 8px 12px"}}>
+                    <p style={{fontFamily:"var(--font-mono)",fontSize:8,color:"var(--t3)",letterSpacing:".06em",marginBottom:8}}>
+                      📎 {t.adjuntos.length} archivo{t.adjuntos.length>1?"s":""} adjunto{t.adjuntos.length>1?"s":""}
+                    </p>
+                    <div style={{display:"flex",flexDirection:"column",gap:8}}>
+                      {t.adjuntos.map((url,i)=>{
+                        const cleanUrl=url.split("?")[0].toLowerCase();
+                        const isVideo=/\.(mp4|mov|webm|avi|mkv)$/.test(cleanUrl);
+                        const fileName=decodeURIComponent(url.split("/").pop().split("?")[0]).slice(0,50);
+
+                        if(isVideo) return(
+                          <div key={i} style={{borderRadius:8,overflow:"hidden",border:"1px solid var(--e2)",background:"var(--s1)"}}>
+                            <video controls style={{width:"100%",display:"block",maxHeight:260,background:"#000"}}
+                              onError={e=>{e.currentTarget.style.display="none";e.currentTarget.nextSibling.style.display="flex"}}>
+                              <source src={url}/>
+                            </video>
+                            <div style={{display:"none",padding:"10px 14px",alignItems:"center",justifyContent:"space-between"}}>
+                              <span style={{fontFamily:"var(--font-mono)",fontSize:9,color:"var(--t3)"}}>▶ {fileName}</span>
+                              <a href={url} target="_blank" rel="noopener noreferrer"
+                                style={{fontFamily:"var(--font-mono)",fontSize:9,color:"var(--info)",textDecoration:"none",fontWeight:600}}>Abrir ↗</a>
+                            </div>
+                            <div style={{padding:"8px 12px",borderTop:"1px solid var(--e1)",display:"flex",justifyContent:"space-between",alignItems:"center"}}>
+                              <span style={{fontFamily:"var(--font-mono)",fontSize:8,color:"var(--t3)"}}>{fileName}</span>
+                              <a href={url} target="_blank" rel="noopener noreferrer" onClick={e=>e.stopPropagation()}
+                                style={{fontFamily:"var(--font-mono)",fontSize:8,color:"var(--info)",textDecoration:"none"}}>Descargar ↗</a>
+                            </div>
+                          </div>
+                        );
+
+                        // Para todo lo que no es video, intentamos mostrar como imagen
+                        return(
+                          <div key={i} style={{borderRadius:8,overflow:"hidden",border:"1px solid var(--e2)",background:"var(--s1)"}}>
+                            <img
+                              src={url}
+                              alt={"Foto "+(i+1)}
+                              style={{width:"100%",display:"block",maxHeight:340,objectFit:"contain",background:"#050508",cursor:"zoom-in"}}
+                              onClick={()=>setLb({url,type:"image/jpeg"})}
+                              onError={e=>{
+                                // Si la imagen falla, ocultar y mostrar fallback
+                                e.currentTarget.style.display="none";
+                                const fb=e.currentTarget.parentElement.querySelector(".adj-fb");
+                                if(fb)fb.style.display="flex";
+                              }}
+                            />
+                            <div className="adj-fb" style={{display:"none",padding:"16px",flexDirection:"column",alignItems:"center",gap:8,background:"var(--s2)"}}>
+                              <ImageIcon size={22} color="var(--t3)"/>
+                              <span style={{fontFamily:"var(--font-mono)",fontSize:9,color:"var(--t3)",textAlign:"center"}}>
+                                No se pudo previsualizar
+                              </span>
+                            </div>
+                            <div style={{padding:"8px 12px",borderTop:"1px solid var(--e1)",display:"flex",justifyContent:"space-between",alignItems:"center"}}>
+                              <span style={{fontFamily:"var(--font-mono)",fontSize:8,color:"var(--t3)",overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap",maxWidth:"70%"}}>
+                                🖼 {fileName}
+                              </span>
+                              <div style={{display:"flex",gap:10,flexShrink:0}}>
+                                <span style={{fontSize:9,color:"var(--t3)",cursor:"pointer"}}
+                                  onClick={()=>setLb({url,type:"image/jpeg"})}>🔍 ver</span>
+                                <a href={url} target="_blank" rel="noopener noreferrer" onClick={e=>e.stopPropagation()}
+                                  style={{fontFamily:"var(--font-mono)",fontSize:9,color:"var(--info)",textDecoration:"none",fontWeight:600}}>
+                                  Abrir ↗
+                                </a>
+                              </div>
+                            </div>
+                          </div>
+                        );
+                      })}
+                    </div>
                   </div>
                 )}
-                <div style={{display:"flex",gap:10,flexWrap:"wrap"}}>
-                  {t.fecha_creacion&&<span style={{fontFamily:"var(--font-mono)",fontSize:8.5,color:"var(--t3)"}}>{df(t.fecha_creacion)} · {tf(t.fecha_creacion)}</span>}
+
+                {/* Footer: fecha, ubicación */}
+                <div style={{padding:"0 8px 10px",display:"flex",gap:10,flexWrap:"wrap",alignItems:"center"}}>
+                  {t.fecha_creacion&&<span style={{fontFamily:"var(--font-mono)",fontSize:8,color:"var(--t3)"}}>{df(t.fecha_creacion)} · {tf(t.fecha_creacion)}</span>}
                   {t.ubicacion_barco&&<span style={{fontSize:10,color:"var(--t3)",fontWeight:300,display:"flex",alignItems:"center",gap:3}}><MapPin size={8}/>{t.ubicacion_barco}</span>}
                 </div>
+
+                {/* Respuesta técnica */}
                 {t.seguimiento&&(
-                  <div style={{marginTop:10,padding:"10px 12px",borderLeft:"1.5px solid rgba(58,127,208,.4)",background:"var(--info2)",borderRadius:1}}>
-                    <Cap sm style={{display:"block",marginBottom:4,color:"rgba(58,127,208,0.5)"}}>Respuesta técnica</Cap>
-                    <p style={{fontSize:12.5,color:"#7aabdc",lineHeight:1.65,fontStyle:"italic",fontFamily:"var(--font-nm)"}}>{t.seguimiento}</p>
+                  <div style={{margin:"0 8px 12px",padding:"10px 12px",borderLeft:"1.5px solid rgba(58,127,208,.45)",background:"var(--info2)",borderRadius:"0 4px 4px 0"}}>
+                    <Cap sm style={{display:"block",marginBottom:5,color:"rgba(58,127,208,0.55)"}}>Respuesta técnica</Cap>
+                    <p style={{fontSize:12,color:"#7aabdc",lineHeight:1.7,fontStyle:"italic",fontFamily:"var(--font-nm)",margin:0}}>{t.seguimiento}</p>
                   </div>
                 )}
               </div>
@@ -1444,13 +1497,20 @@ function SecSoporte({clienteId,nombreBarco,obraId,push}){
         </div>
       </div>
 
-      {/* Lightbox adjunto */}
+      {/* Lightbox */}
       {lightbox&&(
         <div onClick={()=>setLb(null)} style={{position:"fixed",inset:0,background:"rgba(0,0,0,.97)",zIndex:99999,display:"flex",alignItems:"center",justifyContent:"center",padding:24,animation:"fin .2s both"}}>
-          <button onClick={()=>setLb(null)} style={{position:"absolute",top:20,right:20,background:"transparent",border:"1px solid var(--e2)",color:"var(--t2)",padding:"7px 14px",cursor:"pointer",fontFamily:"var(--font-nm)",fontSize:9,letterSpacing:".14em",borderRadius:1,display:"flex",gap:6,alignItems:"center"}}><X size={11}/>CERRAR</button>
+          <button onClick={()=>setLb(null)} style={{position:"absolute",top:18,right:18,background:"rgba(255,255,255,0.07)",border:"1px solid var(--e2)",color:"var(--t2)",padding:"7px 14px",cursor:"pointer",fontFamily:"var(--font-nm)",fontSize:9,letterSpacing:".14em",borderRadius:4,display:"flex",gap:6,alignItems:"center"}}>
+            <X size={11}/>CERRAR
+          </button>
+          <a href={lightbox.url} target="_blank" rel="noopener noreferrer" onClick={e=>e.stopPropagation()}
+            style={{position:"absolute",top:18,left:18,background:"rgba(255,255,255,0.07)",border:"1px solid var(--e2)",color:"var(--t2)",padding:"7px 14px",cursor:"pointer",fontFamily:"var(--font-nm)",fontSize:9,letterSpacing:".14em",borderRadius:4,display:"flex",gap:6,alignItems:"center",textDecoration:"none"}}>
+            ↗ ABRIR ORIGINAL
+          </a>
           {lightbox.type?.startsWith("image/")
-            ?<img src={lightbox.url} alt="" style={{maxWidth:"100%",maxHeight:"90vh",objectFit:"contain",animation:"fup .3s var(--ez) both"}}/>
-            :<video src={lightbox.url} controls style={{maxWidth:"100%",maxHeight:"90vh",animation:"fup .3s var(--ez) both"}}/>}
+            ?<img src={lightbox.url} alt="" style={{maxWidth:"92vw",maxHeight:"88vh",objectFit:"contain",borderRadius:6,boxShadow:"0 0 80px rgba(0,0,0,0.7)",animation:"fup .3s var(--ez) both"}}/>
+            :<video src={lightbox.url} controls autoPlay style={{maxWidth:"92vw",maxHeight:"88vh",borderRadius:6,animation:"fup .3s var(--ez) both"}}/>
+          }
         </div>
       )}
     </div>
@@ -1462,7 +1522,6 @@ function SecSoporte({clienteId,nombreBarco,obraId,push}){
    ───────────────────────────────────────────────────────────── */
 const NAV_ITEMS = [
   {id:"bienvenida",    l:"Inicio",            ico:<Home size={13}/>},
-  {id:"estado",        l:"Estado",            ico:<Activity size={13}/>},
   {id:"configuracion", l:"Identidad",          ico:<Settings size={13}/>},
   {id:"resumen",       l:"Planificador",       ico:<Navigation size={13}/>},
   {id:"energia",       l:"Energía y Tableros", ico:<Zap size={13}/>},
@@ -1580,16 +1639,15 @@ export default function ClientePanelScreen({session,onSignOut}){
           {/* Section */}
           <div key={sec} className="senter"
             style={{padding:sec==="bienvenida"?"0":"clamp(20px,4vw,48px) clamp(16px,4vw,48px)"}}>
-            {sec==="bienvenida"    &&<SecBienvenidaPlus {...sp}/>}
-            {sec==="estado"        &&<SecEstado         {...sp}/>}
-            {sec==="configuracion" &&<SecIdentidad      {...sp}/>}
-            {sec==="resumen"       &&<SecPlanificador   {...sp}/>}
-            {sec==="energia"       &&<SecEnergia        {...sp}/>}
-            {sec==="propulsion"    &&<SecPropulsion     {...sp}/>}
-            {sec==="sistemas"      &&<SecSistemas       {...sp}/>}
-            {sec==="seguridad"     &&<SecSeguridad      {...sp}/>}
-            {sec==="tutoriales"    &&<SecTutoriales     {...sp}/>}
-            {sec==="soporte"       &&<SecSoporte        {...sp}/>}
+            {sec==="bienvenida"    &&<SecBienvenida    {...sp}/>}
+            {sec==="configuracion" &&<SecIdentidad     {...sp}/>}
+            {sec==="resumen"       &&<SecPlanificador  {...sp}/>}
+            {sec==="energia"       &&<SecEnergia       {...sp}/>}
+            {sec==="propulsion"    &&<SecPropulsion    {...sp}/>}
+            {sec==="sistemas"      &&<SecSistemas      {...sp}/>}
+            {sec==="seguridad"     &&<SecSeguridad     {...sp}/>}
+            {sec==="tutoriales"    &&<SecTutoriales    {...sp}/>}
+            {sec==="soporte"       &&<SecSoporte       {...sp}/>}
           </div>
         </main>
       </div>
