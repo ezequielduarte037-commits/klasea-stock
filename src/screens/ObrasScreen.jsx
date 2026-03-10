@@ -270,61 +270,47 @@ function ObraModal({ lineas, lProcs, lTareas = [], onSave, onClose }) {
             orden_compra_dias_previo: p.orden_compra_dias_previo ?? 7,
           })));
           await supabase.from("obra_timeline").insert(procsLinea.map(p => ({ obra_id: nueva.id, linea_proceso_id: p.id, estado: "pendiente" })));
-          // Copiar tareas de plantilla — fetch directo de DB, con fallback a plantillas JS para K42/K52
-          const etapasIns = await supabase.from("obra_etapas").select("id, linea_proceso_id, nombre").eq("obra_id", nueva.id);
+          // Copiar tareas de plantilla — DB primero, luego JS (por nombre, luego por posición)
+          const etapasIns = await supabase.from("obra_etapas").select("id, linea_proceso_id, nombre, orden").eq("obra_id", nueva.id);
           if (!etapasIns.error && etapasIns.data?.length) {
             const procIds = etapasIns.data.map(e => e.linea_proceso_id).filter(Boolean);
+            const tareasAInsertar = [];
+
+            // 1. Intentar desde linea_proceso_tareas en DB
+            let tPlantilla = [];
             if (procIds.length) {
-              const { data: tPlantilla } = await supabase
-                .from("linea_proceso_tareas")
-                .select("*")
-                .in("linea_proceso_id", procIds)
-                .order("orden");
+              const res = await supabase.from("linea_proceso_tareas").select("*").in("linea_proceso_id", procIds).order("orden");
+              if (res.data?.length) tPlantilla = res.data;
+            }
 
-              const tareasAInsertar = [];
-
-              if (tPlantilla?.length) {
-                // ── Fuente: Supabase (K43 y futuros) ──────────────────────────
-                for (const etapa of etapasIns.data) {
-                  for (const tp of tPlantilla.filter(t => t.linea_proceso_id === etapa.linea_proceso_id)) {
-                    tareasAInsertar.push({
-                      obra_id: nueva.id, etapa_id: etapa.id, nombre: tp.nombre,
-                      orden: tp.orden ?? 999, estado: "pendiente", prioridad: tp.prioridad ?? "media",
-                      horas_estimadas: tp.horas_estimadas ?? null,
-                      personas_necesarias: tp.personas_necesarias ?? null,
-                      observaciones: tp.observaciones ?? null,
-                    });
-                  }
+            if (tPlantilla.length) {
+              // Fuente DB (K43 y futuros)
+              for (const etapa of etapasIns.data) {
+                for (const tp of tPlantilla.filter(t => t.linea_proceso_id === etapa.linea_proceso_id)) {
+                  tareasAInsertar.push({ obra_id: nueva.id, etapa_id: etapa.id, nombre: tp.nombre, orden: tp.orden ?? 999, estado: "pendiente", prioridad: tp.prioridad ?? "media", horas_estimadas: tp.horas_estimadas ?? null, personas_necesarias: tp.personas_necesarias ?? null, observaciones: tp.observaciones ?? null });
                 }
-              } else {
-                // ── Fallback: plantillas JS locales para K42 y K52 ────────────
-                const lineaNombre = lineaSel?.nombre ?? "";
-                const plantillaJS =
-                  lineaNombre.includes("42") ? PLANTILLA_K42 :
-                  lineaNombre.includes("52") ? PLANTILLA_K52 :
-                  null;
-
-                if (plantillaJS) {
-                  for (const etapa of etapasIns.data) {
-                    const plantillaEtapa = plantillaJS.find(
-                      pe => pe.nombre.trim().toLowerCase() === (etapa.nombre ?? "").trim().toLowerCase()
-                    );
-                    if (!plantillaEtapa) continue;
-                    for (const tp of plantillaEtapa.tareas) {
-                      tareasAInsertar.push({
-                        obra_id: nueva.id, etapa_id: etapa.id, nombre: tp.nombre,
-                        orden: tp.orden ?? 999, estado: "pendiente", prioridad: "media",
-                        horas_estimadas: tp.horas_estimadas ?? null,
-                        personas_necesarias: tp.personas_necesarias ?? null,
-                        observaciones: tp.observaciones ?? null,
-                      });
-                    }
+              }
+            } else {
+              // Fuente JS (K42 / K52) — primero por nombre, luego por posición
+              const lineaNombre = lineaSel?.nombre ?? "";
+              const plantillaJS = lineaNombre.includes("42") ? PLANTILLA_K42 : lineaNombre.includes("52") ? PLANTILLA_K52 : null;
+              if (plantillaJS) {
+                const etapasOrden = [...etapasIns.data].sort((a, b) => (a.orden ?? 0) - (b.orden ?? 0));
+                const procOrden   = [...plantillaJS].sort((a, b) => (a.orden ?? 0) - (b.orden ?? 0));
+                for (let i = 0; i < etapasOrden.length; i++) {
+                  const etapa = etapasOrden[i];
+                  // Primero intentar match por nombre
+                  let plantillaEtapa = procOrden.find(pe => pe.nombre.trim().toLowerCase() === (etapa.nombre ?? "").trim().toLowerCase());
+                  // Si no hay match por nombre, usar posición
+                  if (!plantillaEtapa) plantillaEtapa = procOrden[i];
+                  if (!plantillaEtapa) continue;
+                  for (const tp of plantillaEtapa.tareas) {
+                    tareasAInsertar.push({ obra_id: nueva.id, etapa_id: etapa.id, nombre: tp.nombre, orden: tp.orden ?? 999, estado: "pendiente", prioridad: "media", horas_estimadas: tp.horas_estimadas ?? null, personas_necesarias: tp.personas_necesarias ?? null, observaciones: tp.observaciones ?? null });
                   }
                 }
               }
-
-              if (tareasAInsertar.length) await supabase.from("obra_tareas").insert(tareasAInsertar);
             }
+            if (tareasAInsertar.length) await supabase.from("obra_tareas").insert(tareasAInsertar);
           }
         } catch { }
       }
@@ -1888,71 +1874,47 @@ export default function ObrasScreen({ profile, signOut }) {
   // ── IMPORTAR TAREAS A OBRA EXISTENTE (K42/K52) ───────────────
   async function importarTareasAObraExistente(obra) {
     const lineaNombre = obra.linea_nombre ?? lineas.find(l => l.id === obra.linea_id)?.nombre ?? "";
-    const plantillaJS =
-      lineaNombre.includes("42") ? PLANTILLA_K42 :
-      lineaNombre.includes("52") ? PLANTILLA_K52 :
-      null;
+    const plantillaJS = lineaNombre.includes("42") ? PLANTILLA_K42 : lineaNombre.includes("52") ? PLANTILLA_K52 : null;
     if (!plantillaJS) { alert("No hay plantilla JS para esta línea."); return; }
 
-    // Traer etapas reales de la obra
+    // Traer etapas reales de la obra ordenadas
     const { data: etapasObra, error: eEt } = await supabase
-      .from("obra_etapas")
-      .select("id, nombre, linea_proceso_id")
-      .eq("obra_id", obra.id);
+      .from("obra_etapas").select("id, nombre, linea_proceso_id, orden").eq("obra_id", obra.id);
     if (eEt || !etapasObra?.length) { alert("No se encontraron etapas en esta obra."); return; }
 
-    // Intentar primero desde DB (linea_proceso_tareas)
+    const tareasAInsertar = [];
+
+    // 1. Intentar desde linea_proceso_tareas en DB
     const procIds = etapasObra.map(e => e.linea_proceso_id).filter(Boolean);
-    let tareasAInsertar = [];
-
     if (procIds.length) {
-      const { data: tDB } = await supabase
-        .from("linea_proceso_tareas")
-        .select("*")
-        .in("linea_proceso_id", procIds)
-        .order("orden");
-
+      const { data: tDB } = await supabase.from("linea_proceso_tareas").select("*").in("linea_proceso_id", procIds).order("orden");
       if (tDB?.length) {
         for (const etapa of etapasObra) {
           for (const tp of tDB.filter(t => t.linea_proceso_id === etapa.linea_proceso_id)) {
-            tareasAInsertar.push({
-              obra_id: obra.id, etapa_id: etapa.id, nombre: tp.nombre,
-              orden: tp.orden ?? 999, estado: "pendiente", prioridad: tp.prioridad ?? "media",
-              horas_estimadas: tp.horas_estimadas ?? null,
-              personas_necesarias: tp.personas_necesarias ?? null,
-              observaciones: tp.observaciones ?? null,
-            });
+            tareasAInsertar.push({ obra_id: obra.id, etapa_id: etapa.id, nombre: tp.nombre, orden: tp.orden ?? 999, estado: "pendiente", prioridad: tp.prioridad ?? "media", horas_estimadas: tp.horas_estimadas ?? null, personas_necesarias: tp.personas_necesarias ?? null, observaciones: tp.observaciones ?? null });
           }
         }
       }
     }
 
-    // Si DB no tenía tareas, usar plantilla JS matcheando por nombre de etapa
+    // 2. Si DB no tenía tareas: JS con match nombre → posición
     if (!tareasAInsertar.length) {
-      for (const etapa of etapasObra) {
-        const plantillaEtapa = plantillaJS.find(
-          pe => pe.nombre.trim().toLowerCase() === (etapa.nombre ?? "").trim().toLowerCase()
-        );
-        if (!plantillaEtapa) continue;
-        for (const tp of plantillaEtapa.tareas) {
-          tareasAInsertar.push({
-            obra_id: obra.id, etapa_id: etapa.id, nombre: tp.nombre,
-            orden: tp.orden ?? 999, estado: "pendiente", prioridad: "media",
-            horas_estimadas: tp.horas_estimadas ?? null,
-            personas_necesarias: tp.personas_necesarias ?? null,
-            observaciones: tp.observaciones ?? null,
-          });
+      const etapasOrden = [...etapasObra].sort((a, b) => (a.orden ?? 0) - (b.orden ?? 0));
+      const procOrden   = [...plantillaJS].sort((a, b) => (a.orden ?? 0) - (b.orden ?? 0));
+      for (let i = 0; i < etapasOrden.length; i++) {
+        const etapa = etapasOrden[i];
+        let pe = procOrden.find(p => p.nombre.trim().toLowerCase() === (etapa.nombre ?? "").trim().toLowerCase());
+        if (!pe) pe = procOrden[i]; // fallback posición
+        if (!pe) continue;
+        for (const tp of pe.tareas) {
+          tareasAInsertar.push({ obra_id: obra.id, etapa_id: etapa.id, nombre: tp.nombre, orden: tp.orden ?? 999, estado: "pendiente", prioridad: "media", horas_estimadas: tp.horas_estimadas ?? null, personas_necesarias: tp.personas_necesarias ?? null, observaciones: tp.observaciones ?? null });
         }
       }
     }
 
-    if (!tareasAInsertar.length) {
-      alert("No se encontraron tareas para importar. Verificá que los nombres de las etapas coincidan con la plantilla.");
-      return;
-    }
-
+    if (!tareasAInsertar.length) { alert("No se encontraron tareas para importar."); return; }
     const { error } = await supabase.from("obra_tareas").insert(tareasAInsertar);
-    if (error) { alert("Error al insertar tareas: " + error.message); return; }
+    if (error) { alert("Error: " + error.message); return; }
     cargar();
   }
 
@@ -2098,24 +2060,16 @@ export default function ObrasScreen({ profile, signOut }) {
               {expanded && (
                 <div style={{ paddingLeft: 16, paddingTop: 6 }}>
 
-                  {/* ── BOTÓN IMPORTAR TAREAS (K42 / K52 sin tareas) ── */}
+                  {/* ── BOTÓN IMPORTAR TAREAS (K42/K52 sin tareas) ── */}
                   {esGestion && (() => {
-                    const lineaNombre = obra.linea_nombre ?? lineas.find(l => l.id === obra.linea_id)?.nombre ?? "";
-                    const esPlantillaJS = lineaNombre.includes("42") || lineaNombre.includes("52");
+                    const lnombre = obra.linea_nombre ?? lineas.find(l => l.id === obra.linea_id)?.nombre ?? "";
+                    const esJS = lnombre.includes("42") || lnombre.includes("52");
                     const sinTareas = !tareas.some(t => t.obra_id === obra.id);
-                    if (!esPlantillaJS || !sinTareas) return null;
+                    if (!esJS || !sinTareas) return null;
                     return (
-                      <button
-                        type="button"
-                        onClick={() => importarTareasAObraExistente(obra)}
-                        style={{
-                          width: "100%", marginBottom: 10, padding: "10px 16px", borderRadius: 8, cursor: "pointer",
-                          border: "1px solid rgba(16,185,129,0.4)", background: "rgba(16,185,129,0.08)",
-                          color: "#34d399", fontSize: 12, fontFamily: C.sans, fontWeight: 600,
-                          display: "flex", alignItems: "center", justifyContent: "center", gap: 8,
-                        }}
-                      >
-                        ⬇ Importar tareas de plantilla {lineaNombre.includes("42") ? "K42" : "K52"} a esta obra
+                      <button type="button" onClick={() => importarTareasAObraExistente(obra)}
+                        style={{ width: "100%", marginBottom: 10, padding: "10px 16px", borderRadius: 8, cursor: "pointer", border: "1px solid rgba(16,185,129,0.4)", background: "rgba(16,185,129,0.08)", color: "#34d399", fontSize: 12, fontFamily: C.sans, fontWeight: 600, display: "flex", alignItems: "center", justifyContent: "center", gap: 8 }}>
+                        ⬇ Importar tareas de plantilla {lnombre.includes("42") ? "K42" : "K52"} a esta obra
                       </button>
                     );
                   })()}
