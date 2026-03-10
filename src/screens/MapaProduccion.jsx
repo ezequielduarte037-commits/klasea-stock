@@ -400,14 +400,34 @@ function RadarHUD({puestos,obraByPuesto,vp,containerW,containerH}){
   );
 }
 
-/* ═══════════════════════════════════════════════════════════════
-   COMPONENTE PRINCIPAL
-═══════════════════════════════════════════════════════════════ */
+const LS_KEY = "klasea_mapa_puestos_v1";
+
+function loadPuestos() {
+  try {
+    const raw = localStorage.getItem(LS_KEY);
+    if (raw) {
+      const parsed = JSON.parse(raw);
+      if (Array.isArray(parsed) && parsed.length > 0) {
+        // Actualizar _nextN para que genId() no colisione
+        parsed.forEach(p => {
+          const n = parseInt(p.id.replace("puesto-", ""), 10);
+          if (!isNaN(n) && n >= _nextN) _nextN = n + 1;
+        });
+        return parsed;
+      }
+    }
+  } catch {}
+  return PUESTOS_INITIAL;
+}
+
+function savePuestos(puestos) {
+  try { localStorage.setItem(LS_KEY, JSON.stringify(puestos)); } catch {}
+}
 export default function MapaProduccion({obras=[],onPuestoClick,onAsignarObra,onChangeEstado,esGestion=false}){
   const svgRef=useRef(null);
   const vpRef=useRef({x:0,y:0,scale:1});
   const [vp,setVp]=useState({x:0,y:0,scale:1});
-  const [puestos,setPuestos]=useState(PUESTOS_INITIAL);
+  const [puestos,setPuestos]=useState(()=>loadPuestos());
   const [hovered,setHovered]=useState(null);
   const [tooltip,setTooltip]=useState(null);
   const [editMode,setEditMode]=useState(false);
@@ -428,6 +448,8 @@ export default function MapaProduccion({obras=[],onPuestoClick,onAsignarObra,onC
 
   useEffect(()=>{stateRef.current={editMode,cmdPaletteOpen,focusedPuesto,addObraFor,confirmDel,contextMenu,hovered};},[editMode,cmdPaletteOpen,focusedPuesto,addObraFor,confirmDel,contextMenu,hovered]);
   useEffect(()=>{vpRef.current=vp;},[vp]);
+  // Persistir puestos en localStorage al cambiar
+  useEffect(()=>{ savePuestos(puestos); },[puestos]);
   useEffect(()=>{const id=setInterval(()=>setPulseKey(k=>k+1),3000);return()=>clearInterval(id);},[]);
   useEffect(()=>{
     const el=svgRef.current; if(!el) return;
@@ -544,6 +566,7 @@ export default function MapaProduccion({obras=[],onPuestoClick,onAsignarObra,onC
   }
   function removePuesto(id){setPuestos(prev=>prev.filter(p=>p.id!==id));setConfirmDel(null);}
   function toggleRot(id){setPuestos(prev=>prev.map(p=>p.id===id?{...p,rot:(p.rot+90)%360}:p));}
+  function resetLayout(){if(!window.confirm("¿Resetear el layout al estado original? Se perderán todas las posiciones personalizadas."))return;localStorage.removeItem(LS_KEY);_nextN=23;setPuestos(PUESTOS_INITIAL);}
   async function handleModalAssign(pId,oId){if(!onAsignarObra)return;try{await onAsignarObra(pId,oId);}finally{setAddObraFor(null);}}
   function handlePuestoClick(p){if(editMode)return;const obra=obraByPuesto[p.id];if(!obra)setAddObraFor(p.id);else onPuestoClick?.({puesto:p,obra});}
   const handleContextMenu=useCallback((e,p)=>{e.preventDefault();e.stopPropagation();setContextMenu({x:e.clientX,y:e.clientY,puestoId:p.id});setTooltip(null);},[]);
@@ -842,6 +865,8 @@ export default function MapaProduccion({obras=[],onPuestoClick,onAsignarObra,onC
                 ))}
                 <div style={{width:1,height:16,background:C.b1,margin:"0 4px"}}/>
                 <button onClick={addPuesto} style={{padding:"4px 12px",borderRadius:6,cursor:"pointer",fontSize:11,fontWeight:700,border:"none",background:"#10b981",color:"#000",boxShadow:"0 4px 12px rgba(16,185,129,0.4)"}}>+ Agregar</button>
+                <div style={{width:1,height:16,background:C.b1,margin:"0 4px"}}/>
+                <button onClick={resetLayout} style={{padding:"4px 10px",borderRadius:6,cursor:"pointer",fontSize:10,fontWeight:600,border:"1px solid rgba(239,68,68,0.3)",background:"rgba(239,68,68,0.08)",color:"#f87171"}}>↺ Reset</button>
               </div>
             )}
           </div>

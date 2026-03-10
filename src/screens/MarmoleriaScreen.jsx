@@ -350,11 +350,13 @@ export default function MarmoleriaScreen({ profile, signOut }) {
       uid = u.id;
 
       // Copiar plantilla de la línea automáticamente
-      const { data: plantillaDB } = await supabase
+      const { data: plantillaDB, error: errPlant } = await supabase
         .from("marm_linea_piezas")
         .select("*")
         .eq("linea_id", lineaId)
-        .order("orden");
+        .order("sector");
+
+      if (errPlant) { setErr("Error al cargar plantilla: " + errPlant.message); }
 
       if (plantillaDB?.length) {
         const inserts = plantillaDB.map(p => ({
@@ -362,10 +364,11 @@ export default function MarmoleriaScreen({ profile, signOut }) {
           pieza_id:  p.id,
           pieza:     p.pieza,
           sector:    p.sector,
-          opcional:  p.opcional,
+          opcional:  p.opcional ?? false,
           estado:    "Pendiente",
         }));
-        await supabase.from("marm_unidad_piezas").insert(inserts);
+        const { error: errIns } = await supabase.from("marm_unidad_piezas").insert(inserts);
+        if (errIns) setErr("Error al copiar piezas: " + errIns.message);
       }
     }
 
@@ -711,12 +714,38 @@ export default function MarmoleriaScreen({ profile, signOut }) {
 
             {/* Acciones topbar */}
             {unidadId && esAdmin && (
-              <button
-                onClick={() => setShowAddPieza(v => !v)}
-                style={{ border:`1px solid ${C2.b0}`, background:"transparent", color:C2.t1, padding:"5px 12px", borderRadius:7, cursor:"pointer", fontFamily:C2.sans, fontSize:11 }}
-              >
-                {showAddPieza ? "✕ Cancelar" : "+ Pieza extra"}
-              </button>
+              <>
+                <button
+                  onClick={async () => {
+                    if (!window.confirm("¿Copiar la plantilla de la línea a este barco? Solo agrega piezas que no existan aún.")) return;
+                    const { data: plantillaDB, error: errP } = await supabase
+                      .from("marm_linea_piezas").select("*").eq("linea_id", lineaId).order("sector");
+                    if (errP) return setErr(errP.message);
+                    if (!plantillaDB?.length) return setErr("La plantilla de esta línea está vacía.");
+                    // Solo insertar las que no existan (por pieza_id o por nombre+sector)
+                    const existentes = new Set(piezas.map(p => p.pieza_id || `${p.pieza}::${p.sector}`));
+                    const nuevas = plantillaDB.filter(p => !existentes.has(p.id) && !existentes.has(`${p.pieza}::${p.sector}`));
+                    if (!nuevas.length) return setErr("Este barco ya tiene todas las piezas de la plantilla.");
+                    const inserts = nuevas.map(p => ({
+                      unidad_id: unidadId, pieza_id: p.id,
+                      pieza: p.pieza, sector: p.sector, opcional: p.opcional ?? false, estado: "Pendiente",
+                    }));
+                    const { error: errI } = await supabase.from("marm_unidad_piezas").insert(inserts);
+                    if (errI) return setErr(errI.message);
+                    cargarPiezas(unidadId);
+                  }}
+                  style={{ border:`1px solid rgba(245,158,11,0.35)`, background:"rgba(245,158,11,0.08)", color:C2.amber, padding:"5px 12px", borderRadius:7, cursor:"pointer", fontFamily:C2.sans, fontSize:11 }}
+                  title="Copiar piezas de la plantilla de la línea a este barco"
+                >
+                  ⊞ Copiar plantilla
+                </button>
+                <button
+                  onClick={() => setShowAddPieza(v => !v)}
+                  style={{ border:`1px solid ${C2.b0}`, background:"transparent", color:C2.t1, padding:"5px 12px", borderRadius:7, cursor:"pointer", fontFamily:C2.sans, fontSize:11 }}
+                >
+                  {showAddPieza ? "✕ Cancelar" : "+ Pieza extra"}
+                </button>
+              </>
             )}
             <button
               onClick={exportarPDFGeneral}
