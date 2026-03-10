@@ -270,7 +270,7 @@ function ObraModal({ lineas, lProcs, lTareas = [], onSave, onClose }) {
             orden_compra_dias_previo: p.orden_compra_dias_previo ?? 7,
           })));
           await supabase.from("obra_timeline").insert(procsLinea.map(p => ({ obra_id: nueva.id, linea_proceso_id: p.id, estado: "pendiente" })));
-          // Copiar tareas de plantilla — fetch directo de DB para no depender del prop lTareas
+          // Copiar tareas de plantilla — fetch directo de DB, con fallback a plantillas JS para K42/K52
           const etapasIns = await supabase.from("obra_etapas").select("id, linea_proceso_id").eq("obra_id", nueva.id);
           if (!etapasIns.error && etapasIns.data?.length) {
             const procIds = etapasIns.data.map(e => e.linea_proceso_id).filter(Boolean);
@@ -280,15 +280,52 @@ function ObraModal({ lineas, lProcs, lTareas = [], onSave, onClose }) {
                 .select("*")
                 .in("linea_proceso_id", procIds)
                 .order("orden");
+
+              const tareasAInsertar = [];
+
               if (tPlantilla?.length) {
-                const tareasAInsertar = [];
+                // ── Fuente: Supabase (K43 y futuros) ──────────────────────────
                 for (const etapa of etapasIns.data) {
                   for (const tp of tPlantilla.filter(t => t.linea_proceso_id === etapa.linea_proceso_id)) {
-                    tareasAInsertar.push({ obra_id: nueva.id, etapa_id: etapa.id, nombre: tp.nombre, orden: tp.orden ?? 999, estado: "pendiente", prioridad: tp.prioridad ?? "media", horas_estimadas: tp.horas_estimadas ?? null, personas_necesarias: tp.personas_necesarias ?? null, observaciones: tp.observaciones ?? null });
+                    tareasAInsertar.push({
+                      obra_id: nueva.id, etapa_id: etapa.id, nombre: tp.nombre,
+                      orden: tp.orden ?? 999, estado: "pendiente", prioridad: tp.prioridad ?? "media",
+                      horas_estimadas: tp.horas_estimadas ?? null,
+                      personas_necesarias: tp.personas_necesarias ?? null,
+                      observaciones: tp.observaciones ?? null,
+                    });
                   }
                 }
-                if (tareasAInsertar.length) await supabase.from("obra_tareas").insert(tareasAInsertar);
+              } else {
+                // ── Fallback: plantillas JS locales para K42 y K52 ────────────
+                const lineaNombre = lineaSel?.nombre ?? "";
+                const plantillaJS =
+                  lineaNombre.includes("42") ? PLANTILLA_K42 :
+                  lineaNombre.includes("52") ? PLANTILLA_K52 :
+                  null;
+
+                if (plantillaJS) {
+                  for (const etapa of etapasIns.data) {
+                    const proc = procsLinea.find(p => p.id === etapa.linea_proceso_id);
+                    if (!proc) continue;
+                    const plantillaEtapa = plantillaJS.find(
+                      pe => pe.nombre.trim().toLowerCase() === proc.nombre.trim().toLowerCase()
+                    );
+                    if (!plantillaEtapa) continue;
+                    for (const tp of plantillaEtapa.tareas) {
+                      tareasAInsertar.push({
+                        obra_id: nueva.id, etapa_id: etapa.id, nombre: tp.nombre,
+                        orden: tp.orden ?? 999, estado: "pendiente", prioridad: "media",
+                        horas_estimadas: tp.horas_estimadas ?? null,
+                        personas_necesarias: tp.personas_necesarias ?? null,
+                        observaciones: tp.observaciones ?? null,
+                      });
+                    }
+                  }
+                }
               }
+
+              if (tareasAInsertar.length) await supabase.from("obra_tareas").insert(tareasAInsertar);
             }
           }
         } catch { }
