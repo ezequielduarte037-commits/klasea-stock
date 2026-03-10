@@ -292,7 +292,25 @@ export default function MarmoleriaScreen({ profile, signOut }) {
   // ── ACCIONES ──────────────────────────────────────────────────
   async function crearLinea() {
     if (!newLinea.trim()) return;
-    const { error } = await supabase.from("marm_lineas").insert({ nombre: newLinea.trim().toUpperCase() });
+    const nombre = newLinea.trim().toUpperCase();
+
+    // Si existe pero está inactiva, reactivarla
+    const { data: existente } = await supabase
+      .from("marm_lineas")
+      .select("id, activa")
+      .eq("nombre", nombre)
+      .maybeSingle();
+
+    if (existente) {
+      if (!existente.activa) {
+        await supabase.from("marm_lineas").update({ activa: true }).eq("id", existente.id);
+      }
+      setNewLinea("");
+      cargarLineas();
+      return;
+    }
+
+    const { error } = await supabase.from("marm_lineas").insert({ nombre });
     if (error) return setErr(error.message);
     setNewLinea("");
     cargarLineas();
@@ -307,35 +325,53 @@ export default function MarmoleriaScreen({ profile, signOut }) {
 
   async function crearUnidad() {
     if (!newUnidad.trim() || !lineaId) return;
-    // 1. Crear unidad
-    const { data: u, error } = await supabase
+
+    // Si existe pero está inactiva, reactivarla
+    const { data: existente } = await supabase
       .from("marm_unidades")
-      .insert({ linea_id:lineaId, codigo:newUnidad.trim() })
-      .select().single();
-    if (error) return setErr(error.message);
-
-    // 2. Copiar plantilla de la línea automáticamente
-    const { data: plantilla } = await supabase
-      .from("marm_linea_piezas")
-      .select("*")
+      .select("id, activa")
       .eq("linea_id", lineaId)
-      .order("orden");
+      .eq("codigo", newUnidad.trim())
+      .maybeSingle();
 
-    if (plantilla?.length) {
-      const inserts = plantilla.map(p => ({
-        unidad_id: u.id,
-        pieza_id:  p.id,
-        pieza:     p.pieza,
-        sector:    p.sector,
-        opcional:  p.opcional,
-        estado:    "Pendiente",
-      }));
-      await supabase.from("marm_unidad_piezas").insert(inserts);
+    let uid;
+    if (existente) {
+      if (!existente.activa) {
+        await supabase.from("marm_unidades").update({ activa: true }).eq("id", existente.id);
+      }
+      uid = existente.id;
+    } else {
+      // Crear unidad nueva
+      const { data: u, error } = await supabase
+        .from("marm_unidades")
+        .insert({ linea_id: lineaId, codigo: newUnidad.trim() })
+        .select().single();
+      if (error) return setErr(error.message);
+      uid = u.id;
+
+      // Copiar plantilla de la línea automáticamente
+      const { data: plantillaDB } = await supabase
+        .from("marm_linea_piezas")
+        .select("*")
+        .eq("linea_id", lineaId)
+        .order("orden");
+
+      if (plantillaDB?.length) {
+        const inserts = plantillaDB.map(p => ({
+          unidad_id: uid,
+          pieza_id:  p.id,
+          pieza:     p.pieza,
+          sector:    p.sector,
+          opcional:  p.opcional,
+          estado:    "Pendiente",
+        }));
+        await supabase.from("marm_unidad_piezas").insert(inserts);
+      }
     }
 
     setNewUnidad("");
     cargarUnidades(lineaId);
-    setUnidadId(u.id);
+    setUnidadId(uid);
   }
 
   async function eliminarUnidad(uid) {
