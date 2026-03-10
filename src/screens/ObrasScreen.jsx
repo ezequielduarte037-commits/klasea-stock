@@ -271,7 +271,7 @@ function ObraModal({ lineas, lProcs, lTareas = [], onSave, onClose }) {
           })));
           await supabase.from("obra_timeline").insert(procsLinea.map(p => ({ obra_id: nueva.id, linea_proceso_id: p.id, estado: "pendiente" })));
           // Copiar tareas de plantilla — fetch directo de DB, con fallback a plantillas JS para K42/K52
-          const etapasIns = await supabase.from("obra_etapas").select("id, linea_proceso_id").eq("obra_id", nueva.id);
+          const etapasIns = await supabase.from("obra_etapas").select("id, linea_proceso_id, nombre").eq("obra_id", nueva.id);
           if (!etapasIns.error && etapasIns.data?.length) {
             const procIds = etapasIns.data.map(e => e.linea_proceso_id).filter(Boolean);
             if (procIds.length) {
@@ -306,10 +306,8 @@ function ObraModal({ lineas, lProcs, lTareas = [], onSave, onClose }) {
 
                 if (plantillaJS) {
                   for (const etapa of etapasIns.data) {
-                    const proc = procsLinea.find(p => p.id === etapa.linea_proceso_id);
-                    if (!proc) continue;
                     const plantillaEtapa = plantillaJS.find(
-                      pe => pe.nombre.trim().toLowerCase() === proc.nombre.trim().toLowerCase()
+                      pe => pe.nombre.trim().toLowerCase() === (etapa.nombre ?? "").trim().toLowerCase()
                     );
                     if (!plantillaEtapa) continue;
                     for (const tp of plantillaEtapa.tareas) {
@@ -1887,6 +1885,77 @@ export default function ObrasScreen({ profile, signOut }) {
     }});
   }
 
+  // ── IMPORTAR TAREAS A OBRA EXISTENTE (K42/K52) ───────────────
+  async function importarTareasAObraExistente(obra) {
+    const lineaNombre = obra.linea_nombre ?? lineas.find(l => l.id === obra.linea_id)?.nombre ?? "";
+    const plantillaJS =
+      lineaNombre.includes("42") ? PLANTILLA_K42 :
+      lineaNombre.includes("52") ? PLANTILLA_K52 :
+      null;
+    if (!plantillaJS) { alert("No hay plantilla JS para esta línea."); return; }
+
+    // Traer etapas reales de la obra
+    const { data: etapasObra, error: eEt } = await supabase
+      .from("obra_etapas")
+      .select("id, nombre, linea_proceso_id")
+      .eq("obra_id", obra.id);
+    if (eEt || !etapasObra?.length) { alert("No se encontraron etapas en esta obra."); return; }
+
+    // Intentar primero desde DB (linea_proceso_tareas)
+    const procIds = etapasObra.map(e => e.linea_proceso_id).filter(Boolean);
+    let tareasAInsertar = [];
+
+    if (procIds.length) {
+      const { data: tDB } = await supabase
+        .from("linea_proceso_tareas")
+        .select("*")
+        .in("linea_proceso_id", procIds)
+        .order("orden");
+
+      if (tDB?.length) {
+        for (const etapa of etapasObra) {
+          for (const tp of tDB.filter(t => t.linea_proceso_id === etapa.linea_proceso_id)) {
+            tareasAInsertar.push({
+              obra_id: obra.id, etapa_id: etapa.id, nombre: tp.nombre,
+              orden: tp.orden ?? 999, estado: "pendiente", prioridad: tp.prioridad ?? "media",
+              horas_estimadas: tp.horas_estimadas ?? null,
+              personas_necesarias: tp.personas_necesarias ?? null,
+              observaciones: tp.observaciones ?? null,
+            });
+          }
+        }
+      }
+    }
+
+    // Si DB no tenía tareas, usar plantilla JS matcheando por nombre de etapa
+    if (!tareasAInsertar.length) {
+      for (const etapa of etapasObra) {
+        const plantillaEtapa = plantillaJS.find(
+          pe => pe.nombre.trim().toLowerCase() === (etapa.nombre ?? "").trim().toLowerCase()
+        );
+        if (!plantillaEtapa) continue;
+        for (const tp of plantillaEtapa.tareas) {
+          tareasAInsertar.push({
+            obra_id: obra.id, etapa_id: etapa.id, nombre: tp.nombre,
+            orden: tp.orden ?? 999, estado: "pendiente", prioridad: "media",
+            horas_estimadas: tp.horas_estimadas ?? null,
+            personas_necesarias: tp.personas_necesarias ?? null,
+            observaciones: tp.observaciones ?? null,
+          });
+        }
+      }
+    }
+
+    if (!tareasAInsertar.length) {
+      alert("No se encontraron tareas para importar. Verificá que los nombres de las etapas coincidan con la plantilla.");
+      return;
+    }
+
+    const { error } = await supabase.from("obra_tareas").insert(tareasAInsertar);
+    if (error) { alert("Error al insertar tareas: " + error.message); return; }
+    cargar();
+  }
+
   // ── DERIVADOS ─────────────────────────────────────────────────
   const obrasFilt = useMemo(() => obras.filter(o => {
     if (filtroEstado !== "todos" && o.estado !== filtroEstado) return false;
@@ -2028,6 +2097,29 @@ export default function ObrasScreen({ profile, signOut }) {
 
               {expanded && (
                 <div style={{ paddingLeft: 16, paddingTop: 6 }}>
+
+                  {/* ── BOTÓN IMPORTAR TAREAS (K42 / K52 sin tareas) ── */}
+                  {esGestion && (() => {
+                    const lineaNombre = obra.linea_nombre ?? lineas.find(l => l.id === obra.linea_id)?.nombre ?? "";
+                    const esPlantillaJS = lineaNombre.includes("42") || lineaNombre.includes("52");
+                    const sinTareas = !tareas.some(t => t.obra_id === obra.id);
+                    if (!esPlantillaJS || !sinTareas) return null;
+                    return (
+                      <button
+                        type="button"
+                        onClick={() => importarTareasAObraExistente(obra)}
+                        style={{
+                          width: "100%", marginBottom: 10, padding: "10px 16px", borderRadius: 8, cursor: "pointer",
+                          border: "1px solid rgba(16,185,129,0.4)", background: "rgba(16,185,129,0.08)",
+                          color: "#34d399", fontSize: 12, fontFamily: C.sans, fontWeight: 600,
+                          display: "flex", alignItems: "center", justifyContent: "center", gap: 8,
+                        }}
+                      >
+                        ⬇ Importar tareas de plantilla {lineaNombre.includes("42") ? "K42" : "K52"} a esta obra
+                      </button>
+                    );
+                  })()}
+
                   {/* TIMELINE BAR */}
                   {obraEtapas.length > 0 && (
                     <div style={{ marginBottom: 10 }}>
