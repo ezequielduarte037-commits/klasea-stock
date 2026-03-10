@@ -1,4 +1,4 @@
-import { useState, useMemo } from "react";
+import { useState, useMemo, useRef } from "react";
 import Sidebar from "../components/Sidebar";
 import useAlertas from "../hooks/useAlertas";
 
@@ -53,6 +53,7 @@ export default function AlertasScreen({ profile, signOut }) {
   const [filtroGravedad, setFiltroGravedad] = useState("todas");
   const [filtroTipo,     setFiltroTipo]     = useState("todos");
   const [msg,            setMsg]            = useState("");
+  const contentRef = useRef(null);
 
   const filtradas = useMemo(() => {
     return alertas
@@ -98,7 +99,10 @@ export default function AlertasScreen({ profile, signOut }) {
       <div style={{ display: "grid", gridTemplateColumns: "280px 1fr", minHeight: "100vh", position: "relative", zIndex: 1 }}>
         <Sidebar profile={profile} signOut={signOut} />
 
-        <div style={{ display: "flex", flexDirection: "column", height: "100vh", overflow: "hidden" }}>
+        <div
+          style={{ display: "flex", flexDirection: "column", height: "100vh", overflow: "hidden" }}
+          onWheel={(e) => { if (contentRef.current && !contentRef.current.contains(e.target)) { contentRef.current.scrollTop += e.deltaY; } }}
+        >
 
           {/* ── TOPBAR ── */}
           <div style={{
@@ -161,7 +165,7 @@ export default function AlertasScreen({ profile, signOut }) {
           </div>
 
           {/* ── CONTENT ── */}
-          <div style={{ flex: 1, overflowY: "auto", padding: "14px 18px" }}>
+          <div ref={contentRef} style={{ flex: 1, overflowY: "auto", padding: "14px 18px" }}>
             <div style={{ width: "min(960px,100%)", margin: "0 auto" }}>
 
               {/* KPI cards */}

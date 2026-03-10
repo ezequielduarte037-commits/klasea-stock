@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { supabase } from "../supabaseClient";
 import Sidebar from "../components/Sidebar";
 
@@ -55,6 +55,8 @@ export default function ProcedimientosScreen({ profile, signOut }) {
 
   const [fileToUpload, setFileToUpload] = useState(null);
   const [uploading,    setUploading]    = useState(false);
+
+  const contentRef = useRef(null);
 
   async function cargar() {
     setLoading(true);
@@ -166,7 +168,7 @@ export default function ProcedimientosScreen({ profile, signOut }) {
   };
 
   return (
-    <div style={{ position: "fixed", inset: 0, background: C.bg, color: C.t0, fontFamily: C.sans, display: "grid", gridTemplateColumns: "280px 1fr", overflow: "hidden" }}>
+    <div style={{ background: C.bg, minHeight: "100vh", color: C.t0, fontFamily: C.sans }}>
       <style>{`
         @import url('https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500;700&display=swap');
         *, *::before, *::after { box-sizing: border-box; }
@@ -192,10 +194,13 @@ export default function ProcedimientosScreen({ profile, signOut }) {
       `}</style>
       <div className="bg-glow" />
 
-      <div className="no-print" style={{ display: "contents" }}>
+      <div className="no-print" style={{ display: "grid", gridTemplateColumns: "280px 1fr", minHeight: "100vh", position: "relative", zIndex: 1 }}>
         <Sidebar profile={profile} signOut={signOut} />
 
-        <div style={{ display: "flex", flexDirection: "column", height: "100vh", overflow: "hidden" }}>
+        <div
+          style={{ display: "flex", flexDirection: "column", height: "100vh", overflow: "hidden" }}
+          onWheel={(e) => { if (contentRef.current && !contentRef.current.contains(e.target)) { contentRef.current.scrollTop += e.deltaY; } }}
+        >
 
           {/* ── TOPBAR ── */}
           <div style={{
@@ -248,7 +253,7 @@ export default function ProcedimientosScreen({ profile, signOut }) {
           </div>
 
           {/* ── CONTENT ── */}
-          <div style={{ flex: 1, overflowY: "auto", padding: "16px 18px" }}>
+          <div ref={contentRef} style={{ flex: 1, overflowY: "auto", padding: "16px 18px" }}>
 
             {err && (
               <div style={{ padding: "10px 14px", borderRadius: 8, marginBottom: 14,

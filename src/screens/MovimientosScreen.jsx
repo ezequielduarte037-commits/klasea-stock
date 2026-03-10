@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { supabase } from "../supabaseClient";
 import Sidebar from "../components/Sidebar";
 
@@ -54,6 +54,7 @@ export default function MovimientosScreen({ profile, signOut }) {
   const [rows, setRows] = useState([]);
   const [q,   setQ]    = useState("");
   const [err, setErr]  = useState("");
+  const contentRef = useRef(null);
 
   async function cargar() {
     setErr("");
@@ -119,7 +120,7 @@ export default function MovimientosScreen({ profile, signOut }) {
   const egresos   = rows.filter(r => num(r.delta) < 0).length;
 
   return (
-    <div style={{ position: "fixed", inset: 0, background: C.bg, color: C.t0, fontFamily: C.sans, display: "grid", gridTemplateColumns: "280px 1fr", overflow: "hidden" }}>
+    <div style={{ background: C.bg, minHeight: "100vh", color: C.t0, fontFamily: C.sans }}>
       <style>{`
         @import url('https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500;700&display=swap');
         *, *::before, *::after { box-sizing: border-box; }
@@ -139,10 +140,13 @@ export default function MovimientosScreen({ profile, signOut }) {
       `}</style>
       <div className="bg-glow" />
 
-      <div style={{ display: "contents" }}>
+      <div style={{ display: "grid", gridTemplateColumns: "280px 1fr", minHeight: "100vh", position: "relative", zIndex: 1 }}>
         <Sidebar profile={profile} signOut={signOut} />
 
-        <div style={{ display: "flex", flexDirection: "column", height: "100vh", overflow: "hidden" }}>
+        <div
+          style={{ display: "flex", flexDirection: "column", height: "100vh", overflow: "hidden" }}
+          onWheel={(e) => { if (contentRef.current && !contentRef.current.contains(e.target)) { contentRef.current.scrollTop += e.deltaY; } }}
+        >
 
           {/* ── TOPBAR ── */}
           <div style={{
@@ -217,7 +221,7 @@ export default function MovimientosScreen({ profile, signOut }) {
           </div>
 
           {/* ── TABLE ── */}
-          <div style={{ flex: 1, overflowY: "auto" }}>
+          <div ref={contentRef} style={{ flex: 1, overflowY: "auto" }}>
             {err && (
               <div style={{ padding: "10px 18px", color: C.red, fontSize: 12 }}>ERROR: {err}</div>
             )}

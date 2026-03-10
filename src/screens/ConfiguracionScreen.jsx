@@ -1,4 +1,4 @@
-import { useEffect, useState, useMemo } from "react";
+import { useEffect, useState, useMemo, useRef } from "react";
 import { supabase } from "../supabaseClient";
 import { createClient } from "@supabase/supabase-js";
 import Sidebar from "../components/Sidebar";
@@ -783,6 +783,7 @@ export default function ConfiguracionScreen({ profile, signOut }) {
   const [mCliente,     setMCliente]     = useState(null);
   const [mPwCliente,   setMPwCliente]   = useState(null);
   const [mModelo,      setMModelo]      = useState(null);
+  const contentRef = useRef(null);
 
   function flash(ok, text) {
     setToast({ ok, text });
@@ -850,7 +851,7 @@ export default function ConfiguracionScreen({ profile, signOut }) {
 
   if (!isAdmin) {
     return (
-      <div style={{ position:"fixed", inset:0, background:"#09090b", display:"grid", gridTemplateColumns:"280px 1fr", overflow:"hidden" }}>
+      <div style={{ background:"#09090b", minHeight:"100vh", display:"grid", gridTemplateColumns:"280px 1fr" }}>
         <Sidebar profile={profile} signOut={signOut} />
         <div style={{ display:"flex", alignItems:"center", justifyContent:"center", color:"#71717a", fontSize:12, letterSpacing:1 }}>
           Solo administradores pueden acceder.
@@ -860,7 +861,7 @@ export default function ConfiguracionScreen({ profile, signOut }) {
   }
 
   return (
-    <div style={{ position:"fixed", inset:0, background:"#09090b", color:"#a1a1aa", fontFamily:"'Outfit',system-ui,sans-serif", display:"grid", gridTemplateColumns:"280px 1fr", overflow:"hidden" }}>
+    <div style={{ background:"#09090b", minHeight:"100vh", color:"#a1a1aa", fontFamily:"'Outfit',system-ui,sans-serif" }}>
       <style>{`
         @import url('https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500;700&display=swap');
         *,*::before,*::after{box-sizing:border-box;}
@@ -880,11 +881,14 @@ export default function ConfiguracionScreen({ profile, signOut }) {
         .hcard:hover{border-color:rgba(255,255,255,0.1)!important;}
       `}</style>
       <div className="bg-glow" />
-      <div style={{ display:"contents" }}>
+      <div style={{ display:"grid", gridTemplateColumns:"280px 1fr", minHeight:"100vh", position:"relative", zIndex:1 }}>
         <Sidebar profile={profile} signOut={signOut} />
         <NotificacionesBell profile={profile} />
         <Toast toast={toast} />
-        <div style={{ display:"flex", flexDirection:"column", height:"100vh", overflow:"hidden" }}>
+        <div
+          style={{ display:"flex", flexDirection:"column", height:"100vh", overflow:"hidden" }}
+          onWheel={(e) => { if (contentRef.current && !contentRef.current.contains(e.target)) { contentRef.current.scrollTop += e.deltaY; } }}
+        >
           {/* ── TOPBAR ── */}
           <div style={{
             height:50, flexShrink:0, display:"flex", alignItems:"stretch",
@@ -925,7 +929,7 @@ export default function ConfiguracionScreen({ profile, signOut }) {
           </div>
 
           {/* ── CONTENIDO ── */}
-          <div style={{ flex:1, overflow:"hidden", display:"flex" }}>
+          <div ref={contentRef} style={{ flex:1, overflow:"hidden", display:"flex" }}>
             {loading ? (
               <div style={{ flex:1, display:"flex", alignItems:"center", justifyContent:"center", color:"#71717a", fontSize:12 }}>Cargando…</div>
             ) : (
