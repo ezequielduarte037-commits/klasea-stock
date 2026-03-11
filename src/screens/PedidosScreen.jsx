@@ -194,7 +194,7 @@ export default function PedidosScreen({ profile, signOut }) {
   };
 
   return (
-    <div style={{ position: "fixed", inset: 0, background: C.bg, color: C.t0, fontFamily: C.sans, display: "grid", gridTemplateColumns: "280px 1fr", overflow: "hidden" }}>
+    <div style={{ background: C.bg, position: "fixed", inset: 0, overflow: "hidden", color: C.t0, fontFamily: C.sans }}>
       <style>{`
         @import url('https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500;700&display=swap');
         *, *::before, *::after { box-sizing: border-box; }
@@ -215,7 +215,7 @@ export default function PedidosScreen({ profile, signOut }) {
       `}</style>
       <div className="bg-glow" />
 
-      <div style={{ display: "contents" }}>
+      <div style={{ display: "grid", gridTemplateColumns: "280px 1fr", height: "100%", overflow: "hidden", position: "relative", zIndex: 1 }}>
         <Sidebar profile={profile} signOut={signOut} />
 
         <div style={{ display: "flex", flexDirection: "column", height: "100vh", overflow: "hidden" }}>

@@ -2,132 +2,166 @@ import React, { useState } from "react";
 import { Link, useLocation } from "react-router-dom";
 import logoK from "../assets/logo-k.png";
 
-const ICONS = {
-  "/panol":            "⬡",
-  "/laminacion":       "◈",
-  "/obras":            "⬤",
-  "/marmoleria":       "◆",
-  "/muebles":          "▪",
-  "/procedimientos":   "≡",
-  "/obras-laminacion": "⬡",
-  "/admin":            "▤",
-  "/movimientos":      "⇅",
-  "/pedidos":          "⊕",
-  "/configuracion":    "⚙",
-  "/postventa":        "⊙",
-};
+// ─── SVG ICONS ────────────────────────────────────────────────────────────────
+function Icon({ id, color = "currentColor", size = 14 }) {
+  const p = { stroke: color, fill: "none", strokeWidth: 1.5, strokeLinecap: "round", strokeLinejoin: "round" };
+  const paths = {
+    "/panol": <>
+      <path d="M3 7V5a5 5 0 0 1 10 0v2" {...p}/>
+      <rect x="1" y="7" width="14" height="9" rx="2" {...p}/>
+      <path d="M8 11v2" {...p}/>
+    </>,
+    "/laminacion": <>
+      <path d="M1 6l7-4 7 4-7 4z" {...p}/>
+      <path d="M1 11l7 4 7-4" {...p}/>
+    </>,
+    "/obras": <>
+      <path d="M1 15s3-4 7-4 7 4 7 4" {...p}/>
+      <circle cx="8" cy="7" r="3" {...p}/>
+    </>,
+    "/marmoleria": <>
+      <path d="M8 1l7 7-7 7-7-7z" {...p}/>
+      <path d="M8 5.5l2.5 2.5-2.5 2.5-2.5-2.5z" {...p}/>
+    </>,
+    "/muebles": <>
+      <rect x="1" y="6" width="14" height="6" rx="1.5" {...p}/>
+      <path d="M1 12v2M15 12v2M4 6V4M12 6V4" {...p}/>
+    </>,
+    "/procedimientos": <>
+      <rect x="3" y="1" width="10" height="14" rx="1.5" {...p}/>
+      <path d="M6 5h4M6 8h4M6 11h2.5" {...p}/>
+    </>,
+    "/obras-laminacion": <>
+      <path d="M1 15V9L8 1l7 8v6H1z" {...p}/>
+      <path d="M6 15v-5h4v5" {...p}/>
+    </>,
+    "/admin": <>
+      <rect x="1" y="1" width="6" height="6" rx="1" {...p}/>
+      <rect x="9" y="1" width="6" height="6" rx="1" {...p}/>
+      <rect x="1" y="9" width="6" height="6" rx="1" {...p}/>
+      <rect x="9" y="9" width="6" height="6" rx="1" {...p}/>
+    </>,
+    "/movimientos": <>
+      <path d="M8 2v12" {...p}/>
+      <path d="M5 5l3-3 3 3" {...p}/>
+      <path d="M5 11l3 3 3-3" {...p}/>
+    </>,
+    "/pedidos": <>
+      <rect x="3" y="1" width="10" height="14" rx="1.5" {...p}/>
+      <path d="M6 6.5l1.5 1.5 3-3" {...p}/>
+      <path d="M6 10.5h4" {...p}/>
+    </>,
+    "/configuracion": <>
+      <circle cx="8" cy="8" r="2" {...p}/>
+      <path d="M8 1v2M8 13v2M1 8h2M13 8h2M3 3l1.5 1.5M11.5 11.5L13 13M3 13l1.5-1.5M11.5 4.5L13 3" {...p}/>
+    </>,
+    "/postventa": <>
+      <path d="M4 8.5L6.5 11l5.5-6" {...p}/>
+      <rect x="1" y="1" width="14" height="14" rx="3" {...p}/>
+    </>,
+  };
+  return (
+    <svg width={size} height={size} viewBox="0 0 16 16" style={{ display: "block", flexShrink: 0 }}>
+      {paths[id] ?? <circle cx="8" cy="8" r="4" stroke={color} fill="none" strokeWidth={1.5}/>}
+    </svg>
+  );
+}
 
+// ─── SECTION ACCENT COLORS ────────────────────────────────────────────────────
 const SC = {
-  movimientos:        "#a78bfa",
-  produccion:         "#60a5fa",
-  instrucciones:      "#94a3b8",
-  gestion_laminacion: "#34d399",
-  gestion_maderas:    "#fbbf24",
-  sistema:            "#f87171",
-  postventa:          "#67e8f9",
+  movimientos:        "#818cf8",   // indigo
+  produccion:         "#60a5fa",   // blue
+  instrucciones:      "#94a3b8",   // slate
+  gestion_laminacion: "#34d399",   // emerald
+  gestion_maderas:    "#fbbf24",   // amber
+  sistema:            "#f87171",   // red
+  postventa:          "#67e8f9",   // cyan
 };
 
+// ─── ANIMATIONS CSS ───────────────────────────────────────────────────────────
 const CSS = `
-  @keyframes sb-slide-in {
-    from { opacity:0; transform:translateX(-10px); }
-    to   { opacity:1; transform:translateX(0); }
-  }
-  @keyframes sb-brand-down {
-    from { opacity:0; transform:translateY(-6px); }
-    to   { opacity:1; transform:translateY(0); }
-  }
-  @keyframes sb-footer-up {
-    from { opacity:0; transform:translateY(8px); }
-    to   { opacity:1; transform:translateY(0); }
+  @keyframes sb-in    { from{opacity:0;transform:translateX(-14px)} to{opacity:1;transform:translateX(0)} }
+  @keyframes sb-down  { from{opacity:0;transform:translateY(-8px)}  to{opacity:1;transform:translateY(0)} }
+  @keyframes sb-up    { from{opacity:0;transform:translateY(8px)}   to{opacity:1;transform:translateY(0)} }
+
+  /* active breathing */
+  @keyframes sb-breathe {
+    0%,100% { background: rgba(255,255,255,0.055); }
+    50%      { background: rgba(255,255,255,0.09);  }
   }
 
-  /* ── ACTIVE ITEM: titilando ── */
-  @keyframes sb-active-bg {
-    0%,100% { background: rgba(255,255,255,0.06); }
-    50%      { background: rgba(255,255,255,0.11); }
+  /* neon side bar glow */
+  @keyframes sb-neon {
+    0%,100% { opacity:.8; box-shadow: 0 0 6px var(--c)99, 0 0 16px var(--c)44; }
+    50%      { opacity:1;  box-shadow: 0 0 14px var(--c), 0 0 28px var(--c)88, 0 0 44px var(--c)33; }
   }
-  @keyframes sb-active-bar {
-    0%,100% { opacity:1;   box-shadow: var(--bar-glow-lo); }
-    50%      { opacity:0.6; box-shadow: var(--bar-glow-hi); }
-  }
-  @keyframes sb-active-dot {
+
+  /* active dot beat */
+  @keyframes sb-beat {
     0%,100% { transform:scale(1);   opacity:1; }
-    50%      { transform:scale(1.6); opacity:0.6; }
-  }
-  @keyframes sb-active-icon {
-    0%,100% { opacity:1; }
-    50%      { opacity:0.5; }
-  }
-  @keyframes sb-active-text {
-    0%,100% { opacity:1; }
-    50%      { opacity:0.75; }
+    50%      { transform:scale(1.8); opacity:.5; }
   }
 
-  /* ── ONLINE DOT ── */
+  /* icon + label flicker on active */
+  @keyframes sb-flicker { 0%,100%{opacity:1} 50%{opacity:.55} }
+
+  /* online dot */
   @keyframes sb-online {
-    0%,100% { box-shadow:0 0 4px #22c55e; opacity:1; }
-    50%      { box-shadow:0 0 12px #22c55e, 0 0 24px #22c55e44; opacity:0.8; }
+    0%,100% { box-shadow: 0 0 4px #22c55e88; }
+    50%      { box-shadow: 0 0 12px #22c55ecc, 0 0 24px #22c55e44; }
   }
 
-  .sb-aside {
-    animation: sb-slide-in 0.32s cubic-bezier(.22,1,.36,1) both;
+  /* scan line */
+  @keyframes sb-scan {
+    0%   { top: -1px; opacity:0; }
+    5%   { opacity:.6; }
+    95%  { opacity:.6; }
+    100% { top: 100%; opacity:0; }
   }
-  .sb-brand  { animation: sb-brand-down 0.38s cubic-bezier(.22,1,.36,1) 0.06s both; }
-  .sb-footer { animation: sb-footer-up  0.38s cubic-bezier(.22,1,.36,1) 0.10s both; }
 
-  /* item base */
+  /* subtle shimmer on brand */
+  @keyframes sb-shimmer {
+    0%   { background-position: -200% center; }
+    100% { background-position:  200% center; }
+  }
+
   .sb-item {
-    position: relative;
-    overflow: hidden;
-    transition: color 0.18s, background 0.18s;
+    position: relative; overflow: hidden;
+    transition: color .16s, background .16s;
+    text-decoration: none !important;
   }
-  /* icon bounce on hover */
-  .sb-icon {
-    transition: color 0.18s, transform 0.22s cubic-bezier(.34,1.56,.64,1);
-    flex-shrink: 0;
+  .sb-item.active {
+    animation: sb-breathe 2.8s ease-in-out infinite;
   }
-  .sb-item:hover .sb-icon { transform: scale(1.22); }
+  /* icon bounce hover */
+  .sb-icon { transition: transform .22s cubic-bezier(.34,1.56,.64,1); flex-shrink:0; display:flex; align-items:center; justify-content:center; }
+  .sb-item:hover .sb-icon { transform: scale(1.18) translateX(1px); }
+  .sb-item.active .sb-icon  { animation: sb-flicker 2.8s ease-in-out infinite; }
+  .sb-item.active .sb-label { animation: sb-flicker 2.8s ease-in-out infinite; }
 
-  /* hover shine */
-  .sb-shine {
-    position: absolute; inset: 0; border-radius: 8px;
-    opacity: 0; pointer-events: none;
-    transition: opacity 0.18s;
-  }
-  .sb-item:hover .sb-shine { opacity: 1; }
+  /* shine on hover */
+  .sb-shine { position:absolute; inset:0; border-radius:8px; opacity:0; pointer-events:none; transition:opacity .16s; }
+  .sb-item:hover .sb-shine { opacity:1; }
 
-  /* active item: background pulse */
-  .sb-item.is-active {
-    animation: sb-active-bg 2s ease-in-out infinite;
-  }
-  /* active bar */
-  .sb-active-bar {
-    animation: sb-active-bar 2s ease-in-out infinite;
-  }
-  /* active dot */
-  .sb-active-dot {
-    animation: sb-active-dot 2s ease-in-out infinite;
-  }
-  /* active icon flicker */
-  .sb-item.is-active .sb-icon {
-    animation: sb-active-icon 2s ease-in-out infinite;
-  }
-  /* active label flicker */
-  .sb-item.is-active .sb-label {
-    animation: sb-active-text 2s ease-in-out infinite;
-  }
+  /* neon bar */
+  .sb-bar { animation: sb-neon 2.8s ease-in-out infinite; }
 
-  .sb-online { animation: sb-online 3s ease-in-out infinite; }
+  /* dot */
+  .sb-dot { animation: sb-beat 2.8s ease-in-out infinite; }
 
-  /* sign-out hover */
+  /* online */
+  .sb-online { animation: sb-online 3.5s ease-in-out infinite; }
+
+  /* sign-out */
   .sb-out { transition: color .18s, background .18s, border-color .18s; }
   .sb-out:hover {
     color: #f87171 !important;
-    border-color: rgba(248,113,113,.35) !important;
+    border-color: rgba(248,113,113,.3) !important;
     background: rgba(248,113,113,.06) !important;
   }
 `;
 
+// ─── COMPONENT ────────────────────────────────────────────────────────────────
 export default function Sidebar({ profile, signOut }) {
   const loc    = useLocation();
   const path   = loc.pathname;
@@ -140,73 +174,61 @@ export default function Sidebar({ profile, signOut }) {
   const esPanol   = role === "panol";
   const esGestion = isAdmin || role === "admin" || role === "oficina";
   const esAdmin   = isAdmin || role === "admin";
-  const initials  = username.split(" ").map(w => w[0]).slice(0, 2).join("").toUpperCase();
+  const initials  = username.split(" ").filter(Boolean).map(w => w[0]).slice(0, 2).join("").toUpperCase();
 
-  // ── NAV ITEM ─────────────────────────────────────────────────
+  // ── NAV ITEM ──────────────────────────────────────────────────────────────
   const item = (href, label, c, exact = true, delay = 0) => {
     const on  = exact ? path === href : path.startsWith(href);
     const isH = hov === href;
     const col = c ?? "#a0a0a0";
     return (
       <Link
-        key={href}
-        to={href}
-        className={`sb-item${on ? " is-active" : ""}`}
+        key={href} to={href}
+        className={`sb-item${on ? " active" : ""}`}
         onMouseEnter={() => setHov(href)}
         onMouseLeave={() => setHov(null)}
         style={{
-          display: "flex", alignItems: "center", gap: 10,
-          padding: "8px 16px 8px 20px", margin: "1px 8px", borderRadius: 8,
-          color: on ? "#ffffff" : isH ? "#d4d4d8" : "#6b7280",
-          fontSize: 11, letterSpacing: "1.2px",
-          fontWeight: on ? 600 : 400, textTransform: "uppercase", textDecoration: "none",
-          background: on ? "rgba(255,255,255,.07)" : isH ? "rgba(255,255,255,.04)" : "transparent",
-          animation: `sb-slide-in .3s cubic-bezier(.22,1,.36,1) ${delay}ms both`,
+          display: "flex", alignItems: "center", gap: 9,
+          padding: "7px 16px 7px 18px", margin: "1px 8px", borderRadius: 8,
+          color: on ? "#fff" : isH ? "rgba(255,255,255,.6)" : "rgba(255,255,255,.28)",
+          fontSize: 11, letterSpacing: "1px", fontWeight: on ? 600 : 400,
+          textTransform: "uppercase",
+          background: on ? "rgba(255,255,255,.055)" : isH ? "rgba(255,255,255,.03)" : "transparent",
+          animation: `sb-in .3s cubic-bezier(.22,1,.36,1) ${delay}ms both`,
         }}
       >
         {/* hover shine */}
-        <div className="sb-shine" style={{ background: `linear-gradient(90deg,${col}14,transparent 60%)` }} />
+        <div className="sb-shine" style={{ background: `linear-gradient(90deg,${col}18,transparent 55%)` }} />
 
-        {/* active side bar */}
+        {/* active neon bar */}
         {on && (
-          <div
-            className="sb-active-bar"
-            style={{
-              position: "absolute", left: 0, top: "15%", bottom: "15%",
-              width: 2, borderRadius: "0 2px 2px 0",
-              background: col,
-              "--bar-glow-lo": `0 0 8px ${col}70`,
-              "--bar-glow-hi": `0 0 18px ${col}cc, 0 0 32px ${col}44`,
-            }}
-          />
+          <div className="sb-bar" style={{
+            position: "absolute", left: 0, top: "12%", bottom: "12%",
+            width: 2, borderRadius: "0 2px 2px 0",
+            background: col, "--c": col,
+          }}/>
         )}
 
         {/* icon */}
-        <span className="sb-icon" style={{
-          fontSize: 10, width: 14, textAlign: "center", position: "relative",
-          color: on ? col : isH ? `${col}aa` : "rgba(255,255,255,.2)",
-        }}>
-          {ICONS[href] ?? "·"}
+        <span className="sb-icon" style={{ color: on ? col : isH ? `${col}99` : "rgba(255,255,255,.2)" }}>
+          <Icon id={href} color="currentColor" size={13} />
         </span>
 
         {/* label */}
-        <span className="sb-label" style={{ position: "relative" }}>{label}</span>
+        <span className="sb-label" style={{ flex: 1 }}>{label}</span>
 
         {/* active dot */}
         {on && (
-          <div
-            className="sb-active-dot"
-            style={{
-              marginLeft: "auto", width: 4, height: 4, borderRadius: "50%",
-              background: col, boxShadow: `0 0 6px ${col}`, flexShrink: 0,
-            }}
-          />
+          <div className="sb-dot" style={{
+            width: 4, height: 4, borderRadius: "50%", flexShrink: 0,
+            background: col, boxShadow: `0 0 8px ${col}`,
+          }}/>
         )}
       </Link>
     );
   };
 
-  // ── SUB ITEM ─────────────────────────────────────────────────
+  // ── SUB ITEM ──────────────────────────────────────────────────────────────
   const subItem = (href, label, qs = "", c, delay = 0) => {
     const key = `${href}${qs}`;
     const on  = path === href && (qs ? search === qs : !search);
@@ -214,47 +236,53 @@ export default function Sidebar({ profile, signOut }) {
     const col = c ?? "#6b7280";
     return (
       <Link
-        key={key}
-        to={key}
-        className={`sb-item${on ? " is-active" : ""}`}
+        key={key} to={key}
+        className={`sb-item${on ? " active" : ""}`}
         onMouseEnter={() => setHov(key)}
         onMouseLeave={() => setHov(null)}
         style={{
           display: "flex", alignItems: "center", gap: 8,
-          padding: "6px 16px 6px 44px", margin: "1px 8px", borderRadius: 7,
-          color: on ? "#d4d4d8" : isH ? "#9ca3af" : "#4b5563",
-          fontSize: 10, letterSpacing: "1px", textTransform: "uppercase", textDecoration: "none",
+          padding: "5px 16px 5px 42px", margin: "1px 8px", borderRadius: 7,
+          color: on ? "rgba(255,255,255,.8)" : isH ? "rgba(255,255,255,.4)" : "rgba(255,255,255,.18)",
+          fontSize: 10, letterSpacing: "1px", textTransform: "uppercase",
           fontWeight: on ? 600 : 400,
           background: on ? "rgba(255,255,255,.04)" : isH ? "rgba(255,255,255,.02)" : "transparent",
-          animation: `sb-slide-in .3s cubic-bezier(.22,1,.36,1) ${delay}ms both`,
-          transition: "color .18s, background .18s",
+          animation: `sb-in .3s cubic-bezier(.22,1,.36,1) ${delay}ms both`,
         }}
       >
+        {on && (
+          <div className="sb-bar" style={{
+            position: "absolute", left: 0, top: "12%", bottom: "12%",
+            width: 2, borderRadius: "0 2px 2px 0",
+            background: col, "--c": col,
+          }}/>
+        )}
         <div style={{
           width: 3, height: 3, borderRadius: "50%", flexShrink: 0,
-          background: on ? col : "rgba(255,255,255,.15)",
-          transition: "background .18s",
-        }} />
+          background: on ? col : "rgba(255,255,255,.14)",
+          boxShadow: on ? `0 0 5px ${col}` : "none",
+          transition: "background .16s",
+        }}/>
         <span className="sb-label">{label}</span>
       </Link>
     );
   };
 
-  // ── GROUP HEADER ──────────────────────────────────────────────
+  // ── GROUP HEADER ─────────────────────────────────────────────────────────
   const group = (label, c, delay = 0) => (
-    <div style={{
-      display: "flex", alignItems: "center", gap: 8,
-      padding: "18px 20px 6px",
-      animation: `sb-slide-in .3s cubic-bezier(.22,1,.36,1) ${delay}ms both`,
+    <div key={`g${label}`} style={{
+      display: "flex", alignItems: "center", gap: 7,
+      padding: "16px 20px 5px",
+      animation: `sb-in .3s cubic-bezier(.22,1,.36,1) ${delay}ms both`,
     }}>
       <div style={{
         width: 3, height: 3, borderRadius: "50%", flexShrink: 0,
-        background: c ?? "rgba(255,255,255,.25)",
-        boxShadow: c ? `0 0 6px ${c}88` : "none",
-      }} />
+        background: c ? `${c}66` : "rgba(255,255,255,.18)",
+        boxShadow: c ? `0 0 5px ${c}44` : "none",
+      }}/>
       <span style={{
-        fontSize: 9, letterSpacing: "2.5px",
-        color: c ? `${c}bb` : "rgba(255,255,255,.25)",
+        fontSize: 8.5, letterSpacing: "2.5px",
+        color: c ? `${c}66` : "rgba(255,255,255,.2)",
         textTransform: "uppercase", fontWeight: 700,
       }}>
         {label}
@@ -262,71 +290,94 @@ export default function Sidebar({ profile, signOut }) {
     </div>
   );
 
-  const divider = () => (
-    <div style={{
-      height: 1, margin: "6px 20px",
-      background: "linear-gradient(90deg,transparent,rgba(255,255,255,.06),transparent)",
-    }} />
+  const divider = (k) => (
+    <div key={`d${k}`} style={{
+      height: 1, margin: "4px 20px",
+      background: "linear-gradient(90deg,transparent,rgba(255,255,255,.05),transparent)",
+    }}/>
   );
 
   return (
     <>
       <style>{CSS}</style>
-      <aside className="sb-aside" style={{
-        background: "#000", height: "100%", display: "flex", flexDirection: "column",
-        borderRight: "1px solid rgba(255,255,255,.07)", position: "relative",
+      <aside style={{
+        width: 280, flexShrink: 0,
+        background: "#000", height: "100%",
+        display: "flex", flexDirection: "column",
+        borderRight: "1px solid rgba(255,255,255,.06)",
+        position: "relative", overflow: "hidden",
+        animation: "sb-in .38s cubic-bezier(.22,1,.36,1) both",
       }}>
-        {/* top glow */}
-        <div style={{
-          position: "absolute", top: 0, left: 0, right: 0, height: 120, pointerEvents: "none",
-          background: "radial-gradient(ellipse at 30% 0%, rgba(255,255,255,.05) 0%, transparent 70%)",
-        }} />
 
-        {/* BRAND */}
-        <div className="sb-brand" style={{
-          padding: "22px 20px 18px",
-          borderBottom: "1px solid rgba(255,255,255,.06)",
+        {/* Scan line sweeping down */}
+        <div style={{
+          position: "absolute", left: 0, right: 0, height: 1, zIndex: 10, pointerEvents: "none",
+          background: "linear-gradient(90deg,transparent,rgba(255,255,255,.15),transparent)",
+          animation: "sb-scan 10s linear infinite 2s",
+        }}/>
+
+        {/* Top ambient glow */}
+        <div style={{
+          position: "absolute", top: 0, left: 0, right: 0, height: 180, pointerEvents: "none",
+          background: "radial-gradient(ellipse at 35% 0%, rgba(255,255,255,.04) 0%, transparent 65%)",
+        }}/>
+
+        {/* BRAND ─────────────────────────────────────────────────────────── */}
+        <div style={{
+          padding: "20px 18px 16px",
+          borderBottom: "1px solid rgba(255,255,255,.05)",
           position: "relative",
+          animation: "sb-down .42s cubic-bezier(.22,1,.36,1) .06s both",
         }}>
-          <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+          <div style={{ display: "flex", alignItems: "center", gap: 11 }}>
             <div style={{
-              width: 28, height: 28, borderRadius: 7,
-              background: "rgba(255,255,255,.06)", border: "1px solid rgba(255,255,255,.12)",
-              display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0,
+              width: 30, height: 30, borderRadius: 8, flexShrink: 0,
+              background: "rgba(255,255,255,.05)", border: "1px solid rgba(255,255,255,.1)",
+              display: "flex", alignItems: "center", justifyContent: "center",
+              boxShadow: "0 0 20px rgba(255,255,255,.04)",
             }}>
-              <img src={logoK} alt="K" style={{ width: 14, height: 14, objectFit: "contain" }} />
+              <img src={logoK} alt="K" style={{ width: 15, height: 15, objectFit: "contain" }}/>
             </div>
             <div>
-              <div style={{ fontWeight: 800, letterSpacing: "3px", color: "#fff", fontSize: 11, lineHeight: 1 }}>KLASE A</div>
-              <div style={{ fontSize: 8, letterSpacing: "1.5px", color: "rgba(255,255,255,.25)", textTransform: "uppercase", marginTop: 3, fontWeight: 500 }}>
+              {/* Shimmer title */}
+              <div style={{
+                fontWeight: 800, letterSpacing: "3.5px", fontSize: 11, lineHeight: 1,
+                background: "linear-gradient(90deg, #fff 0%, #fff 40%, rgba(255,255,255,.45) 50%, #fff 60%, #fff 100%)",
+                backgroundSize: "200% auto",
+                WebkitBackgroundClip: "text", WebkitTextFillColor: "transparent",
+                animation: "sb-shimmer 4s linear infinite",
+              }}>
+                KLASE A
+              </div>
+              <div style={{
+                fontSize: 8, letterSpacing: "1.5px", color: "rgba(255,255,255,.2)",
+                textTransform: "uppercase", marginTop: 3, fontWeight: 500,
+              }}>
                 Sistema de producción
               </div>
             </div>
           </div>
         </div>
 
-        {/* NAV */}
+        {/* NAV ───────────────────────────────────────────────────────────── */}
         <nav style={{ flex: 1, overflowY: "auto", paddingBottom: 8, paddingTop: 4 }}>
 
-          {/* 1 · MOVIMIENTOS */}
           {(esPanol || esGestion) && <>
             {group("Movimientos", SC.movimientos, 60)}
             {item("/panol",      "Maderas",    SC.movimientos, true, 80)}
             {item("/laminacion", "Laminación", SC.movimientos, true, 100)}
           </>}
 
-          {/* 2 · PRODUCCIÓN */}
           {esGestion && <>
-            {divider()}
+            {divider("prod")}
             {group("Producción", SC.produccion, 120)}
             {item("/obras",      "Obras",      SC.produccion, true, 140)}
             {item("/marmoleria", "Marmolería", SC.produccion, true, 160)}
             {item("/muebles",    "Muebles",    SC.produccion, true, 180)}
           </>}
 
-          {/* 3 · GESTIÓN LAMINACIÓN */}
           {esGestion && <>
-            {divider()}
+            {divider("lam")}
             {group("Gestión Laminación", SC.gestion_laminacion, 200)}
             {item("/obras-laminacion", "Por obra",   SC.gestion_laminacion, false, 220)}
             {subItem("/laminacion", "Ingresos",    "?tab=Ingresos",    SC.gestion_laminacion, 235)}
@@ -335,48 +386,44 @@ export default function Sidebar({ profile, signOut }) {
             {subItem("/laminacion", "Pedidos",     "?tab=Pedidos",     SC.gestion_laminacion, 280)}
           </>}
 
-          {/* 4 · GESTIÓN MADERAS */}
           {esGestion && <>
-            {divider()}
+            {divider("mad")}
             {group("Gestión Maderas", SC.gestion_maderas, 300)}
             {item("/admin",       "Inventario",  SC.gestion_maderas, true, 320)}
             {item("/movimientos", "Movimientos", SC.gestion_maderas, true, 335)}
             {item("/pedidos",     "Pedidos",     SC.gestion_maderas, true, 350)}
           </>}
 
-          {/* 5 · POST VENTA */}
           {esGestion && <>
-            {divider()}
+            {divider("pv")}
             {group("Post Venta", SC.postventa, 370)}
             {item("/postventa", "Barcos Entregados", SC.postventa, true, 390)}
           </>}
 
-          {/* 6 · SISTEMA */}
           {esAdmin && <>
-            {divider()}
+            {divider("sys")}
             {group("Sistema", SC.sistema, 410)}
             {item("/configuracion", "Configuración", SC.sistema, true, 430)}
           </>}
 
-          {/* 7 · INSTRUCCIONES — siempre al fondo */}
           <>
-            {divider()}
+            {divider("ins")}
             {group("Instrucciones", SC.instrucciones, 450)}
             {item("/procedimientos", "Procedimientos", SC.instrucciones, true, 470)}
           </>
-
         </nav>
 
-        {/* PIE */}
-        <div className="sb-footer" style={{
-          borderTop: "1px solid rgba(255,255,255,.06)",
-          padding: "14px 16px", display: "flex", alignItems: "center", gap: 10,
+        {/* FOOTER ────────────────────────────────────────────────────────── */}
+        <div style={{
+          borderTop: "1px solid rgba(255,255,255,.05)",
+          padding: "12px 16px", display: "flex", alignItems: "center", gap: 10,
+          animation: "sb-up .38s cubic-bezier(.22,1,.36,1) .12s both",
         }}>
           <div style={{
-            width: 30, height: 30, borderRadius: 8,
-            background: "rgba(255,255,255,.07)", border: "1px solid rgba(255,255,255,.1)",
+            width: 30, height: 30, borderRadius: 8, flexShrink: 0,
+            background: "rgba(255,255,255,.06)", border: "1px solid rgba(255,255,255,.09)",
             display: "flex", alignItems: "center", justifyContent: "center",
-            fontSize: 10, fontWeight: 700, color: "rgba(255,255,255,.6)", letterSpacing: .5, flexShrink: 0,
+            fontSize: 10, fontWeight: 700, color: "rgba(255,255,255,.55)", letterSpacing: .5,
           }}>
             {initials || "?"}
           </div>
@@ -388,9 +435,9 @@ export default function Sidebar({ profile, signOut }) {
             }}>
               {username}
             </div>
-            <div style={{ display: "inline-flex", alignItems: "center", gap: 4 }}>
-              <div className="sb-online" style={{ width: 4, height: 4, borderRadius: "50%", background: "#22c55e", flexShrink: 0 }} />
-              <span style={{ fontSize: 8, color: "rgba(255,255,255,.3)", letterSpacing: "1.5px", textTransform: "uppercase", fontWeight: 600 }}>
+            <div style={{ display: "inline-flex", alignItems: "center", gap: 5 }}>
+              <div className="sb-online" style={{ width: 5, height: 5, borderRadius: "50%", background: "#22c55e", flexShrink: 0 }}/>
+              <span style={{ fontSize: 8, color: "rgba(255,255,255,.28)", letterSpacing: "1.5px", textTransform: "uppercase", fontWeight: 600 }}>
                 {role}
               </span>
             </div>
@@ -398,15 +445,14 @@ export default function Sidebar({ profile, signOut }) {
 
           <button type="button" onClick={signOut} title="Cerrar sesión" className="sb-out"
             style={{
-              background: "transparent", border: "1px solid rgba(255,255,255,.08)",
-              borderRadius: 7, color: "rgba(255,255,255,.25)",
-              width: 26, height: 26, display: "flex", alignItems: "center", justifyContent: "center",
-              cursor: "pointer", fontSize: 12, flexShrink: 0,
+              background: "transparent", border: "1px solid rgba(255,255,255,.07)",
+              borderRadius: 7, color: "rgba(255,255,255,.22)",
+              width: 28, height: 28, display: "flex", alignItems: "center", justifyContent: "center",
+              cursor: "pointer", fontSize: 13, flexShrink: 0,
             }}>
             ↪
           </button>
         </div>
-
       </aside>
     </>
   );

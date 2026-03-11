@@ -231,7 +231,7 @@ export default function ObrasLaminacionScreen({ profile, signOut }) {
   const TD = { padding: "9px 12px", fontSize: 12, borderBottom: `1px solid rgba(255,255,255,0.03)`, color: C.t1 };
 
   return (
-    <div style={{ background: C.bg, minHeight: "100vh", color: C.t0, fontFamily: C.sans }}>
+    <div style={{ background: C.bg, position: "fixed", inset: 0, overflow: "hidden", color: C.t0, fontFamily: C.sans }}>
       <style>{`
         @import url('https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500;700&display=swap');
         *, *::before, *::after { box-sizing: border-box; }
@@ -253,7 +253,7 @@ export default function ObrasLaminacionScreen({ profile, signOut }) {
       <div className="bg-glow" />
       <NotificacionesBell profile={profile} />
 
-      <div style={{ display: "grid", gridTemplateColumns: "280px 1fr", minHeight: "100vh", position: "relative", zIndex: 1 }}>
+      <div style={{ display: "grid", gridTemplateColumns: "280px 1fr", height: "100%", overflow: "hidden", position: "relative", zIndex: 1 }}>
         <Sidebar profile={profile} signOut={signOut} />
 
         <div style={{ display: "flex", flexDirection: "column", height: "100vh", overflow: "hidden" }}>

@@ -162,21 +162,12 @@ export default function MarmoleriaScreen({ profile, signOut }) {
   const [loading, setLoading]   = useState(false);
   const [isExporting, setIsExporting] = useState(false);
   const [err, setErr]           = useState("");
-  const contentRef = useRef(null);
 
   // Nuevos campos
   const [newLinea,   setNewLinea]   = useState("");
   const [newUnidad,  setNewUnidad]  = useState("");
   const [showAddPieza, setShowAddPieza] = useState(false);
   const [formPieza, setFormPieza] = useState({ pieza:"", sector:"" });
-
-  // Plantilla
-  const [showPlantilla,     setShowPlantilla]     = useState(false);
-  const [plantilla,         setPlantilla]         = useState([]);
-  const [loadingPlantilla,  setLoadingPlantilla]  = useState(false);
-  const [formPlantilla,     setFormPlantilla]     = useState({ pieza:"", sector:"", opcional:false });
-  const [editingPlantId,    setEditingPlantId]    = useState(null);
-  const [editingPlantForm,  setEditingPlantForm]  = useState({});
 
   // ── DATOS DERIVADOS ───────────────────────────────────────────
   const unidadSel = useMemo(() => unidades.find(u => u.id === unidadId), [unidades, unidadId]);
@@ -292,25 +283,7 @@ export default function MarmoleriaScreen({ profile, signOut }) {
   // ── ACCIONES ──────────────────────────────────────────────────
   async function crearLinea() {
     if (!newLinea.trim()) return;
-    const nombre = newLinea.trim().toUpperCase();
-
-    // Si existe pero está inactiva, reactivarla
-    const { data: existente } = await supabase
-      .from("marm_lineas")
-      .select("id, activa")
-      .eq("nombre", nombre)
-      .maybeSingle();
-
-    if (existente) {
-      if (!existente.activa) {
-        await supabase.from("marm_lineas").update({ activa: true }).eq("id", existente.id);
-      }
-      setNewLinea("");
-      cargarLineas();
-      return;
-    }
-
-    const { error } = await supabase.from("marm_lineas").insert({ nombre });
+    const { error } = await supabase.from("marm_lineas").insert({ nombre: newLinea.trim().toUpperCase() });
     if (error) return setErr(error.message);
     setNewLinea("");
     cargarLineas();
@@ -325,56 +298,35 @@ export default function MarmoleriaScreen({ profile, signOut }) {
 
   async function crearUnidad() {
     if (!newUnidad.trim() || !lineaId) return;
-
-    // Si existe pero está inactiva, reactivarla
-    const { data: existente } = await supabase
+    // 1. Crear unidad
+    const { data: u, error } = await supabase
       .from("marm_unidades")
-      .select("id, activa")
+      .insert({ linea_id:lineaId, codigo:newUnidad.trim() })
+      .select().single();
+    if (error) return setErr(error.message);
+
+    // 2. Copiar plantilla de la línea automáticamente
+    const { data: plantilla } = await supabase
+      .from("marm_linea_piezas")
+      .select("*")
       .eq("linea_id", lineaId)
-      .eq("codigo", newUnidad.trim())
-      .maybeSingle();
+      .order("orden");
 
-    let uid;
-    if (existente) {
-      if (!existente.activa) {
-        await supabase.from("marm_unidades").update({ activa: true }).eq("id", existente.id);
-      }
-      uid = existente.id;
-    } else {
-      // Crear unidad nueva
-      const { data: u, error } = await supabase
-        .from("marm_unidades")
-        .insert({ linea_id: lineaId, codigo: newUnidad.trim() })
-        .select().single();
-      if (error) return setErr(error.message);
-      uid = u.id;
-
-      // Copiar plantilla de la línea automáticamente
-      const { data: plantillaDB, error: errPlant } = await supabase
-        .from("marm_linea_piezas")
-        .select("*")
-        .eq("linea_id", lineaId)
-        .order("sector");
-
-      if (errPlant) { setErr("Error al cargar plantilla: " + errPlant.message); }
-
-      if (plantillaDB?.length) {
-        const inserts = plantillaDB.map(p => ({
-          unidad_id: uid,
-          pieza_id:  p.id,
-          pieza:     p.pieza,
-          sector:    p.sector,
-          opcional:  p.opcional ?? false,
-          estado:    "Pendiente",
-        }));
-        const { error: errIns } = await supabase.from("marm_unidad_piezas").insert(inserts);
-        if (errIns) setErr("Error al copiar piezas: " + errIns.message);
-      }
+    if (plantilla?.length) {
+      const inserts = plantilla.map(p => ({
+        unidad_id: u.id,
+        pieza_id:  p.id,
+        pieza:     p.pieza,
+        sector:    p.sector,
+        opcional:  p.opcional,
+        estado:    "Pendiente",
+      }));
+      await supabase.from("marm_unidad_piezas").insert(inserts);
     }
 
     setNewUnidad("");
     cargarUnidades(lineaId);
-    setUnidadId(uid);
+    setUnidadId(u.id);
   }
 
   async function eliminarUnidad(uid) {
@@ -462,47 +414,6 @@ export default function MarmoleriaScreen({ profile, signOut }) {
     setFormPieza({ pieza:"", sector:"" });
     setShowAddPieza(false);
     if (unidadId) cargarPiezas(unidadId);
-  }
-
-  // ── GESTIÓN DE PLANTILLA ───────────────────────────────────────
-  async function cargarPlantilla(lid) {
-    setLoadingPlantilla(true);
-    const { data } = await supabase
-      .from("marm_linea_piezas")
-      .select("*")
-      .eq("linea_id", lid)
-      .order("sector").order("orden");
-    setPlantilla(data ?? []);
-    setLoadingPlantilla(false);
-  }
-
-  async function crearPiezaPlantilla() {
-    if (!formPlantilla.pieza.trim() || !formPlantilla.sector.trim() || !lineaId) return;
-    const { error } = await supabase.from("marm_linea_piezas").insert({
-      linea_id: lineaId,
-      pieza:    formPlantilla.pieza.trim(),
-      sector:   formPlantilla.sector.trim(),
-      opcional: formPlantilla.opcional,
-    });
-    if (error) return setErr(error.message);
-    setFormPlantilla({ pieza:"", sector:"", opcional:false });
-    cargarPlantilla(lineaId);
-  }
-
-  async function guardarEdicionPlantilla(id) {
-    const { error } = await supabase
-      .from("marm_linea_piezas")
-      .update({ pieza: editingPlantForm.pieza, sector: editingPlantForm.sector, opcional: editingPlantForm.opcional })
-      .eq("id", id);
-    if (error) return setErr(error.message);
-    setEditingPlantId(null);
-    cargarPlantilla(lineaId);
-  }
-
-  async function eliminarPiezaPlantilla(id) {
-    if (!window.confirm("¿Eliminar esta pieza de la plantilla? No afecta barcos ya creados.")) return;
-    await supabase.from("marm_linea_piezas").delete().eq("id", id);
-    setPlantilla(prev => prev.filter(p => p.id !== id));
   }
 
   // ── EXPORTACIÓN GLOBAL A PDF CON LOGO ─────────────────────────────
@@ -631,7 +542,7 @@ export default function MarmoleriaScreen({ profile, signOut }) {
 
   // ── RENDER ────────────────────────────────────────────────────
   return (
-    <div style={{ background: C2.bg, minHeight:"100vh", color: C2.t0, fontFamily: C2.sans }}>
+    <div style={{ background: C2.bg, position: "fixed", inset: 0, overflow: "hidden", color: C2.t0, fontFamily: C2.sans }}>
       <style>{`
         @import url('https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500;700&display=swap');
         *, *::before, *::after { box-sizing: border-box; }
@@ -654,13 +565,10 @@ export default function MarmoleriaScreen({ profile, signOut }) {
       `}</style>
       <div className="bg-glow" />
 
-      <div style={{ display:"grid", gridTemplateColumns:"280px 1fr", minHeight:"100vh", position:"relative", zIndex:1 }}>
+      <div style={{ display:"grid", gridTemplateColumns:"280px 1fr", height:"100vh", overflow:"hidden", position:"relative", zIndex:1 }}>
         <Sidebar profile={profile} signOut={signOut} />
 
-        <div
-          style={{ display:"flex", flexDirection:"column", height:"100vh", overflow:"hidden" }}
-          onWheel={(e) => { if (contentRef.current && !contentRef.current.contains(e.target)) { contentRef.current.scrollTop += e.deltaY; } }}
-        >
+        <div style={{ display:"flex", flexDirection:"column", height:"100vh", overflow:"hidden" }}>
 
           {/* ── TOPBAR ── */}
           <div style={{
@@ -714,38 +622,12 @@ export default function MarmoleriaScreen({ profile, signOut }) {
 
             {/* Acciones topbar */}
             {unidadId && esAdmin && (
-              <>
-                <button
-                  onClick={async () => {
-                    if (!window.confirm("¿Copiar la plantilla de la línea a este barco? Solo agrega piezas que no existan aún.")) return;
-                    const { data: plantillaDB, error: errP } = await supabase
-                      .from("marm_linea_piezas").select("*").eq("linea_id", lineaId).order("sector");
-                    if (errP) return setErr(errP.message);
-                    if (!plantillaDB?.length) return setErr("La plantilla de esta línea está vacía.");
-                    // Solo insertar las que no existan (por pieza_id o por nombre+sector)
-                    const existentes = new Set(piezas.map(p => p.pieza_id || `${p.pieza}::${p.sector}`));
-                    const nuevas = plantillaDB.filter(p => !existentes.has(p.id) && !existentes.has(`${p.pieza}::${p.sector}`));
-                    if (!nuevas.length) return setErr("Este barco ya tiene todas las piezas de la plantilla.");
-                    const inserts = nuevas.map(p => ({
-                      unidad_id: unidadId, pieza_id: p.id,
-                      pieza: p.pieza, sector: p.sector, opcional: p.opcional ?? false, estado: "Pendiente",
-                    }));
-                    const { error: errI } = await supabase.from("marm_unidad_piezas").insert(inserts);
-                    if (errI) return setErr(errI.message);
-                    cargarPiezas(unidadId);
-                  }}
-                  style={{ border:`1px solid rgba(245,158,11,0.35)`, background:"rgba(245,158,11,0.08)", color:C2.amber, padding:"5px 12px", borderRadius:7, cursor:"pointer", fontFamily:C2.sans, fontSize:11 }}
-                  title="Copiar piezas de la plantilla de la línea a este barco"
-                >
-                  ⊞ Copiar plantilla
-                </button>
-                <button
-                  onClick={() => setShowAddPieza(v => !v)}
-                  style={{ border:`1px solid ${C2.b0}`, background:"transparent", color:C2.t1, padding:"5px 12px", borderRadius:7, cursor:"pointer", fontFamily:C2.sans, fontSize:11 }}
-                >
-                  {showAddPieza ? "✕ Cancelar" : "+ Pieza extra"}
-                </button>
-              </>
+              <button
+                onClick={() => setShowAddPieza(v => !v)}
+                style={{ border:`1px solid ${C2.b0}`, background:"transparent", color:C2.t1, padding:"5px 12px", borderRadius:7, cursor:"pointer", fontFamily:C2.sans, fontSize:11 }}
+              >
+                {showAddPieza ? "✕ Cancelar" : "+ Pieza extra"}
+              </button>
             )}
             <button
               onClick={exportarPDFGeneral}
@@ -787,14 +669,14 @@ export default function MarmoleriaScreen({ profile, signOut }) {
           )}
 
           {/* ── SPLIT CONTENT ── */}
-          <div ref={contentRef} style={{ flex:1, overflow:"hidden", display:"grid", gridTemplateColumns:"252px 1fr" }}>
+          <div style={{ flex:1, overflow:"hidden", display:"grid", gridTemplateColumns:"252px 1fr" }}>
 
             {/* ── LEFT NAV ── */}
             <div style={{ borderRight:`1px solid ${C2.b0}`, background:"rgba(9,9,11,0.98)", display:"flex", flexDirection:"column", height:"100%", overflow:"hidden" }}>
 
               {/* Dashboard link */}
               <button
-                onClick={() => { setUnidadId(null); setShowPlantilla(false); }}
+                onClick={() => setUnidadId(null)}
                 style={{
                   width:"100%", textAlign:"left", padding:"11px 14px",
                   border:"none", borderBottom:`1px solid ${C2.b0}`,
@@ -815,7 +697,7 @@ export default function MarmoleriaScreen({ profile, signOut }) {
                   const selLinea = lineaId === l.id;
                   return (
                     <div key={l.id}>
-                      <button style={lineaNavBtn(selLinea)} onClick={() => { setLineaId(l.id); setUnidadId(null); setShowPlantilla(false); }}>
+                      <button style={lineaNavBtn(selLinea)} onClick={() => { setLineaId(l.id); setUnidadId(null); }}>
                         <span style={{ display:"flex", alignItems:"center", gap:7 }}>
                           <div style={{ width:5, height:5, borderRadius:"50%", background: selLinea ? C2.t0 : "#2c3040", flexShrink:0 }} />
                           {l.nombre}
@@ -831,35 +713,13 @@ export default function MarmoleriaScreen({ profile, signOut }) {
                       {selLinea && (
                         <>
                           {unidades.map(u => (
-                            <button key={u.id} style={unidadNavBtn(unidadId === u.id)} onClick={() => { setUnidadId(u.id); setShowPlantilla(false); }}>
+                            <button key={u.id} style={unidadNavBtn(unidadId === u.id)} onClick={() => setUnidadId(u.id)}>
                               <span style={{ fontFamily:C2.mono, fontSize:11 }}>{u.codigo}</span>
                               {esAdmin && unidadId === u.id && (
                                 <span onClick={e => { e.stopPropagation(); eliminarUnidad(u.id); }} style={{ fontSize:10, color:C2.red, cursor:"pointer", padding:"2px 5px" }}>×</span>
                               )}
                             </button>
                           ))}
-                          {/* Plantilla de la línea */}
-                          {esAdmin && (
-                            <button
-                              style={{
-                                ...unidadNavBtn(showPlantilla && !unidadId && lineaId === l.id),
-                                paddingLeft:22,
-                                borderLeft: (showPlantilla && !unidadId && lineaId === l.id)
-                                  ? `2px solid ${C2.amber}` : "2px solid transparent",
-                                color: (showPlantilla && !unidadId && lineaId === l.id) ? C2.amber : C2.t2,
-                              }}
-                              onClick={() => {
-                                setUnidadId(null);
-                                setShowPlantilla(true);
-                                setLineaId(l.id);
-                                cargarPlantilla(l.id);
-                              }}
-                            >
-                              <span style={{ display:"flex", alignItems:"center", gap:5, fontFamily:C2.sans, fontSize:10, letterSpacing:1 }}>
-                                <span>⊞</span> Plantilla
-                              </span>
-                            </button>
-                          )}
                           {esAdmin && (
                             <div style={{ padding:"5px 14px 8px 22px", display:"flex", gap:5 }}>
                               <input style={{ ...INP_SM, flex:1 }} placeholder="Nuevo barco…"
@@ -892,175 +752,8 @@ export default function MarmoleriaScreen({ profile, signOut }) {
             {/* ── PANEL DERECHO ── */}
             <div style={{ height:"100%", overflowY:"auto" }}>
 
-              {/* ══════════════════ PLANTILLA DE LA LÍNEA ══════════════════ */}
-              {!unidadId && showPlantilla && lineaSel && (
-                <div style={{ padding:"22px 26px", animation:"slideUp .25s ease" }}>
-
-                  {/* Header */}
-                  <div style={{ display:"flex", justifyContent:"space-between", alignItems:"flex-start", marginBottom:22 }}>
-                    <div>
-                      <div style={{ fontSize:9, color:C2.amber, letterSpacing:2, textTransform:"uppercase", marginBottom:4, fontWeight:700 }}>Línea {lineaSel.nombre}</div>
-                      <h1 style={{ margin:0, fontSize:18, fontWeight:700, color:C2.t0 }}>Plantilla de piezas</h1>
-                      <p style={{ color:C2.t2, fontSize:11, marginTop:4, marginBottom:0 }}>
-                        Los barcos nuevos heredan estas piezas automáticamente. No afecta barcos ya creados.
-                      </p>
-                    </div>
-                    <div style={{ background:"rgba(245,158,11,0.08)", border:"1px solid rgba(245,158,11,0.2)", borderRadius:8, padding:"5px 12px", fontSize:11, color:C2.amber, fontFamily:C2.mono, fontWeight:700, flexShrink:0 }}>
-                      {plantilla.length} piezas
-                    </div>
-                  </div>
-
-                  {err && <div style={{ padding:"8px 12px", borderRadius:8, background:"rgba(239,68,68,0.08)", border:"1px solid rgba(239,68,68,0.2)", color:"#f87171", fontSize:12, marginBottom:14 }}>{err}</div>}
-
-                  {/* Formulario agregar pieza */}
-                  <div style={{ background:C2.s0, border:`1px solid ${C2.b0}`, borderRadius:12, padding:"16px", marginBottom:18 }}>
-                    <div style={{ fontSize:9, letterSpacing:2, textTransform:"uppercase", color:C2.t2, marginBottom:12, fontWeight:600 }}>Nueva pieza</div>
-                    <div style={{ display:"grid", gridTemplateColumns:"1fr 150px auto auto", gap:8, alignItems:"end" }}>
-                      <div>
-                        <div style={{ fontSize:9, letterSpacing:1.5, color:C2.t2, textTransform:"uppercase", marginBottom:5 }}>Nombre</div>
-                        <input
-                          style={INP}
-                          placeholder="Ej: Frente de cajón"
-                          value={formPlantilla.pieza}
-                          onChange={e => setFormPlantilla(f=>({...f, pieza:e.target.value}))}
-                          onKeyDown={e => e.key==="Enter" && crearPiezaPlantilla()}
-                        />
-                      </div>
-                      <div>
-                        <div style={{ fontSize:9, letterSpacing:1.5, color:C2.t2, textTransform:"uppercase", marginBottom:5 }}>Sector</div>
-                        <input
-                          style={INP}
-                          placeholder="Ej: Cocina"
-                          value={formPlantilla.sector}
-                          onChange={e => setFormPlantilla(f=>({...f, sector:e.target.value}))}
-                          onKeyDown={e => e.key==="Enter" && crearPiezaPlantilla()}
-                        />
-                      </div>
-                      <div style={{ paddingBottom:1 }}>
-                        <div style={{ fontSize:9, letterSpacing:1.5, color:C2.t2, textTransform:"uppercase", marginBottom:5 }}>Opcional</div>
-                        <label style={{ display:"flex", alignItems:"center", gap:6, cursor:"pointer", height:34, paddingLeft:4 }}>
-                          <input
-                            type="checkbox"
-                            checked={formPlantilla.opcional}
-                            onChange={e => setFormPlantilla(f=>({...f, opcional:e.target.checked}))}
-                            style={{ accentColor:C2.amber, width:14, height:14 }}
-                          />
-                          <span style={{ fontSize:11, color:C2.t1 }}>Sí</span>
-                        </label>
-                      </div>
-                      <div style={{ paddingBottom:1 }}>
-                        <div style={{ fontSize:9, letterSpacing:1.5, color:"transparent", textTransform:"uppercase", marginBottom:5 }}>–</div>
-                        <button
-                          onClick={crearPiezaPlantilla}
-                          style={{ border:"1px solid rgba(245,158,11,0.35)", background:"rgba(245,158,11,0.12)", color:C2.amber, padding:"8px 18px", borderRadius:8, cursor:"pointer", fontFamily:C2.sans, fontSize:12, fontWeight:700, height:34 }}
-                        >
-                          + Agregar
-                        </button>
-                      </div>
-                    </div>
-                  </div>
-
-                  {/* Lista de piezas agrupadas por sector */}
-                  {loadingPlantilla ? (
-                    <div style={{ textAlign:"center", padding:40, fontSize:11, color:C2.t2, letterSpacing:2, textTransform:"uppercase", fontFamily:C2.mono }}>Cargando…</div>
-                  ) : plantilla.length === 0 ? (
-                    <div style={{ textAlign:"center", padding:"50px 30px", color:C2.t2, background:C2.s0, borderRadius:12, border:`1px dashed ${C2.b0}` }}>
-                      <div style={{ fontSize:28, marginBottom:10 }}>⊞</div>
-                      <div style={{ fontSize:11, letterSpacing:2, textTransform:"uppercase" }}>Plantilla vacía</div>
-                      <div style={{ fontSize:11, color:C2.t2, marginTop:6 }}>Agregá piezas arriba para que los barcos nuevos las hereden.</div>
-                    </div>
-                  ) : (() => {
-                    // Agrupar por sector
-                    const sectores = {};
-                    plantilla.forEach(p => {
-                      if (!sectores[p.sector]) sectores[p.sector] = [];
-                      sectores[p.sector].push(p);
-                    });
-                    return Object.entries(sectores).map(([sector, piezas]) => (
-                      <div key={sector} style={{ marginBottom:20 }}>
-                        {/* Cabecera sector */}
-                        <div style={{ display:"flex", alignItems:"center", gap:8, paddingBottom:7, marginBottom:2, borderBottom:`1px solid rgba(255,255,255,0.06)` }}>
-                          <span style={{ fontSize:9, letterSpacing:2.5, fontWeight:700, color:C2.t2, textTransform:"uppercase" }}>{sector}</span>
-                          <span style={{ fontSize:9, color:C2.t2, fontFamily:C2.mono }}>({piezas.length})</span>
-                        </div>
-                        {/* Piezas */}
-                        {piezas.map(p => (
-                          <div key={p.id} style={{
-                            display:"grid", gridTemplateColumns:"1fr auto",
-                            gap:8, alignItems:"center",
-                            padding:"8px 6px", borderBottom:`1px solid rgba(255,255,255,0.03)`,
-                            borderRadius:6,
-                          }}>
-                            {editingPlantId === p.id ? (
-                              // Modo edición inline
-                              <div style={{ display:"grid", gridTemplateColumns:"1fr 120px auto auto", gap:6, alignItems:"center" }}>
-                                <input
-                                  style={{ ...INP_SM }}
-                                  value={editingPlantForm.pieza}
-                                  onChange={e => setEditingPlantForm(f=>({...f, pieza:e.target.value}))}
-                                  autoFocus
-                                  onKeyDown={e => e.key==="Enter" && guardarEdicionPlantilla(p.id)}
-                                />
-                                <input
-                                  style={{ ...INP_SM }}
-                                  value={editingPlantForm.sector}
-                                  onChange={e => setEditingPlantForm(f=>({...f, sector:e.target.value}))}
-                                  onKeyDown={e => e.key==="Enter" && guardarEdicionPlantilla(p.id)}
-                                />
-                                <label style={{ display:"flex", alignItems:"center", gap:4, cursor:"pointer", whiteSpace:"nowrap" }}>
-                                  <input
-                                    type="checkbox"
-                                    checked={editingPlantForm.opcional}
-                                    onChange={e => setEditingPlantForm(f=>({...f, opcional:e.target.checked}))}
-                                    style={{ accentColor:C2.amber }}
-                                  />
-                                  <span style={{ fontSize:10, color:C2.t1 }}>Opcional</span>
-                                </label>
-                                <div style={{ display:"flex", gap:4 }}>
-                                  <button
-                                    onClick={() => guardarEdicionPlantilla(p.id)}
-                                    style={{ border:"1px solid rgba(16,185,129,0.35)", background:"rgba(16,185,129,0.12)", color:C2.green, padding:"4px 10px", borderRadius:6, cursor:"pointer", fontSize:11, fontWeight:700 }}
-                                  >✓</button>
-                                  <button
-                                    onClick={() => setEditingPlantId(null)}
-                                    style={{ border:`1px solid ${C2.b0}`, background:"transparent", color:C2.t2, padding:"4px 8px", borderRadius:6, cursor:"pointer", fontSize:12 }}
-                                  >×</button>
-                                </div>
-                              </div>
-                            ) : (
-                              // Modo vista
-                              <div style={{ display:"flex", alignItems:"center", gap:8 }}>
-                                <div style={{ width:5, height:5, borderRadius:"50%", background:C2.b1, flexShrink:0 }} />
-                                <span style={{ color:C2.t0, fontSize:12, fontWeight:500 }}>{p.pieza}</span>
-                                {p.opcional && (
-                                  <span style={{ fontSize:8, letterSpacing:1.5, color:C2.t2, border:`1px solid ${C2.b0}`, borderRadius:4, padding:"1px 5px" }}>OPCIONAL</span>
-                                )}
-                              </div>
-                            )}
-                            {editingPlantId !== p.id && (
-                              <div style={{ display:"flex", gap:2 }}>
-                                <button
-                                  onClick={() => { setEditingPlantId(p.id); setEditingPlantForm({ pieza:p.pieza, sector:p.sector, opcional:!!p.opcional }); }}
-                                  style={{ border:"none", background:"transparent", color:C2.t2, padding:"3px 6px", cursor:"pointer", fontSize:13, borderRadius:5 }}
-                                  title="Editar"
-                                >✎</button>
-                                <button
-                                  onClick={() => eliminarPiezaPlantilla(p.id)}
-                                  style={{ border:"none", background:"transparent", color:C2.t2, padding:"3px 5px", cursor:"pointer", fontSize:14, borderRadius:5 }}
-                                  title="Eliminar"
-                                >×</button>
-                              </div>
-                            )}
-                          </div>
-                        ))}
-                      </div>
-                    ));
-                  })()}
-                </div>
-              )}
-
               {/* ══════════════════ DASHBOARD GLOBAL ══════════════════ */}
-              {!unidadId && !showPlantilla && (
+              {!unidadId && (
                 <div style={{ padding:"22px 26px", animation:"slideUp .25s ease" }}>
 
                   {/* Header */}

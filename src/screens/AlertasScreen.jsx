@@ -1,4 +1,4 @@
-import { useState, useMemo, useRef } from "react";
+import { useState, useMemo } from "react";
 import Sidebar from "../components/Sidebar";
 import useAlertas from "../hooks/useAlertas";
 
@@ -53,7 +53,6 @@ export default function AlertasScreen({ profile, signOut }) {
   const [filtroGravedad, setFiltroGravedad] = useState("todas");
   const [filtroTipo,     setFiltroTipo]     = useState("todos");
   const [msg,            setMsg]            = useState("");
-  const contentRef = useRef(null);
 
   const filtradas = useMemo(() => {
     return alertas
@@ -75,7 +74,7 @@ export default function AlertasScreen({ profile, signOut }) {
   }
 
   return (
-    <div style={{ background: C.bg, minHeight: "100vh", color: C.t0, fontFamily: C.sans }}>
+    <div style={{ background: C.bg, position: "fixed", inset: 0, overflow: "hidden", color: C.t0, fontFamily: C.sans }}>
       <style>{`
         @import url('https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500;700&display=swap');
         *, *::before, *::after { box-sizing: border-box; }
@@ -96,13 +95,10 @@ export default function AlertasScreen({ profile, signOut }) {
       `}</style>
       <div className="bg-glow" />
 
-      <div style={{ display: "grid", gridTemplateColumns: "280px 1fr", minHeight: "100vh", position: "relative", zIndex: 1 }}>
+      <div style={{ display: "grid", gridTemplateColumns: "280px 1fr", height: "100%", overflow: "hidden", position: "relative", zIndex: 1 }}>
         <Sidebar profile={profile} signOut={signOut} />
 
-        <div
-          style={{ display: "flex", flexDirection: "column", height: "100vh", overflow: "hidden" }}
-          onWheel={(e) => { if (contentRef.current && !contentRef.current.contains(e.target)) { contentRef.current.scrollTop += e.deltaY; } }}
-        >
+        <div style={{ display: "flex", flexDirection: "column", height: "100vh", overflow: "hidden" }}>
 
           {/* ── TOPBAR ── */}
           <div style={{
@@ -165,7 +161,7 @@ export default function AlertasScreen({ profile, signOut }) {
           </div>
 
           {/* ── CONTENT ── */}
-          <div ref={contentRef} style={{ flex: 1, overflowY: "auto", padding: "14px 18px" }}>
+          <div style={{ flex: 1, overflowY: "auto", padding: "14px 18px" }}>
             <div style={{ width: "min(960px,100%)", margin: "0 auto" }}>
 
               {/* KPI cards */}
