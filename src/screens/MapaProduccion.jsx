@@ -327,11 +327,21 @@ function CinematicCallouts({p,obra,oC}){
   const EXT=Math.max(55,p.w*0.75);
   const tC="rgba(255,255,255,0.9)", lC="rgba(255,255,255,0.28)", sC="rgba(255,255,255,0.32)";
   const callouts=[
-    {fromX:p.cx-hw,fromY:p.cy-hh,dirX:-1,dirY:-1,label:p.tipo.toUpperCase(),sub:"MODELO"},
+    {fromX:p.cx-hw,fromY:p.cy-hh,dirX:-1,dirY:-1,label:(obra?.propietario??p.tipo).toUpperCase(),sub:obra?.propietario?"PROPIETARIO":"MODELO"},
     {fromX:p.cx+hw,fromY:p.cy-hh,dirX:1, dirY:-1,label:obra?.codigo??"VACÍO",  sub:"CÓDIGO"},
     {fromX:p.cx+hw,fromY:p.cy+hh,dirX:1, dirY:1, label:`${obra?._pct??0}%`,    sub:"PROGRESO"},
     {fromX:p.cx-hw,fromY:p.cy+hh,dirX:-1,dirY:1, label:oC.label.toUpperCase(), sub:"ESTADO"},
   ];
+  // Panel de ficha técnica: aparece bajo el barco si hay datos
+  const specs=[];
+  if(obra?.motores)        specs.push({icon:"⚡",label:obra.motores});
+  if(obra?.grupo_electrogeno) specs.push({icon:"🔋",label:obra.grupo_electrogeno_det||"Grupo elect."});
+  if(obra?.teca_cockpit)   specs.push({icon:"🪵",label:obra.teca_cockpit_det||"Teca/Infinity"});
+  if(obra?.madera_muebles) specs.push({icon:"🎨",label:obra.madera_muebles});
+  if(obra?.starlink)       specs.push({icon:"🛰",label:"Starlink"});
+  const panelW=Math.max(180,p.w+60);
+  const panelX=p.cx-panelW/2;
+  const panelY=p.cy+hh+28;
   return(
     <g style={{pointerEvents:"none"}}>
       <rect x={p.cx-hw-10} y={p.cy-hh-10} width={p.w+20} height={p.h+20} fill="none" stroke="rgba(255,255,255,0.14)" strokeWidth="0.5" strokeDasharray="3 3" style={{animation:"focusIn 0.4s ease both"}}/>
@@ -356,8 +366,20 @@ function CinematicCallouts({p,obra,oC}){
         <line x1={p.cx} y1={p.cy-18} x2={p.cx} y2={p.cy+18} stroke="rgba(255,255,255,0.18)" strokeWidth="0.5"/>
         <circle cx={p.cx} cy={p.cy} r="4" fill="none" stroke="rgba(255,255,255,0.35)" strokeWidth="0.6"/>
       </g>
-      {/* Glow outline sobre la imagen PNG — rect con bordes redondeados aproxima bien el casco */}
+      {/* Glow outline */}
       <rect x={p.cx-(p.w+16)/2} y={p.cy-(p.h+16)/2} width={p.w+16} height={p.h+16} rx={Math.min(p.w,p.h)*0.18} fill="none" stroke={oC.glow} strokeWidth="1.5" strokeOpacity="0.4" style={{animation:"focusIn 0.4s ease both",filter:`drop-shadow(0 0 6px ${oC.glow})`}}/>
+      {/* Panel ficha técnica bajo el barco */}
+      {specs.length>0&&(
+        <g style={{animation:"focusIn 0.4s ease 0.25s both"}}>
+          <rect x={panelX} y={panelY} width={panelW} height={specs.length*16+12} rx="5"
+            fill="rgba(0,0,0,0.55)" stroke="rgba(255,255,255,0.1)" strokeWidth="0.6"/>
+          {specs.map((s,i)=>(
+            <text key={i} x={panelX+10} y={panelY+18+i*16} fill="rgba(255,255,255,0.7)" fontSize="9.5" fontFamily={C.mono}>
+              <tspan fill="rgba(255,255,255,0.4)">{s.icon} </tspan>{s.label}
+            </text>
+          ))}
+        </g>
+      )}
     </g>
   );
 }
@@ -889,17 +911,48 @@ export default function MapaProduccion({obras=[],onPuestoClick,onAsignarObra,onC
       {tooltip&&!obraDragPos&&!focusedPuesto&&(()=>{
         const obra=obraByPuesto[tooltip.puesto.id],oC=C.obra[obra?.estado??"vacio"];
         const rect=svgRef.current?.getBoundingClientRect();if(!rect)return null;
-        const tx=Math.min(tooltip.cx-rect.left+24,rect.width-280),ty=Math.max(24,Math.min(tooltip.cy-rect.top-24,rect.height-160));
+        const tx=Math.min(tooltip.cx-rect.left+24,rect.width-310),ty=Math.max(24,Math.min(tooltip.cy-rect.top-24,rect.height-220));
+        const hasFicha=obra&&(obra.propietario||obra.motores||obra.grupo_electrogeno||obra.teca_cockpit||obra.madera_muebles||obra.color_casco);
+        const SpecRow=({label,val})=>val?(<div style={{display:"flex",gap:6,alignItems:"baseline"}}><span style={{fontSize:9,color:"rgba(255,255,255,0.3)",letterSpacing:1,textTransform:"uppercase",fontFamily:C.mono,minWidth:46,flexShrink:0}}>{label}</span><span style={{fontSize:11,color:"rgba(255,255,255,0.7)",lineHeight:1.3}}>{val}</span></div>):null;
         return(
-          <div style={{position:"absolute",left:tx,top:ty,zIndex:20,...GLASS,borderRadius:12,padding:"16px",minWidth:220,maxWidth:280,pointerEvents:"none",animation:"fadeUp 0.15s cubic-bezier(0.16,1,0.3,1)"}}>
-            <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",marginBottom:12}}>
+          <div style={{position:"absolute",left:tx,top:ty,zIndex:20,...GLASS,borderRadius:12,padding:"16px",minWidth:250,maxWidth:310,pointerEvents:"none",animation:"fadeUp 0.15s cubic-bezier(0.16,1,0.3,1)"}}>
+            {/* Header */}
+            <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",marginBottom:hasFicha?10:12}}>
               <div style={{display:"flex",alignItems:"center",gap:8}}>
                 <div style={{width:10,height:10,borderRadius:5,background:oC.glow,boxShadow:obra?`0 0 12px ${oC.glow}`:"none"}}/>
                 <span style={{fontFamily:C.mono,fontSize:15,color:C.t0,fontWeight:700}}>{obra?obra.codigo:`Puesto ${tooltip.puesto.label}`}</span>
+                {obra?.tipo_cabina&&<span style={{fontSize:8,letterSpacing:1,color:"rgba(255,255,255,0.3)",background:"rgba(255,255,255,0.06)",padding:"1px 5px",borderRadius:3}}>{obra.tipo_cabina}</span>}
               </div>
               <span style={{fontSize:9,letterSpacing:1.5,textTransform:"uppercase",color:oC.glow,fontWeight:600,background:`${oC.glow}15`,padding:"2px 6px",borderRadius:4}}>{oC.label}</span>
             </div>
-            {obra?.descripcion&&<div style={{fontSize:12,color:C.t1,marginBottom:16,lineHeight:1.5}}>{obra.descripcion}</div>}
+
+            {/* Propietario / Constructor */}
+            {obra?.propietario&&(
+              <div style={{fontSize:11,color:C.t0,marginBottom:8,fontWeight:600,display:"flex",alignItems:"center",gap:5}}>
+                <span style={{fontSize:10}}>👤</span>
+                <span>{obra.propietario}</span>
+                {obra.constructor&&<span style={{color:C.t2,fontWeight:400,fontSize:10}}>· {obra.constructor}</span>}
+              </div>
+            )}
+            {obra?.descripcion&&!obra?.propietario&&<div style={{fontSize:12,color:C.t1,marginBottom:10,lineHeight:1.5}}>{obra.descripcion}</div>}
+
+            {/* Ficha técnica */}
+            {hasFicha&&(
+              <div style={{display:"flex",flexDirection:"column",gap:5,marginBottom:10,paddingBottom:10,borderBottom:"1px solid rgba(255,255,255,0.06)"}}>
+                <SpecRow label="Motor"  val={obra.motores}/>
+                <SpecRow label="Chapa"  val={obra.madera_muebles}/>
+                <SpecRow label="Casco"  val={obra.color_casco}/>
+                {/* Badges de equipamiento */}
+                <div style={{display:"flex",gap:5,flexWrap:"wrap",marginTop:3}}>
+                  {obra.grupo_electrogeno&&<span style={{fontSize:9,padding:"2px 7px",borderRadius:4,background:"rgba(245,158,11,0.12)",color:"#fcd34d",border:"1px solid rgba(245,158,11,0.2)"}}>⚡ {obra.grupo_electrogeno_det||"Grupo elect."}</span>}
+                  {obra.teca_cockpit&&<span style={{fontSize:9,padding:"2px 7px",borderRadius:4,background:"rgba(180,140,60,0.12)",color:"#d4b483",border:"1px solid rgba(180,140,60,0.2)"}}>🪵 {obra.teca_cockpit_det||"Teca/Infinity"}</span>}
+                  {obra.starlink&&<span style={{fontSize:9,padding:"2px 7px",borderRadius:4,background:"rgba(99,102,241,0.12)",color:"#a5b4fc",border:"1px solid rgba(99,102,241,0.2)"}}>🛰 Starlink</span>}
+                  {obra.sternthruster&&<span style={{fontSize:9,padding:"2px 7px",borderRadius:4,background:"rgba(56,189,248,0.12)",color:"#7dd3fc",border:"1px solid rgba(56,189,248,0.2)"}}>⚓ Stern</span>}
+                </div>
+              </div>
+            )}
+
+            {/* Progreso */}
             {obra?(
               <div style={{display:"flex",flexDirection:"column",gap:6}}>
                 <div style={{display:"flex",justifyContent:"space-between",fontSize:10,fontFamily:C.mono,color:C.t1}}>
