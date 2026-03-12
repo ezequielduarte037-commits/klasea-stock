@@ -1161,8 +1161,11 @@ export default function MapaProduccion({obras=[],onPuestoClick,onAsignarObra,onC
     };
 
     /* Posición del bloque info (pill + barra) — debajo de la caja, siempre horizontal.
-       Usamos la transformación inversa a p.rot para anular la rotación del <g> padre. */
-    const infoY = p.cy + Math.max(p.w,p.h)/2 + 18;
+       Usamos la transformación inversa a p.rot para anular la rotación del <g> padre.
+       FIX: Considera la rotación real del barco (p.rot) para posicionar el número debajo de la popa. */
+    const isRotatedVertical = (p.rot || 0) % 180 !== 0;
+    const bottomOffset = isRotatedVertical ? p.w / 2 + 18 : p.h / 2 + 18;
+    const infoY = p.cy + bottomOffset;
 
     return(
       <g key={p.id} transform={`rotate(${p.rot||0},${p.cx},${p.cy})`} style={{cursor:editMode?"grab":canDrop?"copy":"pointer"}}
