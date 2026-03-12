@@ -1,102 +1,94 @@
 /**
- * PlanificacionView — v3
+ * PlanificacionView — v4 (redesign)
  * Props: obras, etapas, lProcs, ordenes, esGestion, onNuevaOC, onUpdateObra, onUpdateOCEstado
- * Gantt visual + animaciones + todo el contenido original
+ * — Paleta y tipografía unificadas con ObrasScreen
+ * — ObrasList rediseñada con mini-gantt y badges
+ * — ObraDetalle con header hero, gantt expandido, tabs refinados
+ * — CompraCard con stepper lineal, jerarquía clara
+ * — FichaBarco con secciones tarjetiadas
  */
 import { useMemo, useState, useEffect, useRef } from "react";
 
-// ─── Paleta ──────────────────────────────────────────────────────────────────
-const P = {
-  bg0: "#0e0e0e", bg1: "#161616", bg2: "#1d1d1d", bg3: "#252525", inp: "#2d2d2d",
-  b0: "rgba(255,255,255,0.05)", b1: "rgba(255,255,255,0.09)", b2: "rgba(255,255,255,0.16)",
-  t1: "#ececec", t2: "#7e7e7e", t3: "#404040",
-  or: "#d4960d", orL: "rgba(212,150,13,0.10)", orB: "rgba(212,150,13,0.25)",
-  gn: "#1a9e68", gnL: "rgba(26,158,104,0.08)", gnB: "rgba(26,158,104,0.20)",
-  bl: "#3575b0", blL: "rgba(53,117,176,0.10)", blB: "rgba(53,117,176,0.22)",
-  rd: "#a83030", rdL: "rgba(168,48,48,0.09)", rdB: "rgba(168,48,48,0.22)",
-  pu: "#6a5a9e",
-  sans: "'Inter','DM Sans',system-ui,sans-serif",
-  mono: "'JetBrains Mono','Fira Mono',monospace",
+// ─── Paleta — idéntica a ObrasScreen ─────────────────────────────────────────
+const C = {
+  bg:    "#09090b",
+  bg1:   "#0c0c10",
+  bg2:   "#111116",
+  bg3:   "#16161c",
+  s0:    "rgba(255,255,255,0.025)",
+  s1:    "rgba(255,255,255,0.05)",
+  s2:    "rgba(255,255,255,0.08)",
+  b0:    "rgba(255,255,255,0.07)",
+  b1:    "rgba(255,255,255,0.12)",
+  b2:    "rgba(255,255,255,0.22)",
+  t0:    "#f4f4f5",
+  t1:    "#a1a1aa",
+  t2:    "#71717a",
+  t3:    "#3f3f46",
+  mono:  "'JetBrains Mono','IBM Plex Mono',monospace",
+  sans:  "'Outfit',system-ui,sans-serif",
+  blue:  "#3b82f6",  blueL: "rgba(59,130,246,0.10)",  blueB: "rgba(59,130,246,0.25)",
+  amber: "#f59e0b",  amberL:"rgba(245,158,11,0.09)",  amberB:"rgba(245,158,11,0.25)",
+  green: "#10b981",  greenL:"rgba(16,185,129,0.09)",  greenB:"rgba(16,185,129,0.25)",
+  red:   "#ef4444",  redL:  "rgba(239,68,68,0.09)",   redB:  "rgba(239,68,68,0.25)",
+  purple:"#8b5cf6",
+  obra: {
+    activa:    { dot:"#3b82f6", bg:"rgba(59,130,246,0.08)",  border:"rgba(59,130,246,0.2)",  label:"Activa"    },
+    pausada:   { dot:"#f59e0b", bg:"rgba(245,158,11,0.08)",  border:"rgba(245,158,11,0.2)",  label:"Pausada"   },
+    terminada: { dot:"#10b981", bg:"rgba(16,185,129,0.08)",  border:"rgba(16,185,129,0.2)",  label:"Terminada" },
+    cancelada: { dot:"#ef4444", bg:"rgba(239,68,68,0.08)",   border:"rgba(239,68,68,0.2)",   label:"Cancelada" },
+  },
+  etapa: {
+    pendiente:  { dot:"#3f3f46", bar:"rgba(255,255,255,0.04)", text:"#71717a" },
+    en_curso:   { dot:"#3b82f6", bar:"rgba(59,130,246,0.25)",  text:"#60a5fa" },
+    completado: { dot:"#10b981", bar:"rgba(16,185,129,0.25)",  text:"#34d399" },
+    bloqueado:  { dot:"#ef4444", bar:"rgba(239,68,68,0.25)",   text:"#f87171" },
+  },
+  oc: {
+    pendiente:  { dot:"#3f3f46", bg:"rgba(63,63,70,0.15)",    border:"rgba(63,63,70,0.3)",    label:"Pendiente"  },
+    pedida:     { dot:"#3b82f6", bg:"rgba(59,130,246,0.10)",  border:"rgba(59,130,246,0.25)", label:"Pedido"     },
+    aprobada:   { dot:"#f59e0b", bg:"rgba(245,158,11,0.10)",  border:"rgba(245,158,11,0.25)", label:"Aprobado"   },
+    en_camino:  { dot:"#8b5cf6", bg:"rgba(139,92,246,0.10)",  border:"rgba(139,92,246,0.25)", label:"En camino"  },
+    recibida:   { dot:"#10b981", bg:"rgba(16,185,129,0.10)",  border:"rgba(16,185,129,0.25)", label:"Recibido"   },
+    cancelada:  { dot:"#ef4444", bg:"rgba(239,68,68,0.10)",   border:"rgba(239,68,68,0.25)",  label:"Cancelada"  },
+  },
 };
 
 // ─── CSS global ───────────────────────────────────────────────────────────────
 const CSS = `
-  @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600&family=JetBrains+Mono:wght@400;500;600&display=swap');
+  @import url('https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500;600;700&display=swap');
   *, *::before, *::after { box-sizing: border-box; }
-  ::-webkit-scrollbar { width: 4px; height: 4px; }
+  ::-webkit-scrollbar { width: 3px; height: 3px; }
   ::-webkit-scrollbar-track { background: transparent; }
-  ::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.08); border-radius: 2px; }
-  ::-webkit-scrollbar-thumb:hover { background: rgba(255,255,255,0.14); }
-  input::placeholder, textarea::placeholder { color: ${P.t3} !important; }
-  input:focus, textarea:focus, select:focus { border-color: ${P.blB} !important; outline: none; }
-  button:active { opacity: .75; }
+  ::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.07); border-radius: 99px; }
+  ::-webkit-scrollbar-thumb:hover { background: rgba(255,255,255,0.13); }
+  input::placeholder, textarea::placeholder { color: ${C.t3} !important; }
+  input:focus, textarea:focus, select:focus { border-color: rgba(59,130,246,0.4) !important; outline: none; }
 
-  @keyframes fadeUp {
-    from { opacity: 0; transform: translateY(10px); }
-    to   { opacity: 1; transform: translateY(0);    }
-  }
-  @keyframes fadeIn {
-    from { opacity: 0; } to { opacity: 1; }
-  }
-  @keyframes slideRight {
-    from { opacity: 0; transform: translateX(18px); }
-    to   { opacity: 1; transform: translateX(0);    }
-  }
-  @keyframes progressFill {
-    from { width: 0; } 
-  }
-  @keyframes ganttShimmer {
-    0%   { transform: translateX(-200%); }
-    100% { transform: translateX(400%);  }
-  }
-  @keyframes dotPulse {
-    0%, 100% { box-shadow: 0 0 0 0 currentColor; opacity: 1; }
-    50%       { box-shadow: 0 0 0 4px transparent; opacity: .7; }
-  }
-  @keyframes expandDown {
-    from { opacity: 0; transform: translateY(-6px); }
-    to   { opacity: 1; transform: translateY(0);    }
-  }
-  @keyframes rowSlide {
-    from { opacity: 0; transform: translateX(-8px); }
-    to   { opacity: 1; transform: translateX(0);    }
-  }
+  @keyframes fadeSlideUp  { from{opacity:0;transform:translateY(10px)} to{opacity:1;transform:translateY(0)} }
+  @keyframes fadeSlideIn  { from{opacity:0;transform:translateX(14px)} to{opacity:1;transform:translateX(0)} }
+  @keyframes fadeIn       { from{opacity:0} to{opacity:1} }
+  @keyframes expandDown   { from{opacity:0;transform:translateY(-6px)} to{opacity:1;transform:translateY(0)} }
+  @keyframes rowSlide     { from{opacity:0;transform:translateX(-6px)} to{opacity:1;transform:translateX(0)} }
+  @keyframes progressFill { from{width:0} }
+  @keyframes shimmer      { 0%{background-position:-200% center} 100%{background-position:200% center} }
+  @keyframes pulseDot     { 0%,100%{opacity:1;transform:scale(1)} 50%{opacity:.35;transform:scale(.55)} }
+  @keyframes stepIn       { from{opacity:0;transform:scale(.8)} to{opacity:1;transform:scale(1)} }
 
-  .obra-row {
-    transition: background .14s, border-left-color .14s;
-  }
-  .obra-row:hover {
-    background: rgba(255,255,255,0.028) !important;
-  }
-  .compra-card {
-    transition: border-color .18s, box-shadow .18s;
-  }
-  .compra-card:hover {
-    box-shadow: 0 2px 12px rgba(0,0,0,0.35);
-  }
-  .compra-header:hover {
-    background: rgba(255,255,255,0.025);
-  }
-  .btn-oc {
-    transition: background .14s, color .14s, border-color .14s, transform .1s;
-  }
-  .btn-oc:hover {
-    transform: translateY(-1px);
-  }
-  .tab-btn {
-    transition: color .15s, border-bottom-color .15s;
-  }
-  .tab-btn:hover:not(.active) {
-    color: ${P.t2} !important;
-  }
-  .filter-btn {
-    transition: background .14s, color .14s;
-  }
+  .pl-row   { transition: background .12s, border-left-color .12s; }
+  .pl-row:hover { background: rgba(255,255,255,0.028) !important; }
+  .pl-card  { transition: border-color .18s; }
+  .pl-card:hover  { border-color: rgba(255,255,255,0.12) !important; }
+  .pl-btn   { transition: opacity .13s, transform .1s, background .13s; }
+  .pl-btn:hover   { opacity: .82 !important; }
+  .pl-btn:active  { transform: scale(.97); }
+  .pl-tab   { transition: color .14s, border-bottom-color .14s; }
+  .pl-tab:hover:not(.active) { color: ${C.t1} !important; }
 `;
 
-// ─── Utils ───────────────────────────────────────────────────────────────────
-const num = v => { const n = Number(v); return isFinite(n) ? n : 0; };
-const rnd = v => Math.round(num(v));
+// ─── Utils ────────────────────────────────────────────────────────────────────
+const num  = v => { const n = Number(v); return isFinite(n) ? n : 0; };
+const rnd  = v => Math.round(num(v));
 const fmtD = d => d ? new Date(d+"T12:00:00").toLocaleDateString("es-AR",{day:"2-digit",month:"2-digit",year:"2-digit"}) : "—";
 const fmtS = d => d ? new Date(d+"T12:00:00").toLocaleDateString("es-AR",{day:"2-digit",month:"short"}) : null;
 const diasDesde = f => f ? Math.max(0,Math.floor((Date.now()-new Date(f+"T12:00:00"))/86400000)) : null;
@@ -146,8 +138,8 @@ function textoTiming({ oc, done, fechaLimite, fechaBase, diasPrev, diaInicio }) 
   const plur = n => n === 1 ? "día" : "días";
   const df = diffDias(fechaLimite);
   if (fechaLimite && df !== null) {
-    if (df < 0)  return `Atrasado ${-df} ${plur(-df)} — límite era el ${fmtS(fechaLimite)}`;
-    if (df === 0) return `Límite de pedido: ${fmtS(fechaLimite)} — gestionar en el día`;
+    if (df < 0)   return `Atrasado ${-df} ${plur(-df)} — límite era el ${fmtS(fechaLimite)}`;
+    if (df === 0) return `Límite hoy — gestionar de inmediato`;
     if (df <= 7)  return `Gestionar en ${df} ${plur(df)} — límite ${fmtS(fechaLimite)}`;
     return `Gestionar antes del ${fmtD(fechaLimite)} — en ${df} días`;
   }
@@ -156,7 +148,7 @@ function textoTiming({ oc, done, fechaLimite, fechaBase, diasPrev, diaInicio }) 
     if (fb !== null && fb > 0) {
       const diasParaPedir = fb - diasPrev;
       return diasParaPedir > 0
-        ? `Gestionar en ~${diasParaPedir} ${plur(diasParaPedir)} (${diasPrev}d antes del inicio de etapa)`
+        ? `Gestionar en ~${diasParaPedir} ${plur(diasParaPedir)} (${diasPrev}d antes del inicio)`
         : `Gestionar ahora — etapa en ${fb} ${plur(fb)}, requiere ${diasPrev}d de anticipación`;
     }
     return `Gestionar ${diasPrev} ${plur(diasPrev)} antes del inicio de etapa`;
@@ -170,62 +162,77 @@ function textoTiming({ oc, done, fechaLimite, fechaBase, diasPrev, diaInicio }) 
   return "Al inicio de la obra";
 }
 
-// ─── Atoms ───────────────────────────────────────────────────────────────────
-function Tag({ text, color = P.t3 }) {
+// ─── Átomos ───────────────────────────────────────────────────────────────────
+const Dot = ({ color, glow = false, pulse = false, size = 7 }) => (
+  <div style={{
+    width: size, height: size, borderRadius: "50%", flexShrink: 0,
+    background: color,
+    boxShadow: glow ? `0 0 6px ${color}80` : "none",
+    animation: pulse ? "pulseDot 2s ease-in-out infinite" : "none",
+  }}/>
+);
+
+const Chip = ({ label, color, bg, border }) => (
+  <span style={{
+    display:"inline-flex", alignItems:"center",
+    fontSize: 9, padding: "2px 8px", borderRadius: 99,
+    background: bg, color, border: `1px solid ${border}`,
+    fontFamily: C.mono, fontWeight: 700,
+    letterSpacing: "0.08em", textTransform: "uppercase",
+    whiteSpace: "nowrap", flexShrink: 0, lineHeight: 1.7,
+  }}>{label}</span>
+);
+
+function ProgressBar({ value, color, height = 3, shimmer = false }) {
   return (
-    <span style={{
-      display:"inline-flex", alignItems:"center",
-      fontSize:9, padding:"2px 7px", borderRadius:3,
-      background:`${color}15`, color,
-      border:`1px solid ${color}2a`,
-      fontFamily:P.mono, fontWeight:600,
-      letterSpacing:"0.06em", textTransform:"uppercase",
-      whiteSpace:"nowrap", flexShrink:0, lineHeight:1.6,
-    }}>{text}</span>
+    <div style={{ height, background: "rgba(255,255,255,0.05)", borderRadius: 99, overflow: "hidden" }}>
+      <div style={{
+        height: "100%",
+        width: `${Math.min(100, Math.max(0, value))}%`,
+        background: shimmer
+          ? `linear-gradient(90deg, ${color}60, ${color}, ${color}60)`
+          : `linear-gradient(90deg, ${color}70, ${color})`,
+        backgroundSize: shimmer ? "200% 100%" : undefined,
+        animation: shimmer ? "shimmer 2s linear infinite, progressFill .7s ease both" : "progressFill .7s ease both",
+        borderRadius: 99,
+        transition: "width .6s cubic-bezier(.4,0,.2,1)",
+      }}/>
+    </div>
   );
 }
 
-function Dot({ color, glow = false, pulse = false, size = 7 }) {
-  return (
-    <div style={{
-      width:size, height:size, borderRadius:"50%", flexShrink:0,
-      background:color,
-      boxShadow: glow ? `0 0 7px ${color}80` : "none",
-      animation: pulse ? "dotPulse 2s ease-in-out infinite" : "none",
-    }}/>
-  );
-}
-
-function Btn({ children, onClick, variant = "ghost", sm = false, disabled = false, type = "button" }) {
-  const pad = sm ? "4px 10px" : "6px 14px";
-  const fsz = sm ? 11 : 12;
-  const styles = {
-    ghost:  { bg:"transparent", color:P.t2, border:`1px solid ${P.b1}` },
-    solid:  { bg:P.bl,          color:"#fff", border:"none"            },
-    orange: { bg:P.orL,         color:P.or, border:`1px solid ${P.orB}` },
-    green:  { bg:P.gnL,         color:P.gn, border:`1px solid ${P.gnB}` },
+function Btn({ children, onClick, variant = "ghost", sm = false, disabled = false, type = "button", style: sx = {} }) {
+  const V = {
+    ghost:   { bg:"transparent",      color:C.t1,    border:`1px solid ${C.b1}` },
+    primary: { bg:C.blueL,            color:"#60a5fa", border:`1px solid ${C.blueB}` },
+    green:   { bg:C.greenL,           color:"#34d399", border:`1px solid ${C.greenB}` },
+    amber:   { bg:C.amberL,           color:"#fbbf24", border:`1px solid ${C.amberB}` },
+    danger:  { bg:C.redL,             color:"#f87171", border:`1px solid ${C.redB}` },
+    solid:   { bg:C.blue,             color:"#fff",    border:"none" },
   };
-  const s = styles[variant] ?? styles.ghost;
+  const v = V[variant] ?? V.ghost;
   return (
-    <button type={type} onClick={onClick} disabled={disabled} style={{
-      padding:pad, fontSize:fsz, fontFamily:P.sans, fontWeight:500,
-      background:s.bg, color:s.color, border:s.border,
-      borderRadius:4, cursor:disabled ? "default" : "pointer",
-      opacity:disabled ? .4 : 1, outline:"none", transition:"opacity .1s, background .15s, transform .1s",
+    <button type={type} onClick={onClick} disabled={disabled} className="pl-btn" style={{
+      padding: sm ? "4px 11px" : "6px 16px",
+      fontSize: sm ? 11 : 12,
+      fontFamily: C.sans, fontWeight: 500,
+      background: v.bg, color: v.color, border: v.border,
+      borderRadius: 7, cursor: disabled ? "default" : "pointer",
+      opacity: disabled ? .4 : 1, outline: "none",
+      ...sx,
     }}>{children}</button>
   );
 }
 
-const INP_STYLE = {
-  width:"100%", boxSizing:"border-box",
-  background:P.inp, border:`1px solid ${P.b1}`,
-  color:P.t1, padding:"6px 10px", borderRadius:4,
-  fontSize:12, outline:"none", fontFamily:P.sans,
-  transition:"border-color .15s",
+const INP = {
+  width: "100%", background: C.s0, border: `1px solid ${C.b0}`,
+  color: C.t0, padding: "8px 12px", borderRadius: 8,
+  fontSize: 12, outline: "none", fontFamily: C.sans,
+  transition: "border-color .15s",
 };
 
 // ─── GANTT BAR ────────────────────────────────────────────────────────────────
-function GanttBar({ etapas, lProcs, obra, height = 28 }) {
+function GanttBar({ etapas, lProcs, obra, height = 32 }) {
   const procs = useMemo(() =>
     acumDias(lProcs.filter(p => p.linea_id === obra.linea_id)),
   [lProcs, obra.linea_id]);
@@ -238,46 +245,64 @@ function GanttBar({ etapas, lProcs, obra, height = 28 }) {
   const pctActual  = Math.min(100, (diasActual / totalDias) * 100);
 
   const getEst = proc => {
-    const et = etapas.find(e => e.obra_id === obra.id && (e.linea_proceso_id === proc.id || e.nombre === proc.nombre));
+    const et = etapas.find(e =>
+      e.obra_id === obra.id && (e.linea_proceso_id === proc.id || e.nombre === proc.nombre)
+    );
     return et?.estado ?? "pendiente";
   };
 
   const SEG_COLOR = {
-    completado: P.gn,
-    en_curso:   P.bl,
-    pausado:    P.or,
-    pendiente:  P.bg3,
+    completado: C.green,
+    en_curso:   C.blue,
+    bloqueado:  C.red,
+    pendiente:  C.t3,
   };
 
-  if (procs.length === 0) return (
-    <div style={{height, borderRadius:4, background:P.bg3, border:`1px solid ${P.b0}`, display:"flex", alignItems:"center", paddingLeft:10}}>
-      <span style={{fontSize:9, color:P.t3, fontFamily:P.mono}}>Sin procesos configurados</span>
+  if (!procs.length) return (
+    <div style={{
+      height, borderRadius: 8, background: C.s0,
+      border: `1px solid ${C.b0}`,
+      display: "flex", alignItems: "center", paddingLeft: 14,
+    }}>
+      <span style={{ fontSize: 9, color: C.t2, fontFamily: C.mono, letterSpacing: 2, textTransform: "uppercase" }}>
+        Sin procesos configurados
+      </span>
     </div>
   );
 
   return (
-    <div style={{position:"relative"}}>
+    <div style={{ position: "relative" }}>
       {/* Segmentos */}
-      <div style={{display:"flex", height, borderRadius:4, overflow:"hidden", gap:1, background:P.bg3}}>
+      <div style={{
+        display: "flex", height, borderRadius: 8,
+        overflow: "hidden", gap: 1.5,
+        background: C.bg3, border: `1px solid ${C.b0}`,
+      }}>
         {procs.map(proc => {
-          const est  = getEst(proc);
-          const pct  = (rnd(proc.dias_estimados) / totalDias) * 100;
-          const col  = SEG_COLOR[est] ?? P.bg3;
+          const est    = getEst(proc);
+          const pct    = (rnd(proc.dias_estimados) / totalDias) * 100;
+          const col    = SEG_COLOR[est] ?? C.t3;
           const active = est === "en_curso";
+          const done   = est === "completado";
           return (
             <div key={proc.id}
               title={`${proc.nombre} · ${rnd(proc.dias_estimados)}d · ${est}`}
               style={{
-                width:`${pct}%`, minWidth:2, flexShrink:0,
-                background:col, position:"relative", overflow:"hidden",
-                transition:"background .3s",
+                width: `${pct}%`, minWidth: 2, flexShrink: 0,
+                background: done
+                  ? `linear-gradient(90deg, ${col}80, ${col})`
+                  : active
+                  ? col
+                  : `${col}22`,
+                position: "relative", overflow: "hidden",
+                transition: "background .3s",
               }}>
-              {/* Shimmer en segmento activo */}
               {active && (
                 <div style={{
-                  position:"absolute", inset:0, pointerEvents:"none",
-                  background:"linear-gradient(90deg, transparent 0%, rgba(255,255,255,0.18) 50%, transparent 100%)",
-                  animation:"ganttShimmer 2.2s ease-in-out infinite",
+                  position: "absolute", inset: 0, pointerEvents: "none",
+                  background: "linear-gradient(90deg, transparent 0%, rgba(255,255,255,0.15) 50%, transparent 100%)",
+                  animation: "shimmer 2.2s ease-in-out infinite",
+                  backgroundSize: "200% 100%",
                 }}/>
               )}
             </div>
@@ -288,20 +313,20 @@ function GanttBar({ etapas, lProcs, obra, height = 28 }) {
       {/* Marcador día actual */}
       {obra.estado === "activa" && obra.fecha_inicio && (
         <div style={{
-          position:"absolute", top:-3, bottom:-3,
-          left:`${pctActual}%`,
-          width:2, background:P.bl,
-          boxShadow:`0 0 6px ${P.bl}99`,
-          borderRadius:1, transform:"translateX(-50%)", zIndex:2,
-          animation:"fadeIn .4s ease both",
+          position: "absolute", top: -4, bottom: -4,
+          left: `${pctActual}%`,
+          width: 2, background: C.blue,
+          boxShadow: `0 0 8px ${C.blue}99`,
+          borderRadius: 1, transform: "translateX(-50%)", zIndex: 2,
+          animation: "fadeIn .4s ease both",
         }}>
           <div style={{
-            position:"absolute", bottom:"calc(100% + 3px)", left:"50%",
-            transform:"translateX(-50%)",
-            fontFamily:P.mono, fontSize:8, color:P.bl,
-            whiteSpace:"nowrap", background:P.bg2,
-            padding:"1px 5px", borderRadius:2,
-            border:`1px solid ${P.blB}`,
+            position: "absolute", bottom: "calc(100% + 5px)", left: "50%",
+            transform: "translateX(-50%)",
+            fontFamily: C.mono, fontSize: 8, color: C.blue,
+            whiteSpace: "nowrap", background: C.bg2,
+            padding: "2px 6px", borderRadius: 5,
+            border: `1px solid ${C.blueB}`,
           }}>
             día {diasActual}
           </div>
@@ -309,20 +334,22 @@ function GanttBar({ etapas, lProcs, obra, height = 28 }) {
       )}
 
       {/* Labels */}
-      <div style={{display:"flex", marginTop:4}}>
+      <div style={{ display: "flex", marginTop: 5, gap: 1.5 }}>
         {procs.map(proc => {
-          const pct  = (rnd(proc.dias_estimados) / totalDias) * 100;
-          const est  = getEst(proc);
+          const pct    = (rnd(proc.dias_estimados) / totalDias) * 100;
+          const est    = getEst(proc);
           const active = est === "en_curso";
+          const done   = est === "completado";
           return (
-            <div key={proc.id} style={{width:`${pct}%`, minWidth:2, flexShrink:0, overflow:"hidden"}}>
-              {pct > 7 && (
+            <div key={proc.id} style={{ width: `${pct}%`, minWidth: 2, flexShrink: 0, overflow: "hidden" }}>
+              {pct > 6 && (
                 <span style={{
-                  fontSize:8, fontFamily:P.sans,
-                  color: active ? P.bl : P.t3,
-                  whiteSpace:"nowrap", overflow:"hidden",
-                  textOverflow:"ellipsis", display:"block",
+                  fontSize: 9, fontFamily: C.sans,
+                  color: active ? C.blue : done ? C.green : C.t2,
+                  whiteSpace: "nowrap", overflow: "hidden",
+                  textOverflow: "ellipsis", display: "block",
                   fontWeight: active ? 600 : 400,
+                  letterSpacing: 0.2,
                 }}>{proc.nombre}</span>
               )}
             </div>
@@ -333,31 +360,46 @@ function GanttBar({ etapas, lProcs, obra, height = 28 }) {
   );
 }
 
-// ─── Mini Gantt (para lista) ──────────────────────────────────────────────────
+// ─── Mini Gantt (lista izquierda) ─────────────────────────────────────────────
 function MiniGantt({ obra, etapas, procs }) {
   const totalD = procs.reduce((s,p) => s + rnd(p.dias_estimados), 0) || 1;
   const diasA  = diasDesde(obra.fecha_inicio) ?? 0;
   const pctA   = Math.min(100, (diasA / totalD) * 100);
-  const getEst = p => { const e = etapas.find(e => e.linea_proceso_id === p.id || e.nombre === p.nombre); return e?.estado ?? "pendiente"; };
-  const COL = { completado:P.gn, en_curso:P.bl, pausado:P.or, pendiente:P.bg3 };
+  const getEst = p => {
+    const e = etapas.find(e => e.linea_proceso_id === p.id || e.nombre === p.nombre);
+    return e?.estado ?? "pendiente";
+  };
+  const COL = { completado: C.green, en_curso: C.blue, bloqueado: C.red, pendiente: C.t3 };
   if (!procs.length) return null;
   return (
-    <div style={{position:"relative", marginTop:5}}>
-      <div style={{display:"flex", height:4, borderRadius:2, overflow:"hidden", gap:1, background:P.bg3}}>
-        {procs.map(p => (
-          <div key={p.id} style={{
-            width:`${(rnd(p.dias_estimados)/totalD)*100}%`,
-            minWidth:2, flexShrink:0,
-            background:COL[getEst(p)] ?? P.bg3,
-            transition:"background .3s",
-          }}/>
-        ))}
+    <div style={{ position: "relative", marginTop: 6 }}>
+      <div style={{
+        display: "flex", height: 4, borderRadius: 99,
+        overflow: "hidden", gap: 1, background: C.s0,
+      }}>
+        {procs.map(p => {
+          const est  = getEst(p);
+          const done = est === "completado";
+          const act  = est === "en_curso";
+          return (
+            <div key={p.id} style={{
+              width: `${(rnd(p.dias_estimados)/totalD)*100}%`,
+              minWidth: 2, flexShrink: 0,
+              background: done
+                ? `linear-gradient(90deg, ${COL[est]}80, ${COL[est]})`
+                : act
+                ? COL[est]
+                : `${COL[est]}30`,
+              transition: "background .3s",
+            }}/>
+          );
+        })}
       </div>
       {obra.estado === "activa" && obra.fecha_inicio && (
         <div style={{
-          position:"absolute", top:0, bottom:0, left:`${pctA}%`,
-          width:1.5, background:P.bl, borderRadius:1,
-          transform:"translateX(-50%)", boxShadow:`0 0 4px ${P.bl}`,
+          position: "absolute", top: 0, bottom: 0, left: `${pctA}%`,
+          width: 1.5, background: C.blue, borderRadius: 1,
+          transform: "translateX(-50%)", boxShadow: `0 0 4px ${C.blue}`,
         }}/>
       )}
     </div>
@@ -368,40 +410,54 @@ function MiniGantt({ obra, etapas, procs }) {
 function ObrasList({ obras, etapas, lProcs, ordenes, selectedId, onSelect, filtro, setFiltro, busqueda, setBusqueda }) {
   return (
     <div style={{
-      width:268, flexShrink:0,
-      background:P.bg1, borderRight:`1px solid ${P.b1}`,
-      display:"flex", flexDirection:"column", overflow:"hidden",
+      width: 264, flexShrink: 0,
+      background: C.bg1,
+      borderRight: `1px solid ${C.b0}`,
+      display: "flex", flexDirection: "column", overflow: "hidden",
     }}>
-      <div style={{padding:"12px 12px 8px"}}>
-        <input
-          value={busqueda} onChange={e => setBusqueda(e.target.value)}
-          placeholder="Buscar código…"
-          style={{...INP_STYLE, background:P.bg3}}
-        />
+      {/* Search */}
+      <div style={{ padding: "12px 12px 8px", flexShrink: 0 }}>
+        <div style={{ position: "relative" }}>
+          <span style={{
+            position: "absolute", left: 10, top: "50%", transform: "translateY(-50%)",
+            fontSize: 11, color: C.t2, pointerEvents: "none", lineHeight: 1,
+          }}>⌕</span>
+          <input
+            value={busqueda} onChange={e => setBusqueda(e.target.value)}
+            placeholder="Buscar código…"
+            style={{ ...INP, paddingLeft: 28, fontSize: 11 }}
+          />
+        </div>
       </div>
 
-      <div style={{display:"flex", gap:3, padding:"0 12px 10px", flexWrap:"wrap"}}>
-        {[["todos","Todas"],["activa","Activas"],["pausada","Pausadas"],["terminada","Terminadas"]].map(([v,l]) => {
+      {/* Filtros */}
+      <div style={{
+        display: "flex", gap: 3, padding: "0 12px 10px", flexShrink: 0,
+      }}>
+        {[["todos","Todas"],["activa","Activas"],["pausada","Pausadas"],["terminada","Terminadas"]].map(([v, l]) => {
           const a = filtro === v;
+          const oC = C.obra[v] ?? null;
           return (
-            <button key={v} type="button" className="filter-btn" onClick={() => setFiltro(v)} style={{
-              padding:"3px 9px", borderRadius:3, cursor:"pointer",
-              fontSize:10, fontFamily:P.sans, fontWeight: a ? 600 : 400,
-              background: a ? P.bl : "transparent",
-              color: a ? "#fff" : P.t3,
-              border: a ? "none" : `1px solid ${P.b0}`,
+            <button key={v} type="button" onClick={() => setFiltro(v)} className="pl-btn" style={{
+              padding: "3px 9px", borderRadius: 5, cursor: "pointer",
+              fontSize: 10, fontFamily: C.sans, fontWeight: a ? 600 : 400,
+              background: a ? (oC ? oC.bg : C.s2) : "transparent",
+              color: a ? (oC ? oC.dot : C.t0) : C.t2,
+              border: a ? `1px solid ${oC ? oC.border : C.b1}` : `1px solid ${C.b0}`,
             }}>{l}</button>
           );
         })}
       </div>
 
-      <div style={{height:1, background:P.b0}}/>
+      <div style={{ height: 1, background: C.b0, flexShrink: 0 }}/>
 
-      <div style={{flex:1, overflowY:"auto"}}>
+      {/* Lista */}
+      <div style={{ flex: 1, overflowY: "auto" }}>
         {obras.length === 0 && (
-          <p style={{padding:"40px 12px", textAlign:"center", color:P.t3, fontSize:12, fontFamily:P.sans, margin:0}}>
-            Sin obras
-          </p>
+          <div style={{ padding: "48px 16px", textAlign: "center" }}>
+            <div style={{ fontSize: 24, color: C.t3, marginBottom: 8 }}>◎</div>
+            <div style={{ fontSize: 12, color: C.t2, fontFamily: C.sans }}>Sin obras</div>
+          </div>
         )}
         {obras.map((o, idx) => {
           const sel   = o.id === selectedId;
@@ -412,47 +468,65 @@ function ObrasList({ obras, etapas, lProcs, ordenes, selectedId, onSelect, filtr
           ).length;
           const actEt = eO.find(e => e.estado === "en_curso");
           const dias  = diasDesde(o.fecha_inicio);
-          const sc    = { activa:P.bl, terminada:P.gn, pausada:P.or }[o.estado] ?? P.t3;
+          const oC    = C.obra[o.estado] ?? C.obra.activa;
           const procs = lProcs.filter(p => p.linea_id === o.linea_id).sort((a,b) => (a.orden??0)-(b.orden??0));
+          const comp  = eO.filter(e => e.estado === "completado").length;
+          const pct   = eO.length ? Math.round(comp / eO.length * 100) : 0;
 
           return (
-            <div key={o.id} className="obra-row" onClick={() => onSelect(o.id)} style={{
-              padding:"10px 14px 10px",
-              background: sel ? `${P.bl}10` : "transparent",
-              borderLeft:`3px solid ${sel ? P.bl : pend > 0 ? P.or : "transparent"}`,
-              borderBottom:`1px solid ${P.b0}`,
-              cursor:"pointer",
-              animation:`rowSlide .25s ${idx * 0.04}s both`,
-            }}>
-              <div style={{display:"flex", justifyContent:"space-between", alignItems:"center", marginBottom:2}}>
-                <span style={{fontFamily:P.mono, fontSize:13, fontWeight:600, color:P.t1}}>
-                  {o.codigo}
-                </span>
-                <div style={{display:"flex", alignItems:"center", gap:5}}>
+            <div
+              key={o.id}
+              className="pl-row"
+              onClick={() => onSelect(o.id)}
+              style={{
+                padding: "11px 14px",
+                background: sel ? `${oC.dot}0d` : "transparent",
+                borderLeft: `3px solid ${sel ? oC.dot : pend > 0 ? C.amber : "transparent"}`,
+                borderBottom: `1px solid ${C.b0}`,
+                cursor: "pointer",
+                animation: `rowSlide .22s ${idx * 0.04}s both`,
+              }}
+            >
+              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 3 }}>
+                <div style={{ display: "flex", alignItems: "center", gap: 7 }}>
+                  <Dot color={oC.dot} size={6} glow={o.estado === "activa"} pulse={o.estado === "activa"}/>
+                  <span style={{ fontFamily: C.mono, fontSize: 13, fontWeight: 700, color: sel ? oC.dot : C.t0 }}>
+                    {o.codigo}
+                  </span>
+                </div>
+                <div style={{ display: "flex", alignItems: "center", gap: 5 }}>
                   {pend > 0 && (
-                    <span style={{fontSize:9, fontFamily:P.mono, color:P.or, background:P.orL, border:`1px solid ${P.orB}`, padding:"1px 5px", borderRadius:2}}>
-                      {pend}
-                    </span>
+                    <span style={{
+                      fontSize: 9, fontFamily: C.mono, fontWeight: 700,
+                      color: C.amber, background: C.amberL,
+                      border: `1px solid ${C.amberB}`,
+                      padding: "1px 6px", borderRadius: 99,
+                    }}>{pend}</span>
                   )}
-                  <Dot color={sc} size={5} glow={o.estado === "activa"} pulse={o.estado === "activa"}/>
+                  <span style={{ fontFamily: C.mono, fontSize: 10, color: oC.dot }}>{pct}%</span>
                 </div>
               </div>
 
               {o.linea_nombre && (
-                <div style={{fontSize:10, color:P.t3, fontFamily:P.sans, marginBottom:2}}>{o.linea_nombre}</div>
+                <div style={{ fontSize: 10, color: C.t2, fontFamily: C.sans, marginBottom: 5 }}>
+                  {o.linea_nombre}
+                </div>
               )}
 
-              {/* Mini Gantt */}
               <MiniGantt obra={o} etapas={eO} procs={procs}/>
 
-              <div style={{display:"flex", gap:8, alignItems:"center", marginTop:4}}>
+              <div style={{ display: "flex", gap: 8, alignItems: "center", marginTop: 5 }}>
                 {dias !== null && o.estado === "activa" && (
-                  <span style={{fontSize:9, fontFamily:P.mono, color:P.bl}}>día {dias}</span>
+                  <span style={{ fontSize: 9, fontFamily: C.mono, color: C.blue }}>
+                    día {dias}
+                  </span>
                 )}
                 {actEt && (
-                  <span style={{fontSize:9, color:P.t3, overflow:"hidden", textOverflow:"ellipsis", whiteSpace:"nowrap", maxWidth:160}}>
-                    {actEt.nombre}
-                  </span>
+                  <span style={{
+                    fontSize: 9, color: C.t2,
+                    overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap",
+                    flex: 1,
+                  }}>{actEt.nombre}</span>
                 )}
               </div>
             </div>
@@ -498,133 +572,332 @@ function FichaBarco({ obra, onUpdateObra }) {
     setEditing(false);
   }
 
-  const set = (k,v) => setForm(f => ({...f, [k]:v}));
+  const set      = (k, v) => setForm(f => ({...f, [k]: v}));
   const motorStr = [obra.motor_marca, obra.motor_modelo].filter(Boolean).join(" · ");
   const grupoStr = [obra.grupo_marca, obra.grupo_modelo].filter(Boolean).join(" · ");
   const hasFly   = editing ? form.tiene_fly : (obra.tiene_fly ?? false);
 
-  const SecLabel = ({ label, color = P.t3 }) => (
-    <div style={{fontSize:9, fontFamily:P.mono, color, textTransform:"uppercase", letterSpacing:"0.1em", marginBottom:4}}>{label}</div>
+  const SectionHeader = ({ label, color }) => (
+    <div style={{
+      fontSize: 8, fontFamily: C.mono, color: color ?? C.t2,
+      textTransform: "uppercase", letterSpacing: 2.5,
+      marginBottom: 10, fontWeight: 600,
+    }}>{label}</div>
   );
-  const Field = ({ label, value }) => (
+
+  const StaticField = ({ label, value }) => (
     <div>
-      <SecLabel label={label}/>
-      <div style={{fontSize:12, color:value ? P.t1 : P.t3, fontFamily:P.sans}}>{value || "Sin definir"}</div>
+      <div style={{ fontSize: 9, color: C.t2, fontFamily: C.mono, textTransform: "uppercase", letterSpacing: 1.5, marginBottom: 3 }}>{label}</div>
+      <div style={{ fontSize: 12, color: value ? C.t0 : C.t2, fontFamily: C.sans }}>
+        {value || <span style={{ fontStyle: "italic", color: C.t3 }}>Sin definir</span>}
+      </div>
     </div>
   );
-  const InpField = ({ k, label, placeholder }) => (
+
+  const EditField = ({ k, label, placeholder }) => (
     <div>
-      <div style={{fontSize:10, color:P.t2, marginBottom:3, fontFamily:P.sans}}>{label}</div>
-      <input style={INP_STYLE} value={form[k]} onChange={e => set(k, e.target.value)} placeholder={placeholder}/>
+      <div style={{ fontSize: 9, color: C.t1, fontFamily: C.sans, marginBottom: 4 }}>{label}</div>
+      <input style={INP} value={form[k]} onChange={e => set(k, e.target.value)} placeholder={placeholder}/>
     </div>
   );
-  const TaField = ({ k, label, placeholder }) => (
+
+  const EditArea = ({ k, label, placeholder }) => (
     <div>
-      <div style={{fontSize:10, color:P.t2, marginBottom:3, fontFamily:P.sans}}>{label}</div>
-      <textarea style={{...INP_STYLE, resize:"vertical", minHeight:56}} value={form[k]} onChange={e => set(k, e.target.value)} placeholder={placeholder}/>
+      <div style={{ fontSize: 9, color: C.t1, fontFamily: C.sans, marginBottom: 4 }}>{label}</div>
+      <textarea style={{...INP, resize: "vertical", minHeight: 60}} value={form[k]} onChange={e => set(k, e.target.value)} placeholder={placeholder}/>
     </div>
   );
 
   const zonas = [
-    { key:"cocina_desc",  label:"Cocina",   color:P.or },
-    { key:"bano_desc",    label:"Baño",     color:P.bl },
-    { key:"cockpit_desc", label:"Cockpit",  color:P.gn },
-    ...(hasFly ? [{ key:"fly_desc", label:"Fly", color:P.pu }] : []),
+    { key:"cocina_desc",  label:"Cocina",   color:C.amber },
+    { key:"bano_desc",    label:"Baño",     color:C.blue },
+    { key:"cockpit_desc", label:"Cockpit",  color:C.green },
+    ...(hasFly ? [{ key:"fly_desc", label:"Fly", color:C.purple }] : []),
   ];
 
+  const hasData = motorStr || grupoStr || obra.muebles_estilo || obra.muebles_color || obra.mesadas_color || obra.opcionales;
+
   return (
-    <section style={{borderBottom:`1px solid ${P.b1}`, padding:"16px 20px 18px", animation:"fadeUp .3s ease both"}}>
-      <div style={{display:"flex", alignItems:"center", marginBottom:16}}>
-        <span style={{flex:1, fontSize:9, fontFamily:P.mono, color:P.t3, textTransform:"uppercase", letterSpacing:"0.1em"}}>
-          Configuración del barco
-        </span>
+    <div style={{ padding: "20px", display: "flex", flexDirection: "column", gap: 20 }}>
+
+      {/* Header de sección */}
+      <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
+        <div>
+          <div style={{ fontSize: 13, fontWeight: 600, color: C.t0 }}>Ficha técnica del barco</div>
+          <div style={{ fontSize: 11, color: C.t2, marginTop: 2 }}>Configuración de materiales y equipamiento</div>
+        </div>
         {!editing
-          ? <Btn sm onClick={abrirEdicion}>Editar</Btn>
-          : <div style={{display:"flex", gap:6}}>
+          ? <Btn sm onClick={abrirEdicion}>Editar ficha</Btn>
+          : <div style={{ display: "flex", gap: 6 }}>
               <Btn sm onClick={() => setEditing(false)}>Cancelar</Btn>
-              <Btn sm variant="solid" onClick={guardar} disabled={saving}>{saving ? "Guardando…" : "Guardar"}</Btn>
+              <Btn sm variant="primary" onClick={guardar} disabled={saving}>
+                {saving ? "Guardando…" : "Guardar cambios"}
+              </Btn>
             </div>
         }
       </div>
 
       {!editing ? (
-        <div style={{display:"flex", flexDirection:"column", gap:14, animation:"fadeUp .25s ease both"}}>
-          <div style={{display:"grid", gridTemplateColumns:"repeat(auto-fill,minmax(150px,1fr))", gap:12}}>
-            <Field label="Motor" value={motorStr}/>
-            <Field label="Grupo electrógeno" value={grupoStr}/>
+        !hasData ? (
+          <div style={{
+            padding: "40px 20px", textAlign: "center",
+            border: `1px dashed ${C.b1}`, borderRadius: 10,
+            animation: "fadeIn .3s ease both",
+          }}>
+            <div style={{ fontSize: 24, color: C.t3, marginBottom: 10 }}>⊡</div>
+            <div style={{ fontSize: 13, color: C.t1, marginBottom: 4 }}>Sin datos técnicos</div>
+            <div style={{ fontSize: 11, color: C.t2, marginBottom: 16 }}>Cargá la configuración de materiales y equipamiento</div>
+            <Btn sm onClick={abrirEdicion}>+ Completar ficha</Btn>
           </div>
-          <div>
-            <div style={{fontSize:9, fontFamily:P.mono, color:P.t3, textTransform:"uppercase", letterSpacing:"0.1em", marginBottom:8}}>Muebles & Terminaciones</div>
-            <div style={{display:"grid", gridTemplateColumns:"repeat(auto-fill,minmax(140px,1fr))", gap:10}}>
-              <Field label="Estilo/Madera"  value={obra.muebles_estilo}/>
-              <Field label="Color muebles"  value={obra.muebles_color}/>
-              <Field label="Tapizado"        value={obra.muebles_tapizado}/>
-              <Field label="Color mesadas"   value={obra.mesadas_color}/>
-            </div>
-          </div>
-          {zonas.some(z => obra[z.key]) && (
-            <div>
-              <div style={{fontSize:9, fontFamily:P.mono, color:P.t3, textTransform:"uppercase", letterSpacing:"0.1em", marginBottom:8}}>Desglose por zona</div>
-              <div style={{display:"grid", gridTemplateColumns:"repeat(auto-fill,minmax(200px,1fr))", gap:10}}>
-                {zonas.filter(z => obra[z.key]).map(z => (
-                  <div key={z.key} style={{background:P.bg3, borderRadius:5, padding:"10px 12px", border:`1px solid ${P.b1}`, borderTop:`2px solid ${z.color}`, animation:"fadeUp .3s ease both"}}>
-                    <div style={{fontSize:9, fontFamily:P.mono, color:z.color, textTransform:"uppercase", letterSpacing:"0.08em", marginBottom:6}}>{z.label}</div>
-                    <div style={{fontSize:12, color:P.t2, fontFamily:P.sans, lineHeight:1.5}}>{obra[z.key]}</div>
-                  </div>
-                ))}
+        ) : (
+          <div style={{ display: "flex", flexDirection: "column", gap: 14, animation: "fadeSlideUp .25s ease both" }}>
+
+            {/* Mecánica */}
+            {(motorStr || grupoStr) && (
+              <div style={{
+                background: C.s0, border: `1px solid ${C.b0}`,
+                borderRadius: 10, padding: "14px 16px",
+                borderTop: `2px solid ${C.blue}`,
+              }}>
+                <SectionHeader label="Mecánica" color={C.blue}/>
+                <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12 }}>
+                  {motorStr && <StaticField label="Motor" value={motorStr}/>}
+                  {grupoStr && <StaticField label="Grupo electrógeno" value={grupoStr}/>}
+                </div>
               </div>
-            </div>
-          )}
-          {obra.opcionales && <Field label="Opcionales / Extras" value={obra.opcionales}/>}
-          {!motorStr && !grupoStr && !obra.muebles_estilo && !obra.muebles_color && !obra.mesadas_color && !obra.opcionales && (
-            <p style={{fontSize:12, color:P.t3, fontFamily:P.sans, margin:0}}>
-              Sin datos cargados — <button type="button" onClick={abrirEdicion} style={{background:"none", border:"none", color:P.bl, cursor:"pointer", fontSize:12, fontFamily:P.sans, padding:0}}>Editar</button>
-            </p>
-          )}
-        </div>
+            )}
+
+            {/* Muebles */}
+            {(obra.muebles_estilo || obra.muebles_color || obra.muebles_tapizado || obra.mesadas_color) && (
+              <div style={{
+                background: C.s0, border: `1px solid ${C.b0}`,
+                borderRadius: 10, padding: "14px 16px",
+                borderTop: `2px solid ${C.amber}`,
+              }}>
+                <SectionHeader label="Muebles & Terminaciones" color={C.amber}/>
+                <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill,minmax(130px,1fr))", gap: 12 }}>
+                  {obra.muebles_estilo   && <StaticField label="Estilo / Madera" value={obra.muebles_estilo}/>}
+                  {obra.muebles_color    && <StaticField label="Color muebles"   value={obra.muebles_color}/>}
+                  {obra.muebles_tapizado && <StaticField label="Tapizado"         value={obra.muebles_tapizado}/>}
+                  {obra.mesadas_color    && <StaticField label="Color mesadas"    value={obra.mesadas_color}/>}
+                </div>
+              </div>
+            )}
+
+            {/* Zonas */}
+            {zonas.some(z => obra[z.key]) && (
+              <div style={{
+                background: C.s0, border: `1px solid ${C.b0}`,
+                borderRadius: 10, padding: "14px 16px",
+                borderTop: `2px solid ${C.green}`,
+              }}>
+                <SectionHeader label="Desglose por zona" color={C.green}/>
+                <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill,minmax(200px,1fr))", gap: 10 }}>
+                  {zonas.filter(z => obra[z.key]).map(z => (
+                    <div key={z.key} style={{
+                      background: `${z.color}08`, borderRadius: 8, padding: "10px 12px",
+                      border: `1px solid ${z.color}20`, borderLeft: `3px solid ${z.color}`,
+                      animation: "fadeSlideUp .3s ease both",
+                    }}>
+                      <div style={{ fontSize: 9, fontFamily: C.mono, color: z.color, textTransform: "uppercase", letterSpacing: 1.5, marginBottom: 5, fontWeight: 700 }}>
+                        {z.label}
+                      </div>
+                      <div style={{ fontSize: 12, color: C.t1, fontFamily: C.sans, lineHeight: 1.55 }}>{obra[z.key]}</div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            {/* Opcionales */}
+            {obra.opcionales && (
+              <div style={{
+                background: C.s0, border: `1px solid ${C.b0}`,
+                borderRadius: 10, padding: "14px 16px",
+                borderTop: `2px solid ${C.purple}`,
+              }}>
+                <SectionHeader label="Opcionales / Extras" color={C.purple}/>
+                <div style={{ fontSize: 12, color: C.t1, fontFamily: C.sans, lineHeight: 1.6 }}>{obra.opcionales}</div>
+              </div>
+            )}
+          </div>
+        )
       ) : (
-        <div style={{display:"flex", flexDirection:"column", gap:18, animation:"fadeUp .2s ease both"}}>
-          <div>
-            <div style={{fontSize:9, fontFamily:P.mono, color:P.t3, textTransform:"uppercase", letterSpacing:"0.1em", marginBottom:10}}>Mecánica</div>
-            <div style={{display:"grid", gridTemplateColumns:"1fr 1fr", gap:8}}>
-              <InpField k="motor_marca"  label="Motor — Marca"    placeholder="Iveco, Volvo, Yanmar…"/>
-              <InpField k="motor_modelo" label="Motor — Modelo"   placeholder="450, D4-300, 4BTA…"/>
-              <InpField k="grupo_marca"  label="Grupo — Marca"    placeholder="Kohler, Onan…"/>
-              <InpField k="grupo_modelo" label="Grupo — Modelo"   placeholder="9 kva, 6.5 kva…"/>
+        <div style={{ display: "flex", flexDirection: "column", gap: 16, animation: "fadeSlideUp .2s ease both" }}>
+          {/* Mecánica */}
+          <div style={{ background: C.s0, border: `1px solid ${C.b0}`, borderRadius: 10, padding: "14px 16px" }}>
+            <SectionHeader label="Mecánica"/>
+            <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10 }}>
+              <EditField k="motor_marca"  label="Motor — Marca"    placeholder="Iveco, Volvo, Yanmar…"/>
+              <EditField k="motor_modelo" label="Motor — Modelo"   placeholder="450, D4-300, 4BTA…"/>
+              <EditField k="grupo_marca"  label="Grupo — Marca"    placeholder="Kohler, Onan…"/>
+              <EditField k="grupo_modelo" label="Grupo — Modelo"   placeholder="9 kva, 6.5 kva…"/>
             </div>
           </div>
-          <div>
-            <div style={{fontSize:9, fontFamily:P.mono, color:P.t3, textTransform:"uppercase", letterSpacing:"0.1em", marginBottom:10}}>Muebles & Terminaciones</div>
-            <div style={{display:"grid", gridTemplateColumns:"1fr 1fr", gap:8}}>
-              <InpField k="muebles_estilo"   label="Estilo / Madera"   placeholder="Roble, Wengué, Blanco…"/>
-              <InpField k="muebles_color"    label="Color muebles"     placeholder="Natural, Oscuro, Blanqueado…"/>
-              <InpField k="muebles_tapizado" label="Tapizado"          placeholder="Cuero marrón, tela gris…"/>
-              <InpField k="mesadas_color"    label="Color mesadas"     placeholder="Blanco, Mármol, Negro…"/>
+
+          {/* Muebles */}
+          <div style={{ background: C.s0, border: `1px solid ${C.b0}`, borderRadius: 10, padding: "14px 16px" }}>
+            <SectionHeader label="Muebles & Terminaciones"/>
+            <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10 }}>
+              <EditField k="muebles_estilo"   label="Estilo / Madera"   placeholder="Roble, Wengué, Blanco…"/>
+              <EditField k="muebles_color"    label="Color muebles"     placeholder="Natural, Oscuro, Blanqueado…"/>
+              <EditField k="muebles_tapizado" label="Tapizado"          placeholder="Cuero marrón, tela gris…"/>
+              <EditField k="mesadas_color"    label="Color mesadas"     placeholder="Blanco, Mármol, Negro…"/>
             </div>
           </div>
-          <TaField k="opcionales" label="Opcionales / Extras" placeholder="GPS, autopiloto, aire acondicionado, TV, bow thruster…"/>
-          <div>
-            <div style={{fontSize:9, fontFamily:P.mono, color:P.t3, textTransform:"uppercase", letterSpacing:"0.1em", marginBottom:10}}>Desglose por zona</div>
-            <div style={{display:"flex", flexDirection:"column", gap:8}}>
-              <TaField k="cocina_desc"  label="Cocina"  placeholder="Mesada: mármol blanco. Bachas: inox. Canilla: Cisal inox…"/>
-              <TaField k="bano_desc"    label="Baño"    placeholder="Mesada: mármol negro. Sanitario: Roca. Ducha: mampara…"/>
-              <TaField k="cockpit_desc" label="Cockpit" placeholder="Tapizado asientos: cuero beige. Alfombra: gris. Madera: teca…"/>
-              <div style={{display:"flex", alignItems:"center", gap:10, padding:"6px 0"}}>
-                <label style={{display:"flex", alignItems:"center", gap:8, cursor:"pointer", fontSize:12, color:P.t2, fontFamily:P.sans}}>
-                  <input type="checkbox" checked={form.tiene_fly} onChange={e => set("tiene_fly", e.target.checked)} style={{width:14, height:14, accentColor:P.pu, cursor:"pointer"}}/>
-                  Incluye Fly
-                </label>
-              </div>
-              {form.tiene_fly && <TaField k="fly_desc" label="Fly" placeholder="Tapizado asientos fly: cuero gris. Consola fly: fibra de vidrio…"/>}
+
+          {/* Opcionales */}
+          <div style={{ background: C.s0, border: `1px solid ${C.b0}`, borderRadius: 10, padding: "14px 16px" }}>
+            <EditArea k="opcionales" label="Opcionales / Extras" placeholder="GPS, autopiloto, aire acondicionado, TV, bow thruster…"/>
+          </div>
+
+          {/* Zonas */}
+          <div style={{ background: C.s0, border: `1px solid ${C.b0}`, borderRadius: 10, padding: "14px 16px" }}>
+            <SectionHeader label="Desglose por zona"/>
+            <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
+              <EditArea k="cocina_desc"  label="Cocina"  placeholder="Mesada: mármol blanco. Bachas: inox. Canilla: Cisal inox…"/>
+              <EditArea k="bano_desc"    label="Baño"    placeholder="Mesada: mármol negro. Sanitario: Roca. Ducha: mampara…"/>
+              <EditArea k="cockpit_desc" label="Cockpit" placeholder="Tapizado asientos: cuero beige. Alfombra: gris. Madera: teca…"/>
+              <label style={{ display: "flex", alignItems: "center", gap: 8, cursor: "pointer", fontSize: 12, color: C.t1, fontFamily: C.sans, padding: "6px 0" }}>
+                <input type="checkbox" checked={form.tiene_fly} onChange={e => set("tiene_fly", e.target.checked)}
+                  style={{ width: 14, height: 14, accentColor: C.purple, cursor: "pointer" }}/>
+                Incluye Fly
+              </label>
+              {form.tiene_fly && <EditArea k="fly_desc" label="Fly" placeholder="Tapizado asientos fly: cuero gris. Consola fly: fibra de vidrio…"/>}
             </div>
           </div>
         </div>
       )}
-    </section>
+    </div>
   );
 }
 
-// ─── Card de compra ───────────────────────────────────────────────────────────
+// ─── OC Stepper ───────────────────────────────────────────────────────────────
+const OC_STEPS = [
+  { k:"pendiente", label:"Pendiente", icon:"○" },
+  { k:"pedida",    label:"Pedido",    icon:"→" },
+  { k:"aprobada",  label:"Aprobado",  icon:"✓" },
+  { k:"recibida",  label:"Recibido",  icon:"⊠" },
+];
+
+function OCStepperInline({ oc, onUpdateOCEstado }) {
+  const curI = OC_STEPS.findIndex(s => s.k === (oc?.estado ?? "pendiente"));
+  const next = OC_STEPS[curI + 1];
+
+  return (
+    <div style={{
+      background: C.s0, border: `1px solid ${C.b0}`,
+      borderRadius: 9, overflow: "hidden",
+    }}>
+      <div style={{
+        padding: "6px 12px",
+        borderBottom: `1px solid ${C.b0}`,
+        display: "flex", alignItems: "center", justifyContent: "space-between",
+      }}>
+        <span style={{ fontSize: 8, fontFamily: C.mono, color: C.t2, textTransform: "uppercase", letterSpacing: 2 }}>
+          Estado del pedido
+        </span>
+        {next && onUpdateOCEstado && (
+          <Btn sm variant="green" onClick={e => { e.stopPropagation(); onUpdateOCEstado(oc.id, next.k); }}>
+            Marcar como {next.label}
+          </Btn>
+        )}
+      </div>
+      <div style={{ display: "flex", padding: "10px 12px", gap: 0 }}>
+        {OC_STEPS.map((st, idx) => {
+          const past   = idx < curI;
+          const active = idx === curI;
+          const ahead  = idx > curI;
+          const clr    = past || active ? C.green : C.t3;
+
+          return (
+            <div key={st.k} style={{
+              flex: 1, display: "flex", flexDirection: "column", alignItems: "center",
+              gap: 5, position: "relative",
+            }}>
+              {/* Connector line */}
+              {idx > 0 && (
+                <div style={{
+                  position: "absolute", top: 11, right: "50%", left: "-50%",
+                  height: 2, borderRadius: 1,
+                  background: past || active ? `linear-gradient(90deg, ${C.green}60, ${C.green})` : C.t3,
+                  zIndex: 0,
+                }}/>
+              )}
+
+              {/* Circle */}
+              <div style={{
+                width: 24, height: 24, borderRadius: "50%",
+                display: "flex", alignItems: "center", justifyContent: "center",
+                background: active ? C.green : past ? C.greenL : "transparent",
+                border: `2px solid ${active ? C.green : past ? C.green : C.t3}`,
+                color: active ? "#fff" : past ? C.green : C.t3,
+                fontSize: past || active ? 11 : 10, fontWeight: 700,
+                position: "relative", zIndex: 1,
+                animation: active ? "stepIn .3s ease both" : undefined,
+                transition: "all .2s",
+                flexShrink: 0,
+              }}>
+                {past ? "✓" : active ? st.icon : idx + 1}
+              </div>
+
+              <div style={{
+                fontSize: 9, color: clr, fontFamily: C.sans,
+                fontWeight: active ? 600 : 400, textAlign: "center",
+              }}>{st.label}</div>
+            </div>
+          );
+        })}
+      </div>
+    </div>
+  );
+}
+
+// ─── Datos de OC ─────────────────────────────────────────────────────────────
+function OCDataGrid({ oc }) {
+  const fields = [
+    { l:"N° OC",        v: oc.numero_oc },
+    { l:"Proveedor",    v: oc.proveedor },
+    { l:"Fecha pedido", v: fmtD(oc.fecha_pedido) },
+    { l:"Entrega est.", v: fmtD(oc.fecha_estimada_entrega) },
+    { l:"Recepción",    v: fmtD(oc.fecha_recepcion) },
+    { l:"Monto est.",   v: oc.monto_estimado != null ? `$${num(oc.monto_estimado).toLocaleString("es-AR")}` : null },
+    { l:"Monto real",   v: oc.monto_real    != null ? `$${num(oc.monto_real).toLocaleString("es-AR")}`    : null },
+  ].filter(x => x.v && x.v !== "—");
+
+  if (!fields.length && !oc.notas) return null;
+
+  return (
+    <div style={{
+      background: C.s0, border: `1px solid ${C.b0}`, borderRadius: 9,
+      padding: "12px 14px",
+    }}>
+      <div style={{
+        display: "grid",
+        gridTemplateColumns: "repeat(auto-fill,minmax(120px,1fr))",
+        gap: 12, marginBottom: oc.notas ? 12 : 0,
+      }}>
+        {fields.map(x => (
+          <div key={x.l}>
+            <div style={{ fontSize: 8, fontFamily: C.mono, color: C.t2, textTransform: "uppercase", letterSpacing: 1.5, marginBottom: 2 }}>{x.l}</div>
+            <div style={{ fontSize: 12, color: C.t0, fontFamily: C.sans }}>{x.v}</div>
+          </div>
+        ))}
+      </div>
+      {oc.notas && (
+        <>
+          <div style={{ height: 1, background: C.b0, margin: "10px 0" }}/>
+          <div>
+            <div style={{ fontSize: 8, fontFamily: C.mono, color: C.t2, textTransform: "uppercase", letterSpacing: 1.5, marginBottom: 4 }}>Notas</div>
+            <div style={{ fontSize: 12, color: C.t1, fontFamily: C.sans, lineHeight: 1.55 }}>{oc.notas}</div>
+          </div>
+        </>
+      )}
+    </div>
+  );
+}
+
+// ─── Compra Card ──────────────────────────────────────────────────────────────
 function CompraCard({ etapa, diaInicio, obra, oc, onNuevaOC, onUpdateOCEstado }) {
   const [open, setOpen] = useState(false);
 
@@ -638,177 +911,162 @@ function CompraCard({ etapa, diaInicio, obra, oc, onNuevaOC, onUpdateOCEstado })
   const vencido = !done && !oc && df !== null && df < 0;
   const urgente = !done && !oc && df !== null && df >= 0 && df <= 10;
 
-  const [ac, bg, bd] =
-    done                      ? [P.gn, P.gnL, P.gnB] :
-    oc?.estado === "recibida" ? [P.gn, P.gnL, P.gnB] :
-    oc                        ? [P.gn, `${P.gn}06`, P.gnB] :
-    vencido                   ? [P.rd, P.rdL, P.rdB] :
-    urgente                   ? [P.or, P.orL, P.orB] :
-                                [P.or, "transparent", P.b1];
+  // Color accent
+  const accentColor =
+    done                      ? C.green :
+    oc?.estado === "recibida" ? C.green :
+    oc                        ? C.blue  :
+    vencido                   ? C.red   :
+    urgente                   ? C.amber :
+    C.t3;
 
-  const stText =
-    done                      ? "Completado"  :
-    oc?.estado === "recibida" ? "Recibido"    :
-    oc?.estado === "pedida"   ? "Pedido"      :
-    oc?.estado === "aprobada" ? "Aprobado"    :
-    oc                        ? "OC emitida"  :
-    vencido                   ? "Atrasado"    :
-    urgente                   ? "Urgente"     :
-                                "Pendiente";
+  const accentBg =
+    done                      ? C.greenL :
+    oc?.estado === "recibida" ? C.greenL :
+    oc                        ? C.blueL  :
+    vencido                   ? C.redL   :
+    urgente                   ? C.amberL :
+    C.s0;
+
+  const accentBorder =
+    done                      ? C.greenB :
+    oc?.estado === "recibida" ? C.greenB :
+    oc                        ? C.blueB  :
+    vencido                   ? C.redB   :
+    urgente                   ? C.amberB :
+    C.b0;
+
+  const statusLabel =
+    done                      ? "Completado" :
+    oc?.estado === "recibida" ? "Recibido"   :
+    oc?.estado === "pedida"   ? "Pedido"     :
+    oc?.estado === "aprobada" ? "Aprobado"   :
+    oc                        ? "OC emitida" :
+    vencido                   ? "Atrasado"   :
+    urgente                   ? "Urgente"    :
+    "Pendiente";
 
   const timing = textoTiming({ oc, done, fechaLimite, fechaBase, diasPrev, diaInicio });
   const items  = parseItems(etapa.orden_compra_descripcion);
 
-  const OC_STEPS = [
-    { k:"pendiente", label:"Pendiente" },
-    { k:"pedida",    label:"Pedido"    },
-    { k:"aprobada",  label:"Aprobado"  },
-    { k:"recibida",  label:"Recibido"  },
-  ];
-  const curI = OC_STEPS.findIndex(s => s.k === (oc?.estado ?? "pendiente"));
-
   return (
-    <div className="compra-card" style={{borderRadius:6, border:`1px solid ${bd}`, background:bg, overflow:"hidden"}}>
+    <div className="pl-card" style={{
+      borderRadius: 9,
+      border: `1px solid ${accentBorder}`,
+      background: accentBg,
+      overflow: "hidden",
+    }}>
       {/* Header */}
-      <div className="compra-header" onClick={() => setOpen(x => !x)}
-        style={{display:"flex", alignItems:"center", gap:10, padding:"11px 14px", cursor:"pointer", transition:"background .14s"}}>
-        <Dot color={ac} glow={!done && !oc} pulse={urgente || vencido} size={7}/>
+      <div
+        onClick={() => setOpen(x => !x)}
+        style={{
+          display: "flex", alignItems: "center", gap: 10,
+          padding: "11px 14px", cursor: "pointer",
+          borderLeft: `3px solid ${accentColor}`,
+        }}
+      >
+        <Dot color={accentColor} glow={!done && !oc} pulse={urgente || vencido} size={7}/>
 
-        <div style={{flex:1, minWidth:0}}>
-          <div style={{display:"flex", alignItems:"center", gap:8, marginBottom:timing ? 2 : 0}}>
-            <span style={{fontSize:13, fontWeight:500, fontFamily:P.sans, color:done ? P.t2 : P.t1}}>
-              {etapa.nombre}
-            </span>
-            <span style={{fontSize:10, fontFamily:P.mono, color:P.t3}}>+{diaInicio}d</span>
+        <div style={{ flex: 1, minWidth: 0 }}>
+          <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: timing ? 2 : 0 }}>
+            <span style={{
+              fontSize: 13, fontWeight: 600, fontFamily: C.sans,
+              color: done ? C.t1 : C.t0,
+            }}>{etapa.nombre}</span>
+            <span style={{
+              fontSize: 9, fontFamily: C.mono, color: C.t2,
+              padding: "1px 6px", background: C.s0,
+              border: `1px solid ${C.b0}`, borderRadius: 4,
+            }}>+{diaInicio}d</span>
           </div>
           {timing && (
-            <div style={{fontSize:11, color:vencido ? P.rd : urgente && !oc ? P.or : P.t3, fontFamily:P.sans}}>
-              {timing}
-            </div>
+            <div style={{
+              fontSize: 11, color: vencido ? C.red : urgente && !oc ? C.amber : C.t2,
+              fontFamily: C.sans, lineHeight: 1.4,
+            }}>{timing}</div>
           )}
         </div>
 
-        <Tag text={stText} color={ac}/>
+        <Chip label={statusLabel} color={accentColor} bg={`${accentColor}15`} border={`${accentColor}30`}/>
 
         {!done && !oc && onNuevaOC && (
-          <button type="button" className="btn-oc" onClick={e => {
+          <Btn sm variant="amber" onClick={e => {
             e.stopPropagation();
             onNuevaOC({
-              obra_id:obra.id, obra_codigo:obra.codigo,
-              etapa_id:etapa.id, etapa_nombre:etapa.nombre,
-              linea_nombre:obra.linea_nombre,
-              tipo:etapa.orden_compra_tipo ?? "compra",
-              descripcion:etapa.orden_compra_descripcion ?? null,
-              monto_estimado:etapa.orden_compra_monto_estimado ?? null,
-              dias_previo_aviso:etapa.orden_compra_dias_previo ?? 7,
+              obra_id: obra.id, obra_codigo: obra.codigo,
+              etapa_id: etapa.id, etapa_nombre: etapa.nombre,
+              linea_nombre: obra.linea_nombre,
+              tipo: etapa.orden_compra_tipo ?? "compra",
+              descripcion: etapa.orden_compra_descripcion ?? null,
+              monto_estimado: etapa.orden_compra_monto_estimado ?? null,
+              dias_previo_aviso: etapa.orden_compra_dias_previo ?? 7,
             });
-          }} style={{
-            padding:"3px 10px", borderRadius:3, cursor:"pointer",
-            fontSize:10, border:`1px solid ${P.orB}`,
-            background:P.orL, color:P.or, fontFamily:P.sans, fontWeight:500,
-          }}>Crear OC</button>
+          }}>+ Crear OC</Btn>
         )}
 
-        <span style={{fontSize:9, color:P.t3, transition:"transform .2s", display:"inline-block", transform:open?"rotate(180deg)":"rotate(0deg)"}}>▼</span>
+        <div style={{
+          fontSize: 8, color: C.t2, flexShrink: 0,
+          transition: "transform .2s",
+          transform: open ? "rotate(180deg)" : "rotate(0deg)",
+        }}>▼</div>
       </div>
 
-      {/* Detalle expandible */}
+      {/* Expandido */}
       {open && (
-        <div style={{borderTop:`1px solid ${bd}`, padding:"12px 14px 14px", display:"flex", flexDirection:"column", gap:12, animation:"expandDown .2s ease both"}}>
-          {/* Ítems de descripción */}
+        <div style={{
+          borderTop: `1px solid ${accentBorder}`,
+          padding: "14px",
+          display: "flex", flexDirection: "column", gap: 12,
+          animation: "expandDown .18s ease both",
+        }}>
+          {/* Items de descripción */}
           {items.length > 0 && (
-            <div style={{display:"flex", flexDirection:"column", gap:8}}>
+            <div style={{
+              background: C.s0, borderRadius: 8, padding: "12px 14px",
+              border: `1px solid ${C.b0}`,
+              display: "flex", flexDirection: "column", gap: 9,
+            }}>
               {items.map((it, i) => (
-                <div key={i} style={{paddingBottom:i<items.length-1?8:0, borderBottom:i<items.length-1?`1px solid ${P.b0}`:"none"}}>
+                <div key={i} style={{
+                  paddingBottom: i < items.length - 1 ? 8 : 0,
+                  borderBottom: i < items.length - 1 ? `1px solid ${C.b0}` : "none",
+                }}>
                   {it.titulo && (
-                    <div style={{fontSize:9, fontFamily:P.mono, color:ac, letterSpacing:"0.07em", textTransform:"uppercase", marginBottom:3}}>
-                      {it.titulo}
+                    <div style={{
+                      fontSize: 8, fontFamily: C.mono, color: accentColor,
+                      letterSpacing: 2, textTransform: "uppercase", marginBottom: 3, fontWeight: 700,
+                    }}>{it.titulo}</div>
+                  )}
+                  {it.desc && (
+                    <div style={{ fontSize: 12, color: C.t1, fontFamily: C.sans, lineHeight: 1.6 }}>
+                      {it.desc}
                     </div>
                   )}
-                  {it.desc && <div style={{fontSize:12, color:P.t2, fontFamily:P.sans, lineHeight:1.55}}>{it.desc}</div>}
                 </div>
               ))}
             </div>
           )}
 
-          {/* OC: stepper + datos */}
-          {oc && (
-            <div style={{display:"flex", flexDirection:"column", gap:8}}>
-              {/* Stepper */}
-              <div style={{background:P.bg3, borderRadius:5, border:`1px solid ${P.b1}`, overflow:"hidden"}}>
-                <div style={{padding:"7px 12px 6px", borderBottom:`1px solid ${P.b0}`}}>
-                  <div style={{fontSize:9, fontFamily:P.mono, color:P.t3, textTransform:"uppercase", letterSpacing:"0.09em"}}>Estado del pedido</div>
-                </div>
-                <div style={{display:"flex"}}>
-                  {OC_STEPS.map((st, idx) => {
-                    const past   = idx < curI;
-                    const active = idx === curI;
-                    const next   = idx === curI + 1;
-                    const clr    = past || active ? P.gn : P.t3;
-                    return (
-                      <div key={st.k} style={{
-                        flex:1, display:"flex", flexDirection:"column", alignItems:"center",
-                        padding:"10px 6px",
-                        background:active ? `${P.gn}09` : "transparent",
-                        borderRight:idx < OC_STEPS.length - 1 ? `1px solid ${P.b0}` : "none",
-                        transition:"background .2s",
-                      }}>
-                        <div style={{
-                          width:22, height:22, borderRadius:"50%",
-                          display:"flex", alignItems:"center", justifyContent:"center",
-                          fontSize:past||active?11:10,
-                          background:active ? P.gn : past ? P.gnL : "transparent",
-                          color:past||active ? (active?"#fff":P.gn) : P.t3,
-                          border:`1.5px solid ${active ? P.gn : past ? P.gnB : P.b1}`,
-                          marginBottom:5, fontWeight:700,
-                          transition:"all .2s",
-                        }}>
-                          {past || active ? "✓" : idx + 1}
-                        </div>
-                        <div style={{fontSize:9, color:clr, fontFamily:P.sans, fontWeight:active?600:400, textAlign:"center"}}>{st.label}</div>
-                        {next && onUpdateOCEstado && (
-                          <button type="button" className="btn-oc"
-                            onClick={e => { e.stopPropagation(); onUpdateOCEstado(oc.id, st.k); }}
-                            style={{marginTop:6, padding:"2px 8px", borderRadius:3, fontSize:9, border:`1px solid ${P.gnB}`, background:P.gnL, color:P.gn, fontFamily:P.sans, cursor:"pointer", fontWeight:500}}>
-                            Marcar
-                          </button>
-                        )}
-                      </div>
-                    );
-                  })}
-                </div>
-              </div>
-
-              {/* Datos OC */}
-              <div style={{background:P.bg3, borderRadius:5, padding:"10px 12px", border:`1px solid ${P.b1}`, display:"grid", gridTemplateColumns:"repeat(auto-fill,minmax(130px,1fr))", gap:10}}>
-                {[
-                  { l:"N° OC",        v:oc.numero_oc },
-                  { l:"Proveedor",    v:oc.proveedor },
-                  { l:"Fecha pedido", v:fmtD(oc.fecha_pedido) },
-                  { l:"Entrega est.", v:fmtD(oc.fecha_estimada_entrega) },
-                  { l:"Recepción",    v:fmtD(oc.fecha_recepcion) },
-                  { l:"Monto est.",   v:oc.monto_estimado != null ? `$${num(oc.monto_estimado).toLocaleString("es-AR")}` : null },
-                  { l:"Monto real",   v:oc.monto_real    != null ? `$${num(oc.monto_real).toLocaleString("es-AR")}`    : null },
-                ].filter(x => x.v && x.v !== "—").map(x => (
-                  <div key={x.l}>
-                    <div style={{fontSize:9, fontFamily:P.mono, color:P.t3, textTransform:"uppercase", letterSpacing:"0.08em", marginBottom:2}}>{x.l}</div>
-                    <div style={{fontSize:12, color:P.t1, fontFamily:P.sans}}>{x.v}</div>
-                  </div>
-                ))}
-                {oc.notas && (
-                  <div style={{gridColumn:"1/-1"}}>
-                    <div style={{fontSize:9, fontFamily:P.mono, color:P.t3, textTransform:"uppercase", letterSpacing:"0.08em", marginBottom:2}}>Notas</div>
-                    <div style={{fontSize:12, color:P.t2, fontFamily:P.sans, lineHeight:1.5}}>{oc.notas}</div>
-                  </div>
-                )}
-              </div>
+          {/* Monto estimado sin OC */}
+          {!oc && etapa.orden_compra_monto_estimado && (
+            <div style={{
+              display: "flex", alignItems: "center", gap: 8,
+              padding: "8px 12px", background: C.s0,
+              border: `1px solid ${C.b0}`, borderRadius: 8,
+            }}>
+              <span style={{ fontSize: 9, color: C.t2, fontFamily: C.mono, textTransform: "uppercase", letterSpacing: 1.5 }}>Monto est.</span>
+              <span style={{ fontFamily: C.mono, fontSize: 13, fontWeight: 700, color: C.amber }}>
+                ${num(etapa.orden_compra_monto_estimado).toLocaleString("es-AR")}
+              </span>
             </div>
           )}
 
-          {!oc && etapa.orden_compra_monto_estimado && (
-            <div style={{fontSize:11, color:P.t3, fontFamily:P.sans}}>
-              Monto estimado: <span style={{color:P.or, fontFamily:P.mono}}>${num(etapa.orden_compra_monto_estimado).toLocaleString("es-AR")}</span>
-            </div>
+          {/* Stepper + datos OC */}
+          {oc && (
+            <>
+              <OCStepperInline oc={oc} onUpdateOCEstado={onUpdateOCEstado}/>
+              <OCDataGrid oc={oc}/>
+            </>
           )}
         </div>
       )}
@@ -825,7 +1083,7 @@ function ComprasSection({ obra, etapasObra, lProcsLinea, ordenes, onNuevaOC, onU
     .map(e => {
       const proc = procsConDias.find(p => p.id === e.linea_proceso_id || p.nombre === e.nombre);
       const oc   = ordenes.find(o => o.obra_id === obra.id && (o.etapa_id === e.id || o.etapa_nombre === e.nombre));
-      return { etapa:e, diaInicio:proc?.diaInicio ?? 0, oc };
+      return { etapa: e, diaInicio: proc?.diaInicio ?? 0, oc };
     })
     .sort((a,b) => a.diaInicio - b.diaInicio),
   [etapasObra, procsConDias, ordenes, obra]);
@@ -834,49 +1092,92 @@ function ComprasSection({ obra, etapasObra, lProcsLinea, ordenes, onNuevaOC, onU
   const conOC = compras.filter(c => !!c.oc).length;
   const done  = compras.filter(c => c.etapa.estado === "completado").length;
 
-  if (compras.length === 0) return (
-    <section style={{padding:"18px 20px"}}>
-      <p style={{margin:0, fontSize:12, color:P.t3, fontFamily:P.sans}}>Sin compras configuradas para esta obra.</p>
-    </section>
+  if (!compras.length) return (
+    <div style={{ padding: "48px 20px", textAlign: "center" }}>
+      <div style={{ fontSize: 24, color: C.t3, marginBottom: 8 }}>◎</div>
+      <div style={{ fontSize: 13, color: C.t1, marginBottom: 4 }}>Sin compras configuradas</div>
+      <div style={{ fontSize: 11, color: C.t2 }}>Esta obra no tiene etapas que generen órdenes de compra</div>
+    </div>
   );
 
   return (
-    <section style={{padding:"16px 20px", animation:"fadeUp .3s .05s ease both"}}>
-      <div style={{display:"flex", alignItems:"center", gap:8, marginBottom:14, flexWrap:"wrap"}}>
-        <span style={{fontSize:9, fontFamily:P.mono, color:P.t3, textTransform:"uppercase", letterSpacing:"0.1em"}}>Compras</span>
-        {sinOC > 0 && <Tag text={`${sinOC} sin gestionar`} color={P.or}/>}
-        {conOC > 0 && <Tag text={`${conOC} con OC`}        color={P.gn}/>}
-        {done  > 0 && <Tag text={`${done} completadas`}    color={P.t3}/>}
+    <div style={{ padding: "16px 20px", animation: "fadeSlideUp .25s .04s ease both" }}>
+      {/* Summary strip */}
+      <div style={{
+        display: "flex", gap: 8, marginBottom: 16, flexWrap: "wrap",
+      }}>
+        {sinOC > 0 && (
+          <div style={{
+            display: "flex", alignItems: "center", gap: 6,
+            padding: "5px 12px", borderRadius: 7,
+            background: C.amberL, border: `1px solid ${C.amberB}`,
+          }}>
+            <Dot color={C.amber} size={5} pulse/>
+            <span style={{ fontSize: 10, color: C.amber, fontFamily: C.sans, fontWeight: 600 }}>
+              {sinOC} sin gestionar
+            </span>
+          </div>
+        )}
+        {conOC > 0 && (
+          <div style={{
+            display: "flex", alignItems: "center", gap: 6,
+            padding: "5px 12px", borderRadius: 7,
+            background: C.blueL, border: `1px solid ${C.blueB}`,
+          }}>
+            <Dot color={C.blue} size={5}/>
+            <span style={{ fontSize: 10, color: C.blue, fontFamily: C.sans, fontWeight: 600 }}>
+              {conOC} con OC
+            </span>
+          </div>
+        )}
+        {done > 0 && (
+          <div style={{
+            display: "flex", alignItems: "center", gap: 6,
+            padding: "5px 12px", borderRadius: 7,
+            background: C.greenL, border: `1px solid ${C.greenB}`,
+          }}>
+            <Dot color={C.green} size={5}/>
+            <span style={{ fontSize: 10, color: C.green, fontFamily: C.sans, fontWeight: 600 }}>
+              {done} completadas
+            </span>
+          </div>
+        )}
       </div>
-      <div style={{display:"flex", flexDirection:"column", gap:5}}>
+
+      {/* Cards */}
+      <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
         {compras.map((c, i) => (
-          <div key={c.etapa.id} style={{animation:`fadeUp .22s ${i * 0.04}s ease both`}}>
-            <CompraCard etapa={c.etapa} diaInicio={c.diaInicio} obra={obra} oc={c.oc} onNuevaOC={onNuevaOC} onUpdateOCEstado={onUpdateOCEstado}/>
+          <div key={c.etapa.id} style={{ animation: `fadeSlideUp .2s ${i * 0.05}s ease both` }}>
+            <CompraCard
+              etapa={c.etapa} diaInicio={c.diaInicio}
+              obra={obra} oc={c.oc}
+              onNuevaOC={onNuevaOC} onUpdateOCEstado={onUpdateOCEstado}
+            />
           </div>
         ))}
       </div>
-    </section>
+    </div>
   );
 }
 
 // ─── Detalle obra (panel derecho) ─────────────────────────────────────────────
 function ObraDetalle({ obra, etapas, lProcs, ordenes, onNuevaOC, onUpdateObra, onUpdateOCEstado }) {
   const [tab, setTab] = useState("compras");
-
-  // Reset tab cuando cambia la obra
   const prevId = useRef(obra.id);
-  useEffect(() => { if (prevId.current !== obra.id) { setTab("compras"); prevId.current = obra.id; } }, [obra.id]);
+  useEffect(() => {
+    if (prevId.current !== obra.id) { setTab("compras"); prevId.current = obra.id; }
+  }, [obra.id]);
 
-  const etapasO = useMemo(() => etapas.filter(e => e.obra_id === obra.id), [etapas, obra.id]);
-  const procsL  = useMemo(() => lProcs.filter(p => p.linea_id === obra.linea_id).sort((a,b) => (a.orden??0)-(b.orden??0)), [lProcs, obra.linea_id]);
+  const etapasO   = useMemo(() => etapas.filter(e => e.obra_id === obra.id), [etapas, obra.id]);
+  const procsL    = useMemo(() => lProcs.filter(p => p.linea_id === obra.linea_id).sort((a,b) => (a.orden??0)-(b.orden??0)), [lProcs, obra.linea_id]);
 
-  const comp  = etapasO.filter(e => e.estado === "completado").length;
-  const total = etapasO.length;
-  const pct   = total ? Math.round(comp / total * 100) : 0;
-  const actEt = etapasO.find(e => e.estado === "en_curso");
-  const dias  = diasDesde(obra.fecha_inicio);
+  const comp      = etapasO.filter(e => e.estado === "completado").length;
+  const total     = etapasO.length;
+  const pct       = total ? Math.round(comp / total * 100) : 0;
+  const actEt     = etapasO.find(e => e.estado === "en_curso");
+  const dias      = diasDesde(obra.fecha_inicio);
   const totalDias = procsL.reduce((s,p) => s + rnd(p.dias_estimados), 0) || 1;
-  const sc    = { activa:P.bl, terminada:P.gn, pausada:P.or }[obra.estado] ?? P.t3;
+  const oC        = C.obra[obra.estado] ?? C.obra.activa;
 
   const pendCompras = etapasO.filter(e =>
     e.genera_orden_compra && e.estado !== "completado" &&
@@ -884,85 +1185,116 @@ function ObraDetalle({ obra, etapas, lProcs, ordenes, onNuevaOC, onUpdateObra, o
   ).length;
 
   const TABS = [
-    { id:"compras", label:"Compras", badge: pendCompras > 0 ? pendCompras : null },
-    { id:"ficha",   label:"Ficha del barco", badge: null },
+    { id:"compras", label:"Compras",   badge: pendCompras > 0 ? pendCompras : null },
+    { id:"ficha",   label:"Ficha técnica", badge: null },
   ];
 
   return (
-    <div style={{flex:1, display:"flex", flexDirection:"column", overflow:"hidden", background:P.bg1, animation:"slideRight .25s ease both"}}>
-
-      {/* ── Cabecera ── */}
-      <div style={{padding:"16px 20px 0", background:P.bg2, borderBottom:`1px solid ${P.b1}`, flexShrink:0}}>
-        <div style={{display:"flex", alignItems:"flex-start", justifyContent:"space-between", gap:20, marginBottom:14}}>
+    <div style={{
+      flex: 1, display: "flex", flexDirection: "column",
+      overflow: "hidden",
+      background: C.bg,
+      animation: "fadeSlideIn .22s ease both",
+    }}>
+      {/* ── Header ── */}
+      <div style={{
+        padding: "18px 22px 0",
+        background: C.bg1,
+        borderBottom: `1px solid ${C.b0}`,
+        flexShrink: 0,
+      }}>
+        {/* Top row */}
+        <div style={{ display: "flex", alignItems: "flex-start", justifyContent: "space-between", gap: 20, marginBottom: 16 }}>
+          {/* Left: meta */}
           <div>
-            <div style={{display:"flex", alignItems:"center", gap:10, marginBottom:10}}>
-              <span style={{fontFamily:P.mono, fontSize:22, fontWeight:700, color:P.t1, letterSpacing:".01em"}}>{obra.codigo}</span>
-              {obra.linea_nombre && <Tag text={obra.linea_nombre} color={P.t3}/>}
-              <Tag text={obra.estado} color={sc}/>
+            <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 8 }}>
+              <Dot color={oC.dot} size={8} glow pulse={obra.estado === "activa"}/>
+              <span style={{ fontFamily: C.mono, fontSize: 22, fontWeight: 700, color: oC.dot, letterSpacing: ".01em" }}>
+                {obra.codigo}
+              </span>
+              {obra.linea_nombre && (
+                <Chip label={obra.linea_nombre} color={C.t1} bg={C.s1} border={C.b1}/>
+              )}
+              <Chip label={oC.label} color={oC.dot} bg={oC.bg} border={oC.border}/>
             </div>
-            <div style={{display:"flex", gap:20, flexWrap:"wrap"}}>
+            {obra.descripcion && (
+              <div style={{ fontSize: 12, color: C.t1, fontFamily: C.sans, marginBottom: 10, maxWidth: 420 }}>
+                {obra.descripcion}
+              </div>
+            )}
+            <div style={{ display: "flex", gap: 20, flexWrap: "wrap" }}>
               {obra.fecha_inicio && (
                 <div>
-                  <div style={{fontSize:9, fontFamily:P.mono, color:P.t3, textTransform:"uppercase", letterSpacing:"0.08em", marginBottom:2}}>Inicio</div>
-                  <div style={{fontSize:12, color:P.t1, fontFamily:P.sans}}>{fmtD(obra.fecha_inicio)}</div>
+                  <div style={{ fontSize: 8, fontFamily: C.mono, color: C.t2, textTransform: "uppercase", letterSpacing: 2, marginBottom: 2 }}>Inicio</div>
+                  <div style={{ fontSize: 12, color: C.t0, fontFamily: C.sans }}>{fmtD(obra.fecha_inicio)}</div>
                 </div>
               )}
               {dias !== null && obra.estado === "activa" && (
                 <div>
-                  <div style={{fontSize:9, fontFamily:P.mono, color:P.t3, textTransform:"uppercase", letterSpacing:"0.08em", marginBottom:2}}>Día actual</div>
-                  <div style={{fontSize:12, color:P.bl, fontFamily:P.mono, fontWeight:600}}>{dias} / {totalDias}</div>
+                  <div style={{ fontSize: 8, fontFamily: C.mono, color: C.t2, textTransform: "uppercase", letterSpacing: 2, marginBottom: 2 }}>Día actual</div>
+                  <div style={{ fontSize: 12, color: C.blue, fontFamily: C.mono, fontWeight: 700 }}>{dias} / {totalDias}</div>
                 </div>
               )}
               {actEt && (
                 <div>
-                  <div style={{fontSize:9, fontFamily:P.mono, color:P.t3, textTransform:"uppercase", letterSpacing:"0.08em", marginBottom:2}}>En curso</div>
-                  <div style={{fontSize:12, color:P.t1, fontFamily:P.sans}}>{actEt.nombre}</div>
+                  <div style={{ fontSize: 8, fontFamily: C.mono, color: C.t2, textTransform: "uppercase", letterSpacing: 2, marginBottom: 2 }}>En curso</div>
+                  <div style={{ fontSize: 12, color: C.t0, fontFamily: C.sans }}>{actEt.nombre}</div>
                 </div>
               )}
               {obra.fecha_fin_estimada && (
                 <div>
-                  <div style={{fontSize:9, fontFamily:P.mono, color:P.t3, textTransform:"uppercase", letterSpacing:"0.08em", marginBottom:2}}>Entrega est.</div>
-                  <div style={{fontSize:12, color:P.t1, fontFamily:P.sans}}>{fmtD(obra.fecha_fin_estimada)}</div>
+                  <div style={{ fontSize: 8, fontFamily: C.mono, color: C.t2, textTransform: "uppercase", letterSpacing: 2, marginBottom: 2 }}>Entrega est.</div>
+                  <div style={{ fontSize: 12, color: C.t0, fontFamily: C.sans }}>{fmtD(obra.fecha_fin_estimada)}</div>
                 </div>
               )}
             </div>
           </div>
-          {/* Progreso */}
-          <div style={{flexShrink:0, textAlign:"right"}}>
-            <div style={{fontFamily:P.mono, fontSize:22, fontWeight:700, color:pct===100 ? P.gn : P.t1, marginBottom:6, animation:"fadeIn .4s ease both"}}>{pct}%</div>
-            <div style={{width:88, height:3, background:P.b1, borderRadius:2, overflow:"hidden", marginBottom:4}}>
-              <div style={{height:"100%", width:`${pct}%`, background:pct===100 ? P.gn : P.bl, borderRadius:2, animation:"progressFill .6s .1s ease both", transition:"width .4s"}}/>
+
+          {/* Right: progress ring area */}
+          <div style={{ flexShrink: 0, textAlign: "right" }}>
+            <div style={{
+              fontFamily: C.mono, fontSize: 28, fontWeight: 700, lineHeight: 1,
+              color: pct === 100 ? C.green : C.t0,
+              animation: "fadeSlideUp .4s ease both",
+              marginBottom: 6,
+            }}>{pct}%</div>
+            <div style={{ width: 100, marginBottom: 4 }}>
+              <ProgressBar value={pct} color={pct === 100 ? C.green : oC.dot} height={5} shimmer={obra.estado === "activa"}/>
             </div>
-            <div style={{fontSize:10, color:P.t3, fontFamily:P.sans}}>{comp}/{total} etapas</div>
+            <div style={{ fontSize: 10, color: C.t2, fontFamily: C.sans }}>
+              {comp}/{total} etapas
+            </div>
           </div>
         </div>
 
-        {/* Gantt */}
-        <div style={{marginBottom:14}}>
+        {/* Gantt bar */}
+        <div style={{ marginBottom: 16 }}>
           <GanttBar etapas={etapasO} lProcs={procsL} obra={obra}/>
         </div>
 
         {/* Tabs */}
-        <div style={{display:"flex", gap:0, borderTop:`1px solid ${P.b0}`, marginTop:2}}>
+        <div style={{ display: "flex", gap: 2 }}>
           {TABS.map(t => {
             const a = tab === t.id;
             return (
-              <button key={t.id} type="button" className={`tab-btn${a?" active":""}`}
+              <button key={t.id} type="button"
+                className={`pl-tab${a ? " active" : ""}`}
                 onClick={() => setTab(t.id)}
                 style={{
-                  padding:"9px 16px", background:"transparent", border:"none",
-                  borderBottom:`2px solid ${a ? P.bl : "transparent"}`,
-                  cursor:"pointer", fontFamily:P.sans, fontSize:12,
-                  fontWeight:a ? 600 : 400, color:a ? P.bl : P.t3,
-                  display:"flex", alignItems:"center", gap:6,
+                  padding: "9px 16px", background: "transparent", border: "none",
+                  borderBottom: `2px solid ${a ? C.blue : "transparent"}`,
+                  cursor: "pointer", fontFamily: C.sans, fontSize: 12,
+                  fontWeight: a ? 600 : 400,
+                  color: a ? C.blue : C.t2,
+                  display: "flex", alignItems: "center", gap: 7,
                 }}>
                 {t.label}
                 {t.badge !== null && (
                   <span style={{
-                    fontSize:9, fontFamily:P.mono,
-                    background:P.orL, border:`1px solid ${P.orB}`,
-                    color:P.or, padding:"1px 5px", borderRadius:2,
-                    animation:"fadeIn .3s ease both",
+                    fontSize: 9, fontFamily: C.mono, fontWeight: 700,
+                    background: C.amberL, border: `1px solid ${C.amberB}`,
+                    color: C.amber, padding: "1px 6px", borderRadius: 99,
+                    animation: "fadeIn .3s ease both",
                   }}>{t.badge}</span>
                 )}
               </button>
@@ -972,7 +1304,7 @@ function ObraDetalle({ obra, etapas, lProcs, ordenes, onNuevaOC, onUpdateObra, o
       </div>
 
       {/* Contenido scrollable */}
-      <div key={`${obra.id}-${tab}`} style={{flex:1, overflowY:"auto"}}>
+      <div key={`${obra.id}-${tab}`} style={{ flex: 1, overflowY: "auto" }}>
         {tab === "compras" && (
           <ComprasSection
             obra={obra} etapasObra={etapasO} lProcsLinea={procsL}
@@ -990,19 +1322,30 @@ function ObraDetalle({ obra, etapas, lProcs, ordenes, onNuevaOC, onUpdateObra, o
 // ─── Empty state ──────────────────────────────────────────────────────────────
 function Vacio() {
   return (
-    <div style={{flex:1, display:"flex", alignItems:"center", justifyContent:"center", background:P.bg1}}>
-      <div style={{textAlign:"center", animation:"fadeUp .4s ease both"}}>
-        <div style={{fontSize:11, fontFamily:P.mono, color:P.t3, textTransform:"uppercase", letterSpacing:"0.12em", marginBottom:6}}>
+    <div style={{ flex: 1, display: "flex", alignItems: "center", justifyContent: "center", background: C.bg }}>
+      <div style={{ textAlign: "center", animation: "fadeSlideUp .4s ease both" }}>
+        <div style={{
+          width: 56, height: 56, borderRadius: "50%",
+          background: C.s0, border: `1px solid ${C.b1}`,
+          display: "flex", alignItems: "center", justifyContent: "center",
+          fontSize: 22, color: C.t3, margin: "0 auto 16px",
+        }}>◎</div>
+        <div style={{ fontSize: 14, color: C.t0, fontFamily: C.sans, fontWeight: 500, marginBottom: 6 }}>
           Seleccioná una obra
         </div>
-        <div style={{fontSize:12, color:P.t3, fontFamily:P.sans}}>para ver su planificación de compras</div>
+        <div style={{ fontSize: 12, color: C.t2, fontFamily: C.sans }}>
+          para ver su planificación y compras
+        </div>
       </div>
     </div>
   );
 }
 
 // ─── Principal ────────────────────────────────────────────────────────────────
-export default function PlanificacionView({ obras, etapas, lProcs = [], ordenes, esGestion, onNuevaOC, onUpdateObra, onUpdateOCEstado }) {
+export default function PlanificacionView({
+  obras, etapas, lProcs = [], ordenes,
+  esGestion, onNuevaOC, onUpdateObra, onUpdateOCEstado,
+}) {
   const [selectedId, setSelectedId] = useState(null);
   const [filtro,     setFiltro]     = useState("activa");
   const [busqueda,   setBusqueda]   = useState("");
@@ -1028,9 +1371,8 @@ export default function PlanificacionView({ obras, etapas, lProcs = [], ordenes,
   }, [selectedId, obrasFilt, obras]);
 
   return (
-    <div style={{flex:1, display:"flex", overflow:"hidden", background:P.bg0, fontFamily:P.sans, color:P.t1}}>
+    <div style={{ flex: 1, display: "flex", overflow: "hidden", background: C.bg, fontFamily: C.sans, color: C.t0 }}>
       <style>{CSS}</style>
-
       <ObrasList
         obras={obrasFilt} etapas={etapas} lProcs={lProcs} ordenes={ordenes}
         selectedId={selectedObra?.id ?? null}
@@ -1038,7 +1380,6 @@ export default function PlanificacionView({ obras, etapas, lProcs = [], ordenes,
         filtro={filtro} setFiltro={setFiltro}
         busqueda={busqueda} setBusqueda={setBusqueda}
       />
-
       {selectedObra
         ? <ObraDetalle
             obra={selectedObra} etapas={etapas} lProcs={lProcs} ordenes={ordenes}

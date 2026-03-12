@@ -21,6 +21,7 @@
  * ─────────────────────────────────────────────────────────────────────────────
  */
 import { useState, useMemo, useRef, useCallback, useEffect, useLayoutEffect } from "react";
+import { createPortal } from "react-dom";
 import k37Img from "./k37.png";
 import k42Img from "./k42.png";
 import k43Img from "./k43.png";
@@ -52,6 +53,76 @@ const GLASS={
 };
 
 const VB_W=1900, VB_H=840;
+
+/* ─── MEMORIAS DESCRIPTIVAS (mock — inyectá tu CSV aquí por obra.codigo) ──────
+   Clave: codigo de obra tal como viene en el prop `obras` (ej: "37-21").
+   Los campos que ya existen en el objeto `obra` del padre tienen prioridad;
+   este dict actúa como fallback / datos extra del CSV.
+   Para poblarlo desde tus CSVs: importá el JSON generado y mezclalo aquí.
+─────────────────────────────────────────────────────────────────────────────── */
+const MEMORIAS_DB = {
+  "37-21": {
+    motorizacion:      "2 × Mercury 450 HP fuera de borda, nafta",
+    grupo_electrogeno: "Kohler 9 kva",
+    propietario:       "Darío Rosenthal",
+    constructor:       null,
+    madera_muebles:    "Gris Terso",
+    color_mesadas:     "Cocina y baño: Olimpo — Cockpit: Niagara Pulido",
+    color_casco:       "Blanco",
+    piso:              "La Europea White",
+    starlink:          true,
+    teca_cockpit:      true,
+    sternthruster:     false,
+    electronica:       "Simrad NSX 9\" + GO9",
+    audio_exterior:    "Fusion con RGB",
+    color_acolchados:  "Shani 07",
+    color_exterior:    "Vertigo Gris claro",
+  },
+  "37-22": {
+    motorizacion:      null,
+    grupo_electrogeno: null,
+    propietario:       "Ariel",
+    constructor:       null,
+    madera_muebles:    null,
+    color_mesadas:     null,
+    starlink:          true,
+    teca_cockpit:      false,
+    sternthruster:     false,
+  },
+  "37-23": {
+    motorizacion:      null,
+    grupo_electrogeno: null,
+    propietario:       "Gustavo Borrajo",
+    constructor:       null,
+    madera_muebles:    null,
+    color_mesadas:     "Baño cockpit: Niagara — Cocina: Olimpo",
+    starlink:          true,
+    teca_cockpit:      true,
+    sternthruster:     true,
+    color_acolchados:  "Anila 01",
+    color_exterior:    "Gris claro / Pranna Gris Oscuro",
+  },
+  "37-30": {
+    motorizacion:      "2 × Volvo D3-270 HP",
+    grupo_electrogeno: "Onan 6 kva",
+    propietario:       "Agustín Trosman",
+    constructor:       "Roberto González",
+    madera_muebles:    "Nogal Italiano Rayado",
+    color_mesadas:     "Prima Travertino Navona",
+    color_casco:       null,
+    piso:              "Europea Nature Álamo",
+    starlink:          true,
+    teca_cockpit:      false,
+    sternthruster:     true,
+    electronica:       null,
+    color_cerramientos:"Charcoal",
+    color_exterior:    "Cuerina Blanca Rivete Blanco",
+    color_acolchados:  null,
+    adicionales:       "Sillón más grande (Curvo) · Griferías negras FV Epuyén",
+  },
+  // ── Agregá más barcos aquí siguiendo el mismo esquema ──
+  // "37-31": { ... },
+};
 
 /* ─── ZONAS ──────────────────────────────────────────────────── */
 const ZONAS=[
@@ -320,73 +391,452 @@ function CommandPalette({obras,puestos,obraByPuesto,onClose,onAction}){
 }
 
 /* ═══════════════════════════════════════════════════════════════
-   CINEMATIC CALLOUTS SVG
+   CINEMATIC CALLOUTS SVG — solo outline + corner marks
+   El texto/data se muestra en MemoriaHUD
 ═══════════════════════════════════════════════════════════════ */
 function CinematicCallouts({p,obra,oC}){
-  const hw=p.w/2, hh=p.h/2;
-  const EXT=Math.max(55,p.w*0.75);
-  const tC="rgba(255,255,255,0.9)", lC="rgba(255,255,255,0.28)", sC="rgba(255,255,255,0.32)";
-  const callouts=[
-    {fromX:p.cx-hw,fromY:p.cy-hh,dirX:-1,dirY:-1,label:(obra?.propietario??p.tipo).toUpperCase(),sub:obra?.propietario?"PROPIETARIO":"MODELO"},
-    {fromX:p.cx+hw,fromY:p.cy-hh,dirX:1, dirY:-1,label:obra?.codigo??"VACÍO",  sub:"CÓDIGO"},
-    {fromX:p.cx+hw,fromY:p.cy+hh,dirX:1, dirY:1, label:`${obra?._pct??0}%`,    sub:"PROGRESO"},
-    {fromX:p.cx-hw,fromY:p.cy+hh,dirX:-1,dirY:1, label:oC.label.toUpperCase(), sub:"ESTADO"},
-  ];
-  // Panel de ficha técnica: aparece bajo el barco si hay datos
-  const specs=[];
-  if(obra?.motores)        specs.push({icon:"⚡",label:obra.motores});
-  if(obra?.grupo_electrogeno) specs.push({icon:"🔋",label:obra.grupo_electrogeno_det||"Grupo elect."});
-  if(obra?.teca_cockpit)   specs.push({icon:"🪵",label:obra.teca_cockpit_det||"Teca/Infinity"});
-  if(obra?.madera_muebles) specs.push({icon:"🎨",label:obra.madera_muebles});
-  if(obra?.starlink)       specs.push({icon:"🛰",label:"Starlink"});
-  const panelW=Math.max(180,p.w+60);
-  const panelX=p.cx-panelW/2;
-  const panelY=p.cy+hh+28;
   return(
     <g style={{pointerEvents:"none"}}>
-      <rect x={p.cx-hw-10} y={p.cy-hh-10} width={p.w+20} height={p.h+20} fill="none" stroke="rgba(255,255,255,0.14)" strokeWidth="0.5" strokeDasharray="3 3" style={{animation:"focusIn 0.4s ease both"}}/>
-      {[[p.cx-hw,p.cy-hh],[p.cx+hw,p.cy-hh],[p.cx-hw,p.cy+hh],[p.cx+hw,p.cy+hh]].map(([cx,cy],i)=>(
-        <circle key={i} cx={cx} cy={cy} r="2.5" fill="rgba(255,255,255,0.5)" style={{animation:`focusIn 0.3s ease ${i*40}ms both`}}/>
+      {/* Dashed outer rect */}
+      <rect x={p.cx-p.w/2-10} y={p.cy-p.h/2-10} width={p.w+20} height={p.h+20}
+        fill="none" stroke="rgba(255,255,255,0.12)" strokeWidth="0.5" strokeDasharray="3 3"
+        style={{animation:"focusIn 0.4s ease both"}}/>
+      {/* Corner dots */}
+      {[[p.cx-p.w/2,p.cy-p.h/2],[p.cx+p.w/2,p.cy-p.h/2],[p.cx-p.w/2,p.cy+p.h/2],[p.cx+p.w/2,p.cy+p.h/2]].map(([cx,cy],i)=>(
+        <circle key={i} cx={cx} cy={cy} r="2.5" fill="rgba(255,255,255,0.4)"
+          style={{animation:`focusIn 0.3s ease ${i*40}ms both`}}/>
       ))}
-      {callouts.map((c,i)=>{
-        const kx=c.fromX+c.dirX*EXT, ky=c.fromY+c.dirY*EXT;
-        const lx=kx+c.dirX*52, anch=c.dirX>0?"start":"end", tx=c.dirX>0?lx+5:lx-5;
-        return(
-          <g key={i} style={{animation:`focusIn 0.35s ease ${60+i*55}ms both`}}>
-            <line x1={c.fromX} y1={c.fromY} x2={kx} y2={ky} stroke={lC} strokeWidth="0.6" strokeDasharray="4 3"/>
-            <line x1={kx} y1={ky} x2={lx} y2={ky} stroke={lC} strokeWidth="0.6"/>
-            <circle cx={c.fromX} cy={c.fromY} r="2" fill={lC}/>
-            <text x={tx} y={ky-5.5} textAnchor={anch} fill={tC} fontSize="10.5" fontFamily={C.mono} fontWeight="700" letterSpacing="0.5">{c.label}</text>
-            <text x={tx} y={ky+7}   textAnchor={anch} fill={sC} fontSize="7.5"  fontFamily={C.mono} letterSpacing="1.5">{c.sub}</text>
-          </g>
-        );
-      })}
+      {/* Center crosshair */}
       <g style={{animation:"focusIn 0.4s ease 0.15s both"}}>
-        <line x1={p.cx-18} y1={p.cy} x2={p.cx+18} y2={p.cy} stroke="rgba(255,255,255,0.18)" strokeWidth="0.5"/>
-        <line x1={p.cx} y1={p.cy-18} x2={p.cx} y2={p.cy+18} stroke="rgba(255,255,255,0.18)" strokeWidth="0.5"/>
-        <circle cx={p.cx} cy={p.cy} r="4" fill="none" stroke="rgba(255,255,255,0.35)" strokeWidth="0.6"/>
+        <line x1={p.cx-18} y1={p.cy} x2={p.cx+18} y2={p.cy} stroke="rgba(255,255,255,0.16)" strokeWidth="0.5"/>
+        <line x1={p.cx} y1={p.cy-18} x2={p.cx} y2={p.cy+18} stroke="rgba(255,255,255,0.16)" strokeWidth="0.5"/>
+        <circle cx={p.cx} cy={p.cy} r="4" fill="none" stroke="rgba(255,255,255,0.3)" strokeWidth="0.6"/>
       </g>
       {/* Glow outline */}
-      <rect x={p.cx-(p.w+16)/2} y={p.cy-(p.h+16)/2} width={p.w+16} height={p.h+16} rx={Math.min(p.w,p.h)*0.18} fill="none" stroke={oC.glow} strokeWidth="1.5" strokeOpacity="0.4" style={{animation:"focusIn 0.4s ease both",filter:`drop-shadow(0 0 6px ${oC.glow})`}}/>
-      {/* Panel ficha técnica bajo el barco */}
-      {specs.length>0&&(
-        <g style={{animation:"focusIn 0.4s ease 0.25s both"}}>
-          <rect x={panelX} y={panelY} width={panelW} height={specs.length*16+12} rx="5"
-            fill="rgba(0,0,0,0.55)" stroke="rgba(255,255,255,0.1)" strokeWidth="0.6"/>
-          {specs.map((s,i)=>(
-            <text key={i} x={panelX+10} y={panelY+18+i*16} fill="rgba(255,255,255,0.7)" fontSize="9.5" fontFamily={C.mono}>
-              <tspan fill="rgba(255,255,255,0.4)">{s.icon} </tspan>{s.label}
-            </text>
-          ))}
-        </g>
-      )}
+      <rect x={p.cx-(p.w+16)/2} y={p.cy-(p.h+16)/2} width={p.w+16} height={p.h+16}
+        rx={Math.min(p.w,p.h)*0.18} fill="none" stroke={oC.glow} strokeWidth="1.5" strokeOpacity="0.45"
+        style={{animation:"focusIn 0.4s ease both",filter:`drop-shadow(0 0 8px ${oC.glow})`}}/>
     </g>
   );
 }
 
 /* ═══════════════════════════════════════════════════════════════
-   RADAR HUD
+   MEMORIA DESCRIPTIVA HUD — Panel principal del Modo Foco
+   Editable campo por campo. Se guarda en localStorage y/o
+   callback externo para sincronización entre usuarios.
 ═══════════════════════════════════════════════════════════════ */
+/* ── Inline SVG icons (16×16, stroke=currentColor) ── */
+const IC = {
+  user:    <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="8" r="4"/><path d="M4 20c0-4 3.6-7 8-7s8 3 8 7"/></svg>,
+  hardhat:<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><path d="M2 17h20v2a1 1 0 0 1-1 1H3a1 1 0 0 1-1-1v-2z"/><path d="M12 3a9 9 0 0 1 9 9H3a9 9 0 0 1 9-9z"/><line x1="12" y1="3" x2="12" y2="12"/></svg>,
+  engine: <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><rect x="2" y="8" width="20" height="10" rx="2"/><path d="M6 8V6a2 2 0 0 1 2-2h8a2 2 0 0 1 2 2v2"/><line x1="12" y1="12" x2="12" y2="16"/><line x1="8" y1="12" x2="8" y2="16"/><line x1="16" y1="12" x2="16" y2="16"/></svg>,
+  bolt:   <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/></svg>,
+  wood:   <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><rect x="3" y="6" width="18" height="12" rx="1"/><line x1="3" y1="10" x2="21" y2="10"/><line x1="3" y1="14" x2="21" y2="14"/><line x1="9" y1="6" x2="9" y2="18"/><line x1="15" y1="6" x2="15" y2="18"/></svg>,
+  floor:  <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><rect x="3" y="3" width="8" height="8" rx="1"/><rect x="13" y="3" width="8" height="8" rx="1"/><rect x="3" y="13" width="8" height="8" rx="1"/><rect x="13" y="13" width="8" height="8" rx="1"/></svg>,
+  palette:<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="10"/><circle cx="8" cy="10" r="1.5" fill="currentColor"/><circle cx="12" cy="7" r="1.5" fill="currentColor"/><circle cx="16" cy="10" r="1.5" fill="currentColor"/><path d="M12 22c0-4 4-6 4-10"/></svg>,
+  ship:   <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><path d="M2 20h20"/><path d="M5 20V10l7-7 7 7v10"/><line x1="12" y1="3" x2="12" y2="20"/></svg>,
+  signal: <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><path d="M5 12.55a11 11 0 0 1 14.08 0"/><path d="M1.42 9a16 16 0 0 1 21.16 0"/><path d="M8.53 16.11a6 6 0 0 1 6.95 0"/><circle cx="12" cy="20" r="1" fill="currentColor"/></svg>,
+  door:   <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><path d="M18 20V6a2 2 0 0 0-2-2H8a2 2 0 0 0-2 2v14"/><line x1="2" y1="20" x2="22" y2="20"/><circle cx="15" cy="13" r="1" fill="currentColor"/></svg>,
+  sofa:   <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><path d="M20 9V7a2 2 0 0 0-2-2H6a2 2 0 0 0-2 2v2"/><path d="M2 11v5a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2v-5"/><path d="M4 11a2 2 0 0 1 2-2h12a2 2 0 0 1 2 2v2H4v-2z"/><line x1="4" y1="18" x2="4" y2="20"/><line x1="20" y1="18" x2="20" y2="20"/></svg>,
+  brush:  <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><path d="M18.37 2.63L14 7l-1.59-1.59a2 2 0 0 0-2.82 0L8 7l9 9 1.59-1.59a2 2 0 0 0 0-2.82L17 10l4.37-4.37a2.12 2.12 0 0 0-3-3z"/><path d="M9 8c-2 3-4 3.5-7 4l8 10c2-1 6-5 6-7"/></svg>,
+  notes:  <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/><polyline points="10 9 9 9 8 9"/></svg>,
+  pencil: <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>,
+  save:   <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"/><polyline points="17 21 17 13 7 13 7 21"/><polyline points="7 3 7 8 15 8"/></svg>,
+  print:  <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><polyline points="6 9 6 2 18 2 18 9"/><path d="M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2"/><rect x="6" y="14" width="12" height="8"/></svg>,
+  check:  <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><polyline points="20 6 9 17 4 12"/></svg>,
+  satellite:<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="3"/><path d="M6.3 6.3a8 8 0 0 0 0 11.31"/><path d="M17.7 6.3a8 8 0 0 1 0 11.31"/><path d="M3.05 9A13 13 0 0 0 3 12"/><path d="M21 12a13 13 0 0 0-.05-3"/></svg>,
+  anchor: <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="5" r="3"/><line x1="12" y1="8" x2="12" y2="22"/><path d="M5 12H2a10 10 0 0 0 20 0h-3"/></svg>,
+  teca:   <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><path d="M17 8C8 10 5.9 16.17 3.82 19"/><path d="M12 3a4 4 0 0 0-4 4c0 1.5.5 3 2 4"/><path d="M21 3a9 9 0 0 1-9 9"/><circle cx="12" cy="20" r="2"/></svg>,
+  msgcircle:<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>,
+  plus:   <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>,
+  trash:  <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/><path d="M10 11v6"/><path d="M14 11v6"/><path d="M9 6V4a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v2"/></svg>,
+  x:      <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>,
+};
+
+const MEMORIA_FIELDS = [
+  { key:"propietario",        label:"Propietario",                     icon:IC.user,    col:1 },
+  { key:"constructor",        label:"Constructor",                     icon:IC.hardhat, col:1 },
+  { key:"motorizacion",       label:"Motorización",                    icon:IC.engine,  col:1 },
+  { key:"grupo_electrogeno",  label:"Grupo Electrógeno",               icon:IC.bolt,    col:1 },
+  { key:"madera_muebles",     label:"Madera Muebles",                  icon:IC.wood,    col:2 },
+  { key:"piso",               label:"Piso",                            icon:IC.floor,   col:2 },
+  { key:"color_mesadas",      label:"Mesadas (baño, cocina, ext.)",    icon:IC.palette, col:2, wide:true },
+  { key:"color_casco",        label:"Color de Casco",                  icon:IC.ship,    col:2 },
+  { key:"electronica",        label:"Electrónica",                     icon:IC.signal,  col:1 },
+  { key:"color_cerramientos", label:"Cerramientos",                    icon:IC.door,    col:1 },
+  { key:"color_acolchados",   label:"Tapicería / Acolchados",          icon:IC.sofa,    col:2 },
+  { key:"color_exterior",     label:"Color Exterior",                  icon:IC.brush,   col:2 },
+  { key:"adicionales",        label:"Adicionales",                     icon:IC.notes,   col:1, wide:true },
+];
+
+/* ── FieldBox fuera del componente para evitar remount en cada keystroke ── */
+function FieldBox({ field, isEditing, val, editVal, editRef, onStartEdit, onChangeVal, onCommit }) {
+  const empty = !val;
+  return (
+    <div
+      onClick={()=>!isEditing&&onStartEdit(field.key)}
+      style={{
+        padding:"10px 12px", borderRadius:8, cursor:isEditing?"default":"text",
+        border:`1px solid ${isEditing?"rgba(255,255,255,0.18)":empty?"rgba(255,255,255,0.04)":"rgba(255,255,255,0.08)"}`,
+        background: isEditing?"rgba(255,255,255,0.06)":empty?"rgba(255,255,255,0.02)":"rgba(255,255,255,0.04)",
+        transition:"border-color 0.15s, background 0.15s",
+        display:"flex", flexDirection:"column", gap:5,
+      }}
+    >
+      {/* Label row */}
+      <div style={{ display:"flex", alignItems:"center", gap:5, color:isEditing?"rgba(255,255,255,0.55)":"rgba(255,255,255,0.25)" }}>
+        <span style={{ display:"flex", alignItems:"center", flexShrink:0 }}>{field.icon}</span>
+        <span style={{ fontSize:9, letterSpacing:1.4, textTransform:"uppercase", fontFamily:"'JetBrains Mono',monospace", fontWeight:600, lineHeight:1 }}>
+          {field.label}
+        </span>
+        {!isEditing && !empty && (
+          <span style={{ marginLeft:"auto", color:"rgba(255,255,255,0.15)", display:"flex", alignItems:"center" }}>{IC.pencil}</span>
+        )}
+      </div>
+
+      {/* Value / input */}
+      {isEditing ? (
+        <textarea
+          ref={editRef}
+          value={editVal}
+          onChange={e=>onChangeVal(e.target.value)}
+          onBlur={onCommit}
+          rows={field.wide ? 3 : 2}
+          style={{
+            width:"100%", background:"transparent", border:"none", outline:"none",
+            color:"#fff", fontSize:12, fontFamily:"'Outfit',system-ui,sans-serif",
+            resize:"none", lineHeight:1.5, padding:0,
+          }}
+        />
+      ) : (
+        <div style={{
+          fontSize:12, lineHeight:1.5,
+          color: empty ? "rgba(255,255,255,0.18)" : "rgba(255,255,255,0.85)",
+          fontStyle: empty ? "italic" : "normal",
+          minHeight: field.wide ? 32 : 16,
+        }}>
+          {empty ? "Completar..." : val}
+        </div>
+      )}
+    </div>
+  );
+}
+
+function MemoriaHUD({ obra, puesto, oC, memoriaOverride, onSaveMemoria, notas=[], onAddNota, onDeleteNota, onClose }) {
+  const db = MEMORIAS_DB[obra?.codigo] ?? {};
+  const base = {
+    propietario:        obra?.propietario  ?? db.propietario        ?? "",
+    constructor:        obra?.constructor  ?? db.constructor        ?? "",
+    motorizacion:       obra?.motores      ?? db.motorizacion       ?? "",
+    grupo_electrogeno:  obra?.grupo_electrogeno_det ?? (obra?.grupo_electrogeno?"Sí":null) ?? db.grupo_electrogeno ?? "",
+    madera_muebles:     obra?.madera_muebles ?? db.madera_muebles   ?? "",
+    piso:               obra?.piso         ?? db.piso               ?? "",
+    color_mesadas:      obra?.color_mesadas?? db.color_mesadas      ?? "",
+    color_casco:        obra?.color_casco  ?? db.color_casco        ?? "",
+    electronica:        obra?.electronica  ?? db.electronica        ?? "",
+    color_cerramientos: db.color_cerramientos ?? "",
+    color_acolchados:   db.color_acolchados   ?? "",
+    color_exterior:     db.color_exterior     ?? "",
+    adicionales:        db.adicionales        ?? "",
+    starlink:           obra?.starlink     ?? db.starlink     ?? false,
+    teca_cockpit:       obra?.teca_cockpit ?? db.teca_cockpit ?? false,
+    sternthruster:      obra?.sternthruster?? db.sternthruster?? false,
+  };
+
+  const [fields,    setFields]    = useState({ ...base, ...(memoriaOverride??{}) });
+  const [editingKey,setEditingKey]= useState(null);
+  const [editVal,   setEditVal]   = useState("");
+  const [newNota,   setNewNota]   = useState("");
+  const [dirty,     setDirty]     = useState(false);
+  const editRef = useRef(null);
+
+  useEffect(()=>{ if(editingKey && editRef.current){ editRef.current.focus(); editRef.current.select(); } },[editingKey]);
+
+  const startEdit  = useCallback((key)=>{ setEditingKey(key); setEditVal(fields[key]??""); },[fields]);
+  const onChangeVal= useCallback((v)=>setEditVal(v),[]);
+  const commitEdit = useCallback(()=>{
+    setEditingKey(k=>{ if(!k) return k;
+      setFields(f=>({...f,[k]:editVal}));
+      setDirty(true);
+      return null;
+    });
+  },[editVal]);
+
+  const saveAll    = ()=>{ onSaveMemoria?.(obra?.id??puesto?.id, fields); setDirty(false); };
+  const toggleBadge= (key)=>{ setFields(f=>({...f,[key]:!f[key]})); setDirty(true); };
+  const handleAddNota=()=>{
+    const txt=newNota.trim(); if(!txt) return;
+    onAddNota?.(obra?.id??puesto?.id,{id:Date.now(),texto:txt,fecha:new Date().toLocaleDateString("es-AR")});
+    setNewNota("");
+  };
+
+  // Global keyboard shortcuts for the panel
+  useEffect(()=>{
+    const h=(e)=>{
+      if(e.target.tagName==="TEXTAREA"||e.target.tagName==="INPUT") return;
+      if(e.key==="Escape") onClose();
+    };
+    window.addEventListener("keydown",h);
+    return()=>window.removeEventListener("keydown",h);
+  },[onClose]);
+
+  const handlePrint = () => {
+    const accentHex = oC.glow;
+    const badgeList = [
+      fields.starlink      && "Starlink",
+      fields.teca_cockpit  && "Teca/Infinity",
+      fields.sternthruster && "Sternthruster",
+    ].filter(Boolean);
+    const rows = MEMORIA_FIELDS.map(f=>{
+      const val=fields[f.key]; if(!val) return "";
+      return `<tr><td class="label">${f.label}</td><td class="val">${String(val).replace(/\n/g,"<br/>")}</td></tr>`;
+    }).join("");
+    const notasHTML = notas.length ? notas.map(n=>`
+      <div class="nota"><span class="nb">◆</span><div><div class="nt">${n.texto}</div><div class="nd">${n.fecha}</div></div></div>`
+    ).join("") : `<p class="empty">Sin notas registradas.</p>`;
+    const html=`<!DOCTYPE html><html lang="es"><head><meta charset="UTF-8"/>
+<title>Memoria — ${obra?.codigo??`Puesto ${puesto?.label}`}</title>
+<style>
+@import url('https://fonts.googleapis.com/css2?family=Outfit:wght@400;600;700;800&family=JetBrains+Mono:wght@400;700&display=swap');
+*{box-sizing:border-box;margin:0;padding:0;}
+body{font-family:'Outfit',sans-serif;background:#fff;color:#1a1a2e;}
+@page{size:A4;margin:18mm 16mm;}
+.page{max-width:760px;margin:0 auto;padding:32px 36px;}
+.header{display:flex;justify-content:space-between;align-items:flex-start;padding-bottom:16px;border-bottom:2px solid ${accentHex};margin-bottom:22px;}
+.company{font-size:8px;letter-spacing:3px;text-transform:uppercase;color:#999;margin-bottom:6px;font-family:'JetBrains Mono',monospace;}
+.codigo{font-size:30px;font-weight:800;font-family:'JetBrains Mono',monospace;letter-spacing:1px;line-height:1;}
+.subtitle{font-size:9px;letter-spacing:2px;text-transform:uppercase;color:#999;margin-top:5px;}
+.estado{display:inline-block;padding:4px 12px;border-radius:20px;font-size:9px;letter-spacing:2px;font-weight:700;text-transform:uppercase;background:${accentHex}15;color:${accentHex};border:1.5px solid ${accentHex}40;margin-bottom:6px;}
+.fecha{font-size:8px;color:#bbb;font-family:'JetBrains Mono',monospace;}
+.stitle{font-size:7.5px;letter-spacing:3px;text-transform:uppercase;color:#bbb;font-family:'JetBrains Mono',monospace;margin:18px 0 10px;padding-bottom:5px;border-bottom:1px solid #f0f0f0;}
+table{width:100%;border-collapse:collapse;}
+tr{border-bottom:1px solid #f5f5f5;} tr:last-child{border-bottom:none;}
+td{padding:8px 6px;vertical-align:top;}
+td.label{width:36%;font-size:9.5px;color:#999;text-transform:uppercase;letter-spacing:1px;font-weight:600;padding-right:12px;}
+td.val{font-size:12.5px;color:#1a1a2e;font-weight:500;line-height:1.5;}
+.badges{display:flex;gap:7px;flex-wrap:wrap;margin:10px 0;}
+.badge{padding:3px 11px;border-radius:20px;font-size:9px;font-weight:600;background:#f4f4f8;color:#555;border:1px solid #e0e0e8;}
+.nota{display:flex;gap:10px;padding:8px 0;border-bottom:1px solid #f4f4f4;} .nota:last-child{border-bottom:none;}
+.nb{color:${accentHex};font-size:9px;margin-top:3px;flex-shrink:0;}
+.nt{font-size:12px;color:#333;line-height:1.5;} .nd{font-size:8px;color:#ccc;margin-top:2px;font-family:'JetBrains Mono',monospace;}
+.empty{font-size:11px;color:#ccc;font-style:italic;padding:8px 0;}
+.footer{margin-top:28px;padding-top:12px;border-top:1px solid #eee;display:flex;justify-content:space-between;align-items:center;}
+.fl{font-size:8px;color:#ccc;font-family:'JetBrains Mono',monospace;letter-spacing:1px;}
+.bar{width:36px;height:2.5px;background:${accentHex};border-radius:2px;}
+@media print{body{-webkit-print-color-adjust:exact;print-color-adjust:exact;} .noprint{display:none!important;}}
+</style></head><body><div class="page">
+<div class="header">
+<div><div class="company">Astillero Klasea · Plano de Producción</div>
+<div class="codigo">${obra?.codigo??`Puesto ${puesto?.label}`}</div>
+<div class="subtitle">Memoria Descriptiva · Puesto ${puesto?.label} · ${puesto?.tipo?.toUpperCase()??""}</div></div>
+<div style="text-align:right"><div class="estado">${obra?.estado?.toUpperCase()??"VACÍO"}</div>
+<div class="fecha">Emitido: ${new Date().toLocaleDateString("es-AR",{day:"2-digit",month:"long",year:"numeric"})}</div>
+${obra?._pct!=null?`<div class="fecha" style="margin-top:3px">Progreso: <strong>${obra._pct}%</strong></div>`:""}
+</div></div>
+<div class="stitle">Especificaciones Técnicas</div>
+<table>${rows}</table>
+${badgeList.length?`<div class="stitle">Equipamiento</div><div class="badges">${badgeList.map(b=>`<span class="badge">${b}</span>`).join("")}</div>`:""}
+<div class="stitle">Notas del Equipo</div><div>${notasHTML}</div>
+<div class="footer"><div class="fl">KLASEA · ${new Date().toLocaleDateString("es-AR")}</div><div class="bar"></div></div>
+</div>
+<div class="noprint" style="position:fixed;bottom:20px;left:50%;transform:translateX(-50%);display:flex;gap:10px;z-index:999;">
+<button onclick="window.print()" style="padding:10px 28px;background:${accentHex};color:#fff;border:none;border-radius:8px;font-size:13px;font-weight:700;cursor:pointer;font-family:Outfit,sans-serif;">Imprimir / Guardar PDF</button>
+<button onclick="window.close()" style="padding:10px 18px;background:#f4f4f8;color:#555;border:1px solid #e0e0e8;border-radius:8px;font-size:12px;cursor:pointer;">Cerrar</button>
+</div></body></html>`;
+    const win=window.open("","_blank","width=860,height=900");
+    if(!win){alert("Habilitá las ventanas emergentes para imprimir.");return;}
+    win.document.write(html); win.document.close();
+  };
+
+  const col1 = MEMORIA_FIELDS.filter(f=>f.col===1&&!f.wide);
+  const col2 = MEMORIA_FIELDS.filter(f=>f.col===2&&!f.wide);
+  const wide  = MEMORIA_FIELDS.filter(f=>f.wide);
+  const BADGES=[
+    {key:"starlink",     icon:IC.satellite,label:"Starlink",     color:"#a5b4fc"},
+    {key:"teca_cockpit", icon:IC.teca,     label:"Teca/Infinity",color:"#d4b483"},
+    {key:"sternthruster",icon:IC.anchor,   label:"Sternthruster",color:"#7dd3fc"},
+  ];
+
+  return (
+    <div style={{
+      position:"fixed", top:0, right:0, bottom:0, width:420, zIndex:2000,
+      background:"rgba(4,4,12,0.98)",
+      backdropFilter:"blur(32px) saturate(180%)",
+      WebkitBackdropFilter:"blur(32px) saturate(180%)",
+      borderLeft:`1px solid ${oC.glow}22`,
+      boxShadow:`-32px 0 80px rgba(0,0,0,0.95), inset 1px 0 0 ${oC.glow}08`,
+      display:"flex", flexDirection:"column",
+      animation:"hudSlideInRight 0.3s cubic-bezier(0.16,1,0.3,1) both",
+      fontFamily:"'Outfit',system-ui,sans-serif",
+    }}>
+      <style>{`
+        @keyframes hudSlideInRight{from{opacity:0;transform:translateX(32px)}to{opacity:1;transform:translateX(0)}}
+        @keyframes notaPop{from{opacity:0;transform:translateY(-4px)}to{opacity:1;transform:translateY(0)}}
+        .mem-scroll::-webkit-scrollbar{width:3px}
+        .mem-scroll::-webkit-scrollbar-track{background:transparent}
+        .mem-scroll::-webkit-scrollbar-thumb{background:${oC.glow}30;border-radius:2px}
+        .mem-input{background:rgba(255,255,255,0.05);border:1px solid rgba(255,255,255,0.1);border-radius:8px;color:#fff;font-size:12px;padding:8px 12px;outline:none;font-family:'Outfit',sans-serif;width:100%;box-sizing:border-box;transition:border-color 0.15s;}
+        .mem-input:focus{border-color:${oC.glow}60;}
+        .mem-input::placeholder{color:rgba(255,255,255,0.18);}
+        .nota-row:hover .nota-del{opacity:1!important;}
+      `}</style>
+
+      {/* Subtle scan-line texture */}
+      <div style={{position:"absolute",inset:0,pointerEvents:"none",zIndex:0,
+        background:`repeating-linear-gradient(0deg,transparent,transparent 3px,${oC.glow}025 3px,${oC.glow}025 4px)`}}/>
+
+      {/* ── HEADER ── */}
+      <div style={{padding:"20px 22px 16px",borderBottom:`1px solid rgba(255,255,255,0.06)`,flexShrink:0,position:"relative",zIndex:1}}>
+        <div style={{display:"flex",alignItems:"flex-start",justifyContent:"space-between",marginBottom:12}}>
+          <div style={{display:"flex",flexDirection:"column",gap:4}}>
+            <div style={{display:"flex",alignItems:"center",gap:8}}>
+              <div style={{width:8,height:8,borderRadius:4,background:oC.glow,boxShadow:`0 0 12px ${oC.glow}`}}/>
+              <span style={{fontFamily:"'JetBrains Mono',monospace",fontSize:20,color:"#fff",fontWeight:800,letterSpacing:0.5}}>
+                {obra?.codigo??`Puesto ${puesto?.label}`}
+              </span>
+            </div>
+            <div style={{display:"flex",alignItems:"center",gap:8}}>
+              <span style={{fontSize:9,letterSpacing:2,textTransform:"uppercase",color:oC.glow,fontWeight:700,
+                background:`${oC.glow}12`,padding:"2px 8px",borderRadius:4,border:`1px solid ${oC.glow}25`}}>
+                {obra?.estado?.toUpperCase()??"VACÍO"}
+              </span>
+              <span style={{fontSize:9,color:"rgba(255,255,255,0.2)",fontFamily:"'JetBrains Mono',monospace",letterSpacing:1}}>
+                PUESTO {puesto?.label} · {puesto?.tipo?.toUpperCase()}
+              </span>
+            </div>
+          </div>
+          <button onClick={onClose} style={{background:"transparent",border:"1px solid rgba(255,255,255,0.09)",borderRadius:8,
+            color:"rgba(255,255,255,0.3)",cursor:"pointer",width:30,height:30,display:"flex",alignItems:"center",justifyContent:"center",
+            flexShrink:0,transition:"all 0.15s"}}
+            onMouseEnter={e=>{e.currentTarget.style.borderColor="rgba(255,255,255,0.25)";e.currentTarget.style.color="#fff";}}
+            onMouseLeave={e=>{e.currentTarget.style.borderColor="rgba(255,255,255,0.09)";e.currentTarget.style.color="rgba(255,255,255,0.3)";}}>
+            {IC.x}
+          </button>
+        </div>
+
+        {/* Progress bar */}
+        {obra&&(
+          <div style={{display:"flex",alignItems:"center",gap:10,marginBottom:12}}>
+            <div style={{flex:1,height:2,background:"rgba(255,255,255,0.06)",borderRadius:2,overflow:"hidden"}}>
+              <div style={{height:"100%",width:`${obra._pct??0}%`,background:oC.glow,boxShadow:`0 0 6px ${oC.glow}`,borderRadius:2,transition:"width 0.4s"}}/>
+            </div>
+            <span style={{fontFamily:"'JetBrains Mono',monospace",fontSize:10,color:oC.glow,fontWeight:700,minWidth:28}}>{obra._pct??0}%</span>
+          </div>
+        )}
+
+        {/* Equipment badges */}
+        <div style={{display:"flex",gap:6,flexWrap:"wrap"}}>
+          {BADGES.map(b=>(
+            <button key={b.key} onClick={()=>toggleBadge(b.key)}
+              style={{display:"flex",alignItems:"center",gap:5,padding:"4px 10px",borderRadius:6,cursor:"pointer",
+                border:`1px solid ${fields[b.key]?b.color+"40":"rgba(255,255,255,0.07)"}`,
+                background:fields[b.key]?`${b.color}10`:"rgba(255,255,255,0.02)",
+                color:fields[b.key]?b.color:"rgba(255,255,255,0.22)",
+                transition:"all 0.15s",fontSize:10,fontFamily:"'Outfit',sans-serif"}}>
+              <span style={{display:"flex",alignItems:"center"}}>{b.icon}</span>
+              {b.label}
+              {fields[b.key]&&<span style={{display:"flex",alignItems:"center",opacity:0.7}}>{IC.check}</span>}
+            </button>
+          ))}
+        </div>
+      </div>
+
+      {/* ── SCROLLABLE BODY ── */}
+      <div className="mem-scroll" style={{flex:1,overflowY:"auto",padding:"14px 22px",display:"flex",flexDirection:"column",gap:6,position:"relative",zIndex:1}}>
+
+        <div style={{fontSize:8,color:"rgba(255,255,255,0.16)",letterSpacing:1.5,textAlign:"center",marginBottom:2,textTransform:"uppercase",fontFamily:"'JetBrains Mono',monospace",display:"flex",alignItems:"center",justifyContent:"center",gap:4}}>
+          {IC.pencil} <span>Clic en cada campo para editar</span>
+        </div>
+
+        {/* 2-column grid */}
+        <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:6}}>
+          {col1.map((f,i)=>(
+            <FieldBox key={f.key} field={f}
+              isEditing={editingKey===f.key} val={fields[f.key]} editVal={editVal}
+              editRef={editingKey===f.key?editRef:null}
+              onStartEdit={startEdit} onChangeVal={onChangeVal} onCommit={commitEdit}/>
+          ))}
+          {col2.map((f,i)=>(
+            <FieldBox key={f.key} field={f}
+              isEditing={editingKey===f.key} val={fields[f.key]} editVal={editVal}
+              editRef={editingKey===f.key?editRef:null}
+              onStartEdit={startEdit} onChangeVal={onChangeVal} onCommit={commitEdit}/>
+          ))}
+        </div>
+
+        {/* Wide fields */}
+        {wide.map(f=>(
+          <FieldBox key={f.key} field={f}
+            isEditing={editingKey===f.key} val={fields[f.key]} editVal={editVal}
+            editRef={editingKey===f.key?editRef:null}
+            onStartEdit={startEdit} onChangeVal={onChangeVal} onCommit={commitEdit}/>
+        ))}
+
+        {/* Divider */}
+        <div style={{height:1,background:`linear-gradient(90deg,transparent,${oC.glow}25,transparent)`,margin:"6px 0"}}/>
+
+        {/* Notes section */}
+        <div style={{display:"flex",alignItems:"center",gap:5,color:"rgba(255,255,255,0.25)",marginBottom:6}}>
+          {IC.msgcircle}
+          <span style={{fontSize:8,letterSpacing:2,textTransform:"uppercase",fontFamily:"'JetBrains Mono',monospace",fontWeight:600}}>
+            Notas del Equipo
+          </span>
+          {notas.length>0&&<span style={{marginLeft:"auto",fontSize:9,color:oC.glow,background:`${oC.glow}12`,padding:"1px 7px",borderRadius:10,border:`1px solid ${oC.glow}25`}}>{notas.length}</span>}
+        </div>
+
+        {notas.map(n=>(
+          <div key={n.id} className="nota-row" style={{display:"flex",gap:8,padding:"9px 11px",borderRadius:8,
+            background:"rgba(255,255,255,0.03)",border:"1px solid rgba(255,255,255,0.05)",animation:"notaPop 0.2s ease both"}}>
+            <span style={{color:oC.glow,fontSize:8,marginTop:2,flexShrink:0}}>◆</span>
+            <div style={{flex:1}}>
+              <div style={{fontSize:12,color:"rgba(255,255,255,0.75)",lineHeight:1.5}}>{n.texto}</div>
+              <div style={{fontSize:8,color:"rgba(255,255,255,0.2)",marginTop:2,fontFamily:"'JetBrains Mono',monospace"}}>{n.fecha}</div>
+            </div>
+            <button className="nota-del" onClick={()=>onDeleteNota?.(obra?.id??puesto?.id,n.id)}
+              style={{background:"transparent",border:"none",color:"rgba(239,68,68,0.5)",cursor:"pointer",
+                padding:"0 2px",flexShrink:0,display:"flex",alignItems:"center",opacity:0,transition:"opacity 0.15s"}}>
+              {IC.trash}
+            </button>
+          </div>
+        ))}
+
+        <div style={{display:"flex",gap:6,marginTop:2}}>
+          <input className="mem-input" placeholder="Agregar nota..." value={newNota}
+            onChange={e=>setNewNota(e.target.value)}
+            onKeyDown={e=>{if(e.key==="Enter"){e.preventDefault();handleAddNota();}}}/>
+          <button onClick={handleAddNota}
+            style={{padding:"0 12px",borderRadius:8,border:`1px solid ${oC.glow}30`,background:`${oC.glow}10`,
+              color:oC.glow,cursor:"pointer",flexShrink:0,display:"flex",alignItems:"center"}}>
+            {IC.plus}
+          </button>
+        </div>
+      </div>
+
+      {/* ── FOOTER ── */}
+      <div style={{padding:"12px 22px",borderTop:"1px solid rgba(255,255,255,0.06)",flexShrink:0,zIndex:1,display:"flex",gap:8}}>
+        <button onClick={saveAll} style={{flex:1,padding:"10px",borderRadius:9,
+          border:`1px solid ${dirty?oC.glow+"45":"rgba(255,255,255,0.07)"}`,
+          background:dirty?`${oC.glow}14`:"rgba(255,255,255,0.03)",
+          color:dirty?oC.glow:"rgba(255,255,255,0.28)",cursor:"pointer",fontSize:12,fontWeight:700,
+          transition:"all 0.2s",boxShadow:dirty?`0 0 18px ${oC.glow}18`:"none",
+          fontFamily:"'Outfit',sans-serif",display:"flex",alignItems:"center",justifyContent:"center",gap:7}}>
+          {dirty ? <>{IC.save} Guardar cambios</> : <>{IC.check} Sin cambios</>}
+        </button>
+        <button onClick={handlePrint} title="Imprimir / Guardar PDF"
+          style={{padding:"10px 13px",borderRadius:9,border:"1px solid rgba(255,255,255,0.1)",
+            background:"rgba(255,255,255,0.04)",color:"rgba(255,255,255,0.45)",cursor:"pointer",
+            flexShrink:0,display:"flex",alignItems:"center",transition:"all 0.15s"}}
+          onMouseEnter={e=>{e.currentTarget.style.background="rgba(255,255,255,0.09)";e.currentTarget.style.color="#fff";}}
+          onMouseLeave={e=>{e.currentTarget.style.background="rgba(255,255,255,0.04)";e.currentTarget.style.color="rgba(255,255,255,0.45)";}}>
+          {IC.print}
+        </button>
+        <span style={{display:"flex",alignItems:"center",fontSize:9,color:"rgba(255,255,255,0.12)",fontFamily:"'JetBrains Mono',monospace"}}>Esc</span>
+      </div>
+    </div>
+  );
+}
+
+
 function RadarHUD({puestos,obraByPuesto,vp,containerW,containerH}){
   const W=192,H=132,PAD=10;
   const scX=(W-PAD*2)/VB_W, scY=(H-PAD*2)/VB_H;
@@ -423,6 +873,21 @@ function RadarHUD({puestos,obraByPuesto,vp,containerW,containerH}){
 }
 
 const LS_KEY = "klasea_mapa_puestos_v1";
+const LS_NOTAS_KEY = "klasea_mapa_notas_v1";
+const LS_MEMORIAS_KEY = "klasea_mapa_memorias_v1";
+
+function loadNotas() {
+  try { const r=localStorage.getItem(LS_NOTAS_KEY); return r?JSON.parse(r):{}; } catch { return {}; }
+}
+function saveNotas(notas) {
+  try { localStorage.setItem(LS_NOTAS_KEY, JSON.stringify(notas)); } catch {}
+}
+function loadMemorias() {
+  try { const r=localStorage.getItem(LS_MEMORIAS_KEY); return r?JSON.parse(r):{}; } catch { return {}; }
+}
+function saveMemorias(m) {
+  try { localStorage.setItem(LS_MEMORIAS_KEY, JSON.stringify(m)); } catch {}
+}
 
 function loadPuestos() {
   try {
@@ -445,11 +910,21 @@ function loadPuestos() {
 function savePuestos(puestos) {
   try { localStorage.setItem(LS_KEY, JSON.stringify(puestos)); } catch {}
 }
-export default function MapaProduccion({obras=[],onPuestoClick,onAsignarObra,onChangeEstado,esGestion=false}){
+/**
+ * Props para persistencia compartida entre usuarios:
+ *   sharedPuestos      → layout desde tu backend (array de puestos)
+ *   onSaveLayout(arr)  → llamado al cambiar el layout (ej: POST a tu API)
+ *   sharedNotas        → notas desde tu backend ({ [obraId]: [...] })
+ *   onSaveNotas(obj)   → llamado al cambiar notas
+ * Si no se pasan, se usa localStorage (solo local, no compartido).
+ */
+export default function MapaProduccion({obras=[],onPuestoClick,onAsignarObra,onChangeEstado,esGestion=false,sharedPuestos,onSaveLayout,sharedNotas,onSaveNotas}){
   const svgRef=useRef(null);
   const vpRef=useRef({x:0,y:0,scale:1});
   const [vp,setVp]=useState({x:0,y:0,scale:1});
-  const [puestos,setPuestos]=useState(()=>loadPuestos());
+  const [puestos,setPuestos]=useState(()=>sharedPuestos&&sharedPuestos.length>0?sharedPuestos:loadPuestos());
+  const [notasExtra,setNotasExtra]=useState(()=>sharedNotas??loadNotas());
+  const [memoriasEdit,setMemoriasEdit]=useState(()=>loadMemorias());
   const [hovered,setHovered]=useState(null);
   const [tooltip,setTooltip]=useState(null);
   const [editMode,setEditMode]=useState(false);
@@ -468,10 +943,18 @@ export default function MapaProduccion({obras=[],onPuestoClick,onAsignarObra,onC
   const obraDragOverRef=useRef(null);
   const stateRef=useRef({});
 
-  useEffect(()=>{stateRef.current={editMode,cmdPaletteOpen,focusedPuesto,addObraFor,confirmDel,contextMenu,hovered};},[editMode,cmdPaletteOpen,focusedPuesto,addObraFor,confirmDel,contextMenu,hovered]);
+  useEffect(()=>{stateRef.current={editMode,cmdPaletteOpen,focusedPuesto,addObraFor,confirmDel,contextMenu,hovered,puestos};},[editMode,cmdPaletteOpen,focusedPuesto,addObraFor,confirmDel,contextMenu,hovered,puestos]);
   useEffect(()=>{vpRef.current=vp;},[vp]);
-  // Persistir puestos en localStorage al cambiar
-  useEffect(()=>{ savePuestos(puestos); },[puestos]);
+  // Persistir puestos en localStorage al cambiar + callback para backend compartido
+  useEffect(()=>{ savePuestos(puestos); onSaveLayout?.(puestos); },[puestos]);
+  // Persistir notas
+  useEffect(()=>{ saveNotas(notasExtra); onSaveNotas?.(notasExtra); },[notasExtra]);
+  // Persistir memorias editadas
+  useEffect(()=>{ saveMemorias(memoriasEdit); },[memoriasEdit]);
+
+  function handleSaveMemoria(obraOrPuestoId, fields) {
+    setMemoriasEdit(prev=>({...prev,[obraOrPuestoId]:fields}));
+  }
   useEffect(()=>{const id=setInterval(()=>setPulseKey(k=>k+1),3000);return()=>clearInterval(id);},[]);
   useEffect(()=>{
     const el=svgRef.current; if(!el) return;
@@ -544,7 +1027,11 @@ export default function MapaProduccion({obras=[],onPuestoClick,onAsignarObra,onC
       if(e.key==="r"||e.key==="R") resetVp();
       if(e.key==="+"||e.key==="=") zoomBtn(1.3);
       if(e.key==="-") zoomBtn(0.77);
-      if((e.key==="f"||e.key==="F")&&st.hovered) setFocusedPuesto(st.hovered);
+      if((e.key==="f"||e.key==="F")&&st.hovered){
+        const p=stateRef.current.puestos?.find?.(x=>x.id===st.hovered)??null;
+        setFocusedPuesto(st.hovered);
+        if(p) centerOnPuesto(p);
+      }
     };
     window.addEventListener("keydown",handler);
     return()=>window.removeEventListener("keydown",handler);
@@ -599,6 +1086,16 @@ export default function MapaProduccion({obras=[],onPuestoClick,onAsignarObra,onC
     else if(item.type==="obra-asignada"&&item.p){centerOnPuesto(item.p);setFocusedPuesto(item.p.id);}
   },[resetVp,zoomBtn,centerOnPuesto,puestos,obraByPuesto]);
 
+  // Sincronizar notas desde prop externo cuando cambia
+  useEffect(()=>{ if(sharedNotas) setNotasExtra(sharedNotas); },[sharedNotas]);
+
+  function handleAddNota(obraId, nota) {
+    if(!obraId) return;
+    setNotasExtra(prev=>({ ...prev, [obraId]:[...(prev[obraId]??[]), nota] }));
+  }
+  function handleDeleteNota(obraId, notaId) {
+    setNotasExtra(prev=>({ ...prev, [obraId]:(prev[obraId]??[]).filter(n=>n.id!==notaId) }));
+  }
   const gsz=60*vp.scale;
   const gsx=((vp.x%gsz)+gsz)%gsz, gsy=((vp.y%gsz)+gsz)%gsz;
   const focusedP=focusedPuesto?puestos.find(p=>p.id===focusedPuesto):null;
@@ -851,6 +1348,22 @@ export default function MapaProduccion({obras=[],onPuestoClick,onAsignarObra,onC
           </>)}
         </g>
       </svg>
+
+      {/* MEMORIA DESCRIPTIVA HUD — portal a document.body para escapar overflow:hidden */}
+      {focusedPuesto&&focusedP&&createPortal(
+        <MemoriaHUD
+          obra={focusedObra??null}
+          puesto={focusedP}
+          oC={focusedOC}
+          memoriaOverride={memoriasEdit[focusedObra?.id??focusedP.id]}
+          onSaveMemoria={handleSaveMemoria}
+          notas={focusedObra?.id ? (notasExtra[focusedObra.id]??[]) : (notasExtra[focusedP.id]??[])}
+          onAddNota={handleAddNota}
+          onDeleteNota={handleDeleteNota}
+          onClose={()=>setFocusedPuesto(null)}
+        />,
+        document.body
+      )}
 
       {/* TOP BAR */}
       <div style={{position:"absolute",top:10,left:10,right:10,zIndex:10,display:"flex",alignItems:"center",gap:6,pointerEvents:"none"}}>
