@@ -12,9 +12,10 @@
 import { useEffect, useMemo, useState, useCallback, useRef } from "react";
 import { supabase } from "../supabaseClient";
 import Sidebar from "../components/Sidebar";
-import PlanificacionView from "./PlanificacionView";
-import MapaProduccion    from "./MapaProduccion";
-import PanelDetallesObra from "./PanelDetallesObra";
+import PlanificacionView      from "./PlanificacionView";
+import MapaProduccion         from "./MapaProduccion";
+import PanelDetallesObra      from "./PanelDetallesObra";
+import PiezasLaminacionView   from "./PiezasLaminacionView";
 
 // ─── UTILS ────────────────────────────────────────────────────────────────────
 const num        = v => { const x = Number(v); return Number.isFinite(x) ? x : 0; };
@@ -1143,6 +1144,68 @@ function OrdenCompraModal({ oc, obras, onSave, onClose }) {
   );
 }
 
+// ─── NUEVA LÍNEA DE PRODUCCIÓN ───────────────────────────────────────────────
+function NuevaLineaModal({ onClose, onSaved }) {
+  const [form, setForm] = useState({ nombre: "", color: "#3b82f6", orden: "" });
+  const [saving, setSaving] = useState(false);
+  const [err, setErr] = useState("");
+  const set = (k, v) => setForm(f => ({ ...f, [k]: v }));
+
+  async function handleSubmit(e) {
+    e.preventDefault();
+    if (!form.nombre.trim()) return;
+    setSaving(true); setErr("");
+    // Calcular el máximo orden existente
+    const { data: existing } = await supabase.from("lineas_produccion").select("orden").order("orden", { ascending: false }).limit(1);
+    const maxOrden = existing?.[0]?.orden ?? 0;
+    const { error } = await supabase.from("lineas_produccion").insert({
+      nombre: form.nombre.trim(),
+      color: form.color,
+      orden: form.orden !== "" ? Number(form.orden) : maxOrden + 1,
+      activa: true,
+    });
+    if (error) { setErr(error.message); setSaving(false); return; }
+    onSaved();
+  }
+
+  return (
+    <Overlay onClose={onClose} maxWidth={400}>
+      <div style={{ padding: 26 }}>
+        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 20 }}>
+          <div>
+            <div style={{ fontSize: 15, color: C.t0, fontWeight: 600 }}>Nueva línea de producción</div>
+            <div style={{ fontSize: 11, color: C.t1, marginTop: 3 }}>Luego podés configurar sus etapas con ⚙</div>
+          </div>
+          <Btn variant="ghost" onClick={onClose} sx={{ fontSize: 18 }}>×</Btn>
+        </div>
+        {err && <div style={{ padding: "8px 12px", marginBottom: 12, background: "rgba(239,68,68,0.08)", border: "1px solid rgba(239,68,68,0.25)", borderRadius: 7, fontSize: 12, color: "#fca5a5" }}>{err}</div>}
+        <form onSubmit={handleSubmit}>
+          <InputSt label="Nombre *">
+            <input style={INP} required autoFocus placeholder="Ej: Línea Barcos FRP" value={form.nombre} onChange={e => set("nombre", e.target.value)} />
+          </InputSt>
+          <div style={{ display: "grid", gridTemplateColumns: "1fr 100px", gap: 10, marginBottom: 12 }}>
+            <InputSt label="Color">
+              <div style={{ display: "flex", gap: 6, alignItems: "center" }}>
+                <input type="color" value={form.color} onChange={e => set("color", e.target.value)} style={{ width: 32, height: 30, border: "none", background: "none", cursor: "pointer", flexShrink: 0 }} />
+                <div style={{ display: "flex", gap: 3, flexWrap: "wrap" }}>
+                  {COLOR_PRESETS.map(c => <div key={c} onClick={() => set("color", c)} style={{ width: 15, height: 15, borderRadius: 3, background: c, cursor: "pointer", border: form.color === c ? "2px solid rgba(255,255,255,0.7)" : "2px solid transparent" }} />)}
+                </div>
+              </div>
+            </InputSt>
+            <InputSt label="Orden">
+              <input type="number" min="1" style={INP} placeholder="Auto" value={form.orden} onChange={e => set("orden", e.target.value)} />
+            </InputSt>
+          </div>
+          <div style={{ display: "flex", gap: 8 }}>
+            <Btn type="submit" variant="primary" disabled={saving}>{saving ? "Creando…" : "Crear línea"}</Btn>
+            <Btn variant="outline" onClick={onClose}>Cancelar</Btn>
+          </div>
+        </form>
+      </div>
+    </Overlay>
+  );
+}
+
 // ─── PLANTILLA LÍNEA ─────────────────────────────────────────────────────────
 function LineasEtapasModal({ linea, lProcs, lTareas = [], onClose, onSaved }) {
   const [items,       setItems]       = useState(lProcs.filter(p => p.linea_id === linea.id).sort((a, b) => (a.orden ?? 0) - (b.orden ?? 0)));
@@ -1630,7 +1693,8 @@ export default function ObrasScreen({ profile, signOut }) {
   const [tareaModal,    setTareaModal]    = useState(null);
   const [tareaDetalle,  setTareaDetalle]  = useState(null);
   const [confirmModal,  setConfirmModal]  = useState(null);
-  const [lineasModal,   setLineasModal]   = useState(null);
+  const [lineasModal,         setLineasModal]         = useState(null);
+  const [showNuevaLineaModal, setShowNuevaLineaModal] = useState(false);
   const [ocModal,       setOcModal]       = useState(null);
   const [mapaPanel,     setMapaPanel]     = useState(null); // { puesto, obra } — vista mapa
 
@@ -2125,6 +2189,9 @@ export default function ObrasScreen({ profile, signOut }) {
                 Planificación
                 {alertCountAvisos > 0 && <span style={{ position: "absolute", top: -4, right: -4, minWidth: 16, height: 16, borderRadius: 8, background: C.red, color: "#fff", fontSize: 9, fontWeight: 700, display: "flex", alignItems: "center", justifyContent: "center", padding: "0 4px" }}>{alertCountAvisos}</span>}
               </button>
+              <button type="button" onClick={() => setMainView("piezas_lam")} style={{ padding: "5px 14px", borderRadius: 7, cursor: "pointer", fontSize: 11, fontFamily: C.sans, border: mainView === "piezas_lam" ? `1px solid rgba(16,185,129,0.4)` : `1px solid ${C.b0}`, background: mainView === "piezas_lam" ? "rgba(16,185,129,0.08)" : "transparent", color: mainView === "piezas_lam" ? C.green : C.t1 }}>
+                <span style={{display:"flex",alignItems:"center",gap:5}}>Piezas Laminación</span>
+              </button>
             </div>
             {mainView === "obras" && esGestion && <Btn variant="primary" onClick={() => setShowObraModal(true)}>+ Nueva obra</Btn>}
           </div>
@@ -2146,6 +2213,9 @@ export default function ObrasScreen({ profile, signOut }) {
                     {esGestion && <button type="button" onClick={() => setLineasModal({ linea: l })} style={{ border: filtroLinea === l.id ? `1px solid ${C.b1}` : `1px solid rgba(255,255,255,0.04)`, borderLeft: "none", background: filtroLinea === l.id ? C.s1 : "transparent", color: C.t2, padding: "3px 6px", borderRadius: "0 5px 5px 0", cursor: "pointer", fontSize: 9, fontFamily: C.sans }}><NavIcon.Gear /></button>}
                   </div>
                 ))}
+                {esGestion && (
+                  <button type="button" onClick={() => setShowNuevaLineaModal(true)} style={{ border: "1px dashed rgba(59,130,246,0.3)", background: "transparent", color: C.primary, padding: "3px 10px", borderRadius: 5, cursor: "pointer", fontSize: 10, fontFamily: C.sans, flexShrink: 0, opacity: 0.8 }}>+ Nueva línea</button>
+                )}
               </div>
 
               <div style={{ flex: 1, display: "flex", overflow: "hidden" }}>
@@ -2220,6 +2290,10 @@ export default function ObrasScreen({ profile, signOut }) {
               }}
             />
           )}
+
+          {mainView === "piezas_lam" && (
+            <PiezasLaminacionView obras={obras} esGestion={esGestion} />
+          )}
         </div>
       </div>
 
@@ -2230,6 +2304,7 @@ export default function ObrasScreen({ profile, signOut }) {
       {tareaDetalle  && <TareaDetalleModal tarea={tareaDetalle} esGestion={esGestion} onClose={() => setTareaDetalle(null)} onEditar={t => { setTareaDetalle(null); setTareaModal({ tarea: t, etapaId: t.etapa_id, obraId: t.obra_id }); }} />}
       {confirmModal  && <ConfirmModal {...confirmModal} onCancel={() => setConfirmModal(null)} />}
       {lineasModal   && <LineasEtapasModal linea={lineasModal.linea} lProcs={lProcs} lTareas={lTareas} onClose={() => setLineasModal(null)} onSaved={cargar} />}
+      {showNuevaLineaModal && <NuevaLineaModal onClose={() => setShowNuevaLineaModal(false)} onSaved={() => { setShowNuevaLineaModal(false); cargar(); }} />}
       {ocModal       && <OrdenCompraModal oc={ocModal} obras={obras} onSave={() => { setOcModal(null); cargar(); }} onClose={() => setOcModal(null)} />}
     </div>
   );

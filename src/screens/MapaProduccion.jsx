@@ -405,92 +405,20 @@ function CinematicCallouts({p, obra, oC, memoriaOverride, vp, containerSize}){
   const mesadas     = obra?.color_mesadas ?? mem.color_mesadas ?? null;
   const adicionales = mem.adicionales ?? null;
 
-  const left = [
+  const leftItems = [
     motor       && { label:"MOTOR",       val: motor,       emoji:"⚙️" },
     grupo       && { label:"GRUPO ELECT.", val: grupo,       emoji:"⚡" },
     adicionales && { label:"ADICIONALES", val: adicionales, emoji:"★"  },
   ].filter(Boolean).slice(0,3);
 
-  const right = [
+  const rightItems = [
     propietario && { label:"PROPIETARIO", val: propietario, emoji:"👤" },
     constructor && { label:"CONSTRUCTOR", val: constructor, emoji:"🦺" },
     mesadas     && { label:"MESADAS",     val: mesadas,     emoji:"◩"  },
   ].filter(Boolean).slice(0,3);
 
-  // Card dimensions in world coords
-  const CARD_W = 165;
-  const CARD_H = 54;
-  const GAP    = 14;
-  const OFFSET = 48; // gap from boat edge to card edge
-
-  const bx = p.cx - p.w/2;
-  const dx = p.cx + p.w/2;
-
-  // Compute visible world bounds from viewport transform
-  const sc         = vp?.scale ?? 1;
-  const visLeft    = vp ? -vp.x / sc                         : 0;
-  const visTop     = vp ? -vp.y / sc                         : 0;
-  const visRight   = vp ? ((containerSize?.w ?? 1200) - vp.x) / sc : VB_W;
-  const visBottom  = vp ? ((containerSize?.h ?? 800)  - vp.y) / sc : VB_H;
-  const PAD        = 16 / sc;
-
-  const totalL = left.length  * CARD_H + Math.max(0, left.length  - 1) * GAP;
-  const totalR = right.length * CARD_H + Math.max(0, right.length - 1) * GAP;
-  const ly0 = p.cy - totalL / 2;
-  const ry0 = p.cy - totalR / 2;
-
-  const cardBg     = "rgba(4,6,20,0.96)";
-  const cardBorder = `${oC.glow}50`;
-  const labelCol   = `${oC.glow}cc`;
-  const valCol     = "rgba(255,255,255,0.95)";
-
-  function Card({item, i, side, y0}){
-    const cy    = y0 + i * (CARD_H + GAP) + CARD_H / 2;
-    const delay = `${0.07 + i * 0.09}s`;
-    const dotX  = side === "left" ? bx - 5 : dx + 5;
-
-    // Ideal position, then clamp to visible area
-    const idealX = side === "left" ? bx - OFFSET - CARD_W : dx + OFFSET;
-    const cardX  = side === "left"
-      ? Math.max(visLeft  + PAD, idealX)
-      : Math.min(visRight - CARD_W - PAD, idealX);
-    const cardY  = Math.max(visTop + PAD, Math.min(visBottom - CARD_H - PAD, cy - CARD_H / 2));
-    const cardCY = cardY + CARD_H / 2;
-
-    // Line goes from dot on boat edge to nearest edge of card
-    const lineEndX = side === "left" ? cardX + CARD_W : cardX;
-    const val      = item.val.length > 20 ? item.val.slice(0,18)+"…" : item.val;
-
-    return (
-      <g style={{animation:`focusIn 0.4s cubic-bezier(0.16,1,0.3,1) ${delay} both`}}>
-        <line x1={dotX} y1={cy} x2={lineEndX} y2={cardCY}
-          stroke={`${oC.glow}55`} strokeWidth="0.9" strokeDasharray="4 3"/>
-        <circle cx={dotX} cy={cy} r="3.5" fill={oC.glow} fillOpacity="0.9"
-          style={{filter:`drop-shadow(0 0 5px ${oC.glow})`}}/>
-        <rect x={cardX} y={cardY} width={CARD_W} height={CARD_H} rx="10"
-          fill={cardBg} stroke={cardBorder} strokeWidth="1.2"
-          style={{filter:"drop-shadow(0 6px 22px rgba(0,0,0,0.9))"}}/>
-        {side === "left"
-          ? <rect x={cardX+1.5}          y={cardY+10} width="3.5" height={CARD_H-20} rx="1.5" fill={oC.glow} fillOpacity="0.75"/>
-          : <rect x={cardX+CARD_W-5}     y={cardY+10} width="3.5" height={CARD_H-20} rx="1.5" fill={oC.glow} fillOpacity="0.75"/>
-        }
-        <text x={cardX+22} y={cardCY+1} textAnchor="middle" dominantBaseline="middle"
-          fontSize="15" style={{userSelect:"none"}}>{item.emoji}</text>
-        <text x={cardX+36} y={cardY+17}
-          fill={labelCol} fontSize="7.5"
-          fontFamily="'JetBrains Mono',monospace" fontWeight="700" letterSpacing="1.6">
-          {item.label}
-        </text>
-        <text x={cardX+36} y={cardY+37}
-          fill={valCol} fontSize="13"
-          fontFamily="'Outfit',system-ui,sans-serif" fontWeight="600">
-          {val}
-        </text>
-      </g>
-    );
-  }
-
-  return(
+  // SVG overlay: marco, corner marks, crosshair, glow
+  const SVGDecor = ()=>(
     <g style={{pointerEvents:"none"}}>
       <rect x={p.cx-p.w/2-12} y={p.cy-p.h/2-12} width={p.w+24} height={p.h+24}
         rx={Math.min(p.w,p.h)*0.14} fill="none"
@@ -516,17 +444,127 @@ function CinematicCallouts({p, obra, oC, memoriaOverride, vp, containerSize}){
         <line x1={p.cx} y1={p.cy-22} x2={p.cx} y2={p.cy+22}/>
         <circle cx={p.cx} cy={p.cy} r="5" fill="none" stroke="rgba(255,255,255,0.22)" strokeWidth="0.7"/>
       </g>
-      {left.map((item,i) =><Card key={`l${i}`} item={item} i={i} side="left"  y0={ly0}/>)}
-      {right.map((item,i)=><Card key={`r${i}`} item={item} i={i} side="right" y0={ry0}/>)}
-      {left.length===0&&right.length===0&&(
-        <text x={p.cx} y={p.cy-p.h/2-28} textAnchor="middle"
-          fill="rgba(255,255,255,0.22)" fontSize="10"
-          fontFamily="'Outfit',sans-serif" fontStyle="italic"
-          style={{animation:"focusIn 0.4s ease 0.2s both"}}>
-          Completá la ficha para ver los datos aquí
-        </text>
-      )}
     </g>
+  );
+
+  return <SVGDecor/>;
+}
+
+// HTML overlay cards — rendered outside the SVG in screen-space
+function CinematicCards({p, obra, oC, memoriaOverride, vp, svgRef, containerSize}){
+  const db  = MEMORIAS_DB[obra?.codigo] ?? {};
+  const mem = { ...db, ...(memoriaOverride??{}) };
+
+  const propietario = obra?.propietario  ?? mem.propietario   ?? null;
+  const constructor = obra?.constructor  ?? mem.constructor   ?? null;
+  const motor       = obra?.motores      ?? mem.motorizacion  ?? null;
+  const grupo       = obra?.grupo_electrogeno_det ?? (obra?.grupo_electrogeno ? "Sí" : null) ?? mem.grupo_electrogeno ?? null;
+  const mesadas     = obra?.color_mesadas ?? mem.color_mesadas ?? null;
+  const adicionales = mem.adicionales ?? null;
+
+  const allSlots = [
+    { key:"tl", label:"MOTOR",       val: motor,       emoji:"⚙️", ox:-1, oy:-1 },
+    { key:"tr", label:"GRUPO ELECT.", val: grupo,       emoji:"⚡", ox: 1, oy:-1 },
+    { key:"l",  label:"PROPIETARIO", val: propietario, emoji:"👤", ox:-1, oy: 0 },
+    { key:"r",  label:"CONSTRUCTOR", val: constructor, emoji:"🦺", ox: 1, oy: 0 },
+    { key:"bl", label:"MESADAS",     val: mesadas,     emoji:"◩",  ox:-1, oy: 1 },
+    { key:"br", label:"ADICIONALES", val: adicionales, emoji:"★",  ox: 1, oy: 1 },
+  ].filter(s => s.val);
+
+  if(!vp || !allSlots.length) return null;
+
+  // ── KEY FIX: offset del SVG en la pantalla ──
+  const svgRect = svgRef?.current?.getBoundingClientRect?.() ?? {left:0, top:0};
+  const offX = svgRect.left;
+  const offY = svgRect.top;
+
+  const sc   = vp.scale;
+  const scrX = p.cx * sc + vp.x + offX;
+  const scrY = p.cy * sc + vp.y + offY;
+  const hw   = (p.w / 2) * sc;
+  const hh   = (p.h / 2) * sc;
+
+  const CARD_W = 164;
+  const CARD_H = 56;
+  const PAD    = 38;
+  const HUD_W  = 445;
+  const cW     = window.innerWidth;
+  const cH     = window.innerHeight;
+
+  const positioned = allSlots.map((slot, i) => {
+    const { ox, oy } = slot;
+    const anchorX = scrX + ox * hw;
+    const anchorY = scrY + oy * hh;
+    // Card arranca en diagonal desde el ancla
+    let cardX = anchorX + ox * PAD;
+    let cardY = anchorY + oy * PAD - CARD_H / 2;
+    if (ox < 0) cardX -= CARD_W;
+    if (ox === 0) cardX -= CARD_W / 2;
+    // Clamp
+    cardX = Math.max(8, Math.min(cW - HUD_W - CARD_W - 8, cardX));
+    cardY = Math.max(8, Math.min(cH - CARD_H - 8, cardY));
+    return { ...slot, anchorX, anchorY, cardX, cardY,
+      cardCX: cardX + CARD_W / 2, cardCY: cardY + CARD_H / 2,
+      delay: `${i * 0.065}s` };
+  });
+
+  return createPortal(
+    <>
+      <style>{`
+        @keyframes cardPop {
+          0%   { opacity:0; transform:scale(0.8) translateY(4px); filter:blur(3px); }
+          65%  { opacity:1; transform:scale(1.03) translateY(-1px); filter:blur(0); }
+          100% { opacity:1; transform:scale(1) translateY(0); filter:blur(0); }
+        }
+      `}</style>
+      <div style={{position:"fixed",inset:0,pointerEvents:"none",zIndex:900}}>
+        {/* SVG único para líneas */}
+        <svg style={{position:"absolute",inset:0,width:"100%",height:"100%",overflow:"visible",pointerEvents:"none"}}>
+          {positioned.map(s=>(
+            <g key={`ln-${s.key}`} style={{animation:`cardPop 0.4s ease ${s.delay} both`}}>
+              <line x1={s.anchorX} y1={s.anchorY} x2={s.cardCX} y2={s.cardCY}
+                stroke={`${oC.glow}45`} strokeWidth="1" strokeDasharray="5 4"/>
+              <circle cx={s.anchorX} cy={s.anchorY} r="3.5" fill={oC.glow}
+                style={{filter:`drop-shadow(0 0 5px ${oC.glow})`}}/>
+            </g>
+          ))}
+        </svg>
+        {/* Cards */}
+        {positioned.map(s => {
+          const val = (s.val ?? "").length > 22 ? s.val.slice(0,20)+"…" : s.val;
+          return (
+            <div key={s.key} style={{
+              position:"absolute", left:s.cardX, top:s.cardY,
+              width:CARD_W, height:CARD_H,
+              background:"rgba(5,7,22,0.94)",
+              border:`1px solid ${oC.glow}35`,
+              borderRadius:10,
+              boxShadow:`0 8px 32px rgba(0,0,0,0.85)`,
+              display:"flex", alignItems:"center", gap:10, padding:"0 14px",
+              animation:`cardPop 0.45s cubic-bezier(0.34,1.4,0.64,1) ${s.delay} both`,
+              fontFamily:"'Outfit',system-ui,sans-serif",
+              backdropFilter:"blur(10px)", userSelect:"none",
+            }}>
+              <span style={{fontSize:17,flexShrink:0}}>{s.emoji}</span>
+              <div style={{flex:1,minWidth:0}}>
+                <div style={{
+                  fontSize:7, letterSpacing:"1.8px", fontWeight:700,
+                  fontFamily:"'JetBrains Mono',monospace",
+                  color:`${oC.glow}b0`, textTransform:"uppercase",
+                  marginBottom:3, lineHeight:1,
+                }}>{s.label}</div>
+                <div style={{
+                  fontSize:13, fontWeight:600,
+                  color:"rgba(255,255,255,0.95)", lineHeight:1.2,
+                  whiteSpace:"nowrap", overflow:"hidden", textOverflow:"ellipsis",
+                }}>{val}</div>
+              </div>
+            </div>
+          );
+        })}
+      </div>
+    </>,
+    document.body
   );
 }
 
@@ -564,17 +602,38 @@ const IC = {
 };
 
 const MEMORIA_FIELDS = [
-  { key:"propietario",        label:"Propietario",                     icon:IC.user,    col:1 },
-  { key:"constructor",        label:"Constructor",                     icon:IC.hardhat, col:1 },
-  { key:"motorizacion",       label:"Motorización",                    icon:IC.engine,  col:1 },
-  { key:"grupo_electrogeno",  label:"Grupo Electrógeno",               icon:IC.bolt,    col:1 },
-  { key:"madera_muebles",     label:"Madera Muebles",                  icon:IC.wood,    col:2 },
-  { key:"piso",               label:"Piso",                            icon:IC.floor,   col:2 },
-  { key:"color_mesadas",      label:"Mesadas (baño, cocina, ext.)",    icon:IC.palette, col:2, wide:true },
-  { key:"electronica",        label:"Electrónica",                     icon:IC.signal,  col:1 },
-  { key:"color_cerramientos", label:"Cerramientos",                    icon:IC.door,    col:1 },
-  { key:"color_acolchados",   label:"Tapicería / Acolchados",          icon:IC.sofa,    col:2 },
-  { key:"adicionales",        label:"Adicionales / Colores especiales",icon:IC.notes,   col:1, wide:true },
+  // ── IDENTIFICACIÓN ──
+  { key:"propietario",        label:"Propietario",                     icon:IC.user,    col:1, section:"Identificación" },
+  { key:"constructor",        label:"Constructor",                     icon:IC.hardhat, col:2, section:"Identificación" },
+  // ── ESTRUCTURA ──
+  { key:"motorizacion",       label:"Motorización",                    icon:IC.engine,  col:1, section:"Estructura" },
+  { key:"grupo_electrogeno",  label:"Grupo Electrógeno",               icon:IC.bolt,    col:2, section:"Estructura" },
+  { key:"cabina",             label:"Cabina / Tipo",                   icon:IC.ship,    col:1, section:"Estructura" },
+  { key:"color_casco",        label:"Color Casco",                     icon:IC.brush,   col:2, section:"Estructura" },
+  // ── INTERIORES ──
+  { key:"madera_muebles",     label:"Madera / Muebles",                icon:IC.wood,    col:1, section:"Interiores" },
+  { key:"piso",               label:"Piso",                            icon:IC.floor,   col:2, section:"Interiores" },
+  { key:"alfombra",           label:"Alfombra",                        icon:IC.floor,   col:1, section:"Interiores" },
+  { key:"color_cerramientos", label:"Cerramientos",                    icon:IC.door,    col:2, section:"Interiores" },
+  { key:"color_mesadas",      label:"Mesadas (baño, cocina, cockpit)", icon:IC.palette, col:1, section:"Interiores", wide:true },
+  // ── TAPICERÍA ──
+  { key:"tapiceria_mamparos", label:"Mamparos / Techos Int.",          icon:IC.sofa,    col:1, section:"Tapicería" },
+  { key:"tapiceria_dinette",  label:"Dinette / Sillón Popa",           icon:IC.sofa,    col:2, section:"Tapicería" },
+  { key:"tapiceria_respaldos",label:"Respaldos / Bandeus",             icon:IC.sofa,    col:1, section:"Tapicería" },
+  { key:"tapiceria_exterior", label:"Exterior (asientos, puffs)",      icon:IC.sofa,    col:2, section:"Tapicería" },
+  { key:"color_acolchados",   label:"Acolchados",                      icon:IC.sofa,    col:1, section:"Tapicería" },
+  // ── LONERÍA ──
+  { key:"loneria_toldo_proa", label:"Toldo rebatible proa",            icon:IC.ship,    col:1, section:"Lonería" },
+  { key:"loneria_cobertor",   label:"Cobertor / Lona",                 icon:IC.ship,    col:2, section:"Lonería" },
+  { key:"loneria_otros",      label:"Otros (mosquitero, tambucho…)",   icon:IC.notes,   col:1, section:"Lonería", wide:true },
+  // ── ELECTRÓNICA ──
+  { key:"electronica",        label:"Electrónica / Audio",             icon:IC.signal,  col:1, section:"Electrónica", wide:true },
+  // ── ADICIONALES ──
+  { key:"fabricadora_hielo",  label:"Fabricadora de hielo",            icon:IC.bolt,    col:1, section:"Adicionales" },
+  { key:"radar",              label:"Radar",                           icon:IC.signal,  col:2, section:"Adicionales" },
+  { key:"pluma",              label:"Pluma",                           icon:IC.anchor,  col:1, section:"Adicionales" },
+  { key:"planchada",          label:"Planchada",                       icon:IC.ship,    col:2, section:"Adicionales" },
+  { key:"adicionales",        label:"Adicionales / Notas técnicas",    icon:IC.notes,   col:1, section:"Adicionales", wide:true },
 ];
 
 /* ── FieldBox fuera del componente para evitar remount en cada keystroke ── */
@@ -638,14 +697,26 @@ function MemoriaHUD({ obra, puesto, oC, memoriaOverride, onSaveMemoria, notas=[]
     constructor:        obra?.constructor  ?? db.constructor        ?? "",
     motorizacion:       obra?.motores      ?? db.motorizacion       ?? "",
     grupo_electrogeno:  obra?.grupo_electrogeno_det ?? (obra?.grupo_electrogeno?"Sí":null) ?? db.grupo_electrogeno ?? "",
+    cabina:             obra?.tipo_cabina  ?? db.cabina             ?? "",
+    color_casco:        obra?.color_casco  ?? db.color_casco        ?? "",
     madera_muebles:     obra?.madera_muebles ?? db.madera_muebles   ?? "",
     piso:               obra?.piso         ?? db.piso               ?? "",
-    color_mesadas:      obra?.color_mesadas?? db.color_mesadas      ?? "",
-    color_casco:        obra?.color_casco  ?? db.color_casco        ?? "",
-    electronica:        obra?.electronica  ?? db.electronica        ?? "",
+    alfombra:           db.alfombra        ?? "",
     color_cerramientos: db.color_cerramientos ?? "",
+    color_mesadas:      obra?.color_mesadas?? db.color_mesadas      ?? "",
+    tapiceria_mamparos: db.tapiceria_mamparos ?? "",
+    tapiceria_dinette:  db.tapiceria_dinette  ?? "",
+    tapiceria_respaldos:db.tapiceria_respaldos?? "",
+    tapiceria_exterior: db.tapiceria_exterior ?? "",
     color_acolchados:   db.color_acolchados   ?? "",
-    color_exterior:     db.color_exterior     ?? "",
+    loneria_toldo_proa: db.loneria_toldo_proa ?? "",
+    loneria_cobertor:   db.loneria_cobertor   ?? "",
+    loneria_otros:      db.loneria_otros      ?? "",
+    electronica:        obra?.electronica  ?? db.electronica        ?? "",
+    fabricadora_hielo:  db.fabricadora_hielo  ?? "",
+    radar:              db.radar              ?? "",
+    pluma:              db.pluma              ?? "",
+    planchada:          db.planchada          ?? "",
     adicionales:        db.adicionales        ?? "",
     starlink:           obra?.starlink     ?? db.starlink     ?? false,
     teca_cockpit:       obra?.teca_cockpit ?? db.teca_cockpit ?? false,
@@ -693,66 +764,118 @@ function MemoriaHUD({ obra, puesto, oC, memoriaOverride, onSaveMemoria, notas=[]
     const accentHex = oC.glow;
     const badgeList = [
       fields.starlink      && "Starlink",
-      fields.teca_cockpit  && "Teca/Infinity",
+      fields.teca_cockpit  && "Teca / Infinity",
       fields.sternthruster && "Sternthruster",
     ].filter(Boolean);
-    const rows = MEMORIA_FIELDS.map(f=>{
-      const val=fields[f.key]; if(!val) return "";
-      return `<tr><td class="label">${f.label}</td><td class="val">${String(val).replace(/\n/g,"<br/>")}</td></tr>`;
+
+    // Agrupar campos por sección para imprimir
+    const secs = [...new Set(MEMORIA_FIELDS.map(f=>f.section))];
+    const secHTML = secs.map(sec=>{
+      const secFields = MEMORIA_FIELDS.filter(f=>f.section===sec);
+      const rows = secFields.map(f=>{
+        const val = fields[f.key];
+        if(!val) return "";
+        return `<tr><td class="label">${f.label}</td><td class="val">${String(val).replace(/\n/g,"<br/>")}</td></tr>`;
+      }).join("");
+      if(!rows) return "";
+      return `
+        <div class="section-title">${sec}</div>
+        <table>${rows}</table>`;
     }).join("");
+
     const notasHTML = notas.length ? notas.map(n=>`
       <div class="nota"><span class="nb">◆</span><div><div class="nt">${n.texto}</div><div class="nd">${n.fecha}</div></div></div>`
     ).join("") : `<p class="empty">Sin notas registradas.</p>`;
+
     const html=`<!DOCTYPE html><html lang="es"><head><meta charset="UTF-8"/>
 <title>Memoria — ${obra?.codigo??`Puesto ${puesto?.label}`}</title>
 <style>
-@import url('https://fonts.googleapis.com/css2?family=Outfit:wght@400;600;700;800&family=JetBrains+Mono:wght@400;700&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;600&display=swap');
 *{box-sizing:border-box;margin:0;padding:0;}
-body{font-family:'Outfit',sans-serif;background:#fff;color:#1a1a2e;}
-@page{size:A4;margin:18mm 16mm;}
-.page{max-width:760px;margin:0 auto;padding:32px 36px;}
-.header{display:flex;justify-content:space-between;align-items:flex-start;padding-bottom:16px;border-bottom:2px solid ${accentHex};margin-bottom:22px;}
-.company{font-size:8px;letter-spacing:3px;text-transform:uppercase;color:#999;margin-bottom:6px;font-family:'JetBrains Mono',monospace;}
-.codigo{font-size:30px;font-weight:800;font-family:'JetBrains Mono',monospace;letter-spacing:1px;line-height:1;}
-.subtitle{font-size:9px;letter-spacing:2px;text-transform:uppercase;color:#999;margin-top:5px;}
-.estado{display:inline-block;padding:4px 12px;border-radius:20px;font-size:9px;letter-spacing:2px;font-weight:700;text-transform:uppercase;background:${accentHex}15;color:${accentHex};border:1.5px solid ${accentHex}40;margin-bottom:6px;}
-.fecha{font-size:8px;color:#bbb;font-family:'JetBrains Mono',monospace;}
-.stitle{font-size:7.5px;letter-spacing:3px;text-transform:uppercase;color:#bbb;font-family:'JetBrains Mono',monospace;margin:18px 0 10px;padding-bottom:5px;border-bottom:1px solid #f0f0f0;}
-table{width:100%;border-collapse:collapse;}
-tr{border-bottom:1px solid #f5f5f5;} tr:last-child{border-bottom:none;}
-td{padding:8px 6px;vertical-align:top;}
-td.label{width:36%;font-size:9.5px;color:#999;text-transform:uppercase;letter-spacing:1px;font-weight:600;padding-right:12px;}
-td.val{font-size:12.5px;color:#1a1a2e;font-weight:500;line-height:1.5;}
-.badges{display:flex;gap:7px;flex-wrap:wrap;margin:10px 0;}
-.badge{padding:3px 11px;border-radius:20px;font-size:9px;font-weight:600;background:#f4f4f8;color:#555;border:1px solid #e0e0e8;}
-.nota{display:flex;gap:10px;padding:8px 0;border-bottom:1px solid #f4f4f4;} .nota:last-child{border-bottom:none;}
-.nb{color:${accentHex};font-size:9px;margin-top:3px;flex-shrink:0;}
-.nt{font-size:12px;color:#333;line-height:1.5;} .nd{font-size:8px;color:#ccc;margin-top:2px;font-family:'JetBrains Mono',monospace;}
-.empty{font-size:11px;color:#ccc;font-style:italic;padding:8px 0;}
-.footer{margin-top:28px;padding-top:12px;border-top:1px solid #eee;display:flex;justify-content:space-between;align-items:center;}
-.fl{font-size:8px;color:#ccc;font-family:'JetBrains Mono',monospace;letter-spacing:1px;}
-.bar{width:36px;height:2.5px;background:${accentHex};border-radius:2px;}
-@media print{body{-webkit-print-color-adjust:exact;print-color-adjust:exact;} .noprint{display:none!important;}}
+body{font-family:'Inter',sans-serif;background:#f8f8fa;color:#0d0d1a;font-size:12px;}
+@page{size:A4;margin:14mm 14mm;}
+
+/* Layout */
+.page{max-width:780px;margin:0 auto;background:#fff;padding:32px 36px;min-height:100vh;}
+
+/* Header */
+.header{display:grid;grid-template-columns:1fr auto;gap:16px;align-items:start;padding-bottom:20px;border-bottom:3px solid #0d0d1a;margin-bottom:24px;}
+.kw{font-size:7.5px;letter-spacing:3.5px;text-transform:uppercase;color:#aaa;font-family:'JetBrains Mono',monospace;margin-bottom:8px;}
+.codigo{font-size:36px;font-weight:800;font-family:'JetBrains Mono',monospace;letter-spacing:-0.5px;line-height:1;color:#0d0d1a;}
+.sub{font-size:9px;letter-spacing:1.5px;text-transform:uppercase;color:#999;margin-top:6px;}
+.header-right{text-align:right;}
+.estado{display:inline-block;padding:5px 14px;border-radius:4px;font-size:8px;letter-spacing:2px;font-weight:700;text-transform:uppercase;background:${accentHex};color:#fff;margin-bottom:8px;}
+.meta{font-size:8px;color:#bbb;font-family:'JetBrains Mono',monospace;line-height:1.8;}
+.pct-bar{margin-top:8px;height:4px;background:#eee;border-radius:2px;width:120px;margin-left:auto;}
+.pct-fill{height:100%;background:${accentHex};border-radius:2px;width:${obra?._pct??0}%;}
+
+/* Badges */
+.badges{display:flex;gap:7px;flex-wrap:wrap;margin-bottom:20px;}
+.badge{padding:4px 12px;border-radius:3px;font-size:8px;font-weight:600;letter-spacing:1px;background:#f0f0f5;color:#555;border:1px solid #ddd;text-transform:uppercase;}
+
+/* Secciones */
+.section-title{font-size:7px;letter-spacing:3px;text-transform:uppercase;color:#aaa;font-family:'JetBrains Mono',monospace;font-weight:600;margin:18px 0 8px;padding-bottom:6px;border-bottom:1px solid #eee;display:flex;align-items:center;gap:8px;}
+.section-title::after{content:'';flex:1;height:1px;background:#eee;}
+
+/* Tabla */
+table{width:100%;border-collapse:collapse;margin-bottom:4px;}
+tr{border-bottom:1px solid #f2f2f5;}
+tr:last-child{border-bottom:none;}
+td{padding:7px 6px;vertical-align:top;}
+td.label{width:32%;font-size:8.5px;color:#888;text-transform:uppercase;letter-spacing:1px;font-weight:600;padding-right:12px;font-family:'Inter',sans-serif;}
+td.val{font-size:12px;color:#1a1a2e;font-weight:500;line-height:1.5;}
+
+/* Notas */
+.notas-title{font-size:7px;letter-spacing:3px;text-transform:uppercase;color:#aaa;font-family:'JetBrains Mono',monospace;font-weight:600;margin:20px 0 10px;padding-bottom:6px;border-bottom:1px solid #eee;}
+.nota{display:flex;gap:10px;padding:8px 0;border-bottom:1px solid #f5f5f5;}
+.nota:last-child{border-bottom:none;}
+.nb{color:${accentHex};font-size:10px;margin-top:2px;flex-shrink:0;}
+.nt{font-size:12px;color:#333;line-height:1.5;}
+.nd{font-size:8px;color:#ccc;margin-top:2px;font-family:'JetBrains Mono',monospace;}
+.empty{font-size:11px;color:#ccc;font-style:italic;padding:6px 0;}
+
+/* Footer */
+.footer{margin-top:32px;padding-top:12px;border-top:1px solid #eee;display:flex;justify-content:space-between;align-items:center;}
+.fl{font-size:7.5px;color:#ccc;font-family:'JetBrains Mono',monospace;letter-spacing:1px;}
+.fr{font-size:7.5px;color:#ccc;font-family:'JetBrains Mono',monospace;letter-spacing:1px;text-align:right;}
+
+@media print{body{-webkit-print-color-adjust:exact;print-color-adjust:exact;}.noprint{display:none!important;}}
 </style></head><body><div class="page">
+
 <div class="header">
-<div><div class="company">Astillero Klasea · Plano de Producción</div>
-<div class="codigo">${obra?.codigo??`Puesto ${puesto?.label}`}</div>
-<div class="subtitle">Memoria Descriptiva · Puesto ${puesto?.label} · ${puesto?.tipo?.toUpperCase()??""}</div></div>
-<div style="text-align:right"><div class="estado">${obra?.estado?.toUpperCase()??"VACÍO"}</div>
-<div class="fecha">Emitido: ${new Date().toLocaleDateString("es-AR",{day:"2-digit",month:"long",year:"numeric"})}</div>
-${obra?._pct!=null?`<div class="fecha" style="margin-top:3px">Progreso: <strong>${obra._pct}%</strong></div>`:""}
-</div></div>
-<div class="stitle">Especificaciones Técnicas</div>
-<table>${rows}</table>
-${badgeList.length?`<div class="stitle">Equipamiento</div><div class="badges">${badgeList.map(b=>`<span class="badge">${b}</span>`).join("")}</div>`:""}
-<div class="stitle">Notas del Equipo</div><div>${notasHTML}</div>
-<div class="footer"><div class="fl">KLASEA · ${new Date().toLocaleDateString("es-AR")}</div><div class="bar"></div></div>
+  <div>
+    <div class="kw">Astillero Klasea · Memoria Descriptiva</div>
+    <div class="codigo">${obra?.codigo??`Puesto ${puesto?.label}`}</div>
+    <div class="sub">Puesto ${puesto?.label} · ${puesto?.tipo?.toUpperCase()??""}</div>
+  </div>
+  <div class="header-right">
+    <div class="estado">${obra?.estado?.toUpperCase()??"VACÍO"}</div>
+    <div class="meta">
+      Emitido: ${new Date().toLocaleDateString("es-AR",{day:"2-digit",month:"long",year:"numeric"})}<br/>
+      ${obra?._pct!=null?`Progreso: <strong>${obra._pct}%</strong>`:""}
+    </div>
+    ${obra?._pct!=null?`<div class="pct-bar"><div class="pct-fill"></div></div>`:""}
+  </div>
+</div>
+
+${badgeList.length?`<div class="badges">${badgeList.map(b=>`<span class="badge">${b}</span>`).join("")}</div>`:""}
+
+${secHTML}
+
+<div class="notas-title">Notas del Equipo</div>
+${notasHTML}
+
+<div class="footer">
+  <div class="fl">KLASEA ASTILLERO · ${new Date().toLocaleDateString("es-AR")}</div>
+  <div class="fr">${obra?.codigo??""} · Generado desde Sistema de Producción</div>
+</div>
+
 </div>
 <div class="noprint" style="position:fixed;bottom:20px;left:50%;transform:translateX(-50%);display:flex;gap:10px;z-index:999;">
-<button onclick="window.print()" style="padding:10px 28px;background:${accentHex};color:#fff;border:none;border-radius:8px;font-size:13px;font-weight:700;cursor:pointer;font-family:Outfit,sans-serif;">Imprimir / Guardar PDF</button>
-<button onclick="window.close()" style="padding:10px 18px;background:#f4f4f8;color:#555;border:1px solid #e0e0e8;border-radius:8px;font-size:12px;cursor:pointer;">Cerrar</button>
+  <button onclick="window.print()" style="padding:10px 28px;background:#0d0d1a;color:#fff;border:none;border-radius:6px;font-size:13px;font-weight:700;cursor:pointer;font-family:Inter,sans-serif;">Imprimir / Guardar PDF</button>
+  <button onclick="window.close()" style="padding:10px 18px;background:#f4f4f8;color:#555;border:1px solid #e0e0e8;border-radius:6px;font-size:12px;cursor:pointer;">Cerrar</button>
 </div></body></html>`;
-    const win=window.open("","_blank","width=860,height=900");
+    const win=window.open("","_blank","width=900,height=950");
     if(!win){alert("Habilitá las ventanas emergentes para imprimir.");return;}
     win.document.write(html); win.document.close();
   };
@@ -765,6 +888,9 @@ ${badgeList.length?`<div class="stitle">Equipamiento</div><div class="badges">${
     {key:"teca_cockpit", icon:IC.teca,     label:"Teca/Infinity",color:"#d4b483"},
     {key:"sternthruster",icon:IC.anchor,   label:"Sternthruster",color:"#7dd3fc"},
   ];
+
+  // Agrupar por sección para el render
+  const sections = [...new Set(MEMORIA_FIELDS.map(f=>f.section))];
 
   return (
     <div style={{
@@ -851,38 +977,49 @@ ${badgeList.length?`<div class="stitle">Equipamiento</div><div class="badges">${
       </div>
 
       {/* ── SCROLLABLE BODY ── */}
-      <div className="mem-scroll" style={{flex:1,overflowY:"auto",padding:"14px 22px",display:"flex",flexDirection:"column",gap:6,position:"relative",zIndex:1}}>
+      <div className="mem-scroll" style={{flex:1,overflowY:"auto",padding:"10px 22px",display:"flex",flexDirection:"column",gap:4,position:"relative",zIndex:1}}>
 
-        <div style={{fontSize:8,color:"rgba(255,255,255,0.16)",letterSpacing:1.5,textAlign:"center",marginBottom:2,textTransform:"uppercase",fontFamily:"'JetBrains Mono',monospace",display:"flex",alignItems:"center",justifyContent:"center",gap:4}}>
+        <div style={{fontSize:8,color:"rgba(255,255,255,0.16)",letterSpacing:1.5,textAlign:"center",marginBottom:4,textTransform:"uppercase",fontFamily:"'JetBrains Mono',monospace",display:"flex",alignItems:"center",justifyContent:"center",gap:4}}>
           {IC.pencil} <span>Clic en cada campo para editar</span>
         </div>
 
-        {/* 2-column grid */}
-        <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:6}}>
-          {col1.map((f,i)=>(
-            <FieldBox key={f.key} field={f}
-              isEditing={editingKey===f.key} val={fields[f.key]} editVal={editVal}
-              editRef={editingKey===f.key?editRef:null}
-              onStartEdit={startEdit} onChangeVal={onChangeVal} onCommit={commitEdit}/>
-          ))}
-          {col2.map((f,i)=>(
-            <FieldBox key={f.key} field={f}
-              isEditing={editingKey===f.key} val={fields[f.key]} editVal={editVal}
-              editRef={editingKey===f.key?editRef:null}
-              onStartEdit={startEdit} onChangeVal={onChangeVal} onCommit={commitEdit}/>
-          ))}
-        </div>
-
-        {/* Wide fields */}
-        {wide.map(f=>(
-          <FieldBox key={f.key} field={f}
-            isEditing={editingKey===f.key} val={fields[f.key]} editVal={editVal}
-            editRef={editingKey===f.key?editRef:null}
-            onStartEdit={startEdit} onChangeVal={onChangeVal} onCommit={commitEdit}/>
-        ))}
+        {/* Render por secciones */}
+        {sections.map(sec=>{
+          const secFields = MEMORIA_FIELDS.filter(f=>f.section===sec);
+          const secGrid   = secFields.filter(f=>!f.wide);
+          const secWide   = secFields.filter(f=>f.wide);
+          return(
+            <div key={sec}>
+              {/* Título de sección */}
+              <div style={{display:"flex",alignItems:"center",gap:6,margin:"8px 0 5px"}}>
+                <div style={{height:1,flex:1,background:`linear-gradient(90deg,${oC.glow}30,transparent)`}}/>
+                <span style={{fontSize:7.5,letterSpacing:2,textTransform:"uppercase",color:`${oC.glow}80`,fontFamily:"'JetBrains Mono',monospace",fontWeight:700,flexShrink:0}}>{sec}</span>
+                <div style={{height:1,flex:1,background:`linear-gradient(270deg,${oC.glow}30,transparent)`}}/>
+              </div>
+              {/* Grid 2 cols */}
+              {secGrid.length>0&&(
+                <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:5,marginBottom:4}}>
+                  {secGrid.map(f=>(
+                    <FieldBox key={f.key} field={f}
+                      isEditing={editingKey===f.key} val={fields[f.key]} editVal={editVal}
+                      editRef={editingKey===f.key?editRef:null}
+                      onStartEdit={startEdit} onChangeVal={onChangeVal} onCommit={commitEdit}/>
+                  ))}
+                </div>
+              )}
+              {/* Campos anchos */}
+              {secWide.map(f=>(
+                <FieldBox key={f.key} field={f}
+                  isEditing={editingKey===f.key} val={fields[f.key]} editVal={editVal}
+                  editRef={editingKey===f.key?editRef:null}
+                  onStartEdit={startEdit} onChangeVal={onChangeVal} onCommit={commitEdit}/>
+              ))}
+            </div>
+          );
+        })}
 
         {/* Divider */}
-        <div style={{height:1,background:`linear-gradient(90deg,transparent,${oC.glow}25,transparent)`,margin:"6px 0"}}/>
+        <div style={{height:1,background:`linear-gradient(90deg,transparent,${oC.glow}25,transparent)`,margin:"8px 0 4px"}}/>
 
         {/* Notes section */}
         <div style={{display:"flex",alignItems:"center",gap:5,color:"rgba(255,255,255,0.25)",marginBottom:6}}>
@@ -1489,6 +1626,13 @@ export default function MapaProduccion({obras=[],onPuestoClick,onAsignarObra,onC
           onClose={()=>setFocusedPuesto(null)}
         />,
         document.body
+      )}
+      {activeFocusId&&focusedP&&(
+        <CinematicCards
+          p={focusedP} obra={focusedObra} oC={focusedOC}
+          memoriaOverride={memoriasEdit[focusedObra?.id??focusedP.id]}
+          vp={vp} svgRef={svgRef} containerSize={containerSize}
+        />
       )}
 
       {/* TOP BAR */}
