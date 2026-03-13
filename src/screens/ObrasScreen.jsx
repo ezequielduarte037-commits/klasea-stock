@@ -283,11 +283,22 @@ function ObraModal({ lineas, lProcs, lTareas = [], onSave, onClose }) {
                     tareasAInsertar.push({ obra_id: nueva.id, etapa_id: etapa.id, nombre: tp.nombre, orden: tp.orden ?? 999, estado: "pendiente", prioridad: tp.prioridad ?? "media", horas_estimadas: tp.horas_estimadas ?? null, personas_necesarias: tp.personas_necesarias ?? null, observaciones: tp.observaciones ?? null });
                   }
                 }
-                if (tareasAInsertar.length) await supabase.from("obra_tareas").insert(tareasAInsertar);
+                if (tareasAInsertar.length) {
+                  const { error: errTareas } = await supabase.from("obra_tareas").insert(tareasAInsertar);
+                  if (errTareas) throw new Error("Error al insertar tareas: " + errTareas.message);
+                }
+              } else {
+                console.warn("La plantilla de línea no tiene tareas en linea_proceso_tareas. Usá ⚙ > Importar para cargarlas.");
               }
             }
           }
-        } catch { }
+        } catch (exEtapas) {
+          console.error("Error importando etapas/tareas:", exEtapas);
+          setErr("La obra se creó, pero hubo un error al importar las etapas/tareas: " + (exEtapas?.message ?? String(exEtapas)));
+          setSaving(false);
+          onSave(nueva); // igual guardamos la obra
+          return;
+        }
       }
       onSave(nueva);
     } catch (ex) { setErr(ex?.message ?? "Error inesperado."); setSaving(false); }
@@ -1572,6 +1583,42 @@ export default function ObrasScreen({ profile, signOut }) {
   const [archCounts, setArchCounts] = useState({}); // { tarea_id: count }
   const [loading,  setLoading]  = useState(true);
 
+  // ── MAPA CONFIG (global, sincronizado via Supabase) ───────────
+  const [mapaPuestos,   setMapaPuestos]   = useState(null);
+  const [mapaNotas,     setMapaNotas]     = useState(null);
+  const [mapaMemorias,  setMapaMemorias]  = useState(null);
+  const mapaDebounceRef = useRef(null);
+
+  async function cargarMapaConfig() {
+    const { data } = await supabase.from("mapa_config").select("*").eq("id", "singleton").single();
+    if (data) {
+      if (data.puestos?.length)  setMapaPuestos(data.puestos);
+      if (data.notas)            setMapaNotas(data.notas);
+      if (data.memorias)         setMapaMemorias(data.memorias);
+    }
+  }
+
+  async function guardarMapaConfig(patch) {
+    await supabase.from("mapa_config").upsert({ id: "singleton", ...patch, updated_at: new Date().toISOString() }, { onConflict: "id" });
+  }
+
+  // Debounce para no hacer un upsert por cada pixel arrastrado
+  function onSaveLayout(puestos) {
+    setMapaPuestos(puestos);
+    clearTimeout(mapaDebounceRef.current);
+    mapaDebounceRef.current = setTimeout(() => guardarMapaConfig({ puestos }), 800);
+  }
+  function onSaveNotas(notas) {
+    setMapaNotas(notas);
+    clearTimeout(mapaDebounceRef.current);
+    mapaDebounceRef.current = setTimeout(() => guardarMapaConfig({ notas }), 800);
+  }
+  function onSaveMemorias(memorias) {
+    setMapaMemorias(memorias);
+    clearTimeout(mapaDebounceRef.current);
+    mapaDebounceRef.current = setTimeout(() => guardarMapaConfig({ memorias }), 800);
+  }
+
   const [filtroEstado,   setFiltroEstado]   = useState("activa");
   const [filtroLinea,    setFiltroLinea]    = useState("todas");
   const [expandedObras,  setExpandedObras]  = useState(new Set());
@@ -1592,8 +1639,8 @@ export default function ObrasScreen({ profile, signOut }) {
     setLoading(true);
     const [r1, r2, r3, r4, r5, r6, r7, r8] = await Promise.all([
       safeQuery(supabase.from("produccion_obras").select("*").order("created_at", { ascending: false })),
-      safeQuery(supabase.from("obra_etapas").select("*").order("obra_id").order("orden")),
-      safeQuery(supabase.from("obra_tareas").select("*").order("etapa_id").order("orden")),
+      safeQuery(supabase.from("obra_etapas").select("*").order("obra_id").order("orden").limit(5000)),
+      safeQuery(supabase.from("obra_tareas").select("*").order("etapa_id").order("orden").limit(10000)),
       supabase.from("lineas_produccion").select("*").eq("activa", true).order("orden"),
       supabase.from("linea_procesos").select("*").eq("activo", true).order("linea_id").order("orden"),
       safeQuery(supabase.from("linea_proceso_tareas").select("*").order("linea_proceso_id").order("orden")),
@@ -1602,7 +1649,7 @@ export default function ObrasScreen({ profile, signOut }) {
     ]);
     setObras(r1); setEtapas(r2); setTareas(r3);
     setLineas(r4.data ?? []); setLProcs(r5.data ?? []);
-    setTimeline(r6); setOrdenes(r7); setLTareas(r8);
+    setLTareas(r6); setTimeline(r7); setOrdenes(r8);
 
     // Conteo de archivos por tarea
     const counts = await safeQuery(supabase.from("obra_tarea_archivos").select("tarea_id").not("tarea_id", "is", null));
@@ -1615,6 +1662,7 @@ export default function ObrasScreen({ profile, signOut }) {
 
   useEffect(() => {
     cargar();
+    cargarMapaConfig();
     const ch = supabase.channel("rt-obras-v8")
       .on("postgres_changes", { event: "*", schema: "public", table: "produccion_obras" }, cargar)
       .on("postgres_changes", { event: "*", schema: "public", table: "obra_etapas"      }, cargar)
@@ -2112,6 +2160,12 @@ export default function ObrasScreen({ profile, signOut }) {
               <MapaProduccion
                 obras={obrasConPct}
                 esGestion={esGestion}
+                sharedPuestos={mapaPuestos}
+                sharedNotas={mapaNotas}
+                sharedMemorias={mapaMemorias}
+                onSaveLayout={onSaveLayout}
+                onSaveNotas={onSaveNotas}
+                onSaveMemorias={onSaveMemorias}
                 onPuestoClick={({ puesto, obra }) => setMapaPanel({ puesto, obra })}
                 onAsignarObra={async (puestoId, obraId) => {
                   await supabase.from("produccion_obras").update({ puesto_mapa: puestoId }).eq("id", obraId);

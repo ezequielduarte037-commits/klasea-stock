@@ -394,28 +394,138 @@ function CommandPalette({obras,puestos,obraByPuesto,onClose,onAction}){
    CINEMATIC CALLOUTS SVG — solo outline + corner marks
    El texto/data se muestra en MemoriaHUD
 ═══════════════════════════════════════════════════════════════ */
-function CinematicCallouts({p,obra,oC}){
+function CinematicCallouts({p, obra, oC, memoriaOverride, vp, containerSize}){
+  const db  = MEMORIAS_DB[obra?.codigo] ?? {};
+  const mem = { ...db, ...(memoriaOverride??{}) };
+
+  const propietario = obra?.propietario  ?? mem.propietario   ?? null;
+  const constructor = obra?.constructor  ?? mem.constructor   ?? null;
+  const motor       = obra?.motores      ?? mem.motorizacion  ?? null;
+  const grupo       = obra?.grupo_electrogeno_det ?? (obra?.grupo_electrogeno ? "Sí" : null) ?? mem.grupo_electrogeno ?? null;
+  const mesadas     = obra?.color_mesadas ?? mem.color_mesadas ?? null;
+  const adicionales = mem.adicionales ?? null;
+
+  const left = [
+    motor       && { label:"MOTOR",       val: motor,       emoji:"⚙️" },
+    grupo       && { label:"GRUPO ELECT.", val: grupo,       emoji:"⚡" },
+    adicionales && { label:"ADICIONALES", val: adicionales, emoji:"★"  },
+  ].filter(Boolean).slice(0,3);
+
+  const right = [
+    propietario && { label:"PROPIETARIO", val: propietario, emoji:"👤" },
+    constructor && { label:"CONSTRUCTOR", val: constructor, emoji:"🦺" },
+    mesadas     && { label:"MESADAS",     val: mesadas,     emoji:"◩"  },
+  ].filter(Boolean).slice(0,3);
+
+  // Card dimensions in world coords
+  const CARD_W = 165;
+  const CARD_H = 54;
+  const GAP    = 14;
+  const OFFSET = 48; // gap from boat edge to card edge
+
+  const bx = p.cx - p.w/2;
+  const dx = p.cx + p.w/2;
+
+  // Compute visible world bounds from viewport transform
+  const sc         = vp?.scale ?? 1;
+  const visLeft    = vp ? -vp.x / sc                         : 0;
+  const visTop     = vp ? -vp.y / sc                         : 0;
+  const visRight   = vp ? ((containerSize?.w ?? 1200) - vp.x) / sc : VB_W;
+  const visBottom  = vp ? ((containerSize?.h ?? 800)  - vp.y) / sc : VB_H;
+  const PAD        = 16 / sc;
+
+  const totalL = left.length  * CARD_H + Math.max(0, left.length  - 1) * GAP;
+  const totalR = right.length * CARD_H + Math.max(0, right.length - 1) * GAP;
+  const ly0 = p.cy - totalL / 2;
+  const ry0 = p.cy - totalR / 2;
+
+  const cardBg     = "rgba(4,6,20,0.96)";
+  const cardBorder = `${oC.glow}50`;
+  const labelCol   = `${oC.glow}cc`;
+  const valCol     = "rgba(255,255,255,0.95)";
+
+  function Card({item, i, side, y0}){
+    const cy    = y0 + i * (CARD_H + GAP) + CARD_H / 2;
+    const delay = `${0.07 + i * 0.09}s`;
+    const dotX  = side === "left" ? bx - 5 : dx + 5;
+
+    // Ideal position, then clamp to visible area
+    const idealX = side === "left" ? bx - OFFSET - CARD_W : dx + OFFSET;
+    const cardX  = side === "left"
+      ? Math.max(visLeft  + PAD, idealX)
+      : Math.min(visRight - CARD_W - PAD, idealX);
+    const cardY  = Math.max(visTop + PAD, Math.min(visBottom - CARD_H - PAD, cy - CARD_H / 2));
+    const cardCY = cardY + CARD_H / 2;
+
+    // Line goes from dot on boat edge to nearest edge of card
+    const lineEndX = side === "left" ? cardX + CARD_W : cardX;
+    const val      = item.val.length > 20 ? item.val.slice(0,18)+"…" : item.val;
+
+    return (
+      <g style={{animation:`focusIn 0.4s cubic-bezier(0.16,1,0.3,1) ${delay} both`}}>
+        <line x1={dotX} y1={cy} x2={lineEndX} y2={cardCY}
+          stroke={`${oC.glow}55`} strokeWidth="0.9" strokeDasharray="4 3"/>
+        <circle cx={dotX} cy={cy} r="3.5" fill={oC.glow} fillOpacity="0.9"
+          style={{filter:`drop-shadow(0 0 5px ${oC.glow})`}}/>
+        <rect x={cardX} y={cardY} width={CARD_W} height={CARD_H} rx="10"
+          fill={cardBg} stroke={cardBorder} strokeWidth="1.2"
+          style={{filter:"drop-shadow(0 6px 22px rgba(0,0,0,0.9))"}}/>
+        {side === "left"
+          ? <rect x={cardX+1.5}          y={cardY+10} width="3.5" height={CARD_H-20} rx="1.5" fill={oC.glow} fillOpacity="0.75"/>
+          : <rect x={cardX+CARD_W-5}     y={cardY+10} width="3.5" height={CARD_H-20} rx="1.5" fill={oC.glow} fillOpacity="0.75"/>
+        }
+        <text x={cardX+22} y={cardCY+1} textAnchor="middle" dominantBaseline="middle"
+          fontSize="15" style={{userSelect:"none"}}>{item.emoji}</text>
+        <text x={cardX+36} y={cardY+17}
+          fill={labelCol} fontSize="7.5"
+          fontFamily="'JetBrains Mono',monospace" fontWeight="700" letterSpacing="1.6">
+          {item.label}
+        </text>
+        <text x={cardX+36} y={cardY+37}
+          fill={valCol} fontSize="13"
+          fontFamily="'Outfit',system-ui,sans-serif" fontWeight="600">
+          {val}
+        </text>
+      </g>
+    );
+  }
+
   return(
     <g style={{pointerEvents:"none"}}>
-      {/* Dashed outer rect */}
-      <rect x={p.cx-p.w/2-10} y={p.cy-p.h/2-10} width={p.w+20} height={p.h+20}
-        fill="none" stroke="rgba(255,255,255,0.12)" strokeWidth="0.5" strokeDasharray="3 3"
+      <rect x={p.cx-p.w/2-12} y={p.cy-p.h/2-12} width={p.w+24} height={p.h+24}
+        rx={Math.min(p.w,p.h)*0.14} fill="none"
+        stroke="rgba(255,255,255,0.10)" strokeWidth="0.6" strokeDasharray="4 4"
         style={{animation:"focusIn 0.4s ease both"}}/>
-      {/* Corner dots */}
-      {[[p.cx-p.w/2,p.cy-p.h/2],[p.cx+p.w/2,p.cy-p.h/2],[p.cx-p.w/2,p.cy+p.h/2],[p.cx+p.w/2,p.cy+p.h/2]].map(([cx,cy],i)=>(
-        <circle key={i} cx={cx} cy={cy} r="2.5" fill="rgba(255,255,255,0.4)"
-          style={{animation:`focusIn 0.3s ease ${i*40}ms both`}}/>
-      ))}
-      {/* Center crosshair */}
-      <g style={{animation:"focusIn 0.4s ease 0.15s both"}}>
-        <line x1={p.cx-18} y1={p.cy} x2={p.cx+18} y2={p.cy} stroke="rgba(255,255,255,0.16)" strokeWidth="0.5"/>
-        <line x1={p.cx} y1={p.cy-18} x2={p.cx} y2={p.cy+18} stroke="rgba(255,255,255,0.16)" strokeWidth="0.5"/>
-        <circle cx={p.cx} cy={p.cy} r="4" fill="none" stroke="rgba(255,255,255,0.3)" strokeWidth="0.6"/>
+      <rect x={p.cx-(p.w+18)/2} y={p.cy-(p.h+18)/2} width={p.w+18} height={p.h+18}
+        rx={Math.min(p.w,p.h)*0.16} fill="none"
+        stroke={oC.glow} strokeWidth="1.5" strokeOpacity="0.5"
+        style={{animation:"focusIn 0.35s ease both", filter:`drop-shadow(0 0 10px ${oC.glow}70)`}}/>
+      {[[-1,-1],[1,-1],[-1,1],[1,1]].map(([sx,sy],i)=>{
+        const cx2=p.cx+sx*(p.w/2), cy2=p.cy+sy*(p.h/2), L=14;
+        return(
+          <g key={i} stroke={oC.glow} strokeWidth="1.8" strokeOpacity="0.7"
+            style={{animation:`focusIn 0.3s ease ${i*50}ms both`}}>
+            <line x1={cx2} y1={cy2} x2={cx2+sx*L} y2={cy2}/>
+            <line x1={cx2} y1={cy2} x2={cx2}       y2={cy2+sy*L}/>
+          </g>
+        );
+      })}
+      <g stroke="rgba(255,255,255,0.15)" strokeWidth="0.5"
+        style={{animation:"focusIn 0.4s ease 0.1s both"}}>
+        <line x1={p.cx-22} y1={p.cy} x2={p.cx+22} y2={p.cy}/>
+        <line x1={p.cx} y1={p.cy-22} x2={p.cx} y2={p.cy+22}/>
+        <circle cx={p.cx} cy={p.cy} r="5" fill="none" stroke="rgba(255,255,255,0.22)" strokeWidth="0.7"/>
       </g>
-      {/* Glow outline */}
-      <rect x={p.cx-(p.w+16)/2} y={p.cy-(p.h+16)/2} width={p.w+16} height={p.h+16}
-        rx={Math.min(p.w,p.h)*0.18} fill="none" stroke={oC.glow} strokeWidth="1.5" strokeOpacity="0.45"
-        style={{animation:"focusIn 0.4s ease both",filter:`drop-shadow(0 0 8px ${oC.glow})`}}/>
+      {left.map((item,i) =><Card key={`l${i}`} item={item} i={i} side="left"  y0={ly0}/>)}
+      {right.map((item,i)=><Card key={`r${i}`} item={item} i={i} side="right" y0={ry0}/>)}
+      {left.length===0&&right.length===0&&(
+        <text x={p.cx} y={p.cy-p.h/2-28} textAnchor="middle"
+          fill="rgba(255,255,255,0.22)" fontSize="10"
+          fontFamily="'Outfit',sans-serif" fontStyle="italic"
+          style={{animation:"focusIn 0.4s ease 0.2s both"}}>
+          Completá la ficha para ver los datos aquí
+        </text>
+      )}
     </g>
   );
 }
@@ -461,12 +571,10 @@ const MEMORIA_FIELDS = [
   { key:"madera_muebles",     label:"Madera Muebles",                  icon:IC.wood,    col:2 },
   { key:"piso",               label:"Piso",                            icon:IC.floor,   col:2 },
   { key:"color_mesadas",      label:"Mesadas (baño, cocina, ext.)",    icon:IC.palette, col:2, wide:true },
-  { key:"color_casco",        label:"Color de Casco",                  icon:IC.ship,    col:2 },
   { key:"electronica",        label:"Electrónica",                     icon:IC.signal,  col:1 },
   { key:"color_cerramientos", label:"Cerramientos",                    icon:IC.door,    col:1 },
   { key:"color_acolchados",   label:"Tapicería / Acolchados",          icon:IC.sofa,    col:2 },
-  { key:"color_exterior",     label:"Color Exterior",                  icon:IC.brush,   col:2 },
-  { key:"adicionales",        label:"Adicionales",                     icon:IC.notes,   col:1, wide:true },
+  { key:"adicionales",        label:"Adicionales / Colores especiales",icon:IC.notes,   col:1, wide:true },
 ];
 
 /* ── FieldBox fuera del componente para evitar remount en cada keystroke ── */
@@ -484,13 +592,13 @@ function FieldBox({ field, isEditing, val, editVal, editRef, onStartEdit, onChan
       }}
     >
       {/* Label row */}
-      <div style={{ display:"flex", alignItems:"center", gap:5, color:isEditing?"rgba(255,255,255,0.55)":"rgba(255,255,255,0.25)" }}>
+      <div style={{ display:"flex", alignItems:"center", gap:5, color:isEditing?"rgba(255,255,255,0.75)":"rgba(255,255,255,0.45)" }}>
         <span style={{ display:"flex", alignItems:"center", flexShrink:0 }}>{field.icon}</span>
-        <span style={{ fontSize:9, letterSpacing:1.4, textTransform:"uppercase", fontFamily:"'JetBrains Mono',monospace", fontWeight:600, lineHeight:1 }}>
+        <span style={{ fontSize:9, letterSpacing:1.4, textTransform:"uppercase", fontFamily:"'JetBrains Mono',monospace", fontWeight:700, lineHeight:1 }}>
           {field.label}
         </span>
         {!isEditing && !empty && (
-          <span style={{ marginLeft:"auto", color:"rgba(255,255,255,0.15)", display:"flex", alignItems:"center" }}>{IC.pencil}</span>
+          <span style={{ marginLeft:"auto", color:"rgba(255,255,255,0.3)", display:"flex", alignItems:"center" }}>{IC.pencil}</span>
         )}
       </div>
 
@@ -504,15 +612,16 @@ function FieldBox({ field, isEditing, val, editVal, editRef, onStartEdit, onChan
           rows={field.wide ? 3 : 2}
           style={{
             width:"100%", background:"transparent", border:"none", outline:"none",
-            color:"#fff", fontSize:12, fontFamily:"'Outfit',system-ui,sans-serif",
+            color:"#fff", fontSize:13, fontFamily:"'Outfit',system-ui,sans-serif",
             resize:"none", lineHeight:1.5, padding:0,
           }}
         />
       ) : (
         <div style={{
-          fontSize:12, lineHeight:1.5,
-          color: empty ? "rgba(255,255,255,0.18)" : "rgba(255,255,255,0.85)",
+          fontSize:13, lineHeight:1.5,
+          color: empty ? "rgba(255,255,255,0.25)" : "rgba(255,255,255,0.95)",
           fontStyle: empty ? "italic" : "normal",
+          fontWeight: empty ? 400 : 500,
           minHeight: field.wide ? 32 : 16,
         }}>
           {empty ? "Completar..." : val}
@@ -918,13 +1027,13 @@ function savePuestos(puestos) {
  *   onSaveNotas(obj)   → llamado al cambiar notas
  * Si no se pasan, se usa localStorage (solo local, no compartido).
  */
-export default function MapaProduccion({obras=[],onPuestoClick,onAsignarObra,onChangeEstado,esGestion=false,sharedPuestos,onSaveLayout,sharedNotas,onSaveNotas}){
+export default function MapaProduccion({obras=[],onPuestoClick,onAsignarObra,onChangeEstado,esGestion=false,sharedPuestos,onSaveLayout,sharedNotas,onSaveNotas,sharedMemorias,onSaveMemorias}){
   const svgRef=useRef(null);
   const vpRef=useRef({x:0,y:0,scale:1});
   const [vp,setVp]=useState({x:0,y:0,scale:1});
   const [puestos,setPuestos]=useState(()=>sharedPuestos&&sharedPuestos.length>0?sharedPuestos:loadPuestos());
   const [notasExtra,setNotasExtra]=useState(()=>sharedNotas??loadNotas());
-  const [memoriasEdit,setMemoriasEdit]=useState(()=>loadMemorias());
+  const [memoriasEdit,setMemoriasEdit]=useState(()=>sharedMemorias??loadMemorias());
   const [hovered,setHovered]=useState(null);
   const [tooltip,setTooltip]=useState(null);
   const [editMode,setEditMode]=useState(false);
@@ -950,10 +1059,18 @@ export default function MapaProduccion({obras=[],onPuestoClick,onAsignarObra,onC
   // Persistir notas
   useEffect(()=>{ saveNotas(notasExtra); onSaveNotas?.(notasExtra); },[notasExtra]);
   // Persistir memorias editadas
-  useEffect(()=>{ saveMemorias(memoriasEdit); },[memoriasEdit]);
+  useEffect(()=>{ saveMemorias(memoriasEdit); onSaveMemorias?.(memoriasEdit); },[memoriasEdit]);
 
   function handleSaveMemoria(obraOrPuestoId, fields) {
     setMemoriasEdit(prev=>({...prev,[obraOrPuestoId]:fields}));
+  }
+
+  const [layoutSaved, setLayoutSaved] = useState(false);
+
+  function handleSaveLayoutClick() {
+    onSaveLayout?.(puestos);
+    setLayoutSaved(true);
+    setTimeout(()=>setLayoutSaved(false), 2500);
   }
   useEffect(()=>{const id=setInterval(()=>setPulseKey(k=>k+1),3000);return()=>clearInterval(id);},[]);
   useEffect(()=>{
@@ -1029,8 +1146,7 @@ export default function MapaProduccion({obras=[],onPuestoClick,onAsignarObra,onC
       if(e.key==="-") zoomBtn(0.77);
       if((e.key==="f"||e.key==="F")&&st.hovered){
         const p=stateRef.current.puestos?.find?.(x=>x.id===st.hovered)??null;
-        setFocusedPuesto(st.hovered);
-        if(p) centerOnPuesto(p);
+        if(p){ setFocusedPuesto(p.id); centerOnPuesto(p); }
       }
     };
     window.addEventListener("keydown",handler);
@@ -1088,6 +1204,10 @@ export default function MapaProduccion({obras=[],onPuestoClick,onAsignarObra,onC
 
   // Sincronizar notas desde prop externo cuando cambia
   useEffect(()=>{ if(sharedNotas) setNotasExtra(sharedNotas); },[sharedNotas]);
+  // Sincronizar puestos desde Supabase cuando cambia
+  useEffect(()=>{ if(sharedPuestos&&sharedPuestos.length>0) setPuestos(sharedPuestos); },[sharedPuestos]);
+  // Sincronizar memorias desde Supabase cuando cambia
+  useEffect(()=>{ if(sharedMemorias) setMemoriasEdit(sharedMemorias); },[sharedMemorias]);
 
   function handleAddNota(obraId, nota) {
     if(!obraId) return;
@@ -1099,6 +1219,9 @@ export default function MapaProduccion({obras=[],onPuestoClick,onAsignarObra,onC
   const gsz=60*vp.scale;
   const gsx=((vp.x%gsz)+gsz)%gsz, gsy=((vp.y%gsz)+gsz)%gsz;
   const focusedP=focusedPuesto?puestos.find(p=>p.id===focusedPuesto):null;
+  // Derivado sincrónico — si focusedP no existe, tratamos el foco como inactivo
+  // Esto evita el render intermedio con pantalla negra cuando el estado es inválido
+  const activeFocusId = focusedP ? focusedPuesto : null;
   const focusedObra=focusedP?obraByPuesto[focusedP.id]:null;
   const focusedOC=C.obra[focusedObra?.estado??"vacio"];
   const ctxPuesto=contextMenu?puestos.find(p=>p.id===contextMenu.puestoId):null;
@@ -1340,20 +1463,20 @@ export default function MapaProduccion({obras=[],onPuestoClick,onAsignarObra,onC
           );})}
           {WALLS.map(([x1,y1,x2,y2],i)=><line key={i} x1={x1} y1={y1} x2={x2} y2={y2} stroke="rgba(255,255,255,0.12)" strokeWidth="1.5"/>)}
 
-          <g style={{opacity:focusedPuesto?0.10:1,transition:"opacity 0.4s ease",pointerEvents:focusedPuesto?"none":"auto"}}>
-            {nonFocusedPuestos.map(p=>renderBoat(p))}
+          <g style={{opacity:(activeFocusId&&focusedP)?0.10:1,transition:"opacity 0.4s ease",pointerEvents:(activeFocusId&&focusedP)?"none":"auto"}}>
+            {(activeFocusId?puestos.filter(p=>p.id!==activeFocusId):puestos).map(p=>renderBoat(p))}
           </g>
 
-          {focusedPuesto&&focusedP&&(<>
+          {activeFocusId&&focusedP&&(<>
             <rect x={-9999} y={-9999} width={29999} height={29999} fill="rgba(0,0,0,0.68)" style={{pointerEvents:"all",cursor:"default",animation:"dimIn 0.35s ease both"}} onClick={()=>setFocusedPuesto(null)}/>
             <g style={{pointerEvents:"auto"}}>{renderBoat(focusedP)}</g>
-            <CinematicCallouts p={focusedP} obra={focusedObra} oC={focusedOC}/>
+            <CinematicCallouts p={focusedP} obra={focusedObra} oC={focusedOC} memoriaOverride={memoriasEdit[focusedObra?.id??focusedP.id]} vp={vp} containerSize={containerSize}/>
           </>)}
         </g>
       </svg>
 
       {/* MEMORIA DESCRIPTIVA HUD — portal a document.body para escapar overflow:hidden */}
-      {focusedPuesto&&focusedP&&createPortal(
+      {activeFocusId&&focusedP&&createPortal(
         <MemoriaHUD
           obra={focusedObra??null}
           puesto={focusedP}
@@ -1405,6 +1528,10 @@ export default function MapaProduccion({obras=[],onPuestoClick,onAsignarObra,onC
                 <button onClick={addPuesto} style={{padding:"4px 12px",borderRadius:6,cursor:"pointer",fontSize:11,fontWeight:700,border:"none",background:"#10b981",color:"#000",boxShadow:"0 4px 12px rgba(16,185,129,0.4)"}}>+ Agregar</button>
                 <div style={{width:1,height:16,background:C.b1,margin:"0 4px"}}/>
                 <button onClick={resetLayout} style={{padding:"4px 10px",borderRadius:6,cursor:"pointer",fontSize:10,fontWeight:600,border:"1px solid rgba(239,68,68,0.3)",background:"rgba(239,68,68,0.08)",color:"#f87171"}}>↺ Reset</button>
+                <div style={{width:1,height:16,background:C.b1,margin:"0 4px"}}/>
+                <button onClick={handleSaveLayoutClick} style={{padding:"4px 14px",borderRadius:6,cursor:"pointer",fontSize:11,fontWeight:700,border:`1px solid ${layoutSaved?"rgba(16,185,129,0.5)":"rgba(99,102,241,0.4)"}`,background:layoutSaved?"rgba(16,185,129,0.15)":"rgba(99,102,241,0.15)",color:layoutSaved?"#34d399":"#a5b4fc",transition:"all 0.3s",display:"flex",alignItems:"center",gap:5}}>
+                  {layoutSaved ? <>✓ Guardado</> : <>💾 Guardar para todos</>}
+                </button>
               </div>
             )}
           </div>
