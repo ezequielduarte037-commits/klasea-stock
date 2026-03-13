@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { useLocation } from "react-router-dom";
 import { supabase } from "../supabaseClient";
 import Sidebar from "../components/Sidebar";
@@ -54,6 +54,52 @@ function descargarCSV(filas, nombre) {
   const a    = Object.assign(document.createElement("a"), { href: url, download: nombre });
   a.click();
   URL.revokeObjectURL(url);
+}
+
+// ── ANIMATED NUMBER ──────────────────────────────────────────────
+function AnimatedNum({ value, color = "#f4f4f5", size = 28 }) {
+  const [display, setDisplay] = useState(value);
+  const prev = useRef(value);
+  useEffect(() => {
+    if (prev.current === value) return;
+    const start = prev.current;
+    const end = value;
+    const diff = end - start;
+    const dur = Math.min(600, Math.abs(diff) * 30);
+    const t0 = performance.now();
+    const tick = (now) => {
+      const p = Math.min(1, (now - t0) / dur);
+      const ease = 1 - Math.pow(1 - p, 3);
+      setDisplay(Math.round(start + diff * ease));
+      if (p < 1) requestAnimationFrame(tick);
+      else { prev.current = end; setDisplay(end); }
+    };
+    requestAnimationFrame(tick);
+  }, [value]);
+  return <span style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: size, fontWeight: 700, color, lineHeight: 1 }}>{display}</span>;
+}
+
+// ── RING KPI ─────────────────────────────────────────────────────
+function RingKpi({ label, value, total, color, sub }) {
+  const pct = total > 0 ? value / total : 0;
+  const r = 22; const circ = 2 * Math.PI * r;
+  const dash = pct * circ;
+  return (
+    <div className="lam-kpi" style={{ background: "rgba(255,255,255,0.03)", border: "1px solid rgba(255,255,255,0.07)", borderRadius: 12, padding: "14px 18px", display: "flex", alignItems: "center", gap: 14, borderLeft: `2px solid ${color}` }}>
+      <svg width={54} height={54} style={{ flexShrink: 0, transform: "rotate(-90deg)" }}>
+        <circle cx={27} cy={27} r={r} fill="none" stroke="rgba(255,255,255,0.06)" strokeWidth={3.5} />
+        <circle cx={27} cy={27} r={r} fill="none" stroke={color} strokeWidth={3.5}
+          strokeLinecap="round"
+          strokeDasharray={`${dash} ${circ}`}
+          style={{ transition: "stroke-dasharray .7s cubic-bezier(.22,1,.36,1)" }} />
+      </svg>
+      <div>
+        <div style={{ fontSize: 8, letterSpacing: 2, textTransform: "uppercase", color: "#71717a", marginBottom: 5 }}>{label}</div>
+        <AnimatedNum value={value} color={color} size={26} />
+        <div style={{ fontSize: 10, color: "#52525b", marginTop: 3 }}>{sub}</div>
+      </div>
+    </div>
+  );
 }
 
 export default function LaminacionScreen({ profile, signOut }) {
@@ -364,10 +410,10 @@ export default function LaminacionScreen({ profile, signOut }) {
   }
 
   const S = {
-    page: { background: "#09090b", color: "#f4f4f5", fontFamily: "'Outfit', system-ui, sans-serif" },
-    layout: { display: "grid", gridTemplateColumns: "280px 1fr", height: "100vh" },
-    main: { padding: 18, display: "flex", justifyContent: "center", overflowY: "auto", height: "100%" },
-    content: { width: "min(1300px, 100%)" },
+    page: { background: "#09090b", color: "#f4f4f5", fontFamily: "'Outfit', system-ui, sans-serif", width: "100%", minWidth: "100vw" },
+    layout: { display: "grid", gridTemplateColumns: "280px 1fr", height: "100vh", width: "100%", minWidth: "100vw" },
+    main: { padding: 18, display: "flex", justifyContent: "center", overflowY: "auto", height: "100%", minWidth: 0 },
+    content: { width: "min(1300px, 100%)", minWidth: 0 },
     card: { border: "1px solid rgba(255,255,255,0.08)", borderRadius: 12, background: "rgba(255,255,255,0.03)", padding: 16, marginBottom: 12 },
     input: { background: "rgba(255,255,255,0.04)", border: "1px solid rgba(255,255,255,0.08)", color: "#f4f4f5", padding: "9px 12px", borderRadius: 8, width: "100%", outline: "none", fontSize: 13, boxSizing: "border-box", fontFamily: "'Outfit', system-ui" },
     select: { background: "rgba(255,255,255,0.04)", border: "1px solid rgba(255,255,255,0.08)", color: "#f4f4f5", padding: "9px 12px", borderRadius: 8, width: "100%", outline: "none", fontSize: 13, boxSizing: "border-box", fontFamily: "'Outfit', system-ui" },
@@ -425,7 +471,33 @@ export default function LaminacionScreen({ profile, signOut }) {
             radial-gradient(ellipse 70% 38% at 50% -6%, rgba(59,130,246,0.07) 0%, transparent 65%),
             radial-gradient(ellipse 40% 28% at 92% 88%, rgba(245,158,11,0.02) 0%, transparent 55%);
         }
-        .lam-row:hover td { background: rgba(255,255,255,0.02) !important; }
+        .lam-row:hover td { background: rgba(255,255,255,0.025) !important; transition: background .15s; }
+        .lam-row { animation: rowIn .3s ease both; }
+        .lam-row:nth-child(1)  { animation-delay: .02s }
+        .lam-row:nth-child(2)  { animation-delay: .04s }
+        .lam-row:nth-child(3)  { animation-delay: .06s }
+        .lam-row:nth-child(4)  { animation-delay: .08s }
+        .lam-row:nth-child(5)  { animation-delay: .10s }
+        .lam-row:nth-child(6)  { animation-delay: .12s }
+        .lam-row:nth-child(7)  { animation-delay: .14s }
+        .lam-row:nth-child(8)  { animation-delay: .16s }
+        .lam-row:nth-child(9)  { animation-delay: .18s }
+        .lam-row:nth-child(10) { animation-delay: .20s }
+        .lam-row:nth-child(n+11) { animation-delay: .22s }
+        @keyframes rowIn { from { opacity: 0; transform: translateY(6px); } to { opacity: 1; transform: none; } }
+        @keyframes fadeUp { from { opacity: 0; transform: translateY(12px); } to { opacity: 1; transform: none; } }
+        @keyframes kpiIn { from { opacity: 0; transform: scale(.94); } to { opacity: 1; transform: scale(1); } }
+        @keyframes pulse-dot { 0%,100% { opacity: 1; box-shadow: 0 0 0 0 currentColor; } 50% { opacity: .6; box-shadow: 0 0 6px 2px currentColor; } }
+        @keyframes spin-ring { to { stroke-dashoffset: 0; } }
+        .lam-kpi { animation: kpiIn .4s ease both; }
+        .lam-kpi:nth-child(1) { animation-delay: .05s }
+        .lam-kpi:nth-child(2) { animation-delay: .12s }
+        .lam-kpi:nth-child(3) { animation-delay: .19s }
+        .lam-kpi:nth-child(4) { animation-delay: .26s }
+        .lam-kpi:nth-child(5) { animation-delay: .33s }
+        .lam-tab-content { animation: fadeUp .25s ease both; }
+        .critico-glow { box-shadow: 0 0 0 1px rgba(239,68,68,0.3), 0 2px 12px rgba(239,68,68,0.08); }
+        .stock-num { font-variant-numeric: tabular-nums; }
       `}</style>
       <div className="bg-glow" />
       <div style={{ ...S.layout, position: "relative", zIndex: 1 }}>
@@ -509,64 +581,78 @@ export default function LaminacionScreen({ profile, signOut }) {
 
             {/* ===== TAB STOCK ===== */}
             {tab === "Stock" && (
-              <div style={S.card}>
-                <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 12, flexWrap: "wrap", gap: 8 }}>
-                  <h3 style={{ margin: 0, color: "#f4f4f5" }}>
-                    Stock actual
-                    <span style={{ ...S.small, marginLeft: 8 }}>({stockRows.length} materiales)</span>
-                  </h3>
-                  <div style={{ display: "flex", alignItems: "center", gap: 12, flexWrap: "wrap" }}>
-                    <span style={{ color: "#a6ffbf", fontSize: 12 }}>● OK: {stockRows.filter(r => r.estado === "OK").length}</span>
-                    <span style={{ color: "#ffe7a6", fontSize: 12 }}>● Atención: {stockRows.filter(r => r.estado === "ATENCION").length}</span>
-                    <span style={{ color: "#ffbdbd", fontSize: 12 }}>● Crítico: {stockRows.filter(r => r.estado === "CRITICO").length}</span>
+              <div className="lam-tab-content">
+                {/* KPI ring bar */}
+                <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit,minmax(170px,1fr))", gap: 8, marginBottom: 12 }}>
+                  <RingKpi label="Total" value={stockRows.length} total={stockRows.length} color="#a1a1aa" sub="materiales" />
+                  <RingKpi label="OK" value={stockRows.filter(r=>r.estado==="OK").length} total={stockRows.length} color="#10b981" sub={`${Math.round(stockRows.filter(r=>r.estado==="OK").length/Math.max(1,stockRows.length)*100)}% del stock`} />
+                  <RingKpi label="Atención" value={stockRows.filter(r=>r.estado==="ATENCION").length} total={stockRows.length} color="#f59e0b" sub="bajo mínimo" />
+                  <RingKpi label="Crítico" value={stockRows.filter(r=>r.estado==="CRITICO").length} total={stockRows.length} color="#ef4444" sub="sin stock" />
+                  <div className="lam-kpi" style={{ background: "rgba(255,255,255,0.03)", border: "1px solid rgba(255,255,255,0.07)", borderRadius: 12, padding: "14px 18px", display: "flex", alignItems: "center", gap: 10, borderLeft: "2px solid #3b82f6" }}>
+                    <div>
+                      <div style={{ fontSize: 8, letterSpacing: 2, textTransform: "uppercase", color: "#71717a", marginBottom: 5 }}>Pedidos pend.</div>
+                      <AnimatedNum value={pedidos.filter(p=>p.estado==="pendiente").length} color="#3b82f6" size={26} />
+                      <div style={{ fontSize: 10, color: "#52525b", marginTop: 3 }}>en espera</div>
+                    </div>
+                  </div>
+                </div>
+
+                <div style={S.card}>
+                  <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 12, flexWrap: "wrap", gap: 8 }}>
+                    <h3 style={{ margin: 0, color: "#f4f4f5" }}>
+                      Stock actual
+                      <span style={{ ...S.small, marginLeft: 8 }}>({stockRows.length} materiales)</span>
+                    </h3>
                     <button onClick={exportarStock} disabled={!stockRows.length} style={S.btnExport}>
                       ↓ CSV
                     </button>
                   </div>
-                </div>
-                <table style={S.table}>
-                  <thead>
-                    <tr>
-                      <th style={S.th}>Material</th>
-                      <th style={S.th}>Categoría</th>
-                      <th style={S.th}>Stock actual</th>
-                      <th style={S.th}>Mínimo</th>
-                      <th style={S.th}>Estado</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {stockRows.map(m => (
-                      <tr key={m.id}>
-                        <td style={S.td}>
-                          <b style={{ color: "#f4f4f5" }}>{m.nombre}</b>
-                          <div style={S.small}>{m.unidad}</div>
-                        </td>
-                        <td style={S.td}><span style={S.small}>{m.categoria || "—"}</span></td>
-                        <td style={S.td}>
-                          <b style={{
-                            fontSize: 16,
-                            color: m.stock <= 0 ? "#ff453a" : m.stock <= num(m.stock_minimo) ? "#ffd60a" : "#30d158"
-                          }}>
-                            {m.stock % 1 === 0 ? m.stock : m.stock.toFixed(2)}
-                          </b>
-                        </td>
-                        <td style={S.td}><span style={S.small}>{num(m.stock_minimo)}</span></td>
-                        <td style={S.td}><span style={S.pillStock(m.estado)}>{m.estado}</span></td>
-                      </tr>
-                    ))}
-                    {!stockRows.length && (
+                  <table style={S.table}>
+                    <thead>
                       <tr>
-                        <td style={S.td} colSpan={5}>
-                          <span style={S.small}>
-                            {materiales.length === 0
-                              ? "Sin materiales cargados. Usá '+ Nuevo material' o ejecutá el SQL de inicialización en Supabase."
-                              : "Sin resultados para la búsqueda."}
-                          </span>
-                        </td>
+                        <th style={S.th}>Material</th>
+                        <th style={S.th}>Categoría</th>
+                        <th style={S.th}>Stock actual</th>
+                        <th style={S.th}>Mínimo</th>
+                        <th style={S.th}>Estado</th>
                       </tr>
-                    )}
-                  </tbody>
-                </table>
+                    </thead>
+                    <tbody>
+                      {stockRows.map(m => (
+                        <tr key={m.id} className={`lam-row${m.estado==="CRITICO"?" critico-glow":""}`}
+                          style={m.estado==="CRITICO"?{background:"rgba(239,68,68,0.04)"}:{}}>
+                          <td style={S.td}>
+                            <b style={{ color: "#f4f4f5" }}>{m.nombre}</b>
+                            <div style={S.small}>{m.unidad}</div>
+                          </td>
+                          <td style={S.td}><span style={S.small}>{m.categoria || "—"}</span></td>
+                          <td style={S.td}>
+                            <b className="stock-num" style={{
+                              fontSize: 16,
+                              color: m.stock <= 0 ? "#ef4444" : m.stock <= num(m.stock_minimo) ? "#ffd60a" : "#30d158",
+                              textShadow: m.stock <= 0 ? "0 0 12px rgba(239,68,68,0.5)" : m.stock <= num(m.stock_minimo) ? "0 0 10px rgba(253,224,10,0.35)" : "0 0 10px rgba(48,209,88,0.3)",
+                            }}>
+                              {m.stock % 1 === 0 ? m.stock : m.stock.toFixed(2)}
+                            </b>
+                          </td>
+                          <td style={S.td}><span style={S.small}>{num(m.stock_minimo)}</span></td>
+                          <td style={S.td}><span style={S.pillStock(m.estado)}>{m.estado}</span></td>
+                        </tr>
+                      ))}
+                      {!stockRows.length && (
+                        <tr>
+                          <td style={S.td} colSpan={5}>
+                            <span style={S.small}>
+                              {materiales.length === 0
+                                ? "Sin materiales cargados. Usá '+ Nuevo material' o ejecutá el SQL de inicialización en Supabase."
+                                : "Sin resultados para la búsqueda."}
+                            </span>
+                          </td>
+                        </tr>
+                      )}
+                    </tbody>
+                  </table>
+                </div>
               </div>
             )}
 
@@ -645,7 +731,7 @@ export default function LaminacionScreen({ profile, signOut }) {
                     </thead>
                     <tbody>
                       {movFiltrados.filter(m => m.tipo === "ingreso").map(m => (
-                        <tr key={m.id}>
+                        <tr key={m.id} className="lam-row">
                           <td style={S.td}>
                             <span style={S.small}>{fmtDate(m.fecha || m.created_at)}</span>
                             {m.created_at && (
@@ -748,7 +834,7 @@ export default function LaminacionScreen({ profile, signOut }) {
                     </thead>
                     <tbody>
                       {movFiltrados.filter(m => m.tipo === "egreso").map(m => (
-                        <tr key={m.id}>
+                        <tr key={m.id} className="lam-row">
                           <td style={S.td}>
                             <span style={S.small}>{fmtDate(m.fecha || m.created_at)}</span>
                             {m.created_at && (
@@ -940,7 +1026,7 @@ export default function LaminacionScreen({ profile, signOut }) {
                         {movimientosFiltrados.map((m, idx) => {
                           const esIngreso = m.tipo === "ingreso";
                           return (
-                            <tr key={m.id} style={{
+                            <tr key={m.id} className="lam-row" style={{
                               borderBottom: "1px solid #111",
                               background: idx % 2 === 0 ? "transparent" : "rgba(255,255,255,0.012)",
                               transition: "background 0.1s",
@@ -1076,7 +1162,7 @@ export default function LaminacionScreen({ profile, signOut }) {
                     </thead>
                     <tbody>
                       {pedidosFiltrados.map(p => (
-                        <tr key={p.id}>
+                        <tr key={p.id} className="lam-row">
                           <td style={S.td}><span style={S.small}>{fmtTs(p.created_at)}</span></td>
                           <td style={S.td}>
                             <b style={{ color: "#f4f4f5" }}>{p.laminacion_materiales?.nombre ?? "—"}</b>

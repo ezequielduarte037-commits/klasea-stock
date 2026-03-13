@@ -25,6 +25,7 @@ const CSS = `
 @import url('https://fonts.googleapis.com/css2?family=Inter:wght@200;300;400;500;600;700&family=JetBrains+Mono:wght@300;400;500&display=swap');
 
 *,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+html,body{overflow-x:hidden}
 html{scroll-behavior:smooth}
 body{background:#030304;color:#dde2e8;-webkit-font-smoothing:antialiased;-moz-osx-font-smoothing:grayscale}
 
@@ -91,23 +92,24 @@ body{background:#030304;color:#dde2e8;-webkit-font-smoothing:antialiased;-moz-os
 .sidebar{
   width:var(--sw);flex-shrink:0;position:fixed;top:0;left:0;bottom:0;
   background:var(--void);border-right:1px solid var(--e1);
-  display:flex;flex-direction:column;z-index:900;overflow-y:auto
+  display:flex;flex-direction:column;z-index:900;overflow:hidden
 }
-.content{flex:1;min-width:0;margin-left:var(--sw)}
+.sidebar-nav{flex:1;overflow-y:auto;overflow-x:hidden;padding-top:8px;padding-bottom:8px}
+.content{width:calc(100vw - var(--sw));min-width:0;margin-left:var(--sw)}
 
 /* ── SIDEBAR NAV ITEM ── */
 .ni{
   display:flex;align-items:center;gap:10px;width:100%;
-  padding:10px 20px 10px 22px;
+  padding:10px 20px 10px 26px;
   font-family:var(--font-nm);font-size:9.5px;font-weight:500;
   letter-spacing:.18em;text-transform:uppercase;color:var(--t3);
   background:transparent;border:none;cursor:pointer;text-align:left;
-  border-left:1.5px solid transparent;transition:color .2s,border-color .2s,background .2s
+  border-left:2px solid transparent;transition:color .2s,border-color .2s,background .2s
 }
-.ni:hover{color:var(--t2);background:rgba(255,255,255,0.012)}
+.ni:hover{color:var(--t2);background:rgba(255,255,255,0.018)}
 .ni.on{color:var(--t1);border-left-color:var(--white);background:var(--active-bg)}
 .ni.on .nico{opacity:1;color:var(--white)}
-.nico{opacity:.28;flex-shrink:0;transition:opacity .2s,color .2s;display:flex;align-items:center}
+.nico{opacity:.46;flex-shrink:0;transition:opacity .2s,color .2s;display:flex;align-items:center}
 
 /* ── CARDS ── */
 .card{background:var(--s2);border:1px solid var(--e1);border-radius:1px}
@@ -328,7 +330,7 @@ details[open] .arr{transform:rotate(90deg)}
 @media(max-width:820px){
   .sidebar{transform:translateX(-100%);transition:transform .28s var(--ez)}
   .sidebar.open{transform:translateX(0)}
-  .content{margin-left:0!important;padding-top:50px!important}
+  .content{margin-left:0!important;width:100vw!important;padding-top:50px!important}
   .mob-hdr{display:flex!important}
   .mob-ovl{display:block!important}
 }
@@ -489,9 +491,9 @@ function SecBienvenida({cliente,goTo}){
     {n:"06",t:"Garantía",d:"Reportar una novedad",s:"soporte",ico:<MessageSquare size={14}/>},
   ];
   return(
-    <div>
+    <div style={{paddingBottom:1}}>
       {/* ── HERO ── */}
-      <div style={{position:"relative",width:"100%",height:"min(78vh,620px)",overflow:"hidden"}}>
+      <div style={{position:"relative",width:"100%",height:"min(82vh,680px)",overflow:"hidden"}}>
         <img src={img} onLoad={()=>setLoaded(true)}
           style={{position:"absolute",inset:0,width:"100%",height:"100%",objectFit:"cover",objectPosition:"center 35%",
             animation:loaded?"ken 16s ease-out both":"none",opacity:loaded?1:0,transition:"opacity .9s"}} alt=""/>
@@ -560,7 +562,7 @@ function SecBienvenida({cliente,goTo}){
       </div>
 
       {/* ── QUICK ACCESS ── */}
-      <div className="stg" style={{display:"grid",gridTemplateColumns:"repeat(6,1fr)",gap:1,marginTop:1}}>
+      <div className="stg" style={{display:"grid",gridTemplateColumns:"repeat(auto-fit,minmax(160px,1fr))",gap:1,marginTop:1}}>
         {QA.map(a=>(
           <button key={a.s} className="qa"
             onClick={()=>goTo(a.s)}
@@ -638,6 +640,96 @@ function SecIdentidad({cliente,push}){
           </button>
         </div>
       </div>
+    </div>
+  );
+}
+
+/* ─────────────────────────────────────────────────────────────
+   PRÓXIMO SERVICE
+   ───────────────────────────────────────────────────────────── */
+function ProximoService(){
+  const SRV_KEY="ka_service_v1";
+  const [data,setData]=useState(()=>{try{const s=localStorage.getItem(SRV_KEY);return s?JSON.parse(s):{fecha:"",tipo:"",horas:"",obs:""}}catch{return{fecha:"",tipo:"",horas:"",obs:""}}});
+  const [saved,setSaved]=useState(false);
+  const up=(k,v)=>setData(p=>({...p,[k]:v}));
+  const save=()=>{try{localStorage.setItem(SRV_KEY,JSON.stringify(data));setSaved(true);setTimeout(()=>setSaved(false),3000)}catch{}};
+  const diasRestantes=data.fecha?Math.ceil((new Date(data.fecha)-new Date())/(1000*60*60*24)):null;
+  const alertColor=diasRestantes===null?"var(--t3)":diasRestantes<0?"var(--err)":diasRestantes<30?"var(--warn)":"var(--ok)";
+  return(
+    <div className="card" style={{padding:"28px",marginBottom:1}}>
+      <div style={{display:"flex",alignItems:"center",gap:7,marginBottom:20}}>
+        <Wrench size={11} color="var(--t3)"/>
+        <Cap>Próximo Service Programado</Cap>
+        {diasRestantes!==null&&(
+          <div style={{marginLeft:"auto",padding:"3px 10px",border:`1px solid ${alertColor}40`,borderRadius:1,background:`${alertColor}0d`}}>
+            <span style={{fontFamily:"var(--font-mono)",fontSize:8.5,color:alertColor,letterSpacing:".06em"}}>
+              {diasRestantes<0?`Vencido hace ${Math.abs(diasRestantes)} días`:diasRestantes===0?"Hoy":`Faltan ${diasRestantes} días`}
+            </span>
+          </div>
+        )}
+      </div>
+      <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fit,minmax(200px,1fr))",gap:20,marginBottom:20}}>
+        <div><Lbl>Fecha de Service</Lbl><input className="inp" type="date" value={data.fecha} onChange={e=>up("fecha",e.target.value)}/></div>
+        <div><Lbl>Tipo de Service</Lbl><input className="inp" type="text" value={data.tipo} onChange={e=>up("tipo",e.target.value)} placeholder="Ej: 250 hs · Cambio aceite"/></div>
+        <div><Lbl>Horas de Motor Actuales</Lbl><input className="inp" type="number" value={data.horas} onChange={e=>up("horas",e.target.value)} placeholder="Ej: 1250"/></div>
+      </div>
+      <div style={{marginBottom:18}}><Lbl>Observaciones</Lbl><input className="inp" value={data.obs} onChange={e=>up("obs",e.target.value)} placeholder="Taller, teléfono, repuestos pendientes..."/></div>
+      <button onClick={save}
+        style={{padding:"11px 22px",background:saved?"var(--ok2)":"transparent",border:`1px solid ${saved?"rgba(45,184,122,.4)":"var(--e2)"}`,color:saved?"var(--ok)":"var(--t3)",fontFamily:"var(--font-nm)",fontWeight:600,fontSize:8.5,letterSpacing:".2em",textTransform:"uppercase",cursor:"pointer",transition:"all .3s",borderRadius:1,display:"inline-flex",alignItems:"center",gap:8}}>
+        {saved?<><Check size={10}/>GUARDADO</>:<><RefreshCw size={10}/>GUARDAR EN ESTE DISPOSITIVO</>}
+      </button>
+    </div>
+  );
+}
+
+/* ─────────────────────────────────────────────────────────────
+   BITÁCORA DE MANTENIMIENTO (con persistencia local)
+   ───────────────────────────────────────────────────────────── */
+const BIT_ITEMS=["Motores","Generador","Fondo / Pintura","Hélices","Ánodos","Timón y Servo"];
+const BIT_KEY="ka_bitacora_v1";
+function BitacoraMantenimiento(){
+  const [rows,setRows]=useState(()=>{
+    try{const s=localStorage.getItem(BIT_KEY);return s?JSON.parse(s):BIT_ITEMS.map(n=>({n,e:"OK",o:""}))}catch{return BIT_ITEMS.map(n=>({n,e:"OK",o:""}))}
+  });
+  const [saved,setSaved]=useState(false);
+  const [lastSaved,setLastSaved]=useState(()=>{try{return localStorage.getItem("ka_bitacora_ts")||null}catch{return null}});
+  const upd=(i,k,v)=>setRows(p=>p.map((r,j)=>j===i?{...r,[k]:v}:r));
+  const save=()=>{
+    try{
+      localStorage.setItem(BIT_KEY,JSON.stringify(rows));
+      const ts=new Date().toLocaleString("es-AR",{day:"2-digit",month:"short",year:"numeric",hour:"2-digit",minute:"2-digit"});
+      localStorage.setItem("ka_bitacora_ts",ts);
+      setLastSaved(ts);
+      setSaved(true);setTimeout(()=>setSaved(false),3000);
+    }catch{}
+  };
+  const statusColor=e=>e==="OK"?"var(--ok)":e==="Atención"?"var(--warn)":"var(--err)";
+  return(
+    <div className="card" style={{padding:"30px 28px"}}>
+      <div style={{display:"flex",alignItems:"center",gap:7,marginBottom:20}}>
+        <Activity size={11} color="var(--t3)"/>
+        <Cap>Bitácora de Mantenimiento</Cap>
+        {lastSaved&&<span style={{marginLeft:"auto",fontFamily:"var(--font-mono)",fontSize:7.5,color:"var(--t3)",letterSpacing:".04em"}}>Guardado {lastSaved}</span>}
+      </div>
+      <table style={{width:"100%",borderCollapse:"collapse",marginBottom:20}}>
+        <thead><tr style={{borderBottom:"1px solid var(--e1)"}}>{["Ítem","Estado","Observaciones / Fecha"].map(h=><th key={h} style={{textAlign:"left",paddingBottom:11,paddingRight:18}}><Cap sm>{h}</Cap></th>)}</tr></thead>
+        <tbody>{rows.map((row,i)=>(
+          <tr key={row.n} style={{borderBottom:"1px solid rgba(255,255,255,.025)"}}>
+            <td style={{padding:"12px 18px 12px 0",color:"var(--t1)",fontSize:13,fontWeight:300,whiteSpace:"nowrap"}}>{row.n}</td>
+            <td style={{padding:"12px 18px 12px 0",minWidth:130}}>
+              <select className="sel" value={row.e} onChange={e=>upd(i,"e",e.target.value)}
+                style={{width:"auto",fontSize:11,color:statusColor(row.e),padding:"3px 0"}}>
+                <option>OK</option><option>Atención</option><option>Service Pendiente</option>
+              </select>
+            </td>
+            <td style={{padding:"12px 0"}}><input className="inp" value={row.o} onChange={e=>upd(i,"o",e.target.value)} style={{fontSize:12,color:"var(--t2)"}} placeholder="Sin observaciones"/></td>
+          </tr>
+        ))}</tbody>
+      </table>
+      <button onClick={save}
+        style={{padding:"11px 22px",background:saved?"var(--ok2)":"transparent",border:`1px solid ${saved?"rgba(45,184,122,.4)":"var(--e2)"}`,color:saved?"var(--ok)":"var(--t3)",fontFamily:"var(--font-nm)",fontWeight:600,fontSize:8.5,letterSpacing:".2em",textTransform:"uppercase",cursor:"pointer",transition:"all .3s",borderRadius:1,display:"inline-flex",alignItems:"center",gap:8}}>
+        {saved?<><Check size={10}/>GUARDADO</>:<><RefreshCw size={10}/>GUARDAR EN ESTE DISPOSITIVO</>}
+      </button>
     </div>
   );
 }
@@ -728,20 +820,10 @@ function SecPlanificador({mc}){
           ))}
         </div>
       </div>
+      {/* Próximo Service */}
+      <ProximoService/>
       {/* Bitácora */}
-      <div className="card" style={{padding:"30px 28px"}}>
-        <div style={{display:"flex",alignItems:"center",gap:7,marginBottom:20}}><Activity size={11} color="var(--t3)"/><Cap>Bitácora de Mantenimiento</Cap></div>
-        <table style={{width:"100%",borderCollapse:"collapse"}}>
-          <thead><tr style={{borderBottom:"1px solid var(--e1)"}}>{["Ítem","Estado","Observaciones"].map(h=><th key={h} style={{textAlign:"left",paddingBottom:11,paddingRight:18}}><Cap sm>{h}</Cap></th>)}</tr></thead>
-          <tbody>{["Motores","Generador","Fondo / Pintura","Hélices","Ánodos"].map(it=>(
-            <tr key={it} style={{borderBottom:"1px solid rgba(255,255,255,.025)"}}>
-              <td style={{padding:"12px 18px 12px 0",color:"var(--t1)",fontSize:13,fontWeight:300,whiteSpace:"nowrap"}}>{it}</td>
-              <td style={{padding:"12px 18px 12px 0"}}><select className="sel" style={{width:"auto",fontSize:11,color:"var(--t2)",padding:"3px 0"}}><option>OK</option><option>Atención</option><option>Service Pendiente</option></select></td>
-              <td style={{padding:"12px 0"}}><input className="inp" style={{fontSize:12,color:"var(--t2)"}} placeholder="Sin observaciones"/></td>
-            </tr>
-          ))}</tbody>
-        </table>
-      </div>
+      <BitacoraMantenimiento/>
     </div>
   );
 }
@@ -760,15 +842,15 @@ function SecEnergia({mc}){
   };
   const ct=DATA[tab];
   const PANELS=[
-    {t:"Cortes de Batería",d:"Principal · Servicio",c:"var(--err)",ico:<Power size={14}/>},
-    {t:"Tablero 12V",d:"Luces · Bombas · Nav",c:"var(--warn)",ico:<Zap size={14}/>},
-    {t:"Gestión 220V",d:"Puerto · Grupo · Inverter",c:"var(--info)",ico:<Activity size={14}/>},
+    {t:"Cortes de Batería",d:"Principal · Servicio",c:"var(--err)",ico:<Power size={14}/>,tip:"Ver manual sección 4.1"},
+    {t:"Tablero 12V",d:"Luces · Bombas · Nav",c:"var(--warn)",ico:<Zap size={14}/>,tip:"Ver manual sección 4.2"},
+    {t:"Gestión 220V",d:"Puerto · Grupo · Inverter",c:"var(--info)",ico:<Activity size={14}/>,tip:"Ver instrucciones abajo"},
   ];
   return(
     <div className="senter">
       <SH eyebrow="Energía" title="Tableros y Sistemas 220V"/>
       <div className="stg">
-        <div style={{display:"grid",gridTemplateColumns:"repeat(3,1fr)",gap:1,marginBottom:1}}>
+        <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fit,minmax(220px,1fr))",gap:1,marginBottom:1}}>
           {PANELS.map(b=>(
             <div key={b.t} className="card" style={{padding:"22px 20px",borderLeft:`1.5px solid ${b.c}`,display:"flex",gap:14,alignItems:"center"}}>
               <div style={{width:36,height:36,display:"flex",alignItems:"center",justifyContent:"center",background:`${b.c}12`,flexShrink:0,borderRadius:1,color:b.c}}>{b.ico}</div>
@@ -776,7 +858,7 @@ function SecEnergia({mc}){
                 <p style={{color:"var(--t1)",fontSize:13,fontWeight:400,marginBottom:3}}>{b.t}</p>
                 <Cap sm>{b.d}</Cap>
               </div>
-              <StatusDot ok style={{marginLeft:"auto",flexShrink:0}}/>
+              <span style={{marginLeft:"auto",fontFamily:"var(--font-mono)",fontSize:7,color:"var(--t3)",letterSpacing:".06em",textAlign:"right",flexShrink:0}}>{b.tip}</span>
             </div>
           ))}
         </div>
@@ -971,7 +1053,7 @@ function SecSistemas({mc}){
       <SH eyebrow="Sistemas" title="Tanques y Equipos a Bordo"/>
       <div className="stg">
         <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fill,minmax(180px,1fr))",gap:1,marginBottom:1}}>
-          {[{l:"Combustible Diesel",v:`${cc} L`,c:"var(--warn)",ico:<Droplets size={14}/>},{l:"Agua Potable",v:`${ac} L`,c:"var(--info)",ico:<Droplets size={14}/>},...(ta?[{l:"Aguas Negras",v:"Mar / Puerto",c:"var(--s4)",ico:<Activity size={14}/>}]:[])].map(it=>(
+          {[{l:"Combustible Diesel",v:`${cc} L`,sub:"Capacidad del tanque",c:"var(--warn)",ico:<Droplets size={14}/>},{l:"Agua Potable",v:`${ac} L`,sub:"Capacidad del tanque",c:"var(--info)",ico:<Droplets size={14}/>},...(ta?[{l:"Aguas Negras",v:"Habilitado",sub:"Descarga en puerto",c:"var(--s4)",ico:<Activity size={14}/>}]:[])].map(it=>(
             <div key={it.l} className="card" style={{padding:"24px 20px"}}>
               <div style={{display:"flex",justifyContent:"space-between",alignItems:"flex-start",marginBottom:16}}>
                 <div style={{width:1,height:28,background:it.c,opacity:.6}}/>
@@ -979,6 +1061,7 @@ function SecSistemas({mc}){
               </div>
               <Cap sm style={{display:"block",marginBottom:8}}>{it.l}</Cap>
               <p style={{fontFamily:"var(--font-mono)",fontSize:24,fontWeight:400,color:"var(--t1)",lineHeight:1}}>{it.v}</p>
+              <p style={{fontFamily:"var(--font-nm)",fontSize:9.5,color:"var(--t3)",marginTop:6,fontWeight:300}}>{it.sub}</p>
             </div>
           ))}
         </div>
@@ -1521,15 +1604,15 @@ function SecSoporte({clienteId,nombreBarco,obraId,push}){
    NAV CONFIG
    ───────────────────────────────────────────────────────────── */
 const NAV_ITEMS = [
-  {id:"bienvenida",    l:"Inicio",            ico:<Home size={13}/>},
-  {id:"configuracion", l:"Identidad",          ico:<Settings size={13}/>},
-  {id:"resumen",       l:"Planificador",       ico:<Navigation size={13}/>},
-  {id:"energia",       l:"Energía y Tableros", ico:<Zap size={13}/>},
-  {id:"propulsion",    l:"Propulsión",         ico:<Gauge size={13}/>},
-  {id:"sistemas",      l:"Sistemas",           ico:<Activity size={13}/>},
-  {id:"seguridad",     l:"Seguridad",          ico:<Shield size={13}/>},
-  {id:"tutoriales",    l:"Videoteca",          ico:<Play size={13}/>},
-  {id:"soporte",       l:"Soporte y Garantía", ico:<MessageSquare size={13}/>},
+  {id:"bienvenida",    l:"Inicio",            ico:<Home size={14}/>},
+  {id:"configuracion", l:"Identidad",          ico:<Settings size={14}/>},
+  {id:"resumen",       l:"Planificador",       ico:<Navigation size={14}/>},
+  {id:"energia",       l:"Energía y Tableros", ico:<Zap size={14}/>},
+  {id:"propulsion",    l:"Propulsión",         ico:<Gauge size={14}/>},
+  {id:"sistemas",      l:"Sistemas",           ico:<Activity size={14}/>},
+  {id:"seguridad",     l:"Seguridad",          ico:<Shield size={14}/>},
+  {id:"tutoriales",    l:"Videoteca",          ico:<Play size={14}/>},
+  {id:"soporte",       l:"Soporte y Garantía", ico:<MessageSquare size={14}/>},
 ];
 
 /* ─────────────────────────────────────────────────────────────
@@ -1600,7 +1683,7 @@ export default function ClientePanelScreen({session,onSignOut}){
           </div>
 
           {/* Nav */}
-          <nav style={{flex:1,paddingTop:8,paddingBottom:8}}>
+          <nav className="sidebar-nav">
             {NAV_ITEMS.map(item=>(
               <button key={item.id} className={`ni${sec===item.id?" on":""}`} onClick={()=>go(item.id)}>
                 <span className="nico">{item.ico}</span>
