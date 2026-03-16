@@ -28,6 +28,10 @@ import k43Img from "./k43.png";
 import k52Img from "./k52.png";
 import k55Img from "./k55.png";
 import k64Img from "./k64.png";
+import k85Img from "./K85.jpg";
+import logoKlaseaImg from "../assets/logo-klasea.png";
+import logoKImg from "../assets/logo-k.png";
+import GalponPampa from "./GalponPampa";
 
 /* ─── PALETA ─────────────────────────────────────────────────── */
 const C = {
@@ -158,6 +162,7 @@ const BOAT_IMGS = {
   k52: k52Img,
   k55: k55Img,
   k64: k64Img,
+  k85: k85Img,
 };
 
 /* ─── PUESTOS INICIALES ──────────────────────────────────────── */
@@ -394,64 +399,46 @@ function CommandPalette({obras,puestos,obraByPuesto,onClose,onAction}){
    CINEMATIC CALLOUTS SVG — solo outline + corner marks
    El texto/data se muestra en MemoriaHUD
 ═══════════════════════════════════════════════════════════════ */
-function CinematicCallouts({p, obra, oC, memoriaOverride, vp, containerSize}){
-  const db  = MEMORIAS_DB[obra?.codigo] ?? {};
-  const mem = { ...db, ...(memoriaOverride??{}) };
-
-  const propietario = obra?.propietario  ?? mem.propietario   ?? null;
-  const constructor = obra?.constructor  ?? mem.constructor   ?? null;
-  const motor       = obra?.motores      ?? mem.motorizacion  ?? null;
-  const grupo       = obra?.grupo_electrogeno_det ?? (obra?.grupo_electrogeno ? "Sí" : null) ?? mem.grupo_electrogeno ?? null;
-  const mesadas     = obra?.color_mesadas ?? mem.color_mesadas ?? null;
-  const adicionales = mem.adicionales ?? null;
-
-  const leftItems = [
-    motor       && { label:"MOTOR",       val: motor,       emoji:"⚙️" },
-    grupo       && { label:"GRUPO ELECT.", val: grupo,       emoji:"⚡" },
-    adicionales && { label:"ADICIONALES", val: adicionales, emoji:"★"  },
-  ].filter(Boolean).slice(0,3);
-
-  const rightItems = [
-    propietario && { label:"PROPIETARIO", val: propietario, emoji:"👤" },
-    constructor && { label:"CONSTRUCTOR", val: constructor, emoji:"🦺" },
-    mesadas     && { label:"MESADAS",     val: mesadas,     emoji:"◩"  },
-  ].filter(Boolean).slice(0,3);
-
-  // SVG overlay: marco, corner marks, crosshair, glow
-  const SVGDecor = ()=>(
-    <g style={{pointerEvents:"none"}}>
-      <rect x={p.cx-p.w/2-12} y={p.cy-p.h/2-12} width={p.w+24} height={p.h+24}
-        rx={Math.min(p.w,p.h)*0.14} fill="none"
-        stroke="rgba(255,255,255,0.10)" strokeWidth="0.6" strokeDasharray="4 4"
-        style={{animation:"focusIn 0.4s ease both"}}/>
-      <rect x={p.cx-(p.w+18)/2} y={p.cy-(p.h+18)/2} width={p.w+18} height={p.h+18}
-        rx={Math.min(p.w,p.h)*0.16} fill="none"
-        stroke={oC.glow} strokeWidth="1.5" strokeOpacity="0.5"
-        style={{animation:"focusIn 0.35s ease both", filter:`drop-shadow(0 0 10px ${oC.glow}70)`}}/>
-      {[[-1,-1],[1,-1],[-1,1],[1,1]].map(([sx,sy],i)=>{
-        const cx2=p.cx+sx*(p.w/2), cy2=p.cy+sy*(p.h/2), L=14;
-        return(
-          <g key={i} stroke={oC.glow} strokeWidth="1.8" strokeOpacity="0.7"
-            style={{animation:`focusIn 0.3s ease ${i*50}ms both`}}>
-            <line x1={cx2} y1={cy2} x2={cx2+sx*L} y2={cy2}/>
-            <line x1={cx2} y1={cy2} x2={cx2}       y2={cy2+sy*L}/>
-          </g>
-        );
-      })}
-      <g stroke="rgba(255,255,255,0.15)" strokeWidth="0.5"
-        style={{animation:"focusIn 0.4s ease 0.1s both"}}>
-        <line x1={p.cx-22} y1={p.cy} x2={p.cx+22} y2={p.cy}/>
-        <line x1={p.cx} y1={p.cy-22} x2={p.cx} y2={p.cy+22}/>
-        <circle cx={p.cx} cy={p.cy} r="5" fill="none" stroke="rgba(255,255,255,0.22)" strokeWidth="0.7"/>
+function CinematicCallouts({p, obra, oC}){
+  // Solo decoración SVG: brackets en esquinas, sin rects superpuestos
+  const PAD = 14, L = 20;
+  const x0 = p.cx - p.w/2 - PAD, y0 = p.cy - p.h/2 - PAD;
+  const x1 = p.cx + p.w/2 + PAD, y1 = p.cy + p.h/2 + PAD;
+  const corners = [
+    {x:x0, y:y0, dx:L,  dy:L },
+    {x:x1, y:y0, dx:-L, dy:L },
+    {x:x0, y:y1, dx:L,  dy:-L},
+    {x:x1, y:y1, dx:-L, dy:-L},
+  ];
+  return(
+    <g transform={`rotate(${p.rot||0},${p.cx},${p.cy})`} style={{pointerEvents:"none"}}>
+      {/* Dashed scan border — muy sutil */}
+      <rect x={x0} y={y0} width={x1-x0} height={y1-y0}
+        rx={(x1-x0)*0.06} fill="none"
+        stroke={`${oC.glow}18`} strokeWidth="0.6" strokeDasharray="8 8"
+        style={{animation:"focusScan 5s linear infinite"}}/>
+      {/* Corner brackets */}
+      {corners.map((c,i)=>(
+        <g key={i} stroke={oC.glow} strokeWidth="2" strokeLinecap="round"
+          style={{
+            opacity:0, animation:`focusBracket 0.4s cubic-bezier(0.34,1.4,0.64,1) ${i*60}ms forwards`,
+            filter:`drop-shadow(0 0 5px ${oC.glow}90)`,
+          }}>
+          <line x1={c.x} y1={c.y} x2={c.x+c.dx} y2={c.y}/>
+          <line x1={c.x} y1={c.y} x2={c.x}       y2={c.y+c.dy}/>
+        </g>
+      ))}
+      {/* Crosshair central mínimo */}
+      <g stroke={`${oC.glow}20`} strokeWidth="0.5" style={{animation:"focusIn 0.6s ease 0.3s both", opacity:0}}>
+        <line x1={p.cx-18} y1={p.cy} x2={p.cx+18} y2={p.cy}/>
+        <line x1={p.cx} y1={p.cy-18} x2={p.cx} y2={p.cy+18}/>
       </g>
     </g>
   );
-
-  return <SVGDecor/>;
 }
 
-// HTML overlay cards — rendered outside the SVG in screen-space
-function CinematicCards({p, obra, oC, memoriaOverride, vp, svgRef, containerSize}){
+// HTML overlay cards — sin emojis, iconos SVG, animación direccional
+function CinematicCards({p, obra, oC, memoriaOverride, vp, svgRef}){
   const db  = MEMORIAS_DB[obra?.codigo] ?? {};
   const mem = { ...db, ...(memoriaOverride??{}) };
 
@@ -462,100 +449,114 @@ function CinematicCards({p, obra, oC, memoriaOverride, vp, svgRef, containerSize
   const mesadas     = obra?.color_mesadas ?? mem.color_mesadas ?? null;
   const adicionales = mem.adicionales ?? null;
 
+  // Iconos SVG — sin emojis
+  const ICONS = {
+    motor:   <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round"><rect x="2" y="8" width="20" height="10" rx="2"/><path d="M6 8V6a2 2 0 0 1 2-2h8a2 2 0 0 1 2 2v2"/><line x1="12" y1="12" x2="12" y2="16"/></svg>,
+    bolt:    <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/></svg>,
+    user:    <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round"><circle cx="12" cy="8" r="4"/><path d="M4 20c0-4 3.6-7 8-7s8 3 8 7"/></svg>,
+    hardhat: <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round"><path d="M2 17h20v2a1 1 0 0 1-1 1H3a1 1 0 0 1-1-1v-2z"/><path d="M12 3a9 9 0 0 1 9 9H3a9 9 0 0 1 9-9z"/></svg>,
+    palette: <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round"><circle cx="12" cy="12" r="10"/><circle cx="8" cy="10" r="1.5" fill="currentColor"/><circle cx="12" cy="7" r="1.5" fill="currentColor"/><circle cx="16" cy="10" r="1.5" fill="currentColor"/></svg>,
+    notes:   <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg>,
+  };
+
   const allSlots = [
-    { key:"tl", label:"MOTOR",       val: motor,       emoji:"⚙️", ox:-1, oy:-1 },
-    { key:"tr", label:"GRUPO ELECT.", val: grupo,       emoji:"⚡", ox: 1, oy:-1 },
-    { key:"l",  label:"PROPIETARIO", val: propietario, emoji:"👤", ox:-1, oy: 0 },
-    { key:"r",  label:"CONSTRUCTOR", val: constructor, emoji:"🦺", ox: 1, oy: 0 },
-    { key:"bl", label:"MESADAS",     val: mesadas,     emoji:"◩",  ox:-1, oy: 1 },
-    { key:"br", label:"ADICIONALES", val: adicionales, emoji:"★",  ox: 1, oy: 1 },
+    { key:"tl", label:"MOTOR",       val: motor,       icon: ICONS.motor,   ox:-1, oy:-1 },
+    { key:"tr", label:"GRUPO ELECT.", val: grupo,       icon: ICONS.bolt,    ox: 1, oy:-1 },
+    { key:"l",  label:"PROPIETARIO", val: propietario, icon: ICONS.user,    ox:-1, oy: 0 },
+    { key:"r",  label:"CONSTRUCTOR", val: constructor, icon: ICONS.hardhat, ox: 1, oy: 0 },
+    { key:"bl", label:"MESADAS",     val: mesadas,     icon: ICONS.palette, ox:-1, oy: 1 },
+    { key:"br", label:"ADICIONALES", val: adicionales, icon: ICONS.notes,   ox: 1, oy: 1 },
   ].filter(s => s.val);
 
   if(!vp || !allSlots.length) return null;
 
-  // ── KEY FIX: offset del SVG en la pantalla ──
   const svgRect = svgRef?.current?.getBoundingClientRect?.() ?? {left:0, top:0};
-  const offX = svgRect.left;
-  const offY = svgRect.top;
-
-  const sc   = vp.scale;
+  const offX = svgRect.left, offY = svgRect.top;
+  const sc = vp.scale;
   const scrX = p.cx * sc + vp.x + offX;
   const scrY = p.cy * sc + vp.y + offY;
-  const hw   = (p.w / 2) * sc;
-  const hh   = (p.h / 2) * sc;
+  const hw = (p.w / 2) * sc, hh = (p.h / 2) * sc;
 
-  const CARD_W = 164;
-  const CARD_H = 56;
-  const PAD    = 38;
-  const HUD_W  = 445;
-  const cW     = window.innerWidth;
-  const cH     = window.innerHeight;
+  const CARD_W = 158, CARD_H = 52, PAD = 42, HUD_W = 445;
+  const cW = window.innerWidth, cH = window.innerHeight;
 
   const positioned = allSlots.map((slot, i) => {
     const { ox, oy } = slot;
     const anchorX = scrX + ox * hw;
     const anchorY = scrY + oy * hh;
-    // Card arranca en diagonal desde el ancla
     let cardX = anchorX + ox * PAD;
     let cardY = anchorY + oy * PAD - CARD_H / 2;
     if (ox < 0) cardX -= CARD_W;
     if (ox === 0) cardX -= CARD_W / 2;
-    // Clamp
     cardX = Math.max(8, Math.min(cW - HUD_W - CARD_W - 8, cardX));
     cardY = Math.max(8, Math.min(cH - CARD_H - 8, cardY));
+    const tx = ox < 0 ? -12 : ox > 0 ? 12 : 0;
+    const ty = oy < 0 ? -8  : oy > 0 ? 8  : 0;
     return { ...slot, anchorX, anchorY, cardX, cardY,
       cardCX: cardX + CARD_W / 2, cardCY: cardY + CARD_H / 2,
-      delay: `${i * 0.065}s` };
+      delay: `${i * 0.07}s`, tx, ty };
   });
 
   return createPortal(
     <>
       <style>{`
-        @keyframes cardPop {
-          0%   { opacity:0; transform:scale(0.8) translateY(4px); filter:blur(3px); }
-          65%  { opacity:1; transform:scale(1.03) translateY(-1px); filter:blur(0); }
-          100% { opacity:1; transform:scale(1) translateY(0); filter:blur(0); }
-        }
+        ${positioned.map(s=>`
+          @keyframes cs_${s.key} {
+            0%   { opacity:0; transform:translate(${s.tx}px,${s.ty}px) scale(0.88); filter:blur(3px); }
+            60%  { opacity:1; transform:translate(${-s.tx*.05}px,0) scale(1.02); filter:blur(0); }
+            100% { opacity:1; transform:translate(0,0) scale(1); filter:blur(0); }
+          }
+        `).join("")}
+        @keyframes lineGrow { from{stroke-dashoffset:120;opacity:0} to{stroke-dashoffset:0;opacity:1} }
+        @keyframes dotIn    { from{opacity:0;r:0} to{opacity:1;r:2.5} }
       `}</style>
       <div style={{position:"fixed",inset:0,pointerEvents:"none",zIndex:900}}>
-        {/* SVG único para líneas */}
         <svg style={{position:"absolute",inset:0,width:"100%",height:"100%",overflow:"visible",pointerEvents:"none"}}>
-          {positioned.map(s=>(
-            <g key={`ln-${s.key}`} style={{animation:`cardPop 0.4s ease ${s.delay} both`}}>
-              <line x1={s.anchorX} y1={s.anchorY} x2={s.cardCX} y2={s.cardCY}
-                stroke={`${oC.glow}45`} strokeWidth="1" strokeDasharray="5 4"/>
-              <circle cx={s.anchorX} cy={s.anchorY} r="3.5" fill={oC.glow}
-                style={{filter:`drop-shadow(0 0 5px ${oC.glow})`}}/>
-            </g>
-          ))}
+          {positioned.map(s=>{
+            const len = Math.hypot(s.cardCX-s.anchorX, s.cardCY-s.anchorY);
+            return(
+              <g key={`ln-${s.key}`}>
+                <line x1={s.anchorX} y1={s.anchorY} x2={s.cardCX} y2={s.cardCY}
+                  stroke={`${oC.glow}35`} strokeWidth="0.8"
+                  strokeDasharray={len} strokeDashoffset={len}
+                  style={{animation:`lineGrow 0.5s ease ${s.delay} forwards`}}/>
+                <circle cx={s.anchorX} cy={s.anchorY} r="0" fill={oC.glow}
+                  style={{animation:`dotIn 0.3s ease ${parseFloat(s.delay)+0.2}s forwards`}}/>
+              </g>
+            );
+          })}
         </svg>
-        {/* Cards */}
         {positioned.map(s => {
-          const val = (s.val ?? "").length > 22 ? s.val.slice(0,20)+"…" : s.val;
+          const val = (s.val ?? "").length > 24 ? s.val.slice(0,22)+"…" : s.val;
           return (
             <div key={s.key} style={{
               position:"absolute", left:s.cardX, top:s.cardY,
               width:CARD_W, height:CARD_H,
-              background:"rgba(5,7,22,0.94)",
-              border:`1px solid ${oC.glow}35`,
-              borderRadius:10,
-              boxShadow:`0 8px 32px rgba(0,0,0,0.85)`,
-              display:"flex", alignItems:"center", gap:10, padding:"0 14px",
-              animation:`cardPop 0.45s cubic-bezier(0.34,1.4,0.64,1) ${s.delay} both`,
+              background:"rgba(6,8,24,0.96)",
+              border:`1px solid ${oC.glow}25`,
+              borderRadius:8,
+              boxShadow:`0 4px 24px rgba(0,0,0,0.8), inset 0 1px 0 rgba(255,255,255,0.04)`,
+              display:"flex", alignItems:"center", gap:9, padding:"0 12px",
+              animation:`cs_${s.key} 0.5s cubic-bezier(0.22,1,0.36,1) ${s.delay} both`,
               fontFamily:"'Outfit',system-ui,sans-serif",
-              backdropFilter:"blur(10px)", userSelect:"none",
+              backdropFilter:"blur(14px)", userSelect:"none",
             }}>
-              <span style={{fontSize:17,flexShrink:0}}>{s.emoji}</span>
+              <div style={{
+                flexShrink:0, width:26, height:26, borderRadius:7,
+                background:`${oC.glow}10`, border:`1px solid ${oC.glow}20`,
+                display:"flex", alignItems:"center", justifyContent:"center",
+                color:`${oC.glow}cc`,
+              }}>{s.icon}</div>
               <div style={{flex:1,minWidth:0}}>
                 <div style={{
-                  fontSize:7, letterSpacing:"1.8px", fontWeight:700,
+                  fontSize:6.5, letterSpacing:"2px", fontWeight:700,
                   fontFamily:"'JetBrains Mono',monospace",
-                  color:`${oC.glow}b0`, textTransform:"uppercase",
+                  color:`${oC.glow}65`, textTransform:"uppercase",
                   marginBottom:3, lineHeight:1,
                 }}>{s.label}</div>
                 <div style={{
-                  fontSize:13, fontWeight:600,
-                  color:"rgba(255,255,255,0.95)", lineHeight:1.2,
+                  fontSize:12.5, fontWeight:600,
+                  color:"rgba(255,255,255,0.92)", lineHeight:1.2,
                   whiteSpace:"nowrap", overflow:"hidden", textOverflow:"ellipsis",
                 }}>{val}</div>
               </div>
@@ -614,7 +615,6 @@ const MEMORIA_FIELDS = [
   { key:"madera_muebles",     label:"Madera / Muebles",                icon:IC.wood,    col:1, section:"Interiores" },
   { key:"piso",               label:"Piso",                            icon:IC.floor,   col:2, section:"Interiores" },
   { key:"alfombra",           label:"Alfombra",                        icon:IC.floor,   col:1, section:"Interiores" },
-  { key:"color_cerramientos", label:"Cerramientos",                    icon:IC.door,    col:2, section:"Interiores" },
   { key:"color_mesadas",      label:"Mesadas (baño, cocina, cockpit)", icon:IC.palette, col:1, section:"Interiores", wide:true },
   // ── TAPICERÍA ──
   { key:"tapiceria_mamparos", label:"Mamparos / Techos Int.",          icon:IC.sofa,    col:1, section:"Tapicería" },
@@ -625,14 +625,18 @@ const MEMORIA_FIELDS = [
   // ── LONERÍA ──
   { key:"loneria_toldo_proa", label:"Toldo rebatible proa",            icon:IC.ship,    col:1, section:"Lonería" },
   { key:"loneria_cobertor",   label:"Cobertor / Lona",                 icon:IC.ship,    col:2, section:"Lonería" },
+  { key:"color_cerramientos", label:"Cerramientos",                    icon:IC.door,    col:1, section:"Lonería" },
   { key:"loneria_otros",      label:"Otros (mosquitero, tambucho…)",   icon:IC.notes,   col:1, section:"Lonería", wide:true },
   // ── ELECTRÓNICA ──
-  { key:"electronica",        label:"Electrónica / Audio",             icon:IC.signal,  col:1, section:"Electrónica", wide:true },
+  { key:"electronica",        label:"Sonido / Audio",                  icon:IC.signal,  col:1, section:"Sonido", wide:true },
   // ── ADICIONALES ──
-  { key:"fabricadora_hielo",  label:"Fabricadora de hielo",            icon:IC.bolt,    col:1, section:"Adicionales" },
-  { key:"radar",              label:"Radar",                           icon:IC.signal,  col:2, section:"Adicionales" },
-  { key:"pluma",              label:"Pluma",                           icon:IC.anchor,  col:1, section:"Adicionales" },
-  { key:"planchada",          label:"Planchada",                       icon:IC.ship,    col:2, section:"Adicionales" },
+  { key:"sternthruster",      label:"Sternthruster",                   icon:IC.anchor,  col:1, section:"Adicionales", type:"toggle" },
+  { key:"fabricadora_hielo",  label:"Fabricadora de hielo",            icon:IC.bolt,    col:2, section:"Adicionales", type:"toggle" },
+  { key:"radar",              label:"Radar",                           icon:IC.signal,  col:1, section:"Adicionales", type:"toggle" },
+  { key:"pluma",              label:"Pluma",                           icon:IC.anchor,  col:2, section:"Adicionales", type:"toggle" },
+  { key:"planchada",          label:"Planchada",                       icon:IC.ship,    col:1, section:"Adicionales", type:"toggle" },
+  { key:"starlink",           label:"Starlink",                        icon:IC.satellite,col:2, section:"Adicionales", type:"toggle" },
+  { key:"teca_tipo",          label:"Cubierta cockpit",                icon:IC.teca,    col:1, section:"Adicionales" },
   { key:"adicionales",        label:"Adicionales / Notas técnicas",    icon:IC.notes,   col:1, section:"Adicionales", wide:true },
 ];
 
@@ -719,7 +723,7 @@ function MemoriaHUD({ obra, puesto, oC, memoriaOverride, onSaveMemoria, notas=[]
     planchada:          db.planchada          ?? "",
     adicionales:        db.adicionales        ?? "",
     starlink:           obra?.starlink     ?? db.starlink     ?? false,
-    teca_cockpit:       obra?.teca_cockpit ?? db.teca_cockpit ?? false,
+    teca_tipo:          obra?.teca_tipo    ?? db.teca_tipo    ?? null, // null | "teca" | "infinity"
     sternthruster:      obra?.sternthruster?? db.sternthruster?? false,
   };
 
@@ -761,131 +765,267 @@ function MemoriaHUD({ obra, puesto, oC, memoriaOverride, onSaveMemoria, notas=[]
   },[onClose]);
 
   const handlePrint = () => {
-    const accentHex = oC.glow;
-    const badgeList = [
-      fields.starlink      && "Starlink",
-      fields.teca_cockpit  && "Teca / Infinity",
-      fields.sternthruster && "Sternthruster",
+    const logoHdr = logoKlaseaImg;
+    const logoFtr = logoKImg;
+    const ac      = oC.glow;
+    const pct     = obra?._pct ?? 0;
+    const fecha   = new Date().toLocaleDateString("es-AR",{day:"2-digit",month:"long",year:"numeric"});
+    const cod     = obra?.codigo ?? ("Puesto " + (puesto?.label ?? "—"));
+    const estadoLbl = (obra?.estado ?? "vacío").toUpperCase();
+
+    // ── Iconos SVG como strings (14×14, stroke solo, para usar inline en HTML) ──
+    const SVG = {
+      user:    `<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="12" cy="8" r="4"/><path d="M4 20c0-4 3.6-7 8-7s8 3 8 7"/></svg>`,
+      hardhat: `<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M2 17h20v2a1 1 0 0 1-1 1H3a1 1 0 0 1-1-1v-2z"/><path d="M12 3a9 9 0 0 1 9 9H3a9 9 0 0 1 9-9z"/><line x1="12" y1="3" x2="12" y2="12"/></svg>`,
+      engine:  `<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><rect x="2" y="8" width="20" height="10" rx="2"/><path d="M6 8V6a2 2 0 0 1 2-2h8a2 2 0 0 1 2 2v2"/><line x1="12" y1="12" x2="12" y2="16"/></svg>`,
+      bolt:    `<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/></svg>`,
+      ship:    `<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M3 17l1.5-9L12 3l7.5 5L21 17"/><path d="M3 17c0 2 4 3 9 3s9-1 9-3"/><line x1="12" y1="3" x2="12" y2="17"/></svg>`,
+      brush:   `<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M18.37 2.63L14 7l-1.59-1.59a2 2 0 0 0-2.82 0L8 7l9 9 1.59-1.59a2 2 0 0 0 0-2.82L17 10l4.37-4.37a2.12 2.12 0 0 0-3-3z"/><path d="M9 8c-2 3-4 3.5-7 4l8 10c2-1 6-5 6-7"/></svg>`,
+      wood:    `<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><rect x="3" y="6" width="18" height="12" rx="1"/><line x1="3" y1="10" x2="21" y2="10"/><line x1="3" y1="14" x2="21" y2="14"/><line x1="9" y1="6" x2="9" y2="18"/><line x1="15" y1="6" x2="15" y2="18"/></svg>`,
+      floor:   `<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><rect x="3" y="3" width="8" height="8" rx="1"/><rect x="13" y="3" width="8" height="8" rx="1"/><rect x="3" y="13" width="8" height="8" rx="1"/><rect x="13" y="13" width="8" height="8" rx="1"/></svg>`,
+      palette: `<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="12" cy="12" r="10"/><circle cx="8" cy="10" r="1.5" fill="currentColor"/><circle cx="12" cy="7" r="1.5" fill="currentColor"/><circle cx="16" cy="10" r="1.5" fill="currentColor"/></svg>`,
+      sofa:    `<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M20 9V7a2 2 0 0 0-2-2H6a2 2 0 0 0-2 2v2"/><path d="M2 11v5a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2v-5"/><path d="M4 11a2 2 0 0 1 2-2h12a2 2 0 0 1 2 2v2H4v-2z"/></svg>`,
+      door:    `<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M18 20V6a2 2 0 0 0-2-2H8a2 2 0 0 0-2 2v14"/><line x1="2" y1="20" x2="22" y2="20"/><circle cx="15" cy="13" r="1" fill="currentColor"/></svg>`,
+      notes:   `<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/></svg>`,
+      signal:  `<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M5 12.55a11 11 0 0 1 14.08 0"/><path d="M1.42 9a16 16 0 0 1 21.16 0"/><path d="M8.53 16.11a6 6 0 0 1 6.95 0"/><circle cx="12" cy="20" r="1" fill="currentColor"/></svg>`,
+      anchor:  `<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="12" cy="5" r="3"/><line x1="12" y1="8" x2="12" y2="22"/><path d="M5 12H2a10 10 0 0 0 20 0h-3"/></svg>`,
+      snow:    `<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><line x1="12" y1="2" x2="12" y2="22"/><path d="M17 7l-5-5-5 5"/><path d="M17 17l-5 5-5-5"/><line x1="2" y1="12" x2="22" y2="12"/><path d="M7 7l-5 5 5 5"/><path d="M17 7l5 5-5 5"/></svg>`,
+      radar:   `<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="12" cy="12" r="10"/><circle cx="12" cy="12" r="6"/><circle cx="12" cy="12" r="2"/><line x1="12" y1="2" x2="12" y2="6"/></svg>`,
+      plank:   `<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><rect x="2" y="10" width="20" height="4" rx="1"/><line x1="6" y1="10" x2="6" y2="14"/><line x1="12" y1="10" x2="12" y2="14"/><line x1="18" y1="10" x2="18" y2="14"/></svg>`,
+      crane:   `<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><line x1="12" y1="22" x2="12" y2="2"/><path d="M12 2l8 6H4l8-6z"/><line x1="12" y1="8" x2="20" y2="8"/><line x1="20" y1="8" x2="20" y2="14"/><line x1="17" y1="14" x2="20" y2="14"/></svg>`,
+      check:   `<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><polyline points="20 6 9 17 4 12"/></svg>`,
+    };
+
+    // Mapa field.key → icono
+    const FIELD_ICONS = {
+      propietario: SVG.user,    constructor: SVG.hardhat,
+      motorizacion: SVG.engine, grupo_electrogeno: SVG.bolt,
+      cabina: SVG.ship,         color_casco: SVG.brush,
+      madera_muebles: SVG.wood, piso: SVG.floor,
+      alfombra: SVG.floor,      color_mesadas: SVG.palette,
+      tapiceria_mamparos: SVG.sofa, tapiceria_dinette: SVG.sofa,
+      tapiceria_respaldos: SVG.sofa, tapiceria_exterior: SVG.sofa,
+      color_acolchados: SVG.sofa,
+      loneria_toldo_proa: SVG.ship, loneria_cobertor: SVG.ship,
+      color_cerramientos: SVG.door, loneria_otros: SVG.notes,
+      electronica: SVG.signal,
+      fabricadora_hielo: SVG.snow, radar: SVG.radar,
+      pluma: SVG.crane, planchada: SVG.plank,
+      adicionales: SVG.notes,
+      sternthruster: SVG.anchor,
+    };
+
+    // Mapa section → color de acento para la franja
+    const SEC_COLORS = {
+      "Identificación": "#2563eb",
+      "Estructura":     "#0891b2",
+      "Interiores":     "#059669",
+      "Tapicería":      "#7c3aed",
+      "Lonería":        "#b45309",
+      "Sonido":         "#db2777",
+      "Adicionales":    ac,
+    };
+
+    const buildRows = (blank) => {
+      const secs = [...new Set(MEMORIA_FIELDS.map(f => f.section))];
+      return secs.map(sec => {
+        const sc = SEC_COLORS[sec] || ac;
+        const rows = MEMORIA_FIELDS.filter(f => f.section === sec).map(f => {
+          const v = fields[f.key], obs = fields[f.key + "_obs"];
+          const ico = FIELD_ICONS[f.key] || "";
+          const icoHtml = ico ? "<span class=\"ico\" style=\"color:" + sc + ";\">" + ico + "</span>" : "";
+          if (blank) {
+            if (f.type === "toggle") {
+              return "<tr><td class=\"lbl\">" + icoHtml + f.label + "</td>"
+                + "<td class=\"chk-cell\"><span class=\"blank-check\"></span></td>"
+                + "<td class=\"val\"><span class=\"blank-val\"></span></td></tr>";
+            }
+            return "<tr><td class=\"lbl\">" + icoHtml + f.label + "</td>"
+              + "<td class=\"val\" colspan=\"2\"><span class=\"blank-val\"></span></td></tr>";
+          }
+          if (f.type === "toggle") {
+            const on = v === true || v === "Sí";
+            if (!on && !obs) return "";
+            const chkStyle = on ? "background:#dcfce7;color:#16a34a;border:1.5px solid #86efac;" : "background:#f5f5f5;color:#aaa;border:1.5px solid #ddd;";
+            const chkMark = on
+              ? "<svg width=\"11\" height=\"11\" viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"3\" stroke-linecap=\"round\"><polyline points=\"20 6 9 17 4 12\"/></svg>"
+              : "<svg width=\"9\" height=\"9\" viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"3\" stroke-linecap=\"round\"><line x1=\"18\" y1=\"6\" x2=\"6\" y2=\"18\"/><line x1=\"6\" y1=\"6\" x2=\"18\" y2=\"18\"/></svg>";
+            return "<tr><td class=\"lbl\">" + icoHtml + f.label + "</td>"
+              + "<td class=\"chk-cell\"><span class=\"chk\" style=\"" + chkStyle + "\">" + chkMark + "</span></td>"
+              + "<td class=\"val\">" + (obs ? "<span class=\"obs-val\">" + obs + "</span>" : "") + "</td></tr>";
+          }
+          if (!v || v === false) return "";
+          // teca_tipo: format nicely
+          const displayV = f.key === "teca_tipo"
+            ? v.charAt(0).toUpperCase() + v.slice(1)
+            : String(v).replace(/\n/g,"<br/>");
+          return "<tr><td class=\"lbl\">" + icoHtml + f.label + "</td>"
+            + "<td class=\"val\" colspan=\"2\">" + displayV + "</td></tr>";
+        }).join("");
+        if (!rows.trim()) return "";
+        return "<tr class=\"sec-hd\"><td colspan=\"3\"><span class=\"sec-bar\" style=\"background:" + sc + ";\"></span>" + sec.toUpperCase() + "</td></tr>" + rows;
+      }).join("");
+    };
+    const tableRows = buildRows(false);
+    const blankRows  = buildRows(true)
+
+    const notasRows = notas.length
+      ? notas.map(n =>
+          "<tr><td class=\"lbl nd\">" + n.fecha + "</td>"
+          + "<td class=\"val\" colspan=\"2\">" + n.texto + "</td></tr>"
+        ).join("")
+      : "<tr><td colspan=\"3\" class=\"empty\">Sin notas registradas.</td></tr>";
+
+    const pctHtml = obra?._pct != null
+      ? " <span class=\"pct-badge\" style=\"color:" + ac + ";\">&#9646; " + pct + "%</span>" : "";
+
+    const badgesHtml = ""; // badges now live inside the table as toggle rows
+
+    const css = [
+      "@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&family=JetBrains+Mono:wght@500;600;700&display=swap');",
+      "*{box-sizing:border-box;margin:0;padding:0;}",
+      "html,body{background:#cdd0d8;font-family:'Inter',sans-serif;font-size:11px;-webkit-print-color-adjust:exact;print-color-adjust:exact;}",
+      "@page{size:A4;margin:10mm 10mm;}",
+      ".page{width:100%;background:#fff;display:flex;flex-direction:column;}",
+
+      // Header unificado — todo dentro del bloque oscuro
+      ".hdr{background:#0f1318;flex-shrink:0;}",
+      ".hdr-top{display:flex;align-items:center;justify-content:space-between;padding:0 16px;height:40px;border-bottom:1px solid rgba(255,255,255,.07);}",
+      ".hdr img.logo{height:30px;mix-blend-mode:screen;}",
+      ".hdr-r{text-align:right;}",
+      ".hdr-doc{font-size:6px;letter-spacing:3px;text-transform:uppercase;color:rgba(255,255,255,.28);font-family:'JetBrains Mono',monospace;}",
+      ".hdr-fecha{font-size:6.5px;color:rgba(255,255,255,.22);font-family:'JetBrains Mono',monospace;margin-top:2px;}",
+      ".hdr-hero{display:flex;align-items:stretch;border-bottom:3px solid " + ac + ";}",
+
+      // Hero — dentro del bloque oscuro
+      ".hero-cod-block{text-align:center;padding:7px 22px 6px;min-width:120px;display:flex;flex-direction:column;justify-content:center;border-right:1px solid rgba(255,255,255,.1);}",
+      ".hero-lbl{font-size:5.5px;letter-spacing:3px;text-transform:uppercase;color:rgba(255,255,255,.32);font-family:'JetBrains Mono',monospace;margin-bottom:3px;}",
+      ".hero-cod{font-size:26px;font-weight:900;font-family:'JetBrains Mono',monospace;color:#fff;letter-spacing:-1px;line-height:1;}",
+      ".hero-meta{flex:1;display:flex;align-items:center;gap:10px;padding:6px 14px;flex-wrap:wrap;}",
+      ".hero-chip{display:inline-flex;align-items:center;gap:4px;padding:3px 11px;border-radius:2px;font-size:7px;font-weight:700;letter-spacing:2px;text-transform:uppercase;background:" + ac + ";color:#fff;}",
+      ".hero-dot{width:3px;height:3px;border-radius:50%;background:rgba(255,255,255,.7);}",
+      ".h-info{font-size:9.5px;color:rgba(255,255,255,.55);} .h-info b{color:#fff;font-weight:700;}",
+      ".h-sep{color:rgba(255,255,255,.2);font-size:10px;}",
+      ".pct-badge{font-size:8.5px;font-weight:700;font-family:'JetBrains Mono',monospace;color:" + ac + ";}",
+
+      // Tabla
+      ".wrap{flex:1;}",
+      "table{width:100%;border-collapse:collapse;}",
+      "tr td{border:1px solid #dde0e6;vertical-align:middle;}",
+      "td.lbl{width:37%;font-size:9px;color:#444;padding:5px 8px 5px 10px;line-height:1.3;font-weight:500;background:#f4f5f7;display:flex;align-items:center;gap:5px;}",
+      // Fix: td no puede tener display flex en tabla, usar tabla-cell
+      "td.lbl{display:table-cell;vertical-align:middle;}",
+      ".ico{display:inline-flex;align-items:center;vertical-align:middle;margin-right:4px;opacity:.7;flex-shrink:0;}",
+      "td.val{font-size:10.5px;color:#111;padding:5px 10px;line-height:1.4;background:#fff;}",
+      ".obs-val{color:#666;font-style:italic;}",
+
+      // Toggles
+      "td.chk-cell{width:26px;padding:4px;text-align:center;background:#fff;border-left:none;}",
+      ".chk{display:inline-flex;align-items:center;justify-content:center;width:16px;height:16px;border-radius:3px;}",
+
+      // Section headers
+      "tr.sec-hd td{background:#1a1f2e;color:rgba(255,255,255,.9);font-size:7px;letter-spacing:3px;text-transform:uppercase;font-family:'JetBrains Mono',monospace;font-weight:600;padding:6px 10px;border:none;vertical-align:middle;}",
+      ".sec-bar{display:inline-block;width:3px;height:11px;border-radius:2px;margin-right:8px;vertical-align:middle;}",
+
+      // Badges row
+      "tr.badges-row td{background:#f8f9fb;padding:6px 14px;border-bottom:1px solid #e4e7ec;border-top:1px solid #e4e7ec;}",
+      ".bdg{display:inline-flex;align-items:center;gap:5px;padding:3px 11px;border-radius:4px;font-size:8px;font-weight:600;letter-spacing:0.5px;border:1px solid " + ac + "33;margin-right:6px;color:" + ac + ";background:" + ac + "0d;}",
+      ".bdg-check{color:#16a34a;font-size:9px;}",
+
+      // Notas
+      "td.nd{font-size:8px;font-family:'JetBrains Mono',monospace;color:#999;white-space:nowrap;}",
+      ".empty{padding:8px 10px;font-size:10px;color:#bbb;font-style:italic;text-align:center;}",
+
+      // Footer
+      ".ftr{border-top:2px solid #1a1f2e;padding:9px 16px;display:flex;justify-content:space-between;align-items:center;flex-shrink:0;}",
+      ".ftr-l{display:flex;align-items:center;gap:8px;}",
+      ".ftr-logo{height:18px;filter:invert(1);opacity:.45;}",
+      ".ftr-sep{width:1px;height:12px;background:#ccc;}",
+      ".ftr-txt{font-size:6.5px;color:#aaa;font-family:'JetBrains Mono',monospace;text-transform:uppercase;letter-spacing:.5px;}",
+      ".ftr-r{font-size:6.5px;color:#aaa;font-family:'JetBrains Mono',monospace;}",
+      ".blank-val{border-bottom:1px solid #bbb;min-height:14px;display:block;}",
+      ".blank-check{display:inline-block;width:12px;height:12px;border:1.5px solid #999;border-radius:2px;margin-right:6px;vertical-align:middle;}",
+      ".template-note{text-align:center;font-size:7px;color:#bbb;font-family:'JetBrains Mono',monospace;letter-spacing:2px;text-transform:uppercase;padding:4px 0 2px;}",
+
+      "@media screen{.page{width:210mm;min-height:297mm;box-shadow:0 8px 40px rgba(0,0,0,.2);margin:20px auto;}}",
+      "@media print{html,body{background:#fff;}.noprint{display:none!important;}.page{width:100%;box-shadow:none;margin:0;}}",
+    ].join("");
+
+    const subParts = [
+      obra?.propietario ? "<b>" + obra.propietario + "</b>" : null,
+      puesto?.label ? "Puesto <b>" + puesto.label + "</b>" : null,
+      puesto?.tipo ? puesto.tipo.toUpperCase() : null,
+      obra?.constructor ? obra.constructor : null,
     ].filter(Boolean);
 
-    // Agrupar campos por sección para imprimir
-    const secs = [...new Set(MEMORIA_FIELDS.map(f=>f.section))];
-    const secHTML = secs.map(sec=>{
-      const secFields = MEMORIA_FIELDS.filter(f=>f.section===sec);
-      const rows = secFields.map(f=>{
-        const val = fields[f.key];
-        if(!val) return "";
-        return `<tr><td class="label">${f.label}</td><td class="val">${String(val).replace(/\n/g,"<br/>")}</td></tr>`;
-      }).join("");
-      if(!rows) return "";
-      return `
-        <div class="section-title">${sec}</div>
-        <table>${rows}</table>`;
-    }).join("");
+    const html =
+      "<!DOCTYPE html><html lang='es'><head><meta charset='UTF-8'/>"
+      + "<title>Memoria \u2014 " + cod + "</title>"
+      + "<style>" + css + "</style></head><body>"
+      + "<div class='page'>"
 
-    const notasHTML = notas.length ? notas.map(n=>`
-      <div class="nota"><span class="nb">◆</span><div><div class="nt">${n.texto}</div><div class="nd">${n.fecha}</div></div></div>`
-    ).join("") : `<p class="empty">Sin notas registradas.</p>`;
+        + "<div class='hdr'>"
+          + "<div class='hdr-top'>"
+            + "<img class='logo' src='" + logoHdr + "' alt='Klase A'/>"
+            + "<div class='hdr-r'>"
+              + "<div class='hdr-doc'>Memoria Descriptiva de Obra</div>"
+              + "<div class='hdr-fecha'>" + fecha + "</div>"
+            + "</div>"
+          + "</div>"
+          + "<div class='hdr-hero'>"
+            + "<div class='hero-cod-block'>"
+              + "<div class='hero-lbl'>N\u00ba barco</div>"
+              + "<div class='hero-cod'>" + cod + "</div>"
+            + "</div>"
+            + "<div class='hero-meta'>"
+              + "<div class='hero-chip'><div class='hero-dot'></div>" + estadoLbl + "</div>"
+              + subParts.map((p,i) => (i>0?"<span class='h-sep'>\u00b7</span>":"") + "<div class='h-info'>" + p + "</div>").join("")
+              + pctHtml
+            + "</div>"
+          + "</div>"
+        + "</div>"
 
-    const html=`<!DOCTYPE html><html lang="es"><head><meta charset="UTF-8"/>
-<title>Memoria — ${obra?.codigo??`Puesto ${puesto?.label}`}</title>
-<style>
-@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;600&display=swap');
-*{box-sizing:border-box;margin:0;padding:0;}
-body{font-family:'Inter',sans-serif;background:#f8f8fa;color:#0d0d1a;font-size:12px;}
-@page{size:A4;margin:14mm 14mm;}
+        + "<div class='wrap'><table>"
+                 + tableRows
+          + "<tr class='sec-hd'><td colspan='3'><span class='sec-bar' style='background:" + ac + ";'></span>NOTAS DEL EQUIPO</td></tr>"
+          + notasRows
+        + "</table></div>"
 
-/* Layout */
-.page{max-width:780px;margin:0 auto;background:#fff;padding:32px 36px;min-height:100vh;}
+        + "<div class='ftr'>"
+          + "<div class='ftr-l'>"
+            + "<img class='ftr-logo' src='" + logoFtr + "' alt='K'/>"
+            + "<div class='ftr-sep'></div>"
+            + "<div class='ftr-txt'>Klase A Astillero</div>"
+          + "</div>"
+          + "<div class='ftr-r'>" + cod + " \u00b7 " + new Date().toLocaleDateString("es-AR") + "</div>"
+        + "</div>"
 
-/* Header */
-.header{display:grid;grid-template-columns:1fr auto;gap:16px;align-items:start;padding-bottom:20px;border-bottom:3px solid #0d0d1a;margin-bottom:24px;}
-.kw{font-size:7.5px;letter-spacing:3.5px;text-transform:uppercase;color:#aaa;font-family:'JetBrains Mono',monospace;margin-bottom:8px;}
-.codigo{font-size:36px;font-weight:800;font-family:'JetBrains Mono',monospace;letter-spacing:-0.5px;line-height:1;color:#0d0d1a;}
-.sub{font-size:9px;letter-spacing:1.5px;text-transform:uppercase;color:#999;margin-top:6px;}
-.header-right{text-align:right;}
-.estado{display:inline-block;padding:5px 14px;border-radius:4px;font-size:8px;letter-spacing:2px;font-weight:700;text-transform:uppercase;background:${accentHex};color:#fff;margin-bottom:8px;}
-.meta{font-size:8px;color:#bbb;font-family:'JetBrains Mono',monospace;line-height:1.8;}
-.pct-bar{margin-top:8px;height:4px;background:#eee;border-radius:2px;width:120px;margin-left:auto;}
-.pct-fill{height:100%;background:${accentHex};border-radius:2px;width:${obra?._pct??0}%;}
+      + "</div>"
+      + "<div class='noprint' style='position:fixed;bottom:16px;left:50%;transform:translateX(-50%);display:flex;gap:8px;z-index:999;filter:drop-shadow(0 2px 12px rgba(0,0,0,.28));'>"
+        + "<button onclick='window.print()' style='padding:10px 28px;background:#111;color:#fff;border:none;border-radius:6px;font-size:12px;font-weight:700;cursor:pointer;font-family:Inter,sans-serif;'>Descargar PDF</button>"
+        + "<button onclick=\"document.getElementById('main-table').innerHTML=BLANK_ROWS;window.print();\" style='padding:10px 18px;background:#fff;color:#333;border:1px solid #ccc;border-radius:6px;font-size:12px;font-weight:600;cursor:pointer;font-family:Inter,sans-serif;'>Plantilla vacía</button>"
+        + "<button onclick='window.close()' style='padding:10px 14px;background:#fff;color:#777;border:1px solid #ccc;border-radius:6px;font-size:12px;cursor:pointer;font-family:Inter,sans-serif;'>Cerrar</button>"
+      + "</div>"
+      + "<script>var BLANK_ROWS = " + JSON.stringify(
+          "<tr class='sec-hd'><td colspan='3'><span class='sec-bar' style='background:" + ac + ";'></span>PLANTILLA</td></tr>"
+          + blankRows
+          + "<tr class='sec-hd'><td colspan='3'><span class='sec-bar' style='background:" + ac + ";'></span>NOTAS</td></tr>"
+          + "<tr><td class='lbl'></td><td class='val' colspan='2'><span class='blank-val' style='min-height:60px;display:block;'></span></td></tr>"
+        ) + ";</script>"
+      + "</body></html>";
 
-/* Badges */
-.badges{display:flex;gap:7px;flex-wrap:wrap;margin-bottom:20px;}
-.badge{padding:4px 12px;border-radius:3px;font-size:8px;font-weight:600;letter-spacing:1px;background:#f0f0f5;color:#555;border:1px solid #ddd;text-transform:uppercase;}
-
-/* Secciones */
-.section-title{font-size:7px;letter-spacing:3px;text-transform:uppercase;color:#aaa;font-family:'JetBrains Mono',monospace;font-weight:600;margin:18px 0 8px;padding-bottom:6px;border-bottom:1px solid #eee;display:flex;align-items:center;gap:8px;}
-.section-title::after{content:'';flex:1;height:1px;background:#eee;}
-
-/* Tabla */
-table{width:100%;border-collapse:collapse;margin-bottom:4px;}
-tr{border-bottom:1px solid #f2f2f5;}
-tr:last-child{border-bottom:none;}
-td{padding:7px 6px;vertical-align:top;}
-td.label{width:32%;font-size:8.5px;color:#888;text-transform:uppercase;letter-spacing:1px;font-weight:600;padding-right:12px;font-family:'Inter',sans-serif;}
-td.val{font-size:12px;color:#1a1a2e;font-weight:500;line-height:1.5;}
-
-/* Notas */
-.notas-title{font-size:7px;letter-spacing:3px;text-transform:uppercase;color:#aaa;font-family:'JetBrains Mono',monospace;font-weight:600;margin:20px 0 10px;padding-bottom:6px;border-bottom:1px solid #eee;}
-.nota{display:flex;gap:10px;padding:8px 0;border-bottom:1px solid #f5f5f5;}
-.nota:last-child{border-bottom:none;}
-.nb{color:${accentHex};font-size:10px;margin-top:2px;flex-shrink:0;}
-.nt{font-size:12px;color:#333;line-height:1.5;}
-.nd{font-size:8px;color:#ccc;margin-top:2px;font-family:'JetBrains Mono',monospace;}
-.empty{font-size:11px;color:#ccc;font-style:italic;padding:6px 0;}
-
-/* Footer */
-.footer{margin-top:32px;padding-top:12px;border-top:1px solid #eee;display:flex;justify-content:space-between;align-items:center;}
-.fl{font-size:7.5px;color:#ccc;font-family:'JetBrains Mono',monospace;letter-spacing:1px;}
-.fr{font-size:7.5px;color:#ccc;font-family:'JetBrains Mono',monospace;letter-spacing:1px;text-align:right;}
-
-@media print{body{-webkit-print-color-adjust:exact;print-color-adjust:exact;}.noprint{display:none!important;}}
-</style></head><body><div class="page">
-
-<div class="header">
-  <div>
-    <div class="kw">Astillero Klasea · Memoria Descriptiva</div>
-    <div class="codigo">${obra?.codigo??`Puesto ${puesto?.label}`}</div>
-    <div class="sub">Puesto ${puesto?.label} · ${puesto?.tipo?.toUpperCase()??""}</div>
-  </div>
-  <div class="header-right">
-    <div class="estado">${obra?.estado?.toUpperCase()??"VACÍO"}</div>
-    <div class="meta">
-      Emitido: ${new Date().toLocaleDateString("es-AR",{day:"2-digit",month:"long",year:"numeric"})}<br/>
-      ${obra?._pct!=null?`Progreso: <strong>${obra._pct}%</strong>`:""}
-    </div>
-    ${obra?._pct!=null?`<div class="pct-bar"><div class="pct-fill"></div></div>`:""}
-  </div>
-</div>
-
-${badgeList.length?`<div class="badges">${badgeList.map(b=>`<span class="badge">${b}</span>`).join("")}</div>`:""}
-
-${secHTML}
-
-<div class="notas-title">Notas del Equipo</div>
-${notasHTML}
-
-<div class="footer">
-  <div class="fl">KLASEA ASTILLERO · ${new Date().toLocaleDateString("es-AR")}</div>
-  <div class="fr">${obra?.codigo??""} · Generado desde Sistema de Producción</div>
-</div>
-
-</div>
-<div class="noprint" style="position:fixed;bottom:20px;left:50%;transform:translateX(-50%);display:flex;gap:10px;z-index:999;">
-  <button onclick="window.print()" style="padding:10px 28px;background:#0d0d1a;color:#fff;border:none;border-radius:6px;font-size:13px;font-weight:700;cursor:pointer;font-family:Inter,sans-serif;">Imprimir / Guardar PDF</button>
-  <button onclick="window.close()" style="padding:10px 18px;background:#f4f4f8;color:#555;border:1px solid #e0e0e8;border-radius:6px;font-size:12px;cursor:pointer;">Cerrar</button>
-</div></body></html>`;
-    const win=window.open("","_blank","width=900,height=950");
-    if(!win){alert("Habilitá las ventanas emergentes para imprimir.");return;}
-    win.document.write(html); win.document.close();
+    const win = window.open("","_blank","width=900,height=960");
+    if(!win){ alert("Habilit\u00e1 las ventanas emergentes para imprimir."); return; }
+    // Inject table id for blank mode
+    const htmlWithId = html.replace("<div class='wrap'><table>", "<div class='wrap'><table id='main-table'>");
+    win.document.write(htmlWithId);
+    win.document.close();
   };
-
   const col1 = MEMORIA_FIELDS.filter(f=>f.col===1&&!f.wide);
   const col2 = MEMORIA_FIELDS.filter(f=>f.col===2&&!f.wide);
   const wide  = MEMORIA_FIELDS.filter(f=>f.wide);
   const BADGES=[
     {key:"starlink",     icon:IC.satellite,label:"Starlink",     color:"#a5b4fc"},
-    {key:"teca_cockpit", icon:IC.teca,     label:"Teca/Infinity",color:"#d4b483"},
     {key:"sternthruster",icon:IC.anchor,   label:"Sternthruster",color:"#7dd3fc"},
   ];
 
@@ -960,7 +1100,7 @@ ${notasHTML}
         )}
 
         {/* Equipment badges */}
-        <div style={{display:"flex",gap:6,flexWrap:"wrap"}}>
+        <div style={{display:"flex",gap:6,flexWrap:"wrap",alignItems:"center"}}>
           {BADGES.map(b=>(
             <button key={b.key} onClick={()=>toggleBadge(b.key)}
               style={{display:"flex",alignItems:"center",gap:5,padding:"4px 10px",borderRadius:6,cursor:"pointer",
@@ -973,6 +1113,26 @@ ${notasHTML}
               {fields[b.key]&&<span style={{display:"flex",alignItems:"center",opacity:0.7}}>{IC.check}</span>}
             </button>
           ))}
+
+          {/* Teca / Infinity — selector de 3 estados */}
+          <div style={{display:"flex",borderRadius:6,overflow:"hidden",border:"1px solid rgba(255,255,255,0.08)",height:26}}>
+            {[{val:null,label:"—"},{val:"teca",label:"Teca"},{val:"infinity",label:"Infinity"}].map(opt=>{
+              const active = fields.teca_tipo === opt.val;
+              const col = "#d4b483";
+              return(
+                <button key={String(opt.val)} onClick={()=>{setFields(f=>({...f,teca_tipo:opt.val}));setDirty(true);}}
+                  style={{
+                    padding:"0 9px", border:"none", cursor:"pointer",
+                    fontSize:10, fontWeight: active?700:400,
+                    fontFamily:"'Outfit',sans-serif",
+                    background: active && opt.val ? `${col}18` : "rgba(255,255,255,0.02)",
+                    color: active && opt.val ? col : active ? "rgba(255,255,255,0.18)" : "rgba(255,255,255,0.22)",
+                    borderRight:"1px solid rgba(255,255,255,0.06)",
+                    transition:"all 0.15s",
+                  }}>{opt.label}</button>
+              );
+            })}
+          </div>
         </div>
       </div>
 
@@ -1173,6 +1333,7 @@ export default function MapaProduccion({obras=[],onPuestoClick,onAsignarObra,onC
   const [memoriasEdit,setMemoriasEdit]=useState(()=>sharedMemorias??loadMemorias());
   const [hovered,setHovered]=useState(null);
   const [tooltip,setTooltip]=useState(null);
+  const [activeView,setActiveView]=useState("mapa"); // "mapa" | "pampa"
   const [editMode,setEditMode]=useState(false);
   const [addObraFor,setAddObraFor]=useState(null);
   const [confirmDel,setConfirmDel]=useState(null);
@@ -1257,7 +1418,7 @@ export default function MapaProduccion({obras=[],onPuestoClick,onAsignarObra,onC
   const centerOnPuesto=useCallback((p)=>{
     const el=svgRef.current;if(!el)return;
     const {width,height}=el.getBoundingClientRect();
-    const scale=Math.min(Math.min(width,height)*0.55/Math.max(p.w,p.h),3.5);
+    const scale=Math.min(Math.min(width,height)*0.38/Math.max(p.w,p.h),2.2);
     const next={x:width/2-p.cx*scale,y:height/2-p.cy*scale,scale};
     vpRef.current=next;setVp(next);
   },[]);
@@ -1323,7 +1484,7 @@ export default function MapaProduccion({obras=[],onPuestoClick,onAsignarObra,onC
   function addPuesto(){
     const v=vpRef.current,rect=svgRef.current?.getBoundingClientRect();
     const cx=rect?(rect.width/2-v.x)/v.scale:VB_W/2,cy=rect?(rect.height/2-v.y)/v.scale:VB_H/2;
-    const sizes={chico:{w:60,h:112,tipo:"k37"},mediano:{w:80,h:155,tipo:"k42"},utility:{w:75,h:158,tipo:"k43"},grande:{w:94,h:185,tipo:"k52"},crucero:{w:110,h:228,tipo:"k55"},xl:{w:128,h:285,tipo:"k64"}};
+    const sizes={chico:{w:60,h:112,tipo:"k37"},mediano:{w:80,h:155,tipo:"k42"},utility:{w:75,h:158,tipo:"k43"},grande:{w:94,h:185,tipo:"k52"},crucero:{w:110,h:228,tipo:"k55"},xl:{w:128,h:285,tipo:"k64"},k85:{w:180,h:360,tipo:"k85"}};
     setPuestos(prev=>[...prev,{id:genId(),label:String(_nextN-1).padStart(2,"0"),cx,cy,rot:0,...sizes[newPuestoSize]}]);
   }
   function removePuesto(id){setPuestos(prev=>prev.filter(p=>p.id!==id));setConfirmDel(null);}
@@ -1543,8 +1704,21 @@ export default function MapaProduccion({obras=[],onPuestoClick,onAsignarObra,onC
     );
   };
 
+
   return(
     <div style={{width:"100%",height:"100%",position:"relative",overflow:"hidden",fontFamily:C.sans,background:C.bg}}>
+      {activeView === "pampa" ? (
+        <GalponPampa
+          obras={obras}
+          onBack={()=>setActiveView("mapa")}
+          MemoriaHUD={MemoriaHUD}
+          sharedMemorias={memoriasEdit}
+          sharedNotas={notasExtra}
+          onSaveMemorias={mems=>setMemoriasEdit(mems)}
+          onSaveNotas={nts=>setNotasExtra(nts)}
+        />
+      ) : (
+      <>
       <style>{`
         @keyframes pulse-r  {0%{r:0;opacity:0.8;stroke-width:2}70%{r:36;opacity:0;stroke-width:0}100%{r:40;opacity:0}}
         @keyframes beacon   {0%,100%{opacity:1;transform:scale(1)}50%{opacity:0.5;transform:scale(0.85)}}
@@ -1554,8 +1728,10 @@ export default function MapaProduccion({obras=[],onPuestoClick,onAsignarObra,onC
         @keyframes fadeIn   {from{opacity:0}to{opacity:1}}
         @keyframes sonarPing{0%{r:0;opacity:0.7;stroke-width:2}80%{r:48;opacity:0;stroke-width:0.5}100%{r:52;opacity:0}}
         @keyframes radialPop{from{opacity:0;transform:scale(0.15)}to{opacity:1;transform:scale(1)}}
-        @keyframes focusIn  {from{opacity:0}to{opacity:1}}
-        @keyframes dimIn    {from{opacity:0}to{opacity:1}}
+        @keyframes focusIn      {from{opacity:0}to{opacity:1}}
+        @keyframes focusBracket {from{opacity:0;transform:scale(0.7)}to{opacity:1;transform:scale(1)}}
+        @keyframes focusScan    {from{stroke-dashoffset:0}to{stroke-dashoffset:-160}}
+        @keyframes dimIn        {from{opacity:0}to{opacity:1}}
         .glass-btn{background:rgba(255,255,255,0.03);border:1px solid rgba(255,255,255,0.08);color:${C.t1};transition:all 0.2s;}
         .glass-btn:hover{background:rgba(255,255,255,0.08);color:${C.t0};border-color:rgba(255,255,255,0.2);}
       `}</style>
@@ -1656,6 +1832,14 @@ export default function MapaProduccion({obras=[],onPuestoClick,onAsignarObra,onC
             ))}
           </div>
           <div style={{display:"flex",gap:8}}>
+            {/* Vista Pampa */}
+            <button className="glass-btn" onClick={()=>setActiveView(v=>v==="pampa"?"mapa":"pampa")}
+              style={{padding:"8px 14px",borderRadius:8,cursor:"pointer",fontSize:11,fontFamily:C.sans,fontWeight:600,display:"flex",alignItems:"center",gap:6,
+                background:activeView==="pampa"?"rgba(245,158,11,0.15)":"",
+                borderColor:activeView==="pampa"?"rgba(245,158,11,0.5)":""}}>
+              <span style={{color:activeView==="pampa"?"#fbbf24":"",fontSize:13}}>🏭</span>
+              <span style={{color:activeView==="pampa"?"#fbbf24":""}}>Pampa</span>
+            </button>
             <button className="glass-btn" onClick={()=>setEditMode(v=>!v)} style={{padding:"8px 16px",borderRadius:8,cursor:"pointer",fontSize:11,fontFamily:C.sans,fontWeight:600,display:"flex",alignItems:"center",gap:6,background:editMode?"rgba(251,191,36,0.15)":"",borderColor:editMode?"rgba(251,191,36,0.4)":""}}>
               <span style={{color:editMode?"#fbbf24":""}}>{editMode?"● Editando Layout":"◩ Editar Layout"}</span>
             </button>
@@ -1665,7 +1849,7 @@ export default function MapaProduccion({obras=[],onPuestoClick,onAsignarObra,onC
             </button>
             {editMode&&(
               <div style={{display:"flex",gap:4,alignItems:"center",background:"rgba(0,0,0,0.3)",borderRadius:8,padding:"4px",border:"1px solid rgba(16,185,129,0.3)"}}>
-                {[{key:"chico",l:"37'"},{key:"mediano",l:"42'"},{key:"utility",l:"43'"},{key:"grande",l:"52'"},{key:"crucero",l:"55'"},{key:"xl",l:"64'"}].map(({key,l})=>(
+                {[{key:"chico",l:"37'"},{key:"mediano",l:"42'"},{key:"utility",l:"43'"},{key:"grande",l:"52'"},{key:"crucero",l:"55'"},{key:"xl",l:"64'"},{key:"k85",l:"85'"}].map(({key,l})=>(
                   <button key={key} onClick={()=>setNewPuestoSize(key)} style={{padding:"4px 10px",borderRadius:6,cursor:"pointer",fontSize:10,fontFamily:C.mono,fontWeight:600,border:"none",background:newPuestoSize===key?"rgba(16,185,129,0.2)":"transparent",color:newPuestoSize===key?"#34d399":C.t2,transition:"all .2s"}}>{l}</button>
                 ))}
                 <div style={{width:1,height:16,background:C.b1,margin:"0 4px"}}/>
@@ -1716,7 +1900,7 @@ export default function MapaProduccion({obras=[],onPuestoClick,onAsignarObra,onC
             {/* Propietario / Constructor */}
             {obra?.propietario&&(
               <div style={{fontSize:11,color:C.t0,marginBottom:8,fontWeight:600,display:"flex",alignItems:"center",gap:5}}>
-                <span style={{fontSize:10}}>👤</span>
+                <span style={{display:"flex",alignItems:"center",color:C.t2,flexShrink:0}}><svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round"><circle cx="12" cy="8" r="4"/><path d="M4 20c0-4 3.6-7 8-7s8 3 8 7"/></svg></span>
                 <span>{obra.propietario}</span>
                 {obra.constructor&&<span style={{color:C.t2,fontWeight:400,fontSize:10}}>· {obra.constructor}</span>}
               </div>
@@ -1731,10 +1915,10 @@ export default function MapaProduccion({obras=[],onPuestoClick,onAsignarObra,onC
                 <SpecRow label="Casco"  val={obra.color_casco}/>
                 {/* Badges de equipamiento */}
                 <div style={{display:"flex",gap:5,flexWrap:"wrap",marginTop:3}}>
-                  {obra.grupo_electrogeno&&<span style={{fontSize:9,padding:"2px 7px",borderRadius:4,background:"rgba(245,158,11,0.12)",color:"#fcd34d",border:"1px solid rgba(245,158,11,0.2)"}}>⚡ {obra.grupo_electrogeno_det||"Grupo elect."}</span>}
-                  {obra.teca_cockpit&&<span style={{fontSize:9,padding:"2px 7px",borderRadius:4,background:"rgba(180,140,60,0.12)",color:"#d4b483",border:"1px solid rgba(180,140,60,0.2)"}}>🪵 {obra.teca_cockpit_det||"Teca/Infinity"}</span>}
-                  {obra.starlink&&<span style={{fontSize:9,padding:"2px 7px",borderRadius:4,background:"rgba(99,102,241,0.12)",color:"#a5b4fc",border:"1px solid rgba(99,102,241,0.2)"}}>🛰 Starlink</span>}
-                  {obra.sternthruster&&<span style={{fontSize:9,padding:"2px 7px",borderRadius:4,background:"rgba(56,189,248,0.12)",color:"#7dd3fc",border:"1px solid rgba(56,189,248,0.2)"}}>⚓ Stern</span>}
+                  {obra.grupo_electrogeno&&<span style={{fontSize:9,padding:"2px 7px",borderRadius:4,background:"rgba(245,158,11,0.12)",color:"#fcd34d",border:"1px solid rgba(245,158,11,0.2)"}}>{obra.grupo_electrogeno_det||"Grupo elect."}</span>}
+                  {obra.teca_cockpit&&<span style={{fontSize:9,padding:"2px 7px",borderRadius:4,background:"rgba(180,140,60,0.12)",color:"#d4b483",border:"1px solid rgba(180,140,60,0.2)"}}>{obra.teca_cockpit_det||"Teca/Infinity"}</span>}
+                  {obra.starlink&&<span style={{fontSize:9,padding:"2px 7px",borderRadius:4,background:"rgba(99,102,241,0.12)",color:"#a5b4fc",border:"1px solid rgba(99,102,241,0.2)"}}>Starlink</span>}
+                  {obra.sternthruster&&<span style={{fontSize:9,padding:"2px 7px",borderRadius:4,background:"rgba(56,189,248,0.12)",color:"#7dd3fc",border:"1px solid rgba(56,189,248,0.2)"}}>Stern</span>}
                 </div>
               </div>
             )}
@@ -1825,6 +2009,8 @@ export default function MapaProduccion({obras=[],onPuestoClick,onAsignarObra,onC
           </div>
         </div>
       )}
-    </div>
+    </>
+    )}
+  </div>
   );
 }
