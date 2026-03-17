@@ -663,39 +663,26 @@ function TareaModal({ tarea, etapaId, obraId, onSave, onClose }) {
 }
 
 // ─── TAREA CARD (tarjeta dentro del desplegable de etapa) ──────────────────────
-function TareaCard({ tarea, esGestion, archivosCount, onCambiarEstado, onEditar, onDetalle, onEliminar, modoSeleccion = false, seleccionada = false, onToggleSeleccion }) {
+function TareaCard({ tarea, esGestion, archivosCount, onCambiarEstado, onEditar, onDetalle, onEliminar }) {
   const tc = C.tarea[tarea.estado] ?? C.tarea.pendiente;
   const pc = C.prioridad[tarea.prioridad ?? "media"];
   const diasVence = diasHasta(tarea.fecha_fin_estimada);
   const atrasada  = diasVence !== null && diasVence < 0 && !["finalizada","cancelada"].includes(tarea.estado);
   const urgente   = diasVence !== null && diasVence <= 2 && !["finalizada","cancelada"].includes(tarea.estado);
 
-  function handleClick() {
-    if (modoSeleccion) { onToggleSeleccion?.(tarea.id); return; }
-    onDetalle(tarea);
-  }
-
   return (
     <div
       style={{
-        border: `1px solid ${seleccionada ? "rgba(59,130,246,0.5)" : atrasada ? "rgba(239,68,68,0.3)" : urgente ? "rgba(245,158,11,0.25)" : C.b0}`,
-        borderLeft: `3px solid ${seleccionada ? C.primary : pc.color}`,
-        borderRadius: 8, background: seleccionada ? "rgba(59,130,246,0.07)" : C.s0, marginBottom: 6,
+        border: `1px solid ${atrasada ? "rgba(239,68,68,0.3)" : urgente ? "rgba(245,158,11,0.25)" : C.b0}`,
+        borderLeft: `3px solid ${pc.color}`,
+        borderRadius: 8, background: C.s0, marginBottom: 6,
         transition: "border-color .15s, background .15s",
         cursor: "pointer",
       }}
-      onClick={handleClick}
+      onClick={() => onDetalle(tarea)}
     >
       {/* Row principal */}
       <div style={{ display: "flex", alignItems: "flex-start", gap: 10, padding: "10px 12px 8px" }}>
-        {/* Checkbox en modo selección */}
-        {modoSeleccion && (
-          <div style={{ paddingTop: 2, flexShrink: 0 }} onClick={e => { e.stopPropagation(); onToggleSeleccion?.(tarea.id); }}>
-            <div style={{ width: 16, height: 16, borderRadius: 4, border: `2px solid ${seleccionada ? C.primary : C.b1}`, background: seleccionada ? C.primary : "transparent", display: "flex", alignItems: "center", justifyContent: "center", transition: "all .15s", flexShrink: 0 }}>
-              {seleccionada && <span style={{ color: "#fff", fontSize: 10, lineHeight: 1 }}>✓</span>}
-            </div>
-          </div>
-        )}
         {/* Estado dot */}
         <div style={{ paddingTop: 3 }}>
           <Dot color={tc.text} size={7} glow={tarea.estado === "en_progreso"} />
@@ -970,55 +957,35 @@ function PredecessorWarnModal({ tareaActual, bloqueantes, onConfirm, onCancel })
 }
 
 // ─── SECCIÓN DE TAREAS DENTRO DE ETAPA ───────────────────────────────────────
-function EtapaTareasSection({ etapa, tareas, archivosCount, esGestion, onCambiarEstado, onCambiarEstadoMultiple, onCompletarTodo, onEditar, onDetalle, onEliminar, onNueva }) {
+function EtapaTareasSection({ etapa, tareas, archivosCount, esGestion, onCambiarEstado, onEditar, onDetalle, onEliminar, onNueva }) {
   const finalizadas = tareas.filter(t => t.estado === "finalizada").length;
   const epct = pct(finalizadas, tareas.length);
   const ec   = C.etapa[etapa.estado] ?? C.etapa.pendiente;
-  const [predWarn, setPredWarn] = useState(null);
-  const [modoSeleccion, setModoSeleccion] = useState(false);
-  const [seleccionadas, setSeleccionadas] = useState(new Set());
-
-  const tareasActivas = tareas.filter(t => !["finalizada","cancelada"].includes(t.estado));
-
-  function toggleSeleccion(tareaId) {
-    setSeleccionadas(prev => {
-      const next = new Set(prev);
-      if (next.has(tareaId)) next.delete(tareaId); else next.add(tareaId);
-      return next;
-    });
-  }
-
-  function seleccionarTodas() {
-    setSeleccionadas(new Set(tareasActivas.map(t => t.id)));
-  }
-
-  function cancelarSeleccion() {
-    setModoSeleccion(false);
-    setSeleccionadas(new Set());
-  }
-
-  async function completarSeleccionadas() {
-    if (!seleccionadas.size) return;
-    await onCambiarEstadoMultiple([...seleccionadas], "finalizada");
-    cancelarSeleccion();
-  }
+  const [predWarn, setPredWarn] = useState(null); // { tareaId, tareaActual, bloqueantes, nuevoEstado }
 
   function handleCambiarEstado(tareaId, nuevoEstado) {
+    // Solo chequeamos al iniciar (pendiente → en_progreso)
     if (nuevoEstado !== "en_progreso") { onCambiarEstado(tareaId, nuevoEstado); return; }
+
     const tarea = tareas.find(t => t.id === tareaId);
     if (!tarea) { onCambiarEstado(tareaId, nuevoEstado); return; }
+
+    // Tareas con orden menor que no están finalizadas
     const bloqueantes = tareas.filter(t =>
       t.id !== tareaId &&
       (t.orden ?? 0) < (tarea.orden ?? 0) &&
       t.estado !== "finalizada" &&
       t.estado !== "cancelada"
     );
+
     if (bloqueantes.length === 0) { onCambiarEstado(tareaId, nuevoEstado); return; }
+
     setPredWarn({ tareaId, tareaActual: tarea.nombre, bloqueantes, nuevoEstado });
   }
 
   return (
     <div style={{ marginTop: 4, paddingLeft: 14, paddingBottom: 4 }}>
+      {/* Modal aviso predecesores */}
       {predWarn && (
         <PredecessorWarnModal
           tareaActual={predWarn.tareaActual}
@@ -1028,41 +995,11 @@ function EtapaTareasSection({ etapa, tareas, archivosCount, esGestion, onCambiar
         />
       )}
 
-      {/* Barra de progreso + controles de selección */}
+      {/* Resumen mini */}
       {tareas.length > 0 && (
-        <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 8, padding: "4px 0" }}>
-          <div style={{ flex: 1 }}>
-            <ProgressBar value={epct} color={ec.dot} height={3} />
-          </div>
+        <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 8, padding: "4px 0" }}>
+          <ProgressBar value={epct} color={ec.dot} height={3} />
           <span style={{ fontSize: 9, color: ec.text, fontFamily: C.mono, flexShrink: 0 }}>{finalizadas}/{tareas.length} · {epct}%</span>
-
-          {esGestion && !modoSeleccion && tareasActivas.length > 0 && (
-            <button type="button" onClick={() => setModoSeleccion(true)}
-              style={{ fontSize: 9, padding: "2px 8px", borderRadius: 5, border: `1px solid ${C.b1}`, background: "transparent", color: C.t2, cursor: "pointer", fontFamily: C.sans, flexShrink: 0, whiteSpace: "nowrap" }}>
-              ☐ Seleccionar
-            </button>
-          )}
-        </div>
-      )}
-
-      {/* Toolbar de selección múltiple */}
-      {modoSeleccion && (
-        <div style={{ display: "flex", alignItems: "center", gap: 6, marginBottom: 8, padding: "6px 10px", borderRadius: 7, background: "rgba(59,130,246,0.08)", border: "1px solid rgba(59,130,246,0.2)" }}>
-          <span style={{ fontSize: 10, color: C.primary, flex: 1 }}>
-            {seleccionadas.size === 0 ? "Seleccioná tareas" : `${seleccionadas.size} seleccionada${seleccionadas.size !== 1 ? "s" : ""}`}
-          </span>
-          <button type="button" onClick={seleccionarTodas}
-            style={{ fontSize: 9, padding: "3px 9px", borderRadius: 5, border: `1px solid ${C.b1}`, background: "transparent", color: C.t1, cursor: "pointer", fontFamily: C.sans, whiteSpace: "nowrap" }}>
-            Todas
-          </button>
-          <button type="button" onClick={completarSeleccionadas} disabled={seleccionadas.size === 0}
-            style={{ fontSize: 9, padding: "3px 10px", borderRadius: 5, border: "1px solid rgba(16,185,129,0.4)", background: "rgba(16,185,129,0.12)", color: C.green, cursor: seleccionadas.size === 0 ? "not-allowed" : "pointer", fontFamily: C.sans, fontWeight: 600, opacity: seleccionadas.size === 0 ? 0.4 : 1, whiteSpace: "nowrap" }}>
-            ✓ Completar ({seleccionadas.size})
-          </button>
-          <button type="button" onClick={cancelarSeleccion}
-            style={{ fontSize: 11, padding: "2px 6px", borderRadius: 5, border: "none", background: "transparent", color: C.t2, cursor: "pointer" }}>
-            ×
-          </button>
         </div>
       )}
 
@@ -1071,35 +1008,22 @@ function EtapaTareasSection({ etapa, tareas, archivosCount, esGestion, onCambiar
         <TareaCard
           key={tarea.id}
           tarea={tarea}
-          esGestion={esGestion && !modoSeleccion}
+          esGestion={esGestion}
           archivosCount={archivosCount[tarea.id] ?? 0}
           onCambiarEstado={handleCambiarEstado}
           onEditar={onEditar}
           onDetalle={onDetalle}
           onEliminar={onEliminar}
-          modoSeleccion={modoSeleccion}
-          seleccionada={seleccionadas.has(tarea.id)}
-          onToggleSeleccion={toggleSeleccion}
         />
       ))}
 
-      {/* Botones de pie */}
-      <div style={{ display: "flex", gap: 6, marginTop: 4 }}>
-        {esGestion && !modoSeleccion && (
-          <button type="button" onClick={onNueva}
-            style={{ flex: 1, padding: "8px 12px", borderRadius: 7, cursor: "pointer", border: `1px dashed ${C.b1}`, background: "transparent", color: C.t2, fontSize: 11, fontFamily: C.sans, display: "flex", alignItems: "center", justifyContent: "center", gap: 6, transition: "border-color .15s, color .15s" }}>
-            + Nueva tarea en {etapa.nombre}
-          </button>
-        )}
-        {esGestion && !modoSeleccion && tareasActivas.length > 0 && (
-          <button type="button" onClick={onCompletarTodo}
-            style={{ padding: "8px 14px", borderRadius: 7, cursor: "pointer", border: "1px solid rgba(16,185,129,0.3)", background: "rgba(16,185,129,0.07)", color: "#34d399", fontSize: 11, fontFamily: C.sans, fontWeight: 600, whiteSpace: "nowrap", transition: "opacity .15s" }}
-            title="Marca todas las tareas como finalizadas y la etapa como completada">
-            ✓✓ Completar etapa
-          </button>
-        )}
-      </div>
-
+      {/* Botón nueva tarea */}
+      {esGestion && (
+        <button type="button" onClick={onNueva}
+          style={{ width: "100%", marginTop: 4, padding: "8px 12px", borderRadius: 7, cursor: "pointer", border: `1px dashed ${C.b1}`, background: "transparent", color: C.t2, fontSize: 11, fontFamily: C.sans, display: "flex", alignItems: "center", justifyContent: "center", gap: 6, transition: "border-color .15s, color .15s" }}>
+          + Nueva tarea en {etapa.nombre}
+        </button>
+      )}
       {tareas.length === 0 && !esGestion && (
         <div style={{ padding: "12px 0", color: C.t2, fontSize: 10, textAlign: "center" }}>Sin tareas en esta etapa</div>
       )}
@@ -1907,25 +1831,6 @@ export default function ObrasScreen({ profile, signOut }) {
     await supabase.from("obra_tareas").update(upd).eq("id", tareaId); cargar();
   }
 
-  async function cambiarEstadoTareasMultiple(tareaIds, estado) {
-    if (!tareaIds.length) return;
-    const upd = { estado };
-    if (estado === "finalizada") upd.fecha_fin_real = today();
-    await supabase.from("obra_tareas").update(upd).in("id", tareaIds);
-    cargar();
-  }
-
-  async function completarEtapaConTareas(etapaId) {
-    const etapaT = tareasDeEtapa(etapaId).filter(t => !["finalizada","cancelada"].includes(t.estado));
-    if (etapaT.length > 0) {
-      await supabase.from("obra_tareas")
-        .update({ estado: "finalizada", fecha_fin_real: today() })
-        .in("id", etapaT.map(t => t.id));
-    }
-    await supabase.from("obra_etapas").update({ estado: "completado" }).eq("id", etapaId);
-    cargar();
-  }
-
   function pedirBorrado(item, tipo) {
     const ads = { obra: "Se borrarán sus etapas, tareas y archivos.", etapa: "Se borrarán las tareas y archivos de esta etapa.", tarea: "Se eliminará la tarea y todos sus archivos adjuntos." };
     setConfirmModal({ nombre: item.nombre ?? item.codigo, tipo, advertencia: ads[tipo], async onConfirm() {
@@ -2178,19 +2083,12 @@ export default function ObrasScreen({ profile, signOut }) {
                           {/* Estado quick buttons */}
                           {esGestion && !etapa.isVirtual && (
                             <div style={{ display: "flex", gap: 2, flexShrink: 0 }} onClick={e => e.stopPropagation()}>
-                              {[["pendiente","—"],["en_curso","▶"]].map(([est, ico]) => (
+                              {[["pendiente","—"],["en_curso","▶"],["completado","✓"]].map(([est, ico]) => (
                                 <button key={est} type="button" onClick={() => cambiarEstadoEtapa(etapa.id, est)}
                                   style={{ width: 20, height: 20, borderRadius: 4, border: "none", cursor: "pointer", fontSize: 9, background: etapa.estado === est ? `${(C.etapa[est]).dot}28` : "rgba(255,255,255,0.03)", color: etapa.estado === est ? (C.etapa[est]).dot : C.t2 }}>
                                   {ico}
                                 </button>
                               ))}
-                              {/* Botón completar: también finaliza todas las tareas */}
-                              <button type="button"
-                                title="Completar etapa y finalizar todas las tareas"
-                                onClick={() => completarEtapaConTareas(etapa.id)}
-                                style={{ width: 20, height: 20, borderRadius: 4, border: "none", cursor: "pointer", fontSize: 9, background: etapa.estado === "completado" ? `${C.etapa.completado.dot}28` : "rgba(255,255,255,0.03)", color: etapa.estado === "completado" ? C.etapa.completado.dot : C.t2 }}>
-                                ✓
-                              </button>
                               <button type="button" onClick={() => setEtapaModal({ etapa, obraId: etapa.obra_id })} style={{ width: 20, height: 20, borderRadius: 4, border: "none", cursor: "pointer", fontSize: 9, background: "transparent", color: C.t2 }}>editar</button>
                               <button type="button" onClick={() => pedirBorrado(etapa, "etapa")} style={{ border: "none", background: "transparent", color: C.t2, cursor: "pointer", fontSize: 12, padding: "0 2px" }}>×</button>
                             </div>
@@ -2206,8 +2104,6 @@ export default function ObrasScreen({ profile, signOut }) {
                               archivosCount={archCounts}
                               esGestion={esGestion}
                               onCambiarEstado={cambiarEstadoTarea}
-                              onCambiarEstadoMultiple={cambiarEstadoTareasMultiple}
-                              onCompletarTodo={() => completarEtapaConTareas(etapa.id)}
                               onEditar={t => setTareaModal({ tarea: t, etapaId: t.etapa_id, obraId: t.obra_id })}
                               onDetalle={t => setTareaDetalle(t)}
                               onEliminar={t => pedirBorrado(t, "tarea")}
@@ -2344,6 +2240,17 @@ export default function ObrasScreen({ profile, signOut }) {
                 onAsignarObra={async (puestoId, obraId) => {
                   await supabase.from("produccion_obras").update({ puesto_mapa: puestoId }).eq("id", obraId);
                   cargar();
+                }}
+                onAsignarObraPampa={async (bahiaId, obraId) => {
+                  await supabase.from("produccion_obras").update({ bahia_pampa: bahiaId }).eq("id", obraId);
+                  cargar();
+                }}
+                onDesasignarObraPampa={async (bahiaId) => {
+                  const obra = obrasConPct.find(o => o.bahia_pampa === bahiaId);
+                  if (obra) {
+                    await supabase.from("produccion_obras").update({ bahia_pampa: null }).eq("id", obra.id);
+                    cargar();
+                  }
                 }}
               />
               {mapaPanel && (

@@ -28,7 +28,7 @@ import k43Img from "./k43.png";
 import k52Img from "./k52.png";
 import k55Img from "./k55.png";
 import k64Img from "./k64.png";
-import k85Img from "./K85.jpg";
+import k85Img from "./K85.png";
 import logoKlaseaImg from "../assets/logo-klasea.png";
 import logoKImg from "../assets/logo-k.png";
 import GalponPampa from "./GalponPampa";
@@ -1324,7 +1324,7 @@ function savePuestos(puestos) {
  *   onSaveNotas(obj)   → llamado al cambiar notas
  * Si no se pasan, se usa localStorage (solo local, no compartido).
  */
-export default function MapaProduccion({obras=[],onPuestoClick,onAsignarObra,onChangeEstado,esGestion=false,sharedPuestos,onSaveLayout,sharedNotas,onSaveNotas,sharedMemorias,onSaveMemorias}){
+export default function MapaProduccion({obras=[],onPuestoClick,onAsignarObra,onChangeEstado,esGestion=false,sharedPuestos,onSaveLayout,sharedNotas,onSaveNotas,sharedMemorias,onSaveMemorias,onAsignarObraPampa,onDesasignarObraPampa}){
   const svgRef=useRef(null);
   const vpRef=useRef({x:0,y:0,scale:1});
   const [vp,setVp]=useState({x:0,y:0,scale:1});
@@ -1349,6 +1349,9 @@ export default function MapaProduccion({obras=[],onPuestoClick,onAsignarObra,onC
   const dragRef=useRef(null);
   const obraDragOverRef=useRef(null);
   const stateRef=useRef({});
+  const puestoDragLiveRef=useRef(null); // posición en vivo del puesto arrastrado (sin setState)
+  const dragRafRef=useRef(null);        // RAF handle para throttle de setPuestoDragLive
+  const [puestoDragLive,setPuestoDragLive]=useState(null); // {id,cx,cy} — solo el barco arrastrado
 
   useEffect(()=>{stateRef.current={editMode,cmdPaletteOpen,focusedPuesto,addObraFor,confirmDel,contextMenu,hovered,puestos};},[editMode,cmdPaletteOpen,focusedPuesto,addObraFor,confirmDel,contextMenu,hovered,puestos]);
   useEffect(()=>{vpRef.current=vp;},[vp]);
@@ -1467,12 +1470,35 @@ export default function MapaProduccion({obras=[],onPuestoClick,onAsignarObra,onC
       const d=dragRef.current;if(!d)return;
       if(Math.hypot(e.clientX-d.startX,e.clientY-d.startY)>4)d.moved=true;
       if(d.type==="pan"){const dx=e.clientX-d.lastX,dy=e.clientY-d.lastY;d.vx=dx;d.vy=dy;d.lastX=e.clientX;d.lastY=e.clientY;setVp(v=>{const n={...v,x:v.x+dx,y:v.y+dy};vpRef.current=n;return n;});}
-      else if(d.type==="puesto"&&d.moved){const v=vpRef.current;setPuestos(prev=>prev.map(p=>p.id===d.puestoId?{...p,cx:d.startCX+(e.clientX-d.startX)/v.scale,cy:d.startCY+(e.clientY-d.startY)/v.scale}:p));}
+      else if(d.type==="puesto"&&d.moved){
+        /* FIX: guardamos la posición en un ref y usamos RAF para actualizar
+           solo el estado chico "puestoDragLive" (sin tocar el array puestos).
+           Así React re-renderiza un solo barco y los demás no tirilan. */
+        const v=vpRef.current;
+        const cx=d.startCX+(e.clientX-d.startX)/v.scale;
+        const cy=d.startCY+(e.clientY-d.startY)/v.scale;
+        puestoDragLiveRef.current={id:d.puestoId,cx,cy};
+        if(!dragRafRef.current){
+          dragRafRef.current=requestAnimationFrame(()=>{
+            dragRafRef.current=null;
+            const pos=puestoDragLiveRef.current;
+            if(pos)setPuestoDragLive({...pos});
+          });
+        }
+      }
       else if(d.type==="obra"){setObraDragPos({x:e.clientX,y:e.clientY});}
     };
     const onUp=()=>{
       const d=dragRef.current;document.body.style.cursor="";
+      if(dragRafRef.current){cancelAnimationFrame(dragRafRef.current);dragRafRef.current=null;}
       if(d?.type==="pan"){let vx=d.vx,vy=d.vy;const step=()=>{vx*=0.85;vy*=0.85;if(Math.abs(vx)<0.3&&Math.abs(vy)<0.3)return;setVp(v=>{const n={...v,x:v.x+vx,y:v.y+vy};vpRef.current=n;return n;});requestAnimationFrame(step);};requestAnimationFrame(step);}
+      else if(d?.type==="puesto"){
+        /* Commiteamos la posición final al array puestos UNA SOLA VEZ al soltar */
+        const pos=puestoDragLiveRef.current;
+        if(pos){setPuestos(prev=>prev.map(p=>p.id===pos.id?{...p,cx:pos.cx,cy:pos.cy}:p));}
+        puestoDragLiveRef.current=null;
+        setPuestoDragLive(null);
+      }
       else if(d?.type==="obra"){if(!d.moved){onPuestoClick?.({puesto:d.puesto,obra:d.obra});}else{const target=obraDragOverRef.current;if(target&&d.obra&&onAsignarObra)onAsignarObra(target,d.obra.id);}obraDragOverRef.current=null;setObraDragPos(null);setObraDragOver(null);}
       else if(d?.type==="empty"&&!d?.moved){setAddObraFor(d.puestoId);}
       setIsDragging(false);dragRef.current=null;
@@ -1527,6 +1553,9 @@ export default function MapaProduccion({obras=[],onPuestoClick,onAsignarObra,onC
   const nonFocusedPuestos=focusedPuesto?puestos.filter(p=>p.id!==focusedPuesto):puestos;
 
   const renderBoat=(p)=>{
+    /* FIX: si este barco está siendo arrastrado, usamos la posición en vivo
+       del ref en lugar de la del array (que no cambia durante el drag) */
+    if(puestoDragLive?.id===p.id) p={...p,cx:puestoDragLive.cx,cy:puestoDragLive.cy};
     const obra=obraByPuesto[p.id],oC=C.obra[obra?.estado??"vacio"];
     const isHov=hovered===p.id,isEmpty=!obra,isAct=obra?.estado==="activa",isPaused=obra?.estado==="pausada";
     const canDrop=!!obraDragPos&&isEmpty&&p.id!==dragRef.current?.fromId;
@@ -1712,10 +1741,16 @@ export default function MapaProduccion({obras=[],onPuestoClick,onAsignarObra,onC
           obras={obras}
           onBack={()=>setActiveView("mapa")}
           MemoriaHUD={MemoriaHUD}
-          sharedMemorias={memoriasEdit}
+          esGestion={esGestion}
+          onAsignarObra={onAsignarObraPampa}
+          onChangeEstado={onChangeEstado}
+          onPuestoClick={onPuestoClick}
+          sharedPuestos={null}
+          onSaveLayout={onAsignarObraPampa?undefined:undefined}
           sharedNotas={notasExtra}
-          onSaveMemorias={mems=>setMemoriasEdit(mems)}
           onSaveNotas={nts=>setNotasExtra(nts)}
+          sharedMemorias={memoriasEdit}
+          onSaveMemorias={mems=>setMemoriasEdit(mems)}
         />
       ) : (
       <>
@@ -1837,7 +1872,12 @@ export default function MapaProduccion({obras=[],onPuestoClick,onAsignarObra,onC
               style={{padding:"8px 14px",borderRadius:8,cursor:"pointer",fontSize:11,fontFamily:C.sans,fontWeight:600,display:"flex",alignItems:"center",gap:6,
                 background:activeView==="pampa"?"rgba(245,158,11,0.15)":"",
                 borderColor:activeView==="pampa"?"rgba(245,158,11,0.5)":""}}>
-              <span style={{color:activeView==="pampa"?"#fbbf24":"",fontSize:13}}>🏭</span>
+              <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke={activeView==="pampa"?"#fbbf24":"currentColor"} strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+                <path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/>
+                <polyline points="9 22 9 12 15 12 15 22"/>
+                <line x1="9" y1="7" x2="9" y2="9"/>
+                <line x1="15" y1="7" x2="15" y2="9"/>
+              </svg>
               <span style={{color:activeView==="pampa"?"#fbbf24":""}}>Pampa</span>
             </button>
             <button className="glass-btn" onClick={()=>setEditMode(v=>!v)} style={{padding:"8px 16px",borderRadius:8,cursor:"pointer",fontSize:11,fontFamily:C.sans,fontWeight:600,display:"flex",alignItems:"center",gap:6,background:editMode?"rgba(251,191,36,0.15)":"",borderColor:editMode?"rgba(251,191,36,0.4)":""}}>
