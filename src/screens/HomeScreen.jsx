@@ -33,299 +33,524 @@ const C = {
 // ─── MÓDULOS ───────────────────────────────────────────────────
 const MODULOS = [
   { href:"/panol",            label:"Maderas",           desc:"Ingresos, egresos y stock de madera",         color:"#818cf8", roles:["panol","oficina","admin"] },
-  { href:"/laminacion",       label:"Laminación",        desc:"Stock y movimientos de materiales",           color:"#818cf8", roles:["panol","oficina","admin","laminacion"] },
+  { href:"/laminacion",       label:"Laminación",        desc:"Stock y movimientos de materiales de laminación",           color:"#818cf8", roles:["panol","oficina","admin","laminacion"] },
   { href:"/obras",            label:"Obras",             desc:"Mapa de producción y estado de barcos",       color:"#60a5fa", roles:["oficina","admin"] },
   { href:"/marmoleria",       label:"Marmolería",        desc:"Seguimiento de piezas y líneas de mármol",    color:"#60a5fa", roles:["oficina","admin"] },
   { href:"/muebles",          label:"Muebles",           desc:"Plan, checklist y avance por obra",           color:"#60a5fa", roles:["oficina","admin","muebles"] },
   { href:"/obras-laminacion", label:"Por Obra",          desc:"Laminación desglosada por obra",              color:"#34d399", roles:["oficina","admin"] },
-  { href:"/admin",            label:"Inventario",        desc:"KPIs de stock, alertas y pedidos sugeridos",  color:"#fbbf24", roles:["oficina","admin"] },
-  { href:"/movimientos",      label:"Movimientos",       desc:"Historial de ingresos y egresos",             color:"#fbbf24", roles:["oficina","admin"] },
-  { href:"/pedidos",          label:"Pedidos",           desc:"Órdenes de compra de materiales",             color:"#fbbf24", roles:["oficina","admin"] },
+  { href:"/admin",            label:"Inventario",        desc:"KPIs de stock y alertas de materiales de madera",  color:"#fbbf24", roles:["oficina","admin"] },
+  { href:"/movimientos",      label:"Movimientos",       desc:"Ingresos y egresos de maderas del depósito",             color:"#fbbf24", roles:["oficina","admin"] },
+  { href:"/pedidos",          label:"Pedidos",           desc:"Órdenes de compra de materiales de madera",             color:"#fbbf24", roles:["oficina","admin"] },
   { href:"/postventa",        label:"Barcos Entregados", desc:"Post venta y flota en el agua",               color:"#67e8f9", roles:["oficina","admin"] },
   { href:"/configuracion",    label:"Configuración",     desc:"Usuarios, roles y configuración",             color:"#f87171", roles:["admin"] },
   { href:"/procedimientos",   label:"Procedimientos",    desc:"Instructivos y guías de operación",           color:"#94a3b8", roles:["panol","oficina","admin","laminacion","muebles","mecanica","electricidad"] },
 ];
 
-// ─── MINI PREVIEWS SVG (réplicas fieles de cada pantalla) ──────
-const PREVIEWS = {
-  "/panol": ({c}) => (
-    <svg viewBox="0 0 200 110" fill="none">
-      <rect width="200" height="110" fill="#09090b"/>
-      <rect width="200" height="20" fill="rgba(255,255,255,0.04)"/>
-      <rect x="8" y="6" width="50" height="8" rx="2" fill="rgba(255,255,255,0.12)"/>
-      <rect x="140" y="5" width="30" height="10" rx="5" fill={`${c}30`}/>
+// ─── CARD CON IFRAME PREVIEW REAL ────────────────────────────
+// Escala la pantalla real al vuelo usando transform: scale().
+// El iframe comparte el localStorage de Supabase (mismo origen),
+// así que el usuario ya está autenticado y ve la pantalla real.
+// ─── CARD ──────────────────────────────────────────────────────
+// ─── CARD ──────────────────────────────────────────────────────
+// ─── ILUSTRACIONES POR MÓDULO ─────────────────────────────────
+// Cada una es un SVG abstracto que representa visualmente el módulo.
+// Viven en el fondo de la card, semi-transparentes.
+const CARD_ART = {
+
+  "/panol": (c) => (
+    <svg viewBox="0 0 240 140" fill="none" style={{position:"absolute",inset:0,width:"100%",height:"100%",opacity:0.18}}>
+      {/* Estantes / filas de inventario */}
       {[0,1,2,3,4].map(i=>(
         <g key={i}>
-          <rect x="8" y={26+i*16} width="184" height="13" rx="2" fill={i%2===0?"rgba(255,255,255,0.025)":"transparent"}/>
-          <rect x="12" y={30+i*16} width="40" height="5" rx="1" fill="rgba(255,255,255,0.18)"/>
-          <rect x="58" y={30+i*16} width="28" height="5" rx="1" fill="rgba(255,255,255,0.08)"/>
-          <rect x="92" y={29+i*16} width="22" height="7" rx="3" fill={i===0?`${C.green}35`:i===1?`${C.amber}35`:`${C.red}25`}/>
-          <rect x="122" y={30+i*16} width="18" height="5" rx="1" fill="rgba(255,255,255,0.12)"/>
-          <rect x="148" y={30+i*16} width="14" height="5" rx="1" fill="rgba(255,255,255,0.07)"/>
+          <line x1="20" y1={28+i*22} x2="220" y2={28+i*22} stroke={c} strokeWidth="1.2" strokeOpacity="0.6"/>
+          {[0,1,2,3,4,5].map(j=>(
+            <rect key={j} x={24+j*32} y={16+i*22} width={22} height={10} rx="2"
+              fill={c} fillOpacity={0.12+(j%3)*0.08}/>
+          ))}
         </g>
       ))}
+      {/* soporte vertical */}
+      <line x1="20" y1="18" x2="20" y2="128" stroke={c} strokeWidth="1.5" strokeOpacity="0.5"/>
+      <line x1="220" y1="18" x2="220" y2="128" stroke={c} strokeWidth="1.5" strokeOpacity="0.5"/>
     </svg>
   ),
-  "/laminacion": ({c}) => (
-    <svg viewBox="0 0 200 110" fill="none">
-      <rect width="200" height="110" fill="#09090b"/>
-      <rect width="200" height="20" fill="rgba(255,255,255,0.03)"/>
-      {["Ing","Egr","Stock","Ped"].map((_,i)=>(
-        <rect key={i} x={8+i*46} y="4" width="40" height="12" rx="2"
-          fill={i===0?`${c}20`:"transparent"} stroke={i===0?c:"rgba(255,255,255,0.07)"} strokeWidth="0.5"/>
+
+  "/laminacion": (c) => (
+    <svg viewBox="0 0 240 140" fill="none" style={{position:"absolute",inset:0,width:"100%",height:"100%",opacity:0.18}}>
+      {/* Trama de fibra de vidrio: diagonales cruzadas */}
+      {[0,1,2,3,4,5,6,7,8,9,10,11,12].map(i=>(
+        <line key={`a${i}`} x1={-20+i*22} y1="0" x2={i*22-120} y2="140"
+          stroke={c} strokeWidth="0.8" strokeOpacity="0.35"/>
       ))}
-      {[C.green,C.amber,C.red,c].map((col,i)=>(
-        <g key={i}>
-          <rect x={4+i*48} y="24" width="44" height="28" rx="4" fill="rgba(255,255,255,0.03)" stroke="rgba(255,255,255,0.07)" strokeWidth="0.5"/>
-          <circle cx={26+i*48} cy="38" r="8" fill="none" stroke="rgba(255,255,255,0.05)" strokeWidth="2"/>
-          <circle cx={26+i*48} cy="38" r="8" fill="none" stroke={col} strokeWidth="2"
-            strokeDasharray={`${[25,16,10,20][i]*0.5} 50`} strokeLinecap="round"
-            style={{transformOrigin:`${26+i*48}px 38px`, transform:"rotate(-90deg)"}}/>
-          <rect x={14+i*48} y="44" width="22" height="4" rx="1" fill="rgba(255,255,255,0.1)"/>
-        </g>
+      {[0,1,2,3,4,5,6,7,8,9,10,11,12].map(i=>(
+        <line key={`b${i}`} x1={-20+i*22} y1="140" x2={i*22-120} y2="0"
+          stroke={c} strokeWidth="0.8" strokeOpacity="0.2"/>
       ))}
-      {[0,1,2].map(i=>(
-        <g key={i}>
-          <rect x="4" y={58+i*16} width="192" height="13" rx="2" fill={i%2===0?"rgba(255,255,255,0.025)":"transparent"}/>
-          <rect x="8"  y={62+i*16} width="55" height="5" rx="1" fill="rgba(255,255,255,0.15)"/>
-          <rect x="70" y={62+i*16} width="30" height="5" rx="1" fill="rgba(255,255,255,0.07)"/>
-          <rect x="106" y={61+i*16} width="44" height="7" rx="2" fill="rgba(255,255,255,0.04)"/>
-          <rect x="106" y={61+i*16} width={[28,14,40][i]} height="7" rx="2" fill={`${c}50`}/>
-        </g>
-      ))}
-    </svg>
-  ),
-  "/obras": ({c}) => (
-    <svg viewBox="0 0 200 110" fill="none">
-      <rect width="200" height="110" fill="#05050a"/>
+      {/* rombos en las intersecciones */}
       {[0,1,2,3,4,5].map(i=>(
-        <line key={`h${i}`} x1="0" y1={i*22} x2="200" y2={i*22} stroke="rgba(255,255,255,0.04)" strokeWidth="0.5"/>
+        [0,1,2,3].map(j=>(
+          <rect key={`r${i}${j}`}
+            x={-2+i*40} y={-2+j*36}
+            width="4" height="4" rx="1"
+            fill={c} fillOpacity="0.55"
+            style={{transform:`rotate(45deg)`,transformOrigin:`${i*40}px ${j*36}px`}}/>
+        ))
       ))}
-      {[0,1,2,3,4,5,6,7,8].map(i=>(
-        <line key={`v${i}`} x1={i*25} y1="0" x2={i*25} y2="110" stroke="rgba(255,255,255,0.04)" strokeWidth="0.5"/>
+      {/* barras de stock tipo inventario */}
+      {[0,1,2,3].map(i=>(
+        <rect key={`s${i}`} x={180} y={20+i*28} width={[38,24,42,18][i]} height="12" rx="3"
+          fill={c} fillOpacity="0.18" stroke={c} strokeWidth="0.7" strokeOpacity="0.5"/>
       ))}
+      {[0,1,2,3].map(i=>(
+        <rect key={`sf${i}`} x={180} y={20+i*28} width={[28,14,36,8][i]} height="12" rx="3"
+          fill={c} fillOpacity="0.35"/>
+      ))}
+    </svg>
+  ),
+
+  "/obras": (c) => (
+    <svg viewBox="0 0 240 140" fill="none" style={{position:"absolute",inset:0,width:"100%",height:"100%",opacity:0.18}}>
+      {/* Siluetas de barcos */}
       {[
-        {x:14, y:18, w:14,h:44,col:C.blue },
-        {x:32, y:18, w:14,h:44,col:C.green},
-        {x:52, y:14, w:18,h:52,col:C.amber},
-        {x:76, y:12, w:20,h:58,col:C.blue },
-        {x:100,y:12, w:20,h:58,col:C.blue },
-        {x:126,y:10, w:22,h:62,col:C.green},
-        {x:154,y:10, w:22,h:62,col:C.indigo},
+        {x:20, y:40, w:36, h:70, r:4},
+        {x:62, y:30, w:40, h:80, r:4},
+        {x:110,y:25, w:44, h:90, r:4},
+        {x:162,y:35, w:38, h:72, r:4},
+        {x:206,y:42, w:30, h:58, r:4},
       ].map((b,i)=>(
         <g key={i}>
-          <rect x={b.x} y={b.y} width={b.w} height={b.h} rx="3"
-            fill={`${b.col}15`} stroke={b.col} strokeWidth="0.7" strokeOpacity="0.55"/>
-          <rect x={b.x+b.w/2-10} y={b.y+b.h+3} width="20" height="6" rx="3"
-            fill="rgba(0,0,0,0.8)" stroke={`${b.col}50`} strokeWidth="0.4"/>
-        </g>
-      ))}
-      <rect x="4" y="4" width="88" height="10" rx="3" fill="rgba(0,0,0,0.55)"/>
-      {[C.blue,C.amber,C.green,C.red].map((col,i)=>(
-        <g key={i}><circle cx={10+i*22} cy="9" r="2.5" fill={col}/>
-          <rect x={14+i*22} y="6.5" width="12" height="4" rx="1" fill="rgba(255,255,255,0.14)"/></g>
-      ))}
-    </svg>
-  ),
-  "/marmoleria": ({c}) => (
-    <svg viewBox="0 0 200 110" fill="none">
-      <rect width="200" height="110" fill="#09090b"/>
-      <rect width="200" height="20" fill="rgba(255,255,255,0.03)"/>
-      <rect x="8" y="6" width="55" height="8" rx="2" fill="rgba(255,255,255,0.12)"/>
-      {[0,1,2,3,4,5].map(i=>(
-        <g key={i}>
-          <rect x={8+(i%3)*63} y={24+Math.floor(i/3)*42} width="57" height="38" rx="4"
-            fill="rgba(255,255,255,0.03)" stroke="rgba(255,255,255,0.07)" strokeWidth="0.5"/>
-          {[0,1,2].map(j=>(
-            <g key={j}>
-              <rect x={12+(i%3)*63} y={30+Math.floor(i/3)*42+j*9} width="44" height="3" rx="1" fill="rgba(255,255,255,0.05)"/>
-              <rect x={12+(i%3)*63} y={30+Math.floor(i/3)*42+j*9} width={[38,22,44,30,16,42][i]} height="3" rx="1" fill={`${c}65`}/>
-            </g>
+          <rect x={b.x} y={b.y} width={b.w} height={b.h} rx={b.r}
+            fill={c} fillOpacity={0.12+i*0.03} stroke={c} strokeWidth="0.8" strokeOpacity="0.5"/>
+          {/* ventanas */}
+          {[0,1].map(j=>(
+            <rect key={j} x={b.x+6+j*12} y={b.y+10} width="8" height="5" rx="1"
+              fill={c} fillOpacity="0.4"/>
           ))}
-          <circle cx={57+(i%3)*63} cy={28+Math.floor(i/3)*42} r="2.5"
-            fill={[C.blue,C.green,C.amber,C.blue,C.green,C.green][i]}/>
+          {/* quilla */}
+          <line x1={b.x+b.w/2} y1={b.y+b.h-4} x2={b.x+b.w/2} y2={b.y+b.h+8}
+            stroke={c} strokeWidth="1" strokeOpacity="0.4"/>
+        </g>
+      ))}
+      {/* agua */}
+      <path d="M10,125 Q60,118 120,125 Q180,132 230,125" fill="none" stroke={c} strokeWidth="1.2" strokeOpacity="0.4"/>
+      <path d="M10,132 Q60,126 120,132 Q180,138 230,132" fill="none" stroke={c} strokeWidth="0.7" strokeOpacity="0.25"/>
+    </svg>
+  ),
+
+  "/marmoleria": (c) => (
+    <svg viewBox="0 0 240 140" fill="none" style={{position:"absolute",inset:0,width:"100%",height:"100%",opacity:0.18}}>
+      {/* Grid de piezas de mesada / mármol cortado */}
+      {[
+        {x:12, y:12, w:80, h:34},
+        {x:98, y:12, w:60, h:34},
+        {x:164,y:12, w:64, h:34},
+        {x:12, y:52, w:50, h:38},
+        {x:68, y:52, w:90, h:38},
+        {x:164,y:52, w:64, h:38},
+        {x:12, y:96, w:130,h:32},
+        {x:148,y:96, w:80, h:32},
+      ].map((p,i)=>(
+        <g key={i}>
+          <rect x={p.x} y={p.y} width={p.w} height={p.h} rx="2"
+            fill={c} fillOpacity={0.08+i%3*0.04}
+            stroke={c} strokeWidth="0.9" strokeOpacity="0.45"/>
+          {/* veta interna */}
+          <path d={`M${p.x+6},${p.y+p.h*0.4} Q${p.x+p.w*0.4},${p.y+p.h*0.2} ${p.x+p.w-6},${p.y+p.h*0.55}`}
+            fill="none" stroke={c} strokeWidth="0.6" strokeOpacity="0.3"/>
+          {/* estado dot */}
+          <circle cx={p.x+p.w-8} cy={p.y+8} r="3"
+            fill={c} fillOpacity={[0.7,0.4,0.7,0.4,0.7,0.7,0.4,0.7][i]}/>
         </g>
       ))}
     </svg>
   ),
-  "/muebles": ({c}) => (
-    <svg viewBox="0 0 200 110" fill="none">
-      <rect width="200" height="110" fill="#09090b"/>
-      <rect width="200" height="20" fill="rgba(255,255,255,0.03)"/>
-      <rect x="8" y="6" width="45" height="8" rx="2" fill="rgba(255,255,255,0.12)"/>
-      <rect x="8" y="24" width="64" height="82" rx="4" fill="rgba(255,255,255,0.025)" stroke="rgba(255,255,255,0.06)" strokeWidth="0.5"/>
+
+  "/muebles": (c) => (
+    <svg viewBox="0 0 240 140" fill="none" style={{position:"absolute",inset:0,width:"100%",height:"100%",opacity:0.18}}>
+      {/* Checklist con ticks */}
       {[0,1,2,3,4].map(i=>(
         <g key={i}>
-          <rect x="10" y={28+i*15} width="60" height="12" rx="2" fill={i===1?"rgba(255,255,255,0.05)":"transparent"}/>
-          <rect x="14" y={31+i*15} width="30" height="4" rx="1" fill="rgba(255,255,255,0.18)"/>
-          <circle cx="65" cy={34+i*15} r="2" fill={[C.blue,C.amber,C.green,C.blue,C.green][i]}/>
+          <rect x="20" y={20+i*22} width="14" height="14" rx="3"
+            fill={c} fillOpacity={i<3?0.25:0.08} stroke={c} strokeWidth="1" strokeOpacity="0.6"/>
+          {i<3&&<path d={`M23,${27+i*22} l4,4 l6,-7`} stroke={c} strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"/>}
+          <rect x="42" y={23+i*22} width={[100,85,110,75,90][i]} height="4" rx="2"
+            fill={c} fillOpacity={0.25}/>
+          <rect x="42" y={30+i*22} width={[60,50,70,45,55][i]} height="3" rx="1"
+            fill={c} fillOpacity="0.12"/>
         </g>
       ))}
-      <rect x="78" y="24" width="114" height="82" rx="4" fill="rgba(255,255,255,0.025)" stroke="rgba(255,255,255,0.06)" strokeWidth="0.5"/>
-      {[0,1,2,3,4,5].map(i=>(
-        <g key={i}>
-          <rect x="82" y={28+i*12} width="7" height="7" rx="1"
-            fill={i<3?`${C.green}30`:"rgba(255,255,255,0.04)"} stroke={i<3?C.green:"rgba(255,255,255,0.1)"} strokeWidth="0.6"/>
-          {i<3&&<path d={`M84,${31.5+i*12} l2,2 l3,-3`} stroke={C.green} strokeWidth="0.9" strokeLinecap="round"/>}
-          <rect x="94" y={30+i*12} width={[58,48,68,44,52,38][i]} height="4" rx="1" fill="rgba(255,255,255,0.1)"/>
-        </g>
-      ))}
+      {/* Barra de progreso grande */}
+      <rect x="160" y="25" width="60" height="90" rx="6" fill={c} fillOpacity="0.06" stroke={c} strokeWidth="0.8" strokeOpacity="0.3"/>
+      <rect x="163" y="28" width="54" height={62} rx="4" fill={c} fillOpacity="0.18"/>
+      <text x="187" y="102" textAnchor="middle" fill={c} fontSize="10" fontFamily="monospace" fontWeight="700" fillOpacity="0.7">74%</text>
     </svg>
   ),
-  "/obras-laminacion": ({c}) => (
-    <svg viewBox="0 0 200 110" fill="none">
-      <rect width="200" height="110" fill="#09090b"/>
-      <rect width="200" height="20" fill="rgba(255,255,255,0.03)"/>
-      <rect x="8" y="6" width="65" height="8" rx="2" fill="rgba(255,255,255,0.12)"/>
+
+  "/obras-laminacion": (c) => (
+    <svg viewBox="0 0 240 140" fill="none" style={{position:"absolute",inset:0,width:"100%",height:"100%",opacity:0.18}}>
+      {/* Barras de gantt tipo acordeón */}
       {[0,1,2,3,4].map(i=>(
         <g key={i}>
-          <rect x="8" y={24+i*18} width="184" height="15" rx="3"
-            fill={i===1?"rgba(255,255,255,0.04)":"rgba(255,255,255,0.02)"} stroke="rgba(255,255,255,0.06)" strokeWidth="0.5"/>
-          <rect x="14" y={28+i*18} width="28" height="5" rx="1" fill={`${c}85`}/>
-          <rect x="48" y={28+i*18} width="80" height="5" rx="2" fill="rgba(255,255,255,0.04)"/>
-          <rect x="48" y={28+i*18} width={[58,38,72,18,50][i]} height="5" rx="2" fill={`${c}55`}/>
-          <rect x="136" y={28+i*18} width="30" height="5" rx="1" fill="rgba(255,255,255,0.08)"/>
+          <rect x="20" y={18+i*23} width={[170,130,190,110,150][i]} height="14" rx="3"
+            fill={c} fillOpacity={0.12+i*0.04}/>
+          <rect x="20" y={18+i*23} width={[120,80,160,60,110][i]} height="14" rx="3"
+            fill={c} fillOpacity="0.28"/>
+          {/* label */}
+          <rect x="24" y={22+i*23} width="28" height="4" rx="1" fill={c} fillOpacity="0.6"/>
         </g>
+      ))}
+      {/* línea de tiempo */}
+      <line x1="20" y1="10" x2="20" y2="130" stroke={c} strokeWidth="1" strokeOpacity="0.3"/>
+      <line x1="120" y1="10" x2="120" y2="130" stroke={c} strokeWidth="1.5" strokeOpacity="0.5" strokeDasharray="4 3"/>
+      {/* hoy label */}
+      <rect x="110" y="6" width="20" height="7" rx="2" fill={c} fillOpacity="0.35"/>
+    </svg>
+  ),
+
+  "/admin": (c) => (
+    <svg viewBox="0 0 240 140" fill="none" style={{position:"absolute",inset:0,width:"100%",height:"100%",opacity:0.18}}>
+      {/* 4 rings de KPI */}
+      {[{cx:50,cy:65,r:30,pct:0.82},{cx:120,cy:65,r:30,pct:0.45},{cx:190,cy:65,r:30,pct:0.18}].map((k,i)=>{
+        const circ = 2*Math.PI*k.r;
+        return (
+          <g key={i}>
+            <circle cx={k.cx} cy={k.cy} r={k.r} fill="none" stroke={c} strokeWidth="3" strokeOpacity="0.12"/>
+            <circle cx={k.cx} cy={k.cy} r={k.r} fill="none" stroke={c} strokeWidth="3"
+              strokeDasharray={`${circ*k.pct} ${circ}`} strokeLinecap="round" strokeOpacity="0.65"
+              style={{transform:`rotate(-90deg)`,transformOrigin:`${k.cx}px ${k.cy}px`}}/>
+            <circle cx={k.cx} cy={k.cy} r="5" fill={c} fillOpacity="0.5"/>
+          </g>
+        );
+      })}
+      {/* líneas de tabla */}
+      {[0,1,2,3].map(i=>(
+        <line key={i} x1="20" y1={105+i*8} x2="220" y2={105+i*8}
+          stroke={c} strokeWidth="0.8" strokeOpacity={0.3-i*0.05}/>
       ))}
     </svg>
   ),
-  "/admin": ({c}) => (
-    <svg viewBox="0 0 200 110" fill="none">
-      <rect width="200" height="110" fill="#09090b"/>
-      {[{col:C.green,n:82},{col:C.amber,n:14},{col:C.red,n:6},{col:c,n:28}].map((k,i)=>(
+
+  "/movimientos": (c) => (
+    <svg viewBox="0 0 240 140" fill="none" style={{position:"absolute",inset:0,width:"100%",height:"100%",opacity:0.18}}>
+      {/* Gráfico de barras apiladas */}
+      {[0,1,2,3,4,5,6,7].map(i=>(
         <g key={i}>
-          <rect x={4+i*48} y="6" width="44" height="32" rx="5"
-            fill="rgba(255,255,255,0.03)" stroke="rgba(255,255,255,0.07)" strokeWidth="0.5"/>
-          <circle cx={26+i*48} cy="22" r="9" fill="none" stroke="rgba(255,255,255,0.05)" strokeWidth="2.5"/>
-          <circle cx={26+i*48} cy="22" r="9" fill="none" stroke={k.col} strokeWidth="2.5"
-            strokeDasharray={`${k.n*0.565} 56.5`} strokeLinecap="round"
-            style={{transformOrigin:`${26+i*48}px 22px`,transform:"rotate(-90deg)"}}/>
-          <text x={26+i*48} y="24" textAnchor="middle" fill={k.col} fontSize="6" fontFamily="monospace" fontWeight="700">{k.n}</text>
+          {/* barra ingreso */}
+          <rect x={20+i*26} y={130-[55,40,70,35,60,45,80,50][i]} width="10" height={[55,40,70,35,60,45,80,50][i]}
+            rx="2" fill={c} fillOpacity="0.45"/>
+          {/* barra egreso */}
+          <rect x={32+i*26} y={130-[30,25,45,20,38,28,52,32][i]} width="10" height={[30,25,45,20,38,28,52,32][i]}
+            rx="2" fill={c} fillOpacity="0.22"/>
         </g>
       ))}
+      {/* línea baseline */}
+      <line x1="15" y1="130" x2="225" y2="130" stroke={c} strokeWidth="1" strokeOpacity="0.4"/>
+      {/* eje Y */}
+      <line x1="15" y1="20" x2="15" y2="130" stroke={c} strokeWidth="0.8" strokeOpacity="0.3"/>
+      {/* línea de tendencia */}
+      <path d="M25,105 C55,85 85,95 115,72 S175,68 215,55"
+        fill="none" stroke={c} strokeWidth="1.5" strokeOpacity="0.6" strokeDasharray="5 3"/>
+    </svg>
+  ),
+
+  "/pedidos": (c) => (
+    <svg viewBox="0 0 240 140" fill="none" style={{position:"absolute",inset:0,width:"100%",height:"100%",opacity:0.18}}>
+      {/* Stack de documentos/órdenes */}
+      {[3,2,1,0].map(i=>(
+        <rect key={i} x={30+i*6} y={20+i*4} width="160" height="100" rx="6"
+          fill={c} fillOpacity={0.04+i*0.04} stroke={c} strokeWidth="0.8" strokeOpacity={0.2+i*0.1}/>
+      ))}
+      {/* contenido del doc frontal */}
+      <rect x="36" y="36" width="60" height="6" rx="2" fill={c} fillOpacity="0.45"/>
       {[0,1,2,3,4].map(i=>(
         <g key={i}>
-          <rect x="4" y={44+i*13} width="192" height="11" rx="2" fill={i%2===0?"rgba(255,255,255,0.025)":"transparent"}/>
-          <rect x="8"  y={47+i*13} width="55" height="4" rx="1" fill="rgba(255,255,255,0.18)"/>
-          <rect x="70" y={47+i*13} width="25" height="4" rx="1" fill="rgba(255,255,255,0.07)"/>
-          <rect x="102" y={46+i*13} width="20" height="6" rx="3"
-            fill={[`${C.green}30`,`${C.amber}30`,`${C.red}30`,`${C.green}30`,`${C.amber}30`][i]}/>
-          <rect x="130" y={47+i*13} width="16" height="4" rx="1" fill="rgba(255,255,255,0.12)"/>
-          <rect x="154" y={47+i*13} width="14" height="4" rx="1" fill="rgba(255,255,255,0.07)"/>
+          <circle cx="44" cy={52+i*14} r="3" fill={c} fillOpacity={[0.7,0.5,0.8,0.4,0.6][i]}/>
+          <rect x="52" y={49+i*14} width={[80,65,90,55,70][i]} height="4" rx="1" fill={c} fillOpacity="0.25"/>
         </g>
       ))}
+      {/* sello / stamp */}
+      <circle cx="175" cy="95" r="22" fill="none" stroke={c} strokeWidth="1.5" strokeOpacity="0.4" strokeDasharray="5 3"/>
+      <circle cx="175" cy="95" r="16" fill={c} fillOpacity="0.08"/>
     </svg>
   ),
-  "/movimientos": ({c}) => (
-    <svg viewBox="0 0 200 110" fill="none">
-      <rect width="200" height="110" fill="#09090b"/>
-      <rect width="200" height="20" fill="rgba(255,255,255,0.03)"/>
-      <rect x="8" y="6" width="55" height="8" rx="2" fill="rgba(255,255,255,0.12)"/>
-      <rect x="8" y="24" width="90" height="56" rx="4" fill="rgba(255,255,255,0.025)" stroke="rgba(255,255,255,0.06)" strokeWidth="0.5"/>
-      {[0,1,2,3,4,5,6].map(i=>(
+
+  "/postventa": (c) => (
+    <svg viewBox="0 0 240 140" fill="none" style={{position:"absolute",inset:0,width:"100%",height:"100%",opacity:0.18}}>
+      {/* Mapa estilo calles */}
+      <line x1="0"   y1="55"  x2="240" y2="55"  stroke={c} strokeWidth="2"   strokeOpacity="0.35"/>
+      <line x1="0"   y1="90"  x2="240" y2="90"  stroke={c} strokeWidth="1.2" strokeOpacity="0.25"/>
+      <line x1="60"  y1="0"   x2="60"  y2="140" stroke={c} strokeWidth="1.8" strokeOpacity="0.3"/>
+      <line x1="130" y1="0"   x2="130" y2="140" stroke={c} strokeWidth="1.2" strokeOpacity="0.25"/>
+      <line x1="185" y1="0"   x2="185" y2="140" stroke={c} strokeWidth="1"   strokeOpacity="0.2"/>
+      {/* bloques de manzanas */}
+      {[[10,10,44,38],[70,10,54,38],[140,10,38,38],[14,66,40,18],[70,66,54,18],[135,66,44,18],[188,66,44,18]].map(([x,y,w,h],i)=>(
+        <rect key={i} x={x} y={y} width={w} height={h} rx="2" fill={c} fillOpacity="0.1"/>
+      ))}
+      {/* marcadores de barcos */}
+      {[[55,50],[128,48],[82,85],[160,78],[195,52]].map(([x,y],i)=>(
         <g key={i}>
-          <rect x={14+i*11} y={74-[18,32,13,42,28,22,38][i]} width="4" height={[18,32,13,42,28,22,38][i]} rx="1" fill={`${C.green}65`}/>
-          <rect x={18+i*11} y={74-[10,20,8,28,16,12,25][i]} width="4" height={[10,20,8,28,16,12,25][i]} rx="1" fill={`${C.red}65`}/>
+          <circle cx={x} cy={y} r="6" fill={c} fillOpacity="0.3" stroke={c} strokeWidth="1.2" strokeOpacity="0.7"/>
+          <circle cx={x} cy={y} r="2.5" fill={c} fillOpacity="0.9"/>
+          {/* señal de pulso */}
+          <circle cx={x} cy={y} r="10" fill="none" stroke={c} strokeWidth="0.8" strokeOpacity="0.3"/>
         </g>
       ))}
-      {[0,1,2,3,4].map(i=>(
-        <g key={i}>
-          <rect x="104" y={24+i*15} width="88" height="12" rx="2" fill={i%2===0?"rgba(255,255,255,0.025)":"transparent"}/>
-          <rect x="106" y={27+i*15} width="14" height="6" rx="3" fill={i%2===0?`${C.green}25`:`${C.red}25`}/>
-          <rect x="124" y={28+i*15} width="30" height="4" rx="1" fill="rgba(255,255,255,0.14)"/>
-          <rect x="162" y={28+i*15} width="22" height="4" rx="1" fill="rgba(255,255,255,0.08)"/>
-        </g>
-      ))}
+      {/* río */}
+      <path d="M0,115 Q60,108 120,116 Q180,124 240,112" fill={c} fillOpacity="0.1" stroke={c} strokeWidth="1" strokeOpacity="0.4"/>
     </svg>
   ),
-  "/pedidos": ({c}) => (
-    <svg viewBox="0 0 200 110" fill="none">
-      <rect width="200" height="110" fill="#09090b"/>
-      <rect width="200" height="20" fill="rgba(255,255,255,0.03)"/>
-      <rect x="8" y="6" width="40" height="8" rx="2" fill="rgba(255,255,255,0.12)"/>
-      {[{l:"Pendiente",col:C.amber},{l:"En camino",col:c},{l:"Recibida",col:C.green}].map((s,i)=>(
-        <rect key={i} x={8+i*62} y="24" width="56" height="9" rx="4" fill={`${s.col}15`} stroke={s.col} strokeWidth="0.5"/>
-      ))}
-      {[0,1,2,3,4].map(i=>(
-        <g key={i}>
-          <rect x="8" y={38+i*14} width="184" height="12" rx="3"
-            fill="rgba(255,255,255,0.025)" stroke="rgba(255,255,255,0.05)" strokeWidth="0.5"/>
-          <circle cx="14" cy={44+i*14} r="3" fill={[C.red,C.amber,C.green,C.blue,C.amber][i]}/>
-          <rect x="20" y={41+i*14} width="44" height="4" rx="1" fill="rgba(255,255,255,0.18)"/>
-          <rect x="20" y={46+i*14} width="28" height="3" rx="1" fill="rgba(255,255,255,0.07)"/>
-          <rect x="100" y={42+i*14} width="30" height="5" rx="2"
-            fill={[`${C.red}25`,`${C.amber}25`,`${C.green}25`,`${C.blue}25`,`${C.amber}25`][i]}/>
-          <rect x="148" y={41+i*14} width="20" height="4" rx="1" fill="rgba(255,255,255,0.1)"/>
-        </g>
-      ))}
+
+  "/configuracion": (c) => (
+    <svg viewBox="0 0 240 140" fill="none" style={{position:"absolute",inset:0,width:"100%",height:"100%",opacity:0.18}}>
+      {/* Engranajes */}
+      {[[75,65,38],[165,60,28],[118,105,20]].map(([cx,cy,r],i)=>{
+        const teeth = [8,7,6][i];
+        const pts = Array.from({length:teeth*2},(_,j)=>{
+          const a = (j*Math.PI)/teeth - Math.PI/2;
+          const rr = j%2===0 ? r+7 : r;
+          return `${cx+Math.cos(a)*rr},${cy+Math.sin(a)*rr}`;
+        }).join(' ');
+        return (
+          <g key={i}>
+            <polygon points={pts} fill="none" stroke={c} strokeWidth="1.2" strokeOpacity="0.5"/>
+            <circle cx={cx} cy={cy} r={r*0.55} fill="none" stroke={c} strokeWidth="1" strokeOpacity="0.4"/>
+            <circle cx={cx} cy={cy} r="4" fill={c} fillOpacity="0.5"/>
+          </g>
+        );
+      })}
+      {/* líneas de conexión */}
+      <line x1="107" y1="65" x2="137" y2="65" stroke={c} strokeWidth="0.8" strokeOpacity="0.3" strokeDasharray="3 2"/>
+      <line x1="100" y1="85" x2="115" y2="100" stroke={c} strokeWidth="0.8" strokeOpacity="0.3" strokeDasharray="3 2"/>
     </svg>
   ),
-  "/postventa": ({c}) => (
-    <svg viewBox="0 0 200 110" fill="none">
-      <rect width="200" height="110" fill="#09090b"/>
-      <rect width="200" height="20" fill="rgba(255,255,255,0.03)"/>
-      <rect x="8" y="6" width="70" height="8" rx="2" fill="rgba(255,255,255,0.12)"/>
-      {[0,1,2,3,4,5].map(i=>(
-        <g key={i}>
-          <rect x={8+(i%3)*63} y={24+Math.floor(i/3)*42} width="57" height="38" rx="5"
-            fill="rgba(255,255,255,0.03)" stroke="rgba(255,255,255,0.07)" strokeWidth="0.5"/>
-          <rect x={22+(i%3)*63} y={28+Math.floor(i/3)*42} width="16" height="24" rx="3"
-            fill={`${c}18`} stroke={c} strokeWidth="0.6"/>
-          <rect x={10+(i%3)*63} y={55+Math.floor(i/3)*42} width="38" height="4" rx="1" fill="rgba(255,255,255,0.14)"/>
-          <circle cx={57+(i%3)*63} cy={28+Math.floor(i/3)*42} r="2.5"
-            fill={[C.green,C.green,C.amber,C.green,C.blue,C.green][i]}/>
-        </g>
+
+  "/procedimientos": (c) => (
+    <svg viewBox="0 0 240 140" fill="none" style={{position:"absolute",inset:0,width:"100%",height:"100%",opacity:0.18}}>
+      {/* Ícono de documento grande */}
+      <rect x="55" y="12" width="100" height="120" rx="6" fill={c} fillOpacity="0.08" stroke={c} strokeWidth="1.2" strokeOpacity="0.4"/>
+      {/* doblez esquina */}
+      <path d="M135,12 L155,32 L135,32 Z" fill={c} fillOpacity="0.2"/>
+      <path d="M135,12 L155,32" fill="none" stroke={c} strokeWidth="1" strokeOpacity="0.5"/>
+      {/* líneas de texto */}
+      {[0,1,2,3,4,5,6,7].map(i=>(
+        <rect key={i} x="67" y={42+i*11} width={[70,55,75,45,68,52,60,40][i]} height="4" rx="2"
+          fill={c} fillOpacity={i===0?0.5:0.2}/>
       ))}
-    </svg>
-  ),
-  "/configuracion": ({c}) => (
-    <svg viewBox="0 0 200 110" fill="none">
-      <rect width="200" height="110" fill="#09090b"/>
-      <rect width="200" height="20" fill="rgba(255,255,255,0.03)"/>
-      <rect x="8" y="6" width="60" height="8" rx="2" fill="rgba(255,255,255,0.12)"/>
-      <rect x="8" y="24" width="52" height="82" rx="4" fill="rgba(255,255,255,0.025)" stroke="rgba(255,255,255,0.06)" strokeWidth="0.5"/>
-      {["Usuarios","Config","Modelos","Barcos"].map((s,i)=>(
-        <g key={i}>
-          <rect x="10" y={28+i*18} width="48" height="14" rx="3" fill={i===0?`${c}18`:"transparent"}/>
-          <rect x="14" y={32+i*18} width="26" height="4" rx="1" fill={i===0?"rgba(255,255,255,0.5)":"rgba(255,255,255,0.12)"}/>
-        </g>
+      {/* números de paso */}
+      {[0,2,5].map(i=>(
+        <circle key={i} cx="62" cy={44+i*11} r="4" fill={c} fillOpacity="0.35"/>
       ))}
-      <rect x="66" y="24" width="126" height="82" rx="4" fill="rgba(255,255,255,0.025)" stroke="rgba(255,255,255,0.06)" strokeWidth="0.5"/>
-      {[0,1,2,3,4].map(i=>(
-        <g key={i}>
-          <circle cx="78" cy={34+i*15} r="5" fill="rgba(255,255,255,0.06)" stroke="rgba(255,255,255,0.1)" strokeWidth="0.5"/>
-          <rect x="87" y={30+i*15} width="35" height="4" rx="1" fill="rgba(255,255,255,0.18)"/>
-          <rect x="87" y={36+i*15} width="22" height="3" rx="1" fill="rgba(255,255,255,0.07)"/>
-          <rect x="134" y={31+i*15} width="24" height="6" rx="3"
-            fill={[`${c}25`,`${C.blue}25`,"rgba(255,255,255,0.07)",`${C.green}25`,"rgba(255,255,255,0.07)"][i]}/>
-          <circle cx="180" cy={34+i*15} r="2.5"
-            fill={[C.green,C.green,"rgba(255,255,255,0.18)",C.green,"rgba(255,255,255,0.18)"][i]}/>
-        </g>
-      ))}
-    </svg>
-  ),
-  "/procedimientos": ({c}) => (
-    <svg viewBox="0 0 200 110" fill="none">
-      <rect width="200" height="110" fill="#09090b"/>
-      <rect width="200" height="20" fill="rgba(255,255,255,0.03)"/>
-      <rect x="8" y="6" width="65" height="8" rx="2" fill="rgba(255,255,255,0.12)"/>
-      {[0,1,2,3,4].map(i=>(
-        <g key={i}>
-          <rect x="8" y={24+i*17} width="184" height="14" rx="3"
-            fill={i===1?"rgba(255,255,255,0.04)":"rgba(255,255,255,0.02)"} stroke="rgba(255,255,255,0.05)" strokeWidth="0.5"/>
-          <rect x="12" y={27+i*17} width="8" height="9" rx="1" fill={`${c}28`} stroke={c} strokeWidth="0.5"/>
-          <rect x="13.5" y={29+i*17} width="5" height="1.5" rx="0.5" fill={c}/>
-          <rect x="13.5" y={31.5+i*17} width="5" height="1.5" rx="0.5" fill={c} fillOpacity="0.6"/>
-          <rect x="24" y={27+i*17} width={[68,88,52,78,62][i]} height="5" rx="1" fill="rgba(255,255,255,0.2)"/>
-          <rect x="24" y={34+i*17} width={[38,48,28,52,40][i]} height="3" rx="1" fill="rgba(255,255,255,0.07)"/>
-          <rect x={[110,128,98,118,108][i]} y={28+i*17} width="20" height="6" rx="3" fill={`${c}18`} stroke={`${c}40`} strokeWidth="0.4"/>
-        </g>
-      ))}
+      {/* stack de docs detrás */}
+      <rect x="46" y="20" width="100" height="120" rx="6" fill="none" stroke={c} strokeWidth="0.7" strokeOpacity="0.2"/>
+      <rect x="38" y="28" width="100" height="120" rx="6" fill="none" stroke={c} strokeWidth="0.5" strokeOpacity="0.12"/>
     </svg>
   ),
 };
 
-// ─── HOOKS ─────────────────────────────────────────────────────
+// ─── CARD ──────────────────────────────────────────────────────
+function Card({ mod, delay, onClick }) {
+  const [hov,      setHov]      = useState(false);
+  const [ripples,  setRipples]  = useState([]);
+  const [tilt,     setTilt]     = useState({ x:0, y:0 });
+  const [shimmer,  setShimmer]  = useState(false);
+  const cardRef   = useRef(null);
+  const shimmerRef = useRef(null);
+  const Art = CARD_ART[mod.href];
+
+  const onMouseMove = e => {
+    const el = cardRef.current; if(!el) return;
+    const r  = el.getBoundingClientRect();
+    const dx = (e.clientX - (r.left + r.width/2))  / (r.width/2);
+    const dy = (e.clientY - (r.top  + r.height/2)) / (r.height/2);
+    setTilt({ x: dy * -7, y: dx * 7 });
+  };
+
+  const onMouseEnter = e => {
+    setHov(true); onMouseMove(e);
+    clearTimeout(shimmerRef.current);
+    shimmerRef.current = setTimeout(() => setShimmer(true), 40);
+  };
+  const onMouseLeave = () => { setHov(false); setTilt({x:0,y:0}); setShimmer(false); };
+
+  const handleClick = e => {
+    const rect = cardRef.current.getBoundingClientRect();
+    const id = Date.now();
+    setRipples(r => [...r, { id, x: e.clientX-rect.left, y: e.clientY-rect.top }]);
+    setTimeout(() => setRipples(r => r.filter(rr => rr.id !== id)), 700);
+    onClick();
+  };
+
+  useEffect(() => () => clearTimeout(shimmerRef.current), []);
+
+  const transform = hov
+    ? `perspective(900px) rotateX(${tilt.x}deg) rotateY(${tilt.y}deg) translateY(-5px) scale(1.018)`
+    : "perspective(900px) rotateX(0deg) rotateY(0deg) translateY(0) scale(1)";
+
+  const BL = 14;
+
+  return (
+    <button
+      ref={cardRef}
+      onMouseEnter={onMouseEnter}
+      onMouseLeave={onMouseLeave}
+      onMouseMove={hov ? onMouseMove : undefined}
+      onClick={handleClick}
+      style={{
+        display:"flex", flexDirection:"column", justifyContent:"flex-end",
+        padding:"18px 18px 16px",
+        background: hov
+          ? `rgba(255,255,255,0.05)`
+          : "rgba(255,255,255,0.025)",
+        border:`1px solid ${hov ? mod.color+"65" : "rgba(255,255,255,0.07)"}`,
+        borderRadius:14, cursor:"pointer", textAlign:"left",
+        fontFamily:"'Outfit',system-ui,sans-serif",
+        transition:"transform 0.18s cubic-bezier(0.22,1,0.36,1), box-shadow 0.22s, border-color 0.22s, background 0.2s",
+        transform,
+        boxShadow: hov
+          ? `0 28px 65px rgba(0,0,0,0.6), 0 0 0 1px ${mod.color}25, inset 0 0 60px ${mod.color}08`
+          : "0 2px 12px rgba(0,0,0,0.4)",
+        animation:`cardIn 0.55s cubic-bezier(0.22,1,0.36,1) ${delay}ms both`,
+        position:"relative", overflow:"hidden", height:"100%",
+        willChange:"transform",
+      }}
+    >
+      {/* ── Ilustración SVG de fondo ── */}
+      <div style={{
+        position:"absolute", inset:0, pointerEvents:"none",
+        transition:"opacity 0.3s",
+        opacity: hov ? 1 : 0.65,
+      }}>
+        {Art && Art(mod.color)}
+      </div>
+
+      {/* ── Gradiente de legibilidad sobre el arte ── */}
+      <div style={{
+        position:"absolute", inset:0, pointerEvents:"none",
+        background:`linear-gradient(to top, ${hov?"rgba(9,9,11,0.82)":"rgba(9,9,11,0.72)"} 0%, rgba(9,9,11,0.1) 55%, transparent 100%)`,
+        transition:"background 0.25s",
+      }}/>
+
+      {/* ── Glow ambiental top-right ── */}
+      <div style={{
+        position:"absolute", top:-40, right:-40, width:130, height:130,
+        borderRadius:"50%",
+        background:`${mod.color}${hov?"1a":"0e"}`,
+        filter:"blur(35px)", pointerEvents:"none",
+        transition:"background 0.3s, transform 0.4s",
+        transform: hov ? "scale(1.3)" : "scale(1)",
+      }}/>
+
+      {/* ── Ripples ── */}
+      {ripples.map(rip => (
+        <div key={rip.id} style={{
+          position:"absolute", left:rip.x-70, top:rip.y-70,
+          width:140, height:140, borderRadius:"50%", pointerEvents:"none",
+          background:`radial-gradient(circle, ${mod.color}30 0%, transparent 70%)`,
+          animation:"bigRipple 0.7s cubic-bezier(0.22,1,0.36,1) forwards", zIndex:12,
+        }}/>
+      ))}
+
+      {/* ── Shimmer sweep ── */}
+      {shimmer && (
+        <div style={{
+          position:"absolute", top:0, left:"-100%", width:"60%", height:"100%",
+          background:`linear-gradient(105deg, transparent 25%, ${mod.color}15 50%, transparent 75%)`,
+          animation:"cardShimmer 0.7s cubic-bezier(0.22,1,0.36,1) forwards",
+          pointerEvents:"none", zIndex:8,
+        }}/>
+      )}
+
+      {/* ── Corner brackets ── */}
+      {hov && (
+        <svg style={{position:"absolute",inset:0,width:"100%",height:"100%",pointerEvents:"none",zIndex:9,overflow:"visible"}}>
+          {[
+            `M ${BL},4 L 4,4 L 4,${BL}`,
+            `M calc(100% - ${BL}),4 L calc(100% - 4),4 L calc(100% - 4),${BL}`,
+            `M 4,calc(100% - ${BL}) L 4,calc(100% - 4) L ${BL},calc(100% - 4)`,
+            `M calc(100% - ${BL}),calc(100% - 4) L calc(100% - 4),calc(100% - 4) L calc(100% - 4),calc(100% - ${BL})`,
+          ].map((d,i)=>(
+            <path key={i} d={d} fill="none" stroke={mod.color} strokeWidth="1.8" strokeLinecap="round"
+              style={{
+                filter:`drop-shadow(0 0 5px ${mod.color})`,
+                strokeDasharray:BL*2+4, strokeDashoffset:BL*2+4,
+                animation:`bracketDraw 0.22s ease ${i*0.04}s forwards`,
+              }}/>
+          ))}
+        </svg>
+      )}
+
+      {/* ── Contenido textual (sobre el arte) ── */}
+      <div style={{ position:"relative", zIndex:10 }}>
+
+        {/* Dot + label */}
+        <div style={{ display:"flex", alignItems:"center", gap:9, marginBottom:7 }}>
+          <div style={{ position:"relative", flexShrink:0 }}>
+            {hov && (
+              <div style={{
+                position:"absolute", inset:-5, borderRadius:"50%",
+                border:`1px solid ${mod.color}55`,
+                animation:"ringExpand 1.2s ease-out infinite",
+              }}/>
+            )}
+            <div style={{
+              width:9, height:9, borderRadius:"50%", background:mod.color,
+              boxShadow: hov
+                ? `0 0 0 2px rgba(0,0,0,0.5), 0 0 18px ${mod.color}, 0 0 36px ${mod.color}55`
+                : `0 0 9px ${mod.color}80`,
+              transition:"box-shadow 0.25s",
+            }}/>
+          </div>
+
+          <span style={{
+            fontSize:14, fontWeight:700, letterSpacing:"0.2px",
+            ...(hov ? {
+              background:`linear-gradient(90deg,#fff 0%,#fff 35%,${mod.color} 52%,#fff 68%,#fff 100%)`,
+              backgroundSize:"200% auto",
+              WebkitBackgroundClip:"text", WebkitTextFillColor:"transparent",
+              animation:"labelShimmer 1.2s linear 0.08s 1 forwards",
+            } : { color:"#f4f4f5" }),
+          }}>
+            {mod.label}
+          </span>
+        </div>
+
+        {/* Descripción */}
+        <div style={{
+          fontSize:11, lineHeight:1.6,
+          color: hov ? "#9ca3af" : "#52525b",
+          transition:"color 0.2s",
+          paddingRight:28,
+        }}>
+          {mod.desc}
+        </div>
+      </div>
+
+      {/* ── Flecha ── */}
+      <div style={{
+        position:"absolute", bottom:16, right:14, zIndex:10,
+        fontSize:15, fontWeight:700,
+        color: hov ? mod.color : "rgba(255,255,255,0.08)",
+        transition:"all 0.2s cubic-bezier(0.22,1,0.36,1)",
+        transform: hov ? "translate(0,0) scale(1.2)" : "translate(3px,3px) scale(1)",
+        filter: hov ? `drop-shadow(0 0 8px ${mod.color})` : "none",
+      }}>→</div>
+
+      {/* ── Línea inferior que crece desde el centro ── */}
+      <div style={{
+        position:"absolute", bottom:0,
+        left: hov ? 0 : "50%",
+        right: hov ? 0 : "50%",
+        height:2, borderRadius:2,
+        background:`linear-gradient(90deg,transparent 0%,${mod.color} 50%,transparent 100%)`,
+        opacity: hov ? 1 : 0,
+        transition:"left 0.38s cubic-bezier(0.22,1,0.36,1), right 0.38s cubic-bezier(0.22,1,0.36,1), opacity 0.2s",
+        boxShadow:`0 0 12px ${mod.color}90`,
+      }}/>
+    </button>
+  );
+}
+
+// ─── DATOS EN VIVO ─────────────────────────────────────────────
 function useLiveData() {
   const [data, setData] = useState({ activas:0, pausadas:0, terminadas:0, criticos:0, loaded:false });
   const load = useCallback(async () => {
@@ -354,31 +579,25 @@ function useClock() {
   return t;
 }
 
-// ─── TYPEWRITER ────────────────────────────────────────────────
 function Typewriter({ text, delay = 0, speed = 38 }) {
   const [shown, setShown] = useState("");
   const [started, setStarted] = useState(false);
+  useEffect(()=>{ const t0=setTimeout(()=>setStarted(true),delay); return()=>clearTimeout(t0); },[delay]);
   useEffect(()=>{
-    const t0 = setTimeout(()=>setStarted(true), delay);
-    return ()=>clearTimeout(t0);
-  },[delay]);
-  useEffect(()=>{
-    if(!started) return;
-    if(shown.length >= text.length) return;
-    const id = setTimeout(()=>setShown(text.slice(0, shown.length+1)), speed);
-    return ()=>clearTimeout(id);
-  },[started, shown, text, speed]);
+    if(!started||shown.length>=text.length) return;
+    const id=setTimeout(()=>setShown(text.slice(0,shown.length+1)),speed);
+    return()=>clearTimeout(id);
+  },[started,shown,text,speed]);
   return (
     <span>
       {shown}
-      {shown.length < text.length && started && (
-        <span style={{ animation:"cursorBlink .7s step-end infinite", borderRight:`1.5px solid currentColor`, marginLeft:1 }}/>
+      {shown.length<text.length&&started&&(
+        <span style={{animation:"cursorBlink .7s step-end infinite",borderRight:"1.5px solid currentColor",marginLeft:1}}/>
       )}
     </span>
   );
 }
 
-// ─── NÚMERO ANIMADO ────────────────────────────────────────────
 function AnimNum({ to, color }) {
   const [v, setV] = useState(0);
   const prev = useRef(0);
@@ -392,62 +611,51 @@ function AnimNum({ to, color }) {
   return <span style={{color}}>{v}</span>;
 }
 
-// ─── KPI RING ──────────────────────────────────────────────────
 function Ring({ value, total, color, size=52, label, delay=0 }) {
   const pct = total>0 ? Math.min(value/total,1) : 0;
   const r = (size-6)/2;
   const circ = 2*Math.PI*r;
   const [animated, setAnimated] = useState(false);
-  useEffect(()=>{ const t=setTimeout(()=>setAnimated(true), delay+200); return()=>clearTimeout(t); },[delay]);
+  useEffect(()=>{ const t=setTimeout(()=>setAnimated(true),delay+200); return()=>clearTimeout(t); },[delay]);
   return (
     <div style={{ display:"flex", flexDirection:"column", alignItems:"center", gap:6,
       animation:`fadeSlideUp 0.5s ease ${delay}ms both` }}>
       <div style={{ position:"relative", width:size, height:size }}>
-        <svg width={size} height={size} style={{transform:"rotate(-90deg)", display:"block"}}>
-          <circle cx={size/2} cy={size/2} r={r} fill="none"
-            stroke="rgba(255,255,255,0.05)" strokeWidth="3.5"/>
-          <circle cx={size/2} cy={size/2} r={r} fill="none"
-            stroke={color} strokeWidth="3.5" strokeLinecap="round"
-            strokeDasharray={circ}
-            strokeDashoffset={animated ? circ*(1-pct) : circ}
-            style={{ transition:"stroke-dashoffset 1.4s cubic-bezier(0.22,1,0.36,1)", filter:`drop-shadow(0 0 4px ${color}88)` }}/>
+        <svg width={size} height={size} style={{transform:"rotate(-90deg)",display:"block"}}>
+          <circle cx={size/2} cy={size/2} r={r} fill="none" stroke="rgba(255,255,255,0.05)" strokeWidth="3.5"/>
+          <circle cx={size/2} cy={size/2} r={r} fill="none" stroke={color} strokeWidth="3.5"
+            strokeLinecap="round" strokeDasharray={circ}
+            strokeDashoffset={animated?circ*(1-pct):circ}
+            style={{transition:"stroke-dashoffset 1.4s cubic-bezier(0.22,1,0.36,1)",filter:`drop-shadow(0 0 4px ${color}88)`}}/>
         </svg>
         <div style={{ position:"absolute", inset:0, display:"flex", alignItems:"center",
-          justifyContent:"center", fontFamily:C.mono, fontSize:12, fontWeight:700, color }}>
+          justifyContent:"center", fontFamily:"'JetBrains Mono',monospace", fontSize:12, fontWeight:700, color }}>
           <AnimNum to={value} color={color}/>
         </div>
       </div>
-      <span style={{ fontSize:8.5, color:C.t2, letterSpacing:2, textTransform:"uppercase", fontFamily:C.mono }}>
-        {label}
-      </span>
+      <span style={{ fontSize:8.5, color:"#52525b", letterSpacing:2, textTransform:"uppercase",
+        fontFamily:"'JetBrains Mono',monospace" }}>{label}</span>
     </div>
   );
 }
 
-// ─── PARTICLES CANVAS ──────────────────────────────────────────
 function Particles() {
   const ref = useRef(null);
   useEffect(()=>{
-    const canvas = ref.current; if(!canvas) return;
-    const ctx = canvas.getContext("2d");
-    let W, H, raf;
-    const resize = ()=>{
-      W = canvas.width  = canvas.offsetWidth;
-      H = canvas.height = canvas.offsetHeight;
-    };
-    resize();
-    window.addEventListener("resize", resize);
-    const N = 55;
-    const pts = Array.from({length:N}, ()=>({
+    const canvas=ref.current; if(!canvas) return;
+    const ctx=canvas.getContext("2d");
+    let W,H,raf;
+    const resize=()=>{ W=canvas.width=canvas.offsetWidth; H=canvas.height=canvas.offsetHeight; };
+    resize(); window.addEventListener("resize",resize);
+    const N=55;
+    const pts=Array.from({length:N},()=>({
       x:Math.random()*W, y:Math.random()*H,
-      vx:(Math.random()-.5)*.2, vy:(Math.random()-.5)*.2,
-      r:Math.random()*1.1+.3,
+      vx:(Math.random()-.5)*.2, vy:(Math.random()-.5)*.2, r:Math.random()*1.1+.3,
     }));
-    const draw = ()=>{
+    const draw=()=>{
       ctx.clearRect(0,0,W,H);
       for(let i=0;i<N;i++) for(let j=i+1;j<N;j++){
-        const dx=pts[i].x-pts[j].x, dy=pts[i].y-pts[j].y;
-        const d=Math.sqrt(dx*dx+dy*dy);
+        const dx=pts[i].x-pts[j].x, dy=pts[i].y-pts[j].y, d=Math.sqrt(dx*dx+dy*dy);
         if(d<140){ ctx.beginPath(); ctx.moveTo(pts[i].x,pts[i].y); ctx.lineTo(pts[j].x,pts[j].y);
           ctx.strokeStyle=`rgba(255,255,255,${.022*(1-d/140)})`; ctx.lineWidth=.5; ctx.stroke(); }
       }
@@ -455,34 +663,32 @@ function Particles() {
         ctx.beginPath(); ctx.arc(p.x,p.y,p.r,0,Math.PI*2);
         ctx.fillStyle="rgba(255,255,255,0.2)"; ctx.fill();
         p.x+=p.vx; p.y+=p.vy;
-        if(p.x<0||p.x>W) p.vx*=-1;
-        if(p.y<0||p.y>H) p.vy*=-1;
+        if(p.x<0||p.x>W) p.vx*=-1; if(p.y<0||p.y>H) p.vy*=-1;
       });
       raf=requestAnimationFrame(draw);
     };
     draw();
     return()=>{ cancelAnimationFrame(raf); window.removeEventListener("resize",resize); };
   },[]);
-  return <canvas ref={ref} style={{ position:"absolute", inset:0, width:"100%", height:"100%", pointerEvents:"none", opacity:.55 }}/>;
+  return <canvas ref={ref} style={{position:"absolute",inset:0,width:"100%",height:"100%",pointerEvents:"none",opacity:.55}}/>;
 }
 
-// ─── TICKER ────────────────────────────────────────────────────
 function Ticker({ items }) {
   return (
-    <div style={{ flexShrink:0, height:26, borderTop:`1px solid ${C.b0}`,
+    <div style={{ flexShrink:0, height:26, borderTop:`1px solid rgba(255,255,255,0.08)`,
       overflow:"hidden", display:"flex", alignItems:"center",
       background:"rgba(0,0,0,0.35)", backdropFilter:"blur(8px)" }}>
-      <div style={{ padding:"0 12px", borderRight:`1px solid ${C.b0}`, height:"100%",
+      <div style={{ padding:"0 12px", borderRight:`1px solid rgba(255,255,255,0.08)`, height:"100%",
         display:"flex", alignItems:"center", flexShrink:0 }}>
-        <span style={{ fontSize:8, fontFamily:C.mono, color:C.t2, letterSpacing:2 }}>LIVE</span>
+        <span style={{ fontSize:8, fontFamily:"'JetBrains Mono',monospace", color:"#52525b", letterSpacing:2 }}>LIVE</span>
       </div>
       <div style={{ overflow:"hidden", flex:1 }}>
         <div style={{ display:"flex", whiteSpace:"nowrap", animation:"tickerScroll 32s linear infinite" }}>
           {[...items,...items].map((it,i)=>(
             <span key={i} style={{ display:"inline-flex", alignItems:"center", gap:7,
-              fontFamily:C.mono, fontSize:9, color:C.t1, paddingRight:40 }}>
+              fontFamily:"'JetBrains Mono',monospace", fontSize:9, color:"#a1a1aa", paddingRight:40 }}>
               <span style={{ color:it.color, fontSize:5 }}>◆</span>
-              <span style={{ color:C.t2 }}>{it.label.toUpperCase()}</span>
+              <span style={{ color:"#52525b" }}>{it.label.toUpperCase()}</span>
               <span style={{ color:it.color, fontWeight:700 }}>{it.value}</span>
             </span>
           ))}
@@ -492,178 +698,6 @@ function Ticker({ items }) {
   );
 }
 
-// ─── CARD CON RIPPLE + TOOLTIP FLOTANTE ────────────────────────
-function Card({ mod, delay, onClick }) {
-  const [hov, setHov]       = useState(false);
-  const [ripple, setRipple] = useState(null);
-  const [tip, setTip]       = useState(null);
-  const btnRef              = useRef(null);
-  const tipTimeout          = useRef(null);
-  const Preview             = PREVIEWS[mod.href];
-
-  const showTip = () => {
-    clearTimeout(tipTimeout.current);
-    const el = btnRef.current; if (!el) return;
-    const r  = el.getBoundingClientRect();
-    const TW = 370, TH = 270;
-    const spaceRight = window.innerWidth - r.right - 12;
-    const side = spaceRight >= TW ? "right" : "left";
-    const x    = side === "right" ? r.right + 10 : r.left - TW - 10;
-    const yRaw = r.top + r.height / 2 - TH / 2;
-    const y    = Math.max(8, Math.min(yRaw, window.innerHeight - TH - 8));
-    setTip({ x, y, side });
-    setHov(true);
-  };
-
-  const hideTip = () => {
-    tipTimeout.current = setTimeout(() => { setTip(null); setHov(false); }, 80);
-  };
-
-  const handleClick = e => {
-    const rect = e.currentTarget.getBoundingClientRect();
-    setRipple({ x: e.clientX - rect.left, y: e.clientY - rect.top });
-    setTimeout(() => setRipple(null), 600);
-    setTip(null); setHov(false);
-    onClick();
-  };
-
-  useEffect(() => () => clearTimeout(tipTimeout.current), []);
-
-  return (
-    <>
-      <button
-        ref={btnRef}
-        onMouseEnter={showTip}
-        onMouseLeave={hideTip}
-        onClick={handleClick}
-        style={{
-          display:"flex", flexDirection:"column",
-          background: hov ? C.s1 : C.s0,
-          border:`1px solid ${hov ? mod.color+"55" : C.b0}`,
-          borderRadius:12, cursor:"pointer", textAlign:"left",
-          fontFamily:C.sans, padding:0, overflow:"hidden",
-          transition:"all 0.2s cubic-bezier(0.22,1,0.36,1)",
-          transform: hov ? "translateY(-3px) scale(1.012)" : "none",
-          boxShadow: hov
-            ? `0 18px 45px rgba(0,0,0,0.45), 0 0 0 1px ${mod.color}20`
-            : "0 2px 10px rgba(0,0,0,0.3)",
-          animation:`cardIn 0.55s cubic-bezier(0.22,1,0.36,1) ${delay}ms both`,
-          position:"relative",
-        }}
-      >
-        {ripple && (
-          <div style={{ position:"absolute", left:ripple.x-60, top:ripple.y-60,
-            width:120, height:120, borderRadius:"50%",
-            background:`${mod.color}25`, pointerEvents:"none",
-            animation:"rippleAnim 0.55s ease-out forwards", zIndex:20 }}/>
-        )}
-
-        {/* Preview mini */}
-        <div style={{ position:"relative", overflow:"hidden",
-          borderBottom:`1px solid ${hov ? mod.color+"28" : C.b0}`, transition:"border-color 0.2s" }}>
-          {Preview && <Preview c={mod.color}/>}
-          <div style={{ position:"absolute", inset:0,
-            background:`linear-gradient(to bottom, transparent 45%, ${C.bg} 100%)`, pointerEvents:"none" }}/>
-          <div style={{ position:"absolute", inset:0, background:`${mod.color}06`,
-            opacity:hov?1:0, transition:"opacity 0.2s", pointerEvents:"none" }}/>
-          <div style={{ position:"absolute", top:8, right:8, width:7, height:7,
-            borderRadius:"50%", background:mod.color,
-            boxShadow: hov ? `0 0 14px ${mod.color}, 0 0 28px ${mod.color}55` : `0 0 6px ${mod.color}70`,
-            transition:"box-shadow 0.2s" }}/>
-        </div>
-
-        {/* Texto */}
-        <div style={{ padding:"12px 15px 13px", display:"flex", flexDirection:"column", gap:4 }}>
-          <div style={{ fontSize:13, fontWeight:700, color:hov?"#fff":C.t0,
-            transition:"color 0.15s", display:"flex", alignItems:"center", justifyContent:"space-between" }}>
-            {mod.label}
-            <span style={{ fontSize:13, color:hov?mod.color:C.t2, transition:"all 0.15s",
-              transform:hov?"translateX(3px)":"none" }}>→</span>
-          </div>
-          <div style={{ fontSize:11, color:hov?C.t1:C.t2, lineHeight:1.5, transition:"color 0.15s" }}>
-            {mod.desc}
-          </div>
-        </div>
-      </button>
-
-      {/* ── TOOLTIP FLOTANTE (position fixed, fuera del flujo) ── */}
-      {tip && Preview && (
-        <div
-          onMouseEnter={() => { clearTimeout(tipTimeout.current); setHov(true); }}
-          onMouseLeave={hideTip}
-          style={{
-            position:"fixed", left:tip.x, top:tip.y,
-            width:370, zIndex:9999,
-            background:"rgba(9,9,12,0.97)",
-            border:`1px solid ${mod.color}40`,
-            borderRadius:14,
-            boxShadow:`0 30px 75px rgba(0,0,0,0.8), 0 0 0 1px ${mod.color}15, 0 0 50px ${mod.color}10`,
-            overflow:"hidden",
-            animation:"tooltipIn 0.17s cubic-bezier(0.22,1,0.36,1) both",
-            transformOrigin: tip.side === "right" ? "left center" : "right center",
-            backdropFilter:"blur(24px)",
-          }}
-        >
-          {/* Línea accent top */}
-          <div style={{ height:2,
-            background:`linear-gradient(90deg, ${mod.color}, ${mod.color}50, transparent)`,
-            boxShadow:`0 0 10px ${mod.color}80` }}/>
-
-          {/* Header */}
-          <div style={{ padding:"10px 14px 8px",
-            display:"flex", alignItems:"center", justifyContent:"space-between",
-            borderBottom:"1px solid rgba(255,255,255,0.055)" }}>
-            <div style={{ display:"flex", alignItems:"center", gap:8 }}>
-              <div style={{ width:7, height:7, borderRadius:"50%",
-                background:mod.color, boxShadow:`0 0 10px ${mod.color}` }}/>
-              <span style={{ fontSize:12, fontWeight:700, color:"#fff", letterSpacing:".2px" }}>
-                {mod.label}
-              </span>
-            </div>
-            <span style={{ fontSize:8, color:mod.color, fontFamily:C.mono,
-              letterSpacing:2, textTransform:"uppercase",
-              background:`${mod.color}12`, padding:"2px 8px", borderRadius:4,
-              border:`1px solid ${mod.color}22` }}>
-              Vista previa
-            </span>
-          </div>
-
-          {/* SVG preview ampliado */}
-          <div style={{ position:"relative", overflow:"hidden", height:190 }}>
-            <div style={{
-              transform:"scale(1.82)",
-              transformOrigin:"top left",
-              width:"54.9%",  /* 100/1.82 */
-              pointerEvents:"none",
-            }}>
-              <Preview c={mod.color}/>
-            </div>
-            {/* gradientes para fundir bordes */}
-            <div style={{ position:"absolute", inset:0, pointerEvents:"none",
-              background:`linear-gradient(to bottom, transparent 50%, rgba(9,9,12,0.96) 100%)` }}/>
-            <div style={{ position:"absolute", inset:0, pointerEvents:"none",
-              background:`linear-gradient(to right, transparent 60%, rgba(9,9,12,0.75) 100%)` }}/>
-          </div>
-
-          {/* Footer */}
-          <div style={{ padding:"7px 14px 10px",
-            display:"flex", alignItems:"center", justifyContent:"space-between",
-            borderTop:"1px solid rgba(255,255,255,0.05)" }}>
-            <span style={{ fontSize:10, color:C.t2, lineHeight:1.4, flex:1 }}>
-              {mod.desc}
-            </span>
-            <span style={{ fontSize:9, color:mod.color, fontFamily:C.mono,
-              whiteSpace:"nowrap", marginLeft:10, opacity:.8 }}>
-              Click para abrir →
-            </span>
-          </div>
-        </div>
-      )}
-    </>
-  );
-}
-
-// ─── MAIN ──────────────────────────────────────────────────────
 export default function HomeScreen({ profile, signOut }) {
   const navigate = useNavigate();
   const live  = useLiveData();
@@ -705,6 +739,11 @@ export default function HomeScreen({ profile, signOut }) {
     <>
       <style>{`
         @keyframes cardIn       { from{opacity:0;transform:translateY(20px) scale(0.96)} to{opacity:1;transform:none} }
+        @keyframes bigRipple    { from{transform:scale(0);opacity:1} to{transform:scale(4);opacity:0} }
+        @keyframes cardShimmer  { from{left:-100%} to{left:200%} }
+        @keyframes bracketDraw  { to{stroke-dashoffset:0} }
+        @keyframes ringExpand   { 0%{transform:scale(1);opacity:0.7} 100%{transform:scale(2.4);opacity:0} }
+        @keyframes labelShimmer { 0%{background-position:-200% center} 100%{background-position:200% center} }
         @keyframes fadeSlideUp  { from{opacity:0;transform:translateY(10px)} to{opacity:1;transform:none} }
         @keyframes headerIn     { from{opacity:0;transform:translateY(-16px)} to{opacity:1;transform:none} }
         @keyframes logoReveal   { from{opacity:0;transform:scale(0.86);filter:blur(10px)} to{opacity:1;transform:none;filter:blur(0)} }
@@ -863,36 +902,30 @@ export default function HomeScreen({ profile, signOut }) {
           </div>
 
           {/* ── CARDS ── */}
-          <div className="hs-scroll" style={{ flex:1, overflowY:"auto",
-            padding:"20px 28px 28px", position:"relative", zIndex:1 }}>
+          <div style={{ flex:1, display:"flex", flexDirection:"column",
+            padding:"16px 28px 20px", position:"relative", zIndex:1, overflow:"hidden" }}>
 
-            <div style={{ display:"flex", alignItems:"center", gap:12, marginBottom:14,
+            <div style={{ display:"flex", alignItems:"center", gap:12, marginBottom:12, flexShrink:0,
               animation:"fadeSlideUp 0.4s ease 0.26s both" }}>
               <span style={{ fontSize:9, color:C.t2, letterSpacing:3,
                 textTransform:"uppercase", fontFamily:C.mono }}>Acceso rápido</span>
               <div style={{ flex:1, height:1,
                 background:`linear-gradient(90deg,${C.b0},transparent)` }}/>
+              <span style={{ fontSize:9, color:"rgba(255,255,255,0.09)",
+                fontFamily:C.mono, letterSpacing:2 }}>KLASE A · ASTILLERO · v9.0</span>
             </div>
 
             <div style={{
+              flex:1,
               display:"grid",
-              gridTemplateColumns:"repeat(auto-fill, minmax(210px, 1fr))",
+              gridTemplateColumns:`repeat(${Math.min(modulos.length, 6)}, 1fr)`,
+              gridTemplateRows:`repeat(${Math.ceil(modulos.length / Math.min(modulos.length, 6))}, 1fr)`,
               gap:10,
             }}>
               {modulos.map((mod,i) => (
                 <Card key={mod.href} mod={mod} delay={i*42}
                   onClick={()=>navigate(mod.href)}/>
               ))}
-            </div>
-
-            <div style={{ marginTop:20, paddingTop:14,
-              borderTop:"1px solid rgba(255,255,255,0.04)",
-              display:"flex", justifyContent:"space-between",
-              animation:`fadeSlideUp 0.4s ease ${modulos.length*42+60}ms both` }}>
-              <span style={{ fontSize:9, color:"rgba(255,255,255,0.09)",
-                fontFamily:C.mono, letterSpacing:2 }}>KLASE A · ASTILLERO</span>
-              <span style={{ fontSize:9, color:"rgba(255,255,255,0.09)",
-                fontFamily:C.mono }}>v9.0</span>
             </div>
           </div>
 
