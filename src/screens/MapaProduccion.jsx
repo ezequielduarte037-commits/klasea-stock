@@ -1251,7 +1251,7 @@ function RadarHUD({puestos,obraByPuesto,vp,containerW,containerH}){
   const visW=Math.min((containerW/vp.scale)*scX,W-PAD*2);
   const visH=Math.min((containerH/vp.scale)*scY,H-PAD*2);
   return(
-    <div style={{position:"absolute",bottom:88,right:268,width:W,height:H,...GLASS,borderRadius:10,overflow:"hidden",zIndex:10}}>
+    <div style={{position:"absolute",bottom:88,right:268,width:W,height:H,...GLASS,borderRadius:10,overflow:"hidden",zIndex:10,display:"none"}}>
       <svg width={W} height={H} style={{display:"block",overflow:"visible"}}>
         <rect width={W} height={H} fill="rgba(0,12,6,0.7)"/>
         {[0.25,0.5,0.75,1].map(r=><circle key={r} cx={W/2} cy={H/2} r={(Math.min(W,H)/2-6)*r} fill="none" stroke="rgba(0,255,100,0.07)" strokeWidth="0.4"/>)}
@@ -1327,7 +1327,7 @@ function savePuestos(puestos) {
 /* ═══════════════════════════════════════════════════════════════
    KPI PANEL — flotante colapsable, esquina inferior izquierda
 ═══════════════════════════════════════════════════════════════ */
-function KPIPanel({ obras, puestos, obraByPuesto }) {
+function KPIPanel({ obras, puestos, obraByPuesto, onFocusPuesto }) {
   const [collapsed, setCollapsed] = useState(false);
 
   const total          = puestos.length;
@@ -1409,7 +1409,7 @@ function KPIPanel({ obras, puestos, obraByPuesto }) {
 
   return (
     <div style={{
-      position:"absolute", top:0, right:0, bottom:0, zIndex:9,
+      position:"absolute", top:66, right:0, bottom:0, zIndex:9,
       width: collapsed ? 36 : PANEL_W,
       display:"flex", flexDirection:"column",
       ...GLASS,
@@ -1482,8 +1482,14 @@ function KPIPanel({ obras, puestos, obraByPuesto }) {
                 color:"rgba(255,255,255,0.2)", marginBottom:8 }}>Alertas</div>
               <div style={{ display:"flex", flexDirection:"column", gap:5 }}>
                 {alertas.map((a, i) => (
-                  <div key={i} style={{ borderRadius:7, background:`${a.color}0d`,
-                    border:`1px solid ${a.color}22`, padding:"7px 10px" }}>
+                  <div key={i}
+                    onClick={() => onFocusPuesto?.(a.codigo)}
+                    style={{ borderRadius:7, background:`${a.color}0d`,
+                      border:`1px solid ${a.color}22`, padding:"7px 10px",
+                      cursor:"pointer", transition:"background 0.15s",
+                    }}
+                    onMouseEnter={e=>e.currentTarget.style.background=`${a.color}18`}
+                    onMouseLeave={e=>e.currentTarget.style.background=`${a.color}0d`}>
                     <div style={{ display:"flex", alignItems:"center", gap:7, marginBottom: a.detalle ? 3 : 0 }}>
                       <div style={{ width:5, height:5, borderRadius:"50%", flexShrink:0,
                         background:a.color, boxShadow:`0 0 5px ${a.color}` }}/>
@@ -2042,7 +2048,7 @@ export default function MapaProduccion({obras=[],onPuestoClick,onAsignarObra,onC
       )}
 
       {/* TOP BAR */}
-      <div style={{position:"absolute",top:10,left:10,right:10,zIndex:10,display:"flex",alignItems:"center",gap:6,pointerEvents:"none"}}>
+      <div style={{position:"absolute",top:10,left:10,right:268,zIndex:10,display:"flex",alignItems:"center",gap:6,pointerEvents:"none"}}>
         <div style={{display:"flex",gap:5,pointerEvents:"auto"}}>
           {[{v:stats.total,l:"Total",c:C.t0},{v:stats.ocupados,l:"Ocupados",c:"#60a5fa"},{v:stats.libres,l:"Libres",c:"#34d399"}].map(({v,l,c})=>(
             <div key={l} style={{display:"flex",flexDirection:"column",alignItems:"center",padding:"4px 16px",borderRadius:8,...GLASS}}>
@@ -2112,7 +2118,12 @@ export default function MapaProduccion({obras=[],onPuestoClick,onAsignarObra,onC
       </div>
 
       <RadarHUD puestos={puestos} obraByPuesto={obraByPuesto} vp={vp} containerW={containerSize.w} containerH={containerSize.h}/>
-      <KPIPanel obras={obras} puestos={puestos} obraByPuesto={obraByPuesto}/>
+      <KPIPanel obras={obras} puestos={puestos} obraByPuesto={obraByPuesto} onFocusPuesto={(codigo)=>{
+        const obra=obras.find(o=>o.codigo===codigo);
+        if(!obra?.puesto_mapa) return;
+        const p=puestos.find(x=>x.id===obra.puesto_mapa);
+        if(p){centerOnPuesto(p);setFocusedPuesto(p.id);}
+      }}/>
 
       {/* TOOLTIP */}
       {tooltip&&!obraDragPos&&!focusedPuesto&&(()=>{
