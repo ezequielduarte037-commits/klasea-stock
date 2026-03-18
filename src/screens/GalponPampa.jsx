@@ -147,7 +147,7 @@ function AddObraModal({puestoId,puestos,obras,onAssign,onClose}){
 /* ═══════════════════════════════════════════════════════════════════
    RADIAL MENU 
 ══════════════════════════════════════════════════════════════════ */
-function RadialMenu({x,y,puesto,obra,editMode,onClose,onAssign,onFocus,onDetail,onChangeEstado,onDelete}){
+function RadialMenu({x,y,puesto,obra,editMode,onClose,onAssign,onFocus,onDetail,onChangeEstado,onDelete,onDesasignar}){
   const menuRef=useRef(null);
   const RADIUS=76;
   useEffect(()=>{
@@ -177,7 +177,7 @@ function RadialMenu({x,y,puesto,obra,editMode,onClose,onAssign,onFocus,onDetail,
     else if(id==="detail") onDetail();
     else if(id==="asignar")onAssign();
     else if(id==="delete") onDelete();
-    else if(id==="desasignar") onChangeEstado?.(obra.id,"desasignar");
+    else if(id==="desasignar") onDesasignar?.(obra.id);
     else if(id==="pausar")     onChangeEstado?.(obra.id,"pausada");
     else if(id==="reanudar")   onChangeEstado?.(obra.id,"activa");
     else if(id==="terminar")   onChangeEstado?.(obra.id,"terminada");
@@ -995,6 +995,7 @@ export default function GalponPampa({
           onFocus={()=>{setFocusedPuesto(ctxPuesto.id);centerOnPuesto(ctxPuesto);}}
           onDetail={()=>ctxObra&&onPuestoClick?.({puesto:ctxPuesto,obra:ctxObra})}
           onChangeEstado={onChangeEstado}
+          onDesasignar={(obraId)=>{if(onAsignarObra)onAsignarObra(null,obraId);}}
           onDelete={()=>setConfirmDel(ctxPuesto.id)}/>
       )}
 

@@ -15,6 +15,7 @@ import ConfiguracionScreen   from "./screens/ConfiguracionScreen";
 import ProcedimientosScreen  from "./screens/ProcedimientosScreen";
 import PostVentaScreen       from "./screens/PostVentaScreen";
 import ClientePanelScreen    from "./screens/ClientePanelScreen";
+import HomeScreen            from "./screens/HomeScreen";
 
 import logoK from "./assets/logo-k.png";
 
@@ -334,18 +335,12 @@ export default function App() {
     );
   }
 
-  // Redirección automática por rol
+  // Muestra la pantalla de inicio para todos los roles internos.
+  // Clientes siguen yendo a su panel separado.
   function HomeRedirect() {
     if (!session || !profile) return <Navigate to="/login" replace />;
-    switch (profile.role) {
-      case "cliente":      return <Navigate to="/mi-panel"   replace />;
-      case "panol":        return <Navigate to="/panol"      replace />;
-      case "laminacion":   return <Navigate to="/laminacion" replace />;
-      case "muebles":      return <Navigate to="/muebles"    replace />;
-      case "mecanica":
-      case "electricidad": return <Navigate to="/pedidos"    replace />;
-      default:             return <Navigate to="/admin"      replace />;
-    }
+    if (profile.role === "cliente") return <Navigate to="/mi-panel" replace />;
+    return <HomeScreen profile={profile} signOut={signOut} />;
   }
 
   const A = { profile, signOut };

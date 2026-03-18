@@ -1208,6 +1208,10 @@ function NuevaLineaModal({ onClose, onSaved }) {
 
 // ─── PLANTILLA LÍNEA ─────────────────────────────────────────────────────────
 function LineasEtapasModal({ linea, lProcs, lTareas = [], onClose, onSaved }) {
+  const [localLinea,  setLocalLinea]  = useState(linea);
+  const [editingLinea, setEditingLinea] = useState(false);
+  const [lineaForm,   setLineaForm]   = useState({ nombre: linea.nombre, color: linea.color ?? "#3b82f6", orden: linea.orden ?? "" });
+
   const [items,       setItems]       = useState(lProcs.filter(p => p.linea_id === linea.id).sort((a, b) => (a.orden ?? 0) - (b.orden ?? 0)));
   const [loadingAll,  setLoadingAll]  = useState(true);
   const [editIdx,     setEditIdx]     = useState(null);
@@ -1216,7 +1220,6 @@ function LineasEtapasModal({ linea, lProcs, lTareas = [], onClose, onSaved }) {
   const [saving,      setSaving]      = useState(false);
   const [toast,       setToast]       = useState(null);
   const [editBuf,     setEditBuf]     = useState({});
-
 
   // ── Tareas de plantilla ──────────────────────────────────────
   const [expandedProc,  setExpandedProc]  = useState(null);
@@ -1237,7 +1240,7 @@ function LineasEtapasModal({ linea, lProcs, lTareas = [], onClose, onSaved }) {
       const { data: procs } = await supabase
         .from("linea_procesos")
         .select("*")
-        .eq("linea_id", linea.id)
+        .eq("linea_id", localLinea.id)
         .order("orden");
       if (procs?.length) setItems(procs);
       setLoadingAll(false);
@@ -1257,7 +1260,34 @@ function LineasEtapasModal({ linea, lProcs, lTareas = [], onClose, onSaved }) {
       setLoadingTareas(false);
     }
     fetchAll();
-  }, [linea.id]);
+  }, [localLinea.id]);
+
+  async function guardarLinea() {
+    if (!lineaForm.nombre.trim()) return;
+    setSaving(true);
+    const { data, error } = await supabase.from("lineas_produccion").update({
+      nombre: lineaForm.nombre.trim(),
+      color: lineaForm.color,
+      orden: lineaForm.orden !== "" ? num(lineaForm.orden) : null
+    }).eq("id", localLinea.id).select().single();
+
+    if (error) { flash(false, error.message); setSaving(false); return; }
+    setLocalLinea(data);
+    setEditingLinea(false);
+    flash(true, "Línea actualizada.");
+    setSaving(false);
+    onSaved();
+  }
+
+  async function eliminarLinea() {
+    if (!window.confirm(`¿Estás seguro que querés eliminar la línea "${localLinea.nombre}"?\n(Si tiene obras asignadas, puede fallar por seguridad de la base de datos).`)) return;
+    setSaving(true);
+    const { error } = await supabase.from("lineas_produccion").delete().eq("id", localLinea.id);
+    if (error) { flash(false, "No se pudo eliminar: " + error.message); setSaving(false); return; }
+    flash(true, "Línea eliminada.");
+    onClose();
+    onSaved();
+  }
 
   function tareasDeProc(procId) {
     return tareasState.filter(t => t.linea_proceso_id === procId).sort((a, b) => (a.orden ?? 0) - (b.orden ?? 0));
@@ -1331,7 +1361,7 @@ function LineasEtapasModal({ linea, lProcs, lTareas = [], onClose, onSaved }) {
     if (!newForm.nombre.trim()) return; setSaving(true);
     const maxOrden = Math.max(0, ...items.map(p => p.orden ?? 0));
     const { data, error } = await supabase.from("linea_procesos").insert({
-      linea_id: linea.id, nombre: newForm.nombre.trim(), dias_estimados: newForm.dias_estimados !== "" ? num(newForm.dias_estimados) : null,
+      linea_id: localLinea.id, nombre: newForm.nombre.trim(), dias_estimados: newForm.dias_estimados !== "" ? num(newForm.dias_estimados) : null,
       color: newForm.color, orden: maxOrden + 1, activo: true,
       genera_orden_compra: newForm.genera_orden_compra,
       orden_compra_tipo: newForm.genera_orden_compra ? newForm.orden_compra_tipo : null,
@@ -1367,10 +1397,35 @@ function LineasEtapasModal({ linea, lProcs, lTareas = [], onClose, onSaved }) {
       {toast && <div style={{ position: "fixed", bottom: 24, right: 24, zIndex: 99999, padding: "10px 18px", borderRadius: 8, fontSize: 12, fontFamily: C.sans, background: toast.ok ? "#091510" : "#150909", border: `1px solid ${toast.ok ? "rgba(60,140,80,0.5)" : "rgba(180,60,60,0.5)"}`, color: toast.ok ? "#70c080" : "#c07070" }}>{toast.text}</div>}
       <div style={{ padding: 26, overflowY: "auto" }}>
         <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: 20 }}>
-          <div>
-            <div style={{ fontSize: 15, color: C.t0, fontWeight: 600 }}>Plantilla de etapas</div>
-            <div style={{ fontSize: 11, color: C.t1, marginTop: 3, display: "flex", alignItems: "center", gap: 6 }}><div style={{ width: 8, height: 8, borderRadius: "50%", background: linea.color ?? C.t2 }} />{linea.nombre}</div>
-          </div>
+          {!editingLinea ? (
+            <div>
+              <div style={{ fontSize: 15, color: C.t0, fontWeight: 600 }}>Plantilla de etapas</div>
+              <div style={{ fontSize: 11, color: C.t1, marginTop: 3, display: "flex", alignItems: "center", gap: 6 }}>
+                <div style={{ width: 8, height: 8, borderRadius: "50%", background: localLinea.color ?? C.t2 }} />
+                {localLinea.nombre}
+                <button type="button" onClick={() => setEditingLinea(true)} style={{ ...btnIcon, marginLeft: 8 }}>✏️ editar línea</button>
+                <button type="button" onClick={eliminarLinea} style={{ ...btnIcon, color: C.red }}>× borrar línea</button>
+              </div>
+            </div>
+          ) : (
+            <div style={{ flex: 1, marginRight: 20, background: "rgba(59,130,246,0.05)", padding: "12px 16px", borderRadius: 8, border: `1px solid rgba(59,130,246,0.3)` }}>
+               <div style={{ fontSize: 12, color: C.primary, marginBottom: 10, fontWeight: 600 }}>Editar configuración de línea</div>
+               <div style={{ display: "grid", gridTemplateColumns: "1fr 80px", gap: 10, marginBottom: 8 }}>
+                 <InputSt label="Nombre"><input style={INP} value={lineaForm.nombre} onChange={e=>setLineaForm(f=>({...f, nombre: e.target.value}))} /></InputSt>
+                 <InputSt label="Orden"><input type="number" style={INP} value={lineaForm.orden} onChange={e=>setLineaForm(f=>({...f, orden: e.target.value}))} /></InputSt>
+               </div>
+               <InputSt label="Color">
+                  <div style={{ display: "flex", gap: 5, alignItems: "center" }}>
+                    <input type="color" value={lineaForm.color} onChange={e => setLineaForm(f => ({ ...f, color: e.target.value }))} style={{ width: 30, height: 28, border: "none", background: "none", cursor: "pointer" }} />
+                    {COLOR_PRESETS.map(c => <div key={c} onClick={() => setLineaForm(f => ({ ...f, color: c }))} style={{ width: 14, height: 14, borderRadius: 3, background: c, cursor: "pointer", border: lineaForm.color === c ? "2px solid #fff" : "2px solid transparent" }} />)}
+                  </div>
+               </InputSt>
+               <div style={{ display: "flex", gap: 8, marginTop: 12 }}>
+                 <Btn variant="primary" onClick={guardarLinea} disabled={saving}>Guardar</Btn>
+                 <Btn variant="outline" onClick={() => setEditingLinea(false)}>Cancelar</Btn>
+               </div>
+            </div>
+          )}
           <Btn variant="ghost" onClick={onClose} sx={{ fontSize: 18 }}>×</Btn>
         </div>
         <div style={{ maxHeight: "55vh", overflowY: "auto", marginBottom: 12 }}>
@@ -2239,6 +2294,16 @@ export default function ObrasScreen({ profile, signOut }) {
                 onPuestoClick={({ puesto, obra }) => setMapaPanel({ puesto, obra })}
                 onAsignarObra={async (puestoId, obraId) => {
                   await supabase.from("produccion_obras").update({ puesto_mapa: puestoId }).eq("id", obraId);
+                  cargar();
+                }}
+                onChangeEstado={async (obraId, estado) => {
+                  if (estado === "desasignar") {
+                    await supabase.from("produccion_obras").update({ puesto_mapa: null }).eq("id", obraId);
+                  } else {
+                    const upd = { estado };
+                    if (estado === "terminada") upd.fecha_fin_real = today();
+                    await supabase.from("produccion_obras").update(upd).eq("id", obraId);
+                  }
                   cargar();
                 }}
                 onAsignarObraPampa={async (bahiaId, obraId) => {

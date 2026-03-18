@@ -169,6 +169,12 @@ export default function MarmoleriaScreen({ profile, signOut }) {
   const [showAddPieza, setShowAddPieza] = useState(false);
   const [formPieza, setFormPieza] = useState({ pieza:"", sector:"" });
 
+  // Edición rápida (Líneas y Unidades)
+  const [editLineaId, setEditLineaId] = useState(null);
+  const [editLineaNombre, setEditLineaNombre] = useState("");
+  const [editUnidadId, setEditUnidadId] = useState(null);
+  const [editUnidadCodigo, setEditUnidadCodigo] = useState("");
+
   // ── DATOS DERIVADOS ───────────────────────────────────────────
   const unidadSel = useMemo(() => unidades.find(u => u.id === unidadId), [unidades, unidadId]);
   const lineaSel  = useMemo(() => lineas.find(l => l.id === lineaId),    [lineas, lineaId]);
@@ -296,6 +302,16 @@ export default function MarmoleriaScreen({ profile, signOut }) {
     cargarLineas();
   }
 
+  async function guardarEditLinea(id) {
+    if (!editLineaNombre.trim()) {
+      setEditLineaId(null);
+      return;
+    }
+    await supabase.from("marm_lineas").update({ nombre: editLineaNombre.trim().toUpperCase() }).eq("id", id);
+    setEditLineaId(null);
+    cargarLineas();
+  }
+
   async function crearUnidad() {
     if (!newUnidad.trim() || !lineaId) return;
     // 1. Crear unidad
@@ -334,6 +350,16 @@ export default function MarmoleriaScreen({ profile, signOut }) {
     await supabase.from("marm_unidades").update({ activa:false }).eq("id", uid);
     setUnidadId(null);
     setPiezas([]);
+    cargarUnidades(lineaId);
+  }
+
+  async function guardarEditUnidad(id) {
+    if (!editUnidadCodigo.trim()) {
+      setEditUnidadId(null);
+      return;
+    }
+    await supabase.from("marm_unidades").update({ codigo: editUnidadCodigo.trim() }).eq("id", id);
+    setEditUnidadId(null);
     cargarUnidades(lineaId);
   }
 
@@ -698,15 +724,33 @@ export default function MarmoleriaScreen({ profile, signOut }) {
                   return (
                     <div key={l.id}>
                       <button style={lineaNavBtn(selLinea)} onClick={() => { setLineaId(l.id); setUnidadId(null); }}>
-                        <span style={{ display:"flex", alignItems:"center", gap:7 }}>
+                        <span style={{ display:"flex", alignItems:"center", gap:7, flex: 1 }}>
                           <div style={{ width:5, height:5, borderRadius:"50%", background: selLinea ? C2.t0 : "#2c3040", flexShrink:0 }} />
-                          {l.nombre}
+                          {editLineaId === l.id ? (
+                            <input
+                              autoFocus
+                              style={{ ...INP_SM, flex:1, margin:0, padding:"2px 6px", fontSize:11 }}
+                              value={editLineaNombre}
+                              onChange={e => setEditLineaNombre(e.target.value)}
+                              onBlur={() => guardarEditLinea(l.id)}
+                              onKeyDown={e => e.key === "Enter" && guardarEditLinea(l.id)}
+                              onClick={e => e.stopPropagation()}
+                            />
+                          ) : (
+                            l.nombre
+                          )}
                         </span>
-                        {esAdmin && selLinea && (
-                          <span
-                            onClick={e => { e.stopPropagation(); eliminarLinea(l.id); }}
-                            style={{ fontSize:10, color:C2.red, cursor:"pointer", padding:"2px 5px", borderRadius:4 }}
-                          >×</span>
+                        {esAdmin && selLinea && editLineaId !== l.id && (
+                          <div style={{display:"flex", gap:2}}>
+                            <span
+                              onClick={e => { e.stopPropagation(); setEditLineaNombre(l.nombre); setEditLineaId(l.id); }}
+                              style={{ fontSize:11, color:C2.t2, cursor:"pointer", padding:"2px 4px", borderRadius:4 }}
+                            >✎</span>
+                            <span
+                              onClick={e => { e.stopPropagation(); eliminarLinea(l.id); }}
+                              style={{ fontSize:13, color:C2.red, cursor:"pointer", padding:"2px 4px", borderRadius:4 }}
+                            >×</span>
+                          </div>
                         )}
                       </button>
 
@@ -714,9 +758,25 @@ export default function MarmoleriaScreen({ profile, signOut }) {
                         <>
                           {unidades.map(u => (
                             <button key={u.id} style={unidadNavBtn(unidadId === u.id)} onClick={() => setUnidadId(u.id)}>
-                              <span style={{ fontFamily:C2.mono, fontSize:11 }}>{u.codigo}</span>
-                              {esAdmin && unidadId === u.id && (
-                                <span onClick={e => { e.stopPropagation(); eliminarUnidad(u.id); }} style={{ fontSize:10, color:C2.red, cursor:"pointer", padding:"2px 5px" }}>×</span>
+                              {editUnidadId === u.id ? (
+                                <input
+                                  autoFocus
+                                  style={{ ...INP_SM, flex:1, padding:"2px 6px", fontSize:11, fontFamily:C2.mono }}
+                                  value={editUnidadCodigo}
+                                  onChange={e => setEditUnidadCodigo(e.target.value)}
+                                  onBlur={() => guardarEditUnidad(u.id)}
+                                  onKeyDown={e => e.key === "Enter" && guardarEditUnidad(u.id)}
+                                  onClick={e => e.stopPropagation()}
+                                />
+                              ) : (
+                                <span style={{ fontFamily:C2.mono, fontSize:11, flex: 1, textAlign: "left" }}>{u.codigo}</span>
+                              )}
+                              
+                              {esAdmin && unidadId === u.id && editUnidadId !== u.id && (
+                                <div style={{display:"flex", gap:2}}>
+                                  <span onClick={e => { e.stopPropagation(); setEditUnidadCodigo(u.codigo); setEditUnidadId(u.id); }} style={{ fontSize:11, color:C2.t2, cursor:"pointer", padding:"2px 4px" }}>✎</span>
+                                  <span onClick={e => { e.stopPropagation(); eliminarUnidad(u.id); }} style={{ fontSize:13, color:C2.red, cursor:"pointer", padding:"2px 4px" }}>×</span>
+                                </div>
                               )}
                             </button>
                           ))}
