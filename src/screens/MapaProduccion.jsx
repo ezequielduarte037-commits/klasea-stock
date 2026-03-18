@@ -1251,7 +1251,7 @@ function RadarHUD({puestos,obraByPuesto,vp,containerW,containerH}){
   const visW=Math.min((containerW/vp.scale)*scX,W-PAD*2);
   const visH=Math.min((containerH/vp.scale)*scY,H-PAD*2);
   return(
-    <div style={{position:"absolute",bottom:88,right:24,width:W,height:H,...GLASS,borderRadius:10,overflow:"hidden",zIndex:10}}>
+    <div style={{position:"absolute",bottom:88,right:268,width:W,height:H,...GLASS,borderRadius:10,overflow:"hidden",zIndex:10}}>
       <svg width={W} height={H} style={{display:"block",overflow:"visible"}}>
         <rect width={W} height={H} fill="rgba(0,12,6,0.7)"/>
         {[0.25,0.5,0.75,1].map(r=><circle key={r} cx={W/2} cy={H/2} r={(Math.min(W,H)/2-6)*r} fill="none" stroke="rgba(0,255,100,0.07)" strokeWidth="0.4"/>)}
@@ -1324,6 +1324,198 @@ function savePuestos(puestos) {
  *   onSaveNotas(obj)   → llamado al cambiar notas
  * Si no se pasan, se usa localStorage (solo local, no compartido).
  */
+/* ═══════════════════════════════════════════════════════════════
+   KPI PANEL — flotante colapsable, esquina inferior izquierda
+═══════════════════════════════════════════════════════════════ */
+function KPIPanel({ obras, puestos, obraByPuesto }) {
+  const [collapsed, setCollapsed] = useState(false);
+
+  const total          = puestos.length;
+  const ocupados       = puestos.filter(p => obraByPuesto[p.id]).length;
+  const libres         = total - ocupados;
+  const ocupPct        = total > 0 ? Math.round((ocupados / total) * 100) : 0;
+  const obrasActivas   = obras.filter(o => o.estado === "activa");
+  const obrasPausadas  = obras.filter(o => o.estado === "pausada");
+  const obrasTerminadas= obras.filter(o => o.estado === "terminada");
+  const progPct        = obrasActivas.length > 0
+    ? Math.round(obrasActivas.reduce((s, o) => s + (o._pct ?? 0), 0) / obrasActivas.length) : 0;
+
+  const CAMPOS_CRITICOS = [
+    { key:"propietario",   label:"propietario" },
+    { key:"motores",       label:"motorización" },
+    { key:"color_casco",   label:"color de casco" },
+    { key:"madera_muebles",label:"madera/muebles" },
+  ];
+
+  const obrasConMapa = obras.filter(o => o.puesto_mapa && ["activa","pausada"].includes(o.estado));
+
+  const alertasMemoria = obrasConMapa.flatMap(o => {
+    const db = MEMORIAS_DB[o.codigo] ?? {};
+    const faltantes = CAMPOS_CRITICOS.filter(c => {
+      const v = o[c.key] ?? db[c.key.replace("motores","motorizacion")] ?? db[c.key];
+      return !v;
+    });
+    if (faltantes.length === 0) return [];
+    const esVacia = faltantes.length === CAMPOS_CRITICOS.length;
+    return [{
+      tipo:     "memoria",
+      codigo:   o.codigo,
+      estado:   o.estado,
+      etiqueta: esVacia ? "Memoria sin información" : "Memoria incompleta",
+      detalle:  esVacia ? null : `Falta: ${faltantes.map(f => f.label).join(", ")}`,
+      color:    esVacia ? "#ef4444" : "#f59e0b",
+      severity: faltantes.length,
+    }];
+  }).sort((a, b) => b.severity - a.severity);
+
+  const alertasPausadas = obrasPausadas.map(o => ({
+    tipo: "pausada", codigo: o.codigo, etiqueta: "Obra pausada", detalle: null, color: "#f59e0b",
+  }));
+
+  const alertas = [...alertasPausadas, ...alertasMemoria];
+
+  /* ── Sub-componentes internos ── */
+  const Divider = () => (
+    <div style={{ height:1, background:"rgba(255,255,255,0.05)", margin:"10px 0" }}/>
+  );
+
+  const StatRow = ({ label, value, color, sub }) => (
+    <div style={{ display:"flex", justifyContent:"space-between", alignItems:"center", padding:"6px 0",
+      borderBottom:"1px solid rgba(255,255,255,0.04)" }}>
+      <span style={{ fontSize:10, color:"rgba(255,255,255,0.35)", letterSpacing:0.5 }}>{label}</span>
+      <div style={{ display:"flex", alignItems:"baseline", gap:5 }}>
+        <span style={{ fontSize:15, fontWeight:800, fontFamily:C.mono, color: color || C.t0 }}>{value}</span>
+        {sub && <span style={{ fontSize:9, color:"rgba(255,255,255,0.22)" }}>{sub}</span>}
+      </div>
+    </div>
+  );
+
+  const ProgressArc = ({ pct, color, r=26 }) => {
+    const circ = 2 * Math.PI * r;
+    const dash = (pct / 100) * circ;
+    return (
+      <svg width={r*2+12} height={r*2+12} style={{ flexShrink:0 }}>
+        <circle cx={r+6} cy={r+6} r={r} fill="none" stroke="rgba(255,255,255,0.06)" strokeWidth="4"/>
+        <circle cx={r+6} cy={r+6} r={r} fill="none" stroke={color} strokeWidth="4"
+          strokeDasharray={`${dash} ${circ-dash}`} strokeDashoffset={circ*0.25} strokeLinecap="round"
+          style={{ transition:"stroke-dasharray 0.6s ease" }}/>
+        <text x={r+6} y={r+6} textAnchor="middle" dominantBaseline="central"
+          fill="#fff" fontSize="11" fontWeight="800" fontFamily={C.mono}>{pct}%</text>
+      </svg>
+    );
+  };
+
+  const PANEL_W = 248;
+
+  return (
+    <div style={{
+      position:"absolute", top:0, right:0, bottom:0, zIndex:9,
+      width: collapsed ? 36 : PANEL_W,
+      display:"flex", flexDirection:"column",
+      ...GLASS,
+      borderRadius:0,
+      borderLeft:`1px solid rgba(255,255,255,0.07)`,
+      borderTop:"none", borderRight:"none", borderBottom:"none",
+      transition:"width 0.28s cubic-bezier(0.16,1,0.3,1)",
+      animation:"kpi-slideIn 0.3s cubic-bezier(0.16,1,0.3,1)",
+    }}>
+
+      {/* Toggle tab */}
+      <div onClick={() => setCollapsed(v => !v)}
+        style={{ display:"flex", alignItems:"center", justifyContent: collapsed ? "center" : "space-between",
+          padding: collapsed ? "14px 0" : "12px 16px",
+          borderBottom:"1px solid rgba(255,255,255,0.06)", cursor:"pointer", userSelect:"none", flexShrink:0 }}>
+        {collapsed ? (
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="rgba(255,255,255,0.4)" strokeWidth="1.8" strokeLinecap="round">
+            <polyline points="15 18 9 12 15 6"/>
+          </svg>
+        ) : (
+          <>
+            <span style={{ fontSize:9, letterSpacing:2.5, textTransform:"uppercase", color:"rgba(255,255,255,0.3)", fontFamily:C.mono }}>Resumen</span>
+            <div style={{ display:"flex", alignItems:"center", gap:8 }}>
+              {alertas.length > 0 && (
+                <span style={{ fontSize:8, fontWeight:700, fontFamily:C.mono, color:"#f59e0b",
+                  background:"rgba(245,158,11,0.12)", border:"1px solid rgba(245,158,11,0.25)",
+                  padding:"2px 8px", borderRadius:10 }}>
+                  {alertas.length} alerta{alertas.length > 1 ? "s" : ""}
+                </span>
+              )}
+              <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="rgba(255,255,255,0.2)" strokeWidth="2" strokeLinecap="round">
+                <polyline points="9 18 15 12 9 6"/>
+              </svg>
+            </div>
+          </>
+        )}
+      </div>
+
+      {/* Body scrollable */}
+      {!collapsed && (
+        <div style={{ flex:1, overflowY:"auto", padding:"14px 16px 20px" }}
+          className="kpi-scroll">
+          <style>{`.kpi-scroll::-webkit-scrollbar{width:3px}.kpi-scroll::-webkit-scrollbar-thumb{background:rgba(255,255,255,0.08);border-radius:3px}`}</style>
+
+          {/* Ocupación */}
+          <div style={{ display:"flex", alignItems:"center", gap:12, marginBottom:14 }}>
+            <ProgressArc pct={ocupPct} color="#6366f1" r={26}/>
+            <div style={{ flex:1 }}>
+              <div style={{ fontSize:8, color:"rgba(255,255,255,0.25)", letterSpacing:1.5, textTransform:"uppercase", marginBottom:4 }}>Ocupación</div>
+              <div style={{ fontSize:12, color:C.t1, fontFamily:C.mono }}>
+                <span style={{ color:"#a5b4fc", fontWeight:800, fontSize:16 }}>{ocupados}</span>
+                <span style={{ color:"rgba(255,255,255,0.18)", fontSize:11 }}> / {total}</span>
+              </div>
+              <div style={{ fontSize:10, color:"rgba(255,255,255,0.25)", marginTop:2 }}>
+                <span style={{ color:"#34d399", fontWeight:600 }}>{libres}</span> libre{libres !== 1 ? "s" : ""}
+              </div>
+            </div>
+          </div>
+
+          <StatRow label="Progreso prom."  value={`${progPct}%`}            color="#3b82f6" sub={`${obrasActivas.length} activas`}/>
+          <StatRow label="Activas"         value={obrasActivas.length}       color="#3b82f6"/>
+          <StatRow label="Pausadas"        value={obrasPausadas.length}      color={obrasPausadas.length  > 0 ? "#f59e0b" : "rgba(255,255,255,0.2)"}/>
+          <StatRow label="Terminadas"      value={obrasTerminadas.length}    color={obrasTerminadas.length > 0 ? "#10b981" : "rgba(255,255,255,0.2)"}/>
+
+          {/* Alertas */}
+          {alertas.length > 0 && (
+            <>
+              <Divider/>
+              <div style={{ fontSize:8, letterSpacing:2, textTransform:"uppercase",
+                color:"rgba(255,255,255,0.2)", marginBottom:8 }}>Alertas</div>
+              <div style={{ display:"flex", flexDirection:"column", gap:5 }}>
+                {alertas.map((a, i) => (
+                  <div key={i} style={{ borderRadius:7, background:`${a.color}0d`,
+                    border:`1px solid ${a.color}22`, padding:"7px 10px" }}>
+                    <div style={{ display:"flex", alignItems:"center", gap:7, marginBottom: a.detalle ? 3 : 0 }}>
+                      <div style={{ width:5, height:5, borderRadius:"50%", flexShrink:0,
+                        background:a.color, boxShadow:`0 0 5px ${a.color}` }}/>
+                      <span style={{ fontSize:10, fontWeight:700, fontFamily:C.mono,
+                        color:"rgba(255,255,255,0.85)" }}>{a.codigo}</span>
+                      <span style={{ fontSize:9, color:a.color, marginLeft:"auto",
+                        fontWeight:600 }}>{a.etiqueta}</span>
+                    </div>
+                    {a.detalle && (
+                      <div style={{ fontSize:9, color:"rgba(255,255,255,0.3)", paddingLeft:12,
+                        lineHeight:1.4 }}>{a.detalle}</div>
+                    )}
+                  </div>
+                ))}
+              </div>
+            </>
+          )}
+
+          {alertas.length === 0 && (
+            <>
+              <Divider/>
+              <div style={{ textAlign:"center", padding:"12px 0" }}>
+                <div style={{ fontSize:9, color:"rgba(255,255,255,0.18)", letterSpacing:1 }}>Sin alertas activas</div>
+              </div>
+            </>
+          )}
+        </div>
+      )}
+    </div>
+  );
+}
+
 export default function MapaProduccion({obras=[],onPuestoClick,onAsignarObra,onChangeEstado,esGestion=false,sharedPuestos,onSaveLayout,sharedNotas,onSaveNotas,sharedMemorias,onSaveMemorias,onAsignarObraPampa,onDesasignarObraPampa}){
   const svgRef=useRef(null);
   const vpRef=useRef({x:0,y:0,scale:1});
@@ -1585,7 +1777,7 @@ export default function MapaProduccion({obras=[],onPuestoClick,onAsignarObra,onC
     const glowFilter=isEmpty
       ? "none"
       : isHov
-        ? `drop-shadow(0 0 14px ${oC.glow}) drop-shadow(0 0 5px ${oC.glow}) drop-shadow(0 5px 12px rgba(0,0,0,0.9))`
+        ? `drop-shadow(0 0 16px ${oC.glow}) drop-shadow(0 0 6px ${oC.glow}) drop-shadow(0 6px 14px rgba(0,0,0,0.95))`
         : `drop-shadow(0 0 6px ${oC.glow}90) drop-shadow(0 4px 10px rgba(0,0,0,0.85))`;
 
     /* Helper que devuelve el <image> listo, con orientación corregida.
@@ -1658,10 +1850,18 @@ export default function MapaProduccion({obras=[],onPuestoClick,onAsignarObra,onC
           ):(
             /* ── PUESTO OCUPADO ── */
             <g style={{pointerEvents:"none", userSelect:"none"}}>
-              {/* Sombra desplazada */}
-              <g clipPath={`url(#${clipId})`}>
-                <BoatImage opacity={0.20} dx={3} dy={5} blur={true}/>
-              </g>
+              {/* Halo ambiente permanente — ring exterior sin blur (performance) */}
+              <rect x={ix-5} y={iy-5} width={p.w+10} height={p.h+10} rx={Math.min(p.w,p.h)*0.10}
+                fill="none" stroke={oC.glow} strokeWidth="1.5"
+                strokeOpacity={isHov ? 0.5 : 0.18}
+                style={{
+                  transition:"stroke-opacity 0.3s ease",
+                  animation: isAct ? "halo-breathe 3.5s ease-in-out infinite" : undefined
+                }}/>
+              {/* Sombra desplazada — solo en hover */}
+              {isHov&&<g clipPath={`url(#${clipId})`}>
+                <BoatImage opacity={0.18} dx={3} dy={4} blur={false}/>
+              </g>}
               {/* Imagen principal con glow de estado */}
               <g style={{filter:glowFilter, transition:"filter 0.25s ease"}} clipPath={`url(#${clipId})`}>
                 <BoatImage opacity={1}/>
@@ -1704,13 +1904,7 @@ export default function MapaProduccion({obras=[],onPuestoClick,onAsignarObra,onC
                 </g>
               </g>
 
-              {/* Beacon activa */}
-              {isAct&&(<>
-                <circle cx={p.cx} cy={p.cy} r="0" fill="none" stroke={oC.glow}
-                  style={{animation:"pulse-r 3s cubic-bezier(0.1,0.8,0.3,1) infinite"}}/>
-                <circle cx={p.cx} cy={p.cy} r="4" fill={oC.glow}
-                  style={{animation:"beacon 2.5s ease-in-out infinite",filter:`drop-shadow(0 0 6px ${oC.glow})`}}/>
-              </>)}
+              {/* sin beacon dots — el halo-breathe del ring ya indica activa */}
             </g>
           )}
 
@@ -1767,6 +1961,8 @@ export default function MapaProduccion({obras=[],onPuestoClick,onAsignarObra,onC
         @keyframes focusBracket {from{opacity:0;transform:scale(0.7)}to{opacity:1;transform:scale(1)}}
         @keyframes focusScan    {from{stroke-dashoffset:0}to{stroke-dashoffset:-160}}
         @keyframes dimIn        {from{opacity:0}to{opacity:1}}
+        @keyframes halo-breathe {0%,100%{stroke-opacity:0.14}50%{stroke-opacity:0.35}}
+        @keyframes kpi-slideIn  {from{opacity:0;transform:translateY(12px) scale(0.97)}to{opacity:1;transform:translateY(0) scale(1)}}
         .glass-btn{background:rgba(255,255,255,0.03);border:1px solid rgba(255,255,255,0.08);color:${C.t1};transition:all 0.2s;}
         .glass-btn:hover{background:rgba(255,255,255,0.08);color:${C.t0};border-color:rgba(255,255,255,0.2);}
       `}</style>
@@ -1788,8 +1984,7 @@ export default function MapaProduccion({obras=[],onPuestoClick,onAsignarObra,onC
             </clipPath>
           ))}
           <pattern id="dotGrid" x={gsx} y={gsy} width={gsz} height={gsz} patternUnits="userSpaceOnUse">
-            <circle cx="2" cy="2" r="1.5" fill="rgba(255,255,255,0.08)"/>
-            <circle cx={gsz/2} cy={gsz/2} r="1" fill="rgba(255,255,255,0.03)"/>
+            <path d={`M ${gsz} 0 L 0 0 0 ${gsz}`} fill="none" stroke="rgba(255,255,255,0.04)" strokeWidth="0.5"/>
           </pattern>
           <linearGradient id="hl" x1="0%" y1="0%" x2="0%" y2="100%">
             <stop offset="0%"   stopColor="#ffffff" stopOpacity="0.15"/>
@@ -1798,7 +1993,7 @@ export default function MapaProduccion({obras=[],onPuestoClick,onAsignarObra,onC
           </linearGradient>
         </defs>
         <rect width="100%" height="100%" fill={C.bg}/>
-        <rect width="100%" height="100%" fill="url(#dotGrid)"/>
+        <rect width="100%" height="100%" fill="none" stroke="none"/>
         <g transform={`translate(${vp.x},${vp.y}) scale(${vp.scale})`}>
           <rect x="5" y="5" width={VB_W-10} height={VB_H-10} rx="8" fill="rgba(255,255,255,0.01)" stroke="rgba(255,255,255,0.15)" strokeWidth="2"/>
           {ZONAS.map(z=>{const bc=z.bc||"rgba(255,255,255,0.15)";return(
@@ -1917,6 +2112,7 @@ export default function MapaProduccion({obras=[],onPuestoClick,onAsignarObra,onC
       </div>
 
       <RadarHUD puestos={puestos} obraByPuesto={obraByPuesto} vp={vp} containerW={containerSize.w} containerH={containerSize.h}/>
+      <KPIPanel obras={obras} puestos={puestos} obraByPuesto={obraByPuesto}/>
 
       {/* TOOLTIP */}
       {tooltip&&!obraDragPos&&!focusedPuesto&&(()=>{
