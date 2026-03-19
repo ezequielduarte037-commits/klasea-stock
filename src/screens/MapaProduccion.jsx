@@ -562,176 +562,256 @@ function getLineaTipo(obra, puesto) {
 ─────────────────────────────────────────────────────────────────────────────── */
 const _F = {
   // ── Identificación
-  propietario:        { key:"propietario",        label:"Propietario",                     icon:IC.user,     col:1, section:"Identificación" },
-  constructor:        { key:"constructor",         label:"Constructor",                     icon:IC.hardhat,  col:2, section:"Identificación" },
+  propietario:        { key:"propietario",   label:"Propietario",               icon:IC.user,     col:1, section:"Identificación" },
+  constructor:        { key:"constructor",   label:"Constructor",               icon:IC.hardhat,  col:2, section:"Identificación" },
+  nombre_barco:       { key:"nombre_barco",  label:"Nombre del barco",          icon:IC.ship,     col:1, section:"Identificación", wide:true },
   // ── Estructura
-  motorizacion:       { key:"motorizacion",        label:"Motorización",                    icon:IC.engine,   col:1, section:"Estructura" },
-  color_casco:        { key:"color_casco",         label:"Color Casco",                     icon:IC.brush,    col:2, section:"Estructura" },
-  grupo_electrogeno:  { key:"grupo_electrogeno",   label:"Grupo Electrógeno",               icon:IC.bolt,     col:1, section:"Estructura" },
-  cabina:             { key:"cabina",              label:"Cabina / Soft-Top",               icon:IC.ship,     col:2, section:"Estructura" },
+  motorizacion:       { key:"motorizacion",  label:"Motorización",              icon:IC.engine,   col:1, section:"Estructura" },
+  color_casco:        { key:"color_casco",   label:"Color / Fondo de casco",    icon:IC.brush,    col:2, section:"Estructura" },
+  grupo_electrogeno:  { key:"grupo_electrogeno", label:"Grupo Electrógeno",     icon:IC.bolt,     col:1, section:"Estructura" },
+  cabina:             { key:"cabina",        label:"Cabina / Tipo",             icon:IC.ship,     col:2, section:"Estructura" },
   // ── Interiores
-  madera_muebles:     { key:"madera_muebles",      label:"Madera / Muebles",                icon:IC.wood,     col:1, section:"Interiores" },
-  piso:               { key:"piso",                label:"Piso",                            icon:IC.floor,    col:2, section:"Interiores" },
-  alfombra:           { key:"alfombra",            label:"Alfombra",                        icon:IC.floor,    col:1, section:"Interiores" },
-  color_mesadas:      { key:"color_mesadas",       label:"Mesadas (baño / cocina)",         icon:IC.palette,  col:1, section:"Interiores", wide:true },
-  color_mesadas_full: { key:"color_mesadas",       label:"Mesadas (baño, cocina, cockpit)", icon:IC.palette,  col:1, section:"Interiores", wide:true },
-  // ── Tapicería
-  tapiceria_mamparos: { key:"tapiceria_mamparos",  label:"Mamparos / Techos Int.",          icon:IC.sofa,     col:1, section:"Tapicería" },
-  tapiceria_dinette:  { key:"tapiceria_dinette",   label:"Dinette / Sillón Popa",           icon:IC.sofa,     col:2, section:"Tapicería" },
-  tapiceria_respaldos:{ key:"tapiceria_respaldos", label:"Respaldos / Bandeus",             icon:IC.sofa,     col:1, section:"Tapicería" },
-  tapiceria_exterior: { key:"tapiceria_exterior",  label:"Exterior (asientos, puffs)",      icon:IC.sofa,     col:2, section:"Tapicería" },
-  color_acolchados:   { key:"color_acolchados",    label:"Acolchados",                      icon:IC.sofa,     col:1, section:"Tapicería" },
+  madera_muebles:     { key:"madera_muebles", label:"Muebles / Enchapado",      icon:IC.wood,    col:1, section:"Interiores" },
+  piso:               { key:"piso",          label:"Piso",                      icon:IC.floor,    col:2, section:"Interiores" },
+  alfombra:           { key:"alfombra",      label:"Alfombra",                  icon:IC.floor,    col:1, section:"Interiores" },
+  // Mesadas — versión simple (k37/k42/k43) y versión completa (k52+)
+  color_mesadas:      { key:"color_mesadas", label:"Mesadas baño / cocina",     icon:IC.palette,  col:1, section:"Interiores", wide:true },
+  color_mesadas_full: { key:"color_mesadas", label:"Mesadas baño / cocina / cockpit", icon:IC.palette, col:1, section:"Interiores", wide:true },
+  // ── Tapicería — descriptores base (las plantillas sobreescriben el label con spread)
+  tapiceria_mamparos: { key:"tapiceria_mamparos",  label:"Mamparos",            icon:IC.sofa,     col:1, section:"Tapicería" },
+  tapiceria_dinette:  { key:"tapiceria_dinette",   label:"Dinette / Sillón popa", icon:IC.sofa,   col:2, section:"Tapicería" },
+  tapiceria_respaldos:{ key:"tapiceria_respaldos", label:"Respaldos / Bandeau", icon:IC.sofa,     col:1, section:"Tapicería" },
+  tapiceria_exterior: { key:"tapiceria_exterior",  label:"Exterior",            icon:IC.sofa,     col:2, section:"Tapicería" },
+  color_acolchados:   { key:"color_acolchados",    label:"Acolchados",          icon:IC.sofa,     col:1, section:"Tapicería" },
+  color_cerramientos: { key:"color_cerramientos",  label:"Cerramientos",        icon:IC.door,     col:2, section:"Tapicería" },
   // ── Lonería
-  loneria_toldo_proa: { key:"loneria_toldo_proa",  label:"Toldo rebatible proa",            icon:IC.ship,     col:1, section:"Lonería" },
-  loneria_cobertor:   { key:"loneria_cobertor",    label:"Cobertor / Lona",                 icon:IC.ship,     col:2, section:"Lonería" },
-  color_cerramientos: { key:"color_cerramientos",  label:"Cerramientos",                    icon:IC.door,     col:1, section:"Lonería" },
-  loneria_otros:      { key:"loneria_otros",        label:"Otros (mosquitero, tambucho…)",   icon:IC.notes,    col:1, section:"Lonería", wide:true },
-  // ── Sonido / Electrónica
-  electronica:        { key:"electronica",         label:"Sonido / Audio / Electrónica",    icon:IC.signal,   col:1, section:"Sonido",  wide:true },
-  // ── Adicionales — selector especial (3 estados)
-  teca_tipo:          { key:"teca_tipo",           label:"Cubierta cockpit",                icon:IC.teca,     col:1, section:"Adicionales", type:"selector",
+  loneria_toldo_proa: { key:"loneria_toldo_proa",  label:"Toldo rebatible proa", icon:IC.ship,    col:1, section:"Lonería" },
+  loneria_cobertor:   { key:"loneria_cobertor",    label:"Cobertor / Lona",      icon:IC.ship,    col:2, section:"Lonería" },
+  loneria_otros:      { key:"loneria_otros",        label:"Cerramientos / tambucho / otros", icon:IC.notes, col:1, section:"Lonería", wide:true },
+  // ── Electrónica
+  electronica:        { key:"electronica",  label:"Electrónica (GPS, plotters)", icon:IC.signal,  col:1, section:"Electrónica", wide:true },
+  audio:              { key:"audio",        label:"Audio (int/ext, parlantes, subw.)", icon:IC.signal, col:1, section:"Electrónica", wide:true },
+  // ── Equipamiento — selector teca
+  teca_tipo:          { key:"teca_tipo",    label:"Cubierta cockpit",            icon:IC.teca,     col:1, section:"Equipamiento", type:"selector",
                         opts:[{val:null,label:"—"},{val:"teca",label:"Teca"},{val:"infinity",label:"Infinity"}], color:"#d4b483" },
-  // ── Adicionales — texto
-  tv_camarote:        { key:"tv_camarote",         label:"TV Camarote Popa",                icon:IC.notes,    col:1, section:"Adicionales" },
-  tv_cockpit:         { key:"tv_cockpit",          label:"TV Cockpit",                      icon:IC.notes,    col:2, section:"Adicionales" },
-  adicionales:        { key:"adicionales",         label:"Adicionales / Notas técnicas",    icon:IC.notes,    col:1, section:"Adicionales", wide:true },
-  // ── Adicionales — toggles (se renderizan como pills en el header, no en el body)
-  starlink:           { key:"starlink",            label:"Starlink",           icon:IC.satellite, col:2, section:"Adicionales", type:"toggle", color:"#a5b4fc" },
-  sternthruster:      { key:"sternthruster",       label:"Sternthruster",      icon:IC.anchor,    col:1, section:"Adicionales", type:"toggle", color:"#7dd3fc" },
-  fabricadora_hielo:  { key:"fabricadora_hielo",   label:"Fabricadora hielo",  icon:IC.bolt,      col:2, section:"Adicionales", type:"toggle", color:"#86efac" },
-  radar:              { key:"radar",               label:"Radar",              icon:IC.signal,    col:1, section:"Adicionales", type:"toggle", color:"#fca5a5" },
-  pluma:              { key:"pluma",               label:"Pluma",              icon:IC.anchor,    col:2, section:"Adicionales", type:"toggle", color:"#fcd34d" },
-  planchada:          { key:"planchada",           label:"Planchada",          icon:IC.ship,      col:1, section:"Adicionales", type:"toggle", color:"#6ee7b7" },
-  mesa_fly:           { key:"mesa_fly",            label:"Mesa Fly",           icon:IC.ship,      col:2, section:"Adicionales", type:"toggle", color:"#c4b5fd" },
-  aire_acondicionado: { key:"aire_acondicionado",  label:"Aire Acond.",        icon:IC.bolt,      col:1, section:"Adicionales", type:"toggle", color:"#67e8f9" },
-  calefactor:         { key:"calefactor",          label:"Calefactor",         icon:IC.bolt,      col:2, section:"Adicionales", type:"toggle", color:"#fda4af" },
-  bow_thruster:       { key:"bow_thruster",        label:"Bow Thruster",       icon:IC.anchor,    col:1, section:"Adicionales", type:"toggle", color:"#93c5fd" },
-  plotter:            { key:"plotter",             label:"Plotter",            icon:IC.signal,    col:2, section:"Adicionales", type:"toggle", color:"#d9f99d" },
-  faro:               { key:"faro",                label:"Faro",               icon:IC.bolt,      col:1, section:"Adicionales", type:"toggle", color:"#fef08a" },
-  flaps:              { key:"flaps",               label:"Flaps",              icon:IC.anchor,    col:2, section:"Adicionales", type:"toggle", color:"#e9d5ff" },
+  // ── Equipamiento — TV (solo kH)
+  tv_camarote:        { key:"tv_camarote", label:"TV Camarote Popa",            icon:IC.notes,    col:1, section:"Equipamiento" },
+  tv_cockpit:         { key:"tv_cockpit",  label:"TV Cockpit",                  icon:IC.notes,    col:2, section:"Equipamiento" },
+  // ── Adicionales — texto libre
+  adicionales:        { key:"adicionales", label:"Adicionales / Notas técnicas", icon:IC.notes,   col:1, section:"Adicionales", wide:true },
+  // ── Equipamiento — toggles (se muestran como pills en el header del HUD)
+  starlink:           { key:"starlink",           label:"Starlink",            icon:IC.satellite, col:1, section:"Equipamiento", type:"toggle", color:"#a5b4fc" },
+  sternthruster:      { key:"sternthruster",      label:"Sternthruster",       icon:IC.anchor,    col:2, section:"Equipamiento", type:"toggle", color:"#7dd3fc" },
+  fabricadora_hielo:  { key:"fabricadora_hielo",  label:"Fabricadora de hielo",icon:IC.bolt,      col:1, section:"Equipamiento", type:"toggle", color:"#86efac" },
+  radar:              { key:"radar",              label:"Radar",               icon:IC.signal,    col:2, section:"Equipamiento", type:"toggle", color:"#fca5a5" },
+  pluma:              { key:"pluma",              label:"Pluma",               icon:IC.anchor,    col:1, section:"Equipamiento", type:"toggle", color:"#fcd34d" },
+  mesa_fly:           { key:"mesa_fly",           label:"Mesa Fly",            icon:IC.ship,      col:2, section:"Equipamiento", type:"toggle", color:"#c4b5fd" },
+  aire_acondicionado: { key:"aire_acondicionado", label:"Aire Acondicionado",  icon:IC.bolt,      col:1, section:"Equipamiento", type:"toggle", color:"#67e8f9" },
+  calefactor:         { key:"calefactor",         label:"Calefactor",          icon:IC.bolt,      col:2, section:"Equipamiento", type:"toggle", color:"#fda4af" },
+  bow_thruster:       { key:"bow_thruster",       label:"Bow Thruster",        icon:IC.anchor,    col:1, section:"Equipamiento", type:"toggle", color:"#93c5fd" },
+  plotter:            { key:"plotter",            label:"Plotter",             icon:IC.signal,    col:2, section:"Equipamiento", type:"toggle", color:"#d9f99d" },
+  faro:               { key:"faro",               label:"Faro",                icon:IC.bolt,      col:1, section:"Equipamiento", type:"toggle", color:"#fef08a" },
+  flaps:              { key:"flaps",              label:"Flaps",               icon:IC.anchor,    col:2, section:"Equipamiento", type:"toggle", color:"#e9d5ff" },
+  // NOTA: "planchada" eliminado — no tiene contexto suficiente. Documentar en "adicionales".
 };
 
-/* ─── CAMPOS POR LÍNEA DE PRODUCCIÓN ────────────────────────────────────────
-   Cada array define exactamente qué campos muestra el HUD y la ficha impresa
-   para esa línea. Cuanto más chico/abierto el barco → menos secciones.
+/* ─── PLANTILLAS POR LÍNEA DE PRODUCCIÓN ─────────────────────────────────────
+   Basadas en las memorias descriptivas reales de cada línea.
+   Los templates usan spread ({..._F.campo, label:"nuevo label"}) para adaptar
+   etiquetas sin cambiar la clave SQL del campo.
 ─────────────────────────────────────────────────────────────────────────────── */
 const MEMORIA_FIELDS_BY_TIPO = {
 
-  // ── K37: Express Sport Cruiser — open/semi-open, fuera de borda ────────────
-  // No tiene alfombra, lonería compleja ni tapicería interior profunda.
+  // ── K37: Express Sport Cruiser ─────────────────────────────────────────────
+  // Open / Soft-Top. Fuera de borda o inboard pequeño.
+  // Sin alfombra, cerramientos simples, tapicería básica.
   k37: [
     _F.propietario, _F.constructor,
     _F.motorizacion, _F.color_casco, _F.grupo_electrogeno, _F.cabina,
-    _F.madera_muebles, _F.piso, _F.color_mesadas,
-    _F.tapiceria_mamparos, _F.tapiceria_respaldos, _F.tapiceria_exterior, _F.color_acolchados,
+    _F.madera_muebles, _F.piso,
+    { ..._F.color_mesadas, label:"Mesadas baño / cocina / exterior" },
+    // Tapicería — estructura abierta, sin techos interiores complejos
+    { ..._F.tapiceria_mamparos, label:"Interior (mamparos)" },
+    { ..._F.tapiceria_exterior, label:"Exterior (asientos / respaldos)" },
+    { ..._F.tapiceria_respaldos, label:"Bandeau / Respaldos" },
+    { ..._F.tapiceria_dinette, label:"Sillón camarote popa" },
+    _F.color_acolchados,
+    // Lonería
     _F.loneria_toldo_proa, _F.loneria_cobertor,
-    _F.electronica,
+    { ..._F.loneria_otros, label:"Otros lonería (tambucho, cobertor...)" },
+    // Electrónica
+    _F.electronica, _F.audio,
+    // Equipamiento
     _F.teca_tipo, _F.starlink, _F.sternthruster, _F.fabricadora_hielo, _F.radar,
     _F.adicionales,
   ],
 
-  // ── K42: Open Sport Runabout — inboard, algo más grande ───────────────────
-  // Suma cerramiento, dinette y pluma respecto al K37.
+  // ── K42: Open / Hard-Top Runabout ─────────────────────────────────────────
+  // Inboard mediano. Agrega cerramientos, pluma, dinette, tapicería más compleja.
   k42: [
     _F.propietario, _F.constructor,
     _F.motorizacion, _F.color_casco, _F.grupo_electrogeno, _F.cabina,
-    _F.madera_muebles, _F.piso, _F.color_mesadas,
-    _F.tapiceria_mamparos, _F.tapiceria_dinette,
-    _F.tapiceria_respaldos, _F.tapiceria_exterior, _F.color_acolchados,
-    _F.color_cerramientos, _F.loneria_toldo_proa, _F.loneria_cobertor,
-    _F.electronica,
+    _F.madera_muebles, _F.piso,
+    { ..._F.color_mesadas, label:"Mesadas baño / cocina / exterior" },
+    // Tapicería — tiene cerramientos y más sectores
+    { ..._F.color_cerramientos, label:"Color cerramientos", col:1 },
+    _F.color_acolchados,
+    { ..._F.tapiceria_mamparos, label:"Interior / Paneles salón" },
+    { ..._F.tapiceria_exterior, label:"Exterior (patas, arco, techo)" },
+    { ..._F.tapiceria_dinette, label:"Cama / Bandeau / Sillones" },
+    { ..._F.tapiceria_respaldos, label:"Respaldos" },
+    // Lonería
+    _F.loneria_toldo_proa, _F.loneria_cobertor,
+    { ..._F.loneria_otros, label:"Cerramientos / tambucho / cobertor" },
+    // Electrónica
+    _F.electronica, _F.audio,
+    // Equipamiento
     _F.teca_tipo, _F.starlink, _F.sternthruster, _F.fabricadora_hielo, _F.radar, _F.pluma,
     _F.adicionales,
   ],
 
-  // ── K43: Utility / Fishing — utilitario funcional ─────────────────────────
-  // Sin alfombra ni lonería compleja. Teca opcional.
+  // ── K43: Utilitario / Fishing ──────────────────────────────────────────────
+  // Sin cabina formal. Tapicería funcional.
   k43: [
     _F.propietario, _F.constructor,
     _F.motorizacion, _F.color_casco, _F.grupo_electrogeno,
-    _F.madera_muebles, _F.piso, _F.color_mesadas,
-    _F.tapiceria_mamparos, _F.tapiceria_dinette,
-    _F.tapiceria_respaldos, _F.tapiceria_exterior, _F.color_acolchados,
-    _F.loneria_toldo_proa, _F.loneria_cobertor,
-    _F.electronica,
+    _F.madera_muebles, _F.piso,
+    { ..._F.color_mesadas, label:"Mesadas baño / cocina" },
+    // Tapicería
+    { ..._F.tapiceria_mamparos, label:"Mamparos / Interior" },
+    { ..._F.tapiceria_respaldos, label:"Respaldos / Bandeau" },
+    { ..._F.tapiceria_exterior, label:"Exterior / Triángulos" },
+    _F.color_acolchados,
+    // Lonería
+    _F.loneria_toldo_proa,
+    { ..._F.loneria_otros, label:"Otros lonería" },
+    // Electrónica
+    _F.electronica, _F.audio,
+    // Equipamiento
     _F.teca_tipo, _F.starlink, _F.sternthruster, _F.fabricadora_hielo, _F.radar, _F.pluma,
     _F.adicionales,
   ],
 
-  // ── K52: Motor Cruiser Cabina — cabina completa, mediano-grande ───────────
-  // Incorpora alfombra, lonería completa y tapicería interior extensa.
+  // ── K52: Motor Cruiser Cabina ──────────────────────────────────────────────
+  // Cabina completa con baño, cocina, camarotes. Tapicería y lonería extensa.
   k52: [
     _F.propietario, _F.constructor,
     _F.motorizacion, _F.color_casco, _F.grupo_electrogeno, _F.cabina,
-    _F.madera_muebles, _F.piso, _F.alfombra, _F.color_mesadas_full,
-    _F.tapiceria_mamparos, _F.tapiceria_dinette,
-    _F.tapiceria_respaldos, _F.tapiceria_exterior, _F.color_acolchados,
-    _F.loneria_toldo_proa, _F.loneria_cobertor, _F.color_cerramientos, _F.loneria_otros,
-    _F.electronica,
+    _F.madera_muebles, _F.piso,
+    { ..._F.alfombra, label:"Alfombra (viene / No va)" },
+    _F.color_mesadas_full,
+    // Tapicería — más detallada
+    { ..._F.tapiceria_mamparos, label:"Mamparos" },
+    { ..._F.tapiceria_dinette, label:"Techos int. / Dinette salón" },
+    { ..._F.tapiceria_respaldos, label:"Respaldos / Bandeus / Tiras" },
+    { ..._F.tapiceria_exterior, label:"Exterior (asientos, puffs, techos)" },
+    _F.color_acolchados,
+    { ..._F.color_cerramientos, label:"Color cerramientos / paneles patas techo", col:1, wide:true },
+    // Lonería — cerramientos y tambucho como un campo combinado
+    { ..._F.loneria_toldo_proa, label:"Toldo rebatible en solarium de proa" },
+    { ..._F.loneria_cobertor, label:"Cobertor / lona" },
+    { ..._F.loneria_otros, label:"Cerramiento popa / proa / tambucho / mosquitero" },
+    // Electrónica
+    _F.electronica, _F.audio,
+    // Equipamiento
     _F.teca_tipo, _F.starlink, _F.sternthruster, _F.fabricadora_hielo,
-    _F.radar, _F.pluma, _F.planchada,
+    _F.radar, _F.pluma,
     _F.adicionales,
   ],
 
-  // ── K55: Sport Cruiser 55' — grande, full equipamiento ────────────────────
-  // Suma mesa fly y planchada respecto al K52.
+  // ── K55: Sport Cruiser 55' ─────────────────────────────────────────────────
+  // Como K52 + Mesa Fly.
   k55: [
     _F.propietario, _F.constructor,
     _F.motorizacion, _F.color_casco, _F.grupo_electrogeno, _F.cabina,
-    _F.madera_muebles, _F.piso, _F.alfombra, _F.color_mesadas_full,
-    _F.tapiceria_mamparos, _F.tapiceria_dinette,
-    _F.tapiceria_respaldos, _F.tapiceria_exterior, _F.color_acolchados,
-    _F.loneria_toldo_proa, _F.loneria_cobertor, _F.color_cerramientos, _F.loneria_otros,
-    _F.electronica,
+    _F.madera_muebles, _F.piso,
+    { ..._F.alfombra, label:"Alfombra (viene / No va)" },
+    _F.color_mesadas_full,
+    { ..._F.tapiceria_mamparos, label:"Mamparos" },
+    { ..._F.tapiceria_dinette, label:"Techos int. / Dinette salón" },
+    { ..._F.tapiceria_respaldos, label:"Respaldos / Bandeus / Tiras" },
+    { ..._F.tapiceria_exterior, label:"Exterior (asientos, puffs, techos)" },
+    _F.color_acolchados,
+    { ..._F.color_cerramientos, label:"Cerramientos / paneles patas techo", col:1, wide:true },
+    { ..._F.loneria_toldo_proa, label:"Toldo rebatible en solarium de proa" },
+    { ..._F.loneria_cobertor, label:"Cobertor / lona" },
+    { ..._F.loneria_otros, label:"Cerramiento popa / proa / tambucho / mosquitero" },
+    _F.electronica, _F.audio,
     _F.teca_tipo, _F.starlink, _F.sternthruster, _F.fabricadora_hielo,
-    _F.radar, _F.pluma, _F.planchada, _F.mesa_fly,
+    _F.radar, _F.pluma, _F.mesa_fly,
     _F.adicionales,
   ],
 
-  // ── K64: Yate Clásico Largo — máximo estándar ─────────────────────────────
-  // Suma AC, calefactor y bow thruster.
+  // ── K64: Yate Largo ───────────────────────────────────────────────────────
+  // Como K55 + Aire Acondicionado + Calefactor + Bow Thruster.
   k64: [
     _F.propietario, _F.constructor,
     _F.motorizacion, _F.color_casco, _F.grupo_electrogeno, _F.cabina,
-    _F.madera_muebles, _F.piso, _F.alfombra, _F.color_mesadas_full,
-    _F.tapiceria_mamparos, _F.tapiceria_dinette,
-    _F.tapiceria_respaldos, _F.tapiceria_exterior, _F.color_acolchados,
-    _F.loneria_toldo_proa, _F.loneria_cobertor, _F.color_cerramientos, _F.loneria_otros,
-    _F.electronica,
+    _F.madera_muebles, _F.piso,
+    { ..._F.alfombra, label:"Alfombra (viene / No va)" },
+    _F.color_mesadas_full,
+    { ..._F.tapiceria_mamparos, label:"Mamparos" },
+    { ..._F.tapiceria_dinette, label:"Techos int. / Dinette salón" },
+    { ..._F.tapiceria_respaldos, label:"Respaldos / Bandeus / Tiras" },
+    { ..._F.tapiceria_exterior, label:"Exterior (asientos, puffs, techos)" },
+    _F.color_acolchados,
+    { ..._F.color_cerramientos, label:"Cerramientos / paneles patas techo", col:1, wide:true },
+    { ..._F.loneria_toldo_proa, label:"Toldo rebatible en solarium de proa" },
+    { ..._F.loneria_cobertor, label:"Cobertor / lona" },
+    { ..._F.loneria_otros, label:"Cerramiento popa / proa / tambucho / mosquitero" },
+    _F.electronica, _F.audio,
     _F.teca_tipo, _F.starlink, _F.sternthruster, _F.fabricadora_hielo,
-    _F.radar, _F.pluma, _F.planchada, _F.mesa_fly,
+    _F.radar, _F.pluma, _F.mesa_fly,
     _F.aire_acondicionado, _F.calefactor, _F.bow_thruster,
     _F.adicionales,
   ],
 
-  // ── K85: La más grande — perfil completo + plotter ────────────────────────
+  // ── K85: La más grande ────────────────────────────────────────────────────
+  // Como K64 + Plotter.
   k85: [
     _F.propietario, _F.constructor,
     _F.motorizacion, _F.color_casco, _F.grupo_electrogeno, _F.cabina,
-    _F.madera_muebles, _F.piso, _F.alfombra, _F.color_mesadas_full,
-    _F.tapiceria_mamparos, _F.tapiceria_dinette,
-    _F.tapiceria_respaldos, _F.tapiceria_exterior, _F.color_acolchados,
-    _F.loneria_toldo_proa, _F.loneria_cobertor, _F.color_cerramientos, _F.loneria_otros,
-    _F.electronica,
+    _F.madera_muebles, _F.piso,
+    { ..._F.alfombra, label:"Alfombra (viene / No va)" },
+    _F.color_mesadas_full,
+    { ..._F.tapiceria_mamparos, label:"Mamparos" },
+    { ..._F.tapiceria_dinette, label:"Techos int. / Dinette salón" },
+    { ..._F.tapiceria_respaldos, label:"Respaldos / Bandeus / Tiras" },
+    { ..._F.tapiceria_exterior, label:"Exterior (asientos, puffs, techos)" },
+    _F.color_acolchados,
+    { ..._F.color_cerramientos, label:"Cerramientos / paneles patas techo", col:1, wide:true },
+    { ..._F.loneria_toldo_proa, label:"Toldo rebatible en solarium de proa" },
+    { ..._F.loneria_cobertor, label:"Cobertor / lona" },
+    { ..._F.loneria_otros, label:"Cerramiento popa / proa / tambucho / mosquitero" },
+    _F.electronica, _F.audio,
     _F.teca_tipo, _F.starlink, _F.sternthruster, _F.fabricadora_hielo,
-    _F.radar, _F.pluma, _F.planchada, _F.mesa_fly,
+    _F.radar, _F.pluma, _F.mesa_fly,
     _F.aire_acondicionado, _F.calefactor, _F.bow_thruster, _F.plotter,
     _F.adicionales,
   ],
 
-  // ── kH: Husky (especial) — electrónica extendida + TV + climate ───────────
+  // ── kH: Husky ─────────────────────────────────────────────────────────────
+  // Electrónica extendida + TVs + climate + faro + flaps.
   kH: [
     _F.propietario, _F.constructor,
     _F.motorizacion, _F.color_casco, _F.grupo_electrogeno, _F.cabina,
-    _F.madera_muebles, _F.piso, _F.alfombra, _F.color_mesadas,
-    _F.tapiceria_mamparos, _F.tapiceria_dinette,
-    _F.tapiceria_respaldos, _F.tapiceria_exterior, _F.color_acolchados,
-    _F.color_cerramientos, _F.loneria_toldo_proa, _F.loneria_cobertor, _F.loneria_otros,
-    _F.electronica,
-    _F.teca_tipo, _F.starlink, _F.sternthruster, _F.fabricadora_hielo,
-    _F.radar, _F.pluma, _F.planchada,
-    _F.aire_acondicionado, _F.calefactor, _F.bow_thruster, _F.plotter, _F.faro, _F.flaps,
+    _F.madera_muebles, _F.piso,
+    { ..._F.alfombra, label:"Alfombra (viene / No va)" },
+    _F.color_mesadas_full,
+    { ..._F.tapiceria_mamparos, label:"Mamparos" },
+    { ..._F.tapiceria_dinette, label:"Techos int. / Dinette salón" },
+    { ..._F.tapiceria_respaldos, label:"Respaldos / Bandeus / Tiras" },
+    { ..._F.tapiceria_exterior, label:"Exterior (asientos, puffs, techos)" },
+    _F.color_acolchados,
+    { ..._F.color_cerramientos, label:"Cerramientos / paneles patas techo", col:1, wide:true },
+    { ..._F.loneria_toldo_proa, label:"Toldo rebatible en solarium de proa" },
+    { ..._F.loneria_cobertor, label:"Cobertor / lona" },
+    { ..._F.loneria_otros, label:"Cerramiento popa / proa / tambucho / mosquitero" },
+    _F.electronica, _F.audio,
     _F.tv_camarote, _F.tv_cockpit,
+    _F.teca_tipo, _F.starlink, _F.sternthruster, _F.fabricadora_hielo,
+    _F.radar, _F.pluma, _F.mesa_fly,
+    _F.aire_acondicionado, _F.calefactor, _F.bow_thruster, _F.plotter, _F.faro, _F.flaps,
     _F.adicionales,
   ],
 };
@@ -802,6 +882,7 @@ function MemoriaHUD({ obra, puesto, oC, memoriaOverride, onSaveMemoria, notas=[]
   const base = {
     propietario:        obra?.propietario  ?? db.propietario        ?? "",
     constructor:        obra?.constructor  ?? db.constructor        ?? "",
+    nombre_barco:       db.nombre_barco    ?? "",
     motorizacion:       obra?.motores      ?? db.motorizacion       ?? "",
     grupo_electrogeno:  obra?.grupo_electrogeno_det ?? (obra?.grupo_electrogeno?"Sí":null) ?? db.grupo_electrogeno ?? "",
     cabina:             obra?.tipo_cabina  ?? db.cabina             ?? "",
@@ -820,15 +901,14 @@ function MemoriaHUD({ obra, puesto, oC, memoriaOverride, onSaveMemoria, notas=[]
     loneria_cobertor:   db.loneria_cobertor   ?? "",
     loneria_otros:      db.loneria_otros      ?? "",
     electronica:        obra?.electronica  ?? db.electronica        ?? "",
+    audio:              db.audio           ?? "",
     fabricadora_hielo:  db.fabricadora_hielo  ?? "",
     radar:              db.radar              ?? "",
     pluma:              db.pluma              ?? "",
-    planchada:          db.planchada          ?? "",
     adicionales:        db.adicionales        ?? "",
     starlink:           obra?.starlink     ?? db.starlink     ?? false,
-    teca_tipo:          obra?.teca_tipo    ?? db.teca_tipo    ?? null, // null | "teca" | "infinity"
+    teca_tipo:          obra?.teca_tipo    ?? db.teca_tipo    ?? null,
     sternthruster:      obra?.sternthruster?? db.sternthruster?? false,
-    // ── campos extendidos (k55 / k64 / k85 / kH) ────────────────────────────
     mesa_fly:           db.mesa_fly           ?? false,
     aire_acondicionado: db.aire_acondicionado ?? false,
     calefactor:         db.calefactor         ?? false,
@@ -944,7 +1024,8 @@ function MemoriaHUD({ obra, puesto, oC, memoriaOverride, onSaveMemoria, notas=[]
       "Interiores":     "#059669",
       "Tapicería":      "#7c3aed",
       "Lonería":        "#b45309",
-      "Sonido":         "#db2777",
+      "Electrónica":    "#db2777",
+      "Equipamiento":   ac,
       "Adicionales":    ac,
     };
 
@@ -973,18 +1054,37 @@ function MemoriaHUD({ obra, puesto, oC, memoriaOverride, onSaveMemoria, notas=[]
       }).join("");
     };
 
-    // Badges row for print: toggles activos + teca/infinity
-    const printBadges = (() => {
-      const TOGGLE_KEYS = new Set(["toggle","selector"]);
-      const activeToggles = memoFields.filter(f => TOGGLE_KEYS.has(f.type) && fields[f.key] && f.key !== "teca_tipo");
+    // Equipamiento en print — tabla limpia 2 columnas en lugar de badges inline
+    const printEquip = (() => {
+      const activeToggles = memoFields.filter(f => f.type==="toggle" && fields[f.key]);
       const tecaVal = fields.teca_tipo;
-      let parts = activeToggles.map(f => {
-        const obs = fields[f.key + "_obs"];
-        return "<span class=\"bdg\">" + f.label + (obs ? " · <em>" + obs + "</em>" : "") + "</span>";
+      const ge = fields.grupo_electrogeno;
+      const items = [];
+      if (ge) items.push({ label:"Grupo Electrógeno", val: ge });
+      if (tecaVal) items.push({ label:"Cubierta cockpit", val: tecaVal==="infinity"?"Infinity":"Teca" });
+      activeToggles.forEach(f => {
+        const obs = fields[f.key+"_obs"];
+        items.push({ label: f.label, val: obs||"Sí" });
       });
-      if (tecaVal) parts.push("<span class=\"bdg\">" + tecaVal.charAt(0).toUpperCase() + tecaVal.slice(1) + "</span>");
-      if (!parts.length) return "";
-      return "<tr class=\"badges-row\"><td colspan=\"3\">" + parts.join("") + "</td></tr>";
+      if (!items.length) return "";
+      const sc = SEC_COLORS["Equipamiento"] || ac;
+      let html = "<tr class=\"sec-hd\"><td colspan=\"3\"><span class=\"sec-bar\" style=\"background:" + sc + ";\"></span>EQUIPAMIENTO</td></tr>";
+      html += "<tr><td colspan=\"3\" style=\"padding:0;border:none;\"><table style=\"width:100%;border-collapse:collapse;\">";
+      for (let i = 0; i < items.length; i += 2) {
+        const a = items[i], b = items[i+1];
+        html += "<tr>";
+        html += "<td style=\"width:35%;background:#f4f5f7;padding:4px 10px;font-size:9px;color:#444;font-weight:600;border:1px solid #dde0e6;\">" + a.label + "</td>";
+        html += "<td style=\"width:15%;background:#fff;padding:4px 10px;font-size:10.5px;color:#111;font-weight:700;border:1px solid #dde0e6;\">" + a.val + "</td>";
+        if (b) {
+          html += "<td style=\"width:35%;background:#f4f5f7;padding:4px 10px;font-size:9px;color:#444;font-weight:600;border:1px solid #dde0e6;\">" + b.label + "</td>";
+          html += "<td style=\"width:15%;background:#fff;padding:4px 10px;font-size:10.5px;color:#111;font-weight:700;border:1px solid #dde0e6;\">" + b.val + "</td>";
+        } else {
+          html += "<td colspan=\"2\" style=\"border:1px solid #dde0e6;\"></td>";
+        }
+        html += "</tr>";
+      }
+      html += "</table></td></tr>";
+      return html;
     })();
     const tableRows = buildRows(false);
     const blankRows  = buildRows(true)
@@ -1035,7 +1135,7 @@ function MemoriaHUD({ obra, puesto, oC, memoriaOverride, onSaveMemoria, notas=[]
       // Fix: td no puede tener display flex en tabla, usar tabla-cell
       "td.lbl{display:table-cell;vertical-align:middle;}",
       ".ico{display:inline-flex;align-items:center;vertical-align:middle;margin-right:4px;opacity:.7;flex-shrink:0;}",
-      "td.val{font-size:10.5px;color:#111;padding:5px 10px;line-height:1.4;background:#fff;}",
+      "td.val{font-size:10.5px;color:#111;padding:5px 10px;line-height:1.4;background:#fff;white-space:pre-wrap;}",
       ".obs-val{color:#666;font-style:italic;}",
 
       // Toggles
@@ -1105,8 +1205,8 @@ function MemoriaHUD({ obra, puesto, oC, memoriaOverride, onSaveMemoria, notas=[]
         + "</div>"
 
         + "<div class='wrap'><table>"
-                 + printBadges
                  + tableRows
+                 + printEquip
           + "<tr class='sec-hd'><td colspan='3'><span class='sec-bar' style='background:" + ac + ";'></span>NOTAS DEL EQUIPO</td></tr>"
           + notasRows
         + "</table></div>"
