@@ -44,7 +44,7 @@ const VISTAS = [
   },
   {
     view:"mapa", label:"Mapa", color:"#a78bfa",
-    desc:"Plano del galpón con puestos de trabajo",
+    desc:"Plano del galpón con información y memorias descriptivas de los barcos",
     art:(c)=>(
       <svg viewBox="0 0 240 140" fill="none" style={{position:"absolute",inset:0,width:"100%",height:"100%",opacity:0.18}}>
         <rect x="8" y="8" width="224" height="124" rx="4" stroke={c} strokeWidth="1.2" strokeOpacity="0.6"/>
