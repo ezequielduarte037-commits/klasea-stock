@@ -32,6 +32,7 @@ import k85Img from "./K85.png";
 import logoKlaseaImg from "../assets/logo-klasea.png";
 import logoKImg from "../assets/logo-k.png";
 import GalponPampa from "./GalponPampa";
+import { supabase } from "../supabaseClient";
 
 /* ─── PALETA ─────────────────────────────────────────────────── */
 const C = {
@@ -840,6 +841,15 @@ function MemoriaHUD({ obra, puesto, oC, memoriaOverride, onSaveMemoria, notas=[]
   };
 
   const [fields,    setFields]    = useState({ ...base, ...(memoriaOverride??{}) });
+  // Sync fields cuando los datos de Supabase lleguen después del primer render
+  const prevOverrideRef = useRef(null);
+  useEffect(()=>{
+    if(!memoriaOverride) return;
+    const key = JSON.stringify(memoriaOverride);
+    if(key === prevOverrideRef.current) return;
+    prevOverrideRef.current = key;
+    setFields(f=>({ ...f, ...memoriaOverride }));
+  },[memoriaOverride]);
   const [editingKey,setEditingKey]= useState(null);
   const [editVal,   setEditVal]   = useState("");
   const [newNota,   setNewNota]   = useState("");
@@ -1449,6 +1459,43 @@ function saveMemorias(m) {
   try { localStorage.setItem(LS_MEMORIAS_KEY, JSON.stringify(m)); } catch {}
 }
 
+/* ── Supabase memoria helpers ── */
+function memoriaRowToFields(row) {
+  const BOOL_KEYS = ["starlink","sternthruster","fabricadora_hielo","radar","pluma","planchada","mesa_fly","aire_acondicionado","calefactor","bow_thruster","plotter","faro","flaps"];
+  const result = {};
+  Object.keys(row).forEach(k => {
+    if (k === "id" || k === "obra_id" || k === "obra_codigo" || k === "created_at" || k === "updated_at") return;
+    result[k] = row[k] ?? (BOOL_KEYS.includes(k) ? false : "");
+  });
+  return result;
+}
+
+async function loadMemoriasFromSupabase() {
+  try {
+    const { data, error } = await supabase.from("obra_memorias").select("*");
+    if (error || !data?.length) return {};
+    const result = {};
+    data.forEach(row => {
+      const fields = memoriaRowToFields(row);
+      if (row.obra_id)     result[row.obra_id]    = fields;
+      if (row.obra_codigo) result[row.obra_codigo] = fields;
+    });
+    return result;
+  } catch { return {}; }
+}
+
+async function saveMemoriaToSupabase(obraId, obraCodigo, fields) {
+  try {
+    const BOOL_KEYS = ["starlink","sternthruster","fabricadora_hielo","radar","pluma","planchada","mesa_fly","aire_acondicionado","calefactor","bow_thruster","plotter","faro","flaps"];
+    const row = { obra_id: obraId||null, obra_codigo: obraCodigo||null };
+    Object.keys(fields).forEach(k => {
+      if (k.endsWith("_obs")) { row[k] = fields[k]||null; return; }
+      row[k] = BOOL_KEYS.includes(k) ? (fields[k]??false) : (fields[k]||null);
+    });
+    await supabase.from("obra_memorias").upsert(row, { onConflict: "obra_codigo" });
+  } catch(e) { console.error("Error guardando memoria:", e); }
+}
+
 function loadPuestos() {
   try {
     const raw = localStorage.getItem(LS_KEY);
@@ -1481,7 +1528,7 @@ function savePuestos(puestos) {
 /* ═══════════════════════════════════════════════════════════════
    KPI PANEL — flotante derecha, compacto e interactivo
 ═══════════════════════════════════════════════════════════════ */
-function KPIPanel({ obras, puestos, obraByPuesto, collapsed, onCollapse, onFocusPuesto }) {
+function KPIPanel({ obras, puestos, obraByPuesto, collapsed, onCollapse, onFocusPuesto, memoriasEdit }) {
   const [activeTab, setActiveTab] = useState("alertas");
   const [hoveredAlert, setHoveredAlert] = useState(null);
 
@@ -1503,7 +1550,7 @@ function KPIPanel({ obras, puestos, obraByPuesto, collapsed, onCollapse, onFocus
   ];
   const obrasConMapa = obras.filter(o=>o.puesto_mapa&&["activa","pausada"].includes(o.estado));
   const alertasMemoria = obrasConMapa.flatMap(o=>{
-    const db = MEMORIAS_DB[o.codigo]??{};
+    const db = (memoriasEdit??{})[o.codigo] ?? (memoriasEdit??{})[o.id] ?? {};
     const faltantes = CAMPOS_CRITICOS.filter(c=>{
       const v=o[c.key]??db[c.key.replace("motores","motorizacion")]??db[c.key];
       return !v;
@@ -1801,6 +1848,14 @@ export default function MapaProduccion({obras=[],onPuestoClick,onAsignarObra,onC
   const [puestos,setPuestos]=useState(()=>sharedPuestos&&sharedPuestos.length>0?sharedPuestos:loadPuestos());
   const [notasExtra,setNotasExtra]=useState(()=>sharedNotas??loadNotas());
   const [memoriasEdit,setMemoriasEdit]=useState(()=>sharedMemorias??loadMemorias());
+
+  // Siempre cargar desde obra_memorias al montar — fuente de verdad
+  useEffect(()=>{
+    loadMemoriasFromSupabase().then(mems=>{
+      if(Object.keys(mems).length>0)
+        setMemoriasEdit(prev=>({...(sharedMemorias??{}), ...prev, ...mems}));
+    });
+  },[]);
   const [hovered,setHovered]=useState(null);
   const [tooltip,setTooltip]=useState(null);
   const [activeView,setActiveView]=useState("mapa"); // "mapa" | "pampa"
@@ -1834,7 +1889,16 @@ export default function MapaProduccion({obras=[],onPuestoClick,onAsignarObra,onC
   useEffect(()=>{ saveMemorias(memoriasEdit); onSaveMemorias?.(memoriasEdit); },[memoriasEdit]);
 
   function handleSaveMemoria(obraOrPuestoId, fields) {
-    setMemoriasEdit(prev=>({...prev,[obraOrPuestoId]:fields}));
+    const obra = obras.find(o => o.id === obraOrPuestoId || o.codigo === obraOrPuestoId);
+    const codigo = obra?.codigo ?? obraOrPuestoId;
+    const obraId = obra?.id ?? null;
+    // Indexar por codigo Y por id para que los lookups funcionen en ambos sentidos
+    setMemoriasEdit(prev=>({
+      ...prev,
+      ...(obraId ? {[obraId]: fields} : {}),
+      [codigo]: fields,
+    }));
+    saveMemoriaToSupabase(obraId, codigo, fields);
   }
 
   const [layoutSaved, setLayoutSaved] = useState(false);
@@ -2007,7 +2071,7 @@ export default function MapaProduccion({obras=[],onPuestoClick,onAsignarObra,onC
   // Sincronizar puestos desde Supabase cuando cambia
   useEffect(()=>{ if(sharedPuestos&&sharedPuestos.length>0) setPuestos(sharedPuestos); },[sharedPuestos]);
   // Sincronizar memorias desde Supabase cuando cambia
-  useEffect(()=>{ if(sharedMemorias) setMemoriasEdit(sharedMemorias); },[sharedMemorias]);
+  // Supabase es fuente de verdad — no sobrescribir con sharedMemorias (mapa_config legacy)
 
   function handleAddNota(obraId, nota) {
     if(!obraId) return;
@@ -2314,7 +2378,7 @@ export default function MapaProduccion({obras=[],onPuestoClick,onAsignarObra,onC
           {activeFocusId&&focusedP&&(<>
             <rect x={-9999} y={-9999} width={29999} height={29999} fill="rgba(0,0,0,0.68)" style={{pointerEvents:"all",cursor:"default",animation:"dimIn 0.35s ease both"}} onClick={()=>setFocusedPuesto(null)}/>
             <g style={{pointerEvents:"auto"}}>{renderBoat(focusedP)}</g>
-            <CinematicCallouts p={focusedP} obra={focusedObra} oC={focusedOC} memoriaOverride={memoriasEdit[focusedObra?.id??focusedP.id]} vp={vp} containerSize={containerSize}/>
+            <CinematicCallouts p={focusedP} obra={focusedObra} oC={focusedOC} memoriaOverride={memoriasEdit[focusedObra?.codigo] ?? memoriasEdit[focusedObra?.id] ?? memoriasEdit[focusedP.id]} vp={vp} containerSize={containerSize}/>
           </>)}
         </g>
       </svg>
@@ -2325,7 +2389,7 @@ export default function MapaProduccion({obras=[],onPuestoClick,onAsignarObra,onC
           obra={focusedObra??null}
           puesto={focusedP}
           oC={focusedOC}
-          memoriaOverride={memoriasEdit[focusedObra?.id??focusedP.id]}
+          memoriaOverride={memoriasEdit[focusedObra?.codigo] ?? memoriasEdit[focusedObra?.id] ?? memoriasEdit[focusedP.id]}
           onSaveMemoria={handleSaveMemoria}
           notas={focusedObra?.id ? (notasExtra[focusedObra.id]??[]) : (notasExtra[focusedP.id]??[])}
           onAddNota={handleAddNota}
@@ -2337,7 +2401,7 @@ export default function MapaProduccion({obras=[],onPuestoClick,onAsignarObra,onC
       {activeFocusId&&focusedP&&(
         <CinematicCards
           p={focusedP} obra={focusedObra} oC={focusedOC}
-          memoriaOverride={memoriasEdit[focusedObra?.id??focusedP.id]}
+          memoriaOverride={memoriasEdit[focusedObra?.codigo] ?? memoriasEdit[focusedObra?.id] ?? memoriasEdit[focusedP.id]}
           vp={vp} svgRef={svgRef} containerSize={containerSize}
         />
       )}
@@ -2413,7 +2477,7 @@ export default function MapaProduccion({obras=[],onPuestoClick,onAsignarObra,onC
       </div>
 
       <RadarHUD puestos={puestos} obraByPuesto={obraByPuesto} vp={vp} containerW={containerSize.w} containerH={containerSize.h}/>
-      <KPIPanel obras={obras} puestos={puestos} obraByPuesto={obraByPuesto}
+      <KPIPanel obras={obras} puestos={puestos} obraByPuesto={obraByPuesto} memoriasEdit={memoriasEdit}
         collapsed={kpiCollapsed} onCollapse={setKpiCollapsed}
         onFocusPuesto={(codigo)=>{
           const obra=obras.find(o=>o.codigo===codigo);
