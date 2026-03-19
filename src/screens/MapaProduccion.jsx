@@ -57,76 +57,16 @@ const GLASS={
 };
 
 const VB_W=1900, VB_H=840;
+const KPI_W=240;  // width of KPI panel (also used for fit calc)
+const KPI_W_COLLAPSED=32;
 
-/* ─── MEMORIAS DESCRIPTIVAS (mock — inyectá tu CSV aquí por obra.codigo) ──────
-   Clave: codigo de obra tal como viene en el prop `obras` (ej: "37-21").
-   Los campos que ya existen en el objeto `obra` del padre tienen prioridad;
-   este dict actúa como fallback / datos extra del CSV.
-   Para poblarlo desde tus CSVs: importá el JSON generado y mezclalo aquí.
+/* ─── MEMORIAS DESCRIPTIVAS ────────────────────────────────────────────────
+   Datos cargados desde SQL vía el prop `memoriaOverride` o inyectados en
+   el objeto `obra` por el backend. Este dict está vacío intencionalmente;
+   no hardcodear datos de producción aquí.
+   Schema de referencia en: /sql/memorias_descriptivas.sql
 ─────────────────────────────────────────────────────────────────────────────── */
-const MEMORIAS_DB = {
-  "37-21": {
-    motorizacion:      "2 × Mercury 450 HP fuera de borda, nafta",
-    grupo_electrogeno: "Kohler 9 kva",
-    propietario:       "Darío Rosenthal",
-    constructor:       null,
-    madera_muebles:    "Gris Terso",
-    color_mesadas:     "Cocina y baño: Olimpo — Cockpit: Niagara Pulido",
-    color_casco:       "Blanco",
-    piso:              "La Europea White",
-    starlink:          true,
-    teca_cockpit:      true,
-    sternthruster:     false,
-    electronica:       "Simrad NSX 9\" + GO9",
-    audio_exterior:    "Fusion con RGB",
-    color_acolchados:  "Shani 07",
-    color_exterior:    "Vertigo Gris claro",
-  },
-  "37-22": {
-    motorizacion:      null,
-    grupo_electrogeno: null,
-    propietario:       "Ariel",
-    constructor:       null,
-    madera_muebles:    null,
-    color_mesadas:     null,
-    starlink:          true,
-    teca_cockpit:      false,
-    sternthruster:     false,
-  },
-  "37-23": {
-    motorizacion:      null,
-    grupo_electrogeno: null,
-    propietario:       "Gustavo Borrajo",
-    constructor:       null,
-    madera_muebles:    null,
-    color_mesadas:     "Baño cockpit: Niagara — Cocina: Olimpo",
-    starlink:          true,
-    teca_cockpit:      true,
-    sternthruster:     true,
-    color_acolchados:  "Anila 01",
-    color_exterior:    "Gris claro / Pranna Gris Oscuro",
-  },
-  "37-30": {
-    motorizacion:      "2 × Volvo D3-270 HP",
-    grupo_electrogeno: "Onan 6 kva",
-    propietario:       "Agustín Trosman",
-    constructor:       "Roberto González",
-    madera_muebles:    "Nogal Italiano Rayado",
-    color_mesadas:     "Prima Travertino Navona",
-    color_casco:       null,
-    piso:              "Europea Nature Álamo",
-    starlink:          true,
-    teca_cockpit:      false,
-    sternthruster:     true,
-    electronica:       null,
-    color_cerramientos:"Charcoal",
-    color_exterior:    "Cuerina Blanca Rivete Blanco",
-    color_acolchados:  null,
-    adicionales:       "Sillón más grande (Curvo) · Griferías negras FV Epuyén",
-  },
-  // ── Agregá más barcos aquí siguiendo el mismo esquema ──
-  // "37-31": { ... },
-};
+const MEMORIAS_DB = {};
 
 /* ─── ZONAS ──────────────────────────────────────────────────── */
 const ZONAS=[
@@ -600,45 +540,202 @@ const IC = {
   plus:   <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>,
   trash:  <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/><path d="M10 11v6"/><path d="M14 11v6"/><path d="M9 6V4a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v2"/></svg>,
   x:      <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>,
+  gear:   <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>,
 };
 
-const MEMORIA_FIELDS = [
-  // ── IDENTIFICACIÓN ──
-  { key:"propietario",        label:"Propietario",                     icon:IC.user,    col:1, section:"Identificación" },
-  { key:"constructor",        label:"Constructor",                     icon:IC.hardhat, col:2, section:"Identificación" },
-  // ── ESTRUCTURA ──
-  { key:"motorizacion",       label:"Motorización",                    icon:IC.engine,  col:1, section:"Estructura" },
-  { key:"grupo_electrogeno",  label:"Grupo Electrógeno",               icon:IC.bolt,    col:2, section:"Estructura" },
-  { key:"cabina",             label:"Cabina / Tipo",                   icon:IC.ship,    col:1, section:"Estructura" },
-  { key:"color_casco",        label:"Color Casco",                     icon:IC.brush,   col:2, section:"Estructura" },
-  // ── INTERIORES ──
-  { key:"madera_muebles",     label:"Madera / Muebles",                icon:IC.wood,    col:1, section:"Interiores" },
-  { key:"piso",               label:"Piso",                            icon:IC.floor,   col:2, section:"Interiores" },
-  { key:"alfombra",           label:"Alfombra",                        icon:IC.floor,   col:1, section:"Interiores" },
-  { key:"color_mesadas",      label:"Mesadas (baño, cocina, cockpit)", icon:IC.palette, col:1, section:"Interiores", wide:true },
-  // ── TAPICERÍA ──
-  { key:"tapiceria_mamparos", label:"Mamparos / Techos Int.",          icon:IC.sofa,    col:1, section:"Tapicería" },
-  { key:"tapiceria_dinette",  label:"Dinette / Sillón Popa",           icon:IC.sofa,    col:2, section:"Tapicería" },
-  { key:"tapiceria_respaldos",label:"Respaldos / Bandeus",             icon:IC.sofa,    col:1, section:"Tapicería" },
-  { key:"tapiceria_exterior", label:"Exterior (asientos, puffs)",      icon:IC.sofa,    col:2, section:"Tapicería" },
-  { key:"color_acolchados",   label:"Acolchados",                      icon:IC.sofa,    col:1, section:"Tapicería" },
-  // ── LONERÍA ──
-  { key:"loneria_toldo_proa", label:"Toldo rebatible proa",            icon:IC.ship,    col:1, section:"Lonería" },
-  { key:"loneria_cobertor",   label:"Cobertor / Lona",                 icon:IC.ship,    col:2, section:"Lonería" },
-  { key:"color_cerramientos", label:"Cerramientos",                    icon:IC.door,    col:1, section:"Lonería" },
-  { key:"loneria_otros",      label:"Otros (mosquitero, tambucho…)",   icon:IC.notes,   col:1, section:"Lonería", wide:true },
-  // ── ELECTRÓNICA ──
-  { key:"electronica",        label:"Sonido / Audio",                  icon:IC.signal,  col:1, section:"Sonido", wide:true },
-  // ── ADICIONALES ──
-  { key:"sternthruster",      label:"Sternthruster",                   icon:IC.anchor,  col:1, section:"Adicionales", type:"toggle" },
-  { key:"fabricadora_hielo",  label:"Fabricadora de hielo",            icon:IC.bolt,    col:2, section:"Adicionales", type:"toggle" },
-  { key:"radar",              label:"Radar",                           icon:IC.signal,  col:1, section:"Adicionales", type:"toggle" },
-  { key:"pluma",              label:"Pluma",                           icon:IC.anchor,  col:2, section:"Adicionales", type:"toggle" },
-  { key:"planchada",          label:"Planchada",                       icon:IC.ship,    col:1, section:"Adicionales", type:"toggle" },
-  { key:"starlink",           label:"Starlink",                        icon:IC.satellite,col:2, section:"Adicionales", type:"toggle" },
-  { key:"teca_tipo",          label:"Cubierta cockpit",                icon:IC.teca,    col:1, section:"Adicionales" },
-  { key:"adicionales",        label:"Adicionales / Notas técnicas",    icon:IC.notes,   col:1, section:"Adicionales", wide:true },
-];
+/* ─── HELPER: deriva el tipo de línea desde puesto o código de obra ─────────
+   Retorna: "k37" | "k42" | "k43" | "k52" | "k55" | "k64" | "k85" | "kH" | "default"
+─────────────────────────────────────────────────────────────────────────────── */
+function getLineaTipo(obra, puesto) {
+  if (puesto?.tipo) return puesto.tipo;
+  if (obra?.codigo) {
+    if (/^H/i.test(obra.codigo)) return "kH";
+    const m = obra.codigo.match(/^(\d+)/);
+    if (m) return `k${m[1]}`;
+  }
+  return "default";
+}
+
+/* ─── CATÁLOGO COMPLETO DE CAMPOS (todos los posibles) ─────────────────────
+   Cada entrada es un descriptor de campo. Los tipos de línea usan subsets.
+─────────────────────────────────────────────────────────────────────────────── */
+const _F = {
+  // ── Identificación
+  propietario:        { key:"propietario",        label:"Propietario",                     icon:IC.user,     col:1, section:"Identificación" },
+  constructor:        { key:"constructor",         label:"Constructor",                     icon:IC.hardhat,  col:2, section:"Identificación" },
+  // ── Estructura
+  motorizacion:       { key:"motorizacion",        label:"Motorización",                    icon:IC.engine,   col:1, section:"Estructura" },
+  color_casco:        { key:"color_casco",         label:"Color Casco",                     icon:IC.brush,    col:2, section:"Estructura" },
+  grupo_electrogeno:  { key:"grupo_electrogeno",   label:"Grupo Electrógeno",               icon:IC.bolt,     col:1, section:"Estructura" },
+  cabina:             { key:"cabina",              label:"Cabina / Soft-Top",               icon:IC.ship,     col:2, section:"Estructura" },
+  // ── Interiores
+  madera_muebles:     { key:"madera_muebles",      label:"Madera / Muebles",                icon:IC.wood,     col:1, section:"Interiores" },
+  piso:               { key:"piso",                label:"Piso",                            icon:IC.floor,    col:2, section:"Interiores" },
+  alfombra:           { key:"alfombra",            label:"Alfombra",                        icon:IC.floor,    col:1, section:"Interiores" },
+  color_mesadas:      { key:"color_mesadas",       label:"Mesadas (baño / cocina)",         icon:IC.palette,  col:1, section:"Interiores", wide:true },
+  color_mesadas_full: { key:"color_mesadas",       label:"Mesadas (baño, cocina, cockpit)", icon:IC.palette,  col:1, section:"Interiores", wide:true },
+  // ── Tapicería
+  tapiceria_mamparos: { key:"tapiceria_mamparos",  label:"Mamparos / Techos Int.",          icon:IC.sofa,     col:1, section:"Tapicería" },
+  tapiceria_dinette:  { key:"tapiceria_dinette",   label:"Dinette / Sillón Popa",           icon:IC.sofa,     col:2, section:"Tapicería" },
+  tapiceria_respaldos:{ key:"tapiceria_respaldos", label:"Respaldos / Bandeus",             icon:IC.sofa,     col:1, section:"Tapicería" },
+  tapiceria_exterior: { key:"tapiceria_exterior",  label:"Exterior (asientos, puffs)",      icon:IC.sofa,     col:2, section:"Tapicería" },
+  color_acolchados:   { key:"color_acolchados",    label:"Acolchados",                      icon:IC.sofa,     col:1, section:"Tapicería" },
+  // ── Lonería
+  loneria_toldo_proa: { key:"loneria_toldo_proa",  label:"Toldo rebatible proa",            icon:IC.ship,     col:1, section:"Lonería" },
+  loneria_cobertor:   { key:"loneria_cobertor",    label:"Cobertor / Lona",                 icon:IC.ship,     col:2, section:"Lonería" },
+  color_cerramientos: { key:"color_cerramientos",  label:"Cerramientos",                    icon:IC.door,     col:1, section:"Lonería" },
+  loneria_otros:      { key:"loneria_otros",        label:"Otros (mosquitero, tambucho…)",   icon:IC.notes,    col:1, section:"Lonería", wide:true },
+  // ── Sonido / Electrónica
+  electronica:        { key:"electronica",         label:"Sonido / Audio / Electrónica",    icon:IC.signal,   col:1, section:"Sonido",  wide:true },
+  // ── Adicionales — selector especial (3 estados)
+  teca_tipo:          { key:"teca_tipo",           label:"Cubierta cockpit",                icon:IC.teca,     col:1, section:"Adicionales", type:"selector",
+                        opts:[{val:null,label:"—"},{val:"teca",label:"Teca"},{val:"infinity",label:"Infinity"}], color:"#d4b483" },
+  // ── Adicionales — texto
+  tv_camarote:        { key:"tv_camarote",         label:"TV Camarote Popa",                icon:IC.notes,    col:1, section:"Adicionales" },
+  tv_cockpit:         { key:"tv_cockpit",          label:"TV Cockpit",                      icon:IC.notes,    col:2, section:"Adicionales" },
+  adicionales:        { key:"adicionales",         label:"Adicionales / Notas técnicas",    icon:IC.notes,    col:1, section:"Adicionales", wide:true },
+  // ── Adicionales — toggles (se renderizan como pills en el header, no en el body)
+  starlink:           { key:"starlink",            label:"Starlink",           icon:IC.satellite, col:2, section:"Adicionales", type:"toggle", color:"#a5b4fc" },
+  sternthruster:      { key:"sternthruster",       label:"Sternthruster",      icon:IC.anchor,    col:1, section:"Adicionales", type:"toggle", color:"#7dd3fc" },
+  fabricadora_hielo:  { key:"fabricadora_hielo",   label:"Fabricadora hielo",  icon:IC.bolt,      col:2, section:"Adicionales", type:"toggle", color:"#86efac" },
+  radar:              { key:"radar",               label:"Radar",              icon:IC.signal,    col:1, section:"Adicionales", type:"toggle", color:"#fca5a5" },
+  pluma:              { key:"pluma",               label:"Pluma",              icon:IC.anchor,    col:2, section:"Adicionales", type:"toggle", color:"#fcd34d" },
+  planchada:          { key:"planchada",           label:"Planchada",          icon:IC.ship,      col:1, section:"Adicionales", type:"toggle", color:"#6ee7b7" },
+  mesa_fly:           { key:"mesa_fly",            label:"Mesa Fly",           icon:IC.ship,      col:2, section:"Adicionales", type:"toggle", color:"#c4b5fd" },
+  aire_acondicionado: { key:"aire_acondicionado",  label:"Aire Acond.",        icon:IC.bolt,      col:1, section:"Adicionales", type:"toggle", color:"#67e8f9" },
+  calefactor:         { key:"calefactor",          label:"Calefactor",         icon:IC.bolt,      col:2, section:"Adicionales", type:"toggle", color:"#fda4af" },
+  bow_thruster:       { key:"bow_thruster",        label:"Bow Thruster",       icon:IC.anchor,    col:1, section:"Adicionales", type:"toggle", color:"#93c5fd" },
+  plotter:            { key:"plotter",             label:"Plotter",            icon:IC.signal,    col:2, section:"Adicionales", type:"toggle", color:"#d9f99d" },
+  faro:               { key:"faro",                label:"Faro",               icon:IC.bolt,      col:1, section:"Adicionales", type:"toggle", color:"#fef08a" },
+  flaps:              { key:"flaps",               label:"Flaps",              icon:IC.anchor,    col:2, section:"Adicionales", type:"toggle", color:"#e9d5ff" },
+};
+
+/* ─── CAMPOS POR LÍNEA DE PRODUCCIÓN ────────────────────────────────────────
+   Cada array define exactamente qué campos muestra el HUD y la ficha impresa
+   para esa línea. Cuanto más chico/abierto el barco → menos secciones.
+─────────────────────────────────────────────────────────────────────────────── */
+const MEMORIA_FIELDS_BY_TIPO = {
+
+  // ── K37: Express Sport Cruiser — open/semi-open, fuera de borda ────────────
+  // No tiene alfombra, lonería compleja ni tapicería interior profunda.
+  k37: [
+    _F.propietario, _F.constructor,
+    _F.motorizacion, _F.color_casco, _F.grupo_electrogeno, _F.cabina,
+    _F.madera_muebles, _F.piso, _F.color_mesadas,
+    _F.tapiceria_mamparos, _F.tapiceria_respaldos, _F.tapiceria_exterior, _F.color_acolchados,
+    _F.loneria_toldo_proa, _F.loneria_cobertor,
+    _F.electronica,
+    _F.teca_tipo, _F.starlink, _F.sternthruster, _F.fabricadora_hielo, _F.radar,
+    _F.adicionales,
+  ],
+
+  // ── K42: Open Sport Runabout — inboard, algo más grande ───────────────────
+  // Suma cerramiento, dinette y pluma respecto al K37.
+  k42: [
+    _F.propietario, _F.constructor,
+    _F.motorizacion, _F.color_casco, _F.grupo_electrogeno, _F.cabina,
+    _F.madera_muebles, _F.piso, _F.color_mesadas,
+    _F.tapiceria_mamparos, _F.tapiceria_dinette,
+    _F.tapiceria_respaldos, _F.tapiceria_exterior, _F.color_acolchados,
+    _F.color_cerramientos, _F.loneria_toldo_proa, _F.loneria_cobertor,
+    _F.electronica,
+    _F.teca_tipo, _F.starlink, _F.sternthruster, _F.fabricadora_hielo, _F.radar, _F.pluma,
+    _F.adicionales,
+  ],
+
+  // ── K43: Utility / Fishing — utilitario funcional ─────────────────────────
+  // Sin alfombra ni lonería compleja. Teca opcional.
+  k43: [
+    _F.propietario, _F.constructor,
+    _F.motorizacion, _F.color_casco, _F.grupo_electrogeno,
+    _F.madera_muebles, _F.piso, _F.color_mesadas,
+    _F.tapiceria_mamparos, _F.tapiceria_dinette,
+    _F.tapiceria_respaldos, _F.tapiceria_exterior, _F.color_acolchados,
+    _F.loneria_toldo_proa, _F.loneria_cobertor,
+    _F.electronica,
+    _F.teca_tipo, _F.starlink, _F.sternthruster, _F.fabricadora_hielo, _F.radar, _F.pluma,
+    _F.adicionales,
+  ],
+
+  // ── K52: Motor Cruiser Cabina — cabina completa, mediano-grande ───────────
+  // Incorpora alfombra, lonería completa y tapicería interior extensa.
+  k52: [
+    _F.propietario, _F.constructor,
+    _F.motorizacion, _F.color_casco, _F.grupo_electrogeno, _F.cabina,
+    _F.madera_muebles, _F.piso, _F.alfombra, _F.color_mesadas_full,
+    _F.tapiceria_mamparos, _F.tapiceria_dinette,
+    _F.tapiceria_respaldos, _F.tapiceria_exterior, _F.color_acolchados,
+    _F.loneria_toldo_proa, _F.loneria_cobertor, _F.color_cerramientos, _F.loneria_otros,
+    _F.electronica,
+    _F.teca_tipo, _F.starlink, _F.sternthruster, _F.fabricadora_hielo,
+    _F.radar, _F.pluma, _F.planchada,
+    _F.adicionales,
+  ],
+
+  // ── K55: Sport Cruiser 55' — grande, full equipamiento ────────────────────
+  // Suma mesa fly y planchada respecto al K52.
+  k55: [
+    _F.propietario, _F.constructor,
+    _F.motorizacion, _F.color_casco, _F.grupo_electrogeno, _F.cabina,
+    _F.madera_muebles, _F.piso, _F.alfombra, _F.color_mesadas_full,
+    _F.tapiceria_mamparos, _F.tapiceria_dinette,
+    _F.tapiceria_respaldos, _F.tapiceria_exterior, _F.color_acolchados,
+    _F.loneria_toldo_proa, _F.loneria_cobertor, _F.color_cerramientos, _F.loneria_otros,
+    _F.electronica,
+    _F.teca_tipo, _F.starlink, _F.sternthruster, _F.fabricadora_hielo,
+    _F.radar, _F.pluma, _F.planchada, _F.mesa_fly,
+    _F.adicionales,
+  ],
+
+  // ── K64: Yate Clásico Largo — máximo estándar ─────────────────────────────
+  // Suma AC, calefactor y bow thruster.
+  k64: [
+    _F.propietario, _F.constructor,
+    _F.motorizacion, _F.color_casco, _F.grupo_electrogeno, _F.cabina,
+    _F.madera_muebles, _F.piso, _F.alfombra, _F.color_mesadas_full,
+    _F.tapiceria_mamparos, _F.tapiceria_dinette,
+    _F.tapiceria_respaldos, _F.tapiceria_exterior, _F.color_acolchados,
+    _F.loneria_toldo_proa, _F.loneria_cobertor, _F.color_cerramientos, _F.loneria_otros,
+    _F.electronica,
+    _F.teca_tipo, _F.starlink, _F.sternthruster, _F.fabricadora_hielo,
+    _F.radar, _F.pluma, _F.planchada, _F.mesa_fly,
+    _F.aire_acondicionado, _F.calefactor, _F.bow_thruster,
+    _F.adicionales,
+  ],
+
+  // ── K85: La más grande — perfil completo + plotter ────────────────────────
+  k85: [
+    _F.propietario, _F.constructor,
+    _F.motorizacion, _F.color_casco, _F.grupo_electrogeno, _F.cabina,
+    _F.madera_muebles, _F.piso, _F.alfombra, _F.color_mesadas_full,
+    _F.tapiceria_mamparos, _F.tapiceria_dinette,
+    _F.tapiceria_respaldos, _F.tapiceria_exterior, _F.color_acolchados,
+    _F.loneria_toldo_proa, _F.loneria_cobertor, _F.color_cerramientos, _F.loneria_otros,
+    _F.electronica,
+    _F.teca_tipo, _F.starlink, _F.sternthruster, _F.fabricadora_hielo,
+    _F.radar, _F.pluma, _F.planchada, _F.mesa_fly,
+    _F.aire_acondicionado, _F.calefactor, _F.bow_thruster, _F.plotter,
+    _F.adicionales,
+  ],
+
+  // ── kH: Husky (especial) — electrónica extendida + TV + climate ───────────
+  kH: [
+    _F.propietario, _F.constructor,
+    _F.motorizacion, _F.color_casco, _F.grupo_electrogeno, _F.cabina,
+    _F.madera_muebles, _F.piso, _F.alfombra, _F.color_mesadas,
+    _F.tapiceria_mamparos, _F.tapiceria_dinette,
+    _F.tapiceria_respaldos, _F.tapiceria_exterior, _F.color_acolchados,
+    _F.color_cerramientos, _F.loneria_toldo_proa, _F.loneria_cobertor, _F.loneria_otros,
+    _F.electronica,
+    _F.teca_tipo, _F.starlink, _F.sternthruster, _F.fabricadora_hielo,
+    _F.radar, _F.pluma, _F.planchada,
+    _F.aire_acondicionado, _F.calefactor, _F.bow_thruster, _F.plotter, _F.faro, _F.flaps,
+    _F.tv_camarote, _F.tv_cockpit,
+    _F.adicionales,
+  ],
+};
+// Fallback genérico si el tipo no se reconoce → usa perfil K52
+MEMORIA_FIELDS_BY_TIPO.default = MEMORIA_FIELDS_BY_TIPO.k52;
 
 /* ── FieldBox fuera del componente para evitar remount en cada keystroke ── */
 function FieldBox({ field, isEditing, val, editVal, editRef, onStartEdit, onChangeVal, onCommit }) {
@@ -696,6 +793,11 @@ function FieldBox({ field, isEditing, val, editVal, editRef, onStartEdit, onChan
 
 function MemoriaHUD({ obra, puesto, oC, memoriaOverride, onSaveMemoria, notas=[], onAddNota, onDeleteNota, onClose }) {
   const db = MEMORIAS_DB[obra?.codigo] ?? {};
+
+  // ── Derivar plantilla de campos según línea de producción ──────────────────
+  const lineaTipo  = getLineaTipo(obra, puesto);
+  const memoFields = MEMORIA_FIELDS_BY_TIPO[lineaTipo] ?? MEMORIA_FIELDS_BY_TIPO.default;
+
   const base = {
     propietario:        obra?.propietario  ?? db.propietario        ?? "",
     constructor:        obra?.constructor  ?? db.constructor        ?? "",
@@ -725,6 +827,16 @@ function MemoriaHUD({ obra, puesto, oC, memoriaOverride, onSaveMemoria, notas=[]
     starlink:           obra?.starlink     ?? db.starlink     ?? false,
     teca_tipo:          obra?.teca_tipo    ?? db.teca_tipo    ?? null, // null | "teca" | "infinity"
     sternthruster:      obra?.sternthruster?? db.sternthruster?? false,
+    // ── campos extendidos (k55 / k64 / k85 / kH) ────────────────────────────
+    mesa_fly:           db.mesa_fly           ?? false,
+    aire_acondicionado: db.aire_acondicionado ?? false,
+    calefactor:         db.calefactor         ?? false,
+    bow_thruster:       db.bow_thruster       ?? false,
+    plotter:            db.plotter            ?? false,
+    faro:               db.faro               ?? false,
+    flaps:              db.flaps              ?? false,
+    tv_camarote:        db.tv_camarote        ?? "",
+    tv_cockpit:         db.tv_cockpit         ?? "",
   };
 
   const [fields,    setFields]    = useState({ ...base, ...(memoriaOverride??{}) });
@@ -827,45 +939,43 @@ function MemoriaHUD({ obra, puesto, oC, memoriaOverride, onSaveMemoria, notas=[]
     };
 
     const buildRows = (blank) => {
-      const secs = [...new Set(MEMORIA_FIELDS.map(f => f.section))];
+      const HEADER_TYPES = new Set(["toggle","selector"]);
+      const secs = [...new Set(memoFields.map(f => f.section))];
       return secs.map(sec => {
         const sc = SEC_COLORS[sec] || ac;
-        const rows = MEMORIA_FIELDS.filter(f => f.section === sec).map(f => {
+        // In the body table, toggles/selectors are shown in the badges row — skip here
+        const secFields = memoFields.filter(f => f.section === sec && !HEADER_TYPES.has(f.type));
+        const rows = secFields.map(f => {
           const v = fields[f.key], obs = fields[f.key + "_obs"];
           const ico = FIELD_ICONS[f.key] || "";
-          const icoHtml = ico ? "<span class=\"ico\" style=\"color:" + sc + ";\">" + ico + "</span>" : "";
+          const icoHtml = ico ? "<span class=\"ico\" style=\"color:" + sc + ";\">\n" + ico + "</span>" : "";
           if (blank) {
-            if (f.type === "toggle") {
-              return "<tr><td class=\"lbl\">" + icoHtml + f.label + "</td>"
-                + "<td class=\"chk-cell\"><span class=\"blank-check\"></span></td>"
-                + "<td class=\"val\"><span class=\"blank-val\"></span></td></tr>";
-            }
             return "<tr><td class=\"lbl\">" + icoHtml + f.label + "</td>"
               + "<td class=\"val\" colspan=\"2\"><span class=\"blank-val\"></span></td></tr>";
           }
-          if (f.type === "toggle") {
-            const on = v === true || v === "Sí";
-            if (!on && !obs) return "";
-            const chkStyle = on ? "background:#dcfce7;color:#16a34a;border:1.5px solid #86efac;" : "background:#f5f5f5;color:#aaa;border:1.5px solid #ddd;";
-            const chkMark = on
-              ? "<svg width=\"11\" height=\"11\" viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"3\" stroke-linecap=\"round\"><polyline points=\"20 6 9 17 4 12\"/></svg>"
-              : "<svg width=\"9\" height=\"9\" viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"3\" stroke-linecap=\"round\"><line x1=\"18\" y1=\"6\" x2=\"6\" y2=\"18\"/><line x1=\"6\" y1=\"6\" x2=\"18\" y2=\"18\"/></svg>";
-            return "<tr><td class=\"lbl\">" + icoHtml + f.label + "</td>"
-              + "<td class=\"chk-cell\"><span class=\"chk\" style=\"" + chkStyle + "\">" + chkMark + "</span></td>"
-              + "<td class=\"val\">" + (obs ? "<span class=\"obs-val\">" + obs + "</span>" : "") + "</td></tr>";
-          }
-          if (!v || v === false) return "";
-          // teca_tipo: format nicely
-          const displayV = f.key === "teca_tipo"
-            ? v.charAt(0).toUpperCase() + v.slice(1)
-            : String(v).replace(/\n/g,"<br/>");
+          if (!v && v !== 0) return "";
+          const displayV = String(v).replace(/\n/g,"<br/>");
           return "<tr><td class=\"lbl\">" + icoHtml + f.label + "</td>"
-            + "<td class=\"val\" colspan=\"2\">" + displayV + "</td></tr>";
+            + "<td class=\"val\" colspan=\"2\">" + displayV + (obs ? " <span class=\"obs-val\">· " + obs + "</span>" : "") + "</td></tr>";
         }).join("");
         if (!rows.trim()) return "";
         return "<tr class=\"sec-hd\"><td colspan=\"3\"><span class=\"sec-bar\" style=\"background:" + sc + ";\"></span>" + sec.toUpperCase() + "</td></tr>" + rows;
       }).join("");
     };
+
+    // Badges row for print: toggles activos + teca/infinity
+    const printBadges = (() => {
+      const TOGGLE_KEYS = new Set(["toggle","selector"]);
+      const activeToggles = memoFields.filter(f => TOGGLE_KEYS.has(f.type) && fields[f.key] && f.key !== "teca_tipo");
+      const tecaVal = fields.teca_tipo;
+      let parts = activeToggles.map(f => {
+        const obs = fields[f.key + "_obs"];
+        return "<span class=\"bdg\">" + f.label + (obs ? " · <em>" + obs + "</em>" : "") + "</span>";
+      });
+      if (tecaVal) parts.push("<span class=\"bdg\">" + tecaVal.charAt(0).toUpperCase() + tecaVal.slice(1) + "</span>");
+      if (!parts.length) return "";
+      return "<tr class=\"badges-row\"><td colspan=\"3\">" + parts.join("") + "</td></tr>";
+    })();
     const tableRows = buildRows(false);
     const blankRows  = buildRows(true)
 
@@ -879,7 +989,6 @@ function MemoriaHUD({ obra, puesto, oC, memoriaOverride, onSaveMemoria, notas=[]
     const pctHtml = obra?._pct != null
       ? " <span class=\"pct-badge\" style=\"color:" + ac + ";\">&#9646; " + pct + "%</span>" : "";
 
-    const badgesHtml = ""; // badges now live inside the table as toggle rows
 
     const css = [
       "@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&family=JetBrains+Mono:wght@500;600;700&display=swap');",
@@ -986,6 +1095,7 @@ function MemoriaHUD({ obra, puesto, oC, memoriaOverride, onSaveMemoria, notas=[]
         + "</div>"
 
         + "<div class='wrap'><table>"
+                 + printBadges
                  + tableRows
           + "<tr class='sec-hd'><td colspan='3'><span class='sec-bar' style='background:" + ac + ";'></span>NOTAS DEL EQUIPO</td></tr>"
           + notasRows
@@ -1021,16 +1131,24 @@ function MemoriaHUD({ obra, puesto, oC, memoriaOverride, onSaveMemoria, notas=[]
     win.document.write(htmlWithId);
     win.document.close();
   };
-  const col1 = MEMORIA_FIELDS.filter(f=>f.col===1&&!f.wide);
-  const col2 = MEMORIA_FIELDS.filter(f=>f.col===2&&!f.wide);
-  const wide  = MEMORIA_FIELDS.filter(f=>f.wide);
-  const BADGES=[
-    {key:"starlink",     icon:IC.satellite,label:"Starlink",     color:"#a5b4fc"},
-    {key:"sternthruster",icon:IC.anchor,   label:"Sternthruster",color:"#7dd3fc"},
-  ];
+  // Badges: todos los fields de tipo toggle en este perfil de línea (sin duplicados por key)
+  const badgeFields = useMemo(()=>{
+    const seen=new Set();
+    return memoFields.filter(f=>{
+      if(f.type!=="toggle") return false;
+      if(seen.has(f.key)) return false;
+      seen.add(f.key); return true;
+    });
+  },[memoFields]);
 
-  // Agrupar por sección para el render
-  const sections = [...new Set(MEMORIA_FIELDS.map(f=>f.section))];
+  // Selector teca (type:"selector") si está en este perfil
+  const tecaField = memoFields.find(f=>f.key==="teca_tipo"&&f.type==="selector");
+
+  // Estado gear: key del badge con detalle abierto
+  const [gearOpen, setGearOpen] = useState(null);
+
+  // Agrupar por sección para el render (excluir toggles y selector — van en el header)
+  const sections = [...new Set(memoFields.map(f=>f.section))];
 
   return (
     <div style={{
@@ -1099,40 +1217,73 @@ function MemoriaHUD({ obra, puesto, oC, memoriaOverride, onSaveMemoria, notas=[]
           </div>
         )}
 
-        {/* Equipment badges */}
-        <div style={{display:"flex",gap:6,flexWrap:"wrap",alignItems:"center"}}>
-          {BADGES.map(b=>(
-            <button key={b.key} onClick={()=>toggleBadge(b.key)}
-              style={{display:"flex",alignItems:"center",gap:5,padding:"4px 10px",borderRadius:6,cursor:"pointer",
-                border:`1px solid ${fields[b.key]?b.color+"40":"rgba(255,255,255,0.07)"}`,
-                background:fields[b.key]?`${b.color}10`:"rgba(255,255,255,0.02)",
-                color:fields[b.key]?b.color:"rgba(255,255,255,0.22)",
-                transition:"all 0.15s",fontSize:10,fontFamily:"'Outfit',sans-serif"}}>
-              <span style={{display:"flex",alignItems:"center"}}>{b.icon}</span>
-              {b.label}
-              {fields[b.key]&&<span style={{display:"flex",alignItems:"center",opacity:0.7}}>{IC.check}</span>}
-            </button>
-          ))}
+        {/* ── Equipment pills — derivados dinámicamente del perfil de línea ── */}
+        <div style={{display:"flex",gap:5,flexWrap:"wrap",alignItems:"flex-start"}}>
 
-          {/* Teca / Infinity — selector de 3 estados */}
-          <div style={{display:"flex",borderRadius:6,overflow:"hidden",border:"1px solid rgba(255,255,255,0.08)",height:26}}>
-            {[{val:null,label:"—"},{val:"teca",label:"Teca"},{val:"infinity",label:"Infinity"}].map(opt=>{
-              const active = fields.teca_tipo === opt.val;
-              const col = "#d4b483";
-              return(
-                <button key={String(opt.val)} onClick={()=>{setFields(f=>({...f,teca_tipo:opt.val}));setDirty(true);}}
-                  style={{
-                    padding:"0 9px", border:"none", cursor:"pointer",
-                    fontSize:10, fontWeight: active?700:400,
-                    fontFamily:"'Outfit',sans-serif",
-                    background: active && opt.val ? `${col}18` : "rgba(255,255,255,0.02)",
-                    color: active && opt.val ? col : active ? "rgba(255,255,255,0.18)" : "rgba(255,255,255,0.22)",
-                    borderRight:"1px solid rgba(255,255,255,0.06)",
-                    transition:"all 0.15s",
-                  }}>{opt.label}</button>
-              );
-            })}
-          </div>
+          {/* Toggles: un pill por campo type:"toggle" en este perfil */}
+          {badgeFields.map(b=>{
+            const on  = fields[b.key]===true;
+            const col = b.color??"#94a3b8";
+            const obsKey = b.key+"_obs";
+            const gearOn = gearOpen===b.key;
+            return(
+              <div key={b.key} style={{display:"flex",flexDirection:"column",gap:3}}>
+                <div style={{display:"flex",alignItems:"center",gap:2}}>
+                  {/* Pill principal */}
+                  <button onClick={()=>toggleBadge(b.key)}
+                    style={{display:"flex",alignItems:"center",gap:5,padding:"4px 9px",borderRadius:6,cursor:"pointer",
+                      border:`1px solid ${on?col+"45":"rgba(255,255,255,0.07)"}`,
+                      background:on?`${col}12`:"rgba(255,255,255,0.02)",
+                      color:on?col:"rgba(255,255,255,0.22)",
+                      transition:"all 0.15s",fontSize:10,fontFamily:"'Outfit',sans-serif",height:26}}>
+                    <span style={{display:"flex",alignItems:"center"}}>{b.icon}</span>
+                    {b.label}
+                    {on&&<span style={{display:"flex",alignItems:"center",opacity:0.7}}>{IC.check}</span>}
+                  </button>
+                  {/* Engranaje — solo visible cuando el toggle está activo */}
+                  {on&&(
+                    <button onClick={()=>setGearOpen(gearOn?null:b.key)}
+                      title="Agregar detalle"
+                      style={{width:22,height:26,display:"flex",alignItems:"center",justifyContent:"center",
+                        borderRadius:5,cursor:"pointer",border:`1px solid ${gearOn?col+"50":"rgba(255,255,255,0.06)"}`,
+                        background:gearOn?`${col}14`:"rgba(255,255,255,0.02)",
+                        color:gearOn?col:"rgba(255,255,255,0.28)",transition:"all 0.15s"}}>
+                      {IC.gear}
+                    </button>
+                  )}
+                </div>
+                {/* Input de detalle — se despliega al hacer click en el engranaje */}
+                {on&&gearOn&&(
+                  <input className="mem-input"
+                    placeholder="Detalle / modelo..."
+                    value={fields[obsKey]??""}
+                    onChange={e=>{setFields(f=>({...f,[obsKey]:e.target.value}));setDirty(true);}}
+                    style={{fontSize:11,padding:"4px 8px",borderRadius:6,height:28}}
+                  />
+                )}
+              </div>
+            );
+          })}
+
+          {/* Selector teca — aparece solo si el perfil lo incluye */}
+          {tecaField&&(
+            <div style={{display:"flex",borderRadius:6,overflow:"hidden",border:"1px solid rgba(255,255,255,0.08)",height:26,flexShrink:0}}>
+              {tecaField.opts.map(opt=>{
+                const active = fields.teca_tipo===opt.val;
+                const col = tecaField.color;
+                return(
+                  <button key={String(opt.val)} onClick={()=>{setFields(f=>({...f,teca_tipo:opt.val}));setDirty(true);}}
+                    style={{padding:"0 9px",border:"none",cursor:"pointer",
+                      fontSize:10,fontWeight:active?700:400,fontFamily:"'Outfit',sans-serif",
+                      background:active&&opt.val?`${col}18`:"rgba(255,255,255,0.02)",
+                      color:active&&opt.val?col:active?"rgba(255,255,255,0.18)":"rgba(255,255,255,0.22)",
+                      borderRight:"1px solid rgba(255,255,255,0.06)",transition:"all 0.15s"}}>
+                    {opt.label}
+                  </button>
+                );
+              })}
+            </div>
+          )}
         </div>
       </div>
 
@@ -1143,11 +1294,14 @@ function MemoriaHUD({ obra, puesto, oC, memoriaOverride, onSaveMemoria, notas=[]
           {IC.pencil} <span>Clic en cada campo para editar</span>
         </div>
 
-        {/* Render por secciones */}
+        {/* Render por secciones — toggles y selectores van en el header, no aquí */}
         {sections.map(sec=>{
-          const secFields = MEMORIA_FIELDS.filter(f=>f.section===sec);
+          const HEADER_TYPES = new Set(["toggle","selector"]);
+          const secFields = memoFields.filter(f=>f.section===sec && !HEADER_TYPES.has(f.type));
           const secGrid   = secFields.filter(f=>!f.wide);
           const secWide   = secFields.filter(f=>f.wide);
+          // Si la sección solo tenía toggles/selectores, no renderizar título
+          if(secGrid.length===0 && secWide.length===0) return null;
           return(
             <div key={sec}>
               {/* Título de sección */}
@@ -1160,7 +1314,7 @@ function MemoriaHUD({ obra, puesto, oC, memoriaOverride, onSaveMemoria, notas=[]
               {secGrid.length>0&&(
                 <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:5,marginBottom:4}}>
                   {secGrid.map(f=>(
-                    <FieldBox key={f.key} field={f}
+                    <FieldBox key={f.key+"-"+sec} field={f}
                       isEditing={editingKey===f.key} val={fields[f.key]} editVal={editVal}
                       editRef={editingKey===f.key?editRef:null}
                       onStartEdit={startEdit} onChangeVal={onChangeVal} onCommit={commitEdit}/>
@@ -1169,7 +1323,7 @@ function MemoriaHUD({ obra, puesto, oC, memoriaOverride, onSaveMemoria, notas=[]
               )}
               {/* Campos anchos */}
               {secWide.map(f=>(
-                <FieldBox key={f.key} field={f}
+                <FieldBox key={f.key+"-wide"} field={f}
                   isEditing={editingKey===f.key} val={fields[f.key]} editVal={editVal}
                   editRef={editingKey===f.key?editRef:null}
                   onStartEdit={startEdit} onChangeVal={onChangeVal} onCommit={commitEdit}/>
@@ -1325,199 +1479,317 @@ function savePuestos(puestos) {
  * Si no se pasan, se usa localStorage (solo local, no compartido).
  */
 /* ═══════════════════════════════════════════════════════════════
-   KPI PANEL — flotante colapsable, esquina inferior izquierda
+   KPI PANEL — flotante derecha, compacto e interactivo
 ═══════════════════════════════════════════════════════════════ */
-function KPIPanel({ obras, puestos, obraByPuesto, onFocusPuesto }) {
-  const [collapsed, setCollapsed] = useState(false);
+function KPIPanel({ obras, puestos, obraByPuesto, collapsed, onCollapse, onFocusPuesto }) {
+  const [activeTab, setActiveTab] = useState("alertas");
+  const [hoveredAlert, setHoveredAlert] = useState(null);
 
-  const total          = puestos.length;
-  const ocupados       = puestos.filter(p => obraByPuesto[p.id]).length;
-  const libres         = total - ocupados;
-  const ocupPct        = total > 0 ? Math.round((ocupados / total) * 100) : 0;
-  const obrasActivas   = obras.filter(o => o.estado === "activa");
-  const obrasPausadas  = obras.filter(o => o.estado === "pausada");
-  const obrasTerminadas= obras.filter(o => o.estado === "terminada");
-  const progPct        = obrasActivas.length > 0
-    ? Math.round(obrasActivas.reduce((s, o) => s + (o._pct ?? 0), 0) / obrasActivas.length) : 0;
+  /* ── métricas ── */
+  const total           = puestos.length;
+  const ocupados        = puestos.filter(p => obraByPuesto[p.id]).length;
+  const libres          = total - ocupados;
+  const ocupPct         = total > 0 ? Math.round((ocupados / total) * 100) : 0;
+  const obrasActivas    = obras.filter(o => o.estado === "activa");
+  const obrasPausadas   = obras.filter(o => o.estado === "pausada");
+  const obrasTerminadas = obras.filter(o => o.estado === "terminada");
+  const progPct         = obrasActivas.length > 0
+    ? Math.round(obrasActivas.reduce((s,o)=>s+(o._pct??0),0)/obrasActivas.length) : 0;
 
+  /* ── alertas ── */
   const CAMPOS_CRITICOS = [
-    { key:"propietario",   label:"propietario" },
-    { key:"motores",       label:"motorización" },
-    { key:"color_casco",   label:"color de casco" },
-    { key:"madera_muebles",label:"madera/muebles" },
+    {key:"propietario",label:"propietario"},{key:"motores",label:"motorización"},
+    {key:"color_casco",label:"casco"},{key:"madera_muebles",label:"madera"},
   ];
-
-  const obrasConMapa = obras.filter(o => o.puesto_mapa && ["activa","pausada"].includes(o.estado));
-
-  const alertasMemoria = obrasConMapa.flatMap(o => {
-    const db = MEMORIAS_DB[o.codigo] ?? {};
-    const faltantes = CAMPOS_CRITICOS.filter(c => {
-      const v = o[c.key] ?? db[c.key.replace("motores","motorizacion")] ?? db[c.key];
+  const obrasConMapa = obras.filter(o=>o.puesto_mapa&&["activa","pausada"].includes(o.estado));
+  const alertasMemoria = obrasConMapa.flatMap(o=>{
+    const db = MEMORIAS_DB[o.codigo]??{};
+    const faltantes = CAMPOS_CRITICOS.filter(c=>{
+      const v=o[c.key]??db[c.key.replace("motores","motorizacion")]??db[c.key];
       return !v;
     });
-    if (faltantes.length === 0) return [];
-    const esVacia = faltantes.length === CAMPOS_CRITICOS.length;
-    return [{
-      tipo:     "memoria",
-      codigo:   o.codigo,
-      estado:   o.estado,
-      etiqueta: esVacia ? "Memoria sin información" : "Memoria incompleta",
-      detalle:  esVacia ? null : `Falta: ${faltantes.map(f => f.label).join(", ")}`,
-      color:    esVacia ? "#ef4444" : "#f59e0b",
-      severity: faltantes.length,
-    }];
-  }).sort((a, b) => b.severity - a.severity);
+    if(!faltantes.length) return [];
+    const esVacia = faltantes.length===CAMPOS_CRITICOS.length;
+    return [{tipo:"memoria",codigo:o.codigo,estado:o.estado,
+      etiqueta:esVacia?"Sin info":"Incompleta",
+      detalle:esVacia?null:faltantes.map(f=>f.label).join(", "),
+      color:esVacia?"#ef4444":"#f59e0b",severity:faltantes.length}];
+  }).sort((a,b)=>b.severity-a.severity);
 
-  const alertasPausadas = obrasPausadas.map(o => ({
-    tipo: "pausada", codigo: o.codigo, etiqueta: "Obra pausada", detalle: null, color: "#f59e0b",
+  const alertasPausadas = obrasPausadas.filter(o=>o.puesto_mapa).map(o=>({
+    tipo:"pausada",codigo:o.codigo,etiqueta:"Pausada",detalle:null,color:"#f59e0b",severity:0,
   }));
+  const alertas = [...alertasPausadas,...alertasMemoria];
+  const hasCrit = alertas.some(a=>a.color==="#ef4444");
 
-  const alertas = [...alertasPausadas, ...alertasMemoria];
-
-  /* ── Sub-componentes internos ── */
-  const Divider = () => (
-    <div style={{ height:1, background:"rgba(255,255,255,0.05)", margin:"10px 0" }}/>
-  );
-
-  const StatRow = ({ label, value, color, sub }) => (
-    <div style={{ display:"flex", justifyContent:"space-between", alignItems:"center", padding:"6px 0",
-      borderBottom:"1px solid rgba(255,255,255,0.04)" }}>
-      <span style={{ fontSize:10, color:"rgba(255,255,255,0.35)", letterSpacing:0.5 }}>{label}</span>
-      <div style={{ display:"flex", alignItems:"baseline", gap:5 }}>
-        <span style={{ fontSize:15, fontWeight:800, fontFamily:C.mono, color: color || C.t0 }}>{value}</span>
-        {sub && <span style={{ fontSize:9, color:"rgba(255,255,255,0.22)" }}>{sub}</span>}
-      </div>
-    </div>
-  );
-
-  const ProgressArc = ({ pct, color, r=26 }) => {
-    const circ = 2 * Math.PI * r;
-    const dash = (pct / 100) * circ;
-    return (
-      <svg width={r*2+12} height={r*2+12} style={{ flexShrink:0 }}>
-        <circle cx={r+6} cy={r+6} r={r} fill="none" stroke="rgba(255,255,255,0.06)" strokeWidth="4"/>
-        <circle cx={r+6} cy={r+6} r={r} fill="none" stroke={color} strokeWidth="4"
-          strokeDasharray={`${dash} ${circ-dash}`} strokeDashoffset={circ*0.25} strokeLinecap="round"
-          style={{ transition:"stroke-dasharray 0.6s ease" }}/>
-        <text x={r+6} y={r+6} textAnchor="middle" dominantBaseline="central"
-          fill="#fff" fontSize="11" fontWeight="800" fontFamily={C.mono}>{pct}%</text>
+  /* ── ring ── */
+  const OcupRing = () => {
+    const r=28,sw=3.5,circ=2*Math.PI*r;
+    const col=ocupPct>80?"#f59e0b":"#6366f1";
+    return(
+      <svg width={r*2+sw*2} height={r*2+sw*2} style={{flexShrink:0}}>
+        <circle cx={r+sw} cy={r+sw} r={r} fill="none" stroke="rgba(255,255,255,0.05)" strokeWidth={sw}/>
+        <circle cx={r+sw} cy={r+sw} r={r} fill="none" stroke={col} strokeWidth={sw}
+          strokeLinecap="round"
+          strokeDasharray={`${(ocupPct/100)*circ} ${circ}`}
+          strokeDashoffset={circ*0.25}
+          style={{transition:"stroke-dasharray 0.9s cubic-bezier(0.22,1,0.36,1)",filter:`drop-shadow(0 0 5px ${col}99)`}}/>
+        <text x={r+sw} y={r+sw+0.5} textAnchor="middle" dominantBaseline="central"
+          fill="#fff" fontSize="10" fontWeight="800" fontFamily="'JetBrains Mono',monospace">{ocupPct}%</text>
       </svg>
     );
   };
 
-  const PANEL_W = 248;
-
-  return (
-    <div style={{
-      position:"absolute", top:66, right:0, bottom:0, zIndex:9,
-      width: collapsed ? 36 : PANEL_W,
-      display:"flex", flexDirection:"column",
-      ...GLASS,
-      borderRadius:0,
-      borderLeft:`1px solid rgba(255,255,255,0.07)`,
-      borderTop:"none", borderRight:"none", borderBottom:"none",
-      transition:"width 0.28s cubic-bezier(0.16,1,0.3,1)",
-      animation:"kpi-slideIn 0.3s cubic-bezier(0.16,1,0.3,1)",
+  /* ── collapsed strip ── */
+  if(collapsed) return(
+    <div onClick={()=>onCollapse(false)} style={{
+      position:"absolute",top:0,right:0,bottom:0,width:KPI_W_COLLAPSED,zIndex:9,
+      background:"rgba(7,7,12,0.80)",backdropFilter:"blur(24px)",
+      WebkitBackdropFilter:"blur(24px)",
+      borderLeft:"1px solid rgba(255,255,255,0.07)",
+      display:"flex",flexDirection:"column",alignItems:"center",paddingTop:14,gap:10,
+      cursor:"pointer",
     }}>
+      {alertas.length>0&&(
+        <div style={{width:7,height:7,borderRadius:"50%",
+          background:hasCrit?"#ef4444":"#f59e0b",
+          boxShadow:`0 0 8px ${hasCrit?"#ef4444":"#f59e0b"}`,
+          animation:"beacon 1.8s ease-in-out infinite"}}/>
+      )}
+      <svg width="11" height="11" viewBox="0 0 24 24" fill="none"
+        stroke="rgba(255,255,255,0.25)" strokeWidth="2.5" strokeLinecap="round">
+        <polyline points="15 18 9 12 15 6"/>
+      </svg>
+    </div>
+  );
 
-      {/* Toggle tab */}
-      <div onClick={() => setCollapsed(v => !v)}
-        style={{ display:"flex", alignItems:"center", justifyContent: collapsed ? "center" : "space-between",
-          padding: collapsed ? "14px 0" : "12px 16px",
-          borderBottom:"1px solid rgba(255,255,255,0.06)", cursor:"pointer", userSelect:"none", flexShrink:0 }}>
-        {collapsed ? (
-          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="rgba(255,255,255,0.4)" strokeWidth="1.8" strokeLinecap="round">
-            <polyline points="15 18 9 12 15 6"/>
-          </svg>
-        ) : (
-          <>
-            <span style={{ fontSize:9, letterSpacing:2.5, textTransform:"uppercase", color:"rgba(255,255,255,0.3)", fontFamily:C.mono }}>Resumen</span>
-            <div style={{ display:"flex", alignItems:"center", gap:8 }}>
-              {alertas.length > 0 && (
-                <span style={{ fontSize:8, fontWeight:700, fontFamily:C.mono, color:"#f59e0b",
-                  background:"rgba(245,158,11,0.12)", border:"1px solid rgba(245,158,11,0.25)",
-                  padding:"2px 8px", borderRadius:10 }}>
-                  {alertas.length} alerta{alertas.length > 1 ? "s" : ""}
-                </span>
-              )}
-              <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="rgba(255,255,255,0.2)" strokeWidth="2" strokeLinecap="round">
+  /* ── full panel ── */
+  return(
+    <div style={{
+      position:"absolute",top:0,right:0,bottom:0,width:KPI_W,zIndex:9,
+      display:"flex",flexDirection:"column",
+      background:"rgba(6,6,11,0.82)",
+      backdropFilter:"blur(32px) saturate(150%)",
+      WebkitBackdropFilter:"blur(32px) saturate(150%)",
+      borderLeft:"1px solid rgba(255,255,255,0.07)",
+      animation:"kpi-slideIn 0.3s cubic-bezier(0.22,1,0.36,1)",
+      fontFamily:"'Outfit',system-ui,sans-serif",
+    }}>
+      <style>{`
+        .kpi-sc::-webkit-scrollbar{width:2px}
+        .kpi-sc::-webkit-scrollbar-thumb{background:rgba(255,255,255,0.07);border-radius:2px}
+        .kpi-tab{flex:1;padding:9px 4px;font-size:9.5px;letter-spacing:.5px;background:transparent;border:none;
+          cursor:pointer;transition:all .18s;font-family:'JetBrains Mono',monospace;}
+        .kpi-row{display:flex;align-items:center;justify-content:space-between;
+          padding:8px 12px;border-radius:9px;transition:background .15s,border-color .15s;cursor:pointer;}
+        .kpi-row:hover{background:rgba(255,255,255,0.04)!important;}
+        .kpi-alert{border-radius:9px;padding:9px 12px;cursor:pointer;transition:all .15s;}
+      `}</style>
+
+      {/* ────── HEADER ────── */}
+      <div style={{padding:"14px 16px 10px",borderBottom:"1px solid rgba(255,255,255,0.06)",flexShrink:0}}>
+        <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",marginBottom:12}}>
+          <span style={{fontSize:7.5,letterSpacing:3,textTransform:"uppercase",
+            color:"rgba(255,255,255,0.22)",fontFamily:"'JetBrains Mono',monospace",fontWeight:700}}>
+            Resumen
+          </span>
+          <div style={{display:"flex",alignItems:"center",gap:8}}>
+            {alertas.length>0&&(
+              <div onClick={()=>setActiveTab("alertas")} style={{
+                display:"flex",alignItems:"center",gap:4,
+                padding:"3px 9px",borderRadius:20,cursor:"pointer",
+                background:hasCrit?"rgba(239,68,68,0.15)":"rgba(245,158,11,0.12)",
+                border:`1px solid ${hasCrit?"rgba(239,68,68,0.4)":"rgba(245,158,11,0.3)"}`,
+                color:hasCrit?"#fca5a5":"#fcd34d",
+                fontSize:9,fontWeight:700,fontFamily:"'JetBrains Mono',monospace",
+                boxShadow:hasCrit?"0 0 12px rgba(239,68,68,0.25)":"none",
+                animation:"beacon 2s ease-in-out infinite",
+              }}>
+                <svg width="9" height="9" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
+                  <path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/>
+                  <line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/>
+                </svg>
+                {alertas.length}
+              </div>
+            )}
+            <div onClick={()=>onCollapse(true)} title="Colapsar" style={{
+              width:22,height:22,borderRadius:6,display:"flex",alignItems:"center",justifyContent:"center",
+              cursor:"pointer",border:"1px solid rgba(255,255,255,0.08)",
+              background:"rgba(255,255,255,0.02)",color:"rgba(255,255,255,0.3)",
+              transition:"all .15s",
+            }}
+              onMouseEnter={e=>{e.currentTarget.style.background="rgba(255,255,255,0.07)";e.currentTarget.style.color="#fff";}}
+              onMouseLeave={e=>{e.currentTarget.style.background="rgba(255,255,255,0.02)";e.currentTarget.style.color="rgba(255,255,255,0.3)";}}>
+              <svg width="10" height="10" viewBox="0 0 24 24" fill="none"
+                stroke="currentColor" strokeWidth="2.5" strokeLinecap="round">
                 <polyline points="9 18 15 12 9 6"/>
               </svg>
             </div>
-          </>
-        )}
+          </div>
+        </div>
+
+        {/* Ocupación hero */}
+        <div style={{display:"flex",alignItems:"center",gap:14,
+          padding:"12px 14px",borderRadius:10,
+          background:"rgba(255,255,255,0.025)",border:"1px solid rgba(255,255,255,0.05)"}}>
+          <OcupRing/>
+          <div style={{flex:1,minWidth:0}}>
+            <div style={{fontSize:7,color:"rgba(255,255,255,0.22)",letterSpacing:2,
+              textTransform:"uppercase",marginBottom:5,fontFamily:"'JetBrains Mono',monospace"}}>
+              Puestos
+            </div>
+            <div style={{display:"flex",alignItems:"baseline",gap:4}}>
+              <span style={{fontSize:28,fontWeight:800,color:"#a5b4fc",
+                fontFamily:"'JetBrains Mono',monospace",lineHeight:1}}>{ocupados}</span>
+              <span style={{fontSize:13,color:"rgba(255,255,255,0.2)",fontFamily:"'JetBrains Mono',monospace"}}>
+                /{total}
+              </span>
+            </div>
+            <div style={{display:"flex",gap:10,marginTop:4}}>
+              <span style={{fontSize:9,color:"#34d399",fontWeight:600}}>
+                {libres} libre{libres!==1?"s":""}
+              </span>
+              {obrasActivas.length>0&&(
+                <span style={{fontSize:9,color:"rgba(255,255,255,0.25)"}}>
+                  avg <span style={{color:"#3b82f6",fontWeight:700}}>{progPct}%</span>
+                </span>
+              )}
+            </div>
+          </div>
+        </div>
       </div>
 
-      {/* Body scrollable */}
-      {!collapsed && (
-        <div style={{ flex:1, overflowY:"auto", padding:"14px 16px 20px" }}
-          className="kpi-scroll">
-          <style>{`.kpi-scroll::-webkit-scrollbar{width:3px}.kpi-scroll::-webkit-scrollbar-thumb{background:rgba(255,255,255,0.08);border-radius:3px}`}</style>
+      {/* ────── TABS ────── */}
+      <div style={{display:"flex",borderBottom:"1px solid rgba(255,255,255,0.06)",flexShrink:0}}>
+        {[
+          ["stats","Stats","#6366f1"],
+          ["alertas",alertas.length>0?`Alertas · ${alertas.length}`:"Alertas",
+            hasCrit?"#ef4444":alertas.length>0?"#f59e0b":"#3f3f46"]
+        ].map(([key,label,ac])=>(
+          <button key={key} className="kpi-tab" onClick={()=>setActiveTab(key)} style={{
+            color:activeTab===key?"#fff":"rgba(255,255,255,0.3)",
+            borderBottom:`2px solid ${activeTab===key?ac:"transparent"}`,
+            boxShadow:activeTab===key&&key==="alertas"&&alertas.length>0?`0 2px 10px ${ac}30`:"none",
+          }}>{label}</button>
+        ))}
+      </div>
 
-          {/* Ocupación */}
-          <div style={{ display:"flex", alignItems:"center", gap:12, marginBottom:14 }}>
-            <ProgressArc pct={ocupPct} color="#6366f1" r={26}/>
-            <div style={{ flex:1 }}>
-              <div style={{ fontSize:8, color:"rgba(255,255,255,0.25)", letterSpacing:1.5, textTransform:"uppercase", marginBottom:4 }}>Ocupación</div>
-              <div style={{ fontSize:12, color:C.t1, fontFamily:C.mono }}>
-                <span style={{ color:"#a5b4fc", fontWeight:800, fontSize:16 }}>{ocupados}</span>
-                <span style={{ color:"rgba(255,255,255,0.18)", fontSize:11 }}> / {total}</span>
-              </div>
-              <div style={{ fontSize:10, color:"rgba(255,255,255,0.25)", marginTop:2 }}>
-                <span style={{ color:"#34d399", fontWeight:600 }}>{libres}</span> libre{libres !== 1 ? "s" : ""}
-              </div>
+      {/* ────── BODY ────── */}
+      <div className="kpi-sc" style={{flex:1,overflowY:"auto",padding:"14px 14px 18px"}}>
+
+        {/* ── STATS TAB ── */}
+        {activeTab==="stats"&&(<>
+          {/* Barra progreso promedio */}
+          <div style={{marginBottom:16}}>
+            <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:6}}>
+              <span style={{fontSize:9,color:"rgba(255,255,255,0.3)",letterSpacing:.5}}>Progreso promedio</span>
+              <span style={{fontFamily:"'JetBrains Mono',monospace",fontSize:13,fontWeight:800,
+                color:"#3b82f6"}}>{progPct}%</span>
+            </div>
+            <div style={{height:4,borderRadius:3,background:"rgba(255,255,255,0.05)",overflow:"hidden"}}>
+              <div style={{height:"100%",width:`${progPct}%`,borderRadius:3,
+                background:"linear-gradient(90deg,#3b82f6,#6366f1)",
+                boxShadow:"0 0 8px #3b82f666",transition:"width 0.8s cubic-bezier(0.22,1,0.36,1)"}}/>
             </div>
           </div>
 
-          <StatRow label="Progreso prom."  value={`${progPct}%`}            color="#3b82f6" sub={`${obrasActivas.length} activas`}/>
-          <StatRow label="Activas"         value={obrasActivas.length}       color="#3b82f6"/>
-          <StatRow label="Pausadas"        value={obrasPausadas.length}      color={obrasPausadas.length  > 0 ? "#f59e0b" : "rgba(255,255,255,0.2)"}/>
-          <StatRow label="Terminadas"      value={obrasTerminadas.length}    color={obrasTerminadas.length > 0 ? "#10b981" : "rgba(255,255,255,0.2)"}/>
+          {/* Estado rows */}
+          <div style={{display:"flex",flexDirection:"column",gap:3}}>
+            {[
+              {label:"Activas",   n:obrasActivas.length,    c:"#3b82f6",pct:obrasActivas.length/Math.max(1,total)*100},
+              {label:"Pausadas",  n:obrasPausadas.length,   c:"#f59e0b",pct:obrasPausadas.length/Math.max(1,total)*100},
+              {label:"Terminadas",n:obrasTerminadas.length, c:"#10b981",pct:obrasTerminadas.length/Math.max(1,total)*100},
+              {label:"Libres",    n:libres,                 c:"#3f3f46",pct:libres/Math.max(1,total)*100,muted:true},
+            ].map(({label,n,c,pct,muted})=>(
+              <div key={label} style={{
+                display:"flex",alignItems:"center",padding:"9px 12px",borderRadius:9,
+                background:n>0&&!muted?`${c}09`:"rgba(255,255,255,0.015)",
+                border:`1px solid ${n>0&&!muted?c+"20":"rgba(255,255,255,0.04)"}`,
+                borderLeft:`3px solid ${n>0?c:"rgba(255,255,255,0.07)"}`,
+              }}>
+                <span style={{fontSize:10.5,flex:1,
+                  color:n>0&&!muted?"rgba(255,255,255,0.65)":"rgba(255,255,255,0.2)",fontWeight:500}}>
+                  {label}
+                </span>
+                {/* mini barra */}
+                <div style={{width:40,height:3,borderRadius:2,
+                  background:"rgba(255,255,255,0.06)",marginRight:10,overflow:"hidden"}}>
+                  <div style={{height:"100%",width:`${pct}%`,background:c,borderRadius:2,
+                    opacity:muted?0.3:1,transition:"width 0.6s ease"}}/>
+                </div>
+                <span style={{fontFamily:"'JetBrains Mono',monospace",fontSize:15,fontWeight:800,
+                  color:n>0?c:"rgba(255,255,255,0.1)",minWidth:20,textAlign:"right"}}>{n}</span>
+              </div>
+            ))}
+          </div>
+        </>)}
 
-          {/* Alertas */}
-          {alertas.length > 0 && (
-            <>
-              <Divider/>
-              <div style={{ fontSize:8, letterSpacing:2, textTransform:"uppercase",
-                color:"rgba(255,255,255,0.2)", marginBottom:8 }}>Alertas</div>
-              <div style={{ display:"flex", flexDirection:"column", gap:5 }}>
-                {alertas.map((a, i) => (
-                  <div key={i}
-                    onClick={() => onFocusPuesto?.(a.codigo)}
-                    style={{ borderRadius:7, background:`${a.color}0d`,
-                      border:`1px solid ${a.color}22`, padding:"7px 10px",
-                      cursor:"pointer", transition:"background 0.15s",
-                    }}
-                    onMouseEnter={e=>e.currentTarget.style.background=`${a.color}18`}
-                    onMouseLeave={e=>e.currentTarget.style.background=`${a.color}0d`}>
-                    <div style={{ display:"flex", alignItems:"center", gap:7, marginBottom: a.detalle ? 3 : 0 }}>
-                      <div style={{ width:5, height:5, borderRadius:"50%", flexShrink:0,
-                        background:a.color, boxShadow:`0 0 5px ${a.color}` }}/>
-                      <span style={{ fontSize:10, fontWeight:700, fontFamily:C.mono,
-                        color:"rgba(255,255,255,0.85)" }}>{a.codigo}</span>
-                      <span style={{ fontSize:9, color:a.color, marginLeft:"auto",
-                        fontWeight:600 }}>{a.etiqueta}</span>
+        {/* ── ALERTAS TAB ── */}
+        {activeTab==="alertas"&&(<>
+          {alertas.length===0?(
+            <div style={{textAlign:"center",padding:"32px 0",display:"flex",
+              flexDirection:"column",alignItems:"center",gap:8}}>
+              <div style={{width:36,height:36,borderRadius:"50%",
+                background:"rgba(16,185,129,0.1)",border:"1px solid rgba(16,185,129,0.2)",
+                display:"flex",alignItems:"center",justifyContent:"center",color:"#10b981",fontSize:18}}>
+                ✓
+              </div>
+              <div style={{fontSize:10,color:"rgba(255,255,255,0.2)",letterSpacing:1,
+                fontFamily:"'JetBrains Mono',monospace"}}>Sin alertas</div>
+            </div>
+          ):(
+            <div style={{display:"flex",flexDirection:"column",gap:5}}>
+              {alertas.map((a,i)=>{
+                const isCrit=a.color==="#ef4444";
+                const isHov=hoveredAlert===i;
+                return(
+                  <div key={i} className="kpi-alert"
+                    onClick={()=>onFocusPuesto?.(a.codigo)}
+                    onMouseEnter={()=>setHoveredAlert(i)}
+                    onMouseLeave={()=>setHoveredAlert(null)}
+                    style={{
+                      background:isHov?`${a.color}1e`:isCrit?"rgba(239,68,68,0.07)":
+                        `${a.color}08`,
+                      border:`1px solid ${a.color}${isHov?"45":isCrit?"2a":"16"}`,
+                      borderLeft:`3px solid ${a.color}`,
+                      animation:`fadeUp 0.3s cubic-bezier(0.22,1,0.36,1) ${i*0.04}s both`,
+                    }}>
+                    <div style={{display:"flex",alignItems:"center",gap:8}}>
+                      {/* dot */}
+                      <div style={{position:"relative",flexShrink:0}}>
+                        {isCrit&&<div style={{position:"absolute",inset:-4,borderRadius:"50%",
+                          border:`1px solid ${a.color}44`,animation:"beacon 2s ease-out infinite"}}/>}
+                        <div style={{width:6,height:6,borderRadius:"50%",
+                          background:a.color,boxShadow:`0 0 8px ${a.color}`}}/>
+                      </div>
+                      {/* codigo */}
+                      <span style={{fontSize:12,fontWeight:700,
+                        fontFamily:"'JetBrains Mono',monospace",flex:1,
+                        color:isCrit?"#fca5a5":"rgba(255,255,255,0.9)",
+                        overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>
+                        {a.codigo}
+                      </span>
+                      {/* etiqueta */}
+                      <span style={{fontSize:8,color:a.color,fontWeight:700,
+                        flexShrink:0,textTransform:"uppercase",letterSpacing:.5,
+                        background:`${a.color}10`,padding:"1px 6px",borderRadius:4,
+                        border:`1px solid ${a.color}20`}}>
+                        {a.etiqueta}
+                      </span>
                     </div>
-                    {a.detalle && (
-                      <div style={{ fontSize:9, color:"rgba(255,255,255,0.3)", paddingLeft:12,
-                        lineHeight:1.4 }}>{a.detalle}</div>
+                    {a.detalle&&(
+                      <div style={{fontSize:9,color:"rgba(255,255,255,0.28)",
+                        paddingLeft:14,marginTop:4,lineHeight:1.5,letterSpacing:.2}}>
+                        {a.detalle}
+                      </div>
                     )}
                   </div>
-                ))}
-              </div>
-            </>
+                );
+              })}
+            </div>
           )}
-
-          {alertas.length === 0 && (
-            <>
-              <Divider/>
-              <div style={{ textAlign:"center", padding:"12px 0" }}>
-                <div style={{ fontSize:9, color:"rgba(255,255,255,0.18)", letterSpacing:1 }}>Sin alertas activas</div>
-              </div>
-            </>
-          )}
-        </div>
-      )}
+        </>)}
+      </div>
     </div>
   );
 }
@@ -1537,6 +1809,7 @@ export default function MapaProduccion({obras=[],onPuestoClick,onAsignarObra,onC
   const [confirmDel,setConfirmDel]=useState(null);
   const [pulseKey,setPulseKey]=useState(0);
   const [isDragging,setIsDragging]=useState(false);
+  const [kpiCollapsed,setKpiCollapsed]=useState(false);
   const [obraDragPos,setObraDragPos]=useState(null);
   const [obraDragOver,setObraDragOver]=useState(null);
   const [newPuestoSize,setNewPuestoSize]=useState("mediano");
@@ -1584,12 +1857,15 @@ export default function MapaProduccion({obras=[],onPuestoClick,onAsignarObra,onC
       const el=svgRef.current; if(!el) return;
       const {width,height}=el.getBoundingClientRect();
       if(!width||!height) return;
-      const scale=Math.min(width*0.88/VB_W,height*0.88/VB_H);
-      const next={x:(width-VB_W*scale)/2,y:(height-VB_H*scale)/2,scale};
+      // Descontar el panel KPI para que el mapa quede centrado en el espacio útil
+      const panelW = kpiCollapsed ? KPI_W_COLLAPSED : KPI_W;
+      const usableW = width - panelW;
+      const scale=Math.min(usableW*0.92/VB_W,height*0.92/VB_H);
+      const next={x:(usableW-VB_W*scale)/2,y:(height-VB_H*scale)/2,scale};
       vpRef.current=next; setVp(next);
     };
     fit(); const t=setTimeout(fit,150); return()=>clearTimeout(t);
-  },[]);
+  },[kpiCollapsed]);
 
   const obraByPuesto=useMemo(()=>{const m={};obras.forEach(o=>{if(o.puesto_mapa)m[o.puesto_mapa]=o;});return m;},[obras]);
   const stats=useMemo(()=>({total:puestos.length,ocupados:puestos.filter(p=>obraByPuesto[p.id]).length,libres:puestos.filter(p=>!obraByPuesto[p.id]).length}),[obraByPuesto,puestos]);
@@ -1611,10 +1887,12 @@ export default function MapaProduccion({obras=[],onPuestoClick,onAsignarObra,onC
   const resetVp=useCallback(()=>{
     const el=svgRef.current;if(!el)return;
     const {width,height}=el.getBoundingClientRect();
-    const scale=Math.min(width*0.88/VB_W,height*0.88/VB_H);
-    const next={x:(width-VB_W*scale)/2,y:(height-VB_H*scale)/2,scale};
+    const panelW = kpiCollapsed ? KPI_W_COLLAPSED : KPI_W;
+    const usableW = width - panelW;
+    const scale=Math.min(usableW*0.92/VB_W,height*0.92/VB_H);
+    const next={x:(usableW-VB_W*scale)/2,y:(height-VB_H*scale)/2,scale};
     vpRef.current=next;setVp(next);
-  },[]);
+  },[kpiCollapsed]);
 
   const centerOnPuesto=useCallback((p)=>{
     const el=svgRef.current;if(!el)return;
@@ -1856,7 +2134,16 @@ export default function MapaProduccion({obras=[],onPuestoClick,onAsignarObra,onC
           ):(
             /* ── PUESTO OCUPADO ── */
             <g style={{pointerEvents:"none", userSelect:"none"}}>
-              {/* Halo ambiente permanente — ring exterior sin blur (performance) */}
+              {/* Halo de línea — si tiene _lineaColor, se superpone en ese color */}
+              {obra._lineaColor && (
+                <rect x={ix-7} y={iy-7} width={p.w+14} height={p.h+14}
+                  rx={Math.min(p.w,p.h)*0.12} fill="none"
+                  stroke={obra._lineaColor} strokeWidth="1.2"
+                  style={{ strokeOpacity: isHov ? 0.6 : 0.25,
+                    transition:"stroke-opacity 0.3s",
+                    animation:"line-breathe 4s ease-in-out infinite" }}/>
+              )}
+              {/* Halo ambiente permanente */}
               <rect x={ix-5} y={iy-5} width={p.w+10} height={p.h+10} rx={Math.min(p.w,p.h)*0.10}
                 fill="none" stroke={oC.glow} strokeWidth="1.5"
                 strokeOpacity={isHov ? 0.5 : 0.18}
@@ -1864,6 +2151,7 @@ export default function MapaProduccion({obras=[],onPuestoClick,onAsignarObra,onC
                   transition:"stroke-opacity 0.3s ease",
                   animation: isAct ? "halo-breathe 3.5s ease-in-out infinite" : undefined
                 }}/>
+
               {/* Sombra desplazada — solo en hover */}
               {isHov&&<g clipPath={`url(#${clipId})`}>
                 <BoatImage opacity={0.18} dx={3} dy={4} blur={false}/>
@@ -1894,11 +2182,17 @@ export default function MapaProduccion({obras=[],onPuestoClick,onAsignarObra,onC
                     const pillH=20; const fs=Math.max(8,Math.min(12, pillW/(Math.max(codigo.length,1)+1)));
                     const bw=Math.min(minSide*0.72,88), bh=3;
                     return(<>
-                      {/* Pill código */}
+                      {/* Pill código — con indicador de color de línea */}
                       <rect x={-pillW/2} y={-pillH/2} width={pillW} height={pillH} rx={pillH/2}
                         fill="rgba(4,4,10,0.92)" stroke={`${oC.glow}55`} strokeWidth="1"
                         style={{filter:"drop-shadow(0 2px 5px rgba(0,0,0,0.85))"}}/>
-                      <text x={0} y={1} textAnchor="middle" dominantBaseline="middle"
+                      {/* dot de color de línea si existe */}
+                      {obra._lineaColor && (
+                        <circle cx={-pillW/2+8} cy={0} r="3"
+                          fill={obra._lineaColor}
+                          style={{filter:`drop-shadow(0 0 4px ${obra._lineaColor})`}}/>
+                      )}
+                      <text x={obra._lineaColor ? 4 : 0} y={1} textAnchor="middle" dominantBaseline="middle"
                         fill="#fff" fontSize={fs} fontFamily={C.mono} fontWeight="800" letterSpacing="0.8"
                         style={{userSelect:"none"}}>{codigo}</text>
                       {/* Barra de progreso — debajo de la pill */}
@@ -1968,6 +2262,7 @@ export default function MapaProduccion({obras=[],onPuestoClick,onAsignarObra,onC
         @keyframes focusScan    {from{stroke-dashoffset:0}to{stroke-dashoffset:-160}}
         @keyframes dimIn        {from{opacity:0}to{opacity:1}}
         @keyframes halo-breathe {0%,100%{stroke-opacity:0.14}50%{stroke-opacity:0.35}}
+        @keyframes line-breathe {0%,100%{stroke-opacity:0.25} 50%{stroke-opacity:0.55}}
         @keyframes kpi-slideIn  {from{opacity:0;transform:translateY(12px) scale(0.97)}to{opacity:1;transform:translateY(0) scale(1)}}
         .glass-btn{background:rgba(255,255,255,0.03);border:1px solid rgba(255,255,255,0.08);color:${C.t1};transition:all 0.2s;}
         .glass-btn:hover{background:rgba(255,255,255,0.08);color:${C.t0};border-color:rgba(255,255,255,0.2);}
@@ -2048,7 +2343,7 @@ export default function MapaProduccion({obras=[],onPuestoClick,onAsignarObra,onC
       )}
 
       {/* TOP BAR */}
-      <div style={{position:"absolute",top:10,left:10,right:268,zIndex:10,display:"flex",alignItems:"center",gap:6,pointerEvents:"none"}}>
+      <div style={{position:"absolute",top:10,left:10,right:210,zIndex:10,display:"flex",alignItems:"center",gap:6,pointerEvents:"none"}}>
         <div style={{display:"flex",gap:5,pointerEvents:"auto"}}>
           {[{v:stats.total,l:"Total",c:C.t0},{v:stats.ocupados,l:"Ocupados",c:"#60a5fa"},{v:stats.libres,l:"Libres",c:"#34d399"}].map(({v,l,c})=>(
             <div key={l} style={{display:"flex",flexDirection:"column",alignItems:"center",padding:"4px 16px",borderRadius:8,...GLASS}}>
@@ -2118,12 +2413,14 @@ export default function MapaProduccion({obras=[],onPuestoClick,onAsignarObra,onC
       </div>
 
       <RadarHUD puestos={puestos} obraByPuesto={obraByPuesto} vp={vp} containerW={containerSize.w} containerH={containerSize.h}/>
-      <KPIPanel obras={obras} puestos={puestos} obraByPuesto={obraByPuesto} onFocusPuesto={(codigo)=>{
-        const obra=obras.find(o=>o.codigo===codigo);
-        if(!obra?.puesto_mapa) return;
-        const p=puestos.find(x=>x.id===obra.puesto_mapa);
-        if(p){centerOnPuesto(p);setFocusedPuesto(p.id);}
-      }}/>
+      <KPIPanel obras={obras} puestos={puestos} obraByPuesto={obraByPuesto}
+        collapsed={kpiCollapsed} onCollapse={setKpiCollapsed}
+        onFocusPuesto={(codigo)=>{
+          const obra=obras.find(o=>o.codigo===codigo);
+          if(!obra?.puesto_mapa) return;
+          const p=puestos.find(x=>x.id===obra.puesto_mapa);
+          if(p){centerOnPuesto(p);setFocusedPuesto(p.id);}
+        }}/>
 
       {/* TOOLTIP */}
       {tooltip&&!obraDragPos&&!focusedPuesto&&(()=>{

@@ -16,6 +16,7 @@ import PlanificacionView      from "./PlanificacionView";
 import MapaProduccion         from "./MapaProduccion";
 import PanelDetallesObra      from "./PanelDetallesObra";
 import PiezasLaminacionView   from "./PiezasLaminacionView";
+import ObrasHome              from "./ObrasHome";
 
 // ─── UTILS ────────────────────────────────────────────────────────────────────
 const num        = v => { const x = Number(v); return Number.isFinite(x) ? x : 0; };
@@ -88,6 +89,23 @@ const NavIcon = {
   ),
 };
 
+
+// ── Contador animado ─────────────────────────────────────────
+function AnimatedNumber({ value, duration = 900 }) {
+  const [d, setD] = useState(0);
+  const prev = useRef(0);
+  useEffect(() => {
+    const from = prev.current, start = performance.now();
+    const tick = now => {
+      const p = Math.min((now - start) / duration, 1);
+      const ease = 1 - Math.pow(1 - p, 3);
+      setD(Math.round(from + (value - from) * ease));
+      if (p < 1) requestAnimationFrame(tick); else prev.current = value;
+    };
+    requestAnimationFrame(tick);
+  }, [value, duration]);
+  return <>{d}</>;
+}
 
 const C = {
   bg:    "#09090b",
@@ -212,7 +230,7 @@ const INP = {
 function Overlay({ onClose, children, maxWidth = 540, fullHeight = false }) {
   return (
     <div onClick={e => e.target === e.currentTarget && onClose?.()} style={{ position: "fixed", inset: 0, zIndex: 9000, background: "rgba(0,0,0,0.85)", ...GLASS, display: "flex", justifyContent: "center", alignItems: fullHeight ? "stretch" : "flex-start", padding: fullHeight ? 0 : "40px 16px", overflowY: fullHeight ? "hidden" : "auto" }}>
-      <div style={{ background: "rgba(15,15,18,0.97)", border: `1px solid ${C.b1}`, borderRadius: fullHeight ? 0 : 14, padding: 0, width: "100%", maxWidth: fullHeight ? "100%" : maxWidth, boxShadow: "0 32px 80px rgba(0,0,0,0.8)", animation: "slideUp .18s ease", fontFamily: C.sans, display: "flex", flexDirection: "column", ...(fullHeight ? { height: "100vh" } : { maxHeight: "92vh", overflow: "hidden" }) }}>
+      <div style={{ background: "rgba(15,15,18,0.97)", border: `1px solid ${C.b1}`, borderRadius: fullHeight ? 0 : 14, padding: 0, width: "100%", maxWidth: fullHeight ? "100%" : maxWidth, boxShadow: "0 32px 80px rgba(0,0,0,0.8)", animation: "slideUp 0.38s cubic-bezier(0.22,1,0.36,1)", fontFamily: C.sans, display: "flex", flexDirection: "column", ...(fullHeight ? { height: "100vh" } : { maxHeight: "92vh", overflow: "hidden" }) }}>
         {children}
       </div>
     </div>
@@ -961,7 +979,18 @@ function EtapaTareasSection({ etapa, tareas, archivosCount, esGestion, onCambiar
   const finalizadas = tareas.filter(t => t.estado === "finalizada").length;
   const epct = pct(finalizadas, tareas.length);
   const ec   = C.etapa[etapa.estado] ?? C.etapa.pendiente;
-  const [predWarn, setPredWarn] = useState(null); // { tareaId, tareaActual, bloqueantes, nuevoEstado }
+  const [predWarn,     setPredWarn]     = useState(null);
+  const [bulkMode,     setBulkMode]     = useState(false);
+  const [selectedIds,  setSelectedIds]  = useState(new Set());
+
+  const toggleSelect = id => setSelectedIds(s => { const n = new Set(s); n.has(id) ? n.delete(id) : n.add(id); return n; });
+  const selectAll    = ()  => setSelectedIds(new Set(tareas.filter(t => !["finalizada","cancelada"].includes(t.estado)).map(t => t.id)));
+  const clearSelect  = ()  => { setSelectedIds(new Set()); setBulkMode(false); };
+
+  const bulkCambiar  = async estado => {
+    for (const id of selectedIds) await onCambiarEstado(id, estado);
+    clearSelect();
+  };
 
   function handleCambiarEstado(tareaId, nuevoEstado) {
     // Solo chequeamos al iniciar (pendiente → en_progreso)
@@ -985,7 +1014,6 @@ function EtapaTareasSection({ etapa, tareas, archivosCount, esGestion, onCambiar
 
   return (
     <div style={{ marginTop: 4, paddingLeft: 14, paddingBottom: 4 }}>
-      {/* Modal aviso predecesores */}
       {predWarn && (
         <PredecessorWarnModal
           tareaActual={predWarn.tareaActual}
@@ -995,29 +1023,69 @@ function EtapaTareasSection({ etapa, tareas, archivosCount, esGestion, onCambiar
         />
       )}
 
-      {/* Resumen mini */}
+      {/* ── Barra de resumen + controles bulk ── */}
       {tareas.length > 0 && (
         <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 8, padding: "4px 0" }}>
           <ProgressBar value={epct} color={ec.dot} height={3} />
           <span style={{ fontSize: 9, color: ec.text, fontFamily: C.mono, flexShrink: 0 }}>{finalizadas}/{tareas.length} · {epct}%</span>
+          {esGestion && (
+            <button type="button" onClick={() => { setBulkMode(b => !b); setSelectedIds(new Set()); }}
+              style={{ marginLeft: "auto", fontSize: 9, padding: "2px 9px", borderRadius: 5, border: `1px solid ${bulkMode ? "rgba(59,130,246,0.5)" : C.b0}`, background: bulkMode ? "rgba(59,130,246,0.1)" : "transparent", color: bulkMode ? "#60a5fa" : C.t2, cursor: "pointer", fontFamily: C.sans, transition: "all 0.15s", flexShrink: 0 }}>
+              {bulkMode ? "Cancelar" : "Seleccionar"}
+            </button>
+          )}
         </div>
       )}
 
-      {/* Cards */}
-      {tareas.map(tarea => (
-        <TareaCard
-          key={tarea.id}
-          tarea={tarea}
-          esGestion={esGestion}
-          archivosCount={archivosCount[tarea.id] ?? 0}
-          onCambiarEstado={handleCambiarEstado}
-          onEditar={onEditar}
-          onDetalle={onDetalle}
-          onEliminar={onEliminar}
-        />
+      {/* ── Toolbar bulk — aparece cuando hay selección ── */}
+      {bulkMode && selectedIds.size > 0 && (
+        <div style={{ display: "flex", alignItems: "center", gap: 6, marginBottom: 8, padding: "7px 10px", borderRadius: 8, background: "rgba(59,130,246,0.07)", border: "1px solid rgba(59,130,246,0.2)", animation: "slideUp 0.3s cubic-bezier(0.22,1,0.36,1)" }}>
+          <span style={{ fontSize: 10, color: "#60a5fa", fontFamily: C.mono, fontWeight: 600 }}>{selectedIds.size} seleccionadas</span>
+          <div style={{ display: "flex", gap: 5, marginLeft: 6 }}>
+            <button type="button" onClick={() => bulkCambiar("en_progreso")}
+              style={{ fontSize: 10, padding: "3px 10px", borderRadius: 5, border: "1px solid rgba(59,130,246,0.35)", background: "rgba(59,130,246,0.12)", color: "#60a5fa", cursor: "pointer", fontFamily: C.sans }}>
+              ▶ Iniciar todas
+            </button>
+            <button type="button" onClick={() => bulkCambiar("finalizada")}
+              style={{ fontSize: 10, padding: "3px 10px", borderRadius: 5, border: "1px solid rgba(16,185,129,0.35)", background: "rgba(16,185,129,0.1)", color: C.green, cursor: "pointer", fontFamily: C.sans }}>
+              ✓ Finalizar todas
+            </button>
+            <button type="button" onClick={() => bulkCambiar("pendiente")}
+              style={{ fontSize: 10, padding: "3px 10px", borderRadius: 5, border: `1px solid ${C.b0}`, background: "transparent", color: C.t2, cursor: "pointer", fontFamily: C.sans }}>
+              ↩ Reiniciar
+            </button>
+          </div>
+          <button type="button" onClick={selectAll}
+            style={{ marginLeft: "auto", fontSize: 10, padding: "3px 9px", borderRadius: 5, border: `1px solid ${C.b0}`, background: "transparent", color: C.t2, cursor: "pointer", fontFamily: C.sans }}>
+            Sel. todas
+          </button>
+        </div>
+      )}
+
+      {/* ── Cards de tareas ── */}
+      {tareas.map((tarea, tIdx) => (
+        <div key={tarea.id} style={{ display: "flex", alignItems: "flex-start", gap: 6, animation: `cardEnter 0.35s cubic-bezier(0.22,1,0.36,1) ${tIdx * 0.04}s both` }}>
+          {/* Checkbox en modo bulk */}
+          {bulkMode && !["finalizada","cancelada"].includes(tarea.estado) && (
+            <div onClick={() => toggleSelect(tarea.id)}
+              style={{ marginTop: 12, width: 16, height: 16, borderRadius: 4, border: `1.5px solid ${selectedIds.has(tarea.id) ? "#60a5fa" : C.b1}`, background: selectedIds.has(tarea.id) ? "rgba(59,130,246,0.2)" : "transparent", cursor: "pointer", flexShrink: 0, display: "flex", alignItems: "center", justifyContent: "center", transition: "all 0.15s" }}>
+              {selectedIds.has(tarea.id) && <span style={{ fontSize: 9, color: "#60a5fa", lineHeight: 1 }}>✓</span>}
+            </div>
+          )}
+          <div style={{ flex: 1, minWidth: 0 }}>
+            <TareaCard
+              tarea={tarea}
+              esGestion={esGestion && !bulkMode}
+              archivosCount={archivosCount[tarea.id] ?? 0}
+              onCambiarEstado={handleCambiarEstado}
+              onEditar={onEditar}
+              onDetalle={!bulkMode ? onDetalle : () => toggleSelect(tarea.id)}
+              onEliminar={onEliminar}
+            />
+          </div>
+        </div>
       ))}
 
-      {/* Botón nueva tarea */}
       {esGestion && (
         <button type="button" onClick={onNueva}
           style={{ width: "100%", marginTop: 4, padding: "8px 12px", borderRadius: 7, cursor: "pointer", border: `1px dashed ${C.b1}`, background: "transparent", color: C.t2, fontSize: 11, fontFamily: C.sans, display: "flex", alignItems: "center", justifyContent: "center", gap: 6, transition: "border-color .15s, color .15s" }}>
@@ -1741,7 +1809,9 @@ export default function ObrasScreen({ profile, signOut }) {
   const [filtroLinea,    setFiltroLinea]    = useState("todas");
   const [expandedObras,  setExpandedObras]  = useState(new Set());
   const [expandedEtapas, setExpandedEtapas] = useState(new Set());
+  const [focusedObra,    setFocusedObra]    = useState(null); // id de la obra en foco
 
+  const [showHome,      setShowHome]      = useState(true);   // landing screen
   const [mainView,      setMainView]      = useState("obras");
   const [showObraModal, setShowObraModal] = useState(false);
   const [etapaModal,    setEtapaModal]    = useState(null);
@@ -1838,7 +1908,18 @@ export default function ObrasScreen({ profile, signOut }) {
   }, [etapas, ordenes]);
 
   // ── ACCIONES ─────────────────────────────────────────────────
-  const toggleObra  = id => setExpandedObras(s  => { const n = new Set(s); n.has(id) ? n.delete(id) : n.add(id); return n; });
+  const toggleObra  = id => {
+    const yaExpandida = expandedObras.has(id);
+    if (yaExpandida) {
+      // Cerrar: quitar foco y colapsar
+      setExpandedObras(s => { const n = new Set(s); n.delete(id); return n; });
+      setFocusedObra(null);
+    } else {
+      // Abrir: poner en foco y expandir solo esta
+      setExpandedObras(new Set([id]));
+      setFocusedObra(id);
+    }
+  };
   const toggleEtapa = id => setExpandedEtapas(s => { const n = new Set(s); n.has(id) ? n.delete(id) : n.add(id); return n; });
 
   // Si la etapa es virtual (viene de plantilla), la persiste en obra_etapas antes de abrir el modal
@@ -1948,8 +2029,18 @@ export default function ObrasScreen({ profile, signOut }) {
 
   // Obras enriquecidas con _pct para el mapa interactivo
   const obrasConPct = useMemo(
-    () => obras.map(o => ({ ...o, _pct: pctObra(o.id) })),
-    [obras, pctObra]
+    () => obras.map(o => ({
+      ...o,
+      _pct: pctObra(o.id),
+      _lineaColor: lineas.find(l => l.id === o.linea_id)?.color ?? null,
+    })),
+    [obras, pctObra, lineas]
+  );
+
+  // Helper: color de acento de una obra = color de línea si existe, sino color de estado
+  const obraAccentColor = useCallback(obra =>
+    (lineas.find(l => l.id === obra.linea_id)?.color) ?? (C.obra[obra.estado]?.dot ?? C.primary),
+    [lineas]
   );
 
   // ═══════════════════════════════════════════════════════════════
@@ -2031,6 +2122,41 @@ export default function ObrasScreen({ profile, signOut }) {
   // ═══════════════════════════════════════════════════════════════
   //  GANTT CENTRAL
   // ═══════════════════════════════════════════════════════════════
+  // ── Edición inline del código/nombre de obra ─────────────────
+  function EditableCode({ obra, onSave }) {
+    const [editing, setEditing] = useState(false);
+    const [val, setVal]         = useState(obra.codigo);
+    const inputRef              = useRef(null);
+
+    useEffect(() => { if (editing) { setVal(obra.codigo); setTimeout(() => { inputRef.current?.focus(); inputRef.current?.select(); }, 30); } }, [editing, obra.codigo]);
+
+    const commit = async () => {
+      setEditing(false);
+      if (val.trim() && val.trim() !== obra.codigo) await onSave(obra.id, val.trim());
+      else setVal(obra.codigo);
+    };
+
+    if (!editing) return (
+      <div style={{ display: "flex", alignItems: "center", gap: 5, flexShrink: 0 }}
+        onClick={esGestion ? e => { e.stopPropagation(); setEditing(true); } : undefined}>
+        <span style={{ fontFamily: C.mono, fontSize: 15, color: C.t0, fontWeight: 700, letterSpacing: 0.5 }}>{obra.codigo}</span>
+        {esGestion && <span style={{ fontSize: 9, color: "rgba(255,255,255,0.15)", cursor: "text" }}>✎</span>}
+      </div>
+    );
+
+    return (
+      <input
+        ref={inputRef}
+        value={val}
+        onChange={e => setVal(e.target.value)}
+        onBlur={commit}
+        onKeyDown={e => { if (e.key === "Enter") commit(); if (e.key === "Escape") { setEditing(false); setVal(obra.codigo); } e.stopPropagation(); }}
+        onClick={e => e.stopPropagation()}
+        style={{ fontFamily: C.mono, fontSize: 15, fontWeight: 700, letterSpacing: 0.5, color: C.t0, background: "rgba(59,130,246,0.08)", border: "1px solid rgba(59,130,246,0.4)", borderRadius: 5, padding: "2px 7px", outline: "none", width: 110, flexShrink: 0 }}
+      />
+    );
+  }
+
   function GanttMain() {
     if (loading) return <div style={{ flex: 1, display: "flex", alignItems: "center", justifyContent: "center", color: C.t2, fontSize: 11, letterSpacing: 3, fontFamily: C.mono }}>Cargando…</div>;
     if (!obrasFilt.length) return (
@@ -2043,9 +2169,29 @@ export default function ObrasScreen({ profile, signOut }) {
       </div>
     );
 
+    // Cuando hay foco, solo mostrar la obra en foco; las demás se ocultan
+    const obrasMostradas = focusedObra
+      ? obrasFilt.filter(o => o.id === focusedObra)
+      : obrasFilt;
+
     return (
       <div style={{ flex: 1, overflowY: "auto", padding: "16px 18px" }}>
-        {obrasFilt.map((obra, obraIdx) => {
+
+        {/* Barra de "volver" cuando hay foco */}
+        {focusedObra && (
+          <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 14, animation: "slideUp 0.3s cubic-bezier(0.22,1,0.36,1)" }}>
+            <button type="button" onClick={() => { setFocusedObra(null); setExpandedObras(new Set()); }}
+              style={{ display: "flex", alignItems: "center", gap: 7, padding: "5px 14px", borderRadius: 8, border: `1px solid ${C.b0}`, background: C.s0, color: C.t1, cursor: "pointer", fontSize: 11, fontFamily: C.sans, transition: "all 0.15s" }}>
+              ← Volver a todas las obras
+            </button>
+            <div style={{ fontSize: 9, color: C.t2, letterSpacing: 2, textTransform: "uppercase", fontFamily: C.mono }}>
+              {obrasFilt.find(o => o.id === focusedObra)?.codigo}
+            </div>
+          </div>
+        )}
+
+        <div style={{ display: focusedObra ? "flex" : "grid", flexDirection: "column", gridTemplateColumns: "repeat(auto-fill, minmax(340px, 1fr))", gap: 12, alignContent: "start" }}>
+        {obrasMostradas.map((obra, obraIdx) => {
           const obraEtapas = etapasDeObra(obra.id);
           const totalDias  = obraEtapas.reduce((s, e) => s + num(e.dias_estimados), 0) || 1;
           const diasR      = diasDesde(obra.fecha_inicio);
@@ -2054,26 +2200,84 @@ export default function ObrasScreen({ profile, signOut }) {
           const expanded   = expandedObras.has(obra.id);
 
           return (
-            <div key={obra.id} style={{ marginBottom: 20, animation: `fadeSlideUp 0.22s ease ${obraIdx * 0.06}s both` }}>
-              {/* ── OBRA ROW ── */}
-              <div onClick={() => toggleObra(obra.id)} className="obra-gantt-row" style={{ display: "flex", alignItems: "center", gap: 10, padding: "8px 12px", borderRadius: 9, background: C.s0, border: `1px solid ${C.b0}`, cursor: "pointer", borderLeft: `3px solid ${oC.dot}` }}>
-                <span style={{ fontSize: 10, color: C.t2, transform: expanded ? "rotate(90deg)" : "none", transition: "transform .2s", flexShrink: 0 }}>▶</span>
-                <span style={{ fontFamily: C.mono, fontSize: 14, color: C.t0, fontWeight: 600, letterSpacing: 1, flex: "0 0 108px" }}>{obra.codigo}</span>
-                {obra.linea_nombre && <span style={{ fontSize: 8, color: C.t2, letterSpacing: 2, textTransform: "uppercase", flex: "0 0 60px", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{obra.linea_nombre}</span>}
-                <div style={{ flex: 1 }}><ProgressBar value={obrapct} color={oC.dot} height={4} shimmer={obra.estado === "activa"} /></div>
-                <span style={{ fontFamily: C.mono, fontSize: 10, color: C.t1, flex: "0 0 32px", textAlign: "right" }}>{obrapct}%</span>
-                <span style={{ fontFamily: C.mono, fontSize: 9, color: C.t2, flex: "0 0 40px", textAlign: "right" }}>{diasR}d</span>
+            <div key={obra.id} style={{
+                animation: `cardEnter 0.45s cubic-bezier(0.22,1,0.36,1) ${obraIdx * 0.07}s both`,
+                display: "flex", flexDirection: "column",
+              }}>
+              {/* ── OBRA CARD ── */}
+              <div className="obra-gantt-row" style={{ borderRadius: 12, background: expanded ? "rgba(255,255,255,0.04)" : C.s0, border: `1px solid ${expanded ? obraAccentColor(obra)+"40" : C.b0}`, overflow: "hidden", transition: "border-color 0.3s, background 0.3s, box-shadow 0.3s", boxShadow: expanded ? `0 0 0 1px ${obraAccentColor(obra)}20, 0 8px 32px rgba(0,0,0,0.3), inset 0 0 40px ${obraAccentColor(obra)}06` : obra.estado === "activa" ? `0 0 0 1px ${obraAccentColor(obra)}14, inset 0 0 20px ${obraAccentColor(obra)}06` : "none", position: "relative" }}>
+                {/* accent bar top — color de línea */}
+                {(() => {
+                  const ac = obraAccentColor(obra);
+                  return <div style={{ height: 2, background: `linear-gradient(90deg,${ac},${ac}55,transparent)`, boxShadow: `0 0 8px ${ac}70` }}/>;
+                })()}
+
+                {/* card header — clickeable */}
+                <div onClick={() => toggleObra(obra.id)} style={{ display: "flex", alignItems: "center", gap: 10, padding: "12px 14px 10px", cursor: "pointer" }}>
+                  {/* estado dot */}
+                  <div style={{ position: "relative", flexShrink: 0 }}>
+                    {obra.estado === "activa" && <div style={{ position: "absolute", inset: -3, borderRadius: "50%", border: `1px solid ${oC.dot}55`, animation: "beaconRing 2.2s ease-out infinite" }}/>}
+                    <Dot color={oC.dot} size={8} glow pulse={obra.estado === "activa"}/>
+                  </div>
+
+                  {/* código editable inline */}
+                  <EditableCode obra={obra} onSave={async (id, codigo) => {
+                    await supabase.from("produccion_obras").update({ codigo }).eq("id", id); cargar();
+                  }}/>
+
+                  <div style={{ flex: 1, minWidth: 0 }}>
+                    {obra.linea_nombre && (() => {
+                      const lc = obraAccentColor(obra);
+                      return <div style={{ fontSize: 8, color: lc, letterSpacing: 1.5, textTransform: "uppercase", marginBottom: 5, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", display: "flex", alignItems: "center", gap: 4 }}>
+                        <span style={{ display: "inline-block", width: 5, height: 5, borderRadius: "50%", background: lc, boxShadow: `0 0 5px ${lc}`, flexShrink: 0 }}/>
+                        {obra.linea_nombre}
+                      </div>;
+                    })()}
+                    <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
+                      <ProgressBar value={obrapct} color={oC.dot} height={5} shimmer={obra.estado === "activa"}/>
+                    </div>
+                  </div>
+
+                  <div style={{ display: "flex", flexDirection: "column", alignItems: "flex-end", gap: 2, flexShrink: 0 }}>
+                    <span style={{ fontFamily: C.mono, fontSize: 13, fontWeight: 700, color: oC.dot }}>{obrapct}%</span>
+                    <span style={{ fontFamily: C.mono, fontSize: 9, color: C.t2 }}>{diasR}d</span>
+                  </div>
+
+                  <span style={{ fontSize: 9, color: C.t2, transform: expanded ? "rotate(90deg)" : "none", transition: "transform .2s", flexShrink: 0 }}>▶</span>
+                </div>
+
+                {/* mini timeline de etapas — siempre visible */}
+                {obraEtapas.length > 0 && (
+                  <div style={{ padding: "0 14px 10px", display: "flex", gap: 3 }}>
+                    {obraEtapas.map((e, idx) => {
+                      const ec = C.etapa[e.estado] ?? C.etapa.pendiente;
+                      const ep = pctEtapa(e.id);
+                      return (
+                        <div key={e.id} title={`${e.nombre} · ${e.estado} · ${ep}%`}
+                          style={{ flex: num(e.dias_estimados) / totalDias, display: "flex", flexDirection: "column", gap: 2 }}>
+                          <div style={{ fontSize: 7, color: C.t2, letterSpacing: 0.5, overflow: "hidden", textOverflow: "clip", whiteSpace: "nowrap", textAlign: "center" }}>{e.nombre}</div>
+                          <div style={{ height: 6, borderRadius: 2, background: "rgba(255,255,255,0.06)", overflow: "hidden" }}>
+                            <div style={{ height: "100%", width: `${ep}%`, background: ec.dot, borderRadius: 2, transition: `width 1.1s cubic-bezier(0.22,1,0.36,1) ${idx * 0.08}s`, ...(e.estado === "en_curso" ? { animation: "gPulse 2.8s ease-in-out infinite" } : {}) }}/>
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                )}
+
+                {/* acciones — siempre visibles en footer */}
                 {esGestion && (
-                  <div style={{ display: "flex", gap: 4 }} onClick={e => e.stopPropagation()}>
+                  <div style={{ display: "flex", gap: 4, padding: "6px 14px 10px", borderTop: `1px solid ${C.b0}` }} onClick={e => e.stopPropagation()}>
                     <Btn variant="sm" onClick={() => cambiarEstadoObra(obra.id, obra.estado === "activa" ? "pausada" : "activa")}>{obra.estado === "activa" ? "Pausar" : "Activar"}</Btn>
                     {obra.estado !== "terminada" && <Btn variant="sm" sx={{ color: C.green, borderColor: "rgba(16,185,129,0.3)" }} onClick={() => cambiarEstadoObra(obra.id, "terminada")}>Terminar</Btn>}
-                    <button type="button" onClick={() => pedirBorrado(obra, "obra")} style={{ border: "none", background: "transparent", color: C.t2, cursor: "pointer", fontSize: 13, padding: "2px 5px" }}>×</button>
+                    <Btn variant="sm" onClick={() => setEtapaModal({ obraId: obra.id })}>+ Etapa</Btn>
+                    <button type="button" onClick={() => pedirBorrado(obra, "obra")} style={{ border: "none", background: "transparent", color: C.t2, cursor: "pointer", fontSize: 14, padding: "2px 6px", marginLeft: "auto" }}>×</button>
                   </div>
                 )}
               </div>
 
               {expanded && (
-                <div style={{ paddingLeft: 16, paddingTop: 6, animation: "expandDown 0.18s ease" }}>
+                <div style={{ marginTop: 6, paddingLeft: 8, animation: "expandDown 0.38s cubic-bezier(0.22,1,0.36,1)" }}>
 
                   {/* ── BOTÓN IMPORTAR TAREAS (obras sin tareas aún) ── */}
                   {esGestion && !tareas.some(t => t.obra_id === obra.id) && (
@@ -2181,6 +2385,7 @@ export default function ObrasScreen({ profile, signOut }) {
             </div>
           );
         })}
+        </div>
       </div>
     );
   }
@@ -2188,6 +2393,30 @@ export default function ObrasScreen({ profile, signOut }) {
   // ═══════════════════════════════════════════════════════════════
   //  RENDER
   // ═══════════════════════════════════════════════════════════════
+
+  // ── Landing home de Obras ────────────────────────────────────────
+  // Se muestra la primera vez que el usuario entra. El topbar queda
+  // montado debajo pero invisible. onEnterMapa() lo desmonta.
+  if (showHome) return (
+    <div style={{ position: "fixed", inset: 0, background: C.bg, color: C.t0, fontFamily: C.sans, zIndex: 0 }}>
+      <div style={{ display: "flex", height: "100vh", overflow: "hidden" }}>
+        <div style={{ width: 220, flexShrink: 0, height: "100vh", overflow: "hidden" }}>
+          <Sidebar profile={profile} signOut={signOut} />
+        </div>
+        <div style={{ flex: 1, display: "flex", flexDirection: "column", height: "100vh", overflow: "hidden", minWidth: 0 }}>
+          <ObrasHome
+            obras={obrasConPct}
+            profile={profile}
+            onEnterMapa={(view) => {
+              if (view) setMainView(view);
+              setShowHome(false);
+            }}
+          />
+        </div>
+      </div>
+    </div>
+  );
+
   return (
     <div style={{ position: "fixed", inset: 0, background: C.bg, color: C.t0, fontFamily: C.sans, zIndex: 0 }}>
       <style>{`
@@ -2198,14 +2427,18 @@ export default function ObrasScreen({ profile, signOut }) {
         ::-webkit-scrollbar-track { background: transparent; }
         ::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.07); border-radius: 99px; }
         input:focus, select:focus, textarea:focus { border-color: rgba(59,130,246,0.35) !important; outline: none; }
-        @keyframes slideUp    { from{opacity:0;transform:translateY(12px)} to{opacity:1;transform:translateY(0)} }
-        @keyframes slideLeft  { from{opacity:0;transform:translateX(10px)} to{opacity:1;transform:translateX(0)} }
-        @keyframes fadeSlideUp{ from{opacity:0;transform:translateY(8px)}  to{opacity:1;transform:translateY(0)} }
-        @keyframes expandDown { from{opacity:0;transform:translateY(-5px)} to{opacity:1;transform:translateY(0)} }
-        @keyframes gPulse     { 0%,100%{opacity:1} 50%{opacity:.6} }
-        @keyframes pulseDot   { 0%,100%{opacity:1;transform:scale(1)} 50%{opacity:0.35;transform:scale(0.55)} }
+        /* ── Entradas ── */
+        @keyframes cardEnter  { 0%{opacity:0;transform:translateY(18px) scale(0.97)} 60%{opacity:1} 100%{opacity:1;transform:translateY(0) scale(1)} }
+        @keyframes slideUp    { 0%{opacity:0;transform:translateY(14px)} 60%{opacity:1} 100%{opacity:1;transform:translateY(0)} }
+        @keyframes panelLeft  { 0%{opacity:0;transform:translateX(-16px)} 60%{opacity:1} 100%{opacity:1;transform:translateX(0)} }
+        @keyframes fadeIn     { from{opacity:0} to{opacity:1} }
+        @keyframes expandDown { 0%{opacity:0;transform:translateY(-6px) scaleY(0.96);transform-origin:top} 60%{opacity:1} 100%{opacity:1;transform:translateY(0) scaleY(1)} }
+        @keyframes countIn    { 0%{opacity:0;transform:translateY(6px)} 60%{opacity:1} 100%{opacity:1;transform:translateY(0)} }
+        /* ── Loop ── */
+        @keyframes gPulse     { 0%,100%{opacity:1} 50%{opacity:.55} }
+        @keyframes pulseDot   { 0%,100%{transform:scale(1);opacity:.8} 50%{transform:scale(2.2);opacity:0} }
         @keyframes shimmer    { 0%{background-position:-200% center} 100%{background-position:200% center} }
-        @keyframes countUp    { from{opacity:0;transform:translateY(5px)} to{opacity:1;transform:translateY(0)} }
+        @keyframes beaconRing { 0%{transform:scale(1);opacity:.7} 100%{transform:scale(2.4);opacity:0} }
         button:not([disabled]):hover { opacity: 0.8; }
         .obra-gantt-row { transition: background .12s, border-color .15s; }
         .obra-gantt-row:hover { background: rgba(255,255,255,0.035) !important; }
@@ -2223,28 +2456,56 @@ export default function ObrasScreen({ profile, signOut }) {
         </div>
 
         <div style={{ flex: 1, display: "flex", flexDirection: "column", height: "100vh", overflow: "hidden", minWidth: 0 }}>
-          {/* TOPBAR */}
-          <div style={{ height: 42, background: "rgba(12,12,14,0.92)", ...GLASS, borderBottom: `1px solid ${C.b0}`, padding: "0 18px", display: "flex", alignItems: "center", gap: 10, flexShrink: 0 }}>
-            <div style={{ display: "flex", gap: 7, flex: 1 }}>
-              {[{label:"Activas",n:stats.activas,c:C.obra.activa.dot},{label:"Pausadas",n:stats.pausadas,c:C.obra.pausada.dot},{label:"Terminadas",n:stats.terminadas,c:C.obra.terminada.dot}].map(({label,n,c}, i) => (
-                <div key={label} style={{ display: "flex", alignItems: "center", gap: 6, padding: "4px 10px", borderRadius: 7, background: C.s0, border: `1px solid ${C.b0}`, borderLeft: `2px solid ${c}`, animation: `countUp 0.35s ease ${i * 0.07}s both` }}>
-                  <span style={{ fontFamily: C.mono, fontSize: 15, fontWeight: 700, color: c, lineHeight: 1 }}>{n}</span>
-                  <span style={{ fontSize: 8, color: C.t1, letterSpacing: 2, textTransform: "uppercase" }}>{label}</span>
+          {/* TOPBAR — sutil cuando el mapa/obras está abierto */}
+          <div style={{ height: 38, background: "rgba(9,9,11,0.75)", ...GLASS, borderBottom: `1px solid rgba(255,255,255,0.05)`, padding: "0 16px", display: "flex", alignItems: "center", gap: 10, flexShrink: 0 }}>
+            {/* Pills compactos: solo dot + número + label */}
+            <div style={{ display: "flex", gap: 5, flex: 1, alignItems: "center" }}>
+              {/* Botón volver a home */}
+              <button type="button" onClick={() => setShowHome(true)}
+                title="Volver al inicio de Obras"
+                style={{ display: "flex", alignItems: "center", gap: 5, padding: "3px 9px", borderRadius: 6,
+                  border: "1px solid rgba(255,255,255,0.07)", background: "rgba(255,255,255,0.02)",
+                  color: "rgba(255,255,255,0.28)", cursor: "pointer", fontSize: 10,
+                  fontFamily: C.mono, letterSpacing: 1, marginRight: 4, transition: "all .15s" }}
+                onMouseEnter={e => { e.currentTarget.style.borderColor = "rgba(255,255,255,0.18)"; e.currentTarget.style.color = "#fff"; }}
+                onMouseLeave={e => { e.currentTarget.style.borderColor = "rgba(255,255,255,0.07)"; e.currentTarget.style.color = "rgba(255,255,255,0.28)"; }}>
+                <svg width="9" height="9" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round"><polyline points="15 18 9 12 15 6"/></svg>
+                Obras
+              </button>
+              <div style={{ width: 1, height: 12, background: "rgba(255,255,255,0.07)", marginRight: 4 }}/>
+              {[
+                {label:"Activas",   n:stats.activas,    c:C.obra.activa.dot   },
+                {label:"Pausadas",  n:stats.pausadas,   c:C.obra.pausada.dot  },
+                {label:"Terminadas",n:stats.terminadas, c:C.obra.terminada.dot},
+              ].map(({label, n, c}, i) => (
+                <div key={label} style={{ display: "flex", alignItems: "center", gap: 5,
+                  padding: "3px 10px", borderRadius: 6,
+                  background: "rgba(255,255,255,0.018)",
+                  border: `1px solid rgba(255,255,255,0.05)`,
+                  borderLeft: `2px solid ${c}`,
+                  animation: `countIn 0.4s ease ${i * 0.08}s both` }}>
+                  <div style={{ width: 5, height: 5, borderRadius: "50%", background: c,
+                    boxShadow: `0 0 6px ${c}80` }}/>
+                  <span style={{ fontFamily: C.mono, fontSize: 12, fontWeight: 700, color: c }}>
+                    <AnimatedNumber value={n} duration={800}/>
+                  </span>
+                  <span style={{ fontSize: 8.5, color: C.t2, letterSpacing: 1.5,
+                    textTransform: "uppercase" }}>{label}</span>
                 </div>
               ))}
             </div>
             <div style={{ display: "flex", gap: 3 }}>
-              <button type="button" onClick={() => setMainView("obras")} style={{ padding: "5px 14px", borderRadius: 7, cursor: "pointer", fontSize: 11, fontFamily: C.sans, border: mainView === "obras" ? `1px solid ${C.b1}` : `1px solid ${C.b0}`, background: mainView === "obras" ? C.s1 : "transparent", color: mainView === "obras" ? C.t0 : C.t1 }}><span style={{display:"flex",alignItems:"center",gap:5}}><NavIcon.Grid />Obras</span></button>
-              <button type="button" onClick={() => { setMainView("mapa"); setMapaPanel(null); }} style={{ padding: "5px 14px", borderRadius: 7, cursor: "pointer", fontSize: 11, fontFamily: C.sans, border: mainView === "mapa" ? "1px solid rgba(139,92,246,0.4)" : `1px solid ${C.b0}`, background: mainView === "mapa" ? "rgba(139,92,246,0.10)" : "transparent", color: mainView === "mapa" ? "#a78bfa" : C.t1 }}><span style={{display:"flex",alignItems:"center",gap:5}}><NavIcon.Map />Mapa</span></button>
-              <button type="button" onClick={() => setMainView("ordenes")} style={{ padding: "5px 14px", borderRadius: 7, cursor: "pointer", fontSize: 11, fontFamily: C.sans, border: mainView === "ordenes" ? `1px solid rgba(245,158,11,0.4)` : `1px solid ${C.b0}`, background: mainView === "ordenes" ? "rgba(245,158,11,0.08)" : "transparent", color: mainView === "ordenes" ? C.amber : C.t1, position: "relative" }}>
+              <button type="button" onClick={() => setMainView("obras")} style={{ padding: "5px 14px", borderRadius: 7, cursor: "pointer", fontSize: 11, fontFamily: C.sans, border: mainView === "obras" ? `1px solid ${C.b1}` : `1px solid ${C.b0}`, background: mainView === "obras" ? C.s1 : "transparent", color: mainView === "obras" ? C.t0 : C.t1, transition: "all 0.18s", boxShadow: mainView === "obras" ? "0 0 0 1px rgba(255,255,255,0.06) inset" : "none" }}><span style={{display:"flex",alignItems:"center",gap:5}}><NavIcon.Grid />Obras</span></button>
+              <button type="button" onClick={() => { setMainView("mapa"); setMapaPanel(null); }} style={{ padding: "5px 14px", borderRadius: 7, cursor: "pointer", fontSize: 11, fontFamily: C.sans, border: mainView === "mapa" ? "1px solid rgba(139,92,246,0.45)" : `1px solid ${C.b0}`, background: mainView === "mapa" ? "rgba(139,92,246,0.12)" : "transparent", color: mainView === "mapa" ? "#a78bfa" : C.t1, transition: "all 0.18s", boxShadow: mainView === "mapa" ? "0 0 16px rgba(139,92,246,0.15)" : "none" }}><span style={{display:"flex",alignItems:"center",gap:5}}><NavIcon.Map />Mapa</span></button>
+              <button type="button" onClick={() => setMainView("ordenes")} style={{ padding: "5px 14px", borderRadius: 7, cursor: "pointer", fontSize: 11, fontFamily: C.sans, border: mainView === "ordenes" ? `1px solid rgba(245,158,11,0.45)` : `1px solid ${C.b0}`, background: mainView === "ordenes" ? "rgba(245,158,11,0.10)" : "transparent", color: mainView === "ordenes" ? C.amber : C.t1, position: "relative", transition: "all 0.18s", boxShadow: mainView === "ordenes" ? "0 0 16px rgba(245,158,11,0.12)" : "none" }}>
                 <span style={{display:"flex",alignItems:"center",gap:5}}><NavIcon.Cart />Compras</span>
                 {alertCountOC > 0 && <span style={{ position: "absolute", top: -4, right: -4, minWidth: 16, height: 16, borderRadius: 8, background: C.red, color: "#fff", fontSize: 9, fontWeight: 700, display: "flex", alignItems: "center", justifyContent: "center", padding: "0 4px" }}>{alertCountOC}</span>}
               </button>
-              <button type="button" onClick={() => setMainView("planificacion")} style={{ padding: "5px 14px", borderRadius: 7, cursor: "pointer", fontSize: 11, fontFamily: C.sans, border: mainView === "planificacion" ? `1px solid rgba(245,158,11,0.4)` : `1px solid ${C.b0}`, background: mainView === "planificacion" ? "rgba(245,158,11,0.08)" : "transparent", color: mainView === "planificacion" ? C.amber : C.t1, position: "relative" }}>
+              <button type="button" onClick={() => setMainView("planificacion")} style={{ padding: "5px 14px", borderRadius: 7, cursor: "pointer", fontSize: 11, fontFamily: C.sans, border: mainView === "planificacion" ? `1px solid rgba(245,158,11,0.45)` : `1px solid ${C.b0}`, background: mainView === "planificacion" ? "rgba(245,158,11,0.10)" : "transparent", color: mainView === "planificacion" ? C.amber : C.t1, position: "relative", transition: "all 0.18s", boxShadow: mainView === "planificacion" ? "0 0 16px rgba(245,158,11,0.12)" : "none" }}>
                 Planificación
                 {alertCountAvisos > 0 && <span style={{ position: "absolute", top: -4, right: -4, minWidth: 16, height: 16, borderRadius: 8, background: C.red, color: "#fff", fontSize: 9, fontWeight: 700, display: "flex", alignItems: "center", justifyContent: "center", padding: "0 4px" }}>{alertCountAvisos}</span>}
               </button>
-              <button type="button" onClick={() => setMainView("piezas_lam")} style={{ padding: "5px 14px", borderRadius: 7, cursor: "pointer", fontSize: 11, fontFamily: C.sans, border: mainView === "piezas_lam" ? `1px solid rgba(16,185,129,0.4)` : `1px solid ${C.b0}`, background: mainView === "piezas_lam" ? "rgba(16,185,129,0.08)" : "transparent", color: mainView === "piezas_lam" ? C.green : C.t1 }}>
+              <button type="button" onClick={() => setMainView("piezas_lam")} style={{ padding: "5px 14px", borderRadius: 7, cursor: "pointer", fontSize: 11, fontFamily: C.sans, border: mainView === "piezas_lam" ? `1px solid rgba(16,185,129,0.45)` : `1px solid ${C.b0}`, background: mainView === "piezas_lam" ? "rgba(16,185,129,0.10)" : "transparent", color: mainView === "piezas_lam" ? C.green : C.t1, transition: "all 0.18s", boxShadow: mainView === "piezas_lam" ? "0 0 16px rgba(16,185,129,0.12)" : "none" }}>
                 <span style={{display:"flex",alignItems:"center",gap:5}}>Piezas Laminación</span>
               </button>
             </div>
@@ -2282,6 +2543,7 @@ export default function ObrasScreen({ profile, signOut }) {
 
           {mainView === "mapa" && (
             <div style={{ flex: 1, display: "flex", overflow: "hidden", position: "relative" }}>
+
               <MapaProduccion
                 obras={obrasConPct}
                 esGestion={esGestion}
