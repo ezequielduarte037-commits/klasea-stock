@@ -519,40 +519,44 @@ export default function MarmoleriaScreen({ profile, signOut }) {
 
   // ── ESTILOS ───────────────────────────────────────────────────
   const C2 = {
-    bg:      "#09090b",
+    bg:      "#07080d",
     s0:      "rgba(255,255,255,0.03)",
-    s1:      "rgba(255,255,255,0.06)",
-    b0:      "rgba(255,255,255,0.08)",
-    b1:      "rgba(255,255,255,0.15)",
-    t0:      "#f4f4f5",
-    t1:      "#a1a1aa",
-    t2:      "#71717a",
+    s1:      "rgba(255,255,255,0.055)",
+    b0:      "rgba(255,255,255,0.07)",
+    b1:      "rgba(255,255,255,0.14)",
+    t0:      "#eeeef0",
+    t1:      "#9da3b0",
+    t2:      "#555d6e",
     mono:    "'JetBrains Mono', monospace",
     sans:    "'Outfit', system-ui, sans-serif",
     green:   "#10b981",
     red:     "#ef4444",
     amber:   "#f59e0b",
     primary: "#3b82f6",
+    blue:    "#3b82f6",
   };
   const GLASS = { backdropFilter:"blur(32px) saturate(130%)", WebkitBackdropFilter:"blur(32px) saturate(130%)" };
-  const INP   = { background:"rgba(255,255,255,0.04)", border:`1px solid ${C2.b0}`, color:C2.t0, padding:"7px 10px", borderRadius:7, fontSize:12, outline:"none", width:"100%", fontFamily:C2.sans };
+  const INP   = { background:"rgba(255,255,255,0.04)", border:`1px solid ${C2.b0}`, color:C2.t0, padding:"7px 10px", borderRadius:7, fontSize:12, outline:"none", width:"100%", fontFamily:C2.sans, boxSizing:"border-box" };
   const INP_SM = { ...INP, padding:"5px 8px", fontSize:11 };
 
   const lineaNavBtn = (sel) => ({
     width:"100%", textAlign:"left", padding:"9px 14px",
-    border:"none", borderBottom:`1px solid rgba(255,255,255,0.03)`,
-    background: sel ? C2.s1 : "transparent",
-    color: sel ? C2.t0 : C2.t2,
+    border:"none", borderBottom:`1px solid rgba(255,255,255,0.025)`,
+    background: sel ? "rgba(59,130,246,0.1)" : "transparent",
+    color: sel ? "#93b4ff" : C2.t2,
     cursor:"pointer", fontSize:12, fontWeight: sel ? 600 : 400,
     display:"flex", justifyContent:"space-between", alignItems:"center",
     fontFamily: C2.sans,
+    borderLeft: sel ? `2px solid ${C2.primary}` : "2px solid transparent",
+    transition:"all 0.15s",
   });
 
   const unidadNavBtn = (sel) => ({
     ...lineaNavBtn(sel),
-    paddingLeft:22, fontSize:11,
-    borderLeft: sel ? `2px solid ${C2.b1}` : "2px solid transparent",
+    paddingLeft:24, fontSize:11,
+    background: sel ? "rgba(59,130,246,0.08)" : "transparent",
     color: sel ? C2.t0 : "#3a4455",
+    borderLeft: sel ? `2px solid ${C2.primary}` : "2px solid transparent",
   });
 
   const estadoSelectStyle = (estado) => {
@@ -566,30 +570,92 @@ export default function MarmoleriaScreen({ profile, signOut }) {
     };
   };
 
+  // ── KPI data ────────────────────────────────────────────────
+  const kpis = [
+    {
+      label:"Total Envíos",
+      value: dashboard.filter(p => p.estado === "Enviado").length,
+      sub: `${dashboard.length} en seguimiento`,
+      color:"#3b82f6",
+      icon:(
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round">
+          <path d="M22 2L11 13"/><path d="M22 2L15 22 11 13 2 9l20-7z"/>
+        </svg>
+      ),
+    },
+    {
+      label:"Pendientes",
+      value: dashboard.filter(p => p.estado === "Enviado").length,
+      sub: "Sin confirmar recepción",
+      color:"#f59e0b",
+      icon:(
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round">
+          <circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/>
+        </svg>
+      ),
+    },
+    {
+      label:"Para Rehacer",
+      value: dashboard.filter(p => p.estado === "Rehacer").length,
+      sub: dashboard.filter(p=>p.estado==="Rehacer").length > 0 ? "Crítico — requiere atención" : "Sin ítems críticos",
+      color: dashboard.filter(p=>p.estado==="Rehacer").length > 0 ? "#ef4444" : "#10b981",
+      icon:(
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round">
+          <path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/>
+          <line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/>
+        </svg>
+      ),
+    },
+    {
+      label:"Completado",
+      value: `${unidadId ? porcentaje : (() => {
+        const total = dashboard.length; if(!total) return 0;
+        return Math.round(dashboard.filter(p=>p.estado==="Recibido").length / total * 100);
+      })()}%`,
+      sub: unidadId ? `${stats.recibido}/${stats.total} piezas recibidas` : "Promedio general",
+      color:"#10b981",
+      big: true,
+      icon:(
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round">
+          <polyline points="20 6 9 17 4 12"/>
+        </svg>
+      ),
+    },
+  ];
+
+
   // ── RENDER ────────────────────────────────────────────────────
   return (
-    <div style={{ background: C2.bg, position: "fixed", inset: 0, overflow: "hidden", color: C2.t0, fontFamily: C2.sans }}>
+    <div style={{ background:C2.bg, position:"fixed", inset:0, overflow:"hidden", color:C2.t0, fontFamily:C2.sans }}>
       <style>{`
-        @import url('https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500;700&display=swap');
-        *, *::before, *::after { box-sizing: border-box; }
-        select option { background: #0f0f12; color: #a1a1aa; }
-        ::-webkit-scrollbar { width: 3px; height: 3px; }
-        ::-webkit-scrollbar-track { background: transparent; }
-        ::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.07); border-radius: 99px; }
-        input:focus, select:focus, textarea:focus { border-color: rgba(59,130,246,0.35) !important; outline: none; }
-        button:not([disabled]):hover { opacity: 0.8; }
-        @keyframes slideUp   { from{opacity:0;transform:translateY(10px)} to{opacity:1;transform:translateY(0)} }
-        @keyframes slideLeft { from{opacity:0;transform:translateX(10px)} to{opacity:1;transform:translateX(0)} }
-        .bg-glow {
-          position: fixed; inset: 0; pointer-events: none; z-index: 0;
-          background:
-            radial-gradient(ellipse 70% 38% at 50% -6%, rgba(59,130,246,0.07) 0%, transparent 65%),
-            radial-gradient(ellipse 40% 28% at 92% 88%, rgba(245,158,11,0.02) 0%, transparent 55%);
-        }
-        .pieza-row:hover { background: rgba(255,255,255,0.025) !important; }
-        .dash-row:hover  { background: rgba(255,255,255,0.03)  !important; }
+        @import url('https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700;800&family=JetBrains+Mono:wght@400;500;700&display=swap');
+        *, *::before, *::after { box-sizing:border-box; }
+        select option { background:#0a0c12; color:#9da3b0; }
+        ::-webkit-scrollbar { width:2px; height:2px; }
+        ::-webkit-scrollbar-track { background:transparent; }
+        ::-webkit-scrollbar-thumb { background:rgba(255,255,255,0.06); border-radius:99px; }
+        input:focus, select:focus, textarea:focus { border-color:rgba(59,130,246,0.4) !important; outline:none; }
+        @keyframes slideUp   { from{opacity:0;transform:translateY(12px)} to{opacity:1;transform:translateY(0)} }
+        @keyframes slideLeft { from{opacity:0;transform:translateX(8px)}  to{opacity:1;transform:translateX(0)} }
+        @keyframes kpiFadeIn { from{opacity:0;transform:translateY(8px) scale(0.97)} to{opacity:1;transform:none} }
+        .pieza-row:hover { background:rgba(255,255,255,0.022) !important; }
+        .dash-row:hover  { background:rgba(255,255,255,0.025) !important; }
+        .nav-btn-item:hover { background:rgba(255,255,255,0.03) !important; color:#9da3b0 !important; }
+        .kpi-card { transition:transform 0.18s ease, border-color 0.18s ease; }
+        .kpi-card:hover { transform:translateY(-2px) !important; border-color:rgba(255,255,255,0.1) !important; }
+        .action-btn:hover { opacity:0.75; }
+        .edit-btn:hover { color:#eeeef0 !important; }
+        .del-btn:hover  { color:#ef4444 !important; }
       `}</style>
-      <div className="bg-glow" />
+
+      {/* Fondo ambiental */}
+      <div style={{ position:"fixed", inset:0, pointerEvents:"none", zIndex:0, background:[
+        "radial-gradient(ellipse 90% 45% at 50% -5%, rgba(59,130,246,0.06) 0%, transparent 60%)",
+        "radial-gradient(ellipse 35% 25% at 5% 100%, rgba(16,185,129,0.03) 0%, transparent 50%)",
+      ].join(",") }}/>
+      <div style={{ position:"fixed", inset:0, pointerEvents:"none", zIndex:0, opacity:0.38,
+        backgroundImage:["linear-gradient(rgba(255,255,255,0.013) 1px,transparent 1px)","linear-gradient(90deg,rgba(255,255,255,0.013) 1px,transparent 1px)"].join(","),
+        backgroundSize:"52px 52px" }}/>
 
       <div style={{ display:"grid", gridTemplateColumns:"280px 1fr", height:"100vh", overflow:"hidden", position:"relative", zIndex:1 }}>
         <Sidebar profile={profile} signOut={signOut} />
@@ -597,124 +663,165 @@ export default function MarmoleriaScreen({ profile, signOut }) {
         <div style={{ display:"flex", flexDirection:"column", height:"100vh", overflow:"hidden" }}>
 
           {/* ── TOPBAR ── */}
-          <div style={{
-            height:50, background:"rgba(12,12,14,0.92)", ...GLASS,
-            borderBottom:`1px solid ${C2.b0}`, padding:"0 18px",
-            display:"flex", alignItems:"center", gap:10, flexShrink:0,
-          }}>
-            <div style={{ flex:1, display:"flex", alignItems:"center", gap:8 }}>
-              <span style={{ fontSize:13, fontWeight:600, color:C2.t0 }}>Marmolería</span>
-              <div style={{ width:1, height:14, background:C2.b1 }} />
-              <span style={{ fontSize:10, color:C2.t2, letterSpacing:1 }}>
-                {unidadId ? `${lineaSel?.nombre} › ${unidadSel?.codigo}` : "Panel general"}
+          <div style={{ height:54, background:"rgba(7,8,13,0.94)", backdropFilter:"blur(32px) saturate(130%)", WebkitBackdropFilter:"blur(32px) saturate(130%)",
+            borderBottom:`1px solid ${C2.b0}`, padding:"0 22px",
+            display:"flex", alignItems:"center", gap:14, flexShrink:0 }}>
+
+            {/* Título */}
+            <div style={{ display:"flex", flexDirection:"column", gap:1, minWidth:0, flexShrink:0 }}>
+              <span style={{ fontSize:7.5, color:C2.t2, letterSpacing:3, textTransform:"uppercase", fontFamily:C2.mono, lineHeight:1 }}>Producción</span>
+              <span style={{ fontSize:15, fontWeight:700, color:C2.t0, lineHeight:1.15, letterSpacing:-0.2 }}>
+                Marmolería
+                {unidadId && <span style={{ fontWeight:400, color:C2.t2, fontSize:13 }}> · {lineaSel?.nombre} — {unidadSel?.codigo}</span>}
               </span>
+            </div>
 
-              {/* Stats chips — cuando hay barco seleccionado */}
-              {unidadId && (
-                <div style={{ display:"flex", gap:6, marginLeft:10 }}>
-                  {[
-                    { label:"Recibidas",  n: stats.recibido,  c: C2.green  },
-                    { label:"Enviadas",   n: stats.enviado,   c: C2.t1     },
-                    { label:"Pendientes", n: stats.pendiente, c: C2.t2     },
-                    ...(stats.rehacer > 0 ? [{ label:"Rehacer", n: stats.rehacer, c: C2.red }] : []),
-                  ].map(({ label, n, c }) => (
-                    <div key={label} style={{ display:"flex", alignItems:"center", gap:5, padding:"3px 8px", borderRadius:6, background:C2.s0, border:`1px solid ${C2.b0}`, borderLeft:`2px solid ${c}` }}>
-                      <span style={{ fontFamily:C2.mono, fontSize:13, fontWeight:700, color:c, lineHeight:1 }}>{n}</span>
-                      <span style={{ fontSize:8, color:C2.t1, letterSpacing:2, textTransform:"uppercase" }}>{label}</span>
-                    </div>
-                  ))}
-                  {/* % badge */}
-                  <div style={{ display:"flex", alignItems:"center", gap:4, padding:"3px 10px", borderRadius:6, background: pctColor === C2.green ? "rgba(16,185,129,0.1)" : C2.s0, border:`1px solid ${pctColor === C2.green ? "rgba(16,185,129,0.25)" : C2.b0}` }}>
-                    <span style={{ fontFamily:C2.mono, fontSize:13, fontWeight:700, color:pctColor }}>{porcentaje}%</span>
+            <div style={{ width:1, height:24, background:C2.b0, flexShrink:0 }} />
+
+            {/* Stats chips */}
+            {unidadId ? (
+              <div style={{ display:"flex", gap:5 }}>
+                {[
+                  { label:"Recibidas",  n:stats.recibido,  c:C2.green },
+                  { label:"Enviadas",   n:stats.enviado,   c:C2.t1   },
+                  { label:"Pendientes", n:stats.pendiente, c:C2.t2   },
+                  ...(stats.rehacer > 0 ? [{ label:"Rehacer", n:stats.rehacer, c:C2.red }] : []),
+                ].map(({ label, n, c }) => (
+                  <div key={label} style={{ display:"flex", alignItems:"center", gap:5, padding:"3px 9px", borderRadius:6,
+                    background:C2.s0, border:`1px solid ${C2.b0}`, borderLeft:`2px solid ${c}` }}>
+                    <span style={{ fontFamily:C2.mono, fontSize:13, fontWeight:700, color:c, lineHeight:1 }}>{n}</span>
+                    <span style={{ fontSize:8, color:C2.t1, letterSpacing:2, textTransform:"uppercase" }}>{label}</span>
                   </div>
+                ))}
+                <div style={{ display:"flex", alignItems:"center", gap:4, padding:"3px 10px", borderRadius:6,
+                  background: pctColor === C2.green ? "rgba(16,185,129,0.08)" : C2.s0,
+                  border:`1px solid ${pctColor === C2.green ? "rgba(16,185,129,0.2)" : C2.b0}` }}>
+                  <span style={{ fontFamily:C2.mono, fontSize:13, fontWeight:700, color:pctColor }}>{porcentaje}%</span>
                 </div>
-              )}
-
-              {/* Stats globales — cuando NO hay barco */}
-              {!unidadId && dashboard.length > 0 && (
-                <div style={{ display:"flex", gap:6, marginLeft:10 }}>
+              </div>
+            ) : (
+              dashboard.length > 0 && (
+                <div style={{ display:"flex", gap:5 }}>
                   {[
-                    { label:"Enviadas", n: dashboard.filter(p=>p.estado==="Enviado").length,  c: C2.t1 },
-                    { label:"Rehacer",  n: dashboard.filter(p=>p.estado==="Rehacer").length,  c: C2.red },
+                    { label:"Enviadas", n:dashboard.filter(p=>p.estado==="Enviado").length, c:C2.t1 },
+                    { label:"Rehacer",  n:dashboard.filter(p=>p.estado==="Rehacer").length, c:C2.red },
                   ].filter(x => x.n > 0).map(({ label, n, c }) => (
-                    <div key={label} style={{ display:"flex", alignItems:"center", gap:5, padding:"3px 8px", borderRadius:6, background:C2.s0, border:`1px solid ${C2.b0}`, borderLeft:`2px solid ${c}` }}>
+                    <div key={label} style={{ display:"flex", alignItems:"center", gap:5, padding:"3px 8px", borderRadius:6,
+                      background:C2.s0, border:`1px solid ${C2.b0}`, borderLeft:`2px solid ${c}` }}>
                       <span style={{ fontFamily:C2.mono, fontSize:13, fontWeight:700, color:c }}>{n}</span>
                       <span style={{ fontSize:8, color:C2.t1, letterSpacing:2, textTransform:"uppercase" }}>{label}</span>
                     </div>
                   ))}
                 </div>
-              )}
-            </div>
+              )
+            )}
 
-            {/* Acciones topbar */}
+            <div style={{ flex:1 }} />
+
+            {/* Acciones */}
             {unidadId && esAdmin && (
-              <button
-                onClick={() => setShowAddPieza(v => !v)}
-                style={{ border:`1px solid ${C2.b0}`, background:"transparent", color:C2.t1, padding:"5px 12px", borderRadius:7, cursor:"pointer", fontFamily:C2.sans, fontSize:11 }}
-              >
-                {showAddPieza ? "✕ Cancelar" : "+ Pieza extra"}
+              <button className="action-btn" onClick={() => setShowAddPieza(v => !v)} style={{
+                display:"flex", alignItems:"center", gap:6,
+                border:`1px solid ${C2.b0}`, background:"transparent", color:C2.t1,
+                padding:"6px 13px", borderRadius:8, cursor:"pointer", fontFamily:C2.sans, fontSize:11, transition:"opacity 0.15s" }}>
+                <span style={{ fontSize:14, lineHeight:1 }}>{showAddPieza ? "✕" : "+"}</span>
+                {showAddPieza ? "Cancelar" : "Pieza extra"}
               </button>
             )}
-            <button
-              onClick={exportarPDFGeneral}
-              disabled={isExporting}
-              style={{ border:"1px solid rgba(16,185,129,0.3)", background:"rgba(16,185,129,0.08)", color:C2.green, padding:"5px 12px", borderRadius:7, cursor:"pointer", fontFamily:C2.sans, fontSize:11 }}
-            >
-              {isExporting ? "Generando…" : "↓ PDF"}
+            <button className="action-btn" onClick={exportarPDFGeneral} disabled={isExporting} style={{
+              display:"flex", alignItems:"center", gap:6,
+              border:"1px solid rgba(16,185,129,0.28)", background:"rgba(16,185,129,0.07)",
+              color:C2.green, padding:"6px 14px", borderRadius:8, cursor:"pointer",
+              fontFamily:C2.sans, fontSize:11, transition:"opacity 0.15s", fontWeight:600 }}>
+              <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round">
+                <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/>
+              </svg>
+              {isExporting ? "Generando…" : "Exportar PDF"}
             </button>
           </div>
 
-          {/* ── FILTERBAR (solo visible con barco seleccionado) ── */}
+          {/* ── KPI CARDS ── */}
+          <div style={{ display:"grid", gridTemplateColumns:"repeat(4,1fr)", gap:10, padding:"14px 22px 0", flexShrink:0 }}>
+            {kpis.map((k, i) => (
+              <div key={k.label} className="kpi-card" style={{
+                background:"linear-gradient(135deg, rgba(255,255,255,0.038) 0%, rgba(255,255,255,0.016) 100%)",
+                border:`1px solid ${C2.b0}`, borderRadius:12,
+                padding:"14px 16px 13px", position:"relative", overflow:"hidden",
+                animation:`kpiFadeIn 0.45s cubic-bezier(0.22,1,0.36,1) ${i*60}ms both`,
+              }}>
+                <div style={{ position:"absolute", top:-24, right:-24, width:90, height:90, borderRadius:"50%",
+                  background:`${k.color}16`, filter:"blur(22px)", pointerEvents:"none" }}/>
+                <div style={{ display:"flex", alignItems:"center", justifyContent:"space-between", marginBottom:9 }}>
+                  <span style={{ fontSize:8.5, letterSpacing:2, textTransform:"uppercase", color:C2.t2, fontWeight:600, fontFamily:C2.mono }}>
+                    {k.label}
+                  </span>
+                  <div style={{ color:`${k.color}80`, display:"flex" }}>{k.icon}</div>
+                </div>
+                <div style={{ fontFamily:C2.mono, fontSize:k.big ? 30 : 26, fontWeight:800,
+                  color:k.color, lineHeight:1, letterSpacing:"-1px", marginBottom:6 }}>
+                  {k.value}
+                </div>
+                <div style={{ fontSize:10, color:C2.t2, lineHeight:1.4 }}>{k.sub}</div>
+                <div style={{ position:"absolute", bottom:0, left:0, right:0, height:2, borderRadius:"0 0 12px 12px",
+                  background:`linear-gradient(90deg, transparent, ${k.color}45, transparent)` }}/>
+              </div>
+            ))}
+          </div>
+
+          {/* ── FILTERBAR ── */}
           {unidadId && (
-            <div style={{
-              height:38, background:"rgba(12,12,14,0.85)", ...GLASS,
-              borderBottom:`1px solid ${C2.b0}`, padding:"0 18px",
-              display:"flex", alignItems:"center", gap:4, flexShrink:0, overflowX:"auto",
-            }}>
-              <span style={{ fontSize:8, color:C2.t2, letterSpacing:2, textTransform:"uppercase", flexShrink:0 }}>Estado</span>
+            <div style={{ height:38, background:"rgba(7,8,13,0.88)", backdropFilter:"blur(32px) saturate(130%)", WebkitBackdropFilter:"blur(32px) saturate(130%)",
+              borderBottom:`1px solid ${C2.b0}`, padding:"0 22px", marginTop:12,
+              display:"flex", alignItems:"center", gap:5, flexShrink:0, overflowX:"auto" }}>
+              <span style={{ fontSize:8, color:C2.t2, letterSpacing:2, textTransform:"uppercase", flexShrink:0, fontFamily:C2.mono }}>Estado</span>
               {["todos", ...ESTADOS].map(e => {
-                const m  = ESTADO_META[e];
+                const m = ESTADO_META[e];
                 const active = filtroEstado === e;
                 return (
                   <button key={e} onClick={() => setFiltroEstado(e)} style={{
-                    border: active ? `1px solid ${m?.border ?? C2.b1}` : "1px solid rgba(255,255,255,0.04)",
+                    border: active ? `1px solid ${m?.border ?? C2.b1}` : "1px solid transparent",
                     background: active ? (m?.bg ?? C2.s1) : "transparent",
                     color: active ? (m?.color ?? C2.t0) : C2.t2,
                     padding:"2px 10px", borderRadius:5, cursor:"pointer", fontSize:10,
-                    whiteSpace:"nowrap", fontFamily:C2.sans,
+                    whiteSpace:"nowrap", fontFamily:C2.sans, transition:"all 0.12s",
                   }}>{e === "todos" ? "Todas" : e}</button>
                 );
               })}
               <div style={{ width:1, height:12, background:C2.b0, margin:"0 4px", flexShrink:0 }} />
-              <input
-                style={{ ...INP_SM, width:180, flexShrink:0 }}
+              <input style={{ ...INP_SM, width:190, flexShrink:0 }}
                 placeholder="⌕  Buscar pieza o sector…"
-                value={q} onChange={e => setQ(e.target.value)}
-              />
+                value={q} onChange={e => setQ(e.target.value)} />
             </div>
           )}
 
           {/* ── SPLIT CONTENT ── */}
-          <div style={{ flex:1, overflow:"hidden", display:"grid", gridTemplateColumns:"252px 1fr" }}>
+          <div style={{ flex:1, overflow:"hidden", display:"grid", gridTemplateColumns:"236px 1fr", marginTop: unidadId ? 0 : 12 }}>
 
             {/* ── LEFT NAV ── */}
-            <div style={{ borderRight:`1px solid ${C2.b0}`, background:"rgba(9,9,11,0.98)", display:"flex", flexDirection:"column", height:"100%", overflow:"hidden" }}>
+            <div style={{ borderRight:`1px solid ${C2.b0}`, background:"rgba(7,8,13,0.97)", display:"flex", flexDirection:"column", height:"100%", overflow:"hidden" }}>
 
-              {/* Dashboard link */}
-              <button
-                onClick={() => setUnidadId(null)}
-                style={{
-                  width:"100%", textAlign:"left", padding:"11px 14px",
-                  border:"none", borderBottom:`1px solid ${C2.b0}`,
-                  background: !unidadId ? C2.s1 : "transparent",
-                  color: !unidadId ? C2.t0 : C2.t2,
-                  cursor:"pointer", fontSize:11, fontWeight: !unidadId ? 600 : 400,
-                  display:"flex", alignItems:"center", gap:7, fontFamily:C2.sans,
-                  letterSpacing:1, textTransform:"uppercase",
-                  borderLeft: !unidadId ? `2px solid ${C2.primary}` : "2px solid transparent",
-                }}
-              >
-                <span style={{ fontSize:9 }}>◈</span> Panel general
+              {/* Encabezado nav */}
+              <div style={{ padding:"11px 14px 9px", borderBottom:`1px solid ${C2.b0}`, flexShrink:0 }}>
+                <div style={{ fontSize:7.5, letterSpacing:3, color:C2.t2, textTransform:"uppercase", fontFamily:C2.mono, marginBottom:1 }}>Líneas</div>
+                <div style={{ fontSize:11, color:C2.t1, fontWeight:500 }}>Proyectos activos</div>
+              </div>
+
+              {/* Panel general btn */}
+              <button className="nav-btn-item" onClick={() => setUnidadId(null)} style={{
+                width:"100%", textAlign:"left", padding:"10px 14px",
+                border:"none", borderBottom:`1px solid rgba(255,255,255,0.025)`,
+                background: !unidadId ? "rgba(59,130,246,0.09)" : "transparent",
+                color: !unidadId ? "#93b4ff" : C2.t2,
+                cursor:"pointer", fontSize:11, fontWeight: !unidadId ? 600 : 400,
+                display:"flex", alignItems:"center", gap:8, fontFamily:C2.sans,
+                letterSpacing:0.3, textTransform:"uppercase",
+                borderLeft: !unidadId ? `2px solid ${C2.primary}` : "2px solid transparent",
+                transition:"all 0.15s",
+              }}>
+                <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round">
+                  <rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/>
+                </svg>
+                Panel General
               </button>
 
               {/* Líneas + unidades */}
@@ -723,33 +830,39 @@ export default function MarmoleriaScreen({ profile, signOut }) {
                   const selLinea = lineaId === l.id;
                   return (
                     <div key={l.id}>
-                      <button style={lineaNavBtn(selLinea)} onClick={() => { setLineaId(l.id); setUnidadId(null); }}>
-                        <span style={{ display:"flex", alignItems:"center", gap:7, flex: 1 }}>
-                          <div style={{ width:5, height:5, borderRadius:"50%", background: selLinea ? C2.t0 : "#2c3040", flexShrink:0 }} />
+                      <button className="nav-btn-item" style={{
+                        width:"100%", textAlign:"left", padding:"9px 14px",
+                        border:"none", borderBottom:`1px solid rgba(255,255,255,0.025)`,
+                        background: selLinea ? "rgba(59,130,246,0.09)" : "transparent",
+                        color: selLinea ? "#93b4ff" : C2.t2,
+                        cursor:"pointer", fontSize:12, fontWeight: selLinea ? 600 : 400,
+                        display:"flex", justifyContent:"space-between", alignItems:"center",
+                        fontFamily:C2.sans,
+                        borderLeft: selLinea ? `2px solid ${C2.primary}` : "2px solid transparent",
+                        transition:"all 0.15s",
+                      }} onClick={() => { setLineaId(l.id); setUnidadId(null); }}>
+                        <span style={{ display:"flex", alignItems:"center", gap:8, flex:1, minWidth:0 }}>
+                          <div style={{ width:6, height:6, borderRadius:"50%", flexShrink:0,
+                            background: selLinea ? C2.primary : "#2c3546",
+                            boxShadow: selLinea ? `0 0 8px ${C2.primary}88` : "none",
+                            transition:"all 0.2s" }} />
                           {editLineaId === l.id ? (
-                            <input
-                              autoFocus
-                              style={{ ...INP_SM, flex:1, margin:0, padding:"2px 6px", fontSize:11 }}
+                            <input autoFocus style={{ ...INP_SM, flex:1, margin:0, padding:"2px 6px", fontSize:11 }}
                               value={editLineaNombre}
                               onChange={e => setEditLineaNombre(e.target.value)}
                               onBlur={() => guardarEditLinea(l.id)}
                               onKeyDown={e => e.key === "Enter" && guardarEditLinea(l.id)}
-                              onClick={e => e.stopPropagation()}
-                            />
+                              onClick={e => e.stopPropagation()} />
                           ) : (
-                            l.nombre
+                            <span style={{ overflow:"hidden", textOverflow:"ellipsis", whiteSpace:"nowrap" }}>{l.nombre}</span>
                           )}
                         </span>
                         {esAdmin && selLinea && editLineaId !== l.id && (
-                          <div style={{display:"flex", gap:2}}>
-                            <span
-                              onClick={e => { e.stopPropagation(); setEditLineaNombre(l.nombre); setEditLineaId(l.id); }}
-                              style={{ fontSize:11, color:C2.t2, cursor:"pointer", padding:"2px 4px", borderRadius:4 }}
-                            >✎</span>
-                            <span
-                              onClick={e => { e.stopPropagation(); eliminarLinea(l.id); }}
-                              style={{ fontSize:13, color:C2.red, cursor:"pointer", padding:"2px 4px", borderRadius:4 }}
-                            >×</span>
+                          <div style={{ display:"flex", gap:2, flexShrink:0 }}>
+                            <span className="edit-btn" onClick={e => { e.stopPropagation(); setEditLineaNombre(l.nombre); setEditLineaId(l.id); }}
+                              style={{ fontSize:10, color:C2.t2, cursor:"pointer", padding:"2px 5px", borderRadius:4, transition:"color 0.12s" }}>✎</span>
+                            <span className="del-btn" onClick={e => { e.stopPropagation(); eliminarLinea(l.id); }}
+                              style={{ fontSize:13, color:C2.t2, cursor:"pointer", padding:"2px 5px", borderRadius:4, transition:"color 0.12s" }}>×</span>
                           </div>
                         )}
                       </button>
@@ -757,31 +870,39 @@ export default function MarmoleriaScreen({ profile, signOut }) {
                       {selLinea && (
                         <>
                           {unidades.map(u => (
-                            <button key={u.id} style={unidadNavBtn(unidadId === u.id)} onClick={() => setUnidadId(u.id)}>
+                            <button key={u.id} className="nav-btn-item" style={{
+                              width:"100%", textAlign:"left", padding:"8px 14px 8px 24px",
+                              border:"none", borderBottom:`1px solid rgba(255,255,255,0.02)`,
+                              background: unidadId===u.id ? "rgba(59,130,246,0.07)" : "transparent",
+                              color: unidadId===u.id ? C2.t0 : "#3a4455",
+                              cursor:"pointer", fontSize:11,
+                              display:"flex", alignItems:"center", justifyContent:"space-between",
+                              fontFamily:C2.mono,
+                              borderLeft: unidadId===u.id ? `2px solid ${C2.primary}` : "2px solid transparent",
+                              transition:"all 0.15s",
+                            }} onClick={() => setUnidadId(u.id)}>
                               {editUnidadId === u.id ? (
-                                <input
-                                  autoFocus
-                                  style={{ ...INP_SM, flex:1, padding:"2px 6px", fontSize:11, fontFamily:C2.mono }}
+                                <input autoFocus style={{ ...INP_SM, flex:1, padding:"2px 6px", fontSize:11, fontFamily:C2.mono }}
                                   value={editUnidadCodigo}
                                   onChange={e => setEditUnidadCodigo(e.target.value)}
                                   onBlur={() => guardarEditUnidad(u.id)}
                                   onKeyDown={e => e.key === "Enter" && guardarEditUnidad(u.id)}
-                                  onClick={e => e.stopPropagation()}
-                                />
+                                  onClick={e => e.stopPropagation()} />
                               ) : (
-                                <span style={{ fontFamily:C2.mono, fontSize:11, flex: 1, textAlign: "left" }}>{u.codigo}</span>
+                                <span style={{ flex:1 }}>{u.codigo}</span>
                               )}
-                              
                               {esAdmin && unidadId === u.id && editUnidadId !== u.id && (
-                                <div style={{display:"flex", gap:2}}>
-                                  <span onClick={e => { e.stopPropagation(); setEditUnidadCodigo(u.codigo); setEditUnidadId(u.id); }} style={{ fontSize:11, color:C2.t2, cursor:"pointer", padding:"2px 4px" }}>✎</span>
-                                  <span onClick={e => { e.stopPropagation(); eliminarUnidad(u.id); }} style={{ fontSize:13, color:C2.red, cursor:"pointer", padding:"2px 4px" }}>×</span>
+                                <div style={{ display:"flex", gap:2 }}>
+                                  <span className="edit-btn" onClick={e => { e.stopPropagation(); setEditUnidadCodigo(u.codigo); setEditUnidadId(u.id); }}
+                                    style={{ fontSize:10, color:C2.t2, cursor:"pointer", padding:"2px 4px", transition:"color 0.12s" }}>✎</span>
+                                  <span className="del-btn" onClick={e => { e.stopPropagation(); eliminarUnidad(u.id); }}
+                                    style={{ fontSize:12, color:C2.t2, cursor:"pointer", padding:"2px 4px", transition:"color 0.12s" }}>×</span>
                                 </div>
                               )}
                             </button>
                           ))}
                           {esAdmin && (
-                            <div style={{ padding:"5px 14px 8px 22px", display:"flex", gap:5 }}>
+                            <div style={{ padding:"5px 14px 8px 24px", display:"flex", gap:5 }}>
                               <input style={{ ...INP_SM, flex:1 }} placeholder="Nuevo barco…"
                                 value={newUnidad} onChange={e => setNewUnidad(e.target.value)}
                                 onKeyDown={e => e.key === "Enter" && crearUnidad()} />
@@ -798,7 +919,7 @@ export default function MarmoleriaScreen({ profile, signOut }) {
               {/* Nueva línea */}
               {esAdmin && (
                 <div style={{ padding:"10px 14px", borderTop:`1px solid ${C2.b0}`, flexShrink:0 }}>
-                  <div style={{ fontSize:9, letterSpacing:2, color:C2.t2, textTransform:"uppercase", marginBottom:5 }}>Nueva línea</div>
+                  <div style={{ fontSize:8, letterSpacing:2, color:C2.t2, textTransform:"uppercase", marginBottom:5, fontFamily:C2.mono }}>Nueva línea</div>
                   <div style={{ display:"flex", gap:5 }}>
                     <input style={{ ...INP_SM, flex:1 }} placeholder="Ej: K65"
                       value={newLinea} onChange={e => setNewLinea(e.target.value)}
@@ -812,48 +933,60 @@ export default function MarmoleriaScreen({ profile, signOut }) {
             {/* ── PANEL DERECHO ── */}
             <div style={{ height:"100%", overflowY:"auto" }}>
 
-              {/* ══════════════════ DASHBOARD GLOBAL ══════════════════ */}
+              {/* ════ DASHBOARD GLOBAL ════ */}
               {!unidadId && (
-                <div style={{ padding:"22px 26px", animation:"slideUp .25s ease" }}>
+                <div style={{ padding:"22px 26px", animation:"slideUp .28s ease" }}>
 
-                  {/* Header */}
-                  <div style={{ marginBottom:20 }}>
-                    <div style={{ fontSize:9, color:C2.t2, letterSpacing:2, textTransform:"uppercase", marginBottom:4 }}>Producción</div>
-                    <h1 style={{ margin:0, fontSize:20, fontWeight:700, color:C2.t0 }}>Panel General de Envíos</h1>
-                    <p style={{ color:C2.t2, fontSize:11, marginTop:4, margin:0 }}>
-                      Piezas en estado Enviado o Rehacer en toda la fábrica
-                    </p>
+                  <div style={{ display:"flex", alignItems:"flex-end", justifyContent:"space-between", marginBottom:20 }}>
+                    <div>
+                      <div style={{ fontSize:8, color:C2.t2, letterSpacing:3, textTransform:"uppercase", fontFamily:C2.mono, marginBottom:5 }}>Panel General</div>
+                      <h1 style={{ margin:0, fontSize:18, fontWeight:700, color:C2.t0, letterSpacing:-0.3 }}>Envíos en Seguimiento</h1>
+                      <p style={{ color:C2.t2, fontSize:11, marginTop:4, margin:"4px 0 0" }}>
+                        Piezas en estado <strong style={{ color:C2.t1 }}>Enviado</strong> o <strong style={{ color:C2.red }}>Rehacer</strong> en toda la fábrica
+                      </p>
+                    </div>
                   </div>
 
                   {dashboard.length === 0 ? (
-                    <div style={{ textAlign:"center", padding:"60px 40px", color:C2.t2, background:C2.s0, borderRadius:14, border:`1px dashed ${C2.b0}` }}>
-                      <div style={{ fontSize:24, marginBottom:10 }}>✓</div>
-                      <div style={{ fontSize:11, letterSpacing:2, textTransform:"uppercase" }}>Todo al día — sin piezas pendientes</div>
+                    <div style={{ textAlign:"center", padding:"60px 40px", color:C2.t2,
+                      background:C2.s0, borderRadius:14, border:`1px dashed ${C2.b0}` }}>
+                      <div style={{ fontSize:28, marginBottom:12, opacity:0.3 }}>◎</div>
+                      <div style={{ fontSize:11, letterSpacing:2, textTransform:"uppercase", fontFamily:C2.mono }}>Todo al día — sin piezas pendientes</div>
                     </div>
                   ) : (
-                    <div style={{ background:C2.s0, border:`1px solid ${C2.b0}`, borderRadius:12, overflow:"hidden" }}>
-                      {/* Table header */}
-                      <div style={{ display:"grid", gridTemplateColumns:"90px 1.5fr 1fr 110px 110px 40px", gap:12, padding:"8px 16px", borderBottom:`1px solid ${C2.b0}` }}>
-                        {["Barco","Pieza","Prioridad","Fecha envío","Estado",""].map((h,i) => (
-                          <div key={i} style={{ fontSize:8, letterSpacing:2, textTransform:"uppercase", color:C2.t2, fontWeight:700 }}>{h}</div>
+                    <div style={{ background:"rgba(255,255,255,0.02)", border:`1px solid ${C2.b0}`, borderRadius:12, overflow:"hidden" }}>
+                      {/* Header tabla */}
+                      <div style={{ display:"grid", gridTemplateColumns:"92px 1.6fr 1fr 108px 124px 38px",
+                        gap:12, padding:"9px 18px", borderBottom:`1px solid ${C2.b0}`,
+                        background:"rgba(255,255,255,0.02)" }}>
+                        {["Barco","Pieza / Sector","Prioridad","Fecha envío","Estado",""].map((h,i) => (
+                          <div key={i} style={{ fontSize:7.5, letterSpacing:2, textTransform:"uppercase", color:C2.t2, fontWeight:700, fontFamily:C2.mono }}>{h}</div>
                         ))}
                       </div>
-                      {dashboard.map(p => {
+                      {dashboard.map((p, idx) => {
                         const prio = PRIORIDAD_META[p.prioridad] || PRIORIDAD_META["Media"];
                         const m    = ESTADO_META[p.estado] ?? ESTADO_META["Pendiente"];
                         return (
                           <div key={p.id} className="dash-row" style={{
-                            display:"grid", gridTemplateColumns:"90px 1.5fr 1fr 110px 110px 40px",
-                            gap:12, alignItems:"center", padding:"10px 16px",
-                            borderBottom:`1px solid rgba(255,255,255,0.03)`,
+                            display:"grid", gridTemplateColumns:"92px 1.6fr 1fr 108px 124px 38px",
+                            gap:12, alignItems:"center", padding:"11px 18px",
+                            borderBottom:`1px solid rgba(255,255,255,0.025)`,
+                            animation:`slideUp 0.3s ease ${Math.min(idx,8) * 28}ms both`,
+                            transition:"background 0.12s",
                           }}>
-                            <div style={{ fontFamily:C2.mono, color:C2.t0, fontWeight:700, fontSize:12 }}>{p.codigo_barco}</div>
+                            <div style={{ display:"flex", alignItems:"center", gap:7 }}>
+                              <div style={{ width:5, height:5, borderRadius:"50%", background:m.color,
+                                boxShadow:`0 0 6px ${m.color}80`, flexShrink:0 }}/>
+                              <span style={{ fontFamily:C2.mono, color:C2.t0, fontWeight:700, fontSize:12 }}>{p.codigo_barco}</span>
+                            </div>
                             <div>
                               <div style={{ color:C2.t0, fontSize:12, fontWeight:600 }}>{p.pieza}</div>
                               <div style={{ color:C2.t2, fontSize:10, marginTop:2 }}>{p.sector}{p.color ? ` · ${p.color}` : ""}</div>
                             </div>
                             <div>
-                              <span style={{ fontSize:8, letterSpacing:1.5, textTransform:"uppercase", padding:"3px 7px", borderRadius:99, fontWeight:700, background:prio.bg, color:prio.color }}>
+                              <span style={{ fontSize:8, letterSpacing:1.5, textTransform:"uppercase",
+                                padding:"3px 9px", borderRadius:99, fontWeight:700,
+                                background:prio.bg, color:prio.color }}>
                                 {p.prioridad || "Media"}
                               </span>
                             </div>
@@ -861,14 +994,15 @@ export default function MarmoleriaScreen({ profile, signOut }) {
                               {p.fecha_envio ? p.fecha_envio.split("-").reverse().join("/") : "—"}
                             </div>
                             <div>
-                              <span style={{ fontSize:9, letterSpacing:1, textTransform:"uppercase", padding:"3px 8px", borderRadius:99, fontWeight:700, background:m.bg, color:m.color, border:`1px solid ${m.border}` }}>
+                              <span style={{ fontSize:9, letterSpacing:1, textTransform:"uppercase",
+                                padding:"3px 9px", borderRadius:99, fontWeight:700,
+                                background:m.bg, color:m.color, border:`1px solid ${m.border}` }}>
                                 {p.estado}
                               </span>
                             </div>
-                            <button
-                              onClick={() => setModalPieza(p)}
-                              style={{ border:"none", background:"transparent", color:C2.t2, cursor:"pointer", fontSize:13, padding:"4px" }}
-                            >✎</button>
+                            <button className="edit-btn" onClick={() => setModalPieza(p)}
+                              style={{ border:"none", background:"transparent", color:C2.t2, cursor:"pointer",
+                                fontSize:12, padding:"4px", borderRadius:5, transition:"color 0.12s" }}>✎</button>
                           </div>
                         );
                       })}
@@ -877,47 +1011,49 @@ export default function MarmoleriaScreen({ profile, signOut }) {
                 </div>
               )}
 
-              {/* ══════════════════ CHECKLIST DEL BARCO ══════════════════ */}
+              {/* ════ CHECKLIST DEL BARCO ════ */}
               {unidadId && (
-                <div style={{ padding:"20px 24px", animation:"slideLeft .2s ease" }}>
+                <div style={{ padding:"18px 24px", animation:"slideLeft .2s ease" }}>
 
-                  {err && <div style={{ padding:"8px 12px", borderRadius:8, background:"rgba(239,68,68,0.08)", border:"1px solid rgba(239,68,68,0.2)", color:"#f87171", fontSize:12, marginBottom:12 }}>{err}</div>}
+                  {err && <div style={{ padding:"8px 12px", borderRadius:8, background:"rgba(239,68,68,0.07)",
+                    border:"1px solid rgba(239,68,68,0.18)", color:"#f87171", fontSize:12, marginBottom:12 }}>{err}</div>}
 
-                  {/* Barra de progreso */}
-                  <div style={{ background:C2.s0, border:`1px solid ${C2.b0}`, borderRadius:10, padding:"12px 16px", marginBottom:14 }}>
-                    <div style={{ display:"flex", justifyContent:"space-between", alignItems:"center", marginBottom:8 }}>
+                  {/* Barra progreso */}
+                  <div style={{ background:C2.s0, border:`1px solid ${C2.b0}`, borderRadius:12, padding:"14px 18px", marginBottom:14 }}>
+                    <div style={{ display:"flex", justifyContent:"space-between", alignItems:"center", marginBottom:10 }}>
                       <div style={{ fontSize:11, color:C2.t2 }}>
-                        {stats.recibido} de {stats.total} piezas recibidas
+                        <span style={{ color:C2.t1, fontWeight:600 }}>{stats.recibido}</span> de {stats.total} piezas recibidas
                       </div>
-                      <span style={{ fontFamily:C2.mono, fontSize:20, fontWeight:700, color:pctColor }}>
-                        {porcentaje}<span style={{ fontSize:11, opacity:0.5 }}>%</span>
+                      <span style={{ fontFamily:C2.mono, fontSize:22, fontWeight:800, color:pctColor, letterSpacing:"-0.5px" }}>
+                        {porcentaje}<span style={{ fontSize:12, opacity:0.4 }}>%</span>
                       </span>
                     </div>
-                    <div style={{ height:3, background:"rgba(255,255,255,0.05)", borderRadius:99, overflow:"hidden" }}>
+                    <div style={{ height:4, background:"rgba(255,255,255,0.05)", borderRadius:99, overflow:"hidden" }}>
                       <div style={{
                         height:"100%", width:`${porcentaje}%`,
                         background: porcentaje === 100
-                          ? `linear-gradient(90deg, ${C2.green}90, ${C2.green})`
-                          : `linear-gradient(90deg, rgba(255,255,255,0.25), rgba(255,255,255,0.12))`,
+                          ? `linear-gradient(90deg, ${C2.green}80, ${C2.green})`
+                          : `linear-gradient(90deg, rgba(59,130,246,0.7), rgba(59,130,246,0.35))`,
                         borderRadius:99, transition:"width .5s ease",
+                        boxShadow: porcentaje === 100 ? `0 0 10px ${C2.green}55` : "none",
                       }} />
                     </div>
                   </div>
 
                   {/* Panel agregar pieza */}
                   {showAddPieza && esAdmin && (
-                    <div style={{ background:C2.s0, border:`1px solid ${C2.b1}`, borderRadius:10, padding:14, marginBottom:14, animation:"slideUp .2s ease" }}>
-                      <div style={{ fontSize:9, letterSpacing:2, textTransform:"uppercase", color:C2.t2, marginBottom:8 }}>Agregar pieza extra</div>
+                    <div style={{ background:C2.s0, border:`1px solid ${C2.b0}`, borderRadius:10, padding:14, marginBottom:14, animation:"slideUp .2s ease" }}>
+                      <div style={{ fontSize:8.5, letterSpacing:2, textTransform:"uppercase", color:C2.t2, marginBottom:8, fontFamily:C2.mono }}>Agregar pieza extra</div>
                       <div style={{ display:"grid", gridTemplateColumns:"1fr 140px", gap:8, marginBottom:10 }}>
                         <input style={INP} placeholder="Nombre de la pieza (ej: Alzada)" value={formPieza.pieza} onChange={e => setFormPieza(f=>({...f,pieza:e.target.value}))} />
                         <input style={INP} placeholder="Sector" value={formPieza.sector} onChange={e => setFormPieza(f=>({...f,sector:e.target.value}))} />
                       </div>
                       <div style={{ display:"flex", gap:8 }}>
-                        <button onClick={agregarPiezaManual} style={{ border:"1px solid rgba(59,130,246,0.35)", background:"rgba(59,130,246,0.15)", color:"#60a5fa", padding:"7px 16px", borderRadius:8, cursor:"pointer", fontFamily:C2.sans, fontSize:12, fontWeight:600 }}>Solo este barco</button>
+                        <button onClick={agregarPiezaManual} style={{ border:"1px solid rgba(59,130,246,0.3)", background:"rgba(59,130,246,0.1)", color:"#60a5fa", padding:"7px 16px", borderRadius:8, cursor:"pointer", fontFamily:C2.sans, fontSize:12, fontWeight:600 }}>Solo este barco</button>
                         <button onClick={agregarPiezaAPlantilla} style={{ border:`1px solid ${C2.b0}`, background:"transparent", color:C2.t1, padding:"7px 14px", borderRadius:8, cursor:"pointer", fontFamily:C2.sans, fontSize:12 }}>+ Plantilla de {lineaSel?.nombre}</button>
                       </div>
                       <div style={{ marginTop:8, fontSize:10, color:C2.t2 }}>
-                        "Solo este barco" agrega en el casco actual. "Plantilla" la incluye en el listado base para futuros barcos.
+                        "Solo este barco" agrega al checklist actual. "Plantilla" la incluye en futuros barcos de esta línea.
                       </div>
                     </div>
                   )}
@@ -926,78 +1062,86 @@ export default function MarmoleriaScreen({ profile, signOut }) {
                   {loading ? (
                     <div style={{ textAlign:"center", padding:40, fontSize:11, color:C2.t2, letterSpacing:2, textTransform:"uppercase", fontFamily:C2.mono }}>Cargando…</div>
                   ) : Object.keys(porSector).length === 0 ? (
-                    <div style={{ textAlign:"center", padding:"50px 0", fontSize:11, color:C2.t2, letterSpacing:2, textTransform:"uppercase" }}>
+                    <div style={{ textAlign:"center", padding:"50px 0", fontSize:11, color:C2.t2, letterSpacing:2, textTransform:"uppercase", fontFamily:C2.mono }}>
                       {q || filtroEstado !== "todos" ? "Sin resultados para el filtro" : "Checklist vacío — usá '+ Pieza extra'"}
                     </div>
                   ) : (
                     Object.entries(porSector).map(([sector, rows]) => {
-                      const recib         = rows.filter(p => p.estado === "Recibido").length;
-                      const activas       = rows.filter(p => p.estado !== "No lleva").length;
-                      const colorSector   = rows[0]?.color || "";
-
+                      const recib   = rows.filter(p => p.estado === "Recibido").length;
+                      const activas = rows.filter(p => p.estado !== "No lleva").length;
+                      const colorSector = rows[0]?.color || "";
                       return (
-                        <div key={sector} style={{ marginBottom:22 }}>
+                        <div key={sector} style={{ marginBottom:24 }}>
                           {/* Cabecera sector */}
-                          <div style={{ display:"flex", justifyContent:"space-between", alignItems:"center", paddingBottom:7, marginBottom:2, borderBottom:`1px solid rgba(255,255,255,0.05)` }}>
+                          <div style={{ display:"flex", justifyContent:"space-between", alignItems:"center",
+                            paddingBottom:7, marginBottom:3, borderBottom:`1px solid rgba(255,255,255,0.05)` }}>
                             <div style={{ display:"flex", alignItems:"center", gap:10 }}>
-                              <span style={{ fontSize:9, letterSpacing:2.5, fontWeight:700, color:C2.t2, textTransform:"uppercase" }}>{sector}</span>
+                              <span style={{ fontSize:8.5, letterSpacing:2.5, fontWeight:700, color:C2.t2, textTransform:"uppercase", fontFamily:C2.mono }}>{sector}</span>
                               {esAdmin ? (
-                                <input
-                                  defaultValue={colorSector}
-                                  placeholder="Material del sector…"
-                                  style={{ background:"rgba(255,255,255,0.02)", border:`1px solid ${C2.b0}`, color:C2.t1, padding:"3px 8px", borderRadius:6, fontSize:10, outline:"none", width:180 }}
+                                <input defaultValue={colorSector} placeholder="Material del sector…"
+                                  style={{ background:"rgba(255,255,255,0.02)", border:`1px solid ${C2.b0}`,
+                                    color:C2.t1, padding:"3px 8px", borderRadius:6, fontSize:10, outline:"none", width:180 }}
                                   onBlur={e => { if (e.target.value !== colorSector) cambiarColorSector(sector, e.target.value); }}
                                   onKeyDown={e => { if (e.key === "Enter") e.target.blur(); }}
-                                  title="Presioná Enter para aplicar a todo el sector"
-                                />
+                                  title="Presioná Enter para aplicar a todo el sector" />
                               ) : (
                                 colorSector && <span style={{ fontSize:10, color:C2.t2 }}>{colorSector}</span>
                               )}
                             </div>
-                            <span style={{ fontSize:10, color:C2.t2, fontFamily:C2.mono }}>{recib}/{activas}</span>
+                            <div style={{ display:"flex", alignItems:"center", gap:8 }}>
+                              <div style={{ width:52, height:2.5, background:"rgba(255,255,255,0.07)", borderRadius:99, overflow:"hidden" }}>
+                                <div style={{ height:"100%",
+                                  width:`${activas ? recib/activas*100 : 0}%`,
+                                  background: recib===activas && activas>0 ? C2.green : C2.primary,
+                                  borderRadius:99, transition:"width 0.4s" }}/>
+                              </div>
+                              <span style={{ fontSize:9.5, color:C2.t2, fontFamily:C2.mono }}>{recib}/{activas}</span>
+                            </div>
                           </div>
 
-                          {/* Piezas del sector */}
+                          {/* Piezas */}
                           {rows.map(p => {
                             const meta    = ESTADO_META[p.estado]    ?? ESTADO_META["Pendiente"];
                             const prio    = PRIORIDAD_META[p.prioridad] || PRIORIDAD_META["Media"];
                             const noLleva = p.estado === "No lleva";
                             return (
                               <div key={p.id} className="pieza-row" style={{
-                                display:"grid", gridTemplateColumns:"1fr 130px 52px",
+                                display:"grid", gridTemplateColumns:"1fr 128px 46px",
                                 gap:10, alignItems:"center",
-                                padding:"8px 4px", borderBottom:`1px solid rgba(255,255,255,0.03)`,
-                                opacity: noLleva ? 0.3 : 1, borderRadius:6, transition:"background .1s",
+                                padding:"8px 6px", borderBottom:`1px solid rgba(255,255,255,0.025)`,
+                                opacity: noLleva ? 0.27 : 1, borderRadius:6, transition:"background 0.1s",
                               }}>
-                                {/* Nombre + dots + fechas */}
                                 <div style={{ cursor:"pointer" }} onClick={() => setModalPieza(p)}>
-                                  <div style={{ color: p.estado === "Recibido" ? C2.t2 : C2.t0, fontSize:12, fontWeight:500, display:"flex", alignItems:"center", gap:7 }}>
-                                    <div style={{ width:6, height:6, borderRadius:"50%", background:meta.color, flexShrink:0, boxShadow: p.estado === "Recibido" ? `0 0 6px ${meta.color}88` : "none" }} />
+                                  <div style={{ color: p.estado === "Recibido" ? C2.t2 : C2.t0,
+                                    fontSize:12, fontWeight:500, display:"flex", alignItems:"center", gap:7 }}>
+                                    <div style={{ width:5, height:5, borderRadius:"50%", background:meta.color, flexShrink:0,
+                                      boxShadow: p.estado==="Recibido" ? `0 0 5px ${meta.color}80` : "none" }}/>
                                     {p.pieza}
-                                    <div style={{ width:7, height:7, borderRadius:"50%", background:prio.color, boxShadow:`0 0 5px ${prio.color}55`, flexShrink:0 }} title={`Prioridad: ${p.prioridad || "Media"}`} />
-                                    {p.opcional && <span style={{ fontSize:8, color:C2.t2, letterSpacing:1.5 }}>OPCIONAL</span>}
+                                    <div style={{ width:5, height:5, borderRadius:"50%", background:prio.color,
+                                      boxShadow:`0 0 4px ${prio.color}55`, flexShrink:0 }} title={`Prioridad: ${p.prioridad||"Media"}`}/>
+                                    {p.opcional && <span style={{ fontSize:8, color:C2.t2, letterSpacing:1.5, fontFamily:C2.mono }}>OPC</span>}
                                   </div>
                                   {(p.fecha_envio || p.fecha_regreso) && (
-                                    <div style={{ fontSize:9, color:C2.t2, marginTop:2, paddingLeft:13, display:"flex", gap:10, fontFamily:C2.mono }}>
-                                      {p.fecha_envio   && <span>Env {p.fecha_envio.split("-").reverse().join("/")}</span>}
-                                      {p.fecha_regreso && <span>Reg {p.fecha_regreso.split("-").reverse().join("/")}</span>}
+                                    <div style={{ fontSize:9, color:C2.t2, marginTop:2, paddingLeft:12, display:"flex", gap:10, fontFamily:C2.mono }}>
+                                      {p.fecha_envio   && <span>↑ {p.fecha_envio.split("-").reverse().join("/")}</span>}
+                                      {p.fecha_regreso && <span>↓ {p.fecha_regreso.split("-").reverse().join("/")}</span>}
                                     </div>
                                   )}
                                   {p.observaciones && (
-                                    <div style={{ fontSize:10, color:C2.t2, marginTop:2, paddingLeft:13, fontStyle:"italic" }}>{p.observaciones}</div>
+                                    <div style={{ fontSize:10, color:C2.t2, marginTop:2, paddingLeft:12, fontStyle:"italic", opacity:0.65 }}>{p.observaciones}</div>
                                   )}
                                 </div>
 
-                                {/* Select estado */}
                                 <select style={estadoSelectStyle(p.estado)} value={p.estado} onChange={e => setEstado(p.id, e.target.value)}>
                                   {ESTADOS.map(e => <option key={e} value={e}>{e}</option>)}
                                 </select>
 
-                                {/* Acciones */}
                                 <div style={{ display:"flex", gap:2, justifyContent:"flex-end" }}>
-                                  <button style={{ border:"none", background:"transparent", color:C2.t2, padding:"3px 5px", cursor:"pointer", fontSize:13, borderRadius:5 }} onClick={() => setModalPieza(p)} title="Editar">✎</button>
+                                  <button className="edit-btn" style={{ border:"none", background:"transparent", color:C2.t2, padding:"3px 5px", cursor:"pointer", fontSize:12, borderRadius:5, transition:"color 0.12s" }}
+                                    onClick={() => setModalPieza(p)} title="Editar">✎</button>
                                   {esAdmin && (
-                                    <button style={{ border:"none", background:"transparent", color:C2.t2, padding:"3px 5px", cursor:"pointer", fontSize:14, borderRadius:5 }} onClick={() => eliminarPieza(p.id)} title="Quitar">×</button>
+                                    <button className="del-btn" style={{ border:"none", background:"transparent", color:C2.t2, padding:"3px 5px", cursor:"pointer", fontSize:14, borderRadius:5, transition:"color 0.12s" }}
+                                      onClick={() => eliminarPieza(p.id)} title="Quitar">×</button>
                                   )}
                                 </div>
                               </div>
@@ -1014,7 +1158,6 @@ export default function MarmoleriaScreen({ profile, signOut }) {
         </div>
       </div>
 
-      {/* Modal pieza flotante */}
       {modalPieza && (
         <PiezaModal
           pieza={modalPieza}

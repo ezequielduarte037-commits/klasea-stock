@@ -216,12 +216,12 @@ function RadialMenu({x,y,puesto,obra,editMode,onClose,onAssign,onFocus,onDetail,
   const actions=useMemo(()=>{
     const base=[];
     if(obra){
-      base.push({id:"focus", icon:"⊙",label:"Enfocar",  color:"#e2e8f0"});
-      base.push({id:"detail",icon:"≡",label:"Detalle",  color:"#60a5fa"});
+      base.push({id:"memoria", icon:"□",label:"Memoria",  color:"#a78bfa"});
+      base.push({id:"detail",  icon:"≡",label:"Etapas",   color:"#60a5fa"});
       if(obra.estado==="activa")   base.push({id:"pausar",   icon:"⏸",label:"Pausar",   color:"#fbbf24"});
       if(obra.estado==="pausada")  base.push({id:"reanudar", icon:"▶",label:"Reanudar", color:"#34d399"});
       if(!["terminada","cancelada"].includes(obra.estado)) base.push({id:"terminar",icon:"✓",label:"Terminar",color:"#10b981"});
-      base.push({id:"desasignar",icon:"⇌",label:"Desvincular",color:"#f87171"});
+      base.push({id:"desasignar",icon:"⇌",label:"Desvinc.",color:"#f87171"});
     } else {
       base.push({id:"asignar",icon:"+",label:"Asignar",color:"#a78bfa"});
     }
@@ -230,10 +230,10 @@ function RadialMenu({x,y,puesto,obra,editMode,onClose,onAssign,onFocus,onDetail,
   },[obra,editMode]);
   const step=360/actions.length;
   const handleAction=(id)=>{
-    if(id==="focus")        onFocus();
-    else if(id==="detail")       onDetail();
-    else if(id==="asignar")      onAssign();
-    else if(id==="delete")       onDelete();
+    if(id==="memoria")      onFocus();        // onFocus abre el HUD de memoria (setFocusedPuesto)
+    else if(id==="detail")  onDetail();       // onDetail abre etapas en ObrasScreen
+    else if(id==="asignar") onAssign();
+    else if(id==="delete")  onDelete();
     else if(id==="desasignar")   onChangeEstado?.(obra.id,"desasignar");
     else if(id==="pausar")       onChangeEstado?.(obra.id,"pausada");
     else if(id==="reanudar")     onChangeEstado?.(obra.id,"activa");
@@ -1029,216 +1029,208 @@ function MemoriaHUD({ obra, puesto, oC, memoriaOverride, onSaveMemoria, notas=[]
       "Adicionales":    ac,
     };
 
-    const buildRows = (blank) => {
-      const HEADER_TYPES = new Set(["toggle","selector"]);
+    // ── Equipamiento: grid de checkboxes estilo memoria real ─────────────
+    const equipItems = [];
+    const activeToggles = memoFields.filter(f => f.type==="toggle" && fields[f.key]);
+    const tecaVal = fields.teca_tipo;
+    if (tecaVal) equipItems.push({ label:"Cubierta cockpit", val: tecaVal==="infinity" ? "Infinity" : "Teca", isCheck: false });
+    activeToggles.forEach(f => {
+      const obs = fields[f.key+"_obs"];
+      equipItems.push({ label: f.label, val: obs||"", isCheck: true });
+    });
+
+    // ── Adicionales: texto libre en un solo bloque ────────────────────────
+    const adicionalesText = [
+      fields.adicionales,
+      fields.tv_camarote ? "TV Camarote: " + fields.tv_camarote : null,
+      fields.tv_cockpit  ? "TV Cockpit: "  + fields.tv_cockpit  : null,
+    ].filter(Boolean).join("\n");
+
+    // ── Equipamiento HTML ─────────────────────────────────────────────────
+    const buildEquipHtml = () => {
+      if (!equipItems.length) return "";
+      let rows = "";
+      for (let i = 0; i < equipItems.length; i += 2) {
+        const a = equipItems[i], b = equipItems[i+1];
+        const cellA = `<td class="eq-lbl">${a.isCheck ? "<span class='eq-chk'>✓</span>" : ""}${a.label}</td>`
+                    + `<td class="eq-val">${a.val}</td>`;
+        const cellB = b
+          ? `<td class="eq-lbl">${b.isCheck ? "<span class='eq-chk'>✓</span>" : ""}${b.label}</td>`
+          + `<td class="eq-val">${b.val}</td>`
+          : `<td class="eq-lbl" style="background:#fff;border-color:transparent;"></td><td class="eq-val" style="border-color:transparent;"></td>`;
+        rows += "<tr>" + cellA + cellB + "</tr>";
+      }
+      return "<tr class=\"sec-hd\"><td colspan=\"4\">EQUIPAMIENTO</td></tr>"
+           + `<tr><td colspan="4" style="padding:0;border:none;"><table class="eq-table"><tbody>${rows}</tbody></table></td></tr>`;
+    };
+
+    // ── Filas de campos de texto ──────────────────────────────────────────
+    const buildDataRows = (blank) => {
+      const SKIP_TYPES = new Set(["toggle","selector"]);
+      const SKIP_KEYS  = new Set(["adicionales","tv_camarote","tv_cockpit","grupo_electrogeno"]);
       const secs = [...new Set(memoFields.map(f => f.section))];
       return secs.map(sec => {
-        const sc = SEC_COLORS[sec] || ac;
-        // In the body table, toggles/selectors are shown in the badges row — skip here
-        const secFields = memoFields.filter(f => f.section === sec && !HEADER_TYPES.has(f.type));
+        const secFields = memoFields.filter(f =>
+          f.section === sec && !SKIP_TYPES.has(f.type) && !SKIP_KEYS.has(f.key)
+        );
+        // Equipamiento: manejada por buildEquipHtml
+        if (sec === "Equipamiento") return buildEquipHtml();
         const rows = secFields.map(f => {
-          const v = fields[f.key], obs = fields[f.key + "_obs"];
+          const v = fields[f.key];
           const ico = FIELD_ICONS[f.key] || "";
-          const icoHtml = ico ? "<span class=\"ico\" style=\"color:" + sc + ";\">\n" + ico + "</span>" : "";
+          const icoCell = ico ? `<span class="ico">${ico}</span>` : "";
           if (blank) {
-            return "<tr><td class=\"lbl\">" + icoHtml + f.label + "</td>"
-              + "<td class=\"val\" colspan=\"2\"><span class=\"blank-val\"></span></td></tr>";
+            return `<tr><td class="lbl">${icoCell}${f.label}</td><td class="val"><span class="blank-val"></span></td></tr>`;
           }
           if (!v && v !== 0) return "";
           const displayV = String(v).replace(/\n/g,"<br/>");
-          return "<tr><td class=\"lbl\">" + icoHtml + f.label + "</td>"
-            + "<td class=\"val\" colspan=\"2\">" + displayV + (obs ? " <span class=\"obs-val\">· " + obs + "</span>" : "") + "</td></tr>";
+          const obs = fields[f.key+"_obs"];
+          return `<tr><td class="lbl">${icoCell}${f.label}</td><td class="val">${displayV}${obs ? ` <span class="obs-val">· ${obs}</span>` : ""}</td></tr>`;
         }).join("");
         if (!rows.trim()) return "";
-        return "<tr class=\"sec-hd\"><td colspan=\"3\"><span class=\"sec-bar\" style=\"background:" + sc + ";\"></span>" + sec.toUpperCase() + "</td></tr>" + rows;
+        return `<tr class="sec-hd"><td colspan="2"><span class="sec-lbl">${sec.toUpperCase()}</span></td></tr>` + rows;
       }).join("");
     };
 
-    // Equipamiento en print — tabla limpia 2 columnas en lugar de badges inline
-    const printEquip = (() => {
-      const activeToggles = memoFields.filter(f => f.type==="toggle" && fields[f.key]);
-      const tecaVal = fields.teca_tipo;
-      const ge = fields.grupo_electrogeno;
-      const items = [];
-      if (ge) items.push({ label:"Grupo Electrógeno", val: ge });
-      if (tecaVal) items.push({ label:"Cubierta cockpit", val: tecaVal==="infinity"?"Infinity":"Teca" });
-      activeToggles.forEach(f => {
-        const obs = fields[f.key+"_obs"];
-        items.push({ label: f.label, val: obs||"Sí" });
-      });
+    // ── Notas ─────────────────────────────────────────────────────────────
+    const notasHtml = notas.length
+      ? notas.map(n => `<tr><td class="lbl nd">${n.fecha}</td><td class="val">${n.texto}</td></tr>`).join("")
+      : "";
+
+    // ── Adicionales HTML — lista con bullets, separados por coma o punto y coma
+    const adicionalesHtml = (() => {
+      if (!adicionalesText) return "";
+      // Dividir por coma o punto y coma para listar cada ítem
+      const items = adicionalesText
+        .split(/[,;\n]+/)
+        .map(s => s.trim())
+        .filter(Boolean);
       if (!items.length) return "";
-      const sc = SEC_COLORS["Equipamiento"] || ac;
-      let html = "<tr class=\"sec-hd\"><td colspan=\"3\"><span class=\"sec-bar\" style=\"background:" + sc + ";\"></span>EQUIPAMIENTO</td></tr>";
-      html += "<tr><td colspan=\"3\" style=\"padding:0;border:none;\"><table style=\"width:100%;border-collapse:collapse;\">";
-      for (let i = 0; i < items.length; i += 2) {
-        const a = items[i], b = items[i+1];
-        html += "<tr>";
-        html += "<td style=\"width:35%;background:#f4f5f7;padding:4px 10px;font-size:9px;color:#444;font-weight:600;border:1px solid #dde0e6;\">" + a.label + "</td>";
-        html += "<td style=\"width:15%;background:#fff;padding:4px 10px;font-size:10.5px;color:#111;font-weight:700;border:1px solid #dde0e6;\">" + a.val + "</td>";
-        if (b) {
-          html += "<td style=\"width:35%;background:#f4f5f7;padding:4px 10px;font-size:9px;color:#444;font-weight:600;border:1px solid #dde0e6;\">" + b.label + "</td>";
-          html += "<td style=\"width:15%;background:#fff;padding:4px 10px;font-size:10.5px;color:#111;font-weight:700;border:1px solid #dde0e6;\">" + b.val + "</td>";
-        } else {
-          html += "<td colspan=\"2\" style=\"border:1px solid #dde0e6;\"></td>";
-        }
-        html += "</tr>";
-      }
-      html += "</table></td></tr>";
-      return html;
+      const listHtml = items.length === 1
+        ? `<tr><td colspan="2" class="val adic">${items[0]}</td></tr>`
+        : `<tr><td colspan="2" class="val adic-list"><ul>${items.map(i=>`<li>${i}</li>`).join("")}</ul></td></tr>`;
+      return `<tr class="sec-hd"><td colspan="2"><span class="sec-lbl">ADICIONALES</span></td></tr>` + listHtml;
     })();
-    const tableRows = buildRows(false);
-    const blankRows  = buildRows(true)
 
-    const notasRows = notas.length
-      ? notas.map(n =>
-          "<tr><td class=\"lbl nd\">" + n.fecha + "</td>"
-          + "<td class=\"val\" colspan=\"2\">" + n.texto + "</td></tr>"
-        ).join("")
-      : "<tr><td colspan=\"3\" class=\"empty\">Sin notas registradas.</td></tr>";
-
-    const pctHtml = obra?._pct != null
-      ? " <span class=\"pct-badge\" style=\"color:" + ac + ";\">&#9646; " + pct + "%</span>" : "";
-
+    // ── Cabecera: propietario, constructor, nombre barco ─────────────────
+    const propietario = fields.propietario || obra?.propietario || "";
+    const constructor = fields.constructor  || obra?.constructor  || "";
+    const nombreBarco = fields.nombre_barco || "";
 
     const css = [
       "@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&family=JetBrains+Mono:wght@500;600;700&display=swap');",
       "*{box-sizing:border-box;margin:0;padding:0;}",
-      "html,body{background:#cdd0d8;font-family:'Inter',sans-serif;font-size:11px;-webkit-print-color-adjust:exact;print-color-adjust:exact;}",
-      "@page{size:A4;margin:10mm 10mm;}",
+      "html,body{background:#e8eaed;font-family:'Inter',sans-serif;font-size:11px;-webkit-print-color-adjust:exact;print-color-adjust:exact;}",
+      "@page{size:A4;margin:12mm 12mm;}",
       ".page{width:100%;background:#fff;display:flex;flex-direction:column;}",
 
-      // Header unificado — todo dentro del bloque oscuro
-      ".hdr{background:#0f1318;flex-shrink:0;}",
-      ".hdr-top{display:flex;align-items:center;justify-content:space-between;padding:0 16px;height:40px;border-bottom:1px solid rgba(255,255,255,.07);}",
-      ".hdr img.logo{height:30px;mix-blend-mode:screen;}",
-      ".hdr-r{text-align:right;}",
-      ".hdr-doc{font-size:6px;letter-spacing:3px;text-transform:uppercase;color:rgba(255,255,255,.28);font-family:'JetBrains Mono',monospace;}",
-      ".hdr-fecha{font-size:6.5px;color:rgba(255,255,255,.22);font-family:'JetBrains Mono',monospace;margin-top:2px;}",
-      ".hdr-hero{display:flex;align-items:stretch;border-bottom:3px solid " + ac + ";}",
+      // Header
+      ".hdr{background:#0d1117;padding:0;}",
+      ".hdr-inner{display:flex;align-items:stretch;border-bottom:3px solid " + ac + ";}",
+      ".hdr-num{text-align:center;padding:10px 24px;min-width:130px;border-right:1px solid rgba(255,255,255,.1);display:flex;flex-direction:column;justify-content:center;}",
+      ".hdr-lbl{font-size:6px;letter-spacing:3px;text-transform:uppercase;color:rgba(255,255,255,.3);font-family:'JetBrains Mono',monospace;margin-bottom:4px;}",
+      ".hdr-cod{font-size:28px;font-weight:900;font-family:'JetBrains Mono',monospace;color:#fff;letter-spacing:-1px;line-height:1;}",
+      ".hdr-meta{flex:1;padding:10px 18px;display:flex;flex-direction:column;gap:5px;justify-content:center;}",
+      ".hdr-prop{font-size:15px;font-weight:700;color:#fff;letter-spacing:-0.2px;}",
+      ".hdr-sub{display:flex;align-items:center;gap:10px;font-size:9.5px;color:rgba(255,255,255,.45);}",
+      ".hdr-sub b{color:rgba(255,255,255,.75);font-weight:600;}",
+      ".hdr-sep-v{width:1px;height:12px;background:rgba(255,255,255,.15);}",
+      ".hdr-logo{height:26px;mix-blend-mode:screen;align-self:center;margin:10px 16px 10px auto;}",
 
-      // Hero — dentro del bloque oscuro
-      ".hero-cod-block{text-align:center;padding:7px 22px 6px;min-width:120px;display:flex;flex-direction:column;justify-content:center;border-right:1px solid rgba(255,255,255,.1);}",
-      ".hero-lbl{font-size:5.5px;letter-spacing:3px;text-transform:uppercase;color:rgba(255,255,255,.32);font-family:'JetBrains Mono',monospace;margin-bottom:3px;}",
-      ".hero-cod{font-size:26px;font-weight:900;font-family:'JetBrains Mono',monospace;color:#fff;letter-spacing:-1px;line-height:1;}",
-      ".hero-meta{flex:1;display:flex;align-items:center;gap:10px;padding:6px 14px;flex-wrap:wrap;}",
-      ".hero-chip{display:inline-flex;align-items:center;gap:4px;padding:3px 11px;border-radius:2px;font-size:7px;font-weight:700;letter-spacing:2px;text-transform:uppercase;background:" + ac + ";color:#fff;}",
-      ".hero-dot{width:3px;height:3px;border-radius:50%;background:rgba(255,255,255,.7);}",
-      ".h-info{font-size:9.5px;color:rgba(255,255,255,.55);} .h-info b{color:#fff;font-weight:700;}",
-      ".h-sep{color:rgba(255,255,255,.2);font-size:10px;}",
-      ".pct-badge{font-size:8.5px;font-weight:700;font-family:'JetBrains Mono',monospace;color:" + ac + ";}",
-
-      // Tabla
+      // Tabla principal
       ".wrap{flex:1;}",
-      "table{width:100%;border-collapse:collapse;}",
-      "tr td{border:1px solid #dde0e6;vertical-align:middle;}",
-      "td.lbl{width:37%;font-size:9px;color:#444;padding:5px 8px 5px 10px;line-height:1.3;font-weight:500;background:#f4f5f7;display:flex;align-items:center;gap:5px;}",
-      // Fix: td no puede tener display flex en tabla, usar tabla-cell
-      "td.lbl{display:table-cell;vertical-align:middle;}",
-      ".ico{display:inline-flex;align-items:center;vertical-align:middle;margin-right:4px;opacity:.7;flex-shrink:0;}",
-      "td.val{font-size:10.5px;color:#111;padding:5px 10px;line-height:1.4;background:#fff;white-space:pre-wrap;}",
-      ".obs-val{color:#666;font-style:italic;}",
-
-      // Toggles
-      "td.chk-cell{width:26px;padding:4px;text-align:center;background:#fff;border-left:none;}",
-      ".chk{display:inline-flex;align-items:center;justify-content:center;width:16px;height:16px;border-radius:3px;}",
+      "table.main{width:100%;border-collapse:collapse;}",
+      "table.main td{vertical-align:middle;}",
+      "td.lbl{width:38%;font-size:8.5px;color:#555;padding:5px 10px;line-height:1.3;font-weight:600;background:#f5f6f8;border:1px solid #e0e3e8;text-transform:uppercase;letter-spacing:0.3px;}",
+      "td.val{font-size:10.5px;color:#111;padding:5px 10px;line-height:1.5;background:#fff;border:1px solid #e0e3e8;white-space:pre-wrap;}",
+      "td.val.adic{font-size:10.5px;color:#222;padding:10px;line-height:1.6;}",
+      ".obs-val{color:#888;font-style:italic;}",
+      ".blank-val{border-bottom:1px solid #bbb;min-height:14px;display:block;}",
 
       // Section headers
-      "tr.sec-hd td{background:#1a1f2e;color:rgba(255,255,255,.9);font-size:7px;letter-spacing:3px;text-transform:uppercase;font-family:'JetBrains Mono',monospace;font-weight:600;padding:6px 10px;border:none;vertical-align:middle;}",
-      ".sec-bar{display:inline-block;width:3px;height:11px;border-radius:2px;margin-right:8px;vertical-align:middle;}",
+      "tr.sec-hd td{background:#1a1f2e;color:rgba(255,255,255,.88);font-size:7px;letter-spacing:3px;text-transform:uppercase;font-family:'JetBrains Mono',monospace;font-weight:600;padding:5px 10px;border:none;}",
+      ".sec-lbl{display:inline-block;padding-left:2px;}",
+      ".ico{display:inline-block;vertical-align:middle;margin-right:5px;opacity:0.6;width:14px;height:14px;}",
+      ".ico svg{vertical-align:top;}",
+      "td.val.adic{font-size:10.5px;color:#222;padding:10px 12px;line-height:1.7;}",
+      "td.val.adic-list{padding:6px 12px;}",
+      "td.val.adic-list ul{margin:0;padding-left:16px;list-style:disc;}",
+      "td.val.adic-list ul li{font-size:10.5px;color:#222;line-height:1.7;padding:1px 0;}",
 
-      // Badges row
-      "tr.badges-row td{background:#f8f9fb;padding:6px 14px;border-bottom:1px solid #e4e7ec;border-top:1px solid #e4e7ec;}",
-      ".bdg{display:inline-flex;align-items:center;gap:5px;padding:3px 11px;border-radius:4px;font-size:8px;font-weight:600;letter-spacing:0.5px;border:1px solid " + ac + "33;margin-right:6px;color:" + ac + ";background:" + ac + "0d;}",
-      ".bdg-check{color:#16a34a;font-size:9px;}",
+      // Equipamiento grid
+      "table.eq-table{width:100%;border-collapse:collapse;}",
+      "td.eq-lbl{width:38%;font-size:8.5px;color:#555;padding:5px 10px;background:#f5f6f8;border:1px solid #e0e3e8;font-weight:600;text-transform:uppercase;letter-spacing:0.3px;}",
+      "td.eq-val{width:12%;font-size:10px;color:#111;padding:5px 10px;background:#fff;border:1px solid #e0e3e8;font-weight:700;}",
+      ".eq-chk{display:inline-block;width:12px;height:12px;background:" + ac + ";border-radius:2px;margin-right:6px;vertical-align:middle;text-align:center;line-height:12px;font-size:9px;color:#fff;font-weight:900;}",
 
       // Notas
-      "td.nd{font-size:8px;font-family:'JetBrains Mono',monospace;color:#999;white-space:nowrap;}",
-      ".empty{padding:8px 10px;font-size:10px;color:#bbb;font-style:italic;text-align:center;}",
+      "td.nd{font-size:8px;font-family:'JetBrains Mono',monospace;color:#999;white-space:nowrap;width:80px;}",
 
       // Footer
-      ".ftr{border-top:2px solid #1a1f2e;padding:9px 16px;display:flex;justify-content:space-between;align-items:center;flex-shrink:0;}",
+      ".ftr{border-top:1px solid #e0e3e8;padding:7px 12px;display:flex;justify-content:space-between;align-items:center;flex-shrink:0;}",
       ".ftr-l{display:flex;align-items:center;gap:8px;}",
-      ".ftr-logo{height:18px;filter:invert(1);opacity:.45;}",
-      ".ftr-sep{width:1px;height:12px;background:#ccc;}",
-      ".ftr-txt{font-size:6.5px;color:#aaa;font-family:'JetBrains Mono',monospace;text-transform:uppercase;letter-spacing:.5px;}",
-      ".ftr-r{font-size:6.5px;color:#aaa;font-family:'JetBrains Mono',monospace;}",
-      ".blank-val{border-bottom:1px solid #bbb;min-height:14px;display:block;}",
-      ".blank-check{display:inline-block;width:12px;height:12px;border:1.5px solid #999;border-radius:2px;margin-right:6px;vertical-align:middle;}",
-      ".template-note{text-align:center;font-size:7px;color:#bbb;font-family:'JetBrains Mono',monospace;letter-spacing:2px;text-transform:uppercase;padding:4px 0 2px;}",
+      ".ftr-logo{height:16px;filter:invert(0.6);opacity:.5;}",
+      ".ftr-sep{width:1px;height:10px;background:#ccc;}",
+      ".ftr-txt{font-size:7px;color:#aaa;font-family:'JetBrains Mono',monospace;text-transform:uppercase;letter-spacing:.5px;}",
+      ".ftr-cod{font-size:7px;color:#aaa;font-family:'JetBrains Mono',monospace;}",
 
-      "@media screen{.page{width:210mm;min-height:297mm;box-shadow:0 8px 40px rgba(0,0,0,.2);margin:20px auto;}}",
+      "@media screen{.page{width:210mm;min-height:297mm;box-shadow:0 8px 40px rgba(0,0,0,.18);margin:20px auto;}}",
       "@media print{html,body{background:#fff;}.noprint{display:none!important;}.page{width:100%;box-shadow:none;margin:0;}}",
     ].join("");
 
-    const subParts = [
-      obra?.propietario ? "<b>" + obra.propietario + "</b>" : null,
-      puesto?.label ? "Puesto <b>" + puesto.label + "</b>" : null,
-      puesto?.tipo ? puesto.tipo.toUpperCase() : null,
-      obra?.constructor ? obra.constructor : null,
-    ].filter(Boolean);
+    const subMeta = [
+      constructor ? "<b>" + constructor + "</b> (Constructor)" : null,
+      nombreBarco ? "&#187; <b>" + nombreBarco + "</b>" : null,
+    ].filter(Boolean).join("<span class='hdr-sep-v'></span>");
 
     const html =
       "<!DOCTYPE html><html lang='es'><head><meta charset='UTF-8'/>"
-      + "<title>Memoria \u2014 " + cod + "</title>"
+      + "<title>" + cod + "</title>"
       + "<style>" + css + "</style></head><body>"
       + "<div class='page'>"
 
+        // ── HEADER ──
         + "<div class='hdr'>"
-          + "<div class='hdr-top'>"
-            + "<img class='logo' src='" + logoHdr + "' alt='Klase A'/>"
-            + "<div class='hdr-r'>"
-              + "<div class='hdr-doc'>Memoria Descriptiva de Obra</div>"
-              + "<div class='hdr-fecha'>" + fecha + "</div>"
+          + "<div class='hdr-inner'>"
+            + "<div class='hdr-num'>"
+              + "<div class='hdr-lbl'>N&#186; de barco</div>"
+              + "<div class='hdr-cod'>" + cod + "</div>"
             + "</div>"
-          + "</div>"
-          + "<div class='hdr-hero'>"
-            + "<div class='hero-cod-block'>"
-              + "<div class='hero-lbl'>N\u00ba barco</div>"
-              + "<div class='hero-cod'>" + cod + "</div>"
+            + "<div class='hdr-meta'>"
+              + (propietario ? "<div class='hdr-prop'>" + propietario + "</div>" : "")
+              + (subMeta ? "<div class='hdr-sub'>" + subMeta + "</div>" : "")
             + "</div>"
-            + "<div class='hero-meta'>"
-              + "<div class='hero-chip'><div class='hero-dot'></div>" + estadoLbl + "</div>"
-              + subParts.map((p,i) => (i>0?"<span class='h-sep'>\u00b7</span>":"") + "<div class='h-info'>" + p + "</div>").join("")
-              + pctHtml
-            + "</div>"
+            + "<img class='hdr-logo' src='" + logoHdr + "' alt='Klase A'/>"
           + "</div>"
         + "</div>"
 
-        + "<div class='wrap'><table>"
-                 + tableRows
-                 + printEquip
-          + "<tr class='sec-hd'><td colspan='3'><span class='sec-bar' style='background:" + ac + ";'></span>NOTAS DEL EQUIPO</td></tr>"
-          + notasRows
+        // ── TABLA ──
+        + "<div class='wrap'><table class='main' id='main-table'>"
+          + buildDataRows(false)
+          + adicionalesHtml
+          + (notasHtml ? "<tr class='sec-hd'><td colspan='2'>NOTAS</td></tr>" + notasHtml : "")
         + "</table></div>"
 
+        // ── FOOTER ──
         + "<div class='ftr'>"
           + "<div class='ftr-l'>"
             + "<img class='ftr-logo' src='" + logoFtr + "' alt='K'/>"
             + "<div class='ftr-sep'></div>"
             + "<div class='ftr-txt'>Klase A Astillero</div>"
           + "</div>"
-          + "<div class='ftr-r'>" + cod + " \u00b7 " + new Date().toLocaleDateString("es-AR") + "</div>"
+          + "<div class='ftr-cod'>" + cod + (propietario ? " · " + propietario : "") + "</div>"
         + "</div>"
 
       + "</div>"
       + "<div class='noprint' style='position:fixed;bottom:16px;left:50%;transform:translateX(-50%);display:flex;gap:8px;z-index:999;filter:drop-shadow(0 2px 12px rgba(0,0,0,.28));'>"
         + "<button onclick='window.print()' style='padding:10px 28px;background:#111;color:#fff;border:none;border-radius:6px;font-size:12px;font-weight:700;cursor:pointer;font-family:Inter,sans-serif;'>Descargar PDF</button>"
-        + "<button onclick=\"document.getElementById('main-table').innerHTML=BLANK_ROWS;window.print();\" style='padding:10px 18px;background:#fff;color:#333;border:1px solid #ccc;border-radius:6px;font-size:12px;font-weight:600;cursor:pointer;font-family:Inter,sans-serif;'>Plantilla vacía</button>"
         + "<button onclick='window.close()' style='padding:10px 14px;background:#fff;color:#777;border:1px solid #ccc;border-radius:6px;font-size:12px;cursor:pointer;font-family:Inter,sans-serif;'>Cerrar</button>"
       + "</div>"
-      + "<script>var BLANK_ROWS = " + JSON.stringify(
-          "<tr class='sec-hd'><td colspan='3'><span class='sec-bar' style='background:" + ac + ";'></span>PLANTILLA</td></tr>"
-          + blankRows
-          + "<tr class='sec-hd'><td colspan='3'><span class='sec-bar' style='background:" + ac + ";'></span>NOTAS</td></tr>"
-          + "<tr><td class='lbl'></td><td class='val' colspan='2'><span class='blank-val' style='min-height:60px;display:block;'></span></td></tr>"
-        ) + ";</script>"
       + "</body></html>";
 
     const win = window.open("","_blank","width=900,height=960");
     if(!win){ alert("Habilit\u00e1 las ventanas emergentes para imprimir."); return; }
-    // Inject table id for blank mode
-    const htmlWithId = html.replace("<div class='wrap'><table>", "<div class='wrap'><table id='main-table'>");
-    win.document.write(htmlWithId);
+    win.document.write(html);
     win.document.close();
   };
   // Badges: todos los fields de tipo toggle en este perfil de línea (sin duplicados por key)
@@ -1964,6 +1956,7 @@ export default function MapaProduccion({obras=[],onPuestoClick,onAsignarObra,onC
   const [confirmDel,setConfirmDel]=useState(null);
   const [pulseKey,setPulseKey]=useState(0);
   const [isDragging,setIsDragging]=useState(false);
+  const [clickMenu,setClickMenu]=useState(null); // {puestoId, x, y}
   const [kpiCollapsed,setKpiCollapsed]=useState(false);
   const [obraDragPos,setObraDragPos]=useState(null);
   const [obraDragOver,setObraDragOver]=useState(null);
@@ -1979,7 +1972,7 @@ export default function MapaProduccion({obras=[],onPuestoClick,onAsignarObra,onC
   const dragRafRef=useRef(null);        // RAF handle para throttle de setPuestoDragLive
   const [puestoDragLive,setPuestoDragLive]=useState(null); // {id,cx,cy} — solo el barco arrastrado
 
-  useEffect(()=>{stateRef.current={editMode,cmdPaletteOpen,focusedPuesto,addObraFor,confirmDel,contextMenu,hovered,puestos};},[editMode,cmdPaletteOpen,focusedPuesto,addObraFor,confirmDel,contextMenu,hovered,puestos]);
+  useEffect(()=>{stateRef.current={editMode,cmdPaletteOpen,focusedPuesto,addObraFor,confirmDel,contextMenu,hovered,puestos,clickMenu};},[editMode,cmdPaletteOpen,focusedPuesto,addObraFor,confirmDel,contextMenu,hovered,puestos,clickMenu]);
   useEffect(()=>{vpRef.current=vp;},[vp]);
   // Persistir puestos en localStorage al cambiar + callback para backend compartido
   useEffect(()=>{ savePuestos(puestos); onSaveLayout?.(puestos); },[puestos]);
@@ -2077,6 +2070,7 @@ export default function MapaProduccion({obras=[],onPuestoClick,onAsignarObra,onC
         if(st.addObraFor){setAddObraFor(null);return;}
         if(st.confirmDel){setConfirmDel(null);return;}
         if(st.focusedPuesto){setFocusedPuesto(null);return;}
+        setClickMenu(null);
         return;
       }
       if(e.target.tagName==="INPUT"||e.target.tagName==="TEXTAREA") return;
@@ -2139,7 +2133,7 @@ export default function MapaProduccion({obras=[],onPuestoClick,onAsignarObra,onC
         puestoDragLiveRef.current=null;
         setPuestoDragLive(null);
       }
-      else if(d?.type==="obra"){if(!d.moved){onPuestoClick?.({puesto:d.puesto,obra:d.obra});}else{const target=obraDragOverRef.current;if(target&&d.obra&&onAsignarObra)onAsignarObra(target,d.obra.id);}obraDragOverRef.current=null;setObraDragPos(null);setObraDragOver(null);}
+      else if(d?.type==="obra"){if(!d.moved){handlePuestoClick(d.puesto,d.startX,d.startY);}else{const target=obraDragOverRef.current;if(target&&d.obra&&onAsignarObra)onAsignarObra(target,d.obra.id);}obraDragOverRef.current=null;setObraDragPos(null);setObraDragOver(null);}
       else if(d?.type==="empty"&&!d?.moved){setAddObraFor(d.puestoId);}
       setIsDragging(false);dragRef.current=null;
     };
@@ -2157,7 +2151,13 @@ export default function MapaProduccion({obras=[],onPuestoClick,onAsignarObra,onC
   function toggleRot(id){setPuestos(prev=>prev.map(p=>p.id===id?{...p,rot:(p.rot+90)%360}:p));}
   function resetLayout(){if(!window.confirm("¿Resetear el layout al estado original? Se perderán todas las posiciones personalizadas."))return;localStorage.removeItem(LS_KEY);_nextN=23;setPuestos(PUESTOS_INITIAL);}
   async function handleModalAssign(pId,oId){if(!onAsignarObra)return;try{await onAsignarObra(pId,oId);}finally{setAddObraFor(null);}}
-  function handlePuestoClick(p){if(editMode)return;const obra=obraByPuesto[p.id];if(!obra)setAddObraFor(p.id);else onPuestoClick?.({puesto:p,obra});}
+  function handlePuestoClick(p,screenX,screenY){
+    if(editMode)return;
+    const obra=obraByPuesto[p.id];
+    if(!obra){ setAddObraFor(p.id); return; }
+    // Mini selector: Etapas | Memoria
+    setClickMenu({puestoId:p.id,x:screenX??window.innerWidth/2,y:screenY??window.innerHeight/2});
+  }
   const handleContextMenu=useCallback((e,p)=>{e.preventDefault();e.stopPropagation();setContextMenu({x:e.clientX,y:e.clientY,puestoId:p.id});setTooltip(null);},[]);
   const handlePaletteAction=useCallback((item)=>{
     if(item.type==="action"){if(item.id==="reset-view")resetVp();else if(item.id==="toggle-edit")setEditMode(v=>!v);else if(item.id==="zoom-in")zoomBtn(1.3);else if(item.id==="zoom-out")zoomBtn(0.77);}
@@ -2258,12 +2258,13 @@ export default function MapaProduccion({obras=[],onPuestoClick,onAsignarObra,onC
     const infoY = p.cy + bottomOffset;
 
     return(
-      <g key={p.id} transform={`rotate(${p.rot||0},${p.cx},${p.cy})`} style={{cursor:editMode?"grab":canDrop?"copy":"pointer"}}
+      <g key={p.id} transform={`rotate(${p.rot||0},${p.cx},${p.cy})`}
+        style={{cursor:editMode?"grab":canDrop?"copy":"pointer"}}
         onMouseDown={e=>startPuestoDrag(e,p)}
         onMouseEnter={()=>{setHovered(p.id);if(canDrop){obraDragOverRef.current=p.id;setObraDragOver(p.id);}}}
         onMouseLeave={()=>{setHovered(null);setTooltip(null);if(obraDragOverRef.current===p.id){obraDragOverRef.current=null;setObraDragOver(null);}}}
         onMouseMove={e=>!obraDragPos&&setTooltip({cx:e.clientX,cy:e.clientY,puesto:p})}
-        onClick={e=>{if(dragRef.current&&!dragRef.current.moved){e.stopPropagation();handlePuestoClick(p);}}}
+        onClick={e=>{if(dragRef.current&&!dragRef.current.moved){e.stopPropagation();handlePuestoClick(p,e.clientX,e.clientY);}}}
         onContextMenu={e=>handleContextMenu(e,p)}>
       {/* Rect transparente de hit-area — único elemento que captura eventos del mouse */}
       <rect x={ix} y={iy} width={p.w} height={p.h} fill="transparent" style={{cursor:"inherit"}}/>
@@ -2324,6 +2325,20 @@ export default function MapaProduccion({obras=[],onPuestoClick,onAsignarObra,onC
               <g style={{filter:glowFilter, transition:"filter 0.25s ease"}} clipPath={`url(#${clipId})`}>
                 <BoatImage opacity={1}/>
               </g>
+              {/* Shimmer visible — pulsa entre transparente y blanco suave con screen blend */}
+              {isAct&&(
+                <g clipPath={`url(#${clipId})`} style={{pointerEvents:"none"}}>
+                  <rect
+                    x={ix} y={iy} width={p.w} height={p.h}
+                    style={{
+                      fill:"rgba(255,255,255,0)",
+                      mixBlendMode:"screen",
+                      animation:`shimmerScan 6s ease-in-out infinite`,
+                      animationDelay:`${((p.id.charCodeAt(p.id.length-1)||0)*0.55)%5}s`,
+                    }}
+                  />
+                </g>
+              )}
               {/* Tint de color de estado */}
               <rect x={ix} y={iy} width={p.w} height={p.h} rx={Math.min(p.w,p.h)*0.05}
                 fill={oC.glow} fillOpacity={isHov?0.15:0.07}
@@ -2428,6 +2443,7 @@ export default function MapaProduccion({obras=[],onPuestoClick,onAsignarObra,onC
         @keyframes halo-breathe {0%,100%{stroke-opacity:0.14}50%{stroke-opacity:0.35}}
         @keyframes line-breathe {0%,100%{stroke-opacity:0.25} 50%{stroke-opacity:0.55}}
         @keyframes kpi-slideIn  {from{opacity:0;transform:translateY(12px) scale(0.97)}to{opacity:1;transform:translateY(0) scale(1)}}
+        @keyframes shimmerScan  {0%,100%{fill:rgba(255,255,255,0)}48%,52%{fill:rgba(255,255,255,0.13)}}
         .glass-btn{background:rgba(255,255,255,0.03);border:1px solid rgba(255,255,255,0.08);color:${C.t1};transition:all 0.2s;}
         .glass-btn:hover{background:rgba(255,255,255,0.08);color:${C.t0};border-color:rgba(255,255,255,0.2);}
       `}</style>
@@ -2456,6 +2472,7 @@ export default function MapaProduccion({obras=[],onPuestoClick,onAsignarObra,onC
             <stop offset="40%"  stopColor="#ffffff" stopOpacity="0.02"/>
             <stop offset="100%" stopColor="#000000" stopOpacity="0.30"/>
           </linearGradient>
+
         </defs>
         <rect width="100%" height="100%" fill={C.bg}/>
         <rect width="100%" height="100%" fill="none" stroke="none"/>
@@ -2678,6 +2695,85 @@ export default function MapaProduccion({obras=[],onPuestoClick,onAsignarObra,onC
           </div>
         )}
       </div>
+
+      {/* CLICK MENU — selector rápido Etapas | Memoria */}
+      {clickMenu&&(()=>{
+        const p2=puestos.find(x=>x.id===clickMenu.puestoId);
+        const o2=p2?obraByPuesto[p2.id]:null;
+        if(!o2) return null;
+        const oC2=C.obra[o2.estado??"vacio"];
+        return(
+          <div style={{position:"fixed",inset:0,zIndex:800}} onClick={()=>setClickMenu(null)}>
+            <div style={{
+              position:"fixed",
+              left:Math.min(clickMenu.x-80,window.innerWidth-200),
+              top:Math.max(clickMenu.y-80,8),
+              zIndex:801,
+              background:"rgba(6,6,14,0.97)",
+              backdropFilter:"blur(24px)",
+              WebkitBackdropFilter:"blur(24px)",
+              border:`1px solid rgba(255,255,255,0.1)`,
+              borderRadius:14,
+              padding:"8px",
+              display:"flex",
+              flexDirection:"column",
+              gap:4,
+              boxShadow:`0 16px 40px rgba(0,0,0,0.8), 0 0 0 1px ${oC2.glow}18`,
+              animation:"fadeUp 0.15s cubic-bezier(0.22,1,0.36,1)",
+              minWidth:172,
+              fontFamily:C.sans,
+            }} onClick={e=>e.stopPropagation()}>
+              {/* Header */}
+              <div style={{padding:"6px 10px 8px",borderBottom:"1px solid rgba(255,255,255,0.06)",marginBottom:2}}>
+                <div style={{display:"flex",alignItems:"center",gap:7}}>
+                  <div style={{width:7,height:7,borderRadius:"50%",background:oC2.glow,boxShadow:`0 0 8px ${oC2.glow}`}}/>
+                  <span style={{fontFamily:C.mono,fontSize:14,fontWeight:800,color:"#fff",letterSpacing:0.3}}>{o2.codigo}</span>
+                </div>
+                {o2.propietario&&<div style={{fontSize:10,color:"rgba(255,255,255,0.35)",marginTop:2,paddingLeft:14}}>{o2.propietario}</div>}
+              </div>
+              {/* Botón Etapas */}
+              <button onClick={()=>{setClickMenu(null);onPuestoClick?.({puesto:p2,obra:o2});}} style={{
+                display:"flex",alignItems:"center",gap:10,padding:"9px 12px",
+                borderRadius:9,border:"1px solid rgba(255,255,255,0.06)",
+                background:"rgba(255,255,255,0.03)",cursor:"pointer",
+                fontFamily:C.sans,textAlign:"left",transition:"all 0.12s",
+              }}
+                onMouseEnter={e=>{e.currentTarget.style.background="rgba(96,165,250,0.1)";e.currentTarget.style.borderColor="rgba(96,165,250,0.3)";}}
+                onMouseLeave={e=>{e.currentTarget.style.background="rgba(255,255,255,0.03)";e.currentTarget.style.borderColor="rgba(255,255,255,0.06)";}}>
+                <div style={{width:28,height:28,borderRadius:8,background:"rgba(96,165,250,0.12)",border:"1px solid rgba(96,165,250,0.2)",display:"flex",alignItems:"center",justifyContent:"center",flexShrink:0}}>
+                  <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="#60a5fa" strokeWidth="1.8" strokeLinecap="round">
+                    <polyline points="9 11 12 14 22 4"/><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"/>
+                  </svg>
+                </div>
+                <div>
+                  <div style={{fontSize:12,fontWeight:600,color:"#f4f4f5"}}>Etapas</div>
+                  <div style={{fontSize:9,color:"rgba(255,255,255,0.28)",marginTop:1}}>Progreso y tareas</div>
+                </div>
+              </button>
+              {/* Botón Memoria */}
+              <button onClick={()=>{setClickMenu(null);setFocusedPuesto(p2.id);centerOnPuesto(p2);}} style={{
+                display:"flex",alignItems:"center",gap:10,padding:"9px 12px",
+                borderRadius:9,border:"1px solid rgba(255,255,255,0.06)",
+                background:"rgba(255,255,255,0.03)",cursor:"pointer",
+                fontFamily:C.sans,textAlign:"left",transition:"all 0.12s",
+              }}
+                onMouseEnter={e=>{e.currentTarget.style.background=`${oC2.glow}15`;e.currentTarget.style.borderColor=`${oC2.glow}35`;}}
+                onMouseLeave={e=>{e.currentTarget.style.background="rgba(255,255,255,0.03)";e.currentTarget.style.borderColor="rgba(255,255,255,0.06)";}}>
+                <div style={{width:28,height:28,borderRadius:8,background:`${oC2.glow}15`,border:`1px solid ${oC2.glow}25`,display:"flex",alignItems:"center",justifyContent:"center",flexShrink:0}}>
+                  <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke={oC2.glow} strokeWidth="1.8" strokeLinecap="round">
+                    <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/>
+                    <line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/>
+                  </svg>
+                </div>
+                <div>
+                  <div style={{fontSize:12,fontWeight:600,color:"#f4f4f5"}}>Memoria</div>
+                  <div style={{fontSize:9,color:"rgba(255,255,255,0.28)",marginTop:1}}>Ficha descriptiva</div>
+                </div>
+              </button>
+            </div>
+          </div>
+        );
+      })()}
 
       {/* RADIAL MENU */}
       {contextMenu&&ctxPuesto&&(
