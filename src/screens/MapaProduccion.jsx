@@ -1033,7 +1033,7 @@ function MemoriaHUD({ obra, puesto, oC, memoriaOverride, onSaveMemoria, notas=[]
     const equipItems = [];
     const activeToggles = memoFields.filter(f => f.type==="toggle" && fields[f.key]);
     const tecaVal = fields.teca_tipo;
-    if (tecaVal) equipItems.push({ label:"Cubierta cockpit", val: tecaVal==="infinity" ? "Infinity" : "Teca", isCheck: false });
+    if (tecaVal) equipItems.push({ label: tecaVal==="infinity" ? "Infinity" : "Teca", val: "", isCheck: true });
     activeToggles.forEach(f => {
       const obs = fields[f.key+"_obs"];
       equipItems.push({ label: f.label, val: obs||"", isCheck: true });

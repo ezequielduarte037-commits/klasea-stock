@@ -159,6 +159,11 @@ export default function MarmoleriaScreen({ profile, signOut }) {
   const [filtroEstado, setFiltroEstado] = useState("todos");
   const [modalPieza, setModalPieza] = useState(null);
 
+  // Vista: "general" | "plantilla" | "barco"
+  const [viewMode, setViewMode] = useState("general");
+  const [plantillaLinea, setPlantillaLinea] = useState([]);
+  const [plantillaLoading, setPlantillaLoading] = useState(false);
+
   const [loading, setLoading]   = useState(false);
   const [isExporting, setIsExporting] = useState(false);
   const [err, setErr]           = useState("");
@@ -215,7 +220,6 @@ export default function MarmoleriaScreen({ profile, signOut }) {
   async function cargarLineas() {
     const { data } = await supabase.from("marm_lineas").select("id,nombre").eq("activa",true).order("nombre");
     setLineas(data ?? []);
-    if (!lineaId && data?.length) setLineaId(data[0].id);
   }
 
   async function cargarUnidades(lid) {
@@ -263,15 +267,18 @@ export default function MarmoleriaScreen({ profile, signOut }) {
   useEffect(() => { 
     if (lineaId) { 
       cargarUnidades(lineaId); 
+      cargarPlantillaLinea(lineaId);
       setUnidadId(null); 
-      setPiezas([]); 
+      setPiezas([]);
+      setViewMode("plantilla");
     } 
   }, [lineaId]);
 
   useEffect(() => { 
     if (unidadId) {
-      cargarPiezas(unidadId); 
-    } else {
+      cargarPiezas(unidadId);
+      setViewMode("barco");
+    } else if (!lineaId) {
       cargarDashboardGeneral();
     }
   }, [unidadId]);
@@ -353,6 +360,23 @@ export default function MarmoleriaScreen({ profile, signOut }) {
     cargarUnidades(lineaId);
   }
 
+  async function cargarPlantillaLinea(lid) {
+    setPlantillaLoading(true);
+    const { data } = await supabase
+      .from("marm_linea_piezas")
+      .select("*")
+      .eq("linea_id", lid)
+      .order("sector").order("orden");
+    setPlantillaLinea(data ?? []);
+    setPlantillaLoading(false);
+  }
+
+  async function eliminarPiezaPlantilla(piezaId) {
+    if (!window.confirm("¿Quitar esta pieza de la plantilla? No afecta barcos existentes.")) return;
+    await supabase.from("marm_linea_piezas").delete().eq("id", piezaId);
+    setPlantillaLinea(prev => prev.filter(p => p.id !== piezaId));
+  }
+
   async function guardarEditUnidad(id) {
     if (!editUnidadCodigo.trim()) {
       setEditUnidadId(null);
@@ -373,9 +397,26 @@ export default function MarmoleriaScreen({ profile, signOut }) {
   }
 
   async function guardarDetalle(piezaId, form) {
-    await supabase.from("marm_unidad_piezas").update(form).eq("id", piezaId);
-    setPiezas(prev => prev.map(p => p.id === piezaId ? {...p, ...form} : p));
-    cargarDashboardGeneral(); // Refrescar por si se cambió algo desde la vista global
+    // Convertir strings vacíos a null para columnas date
+    const formLimpio = {
+      ...form,
+      fecha_envio:   form.fecha_envio   || null,
+      fecha_regreso: form.fecha_regreso || null,
+      observaciones: form.observaciones || null,
+      foto_ref:      form.foto_ref      || null,
+    };
+
+    const { data, error } = await supabase
+      .from("marm_unidad_piezas")
+      .update(formLimpio)
+      .eq("id", piezaId)
+      .select()
+      .single();
+
+    if (error) { setErr("Error al guardar: " + error.message); return; }
+
+    setPiezas(prev => prev.map(p => p.id === piezaId ? { ...p, ...(data ?? formLimpio) } : p));
+    cargarDashboardGeneral();
   }
 
   async function cambiarColorSector(sector, nuevoColor) {
@@ -480,13 +521,24 @@ export default function MarmoleriaScreen({ profile, signOut }) {
       });
 
       // 5. Preparamos las filas para la tabla (igual al Google Sheets de ejemplo)
+      // Pre-computar el color por barco+sector (tomando el primero no vacío)
+      const colorPorSector = {};
+      dataPDF.forEach(p => {
+        const key = `${p.codigo_barco}__${p.sector}`;
+        if (!colorPorSector[key] && (p.color || p.sector_color)) {
+          colorPorSector[key] = p.color || p.sector_color;
+        }
+      });
+
       const rows = dataPDF.map(p => {
         let fechaEnvioFormateada = p.fecha_envio ? p.fecha_envio.split("-").reverse().join("/") : "-";
+        const key = `${p.codigo_barco}__${p.sector}`;
+        const colorMostrar = p.color || p.sector_color || colorPorSector[key] || "-";
         return [
           p.codigo_barco,
           fechaEnvioFormateada,
           p.pieza || "-",
-          p.color || "-",
+          colorMostrar,
           p.sector || "-",
           "1",
           p.estado,
@@ -807,7 +859,7 @@ export default function MarmoleriaScreen({ profile, signOut }) {
               </div>
 
               {/* Panel general btn */}
-              <button className="nav-btn-item" onClick={() => setUnidadId(null)} style={{
+              <button className="nav-btn-item" onClick={() => { setUnidadId(null); setLineaId(null); setViewMode("general"); cargarDashboardGeneral(); }} style={{
                 width:"100%", textAlign:"left", padding:"10px 14px",
                 border:"none", borderBottom:`1px solid rgba(255,255,255,0.025)`,
                 background: !unidadId ? "rgba(59,130,246,0.09)" : "transparent",
@@ -840,7 +892,7 @@ export default function MarmoleriaScreen({ profile, signOut }) {
                         fontFamily:C2.sans,
                         borderLeft: selLinea ? `2px solid ${C2.primary}` : "2px solid transparent",
                         transition:"all 0.15s",
-                      }} onClick={() => { setLineaId(l.id); setUnidadId(null); }}>
+                      }} onClick={() => { setLineaId(l.id); setUnidadId(null); setViewMode("plantilla"); }}>
                         <span style={{ display:"flex", alignItems:"center", gap:8, flex:1, minWidth:0 }}>
                           <div style={{ width:6, height:6, borderRadius:"50%", flexShrink:0,
                             background: selLinea ? C2.primary : "#2c3546",
@@ -934,7 +986,7 @@ export default function MarmoleriaScreen({ profile, signOut }) {
             <div style={{ height:"100%", overflowY:"auto" }}>
 
               {/* ════ DASHBOARD GLOBAL ════ */}
-              {!unidadId && (
+              {viewMode === "general" && !unidadId && (
                 <div style={{ padding:"22px 26px", animation:"slideUp .28s ease" }}>
 
                   <div style={{ display:"flex", alignItems:"flex-end", justifyContent:"space-between", marginBottom:20 }}>
@@ -1011,8 +1063,93 @@ export default function MarmoleriaScreen({ profile, signOut }) {
                 </div>
               )}
 
+              {/* ════ PLANTILLA DE LÍNEA ════ */}
+              {viewMode === "plantilla" && !unidadId && lineaId && (
+                <div style={{ padding:"22px 26px", animation:"slideUp .28s ease" }}>
+                  <div style={{ display:"flex", alignItems:"flex-start", justifyContent:"space-between", marginBottom:20 }}>
+                    <div>
+                      <div style={{ fontSize:8, color:C2.t2, letterSpacing:3, textTransform:"uppercase", fontFamily:C2.mono, marginBottom:5 }}>Plantilla de línea</div>
+                      <h1 style={{ margin:0, fontSize:18, fontWeight:700, color:C2.t0, letterSpacing:-0.3 }}>
+                        {lineaSel?.nombre}
+                        <span style={{ fontWeight:400, color:C2.t2, fontSize:13 }}> — {plantillaLinea.length} piezas</span>
+                      </h1>
+                      <p style={{ color:C2.t2, fontSize:11, margin:"4px 0 0" }}>
+                        Estas piezas se copian automáticamente a cada nuevo barco de esta línea
+                      </p>
+                    </div>
+                  </div>
+
+                  {plantillaLoading ? (
+                    <div style={{ textAlign:"center", padding:40, fontSize:11, color:C2.t2, letterSpacing:2, textTransform:"uppercase", fontFamily:C2.mono }}>Cargando…</div>
+                  ) : plantillaLinea.length === 0 ? (
+                    <div style={{ textAlign:"center", padding:"60px 40px", color:C2.t2,
+                      background:C2.s0, borderRadius:14, border:`1px dashed ${C2.b0}` }}>
+                      <div style={{ fontSize:28, marginBottom:12, opacity:0.3 }}>◫</div>
+                      <div style={{ fontSize:11, letterSpacing:2, textTransform:"uppercase", fontFamily:C2.mono }}>Plantilla vacía — agregá piezas desde un barco</div>
+                    </div>
+                  ) : (() => {
+                    // Agrupar por sector
+                    const porSectorPlantilla = {};
+                    plantillaLinea.forEach(p => {
+                      if (!porSectorPlantilla[p.sector]) porSectorPlantilla[p.sector] = [];
+                      porSectorPlantilla[p.sector].push(p);
+                    });
+                    return (
+                      <div style={{ background:"rgba(255,255,255,0.02)", border:`1px solid ${C2.b0}`, borderRadius:12, overflow:"hidden" }}>
+                        {/* Header */}
+                        <div style={{ display:"grid", gridTemplateColumns:"1fr 140px 60px 38px",
+                          gap:12, padding:"9px 18px", borderBottom:`1px solid ${C2.b0}`,
+                          background:"rgba(255,255,255,0.02)" }}>
+                          {["Pieza","Sector","Opcional",""].map((h,i) => (
+                            <div key={i} style={{ fontSize:7.5, letterSpacing:2, textTransform:"uppercase", color:C2.t2, fontWeight:700, fontFamily:C2.mono }}>{h}</div>
+                          ))}
+                        </div>
+                        {Object.entries(porSectorPlantilla).map(([sector, rows]) => (
+                          <div key={sector}>
+                            {/* Cabecera sector */}
+                            <div style={{ padding:"7px 18px", background:"rgba(255,255,255,0.01)",
+                              borderBottom:`1px solid rgba(255,255,255,0.04)` }}>
+                              <span style={{ fontSize:8, letterSpacing:2.5, fontWeight:700, color:C2.t2, textTransform:"uppercase", fontFamily:C2.mono }}>{sector}</span>
+                              <span style={{ marginLeft:8, fontSize:9, color:C2.t2, fontFamily:C2.mono }}>({rows.length})</span>
+                            </div>
+                            {rows.map(p => (
+                              <div key={p.id} className="pieza-row" style={{
+                                display:"grid", gridTemplateColumns:"1fr 140px 60px 38px",
+                                gap:12, alignItems:"center", padding:"10px 18px",
+                                borderBottom:`1px solid rgba(255,255,255,0.025)`,
+                                transition:"background 0.1s",
+                              }}>
+                                <div style={{ color:C2.t0, fontSize:12, fontWeight:500 }}>{p.pieza}</div>
+                                <div style={{ color:C2.t2, fontSize:11, fontFamily:C2.mono }}>{p.sector}</div>
+                                <div>
+                                  {p.opcional ? (
+                                    <span style={{ fontSize:8, letterSpacing:1.5, textTransform:"uppercase",
+                                      padding:"2px 7px", borderRadius:99, background:"rgba(255,255,255,0.04)",
+                                      color:C2.t2, border:`1px solid ${C2.b0}` }}>OPC</span>
+                                  ) : (
+                                    <span style={{ fontSize:8, color:"rgba(255,255,255,0.1)" }}>—</span>
+                                  )}
+                                </div>
+                                <div style={{ display:"flex", justifyContent:"flex-end" }}>
+                                  {esAdmin && (
+                                    <button className="del-btn" style={{ border:"none", background:"transparent",
+                                      color:C2.t2, padding:"3px 5px", cursor:"pointer", fontSize:14,
+                                      borderRadius:5, transition:"color 0.12s" }}
+                                      onClick={() => eliminarPiezaPlantilla(p.id)} title="Quitar de plantilla">×</button>
+                                  )}
+                                </div>
+                              </div>
+                            ))}
+                          </div>
+                        ))}
+                      </div>
+                    );
+                  })()}
+                </div>
+              )}
+
               {/* ════ CHECKLIST DEL BARCO ════ */}
-              {unidadId && (
+              {viewMode === "barco" && unidadId && (
                 <div style={{ padding:"18px 24px", animation:"slideLeft .2s ease" }}>
 
                   {err && <div style={{ padding:"8px 12px", borderRadius:8, background:"rgba(239,68,68,0.07)",

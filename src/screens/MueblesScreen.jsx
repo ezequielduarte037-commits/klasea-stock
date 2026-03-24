@@ -537,6 +537,34 @@ export default function MueblesScreen({ profile, signOut }) {
   const [newLinea,  setNewLinea]  = useState("");
   const [newUnidad, setNewUnidad] = useState("");
   const [modalMueble, setModalMueble] = useState(null);
+  const [selMode,     setSelMode]     = useState(false);
+  const [selIds,      setSelIds]      = useState(new Set());
+  const [bulkLoading, setBulkLoading] = useState(false);
+
+  function toggleSel(id) {
+    setSelIds(prev => {
+      const next = new Set(prev);
+      next.has(id) ? next.delete(id) : next.add(id);
+      return next;
+    });
+  }
+
+  function selAll(rows) {
+    setSelIds(new Set(rows.map(r => r.id)));
+  }
+
+  function selNone() { setSelIds(new Set()); }
+
+  async function bulkSetEstado(estado) {
+    if (!selIds.size) return;
+    setBulkLoading(true);
+    const ids = [...selIds];
+    await supabase.from("prod_unidad_checklist").update({ estado }).in("id", ids);
+    setChecklist(p => p.map(r => selIds.has(r.id) ? { ...r, estado } : r));
+    setSelIds(new Set());
+    setSelMode(false);
+    setBulkLoading(false);
+  }
 
   async function cargarLineas()     { const { data } = await supabase.from("prod_lineas").select("id,nombre").eq("activa",true).order("nombre"); const rows = data ?? []; setLineas(rows); if (!lineaId && rows.length) setLineaId(rows[0].id); }
   async function cargarUnidades(lid){ const { data } = await supabase.from("prod_unidades").select("id,codigo,color").eq("linea_id",lid).eq("activa",true).order("codigo"); setUnidades(data ?? []); }
@@ -660,7 +688,51 @@ export default function MueblesScreen({ profile, signOut }) {
                     <div style={{ fontSize: 22, fontWeight: 700, color: C.t0 }}>{unidadSel?.codigo}</div>
                     <div style={{ fontSize: 11, color: C.t2, marginTop: 4 }}>{lineaSel?.nombre} · {checklist.length} ítems</div>
                   </div>
+                  <button
+                    onClick={() => { setSelMode(v => !v); setSelIds(new Set()); }}
+                    style={{
+                      padding: "7px 14px", borderRadius: 8, cursor: "pointer", fontSize: 11,
+                      fontFamily: C.sans, fontWeight: 600, transition: "all .15s",
+                      background: selMode ? "rgba(59,130,246,0.15)" : C.s0,
+                      border: `1px solid ${selMode ? "rgba(59,130,246,0.4)" : C.b0}`,
+                      color: selMode ? "#60a5fa" : C.t1,
+                    }}>
+                    {selMode ? "✕ Cancelar" : "☑ Seleccionar"}
+                  </button>
                 </div>
+
+                {/* Bulk action bar */}
+                {selMode && (
+                  <div style={{
+                    position: "sticky", top: 0, zIndex: 50,
+                    background: "rgba(14,18,28,0.97)",
+                    backdropFilter: "blur(20px)", WebkitBackdropFilter: "blur(20px)",
+                    border: `1px solid rgba(59,130,246,0.25)`,
+                    borderRadius: 10, padding: "10px 14px", marginBottom: 14,
+                    display: "flex", alignItems: "center", gap: 10, flexWrap: "wrap",
+                    boxShadow: "0 4px 24px rgba(0,0,0,0.5)",
+                  }}>
+                    <span style={{ fontFamily: C.mono, fontSize: 12, color: selIds.size > 0 ? "#60a5fa" : C.t2, fontWeight: 700, minWidth: 80 }}>
+                      {selIds.size > 0 ? `${selIds.size} selec.` : "Sin selec."}
+                    </span>
+                    <button onClick={() => selAll(checklist)} style={{ padding: "4px 10px", background: C.s0, border: `1px solid ${C.b0}`, color: C.t1, borderRadius: 6, cursor: "pointer", fontSize: 11, fontFamily: C.sans }}>Todos</button>
+                    <button onClick={selNone} style={{ padding: "4px 10px", background: C.s0, border: `1px solid ${C.b0}`, color: C.t1, borderRadius: 6, cursor: "pointer", fontSize: 11, fontFamily: C.sans }}>Ninguno</button>
+                    <div style={{ flex: 1 }} />
+                    <span style={{ fontSize: 10, color: C.t2, letterSpacing: 1, textTransform: "uppercase" }}>Marcar como:</span>
+                    {ESTADOS.map(e => {
+                      const m = ESTADO_META[e];
+                      return (
+                        <button key={e} disabled={bulkLoading || selIds.size === 0} onClick={() => bulkSetEstado(e)} style={{
+                          padding: "5px 12px", borderRadius: 7, cursor: selIds.size === 0 ? "not-allowed" : "pointer",
+                          fontSize: 11, fontWeight: 600, fontFamily: C.sans, transition: "all .12s",
+                          background: m.bg || C.s0, color: m.color,
+                          border: `1px solid ${m.color}44`,
+                          opacity: selIds.size === 0 ? 0.4 : 1,
+                        }}>{bulkLoading ? "…" : e}</button>
+                      );
+                    })}
+                  </div>
+                )}
 
                 {err && <div style={{ padding: "8px 12px", borderRadius: 7, background: "rgba(239,68,68,0.08)", border: "1px solid rgba(239,68,68,0.25)", color: "#f87171", fontSize: 12, marginBottom: 12 }}>{err}</div>}
 
@@ -697,7 +769,29 @@ export default function MueblesScreen({ profile, signOut }) {
                     return (
                       <div key={sector} style={{ marginBottom: 24 }}>
                         <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "0 0 10px", borderBottom: `1px solid rgba(255,255,255,0.06)`, marginBottom: 4 }}>
-                          <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                          <div
+                            style={{ display: "flex", alignItems: "center", gap: 8, cursor: selMode ? "pointer" : "default" }}
+                            onClick={() => {
+                              if (!selMode) return;
+                              const ids = rows.map(r => r.id);
+                              const allSel = ids.every(id => selIds.has(id));
+                              setSelIds(prev => {
+                                const next = new Set(prev);
+                                ids.forEach(id => allSel ? next.delete(id) : next.add(id));
+                                return next;
+                              });
+                            }}
+                          >
+                            {selMode && (
+                              <div style={{
+                                width: 15, height: 15, borderRadius: 4, flexShrink: 0,
+                                border: `2px solid ${rows.every(r => selIds.has(r.id)) ? "#3b82f6" : "rgba(255,255,255,0.15)"}`,
+                                background: rows.every(r => selIds.has(r.id)) ? "#3b82f6" : "transparent",
+                                display: "flex", alignItems: "center", justifyContent: "center",
+                              }}>
+                                {rows.every(r => selIds.has(r.id)) && <span style={{ color: "#fff", fontSize: 9, fontWeight: 700 }}>✓</span>}
+                              </div>
+                            )}
                             <div style={{ width: 3, height: 3, borderRadius: "50%", background: "rgba(255,255,255,0.25)" }} />
                             <span style={{ fontSize: 10, letterSpacing: "0.15em", color: C.t1, textTransform: "uppercase", fontWeight: 600 }}>{sector}</span>
                           </div>
@@ -705,41 +799,64 @@ export default function MueblesScreen({ profile, signOut }) {
                         </div>
                         {rows.map(r => {
                           const m = r.prod_muebles;
+                          const isSel = selIds.has(r.id);
                           return (
                             <div
                               key={r.id}
                               className="checklist-row"
+                              onClick={() => selMode && toggleSel(r.id)}
                               style={{
                                 display: "grid",
-                                gridTemplateColumns: "50px 1fr 130px 28px",
+                                gridTemplateColumns: selMode ? "28px 50px 1fr 130px 28px" : "50px 1fr 130px 28px",
                                 gap: 14, alignItems: "center",
                                 padding: "10px 8px",
                                 borderRadius: 9,
                                 borderBottom: "1px solid rgba(255,255,255,0.03)",
                                 transition: "background .15s",
+                                cursor: selMode ? "pointer" : "default",
+                                background: isSel ? "rgba(59,130,246,0.07)" : "transparent",
+                                outline: isSel ? "1px solid rgba(59,130,246,0.2)" : "1px solid transparent",
                               }}
                             >
+                              {/* Checkbox (solo en modo selección) */}
+                              {selMode && (
+                                <div style={{
+                                  width: 18, height: 18, borderRadius: 5, flexShrink: 0,
+                                  border: `2px solid ${isSel ? "#3b82f6" : "rgba(255,255,255,0.15)"}`,
+                                  background: isSel ? "#3b82f6" : "transparent",
+                                  display: "flex", alignItems: "center", justifyContent: "center",
+                                  transition: "all .12s",
+                                }}>
+                                  {isSel && <span style={{ color: "#fff", fontSize: 11, fontWeight: 700, lineHeight: 1 }}>✓</span>}
+                                </div>
+                              )}
                               {/* Thumbnail */}
                               <MiniThumb
                                 muebleId={m?.id}
                                 size={46}
-                                onClick={m ? () => setModalMueble(m) : undefined}
+                                onClick={!selMode && m ? () => setModalMueble(m) : undefined}
                               />
                               {/* Nombre + obs */}
                               <div>
                                 <span
-                                  style={{ color: r.estado === "Completo" ? C.t2 : C.t0, fontSize: 13, cursor: "pointer", textDecoration: r.estado === "Completo" ? "line-through" : "none", fontWeight: 400 }}
-                                  onClick={() => m && setModalMueble(m)}
+                                  style={{ color: r.estado === "Completo" ? C.t2 : C.t0, fontSize: 13, cursor: selMode ? "default" : "pointer", textDecoration: r.estado === "Completo" ? "line-through" : "none", fontWeight: 400 }}
+                                  onClick={() => !selMode && m && setModalMueble(m)}
                                 >{m?.nombre ?? "—"}</span>
-                                <ObsInline value={r.obs} rowId={r.id} onSave={setObs} />
+                                {!selMode && <ObsInline value={r.obs} rowId={r.id} onSave={setObs} />}
                               </div>
                               {/* Estado */}
-                              <select style={estadoSt(r.estado)} value={r.estado} onChange={e => setEstado(r.id, e.target.value)}>
+                              <select
+                                style={estadoSt(r.estado)}
+                                value={r.estado}
+                                disabled={selMode}
+                                onChange={e => setEstado(r.id, e.target.value)}
+                                onClick={e => e.stopPropagation()}
+                              >
                                 {ESTADOS.map(e => <option key={e} value={e}>{e}</option>)}
                               </select>
                               {/* Eliminar */}
-                              {esAdmin
-                                ? <button style={{ border: "none", background: "transparent", color: C.t2, cursor: "pointer", fontSize: 15, padding: "2px", opacity: 0.5 }} onClick={() => eliminarItem(r.id)}>×</button>
+                              {esAdmin && !selMode
+                                ? <button style={{ border: "none", background: "transparent", color: C.t2, cursor: "pointer", fontSize: 15, padding: "2px", opacity: 0.5 }} onClick={e => { e.stopPropagation(); eliminarItem(r.id); }}>×</button>
                                 : <div />
                               }
                             </div>
