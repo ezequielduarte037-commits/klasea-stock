@@ -1,34 +1,24 @@
 /**
- * PiezasLaminacionView v2
- * - Todas las obras en sidebar izquierdo, plantilla independiente por obra
- * - Imágenes por pieza (Supabase Storage bucket "piezas-laminacion")
- * - Modal con estados, observaciones y galería de fotos
+ * PiezasLaminacionView v3
+ * CAMBIOS v3:
+ * — Catálogo K52 completo (71 piezas del Excel de producción)
+ * — Multi-select con checkboxes por fila + "select all"
+ * — Botones rápidos de estado directamente en la fila
+ * — Campo "ubicación" en modal (dónde está la pieza)
+ * — Soporte dual K43 / K52 por código de obra
+ * — Ícono SVG en lugar del emoji 📷
+ * — Acciones bulk solo sobre seleccionados
  *
- * SQL necesario:
+ * SQL adicional (agregar a tabla existente si no existe):
  * ─────────────────────────────────────────────────────────────────
- * create table piezas_laminacion_seguimiento (
- *   id uuid primary key default gen_random_uuid(),
- *   obra_id uuid references produccion_obras(id) on delete cascade,
- *   pieza_num int not null,
- *   estado text not null default 'pendiente',
- *   observaciones text,
- *   updated_at timestamptz default now(),
- *   updated_by uuid references auth.users(id),
- *   unique(obra_id, pieza_num)
- * );
- *
- * create table piezas_laminacion_imagenes (
- *   id uuid primary key default gen_random_uuid(),
- *   obra_id uuid references produccion_obras(id) on delete cascade,
- *   pieza_num int not null,
- *   storage_path text not null,
- *   nombre text,
- *   created_at timestamptz default now(),
- *   created_by uuid references auth.users(id)
- * );
- *
- * -- Storage bucket: "piezas-laminacion" (public read or authenticated)
+ * alter table piezas_laminacion_seguimiento
+ *   add column if not exists ubicacion text;
  * ─────────────────────────────────────────────────────────────────
+ *
+ * Tablas existentes (sin cambios):
+ *   piezas_laminacion_seguimiento (obra_id, pieza_num, estado, observaciones, ubicacion, updated_at, updated_by)
+ *   piezas_laminacion_imagenes    (obra_id, pieza_num, storage_path, nombre, created_at, created_by)
+ *   Storage bucket: "piezas-laminacion"
  */
 
 import { useEffect, useMemo, useState, useRef, useCallback } from "react";
@@ -64,11 +54,11 @@ const STORAGE_BUCKET = "piezas-laminacion";
 
 // ─── ESTADOS ─────────────────────────────────────────────────────────────────
 const EST = {
-  pendiente:  { label: "Pendiente",  color: C.t2,    bg: "rgba(113,113,122,.10)", border: "rgba(113,113,122,.22)" },
-  en_proceso: { label: "En proceso", color: C.blue,  bg: "rgba(59,130,246,.10)",  border: "rgba(59,130,246,.25)"  },
-  terminada:  { label: "Terminada",  color: C.green, bg: "rgba(16,185,129,.10)",  border: "rgba(16,185,129,.25)"  },
-  entregada:  { label: "Entregada",  color: C.purple,bg: "rgba(139,92,246,.10)",  border: "rgba(139,92,246,.25)"  },
-  problema:   { label: "Problema",   color: C.red,   bg: "rgba(239,68,68,.10)",   border: "rgba(239,68,68,.25)"   },
+  pendiente:  { label: "Pendiente",   color: C.t2,    bg: "rgba(113,113,122,.10)", border: "rgba(113,113,122,.22)" },
+  en_proceso: { label: "En proceso",  color: C.blue,  bg: "rgba(59,130,246,.10)",  border: "rgba(59,130,246,.25)"  },
+  terminada:  { label: "Terminada",   color: C.green, bg: "rgba(16,185,129,.10)",  border: "rgba(16,185,129,.25)"  },
+  entregada:  { label: "Entregada",   color: C.purple,bg: "rgba(139,92,246,.10)",  border: "rgba(139,92,246,.25)"  },
+  problema:   { label: "Problema",    color: C.red,   bg: "rgba(239,68,68,.10)",   border: "rgba(239,68,68,.25)"   },
 };
 
 // ─── CATÁLOGO K43 ─────────────────────────────────────────────────────────────
@@ -133,9 +123,109 @@ const CATALOGO_K43 = [
   { num: 59, desc: "Mesa de fly",                                  cant: 1, matriz: "" },
   { num: 60, desc: "Cenefa",                                       cant: 2, matriz: "" },
 ];
-const TOTAL = CATALOGO_K43.length;
+
+// ─── CATÁLOGO K52 (del Excel 52 - PRODUCCIÓN DE PIEZAS) ──────────────────────
+const CATALOGO_K52 = [
+  { num:  1, desc: "Casco",                                                    cant: 1 },
+  { num:  2, desc: "Cubierta",                                                 cant: 1 },
+  { num:  3, desc: "Interior de popa",                                         cant: 1 },
+  { num:  4, desc: "Interior de proa",                                         cant: 1 },
+  { num:  5, desc: "Mamparo de baño de popa",                                  cant: 1 },
+  { num:  6, desc: "Mamparo de baño de proa",                                  cant: 1 },
+  { num:  7, desc: "Techo de baño de popa",                                    cant: 1 },
+  { num:  8, desc: "Techo de baño de proa",                                    cant: 1 },
+  { num:  9, desc: "Cenefa de baño, baño de popa y proa",                      cant: 2 },
+  { num: 10, desc: "Moldura de entrada de salón",                              cant: 1 },
+  { num: 11, desc: "Moldura de ventana de babor, salón",                       cant: 1 },
+  { num: 12, desc: "Moldura de ventana de estribor, salón",                    cant: 1 },
+  { num: 13, desc: "Cenefa de babor, salón",                                   cant: 3 },
+  { num: 14, desc: "Cenefa de estribor, salón",                                cant: 1 },
+  { num: 15, desc: "Moldura de ventana de babor, camarote de popa",            cant: 1 },
+  { num: 16, desc: "Moldura de ventana de estribor, camarote de popa",         cant: 1 },
+  { num: 17, desc: "Cenefa, camarote de proa",                                 cant: 1 },
+  { num: 18, desc: "Moldura de ventana de estribor, camarote de proa",         cant: 1 },
+  { num: 19, desc: "Moldura de ventana de babor, camarote de proa",            cant: 1 },
+  { num: 22, desc: "Sobre apoyo de consola",                                   cant: 1 },
+  { num: 23, desc: "Moldura de pasamanos de sobre apoyo de consola",           cant: 1 },
+  { num: 24, desc: "Consola",                                                  cant: 1 },
+  { num: 25, desc: "Máscara tapizada de cleopatra, cockpit",                   cant: 1 },
+  { num: 26, desc: "Máscara tapizada de dinnette, cockpit",                    cant: 1 },
+  { num: 27, desc: "Mueble de cockpit",                                        cant: 1 },
+  { num: 28, desc: "Tapa de tele de mueble de cockpit",                        cant: 1 },
+  { num: 29, desc: "Tapa de parrilla de mueble de cockpit",                    cant: 1 },
+  { num: 30, desc: "Puertita de popa de mueble de cockpit",                    cant: 1 },
+  { num: 31, desc: "Puertita de proa de mueble de cockpit",                    cant: 1 },
+  { num: 32, desc: "Caja de selectoras, cockpit",                              cant: 1 },
+  { num: 33, desc: "Softop",                                                   cant: 1 },
+  { num: 34, desc: "Hardtop",                                                  cant: 1 },
+  { num: 35, desc: "Cáscara de planchada tender",                              cant: 1 },
+  { num: 36, desc: "Planchada fija",                                           cant: 1 },
+  { num: 37, desc: "Túnel de escape de planchada fija",                        cant: 2 },
+  { num: 38, desc: "Cacha de estribor de planchada",                           cant: 1 },
+  { num: 39, desc: "Cacha de babor de planchada",                              cant: 1 },
+  { num: 40, desc: "Baúl, cara inferior",                                      cant: 1 },
+  { num: 41, desc: "Baúl, cara superior",                                      cant: 1 },
+  { num: 42, desc: "Tapa de baúl",                                             cant: 1 },
+  { num: 43, desc: "Toma de aire de babor",                                    cant: 1 },
+  { num: 44, desc: "Toma de aire de estribor",                                 cant: 1 },
+  { num: 45, desc: "Base de brújula",                                          cant: 1 },
+  { num: 46, desc: "Tapa de caja de cadenas",                                  cant: 1 },
+  { num: 47, desc: "Tapa de escalera de planchada",                            cant: 1 },
+  { num: 48, desc: "Cajón de baterías grande",                                 cant: 1 },
+  { num: 49, desc: "Cajón de baterías chico 1",                                cant: 1 },
+  { num: 50, desc: "Cajón de baterías chico 2",                                cant: 1 },
+  { num: 51, desc: "Imbornales altos",                                         cant: 12 },
+  { num: 52, desc: "Caja de aire acondicionado 1",                             cant: 1 },
+  { num: 53, desc: "Caja de aire acondicionado 2",                             cant: 1 },
+  { num: 54, desc: "Contratecho softop",                                       cant: 1 },
+  { num: 55, desc: "Contratecho hardtop",                                      cant: 1 },
+  { num: 56, desc: "Laminado de cuadernas transversales",                      cant: 1 },
+  { num: 57, desc: "Laminado de largueros longitudinales",                     cant: 1 },
+  { num: 58, desc: "Laminado de grilla de softop",                             cant: 1 },
+  { num: 59, desc: "Laminado de grilla de cubierta",                           cant: 1 },
+  { num: 60, desc: "Tambucho de proa",                                         cant: 1 },
+  { num: 61, desc: "Tapa de sala de máquinas",                                 cant: 1 },
+  { num: 62, desc: "Pata de estribor de hardtop",                              cant: 1 },
+  { num: 63, desc: "Pata de babor de hardtop",                                 cant: 1 },
+  { num: 64, desc: "Moldura de ventana de baño de proa",                       cant: 1 },
+  { num: 65, desc: "Moldura de ventana de baño de popa",                       cant: 1 },
+  { num: 66, desc: "Cara 1 de parante longitudinal de estribor, softop",       cant: 1 },
+  { num: 67, desc: "Cara 2 de parante longitudinal de estribor, softop",       cant: 1 },
+  { num: 68, desc: "Cara 1 de parante longitudinal de babor, softop",          cant: 1 },
+  { num: 69, desc: "Cara 2 de parante longitudinal de babor, softop",          cant: 1 },
+  { num: 70, desc: "Cara 1 de parante transversal de softop",                  cant: 1 },
+  { num: 71, desc: "Cara 2 de parante transversal de softop",                  cant: 1 },
+];
+
+const CATALOGOS = {
+  k43: CATALOGO_K43,
+  k52: CATALOGO_K52,
+};
 
 const OBRA_COLOR = { activa: "#3b82f6", pausada: "#f59e0b", terminada: "#10b981", cancelada: "#ef4444" };
+
+// Detecta qué catálogo corresponde a la obra (por código o nombre de línea)
+function detectarLinea(obra) {
+  if (!obra) return null;
+  const hay = str => str && (obra.codigo ?? "").toLowerCase().includes(str) || (obra.linea_nombre ?? "").toLowerCase().includes(str);
+  if (hay("52")) return "k52";
+  if (hay("43")) return "k43";
+  return null;
+}
+
+// ─── SVG ICONS ───────────────────────────────────────────────────────────────
+const IconCamera = ({ size = 14, color = "currentColor" }) => (
+  <svg width={size} height={size} viewBox="0 0 20 20" fill="none" stroke={color} strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round">
+    <path d="M2 7.5C2 6.4 2.9 5.5 4 5.5h1.17a1 1 0 0 0 .77-.36l1.12-1.28A1 1 0 0 1 7.83 3.5h4.34a1 1 0 0 1 .77.36l1.12 1.28a1 1 0 0 0 .77.36H16c1.1 0 2 .9 2 2v7c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2v-7Z"/>
+    <circle cx="10" cy="11" r="2.5"/>
+  </svg>
+);
+
+const IconCheck = ({ size = 12 }) => (
+  <svg width={size} height={size} viewBox="0 0 14 14" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+    <polyline points="2,7 5.5,10.5 12,3"/>
+  </svg>
+);
 
 // ─── HELPERS ─────────────────────────────────────────────────────────────────
 function Dot({ color, size = 6, pulse = false }) {
@@ -177,7 +267,7 @@ function ProgressRing({ pct, size = 44, stroke = 3.5, color = C.green }) {
 }
 
 function KpiCard({ label, value, total, color, delay = 0 }) {
-  const pct = total > 0 ? Math.round(value / total * 100) : 0;
+  const p = total > 0 ? Math.round(value / total * 100) : 0;
   return (
     <div style={{
       background: C.s0, border: `1px solid ${C.b0}`, borderRadius: 11,
@@ -185,11 +275,11 @@ function KpiCard({ label, value, total, color, delay = 0 }) {
       borderLeft: `2px solid ${color}`,
       animation: `plv-kpi .35s ${delay}s ease both`,
     }}>
-      <ProgressRing pct={pct} color={color} size={38} stroke={3} />
+      <ProgressRing pct={p} color={color} size={38} stroke={3} />
       <div>
         <div style={{ fontSize: 8, letterSpacing: 2, textTransform: "uppercase", color: C.t2, marginBottom: 3 }}>{label}</div>
         <div style={{ fontFamily: C.mono, fontSize: 20, fontWeight: 700, color, lineHeight: 1 }}>{value}</div>
-        <div style={{ fontSize: 9, color: C.t2, marginTop: 2 }}>{pct}%</div>
+        <div style={{ fontSize: 9, color: C.t2, marginTop: 2 }}>{p}%</div>
       </div>
     </div>
   );
@@ -216,6 +306,7 @@ function Lightbox({ url, onClose }) {
 function PiezaModal({ pieza, obraId, segRow, imagenes: imgInit = [], onSave, onClose }) {
   const [estado,    setEstado]   = useState(segRow?.estado ?? "pendiente");
   const [obs,       setObs]      = useState(segRow?.observaciones ?? "");
+  const [ubicacion, setUbicacion]= useState(segRow?.ubicacion ?? "");
   const [saving,    setSaving]   = useState(false);
   const [imagenes,  setImagenes] = useState(imgInit);
   const [uploading, setUploading]= useState(false);
@@ -227,7 +318,9 @@ function PiezaModal({ pieza, obraId, segRow, imagenes: imgInit = [], onSave, onC
     const { data: { user } } = await supabase.auth.getUser().catch(() => ({ data: { user: null } }));
     await supabase.from("piezas_laminacion_seguimiento").upsert({
       obra_id: obraId, pieza_num: pieza.num,
-      estado, observaciones: obs.trim() || null,
+      estado,
+      observaciones: obs.trim() || null,
+      ubicacion: ubicacion.trim() || null,
       updated_at: new Date().toISOString(), updated_by: user?.id ?? null,
     }, { onConflict: "obra_id,pieza_num" });
     setSaving(false);
@@ -259,6 +352,8 @@ function PiezaModal({ pieza, obraId, segRow, imagenes: imgInit = [], onSave, onC
     setImagenes(prev => prev.filter(i => i.storage_path !== img.storage_path));
   }
 
+  const showUbicacion = ["en_proceso", "terminada", "entregada"].includes(estado);
+
   return (
     <div onClick={e => e.target === e.currentTarget && onClose()}
       style={{ position: "fixed", inset: 0, zIndex: 9100, background: "rgba(0,0,0,0.88)", ...GLASS,
@@ -267,7 +362,7 @@ function PiezaModal({ pieza, obraId, segRow, imagenes: imgInit = [], onSave, onC
       {lightbox && <Lightbox url={lightbox} onClose={() => setLightbox(null)} />}
 
       <div style={{ background: "rgba(13,13,17,0.98)", border: `1px solid ${C.b1}`, borderRadius: 14,
-        width: "100%", maxWidth: 520, fontFamily: C.sans, boxShadow: "0 32px 80px rgba(0,0,0,0.8)",
+        width: "100%", maxWidth: 540, fontFamily: C.sans, boxShadow: "0 32px 80px rgba(0,0,0,0.8)",
         animation: "plv-slideup .18s ease", marginBottom: 40 }}>
 
         {/* Header */}
@@ -285,7 +380,7 @@ function PiezaModal({ pieza, obraId, segRow, imagenes: imgInit = [], onSave, onC
         </div>
 
         {/* Body */}
-        <div style={{ padding: "18px 20px 22px", display: "flex", flexDirection: "column", gap: 18 }}>
+        <div style={{ padding: "18px 20px 22px", display: "flex", flexDirection: "column", gap: 16 }}>
 
           {/* Estado */}
           <div>
@@ -305,6 +400,23 @@ function PiezaModal({ pieza, obraId, segRow, imagenes: imgInit = [], onSave, onC
             </div>
           </div>
 
+          {/* Ubicación — se muestra si está en proceso, terminada o entregada */}
+          {showUbicacion && (
+            <div style={{ animation: "plv-fadeup .2s ease" }}>
+              <label style={{ fontSize: 9, letterSpacing: 2, color: C.t1, display: "block", marginBottom: 8, textTransform: "uppercase", fontWeight: 600 }}>
+                ¿Dónde está?
+              </label>
+              <input
+                value={ubicacion}
+                onChange={e => setUbicacion(e.target.value)}
+                placeholder="Ej: Planta Pampa, enviada al astillero, en depósito, montada…"
+                style={{ background: C.s0, border: `1px solid ${C.b0}`, color: C.t0, padding: "9px 12px", borderRadius: 8, fontSize: 12, outline: "none", width: "100%", fontFamily: C.sans, boxSizing: "border-box", transition: "border-color .15s" }}
+                onFocus={e => e.currentTarget.style.borderColor = "rgba(59,130,246,0.4)"}
+                onBlur={e => e.currentTarget.style.borderColor = C.b0}
+              />
+            </div>
+          )}
+
           {/* Observaciones */}
           <div>
             <label style={{ fontSize: 9, letterSpacing: 2, color: C.t1, display: "block", marginBottom: 8, textTransform: "uppercase", fontWeight: 600 }}>Observaciones</label>
@@ -321,7 +433,9 @@ function PiezaModal({ pieza, obraId, segRow, imagenes: imgInit = [], onSave, onC
               </label>
               <button onClick={() => fileRef.current?.click()} disabled={uploading}
                 style={{ border: `1px solid ${C.b0}`, background: C.s0, color: uploading ? C.t2 : C.t0, padding: "4px 12px", borderRadius: 6, cursor: uploading ? "not-allowed" : "pointer", fontSize: 11, fontFamily: C.sans, display: "flex", alignItems: "center", gap: 5 }}>
-                {uploading ? "↑ Subiendo…" : "+ Agregar foto"}
+                {uploading ? "↑ Subiendo…" : (
+                  <><IconCamera size={12} color="currentColor"/> &nbsp;Agregar foto</>
+                )}
               </button>
               <input ref={fileRef} type="file" accept="image/*" style={{ display: "none" }}
                 onChange={e => subirImagen(e.target.files[0])} />
@@ -329,10 +443,11 @@ function PiezaModal({ pieza, obraId, segRow, imagenes: imgInit = [], onSave, onC
 
             {imagenes.length === 0 && !uploading ? (
               <div onClick={() => fileRef.current?.click()}
-                style={{ border: `1px dashed ${C.b0}`, borderRadius: 10, padding: "24px 16px", textAlign: "center", color: C.t2, fontSize: 12, cursor: "pointer", transition: "border-color .15s" }}
+                style={{ border: `1px dashed ${C.b0}`, borderRadius: 10, padding: "24px 16px", textAlign: "center", color: C.t2, fontSize: 12, cursor: "pointer", transition: "border-color .15s", display: "flex", alignItems: "center", justifyContent: "center", gap: 8 }}
                 onMouseEnter={e => e.currentTarget.style.borderColor = C.b1}
                 onMouseLeave={e => e.currentTarget.style.borderColor = C.b0}>
-                📷 &nbsp;Hacé click para agregar una imagen
+                <IconCamera size={16} color={C.t2} />
+                <span>Hacé click para agregar una imagen</span>
               </div>
             ) : (
               <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill,minmax(100px,1fr))", gap: 8 }}>
@@ -354,12 +469,12 @@ function PiezaModal({ pieza, obraId, segRow, imagenes: imgInit = [], onSave, onC
                     )}
                   </div>
                 ))}
-                {/* Slot de upload */}
+                {/* Slot de upload adicional */}
                 <div onClick={() => fileRef.current?.click()}
-                  style={{ aspectRatio: "1", border: `1px dashed ${C.b0}`, borderRadius: 8, display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", gap: 4, cursor: "pointer", color: C.t2, fontSize: 20, transition: "border-color .15s" }}
+                  style={{ aspectRatio: "1", border: `1px dashed ${C.b0}`, borderRadius: 8, display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", gap: 4, cursor: "pointer", color: C.t2, transition: "border-color .15s" }}
                   onMouseEnter={e => e.currentTarget.style.borderColor = C.b1}
                   onMouseLeave={e => e.currentTarget.style.borderColor = C.b0}>
-                  <span>+</span>
+                  <span style={{ fontSize: 18 }}>+</span>
                   <span style={{ fontSize: 9, letterSpacing: 1 }}>FOTO</span>
                 </div>
               </div>
@@ -387,7 +502,7 @@ function PiezaModal({ pieza, obraId, segRow, imagenes: imgInit = [], onSave, onC
 export default function PiezasLaminacionView({ obras = [], esGestion = false }) {
   const [obraSelId,   setObraSelId]   = useState(null);
   const [seguimiento, setSeguimiento] = useState([]);
-  const [imagenesMap, setImagenesMap] = useState({});  // pieza_num → [{storage_path, nombre, url}]
+  const [imagenesMap, setImagenesMap] = useState({});
   const [loading,     setLoading]     = useState(false);
   const [piezaModal,  setPiezaModal]  = useState(null);
   const [q,           setQ]           = useState("");
@@ -396,21 +511,21 @@ export default function PiezasLaminacionView({ obras = [], esGestion = false }) 
   const [saving,      setSaving]      = useState(false);
   const [flash,       setFlash]       = useState(null);
   const [qObra,       setQObra]       = useState("");
+  // Multi-select
+  const [selected,    setSelected]    = useState(new Set());
 
-  const obraSel = useMemo(() => obras.find(o => o.id === obraSelId) ?? null, [obras, obraSelId]);
-
-  // Detectar si la obra es K43 (por linea_nombre o codigo)
-  const isK43 = useMemo(() => {
-    if (!obraSel) return false;
-    const linea = (obraSel.linea_nombre ?? "").toLowerCase();
-    const cod   = (obraSel.codigo ?? "").toLowerCase();
-    return linea.includes("43") || cod.includes("43");
-  }, [obraSel]);
+  const obraSel   = useMemo(() => obras.find(o => o.id === obraSelId) ?? null, [obras, obraSelId]);
+  const lineaKey  = useMemo(() => detectarLinea(obraSel), [obraSel]);
+  const catalogo  = useMemo(() => lineaKey ? CATALOGOS[lineaKey] : null, [lineaKey]);
+  const TOTAL     = catalogo?.length ?? 0;
 
   // Primera obra por defecto
   useEffect(() => {
     if (!obraSelId && obras.length > 0) setObraSelId(obras[0].id);
   }, [obras]);
+
+  // Limpiar selección al cambiar obra
+  useEffect(() => { setSelected(new Set()); setQ(""); setFiltroEst("todos"); }, [obraSelId]);
 
   // ── Cargar seguimiento + imágenes ─────────────────────────────
   const cargar = useCallback(async () => {
@@ -463,12 +578,13 @@ export default function PiezasLaminacionView({ obras = [], esGestion = false }) 
   }, [seguimiento]);
 
   const stats = useMemo(() => {
+    if (!catalogo) return { byEst: {}, terminadas: 0, pct: 0 };
     const byEst = {};
     for (const k of Object.keys(EST)) byEst[k] = 0;
-    for (const p of CATALOGO_K43) byEst[segMap[p.num]?.estado ?? "pendiente"]++;
-    const terminadas = byEst.terminada + byEst.entregada;
-    return { byEst, terminadas, pct: Math.round(terminadas / TOTAL * 100) };
-  }, [segMap]);
+    for (const p of catalogo) byEst[segMap[p.num]?.estado ?? "pendiente"]++;
+    const terminadas = (byEst.terminada ?? 0) + (byEst.entregada ?? 0);
+    return { byEst, terminadas, pct: TOTAL ? Math.round(terminadas / TOTAL * 100) : 0 };
+  }, [segMap, catalogo, TOTAL]);
 
   const obrasFiltradas = useMemo(() => {
     const qq = qObra.trim().toLowerCase();
@@ -480,34 +596,69 @@ export default function PiezasLaminacionView({ obras = [], esGestion = false }) 
   }, [obras, qObra]);
 
   const piezasFiltradas = useMemo(() => {
+    if (!catalogo) return [];
     const qq = q.trim().toLowerCase();
-    return CATALOGO_K43.filter(p => {
+    return catalogo.filter(p => {
       const est = segMap[p.num]?.estado ?? "pendiente";
       if (filtroEst !== "todos" && est !== filtroEst) return false;
-      if (filtroMat === "nueva"     && !p.matriz) return false;
-      if (filtroMat === "estandar"  &&  p.matriz) return false;
+      if (filtroMat === "nueva"    && !p.matriz) return false;
+      if (filtroMat === "estandar" &&  p.matriz) return false;
       if (qq && !p.desc.toLowerCase().includes(qq) && !String(p.num).includes(qq)) return false;
       return true;
     });
-  }, [q, filtroEst, filtroMat, segMap]);
+  }, [q, filtroEst, filtroMat, segMap, catalogo]);
 
-  // Bulk
-  async function marcarTodas(nuevoEstado) {
-    if (!obraSelId) return;
+  // Multi-select helpers
+  const selectedNums = useMemo(() => [...selected], [selected]);
+  const allVisibleSelected = piezasFiltradas.length > 0 && piezasFiltradas.every(p => selected.has(p.num));
+  const someSelected = selectedNums.length > 0;
+
+  function toggleSelect(num) {
+    setSelected(prev => {
+      const n = new Set(prev);
+      n.has(num) ? n.delete(num) : n.add(num);
+      return n;
+    });
+  }
+
+  function toggleSelectAll() {
+    if (allVisibleSelected) {
+      setSelected(prev => {
+        const n = new Set(prev);
+        piezasFiltradas.forEach(p => n.delete(p.num));
+        return n;
+      });
+    } else {
+      setSelected(prev => {
+        const n = new Set(prev);
+        piezasFiltradas.forEach(p => n.add(p.num));
+        return n;
+      });
+    }
+  }
+
+  function clearSelection() { setSelected(new Set()); }
+
+  // ── Cambio rápido de estado (inline o bulk) ───────────────────
+  async function cambiarEstado(nums, nuevoEstado) {
+    if (!obraSelId || !nums.length) return;
     setSaving(true);
     const { data: { user } } = await supabase.auth.getUser().catch(() => ({ data: { user: null } }));
     await supabase.from("piezas_laminacion_seguimiento").upsert(
-      piezasFiltradas.map(p => ({ obra_id: obraSelId, pieza_num: p.num, estado: nuevoEstado, updated_at: new Date().toISOString(), updated_by: user?.id ?? null })),
+      nums.map(n => ({ obra_id: obraSelId, pieza_num: n, estado: nuevoEstado, updated_at: new Date().toISOString(), updated_by: user?.id ?? null })),
       { onConflict: "obra_id,pieza_num" }
     );
     setSaving(false);
-    showFlash(`✓ ${piezasFiltradas.length} piezas → ${EST[nuevoEstado].label}`);
+    showFlash(`✓ ${nums.length} pieza${nums.length > 1 ? "s" : ""} → ${EST[nuevoEstado].label}`);
+    clearSelection();
     cargar();
   }
 
   function showFlash(msg) { setFlash(msg); setTimeout(() => setFlash(null), 2800); }
 
   const avanceColor = stats.pct >= 80 ? C.green : stats.pct >= 40 ? C.amber : C.blue;
+  const lineaLabel  = lineaKey === "k52" ? "K52" : lineaKey === "k43" ? "K43" : null;
+  const hasMat      = catalogo?.some(p => p.matriz);
 
   return (
     <>
@@ -517,23 +668,16 @@ export default function PiezasLaminacionView({ obras = [], esGestion = false }) 
         @keyframes plv-slideup { from { opacity:0; transform:translateY(14px) } to { opacity:1; transform:none } }
         @keyframes plv-pulse   { 0%,100% { opacity:1 } 50% { opacity:.3 } }
         .plv-row { animation: plv-fadeup .25s ease both; }
-        .plv-row:nth-child(1)  { animation-delay:.02s }
-        .plv-row:nth-child(2)  { animation-delay:.04s }
-        .plv-row:nth-child(3)  { animation-delay:.06s }
-        .plv-row:nth-child(4)  { animation-delay:.08s }
-        .plv-row:nth-child(5)  { animation-delay:.10s }
-        .plv-row:nth-child(6)  { animation-delay:.12s }
-        .plv-row:nth-child(7)  { animation-delay:.14s }
-        .plv-row:nth-child(8)  { animation-delay:.16s }
-        .plv-row:nth-child(9)  { animation-delay:.18s }
-        .plv-row:nth-child(10) { animation-delay:.20s }
-        .plv-row:nth-child(n+11) { animation-delay:.22s }
         .plv-row:hover td { background: rgba(255,255,255,0.018) !important; }
         .plv-row td { transition: background .12s; }
         .plv-obra-btn { transition: all .15s; }
         .plv-obra-btn:hover { background: rgba(255,255,255,0.04) !important; }
         .plv-thumb { transition: transform .18s, box-shadow .18s; cursor: zoom-in; }
         .plv-thumb:hover { transform: scale(1.07); box-shadow: 0 4px 16px rgba(0,0,0,.5); }
+        .plv-qbtn { transition: all .13s; }
+        .plv-qbtn:hover { opacity: .8; }
+        .plv-check { accent-color: #3b82f6; cursor: pointer; width: 13px; height: 13px; }
+        .plv-row-sel td { background: rgba(59,130,246,0.05) !important; }
       `}</style>
 
       {/* Toast */}
@@ -552,7 +696,7 @@ export default function PiezasLaminacionView({ obras = [], esGestion = false }) 
 
         {/* ── HEADER ─────────────────────────────────────── */}
         <div style={{ padding: "16px 22px 14px", borderBottom: `1px solid ${C.b0}`, flexShrink: 0 }}>
-          <div style={{ display: "flex", alignItems: "flex-start", justifyContent: "space-between", gap: 12, marginBottom: obraSel ? 14 : 0 }}>
+          <div style={{ display: "flex", alignItems: "flex-start", justifyContent: "space-between", gap: 12, marginBottom: obraSel && catalogo ? 14 : 0 }}>
             <div>
               <div style={{ fontSize: 9, letterSpacing: 2, textTransform: "uppercase", color: C.t2, marginBottom: 4 }}>
                 Laminación · Seguimiento de piezas
@@ -564,7 +708,7 @@ export default function PiezasLaminacionView({ obras = [], esGestion = false }) 
                 <div style={{ fontSize: 11, color: C.t2, marginTop: 3, letterSpacing: 1 }}>{obraSel.linea_nombre}</div>
               )}
             </div>
-            {obraSel && isK43 && (
+            {obraSel && catalogo && (
               <div style={{ display: "flex", alignItems: "center", gap: 10, flexShrink: 0 }}>
                 <ProgressRing pct={stats.pct} size={50} stroke={4} color={avanceColor} />
                 <div>
@@ -575,13 +719,13 @@ export default function PiezasLaminacionView({ obras = [], esGestion = false }) 
             )}
           </div>
 
-          {obraSel && isK43 && (
+          {obraSel && catalogo && (
             <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit,minmax(120px,1fr))", gap: 7 }}>
-              <KpiCard label="Terminadas" value={stats.byEst.terminada}  total={TOTAL} color={C.green}  delay={0}    />
-              <KpiCard label="En proceso" value={stats.byEst.en_proceso} total={TOTAL} color={C.blue}   delay={0.06} />
-              <KpiCard label="Entregadas" value={stats.byEst.entregada}  total={TOTAL} color={C.purple} delay={0.12} />
-              <KpiCard label="Problemas"  value={stats.byEst.problema}   total={TOTAL} color={C.red}    delay={0.18} />
-              <KpiCard label="Pendientes" value={stats.byEst.pendiente}  total={TOTAL} color={C.t2}     delay={0.24} />
+              <KpiCard label="Terminadas" value={stats.byEst.terminada ?? 0}  total={TOTAL} color={C.green}  delay={0}    />
+              <KpiCard label="En proceso" value={stats.byEst.en_proceso ?? 0} total={TOTAL} color={C.blue}   delay={0.06} />
+              <KpiCard label="Entregadas" value={stats.byEst.entregada ?? 0}  total={TOTAL} color={C.purple} delay={0.12} />
+              <KpiCard label="Problemas"  value={stats.byEst.problema ?? 0}   total={TOTAL} color={C.red}    delay={0.18} />
+              <KpiCard label="Pendientes" value={stats.byEst.pendiente ?? 0}  total={TOTAL} color={C.t2}     delay={0.24} />
             </div>
           )}
         </div>
@@ -602,8 +746,9 @@ export default function PiezasLaminacionView({ obras = [], esGestion = false }) 
               {obrasFiltradas.map(o => {
                 const sel   = o.id === obraSelId;
                 const color = OBRA_COLOR[o.estado] ?? C.t2;
+                const lk    = detectarLinea(o);
                 return (
-                  <button key={o.id} onClick={() => { setObraSelId(o.id); setQ(""); setFiltroEst("todos"); }}
+                  <button key={o.id} onClick={() => setObraSelId(o.id)}
                     className="plv-obra-btn"
                     style={{
                       width: "100%", textAlign: "left", padding: "9px 10px", borderRadius: 8,
@@ -619,24 +764,16 @@ export default function PiezasLaminacionView({ obras = [], esGestion = false }) 
                         fontFamily: C.mono, letterSpacing: 0.5 }}>
                         {o.codigo ?? o.nombre ?? "—"}
                       </span>
+                      {lk && (
+                        <span style={{ fontSize: 7, fontWeight: 700, letterSpacing: 1, padding: "1px 5px", borderRadius: 3,
+                          background: lk === "k52" ? "rgba(139,92,246,0.12)" : "rgba(245,158,11,0.1)",
+                          color: lk === "k52" ? C.purple : C.amber,
+                          border: `1px solid ${lk === "k52" ? "rgba(139,92,246,0.25)" : "rgba(245,158,11,0.2)"}`,
+                        }}>{lk.toUpperCase()}</span>
+                      )}
                     </div>
                     {o.linea_nombre && (
                       <div style={{ fontSize: 9, color: C.t2, paddingLeft: 11, marginTop: 2, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{o.linea_nombre}</div>
-                    )}
-                    {sel && (
-                      <div style={{ marginTop: 6, paddingLeft: 11, display: "flex", gap: 8, flexWrap: "wrap", alignItems: "center" }}>
-                        {(() => {
-                          const isK = (o.linea_nombre ?? "").toLowerCase().includes("43") || (o.codigo ?? "").toLowerCase().includes("43");
-                          return isK
-                            ? <>
-                                <span style={{ fontSize: 8, color: C.amber, background: "rgba(245,158,11,0.08)", border: "1px solid rgba(245,158,11,0.2)", padding: "1px 5px", borderRadius: 4, fontWeight: 700, letterSpacing: 1 }}>K43</span>
-                                <span style={{ fontSize: 9, color: C.green }}>{stats.byEst.terminada} term.</span>
-                                {stats.byEst.en_proceso > 0 && <span style={{ fontSize: 9, color: C.blue }}>{stats.byEst.en_proceso} en proc.</span>}
-                                {stats.byEst.problema > 0   && <span style={{ fontSize: 9, color: C.red }}>⚠ {stats.byEst.problema}</span>}
-                              </>
-                            : <span style={{ fontSize: 9, color: C.t2 }}>Sin plantilla</span>;
-                        })()}
-                      </div>
                     )}
                   </button>
                 );
@@ -650,13 +787,13 @@ export default function PiezasLaminacionView({ obras = [], esGestion = false }) 
               <div style={{ flex: 1, display: "flex", alignItems: "center", justifyContent: "center" }}>
                 <div style={{ fontSize: 11, color: C.t2, letterSpacing: 2, textTransform: "uppercase" }}>Seleccioná una obra</div>
               </div>
-            ) : !isK43 ? (
+            ) : !catalogo ? (
               <div style={{ flex: 1, display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", gap: 14, padding: 40 }}>
-                <div style={{ fontSize: 36 }}>🧩</div>
+                <div style={{ width: 52, height: 52, borderRadius: "50%", background: C.s0, border: `1px solid ${C.b0}`, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 22, color: C.t2 }}>◎</div>
                 <div style={{ fontSize: 15, fontWeight: 700, color: C.t1 }}>Sin plantilla de piezas</div>
-                <div style={{ fontSize: 12, color: C.t2, textAlign: "center", maxWidth: 320, lineHeight: 1.6 }}>
-                  Esta obra no está asociada a la línea K43.<br/>
-                  El catálogo de 59 piezas solo aplica a obras cuyo código o línea contiene &quot;43&quot;.
+                <div style={{ fontSize: 12, color: C.t2, textAlign: "center", maxWidth: 340, lineHeight: 1.6 }}>
+                  Esta obra no tiene catálogo de piezas configurado.<br/>
+                  Actualmente hay plantillas para obras K43 y K52.
                 </div>
                 <div style={{ fontSize: 10, color: C.t2, fontFamily: C.mono, padding: "6px 14px", borderRadius: 6, background: C.s0, border: `1px solid ${C.b0}` }}>
                   Línea: {obraSel.linea_nombre ?? "sin asignar"} · Código: {obraSel.codigo ?? "—"}
@@ -664,10 +801,20 @@ export default function PiezasLaminacionView({ obras = [], esGestion = false }) 
               </div>
             ) : (
               <>
-                {/* Toolbar */}
+                {/* ── Toolbar ── */}
                 <div style={{ padding: "9px 14px", borderBottom: `1px solid ${C.b0}`, display: "flex", gap: 7, flexWrap: "wrap", alignItems: "center", flexShrink: 0 }}>
+
+                  {/* Etiqueta de línea */}
+                  {lineaLabel && (
+                    <span style={{ fontSize: 8, fontWeight: 700, letterSpacing: 1.5, padding: "3px 8px", borderRadius: 4,
+                      background: lineaKey === "k52" ? "rgba(139,92,246,0.1)" : "rgba(245,158,11,0.08)",
+                      color: lineaKey === "k52" ? C.purple : C.amber,
+                      border: `1px solid ${lineaKey === "k52" ? "rgba(139,92,246,0.25)" : "rgba(245,158,11,0.2)"}`,
+                    }}>{lineaLabel} · {TOTAL} piezas</span>
+                  )}
+
                   <input value={q} onChange={e => setQ(e.target.value)} placeholder="Buscar pieza…"
-                    style={{ background: C.s0, border: `1px solid ${C.b0}`, color: C.t0, padding: "5px 10px", borderRadius: 6, fontSize: 11, outline: "none", width: 160, fontFamily: C.sans }} />
+                    style={{ background: C.s0, border: `1px solid ${C.b0}`, color: C.t0, padding: "5px 10px", borderRadius: 6, fontSize: 11, outline: "none", width: 150, fontFamily: C.sans }} />
 
                   <select value={filtroEst} onChange={e => setFiltroEst(e.target.value)}
                     style={{ background: "#0f0f12", border: `1px solid ${C.b0}`, color: C.t1, padding: "5px 8px", borderRadius: 6, fontSize: 11, outline: "none", fontFamily: C.sans, cursor: "pointer" }}>
@@ -677,31 +824,60 @@ export default function PiezasLaminacionView({ obras = [], esGestion = false }) 
                     ))}
                   </select>
 
-                  <select value={filtroMat} onChange={e => setFiltroMat(e.target.value)}
-                    style={{ background: "#0f0f12", border: `1px solid ${C.b0}`, color: C.t1, padding: "5px 8px", borderRadius: 6, fontSize: 11, outline: "none", fontFamily: C.sans, cursor: "pointer" }}>
-                    <option value="todos">Todas las matrices</option>
-                    <option value="nueva">✦ Nueva #{CATALOGO_K43.filter(p=>p.matriz).length}</option>
-                    <option value="estandar">Estándar #{CATALOGO_K43.filter(p=>!p.matriz).length}</option>
-                  </select>
+                  {hasMat && (
+                    <select value={filtroMat} onChange={e => setFiltroMat(e.target.value)}
+                      style={{ background: "#0f0f12", border: `1px solid ${C.b0}`, color: C.t1, padding: "5px 8px", borderRadius: 6, fontSize: 11, outline: "none", fontFamily: C.sans, cursor: "pointer" }}>
+                      <option value="todos">Todas las matrices</option>
+                      <option value="nueva">✦ Nueva</option>
+                      <option value="estandar">Estándar</option>
+                    </select>
+                  )}
 
                   <div style={{ flex: 1 }} />
                   <span style={{ fontSize: 10, color: C.t2 }}>{piezasFiltradas.length}/{TOTAL}</span>
 
-                  {esGestion && piezasFiltradas.length > 0 && (
-                    <>
-                      <button onClick={() => marcarTodas("en_proceso")} disabled={saving}
-                        style={{ border: "1px solid rgba(59,130,246,0.3)", background: "rgba(59,130,246,0.08)", color: "#60a5fa", padding: "4px 10px", borderRadius: 6, cursor: "pointer", fontSize: 10, fontWeight: 600, fontFamily: C.sans }}>
-                        → En proceso
+                  {/* Bulk actions — solo si hay seleccionados */}
+                  {esGestion && someSelected && (
+                    <div style={{ display: "flex", gap: 5, alignItems: "center", padding: "3px 10px", borderRadius: 7,
+                      background: "rgba(59,130,246,0.06)", border: "1px solid rgba(59,130,246,0.2)", animation: "plv-fadeup .18s ease" }}>
+                      <span style={{ fontSize: 10, color: C.blue, fontFamily: C.mono, marginRight: 4 }}>{selectedNums.length} sel.</span>
+                      <button className="plv-qbtn" onClick={() => cambiarEstado(selectedNums, "en_proceso")} disabled={saving}
+                        style={{ border: "1px solid rgba(59,130,246,0.35)", background: "rgba(59,130,246,0.12)", color: "#60a5fa", padding: "3px 9px", borderRadius: 5, cursor: "pointer", fontSize: 10, fontWeight: 600, fontFamily: C.sans }}>
+                        ▶ En proceso
                       </button>
-                      <button onClick={() => marcarTodas("terminada")} disabled={saving}
-                        style={{ border: "1px solid rgba(16,185,129,0.3)", background: "rgba(16,185,129,0.08)", color: "#34d399", padding: "4px 10px", borderRadius: 6, cursor: "pointer", fontSize: 10, fontWeight: 600, fontFamily: C.sans }}>
+                      <button className="plv-qbtn" onClick={() => cambiarEstado(selectedNums, "terminada")} disabled={saving}
+                        style={{ border: "1px solid rgba(16,185,129,0.35)", background: "rgba(16,185,129,0.1)", color: "#34d399", padding: "3px 9px", borderRadius: 5, cursor: "pointer", fontSize: 10, fontWeight: 600, fontFamily: C.sans }}>
                         ✓ Terminadas
                       </button>
-                    </>
+                      <button className="plv-qbtn" onClick={() => cambiarEstado(selectedNums, "entregada")} disabled={saving}
+                        style={{ border: "1px solid rgba(139,92,246,0.35)", background: "rgba(139,92,246,0.1)", color: "#a78bfa", padding: "3px 9px", borderRadius: 5, cursor: "pointer", fontSize: 10, fontWeight: 600, fontFamily: C.sans }}>
+                        ↗ Entregadas
+                      </button>
+                      <button className="plv-qbtn" onClick={() => cambiarEstado(selectedNums, "pendiente")} disabled={saving}
+                        style={{ border: `1px solid ${C.b0}`, background: "transparent", color: C.t2, padding: "3px 9px", borderRadius: 5, cursor: "pointer", fontSize: 10, fontFamily: C.sans }}>
+                        ○ Pendiente
+                      </button>
+                      <button onClick={clearSelection}
+                        style={{ background: "transparent", border: "none", color: C.t2, cursor: "pointer", fontSize: 14, padding: "0 3px", lineHeight: 1 }}>×</button>
+                    </div>
+                  )}
+
+                  {/* Bulk sobre filtradas cuando no hay selección */}
+                  {esGestion && !someSelected && piezasFiltradas.length > 0 && (
+                    <div style={{ display: "flex", gap: 5 }}>
+                      <button className="plv-qbtn" onClick={() => cambiarEstado(piezasFiltradas.map(p=>p.num), "en_proceso")} disabled={saving}
+                        style={{ border: "1px solid rgba(59,130,246,0.3)", background: "rgba(59,130,246,0.07)", color: "#60a5fa", padding: "4px 10px", borderRadius: 6, cursor: "pointer", fontSize: 10, fontWeight: 600, fontFamily: C.sans }}>
+                        → En proceso
+                      </button>
+                      <button className="plv-qbtn" onClick={() => cambiarEstado(piezasFiltradas.map(p=>p.num), "terminada")} disabled={saving}
+                        style={{ border: "1px solid rgba(16,185,129,0.3)", background: "rgba(16,185,129,0.07)", color: "#34d399", padding: "4px 10px", borderRadius: 6, cursor: "pointer", fontSize: 10, fontWeight: 600, fontFamily: C.sans }}>
+                        ✓ Terminadas
+                      </button>
+                    </div>
                   )}
                 </div>
 
-                {/* Tabla */}
+                {/* ── Tabla ── */}
                 <div style={{ flex: 1, overflowY: "auto" }}>
                   {loading ? (
                     <div style={{ padding: "40px 20px", textAlign: "center", color: C.t2, fontSize: 11, letterSpacing: 2, textTransform: "uppercase" }}>Cargando…</div>
@@ -709,7 +885,14 @@ export default function PiezasLaminacionView({ obras = [], esGestion = false }) 
                     <table style={{ width: "100%", borderCollapse: "collapse" }}>
                       <thead style={{ position: "sticky", top: 0, zIndex: 2 }}>
                         <tr style={{ background: "#0c0c0f" }}>
-                          {["#", "Pieza", "Cant.", "Matriz", "Estado", "Imágenes", "Observaciones", ""].map(h => (
+                          {/* Checkbox select all */}
+                          <th style={{ padding: "8px 10px 8px 14px", borderBottom: `1px solid ${C.b0}`, width: 28 }}>
+                            <input type="checkbox" className="plv-check"
+                              checked={allVisibleSelected}
+                              onChange={toggleSelectAll}
+                              title={allVisibleSelected ? "Deseleccionar todas" : "Seleccionar todas las visibles"} />
+                          </th>
+                          {["#", "Pieza", "Cant.", ...(hasMat ? ["Matriz"] : []), "Estado", "Ubicación", "Fotos", "Obs.", ""].map(h => (
                             <th key={h} style={{ padding: "8px 12px", textAlign: "left", fontSize: 8, color: C.t2, letterSpacing: 2, textTransform: "uppercase", borderBottom: `1px solid ${C.b0}`, fontWeight: 600, whiteSpace: "nowrap" }}>
                               {h}
                             </th>
@@ -718,18 +901,31 @@ export default function PiezasLaminacionView({ obras = [], esGestion = false }) 
                       </thead>
                       <tbody>
                         {piezasFiltradas.map(pieza => {
-                          const seg    = segMap[pieza.num];
-                          const estado = seg?.estado ?? "pendiente";
-                          const imgs   = imagenesMap[pieza.num] ?? [];
-                          const isProb = estado === "problema";
+                          const seg      = segMap[pieza.num];
+                          const estado   = seg?.estado ?? "pendiente";
+                          const imgs     = imagenesMap[pieza.num] ?? [];
+                          const isSel    = selected.has(pieza.num);
+                          const isProb   = estado === "problema";
+                          const ubicacion= seg?.ubicacion;
                           return (
-                            <tr key={pieza.num} className="plv-row"
+                            <tr key={pieza.num}
+                              className={`plv-row${isSel ? " plv-row-sel" : ""}`}
                               style={{ background: isProb ? "rgba(239,68,68,0.03)" : "transparent" }}>
 
-                              <td style={{ padding: "10px 12px", borderBottom: `1px solid rgba(255,255,255,0.04)`, verticalAlign: "middle" }}>
+                              {/* Checkbox */}
+                              <td style={{ padding: "8px 10px 8px 14px", borderBottom: `1px solid rgba(255,255,255,0.04)`, verticalAlign: "middle" }}
+                                onClick={e => e.stopPropagation()}>
+                                <input type="checkbox" className="plv-check"
+                                  checked={isSel}
+                                  onChange={() => toggleSelect(pieza.num)} />
+                              </td>
+
+                              {/* # */}
+                              <td style={{ padding: "10px 10px", borderBottom: `1px solid rgba(255,255,255,0.04)`, verticalAlign: "middle" }}>
                                 <span style={{ fontFamily: C.mono, fontSize: 10, color: C.t2 }}>{String(pieza.num).padStart(2,"0")}</span>
                               </td>
 
+                              {/* Nombre */}
                               <td style={{ padding: "10px 12px", borderBottom: `1px solid rgba(255,255,255,0.04)`, verticalAlign: "middle", maxWidth: 220 }}>
                                 <button onClick={() => setPiezaModal(pieza)}
                                   style={{ background: "transparent", border: "none", cursor: "pointer", textAlign: "left", padding: 0, fontFamily: C.sans }}
@@ -741,57 +937,93 @@ export default function PiezasLaminacionView({ obras = [], esGestion = false }) 
                                 </button>
                               </td>
 
+                              {/* Cant */}
                               <td style={{ padding: "10px 12px", borderBottom: `1px solid rgba(255,255,255,0.04)`, verticalAlign: "middle" }}>
                                 <span style={{ fontFamily: C.mono, fontSize: 12, color: pieza.cant > 1 ? C.amber : C.t2 }}>×{pieza.cant}</span>
                               </td>
 
-                              <td style={{ padding: "10px 12px", borderBottom: `1px solid rgba(255,255,255,0.04)`, verticalAlign: "middle" }}>
-                                {pieza.matriz
-                                  ? <span style={{ fontSize: 8, letterSpacing: 1, padding: "2px 7px", borderRadius: 99, background: "rgba(245,158,11,0.09)", color: C.amber, border: "1px solid rgba(245,158,11,0.2)", fontWeight: 700, whiteSpace: "nowrap" }}>✦ {pieza.matriz}</span>
-                                  : <span style={{ opacity: 0.15, fontSize: 10 }}>—</span>}
-                              </td>
+                              {/* Matriz (solo K43) */}
+                              {hasMat && (
+                                <td style={{ padding: "10px 12px", borderBottom: `1px solid rgba(255,255,255,0.04)`, verticalAlign: "middle" }}>
+                                  {pieza.matriz
+                                    ? <span style={{ fontSize: 8, letterSpacing: 1, padding: "2px 7px", borderRadius: 99, background: "rgba(245,158,11,0.09)", color: C.amber, border: "1px solid rgba(245,158,11,0.2)", fontWeight: 700, whiteSpace: "nowrap" }}>✦ {pieza.matriz}</span>
+                                    : <span style={{ opacity: 0.15, fontSize: 10 }}>—</span>}
+                                </td>
+                              )}
 
-                              <td style={{ padding: "10px 12px", borderBottom: `1px solid rgba(255,255,255,0.04)`, verticalAlign: "middle" }}>
-                                <div style={{ display: "flex", alignItems: "center", gap: 5 }}>
+                              {/* Estado + botones rápidos */}
+                              <td style={{ padding: "8px 12px", borderBottom: `1px solid rgba(255,255,255,0.04)`, verticalAlign: "middle" }}>
+                                <div style={{ display: "flex", alignItems: "center", gap: 5, flexWrap: "wrap" }}>
                                   <Dot color={EST[estado]?.color ?? C.t2} size={5} pulse={estado === "en_proceso"} />
                                   <Chip estado={estado} sm />
+                                  {esGestion && (
+                                    <div style={{ display: "flex", gap: 2, marginLeft: 2 }} onClick={e => e.stopPropagation()}>
+                                      {estado !== "en_proceso" && (
+                                        <button className="plv-qbtn" title="Marcar en proceso"
+                                          onClick={() => cambiarEstado([pieza.num], "en_proceso")}
+                                          style={{ width: 20, height: 20, border: "1px solid rgba(59,130,246,0.3)", background: "rgba(59,130,246,0.08)", color: "#60a5fa", borderRadius: 4, cursor: "pointer", fontSize: 9, display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>
+                                          ▶
+                                        </button>
+                                      )}
+                                      {estado !== "terminada" && (
+                                        <button className="plv-qbtn" title="Marcar terminada"
+                                          onClick={() => cambiarEstado([pieza.num], "terminada")}
+                                          style={{ width: 20, height: 20, border: "1px solid rgba(16,185,129,0.3)", background: "rgba(16,185,129,0.08)", color: "#34d399", borderRadius: 4, cursor: "pointer", fontSize: 9, display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>
+                                          <IconCheck size={10} />
+                                        </button>
+                                      )}
+                                    </div>
+                                  )}
                                 </div>
                               </td>
 
+                              {/* Ubicación */}
+                              <td style={{ padding: "10px 12px", borderBottom: `1px solid rgba(255,255,255,0.04)`, verticalAlign: "middle", maxWidth: 160 }}>
+                                {ubicacion
+                                  ? <span style={{ fontSize: 10, color: C.t1, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", display: "block", maxWidth: 150 }} title={ubicacion}>{ubicacion}</span>
+                                  : <span style={{ opacity: 0.18, fontSize: 10 }}>—</span>}
+                              </td>
+
+                              {/* Fotos */}
                               <td style={{ padding: "8px 12px", borderBottom: `1px solid rgba(255,255,255,0.04)`, verticalAlign: "middle" }}>
                                 <div style={{ display: "flex", gap: 4, alignItems: "center" }}>
                                   {imgs.slice(0, 3).map((img, i) =>
                                     img.url
                                       ? <img key={i} src={img.url} alt="" className="plv-thumb"
                                           onClick={() => setPiezaModal(pieza)}
-                                          style={{ width: 30, height: 30, borderRadius: 5, objectFit: "cover", border: `1px solid ${C.b0}` }} />
+                                          style={{ width: 28, height: 28, borderRadius: 5, objectFit: "cover", border: `1px solid ${C.b0}` }} />
                                       : null
                                   )}
                                   {imgs.length > 3 && (
                                     <span style={{ fontSize: 9, color: C.t2, background: C.s1, border: `1px solid ${C.b0}`, borderRadius: 5, padding: "2px 5px", fontFamily: C.mono }}>+{imgs.length - 3}</span>
                                   )}
                                   <button onClick={() => setPiezaModal(pieza)}
-                                    style={{ background: "transparent", border: `1px dashed ${C.b0}`, color: C.t2, width: 28, height: 28, borderRadius: 5, cursor: "pointer", fontSize: 14, display: "flex", alignItems: "center", justifyContent: "center", transition: "border-color .15s", flexShrink: 0 }}
+                                    style={{ background: "transparent", border: `1px dashed ${C.b0}`, color: C.t2, width: 28, height: 28, borderRadius: 5, cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center", transition: "border-color .15s", flexShrink: 0 }}
                                     onMouseEnter={e => e.currentTarget.style.borderColor = C.b1}
                                     onMouseLeave={e => e.currentTarget.style.borderColor = C.b0}
                                     title="Agregar foto">
-                                    {imgs.length === 0 ? "📷" : "+"}
+                                    {imgs.length === 0
+                                      ? <IconCamera size={13} color={C.t2} />
+                                      : <span style={{ fontSize: 13, lineHeight: 1 }}>+</span>
+                                    }
                                   </button>
                                 </div>
                               </td>
 
-                              <td style={{ padding: "10px 12px", borderBottom: `1px solid rgba(255,255,255,0.04)`, verticalAlign: "middle", maxWidth: 200 }}>
+                              {/* Observaciones */}
+                              <td style={{ padding: "10px 12px", borderBottom: `1px solid rgba(255,255,255,0.04)`, verticalAlign: "middle", maxWidth: 180 }}>
                                 {seg?.observaciones
-                                  ? <span style={{ fontSize: 11, color: C.t2, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", display: "block", maxWidth: 190 }}>{seg.observaciones}</span>
+                                  ? <span style={{ fontSize: 11, color: C.t2, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", display: "block", maxWidth: 170 }} title={seg.observaciones}>{seg.observaciones}</span>
                                   : <span style={{ opacity: 0.18, fontSize: 11 }}>—</span>}
                               </td>
 
+                              {/* Editar */}
                               <td style={{ padding: "8px 12px", borderBottom: `1px solid rgba(255,255,255,0.04)`, verticalAlign: "middle" }}>
                                 <button onClick={() => setPiezaModal(pieza)}
                                   style={{ border: `1px solid ${C.b0}`, background: "transparent", color: C.t2, padding: "3px 9px", borderRadius: 5, cursor: "pointer", fontSize: 10, fontFamily: C.sans, transition: "all .15s" }}
                                   onMouseEnter={e => { e.currentTarget.style.borderColor = C.b1; e.currentTarget.style.color = C.t0; }}
                                   onMouseLeave={e => { e.currentTarget.style.borderColor = C.b0; e.currentTarget.style.color = C.t2; }}>
-                                  Editar
+                                  Detalle
                                 </button>
                               </td>
                             </tr>
@@ -816,6 +1048,11 @@ export default function PiezasLaminacionView({ obras = [], esGestion = false }) 
 
                 {/* Barra progreso pie */}
                 <div style={{ padding: "7px 14px", borderTop: `1px solid ${C.b0}`, flexShrink: 0, display: "flex", alignItems: "center", gap: 10 }}>
+                  {someSelected && (
+                    <span style={{ fontSize: 10, color: C.blue, fontFamily: C.mono }}>
+                      {selectedNums.length} seleccionada{selectedNums.length > 1 ? "s" : ""}
+                    </span>
+                  )}
                   <div style={{ flex: 1, height: 3, background: "rgba(255,255,255,0.05)", borderRadius: 99, overflow: "hidden" }}>
                     <div style={{ height: "100%", width: `${stats.pct}%`, background: `linear-gradient(90deg,${avanceColor}60,${avanceColor})`, borderRadius: 99, transition: "width .6s ease" }} />
                   </div>

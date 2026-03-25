@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState, useRef, useCallback } from "react";
 import { supabase } from "../supabaseClient";
 import Sidebar from "../components/Sidebar";
+import EnchapadoView from "./EnchapadoView";
 
 // ─── Design tokens ─────────────────────────────────────────────────
 const C = {

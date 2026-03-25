@@ -222,7 +222,7 @@ export default function Sidebar({ profile, signOut }) {
         style={{
           display: "flex", alignItems: "center", gap: 8,
           padding: "6px 16px 6px 44px", margin: "1px 8px", borderRadius: 7,
-          color: on ? "#d4d4d8" : isH ? "#9ca3af" : "#4b5563",
+          color: on ? "#e4e4e7" : isH ? "#cbd5f5" : "#9ca3af",
           fontSize: 10, letterSpacing: "1px", textTransform: "uppercase", textDecoration: "none",
           fontWeight: on ? 600 : 400,
           background: on ? "rgba(255,255,255,.04)" : isH ? "rgba(255,255,255,.02)" : "transparent",
@@ -254,7 +254,7 @@ export default function Sidebar({ profile, signOut }) {
       }} />
       <span style={{
         fontSize: 9, letterSpacing: "2.5px",
-        color: c ? `${c}bb` : "rgba(255,255,255,.25)",
+        color: c ? `${c}` : "rgba(255,255,255,.55)",
         textTransform: "uppercase", fontWeight: 700,
       }}>
         {label}
@@ -390,7 +390,7 @@ export default function Sidebar({ profile, signOut }) {
             </div>
             <div style={{ display: "inline-flex", alignItems: "center", gap: 4 }}>
               <div className="sb-online" style={{ width: 4, height: 4, borderRadius: "50%", background: "#22c55e", flexShrink: 0 }} />
-              <span style={{ fontSize: 8, color: "rgba(255,255,255,.3)", letterSpacing: "1.5px", textTransform: "uppercase", fontWeight: 600 }}>
+              <span style={{ fontSize: 8, color: "rgba(255,255,255,.6)", letterSpacing: "1.5px", textTransform: "uppercase", fontWeight: 600 }}>
                 {role}
               </span>
             </div>
