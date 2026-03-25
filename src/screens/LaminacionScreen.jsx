@@ -2,6 +2,7 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { useLocation } from "react-router-dom";
 import { supabase } from "../supabaseClient";
 import Sidebar from "../components/Sidebar";
+import AjusteInventarioModal from "./AjusteInventarioModal";
 
 const TABS = ["Stock", "Ingresos", "Egresos", "Pedidos"];
 
@@ -132,6 +133,7 @@ export default function LaminacionScreen({ profile, signOut }) {
   const [msg, setMsg] = useState("");
   const [q, setQ] = useState("");
   const [showNuevoMaterial, setShowNuevoMaterial] = useState(false);
+  const [showAjuste, setShowAjuste] = useState(false);
 
   const [formIngreso, setFormIngreso] = useState({
     material_id: "", cantidad: "",
@@ -192,7 +194,9 @@ export default function LaminacionScreen({ profile, signOut }) {
     for (const m of materiales) map[m.id] = 0;
     for (const mv of movimientos) {
       if (!mv.material_id) continue;
-      const delta = mv.tipo === "ingreso" ? num(mv.cantidad) : -num(mv.cantidad);
+      let delta;
+      if (mv.tipo === "ajuste") delta = num(mv.cantidad); // ya positivo o negativo
+      else delta = mv.tipo === "ingreso" ? +num(mv.cantidad) : -num(mv.cantidad);
       map[mv.material_id] = (map[mv.material_id] ?? 0) + delta;
     }
     return map;
@@ -603,9 +607,16 @@ export default function LaminacionScreen({ profile, signOut }) {
                       Stock actual
                       <span style={{ ...S.small, marginLeft: 8 }}>({stockRows.length} materiales)</span>
                     </h3>
-                    <button onClick={exportarStock} disabled={!stockRows.length} style={S.btnExport}>
-                      ↓ CSV
-                    </button>
+                    <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
+                      {isAdmin && (
+                        <button onClick={() => setShowAjuste(true)} style={S.btn}>
+                          ⊟ Ajuste de inventario
+                        </button>
+                      )}
+                      <button onClick={exportarStock} disabled={!stockRows.length} style={S.btnExport}>
+                        ↓ CSV
+                      </button>
+                    </div>
                   </div>
                   <table style={S.table}>
                     <thead>
@@ -1202,6 +1213,14 @@ export default function LaminacionScreen({ profile, signOut }) {
           </div>
         </main>
       </div>
+      {showAjuste && (
+        <AjusteInventarioModal
+          materiales={materiales}
+          stockPorMaterial={stockPorMaterial}
+          onClose={() => setShowAjuste(false)}
+          onDone={() => { setShowAjuste(false); cargar(); flash("✅ Ajuste aplicado"); }}
+        />
+      )}
     </div>
   );
 }
