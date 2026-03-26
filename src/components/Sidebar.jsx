@@ -55,6 +55,11 @@ function Icon({ id, color = "currentColor", size = 14 }) {
       <circle cx="8" cy="8" r="2" {...p}/>
       <path d="M8 1v2M8 13v2M1 8h2M13 8h2M3 3l1.5 1.5M11.5 11.5L13 13M3 13l1.5-1.5M11.5 4.5L13 3" {...p}/>
     </>,
+    "/calendario": <>
+      <rect x="1" y="3" width="14" height="12" rx="2" {...p}/>
+      <path d="M5 1v3M11 1v3M1 7h14" {...p}/>
+      <path d="M4 10h2M7 10h2M10 10h2M4 13h2M7 13h2" {...p}/>
+    </>,
     "/postventa": <>
       <path d="M4 8.5L6.5 11l5.5-6" {...p}/>
       <rect x="1" y="1" width="14" height="14" rx="3" {...p}/>
@@ -371,9 +376,10 @@ export default function Sidebar({ profile, signOut }) {
           {esGestion && <>
             {divider("prod")}
             {group("Producción", SC.produccion, 120)}
-            {item("/obras",      "Obras",      SC.produccion, true, 140)}
-            {item("/marmoleria", "Marmolería", SC.produccion, true, 160)}
-            {item("/muebles",    "Muebles",    SC.produccion, true, 180)}
+            {item("/obras",       "Obras",       SC.produccion, true, 140)}
+            {item("/marmoleria",  "Marmolería",  SC.produccion, true, 160)}
+            {item("/muebles",     "Muebles",     SC.produccion, true, 180)}
+            {item("/calendario",  "Calendario",  SC.produccion, true, 200)}
           </>}
 
           {esGestion && <>

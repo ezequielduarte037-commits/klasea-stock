@@ -55,6 +55,11 @@ function Icon({ id, color = "currentColor", size = 14 }) {
       <circle cx="8" cy="8" r="2" {...p}/>
       <path d="M8 1v2M8 13v2M1 8h2M13 8h2M3 3l1.5 1.5M11.5 11.5L13 13M3 13l1.5-1.5M11.5 4.5L13 3" {...p}/>
     </>,
+    "/calendario": <>
+      <rect x="1" y="3" width="14" height="12" rx="2" {...p}/>
+      <path d="M5 1v3M11 1v3M1 7h14" {...p}/>
+      <path d="M4 10h2M7 10h2M10 10h2M4 13h2M7 13h2" {...p}/>
+    </>,
     "/postventa": <>
       <path d="M4 8.5L6.5 11l5.5-6" {...p}/>
       <rect x="1" y="1" width="14" height="14" rx="3" {...p}/>
@@ -159,13 +164,6 @@ const CSS = `
     border-color: rgba(248,113,113,.3) !important;
     background: rgba(248,113,113,.06) !important;
   }
-
-  /* legibilidad forzada */
-  .sb-item:not(.active) { color: #c4c4c8 !important; }
-  .sb-item:not(.active) .sb-label { color: #c4c4c8 !important; }
-  .sb-item:not(.active) .sb-icon  { color: #c4c4c8 !important; }
-  .sb-item.active { color: #ffffff !important; }
-  .sb-item.active .sb-label { color: #ffffff !important; }
 `;
 
 // ─── COMPONENT ────────────────────────────────────────────────────────────────
@@ -197,8 +195,8 @@ export default function Sidebar({ profile, signOut }) {
         style={{
           display: "flex", alignItems: "center", gap: 9,
           padding: "7px 16px 7px 18px", margin: "1px 8px", borderRadius: 8,
-          color: on ? "#fff" : "#c4c4c8",
-          fontSize: 11, letterSpacing: "1px", fontWeight: on ? 700 : 600,
+          color: on ? "#fff" : isH ? "rgba(255,255,255,.6)" : "rgba(255,255,255,.28)",
+          fontSize: 11, letterSpacing: "1px", fontWeight: on ? 600 : 400,
           textTransform: "uppercase",
           background: on ? "rgba(255,255,255,.055)" : isH ? "rgba(255,255,255,.03)" : "transparent",
           animation: `sb-in .3s cubic-bezier(.22,1,.36,1) ${delay}ms both`,
@@ -217,7 +215,7 @@ export default function Sidebar({ profile, signOut }) {
         )}
 
         {/* icon */}
-        <span className="sb-icon" style={{ color: on ? col : "#c4c4c8" }}>
+        <span className="sb-icon" style={{ color: on ? col : isH ? `${col}99` : "rgba(255,255,255,.2)" }}>
           <Icon id={href} color="currentColor" size={13} />
         </span>
 
@@ -250,9 +248,9 @@ export default function Sidebar({ profile, signOut }) {
         style={{
           display: "flex", alignItems: "center", gap: 8,
           padding: "5px 16px 5px 42px", margin: "1px 8px", borderRadius: 7,
-          color: on ? "#fff" : "#b0b0b8",
+          color: on ? "rgba(255,255,255,.8)" : isH ? "rgba(255,255,255,.4)" : "rgba(255,255,255,.18)",
           fontSize: 10, letterSpacing: "1px", textTransform: "uppercase",
-          fontWeight: on ? 700 : 600,
+          fontWeight: on ? 600 : 400,
           background: on ? "rgba(255,255,255,.04)" : isH ? "rgba(255,255,255,.02)" : "transparent",
           animation: `sb-in .3s cubic-bezier(.22,1,.36,1) ${delay}ms both`,
         }}
@@ -284,12 +282,12 @@ export default function Sidebar({ profile, signOut }) {
     }}>
       <div style={{
         width: 3, height: 3, borderRadius: "50%", flexShrink: 0,
-        background: c ? `${c}99` : "rgba(255,255,255,.6)",
+        background: c ? `${c}66` : "rgba(255,255,255,.18)",
         boxShadow: c ? `0 0 5px ${c}44` : "none",
       }}/>
       <span style={{
         fontSize: 8.5, letterSpacing: "2.5px",
-        color: c ? `${c}cc` : "rgba(255,255,255,.75)",
+        color: c ? `${c}66` : "rgba(255,255,255,.2)",
         textTransform: "uppercase", fontWeight: 700,
       }}>
         {label}
@@ -357,7 +355,7 @@ export default function Sidebar({ profile, signOut }) {
                 KLASE A
               </div>
               <div style={{
-                fontSize: 8, letterSpacing: "1.5px", color: "rgba(255,255,255,.45)",
+                fontSize: 8, letterSpacing: "1.5px", color: "rgba(255,255,255,.2)",
                 textTransform: "uppercase", marginTop: 3, fontWeight: 500,
               }}>
                 Sistema de producción
@@ -378,9 +376,10 @@ export default function Sidebar({ profile, signOut }) {
           {esGestion && <>
             {divider("prod")}
             {group("Producción", SC.produccion, 120)}
-            {item("/obras",      "Obras",      SC.produccion, true, 140)}
-            {item("/marmoleria", "Marmolería", SC.produccion, true, 160)}
-            {item("/muebles",    "Muebles",    SC.produccion, true, 180)}
+            {item("/obras",       "Obras",       SC.produccion, true, 140)}
+            {item("/marmoleria",  "Marmolería",  SC.produccion, true, 160)}
+            {item("/muebles",     "Muebles",     SC.produccion, true, 180)}
+            {item("/calendario",  "Calendario",  SC.produccion, true, 200)}
           </>}
 
           {esGestion && <>
@@ -444,7 +443,7 @@ export default function Sidebar({ profile, signOut }) {
             </div>
             <div style={{ display: "inline-flex", alignItems: "center", gap: 5 }}>
               <div className="sb-online" style={{ width: 5, height: 5, borderRadius: "50%", background: "#22c55e", flexShrink: 0 }}/>
-              <span style={{ fontSize: 8, color: "rgba(255,255,255,.55)", letterSpacing: "1.5px", textTransform: "uppercase", fontWeight: 600 }}>
+              <span style={{ fontSize: 8, color: "rgba(255,255,255,.28)", letterSpacing: "1.5px", textTransform: "uppercase", fontWeight: 600 }}>
                 {role}
               </span>
             </div>
@@ -453,7 +452,7 @@ export default function Sidebar({ profile, signOut }) {
           <button type="button" onClick={signOut} title="Cerrar sesión" className="sb-out"
             style={{
               background: "transparent", border: "1px solid rgba(255,255,255,.07)",
-              borderRadius: 7, color: "rgba(255,255,255,.5)",
+              borderRadius: 7, color: "rgba(255,255,255,.22)",
               width: 28, height: 28, display: "flex", alignItems: "center", justifyContent: "center",
               cursor: "pointer", fontSize: 13, flexShrink: 0,
             }}>

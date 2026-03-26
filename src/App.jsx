@@ -16,6 +16,7 @@ import ProcedimientosScreen  from "./screens/ProcedimientosScreen";
 import PostVentaScreen       from "./screens/PostVentaScreen";
 import ClientePanelScreen    from "./screens/ClientePanelScreen";
 import HomeScreen            from "./screens/HomeScreen";
+import CalendarioScreen      from "./screens/CalendarioScreen";
 
 import logoK from "./assets/logo-k.png";
 
@@ -372,6 +373,7 @@ export default function App() {
         <Route path="/admin"      element={<RequireAuth session={session}><RequireRole profile={profile} allow={["admin","oficina"]}><AdminDashboard       {...A} /></RequireRole></RequireAuth>} />
         <Route path="/obras"      element={<RequireAuth session={session}><RequireRole profile={profile} allow={["admin","oficina"]}><ObrasScreen           {...A} /></RequireRole></RequireAuth>} />
         <Route path="/marmoleria" element={<RequireAuth session={session}><RequireRole profile={profile} allow={["admin","oficina"]}><MarmoleriaScreen      {...A} /></RequireRole></RequireAuth>} />
+        <Route path="/calendario" element={<RequireAuth session={session}><RequireRole profile={profile} allow={["admin","oficina"]}><CalendarioScreen      {...A} /></RequireRole></RequireAuth>} />
         <Route path="/postventa"  element={<RequireAuth session={session}><RequireRole profile={profile} allow={["admin","oficina"]}><PostVentaScreen       {...A} /></RequireRole></RequireAuth>} />
         <Route path="/movimientos"element={<RequireAuth session={session}><RequireRole profile={profile} allow={["admin","oficina"]}><MovimientosScreen     {...A} /></RequireRole></RequireAuth>} />
         <Route path="/obras-laminacion" element={<RequireAuth session={session}><RequireRole profile={profile} allow={["admin","oficina"]}><ObrasLaminacionScreen {...A} /></RequireRole></RequireAuth>} />
