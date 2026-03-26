@@ -526,6 +526,7 @@ export default function MueblesScreen({ profile, signOut }) {
   const role    = profile?.role ?? "invitado";
   const esAdmin = isAdmin || role === "admin" || role === "oficina";
 
+  const [mainView,  setMainView]  = useState("muebles"); // "muebles" | "enchapadora"
   const [lineas,    setLineas]    = useState([]);
   const [unidades,  setUnidades]  = useState([]);
   const [checklist, setChecklist] = useState([]);
@@ -620,12 +621,36 @@ export default function MueblesScreen({ profile, signOut }) {
 
           {/* ── LEFT NAV ── */}
           <div style={{ height: "100vh", overflowY: "auto", borderRight: `1px solid ${C.b0}`, background: "rgba(9,9,11,0.98)", display: "flex", flexDirection: "column" }}>
-            <div style={{ padding: "18px 16px 12px", borderBottom: `1px solid ${C.b0}`, flexShrink: 0 }}>
-              <div style={{ fontSize: 13, fontWeight: 600, color: C.t0 }}>Muebles</div>
-              <div style={{ fontSize: 10, color: C.t2, marginTop: 3 }}>Líneas de producción</div>
+            <div style={{ padding: "14px 12px 10px", borderBottom: `1px solid ${C.b0}`, flexShrink: 0 }}>
+              {/* Switcher Muebles / Enchapadora */}
+              <div style={{ display: "flex", gap: 3, marginBottom: 8, background: "rgba(255,255,255,0.03)", borderRadius: 8, padding: 3, border: `1px solid ${C.b0}` }}>
+                {[["muebles","Muebles"],["enchapadora","Enchapado"]].map(([key, label]) => (
+                  <button
+                    key={key}
+                    onClick={() => setMainView(key)}
+                    style={{
+                      flex: 1, padding: "6px 4px", borderRadius: 6, cursor: "pointer",
+                      fontSize: 11, fontWeight: mainView === key ? 600 : 400,
+                      fontFamily: C.sans, transition: "all .15s",
+                      background: mainView === key ? "rgba(255,255,255,0.07)" : "transparent",
+                      border: `1px solid ${mainView === key ? C.b0 : "transparent"}`,
+                      color: mainView === key ? C.t0 : C.t2,
+                    }}
+                  >{label}</button>
+                ))}
+              </div>
+              {mainView === "muebles" && (
+                <div style={{ fontSize: 10, color: C.t2 }}>Líneas de producción</div>
+              )}
             </div>
             <div style={{ flex: 1, overflowY: "auto" }}>
-              {lineas.map(l => {
+              {mainView === "enchapadora" ? (
+                <div style={{ padding: "20px 16px", color: C.t2, fontSize: 11, textAlign: "center", lineHeight: 1.7 }}>
+                  Gestioná las listas<br />para enchapar en el<br />panel de la derecha.
+                </div>
+              ) : (
+                <>
+                  {lineas.map(l => {
                 const sel = lineaId === l.id;
                 return (
                   <div key={l.id}>
@@ -651,8 +676,10 @@ export default function MueblesScreen({ profile, signOut }) {
                   </div>
                 );
               })}
+                </>
+              )}
             </div>
-            {esAdmin && (
+            {esAdmin && mainView === "muebles" && (
               <div style={{ padding: "10px 14px", borderTop: `1px solid ${C.b0}`, flexShrink: 0 }}>
                 <div style={{ fontSize: 9, letterSpacing: 2, textTransform: "uppercase", color: C.t2, marginBottom: 6 }}>Nueva línea</div>
                 <div style={{ display: "flex", gap: 5 }}>
@@ -665,7 +692,9 @@ export default function MueblesScreen({ profile, signOut }) {
 
           {/* ── DETAIL ── */}
           <div style={{ height: "100vh", overflowY: "auto" }}>
-            {!lineaId ? (
+            {mainView === "enchapadora" ? (
+              <EnchapadoView esAdmin={esAdmin} />
+            ) : !lineaId ? (
               /* Sin línea seleccionada */
               <div style={{ display: "flex", alignItems: "center", justifyContent: "center", height: "100%" }}>
                 <div style={{ fontSize: 11, color: C.t2, letterSpacing: 2, textTransform: "uppercase" }}>Seleccioná una línea</div>

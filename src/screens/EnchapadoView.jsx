@@ -1,6 +1,41 @@
 import { useState, useEffect, useMemo, useRef } from "react";
 import { supabase } from "../supabaseClient";
 
+// ─── Tiny SVG icons ───────────────────────────────────────────────────────
+const Icon = {
+  download: (
+    <svg width="12" height="12" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+      <path d="M8 2v8M5 7l3 3 3-3"/><path d="M2 12h12"/>
+    </svg>
+  ),
+  plus: (
+    <svg width="11" height="11" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round">
+      <path d="M8 2v12M2 8h12"/>
+    </svg>
+  ),
+  close: (
+    <svg width="10" height="10" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round">
+      <path d="M3 3l10 10M13 3L3 13"/>
+    </svg>
+  ),
+  layers: (
+    <svg width="12" height="12" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round">
+      <path d="M8 1L1 5l7 4 7-4-7-4zM1 11l7 4 7-4M1 8l7 4 7-4"/>
+    </svg>
+  ),
+  copy: (
+    <svg width="11" height="11" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round">
+      <rect x="5" y="5" width="9" height="9" rx="1.5"/><path d="M3 11H2a1 1 0 01-1-1V2a1 1 0 011-1h8a1 1 0 011 1v1"/>
+    </svg>
+  ),
+  trash: (
+    <svg width="11" height="11" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round">
+      <path d="M2 4h12M5 4V2h6v2M6 7v5M10 7v5M3 4l1 9a1 1 0 001 1h6a1 1 0 001-1l1-9"/>
+    </svg>
+  ),
+};
+
+
 // ─── Design tokens (idénticos a MueblesScreen) ─────────────────────────
 const C = {
   bg:      "#09090b",
@@ -346,7 +381,7 @@ function NuevaFichaModal({ onClose, onCreate }) {
         </div>
         <div style={{ display: "flex", gap: 8, justifyContent: "flex-end" }}>
           <button onClick={onClose} style={{ padding: "8px 16px", background: C.s0, border: `1px solid ${C.b0}`, color: C.t1, borderRadius: 8, cursor: "pointer", fontSize: 12, fontFamily: C.sans }}>Cancelar</button>
-          <button onClick={() => ok && onCreate(form)} disabled={!ok} style={{ padding: "8px 22px", background: "rgba(59,130,246,0.15)", border: "1px solid rgba(59,130,246,0.35)", color: "#60a5fa", borderRadius: 8, cursor: ok ? "pointer" : "not-allowed", fontSize: 12, fontWeight: 600, fontFamily: C.sans, opacity: ok ? 1 : 0.45 }}>Crear ficha</button>
+          <button onClick={() => ok && onCreate(form)} disabled={!ok} style={{ padding: "8px 22px", background: C.s1, border: `1px solid ${C.b1}`, color: C.t0, borderRadius: 8, cursor: ok ? "pointer" : "not-allowed", fontSize: 12, fontWeight: 600, fontFamily: C.sans, opacity: ok ? 1 : 0.45 }}>Crear ficha</button>
         </div>
       </div>
     </div>
@@ -371,7 +406,7 @@ function PlacaEditor({ items, onAdd, onUpdate, onRemove, esAdmin }) {
         <div style={{ display: "grid", gridTemplateColumns: "40px 1fr 28px", gap: 6, marginTop: 8 }}>
           <input style={{ ...INP, textAlign: "center", fontWeight: 700, padding: "5px 4px" }} value={n.letra} placeholder="A" onChange={e => setN(p => ({ ...p, letra: e.target.value.toUpperCase() }))} />
           <input style={INP} value={n.descripcion} placeholder="Nueva placa…" onChange={e => setN(p => ({ ...p, descripcion: e.target.value }))} onKeyDown={e => e.key === "Enter" && add()} />
-          <button onClick={add} style={{ background: "rgba(59,130,246,0.1)", border: "1px solid rgba(59,130,246,0.25)", color: "#60a5fa", borderRadius: 7, cursor: "pointer", fontSize: 16, lineHeight: 1, fontFamily: C.sans }}>+</button>
+          <button onClick={add} style={{ background: C.s1, border: `1px solid ${C.b0}`, color: C.t1, borderRadius: 7, cursor: "pointer", fontSize: 16, lineHeight: 1, fontFamily: C.sans }}>+</button>
         </div>
       )}
     </div>
@@ -412,7 +447,7 @@ function HojasEditor({ items, onAdd, onUpdate, onRemove, esAdmin }) {
           <input style={{ ...INP, textAlign: "center" }} value={n.cantidad} placeholder="0" type="number" min="1" onChange={e => setN(p => ({ ...p, cantidad: e.target.value }))} />
           <input style={INP} value={n.material} placeholder="Material / descripción…" onChange={e => setN(p => ({ ...p, material: e.target.value }))} />
           <input style={INP} value={n.medidas} placeholder="Medidas" onChange={e => setN(p => ({ ...p, medidas: e.target.value }))} onKeyDown={e => e.key === "Enter" && add()} />
-          <button onClick={add} style={{ background: "rgba(59,130,246,0.1)", border: "1px solid rgba(59,130,246,0.25)", color: "#60a5fa", borderRadius: 7, cursor: "pointer", fontSize: 16, lineHeight: 1 }}>+</button>
+          <button onClick={add} style={{ background: C.s1, border: `1px solid ${C.b0}`, color: C.t1, borderRadius: 7, cursor: "pointer", fontSize: 16, lineHeight: 1 }}>+</button>
         </div>
       )}
     </div>
@@ -480,7 +515,7 @@ function TrabajoEditor({ items, onAdd, onUpdate, onRemove, esAdmin }) {
               <option value="">—</option>
               {SENTIDOS_VETA.map(s => <option key={s}>{s}</option>)}
             </select>
-            <button onClick={add} style={{ background: "rgba(59,130,246,0.1)", border: "1px solid rgba(59,130,246,0.25)", color: "#60a5fa", borderRadius: 7, cursor: "pointer", fontSize: 16, lineHeight: 1 }}>+</button>
+            <button onClick={add} style={{ background: C.s1, border: `1px solid ${C.b0}`, color: C.t1, borderRadius: 7, cursor: "pointer", fontSize: 16, lineHeight: 1 }}>+</button>
           </div>
         )}
       </div>
@@ -562,11 +597,10 @@ function VistaPrevia({ ficha, placas, hojas, trabajos, onExcelExport, onPDFExpor
 
         {/* Resumen rápido */}
         <div style={{ display: "flex", gap: 16, marginBottom: 18 }}>
-          {[["📋", placas.length, "placas"], ["🪵", totalHojas, "hojas/chapas"], ["🔨", trabajos.length, "ítems trabajo"]].map(([icon, n, lbl]) => (
-            <div key={lbl} style={{ background: "rgba(255,255,255,0.03)", border: `1px solid ${C.b0}`, borderRadius: 8, padding: "8px 14px", display: "flex", alignItems: "center", gap: 8 }}>
-              <span>{icon}</span>
+          {[["Placas", placas.length], ["Hojas / Chapas", totalHojas], ["Ítems trabajo", trabajos.length]].map(([lbl, n]) => (
+            <div key={lbl} style={{ background: "rgba(255,255,255,0.03)", border: `1px solid ${C.b0}`, borderRadius: 8, padding: "8px 14px", display: "flex", alignItems: "center", gap: 10 }}>
               <span style={{ fontFamily: C.mono, fontSize: 16, fontWeight: 700, color: C.t0 }}>{n}</span>
-              <span style={{ fontSize: 10, color: C.t2 }}>{lbl}</span>
+              <span style={{ fontSize: 10, color: C.t2, letterSpacing: "0.06em" }}>{lbl}</span>
             </div>
           ))}
         </div>
@@ -641,11 +675,11 @@ function VistaPrevia({ ficha, placas, hojas, trabajos, onExcelExport, onPDFExpor
 
       {/* Export buttons */}
       <div style={{ display: "flex", gap: 8 }}>
-        <button onClick={onPDFExport} style={{ padding: "10px 22px", background: "rgba(16,185,129,0.12)", border: "1px solid rgba(16,185,129,0.3)", color: C.green, borderRadius: 8, cursor: "pointer", fontSize: 12, fontWeight: 600, fontFamily: C.sans }}>
-          ↓ Exportar PDF
+        <button onClick={onPDFExport} style={{ padding: "9px 20px", background: C.s0, border: `1px solid ${C.b0}`, color: C.t1, borderRadius: 8, cursor: "pointer", fontSize: 11, fontFamily: C.sans, display: "flex", alignItems: "center", gap: 6 }}>
+          {Icon.download} Exportar PDF
         </button>
-        <button onClick={onExcelExport} style={{ padding: "10px 22px", background: "rgba(16,185,129,0.12)", border: "1px solid rgba(16,185,129,0.3)", color: C.green, borderRadius: 8, cursor: "pointer", fontSize: 12, fontWeight: 600, fontFamily: C.sans }}>
-          ↓ Exportar Excel
+        <button onClick={onExcelExport} style={{ padding: "9px 20px", background: C.s0, border: `1px solid ${C.b0}`, color: C.t1, borderRadius: 8, cursor: "pointer", fontSize: 11, fontFamily: C.sans, display: "flex", alignItems: "center", gap: 6 }}>
+          {Icon.download} Exportar Excel
         </button>
       </div>
     </div>
@@ -865,7 +899,7 @@ export default function EnchapadoView({ esAdmin }) {
   if (dbErr) return (
     <div style={{ padding: 32 }}>
       <div style={{ background: "rgba(239,68,68,0.07)", border: "1px solid rgba(239,68,68,0.25)", borderRadius: 12, padding: 22, maxWidth: 620 }}>
-        <div style={{ fontSize: 12, color: "#f87171", fontWeight: 600, marginBottom: 10 }}>⚠ Faltan las tablas de enchapado</div>
+        <div style={{ fontSize: 12, color: "#f87171", fontWeight: 600, marginBottom: 10 }}>Faltan las tablas de enchapado</div>
         <div style={{ fontSize: 11, color: C.t2, marginBottom: 12 }}>
           Andá a <strong style={{ color: C.t1 }}>Supabase → SQL Editor</strong> y ejecutá este SQL:
         </div>
@@ -914,9 +948,9 @@ export default function EnchapadoView({ esAdmin }) {
               <div style={{ fontSize: 10, color: C.t2, marginTop: 2, fontFamily: C.mono }}>{fichas.length} fichas</div>
             </div>
             {esAdmin && (
-              <button onClick={() => setShowNueva(true)} style={{ padding: "6px 12px", background: "rgba(59,130,246,0.12)", border: "1px solid rgba(59,130,246,0.3)", color: "#60a5fa", borderRadius: 7, cursor: "pointer", fontSize: 11, fontWeight: 600, fontFamily: C.sans }}>
-                + Nueva
-              </button>
+              <button onClick={() => setShowNueva(true)} style={{ padding: "5px 11px", background: C.s1, border: `1px solid ${C.b0}`, color: C.t1, borderRadius: 7, cursor: "pointer", fontSize: 11, fontWeight: 500, fontFamily: C.sans, display: "flex", alignItems: "center", gap: 5 }}>
+                  {Icon.plus} Nueva
+                </button>
             )}
           </div>
           <input style={{ ...INP, padding: "6px 10px", fontSize: 11 }} placeholder="Buscar unidad, material…" value={q} onChange={e => setQ(e.target.value)} />
@@ -991,12 +1025,12 @@ export default function EnchapadoView({ esAdmin }) {
                 </div>
               </div>
               <div style={{ display: "flex", gap: 6, flexWrap: "wrap", justifyContent: "flex-end" }}>
-                <button onClick={() => exportarPDF(ficha, placas, hojas, trabajos)} style={{ padding: "7px 14px", background: "rgba(16,185,129,0.1)", border: "1px solid rgba(16,185,129,0.28)", color: C.green, borderRadius: 8, cursor: "pointer", fontSize: 11, fontWeight: 600, fontFamily: C.sans }}>↓ PDF</button>
-                <button onClick={() => exportarExcel(ficha, placas, hojas, trabajos)} style={{ padding: "7px 14px", background: "rgba(16,185,129,0.1)", border: "1px solid rgba(16,185,129,0.28)", color: C.green, borderRadius: 8, cursor: "pointer", fontSize: 11, fontWeight: 600, fontFamily: C.sans }}>↓ Excel</button>
+                <button onClick={() => exportarPDF(ficha, placas, hojas, trabajos)} style={{ padding: "7px 14px", background: C.s0, border: `1px solid ${C.b0}`, color: C.t1, borderRadius: 8, cursor: "pointer", fontSize: 11, fontFamily: C.sans, display: "flex", alignItems: "center", gap: 5 }}>{Icon.download} PDF</button>
+                <button onClick={() => exportarExcel(ficha, placas, hojas, trabajos)} style={{ padding: "7px 14px", background: C.s0, border: `1px solid ${C.b0}`, color: C.t1, borderRadius: 8, cursor: "pointer", fontSize: 11, fontFamily: C.sans, display: "flex", alignItems: "center", gap: 5 }}>{Icon.download} Excel</button>
                 {esAdmin && (
                   <>
-                    <button onClick={duplicarFicha} style={{ padding: "7px 14px", background: C.s0, border: `1px solid ${C.b0}`, color: C.t1, borderRadius: 8, cursor: "pointer", fontSize: 11, fontFamily: C.sans }}>Duplicar</button>
-                    <button onClick={() => eliminarFicha(selId)} style={{ padding: "7px 14px", background: "rgba(239,68,68,0.07)", border: "1px solid rgba(239,68,68,0.2)", color: C.red, borderRadius: 8, cursor: "pointer", fontSize: 11, fontFamily: C.sans }}>Eliminar</button>
+                    <button onClick={duplicarFicha} style={{ padding: "7px 14px", background: C.s0, border: `1px solid ${C.b0}`, color: C.t1, borderRadius: 8, cursor: "pointer", fontSize: 11, fontFamily: C.sans, display: "flex", alignItems: "center", gap: 5 }}>{Icon.copy} Duplicar</button>
+                    <button onClick={() => eliminarFicha(selId)} style={{ padding: "7px 12px", background: "transparent", border: `1px solid rgba(239,68,68,0.18)`, color: "rgba(239,68,68,0.65)", borderRadius: 8, cursor: "pointer", fontSize: 11, fontFamily: C.sans, display: "flex", alignItems: "center", gap: 5 }}>{Icon.trash}</button>
                   </>
                 )}
               </div>

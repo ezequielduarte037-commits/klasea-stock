@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { supabase } from "../supabaseClient";
 import Sidebar from "../components/Sidebar";
+import AjusteMaderasModal from "./AjusteMaderasModal";
 
 // --- FUNCIONES AUXILIARES ---
 function num(v) { const x = Number(v); return Number.isFinite(x) ? x : 0; }
@@ -54,6 +55,7 @@ function Btn({ onClick, children, variant = "outline", disabled = false, style =
     primary: { border: "1px solid rgba(59,130,246,0.35)", background: "rgba(59,130,246,0.15)", color: "#60a5fa", padding: "7px 18px", borderRadius: 8, fontSize: 12, fontWeight: 600 },
     green:   { border: "1px solid rgba(16,185,129,0.3)", background: "rgba(16,185,129,0.08)", color: "#34d399", padding: "6px 14px", borderRadius: 8, fontSize: 12 },
     blue:    { border: "1px solid rgba(59,130,246,0.25)", background: "rgba(59,130,246,0.07)", color: "#93c5fd", padding: "6px 14px", borderRadius: 8, fontSize: 12 },
+    amber:   { border: "1px solid rgba(245,158,11,0.3)", background: "rgba(245,158,11,0.07)", color: "#fbbf24", padding: "6px 14px", borderRadius: 8, fontSize: 12 },
     toggle:  (active) => active
       ? { border: `1px solid ${C.b1}`, background: C.s1, color: C.t0, padding: "5px 14px", borderRadius: 6, fontSize: 11, fontWeight: 600 }
       : { border: "1px solid rgba(255,255,255,0.04)", background: "transparent", color: C.t2, padding: "5px 14px", borderRadius: 6, fontSize: 11 },
@@ -104,6 +106,7 @@ export default function PanolScreen({ profile, signOut }) {
   const [msg, setMsg] = useState("");
   const [err, setErr] = useState("");
   const [exportando, setExportando] = useState(false);
+  const [showAjuste, setShowAjuste] = useState(false);
 
   async function cargarMateriales() {
     const { data, error } = await supabase
@@ -249,9 +252,9 @@ export default function PanolScreen({ profile, signOut }) {
     if (!sel) return null;
     const s = num(sel.stock_actual);
     const m = num(sel.stock_minimo);
-    if (s <= 0)   return { label: "Crítico",  color: C.red,     bg: "rgba(239,68,68,0.1)",   border: "rgba(239,68,68,0.25)"  };
-    if (s <= m)   return { label: "Atención", color: C.amber,   bg: "rgba(245,158,11,0.1)",  border: "rgba(245,158,11,0.25)" };
-    return              { label: "OK",        color: C.green,   bg: "rgba(16,185,129,0.1)",  border: "rgba(16,185,129,0.25)" };
+    if (s <= 0)   return { label: "Crítico",  color: C.red,   bg: "rgba(239,68,68,0.1)",   border: "rgba(239,68,68,0.25)"  };
+    if (s <= m)   return { label: "Atención", color: C.amber, bg: "rgba(245,158,11,0.1)",  border: "rgba(245,158,11,0.25)" };
+    return              { label: "OK",        color: C.green, bg: "rgba(16,185,129,0.1)",  border: "rgba(16,185,129,0.25)" };
   }, [sel]);
 
   return (
@@ -278,6 +281,7 @@ export default function PanolScreen({ profile, signOut }) {
         <Sidebar profile={profile} signOut={signOut} />
 
         <div style={{ display: "flex", flexDirection: "column", height: "100vh", overflow: "hidden" }}>
+
           {/* ── TOPBAR ── */}
           <div style={{
             height: 50, background: "rgba(12,12,14,0.92)", ...GLASS,
@@ -290,7 +294,7 @@ export default function PanolScreen({ profile, signOut }) {
               <div style={{ fontSize: 10, color: C.t2, letterSpacing: 1 }}>Maderas</div>
               {/* Toggles modo */}
               <div style={{ marginLeft: 10, display: "flex", gap: 3, background: C.s0, borderRadius: 8, padding: 3, border: `1px solid ${C.b0}` }}>
-                {["EGRESO","INGRESO"].map(m => (
+                {["EGRESO", "INGRESO"].map(m => (
                   <button key={m} onClick={() => setModo(m)} style={{
                     border: modo === m ? `1px solid ${C.b1}` : "1px solid transparent",
                     background: modo === m ? C.s1 : "transparent",
@@ -303,6 +307,7 @@ export default function PanolScreen({ profile, signOut }) {
               </div>
             </div>
             <div style={{ display: "flex", gap: 6 }}>
+              <Btn variant="amber" onClick={() => setShowAjuste(true)}>⊟ Ajuste inventario</Btn>
               <Btn variant="green" onClick={exportarStockMaderas}>↓ Stock CSV</Btn>
               <Btn variant="blue" onClick={exportarMovimientosMaderas} disabled={exportando}>
                 {exportando ? "Exportando…" : "↓ Movimientos CSV"}
@@ -316,6 +321,7 @@ export default function PanolScreen({ profile, signOut }) {
 
               {/* ── FORMULARIO ── */}
               <div style={{ background: C.s0, border: `1px solid ${C.b0}`, borderRadius: 12, padding: 20, animation: "slideUp .3s ease" }}>
+
                 {/* Material selector con preview de stock */}
                 <div style={{ marginBottom: 14, paddingBottom: 14, borderBottom: `1px solid ${C.b0}` }}>
                   <FieldRow label="Buscar material">
@@ -417,7 +423,7 @@ export default function PanolScreen({ profile, signOut }) {
                 {err && <div style={{ marginTop: 10, padding: "8px 12px", borderRadius: 7, background: "rgba(239,68,68,0.08)", border: "1px solid rgba(239,68,68,0.2)", color: "#f87171", fontSize: 12 }}>{err}</div>}
               </div>
 
-              {/* ── MOVIMIENTOS ── */}
+              {/* ── MOVIMIENTOS RECIENTES ── */}
               <div style={{ background: C.s0, border: `1px solid ${C.b0}`, borderRadius: 12, overflow: "hidden" }}>
                 <div style={{ padding: "14px 16px", borderBottom: `1px solid ${C.b0}`, display: "flex", justifyContent: "space-between", alignItems: "center" }}>
                   <span style={{ fontSize: 11, fontWeight: 600, color: C.t0 }}>Últimos movimientos</span>
@@ -425,41 +431,66 @@ export default function PanolScreen({ profile, signOut }) {
                 </div>
                 <div style={{ padding: "0 0 4px" }}>
                   {movs.map(m => {
-                    const esIng = num(m.delta) >= 0;
+                    const d = num(m.delta);
+                    const esIng = d >= 0;
+                    const esAjuste = m.obra === "AJUSTE";
+                    const color = esAjuste
+                      ? (d >= 0 ? "#a78bfa" : "#f87171")
+                      : esIng ? C.green : C.red;
+                    const badge = esAjuste ? "AJST" : esIng ? "ING" : "EGR";
+                    const badgeBg = esAjuste
+                      ? (d >= 0 ? "rgba(139,92,246,0.1)" : "rgba(239,68,68,0.1)")
+                      : esIng ? "rgba(16,185,129,0.1)" : "rgba(239,68,68,0.1)";
+                    const badgeBorder = esAjuste
+                      ? (d >= 0 ? "rgba(139,92,246,0.25)" : "rgba(239,68,68,0.25)")
+                      : esIng ? "rgba(16,185,129,0.25)" : "rgba(239,68,68,0.25)";
                     return (
                       <div key={m.id} style={{ padding: "10px 16px", borderBottom: `1px solid rgba(255,255,255,0.03)` }}>
                         <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", gap: 8 }}>
                           <div style={{ fontSize: 12, fontWeight: 600, color: C.t0, flex: 1, lineHeight: 1.3 }}>{m.material_nombre}</div>
                           <div style={{ display: "flex", alignItems: "center", gap: 6, flexShrink: 0 }}>
-                            <span style={{
-                              fontFamily: C.mono, fontSize: 13, fontWeight: 700,
-                              color: esIng ? C.green : C.red,
-                            }}>
-                              {esIng ? "+" : ""}{m.delta}
+                            <span style={{ fontFamily: C.mono, fontSize: 13, fontWeight: 700, color }}>
+                              {d >= 0 ? "+" : ""}{d}
                             </span>
-                            <span style={{
-                              fontSize: 8, letterSpacing: 1.5, textTransform: "uppercase",
-                              padding: "2px 6px", borderRadius: 99, fontWeight: 700,
-                              background: esIng ? "rgba(16,185,129,0.1)" : "rgba(239,68,68,0.1)",
-                              color: esIng ? C.green : C.red,
-                              border: `1px solid ${esIng ? "rgba(16,185,129,0.25)" : "rgba(239,68,68,0.25)"}`,
-                            }}>{esIng ? "ING" : "EGR"}</span>
+                            <span style={{ fontSize: 8, letterSpacing: 1.5, textTransform: "uppercase", padding: "2px 6px", borderRadius: 99, fontWeight: 700, background: badgeBg, color, border: `1px solid ${badgeBorder}` }}>
+                              {badge}
+                            </span>
                           </div>
                         </div>
                         <div style={{ marginTop: 4, display: "flex", gap: 10, flexWrap: "wrap" }}>
-                          {m.obra && <span style={{ fontSize: 10, color: C.t2 }}>Obra: <span style={{ color: C.t1 }}>{m.obra}</span></span>}
+                          {m.obra && !esAjuste && <span style={{ fontSize: 10, color: C.t2 }}>Obra: <span style={{ color: C.t1 }}>{m.obra}</span></span>}
+                          {esAjuste && <span style={{ fontSize: 10, color: "#a78bfa" }}>Ajuste de inventario</span>}
                           {m.usuario && <span style={{ fontSize: 10, color: C.t2 }}>Retira: <span style={{ color: C.t1 }}>{m.usuario}</span></span>}
+                          {m.obs_ui && <span style={{ fontSize: 10, color: C.t2, fontStyle: "italic" }}>{m.obs_ui}</span>}
                         </div>
                         <div style={{ marginTop: 3, fontSize: 10, color: C.t2, fontFamily: C.mono }}>{fmt(m.created_at)}</div>
                       </div>
                     );
                   })}
+                  {!movs.length && (
+                    <div style={{ padding: "24px 16px", textAlign: "center", fontSize: 11, color: C.t2 }}>Sin movimientos recientes</div>
+                  )}
                 </div>
               </div>
+
             </div>
           </div>
         </div>
       </div>
+
+      {/* ── MODAL AJUSTE DE INVENTARIO ── */}
+      {showAjuste && (
+        <AjusteMaderasModal
+          materiales={materiales}
+          onClose={() => setShowAjuste(false)}
+          onDone={async () => {
+            setShowAjuste(false);
+            await cargarMateriales();
+            await cargarMovs();
+            setMsg("✅ Ajuste de inventario aplicado");
+          }}
+        />
+      )}
     </div>
   );
 }
