@@ -215,7 +215,47 @@ const RAW_K52 = [
   { num:71, desc:"Cara 2 de parante transversal de softop",                cant:1  },
 ];
 
-const CATALOGOS = { k43: expandCatalogo(RAW_K43), k52: expandCatalogo(RAW_K52) };
+const RAW_K37 = [
+  { num:  1, desc: "Casco",                                       cant: 1, matriz: null },
+  { num:  2, desc: "Postizo de ventana de babor",                 cant: 1, matriz: null },
+  { num:  3, desc: "Postizo de ventana de estribor",              cant: 1, matriz: null },
+  { num:  4, desc: "Postizo cajón",                               cant: 1, matriz: null },
+  { num:  5, desc: "Cubierta",                                    cant: 1, matriz: null },
+  { num:  6, desc: "Techo ST",                                    cant: 4, matriz: null },
+  { num:  7, desc: "Plafón de techo",                             cant: 1, matriz: null },
+  { num:  8, desc: "Interior (piso)",                             cant: 1, matriz: null },
+  { num:  9, desc: "Mesa de cockpit",                             cant: 1, matriz: "Compartida K42/K43" },
+  { num: 10, desc: "Consola",                                     cant: 2, matriz: null },
+  { num: 11, desc: "Solarium de popa",                            cant: 5, matriz: null },
+  { num: 12, desc: "Tapa de parrilla",                            cant: 1, matriz: null },
+  { num: 13, desc: "Tacho de parrilla",                           cant: 1, matriz: null },
+  { num: 14, desc: "Tapa entrada a S.M. solarium de popa",        cant: 1, matriz: null },
+  { num: 15, desc: "Tacho de solarium de popa",                   cant: 1, matriz: null },
+  { num: 16, desc: "Tapa entrada a sala de máquinas grande",      cant: 1, matriz: null },
+  { num: 17, desc: "Cajón de baterías",                           cant: 1, matriz: "Compartida K42/K43" },
+  { num: 18, desc: "Tapa cajón de baterías",                      cant: 1, matriz: "Compartida K42/K43" },
+  { num: 19, desc: "Mueble de cockpit",                           cant: 4, matriz: null },
+  { num: 20, desc: "Tapa malacate",                               cant: 2, matriz: null },
+  { num: 21, desc: "Caja selectora",                              cant: 1, matriz: null },
+  { num: 22, desc: "Toma de aire de estribor",                    cant: 1, matriz: null },
+  { num: 23, desc: "Toma de aire de babor",                       cant: 1, matriz: null },
+  { num: 24, desc: "Tapa cajón de planchada",                     cant: 1, matriz: null },
+  { num: 25, desc: "Tapa escalera de sala de máquinas",           cant: 1, matriz: null },
+  { num: 26, desc: "Liner de ventana conejera estribor",          cant: 1, matriz: null },
+  { num: 27, desc: "Liner de ventana conejera babor",             cant: 1, matriz: null },
+  { num: 28, desc: "Liner de ventana cocina estribor",            cant: 1, matriz: null },
+  { num: 29, desc: "Liner de ventana salón babor",                cant: 1, matriz: null },
+  { num: 30, desc: "Liner de ventana baño estribor",              cant: 1, matriz: null },
+  { num: 31, desc: "Liner de ventana camarote de proa estribor",  cant: 1, matriz: null },
+  { num: 32, desc: "Liner de ventana camarote de proa babor",     cant: 1, matriz: null },
+  { num: 33, desc: "Mamparo de baño",                             cant: 1, matriz: null },
+];
+
+const CATALOGOS = {
+  k37: expandCatalogo(RAW_K37),
+  k43: expandCatalogo(RAW_K43),
+  k52: expandCatalogo(RAW_K52),
+};
 
 function detectarLinea(obra) {
   if (!obra) return null;
@@ -223,6 +263,7 @@ function detectarLinea(obra) {
   const lin = (obra.linea_nombre ?? "").toLowerCase();
   if (cod.includes("52") || lin.includes("52")) return "k52";
   if (cod.includes("43") || lin.includes("43")) return "k43";
+  if (cod.includes("37") || lin.includes("37")) return "k37";
   return null;
 }
 
@@ -582,19 +623,34 @@ export default function PiezasLaminacionView({ obras=[], esGestion=false }) {
     const { data:{ user } } = await supabase.auth.getUser().catch(() => ({ data:{ user:null } }));
     const byId = {};
     (catalogo??[]).forEach(p => { byId[p.pieza_id] = p; });
-    await supabase.from("piezas_laminacion_seguimiento").upsert(
+
+    const { error } = await supabase.from("piezas_laminacion_seguimiento").upsert(
       ids.map(id => ({ obra_id:obraSelId, pieza_id:id, pieza_num:byId[id]?.num??null, estado:nuevoEstado, updated_at:new Date().toISOString(), updated_by:user?.id??null })),
       { onConflict:"obra_id,pieza_id" }
     );
+
     setSaving(false);
+
+    if (error) {
+      // Columna pieza_id no existe todavía → mostrar SQL al usuario
+      const esMigracion = error.message?.includes("pieza_id") || error.message?.includes("column") || error.code === "42703" || error.code === "23505";
+      showFlash(
+        esMigracion
+          ? "⚠ Falta migración SQL. Ver comentario al inicio del archivo."
+          : "✗ Error: " + error.message,
+        true
+      );
+      return;
+    }
+
     showFlash(`✓ ${ids.length} pieza${ids.length>1?"s":""} → ${EST[nuevoEstado].label}`);
     clearSelection(); cargar();
   }
 
-  function showFlash(msg) { setFlash(msg); setTimeout(() => setFlash(null), 2800); }
+  function showFlash(msg, isError = false) { setFlash({ msg, isError }); setTimeout(() => setFlash(null), 3500); }
 
   const avanceColor = stats.pct >= 80 ? C.green : stats.pct >= 40 ? C.amber : C.blue;
-  const lineaLabel  = lineaKey==="k52"?"K52":lineaKey==="k43"?"K43":null;
+  const lineaLabel  = lineaKey==="k52"?"K52":lineaKey==="k43"?"K43":lineaKey==="k37"?"K37":null;
   const hasMat      = catalogo?.some(p => p.matriz);
 
   return (
@@ -618,8 +674,8 @@ export default function PiezasLaminacionView({ obras=[], esGestion=false }) {
       `}</style>
 
       {flash && (
-        <div style={{ position:"fixed", bottom:22, right:22, zIndex:9999, padding:"10px 18px", borderRadius:8, fontFamily:C.sans, fontSize:12, fontWeight:600, background:"rgba(6,18,12,0.97)", border:"1px solid rgba(16,185,129,.35)", color:C.green, animation:"plv-slideup .22s ease", boxShadow:"0 8px 32px rgba(0,0,0,.6)" }}>
-          {flash}
+        <div style={{ position:"fixed", bottom:22, right:22, zIndex:9999, padding:"10px 18px", borderRadius:8, fontFamily:C.sans, fontSize:12, fontWeight:600, background: flash.isError ? "rgba(18,6,6,0.97)" : "rgba(6,18,12,0.97)", border: `1px solid ${flash.isError ? "rgba(239,68,68,.4)" : "rgba(16,185,129,.35)"}`, color: flash.isError ? C.red : C.green, animation:"plv-slideup .22s ease", boxShadow:"0 8px 32px rgba(0,0,0,.6)", maxWidth: 360 }}>
+          {flash.msg}
         </div>
       )}
 
@@ -680,7 +736,11 @@ export default function PiezasLaminacionView({ obras=[], esGestion=false }) {
                         {o.codigo??o.nombre??"—"}
                       </span>
                       {lk && (
-                        <span style={{ fontSize:7, fontWeight:700, letterSpacing:1, padding:"1px 5px", borderRadius:3, background:lk==="k52"?"rgba(139,92,246,0.12)":"rgba(245,158,11,0.1)", color:lk==="k52"?C.purple:C.amber, border:`1px solid ${lk==="k52"?"rgba(139,92,246,0.25)":"rgba(245,158,11,0.2)"}` }}>
+                        <span style={{ fontSize:7, fontWeight:700, letterSpacing:1, padding:"1px 5px", borderRadius:3,
+                          background: lk==="k52"?"rgba(139,92,246,0.12)":lk==="k37"?"rgba(20,184,166,0.12)":"rgba(245,158,11,0.1)",
+                          color:      lk==="k52"?C.purple:lk==="k37"?"#2dd4bf":C.amber,
+                          border:     `1px solid ${lk==="k52"?"rgba(139,92,246,0.25)":lk==="k37"?"rgba(20,184,166,0.25)":"rgba(245,158,11,0.2)"}`,
+                        }}>
                           {lk.toUpperCase()}
                         </span>
                       )}
@@ -703,7 +763,7 @@ export default function PiezasLaminacionView({ obras=[], esGestion=false }) {
                 <div style={{ width:52, height:52, borderRadius:"50%", background:C.s0, border:`1px solid ${C.b0}`, display:"flex", alignItems:"center", justifyContent:"center", fontSize:22, color:C.t2 }}>◎</div>
                 <div style={{ fontSize:15, fontWeight:700, color:C.t1 }}>Sin plantilla de piezas</div>
                 <div style={{ fontSize:12, color:C.t2, textAlign:"center", maxWidth:340, lineHeight:1.6 }}>
-                  Esta obra no tiene catálogo. Hay plantillas para K43 y K52.
+                  Esta obra no tiene catálogo. Hay plantillas para K37, K43 y K52.
                 </div>
                 <div style={{ fontSize:10, color:C.t2, fontFamily:C.mono, padding:"6px 14px", borderRadius:6, background:C.s0, border:`1px solid ${C.b0}` }}>
                   Línea: {obraSel.linea_nombre??"sin asignar"} · Código: {obraSel.codigo??"—"}
@@ -714,7 +774,11 @@ export default function PiezasLaminacionView({ obras=[], esGestion=false }) {
                 {/* toolbar */}
                 <div style={{ padding:"9px 14px", borderBottom:`1px solid ${C.b0}`, display:"flex", gap:7, flexWrap:"wrap", alignItems:"center", flexShrink:0 }}>
                   {lineaLabel && (
-                    <span style={{ fontSize:8, fontWeight:700, letterSpacing:1.5, padding:"3px 8px", borderRadius:4, background:lineaKey==="k52"?"rgba(139,92,246,0.1)":"rgba(245,158,11,0.08)", color:lineaKey==="k52"?C.purple:C.amber, border:`1px solid ${lineaKey==="k52"?"rgba(139,92,246,0.25)":"rgba(245,158,11,0.2)"}` }}>
+                    <span style={{ fontSize:8, fontWeight:700, letterSpacing:1.5, padding:"3px 8px", borderRadius:4,
+                      background: lineaKey==="k52"?"rgba(139,92,246,0.1)":lineaKey==="k37"?"rgba(20,184,166,0.1)":"rgba(245,158,11,0.08)",
+                      color:      lineaKey==="k52"?C.purple:lineaKey==="k37"?"#2dd4bf":C.amber,
+                      border:     `1px solid ${lineaKey==="k52"?"rgba(139,92,246,0.25)":lineaKey==="k37"?"rgba(20,184,166,0.25)":"rgba(245,158,11,0.2)"}`,
+                    }}>
                       {lineaLabel} · {TOTAL} piezas
                     </span>
                   )}

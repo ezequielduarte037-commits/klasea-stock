@@ -483,8 +483,10 @@ export default function CalendarioScreen({ profile, signOut }) {
 
   async function cargar() {
     setLoading(true);
-    const from = dateStr(year, month - 1, 1);
-    const to   = dateStr(year, month + 2, 0);
+    const from    = dateStr(year, month - 1, 1);
+    // last day of month+2: new Date(year, month+3, 0) gives the correct last day
+    const lastDay = new Date(year, month + 3, 0);
+    const to      = dateStr(lastDay.getFullYear(), lastDay.getMonth(), lastDay.getDate());
     const { data, error } = await supabase
       .from("calendario_eventos")
       .select("*")
@@ -493,8 +495,10 @@ export default function CalendarioScreen({ profile, signOut }) {
       .order("fecha")
       .order("hora");
     if (error) {
-      if (error.code === "42P01") { setDbErr(true); setLoading(false); return; }
-      console.error(error);
+      if (error.code === "42P01") { setDbErr(true); }
+      else { console.error("[Calendario]", error.message); }
+      setLoading(false);
+      return;
     }
     setEventos(data ?? []);
     setLoading(false);

@@ -247,13 +247,36 @@ function ModalNuevoUsuario({ onClose, onSaved, flash }) {
     e.preventDefault();
     if (!form.username.trim() || !form.password) return flash(false,"Usuario y contraseña obligatorios.");
     setBusy(true);
-    const { error } = await supabase.rpc("crear_usuario_admin",{
-      p_username:form.username.trim(), p_password:form.password,
-      p_role:form.role, p_is_admin:form.is_admin,
+
+    let adminCli;
+    try { adminCli = getAdminClient(); }
+    catch (err) { setBusy(false); return flash(false, err.message); }
+
+    const email = `${form.username.trim().toLowerCase()}@klasea.local`;
+
+    // Crear usuario via admin API (garantiza que el password quede bien hasheado)
+    const { data: authData, error: authError } = await adminCli.auth.admin.createUser({
+      email,
+      password:      form.password,
+      email_confirm: true,
+      user_metadata: { username: form.username.trim() },
     });
+    if (authError) { setBusy(false); return flash(false, "Error auth: " + authError.message); }
+    const uid = authData.user.id;
+
+    // Upsert profile con el rol correcto (el trigger puede poner otro por defecto)
+    const { error: profError } = await adminCli.from("profiles").upsert(
+      { id: uid, username: form.username.trim(), role: form.role, is_admin: form.is_admin },
+      { onConflict: "id" }
+    );
+    if (profError) {
+      await adminCli.auth.admin.deleteUser(uid);
+      setBusy(false);
+      return flash(false, "Error perfil: " + profError.message);
+    }
+
     setBusy(false);
-    if (error) return flash(false,"Error: "+error.message);
-    flash(true,`Usuario ${form.username.toUpperCase()} creado.`);
+    flash(true, `Usuario ${form.username.toUpperCase()} creado.`);
     onSaved(); onClose();
   }
   return (
