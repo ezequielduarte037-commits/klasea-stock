@@ -355,8 +355,16 @@ export default function PanelDetallesObra({
           <Btn variant="primary" onClick={() => onEditarObra?.(obra)} style={{ flex: 1, textAlign: "center" }}>
             ✎ Editar obra
           </Btn>
-          <Btn variant="outline" onClick={() => onAsignarPuesto?.(puesto, obra)} style={{ fontSize: 10, padding: "6px 10px" }}>
-            Desvincular
+          <Btn
+            variant="danger"
+            onClick={() => {
+              if (window.confirm(`¿Desasignar "${obra.codigo}" del puesto ${puesto?.label ?? ""}?`)) {
+                onAsignarPuesto?.(puesto, obra);
+              }
+            }}
+            style={{ fontSize: 11, padding: "6px 12px", fontWeight: 600 }}
+          >
+            ⊘ Desasignar
           </Btn>
         </div>
       )}

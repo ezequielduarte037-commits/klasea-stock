@@ -70,10 +70,10 @@ function expandCatalogo(raw) {
   const result = [];
   for (const r of raw) {
     if (r.cant === 1) {
-      result.push({ pieza_id: makePiezaId(r.num, null), num: r.num, sub: null, desc: r.desc, matriz: r.matriz ?? null });
+      result.push({ pieza_id: makePiezaId(r.num, null), num: r.num, sub: null, desc: r.desc, matriz: r.matriz ?? null, variant: r.variant ?? null });
     } else {
       for (let i = 1; i <= r.cant; i++) {
-        result.push({ pieza_id: makePiezaId(r.num, i), num: r.num, sub: i, desc: r.desc, matriz: r.matriz ?? null });
+        result.push({ pieza_id: makePiezaId(r.num, i), num: r.num, sub: i, desc: r.desc, matriz: r.matriz ?? null, variant: r.variant ?? null });
       }
     }
   }
@@ -143,76 +143,77 @@ const RAW_K43 = [
   { num:60, desc:"Cenefa",                                       cant:2, matriz:null },
 ];
 
+// variant: "softop" | "hardtop" | null (null = ambos)
 const RAW_K52 = [
-  { num:1,  desc:"Casco",                                                  cant:1  },
-  { num:2,  desc:"Cubierta",                                               cant:1  },
-  { num:3,  desc:"Interior de popa",                                       cant:1  },
-  { num:4,  desc:"Interior de proa",                                       cant:1  },
-  { num:5,  desc:"Mamparo de baño de popa",                                cant:1  },
-  { num:6,  desc:"Mamparo de baño de proa",                                cant:1  },
-  { num:7,  desc:"Techo de baño de popa",                                  cant:1  },
-  { num:8,  desc:"Techo de baño de proa",                                  cant:1  },
-  { num:9,  desc:"Cenefa de baño, baño de popa y proa",                    cant:2  },
-  { num:10, desc:"Moldura de entrada de salón",                            cant:1  },
-  { num:11, desc:"Moldura de ventana de babor, salón",                     cant:1  },
-  { num:12, desc:"Moldura de ventana de estribor, salón",                  cant:1  },
-  { num:13, desc:"Cenefa de babor, salón",                                 cant:3  },
-  { num:14, desc:"Cenefa de estribor, salón",                              cant:1  },
-  { num:15, desc:"Moldura de ventana de babor, camarote de popa",          cant:1  },
-  { num:16, desc:"Moldura de ventana de estribor, camarote de popa",       cant:1  },
-  { num:17, desc:"Cenefa, camarote de proa",                               cant:1  },
-  { num:18, desc:"Moldura de ventana de estribor, camarote de proa",       cant:1  },
-  { num:19, desc:"Moldura de ventana de babor, camarote de proa",          cant:1  },
-  { num:22, desc:"Sobre apoyo de consola",                                 cant:1  },
-  { num:23, desc:"Moldura de pasamanos de sobre apoyo de consola",         cant:1  },
-  { num:24, desc:"Consola",                                                cant:1  },
-  { num:25, desc:"Máscara tapizada de cleopatra, cockpit",                 cant:1  },
-  { num:26, desc:"Máscara tapizada de dinnette, cockpit",                  cant:1  },
-  { num:27, desc:"Mueble de cockpit",                                      cant:1  },
-  { num:28, desc:"Tapa de tele de mueble de cockpit",                      cant:1  },
-  { num:29, desc:"Tapa de parrilla de mueble de cockpit",                  cant:1  },
-  { num:30, desc:"Puertita de popa de mueble de cockpit",                  cant:1  },
-  { num:31, desc:"Puertita de proa de mueble de cockpit",                  cant:1  },
-  { num:32, desc:"Caja de selectoras, cockpit",                            cant:1  },
-  { num:33, desc:"Softop",                                                 cant:1  },
-  { num:34, desc:"Hardtop",                                                cant:1  },
-  { num:35, desc:"Cáscara de planchada tender",                            cant:1  },
-  { num:36, desc:"Planchada fija",                                         cant:1  },
-  { num:37, desc:"Túnel de escape de planchada fija",                      cant:2  },
-  { num:38, desc:"Cacha de estribor de planchada",                         cant:1  },
-  { num:39, desc:"Cacha de babor de planchada",                            cant:1  },
-  { num:40, desc:"Baúl, cara inferior",                                    cant:1  },
-  { num:41, desc:"Baúl, cara superior",                                    cant:1  },
-  { num:42, desc:"Tapa de baúl",                                           cant:1  },
-  { num:43, desc:"Toma de aire de babor",                                  cant:1  },
-  { num:44, desc:"Toma de aire de estribor",                               cant:1  },
-  { num:45, desc:"Base de brújula",                                        cant:1  },
-  { num:46, desc:"Tapa de caja de cadenas",                                cant:1  },
-  { num:47, desc:"Tapa de escalera de planchada",                          cant:1  },
-  { num:48, desc:"Cajón de baterías grande",                               cant:1  },
-  { num:49, desc:"Cajón de baterías chico 1",                              cant:1  },
-  { num:50, desc:"Cajón de baterías chico 2",                              cant:1  },
-  { num:51, desc:"Imbornales altos",                                       cant:12 },
-  { num:52, desc:"Caja de aire acondicionado 1",                           cant:1  },
-  { num:53, desc:"Caja de aire acondicionado 2",                           cant:1  },
-  { num:54, desc:"Contratecho softop",                                     cant:1  },
-  { num:55, desc:"Contratecho hardtop",                                    cant:1  },
-  { num:56, desc:"Laminado de cuadernas transversales",                    cant:1  },
-  { num:57, desc:"Laminado de largueros longitudinales",                   cant:1  },
-  { num:58, desc:"Laminado de grilla de softop",                           cant:1  },
-  { num:59, desc:"Laminado de grilla de cubierta",                         cant:1  },
-  { num:60, desc:"Tambucho de proa",                                       cant:1  },
-  { num:61, desc:"Tapa de sala de máquinas",                               cant:1  },
-  { num:62, desc:"Pata de estribor de hardtop",                            cant:1  },
-  { num:63, desc:"Pata de babor de hardtop",                               cant:1  },
-  { num:64, desc:"Moldura de ventana de baño de proa",                     cant:1  },
-  { num:65, desc:"Moldura de ventana de baño de popa",                     cant:1  },
-  { num:66, desc:"Cara 1 de parante longitudinal de estribor, softop",     cant:1  },
-  { num:67, desc:"Cara 2 de parante longitudinal de estribor, softop",     cant:1  },
-  { num:68, desc:"Cara 1 de parante longitudinal de babor, softop",        cant:1  },
-  { num:69, desc:"Cara 2 de parante longitudinal de babor, softop",        cant:1  },
-  { num:70, desc:"Cara 1 de parante transversal de softop",                cant:1  },
-  { num:71, desc:"Cara 2 de parante transversal de softop",                cant:1  },
+  { num:1,  desc:"Casco",                                                  cant:1,  variant:null      },
+  { num:2,  desc:"Cubierta",                                               cant:1,  variant:null      },
+  { num:3,  desc:"Interior de popa",                                       cant:1,  variant:null      },
+  { num:4,  desc:"Interior de proa",                                       cant:1,  variant:null      },
+  { num:5,  desc:"Mamparo de baño de popa",                                cant:1,  variant:null      },
+  { num:6,  desc:"Mamparo de baño de proa",                                cant:1,  variant:null      },
+  { num:7,  desc:"Techo de baño de popa",                                  cant:1,  variant:null      },
+  { num:8,  desc:"Techo de baño de proa",                                  cant:1,  variant:null      },
+  { num:9,  desc:"Cenefa de baño, baño de popa y proa",                    cant:2,  variant:null      },
+  { num:10, desc:"Moldura de entrada de salón",                            cant:1,  variant:null      },
+  { num:11, desc:"Moldura de ventana de babor, salón",                     cant:1,  variant:null      },
+  { num:12, desc:"Moldura de ventana de estribor, salón",                  cant:1,  variant:null      },
+  { num:13, desc:"Cenefa de babor, salón",                                 cant:3,  variant:null      },
+  { num:14, desc:"Cenefa de estribor, salón",                              cant:1,  variant:null      },
+  { num:15, desc:"Moldura de ventana de babor, camarote de popa",          cant:1,  variant:null      },
+  { num:16, desc:"Moldura de ventana de estribor, camarote de popa",       cant:1,  variant:null      },
+  { num:17, desc:"Cenefa, camarote de proa",                               cant:1,  variant:null      },
+  { num:18, desc:"Moldura de ventana de estribor, camarote de proa",       cant:1,  variant:null      },
+  { num:19, desc:"Moldura de ventana de babor, camarote de proa",          cant:1,  variant:null      },
+  { num:22, desc:"Sobre apoyo de consola",                                 cant:1,  variant:null      },
+  { num:23, desc:"Moldura de pasamanos de sobre apoyo de consola",         cant:1,  variant:null      },
+  { num:24, desc:"Consola",                                                cant:1,  variant:null      },
+  { num:25, desc:"Máscara tapizada de cleopatra, cockpit",                 cant:1,  variant:null      },
+  { num:26, desc:"Máscara tapizada de dinnette, cockpit",                  cant:1,  variant:null      },
+  { num:27, desc:"Mueble de cockpit",                                      cant:1,  variant:null      },
+  { num:28, desc:"Tapa de tele de mueble de cockpit",                      cant:1,  variant:null      },
+  { num:29, desc:"Tapa de parrilla de mueble de cockpit",                  cant:1,  variant:null      },
+  { num:30, desc:"Puertita de popa de mueble de cockpit",                  cant:1,  variant:null      },
+  { num:31, desc:"Puertita de proa de mueble de cockpit",                  cant:1,  variant:null      },
+  { num:32, desc:"Caja de selectoras, cockpit",                            cant:1,  variant:null      },
+  { num:33, desc:"Softop",                                                 cant:1,  variant:"softop"  },
+  { num:34, desc:"Hardtop",                                                cant:1,  variant:"hardtop" },
+  { num:35, desc:"Cáscara de planchada tender",                            cant:1,  variant:null      },
+  { num:36, desc:"Planchada fija",                                         cant:1,  variant:null      },
+  { num:37, desc:"Túnel de escape de planchada fija",                      cant:2,  variant:null      },
+  { num:38, desc:"Cacha de estribor de planchada",                         cant:1,  variant:null      },
+  { num:39, desc:"Cacha de babor de planchada",                            cant:1,  variant:null      },
+  { num:40, desc:"Baúl, cara inferior",                                    cant:1,  variant:null      },
+  { num:41, desc:"Baúl, cara superior",                                    cant:1,  variant:null      },
+  { num:42, desc:"Tapa de baúl",                                           cant:1,  variant:null      },
+  { num:43, desc:"Toma de aire de babor",                                  cant:1,  variant:null      },
+  { num:44, desc:"Toma de aire de estribor",                               cant:1,  variant:null      },
+  { num:45, desc:"Base de brújula",                                        cant:1,  variant:null      },
+  { num:46, desc:"Tapa de caja de cadenas",                                cant:1,  variant:null      },
+  { num:47, desc:"Tapa de escalera de planchada",                          cant:1,  variant:null      },
+  { num:48, desc:"Cajón de baterías grande",                               cant:1,  variant:null      },
+  { num:49, desc:"Cajón de baterías chico 1",                              cant:1,  variant:null      },
+  { num:50, desc:"Cajón de baterías chico 2",                              cant:1,  variant:null      },
+  { num:51, desc:"Imbornales altos",                                       cant:12, variant:null      },
+  { num:52, desc:"Caja de aire acondicionado 1",                           cant:1,  variant:null      },
+  { num:53, desc:"Caja de aire acondicionado 2",                           cant:1,  variant:null      },
+  { num:54, desc:"Contratecho softop",                                     cant:1,  variant:"softop"  },
+  { num:55, desc:"Contratecho hardtop",                                    cant:1,  variant:"hardtop" },
+  { num:56, desc:"Laminado de cuadernas transversales",                    cant:1,  variant:null      },
+  { num:57, desc:"Laminado de largueros longitudinales",                   cant:1,  variant:null      },
+  { num:58, desc:"Laminado de grilla de softop",                           cant:1,  variant:"softop"  },
+  { num:59, desc:"Laminado de grilla de cubierta",                         cant:1,  variant:null      },
+  { num:60, desc:"Tambucho de proa",                                       cant:1,  variant:null      },
+  { num:61, desc:"Tapa de sala de máquinas",                               cant:1,  variant:null      },
+  { num:62, desc:"Pata de estribor de hardtop",                            cant:1,  variant:"hardtop" },
+  { num:63, desc:"Pata de babor de hardtop",                               cant:1,  variant:"hardtop" },
+  { num:64, desc:"Moldura de ventana de baño de proa",                     cant:1,  variant:null      },
+  { num:65, desc:"Moldura de ventana de baño de popa",                     cant:1,  variant:null      },
+  { num:66, desc:"Cara 1 de parante longitudinal de estribor, softop",     cant:1,  variant:"softop"  },
+  { num:67, desc:"Cara 2 de parante longitudinal de estribor, softop",     cant:1,  variant:"softop"  },
+  { num:68, desc:"Cara 1 de parante longitudinal de babor, softop",        cant:1,  variant:"softop"  },
+  { num:69, desc:"Cara 2 de parante longitudinal de babor, softop",        cant:1,  variant:"softop"  },
+  { num:70, desc:"Cara 1 de parante transversal de softop",                cant:1,  variant:"softop"  },
+  { num:71, desc:"Cara 2 de parante transversal de softop",                cant:1,  variant:"softop"  },
 ];
 
 const RAW_K37 = [
@@ -525,14 +526,14 @@ export default function PiezasLaminacionView({ obras=[], esGestion=false }) {
   const [flash,       setFlash]       = useState(null);
   const [qObra,       setQObra]       = useState("");
   const [selected,    setSelected]    = useState(new Set());
+  const [k52Variant,  setK52Variant]  = useState(null); // null | "softop" | "hardtop"
 
   const obraSel  = useMemo(() => obras.find(o => o.id === obraSelId) ?? null, [obras, obraSelId]);
   const lineaKey = useMemo(() => detectarLinea(obraSel), [obraSel]);
   const catalogo = useMemo(() => lineaKey ? CATALOGOS[lineaKey] : null, [lineaKey]);
-  const TOTAL    = catalogo?.length ?? 0;
 
   useEffect(() => { if (!obraSelId && obras.length > 0) setObraSelId(obras[0].id); }, [obras]);
-  useEffect(() => { setSelected(new Set()); setQ(""); setFiltroEst("todos"); }, [obraSelId]);
+  useEffect(() => { setSelected(new Set()); setQ(""); setFiltroEst("todos"); setK52Variant(null); }, [obraSelId]);
 
   const cargar = useCallback(async () => {
     if (!obraSelId) return;
@@ -579,13 +580,13 @@ export default function PiezasLaminacionView({ obras=[], esGestion=false }) {
   }, [seguimiento]);
 
   const stats = useMemo(() => {
-    if (!catalogo) return { byEst:{}, terminadas:0, pct:0 };
+    if (!catalogoFiltradoVariant.length) return { byEst:{}, terminadas:0, pct:0 };
     const byEst = {};
     for (const k of Object.keys(EST)) byEst[k] = 0;
-    for (const p of catalogo) { const est = segMap[p.pieza_id]?.estado ?? "pendiente"; byEst[est] = (byEst[est]??0)+1; }
+    for (const p of catalogoFiltradoVariant) { const est = segMap[p.pieza_id]?.estado ?? "pendiente"; byEst[est] = (byEst[est]??0)+1; }
     const terminadas = (byEst.terminada??0) + (byEst.entregada??0);
     return { byEst, terminadas, pct: TOTAL ? Math.round(terminadas/TOTAL*100) : 0 };
-  }, [segMap, catalogo, TOTAL]);
+  }, [segMap, catalogoFiltradoVariant, TOTAL]);
 
   const obrasFiltradas = useMemo(() => {
     const qq = qObra.trim().toLowerCase();
@@ -593,10 +594,18 @@ export default function PiezasLaminacionView({ obras=[], esGestion=false }) {
     return obras.filter(o => (o.codigo??o.nombre??"").toLowerCase().includes(qq) || (o.linea_nombre??"").toLowerCase().includes(qq));
   }, [obras, qObra]);
 
-  const piezasFiltradas = useMemo(() => {
+  const catalogoFiltradoVariant = useMemo(() => {
     if (!catalogo) return [];
+    if (lineaKey !== "k52" || !k52Variant) return catalogo;
+    return catalogo.filter(p => p.variant === null || p.variant === k52Variant);
+  }, [catalogo, lineaKey, k52Variant]);
+
+  const TOTAL = catalogoFiltradoVariant.length;
+
+  const piezasFiltradas = useMemo(() => {
+    if (!catalogoFiltradoVariant.length) return [];
     const qq = q.trim().toLowerCase();
-    return catalogo.filter(p => {
+    return catalogoFiltradoVariant.filter(p => {
       const est = segMap[p.pieza_id]?.estado ?? "pendiente";
       if (filtroEst !== "todos" && est !== filtroEst) return false;
       if (filtroMat === "nueva"    && !p.matriz) return false;
@@ -604,7 +613,7 @@ export default function PiezasLaminacionView({ obras=[], esGestion=false }) {
       if (qq && !p.desc.toLowerCase().includes(qq) && !p.pieza_id.includes(qq) && !String(p.num).includes(qq)) return false;
       return true;
     });
-  }, [q, filtroEst, filtroMat, segMap, catalogo]);
+  }, [q, filtroEst, filtroMat, segMap, catalogoFiltradoVariant]);
 
   const selectedIds = useMemo(() => [...selected], [selected]);
   const allVisibleSelected = piezasFiltradas.length > 0 && piezasFiltradas.every(p => selected.has(p.pieza_id));
@@ -651,7 +660,73 @@ export default function PiezasLaminacionView({ obras=[], esGestion=false }) {
 
   const avanceColor = stats.pct >= 80 ? C.green : stats.pct >= 40 ? C.amber : C.blue;
   const lineaLabel  = lineaKey==="k52"?"K52":lineaKey==="k43"?"K43":lineaKey==="k37"?"K37":null;
-  const hasMat      = catalogo?.some(p => p.matriz);
+  const hasMat      = catalogoFiltradoVariant?.some(p => p.matriz);
+
+  function exportCSV() {
+    if (!catalogoFiltradoVariant.length) return;
+    const obra = obraSel?.codigo ?? obraSel?.nombre ?? "obra";
+    const varTag = k52Variant ? `_${k52Variant}` : "";
+    const rows = [["N° Pieza","Descripción","Estado","Laminador","Ubicación","Observaciones","Matriz"]];
+    for (const p of catalogoFiltradoVariant) {
+      const seg = segMap[p.pieza_id];
+      const est = seg?.estado ?? "pendiente";
+      rows.push([
+        p.sub != null ? `${p.num}.${p.sub}` : `${p.num}`,
+        p.desc,
+        EST[est]?.label ?? est,
+        seg?.laminador ?? "",
+        seg?.ubicacion ?? "",
+        seg?.observaciones ?? "",
+        p.matriz ?? "",
+      ]);
+    }
+    const csv = rows.map(r => r.map(c => `"${String(c).replace(/"/g,'""')}"`).join(",")).join("\n");
+    const blob = new Blob(["\uFEFF" + csv], { type:"text/csv;charset=utf-8;" });
+    const url  = URL.createObjectURL(blob);
+    const a    = document.createElement("a");
+    a.href = url; a.download = `piezas_${obra}${varTag}_${lineaKey}.csv`; a.click();
+    URL.revokeObjectURL(url);
+  }
+
+  function exportPrint() {
+    if (!catalogoFiltradoVariant.length) return;
+    const obra = obraSel?.codigo ?? obraSel?.nombre ?? "Obra";
+    const varLabel = k52Variant ? ` · ${k52Variant.charAt(0).toUpperCase()+k52Variant.slice(1)}` : "";
+    const estColor = { pendiente:"#777", en_proceso:"#3b82f6", terminada:"#10b981", entregada:"#8b5cf6", problema:"#ef4444" };
+    const rows = catalogoFiltradoVariant.map(p => {
+      const seg = segMap[p.pieza_id];
+      const est = seg?.estado ?? "pendiente";
+      const numStr = p.sub != null ? `${String(p.num).padStart(2,"0")}.${p.sub}` : String(p.num).padStart(2,"0");
+      const color = estColor[est] ?? "#777";
+      return `<tr>
+        <td style="padding:6px 8px;border-bottom:1px solid #eee;font-family:monospace;font-size:11px;color:#444">${numStr}</td>
+        <td style="padding:6px 8px;border-bottom:1px solid #eee;font-size:12px">${p.desc}</td>
+        <td style="padding:6px 8px;border-bottom:1px solid #eee">
+          <span style="background:${color}22;color:${color};border:1px solid ${color}55;padding:2px 8px;border-radius:99px;font-size:10px;font-weight:700;white-space:nowrap">${EST[est]?.label??est}</span>
+        </td>
+        <td style="padding:6px 8px;border-bottom:1px solid #eee;font-size:11px;color:#555">${seg?.laminador??""}</td>
+        <td style="padding:6px 8px;border-bottom:1px solid #eee;font-size:11px;color:#555">${seg?.ubicacion??""}</td>
+        <td style="padding:6px 8px;border-bottom:1px solid #eee;font-size:11px;color:#555">${seg?.observaciones??""}</td>
+      </tr>`;
+    }).join("");
+    const term = (stats.byEst.terminada??0)+(stats.byEst.entregada??0);
+    const pct  = TOTAL ? Math.round(term/TOTAL*100) : 0;
+    const html = `<!DOCTYPE html><html><head><meta charset="utf-8"><title>Piezas ${obra}</title>
+      <style>body{font-family:system-ui,sans-serif;color:#111;margin:0;padding:20px}
+      h1{margin:0 0 2px;font-size:18px}p{margin:0 0 12px;font-size:11px;color:#666}
+      table{width:100%;border-collapse:collapse}
+      th{padding:7px 8px;background:#f4f4f5;text-align:left;font-size:10px;letter-spacing:1.5px;text-transform:uppercase;color:#666;border-bottom:2px solid #ddd}
+      @media print{@page{size:A4 landscape;margin:15mm}}</style>
+      </head><body>
+      <h1>Piezas de Laminación · ${obra}${varLabel}</h1>
+      <p>${lineaLabel ?? ""} · ${TOTAL} piezas · ${pct}% terminadas · Generado ${new Date().toLocaleDateString("es-AR")}</p>
+      <table><thead><tr>
+        <th>N°</th><th>Descripción</th><th>Estado</th><th>Laminador</th><th>Ubicación</th><th>Observaciones</th>
+      </tr></thead><tbody>${rows}</tbody></table>
+      <script>window.onload=()=>{window.print()}<\/script></body></html>`;
+    const w = window.open("","_blank");
+    if (w) { w.document.write(html); w.document.close(); }
+  }
 
   return (
     <>
@@ -782,6 +857,26 @@ export default function PiezasLaminacionView({ obras=[], esGestion=false }) {
                       {lineaLabel} · {TOTAL} piezas
                     </span>
                   )}
+
+                  {/* K52 variant selector */}
+                  {lineaKey === "k52" && (
+                    <div style={{ display:"flex", gap:3, background:"rgba(255,255,255,0.03)", border:`1px solid ${C.b0}`, borderRadius:7, padding:3 }}>
+                      {[["todos", null, "Todos"], ["softop", "softop", "Softop"], ["hardtop", "hardtop", "Hardtop"]].map(([key, val, label]) => {
+                        const active = k52Variant === val;
+                        const col = val === "softop" ? "#22d3ee" : val === "hardtop" ? C.amber : C.t1;
+                        return (
+                          <button key={key} onClick={() => setK52Variant(val)}
+                            style={{ padding:"3px 10px", borderRadius:5, border: active ? `1px solid ${col}50` : "1px solid transparent",
+                              background: active ? `${col}18` : "transparent",
+                              color: active ? col : C.t2, fontSize:10, fontWeight:active?700:500,
+                              cursor:"pointer", fontFamily:C.sans, transition:"all .15s", whiteSpace:"nowrap" }}>
+                            {val === "softop" && "⛵ "}{val === "hardtop" && "🔧 "}{label}
+                          </button>
+                        );
+                      })}
+                    </div>
+                  )}
+
                   <input value={q} onChange={e => setQ(e.target.value)} placeholder="Buscar pieza…"
                     style={{ background:C.s0, border:`1px solid ${C.b0}`, color:C.t0, padding:"5px 10px", borderRadius:6, fontSize:11, outline:"none", width:150, fontFamily:C.sans }} />
                   <select value={filtroEst} onChange={e => setFiltroEst(e.target.value)}
@@ -799,6 +894,18 @@ export default function PiezasLaminacionView({ obras=[], esGestion=false }) {
                   )}
                   <div style={{ flex:1 }} />
                   <span style={{ fontSize:10, color:C.t2 }}>{piezasFiltradas.length}/{TOTAL}</span>
+
+                  {/* export buttons */}
+                  <div style={{ display:"flex", gap:4 }}>
+                    <button onClick={exportCSV} title="Exportar CSV"
+                      style={{ border:`1px solid rgba(16,185,129,0.3)`, background:"rgba(16,185,129,0.07)", color:"#34d399", padding:"4px 10px", borderRadius:6, cursor:"pointer", fontSize:10, fontWeight:600, fontFamily:C.sans, display:"flex", alignItems:"center", gap:4 }}>
+                      ↓ CSV
+                    </button>
+                    <button onClick={exportPrint} title="Imprimir / Exportar PDF"
+                      style={{ border:`1px solid rgba(59,130,246,0.3)`, background:"rgba(59,130,246,0.07)", color:"#60a5fa", padding:"4px 10px", borderRadius:6, cursor:"pointer", fontSize:10, fontWeight:600, fontFamily:C.sans, display:"flex", alignItems:"center", gap:4 }}>
+                      🖨 PDF
+                    </button>
+                  </div>
 
                   {esGestion && someSelected && (
                     <div style={{ display:"flex", gap:5, alignItems:"center", padding:"3px 10px", borderRadius:7, background:"rgba(59,130,246,0.06)", border:"1px solid rgba(59,130,246,0.2)", animation:"plv-fadeup .18s ease" }}>
@@ -851,24 +958,31 @@ export default function PiezasLaminacionView({ obras=[], esGestion=false }) {
                           const isSel     = selected.has(pieza.pieza_id);
                           const ubicacion = seg?.ubicacion;
                           const laminador = seg?.laminador;
+                          const estInfo   = EST[estado] ?? EST.pendiente;
                           const numLabel  = pieza.sub != null
                             ? <><span style={{ fontFamily:C.mono, fontSize:10, color:C.t2 }}>{String(pieza.num).padStart(2,"0")}</span><span style={{ color:C.amber, fontFamily:C.mono, fontSize:10 }}> · {pieza.sub}</span></>
                             : <span style={{ fontFamily:C.mono, fontSize:10, color:C.t2 }}>{String(pieza.num).padStart(2,"0")}</span>;
+                          const variantBadge = pieza.variant === "softop"
+                            ? <span style={{ fontSize:7, fontWeight:700, letterSpacing:1, padding:"1px 5px", borderRadius:3, background:"rgba(34,211,238,0.10)", color:"#22d3ee", border:"1px solid rgba(34,211,238,0.25)", marginLeft:4, whiteSpace:"nowrap" }}>SOFTOP</span>
+                            : pieza.variant === "hardtop"
+                            ? <span style={{ fontSize:7, fontWeight:700, letterSpacing:1, padding:"1px 5px", borderRadius:3, background:"rgba(245,158,11,0.10)", color:C.amber, border:"1px solid rgba(245,158,11,0.25)", marginLeft:4, whiteSpace:"nowrap" }}>HARDTOP</span>
+                            : null;
 
                           return (
                             <tr key={pieza.pieza_id} className={`plv-row${isSel?" plv-row-sel":""}`}
                               style={{ background:estado==="problema"?"rgba(239,68,68,0.03)":"transparent" }}>
 
-                              <td style={{ padding:"8px 10px 8px 14px", borderBottom:`1px solid rgba(255,255,255,0.04)`, verticalAlign:"middle" }} onClick={e => e.stopPropagation()}>
+                              <td style={{ padding:"8px 10px 8px 14px", borderBottom:`1px solid rgba(255,255,255,0.04)`, verticalAlign:"middle", borderLeft:`2px solid ${estInfo.color}` }} onClick={e => e.stopPropagation()}>
                                 <input type="checkbox" className="plv-check" checked={isSel} onChange={() => toggleSelect(pieza.pieza_id)} />
                               </td>
                               <td style={{ padding:"10px 10px", borderBottom:`1px solid rgba(255,255,255,0.04)`, verticalAlign:"middle", whiteSpace:"nowrap" }}>{numLabel}</td>
                               <td style={{ padding:"10px 12px", borderBottom:`1px solid rgba(255,255,255,0.04)`, verticalAlign:"middle", maxWidth:220 }}>
                                 <button onClick={() => setPiezaModal(pieza)}
-                                  style={{ background:"transparent", border:"none", cursor:"pointer", textAlign:"left", padding:0, fontFamily:C.sans }}
+                                  style={{ background:"transparent", border:"none", cursor:"pointer", textAlign:"left", padding:0, fontFamily:C.sans, display:"flex", alignItems:"center", flexWrap:"wrap", gap:2 }}
                                   onMouseEnter={e => e.currentTarget.querySelector("span").style.color=C.t0}
                                   onMouseLeave={e => e.currentTarget.querySelector("span").style.color=C.t1}>
                                   <span style={{ fontSize:12, fontWeight:500, color:C.t1, display:"block", transition:"color .15s" }}>{pieza.desc}</span>
+                                  {variantBadge}
                                 </button>
                               </td>
 

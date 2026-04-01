@@ -274,6 +274,7 @@ function ObraModal({ lineas, lProcs, lTareas = [], onSave, onClose }) {
         tipo: "barco", estado: "activa", linea_id: form.linea_id || null,
         linea_nombre: lineaSel?.nombre ?? null, fecha_inicio: form.fecha_inicio || null,
         fecha_fin_estimada: form.fecha_fin_estimada || null, notas: form.notas.trim() || null,
+        puesto_mapa: null, bahia_pampa: null, // siempre sin asignar al crear
       }).select().single();
       if (errObra) { setErr(errObra.message); setSaving(false); return; }
       await supabase.from("laminacion_obras").upsert({ nombre: form.codigo.trim().toUpperCase(), estado: "activa", fecha_inicio: form.fecha_inicio || null }, { onConflict: "nombre", ignoreDuplicates: true }).then(() => {});
@@ -1852,14 +1853,21 @@ export default function ObrasScreen({ profile, signOut }) {
   useEffect(() => {
     cargar();
     cargarMapaConfig();
+    // Debounce para que múltiples eventos realtime seguidos (INSERT obra + etapas + tareas)
+    // no disparen N cargar() simultáneos → causa titileo en el mapa
+    let debounceTimer = null;
+    const cargarDebounced = () => {
+      clearTimeout(debounceTimer);
+      debounceTimer = setTimeout(cargar, 350);
+    };
     const ch = supabase.channel("rt-obras-v8")
-      .on("postgres_changes", { event: "*", schema: "public", table: "produccion_obras" }, cargar)
-      .on("postgres_changes", { event: "*", schema: "public", table: "obra_etapas"      }, cargar)
-      .on("postgres_changes", { event: "*", schema: "public", table: "obra_tareas"      }, cargar)
-      .on("postgres_changes", { event: "*", schema: "public", table: "ordenes_compra"   }, cargar)
-      .on("postgres_changes", { event: "*", schema: "public", table: "obra_tarea_archivos" }, cargar)
+      .on("postgres_changes", { event: "*", schema: "public", table: "produccion_obras"    }, cargarDebounced)
+      .on("postgres_changes", { event: "*", schema: "public", table: "obra_etapas"         }, cargarDebounced)
+      .on("postgres_changes", { event: "*", schema: "public", table: "obra_tareas"         }, cargarDebounced)
+      .on("postgres_changes", { event: "*", schema: "public", table: "ordenes_compra"      }, cargarDebounced)
+      .on("postgres_changes", { event: "*", schema: "public", table: "obra_tarea_archivos" }, cargarDebounced)
       .subscribe();
-    return () => supabase.removeChannel(ch);
+    return () => { clearTimeout(debounceTimer); supabase.removeChannel(ch); };
   }, []);
 
   // ── HELPERS ───────────────────────────────────────────────────
@@ -2555,6 +2563,12 @@ export default function ObrasScreen({ profile, signOut }) {
                 onSaveMemorias={onSaveMemorias}
                 onPuestoClick={({ puesto, obra }) => setMapaPanel({ puesto, obra })}
                 onAsignarObra={async (puestoId, obraId) => {
+                  // 1. Limpiar cualquier obra que ya ocupe ese puesto (evita colisiones)
+                  await supabase.from("produccion_obras")
+                    .update({ puesto_mapa: null })
+                    .eq("puesto_mapa", puestoId)
+                    .neq("id", obraId);
+                  // 2. Asignar la obra al puesto
                   await supabase.from("produccion_obras").update({ puesto_mapa: puestoId }).eq("id", obraId);
                   cargar();
                 }}
@@ -2569,6 +2583,12 @@ export default function ObrasScreen({ profile, signOut }) {
                   cargar();
                 }}
                 onAsignarObraPampa={async (bahiaId, obraId) => {
+                  // 1. Limpiar cualquier obra que ya ocupe esa bahía (evita colisiones)
+                  await supabase.from("produccion_obras")
+                    .update({ bahia_pampa: null })
+                    .eq("bahia_pampa", bahiaId)
+                    .neq("id", obraId);
+                  // 2. Asignar la obra a la bahía
                   await supabase.from("produccion_obras").update({ bahia_pampa: bahiaId }).eq("id", obraId);
                   cargar();
                 }}

@@ -146,19 +146,29 @@ const LEGEND=[
 /* ═══════════════════════════════════════════════════════════════
    ADD OBRA MODAL
 ═══════════════════════════════════════════════════════════════ */
-function AddObraModal({puestoId,puestos,obras,onAssign,onClose}){
+function AddObraModal({puestoId,puestos,obras,assignedObraIds=new Set(),pendingObraIds=[],onAssign,onClose}){
   const [q,setQ]=useState("");
-  const [selIdx,setSelIdx]=useState(0);
+  const [selIdx,setSelIdx]=useState(-1);
   const inputRef=useRef(null);
   const listRef=useRef(null);
   const p=puestos.find(x=>x.id===puestoId);
-  const list=useMemo(()=>obras.filter(o=>!o.puesto_mapa&&["activa","pausada","terminada"].includes(o.estado)&&[o.codigo,o.descripcion].some(s=>s?.toLowerCase().includes(q.toLowerCase()))),[obras,q]);
+  /* Triple defensa contra obras ya asignadas:
+     1. !o.puesto_mapa           — campo DB (requiere que el SELECT lo incluya)
+     2. !assignedObraIds.has(id) — cross-check vs obraByPuesto en vivo (cubre si puesto_mapa falta en el SELECT)
+     3. !pendingObraIds.includes — excluye asignaciones optimistas pendientes de Supabase */
+  const list=useMemo(()=>obras.filter(o=>
+    !o.puesto_mapa &&
+    !assignedObraIds.has(o.id) &&
+    !pendingObraIds.includes(o.id) &&
+    ["activa","pausada","terminada"].includes(o.estado) &&
+    [o.codigo,o.descripcion].some(s=>s?.toLowerCase().includes(q.toLowerCase()))
+  ),[obras,assignedObraIds,pendingObraIds,q]);
   useEffect(()=>{inputRef.current?.focus();},[]);
-  useEffect(()=>{setSelIdx(0);},[q]);
+  useEffect(()=>{setSelIdx(-1);},[q]);
   const handleKeyDown=(e)=>{
     if(e.key==="ArrowDown"){e.preventDefault();setSelIdx(i=>Math.min(i+1,list.length-1));}
     else if(e.key==="ArrowUp"){e.preventDefault();setSelIdx(i=>Math.max(i-1,0));}
-    else if(e.key==="Enter"&&list[selIdx]){onAssign(puestoId,list[selIdx].id);}
+    else if(e.key==="Enter"&&selIdx>=0&&list[selIdx]){onAssign(puestoId,list[selIdx].id);}
     else if(e.key==="Escape"){onClose();}
   };
   useEffect(()=>{const el=listRef.current?.children[selIdx];el?.scrollIntoView({block:"nearest"});},[selIdx]);
@@ -230,14 +240,14 @@ function RadialMenu({x,y,puesto,obra,editMode,onClose,onAssign,onFocus,onDetail,
   },[obra,editMode]);
   const step=360/actions.length;
   const handleAction=(id)=>{
-    if(id==="memoria")      onFocus();        // onFocus abre el HUD de memoria (setFocusedPuesto)
-    else if(id==="detail")  onDetail();       // onDetail abre etapas en ObrasScreen
-    else if(id==="asignar") onAssign();
-    else if(id==="delete")  onDelete();
-    else if(id==="desasignar")   onChangeEstado?.(obra.id,"desasignar");
-    else if(id==="pausar")       onChangeEstado?.(obra.id,"pausada");
-    else if(id==="reanudar")     onChangeEstado?.(obra.id,"activa");
-    else if(id==="terminar")     onChangeEstado?.(obra.id,"terminada");
+    if(id==="memoria")      { onFocus();   onClose(); }
+    else if(id==="detail")  { onDetail();  onClose(); }
+    else if(id==="asignar") { onAssign();  onClose(); }
+    else if(id==="delete")  { onClose();  onDelete(); }
+    else if(id==="desasignar")   { onChangeEstado?.(obra.id,"desasignar"); onClose(); }
+    else if(id==="pausar")       { onChangeEstado?.(obra.id,"pausada");    onClose(); }
+    else if(id==="reanudar")     { onChangeEstado?.(obra.id,"activa");     onClose(); }
+    else if(id==="terminar")     { onChangeEstado?.(obra.id,"terminada");  onClose(); }
     onClose();
   };
   return(
@@ -1620,7 +1630,7 @@ function savePuestos(puestos) {
 /* ═══════════════════════════════════════════════════════════════
    KPI PANEL — flotante derecha, compacto e interactivo
 ═══════════════════════════════════════════════════════════════ */
-function KPIPanel({ obras, puestos, obraByPuesto, collapsed, onCollapse, onFocusPuesto, memoriasEdit }) {
+function KPIPanel({ obras, puestos, obraByPuesto, collapsed, onCollapse, onFocusPuesto, memoriasEdit, onDesasignar }) {
   const [activeTab, setActiveTab] = useState("alertas");
   const [hoveredAlert, setHoveredAlert] = useState(null);
 
@@ -1634,6 +1644,14 @@ function KPIPanel({ obras, puestos, obraByPuesto, collapsed, onCollapse, onFocus
   const obrasTerminadas = obras.filter(o => o.estado === "terminada");
   const progPct         = obrasActivas.length > 0
     ? Math.round(obrasActivas.reduce((s,o)=>s+(o._pct??0),0)/obrasActivas.length) : 0;
+
+  /* ── obras fantasma: tienen puesto_mapa pero ese puesto no existe en el layout ── */
+  const puestoIds = new Set(puestos.map(p => p.id));
+  const obrasFantasma = obras.filter(o =>
+    o.puesto_mapa &&
+    !puestoIds.has(o.puesto_mapa) &&
+    ["activa","pausada"].includes(o.estado)
+  );
 
   /* ── alertas ── */
   const CAMPOS_CRITICOS = [
@@ -1865,7 +1883,45 @@ function KPIPanel({ obras, puestos, obraByPuesto, collapsed, onCollapse, onFocus
 
         {/* ── ALERTAS TAB ── */}
         {activeTab==="alertas"&&(<>
-          {alertas.length===0?(
+          {/* Obras fantasma — asignadas a puestos inexistentes */}
+          {obrasFantasma.length>0&&(
+            <div style={{marginBottom:10}}>
+              <div style={{fontSize:7.5,letterSpacing:2,textTransform:"uppercase",color:"#ef444490",
+                fontFamily:"'JetBrains Mono',monospace",fontWeight:700,marginBottom:6,
+                display:"flex",alignItems:"center",gap:5}}>
+                <div style={{width:5,height:5,borderRadius:"50%",background:"#ef4444",
+                  boxShadow:"0 0 6px #ef4444",animation:"beacon 1.8s ease-in-out infinite"}}/>
+                Obras sin puesto válido
+              </div>
+              <div style={{display:"flex",flexDirection:"column",gap:4}}>
+                {obrasFantasma.map(o=>(
+                  <div key={o.id} style={{
+                    display:"flex",alignItems:"center",gap:8,
+                    padding:"8px 10px",borderRadius:9,
+                    background:"rgba(239,68,68,0.07)",
+                    border:"1px solid rgba(239,68,68,0.25)",
+                    borderLeft:"3px solid #ef4444",
+                  }}>
+                    <span style={{fontFamily:"'JetBrains Mono',monospace",fontSize:12,
+                      fontWeight:700,color:"#fca5a5",flex:1,
+                      overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>
+                      {o.codigo}
+                    </span>
+                    <button onClick={()=>onDesasignar?.(o.id)} style={{
+                      fontSize:9,padding:"3px 8px",borderRadius:5,
+                      background:"rgba(239,68,68,0.15)",
+                      border:"1px solid rgba(239,68,68,0.35)",
+                      color:"#f87171",cursor:"pointer",fontFamily:"'Outfit',sans-serif",
+                      fontWeight:600,flexShrink:0,letterSpacing:0.3,
+                    }}>
+                      Desasignar
+                    </button>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+          {alertas.length===0&&obrasFantasma.length===0?(
             <div style={{textAlign:"center",padding:"32px 0",display:"flex",
               flexDirection:"column",alignItems:"center",gap:8}}>
               <div style={{width:36,height:36,borderRadius:"50%",
@@ -1933,11 +1989,27 @@ function KPIPanel({ obras, puestos, obraByPuesto, collapsed, onCollapse, onFocus
   );
 }
 
+/* ── Helpers para evitar IDs duplicados al cargar puestos ── */
+function dedupPuestos(arr){
+  return arr.filter((p,i,a)=>a.findIndex(x=>x.id===p.id)===i);
+}
+function syncNextNMapa(arr){
+  arr.forEach(x=>{
+    const n=parseInt((x.id||"").replace("puesto-",""),10);
+    if(!isNaN(n)&&n>=_nextN)_nextN=n+1;
+  });
+}
+
 export default function MapaProduccion({obras=[],onPuestoClick,onAsignarObra,onChangeEstado,esGestion=false,sharedPuestos,onSaveLayout,sharedNotas,onSaveNotas,sharedMemorias,onSaveMemorias,onAsignarObraPampa,onDesasignarObraPampa}){
   const svgRef=useRef(null);
   const vpRef=useRef({x:0,y:0,scale:1});
   const [vp,setVp]=useState({x:0,y:0,scale:1});
-  const [puestos,setPuestos]=useState(()=>sharedPuestos&&sharedPuestos.length>0?sharedPuestos:loadPuestos());
+  const [puestos,setPuestos]=useState(()=>{
+    const src=sharedPuestos&&sharedPuestos.length>0?sharedPuestos:loadPuestos();
+    const deduped=dedupPuestos(src);
+    syncNextNMapa(deduped);
+    return deduped;
+  });
   const [notasExtra,setNotasExtra]=useState(()=>sharedNotas??loadNotas());
   const [memoriasEdit,setMemoriasEdit]=useState(()=>sharedMemorias??loadMemorias());
 
@@ -1971,11 +2043,20 @@ export default function MapaProduccion({obras=[],onPuestoClick,onAsignarObra,onC
   const puestoDragLiveRef=useRef(null); // posición en vivo del puesto arrastrado (sin setState)
   const dragRafRef=useRef(null);        // RAF handle para throttle de setPuestoDragLive
   const [puestoDragLive,setPuestoDragLive]=useState(null); // {id,cx,cy} — solo el barco arrastrado
+  const [pendingAssignments,setPendingAssignments]=useState({}); // { [puestoId]: obraId } — tracking optimista hasta que Supabase confirme
+
+  // Ref para distinguir actualizaciones externas (sharedPuestos) de las del usuario
+  // Evita el loop: addPuesto → onSaveLayout → setMapaPuestos → sharedPuestos → setPuestos → onSaveLayout → ...
+  const isExternalSyncRef = useRef(false);
 
   useEffect(()=>{stateRef.current={editMode,cmdPaletteOpen,focusedPuesto,addObraFor,confirmDel,contextMenu,hovered,puestos,clickMenu};},[editMode,cmdPaletteOpen,focusedPuesto,addObraFor,confirmDel,contextMenu,hovered,puestos,clickMenu]);
   useEffect(()=>{vpRef.current=vp;},[vp]);
   // Persistir puestos en localStorage al cambiar + callback para backend compartido
-  useEffect(()=>{ savePuestos(puestos); onSaveLayout?.(puestos); },[puestos]);
+  useEffect(()=>{
+    savePuestos(puestos);
+    if(!isExternalSyncRef.current) onSaveLayout?.(puestos);
+    isExternalSyncRef.current=false; // resetear siempre después de chequear
+  },[puestos]);
   // Persistir notas
   useEffect(()=>{ saveNotas(notasExtra); onSaveNotas?.(notasExtra); },[notasExtra]);
   // Persistir memorias editadas
@@ -2024,7 +2105,34 @@ export default function MapaProduccion({obras=[],onPuestoClick,onAsignarObra,onC
     fit(); const t=setTimeout(fit,150); return()=>clearTimeout(t);
   },[kpiCollapsed]);
 
-  const obraByPuesto=useMemo(()=>{const m={};obras.forEach(o=>{if(o.puesto_mapa)m[o.puesto_mapa]=o;});return m;},[obras]);
+  const obraByPuesto=useMemo(()=>{
+    const m={};
+    // Detectar colisiones: si dos obras tienen el mismo puesto_mapa,
+    // prevalece la que tiene updated_at más reciente (o la última del array como fallback).
+    obras.forEach(o=>{
+      if(!o.puesto_mapa) return;
+      const existing=m[o.puesto_mapa];
+      if(existing){
+        // Colisión detectada — loguear para debug y conservar la más reciente
+        console.warn(
+          `[MapaProduccion] Colisión en puesto "${o.puesto_mapa}": obras "${existing.codigo}" y "${o.codigo}" apuntan al mismo puesto. `+
+          `Conservando "${o.updated_at>=existing.updated_at?o.codigo:existing.codigo}". `+
+          `Ejecutá la query de limpieza SQL para resolverlo definitivamente.`
+        );
+        // Conservar la más reciente por updated_at; si no hay updated_at, prevalece la última
+        if(o.updated_at && existing.updated_at && o.updated_at < existing.updated_at) return;
+      }
+      m[o.puesto_mapa]=o;
+    });
+    // Aplicar asignaciones pendientes (optimistic update)
+    Object.entries(pendingAssignments).forEach(([pId,oId])=>{
+      if(!m[pId]){
+        const obra=obras.find(o=>o.id===oId);
+        if(obra) m[pId]={...obra,puesto_mapa:pId};
+      }
+    });
+    return m;
+  },[obras,pendingAssignments]);
   const stats=useMemo(()=>({total:puestos.length,ocupados:puestos.filter(p=>obraByPuesto[p.id]).length,libres:puestos.filter(p=>!obraByPuesto[p.id]).length}),[obraByPuesto,puestos]);
 
   const onWheel=useCallback(e=>{
@@ -2150,7 +2258,39 @@ export default function MapaProduccion({obras=[],onPuestoClick,onAsignarObra,onC
   function removePuesto(id){setPuestos(prev=>prev.filter(p=>p.id!==id));setConfirmDel(null);}
   function toggleRot(id){setPuestos(prev=>prev.map(p=>p.id===id?{...p,rot:(p.rot+90)%360}:p));}
   function resetLayout(){if(!window.confirm("¿Resetear el layout al estado original? Se perderán todas las posiciones personalizadas."))return;localStorage.removeItem(LS_KEY);_nextN=23;setPuestos(PUESTOS_INITIAL);}
-  async function handleModalAssign(pId,oId){if(!onAsignarObra)return;try{await onAsignarObra(pId,oId);}finally{setAddObraFor(null);}}
+  async function handleModalAssign(pId,oId){
+    if(!onAsignarObra)return;
+    // Verificación extra: asegurarse de que la obra no esté ya asignada a otro puesto
+    const obraAAsignar=obras.find(o=>o.id===oId);
+    if(obraAAsignar?.puesto_mapa && obraAAsignar.puesto_mapa!==pId){
+      console.warn(
+        `[MapaProduccion] La obra "${obraAAsignar.codigo}" ya tiene puesto_mapa="${obraAAsignar.puesto_mapa}". `+
+        `Se va a reasignar a "${pId}". El backend debe limpiar el puesto anterior.`
+      );
+    }
+    // Marcar optimistamente ANTES del await
+    setPendingAssignments(prev=>({...prev,[pId]:oId}));
+    try{
+      await onAsignarObra(pId,oId);
+    }catch(err){
+      console.error("[MapaProduccion] Error al asignar obra:",err);
+      // Si falla, revertir el optimista
+      setPendingAssignments(prev=>{const n={...prev};delete n[pId];return n;});
+    }finally{
+      setAddObraFor(null);
+    }
+  }
+  // Limpiar pendientes cuando obras se actualiza (Supabase confirmó)
+  useEffect(()=>{
+    if(!Object.keys(pendingAssignments).length)return;
+    setPendingAssignments(prev=>{
+      const updated={...prev};let changed=false;
+      Object.entries(prev).forEach(([pId])=>{
+        if(obras.some(o=>o.puesto_mapa===pId)){delete updated[pId];changed=true;}
+      });
+      return changed?updated:prev;
+    });
+  },[obras]);
   function handlePuestoClick(p,screenX,screenY){
     if(editMode)return;
     const obra=obraByPuesto[p.id];
@@ -2169,7 +2309,14 @@ export default function MapaProduccion({obras=[],onPuestoClick,onAsignarObra,onC
   // Sincronizar notas desde prop externo cuando cambia
   useEffect(()=>{ if(sharedNotas) setNotasExtra(sharedNotas); },[sharedNotas]);
   // Sincronizar puestos desde Supabase cuando cambia
-  useEffect(()=>{ if(sharedPuestos&&sharedPuestos.length>0) setPuestos(sharedPuestos); },[sharedPuestos]);
+  useEffect(()=>{
+    if(sharedPuestos&&sharedPuestos.length>0){
+      const deduped=dedupPuestos(sharedPuestos);
+      syncNextNMapa(deduped);
+      isExternalSyncRef.current=true; // evita que el useEffect[puestos] llame onSaveLayout → loop
+      setPuestos(deduped);
+    }
+  },[sharedPuestos]);
   // Sincronizar memorias desde Supabase cuando cambia
   // Supabase es fuente de verdad — no sobrescribir con sharedMemorias (mapa_config legacy)
 
@@ -2391,12 +2538,12 @@ export default function MapaProduccion({obras=[],onPuestoClick,onAsignarObra,onC
           {editMode&&(<>
             <rect x={ix} y={iy} width={p.w} height={p.h} rx={Math.min(p.w,p.h)*0.07} fill="rgba(251,191,36,0.06)" stroke="rgba(251,191,36,0.38)" strokeWidth="1.3" strokeDasharray="4 3" style={{pointerEvents:"none"}}/>
             {/* Botón ELIMINAR — esquina sup. izquierda, contra-rotado */}
-            <g transform={`rotate(${-(p.rot||0)},${ix+11},${iy+11})`} style={{cursor:"pointer"}} onClick={e=>{e.stopPropagation();setConfirmDel(p.id);}}>
+            <g transform={`rotate(${-(p.rot||0)},${ix+11},${iy+11})`} style={{cursor:"pointer"}} onMouseDown={e=>e.stopPropagation()} onClick={e=>{e.stopPropagation();setConfirmDel(p.id);}}>
               <circle cx={ix+11} cy={iy+11} r="10" fill="rgba(239,68,68,0.93)" stroke="rgba(0,0,0,0.4)" strokeWidth="1"/>
               <text x={ix+11} y={iy+12} textAnchor="middle" dominantBaseline="middle" fill="#fff" fontSize="12" fontFamily="system-ui" fontWeight="700" style={{userSelect:"none"}}>×</text>
             </g>
             {/* Botón ROTAR — esquina sup. derecha, contra-rotado */}
-            <g transform={`rotate(${-(p.rot||0)},${ix+p.w-11},${iy+11})`} style={{cursor:"pointer"}} onClick={e=>{e.stopPropagation();toggleRot(p.id);}}>
+            <g transform={`rotate(${-(p.rot||0)},${ix+p.w-11},${iy+11})`} style={{cursor:"pointer"}} onMouseDown={e=>e.stopPropagation()} onClick={e=>{e.stopPropagation();toggleRot(p.id);}}>
               <circle cx={ix+p.w-11} cy={iy+11} r="10" fill="rgba(251,191,36,0.93)" stroke="rgba(0,0,0,0.4)" strokeWidth="1"/>
               <text x={ix+p.w-11} y={iy+12} textAnchor="middle" dominantBaseline="middle" fill="#000" fontSize="11" fontFamily="system-ui" fontWeight="700" style={{userSelect:"none"}}>↻</text>
             </g>
@@ -2459,11 +2606,15 @@ export default function MapaProduccion({obras=[],onPuestoClick,onAsignarObra,onC
           ))}
           <filter id="sh" x="-40%" y="-40%" width="180%" height="180%"><feDropShadow dx="0" dy="8" stdDeviation="12" floodColor="rgba(0,0,0,0.85)"/></filter>
           {/* ClipPaths por puesto para recortar el PNG sobredimensionado */}
-          {puestos.map(p=>(
-            <clipPath key={`clip-${p.id}`} id={`clip-${p.id}`}>
-              <rect x={p.cx-p.w/2} y={p.cy-p.h/2} width={p.w} height={p.h} rx={p.w*0.05}/>
-            </clipPath>
-          ))}
+          {puestos.map(p=>{
+            const lx = puestoDragLive?.id===p.id ? puestoDragLive.cx : p.cx;
+            const ly = puestoDragLive?.id===p.id ? puestoDragLive.cy : p.cy;
+            return(
+              <clipPath key={`clip-${p.id}`} id={`clip-${p.id}`}>
+                <rect x={lx-p.w/2} y={ly-p.h/2} width={p.w} height={p.h} rx={p.w*0.05}/>
+              </clipPath>
+            );
+          })}
           <pattern id="dotGrid" x={gsx} y={gsy} width={gsz} height={gsz} patternUnits="userSpaceOnUse">
             <path d={`M ${gsz} 0 L 0 0 0 ${gsz}`} fill="none" stroke="rgba(255,255,255,0.04)" strokeWidth="0.5"/>
           </pattern>
@@ -2596,6 +2747,7 @@ export default function MapaProduccion({obras=[],onPuestoClick,onAsignarObra,onC
       <RadarHUD puestos={puestos} obraByPuesto={obraByPuesto} vp={vp} containerW={containerSize.w} containerH={containerSize.h}/>
       <KPIPanel obras={obras} puestos={puestos} obraByPuesto={obraByPuesto} memoriasEdit={memoriasEdit}
         collapsed={kpiCollapsed} onCollapse={setKpiCollapsed}
+        onDesasignar={(obraId)=>onChangeEstado?.(obraId,"desasignar")}
         onFocusPuesto={(codigo)=>{
           const obra=obras.find(o=>o.codigo===codigo);
           if(!obra?.puesto_mapa) return;
@@ -2795,12 +2947,14 @@ export default function MapaProduccion({obras=[],onPuestoClick,onAsignarObra,onC
       {/* ADD OBRA MODAL */}
       {addObraFor&&(
         <AddObraModal puestoId={addObraFor} puestos={puestos} obras={obras}
+          assignedObraIds={new Set(Object.values(obraByPuesto).map(o=>o.id))}
+          pendingObraIds={Object.values(pendingAssignments)}
           onAssign={handleModalAssign} onClose={()=>setAddObraFor(null)}/>
       )}
 
       {/* CONFIRM DELETE */}
       {confirmDel&&(
-        <div style={{position:"fixed",inset:0,zIndex:600,background:"rgba(0,0,0,0.8)",display:"flex",alignItems:"center",justifyContent:"center",backdropFilter:"blur(4px)"}} onClick={()=>setConfirmDel(null)}>
+        <div style={{position:"fixed",inset:0,zIndex:1200,background:"rgba(0,0,0,0.8)",display:"flex",alignItems:"center",justifyContent:"center",backdropFilter:"blur(4px)"}} onClick={()=>setConfirmDel(null)}>
           <div style={{...GLASS,border:"1px solid rgba(239,68,68,0.4)",borderRadius:16,padding:"24px",width:320,animation:"fadeUp 0.15s ease",boxShadow:"0 24px 48px rgba(0,0,0,0.9),0 0 0 1px rgba(239,68,68,0.2) inset"}} onClick={e=>e.stopPropagation()}>
             <div style={{width:40,height:40,borderRadius:20,background:"rgba(239,68,68,0.15)",display:"flex",alignItems:"center",justifyContent:"center",color:"#ef4444",fontSize:20,marginBottom:16,border:"1px solid rgba(239,68,68,0.3)"}}>!</div>
             <div style={{fontSize:16,color:C.t0,fontWeight:600,marginBottom:8}}>Eliminar Puesto</div>
