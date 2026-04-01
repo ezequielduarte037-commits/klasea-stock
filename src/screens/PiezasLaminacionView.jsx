@@ -11,24 +11,24 @@
  * SQL DE MIGRACIÓN (correr antes de usar v4):
  * ─────────────────────────────────────────────────────────────────
  * ALTER TABLE piezas_laminacion_seguimiento
- *   ADD COLUMN IF NOT EXISTS pieza_id  text,
- *   ADD COLUMN IF NOT EXISTS laminador text,
- *   ADD COLUMN IF NOT EXISTS ubicacion text;
+ * ADD COLUMN IF NOT EXISTS pieza_id  text,
+ * ADD COLUMN IF NOT EXISTS laminador text,
+ * ADD COLUMN IF NOT EXISTS ubicacion text;
  *
  * UPDATE piezas_laminacion_seguimiento
- *   SET pieza_id = pieza_num::text
- *   WHERE pieza_id IS NULL;
+ * SET pieza_id = pieza_num::text
+ * WHERE pieza_id IS NULL;
  *
  * ALTER TABLE piezas_laminacion_seguimiento
- *   DROP CONSTRAINT IF EXISTS piezas_laminacion_seguimiento_obra_id_pieza_num_key;
+ * DROP CONSTRAINT IF EXISTS piezas_laminacion_seguimiento_obra_id_pieza_num_key;
  * ALTER TABLE piezas_laminacion_seguimiento
- *   ADD CONSTRAINT pls_obra_pieza_unique UNIQUE (obra_id, pieza_id);
+ * ADD CONSTRAINT pls_obra_pieza_unique UNIQUE (obra_id, pieza_id);
  *
  * ALTER TABLE piezas_laminacion_imagenes
- *   ADD COLUMN IF NOT EXISTS pieza_id text;
+ * ADD COLUMN IF NOT EXISTS pieza_id text;
  * UPDATE piezas_laminacion_imagenes
- *   SET pieza_id = pieza_num::text
- *   WHERE pieza_id IS NULL;
+ * SET pieza_id = pieza_num::text
+ * WHERE pieza_id IS NULL;
  * ─────────────────────────────────────────────────────────────────
  */
 
@@ -532,7 +532,7 @@ export default function PiezasLaminacionView({ obras=[], esGestion=false }) {
   const lineaKey = useMemo(() => detectarLinea(obraSel), [obraSel]);
   const catalogo = useMemo(() => lineaKey ? CATALOGOS[lineaKey] : null, [lineaKey]);
 
-  useEffect(() => { if (!obraSelId && obras.length > 0) setObraSelId(obras[0].id); }, [obras]);
+  useEffect(() => { if (!obraSelId && obras.length > 0) setObraSelId(obras[0].id); }, [obras, obraSelId]);
   useEffect(() => { setSelected(new Set()); setQ(""); setFiltroEst("todos"); setK52Variant(null); }, [obraSelId]);
 
   const cargar = useCallback(async () => {
@@ -573,20 +573,12 @@ export default function PiezasLaminacionView({ obras=[], esGestion=false }) {
     return () => supabase.removeChannel(ch);
   }, [obraSelId, cargar]);
 
+  // MOVIDO PARA EVITAR TEMPORAL DEAD ZONE
   const segMap = useMemo(() => {
     const m = {};
     for (const r of seguimiento) { const key = r.pieza_id ?? String(r.pieza_num); m[key] = r; }
     return m;
   }, [seguimiento]);
-
-  const stats = useMemo(() => {
-    if (!catalogoFiltradoVariant.length) return { byEst:{}, terminadas:0, pct:0 };
-    const byEst = {};
-    for (const k of Object.keys(EST)) byEst[k] = 0;
-    for (const p of catalogoFiltradoVariant) { const est = segMap[p.pieza_id]?.estado ?? "pendiente"; byEst[est] = (byEst[est]??0)+1; }
-    const terminadas = (byEst.terminada??0) + (byEst.entregada??0);
-    return { byEst, terminadas, pct: TOTAL ? Math.round(terminadas/TOTAL*100) : 0 };
-  }, [segMap, catalogoFiltradoVariant, TOTAL]);
 
   const obrasFiltradas = useMemo(() => {
     const qq = qObra.trim().toLowerCase();
@@ -601,6 +593,18 @@ export default function PiezasLaminacionView({ obras=[], esGestion=false }) {
   }, [catalogo, lineaKey, k52Variant]);
 
   const TOTAL = catalogoFiltradoVariant.length;
+
+  const stats = useMemo(() => {
+    if (!catalogoFiltradoVariant.length) return { byEst:{}, terminadas:0, pct:0 };
+    const byEst = {};
+    for (const k of Object.keys(EST)) byEst[k] = 0;
+    for (const p of catalogoFiltradoVariant) { 
+        const est = segMap[p.pieza_id]?.estado ?? "pendiente"; 
+        byEst[est] = (byEst[est]??0)+1; 
+    }
+    const terminadas = (byEst.terminada??0) + (byEst.entregada??0);
+    return { byEst, terminadas, pct: TOTAL ? Math.round(terminadas/TOTAL*100) : 0 };
+  }, [segMap, catalogoFiltradoVariant, TOTAL]);
 
   const piezasFiltradas = useMemo(() => {
     if (!catalogoFiltradoVariant.length) return [];
@@ -726,6 +730,11 @@ export default function PiezasLaminacionView({ obras=[], esGestion=false }) {
       <script>window.onload=()=>{window.print()}<\/script></body></html>`;
     const w = window.open("","_blank");
     if (w) { w.document.write(html); w.document.close(); }
+  }
+
+  // Prevenir crashes si no hay obras cargadas todavía.
+  if (!obras || obras.length === 0) {
+    return <div style={{ color: C.t2, padding: "40px", textAlign: "center", fontFamily: C.sans }}>Cargando datos...</div>;
   }
 
   return (
