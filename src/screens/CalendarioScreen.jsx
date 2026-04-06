@@ -88,26 +88,19 @@ function today() {
 }
 
 // ─── WhatsApp notification ────────────────────────────────────────────────────
-async function notificarWhatsApp(form, esNuevo) {
-  if (!TIPOS_NOTIFICAR_WA.includes(form.tipo)) return;
-  try {
-    const supabaseUrl = supabase.supabaseUrl ?? import.meta.env.VITE_SUPABASE_URL;
-    
-    // Si usás autenticación, podés sacar el token de la sesión. Si no, usamos la ANON KEY.
-    const token = import.meta.env.VITE_SUPABASE_ANON_KEY; 
-
-    await fetch(`${supabaseUrl}/functions/v1/notificar-whatsapp`, {
-      method: "POST",
-      headers: { 
-        "Content-Type": "application/json",
-        "Authorization": `Bearer ${token}`
-      },
-      body: JSON.stringify({ ...form, esNuevo }),
-    });
-  } catch (err) {
-    console.warn("[WhatsApp] No se pudo enviar notificación:", err);
+async function guardar(form) {
+    const esNuevo = !modal?.ev?.id;
+    if (esNuevo) {
+      const { error } = await supabase.from("calendario_eventos").insert(form);
+      if (error) return alert(error.message);
+    } else {
+      const { error } = await supabase.from("calendario_eventos").update(form).eq("id", modal.ev.id);
+      if (error) return alert(error.message);
+    }
+    // notificarWhatsApp(form, esNuevo);  <-- COMENTADO O BORRADO
+    setModal(null);
+    cargar();
   }
-}
 
 // ─── EventBadge ───────────────────────────────────────────────────────────────
 function EventBadge({ ev, onClick, compact }) {
