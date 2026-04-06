@@ -694,41 +694,164 @@ export default function PiezasLaminacionView({ obras=[], esGestion=false }) {
 
   function exportPrint() {
     if (!catalogoFiltradoVariant.length) return;
-    const obra = obraSel?.codigo ?? obraSel?.nombre ?? "Obra";
+    const obra     = obraSel?.codigo ?? obraSel?.nombre ?? "Obra";
+    const obraName = obraSel?.nombre ?? "";
     const varLabel = k52Variant ? ` · ${k52Variant.charAt(0).toUpperCase()+k52Variant.slice(1)}` : "";
-    const estColor = { pendiente:"#777", en_proceso:"#3b82f6", terminada:"#10b981", entregada:"#8b5cf6", problema:"#ef4444" };
-    const rows = catalogoFiltradoVariant.map(p => {
-      const seg = segMap[p.pieza_id];
-      const est = seg?.estado ?? "pendiente";
-      const numStr = p.sub != null ? `${String(p.num).padStart(2,"0")}.${p.sub}` : String(p.num).padStart(2,"0");
-      const color = estColor[est] ?? "#777";
-      return `<tr>
-        <td style="padding:6px 8px;border-bottom:1px solid #eee;font-family:monospace;font-size:11px;color:#444">${numStr}</td>
-        <td style="padding:6px 8px;border-bottom:1px solid #eee;font-size:12px">${p.desc}</td>
-        <td style="padding:6px 8px;border-bottom:1px solid #eee">
-          <span style="background:${color}22;color:${color};border:1px solid ${color}55;padding:2px 8px;border-radius:99px;font-size:10px;font-weight:700;white-space:nowrap">${EST[est]?.label??est}</span>
-        </td>
-        <td style="padding:6px 8px;border-bottom:1px solid #eee;font-size:11px;color:#555">${seg?.laminador??""}</td>
-        <td style="padding:6px 8px;border-bottom:1px solid #eee;font-size:11px;color:#555">${seg?.ubicacion??""}</td>
-        <td style="padding:6px 8px;border-bottom:1px solid #eee;font-size:11px;color:#555">${seg?.observaciones??""}</td>
-      </tr>`;
-    }).join("");
+    const fecha    = new Date().toLocaleDateString("es-AR", { day:"2-digit", month:"long", year:"numeric" });
+
+    const EST_PRINT = {
+      pendiente:  { label:"Pendiente",  color:"#64748b", border:"#94a3b8" },
+      en_proceso: { label:"En proceso", color:"#1d4ed8", border:"#3b82f6" },
+      terminada:  { label:"Terminada",  color:"#15803d", border:"#22c55e" },
+      entregada:  { label:"Entregada",  color:"#5b21b6", border:"#8b5cf6" },
+      problema:   { label:"Problema",   color:"#b91c1c", border:"#ef4444" },
+    };
+
     const term = (stats.byEst.terminada??0)+(stats.byEst.entregada??0);
     const pct  = TOTAL ? Math.round(term/TOTAL*100) : 0;
-    const html = `<!DOCTYPE html><html><head><meta charset="utf-8"><title>Piezas ${obra}</title>
-      <style>body{font-family:system-ui,sans-serif;color:#111;margin:0;padding:20px}
-      h1{margin:0 0 2px;font-size:18px}p{margin:0 0 12px;font-size:11px;color:#666}
-      table{width:100%;border-collapse:collapse}
-      th{padding:7px 8px;background:#f4f4f5;text-align:left;font-size:10px;letter-spacing:1.5px;text-transform:uppercase;color:#666;border-bottom:2px solid #ddd}
-      @media print{@page{size:A4 landscape;margin:15mm}}</style>
-      </head><body>
-      <h1>Piezas de Laminación · ${obra}${varLabel}</h1>
-      <p>${lineaLabel ?? ""} · ${TOTAL} piezas · ${pct}% terminadas · Generado ${new Date().toLocaleDateString("es-AR")}</p>
-      <table><thead><tr>
-        <th>N°</th><th>Descripción</th><th>Estado</th><th>Laminador</th><th>Ubicación</th><th>Observaciones</th>
-      </tr></thead><tbody>${rows}</tbody></table>
-      <script>window.onload=()=>{window.print()}<\/script></body></html>`;
-    const w = window.open("","_blank");
+    const pctColor = pct >= 80 ? "#15803d" : pct >= 40 ? "#b45309" : "#1d4ed8";
+
+    // KPI chips — solo borde de color, fondo blanco
+    const kpis = Object.entries(EST_PRINT).map(([k, e]) => {
+      const cnt = stats.byEst[k] ?? 0;
+      if (cnt === 0) return "";
+      return `<div style="display:inline-flex;align-items:center;gap:8px;padding:5px 14px;border:1.5px solid ${e.border};border-radius:6px">
+        <span style="font-size:20px;font-weight:900;color:${e.color};line-height:1;letter-spacing:-1px">${cnt}</span>
+        <span style="font-size:8px;font-weight:700;text-transform:uppercase;letter-spacing:1.2px;color:${e.color}">${e.label}</span>
+      </div>`;
+    }).join("");
+
+    // rows
+    const rows = catalogoFiltradoVariant.map((p, i) => {
+      const seg    = segMap[p.pieza_id];
+      const est    = seg?.estado ?? "pendiente";
+      const ep     = EST_PRINT[est] ?? EST_PRINT.pendiente;
+      const numStr = p.sub != null ? `${String(p.num).padStart(2,"0")}.${p.sub}` : String(p.num).padStart(2,"0");
+      const rowBg  = i % 2 === 0 ? "#ffffff" : "#f9fafb";
+      const matCell = hasMat
+        ? `<td style="padding:6px 10px;font-size:9.5px;color:#92400e;white-space:nowrap;border-right:1px solid #e5e7eb">${p.matriz ? `✦ ${p.matriz}` : ""}</td>`
+        : "";
+      return `<tr style="background:${rowBg}">
+        <td style="padding:0;width:3px;border-left:3px solid ${ep.border}"></td>
+        <td style="padding:6px 10px;font-family:'Courier New',monospace;font-size:10.5px;font-weight:700;color:#111827;white-space:nowrap;border-right:1px solid #e5e7eb">${numStr}</td>
+        <td style="padding:6px 12px;font-size:11px;color:#111827">${p.desc}</td>
+        ${matCell}
+        <td style="padding:6px 10px;white-space:nowrap;border-left:1px solid #e5e7eb">
+          <span style="font-size:9px;font-weight:700;color:${ep.color};text-transform:uppercase;letter-spacing:.5px;border-bottom:1.5px solid ${ep.border};padding-bottom:1px">${ep.label}</span>
+        </td>
+        <td style="padding:6px 10px;font-size:10.5px;color:#374151;border-left:1px solid #e5e7eb">${seg?.laminador ?? '<span style="color:#d1d5db">—</span>'}</td>
+        <td style="padding:6px 10px;font-size:10.5px;color:#374151;border-left:1px solid #e5e7eb">${seg?.ubicacion ?? '<span style="color:#d1d5db">—</span>'}</td>
+        <td style="padding:6px 10px;font-size:10px;color:#6b7280;border-left:1px solid #e5e7eb;font-style:${seg?.observaciones?"normal":"italic"}">${seg?.observaciones ?? ""}</td>
+      </tr>`;
+    }).join("");
+
+    const matHeader = hasMat
+      ? `<th style="padding:7px 10px;text-align:left;font-size:8px;letter-spacing:1.8px;text-transform:uppercase;color:#9ca3af;border-right:1px solid #e5e7eb;white-space:nowrap">Matriz</th>`
+      : "";
+
+    const html = `<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="utf-8">
+  <title>Piezas de Laminación · ${obra}</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&display=swap" rel="stylesheet">
+  <style>
+    * { box-sizing:border-box; margin:0; padding:0; }
+    body { font-family:'Inter',system-ui,sans-serif; color:#111827; background:#fff; }
+    .page { padding:22px 28px 18px; }
+
+    .header { display:flex; justify-content:space-between; align-items:flex-end; padding-bottom:10px; border-bottom:2px solid #111827; margin-bottom:14px; }
+    .header-eyebrow { font-size:8px; font-weight:700; letter-spacing:2.5px; text-transform:uppercase; color:#9ca3af; margin-bottom:4px; }
+    .header-title { font-size:22px; font-weight:900; color:#111827; letter-spacing:-.5px; line-height:1; }
+    .header-sub { font-size:10px; color:#6b7280; margin-top:4px; }
+    .header-right { text-align:right; flex-shrink:0; padding-left:24px; }
+    .header-linea { font-size:34px; font-weight:900; color:#111827; letter-spacing:-2px; line-height:1; }
+    .header-date { font-size:9px; color:#9ca3af; margin-top:3px; }
+
+    .summary { display:flex; align-items:center; gap:20px; margin-bottom:12px; }
+    .summary-pct { font-size:26px; font-weight:900; color:${pctColor}; letter-spacing:-1.5px; line-height:1; flex-shrink:0; }
+    .summary-pct-sub { font-size:9px; color:#9ca3af; font-weight:500; margin-top:1px; }
+    .summary-divider { width:1px; height:36px; background:#e5e7eb; flex-shrink:0; }
+    .summary-track-wrap { flex:1; }
+    .summary-track-label { font-size:9px; color:#9ca3af; margin-bottom:5px; }
+    .summary-track { height:5px; background:#f3f4f6; border-radius:99px; overflow:hidden; }
+    .summary-track-fill { height:100%; border-radius:99px; background:${pctColor}; }
+    .summary-kpis { display:flex; gap:6px; flex-wrap:wrap; flex-shrink:0; }
+
+    .table-wrap { border:1px solid #e5e7eb; border-radius:5px; overflow:hidden; }
+    table { width:100%; border-collapse:collapse; }
+    thead th { padding:7px 10px; background:#f3f4f6; text-align:left; font-size:8px; letter-spacing:1.8px; text-transform:uppercase; color:#9ca3af; border-bottom:1px solid #e5e7eb; white-space:nowrap; }
+    tbody tr:last-child td { border-bottom:none; }
+
+    .footer { margin-top:10px; display:flex; justify-content:space-between; }
+    .footer span { font-size:8px; color:#9ca3af; letter-spacing:.5px; }
+
+    @media print {
+      @page { size:A4 landscape; margin:10mm 12mm; }
+      body { -webkit-print-color-adjust:exact; print-color-adjust:exact; }
+      .page { padding:0; }
+    }
+  </style>
+</head>
+<body>
+<div class="page">
+
+  <div class="header">
+    <div>
+      <div class="header-eyebrow">Seguimiento de Laminación</div>
+      <div class="header-title">${obra}${varLabel}</div>
+      <div class="header-sub">${obraName && obraName !== obra ? obraName + "  ·  " : ""}${lineaLabel ? "Línea " + lineaLabel + "  ·  " : ""}${TOTAL} piezas en catálogo</div>
+    </div>
+    <div class="header-right">
+      <div class="header-linea">${lineaLabel ?? "LAM"}</div>
+      <div class="header-date">Generado el ${fecha}</div>
+    </div>
+  </div>
+
+  <div class="summary">
+    <div>
+      <div class="summary-pct">${pct}%</div>
+      <div class="summary-pct-sub">${term} / ${TOTAL} piezas</div>
+    </div>
+    <div class="summary-divider"></div>
+    <div class="summary-track-wrap">
+      <div class="summary-track-label">Avance general — terminadas + entregadas</div>
+      <div class="summary-track"><div class="summary-track-fill" style="width:${pct}%"></div></div>
+    </div>
+    <div class="summary-divider"></div>
+    <div class="summary-kpis">${kpis}</div>
+  </div>
+
+  <div class="table-wrap">
+    <table>
+      <thead>
+        <tr>
+          <th style="width:3px;padding:0;border:none"></th>
+          <th style="width:46px;border-right:1px solid #e5e7eb">N°</th>
+          <th>Descripción</th>
+          ${matHeader}
+          <th style="width:88px;border-left:1px solid #e5e7eb">Estado</th>
+          <th style="width:108px;border-left:1px solid #e5e7eb">Laminador</th>
+          <th style="width:118px;border-left:1px solid #e5e7eb">Ubicación</th>
+          <th style="border-left:1px solid #e5e7eb">Observaciones</th>
+        </tr>
+      </thead>
+      <tbody>${rows}</tbody>
+    </table>
+  </div>
+
+  <div class="footer">
+    <span>SEGUIMIENTO DE LAMINACIÓN  ·  ${obra}${varLabel}${lineaLabel ? "  ·  " + lineaLabel : ""}</span>
+    <span>${fecha}  ·  ${TOTAL} piezas  ·  v4</span>
+  </div>
+
+</div>
+<script>window.onload = () => { window.print(); }<\/script>
+</body>
+</html>`;
+
+    const w = window.open("", "_blank");
     if (w) { w.document.write(html); w.document.close(); }
   }
 

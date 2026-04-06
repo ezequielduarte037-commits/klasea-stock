@@ -92,9 +92,16 @@ async function notificarWhatsApp(form, esNuevo) {
   if (!TIPOS_NOTIFICAR_WA.includes(form.tipo)) return;
   try {
     const supabaseUrl = supabase.supabaseUrl ?? import.meta.env.VITE_SUPABASE_URL;
+    
+    // Si usás autenticación, podés sacar el token de la sesión. Si no, usamos la ANON KEY.
+    const token = import.meta.env.VITE_SUPABASE_ANON_KEY; 
+
     await fetch(`${supabaseUrl}/functions/v1/notificar-whatsapp`, {
       method: "POST",
-      headers: { "Content-Type": "application/json" },
+      headers: { 
+        "Content-Type": "application/json",
+        "Authorization": `Bearer ${token}`
+      },
       body: JSON.stringify({ ...form, esNuevo }),
     });
   } catch (err) {
