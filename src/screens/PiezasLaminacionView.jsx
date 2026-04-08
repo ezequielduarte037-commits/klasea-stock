@@ -1,15 +1,21 @@
 /**
- * PiezasLaminacionView v4
+ * PiezasLaminacionView v5
+ *
+ * CAMBIOS v5 (sobre v4):
+ * — Estados "Enviada" (auto-stampa fecha_envio) y "Recibida" (auto-stampa fecha_recepcion)
+ * — Campo "Trayecto" para movimientos entre astilleros (ej: Planta → Astillero Norte)
+ * — PDF exporta solo piezas seleccionadas cuando hay selección activa
+ * — PDF más conciso: orientación portrait, columnas ajustadas, info de envío integrada
+ * — Botón rápido "Enviada ↗" en tabla para piezas terminadas
  *
  * CAMBIOS v4:
- * — Cada pieza con cant > 1 ahora tiene su propia fila (pieza_id "51/7")
- * — Columna "Cant" eliminada → columna "N° pieza" (ej: #51 · 7)
+ * — Cada pieza con cant > 1 ahora tiene su propia fila
  * — Campo "Laminador" en modal + columna en tabla
  * — Upload de imágenes con manejo de error visible al usuario
- * — Identificador único: pieza_id (texto) en vez de pieza_num (int)
  *
- * SQL DE MIGRACIÓN (correr antes de usar v4):
+ * SQL DE MIGRACIÓN (correr antes de usar v5):
  * ─────────────────────────────────────────────────────────────────
+ * -- v4 (si no está ya)
  * ALTER TABLE piezas_laminacion_seguimiento
  * ADD COLUMN IF NOT EXISTS pieza_id  text,
  * ADD COLUMN IF NOT EXISTS laminador text,
@@ -29,6 +35,12 @@
  * UPDATE piezas_laminacion_imagenes
  * SET pieza_id = pieza_num::text
  * WHERE pieza_id IS NULL;
+ *
+ * -- v5: envío / recepción / trayecto
+ * ALTER TABLE piezas_laminacion_seguimiento
+ * ADD COLUMN IF NOT EXISTS fecha_envio      timestamptz,
+ * ADD COLUMN IF NOT EXISTS fecha_recepcion  timestamptz,
+ * ADD COLUMN IF NOT EXISTS trayecto         text;
  * ─────────────────────────────────────────────────────────────────
  */
 
@@ -52,11 +64,13 @@ const GLASS = {
 const STORAGE_BUCKET = "piezas-laminacion";
 
 const EST = {
-  pendiente:  { label:"Pendiente",  color:C.t2,    bg:"rgba(113,113,122,.10)", border:"rgba(113,113,122,.22)" },
-  en_proceso: { label:"En proceso", color:C.blue,  bg:"rgba(59,130,246,.10)",  border:"rgba(59,130,246,.25)"  },
-  terminada:  { label:"Terminada",  color:C.green, bg:"rgba(16,185,129,.10)",  border:"rgba(16,185,129,.25)"  },
-  entregada:  { label:"Entregada",  color:C.purple,bg:"rgba(139,92,246,.10)",  border:"rgba(139,92,246,.25)"  },
-  problema:   { label:"Problema",   color:C.red,   bg:"rgba(239,68,68,.10)",   border:"rgba(239,68,68,.25)"   },
+  pendiente:  { label:"Pendiente",  color:C.t2,     bg:"rgba(113,113,122,.10)", border:"rgba(113,113,122,.22)" },
+  en_proceso: { label:"En proceso", color:C.blue,   bg:"rgba(59,130,246,.10)",  border:"rgba(59,130,246,.25)"  },
+  terminada:  { label:"Terminada",  color:C.green,  bg:"rgba(16,185,129,.10)",  border:"rgba(16,185,129,.25)"  },
+  enviada:    { label:"Enviada",    color:C.amber,  bg:"rgba(245,158,11,.10)",  border:"rgba(245,158,11,.28)"  },
+  recibida:   { label:"Recibida",   color:"#2dd4bf",bg:"rgba(45,212,191,.10)",  border:"rgba(45,212,191,.28)"  },
+  entregada:  { label:"Entregada",  color:C.purple, bg:"rgba(139,92,246,.10)",  border:"rgba(139,92,246,.25)"  },
+  problema:   { label:"Problema",   color:C.red,    bg:"rgba(239,68,68,.10)",   border:"rgba(239,68,68,.25)"   },
 };
 
 const OBRA_COLOR = {
@@ -329,16 +343,26 @@ function Lightbox({ url, onClose }) {
 
 // ─── modal pieza ─────────────────────────────────────────────────────────────
 function PiezaModal({ pieza, lineaKey, obraId, segRow, imagenes:imgInit=[], onSave, onClose }) {
-  const [estado,    setEstado]    = useState(segRow?.estado ?? "pendiente");
-  const [obs,       setObs]       = useState(segRow?.observaciones ?? "");
-  const [ubicacion, setUbicacion] = useState(segRow?.ubicacion ?? "");
-  const [laminador, setLaminador] = useState(segRow?.laminador ?? "");
+  const [estado,         setEstadoRaw]    = useState(segRow?.estado ?? "pendiente");
+  const [obs,            setObs]          = useState(segRow?.observaciones ?? "");
+  const [ubicacion,      setUbicacion]    = useState(segRow?.ubicacion ?? "");
+  const [laminador,      setLaminador]    = useState(segRow?.laminador ?? "");
+  const [trayecto,       setTrayecto]     = useState(segRow?.trayecto ?? "");
+  const [fechaEnvio,     setFechaEnvio]   = useState(segRow?.fecha_envio ? new Date(segRow.fecha_envio).toISOString().slice(0,10) : "");
+  const [fechaRecepcion, setFechaRecepcion] = useState(segRow?.fecha_recepcion ? new Date(segRow.fecha_recepcion).toISOString().slice(0,10) : "");
   const [saving,    setSaving]    = useState(false);
   const [imagenes,  setImagenes]  = useState(imgInit);
   const [uploading, setUploading] = useState(false);
   const [uploadErr, setUploadErr] = useState("");
   const [lightbox,  setLightbox]  = useState(null);
   const fileRef = useRef();
+
+  function setEstado(val) {
+    setEstadoRaw(val);
+    // auto-stamp fechas si no están ya
+    if (val === "enviada"  && !fechaEnvio)     setFechaEnvio(new Date().toISOString().slice(0,10));
+    if (val === "recibida" && !fechaRecepcion) setFechaRecepcion(new Date().toISOString().slice(0,10));
+  }
 
   async function guardar() {
     setSaving(true);
@@ -347,6 +371,9 @@ function PiezaModal({ pieza, lineaKey, obraId, segRow, imagenes:imgInit=[], onSa
       obra_id: obraId, pieza_id: pieza.pieza_id, pieza_num: pieza.num,
       estado, observaciones: obs.trim()||null, ubicacion: ubicacion.trim()||null,
       laminador: laminador.trim()||null,
+      trayecto: trayecto.trim()||null,
+      fecha_envio:     fechaEnvio     ? new Date(fechaEnvio + "T12:00:00").toISOString()     : null,
+      fecha_recepcion: fechaRecepcion ? new Date(fechaRecepcion + "T12:00:00").toISOString() : null,
       updated_at: new Date().toISOString(), updated_by: user?.id ?? null,
     }, { onConflict: "obra_id,pieza_id" });
     setSaving(false);
@@ -446,8 +473,38 @@ function PiezaModal({ pieza, lineaKey, obraId, segRow, imagenes:imgInit=[], onSa
           {showUbicacion && (
             <div style={{ animation:"plv-fadeup .2s ease" }}>
               <label style={{ fontSize:9, letterSpacing:2, color:C.t1, display:"block", marginBottom:6, textTransform:"uppercase", fontWeight:600 }}>¿Dónde está?</label>
-              <input value={ubicacion} onChange={e => setUbicacion(e.target.value)} placeholder="Planta Pampa, enviada al astillero, en depósito, montada…" style={INP}
+              <input value={ubicacion} onChange={e => setUbicacion(e.target.value)} placeholder="Planta Pampa, en depósito, montada…" style={INP}
                 onFocus={e => e.currentTarget.style.borderColor="rgba(59,130,246,0.4)"} onBlur={e => e.currentTarget.style.borderColor=C.b0} />
+            </div>
+          )}
+
+          {/* trayecto / movimiento entre astilleros */}
+          {(estado === "enviada" || estado === "recibida" || trayecto) && (
+            <div style={{ animation:"plv-fadeup .2s ease" }}>
+              <label style={{ fontSize:9, letterSpacing:2, color:C.t1, display:"block", marginBottom:6, textTransform:"uppercase", fontWeight:600 }}>Trayecto / Movimiento</label>
+              <input value={trayecto} onChange={e => setTrayecto(e.target.value)} placeholder="Ej: Planta Pampa → Astillero Norte" style={INP}
+                onFocus={e => e.currentTarget.style.borderColor="rgba(245,158,11,0.4)"} onBlur={e => e.currentTarget.style.borderColor=C.b0} />
+              <div style={{ fontSize:9, color:C.t2, marginTop:4, lineHeight:1.5 }}>
+                Indicá el recorrido si la pieza va entre astilleros. Se puede actualizar en cada viaje.
+              </div>
+            </div>
+          )}
+
+          {/* fechas de envío y recepción */}
+          {(estado === "enviada" || estado === "recibida" || fechaEnvio || fechaRecepcion) && (
+            <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr", gap:10, animation:"plv-fadeup .2s ease" }}>
+              <div>
+                <label style={{ fontSize:9, letterSpacing:2, color:C.amber, display:"block", marginBottom:6, textTransform:"uppercase", fontWeight:600 }}>↗ Fecha de envío</label>
+                <input type="date" value={fechaEnvio} onChange={e => setFechaEnvio(e.target.value)}
+                  style={{ ...INP, colorScheme:"dark" }}
+                  onFocus={e => e.currentTarget.style.borderColor="rgba(245,158,11,0.4)"} onBlur={e => e.currentTarget.style.borderColor=C.b0} />
+              </div>
+              <div>
+                <label style={{ fontSize:9, letterSpacing:2, color:"#2dd4bf", display:"block", marginBottom:6, textTransform:"uppercase", fontWeight:600 }}>↙ Fecha de recepción</label>
+                <input type="date" value={fechaRecepcion} onChange={e => setFechaRecepcion(e.target.value)}
+                  style={{ ...INP, colorScheme:"dark" }}
+                  onFocus={e => e.currentTarget.style.borderColor="rgba(45,212,191,0.4)"} onBlur={e => e.currentTarget.style.borderColor=C.b0} />
+              </div>
             </div>
           )}
 
@@ -637,8 +694,13 @@ export default function PiezasLaminacionView({ obras=[], esGestion=false }) {
     const byId = {};
     (catalogo??[]).forEach(p => { byId[p.pieza_id] = p; });
 
+    const ahora = new Date().toISOString();
+    const extras = {};
+    if (nuevoEstado === "enviada")  extras.fecha_envio     = ahora;
+    if (nuevoEstado === "recibida") extras.fecha_recepcion = ahora;
+
     const { error } = await supabase.from("piezas_laminacion_seguimiento").upsert(
-      ids.map(id => ({ obra_id:obraSelId, pieza_id:id, pieza_num:byId[id]?.num??null, estado:nuevoEstado, updated_at:new Date().toISOString(), updated_by:user?.id??null })),
+      ids.map(id => ({ obra_id:obraSelId, pieza_id:id, pieza_num:byId[id]?.num??null, estado:nuevoEstado, updated_at:ahora, updated_by:user?.id??null, ...extras })),
       { onConflict:"obra_id,pieza_id" }
     );
 
@@ -694,133 +756,138 @@ export default function PiezasLaminacionView({ obras=[], esGestion=false }) {
 
   function exportPrint() {
     if (!catalogoFiltradoVariant.length) return;
-    const obra     = obraSel?.codigo ?? obraSel?.nombre ?? "Obra";
-    const obraName = obraSel?.nombre ?? "";
-    const varLabel = k52Variant ? ` · ${k52Variant.charAt(0).toUpperCase()+k52Variant.slice(1)}` : "";
-    const fecha    = new Date().toLocaleDateString("es-AR", { day:"2-digit", month:"long", year:"numeric" });
+    const obra      = obraSel?.codigo ?? obraSel?.nombre ?? "Obra";
+    const obraName  = obraSel?.nombre ?? "";
+    const varLabel  = k52Variant ? ` · ${k52Variant.charAt(0).toUpperCase()+k52Variant.slice(1)}` : "";
+    const fecha     = new Date().toLocaleDateString("es-AR", { day:"2-digit", month:"long", year:"numeric" });
+
+    // Si hay piezas seleccionadas, exportar solo esas; si no, todas las filtradas
+    const piezasExport = someSelected
+      ? catalogoFiltradoVariant.filter(p => selected.has(p.pieza_id))
+      : piezasFiltradas;
+    const modoSeleccion = someSelected;
+    const TOTAL_EXP = piezasExport.length;
 
     const EST_PRINT = {
       pendiente:  { label:"Pendiente",  color:"#64748b", border:"#94a3b8" },
       en_proceso: { label:"En proceso", color:"#1d4ed8", border:"#3b82f6" },
       terminada:  { label:"Terminada",  color:"#15803d", border:"#22c55e" },
+      enviada:    { label:"Enviada",    color:"#b45309", border:"#f59e0b" },
+      recibida:   { label:"Recibida",   color:"#0f766e", border:"#2dd4bf" },
       entregada:  { label:"Entregada",  color:"#5b21b6", border:"#8b5cf6" },
       problema:   { label:"Problema",   color:"#b91c1c", border:"#ef4444" },
     };
 
-    const term = (stats.byEst.terminada??0)+(stats.byEst.entregada??0);
-    const pct  = TOTAL ? Math.round(term/TOTAL*100) : 0;
-    const pctColor = pct >= 80 ? "#15803d" : pct >= 40 ? "#b45309" : "#1d4ed8";
-
-    // KPI chips — solo borde de color, fondo blanco
+    // KPI chips — solo de las piezas que se exportan
+    const byEstExp = {};
+    for (const p of piezasExport) { const e = segMap[p.pieza_id]?.estado ?? "pendiente"; byEstExp[e] = (byEstExp[e]??0)+1; }
     const kpis = Object.entries(EST_PRINT).map(([k, e]) => {
-      const cnt = stats.byEst[k] ?? 0;
+      const cnt = byEstExp[k] ?? 0;
       if (cnt === 0) return "";
-      return `<div style="display:inline-flex;align-items:center;gap:8px;padding:5px 14px;border:1.5px solid ${e.border};border-radius:6px">
-        <span style="font-size:20px;font-weight:900;color:${e.color};line-height:1;letter-spacing:-1px">${cnt}</span>
-        <span style="font-size:8px;font-weight:700;text-transform:uppercase;letter-spacing:1.2px;color:${e.color}">${e.label}</span>
-      </div>`;
+      return `<span style="display:inline-flex;align-items:center;gap:5px;padding:3px 9px;border:1.5px solid ${e.border};border-radius:4px;margin-right:4px">
+        <b style="font-size:13px;color:${e.color}">${cnt}</b>
+        <span style="font-size:7px;font-weight:700;text-transform:uppercase;letter-spacing:1px;color:${e.color}">${e.label}</span>
+      </span>`;
     }).join("");
 
-    // rows
-    const rows = catalogoFiltradoVariant.map((p, i) => {
-      const seg    = segMap[p.pieza_id];
-      const est    = seg?.estado ?? "pendiente";
-      const ep     = EST_PRINT[est] ?? EST_PRINT.pendiente;
-      const numStr = p.sub != null ? `${String(p.num).padStart(2,"0")}.${p.sub}` : String(p.num).padStart(2,"0");
-      const rowBg  = i % 2 === 0 ? "#ffffff" : "#f9fafb";
-      const matCell = hasMat
-        ? `<td style="padding:6px 10px;font-size:9.5px;color:#92400e;white-space:nowrap;border-right:1px solid #e5e7eb">${p.matriz ? `✦ ${p.matriz}` : ""}</td>`
+    const rows = piezasExport.map((p, i) => {
+      const seg      = segMap[p.pieza_id];
+      const est      = seg?.estado ?? "pendiente";
+      const ep       = EST_PRINT[est] ?? EST_PRINT.pendiente;
+      const numStr   = p.sub != null ? `${String(p.num).padStart(2,"0")}.${p.sub}` : String(p.num).padStart(2,"0");
+      const rowBg    = i % 2 === 0 ? "#ffffff" : "#f9fafb";
+      const fEnvio   = seg?.fecha_envio    ? new Date(seg.fecha_envio).toLocaleDateString("es-AR",{day:"2-digit",month:"2-digit",year:"2-digit"})    : "";
+      const fRecep   = seg?.fecha_recepcion ? new Date(seg.fecha_recepcion).toLocaleDateString("es-AR",{day:"2-digit",month:"2-digit",year:"2-digit"}) : "";
+      const tray     = seg?.trayecto ?? "";
+
+      const matCell  = hasMat
+        ? `<td style="padding:4px 7px;font-size:8px;color:#92400e;white-space:nowrap;border-right:1px solid #e5e7eb">${p.matriz ? `✦ ${p.matriz}` : ""}</td>`
         : "";
+
+      const infoExtra = [
+        seg?.laminador ? `<span style="color:#374151">${seg.laminador}</span>` : "",
+        tray           ? `<span style="color:#92400e;font-style:italic">${tray}</span>` : "",
+      ].filter(Boolean).join("  ·  ");
+
+      const fechasCell = fEnvio || fRecep ? `
+        ${fEnvio   ? `<span style="color:#b45309">↗ ${fEnvio}</span>` : ""}
+        ${fRecep   ? `<span style="color:#0f766e"> ↙ ${fRecep}</span>` : ""}
+      ` : '<span style="color:#d1d5db">—</span>';
+
       return `<tr style="background:${rowBg}">
         <td style="padding:0;width:3px;border-left:3px solid ${ep.border}"></td>
-        <td style="padding:6px 10px;font-family:'Courier New',monospace;font-size:10.5px;font-weight:700;color:#111827;white-space:nowrap;border-right:1px solid #e5e7eb">${numStr}</td>
-        <td style="padding:6px 12px;font-size:11px;color:#111827">${p.desc}</td>
-        ${matCell}
-        <td style="padding:6px 10px;white-space:nowrap;border-left:1px solid #e5e7eb">
-          <span style="font-size:9px;font-weight:700;color:${ep.color};text-transform:uppercase;letter-spacing:.5px;border-bottom:1.5px solid ${ep.border};padding-bottom:1px">${ep.label}</span>
+        <td style="padding:4px 8px;font-family:'Courier New',monospace;font-size:10px;font-weight:700;color:#111827;white-space:nowrap;border-right:1px solid #e5e7eb">${numStr}</td>
+        <td style="padding:4px 10px;font-size:10px;color:#111827">
+          <div>${p.desc}${p.variant ? ` <span style="font-size:7px;color:#6b7280;font-weight:700;text-transform:uppercase">${p.variant}</span>` : ""}</div>
+          ${infoExtra ? `<div style="font-size:8px;margin-top:1px">${infoExtra}</div>` : ""}
         </td>
-        <td style="padding:6px 10px;font-size:10.5px;color:#374151;border-left:1px solid #e5e7eb">${seg?.laminador ?? '<span style="color:#d1d5db">—</span>'}</td>
-        <td style="padding:6px 10px;font-size:10.5px;color:#374151;border-left:1px solid #e5e7eb">${seg?.ubicacion ?? '<span style="color:#d1d5db">—</span>'}</td>
-        <td style="padding:6px 10px;font-size:10px;color:#6b7280;border-left:1px solid #e5e7eb;font-style:${seg?.observaciones?"normal":"italic"}">${seg?.observaciones ?? ""}</td>
+        ${matCell}
+        <td style="padding:4px 8px;white-space:nowrap;border-left:1px solid #e5e7eb">
+          <span style="font-size:8px;font-weight:700;color:${ep.color};text-transform:uppercase;letter-spacing:.4px;border-bottom:1.5px solid ${ep.border};padding-bottom:1px">${ep.label}</span>
+        </td>
+        <td style="padding:4px 8px;font-size:9px;color:#374151;border-left:1px solid #e5e7eb;white-space:nowrap">${fechasCell}</td>
+        <td style="padding:4px 8px;font-size:9px;color:#6b7280;border-left:1px solid #e5e7eb;font-style:${seg?.observaciones?"normal":"italic"}">${seg?.observaciones ?? ""}</td>
       </tr>`;
     }).join("");
 
     const matHeader = hasMat
-      ? `<th style="padding:7px 10px;text-align:left;font-size:8px;letter-spacing:1.8px;text-transform:uppercase;color:#9ca3af;border-right:1px solid #e5e7eb;white-space:nowrap">Matriz</th>`
+      ? `<th style="padding:5px 7px;text-align:left;font-size:7px;letter-spacing:1.5px;text-transform:uppercase;color:#9ca3af;border-right:1px solid #e5e7eb;white-space:nowrap">Matriz</th>`
       : "";
+
+    const subtitulo = modoSeleccion
+      ? `${TOTAL_EXP} piezas seleccionadas · ${obraName && obraName!==obra ? obraName+"  ·  " : ""}${lineaLabel ? "Línea "+lineaLabel : ""}`
+      : `${obraName && obraName!==obra ? obraName+"  ·  " : ""}${lineaLabel ? "Línea "+lineaLabel+"  ·  " : ""}${TOTAL} piezas`;
 
     const html = `<!DOCTYPE html>
 <html lang="es">
 <head>
   <meta charset="utf-8">
-  <title>Piezas de Laminación · ${obra}</title>
-  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <title>${modoSeleccion?"Remito":"Seguimiento"} · ${obra}</title>
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&display=swap" rel="stylesheet">
   <style>
-    * { box-sizing:border-box; margin:0; padding:0; }
-    body { font-family:'Inter',system-ui,sans-serif; color:#111827; background:#fff; }
-    .page { padding:22px 28px 18px; }
-
-    .header { display:flex; justify-content:space-between; align-items:flex-end; padding-bottom:10px; border-bottom:2px solid #111827; margin-bottom:14px; }
-    .header-eyebrow { font-size:8px; font-weight:700; letter-spacing:2.5px; text-transform:uppercase; color:#9ca3af; margin-bottom:4px; }
-    .header-title { font-size:22px; font-weight:900; color:#111827; letter-spacing:-.5px; line-height:1; }
-    .header-sub { font-size:10px; color:#6b7280; margin-top:4px; }
-    .header-right { text-align:right; flex-shrink:0; padding-left:24px; }
-    .header-linea { font-size:34px; font-weight:900; color:#111827; letter-spacing:-2px; line-height:1; }
-    .header-date { font-size:9px; color:#9ca3af; margin-top:3px; }
-
-    .summary { display:flex; align-items:center; gap:20px; margin-bottom:12px; }
-    .summary-pct { font-size:26px; font-weight:900; color:${pctColor}; letter-spacing:-1.5px; line-height:1; flex-shrink:0; }
-    .summary-pct-sub { font-size:9px; color:#9ca3af; font-weight:500; margin-top:1px; }
-    .summary-divider { width:1px; height:36px; background:#e5e7eb; flex-shrink:0; }
-    .summary-track-wrap { flex:1; }
-    .summary-track-label { font-size:9px; color:#9ca3af; margin-bottom:5px; }
-    .summary-track { height:5px; background:#f3f4f6; border-radius:99px; overflow:hidden; }
-    .summary-track-fill { height:100%; border-radius:99px; background:${pctColor}; }
-    .summary-kpis { display:flex; gap:6px; flex-wrap:wrap; flex-shrink:0; }
-
-    .table-wrap { border:1px solid #e5e7eb; border-radius:5px; overflow:hidden; }
-    table { width:100%; border-collapse:collapse; }
-    thead th { padding:7px 10px; background:#f3f4f6; text-align:left; font-size:8px; letter-spacing:1.8px; text-transform:uppercase; color:#9ca3af; border-bottom:1px solid #e5e7eb; white-space:nowrap; }
-    tbody tr:last-child td { border-bottom:none; }
-
-    .footer { margin-top:10px; display:flex; justify-content:space-between; }
-    .footer span { font-size:8px; color:#9ca3af; letter-spacing:.5px; }
-
-    @media print {
-      @page { size:A4 landscape; margin:10mm 12mm; }
-      body { -webkit-print-color-adjust:exact; print-color-adjust:exact; }
-      .page { padding:0; }
+    *{box-sizing:border-box;margin:0;padding:0}
+    body{font-family:'Inter',system-ui,sans-serif;color:#111827;background:#fff;font-size:11px}
+    .page{padding:18px 20px 14px}
+    .header{display:flex;justify-content:space-between;align-items:flex-end;padding-bottom:8px;border-bottom:2px solid #111827;margin-bottom:10px}
+    .h-left .eyebrow{font-size:7px;font-weight:700;letter-spacing:2px;text-transform:uppercase;color:#9ca3af;margin-bottom:3px}
+    .h-left .title{font-size:18px;font-weight:900;color:#111827;letter-spacing:-.5px;line-height:1}
+    .h-left .sub{font-size:9px;color:#6b7280;margin-top:3px}
+    .h-right{text-align:right;flex-shrink:0;padding-left:20px}
+    .h-right .linea{font-size:28px;font-weight:900;color:#111827;letter-spacing:-2px;line-height:1}
+    .h-right .date{font-size:8px;color:#9ca3af;margin-top:2px}
+    .summary{display:flex;align-items:center;gap:12px;margin-bottom:8px;padding:6px 10px;background:#f9fafb;border-radius:5px;border:1px solid #e5e7eb}
+    .kpis{flex:1;display:flex;flex-wrap:wrap;gap:4px;align-items:center}
+    .table-wrap{border:1px solid #e5e7eb;border-radius:4px;overflow:hidden}
+    table{width:100%;border-collapse:collapse}
+    thead th{padding:5px 8px;background:#f3f4f6;text-align:left;font-size:7px;letter-spacing:1.5px;text-transform:uppercase;color:#9ca3af;border-bottom:1px solid #e5e7eb;white-space:nowrap}
+    tbody tr:last-child td{border-bottom:none}
+    .footer{margin-top:8px;display:flex;justify-content:space-between}
+    .footer span{font-size:7px;color:#9ca3af;letter-spacing:.3px}
+    ${modoSeleccion ? `.remito-badge{display:inline-block;background:#fef3c7;border:1.5px solid #f59e0b;color:#b45309;font-size:7px;font-weight:700;letter-spacing:1.5px;text-transform:uppercase;padding:2px 8px;border-radius:3px;margin-left:8px;vertical-align:middle}` : ""}
+    @media print{
+      @page{size:A4 portrait;margin:8mm 10mm}
+      body{-webkit-print-color-adjust:exact;print-color-adjust:exact}
+      .page{padding:0}
     }
   </style>
 </head>
 <body>
 <div class="page">
-
   <div class="header">
-    <div>
-      <div class="header-eyebrow">Seguimiento de Laminación</div>
-      <div class="header-title">${obra}${varLabel}</div>
-      <div class="header-sub">${obraName && obraName !== obra ? obraName + "  ·  " : ""}${lineaLabel ? "Línea " + lineaLabel + "  ·  " : ""}${TOTAL} piezas en catálogo</div>
+    <div class="h-left">
+      <div class="eyebrow">Seguimiento de Laminación${modoSeleccion?" · REMITO / SELECCIÓN":""}</div>
+      <div class="title">${obra}${varLabel}${modoSeleccion?'<span class="remito-badge">'+TOTAL_EXP+' piezas</span>':""}</div>
+      <div class="sub">${subtitulo}</div>
     </div>
-    <div class="header-right">
-      <div class="header-linea">${lineaLabel ?? "LAM"}</div>
-      <div class="header-date">Generado el ${fecha}</div>
+    <div class="h-right">
+      <div class="linea">${lineaLabel ?? "LAM"}</div>
+      <div class="date">${fecha}</div>
     </div>
   </div>
 
   <div class="summary">
-    <div>
-      <div class="summary-pct">${pct}%</div>
-      <div class="summary-pct-sub">${term} / ${TOTAL} piezas</div>
-    </div>
-    <div class="summary-divider"></div>
-    <div class="summary-track-wrap">
-      <div class="summary-track-label">Avance general — terminadas + entregadas</div>
-      <div class="summary-track"><div class="summary-track-fill" style="width:${pct}%"></div></div>
-    </div>
-    <div class="summary-divider"></div>
-    <div class="summary-kpis">${kpis}</div>
+    <div class="kpis">${kpis}</div>
+    ${modoSeleccion ? `<div style="font-size:8px;color:#6b7280;flex-shrink:0">Selección de ${TOTAL_EXP} / ${TOTAL} piezas</div>` : ""}
   </div>
 
   <div class="table-wrap">
@@ -828,12 +895,11 @@ export default function PiezasLaminacionView({ obras=[], esGestion=false }) {
       <thead>
         <tr>
           <th style="width:3px;padding:0;border:none"></th>
-          <th style="width:46px;border-right:1px solid #e5e7eb">N°</th>
-          <th>Descripción</th>
+          <th style="width:38px;border-right:1px solid #e5e7eb">N°</th>
+          <th>Descripción / Laminador / Trayecto</th>
           ${matHeader}
-          <th style="width:88px;border-left:1px solid #e5e7eb">Estado</th>
-          <th style="width:108px;border-left:1px solid #e5e7eb">Laminador</th>
-          <th style="width:118px;border-left:1px solid #e5e7eb">Ubicación</th>
+          <th style="width:76px;border-left:1px solid #e5e7eb">Estado</th>
+          <th style="width:100px;border-left:1px solid #e5e7eb">Envío · Recepción</th>
           <th style="border-left:1px solid #e5e7eb">Observaciones</th>
         </tr>
       </thead>
@@ -842,10 +908,9 @@ export default function PiezasLaminacionView({ obras=[], esGestion=false }) {
   </div>
 
   <div class="footer">
-    <span>SEGUIMIENTO DE LAMINACIÓN  ·  ${obra}${varLabel}${lineaLabel ? "  ·  " + lineaLabel : ""}</span>
-    <span>${fecha}  ·  ${TOTAL} piezas  ·  v4</span>
+    <span>LAMINACIÓN · ${obra}${varLabel}${lineaLabel ? " · "+lineaLabel : ""}${modoSeleccion?" · SELECCIÓN":""}</span>
+    <span>${fecha} · ${TOTAL_EXP} piezas · v5</span>
   </div>
-
 </div>
 <script>window.onload = () => { window.print(); }<\/script>
 </body>
@@ -1033,9 +1098,9 @@ export default function PiezasLaminacionView({ obras=[], esGestion=false }) {
                       style={{ border:`1px solid rgba(16,185,129,0.3)`, background:"rgba(16,185,129,0.07)", color:"#34d399", padding:"4px 10px", borderRadius:6, cursor:"pointer", fontSize:10, fontWeight:600, fontFamily:C.sans, display:"flex", alignItems:"center", gap:4 }}>
                       ↓ CSV
                     </button>
-                    <button onClick={exportPrint} title="Imprimir / Exportar PDF"
+                    <button onClick={exportPrint} title={someSelected ? `Imprimir ${selectedIds.length} seleccionadas` : "Imprimir todas"}
                       style={{ border:`1px solid rgba(59,130,246,0.3)`, background:"rgba(59,130,246,0.07)", color:"#60a5fa", padding:"4px 10px", borderRadius:6, cursor:"pointer", fontSize:10, fontWeight:600, fontFamily:C.sans, display:"flex", alignItems:"center", gap:4 }}>
-                      🖨 PDF
+                      🖨 {someSelected ? `PDF (${selectedIds.length})` : "PDF"}
                     </button>
                   </div>
 

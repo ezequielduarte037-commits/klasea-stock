@@ -520,7 +520,7 @@ export default function CalendarioScreen({ profile, signOut }) {
       const { error } = await supabase.from("calendario_eventos").update(form).eq("id", modal.ev.id);
       if (error) return alert(error.message);
     }
-    notificarWhatsApp(form, esNuevo);
+    // notificarWhatsApp(form, esNuevo); — el cron de Supabase maneja las notificaciones
     setModal(null);
     cargar();
   }
