@@ -3,6 +3,10 @@ import { useLocation } from "react-router-dom";
 import { supabase } from "../supabaseClient";
 import Sidebar from "../components/Sidebar";
 import AjusteInventarioModal from "./AjusteInventarioModal";
+import ComprasSugeridasPanel from "./ComprasSugeridasPanel";
+import EncargadosTab from "./EncargadosTab";
+import OrdenCompraGenerator from "./OrdenCompraGenerator";
+import BarcoCalendarioPanel from "./BarcoCalendarioPanel";
 
 const TABS = ["Stock", "Ingresos", "Egresos", "Pedidos"];
 
@@ -170,7 +174,8 @@ export default function LaminacionScreen({ profile, signOut }) {
     const { data } = await supabase
       .from("laminacion_pedidos")
       .select("*, laminacion_materiales(nombre, unidad)")
-      .order("created_at", { ascending: false });
+      .order("created_at", { ascending: false })
+      .limit(300);
     setPedidos(data ?? []);
   }
   async function cargar() {
@@ -289,9 +294,11 @@ export default function LaminacionScreen({ profile, signOut }) {
       Material:       m.nombre,
       Categoria:      m.categoria ?? "—",
       Unidad:         m.unidad ?? "—",
-      Stock_actual:   m.stock ?? 0,
+      Stock_actual:   stockPorMaterial[m.id] ?? 0,
       Stock_minimo:   m.stock_minimo ?? 0,
-      Estado:         m.estado ?? "—",
+      Estado: (stockPorMaterial[m.id] ?? 0) <= 0 ? "CRITICO"
+        : (stockPorMaterial[m.id] ?? 0) <= num(m.stock_minimo) ? "ATENCION"
+        : "OK",
     }));
     const hoy = new Date().toLocaleDateString("es-AR").replace(/[/]/g, "-");
     descargarCSV(filas, `stock_laminacion_${hoy}.csv`);
@@ -310,15 +317,19 @@ export default function LaminacionScreen({ profile, signOut }) {
     descargarCSV(filas, `pedidos_laminacion_${hoy}.csv`);
   }
 
+  const [filtroPedidoEstado, setFiltroPedidoEstado] = useState("todos");
+
   const pedidosFiltrados = useMemo(() => {
+    let rows = pedidos;
+    if (filtroPedidoEstado !== "todos") rows = rows.filter(p => p.estado === filtroPedidoEstado);
     const qq = q.trim().toLowerCase();
-    if (!qq) return pedidos;
-    return pedidos.filter(p => {
+    if (qq) rows = rows.filter(p => {
       const t = [p.laminacion_materiales?.nombre, p.estado, p.observaciones]
         .filter(Boolean).join(" ").toLowerCase();
       return t.includes(qq);
     });
-  }, [pedidos, q]);
+    return rows;
+  }, [pedidos, q, filtroPedidoEstado]);
 
   function flash(m) { setMsg(m); setTimeout(() => setMsg(""), 2500); }
 
@@ -1120,6 +1131,30 @@ export default function LaminacionScreen({ profile, signOut }) {
             {/* ===== TAB PEDIDOS ===== */}
             {tab === "Pedidos" && (
               <>
+			  <BarcoCalendarioPanel />
+			    <OrdenCompraGenerator
+  materiales={materiales}
+  stockPorMaterial={stockPorMaterial}
+  onCrearPedido={async (materialId, cantidad, obs) => {
+    await supabase.from("laminacion_pedidos").insert({
+      material_id: materialId, cantidad, observaciones: obs, estado: "pendiente"
+    });
+    cargarPedidos();
+    flash("✅ Pedido creado");
+  }}
+/>
+			   <ComprasSugeridasPanel
+      materiales={materiales}
+      movimientos={movimientos}
+      stockPorMaterial={stockPorMaterial}
+      onCrearPedido={async (materialId, cantidad, obs) => {
+        await supabase.from("laminacion_pedidos").insert({
+          material_id: materialId, cantidad, observaciones: obs, estado: "pendiente"
+        });
+        cargarPedidos();
+        flash("✅ Pedido creado");
+      }}
+    />		  
                 {puedeCargar && (
                   <div style={S.card}>
                     <h3 style={{ marginTop: 0, color: "#f4f4f5" }}>Nuevo pedido</h3>
@@ -1159,6 +1194,22 @@ export default function LaminacionScreen({ profile, signOut }) {
                     <button onClick={exportarPedidos} disabled={!pedidosFiltrados.length} style={S.btnExport}>
                       ↓ Exportar CSV
                     </button>
+                  </div>
+                  <div style={{ display: "flex", gap: 8, marginBottom: 12 }}>
+                    {["todos", "pendiente", "entregado", "cancelado"].map(st => (
+                      <button
+                        key={st}
+                        style={S.tab(filtroPedidoEstado === st)}
+                        onClick={() => setFiltroPedidoEstado(st)}
+                      >
+                        {st === "todos" ? "Todos" : st.charAt(0).toUpperCase() + st.slice(1)}
+                        {st === "pendiente" && pedidos.filter(p => p.estado === "pendiente").length > 0 && (
+                          <span style={{ marginLeft: 6, background: "#ffe7a6", color: "#000", borderRadius: 999, padding: "1px 6px", fontSize: 10, fontWeight: 900 }}>
+                            {pedidos.filter(p => p.estado === "pendiente").length}
+                          </span>
+                        )}
+                      </button>
+                    ))}
                   </div>
                   <table style={S.table}>
                     <thead>

@@ -1,5 +1,7 @@
 import { useEffect, useMemo, useState, useRef, useCallback } from "react";
 import { supabase } from "../supabaseClient";
+import { jsPDF } from "jspdf";
+import autoTable from "jspdf-autotable";
 import Sidebar from "../components/Sidebar";
 import EnchapadoView from "./EnchapadoView";
 
@@ -37,32 +39,47 @@ function progreso(rows) {
   return Math.round(rows.filter(r => r.estado === "Completo").length / rows.length * 100);
 }
 
+function normalizeText(value = "") {
+  return String(value).trim().toLowerCase();
+}
+
+function buildImageScopeTag(scopeType, scopeId) {
+  if (!scopeType || !scopeId) return "legacy";
+  return `${scopeType}_${scopeId}`;
+}
+
+function imageBelongsToScope(url = "", scopeType, scopeId) {
+  const tag = buildImageScopeTag(scopeType, scopeId);
+  if (tag === "legacy") return !url.includes("/catalogo_") && !url.includes("/linea_") && !url.includes("/checklist_");
+  return url.includes(`/${tag}/`);
+}
+
 // ─── Thumbnail cache & hook ─────────────────────────────────────────
 const thumbCache = {};
-function useThumbnail(muebleId) {
-  const [url, setUrl] = useState(thumbCache[muebleId] ?? null);
+function useThumbnail(muebleId, scopeType, scopeId) {
+  const cacheKey = `${muebleId ?? "x"}::${buildImageScopeTag(scopeType, scopeId)}`;
+  const [url, setUrl] = useState(thumbCache[cacheKey] ?? null);
   useEffect(() => {
-    if (!muebleId || thumbCache[muebleId] !== undefined) return;
-    thumbCache[muebleId] = null; // mark loading
+    if (!muebleId || thumbCache[cacheKey] !== undefined) return;
+    thumbCache[cacheKey] = null; // mark loading
     supabase
       .from("prod_mueble_imagenes")
-      .select("url")
+      .select("url,created_at")
       .eq("mueble_id", muebleId)
       .order("created_at", { ascending: true })
-      .limit(1)
-      .single()
       .then(({ data }) => {
-        const u = data?.url ?? null;
-        thumbCache[muebleId] = u;
+        const scoped = (data ?? []).filter(row => imageBelongsToScope(row.url, scopeType, scopeId));
+        const u = scoped[0]?.url ?? null;
+        thumbCache[cacheKey] = u;
         setUrl(u);
       });
-  }, [muebleId]);
+  }, [cacheKey, muebleId, scopeId, scopeType]);
   return url;
 }
 
 // ─── MiniThumb ─────────────────────────────────────────────────────
-function MiniThumb({ muebleId, size = 52, onClick }) {
-  const url = useThumbnail(muebleId);
+function MiniThumb({ muebleId, scopeType, scopeId, size = 52, onClick }) {
+  const url = useThumbnail(muebleId, scopeType, scopeId);
   if (!url) return (
     <div
       onClick={onClick}
@@ -124,7 +141,7 @@ function Lightbox({ images, index, onClose, setIndex }) {
 }
 
 // ─── GaleriaMueble ─────────────────────────────────────────────────
-function GaleriaMueble({ muebleId, esAdmin }) {
+function GaleriaMueble({ muebleId, scopeType = "catalogo", scopeId = null, esAdmin }) {
   const [images,    setImages]    = useState([]);
   const [loading,   setLoading]   = useState(true);
   const [setupErr,  setSetupErr]  = useState(null);
@@ -147,10 +164,10 @@ function GaleriaMueble({ muebleId, esAdmin }) {
       setLoading(false);
       return;
     }
-    setImages(data ?? []);
+    setImages((data ?? []).filter(img => imageBelongsToScope(img.url, scopeType, scopeId)));
     setLoading(false);
   }
-  useEffect(() => { cargar(); }, [muebleId]);
+  useEffect(() => { cargar(); }, [muebleId, scopeType, scopeId]);
 
   async function subirArchivos(files) {
     const arr = Array.from(files ?? []).filter(f => f.type.startsWith("image/"));
@@ -161,7 +178,8 @@ function GaleriaMueble({ muebleId, esAdmin }) {
     for (let i = 0; i < arr.length; i++) {
       const file = arr[i];
       const safe = file.name.replace(/[^a-zA-Z0-9._-]/g, "_");
-      const path = `${muebleId}/${Date.now()}_${safe}`;
+      const scopeTag = buildImageScopeTag(scopeType, scopeId);
+      const path = `${scopeTag}/${muebleId}/${Date.now()}_${safe}`;
       const { error: upErr } = await supabase.storage.from(BUCKET).upload(path, file, { upsert: false });
       if (upErr) {
         setProgress(p => p.map((x,j) => j===i ? {...x, error: upErr.message, done: true} : x));
@@ -301,7 +319,12 @@ function MuebleModal({ mueble, onClose, onSave, onDelete, esAdmin }) {
               <button style={{ marginTop: 6, width: "100%", padding: "9px", background: "rgba(239,68,68,0.07)", color: "#f87171", border: "1px solid rgba(239,68,68,0.2)", borderRadius: 10, cursor: "pointer", fontFamily: C.sans, fontSize: 12 }} onClick={() => { if (window.confirm("¿Borrar este mueble del catálogo?")) { onDelete(mueble.id); onClose(); } }}>Eliminar del catálogo</button>
             </>}
             <div style={{ borderTop: `1px solid ${C.b0}`, marginTop: 18 }}>
-              <GaleriaMueble muebleId={mueble.id} esAdmin={esAdmin} />
+              <GaleriaMueble
+                muebleId={mueble.id}
+                scopeType={mueble.imageScopeType}
+                scopeId={mueble.imageScopeId}
+                esAdmin={esAdmin}
+              />
             </div>
           </>
         ) : (
@@ -474,9 +497,9 @@ function CatalogoLinea({ lineaId, lineaNombre, esAdmin, onOpenMueble }) {
                       cursor: "pointer", transition: "background .15s",
                       border: "1px solid transparent",
                     }}
-                    onClick={() => onOpenMueble(m)}
+                    onClick={() => onOpenMueble({ ...m, imageScopeType: "linea", imageScopeId: lineaId })}
                   >
-                    <MiniThumb muebleId={m.id} size={50} />
+                    <MiniThumb muebleId={m.id} scopeType="linea" scopeId={lineaId} size={50} />
                     <div style={{ flex: 1, minWidth: 0 }}>
                       <div style={{ fontSize: 13, color: C.t0, fontWeight: 500, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{m.nombre}</div>
                       <div style={{ display: "flex", gap: 10, marginTop: 3, alignItems: "center" }}>
@@ -571,6 +594,142 @@ export default function MueblesScreen({ profile, signOut }) {
   async function cargarLineas()     { const { data } = await supabase.from("prod_lineas").select("id,nombre").eq("activa",true).order("nombre"); const rows = data ?? []; setLineas(rows); if (!lineaId && rows.length) setLineaId(rows[0].id); }
   async function cargarUnidades(lid){ const { data } = await supabase.from("prod_unidades").select("id,codigo,color").eq("linea_id",lid).eq("activa",true).order("codigo"); setUnidades(data ?? []); }
   async function cargarChecklist(uid){ setLoading(true); const { data, error } = await supabase.from("prod_unidad_checklist").select("id,estado,obs,mueble_id, prod_muebles(id,nombre,sector,descripcion,medidas,material)").eq("unidad_id",uid).order("prod_muebles(sector)").order("prod_muebles(nombre)"); if (error) setErr(error.message); setChecklist(data ?? []); setLoading(false); }
+
+  async function ensureLineaByModel(modeloRaw) {
+    const modelo = String(modeloRaw ?? "").trim();
+    if (!modelo) throw new Error("Falta el modelo para crear la linea.");
+
+    const existente = lineas.find(l => normalizeText(l.nombre) === normalizeText(modelo));
+    if (existente) return existente;
+
+    const { data: found, error } = await supabase
+      .from("prod_lineas")
+      .select("id,nombre,activa")
+      .ilike("nombre", modelo)
+      .limit(1);
+
+    if (error) throw error;
+
+    const lineaDb = found?.[0];
+    if (lineaDb) {
+      if (lineaDb.activa === false) {
+        await supabase.from("prod_lineas").update({ activa: true }).eq("id", lineaDb.id);
+      }
+      const normalized = { id: lineaDb.id, nombre: lineaDb.nombre };
+      setLineas(prev => prev.some(l => l.id === normalized.id) ? prev : [...prev, normalized].sort((a, b) => a.nombre.localeCompare(b.nombre)));
+      return normalized;
+    }
+
+    const { data: created, error: createError } = await supabase
+      .from("prod_lineas")
+      .insert({ nombre: modelo, activa: true })
+      .select("id,nombre")
+      .single();
+
+    if (createError) throw createError;
+    setLineas(prev => [...prev, created].sort((a, b) => a.nombre.localeCompare(b.nombre)));
+    return created;
+  }
+
+  async function ensureUnidadDesdeEnchapado({ modelo, barco }) {
+    const codigo = String(barco ?? "").trim();
+    if (!codigo) throw new Error("Falta el codigo de obra/barco.");
+
+    const linea = await ensureLineaByModel(modelo);
+    const { data: existingUnits, error: queryError } = await supabase
+      .from("prod_unidades")
+      .select("id,codigo,color,activa")
+      .eq("linea_id", linea.id)
+      .ilike("codigo", codigo)
+      .limit(1);
+
+    if (queryError) throw queryError;
+
+    let unidad = existingUnits?.[0] ?? null;
+    let created = false;
+
+    if (!unidad) {
+      const { data: nuevaUnidad, error: createUnitError } = await supabase
+        .from("prod_unidades")
+        .insert({ linea_id: linea.id, codigo, activa: true })
+        .select("id,codigo,color")
+        .single();
+
+      if (createUnitError) throw createUnitError;
+      unidad = nuevaUnidad;
+      created = true;
+
+      const { data: plantilla, error: plantillaError } = await supabase
+        .from("prod_linea_muebles")
+        .select("mueble_id")
+        .eq("linea_id", linea.id);
+
+      if (plantillaError) throw plantillaError;
+      if (plantilla?.length) {
+        await supabase.from("prod_unidad_checklist").insert(
+          plantilla.map(p => ({ unidad_id: unidad.id, mueble_id: p.mueble_id, estado: "No enviado" }))
+        );
+      }
+    } else if (unidad.activa === false) {
+      await supabase.from("prod_unidades").update({ activa: true }).eq("id", unidad.id);
+    }
+
+    if (lineaId === linea.id) await cargarUnidades(linea.id);
+    return { linea, unidad, created };
+  }
+
+  function descargarChecklistPdf() {
+    if (!unidadSel || !lineaSel) return;
+
+    const doc = new jsPDF({ unit: "pt", format: "a4" });
+    const fecha = new Date().toLocaleDateString("es-AR");
+    const filas = checklist.map((row, idx) => [
+      idx + 1,
+      row.prod_muebles?.sector ?? "General",
+      row.prod_muebles?.nombre ?? "-",
+      "",
+      "",
+      row.obs ?? "",
+    ]);
+
+    doc.setFillColor(9, 9, 11);
+    doc.rect(0, 0, doc.internal.pageSize.getWidth(), 92, "F");
+    doc.setTextColor(244, 244, 245);
+    doc.setFont("helvetica", "bold");
+    doc.setFontSize(20);
+    doc.text(`Checklist de recepcion - ${unidadSel.codigo}`, 40, 42);
+    doc.setFontSize(10);
+    doc.setFont("helvetica", "normal");
+    doc.text(`Linea: ${lineaSel.nombre}`, 40, 64);
+    doc.text(`Fecha de impresion: ${fecha}`, 40, 79);
+    doc.text("Recepcionado por: ____________________", 300, 64);
+    doc.text("Firma: ____________________", 300, 79);
+
+    autoTable(doc, {
+      startY: 112,
+      head: [["#", "Sector", "Mueble", "Llego", "Revisado", "Observaciones"]],
+      body: filas,
+      theme: "grid",
+      styles: { fontSize: 9, cellPadding: 6, lineColor: [220, 220, 220], lineWidth: 0.5, textColor: [30, 30, 30], minCellHeight: 24, valign: "middle" },
+      headStyles: { fillColor: [28, 28, 34], textColor: [244, 244, 245], fontStyle: "bold" },
+      columnStyles: {
+        0: { cellWidth: 22, halign: "center" },
+        1: { cellWidth: 85 },
+        2: { cellWidth: 180 },
+        3: { cellWidth: 48, halign: "center" },
+        4: { cellWidth: 58, halign: "center" },
+        5: { cellWidth: "auto" },
+      },
+      didDrawPage: data => {
+        const pageHeight = doc.internal.pageSize.getHeight();
+        doc.setFontSize(9);
+        doc.setTextColor(120, 120, 128);
+        doc.text(`Pagina ${data.pageNumber}`, data.settings.margin.left, pageHeight - 18);
+      },
+    });
+
+    doc.save(`checklist_${lineaSel.nombre}_${unidadSel.codigo}.pdf`);
+  }
 
   useEffect(() => { cargarLineas(); }, []);
   useEffect(() => { if (lineaId) { cargarUnidades(lineaId); setUnidadId(null); setChecklist([]); } }, [lineaId]);
@@ -693,7 +852,7 @@ export default function MueblesScreen({ profile, signOut }) {
           {/* ── DETAIL ── */}
           <div style={{ height: "100vh", overflowY: "auto" }}>
             {mainView === "enchapadora" ? (
-              <EnchapadoView esAdmin={esAdmin} />
+              <EnchapadoView esAdmin={esAdmin} onEnsureMueblesUnidad={ensureUnidadDesdeEnchapado} />
             ) : !lineaId ? (
               /* Sin línea seleccionada */
               <div style={{ display: "flex", alignItems: "center", justifyContent: "center", height: "100%" }}>
@@ -718,17 +877,31 @@ export default function MueblesScreen({ profile, signOut }) {
                     <div style={{ fontSize: 22, fontWeight: 700, color: C.t0 }}>{unidadSel?.codigo}</div>
                     <div style={{ fontSize: 11, color: C.t2, marginTop: 4 }}>{lineaSel?.nombre} · {checklist.length} ítems</div>
                   </div>
-                  <button
-                    onClick={() => { setSelMode(v => !v); setSelIds(new Set()); }}
-                    style={{
-                      padding: "7px 14px", borderRadius: 8, cursor: "pointer", fontSize: 11,
-                      fontFamily: C.sans, fontWeight: 600, transition: "all .15s",
-                      background: selMode ? "rgba(59,130,246,0.15)" : C.s0,
-                      border: `1px solid ${selMode ? "rgba(59,130,246,0.4)" : C.b0}`,
-                      color: selMode ? "#60a5fa" : C.t1,
-                    }}>
-                    {selMode ? "✕ Cancelar" : "☑ Seleccionar"}
-                  </button>
+                  <div style={{ display: "flex", gap: 8, alignItems: "center", flexWrap: "wrap", justifyContent: "flex-end" }}>
+                    <button
+                      onClick={descargarChecklistPdf}
+                      style={{
+                        padding: "7px 14px", borderRadius: 8, cursor: "pointer", fontSize: 11,
+                        fontFamily: C.sans, fontWeight: 600, transition: "all .15s",
+                        background: "rgba(16,185,129,0.12)",
+                        border: "1px solid rgba(16,185,129,0.3)",
+                        color: C.green,
+                      }}
+                    >
+                      Descargar checklist PDF
+                    </button>
+                    <button
+                      onClick={() => { setSelMode(v => !v); setSelIds(new Set()); }}
+                      style={{
+                        padding: "7px 14px", borderRadius: 8, cursor: "pointer", fontSize: 11,
+                        fontFamily: C.sans, fontWeight: 600, transition: "all .15s",
+                        background: selMode ? "rgba(59,130,246,0.15)" : C.s0,
+                        border: `1px solid ${selMode ? "rgba(59,130,246,0.4)" : C.b0}`,
+                        color: selMode ? "#60a5fa" : C.t1,
+                      }}>
+                      {selMode ? "Cancelar seleccion" : "Seleccionar"}
+                    </button>
+                  </div>
                 </div>
 
                 {/* Bulk action bar */}
@@ -863,14 +1036,16 @@ export default function MueblesScreen({ profile, signOut }) {
                               {/* Thumbnail */}
                               <MiniThumb
                                 muebleId={m?.id}
+                                scopeType="checklist"
+                                scopeId={r.id}
                                 size={46}
-                                onClick={!selMode && m ? () => setModalMueble(m) : undefined}
+                                onClick={!selMode && m ? () => setModalMueble({ ...m, imageScopeType: "checklist", imageScopeId: r.id }) : undefined}
                               />
                               {/* Nombre + obs */}
                               <div>
                                 <span
                                   style={{ color: r.estado === "Completo" ? C.t2 : C.t0, fontSize: 13, cursor: selMode ? "default" : "pointer", textDecoration: r.estado === "Completo" ? "line-through" : "none", fontWeight: 400 }}
-                                  onClick={() => !selMode && m && setModalMueble(m)}
+                                  onClick={() => !selMode && m && setModalMueble({ ...m, imageScopeType: "checklist", imageScopeId: r.id })}
                                 >{m?.nombre ?? "—"}</span>
                                 {!selMode && <ObsInline value={r.obs} rowId={r.id} onSave={setObs} />}
                               </div>

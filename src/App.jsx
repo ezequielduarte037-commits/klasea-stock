@@ -17,6 +17,7 @@ import PostVentaScreen       from "./screens/PostVentaScreen";
 import ClientePanelScreen    from "./screens/ClientePanelScreen";
 import HomeScreen            from "./screens/HomeScreen";
 import CalendarioScreen      from "./screens/CalendarioScreen";
+import PedidosMaderaScreen from "./screens/PedidosMaderaScreen";
 
 import logoK from "./assets/logo-k.png";
 
@@ -378,7 +379,7 @@ export default function App() {
         <Route path="/movimientos"element={<RequireAuth session={session}><RequireRole profile={profile} allow={["admin","oficina"]}><MovimientosScreen     {...A} /></RequireRole></RequireAuth>} />
         <Route path="/obras-laminacion" element={<RequireAuth session={session}><RequireRole profile={profile} allow={["admin","oficina"]}><ObrasLaminacionScreen {...A} /></RequireRole></RequireAuth>} />
         <Route path="/configuracion"    element={<RequireAuth session={session}><RequireRole profile={profile} allow={["admin"]}><ConfiguracionScreen {...A} /></RequireRole></RequireAuth>} />
-
+        <Route path="/madera" element={<PedidosMaderaScreen profile={profile} signOut={signOut} />} />  
         <Route path="*" element={<Navigate to="/" replace />} />
       </Routes>
     </BrowserRouter>
