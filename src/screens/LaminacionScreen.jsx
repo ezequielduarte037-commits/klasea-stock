@@ -113,10 +113,10 @@ export default function LaminacionScreen({ profile, signOut }) {
   const isAdmin = !!profile?.is_admin;
   const puedeCargar = isAdmin || role === "admin" || role === "panol";
 
-  // Tabs disponibles según rol: pañol solo ve Ingresos y Egresos
+  // Tabs disponibles según rol: pañol ve Stock (solo lectura), Ingresos y Egresos
   const esPanol = role === "panol" && !isAdmin;
   const tabsDisponibles = esPanol
-    ? ["Ingresos", "Egresos"]
+    ? ["Stock", "Ingresos", "Egresos"]
     : ["Stock", "Ingresos", "Egresos", "Movimientos", "Pedidos"];
 
   function tabFromSearch(search) {
