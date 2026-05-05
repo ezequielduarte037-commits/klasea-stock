@@ -27,59 +27,70 @@ const PRIORIDAD_META = {
 };
 
 // ── DESMOLDES (from Fechas_2026.xlsx) ────────────────────────────
-// Días de anticipación recomendados para pedir plantillas antes del desmolde
-const DIAS_ANTICIPACION = 30;
+// Gap histórico medido (días desde desmolde hasta primer envío de plantillas):
+//   K37 → 37-34: desmolde 14/10/25 → plantillas 26/01/26 = 104 días
+//   K52 → 52-20: desmolde 05/06/25 → plantillas 05/11/25 = 153 días
+//   K42 → 42-81: desmolde 03/09/25 → plantillas 08/01/26 = 127 días
+//   K43 → sin dato, promedio ~128 días
+//   K34 → sin dato, promedio ~128 días
+
+const GAP_POR_LINEA = { K37:104, K52:153, K42:127, K43:128, K34:128 };
 
 const DESMOLDES_DATA = [
-  // K34
-  { linea:"K34", barco:"H172", desmolde:"2026-10-20", tipo:"real"     },
-  { linea:"K34", barco:"H173", desmolde:"2026-01-06", tipo:"real"     },
-  { linea:"K34", barco:"H174", desmolde:"2026-03-30", tipo:"estimado" },
-  { linea:"K34", barco:"H175", desmolde:"2026-06-08", tipo:"estimado" },
-  { linea:"K34", barco:"H176", desmolde:"2026-08-17", tipo:"estimado" },
-  // K37
-  { linea:"K37", barco:"37-34", desmolde:"2026-10-13", tipo:"real"     },
-  { linea:"K37", barco:"37-35", desmolde:"2026-11-13", tipo:"real"     },
-  { linea:"K37", barco:"37-36", desmolde:"2026-12-11", tipo:"real"     },
-  { linea:"K37", barco:"37-37", desmolde:"2026-01-12", tipo:"real"     },
-  { linea:"K37", barco:"37-38", desmolde:"2026-02-23", tipo:"estimado" },
-  { linea:"K37", barco:"37-39", desmolde:"2026-03-23", tipo:"estimado" },
-  { linea:"K37", barco:"37-40", desmolde:"2026-04-20", tipo:"estimado" },
-  { linea:"K37", barco:"37-41", desmolde:"2026-05-18", tipo:"estimado" },
-  { linea:"K37", barco:"37-42", desmolde:"2026-06-23", tipo:"estimado" },
-  { linea:"K37", barco:"37-43", desmolde:"2026-07-20", tipo:"estimado" },
-  { linea:"K37", barco:"37-44", desmolde:"2026-08-17", tipo:"estimado" },
-  // K42
-  { linea:"K42", barco:"42-81", desmolde:"2026-09-03", tipo:"real"     },
-  { linea:"K42", barco:"42-82", desmolde:"2026-02-23", tipo:"estimado" },
-  { linea:"K42", barco:"42-83", desmolde:"2026-07-20", tipo:"estimado" },
-  // K43
-  { linea:"K43", barco:"43-28", desmolde:"2026-08-06", tipo:"real"     },
-  { linea:"K43", barco:"43-29", desmolde:"2026-12-11", tipo:"real"     },
-  { linea:"K43", barco:"43-30", desmolde:"2026-03-16", tipo:"estimado" },
-  { linea:"K43", barco:"43-31", desmolde:"2026-05-04", tipo:"estimado" },
-  // K52
-  { linea:"K52", barco:"52-20", desmolde:"2026-06-05", tipo:"real"     },
-  { linea:"K52", barco:"52-21", desmolde:"2026-09-17", tipo:"real"     },
-  { linea:"K52", barco:"52-22", desmolde:"2026-11-13", tipo:"real"     },
-  { linea:"K52", barco:"52-23", desmolde:"2026-01-12", tipo:"real"     },
-  { linea:"K52", barco:"52-24", desmolde:"2026-03-30", tipo:"estimado" },
-  { linea:"K52", barco:"52-25", desmolde:"2026-06-01", tipo:"estimado" },
+  { linea:"K34", barco:"H172",  desmolde:"2026-10-20", botada:"2026-03-23", tipo:"real"     },
+  { linea:"K34", barco:"H173",  desmolde:"2026-01-06", botada:"2026-06-09", tipo:"real"     },
+  { linea:"K34", barco:"H174",  desmolde:"2026-03-30", botada:"2026-08-24", tipo:"estimado" },
+  { linea:"K34", barco:"H175",  desmolde:"2026-06-08", botada:"2026-11-02", tipo:"estimado" },
+  { linea:"K34", barco:"H176",  desmolde:"2026-08-17", botada:"2027-01-11", tipo:"estimado" },
+  { linea:"K37", barco:"37-34", desmolde:"2026-10-13", botada:"2026-03-09", tipo:"real"     },
+  { linea:"K37", barco:"37-35", desmolde:"2026-11-13", botada:"2026-04-16", tipo:"real"     },
+  { linea:"K37", barco:"37-36", desmolde:"2026-12-11", botada:"2026-05-07", tipo:"real"     },
+  { linea:"K37", barco:"37-37", desmolde:"2026-01-12", botada:"2026-06-16", tipo:"real"     },
+  { linea:"K37", barco:"37-38", desmolde:"2026-02-23", botada:"2026-07-13", tipo:"estimado" },
+  { linea:"K37", barco:"37-39", desmolde:"2026-03-23", botada:"2026-08-10", tipo:"estimado" },
+  { linea:"K37", barco:"37-40", desmolde:"2026-04-20", botada:"2026-09-07", tipo:"estimado" },
+  { linea:"K37", barco:"37-41", desmolde:"2026-05-18", botada:"2026-10-05", tipo:"estimado" },
+  { linea:"K37", barco:"37-42", desmolde:"2026-06-23", botada:"2026-11-10", tipo:"estimado" },
+  { linea:"K37", barco:"37-43", desmolde:"2026-07-20", botada:"2026-12-07", tipo:"estimado" },
+  { linea:"K37", barco:"37-44", desmolde:"2026-08-17", botada:"2027-01-04", tipo:"estimado" },
+  { linea:"K42", barco:"42-81", desmolde:"2026-09-03", botada:"2026-03-11", tipo:"real"     },
+  { linea:"K42", barco:"42-82", desmolde:"2026-02-23", botada:"2026-08-12", tipo:"estimado" },
+  { linea:"K42", barco:"42-83", desmolde:"2026-07-20", botada:"2026-01-13", tipo:"estimado" },
+  { linea:"K43", barco:"43-28", desmolde:"2026-08-06", botada:"2026-04-29", tipo:"real"     },
+  { linea:"K43", barco:"43-29", desmolde:"2026-12-11", botada:"2026-08-26", tipo:"real"     },
+  { linea:"K43", barco:"43-30", desmolde:"2026-03-16", botada:"2026-11-16", tipo:"estimado" },
+  { linea:"K43", barco:"43-31", desmolde:"2026-05-04", botada:"2027-01-04", tipo:"estimado" },
+  { linea:"K52", barco:"52-20", desmolde:"2026-06-05", botada:null,         tipo:"real"     },
+  { linea:"K52", barco:"52-21", desmolde:"2026-09-17", botada:"2026-05-13", tipo:"real"     },
+  { linea:"K52", barco:"52-22", desmolde:"2026-11-13", botada:"2026-07-09", tipo:"real"     },
+  { linea:"K52", barco:"52-23", desmolde:"2026-01-12", botada:"2026-09-28", tipo:"real"     },
+  { linea:"K52", barco:"52-24", desmolde:"2026-03-30", botada:"2026-11-30", tipo:"estimado" },
+  { linea:"K52", barco:"52-25", desmolde:"2026-06-01", botada:"2026-01-22", tipo:"estimado" },
 ];
 
-function diasHastaDesmolde(desmoldeStr) {
+// Fecha estimada de solicitud de plantillas = desmolde + gap de línea
+function fechaEstPlantilla(desmoldeStr, linea) {
   const d = new Date(desmoldeStr + "T00:00:00");
-  const hoy = new Date(); hoy.setHours(0,0,0,0);
-  return Math.round((d - hoy) / 86400000);
+  d.setDate(d.getDate() + (GAP_POR_LINEA[linea] ?? 128));
+  return d;
 }
 
-function urgenciaDesmolde(dias, tieneTemplates) {
-  if (tieneTemplates) return { label:"Solicitadas ✓", color:"#10b981", bg:"rgba(16,185,129,0.1)", border:"rgba(16,185,129,0.22)" };
-  if (dias < -7)       return { label:"Vencido",       color:"#71717a", bg:"rgba(113,113,122,0.08)", border:"rgba(113,113,122,0.18)" };
-  if (dias < 0)        return { label:"Hoy / Ayer",    color:"#ef4444", bg:"rgba(239,68,68,0.12)", border:"rgba(239,68,68,0.3)" };
-  if (dias <= 30)      return { label:"Urgente",        color:"#ef4444", bg:"rgba(239,68,68,0.12)", border:"rgba(239,68,68,0.3)" };
-  if (dias <= 60)      return { label:"Próximo",        color:"#f59e0b", bg:"rgba(245,158,11,0.1)", border:"rgba(245,158,11,0.28)" };
-  return                      { label:"En tiempo",      color:"#3b82f6", bg:"rgba(59,130,246,0.08)", border:"rgba(59,130,246,0.22)" };
+// Días hasta la fecha estimada de plantilla (negativo = ya venció)
+function diasHastaPlantilla(desmoldeStr, linea) {
+  const hoy = new Date(); hoy.setHours(0,0,0,0);
+  return Math.round((fechaEstPlantilla(desmoldeStr, linea) - hoy) / 86400000);
+}
+
+function urgenciaPlantilla(dias, tieneTemplates) {
+  if (tieneTemplates)
+    return { label:"Solicitadas ✓", color:"#10b981", bg:"rgba(16,185,129,0.1)",  border:"rgba(16,185,129,0.22)"  };
+  if (dias < -14)
+    return { label:"Vencido",       color:"#71717a", bg:"rgba(113,113,122,0.1)", border:"rgba(113,113,122,0.2)"  };
+  if (dias <= 30)
+    return { label:"¡Pedir ya!",    color:"#ef4444", bg:"rgba(239,68,68,0.14)",  border:"rgba(239,68,68,0.35)"   };
+  if (dias <= 60)
+    return { label:"Próximo",       color:"#f59e0b", bg:"rgba(245,158,11,0.1)",  border:"rgba(245,158,11,0.28)"  };
+  return   { label:"En tiempo",     color:"#3b82f6", bg:"rgba(59,130,246,0.08)", border:"rgba(59,130,246,0.22)"  };
 }
 
 const SQL_HISTORIAL = `-- Historial completo de envíos de plantillas
@@ -1003,8 +1014,8 @@ export default function MarmoleriaScreen({ profile, signOut }) {
               {(() => {
                 const selDesmoldes = viewMode === "desmoldes" && !unidadId;
                 const urgentes = DESMOLDES_DATA.filter(d => {
-                  const dias = diasHastaDesmolde(d.desmolde);
-                  return !desmoldesStatus.has(d.barco) && dias >= -7 && dias <= 30;
+                  const dias = diasHastaPlantilla(d.desmolde, d.linea);
+                  return !desmoldesStatus.has(d.barco) && dias >= -14 && dias <= 30;
                 }).length;
                 return (
                   <button className="nav-btn-item" onClick={() => { setUnidadId(null); setLineaId(null); setViewMode("desmoldes"); }} style={{
@@ -1168,95 +1179,76 @@ export default function MarmoleriaScreen({ profile, signOut }) {
 
               {/* ════ DESMOLDES — PENDIENTES DE PLANTILLA ════ */}
               {viewMode === "desmoldes" && !unidadId && (() => {
-                const hoy = new Date(); hoy.setHours(0,0,0,0);
-                const rows = DESMOLDES_DATA.map(d => ({
-                  ...d,
-                  dias: diasHastaDesmolde(d.desmolde),
-                  tieneTemplates: desmoldesStatus.has(d.barco),
-                })).sort((a, b) => a.dias - b.dias);
+                const fmtDate = s => s ? s.split("-").reverse().join("/") : "—";
+                const rows = DESMOLDES_DATA.map(d => {
+                  const gap = GAP_POR_LINEA[d.linea] ?? 128;
+                  const estFecha = fechaEstPlantilla(d.desmolde, d.linea);
+                  const estStr = estFecha.toISOString().split("T")[0];
+                  const dias = diasHastaPlantilla(d.desmolde, d.linea);
+                  return { ...d, gap, estStr, dias, tieneTemplates: desmoldesStatus.has(d.barco) };
+                }).sort((a, b) => a.dias - b.dias);
 
-                const pendientesUrgentes = rows.filter(r => !r.tieneTemplates && r.dias >= -7 && r.dias <= 30).length;
-                const pendientesProximos = rows.filter(r => !r.tieneTemplates && r.dias > 30 && r.dias <= 60).length;
+                const urgentes = rows.filter(r => !r.tieneTemplates && r.dias >= -14 && r.dias <= 30).length;
 
                 return (
                   <div style={{ padding:"22px 26px", animation:"slideUp .28s ease" }}>
-                    <div style={{ display:"flex", alignItems:"flex-end", justifyContent:"space-between", marginBottom:18 }}>
+                    <div style={{ display:"flex", alignItems:"flex-end", justifyContent:"space-between", marginBottom:14 }}>
                       <div>
-                        <div style={{ fontSize:8, color:C2.t2, letterSpacing:3, textTransform:"uppercase", fontFamily:C2.mono, marginBottom:5 }}>Producción</div>
+                        <div style={{ fontSize:8, color:C2.t2, letterSpacing:3, textTransform:"uppercase", fontFamily:C2.mono, marginBottom:5 }}>Producción 2026</div>
                         <h1 style={{ margin:0, fontSize:18, fontWeight:700, color:C2.t0, letterSpacing:-0.3 }}>Desmoldes & Plantillas</h1>
                         <p style={{ color:C2.t2, fontSize:11, margin:"4px 0 0" }}>
-                          Pedí plantillas al menos <strong style={{ color:C2.t1 }}>{DIAS_ANTICIPACION} días antes</strong> del desmolde
+                          Fecha estimada = desmolde + gap histórico por línea
+                          &nbsp;·&nbsp; K37 <strong style={{ color:C2.t1 }}>104d</strong>
+                          &nbsp;· K42 <strong style={{ color:C2.t1 }}>127d</strong>
+                          &nbsp;· K43/K34 <strong style={{ color:C2.t1 }}>~128d</strong>
+                          &nbsp;· K52 <strong style={{ color:C2.t1 }}>153d</strong>
                         </p>
                       </div>
-                      <div style={{ display:"flex", gap:8 }}>
-                        {pendientesUrgentes > 0 && (
-                          <div style={{ padding:"6px 12px", borderRadius:8, background:"rgba(239,68,68,0.1)", border:"1px solid rgba(239,68,68,0.25)", textAlign:"center" }}>
-                            <div style={{ fontFamily:C2.mono, fontSize:18, fontWeight:800, color:"#ef4444" }}>{pendientesUrgentes}</div>
-                            <div style={{ fontSize:8, color:"#ef4444", letterSpacing:1.5, textTransform:"uppercase" }}>Urgente</div>
-                          </div>
-                        )}
-                        {pendientesProximos > 0 && (
-                          <div style={{ padding:"6px 12px", borderRadius:8, background:"rgba(245,158,11,0.08)", border:"1px solid rgba(245,158,11,0.22)", textAlign:"center" }}>
-                            <div style={{ fontFamily:C2.mono, fontSize:18, fontWeight:800, color:"#f59e0b" }}>{pendientesProximos}</div>
-                            <div style={{ fontSize:8, color:"#f59e0b", letterSpacing:1.5, textTransform:"uppercase" }}>Próximo</div>
-                          </div>
-                        )}
-                      </div>
+                      {urgentes > 0 && (
+                        <div style={{ padding:"6px 14px", borderRadius:8, background:"rgba(239,68,68,0.1)", border:"1px solid rgba(239,68,68,0.25)", textAlign:"center", flexShrink:0 }}>
+                          <div style={{ fontFamily:C2.mono, fontSize:20, fontWeight:800, color:"#ef4444" }}>{urgentes}</div>
+                          <div style={{ fontSize:8, color:"#ef4444", letterSpacing:1.5, textTransform:"uppercase" }}>Pedir ya</div>
+                        </div>
+                      )}
                     </div>
 
                     <div style={{ background:"rgba(255,255,255,0.02)", border:`1px solid ${C2.b0}`, borderRadius:12, overflow:"hidden" }}>
-                      {/* Header */}
-                      <div style={{ display:"grid", gridTemplateColumns:"70px 80px 110px 1fr 130px 130px",
-                        gap:10, padding:"9px 18px", borderBottom:`1px solid ${C2.b0}`,
+                      <div style={{ display:"grid", gridTemplateColumns:"55px 76px 100px 50px 110px 90px 130px",
+                        gap:8, padding:"9px 16px", borderBottom:`1px solid ${C2.b0}`,
                         background:"rgba(255,255,255,0.02)" }}>
-                        {["Línea","Barco","Desmolde","Días","Tipo fecha","Estado plantilla"].map((h,i) => (
+                        {["Línea","Barco","Desmolde","Gap","Est. plantilla","Días","Estado"].map((h,i) => (
                           <div key={i} style={{ fontSize:7.5, letterSpacing:2, textTransform:"uppercase", color:C2.t2, fontWeight:700, fontFamily:C2.mono }}>{h}</div>
                         ))}
                       </div>
 
                       {rows.map((d, idx) => {
-                        const urg = urgenciaDesmolde(d.dias, d.tieneTemplates);
-                        const diasLabel = d.dias < 0
-                          ? `Hace ${Math.abs(d.dias)}d`
-                          : d.dias === 0 ? "Hoy" : `En ${d.dias}d`;
+                        const urg = urgenciaPlantilla(d.dias, d.tieneTemplates);
+                        const diasLabel = d.dias > 0 ? `En ${d.dias}d`
+                          : d.dias === 0 ? "Hoy"
+                          : `Hace ${Math.abs(d.dias)}d`;
                         const diasColor = d.tieneTemplates ? C2.t2
-                          : d.dias <= 0 ? "#ef4444"
-                          : d.dias <= 30 ? "#ef4444"
+                          : d.dias <= 30 && d.dias >= -14 ? "#ef4444"
                           : d.dias <= 60 ? "#f59e0b"
                           : C2.t2;
-                        const fechaFormateada = d.desmolde.split("-").reverse().join("/");
-                        // Highlight rows urgentes/proximos sin plantilla
-                        const highlight = !d.tieneTemplates && d.dias >= -7 && d.dias <= 60;
+                        const highlight = !d.tieneTemplates && d.dias >= -14 && d.dias <= 30;
                         return (
                           <div key={d.barco} style={{
-                            display:"grid", gridTemplateColumns:"70px 80px 110px 1fr 130px 130px",
-                            gap:10, alignItems:"center", padding:"11px 18px",
+                            display:"grid", gridTemplateColumns:"55px 76px 100px 50px 110px 90px 130px",
+                            gap:8, alignItems:"center", padding:"10px 16px",
                             borderBottom:`1px solid rgba(255,255,255,0.025)`,
                             background: highlight ? "rgba(239,68,68,0.03)" : "transparent",
-                            animation:`slideUp 0.3s ease ${Math.min(idx,10)*22}ms both`,
-                            transition:"background 0.12s",
+                            animation:`slideUp 0.28s ease ${Math.min(idx,12)*18}ms both`,
                           }}>
                             <div style={{ fontFamily:C2.mono, fontSize:11, color:C2.t2 }}>{d.linea}</div>
                             <div style={{ fontFamily:C2.mono, fontSize:13, fontWeight:700, color: highlight ? C2.t0 : C2.t1 }}>{d.barco}</div>
-                            <div style={{ fontFamily:C2.mono, fontSize:11, color:C2.t1 }}>{fechaFormateada}</div>
+                            <div style={{ fontFamily:C2.mono, fontSize:11, color:C2.t2 }}>{fmtDate(d.desmolde)}</div>
+                            <div style={{ fontFamily:C2.mono, fontSize:11, color:C2.t2 }}>+{d.gap}d</div>
+                            <div style={{ fontFamily:C2.mono, fontSize:11, fontWeight: highlight ? 700 : 400, color: highlight ? "#fca5a5" : C2.t1 }}>{fmtDate(d.estStr)}</div>
                             <div>
                               <span style={{ fontFamily:C2.mono, fontSize:12, fontWeight:700, color:diasColor }}>{diasLabel}</span>
-                              {!d.tieneTemplates && d.dias >= 0 && d.dias <= DIAS_ANTICIPACION && (
-                                <span style={{ marginLeft:8, fontSize:8, color:"#ef4444", letterSpacing:1, textTransform:"uppercase",
-                                  background:"rgba(239,68,68,0.1)", padding:"2px 6px", borderRadius:4, fontWeight:700 }}>
-                                  ¡Pedir ya!
-                                </span>
-                              )}
                             </div>
                             <div>
-                              <span style={{ fontSize:9, letterSpacing:1, textTransform:"uppercase", padding:"3px 8px",
-                                borderRadius:99, fontWeight:600, background:"rgba(255,255,255,0.04)", color:C2.t2,
-                                border:`1px solid ${C2.b0}` }}>
-                                {d.tipo}
-                              </span>
-                            </div>
-                            <div>
-                              <span style={{ fontSize:9, letterSpacing:1, textTransform:"uppercase", padding:"3px 9px",
+                              <span style={{ fontSize:9, letterSpacing:0.8, textTransform:"uppercase", padding:"3px 9px",
                                 borderRadius:99, fontWeight:700,
                                 background:urg.bg, color:urg.color, border:`1px solid ${urg.border}` }}>
                                 {urg.label}
@@ -1267,8 +1259,9 @@ export default function MarmoleriaScreen({ profile, signOut }) {
                       })}
                     </div>
 
-                    <div style={{ marginTop:12, fontSize:10, color:C2.t2, textAlign:"center" }}>
-                      "Solicitadas" = el barco ya tiene al menos una pieza con fecha de envío registrada en el sistema
+                    <div style={{ marginTop:10, fontSize:10, color:C2.t2 }}>
+                      Gap = días históricos entre desmolde y primer envío de plantillas en esa línea.
+                      "Solicitadas" = el barco tiene al menos una pieza con fecha de envío registrada.
                     </div>
                   </div>
                 );

@@ -19,6 +19,16 @@ import {
 const CSS = `
 @import url('https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;700&family=Outfit:wght@300;400;500;600;700;800&family=Plus+Jakarta+Sans:wght@300;400;500;600;700;800&display=swap');
 
+/* ── RESET PARENT CONTAINER CONSTRAINTS (Vite default #root) ── */
+#root, #app {
+  max-width: 100% !important;
+  width: 100% !important;
+  padding: 0 !important;
+  margin: 0 !important;
+  text-align: left !important;
+  overflow-x: hidden !important;
+}
+
 *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
 html { scroll-behavior: smooth; overflow-x: hidden; }
 body {
@@ -1155,15 +1165,15 @@ function SecBienvenida({cliente,goTo,onEmergency}){
       {/* ── HERO ── */}
       <div style={{position:"relative",width:"100%",height:"min(92vh,760px)",overflow:"hidden"}}>
         <img src={img} onLoad={()=>setLoaded(true)} alt=""
-          style={{position:"absolute",inset:0,width:"100%",height:"100%",objectFit:"cover",objectPosition:"center 38%",
+          style={{position:"absolute",inset:0,width:"100%",height:"100%",objectFit:"cover",objectPosition:"55% 38%",
             animation:loaded?"kenBurns 18s ease-out both":"none",opacity:loaded?1:0,transition:"opacity 1.1s"}}/>
-        <div style={{position:"absolute",inset:0,background:"linear-gradient(108deg,rgba(2,6,23,.98) 0%,rgba(2,6,23,.65) 36%,rgba(2,6,23,.2) 100%)"}}/>
-        <div style={{position:"absolute",inset:0,background:"linear-gradient(to top,rgba(2,6,23,1) 0%,rgba(2,6,23,.5) 22%,transparent 50%)"}}/>
-        <div style={{position:"absolute",inset:0,background:"radial-gradient(ellipse at 95% 5%,rgba(56,189,248,0.05),transparent 50%)"}}/>
+        <div style={{position:"absolute",inset:0,background:"linear-gradient(to right,rgba(2,6,23,.97) 0%,rgba(2,6,23,.65) 38%,rgba(2,6,23,.20) 65%,rgba(2,6,23,.50) 100%)"}}/>
+        <div style={{position:"absolute",inset:0,background:"linear-gradient(to top,rgba(2,6,23,1) 0%,rgba(2,6,23,.5) 18%,transparent 48%)"}}/>
+        <div style={{position:"absolute",inset:0,background:"radial-gradient(ellipse at 80% 45%,rgba(56,189,248,0.09) 0%,rgba(56,189,248,0.03) 40%,transparent 65%)"}}/>
 
-        <div style={{position:"absolute",right:"clamp(-40px,0vw,40px)",top:"50%",transform:"translateY(-50%)",animation:"fade 2s 0.5s both",pointerEvents:"none"}}>
+        <div style={{position:"absolute",right:"clamp(-40px,0vw,20px)",top:"50%",transform:"translateY(-50%)",animation:"fade 2s 0.5s both",pointerEvents:"none"}}>
           <div style={{animation:"rotCompass 90s linear infinite"}}>
-            <CompassRose size={420}/>
+            <CompassRose size={460} style={{opacity:.55}}/>
           </div>
         </div>
 
