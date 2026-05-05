@@ -162,14 +162,14 @@ export default function LaminacionScreen({ profile, signOut }) {
     const { data } = await supabase.from("laminacion_materiales").select("*").order("nombre");
     setMateriales(data ?? []);
   }
-  async function cargarMovimientos() {
-    const { data } = await supabase
-      .from("laminacion_movimientos")
-      .select("*, laminacion_materiales(nombre, unidad)")
-      .order("created_at", { ascending: false })
-      .limit(500);
-    setMovimientos(data ?? []);
-  }
+ async function cargarMovimientos() {
+  const { data } = await supabase
+    .from("laminacion_movimientos")
+    .select("*, laminacion_materiales(nombre, unidad)")
+    .order("created_at", { ascending: false });
+    // Sin .limit()
+  setMovimientos(data ?? []);
+}
   async function cargarPedidos() {
     const { data } = await supabase
       .from("laminacion_pedidos")

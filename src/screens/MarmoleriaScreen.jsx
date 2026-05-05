@@ -26,6 +26,94 @@ const PRIORIDAD_META = {
   "Urgente": { color: "#ef4444", bg: "rgba(224,72,72,0.15)",  label: "Urgente" },   // Rojo
 };
 
+// ── DESMOLDES (from Fechas_2026.xlsx) ────────────────────────────
+// Días de anticipación recomendados para pedir plantillas antes del desmolde
+const DIAS_ANTICIPACION = 30;
+
+const DESMOLDES_DATA = [
+  // K34
+  { linea:"K34", barco:"H172", desmolde:"2026-10-20", tipo:"real"     },
+  { linea:"K34", barco:"H173", desmolde:"2026-01-06", tipo:"real"     },
+  { linea:"K34", barco:"H174", desmolde:"2026-03-30", tipo:"estimado" },
+  { linea:"K34", barco:"H175", desmolde:"2026-06-08", tipo:"estimado" },
+  { linea:"K34", barco:"H176", desmolde:"2026-08-17", tipo:"estimado" },
+  // K37
+  { linea:"K37", barco:"37-34", desmolde:"2026-10-13", tipo:"real"     },
+  { linea:"K37", barco:"37-35", desmolde:"2026-11-13", tipo:"real"     },
+  { linea:"K37", barco:"37-36", desmolde:"2026-12-11", tipo:"real"     },
+  { linea:"K37", barco:"37-37", desmolde:"2026-01-12", tipo:"real"     },
+  { linea:"K37", barco:"37-38", desmolde:"2026-02-23", tipo:"estimado" },
+  { linea:"K37", barco:"37-39", desmolde:"2026-03-23", tipo:"estimado" },
+  { linea:"K37", barco:"37-40", desmolde:"2026-04-20", tipo:"estimado" },
+  { linea:"K37", barco:"37-41", desmolde:"2026-05-18", tipo:"estimado" },
+  { linea:"K37", barco:"37-42", desmolde:"2026-06-23", tipo:"estimado" },
+  { linea:"K37", barco:"37-43", desmolde:"2026-07-20", tipo:"estimado" },
+  { linea:"K37", barco:"37-44", desmolde:"2026-08-17", tipo:"estimado" },
+  // K42
+  { linea:"K42", barco:"42-81", desmolde:"2026-09-03", tipo:"real"     },
+  { linea:"K42", barco:"42-82", desmolde:"2026-02-23", tipo:"estimado" },
+  { linea:"K42", barco:"42-83", desmolde:"2026-07-20", tipo:"estimado" },
+  // K43
+  { linea:"K43", barco:"43-28", desmolde:"2026-08-06", tipo:"real"     },
+  { linea:"K43", barco:"43-29", desmolde:"2026-12-11", tipo:"real"     },
+  { linea:"K43", barco:"43-30", desmolde:"2026-03-16", tipo:"estimado" },
+  { linea:"K43", barco:"43-31", desmolde:"2026-05-04", tipo:"estimado" },
+  // K52
+  { linea:"K52", barco:"52-20", desmolde:"2026-06-05", tipo:"real"     },
+  { linea:"K52", barco:"52-21", desmolde:"2026-09-17", tipo:"real"     },
+  { linea:"K52", barco:"52-22", desmolde:"2026-11-13", tipo:"real"     },
+  { linea:"K52", barco:"52-23", desmolde:"2026-01-12", tipo:"real"     },
+  { linea:"K52", barco:"52-24", desmolde:"2026-03-30", tipo:"estimado" },
+  { linea:"K52", barco:"52-25", desmolde:"2026-06-01", tipo:"estimado" },
+];
+
+function diasHastaDesmolde(desmoldeStr) {
+  const d = new Date(desmoldeStr + "T00:00:00");
+  const hoy = new Date(); hoy.setHours(0,0,0,0);
+  return Math.round((d - hoy) / 86400000);
+}
+
+function urgenciaDesmolde(dias, tieneTemplates) {
+  if (tieneTemplates) return { label:"Solicitadas ✓", color:"#10b981", bg:"rgba(16,185,129,0.1)", border:"rgba(16,185,129,0.22)" };
+  if (dias < -7)       return { label:"Vencido",       color:"#71717a", bg:"rgba(113,113,122,0.08)", border:"rgba(113,113,122,0.18)" };
+  if (dias < 0)        return { label:"Hoy / Ayer",    color:"#ef4444", bg:"rgba(239,68,68,0.12)", border:"rgba(239,68,68,0.3)" };
+  if (dias <= 30)      return { label:"Urgente",        color:"#ef4444", bg:"rgba(239,68,68,0.12)", border:"rgba(239,68,68,0.3)" };
+  if (dias <= 60)      return { label:"Próximo",        color:"#f59e0b", bg:"rgba(245,158,11,0.1)", border:"rgba(245,158,11,0.28)" };
+  return                      { label:"En tiempo",      color:"#3b82f6", bg:"rgba(59,130,246,0.08)", border:"rgba(59,130,246,0.22)" };
+}
+
+const SQL_HISTORIAL = `-- Historial completo de envíos de plantillas
+SELECT
+  ml.nombre          AS linea,
+  mu.codigo          AS barco,
+  mup.sector,
+  mup.pieza,
+  mup.color,
+  mup.fecha_envio,
+  mup.fecha_regreso,
+  mup.estado,
+  mup.observaciones
+FROM marm_unidad_piezas mup
+JOIN marm_unidades mu ON mup.unidad_id = mu.id
+JOIN marm_lineas   ml ON mu.linea_id   = ml.id
+WHERE mup.fecha_envio IS NOT NULL
+ORDER BY mup.fecha_envio ASC, ml.nombre, mu.codigo;`;
+
+const SQL_POR_BARCO = `-- Resumen por barco
+SELECT
+  ml.nombre           AS linea,
+  mu.codigo           AS barco,
+  MIN(mup.fecha_envio) AS primer_envio,
+  MAX(mup.fecha_envio) AS ultimo_envio,
+  COUNT(*)             AS total_piezas,
+  COUNT(CASE WHEN mup.estado = 'Recibido' THEN 1 END) AS recibidas
+FROM marm_unidad_piezas mup
+JOIN marm_unidades mu ON mup.unidad_id = mu.id
+JOIN marm_lineas   ml ON mu.linea_id   = ml.id
+WHERE mup.fecha_envio IS NOT NULL
+GROUP BY ml.nombre, mu.codigo
+ORDER BY MIN(mup.fecha_envio);`;
+
 function pct(piezas) {
   const activas = piezas.filter(p => p.estado !== "No lleva");
   if (!activas.length) return 0;
@@ -159,7 +247,7 @@ export default function MarmoleriaScreen({ profile, signOut }) {
   const [filtroEstado, setFiltroEstado] = useState("todos");
   const [modalPieza, setModalPieza] = useState(null);
 
-  // Vista: "general" | "plantilla" | "barco"
+  // Vista: "general" | "plantilla" | "barco" | "desmoldes" | "historial"
   const [viewMode, setViewMode] = useState("general");
   const [plantillaLinea, setPlantillaLinea] = useState([]);
   const [plantillaLoading, setPlantillaLoading] = useState(false);
@@ -167,6 +255,13 @@ export default function MarmoleriaScreen({ profile, signOut }) {
   const [loading, setLoading]   = useState(false);
   const [isExporting, setIsExporting] = useState(false);
   const [err, setErr]           = useState("");
+
+  // Desmoldes & Historial
+  const [desmoldesStatus,  setDesmoldesStatus]  = useState(new Set()); // codigos con plantillas ya enviadas
+  const [historialEnvios,  setHistorialEnvios]  = useState([]);
+  const [historialLoading, setHistorialLoading] = useState(false);
+  const [showSQLModal,     setShowSQLModal]      = useState(false);
+  const [sqlCopiado,       setSqlCopiado]        = useState("");
 
   // Nuevos campos
   const [newLinea,   setNewLinea]   = useState("");
@@ -259,9 +354,37 @@ export default function MarmoleriaScreen({ profile, signOut }) {
     setDashboard(mapeadas);
   }
 
+  // Cargar qué barcos ya tienen plantillas enviadas (para panel Desmoldes)
+  async function cargarDesmoldesStatus() {
+    const { data: unidadesDB } = await supabase.from("marm_unidades").select("id, codigo").eq("activa", true);
+    const { data: piezasDB }   = await supabase.from("marm_unidad_piezas").select("unidad_id").not("fecha_envio","is",null);
+    const idsConEnvio = new Set((piezasDB || []).map(p => p.unidad_id));
+    const codigos = new Set((unidadesDB || []).filter(u => idsConEnvio.has(u.id)).map(u => u.codigo));
+    setDesmoldesStatus(codigos);
+  }
+
+  // Cargar historial completo de envíos (equivalente al SQL)
+  async function cargarHistorialEnvios() {
+    setHistorialLoading(true);
+    const { data: unidadesDB } = await supabase.from("marm_unidades").select("id, codigo, linea_id").eq("activa", true);
+    const { data: lineasDB }   = await supabase.from("marm_lineas").select("id, nombre").eq("activa", true);
+    const { data: piezas }     = await supabase.from("marm_unidad_piezas")
+      .select("unidad_id, pieza, sector, color, fecha_envio, fecha_regreso, estado, observaciones")
+      .not("fecha_envio","is",null)
+      .order("fecha_envio", { ascending: true });
+    const mapped = (piezas || []).map(p => {
+      const u = (unidadesDB || []).find(x => x.id === p.unidad_id);
+      const l = (lineasDB   || []).find(x => x.id === u?.linea_id);
+      return { ...p, codigo_barco: u?.codigo ?? "—", linea: l?.nombre ?? "—" };
+    });
+    setHistorialEnvios(mapped);
+    setHistorialLoading(false);
+  }
+
   useEffect(() => { 
     cargarLineas(); 
     cargarDashboardGeneral();
+    cargarDesmoldesStatus();
   }, []);
 
   useEffect(() => { 
@@ -862,12 +985,12 @@ export default function MarmoleriaScreen({ profile, signOut }) {
               <button className="nav-btn-item" onClick={() => { setUnidadId(null); setLineaId(null); setViewMode("general"); cargarDashboardGeneral(); }} style={{
                 width:"100%", textAlign:"left", padding:"10px 14px",
                 border:"none", borderBottom:`1px solid rgba(255,255,255,0.025)`,
-                background: !unidadId ? "rgba(59,130,246,0.09)" : "transparent",
-                color: !unidadId ? "#93b4ff" : C2.t2,
-                cursor:"pointer", fontSize:11, fontWeight: !unidadId ? 600 : 400,
+                background: viewMode === "general" && !unidadId && !lineaId ? "rgba(59,130,246,0.09)" : "transparent",
+                color: viewMode === "general" && !unidadId && !lineaId ? "#93b4ff" : C2.t2,
+                cursor:"pointer", fontSize:11, fontWeight: viewMode === "general" && !unidadId && !lineaId ? 600 : 400,
                 display:"flex", alignItems:"center", gap:8, fontFamily:C2.sans,
                 letterSpacing:0.3, textTransform:"uppercase",
-                borderLeft: !unidadId ? `2px solid ${C2.primary}` : "2px solid transparent",
+                borderLeft: viewMode === "general" && !unidadId && !lineaId ? `2px solid ${C2.primary}` : "2px solid transparent",
                 transition:"all 0.15s",
               }}>
                 <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round">
@@ -875,6 +998,64 @@ export default function MarmoleriaScreen({ profile, signOut }) {
                 </svg>
                 Panel General
               </button>
+
+              {/* Desmoldes btn */}
+              {(() => {
+                const selDesmoldes = viewMode === "desmoldes" && !unidadId;
+                const urgentes = DESMOLDES_DATA.filter(d => {
+                  const dias = diasHastaDesmolde(d.desmolde);
+                  return !desmoldesStatus.has(d.barco) && dias >= -7 && dias <= 30;
+                }).length;
+                return (
+                  <button className="nav-btn-item" onClick={() => { setUnidadId(null); setLineaId(null); setViewMode("desmoldes"); }} style={{
+                    width:"100%", textAlign:"left", padding:"10px 14px",
+                    border:"none", borderBottom:`1px solid rgba(255,255,255,0.025)`,
+                    background: selDesmoldes ? "rgba(239,68,68,0.07)" : "transparent",
+                    color: selDesmoldes ? "#fca5a5" : C2.t2,
+                    cursor:"pointer", fontSize:11, fontWeight: selDesmoldes ? 600 : 400,
+                    display:"flex", alignItems:"center", justifyContent:"space-between",
+                    fontFamily:C2.sans, letterSpacing:0.3, textTransform:"uppercase",
+                    borderLeft: selDesmoldes ? "2px solid #ef4444" : "2px solid transparent",
+                    transition:"all 0.15s",
+                  }}>
+                    <span style={{ display:"flex", alignItems:"center", gap:8 }}>
+                      <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round">
+                        <rect x="3" y="4" width="18" height="18" rx="2" ry="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/>
+                      </svg>
+                      Desmoldes
+                    </span>
+                    {urgentes > 0 && (
+                      <span style={{ fontSize:9, fontWeight:800, color:"#ef4444", background:"rgba(239,68,68,0.15)",
+                        border:"1px solid rgba(239,68,68,0.3)", padding:"1px 6px", borderRadius:99, fontFamily:C2.mono }}>
+                        {urgentes}
+                      </span>
+                    )}
+                  </button>
+                );
+              })()}
+
+              {/* Historial btn */}
+              {(() => {
+                const selHistorial = viewMode === "historial" && !unidadId;
+                return (
+                  <button className="nav-btn-item" onClick={() => { setUnidadId(null); setLineaId(null); setViewMode("historial"); cargarHistorialEnvios(); }} style={{
+                    width:"100%", textAlign:"left", padding:"10px 14px",
+                    border:"none", borderBottom:`1px solid rgba(255,255,255,0.025)`,
+                    background: selHistorial ? "rgba(168,180,196,0.07)" : "transparent",
+                    color: selHistorial ? "#a8b4c4" : C2.t2,
+                    cursor:"pointer", fontSize:11, fontWeight: selHistorial ? 600 : 400,
+                    display:"flex", alignItems:"center", gap:8, fontFamily:C2.sans,
+                    letterSpacing:0.3, textTransform:"uppercase",
+                    borderLeft: selHistorial ? "2px solid #a8b4c4" : "2px solid transparent",
+                    transition:"all 0.15s",
+                  }}>
+                    <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round">
+                      <polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/>
+                    </svg>
+                    Historial
+                  </button>
+                );
+              })()}
 
               {/* Líneas + unidades */}
               <div style={{ flex:1, overflowY:"auto" }}>
@@ -984,6 +1165,207 @@ export default function MarmoleriaScreen({ profile, signOut }) {
 
             {/* ── PANEL DERECHO ── */}
             <div style={{ height:"100%", overflowY:"auto" }}>
+
+              {/* ════ DESMOLDES — PENDIENTES DE PLANTILLA ════ */}
+              {viewMode === "desmoldes" && !unidadId && (() => {
+                const hoy = new Date(); hoy.setHours(0,0,0,0);
+                const rows = DESMOLDES_DATA.map(d => ({
+                  ...d,
+                  dias: diasHastaDesmolde(d.desmolde),
+                  tieneTemplates: desmoldesStatus.has(d.barco),
+                })).sort((a, b) => a.dias - b.dias);
+
+                const pendientesUrgentes = rows.filter(r => !r.tieneTemplates && r.dias >= -7 && r.dias <= 30).length;
+                const pendientesProximos = rows.filter(r => !r.tieneTemplates && r.dias > 30 && r.dias <= 60).length;
+
+                return (
+                  <div style={{ padding:"22px 26px", animation:"slideUp .28s ease" }}>
+                    <div style={{ display:"flex", alignItems:"flex-end", justifyContent:"space-between", marginBottom:18 }}>
+                      <div>
+                        <div style={{ fontSize:8, color:C2.t2, letterSpacing:3, textTransform:"uppercase", fontFamily:C2.mono, marginBottom:5 }}>Producción</div>
+                        <h1 style={{ margin:0, fontSize:18, fontWeight:700, color:C2.t0, letterSpacing:-0.3 }}>Desmoldes & Plantillas</h1>
+                        <p style={{ color:C2.t2, fontSize:11, margin:"4px 0 0" }}>
+                          Pedí plantillas al menos <strong style={{ color:C2.t1 }}>{DIAS_ANTICIPACION} días antes</strong> del desmolde
+                        </p>
+                      </div>
+                      <div style={{ display:"flex", gap:8 }}>
+                        {pendientesUrgentes > 0 && (
+                          <div style={{ padding:"6px 12px", borderRadius:8, background:"rgba(239,68,68,0.1)", border:"1px solid rgba(239,68,68,0.25)", textAlign:"center" }}>
+                            <div style={{ fontFamily:C2.mono, fontSize:18, fontWeight:800, color:"#ef4444" }}>{pendientesUrgentes}</div>
+                            <div style={{ fontSize:8, color:"#ef4444", letterSpacing:1.5, textTransform:"uppercase" }}>Urgente</div>
+                          </div>
+                        )}
+                        {pendientesProximos > 0 && (
+                          <div style={{ padding:"6px 12px", borderRadius:8, background:"rgba(245,158,11,0.08)", border:"1px solid rgba(245,158,11,0.22)", textAlign:"center" }}>
+                            <div style={{ fontFamily:C2.mono, fontSize:18, fontWeight:800, color:"#f59e0b" }}>{pendientesProximos}</div>
+                            <div style={{ fontSize:8, color:"#f59e0b", letterSpacing:1.5, textTransform:"uppercase" }}>Próximo</div>
+                          </div>
+                        )}
+                      </div>
+                    </div>
+
+                    <div style={{ background:"rgba(255,255,255,0.02)", border:`1px solid ${C2.b0}`, borderRadius:12, overflow:"hidden" }}>
+                      {/* Header */}
+                      <div style={{ display:"grid", gridTemplateColumns:"70px 80px 110px 1fr 130px 130px",
+                        gap:10, padding:"9px 18px", borderBottom:`1px solid ${C2.b0}`,
+                        background:"rgba(255,255,255,0.02)" }}>
+                        {["Línea","Barco","Desmolde","Días","Tipo fecha","Estado plantilla"].map((h,i) => (
+                          <div key={i} style={{ fontSize:7.5, letterSpacing:2, textTransform:"uppercase", color:C2.t2, fontWeight:700, fontFamily:C2.mono }}>{h}</div>
+                        ))}
+                      </div>
+
+                      {rows.map((d, idx) => {
+                        const urg = urgenciaDesmolde(d.dias, d.tieneTemplates);
+                        const diasLabel = d.dias < 0
+                          ? `Hace ${Math.abs(d.dias)}d`
+                          : d.dias === 0 ? "Hoy" : `En ${d.dias}d`;
+                        const diasColor = d.tieneTemplates ? C2.t2
+                          : d.dias <= 0 ? "#ef4444"
+                          : d.dias <= 30 ? "#ef4444"
+                          : d.dias <= 60 ? "#f59e0b"
+                          : C2.t2;
+                        const fechaFormateada = d.desmolde.split("-").reverse().join("/");
+                        // Highlight rows urgentes/proximos sin plantilla
+                        const highlight = !d.tieneTemplates && d.dias >= -7 && d.dias <= 60;
+                        return (
+                          <div key={d.barco} style={{
+                            display:"grid", gridTemplateColumns:"70px 80px 110px 1fr 130px 130px",
+                            gap:10, alignItems:"center", padding:"11px 18px",
+                            borderBottom:`1px solid rgba(255,255,255,0.025)`,
+                            background: highlight ? "rgba(239,68,68,0.03)" : "transparent",
+                            animation:`slideUp 0.3s ease ${Math.min(idx,10)*22}ms both`,
+                            transition:"background 0.12s",
+                          }}>
+                            <div style={{ fontFamily:C2.mono, fontSize:11, color:C2.t2 }}>{d.linea}</div>
+                            <div style={{ fontFamily:C2.mono, fontSize:13, fontWeight:700, color: highlight ? C2.t0 : C2.t1 }}>{d.barco}</div>
+                            <div style={{ fontFamily:C2.mono, fontSize:11, color:C2.t1 }}>{fechaFormateada}</div>
+                            <div>
+                              <span style={{ fontFamily:C2.mono, fontSize:12, fontWeight:700, color:diasColor }}>{diasLabel}</span>
+                              {!d.tieneTemplates && d.dias >= 0 && d.dias <= DIAS_ANTICIPACION && (
+                                <span style={{ marginLeft:8, fontSize:8, color:"#ef4444", letterSpacing:1, textTransform:"uppercase",
+                                  background:"rgba(239,68,68,0.1)", padding:"2px 6px", borderRadius:4, fontWeight:700 }}>
+                                  ¡Pedir ya!
+                                </span>
+                              )}
+                            </div>
+                            <div>
+                              <span style={{ fontSize:9, letterSpacing:1, textTransform:"uppercase", padding:"3px 8px",
+                                borderRadius:99, fontWeight:600, background:"rgba(255,255,255,0.04)", color:C2.t2,
+                                border:`1px solid ${C2.b0}` }}>
+                                {d.tipo}
+                              </span>
+                            </div>
+                            <div>
+                              <span style={{ fontSize:9, letterSpacing:1, textTransform:"uppercase", padding:"3px 9px",
+                                borderRadius:99, fontWeight:700,
+                                background:urg.bg, color:urg.color, border:`1px solid ${urg.border}` }}>
+                                {urg.label}
+                              </span>
+                            </div>
+                          </div>
+                        );
+                      })}
+                    </div>
+
+                    <div style={{ marginTop:12, fontSize:10, color:C2.t2, textAlign:"center" }}>
+                      "Solicitadas" = el barco ya tiene al menos una pieza con fecha de envío registrada en el sistema
+                    </div>
+                  </div>
+                );
+              })()}
+
+              {/* ════ HISTORIAL DE ENVÍOS (SQL) ════ */}
+              {viewMode === "historial" && !unidadId && (
+                <div style={{ padding:"22px 26px", animation:"slideUp .28s ease" }}>
+                  <div style={{ display:"flex", alignItems:"flex-end", justifyContent:"space-between", marginBottom:18 }}>
+                    <div>
+                      <div style={{ fontSize:8, color:C2.t2, letterSpacing:3, textTransform:"uppercase", fontFamily:C2.mono, marginBottom:5 }}>Registro</div>
+                      <h1 style={{ margin:0, fontSize:18, fontWeight:700, color:C2.t0, letterSpacing:-0.3 }}>Historial de Envíos</h1>
+                      <p style={{ color:C2.t2, fontSize:11, margin:"4px 0 0" }}>
+                        Todas las plantillas enviadas desde que empezaste a usar el programa
+                        {historialEnvios.length > 0 && <> — <strong style={{ color:C2.t1 }}>{historialEnvios.length} registros</strong></>}
+                      </p>
+                    </div>
+                    <button className="action-btn" onClick={() => setShowSQLModal(true)} style={{
+                      display:"flex", alignItems:"center", gap:6, padding:"7px 13px", borderRadius:8, cursor:"pointer",
+                      border:`1px solid ${C2.b0}`, background:"rgba(255,255,255,0.03)", color:C2.t2,
+                      fontFamily:C2.mono, fontSize:11, transition:"opacity 0.15s",
+                    }}>
+                      <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round">
+                        <ellipse cx="12" cy="5" rx="9" ry="3"/><path d="M21 12c0 1.66-4 3-9 3s-9-1.34-9-3"/><path d="M3 5v14c0 1.66 4 3 9 3s9-1.34 9-3V5"/>
+                      </svg>
+                      Ver SQL
+                    </button>
+                  </div>
+
+                  {historialLoading ? (
+                    <div style={{ textAlign:"center", padding:60, fontSize:11, color:C2.t2, letterSpacing:2, textTransform:"uppercase", fontFamily:C2.mono }}>
+                      Cargando historial…
+                    </div>
+                  ) : historialEnvios.length === 0 ? (
+                    <div style={{ textAlign:"center", padding:"60px 40px", color:C2.t2,
+                      background:C2.s0, borderRadius:14, border:`1px dashed ${C2.b0}` }}>
+                      <div style={{ fontSize:28, marginBottom:12, opacity:0.3 }}>◎</div>
+                      <div style={{ fontSize:11, letterSpacing:2, textTransform:"uppercase", fontFamily:C2.mono }}>
+                        Sin registros — los envíos con fecha aparecerán aquí
+                      </div>
+                    </div>
+                  ) : (() => {
+                    // Agrupar por barco para resumen
+                    const porBarco = {};
+                    historialEnvios.forEach(p => {
+                      if (!porBarco[p.codigo_barco]) porBarco[p.codigo_barco] = { linea:p.linea, piezas:[], primerEnvio:p.fecha_envio, ultimoEnvio:p.fecha_envio };
+                      porBarco[p.codigo_barco].piezas.push(p);
+                      if (p.fecha_envio < porBarco[p.codigo_barco].primerEnvio) porBarco[p.codigo_barco].primerEnvio = p.fecha_envio;
+                      if (p.fecha_envio > porBarco[p.codigo_barco].ultimoEnvio)  porBarco[p.codigo_barco].ultimoEnvio  = p.fecha_envio;
+                    });
+                    return (
+                      <>
+                        {/* Tabla principal */}
+                        <div style={{ background:"rgba(255,255,255,0.02)", border:`1px solid ${C2.b0}`, borderRadius:12, overflow:"hidden" }}>
+                          <div style={{ display:"grid", gridTemplateColumns:"80px 100px 1fr 110px 110px 118px",
+                            gap:10, padding:"9px 18px", borderBottom:`1px solid ${C2.b0}`,
+                            background:"rgba(255,255,255,0.02)" }}>
+                            {["Barco","Sector","Pieza / Color","Fecha envío","Fecha regreso","Estado"].map((h,i) => (
+                              <div key={i} style={{ fontSize:7.5, letterSpacing:2, textTransform:"uppercase", color:C2.t2, fontWeight:700, fontFamily:C2.mono }}>{h}</div>
+                            ))}
+                          </div>
+                          {historialEnvios.map((p, idx) => {
+                            const m = ESTADO_META[p.estado] ?? ESTADO_META["Pendiente"];
+                            return (
+                              <div key={idx} style={{
+                                display:"grid", gridTemplateColumns:"80px 100px 1fr 110px 110px 118px",
+                                gap:10, alignItems:"center", padding:"9px 18px",
+                                borderBottom:`1px solid rgba(255,255,255,0.025)`,
+                                transition:"background 0.12s",
+                              }} className="dash-row">
+                                <div style={{ fontFamily:C2.mono, fontSize:12, fontWeight:700, color:C2.t0 }}>{p.codigo_barco}</div>
+                                <div style={{ fontSize:10, color:C2.t2 }}>{p.sector}</div>
+                                <div>
+                                  <div style={{ fontSize:12, color:C2.t0, fontWeight:500 }}>{p.pieza}</div>
+                                  {p.color && <div style={{ fontSize:10, color:C2.t2, marginTop:1 }}>{p.color}</div>}
+                                </div>
+                                <div style={{ fontFamily:C2.mono, fontSize:11, color:C2.t1 }}>
+                                  {p.fecha_envio ? p.fecha_envio.split("-").reverse().join("/") : "—"}
+                                </div>
+                                <div style={{ fontFamily:C2.mono, fontSize:11, color:C2.t2 }}>
+                                  {p.fecha_regreso ? p.fecha_regreso.split("-").reverse().join("/") : "—"}
+                                </div>
+                                <div>
+                                  <span style={{ fontSize:9, letterSpacing:1, textTransform:"uppercase", padding:"3px 8px",
+                                    borderRadius:99, fontWeight:700, background:m.bg, color:m.color, border:`1px solid ${m.border}` }}>
+                                    {p.estado}
+                                  </span>
+                                </div>
+                              </div>
+                            );
+                          })}
+                        </div>
+                      </>
+                    );
+                  })()}
+                </div>
+              )}
 
               {/* ════ DASHBOARD GLOBAL ════ */}
               {viewMode === "general" && !unidadId && (
@@ -1302,6 +1684,59 @@ export default function MarmoleriaScreen({ profile, signOut }) {
           onSave={guardarDetalle}
           esAdmin={esAdmin}
         />
+      )}
+
+      {/* ── SQL MODAL ── */}
+      {showSQLModal && (
+        <div style={{ position:"fixed", inset:0, zIndex:1000, background:"rgba(0,0,0,0.85)",
+          backdropFilter:"blur(40px)", display:"flex", alignItems:"center", justifyContent:"center" }}
+          onClick={() => setShowSQLModal(false)}>
+          <div style={{ background:"rgba(7,10,20,0.97)", border:"1px solid rgba(255,255,255,0.1)",
+            borderRadius:16, padding:"26px", width:"min(680px,92vw)", maxHeight:"88vh", overflowY:"auto",
+            position:"relative", boxShadow:"0 32px 80px rgba(0,0,0,0.8)" }}
+            onClick={e => e.stopPropagation()}>
+            <button onClick={() => setShowSQLModal(false)} style={{ position:"absolute", top:14, right:14,
+              background:"rgba(255,255,255,0.05)", border:"1px solid rgba(255,255,255,0.1)",
+              color:"rgba(255,255,255,0.5)", width:28, height:28, borderRadius:"50%",
+              cursor:"pointer", fontSize:18, display:"flex", alignItems:"center", justifyContent:"center" }}>×</button>
+
+            <div style={{ fontSize:8, color:"#71717a", letterSpacing:3, textTransform:"uppercase", marginBottom:6, fontFamily:"'JetBrains Mono', monospace" }}>Supabase SQL Editor</div>
+            <h2 style={{ margin:"0 0 4px", fontSize:17, fontWeight:700, color:"#f4f4f5", fontFamily:"'Outfit', system-ui" }}>Consultas SQL</h2>
+            <p style={{ margin:"0 0 20px", fontSize:11, color:"#71717a" }}>
+              Copiá estas queries y corrélas en el <strong style={{ color:"#a8b4c4" }}>SQL Editor</strong> de tu proyecto Supabase
+            </p>
+
+            {[
+              { title:"Historial completo por pieza", sql: SQL_HISTORIAL },
+              { title:"Resumen por barco", sql: SQL_POR_BARCO },
+            ].map(({ title, sql }) => (
+              <div key={title} style={{ marginBottom:16 }}>
+                <div style={{ display:"flex", justifyContent:"space-between", alignItems:"center", marginBottom:8 }}>
+                  <span style={{ fontSize:11, fontWeight:600, color:"#a8b4c4" }}>{title}</span>
+                  <button onClick={() => { navigator.clipboard.writeText(sql); setSqlCopiado(title); setTimeout(() => setSqlCopiado(""), 2000); }} style={{
+                    border:"1px solid rgba(255,255,255,0.1)", background:"rgba(255,255,255,0.04)",
+                    color: sqlCopiado === title ? "#10b981" : "#9da3b0", padding:"4px 12px", borderRadius:7,
+                    cursor:"pointer", fontSize:10, fontFamily:"'JetBrains Mono', monospace",
+                    letterSpacing:0.5, transition:"color 0.2s",
+                  }}>
+                    {sqlCopiado === title ? "✓ Copiado" : "Copiar"}
+                  </button>
+                </div>
+                <pre style={{ margin:0, padding:"14px 16px", background:"rgba(0,0,0,0.5)",
+                  border:"1px solid rgba(255,255,255,0.07)", borderRadius:10, overflowX:"auto",
+                  fontSize:11, color:"#7dd3fc", fontFamily:"'JetBrains Mono', monospace",
+                  lineHeight:1.7, whiteSpace:"pre" }}>
+                  {sql}
+                </pre>
+              </div>
+            ))}
+
+            <div style={{ marginTop:8, padding:"10px 14px", background:"rgba(59,130,246,0.06)",
+              border:"1px solid rgba(59,130,246,0.15)", borderRadius:8, fontSize:10, color:"#93b4ff" }}>
+              💡 Las tablas son: <code style={{ fontFamily:"'JetBrains Mono', monospace" }}>marm_lineas</code>, <code style={{ fontFamily:"'JetBrains Mono', monospace" }}>marm_unidades</code>, <code style={{ fontFamily:"'JetBrains Mono', monospace" }}>marm_unidad_piezas</code>
+            </div>
+          </div>
+        </div>
       )}
     </div>
   );
