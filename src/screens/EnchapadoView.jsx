@@ -241,10 +241,9 @@ const HERRAJES = {
     { q: 4,  name: "Guías 30 cm cierre suave (56500)" },
     { q: 5,  name: "Guías 25 cm cierre suave (gt4525ns)" },
     { q: 4,  name: "Guías 20 cm (Brz-1820-n)" },
-    { q: 4,  name: "Bisagra codo 0 + base" },
     { q: 3,  name: "Cerradura Kallay 505" },
     { q: 2,  name: "Cerradura Kallay 503" },
-    { q: 50, name: "Bisagra codo 9 + base" },
+    { q: 52, name: "Bisagra codo 9 + base" },
   ],
 };
 

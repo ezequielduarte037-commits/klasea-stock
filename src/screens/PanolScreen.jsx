@@ -7,7 +7,7 @@ import AjusteMaderasModal from "./AjusteMaderasModal";
 function num(v) { const x = Number(v); return Number.isFinite(x) ? x : 0; }
 function fmt(ts) { if (!ts) return "—"; return new Date(ts).toLocaleString("es-AR"); }
 
-// ── CSV Export ──────────────────────────────────────────────────
+// ── CSV Export ─────────a─────────────────────────────────────────
 function descargarCSV(filas, nombre) {
   if (!filas.length) return;
   const cols = Object.keys(filas[0]);
@@ -306,6 +306,51 @@ export default function PanolScreen({ profile, signOut }) {
     const userId = auth?.user?.id ?? null;
     const patch = { estado };
     if (estado === "recibido") { patch.recibido_por = userId; patch.recibido_en = new Date().toISOString(); }
+
+    // Al marcar el pedido completo como recibido, generar ingreso por cada item
+    // que aún NO tenga nota_recepcion (evita duplicar los ya marcados individualmente)
+    if (estado === "recibido") {
+      const pedido    = pedidosPendientes.find(p => p.id === pedidoId);
+      const items     = pedidoItemsMap[pedidoId] ?? [];
+      const hoy       = new Date().toLocaleDateString("es-AR");
+      const proveedor = pedido?.proveedor ?? "Pedido";
+
+      for (const it of items) {
+        if (it.nota_recepcion) continue; // ya marcado → no duplicar
+        if (!it.material_id || num(it.cantidad) <= 0) continue;
+
+        const delta = Math.abs(num(it.cantidad));
+
+        const rpc = await supabase.rpc("registrar_movimiento", {
+          p_material_id:   it.material_id,
+          p_delta:         delta,
+          p_obra:          "PEDIDO",
+          p_usuario:       null,
+          p_entregado_por: null,
+          p_proveedor:     proveedor,
+          p_recibe:        null,
+          p_obs:           `Recepción pedido completo — ${hoy}`,
+        });
+
+        if (rpc.error) {
+          const matActual  = materiales.find(m => m.id === it.material_id);
+          const nuevoStock = num(matActual?.stock_actual) + delta;
+          await supabase.from("materiales").update({ stock_actual: nuevoStock }).eq("id", it.material_id);
+          await supabase.from("movimientos").insert({
+            material_id: it.material_id, delta, obra: "PEDIDO", proveedor,
+            obs: `Recepción pedido completo — ${hoy}`,
+          });
+        }
+
+        await supabase.from("pedido_items")
+          .update({ nota_recepcion: `Llegó todo (${it.cantidad} ${it.unidad}) — ${hoy}` })
+          .eq("id", it.id);
+      }
+
+      await cargarMateriales();
+      await cargarMovs();
+    }
+
     await supabase.from("pedidos").update(patch).eq("id", pedidoId);
     await cargarPedidos();
     setActualizandoPed(false);
@@ -322,12 +367,56 @@ export default function PanolScreen({ profile, signOut }) {
 
   async function marcarItemRecibido(item, tipo, cantParcial) {
     setActualizandoPed(true);
-    let nota = null;
+    const hoy = new Date().toLocaleDateString("es-AR");
+    let nota  = null;
+    let delta = 0;
+
     if (tipo === "todo") {
-      nota = `Llegó todo (${item.cantidad} ${item.unidad}) — ${new Date().toLocaleDateString("es-AR")}`;
+      delta = Math.abs(num(item.cantidad));
+      nota  = `Llegó todo (${item.cantidad} ${item.unidad}) — ${hoy}`;
     } else if (tipo === "parcial") {
-      nota = `Llegó parcial: ${cantParcial} de ${item.cantidad} ${item.unidad} — ${new Date().toLocaleDateString("es-AR")}`;
+      delta = Math.abs(num(cantParcial));
+      nota  = `Llegó parcial: ${cantParcial} de ${item.cantidad} ${item.unidad} — ${hoy}`;
+    } else if (tipo === "desmarcar") {
+      // Solo limpia la nota; no genera movimiento inverso automático
+      await supabase.from("pedido_items").update({ nota_recepcion: null }).eq("id", item.id);
+      setItemParcialId(null);
+      setItemParcialVal("");
+      await cargarPedidos();
+      setActualizandoPed(false);
+      return;
     }
+
+    // Generar ingreso al stock
+    if (delta > 0 && item.material_id) {
+      const pedido    = pedidosPendientes.find(p => p.id === item.pedido_id);
+      const proveedor = pedido?.proveedor ?? "Pedido";
+
+      const rpc = await supabase.rpc("registrar_movimiento", {
+        p_material_id:   item.material_id,
+        p_delta:         delta,
+        p_obra:          "PEDIDO",
+        p_usuario:       null,
+        p_entregado_por: null,
+        p_proveedor:     proveedor,
+        p_recibe:        null,
+        p_obs:           nota,
+      });
+
+      if (rpc.error) {
+        // Fallback manual
+        const matActual  = materiales.find(m => m.id === item.material_id);
+        const nuevoStock = num(matActual?.stock_actual) + delta;
+        await supabase.from("materiales").update({ stock_actual: nuevoStock }).eq("id", item.material_id);
+        await supabase.from("movimientos").insert({
+          material_id: item.material_id, delta, obra: "PEDIDO", proveedor, obs: nota,
+        });
+      }
+
+      await cargarMateriales();
+      await cargarMovs();
+    }
+
     await supabase.from("pedido_items").update({ nota_recepcion: nota }).eq("id", item.id);
     setItemParcialId(null);
     setItemParcialVal("");
