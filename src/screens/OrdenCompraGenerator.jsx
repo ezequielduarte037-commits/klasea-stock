@@ -20,6 +20,8 @@
  */
 
 import { useEffect, useMemo, useState } from "react";
+import { Check, Package, Plus, Trash2, X, RotateCcw, Download, AlertTriangle, ChevronDown, ChevronRight, FileText, ClipboardList, Search, Copy, Eye, Edit2 } from "lucide-react";
+
 import { supabase } from "../supabaseClient";
 
 // ── Paleta ───────────────────────────────────────────────────────
@@ -82,10 +84,10 @@ function generarEmail({ obraNumero, plantillaLabel, desmolde, items, stockKeys }
 // ════════════════════════════════════════════════════════════════
 // MATCHING POR PALABRAS (Jaccard)
 // Maneja: distinto case, paréntesis opcionales, abreviaciones
-// Ej: "Resina 101"        → matchea "Resina 101 220l"       ✓
-//     "Catalizador"       → matchea "Catalizador (Aperox)"  ✓
-//     "airex h80 10mm"    → matchea "AIREX H80 10MM"        ✓
-//     "Gel coat blanco"   → matchea "Gel coat blanco iso…"  ✓
+// Ej: "Resina 101"         matchea "Resina 101 220l"       
+//     "Catalizador"        matchea "Catalizador (Aperox)"  
+//     "airex h80 10mm"     matchea "AIREX H80 10MM"        
+//     "Gel coat blanco"    matchea "Gel coat blanco iso…"  
 // ════════════════════════════════════════════════════════════════
 function normStr(s) {
   return s
@@ -151,7 +153,7 @@ function StockBadge({ stockActual, cantidadNecesaria }) {
     <div style={{ display: "flex", flexDirection: "column", gap: 2, alignItems: "flex-end" }}>
       <span style={{ fontFamily: C.mono, fontSize: 12, color, fontWeight: 700 }}>{stockActual}</span>
       {aComprar > 0 && <span style={{ fontSize: 10, color, fontFamily: C.mono }}>faltan {aComprar}</span>}
-      {aComprar === 0 && <span style={{ fontSize: 10, color: C.green }}>✓ cubierto</span>}
+      {aComprar === 0 && <span style={{ fontSize: 10, color: C.green }}> cubierto</span>}
     </div>
   );
 }
@@ -170,7 +172,7 @@ function MaterialPicker({ materiales, value, onChange }) {
     <div style={{ marginTop: 5, display: "flex", flexDirection: "column", gap: 4 }}>
       <input
         style={{ ...S.input, padding: "4px 8px", fontSize: 11, width: 200, background: "rgba(255,69,58,0.06)", border: `1px solid ${C.red}44` }}
-        placeholder="🔍 Buscar en inventario…"
+        placeholder=" Buscar en inventario…"
         value={q}
         onChange={e => setQ(e.target.value)}
         onClick={e => e.stopPropagation()}
@@ -202,7 +204,7 @@ function CandidatoBadge({ candidato, score, onAceptar }) {
         style={{ ...S.btnSm(C.amber), padding: "2px 8px", fontSize: 10 }}
         onClick={e => { e.stopPropagation(); onAceptar(candidato.id); }}
       >
-        Sí ✓
+        Sí 
       </button>
     </div>
   );
@@ -337,9 +339,10 @@ export default function OrdenCompraGenerator({ materiales = [], stockPorMaterial
       selectedKeys.has(it._key) && it._mat && !pedidosCreados.has(it._key)
     );
     const deExtras = extraItems
-      .filter(e => !pedidosCreados.has(e.uid))
-      .map(e => ({ ...e, _mat: materiales.find(m => m.id === e.material_id) }))
-      .filter(e => e._mat);
+      .filter(e => !pedidosCreados.has(e.uid) && e.material_id)
+      // String() en ambos lados para evitar type mismatch int vs string
+      .map(e => ({ ...e, _mat: materiales.find(m => String(m.id) === String(e.material_id)) ?? null }));
+    // NO filtramos por _mat aquí — el insert solo necesita material_id
     return { dePlantilla, deExtras, total: dePlantilla.length + deExtras.length };
   }, [itemsConStock, selectedKeys, extraItems, materiales, pedidosCreados]);
 
@@ -402,7 +405,7 @@ export default function OrdenCompraGenerator({ materiales = [], stockPorMaterial
       {/* ── Header ── */}
       <div style={S.header} onClick={() => setOpen(o => !o)}>
         <div style={{ display: "flex", alignItems: "center", gap: 10, flexWrap: "wrap" }}>
-          <span style={{ fontSize: 16 }}>📋</span>
+          <span style={{ fontSize: 16 }}></span>
           <span style={{ fontWeight: 700, fontSize: 14, color: C.t0, fontFamily: C.sans }}>Generador de Orden de Compra</span>
           {plantillaLabel && (
             <span style={{ background: `${C.blue}22`, color: C.blue, border: `1px solid ${C.blue}44`, borderRadius: 999, padding: "1px 9px", fontSize: 11, fontWeight: 700, fontFamily: C.sans }}>
@@ -416,16 +419,16 @@ export default function OrdenCompraGenerator({ materiales = [], stockPorMaterial
           )}
           {extraItems.length > 0 && (
             <span style={{ background: `${C.amber}18`, color: C.amber, border: `1px solid ${C.amber}33`, borderRadius: 999, padding: "1px 9px", fontSize: 11, fontWeight: 700, fontFamily: C.sans }}>
-              +{extraItems.length} extras
+              {extraItems.length} extras
             </span>
           )}
           {sinMatch > 0 && plantillaId && (
             <span style={{ background: `${C.red}18`, color: C.red, border: `1px solid ${C.red}33`, borderRadius: 999, padding: "1px 9px", fontSize: 11, fontWeight: 700, fontFamily: C.sans }}>
-              ⚠ {sinMatch} sin vincular
+               {sinMatch} sin vincular
             </span>
           )}
         </div>
-        <span style={{ color: C.t2, fontSize: 14 }}>{open ? "▲" : "▼"}</span>
+        <span style={{ color: C.t2, fontSize: 14 }}>{open ? <ChevronDown size={14}/> : <ChevronRight size={14}/>}</span>
       </div>
 
       {open && (
@@ -463,7 +466,7 @@ export default function OrdenCompraGenerator({ materiales = [], stockPorMaterial
             <>
               {sinMatch > 0 && (
                 <div style={{ marginBottom: 14, padding: "10px 14px", background: `${C.red}0d`, border: `1px solid ${C.red}33`, borderRadius: 9, fontSize: 12, color: C.t1, fontFamily: C.sans }}>
-                  <span style={{ color: C.red, fontWeight: 700 }}>⚠ {sinMatch} ítem{sinMatch !== 1 ? "s" : ""} sin vincular al inventario.</span>
+                  <span style={{ color: C.red, fontWeight: 700 }}> {sinMatch} ítem{sinMatch !== 1 ? "s" : ""} sin vincular al inventario.</span>
                   {" "}Usá el selector debajo de cada uno para vincularlo.
                 </div>
               )}
@@ -472,13 +475,13 @@ export default function OrdenCompraGenerator({ materiales = [], stockPorMaterial
               <div style={{ display: "flex", gap: 8, marginBottom: 14, flexWrap: "wrap", alignItems: "center" }}>
                 {["tabla", "email"].map(v => (
                   <button key={v} style={S.btn(vista === v ? C.blue : C.t2, vista === v)} onClick={() => setVista(v)}>
-                    {v === "tabla" ? "✏️  Editar lista" : "📧  Vista email"}
+                    {v === "tabla" ? "Editar lista" : "Vista email"}
                   </button>
                 ))}
                 <div style={{ flex: 1 }} />
                 {onCrearOrden && itemsAGenerar.total > 0 && (
                   <button style={S.btn(C.violet, true)} onClick={() => setShowConfirm(true)} disabled={creando}>
-                    {creando ? "Generando…" : `📦 Generar pedido (${itemsAGenerar.total} ítems)`}
+                    {creando ? "Generando…" : `Generar pedido (${itemsAGenerar.total} ítems)`}
                   </button>
                 )}
               </div>
@@ -495,7 +498,7 @@ export default function OrdenCompraGenerator({ materiales = [], stockPorMaterial
                             onClick={() => toggleTodos(itemsConStock.length)}
                             style={{ border: `1px solid ${C.b0}`, background: selectedKeys.size === itemsConStock.length ? `${C.violet}25` : "transparent", color: selectedKeys.size === itemsConStock.length ? C.violet : C.t2, width: 22, height: 22, borderRadius: 5, cursor: "pointer", fontSize: 12, display: "flex", alignItems: "center", justifyContent: "center", margin: "0 auto" }}
                           >
-                            {selectedKeys.size === itemsConStock.length ? "✓" : "·"}
+                            {selectedKeys.size === itemsConStock.length ? "" : ""}
                           </button>
                         </th>
                         <th style={S.th}>Material</th>
@@ -518,37 +521,37 @@ export default function OrdenCompraGenerator({ materiales = [], stockPorMaterial
                           <tr key={it._key} style={{ background: rowBg, opacity: yaPedido ? 0.6 : 1, transition: "all .15s" }}>
                             <td style={{ ...S.td, textAlign: "center" }}>
                               {yaPedido ? (
-                                <span style={{ color: C.violet, fontSize: 14 }}>✓</span>
+                                <span style={{ color: C.violet, fontSize: 14 }}></span>
                               ) : (
                                 <button
                                   title={seleccionado ? "Quitar del pedido" : "Incluir en el pedido"}
                                   onClick={() => toggleSelected(it._key)}
                                   style={{ border: seleccionado ? `1px solid ${C.violet}55` : `1px solid ${C.b0}`, background: seleccionado ? `${C.violet}22` : "transparent", color: seleccionado ? C.violet : C.t2, width: 26, height: 26, borderRadius: 6, cursor: "pointer", fontSize: 14, display: "flex", alignItems: "center", justifyContent: "center", margin: "0 auto", transition: "all .15s" }}
                                 >
-                                  {seleccionado ? "✓" : "·"}
+                                  {seleccionado ? "" : ""}
                                 </button>
                               )}
                             </td>
 
                             <td style={{ ...S.td, fontWeight: 600, color: seleccionado ? C.t0 : C.t2, maxWidth: 280 }}>
-                              {yaPedido && <span style={{ fontSize: 9, letterSpacing: 1.5, textTransform: "uppercase", color: C.violet, border: `1px solid ${C.violet}44`, background: `${C.violet}15`, borderRadius: 4, padding: "1px 5px", marginRight: 7, fontWeight: 700 }}>PEDIDO ✓</span>}
+                              {yaPedido && <span style={{ fontSize: 9, letterSpacing: 1.5, textTransform: "uppercase", color: C.violet, border: `1px solid ${C.violet}44`, background: `${C.violet}15`, borderRadius: 4, padding: "1px 5px", marginRight: 7, fontWeight: 700 }}>PEDIDO </span>}
                               {enStock && <span style={{ fontSize: 9, letterSpacing: 1.5, textTransform: "uppercase", color: C.cyan, border: `1px solid ${C.cyan}44`, background: `${C.cyan}15`, borderRadius: 4, padding: "1px 5px", marginRight: 7, fontWeight: 700 }}>STOCK EMAIL</span>}
                               {it.descripcion}
                               {it._matchMode === "auto" && (
                                 <div style={{ fontSize: 10, color: C.green, marginTop: 3, fontFamily: C.sans, display: "flex", alignItems: "center", gap: 5 }}>
-                                  <span style={{ opacity: 0.4 }}>↳</span><span>{it._mat.nombre}</span>
-                                  <span title="Cambiar vínculo" style={{ cursor: "pointer", color: C.t2, fontSize: 11, marginLeft: 2 }} onClick={e => { e.stopPropagation(); saveOverride(it._key, "__reset__"); }}>✎</span>
+                                  <span style={{ opacity: 0.4 }}></span><span>{it._mat.nombre}</span>
+                                  <span title="Cambiar vínculo" style={{ cursor: "pointer", color: C.t2, fontSize: 11, marginLeft: 2 }} onClick={e => { e.stopPropagation(); saveOverride(it._key, "__reset__"); }}></span>
                                 </div>
                               )}
                               {it._matchMode === "manual" && (
                                 <div style={{ fontSize: 10, color: C.cyan, marginTop: 3, fontFamily: C.sans, display: "flex", alignItems: "center", gap: 5 }}>
-                                  <span style={{ opacity: 0.4 }}>↳</span><span>{it._mat.nombre}</span>
-                                  <span title="Quitar vínculo" style={{ cursor: "pointer", color: C.t2, fontSize: 12, marginLeft: 2 }} onClick={e => { e.stopPropagation(); saveOverride(it._key, null); }}>✕</span>
+                                  <span style={{ opacity: 0.4 }}></span><span>{it._mat.nombre}</span>
+                                  <span title="Quitar vínculo" style={{ cursor: "pointer", color: C.t2, fontSize: 12, marginLeft: 2 }} onClick={e => { e.stopPropagation(); saveOverride(it._key, null); }}></span>
                                 </div>
                               )}
                               {(it._matchMode === "none" || overrides[it._key] === "__reset__") && (
                                 <>
-                                  {it._matchMode === "none" && <div style={{ fontSize: 10, color: C.red, marginTop: 3 }}>⚠ sin match en inventario</div>}
+                                  {it._matchMode === "none" && <div style={{ fontSize: 10, color: C.red, marginTop: 3 }}> sin match en inventario</div>}
                                   <CandidatoBadge candidato={it._candidato} score={it._matchScore} onAceptar={matId => saveOverride(it._key, matId)} />
                                   <MaterialPicker materiales={materiales} value={""} onChange={matId => saveOverride(it._key, matId)} />
                                 </>
@@ -582,7 +585,7 @@ export default function OrdenCompraGenerator({ materiales = [], stockPorMaterial
                                 onClick={() => toggleStock(it._key)}
                                 style={{ border: enStock ? `1px solid ${C.cyan}55` : `1px solid ${C.b0}`, background: enStock ? `${C.cyan}22` : "transparent", color: enStock ? C.cyan : C.t2, width: 24, height: 24, borderRadius: 5, cursor: "pointer", fontSize: 12, display: "flex", alignItems: "center", justifyContent: "center", margin: "0 auto", transition: "all .15s" }}
                               >
-                                {enStock ? "✓" : "·"}
+                                {enStock ? "" : ""}
                               </button>
                             </td>
                           </tr>
@@ -591,8 +594,8 @@ export default function OrdenCompraGenerator({ materiales = [], stockPorMaterial
                     </tbody>
                   </table>
                   <div style={{ padding: "10px 14px", borderTop: `1px solid ${C.b0}`, fontSize: 10, color: C.t2, fontFamily: C.sans, display: "flex", gap: 20, flexWrap: "wrap" }}>
-                    <span style={{ color: C.violet }}>✓ violeta = incluido en el pedido</span>
-                    <span>· = excluido del pedido (deseleccioná los que no querés pedir)</span>
+                    <span style={{ color: C.violet }}> violeta = incluido en el pedido</span>
+                    <span> = excluido del pedido (deseleccioná los que no querés pedir)</span>
                     <span style={{ color: C.cyan }}>STOCK EMAIL = se lista aparte en el email, no se compra</span>
                   </div>
                 </div>
@@ -607,13 +610,13 @@ export default function OrdenCompraGenerator({ materiales = [], stockPorMaterial
 
               <div style={{ display: "flex", gap: 10, alignItems: "center", flexWrap: "wrap", marginBottom: 20 }}>
                 <button style={S.btn(C.green, true)} onClick={copiar}>
-                  {copiado ? "✅ ¡Copiado!" : "📋 Copiar email"}
+                  {copiado ? "Copiado" : <><Copy size={12} style={{marginRight:4}}/>Copiar email</>}
                 </button>
                 <button style={S.btn(C.amber)} onClick={() => setVista(v => v === "tabla" ? "email" : "tabla")}>
-                  {vista === "tabla" ? "👁 Vista previa email" : "✏️ Volver a editar"}
+                  {vista === "tabla" ? "Vista previa email" : "Volver a editar"}
                 </button>
                 <button style={S.btn(C.t2)} onClick={() => { if (window.confirm("¿Limpiar stock email?")) setStockKeys(new Set()); }}>
-                  🔄 Limpiar stock email
+                   Limpiar stock email
                 </button>
               </div>
             </>
@@ -622,23 +625,23 @@ export default function OrdenCompraGenerator({ materiales = [], stockPorMaterial
           {/* ══ PANEL EXTRAS ══════════════════════════════════════ */}
           <div style={{ border: `1px solid ${C.amber}33`, borderRadius: 12, background: `${C.amber}06`, padding: "16px 18px", marginBottom: 16 }}>
             <div style={{ fontSize: 13, fontWeight: 700, color: C.amber, fontFamily: C.sans, marginBottom: 14, display: "flex", alignItems: "center", gap: 8 }}>
-              <span>➕</span> Agregar ítems al pedido
+              <span></span> Agregar ítems al pedido
               <span style={{ fontSize: 11, fontWeight: 400, color: C.t2 }}>— Repair, gelcoats, pintura, o cualquier material extra</span>
             </div>
 
             {extraItems.length > 0 && (
               <div style={{ marginBottom: 12, display: "flex", flexDirection: "column", gap: 6 }}>
                 {extraItems.map(e => {
-                  const mat = materiales.find(m => m.id === e.material_id);
+                  const mat = materiales.find(m => String(m.id) === String(e.material_id));
                   const yaPedido = pedidosCreados.has(e.uid);
                   return (
                     <div key={e.uid} style={{ display: "flex", alignItems: "center", gap: 10, padding: "8px 12px", background: yaPedido ? `${C.violet}10` : `${C.amber}0d`, border: `1px solid ${yaPedido ? C.violet : C.amber}33`, borderRadius: 8 }}>
-                      {yaPedido && <span style={{ fontSize: 11, color: C.violet, fontWeight: 700 }}>✓ PEDIDO</span>}
+                      {yaPedido && <span style={{ fontSize: 11, color: C.violet, fontWeight: 700 }}> PEDIDO</span>}
                       <span style={{ flex: 1, fontSize: 13, color: C.t0, fontFamily: C.sans, fontWeight: 600 }}>{mat?.nombre ?? "—"}</span>
                       <span style={{ fontFamily: C.mono, fontSize: 13, color: C.amber, fontWeight: 700 }}>{e.cantidad}</span>
                       <span style={{ fontSize: 11, color: C.t2 }}>{mat?.unidad}</span>
                       {!yaPedido && (
-                        <button onClick={() => quitarExtra(e.uid)} style={{ border: `1px solid ${C.red}44`, background: `${C.red}12`, color: C.red, borderRadius: 6, cursor: "pointer", padding: "3px 9px", fontSize: 11, fontFamily: C.sans, fontWeight: 700 }}>✕</button>
+                        <button onClick={() => quitarExtra(e.uid)} style={{ border: `1px solid ${C.red}44`, background: `${C.red}12`, color: C.red, borderRadius: 6, cursor: "pointer", padding: "3px 9px", fontSize: 11, fontFamily: C.sans, fontWeight: 700 }}></button>
                       )}
                     </div>
                   );
@@ -651,7 +654,7 @@ export default function OrdenCompraGenerator({ materiales = [], stockPorMaterial
                 <label style={S.label}>Material</label>
                 <input
                   style={{ ...S.input, marginBottom: 4 }}
-                  placeholder="🔍 Filtrar…"
+                  placeholder=" Filtrar…"
                   value={extraQ}
                   onChange={e => { setExtraQ(e.target.value); setExtraMatId(""); }}
                 />
@@ -679,7 +682,7 @@ export default function OrdenCompraGenerator({ materiales = [], stockPorMaterial
                   onClick={agregarExtra}
                   disabled={!extraMat || !extraCant || num(extraCant) <= 0}
                 >
-                  + Agregar
+                  Agregar
                 </button>
               </div>
             </div>
@@ -697,7 +700,7 @@ export default function OrdenCompraGenerator({ materiales = [], stockPorMaterial
                     label: `${it.descripcion} — ${it._cantidadNecesaria} ${it.unidad}`, key: it._key,
                   })),
                   ...extraItems.filter(e => pedidosCreados.has(e.uid)).map(e => {
-                    const mat = materiales.find(m => m.id === e.material_id);
+                    const mat = materiales.find(m => String(m.id) === String(e.material_id));
                     return { label: `${mat?.nombre ?? "—"} — ${e.cantidad} ${mat?.unidad ?? ""}`, key: e.uid };
                   }),
                 ].map(({ label, key }) => (
@@ -715,7 +718,7 @@ export default function OrdenCompraGenerator({ materiales = [], stockPorMaterial
       {showConfirm && (
         <div style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.78)", zIndex: 9999, display: "flex", alignItems: "center", justifyContent: "center", backdropFilter: "blur(5px)" }}>
           <div style={{ background: "#111113", border: `1px solid ${C.b0}`, borderRadius: 16, padding: 28, width: "min(580px, 94vw)", maxHeight: "85vh", overflow: "auto", boxShadow: "0 24px 64px rgba(0,0,0,0.65)" }}>
-            <h3 style={{ margin: "0 0 4px", color: C.t0, fontSize: 16, fontFamily: C.sans }}>📦 Confirmar generación de pedidos</h3>
+            <h3 style={{ margin: "0 0 4px", color: C.t0, fontSize: 16, fontFamily: C.sans }}>Confirmar generación de pedidos</h3>
             <p style={{ margin: "0 0 18px", color: C.t1, fontSize: 12, fontFamily: C.sans }}>
               Se van a crear los siguientes ítems en el sistema. El pañolero los verá en "Pedidos pendientes".
             </p>
@@ -723,7 +726,7 @@ export default function OrdenCompraGenerator({ materiales = [], stockPorMaterial
             {(plantillaLabel || obraNumero) && (
               <div style={{ marginBottom: 14, padding: "8px 12px", background: `${C.blue}12`, border: `1px solid ${C.blue}33`, borderRadius: 8, fontSize: 11, color: C.blue, fontFamily: C.sans }}>
                 {plantillaLabel && <span>Plantilla: <b>{plantillaLabel}</b></span>}
-                {obraNumero && <span style={{ marginLeft: 10 }}>· Obra: <b>{obraNumero}</b></span>}
+                {obraNumero && <span style={{ marginLeft: 10 }}> Obra: <b>{obraNumero}</b></span>}
               </div>
             )}
 
@@ -774,7 +777,7 @@ export default function OrdenCompraGenerator({ materiales = [], stockPorMaterial
             </div>
 
             <div style={{ padding: "10px 14px", background: `${C.violet}0d`, border: `1px solid ${C.violet}22`, borderRadius: 8, fontSize: 12, color: C.t1, fontFamily: C.sans, marginBottom: 20 }}>
-              ✅ Se van a generar <b style={{ color: C.violet }}>{itemsAGenerar.total} pedido{itemsAGenerar.total !== 1 ? "s" : ""}</b> en el sistema
+               Se van a generar <b style={{ color: C.violet }}>{itemsAGenerar.total} pedido{itemsAGenerar.total !== 1 ? "s" : ""}</b> en el sistema
               {itemsAGenerar.dePlantilla.length > 0 && ` — ${itemsAGenerar.dePlantilla.length} de plantilla`}
               {itemsAGenerar.deExtras.length > 0 && ` + ${itemsAGenerar.deExtras.length} extra${itemsAGenerar.deExtras.length !== 1 ? "s" : ""}`}.
             </div>
@@ -787,7 +790,7 @@ export default function OrdenCompraGenerator({ materiales = [], stockPorMaterial
                 Cancelar
               </button>
               <button style={S.btn(C.violet, true)} onClick={_ejecutar} disabled={creando}>
-                {creando ? "Generando…" : `📦 Confirmar y generar`}
+                {creando ? "Generando…" : `Confirmar y generar`}
               </button>
             </div>
           </div>

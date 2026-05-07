@@ -7,6 +7,8 @@ import ComprasSugeridasPanel from "./ComprasSugeridasPanel";
 import EncargadosTab from "./EncargadosTab";
 import OrdenCompraGenerator from "./OrdenCompraGenerator";
 import BarcoCalendarioPanel from "./BarcoCalendarioPanel";
+import { Check, Package, Plus, Trash2, X, RotateCcw, Download, AlertTriangle, ChevronDown, ChevronRight, FileText, ClipboardList, Search, RefreshCw, Edit2 } from "lucide-react";
+
 
 const TABS = ["Stock", "Ingresos", "Egresos", "Pedidos"];
 
@@ -361,7 +363,7 @@ export default function LaminacionScreen({ profile, signOut }) {
       creado_por: userId,
     });
     if (error) return setErr(error.message);
-    flash("✅ Ingreso registrado");
+    flash(" Ingreso registrado");
     setFormIngreso(f => ({ ...f, cantidad: "", proveedor: "", obra: "", observaciones: "" }));
     cargar();
   }
@@ -383,7 +385,7 @@ export default function LaminacionScreen({ profile, signOut }) {
       creado_por: userId,
     });
     if (error) return setErr(error.message);
-    flash("✅ Egreso registrado");
+    flash(" Egreso registrado");
     setFormEgreso(f => ({ ...f, cantidad: "", destino: "", nombre_persona: "", observaciones: "" }));
     cargar();
   }
@@ -412,7 +414,7 @@ export default function LaminacionScreen({ profile, signOut }) {
       await supabase.from("laminacion_pedidos")
         .update({ estado: "entregado" })
         .in("id", grupo.items.map(p => p.id));
-      flash(`✅ Orden ${grupo.ref} recibida completa — stock actualizado`);
+      flash(`Orden ${grupo.ref} recibida — stock actualizado`);
       setConfModal(null);
       cargar();
       return;
@@ -449,7 +451,7 @@ export default function LaminacionScreen({ profile, signOut }) {
           observaciones: `${obsAnterior}Parcial recibido: ${cant}`,
         }).eq("id", id);
       }
-      flash(`⚠️ Recepción parcial registrada — ${movs.length} material${movs.length !== 1 ? "es" : ""} ingresado${movs.length !== 1 ? "s" : ""}`);
+      flash(`Recepción parcial — ${movs.length} material${movs.length !== 1 ? "es" : ""} ingresado${movs.length !== 1 ? "s" : ""}`);
       setConfModal(null);
       cargar();
       return;
@@ -469,13 +471,13 @@ export default function LaminacionScreen({ profile, signOut }) {
     if (error) { setErr(error.message); return; }
     if (tipo === "entero") {
       await supabase.from("laminacion_pedidos").update({ estado: "entregado" }).eq("id", pedido.id);
-      flash(`✅ Pedido recibido completo — stock actualizado`);
+      flash("Recepción completa — stock actualizado");
     } else {
       const obsAnterior = pedido.observaciones ? pedido.observaciones + " | " : "";
       await supabase.from("laminacion_pedidos").update({
         observaciones: `${obsAnterior}Parcial recibido: ${cantRecibida} de ${pedido.cantidad}`,
       }).eq("id", pedido.id);
-      flash(`⚠️ Recepción parcial registrada — pedido sigue pendiente`);
+      flash("Recepción parcial — pedido sigue pendiente");
     }
     setConfModal(null);
     cargar();
@@ -495,7 +497,7 @@ export default function LaminacionScreen({ profile, signOut }) {
       observaciones: formPedido.observaciones.trim() || null,
     });
     if (error) return setErr(error.message);
-    flash("✅ Pedido creado");
+    flash("Pedido creado");
     setFormPedido({ material_id: "", cantidad: "", observaciones: "" });
     cargar();
   }
@@ -504,6 +506,32 @@ export default function LaminacionScreen({ profile, signOut }) {
     const { error } = await supabase.from("laminacion_pedidos").update({ estado }).eq("id", id);
     if (error) setErr(error.message);
     else cargar();
+  }
+
+  async function eliminarPedido(id) {
+    if (!window.confirm("¿Eliminar este ítem definitivamente? No se puede deshacer.")) return;
+    const { data, error } = await supabase
+      .from("laminacion_pedidos")
+      .delete()
+      .eq("id", id)
+      .select();
+    if (error) return setErr(error.message);
+    if (!data?.length) return setErr("No se pudo eliminar. Verificá los permisos en Supabase (política DELETE en laminacion_pedidos).");
+    flash("Ítem eliminado");
+    cargarPedidos();
+  }
+
+  async function eliminarOrden(items) {
+    if (!window.confirm(`¿Eliminar esta orden completa (${items.length} ítem${items.length !== 1 ? "s" : ""})? No se puede deshacer.`)) return;
+    const { data, error } = await supabase
+      .from("laminacion_pedidos")
+      .delete()
+      .in("id", items.map(p => p.id))
+      .select();
+    if (error) return setErr(error.message);
+    if (!data?.length) return setErr("No se pudo eliminar. Verificá los permisos en Supabase (política DELETE en laminacion_pedidos).");
+    flash("Orden eliminada");
+    cargarPedidos();
   }
 
   async function crearMaterial(e) {
@@ -517,7 +545,7 @@ export default function LaminacionScreen({ profile, signOut }) {
       stock_minimo: num(formMaterial.stock_minimo),
     });
     if (error) return setErr(error.message);
-    flash("✅ Material creado");
+    flash(" Material creado");
     setFormMaterial({ nombre: "", categoria: "", unidad: "unidad", stock_minimo: 0 });
     setShowNuevoMaterial(false);
     cargar();
@@ -631,7 +659,7 @@ export default function LaminacionScreen({ profile, signOut }) {
               <div style={{ display: "flex", gap: 8 }}>
                 {isAdmin && (
                   <button style={S.btn} onClick={() => setShowNuevoMaterial(v => !v)}>
-                    {showNuevoMaterial ? "✕ Cancelar" : "+ Nuevo material"}
+                    {showNuevoMaterial ? " Cancelar" : "+ Nuevo material"}
                   </button>
                 )}
                 <button style={S.btn} onClick={cargar}>Refrescar</button>
@@ -724,7 +752,7 @@ export default function LaminacionScreen({ profile, signOut }) {
                         </button>
                       )}
                       <button onClick={exportarStock} disabled={!stockRows.length} style={S.btnExport}>
-                        ↓ CSV
+                         CSV
                       </button>
                     </div>
                   </div>
@@ -786,7 +814,7 @@ export default function LaminacionScreen({ profile, signOut }) {
                   if (!pendientes.length) return (
                     <div style={{ ...S.card, borderColor: "rgba(16,185,129,0.2)", marginBottom: 12 }}>
                       <div style={{ display: "flex", alignItems: "center", gap: 10, color: "#10b981" }}>
-                        <span style={{ fontSize: 20 }}>✅</span>
+                        <span style={{ fontSize: 20 }}></span>
                         <span style={{ fontSize: 13, fontWeight: 600 }}>Sin órdenes pendientes de recepción</span>
                       </div>
                     </div>
@@ -806,7 +834,7 @@ export default function LaminacionScreen({ profile, signOut }) {
                   return (
                     <div style={{ ...S.card, borderColor: "rgba(245,158,11,0.3)", marginBottom: 12 }}>
                       <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 14 }}>
-                        <span style={{ fontSize: 20 }}>📦</span>
+                        <span style={{ fontSize: 20 }}></span>
                         <h3 style={{ margin: 0, color: "#f4f4f5", fontSize: 14 }}>
                           Órdenes pendientes de recepción
                           <span style={{ marginLeft: 8, background: "#ffe7a6", color: "#000", borderRadius: 999, padding: "2px 8px", fontSize: 11, fontWeight: 900 }}>
@@ -824,7 +852,7 @@ export default function LaminacionScreen({ profile, signOut }) {
                               <div style={{ padding: "10px 14px", background: "rgba(245,158,11,0.07)", display: "flex", alignItems: "center", gap: 10, flexWrap: "wrap" }}>
                                 <div style={{ flex: 1 }}>
                                   <span style={{ fontWeight: 700, color: "#f59e0b", fontSize: 13 }}>
-                                    {grupo.ref === "__manual__" ? "📝 Pedido manual" : `📋 ${grupo.ref}`}
+                                    {grupo.ref === "__manual__" ? " Pedido manual" : ` ${grupo.ref}`}
                                   </span>
                                   {grupo.ref !== "__manual__" && (
                                     <span style={{ marginLeft: 8, fontSize: 11, color: "#a1a1aa" }}>{grupo.label}</span>
@@ -837,7 +865,7 @@ export default function LaminacionScreen({ profile, signOut }) {
                               {/* Lista de materiales de la orden */}
                               <div style={{ display: "flex", flexDirection: "column" }}>
                                 {grupo.items.map((p, i) => {
-                                  const mat = materiales.find(m => m.id === p.material_id);
+                                  const mat = materiales.find(m => String(m.id) === String(p.material_id));
                                   const stockActual = num(stockPorMaterial[p.material_id]);
                                   return (
                                     <div key={p.id} style={{ display: "flex", alignItems: "center", gap: 10, padding: "10px 14px", borderTop: i === 0 ? "none" : "1px solid rgba(255,255,255,0.04)", flexWrap: "wrap" }}>
@@ -855,11 +883,11 @@ export default function LaminacionScreen({ profile, signOut }) {
                                         <button
                                           style={{ border: "1px solid rgba(16,185,129,0.38)", background: "rgba(16,185,129,0.1)", color: "#10b981", fontSize: 11, padding: "5px 12px", borderRadius: 7, cursor: "pointer", fontWeight: 700 }}
                                           onClick={() => setConfModal({ pedido: p, tipo: "entero", cantParcial: "" })}
-                                        >✅ Llegó</button>
+                                        ><Check size={12} style={{marginRight:4}}/>Llegó</button>
                                         <button
                                           style={{ border: "1px solid rgba(245,158,11,0.38)", background: "rgba(245,158,11,0.07)", color: "#f59e0b", fontSize: 11, padding: "5px 12px", borderRadius: 7, cursor: "pointer", fontWeight: 700 }}
                                           onClick={() => setConfModal({ pedido: p, tipo: "parcial", cantParcial: "" })}
-                                        >📦 Parcial</button>
+                                        ><Package size={12} style={{marginRight:4}}/>Parcial</button>
                                       </div>
                                     </div>
                                   );
@@ -919,7 +947,7 @@ export default function LaminacionScreen({ profile, signOut }) {
                         </div>
                       </div>
                       <div style={{ marginTop: 12 }}>
-                        <button type="submit" style={S.btnPrimary}>+ Registrar ingreso</button>
+                        <button type="submit" style={S.btnPrimary}>Registrar ingreso</button>
                       </div>
                     </form>
                   </div>
@@ -1022,7 +1050,7 @@ export default function LaminacionScreen({ profile, signOut }) {
                         </div>
                       </div>
                       <div style={{ marginTop: 12 }}>
-                        <button type="submit" style={S.btnPrimary}>— Registrar egreso</button>
+                        <button type="submit" style={S.btnPrimary}>Registrar egreso</button>
                       </div>
                     </form>
                   </div>
@@ -1102,7 +1130,7 @@ export default function LaminacionScreen({ profile, signOut }) {
                   <div style={{ display: "flex", gap: 10, flexWrap: "wrap", alignItems: "center" }}>
                     {/* Búsqueda */}
                     <div style={{ flex: "1 1 220px", position: "relative" }}>
-                      <span style={{ position: "absolute", left: 12, top: "50%", transform: "translateY(-50%)", opacity: 0.35, fontSize: 14, pointerEvents: "none" }}>⌕</span>
+                      <span style={{ position: "absolute", left: 12, top: "50%", transform: "translateY(-50%)", opacity: 0.35, fontSize: 14, pointerEvents: "none" }}></span>
                       <input
                         style={{ ...S.input, paddingLeft: 34, fontSize: 13 }}
                         placeholder="Buscar material, persona, obra, proveedor…"
@@ -1115,8 +1143,8 @@ export default function LaminacionScreen({ profile, signOut }) {
                     <div style={{ display: "flex", gap: 4 }}>
                       {[
                         { val: "todos",   label: "Todos"    },
-                        { val: "ingreso", label: "↑ Ing",   color: "#30d158" },
-                        { val: "egreso",  label: "↓ Egr",   color: "#ff453a" },
+                        { val: "ingreso", label: " Ing",   color: "#30d158" },
+                        { val: "egreso",  label: " Egr",   color: "#ff453a" },
                       ].map(({ val, label, color }) => (
                         <button key={val} onClick={() => setFiltroTipo(val)} style={{
                           padding: "8px 14px", borderRadius: 8, cursor: "pointer", fontSize: 11, fontWeight: 600,
@@ -1151,18 +1179,18 @@ export default function LaminacionScreen({ profile, signOut }) {
                       ...S.btn, padding: "8px 14px", fontSize: 12, display: "flex", alignItems: "center", gap: 5,
                       color: "#aaa", flexShrink: 0,
                     }}>
-                      {movSort === "fecha_desc" ? "↓ Más reciente" : "↑ Más antiguo"}
+                      {movSort === "fecha_desc" ? " Más reciente" : " Más antiguo"}
                     </button>
 
                     {/* Reset filtros */}
                     {(qMov || filtroTipo !== "todos" || filtroMatId) && (
                       <button onClick={() => { setQMov(""); setFiltroTipo("todos"); setFiltroMatId(""); }}
                         style={{ ...S.btn, padding: "8px 12px", fontSize: 12, color: "#888", flexShrink: 0 }}>
-                        ✕ Limpiar
+                         Limpiar
                       </button>
                     )}
                     <button onClick={exportarMovimientos} disabled={!movimientosFiltrados.length} style={{ ...S.btnExport, flexShrink: 0 }}>
-                      ↓ Exportar CSV
+                       Exportar CSV
                     </button>
                   </div>
 
@@ -1187,7 +1215,7 @@ export default function LaminacionScreen({ profile, signOut }) {
                         fontSize: 12, fontWeight: 700, display: "flex", alignItems: "center", gap: 6,
                       }}
                     >
-                      ↓ CSV
+                       CSV
                       <span style={{ fontSize: 10, opacity: 0.7 }}>
                         {movStats.enFiltro !== movStats.total
                           ? `${movStats.enFiltro} filtrados`
@@ -1203,7 +1231,7 @@ export default function LaminacionScreen({ profile, signOut }) {
                           cursor: "pointer", fontSize: 12, fontWeight: 700,
                         }}
                       >
-                        ↓ CSV completo ({movStats.total})
+                         CSV completo ({movStats.total})
                       </button>
                     )}
                   </div>
@@ -1256,7 +1284,7 @@ export default function LaminacionScreen({ profile, signOut }) {
                                   color: esIngreso ? "#30d158" : "#ff453a",
                                   border: esIngreso ? "1px solid rgba(48,209,88,0.22)" : "1px solid rgba(255,69,58,0.22)",
                                 }}>
-                                  {esIngreso ? "↑" : "↓"} {esIngreso ? "ING" : "EGR"}
+                                  {esIngreso ? "" : ""} {esIngreso ? "ING" : "EGR"}
                                 </span>
                               </td>
                               <td style={{ ...S.td, padding: "10px 14px" }}>
@@ -1336,9 +1364,9 @@ export default function LaminacionScreen({ profile, signOut }) {
       estado: "pendiente",
     }));
     const { error } = await supabase.from("laminacion_pedidos").insert(rows);
-    if (error) { flash(`❌ ${error.message}`); return; }
+    if (error) { flash(`Error: ${error.message}`); return; }
     cargarPedidos();
-    flash(`✅ Orden ${ordenRef} generada — ${items.length} materiales`);
+    flash(`Orden ${ordenRef} generada — ${items.length} materiales`);
   }}
 />
 			   <ComprasSugeridasPanel
@@ -1350,7 +1378,7 @@ export default function LaminacionScreen({ profile, signOut }) {
           material_id: materialId, cantidad, observaciones: obs, estado: "pendiente"
         });
         cargarPedidos();
-        flash("✅ Pedido creado");
+        flash("Pedido creado");
       }}
     />		  
                 {puedeCargar && (
@@ -1390,7 +1418,7 @@ export default function LaminacionScreen({ profile, signOut }) {
                   <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 12 }}>
                     <h3 style={{ margin: 0, color: "#f4f4f5" }}>Pedidos</h3>
                     <button onClick={exportarPedidos} disabled={!pedidosFiltrados.length} style={S.btnExport}>
-                      ↓ Exportar CSV
+                       Exportar CSV
                     </button>
                   </div>
                   <div style={{ display: "flex", gap: 8, marginBottom: 12 }}>
@@ -1448,11 +1476,11 @@ export default function LaminacionScreen({ profile, signOut }) {
                                 })}
                                 style={{ display: "flex", alignItems: "center", gap: 12, padding: "12px 16px", background: `${estadoColor}08`, cursor: "pointer", userSelect: "none", flexWrap: "wrap" }}
                               >
-                                <span style={{ fontSize: 14 }}>{isExpanded ? "▾" : "▸"}</span>
+                                <span style={{ fontSize: 14 }}>{isExpanded ? <ChevronDown size={14}/> : <ChevronRight size={14}/>}</span>
 
                                 <div style={{ flex: 1, minWidth: 180 }}>
                                   <div style={{ fontWeight: 700, color: "#f4f4f5", fontSize: 13 }}>
-                                    {esManual ? "📝 Pedido manual" : `📋 ${grupo.ref}`}
+                                    {esManual ? " Pedido manual" : ` ${grupo.ref}`}
                                   </div>
                                   {!esManual && <div style={{ fontSize: 11, color: "#a1a1aa", marginTop: 2 }}>{grupo.label}</div>}
                                 </div>
@@ -1463,6 +1491,15 @@ export default function LaminacionScreen({ profile, signOut }) {
                                     {estadoLabel}
                                   </span>
                                   <span style={{ fontSize: 10, color: "#52525b" }}>{fmtTs(grupo.createdAt)}</span>
+                                  {(isAdmin || role === "admin") && (
+                                    <button
+                                      onClick={e => { e.stopPropagation(); eliminarOrden(grupo.items); }}
+                                      title="Eliminar orden completa"
+                                      style={{ border: "1px solid rgba(239,68,68,0.3)", background: "rgba(239,68,68,0.08)", color: "#ef4444", borderRadius: 7, cursor: "pointer", padding: "4px 8px", display: "flex", alignItems: "center", gap: 4, fontSize: 11 }}
+                                    >
+                                      <Trash2 size={12}/> Eliminar orden
+                                    </button>
+                                  )}
                                 </div>
                               </div>
 
@@ -1491,12 +1528,17 @@ export default function LaminacionScreen({ profile, signOut }) {
                                             <div style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>
                                               {p.estado === "pendiente" && (isAdmin || role === "admin" || role === "oficina") && (
                                                 <>
-                                                  <button style={S.btnSmall("#30d158")} onClick={() => setEstadoPedido(p.id, "entregado")}>✅ Entregado</button>
+                                                  <button style={S.btnSmall("#30d158")} onClick={() => setEstadoPedido(p.id, "entregado")}><Check size={12} style={{marginRight:4}}/>Entregado</button>
                                                   <button style={S.btnSmall("#ff453a")} onClick={() => setEstadoPedido(p.id, "cancelado")}>Cancelar</button>
                                                 </>
                                               )}
                                               {p.estado !== "pendiente" && (isAdmin || role === "admin") && (
-                                                <button style={S.btnSmall("#ffd60a")} onClick={() => setEstadoPedido(p.id, "pendiente")}>Reabrir</button>
+                                                <button style={S.btnSmall("#ffd60a")} onClick={() => setEstadoPedido(p.id, "pendiente")}><RotateCcw size={12} style={{marginRight:4}}/>Reabrir</button>
+                                              )}
+                                              {(isAdmin || role === "admin") && (
+                                                <button style={{ ...S.btnSmall("#ef4444"), padding: "4px 8px" }} onClick={e => { e.stopPropagation(); eliminarPedido(p.id); }} title="Eliminar ítem definitivamente">
+                                                  <Trash2 size={12}/>
+                                                </button>
                                               )}
                                             </div>
                                           </td>
@@ -1524,7 +1566,7 @@ export default function LaminacionScreen({ profile, signOut }) {
           materiales={materiales}
           stockPorMaterial={stockPorMaterial}
           onClose={() => setShowAjuste(false)}
-          onDone={() => { setShowAjuste(false); cargar(); flash("✅ Ajuste aplicado"); }}
+          onDone={() => { setShowAjuste(false); cargar(); flash("Ajuste aplicado"); }}
         />
       )}
 
@@ -1538,7 +1580,7 @@ export default function LaminacionScreen({ profile, signOut }) {
           return (
             <div style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.75)", zIndex: 9999, display: "flex", alignItems: "center", justifyContent: "center", backdropFilter: "blur(4px)" }}>
               <div style={{ background: "#111113", border: "1px solid rgba(255,255,255,0.12)", borderRadius: 16, padding: 28, width: "min(520px, 94vw)", boxShadow: "0 24px 64px rgba(0,0,0,0.6)", maxHeight: "85vh", overflow: "auto" }}>
-                <h3 style={{ margin: "0 0 4px", color: "#f4f4f5", fontSize: 16 }}>✅ Confirmar recepción completa</h3>
+                <h3 style={{ margin: "0 0 4px", color: "#f4f4f5", fontSize: 16 }}>Confirmar recepción</h3>
                 <p style={{ margin: "0 0 16px", color: "#71717a", fontSize: 12 }}>
                   Se registra ingreso por todos los materiales y la orden queda cerrada.
                 </p>
@@ -1547,7 +1589,7 @@ export default function LaminacionScreen({ profile, signOut }) {
                     {grupo.ref} — {grupo.label}
                   </div>
                   {grupo.items.map((p, i) => {
-                    const mat = materiales.find(m => m.id === p.material_id);
+                    const mat = materiales.find(m => String(m.id) === String(p.material_id));
                     return (
                       <div key={p.id} style={{ display: "flex", justifyContent: "space-between", padding: "9px 14px", borderTop: i === 0 ? "none" : "1px solid rgba(255,255,255,0.04)", fontSize: 12 }}>
                         <span style={{ color: "#f4f4f5" }}>{mat?.nombre ?? "—"}</span>
@@ -1557,11 +1599,11 @@ export default function LaminacionScreen({ profile, signOut }) {
                   })}
                 </div>
                 <div style={{ padding: "10px 14px", background: "rgba(16,185,129,0.07)", border: "1px solid rgba(16,185,129,0.2)", borderRadius: 8, fontSize: 12, color: "#10b981", marginBottom: 20 }}>
-                  ✅ Se registran <b>{grupo.items.length} ingresos</b> y la orden queda como <b>Entregada</b>.
+                   Se registran <b>{grupo.items.length} ingresos</b> y la orden queda como <b>Entregada</b>.
                 </div>
                 <div style={{ display: "flex", gap: 10, justifyContent: "flex-end" }}>
                   <button style={{ border: "1px solid rgba(255,255,255,0.08)", background: "rgba(255,255,255,0.04)", color: "#a1a1aa", padding: "9px 18px", borderRadius: 8, cursor: "pointer", fontWeight: 700, fontSize: 12, fontFamily: "'Outfit', system-ui" }} onClick={() => setConfModal(null)}>Cancelar</button>
-                  <button style={{ border: "1px solid rgba(16,185,129,0.5)", background: "rgba(16,185,129,0.2)", color: "#10b981", padding: "9px 22px", borderRadius: 8, cursor: "pointer", fontWeight: 700, fontSize: 12, fontFamily: "'Outfit', system-ui" }} onClick={recibirPedido}>✅ Confirmar recepción</button>
+                  <button style={{ border: "1px solid rgba(16,185,129,0.5)", background: "rgba(16,185,129,0.2)", color: "#10b981", padding: "9px 22px", borderRadius: 8, cursor: "pointer", fontWeight: 700, fontSize: 12, fontFamily: "'Outfit', system-ui" }} onClick={recibirPedido}>Confirmar recepción</button>
                 </div>
               </div>
             </div>
@@ -1575,7 +1617,7 @@ export default function LaminacionScreen({ profile, signOut }) {
           return (
             <div style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.75)", zIndex: 9999, display: "flex", alignItems: "center", justifyContent: "center", backdropFilter: "blur(4px)" }}>
               <div style={{ background: "#111113", border: "1px solid rgba(255,255,255,0.12)", borderRadius: 16, padding: 28, width: "min(560px, 94vw)", boxShadow: "0 24px 64px rgba(0,0,0,0.6)", maxHeight: "85vh", overflow: "auto" }}>
-                <h3 style={{ margin: "0 0 4px", color: "#f4f4f5", fontSize: 16 }}>📦 Recepción parcial</h3>
+                <h3 style={{ margin: "0 0 4px", color: "#f4f4f5", fontSize: 16 }}>Recepción parcial</h3>
                 <p style={{ margin: "0 0 4px", color: "#71717a", fontSize: 12 }}>
                   Ingresá la cantidad que llegó de cada material. Dejá en 0 los que no llegaron.
                 </p>
@@ -1583,7 +1625,7 @@ export default function LaminacionScreen({ profile, signOut }) {
 
                 <div style={{ display: "flex", flexDirection: "column", gap: 8, marginBottom: 20 }}>
                   {grupo.items.map(p => {
-                    const mat = materiales.find(m => m.id === p.material_id);
+                    const mat = materiales.find(m => String(m.id) === String(p.material_id));
                     const val = cantsParciales[p.id] ?? "";
                     const cantNum = num(val);
                     const pedidoNum = num(p.cantidad);
@@ -1608,7 +1650,7 @@ export default function LaminacionScreen({ profile, signOut }) {
                           <span style={{ fontSize: 10, color: "#71717a", minWidth: 28 }}>{mat?.unidad}</span>
                           {cantNum > 0 && (
                             <span style={{ fontSize: 10, color, fontWeight: 700, minWidth: 60 }}>
-                              {cantNum >= pedidoNum ? "completo ✓" : `${Math.round(cantNum/pedidoNum*100)}%`}
+                              {cantNum >= pedidoNum ? "completo " : `${Math.round(cantNum/pedidoNum*100)}%`}
                             </span>
                           )}
                         </div>
@@ -1620,7 +1662,7 @@ export default function LaminacionScreen({ profile, signOut }) {
                 {err && <div style={{ marginBottom: 12, color: "#ff453a", fontSize: 12 }}>{err}</div>}
 
                 <div style={{ padding: "9px 14px", background: "rgba(245,158,11,0.07)", border: "1px solid rgba(245,158,11,0.2)", borderRadius: 8, fontSize: 12, color: "#f59e0b", marginBottom: 20 }}>
-                  📦 Los materiales con cantidad &gt; 0 se registran como ingreso. Los que lleguen completos cierran el ítem; los parciales quedan pendientes.
+                   Los materiales con cantidad &gt; 0 se registran como ingreso. Los que lleguen completos cierran el ítem; los parciales quedan pendientes.
                 </div>
 
                 <div style={{ display: "flex", gap: 10, justifyContent: "flex-end" }}>
@@ -1630,7 +1672,7 @@ export default function LaminacionScreen({ profile, signOut }) {
                     disabled={!algunaCant}
                     onClick={recibirPedido}
                   >
-                    📦 Confirmar parcial
+                    Confirmar parcial
                   </button>
                 </div>
               </div>
@@ -1647,7 +1689,7 @@ export default function LaminacionScreen({ profile, signOut }) {
           <div style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.75)", zIndex: 9999, display: "flex", alignItems: "center", justifyContent: "center", backdropFilter: "blur(4px)" }}>
             <div style={{ background: "#111113", border: "1px solid rgba(255,255,255,0.12)", borderRadius: 16, padding: 28, width: "min(480px, 94vw)", boxShadow: "0 24px 64px rgba(0,0,0,0.6)" }}>
               <h3 style={{ margin: "0 0 4px", color: "#f4f4f5", fontSize: 16 }}>
-                {tipo === "entero" ? "✅ Confirmar recepción completa" : "📦 Confirmar recepción parcial"}
+                {tipo === "entero" ? "Confirmar recepción completa" : " Confirmar recepción parcial"}
               </h3>
               <p style={{ margin: "0 0 20px", color: "#71717a", fontSize: 12 }}>Esto registra un ingreso y actualiza el stock.</p>
               <div style={{ background: "rgba(255,255,255,0.03)", border: "1px solid rgba(255,255,255,0.08)", borderRadius: 10, padding: "14px 16px", marginBottom: 20 }}>
@@ -1666,14 +1708,14 @@ export default function LaminacionScreen({ profile, signOut }) {
               )}
               {tipo === "entero" && (
                 <div style={{ marginBottom: 20, padding: "10px 14px", background: "rgba(16,185,129,0.08)", border: "1px solid rgba(16,185,129,0.25)", borderRadius: 8, fontSize: 12, color: "#10b981" }}>
-                  ✅ Se registra ingreso de <b>{num(pedido?.cantidad)} {mat?.unidad}</b> · Pedido → <b>Entregado</b>.
+                   Se registra ingreso de <b>{num(pedido?.cantidad)} {mat?.unidad}</b> · Pedido  <b>Entregado</b>.
                 </div>
               )}
               <div style={{ display: "flex", gap: 10, justifyContent: "flex-end" }}>
                 <button style={{ border: "1px solid rgba(255,255,255,0.08)", background: "rgba(255,255,255,0.04)", color: "#a1a1aa", padding: "9px 18px", borderRadius: 8, cursor: "pointer", fontWeight: 700, fontSize: 12, fontFamily: "'Outfit', system-ui" }} onClick={() => setConfModal(null)}>Cancelar</button>
                 <button style={{ border: `1px solid ${tipo === "entero" ? "rgba(16,185,129,0.5)" : "rgba(245,158,11,0.5)"}`, background: tipo === "entero" ? "rgba(16,185,129,0.2)" : "rgba(245,158,11,0.2)", color: tipo === "entero" ? "#10b981" : "#f59e0b", padding: "9px 22px", borderRadius: 8, cursor: esValido ? "pointer" : "not-allowed", fontWeight: 700, fontSize: 12, fontFamily: "'Outfit', system-ui", opacity: esValido ? 1 : 0.5 }}
                   disabled={!esValido} onClick={recibirPedido}>
-                  {tipo === "entero" ? "✅ Confirmar" : "📦 Confirmar parcial"}
+                  {tipo === "entero" ? " Confirmar" : "Confirmar parcial"}
                 </button>
               </div>
             </div>
