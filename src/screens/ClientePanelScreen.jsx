@@ -5,12 +5,17 @@
 import React, { useEffect, useState, useCallback, useRef } from "react";
 import { supabase } from "../supabaseClient";
 import logoK from "../assets/logo-k.png";
+import k52Render from "./k52.png";
+import OnboardingExperience from "./OnboardingExperience";
+import { hasCompletedOnboarding } from "./onboardingStorage";
+import Yacht3DViewer from "../components/Yacht3DViewer";
 import {
   Home, Settings, Compass, Zap, Anchor, Shield, Play, MessageSquare,
   Wind, Activity, AlertTriangle, Check, RefreshCw, ChevronRight,
   X, Wifi, Power, Gauge, RotateCcw, Phone, Flame, Droplets, Radio,
   Navigation, Info, Wrench, Eye, EyeOff, FileText, Upload, Paperclip,
-  Image as ImageIcon, Trash2, ZoomIn, Menu, Thermometer, Battery
+  Image as ImageIcon, Trash2, ZoomIn, Menu, Thermometer, Battery,
+  Search, SlidersHorizontal
 } from "lucide-react";
 
 /* ═══════════════════════════════════════════════════════════════
@@ -52,15 +57,15 @@ body {
   --t2: #94A3B8; 
   --t3: #64748B;
   
-  /* Technical Sky Blue Accent */
-  --accent: #38BDF8; 
-  --accent2: rgba(56, 189, 248, 0.10); 
-  --accent3: rgba(56, 189, 248, 0.05);
+  /* Champagne graphite accent */
+  --accent: #D8C3A5; 
+  --accent2: rgba(216, 195, 161, 0.10); 
+  --accent3: rgba(216, 195, 161, 0.05);
   
   --ok: #10B981; --ok2: rgba(16, 185, 129, 0.10);
   --warn: #F59E0B; --warn2: rgba(245, 158, 11, 0.10);
   --err: #EF4444; --err2: rgba(239, 68, 68, 0.09);
-  --info: #3B82F6; --info2: rgba(59, 130, 246, 0.10);
+  --info: #9DAF8D; --info2: rgba(157, 175, 141, 0.10);
   
   --serif: 'Outfit', sans-serif;
   --cond:  'Plus Jakarta Sans', sans-serif;
@@ -136,7 +141,7 @@ body::before {
 }
 .sh-rule {
   height:1px; margin-top:24px;
-  background:linear-gradient(90deg, var(--accent), rgba(56, 189, 248, .08), transparent);
+  background:linear-gradient(90deg, var(--accent), rgba(216, 195, 161, .08), transparent);
   animation:ruleGrow .8s var(--ez) both; transform-origin:left;
 }
 
@@ -214,7 +219,7 @@ body::before {
 }
 .vcard-scan {
   position:absolute; top:0; left:0; right:0; height:1px;
-  background:linear-gradient(90deg,transparent,rgba(56,189,248,.55),transparent);
+  background:linear-gradient(90deg,transparent,rgba(216,195,161,.55),transparent);
   animation:scan 3.5s ease-in-out infinite; pointer-events:none; opacity:0;
 }
 .vcard:hover .vcard-scan { opacity:1; }
@@ -223,11 +228,11 @@ body::before {
   position:absolute; top:50%; left:50%; transform:translate(-50%,-50%) scale(.78);
   opacity:0; transition:all .28s var(--ez);
   width:56px; height:56px; border-radius:50%;
-  border:1px solid rgba(56,189,248,.6); background: rgba(2,6,23,0.5); backdrop-filter: blur(4px); display:flex; align-items:center; justify-content:center;
+  border:1px solid rgba(216,195,161,.6); background: rgba(2,6,23,0.5); backdrop-filter: blur(4px); display:flex; align-items:center; justify-content:center;
 }
 .vcard:hover .vcard-play { opacity:1; transform:translate(-50%,-50%) scale(1); }
-.vcard-corner { position:absolute; width:12px; height:12px; border-color:rgba(56,189,248,.25); border-style:solid; transition:border-color .25s; }
-.vcard:hover .vcard-corner { border-color:rgba(56,189,248,.65); }
+.vcard-corner { position:absolute; width:12px; height:12px; border-color:rgba(216,195,161,.25); border-style:solid; transition:border-color .25s; }
+.vcard:hover .vcard-corner { border-color:rgba(216,195,161,.65); }
 .vcard-corner.tl { top:10px; left:10px; border-width:2px 0 0 2px; }
 .vcard-corner.tr { top:10px; right:10px; border-width:2px 2px 0 0; }
 .vcard-corner.bl { bottom:10px; left:10px; border-width:0 0 2px 2px; }
@@ -244,7 +249,7 @@ body::before {
 
 /* ── MOTOR INSTRUMENT PANEL ── */
 .motor-panel {
-  background: radial-gradient(ellipse at 50% 0%, rgba(56,189,248,0.05) 0%, transparent 70%), var(--s1);
+  background: radial-gradient(ellipse at 50% 0%, rgba(216,195,161,0.05) 0%, transparent 70%), var(--s1);
   border: 1px solid var(--e1); border-radius: 6px;
   position: relative;
   overflow: hidden;
@@ -322,6 +327,275 @@ body::before {
 .stg > *:nth-child(1){animation-delay:.04s} .stg > *:nth-child(2){animation-delay:.10s}
 .stg > *:nth-child(3){animation-delay:.16s} .stg > *:nth-child(4){animation-delay:.22s}
 .stg > *:nth-child(5){animation-delay:.28s} .stg > *:nth-child(n+6){animation-delay:.34s}
+
+/* ── PREMIUM DESIGN PASS ── */
+.ka-client-os {
+  position: relative;
+  isolation: isolate;
+  background:
+    radial-gradient(circle at 18% 9%, rgba(216,195,161,.12), transparent 30%),
+    radial-gradient(circle at 82% 22%, rgba(168,85,247,.08), transparent 28%),
+    radial-gradient(circle at 72% 86%, rgba(16,185,129,.055), transparent 32%),
+    linear-gradient(145deg, #020617 0%, #050816 46%, #020617 100%) !important;
+}
+.ka-client-os::before {
+  content:"";
+  position: fixed;
+  inset: 0;
+  z-index: 0;
+  pointer-events: none;
+  opacity: .22;
+  background:
+    linear-gradient(rgba(255,255,255,.028) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(255,255,255,.028) 1px, transparent 1px);
+  background-size: 74px 74px;
+  mask-image: radial-gradient(circle at 50% 24%, black, transparent 72%);
+}
+.ka-client-os .nav {
+  top: 14px;
+  left: clamp(12px,2vw,26px);
+  right: clamp(12px,2vw,26px);
+  height: 64px;
+  border: 1px solid rgba(255,255,255,.1);
+  border-radius: 22px;
+  background: linear-gradient(180deg, rgba(15,23,42,.78), rgba(2,6,23,.64));
+  box-shadow: 0 22px 70px rgba(0,0,0,.28), inset 0 1px 0 rgba(255,255,255,.08);
+}
+.ka-client-os .shell { padding-top: 92px; }
+.ka-client-os .page { max-width: 1320px; padding-top: clamp(34px,5vw,72px); }
+.ka-client-os .card,
+.ka-client-os .card-dark,
+.ka-client-os .motor-panel,
+.ka-client-os .vcard {
+  border-radius: 20px !important;
+  border-color: rgba(255,255,255,.09) !important;
+  background:
+    linear-gradient(180deg, rgba(255,255,255,.055), rgba(255,255,255,.022)) !important;
+  box-shadow: 0 24px 70px rgba(0,0,0,.22), inset 0 1px 0 rgba(255,255,255,.06);
+  backdrop-filter: blur(22px);
+}
+.ka-client-os .sh {
+  padding: 4px 0 10px;
+  margin-bottom: 38px;
+}
+.ka-client-os .sh-t {
+  max-width: 780px;
+  font-size: clamp(34px,4.6vw,58px);
+  font-weight: 650;
+  letter-spacing: 0;
+}
+.ka-client-os .sh-eye {
+  color: rgba(216,195,161,.88);
+}
+.ka-client-os .sh-rule {
+  max-width: 520px;
+  opacity: .65;
+}
+.ka-client-os .nv {
+  border-radius: 16px;
+  margin: 8px 2px;
+  height: 48px;
+  transition: background .24s var(--ez), color .24s var(--ez), transform .2s var(--ez);
+}
+.ka-client-os .nv:hover {
+  background: rgba(255,255,255,.045);
+  transform: translateY(-1px);
+}
+.ka-client-os .nv.on {
+  background: rgba(216,195,161,.105);
+}
+.ka-client-os .nv::after { bottom: 5px; border-radius: 99px; }
+.ka-hero-premium {
+  border-bottom: 1px solid rgba(255,255,255,.06);
+  background: #020617;
+}
+.ka-hero-premium::before {
+  content:"";
+  position:absolute;
+  inset: 0;
+  z-index: 2;
+  pointer-events:none;
+  background:
+    linear-gradient(90deg, rgba(255,255,255,.03) 1px, transparent 1px),
+    linear-gradient(rgba(255,255,255,.022) 1px, transparent 1px);
+  background-size: 72px 72px;
+  mask-image: linear-gradient(90deg, black, transparent 70%);
+}
+.ka-hero-glass {
+  border: 1px solid rgba(255,255,255,.12);
+  background: linear-gradient(180deg, rgba(15,23,42,.48), rgba(2,6,23,.22));
+  box-shadow: 0 24px 90px rgba(0,0,0,.28), inset 0 1px 0 rgba(255,255,255,.08);
+  backdrop-filter: blur(22px);
+}
+.ka-module-tile {
+  border-radius: 20px !important;
+  background:
+    radial-gradient(circle at 18% 0%, rgba(216,195,161,.11), transparent 36%),
+    linear-gradient(180deg, rgba(255,255,255,.065), rgba(255,255,255,.025)) !important;
+  border-color: rgba(255,255,255,.09) !important;
+  box-shadow: 0 18px 54px rgba(0,0,0,.2);
+}
+.ka-search-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 9998;
+  display: grid;
+  place-items: start center;
+  padding: min(13vh,110px) 18px 24px;
+  background: rgba(2,6,23,.72);
+  backdrop-filter: blur(18px);
+  animation: fade .18s both;
+}
+.ka-search-panel {
+  width: min(820px, 100%);
+  overflow: hidden;
+  border-radius: 26px;
+  border: 1px solid rgba(255,255,255,.12);
+  background:
+    radial-gradient(circle at 20% 0%, rgba(216,195,161,.12), transparent 38%),
+    linear-gradient(180deg, rgba(15,23,42,.94), rgba(2,6,23,.94));
+  box-shadow: 0 40px 130px rgba(0,0,0,.5), inset 0 1px 0 rgba(255,255,255,.09);
+}
+.ka-search-input {
+  display:flex;
+  align-items:center;
+  gap:14px;
+  padding: 20px 22px;
+  border-bottom: 1px solid rgba(255,255,255,.08);
+}
+.ka-search-input input {
+  flex:1;
+  min-width:0;
+  background: transparent;
+  border:0;
+  outline:0;
+  color:#fff;
+  font: 600 18px var(--body);
+}
+.ka-search-input input::placeholder { color: rgba(148,163,184,.72); }
+.ka-search-results {
+  max-height: min(62vh, 520px);
+  overflow:auto;
+  padding: 10px;
+}
+.ka-search-item {
+  width:100%;
+  display:grid;
+  grid-template-columns: 40px 1fr auto;
+  align-items:center;
+  gap:14px;
+  padding: 14px;
+  border: 1px solid transparent;
+  border-radius: 18px;
+  background: transparent;
+  color: inherit;
+  text-align:left;
+  cursor:pointer;
+}
+.ka-search-item:hover {
+  background: rgba(255,255,255,.055);
+  border-color: rgba(255,255,255,.09);
+}
+.ka-search-icon {
+  width:40px;
+  height:40px;
+  display:grid;
+  place-items:center;
+  border-radius: 14px;
+  color: var(--accent);
+  background: rgba(216,195,161,.09);
+}
+.ka-search-item strong {
+  display:block;
+  color:#fff;
+  font-size: 14px;
+  letter-spacing: .02em;
+}
+.ka-search-item span {
+  display:block;
+  margin-top:4px;
+  color: rgba(148,163,184,.84);
+  font-size: 12px;
+  line-height:1.45;
+}
+.ka-search-tag {
+  color: rgba(216,195,161,.72);
+  font: 800 10px var(--mono);
+  letter-spacing:.14em;
+  text-transform:uppercase;
+}
+.ka-search-empty {
+  padding: 42px 18px 48px;
+  text-align:center;
+  color: rgba(148,163,184,.8);
+}
+.yacht3d {
+  position: relative;
+  overflow: hidden;
+  border-radius: 28px;
+  border: 1px solid rgba(255,255,255,.12);
+  background:
+    radial-gradient(circle at 50% 24%, rgba(216,195,161,.14), transparent 42%),
+    linear-gradient(180deg, rgba(15,23,42,.58), rgba(2,6,23,.36));
+  box-shadow: 0 30px 100px rgba(0,0,0,.36), inset 0 1px 0 rgba(255,255,255,.08);
+  backdrop-filter: blur(22px);
+}
+.yacht3d::before {
+  content:"";
+  position:absolute;
+  inset:0;
+  pointer-events:none;
+  background:
+    linear-gradient(90deg, rgba(255,255,255,.026) 1px, transparent 1px),
+    linear-gradient(rgba(255,255,255,.022) 1px, transparent 1px);
+  background-size: 34px 34px;
+  mask-image: radial-gradient(circle at center, black, transparent 76%);
+}
+.yacht3d-head,
+.yacht3d-foot {
+  position:absolute;
+  left:16px;
+  right:16px;
+  z-index:2;
+  display:flex;
+  align-items:center;
+  justify-content:space-between;
+  gap:12px;
+  font-family:var(--mono);
+  letter-spacing:.14em;
+  text-transform:uppercase;
+}
+.yacht3d-head { top:14px; }
+.yacht3d-foot { bottom:14px; color:rgba(148,163,184,.82); font-size:9px; }
+.yacht3d-head span { color:var(--t1); font-size:10px; font-weight:900; }
+.yacht3d-head button {
+  border: 1px solid rgba(216,195,161,.28);
+  background: rgba(216,195,161,.08);
+  color: var(--accent);
+  border-radius: 999px;
+  padding: 7px 10px;
+  font: 900 9px var(--mono);
+  letter-spacing:.14em;
+  cursor:pointer;
+}
+.yacht3d-canvas {
+  position:relative;
+  z-index:1;
+  height: min(42vh, 390px);
+  min-height: 300px;
+  cursor: grab;
+}
+.yacht3d-canvas:active { cursor: grabbing; }
+.yacht3d.compact .yacht3d-canvas { height: 300px; min-height: 260px; }
+@media (max-width: 1100px) {
+  .ka-client-os .nav { top: 0; left: 0; right: 0; border-radius: 0; }
+  .ka-client-os .shell { padding-top: 70px; }
+  .yacht3d-hero-wrap { display:none; }
+}
+@media (max-width: 680px) {
+  .ka-client-os .page { padding-left: 16px; padding-right: 16px; }
+  .yacht3d-section-grid { grid-template-columns: 1fr !important; }
+}
 `;
 
 /* ═══════════════════════════════════════════════════════════════
@@ -622,8 +896,8 @@ function DualMotorCluster({ mc }){
             onClick={()=>setRunning(r=>!r)}
             style={{
               padding:"10px 20px", borderRadius: "4px",
-              background:running?"rgba(239,68,68,0.1)":"rgba(56,189,248,0.1)",
-              border:`1px solid ${running?"rgba(239,68,68,0.3)":"rgba(56,189,248,0.3)"}`,
+              background:running?"rgba(239,68,68,0.1)":"rgba(216,195,161,0.1)",
+              border:`1px solid ${running?"rgba(239,68,68,0.3)":"rgba(216,195,161,0.3)"}`,
               color:running?"var(--err)":"var(--accent)",
               fontFamily:"var(--cond)",fontWeight:700,fontSize:10,
               letterSpacing:".2em",textTransform:"uppercase",
@@ -987,7 +1261,6 @@ function EmergencyOverlay({ onClose }){
   fontWeight:700, letterSpacing:"-.02em",
   color:"var(--t1)"
 }}>
-                }}>
                   {proc.t}
                 </h2>
               </div>
@@ -1050,9 +1323,9 @@ function CompassRose({size=280,style={}}){
   const intermediates=[{l:"NE",d:45},{l:"SE",d:135},{l:"SO",d:225},{l:"NO",d:315}];
   return(
     <svg viewBox={`0 0 ${size} ${size}`} style={{width:size,height:size,opacity:.3,...style}}>
-      <circle cx={R} cy={R} r={R-2} fill="none" stroke="rgba(56,189,248,0.4)" strokeWidth=".5"/>
-      <circle cx={R} cy={R} r={R*0.68} fill="none" stroke="rgba(56,189,248,0.2)" strokeWidth=".4"/>
-      <circle cx={R} cy={R} r={R*0.36} fill="none" stroke="rgba(56,189,248,0.2)" strokeWidth=".4"/>
+      <circle cx={R} cy={R} r={R-2} fill="none" stroke="rgba(216,195,161,0.4)" strokeWidth=".5"/>
+      <circle cx={R} cy={R} r={R*0.68} fill="none" stroke="rgba(216,195,161,0.2)" strokeWidth=".4"/>
+      <circle cx={R} cy={R} r={R*0.36} fill="none" stroke="rgba(216,195,161,0.2)" strokeWidth=".4"/>
       {[0,22.5,45,67.5,90,112.5,135,157.5,180,202.5,225,247.5,270,292.5,315,337.5].map(d=>{
         const isCardinal=d%90===0;
         const isInter=d%45===0&&!isCardinal;
@@ -1060,23 +1333,23 @@ function CompassRose({size=280,style={}}){
         const {x:x1,y:y1}=polarPt(R,R,r1,d-90);
         const {x:x2,y:y2}=polarPt(R,R,R-2,d-90);
         return <line key={d} x1={x1} y1={y1} x2={x2} y2={y2}
-          stroke={isCardinal?"rgba(56,189,248,0.8)":isInter?"rgba(56,189,248,0.4)":"rgba(56,189,248,0.2)"}
+          stroke={isCardinal?"rgba(216,195,161,0.8)":isInter?"rgba(216,195,161,0.4)":"rgba(216,195,161,0.2)"}
           strokeWidth={isCardinal?1:0.5}/>;
       })}
       {cardinals.map(c=>{
         const {x,y}=polarPt(R,R,R*0.5,c.d-90);
         return <text key={c.l} x={x} y={y+5} textAnchor="middle"
-          fill="rgba(56,189,248,0.9)"
+          fill="rgba(216,195,161,0.9)"
           style={{fontFamily:"var(--cond)",fontSize:14,fontWeight:800,letterSpacing:".1em"}}>{c.l}</text>;
       })}
       {intermediates.map(c=>{
         const {x,y}=polarPt(R,R,R*0.52,c.d-90);
         return <text key={c.l} x={x} y={y+4} textAnchor="middle"
-          fill="rgba(56,189,248,0.5)"
+          fill="rgba(216,195,161,0.5)"
           style={{fontFamily:"var(--cond)",fontSize:10,fontWeight:600,letterSpacing:".1em"}}>{c.l}</text>;
       })}
-      <circle cx={R} cy={R} r={5} fill="rgba(56,189,248,0.6)"/>
-      <circle cx={R} cy={R} r={2} fill="rgba(56,189,248,1)"/>
+      <circle cx={R} cy={R} r={5} fill="rgba(216,195,161,0.6)"/>
+      <circle cx={R} cy={R} r={2} fill="rgba(216,195,161,1)"/>
     </svg>
   );
 }
@@ -1115,10 +1388,12 @@ function WindyWidget(){
 /* ═══════════════════════════════════════════════════════════════
    SEC BIENVENIDA
 ═══════════════════════════════════════════════════════════════ */
-function SecBienvenida({cliente,goTo,onEmergency}){
+function SecBienvenida({cliente,goTo,onEmergency,onReplayIntro,onSearch}){
   const [wx,setWx]=useState(null);
   const [loaded,setLoaded]=useState(false);
   const [time,setTime]=useState(new Date());
+  const [imgMode,setImgMode]=useState(()=>ls("hero_img_mode")||"cinema");
+  const [focal,setFocal]=useState(()=>Number(ls("hero_img_focal")||55));
 
   useEffect(()=>{
     const t=setInterval(()=>setTime(new Date()),1000);
@@ -1144,7 +1419,12 @@ function SecBienvenida({cliente,goTo,onEmergency}){
     else get(-34.425,-58.544);
   },[]);
 
-  const img=cliente?.imagen_unidad||"https://images.unsplash.com/photo-1567899378494-47b22a2ae96a?w=1800&q=90";
+  const img=cliente?.imagen_unidad||k52Render;
+  const cinematic=imgMode!=="detail";
+  const heroFilter=cinematic
+    ? "saturate(.86) contrast(1.08) brightness(.72) blur(.35px)"
+    : "saturate(.98) contrast(1.04) brightness(.86)";
+  const heroScale=cinematic?1.035:1.01;
   const firstName=(cliente?.nombre_completo||"").split(" ")[0];
   const hull=[cliente?.nombre_barco,cliente?.numero_unidad].filter(Boolean).join("  ·  ");
   const hh=pad(time.getHours()),mm=pad(time.getMinutes()),ss=pad(time.getSeconds());
@@ -1163,13 +1443,14 @@ function SecBienvenida({cliente,goTo,onEmergency}){
   return(
     <div>
       {/* ── HERO ── */}
-      <div style={{position:"relative",width:"100%",height:"min(92vh,760px)",overflow:"hidden"}}>
+      <div className="ka-hero-premium" style={{position:"relative",width:"100%",height:"min(92vh,780px)",overflow:"hidden"}}>
         <img src={img} onLoad={()=>setLoaded(true)} alt=""
-          style={{position:"absolute",inset:0,width:"100%",height:"100%",objectFit:"cover",objectPosition:"55% 38%",
-            animation:loaded?"kenBurns 18s ease-out both":"none",opacity:loaded?1:0,transition:"opacity 1.1s"}}/>
-        <div style={{position:"absolute",inset:0,background:"linear-gradient(to right,rgba(2,6,23,.97) 0%,rgba(2,6,23,.65) 38%,rgba(2,6,23,.20) 65%,rgba(2,6,23,.50) 100%)"}}/>
-        <div style={{position:"absolute",inset:0,background:"linear-gradient(to top,rgba(2,6,23,1) 0%,rgba(2,6,23,.5) 18%,transparent 48%)"}}/>
-        <div style={{position:"absolute",inset:0,background:"radial-gradient(ellipse at 80% 45%,rgba(56,189,248,0.09) 0%,rgba(56,189,248,0.03) 40%,transparent 65%)"}}/>
+          style={{position:"absolute",inset:0,width:"100%",height:"100%",objectFit:"cover",objectPosition:`${focal}% 40%`,
+            transform:`scale(${heroScale})`,filter:heroFilter,imageRendering:"auto",
+            animation:loaded?"kenBurns 18s ease-out both":"none",opacity:loaded?1:0,transition:"opacity 1.1s, filter .35s, object-position .35s, transform .35s"}}/>
+        <div style={{position:"absolute",inset:0,background:"linear-gradient(to right,rgba(2,6,23,.98) 0%,rgba(2,6,23,.74) 34%,rgba(2,6,23,.22) 63%,rgba(2,6,23,.62) 100%)"}}/>
+        <div style={{position:"absolute",inset:0,background:"linear-gradient(to top,rgba(2,6,23,1) 0%,rgba(2,6,23,.58) 18%,transparent 50%)"}}/>
+        <div style={{position:"absolute",inset:0,background:"radial-gradient(ellipse at 78% 45%,rgba(216,195,161,0.14) 0%,rgba(168,85,247,0.045) 38%,transparent 66%)"}}/>
 
         <div style={{position:"absolute",right:"clamp(-40px,0vw,20px)",top:"50%",transform:"translateY(-50%)",animation:"fade 2s 0.5s both",pointerEvents:"none"}}>
           <div style={{animation:"rotCompass 90s linear infinite"}}>
@@ -1211,6 +1492,30 @@ function SecBienvenida({cliente,goTo,onEmergency}){
           </div>
         )}
 
+        <div className="ka-hero-glass" style={{position:"absolute",right:"clamp(20px,5vw,64px)",bottom:"clamp(24px,5vw,64px)",zIndex:5,width:"min(340px,calc(100vw - 40px))",padding:16,borderRadius:22,animation:"enter .8s .5s var(--ez) both"}}>
+          <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",gap:12,marginBottom:12}}>
+            <div style={{display:"flex",alignItems:"center",gap:9}}>
+              <SlidersHorizontal size={15} color="var(--accent)"/>
+              <Cap sm style={{color:"rgba(226,232,240,.76)"}}>Visual de unidad</Cap>
+            </div>
+            <button onClick={()=>{const next=imgMode==="detail"?"cinema":"detail";setImgMode(next);ls("hero_img_mode",next);}}
+              style={{border:"1px solid rgba(255,255,255,.12)",background:"rgba(255,255,255,.06)",borderRadius:999,color:"var(--t1)",padding:"7px 10px",fontFamily:"var(--mono)",fontSize:10,fontWeight:800,cursor:"pointer"}}>
+              {imgMode==="detail"?"NITIDA":"CINE"}
+            </button>
+          </div>
+          <input type="range" min="35" max="75" value={focal}
+            onChange={e=>{const v=Number(e.target.value);setFocal(v);ls("hero_img_focal",String(v));}}
+            aria-label="Ajustar posicion de imagen"
+            style={{width:"100%",accentColor:"var(--accent)",cursor:"pointer"}}/>
+          <div style={{display:"flex",justifyContent:"space-between",marginTop:8,fontFamily:"var(--mono)",fontSize:9,color:"rgba(148,163,184,.75)",letterSpacing:".12em"}}>
+            <span>POPA</span><span>FOCO</span><span>PROA</span>
+          </div>
+        </div>
+
+        <div className="yacht3d-hero-wrap" style={{position:"absolute",right:"clamp(24px,5vw,64px)",top:"clamp(112px,16vh,150px)",zIndex:4,width:"min(470px,38vw)",minWidth:360,animation:"enter .9s .38s var(--ez) both"}}>
+          <Yacht3DViewer compact />
+        </div>
+
         {/* Hero text */}
         <div style={{position:"absolute",bottom:"clamp(40px,6vw,90px)",left:"clamp(24px,5vw,64px)",maxWidth:720}}>
           <div style={{marginBottom:10,animation:"enter .6s .04s var(--ez) both"}}>
@@ -1245,8 +1550,16 @@ function SecBienvenida({cliente,goTo,onEmergency}){
             </p>
           </div>
           <div style={{display:"flex",gap:14,marginTop:32,animation:"enter .8s .42s var(--ez) both",flexWrap:"wrap"}}>
+            <button onClick={onSearch}
+              style={{padding:"14px 28px",background:"rgba(255,255,255,0.08)",color:"var(--t1)",border:"1px solid rgba(255,255,255,.16)", borderRadius:"999px",
+                fontFamily:"var(--cond)",fontWeight:800,fontSize:11,letterSpacing:".25em",
+                textTransform:"uppercase",cursor:"pointer",transition:"filter .2s,transform .15s",display:"flex",alignItems:"center",gap:10}}
+              onMouseEnter={e=>{e.currentTarget.style.filter="brightness(1.12)";e.currentTarget.style.transform="translateY(-2px)"}}
+              onMouseLeave={e=>{e.currentTarget.style.filter="brightness(1)";e.currentTarget.style.transform="translateY(0)"}}>
+              <Search size={13}/>Buscar
+            </button>
             <button onClick={()=>goTo("soporte")}
-              style={{padding:"14px 32px",background:"var(--accent)",color:"#020617",border:"none", borderRadius:"4px",
+              style={{padding:"14px 32px",background:"var(--accent)",color:"#020617",border:"none", borderRadius:"999px",
                 fontFamily:"var(--cond)",fontWeight:800,fontSize:11,letterSpacing:".25em",
                 textTransform:"uppercase",cursor:"pointer",transition:"filter .2s,transform .15s"}}
               onMouseEnter={e=>{e.currentTarget.style.filter="brightness(1.15)";e.currentTarget.style.transform="translateY(-2px)"}}
@@ -1254,7 +1567,7 @@ function SecBienvenida({cliente,goTo,onEmergency}){
               Reportar Falla
             </button>
             <button onClick={onEmergency}
-              style={{padding:"14px 28px",background:"rgba(239,68,68,0.1)", borderRadius:"4px",
+              style={{padding:"14px 28px",background:"rgba(239,68,68,0.1)", borderRadius:"999px",
                 color:"var(--err)",border:"1px solid rgba(239,68,68,0.3)",
                 fontFamily:"var(--cond)",fontWeight:700,fontSize:11,letterSpacing:".25em",
                 textTransform:"uppercase",cursor:"pointer",transition:"all .2s",
@@ -1264,9 +1577,35 @@ function SecBienvenida({cliente,goTo,onEmergency}){
               <div style={{width:6,height:6,borderRadius:"50%",background:"var(--err)",animation:"pulse .8s ease-in-out infinite",boxShadow:"0 0 8px var(--err)"}}/>
               Emergencia
             </button>
+            <button onClick={onReplayIntro}
+              style={{padding:"14px 28px",background:"rgba(255,255,255,0.06)", borderRadius:"999px",
+                color:"var(--t1)",border:"1px solid rgba(255,255,255,0.14)",
+                fontFamily:"var(--cond)",fontWeight:700,fontSize:11,letterSpacing:".25em",
+                textTransform:"uppercase",cursor:"pointer",transition:"all .2s",
+                display:"flex",alignItems:"center",gap:10}}
+              onMouseEnter={e=>{e.currentTarget.style.background="rgba(216,195,161,0.12)";e.currentTarget.style.borderColor="rgba(216,195,161,0.38)";e.currentTarget.style.color="var(--accent)"}}
+              onMouseLeave={e=>{e.currentTarget.style.background="rgba(255,255,255,0.06)";e.currentTarget.style.borderColor="rgba(255,255,255,0.14)";e.currentTarget.style.color="var(--t1)"}}>
+              <Play size={13}/>
+              Volver a ver introduccion
+            </button>
           </div>
         </div>
         <div style={{position:"absolute",bottom:0,left:0,right:0,height:1,background:"linear-gradient(90deg,var(--accent),transparent 65%)", opacity: 0.4}}/>
+      </div>
+
+      <div style={{maxWidth:1400,margin:"0 auto",padding:"34px var(--gutter) 10px"}}>
+        <div className="yacht3d-section-grid" style={{display:"grid",gridTemplateColumns:"minmax(280px,.75fr) minmax(320px,1.25fr)",gap:18,alignItems:"stretch"}}>
+          <div className="card" style={{padding:"32px",display:"flex",flexDirection:"column",justifyContent:"center"}}>
+            <Cap style={{color:"var(--accent)"}}>Modelo interactivo</Cap>
+            <h2 style={{fontFamily:"var(--serif)",fontSize:"clamp(28px,4vw,46px)",fontWeight:650,lineHeight:1.05,letterSpacing:0,color:"var(--t1)",marginTop:16}}>
+              K52 HT en 3D
+            </h2>
+            <p style={{color:"var(--t2)",fontSize:15,lineHeight:1.7,marginTop:16,maxWidth:430}}>
+              Vista conceptual rotativa para inspeccionar volumen, hardtop, cubierta y proporciones. Cuando tengamos archivos GLB reales de cada modelo, este visor puede cargarlos directamente.
+            </p>
+          </div>
+          <Yacht3DViewer />
+        </div>
       </div>
 
       {/* Module grid */}
@@ -1282,7 +1621,7 @@ function SecBienvenida({cliente,goTo,onEmergency}){
         {/* Responsive Grid Fix */}
         <div className="stg" style={{display:"grid",gridTemplateColumns:"repeat(auto-fit, minmax(260px, 1fr))",gap:16,paddingTop:16, paddingBottom: 48}}>
           {QA.map((a,i)=>(
-            <button key={a.s} onClick={()=>goTo(a.s)}
+            <button key={a.s} className="ka-module-tile" onClick={()=>goTo(a.s)}
               style={{
                 padding:"32px 24px",background:"var(--s1)",border:"1px solid var(--e1)", borderRadius: "8px",
                 cursor:"pointer",textAlign:"left",transition:"all .25s",
@@ -1337,10 +1676,10 @@ function SecIdentidad({cliente,push}){
           {[["mat","Matrícula","RP-123456"],["mmsi","MMSI / Radio VHF","701000452"],["senal","Señal Distintiva","LW 9844"]].map(([k,l,ph])=>(
             <div key={k} style={{marginBottom:24}}><Lbl>{l}</Lbl><input className="inp" value={v[k]} placeholder={ph} onChange={e=>up(k,e.target.value)}/></div>
           ))}
-          <div style={{padding:"20px 24px",borderRadius:"6px",background:"var(--s2)",border:"1px solid rgba(56,189,248,.15)",marginTop:16}}>
+          <div style={{padding:"20px 24px",borderRadius:"6px",background:"var(--s2)",border:"1px solid rgba(216,195,161,.15)",marginTop:16}}>
             <div style={{display:"flex",alignItems:"center",gap:10,marginBottom:18}}>
               <Wifi size={14} color="var(--info)"/>
-              <Cap style={{color:"rgba(56,189,248,0.8)"}}>Red WiFi Abordo</Cap>
+              <Cap style={{color:"rgba(216,195,161,0.8)"}}>Red WiFi Abordo</Cap>
             </div>
             <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:20}}>
               <div><Lbl>Red</Lbl><input className="inp" value={v["wssid"]} placeholder="Nombre" onChange={e=>up("wssid",e.target.value)}/></div>
@@ -1505,7 +1844,7 @@ function SecPlanificador({mc}){
               </div>
             ))}
           </div>
-          <div style={{marginTop:24,padding:"24px 28px",borderRadius:"6px",border:"1px solid rgba(56,189,248,.2)",background:"var(--accent3)"}}>
+          <div style={{marginTop:24,padding:"24px 28px",borderRadius:"6px",border:"1px solid rgba(216,195,161,.2)",background:"var(--accent3)"}}>
             <Cap sm style={{color:"var(--accent)",display:"block",marginBottom:14}}>Autonomía Estimada</Cap>
             <div style={{display:"flex",alignItems:"baseline",gap:16}}>
               <span style={{fontFamily:"var(--mono)",fontSize:48,color:"var(--t1)",fontWeight:700,lineHeight:1}}>{hrs}</span>
@@ -1636,7 +1975,7 @@ function SecEnergia({mc}){
       <div className="card" style={{padding:"32px 28px",marginBottom:16}}>
         <div style={{display:"flex",alignItems:"center",gap:10,marginBottom:24}}>
           <Zap size={16} color="var(--t3)"/><Cap>Diagrama de Fuentes — Flujo en Tiempo Real</Cap>
-          <div style={{marginLeft:"auto",padding:"6px 14px",borderRadius:"4px",background:"var(--accent3)",border:"1px solid rgba(56,189,248,.2)"}}>
+          <div style={{marginLeft:"auto",padding:"6px 14px",borderRadius:"4px",background:"var(--accent3)",border:"1px solid rgba(216,195,161,.2)"}}>
             <span style={{fontFamily:"var(--mono)",fontSize:10,color:"var(--accent)",fontWeight:700,letterSpacing:".1em"}}>
               ACTIVO: {tab==="puerto"?"SHORE 220V":tab==="grupo"?"GENERADOR":"INVERTER"}
             </span>
@@ -1795,9 +2134,9 @@ function SecSistemas({mc}){
         <p style={{color:"var(--t3)",fontSize:13,fontWeight:400,lineHeight:1.65,textAlign:"center",marginTop:32}}>Los valores de capacidad son de referencia. El nivel real se lee en los sensores del tablero de navegación.</p>
       </div>
       <div className="card" style={{marginBottom:16,overflow:"hidden"}}>
-        <div style={{padding:"24px 32px",borderBottom:"1px solid var(--e1)",display:"flex",alignItems:"center",gap:12,background:"rgba(56,189,248,0.05)"}}>
+        <div style={{padding:"24px 32px",borderBottom:"1px solid var(--e1)",display:"flex",alignItems:"center",gap:12,background:"rgba(216,195,161,0.05)"}}>
           <Anchor size={18} color="var(--accent)" style={{opacity:.9}}/>
-          <Cap style={{color:"rgba(56,189,248,0.9)"}}>Malacate — Procedimiento Completo</Cap>
+          <Cap style={{color:"rgba(216,195,161,0.9)"}}>Malacate — Procedimiento Completo</Cap>
           <div style={{marginLeft:"auto",padding:"6px 14px",borderRadius:"4px",background:"var(--warn2)",border:"1px solid rgba(245,158,11,.3)"}}>
             <Cap sm style={{color:"var(--warn)"}}>LEER ANTES DE OPERAR</Cap>
           </div>
@@ -1950,7 +2289,7 @@ function SecTutoriales(){
       <div style={{display:"flex",gap:8,marginBottom:24,flexWrap:"wrap",alignItems:"center"}}>
         {cats.map(c=>(
           <button key={c} onClick={()=>setFilter(c)}
-            style={{padding:"10px 20px",borderRadius:"4px",background:filter===c?"var(--s2)":"var(--s1)",border:`1px solid ${filter===c?"rgba(56,189,248,.4)":"var(--e1)"}`,cursor:"pointer",fontFamily:"var(--cond)",fontSize:11,fontWeight:800,letterSpacing:".2em",color:filter===c?"var(--accent)":"var(--t3)",textTransform:"uppercase",transition:"all .18s"}}>
+            style={{padding:"10px 20px",borderRadius:"4px",background:filter===c?"var(--s2)":"var(--s1)",border:`1px solid ${filter===c?"rgba(216,195,161,.4)":"var(--e1)"}`,cursor:"pointer",fontFamily:"var(--cond)",fontSize:11,fontWeight:800,letterSpacing:".2em",color:filter===c?"var(--accent)":"var(--t3)",textTransform:"uppercase",transition:"all .18s"}}>
             {c}
           </button>
         ))}
@@ -1968,7 +2307,7 @@ function SecTutoriales(){
               <div className="vcard-ov"/>
               <div className="vcard-scan"/>
               {["tl","tr","bl","br"].map(p=><div key={p} className={`vcard-corner ${p}`}/>)}
-              <div className="vcard-play"><Play size={24} color="rgba(56,189,248,.9)"/></div>
+              <div className="vcard-play"><Play size={24} color="rgba(216,195,161,.9)"/></div>
               <div style={{position:"absolute",top:0,left:0,right:0,padding:"18px",display:"flex",justifyContent:"space-between",alignItems:"flex-start"}}>
                 <div style={{padding:"4px 12px",borderRadius:"4px",background:"rgba(2,6,23,.85)",border:`1px solid ${color}40`,backdropFilter:"blur(12px)"}}>
                   <span style={{fontFamily:"var(--cond)",fontSize:10,fontWeight:800,color,letterSpacing:".15em"}}>{v.c.toUpperCase()}</span>
@@ -2108,7 +2447,7 @@ function SecSoporte({clienteId,nombreBarco,push}){
                 </div>
               </div>
               <button onClick={submit} disabled={send}
-                style={{width:"100%",padding:"18px",borderRadius:"6px",background:send?"rgba(56,189,248,.05)":"var(--accent)",border:`1px solid ${send?"rgba(56,189,248,.2)":"var(--accent)"}`,color:send?"var(--accent)":"#020617",fontFamily:"var(--cond)",fontWeight:800,fontSize:11,letterSpacing:".25em",textTransform:"uppercase",cursor:send?"not-allowed":"pointer",transition:"all .25s",display:"flex",alignItems:"center",justifyContent:"center",gap:10,opacity:send?.7:1}}>
+                style={{width:"100%",padding:"18px",borderRadius:"6px",background:send?"rgba(216,195,161,.05)":"var(--accent)",border:`1px solid ${send?"rgba(216,195,161,.2)":"var(--accent)"}`,color:send?"var(--accent)":"#020617",fontFamily:"var(--cond)",fontWeight:800,fontSize:11,letterSpacing:".25em",textTransform:"uppercase",cursor:send?"not-allowed":"pointer",transition:"all .25s",display:"flex",alignItems:"center",justifyContent:"center",gap:10,opacity:send?.7:1}}>
                 {send?"ENVIANDO…":"ENVIAR REPORTE"}
               </button>
             </>
@@ -2183,6 +2522,78 @@ const NAV_ITEMS=[
   {id:"soporte",      l:"Soporte",     ico:<MessageSquare size={14}/>},
 ];
 
+const SEARCH_ITEMS=[
+  {type:"section",target:"bienvenida",tag:"Inicio",title:"Panel principal",desc:"Vista general, clima, accesos directos e introduccion premium.",icon:<Home size={18}/>},
+  {type:"intro",tag:"Onboarding",title:"Volver a ver introduccion",desc:"Experiencia fullscreen interactiva del K52 HT.",icon:<Play size={18}/>},
+  {type:"section",target:"energia",tag:"Energia",title:"Activar baterias",desc:"Cortes de motor, servicio, grupo, bowthruster y apagado seguro.",icon:<Battery size={18}/>},
+  {type:"section",target:"energia",tag:"12V",title:"Tablero 12V",desc:"Termicas, voltimetro, amperimetro, bombas y consumos de baja tension.",icon:<Zap size={18}/>},
+  {type:"section",target:"energia",tag:"220V",title:"Tablero 220V",desc:"Modo puerto, modo grupo, inverter, selectoras y cargador de baterias.",icon:<Power size={18}/>},
+  {type:"section",target:"propulsion",tag:"Motores",title:"Encendido de motores",desc:"Neutral, llave, pantalla, arranque y llamada de mando MORSE.",icon:<Gauge size={18}/>},
+  {type:"section",target:"energia",tag:"Grupo",title:"Grupo electrogeno",desc:"Encendido del grupo, C.A. Grupo, termicas y diagnostico de fallas.",icon:<Radio size={18}/>},
+  {type:"section",target:"sistemas",tag:"Agua",title:"Sistema de agua potable",desc:"Bomba potable, tanques interconectados, aguas grises y negras.",icon:<Droplets size={18}/>},
+  {type:"section",target:"seguridad",tag:"Seguridad",title:"Incendio y achique",desc:"Extincion automatica, bombas de achique, alarmas y calefactor diesel.",icon:<Shield size={18}/>},
+  {type:"emergency",tag:"SOS",title:"Modo emergencia",desc:"Procedimientos de incendio, hombre al agua e ingreso de agua.",icon:<AlertTriangle size={18}/>},
+  {type:"section",target:"seguridad",tag:"Fallas",title:"Solucion de problemas",desc:"Baja bateria, paralelos, falta de 220V y fallas del grupo.",icon:<Wrench size={18}/>},
+  {type:"section",target:"soporte",tag:"Soporte",title:"Reportar falla",desc:"Abrir ticket tecnico con adjuntos para postventa.",icon:<MessageSquare size={18}/>},
+];
+
+function ClientSearchOverlay({open,onClose,onGo,onEmergency,onReplayIntro}){
+  const [q,setQ]=useState("");
+  const inputRef=useRef(null);
+  useEffect(()=>{
+    if(open)setTimeout(()=>inputRef.current?.focus(),40);
+  },[open]);
+  useEffect(()=>{
+    if(!open)return undefined;
+    const onKey=e=>{ if(e.key==="Escape")onClose(); };
+    window.addEventListener("keydown",onKey);
+    return()=>window.removeEventListener("keydown",onKey);
+  },[open,onClose]);
+  if(!open)return null;
+  const query=q.trim().toLowerCase();
+  const results=SEARCH_ITEMS.filter(item=>{
+    if(!query)return true;
+    return `${item.title} ${item.desc} ${item.tag}`.toLowerCase().includes(query);
+  });
+  const choose=item=>{
+    if(item.type==="emergency")onEmergency();
+    else if(item.type==="intro")onReplayIntro();
+    else onGo(item.target);
+    setQ("");
+    onClose();
+  };
+  return(
+    <div className="ka-search-overlay" onMouseDown={e=>{if(e.target===e.currentTarget)onClose();}}>
+      <div className="ka-search-panel">
+        <div className="ka-search-input">
+          <Search size={22} color="var(--accent)"/>
+          <input ref={inputRef} value={q} onChange={e=>setQ(e.target.value)} placeholder="Buscar baterias, 220V, grupo, agua, emergencia..." />
+          <button type="button" onClick={onClose} style={{width:34,height:34,borderRadius:999,border:"1px solid rgba(255,255,255,.12)",background:"rgba(255,255,255,.05)",color:"var(--t2)",display:"grid",placeItems:"center",cursor:"pointer"}}>
+            <X size={16}/>
+          </button>
+        </div>
+        <div className="ka-search-results">
+          {results.length?results.map(item=>(
+            <button key={`${item.type}-${item.target||item.title}`} type="button" className="ka-search-item" onClick={()=>choose(item)}>
+              <span className="ka-search-icon">{item.icon}</span>
+              <span>
+                <strong>{item.title}</strong>
+                <span>{item.desc}</span>
+              </span>
+              <span className="ka-search-tag">{item.tag}</span>
+            </button>
+          )):(
+            <div className="ka-search-empty">
+              <Search size={24} color="rgba(148,163,184,.7)" style={{marginBottom:12}}/>
+              <p>No encontre coincidencias en el panel.</p>
+            </div>
+          )}
+        </div>
+      </div>
+    </div>
+  );
+}
+
 /* ═══════════════════════════════════════════════════════════════
    MAIN EXPORT — OCEAN TECH
 ═══════════════════════════════════════════════════════════════ */
@@ -2190,6 +2601,9 @@ export default function ClientePanelScreen({session,onSignOut}){
   const [cliente,setC]=useState(null),[mc,setMc]=useState({}),[loading,setL]=useState(true);
   const [sec,setSec]=useState("bienvenida"),[mobOpen,setMob]=useState(false);
   const [emergMode,setEmergMode]=useState(false);
+  const [introOpen,setIntroOpen]=useState(false);
+  const [introDismissed,setIntroDismissed]=useState(false);
+  const [searchOpen,setSearchOpen]=useState(false);
   const {list:toasts,push}=useToast();
 
   useEffect(()=>{
@@ -2204,6 +2618,19 @@ export default function ClientePanelScreen({session,onSignOut}){
     })();
   },[session]);
 
+  useEffect(()=>{
+    const onKey=e=>{
+      const tag=e.target?.tagName?.toLowerCase();
+      if(tag==="input"||tag==="textarea"||tag==="select")return;
+      if(e.key==="/"||(e.key.toLowerCase()==="k"&&(e.ctrlKey||e.metaKey))){
+        e.preventDefault();
+        setSearchOpen(true);
+      }
+    };
+    window.addEventListener("keydown",onKey);
+    return()=>window.removeEventListener("keydown",onKey);
+  },[]);
+
   const go=s=>{setSec(s);setMob(false);window.scrollTo({top:0,behavior:"smooth"})};
 
   if(loading)return(
@@ -2211,15 +2638,15 @@ export default function ClientePanelScreen({session,onSignOut}){
       <style>{CSS}</style>
       <div style={{animation:"fade 1s both"}}>
         <svg viewBox="0 0 160 160" style={{width:140,height:140,display:"block",margin:"0 auto"}}>
-          <circle cx="80" cy="80" r="70" fill="none" stroke="rgba(56,189,248,0.15)" strokeWidth="1"/>
-          <circle cx="80" cy="80" r="50" fill="none" stroke="rgba(56,189,248,0.1)" strokeWidth="0.8"/>
-          {[0,90,180,270].map(d=>{const p=polarPt(80,80,70,d-90);return <line key={d} x1={80} y1={80} x2={p.x} y2={p.y} stroke="rgba(56,189,248,0.2)" strokeWidth="1"/>})}
-          <circle cx="80" cy="80" r="4" fill="rgba(56,189,248,0.6)" style={{animation:"gPulse 1.4s ease-in-out infinite"}}/>
+          <circle cx="80" cy="80" r="70" fill="none" stroke="rgba(216,195,161,0.15)" strokeWidth="1"/>
+          <circle cx="80" cy="80" r="50" fill="none" stroke="rgba(216,195,161,0.1)" strokeWidth="0.8"/>
+          {[0,90,180,270].map(d=>{const p=polarPt(80,80,70,d-90);return <line key={d} x1={80} y1={80} x2={p.x} y2={p.y} stroke="rgba(216,195,161,0.2)" strokeWidth="1"/>})}
+          <circle cx="80" cy="80" r="4" fill="rgba(216,195,161,0.6)" style={{animation:"gPulse 1.4s ease-in-out infinite"}}/>
         </svg>
         <div style={{display:"flex",flexDirection:"column",alignItems:"center",gap:14,marginTop:28}}>
-          <span style={{fontFamily:"'Plus Jakarta Sans',sans-serif",fontSize:12,fontWeight:800,letterSpacing:".4em",color:"rgba(56,189,248,0.5)",textTransform:"uppercase"}}>KLASE A</span>
+          <span style={{fontFamily:"'Plus Jakarta Sans',sans-serif",fontSize:12,fontWeight:800,letterSpacing:".4em",color:"rgba(216,195,161,0.5)",textTransform:"uppercase"}}>KLASE A</span>
           <div style={{display:"flex",gap:6}}>
-            {[0,.18,.36].map(d=><div key={d} style={{width:4,height:4,background:"rgba(56,189,248,0.4)",borderRadius:"50%",animation:`pulse 1.6s ${d}s ease-in-out infinite`}}/>)}
+            {[0,.18,.36].map(d=><div key={d} style={{width:4,height:4,background:"rgba(216,195,161,0.4)",borderRadius:"50%",animation:`pulse 1.6s ${d}s ease-in-out infinite`}}/>)}
           </div>
         </div>
       </div>
@@ -2227,13 +2654,29 @@ export default function ClientePanelScreen({session,onSignOut}){
   );
 
   const sp={cliente,mc,goTo:go,clienteId:session?.user?.id,nombreBarco:cliente?.nombre_barco,push};
+  const shouldAutoOpenIntro=!introDismissed&&!!session?.user?.id&&!hasCompletedOnboarding(session.user.id);
 
   return(
-    <div style={{background:"#020617",minHeight:"100vh"}}>
+    <div className="ka-client-os" style={{background:"#020617",minHeight:"100vh"}}>
       <style>{CSS}</style>
       <Toasts list={toasts}/>
 
       {emergMode&&<EmergencyOverlay onClose={()=>setEmergMode(false)}/>}
+      <OnboardingExperience
+        open={introOpen||shouldAutoOpenIntro}
+        userId={session?.user?.id}
+        vesselName={cliente?.nombre_barco||cliente?.modelo_barco||"K52 HT"}
+        onClose={()=>{setIntroOpen(false);setIntroDismissed(true)}}
+        onGoTo={(target)=>{go(target);setIntroOpen(false);setIntroDismissed(true)}}
+        onEmergency={()=>{setIntroOpen(false);setIntroDismissed(true);setEmergMode(true)}}
+      />
+      <ClientSearchOverlay
+        open={searchOpen}
+        onClose={()=>setSearchOpen(false)}
+        onGo={go}
+        onEmergency={()=>setEmergMode(true)}
+        onReplayIntro={()=>{setIntroDismissed(false);setIntroOpen(true)}}
+      />
 
       {/* ── NAV ── */}
       <nav className="nav">
@@ -2254,6 +2697,24 @@ export default function ClientePanelScreen({session,onSignOut}){
           {cliente?.nombre_barco&&(
             <span style={{fontFamily:"var(--mono)",fontSize:10,fontWeight:700,color:"var(--t2)",letterSpacing:".1em",whiteSpace:"nowrap"}}>{cliente.nombre_barco}</span>
           )}
+          <button onClick={()=>setSearchOpen(true)} title="Buscar en el panel"
+            style={{background:"rgba(255,255,255,0.06)",border:"1px solid rgba(255,255,255,0.12)",borderRadius:"999px",color:"var(--t1)",
+              fontFamily:"var(--cond)",fontWeight:800,fontSize:10,letterSpacing:".18em",
+              textTransform:"uppercase",cursor:"pointer",padding:"9px 14px",
+              display:"flex",alignItems:"center",gap:8,transition:"all .2s",flexShrink:0}}
+            onMouseEnter={e=>{e.currentTarget.style.background="rgba(255,255,255,0.1)";e.currentTarget.style.borderColor="rgba(255,255,255,0.22)"}}
+            onMouseLeave={e=>{e.currentTarget.style.background="rgba(255,255,255,0.06)";e.currentTarget.style.borderColor="rgba(255,255,255,0.12)"}}>
+            <Search size={13}/>BUSCAR
+          </button>
+          <button onClick={()=>{setIntroDismissed(false);setIntroOpen(true)}} title="Volver a ver introduccion"
+            style={{background:"rgba(216,195,161,0.08)",border:"1px solid rgba(216,195,161,0.24)",borderRadius:"4px",color:"var(--accent)",
+              fontFamily:"var(--cond)",fontWeight:800,fontSize:10,letterSpacing:".2em",
+              textTransform:"uppercase",cursor:"pointer",padding:"8px 14px",
+              display:"flex",alignItems:"center",gap:8,transition:"all .2s",flexShrink:0}}
+            onMouseEnter={e=>{e.currentTarget.style.background="rgba(216,195,161,0.16)";e.currentTarget.style.borderColor="rgba(216,195,161,0.45)"}}
+            onMouseLeave={e=>{e.currentTarget.style.background="rgba(216,195,161,0.08)";e.currentTarget.style.borderColor="rgba(216,195,161,0.24)"}}>
+            <Play size={12}/>INTRO
+          </button>
           <button onClick={()=>setEmergMode(true)}
             style={{background:"transparent",border:"1px solid rgba(239,68,68,0.3)",borderRadius:"4px",color:"rgba(239,68,68,0.8)",
               fontFamily:"var(--cond)",fontWeight:800,fontSize:10,letterSpacing:".2em",textTransform:"uppercase",
@@ -2282,6 +2743,14 @@ export default function ClientePanelScreen({session,onSignOut}){
       <div className={`mob-drawer${mobOpen?" open":""}`}>
         <div className="mob-bg" onClick={()=>setMob(false)}/>
         <div className="mob-nav">
+          <button className="mob-nv" onClick={()=>{setSearchOpen(true);setMob(false)}} style={{color:"var(--t1)"}}>
+            <Search size={14}/>
+            BUSCAR EN EL PANEL
+          </button>
+          <button className="mob-nv" onClick={()=>{setIntroDismissed(false);setIntroOpen(true);setMob(false)}} style={{color:"var(--accent)"}}>
+            <Play size={14}/>
+            VOLVER A VER INTRODUCCION
+          </button>
           {NAV_ITEMS.map((item,i)=>(
             <button key={item.id} className={`mob-nv${sec===item.id?" on":""}`} onClick={()=>go(item.id)}>
               <span style={{color:sec===item.id?"var(--accent)":"var(--t3)",display:"flex"}}>{item.ico}</span>
@@ -2301,7 +2770,7 @@ export default function ClientePanelScreen({session,onSignOut}){
 
       {/* ── SHELL ── */}
       <div className="shell">
-        {sec==="bienvenida"    &&<SecBienvenida {...sp} onEmergency={()=>setEmergMode(true)}/>}
+        {sec==="bienvenida"    &&<SecBienvenida {...sp} onEmergency={()=>setEmergMode(true)} onReplayIntro={()=>{setIntroDismissed(false);setIntroOpen(true)}} onSearch={()=>setSearchOpen(true)}/>}
         {sec==="configuracion" &&<div className="page"><SecIdentidad {...sp}/></div>}
         {sec==="resumen"       &&<div className="page"><SecPlanificador {...sp}/></div>}
         {sec==="energia"       &&<div className="page"><SecEnergia {...sp}/></div>}
