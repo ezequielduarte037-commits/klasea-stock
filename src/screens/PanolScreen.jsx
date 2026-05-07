@@ -108,6 +108,15 @@ export default function PanolScreen({ profile, signOut }) {
   const [exportando, setExportando] = useState(false);
   const [showAjuste, setShowAjuste] = useState(false);
 
+  // ── Pedidos pendientes ──────────────────────────────────────────
+  const [pedidosPendientes, setPedidosPendientes] = useState([]);
+  const [pedidoItemsMap,    setPedidoItemsMap]    = useState({}); // pedidoId → items[]
+  const [pedidoVinculado,   setPedidoVinculado]   = useState(null); // { pedido, item }
+  const [actualizandoPed,   setActualizandoPed]   = useState(false);
+  const [deletingPedId,     setDeletingPedId]     = useState(null); // pedidoId en confirmación de borrado
+  const [itemParcialId,     setItemParcialId]     = useState(null); // itemId con input parcial abierto
+  const [itemParcialVal,    setItemParcialVal]    = useState("");   // cantidad parcial
+
   async function cargarMateriales() {
     const { data, error } = await supabase
       .from("materiales")
@@ -136,12 +145,35 @@ export default function PanolScreen({ profile, signOut }) {
     setMovs((r2.data ?? []).map(m => ({ ...m, obs_ui: m.obs ?? null, material_nombre: map.get(m.material_id) ?? "—" })));
   }
 
+  async function cargarPedidos() {
+    const { data: peds } = await supabase
+      .from("pedidos")
+      .select("*")
+      .in("estado", ["pedido", "transito", "parcial"])
+      .order("fecha_pedido", { ascending: false });
+    if (!peds?.length) { setPedidosPendientes([]); setPedidoItemsMap({}); return; }
+    const { data: items } = await supabase
+      .from("pedido_items")
+      .select("*")
+      .in("pedido_id", peds.map(p => p.id));
+    const map = {};
+    (items ?? []).forEach(it => {
+      if (!map[it.pedido_id]) map[it.pedido_id] = [];
+      map[it.pedido_id].push(it);
+    });
+    setPedidosPendientes(peds);
+    setPedidoItemsMap(map);
+  }
+
   useEffect(() => {
     cargarMateriales();
     cargarMovs();
+    cargarPedidos();
     const ch1 = supabase.channel("rt-pan-materiales").on("postgres_changes", { event: "*", schema: "public", table: "materiales" }, cargarMateriales).subscribe();
     const ch2 = supabase.channel("rt-pan-movs").on("postgres_changes", { event: "*", schema: "public", table: "movimientos" }, cargarMovs).subscribe();
-    return () => { supabase.removeChannel(ch1); supabase.removeChannel(ch2); };
+    const ch3 = supabase.channel("rt-pan-pedidos").on("postgres_changes", { event: "*", schema: "public", table: "pedidos" }, cargarPedidos).subscribe();
+    const ch4 = supabase.channel("rt-pan-peditems").on("postgres_changes", { event: "*", schema: "public", table: "pedido_items" }, cargarPedidos).subscribe();
+    return () => { supabase.removeChannel(ch1); supabase.removeChannel(ch2); supabase.removeChannel(ch3); supabase.removeChannel(ch4); };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
@@ -196,6 +228,7 @@ export default function PanolScreen({ profile, signOut }) {
   function limpiar() {
     setCantidad(""); setCantidadRevisada(false); setObra(""); setRetira(""); setEntrega("");
     setProveedor(""); setRecibe(""); setObs(""); setMsg(""); setErr("");
+    setPedidoVinculado(null);
   }
 
   function ajustarCantidad(delta) {
@@ -228,7 +261,19 @@ export default function PanolScreen({ profile, signOut }) {
       p_recibe: modo === "INGRESO" ? recibe.trim() : null,
       p_obs: obs.trim() || null,
     });
-    if (!rpc.error) { setMsg(`✅ Movimiento OK: ${sel?.nombre}`); limpiar(); await cargarMateriales(); await cargarMovs(); return; }
+    if (!rpc.error) {
+      // Si hay pedido vinculado, actualiza la nota_recepcion del item
+      if (pedidoVinculado && modo === "INGRESO") {
+        await supabase.from("pedido_items")
+          .update({ nota_recepcion: `Recibido: ${num(cantidad)} ${sel?.unidad_medida ?? ""} — ${new Date().toLocaleDateString("es-AR")}` })
+          .eq("id", pedidoVinculado.item.id);
+        await cargarPedidos();
+        setMsg(`✅ Ingreso registrado y vinculado al pedido`);
+      } else {
+        setMsg(`✅ Movimiento OK: ${sel?.nombre}`);
+      }
+      limpiar(); await cargarMateriales(); await cargarMovs(); return;
+    }
     const nuevoStock = num(sel?.stock_actual) + delta;
     const up = await supabase.from("materiales").update({ stock_actual: nuevoStock }).eq("id", materialId);
     if (up.error) return setErr("Error stock: " + up.error.message);
@@ -241,10 +286,53 @@ export default function PanolScreen({ profile, signOut }) {
       obs: obs.trim() || null,
     });
     if (ins.error) return setErr("Error guardar: " + ins.error.message);
-    setMsg(`✅ Movimiento OK: ${sel?.nombre}`);
+    if (pedidoVinculado && modo === "INGRESO") {
+      await supabase.from("pedido_items")
+        .update({ nota_recepcion: `Recibido: ${num(cantidad)} ${sel?.unidad_medida ?? ""} — ${new Date().toLocaleDateString("es-AR")}` })
+        .eq("id", pedidoVinculado.item.id);
+      await cargarPedidos();
+      setMsg(`✅ Ingreso registrado y vinculado al pedido`);
+    } else {
+      setMsg(`✅ Movimiento OK: ${sel?.nombre}`);
+    }
     limpiar();
     await cargarMateriales();
     await cargarMovs();
+  }
+
+  async function cambiarEstadoPedido(pedidoId, estado) {
+    setActualizandoPed(true);
+    const { data: auth } = await supabase.auth.getUser().catch(() => ({ data: { user: null } }));
+    const userId = auth?.user?.id ?? null;
+    const patch = { estado };
+    if (estado === "recibido") { patch.recibido_por = userId; patch.recibido_en = new Date().toISOString(); }
+    await supabase.from("pedidos").update(patch).eq("id", pedidoId);
+    await cargarPedidos();
+    setActualizandoPed(false);
+  }
+
+  async function eliminarPedido(pedidoId) {
+    setActualizandoPed(true);
+    await supabase.from("pedido_items").delete().eq("pedido_id", pedidoId);
+    await supabase.from("pedidos").delete().eq("id", pedidoId);
+    setDeletingPedId(null);
+    await cargarPedidos();
+    setActualizandoPed(false);
+  }
+
+  async function marcarItemRecibido(item, tipo, cantParcial) {
+    setActualizandoPed(true);
+    let nota = null;
+    if (tipo === "todo") {
+      nota = `Llegó todo (${item.cantidad} ${item.unidad}) — ${new Date().toLocaleDateString("es-AR")}`;
+    } else if (tipo === "parcial") {
+      nota = `Llegó parcial: ${cantParcial} de ${item.cantidad} ${item.unidad} — ${new Date().toLocaleDateString("es-AR")}`;
+    }
+    await supabase.from("pedido_items").update({ nota_recepcion: nota }).eq("id", item.id);
+    setItemParcialId(null);
+    setItemParcialVal("");
+    await cargarPedidos();
+    setActualizandoPed(false);
   }
 
   // ── Stock status del material seleccionado
@@ -256,6 +344,17 @@ export default function PanolScreen({ profile, signOut }) {
     if (s <= m)   return { label: "Atención", color: C.amber, bg: "rgba(245,158,11,0.1)",  border: "rgba(245,158,11,0.25)" };
     return              { label: "OK",        color: C.green, bg: "rgba(16,185,129,0.1)",  border: "rgba(16,185,129,0.25)" };
   }, [sel]);
+
+  // Pedidos pendientes que tienen el material actual como item
+  const matchingPedidos = useMemo(() => {
+    if (modo !== "INGRESO" || !materialId) return [];
+    return pedidosPendientes
+      .map(ped => {
+        const item = (pedidoItemsMap[ped.id] ?? []).find(it => it.material_id === materialId);
+        return item ? { pedido: ped, item } : null;
+      })
+      .filter(Boolean);
+  }, [modo, materialId, pedidosPendientes, pedidoItemsMap]);
 
   return (
     <div style={{ position: "fixed", inset: 0, background: C.bg, color: C.t0, fontFamily: C.sans, display: "grid", gridTemplateColumns: "280px 1fr", overflow: "hidden" }}>
@@ -292,6 +391,12 @@ export default function PanolScreen({ profile, signOut }) {
               <div style={{ fontSize: 13, fontWeight: 600, color: C.t0 }}>Pañol</div>
               <div style={{ width: 1, height: 14, background: C.b1 }} />
               <div style={{ fontSize: 10, color: C.t2, letterSpacing: 1 }}>Maderas</div>
+              {pedidosPendientes.length > 0 && (
+                <div style={{ display: "flex", alignItems: "center", gap: 5, padding: "3px 10px", borderRadius: 7, background: "rgba(245,158,11,0.1)", border: "1px solid rgba(245,158,11,0.25)" }}>
+                  <span style={{ fontFamily: C.mono, fontSize: 13, fontWeight: 700, color: C.amber, lineHeight: 1 }}>{pedidosPendientes.length}</span>
+                  <span style={{ fontSize: 9, color: C.amber, letterSpacing: 1.5, textTransform: "uppercase" }}>Pedidos pendientes</span>
+                </div>
+              )}
               {/* Toggles modo */}
               <div style={{ marginLeft: 10, display: "flex", gap: 3, background: C.s0, borderRadius: 8, padding: 3, border: `1px solid ${C.b0}` }}>
                 {["EGRESO", "INGRESO"].map(m => (
@@ -362,14 +467,48 @@ export default function PanolScreen({ profile, signOut }) {
                     </FieldRow>
                   </div>
                 ) : (
-                  <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10 }}>
-                    <FieldRow label="Proveedor">
-                      <input style={INP} value={proveedor} onChange={e => setProveedor(e.target.value)} />
-                    </FieldRow>
-                    <FieldRow label="Recibe (pañol)">
-                      <input style={INP} value={recibe} onChange={e => setRecibe(e.target.value)} />
-                    </FieldRow>
-                  </div>
+                  <>
+                    {/* Banner de detección de pedido pendiente */}
+                    {matchingPedidos.length > 0 && (
+                      <div style={{ marginBottom: 12, borderRadius: 10, border: "1px solid rgba(245,158,11,0.35)", background: "rgba(245,158,11,0.07)", padding: "10px 14px" }}>
+                        <div style={{ fontSize: 9, letterSpacing: 2, textTransform: "uppercase", color: C.amber, fontWeight: 700, marginBottom: 8 }}>
+                          📦 Este material tiene pedidos pendientes
+                        </div>
+                        {matchingPedidos.map(({ pedido, item }) => {
+                          const isVinculado = pedidoVinculado?.item?.id === item.id;
+                          return (
+                            <div key={pedido.id} style={{ marginBottom: 6, padding: "8px 10px", borderRadius: 8, background: isVinculado ? "rgba(245,158,11,0.15)" : "rgba(255,255,255,0.03)", border: `1px solid ${isVinculado ? "rgba(245,158,11,0.4)" : "rgba(255,255,255,0.06)"}`, display: "flex", alignItems: "center", justifyContent: "space-between", gap: 10 }}>
+                              <div>
+                                <div style={{ fontSize: 11, fontWeight: 600, color: C.t0 }}>{pedido.nota || pedido.proveedor}</div>
+                                <div style={{ fontSize: 10, color: C.t2, marginTop: 2 }}>
+                                  Pedido: <span style={{ color: C.t1, fontFamily: C.mono }}>{item.cantidad} {item.unidad}</span>
+                                  {item.nota_recepcion && <span style={{ color: C.green, marginLeft: 8 }}>· Ya recibido</span>}
+                                </div>
+                              </div>
+                              <button
+                                onClick={() => setPedidoVinculado(isVinculado ? null : { pedido, item })}
+                                style={{ border: `1px solid ${isVinculado ? C.amber : C.b0}`, background: isVinculado ? "rgba(245,158,11,0.2)" : C.s0, color: isVinculado ? C.amber : C.t1, padding: "4px 12px", borderRadius: 7, cursor: "pointer", fontSize: 11, fontFamily: C.sans, fontWeight: isVinculado ? 700 : 400, whiteSpace: "nowrap" }}>
+                                {isVinculado ? "✓ Vinculado" : "Vincular"}
+                              </button>
+                            </div>
+                          );
+                        })}
+                        {pedidoVinculado && (
+                          <div style={{ marginTop: 6, fontSize: 10, color: C.amber }}>
+                            Al confirmar el ingreso se registrará la recepción en el pedido vinculado.
+                          </div>
+                        )}
+                      </div>
+                    )}
+                    <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10 }}>
+                      <FieldRow label="Proveedor">
+                        <input style={INP} value={proveedor} onChange={e => setProveedor(e.target.value)} />
+                      </FieldRow>
+                      <FieldRow label="Recibe (pañol)">
+                        <input style={INP} value={recibe} onChange={e => setRecibe(e.target.value)} />
+                      </FieldRow>
+                    </div>
+                  </>
                 )}
 
                 <FieldRow label="Cantidad">
@@ -422,6 +561,202 @@ export default function PanolScreen({ profile, signOut }) {
                 {msg && <div style={{ marginTop: 10, padding: "8px 12px", borderRadius: 7, background: "rgba(16,185,129,0.08)", border: "1px solid rgba(16,185,129,0.2)", color: "#34d399", fontSize: 12 }}>{msg}</div>}
                 {err && <div style={{ marginTop: 10, padding: "8px 12px", borderRadius: 7, background: "rgba(239,68,68,0.08)", border: "1px solid rgba(239,68,68,0.2)", color: "#f87171", fontSize: 12 }}>{err}</div>}
               </div>
+
+              {/* ── PEDIDOS PENDIENTES ── */}
+              {pedidosPendientes.length > 0 && (
+                <div style={{ background: C.s0, border: `1px solid rgba(245,158,11,0.25)`, borderRadius: 12, overflow: "hidden", marginBottom: 14 }}>
+                  <div style={{ padding: "12px 16px", borderBottom: `1px solid rgba(245,158,11,0.15)`, display: "flex", justifyContent: "space-between", alignItems: "center", background: "rgba(245,158,11,0.04)" }}>
+                    <span style={{ fontSize: 11, fontWeight: 600, color: C.amber }}>📦 Pedidos pendientes</span>
+                    <span style={{ fontSize: 10, color: C.amber, fontFamily: C.mono, background: "rgba(245,158,11,0.15)", padding: "2px 8px", borderRadius: 99 }}>{pedidosPendientes.length}</span>
+                  </div>
+                  <div style={{ maxHeight: 480, overflowY: "auto" }}>
+                    {pedidosPendientes.map(ped => {
+                      const items = pedidoItemsMap[ped.id] ?? [];
+                      const recibidos = items.filter(it => it.nota_recepcion).length;
+                      const total = items.length;
+                      const todoRecibido = total > 0 && recibidos === total;
+                      const parcial = recibidos > 0 && recibidos < total;
+                      const ESTADO_COLOR = { pedido: C.amber, transito: C.primary, parcial: "#8b5cf6" };
+                      const estadoColor = ESTADO_COLOR[ped.estado] ?? C.t2;
+                      const isDeleting = deletingPedId === ped.id;
+
+                      return (
+                        <div key={ped.id} style={{ borderBottom: `1px solid rgba(255,255,255,0.04)` }}>
+
+                          {/* ── Header del pedido ── */}
+                          <div style={{ padding: "12px 14px 10px", display: "flex", justifyContent: "space-between", alignItems: "flex-start", gap: 8 }}>
+                            <div style={{ flex: 1, minWidth: 0 }}>
+                              <div style={{ fontSize: 12, fontWeight: 600, color: C.t0, lineHeight: 1.3, marginBottom: 2 }}>
+                                {ped.nota || "Pedido de madera"}
+                              </div>
+                              {ped.fecha_pedido && (
+                                <div style={{ fontSize: 10, color: C.t2, fontFamily: C.mono }}>
+                                  {new Date(ped.fecha_pedido).toLocaleDateString("es-AR")}
+                                </div>
+                              )}
+                            </div>
+                            <div style={{ display: "flex", alignItems: "center", gap: 5, flexShrink: 0 }}>
+                              <span style={{ fontSize: 8, letterSpacing: 1.2, textTransform: "uppercase", fontWeight: 700, padding: "2px 8px", borderRadius: 5, background: `${estadoColor}18`, color: estadoColor, border: `1px solid ${estadoColor}35` }}>
+                                {ped.estado}
+                              </span>
+                              {/* Botón borrar */}
+                              {!isDeleting ? (
+                                <button
+                                  onClick={() => setDeletingPedId(ped.id)}
+                                  title="Eliminar pedido"
+                                  style={{ border: "1px solid rgba(239,68,68,0.2)", background: "transparent", color: C.t2, padding: "2px 7px", borderRadius: 5, cursor: "pointer", fontSize: 11, fontFamily: C.sans, lineHeight: 1.4 }}>
+                                  🗑
+                                </button>
+                              ) : (
+                                <div style={{ display: "flex", alignItems: "center", gap: 4 }}>
+                                  <span style={{ fontSize: 10, color: C.red }}>¿Borrar?</span>
+                                  <button
+                                    disabled={actualizandoPed}
+                                    onClick={() => eliminarPedido(ped.id)}
+                                    style={{ border: "1px solid rgba(239,68,68,0.4)", background: "rgba(239,68,68,0.12)", color: "#f87171", padding: "2px 8px", borderRadius: 5, cursor: "pointer", fontSize: 10, fontFamily: C.sans, fontWeight: 700 }}>
+                                    Sí
+                                  </button>
+                                  <button
+                                    onClick={() => setDeletingPedId(null)}
+                                    style={{ border: `1px solid ${C.b0}`, background: "transparent", color: C.t2, padding: "2px 8px", borderRadius: 5, cursor: "pointer", fontSize: 10, fontFamily: C.sans }}>
+                                    No
+                                  </button>
+                                </div>
+                              )}
+                            </div>
+                          </div>
+
+                          {/* Barra de progreso */}
+                          {total > 0 && (
+                            <div style={{ padding: "0 14px 10px", display: "flex", alignItems: "center", gap: 8 }}>
+                              <div style={{ flex: 1, height: 3, borderRadius: 99, background: "rgba(255,255,255,0.06)" }}>
+                                <div style={{ width: `${(recibidos / total) * 100}%`, height: "100%", borderRadius: 99, background: todoRecibido ? C.green : parcial ? "#8b5cf6" : C.t2, transition: "width .3s" }} />
+                              </div>
+                              <span style={{ fontSize: 9, color: C.t2, fontFamily: C.mono, flexShrink: 0 }}>{recibidos}/{total} items</span>
+                            </div>
+                          )}
+
+                          {/* ── Items del pedido ── */}
+                          <div style={{ padding: "0 10px 12px", display: "flex", flexDirection: "column", gap: 6 }}>
+                            {items.map(it => {
+                              const yaRecibido = !!it.nota_recepcion;
+                              const esMaterialActual = it.material_id === materialId;
+                              const editandoParcial = itemParcialId === it.id;
+
+                              return (
+                                <div key={it.id} style={{ borderRadius: 8, background: esMaterialActual ? "rgba(59,130,246,0.08)" : yaRecibido ? "rgba(16,185,129,0.04)" : "rgba(255,255,255,0.025)", border: esMaterialActual ? "1px solid rgba(59,130,246,0.2)" : yaRecibido ? "1px solid rgba(16,185,129,0.15)" : `1px solid ${C.b0}`, padding: "8px 10px" }}>
+
+                                  {/* Fila principal del item */}
+                                  <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: editandoParcial ? 8 : 0 }}>
+                                    <span style={{ fontSize: 13, flexShrink: 0 }}>{yaRecibido ? "✅" : "⬜"}</span>
+                                    <div style={{ flex: 1, minWidth: 0 }}>
+                                      <div style={{ fontSize: 11, fontWeight: 600, color: yaRecibido ? C.t2 : C.t0, textDecoration: yaRecibido ? "line-through" : "none", lineHeight: 1.3 }}>
+                                        {it.descripcion}
+                                      </div>
+                                      <div style={{ fontSize: 10, color: C.t2, fontFamily: C.mono, marginTop: 1 }}>
+                                        Pedido: {it.cantidad} {it.unidad}
+                                        {esMaterialActual && <span style={{ color: "#60a5fa", marginLeft: 6 }}>← seleccionado</span>}
+                                      </div>
+                                      {yaRecibido && (
+                                        <div style={{ fontSize: 10, color: C.green, marginTop: 2, fontStyle: "italic" }}>{it.nota_recepcion}</div>
+                                      )}
+                                    </div>
+                                  </div>
+
+                                  {/* Botones de acción */}
+                                  {!editandoParcial && (
+                                    <div style={{ display: "flex", gap: 5, marginTop: yaRecibido ? 6 : 6, flexWrap: "wrap" }}>
+                                      {!yaRecibido && (
+                                        <>
+                                          <button
+                                            disabled={actualizandoPed}
+                                            onClick={() => marcarItemRecibido(it, "todo")}
+                                            style={{ border: "1px solid rgba(16,185,129,0.35)", background: "rgba(16,185,129,0.1)", color: "#34d399", padding: "4px 10px", borderRadius: 6, cursor: "pointer", fontSize: 11, fontFamily: C.sans, fontWeight: 600 }}>
+                                            ✓ Llegó todo
+                                          </button>
+                                          <button
+                                            disabled={actualizandoPed}
+                                            onClick={() => { setItemParcialId(it.id); setItemParcialVal(""); }}
+                                            style={{ border: "1px solid rgba(139,92,246,0.35)", background: "rgba(139,92,246,0.08)", color: "#a78bfa", padding: "4px 10px", borderRadius: 6, cursor: "pointer", fontSize: 11, fontFamily: C.sans }}>
+                                            ~ Parcial
+                                          </button>
+                                        </>
+                                      )}
+                                      {yaRecibido && (
+                                        <button
+                                          disabled={actualizandoPed}
+                                          onClick={() => marcarItemRecibido(it, "desmarcar")}
+                                          style={{ border: `1px solid ${C.b0}`, background: "transparent", color: C.t2, padding: "4px 10px", borderRadius: 6, cursor: "pointer", fontSize: 10, fontFamily: C.sans }}>
+                                          ↩ No llegó
+                                        </button>
+                                      )}
+                                    </div>
+                                  )}
+
+                                  {/* Input cantidad parcial */}
+                                  {editandoParcial && (
+                                    <div style={{ display: "flex", gap: 6, alignItems: "center" }}>
+                                      <input
+                                        autoFocus
+                                        type="number"
+                                        placeholder={`de ${it.cantidad}`}
+                                        value={itemParcialVal}
+                                        onChange={e => setItemParcialVal(e.target.value)}
+                                        style={{ ...INP, flex: 1, padding: "6px 10px", fontFamily: C.mono, fontSize: 13 }}
+                                      />
+                                      <span style={{ fontSize: 11, color: C.t2, flexShrink: 0 }}>{it.unidad}</span>
+                                      <button
+                                        disabled={!itemParcialVal || actualizandoPed}
+                                        onClick={() => marcarItemRecibido(it, "parcial", itemParcialVal)}
+                                        style={{ border: "1px solid rgba(139,92,246,0.4)", background: "rgba(139,92,246,0.12)", color: "#a78bfa", padding: "6px 12px", borderRadius: 6, cursor: "pointer", fontSize: 11, fontFamily: C.sans, fontWeight: 600, whiteSpace: "nowrap" }}>
+                                        Confirmar
+                                      </button>
+                                      <button
+                                        onClick={() => { setItemParcialId(null); setItemParcialVal(""); }}
+                                        style={{ border: `1px solid ${C.b0}`, background: "transparent", color: C.t2, padding: "6px 10px", borderRadius: 6, cursor: "pointer", fontSize: 11, fontFamily: C.sans }}>
+                                        ✕
+                                      </button>
+                                    </div>
+                                  )}
+                                </div>
+                              );
+                            })}
+                          </div>
+
+                          {/* ── Acciones del pedido completo ── */}
+                          <div style={{ padding: "0 14px 14px", display: "flex", gap: 6, flexWrap: "wrap" }}>
+                            {!todoRecibido && (
+                              <button
+                                disabled={actualizandoPed}
+                                onClick={() => cambiarEstadoPedido(ped.id, "recibido")}
+                                style={{ border: "1px solid rgba(16,185,129,0.3)", background: "rgba(16,185,129,0.08)", color: "#34d399", padding: "5px 12px", borderRadius: 7, cursor: "pointer", fontSize: 11, fontFamily: C.sans, fontWeight: 600 }}>
+                                ✓ Marcar pedido recibido
+                              </button>
+                            )}
+                            {parcial && ped.estado !== "parcial" && (
+                              <button
+                                disabled={actualizandoPed}
+                                onClick={() => cambiarEstadoPedido(ped.id, "parcial")}
+                                style={{ border: "1px solid rgba(139,92,246,0.3)", background: "rgba(139,92,246,0.08)", color: "#a78bfa", padding: "5px 12px", borderRadius: 7, cursor: "pointer", fontSize: 11, fontFamily: C.sans }}>
+                                ~ Llegó parcial
+                              </button>
+                            )}
+                            {todoRecibido && ped.estado !== "recibido" && (
+                              <button
+                                disabled={actualizandoPed}
+                                onClick={() => cambiarEstadoPedido(ped.id, "recibido")}
+                                style={{ border: "1px solid rgba(16,185,129,0.4)", background: "rgba(16,185,129,0.12)", color: "#34d399", padding: "5px 12px", borderRadius: 7, cursor: "pointer", fontSize: 11, fontFamily: C.sans, fontWeight: 700 }}>
+                                ✅ Confirmar recepción completa
+                              </button>
+                            )}
+                          </div>
+
+                        </div>
+                      );
+                    })}
+                  </div>
+                </div>
+              )}
 
               {/* ── MOVIMIENTOS RECIENTES ── */}
               <div style={{ background: C.s0, border: `1px solid ${C.b0}`, borderRadius: 12, overflow: "hidden" }}>

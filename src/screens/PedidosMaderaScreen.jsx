@@ -385,10 +385,11 @@ export default function PedidosMaderaScreen({ profile, signOut }) {
       const { data: ped, error: e1 } = await supabase
         .from("pedidos")
         .insert({
-          proveedor: "Pendiente",
-          nota:      notaPedido,
-          estado:    "pedido",
-          creado_por: userId,
+          proveedor:    "Pendiente",
+          nota:         notaPedido,
+          estado:       "pedido",
+          fecha_pedido: new Date().toISOString(), // FIX: campo requerido por la tabla
+          creado_por:   userId,
         })
         .select("*")
         .single();
@@ -398,12 +399,12 @@ export default function PedidosMaderaScreen({ profile, signOut }) {
         todosLosItems.map(it => {
           const mat = materiales.find(m => m.nombre === it.descripcion);
           return {
-            pedido_id:     ped.id,
-            material_id:   mat?.id ?? null,
-            descripcion:   it.descripcion.trim(),
-            cantidad:      num(it.cantidad),
-            unidad:        it.unidad || "u",
-            nota_recepcion: it.nota ?? null,
+            pedido_id:      ped.id,
+            material_id:    mat?.id ?? null,
+            descripcion:    it.descripcion.trim(),
+            cantidad:       num(it.cantidad),
+            unidad:         it.unidad || "u",
+            // nota_recepcion se completa desde el panol al recibir
           };
         })
       );

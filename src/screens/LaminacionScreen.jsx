@@ -152,6 +152,12 @@ export default function LaminacionScreen({ profile, signOut }) {
   const [formPedido, setFormPedido] = useState({ material_id: "", cantidad: "", observaciones: "" });
   const [formMaterial, setFormMaterial] = useState({ nombre: "", categoria: "", unidad: "unidad", stock_minimo: 0 });
 
+  // Modal de recepción de pedidos (pañolero)
+  // confModal = { pedido, tipo: "entero" | "parcial", cantParcial: "" }
+  const [confModal, setConfModal] = useState(null);
+  // Órdenes expandidas en la tab Pedidos
+  const [expandedOrdenes, setExpandedOrdenes] = useState(new Set());
+
   // ── Estado específico del tab Movimientos ────────────────────
   const [qMov,        setQMov]        = useState("");
   const [filtroTipo,  setFiltroTipo]  = useState("todos");   // todos | ingreso | egreso
@@ -379,6 +385,99 @@ export default function LaminacionScreen({ profile, signOut }) {
     if (error) return setErr(error.message);
     flash("✅ Egreso registrado");
     setFormEgreso(f => ({ ...f, cantidad: "", destino: "", nombre_persona: "", observaciones: "" }));
+    cargar();
+  }
+
+  // ── Recepción de pedido desde tab Ingresos (pañolero) ───────────
+  async function recibirPedido() {
+    if (!confModal) return;
+    const { tipo } = confModal;
+    setErr("");
+    const userId = await getUserId();
+
+    if (tipo === "orden_completa") {
+      const { grupo } = confModal;
+      // Insertar ingreso por cada ítem de la orden
+      const movs = grupo.items.map(p => ({
+        material_id:  p.material_id,
+        tipo:         "ingreso",
+        cantidad:     num(p.cantidad),
+        fecha:        hoyLocal(),
+        observaciones: `Recepción completa — ${grupo.ref}`,
+        creado_por:   userId,
+      }));
+      const { error } = await supabase.from("laminacion_movimientos").insert(movs);
+      if (error) { setErr(error.message); return; }
+      // Marcar todos como entregado
+      await supabase.from("laminacion_pedidos")
+        .update({ estado: "entregado" })
+        .in("id", grupo.items.map(p => p.id));
+      flash(`✅ Orden ${grupo.ref} recibida completa — stock actualizado`);
+      setConfModal(null);
+      cargar();
+      return;
+    }
+
+    if (tipo === "orden_parcial") {
+      const { grupo, cantsParciales } = confModal;
+      const movs = [];
+      const idsCerrar = [];
+      const idsParciales = [];
+      for (const p of grupo.items) {
+        const cant = num(cantsParciales[p.id]);
+        if (cant <= 0) continue;
+        movs.push({
+          material_id:  p.material_id,
+          tipo:         "ingreso",
+          cantidad:     cant,
+          fecha:        hoyLocal(),
+          observaciones: `Recepción parcial (${cant} de ${num(p.cantidad)}) — ${grupo.ref}`,
+          creado_por:   userId,
+        });
+        if (cant >= num(p.cantidad)) idsCerrar.push(p.id);
+        else idsParciales.push({ id: p.id, obs: p.observaciones });
+      }
+      if (!movs.length) { setErr("Ingresá al menos una cantidad mayor a 0"); return; }
+      const { error } = await supabase.from("laminacion_movimientos").insert(movs);
+      if (error) { setErr(error.message); return; }
+      if (idsCerrar.length)
+        await supabase.from("laminacion_pedidos").update({ estado: "entregado" }).in("id", idsCerrar);
+      for (const { id, obs } of idsParciales) {
+        const cant = num(cantsParciales[id]);
+        const obsAnterior = obs ? obs + " | " : "";
+        await supabase.from("laminacion_pedidos").update({
+          observaciones: `${obsAnterior}Parcial recibido: ${cant}`,
+        }).eq("id", id);
+      }
+      flash(`⚠️ Recepción parcial registrada — ${movs.length} material${movs.length !== 1 ? "es" : ""} ingresado${movs.length !== 1 ? "s" : ""}`);
+      setConfModal(null);
+      cargar();
+      return;
+    }
+
+    // Pedido individual (legacy)
+    const { pedido, cantParcial } = confModal;
+    const cantRecibida = tipo === "entero" ? num(pedido.cantidad) : num(cantParcial);
+    if (cantRecibida <= 0) return setErr("Cantidad inválida");
+    const obsBase = tipo === "entero"
+      ? `Recepción completa — pedido #${pedido.id}`
+      : `Recepción parcial (${cantRecibida} de ${pedido.cantidad}) — pedido #${pedido.id}`;
+    const { error } = await supabase.from("laminacion_movimientos").insert({
+      material_id: pedido.material_id, tipo: "ingreso", cantidad: cantRecibida,
+      fecha: hoyLocal(), observaciones: obsBase, creado_por: userId,
+    });
+    if (error) { setErr(error.message); return; }
+    if (tipo === "entero") {
+      await supabase.from("laminacion_pedidos").update({ estado: "entregado" }).eq("id", pedido.id);
+      flash(`✅ Pedido recibido completo — stock actualizado`);
+    } else {
+      const obsAnterior = pedido.observaciones ? pedido.observaciones + " | " : "";
+      await supabase.from("laminacion_pedidos").update({
+        observaciones: `${obsAnterior}Parcial recibido: ${cantRecibida} de ${pedido.cantidad}`,
+      }).eq("id", pedido.id);
+      flash(`⚠️ Recepción parcial registrada — pedido sigue pendiente`);
+    }
+    setConfModal(null);
     cargar();
   }
 
@@ -681,6 +780,99 @@ export default function LaminacionScreen({ profile, signOut }) {
             {/* ===== TAB INGRESOS ===== */}
             {tab === "Ingresos" && (
               <>
+                {/* ── Pedidos pendientes agrupados por orden ── */}
+                {(() => {
+                  const pendientes = pedidos.filter(p => p.estado === "pendiente");
+                  if (!pendientes.length) return (
+                    <div style={{ ...S.card, borderColor: "rgba(16,185,129,0.2)", marginBottom: 12 }}>
+                      <div style={{ display: "flex", alignItems: "center", gap: 10, color: "#10b981" }}>
+                        <span style={{ fontSize: 20 }}>✅</span>
+                        <span style={{ fontSize: 13, fontWeight: 600 }}>Sin órdenes pendientes de recepción</span>
+                      </div>
+                    </div>
+                  );
+
+                  // Agrupar por ordenRef (prefijo OC-... en observaciones)
+                  const grupos = {};
+                  for (const p of pendientes) {
+                    const obs = p.observaciones ?? "";
+                    const match = obs.match(/^(OC-\d{8}-[A-Z0-9]+)/);
+                    const ref = match ? match[1] : "__manual__";
+                    const label = match ? obs.replace(ref + " | ", "") : (obs || "Pedido manual");
+                    if (!grupos[ref]) grupos[ref] = { ref, label, items: [], createdAt: p.created_at };
+                    grupos[ref].items.push(p);
+                  }
+
+                  return (
+                    <div style={{ ...S.card, borderColor: "rgba(245,158,11,0.3)", marginBottom: 12 }}>
+                      <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 14 }}>
+                        <span style={{ fontSize: 20 }}>📦</span>
+                        <h3 style={{ margin: 0, color: "#f4f4f5", fontSize: 14 }}>
+                          Órdenes pendientes de recepción
+                          <span style={{ marginLeft: 8, background: "#ffe7a6", color: "#000", borderRadius: 999, padding: "2px 8px", fontSize: 11, fontWeight: 900 }}>
+                            {Object.keys(grupos).length}
+                          </span>
+                        </h3>
+                      </div>
+
+                      <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
+                        {Object.values(grupos).map(grupo => {
+                          const todosLosIds = grupo.items.map(p => p.id);
+                          return (
+                            <div key={grupo.ref} style={{ border: "1px solid rgba(245,158,11,0.22)", borderRadius: 12, overflow: "hidden" }}>
+                              {/* Header de la orden */}
+                              <div style={{ padding: "10px 14px", background: "rgba(245,158,11,0.07)", display: "flex", alignItems: "center", gap: 10, flexWrap: "wrap" }}>
+                                <div style={{ flex: 1 }}>
+                                  <span style={{ fontWeight: 700, color: "#f59e0b", fontSize: 13 }}>
+                                    {grupo.ref === "__manual__" ? "📝 Pedido manual" : `📋 ${grupo.ref}`}
+                                  </span>
+                                  {grupo.ref !== "__manual__" && (
+                                    <span style={{ marginLeft: 8, fontSize: 11, color: "#a1a1aa" }}>{grupo.label}</span>
+                                  )}
+                                  <span style={{ marginLeft: 8, fontSize: 10, color: "#52525b" }}>{fmtTs(grupo.createdAt)}</span>
+                                </div>
+                                <span style={{ fontSize: 11, color: "#71717a" }}>{grupo.items.length} {grupo.items.length === 1 ? "material" : "materiales"}</span>
+                              </div>
+
+                              {/* Lista de materiales de la orden */}
+                              <div style={{ display: "flex", flexDirection: "column" }}>
+                                {grupo.items.map((p, i) => {
+                                  const mat = materiales.find(m => m.id === p.material_id);
+                                  const stockActual = num(stockPorMaterial[p.material_id]);
+                                  return (
+                                    <div key={p.id} style={{ display: "flex", alignItems: "center", gap: 10, padding: "10px 14px", borderTop: i === 0 ? "none" : "1px solid rgba(255,255,255,0.04)", flexWrap: "wrap" }}>
+                                      {/* Nombre */}
+                                      <div style={{ flex: 1, minWidth: 160 }}>
+                                        <span style={{ fontWeight: 600, color: "#f4f4f5", fontSize: 12 }}>{mat?.nombre ?? "Material desconocido"}</span>
+                                      </div>
+                                      {/* Cantidades */}
+                                      <div style={{ display: "flex", gap: 14, fontSize: 11, color: "#71717a", alignItems: "center" }}>
+                                        <span>Pedido: <b style={{ color: "#f59e0b" }}>{num(p.cantidad)} {mat?.unidad}</b></span>
+                                        <span>Stock: <b style={{ color: stockActual > 0 ? "#10b981" : "#ff453a" }}>{stockActual}</b></span>
+                                      </div>
+                                      {/* Botones por ítem */}
+                                      <div style={{ display: "flex", gap: 6, marginLeft: "auto" }}>
+                                        <button
+                                          style={{ border: "1px solid rgba(16,185,129,0.38)", background: "rgba(16,185,129,0.1)", color: "#10b981", fontSize: 11, padding: "5px 12px", borderRadius: 7, cursor: "pointer", fontWeight: 700 }}
+                                          onClick={() => setConfModal({ pedido: p, tipo: "entero", cantParcial: "" })}
+                                        >✅ Llegó</button>
+                                        <button
+                                          style={{ border: "1px solid rgba(245,158,11,0.38)", background: "rgba(245,158,11,0.07)", color: "#f59e0b", fontSize: 11, padding: "5px 12px", borderRadius: 7, cursor: "pointer", fontWeight: 700 }}
+                                          onClick={() => setConfModal({ pedido: p, tipo: "parcial", cantParcial: "" })}
+                                        >📦 Parcial</button>
+                                      </div>
+                                    </div>
+                                  );
+                                })}
+                              </div>
+                            </div>
+                          );
+                        })}
+                      </div>
+                    </div>
+                  );
+                })()}
+
                 {puedeCargar && (
                   <div style={S.card}>
                     <h3 style={{ marginTop: 0, color: "#f4f4f5" }}>Registrar ingreso</h3>
@@ -1135,12 +1327,18 @@ export default function LaminacionScreen({ profile, signOut }) {
 			    <OrdenCompraGenerator
   materiales={materiales}
   stockPorMaterial={stockPorMaterial}
-  onCrearPedido={async (materialId, cantidad, obs) => {
-    await supabase.from("laminacion_pedidos").insert({
-      material_id: materialId, cantidad, observaciones: obs, estado: "pendiente"
-    });
+  onCrearOrden={async (items, { plantillaLabel, obraNumero, ordenRef }) => {
+    const obs = `${ordenRef} | ${plantillaLabel}${obraNumero ? ` — Obra ${obraNumero}` : ""}`;
+    const rows = items.map(it => ({
+      material_id: it.material_id,
+      cantidad: it.cantidad,
+      observaciones: obs,
+      estado: "pendiente",
+    }));
+    const { error } = await supabase.from("laminacion_pedidos").insert(rows);
+    if (error) { flash(`❌ ${error.message}`); return; }
     cargarPedidos();
-    flash("✅ Pedido creado");
+    flash(`✅ Orden ${ordenRef} generada — ${items.length} materiales`);
   }}
 />
 			   <ComprasSugeridasPanel
@@ -1211,52 +1409,109 @@ export default function LaminacionScreen({ profile, signOut }) {
                       </button>
                     ))}
                   </div>
-                  <table style={S.table}>
-                    <thead>
-                      <tr>
-                        <th style={S.th}>Fecha</th>
-                        <th style={S.th}>Material</th>
-                        <th style={S.th}>Cantidad</th>
-                        <th style={S.th}>Estado</th>
-                        <th style={S.th}>Observaciones</th>
-                        <th style={S.th}>Acción</th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {pedidosFiltrados.map(p => (
-                        <tr key={p.id} className="lam-row">
-                          <td style={S.td}><span style={S.small}>{fmtTs(p.created_at)}</span></td>
-                          <td style={S.td}>
-                            <b style={{ color: "#f4f4f5" }}>{p.laminacion_materiales?.nombre ?? "—"}</b>
-                            <div style={S.small}>{p.laminacion_materiales?.unidad}</div>
-                          </td>
-                          <td style={S.td}>{num(p.cantidad)}</td>
-                          <td style={S.td}><span style={S.pillPedido(p.estado)}>{p.estado}</span></td>
-                          <td style={S.td}><span style={S.small}>{p.observaciones || "—"}</span></td>
-                          <td style={S.td}>
-                            {p.estado === "pendiente" && (isAdmin || role === "admin" || role === "oficina") && (
-                              <>
-                                <button style={S.btnSmall("#30d158")} onClick={() => setEstadoPedido(p.id, "entregado")}>
-                                  ✅ Entregado
-                                </button>
-                                <button style={S.btnSmall("#ff453a")} onClick={() => setEstadoPedido(p.id, "cancelado")}>
-                                  Cancelar
-                                </button>
-                              </>
-                            )}
-                            {p.estado !== "pendiente" && (isAdmin || role === "admin") && (
-                              <button style={S.btnSmall("#ffd60a")} onClick={() => setEstadoPedido(p.id, "pendiente")}>
-                                Reabrir
-                              </button>
-                            )}
-                          </td>
-                        </tr>
-                      ))}
-                      {!pedidosFiltrados.length && (
-                        <tr><td style={S.td} colSpan={6}><span style={S.small}>Sin pedidos registrados.</span></td></tr>
-                      )}
-                    </tbody>
-                  </table>
+                  {/* Agrupar pedidosFiltrados por ordenRef */}
+                  {(() => {
+                    const grupos = {};
+                    for (const p of pedidosFiltrados) {
+                      const obs   = p.observaciones ?? "";
+                      const match = obs.match(/^(OC-\d{8}-[A-Z0-9]+)/);
+                      const ref   = match ? match[1] : `__manual_${p.id}`;
+                      const label = match ? obs.replace(ref + " | ", "") : (obs || "Pedido manual");
+                      if (!grupos[ref]) grupos[ref] = { ref, label, items: [], createdAt: p.created_at };
+                      grupos[ref].items.push(p);
+                    }
+                    const listaGrupos = Object.values(grupos);
+                    if (!listaGrupos.length)
+                      return <div style={{ padding: "20px 0", textAlign: "center", color: "#52525b", fontSize: 13 }}>Sin pedidos registrados.</div>;
+
+                    return (
+                      <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+                        {listaGrupos.map(grupo => {
+                          const isExpanded  = expandedOrdenes.has(grupo.ref);
+                          const pendientes  = grupo.items.filter(p => p.estado === "pendiente").length;
+                          const entregados  = grupo.items.filter(p => p.estado === "entregado").length;
+                          const cancelados  = grupo.items.filter(p => p.estado === "cancelado").length;
+                          const estadoColor = pendientes > 0 ? "#f59e0b" : entregados === grupo.items.length ? "#10b981" : "#71717a";
+                          const estadoLabel = pendientes > 0
+                            ? `${pendientes} pendiente${pendientes !== 1 ? "s" : ""}`
+                            : entregados === grupo.items.length ? "Completo" : "Cerrado";
+                          const esManual    = grupo.ref.startsWith("__manual_");
+
+                          return (
+                            <div key={grupo.ref} style={{ border: `1px solid ${estadoColor}30`, borderRadius: 12, overflow: "hidden" }}>
+                              {/* Fila de la orden — clickeable para expandir */}
+                              <div
+                                onClick={() => setExpandedOrdenes(prev => {
+                                  const n = new Set(prev);
+                                  n.has(grupo.ref) ? n.delete(grupo.ref) : n.add(grupo.ref);
+                                  return n;
+                                })}
+                                style={{ display: "flex", alignItems: "center", gap: 12, padding: "12px 16px", background: `${estadoColor}08`, cursor: "pointer", userSelect: "none", flexWrap: "wrap" }}
+                              >
+                                <span style={{ fontSize: 14 }}>{isExpanded ? "▾" : "▸"}</span>
+
+                                <div style={{ flex: 1, minWidth: 180 }}>
+                                  <div style={{ fontWeight: 700, color: "#f4f4f5", fontSize: 13 }}>
+                                    {esManual ? "📝 Pedido manual" : `📋 ${grupo.ref}`}
+                                  </div>
+                                  {!esManual && <div style={{ fontSize: 11, color: "#a1a1aa", marginTop: 2 }}>{grupo.label}</div>}
+                                </div>
+
+                                <div style={{ display: "flex", gap: 10, alignItems: "center", flexWrap: "wrap" }}>
+                                  <span style={{ fontSize: 11, color: "#71717a" }}>{grupo.items.length} material{grupo.items.length !== 1 ? "es" : ""}</span>
+                                  <span style={{ fontSize: 11, fontWeight: 700, color: estadoColor, background: `${estadoColor}18`, border: `1px solid ${estadoColor}44`, borderRadius: 999, padding: "2px 10px" }}>
+                                    {estadoLabel}
+                                  </span>
+                                  <span style={{ fontSize: 10, color: "#52525b" }}>{fmtTs(grupo.createdAt)}</span>
+                                </div>
+                              </div>
+
+                              {/* Detalle expandido */}
+                              {isExpanded && (
+                                <div style={{ borderTop: `1px solid rgba(255,255,255,0.05)` }}>
+                                  <table style={{ ...S.table, margin: 0 }}>
+                                    <thead>
+                                      <tr>
+                                        <th style={S.th}>Material</th>
+                                        <th style={S.th}>Cantidad</th>
+                                        <th style={S.th}>Estado</th>
+                                        <th style={S.th}>Acción</th>
+                                      </tr>
+                                    </thead>
+                                    <tbody>
+                                      {grupo.items.map(p => (
+                                        <tr key={p.id} className="lam-row">
+                                          <td style={S.td}>
+                                            <b style={{ color: "#f4f4f5", fontSize: 12 }}>{p.laminacion_materiales?.nombre ?? "—"}</b>
+                                            <div style={S.small}>{p.laminacion_materiales?.unidad}</div>
+                                          </td>
+                                          <td style={{ ...S.td, fontFamily: "monospace", fontSize: 13, color: "#f4f4f5" }}>{num(p.cantidad)}</td>
+                                          <td style={S.td}><span style={S.pillPedido(p.estado)}>{p.estado}</span></td>
+                                          <td style={S.td}>
+                                            <div style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>
+                                              {p.estado === "pendiente" && (isAdmin || role === "admin" || role === "oficina") && (
+                                                <>
+                                                  <button style={S.btnSmall("#30d158")} onClick={() => setEstadoPedido(p.id, "entregado")}>✅ Entregado</button>
+                                                  <button style={S.btnSmall("#ff453a")} onClick={() => setEstadoPedido(p.id, "cancelado")}>Cancelar</button>
+                                                </>
+                                              )}
+                                              {p.estado !== "pendiente" && (isAdmin || role === "admin") && (
+                                                <button style={S.btnSmall("#ffd60a")} onClick={() => setEstadoPedido(p.id, "pendiente")}>Reabrir</button>
+                                              )}
+                                            </div>
+                                          </td>
+                                        </tr>
+                                      ))}
+                                    </tbody>
+                                  </table>
+                                </div>
+                              )}
+                            </div>
+                          );
+                        })}
+                      </div>
+                    );
+                  })()}
                 </div>
               </>
             )}
@@ -1272,6 +1527,159 @@ export default function LaminacionScreen({ profile, signOut }) {
           onDone={() => { setShowAjuste(false); cargar(); flash("✅ Ajuste aplicado"); }}
         />
       )}
+
+      {/* ── Modal de confirmación de recepción ─────────────────── */}
+      {confModal && (() => {
+        const { tipo } = confModal;
+
+        // ── Orden completa ──────────────────────────────────────
+        if (tipo === "orden_completa") {
+          const { grupo } = confModal;
+          return (
+            <div style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.75)", zIndex: 9999, display: "flex", alignItems: "center", justifyContent: "center", backdropFilter: "blur(4px)" }}>
+              <div style={{ background: "#111113", border: "1px solid rgba(255,255,255,0.12)", borderRadius: 16, padding: 28, width: "min(520px, 94vw)", boxShadow: "0 24px 64px rgba(0,0,0,0.6)", maxHeight: "85vh", overflow: "auto" }}>
+                <h3 style={{ margin: "0 0 4px", color: "#f4f4f5", fontSize: 16 }}>✅ Confirmar recepción completa</h3>
+                <p style={{ margin: "0 0 16px", color: "#71717a", fontSize: 12 }}>
+                  Se registra ingreso por todos los materiales y la orden queda cerrada.
+                </p>
+                <div style={{ background: "rgba(255,255,255,0.03)", border: "1px solid rgba(255,255,255,0.07)", borderRadius: 10, overflow: "hidden", marginBottom: 20 }}>
+                  <div style={{ padding: "10px 14px", background: "rgba(245,158,11,0.07)", borderBottom: "1px solid rgba(255,255,255,0.06)", fontSize: 12, fontWeight: 700, color: "#f59e0b" }}>
+                    {grupo.ref} — {grupo.label}
+                  </div>
+                  {grupo.items.map((p, i) => {
+                    const mat = materiales.find(m => m.id === p.material_id);
+                    return (
+                      <div key={p.id} style={{ display: "flex", justifyContent: "space-between", padding: "9px 14px", borderTop: i === 0 ? "none" : "1px solid rgba(255,255,255,0.04)", fontSize: 12 }}>
+                        <span style={{ color: "#f4f4f5" }}>{mat?.nombre ?? "—"}</span>
+                        <span style={{ color: "#10b981", fontWeight: 700 }}>{num(p.cantidad)} {mat?.unidad}</span>
+                      </div>
+                    );
+                  })}
+                </div>
+                <div style={{ padding: "10px 14px", background: "rgba(16,185,129,0.07)", border: "1px solid rgba(16,185,129,0.2)", borderRadius: 8, fontSize: 12, color: "#10b981", marginBottom: 20 }}>
+                  ✅ Se registran <b>{grupo.items.length} ingresos</b> y la orden queda como <b>Entregada</b>.
+                </div>
+                <div style={{ display: "flex", gap: 10, justifyContent: "flex-end" }}>
+                  <button style={{ border: "1px solid rgba(255,255,255,0.08)", background: "rgba(255,255,255,0.04)", color: "#a1a1aa", padding: "9px 18px", borderRadius: 8, cursor: "pointer", fontWeight: 700, fontSize: 12, fontFamily: "'Outfit', system-ui" }} onClick={() => setConfModal(null)}>Cancelar</button>
+                  <button style={{ border: "1px solid rgba(16,185,129,0.5)", background: "rgba(16,185,129,0.2)", color: "#10b981", padding: "9px 22px", borderRadius: 8, cursor: "pointer", fontWeight: 700, fontSize: 12, fontFamily: "'Outfit', system-ui" }} onClick={recibirPedido}>✅ Confirmar recepción</button>
+                </div>
+              </div>
+            </div>
+          );
+        }
+
+        // ── Orden parcial ───────────────────────────────────────
+        if (tipo === "orden_parcial") {
+          const { grupo, cantsParciales } = confModal;
+          const algunaCant = Object.values(cantsParciales).some(v => num(v) > 0);
+          return (
+            <div style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.75)", zIndex: 9999, display: "flex", alignItems: "center", justifyContent: "center", backdropFilter: "blur(4px)" }}>
+              <div style={{ background: "#111113", border: "1px solid rgba(255,255,255,0.12)", borderRadius: 16, padding: 28, width: "min(560px, 94vw)", boxShadow: "0 24px 64px rgba(0,0,0,0.6)", maxHeight: "85vh", overflow: "auto" }}>
+                <h3 style={{ margin: "0 0 4px", color: "#f4f4f5", fontSize: 16 }}>📦 Recepción parcial</h3>
+                <p style={{ margin: "0 0 4px", color: "#71717a", fontSize: 12 }}>
+                  Ingresá la cantidad que llegó de cada material. Dejá en 0 los que no llegaron.
+                </p>
+                <div style={{ fontSize: 11, color: "#f59e0b", marginBottom: 16 }}>{grupo.ref} — {grupo.label}</div>
+
+                <div style={{ display: "flex", flexDirection: "column", gap: 8, marginBottom: 20 }}>
+                  {grupo.items.map(p => {
+                    const mat = materiales.find(m => m.id === p.material_id);
+                    const val = cantsParciales[p.id] ?? "";
+                    const cantNum = num(val);
+                    const pedidoNum = num(p.cantidad);
+                    const color = cantNum <= 0 ? "#52525b" : cantNum >= pedidoNum ? "#10b981" : "#f59e0b";
+                    return (
+                      <div key={p.id} style={{ display: "flex", alignItems: "center", gap: 12, padding: "10px 12px", background: "rgba(255,255,255,0.02)", border: `1px solid rgba(255,255,255,0.06)`, borderRadius: 9 }}>
+                        <div style={{ flex: 1, fontSize: 12, color: "#f4f4f5", fontWeight: 600 }}>
+                          {mat?.nombre ?? "—"}
+                          <span style={{ marginLeft: 8, fontSize: 10, color: "#71717a", fontWeight: 400 }}>pedido: {pedidoNum} {mat?.unidad}</span>
+                        </div>
+                        <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
+                          <input
+                            type="number" step="0.01" min="0" max={pedidoNum}
+                            placeholder="0"
+                            value={val}
+                            onChange={e => setConfModal(prev => ({
+                              ...prev,
+                              cantsParciales: { ...prev.cantsParciales, [p.id]: e.target.value }
+                            }))}
+                            style={{ background: "rgba(255,255,255,0.05)", border: `1px solid ${color}55`, color: "#f4f4f5", padding: "7px 10px", borderRadius: 7, width: 80, outline: "none", fontSize: 13, fontFamily: "'JetBrains Mono', monospace", textAlign: "right", boxSizing: "border-box" }}
+                          />
+                          <span style={{ fontSize: 10, color: "#71717a", minWidth: 28 }}>{mat?.unidad}</span>
+                          {cantNum > 0 && (
+                            <span style={{ fontSize: 10, color, fontWeight: 700, minWidth: 60 }}>
+                              {cantNum >= pedidoNum ? "completo ✓" : `${Math.round(cantNum/pedidoNum*100)}%`}
+                            </span>
+                          )}
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+
+                {err && <div style={{ marginBottom: 12, color: "#ff453a", fontSize: 12 }}>{err}</div>}
+
+                <div style={{ padding: "9px 14px", background: "rgba(245,158,11,0.07)", border: "1px solid rgba(245,158,11,0.2)", borderRadius: 8, fontSize: 12, color: "#f59e0b", marginBottom: 20 }}>
+                  📦 Los materiales con cantidad &gt; 0 se registran como ingreso. Los que lleguen completos cierran el ítem; los parciales quedan pendientes.
+                </div>
+
+                <div style={{ display: "flex", gap: 10, justifyContent: "flex-end" }}>
+                  <button style={{ border: "1px solid rgba(255,255,255,0.08)", background: "rgba(255,255,255,0.04)", color: "#a1a1aa", padding: "9px 18px", borderRadius: 8, cursor: "pointer", fontWeight: 700, fontSize: 12, fontFamily: "'Outfit', system-ui" }} onClick={() => { setConfModal(null); setErr(""); }}>Cancelar</button>
+                  <button
+                    style={{ border: "1px solid rgba(245,158,11,0.5)", background: "rgba(245,158,11,0.18)", color: "#f59e0b", padding: "9px 22px", borderRadius: 8, cursor: algunaCant ? "pointer" : "not-allowed", fontWeight: 700, fontSize: 12, fontFamily: "'Outfit', system-ui", opacity: algunaCant ? 1 : 0.4 }}
+                    disabled={!algunaCant}
+                    onClick={recibirPedido}
+                  >
+                    📦 Confirmar parcial
+                  </button>
+                </div>
+              </div>
+            </div>
+          );
+        }
+
+        // ── Pedido individual legacy ─────────────────────────────
+        const { pedido, cantParcial } = confModal;
+        const mat = materiales.find(m => m.id === pedido?.material_id);
+        const cantFinal = tipo === "entero" ? num(pedido?.cantidad) : num(cantParcial);
+        const esValido = cantFinal > 0;
+        return (
+          <div style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.75)", zIndex: 9999, display: "flex", alignItems: "center", justifyContent: "center", backdropFilter: "blur(4px)" }}>
+            <div style={{ background: "#111113", border: "1px solid rgba(255,255,255,0.12)", borderRadius: 16, padding: 28, width: "min(480px, 94vw)", boxShadow: "0 24px 64px rgba(0,0,0,0.6)" }}>
+              <h3 style={{ margin: "0 0 4px", color: "#f4f4f5", fontSize: 16 }}>
+                {tipo === "entero" ? "✅ Confirmar recepción completa" : "📦 Confirmar recepción parcial"}
+              </h3>
+              <p style={{ margin: "0 0 20px", color: "#71717a", fontSize: 12 }}>Esto registra un ingreso y actualiza el stock.</p>
+              <div style={{ background: "rgba(255,255,255,0.03)", border: "1px solid rgba(255,255,255,0.08)", borderRadius: 10, padding: "14px 16px", marginBottom: 20 }}>
+                <div style={{ fontSize: 13, color: "#f4f4f5", fontWeight: 700, marginBottom: 6 }}>{mat?.nombre ?? "Material"}</div>
+                <div style={{ fontSize: 12, color: "#a1a1aa" }}>Cantidad pedida: <b style={{ color: "#f59e0b" }}>{num(pedido?.cantidad)} {mat?.unidad}</b></div>
+              </div>
+              {tipo === "parcial" && (
+                <div style={{ marginBottom: 20 }}>
+                  <label style={{ display: "block", fontSize: 10, color: "#71717a", textTransform: "uppercase", letterSpacing: 2, marginBottom: 6 }}>Cantidad que llegó ({mat?.unidad})</label>
+                  <input autoFocus style={{ background: "rgba(255,255,255,0.04)", border: "1px solid rgba(245,158,11,0.4)", color: "#f4f4f5", padding: "10px 12px", borderRadius: 8, width: "100%", outline: "none", fontSize: 15, fontFamily: "'Outfit', system-ui", boxSizing: "border-box" }}
+                    type="number" step="0.01" min="0.01" max={num(pedido?.cantidad)} placeholder={`Máx. ${num(pedido?.cantidad)}`}
+                    value={cantParcial}
+                    onChange={e => setConfModal(prev => ({ ...prev, cantParcial: e.target.value }))}
+                  />
+                </div>
+              )}
+              {tipo === "entero" && (
+                <div style={{ marginBottom: 20, padding: "10px 14px", background: "rgba(16,185,129,0.08)", border: "1px solid rgba(16,185,129,0.25)", borderRadius: 8, fontSize: 12, color: "#10b981" }}>
+                  ✅ Se registra ingreso de <b>{num(pedido?.cantidad)} {mat?.unidad}</b> · Pedido → <b>Entregado</b>.
+                </div>
+              )}
+              <div style={{ display: "flex", gap: 10, justifyContent: "flex-end" }}>
+                <button style={{ border: "1px solid rgba(255,255,255,0.08)", background: "rgba(255,255,255,0.04)", color: "#a1a1aa", padding: "9px 18px", borderRadius: 8, cursor: "pointer", fontWeight: 700, fontSize: 12, fontFamily: "'Outfit', system-ui" }} onClick={() => setConfModal(null)}>Cancelar</button>
+                <button style={{ border: `1px solid ${tipo === "entero" ? "rgba(16,185,129,0.5)" : "rgba(245,158,11,0.5)"}`, background: tipo === "entero" ? "rgba(16,185,129,0.2)" : "rgba(245,158,11,0.2)", color: tipo === "entero" ? "#10b981" : "#f59e0b", padding: "9px 22px", borderRadius: 8, cursor: esValido ? "pointer" : "not-allowed", fontWeight: 700, fontSize: 12, fontFamily: "'Outfit', system-ui", opacity: esValido ? 1 : 0.5 }}
+                  disabled={!esValido} onClick={recibirPedido}>
+                  {tipo === "entero" ? "✅ Confirmar" : "📦 Confirmar parcial"}
+                </button>
+              </div>
+            </div>
+          </div>
+        );
+      })()}
     </div>
   );
 }
