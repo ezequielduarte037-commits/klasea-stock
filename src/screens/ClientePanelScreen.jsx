@@ -1513,7 +1513,7 @@ function SecBienvenida({cliente,goTo,onEmergency,onReplayIntro,onSearch}){
         </div>
 
         <div className="yacht3d-hero-wrap" style={{position:"absolute",right:"clamp(24px,5vw,64px)",top:"clamp(112px,16vh,150px)",zIndex:4,width:"min(470px,38vw)",minWidth:360,animation:"enter .9s .38s var(--ez) both"}}>
-          <Yacht3DViewer compact />
+          <Yacht3DViewer compact modelName={cliente?.modelo_barco} />
         </div>
 
         {/* Hero text */}
@@ -1598,13 +1598,13 @@ function SecBienvenida({cliente,goTo,onEmergency,onReplayIntro,onSearch}){
           <div className="card" style={{padding:"32px",display:"flex",flexDirection:"column",justifyContent:"center"}}>
             <Cap style={{color:"var(--accent)"}}>Modelo interactivo</Cap>
             <h2 style={{fontFamily:"var(--serif)",fontSize:"clamp(28px,4vw,46px)",fontWeight:650,lineHeight:1.05,letterSpacing:0,color:"var(--t1)",marginTop:16}}>
-              K52 HT en 3D
+              {cliente?.modelo_barco||"K52 HT"} en 3D
             </h2>
             <p style={{color:"var(--t2)",fontSize:15,lineHeight:1.7,marginTop:16,maxWidth:430}}>
-              Vista conceptual rotativa para inspeccionar volumen, hardtop, cubierta y proporciones. Cuando tengamos archivos GLB reales de cada modelo, este visor puede cargarlos directamente.
+              Vista interactiva de su embarcación. Rotá, incliná y explorá el modelo completo — cubierta, hardtop y proporciones reales.
             </p>
           </div>
-          <Yacht3DViewer />
+          <Yacht3DViewer modelName={cliente?.modelo_barco} />
         </div>
       </div>
 

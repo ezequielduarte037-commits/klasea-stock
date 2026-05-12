@@ -10,6 +10,8 @@
     "preview": "vite preview"
   },
   "dependencies": {
+    "@react-three/drei": "^10.0.6",
+    "@react-three/fiber": "^9.1.2",
     "@supabase/supabase-js": "^2.93.1",
     "framer-motion": "^12.35.2",
     "jspdf": "^4.2.0",
@@ -21,7 +23,7 @@
     "react-leaflet": "^5.0.0",
     "react-router-dom": "^7.13.0",
     "recharts": "^3.7.0",
-    "three": "^0.184.0"
+    "three": "^0.175.0"
   },
   "devDependencies": {
     "@eslint/js": "^9.39.1",
