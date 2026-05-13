@@ -2674,20 +2674,12 @@ export default function ClientePanelScreen({session,onSignOut}){
   const sp={cliente,mc,goTo:go,clienteId:session?.user?.id,nombreBarco:cliente?.nombre_barco,push};
   const shouldAutoOpenIntro=!introDismissed&&!!session?.user?.id&&!hasCompletedOnboarding(session.user.id);
 
-  return(
-    <div className="ka-client-os" style={{background:"#020617",minHeight:"100vh"}}>
+  if (introOpen || shouldAutoOpenIntro) { return ( <OnboardingExperience open={true} userId={session?.user?.id} vesselName={cliente?.nombre_barco || cliente?.modelo_barco || "K52 HT"} onClose={() => { setIntroOpen(false); setIntroDismissed(true); }} onGoTo={(target) => { go(target); setIntroOpen(false); setIntroDismissed(true); }} onEmergency={() => { setIntroOpen(false); setIntroDismissed(true); setEmergMode(true); }} /> ); } return ( <div className="ka-client-os" style={{background:"#020617",minHeight:"100vh"}}>
       <style>{CSS}</style>
       <Toasts list={toasts}/>
 
       {emergMode&&<EmergencyOverlay onClose={()=>setEmergMode(false)}/>}
-      <OnboardingExperience
-        open={introOpen||shouldAutoOpenIntro}
-        userId={session?.user?.id}
-        vesselName={cliente?.nombre_barco||cliente?.modelo_barco||"K52 HT"}
-        onClose={()=>{setIntroOpen(false);setIntroDismissed(true)}}
-        onGoTo={(target)=>{go(target);setIntroOpen(false);setIntroDismissed(true)}}
-        onEmergency={()=>{setIntroOpen(false);setIntroDismissed(true);setEmergMode(true)}}
-      />
+      
       <ClientSearchOverlay
         open={searchOpen}
         onClose={()=>setSearchOpen(false)}
@@ -2801,4 +2793,5 @@ export default function ClientePanelScreen({session,onSignOut}){
     </div>
   );
 }
+
 
