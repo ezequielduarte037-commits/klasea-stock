@@ -412,12 +412,29 @@ export default function OnboardingExperience({
     onClose?.(done);
   }, [keys.done, onClose]);
 
-  const go = useCallback((delta) => {
-    tone(delta > 0 ? 620 : 390);
-    setStep((prev) => clampStep(prev + delta));
+    const go = useCallback((delta) => {
+    if (delta > 0) {
+      if (openStep < current.steps.length - 1) {
+        setOpenStep(prev => prev + 1);
+        tone(620);
+      } else if (step < modules.length - 1) {
+        setStep(prev => prev + 1);
+        setOpenStep(0);
+        tone(620);
+      }
+    } else {
+      if (openStep > 0) {
+        setOpenStep(prev => prev - 1);
+        tone(390);
+      } else if (step > 0) {
+        const prevModule = modules[step - 1];
+        setStep(prev => prev - 1);
+        setOpenStep(prevModule.steps.length - 1);
+        tone(390);
+      }
+    }
     setActiveHotspot(0);
-    setOpenStep(0);
-  }, [tone]);
+  }, [step, openStep, tone, current]);
 
   useEffect(() => {
     if (!open) return undefined;
@@ -638,7 +655,7 @@ export default function OnboardingExperience({
             <button type="button" className="ka-icon-btn" onClick={() => go(-1)} disabled={step === 0} aria-label="Anterior">
               <ChevronLeft size={18} />
             </button>
-            {step < modules.length - 1 ? (
+                        {!(step === modules.length - 1 && openStep === current.steps.length - 1) ? (
               <button type="button" className="ka-primary" onClick={() => go(1)}>
                 Continuar <ChevronRight size={17} />
               </button>
@@ -1889,4 +1906,6 @@ const ONBOARDING_CSS = `
 }
 }
 `;
+
+
 
