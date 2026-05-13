@@ -595,6 +595,24 @@ body::before {
 @media (max-width: 680px) {
   .ka-client-os .page { padding-left: 16px; padding-right: 16px; }
   .yacht3d-section-grid { grid-template-columns: 1fr !important; }
+
+
+/* --- FIX MÓVIL Y OVERFLOWS --- */
+@media (max-width: 920px) {
+  .motor-panel > div:nth-of-type(2) { grid-template-columns: 1fr !important; gap: 32px !important; }
+  .motor-panel > div:nth-of-type(2) > div { padding: 0 !important; border: none !important; }
+  .motor-panel > div:nth-of-type(2) > div[style*="width: 1px"], .motor-panel > div:nth-of-type(2) > div[style*="width:1px"] { display: none !important; }
+  .motor-panel > div:first-child { flex-direction: column; align-items: flex-start !important; gap: 20px; }
+  .card table { display: block; overflow-x: auto; white-space: nowrap; padding-bottom: 10px; }
+  .stg > div { grid-template-columns: 1fr !important; }
+  div[style*="gap: 56px"], div[style*="gap:56px"], div[style*="gap: 40px"], div[style*="gap:40px"] { flex-wrap: wrap; gap: 24px !important; justify-content: center; }
+}
+.pgallery { display: flex; gap: 12px; overflow-x: auto; padding-bottom: 8px; }
+.pgallery-item { position: relative; width: 100px; height: 100px; flex-shrink: 0; border-radius: 6px; overflow: hidden; border: 1px solid var(--e2); cursor: pointer; }
+.pgallery-item img { width: 100%; height: 100%; object-fit: cover; }
+.upzone { padding: 32px 20px; text-align: center; border: 1px dashed var(--e2); cursor: pointer; transition: background 0.2s; }
+.upzone:hover, .upzone.drag { background: rgba(255,255,255,0.03); border-color: var(--accent); }
+
 }
 `;
 
@@ -2783,3 +2801,4 @@ export default function ClientePanelScreen({session,onSignOut}){
     </div>
   );
 }
+
