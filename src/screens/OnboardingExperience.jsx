@@ -1871,5 +1871,22 @@ const ONBOARDING_CSS = `
   .ka-slide-copy h1 { font-size: clamp(22px, 8vw, 36px); }
   .ka-stats-row { grid-template-columns: 1fr 1fr; }
   .ka-step-body { padding-left: 40px; }
+
+
+/* --- FIX MÓVIL Y OVERFLOWS ONBOARDING --- */
+@media (max-width: 820px) {
+  .ka-onboarding { display: flex !important; flex-direction: column !important; }
+  .ka-on-topbar, .ka-on-footer { flex-shrink: 0 !important; }
+  .ka-on-main { flex: 1 !important; height: auto !important; min-height: 0 !important; display: flex !important; flex-direction: column !important; }
+  .ka-module-rail { flex-shrink: 0 !important; padding-bottom: 8px !important; }
+  .ka-stage { flex: 1 !important; min-height: 0 !important; }
+  .ka-slide { height: 100% !important; display: flex !important; flex-direction: column !important; overflow-y: auto !important; padding-bottom: 24px !important; gap: 16px !important; }
+  .ka-slide-visual { min-height: 260px !important; flex-shrink: 0 !important; }
+  .ka-slide-copy { overflow-y: visible !important; padding-bottom: 20px !important; }
+  .ka-hotspot-panel { position: relative !important; margin: -15px 12px 12px !important; bottom: auto !important; left: auto !important; right: auto !important; z-index: 10 !important; }
+  .ka-actions { width: 100% !important; }
+  .ka-primary { flex: 1 !important; justify-content: center !important; }
+}
 }
 `;
+
