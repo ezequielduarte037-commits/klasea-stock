@@ -2,24 +2,24 @@ import React, { useEffect, useState } from "react";
 import { BrowserRouter, Navigate, Route, Routes, useNavigate } from "react-router-dom";
 import { supabase } from "./supabaseClient";
 
-import PedidosScreen         from "./screens/PedidosScreen";
-import MarmoleriaScreen      from "./screens/MarmoleriaScreen";
-import MueblesScreen         from "./screens/MueblesScreen";
-import PanolScreen           from "./screens/PanolScreen";
-import AdminDashboard        from "./screens/AdminDashboard";
-import MovimientosScreen     from "./screens/MovimientosScreen";
-import LaminacionScreen      from "./screens/LaminacionScreen";
-import ObrasLaminacionScreen from "./screens/ObrasLaminacionScreen";
-import ObrasScreen           from "./screens/ObrasScreen";
-import ConfiguracionScreen   from "./screens/ConfiguracionScreen";
-import ProcedimientosScreen  from "./screens/ProcedimientosScreen";
-import PostVentaScreen       from "./screens/PostVentaScreen";
-import ClientePanelScreen    from "./screens/ClientePanelScreen";
-import HomeScreen            from "./screens/HomeScreen";
-import CalendarioScreen      from "./screens/CalendarioScreen";
-import PedidosMaderaScreen from "./screens/PedidosMaderaScreen";
+import PedidosScreen         from "@/features/inventario/PedidosScreen";
+import MarmoleriaScreen      from "@/features/marmoleria/MarmoleriaScreen";
+import MueblesScreen         from "@/features/muebles/MueblesScreen";
+import PanolScreen           from "@/features/inventario/PanolScreen";
+import AdminDashboard        from "@/features/admin/AdminDashboard";
+import MovimientosScreen     from "@/features/inventario/MovimientosScreen";
+import LaminacionScreen      from "@/features/laminacion/LaminacionScreen";
+import ObrasLaminacionScreen from "@/features/laminacion/ObrasLaminacionScreen";
+import ObrasScreen           from "@/features/obras/ObrasScreen";
+import ConfiguracionScreen   from "@/features/configuracion/ConfiguracionScreen";
+import ProcedimientosScreen  from "@/features/procedimientos/ProcedimientosScreen";
+import PostVentaScreen       from "@/features/postventa/PostVentaScreen";
+import ClientePanelScreen    from "@/features/cliente/ClientePanelScreen";
+import HomeScreen            from "@/features/home/HomeScreen";
+import CalendarioScreen      from "@/features/calendario/CalendarioScreen";
+import PedidosMaderaScreen   from "@/features/inventario/PedidosMaderaScreen";
 
-import logoK from "./assets/logo-k.png";
+import logoK from "@/assets/logos/logo-k.png";
 
 // Internos:  usuario  → usuario@klasea.local
 // Clientes:  usuario  → usuario@klasea.client
@@ -64,11 +64,10 @@ function LoginScreen({ onLoggedIn }) {
         ? [u.toLowerCase()]
         : [toLocalEmail(u.toLowerCase()), toClientEmail(u.toLowerCase())];
 
-      let data = null, lastError = null;
+      let data = null;
       for (const email of intentos) {
         const res = await supabase.auth.signInWithPassword({ email, password });
         if (!res.error && res.data?.session) { data = res.data; break; }
-        lastError = res.error;
       }
 
       if (!data?.session) {
@@ -336,22 +335,18 @@ export default function App() {
       </div>
     );
   }
-
-  // Muestra la pantalla de inicio para todos los roles internos.
-  // Clientes siguen yendo a su panel separado.
-  function HomeRedirect() {
-    if (!session || !profile) return <Navigate to="/login" replace />;
-    if (profile.role === "cliente") return <Navigate to="/mi-panel" replace />;
-    return <HomeScreen profile={profile} signOut={signOut} />;
-  }
-
   const A = { profile, signOut };
+  const homeElement = !session || !profile
+    ? <Navigate to="/login" replace />
+    : profile.role === "cliente"
+      ? <Navigate to="/mi-panel" replace />
+      : <HomeScreen profile={profile} signOut={signOut} />;
 
   return (
     <BrowserRouter>
       <Routes>
         <Route path="/login" element={<LoginScreen onLoggedIn={loadProfile} />} />
-        <Route path="/"      element={<HomeRedirect />} />
+        <Route path="/"      element={homeElement} />
 
         {/* Panel de cliente */}
         <Route path="/mi-panel" element={

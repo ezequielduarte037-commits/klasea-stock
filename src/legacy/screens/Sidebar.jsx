@@ -6,14 +6,7 @@ import logoK from "@/assets/logos/logo-k.png";
 function Icon({ id, color = "currentColor", size = 14 }) {
   const p = { stroke: color, fill: "none", strokeWidth: 1.5, strokeLinecap: "round", strokeLinejoin: "round" };
   const paths = {
-   
-   "/madera": <>
-  <rect x="2" y="4" width="12" height="8" rx="2" {...p}/>
-  <path d="M2 8h12" {...p}/>
-</>,
-	
-	
-	"/panol": <>
+    "/panol": <>
       <path d="M3 7V5a5 5 0 0 1 10 0v2" {...p}/>
       <rect x="1" y="7" width="14" height="9" rx="2" {...p}/>
       <path d="M8 11v2" {...p}/>
@@ -405,7 +398,6 @@ export default function Sidebar({ profile, signOut }) {
             {item("/admin",       "Inventario",  SC.gestion_maderas, true, 320)}
             {item("/movimientos", "Movimientos", SC.gestion_maderas, true, 335)}
             {item("/pedidos",     "Pedidos",     SC.gestion_maderas, true, 350)}
-			{item("/madera", "Pedidos Madera", SC.gestion_maderas, true, 365)}
           </>}
 
           {esGestion && <>

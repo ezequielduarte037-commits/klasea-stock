@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from "react";
-import useAlertas from "../hooks/useAlertas";
+import useAlertas from "@/hooks/useAlertas";
 
 const GRAVEDAD = {
   critical: { color: "#ff453a", icon: "🔴" },
