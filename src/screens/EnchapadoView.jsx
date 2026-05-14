@@ -155,7 +155,7 @@ const TEMPLATES = {
       { id: "5", material: "10 terciados 3 mm",  medidas: "160 × 220 cm", caras: "1 cara",   veta: "A lo largo" },
       { id: "6", material: "4 terciados 9 mm",   medidas: "100 × 220 cm", caras: "1 cara",   veta: "A lo ancho" },
     ],
-    tablones: null,
+    tablones: { lenga: 6, okume: 4 },
   },
 };
 
@@ -244,6 +244,18 @@ const HERRAJES = {
     { q: 3,  name: "Cerradura Kallay 505" },
     { q: 2,  name: "Cerradura Kallay 503" },
     { q: 52, name: "Bisagra codo 9 + base" },
+  ],
+  K55: [
+    { q: 37, name: "Bisagras codo 9" },
+    { q: 20, name: "Bisagras codo 0" },
+    { q: 2,  name: "Bisagras codo 18" },
+    { q: 1,  name: "Barral de ropero (1m)" },
+    { q: 4,  name: "Soportes de barral de ropero" },
+    { q: 42, name: "Imanes para puertas de muebles" },
+    { q: 6,  name: "Correderas de caj�n - LARGO 400mm Cierre suave" },
+    { q: 6,  name: "Correderas de caj�n - LARGO 450mm Cierre suave" },
+    { q: 1,  name: "Correderas de caj�n - LARGO 250mm Cierre suave" },
+    { q: 1,  name: "Bisagra tipo piano (700mm)" }
   ],
 };
 
@@ -344,7 +356,11 @@ alter table enchapado_ots add column if not exists herrajes_enviado    boolean d
 }
 
 // ── OT Card ────────────────────────────────────────────────────────────────
-function OTCard({ ot, onClick }) {
+function OTCard({ ot, ots, onClick }) {
+    const otNumStr = getOtNum(ot, ots);
+  
+  
+
   const meta = ESTADO_META[ot.estado] ?? ESTADO_META["Pendiente"];
   const tpl  = TEMPLATES[ot.modelo];
 
@@ -627,7 +643,7 @@ function NuevaOTModal({ onClose, onCreate, onEnsureMueblesUnidad }) {
 }
 
 // ── Vista detalle de una OT ────────────────────────────────────────────────
-function OTDetail({ ot: otInit, onBack, onUpdated, onDeleted, esAdmin, onEnsureMueblesUnidad }) {
+function OTDetail({ ot: otInit, ots, onBack, onUpdated, onDeleted, esAdmin, onEnsureMueblesUnidad }) {
   const [ot,        setOt]        = useState(otInit);
   const [items,     setItems]     = useState([]);
   const [loading,   setLoading]   = useState(true);
@@ -649,7 +665,22 @@ function OTDetail({ ot: otInit, onBack, onUpdated, onDeleted, esAdmin, onEnsureM
   const tpl     = TEMPLATES[ot.modelo];
   const nogal   = esNogal(ot.tipo_chapa);
   const tablones = tablonesList(ot.modelo, ot.tipo_chapa);
-  const herrajesKit = HERRAJES[ot.modelo] ?? null;
+    const herrajesKit = HERRAJES[ot.modelo] ?? null;
+    let otNumStr = "---";
+  try {
+    if (ots && ots.length > 0 && ot && ot.modelo && ot.barco) {
+      const mNum = ot.modelo.replace(/[^0-9]/g, "");
+      const mismosModelos = ots.filter(o => o.modelo === ot.modelo).sort((a,b) => new Date(a.created_at) - new Date(b.created_at));
+      const barcosUnicos = [...new Set(mismosModelos.map(o => o.barco.trim().toUpperCase()))];
+      const idx = barcosUnicos.indexOf(ot.barco.trim().toUpperCase());
+      const n = idx >= 0 ? idx + 1 : barcosUnicos.length + 1;
+      otNumStr = `${mNum}-${n}`;
+    }
+  } catch (err) { 
+    console.error("Error al calcular N OT:", err);
+  }
+
+  
 
   async function cargar() {
     setLoading(true);
@@ -787,7 +818,14 @@ function OTDetail({ ot: otInit, onBack, onUpdated, onDeleted, esAdmin, onEnsureM
   td { padding: 7px 8px; border-bottom: 1px solid #e8e8e8; vertical-align: top; }
   tr:nth-child(even) td { background: #fafafa; }
   td.item-id { font-family: 'JetBrains Mono', monospace; font-weight: 700; color: #555; width: 36px; }
-  td.chapas  { font-family: 'JetBrains Mono', monospace; font-size: 9pt; white-space: pre-wrap; }
+  td.chapas  {
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 9pt;
+  white-space: pre-wrap;
+  width: 320px;
+  min-width: 320px;
+  line-height: 1.45;
+}
   .notas-box { border: 1px solid #ccc; border-radius: 6px; padding: 10px 14px;
     min-height: 48px; font-size: 10pt; color: #333; white-space: pre-wrap; }
   .footer { margin-top: 20px; padding-top: 8px; border-top: 1px solid #ddd;
@@ -804,20 +842,40 @@ function OTDetail({ ot: otInit, onBack, onUpdated, onDeleted, esAdmin, onEnsureM
   }`;
 
     // ── Header común (mini versión para páginas 2 y 3) ────────────
+            const shortId = ot.id ? ot.id.split('-')[0].toUpperCase() : "S/N";
     const miniHeader = `
-  <header>
-    <div>
-      <div class="brand">Klase A · Enchapadora</div>
-      <div class="title">${ot.barco}</div>
-      <div class="meta">
-        Modelo: <strong>${ot.modelo}</strong>
-        ${ot.tipo_chapa ? ` &nbsp;·&nbsp; Chapa: <strong>${ot.tipo_chapa}</strong>` : ""}
-        &nbsp;·&nbsp; Fecha: <strong>${fmtFecha(ot.fecha)}</strong>
-        ${ot.responsable ? ` &nbsp;·&nbsp; Resp.: <strong>${ot.responsable}</strong>` : ""}
-      </div>
+<header>
+  <div>
+    <div class="brand">
+      Klase A &middot; Enchapadora &nbsp;|&nbsp; OT ${ot.barco}
     </div>
+
+    <div class="title">${ot.barco}</div>
+
+    <div class="meta">
+      Modelo: <strong>${ot.modelo}</strong>
+      &nbsp;&middot;&nbsp;
+      Fecha: <strong>${fmtFecha(ot.fecha)}</strong>
+    </div>
+  </div>
+
+  <div style="display:flex; flex-direction:column; align-items:flex-end; gap:8px;">
+    <div style="
+      font-family:'JetBrains Mono',monospace;
+      font-size:16pt;
+      font-weight:800;
+      color:#1a1a1a;
+      background:#f4f4f5;
+      padding:4px 12px;
+      border:2px solid #1a1a1a;
+      border-radius:6px;
+    ">
+      ${ot.barco}
+    </div>
+
     <div class="estado">${ot.estado}</div>
-  </header>`;
+  </div>
+</header>`;
 
     // ── PÁGINA 1: ENCHAPADORA ─────────────────────────────────────
     const rowsItems = (tpl?.items ?? []).map(it => {
@@ -850,6 +908,22 @@ function OTDetail({ ot: otInit, onBack, onUpdated, onDeleted, esAdmin, onEnsureM
   <div class="page">
     <div class="dest-banner">🔨 Para: Enchapadora</div>
     ${miniHeader}
+
+<section style="margin-top:-4px; margin-bottom:14px;">
+  <div style="
+    display:inline-block;
+    padding:8px 16px;
+    border:2px solid #888;
+    border-radius:8px;
+    background:#f5f5f5;
+    font-family:'JetBrains Mono', monospace;
+    font-size:12pt;
+    font-weight:700;
+    color:#111;
+  ">
+    Chapa: ${ot.tipo_chapa || "Sin especificar"}
+  </div>
+</section>
     ${fechasHTML}
     <section>
       <h3>Placas a enviar</h3>
@@ -889,9 +963,29 @@ function OTDetail({ ot: otInit, onBack, onUpdated, onDeleted, esAdmin, onEnsureM
   <div class="page">
     <div class="dest-banner carp">🪵 Para: Carpintería</div>
     ${miniHeader}
+
+<section style="margin-top:-4px; margin-bottom:14px;">
+  <div style="
+    display:inline-block;
+    padding:8px 16px;
+    border:2px solid #888;
+    border-radius:8px;
+    background:#f5f5f5;
+    font-family:'JetBrains Mono', monospace;
+    font-size:12pt;
+    font-weight:700;
+    color:#111;
+  ">
+    Chapa: ${ot.tipo_chapa || "Sin especificar"}
+  </div>
+</section>
     <section>
       <h3>Anexo B — Tablones Cepillados</h3>
-      <p class="sub" style="margin-bottom:12px">Medida estándar: 2,00 m × 0,20 m × 45 mm · Cepillados y marcados con modelo y N° de OT.</p>
+            <div style="background: #f8f8f8; border: 2px solid #bbb; padding: 14px; border-radius: 8px; margin-bottom: 20px; margin-top: 10px;">
+        <div style="font-size: 14pt; font-weight: 700; color: #111; text-align: center; margin-bottom: 6px;">Medida: 2,00 m &times; 0,20 m &times; 45 mm</div>
+        <div style="font-size: 12pt; font-weight: 800; color: #1e3a2f; text-align: center; text-transform: uppercase; letter-spacing: 1.5px;">Cepillados en 4 caras</div>
+        <div style="font-size: 10pt; color: #555; text-align: center; margin-top: 8px; font-family: 'JetBrains Mono', monospace;">Marcados con: Modelo ${ot.modelo} / OT: ${ot.barco}</div>
+      </div>
       <div class="chips">
         ${tablonesLineas.map(t => `<span class="chip big${t.includes("Nogal") ? " nogal" : ""}">${t}</span>`).join("")}
       </div>
@@ -934,6 +1028,22 @@ function OTDetail({ ot: otInit, onBack, onUpdated, onDeleted, esAdmin, onEnsureM
   <div class="page">
     <div class="dest-banner paniol">🔩 Para: Pañol / Oberti</div>
     ${miniHeader}
+
+<section style="margin-top:-4px; margin-bottom:14px;">
+  <div style="
+    display:inline-block;
+    padding:8px 16px;
+    border:2px solid #888;
+    border-radius:8px;
+    background:#f5f5f5;
+    font-family:'JetBrains Mono', monospace;
+    font-size:12pt;
+    font-weight:700;
+    color:#111;
+  ">
+    Chapa: ${ot.tipo_chapa || "Sin especificar"}
+  </div>
+</section>
     <section>
       <h3>Anexo C — Kit de Herrajes (${ot.modelo})</h3>
       <p class="sub" style="margin-bottom:12px">Pañol confirma cantidades antes del despacho. Un envío = un modelo completo.</p>
@@ -1231,9 +1341,11 @@ ${pagHerrajesHTML}
               }}>{t}</div>
             ))}
           </div>
-          <div style={{ fontSize: 11, color: C.t2, lineHeight: 1.7, marginBottom: 14 }}>
-            Cepillados — medida estándar: 2,00 m × 0,20 m × 45 mm.{" "}
-            {nogal && <span style={{ color: "#d97706" }}>La Lenga fue reemplazada por Tablón de Nogal.</span>}
+                    <div style={{ background: "rgba(255,255,255,0.03)", border: `1px solid ${C.b0}`, padding: "14px 18px", borderRadius: 8, marginBottom: 16 }}>
+            <div style={{ fontSize: 14, fontWeight: 700, color: C.t0, marginBottom: 4 }}>Medida: 2,00 m &times; 0,20 m &times; 45 mm</div>
+            <div style={{ fontSize: 12, fontWeight: 700, color: C.green, textTransform: "uppercase", letterSpacing: 1.5, marginBottom: 8 }}>Cepillados en 4 caras</div>
+            <div style={{ fontSize: 11, color: C.t2, fontFamily: C.mono }}>Marcados con: {ot.modelo} / OT: {ot.barco}</div>
+            {nogal && <div style={{ fontSize: 11, color: "#d97706", marginTop: 8 }}>&#9888; La Lenga fue reemplazada por Tabl&oacute;n de Nogal.</div>}
           </div>
           {/* Toggles pedido / enviado */}
           <div style={{ display: "flex", gap: 10, flexWrap: "wrap" }}>
@@ -1516,6 +1628,19 @@ function MatRow({ items }) {
 }
 
 // ── Main: EnchapadoView ────────────────────────────────────────────────────
+
+// Función Global para calcular OT (ej: 55-3)
+const getOtNum = (ot, ots) => {
+  try {
+    if (!ot || !ot.modelo || !ots) return "---";
+    const mNum = String(ot.modelo).replace(/[^0-9]/g, "");
+    const mismosModelos = ots.filter(o => o.modelo === ot.modelo).sort((a,b) => new Date(a.created_at) - new Date(b.created_at));
+    const barcosUnicos = [...new Set(mismosModelos.map(o => String(o.barco).trim().toUpperCase()))];
+    const idx = barcosUnicos.indexOf(String(ot.barco).trim().toUpperCase());
+    return `${mNum}-${idx >= 0 ? idx + 1 : barcosUnicos.length + 1}`;
+  } catch (e) { return "---"; }
+};
+
 export default function EnchapadoView({ esAdmin, onEnsureMueblesUnidad }) {
   const [ots,        setOts]        = useState([]);
   const [loading,    setLoading]    = useState(true);
@@ -1608,9 +1733,7 @@ export default function EnchapadoView({ esAdmin, onEnsureMueblesUnidad }) {
 
   if (view === "detail" && selected) {
     return (
-      <OTDetail
-        ot={selected}
-        onBack={onBack}
+      <OTDetail ot={selected} ots={ots} onBack={onBack}
         onUpdated={onUpdated}
         onDeleted={onDeleted}
         esAdmin={esAdmin}
@@ -1699,7 +1822,7 @@ export default function EnchapadoView({ esAdmin, onEnsureMueblesUnidad }) {
       ) : filtroM !== "todos" ? (
         <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
           {filtered.map(ot => (
-            <OTCard key={ot.id} ot={ot} onClick={() => { setSelected(ot); setView("detail"); }} />
+            <OTCard key={ot.id} ot={ot} ots={ots} onClick={() => { setSelected(ot); setView("detail"); }} />
           ))}
         </div>
       ) : (
@@ -1721,7 +1844,7 @@ export default function EnchapadoView({ esAdmin, onEnsureMueblesUnidad }) {
             </div>
             <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
               {rows.map(ot => (
-                <OTCard key={ot.id} ot={ot} onClick={() => { setSelected(ot); setView("detail"); }} />
+                <OTCard key={ot.id} ot={ot} ots={ots} onClick={() => { setSelected(ot); setView("detail"); }} />
               ))}
             </div>
           </div>
@@ -1734,3 +1857,10 @@ export default function EnchapadoView({ esAdmin, onEnsureMueblesUnidad }) {
     </div>
   );
 }
+
+
+
+
+
+
+
