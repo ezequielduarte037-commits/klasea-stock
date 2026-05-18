@@ -1,4 +1,4 @@
-﻿import { useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { useLocation } from "react-router-dom";
 import { supabase } from "@/supabaseClient";
 import Sidebar from "@/components/Sidebar";
@@ -373,88 +373,19 @@ export default function LaminacionScreen({ profile, signOut }) {
     if (!formEgreso.material_id) return setErr("Seleccioná un material");
     if (!formEgreso.cantidad || num(formEgreso.cantidad) <= 0) return setErr("Cantidad inválida");
     setErr("");
-
-    // ── Validación de excedente por obra ─────────────────────────────────────
-    const normDest = (s) => (s ?? "").trim().toUpperCase().replace(/\s+/g, " ");
-    const destinoNorm = normDest(formEgreso.destino);
-
-    // K55 se omite porque su lista de materiales está en construcción
-    const omitirValidacion = !destinoNorm || destinoNorm.includes("K55");
-
-    if (!omitirValidacion) {
-      // 1. Buscar la obra cuyo nombre (normalizado) coincida con el destino ingresado
-      const { data: obrasData } = await supabase
-        .from("laminacion_obras")
-        .select("id, nombre");
-
-      const obraMatch = (obrasData ?? []).find(
-        (o) => normDest(o.nombre) === destinoNorm
-      );
-
-      if (obraMatch) {
-        // 2. Obtener cantidad_necesaria para este material en esa obra
-        const { data: obraMat } = await supabase
-          .from("laminacion_obra_materiales")
-          .select("cantidad_necesaria")
-          .eq("obra_id", obraMatch.id)
-          .eq("material_id", formEgreso.material_id)
-          .maybeSingle();
-
-        const necesaria = num(obraMat?.cantidad_necesaria ?? 0);
-
-        if (necesaria > 0) {
-          // 3. Sumar todos los egresos previos del mismo material hacia esa obra/destino
-          const { data: movsPrevios } = await supabase
-            .from("laminacion_movimientos")
-            .select("cantidad, destino, obra")
-            .eq("tipo", "egreso")
-            .eq("material_id", formEgreso.material_id);
-
-          const yaEgresado = (movsPrevios ?? [])
-            .filter(
-              (m) =>
-                normDest(m.destino) === destinoNorm ||
-                normDest(m.obra) === destinoNorm
-            )
-            .reduce((s, m) => s + num(m.cantidad), 0);
-
-          const intentando     = num(formEgreso.cantidad);
-          const totalConNuevo  = yaEgresado + intentando;
-
-          if (totalConNuevo > necesaria) {
-            const mat      = materiales.find((m) => String(m.id) === String(formEgreso.material_id));
-            const excedente = +(totalConNuevo - necesaria).toFixed(2);
-            const unidad    = mat?.unidad ?? "";
-
-            const continuar = window.confirm(
-              `⚠️ Advertencia: Estás intentando retirar más de lo planificado.\n\n` +
-              `La obra ${obraMatch.nombre} tiene un límite de ${necesaria} ${unidad} para este material ` +
-              `y ya se han retirado ${yaEgresado} ${unidad}.\n` +
-              `Excedente: ${excedente} ${unidad}.\n\n` +
-              `Por favor, consultar a técnica antes de continuar.\n` +
-              `¿Deseas registrar el egreso de todas formas?`
-            );
-
-            if (!continuar) return;
-          }
-        }
-      }
-    }
-    // ─────────────────────────────────────────────────────────────────────────
-
     const userId = await getUserId();
     const { error } = await supabase.from("laminacion_movimientos").insert({
-      material_id:    formEgreso.material_id,
-      tipo:           "egreso",
-      cantidad:       num(formEgreso.cantidad),
-      fecha:          formEgreso.fecha,
-      destino:        formEgreso.destino.trim() || null,
+      material_id: formEgreso.material_id,
+      tipo: "egreso",
+      cantidad: num(formEgreso.cantidad),
+      fecha: formEgreso.fecha,
+      destino: formEgreso.destino.trim() || null,
       nombre_persona: formEgreso.nombre_persona.trim() || null,
-      observaciones:  formEgreso.observaciones.trim() || null,
-      creado_por:     userId,
+      observaciones: formEgreso.observaciones.trim() || null,
+      creado_por: userId,
     });
     if (error) return setErr(error.message);
-    flash("✔ Egreso registrado");
+    flash(" Egreso registrado");
     setFormEgreso(f => ({ ...f, cantidad: "", destino: "", nombre_persona: "", observaciones: "" }));
     cargar();
   }

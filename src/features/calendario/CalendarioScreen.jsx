@@ -109,7 +109,7 @@ function EventBadge({ ev, onClick, compact }) {
     <div
       onClick={e => { e.stopPropagation(); onClick(ev); }}
       style={{
-        display: "flex", alignItems: "center", gap: 5,
+        display: "flex", alignItems: "flex-start", gap: 5,
         padding: compact ? "2px 5px" : "3px 7px",
         borderRadius: 5, cursor: "pointer",
         background: `${t.color}18`, border: `1px solid ${t.color}35`,
@@ -117,12 +117,12 @@ function EventBadge({ ev, onClick, compact }) {
       }}
       className="ev-badge"
     >
-      <div style={{ width: 5, height: 5, borderRadius: "50%", background: t.color, flexShrink: 0 }}/>
-      <span style={{ fontSize: 10, color: t.color, fontWeight: 600, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis", fontFamily: C.sans, maxWidth: compact ? 70 : 130 }}>
-        {ev.titulo}
+      <div style={{ width: 5, height: 5, borderRadius: "50%", background: t.color, flexShrink: 0, marginTop: 4.5 }}/>
+      <span style={{ fontSize: 10, color: t.color, fontWeight: 600, whiteSpace: "normal", wordBreak: "break-word", lineHeight: 1.2, fontFamily: C.sans }}>
+        {ev.titulo}{ev.obra ? ` - ${ev.obra}` : ""}
       </span>
       {ev.hora && !compact && (
-        <span style={{ fontSize: 9, color: C.t2, fontFamily: C.mono, flexShrink: 0 }}>{ev.hora}</span>
+        <span style={{ fontSize: 9, color: C.t2, fontFamily: C.mono, flexShrink: 0, marginTop: 1 }}>{ev.hora}</span>
       )}
     </div>
   );
@@ -480,6 +480,29 @@ export default function CalendarioScreen({ profile, signOut }) {
   const [loading,    setLoading]   = useState(true);
   const [dbErr,      setDbErr]     = useState(false);
   const [filtroTipo, setFiltroTipo] = useState("todos");
+    const [busqueda, setBusqueda] = useState("");
+  const [resultadosBusqueda, setResultadosBusqueda] = useState([]);
+  const [buscando, setBuscando] = useState(false);
+
+  useEffect(() => {
+    if (!busqueda.trim()) {
+      setResultadosBusqueda([]);
+      return;
+    }
+    const fetchSearch = async () => {
+      setBuscando(true);
+      const { data } = await supabase
+        .from("calendario_eventos")
+        .select("*")
+        .or(`titulo.ilike.%${busqueda}%,obra.ilike.%${busqueda}%,notas.ilike.%${busqueda}%`)
+        .order("fecha", { ascending: false })
+        .limit(15);
+      setResultadosBusqueda(data || []);
+      setBuscando(false);
+    };
+    const timeoutId = setTimeout(fetchSearch, 300);
+    return () => clearTimeout(timeoutId);
+  }, [busqueda]);
 
   async function cargar() {
     setLoading(true);
@@ -506,7 +529,7 @@ export default function CalendarioScreen({ profile, signOut }) {
 
   useEffect(() => { cargar(); }, [year, month]);
 
-  const eventosFiltrados = useMemo(() => {
+      const eventosFiltrados = useMemo(() => {
     if (filtroTipo === "todos") return eventos;
     return eventos.filter(e => e.tipo === filtroTipo);
   }, [eventos, filtroTipo]);
@@ -611,7 +634,34 @@ export default function CalendarioScreen({ profile, signOut }) {
           </div>
 
           <div style={{ flex: 1 }}/>
-
+                              <div style={{ position: "relative", display: "flex", alignItems: "center", zIndex: 4000 }}>
+            <svg style={{ position: "absolute", left: 10, color: C.t2 }} width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+            <input type="text" placeholder="Buscar historial..." value={busqueda} onChange={e => setBusqueda(e.target.value)} style={{ background: C.s0, border: `1px solid ${C.b0}`, color: C.t0, padding: "6px 12px 6px 30px", borderRadius: 8, fontSize: 12, outline: "none", width: 220, fontFamily: C.sans }} />
+            
+            {busqueda.trim() && (
+              <div style={{ position: "absolute", top: "100%", right: 0, marginTop: 8, width: 300, background: "#0d0d10", border: `1px solid ${C.b1}`, borderRadius: 10, overflow: "hidden", boxShadow: "0 10px 25px rgba(0,0,0,0.5)", maxHeight: 350, overflowY: "auto" }}>
+                {buscando ? (
+                  <div style={{ padding: 12, fontSize: 11, color: C.t2, textAlign: "center" }}>Buscando...</div>
+                ) : resultadosBusqueda.length === 0 ? (
+                  <div style={{ padding: 12, fontSize: 11, color: C.t2, textAlign: "center" }}>No se encontraron eventos</div>
+                ) : (
+                  resultadosBusqueda.map(ev => {
+                    const t = TIPOS[ev.tipo] ?? TIPOS.otro;
+                    const { y, m, d } = parseDate(ev.fecha);
+                    return (
+                      <div key={ev.id} style={{ padding: "10px 12px", borderBottom: `1px solid ${C.b0}`, display: "flex", gap: 8, alignItems: "flex-start", background: "transparent" }}>
+                        <div style={{ width: 6, height: 6, borderRadius: "50%", background: t.color, marginTop: 4, flexShrink: 0 }}/>
+                        <div>
+                          <div style={{ fontSize: 12, color: C.t0, fontWeight: 500 }}>{ev.titulo}</div>
+                          <div style={{ fontSize: 10, color: C.t2, marginTop: 2 }}>{d} {MESES_ES[m]} {y} {ev.obra ? `· ${ev.obra}` : ""}</div>
+                        </div>
+                      </div>
+                    )
+                  })
+                )}
+              </div>
+            )}
+          </div>
           {esAdmin && (
             <button onClick={() => setModal({ ev: null, fecha: selDate })}
               style={{ padding: "7px 14px", background: C.s1, border: `1px solid ${C.b1}`, color: C.t0, borderRadius: 8, cursor: "pointer", fontSize: 11, fontWeight: 600, fontFamily: C.sans, display: "flex", alignItems: "center", gap: 6 }}>
