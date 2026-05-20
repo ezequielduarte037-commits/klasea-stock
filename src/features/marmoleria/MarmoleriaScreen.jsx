@@ -11,7 +11,7 @@ import logoKlaseA from "@/assets/logos/logo-klasea.png";
 const ESTADOS = ["Pendiente", "Enviado", "Recibido", "No lleva", "Rehacer"];
 const ESTADO_META = {
   "Pendiente": { color: "#566070", bg: "rgba(255,255,255,0.04)", border: "rgba(255,255,255,0.1)",  dot: "○", label: "Pendiente" },
-  "Enviado":   { color: "#a8b4c4", bg: "rgba(168,180,196,0.1)",  border: "rgba(168,180,196,0.25)", dot: "◑", label: "Enviado"   },
+  "Enviado":   { color: "#f3f7fc", bg: "rgba(168,180,196,0.1)",  border: "rgba(168,180,196,0.25)", dot: "◑", label: "Enviado"   },
   "Recibido":  { color: "#10b981", bg: "rgba(61,206,106,0.1)",   border: "rgba(61,206,106,0.3)",   dot: "●", label: "Recibido"  },
   "No lleva":  { color: "#2c3040", bg: "transparent",            border: "transparent",            dot: "—", label: "No lleva" },
   "Rehacer":   { color: "#ef4444", bg: "rgba(224,72,72,0.1)",    border: "rgba(224,72,72,0.28)",   dot: "↺", label: "Rehacer"  },
@@ -280,6 +280,12 @@ export default function MarmoleriaScreen({ profile, signOut }) {
   const [showAddPieza, setShowAddPieza] = useState(false);
   const [formPieza, setFormPieza] = useState({ pieza:"", sector:"" });
 
+  // Plantilla — add/edit directo
+  const [showAddPlantilla, setShowAddPlantilla] = useState(false);
+  const [formPlantilla, setFormPlantilla]       = useState({ pieza:"", sector:"", opcional:false });
+  const [editPlantillaId, setEditPlantillaId]   = useState(null);
+  const [editPlantillaForm, setEditPlantillaForm] = useState({ pieza:"", sector:"", opcional:false });
+
   // Edición rápida (Líneas y Unidades)
   const [editLineaId, setEditLineaId] = useState(null);
   const [editLineaNombre, setEditLineaNombre] = useState("");
@@ -509,6 +515,33 @@ export default function MarmoleriaScreen({ profile, signOut }) {
     if (!window.confirm("¿Quitar esta pieza de la plantilla? No afecta barcos existentes.")) return;
     await supabase.from("marm_linea_piezas").delete().eq("id", piezaId);
     setPlantillaLinea(prev => prev.filter(p => p.id !== piezaId));
+  }
+
+  async function agregarPiezaDirectaPlantilla() {
+    if (!formPlantilla.pieza.trim() || !formPlantilla.sector.trim() || !lineaId) return;
+    const { data, error } = await supabase.from("marm_linea_piezas").insert({
+      linea_id: lineaId,
+      pieza:    formPlantilla.pieza.trim(),
+      sector:   formPlantilla.sector.trim().toUpperCase(),
+      opcional: formPlantilla.opcional,
+    }).select().single();
+    if (error) return setErr(error.message);
+    setFormPlantilla({ pieza:"", sector:"", opcional:false });
+    setShowAddPlantilla(false);
+    setPlantillaLinea(prev => [...prev, data].sort((a,b) => (a.sector+a.pieza).localeCompare(b.sector+b.pieza)));
+  }
+
+  async function editarPiezaPlantilla(id) {
+    if (!editPlantillaForm.pieza.trim()) return;
+    const upd = {
+      pieza:    editPlantillaForm.pieza.trim(),
+      sector:   editPlantillaForm.sector.trim().toUpperCase(),
+      opcional: editPlantillaForm.opcional,
+    };
+    const { error } = await supabase.from("marm_linea_piezas").update(upd).eq("id", id);
+    if (error) return setErr(error.message);
+    setPlantillaLinea(prev => prev.map(p => p.id === id ? { ...p, ...upd } : p));
+    setEditPlantillaId(null);
   }
 
   async function guardarEditUnidad(id) {
@@ -1441,6 +1474,7 @@ export default function MarmoleriaScreen({ profile, signOut }) {
               {/* ════ PLANTILLA DE LÍNEA ════ */}
               {viewMode === "plantilla" && !unidadId && lineaId && (
                 <div style={{ padding:"22px 26px", animation:"slideUp .28s ease" }}>
+                  {/* Header */}
                   <div style={{ display:"flex", alignItems:"flex-start", justifyContent:"space-between", marginBottom:20 }}>
                     <div>
                       <div style={{ fontSize:8, color:C2.t2, letterSpacing:3, textTransform:"uppercase", fontFamily:C2.mono, marginBottom:5 }}>Plantilla de línea</div>
@@ -1452,7 +1486,46 @@ export default function MarmoleriaScreen({ profile, signOut }) {
                         Estas piezas se copian automáticamente a cada nuevo barco de esta línea
                       </p>
                     </div>
+                    {esAdmin && (
+                      <button className="action-btn" onClick={() => { setShowAddPlantilla(v => !v); setEditPlantillaId(null); }} style={{
+                        display:"flex", alignItems:"center", gap:6, flexShrink:0,
+                        border:`1px solid ${showAddPlantilla ? "rgba(239,68,68,0.3)" : C2.b0}`,
+                        background: showAddPlantilla ? "rgba(239,68,68,0.07)" : "transparent",
+                        color: showAddPlantilla ? "#fca5a5" : C2.t1,
+                        padding:"7px 14px", borderRadius:8, cursor:"pointer", fontFamily:C2.sans, fontSize:11, transition:"all 0.15s",
+                      }}>
+                        <span style={{ fontSize:14, lineHeight:1 }}>{showAddPlantilla ? "✕" : "+"}</span>
+                        {showAddPlantilla ? "Cancelar" : "Agregar pieza"}
+                      </button>
+                    )}
                   </div>
+
+                  {/* Panel agregar */}
+                  {showAddPlantilla && esAdmin && (
+                    <div style={{ background:C2.s0, border:`1px solid ${C2.b0}`, borderRadius:10, padding:16, marginBottom:16, animation:"slideUp .2s ease" }}>
+                      <div style={{ fontSize:8.5, letterSpacing:2, textTransform:"uppercase", color:C2.t2, marginBottom:10, fontFamily:C2.mono }}>Nueva pieza en plantilla {lineaSel?.nombre}</div>
+                      <div style={{ display:"grid", gridTemplateColumns:"1fr 160px auto", gap:8, alignItems:"center" }}>
+                        <input style={INP} placeholder="Nombre de la pieza (ej: Alzada baño)"
+                          value={formPlantilla.pieza}
+                          onChange={e => setFormPlantilla(f=>({...f, pieza:e.target.value}))}
+                          onKeyDown={e => e.key === "Enter" && agregarPiezaDirectaPlantilla()} />
+                        <input style={INP} placeholder="Sector (ej: BAÑOS)"
+                          value={formPlantilla.sector}
+                          onChange={e => setFormPlantilla(f=>({...f, sector:e.target.value}))}
+                          onKeyDown={e => e.key === "Enter" && agregarPiezaDirectaPlantilla()} />
+                        <label style={{ display:"flex", alignItems:"center", gap:6, cursor:"pointer", flexShrink:0, color:C2.t1, fontSize:11, userSelect:"none" }}>
+                          <input type="checkbox" checked={formPlantilla.opcional}
+                            onChange={e => setFormPlantilla(f=>({...f, opcional:e.target.checked}))}
+                            style={{ accentColor:C2.primary, width:13, height:13 }} />
+                          Opcional
+                        </label>
+                      </div>
+                      <button onClick={agregarPiezaDirectaPlantilla} style={{
+                        marginTop:10, border:"1px solid rgba(59,130,246,0.3)", background:"rgba(59,130,246,0.1)",
+                        color:"#60a5fa", padding:"7px 18px", borderRadius:8, cursor:"pointer", fontFamily:C2.sans, fontSize:12, fontWeight:600,
+                      }}>Agregar a plantilla</button>
+                    </div>
+                  )}
 
                   {plantillaLoading ? (
                     <div style={{ textAlign:"center", padding:40, fontSize:11, color:C2.t2, letterSpacing:2, textTransform:"uppercase", fontFamily:C2.mono }}>Cargando…</div>
@@ -1460,10 +1533,15 @@ export default function MarmoleriaScreen({ profile, signOut }) {
                     <div style={{ textAlign:"center", padding:"60px 40px", color:C2.t2,
                       background:C2.s0, borderRadius:14, border:`1px dashed ${C2.b0}` }}>
                       <div style={{ fontSize:28, marginBottom:12, opacity:0.3 }}>◫</div>
-                      <div style={{ fontSize:11, letterSpacing:2, textTransform:"uppercase", fontFamily:C2.mono }}>Plantilla vacía — agregá piezas desde un barco</div>
+                      <div style={{ fontSize:11, letterSpacing:2, textTransform:"uppercase", fontFamily:C2.mono, marginBottom:12 }}>Plantilla vacía</div>
+                      {esAdmin && (
+                        <button onClick={() => setShowAddPlantilla(true)} style={{
+                          border:"1px solid rgba(59,130,246,0.3)", background:"rgba(59,130,246,0.1)",
+                          color:"#60a5fa", padding:"8px 20px", borderRadius:8, cursor:"pointer", fontFamily:C2.sans, fontSize:12, fontWeight:600,
+                        }}>+ Agregar primera pieza</button>
+                      )}
                     </div>
                   ) : (() => {
-                    // Agrupar por sector
                     const porSectorPlantilla = {};
                     plantillaLinea.forEach(p => {
                       if (!porSectorPlantilla[p.sector]) porSectorPlantilla[p.sector] = [];
@@ -1471,50 +1549,98 @@ export default function MarmoleriaScreen({ profile, signOut }) {
                     });
                     return (
                       <div style={{ background:"rgba(255,255,255,0.02)", border:`1px solid ${C2.b0}`, borderRadius:12, overflow:"hidden" }}>
-                        {/* Header */}
-                        <div style={{ display:"grid", gridTemplateColumns:"1fr 140px 60px 38px",
+                        {/* Header tabla */}
+                        <div style={{ display:"grid", gridTemplateColumns:"1fr 150px 72px 68px",
                           gap:12, padding:"9px 18px", borderBottom:`1px solid ${C2.b0}`,
                           background:"rgba(255,255,255,0.02)" }}>
                           {["Pieza","Sector","Opcional",""].map((h,i) => (
                             <div key={i} style={{ fontSize:7.5, letterSpacing:2, textTransform:"uppercase", color:C2.t2, fontWeight:700, fontFamily:C2.mono }}>{h}</div>
                           ))}
                         </div>
+
                         {Object.entries(porSectorPlantilla).map(([sector, rows]) => (
                           <div key={sector}>
                             {/* Cabecera sector */}
-                            <div style={{ padding:"7px 18px", background:"rgba(255,255,255,0.01)",
-                              borderBottom:`1px solid rgba(255,255,255,0.04)` }}>
-                              <span style={{ fontSize:8, letterSpacing:2.5, fontWeight:700, color:C2.t2, textTransform:"uppercase", fontFamily:C2.mono }}>{sector}</span>
-                              <span style={{ marginLeft:8, fontSize:9, color:C2.t2, fontFamily:C2.mono }}>({rows.length})</span>
-                            </div>
-                            {rows.map(p => (
-                              <div key={p.id} className="pieza-row" style={{
-                                display:"grid", gridTemplateColumns:"1fr 140px 60px 38px",
-                                gap:12, alignItems:"center", padding:"10px 18px",
-                                borderBottom:`1px solid rgba(255,255,255,0.025)`,
-                                transition:"background 0.1s",
-                              }}>
-                                <div style={{ color:C2.t0, fontSize:12, fontWeight:500 }}>{p.pieza}</div>
-                                <div style={{ color:C2.t2, fontSize:11, fontFamily:C2.mono }}>{p.sector}</div>
-                                <div>
-                                  {p.opcional ? (
-                                    <span style={{ fontSize:8, letterSpacing:1.5, textTransform:"uppercase",
-                                      padding:"2px 7px", borderRadius:99, background:"rgba(255,255,255,0.04)",
-                                      color:C2.t2, border:`1px solid ${C2.b0}` }}>OPC</span>
-                                  ) : (
-                                    <span style={{ fontSize:8, color:"rgba(255,255,255,0.1)" }}>—</span>
-                                  )}
-                                </div>
-                                <div style={{ display:"flex", justifyContent:"flex-end" }}>
-                                  {esAdmin && (
-                                    <button className="del-btn" style={{ border:"none", background:"transparent",
-                                      color:C2.t2, padding:"3px 5px", cursor:"pointer", fontSize:14,
-                                      borderRadius:5, transition:"color 0.12s" }}
-                                      onClick={() => eliminarPiezaPlantilla(p.id)} title="Quitar de plantilla">×</button>
-                                  )}
-                                </div>
+                            <div style={{ padding:"7px 18px", background:"rgba(255,255,255,0.015)",
+                              borderBottom:`1px solid rgba(255,255,255,0.04)`,
+                              display:"flex", alignItems:"center", justifyContent:"space-between" }}>
+                              <div style={{ display:"flex", alignItems:"center", gap:8 }}>
+                                <span style={{ fontSize:8, letterSpacing:2.5, fontWeight:700, color:C2.t2, textTransform:"uppercase", fontFamily:C2.mono }}>{sector}</span>
+                                <span style={{ fontSize:9, color:C2.t2, fontFamily:C2.mono, opacity:0.6 }}>({rows.length})</span>
                               </div>
-                            ))}
+                            </div>
+
+                            {rows.map(p => {
+                              const isEditing = editPlantillaId === p.id;
+                              return (
+                                <div key={p.id} className="pieza-row" style={{
+                                  display:"grid", gridTemplateColumns:"1fr 150px 72px 68px",
+                                  gap:12, alignItems:"center", padding:"10px 18px",
+                                  borderBottom:`1px solid rgba(255,255,255,0.025)`,
+                                  transition:"background 0.1s",
+                                  background: isEditing ? "rgba(59,130,246,0.04)" : "transparent",
+                                }}>
+                                  {isEditing ? (
+                                    /* ── Modo edición inline ── */
+                                    <>
+                                      <input autoFocus style={{ ...INP_SM, fontSize:12 }}
+                                        value={editPlantillaForm.pieza}
+                                        onChange={e => setEditPlantillaForm(f=>({...f, pieza:e.target.value}))}
+                                        onKeyDown={e => e.key === "Enter" && editarPiezaPlantilla(p.id)}
+                                        placeholder="Nombre de la pieza" />
+                                      <input style={{ ...INP_SM, fontSize:11 }}
+                                        value={editPlantillaForm.sector}
+                                        onChange={e => setEditPlantillaForm(f=>({...f, sector:e.target.value}))}
+                                        onKeyDown={e => e.key === "Enter" && editarPiezaPlantilla(p.id)}
+                                        placeholder="Sector" />
+                                      <label style={{ display:"flex", alignItems:"center", gap:5, cursor:"pointer", color:C2.t1, fontSize:11 }}>
+                                        <input type="checkbox" checked={editPlantillaForm.opcional}
+                                          onChange={e => setEditPlantillaForm(f=>({...f, opcional:e.target.checked}))}
+                                          style={{ accentColor:C2.primary, width:13, height:13 }} />
+                                        Opc
+                                      </label>
+                                      <div style={{ display:"flex", gap:3, justifyContent:"flex-end" }}>
+                                        <button onClick={() => editarPiezaPlantilla(p.id)} style={{
+                                          border:"1px solid rgba(59,130,246,0.35)", background:"rgba(59,130,246,0.12)",
+                                          color:"#60a5fa", padding:"3px 8px", borderRadius:6, cursor:"pointer", fontSize:10, fontFamily:C2.sans, fontWeight:600 }}>✓</button>
+                                        <button onClick={() => setEditPlantillaId(null)} style={{
+                                          border:`1px solid ${C2.b0}`, background:"transparent",
+                                          color:C2.t2, padding:"3px 7px", borderRadius:6, cursor:"pointer", fontSize:12 }}>✕</button>
+                                      </div>
+                                    </>
+                                  ) : (
+                                    /* ── Modo lectura ── */
+                                    <>
+                                      <div style={{ color:C2.t0, fontSize:12, fontWeight:500 }}>{p.pieza}</div>
+                                      <div style={{ color:C2.t2, fontSize:11, fontFamily:C2.mono }}>{p.sector}</div>
+                                      <div>
+                                        {p.opcional ? (
+                                          <span style={{ fontSize:8, letterSpacing:1.5, textTransform:"uppercase",
+                                            padding:"2px 7px", borderRadius:99, background:"rgba(255,255,255,0.04)",
+                                            color:C2.t2, border:`1px solid ${C2.b0}` }}>OPC</span>
+                                        ) : (
+                                          <span style={{ fontSize:8, color:"rgba(255,255,255,0.1)" }}>—</span>
+                                        )}
+                                      </div>
+                                      <div style={{ display:"flex", gap:2, justifyContent:"flex-end" }}>
+                                        {esAdmin && (
+                                          <>
+                                            <button className="edit-btn" title="Editar pieza" style={{
+                                              border:"none", background:"transparent", color:C2.t2,
+                                              padding:"3px 5px", cursor:"pointer", fontSize:12, borderRadius:5, transition:"color 0.12s" }}
+                                              onClick={() => { setEditPlantillaId(p.id); setEditPlantillaForm({ pieza:p.pieza, sector:p.sector, opcional:!!p.opcional }); setShowAddPlantilla(false); }}>✎</button>
+                                            <button className="del-btn" title="Quitar de plantilla" style={{
+                                              border:"none", background:"transparent", color:C2.t2,
+                                              padding:"3px 5px", cursor:"pointer", fontSize:14, borderRadius:5, transition:"color 0.12s" }}
+                                              onClick={() => eliminarPiezaPlantilla(p.id)}>×</button>
+                                          </>
+                                        )}
+                                      </div>
+                                    </>
+                                  )}
+                                </div>
+                              );
+                            })}
                           </div>
                         ))}
                       </div>

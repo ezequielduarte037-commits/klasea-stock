@@ -350,10 +350,13 @@ function CatalogoLinea({ lineaId, lineaNombre, esAdmin, onOpenMueble }) {
   const [muebles,   setMuebles]   = useState([]);
   const [loading,   setLoading]   = useState(true);
   const [q,         setQ]         = useState("");
-  const [showAdd,   setShowAdd]   = useState(false);
-  const [newM,      setNewM]      = useState({ nombre: "", sector: "" });
-  const [editId,    setEditId]    = useState(null);  // inline edit
-  const [editForm,  setEditForm]  = useState({});
+  const [showAdd,       setShowAdd]       = useState(false);
+  const [newM,          setNewM]          = useState({ nombre: "", sector: "", descripcion: "", medidas: "", material: "" });
+  const [editId,        setEditId]        = useState(null);  // inline edit
+  const [editForm,      setEditForm]      = useState({});
+  const [copiarMode,    setCopiarMode]    = useState(false);
+  const [todasLineas,   setTodasLineas]   = useState([]);
+  const [copiarLineaId, setCopiarLineaId] = useState("");
 
   async function cargar() {
     setLoading(true);
@@ -367,14 +370,41 @@ function CatalogoLinea({ lineaId, lineaNombre, esAdmin, onOpenMueble }) {
     setLoading(false);
   }
 
-  useEffect(() => { if (lineaId) { setQ(""); setShowAdd(false); setEditId(null); cargar(); } }, [lineaId]);
+  useEffect(() => {
+    if (lineaId) {
+      setQ(""); setShowAdd(false); setEditId(null); setCopiarMode(false); setCopiarLineaId(""); cargar();
+    }
+  }, [lineaId]);
+
+  async function cargarTodasLineas() {
+    const { data } = await supabase.from("prod_lineas").select("id,nombre").eq("activa", true).order("nombre");
+    setTodasLineas((data ?? []).filter(l => l.id !== lineaId));
+  }
+
+  async function copiarPlantilla() {
+    if (!copiarLineaId) return;
+    const { data } = await supabase.from("prod_linea_muebles").select("mueble_id").eq("linea_id", copiarLineaId);
+    if (!data?.length) { alert("Esa línea no tiene muebles en su plantilla."); return; }
+    const idsExistentes = new Set(muebles.map(m => m.id));
+    const nuevos = data.filter(r => !idsExistentes.has(r.mueble_id));
+    if (!nuevos.length) { alert("Todos esos muebles ya están en esta línea."); return; }
+    const { error } = await supabase.from("prod_linea_muebles").insert(nuevos.map(r => ({ linea_id: lineaId, mueble_id: r.mueble_id })));
+    if (error) { alert(error.message); return; }
+    setCopiarMode(false); setCopiarLineaId("");
+    cargar();
+  }
 
   async function agregar() {
     if (!newM.nombre.trim()) return;
-    const { data: m, error } = await supabase.from("prod_muebles").insert({ nombre: newM.nombre.trim(), sector: newM.sector.trim() }).select().single();
+    const { data: m, error } = await supabase.from("prod_muebles").insert({
+      nombre: newM.nombre.trim(), sector: newM.sector.trim(),
+      descripcion: newM.descripcion.trim() || null,
+      medidas: newM.medidas.trim() || null,
+      material: newM.material.trim() || null,
+    }).select().single();
     if (error) return alert(error.message);
     await supabase.from("prod_linea_muebles").insert({ linea_id: lineaId, mueble_id: m.id });
-    setNewM({ nombre: "", sector: "" });
+    setNewM({ nombre: "", sector: "", descripcion: "", medidas: "", material: "" });
     setShowAdd(false);
     cargar();
   }
@@ -412,27 +442,66 @@ function CatalogoLinea({ lineaId, lineaNombre, esAdmin, onOpenMueble }) {
       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: 24 }}>
         <div>
           <div style={{ fontSize: 22, fontWeight: 700, color: C.t0 }}>{lineaNombre}</div>
-          <div style={{ fontSize: 11, color: C.t2, marginTop: 4, fontFamily: C.mono }}>{muebles.length} muebles en el catálogo</div>
+          <div style={{ display: "flex", alignItems: "center", gap: 10, marginTop: 4 }}>
+            <div style={{ fontSize: 11, color: C.t2, fontFamily: C.mono }}>{muebles.length} muebles en la plantilla</div>
+            <div style={{ fontSize: 9, color: C.primary, background: "rgba(59,130,246,0.1)", border: "1px solid rgba(59,130,246,0.2)", borderRadius: 4, padding: "2px 7px", letterSpacing: "0.12em", textTransform: "uppercase", fontWeight: 600 }}>Plantilla base</div>
+          </div>
+          <div style={{ fontSize: 10, color: C.t2, marginTop: 3 }}>Los muebles de esta lista se copian automáticamente a cada nueva unidad.</div>
         </div>
         {esAdmin && (
-          <button onClick={() => setShowAdd(v => !v)} style={{ padding: "8px 16px", background: showAdd ? C.s1 : "rgba(59,130,246,0.12)", border: `1px solid ${showAdd ? C.b1 : "rgba(59,130,246,0.3)"}`, color: showAdd ? C.t1 : "#60a5fa", borderRadius: 8, cursor: "pointer", fontSize: 12, fontWeight: 600, fontFamily: C.sans }}>
-            {showAdd ? "Cancelar" : "+ Nuevo mueble"}
-          </button>
+          <div style={{ display: "flex", gap: 6 }}>
+            <button
+              onClick={() => { if (!copiarMode) cargarTodasLineas(); setCopiarMode(v => !v); setShowAdd(false); }}
+              style={{ padding: "8px 14px", background: copiarMode ? C.s1 : "rgba(255,255,255,0.04)", border: `1px solid ${copiarMode ? C.b1 : C.b0}`, color: copiarMode ? C.t1 : C.t2, borderRadius: 8, cursor: "pointer", fontSize: 12, fontWeight: 600, fontFamily: C.sans }}
+            >{copiarMode ? "Cancelar" : "Copiar de línea"}</button>
+            <button onClick={() => { setShowAdd(v => !v); setCopiarMode(false); }} style={{ padding: "8px 16px", background: showAdd ? C.s1 : "rgba(59,130,246,0.12)", border: `1px solid ${showAdd ? C.b1 : "rgba(59,130,246,0.3)"}`, color: showAdd ? C.t1 : "#60a5fa", borderRadius: 8, cursor: "pointer", fontSize: 12, fontWeight: 600, fontFamily: C.sans }}>
+              {showAdd ? "Cancelar" : "+ Nuevo mueble"}
+            </button>
+          </div>
         )}
       </div>
+
+      {/* Copiar plantilla de otra línea */}
+      {copiarMode && esAdmin && (
+        <div style={{ background: "rgba(59,130,246,0.05)", border: "1px solid rgba(59,130,246,0.2)", borderRadius: 12, padding: 16, marginBottom: 18 }}>
+          <div style={{ fontSize: 9, letterSpacing: 2, textTransform: "uppercase", color: "#60a5fa", marginBottom: 10, fontWeight: 600 }}>Importar plantilla de otra línea</div>
+          <div style={{ fontSize: 11, color: C.t2, marginBottom: 10 }}>Seleccioná una línea para copiar sus muebles a esta plantilla. Los que ya existan no se duplicarán.</div>
+          <div style={{ display: "flex", gap: 8 }}>
+            <select style={{ ...INP, flex: 1 }} value={copiarLineaId} onChange={e => setCopiarLineaId(e.target.value)}>
+              <option value="">— Elegir línea —</option>
+              {todasLineas.map(l => <option key={l.id} value={l.id}>{l.nombre}</option>)}
+            </select>
+            <button onClick={copiarPlantilla} disabled={!copiarLineaId} style={{ padding: "7px 18px", background: "rgba(59,130,246,0.15)", border: "1px solid rgba(59,130,246,0.35)", color: "#60a5fa", fontWeight: 600, borderRadius: 8, cursor: copiarLineaId ? "pointer" : "not-allowed", fontFamily: C.sans, fontSize: 12, opacity: copiarLineaId ? 1 : 0.5 }}>Importar</button>
+          </div>
+        </div>
+      )}
 
       {/* Formulario nuevo mueble */}
       {showAdd && esAdmin && (
         <div style={{ background: C.s0, border: `1px solid ${C.b1}`, borderRadius: 12, padding: 16, marginBottom: 18 }}>
           <div style={{ fontSize: 9, letterSpacing: 2, textTransform: "uppercase", color: C.t2, marginBottom: 10 }}>Nuevo mueble</div>
-          <div style={{ display: "grid", gridTemplateColumns: "1fr 140px", gap: 8, marginBottom: 10 }}>
+          <div style={{ display: "grid", gridTemplateColumns: "1fr 140px", gap: 8, marginBottom: 8 }}>
             <div>
-              <label style={LBL}>Nombre</label>
+              <label style={LBL}>Nombre *</label>
               <input style={INP} placeholder="Ej: Mesa de comedor" value={newM.nombre} onChange={e => setNewM(f => ({...f, nombre: e.target.value}))} onKeyDown={e => e.key === "Enter" && agregar()} autoFocus />
             </div>
             <div>
               <label style={LBL}>Sector</label>
               <input style={INP} placeholder="Ej: Comedor" value={newM.sector} onChange={e => setNewM(f => ({...f, sector: e.target.value}))} onKeyDown={e => e.key === "Enter" && agregar()} />
+            </div>
+          </div>
+          <div style={{ marginBottom: 8 }}>
+            <label style={LBL}>Descripción</label>
+            <input style={INP} placeholder="Descripción breve" value={newM.descripcion} onChange={e => setNewM(f => ({...f, descripcion: e.target.value}))} />
+          </div>
+          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8, marginBottom: 12 }}>
+            <div>
+              <label style={LBL}>Medidas</label>
+              <input style={INP} placeholder="Ej: 120x80x75 cm" value={newM.medidas} onChange={e => setNewM(f => ({...f, medidas: e.target.value}))} />
+            </div>
+            <div>
+              <label style={LBL}>Material</label>
+              <input style={INP} placeholder="Ej: MDF enchapado" value={newM.material} onChange={e => setNewM(f => ({...f, material: e.target.value}))} />
             </div>
           </div>
           <button onClick={agregar} style={{ padding: "8px 20px", background: "rgba(59,130,246,0.15)", border: "1px solid rgba(59,130,246,0.35)", color: "#60a5fa", fontWeight: 600, borderRadius: 8, cursor: "pointer", fontFamily: C.sans, fontSize: 12 }}>Agregar</button>
@@ -565,6 +634,10 @@ export default function MueblesScreen({ profile, signOut }) {
   const [selMode,     setSelMode]     = useState(false);
   const [selIds,      setSelIds]      = useState(new Set());
   const [bulkLoading, setBulkLoading] = useState(false);
+  const [showAddItem, setShowAddItem] = useState(false);
+  const [addItemQ,    setAddItemQ]    = useState("");
+  const [catalogoLinea, setCatalogoLinea] = useState([]);
+  const [newItemForm,   setNewItemForm]   = useState({ nombre: "", sector: "", descripcion: "", medidas: "", material: "" });
 
   function toggleSel(id) {
     setSelIds(prev => {
@@ -594,6 +667,49 @@ export default function MueblesScreen({ profile, signOut }) {
   async function cargarLineas()     { const { data } = await supabase.from("prod_lineas").select("id,nombre").eq("activa",true).order("nombre"); const rows = data ?? []; setLineas(rows); if (!lineaId && rows.length) setLineaId(rows[0].id); }
   async function cargarUnidades(lid){ const { data } = await supabase.from("prod_unidades").select("id,codigo,color").eq("linea_id",lid).eq("activa",true).order("codigo"); setUnidades(data ?? []); }
   async function cargarChecklist(uid){ setLoading(true); const { data, error } = await supabase.from("prod_unidad_checklist").select("id,estado,obs,mueble_id, prod_muebles(id,nombre,sector,descripcion,medidas,material)").eq("unidad_id",uid).order("prod_muebles(sector)").order("prod_muebles(nombre)"); if (error) setErr(error.message); setChecklist(data ?? []); setLoading(false); }
+
+  async function cargarCatalogoLinea(lid) {
+    const { data } = await supabase
+      .from("prod_linea_muebles")
+      .select("mueble_id, prod_muebles(id,nombre,sector,descripcion,medidas,material)")
+      .eq("linea_id", lid)
+      .order("prod_muebles(sector)")
+      .order("prod_muebles(nombre)");
+    setCatalogoLinea((data ?? []).map(r => r.prod_muebles).filter(Boolean));
+  }
+
+  async function agregarItemAlChecklist(mueble) {
+    if (!unidadId) return;
+    const ya = checklist.find(r => r.mueble_id === mueble.id);
+    if (ya) return;
+    const { data, error } = await supabase
+      .from("prod_unidad_checklist")
+      .insert({ unidad_id: unidadId, mueble_id: mueble.id, estado: "No enviado" })
+      .select("id,estado,obs,mueble_id, prod_muebles(id,nombre,sector,descripcion,medidas,material)")
+      .single();
+    if (error) { setErr(error.message); return; }
+    setChecklist(p => [...p, data].sort((a, b) => {
+      const sa = a.prod_muebles?.sector ?? ""; const sb = b.prod_muebles?.sector ?? "";
+      return sa !== sb ? sa.localeCompare(sb) : (a.prod_muebles?.nombre ?? "").localeCompare(b.prod_muebles?.nombre ?? "");
+    }));
+  }
+
+  async function crearYAgregarItem() {
+    if (!newItemForm.nombre.trim() || !unidadId) return;
+    const { data: m, error: mErr } = await supabase.from("prod_muebles").insert({
+      nombre: newItemForm.nombre.trim(), sector: newItemForm.sector.trim(),
+      descripcion: newItemForm.descripcion.trim() || null,
+      medidas: newItemForm.medidas.trim() || null,
+      material: newItemForm.material.trim() || null,
+    }).select().single();
+    if (mErr) { setErr(mErr.message); return; }
+    // Also add to line catalog
+    await supabase.from("prod_linea_muebles").insert({ linea_id: lineaId, mueble_id: m.id });
+    await agregarItemAlChecklist(m);
+    setNewItemForm({ nombre: "", sector: "", descripcion: "", medidas: "", material: "" });
+    setShowAddItem(false);
+    cargarCatalogoLinea(lineaId);
+  }
 
   async function ensureLineaByModel(modeloRaw) {
     const modelo = String(modeloRaw ?? "").trim();
@@ -733,7 +849,8 @@ export default function MueblesScreen({ profile, signOut }) {
 
   useEffect(() => { cargarLineas(); }, []);
   useEffect(() => { if (lineaId) { cargarUnidades(lineaId); setUnidadId(null); setChecklist([]); } }, [lineaId]);
-  useEffect(() => { if (unidadId) cargarChecklist(unidadId); }, [unidadId]);
+  useEffect(() => { if (unidadId) { cargarChecklist(unidadId); setShowAddItem(false); setAddItemQ(""); } }, [unidadId]);
+  useEffect(() => { if (lineaId) cargarCatalogoLinea(lineaId); }, [lineaId]);
 
   async function crearLinea()  { if (!newLinea.trim()) return; await supabase.from("prod_lineas").insert({ nombre: newLinea.trim(), activa: true }); setNewLinea(""); cargarLineas(); }
   async function eliminarLinea(lid) { if (!window.confirm("¿Eliminar esta línea?")) return; await supabase.from("prod_lineas").delete().eq("id",lid); setLineaId(null); cargarLineas(); }
@@ -890,8 +1007,21 @@ export default function MueblesScreen({ profile, signOut }) {
                     >
                       Descargar checklist PDF
                     </button>
+                    {esAdmin && (
+                      <button
+                        onClick={() => { setShowAddItem(v => !v); setAddItemQ(""); setSelMode(false); }}
+                        style={{
+                          padding: "7px 14px", borderRadius: 8, cursor: "pointer", fontSize: 11,
+                          fontFamily: C.sans, fontWeight: 600, transition: "all .15s",
+                          background: showAddItem ? C.s1 : "rgba(59,130,246,0.12)",
+                          border: `1px solid ${showAddItem ? C.b1 : "rgba(59,130,246,0.3)"}`,
+                          color: showAddItem ? C.t1 : "#60a5fa",
+                        }}>
+                        {showAddItem ? "Cancelar" : "+ Agregar ítem"}
+                      </button>
+                    )}
                     <button
-                      onClick={() => { setSelMode(v => !v); setSelIds(new Set()); }}
+                      onClick={() => { setSelMode(v => !v); setSelIds(new Set()); setShowAddItem(false); }}
                       style={{
                         padding: "7px 14px", borderRadius: 8, cursor: "pointer", fontSize: 11,
                         fontFamily: C.sans, fontWeight: 600, transition: "all .15s",
@@ -938,6 +1068,66 @@ export default function MueblesScreen({ profile, signOut }) {
                 )}
 
                 {err && <div style={{ padding: "8px 12px", borderRadius: 7, background: "rgba(239,68,68,0.08)", border: "1px solid rgba(239,68,68,0.25)", color: "#f87171", fontSize: 12, marginBottom: 12 }}>{err}</div>}
+
+                {/* ── Panel Agregar ítem ── */}
+                {showAddItem && esAdmin && (() => {
+                  const yaEnChecklist = new Set(checklist.map(r => r.mueble_id));
+                  const disponibles = catalogoLinea.filter(m => !yaEnChecklist.has(m.id));
+                  const aqq = addItemQ.toLowerCase();
+                  const filtrados = aqq ? disponibles.filter(m => m.nombre.toLowerCase().includes(aqq) || (m.sector ?? "").toLowerCase().includes(aqq)) : disponibles;
+                  const LBL2 = { fontSize: 9, letterSpacing: 2, color: C.t2, display: "block", marginBottom: 4, textTransform: "uppercase", fontWeight: 600 };
+                  return (
+                    <div style={{ background: "rgba(59,130,246,0.04)", border: "1px solid rgba(59,130,246,0.2)", borderRadius: 12, padding: 16, marginBottom: 18 }}>
+                      <div style={{ fontSize: 9, letterSpacing: 2, textTransform: "uppercase", color: "#60a5fa", marginBottom: 12, fontWeight: 600 }}>Agregar ítem al barco</div>
+                      {/* Buscar del catálogo */}
+                      {disponibles.length > 0 && (
+                        <>
+                          <div style={{ fontSize: 11, color: C.t2, marginBottom: 8 }}>
+                            Muebles del catálogo de la línea no incluidos en este barco ({disponibles.length}):
+                          </div>
+                          <input
+                            style={{ ...INP, marginBottom: 8 }}
+                            placeholder="Buscar en el catálogo…"
+                            value={addItemQ}
+                            onChange={e => setAddItemQ(e.target.value)}
+                          />
+                          <div style={{ maxHeight: 180, overflowY: "auto", marginBottom: 14, display: "flex", flexDirection: "column", gap: 2 }}>
+                            {filtrados.length === 0 && <div style={{ fontSize: 11, color: C.t2, padding: "8px 0" }}>Sin coincidencias.</div>}
+                            {filtrados.map(m => (
+                              <div
+                                key={m.id}
+                                className="add-item-row"
+                                style={{ display: "flex", alignItems: "center", gap: 10, padding: "7px 10px", borderRadius: 7, cursor: "pointer", border: "1px solid transparent" }}
+                                onClick={() => { agregarItemAlChecklist(m); }}
+                              >
+                                <span style={{ fontSize: 10, color: C.t2, minWidth: 70, textTransform: "uppercase", letterSpacing: "0.1em" }}>{m.sector || "—"}</span>
+                                <span style={{ fontSize: 13, color: C.t0, flex: 1 }}>{m.nombre}</span>
+                                {m.medidas && <span style={{ fontSize: 10, color: C.t2, fontFamily: C.mono }}>{m.medidas}</span>}
+                                <span style={{ fontSize: 11, color: "#60a5fa", fontWeight: 600 }}>+ Agregar</span>
+                              </div>
+                            ))}
+                          </div>
+                          <div style={{ borderTop: `1px solid ${C.b0}`, marginBottom: 14 }} />
+                        </>
+                      )}
+                      {/* Crear nuevo mueble ad-hoc */}
+                      <div style={{ fontSize: 10, color: C.t2, letterSpacing: "0.1em", textTransform: "uppercase", marginBottom: 8, fontWeight: 600 }}>Crear nuevo mueble</div>
+                      <div style={{ display: "grid", gridTemplateColumns: "1fr 130px", gap: 8, marginBottom: 8 }}>
+                        <div><label style={LBL2}>Nombre *</label><input style={INP} placeholder="Ej: Camarote doble" value={newItemForm.nombre} onChange={e => setNewItemForm(f => ({...f, nombre: e.target.value}))} autoFocus /></div>
+                        <div><label style={LBL2}>Sector</label><input style={INP} placeholder="Ej: Dormitorio" value={newItemForm.sector} onChange={e => setNewItemForm(f => ({...f, sector: e.target.value}))} /></div>
+                      </div>
+                      <div style={{ marginBottom: 8 }}><label style={LBL2}>Descripción</label><input style={INP} placeholder="Descripción breve" value={newItemForm.descripcion} onChange={e => setNewItemForm(f => ({...f, descripcion: e.target.value}))} /></div>
+                      <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8, marginBottom: 12 }}>
+                        <div><label style={LBL2}>Medidas</label><input style={INP} placeholder="Ej: 120x80 cm" value={newItemForm.medidas} onChange={e => setNewItemForm(f => ({...f, medidas: e.target.value}))} /></div>
+                        <div><label style={LBL2}>Material</label><input style={INP} placeholder="Ej: MDF" value={newItemForm.material} onChange={e => setNewItemForm(f => ({...f, material: e.target.value}))} /></div>
+                      </div>
+                      <button onClick={crearYAgregarItem} disabled={!newItemForm.nombre.trim()} style={{ padding: "8px 18px", background: "rgba(59,130,246,0.15)", border: "1px solid rgba(59,130,246,0.35)", color: "#60a5fa", fontWeight: 600, borderRadius: 8, cursor: newItemForm.nombre.trim() ? "pointer" : "not-allowed", fontFamily: C.sans, fontSize: 12, opacity: newItemForm.nombre.trim() ? 1 : 0.5 }}>
+                        Crear y agregar al barco
+                      </button>
+                    </div>
+                  );
+                })()}
+                <style>{`.add-item-row:hover{background:rgba(59,130,246,0.06)!important;border-color:rgba(59,130,246,0.15)!important}`}</style>
 
                 {/* Progress */}
                 <div style={{ background: C.s0, border: `1px solid ${C.b0}`, borderRadius: 12, padding: "16px 20px", marginBottom: 18 }}>
