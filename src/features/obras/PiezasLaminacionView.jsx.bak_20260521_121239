@@ -1,4 +1,4 @@
-﻿/**
+/**
  * PiezasLaminacionView v5
  *
  * CAMBIOS v5 (sobre v4):
@@ -100,8 +100,8 @@ const RAW_K43 = [
   { num:2,  desc:"Cubierta",                                     cant:1, matriz:null },
   { num:3,  desc:"Cabina",                                       cant:1, matriz:null },
   { num:5,  desc:"Planchada lado inferior",                      cant:1, matriz:null },
-  { num:6,  desc:"Planchada Nueva",                              cant:1, matriz:null },
-  { num:7,  desc:"Laterales de planchada nueva",                 cant:2, matriz:null },
+  { num:6,  desc:"Planchada Nueva",                              cant:2, matriz:null },
+  { num:7,  desc:"Laterales de planchada nueva",                 cant:1, matriz:null },
   { num:8,  desc:"Piso de cockpit",                              cant:1, matriz:null },
   { num:9,  desc:"Tapa de sala de maquinas",                     cant:1, matriz:"Nueva #20" },
   { num:10, desc:"Tacho de mueble lateral de cockpit estribor",  cant:1, matriz:"Nueva #20" },
@@ -154,10 +154,7 @@ const RAW_K43 = [
   { num:57, desc:"Tapa de escalera de planchada",                cant:1, matriz:"Nueva #20" },
   { num:58, desc:"Caja de selectoras",                           cant:1, matriz:null },
   { num:59, desc:"Mesa de fly",                                  cant:1, matriz:null },
-  { num:60, desc:"Cenefa larga",                                    cant:1, matriz:null },
-  { num:61, desc:"Cenefa corta",                                    cant:1, matriz:null },
-  { num:62, desc:"Piso baño estribor",                              cant:1, matriz:null },
-  { num:63, desc:"Piso baño babor",                                 cant:1, matriz:null },
+  { num:60, desc:"Cenefa",                                       cant:2, matriz:null },
 ];
 
 // variant: "softop" | "hardtop" | null (null = ambos)
