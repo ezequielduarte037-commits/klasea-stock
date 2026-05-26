@@ -170,8 +170,7 @@ function SectionTitle({ icon, title, count }) {
   );
 }
 
-function RequestCard({ request, onClick, profile }) {
-  const hasUnread = !!request.last_comment_author_id && request.last_comment_author_id !== profile?.id;
+function RequestCard({ request, onClick, profile, isUnread }) {
   const dotColor = statusDotColors[request.status] || C.blue;
   const color = statusColors[request.status] || C.blue;
   const isArchived = ARCHIVED_STATUSES.includes(request.status);
@@ -215,7 +214,7 @@ function RequestCard({ request, onClick, profile }) {
           }}>
             {request.title}
           </span>
-          {hasUnread && <span title="Mensaje nuevo" style={{ width: 8, height: 8, borderRadius: "50%", background: dotColor, boxShadow: `0 0 6px ${dotColor}`, flexShrink: 0, animation: "pulse-dot 1.4s ease-in-out infinite" }} />}
+          {isUnread && <span title="Mensaje nuevo" style={{ width: 8, height: 8, borderRadius: "50%", background: dotColor, boxShadow: `0 0 6px ${dotColor}`, flexShrink: 0, animation: "pulse-dot 1.4s ease-in-out infinite" }} />}
           <span style={{ marginLeft: "auto", flexShrink: 0 }}>
             <Chip color={priorityColors[request.priority]} size="xs">
               {REQUEST_PRIORITIES.find((p) => p.value === request.priority)?.label || request.priority}
@@ -271,8 +270,7 @@ const SOURCE_LABELS = {
   inventario: "Inventario",
 };
 
-function RequestRow({ request, onClick, profile }) {
-  const hasUnread = !!request.last_comment_author_id && request.last_comment_author_id !== profile?.id;
+function RequestRow({ request, onClick, profile, isUnread }) {
   const dotColor = statusDotColors[request.status] || C.blue;
   const color = statusColors[request.status] || C.blue;
   const isArchived = ARCHIVED_STATUSES.includes(request.status);
@@ -309,7 +307,7 @@ function RequestRow({ request, onClick, profile }) {
           }}>
             {request.title}
           </span>
-          {hasUnread && <span title="Mensaje nuevo" style={{ width: 8, height: 8, borderRadius: "50%", background: dotColor, boxShadow: `0 0 6px ${dotColor}`, flexShrink: 0, animation: "pulse-dot 1.4s ease-in-out infinite" }} />}
+          {isUnread && <span title="Mensaje nuevo" style={{ width: 8, height: 8, borderRadius: "50%", background: dotColor, boxShadow: `0 0 6px ${dotColor}`, flexShrink: 0, animation: "pulse-dot 1.4s ease-in-out infinite" }} />}
           {srcColor && (
             <span style={{ fontSize: 8, fontWeight: 800, textTransform: "uppercase", letterSpacing: 0.5, color: srcColor }}>
               {SOURCE_LABELS[request.source] || request.source}
@@ -452,6 +450,7 @@ export default function PurchaseRequestsScreen({ profile, signOut }) {
   const [viewMode, setViewMode] = useState("grid");
   const [userSearch, setUserSearch] = useState("");
   const [showArchived, setShowArchived] = useState(false);
+  const [readMap, setReadMap] = useState({});
   const [managerTab, setManagerTab] = useState("lista");
   const [analytics, setAnalytics] = useState(null);
   const [monthlySpending, setMonthlySpending] = useState([]);
@@ -469,6 +468,20 @@ export default function PurchaseRequestsScreen({ profile, signOut }) {
   });
 
   const manager = isPurchaseManager(profile);
+
+  function markRead(requestId, lastAuthorId) {
+    if (lastAuthorId) setReadMap((prev) => ({ ...prev, [requestId]: lastAuthorId }));
+  }
+
+  const unreadIds = useMemo(() => {
+    const set = new Set();
+    for (const r of requests) {
+      if (r.last_comment_author_id && r.last_comment_author_id !== profile?.id && r.last_comment_author_id !== readMap[r.id]) {
+        set.add(r.id);
+      }
+    }
+    return set;
+  }, [requests, readMap, profile?.id]);
 
   useEffect(() => {
     if (manager) setShowNew(false);
@@ -1028,6 +1041,7 @@ export default function PurchaseRequestsScreen({ profile, signOut }) {
                         <span style={{ color: C.dim, fontSize: 10, fontFamily: C.mono }}>{visibleList.length}</span>
                         <span style={{ flex: 1 }} />
                         <span style={{ color: C.dim, fontSize: 10 }}>
+                          {unreadIds.size > 0 && <><span style={{ color: C.violet, fontWeight: 700, fontFamily: C.mono }}>{unreadIds.size}</span> sin leer · </>}
                           <span style={{ color: C.amber, fontWeight: 700, fontFamily: C.mono }}>
                             {requests.filter((r) => r.status === "nuevo" || r.status === "en_revision" || r.status === "cotizando").length}
                           </span> pendientes · <span style={{ color: C.red, fontWeight: 700, fontFamily: C.mono }}>
@@ -1036,11 +1050,18 @@ export default function PurchaseRequestsScreen({ profile, signOut }) {
                         </span>
                       </div>
                     ) : (
-                      <SectionTitle
-                        icon={Inbox}
-                        title={activeTab === "mine" ? "Mis pedidos" : "Pedidos en copia"}
-                        count={visibleList.length}
-                      />
+                      <>
+                        <SectionTitle
+                          icon={Inbox}
+                          title={activeTab === "mine" ? "Mis pedidos" : "Pedidos en copia"}
+                          count={visibleList.length}
+                        />
+                        {unreadIds.size > 0 && (
+                          <div style={{ fontSize: 10, color: C.dim, marginTop: -6, marginBottom: 6 }}>
+                            <span style={{ color: C.violet, fontWeight: 700, fontFamily: C.mono }}>{unreadIds.size}</span> sin leer
+                          </div>
+                        )}
+                      </>
                     )}
 
                     {loading ? (
@@ -1084,14 +1105,19 @@ export default function PurchaseRequestsScreen({ profile, signOut }) {
                               >
                                 ver
                               </span>
-                            </div>
+                        {unreadIds.size > 0 && (
+                          <span style={{ color: C.dim, fontSize: 10 }}>
+                            <span style={{ color: C.violet, fontWeight: 700, fontFamily: C.mono }}>{unreadIds.size}</span> sin leer
+                          </span>
+                        )}
+                      </div>
                           )}
                         </div>
                       </div>
                     ) : viewMode === "grid" ? (
                       <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(290px, 1fr))", gap: 10 }}>
                         {visibleList.map((request) => (
-                          <RequestCard key={request.id} request={request} profile={profile} onClick={() => setSelectedId(request.id)} />
+                          <RequestCard key={request.id} request={request} profile={profile} isUnread={unreadIds.has(request.id)} onClick={() => { markRead(request.id, request.last_comment_author_id); setSelectedId(request.id); }} />
                         ))}
                       </div>
                     ) : (
@@ -1113,7 +1139,7 @@ export default function PurchaseRequestsScreen({ profile, signOut }) {
                           <span style={{ textAlign: "right", width: 80 }}>Fecha</span>
                         </div>
                         {visibleList.map((request) => (
-                          <RequestRow key={request.id} request={request} profile={profile} onClick={() => setSelectedId(request.id)} />
+                          <RequestRow key={request.id} request={request} profile={profile} isUnread={unreadIds.has(request.id)} onClick={() => { markRead(request.id, request.last_comment_author_id); setSelectedId(request.id); }} />
                         ))}
                       </div>
                     )}
