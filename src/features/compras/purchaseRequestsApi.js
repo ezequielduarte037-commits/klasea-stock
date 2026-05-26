@@ -383,6 +383,14 @@ export async function deletePurchaseLog(id) {
   if (error) throw error;
 }
 
+export async function deletePurchaseRequest(id) {
+  const { error } = await supabase
+    .from("purchase_requests")
+    .delete()
+    .eq("id", id);
+  if (error) throw error;
+}
+
 export async function uploadPurchaseLogInvoice(file, userId) {
   const ext = file.name.split(".").pop();
   const path = `invoices/${userId}/${Date.now()}.${ext}`;

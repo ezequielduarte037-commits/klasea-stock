@@ -22,6 +22,7 @@ import {
   removeRequestFollower,
   REQUEST_PRIORITIES,
   REQUEST_STATUSES,
+  deletePurchaseRequest,
   updatePurchaseRequest,
   uploadInvoice,
   usernameOf,
@@ -467,10 +468,15 @@ export default function PurchaseRequestDetail({ requestId, profile, users = [], 
                 title="Eliminar pedido localmente"
                 className="icon-btn"
                 style={{ ...iconButtonStyle, color: C.red }}
-                onClick={() => {
-                  if (window.confirm("¿Seguro que querés eliminar este pedido de la vista actual?")) {
-                    if (onDeleteLocal) onDeleteLocal(request.id);
-                    onBack();
+                onClick={async () => {
+                  if (window.confirm("¿Seguro que querés eliminar este pedido?")) {
+                    try {
+                      await deletePurchaseRequest(request.id);
+                      if (onDeleteLocal) onDeleteLocal(request.id);
+                      onBack();
+                    } catch (e) {
+                      alert("Error al eliminar: " + (e.message || "desconocido"));
+                    }
                   }
                 }}
               >

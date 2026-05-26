@@ -107,6 +107,7 @@ const CSS = `
   @keyframes sb-online { 0%,100% { box-shadow: 0 0 4px #22c55e88; } 50% { box-shadow: 0 0 12px #22c55ecc, 0 0 24px #22c55e44; } }
   @keyframes sb-scan { 0% { top: -1px; opacity:0; } 5% { opacity:.6; } 95% { opacity:.6; } 100% { top: 100%; opacity:0; } }
   @keyframes sb-shimmer { 0% { background-position: -200% center; } 100% { background-position: 200% center; } }
+  @media (max-width: 768px) { .resp-hamburger { display: flex !important; } }
 
   .sb-item { position: relative; overflow: hidden; transition: color .16s, background .16s; text-decoration: none !important; }
   .sb-item.active { animation: sb-breathe 2.8s ease-in-out infinite; }
@@ -240,14 +241,7 @@ export default function Sidebar({ profile, signOut }) {
 
   return (
     <>
-      <style>{CSS}
-        {isMobile && `
-          body { overflow-x: hidden; }
-          @media (max-width: 768px) {
-            .resp-hamburger { display: flex !important; }
-          }
-        `}
-      </style>
+      <style>{CSS}</style>
 
       {isMobile && (
         <>
@@ -263,7 +257,7 @@ export default function Sidebar({ profile, signOut }) {
             width: 36, height: 36, borderRadius: 8,
             background: "rgba(0,0,0,0.7)", border: "1px solid rgba(255,255,255,0.1)",
             color: "#fff", cursor: "pointer", fontSize: 16,
-            display: "none", alignItems: "center", justifyContent: "center",
+            display: "flex", alignItems: "center", justifyContent: "center",
             backdropFilter: "blur(6px)", WebkitBackdropFilter: "blur(6px)",
           }}>
             {menuOpen ? "✕" : "☰"}

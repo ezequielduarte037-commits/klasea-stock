@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { Component, useEffect, useMemo, useState } from "react";
 import {
   Archive,
   BarChart3,
@@ -32,10 +32,7 @@ import {
 
 import ReactQuill from "react-quill-new";
 import "react-quill-new/dist/quill.snow.css";
-import {
-  BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer,
-  PieChart, Pie, Cell,
-} from "recharts";
+
 import {
   fetchAnalyticsStats,
   fetchMonthlySpending,
@@ -995,14 +992,16 @@ export default function PurchaseRequestsScreen({ profile, signOut }) {
                 {manager && managerTab === "registro" ? (
                   <PurchaseLogPanel profile={profile} />
                 ) : manager && managerTab === "dashboard" ? (
-                  <DashboardView
-                    analytics={analytics}
-                    monthlySpending={monthlySpending}
-                    overdueItems={overdueItems}
-                    loading={analyticsLoading}
-                    requests={requests}
-                    onSelectRequest={(id) => setSelectedId(id)}
-                  />
+                  <DashboardErrorBoundary fallback="Probá recargar la página.">
+                    <DashboardView
+                      analytics={analytics}
+                      monthlySpending={monthlySpending}
+                      overdueItems={overdueItems}
+                      loading={analyticsLoading}
+                      requests={requests}
+                      onSelectRequest={(id) => setSelectedId(id)}
+                    />
+                  </DashboardErrorBoundary>
                 ) : (
                   <>
                     {manager ? (
@@ -1167,6 +1166,21 @@ function StatCard({ label, value, color, icon, subtitle }) {
   );
 }
 
+class DashboardErrorBoundary extends Component {
+  constructor(props) { super(props); this.state = { hasError: false }; }
+  static getDerivedStateFromError() { return { hasError: true }; }
+  render() {
+    if (this.state.hasError) {
+      return (
+        <div style={{ minHeight: 400, display: "grid", placeItems: "center", color: "#71717a", fontSize: 12 }}>
+          Error al cargar el dashboard. {this.props.fallback}
+        </div>
+      );
+    }
+    return this.props.children;
+  }
+}
+
 function DashboardView({ analytics, monthlySpending, overdueItems, loading, requests, onSelectRequest }) {
   if (loading) {
     return (
@@ -1246,33 +1260,24 @@ function DashboardView({ analytics, monthlySpending, overdueItems, loading, requ
             <div style={{ color: C.dim, fontSize: 9, letterSpacing: 1.8, textTransform: "uppercase", fontWeight: 750, marginBottom: 12 }}>
               Gasto mensual
             </div>
-            <ResponsiveContainer width="100%" height={200}>
-              <BarChart data={monthlySpending}>
-                <XAxis
-                  dataKey="month"
-                  tick={{ fill: C.dim, fontSize: 10, fontFamily: C.mono }}
-                  axisLine={{ stroke: C.border }}
-                  tickLine={false}
-                />
-                <YAxis
-                  tick={{ fill: C.dim, fontSize: 9, fontFamily: C.mono }}
-                  axisLine={false}
-                  tickLine={false}
-                  tickFormatter={(v) => `$${v >= 1000 ? `${(v / 1000).toFixed(0)}k` : v}`}
-                />
-                <Tooltip
-                  contentStyle={{
-                    background: "#0f0f12",
-                    border: `1px solid ${C.border}`,
-                    borderRadius: 8,
-                    fontSize: 12,
-                    color: C.text,
-                  }}
-                  formatter={(value) => [`$${Number(value).toLocaleString("es-AR", { minimumFractionDigits: 2 })}`, "Gastado"]}
-                />
-                <Bar dataKey="total" fill={C.blue} radius={[4, 4, 0, 0]} />
-              </BarChart>
-            </ResponsiveContainer>
+            <div style={{ display: "grid", gap: 6 }}>
+              {(() => {
+                const maxTotal = Math.max(...monthlySpending.map(d => d.total));
+                return monthlySpending.map((d) => (
+                  <div key={d.month} style={{ display: "grid", gridTemplateColumns: "60px 1fr auto", gap: 8, alignItems: "center" }}>
+                    <span style={{ fontSize: 9, color: C.dim, fontFamily: C.mono, textAlign: "right" }}>
+                      {d.month}
+                    </span>
+                    <div style={{ height: 20, borderRadius: 4, background: C.border, overflow: "hidden" }}>
+                      <div style={{ height: "100%", width: `${Math.max(2, (d.total / maxTotal) * 100)}%`, background: C.blue, borderRadius: 4, transition: "width .4s" }} />
+                    </div>
+                    <span style={{ fontSize: 9, color: C.muted, fontFamily: C.mono }}>
+                      ${Number(d.total).toLocaleString("es-AR", { minimumFractionDigits: 0 })}
+                    </span>
+                  </div>
+                ));
+              })()}
+            </div>
           </div>
         )}
 
@@ -1286,38 +1291,24 @@ function DashboardView({ analytics, monthlySpending, overdueItems, loading, requ
             <div style={{ color: C.dim, fontSize: 9, letterSpacing: 1.8, textTransform: "uppercase", fontWeight: 750, marginBottom: 12 }}>
               Pendientes por prioridad
             </div>
-            <ResponsiveContainer width="100%" height={200}>
-              <PieChart>
-                <Pie
-                  data={priorityData}
-                  cx="50%"
-                  cy="50%"
-                  innerRadius={45}
-                  outerRadius={80}
-                  dataKey="value"
-                >
-                  {priorityData.map((entry, index) => (
-                    <Cell key={index} fill={entry.color} stroke="transparent" />
-                  ))}
-                </Pie>
-                <Tooltip
-                  contentStyle={{
-                    background: "#0f0f12",
-                    border: `1px solid ${C.border}`,
-                    borderRadius: 8,
-                    fontSize: 12,
-                    color: C.text,
-                  }}
-                />
-              </PieChart>
-            </ResponsiveContainer>
-            <div style={{ display: "flex", justifyContent: "center", gap: 14, marginTop: 8 }}>
-              {priorityData.map((d) => (
-                <div key={d.name} style={{ display: "flex", alignItems: "center", gap: 5, fontSize: 10, color: C.muted }}>
-                  <span style={{ width: 7, height: 7, borderRadius: "50%", background: d.color, display: "inline-block" }} />
-                  {d.name}: <span style={{ color: C.text, fontWeight: 700, fontFamily: C.mono }}>{d.value}</span>
-                </div>
-              ))}
+            <div style={{ display: "grid", gap: 8 }}>
+              {(() => {
+                const maxVal = Math.max(...priorityData.map(d => d.value));
+                return priorityData.map((d) => (
+                  <div key={d.name} style={{ display: "grid", gridTemplateColumns: "1fr auto", gap: 8, alignItems: "center" }}>
+                    <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
+                      <span style={{ width: 8, height: 8, borderRadius: "50%", background: d.color, display: "inline-block", flexShrink: 0 }} />
+                      <span style={{ fontSize: 10, color: C.muted }}>{d.name}</span>
+                    </div>
+                    <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                      <div style={{ width: 80, height: 14, borderRadius: 3, background: C.border, overflow: "hidden" }}>
+                        <div style={{ height: "100%", width: `${Math.max(2, (d.value / maxVal) * 100)}%`, background: d.color, borderRadius: 3 }} />
+                      </div>
+                      <span style={{ fontSize: 11, color: C.text, fontWeight: 700, fontFamily: C.mono, minWidth: 20, textAlign: "right" }}>{d.value}</span>
+                    </div>
+                  </div>
+                ));
+              })()}
             </div>
           </div>
         )}
