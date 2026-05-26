@@ -618,7 +618,7 @@ export default function MueblesScreen({ profile, signOut }) {
   const { isMobile } = useResponsive();
   const isAdmin = !!profile?.is_admin;
   const role    = profile?.role ?? "invitado";
-  const esAdmin = isAdmin || role === "admin" || role === "oficina";
+  const esAdmin = isAdmin || role === "admin" || role === "oficina" || role === "tecnica";
 
   const [mainView,  setMainView]  = useState("muebles"); // "muebles" | "enchapadora"
   const [lineas,    setLineas]    = useState([]);
