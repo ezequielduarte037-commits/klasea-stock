@@ -170,7 +170,9 @@ function SectionTitle({ icon, title, count }) {
   );
 }
 
-function RequestCard({ request, onClick }) {
+function RequestCard({ request, onClick, profile }) {
+  const hasUnread = !!request.last_comment_author_id && request.last_comment_author_id !== profile?.id;
+  const dotColor = statusDotColors[request.status] || C.blue;
   const color = statusColors[request.status] || C.blue;
   const isArchived = ARCHIVED_STATUSES.includes(request.status);
 
@@ -213,6 +215,7 @@ function RequestCard({ request, onClick }) {
           }}>
             {request.title}
           </span>
+          {hasUnread && <span title="Mensaje nuevo" style={{ width: 8, height: 8, borderRadius: "50%", background: dotColor, boxShadow: `0 0 6px ${dotColor}`, flexShrink: 0, animation: "pulse-dot 1.4s ease-in-out infinite" }} />}
           <span style={{ marginLeft: "auto", flexShrink: 0 }}>
             <Chip color={priorityColors[request.priority]} size="xs">
               {REQUEST_PRIORITIES.find((p) => p.value === request.priority)?.label || request.priority}
@@ -268,7 +271,9 @@ const SOURCE_LABELS = {
   inventario: "Inventario",
 };
 
-function RequestRow({ request, onClick }) {
+function RequestRow({ request, onClick, profile }) {
+  const hasUnread = !!request.last_comment_author_id && request.last_comment_author_id !== profile?.id;
+  const dotColor = statusDotColors[request.status] || C.blue;
   const color = statusColors[request.status] || C.blue;
   const isArchived = ARCHIVED_STATUSES.includes(request.status);
   const srcColor = SOURCE_COLORS[request.source] || null;
@@ -304,6 +309,7 @@ function RequestRow({ request, onClick }) {
           }}>
             {request.title}
           </span>
+          {hasUnread && <span title="Mensaje nuevo" style={{ width: 8, height: 8, borderRadius: "50%", background: dotColor, boxShadow: `0 0 6px ${dotColor}`, flexShrink: 0, animation: "pulse-dot 1.4s ease-in-out infinite" }} />}
           {srcColor && (
             <span style={{ fontSize: 8, fontWeight: 800, textTransform: "uppercase", letterSpacing: 0.5, color: srcColor }}>
               {SOURCE_LABELS[request.source] || request.source}
@@ -1085,7 +1091,7 @@ export default function PurchaseRequestsScreen({ profile, signOut }) {
                     ) : viewMode === "grid" ? (
                       <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(290px, 1fr))", gap: 10 }}>
                         {visibleList.map((request) => (
-                          <RequestCard key={request.id} request={request} onClick={() => setSelectedId(request.id)} />
+                          <RequestCard key={request.id} request={request} profile={profile} onClick={() => setSelectedId(request.id)} />
                         ))}
                       </div>
                     ) : (
@@ -1107,7 +1113,7 @@ export default function PurchaseRequestsScreen({ profile, signOut }) {
                           <span style={{ textAlign: "right", width: 80 }}>Fecha</span>
                         </div>
                         {visibleList.map((request) => (
-                          <RequestRow key={request.id} request={request} onClick={() => setSelectedId(request.id)} />
+                          <RequestRow key={request.id} request={request} profile={profile} onClick={() => setSelectedId(request.id)} />
                         ))}
                       </div>
                     )}
@@ -1121,6 +1127,7 @@ export default function PurchaseRequestsScreen({ profile, signOut }) {
 
       <style>{`
         @keyframes spin { to { transform: rotate(360deg); } }
+        @keyframes pulse-dot { 0%,100% { opacity:1; transform:scale(1); } 50% { opacity:0.4; transform:scale(0.75); } }
       `}</style>
     </div>
   );

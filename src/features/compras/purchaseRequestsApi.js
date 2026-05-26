@@ -136,7 +136,30 @@ export async function fetchPurchaseRequests() {
     .order("created_at", { ascending: false });
 
   if (error) throw error;
-  return data || [];
+  const requests = data || [];
+
+  const ids = requests.map((r) => r.id).filter(Boolean);
+  if (ids.length) {
+    const { data: comments } = await supabase
+      .from("request_comments")
+      .select("request_id, author_id")
+      .in("request_id", ids)
+      .order("created_at", { ascending: false });
+
+    if (comments) {
+      const seen = new Set();
+      const lastAuthors = {};
+      for (const c of comments) {
+        if (!seen.has(c.request_id)) {
+          seen.add(c.request_id);
+          lastAuthors[c.request_id] = c.author_id;
+        }
+      }
+      return requests.map((r) => ({ ...r, last_comment_author_id: lastAuthors[r.id] || null }));
+    }
+  }
+
+  return requests;
 }
 
 export async function fetchPurchaseRequestDetail(requestId) {
