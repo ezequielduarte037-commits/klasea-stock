@@ -1882,6 +1882,7 @@ export default function LaminacionScreen({ profile, signOut }) {
       <PedirAComprasModal
         open={comprasModal.open}
         prefilled={comprasModal.prefilled}
+        profile={profile}
         onClose={(created) => {
           setComprasModal({ open: false, prefilled: null });
           if (created) flash("Pedido enviado a Compras");

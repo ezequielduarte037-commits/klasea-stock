@@ -25,6 +25,7 @@ import {
   fetchProjects,
   fetchPurchaseRequests,
   isPurchaseManager,
+  notifyComprasEmail,
   REQUEST_PRIORITIES,
   REQUEST_STATUSES,
   usernameOf,
@@ -557,6 +558,14 @@ export default function PurchaseRequestsScreen({ profile, signOut }) {
     setError("");
     try {
       const request = await createPurchaseRequest({ form, ccUserIds, photoFile });
+      notifyComprasEmail({
+        type: "new_request",
+        requestId: request.id,
+        requestTitle: form.title,
+        changedBy: profile?.id,
+        createdByName: profile?.username || "Usuario",
+        source: form.source || undefined,
+      });
       setForm(emptyForm);
       setCcUserIds([]);
       setPhotoFile(null);

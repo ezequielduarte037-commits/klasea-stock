@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { ExternalLink, Send, X } from "lucide-react";
-import { createPurchaseRequest, fetchProjects } from "@/features/compras/purchaseRequestsApi";
+import { createPurchaseRequest, fetchProjects, notifyComprasEmail } from "@/features/compras/purchaseRequestsApi";
 
 const C = {
   bg: "#09090b", panel: "rgba(255,255,255,0.035)", panel2: "rgba(255,255,255,0.055)",
@@ -10,7 +10,7 @@ const C = {
   mono: "'JetBrains Mono', monospace", sans: "'Outfit', system-ui, sans-serif",
 };
 
-export default function PedirAComprasModal({ open, onClose, prefilled }) {
+export default function PedirAComprasModal({ open, onClose, prefilled, profile }) {
   const [title, setTitle] = useState("");
   const [description, setDescription] = useState("");
   const [priority, setPriority] = useState("media");
@@ -34,7 +34,7 @@ export default function PedirAComprasModal({ open, onClose, prefilled }) {
     if (!title.trim()) return;
     setSaving(true);
     try {
-      await createPurchaseRequest({
+      const created = await createPurchaseRequest({
         form: {
           title: title.trim(),
           description: description.trim(),
@@ -44,6 +44,14 @@ export default function PedirAComprasModal({ open, onClose, prefilled }) {
           source_ref: prefilled?.source_ref || null,
           source_url: prefilled?.source_url || null,
         },
+      });
+      notifyComprasEmail({
+        type: "new_request",
+        requestId: created.id,
+        requestTitle: title.trim(),
+        changedBy: profile?.id,
+        createdByName: profile?.username || "Usuario",
+        source: prefilled?.source || undefined,
       });
       onClose(true);
     } catch { /* ignore */ }

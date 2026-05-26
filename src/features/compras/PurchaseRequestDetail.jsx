@@ -23,6 +23,7 @@ import {
   REQUEST_PRIORITIES,
   REQUEST_STATUSES,
   deletePurchaseRequest,
+  notifyComprasEmail,
   updatePurchaseRequest,
   uploadInvoice,
   usernameOf,
@@ -315,8 +316,23 @@ export default function PurchaseRequestDetail({ requestId, profile, users = [], 
       if (patch.status === "recibido" && !patch.delivered_at) {
         patch.delivered_at = new Date().toISOString();
       }
-      const data = await updatePurchaseRequest(request.id, patch);
-      setRequest((prev) => ({ ...prev, ...data }));
+      if (patch.status && patch.status !== request.status) {
+        const oldStatus = request.status;
+        const data = await updatePurchaseRequest(request.id, patch);
+        setRequest((prev) => ({ ...prev, ...data }));
+        notifyComprasEmail({
+          type: "status_update",
+          requestId: request.id,
+          requestTitle: request.title,
+          changedBy: profile?.id,
+          createdByName: profile?.username || "Usuario",
+          newStatus: patch.status,
+          oldStatus,
+        });
+      } else {
+        const data = await updatePurchaseRequest(request.id, patch);
+        setRequest((prev) => ({ ...prev, ...data }));
+      }
       onRequestUpdated?.();
     } catch (err) {
       setError(err.message);
@@ -354,6 +370,14 @@ export default function PurchaseRequestDetail({ requestId, profile, users = [], 
     setError("");
     try {
       await addRequestComment(request.id, message, users);
+      notifyComprasEmail({
+        type: "new_message",
+        requestId: request.id,
+        requestTitle: request.title,
+        changedBy: profile?.id,
+        createdByName: profile?.username || "Usuario",
+        message: message.trim(),
+      });
       setMessage("");
       await load();
     } catch (err) {

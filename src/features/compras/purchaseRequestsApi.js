@@ -403,3 +403,10 @@ export async function uploadPurchaseLogInvoice(file, userId) {
     .getPublicUrl(path);
   return { url: urlData.publicUrl, path };
 }
+
+export async function notifyComprasEmail(payload) {
+  const { error } = await supabase.functions.invoke("notificar-email-compras", {
+    body: payload,
+  })
+  if (error) console.warn("notifyComprasEmail error:", error)
+}

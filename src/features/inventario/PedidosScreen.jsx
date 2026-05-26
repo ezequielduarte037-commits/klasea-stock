@@ -535,6 +535,7 @@ export default function PedidosScreen({ profile, signOut }) {
       <PedirAComprasModal
         open={comprasModal.open}
         prefilled={comprasModal.prefilled}
+        profile={profile}
         onClose={(created) => {
           setComprasModal({ open: false, prefilled: null });
           if (created) setError(""); // silent success
