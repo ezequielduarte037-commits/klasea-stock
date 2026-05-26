@@ -41,10 +41,31 @@ const MODULOS = [
   { href:"/admin",            label:"Inventario",        desc:"KPIs de stock y alertas de materiales de madera",  color:"#fbbf24", roles:["oficina","admin"] },
   { href:"/movimientos",      label:"Movimientos",       desc:"Ingresos y egresos de maderas del depósito",             color:"#fbbf24", roles:["oficina","admin"] },
   { href:"/pedidos",          label:"Pedidos",           desc:"Órdenes de compra de materiales de madera",             color:"#fbbf24", roles:["oficina","admin"] },
+  { href:"/compras",          label:"Compras",           desc:"Solicitudes internas y seguimiento de compras",          color:"#f59e0b", roles:["panol","oficina","admin","compras"] },
   { href:"/postventa",        label:"Barcos Entregados", desc:"Post venta y flota en el agua",               color:"#67e8f9", roles:["oficina","admin"] },
   { href:"/configuracion",    label:"Configuración",     desc:"Usuarios, roles y configuración",             color:"#f87171", roles:["admin"] },
   { href:"/procedimientos",   label:"Procedimientos",    desc:"Instructivos y guías de operación",           color:"#94a3b8", roles:["panol","oficina","admin","laminacion","muebles","mecanica","electricidad"] },
 ];
+
+const MODULE_ROLE_OVERRIDES = {
+  "/panol": ["panol", "tecnica", "oficina", "admin"],
+  "/laminacion": ["panol", "tecnica", "oficina", "admin", "laminacion"],
+  "/obras": ["tecnica", "oficina", "admin"],
+  "/marmoleria": ["tecnica", "oficina", "admin"],
+  "/muebles": ["tecnica", "oficina", "admin", "muebles"],
+  "/obras-laminacion": ["tecnica", "oficina", "admin"],
+  "/admin": ["tecnica", "oficina", "admin"],
+  "/movimientos": ["tecnica", "oficina", "admin"],
+  "/pedidos": ["tecnica", "oficina", "admin"],
+  "/compras": ["panol", "tecnica", "oficina", "admin", "compras"],
+  "/postventa": ["tecnica", "oficina", "admin"],
+  "/procedimientos": ["tecnica", "oficina", "admin", "laminacion", "muebles", "mecanica", "electricidad"],
+};
+
+MODULOS.forEach((modulo) => {
+  if (MODULE_ROLE_OVERRIDES[modulo.href]) modulo.roles = MODULE_ROLE_OVERRIDES[modulo.href];
+  if (modulo.href === "/compras") modulo.label = "Pedidos a Compras";
+});
 
 // ─── CARD CON IFRAME PREVIEW REAL ────────────────────────────
 // Escala la pantalla real al vuelo usando transform: scale().
@@ -706,14 +727,16 @@ export default function HomeScreen({ profile, signOut }) {
   const role      = profile?.role ?? "invitado";
   const isAdmin   = !!profile?.is_admin;
   const username  = profile?.username ?? "—";
-  const esGestion = isAdmin || role==="admin" || role==="oficina";
+  const esTecnica = role==="tecnica" || role==="oficina";
   const esAdmin   = isAdmin || role==="admin";
   const esPanol   = role==="panol";
+  const esCompras = role==="compras";
 
   const modulos = MODULOS.filter(m=>{
     if(esAdmin)   return true;
-    if(esGestion) return m.roles.some(r=>["oficina","admin","panol","laminacion","muebles"].includes(r));
+    if(esTecnica) return m.roles.includes("tecnica") || m.roles.includes("oficina");
     if(esPanol)   return m.roles.includes("panol");
+    if(esCompras) return m.roles.includes("compras");
     return m.roles.includes(role);
   });
 

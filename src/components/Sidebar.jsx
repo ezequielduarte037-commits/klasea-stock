@@ -55,6 +55,12 @@ function Icon({ id, color = "currentColor", size = 14 }) {
       <path d="M6 6.5l1.5 1.5 3-3" {...p}/>
       <path d="M6 10.5h4" {...p}/>
     </>,
+    "/compras": <>
+      <path d="M2 3h2l1.4 7h6.8l1.4-4.5H5" {...p}/>
+      <circle cx="6.2" cy="13" r="1" {...p}/>
+      <circle cx="11.8" cy="13" r="1" {...p}/>
+      <path d="M7 7h4" {...p}/>
+    </>,
     "/configuracion": <>
       <circle cx="8" cy="8" r="2" {...p}/>
       <path d="M8 1v2M8 13v2M1 8h2M13 8h2M3 3l1.5 1.5M11.5 11.5L13 13M3 13l1.5-1.5M11.5 4.5L13 3" {...p}/>
@@ -85,6 +91,7 @@ const SC = {
   gestion_maderas:    "#fbbf24",   // amber
   sistema:            "#f87171",   // red
   postventa:          "#67e8f9",   // cyan
+  compras:            "#f59e0b",   // amber
 };
 
 // ─── ANIMATIONS CSS ───────────────────────────────────────────────────────────
@@ -128,8 +135,13 @@ export default function Sidebar({ profile, signOut }) {
   const isAdmin  = !!profile?.is_admin;
   const username = profile?.username ?? "—";
   const esPanol   = role === "panol";
-  const esGestion = isAdmin || role === "admin" || role === "oficina";
+  const esTecnica = role === "tecnica" || role === "oficina";
+  const esGestion = isAdmin || role === "admin" || esTecnica;
   const esAdmin   = isAdmin || role === "admin";
+  const esCompras = role === "compras";
+  const puedePedirCompras = esGestion || esPanol || esCompras;
+  const comprasLabel = esCompras || esAdmin ? "Gestión de Compras" : "Pedidos";
+  const comprasGroup = esCompras || esAdmin ? "Compras" : "Solicitudes";
   const initials  = username.split(" ").filter(Boolean).map(w => w[0]).slice(0, 2).join("").toUpperCase();
 
   // ── NAV ITEM ACTUALIZADO ──────────────────────────────────────────────────────
@@ -249,6 +261,12 @@ export default function Sidebar({ profile, signOut }) {
             {item("/calendario",  "Calendario",  SC.produccion, true, 200, "Cronograma general y planificación de fechas del astillero.")}
           </>}
 
+          {puedePedirCompras && <>
+            {divider("compras")}
+            {group(comprasGroup, SC.compras, 205)}
+            {item("/compras", comprasLabel, SC.compras, true, 215, "Solicitudes internas a compras con seguimiento y usuarios en copia.")}
+          </>}
+
           {esGestion && <>
             {divider("lam")}
             {group("Gestión Laminación", SC.gestion_laminacion, 200)}
@@ -280,11 +298,11 @@ export default function Sidebar({ profile, signOut }) {
             {item("/configuracion", "Configuración", SC.sistema, true, 430, "Ajustes globales del sistema, altas y permisos de usuarios.")}
           </>}
 
-          <>
+          {(esGestion || ["laminacion","muebles","mecanica","electricidad"].includes(role)) && <>
             {divider("ins")}
             {group("Instrucciones", SC.instrucciones, 450)}
             {item("/procedimientos", "Procedimientos", SC.instrucciones, true, 470, "Manuales, normativas y protocolos de trabajo del astillero.")}
-          </>
+          </>}
         </nav>
 
         {/* MINI DISPLAY / TOOLTIP PANEL ──────────────────────────────────── */}

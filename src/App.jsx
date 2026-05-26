@@ -18,6 +18,7 @@ import ClientePanelScreen    from "@/features/cliente/ClientePanelScreen";
 import HomeScreen            from "@/features/home/HomeScreen";
 import CalendarioScreen      from "@/features/calendario/CalendarioScreen";
 import PedidosMaderaScreen   from "@/features/inventario/PedidosMaderaScreen";
+import PurchaseRequestsScreen from "@/features/compras/PurchaseRequestsScreen";
 
 import logoK from "@/assets/logos/logo-k.png";
 
@@ -32,8 +33,10 @@ function RequireAuth({ session, children }) {
 }
 function RequireRole({ profile, allow, children }) {
   if (!profile) return <Navigate to="/login" replace />;
-  if (!allow.includes(profile.role)) return <Navigate to="/panol" replace />;
-  return children;
+  if (profile.is_admin || allow.includes(profile.role)) return children;
+  if (profile.role === "compras") return <Navigate to="/compras" replace />;
+  if (profile.role === "cliente") return <Navigate to="/mi-panel" replace />;
+  return <Navigate to="/" replace />;
 }
 
 // ─── LOGIN ─────────────────────────────────────────────────────────────────
@@ -359,22 +362,23 @@ export default function App() {
         } />
 
         {/* Personal */}
-        <Route path="/panol"      element={<RequireAuth session={session}><PanolScreen      {...A} /></RequireAuth>} />
-        <Route path="/laminacion" element={<RequireAuth session={session}><LaminacionScreen {...A} /></RequireAuth>} />
-        <Route path="/muebles"    element={<RequireAuth session={session}><MueblesScreen    {...A} /></RequireAuth>} />
-        <Route path="/pedidos"    element={<RequireAuth session={session}><PedidosScreen    {...A} /></RequireAuth>} />
-        <Route path="/procedimientos" element={<RequireAuth session={session}><ProcedimientosScreen {...A} /></RequireAuth>} />
+        <Route path="/panol"      element={<RequireAuth session={session}><RequireRole profile={profile} allow={["admin","oficina","tecnica","panol"]}><PanolScreen      {...A} /></RequireRole></RequireAuth>} />
+        <Route path="/laminacion" element={<RequireAuth session={session}><RequireRole profile={profile} allow={["admin","oficina","tecnica","panol","laminacion"]}><LaminacionScreen {...A} /></RequireRole></RequireAuth>} />
+        <Route path="/muebles"    element={<RequireAuth session={session}><RequireRole profile={profile} allow={["admin","oficina","tecnica","muebles"]}><MueblesScreen    {...A} /></RequireRole></RequireAuth>} />
+        <Route path="/pedidos"    element={<RequireAuth session={session}><RequireRole profile={profile} allow={["admin","oficina","tecnica"]}><PedidosScreen    {...A} /></RequireRole></RequireAuth>} />
+        <Route path="/compras"    element={<RequireAuth session={session}><RequireRole profile={profile} allow={["admin","oficina","tecnica","panol","compras"]}><PurchaseRequestsScreen {...A} /></RequireRole></RequireAuth>} />
+        <Route path="/procedimientos" element={<RequireAuth session={session}><RequireRole profile={profile} allow={["admin","oficina","tecnica","laminacion","muebles","mecanica","electricidad"]}><ProcedimientosScreen {...A} /></RequireRole></RequireAuth>} />
 
         {/* Admin / Oficina */}
-        <Route path="/admin"      element={<RequireAuth session={session}><RequireRole profile={profile} allow={["admin","oficina"]}><AdminDashboard       {...A} /></RequireRole></RequireAuth>} />
-        <Route path="/obras"      element={<RequireAuth session={session}><RequireRole profile={profile} allow={["admin","oficina"]}><ObrasScreen           {...A} /></RequireRole></RequireAuth>} />
-        <Route path="/marmoleria" element={<RequireAuth session={session}><RequireRole profile={profile} allow={["admin","oficina"]}><MarmoleriaScreen      {...A} /></RequireRole></RequireAuth>} />
-        <Route path="/calendario" element={<RequireAuth session={session}><RequireRole profile={profile} allow={["admin","oficina"]}><CalendarioScreen      {...A} /></RequireRole></RequireAuth>} />
-        <Route path="/postventa"  element={<RequireAuth session={session}><RequireRole profile={profile} allow={["admin","oficina"]}><PostVentaScreen       {...A} /></RequireRole></RequireAuth>} />
-        <Route path="/movimientos"element={<RequireAuth session={session}><RequireRole profile={profile} allow={["admin","oficina"]}><MovimientosScreen     {...A} /></RequireRole></RequireAuth>} />
-        <Route path="/obras-laminacion" element={<RequireAuth session={session}><RequireRole profile={profile} allow={["admin","oficina"]}><ObrasLaminacionScreen {...A} /></RequireRole></RequireAuth>} />
+        <Route path="/admin"      element={<RequireAuth session={session}><RequireRole profile={profile} allow={["admin","oficina","tecnica"]}><AdminDashboard       {...A} /></RequireRole></RequireAuth>} />
+        <Route path="/obras"      element={<RequireAuth session={session}><RequireRole profile={profile} allow={["admin","oficina","tecnica"]}><ObrasScreen           {...A} /></RequireRole></RequireAuth>} />
+        <Route path="/marmoleria" element={<RequireAuth session={session}><RequireRole profile={profile} allow={["admin","oficina","tecnica"]}><MarmoleriaScreen      {...A} /></RequireRole></RequireAuth>} />
+        <Route path="/calendario" element={<RequireAuth session={session}><RequireRole profile={profile} allow={["admin","oficina","tecnica"]}><CalendarioScreen      {...A} /></RequireRole></RequireAuth>} />
+        <Route path="/postventa"  element={<RequireAuth session={session}><RequireRole profile={profile} allow={["admin","oficina","tecnica"]}><PostVentaScreen       {...A} /></RequireRole></RequireAuth>} />
+        <Route path="/movimientos"element={<RequireAuth session={session}><RequireRole profile={profile} allow={["admin","oficina","tecnica"]}><MovimientosScreen     {...A} /></RequireRole></RequireAuth>} />
+        <Route path="/obras-laminacion" element={<RequireAuth session={session}><RequireRole profile={profile} allow={["admin","oficina","tecnica"]}><ObrasLaminacionScreen {...A} /></RequireRole></RequireAuth>} />
         <Route path="/configuracion"    element={<RequireAuth session={session}><RequireRole profile={profile} allow={["admin"]}><ConfiguracionScreen {...A} /></RequireRole></RequireAuth>} />
-        <Route path="/madera" element={<PedidosMaderaScreen profile={profile} signOut={signOut} />} />  
+        <Route path="/madera" element={<RequireAuth session={session}><RequireRole profile={profile} allow={["admin","oficina","tecnica"]}><PedidosMaderaScreen profile={profile} signOut={signOut} /></RequireRole></RequireAuth>} />  
         <Route path="*" element={<Navigate to="/" replace />} />
       </Routes>
     </BrowserRouter>
