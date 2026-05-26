@@ -8,6 +8,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { supabase } from "@/supabaseClient";
 import Sidebar from "@/components/Sidebar";
+import { useResponsive } from "@/hooks/useResponsive";
 import NotificacionesBell from "@/components/NotificacionesBell";
 
 function num(v) { const x = Number(v); return Number.isFinite(x) ? x : 0; }
@@ -622,6 +623,7 @@ function DetalleObra({ obraSel, tablaObra, obraStats, esGestion, editNec, setEdi
 // COMPONENTE PRINCIPAL
 // ══════════════════════════════════════════════════════════════
 export default function ObrasLaminacionScreen({ profile, signOut }) {
+  const { isMobile } = useResponsive();
   const role      = profile?.role ?? "invitado";
   const isAdmin   = !!profile?.is_admin;
   const esGestion = isAdmin || role === "admin" || role === "oficina";
@@ -937,12 +939,12 @@ export default function ObrasLaminacionScreen({ profile, signOut }) {
       <div className="bg-glow" />
       <NotificacionesBell profile={profile} />
 
-      <div style={{ display: "grid", gridTemplateColumns: "280px 1fr", height: "100%", overflow: "hidden", position: "relative", zIndex: 1 }}>
+      <div style={{ display: "grid", gridTemplateColumns: isMobile ? "1fr" : "280px 1fr", height: "100%", overflow: "hidden", position: "relative", zIndex: 1 }}>
         <Sidebar profile={profile} signOut={signOut} />
         <div style={{ display: "flex", flexDirection: "column", height: "100vh", overflow: "hidden" }}>
 
           {/* TOPBAR */}
-          <div style={{ height: 50, background: "rgba(12,12,14,0.92)", ...GLASS, borderBottom: `1px solid ${C.b0}`, padding: "0 18px", display: "flex", alignItems: "center", gap: 10, flexShrink: 0 }}>
+          <div style={{ height: 50, background: "rgba(12,12,14,0.92)", ...GLASS, borderBottom: `1px solid ${C.b0}`, padding: isMobile ? "0 12px 0 52px" : "0 18px", display: "flex", alignItems: "center", gap: 10, flexShrink: 0 }}>
             <div style={{ flex: 1, display: "flex", alignItems: "center", gap: 8 }}>
               <div style={{ fontSize: 13, fontWeight: 600, color: C.t0 }}>Obras</div>
               <div style={{ width: 1, height: 14, background: C.b1 }} />

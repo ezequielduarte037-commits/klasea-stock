@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { supabase } from "@/supabaseClient";
 import Sidebar from "@/components/Sidebar";
+import { useResponsive } from "@/hooks/useResponsive";
 
 // ─── PALETA ──────────────────────────────────────────────────────────────────
 const C = {
@@ -51,6 +52,7 @@ function descargarCSV(filas, nombre) {
 const COLS = "180px 1.4fr 80px 110px 160px 110px 1fr";
 
 export default function MovimientosScreen({ profile, signOut }) {
+  const { isMobile } = useResponsive();
   const [rows, setRows] = useState([]);
   const [q,   setQ]    = useState("");
   const [err, setErr]  = useState("");
@@ -139,7 +141,7 @@ export default function MovimientosScreen({ profile, signOut }) {
       `}</style>
       <div className="bg-glow" />
 
-      <div style={{ display: "grid", gridTemplateColumns: "280px 1fr", height: "100%", overflow: "hidden", position: "relative", zIndex: 1 }}>
+      <div style={{ display: "grid", gridTemplateColumns: isMobile ? "1fr" : "280px 1fr", height: "100%", overflow: "hidden", position: "relative", zIndex: 1 }}>
         <Sidebar profile={profile} signOut={signOut} />
 
         <div style={{ display: "flex", flexDirection: "column", height: "100vh", overflow: "hidden" }}>
@@ -147,7 +149,7 @@ export default function MovimientosScreen({ profile, signOut }) {
           {/* ── TOPBAR ── */}
           <div style={{
             height: 50, background: "rgba(12,12,14,0.92)", ...GLASS,
-            borderBottom: `1px solid ${C.b0}`, padding: "0 18px",
+            borderBottom: `1px solid ${C.b0}`, padding: isMobile ? "0 12px 0 52px" : "0 18px",
             display: "flex", alignItems: "center", gap: 8, flexShrink: 0,
           }}>
             <div style={{ flex: 1 }}>

@@ -1,13 +1,15 @@
-﻿import { useEffect, useMemo, useRef, useState } from "react";
+﻿import React, { useEffect, useMemo, useRef, useState } from "react";
 import { useLocation } from "react-router-dom";
 import { supabase } from "@/supabaseClient";
 import Sidebar from "@/components/Sidebar";
+import { useResponsive } from "@/hooks/useResponsive";
 import AjusteInventarioModal from "@/features/inventario/AjusteInventarioModal";
 import ComprasSugeridasPanel from "@/features/inventario/ComprasSugeridasPanel";
 import EncargadosTab from "@/features/inventario/EncargadosTab";
 import OrdenCompraGenerator from "@/features/inventario/OrdenCompraGenerator";
 import BarcoCalendarioPanel from "@/features/calendario/BarcoCalendarioPanel";
-import { Check, Package, Plus, Trash2, X, RotateCcw, Download, AlertTriangle, ChevronDown, ChevronRight, FileText, ClipboardList, Search, RefreshCw, Edit2 } from "lucide-react";
+import { Check, Package, Plus, Trash2, X, RotateCcw, Download, AlertTriangle, ChevronDown, ChevronRight, FileText, ClipboardList, Search, RefreshCw, Edit2, ShoppingCart } from "lucide-react";
+import PedirAComprasModal from "@/features/compras/PedirAComprasModal";
 
 
 const TABS = ["Stock", "Ingresos", "Egresos", "Pedidos"];
@@ -111,6 +113,7 @@ function RingKpi({ label, value, total, color, sub }) {
 
 export default function LaminacionScreen({ profile, signOut }) {
   const location = useLocation();
+  const { isMobile } = useResponsive();
   const role = profile?.role ?? "invitado";
   const isAdmin = !!profile?.is_admin;
   const puedeCargar = isAdmin || role === "admin" || role === "panol";
@@ -151,12 +154,13 @@ export default function LaminacionScreen({ profile, signOut }) {
     fecha: hoyLocal(),
     destino: "", nombre_persona: "", observaciones: "",
   });
-  const [formPedido, setFormPedido] = useState({ material_id: "", cantidad: "", observaciones: "" });
+  const [formPedido, setFormPedido] = useState({ material_id: "", cantidad: "", observaciones: "", categoria: "estándar" });
   const [formMaterial, setFormMaterial] = useState({ nombre: "", categoria: "", unidad: "unidad", stock_minimo: 0 });
 
   // Modal de recepción de pedidos (pañolero)
   // confModal = { pedido, tipo: "entero" | "parcial", cantParcial: "" }
   const [confModal, setConfModal] = useState(null);
+  const [comprasModal, setComprasModal] = useState({ open: false, prefilled: null });
   // Órdenes expandidas en la tab Pedidos
   const [expandedOrdenes, setExpandedOrdenes] = useState(new Set());
 
@@ -564,10 +568,11 @@ export default function LaminacionScreen({ profile, signOut }) {
       estado: "pendiente",
       solicitado_por: userId,
       observaciones: formPedido.observaciones.trim() || null,
+      categoria: formPedido.categoria || "estándar",
     });
     if (error) return setErr(error.message);
     flash("Pedido creado");
-    setFormPedido({ material_id: "", cantidad: "", observaciones: "" });
+    setFormPedido({ material_id: "", cantidad: "", observaciones: "", categoria: "estándar" });
     cargar();
   }
 
@@ -622,8 +627,8 @@ export default function LaminacionScreen({ profile, signOut }) {
 
   const S = {
     page: { background: "#09090b", color: "#f4f4f5", fontFamily: "'Outfit', system-ui, sans-serif", width: "100%", minWidth: "100vw" },
-    layout: { display: "grid", gridTemplateColumns: "280px 1fr", height: "100vh", width: "100%", minWidth: "100vw" },
-    main: { padding: 18, display: "flex", justifyContent: "center", overflowY: "auto", height: "100%", minWidth: 0 },
+    layout: { display: "grid", gridTemplateColumns: isMobile ? "1fr" : "280px 1fr", height: "100vh", width: "100%", minWidth: isMobile ? 0 : "100vw" },
+    main: { padding: isMobile ? "18px 12px 12px" : 18, paddingLeft: isMobile ? 52 : 18, display: "flex", justifyContent: "center", overflowY: "auto", height: "100%", minWidth: 0 },
     content: { width: "min(1300px, 100%)", minWidth: 0 },
     card: { border: "1px solid rgba(255,255,255,0.08)", borderRadius: 12, background: "rgba(255,255,255,0.03)", padding: 16, marginBottom: 12 },
     input: { background: "rgba(255,255,255,0.04)", border: "1px solid rgba(255,255,255,0.08)", color: "#f4f4f5", padding: "9px 12px", borderRadius: 8, width: "100%", outline: "none", fontSize: 13, boxSizing: "border-box", fontFamily: "'Outfit', system-ui" },
@@ -929,19 +934,42 @@ export default function LaminacionScreen({ profile, signOut }) {
                                   <span style={{ marginLeft: 8, fontSize: 10, color: "#52525b" }}>{fmtTs(grupo.createdAt)}</span>
                                 </div>
                                 <span style={{ fontSize: 11, color: "#71717a" }}>{grupo.items.length} {grupo.items.length === 1 ? "material" : "materiales"}</span>
+                                {grupo.items.some(p => p.categoria === "extra") && (
+                                  <span style={{ fontSize: 9, fontWeight: 800, textTransform: "uppercase", letterSpacing: 0.5, color: "#f59e0b", border: "1px solid rgba(245,158,11,0.3)", borderRadius: 4, padding: "1px 6px" }}>Incluye extras</span>
+                                )}
+                              </div>
+
+                              {/* Acciones de grupo */}
+                              <div style={{ display: "flex", gap: 6, padding: "6px 14px", background: "rgba(245,158,11,0.03)", borderTop: "1px solid rgba(255,255,255,0.04)" }}>
+                                <button style={{ border: "1px solid rgba(16,185,129,0.3)", background: "rgba(16,185,129,0.08)", color: "#10b981", fontSize: 11, padding: "5px 12px", borderRadius: 7, cursor: "pointer", fontWeight: 700 }}
+                                  onClick={() => setConfModal({ tipo: "orden_completa", grupo })}>
+                                  ✓ Recibir completa
+                                </button>
+                                <button style={{ border: "1px solid rgba(245,158,11,0.3)", background: "rgba(245,158,11,0.06)", color: "#f59e0b", fontSize: 11, padding: "5px 12px", borderRadius: 7, cursor: "pointer", fontWeight: 700 }}
+                                  onClick={() => setConfModal({ tipo: "orden_parcial", grupo, cantsParciales: {} })}>
+                                  ◐ Recibir parcial
+                                </button>
                               </div>
 
                               {/* Lista de materiales de la orden */}
                               <div style={{ display: "flex", flexDirection: "column" }}>
-                                {grupo.items.map((p, i) => {
-                                  const mat = materiales.find(m => String(m.id) === String(p.material_id));
-                                  const stockActual = num(stockPorMaterial[p.material_id]);
-                                  return (
-                                    <div key={p.id} style={{ display: "flex", alignItems: "center", gap: 10, padding: "10px 14px", borderTop: i === 0 ? "none" : "1px solid rgba(255,255,255,0.04)", flexWrap: "wrap" }}>
-                                      {/* Nombre */}
-                                      <div style={{ flex: 1, minWidth: 160 }}>
+                                  {grupo.items.map((p, i) => {
+                                      const mat = materiales.find(m => String(m.id) === String(p.material_id));
+                                      const stockActual = num(stockPorMaterial[p.material_id]);
+                                      const esExtra = p.categoria === "extra";
+                                      return (
+                                        <div key={p.id} style={{ display: "flex", alignItems: "center", gap: 10, padding: "10px 14px", borderTop: i === 0 ? "none" : "1px solid rgba(255,255,255,0.04)", flexWrap: "wrap", background: esExtra ? "rgba(245,158,11,0.04)" : "transparent" }}>
+                                          {/* Nombre */}
+                                          <div style={{ flex: 1, minWidth: 160 }}>
                                         <span style={{ fontWeight: 600, color: "#f4f4f5", fontSize: 12 }}>{mat?.nombre ?? "Material desconocido"}</span>
-                                      </div>
+                                          </div>
+                                          {/* Tipo */}
+                                          <div style={{ fontSize: 10 }}>
+                                            {esExtra
+                                              ? <span style={{ fontWeight: 800, textTransform: "uppercase", letterSpacing: 0.5, color: "#f59e0b", background: "rgba(245,158,11,0.15)", borderRadius: 5, padding: "1px 7px" }}>Extra</span>
+                                              : <span style={{ color: "#52525b" }}>Estándar</span>
+                                            }
+                                          </div>
                                       {/* Cantidades */}
                                       <div style={{ display: "flex", gap: 14, fontSize: 11, color: "#71717a", alignItems: "center" }}>
                                         <span>Pedido: <b style={{ color: "#f59e0b" }}>{num(p.cantidad)} {mat?.unidad}</b></span>
@@ -1431,6 +1459,7 @@ export default function LaminacionScreen({ profile, signOut }) {
       cantidad: it.cantidad,
       observaciones: obs,
       estado: "pendiente",
+      categoria: it.categoria || "estándar",
     }));
     const { error } = await supabase.from("laminacion_pedidos").insert(rows);
     if (error) { flash(`Error: ${error.message}`); return; }
@@ -1475,6 +1504,14 @@ export default function LaminacionScreen({ profile, signOut }) {
                             value={formPedido.observaciones}
                             onChange={e => setFormPedido(f => ({ ...f, observaciones: e.target.value }))} />
                         </div>
+                      </div>
+                      <div style={{ marginTop: 8, display: "flex", alignItems: "center", gap: 8 }}>
+                        <label style={{ display: "flex", alignItems: "center", gap: 6, cursor: "pointer", fontSize: 12, color: "#a1a1aa", userSelect: "none" }}>
+                          <input type="checkbox" checked={formPedido.categoria === "extra"}
+                            onChange={e => setFormPedido(f => ({ ...f, categoria: e.target.checked ? "extra" : "estándar" }))}
+                            style={{ accentColor: "#f59e0b" }} />
+                          Material extra (fuera de la lista estándar)
+                        </label>
                       </div>
                       <div style={{ marginTop: 12 }}>
                         <button type="submit" style={S.btnPrimary}>Crear pedido</button>
@@ -1533,6 +1570,29 @@ export default function LaminacionScreen({ profile, signOut }) {
                             ? `${pendientes} pendiente${pendientes !== 1 ? "s" : ""}`
                             : entregados === grupo.items.length ? "Completo" : "Cerrado";
                           const esManual    = grupo.ref.startsWith("__manual_");
+                          const comprasPrefilled = pendientes > 0 ? (() => {
+                            const pend = grupo.items.filter(p => p.estado === "pendiente");
+                            const estandar = pend.filter(p => p.categoria !== "extra");
+                            const extra = pend.filter(p => p.categoria === "extra");
+                            const label = grupo.ref.startsWith("__manual_") ? "" : (grupo.label ? grupo.label + "\n" : "");
+                            let desc = "";
+                            if (label) desc += `${grupo.ref} — ${label}\n`;
+                            if (estandar.length) {
+                              desc += `\nMateriales:\n`;
+                              desc += estandar.map(p => `  • ${p.laminacion_materiales?.nombre || "Material"}: ${p.cantidad} ${p.laminacion_materiales?.unidad || ""}`).join("\n");
+                            }
+                            if (extra.length) {
+                              desc += `\n\nExtra:\n`;
+                              desc += extra.map(p => `  • ${p.laminacion_materiales?.nombre || "Material"}: ${p.cantidad} ${p.laminacion_materiales?.unidad || ""}`).join("\n");
+                            }
+                            return {
+                              title: grupo.ref.startsWith("__manual_") ? `Pedido manual — Laminación` : `${grupo.ref} — Laminación`,
+                              description: desc,
+                              source: "laminacion",
+                              source_ref: grupo.ref,
+                              sourceLabel: "Laminación",
+                            };
+                          })() : null;
 
                           return (
                             <div key={grupo.ref} style={{ border: `1px solid ${estadoColor}30`, borderRadius: 12, overflow: "hidden" }}>
@@ -1553,23 +1613,37 @@ export default function LaminacionScreen({ profile, signOut }) {
                                   </div>
                                   {!esManual && <div style={{ fontSize: 11, color: "#a1a1aa", marginTop: 2 }}>{grupo.label}</div>}
                                 </div>
+                                {/* debug: raw categoria values */}
+                                <div style={{ fontSize: 9, color: "#a1a1aa", fontFamily: "monospace", marginLeft: 8 }}>
+                                  [{grupo.items.map(p => (p.categoria || "null")).join(", ")}]
+                                </div>
 
                                 <div style={{ display: "flex", gap: 10, alignItems: "center", flexWrap: "wrap" }}>
                                   <span style={{ fontSize: 11, color: "#71717a" }}>{grupo.items.length} material{grupo.items.length !== 1 ? "es" : ""}</span>
+                                  {(() => { const n = grupo.items.filter(p => p.categoria === "extra").length; return n > 0 ? <span style={{ fontSize: 10, fontWeight: 800, textTransform: "uppercase", letterSpacing: 0.5, color: "#f59e0b", background: "rgba(245,158,11,0.18)", border: "1px solid rgba(245,158,11,0.3)", borderRadius: 5, padding: "1px 8px" }}>{n} Extra{n !== 1 ? "s" : ""}</span> : null; })()}
                                   <span style={{ fontSize: 11, fontWeight: 700, color: estadoColor, background: `${estadoColor}18`, border: `1px solid ${estadoColor}44`, borderRadius: 999, padding: "2px 10px" }}>
                                     {estadoLabel}
                                   </span>
                                   <span style={{ fontSize: 10, color: "#52525b" }}>{fmtTs(grupo.createdAt)}</span>
-                                  {(isAdmin || role === "admin") && (
-                                    <button
-                                      onClick={e => { e.stopPropagation(); eliminarOrden(grupo.items); }}
-                                      title="Eliminar orden completa"
-                                      style={{ border: "1px solid rgba(239,68,68,0.3)", background: "rgba(239,68,68,0.08)", color: "#ef4444", borderRadius: 7, cursor: "pointer", padding: "4px 8px", display: "flex", alignItems: "center", gap: 4, fontSize: 11 }}
-                                    >
-                                      <Trash2 size={12}/> Eliminar orden
-                                    </button>
-                                  )}
-                                </div>
+                                                  {pendientes > 0 && (
+                                                    <button
+                                                      onClick={e => { e.stopPropagation(); setComprasModal({ open: true, prefilled: comprasPrefilled }); }}
+                                                      title="Pedir a Compras"
+                                                      style={{ border: "1px solid rgba(96,165,250,0.3)", background: "rgba(96,165,250,0.08)", color: "#60a5fa", borderRadius: 7, cursor: "pointer", padding: "4px 8px", display: "flex", alignItems: "center", gap: 4, fontSize: 11 }}
+                                                    >
+                                                      <ShoppingCart size={12}/> Compras
+                                                    </button>
+                                                  )}
+                                                  {(isAdmin || role === "admin" || role === "oficina" || role === "tecnica") && (
+                                                    <button
+                                                      onClick={e => { e.stopPropagation(); eliminarOrden(grupo.items); }}
+                                                      title="Eliminar orden completa"
+                                                      style={{ border: "1px solid rgba(239,68,68,0.3)", background: "rgba(239,68,68,0.08)", color: "#ef4444", borderRadius: 7, cursor: "pointer", padding: "4px 8px", display: "flex", alignItems: "center", gap: 4, fontSize: 11 }}
+                                                    >
+                                                      <Trash2 size={12}/> Eliminar orden
+                                                    </button>
+                                                  )}
+                                                </div>
                               </div>
 
                               {/* Detalle expandido */}
@@ -1579,32 +1653,41 @@ export default function LaminacionScreen({ profile, signOut }) {
                                     <thead>
                                       <tr>
                                         <th style={S.th}>Material</th>
+                                        <th style={S.th}>Tipo</th>
                                         <th style={S.th}>Cantidad</th>
                                         <th style={S.th}>Estado</th>
                                         <th style={S.th}>Acción</th>
                                       </tr>
                                     </thead>
                                     <tbody>
-                                      {grupo.items.map(p => (
-                                        <tr key={p.id} className="lam-row">
+                                      {grupo.items.map(p => {
+                                        const esExtra = p.categoria === "extra";
+                                        return (
+                                        <tr key={p.id} className="lam-row" style={esExtra ? { background: "rgba(245,158,11,0.06)" } : {}}>
                                           <td style={S.td}>
                                             <b style={{ color: "#f4f4f5", fontSize: 12 }}>{p.laminacion_materiales?.nombre ?? "—"}</b>
                                             <div style={S.small}>{p.laminacion_materiales?.unidad}</div>
+                                          </td>
+                                          <td style={S.td}>
+                                            {esExtra
+                                              ? <span style={{ fontSize: 10, fontWeight: 800, textTransform: "uppercase", letterSpacing: 0.5, color: "#f59e0b", background: "rgba(245,158,11,0.15)", borderRadius: 5, padding: "2px 8px" }}>EXTRA</span>
+                                              : <span style={{ fontSize: 10, color: "#71717a" }}>estándar</span>
+                                            }
                                           </td>
                                           <td style={{ ...S.td, fontFamily: "monospace", fontSize: 13, color: "#f4f4f5" }}>{num(p.cantidad)}</td>
                                           <td style={S.td}><span style={S.pillPedido(p.estado)}>{p.estado}</span></td>
                                           <td style={S.td}>
                                             <div style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>
-                                              {p.estado === "pendiente" && (isAdmin || role === "admin" || role === "oficina") && (
+                                              {p.estado === "pendiente" && (isAdmin || role === "admin" || role === "oficina" || role === "tecnica") && (
                                                 <>
                                                   <button style={S.btnSmall("#30d158")} onClick={() => setEstadoPedido(p.id, "entregado")}><Check size={12} style={{marginRight:4}}/>Entregado</button>
                                                   <button style={S.btnSmall("#ff453a")} onClick={() => setEstadoPedido(p.id, "cancelado")}>Cancelar</button>
                                                 </>
                                               )}
-                                              {p.estado !== "pendiente" && (isAdmin || role === "admin") && (
+                                              {p.estado !== "pendiente" && (isAdmin || role === "admin" || role === "oficina" || role === "tecnica") && (
                                                 <button style={S.btnSmall("#ffd60a")} onClick={() => setEstadoPedido(p.id, "pendiente")}><RotateCcw size={12} style={{marginRight:4}}/>Reabrir</button>
                                               )}
-                                              {(isAdmin || role === "admin") && (
+                                              {(isAdmin || role === "admin" || role === "oficina" || role === "tecnica") && (
                                                 <button style={{ ...S.btnSmall("#ef4444"), padding: "4px 8px" }} onClick={e => { e.stopPropagation(); eliminarPedido(p.id); }} title="Eliminar ítem definitivamente">
                                                   <Trash2 size={12}/>
                                                 </button>
@@ -1612,7 +1695,7 @@ export default function LaminacionScreen({ profile, signOut }) {
                                             </div>
                                           </td>
                                         </tr>
-                                      ))}
+                                      )})}
                                     </tbody>
                                   </table>
                                 </div>
@@ -1661,7 +1744,10 @@ export default function LaminacionScreen({ profile, signOut }) {
                     const mat = materiales.find(m => String(m.id) === String(p.material_id));
                     return (
                       <div key={p.id} style={{ display: "flex", justifyContent: "space-between", padding: "9px 14px", borderTop: i === 0 ? "none" : "1px solid rgba(255,255,255,0.04)", fontSize: 12 }}>
-                        <span style={{ color: "#f4f4f5" }}>{mat?.nombre ?? "—"}</span>
+                        <span style={{ color: "#f4f4f5" }}>
+                          {mat?.nombre ?? "—"}
+                          {p.categoria === "extra" && <span style={{ marginLeft: 6, fontSize: 8, fontWeight: 800, textTransform: "uppercase", letterSpacing: 0.5, color: "#f59e0b", border: "1px solid rgba(245,158,11,0.3)", borderRadius: 4, padding: "1px 5px" }}>Extra</span>}
+                        </span>
                         <span style={{ color: "#10b981", fontWeight: 700 }}>{num(p.cantidad)} {mat?.unidad}</span>
                       </div>
                     );
@@ -1703,6 +1789,7 @@ export default function LaminacionScreen({ profile, signOut }) {
                       <div key={p.id} style={{ display: "flex", alignItems: "center", gap: 12, padding: "10px 12px", background: "rgba(255,255,255,0.02)", border: `1px solid rgba(255,255,255,0.06)`, borderRadius: 9 }}>
                         <div style={{ flex: 1, fontSize: 12, color: "#f4f4f5", fontWeight: 600 }}>
                           {mat?.nombre ?? "—"}
+                          {p.categoria === "extra" && <span style={{ marginLeft: 6, fontSize: 8, fontWeight: 800, textTransform: "uppercase", letterSpacing: 0.5, color: "#f59e0b", border: "1px solid rgba(245,158,11,0.3)", borderRadius: 4, padding: "1px 5px" }}>Extra</span>}
                           <span style={{ marginLeft: 8, fontSize: 10, color: "#71717a", fontWeight: 400 }}>pedido: {pedidoNum} {mat?.unidad}</span>
                         </div>
                         <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
@@ -1791,6 +1878,15 @@ export default function LaminacionScreen({ profile, signOut }) {
           </div>
         );
       })()}
+
+      <PedirAComprasModal
+        open={comprasModal.open}
+        prefilled={comprasModal.prefilled}
+        onClose={(created) => {
+          setComprasModal({ open: false, prefilled: null });
+          if (created) flash("Pedido enviado a Compras");
+        }}
+      />
     </div>
   );
 }

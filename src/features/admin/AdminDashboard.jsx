@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { supabase } from "@/supabaseClient";
 import Sidebar from "@/components/Sidebar";
+import { useResponsive } from "@/hooks/useResponsive";
 
 function num(v) { const x = Number(v); return Number.isFinite(x) ? x : 0; }
 
@@ -167,6 +168,7 @@ function KpiCard({ label, value, total, color, bg, border, icon, pulse = false, 
 }
 
 export default function AdminDashboard({ profile, signOut }) {
+  const { isMobile } = useResponsive();
   const [rows, setRows] = useState([]);
   const [error, setError] = useState("");
   const [msg, setMsg] = useState("");
@@ -286,14 +288,14 @@ export default function AdminDashboard({ profile, signOut }) {
       `}</style>
       <div className="bg-glow" />
 
-      <div style={{ display: "grid", gridTemplateColumns: "280px 1fr", height: "100vh", overflow: "hidden", position: "relative", zIndex: 1 }}>
+      <div style={{ display: "grid", gridTemplateColumns: isMobile ? "1fr" : "280px 1fr", height: "100vh", overflow: "hidden", position: "relative", zIndex: 1 }}>
         <Sidebar profile={profile} signOut={signOut} />
 
         <div style={{ display: "flex", flexDirection: "column", height: "100vh", overflow: "hidden" }}>
           {/* ── TOPBAR ── */}
           <div style={{
             height: 50, background: "rgba(12,12,14,0.92)", ...GLASS,
-            borderBottom: `1px solid ${C.b0}`, padding: "0 18px",
+            borderBottom: `1px solid ${C.b0}`, padding: isMobile ? "0 12px 0 52px" : "0 18px",
             display: "flex", alignItems: "center", gap: 10, flexShrink: 0,
           }}>
             <div style={{ display: "flex", gap: 7, flex: 1 }}>

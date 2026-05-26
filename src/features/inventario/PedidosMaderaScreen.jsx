@@ -24,6 +24,8 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { supabase } from "@/supabaseClient";
 import Sidebar from "@/components/Sidebar";
+import PedirAComprasModal from "@/features/compras/PedirAComprasModal";
+import { useResponsive } from "@/hooks/useResponsive";
 
 // ── Paleta (igual que el resto del sistema) ───────────────────────
 const C = {
@@ -183,6 +185,7 @@ function generarEmailTexto({ obras, stockItems, destinatario }) {
 // COMPONENTE PRINCIPAL
 // ══════════════════════════════════════════════════════════════════
 export default function PedidosMaderaScreen({ profile, signOut }) {
+  const { isMobile } = useResponsive();
   const [tab,         setTab]         = useState("sugeridas"); // "sugeridas" | "pedido" | "historial"
   const [loading,     setLoading]     = useState(true);
   const [error,       setError]       = useState("");
@@ -223,6 +226,7 @@ export default function PedidosMaderaScreen({ profile, signOut }) {
   const [fEstado,        setFEstado]        = useState("todos");
   const [pedidoSel,      setPedidoSel]      = useState(null);
   const [pedidoSelItems, setPedidoSelItems] = useState([]);
+  const [comprasModal, setComprasModal] = useState({ open: false, prefilled: null });
 
   // ── Carga inicial y realtime ──────────────────────────────────
   const cargar = useCallback(async () => {
@@ -404,7 +408,7 @@ export default function PedidosMaderaScreen({ profile, signOut }) {
             descripcion:    it.descripcion.trim(),
             cantidad:       num(it.cantidad),
             unidad:         it.unidad || "u",
-            // nota_recepcion se completa desde el panol al recibir
+            categoria:      it.nota || null,
           };
         })
       );
@@ -508,13 +512,13 @@ export default function PedidosMaderaScreen({ profile, signOut }) {
       `}</style>
       <div className="bg-glow" />
 
-      <div style={{ display: "grid", gridTemplateColumns: "280px 1fr", height: "100%", overflow: "hidden", position: "relative", zIndex: 1 }}>
+      <div style={{ display: "grid", gridTemplateColumns: isMobile ? "1fr" : "280px 1fr", height: "100%", overflow: "hidden", position: "relative", zIndex: 1 }}>
         <Sidebar profile={profile} signOut={signOut} />
 
         <div style={{ display: "flex", flexDirection: "column", height: "100vh", overflow: "hidden" }}>
 
           {/* ── TOPBAR ─────────────────────────────────────────── */}
-          <div style={{ height: 50, background: "rgba(12,12,14,0.92)", ...GLASS, borderBottom: `1px solid ${C.b0}`, padding: "0 18px", display: "flex", alignItems: "center", gap: 8, flexShrink: 0 }}>
+          <div style={{ height: 50, background: "rgba(12,12,14,0.92)", ...GLASS, borderBottom: `1px solid ${C.b0}`, padding: isMobile ? "0 12px 0 52px" : "0 18px", display: "flex", alignItems: "center", gap: 8, flexShrink: 0 }}>
             <div style={{ flex: 1 }}>
               <div style={{ fontSize: 13, fontWeight: 600, color: C.t0 }}>Pedidos de Madera</div>
               <div style={{ fontSize: 9, color: C.t2, letterSpacing: 1.5, textTransform: "uppercase", marginTop: 1 }}>
@@ -938,6 +942,25 @@ export default function PedidosMaderaScreen({ profile, signOut }) {
                               </button>
                             );
                           })}
+                          <button onClick={() => setComprasModal({ open: true, prefilled: (() => {
+                            const grupos = {};
+                            for (const it of pedidoSelItems) {
+                              const cat = it.categoria || "Sin categoría";
+                              if (!grupos[cat]) grupos[cat] = [];
+                              grupos[cat].push(it);
+                            }
+                            let desc = `Proveedor: ${pedidoSel.proveedor}${pedidoSel.numero ? ` — ${pedidoSel.numero}` : ""}`;
+                            if (pedidoSel.nota) desc += `\nNota: ${pedidoSel.nota}`;
+                            for (const [cat, its] of Object.entries(grupos)) {
+                              desc += `\n\n${cat}:\n`;
+                              desc += its.map(it => `  • ${it.descripcion}: ${it.cantidad} ${it.unidad}`).join("\n");
+                            }
+                            return {
+                              title: `Pedido Madera: ${pedidoSel.proveedor}`,
+                              description: desc,
+                              source: "madera", source_ref: pedidoSel.id, sourceLabel: "Madera",
+                            };
+                          })()})} style={{ border: "1px solid rgba(96,165,250,0.3)", background: "rgba(96,165,250,0.1)", color: "#60a5fa", padding: "5px 12px", borderRadius: 7, cursor: "pointer", fontSize: 11, fontFamily: C.sans, fontWeight: 600 }}>Pedir a Compras</button>
                         </div>
                       </div>
 
@@ -948,25 +971,40 @@ export default function PedidosMaderaScreen({ profile, signOut }) {
                             <div key={h} style={{ fontSize: 9, color: C.t2, letterSpacing: 2, textTransform: "uppercase" }}>{h}</div>
                           ))}
                         </div>
-                        {pedidoSelItems.map(it => (
-                          <div key={it.id} className="item-row" style={{ display: "grid", gridTemplateColumns: "1fr 80px 70px 80px 1fr", gap: 10, padding: "9px 12px", borderBottom: `1px solid rgba(255,255,255,0.04)`, alignItems: "center" }}>
-                            <div style={{ fontSize: 12, color: C.t0 }}>{it.descripcion}</div>
-                            <div style={{ fontFamily: C.mono, fontSize: 12, color: C.t1 }}>{num(it.cantidad)}</div>
-                            <div style={{ fontSize: 11, color: C.t1 }}>{it.unidad}</div>
-                            <div style={{ fontSize: 11, color: it.material_id ? C.green : C.t2 }}>
-                              {it.material_id ? "si" : "—"}
+                        {(() => {
+                          const grupos = {};
+                          for (const it of pedidoSelItems) {
+                            const cat = it.categoria || "Sin categoría";
+                            if (!grupos[cat]) grupos[cat] = [];
+                            grupos[cat].push(it);
+                          }
+                          return Object.entries(grupos).map(([cat, items]) => (
+                            <div key={cat}>
+                              <div style={{ padding: "8px 12px", fontSize: 10, color: C.t2, letterSpacing: 1.5, textTransform: "uppercase", fontWeight: 700, borderBottom: `1px solid rgba(255,255,255,0.04)`, background: "rgba(255,255,255,0.02)" }}>
+                                {cat}
+                              </div>
+                              {items.map(it => (
+                                <div key={it.id} className="item-row" style={{ display: "grid", gridTemplateColumns: "1fr 80px 70px 80px 1fr", gap: 10, padding: "9px 12px", borderBottom: `1px solid rgba(255,255,255,0.04)`, alignItems: "center" }}>
+                                  <div style={{ fontSize: 12, color: C.t0 }}>{it.descripcion}</div>
+                                  <div style={{ fontFamily: C.mono, fontSize: 12, color: C.t1 }}>{num(it.cantidad)}</div>
+                                  <div style={{ fontSize: 11, color: C.t1 }}>{it.unidad}</div>
+                                  <div style={{ fontSize: 11, color: it.material_id ? C.green : C.t2 }}>
+                                    {it.material_id ? "si" : "—"}
+                                  </div>
+                                  <input
+                                    style={{ background: "transparent", border: `1px solid ${C.b0}`, color: C.t1, fontSize: 11, borderRadius: 6, padding: "4px 8px", fontFamily: C.sans, outline: "none", width: "100%" }}
+                                    placeholder="Ej: vinieron 3 de 5..."
+                                    defaultValue={it.nota_recepcion ?? ""}
+                                    onBlur={async e => {
+                                      const val = e.target.value.trim();
+                                      await supabase.from("pedido_items").update({ nota_recepcion: val || null }).eq("id", it.id);
+                                    }}
+                                  />
+                                </div>
+                              ))}
                             </div>
-                            <input
-                              style={{ background: "transparent", border: `1px solid ${C.b0}`, color: C.t1, fontSize: 11, borderRadius: 6, padding: "4px 8px", fontFamily: C.sans, outline: "none", width: "100%" }}
-                              placeholder="Ej: vinieron 3 de 5..."
-                              defaultValue={it.nota_recepcion ?? ""}
-                              onBlur={async e => {
-                                const val = e.target.value.trim();
-                                await supabase.from("pedido_items").update({ nota_recepcion: val || null }).eq("id", it.id);
-                              }}
-                            />
-                          </div>
-                        ))}
+                          ));
+                        })()}
                         {!pedidoSelItems.length && (
                           <div style={{ padding: 16, textAlign: "center", fontSize: 12, color: C.t2 }}>Sin items registrados.</div>
                         )}
@@ -980,6 +1018,15 @@ export default function PedidosMaderaScreen({ profile, signOut }) {
           </div>
         </div>
       </div>
+
+      <PedirAComprasModal
+        open={comprasModal.open}
+        prefilled={comprasModal.prefilled}
+        onClose={(created) => {
+          setComprasModal({ open: false, prefilled: null });
+          if (created) setError("");
+        }}
+      />
     </div>
   );
 }

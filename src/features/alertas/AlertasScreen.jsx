@@ -1,5 +1,6 @@
 import { useState, useMemo } from "react";
 import Sidebar from "@/components/Sidebar";
+import { useResponsive } from "@/hooks/useResponsive";
 import useAlertas from "@/hooks/useAlertas";
 
 // ─── PALETA (igual que ObrasScreen) ─────────────────────────────────────────
@@ -47,6 +48,7 @@ const filterBtn = (active, color) => ({
 });
 
 export default function AlertasScreen({ profile, signOut }) {
+  const { isMobile } = useResponsive();
   const isAdmin = !!profile?.is_admin;
   const { alertas, stats, loading, resolverAlerta, recargar } = useAlertas();
 
@@ -95,7 +97,7 @@ export default function AlertasScreen({ profile, signOut }) {
       `}</style>
       <div className="bg-glow" />
 
-      <div style={{ display: "grid", gridTemplateColumns: "280px 1fr", height: "100%", overflow: "hidden", position: "relative", zIndex: 1 }}>
+      <div style={{ display: "grid", gridTemplateColumns: isMobile ? "1fr" : "280px 1fr", height: "100%", overflow: "hidden", position: "relative", zIndex: 1 }}>
         <Sidebar profile={profile} signOut={signOut} />
 
         <div style={{ display: "flex", flexDirection: "column", height: "100vh", overflow: "hidden" }}>
@@ -103,7 +105,7 @@ export default function AlertasScreen({ profile, signOut }) {
           {/* ── TOPBAR ── */}
           <div style={{
             height: 50, background: "rgba(12,12,14,0.92)", ...GLASS,
-            borderBottom: `1px solid ${C.b0}`, padding: "0 18px",
+            borderBottom: `1px solid ${C.b0}`, padding: isMobile ? "0 12px 0 52px" : "0 18px",
             display: "flex", alignItems: "center", gap: 8, flexShrink: 0,
           }}>
             <div style={{ flex: 1 }}>

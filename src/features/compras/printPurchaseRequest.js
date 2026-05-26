@@ -45,7 +45,6 @@ export function printPurchaseRequest(request, logoUrl) {
   .body p{margin:0 0 8px}
   .body p:last-child{margin:0}
   .body ul,.body ol{padding-left:20px;margin:6px 0}
-  .att{display:inline-block;margin-top:10px;padding:6px;border:1px solid #e8eaed;border-radius:6px;background:#fafafa}
 </style>
 </head>
 <body>
@@ -66,8 +65,6 @@ export function printPurchaseRequest(request, logoUrl) {
 </div>
 
 <div class="body">${request.description || '<span style="color:#999;font-style:italic">Sin descripción.</span>'}</div>
-
-${request.photo_url ? `<div class="att"><img src="${esc(request.photo_url)}" alt="Foto" /></div>` : ""}
 
 </body>
 </html>`;

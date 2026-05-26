@@ -225,6 +225,7 @@ export default function OrdenCompraGenerator({ materiales = [], stockPorMaterial
   const [loadingItems, setLoadingItems]     = useState(false);
   const [stockKeys, setStockKeys]           = useState(new Set());   // para email
   const [selectedKeys, setSelectedKeys]     = useState(new Set());   // para pedido
+  const [extraKeys, setExtraKeys]           = useState(new Set());   // items marcados como extra
   const [copiado, setCopiado]               = useState(false);
   const [vista, setVista]                   = useState("tabla");
   const [pedidosCreados, setPedidosCreados] = useState(new Set());
@@ -303,6 +304,10 @@ export default function OrdenCompraGenerator({ materiales = [], stockPorMaterial
     else setSelectedKeys(new Set(itemsConStock.map(it => it._key)));
   }
 
+  function toggleExtra(key) {
+    setExtraKeys(prev => { const n = new Set(prev); n.has(key) ? n.delete(key) : n.add(key); return n; });
+  }
+
   function updateItem(key, field, value) {
     setItems(prev => prev.map(it => it._key === key ? { ...it, [field]: value } : it));
   }
@@ -361,11 +366,13 @@ export default function OrdenCompraGenerator({ materiales = [], stockPorMaterial
         material_id: it._mat.id,
         cantidad:    it._cantidadNecesaria,
         descripcion: it.descripcion,
+        categoria:   extraKeys.has(it._key) ? "extra" : "estándar",
       })),
       ...itemsAGenerar.deExtras.map(e => ({
         material_id: e.material_id,
         cantidad:    e.cantidad,
         descripcion: e._mat?.nombre ?? "Extra",
+        categoria:   "extra",
       })),
     ];
     try {
@@ -507,6 +514,7 @@ export default function OrdenCompraGenerator({ materiales = [], stockPorMaterial
                         <th style={{ ...S.th, textAlign: "right" }}>Total</th>
                         <th style={{ ...S.th, textAlign: "right" }}>Stock actual</th>
                         <th style={{ ...S.th, width: 46, textAlign: "center" }}>Email stock</th>
+                        <th style={{ ...S.th, width: 46, textAlign: "center" }}>Extra</th>
                       </tr>
                     </thead>
                     <tbody>
@@ -586,6 +594,15 @@ export default function OrdenCompraGenerator({ materiales = [], stockPorMaterial
                                 style={{ border: enStock ? `1px solid ${C.cyan}55` : `1px solid ${C.b0}`, background: enStock ? `${C.cyan}22` : "transparent", color: enStock ? C.cyan : C.t2, width: 24, height: 24, borderRadius: 5, cursor: "pointer", fontSize: 12, display: "flex", alignItems: "center", justifyContent: "center", margin: "0 auto", transition: "all .15s" }}
                               >
                                 {enStock ? "" : ""}
+                              </button>
+                            </td>
+                            <td style={{ ...S.td, textAlign: "center" }}>
+                              <button
+                                title={extraKeys.has(it._key) ? "Quitar marca extra" : "Marcar como material extra"}
+                                onClick={() => toggleExtra(it._key)}
+                                style={{ border: extraKeys.has(it._key) ? `1px solid ${C.amber}55` : `1px solid ${C.b0}`, background: extraKeys.has(it._key) ? `${C.amber}22` : "transparent", color: extraKeys.has(it._key) ? C.amber : C.t2, width: 24, height: 24, borderRadius: 5, cursor: "pointer", fontSize: 11, display: "flex", alignItems: "center", justifyContent: "center", margin: "0 auto", transition: "all .15s", fontWeight: 700 }}
+                              >
+                                {extraKeys.has(it._key) ? "E" : ""}
                               </button>
                             </td>
                           </tr>
@@ -741,9 +758,12 @@ export default function OrdenCompraGenerator({ materiales = [], stockPorMaterial
                   </tr>
                 </thead>
                 <tbody>
-                  {itemsAGenerar.dePlantilla.map(it => (
-                    <tr key={it._key} style={{ borderTop: `1px solid rgba(255,255,255,0.04)` }}>
+                  {itemsAGenerar.dePlantilla.map(it => {
+                    const esExtra = extraKeys.has(it._key);
+                    return (
+                    <tr key={it._key} style={{ borderTop: `1px solid rgba(255,255,255,0.04)`, background: esExtra ? `${C.amber}06` : "transparent" }}>
                       <td style={{ ...S.td, padding: "9px 14px", fontWeight: 600, color: C.t0 }}>
+                        {esExtra && <span style={{ fontSize: 9, fontWeight: 800, textTransform: "uppercase", letterSpacing: 0.5, color: C.amber, border: `1px solid ${C.amber}44`, background: `${C.amber}18`, borderRadius: 4, padding: "1px 6px", marginRight: 6 }}>Extra</span>}
                         {it.descripcion}
                         <div style={{ fontSize: 10, color: C.t2, marginTop: 2 }}>{it._mat?.nombre}</div>
                       </td>
@@ -755,7 +775,8 @@ export default function OrdenCompraGenerator({ materiales = [], stockPorMaterial
                       </td>
                       <td style={{ ...S.td, padding: "9px 14px", fontSize: 10, color: C.t2 }}>Plantilla</td>
                     </tr>
-                  ))}
+                  );
+                  })}
                   {itemsAGenerar.deExtras.map(e => {
                     const mat = e._mat;
                     const st  = mat ? num(stockPorMaterial[mat.id] ?? 0) : null;

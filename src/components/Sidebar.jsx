@@ -1,6 +1,7 @@
-﻿import React, { useState } from "react";
+﻿import React, { useEffect, useState } from "react";
 import { Link, useLocation } from "react-router-dom";
 import logoK from "@/assets/logos/logo-k.png";
+import { useResponsive } from "@/hooks/useResponsive";
 
 // ─── SVG ICONS ────────────────────────────────────────────────────────────────
 function Icon({ id, color = "currentColor", size = 14 }) {
@@ -130,6 +131,10 @@ export default function Sidebar({ profile, signOut }) {
   
   const [hov, setHov] = useState(null);
   const [displayInfo, setDisplayInfo] = useState(""); // NUEVO: Estado para el panel inferior
+  const { isMobile } = useResponsive();
+  const [menuOpen, setMenuOpen] = useState(false);
+  const toggleMenu = () => setMenuOpen(o => !o);
+  useEffect(() => { if (!isMobile) setMenuOpen(false); }, [isMobile]);
 
   const role     = profile?.role ?? "invitado";
   const isAdmin  = !!profile?.is_admin;
@@ -216,19 +221,71 @@ export default function Sidebar({ profile, signOut }) {
     <div key={`d${k}`} style={{ height: 1, margin: "4px 20px", background: "linear-gradient(90deg,transparent,rgba(255,255,255,.05),transparent)" }}/>
   );
 
+  const sidebarMobileStyle = {
+    position: "fixed", top: 0, left: 0, bottom: 0, zIndex: 1000,
+    width: 280, background: "#000",
+    display: "flex", flexDirection: "column",
+    borderRight: "1px solid rgba(255,255,255,.06)",
+    transform: menuOpen ? "translateX(0)" : "translateX(-100%)",
+    transition: "transform .3s cubic-bezier(.22,1,.36,1)",
+    overflow: "hidden",
+  };
+
+  const sidebarDesktopStyle = {
+    width: 280, flexShrink: 0, background: "#000", height: "100%",
+    display: "flex", flexDirection: "column", borderRight: "1px solid rgba(255,255,255,.06)",
+    position: "relative", overflow: "hidden",
+    animation: "sb-in .38s cubic-bezier(.22,1,.36,1) both",
+  };
+
   return (
     <>
-      <style>{CSS}</style>
-      <aside style={{
-        width: 280, flexShrink: 0, background: "#000", height: "100%",
-        display: "flex", flexDirection: "column", borderRight: "1px solid rgba(255,255,255,.06)",
-        position: "relative", overflow: "hidden", animation: "sb-in .38s cubic-bezier(.22,1,.36,1) both"
-      }}>
+      <style>{CSS}
+        {isMobile && `
+          body { overflow-x: hidden; }
+          @media (max-width: 768px) {
+            .resp-hamburger { display: flex !important; }
+          }
+        `}
+      </style>
+
+      {isMobile && (
+        <>
+          {menuOpen && (
+            <div onClick={toggleMenu} style={{
+              position: "fixed", inset: 0, zIndex: 999,
+              background: "rgba(0,0,0,0.5)", backdropFilter: "blur(2px)",
+              WebkitBackdropFilter: "blur(2px)",
+            }} />
+          )}
+          <button onClick={toggleMenu} className="resp-hamburger" style={{
+            position: "fixed", top: 8, left: 8, zIndex: 1001,
+            width: 36, height: 36, borderRadius: 8,
+            background: "rgba(0,0,0,0.7)", border: "1px solid rgba(255,255,255,0.1)",
+            color: "#fff", cursor: "pointer", fontSize: 16,
+            display: "none", alignItems: "center", justifyContent: "center",
+            backdropFilter: "blur(6px)", WebkitBackdropFilter: "blur(6px)",
+          }}>
+            {menuOpen ? "✕" : "☰"}
+          </button>
+        </>
+      )}
+
+      <aside style={isMobile ? sidebarMobileStyle : sidebarDesktopStyle}>
         <div style={{ position: "absolute", left: 0, right: 0, height: 1, zIndex: 10, pointerEvents: "none", background: "linear-gradient(90deg,transparent,rgba(255,255,255,.15),transparent)", animation: "sb-scan 10s linear infinite 2s" }}/>
         <div style={{ position: "absolute", top: 0, left: 0, right: 0, height: 180, pointerEvents: "none", background: "radial-gradient(ellipse at 35% 0%, rgba(255,255,255,.04) 0%, transparent 65%)" }}/>
 
         {/* BRAND ─────────────────────────────────────────────────────────── */}
-        <div style={{ padding: "20px 18px 16px", borderBottom: "1px solid rgba(255,255,255,.05)", position: "relative", animation: "sb-down .42s cubic-bezier(.22,1,.36,1) .06s both" }}>
+        <div style={{ padding: isMobile ? "14px 14px 12px" : "20px 18px 16px", borderBottom: "1px solid rgba(255,255,255,.05)", position: "relative", animation: "sb-down .42s cubic-bezier(.22,1,.36,1) .06s both" }}>
+          {isMobile && (
+            <button onClick={toggleMenu} style={{
+              position: "absolute", top: 10, right: 10, zIndex: 5,
+              background: "transparent", border: "none", color: "rgba(255,255,255,.4)",
+              cursor: "pointer", fontSize: 18, padding: 4, lineHeight: 1,
+            }}>
+              ✕
+            </button>
+          )}
           <div style={{ display: "flex", alignItems: "center", gap: 11 }}>
             <div style={{ width: 30, height: 30, borderRadius: 8, flexShrink: 0, background: "rgba(255,255,255,.05)", border: "1px solid rgba(255,255,255,.1)", display: "flex", alignItems: "center", justifyContent: "center", boxShadow: "0 0 20px rgba(255,255,255,.04)" }}>
               <img src={logoK} alt="K" style={{ width: 15, height: 15, objectFit: "contain" }}/>

@@ -9,6 +9,7 @@ import {
 } from "lucide-react";
 import { supabase } from "@/supabaseClient";
 import Sidebar from "@/components/Sidebar";
+import { useResponsive } from "@/hooks/useResponsive";
 import { MapContainer, TileLayer, Marker, Popup, useMapEvents, useMap } from "react-leaflet";
 import "leaflet/dist/leaflet.css";
 import L from "leaflet";
@@ -624,6 +625,7 @@ function TicketDrawer({ barco, tickets, onClose, onUpdateStatus }) {
 
 // ── SCREEN PRINCIPAL ──────────────────────────────────────────────────
 export default function PostVentaScreen({ profile, signOut }) {
+  const { isMobile } = useResponsive();
   const [flota,        setFlota]        = useState([]);
   const [ticketMap,    setTicketMap]    = useState({});
   const [obras,        setObras]        = useState([]);
@@ -826,7 +828,7 @@ export default function PostVentaScreen({ profile, signOut }) {
     page:         { position:"fixed", inset:0, background:C.bg, color:C.t0, fontFamily:C.sans, overflow:"hidden" },
     mapLayer:     { position:"absolute", inset:0, zIndex:0 },
     uiLayer:      { position:"absolute", inset:0, zIndex:10, display:"flex", pointerEvents:"none" },
-    sidebarWrap:  { width:"280px", height:"100%", pointerEvents:"auto", background:"#09090b" },
+    sidebarWrap:  { width: "280px", height: "100%", pointerEvents: "auto", background: "#09090b" },
     mainUI:       { flex:1, position:"relative", pointerEvents:"none" },
     topbar:       { position:"absolute", top:0, left:0, right:0, height:64, background:"linear-gradient(180deg,rgba(3,5,12,0.92) 0%,rgba(3,5,12,0) 100%)", display:"flex", alignItems:"center", justifyContent:"space-between", padding:"0 28px", pointerEvents:"auto" },
     glassPanel:   { position:"absolute", top:76, left:20, bottom:20, width:368, background:"rgba(3,5,12,0.82)", backdropFilter:"blur(48px) saturate(140%)", WebkitBackdropFilter:"blur(48px) saturate(140%)", border:`1px solid ${C.b1}`, borderRadius:16, display:"flex", flexDirection:"column", pointerEvents:"auto", boxShadow:"0 24px 60px rgba(0,0,0,0.7),inset 0 1px 0 rgba(255,255,255,0.06)" },
@@ -884,7 +886,7 @@ export default function PostVentaScreen({ profile, signOut }) {
 
       {/* UI LAYER */}
       <div style={S.uiLayer}>
-        <div style={S.sidebarWrap}><Sidebar profile={profile} signOut={signOut} /></div>
+        <div style={{ ...S.sidebarWrap, width: isMobile ? 0 : S.sidebarWrap.width }}><Sidebar profile={profile} signOut={signOut} /></div>
         <div style={S.mainUI}>
           {isSelecting && (
             <div style={{ position:"absolute", top:76, left:"50%", transform:"translateX(-50%)", background:C.green, color:"#000", padding:"12px 26px", borderRadius:99, fontWeight:700, fontSize:13, pointerEvents:"auto", boxShadow:`0 8px 32px rgba(61,206,106,0.4)`, display:"flex", alignItems:"center", gap:10, zIndex:9999, cursor:"pointer" }}

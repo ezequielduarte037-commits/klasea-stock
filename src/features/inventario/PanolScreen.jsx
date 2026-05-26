@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { supabase } from "@/supabaseClient";
 import Sidebar from "@/components/Sidebar";
+import { useResponsive } from "@/hooks/useResponsive";
 import AjusteMaderasModal from "@/features/inventario/AjusteMaderasModal";
 
 // --- FUNCIONES AUXILIARES ---
@@ -90,6 +91,7 @@ function FieldRow({ label, children }) {
 }
 
 export default function PanolScreen({ profile, signOut }) {
+  const { isMobile } = useResponsive();
   const [modo, setModo] = useState("EGRESO");
   const [materiales, setMateriales] = useState([]);
   const [movs, setMovs] = useState([]);
@@ -446,7 +448,7 @@ export default function PanolScreen({ profile, signOut }) {
   }, [modo, materialId, pedidosPendientes, pedidoItemsMap]);
 
   return (
-    <div style={{ position: "fixed", inset: 0, background: C.bg, color: C.t0, fontFamily: C.sans, display: "grid", gridTemplateColumns: "280px 1fr", overflow: "hidden" }}>
+    <div style={{ position: "fixed", inset: 0, background: C.bg, color: C.t0, fontFamily: C.sans, display: "grid", gridTemplateColumns: isMobile ? "1fr" : "280px 1fr", overflow: "hidden" }}>
       <style>{`
         @import url('https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500;700&display=swap');
         *, *::before, *::after { box-sizing: border-box; }
@@ -473,7 +475,7 @@ export default function PanolScreen({ profile, signOut }) {
           {/* ── TOPBAR ── */}
           <div style={{
             height: 50, background: "rgba(12,12,14,0.92)", ...GLASS,
-            borderBottom: `1px solid ${C.b0}`, padding: "0 18px",
+            borderBottom: `1px solid ${C.b0}`, padding: isMobile ? "0 12px 0 52px" : "0 18px",
             display: "flex", alignItems: "center", gap: 10, flexShrink: 0,
           }}>
             <div style={{ flex: 1, display: "flex", alignItems: "center", gap: 8 }}>

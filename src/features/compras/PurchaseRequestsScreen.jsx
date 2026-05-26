@@ -8,6 +8,7 @@ import {
   Inbox,
   LayoutGrid,
   LayoutList,
+  Package,
   Plus,
   Search,
   ShoppingCart,
@@ -15,7 +16,9 @@ import {
   X,
 } from "lucide-react";
 import Sidebar from "@/components/Sidebar";
+import { useResponsive } from "@/hooks/useResponsive";
 import PurchaseRequestDetail from "@/features/compras/PurchaseRequestDetail";
+import PurchaseLogPanel from "@/features/compras/PurchaseLogPanel";
 import {
   createPurchaseRequest,
   fetchProfiles,
@@ -170,11 +173,9 @@ function SectionTitle({ icon, title, count }) {
 }
 
 function RequestCard({ request, onClick }) {
-  const followersCount = request.followers?.length || 0;
   const color = statusColors[request.status] || C.blue;
   const isArchived = ARCHIVED_STATUSES.includes(request.status);
 
-  // Extraer un poco de texto plano si la descripción tiene HTML
   const extractText = (html) => {
     if (!html) return "";
     const tmp = document.createElement("DIV");
@@ -190,107 +191,89 @@ function RequestCard({ request, onClick }) {
       style={{
         width: "100%",
         textAlign: "left",
-        border: `1px solid ${C.border}`,
+        border: `1px solid ${isArchived ? C.border : C.border}`,
         background: C.panel,
         color: C.text,
         borderRadius: 10,
         padding: 0,
         cursor: "pointer",
-        display: "flex",
-        flexDirection: "column",
         overflow: "hidden",
-        opacity: isArchived ? 0.72 : 1,
-        transition: "opacity .15s",
+        opacity: isArchived ? 0.6 : 1,
+        transition: "all .15s",
+        display: "grid",
+        gridTemplateColumns: "4px 1fr",
       }}
     >
-      <div style={{ height: 3, background: `linear-gradient(90deg, ${color}cc, ${color}33)` }} />
+      <div style={{ background: color, height: "100%" }} />
 
-      <div style={{ padding: "11px 13px", display: "grid", gap: 9, flex: 1 }}>
-        <div style={{ display: "flex", alignItems: "flex-start", gap: 10 }}>
-          <div style={{
-            width: 34,
-            height: 34,
-            borderRadius: 8,
-            display: "grid",
-            placeItems: "center",
-            color,
-            background: `${color}14`,
-            border: `1px solid ${color}28`,
-            flexShrink: 0,
-          }}>
-            <ShoppingCart size={15} />
-          </div>
-          <div style={{ minWidth: 0, flex: 1 }}>
-            <div style={{
-              fontSize: 13,
-              color: C.text,
-              fontWeight: 750,
-              overflow: "hidden",
-              textOverflow: "ellipsis",
-              whiteSpace: "nowrap",
-              marginBottom: 3,
-            }}>
-              {request.title}
-            </div>
-            <div style={{ color: C.dim, fontSize: 10, display: "flex", alignItems: "center", gap: 5, flexWrap: "wrap" }}>
-              <span>{usernameOf(request.creator)}</span>
-              {request.project?.codigo && (
-                <>
-                  <span style={{ color: C.border2 }}>·</span>
-                  <span style={{ fontFamily: C.mono, color: C.muted }}>{request.project.codigo}</span>
-                </>
-              )}
-              <span style={{ color: C.border2 }}>·</span>
-              <span>{fmtDate(request.created_at)}</span>
-            </div>
-          </div>
-        </div>
-
-        <div style={{
-          color: C.muted,
-          fontSize: 12,
-          lineHeight: 1.4,
-          overflow: "hidden",
-          display: "-webkit-box",
-          WebkitLineClamp: 2,
-          WebkitBoxOrient: "vertical",
-          minHeight: 33,
-        }}>
-          {request.description ? extractText(request.description) : <span style={{ fontStyle: "italic", color: C.dim }}>Sin descripción</span>}
-        </div>
-
-        <div style={{ display: "flex", alignItems: "center", gap: 6, flexWrap: "wrap" }}>
+      <div style={{ padding: "10px 12px", display: "grid", gap: 6 }}>
+        <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
           <StatusDot status={request.status} />
-          <Chip color={statusColors[request.status]}>
-            {REQUEST_STATUSES.find((s) => s.value === request.status)?.label || request.status}
-          </Chip>
-          <Chip color={priorityColors[request.priority]}>
-            {REQUEST_PRIORITIES.find((p) => p.value === request.priority)?.label || request.priority}
-          </Chip>
-          {request.proveedor && (
-            <Chip color={C.teal} size="xs">
-              Prov: {request.proveedor}
+          <span style={{
+            fontSize: 13, fontWeight: 750, color: C.text,
+            overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap",
+          }}>
+            {request.title}
+          </span>
+          <span style={{ marginLeft: "auto", flexShrink: 0 }}>
+            <Chip color={priorityColors[request.priority]} size="xs">
+              {REQUEST_PRIORITIES.find((p) => p.value === request.priority)?.label || request.priority}
             </Chip>
-          )}
+          </span>
+        </div>
+
+        <div style={{ color: C.dim, fontSize: 10, display: "flex", alignItems: "center", gap: 4, flexWrap: "wrap" }}>
+          <span>{usernameOf(request.creator)}</span>
+          {request.project?.codigo && <><span style={{ color: C.border2 }}>·</span><span style={{ fontFamily: C.mono, color: C.muted }}>{request.project.codigo}</span></>}
+          <span style={{ color: C.border2 }}>·</span>
+          <span>{fmtDate(request.created_at)}</span>
+        </div>
+
+        {request.description && (
+          <div style={{
+            color: C.muted, fontSize: 11, lineHeight: 1.4,
+            overflow: "hidden", whiteSpace: "nowrap", textOverflow: "ellipsis",
+          }}>
+            {extractText(request.description)}
+          </div>
+        )}
+
+        <div style={{ display: "flex", alignItems: "center", gap: 4, marginTop: 2 }}>
+          <span style={{
+            fontSize: 8, fontWeight: 800, letterSpacing: 0.8, textTransform: "uppercase",
+            color, background: `${color}14`, border: `1px solid ${color}28`,
+            borderRadius: 5, padding: "1px 5px",
+          }}>
+            {REQUEST_STATUSES.find((s) => s.value === request.status)?.label || request.status}
+          </span>
           <span style={{ flex: 1 }} />
-          {followersCount > 0 && (
-            <span style={{ display: "inline-flex", alignItems: "center", gap: 3, color: C.dim, fontSize: 10 }}>
-              <Users size={11} /> {followersCount}
+          {(request.followers?.length || 0) > 0 && (
+            <span style={{ display: "inline-flex", alignItems: "center", gap: 2, color: C.dim, fontSize: 9 }}>
+              <Users size={10} /> {request.followers.length}
             </span>
           )}
-          {request.photo_url && (
-            <span style={{ display: "inline-flex", alignItems: "center", gap: 3, color: C.dim, fontSize: 10 }}>
-              <ImagePlus size={11} />
-            </span>
-          )}
+          {request.photo_url && <ImagePlus size={10} color={C.dim} />}
         </div>
       </div>
     </button>
   );
 }
 
+const SOURCE_COLORS = {
+  laminacion: "#2dd4bf",
+  madera: "#f59e0b",
+  inventario: "#8b5cf6",
+};
+const SOURCE_LABELS = {
+  laminacion: "Laminación",
+  madera: "Madera",
+  inventario: "Inventario",
+};
+
 function RequestRow({ request, onClick }) {
+  const color = statusColors[request.status] || C.blue;
   const isArchived = ARCHIVED_STATUSES.includes(request.status);
+  const srcColor = SOURCE_COLORS[request.source] || null;
 
   return (
     <button
@@ -300,53 +283,62 @@ function RequestRow({ request, onClick }) {
       style={{
         width: "100%",
         textAlign: "left",
-        border: `1px solid ${C.border}`,
+        border: "none",
+        borderLeft: `3px solid ${color}`,
         background: C.panel,
         color: C.text,
-        borderRadius: 8,
-        padding: "10px 14px",
+        borderRadius: 7,
+        padding: "9px 13px",
         cursor: "pointer",
         display: "grid",
-        gridTemplateColumns: "20px minmax(0,1fr) auto",
+        gridTemplateColumns: "1fr auto auto",
         alignItems: "center",
-        gap: 12,
-        opacity: isArchived ? 0.7 : 1,
+        gap: 10,
+        opacity: isArchived ? 0.55 : 1,
         transition: "all .12s",
       }}
     >
-      <StatusDot status={request.status} />
-
-      <div style={{ minWidth: 0, display: "grid", gridTemplateColumns: "minmax(0,1fr) minmax(0,.6fr) auto", alignItems: "center", gap: 10 }}>
-        <div style={{ minWidth: 0 }}>
-          <span style={{ fontSize: 13, fontWeight: 700, color: C.text, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", display: "block" }}>
+      <div style={{ minWidth: 0 }}>
+        <div style={{ display: "flex", alignItems: "center", gap: 6, marginBottom: 2 }}>
+          <span style={{
+            fontSize: 13, fontWeight: 700, color: C.text,
+            overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap",
+          }}>
             {request.title}
           </span>
-          <span style={{ fontSize: 10, color: C.dim }}>
-            {usernameOf(request.creator)}
-            {request.project?.codigo ? ` · ${request.project.codigo}` : ""}
-            {request.proveedor ? ` · Prov: ${request.proveedor}` : ""}
+          {srcColor && (
+            <span style={{ fontSize: 8, fontWeight: 800, textTransform: "uppercase", letterSpacing: 0.5, color: srcColor }}>
+              {SOURCE_LABELS[request.source] || request.source}
+            </span>
+          )}
+          <span style={{ color: priorityColors[request.priority], fontSize: 8, fontWeight: 800, textTransform: "uppercase", letterSpacing: 0.5 }}>
+            {REQUEST_PRIORITIES.find((p) => p.value === request.priority)?.label || request.priority}
           </span>
         </div>
-
-        <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
-          <Chip color={statusColors[request.status]} size="xs">
-            {REQUEST_STATUSES.find((s) => s.value === request.status)?.label || request.status}
-          </Chip>
-          <Chip color={priorityColors[request.priority]} size="xs">
-            {REQUEST_PRIORITIES.find((p) => p.value === request.priority)?.label || request.priority}
-          </Chip>
+        <div style={{ fontSize: 10, color: C.dim }}>
+          {usernameOf(request.creator)}
+          {request.project?.codigo ? ` · ${request.project.codigo}` : ""}
+          {request.proveedor ? ` · ${request.proveedor}` : ""}
+          {request.source_ref ? ` · #${request.source_ref}` : ""}
         </div>
+      </div>
 
+      <span style={{
+        fontSize: 9, fontWeight: 800, letterSpacing: 0.7, textTransform: "uppercase",
+        color, background: `${color}14`, border: `1px solid ${color}28`,
+        borderRadius: 5, padding: "2px 7px",
+      }}>
+        {REQUEST_STATUSES.find((s) => s.value === request.status)?.label || request.status}
+      </span>
+
+      <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
         <span style={{ fontSize: 10, color: C.dim, fontFamily: C.mono, whiteSpace: "nowrap" }}>
           {fmtDate(request.created_at)}
         </span>
-      </div>
-
-      <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
-        {request.photo_url && <ImagePlus size={13} color={C.dim} />}
+        {request.photo_url && <ImagePlus size={11} color={C.dim} />}
         {(request.followers?.length || 0) > 0 && (
-          <span style={{ display: "inline-flex", alignItems: "center", gap: 3, color: C.dim, fontSize: 10 }}>
-            <Users size={12} /> {request.followers.length}
+          <span style={{ display: "inline-flex", alignItems: "center", gap: 2, color: C.dim, fontSize: 9, fontFamily: C.mono }}>
+            <Users size={10} /> {request.followers.length}
           </span>
         )}
       </div>
@@ -359,32 +351,36 @@ function StatChip({ label, count, color, active, onClick }) {
     <button
       type="button"
       onClick={onClick}
+      className="stat-chip"
       style={{
         display: "inline-flex",
         alignItems: "center",
-        gap: 6,
-        border: `1px solid ${active ? color + "55" : C.border}`,
-        background: active ? `${color}12` : "transparent",
+        gap: 4,
+        border: "none",
+        background: active ? `${color}14` : C.panel,
         color: active ? color : C.dim,
-        borderRadius: 7,
-        padding: "5px 10px",
+        borderRadius: 5,
+        padding: "3px 8px",
         cursor: "pointer",
-        fontSize: 11,
-        fontWeight: 700,
-        transition: "all .13s",
+        fontSize: 10,
+        fontWeight: active ? 750 : 600,
+        fontFamily: C.sans,
         whiteSpace: "nowrap",
+        transition: "all .12s",
+        letterSpacing: "0.3px",
       }}
     >
-      <span style={{
-        display: "inline-block",
-        width: 6,
-        height: 6,
-        borderRadius: "50%",
-        background: color,
-        opacity: active ? 1 : 0.5,
-      }} />
       {label}
-      <span style={{ fontFamily: C.mono, fontSize: 10 }}>{count}</span>
+      {count !== undefined && (
+        <span style={{
+          fontFamily: C.mono,
+          fontSize: 10,
+          color: active ? color : C.dim,
+          opacity: 0.65,
+        }}>
+          {count}
+        </span>
+      )}
     </button>
   );
 }
@@ -392,9 +388,11 @@ function StatChip({ label, count, color, active, onClick }) {
 function ViewToggle({ viewMode, setViewMode }) {
   return (
     <div style={{
-      display: "inline-flex",
+      display: "flex",
+      alignItems: "center",
       border: `1px solid ${C.border}`,
-      borderRadius: 8,
+      borderRadius: 6,
+      padding: 1,
       overflow: "hidden",
     }}>
       {[
@@ -409,8 +407,8 @@ function ViewToggle({ viewMode, setViewMode }) {
           style={{
             display: "grid",
             placeItems: "center",
-            width: 32,
-            height: 32,
+            width: 28,
+            height: 28,
             border: "none",
             background: viewMode === value ? C.panel2 : "transparent",
             color: viewMode === value ? C.text : C.dim,
@@ -418,7 +416,7 @@ function ViewToggle({ viewMode, setViewMode }) {
             transition: "all .12s",
           }}
         >
-          <Icon size={14} />
+          <Icon size={12} />
         </button>
       ))}
     </div>
@@ -434,6 +432,7 @@ const emptyForm = {
 };
 
 export default function PurchaseRequestsScreen({ profile, signOut }) {
+  const { isMobile } = useResponsive();
   const [requests, setRequests] = useState([]);
   const [users, setUsers] = useState([]);
   const [projects, setProjects] = useState([]);
@@ -581,7 +580,7 @@ export default function PurchaseRequestsScreen({ profile, signOut }) {
   if (selectedId) {
     return (
       <div style={{ position: "fixed", inset: 0, background: C.bg }}>
-        <div style={{ display: "grid", gridTemplateColumns: "280px 1fr", height: "100%" }}>
+        <div style={{ display: "grid", gridTemplateColumns: isMobile ? "1fr" : "280px 1fr", height: "100%" }}>
           <Sidebar profile={profile} signOut={signOut} />
           <PurchaseRequestDetail
             requestId={selectedId}
@@ -667,7 +666,7 @@ export default function PurchaseRequestsScreen({ profile, signOut }) {
         .ql-snow .ql-tooltip a { color: #60a5fa !important; }
       `}</style>
 
-      <div style={{ display: "grid", gridTemplateColumns: "280px 1fr", height: "100%", overflow: "hidden" }}>
+      <div style={{ display: "grid", gridTemplateColumns: isMobile ? "1fr" : "280px 1fr", height: "100%", overflow: "hidden" }}>
         <Sidebar profile={profile} signOut={signOut} />
 
         <main style={{ minWidth: 0, minHeight: 0, display: "grid", gridTemplateRows: "auto 1fr", overflow: "hidden" }}>
@@ -679,165 +678,102 @@ export default function PurchaseRequestsScreen({ profile, signOut }) {
             borderBottom: `1px solid ${C.border}`,
           }}>
             <div style={{
-              height: 58,
+              height: 50,
               display: "flex",
               alignItems: "center",
-              gap: 12,
-              padding: "0 18px",
-              borderBottom: manager ? `1px solid ${C.border}` : "none",
+              gap: 10,
+              padding: isMobile ? "0 12px 0 52px" : "0 16px",
             }}>
               <div style={{
-                width: 36,
-                height: 36,
-                display: "grid",
-                placeItems: "center",
-                borderRadius: 8,
+                width: 30, height: 30,
+                display: "grid", placeItems: "center",
+                borderRadius: 7,
                 color: C.amber,
                 background: "rgba(245,158,11,0.12)",
                 border: "1px solid rgba(245,158,11,0.25)",
               }}>
-                <ShoppingCart size={18} />
+                <ShoppingCart size={16} />
               </div>
-              <div style={{ flex: 1 }}>
-                <h1 style={{ margin: 0, fontSize: 15, color: C.text, fontWeight: 800 }}>
-                  {manager ? "Gestión de Compras" : "Pedidos a Compras"}
-                </h1>
-                <div style={{ marginTop: 2, color: C.dim, fontSize: 10, letterSpacing: 1.3, textTransform: "uppercase" }}>
-                  Solicitudes internas y seguimiento
-                </div>
-              </div>
+              <h1 style={{ margin: 0, fontSize: 14, color: C.text, fontWeight: 800 }}>
+                {manager ? "Gestión de Compras" : "Pedidos a Compras"}
+              </h1>
 
               {manager && (
-                <div style={{
-                  display: "flex",
-                  gap: 4,
-                  border: `1px solid ${C.border}`,
-                  borderRadius: 8,
-                  padding: 2,
-                  background: C.panel,
-                }}>
-                  <button
-                    type="button"
-                    onClick={() => setManagerTab("lista")}
-                    style={{
-                      border: "none",
-                      background: managerTab === "lista" ? C.panel3 : "transparent",
-                      color: managerTab === "lista" ? C.text : C.dim,
-                      borderRadius: 6,
-                      padding: "5px 11px",
-                      cursor: "pointer",
-                      fontSize: 11,
-                      fontWeight: 700,
-                      fontFamily: C.sans,
-                      transition: "all .12s",
-                    }}
-                  >
-                    <LayoutList size={13} style={{ marginRight: 5, display: "inline", verticalAlign: "middle" }} />
-                    Lista
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => setManagerTab("dashboard")}
-                    style={{
-                      border: "none",
-                      background: managerTab === "dashboard" ? C.panel3 : "transparent",
-                      color: managerTab === "dashboard" ? C.text : C.dim,
-                      borderRadius: 6,
-                      padding: "5px 11px",
-                      cursor: "pointer",
-                      fontSize: 11,
-                      fontWeight: 700,
-                      fontFamily: C.sans,
-                      transition: "all .12s",
-                    }}
-                  >
-                    <BarChart3 size={13} style={{ marginRight: 5, display: "inline", verticalAlign: "middle" }} />
-                    Dashboard
-                  </button>
+                <div style={{ display: "flex", gap: 2, marginLeft: 10 }}>
+                  <TabBtn active={managerTab === "lista"} onClick={() => setManagerTab("lista")}>
+                    <LayoutList size={12} /> Lista
+                  </TabBtn>
+                  <TabBtn active={managerTab === "dashboard"} onClick={() => setManagerTab("dashboard")}>
+                    <BarChart3 size={12} /> Dashboard
+                  </TabBtn>
+                  <TabBtn active={managerTab === "registro"} onClick={() => setManagerTab("registro")}>
+                    <Package size={12} /> Registro
+                  </TabBtn>
                 </div>
               )}
 
+              <div style={{ flex: 1 }} />
+
               {!manager && (
-                <button
-                  type="button"
-                  onClick={() => setShowNew((v) => !v)}
-                  style={{
-                    display: "inline-flex",
-                    alignItems: "center",
-                    gap: 8,
-                    border: `1px solid ${showNew ? C.blue + "55" : C.border2}`,
-                    background: showNew ? "rgba(96,165,250,0.1)" : C.panel2,
-                    color: showNew ? C.blue : C.text,
-                    borderRadius: 8,
-                    padding: "8px 12px",
-                    cursor: "pointer",
-                    fontSize: 12,
-                    fontWeight: 750,
-                    transition: "all .13s",
-                  }}
-                >
-                  {showNew ? <X size={14} /> : <Plus size={14} />}
+                <button type="button" onClick={() => setShowNew((v) => !v)} style={{
+                  display: "inline-flex", alignItems: "center", gap: 6,
+                  border: `1px solid ${showNew ? C.blue + "55" : C.border2}`,
+                  background: showNew ? "rgba(96,165,250,0.1)" : C.panel2,
+                  color: showNew ? C.blue : C.text,
+                  borderRadius: 7, padding: "7px 11px", cursor: "pointer",
+                  fontSize: 11, fontWeight: 750,
+                  transition: "all .13s",
+                }}>
+                  {showNew ? <X size={13} /> : <Plus size={13} />}
                   {showNew ? "Cancelar" : "Nuevo pedido"}
                 </button>
               )}
             </div>
 
             {manager && managerTab === "lista" && (
-              <div style={{
-                padding: "8px 18px",
-                display: "flex",
-                alignItems: "center",
-                gap: 6,
-                overflowX: "auto",
-                borderBottom: `1px solid ${C.border}`,
-              }}>
-                <StatChip
-                  label="Todos"
-                  count={requests.length}
-                  color={C.muted}
-                  active={filters.status === "todos"}
-                  onClick={() => setFilters((f) => ({ ...f, status: "todos" }))}
-                />
-                {statusStats.map((s) => (
-                  <StatChip
-                    key={s.value}
-                    label={s.label}
-                    count={s.count}
-                    color={statusColors[s.value]}
-                    active={filters.status === s.value}
-                    onClick={() => setFilters((f) => ({ ...f, status: f.status === s.value ? "todos" : s.value }))}
-                  />
-                ))}
-              </div>
-            )}
-
-            {manager && managerTab === "lista" && (
-              <div style={{ padding: "10px 18px", display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
-                <div style={{ position: "relative", flex: "1 1 180px", minWidth: 160 }}>
-                  <Search size={13} style={{ position: "absolute", left: 10, top: "50%", transform: "translateY(-50%)", color: C.dim, pointerEvents: "none" }} />
-                  <input
-                    value={filters.q}
-                    onChange={(e) => setFilters((f) => ({ ...f, q: e.target.value }))}
-                    placeholder="Buscar por título, proveedor, creador..."
-                    style={{ ...inputStyle, paddingLeft: 30 }}
-                  />
+              <>
+                <div style={{
+                  display: "flex", alignItems: "center", gap: 4,
+                  padding: "5px 16px 7px", overflowX: "auto",
+                  borderTop: `1px solid ${C.border}`,
+                }}>
+                  <StatChip label="Todos" count={requests.length} color={C.muted}
+                    active={filters.status === "todos"}
+                    onClick={() => setFilters((f) => ({ ...f, status: "todos" }))} />
+                  {statusStats.map((s) => (
+                    <StatChip key={s.value} label={s.label} count={s.count} color={statusColors[s.value]}
+                      active={filters.status === s.value}
+                      onClick={() => setFilters((f) => ({ ...f, status: f.status === s.value ? "todos" : s.value }))} />
+                  ))}
                 </div>
-                <select value={filters.priority} onChange={(e) => setFilters((f) => ({ ...f, priority: e.target.value }))} style={{ ...inputStyle, flex: "0 0 140px" }}>
-                  <option value="todos">Todas las prioridades</option>
-                  {REQUEST_PRIORITIES.map((item) => <option key={item.value} value={item.value}>{item.label}</option>)}
-                </select>
-                <select value={filters.creator} onChange={(e) => setFilters((f) => ({ ...f, creator: e.target.value }))} style={{ ...inputStyle, flex: "0 0 140px" }}>
-                  <option value="todos">Todos los creadores</option>
-                  {users.map((user) => <option key={user.id} value={user.id}>{usernameOf(user)}</option>)}
-                </select>
-                <select value={filters.project} onChange={(e) => setFilters((f) => ({ ...f, project: e.target.value }))} style={{ ...inputStyle, flex: "0 0 140px" }}>
-                  <option value="todos">Todos los proyectos</option>
-                  {projects.map((project) => <option key={project.id} value={project.id}>{project.codigo}</option>)}
-                </select>
-                <input type="date" value={filters.dateFrom} onChange={(e) => setFilters((f) => ({ ...f, dateFrom: e.target.value }))} style={{ ...inputStyle, flex: "0 0 130px" }} />
-                <input type="date" value={filters.dateTo} onChange={(e) => setFilters((f) => ({ ...f, dateTo: e.target.value }))} style={{ ...inputStyle, flex: "0 0 130px" }} />
-                <ViewToggle viewMode={viewMode} setViewMode={setViewMode} />
-              </div>
+
+                <div style={{
+                  padding: "7px 16px 9px",
+                  display: "flex", alignItems: "center", gap: 6, flexWrap: "wrap",
+                  borderTop: `1px solid ${C.border}`,
+                }}>
+                  <div style={{ position: "relative", flex: "1 1 160px", minWidth: 140 }}>
+                    <Search size={12} style={{ position: "absolute", left: 9, top: "50%", transform: "translateY(-50%)", color: C.dim, pointerEvents: "none" }} />
+                    <input value={filters.q} onChange={(e) => setFilters((f) => ({ ...f, q: e.target.value }))}
+                      placeholder="Buscar..." style={{ ...inputStyle, paddingLeft: 28, paddingTop: 7, paddingBottom: 7, fontSize: 12 }} />
+                  </div>
+                  <select value={filters.priority} onChange={(e) => setFilters((f) => ({ ...f, priority: e.target.value }))} style={{ ...inputStyle, flex: "0 0 120px", paddingTop: 7, paddingBottom: 7, fontSize: 12 }}>
+                    <option value="todos">Prioridad</option>
+                    {REQUEST_PRIORITIES.map((item) => <option key={item.value} value={item.value}>{item.label}</option>)}
+                  </select>
+                  <select value={filters.creator} onChange={(e) => setFilters((f) => ({ ...f, creator: e.target.value }))} style={{ ...inputStyle, flex: "0 0 120px", paddingTop: 7, paddingBottom: 7, fontSize: 12 }}>
+                    <option value="todos">Creador</option>
+                    {users.map((user) => <option key={user.id} value={user.id}>{usernameOf(user)}</option>)}
+                  </select>
+                  <select value={filters.project} onChange={(e) => setFilters((f) => ({ ...f, project: e.target.value }))} style={{ ...inputStyle, flex: "0 0 100px", paddingTop: 7, paddingBottom: 7, fontSize: 12 }}>
+                    <option value="todos">Proyecto</option>
+                    {projects.map((project) => <option key={project.id} value={project.id}>{project.codigo}</option>)}
+                  </select>
+                  <input type="date" value={filters.dateFrom} onChange={(e) => setFilters((f) => ({ ...f, dateFrom: e.target.value }))} style={{ ...inputStyle, flex: "0 0 120px", paddingTop: 7, paddingBottom: 7, fontSize: 12 }} />
+                  <input type="date" value={filters.dateTo} onChange={(e) => setFilters((f) => ({ ...f, dateTo: e.target.value }))} style={{ ...inputStyle, flex: "0 0 120px", paddingTop: 7, paddingBottom: 7, fontSize: 12 }} />
+                  <ViewToggle viewMode={viewMode} setViewMode={setViewMode} />
+                </div>
+              </>
             )}
           </header>
 
@@ -1056,7 +992,9 @@ export default function PurchaseRequestsScreen({ profile, signOut }) {
               )}
 
               <div className="purchase-scroll" style={{ minHeight: 0, overflowY: "auto", padding: 16 }}>
-                {manager && managerTab === "dashboard" ? (
+                {manager && managerTab === "registro" ? (
+                  <PurchaseLogPanel profile={profile} />
+                ) : manager && managerTab === "dashboard" ? (
                   <DashboardView
                     analytics={analytics}
                     monthlySpending={monthlySpending}
@@ -1067,11 +1005,29 @@ export default function PurchaseRequestsScreen({ profile, signOut }) {
                   />
                 ) : (
                   <>
-                    <SectionTitle
-                      icon={manager ? Filter : Inbox}
-                      title={manager ? "Todas las solicitudes" : activeTab === "mine" ? "Mis pedidos" : "Pedidos en copia"}
-                      count={visibleList.length}
-                    />
+                    {manager ? (
+                      <div style={{
+                        display: "flex", alignItems: "center", gap: 12,
+                        padding: "0 0 8px", fontSize: 11,
+                      }}>
+                        <span style={{ color: C.muted, fontWeight: 700 }}>Todas las solicitudes</span>
+                        <span style={{ color: C.dim, fontSize: 10, fontFamily: C.mono }}>{visibleList.length}</span>
+                        <span style={{ flex: 1 }} />
+                        <span style={{ color: C.dim, fontSize: 10 }}>
+                          <span style={{ color: C.amber, fontWeight: 700, fontFamily: C.mono }}>
+                            {requests.filter((r) => r.status === "nuevo" || r.status === "en_revision" || r.status === "cotizando").length}
+                          </span> pendientes · <span style={{ color: C.red, fontWeight: 700, fontFamily: C.mono }}>
+                            {requests.filter((r) => r.priority === "urgente" && !["recibido", "cancelado"].includes(r.status)).length}
+                          </span> urgentes
+                        </span>
+                      </div>
+                    ) : (
+                      <SectionTitle
+                        icon={Inbox}
+                        title={activeTab === "mine" ? "Mis pedidos" : "Pedidos en copia"}
+                        count={visibleList.length}
+                      />
+                    )}
 
                     {loading ? (
                       <div style={{
@@ -1125,26 +1081,22 @@ export default function PurchaseRequestsScreen({ profile, signOut }) {
                         ))}
                       </div>
                     ) : (
-                      <div style={{ display: "grid", gap: 6 }}>
+                      <div style={{ display: "grid", gap: 5 }}>
                         <div style={{
                           display: "grid",
-                          gridTemplateColumns: "20px minmax(0,1fr) auto",
+                          gridTemplateColumns: "1fr auto auto",
                           alignItems: "center",
-                          gap: 12,
-                          padding: "4px 14px",
+                          gap: 10,
+                          padding: "4px 16px",
                           color: C.dim,
                           fontSize: 9,
                           letterSpacing: 1.5,
                           textTransform: "uppercase",
                           fontWeight: 750,
                         }}>
-                          <span />
-                          <div style={{ display: "grid", gridTemplateColumns: "minmax(0,1fr) minmax(0,.6fr) auto", gap: 10 }}>
-                            <span>Solicitud</span>
-                            <span>Estado / Prioridad</span>
-                            <span>Fecha</span>
-                          </div>
-                          <span />
+                          <span>Solicitud</span>
+                          <span style={{ textAlign: "center", width: 60 }}>Estado</span>
+                          <span style={{ textAlign: "right", width: 80 }}>Fecha</span>
                         </div>
                         {visibleList.map((request) => (
                           <RequestRow key={request.id} request={request} onClick={() => setSelectedId(request.id)} />
@@ -1490,4 +1442,26 @@ function tabStyle(active) {
     fontWeight: 750,
     transition: "all .12s",
   };
+}
+
+function TabBtn({ active, onClick, children }) {
+  return (
+    <button type="button" onClick={onClick} style={{
+      border: "none",
+      background: "transparent",
+      color: active ? C.text : C.dim,
+      cursor: "pointer",
+      padding: "6px 10px",
+      fontSize: 11,
+      fontWeight: active ? 750 : 600,
+      fontFamily: C.sans,
+      borderRadius: 6,
+      transition: "all .12s",
+      display: "inline-flex",
+      alignItems: "center",
+      gap: 5,
+    }}>
+      {children}
+    </button>
+  );
 }

@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState, useRef } from "react";
 import { supabase } from "@/supabaseClient";
 import Sidebar from "@/components/Sidebar";
+import { useResponsive } from "@/hooks/useResponsive";
 import jsPDF from "jspdf";
 import autoTable from "jspdf-autotable";
 
@@ -241,6 +242,7 @@ function PiezaModal({ pieza, onClose, onSave, esAdmin }) {
 
 // ── MAIN ──────────────────────────────────────────────────────────
 export default function MarmoleriaScreen({ profile, signOut }) {
+  const { isMobile } = useResponsive();
   const role    = profile?.role ?? "invitado";
   const isAdmin = !!profile?.is_admin;
   const esAdmin = isAdmin || role === "admin" || role === "oficina";
@@ -876,14 +878,14 @@ export default function MarmoleriaScreen({ profile, signOut }) {
         backgroundImage:["linear-gradient(rgba(255,255,255,0.013) 1px,transparent 1px)","linear-gradient(90deg,rgba(255,255,255,0.013) 1px,transparent 1px)"].join(","),
         backgroundSize:"52px 52px" }}/>
 
-      <div style={{ display:"grid", gridTemplateColumns:"280px 1fr", height:"100vh", overflow:"hidden", position:"relative", zIndex:1 }}>
+      <div style={{ display:"grid", gridTemplateColumns: isMobile ? "1fr" : "280px 1fr", height:"100vh", overflow:"hidden", position:"relative", zIndex:1 }}>
         <Sidebar profile={profile} signOut={signOut} />
 
         <div style={{ display:"flex", flexDirection:"column", height:"100vh", overflow:"hidden" }}>
 
           {/* ── TOPBAR ── */}
           <div style={{ height:54, background:"rgba(7,8,13,0.94)", backdropFilter:"blur(32px) saturate(130%)", WebkitBackdropFilter:"blur(32px) saturate(130%)",
-            borderBottom:`1px solid ${C2.b0}`, padding:"0 22px",
+            borderBottom:`1px solid ${C2.b0}`, padding: isMobile ? "0 12px 0 52px" : "0 22px",
             display:"flex", alignItems:"center", gap:14, flexShrink:0 }}>
 
             {/* Título */}

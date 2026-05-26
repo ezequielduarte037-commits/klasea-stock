@@ -3,6 +3,7 @@ import { supabase } from "@/supabaseClient";
 import { jsPDF } from "jspdf";
 import autoTable from "jspdf-autotable";
 import Sidebar from "@/components/Sidebar";
+import { useResponsive } from "@/hooks/useResponsive";
 import EnchapadoView from "@/features/muebles/EnchapadoView";
 
 // ─── Design tokens ─────────────────────────────────────────────────
@@ -614,6 +615,7 @@ function ObsInline({ value, rowId, onSave }) {
 
 // ─── Main ──────────────────────────────────────────────────────────
 export default function MueblesScreen({ profile, signOut }) {
+  const { isMobile } = useResponsive();
   const isAdmin = !!profile?.is_admin;
   const role    = profile?.role ?? "invitado";
   const esAdmin = isAdmin || role === "admin" || role === "oficina";
@@ -876,7 +878,7 @@ export default function MueblesScreen({ profile, signOut }) {
   const filterTabSt  = act => ({ border: act ? `1px solid ${C.b1}` : "1px solid transparent", background: act ? C.s1 : "transparent", color: act ? C.t0 : C.t2, padding: "5px 14px", borderRadius: 7, cursor: "pointer", fontSize: 11, fontFamily: C.sans, transition: "all .15s" });
 
   return (
-    <div style={{ position: "fixed", inset: 0, background: C.bg, color: C.t0, fontFamily: C.sans, display: "grid", gridTemplateColumns: "280px 1fr", overflow: "hidden" }}>
+    <div style={{ position: "fixed", inset: 0, background: C.bg, color: C.t0, fontFamily: C.sans, display: "grid", gridTemplateColumns: isMobile ? "1fr" : "280px 1fr", overflow: "hidden" }}>
       <style>{`
         @import url('https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500;700&display=swap');
         *, *::before, *::after { box-sizing: border-box; }

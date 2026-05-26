@@ -1,6 +1,8 @@
 import { useEffect, useMemo, useState } from "react";
 import { supabase } from "@/supabaseClient";
 import Sidebar from "@/components/Sidebar";
+import PedirAComprasModal from "@/features/compras/PedirAComprasModal";
+import { useResponsive } from "@/hooks/useResponsive";
 
 // ─── PALETA ──────────────────────────────────────────────────────────────────
 const C = {
@@ -58,6 +60,7 @@ const filterBtn = (active) => ({
 });
 
 export default function PedidosScreen({ profile, signOut }) {
+  const { isMobile } = useResponsive();
   const [loading, setLoading] = useState(true);
   const [error,   setError]   = useState("");
 
@@ -71,6 +74,7 @@ export default function PedidosScreen({ profile, signOut }) {
   const [items,     setItems]     = useState([]);
 
   const [itemNuevo, setItemNuevo] = useState({ materialId: "", descripcion: "", cantidad: "", unidad: "u" });
+  const [comprasModal, setComprasModal] = useState({ open: false, prefilled: null });
 
   const filtrados = useMemo(() => {
     const qq = q.trim().toLowerCase();
@@ -215,7 +219,7 @@ export default function PedidosScreen({ profile, signOut }) {
       `}</style>
       <div className="bg-glow" />
 
-      <div style={{ display: "grid", gridTemplateColumns: "280px 1fr", height: "100%", overflow: "hidden", position: "relative", zIndex: 1 }}>
+      <div style={{ display: "grid", gridTemplateColumns: isMobile ? "1fr" : "280px 1fr", height: "100%", overflow: "hidden", position: "relative", zIndex: 1 }}>
         <Sidebar profile={profile} signOut={signOut} />
 
         <div style={{ display: "flex", flexDirection: "column", height: "100vh", overflow: "hidden" }}>
@@ -223,7 +227,7 @@ export default function PedidosScreen({ profile, signOut }) {
           {/* ── TOPBAR ── */}
           <div style={{
             height: 50, background: "rgba(12,12,14,0.92)", ...GLASS,
-            borderBottom: `1px solid ${C.b0}`, padding: "0 18px",
+            borderBottom: `1px solid ${C.b0}`, padding: isMobile ? "0 12px 0 52px" : "0 18px",
             display: "flex", alignItems: "center", gap: 8, flexShrink: 0,
           }}>
             <div style={{ flex: 1 }}>
@@ -398,6 +402,20 @@ export default function PedidosScreen({ profile, signOut }) {
                       </div>
                     </div>
                     <div style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>
+                      <button onClick={() => setComprasModal({ open: true, prefilled: (() => {
+                        const its = items.filter(it => it.pedido_id === pedidoSel.id);
+                        let desc = `Proveedor: ${pedidoSel.proveedor}${pedidoSel.numero ? ` — ${pedidoSel.numero}` : ""}`;
+                        if (pedidoSel.nota) desc += `\nNota: ${pedidoSel.nota}`;
+                        if (its.length) {
+                          desc += `\n\nMateriales:\n`;
+                          desc += its.map(it => `  • ${it.descripcion}: ${it.cantidad} ${it.unidad}`).join("\n");
+                        }
+                        return {
+                          title: `Pedido: ${pedidoSel.proveedor} — ${pedidoSel.numero || ""}`,
+                          description: desc,
+                          source: "inventario", source_ref: pedidoSel.id, sourceLabel: "Inventario",
+                        };
+                      })()})} style={{ border: "1px solid rgba(96,165,250,0.3)", background: "rgba(96,165,250,0.1)", color: "#60a5fa", padding: "5px 12px", borderRadius: 7, cursor: "pointer", fontSize: 11, fontFamily: C.sans, fontWeight: 600 }}>Pedir a Compras</button>
                       <button style={{
                         border: `1px solid ${C.b0}`, background: "transparent", color: C.t2,
                         padding: "5px 12px", borderRadius: 7, cursor: "pointer", fontSize: 11, fontFamily: C.sans,
@@ -513,6 +531,15 @@ export default function PedidosScreen({ profile, signOut }) {
           </div>
         </div>
       </div>
+
+      <PedirAComprasModal
+        open={comprasModal.open}
+        prefilled={comprasModal.prefilled}
+        onClose={(created) => {
+          setComprasModal({ open: false, prefilled: null });
+          if (created) setError(""); // silent success
+        }}
+      />
     </div>
   );
 }

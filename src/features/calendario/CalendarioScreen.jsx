@@ -8,6 +8,7 @@
 import { useEffect, useState, useMemo } from "react";
 import { supabase } from "@/supabaseClient";
 import Sidebar from "@/components/Sidebar";
+import { useResponsive } from "@/hooks/useResponsive";
 
 // ─── Design tokens ────────────────────────────────────────────────────────────
 const C = {
@@ -462,6 +463,7 @@ function WeekView({ year, month, startOfWeek, eventos, selDate, onSelectDate, on
 
 // ─── Main ─────────────────────────────────────────────────────────────────────
 export default function CalendarioScreen({ profile, signOut }) {
+  const { isMobile } = useResponsive();
   const isAdmin = !!profile?.is_admin;
   const role    = profile?.role ?? "invitado";
   const esAdmin = isAdmin || role === "admin" || role === "oficina";
@@ -583,7 +585,9 @@ export default function CalendarioScreen({ profile, signOut }) {
 
   if (dbErr) return (
     <div style={{ position: "fixed", inset: 0, background: C.bg, display: "flex", fontFamily: C.sans }}>
-      <Sidebar profile={profile} signOut={signOut} />
+      <div style={{ flexShrink: 0, width: isMobile ? 0 : undefined, overflow: "visible" }}>
+        <Sidebar profile={profile} signOut={signOut} />
+      </div>
       <div style={{ flex: 1, display: "flex", alignItems: "center", justifyContent: "center", padding: 40 }}>
         <div style={{ background: "rgba(239,68,68,0.06)", border: "1px solid rgba(239,68,68,0.22)", borderRadius: 12, padding: 28, maxWidth: 560 }}>
           <div style={{ fontSize: 12, color: "#f87171", fontWeight: 600, marginBottom: 10 }}>Falta crear la tabla en Supabase</div>
@@ -596,7 +600,7 @@ export default function CalendarioScreen({ profile, signOut }) {
   );
 
   return (
-    <div style={{ position: "fixed", inset: 0, background: C.bg, color: C.t0, fontFamily: C.sans, display: "flex", overflow: "hidden" }}>
+      <div style={{ position: "fixed", inset: 0, background: C.bg, color: C.t0, fontFamily: C.sans, display: "flex", overflow: "hidden" }}>
       <style>{`
         @import url('https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500;700&display=swap');
         *, *::before, *::after { box-sizing: border-box; }
@@ -610,12 +614,14 @@ export default function CalendarioScreen({ profile, signOut }) {
         .prox-ev:hover { background: rgba(255,255,255,0.03) !important; }
       `}</style>
 
-      <Sidebar profile={profile} signOut={signOut} />
+      <div style={{ flexShrink: 0, width: isMobile ? 0 : undefined, overflow: "visible" }}>
+        <Sidebar profile={profile} signOut={signOut} />
+      </div>
 
       <div style={{ flex: 1, display: "flex", flexDirection: "column", overflow: "hidden" }}>
 
         {/* TOPBAR */}
-        <div style={{ height: 52, flexShrink: 0, borderBottom: `1px solid ${C.b0}`, display: "flex", alignItems: "center", gap: 14, padding: "0 24px", background: "rgba(9,9,11,0.8)", backdropFilter: "blur(20px)" }}>
+        <div style={{ height: 52, flexShrink: 0, borderBottom: `1px solid ${C.b0}`, display: "flex", alignItems: "center", gap: 14, padding: isMobile ? "0 12px 0 52px" : "0 24px", background: "rgba(9,9,11,0.8)", backdropFilter: "blur(20px)" }}>
           <div style={{ display: "flex", alignItems: "center", gap: 4 }}>
             <button onClick={view === "month" ? prevMonth : prevWeek} style={{ background: C.s0, border: `1px solid ${C.b0}`, color: C.t1, width: 28, height: 28, borderRadius: 7, cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center" }}>{I.prev}</button>
             <button onClick={view === "month" ? nextMonth : nextWeek} style={{ background: C.s0, border: `1px solid ${C.b0}`, color: C.t1, width: 28, height: 28, borderRadius: 7, cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center" }}>{I.next}</button>

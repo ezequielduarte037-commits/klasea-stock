@@ -2,6 +2,7 @@ import { useEffect, useState, useMemo } from "react";
 import { supabase } from "@/supabaseClient";
 import { createClient } from "@supabase/supabase-js";
 import Sidebar from "@/components/Sidebar";
+import { useResponsive } from "@/hooks/useResponsive";
 import NotificacionesBell from "@/components/NotificacionesBell";
 import {
   User,
@@ -788,6 +789,7 @@ function ModalModelo({ modelo, onClose, onSaved, flash }) {
 
 // ─── PANTALLA PRINCIPAL ───────────────────────────────────────────────────────
 export default function ConfiguracionScreen({ profile, signOut }) {
+  const { isMobile } = useResponsive();
   const isAdmin = !!profile?.is_admin || profile?.role === "admin";
   const TABS = [
     { id:"usuarios", label:"Personal",   icon:<User size={12}/>  },
@@ -875,7 +877,7 @@ export default function ConfiguracionScreen({ profile, signOut }) {
 
   if (!isAdmin) {
     return (
-      <div style={{ background:"#09090b", position:"fixed", inset:0, overflow:"hidden", display:"grid", gridTemplateColumns:"280px 1fr" }}>
+      <div style={{ background:"#09090b", position:"fixed", inset:0, overflow:"hidden", display:"grid", gridTemplateColumns: isMobile ? "1fr" : "280px 1fr" }}>
         <Sidebar profile={profile} signOut={signOut} />
         <div style={{ display:"flex", alignItems:"center", justifyContent:"center", color:"#71717a", fontSize:12, letterSpacing:1 }}>
           Solo administradores pueden acceder.
@@ -905,7 +907,7 @@ export default function ConfiguracionScreen({ profile, signOut }) {
         .hcard:hover{border-color:rgba(255,255,255,0.1)!important;}
       `}</style>
       <div className="bg-glow" />
-      <div style={{ display:"grid", gridTemplateColumns:"280px 1fr", height:"100%", overflow:"hidden", position:"relative", zIndex:1 }}>
+      <div style={{ display:"grid", gridTemplateColumns: isMobile ? "1fr" : "280px 1fr", height:"100%", overflow:"hidden", position:"relative", zIndex:1 }}>
         <Sidebar profile={profile} signOut={signOut} />
         <NotificacionesBell profile={profile} />
         <Toast toast={toast} />
@@ -917,7 +919,7 @@ export default function ConfiguracionScreen({ profile, signOut }) {
             background:"rgba(12,12,14,0.92)",
             backdropFilter:"blur(32px) saturate(130%)",
             WebkitBackdropFilter:"blur(32px) saturate(130%)",
-            paddingLeft:24,
+            padding: isMobile ? "0 12px 0 52px" : "0 24px",
           }}>
             {TABS.map(t=>(
               <button key={t.id} onClick={()=>setTab(t.id)} style={{

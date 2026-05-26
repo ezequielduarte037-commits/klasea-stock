@@ -101,6 +101,9 @@ export async function createPurchaseRequest({ form, ccUserIds = [], photoFile })
     status: "nuevo",
     project_id: form.project_id || null,
     needed_at: form.needed_at || null,
+    source: form.source || null,
+    source_ref: form.source_ref || null,
+    source_url: form.source_url || null,
     created_by: userId,
   };
 
@@ -332,4 +335,63 @@ export async function fetchAnalyticsStats() {
   }
 
   return { totalEstimated, totalActual, pending, urgentes, avgDays, totalRequests: rows.length };
+}
+
+// ─── Purchase Log (manual purchases) ───────────────────────────────────────────
+
+const LOG_SELECT = `
+  *,
+  creator:profiles!purchase_log_created_by_fkey(id, username, role, is_admin)
+`;
+
+export async function fetchPurchaseLog() {
+  const { data, error } = await supabase
+    .from("purchase_log")
+    .select(LOG_SELECT)
+    .order("purchased_at", { ascending: false })
+    .order("created_at", { ascending: false });
+  if (error) throw error;
+  return data || [];
+}
+
+export async function createPurchaseLog(entry) {
+  const { data, error } = await supabase
+    .from("purchase_log")
+    .insert(entry)
+    .select(LOG_SELECT)
+    .single();
+  if (error) throw error;
+  return data;
+}
+
+export async function updatePurchaseLog(id, patch) {
+  const { data, error } = await supabase
+    .from("purchase_log")
+    .update(patch)
+    .eq("id", id)
+    .select(LOG_SELECT)
+    .single();
+  if (error) throw error;
+  return data;
+}
+
+export async function deletePurchaseLog(id) {
+  const { error } = await supabase
+    .from("purchase_log")
+    .delete()
+    .eq("id", id);
+  if (error) throw error;
+}
+
+export async function uploadPurchaseLogInvoice(file, userId) {
+  const ext = file.name.split(".").pop();
+  const path = `invoices/${userId}/${Date.now()}.${ext}`;
+  const { error: uploadError } = await supabase.storage
+    .from(PURCHASE_PHOTOS_BUCKET)
+    .upload(path, file);
+  if (uploadError) throw uploadError;
+  const { data: urlData } = supabase.storage
+    .from(PURCHASE_PHOTOS_BUCKET)
+    .getPublicUrl(path);
+  return { url: urlData.publicUrl, path };
 }

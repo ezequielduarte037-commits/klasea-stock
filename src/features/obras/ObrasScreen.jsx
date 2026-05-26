@@ -12,6 +12,7 @@
 import { useEffect, useMemo, useState, useCallback, useRef } from "react";
 import { supabase } from "@/supabaseClient";
 import Sidebar from "@/components/Sidebar";
+import { useResponsive } from "@/hooks/useResponsive";
 import PlanificacionView      from "@/features/obras/PlanificacionView";
 import MapaProduccion         from "@/features/obras/MapaProduccion";
 import PanelDetallesObra      from "@/features/obras/PanelDetallesObra";
@@ -1756,6 +1757,7 @@ function OrdenesCompraView({ ordenes, obras, esGestion, onEditOC, onRefresh }) {
 
 // ─── COMPONENTE PRINCIPAL ─────────────────────────────────────────────────────
 export default function ObrasScreen({ profile, signOut }) {
+  const { isMobile } = useResponsive();
   const isAdmin   = !!profile?.is_admin;
   const esGestion = isAdmin || ["admin", "oficina"].includes(profile?.role);
 
@@ -2408,7 +2410,7 @@ export default function ObrasScreen({ profile, signOut }) {
   if (showHome) return (
     <div style={{ position: "fixed", inset: 0, background: C.bg, color: C.t0, fontFamily: C.sans, zIndex: 0 }}>
       <div style={{ display: "flex", height: "100vh", overflow: "hidden" }}>
-        <div style={{ width: 220, flexShrink: 0, height: "100vh", overflow: "hidden" }}>
+        <div style={{ width: isMobile ? 0 : 220, flexShrink: 0, height: "100vh", overflow: "visible" }}>
           <Sidebar profile={profile} signOut={signOut} />
         </div>
         <div style={{ flex: 1, display: "flex", flexDirection: "column", height: "100vh", overflow: "hidden", minWidth: 0 }}>
@@ -2459,13 +2461,13 @@ export default function ObrasScreen({ profile, signOut }) {
       <div className="bg-glow" />
 
       <div style={{ display: "flex", height: "100vh", overflow: "hidden", position: "relative", zIndex: 1 }}>
-        <div style={{ width: 220, flexShrink: 0, height: "100vh", overflow: "hidden" }}>
+        <div style={{ width: isMobile ? 0 : 220, flexShrink: 0, height: "100vh", overflow: "visible" }}>
           <Sidebar profile={profile} signOut={signOut} />
         </div>
 
         <div style={{ flex: 1, display: "flex", flexDirection: "column", height: "100vh", overflow: "hidden", minWidth: 0 }}>
           {/* TOPBAR — sutil cuando el mapa/obras está abierto */}
-          <div style={{ height: 38, background: "rgba(9,9,11,0.75)", ...GLASS, borderBottom: `1px solid rgba(255,255,255,0.05)`, padding: "0 16px", display: "flex", alignItems: "center", gap: 10, flexShrink: 0 }}>
+          <div style={{ height: 38, background: "rgba(9,9,11,0.75)", ...GLASS, borderBottom: `1px solid rgba(255,255,255,0.05)`, padding: isMobile ? "0 12px 0 52px" : "0 16px", display: "flex", alignItems: "center", gap: 10, flexShrink: 0 }}>
             {/* Pills compactos: solo dot + número + label */}
             <div style={{ display: "flex", gap: 5, flex: 1, alignItems: "center" }}>
               {/* Botón volver a home */}

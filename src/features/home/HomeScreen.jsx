@@ -16,6 +16,7 @@ import { useEffect, useRef, useState, useCallback } from "react";
 import { useNavigate } from "react-router-dom";
 import { supabase } from "@/supabaseClient";
 import Sidebar from "@/components/Sidebar";
+import { useResponsive } from "@/hooks/useResponsive";
 import logoKlasea from "@/assets/logos/logo-klasea.png";
 import logoK      from "@/assets/logos/logo-k.png";
 
@@ -721,6 +722,7 @@ function Ticker({ items }) {
 
 export default function HomeScreen({ profile, signOut }) {
   const navigate = useNavigate();
+  const { isMobile } = useResponsive();
   const live  = useLiveData();
   const clock = useClock();
 
@@ -788,7 +790,9 @@ export default function HomeScreen({ profile, signOut }) {
 
       <div style={{ display:"flex", width:"100vw", height:"100vh",
         background:C.bg, fontFamily:C.sans, overflow:"hidden" }}>
-        <Sidebar profile={profile} signOut={signOut}/>
+        <div style={{ flexShrink:0, width: isMobile ? 0 : undefined, overflow:"visible" }}>
+          <Sidebar profile={profile} signOut={signOut}/>
+        </div>
 
         <div style={{ flex:1, display:"flex", flexDirection:"column",
           overflow:"hidden", position:"relative" }}>
