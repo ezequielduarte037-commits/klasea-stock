@@ -13,7 +13,20 @@ serve(async (req) => {
 
   try {
     const payload = await req.json()
-    const { type, requestTitle, changedBy, message, newStatus, oldStatus, createdByName, source } = payload
+    const {
+      type,
+      requestTitle,
+      changedBy,
+      message,
+      newStatus,
+      oldStatus,
+      newPriority,
+      oldPriority,
+      newPriorityLabel,
+      oldPriorityLabel,
+      createdByName,
+      source,
+    } = payload
 
     const supabaseUrl = Deno.env.get('SUPABASE_URL') ?? ''
     const supabaseServiceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? ''
@@ -62,6 +75,16 @@ ${source ? `<p><strong>Origen:</strong> ${source}</p>` : ""}
       html = `<h2>Estado actualizado</h2>
 <p><strong>Solicitud:</strong> ${requestTitle}</p>
 <p><strong>Cambio:</strong> ${oldStatus || "?"} → <strong>${newStatus}</strong></p>
+<p><strong>Por:</strong> ${createdByName || changedBy}</p>
+<hr>
+<a href="${link}" style="display:inline-block;background:#2563eb;color:#fff;padding:10px 24px;border-radius:6px;text-decoration:none;font-weight:700">Ir a la app</a>`
+    } else if (type === "priority_update") {
+      const oldP = oldPriorityLabel || oldPriority || "?"
+      const newP = newPriorityLabel || newPriority || "?"
+      subject = `[Compras] Prioridad actualizada: ${requestTitle}`
+      html = `<h2>Prioridad actualizada</h2>
+<p><strong>Solicitud:</strong> ${requestTitle}</p>
+<p><strong>Cambio:</strong> ${oldP} → <strong>${newP}</strong></p>
 <p><strong>Por:</strong> ${createdByName || changedBy}</p>
 <hr>
 <a href="${link}" style="display:inline-block;background:#2563eb;color:#fff;padding:10px 24px;border-radius:6px;text-decoration:none;font-weight:700">Ir a la app</a>`

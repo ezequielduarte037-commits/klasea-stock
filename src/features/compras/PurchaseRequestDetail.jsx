@@ -347,16 +347,25 @@ export default function PurchaseRequestDetail({ requestId, profile, users = [], 
 
   const availableFollowers = users.filter((user) => !involvedIds.has(user.id));
 
+  // Creador + CC + assignee también pueden editar prioridad (no solo compras/admin).
+  const canEditPriority = manager || involvedIds.has(profile?.id);
+
   async function patchRequest(patch) {
     setError("");
     try {
+      // Capturar valores previos para detectar cambios de status / prioridad
+      const oldStatus = request.status;
+      const oldPriority = request.priority;
+
       if (patch.status === "recibido" && !patch.delivered_at) {
         patch.delivered_at = new Date().toISOString();
       }
-      if (patch.status && patch.status !== request.status) {
-        const oldStatus = request.status;
-        const data = await updatePurchaseRequest(request.id, patch);
-        setRequest((prev) => ({ ...prev, ...data }));
+
+      const data = await updatePurchaseRequest(request.id, patch);
+      setRequest((prev) => ({ ...prev, ...data }));
+
+      // Cambio de estado: toast + notificación a compras (como antes)
+      if (patch.status && patch.status !== oldStatus) {
         const newLabel = REQUEST_STATUSES.find((s) => s.value === patch.status)?.label || patch.status;
         toast.success(`Estado actualizado: ${newLabel}`);
         notifyComprasEmail({
@@ -368,10 +377,39 @@ export default function PurchaseRequestDetail({ requestId, profile, users = [], 
           newStatus: patch.status,
           oldStatus,
         });
-      } else {
-        const data = await updatePurchaseRequest(request.id, patch);
-        setRequest((prev) => ({ ...prev, ...data }));
       }
+
+      // Cambio de prioridad: comentario en el chat + toast + notificación a compras
+      if (patch.priority && patch.priority !== oldPriority) {
+        const oldPLabel = REQUEST_PRIORITIES.find((p) => p.value === oldPriority)?.label || oldPriority || "?";
+        const newPLabel = REQUEST_PRIORITIES.find((p) => p.value === patch.priority)?.label || patch.priority;
+        toast.success(`Prioridad: ${newPLabel}`);
+
+        // Mensaje automático en el chat — el autor es el usuario actual.
+        try {
+          await addRequestComment(
+            request.id,
+            `Cambié la prioridad de ${oldPLabel} a ${newPLabel}.`,
+            users,
+          );
+        } catch (e) {
+          // No bloqueamos el flujo si el comentario falla; el cambio ya quedó persistido.
+          console.warn("No se pudo registrar el cambio de prioridad como comentario:", e);
+        }
+
+        notifyComprasEmail({
+          type: "priority_update",
+          requestId: request.id,
+          requestTitle: request.title,
+          changedBy: profile?.id,
+          createdByName: profile?.username || "Usuario",
+          newPriority: patch.priority,
+          oldPriority,
+          newPriorityLabel: newPLabel,
+          oldPriorityLabel: oldPLabel,
+        });
+      }
+
       onRequestUpdated?.();
     } catch (err) {
       setError(err.message);
@@ -712,14 +750,17 @@ export default function PurchaseRequestDetail({ requestId, profile, users = [], 
                     <button
                       key={p.value}
                       type="button"
-                      onClick={() => patchRequest({ priority: p.value })}
+                      onClick={() => {
+                        if (p.value === request.priority) return;
+                        patchRequest({ priority: p.value });
+                      }}
                       style={{
                         border: `1px solid ${isActive ? color + "55" : C.border}`,
                         background: isActive ? `${color}14` : "transparent",
                         color: isActive ? color : C.dim,
                         borderRadius: 7,
                         padding: "5px 9px",
-                        cursor: "pointer",
+                        cursor: isActive ? "default" : "pointer",
                         fontSize: 10,
                         fontWeight: 700,
                         textTransform: "uppercase",
@@ -733,6 +774,64 @@ export default function PurchaseRequestDetail({ requestId, profile, users = [], 
                 })}
               </div>
             </div>
+          </div>
+        )}
+
+        {/* Barra independiente de prioridad para creador / CC que no son compras */}
+        {!manager && canEditPriority && (
+          <div style={{
+            padding: "9px 16px",
+            display: "flex",
+            alignItems: "center",
+            gap: 10,
+            flexWrap: "wrap",
+            borderTop: `1px solid ${C.border}`,
+            background: "rgba(255,255,255,0.012)",
+          }}>
+            <span style={{
+              color: C.dim,
+              fontSize: 9,
+              letterSpacing: 1.5,
+              textTransform: "uppercase",
+              fontWeight: 750,
+            }}>
+              Prioridad
+            </span>
+            <div style={{ display: "flex", gap: 4 }}>
+              {REQUEST_PRIORITIES.map((p) => {
+                const color = priorityColors[p.value];
+                const isActive = request.priority === p.value;
+                return (
+                  <button
+                    key={p.value}
+                    type="button"
+                    onClick={() => {
+                      if (p.value === request.priority) return;
+                      patchRequest({ priority: p.value });
+                    }}
+                    style={{
+                      border: `1px solid ${isActive ? color + "55" : C.border}`,
+                      background: isActive ? `${color}14` : "transparent",
+                      color: isActive ? color : C.dim,
+                      borderRadius: 7,
+                      padding: "5px 10px",
+                      cursor: isActive ? "default" : "pointer",
+                      fontSize: 10,
+                      fontWeight: 700,
+                      textTransform: "uppercase",
+                      letterSpacing: 0.6,
+                      transition: "all .13s",
+                    }}
+                  >
+                    {p.label}
+                  </button>
+                );
+              })}
+            </div>
+            <span style={{ flex: 1 }} />
+            <span style={{ color: C.dim, fontSize: 10 }}>
+              El cambio se publica en el chat y se notifica a compras.
+            </span>
           </div>
         )}
 
