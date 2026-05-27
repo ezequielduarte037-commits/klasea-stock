@@ -130,36 +130,14 @@ export async function createPurchaseRequest({ form, ccUserIds = [], photoFile })
 }
 
 export async function fetchPurchaseRequests() {
+  // last_comment_author_id viaja denormalizado en la fila (trigger).
   const { data, error } = await supabase
     .from("purchase_requests")
     .select(REQUEST_SELECT)
     .order("created_at", { ascending: false });
 
   if (error) throw error;
-  const requests = data || [];
-
-  const ids = requests.map((r) => r.id).filter(Boolean);
-  if (ids.length) {
-    const { data: comments } = await supabase
-      .from("request_comments")
-      .select("request_id, author_id")
-      .in("request_id", ids)
-      .order("created_at", { ascending: false });
-
-    if (comments) {
-      const seen = new Set();
-      const lastAuthors = {};
-      for (const c of comments) {
-        if (!seen.has(c.request_id)) {
-          seen.add(c.request_id);
-          lastAuthors[c.request_id] = c.author_id;
-        }
-      }
-      return requests.map((r) => ({ ...r, last_comment_author_id: lastAuthors[r.id] || null }));
-    }
-  }
-
-  return requests;
+  return data || [];
 }
 
 export async function fetchPurchaseRequestDetail(requestId) {
@@ -319,12 +297,14 @@ export async function fetchMonthlySpending() {
 }
 
 export async function fetchOverdueRequests() {
+  // Vencidos = fecha estimada de entrega ya pasó (estrictamente menor a hoy).
+  const today = new Date().toISOString().slice(0, 10);
   const { data, error } = await supabase
     .from("purchase_requests")
     .select(REQUEST_SELECT)
     .not("estimated_delivery_at", "is", null)
     .not("status", "in", `("recibido","cancelado")`)
-    .lte("estimated_delivery_at", new Date().toISOString().slice(0, 10))
+    .lt("estimated_delivery_at", today)
     .order("estimated_delivery_at", { ascending: true });
 
   if (error) throw error;
@@ -415,11 +395,18 @@ export async function deletePurchaseRequest(id) {
 }
 
 export async function uploadPurchaseLogInvoice(file, userId) {
-  const ext = file.name.split(".").pop();
-  const path = `invoices/${userId}/${Date.now()}.${ext}`;
+  if (!file) return { url: null, path: null };
+  const rawExt = (file.name.split(".").pop() || "pdf").toLowerCase();
+  const ext = safeFilePart(rawExt) || "pdf";
+  const id = crypto.randomUUID?.() || `${Date.now()}-${Math.random().toString(36).slice(2)}`;
+  const path = `invoices/${userId}/${Date.now()}-${id}.${ext}`;
   const { error: uploadError } = await supabase.storage
     .from(PURCHASE_PHOTOS_BUCKET)
-    .upload(path, file);
+    .upload(path, file, {
+      cacheControl: "3600",
+      contentType: file.type || "application/pdf",
+      upsert: false,
+    });
   if (uploadError) throw uploadError;
   const { data: urlData } = supabase.storage
     .from(PURCHASE_PHOTOS_BUCKET)
@@ -485,11 +472,17 @@ export async function deleteRequestItem(itemId) {
 
 export async function uploadItemImage(file, requestId) {
   if (!file) return { imageUrl: null, imagePath: null };
-  const ext = file.name.split(".").pop().toLowerCase().replace(/[^a-z0-9]/, "");
-  const path = `items/${requestId}/${Date.now()}.${ext}`;
+  const rawExt = (file.name.split(".").pop() || "jpg").toLowerCase();
+  const ext = rawExt.replace(/[^a-z0-9]/g, "") || "jpg";
+  const id = crypto.randomUUID?.() || `${Date.now()}-${Math.random().toString(36).slice(2)}`;
+  const path = `items/${safeFilePart(requestId)}/${Date.now()}-${id}.${ext}`;
   const { error: uploadError } = await supabase.storage
     .from(PURCHASE_PHOTOS_BUCKET)
-    .upload(path, file);
+    .upload(path, file, {
+      cacheControl: "3600",
+      contentType: file.type || "image/jpeg",
+      upsert: false,
+    });
   if (uploadError) throw uploadError;
   const { data } = supabase.storage.from(PURCHASE_PHOTOS_BUCKET).getPublicUrl(path);
   return { imageUrl: data.publicUrl, imagePath: path };

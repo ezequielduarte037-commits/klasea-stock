@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import { ExternalLink, Send, X } from "lucide-react";
 import { createPurchaseRequest, fetchProjects, notifyComprasEmail } from "@/features/compras/purchaseRequestsApi";
+import { useToast } from "@/components/ui/Toast";
 
 const C = {
   bg: "#09090b", panel: "rgba(255,255,255,0.035)", panel2: "rgba(255,255,255,0.055)",
@@ -11,6 +12,7 @@ const C = {
 };
 
 export default function PedirAComprasModal({ open, onClose, prefilled, profile }) {
+  const toast = useToast();
   const [title, setTitle] = useState("");
   const [description, setDescription] = useState("");
   const [priority, setPriority] = useState("media");
@@ -24,7 +26,10 @@ export default function PedirAComprasModal({ open, onClose, prefilled, profile }
     setDescription(prefilled?.description || "");
     setPriority("media");
     setProjectId("");
-    fetchProjects().then(setProjects).catch(() => {});
+    fetchProjects().then(setProjects).catch((err) => {
+      toast.error(err.message || "No se pudieron cargar los proyectos.");
+    });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [open, prefilled]);
 
   if (!open) return null;
@@ -53,9 +58,13 @@ export default function PedirAComprasModal({ open, onClose, prefilled, profile }
         createdByName: profile?.username || "Usuario",
         source: prefilled?.source || undefined,
       });
+      toast.success("Pedido enviado a Compras");
       onClose(true);
-    } catch { /* ignore */ }
-    setSaving(false);
+    } catch (err) {
+      toast.error(err.message || "No se pudo enviar el pedido.");
+    } finally {
+      setSaving(false);
+    }
   }
 
   return (

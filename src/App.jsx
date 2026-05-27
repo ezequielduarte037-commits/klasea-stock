@@ -20,6 +20,9 @@ import CalendarioScreen      from "@/features/calendario/CalendarioScreen";
 import PedidosMaderaScreen   from "@/features/inventario/PedidosMaderaScreen";
 import PurchaseRequestsScreen from "@/features/compras/PurchaseRequestsScreen";
 
+import { ToastProvider } from "@/components/ui/Toast";
+import { ConfirmProvider } from "@/components/ui/ConfirmDialog";
+
 import logoK from "@/assets/logos/logo-k.png";
 
 // Internos:  usuario  → usuario@klasea.local
@@ -347,6 +350,8 @@ export default function App() {
 
   return (
     <BrowserRouter>
+      <ToastProvider>
+        <ConfirmProvider>
       <Routes>
         <Route path="/login" element={<LoginScreen onLoggedIn={loadProfile} />} />
         <Route path="/"      element={homeElement} />
@@ -381,6 +386,8 @@ export default function App() {
         <Route path="/madera" element={<RequireAuth session={session}><RequireRole profile={profile} allow={["admin","oficina","tecnica"]}><PedidosMaderaScreen profile={profile} signOut={signOut} /></RequireRole></RequireAuth>} />  
         <Route path="*" element={<Navigate to="/" replace />} />
       </Routes>
+        </ConfirmProvider>
+      </ToastProvider>
     </BrowserRouter>
   );
 }

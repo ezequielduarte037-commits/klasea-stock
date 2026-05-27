@@ -14,6 +14,9 @@ import {
   Users,
 } from "lucide-react";
 import { supabase } from "@/supabaseClient";
+import { useToast } from "@/components/ui/Toast";
+import { useConfirm } from "@/components/ui/ConfirmDialog";
+import { Skeleton, SkeletonStyles } from "@/components/ui/Skeleton";
 import {
   addRequestComment,
   addRequestFollower,
@@ -284,6 +287,9 @@ export default function PurchaseRequestDetail({ requestId, profile, users = [], 
   const [editImageFile, setEditImageFile] = useState(null);
   const [editNotes, setEditNotes] = useState("");
   const bottomRef = useRef(null);
+  const reloadTimer = useRef(null);
+  const toast = useToast();
+  const confirm = useConfirm();
 
   const manager = isPurchaseManager(profile);
 
@@ -309,13 +315,24 @@ export default function PurchaseRequestDetail({ requestId, profile, users = [], 
 
   useEffect(() => {
     if (!requestId) return undefined;
+    // Realtime puede disparar muchos eventos seguidos; agrupamos en una sola recarga.
+    const scheduleReload = () => {
+      if (reloadTimer.current) clearTimeout(reloadTimer.current);
+      reloadTimer.current = setTimeout(() => {
+        reloadTimer.current = null;
+        load();
+      }, 350);
+    };
     const channel = supabase.channel(`purchase-request-${requestId}`)
-      .on("postgres_changes", { event: "*", schema: "public", table: "purchase_requests", filter: `id=eq.${requestId}` }, load)
-      .on("postgres_changes", { event: "*", schema: "public", table: "request_followers", filter: `request_id=eq.${requestId}` }, load)
-      .on("postgres_changes", { event: "*", schema: "public", table: "request_comments", filter: `request_id=eq.${requestId}` }, load)
-      .on("postgres_changes", { event: "*", schema: "public", table: "purchase_request_items", filter: `request_id=eq.${requestId}` }, load)
+      .on("postgres_changes", { event: "*", schema: "public", table: "purchase_requests",      filter: `id=eq.${requestId}` },        scheduleReload)
+      .on("postgres_changes", { event: "*", schema: "public", table: "request_followers",      filter: `request_id=eq.${requestId}` }, scheduleReload)
+      .on("postgres_changes", { event: "*", schema: "public", table: "request_comments",       filter: `request_id=eq.${requestId}` }, scheduleReload)
+      .on("postgres_changes", { event: "*", schema: "public", table: "purchase_request_items", filter: `request_id=eq.${requestId}` }, scheduleReload)
       .subscribe();
-    return () => { supabase.removeChannel(channel); };
+    return () => {
+      if (reloadTimer.current) clearTimeout(reloadTimer.current);
+      supabase.removeChannel(channel);
+    };
   }, [requestId]);
 
   useEffect(() => {
@@ -340,6 +357,8 @@ export default function PurchaseRequestDetail({ requestId, profile, users = [], 
         const oldStatus = request.status;
         const data = await updatePurchaseRequest(request.id, patch);
         setRequest((prev) => ({ ...prev, ...data }));
+        const newLabel = REQUEST_STATUSES.find((s) => s.value === patch.status)?.label || patch.status;
+        toast.success(`Estado actualizado: ${newLabel}`);
         notifyComprasEmail({
           type: "status_update",
           requestId: request.id,
@@ -356,6 +375,7 @@ export default function PurchaseRequestDetail({ requestId, profile, users = [], 
       onRequestUpdated?.();
     } catch (err) {
       setError(err.message);
+      toast.error(err.message || "No se pudo actualizar el pedido.");
     }
   }
 
@@ -402,6 +422,7 @@ export default function PurchaseRequestDetail({ requestId, profile, users = [], 
       await load();
     } catch (err) {
       setError(err.message);
+      toast.error(err.message || "No se pudo enviar el mensaje.");
     } finally {
       setSending(false);
     }
@@ -440,13 +461,21 @@ export default function PurchaseRequestDetail({ requestId, profile, users = [], 
   }
 
   async function handleDeleteItem(itemId) {
-    if (!confirm("Eliminar este ítem?")) return;
+    const ok = await confirm({
+      title: "Eliminar ítem",
+      message: "El ítem se borra del pedido. No se puede deshacer.",
+      confirmLabel: "Eliminar",
+      tone: "danger",
+    });
+    if (!ok) return;
     setError("");
     try {
       await deleteRequestItem(itemId);
       await load();
+      toast.success("Ítem eliminado");
     } catch (err) {
       setError(err.message);
+      toast.error(err.message || "No se pudo eliminar el ítem.");
     }
   }
 
@@ -479,10 +508,37 @@ export default function PurchaseRequestDetail({ requestId, profile, users = [], 
 
   if (loading) {
     return (
-      <div style={{ padding: 24, color: C.dim, fontFamily: C.sans, display: "flex", alignItems: "center", gap: 10 }}>
-        <span style={{ display: "inline-block", width: 14, height: 14, border: `2px solid ${C.border2}`, borderTopColor: C.blue, borderRadius: "50%", animation: "spin 0.8s linear infinite" }} />
-        Cargando solicitud...
-        <style>{`@keyframes spin { to { transform: rotate(360deg); } }`}</style>
+      <div style={{ height: "100%", background: C.bg, color: C.text, fontFamily: C.sans, display: "grid", gridTemplateRows: "auto 1fr", overflow: "hidden" }}>
+        <SkeletonStyles />
+        <header style={{ padding: "12px 16px", borderBottom: `1px solid ${C.border}`, background: "rgba(12,12,14,0.95)" }}>
+          <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
+            <Skeleton width={29} height={29} radius={7} />
+            <div style={{ display: "grid", gap: 6, flex: 1 }}>
+              <Skeleton width="45%" height={15} />
+              <Skeleton width="30%" height={10} />
+            </div>
+            <Skeleton width={29} height={29} radius={7} />
+          </div>
+        </header>
+        <div style={{ display: "grid", gridTemplateColumns: "minmax(0, 1fr) 300px", overflow: "hidden" }}>
+          <section style={{ padding: 16, borderRight: `1px solid ${C.border}`, display: "grid", gap: 12, alignContent: "start" }}>
+            <Skeleton width="20%" height={9} />
+            <Skeleton width="92%" height={12} />
+            <Skeleton width="88%" height={12} />
+            <Skeleton width="64%" height={12} />
+            <div style={{ marginTop: 14 }}><Skeleton width="14%" height={9} /></div>
+            {Array.from({ length: 3 }).map((_, i) => (
+              <Skeleton key={i} width="100%" height={42} radius={6} />
+            ))}
+          </section>
+          <aside style={{ padding: 14, display: "grid", gap: 14, alignContent: "start" }}>
+            <Skeleton width="50%" height={11} />
+            <Skeleton width="100%" height={40} radius={8} />
+            <Skeleton width="100%" height={40} radius={8} />
+            <Skeleton width="60%" height={11} />
+            <Skeleton width="100%" height={86} radius={9} />
+          </aside>
+        </div>
       </div>
     );
   }
@@ -511,12 +567,20 @@ export default function PurchaseRequestDetail({ requestId, profile, users = [], 
     }}>
       <style>{`
         select option { background: #0f0f12; color: #f4f4f5; }
-        textarea:focus, select:focus, input:focus { border-color: rgba(96,165,250,0.42) !important; }
+        textarea:focus, select:focus, input:focus {
+          border-color: rgba(96,165,250,0.42) !important;
+          box-shadow: 0 0 0 3px rgba(96,165,250,0.08);
+        }
         .pr-chat-scroll::-webkit-scrollbar { width: 4px; }
         .pr-chat-scroll::-webkit-scrollbar-thumb { background: rgba(255,255,255,.12); border-radius: 99px; }
         .pr-aside::-webkit-scrollbar { width: 4px; }
         .pr-aside::-webkit-scrollbar-thumb { background: rgba(255,255,255,.1); border-radius: 99px; }
         @keyframes spin { to { transform: rotate(360deg); } }
+        @keyframes pr-msg-in {
+          from { opacity: 0; transform: translateY(6px); }
+          to   { opacity: 1; transform: translateY(0);   }
+        }
+        .pr-message { animation: pr-msg-in .22s ease-out both; }
         .icon-btn:hover { background: rgba(255,255,255,0.07) !important; color: #f4f4f5 !important; }
 
         /* Estilos para renderizar el HTML enriquecido que viene de Quill */
@@ -579,18 +643,24 @@ export default function PurchaseRequestDetail({ requestId, profile, users = [], 
             {(manager || profile?.id === request.created_by) && (
               <button
                 type="button"
-                title="Eliminar pedido localmente"
+                title="Eliminar pedido"
                 className="icon-btn"
                 style={{ ...iconButtonStyle, color: C.red }}
                 onClick={async () => {
-                  if (window.confirm("¿Seguro que querés eliminar este pedido?")) {
-                    try {
-                      await deletePurchaseRequest(request.id);
-                      if (onDeleteLocal) onDeleteLocal(request.id);
-                      onBack();
-                    } catch (e) {
-                      alert("Error al eliminar: " + (e.message || "desconocido"));
-                    }
+                  const ok = await confirm({
+                    title: "Eliminar pedido",
+                    message: `Vas a eliminar “${request.title}”. Se borran también sus ítems, mensajes y CC.`,
+                    confirmLabel: "Eliminar",
+                    tone: "danger",
+                  });
+                  if (!ok) return;
+                  try {
+                    await deletePurchaseRequest(request.id);
+                    if (onDeleteLocal) onDeleteLocal(request.id);
+                    toast.success("Pedido eliminado");
+                    onBack();
+                  } catch (e) {
+                    toast.error("Error al eliminar: " + (e.message || "desconocido"));
                   }
                 }}
               >
@@ -611,7 +681,7 @@ export default function PurchaseRequestDetail({ requestId, profile, users = [], 
 
             <div style={{ flexShrink: 0, minWidth: 160 }}>
               <div style={{ color: C.dim, fontSize: 9, letterSpacing: 1.5, textTransform: "uppercase", fontWeight: 750, marginBottom: 6 }}>
-                Proveedor (Simulado)
+                Proveedor
               </div>
               <input
                 type="text"
@@ -620,6 +690,11 @@ export default function PurchaseRequestDetail({ requestId, profile, users = [], 
                 onChange={(e) => {
                   const valor = e.target.value;
                   setRequest((prev) => ({ ...prev, proveedor: valor }));
+                }}
+                onBlur={() => {
+                  const next = (request.proveedor || "").trim() || null;
+                  setRequest((prev) => ({ ...prev, proveedor: next }));
+                  patchRequest({ proveedor: next });
                 }}
                 style={inputStyle}
               />
@@ -879,8 +954,15 @@ export default function PurchaseRequestDetail({ requestId, profile, users = [], 
                   <button
                     type="button"
                     onClick={async () => {
-                      if (!window.confirm("¿Eliminar comprobante?")) return;
+                      const ok = await confirm({
+                        title: "Eliminar comprobante",
+                        message: "El archivo de la factura se desvincula del pedido.",
+                        confirmLabel: "Eliminar",
+                        tone: "danger",
+                      });
+                      if (!ok) return;
                       await patchRequest({ invoice_url: null, invoice_path: null });
+                      toast.success("Comprobante eliminado");
                     }}
                     style={{
                       ...iconButtonStyle,
@@ -1175,20 +1257,33 @@ export default function PurchaseRequestDetail({ requestId, profile, users = [], 
                 placeItems: "center",
                 color: C.dim,
                 border: `1px dashed ${C.border}`,
-                borderRadius: 8,
-                background: "rgba(255,255,255,0.015)",
+                borderRadius: 10,
+                background: "rgba(255,255,255,0.012)",
                 fontSize: 12,
+                padding: 24,
+                textAlign: "center",
               }}>
-                <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-                  <MessageSquare size={15} />
-                  Sin mensajes todavía
+                <div style={{ display: "grid", justifyItems: "center", gap: 8 }}>
+                  <div style={{
+                    width: 38, height: 38, borderRadius: 10,
+                    display: "grid", placeItems: "center",
+                    background: "rgba(96,165,250,0.08)",
+                    border: "1px solid rgba(96,165,250,0.18)",
+                    color: C.blue,
+                  }}>
+                    <MessageSquare size={16} />
+                  </div>
+                  <div style={{ color: C.muted, fontWeight: 700, fontSize: 12.5 }}>Sin mensajes todavía</div>
+                  <div style={{ fontSize: 11, color: C.dim, maxWidth: 280 }}>
+                    Pedile precisiones a compras o etiquetá con <span style={{ color: C.amber, fontFamily: C.mono }}>@usuario</span> para sumar a alguien.
+                  </div>
                 </div>
               </div>
             ) : (
               comments.map((comment) => {
                 const isMine = comment.author_id === profile?.id;
                 return (
-                  <div key={comment.id} style={{ display: "flex", justifyContent: isMine ? "flex-end" : "flex-start", marginBottom: 12 }}>
+                  <div key={comment.id} className="pr-message" style={{ display: "flex", justifyContent: isMine ? "flex-end" : "flex-start", marginBottom: 12 }}>
                     <div style={{
                       width: "min(640px, 86%)",
                       borderRadius: 10,

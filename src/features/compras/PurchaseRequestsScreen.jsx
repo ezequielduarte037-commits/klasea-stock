@@ -1,4 +1,5 @@
-import { Component, useEffect, useMemo, useState } from "react";
+import { Component, lazy, Suspense, useEffect, useMemo, useRef, useState } from "react";
+import { useSearchParams } from "react-router-dom";
 import {
   Archive,
   BarChart3,
@@ -17,6 +18,8 @@ import {
 } from "lucide-react";
 import Sidebar from "@/components/Sidebar";
 import { useResponsive } from "@/hooks/useResponsive";
+import { useToast } from "@/components/ui/Toast";
+import { CardSkeleton, RowSkeleton, Skeleton, SkeletonStyles } from "@/components/ui/Skeleton";
 import PurchaseRequestDetail from "@/features/compras/PurchaseRequestDetail";
 import PurchaseLogPanel from "@/features/compras/PurchaseLogPanel";
 import {
@@ -37,8 +40,27 @@ import {
   usernameOf,
 } from "@/features/compras/purchaseRequestsApi";
 
-import ReactQuill from "react-quill-new";
 import "react-quill-new/dist/quill.snow.css";
+
+// Quill pesa ~80kB minificado y solo se usa al crear pedido (rol no-manager).
+// Cargarlo lazy ahorra carga inicial para compras/admin que abren la lista.
+const ReactQuill = lazy(() => import("react-quill-new"));
+
+const QUILL_MODULES = {
+  toolbar: [
+    ["bold", "italic", "underline", "strike"],
+    [{ list: "ordered" }, { list: "bullet" }],
+    [{ color: [] }, { background: [] }],
+    ["link", "clean"],
+  ],
+};
+
+const extractText = (html) => {
+  if (!html) return "";
+  const tmp = document.createElement("DIV");
+  tmp.innerHTML = html;
+  return tmp.textContent || tmp.innerText || "";
+};
 
 const C = {
   bg: "#09090b",
@@ -174,13 +196,6 @@ function RequestCard({ request, onClick, profile, isUnread }) {
   const dotColor = statusDotColors[request.status] || C.blue;
   const color = statusColors[request.status] || C.blue;
   const isArchived = ARCHIVED_STATUSES.includes(request.status);
-
-  const extractText = (html) => {
-    if (!html) return "";
-    const tmp = document.createElement("DIV");
-    tmp.innerHTML = html;
-    return tmp.textContent || tmp.innerText || "";
-  };
 
   return (
     <button
@@ -433,15 +448,19 @@ const emptyForm = {
   needed_at: "",
 };
 
+const URL_FILTER_KEYS = ["q", "status", "priority", "creator", "project", "dateFrom", "dateTo"];
+
 export default function PurchaseRequestsScreen({ profile, signOut }) {
   const { isMobile } = useResponsive();
+  const toast = useToast();
+  const [searchParams, setSearchParams] = useSearchParams();
   const [requests, setRequests] = useState([]);
   const [users, setUsers] = useState([]);
   const [projects, setProjects] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
   const [selectedId, setSelectedId] = useState(null);
-  const [activeTab, setActiveTab] = useState("mine");
+  const [activeTab, setActiveTab] = useState(() => searchParams.get("tab") === "cc" ? "cc" : "mine");
   const [showNew, setShowNew] = useState(true);
   const [photoFile, setPhotoFile] = useState(null);
   const [ccUserIds, setCcUserIds] = useState([]);
@@ -463,16 +482,33 @@ export default function PurchaseRequestsScreen({ profile, signOut }) {
   const [newItemQty, setNewItemQty] = useState("");
   const [newItemUnit, setNewItemUnit] = useState("unidad");
   const [newItemLink, setNewItemLink] = useState("");
+  const submittingRef = useRef(false);
 
-  const [filters, setFilters] = useState({
-    q: "",
-    status: "todos",
-    priority: "todos",
-    creator: "todos",
-    project: "todos",
-    dateFrom: "",
-    dateTo: "",
-  });
+  const [filters, setFilters] = useState(() => ({
+    q:        searchParams.get("q")        || "",
+    status:   searchParams.get("status")   || "todos",
+    priority: searchParams.get("priority") || "todos",
+    creator:  searchParams.get("creator")  || "todos",
+    project:  searchParams.get("project")  || "todos",
+    dateFrom: searchParams.get("dateFrom") || "",
+    dateTo:   searchParams.get("dateTo")   || "",
+  }));
+
+  // Sincronizar filtros + tab a la URL para que sean compartibles/back-friendly
+  useEffect(() => {
+    const next = new URLSearchParams(searchParams);
+    URL_FILTER_KEYS.forEach((k) => {
+      const v = filters[k];
+      if (v && v !== "todos") next.set(k, v);
+      else next.delete(k);
+    });
+    if (activeTab !== "mine") next.set("tab", activeTab);
+    else next.delete("tab");
+    if (next.toString() !== searchParams.toString()) {
+      setSearchParams(next, { replace: true });
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [filters, activeTab]);
 
   const manager = isPurchaseManager(profile);
 
@@ -575,6 +611,25 @@ export default function PurchaseRequestsScreen({ profile, signOut }) {
 
   const visibleList = manager ? filtered : userFiltered;
 
+  const activeFilterCount = useMemo(() => {
+    let n = 0;
+    if (filters.q) n++;
+    if (filters.status !== "todos") n++;
+    if (filters.priority !== "todos") n++;
+    if (filters.creator !== "todos") n++;
+    if (filters.project !== "todos") n++;
+    if (filters.dateFrom) n++;
+    if (filters.dateTo) n++;
+    return n;
+  }, [filters]);
+
+  function clearFilters() {
+    setFilters({
+      q: "", status: "todos", priority: "todos", creator: "todos",
+      project: "todos", dateFrom: "", dateTo: "",
+    });
+  }
+
   const statusStats = useMemo(() =>
     REQUEST_STATUSES.map((s) => ({
       ...s,
@@ -585,9 +640,15 @@ export default function PurchaseRequestsScreen({ profile, signOut }) {
 
   async function handleCreate(e) {
     e.preventDefault();
-    if (!form.title.trim()) return setError("El título es obligatorio.");
+    if (submittingRef.current) return;
+    if (!form.title.trim()) {
+      setError("El título es obligatorio.");
+      toast.warning("El título es obligatorio.");
+      return;
+    }
     setSaving(true);
     setError("");
+    submittingRef.current = true;
     try {
       const request = await createPurchaseRequest({ form, ccUserIds, photoFile });
       if (createItems.length) {
@@ -601,6 +662,7 @@ export default function PurchaseRequestsScreen({ profile, signOut }) {
         createdByName: profile?.username || "Usuario",
         source: form.source || undefined,
       });
+      toast.success("Solicitud creada. Compras fue notificado.");
       setForm(emptyForm);
       setCcUserIds([]);
       setPhotoFile(null);
@@ -609,9 +671,12 @@ export default function PurchaseRequestsScreen({ profile, signOut }) {
       await loadAll();
       setSelectedId(request.id);
     } catch (err) {
-      setError(err.message || "No se pudo crear la solicitud.");
+      const msg = err.message || "No se pudo crear la solicitud.";
+      setError(msg);
+      toast.error(msg);
     } finally {
       setSaving(false);
+      submittingRef.current = false;
     }
   }
 
@@ -659,20 +724,33 @@ export default function PurchaseRequestsScreen({ profile, signOut }) {
         @import url('https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700;800&family=JetBrains+Mono:wght@400;500;700&display=swap');
         *, *::before, *::after { box-sizing: border-box; }
         select option { background: #0f0f12; color: #f4f4f5; }
-        input:focus, select:focus, textarea:focus { border-color: rgba(96,165,250,0.42) !important; }
+        input:focus, select:focus, textarea:focus {
+          border-color: rgba(96,165,250,0.42) !important;
+          box-shadow: 0 0 0 3px rgba(96,165,250,0.08);
+        }
+        @keyframes pr-card-in {
+          from { opacity: 0; transform: translateY(6px); }
+          to   { opacity: 1; transform: translateY(0); }
+        }
+        .purchase-card, .purchase-row {
+          animation: pr-card-in .22s cubic-bezier(.22,1,.36,1) both;
+        }
         .purchase-card:hover {
           background: rgba(255,255,255,0.055) !important;
-          border-color: rgba(255,255,255,0.16) !important;
-          transform: translateY(-1px);
-          box-shadow: 0 4px 20px rgba(0,0,0,0.3);
+          border-color: rgba(255,255,255,0.18) !important;
+          transform: translateY(-2px);
+          box-shadow: 0 8px 24px rgba(0,0,0,0.32);
         }
-        .purchase-card { transition: all .14s ease !important; }
+        .purchase-card { transition: transform .16s ease, box-shadow .16s ease, border-color .16s ease, background .16s ease !important; }
+        .purchase-card:active { transform: translateY(0); transition-duration: .05s !important; }
         .purchase-row:hover {
           background: rgba(255,255,255,0.055) !important;
-          border-color: rgba(255,255,255,0.16) !important;
+          border-color: rgba(255,255,255,0.18) !important;
         }
+        .purchase-row { transition: background .14s ease, border-color .14s ease; }
         .purchase-scroll::-webkit-scrollbar { width: 4px; height: 4px; }
         .purchase-scroll::-webkit-scrollbar-thumb { background: rgba(255,255,255,.12); border-radius: 99px; }
+        .stat-chip { transition: opacity .14s ease, background .14s ease, color .14s ease; }
         .stat-chip:hover { opacity: .85; }
         input[type="date"]::-webkit-calendar-picker-indicator { filter: invert(0.5); }
         
@@ -827,6 +905,28 @@ export default function PurchaseRequestsScreen({ profile, signOut }) {
                   </select>
                   <input type="date" value={filters.dateFrom} onChange={(e) => setFilters((f) => ({ ...f, dateFrom: e.target.value }))} style={{ ...inputStyle, flex: "0 0 120px", paddingTop: 7, paddingBottom: 7, fontSize: 12 }} />
                   <input type="date" value={filters.dateTo} onChange={(e) => setFilters((f) => ({ ...f, dateTo: e.target.value }))} style={{ ...inputStyle, flex: "0 0 120px", paddingTop: 7, paddingBottom: 7, fontSize: 12 }} />
+                  {activeFilterCount > 0 && (
+                    <button
+                      type="button"
+                      onClick={clearFilters}
+                      title="Quitar todos los filtros"
+                      style={{
+                        display: "inline-flex", alignItems: "center", gap: 5,
+                        border: `1px solid ${C.amber}44`,
+                        background: `${C.amber}10`,
+                        color: C.amber,
+                        borderRadius: 6,
+                        padding: "6px 9px",
+                        cursor: "pointer",
+                        fontSize: 11,
+                        fontWeight: 700,
+                        whiteSpace: "nowrap",
+                      }}
+                    >
+                      <X size={11} />
+                      Limpiar {activeFilterCount}
+                    </button>
+                  )}
                   <ViewToggle viewMode={viewMode} setViewMode={setViewMode} />
                 </div>
               </>
@@ -844,7 +944,8 @@ export default function PurchaseRequestsScreen({ profile, signOut }) {
               overflowY: "auto",
               borderRight: showNew ? `1px solid ${C.border}` : "none",
               padding: showNew ? 14 : 0,
-              overflow: showNew ? undefined : "hidden",
+              height: "100%",
+              minHeight: 0,
             }}>
               {showNew && (
                 <form onSubmit={handleCreate} style={{ display: "grid", gap: 13 }}>
@@ -863,20 +964,19 @@ export default function PurchaseRequestsScreen({ profile, signOut }) {
                       borderRadius: 8,
                       overflow: "hidden"
                     }}>
-                      <ReactQuill
-                        theme="snow"
-                        value={form.description}
-                        onChange={(value) => setForm((f) => ({ ...f, description: value }))}
-                        modules={{
-                          toolbar: [
-                            ['bold', 'italic', 'underline', 'strike'],
-                            [{ 'list': 'ordered'}, { 'list': 'bullet' }],
-                            [{ 'color': [] }, { 'background': [] }],
-                            ['link', 'clean']
-                          ]
-                        }}
-                        placeholder="Detalle del producto, cantidades, especificaciones..."
-                      />
+                      <Suspense fallback={
+                        <div style={{ padding: 14, color: C.dim, fontSize: 12 }}>
+                          Cargando editor…
+                        </div>
+                      }>
+                        <ReactQuill
+                          theme="snow"
+                          value={form.description}
+                          onChange={(value) => setForm((f) => ({ ...f, description: value }))}
+                          modules={QUILL_MODULES}
+                          placeholder="Detalle del producto, cantidades, especificaciones..."
+                        />
+                      </Suspense>
                     </div>
                   </div>
 
@@ -995,31 +1095,58 @@ export default function PurchaseRequestsScreen({ profile, signOut }) {
                   <div>
                     <div style={labelStyle}>Usuarios en copia</div>
                     <div style={{
-                      display: "grid",
-                      gap: 4,
-                      maxHeight: 190,
-                      overflowY: "auto",
                       border: `1px solid ${C.border}`,
                       borderRadius: 8,
-                      padding: 7,
                       background: C.panel,
+                      overflow: "hidden",
                     }}>
-                      {users.filter((u) => u.id !== profile?.id).map((user) => (
-                        <label key={user.id} style={{
-                          display: "flex",
-                          alignItems: "center",
-                          gap: 8,
-                          padding: "6px 7px",
-                          borderRadius: 7,
-                          cursor: "pointer",
-                          background: ccUserIds.includes(user.id) ? "rgba(96,165,250,0.1)" : "transparent",
-                          transition: "background .1s",
-                        }}>
-                          <input type="checkbox" checked={ccUserIds.includes(user.id)} onChange={() => toggleCc(user.id)} />
-                          <span style={{ color: C.text, fontSize: 12 }}>{usernameOf(user)}</span>
-                          <span style={{ color: C.dim, fontSize: 10, textTransform: "uppercase", marginLeft: "auto" }}>{user.role}</span>
-                        </label>
-                      ))}
+                      <div style={{ padding: "4px 6px", borderBottom: `1px solid ${C.border}` }}>
+                        <input
+                          value={userSearch}
+                          onChange={(e) => setUserSearch(e.target.value)}
+                          placeholder="Buscar usuario..."
+                          style={{ width: "100%", padding: "6px 8px", borderRadius: 5, border: `1px solid ${C.border}`, background: C.bg, color: C.text, fontSize: 12 }}
+                        />
+                      </div>
+                      <div style={{ maxHeight: 180, overflowY: "auto", padding: 4 }}>
+                        {(() => {
+                          const filtered = users.filter((u) => u.id !== profile?.id && (userSearch ? u.username?.toLowerCase().includes(userSearch.toLowerCase()) : true));
+                          const recent = JSON.parse(localStorage.getItem("pr_recent_cc") || "[]");
+                          const sorted = [...filtered].sort((a, b) => {
+                            const aIdx = recent.indexOf(a.id);
+                            const bIdx = recent.indexOf(b.id);
+                            if (aIdx !== -1 && bIdx !== -1) return aIdx - bIdx;
+                            if (aIdx !== -1) return -1;
+                            if (bIdx !== -1) return 1;
+                            return 0;
+                          });
+                          return sorted.length === 0 ? (
+                            <div style={{ color: C.dim, fontSize: 11, padding: "12px 8px", textAlign: "center" }}>
+                              {userSearch ? "Sin resultados" : "No hay usuarios disponibles"}
+                            </div>
+                          ) : sorted.map((user) => (
+                            <label key={user.id} style={{
+                              display: "flex",
+                              alignItems: "center",
+                              gap: 8,
+                              padding: "6px 7px",
+                              borderRadius: 7,
+                              cursor: "pointer",
+                              background: ccUserIds.includes(user.id) ? "rgba(96,165,250,0.1)" : "transparent",
+                              transition: "background .1s",
+                            }}>
+                              <input type="checkbox" checked={ccUserIds.includes(user.id)} onChange={() => {
+                                toggleCc(user.id);
+                                const recents = JSON.parse(localStorage.getItem("pr_recent_cc") || "[]");
+                                const updated = [user.id, ...recents.filter((id) => id !== user.id)].slice(0, 10);
+                                localStorage.setItem("pr_recent_cc", JSON.stringify(updated));
+                              }} />
+                              <span style={{ color: C.text, fontSize: 12 }}>{usernameOf(user)}</span>
+                              <span style={{ color: C.dim, fontSize: 10, textTransform: "uppercase", marginLeft: "auto" }}>{user.role}</span>
+                            </label>
+                          ));
+                        })()}
+                      </div>
                     </div>
                   </div>
 
@@ -1165,52 +1292,79 @@ export default function PurchaseRequestsScreen({ profile, signOut }) {
                     )}
 
                     {loading ? (
-                      <div style={{
-                        minHeight: 220,
-                        display: "grid",
-                        placeItems: "center",
-                        color: C.dim,
-                        fontSize: 12,
-                      }}>
-                        <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
-                          <span style={{ display: "inline-block", width: 14, height: 14, border: `2px solid ${C.border2}`, borderTopColor: C.blue, borderRadius: "50%", animation: "spin 0.8s linear infinite" }} />
-                          Cargando...
-                        </div>
-                      </div>
+                      <>
+                        <SkeletonStyles />
+                        {viewMode === "grid" ? (
+                          <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(290px, 1fr))", gap: 10 }}>
+                            {Array.from({ length: 6 }).map((_, i) => <CardSkeleton key={i} />)}
+                          </div>
+                        ) : (
+                          <div style={{ display: "grid", gap: 5 }}>
+                            {Array.from({ length: 7 }).map((_, i) => <RowSkeleton key={i} />)}
+                          </div>
+                        )}
+                      </>
                     ) : error && !showNew ? (
                       <div style={{ color: "#fca5a5", padding: 18 }}>{error}</div>
                     ) : visibleList.length === 0 ? (
                       <div style={{
-                        minHeight: 220,
+                        minHeight: 240,
                         display: "grid",
                         placeItems: "center",
                         border: `1px dashed ${C.border}`,
-                        borderRadius: 10,
+                        borderRadius: 12,
                         color: C.dim,
-                        background: "rgba(255,255,255,0.015)",
+                        background: "rgba(255,255,255,0.012)",
                         fontSize: 12,
                         textAlign: "center",
-                        gap: 8,
+                        padding: 28,
                       }}>
-                        <div>
-                          <ShoppingCart size={28} color={C.border2} style={{ marginBottom: 10 }} />
-                          <div>No hay solicitudes para mostrar</div>
+                        <div style={{ display: "grid", justifyItems: "center", gap: 10, maxWidth: 320 }}>
+                          <div style={{
+                            width: 48, height: 48, borderRadius: 12,
+                            display: "grid", placeItems: "center",
+                            background: "rgba(245,158,11,0.08)",
+                            border: "1px solid rgba(245,158,11,0.18)",
+                            color: C.amber,
+                          }}>
+                            <ShoppingCart size={20} />
+                          </div>
+                          <div style={{ color: C.muted, fontWeight: 700, fontSize: 13 }}>
+                            No hay solicitudes para mostrar
+                          </div>
+                          {!manager ? (
+                            <div style={{ fontSize: 11.5, color: C.dim, lineHeight: 1.5 }}>
+                              {activeTab === "mine"
+                                ? "Cuando crees un pedido aparecerá acá."
+                                : "Cuando te sumen como copia a un pedido, lo vas a ver acá."}
+                            </div>
+                          ) : (
+                            <div style={{ fontSize: 11.5, color: C.dim, lineHeight: 1.5 }}>
+                              No hay pedidos que coincidan con los filtros actuales.
+                            </div>
+                          )}
                           {!manager && archivedCount > 0 && !showArchived && (
-                            <div style={{ marginTop: 6, fontSize: 11, color: C.dim }}>
-                              Hay {archivedCount} archivada{archivedCount > 1 ? "s" : ""} —{" "}
-                              <span
-                                role="button"
-                                onClick={() => setShowArchived(true)}
-                                style={{ color: C.blue, cursor: "pointer", textDecoration: "underline" }}
-                              >
-                                ver
-                              </span>
-                        {unreadIds.size > 0 && (
-                          <span style={{ color: C.dim, fontSize: 10 }}>
-                            <span style={{ color: C.violet, fontWeight: 700, fontFamily: C.mono }}>{unreadIds.size}</span> sin leer
-                          </span>
-                        )}
-                      </div>
+                            <button
+                              type="button"
+                              onClick={() => setShowArchived(true)}
+                              style={{
+                                marginTop: 4,
+                                background: "transparent",
+                                border: `1px solid ${C.border2}`,
+                                color: C.blue,
+                                fontSize: 11,
+                                fontWeight: 700,
+                                borderRadius: 7,
+                                padding: "6px 12px",
+                                cursor: "pointer",
+                                display: "inline-flex",
+                                alignItems: "center",
+                                gap: 6,
+                              }}
+                            >
+                              <Archive size={12} />
+                              Ver {archivedCount} archivado{archivedCount > 1 ? "s" : ""}
+                            </button>
                           )}
                         </div>
                       </div>

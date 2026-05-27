@@ -19,6 +19,8 @@ import {
   uploadPurchaseLogInvoice,
   usernameOf,
 } from "@/features/compras/purchaseRequestsApi";
+import { useToast } from "@/components/ui/Toast";
+import { useConfirm } from "@/components/ui/ConfirmDialog";
 
 const C = {
   bg: "#09090b",
@@ -38,6 +40,8 @@ const C = {
 };
 
 export default function PurchaseLogPanel({ profile }) {
+  const toast = useToast();
+  const confirm = useConfirm();
   const [entries, setEntries] = useState([]);
   const [loading, setLoading] = useState(true);
   const [showForm, setShowForm] = useState(false);
@@ -52,8 +56,11 @@ export default function PurchaseLogPanel({ profile }) {
     try {
       const data = await fetchPurchaseLog();
       setEntries(data);
-    } catch { /* ignore */ }
-    setLoading(false);
+    } catch (err) {
+      toast.error(err.message || "No se pudo cargar el registro de compras.");
+    } finally {
+      setLoading(false);
+    }
   }
 
   function resetForm() {
@@ -83,18 +90,31 @@ export default function PurchaseLogPanel({ profile }) {
         invoice_path: invoice_path || null,
       };
       await createPurchaseLog(entry);
+      toast.success("Compra registrada");
       resetForm();
       load();
-    } catch { /* ignore */ }
-    setSaving(false);
+    } catch (err) {
+      toast.error(err.message || "No se pudo guardar la compra.");
+    } finally {
+      setSaving(false);
+    }
   }
 
   async function handleDelete(id) {
-    if (!confirm("¿Eliminar este registro?")) return;
+    const ok = await confirm({
+      title: "Eliminar registro",
+      message: "Esto borra la compra manual del log.",
+      confirmLabel: "Eliminar",
+      tone: "danger",
+    });
+    if (!ok) return;
     try {
       await deletePurchaseLog(id);
+      toast.success("Registro eliminado");
       load();
-    } catch { /* ignore */ }
+    } catch (err) {
+      toast.error(err.message || "No se pudo eliminar el registro.");
+    }
   }
 
   const thisMonth = entries.filter((e) => {
