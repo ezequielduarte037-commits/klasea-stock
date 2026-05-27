@@ -393,8 +393,10 @@ export default function PurchaseRequestDetail({ requestId, profile, users = [], 
             users,
           );
         } catch (e) {
-          // No bloqueamos el flujo si el comentario falla; el cambio ya quedó persistido.
+          // No bloqueamos el flujo: el cambio de prioridad ya quedó persistido.
+          // Avisamos al usuario que el mensaje al chat falló (no se pierde silencioso).
           console.warn("No se pudo registrar el cambio de prioridad como comentario:", e);
+          toast.warning("Prioridad cambiada, pero no se pudo publicar el mensaje en el chat.");
         }
 
         notifyComprasEmail({

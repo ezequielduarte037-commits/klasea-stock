@@ -85,9 +85,11 @@ export async function uploadPurchaseRequestPhoto(file, userId) {
 }
 
 export async function createPurchaseRequest({ form, ccUserIds = [], photoFile }) {
-  const { data: auth, error: authError } = await supabase.auth.getUser();
+  // Usamos getSession (lee de localStorage) en vez de getUser (golpea servidor y
+  // puede gatillar un refresh que invalide la sesión si el refresh token está roto).
+  const { data: { session } = {}, error: authError } = await supabase.auth.getSession();
   if (authError) throw authError;
-  const userId = auth?.user?.id;
+  const userId = session?.user?.id;
   if (!userId) throw new Error("No hay usuario autenticado.");
 
   const { photoUrl, photoPath } = await uploadPurchaseRequestPhoto(photoFile, userId);
@@ -167,11 +169,11 @@ export async function updatePurchaseRequest(requestId, patch) {
 }
 
 export async function addRequestFollower(requestId, userId) {
-  const { data: auth } = await supabase.auth.getUser();
+  const { data: { session } = {} } = await supabase.auth.getSession();
   const { error } = await supabase
     .from("request_followers")
     .upsert(
-      { request_id: requestId, user_id: userId, added_by: auth?.user?.id || null },
+      { request_id: requestId, user_id: userId, added_by: session?.user?.id || null },
       { onConflict: "request_id,user_id", ignoreDuplicates: true },
     );
 
@@ -204,9 +206,12 @@ export async function addRequestComment(requestId, body, users = []) {
   const clean = body.trim();
   if (!clean) return null;
 
-  const { data: auth, error: authError } = await supabase.auth.getUser();
+  // getSession lee localStorage (no dispara refresh ni cierra sesión si el
+  // refresh token está vencido). Solo necesitamos el uid para llenar author_id;
+  // la validación real la hace RLS contra auth.uid() del JWT del request.
+  const { data: { session } = {}, error: authError } = await supabase.auth.getSession();
   if (authError) throw authError;
-  const userId = auth?.user?.id;
+  const userId = session?.user?.id;
   if (!userId) throw new Error("No hay usuario autenticado.");
 
   const { data: comment, error } = await supabase
