@@ -2,6 +2,7 @@ import { useEffect, useMemo, useState, useRef } from "react";
 import { supabase } from "@/supabaseClient";
 import Sidebar from "@/components/Sidebar";
 import { useResponsive } from "@/hooks/useResponsive";
+import { hasAdminAccess } from "@/lib/permissions";
 import jsPDF from "jspdf";
 import autoTable from "jspdf-autotable";
 
@@ -244,8 +245,8 @@ function PiezaModal({ pieza, onClose, onSave, esAdmin }) {
 export default function MarmoleriaScreen({ profile, signOut }) {
   const { isMobile } = useResponsive();
   const role    = profile?.role ?? "invitado";
-  const isAdmin = !!profile?.is_admin;
-  const esAdmin = isAdmin || role === "admin" || role === "oficina";
+  const isAdmin = hasAdminAccess(profile);
+  const esAdmin = isAdmin || role === "oficina";
 
   // Data
   const [lineas,   setLineas]   = useState([]);

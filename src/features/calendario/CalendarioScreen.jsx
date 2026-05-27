@@ -9,6 +9,7 @@ import { useEffect, useState, useMemo } from "react";
 import { supabase } from "@/supabaseClient";
 import Sidebar from "@/components/Sidebar";
 import { useResponsive } from "@/hooks/useResponsive";
+import { hasAdminAccess } from "@/lib/permissions";
 
 // ─── Design tokens ────────────────────────────────────────────────────────────
 const C = {
@@ -464,7 +465,7 @@ function WeekView({ year, month, startOfWeek, eventos, selDate, onSelectDate, on
 // ─── Main ─────────────────────────────────────────────────────────────────────
 export default function CalendarioScreen({ profile, signOut }) {
   const { isMobile } = useResponsive();
-  const isAdmin = !!profile?.is_admin;
+  const isAdmin = hasAdminAccess(profile);
   const role    = profile?.role ?? "invitado";
   const esAdmin = isAdmin || role === "admin" || role === "oficina";
 

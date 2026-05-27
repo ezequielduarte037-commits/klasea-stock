@@ -2,6 +2,7 @@
 import { Link, useLocation } from "react-router-dom";
 import logoK from "@/assets/logos/logo-k.png";
 import { useResponsive } from "@/hooks/useResponsive";
+import { hasAdminAccess } from "@/lib/permissions";
 
 // ─── SVG ICONS ────────────────────────────────────────────────────────────────
 function Icon({ id, color = "currentColor", size = 14 }) {
@@ -138,7 +139,7 @@ export default function Sidebar({ profile, signOut }) {
   useEffect(() => { if (!isMobile) setMenuOpen(false); }, [isMobile]);
 
   const role     = profile?.role ?? "invitado";
-  const isAdmin  = !!profile?.is_admin;
+  const isAdmin  = hasAdminAccess(profile);
   const username = profile?.username ?? "—";
   const esPanol   = role === "panol";
   const esTecnica = role === "tecnica" || role === "oficina";

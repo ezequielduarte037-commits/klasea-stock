@@ -17,6 +17,7 @@ import { useNavigate } from "react-router-dom";
 import { supabase } from "@/supabaseClient";
 import Sidebar from "@/components/Sidebar";
 import { useResponsive } from "@/hooks/useResponsive";
+import { hasAdminAccess } from "@/lib/permissions";
 import logoKlasea from "@/assets/logos/logo-klasea.png";
 import logoK      from "@/assets/logos/logo-k.png";
 
@@ -727,7 +728,7 @@ export default function HomeScreen({ profile, signOut }) {
   const clock = useClock();
 
   const role      = profile?.role ?? "invitado";
-  const isAdmin   = !!profile?.is_admin;
+  const isAdmin   = hasAdminAccess(profile);
   const username  = profile?.username ?? "—";
   const esTecnica = role==="tecnica" || role==="oficina";
   const esAdmin   = isAdmin || role==="admin";

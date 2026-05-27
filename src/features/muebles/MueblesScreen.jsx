@@ -4,6 +4,7 @@ import { jsPDF } from "jspdf";
 import autoTable from "jspdf-autotable";
 import Sidebar from "@/components/Sidebar";
 import { useResponsive } from "@/hooks/useResponsive";
+import { hasAdminAccess } from "@/lib/permissions";
 import EnchapadoView from "@/features/muebles/EnchapadoView";
 
 // ─── Design tokens ─────────────────────────────────────────────────
@@ -616,7 +617,7 @@ function ObsInline({ value, rowId, onSave }) {
 // ─── Main ──────────────────────────────────────────────────────────
 export default function MueblesScreen({ profile, signOut }) {
   const { isMobile } = useResponsive();
-  const isAdmin = !!profile?.is_admin;
+  const isAdmin = hasAdminAccess(profile);
   const role    = profile?.role ?? "invitado";
   const esAdmin = isAdmin || role === "admin" || role === "oficina" || role === "tecnica";
 

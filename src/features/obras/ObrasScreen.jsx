@@ -13,6 +13,7 @@ import { useEffect, useMemo, useState, useCallback, useRef } from "react";
 import { supabase } from "@/supabaseClient";
 import Sidebar from "@/components/Sidebar";
 import { useResponsive } from "@/hooks/useResponsive";
+import { hasAdminAccess } from "@/lib/permissions";
 import PlanificacionView      from "@/features/obras/PlanificacionView";
 import MapaProduccion         from "@/features/obras/MapaProduccion";
 import PanelDetallesObra      from "@/features/obras/PanelDetallesObra";
@@ -1758,8 +1759,8 @@ function OrdenesCompraView({ ordenes, obras, esGestion, onEditOC, onRefresh }) {
 // ─── COMPONENTE PRINCIPAL ─────────────────────────────────────────────────────
 export default function ObrasScreen({ profile, signOut }) {
   const { isMobile } = useResponsive();
-  const isAdmin   = !!profile?.is_admin;
-  const esGestion = isAdmin || ["admin", "oficina", "tecnica"].includes(profile?.role);
+  const isAdmin   = hasAdminAccess(profile);
+  const esGestion = isAdmin || profile?.role === "oficina";
 
   const [obras,    setObras]    = useState([]);
   const [etapas,   setEtapas]   = useState([]);

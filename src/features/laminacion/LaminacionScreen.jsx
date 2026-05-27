@@ -3,6 +3,7 @@ import { useLocation } from "react-router-dom";
 import { supabase } from "@/supabaseClient";
 import Sidebar from "@/components/Sidebar";
 import { useResponsive } from "@/hooks/useResponsive";
+import { hasAdminAccess } from "@/lib/permissions";
 import AjusteInventarioModal from "@/features/inventario/AjusteInventarioModal";
 import ComprasSugeridasPanel from "@/features/inventario/ComprasSugeridasPanel";
 import EncargadosTab from "@/features/inventario/EncargadosTab";
@@ -115,8 +116,8 @@ export default function LaminacionScreen({ profile, signOut }) {
   const location = useLocation();
   const { isMobile } = useResponsive();
   const role = profile?.role ?? "invitado";
-  const isAdmin = !!profile?.is_admin;
-  const puedeCargar = isAdmin || role === "admin" || role === "panol";
+  const isAdmin = hasAdminAccess(profile);
+  const puedeCargar = isAdmin || role === "panol";
 
   // Tabs disponibles según rol: pañol ve Stock (solo lectura), Ingresos y Egresos
   const esPanol = role === "panol" && !isAdmin;

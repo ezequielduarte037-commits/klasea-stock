@@ -2,6 +2,7 @@ import { useState, useMemo } from "react";
 import Sidebar from "@/components/Sidebar";
 import { useResponsive } from "@/hooks/useResponsive";
 import useAlertas from "@/hooks/useAlertas";
+import { hasAdminAccess } from "@/lib/permissions";
 
 // ─── PALETA (igual que ObrasScreen) ─────────────────────────────────────────
 const C = {
@@ -49,7 +50,7 @@ const filterBtn = (active, color) => ({
 
 export default function AlertasScreen({ profile, signOut }) {
   const { isMobile } = useResponsive();
-  const isAdmin = !!profile?.is_admin;
+  const isAdmin = hasAdminAccess(profile);
   const { alertas, stats, loading, resolverAlerta, recargar } = useAlertas();
 
   const [filtroGravedad, setFiltroGravedad] = useState("todas");

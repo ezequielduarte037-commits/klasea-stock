@@ -9,6 +9,7 @@ import { useEffect, useMemo, useState } from "react";
 import { supabase } from "@/supabaseClient";
 import Sidebar from "@/components/Sidebar";
 import { useResponsive } from "@/hooks/useResponsive";
+import { hasAdminAccess } from "@/lib/permissions";
 import NotificacionesBell from "@/components/NotificacionesBell";
 
 function num(v) { const x = Number(v); return Number.isFinite(x) ? x : 0; }
@@ -625,8 +626,8 @@ function DetalleObra({ obraSel, tablaObra, obraStats, esGestion, editNec, setEdi
 export default function ObrasLaminacionScreen({ profile, signOut }) {
   const { isMobile } = useResponsive();
   const role      = profile?.role ?? "invitado";
-  const isAdmin   = !!profile?.is_admin;
-  const esGestion = isAdmin || role === "admin" || role === "oficina";
+  const isAdmin   = hasAdminAccess(profile);
+  const esGestion = isAdmin || role === "oficina";
 
   const [obras,         setObras]         = useState([]);
   const [materiales,    setMateriales]    = useState([]);

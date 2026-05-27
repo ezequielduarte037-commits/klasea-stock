@@ -2,6 +2,7 @@ import { useEffect, useMemo, useState } from "react";
 import { supabase } from "@/supabaseClient";
 import Sidebar from "@/components/Sidebar";
 import { useResponsive } from "@/hooks/useResponsive";
+import { hasAdminAccess } from "@/lib/permissions";
 
 // ─── PALETA ──────────────────────────────────────────────────────────────────
 const C = {
@@ -40,7 +41,7 @@ const ROLES = ["todos", "admin", "oficina", "laminacion", "muebles", "panol", "m
 export default function ProcedimientosScreen({ profile, signOut }) {
   const { isMobile } = useResponsive();
   const role    = profile?.role ?? "invitado";
-  const isAdmin = !!profile?.is_admin || role === "admin";
+  const isAdmin = hasAdminAccess(profile);
 
   const [items,   setItems]   = useState([]);
   const [loading, setLoading] = useState(true);

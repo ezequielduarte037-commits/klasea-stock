@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 import useAlertas from "@/hooks/useAlertas";
+import { hasAdminAccess } from "@/lib/permissions";
 
 const GRAVEDAD = {
   critical: { color: "#ff453a", icon: "🔴" },
@@ -21,7 +22,7 @@ export default function NotificacionesBell({ profile }) {
     return () => document.removeEventListener("mousedown", handleClick);
   }, []);
 
-  const isAdmin = !!profile?.is_admin;
+  const isAdmin = hasAdminAccess(profile);
   const total   = stats.total;
   const criticas = stats.criticas;
 
