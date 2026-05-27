@@ -20,7 +20,12 @@ import { useResponsive } from "@/hooks/useResponsive";
 import PurchaseRequestDetail from "@/features/compras/PurchaseRequestDetail";
 import PurchaseLogPanel from "@/features/compras/PurchaseLogPanel";
 import {
+  addRequestItem,
   createPurchaseRequest,
+  deletePurchaseRequest,
+  fetchAnalyticsStats,
+  fetchMonthlySpending,
+  fetchOverdueRequests,
   fetchProfiles,
   fetchProjects,
   fetchPurchaseRequests,
@@ -28,17 +33,12 @@ import {
   notifyComprasEmail,
   REQUEST_PRIORITIES,
   REQUEST_STATUSES,
+  updatePurchaseRequest,
   usernameOf,
 } from "@/features/compras/purchaseRequestsApi";
 
 import ReactQuill from "react-quill-new";
 import "react-quill-new/dist/quill.snow.css";
-
-import {
-  fetchAnalyticsStats,
-  fetchMonthlySpending,
-  fetchOverdueRequests,
-} from "@/features/compras/purchaseRequestsApi";
 
 const C = {
   bg: "#09090b",
@@ -450,12 +450,19 @@ export default function PurchaseRequestsScreen({ profile, signOut }) {
   const [viewMode, setViewMode] = useState("grid");
   const [userSearch, setUserSearch] = useState("");
   const [showArchived, setShowArchived] = useState(false);
-  const [readMap, setReadMap] = useState({});
+  const [readMap, setReadMap] = useState(() => {
+    try { return JSON.parse(localStorage.getItem("pr_readMap") || "{}"); } catch { return {}; }
+  });
   const [managerTab, setManagerTab] = useState("lista");
   const [analytics, setAnalytics] = useState(null);
   const [monthlySpending, setMonthlySpending] = useState([]);
   const [overdueItems, setOverdueItems] = useState([]);
   const [analyticsLoading, setAnalyticsLoading] = useState(false);
+  const [createItems, setCreateItems] = useState([]);
+  const [newItemDesc, setNewItemDesc] = useState("");
+  const [newItemQty, setNewItemQty] = useState("");
+  const [newItemUnit, setNewItemUnit] = useState("unidad");
+  const [newItemLink, setNewItemLink] = useState("");
 
   const [filters, setFilters] = useState({
     q: "",
@@ -470,7 +477,13 @@ export default function PurchaseRequestsScreen({ profile, signOut }) {
   const manager = isPurchaseManager(profile);
 
   function markRead(requestId, lastAuthorId) {
-    if (lastAuthorId) setReadMap((prev) => ({ ...prev, [requestId]: lastAuthorId }));
+    if (lastAuthorId) {
+      setReadMap((prev) => {
+        const next = { ...prev, [requestId]: lastAuthorId };
+        localStorage.setItem("pr_readMap", JSON.stringify(next));
+        return next;
+      });
+    }
   }
 
   const unreadIds = useMemo(() => {
@@ -577,6 +590,9 @@ export default function PurchaseRequestsScreen({ profile, signOut }) {
     setError("");
     try {
       const request = await createPurchaseRequest({ form, ccUserIds, photoFile });
+      if (createItems.length) {
+        await Promise.all(createItems.map((item) => addRequestItem(request.id, item)));
+      }
       notifyComprasEmail({
         type: "new_request",
         requestId: request.id,
@@ -588,6 +604,7 @@ export default function PurchaseRequestsScreen({ profile, signOut }) {
       setForm(emptyForm);
       setCcUserIds([]);
       setPhotoFile(null);
+      setCreateItems([]);
       setShowNew(false);
       await loadAll();
       setSelectedId(request.id);
@@ -596,6 +613,20 @@ export default function PurchaseRequestsScreen({ profile, signOut }) {
     } finally {
       setSaving(false);
     }
+  }
+
+  function addCreateItem() {
+    const desc = newItemDesc.trim();
+    if (!desc) return;
+    setCreateItems((prev) => [...prev, { description: desc, quantity: newItemQty.trim() || null, unit: newItemUnit, link_url: newItemLink.trim() || null }]);
+    setNewItemDesc("");
+    setNewItemQty("");
+    setNewItemUnit("unidad");
+    setNewItemLink("");
+  }
+
+  function removeCreateItem(i) {
+    setCreateItems((prev) => prev.filter((_, idx) => idx !== i));
   }
 
   function toggleCc(userId) {
@@ -805,7 +836,7 @@ export default function PurchaseRequestsScreen({ profile, signOut }) {
           <div style={{
             minHeight: 0,
             display: "grid",
-            gridTemplateColumns: showNew ? "390px 1fr" : "0 1fr",
+            gridTemplateColumns: showNew ? "480px 1fr" : "0 1fr",
             transition: "grid-template-columns .18s ease",
             overflow: "hidden",
           }}>
@@ -846,6 +877,75 @@ export default function PurchaseRequestsScreen({ profile, signOut }) {
                         }}
                         placeholder="Detalle del producto, cantidades, especificaciones..."
                       />
+                    </div>
+                  </div>
+
+                  {/* ─── CREATE ITEMS ─────────────────────────────── */}
+                  <div>
+                    <div style={labelStyle}>Items del pedido</div>
+                    <div style={{
+                      border: `1px solid ${C.border}`,
+                      borderRadius: 8,
+                      background: C.panel,
+                      overflow: "hidden",
+                    }}>
+                      {createItems.map((item, i) => (
+                        <div key={i} style={{
+                          display: "grid", gridTemplateColumns: "1fr 60px auto",
+                          gap: 6, alignItems: "center",
+                          padding: "6px 8px",
+                          borderBottom: `1px solid ${C.border}`,
+                          fontSize: 12,
+                        }}>
+                          <div>
+                            <span style={{ color: C.text }}>{item.description}</span>
+                            {item.link_url && (
+                              <a href={item.link_url} target="_blank" rel="noreferrer" style={{
+                                display: "inline-flex", alignItems: "center", gap: 3,
+                                marginLeft: 6, color: C.amber, fontSize: 9, textDecoration: "none",
+                              }}>
+                                <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"/><path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"/></svg>
+                                Enlace
+                              </a>
+                            )}
+                          </div>
+                          <span style={{ color: C.dim, fontFamily: C.mono, fontSize: 11 }}>
+                            {item.quantity} {item.unit}
+                          </span>
+                          <button type="button" onClick={() => removeCreateItem(i)}
+                            style={{ padding: "2px 6px", borderRadius: 4, cursor: "pointer", fontSize: 11,
+                              border: `1px solid transparent`, background: "transparent", color: C.dim }}>✕</button>
+                        </div>
+                      ))}
+                      <div style={{
+                        display: "grid", gridTemplateColumns: "1fr 70px 100px auto",
+                        gap: 5, padding: 7,
+                      }}>
+                        <div style={{ display: "grid", gap: 3 }}>
+                          <input value={newItemDesc} onChange={e => setNewItemDesc(e.target.value)}
+                            onKeyDown={e => { if (e.key === "Enter") { e.preventDefault(); addCreateItem(); } }}
+                            placeholder="Descripción del ítem"
+                            style={{ padding: "6px 8px", borderRadius: 5, border: `1px solid ${C.border}`, background: C.bg, color: C.text, fontSize: 12 }} />
+                          <input value={newItemLink} onChange={e => setNewItemLink(e.target.value)}
+                            placeholder="Enlace (opcional)"
+                            style={{ padding: "6px 8px", borderRadius: 5, border: `1px solid ${C.border}`, background: C.bg, color: C.amber, fontSize: 11 }} />
+                        </div>
+                        <input value={newItemQty} onChange={e => setNewItemQty(e.target.value)}
+                          placeholder="Cant."
+                          style={{ padding: "6px 8px", borderRadius: 5, border: `1px solid ${C.border}`, background: C.bg, color: C.text, fontSize: 12 }} />
+                        <select value={newItemUnit} onChange={e => setNewItemUnit(e.target.value)}
+                          style={{ padding: "6px 8px", borderRadius: 5, border: `1px solid ${C.border}`, background: C.bg, color: C.text, fontSize: 12 }}>
+                          <option value="unidad">unidad</option>
+                          <option value="par">par</option>
+                          <option value="metro">metro</option>
+                          <option value="m²">m²</option>
+                          <option value="kg">kg</option>
+                          <option value="litro">litro</option>
+                        </select>
+                        <button type="button" onClick={addCreateItem}
+                          style={{ padding: "6px 10px", borderRadius: 5, cursor: "pointer", fontSize: 11,
+                            border: `1px solid ${C.blue}`, background: "rgba(59,130,246,0.15)", color: C.blue, fontWeight: 600 }}>+</button>
+                      </div>
                     </div>
                   </div>
 

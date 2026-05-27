@@ -1759,7 +1759,7 @@ function OrdenesCompraView({ ordenes, obras, esGestion, onEditOC, onRefresh }) {
 export default function ObrasScreen({ profile, signOut }) {
   const { isMobile } = useResponsive();
   const isAdmin   = !!profile?.is_admin;
-  const esGestion = isAdmin || ["admin", "oficina"].includes(profile?.role);
+  const esGestion = isAdmin || ["admin", "oficina", "tecnica"].includes(profile?.role);
 
   const [obras,    setObras]    = useState([]);
   const [etapas,   setEtapas]   = useState([]);
@@ -2410,7 +2410,7 @@ export default function ObrasScreen({ profile, signOut }) {
   if (showHome) return (
     <div style={{ position: "fixed", inset: 0, background: C.bg, color: C.t0, fontFamily: C.sans, zIndex: 0 }}>
       <div style={{ display: "flex", height: "100vh", overflow: "hidden" }}>
-        <div style={{ width: isMobile ? 0 : 220, flexShrink: 0, height: "100vh", overflow: "visible" }}>
+        <div style={{ width: isMobile ? 0 : 280, flexShrink: 0, height: "100vh", overflow: "visible" }}>
           <Sidebar profile={profile} signOut={signOut} />
         </div>
         <div style={{ flex: 1, display: "flex", flexDirection: "column", height: "100vh", overflow: "hidden", minWidth: 0 }}>
@@ -2461,7 +2461,7 @@ export default function ObrasScreen({ profile, signOut }) {
       <div className="bg-glow" />
 
       <div style={{ display: "flex", height: "100vh", overflow: "hidden", position: "relative", zIndex: 1 }}>
-        <div style={{ width: isMobile ? 0 : 220, flexShrink: 0, height: "100vh", overflow: "visible" }}>
+        <div style={{ width: isMobile ? 0 : 280, flexShrink: 0, height: "100vh", overflow: "visible" }}>
           <Sidebar profile={profile} signOut={signOut} />
         </div>
 
@@ -2511,10 +2511,10 @@ export default function ObrasScreen({ profile, signOut }) {
                 <span style={{display:"flex",alignItems:"center",gap:5}}><NavIcon.Cart />Compras</span>
                 {alertCountOC > 0 && <span style={{ position: "absolute", top: -4, right: -4, minWidth: 16, height: 16, borderRadius: 8, background: C.red, color: "#fff", fontSize: 9, fontWeight: 700, display: "flex", alignItems: "center", justifyContent: "center", padding: "0 4px" }}>{alertCountOC}</span>}
               </button>
-              <button type="button" onClick={() => setMainView("planificacion")} style={{ padding: "5px 14px", borderRadius: 7, cursor: "pointer", fontSize: 11, fontFamily: C.sans, border: mainView === "planificacion" ? `1px solid rgba(245,158,11,0.45)` : `1px solid ${C.b0}`, background: mainView === "planificacion" ? "rgba(245,158,11,0.10)" : "transparent", color: mainView === "planificacion" ? C.amber : C.t1, position: "relative", transition: "all 0.18s", boxShadow: mainView === "planificacion" ? "0 0 16px rgba(245,158,11,0.12)" : "none" }}>
+              {!["laminacion"].includes(profile?.role) && <button type="button" onClick={() => setMainView("planificacion")} style={{ padding: "5px 14px", borderRadius: 7, cursor: "pointer", fontSize: 11, fontFamily: C.sans, border: mainView === "planificacion" ? `1px solid rgba(245,158,11,0.45)` : `1px solid ${C.b0}`, background: mainView === "planificacion" ? "rgba(245,158,11,0.10)" : "transparent", color: mainView === "planificacion" ? C.amber : C.t1, position: "relative", transition: "all 0.18s", boxShadow: mainView === "planificacion" ? "0 0 16px rgba(245,158,11,0.12)" : "none" }}>
                 Planificación
                 {alertCountAvisos > 0 && <span style={{ position: "absolute", top: -4, right: -4, minWidth: 16, height: 16, borderRadius: 8, background: C.red, color: "#fff", fontSize: 9, fontWeight: 700, display: "flex", alignItems: "center", justifyContent: "center", padding: "0 4px" }}>{alertCountAvisos}</span>}
-              </button>
+              </button>}
               <button type="button" onClick={() => setMainView("piezas_lam")} style={{ padding: "5px 14px", borderRadius: 7, cursor: "pointer", fontSize: 11, fontFamily: C.sans, border: mainView === "piezas_lam" ? `1px solid rgba(16,185,129,0.45)` : `1px solid ${C.b0}`, background: mainView === "piezas_lam" ? "rgba(16,185,129,0.10)" : "transparent", color: mainView === "piezas_lam" ? C.green : C.t1, transition: "all 0.18s", boxShadow: mainView === "piezas_lam" ? "0 0 16px rgba(16,185,129,0.12)" : "none" }}>
                 <span style={{display:"flex",alignItems:"center",gap:5}}>Piezas Laminación</span>
               </button>

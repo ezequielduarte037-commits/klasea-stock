@@ -18,7 +18,12 @@ import {
   addRequestComment,
   addRequestFollower,
   fetchPurchaseRequestDetail,
+  fetchRequestItems,
+  addRequestItem,
+  updateRequestItem,
+  deleteRequestItem,
   isPurchaseManager,
+  ITEM_STATUSES,
   removeRequestFollower,
   REQUEST_PRIORITIES,
   REQUEST_STATUSES,
@@ -26,6 +31,7 @@ import {
   notifyComprasEmail,
   updatePurchaseRequest,
   uploadInvoice,
+  uploadItemImage,
   usernameOf,
 } from "@/features/compras/purchaseRequestsApi";
 import { printPurchaseRequest } from "@/features/compras/printPurchaseRequest";
@@ -268,6 +274,15 @@ export default function PurchaseRequestDetail({ requestId, profile, users = [], 
   const [message, setMessage] = useState("");
   const [sending, setSending] = useState(false);
   const [newFollowerId, setNewFollowerId] = useState("");
+  const [items, setItems] = useState([]);
+  const [newItemDesc, setNewItemDesc] = useState("");
+  const [newItemQty, setNewItemQty] = useState("");
+  const [newItemUnit, setNewItemUnit] = useState("unidad");
+  const [showAddItem, setShowAddItem] = useState(false);
+  const [editingItem, setEditingItem] = useState(null);
+  const [editLinkUrl, setEditLinkUrl] = useState("");
+  const [editImageFile, setEditImageFile] = useState(null);
+  const [editNotes, setEditNotes] = useState("");
   const bottomRef = useRef(null);
 
   const manager = isPurchaseManager(profile);
@@ -277,8 +292,12 @@ export default function PurchaseRequestDetail({ requestId, profile, users = [], 
     setError("");
     setLoading(true);
     try {
-      const data = await fetchPurchaseRequestDetail(requestId);
+      const [data, itemsData] = await Promise.all([
+        fetchPurchaseRequestDetail(requestId),
+        fetchRequestItems(requestId),
+      ]);
       setRequest(data);
+      setItems(itemsData);
     } catch (err) {
       setError(err.message || "No se pudo cargar la solicitud.");
     } finally {
@@ -294,6 +313,7 @@ export default function PurchaseRequestDetail({ requestId, profile, users = [], 
       .on("postgres_changes", { event: "*", schema: "public", table: "purchase_requests", filter: `id=eq.${requestId}` }, load)
       .on("postgres_changes", { event: "*", schema: "public", table: "request_followers", filter: `request_id=eq.${requestId}` }, load)
       .on("postgres_changes", { event: "*", schema: "public", table: "request_comments", filter: `request_id=eq.${requestId}` }, load)
+      .on("postgres_changes", { event: "*", schema: "public", table: "purchase_request_items", filter: `request_id=eq.${requestId}` }, load)
       .subscribe();
     return () => { supabase.removeChannel(channel); };
   }, [requestId]);
@@ -384,6 +404,76 @@ export default function PurchaseRequestDetail({ requestId, profile, users = [], 
       setError(err.message);
     } finally {
       setSending(false);
+    }
+  }
+
+  const canEditItems = manager || request?.created_by === profile?.id;
+
+  async function handleAddItem(e) {
+    e.preventDefault();
+    if (!newItemDesc.trim()) return;
+    setError("");
+    try {
+      await addRequestItem(request.id, {
+        description: newItemDesc.trim(),
+        quantity: newItemQty.trim() || null,
+        unit: newItemUnit,
+      });
+      setNewItemDesc("");
+      setNewItemQty("");
+      setNewItemUnit("unidad");
+      setShowAddItem(false);
+      await load();
+    } catch (err) {
+      setError(err.message);
+    }
+  }
+
+  async function handleUpdateItemStatus(item, status) {
+    setError("");
+    try {
+      await updateRequestItem(item.id, { status });
+      await load();
+    } catch (err) {
+      setError(err.message);
+    }
+  }
+
+  async function handleDeleteItem(itemId) {
+    if (!confirm("Eliminar este ítem?")) return;
+    setError("");
+    try {
+      await deleteRequestItem(itemId);
+      await load();
+    } catch (err) {
+      setError(err.message);
+    }
+  }
+
+  function startEditItem(item) {
+    setEditingItem(item);
+    setEditLinkUrl(item.link_url || "");
+    setEditImageFile(null);
+    setEditNotes(item.notes || "");
+  }
+
+  async function handleSaveItem(e) {
+    e.preventDefault();
+    if (!editingItem) return;
+    setError("");
+    try {
+      const patch = { link_url: editLinkUrl.trim() || null, notes: editNotes.trim() || null };
+      if (editImageFile) {
+        const { imageUrl, imagePath } = await uploadItemImage(editImageFile, request.id);
+        patch.image_url = imageUrl;
+        patch.image_path = imagePath;
+      }
+      await updateRequestItem(editingItem.id, patch);
+      setEditingItem(null);
+      setEditImageFile(null);
+      await load();
+    } catch (err) {
+      setError(err.message);
     }
   }
 
@@ -889,6 +979,194 @@ export default function PurchaseRequestDetail({ requestId, profile, users = [], 
           </div>
 
           <div className="pr-chat-scroll" style={{ minHeight: 0, overflowY: "auto", padding: "16px 18px" }}>
+
+            {/* ─── ITEMS ──────────────────────────────────────────────── */}
+            <div style={{ marginBottom: items.length || showAddItem ? 20 : 0 }}>
+              <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 10 }}>
+                <span style={{ color: C.dim, fontSize: 9, letterSpacing: 1.8, textTransform: "uppercase", fontWeight: 750 }}>Items</span>
+                {items.length > 0 && <span style={{ color: C.dim, fontSize: 10, fontFamily: C.mono }}>{items.length}</span>}
+                <span style={{ flex: 1 }} />
+                {canEditItems && !showAddItem && (
+                  <button type="button" onClick={() => setShowAddItem(true)} style={{
+                    padding: "2px 10px", borderRadius: 5, cursor: "pointer", fontSize: 10,
+                    border: `1px solid ${C.border}`, background: C.panel, color: C.muted,
+                  }}>+ Item</button>
+                )}
+              </div>
+
+              {showAddItem && (
+                <form onSubmit={handleAddItem} style={{
+                  display: "grid", gridTemplateColumns: "1fr 70px 100px auto",
+                  gap: 6, marginBottom: 10,
+                  padding: 10, borderRadius: 8, border: `1px solid ${C.border}`,
+                  background: C.panel,
+                }}>
+                  <input value={newItemDesc} onChange={e => setNewItemDesc(e.target.value)}
+                    placeholder="Descripción del ítem"
+                    style={{ padding: "6px 8px", borderRadius: 5, border: `1px solid ${C.border}`, background: C.bg, color: C.text, fontSize: 12 }} />
+                  <input value={newItemQty} onChange={e => setNewItemQty(e.target.value)}
+                    placeholder="Cant."
+                    style={{ padding: "6px 8px", borderRadius: 5, border: `1px solid ${C.border}`, background: C.bg, color: C.text, fontSize: 12 }} />
+                  <select value={newItemUnit} onChange={e => setNewItemUnit(e.target.value)}
+                    style={{ padding: "6px 8px", borderRadius: 5, border: `1px solid ${C.border}`, background: C.bg, color: C.text, fontSize: 12 }}>
+                    <option value="unidad">unidad</option>
+                    <option value="par">par</option>
+                    <option value="metro">metro</option>
+                    <option value="m²">m²</option>
+                    <option value="kg">kg</option>
+                    <option value="litro">litro</option>
+                  </select>
+                  <div style={{ display: "flex", gap: 4 }}>
+                    <button type="submit" style={{
+                      padding: "6px 10px", borderRadius: 5, cursor: "pointer", fontSize: 11,
+                      border: `1px solid ${C.blue}`, background: "rgba(59,130,246,0.15)", color: C.blue, fontWeight: 600,
+                    }}>Agregar</button>
+                    <button type="button" onClick={() => { setShowAddItem(false); setNewItemDesc(""); setNewItemQty(""); }}
+                      style={{ padding: "6px 8px", borderRadius: 5, cursor: "pointer", fontSize: 11,
+                        border: `1px solid ${C.border}`, background: "transparent", color: C.dim }}>✕</button>
+                  </div>
+                </form>
+              )}
+
+              {items.map((item) => {
+                const st = ITEM_STATUSES.find(s => s.value === item.status) || ITEM_STATUSES[0];
+                const isEditing = editingItem?.id === item.id;
+                return (
+                  <div key={item.id} style={{
+                    display: "grid", gap: 6,
+                    padding: "8px 10px", marginBottom: 4,
+                    borderRadius: 6, border: `1px solid ${isEditing ? C.blue + "55" : C.border}`,
+                    background: isEditing ? "rgba(59,130,246,0.04)" : C.panel,
+                    transition: "all .12s",
+                  }}>
+                    <div style={{
+                      display: "grid", gridTemplateColumns: "auto 1fr auto auto",
+                      gap: 10, alignItems: "center",
+                    }}>
+                      <select
+                        value={item.status}
+                        onChange={e => handleUpdateItemStatus(item, e.target.value)}
+                        disabled={!canEditItems}
+                        style={{
+                          padding: "2px 22px 2px 8px",
+                          borderRadius: 5, fontSize: 10, fontWeight: 600,
+                          border: `1px solid ${st.color}44`,
+                          background: `${st.color}15`,
+                          color: st.color,
+                          cursor: canEditItems ? "pointer" : "default",
+                          appearance: canEditItems ? "auto" : "none",
+                          WebkitAppearance: canEditItems ? "auto" : "none",
+                        }}>
+                        {ITEM_STATUSES.map(s => (
+                          <option key={s.value} value={s.value}>{s.label}</option>
+                        ))}
+                      </select>
+                      <div>
+                        <div style={{ color: C.text, fontSize: 12, fontWeight: 600 }}>{item.description}</div>
+                        <div style={{ display: "flex", alignItems: "center", gap: 6, flexWrap: "wrap", marginTop: 2 }}>
+                          {(item.quantity || item.unit) && (
+                            <span style={{ color: C.dim, fontSize: 10, fontFamily: C.mono }}>
+                              {item.quantity} {item.unit}
+                            </span>
+                          )}
+                          {item.image_url && (
+                            <a href={item.image_url} target="_blank" rel="noreferrer" style={{
+                              display: "inline-flex", alignItems: "center", gap: 3,
+                              color: C.blue, fontSize: 9, textDecoration: "none",
+                            }}>
+                              <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="8.5" cy="8.5" r="1.5"/><path d="m21 15-5-5L5 21"/></svg>
+                              Foto
+                            </a>
+                          )}
+                          {item.link_url && (
+                            <a href={item.link_url} target="_blank" rel="noreferrer" style={{
+                              display: "inline-flex", alignItems: "center", gap: 3,
+                              color: C.amber, fontSize: 9, textDecoration: "none",
+                            }}>
+                              <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"/><path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"/></svg>
+                              Enlace
+                            </a>
+                          )}
+                          {item.notes && (
+                            <span style={{ color: C.dim, fontSize: 10, fontStyle: "italic" }}>{item.notes}</span>
+                          )}
+                        </div>
+                      </div>
+                      {canEditItems && (
+                        <button type="button" onClick={() => isEditing ? setEditingItem(null) : startEditItem(item)}
+                          title="Editar ítem"
+                          style={{
+                            padding: "3px 7px", borderRadius: 4, cursor: "pointer", fontSize: 10,
+                            border: `1px solid ${C.border}`, background: "transparent", color: isEditing ? C.blue : C.dim,
+                          }}>{isEditing ? "✕" : "✎"}</button>
+                      )}
+                      {canEditItems && (
+                        <button type="button" onClick={() => handleDeleteItem(item.id)}
+                          title="Eliminar ítem"
+                          style={{
+                            padding: 3, borderRadius: 4, cursor: "pointer", fontSize: 11,
+                            border: `1px solid transparent`, background: "transparent", color: C.dim,
+                          }}>✕</button>
+                      )}
+                    </div>
+
+                    {isEditing && (
+                      <form onSubmit={handleSaveItem} style={{
+                        display: "grid", gap: 6,
+                        padding: "8px 10px", marginTop: 2,
+                        borderRadius: 6, border: `1px solid ${C.border}`,
+                        background: C.panel2,
+                      }}>
+                        <div>
+                          <div style={{ color: C.dim, fontSize: 9, letterSpacing: 1.5, textTransform: "uppercase", marginBottom: 3, fontWeight: 700 }}>
+                            Enlace / Link
+                          </div>
+                          <input value={editLinkUrl} onChange={e => setEditLinkUrl(e.target.value)}
+                            placeholder="https://ejemplo.com/producto"
+                            style={{ width: "100%", padding: "6px 8px", borderRadius: 5, border: `1px solid ${C.border}`, background: C.bg, color: C.text, fontSize: 12 }} />
+                        </div>
+                        <div>
+                          <div style={{ color: C.dim, fontSize: 9, letterSpacing: 1.5, textTransform: "uppercase", marginBottom: 3, fontWeight: 700 }}>
+                            Foto del producto
+                          </div>
+                          <label style={{
+                            display: "flex", alignItems: "center", gap: 6,
+                            padding: "6px 8px", borderRadius: 5, border: `1px dashed ${C.border}`,
+                            background: C.bg, cursor: "pointer", fontSize: 12, color: C.dim,
+                          }}>
+                            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="8.5" cy="8.5" r="1.5"/><path d="m21 15-5-5L5 21"/></svg>
+                            {editImageFile ? editImageFile.name : item.image_url ? "Reemplazar foto" : "Subir foto"}
+                            <input type="file" accept="image/*" onChange={e => setEditImageFile(e.target.files?.[0] || null)} style={{ display: "none" }} />
+                            {item.image_url && !editImageFile && (
+                              <img src={item.image_url} alt="" style={{ height: 28, borderRadius: 4, marginLeft: "auto" }} />
+                            )}
+                            {editImageFile && (
+                              <span style={{ marginLeft: "auto", color: C.green, fontSize: 10 }}>✓</span>
+                            )}
+                          </label>
+                        </div>
+                        <div>
+                          <div style={{ color: C.dim, fontSize: 9, letterSpacing: 1.5, textTransform: "uppercase", marginBottom: 3, fontWeight: 700 }}>
+                            Notas
+                          </div>
+                          <textarea value={editNotes} onChange={e => setEditNotes(e.target.value)}
+                            placeholder="Notas u observaciones del ítem"
+                            rows={2}
+                            style={{ width: "100%", padding: "6px 8px", borderRadius: 5, border: `1px solid ${C.border}`, background: C.bg, color: C.text, fontSize: 12, resize: "vertical" }} />
+                        </div>
+                        <div style={{ display: "flex", gap: 6, justifyContent: "flex-end" }}>
+                          <button type="submit" style={{
+                            padding: "5px 12px", borderRadius: 5, cursor: "pointer", fontSize: 11,
+                            border: `1px solid ${C.blue}`, background: "rgba(59,130,246,0.15)", color: C.blue, fontWeight: 600,
+                          }}>Guardar</button>
+                        </div>
+                      </form>
+                    )}
+                  </div>
+                );
+              })}
+            </div>
+
             {comments.length === 0 ? (
               <div style={{
                 height: "100%",

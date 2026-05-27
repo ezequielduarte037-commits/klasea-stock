@@ -433,3 +433,64 @@ export async function notifyComprasEmail(payload) {
   })
   if (error) console.warn("notifyComprasEmail error:", error)
 }
+
+// ─── PURCHASE REQUEST ITEMS ─────────────────────────────────────────────
+
+export const ITEM_STATUSES = [
+  { value: "pendiente",  label: "Pendiente",  color: "#a1a1aa" },
+  { value: "en_panol",   label: "En pañol",   color: "#3b82f6" },
+  { value: "pedido",     label: "Pedido",     color: "#f59e0b" },
+  { value: "recibido",   label: "Recibido",   color: "#10b981" },
+  { value: "cancelado",  label: "Cancelado",  color: "#ef4444" },
+];
+
+export async function fetchRequestItems(requestId) {
+  const { data, error } = await supabase
+    .from("purchase_request_items")
+    .select("*")
+    .eq("request_id", requestId)
+    .order("created_at", { ascending: true });
+  if (error) throw error;
+  return data || [];
+}
+
+export async function addRequestItem(requestId, fields) {
+  const { data, error } = await supabase
+    .from("purchase_request_items")
+    .insert({ request_id: requestId, ...fields })
+    .select("*")
+    .single();
+  if (error) throw error;
+  return data;
+}
+
+export async function updateRequestItem(itemId, patch) {
+  const { data, error } = await supabase
+    .from("purchase_request_items")
+    .update(patch)
+    .eq("id", itemId)
+    .select("*")
+    .single();
+  if (error) throw error;
+  return data;
+}
+
+export async function deleteRequestItem(itemId) {
+  const { error } = await supabase
+    .from("purchase_request_items")
+    .delete()
+    .eq("id", itemId);
+  if (error) throw error;
+}
+
+export async function uploadItemImage(file, requestId) {
+  if (!file) return { imageUrl: null, imagePath: null };
+  const ext = file.name.split(".").pop().toLowerCase().replace(/[^a-z0-9]/, "");
+  const path = `items/${requestId}/${Date.now()}.${ext}`;
+  const { error: uploadError } = await supabase.storage
+    .from(PURCHASE_PHOTOS_BUCKET)
+    .upload(path, file);
+  if (uploadError) throw uploadError;
+  const { data } = supabase.storage.from(PURCHASE_PHOTOS_BUCKET).getPublicUrl(path);
+  return { imageUrl: data.publicUrl, imagePath: path };
+}
