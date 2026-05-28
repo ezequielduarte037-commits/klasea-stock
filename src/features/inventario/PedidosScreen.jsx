@@ -3,32 +3,16 @@ import { supabase } from "@/supabaseClient";
 import Sidebar from "@/components/Sidebar";
 import PedirAComprasModal from "@/features/compras/PedirAComprasModal";
 import { useResponsive } from "@/hooks/useResponsive";
+import { C } from "@/theme";
 
 // ─── PALETA ──────────────────────────────────────────────────────────────────
-const C = {
-  bg:   "#09090b",
-  s0:   "rgba(255,255,255,0.03)",
-  s1:   "rgba(255,255,255,0.06)",
-  b0:   "rgba(255,255,255,0.08)",
-  b1:   "rgba(255,255,255,0.15)",
-  t0:   "#f4f4f5",
-  t1:   "#a1a1aa",
-  t2:   "#71717a",
-  mono: "'JetBrains Mono', 'IBM Plex Mono', monospace",
-  sans: "'Outfit', system-ui, sans-serif",
-  primary: "#3b82f6",
-  amber:   "#f59e0b",
-  green:   "#10b981",
-  red:     "#ef4444",
-  violet:  "#8b5cf6",
-};
 const GLASS = {
   backdropFilter: "blur(32px) saturate(130%)",
   WebkitBackdropFilter: "blur(32px) saturate(130%)",
 };
 const INP = {
   background: "rgba(255,255,255,0.04)", border: `1px solid ${C.b0}`,
-  color: C.t0, padding: "9px 12px", borderRadius: 8, fontSize: 12,
+  color: C.t0, padding: "9px 12px", borderRadius: 8, fontSize: 13,
   outline: "none", width: "100%", fontFamily: "'Outfit', system-ui",
 };
 
@@ -56,7 +40,7 @@ const filterBtn = (active) => ({
   background: active ? C.s1 : "transparent",
   color: active ? C.t0 : C.t2,
   padding: "3px 11px", borderRadius: 5, cursor: "pointer",
-  fontSize: 10, fontFamily: "'Outfit', system-ui", whiteSpace: "nowrap",
+  fontSize: 11, fontFamily: "'Outfit', system-ui", whiteSpace: "nowrap",
 });
 
 export default function PedidosScreen({ profile, signOut }) {
@@ -188,7 +172,7 @@ export default function PedidosScreen({ profile, signOut }) {
     const m = ESTADO_META[estado] ?? { color: C.t2, bg: C.s0, border: C.b0, label: estado };
     return (
       <span style={{
-        fontSize: 9, letterSpacing: 1.2, textTransform: "uppercase", fontWeight: 700,
+        fontSize: 10, letterSpacing: 1.2, textTransform: "uppercase", fontWeight: 700,
         padding: "2px 8px", borderRadius: 5,
         background: m.bg, color: m.color, border: `1px solid ${m.border}`,
       }}>
@@ -202,7 +186,7 @@ export default function PedidosScreen({ profile, signOut }) {
       <style>{`
         @import url('https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500;700&display=swap');
         *, *::before, *::after { box-sizing: border-box; }
-        select option { background: #0f0f12; color: #a1a1aa; }
+        select option { background: #0f0f12; color: var(--muted); }
         ::-webkit-scrollbar { width: 3px; height: 3px; }
         ::-webkit-scrollbar-track { background: transparent; }
         ::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.07); border-radius: 99px; }
@@ -226,13 +210,13 @@ export default function PedidosScreen({ profile, signOut }) {
 
           {/* ── TOPBAR ── */}
           <div style={{
-            height: 50, background: "rgba(12,12,14,0.92)", ...GLASS,
+            height: 50, background: C.topbar, ...GLASS,
             borderBottom: `1px solid ${C.b0}`, padding: isMobile ? "0 12px 0 52px" : "0 18px",
             display: "flex", alignItems: "center", gap: 8, flexShrink: 0,
           }}>
             <div style={{ flex: 1 }}>
-              <div style={{ fontSize: 13, fontWeight: 600, color: C.t0 }}>Pedidos</div>
-              <div style={{ fontSize: 9, color: C.t2, letterSpacing: 1.5, textTransform: "uppercase", marginTop: 1 }}>
+              <div style={{ fontSize: 14, fontWeight: 600, color: C.t0 }}>Pedidos</div>
+              <div style={{ fontSize: 10, color: C.t2, letterSpacing: 1.1, textTransform: "uppercase", marginTop: 1 }}>
                 Registro y seguimiento
               </div>
             </div>
@@ -249,18 +233,18 @@ export default function PedidosScreen({ profile, signOut }) {
                 borderLeft: `2px solid ${s.color}`,
               }}>
                 <span style={{ fontFamily: C.mono, fontSize: 15, fontWeight: 700, color: s.color, lineHeight: 1 }}>{s.val}</span>
-                <span style={{ fontSize: 8, color: C.t1, letterSpacing: 1.5, textTransform: "uppercase" }}>{s.label}</span>
+                <span style={{ fontSize: 10, color: C.t1, letterSpacing: 1.1, textTransform: "uppercase" }}>{s.label}</span>
               </div>
             ))}
           </div>
 
           {/* ── FILTERBAR ── */}
           <div style={{
-            height: 36, background: "rgba(12,12,14,0.85)", ...GLASS,
+            height: 36, background: C.topbarSoft, ...GLASS,
             borderBottom: `1px solid ${C.b0}`, padding: "0 18px",
             display: "flex", alignItems: "center", gap: 4, flexShrink: 0, overflowX: "auto",
           }}>
-            <span style={{ fontSize: 8, color: C.t2, letterSpacing: 2, textTransform: "uppercase", flexShrink: 0 }}>Estado</span>
+            <span style={{ fontSize: 10, color: C.t2, letterSpacing: 1.3, textTransform: "uppercase", flexShrink: 0 }}>Estado</span>
             <button style={filterBtn(fEstado === "todos")} onClick={() => setFEstado("todos")}>Todos</button>
             {ESTADOS.map(e => (
               <button key={e.value} style={filterBtn(fEstado === e.value)} onClick={() => setFEstado(e.value)}>{e.label}</button>
@@ -269,7 +253,7 @@ export default function PedidosScreen({ profile, signOut }) {
             <input
               style={{
                 background: "transparent", border: "none",
-                color: C.t0, fontSize: 11, fontFamily: C.sans,
+                color: C.t0, fontSize: 12, fontFamily: C.sans,
                 outline: "none", width: 240,
               }}
               placeholder="⌕  Buscar proveedor / nº / nota…"
@@ -285,7 +269,7 @@ export default function PedidosScreen({ profile, signOut }) {
                 <div style={{
                   padding: "10px 14px", borderRadius: 8, marginBottom: 14,
                   background: "rgba(239,68,68,0.08)", border: "1px solid rgba(239,68,68,0.3)",
-                  color: C.red, fontSize: 12,
+                  color: C.red, fontSize: 13,
                 }}>
                   {error}
                 </div>
@@ -296,7 +280,7 @@ export default function PedidosScreen({ profile, signOut }) {
 
                 {/* Nuevo pedido */}
                 <div style={{ background: C.s0, border: `1px solid ${C.b0}`, borderRadius: 12, padding: 16 }}>
-                  <div style={{ fontSize: 10, color: C.t2, letterSpacing: 2, textTransform: "uppercase", marginBottom: 14 }}>
+                  <div style={{ fontSize: 11, color: C.t2, letterSpacing: 1.3, textTransform: "uppercase", marginBottom: 14 }}>
                     Nuevo pedido
                   </div>
                   <form onSubmit={crearPedido}>
@@ -311,7 +295,7 @@ export default function PedidosScreen({ profile, signOut }) {
                     <button type="submit" style={{
                       border: "1px solid rgba(59,130,246,0.35)", background: "rgba(59,130,246,0.15)",
                       color: "#60a5fa", padding: "8px 18px", borderRadius: 8, cursor: "pointer",
-                      fontSize: 12, fontWeight: 600, fontFamily: C.sans,
+                      fontSize: 13, fontWeight: 600, fontFamily: C.sans,
                     }}>
                       + Crear pedido
                     </button>
@@ -321,10 +305,10 @@ export default function PedidosScreen({ profile, signOut }) {
                 {/* Info */}
                 <div style={{ background: C.s0, border: `1px solid ${C.b0}`, borderRadius: 12, padding: 16,
                   display: "flex", flexDirection: "column", justifyContent: "center" }}>
-                  <div style={{ fontSize: 10, color: C.t2, letterSpacing: 2, textTransform: "uppercase", marginBottom: 10 }}>
+                  <div style={{ fontSize: 11, color: C.t2, letterSpacing: 1.3, textTransform: "uppercase", marginBottom: 10 }}>
                     Ayuda
                   </div>
-                  <div style={{ fontSize: 12, color: C.t1, lineHeight: 1.6 }}>
+                  <div style={{ fontSize: 13, color: C.t1, lineHeight: 1.6 }}>
                     Creá un pedido, agregá items y actualizá el estado a medida que avanza.<br />
                     <span style={{ color: C.t2 }}>
                       Los pedidos son solo registro — <strong style={{ color: C.t0 }}>no modifican el stock</strong>.<br />
@@ -344,12 +328,12 @@ export default function PedidosScreen({ profile, signOut }) {
                   borderBottom: `1px solid ${C.b0}`,
                 }}>
                   {["Fecha", "Proveedor", "Nº", "Estado", "Acción"].map(h => (
-                    <div key={h} style={{ fontSize: 9, color: C.t2, letterSpacing: 2, textTransform: "uppercase" }}>{h}</div>
+                    <div key={h} style={{ fontSize: 10, color: C.t2, letterSpacing: 1.3, textTransform: "uppercase" }}>{h}</div>
                   ))}
                 </div>
 
                 {loading && (
-                  <div style={{ padding: 20, textAlign: "center", color: C.t2, fontSize: 11, fontFamily: C.mono }}>
+                  <div style={{ padding: 20, textAlign: "center", color: C.t2, fontSize: 12, fontFamily: C.mono }}>
                     Cargando…
                   </div>
                 )}
@@ -361,16 +345,16 @@ export default function PedidosScreen({ profile, signOut }) {
                     borderBottom: `1px solid rgba(255,255,255,0.04)`,
                     alignItems: "center",
                   }}>
-                    <div style={{ fontFamily: C.mono, fontSize: 10, color: C.t2 }}>{fmtDate(p.fecha_pedido)}</div>
-                    <div style={{ fontWeight: 600, fontSize: 13, color: C.t0 }}>{p.proveedor}</div>
-                    <div style={{ fontSize: 11, color: C.t1 }}>{p.numero || "—"}</div>
+                    <div style={{ fontFamily: C.mono, fontSize: 11, color: C.t2 }}>{fmtDate(p.fecha_pedido)}</div>
+                    <div style={{ fontWeight: 600, fontSize: 14, color: C.t0 }}>{p.proveedor}</div>
+                    <div style={{ fontSize: 12, color: C.t1 }}>{p.numero || "—"}</div>
                     <div><EstadoChip estado={p.estado} /></div>
                     <div>
                       <button
                         style={{
                           border: `1px solid ${C.b0}`, background: C.s0, color: C.t1,
                           padding: "5px 12px", borderRadius: 7, cursor: "pointer",
-                          fontSize: 11, fontFamily: C.sans,
+                          fontSize: 12, fontFamily: C.sans,
                         }}
                         onClick={async () => { setPedidoSel(p); await cargarItems(p.id); }}
                       >
@@ -381,7 +365,7 @@ export default function PedidosScreen({ profile, signOut }) {
                 ))}
 
                 {!filtrados.length && !loading && (
-                  <div style={{ padding: 30, textAlign: "center", color: C.t2, fontSize: 12 }}>
+                  <div style={{ padding: 30, textAlign: "center", color: C.t2, fontSize: 13 }}>
                     No hay pedidos.
                   </div>
                 )}
@@ -396,7 +380,7 @@ export default function PedidosScreen({ profile, signOut }) {
                       <div style={{ fontWeight: 700, fontSize: 14, color: C.t0 }}>
                         {pedidoSel.proveedor} {pedidoSel.numero ? `— ${pedidoSel.numero}` : ""}
                       </div>
-                      <div style={{ fontSize: 11, color: C.t2, marginTop: 3 }}>
+                      <div style={{ fontSize: 12, color: C.t2, marginTop: 3 }}>
                         Creado: {fmtTS(pedidoSel.creado_en)}
                         {pedidoSel.recibido_en && ` · Recibido: ${fmtTS(pedidoSel.recibido_en)}`}
                       </div>
@@ -415,10 +399,10 @@ export default function PedidosScreen({ profile, signOut }) {
                           description: desc,
                           source: "inventario", source_ref: pedidoSel.id, sourceLabel: "Inventario",
                         };
-                      })()})} style={{ border: "1px solid rgba(96,165,250,0.3)", background: "rgba(96,165,250,0.1)", color: "#60a5fa", padding: "5px 12px", borderRadius: 7, cursor: "pointer", fontSize: 11, fontFamily: C.sans, fontWeight: 600 }}>Pedir a Compras</button>
+                      })()})} style={{ border: "1px solid rgba(96,165,250,0.3)", background: "rgba(96,165,250,0.1)", color: "#60a5fa", padding: "5px 12px", borderRadius: 7, cursor: "pointer", fontSize: 12, fontFamily: C.sans, fontWeight: 700 }}>Pedir a Compras</button>
                       <button style={{
                         border: `1px solid ${C.b0}`, background: "transparent", color: C.t2,
-                        padding: "5px 12px", borderRadius: 7, cursor: "pointer", fontSize: 11, fontFamily: C.sans,
+                        padding: "5px 12px", borderRadius: 7, cursor: "pointer", fontSize: 12, fontFamily: C.sans,
                       }} onClick={() => setPedidoSel(null)}>
                         Cerrar
                       </button>
@@ -428,7 +412,7 @@ export default function PedidosScreen({ profile, signOut }) {
                           <button key={est} style={{
                             border: `1px solid ${m.border}`, background: m.bg, color: m.color,
                             padding: "5px 12px", borderRadius: 7, cursor: "pointer",
-                            fontSize: 11, fontFamily: C.sans, fontWeight: 600,
+                            fontSize: 12, fontFamily: C.sans, fontWeight: 700,
                           }} onClick={() => cambiarEstado(pedidoSel.id, est)}>
                             {m.label}
                           </button>
@@ -438,7 +422,7 @@ export default function PedidosScreen({ profile, signOut }) {
                   </div>
 
                   <div style={{ borderTop: `1px solid ${C.b0}`, paddingTop: 14 }}>
-                    <div style={{ fontSize: 10, color: C.t2, letterSpacing: 2, textTransform: "uppercase", marginBottom: 12 }}>
+                    <div style={{ fontSize: 11, color: C.t2, letterSpacing: 1.3, textTransform: "uppercase", marginBottom: 12 }}>
                       Items
                     </div>
 
@@ -460,7 +444,7 @@ export default function PedidosScreen({ profile, signOut }) {
                         <button type="submit" style={{
                           border: "1px solid rgba(59,130,246,0.3)", background: "rgba(59,130,246,0.1)",
                           color: "#60a5fa", padding: "9px 16px", borderRadius: 8,
-                          cursor: "pointer", fontSize: 12, fontFamily: C.sans, whiteSpace: "nowrap",
+                          cursor: "pointer", fontSize: 13, fontFamily: C.sans, whiteSpace: "nowrap",
                         }}>
                           + Agregar
                         </button>
@@ -475,7 +459,7 @@ export default function PedidosScreen({ profile, signOut }) {
                         borderBottom: `1px solid ${C.b0}`,
                       }}>
                         {["Descripción", "Cantidad", "Unidad", "Vinculado", "Nota recepción", "Acción"].map(h => (
-                          <div key={h} style={{ fontSize: 9, color: C.t2, letterSpacing: 2, textTransform: "uppercase" }}>{h}</div>
+                          <div key={h} style={{ fontSize: 10, color: C.t2, letterSpacing: 1.3, textTransform: "uppercase" }}>{h}</div>
                         ))}
                       </div>
                       {items.map(it => (
@@ -485,16 +469,16 @@ export default function PedidosScreen({ profile, signOut }) {
                           borderBottom: `1px solid rgba(255,255,255,0.04)`,
                           alignItems: "center",
                         }}>
-                          <div style={{ fontSize: 12, color: C.t0 }}>{it.descripcion}</div>
-                          <div style={{ fontFamily: C.mono, fontSize: 12, color: C.t1 }}>{num(it.cantidad)}</div>
-                          <div style={{ fontSize: 11, color: C.t1 }}>{it.unidad}</div>
-                          <div style={{ fontSize: 11, color: it.material_id ? C.green : C.t2 }}>
+                          <div style={{ fontSize: 13, color: C.t0 }}>{it.descripcion}</div>
+                          <div style={{ fontFamily: C.mono, fontSize: 13, color: C.t1 }}>{num(it.cantidad)}</div>
+                          <div style={{ fontSize: 12, color: C.t1 }}>{it.unidad}</div>
+                          <div style={{ fontSize: 12, color: it.material_id ? C.green : C.t2 }}>
                             {it.material_id ? "✅" : "—"}
                           </div>
                           <input
                             style={{
                               background: "transparent", border: `1px solid ${C.b0}`,
-                              color: C.t1, fontSize: 11, borderRadius: 6,
+                              color: C.t1, fontSize: 12, borderRadius: 6,
                               padding: "4px 8px", fontFamily: C.sans, outline: "none", width: "100%",
                             }}
                             placeholder="Ej: vinieron 3 de 5…"
@@ -510,7 +494,7 @@ export default function PedidosScreen({ profile, signOut }) {
                             <button style={{
                               border: "1px solid rgba(239,68,68,0.25)", background: "rgba(239,68,68,0.08)",
                               color: C.red, padding: "3px 10px", borderRadius: 6,
-                              cursor: "pointer", fontSize: 10, fontFamily: C.sans,
+                              cursor: "pointer", fontSize: 11, fontFamily: C.sans,
                             }} onClick={() => borrarItem(it.id)}>
                               Borrar
                             </button>
@@ -518,7 +502,7 @@ export default function PedidosScreen({ profile, signOut }) {
                         </div>
                       ))}
                       {!items.length && (
-                        <div style={{ padding: 16, textAlign: "center", fontSize: 12, color: C.t2 }}>
+                        <div style={{ padding: 16, textAlign: "center", fontSize: 13, color: C.t2 }}>
                           Sin items. Agregá uno arriba.
                         </div>
                       )}

@@ -67,7 +67,7 @@ function descargarCSV(filas, nombre) {
 }
 
 // ── ANIMATED NUMBER ──────────────────────────────────────────────
-function AnimatedNum({ value, color = "#f4f4f5", size = 28 }) {
+function AnimatedNum({ value, color = "var(--text)", size = 28 }) {
   const [display, setDisplay] = useState(value);
   const prev = useRef(value);
   useEffect(() => {
@@ -104,9 +104,9 @@ function RingKpi({ label, value, total, color, sub }) {
           style={{ transition: "stroke-dasharray .7s cubic-bezier(.22,1,.36,1)" }} />
       </svg>
       <div>
-        <div style={{ fontSize: 8, letterSpacing: 2, textTransform: "uppercase", color: "#71717a", marginBottom: 5 }}>{label}</div>
+        <div style={{ fontSize: 10, letterSpacing: 1.3, textTransform: "uppercase", color: "var(--dim)", marginBottom: 5 }}>{label}</div>
         <AnimatedNum value={value} color={color} size={26} />
-        <div style={{ fontSize: 10, color: "#52525b", marginTop: 3 }}>{sub}</div>
+        <div style={{ fontSize: 11, color: "var(--dim)", marginTop: 3 }}>{sub}</div>
       </div>
     </div>
   );
@@ -627,43 +627,43 @@ export default function LaminacionScreen({ profile, signOut }) {
   }
 
   const S = {
-    page: { background: "#09090b", color: "#f4f4f5", fontFamily: "'Outfit', system-ui, sans-serif", width: "100%", minWidth: "100vw" },
+    page: { background: "var(--bg)", color: "var(--text)", fontFamily: "'Outfit', system-ui, sans-serif", width: "100%", minWidth: "100vw" },
     layout: { display: "grid", gridTemplateColumns: isMobile ? "1fr" : "280px 1fr", height: "100vh", width: "100%", minWidth: isMobile ? 0 : "100vw" },
     main: { padding: isMobile ? "18px 12px 12px" : 18, paddingLeft: isMobile ? 52 : 18, display: "flex", justifyContent: "center", overflowY: "auto", height: "100%", minWidth: 0 },
     content: { width: "min(1300px, 100%)", minWidth: 0 },
     card: { border: "1px solid rgba(255,255,255,0.08)", borderRadius: 12, background: "rgba(255,255,255,0.03)", padding: 16, marginBottom: 12 },
-    input: { background: "rgba(255,255,255,0.04)", border: "1px solid rgba(255,255,255,0.08)", color: "#f4f4f5", padding: "9px 12px", borderRadius: 8, width: "100%", outline: "none", fontSize: 13, boxSizing: "border-box", fontFamily: "'Outfit', system-ui" },
-    select: { background: "rgba(255,255,255,0.04)", border: "1px solid rgba(255,255,255,0.08)", color: "#f4f4f5", padding: "9px 12px", borderRadius: 8, width: "100%", outline: "none", fontSize: 13, boxSizing: "border-box", fontFamily: "'Outfit', system-ui" },
-    btn: { border: "1px solid rgba(255,255,255,0.08)", background: "rgba(255,255,255,0.05)", color: "#f4f4f5", padding: "9px 14px", borderRadius: 8, cursor: "pointer", fontWeight: 700, fontSize: 12, fontFamily: "'Outfit', system-ui" },
-    btnPrimary: { border: "1px solid rgba(59,130,246,0.35)", background: "rgba(59,130,246,0.15)", color: "#60a5fa", padding: "9px 18px", borderRadius: 8, cursor: "pointer", fontWeight: 700, fontSize: 12, fontFamily: "'Outfit', system-ui" },
-    btnSmall: (color) => ({ border: `1px solid ${color}40`, background: `${color}15`, color, padding: "4px 10px", borderRadius: 6, cursor: "pointer", fontWeight: 700, fontSize: 11, marginRight: 4, fontFamily: "'Outfit', system-ui" }),
+    input: { background: "rgba(255,255,255,0.04)", border: "1px solid rgba(255,255,255,0.08)", color: "var(--text)", padding: "9px 12px", borderRadius: 8, width: "100%", outline: "none", fontSize: 14, boxSizing: "border-box", fontFamily: "'Outfit', system-ui" },
+    select: { background: "rgba(255,255,255,0.04)", border: "1px solid rgba(255,255,255,0.08)", color: "var(--text)", padding: "9px 12px", borderRadius: 8, width: "100%", outline: "none", fontSize: 14, boxSizing: "border-box", fontFamily: "'Outfit', system-ui" },
+    btn: { border: "1px solid rgba(255,255,255,0.08)", background: "rgba(255,255,255,0.05)", color: "var(--text)", padding: "9px 14px", borderRadius: 8, cursor: "pointer", fontWeight: 700, fontSize: 13, fontFamily: "'Outfit', system-ui" },
+    btnPrimary: { border: "1px solid rgba(59,130,246,0.35)", background: "rgba(59,130,246,0.15)", color: "#60a5fa", padding: "9px 18px", borderRadius: 8, cursor: "pointer", fontWeight: 700, fontSize: 13, fontFamily: "'Outfit', system-ui" },
+    btnSmall: (color) => ({ border: `1px solid ${color}40`, background: `${color}15`, color, padding: "4px 10px", borderRadius: 6, cursor: "pointer", fontWeight: 700, fontSize: 12, marginRight: 4, fontFamily: "'Outfit', system-ui" }),
     row2: { display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10 },
     row3: { display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 10 },
     table: { width: "100%", borderCollapse: "collapse" },
-    th: { textAlign: "left", fontSize: 9, color: "#71717a", padding: "10px 8px", borderBottom: "1px solid rgba(255,255,255,0.06)", textTransform: "uppercase", letterSpacing: 2 },
-    td: { padding: "10px 8px", borderBottom: "1px solid rgba(255,255,255,0.04)", verticalAlign: "middle", fontSize: 12 },
-    small: { fontSize: 11, color: "#71717a" },
-    label: { display: "block", fontSize: 9, color: "#71717a", textTransform: "uppercase", letterSpacing: 2, marginBottom: 6 },
+    th: { textAlign: "left", fontSize: 10, color: "var(--dim)", padding: "10px 8px", borderBottom: "1px solid rgba(255,255,255,0.06)", textTransform: "uppercase", letterSpacing: 1.3 },
+    td: { padding: "10px 8px", borderBottom: "1px solid rgba(255,255,255,0.04)", verticalAlign: "middle", fontSize: 13 },
+    small: { fontSize: 12, color: "var(--dim)" },
+    label: { display: "block", fontSize: 10, color: "var(--dim)", textTransform: "uppercase", letterSpacing: 1.3, marginBottom: 6 },
     tab: (active) => ({
       padding: "6px 14px", borderRadius: 7,
       border: active ? "1px solid rgba(255,255,255,0.15)" : "1px solid rgba(255,255,255,0.04)",
       background: active ? "rgba(255,255,255,0.08)" : "transparent",
-      color: active ? "#f4f4f5" : "#71717a",
-      cursor: "pointer", fontWeight: active ? 600 : 400, fontSize: 11, fontFamily: "'Outfit', system-ui",
+      color: active ? "var(--text)" : "var(--dim)",
+      cursor: "pointer", fontWeight: active ? 600 : 400, fontSize: 12, fontFamily: "'Outfit', system-ui",
     }),
     pillStock: (st) => {
-      const cfg = { OK: ["rgba(16,185,129,0.1)","#10b981"], ATENCION: ["rgba(245,158,11,0.1)","#f59e0b"], CRITICO: ["rgba(239,68,68,0.1)","#ef4444"] }[st] || ["rgba(255,255,255,0.05)","#a1a1aa"];
-      return { display: "inline-block", padding: "2px 9px", borderRadius: 5, fontSize: 10, fontWeight: 700, background: cfg[0], color: cfg[1] };
+      const cfg = { OK: ["rgba(16,185,129,0.1)","#10b981"], ATENCION: ["rgba(245,158,11,0.1)","#f59e0b"], CRITICO: ["rgba(239,68,68,0.1)","#ef4444"] }[st] || ["rgba(255,255,255,0.05)","var(--muted)"];
+      return { display: "inline-block", padding: "2px 9px", borderRadius: 5, fontSize: 11, fontWeight: 700, background: cfg[0], color: cfg[1] };
     },
     btnExport: {
       border: "1px solid rgba(255,255,255,0.08)", background: "rgba(255,255,255,0.03)",
-      color: "#a1a1aa", padding: "6px 14px", borderRadius: 8,
-      cursor: "pointer", fontWeight: 600, fontSize: 11,
+      color: "var(--muted)", padding: "6px 14px", borderRadius: 8,
+      cursor: "pointer", fontWeight: 700, fontSize: 12,
       display: "inline-flex", alignItems: "center", gap: 5, fontFamily: "'Outfit', system-ui",
     },
     pillPedido: (st) => {
-      const cfg = { pendiente: ["rgba(245,158,11,0.1)","#f59e0b"], entregado: ["rgba(16,185,129,0.1)","#10b981"], cancelado: ["rgba(239,68,68,0.1)","#ef4444"] }[st] || ["rgba(255,255,255,0.05)","#a1a1aa"];
-      return { display: "inline-block", padding: "2px 9px", borderRadius: 5, fontSize: 10, fontWeight: 700, background: cfg[0], color: cfg[1] };
+      const cfg = { pendiente: ["rgba(245,158,11,0.1)","#f59e0b"], entregado: ["rgba(16,185,129,0.1)","#10b981"], cancelado: ["rgba(239,68,68,0.1)","#ef4444"] }[st] || ["rgba(255,255,255,0.05)","var(--muted)"];
+      return { display: "inline-block", padding: "2px 9px", borderRadius: 5, fontSize: 11, fontWeight: 700, background: cfg[0], color: cfg[1] };
     },
   };
 
@@ -676,7 +676,7 @@ export default function LaminacionScreen({ profile, signOut }) {
       <style>{`
         @import url('https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500;700&display=swap');
         *, *::before, *::after { box-sizing: border-box; }
-        select option { background: #0f0f12; color: #a1a1aa; }
+        select option { background: #0f0f12; color: var(--muted); }
         ::-webkit-scrollbar { width: 3px; height: 3px; }
         ::-webkit-scrollbar-track { background: transparent; }
         ::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.07); border-radius: 99px; }
@@ -726,7 +726,7 @@ export default function LaminacionScreen({ profile, signOut }) {
             {/* Header */}
             <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 14 }}>
               <div>
-                <h1 style={{ fontFamily: "'Outfit', system-ui", fontSize: 18, margin: 0, color: "#f4f4f5", fontWeight: 700 }}>
+                <h1 style={{ fontFamily: "'Outfit', system-ui", fontSize: 18, margin: 0, color: "var(--text)", fontWeight: 700 }}>
                   Laminación
                 </h1>
                 <div style={S.small}>{esPanol ? "Ingresos · Egresos" : "Control de stock · Ingresos · Egresos · Pedidos"}</div>
@@ -747,7 +747,7 @@ export default function LaminacionScreen({ profile, signOut }) {
             {/* Nuevo material */}
             {showNuevoMaterial && isAdmin && (
               <div style={S.card}>
-                <h3 style={{ marginTop: 0, color: "#f4f4f5" }}>Nuevo material</h3>
+                <h3 style={{ marginTop: 0, color: "var(--text)" }}>Nuevo material</h3>
                 <form onSubmit={crearMaterial}>
                   <div style={S.row3}>
                     <div>
@@ -787,7 +787,7 @@ export default function LaminacionScreen({ profile, signOut }) {
                   <button key={t} style={S.tab(tab === t)} onClick={() => { setTab(t); setQ(""); }}>
                     {t}
                     {t === "Pedidos" && pedidos.filter(p => p.estado === "pendiente").length > 0 && (
-                      <span style={{ marginLeft: 6, background: "#ffe7a6", color: "#000", borderRadius: 999, padding: "1px 6px", fontSize: 10, fontWeight: 900 }}>
+                      <span style={{ marginLeft: 6, background: "#ffe7a6", color: "#000", borderRadius: 999, padding: "1px 6px", fontSize: 11, fontWeight: 900 }}>
                         {pedidos.filter(p => p.estado === "pendiente").length}
                       </span>
                     )}
@@ -801,22 +801,22 @@ export default function LaminacionScreen({ profile, signOut }) {
               <div className="lam-tab-content">
                 {/* KPI ring bar */}
                 <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit,minmax(170px,1fr))", gap: 8, marginBottom: 12 }}>
-                  <RingKpi label="Total" value={stockRows.length} total={stockRows.length} color="#a1a1aa" sub="materiales" />
+                  <RingKpi label="Total" value={stockRows.length} total={stockRows.length} color="var(--muted)" sub="materiales" />
                   <RingKpi label="OK" value={stockRows.filter(r=>r.estado==="OK").length} total={stockRows.length} color="#10b981" sub={`${Math.round(stockRows.filter(r=>r.estado==="OK").length/Math.max(1,stockRows.length)*100)}% del stock`} />
                   <RingKpi label="Atención" value={stockRows.filter(r=>r.estado==="ATENCION").length} total={stockRows.length} color="#f59e0b" sub="bajo mínimo" />
                   <RingKpi label="Crítico" value={stockRows.filter(r=>r.estado==="CRITICO").length} total={stockRows.length} color="#ef4444" sub="sin stock" />
                   <div className="lam-kpi" style={{ background: "rgba(255,255,255,0.03)", border: "1px solid rgba(255,255,255,0.07)", borderRadius: 12, padding: "14px 18px", display: "flex", alignItems: "center", gap: 10, borderLeft: "2px solid #3b82f6" }}>
                     <div>
-                      <div style={{ fontSize: 8, letterSpacing: 2, textTransform: "uppercase", color: "#71717a", marginBottom: 5 }}>Pedidos pend.</div>
+                      <div style={{ fontSize: 10, letterSpacing: 1.3, textTransform: "uppercase", color: "var(--dim)", marginBottom: 5 }}>Pedidos pend.</div>
                       <AnimatedNum value={pedidos.filter(p=>p.estado==="pendiente").length} color="#3b82f6" size={26} />
-                      <div style={{ fontSize: 10, color: "#52525b", marginTop: 3 }}>en espera</div>
+                      <div style={{ fontSize: 11, color: "var(--dim)", marginTop: 3 }}>en espera</div>
                     </div>
                   </div>
                 </div>
 
                 <div style={S.card}>
                   <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 12, flexWrap: "wrap", gap: 8 }}>
-                    <h3 style={{ margin: 0, color: "#f4f4f5" }}>
+                    <h3 style={{ margin: 0, color: "var(--text)" }}>
                       Stock actual
                       <span style={{ ...S.small, marginLeft: 8 }}>({stockRows.length} materiales)</span>
                     </h3>
@@ -846,7 +846,7 @@ export default function LaminacionScreen({ profile, signOut }) {
                         <tr key={m.id} className={`lam-row${m.estado==="CRITICO"?" critico-glow":""}`}
                           style={m.estado==="CRITICO"?{background:"rgba(239,68,68,0.04)"}:{}}>
                           <td style={S.td}>
-                            <b style={{ color: "#f4f4f5" }}>{m.nombre}</b>
+                            <b style={{ color: "var(--text)" }}>{m.nombre}</b>
                             <div style={S.small}>{m.unidad}</div>
                           </td>
                           <td style={S.td}><span style={S.small}>{m.categoria || "—"}</span></td>
@@ -890,7 +890,7 @@ export default function LaminacionScreen({ profile, signOut }) {
                     <div style={{ ...S.card, borderColor: "rgba(16,185,129,0.2)", marginBottom: 12 }}>
                       <div style={{ display: "flex", alignItems: "center", gap: 10, color: "#10b981" }}>
                         <span style={{ fontSize: 20 }}></span>
-                        <span style={{ fontSize: 13, fontWeight: 600 }}>Sin órdenes pendientes de recepción</span>
+                        <span style={{ fontSize: 14, fontWeight: 600 }}>Sin órdenes pendientes de recepción</span>
                       </div>
                     </div>
                   );
@@ -910,9 +910,9 @@ export default function LaminacionScreen({ profile, signOut }) {
                     <div style={{ ...S.card, borderColor: "rgba(245,158,11,0.3)", marginBottom: 12 }}>
                       <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 14 }}>
                         <span style={{ fontSize: 20 }}></span>
-                        <h3 style={{ margin: 0, color: "#f4f4f5", fontSize: 14 }}>
+                        <h3 style={{ margin: 0, color: "var(--text)", fontSize: 14 }}>
                           Órdenes pendientes de recepción
-                          <span style={{ marginLeft: 8, background: "#ffe7a6", color: "#000", borderRadius: 999, padding: "2px 8px", fontSize: 11, fontWeight: 900 }}>
+                          <span style={{ marginLeft: 8, background: "#ffe7a6", color: "#000", borderRadius: 999, padding: "2px 8px", fontSize: 12, fontWeight: 900 }}>
                             {Object.keys(grupos).length}
                           </span>
                         </h3>
@@ -926,27 +926,27 @@ export default function LaminacionScreen({ profile, signOut }) {
                               {/* Header de la orden */}
                               <div style={{ padding: "10px 14px", background: "rgba(245,158,11,0.07)", display: "flex", alignItems: "center", gap: 10, flexWrap: "wrap" }}>
                                 <div style={{ flex: 1 }}>
-                                  <span style={{ fontWeight: 700, color: "#f59e0b", fontSize: 13 }}>
+                                  <span style={{ fontWeight: 700, color: "#f59e0b", fontSize: 14 }}>
                                     {grupo.ref === "__manual__" ? " Pedido manual" : ` ${grupo.ref}`}
                                   </span>
                                   {grupo.ref !== "__manual__" && (
-                                    <span style={{ marginLeft: 8, fontSize: 11, color: "#a1a1aa" }}>{grupo.label}</span>
+                                    <span style={{ marginLeft: 8, fontSize: 12, color: "var(--muted)" }}>{grupo.label}</span>
                                   )}
-                                  <span style={{ marginLeft: 8, fontSize: 10, color: "#52525b" }}>{fmtTs(grupo.createdAt)}</span>
+                                  <span style={{ marginLeft: 8, fontSize: 11, color: "var(--dim)" }}>{fmtTs(grupo.createdAt)}</span>
                                 </div>
-                                <span style={{ fontSize: 11, color: "#71717a" }}>{grupo.items.length} {grupo.items.length === 1 ? "material" : "materiales"}</span>
+                                <span style={{ fontSize: 12, color: "var(--dim)" }}>{grupo.items.length} {grupo.items.length === 1 ? "material" : "materiales"}</span>
                                 {grupo.items.some(p => p.categoria === "extra") && (
-                                  <span style={{ fontSize: 9, fontWeight: 800, textTransform: "uppercase", letterSpacing: 0.5, color: "#f59e0b", border: "1px solid rgba(245,158,11,0.3)", borderRadius: 4, padding: "1px 6px" }}>Incluye extras</span>
+                                  <span style={{ fontSize: 10, fontWeight: 800, textTransform: "uppercase", letterSpacing: 0.5, color: "#f59e0b", border: "1px solid rgba(245,158,11,0.3)", borderRadius: 4, padding: "1px 6px" }}>Incluye extras</span>
                                 )}
                               </div>
 
                               {/* Acciones de grupo */}
                               <div style={{ display: "flex", gap: 6, padding: "6px 14px", background: "rgba(245,158,11,0.03)", borderTop: "1px solid rgba(255,255,255,0.04)" }}>
-                                <button style={{ border: "1px solid rgba(16,185,129,0.3)", background: "rgba(16,185,129,0.08)", color: "#10b981", fontSize: 11, padding: "5px 12px", borderRadius: 7, cursor: "pointer", fontWeight: 700 }}
+                                <button style={{ border: "1px solid rgba(16,185,129,0.3)", background: "rgba(16,185,129,0.08)", color: "#10b981", fontSize: 12, padding: "5px 12px", borderRadius: 7, cursor: "pointer", fontWeight: 700 }}
                                   onClick={() => setConfModal({ tipo: "orden_completa", grupo })}>
                                   ✓ Recibir completa
                                 </button>
-                                <button style={{ border: "1px solid rgba(245,158,11,0.3)", background: "rgba(245,158,11,0.06)", color: "#f59e0b", fontSize: 11, padding: "5px 12px", borderRadius: 7, cursor: "pointer", fontWeight: 700 }}
+                                <button style={{ border: "1px solid rgba(245,158,11,0.3)", background: "rgba(245,158,11,0.06)", color: "#f59e0b", fontSize: 12, padding: "5px 12px", borderRadius: 7, cursor: "pointer", fontWeight: 700 }}
                                   onClick={() => setConfModal({ tipo: "orden_parcial", grupo, cantsParciales: {} })}>
                                   ◐ Recibir parcial
                                 </button>
@@ -962,28 +962,28 @@ export default function LaminacionScreen({ profile, signOut }) {
                                         <div key={p.id} style={{ display: "flex", alignItems: "center", gap: 10, padding: "10px 14px", borderTop: i === 0 ? "none" : "1px solid rgba(255,255,255,0.04)", flexWrap: "wrap", background: esExtra ? "rgba(245,158,11,0.04)" : "transparent" }}>
                                           {/* Nombre */}
                                           <div style={{ flex: 1, minWidth: 160 }}>
-                                        <span style={{ fontWeight: 600, color: "#f4f4f5", fontSize: 12 }}>{mat?.nombre ?? "Material desconocido"}</span>
+                                        <span style={{ fontWeight: 600, color: "var(--text)", fontSize: 13 }}>{mat?.nombre ?? "Material desconocido"}</span>
                                           </div>
                                           {/* Tipo */}
-                                          <div style={{ fontSize: 10 }}>
+                                          <div style={{ fontSize: 11 }}>
                                             {esExtra
                                               ? <span style={{ fontWeight: 800, textTransform: "uppercase", letterSpacing: 0.5, color: "#f59e0b", background: "rgba(245,158,11,0.15)", borderRadius: 5, padding: "1px 7px" }}>Extra</span>
-                                              : <span style={{ color: "#52525b" }}>Estándar</span>
+                                              : <span style={{ color: "var(--dim)" }}>Estándar</span>
                                             }
                                           </div>
                                       {/* Cantidades */}
-                                      <div style={{ display: "flex", gap: 14, fontSize: 11, color: "#71717a", alignItems: "center" }}>
+                                      <div style={{ display: "flex", gap: 14, fontSize: 12, color: "var(--dim)", alignItems: "center" }}>
                                         <span>Pedido: <b style={{ color: "#f59e0b" }}>{num(p.cantidad)} {mat?.unidad}</b></span>
                                         <span>Stock: <b style={{ color: stockActual > 0 ? "#10b981" : "#ff453a" }}>{stockActual}</b></span>
                                       </div>
                                       {/* Botones por ítem */}
                                       <div style={{ display: "flex", gap: 6, marginLeft: "auto" }}>
                                         <button
-                                          style={{ border: "1px solid rgba(16,185,129,0.38)", background: "rgba(16,185,129,0.1)", color: "#10b981", fontSize: 11, padding: "5px 12px", borderRadius: 7, cursor: "pointer", fontWeight: 700 }}
+                                          style={{ border: "1px solid rgba(16,185,129,0.38)", background: "rgba(16,185,129,0.1)", color: "#10b981", fontSize: 12, padding: "5px 12px", borderRadius: 7, cursor: "pointer", fontWeight: 700 }}
                                           onClick={() => setConfModal({ pedido: p, tipo: "entero", cantParcial: "" })}
                                         ><Check size={12} style={{marginRight:4}}/>Llegó</button>
                                         <button
-                                          style={{ border: "1px solid rgba(245,158,11,0.38)", background: "rgba(245,158,11,0.07)", color: "#f59e0b", fontSize: 11, padding: "5px 12px", borderRadius: 7, cursor: "pointer", fontWeight: 700 }}
+                                          style={{ border: "1px solid rgba(245,158,11,0.38)", background: "rgba(245,158,11,0.07)", color: "#f59e0b", fontSize: 12, padding: "5px 12px", borderRadius: 7, cursor: "pointer", fontWeight: 700 }}
                                           onClick={() => setConfModal({ pedido: p, tipo: "parcial", cantParcial: "" })}
                                         ><Package size={12} style={{marginRight:4}}/>Parcial</button>
                                       </div>
@@ -1001,7 +1001,7 @@ export default function LaminacionScreen({ profile, signOut }) {
 
                 {puedeCargar && (
                   <div style={S.card}>
-                    <h3 style={{ marginTop: 0, color: "#f4f4f5" }}>Registrar ingreso</h3>
+                    <h3 style={{ marginTop: 0, color: "var(--text)" }}>Registrar ingreso</h3>
                     <form onSubmit={crearIngreso}>
                       <div style={S.row3}>
                         <div>
@@ -1052,7 +1052,7 @@ export default function LaminacionScreen({ profile, signOut }) {
                 )}
 
                 <div style={S.card}>
-                  <h3 style={{ marginTop: 0, color: "#f4f4f5" }}>
+                  <h3 style={{ marginTop: 0, color: "var(--text)" }}>
                     Historial de ingresos
                     <span style={{ ...S.small, marginLeft: 8 }}>
                       ({movFiltrados.filter(m => m.tipo === "ingreso").length})
@@ -1075,13 +1075,13 @@ export default function LaminacionScreen({ profile, signOut }) {
                           <td style={S.td}>
                             <span style={S.small}>{fmtDate(m.fecha || m.created_at)}</span>
                             {m.created_at && (
-                              <div style={{ fontSize: 10, color: "#555", marginTop: 2, fontFamily: "monospace" }}>
+                              <div style={{ fontSize: 11, color: "#555", marginTop: 2, fontFamily: "monospace" }}>
                                 {new Date(m.created_at).toLocaleTimeString("es-AR", { hour: "2-digit", minute: "2-digit" })}
                               </div>
                             )}
                           </td>
                           <td style={S.td}>
-                            <b style={{ color: "#f4f4f5" }}>{m.laminacion_materiales?.nombre ?? "—"}</b>
+                            <b style={{ color: "var(--text)" }}>{m.laminacion_materiales?.nombre ?? "—"}</b>
                             <div style={S.small}>{m.laminacion_materiales?.unidad}</div>
                           </td>
                           <td style={S.td}><b style={{ color: "#30d158", fontSize: 15 }}>+{num(m.cantidad)}</b></td>
@@ -1104,7 +1104,7 @@ export default function LaminacionScreen({ profile, signOut }) {
               <>
                 {puedeCargar && (
                   <div style={S.card}>
-                    <h3 style={{ marginTop: 0, color: "#f4f4f5" }}>Registrar egreso</h3>
+                    <h3 style={{ marginTop: 0, color: "var(--text)" }}>Registrar egreso</h3>
                     <form onSubmit={crearEgreso}>
                       <div style={S.row3}>
                         <div>
@@ -1155,7 +1155,7 @@ export default function LaminacionScreen({ profile, signOut }) {
                 )}
 
                 <div style={S.card}>
-                  <h3 style={{ marginTop: 0, color: "#f4f4f5" }}>
+                  <h3 style={{ marginTop: 0, color: "var(--text)" }}>
                     Historial de egresos
                     <span style={{ ...S.small, marginLeft: 8 }}>
                       ({movFiltrados.filter(m => m.tipo === "egreso").length})
@@ -1178,13 +1178,13 @@ export default function LaminacionScreen({ profile, signOut }) {
                           <td style={S.td}>
                             <span style={S.small}>{fmtDate(m.fecha || m.created_at)}</span>
                             {m.created_at && (
-                              <div style={{ fontSize: 10, color: "#555", marginTop: 2, fontFamily: "monospace" }}>
+                              <div style={{ fontSize: 11, color: "#555", marginTop: 2, fontFamily: "monospace" }}>
                                 {new Date(m.created_at).toLocaleTimeString("es-AR", { hour: "2-digit", minute: "2-digit" })}
                               </div>
                             )}
                           </td>
                           <td style={S.td}>
-                            <b style={{ color: "#f4f4f5" }}>{m.laminacion_materiales?.nombre ?? "—"}</b>
+                            <b style={{ color: "var(--text)" }}>{m.laminacion_materiales?.nombre ?? "—"}</b>
                             <div style={S.small}>{m.laminacion_materiales?.unidad}</div>
                           </td>
                           <td style={S.td}><b style={{ color: "#ff453a", fontSize: 15 }}>-{num(m.cantidad)}</b></td>
@@ -1230,7 +1230,7 @@ export default function LaminacionScreen({ profile, signOut }) {
                     <div style={{ flex: "1 1 220px", position: "relative" }}>
                       <span style={{ position: "absolute", left: 12, top: "50%", transform: "translateY(-50%)", opacity: 0.35, fontSize: 14, pointerEvents: "none" }}></span>
                       <input
-                        style={{ ...S.input, paddingLeft: 34, fontSize: 13 }}
+                        style={{ ...S.input, paddingLeft: 34, fontSize: 14 }}
                         placeholder="Buscar material, persona, obra, proveedor…"
                         value={qMov}
                         onChange={e => setQMov(e.target.value)}
@@ -1245,14 +1245,14 @@ export default function LaminacionScreen({ profile, signOut }) {
                         { val: "egreso",  label: " Egr",   color: "#ff453a" },
                       ].map(({ val, label, color }) => (
                         <button key={val} onClick={() => setFiltroTipo(val)} style={{
-                          padding: "8px 14px", borderRadius: 8, cursor: "pointer", fontSize: 11, fontWeight: 600,
+                          padding: "8px 14px", borderRadius: 8, cursor: "pointer", fontSize: 12, fontWeight: 700,
                           border: filtroTipo === val
                             ? `1px solid ${color ?? "rgba(255,255,255,0.15)"}`
                             : "1px solid rgba(255,255,255,0.04)",
                           background: filtroTipo === val
                             ? color ? `${color}18` : "rgba(255,255,255,0.06)"
                             : "transparent",
-                          color: filtroTipo === val ? (color ?? "#f4f4f5") : "#71717a",
+                          color: filtroTipo === val ? (color ?? "var(--text)") : "var(--dim)",
                           fontFamily: "'Outfit', system-ui",
                         }}>
                           {label}
@@ -1264,7 +1264,7 @@ export default function LaminacionScreen({ profile, signOut }) {
                     <select
                       value={filtroMatId}
                       onChange={e => setFiltroMatId(e.target.value)}
-                      style={{ ...S.select, flex: "1 1 180px", maxWidth: 220, fontSize: 13 }}
+                      style={{ ...S.select, flex: "1 1 180px", maxWidth: 220, fontSize: 14 }}
                     >
                       <option value="">Todos los materiales</option>
                       {materiales.map(m => (
@@ -1274,7 +1274,7 @@ export default function LaminacionScreen({ profile, signOut }) {
 
                     {/* Orden fecha */}
                     <button onClick={() => setMovSort(s => s === "fecha_desc" ? "fecha_asc" : "fecha_desc")} style={{
-                      ...S.btn, padding: "8px 14px", fontSize: 12, display: "flex", alignItems: "center", gap: 5,
+                      ...S.btn, padding: "8px 14px", fontSize: 13, display: "flex", alignItems: "center", gap: 5,
                       color: "#aaa", flexShrink: 0,
                     }}>
                       {movSort === "fecha_desc" ? " Más reciente" : " Más antiguo"}
@@ -1283,7 +1283,7 @@ export default function LaminacionScreen({ profile, signOut }) {
                     {/* Reset filtros */}
                     {(qMov || filtroTipo !== "todos" || filtroMatId) && (
                       <button onClick={() => { setQMov(""); setFiltroTipo("todos"); setFiltroMatId(""); }}
-                        style={{ ...S.btn, padding: "8px 12px", fontSize: 12, color: "#888", flexShrink: 0 }}>
+                        style={{ ...S.btn, padding: "8px 12px", fontSize: 13, color: "#888", flexShrink: 0 }}>
                          Limpiar
                       </button>
                     )}
@@ -1294,14 +1294,14 @@ export default function LaminacionScreen({ profile, signOut }) {
 
                   {/* Resultado del filtro */}
                   {movStats.enFiltro !== movStats.total && (
-                    <div style={{ marginTop: 10, fontSize: 11, color: "#666" }}>
+                    <div style={{ marginTop: 10, fontSize: 12, color: "#666" }}>
                       Mostrando <strong style={{ color: "#aaa" }}>{movStats.enFiltro}</strong> de {movStats.total} registros
                     </div>
                   )}
 
                   {/* ── Exportar ── */}
                   <div style={{ marginTop: 12, paddingTop: 12, borderTop: "1px solid #1a1a1a", display: "flex", gap: 8, flexWrap: "wrap", alignItems: "center" }}>
-                    <span style={{ fontSize: 10, color: "#444", letterSpacing: 1.5, textTransform: "uppercase", marginRight: 2 }}>Exportar</span>
+                    <span style={{ fontSize: 11, color: "#444", letterSpacing: 1.1, textTransform: "uppercase", marginRight: 2 }}>Exportar</span>
                     <button
                       onClick={() => exportarMovimientos(true)}
                       disabled={movimientosFiltrados.length === 0}
@@ -1310,11 +1310,11 @@ export default function LaminacionScreen({ profile, signOut }) {
                         background: movimientosFiltrados.length > 0 ? "rgba(48,209,88,0.07)" : "transparent",
                         color: movimientosFiltrados.length > 0 ? "#a6ffbf" : "#444",
                         padding: "7px 14px", borderRadius: 10, cursor: movimientosFiltrados.length > 0 ? "pointer" : "not-allowed",
-                        fontSize: 12, fontWeight: 700, display: "flex", alignItems: "center", gap: 6,
+                        fontSize: 13, fontWeight: 700, display: "flex", alignItems: "center", gap: 6,
                       }}
                     >
                        CSV
-                      <span style={{ fontSize: 10, opacity: 0.7 }}>
+                      <span style={{ fontSize: 11, opacity: 0.7 }}>
                         {movStats.enFiltro !== movStats.total
                           ? `${movStats.enFiltro} filtrados`
                           : `${movStats.total} registros`}
@@ -1326,7 +1326,7 @@ export default function LaminacionScreen({ profile, signOut }) {
                         style={{
                           border: "1px solid #2a2a2a", background: "transparent",
                           color: "#666", padding: "7px 14px", borderRadius: 10,
-                          cursor: "pointer", fontSize: 12, fontWeight: 700,
+                          cursor: "pointer", fontSize: 13, fontWeight: 700,
                         }}
                       >
                          CSV completo ({movStats.total})
@@ -1338,7 +1338,7 @@ export default function LaminacionScreen({ profile, signOut }) {
                 {/* ── Tabla ── */}
                 <div style={{ ...S.card, padding: 0, overflow: "hidden" }}>
                   <div style={{ overflowX: "auto" }}>
-                    <table style={{ ...S.table, fontSize: 13, minWidth: 700 }}>
+                    <table style={{ ...S.table, fontSize: 14, minWidth: 700 }}>
                       <thead>
                         <tr style={{ borderBottom: "1px solid #1e1e1e" }}>
                           {[
@@ -1371,13 +1371,13 @@ export default function LaminacionScreen({ profile, signOut }) {
                               background: idx % 2 === 0 ? "transparent" : "rgba(255,255,255,0.012)",
                               transition: "background 0.1s",
                             }}>
-                              <td style={{ ...S.td, padding: "10px 14px", whiteSpace: "nowrap", color: "#888", fontFamily: "monospace", fontSize: 12 }}>
+                              <td style={{ ...S.td, padding: "10px 14px", whiteSpace: "nowrap", color: "#888", fontFamily: "monospace", fontSize: 13 }}>
                                 {fmtDate(m.fecha || m.created_at)}
                               </td>
                               <td style={{ ...S.td, padding: "10px 14px" }}>
                                 <span style={{
                                   display: "inline-flex", alignItems: "center", gap: 4,
-                                  padding: "3px 9px", borderRadius: 999, fontSize: 10, fontWeight: 800, letterSpacing: 1,
+                                  padding: "3px 9px", borderRadius: 999, fontSize: 11, fontWeight: 800, letterSpacing: 1,
                                   background: esIngreso ? "rgba(48,209,88,0.1)" : "rgba(255,69,58,0.09)",
                                   color: esIngreso ? "#30d158" : "#ff453a",
                                   border: esIngreso ? "1px solid rgba(48,209,88,0.22)" : "1px solid rgba(255,69,58,0.22)",
@@ -1392,31 +1392,31 @@ export default function LaminacionScreen({ profile, signOut }) {
                               </td>
                               <td style={{ ...S.td, padding: "10px 14px", whiteSpace: "nowrap" }}>
                                 <span style={{
-                                  fontFamily: "monospace", fontSize: 13, fontWeight: 700,
+                                  fontFamily: "monospace", fontSize: 14, fontWeight: 700,
                                   color: esIngreso ? "#30d158" : "#ff453a",
                                 }}>
                                   {esIngreso ? "+" : "−"}{m.cantidad}
                                 </span>
-                                <span style={{ fontSize: 11, color: "#555", marginLeft: 4 }}>
+                                <span style={{ fontSize: 12, color: "#555", marginLeft: 4 }}>
                                   {m.laminacion_materiales?.unidad ?? ""}
                                 </span>
                               </td>
                               <td style={{ ...S.td, padding: "10px 14px", maxWidth: 160 }}>
-                                <span style={{ color: "#aaa", fontSize: 12 }}>
+                                <span style={{ color: "#aaa", fontSize: 13 }}>
                                   {esIngreso ? (m.proveedor || <span style={{ opacity: 0.25 }}>—</span>) : (m.destino || <span style={{ opacity: 0.25 }}>—</span>)}
                                 </span>
                               </td>
                               <td style={{ ...S.td, padding: "10px 14px" }}>
-                                <span style={{ color: "#aaa", fontSize: 12 }}>{m.nombre_persona || <span style={{ opacity: 0.25 }}>—</span>}</span>
+                                <span style={{ color: "#aaa", fontSize: 13 }}>{m.nombre_persona || <span style={{ opacity: 0.25 }}>—</span>}</span>
                               </td>
                               <td style={{ ...S.td, padding: "10px 14px" }}>
                                 {m.obra
-                                  ? <span style={{ padding: "2px 8px", borderRadius: 6, background: "rgba(255,255,255,0.06)", color: "#ccc", fontSize: 11, fontFamily: "monospace" }}>{m.obra}</span>
-                                  : <span style={{ opacity: 0.2, fontSize: 12 }}>—</span>
+                                  ? <span style={{ padding: "2px 8px", borderRadius: 6, background: "rgba(255,255,255,0.06)", color: "#ccc", fontSize: 12, fontFamily: "monospace" }}>{m.obra}</span>
+                                  : <span style={{ opacity: 0.2, fontSize: 13 }}>—</span>
                                 }
                               </td>
                               <td style={{ ...S.td, padding: "10px 14px", maxWidth: 180 }}>
-                                <span style={{ color: "#666", fontSize: 11, display: "block", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+                                <span style={{ color: "#666", fontSize: 12, display: "block", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
                                   {m.observaciones || <span style={{ opacity: 0.2 }}>—</span>}
                                 </span>
                               </td>
@@ -1428,14 +1428,14 @@ export default function LaminacionScreen({ profile, signOut }) {
 
                     {movimientosFiltrados.length === 0 && (
                       <div style={{ padding: "40px 20px", textAlign: "center" }}>
-                        <div style={{ fontSize: 13, color: "#444", letterSpacing: 1 }}>
+                        <div style={{ fontSize: 14, color: "#444", letterSpacing: 1 }}>
                           {movimientos.length === 0
                             ? "Sin movimientos registrados"
                             : "Sin resultados · probá cambiando los filtros"}
                         </div>
                         {(qMov || filtroTipo !== "todos" || filtroMatId) && (
                           <button onClick={() => { setQMov(""); setFiltroTipo("todos"); setFiltroMatId(""); }}
-                            style={{ marginTop: 12, ...S.btn, fontSize: 12 }}>
+                            style={{ marginTop: 12, ...S.btn, fontSize: 13 }}>
                             Limpiar filtros
                           </button>
                         )}
@@ -1482,7 +1482,7 @@ export default function LaminacionScreen({ profile, signOut }) {
     />		  
                 {puedeCargar && (
                   <div style={S.card}>
-                    <h3 style={{ marginTop: 0, color: "#f4f4f5" }}>Nuevo pedido</h3>
+                    <h3 style={{ marginTop: 0, color: "var(--text)" }}>Nuevo pedido</h3>
                     <form onSubmit={crearPedido}>
                       <div style={S.row3}>
                         <div>
@@ -1507,7 +1507,7 @@ export default function LaminacionScreen({ profile, signOut }) {
                         </div>
                       </div>
                       <div style={{ marginTop: 8, display: "flex", alignItems: "center", gap: 8 }}>
-                        <label style={{ display: "flex", alignItems: "center", gap: 6, cursor: "pointer", fontSize: 12, color: "#a1a1aa", userSelect: "none" }}>
+                        <label style={{ display: "flex", alignItems: "center", gap: 6, cursor: "pointer", fontSize: 13, color: "var(--muted)", userSelect: "none" }}>
                           <input type="checkbox" checked={formPedido.categoria === "extra"}
                             onChange={e => setFormPedido(f => ({ ...f, categoria: e.target.checked ? "extra" : "estándar" }))}
                             style={{ accentColor: "#f59e0b" }} />
@@ -1523,7 +1523,7 @@ export default function LaminacionScreen({ profile, signOut }) {
 
                 <div style={S.card}>
                   <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 12 }}>
-                    <h3 style={{ margin: 0, color: "#f4f4f5" }}>Pedidos</h3>
+                    <h3 style={{ margin: 0, color: "var(--text)" }}>Pedidos</h3>
                     <button onClick={exportarPedidos} disabled={!pedidosFiltrados.length} style={S.btnExport}>
                        Exportar CSV
                     </button>
@@ -1537,7 +1537,7 @@ export default function LaminacionScreen({ profile, signOut }) {
                       >
                         {st === "todos" ? "Todos" : st.charAt(0).toUpperCase() + st.slice(1)}
                         {st === "pendiente" && pedidos.filter(p => p.estado === "pendiente").length > 0 && (
-                          <span style={{ marginLeft: 6, background: "#ffe7a6", color: "#000", borderRadius: 999, padding: "1px 6px", fontSize: 10, fontWeight: 900 }}>
+                          <span style={{ marginLeft: 6, background: "#ffe7a6", color: "#000", borderRadius: 999, padding: "1px 6px", fontSize: 11, fontWeight: 900 }}>
                             {pedidos.filter(p => p.estado === "pendiente").length}
                           </span>
                         )}
@@ -1557,7 +1557,7 @@ export default function LaminacionScreen({ profile, signOut }) {
                     }
                     const listaGrupos = Object.values(grupos);
                     if (!listaGrupos.length)
-                      return <div style={{ padding: "20px 0", textAlign: "center", color: "#52525b", fontSize: 13 }}>Sin pedidos registrados.</div>;
+                      return <div style={{ padding: "20px 0", textAlign: "center", color: "var(--dim)", fontSize: 14 }}>Sin pedidos registrados.</div>;
 
                     return (
                       <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
@@ -1566,7 +1566,7 @@ export default function LaminacionScreen({ profile, signOut }) {
                           const pendientes  = grupo.items.filter(p => p.estado === "pendiente").length;
                           const entregados  = grupo.items.filter(p => p.estado === "entregado").length;
                           const cancelados  = grupo.items.filter(p => p.estado === "cancelado").length;
-                          const estadoColor = pendientes > 0 ? "#f59e0b" : entregados === grupo.items.length ? "#10b981" : "#71717a";
+                          const estadoColor = pendientes > 0 ? "#f59e0b" : entregados === grupo.items.length ? "#10b981" : "var(--dim)";
                           const estadoLabel = pendientes > 0
                             ? `${pendientes} pendiente${pendientes !== 1 ? "s" : ""}`
                             : entregados === grupo.items.length ? "Completo" : "Cerrado";
@@ -1609,28 +1609,28 @@ export default function LaminacionScreen({ profile, signOut }) {
                                 <span style={{ fontSize: 14 }}>{isExpanded ? <ChevronDown size={14}/> : <ChevronRight size={14}/>}</span>
 
                                 <div style={{ flex: 1, minWidth: 180 }}>
-                                  <div style={{ fontWeight: 700, color: "#f4f4f5", fontSize: 13 }}>
+                                  <div style={{ fontWeight: 700, color: "var(--text)", fontSize: 14 }}>
                                     {esManual ? " Pedido manual" : ` ${grupo.ref}`}
                                   </div>
-                                  {!esManual && <div style={{ fontSize: 11, color: "#a1a1aa", marginTop: 2 }}>{grupo.label}</div>}
+                                  {!esManual && <div style={{ fontSize: 12, color: "var(--muted)", marginTop: 2 }}>{grupo.label}</div>}
                                 </div>
                                 {/* debug: raw categoria values */}
-                                <div style={{ fontSize: 9, color: "#a1a1aa", fontFamily: "monospace", marginLeft: 8 }}>
+                                <div style={{ fontSize: 10, color: "var(--muted)", fontFamily: "monospace", marginLeft: 8 }}>
                                   [{grupo.items.map(p => (p.categoria || "null")).join(", ")}]
                                 </div>
 
                                 <div style={{ display: "flex", gap: 10, alignItems: "center", flexWrap: "wrap" }}>
-                                  <span style={{ fontSize: 11, color: "#71717a" }}>{grupo.items.length} material{grupo.items.length !== 1 ? "es" : ""}</span>
-                                  {(() => { const n = grupo.items.filter(p => p.categoria === "extra").length; return n > 0 ? <span style={{ fontSize: 10, fontWeight: 800, textTransform: "uppercase", letterSpacing: 0.5, color: "#f59e0b", background: "rgba(245,158,11,0.18)", border: "1px solid rgba(245,158,11,0.3)", borderRadius: 5, padding: "1px 8px" }}>{n} Extra{n !== 1 ? "s" : ""}</span> : null; })()}
-                                  <span style={{ fontSize: 11, fontWeight: 700, color: estadoColor, background: `${estadoColor}18`, border: `1px solid ${estadoColor}44`, borderRadius: 999, padding: "2px 10px" }}>
+                                  <span style={{ fontSize: 12, color: "var(--dim)" }}>{grupo.items.length} material{grupo.items.length !== 1 ? "es" : ""}</span>
+                                  {(() => { const n = grupo.items.filter(p => p.categoria === "extra").length; return n > 0 ? <span style={{ fontSize: 11, fontWeight: 800, textTransform: "uppercase", letterSpacing: 0.5, color: "#f59e0b", background: "rgba(245,158,11,0.18)", border: "1px solid rgba(245,158,11,0.3)", borderRadius: 5, padding: "1px 8px" }}>{n} Extra{n !== 1 ? "s" : ""}</span> : null; })()}
+                                  <span style={{ fontSize: 12, fontWeight: 700, color: estadoColor, background: `${estadoColor}18`, border: `1px solid ${estadoColor}44`, borderRadius: 999, padding: "2px 10px" }}>
                                     {estadoLabel}
                                   </span>
-                                  <span style={{ fontSize: 10, color: "#52525b" }}>{fmtTs(grupo.createdAt)}</span>
+                                  <span style={{ fontSize: 11, color: "var(--dim)" }}>{fmtTs(grupo.createdAt)}</span>
                                                   {pendientes > 0 && (
                                                     <button
                                                       onClick={e => { e.stopPropagation(); setComprasModal({ open: true, prefilled: comprasPrefilled }); }}
                                                       title="Pedir a Compras"
-                                                      style={{ border: "1px solid rgba(96,165,250,0.3)", background: "rgba(96,165,250,0.08)", color: "#60a5fa", borderRadius: 7, cursor: "pointer", padding: "4px 8px", display: "flex", alignItems: "center", gap: 4, fontSize: 11 }}
+                                                      style={{ border: "1px solid rgba(96,165,250,0.3)", background: "rgba(96,165,250,0.08)", color: "#60a5fa", borderRadius: 7, cursor: "pointer", padding: "4px 8px", display: "flex", alignItems: "center", gap: 4, fontSize: 12 }}
                                                     >
                                                       <ShoppingCart size={12}/> Compras
                                                     </button>
@@ -1639,7 +1639,7 @@ export default function LaminacionScreen({ profile, signOut }) {
                                                     <button
                                                       onClick={e => { e.stopPropagation(); eliminarOrden(grupo.items); }}
                                                       title="Eliminar orden completa"
-                                                      style={{ border: "1px solid rgba(239,68,68,0.3)", background: "rgba(239,68,68,0.08)", color: "#ef4444", borderRadius: 7, cursor: "pointer", padding: "4px 8px", display: "flex", alignItems: "center", gap: 4, fontSize: 11 }}
+                                                      style={{ border: "1px solid rgba(239,68,68,0.3)", background: "rgba(239,68,68,0.08)", color: "#ef4444", borderRadius: 7, cursor: "pointer", padding: "4px 8px", display: "flex", alignItems: "center", gap: 4, fontSize: 12 }}
                                                     >
                                                       <Trash2 size={12}/> Eliminar orden
                                                     </button>
@@ -1666,16 +1666,16 @@ export default function LaminacionScreen({ profile, signOut }) {
                                         return (
                                         <tr key={p.id} className="lam-row" style={esExtra ? { background: "rgba(245,158,11,0.06)" } : {}}>
                                           <td style={S.td}>
-                                            <b style={{ color: "#f4f4f5", fontSize: 12 }}>{p.laminacion_materiales?.nombre ?? "—"}</b>
+                                            <b style={{ color: "var(--text)", fontSize: 13 }}>{p.laminacion_materiales?.nombre ?? "—"}</b>
                                             <div style={S.small}>{p.laminacion_materiales?.unidad}</div>
                                           </td>
                                           <td style={S.td}>
                                             {esExtra
-                                              ? <span style={{ fontSize: 10, fontWeight: 800, textTransform: "uppercase", letterSpacing: 0.5, color: "#f59e0b", background: "rgba(245,158,11,0.15)", borderRadius: 5, padding: "2px 8px" }}>EXTRA</span>
-                                              : <span style={{ fontSize: 10, color: "#71717a" }}>estándar</span>
+                                              ? <span style={{ fontSize: 11, fontWeight: 800, textTransform: "uppercase", letterSpacing: 0.5, color: "#f59e0b", background: "rgba(245,158,11,0.15)", borderRadius: 5, padding: "2px 8px" }}>EXTRA</span>
+                                              : <span style={{ fontSize: 11, color: "var(--dim)" }}>estándar</span>
                                             }
                                           </td>
-                                          <td style={{ ...S.td, fontFamily: "monospace", fontSize: 13, color: "#f4f4f5" }}>{num(p.cantidad)}</td>
+                                          <td style={{ ...S.td, fontFamily: "monospace", fontSize: 14, color: "var(--text)" }}>{num(p.cantidad)}</td>
                                           <td style={S.td}><span style={S.pillPedido(p.estado)}>{p.estado}</span></td>
                                           <td style={S.td}>
                                             <div style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>
@@ -1731,35 +1731,35 @@ export default function LaminacionScreen({ profile, signOut }) {
         if (tipo === "orden_completa") {
           const { grupo } = confModal;
           return (
-            <div style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.75)", zIndex: 9999, display: "flex", alignItems: "center", justifyContent: "center", backdropFilter: "blur(4px)" }}>
-              <div style={{ background: "#111113", border: "1px solid rgba(255,255,255,0.12)", borderRadius: 16, padding: 28, width: "min(520px, 94vw)", boxShadow: "0 24px 64px rgba(0,0,0,0.6)", maxHeight: "85vh", overflow: "auto" }}>
-                <h3 style={{ margin: "0 0 4px", color: "#f4f4f5", fontSize: 16 }}>Confirmar recepción</h3>
-                <p style={{ margin: "0 0 16px", color: "#71717a", fontSize: 12 }}>
+            <div style={{ position: "fixed", inset: 0, background: "var(--overlay-strong)", zIndex: 9999, display: "flex", alignItems: "center", justifyContent: "center", backdropFilter: "blur(4px)" }}>
+              <div style={{ background: "var(--panel-solid)", border: "1px solid rgba(255,255,255,0.12)", borderRadius: 16, padding: 28, width: "min(520px, 94vw)", boxShadow: "0 24px 64px rgba(0,0,0,0.6)", maxHeight: "85vh", overflow: "auto" }}>
+                <h3 style={{ margin: "0 0 4px", color: "var(--text)", fontSize: 16 }}>Confirmar recepción</h3>
+                <p style={{ margin: "0 0 16px", color: "var(--dim)", fontSize: 13 }}>
                   Se registra ingreso por todos los materiales y la orden queda cerrada.
                 </p>
                 <div style={{ background: "rgba(255,255,255,0.03)", border: "1px solid rgba(255,255,255,0.07)", borderRadius: 10, overflow: "hidden", marginBottom: 20 }}>
-                  <div style={{ padding: "10px 14px", background: "rgba(245,158,11,0.07)", borderBottom: "1px solid rgba(255,255,255,0.06)", fontSize: 12, fontWeight: 700, color: "#f59e0b" }}>
+                  <div style={{ padding: "10px 14px", background: "rgba(245,158,11,0.07)", borderBottom: "1px solid rgba(255,255,255,0.06)", fontSize: 13, fontWeight: 700, color: "#f59e0b" }}>
                     {grupo.ref} — {grupo.label}
                   </div>
                   {grupo.items.map((p, i) => {
                     const mat = materiales.find(m => String(m.id) === String(p.material_id));
                     return (
-                      <div key={p.id} style={{ display: "flex", justifyContent: "space-between", padding: "9px 14px", borderTop: i === 0 ? "none" : "1px solid rgba(255,255,255,0.04)", fontSize: 12 }}>
-                        <span style={{ color: "#f4f4f5" }}>
+                      <div key={p.id} style={{ display: "flex", justifyContent: "space-between", padding: "9px 14px", borderTop: i === 0 ? "none" : "1px solid rgba(255,255,255,0.04)", fontSize: 13 }}>
+                        <span style={{ color: "var(--text)" }}>
                           {mat?.nombre ?? "—"}
-                          {p.categoria === "extra" && <span style={{ marginLeft: 6, fontSize: 8, fontWeight: 800, textTransform: "uppercase", letterSpacing: 0.5, color: "#f59e0b", border: "1px solid rgba(245,158,11,0.3)", borderRadius: 4, padding: "1px 5px" }}>Extra</span>}
+                          {p.categoria === "extra" && <span style={{ marginLeft: 6, fontSize: 10, fontWeight: 800, textTransform: "uppercase", letterSpacing: 0.5, color: "#f59e0b", border: "1px solid rgba(245,158,11,0.3)", borderRadius: 4, padding: "1px 5px" }}>Extra</span>}
                         </span>
                         <span style={{ color: "#10b981", fontWeight: 700 }}>{num(p.cantidad)} {mat?.unidad}</span>
                       </div>
                     );
                   })}
                 </div>
-                <div style={{ padding: "10px 14px", background: "rgba(16,185,129,0.07)", border: "1px solid rgba(16,185,129,0.2)", borderRadius: 8, fontSize: 12, color: "#10b981", marginBottom: 20 }}>
+                <div style={{ padding: "10px 14px", background: "rgba(16,185,129,0.07)", border: "1px solid rgba(16,185,129,0.2)", borderRadius: 8, fontSize: 13, color: "#10b981", marginBottom: 20 }}>
                    Se registran <b>{grupo.items.length} ingresos</b> y la orden queda como <b>Entregada</b>.
                 </div>
                 <div style={{ display: "flex", gap: 10, justifyContent: "flex-end" }}>
-                  <button style={{ border: "1px solid rgba(255,255,255,0.08)", background: "rgba(255,255,255,0.04)", color: "#a1a1aa", padding: "9px 18px", borderRadius: 8, cursor: "pointer", fontWeight: 700, fontSize: 12, fontFamily: "'Outfit', system-ui" }} onClick={() => setConfModal(null)}>Cancelar</button>
-                  <button style={{ border: "1px solid rgba(16,185,129,0.5)", background: "rgba(16,185,129,0.2)", color: "#10b981", padding: "9px 22px", borderRadius: 8, cursor: "pointer", fontWeight: 700, fontSize: 12, fontFamily: "'Outfit', system-ui" }} onClick={recibirPedido}>Confirmar recepción</button>
+                  <button style={{ border: "1px solid rgba(255,255,255,0.08)", background: "rgba(255,255,255,0.04)", color: "var(--muted)", padding: "9px 18px", borderRadius: 8, cursor: "pointer", fontWeight: 700, fontSize: 13, fontFamily: "'Outfit', system-ui" }} onClick={() => setConfModal(null)}>Cancelar</button>
+                  <button style={{ border: "1px solid rgba(16,185,129,0.5)", background: "rgba(16,185,129,0.2)", color: "#10b981", padding: "9px 22px", borderRadius: 8, cursor: "pointer", fontWeight: 700, fontSize: 13, fontFamily: "'Outfit', system-ui" }} onClick={recibirPedido}>Confirmar recepción</button>
                 </div>
               </div>
             </div>
@@ -1771,13 +1771,13 @@ export default function LaminacionScreen({ profile, signOut }) {
           const { grupo, cantsParciales } = confModal;
           const algunaCant = Object.values(cantsParciales).some(v => num(v) > 0);
           return (
-            <div style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.75)", zIndex: 9999, display: "flex", alignItems: "center", justifyContent: "center", backdropFilter: "blur(4px)" }}>
-              <div style={{ background: "#111113", border: "1px solid rgba(255,255,255,0.12)", borderRadius: 16, padding: 28, width: "min(560px, 94vw)", boxShadow: "0 24px 64px rgba(0,0,0,0.6)", maxHeight: "85vh", overflow: "auto" }}>
-                <h3 style={{ margin: "0 0 4px", color: "#f4f4f5", fontSize: 16 }}>Recepción parcial</h3>
-                <p style={{ margin: "0 0 4px", color: "#71717a", fontSize: 12 }}>
+            <div style={{ position: "fixed", inset: 0, background: "var(--overlay-strong)", zIndex: 9999, display: "flex", alignItems: "center", justifyContent: "center", backdropFilter: "blur(4px)" }}>
+              <div style={{ background: "var(--panel-solid)", border: "1px solid rgba(255,255,255,0.12)", borderRadius: 16, padding: 28, width: "min(560px, 94vw)", boxShadow: "0 24px 64px rgba(0,0,0,0.6)", maxHeight: "85vh", overflow: "auto" }}>
+                <h3 style={{ margin: "0 0 4px", color: "var(--text)", fontSize: 16 }}>Recepción parcial</h3>
+                <p style={{ margin: "0 0 4px", color: "var(--dim)", fontSize: 13 }}>
                   Ingresá la cantidad que llegó de cada material. Dejá en 0 los que no llegaron.
                 </p>
-                <div style={{ fontSize: 11, color: "#f59e0b", marginBottom: 16 }}>{grupo.ref} — {grupo.label}</div>
+                <div style={{ fontSize: 12, color: "#f59e0b", marginBottom: 16 }}>{grupo.ref} — {grupo.label}</div>
 
                 <div style={{ display: "flex", flexDirection: "column", gap: 8, marginBottom: 20 }}>
                   {grupo.items.map(p => {
@@ -1785,13 +1785,13 @@ export default function LaminacionScreen({ profile, signOut }) {
                     const val = cantsParciales[p.id] ?? "";
                     const cantNum = num(val);
                     const pedidoNum = num(p.cantidad);
-                    const color = cantNum <= 0 ? "#52525b" : cantNum >= pedidoNum ? "#10b981" : "#f59e0b";
+                    const color = cantNum <= 0 ? "var(--dim)" : cantNum >= pedidoNum ? "#10b981" : "#f59e0b";
                     return (
                       <div key={p.id} style={{ display: "flex", alignItems: "center", gap: 12, padding: "10px 12px", background: "rgba(255,255,255,0.02)", border: `1px solid rgba(255,255,255,0.06)`, borderRadius: 9 }}>
-                        <div style={{ flex: 1, fontSize: 12, color: "#f4f4f5", fontWeight: 600 }}>
+                        <div style={{ flex: 1, fontSize: 13, color: "var(--text)", fontWeight: 600 }}>
                           {mat?.nombre ?? "—"}
-                          {p.categoria === "extra" && <span style={{ marginLeft: 6, fontSize: 8, fontWeight: 800, textTransform: "uppercase", letterSpacing: 0.5, color: "#f59e0b", border: "1px solid rgba(245,158,11,0.3)", borderRadius: 4, padding: "1px 5px" }}>Extra</span>}
-                          <span style={{ marginLeft: 8, fontSize: 10, color: "#71717a", fontWeight: 400 }}>pedido: {pedidoNum} {mat?.unidad}</span>
+                          {p.categoria === "extra" && <span style={{ marginLeft: 6, fontSize: 10, fontWeight: 800, textTransform: "uppercase", letterSpacing: 0.5, color: "#f59e0b", border: "1px solid rgba(245,158,11,0.3)", borderRadius: 4, padding: "1px 5px" }}>Extra</span>}
+                          <span style={{ marginLeft: 8, fontSize: 11, color: "var(--dim)", fontWeight: 700 }}>pedido: {pedidoNum} {mat?.unidad}</span>
                         </div>
                         <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
                           <input
@@ -1802,11 +1802,11 @@ export default function LaminacionScreen({ profile, signOut }) {
                               ...prev,
                               cantsParciales: { ...prev.cantsParciales, [p.id]: e.target.value }
                             }))}
-                            style={{ background: "rgba(255,255,255,0.05)", border: `1px solid ${color}55`, color: "#f4f4f5", padding: "7px 10px", borderRadius: 7, width: 80, outline: "none", fontSize: 13, fontFamily: "'JetBrains Mono', monospace", textAlign: "right", boxSizing: "border-box" }}
+                            style={{ background: "rgba(255,255,255,0.05)", border: `1px solid ${color}55`, color: "var(--text)", padding: "7px 10px", borderRadius: 7, width: 80, outline: "none", fontSize: 14, fontFamily: "'JetBrains Mono', monospace", textAlign: "right", boxSizing: "border-box" }}
                           />
-                          <span style={{ fontSize: 10, color: "#71717a", minWidth: 28 }}>{mat?.unidad}</span>
+                          <span style={{ fontSize: 11, color: "var(--dim)", minWidth: 28 }}>{mat?.unidad}</span>
                           {cantNum > 0 && (
-                            <span style={{ fontSize: 10, color, fontWeight: 700, minWidth: 60 }}>
+                            <span style={{ fontSize: 11, color, fontWeight: 700, minWidth: 60 }}>
                               {cantNum >= pedidoNum ? "completo " : `${Math.round(cantNum/pedidoNum*100)}%`}
                             </span>
                           )}
@@ -1816,16 +1816,16 @@ export default function LaminacionScreen({ profile, signOut }) {
                   })}
                 </div>
 
-                {err && <div style={{ marginBottom: 12, color: "#ff453a", fontSize: 12 }}>{err}</div>}
+                {err && <div style={{ marginBottom: 12, color: "#ff453a", fontSize: 13 }}>{err}</div>}
 
-                <div style={{ padding: "9px 14px", background: "rgba(245,158,11,0.07)", border: "1px solid rgba(245,158,11,0.2)", borderRadius: 8, fontSize: 12, color: "#f59e0b", marginBottom: 20 }}>
+                <div style={{ padding: "9px 14px", background: "rgba(245,158,11,0.07)", border: "1px solid rgba(245,158,11,0.2)", borderRadius: 8, fontSize: 13, color: "#f59e0b", marginBottom: 20 }}>
                    Los materiales con cantidad &gt; 0 se registran como ingreso. Los que lleguen completos cierran el ítem; los parciales quedan pendientes.
                 </div>
 
                 <div style={{ display: "flex", gap: 10, justifyContent: "flex-end" }}>
-                  <button style={{ border: "1px solid rgba(255,255,255,0.08)", background: "rgba(255,255,255,0.04)", color: "#a1a1aa", padding: "9px 18px", borderRadius: 8, cursor: "pointer", fontWeight: 700, fontSize: 12, fontFamily: "'Outfit', system-ui" }} onClick={() => { setConfModal(null); setErr(""); }}>Cancelar</button>
+                  <button style={{ border: "1px solid rgba(255,255,255,0.08)", background: "rgba(255,255,255,0.04)", color: "var(--muted)", padding: "9px 18px", borderRadius: 8, cursor: "pointer", fontWeight: 700, fontSize: 13, fontFamily: "'Outfit', system-ui" }} onClick={() => { setConfModal(null); setErr(""); }}>Cancelar</button>
                   <button
-                    style={{ border: "1px solid rgba(245,158,11,0.5)", background: "rgba(245,158,11,0.18)", color: "#f59e0b", padding: "9px 22px", borderRadius: 8, cursor: algunaCant ? "pointer" : "not-allowed", fontWeight: 700, fontSize: 12, fontFamily: "'Outfit', system-ui", opacity: algunaCant ? 1 : 0.4 }}
+                    style={{ border: "1px solid rgba(245,158,11,0.5)", background: "rgba(245,158,11,0.18)", color: "#f59e0b", padding: "9px 22px", borderRadius: 8, cursor: algunaCant ? "pointer" : "not-allowed", fontWeight: 700, fontSize: 13, fontFamily: "'Outfit', system-ui", opacity: algunaCant ? 1 : 0.4 }}
                     disabled={!algunaCant}
                     onClick={recibirPedido}
                   >
@@ -1843,20 +1843,20 @@ export default function LaminacionScreen({ profile, signOut }) {
         const cantFinal = tipo === "entero" ? num(pedido?.cantidad) : num(cantParcial);
         const esValido = cantFinal > 0;
         return (
-          <div style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.75)", zIndex: 9999, display: "flex", alignItems: "center", justifyContent: "center", backdropFilter: "blur(4px)" }}>
-            <div style={{ background: "#111113", border: "1px solid rgba(255,255,255,0.12)", borderRadius: 16, padding: 28, width: "min(480px, 94vw)", boxShadow: "0 24px 64px rgba(0,0,0,0.6)" }}>
-              <h3 style={{ margin: "0 0 4px", color: "#f4f4f5", fontSize: 16 }}>
+          <div style={{ position: "fixed", inset: 0, background: "var(--overlay-strong)", zIndex: 9999, display: "flex", alignItems: "center", justifyContent: "center", backdropFilter: "blur(4px)" }}>
+            <div style={{ background: "var(--panel-solid)", border: "1px solid rgba(255,255,255,0.12)", borderRadius: 16, padding: 28, width: "min(480px, 94vw)", boxShadow: "0 24px 64px rgba(0,0,0,0.6)" }}>
+              <h3 style={{ margin: "0 0 4px", color: "var(--text)", fontSize: 16 }}>
                 {tipo === "entero" ? "Confirmar recepción completa" : " Confirmar recepción parcial"}
               </h3>
-              <p style={{ margin: "0 0 20px", color: "#71717a", fontSize: 12 }}>Esto registra un ingreso y actualiza el stock.</p>
+              <p style={{ margin: "0 0 20px", color: "var(--dim)", fontSize: 13 }}>Esto registra un ingreso y actualiza el stock.</p>
               <div style={{ background: "rgba(255,255,255,0.03)", border: "1px solid rgba(255,255,255,0.08)", borderRadius: 10, padding: "14px 16px", marginBottom: 20 }}>
-                <div style={{ fontSize: 13, color: "#f4f4f5", fontWeight: 700, marginBottom: 6 }}>{mat?.nombre ?? "Material"}</div>
-                <div style={{ fontSize: 12, color: "#a1a1aa" }}>Cantidad pedida: <b style={{ color: "#f59e0b" }}>{num(pedido?.cantidad)} {mat?.unidad}</b></div>
+                <div style={{ fontSize: 14, color: "var(--text)", fontWeight: 700, marginBottom: 6 }}>{mat?.nombre ?? "Material"}</div>
+                <div style={{ fontSize: 13, color: "var(--muted)" }}>Cantidad pedida: <b style={{ color: "#f59e0b" }}>{num(pedido?.cantidad)} {mat?.unidad}</b></div>
               </div>
               {tipo === "parcial" && (
                 <div style={{ marginBottom: 20 }}>
-                  <label style={{ display: "block", fontSize: 10, color: "#71717a", textTransform: "uppercase", letterSpacing: 2, marginBottom: 6 }}>Cantidad que llegó ({mat?.unidad})</label>
-                  <input autoFocus style={{ background: "rgba(255,255,255,0.04)", border: "1px solid rgba(245,158,11,0.4)", color: "#f4f4f5", padding: "10px 12px", borderRadius: 8, width: "100%", outline: "none", fontSize: 15, fontFamily: "'Outfit', system-ui", boxSizing: "border-box" }}
+                  <label style={{ display: "block", fontSize: 11, color: "var(--dim)", textTransform: "uppercase", letterSpacing: 1.3, marginBottom: 6 }}>Cantidad que llegó ({mat?.unidad})</label>
+                  <input autoFocus style={{ background: "rgba(255,255,255,0.04)", border: "1px solid rgba(245,158,11,0.4)", color: "var(--text)", padding: "10px 12px", borderRadius: 8, width: "100%", outline: "none", fontSize: 15, fontFamily: "'Outfit', system-ui", boxSizing: "border-box" }}
                     type="number" step="0.01" min="0.01" max={num(pedido?.cantidad)} placeholder={`Máx. ${num(pedido?.cantidad)}`}
                     value={cantParcial}
                     onChange={e => setConfModal(prev => ({ ...prev, cantParcial: e.target.value }))}
@@ -1864,13 +1864,13 @@ export default function LaminacionScreen({ profile, signOut }) {
                 </div>
               )}
               {tipo === "entero" && (
-                <div style={{ marginBottom: 20, padding: "10px 14px", background: "rgba(16,185,129,0.08)", border: "1px solid rgba(16,185,129,0.25)", borderRadius: 8, fontSize: 12, color: "#10b981" }}>
+                <div style={{ marginBottom: 20, padding: "10px 14px", background: "rgba(16,185,129,0.08)", border: "1px solid rgba(16,185,129,0.25)", borderRadius: 8, fontSize: 13, color: "#10b981" }}>
                    Se registra ingreso de <b>{num(pedido?.cantidad)} {mat?.unidad}</b> · Pedido  <b>Entregado</b>.
                 </div>
               )}
               <div style={{ display: "flex", gap: 10, justifyContent: "flex-end" }}>
-                <button style={{ border: "1px solid rgba(255,255,255,0.08)", background: "rgba(255,255,255,0.04)", color: "#a1a1aa", padding: "9px 18px", borderRadius: 8, cursor: "pointer", fontWeight: 700, fontSize: 12, fontFamily: "'Outfit', system-ui" }} onClick={() => setConfModal(null)}>Cancelar</button>
-                <button style={{ border: `1px solid ${tipo === "entero" ? "rgba(16,185,129,0.5)" : "rgba(245,158,11,0.5)"}`, background: tipo === "entero" ? "rgba(16,185,129,0.2)" : "rgba(245,158,11,0.2)", color: tipo === "entero" ? "#10b981" : "#f59e0b", padding: "9px 22px", borderRadius: 8, cursor: esValido ? "pointer" : "not-allowed", fontWeight: 700, fontSize: 12, fontFamily: "'Outfit', system-ui", opacity: esValido ? 1 : 0.5 }}
+                <button style={{ border: "1px solid rgba(255,255,255,0.08)", background: "rgba(255,255,255,0.04)", color: "var(--muted)", padding: "9px 18px", borderRadius: 8, cursor: "pointer", fontWeight: 700, fontSize: 13, fontFamily: "'Outfit', system-ui" }} onClick={() => setConfModal(null)}>Cancelar</button>
+                <button style={{ border: `1px solid ${tipo === "entero" ? "rgba(16,185,129,0.5)" : "rgba(245,158,11,0.5)"}`, background: tipo === "entero" ? "rgba(16,185,129,0.2)" : "rgba(245,158,11,0.2)", color: tipo === "entero" ? "#10b981" : "#f59e0b", padding: "9px 22px", borderRadius: 8, cursor: esValido ? "pointer" : "not-allowed", fontWeight: 700, fontSize: 13, fontFamily: "'Outfit', system-ui", opacity: esValido ? 1 : 0.5 }}
                   disabled={!esValido} onClick={recibirPedido}>
                   {tipo === "entero" ? " Confirmar" : "Confirmar parcial"}
                 </button>

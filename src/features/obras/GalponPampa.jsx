@@ -1,3 +1,4 @@
+import { C } from "@/theme";
 /**
  * GalponPampa.jsx  v17 - FOCO TOTAL 🚀
  * ─────────────────────────────────────────────────────────────────
@@ -16,20 +17,6 @@ import k85Img  from "@/assets/boats/K85.png";
 import planoFondo from "@/assets/galpon/galpon_pampa.png"; 
 
 /* ─── PALETA ───────────────────────── */
-const C = {
-  bg:"#05050a", b0:"rgba(255,255,255,0.06)", b1:"rgba(255,255,255,0.12)",
-  s0:"rgba(255,255,255,0.03)", s1:"rgba(255,255,255,0.07)",
-  t0:"#ffffff", t1:"#a1a1aa", t2:"#52525b",
-  sans:"'Outfit', system-ui, sans-serif",
-  mono:"'JetBrains Mono', 'Fira Code', monospace",
-  obra:{
-    activa:   {top:"#1d4ed8",glow:"#3b82f6",label:"Activa"},
-    pausada:  {top:"#92400e",glow:"#f59e0b",label:"Pausada"},
-    terminada:{top:"#065f46",glow:"#10b981",label:"Terminada"},
-    cancelada:{top:"#7f1d1d",glow:"#ef4444",label:"Cancelada"},
-    vacio:    {top:"transparent",glow:"#6366f1",label:"Disponible"},
-  },
-};
 const GLASS={
   background:"rgba(10,10,15,0.88)",
   backdropFilter:"blur(24px) saturate(160%)",
@@ -106,9 +93,9 @@ function AddObraModal({puestoId,puestos,obras,onAssign,onClose}){
           <div style={{display:"flex",justifyContent:"space-between",alignItems:"center"}}>
             <div style={{display:"flex",gap:8,alignItems:"center"}}>
               <div style={{padding:"4px 8px",background:"rgba(167,139,250,0.15)",borderRadius:6,border:"1px solid rgba(167,139,250,0.3)"}}>
-                <span style={{fontSize:10,letterSpacing:1.5,color:"#a78bfa",textTransform:"uppercase",fontWeight:600}}>Asignar Obra</span>
+                <span style={{fontSize:11,letterSpacing:1.1,color:"#a78bfa",textTransform:"uppercase",fontWeight: 700}}>Asignar Obra</span>
               </div>
-              <span style={{fontFamily:C.mono,fontSize:13,color:C.t2}}>→ Puesto {p?.label??puestoId}</span>
+              <span style={{fontFamily:C.mono,fontSize:14,color:C.t2}}>→ Puesto {p?.label??puestoId}</span>
             </div>
             <button onClick={onClose} style={{background:"transparent",border:"none",color:C.t2,fontSize:16,cursor:"pointer",padding:4,borderRadius:6,lineHeight:1}}>✕</button>
           </div>
@@ -119,7 +106,7 @@ function AddObraModal({puestoId,puestos,obras,onAssign,onClose}){
             onBlur={e=>e.currentTarget.style.border="1px solid rgba(255,255,255,0.08)"}/>
         </div>
         <div ref={listRef} style={{flex:1,overflowY:"auto",padding:"8px",display:"flex",flexDirection:"column",gap:4}}>
-          {!list.length&&<div style={{textAlign:"center",padding:"32px 8px",fontSize:13,color:C.t2}}>{q?"No se encontraron obras":"No hay obras pendientes de asignar"}</div>}
+          {!list.length&&<div style={{textAlign:"center",padding:"32px 8px",fontSize:14,color:C.t2}}>{q?"No se encontraron obras":"No hay obras pendientes de asignar"}</div>}
           {list.map((obra,i)=>{
             const oC=C.obra[obra.estado]??C.obra.vacio,isSel=i===selIdx;
             return(<div key={obra.id} onClick={()=>onAssign(puestoId,obra.id)}
@@ -129,14 +116,14 @@ function AddObraModal({puestoId,puestos,obras,onAssign,onClose}){
                 <span style={{fontFamily:C.mono,fontSize:15,color:C.t0,fontWeight:600}}>{obra.codigo}</span>
                 <div style={{display:"flex",alignItems:"center",gap:6}}>
                   <div style={{width:6,height:6,borderRadius:3,background:oC.glow,boxShadow:`0 0 8px ${oC.glow}`}}/>
-                  <span style={{fontSize:10,letterSpacing:1,textTransform:"uppercase",color:oC.glow,fontWeight:500}}>{oC.label}</span>
+                  <span style={{fontSize:11,letterSpacing:1,textTransform:"uppercase",color:oC.glow,fontWeight: 700}}>{oC.label}</span>
                 </div>
               </div>
-              {obra.descripcion&&<div style={{fontSize:12,color:C.t1,whiteSpace:"nowrap",overflow:"hidden",textOverflow:"ellipsis"}}>{obra.descripcion}</div>}
+              {obra.descripcion&&<div style={{fontSize:13,color:C.t1,whiteSpace:"nowrap",overflow:"hidden",textOverflow:"ellipsis"}}>{obra.descripcion}</div>}
             </div>);
           })}
         </div>
-        <div style={{padding:"8px 16px",borderTop:`1px solid ${C.b0}`,fontSize:10,color:C.t2,display:"flex",gap:12,alignItems:"center"}}>
+        <div style={{padding:"8px 16px",borderTop:`1px solid ${C.b0}`,fontSize:11,color:C.t2,display:"flex",gap:12,alignItems:"center"}}>
           <span>↑↓ navegar</span><span>↵ asignar</span><span>Esc cerrar</span>
         </div>
       </div>
@@ -217,20 +204,20 @@ function CommandPalette({obras,puestos,obraByPuesto,onClose,onAction}){
   const groups=useMemo(()=>{
     const ql=q.toLowerCase(), result=[];
     const quick=[
-      {type:"action",id:"reset-view", icon:"⌂",label:"Resetear Vista",    sub:"R",    color:"#a1a1aa"},
+      {type:"action",id:"reset-view", icon:"⌂",label:"Resetear Vista",    sub:"R",    color:"var(--muted)"},
       {type:"action",id:"toggle-edit",icon:"◩",label:"Activar Modo Edición",sub:"E",  color:"#fbbf24"},
-      {type:"action",id:"zoom-in",    icon:"+",label:"Acercar Zoom",       sub:"+ / =",color:"#a1a1aa"},
-      {type:"action",id:"zoom-out",   icon:"−",label:"Alejar Zoom",        sub:"−",    color:"#a1a1aa"},
+      {type:"action",id:"zoom-in",    icon:"+",label:"Acercar Zoom",       sub:"+ / =",color:"var(--muted)"},
+      {type:"action",id:"zoom-out",   icon:"−",label:"Alejar Zoom",        sub:"−",    color:"var(--muted)"},
     ].filter(a=>!q||a.label.toLowerCase().includes(ql));
     if(quick.length) result.push({group:"Acciones",items:quick});
     const libre=puestosLibres.filter(p=>!q||`puesto ${p.label}`.includes(ql)||p.label.includes(q)).slice(0,6)
       .map(p=>({type:"puesto-libre",id:p.id,icon:"◻",label:`Puesto ${p.label}`,sub:"Disponible",color:"#6366f1",p}));
     if(libre.length) result.push({group:"Puestos Disponibles",items:libre});
     const unassigned=obras.filter(o=>!o.bahia_pampa&&[o.codigo,o.descripcion].some(s=>s?.toLowerCase().includes(ql))).slice(0,8)
-      .map(o=>({type:"obra-libre",id:o.id,icon:"●",label:o.codigo,sub:o.descripcion??"Sin descripción",color:C.obra[o.estado]?.glow??"#a1a1aa",obra:o}));
+      .map(o=>({type:"obra-libre",id:o.id,icon:"●",label:o.codigo,sub:o.descripcion??"Sin descripción",color:C.obra[o.estado]?.glow??"var(--muted)",obra:o}));
     if(unassigned.length) result.push({group:"Obras Sin Asignar",items:unassigned});
     const assigned=obras.filter(o=>o.bahia_pampa&&[o.codigo,o.descripcion].some(s=>s?.toLowerCase().includes(ql))).slice(0,6)
-      .map(o=>{const p=puestos.find(px=>px.id===o.bahia_pampa);return{type:"obra-asignada",id:o.id,icon:"◉",label:o.codigo,sub:`Puesto ${p?.label??"?"}`,color:C.obra[o.estado]?.glow??"#a1a1aa",obra:o,p};});
+      .map(o=>{const p=puestos.find(px=>px.id===o.bahia_pampa);return{type:"obra-asignada",id:o.id,icon:"◉",label:o.codigo,sub:`Puesto ${p?.label??"?"}`,color:C.obra[o.estado]?.glow??"var(--muted)",obra:o,p};});
     if(assigned.length) result.push({group:"Obras en Mapa",items:assigned});
     return result;
   },[q,obras,puestosLibres,puestos,obraByPuesto]);
@@ -252,31 +239,31 @@ function CommandPalette({obras,puestos,obraByPuesto,onClose,onAction}){
           <input ref={inputRef} value={q} onChange={e=>setQ(e.target.value)} onKeyDown={handleKeyDown}
             placeholder="Buscar obra, puesto o acción..."
             style={{flex:1,background:"transparent",border:"none",outline:"none",fontSize:15,color:C.t0,fontFamily:C.sans}}/>
-          <kbd style={{padding:"2px 7px",borderRadius:5,background:"rgba(255,255,255,0.06)",border:`1px solid ${C.b0}`,fontSize:10,color:C.t2,fontFamily:C.mono}}>Esc</kbd>
+          <kbd style={{padding:"2px 7px",borderRadius:5,background:"rgba(255,255,255,0.06)",border:`1px solid ${C.b0}`,fontSize:11,color:C.t2,fontFamily:C.mono}}>Esc</kbd>
         </div>
         <div ref={listRef} style={{flex:1,overflowY:"auto",padding:"8px"}}>
           {groups.map(g=>(
             <div key={g.group}>
-              <div style={{padding:"10px 12px 4px",fontSize:9,letterSpacing:2,textTransform:"uppercase",color:C.t2,fontFamily:C.mono}}>{g.group}</div>
+              <div style={{padding:"10px 12px 4px",fontSize:10,letterSpacing:1.3,textTransform:"uppercase",color:C.t2,fontFamily:C.mono}}>{g.group}</div>
               {g.items.map(item=>{
                 const idx=flatIdx++, isSel=idx===selIdx;
                 return(
                   <div key={item.id} data-idx={idx} onClick={()=>{onAction(item);onClose();}} onMouseEnter={()=>setSelIdx(idx)}
                     style={{display:"flex",alignItems:"center",gap:12,padding:"10px 12px",borderRadius:8,cursor:"pointer",background:isSel?"rgba(255,255,255,0.06)":"transparent",marginBottom:2}}>
                     <div style={{width:28,height:28,borderRadius:8,background:`${item.color}14`,border:`1px solid ${item.color}22`,display:"flex",alignItems:"center",justifyContent:"center",flexShrink:0}}>
-                      <span style={{fontSize:13,color:item.color}}>{item.icon}</span>
+                      <span style={{fontSize:14,color:item.color}}>{item.icon}</span>
                     </div>
                     <div style={{flex:1,minWidth:0}}>
-                      <div style={{fontSize:13,color:isSel?C.t0:C.t1,fontWeight:isSel?600:400}}>{item.label}</div>
-                      {item.sub&&<div style={{fontSize:10,color:C.t2,marginTop:1}}>{item.sub}</div>}
+                      <div style={{fontSize:14,color:isSel?C.t0:C.t1,fontWeight:isSel?600:400}}>{item.label}</div>
+                      {item.sub&&<div style={{fontSize:11,color:C.t2,marginTop:1}}>{item.sub}</div>}
                     </div>
-                    {item.type==="action"&&<kbd style={{padding:"2px 7px",borderRadius:5,background:"rgba(255,255,255,0.06)",border:`1px solid ${C.b0}`,fontSize:10,color:C.t2,fontFamily:C.mono,flexShrink:0}}>{item.sub}</kbd>}
+                    {item.type==="action"&&<kbd style={{padding:"2px 7px",borderRadius:5,background:"rgba(255,255,255,0.06)",border:`1px solid ${C.b0}`,fontSize:11,color:C.t2,fontFamily:C.mono,flexShrink:0}}>{item.sub}</kbd>}
                   </div>
                 );
               })}
             </div>
           ))}
-          {!flat.length&&<div style={{textAlign:"center",padding:"32px 0",color:C.t2,fontSize:13}}>Sin resultados para "{q}"</div>}
+          {!flat.length&&<div style={{textAlign:"center",padding:"32px 0",color:C.t2,fontSize:14}}>Sin resultados para "{q}"</div>}
         </div>
       </div>
     </div>
@@ -366,8 +353,8 @@ function CinematicCards({p,obra,oC,memoriaOverride,vp,svgRef}){
           return(<div key={s.key} style={{position:"absolute",left:s.cardX,top:s.cardY,width:CARD_W,height:CARD_H,background:"rgba(6,8,24,0.96)",border:`1px solid ${oC.glow}25`,borderRadius:8,boxShadow:`0 4px 24px rgba(0,0,0,0.8),inset 0 1px 0 rgba(255,255,255,0.04)`,display:"flex",alignItems:"center",gap:9,padding:"0 12px",animation:`ppCS_${s.key} 0.5s cubic-bezier(0.22,1,0.36,1) ${s.delay} both`,fontFamily:"'Outfit',system-ui,sans-serif",backdropFilter:"blur(14px)",userSelect:"none"}}>
             <div style={{flexShrink:0,width:26,height:26,borderRadius:7,background:`${oC.glow}10`,border:`1px solid ${oC.glow}20`,display:"flex",alignItems:"center",justifyContent:"center",color:`${oC.glow}cc`}}>{s.icon}</div>
             <div style={{flex:1,minWidth:0}}>
-              <div style={{fontSize:6.5,letterSpacing:"2px",fontWeight:700,fontFamily:"'JetBrains Mono',monospace",color:`${oC.glow}65`,textTransform:"uppercase",marginBottom:3,lineHeight:1}}>{s.label}</div>
-              <div style={{fontSize:12.5,fontWeight:600,color:"rgba(255,255,255,0.92)",lineHeight:1.2,whiteSpace:"nowrap",overflow:"hidden",textOverflow:"ellipsis"}}>{val}</div>
+              <div style={{fontSize:6.5,letterSpacing:"1.3px",fontWeight:700,fontFamily:"'JetBrains Mono',monospace",color:`${oC.glow}65`,textTransform:"uppercase",marginBottom:3,lineHeight:1}}>{s.label}</div>
+              <div style={{fontSize:13,fontWeight:600,color:"rgba(255,255,255,0.92)",lineHeight:1.2,whiteSpace:"nowrap",overflow:"hidden",textOverflow:"ellipsis"}}>{val}</div>
             </div>
           </div>);
         })}
@@ -847,7 +834,7 @@ export default function GalponPampa({
         <div style={{display:"flex",gap:5,pointerEvents:"auto"}}>
           {/* Volver */}
           <button onClick={onBack} className="pp-glass-btn"
-            style={{display:"flex",alignItems:"center",gap:6,padding:"7px 14px",borderRadius:8,cursor:"pointer",fontSize:11,fontFamily:C.sans,fontWeight:600}}>
+            style={{display:"flex",alignItems:"center",gap:6,padding:"7px 14px",borderRadius:8,cursor:"pointer",fontSize:12,fontFamily:C.sans,fontWeight: 700}}>
             <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round"><polyline points="15 18 9 12 15 6"/></svg>
             Mapa Principal
           </button>
@@ -855,7 +842,7 @@ export default function GalponPampa({
           {[{v:stats.total,l:"Total",c:C.t0},{v:stats.ocupados,l:"Ocupados",c:"#60a5fa"},{v:stats.libres,l:"Libres",c:"#34d399"}].map(({v,l,c})=>(
             <div key={l} style={{display:"flex",flexDirection:"column",alignItems:"center",padding:"4px 16px",borderRadius:8,...GLASS}}>
               <span style={{fontFamily:C.mono,fontSize:18,fontWeight:800,color:c,textShadow:`0 0 12px ${c}40`}}>{v}</span>
-              <span style={{fontSize:9,letterSpacing:2,textTransform:"uppercase",color:C.t2,fontWeight:600}}>{l}</span>
+              <span style={{fontSize:10,letterSpacing:1.3,textTransform:"uppercase",color:C.t2,fontWeight: 700}}>{l}</span>
             </div>
           ))}
         </div>
@@ -874,34 +861,34 @@ export default function GalponPampa({
             {LEGEND.map(({key,color,isWire})=>(
               <div key={key} style={{display:"flex",alignItems:"center",gap:6}}>
                 <div style={{width:10,height:10,borderRadius:isWire?2:5,background:isWire?"transparent":color,border:`1.5px solid ${color}`,boxShadow:isWire?"none":`0 0 10px ${color}80`}}/>
-                <span style={{fontSize:10,color:C.t1,fontWeight:500,letterSpacing:0.5}}>{C.obra[key].label}</span>
+                <span style={{fontSize:11,color:C.t1,fontWeight: 700,letterSpacing:0.5}}>{C.obra[key].label}</span>
               </div>
             ))}
           </div>
           {/* Controles */}
           <div style={{display:"flex",gap:8}}>
             <button className="pp-glass-btn" onClick={()=>setEditMode(v=>!v)}
-              style={{padding:"8px 16px",borderRadius:8,cursor:"pointer",fontSize:11,fontFamily:C.sans,fontWeight:600,display:"flex",alignItems:"center",gap:6,background:editMode?"rgba(251,191,36,0.15)":"",borderColor:editMode?"rgba(251,191,36,0.4)":""}}>
+              style={{padding:"8px 16px",borderRadius:8,cursor:"pointer",fontSize:12,fontFamily:C.sans,fontWeight: 700,display:"flex",alignItems:"center",gap:6,background:editMode?"rgba(251,191,36,0.15)":"",borderColor:editMode?"rgba(251,191,36,0.4)":""}}>
               <span style={{color:editMode?"#fbbf24":""}}>{editMode?"● Editando Layout":"◩ Editar Layout"}</span>
             </button>
             <button className="pp-glass-btn" onClick={()=>setCmdPaletteOpen(true)}
-              style={{padding:"8px 14px",borderRadius:8,cursor:"pointer",fontSize:11,fontFamily:C.sans,fontWeight:600,display:"flex",alignItems:"center",gap:8}}>
+              style={{padding:"8px 14px",borderRadius:8,cursor:"pointer",fontSize:12,fontFamily:C.sans,fontWeight: 700,display:"flex",alignItems:"center",gap:8}}>
               <span>⌘</span>
-              <span style={{color:C.t2,fontFamily:C.mono,fontSize:10,background:"rgba(255,255,255,0.05)",border:`1px solid ${C.b0}`,padding:"1px 6px",borderRadius:5}}>K</span>
+              <span style={{color:C.t2,fontFamily:C.mono,fontSize:11,background:"rgba(255,255,255,0.05)",border:`1px solid ${C.b0}`,padding:"1px 6px",borderRadius:5}}>K</span>
             </button>
             {editMode&&(
               <div style={{display:"flex",gap:4,alignItems:"center",background:"rgba(0,0,0,0.3)",borderRadius:8,padding:"4px",border:"1px solid rgba(16,185,129,0.3)"}}>
                 {[{key:"chico",l:"37'"},{key:"mediano",l:"42'"},{key:"utility",l:"43'"},{key:"grande",l:"52'"},{key:"crucero",l:"55'"},{key:"xl",l:"64'"},{key:"k85",l:"85'"}].map(({key,l})=>(
                   <button key={key} onClick={()=>setNewPuestoSize(key)}
-                    style={{padding:"4px 10px",borderRadius:6,cursor:"pointer",fontSize:10,fontFamily:C.mono,fontWeight:600,border:"none",background:newPuestoSize===key?"rgba(16,185,129,0.2)":"transparent",color:newPuestoSize===key?"#34d399":C.t2,transition:"all .2s"}}>{l}</button>
+                    style={{padding:"4px 10px",borderRadius:6,cursor:"pointer",fontSize:11,fontFamily:C.mono,fontWeight: 700,border:"none",background:newPuestoSize===key?"rgba(16,185,129,0.2)":"transparent",color:newPuestoSize===key?"#34d399":C.t2,transition:"all .2s"}}>{l}</button>
                 ))}
                 <div style={{width:1,height:16,background:C.b1,margin:"0 4px"}}/>
-                <button onClick={addPuesto} style={{padding:"4px 12px",borderRadius:6,cursor:"pointer",fontSize:11,fontWeight:700,border:"none",background:"#10b981",color:"#000",boxShadow:"0 4px 12px rgba(16,185,129,0.4)"}}>+ Agregar</button>
+                <button onClick={addPuesto} style={{padding:"4px 12px",borderRadius:6,cursor:"pointer",fontSize:12,fontWeight:700,border:"none",background:"#10b981",color:"#000",boxShadow:"0 4px 12px rgba(16,185,129,0.4)"}}>+ Agregar</button>
                 <div style={{width:1,height:16,background:C.b1,margin:"0 4px"}}/>
-                <button onClick={resetLayout} style={{padding:"4px 10px",borderRadius:6,cursor:"pointer",fontSize:10,fontWeight:600,border:"1px solid rgba(239,68,68,0.3)",background:"rgba(239,68,68,0.08)",color:"#f87171"}}>↺ Reset</button>
+                <button onClick={resetLayout} style={{padding:"4px 10px",borderRadius:6,cursor:"pointer",fontSize:11,fontWeight: 700,border:"1px solid rgba(239,68,68,0.3)",background:"rgba(239,68,68,0.08)",color:"#f87171"}}>↺ Reset</button>
                 <div style={{width:1,height:16,background:C.b1,margin:"0 4px"}}/>
                 <button onClick={handleSaveLayoutClick}
-                  style={{padding:"4px 14px",borderRadius:6,cursor:"pointer",fontSize:11,fontWeight:700,border:`1px solid ${layoutSaved?"rgba(16,185,129,0.5)":"rgba(99,102,241,0.4)"}`,background:layoutSaved?"rgba(16,185,129,0.15)":"rgba(99,102,241,0.15)",color:layoutSaved?"#34d399":"#a5b4fc",transition:"all 0.3s",display:"flex",alignItems:"center",gap:5}}>
+                  style={{padding:"4px 14px",borderRadius:6,cursor:"pointer",fontSize:12,fontWeight:700,border:`1px solid ${layoutSaved?"rgba(16,185,129,0.5)":"rgba(99,102,241,0.4)"}`,background:layoutSaved?"rgba(16,185,129,0.15)":"rgba(99,102,241,0.15)",color:layoutSaved?"#34d399":"#a5b4fc",transition:"all 0.3s",display:"flex",alignItems:"center",gap:5}}>
                   {layoutSaved?<>✓ Guardado</>:<>💾 Guardar para todos</>}
                 </button>
               </div>
@@ -917,7 +904,7 @@ export default function GalponPampa({
             <button key={i} className="pp-glass-btn" onClick={f}
               style={{width:36,height:36,borderRadius:8,fontSize:i==="⌂"?16:22,display:"flex",alignItems:"center",justifyContent:"center",cursor:"pointer",paddingBottom:i==="+"?2:0}}>{i}</button>
           ))}
-          <div style={{marginTop:4,textAlign:"center",fontFamily:C.mono,fontSize:10,color:C.t1,fontWeight:600}}>{Math.round(vp.scale*100)}%</div>
+          <div style={{marginTop:4,textAlign:"center",fontFamily:C.mono,fontSize:11,color:C.t1,fontWeight: 700}}>{Math.round(vp.scale*100)}%</div>
         </div>
       </div>
 
@@ -936,21 +923,21 @@ export default function GalponPampa({
                 <div style={{width:10,height:10,borderRadius:5,background:oC.glow,boxShadow:obra?`0 0 12px ${oC.glow}`:"none"}}/>
                 <span style={{fontFamily:C.mono,fontSize:15,color:C.t0,fontWeight:700}}>{obra?obra.codigo:`Puesto ${tooltip.puesto.label}`}</span>
               </div>
-              <span style={{fontSize:9,letterSpacing:1.5,textTransform:"uppercase",color:oC.glow,fontWeight:600,background:`${oC.glow}15`,padding:"2px 6px",borderRadius:4}}>{oC.label}</span>
+              <span style={{fontSize:10,letterSpacing:1.1,textTransform:"uppercase",color:oC.glow,fontWeight: 700,background:`${oC.glow}15`,padding:"2px 6px",borderRadius:4}}>{oC.label}</span>
             </div>
-            {obra?.descripcion&&<div style={{fontSize:12,color:C.t1,marginBottom:8,lineHeight:1.5}}>{obra.descripcion}</div>}
+            {obra?.descripcion&&<div style={{fontSize:13,color:C.t1,marginBottom:8,lineHeight:1.5}}>{obra.descripcion}</div>}
             {obra&&(
               <div style={{display:"flex",flexDirection:"column",gap:6}}>
-                <div style={{display:"flex",justifyContent:"space-between",fontSize:10,fontFamily:C.mono,color:C.t1}}>
+                <div style={{display:"flex",justifyContent:"space-between",fontSize:11,fontFamily:C.mono,color:C.t1}}>
                   <span>Progreso</span><span style={{color:oC.glow,fontWeight:700}}>{obra._pct??0}%</span>
                 </div>
                 <div style={{width:"100%",height:4,background:"rgba(255,255,255,0.08)",borderRadius:2,overflow:"hidden"}}>
                   <div style={{height:"100%",width:`${obra._pct??0}%`,background:oC.glow,boxShadow:`0 0 10px ${oC.glow}`}}/>
                 </div>
-                <div style={{fontSize:10,color:C.t2,marginTop:4}}>Click-derecho → menú · F → enfocar</div>
+                <div style={{fontSize:11,color:C.t2,marginTop:4}}>Click-derecho → menú · F → enfocar</div>
               </div>
             )}
-            {!obra&&<div style={{fontSize:11,color:C.t2}}>{editMode?"✦ Arrastrá, ↻ rotar, × eliminar":"✦ Click para asignar · F para enfocar"}</div>}
+            {!obra&&<div style={{fontSize:12,color:C.t2}}>{editMode?"✦ Arrastrá, ↻ rotar, × eliminar":"✦ Click para asignar · F para enfocar"}</div>}
           </div>
         );
       })()}
@@ -960,27 +947,27 @@ export default function GalponPampa({
         const{obra}=dragRef.current, oC=C.obra[obra.estado]??C.obra.vacio;
         const rect=svgRef.current?.getBoundingClientRect(); if(!rect) return null;
         return(<div style={{position:"absolute",left:obraDragPos.x-rect.left-80,top:obraDragPos.y-rect.top-30,zIndex:50,pointerEvents:"none",...GLASS,borderColor:oC.glow,borderRadius:12,padding:"12px 20px",boxShadow:`0 16px 32px rgba(0,0,0,0.6),0 0 0 1px ${oC.glow} inset,0 0 20px ${oC.glow}40`}}>
-          <div style={{fontSize:9,color:oC.glow,letterSpacing:2,textTransform:"uppercase",marginBottom:4,fontWeight:600}}>Reasignando</div>
+          <div style={{fontSize:10,color:oC.glow,letterSpacing:1.3,textTransform:"uppercase",marginBottom:4,fontWeight: 700}}>Reasignando</div>
           <div style={{fontFamily:C.mono,fontSize:16,color:C.t0,fontWeight:800}}>{obra.codigo}</div>
-          <div style={{fontSize:11,color:C.t1,marginTop:6}}>{obraDragOver?"↓ Soltar para asignar":"Buscando puesto libre..."}</div>
+          <div style={{fontSize:12,color:C.t1,marginTop:6}}>{obraDragOver?"↓ Soltar para asignar":"Buscando puesto libre..."}</div>
         </div>);
       })()}
 
       {/* STATUS BAR */}
       <div style={{position:"absolute",bottom:16,left:"50%",transform:"translateX(-50%)",zIndex:5,pointerEvents:"none",userSelect:"none"}}>
         {focusedPuesto?(
-          <div style={{padding:"8px 24px",borderRadius:30,background:"rgba(59,130,246,0.12)",border:"1px solid rgba(59,130,246,0.35)",fontSize:11,color:"#60a5fa",letterSpacing:1.2,fontWeight:600,backdropFilter:"blur(8px)"}}>
+          <div style={{padding:"8px 24px",borderRadius:30,background:"rgba(59,130,246,0.12)",border:"1px solid rgba(59,130,246,0.35)",fontSize:12,color:"#60a5fa",letterSpacing:1.2,fontWeight: 700,backdropFilter:"blur(8px)"}}>
             ◎ MODO FOCO — Click en área oscura o <span style={{fontFamily:C.mono,background:"rgba(96,165,250,0.15)",padding:"1px 6px",borderRadius:4}}>Esc</span> para salir
           </div>
         ):editMode?(
-          <div style={{padding:"8px 24px",borderRadius:30,background:"rgba(251,191,36,0.12)",border:"1px solid rgba(251,191,36,0.4)",fontSize:11,color:"#fbbf24",letterSpacing:1.5,fontWeight:600,backdropFilter:"blur(8px)"}}>
+          <div style={{padding:"8px 24px",borderRadius:30,background:"rgba(251,191,36,0.12)",border:"1px solid rgba(251,191,36,0.4)",fontSize:12,color:"#fbbf24",letterSpacing:1.1,fontWeight: 700,backdropFilter:"blur(8px)"}}>
             ✏️ MODO EDICIÓN — <span style={{fontFamily:C.mono,background:"rgba(251,191,36,0.15)",padding:"1px 5px",borderRadius:4}}>E</span> para salir
           </div>
         ):(
           <div style={{display:"flex",gap:12,alignItems:"center",padding:"6px 18px",borderRadius:30,background:"rgba(0,0,0,0.4)",border:`1px solid ${C.b0}`,backdropFilter:"blur(8px)"}}>
             {[["RUEDA","Zoom"],["DRAG","Pan"],["CLICK","Gestionar"],["CLICK-DER","Menú Radial"],["F","Enfocar"],["⌘K","Buscar"]].map(([key,label])=>(
-              <span key={key} style={{fontSize:9,color:C.t2,letterSpacing:1.5}}>
-                <span style={{fontFamily:C.mono,color:C.t1,background:"rgba(255,255,255,0.05)",padding:"1px 5px",borderRadius:4,fontSize:9}}>{key}</span>{" "}{label}
+              <span key={key} style={{fontSize:10,color:C.t2,letterSpacing:1.1}}>
+                <span style={{fontFamily:C.mono,color:C.t1,background:"rgba(255,255,255,0.05)",padding:"1px 5px",borderRadius:4,fontSize:10}}>{key}</span>{" "}{label}
               </span>
             ))}
           </div>
@@ -1017,11 +1004,11 @@ export default function GalponPampa({
           <div style={{...GLASS,border:"1px solid rgba(239,68,68,0.4)",borderRadius:16,padding:"24px",width:320,animation:"ppFadeUp 0.15s ease",boxShadow:"0 24px 48px rgba(0,0,0,0.9),0 0 0 1px rgba(239,68,68,0.2) inset"}} onClick={e=>e.stopPropagation()}>
             <div style={{width:40,height:40,borderRadius:20,background:"rgba(239,68,68,0.15)",display:"flex",alignItems:"center",justifyContent:"center",color:"#ef4444",fontSize:20,marginBottom:16,border:"1px solid rgba(239,68,68,0.3)"}}>!</div>
             <div style={{fontSize:16,color:C.t0,fontWeight:600,marginBottom:8}}>Eliminar Puesto</div>
-            <div style={{fontSize:13,color:C.t1,marginBottom:16,lineHeight:1.5}}>¿Eliminar el puesto <strong style={{color:C.t0}}>{confirmDel}</strong>?</div>
-            {obraByPuesto[confirmDel]&&<div style={{fontSize:12,color:"#f59e0b",marginBottom:24,padding:"10px 12px",borderRadius:8,background:"rgba(245,158,11,0.1)",border:"1px solid rgba(245,158,11,0.3)"}}>La obra asignada quedará sin puesto en el plano.</div>}
+            <div style={{fontSize:14,color:C.t1,marginBottom:16,lineHeight:1.5}}>¿Eliminar el puesto <strong style={{color:C.t0}}>{confirmDel}</strong>?</div>
+            {obraByPuesto[confirmDel]&&<div style={{fontSize:13,color:"#f59e0b",marginBottom:24,padding:"10px 12px",borderRadius:8,background:"rgba(245,158,11,0.1)",border:"1px solid rgba(245,158,11,0.3)"}}>La obra asignada quedará sin puesto en el plano.</div>}
             <div style={{display:"flex",gap:12}}>
-              <button onClick={()=>setConfirmDel(null)} className="pp-glass-btn" style={{flex:1,padding:"10px",borderRadius:8,cursor:"pointer",fontSize:13,fontWeight:600}}>Cancelar</button>
-              <button onClick={()=>removePuesto(confirmDel)} style={{flex:1,padding:"10px",borderRadius:8,border:"none",background:"#ef4444",color:"#fff",cursor:"pointer",fontSize:13,fontWeight:600,boxShadow:"0 4px 12px rgba(239,68,68,0.4)"}}>Eliminar</button>
+              <button onClick={()=>setConfirmDel(null)} className="pp-glass-btn" style={{flex:1,padding:"10px",borderRadius:8,cursor:"pointer",fontSize:14,fontWeight:600}}>Cancelar</button>
+              <button onClick={()=>removePuesto(confirmDel)} style={{flex:1,padding:"10px",borderRadius:8,border:"none",background:"#ef4444",color:"#fff",cursor:"pointer",fontSize:14,fontWeight:600,boxShadow:"0 4px 12px rgba(239,68,68,0.4)"}}>Eliminar</button>
             </div>
           </div>
         </div>

@@ -1214,7 +1214,7 @@ function Model3D({ moduleId, color }) {
           position: "absolute", bottom: 10, left: "50%", transform: "translateX(-50%)",
           background: "rgba(2,6,23,0.6)", border: "1px solid rgba(255,255,255,0.1)",
           borderRadius: 20, padding: "5px 14px",
-          color: "rgba(148,163,184,0.7)", fontSize: 11, letterSpacing: "0.06em",
+          color: "rgba(148,163,184,0.7)", fontSize: 12, letterSpacing: "0.06em",
           pointerEvents: "none", whiteSpace: "nowrap",
         }}>
           Clickeá un componente · Arrastrá para rotar
@@ -1240,14 +1240,14 @@ function Model3D({ moduleId, color }) {
           }}
         >
           <div style={{
-            color, fontSize: 10, fontWeight: 800, letterSpacing: "0.14em",
+            color, fontSize: 11, fontWeight: 800, letterSpacing: "0.14em",
             textTransform: "uppercase", marginBottom: 7,
             display: "flex", alignItems: "center", justifyContent: "space-between",
           }}>
             <span>{info.label}</span>
-            <span style={{ opacity: 0.4, fontSize: 13, fontWeight: 400 }}>✕</span>
+            <span style={{ opacity: 0.4, fontSize: 14, fontWeight: 400 }}>✕</span>
           </div>
-          <div style={{ color: "rgba(226,232,240,0.88)", fontSize: 12.5, lineHeight: 1.6 }}>
+          <div style={{ color: "rgba(226,232,240,0.88)", fontSize: 13, lineHeight: 1.6 }}>
             {info.text}
           </div>
         </div>
@@ -1313,7 +1313,7 @@ const ONBOARDING_CSS = `
 .ka-brand-mark img { width: 32px; height: 32px; object-fit: contain; filter: grayscale(1) brightness(2.4); }
 .ka-brand-mark span {
   display:block;
-  font-size: 13px;
+  font-size: 14px;
   font-weight: 800;
   text-transform: uppercase;
   letter-spacing: .34em;
@@ -1322,14 +1322,14 @@ const ONBOARDING_CSS = `
   display:block;
   margin-top: 4px;
   color: rgba(148,163,184,.9);
-  font-size: 10px;
-  letter-spacing: .16em;
+  font-size: 11px;
+  letter-spacing: .12em;
 }
 .ka-top-status { display:flex; align-items:center; gap:12px; }
 .ka-top-status > span {
   color: rgba(226,232,240,.72);
   font-family: "JetBrains Mono", monospace;
-  font-size: 11px;
+  font-size: 12px;
   letter-spacing: .12em;
 }
 .ka-top-status button, .ka-icon-btn {
@@ -1386,11 +1386,11 @@ const ONBOARDING_CSS = `
 .ka-rail-index {
   color: color-mix(in srgb, var(--module-color) 78%, #fff);
   font-family: "JetBrains Mono", monospace;
-  font-size: 10px;
+  font-size: 11px;
   font-weight: 800;
 }
 .ka-module-rail button span:last-child {
-  font-size: 11px;
+  font-size: 12px;
   font-weight: 800;
   letter-spacing: .14em;
   text-transform: uppercase;
@@ -1509,7 +1509,7 @@ const ONBOARDING_CSS = `
 .ka-hotspot-panel span {
   display:block;
   color: var(--accent);
-  font-size: 11px;
+  font-size: 12px;
   font-weight: 900;
   letter-spacing: .24em;
   text-transform: uppercase;
@@ -1534,9 +1534,9 @@ const ONBOARDING_CSS = `
   align-items:center;
   gap:10px;
   color: var(--accent);
-  font-size: 12px;
+  font-size: 13px;
   font-weight: 900;
-  letter-spacing: .28em;
+  letter-spacing: .13em;
   text-transform: uppercase;
 }
 .ka-kicker span {
@@ -1572,7 +1572,7 @@ const ONBOARDING_CSS = `
   gap:12px;
   color: rgba(255,255,255,.52);
   font-family: "JetBrains Mono", monospace;
-  font-size: 11px;
+  font-size: 12px;
   letter-spacing: .12em;
   text-transform: uppercase;
 }
@@ -1628,7 +1628,7 @@ const ONBOARDING_CSS = `
 .ka-step-num {
   color: var(--accent);
   font-family: "JetBrains Mono", monospace;
-  font-size: 11px;
+  font-size: 12px;
   font-weight: 900;
   flex-shrink: 0;
   padding-top: 2px;
@@ -1642,7 +1642,7 @@ const ONBOARDING_CSS = `
 .ka-step-preview {
   margin: 0;
   color: rgba(241,245,249,.72);
-  font-size: 11.5px;
+  font-size: 12px;
   line-height: 1.4;
   min-width: 0;
   transition: font-size .22s, color .22s, line-height .22s;
@@ -1680,15 +1680,15 @@ const ONBOARDING_CSS = `
   display:block;
   margin-top:6px;
   color: rgba(148,163,184,.78);
-  font-size: 10px;
+  font-size: 11px;
   font-weight: 800;
-  letter-spacing: .16em;
+  letter-spacing: .12em;
   text-transform: uppercase;
 }
 .ka-caption {
   margin:18px 0 0;
   color: rgba(148,163,184,.7);
-  font-size: 13px;
+  font-size: 14px;
   line-height:1.55;
 }
 .ka-on-footer { gap:16px; }
@@ -1702,9 +1702,9 @@ const ONBOARDING_CSS = `
   margin-bottom:9px;
   color: rgba(203,213,225,.7);
   font-family:"JetBrains Mono", monospace;
-  font-size: 10px;
+  font-size: 11px;
   font-weight: 800;
-  letter-spacing: .16em;
+  letter-spacing: .12em;
   text-transform: uppercase;
 }
 .ka-progress {
@@ -1737,9 +1737,9 @@ const ONBOARDING_CSS = `
   border-radius: 999px;
   padding: 0 18px;
   cursor:pointer;
-  font-size: 11px;
+  font-size: 12px;
   font-weight: 900;
-  letter-spacing: .16em;
+  letter-spacing: .12em;
   text-transform: uppercase;
 }
 .ka-primary {
@@ -1830,7 +1830,7 @@ const ONBOARDING_CSS = `
   }
   .ka-module-rail button {
     min-width: 110px;
-    font-size: 10px;
+    font-size: 11px;
     padding: 8px 10px;
     gap: 5px;
   }
@@ -1855,8 +1855,8 @@ const ONBOARDING_CSS = `
   .ka-step-list { margin-top: 10px; gap: 3px; }
   .ka-step-header { padding: 7px 10px; }
   .ka-step-item.is-open .ka-step-header { padding: 12px 14px; }
-  .ka-step-preview { font-size: 11px; }
-  .ka-step-item.is-open .ka-step-preview { font-size: 13.5px; }
+  .ka-step-preview { font-size: 12px; }
+  .ka-step-item.is-open .ka-step-preview { font-size: 14px; }
   .ka-step-item.is-open .ka-step-num { font-size: 18px; }
   .ka-stats-row {
     grid-template-columns: repeat(3, minmax(0,1fr));
@@ -1864,9 +1864,9 @@ const ONBOARDING_CSS = `
     margin-top: 14px;
   }
   .ka-stats-row div { padding: 10px; }
-  .ka-stats-row strong { font-size: 13px; }
+  .ka-stats-row strong { font-size: 14px; }
   .ka-hotspot-panel { padding: 14px 16px; left: 12px; right: 12px; bottom: 12px; }
-  .ka-hotspot-panel p { font-size: 12.5px; }
+  .ka-hotspot-panel p { font-size: 13px; }
   .ka-on-footer {
     align-items: stretch;
     flex-direction: column;
@@ -1877,12 +1877,12 @@ const ONBOARDING_CSS = `
   .ka-actions { justify-content:space-between; }
   .ka-ghost { display:none; }
   .ka-primary { flex:1; }
-  .ka-caption { font-size: 12px; margin-top: 12px; }
+  .ka-caption { font-size: 13px; margin-top: 12px; }
 }
 @media (max-width: 420px) {
   .ka-module-rail button {
     min-width: 92px;
-    font-size: 9px;
+    font-size: 10px;
   }
   .ka-slide-visual { min-height: 200px; }
   .ka-slide-copy h1 { font-size: clamp(22px, 8vw, 36px); }

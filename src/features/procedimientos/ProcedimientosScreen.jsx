@@ -3,36 +3,21 @@ import { supabase } from "@/supabaseClient";
 import Sidebar from "@/components/Sidebar";
 import { useResponsive } from "@/hooks/useResponsive";
 import { hasAdminAccess } from "@/lib/permissions";
+import { C } from "@/theme";
 
 // ─── PALETA ──────────────────────────────────────────────────────────────────
-const C = {
-  bg:   "#09090b",
-  s0:   "rgba(255,255,255,0.03)",
-  s1:   "rgba(255,255,255,0.06)",
-  b0:   "rgba(255,255,255,0.08)",
-  b1:   "rgba(255,255,255,0.15)",
-  t0:   "#f4f4f5",
-  t1:   "#a1a1aa",
-  t2:   "#71717a",
-  mono: "'JetBrains Mono', 'IBM Plex Mono', monospace",
-  sans: "'Outfit', system-ui, sans-serif",
-  primary: "#3b82f6",
-  amber:   "#f59e0b",
-  green:   "#10b981",
-  red:     "#ef4444",
-};
 const GLASS = {
   backdropFilter: "blur(32px) saturate(130%)",
   WebkitBackdropFilter: "blur(32px) saturate(130%)",
 };
 const INP = {
   background: "rgba(255,255,255,0.04)", border: `1px solid ${C.b0}`,
-  color: C.t0, padding: "9px 12px", borderRadius: 8, fontSize: 12,
+  color: C.t0, padding: "9px 12px", borderRadius: 8, fontSize: 13,
   outline: "none", width: "100%", fontFamily: "'Outfit', system-ui",
   boxSizing: "border-box",
 };
 const LABEL = {
-  fontSize: 9, letterSpacing: 2, color: C.t1, display: "block",
+  fontSize: 10, letterSpacing: 1.3, color: C.t1, display: "block",
   marginBottom: 6, textTransform: "uppercase", fontWeight: 600,
 };
 
@@ -173,7 +158,7 @@ export default function ProcedimientosScreen({ profile, signOut }) {
       <style>{`
         @import url('https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500;700&display=swap');
         *, *::before, *::after { box-sizing: border-box; }
-        select option { background: #0f0f12; color: #a1a1aa; }
+        select option { background: #0f0f12; color: var(--muted); }
         ::-webkit-scrollbar { width: 3px; height: 3px; }
         ::-webkit-scrollbar-track { background: transparent; }
         ::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.07); border-radius: 99px; }
@@ -202,13 +187,13 @@ export default function ProcedimientosScreen({ profile, signOut }) {
 
           {/* ── TOPBAR ── */}
           <div style={{
-            height: 50, background: "rgba(12,12,14,0.92)", ...GLASS,
+            height: 50, background: C.topbar, ...GLASS,
             borderBottom: `1px solid ${C.b0}`, padding: isMobile ? "0 12px 0 52px" : "0 18px",
             display: "flex", alignItems: "center", gap: 8, flexShrink: 0,
           }}>
             <div style={{ flex: 1 }}>
-              <div style={{ fontSize: 13, fontWeight: 600, color: C.t0 }}>Procedimientos</div>
-              <div style={{ fontSize: 9, color: C.t2, letterSpacing: 1.5, textTransform: "uppercase", marginTop: 1 }}>
+              <div style={{ fontSize: 14, fontWeight: 600, color: C.t0 }}>Procedimientos</div>
+              <div style={{ fontSize: 10, color: C.t2, letterSpacing: 1.1, textTransform: "uppercase", marginTop: 1 }}>
                 {filtrados.length} documento{filtrados.length !== 1 ? "s" : ""}
               </div>
             </div>
@@ -219,14 +204,14 @@ export default function ProcedimientosScreen({ profile, signOut }) {
               borderLeft: `2px solid ${C.primary}`,
             }}>
               <span style={{ fontFamily: C.mono, fontSize: 15, fontWeight: 700, color: C.primary }}>{items.length}</span>
-              <span style={{ fontSize: 8, color: C.t1, letterSpacing: 1.5, textTransform: "uppercase" }}>Total</span>
+              <span style={{ fontSize: 10, color: C.t1, letterSpacing: 1.1, textTransform: "uppercase" }}>Total</span>
             </div>
 
             {isAdmin && (
               <button onClick={abrirNuevo} style={{
                 border: "1px solid rgba(59,130,246,0.35)", background: "rgba(59,130,246,0.15)",
                 color: "#60a5fa", padding: "7px 18px", borderRadius: 8, cursor: "pointer",
-                fontSize: 12, fontWeight: 600, fontFamily: C.sans,
+                fontSize: 13, fontWeight: 600, fontFamily: C.sans,
               }}>
                 + Nuevo
               </button>
@@ -235,14 +220,14 @@ export default function ProcedimientosScreen({ profile, signOut }) {
 
           {/* ── SEARCH ── */}
           <div style={{
-            height: 44, background: "rgba(12,12,14,0.85)", ...GLASS,
+            height: 44, background: C.topbarSoft, ...GLASS,
             borderBottom: `1px solid ${C.b0}`, padding: "0 18px",
             display: "flex", alignItems: "center", flexShrink: 0,
           }}>
             <input
               style={{
                 background: "transparent", border: "none",
-                color: C.t0, fontSize: 12, fontFamily: C.sans,
+                color: C.t0, fontSize: 13, fontFamily: C.sans,
                 outline: "none", width: "100%", maxWidth: 400,
               }}
               placeholder="⌕  Buscar documentos…"
@@ -255,24 +240,24 @@ export default function ProcedimientosScreen({ profile, signOut }) {
 
             {err && (
               <div style={{ padding: "10px 14px", borderRadius: 8, marginBottom: 14,
-                background: "rgba(239,68,68,0.08)", border: "1px solid rgba(239,68,68,0.3)", color: C.red, fontSize: 12 }}>
+                background: "rgba(239,68,68,0.08)", border: "1px solid rgba(239,68,68,0.3)", color: C.red, fontSize: 13 }}>
                 {err}
               </div>
             )}
             {msg && (
               <div style={{ padding: "10px 14px", borderRadius: 8, marginBottom: 14,
-                background: "rgba(16,185,129,0.08)", border: "1px solid rgba(16,185,129,0.25)", color: C.green, fontSize: 12 }}>
+                background: "rgba(16,185,129,0.08)", border: "1px solid rgba(16,185,129,0.25)", color: C.green, fontSize: 13 }}>
                 {msg}
               </div>
             )}
 
             {loading ? (
-              <div style={{ textAlign: "center", color: C.t2, padding: 40, fontSize: 11,
-                letterSpacing: 2, textTransform: "uppercase", fontFamily: C.mono }}>
+              <div style={{ textAlign: "center", color: C.t2, padding: 40, fontSize: 12,
+                letterSpacing: 1.3, textTransform: "uppercase", fontFamily: C.mono }}>
                 Cargando…
               </div>
             ) : filtrados.length === 0 ? (
-              <div style={{ textAlign: "center", color: C.t2, padding: 40, fontSize: 12 }}>
+              <div style={{ textAlign: "center", color: C.t2, padding: 40, fontSize: 13 }}>
                 Sin documentos
               </div>
             ) : (
@@ -321,18 +306,18 @@ export default function ProcedimientosScreen({ profile, signOut }) {
 
                       {/* Footer */}
                       <div style={{ padding: "11px 14px 12px", borderTop: `1px solid ${C.b0}`, flexShrink: 0 }}>
-                        <div style={{ color: C.t0, fontSize: 12, fontWeight: 600, overflow: "hidden", textOverflow: "ellipsis",
+                        <div style={{ color: C.t0, fontSize: 13, fontWeight: 600, overflow: "hidden", textOverflow: "ellipsis",
                           display: "-webkit-box", WebkitLineClamp: 2, WebkitBoxOrient: "vertical" }}>
                           {p.titulo}
                         </div>
                         {p.descripcion && (
-                          <div style={{ fontSize: 11, color: C.t2, marginTop: 3, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+                          <div style={{ fontSize: 12, color: C.t2, marginTop: 3, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
                             {p.descripcion}
                           </div>
                         )}
                         <div style={{ display: "flex", alignItems: "center", gap: 6, marginTop: 7 }}>
                           <span style={{
-                            padding: "2px 7px", borderRadius: 5, fontSize: 9, fontWeight: 700,
+                            padding: "2px 7px", borderRadius: 5, fontSize: 10, fontWeight: 700,
                             letterSpacing: 0.8, textTransform: "uppercase",
                             background: isPdf ? "rgba(239,68,68,0.1)" : "rgba(59,130,246,0.1)",
                             color: isPdf ? C.red : C.primary,
@@ -340,8 +325,8 @@ export default function ProcedimientosScreen({ profile, signOut }) {
                           }}>
                             {isPdf ? "PDF" : `${pasoCount} pasos`}
                           </span>
-                          {rolLabel && <span style={{ fontSize: 9, color: C.t2, letterSpacing: 0.8, textTransform: "uppercase" }}>· {rolLabel}</span>}
-                          <span style={{ marginLeft: "auto", fontSize: 9, color: C.t2, fontFamily: C.mono }}>{dateStr}</span>
+                          {rolLabel && <span style={{ fontSize: 10, color: C.t2, letterSpacing: 0.8, textTransform: "uppercase" }}>· {rolLabel}</span>}
+                          <span style={{ marginLeft: "auto", fontSize: 10, color: C.t2, fontFamily: C.mono }}>{dateStr}</span>
                         </div>
                       </div>
                     </div>
@@ -356,7 +341,7 @@ export default function ProcedimientosScreen({ profile, signOut }) {
       {/* ── VISOR ── */}
       {selItem && (
         <div className="no-print"
-          style={{ position: "fixed", inset: 0, zIndex: 9990, background: "rgba(0,0,0,0.88)", ...GLASS,
+          style={{ position: "fixed", inset: 0, zIndex: 9990, background: "var(--overlay-strong)", ...GLASS,
             display: "flex", flexDirection: "column", alignItems: "center", padding: "40px 16px", overflowY: "auto" }}
           onClick={e => e.target === e.currentTarget && setSelItem(null)}
         >
@@ -371,7 +356,7 @@ export default function ProcedimientosScreen({ profile, signOut }) {
           }}>
             <div style={{ display: "flex", alignItems: "center", gap: 10, minWidth: 0, flex: 1 }}>
               <span style={{
-                padding: "2px 8px", borderRadius: 5, fontSize: 9, fontWeight: 700, letterSpacing: 1,
+                padding: "2px 8px", borderRadius: 5, fontSize: 10, fontWeight: 700, letterSpacing: 1,
                 background: selItem.pdf_url ? "rgba(239,68,68,0.12)" : "rgba(59,130,246,0.12)",
                 color: selItem.pdf_url ? C.red : C.primary,
                 border: selItem.pdf_url ? "1px solid rgba(239,68,68,0.2)" : "1px solid rgba(59,130,246,0.2)",
@@ -379,7 +364,7 @@ export default function ProcedimientosScreen({ profile, signOut }) {
               }}>
                 {selItem.pdf_url ? "PDF" : "DOC"}
               </span>
-              <span style={{ color: C.t0, fontSize: 13, fontWeight: 600, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+              <span style={{ color: C.t0, fontSize: 14, fontWeight: 600, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
                 {selItem.titulo}
               </span>
             </div>
@@ -387,20 +372,20 @@ export default function ProcedimientosScreen({ profile, signOut }) {
               {selItem.pdf_url ? (
                 <a href={selItem.pdf_url} target="_blank" rel="noreferrer" style={{
                   border: `1px solid ${C.b0}`, background: C.s0, color: C.t1,
-                  padding: "5px 12px", borderRadius: 7, cursor: "pointer", fontSize: 11, textDecoration: "none",
+                  padding: "5px 12px", borderRadius: 7, cursor: "pointer", fontSize: 12, textDecoration: "none",
                 }}>↗ Abrir</a>
               ) : (
                 <button style={{ border: `1px solid ${C.b0}`, background: C.s0, color: C.t1,
-                  padding: "5px 12px", borderRadius: 7, cursor: "pointer", fontSize: 11, fontFamily: C.sans }}
+                  padding: "5px 12px", borderRadius: 7, cursor: "pointer", fontSize: 12, fontFamily: C.sans }}
                   onClick={imprimirPDF}>↓ Imprimir</button>
               )}
               {isAdmin && (
                 <>
                   <button style={{ border: `1px solid ${C.b0}`, background: C.s0, color: C.t1,
-                    padding: "5px 12px", borderRadius: 7, cursor: "pointer", fontSize: 11, fontFamily: C.sans }}
+                    padding: "5px 12px", borderRadius: 7, cursor: "pointer", fontSize: 12, fontFamily: C.sans }}
                     onClick={() => abrirEditar(selItem)}>Editar</button>
                   <button style={{ border: "1px solid rgba(239,68,68,0.25)", background: "rgba(239,68,68,0.08)",
-                    color: C.red, padding: "5px 12px", borderRadius: 7, cursor: "pointer", fontSize: 11, fontFamily: C.sans }}
+                    color: C.red, padding: "5px 12px", borderRadius: 7, cursor: "pointer", fontSize: 12, fontFamily: C.sans }}
                     onClick={() => archivar(selItem.id)}>Archivar</button>
                 </>
               )}
@@ -426,7 +411,7 @@ export default function ProcedimientosScreen({ profile, signOut }) {
                 display: "flex", justifyContent: "space-between", alignItems: "flex-end" }}>
                 <div>
                   <h1 style={{ margin: 0, fontSize: 24, textTransform: "uppercase", fontFamily: "Arial, sans-serif" }}>{selItem.titulo}</h1>
-                  <div style={{ fontSize: 12, color: "#555", marginTop: 4 }}>PROCEDIMIENTO OPERATIVO ESTÁNDAR</div>
+                  <div style={{ fontSize: 13, color: "#555", marginTop: 4 }}>PROCEDIMIENTO OPERATIVO ESTÁNDAR</div>
                 </div>
                 <img src="/logo-k.png" alt="Klase A" style={{ height: 30, opacity: 0.8 }} />
               </div>
@@ -437,7 +422,7 @@ export default function ProcedimientosScreen({ profile, signOut }) {
               )}
               {Array.isArray(selItem.pasos) && selItem.pasos.length > 0 && (
                 <div style={{ marginBottom: 30 }}>
-                  <div style={{ background: "#eee", padding: "6px 10px", fontWeight: "bold", fontSize: 13,
+                  <div style={{ background: "#eee", padding: "6px 10px", fontWeight: "bold", fontSize: 14,
                     borderTop: "1px solid #000", borderBottom: "1px solid #000", marginBottom: 15 }}>DESARROLLO / PASOS</div>
                   <ol style={{ paddingLeft: 24, margin: 0, fontSize: 14, lineHeight: 1.6 }}>
                     {selItem.pasos.map((paso, i) => (
@@ -448,7 +433,7 @@ export default function ProcedimientosScreen({ profile, signOut }) {
               )}
               {selItem.contenido && (
                 <div>
-                  <div style={{ background: "#eee", padding: "6px 10px", fontWeight: "bold", fontSize: 13,
+                  <div style={{ background: "#eee", padding: "6px 10px", fontWeight: "bold", fontSize: 14,
                     borderTop: "1px solid #000", borderBottom: "1px solid #000", marginBottom: 15 }}>NOTAS ADICIONALES</div>
                   <div style={{ fontSize: 14, lineHeight: 1.6, whiteSpace: "pre-wrap" }}>{selItem.contenido}</div>
                 </div>
@@ -461,7 +446,7 @@ export default function ProcedimientosScreen({ profile, signOut }) {
       {/* ── MODAL NUEVO / EDITAR ── */}
       {showModal && (
         <div className="no-print"
-          style={{ position: "fixed", inset: 0, zIndex: 9995, background: "rgba(0,0,0,0.88)", ...GLASS,
+          style={{ position: "fixed", inset: 0, zIndex: 9995, background: "var(--overlay-strong)", ...GLASS,
             display: "flex", justifyContent: "center", alignItems: "flex-start", padding: "40px 16px", overflowY: "auto" }}
           onClick={e => !uploading && e.target === e.currentTarget && setShowModal(false)}
         >
@@ -472,7 +457,7 @@ export default function ProcedimientosScreen({ profile, signOut }) {
                 <div style={{ fontSize: 15, color: C.t0, fontWeight: 700 }}>
                   {editTarget ? "Editar documento" : "Nuevo documento"}
                 </div>
-                <div style={{ fontSize: 11, color: C.t2, marginTop: 3 }}>Procedimiento operativo</div>
+                <div style={{ fontSize: 12, color: C.t2, marginTop: 3 }}>Procedimiento operativo</div>
               </div>
               <button type="button" onClick={() => setShowModal(false)} style={{
                 background: C.s0, border: `1px solid ${C.b0}`, color: C.t2,
@@ -509,13 +494,13 @@ export default function ProcedimientosScreen({ profile, signOut }) {
                   <div style={{ padding: "7px 10px", background: "rgba(59,130,246,0.05)", border: "1px solid rgba(59,130,246,0.2)", borderRadius: 8 }}>
                     <input type="file" accept="application/pdf"
                       onChange={e => setFileToUpload(e.target.files[0])}
-                      style={{ color: C.t1, fontSize: 11, width: "100%" }} />
+                      style={{ color: C.t1, fontSize: 12, width: "100%" }} />
                   </div>
                   {form.pdf_url && !fileToUpload && (
-                    <div style={{ fontSize: 10, color: C.t2, marginTop: 4 }}>PDF guardado · nuevo reemplaza</div>
+                    <div style={{ fontSize: 11, color: C.t2, marginTop: 4 }}>PDF guardado · nuevo reemplaza</div>
                   )}
                   {fileToUpload && (
-                    <div style={{ fontSize: 10, color: C.primary, marginTop: 4 }}>← {fileToUpload.name}</div>
+                    <div style={{ fontSize: 11, color: C.primary, marginTop: 4 }}>← {fileToUpload.name}</div>
                   )}
                 </div>
               </div>
@@ -526,7 +511,7 @@ export default function ProcedimientosScreen({ profile, signOut }) {
                   <label style={LABEL}>Pasos {form.pdf_url ? "(ya tiene PDF)" : ""}</label>
                   {pasos.map((p, i) => (
                     <div key={i} style={{ display: "flex", gap: 6, marginBottom: 6, alignItems: "center" }}>
-                      <span style={{ width: 18, fontSize: 10, color: C.t2, textAlign: "right", fontFamily: C.mono, flexShrink: 0 }}>{i + 1}</span>
+                      <span style={{ width: 18, fontSize: 11, color: C.t2, textAlign: "right", fontFamily: C.mono, flexShrink: 0 }}>{i + 1}</span>
                       <input style={{ ...INP, flex: 1 }} placeholder={`Paso ${i + 1}…`} value={p}
                         onChange={e => { const n = [...pasos]; n[i] = e.target.value; setPasos(n); }} />
                       <button type="button"
@@ -536,7 +521,7 @@ export default function ProcedimientosScreen({ profile, signOut }) {
                   ))}
                   <button type="button"
                     style={{ border: `1px solid ${C.b0}`, background: C.s0, color: C.t1,
-                      padding: "5px 12px", borderRadius: 7, cursor: "pointer", fontSize: 11, fontFamily: C.sans, marginTop: 4 }}
+                      padding: "5px 12px", borderRadius: 7, cursor: "pointer", fontSize: 12, fontFamily: C.sans, marginTop: 4 }}
                     onClick={() => setPasos(p => [...p, ""])}>+ Paso</button>
                 </div>
               )}
@@ -552,13 +537,13 @@ export default function ProcedimientosScreen({ profile, signOut }) {
                 <button type="submit" disabled={uploading} style={{
                   flex: 1, border: "1px solid rgba(59,130,246,0.35)", background: "rgba(59,130,246,0.15)",
                   color: "#60a5fa", padding: "11px", borderRadius: 8, cursor: "pointer",
-                  fontSize: 13, fontWeight: 600, fontFamily: C.sans, opacity: uploading ? 0.6 : 1,
+                  fontSize: 14, fontWeight: 600, fontFamily: C.sans, opacity: uploading ? 0.6 : 1,
                 }}>
                   {uploading ? "Subiendo…" : (editTarget ? "Guardar cambios" : "Crear documento")}
                 </button>
                 <button type="button" disabled={uploading} onClick={() => setShowModal(false)} style={{
                   background: "transparent", border: `1px solid ${C.b0}`, color: C.t2,
-                  padding: "11px 20px", borderRadius: 8, cursor: "pointer", fontSize: 12, fontFamily: C.sans,
+                  padding: "11px 20px", borderRadius: 8, cursor: "pointer", fontSize: 13, fontFamily: C.sans,
                 }}>
                   Cancelar
                 </button>

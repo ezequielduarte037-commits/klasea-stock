@@ -1,3 +1,4 @@
+import { C } from "@/theme";
 // ─── SQL requerido (ejecutar una vez en Supabase) ────────────────
 // ALTER TABLE laminacion_obra_materiales
 //   ADD COLUMN IF NOT EXISTS ingresado_manual numeric DEFAULT NULL,
@@ -29,32 +30,10 @@ function diasHasta(dateStr) {
 }
 
 // ─── PALETA ──────────────────────────────────────────────────────
-const C = {
-  bg:      "#09090b",
-  s0:      "rgba(255,255,255,0.03)",
-  s1:      "rgba(255,255,255,0.06)",
-  b0:      "rgba(255,255,255,0.08)",
-  b1:      "rgba(255,255,255,0.15)",
-  t0:      "#f4f4f5",
-  t1:      "#a1a1aa",
-  t2:      "#71717a",
-  mono:    "'JetBrains Mono', 'IBM Plex Mono', monospace",
-  sans:    "'Outfit', system-ui, sans-serif",
-  primary: "#3b82f6",
-  amber:   "#f59e0b",
-  green:   "#10b981",
-  red:     "#ef4444",
-  obra: {
-    activa:    { dot: "#3b82f6", bg: "rgba(59,130,246,0.1)",  border: "rgba(59,130,246,0.25)",  label: "Activa"    },
-    pausada:   { dot: "#f59e0b", bg: "rgba(245,158,11,0.1)",  border: "rgba(245,158,11,0.25)",  label: "Pausada"   },
-    terminada: { dot: "#10b981", bg: "rgba(16,185,129,0.1)",  border: "rgba(16,185,129,0.25)",  label: "Terminada" },
-  },
-};
-
 const GLASS = { backdropFilter: "blur(32px) saturate(130%)", WebkitBackdropFilter: "blur(32px) saturate(130%)" };
 const INP = {
   background: "rgba(255,255,255,0.04)", border: `1px solid ${C.b0}`,
-  color: C.t0, padding: "8px 12px", borderRadius: 8, fontSize: 12,
+  color: C.t0, padding: "8px 12px", borderRadius: 8, fontSize: 13,
   outline: "none", width: "100%", fontFamily: C.sans,
 };
 
@@ -233,7 +212,7 @@ function urgenciaFinColor(dias) {
 function EstadoChip({ estado }) {
   const meta = C.obra[estado] ?? C.obra.activa;
   return (
-    <span style={{ fontSize: 8, letterSpacing: 2, textTransform: "uppercase", padding: "3px 8px", borderRadius: 99, fontWeight: 700, background: meta.bg, color: meta.dot, border: `1px solid ${meta.border}`, whiteSpace: "nowrap" }}>{meta.label}</span>
+    <span style={{ fontSize: 10, letterSpacing: 1.3, textTransform: "uppercase", padding: "3px 8px", borderRadius: 99, fontWeight: 700, background: meta.bg, color: meta.dot, border: `1px solid ${meta.border}`, whiteSpace: "nowrap" }}>{meta.label}</span>
   );
 }
 
@@ -290,31 +269,31 @@ function GanttView({ obras, obrasFiltradas, alertasPorObra, obraSelId, setObraSe
   return (
     <div style={{ padding: "16px 20px" }}>
       <div style={{ display: "flex", alignItems: "center", gap: 12, marginBottom: 16 }}>
-        <button onClick={() => setMesesOffset(o => o - 3)} style={{ border: `1px solid ${C.b0}`, background: "transparent", color: C.t2, padding: "5px 12px", borderRadius: 7, cursor: "pointer", fontSize: 13 }}>◀</button>
-        <div style={{ flex: 1, textAlign: "center", fontSize: 12, color: C.t1, fontWeight: 600 }}>
+        <button onClick={() => setMesesOffset(o => o - 3)} style={{ border: `1px solid ${C.b0}`, background: "transparent", color: C.t2, padding: "5px 12px", borderRadius: 7, cursor: "pointer", fontSize: 14 }}>◀</button>
+        <div style={{ flex: 1, textAlign: "center", fontSize: 13, color: C.t1, fontWeight: 600 }}>
           {meses[0].toLocaleDateString("es-AR", { month: "long", year: "numeric" })} — {meses[NUM_MESES-1].toLocaleDateString("es-AR", { month: "long", year: "numeric" })}
         </div>
-        <button onClick={() => setMesesOffset(o => o + 3)} style={{ border: `1px solid ${C.b0}`, background: "transparent", color: C.t2, padding: "5px 12px", borderRadius: 7, cursor: "pointer", fontSize: 13 }}>▶</button>
-        <button onClick={() => setMesesOffset(-1)} style={{ border: `1px solid ${C.b0}`, background: "transparent", color: C.t2, padding: "5px 10px", borderRadius: 7, cursor: "pointer", fontSize: 11 }}>Hoy</button>
+        <button onClick={() => setMesesOffset(o => o + 3)} style={{ border: `1px solid ${C.b0}`, background: "transparent", color: C.t2, padding: "5px 12px", borderRadius: 7, cursor: "pointer", fontSize: 14 }}>▶</button>
+        <button onClick={() => setMesesOffset(-1)} style={{ border: `1px solid ${C.b0}`, background: "transparent", color: C.t2, padding: "5px 10px", borderRadius: 7, cursor: "pointer", fontSize: 12 }}>Hoy</button>
       </div>
 
       <div style={{ background: C.s0, border: `1px solid ${C.b0}`, borderRadius: 12, overflow: "hidden" }}>
         <div style={{ display: "flex", borderBottom: `1px solid ${C.b0}`, background: "rgba(0,0,0,0.3)" }}>
-          <div style={{ width: 200, minWidth: 200, padding: "8px 14px", fontSize: 9, color: C.t2, letterSpacing: 2, textTransform: "uppercase", borderRight: `1px solid ${C.b0}` }}>Obra</div>
+          <div style={{ width: 200, minWidth: 200, padding: "8px 14px", fontSize: 10, color: C.t2, letterSpacing: 1.3, textTransform: "uppercase", borderRight: `1px solid ${C.b0}` }}>Obra</div>
           <div style={{ flex: 1, display: "flex" }}>
             {meses.map((m, i) => {
               const esHoy = m.getFullYear() === hoy.getFullYear() && m.getMonth() === hoy.getMonth();
               return (
-                <div key={i} style={{ flex: 1, padding: "8px 6px", fontSize: 10, color: esHoy ? C.primary : C.t2, fontWeight: esHoy ? 700 : 400, borderRight: i < NUM_MESES-1 ? `1px solid ${C.b0}` : "none", textAlign: "center" }}>
+                <div key={i} style={{ flex: 1, padding: "8px 6px", fontSize: 11, color: esHoy ? C.primary : C.t2, fontWeight: esHoy ? 700 : 400, borderRight: i < NUM_MESES-1 ? `1px solid ${C.b0}` : "none", textAlign: "center" }}>
                   {m.toLocaleDateString("es-AR", { month: "short" }).replace(".","").toUpperCase()}
-                  <div style={{ fontSize: 8, color: C.t2, marginTop: 1 }}>{m.getFullYear()}</div>
+                  <div style={{ fontSize: 10, color: C.t2, marginTop: 1 }}>{m.getFullYear()}</div>
                 </div>
               );
             })}
           </div>
         </div>
 
-        {obrasConFecha.length === 0 && <div style={{ padding: "32px 16px", textAlign: "center", color: C.t2, fontSize: 12 }}>No hay obras con fechas en el rango visible.</div>}
+        {obrasConFecha.length === 0 && <div style={{ padding: "32px 16px", textAlign: "center", color: C.t2, fontSize: 13 }}>No hay obras con fechas en el rango visible.</div>}
         {obrasConFecha.map((o) => {
           const al = alertasPorObra[o.id] ?? { criticas: 0 };
           const sel = obraSelId === o.id;
@@ -328,12 +307,12 @@ function GanttView({ obras, obrasFiltradas, alertasPorObra, obraSelId, setObraSe
               <div style={{ width: 200, minWidth: 200, padding: "8px 14px", borderRight: `1px solid ${C.b0}`, display: "flex", flexDirection: "column", gap: 3 }}>
                 <div style={{ display: "flex", alignItems: "center", gap: 5 }}>
                   <div style={{ width: 6, height: 6, borderRadius: "50%", background: barColor, flexShrink: 0 }} />
-                  <span style={{ fontSize: 12, fontWeight: 700, color: C.t0, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{o.nombre}</span>
+                  <span style={{ fontSize: 13, fontWeight: 700, color: C.t0, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{o.nombre}</span>
                 </div>
                 <div style={{ display: "flex", alignItems: "center", gap: 5, marginLeft: 11 }}>
                   <EstadoChip estado={o.estado} />
-                  {diasFin !== null && diasFin >= 0 && diasFin <= 60 && <span style={{ fontSize: 8, color: urgenciaFinColor(diasFin), fontWeight: 700 }}>{diasFin}d</span>}
-                  {diasFin !== null && diasFin < 0 && o.estado !== "terminada" && <span style={{ fontSize: 8, color: C.red, fontWeight: 700 }}>vencida</span>}
+                  {diasFin !== null && diasFin >= 0 && diasFin <= 60 && <span style={{ fontSize: 10, color: urgenciaFinColor(diasFin), fontWeight: 700 }}>{diasFin}d</span>}
+                  {diasFin !== null && diasFin < 0 && o.estado !== "terminada" && <span style={{ fontSize: 10, color: C.red, fontWeight: 700 }}>vencida</span>}
                 </div>
               </div>
               <div style={{ flex: 1, position: "relative", height: "100%", minHeight: 44, display: "flex", alignItems: "center" }}>
@@ -341,7 +320,7 @@ function GanttView({ obras, obrasFiltradas, alertasPorObra, obraSelId, setObraSe
                 {hoyPct !== null && hoyPct >= 0 && hoyPct <= 100 && <div style={{ position: "absolute", left: `${hoyPct}%`, top: 0, bottom: 0, width: 1, background: "rgba(59,130,246,0.5)", pointerEvents: "none", zIndex: 2 }} />}
                 {barWidth > 0 && (
                   <div style={{ position: "absolute", left: `${barLeft}%`, width: `${barWidth}%`, height: 20, background: barColor + "33", border: `1px solid ${barColor}88`, borderRadius: 5, display: "flex", alignItems: "center", paddingLeft: 6, overflow: "hidden", zIndex: 1 }}>
-                    <span style={{ fontSize: 9, color: barColor, fontWeight: 700, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis", fontFamily: C.sans }}>{o.nombre}</span>
+                    <span style={{ fontSize: 10, color: barColor, fontWeight: 700, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis", fontFamily: C.sans }}>{o.nombre}</span>
                   </div>
                 )}
                 {o.fecha_inicio && posicionPct(o.fecha_inicio) >= 0 && posicionPct(o.fecha_inicio) <= 100 && <div title={`Inicio: ${fmtDate(o.fecha_inicio)}`} style={{ position: "absolute", left: `calc(${posicionPct(o.fecha_inicio)}% - 3px)`, width: 6, height: 6, borderRadius: "50%", background: barColor, zIndex: 3, boxShadow: `0 0 5px ${barColor}` }} />}
@@ -353,12 +332,12 @@ function GanttView({ obras, obrasFiltradas, alertasPorObra, obraSelId, setObraSe
 
         {obrasSinFecha.length > 0 && (
           <div style={{ borderTop: `1px solid ${C.b0}`, padding: "8px 14px" }}>
-            <div style={{ fontSize: 9, color: C.t2, letterSpacing: 2, textTransform: "uppercase", marginBottom: 6 }}>Sin fecha asignada</div>
+            <div style={{ fontSize: 10, color: C.t2, letterSpacing: 1.3, textTransform: "uppercase", marginBottom: 6 }}>Sin fecha asignada</div>
             <div style={{ display: "flex", flexWrap: "wrap", gap: 6 }}>
               {obrasSinFecha.map(o => (
                 <div key={o.id} onClick={() => setObraSelId(obraSelId === o.id ? null : o.id)} style={{ display: "flex", alignItems: "center", gap: 5, padding: "4px 10px", borderRadius: 6, cursor: "pointer", background: obraSelId === o.id ? C.s1 : "transparent", border: `1px solid ${obraSelId === o.id ? C.b1 : C.b0}` }}>
                   <div style={{ width: 5, height: 5, borderRadius: "50%", background: colorMap[o.id] }} />
-                  <span style={{ fontSize: 11, color: C.t1 }}>{o.nombre}</span>
+                  <span style={{ fontSize: 12, color: C.t1 }}>{o.nombre}</span>
                   <EstadoChip estado={o.estado} />
                 </div>
               ))}
@@ -366,7 +345,7 @@ function GanttView({ obras, obrasFiltradas, alertasPorObra, obraSelId, setObraSe
           </div>
         )}
       </div>
-      <div style={{ marginTop: 10, display: "flex", gap: 16, fontSize: 10, color: C.t2 }}>
+      <div style={{ marginTop: 10, display: "flex", gap: 16, fontSize: 11, color: C.t2 }}>
         <span>● inicio · ◆ fin estimado</span>
         <span style={{ color: "rgba(59,130,246,0.7)" }}>│ azul = hoy</span>
         <span style={{ color: C.red }}>■ rojo = materiales críticos</span>
@@ -378,8 +357,8 @@ function GanttView({ obras, obrasFiltradas, alertasPorObra, obraSelId, setObraSe
 // ══════════════════════════════════════════════════════════════
 // DETALLE OBRA
 // ══════════════════════════════════════════════════════════════
-const TH = { padding: "8px 12px", textAlign: "left", fontSize: 9, letterSpacing: 2, textTransform: "uppercase", color: C.t2, fontWeight: 700, borderBottom: `1px solid rgba(255,255,255,0.08)`, whiteSpace: "nowrap" };
-const TD = { padding: "9px 12px", fontSize: 12, borderBottom: `1px solid rgba(255,255,255,0.03)`, color: "#a1a1aa" };
+const TH = { padding: "8px 12px", textAlign: "left", fontSize: 10, letterSpacing: 1.3, textTransform: "uppercase", color: C.t2, fontWeight: 700, borderBottom: `1px solid rgba(255,255,255,0.08)`, whiteSpace: "nowrap" };
+const TD = { padding: "9px 12px", fontSize: 13, borderBottom: `1px solid rgba(255,255,255,0.03)`, color: "var(--muted)" };
 
 function DetalleObra({ obraSel, tablaObra, obraStats, esGestion, editNec, setEditNec, savingNec, guardarNecesaria, guardarIngresadoManual, limpiarIngresadoManual, filtroMat, setFiltroMat }) {
   // editIngresado: { [matId]: string } — valor en el input de edición de ingresado
@@ -397,10 +376,10 @@ function DetalleObra({ obraSel, tablaObra, obraStats, esGestion, editNec, setEdi
       {/* Header */}
       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: 16 }}>
         <div>
-          <div style={{ fontSize: 9, color: C.t2, letterSpacing: 2, textTransform: "uppercase", marginBottom: 4 }}>Obra seleccionada</div>
+          <div style={{ fontSize: 10, color: C.t2, letterSpacing: 1.3, textTransform: "uppercase", marginBottom: 4 }}>Obra seleccionada</div>
           <h2 style={{ margin: 0, color: C.t0, fontSize: 18, fontWeight: 700 }}>{obraSel.nombre}</h2>
-          {obraSel.descripcion && <div style={{ fontSize: 11, color: C.t2, marginTop: 3 }}>{obraSel.descripcion}</div>}
-          <div style={{ marginTop: 6, display: "flex", gap: 10, fontSize: 10, color: C.t2 }}>
+          {obraSel.descripcion && <div style={{ fontSize: 12, color: C.t2, marginTop: 3 }}>{obraSel.descripcion}</div>}
+          <div style={{ marginTop: 6, display: "flex", gap: 10, fontSize: 11, color: C.t2 }}>
             {obraSel.fecha_inicio && <span>📅 Inicio: <span style={{ color: C.t1 }}>{fmtDate(obraSel.fecha_inicio)}</span></span>}
             {obraSel.fecha_fin && (() => {
               const dias = diasHasta(obraSel.fecha_fin); const col = urgenciaFinColor(dias);
@@ -420,7 +399,7 @@ function DetalleObra({ obraSel, tablaObra, obraStats, esGestion, editNec, setEdi
           { label: "Críticos",     val: obraStats.criticos,  color: C.red     },
         ].map(({ label, val, color }) => (
           <div key={label} style={{ background: C.s0, border: `1px solid ${C.b0}`, borderRadius: 10, padding: "10px 14px", borderLeft: `2px solid ${color}` }}>
-            <div style={{ fontSize: 9, letterSpacing: 1.5, textTransform: "uppercase", color: C.t2, marginBottom: 5 }}>{label}</div>
+            <div style={{ fontSize: 10, letterSpacing: 1.1, textTransform: "uppercase", color: C.t2, marginBottom: 5 }}>{label}</div>
             <div style={{ fontFamily: C.mono, fontSize: 20, fontWeight: 700, color, lineHeight: 1 }}>{val}</div>
           </div>
         ))}
@@ -428,27 +407,27 @@ function DetalleObra({ obraSel, tablaObra, obraStats, esGestion, editNec, setEdi
 
       {/* Leyenda override */}
       {esGestion && (
-        <div style={{ marginBottom: 8, fontSize: 10, color: C.t2, display: "flex", alignItems: "center", gap: 6 }}>
-          <span style={{ background: "rgba(167,139,250,0.12)", border: "1px solid rgba(167,139,250,0.3)", color: "#c4b5fd", padding: "1px 6px", borderRadius: 4, fontSize: 9, fontWeight: 700 }}>✏ editado</span>
+        <div style={{ marginBottom: 8, fontSize: 11, color: C.t2, display: "flex", alignItems: "center", gap: 6 }}>
+          <span style={{ background: "rgba(167,139,250,0.12)", border: "1px solid rgba(167,139,250,0.3)", color: "#c4b5fd", padding: "1px 6px", borderRadius: 4, fontSize: 10, fontWeight: 700 }}>✏ editado</span>
           <span>= cantidad ingresada ajustada manualmente en esta lista (no modifica movimientos globales)</span>
         </div>
       )}
 
       {/* Filtros */}
       <div style={{ display: "flex", gap: 6, marginBottom: 10, alignItems: "center" }}>
-        <span style={{ fontSize: 9, color: C.t2, letterSpacing: 1.5, textTransform: "uppercase", marginRight: 4 }}>Ver:</span>
+        <span style={{ fontSize: 10, color: C.t2, letterSpacing: 1.1, textTransform: "uppercase", marginRight: 4 }}>Ver:</span>
         {[
           { key: "planificados", label: "Planificados" },
           { key: "activos",      label: "Con actividad" },
           { key: "todos",        label: "Todos" },
         ].map(({ key, label }) => (
-          <button key={key} onClick={() => setFiltroMat(key)} style={{ border: `1px solid ${filtroMat === key ? C.primary + "88" : C.b0}`, background: filtroMat === key ? "rgba(59,130,246,0.15)" : "transparent", color: filtroMat === key ? "#93c5fd" : C.t2, padding: "4px 12px", borderRadius: 6, cursor: "pointer", fontSize: 11, fontFamily: C.sans, fontWeight: filtroMat === key ? 700 : 400 }}>{label}</button>
+          <button key={key} onClick={() => setFiltroMat(key)} style={{ border: `1px solid ${filtroMat === key ? C.primary + "88" : C.b0}`, background: filtroMat === key ? "rgba(59,130,246,0.15)" : "transparent", color: filtroMat === key ? "#93c5fd" : C.t2, padding: "4px 12px", borderRadius: 6, cursor: "pointer", fontSize: 12, fontFamily: C.sans, fontWeight: filtroMat === key ? 700 : 400 }}>{label}</button>
         ))}
-        <span style={{ fontSize: 10, color: C.t2, marginLeft: 4 }}>({filas.length})</span>
+        <span style={{ fontSize: 11, color: C.t2, marginLeft: 4 }}>({filas.length})</span>
       </div>
 
       {filas.length === 0 ? (
-        <div style={{ padding: "40px 0", textAlign: "center", color: C.t2, fontSize: 12 }}>
+        <div style={{ padding: "40px 0", textAlign: "center", color: C.t2, fontSize: 13 }}>
           {filtroMat === "planificados" && 'Sin planificados. Usá "📋 Lista base" o "Editar nec." para definir cantidades.'}
           {filtroMat === "activos"      && "Sin movimientos registrados todavía."}
           {filtroMat === "todos"        && "Sin materiales. Sincronizá la plantilla."}
@@ -482,7 +461,7 @@ function DetalleObra({ obraSel, tablaObra, obraStats, esGestion, editNec, setEdi
                     {/* Material */}
                     <td style={TD}>
                       <div style={{ fontWeight: r.tieneActividad ? 600 : 400, color: r.tieneActividad ? C.t0 : C.t2 }}>{r.mat.nombre}</div>
-                      <div style={{ fontSize: 10, color: C.t2, marginTop: 1 }}>{r.mat.unidad}</div>
+                      <div style={{ fontSize: 11, color: C.t2, marginTop: 1 }}>{r.mat.unidad}</div>
                     </td>
 
                     {/* Necesario */}
@@ -490,21 +469,21 @@ function DetalleObra({ obraSel, tablaObra, obraStats, esGestion, editNec, setEdi
                       {esGestion ? (
                         <div style={{ display: "flex", gap: 3, justifyContent: "flex-end", alignItems: "center" }}>
                           <input
-                            style={{ background: "rgba(255,255,255,0.04)", border: `1px solid ${C.b0}`, color: C.t0, padding: "3px 6px", borderRadius: 5, fontSize: 11, outline: "none", width: 60, textAlign: "right", fontFamily: C.mono }}
+                            style={{ background: "rgba(255,255,255,0.04)", border: `1px solid ${C.b0}`, color: C.t0, padding: "3px 6px", borderRadius: 5, fontSize: 12, outline: "none", width: 60, textAlign: "right", fontFamily: C.mono }}
                             type="number" min="0" step="0.01"
                             placeholder={r.necesario || "0"}
                             value={necVal}
                             onChange={e => setEditNec(prev => ({ ...prev, [necKey]: e.target.value }))}
                           />
                           {necVal !== "" && (
-                            <button disabled={savingNec} style={{ border: "1px solid rgba(16,185,129,0.3)", background: "rgba(16,185,129,0.1)", color: C.green, padding: "3px 6px", borderRadius: 5, cursor: "pointer", fontSize: 11 }}
+                            <button disabled={savingNec} style={{ border: "1px solid rgba(16,185,129,0.3)", background: "rgba(16,185,129,0.1)", color: C.green, padding: "3px 6px", borderRadius: 5, cursor: "pointer", fontSize: 12 }}
                               onClick={() => { guardarNecesaria(obraSel.id, r.matId, r.configId, necVal); setEditNec(prev => { const n = { ...prev }; delete n[necKey]; return n; }); }}
                             >✓</button>
                           )}
-                          {necVal === "" && <span style={{ fontFamily: C.mono, color: r.necesario > 0 ? "#a1a1aa" : C.t2, opacity: r.necesario > 0 ? 1 : 0.3, fontSize: 12 }}>{r.necesario > 0 ? r.necesario : "—"}</span>}
+                          {necVal === "" && <span style={{ fontFamily: C.mono, color: r.necesario > 0 ? "var(--muted)" : C.t2, opacity: r.necesario > 0 ? 1 : 0.3, fontSize: 13 }}>{r.necesario > 0 ? r.necesario : "—"}</span>}
                         </div>
                       ) : (
-                        <span style={{ fontFamily: C.mono, color: r.necesario > 0 ? "#a1a1aa" : C.t2, opacity: r.necesario > 0 ? 1 : 0.3 }}>{r.necesario > 0 ? r.necesario : "—"}</span>
+                        <span style={{ fontFamily: C.mono, color: r.necesario > 0 ? "var(--muted)" : C.t2, opacity: r.necesario > 0 ? 1 : 0.3 }}>{r.necesario > 0 ? r.necesario : "—"}</span>
                       )}
                     </td>
 
@@ -515,7 +494,7 @@ function DetalleObra({ obraSel, tablaObra, obraStats, esGestion, editNec, setEdi
                           <>
                             <input
                               autoFocus
-                              style={{ background: "rgba(167,139,250,0.08)", border: "1px solid rgba(167,139,250,0.4)", color: C.t0, padding: "3px 6px", borderRadius: 5, fontSize: 11, outline: "none", width: 60, textAlign: "right", fontFamily: C.mono }}
+                              style={{ background: "rgba(167,139,250,0.08)", border: "1px solid rgba(167,139,250,0.4)", color: C.t0, padding: "3px 6px", borderRadius: 5, fontSize: 12, outline: "none", width: 60, textAlign: "right", fontFamily: C.mono }}
                               type="number" min="0" step="0.01"
                               placeholder={r.ingresado}
                               value={ingEditVal}
@@ -530,11 +509,11 @@ function DetalleObra({ obraSel, tablaObra, obraStats, esGestion, editNec, setEdi
                               }}
                             />
                             {ingEditVal !== "" && (
-                              <button style={{ border: "1px solid rgba(167,139,250,0.4)", background: "rgba(167,139,250,0.12)", color: "#c4b5fd", padding: "3px 6px", borderRadius: 5, cursor: "pointer", fontSize: 10 }}
+                              <button style={{ border: "1px solid rgba(167,139,250,0.4)", background: "rgba(167,139,250,0.12)", color: "#c4b5fd", padding: "3px 6px", borderRadius: 5, cursor: "pointer", fontSize: 11 }}
                                 onClick={() => { guardarIngresadoManual(obraSel.id, r.matId, r.configId, ingEditVal); setEditingIngresado(null); setEditIngresado(prev => { const n = { ...prev }; delete n[r.matId]; return n; }); }}
                               >✓</button>
                             )}
-                            <button style={{ border: `1px solid ${C.b0}`, background: "transparent", color: C.t2, padding: "3px 5px", borderRadius: 5, cursor: "pointer", fontSize: 10 }}
+                            <button style={{ border: `1px solid ${C.b0}`, background: "transparent", color: C.t2, padding: "3px 5px", borderRadius: 5, cursor: "pointer", fontSize: 11 }}
                               onClick={() => { setEditingIngresado(null); setEditIngresado(prev => { const n = { ...prev }; delete n[r.matId]; return n; }); }}
                             >✕</button>
                           </>
@@ -548,20 +527,20 @@ function DetalleObra({ obraSel, tablaObra, obraStats, esGestion, editNec, setEdi
                               {/* Badge "editado" + fecha */}
                               {r.editadoManual && (
                                 <div style={{ display: "flex", alignItems: "center", gap: 3, justifyContent: "flex-end", marginTop: 2 }}>
-                                  <span style={{ background: "rgba(167,139,250,0.12)", border: "1px solid rgba(167,139,250,0.3)", color: "#c4b5fd", padding: "1px 5px", borderRadius: 4, fontSize: 8, fontWeight: 700, letterSpacing: 0.5 }}>✏ editado</span>
-                                  {r.editadoAt && <span style={{ fontSize: 8, color: C.t2 }}>{fmtDateTime(r.editadoAt)}</span>}
+                                  <span style={{ background: "rgba(167,139,250,0.12)", border: "1px solid rgba(167,139,250,0.3)", color: "#c4b5fd", padding: "1px 5px", borderRadius: 4, fontSize: 10, fontWeight: 700, letterSpacing: 0.5 }}>✏ editado</span>
+                                  {r.editadoAt && <span style={{ fontSize: 10, color: C.t2 }}>{fmtDateTime(r.editadoAt)}</span>}
                                 </div>
                               )}
                               {/* Movimientos reales (si hay override, mostrar el original abajo) */}
                               {r.editadoManual && r.ingresadoMovimientos > 0 && (
-                                <div style={{ fontSize: 9, color: C.t2, marginTop: 1 }}>movim: {r.ingresadoMovimientos}</div>
+                                <div style={{ fontSize: 10, color: C.t2, marginTop: 1 }}>movim: {r.ingresadoMovimientos}</div>
                               )}
                             </div>
                             {/* Botón editar (solo gestión) */}
                             {esGestion && (
                               <button
                                 title="Ajustar ingresado manualmente"
-                                style={{ border: `1px solid ${C.b0}`, background: "transparent", color: C.t2, padding: "2px 5px", borderRadius: 4, cursor: "pointer", fontSize: 10, opacity: 0.5, flexShrink: 0 }}
+                                style={{ border: `1px solid ${C.b0}`, background: "transparent", color: C.t2, padding: "2px 5px", borderRadius: 4, cursor: "pointer", fontSize: 11, opacity: 0.5, flexShrink: 0 }}
                                 onClick={() => { setEditingIngresado(r.matId); setEditIngresado(prev => ({ ...prev, [r.matId]: String(r.ingresado) })); }}
                               >✎</button>
                             )}
@@ -569,7 +548,7 @@ function DetalleObra({ obraSel, tablaObra, obraStats, esGestion, editNec, setEdi
                             {esGestion && r.editadoManual && (
                               <button
                                 title="Restaurar desde movimientos"
-                                style={{ border: "1px solid rgba(239,68,68,0.2)", background: "transparent", color: C.red, padding: "2px 5px", borderRadius: 4, cursor: "pointer", fontSize: 9, opacity: 0.6, flexShrink: 0 }}
+                                style={{ border: "1px solid rgba(239,68,68,0.2)", background: "transparent", color: C.red, padding: "2px 5px", borderRadius: 4, cursor: "pointer", fontSize: 10, opacity: 0.6, flexShrink: 0 }}
                                 onClick={() => limpiarIngresadoManual(r.configId)}
                               >↺</button>
                             )}
@@ -593,7 +572,7 @@ function DetalleObra({ obraSel, tablaObra, obraStats, esGestion, editNec, setEdi
                     {/* Falta usar */}
                     <td style={{ ...TD, textAlign: "right" }}>
                       {r.faltaUsar > 0 ? (
-                        <span style={{ fontFamily: C.mono, color: "#a1a1aa" }}>{r.faltaUsar}</span>
+                        <span style={{ fontFamily: C.mono, color: "var(--muted)" }}>{r.faltaUsar}</span>
                       ) : r.necesario > 0 ? <span style={{ color: C.green }}>✓</span> : <span style={{ opacity: 0.3 }}>—</span>}
                     </td>
 
@@ -602,9 +581,9 @@ function DetalleObra({ obraSel, tablaObra, obraStats, esGestion, editNec, setEdi
                       {r.necesario > 0 ? (
                         <div>
                           <ProgressBar value={pct} />
-                          <div style={{ textAlign: "center", fontSize: 10, color: C.t2, marginTop: 3, fontFamily: C.mono }}>{Math.min(100, Math.round(pct))}%</div>
+                          <div style={{ textAlign: "center", fontSize: 11, color: C.t2, marginTop: 3, fontFamily: C.mono }}>{Math.min(100, Math.round(pct))}%</div>
                         </div>
-                      ) : <span style={{ opacity: 0.25, fontSize: 10 }}>sin planif.</span>}
+                      ) : <span style={{ opacity: 0.25, fontSize: 11 }}>sin planif.</span>}
                     </td>
 
                     {/* Col vacía para alinear header */}
@@ -924,7 +903,7 @@ export default function ObrasLaminacionScreen({ profile, signOut }) {
       <style>{`
         @import url('https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500;700&display=swap');
         *, *::before, *::after { box-sizing: border-box; }
-        select option { background: #0f0f12; color: #a1a1aa; }
+        select option { background: #0f0f12; color: var(--muted); }
         ::-webkit-scrollbar { width: 3px; height: 3px; }
         ::-webkit-scrollbar-track { background: transparent; }
         ::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.07); border-radius: 99px; }
@@ -945,11 +924,11 @@ export default function ObrasLaminacionScreen({ profile, signOut }) {
         <div style={{ display: "flex", flexDirection: "column", height: "100vh", overflow: "hidden" }}>
 
           {/* TOPBAR */}
-          <div style={{ height: 50, background: "rgba(12,12,14,0.92)", ...GLASS, borderBottom: `1px solid ${C.b0}`, padding: isMobile ? "0 12px 0 52px" : "0 18px", display: "flex", alignItems: "center", gap: 10, flexShrink: 0 }}>
+          <div style={{ height: 50, background: C.topbar, ...GLASS, borderBottom: `1px solid ${C.b0}`, padding: isMobile ? "0 12px 0 52px" : "0 18px", display: "flex", alignItems: "center", gap: 10, flexShrink: 0 }}>
             <div style={{ flex: 1, display: "flex", alignItems: "center", gap: 8 }}>
-              <div style={{ fontSize: 13, fontWeight: 600, color: C.t0 }}>Obras</div>
+              <div style={{ fontSize: 14, fontWeight: 600, color: C.t0 }}>Obras</div>
               <div style={{ width: 1, height: 14, background: C.b1 }} />
-              <div style={{ fontSize: 10, color: C.t2, letterSpacing: 1 }}>Laminación</div>
+              <div style={{ fontSize: 11, color: C.t2, letterSpacing: 1 }}>Laminación</div>
               <div style={{ display: "flex", gap: 7, marginLeft: 12 }}>
                 {[
                   { label: "Activas",    n: obras.filter(o => o.estado === "activa").length,    c: C.obra.activa.dot    },
@@ -957,8 +936,8 @@ export default function ObrasLaminacionScreen({ profile, signOut }) {
                   { label: "Terminadas", n: obras.filter(o => o.estado === "terminada").length, c: C.obra.terminada.dot },
                 ].map(({ label, n, c }) => (
                   <div key={label} style={{ display: "flex", alignItems: "center", gap: 5, padding: "3px 8px", borderRadius: 6, background: C.s0, border: `1px solid ${C.b0}`, borderLeft: `2px solid ${c}` }}>
-                    <span style={{ fontFamily: C.mono, fontSize: 13, fontWeight: 700, color: c }}>{n}</span>
-                    <span style={{ fontSize: 8, color: C.t1, letterSpacing: 1.5, textTransform: "uppercase" }}>{label}</span>
+                    <span style={{ fontFamily: C.mono, fontSize: 14, fontWeight: 700, color: c }}>{n}</span>
+                    <span style={{ fontSize: 10, color: C.t1, letterSpacing: 1.1, textTransform: "uppercase" }}>{label}</span>
                   </div>
                 ))}
               </div>
@@ -966,18 +945,18 @@ export default function ObrasLaminacionScreen({ profile, signOut }) {
 
             <div style={{ display: "flex", gap: 2, background: C.s0, border: `1px solid ${C.b0}`, borderRadius: 8, padding: 2 }}>
               {[{ key: "lista", label: "☰ Lista" }, { key: "gantt", label: "📅 Calendario" }].map(({ key, label }) => (
-                <button key={key} onClick={() => setViewMode(key)} style={{ border: viewMode === key ? `1px solid rgba(59,130,246,0.4)` : "1px solid transparent", background: viewMode === key ? "rgba(59,130,246,0.15)" : "transparent", color: viewMode === key ? "#93c5fd" : C.t2, padding: "4px 12px", borderRadius: 6, cursor: "pointer", fontSize: 11, fontFamily: C.sans, fontWeight: viewMode === key ? 700 : 400, transition: "all .15s" }}>{label}</button>
+                <button key={key} onClick={() => setViewMode(key)} style={{ border: viewMode === key ? `1px solid rgba(59,130,246,0.4)` : "1px solid transparent", background: viewMode === key ? "rgba(59,130,246,0.15)" : "transparent", color: viewMode === key ? "#93c5fd" : C.t2, padding: "4px 12px", borderRadius: 6, cursor: "pointer", fontSize: 12, fontFamily: C.sans, fontWeight: viewMode === key ? 700 : 400, transition: "all .15s" }}>{label}</button>
               ))}
             </div>
 
-            <button onClick={cargar} style={{ border: `1px solid ${C.b0}`, background: "transparent", color: C.t2, padding: "5px 10px", borderRadius: 7, cursor: "pointer", fontFamily: C.sans, fontSize: 11 }}>↻</button>
+            <button onClick={cargar} style={{ border: `1px solid ${C.b0}`, background: "transparent", color: C.t2, padding: "5px 10px", borderRadius: 7, cursor: "pointer", fontFamily: C.sans, fontSize: 12 }}>↻</button>
             {esGestion && (
               <>
                 <button disabled={loadingImport} onClick={importarDesdeBarcos}
-                  style={{ border: "1px solid rgba(167,139,250,0.35)", background: "rgba(167,139,250,0.12)", color: "#c4b5fd", padding: "7px 16px", borderRadius: 8, cursor: loadingImport ? "not-allowed" : "pointer", fontFamily: C.sans, fontSize: 12, fontWeight: 600, opacity: loadingImport ? 0.6 : 1 }}
+                  style={{ border: "1px solid rgba(167,139,250,0.35)", background: "rgba(167,139,250,0.12)", color: "#c4b5fd", padding: "7px 16px", borderRadius: 8, cursor: loadingImport ? "not-allowed" : "pointer", fontFamily: C.sans, fontSize: 13, fontWeight: 600, opacity: loadingImport ? 0.6 : 1 }}
                 >{loadingImport ? "⟳ Importando…" : "⬇ Importar barcos"}</button>
                 <button onClick={() => setShowNuevaObra(v => !v)}
-                  style={{ border: "1px solid rgba(59,130,246,0.35)", background: "rgba(59,130,246,0.15)", color: "#60a5fa", padding: "7px 16px", borderRadius: 8, cursor: "pointer", fontFamily: C.sans, fontSize: 12, fontWeight: 600 }}
+                  style={{ border: "1px solid rgba(59,130,246,0.35)", background: "rgba(59,130,246,0.15)", color: "#60a5fa", padding: "7px 16px", borderRadius: 8, cursor: "pointer", fontFamily: C.sans, fontSize: 13, fontWeight: 600 }}
                 >{showNuevaObra ? "✕ Cancelar" : "+ Nueva obra"}</button>
               </>
             )}
@@ -987,15 +966,15 @@ export default function ObrasLaminacionScreen({ profile, signOut }) {
           <div style={{ flex: 1, overflow: "hidden", display: "flex", flexDirection: "column" }}>
             {(err || msg) && (
               <div style={{ padding: "8px 18px", flexShrink: 0 }}>
-                {err && <div onClick={() => setErr("")} style={{ padding: "8px 12px", borderRadius: 8, background: "rgba(239,68,68,0.08)", border: "1px solid rgba(239,68,68,0.2)", color: "#f87171", fontSize: 12, cursor: "pointer" }}>{err} ✕</div>}
-                {msg && <div onClick={() => setMsg("")} style={{ padding: "8px 12px", borderRadius: 8, background: "rgba(16,185,129,0.08)", border: "1px solid rgba(16,185,129,0.2)", color: "#34d399", fontSize: 12, cursor: "pointer" }}>{msg} ✕</div>}
+                {err && <div onClick={() => setErr("")} style={{ padding: "8px 12px", borderRadius: 8, background: "rgba(239,68,68,0.08)", border: "1px solid rgba(239,68,68,0.2)", color: "#f87171", fontSize: 13, cursor: "pointer" }}>{err} ✕</div>}
+                {msg && <div onClick={() => setMsg("")} style={{ padding: "8px 12px", borderRadius: 8, background: "rgba(16,185,129,0.08)", border: "1px solid rgba(16,185,129,0.2)", color: "#34d399", fontSize: 13, cursor: "pointer" }}>{msg} ✕</div>}
               </div>
             )}
 
             {showNuevaObra && esGestion && (
               <div style={{ padding: "0 18px 12px", flexShrink: 0 }}>
                 <div style={{ background: C.s0, border: `1px solid ${C.b1}`, borderRadius: 12, padding: 16, animation: "slideUp .2s ease" }}>
-                  <div style={{ fontSize: 9, letterSpacing: 2, color: C.t2, textTransform: "uppercase", marginBottom: 12 }}>Nueva obra</div>
+                  <div style={{ fontSize: 10, letterSpacing: 1.3, color: C.t2, textTransform: "uppercase", marginBottom: 12 }}>Nueva obra</div>
                   <form onSubmit={crearObra}>
                     <div style={{ display: "grid", gridTemplateColumns: "1fr 2fr 1fr 1fr 1fr", gap: 10, marginBottom: 12 }}>
                       {[
@@ -1003,12 +982,12 @@ export default function ObrasLaminacionScreen({ profile, signOut }) {
                         { label: "Descripción", key: "descripcion", placeholder: "K37 — Casco 42" },
                       ].map(({ label, key, placeholder }) => (
                         <div key={key}>
-                          <label style={{ fontSize: 9, letterSpacing: 2, color: C.t2, display: "block", marginBottom: 4, textTransform: "uppercase", fontWeight: 600 }}>{label}</label>
+                          <label style={{ fontSize: 10, letterSpacing: 1.3, color: C.t2, display: "block", marginBottom: 4, textTransform: "uppercase", fontWeight: 700 }}>{label}</label>
                           <input style={INP} placeholder={placeholder} value={formObra[key]} onChange={e => setFormObra(f => ({ ...f, [key]: e.target.value }))} required={key === "nombre"} />
                         </div>
                       ))}
                       <div>
-                        <label style={{ fontSize: 9, letterSpacing: 2, color: C.t2, display: "block", marginBottom: 4, textTransform: "uppercase", fontWeight: 600 }}>Estado</label>
+                        <label style={{ fontSize: 10, letterSpacing: 1.3, color: C.t2, display: "block", marginBottom: 4, textTransform: "uppercase", fontWeight: 700 }}>Estado</label>
                         <select style={{ ...INP, cursor: "pointer" }} value={formObra.estado} onChange={e => setFormObra(f => ({ ...f, estado: e.target.value }))}>
                           <option value="activa">Activa</option>
                           <option value="pausada">Pausada</option>
@@ -1016,15 +995,15 @@ export default function ObrasLaminacionScreen({ profile, signOut }) {
                         </select>
                       </div>
                       <div>
-                        <label style={{ fontSize: 9, letterSpacing: 2, color: C.t2, display: "block", marginBottom: 4, textTransform: "uppercase", fontWeight: 600 }}>Inicio</label>
+                        <label style={{ fontSize: 10, letterSpacing: 1.3, color: C.t2, display: "block", marginBottom: 4, textTransform: "uppercase", fontWeight: 700 }}>Inicio</label>
                         <input type="date" style={INP} value={formObra.fecha_inicio} onChange={e => setFormObra(f => ({ ...f, fecha_inicio: e.target.value }))} />
                       </div>
                       <div>
-                        <label style={{ fontSize: 9, letterSpacing: 2, color: C.t2, display: "block", marginBottom: 4, textTransform: "uppercase", fontWeight: 600 }}>Fin estimado</label>
+                        <label style={{ fontSize: 10, letterSpacing: 1.3, color: C.t2, display: "block", marginBottom: 4, textTransform: "uppercase", fontWeight: 700 }}>Fin estimado</label>
                         <input type="date" style={INP} value={formObra.fecha_fin} onChange={e => setFormObra(f => ({ ...f, fecha_fin: e.target.value }))} />
                       </div>
                     </div>
-                    <button type="submit" style={{ border: "1px solid rgba(59,130,246,0.35)", background: "rgba(59,130,246,0.15)", color: "#60a5fa", padding: "8px 20px", borderRadius: 8, cursor: "pointer", fontFamily: C.sans, fontSize: 12, fontWeight: 700 }}>Crear obra</button>
+                    <button type="submit" style={{ border: "1px solid rgba(59,130,246,0.35)", background: "rgba(59,130,246,0.15)", color: "#60a5fa", padding: "8px 20px", borderRadius: 8, cursor: "pointer", fontFamily: C.sans, fontSize: 13, fontWeight: 700 }}>Crear obra</button>
                   </form>
                 </div>
               </div>
@@ -1032,7 +1011,7 @@ export default function ObrasLaminacionScreen({ profile, signOut }) {
 
             {loading ? (
               <div style={{ flex: 1, display: "flex", alignItems: "center", justifyContent: "center" }}>
-                <div style={{ fontSize: 11, color: C.t2, letterSpacing: 2, textTransform: "uppercase" }}>Cargando…</div>
+                <div style={{ fontSize: 12, color: C.t2, letterSpacing: 1.3, textTransform: "uppercase" }}>Cargando…</div>
               </div>
             ) : (
               <div style={{ flex: 1, overflow: "hidden", display: "grid", gridTemplateColumns: "300px 1fr" }}>
@@ -1040,10 +1019,10 @@ export default function ObrasLaminacionScreen({ profile, signOut }) {
                 {/* LISTA OBRAS */}
                 <div style={{ borderRight: `1px solid ${C.b0}`, display: "flex", flexDirection: "column", height: "100%", overflow: "hidden" }}>
                   <div style={{ padding: "10px 14px", borderBottom: `1px solid ${C.b0}`, flexShrink: 0 }}>
-                    <input style={{ ...INP, padding: "6px 10px", fontSize: 11 }} placeholder="Buscar obra…" value={q} onChange={e => setQ(e.target.value)} />
+                    <input style={{ ...INP, padding: "6px 10px", fontSize: 12 }} placeholder="Buscar obra…" value={q} onChange={e => setQ(e.target.value)} />
                   </div>
                   <div style={{ flex: 1, overflowY: "auto", padding: "6px 8px" }}>
-                    {obrasFiltradas.length === 0 && <div style={{ padding: "40px 16px", textAlign: "center", color: C.t2, fontSize: 11 }}>Sin obras</div>}
+                    {obrasFiltradas.length === 0 && <div style={{ padding: "40px 16px", textAlign: "center", color: C.t2, fontSize: 12 }}>Sin obras</div>}
                     {obrasFiltradas.map(o => {
                       const al           = alertasPorObra[o.id] ?? { criticas: 0, pendientes: 0 };
                       const sel          = obraSelId === o.id;
@@ -1060,16 +1039,16 @@ export default function ObrasLaminacionScreen({ profile, signOut }) {
                         >
                           <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", gap: 6 }}>
                             <div style={{ flex: 1, minWidth: 0 }}>
-                              <div style={{ color: C.t0, fontWeight: 700, fontSize: 13, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{o.nombre}</div>
-                              {o.descripcion && <div style={{ fontSize: 10, color: C.t2, marginTop: 1, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{o.descripcion}</div>}
+                              <div style={{ color: C.t0, fontWeight: 700, fontSize: 14, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{o.nombre}</div>
+                              {o.descripcion && <div style={{ fontSize: 11, color: C.t2, marginTop: 1, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{o.descripcion}</div>}
                             </div>
                             <div style={{ display: "flex", flexDirection: "column", gap: 3, alignItems: "flex-end", flexShrink: 0 }}>
                               <EstadoChip estado={o.estado} />
-                              {al.criticas > 0 && <span style={{ fontSize: 8, padding: "2px 6px", borderRadius: 99, background: "rgba(239,68,68,0.1)", color: C.red, border: "1px solid rgba(239,68,68,0.25)", fontWeight: 700 }}>⚠ {al.criticas} crítico{al.criticas > 1 ? "s" : ""}</span>}
-                              {sinPlantilla && <span style={{ fontSize: 8, padding: "2px 6px", borderRadius: 99, background: "rgba(245,158,11,0.1)", color: C.amber, border: "1px solid rgba(245,158,11,0.25)", fontWeight: 700 }}>sin plantilla</span>}
+                              {al.criticas > 0 && <span style={{ fontSize: 10, padding: "2px 6px", borderRadius: 99, background: "rgba(239,68,68,0.1)", color: C.red, border: "1px solid rgba(239,68,68,0.25)", fontWeight: 700 }}>⚠ {al.criticas} crítico{al.criticas > 1 ? "s" : ""}</span>}
+                              {sinPlantilla && <span style={{ fontSize: 10, padding: "2px 6px", borderRadius: 99, background: "rgba(245,158,11,0.1)", color: C.amber, border: "1px solid rgba(245,158,11,0.25)", fontWeight: 700 }}>sin plantilla</span>}
                             </div>
                           </div>
-                          <div style={{ marginTop: 5, fontSize: 10, color: C.t2, display: "flex", gap: 8, flexWrap: "wrap" }}>
+                          <div style={{ marginTop: 5, fontSize: 11, color: C.t2, display: "flex", gap: 8, flexWrap: "wrap" }}>
                             <span>{planificados} planif.</span>
                             {tieneLista && <span style={{ color: "#34d399" }}>📋 {codigoLista}</span>}
                             {o.fecha_inicio && <span>📅 {fmtDate(o.fecha_inicio)}</span>}
@@ -1079,12 +1058,12 @@ export default function ObrasLaminacionScreen({ profile, signOut }) {
 
                           {sel && esGestion && (
                             <div style={{ marginTop: 8, display: "flex", gap: 4, flexWrap: "wrap" }} onClick={e => e.stopPropagation()}>
-                              {o.estado !== "activa"    && <button style={{ border: `1px solid ${C.b0}`, background: "transparent", color: C.t1, padding: "2px 8px", borderRadius: 5, cursor: "pointer", fontSize: 9, fontFamily: C.sans }} onClick={() => cambiarEstado(o.id, "activa")}>▶ Activar</button>}
-                              {o.estado !== "pausada"   && <button style={{ border: `1px solid ${C.b0}`, background: "transparent", color: C.t1, padding: "2px 8px", borderRadius: 5, cursor: "pointer", fontSize: 9, fontFamily: C.sans }} onClick={() => cambiarEstado(o.id, "pausada")}>⏸ Pausar</button>}
-                              {o.estado !== "terminada" && <button style={{ border: `1px solid ${C.b0}`, background: "transparent", color: C.t1, padding: "2px 8px", borderRadius: 5, cursor: "pointer", fontSize: 9, fontFamily: C.sans }} onClick={() => cambiarEstado(o.id, "terminada")}>✓ Terminar</button>}
-                              <button disabled={syncing} style={{ border: "1px solid rgba(59,130,246,0.2)", background: "transparent", color: "#93c5fd", padding: "2px 8px", borderRadius: 5, cursor: "pointer", fontSize: 9, fontFamily: C.sans }} onClick={() => sincronizarMateriales(o.id)}>⟳ Sincronizar</button>
+                              {o.estado !== "activa"    && <button style={{ border: `1px solid ${C.b0}`, background: "transparent", color: C.t1, padding: "2px 8px", borderRadius: 5, cursor: "pointer", fontSize: 10, fontFamily: C.sans }} onClick={() => cambiarEstado(o.id, "activa")}>▶ Activar</button>}
+                              {o.estado !== "pausada"   && <button style={{ border: `1px solid ${C.b0}`, background: "transparent", color: C.t1, padding: "2px 8px", borderRadius: 5, cursor: "pointer", fontSize: 10, fontFamily: C.sans }} onClick={() => cambiarEstado(o.id, "pausada")}>⏸ Pausar</button>}
+                              {o.estado !== "terminada" && <button style={{ border: `1px solid ${C.b0}`, background: "transparent", color: C.t1, padding: "2px 8px", borderRadius: 5, cursor: "pointer", fontSize: 10, fontFamily: C.sans }} onClick={() => cambiarEstado(o.id, "terminada")}>✓ Terminar</button>}
+                              <button disabled={syncing} style={{ border: "1px solid rgba(59,130,246,0.2)", background: "transparent", color: "#93c5fd", padding: "2px 8px", borderRadius: 5, cursor: "pointer", fontSize: 10, fontFamily: C.sans }} onClick={() => sincronizarMateriales(o.id)}>⟳ Sincronizar</button>
                               {tieneLista && (
-                                <button disabled={loadingBase} style={{ border: "1px solid rgba(16,185,129,0.25)", background: "rgba(16,185,129,0.08)", color: "#34d399", padding: "2px 8px", borderRadius: 5, cursor: "pointer", fontSize: 9, fontFamily: C.sans }} onClick={() => cargarListaBase(o.id)}>
+                                <button disabled={loadingBase} style={{ border: "1px solid rgba(16,185,129,0.25)", background: "rgba(16,185,129,0.08)", color: "#34d399", padding: "2px 8px", borderRadius: 5, cursor: "pointer", fontSize: 10, fontFamily: C.sans }} onClick={() => cargarListaBase(o.id)}>
                                   {loadingBase ? "…" : `📋 Lista ${codigoLista}`}
                                 </button>
                               )}
@@ -1103,8 +1082,8 @@ export default function ObrasLaminacionScreen({ profile, signOut }) {
                   ) : !obraSel ? (
                     <div style={{ height: "100%", display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", gap: 6 }}>
                       <div style={{ fontSize: 28, opacity: 0.15 }}>📋</div>
-                      <div style={{ fontSize: 11, color: C.t2, letterSpacing: 2, textTransform: "uppercase" }}>Seleccioná una obra</div>
-                      <div style={{ fontSize: 10, color: C.t2, opacity: 0.6, marginTop: 2 }}>O cambiá a vista Calendario</div>
+                      <div style={{ fontSize: 12, color: C.t2, letterSpacing: 1.3, textTransform: "uppercase" }}>Seleccioná una obra</div>
+                      <div style={{ fontSize: 11, color: C.t2, opacity: 0.6, marginTop: 2 }}>O cambiá a vista Calendario</div>
                     </div>
                   ) : (
                     <DetalleObra

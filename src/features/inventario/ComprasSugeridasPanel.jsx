@@ -1,3 +1,4 @@
+import { C } from "@/theme";
 /**
  * ComprasSugeridasPanel.jsx
  *
@@ -33,22 +34,6 @@ function fmtDate(d) {
 }
 
 // ── Paleta ───────────────────────────────────────────────────────
-const C = {
-  bg:     "#0f0f12",
-  card:   "rgba(255,255,255,0.03)",
-  b0:     "rgba(255,255,255,0.08)",
-  t0:     "#f4f4f5",
-  t1:     "#a1a1aa",
-  t2:     "#52525b",
-  red:    "#ff453a",
-  orange: "#ff8c00",
-  amber:  "#ffbe35",
-  green:  "#30d158",
-  blue:   "#3b82f6",
-  mono:   "'JetBrains Mono', monospace",
-  sans:   "'Outfit', system-ui",
-};
-
 const S = {
   section: {
     border: `1px solid ${C.b0}`,
@@ -69,25 +54,25 @@ const S = {
   body: { padding: "0 0 12px" },
   th: {
     textAlign: "left",
-    fontSize: 9,
+    fontSize: 10,
     color: C.t2,
     padding: "10px 12px",
     textTransform: "uppercase",
-    letterSpacing: 2,
+    letterSpacing: 1.3,
     fontFamily: C.sans,
   },
   td: {
     padding: "9px 12px",
     borderBottom: `1px solid rgba(255,255,255,0.03)`,
     verticalAlign: "middle",
-    fontSize: 12,
+    fontSize: 13,
     fontFamily: C.sans,
   },
   badge: (color) => ({
     display: "inline-block",
     padding: "2px 8px",
     borderRadius: 5,
-    fontSize: 10,
+    fontSize: 11,
     fontWeight: 700,
     background: color + "22",
     color: color,
@@ -102,7 +87,7 @@ const S = {
     borderRadius: 6,
     cursor: "pointer",
     fontWeight: 700,
-    fontSize: 11,
+    fontSize: 12,
     fontFamily: C.sans,
     whiteSpace: "nowrap",
   }),
@@ -114,7 +99,7 @@ const S = {
     borderRadius: 7,
     cursor: "pointer",
     fontWeight: active ? 700 : 400,
-    fontSize: 12,
+    fontSize: 13,
     fontFamily: C.sans,
     transition: "all .15s",
   }),
@@ -124,7 +109,7 @@ const S = {
     color: C.t0,
     padding: "7px 10px",
     borderRadius: 7,
-    fontSize: 12,
+    fontSize: 13,
     fontFamily: C.sans,
     outline: "none",
     width: "100%",
@@ -159,7 +144,7 @@ function SemanasBar({ semanas, buffer }) {
       <div style={S.progressBar}>
         <div style={{ position: "absolute", top: 0, left: 0, height: "100%", width: `${pct * 100}%`, background: color, borderRadius: 99, transition: "width .4s" }} />
       </div>
-      <div style={{ fontSize: 10, color, fontFamily: C.mono, marginTop: 3 }}>
+      <div style={{ fontSize: 11, color, fontFamily: C.mono, marginTop: 3 }}>
         {semanas === Infinity ? "∞" : semanas.toFixed(1)} sem
       </div>
     </div>
@@ -185,7 +170,7 @@ function FilaSugerida({ row, onCrearPedido }) {
         onClick={() => setExpanded(e => !e)} className="lam-row">
         <td style={S.td}>
           <div style={{ fontWeight: 600, color: C.t0 }}>{row.mat.nombre}</div>
-          <div style={{ fontSize: 10, color: C.t2 }}>{row.mat.unidad ?? "unidad"}</div>
+          <div style={{ fontSize: 11, color: C.t2 }}>{row.mat.unidad ?? "unidad"}</div>
         </td>
         <td style={{ ...S.td, fontFamily: C.mono, fontWeight: 700, color: urgColor, fontSize: 15 }}>
           {row.aComprar}
@@ -199,7 +184,7 @@ function FilaSugerida({ row, onCrearPedido }) {
             {urgencia === "alta" ? "⚡ Alta" : urgencia === "media" ? "⚠ Media" : "✓"}
           </span>
         </td>
-        <td style={{ ...S.td, color: C.t2, fontSize: 11 }}>
+        <td style={{ ...S.td, color: C.t2, fontSize: 12 }}>
           {row.detalle.length} {row.detalle.length === 1 ? "obra" : "obras"}
           <span style={{ marginLeft: 6 }}>{expanded ? "▲" : "▼"}</span>
         </td>
@@ -213,8 +198,8 @@ function FilaSugerida({ row, onCrearPedido }) {
                 const pct = d.necesario > 0 ? d.egresado / d.necesario : 0;
                 return (
                   <div key={d.obra} style={{ border: `1px solid ${C.b0}`, borderRadius: 9, padding: "10px 12px", background: "rgba(255,255,255,0.02)" }}>
-                    <div style={{ fontWeight: 700, fontSize: 12, color: C.t0, marginBottom: 4 }}>{d.obra}</div>
-                    <div style={{ fontSize: 11, color: C.t2 }}>
+                    <div style={{ fontWeight: 700, fontSize: 13, color: C.t0, marginBottom: 4 }}>{d.obra}</div>
+                    <div style={{ fontSize: 12, color: C.t2 }}>
                       Necesario: <span style={{ color: C.t1, fontFamily: C.mono }}>{d.necesario}</span>
                       {" · "}Egresado: <span style={{ color: C.t1, fontFamily: C.mono }}>{d.egresado}</span>
                       {" · "}Falta: <span style={{ color: C.amber, fontFamily: C.mono }}>{d.faltaUsar}</span>
@@ -222,19 +207,19 @@ function FilaSugerida({ row, onCrearPedido }) {
                     <div style={S.progressBar}>
                       <div style={{ position: "absolute", top: 0, left: 0, height: "100%", width: `${Math.min(100, pct * 100)}%`, background: pct >= 1 ? C.green : C.blue, borderRadius: 99, transition: "width .4s" }} />
                     </div>
-                    {d.desmolde && <div style={{ fontSize: 10, color: C.t2, marginTop: 5 }}>Desmolde est.: {fmtDate(d.desmolde)}</div>}
+                    {d.desmolde && <div style={{ fontSize: 11, color: C.t2, marginTop: 5 }}>Desmolde est.: {fmtDate(d.desmolde)}</div>}
                   </div>
                 );
               })}
             </div>
             {onCrearPedido && (
               <div style={{ display: "flex", gap: 8, alignItems: "center", flexWrap: "wrap", borderTop: `1px solid ${C.b0}`, paddingTop: 10 }}>
-                <span style={{ fontSize: 11, color: C.t2, marginRight: 4 }}>Crear pedido:</span>
+                <span style={{ fontSize: 12, color: C.t2, marginRight: 4 }}>Crear pedido:</span>
                 <input style={{ ...S.input, width: 90 }} type="number" step="0.01" min="1"
                   value={editCant} onChange={e => setEditCant(e.target.value)} placeholder="Cant." />
                 <input style={{ ...S.input, flex: 1, minWidth: 180 }}
                   placeholder="Observaciones…" value={obs} onChange={e => setObs(e.target.value)} />
-                <button style={{ ...S.btnSmall(C.blue, true), padding: "7px 16px", fontSize: 12 }}
+                <button style={{ ...S.btnSmall(C.blue, true), padding: "7px 16px", fontSize: 13 }}
                   onClick={() => {
                     const cant = num(editCant); if (!cant) return;
                     onCrearPedido(row.mat.id, cant, obs || `Compra sugerida (obras) - ${row.detalle.map(d => d.obra).join(", ")}`);
@@ -269,10 +254,10 @@ function FilaRotacion({ row, buffer, onCrearPedido }) {
         onClick={() => setExpanded(e => !e)} className="lam-row">
         <td style={S.td}>
           <div style={{ fontWeight: 600, color: C.t0 }}>{row.mat.nombre}</div>
-          <div style={{ fontSize: 10, color: C.t2 }}>{row.mat.unidad ?? "unidad"}</div>
+          <div style={{ fontSize: 11, color: C.t2 }}>{row.mat.unidad ?? "unidad"}</div>
         </td>
         <td style={{ ...S.td, fontFamily: C.mono, fontWeight: 700, color, fontSize: 15 }}>
-          {row.sinHistorial ? <span style={{ fontSize: 11, color: C.t2 }}>—</span> : row.aComprar}
+          {row.sinHistorial ? <span style={{ fontSize: 12, color: C.t2 }}>—</span> : row.aComprar}
         </td>
         <td style={{ ...S.td, fontFamily: C.mono, color: row.stockActual <= 0 ? C.red : row.stockActual < 5 ? C.orange : C.t1 }}>
           {row.stockActual}
@@ -282,13 +267,13 @@ function FilaRotacion({ row, buffer, onCrearPedido }) {
         </td>
         <td style={S.td}>
           {row.sinHistorial
-            ? <span style={{ fontSize: 11, color: C.t2, fontFamily: C.sans }}>—</span>
+            ? <span style={{ fontSize: 12, color: C.t2, fontFamily: C.sans }}>—</span>
             : <SemanasBar semanas={row.semanasDeStock} buffer={buffer} />}
         </td>
         <td style={S.td}>
           <span style={S.badge(color)}>{label}</span>
         </td>
-        <td style={{ ...S.td, color: C.t2, fontSize: 11, textAlign: "center" }}>
+        <td style={{ ...S.td, color: C.t2, fontSize: 12, textAlign: "center" }}>
           {expanded ? "▲" : "▼"}
         </td>
       </tr>
@@ -299,14 +284,14 @@ function FilaRotacion({ row, buffer, onCrearPedido }) {
 
             {/* Historial semanal */}
             <div style={{ marginTop: 12, marginBottom: 14 }}>
-              <div style={{ fontSize: 10, color: C.t2, letterSpacing: 1.5, textTransform: "uppercase", fontFamily: C.sans, marginBottom: 8 }}>
+              <div style={{ fontSize: 11, color: C.t2, letterSpacing: 1.1, textTransform: "uppercase", fontFamily: C.sans, marginBottom: 8 }}>
                 Consumo semanal histórico
               </div>
               <div style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>
                 {row.porSemana.slice(0, 12).map(s => (
                   <div key={s.semana} style={{ border: `1px solid ${C.b0}`, borderRadius: 7, padding: "6px 10px", background: "rgba(255,255,255,0.02)", minWidth: 80 }}>
-                    <div style={{ fontSize: 10, color: C.t2, marginBottom: 3 }}>{s.semanaLabel}</div>
-                    <div style={{ fontFamily: C.mono, fontSize: 13, color: s.cantidad > 0 ? C.t0 : C.t2, fontWeight: s.cantidad > 0 ? 700 : 400 }}>
+                    <div style={{ fontSize: 11, color: C.t2, marginBottom: 3 }}>{s.semanaLabel}</div>
+                    <div style={{ fontFamily: C.mono, fontSize: 14, color: s.cantidad > 0 ? C.t0 : C.t2, fontWeight: s.cantidad > 0 ? 700 : 400 }}>
                       {s.cantidad > 0 ? `−${s.cantidad}` : "—"}
                     </div>
                   </div>
@@ -315,7 +300,7 @@ function FilaRotacion({ row, buffer, onCrearPedido }) {
             </div>
 
             {/* Resumen del cálculo */}
-            <div style={{ fontSize: 11, color: C.t2, fontFamily: C.sans, marginBottom: 12, padding: "8px 12px", background: "rgba(255,255,255,0.02)", borderRadius: 8, border: `1px solid ${C.b0}`, display: "flex", gap: 20, flexWrap: "wrap" }}>
+            <div style={{ fontSize: 12, color: C.t2, fontFamily: C.sans, marginBottom: 12, padding: "8px 12px", background: "rgba(255,255,255,0.02)", borderRadius: 8, border: `1px solid ${C.b0}`, display: "flex", gap: 20, flexWrap: "wrap" }}>
               <span><span style={{ color: C.t1 }}>Promedio/sem:</span> <span style={{ fontFamily: C.mono, color: C.t0 }}>{row.egresoSemanal.toFixed(2)}</span></span>
               <span><span style={{ color: C.t1 }}>Stock actual:</span> <span style={{ fontFamily: C.mono, color: row.stockActual <= 0 ? C.red : C.t0 }}>{row.stockActual}</span></span>
               <span><span style={{ color: C.t1 }}>Buffer:</span> <span style={{ fontFamily: C.mono, color: C.blue }}>{buffer} sem</span></span>
@@ -326,12 +311,12 @@ function FilaRotacion({ row, buffer, onCrearPedido }) {
             {/* Crear pedido */}
             {onCrearPedido && (
               <div style={{ display: "flex", gap: 8, alignItems: "center", flexWrap: "wrap", borderTop: `1px solid ${C.b0}`, paddingTop: 10 }}>
-                <span style={{ fontSize: 11, color: C.t2, marginRight: 4 }}>Crear pedido:</span>
+                <span style={{ fontSize: 12, color: C.t2, marginRight: 4 }}>Crear pedido:</span>
                 <input style={{ ...S.input, width: 90 }} type="number" step="1" min="1"
                   value={editCant} onChange={e => setEditCant(e.target.value)} placeholder="Cant." />
                 <input style={{ ...S.input, flex: 1, minWidth: 180 }}
                   placeholder="Observaciones (proveedor, urgencia…)" value={obs} onChange={e => setObs(e.target.value)} />
-                <button style={{ ...S.btnSmall(C.blue, true), padding: "7px 16px", fontSize: 12 }}
+                <button style={{ ...S.btnSmall(C.blue, true), padding: "7px 16px", fontSize: 13 }}
                   onClick={() => {
                     const cant = num(editCant); if (!cant) return;
                     onCrearPedido(row.mat.id, cant, obs || `Reposición por rotación — ${row.egresoSemanal.toFixed(1)} u/sem, ${buffer} sem buffer`);
@@ -477,11 +462,11 @@ export default function ComprasSugeridasPanel({ materiales, movimientos, stockPo
           <div style={{ width: 8, height: 8, borderRadius: "50%", background: totalUrgentes > 0 ? C.amber : C.green, boxShadow: `0 0 8px ${totalUrgentes > 0 ? C.amber : C.green}` }} />
           <span style={{ fontWeight: 700, fontSize: 14, color: C.t0, fontFamily: C.sans }}>Compras Sugeridas</span>
           {totalUrgentes > 0 && (
-            <span style={{ background: C.amber + "22", color: C.amber, border: `1px solid ${C.amber}44`, borderRadius: 999, padding: "1px 8px", fontSize: 11, fontWeight: 900, fontFamily: C.sans }}>
+            <span style={{ background: C.amber + "22", color: C.amber, border: `1px solid ${C.amber}44`, borderRadius: 999, padding: "1px 8px", fontSize: 12, fontWeight: 900, fontFamily: C.sans }}>
               {totalUrgentes} material{totalUrgentes !== 1 ? "es" : ""}
             </span>
           )}
-          <span style={{ fontSize: 11, color: C.t2, fontFamily: C.sans }}>
+          <span style={{ fontSize: 12, color: C.t2, fontFamily: C.sans }}>
             {modo === "rotacion" ? "rotación histórica" : loading ? "cargando…" : `${obras.length} obra${obras.length !== 1 ? "s" : ""} activa${obras.length !== 1 ? "s" : ""}`}
           </span>
         </div>
@@ -504,7 +489,7 @@ export default function ComprasSugeridasPanel({ materiales, movimientos, stockPo
             {/* Buffer (solo rotación) */}
             {modo === "rotacion" && (
               <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
-                <span style={{ fontSize: 11, color: C.t2, fontFamily: C.sans }}>Cobertura objetivo:</span>
+                <span style={{ fontSize: 12, color: C.t2, fontFamily: C.sans }}>Cobertura objetivo:</span>
                 {[2, 3, 4, 6].map(n => (
                   <button key={n}
                     style={{ ...S.btnSmall(bufferSemanas === n ? C.blue : C.t2, bufferSemanas === n), padding: "3px 10px" }}
@@ -522,7 +507,7 @@ export default function ComprasSugeridasPanel({ materiales, movimientos, stockPo
               onChange={e => setQFiltro(e.target.value)}
             />
 
-            <label style={{ display: "flex", alignItems: "center", gap: 6, cursor: "pointer", fontSize: 12, color: C.t1, fontFamily: C.sans }}>
+            <label style={{ display: "flex", alignItems: "center", gap: 6, cursor: "pointer", fontSize: 13, color: C.t1, fontFamily: C.sans }}>
               <input type="checkbox" checked={soloConNecesidad} onChange={e => setSoloConNecesidad(e.target.checked)} style={{ accentColor: C.blue }} />
               Solo los que hay que comprar
             </label>
@@ -530,12 +515,12 @@ export default function ComprasSugeridasPanel({ materiales, movimientos, stockPo
 
           {/* ── Loading ── */}
           {loading && modo === "obras" ? (
-            <div style={{ padding: "24px 20px", color: C.t2, fontSize: 12, fontFamily: C.sans }}>Calculando necesidades…</div>
+            <div style={{ padding: "24px 20px", color: C.t2, fontSize: 13, fontFamily: C.sans }}>Calculando necesidades…</div>
           ) : (
             <>
               {/* Vacío */}
               {filasFiltradas.length === 0 && soloConNecesidad && (
-                <div style={{ padding: "20px 20px", color: C.green, fontSize: 13, fontFamily: C.sans }}>
+                <div style={{ padding: "20px 20px", color: C.green, fontSize: 14, fontFamily: C.sans }}>
                   {modo === "obras"
                     ? "✅ Stock suficiente para todas las obras activas."
                     : `✅ Todos los materiales tienen cobertura para más de ${bufferSemanas} semanas.`}
@@ -586,7 +571,7 @@ export default function ComprasSugeridasPanel({ materiales, movimientos, stockPo
               )}
 
               {/* Footer */}
-              <div style={{ padding: "10px 16px 0", fontSize: 10, color: C.t2, fontFamily: C.sans }}>
+              <div style={{ padding: "10px 16px 0", fontSize: 11, color: C.t2, fontFamily: C.sans }}>
                 {modo === "rotacion" ? (
                   <>Fórmula: <span style={{ fontFamily: C.mono }}>A comprar = max(0, ⌈consumo/sem × {bufferSemanas}⌉ − stock)</span>{" · "}Consumo calculado sobre todo el historial disponible.{" · "}Hacé click en cada fila para ver el detalle.</>
                 ) : (

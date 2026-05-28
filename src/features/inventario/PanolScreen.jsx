@@ -3,6 +3,7 @@ import { supabase } from "@/supabaseClient";
 import Sidebar from "@/components/Sidebar";
 import { useResponsive } from "@/hooks/useResponsive";
 import AjusteMaderasModal from "@/features/inventario/AjusteMaderasModal";
+import { C } from "@/theme";
 
 // --- FUNCIONES AUXILIARES ---
 function num(v) { const x = Number(v); return Number.isFinite(x) ? x : 0; }
@@ -21,23 +22,6 @@ function descargarCSV(filas, nombre) {
 }
 
 // ─── PALETA ────────────────────────────────────────────────────
-const C = {
-  bg: "#09090b",
-  s0: "rgba(255,255,255,0.03)",
-  s1: "rgba(255,255,255,0.06)",
-  b0: "rgba(255,255,255,0.08)",
-  b1: "rgba(255,255,255,0.15)",
-  t0: "#f4f4f5",
-  t1: "#a1a1aa",
-  t2: "#71717a",
-  mono: "'JetBrains Mono', 'IBM Plex Mono', monospace",
-  sans: "'Outfit', system-ui, sans-serif",
-  primary: "#3b82f6",
-  amber: "#f59e0b",
-  green: "#10b981",
-  red: "#ef4444",
-};
-
 const GLASS = {
   backdropFilter: "blur(32px) saturate(130%)",
   WebkitBackdropFilter: "blur(32px) saturate(130%)",
@@ -46,20 +30,20 @@ const GLASS = {
 const INP = {
   background: "rgba(255,255,255,0.04)",
   border: `1px solid ${C.b0}`,
-  color: C.t0, padding: "8px 12px", borderRadius: 8, fontSize: 12,
+  color: C.t0, padding: "8px 12px", borderRadius: 8, fontSize: 13,
   outline: "none", width: "100%", fontFamily: C.sans,
 };
 
 function Btn({ onClick, children, variant = "outline", disabled = false, style = {} }) {
   const V = {
-    outline: { border: `1px solid ${C.b0}`, background: C.s0, color: C.t0, padding: "6px 14px", borderRadius: 8, fontSize: 12 },
-    primary: { border: "1px solid rgba(59,130,246,0.35)", background: "rgba(59,130,246,0.15)", color: "#60a5fa", padding: "7px 18px", borderRadius: 8, fontSize: 12, fontWeight: 600 },
-    green:   { border: "1px solid rgba(16,185,129,0.3)", background: "rgba(16,185,129,0.08)", color: "#34d399", padding: "6px 14px", borderRadius: 8, fontSize: 12 },
-    blue:    { border: "1px solid rgba(59,130,246,0.25)", background: "rgba(59,130,246,0.07)", color: "#93c5fd", padding: "6px 14px", borderRadius: 8, fontSize: 12 },
-    amber:   { border: "1px solid rgba(245,158,11,0.3)", background: "rgba(245,158,11,0.07)", color: "#fbbf24", padding: "6px 14px", borderRadius: 8, fontSize: 12 },
+    outline: { border: `1px solid ${C.b0}`, background: C.s0, color: C.t0, padding: "6px 14px", borderRadius: 8, fontSize: 13 },
+    primary: { border: "1px solid rgba(59,130,246,0.35)", background: "rgba(59,130,246,0.15)", color: "#60a5fa", padding: "7px 18px", borderRadius: 8, fontSize: 13, fontWeight: 600 },
+    green:   { border: "1px solid rgba(16,185,129,0.3)", background: "rgba(16,185,129,0.08)", color: "#34d399", padding: "6px 14px", borderRadius: 8, fontSize: 13 },
+    blue:    { border: "1px solid rgba(59,130,246,0.25)", background: "rgba(59,130,246,0.07)", color: "#93c5fd", padding: "6px 14px", borderRadius: 8, fontSize: 13 },
+    amber:   { border: "1px solid rgba(245,158,11,0.3)", background: "rgba(245,158,11,0.07)", color: "#fbbf24", padding: "6px 14px", borderRadius: 8, fontSize: 13 },
     toggle:  (active) => active
-      ? { border: `1px solid ${C.b1}`, background: C.s1, color: C.t0, padding: "5px 14px", borderRadius: 6, fontSize: 11, fontWeight: 600 }
-      : { border: "1px solid rgba(255,255,255,0.04)", background: "transparent", color: C.t2, padding: "5px 14px", borderRadius: 6, fontSize: 11 },
+      ? { border: `1px solid ${C.b1}`, background: C.s1, color: C.t0, padding: "5px 14px", borderRadius: 6, fontSize: 12, fontWeight: 700 }
+      : { border: "1px solid rgba(255,255,255,0.04)", background: "transparent", color: C.t2, padding: "5px 14px", borderRadius: 6, fontSize: 12 },
   };
   const base = typeof V[variant] === "function" ? V[variant](style._active) : V[variant];
   return (
@@ -82,7 +66,7 @@ function Btn({ onClick, children, variant = "outline", disabled = false, style =
 function FieldRow({ label, children }) {
   return (
     <div style={{ marginBottom: 10 }}>
-      <label style={{ fontSize: 9, letterSpacing: 2, color: C.t2, display: "block", marginBottom: 5, textTransform: "uppercase", fontWeight: 600 }}>
+      <label style={{ fontSize: 10, letterSpacing: 1.3, color: C.t2, display: "block", marginBottom: 5, textTransform: "uppercase", fontWeight: 700 }}>
         {label}
       </label>
       {children}
@@ -452,7 +436,7 @@ export default function PanolScreen({ profile, signOut }) {
       <style>{`
         @import url('https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500;700&display=swap');
         *, *::before, *::after { box-sizing: border-box; }
-        select option { background: #0f0f12; color: #a1a1aa; }
+        select option { background: #0f0f12; color: var(--muted); }
         ::-webkit-scrollbar { width: 3px; height: 3px; }
         ::-webkit-scrollbar-track { background: transparent; }
         ::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.07); border-radius: 99px; }
@@ -474,18 +458,18 @@ export default function PanolScreen({ profile, signOut }) {
 
           {/* ── TOPBAR ── */}
           <div style={{
-            height: 50, background: "rgba(12,12,14,0.92)", ...GLASS,
+            height: 50, background: C.topbar, ...GLASS,
             borderBottom: `1px solid ${C.b0}`, padding: isMobile ? "0 12px 0 52px" : "0 18px",
             display: "flex", alignItems: "center", gap: 10, flexShrink: 0,
           }}>
             <div style={{ flex: 1, display: "flex", alignItems: "center", gap: 8 }}>
-              <div style={{ fontSize: 13, fontWeight: 600, color: C.t0 }}>Pañol</div>
+              <div style={{ fontSize: 14, fontWeight: 600, color: C.t0 }}>Pañol</div>
               <div style={{ width: 1, height: 14, background: C.b1 }} />
-              <div style={{ fontSize: 10, color: C.t2, letterSpacing: 1 }}>Maderas</div>
+              <div style={{ fontSize: 11, color: C.t2, letterSpacing: 1 }}>Maderas</div>
               {pedidosPendientes.length > 0 && (
                 <div style={{ display: "flex", alignItems: "center", gap: 5, padding: "3px 10px", borderRadius: 7, background: "rgba(245,158,11,0.1)", border: "1px solid rgba(245,158,11,0.25)" }}>
-                  <span style={{ fontFamily: C.mono, fontSize: 13, fontWeight: 700, color: C.amber, lineHeight: 1 }}>{pedidosPendientes.length}</span>
-                  <span style={{ fontSize: 9, color: C.amber, letterSpacing: 1.5, textTransform: "uppercase" }}>Pedidos pendientes</span>
+                  <span style={{ fontFamily: C.mono, fontSize: 14, fontWeight: 700, color: C.amber, lineHeight: 1 }}>{pedidosPendientes.length}</span>
+                  <span style={{ fontSize: 10, color: C.amber, letterSpacing: 1.1, textTransform: "uppercase" }}>Pedidos pendientes</span>
                 </div>
               )}
               {/* Toggles modo */}
@@ -496,8 +480,8 @@ export default function PanolScreen({ profile, signOut }) {
                     background: modo === m ? C.s1 : "transparent",
                     color: modo === m ? C.t0 : C.t2,
                     padding: "3px 12px", borderRadius: 6, cursor: "pointer",
-                    fontSize: 10, fontWeight: modo === m ? 700 : 400,
-                    letterSpacing: 1.5, textTransform: "uppercase", fontFamily: C.sans,
+                    fontSize: 11, fontWeight: modo === m ? 700 : 400,
+                    letterSpacing: 1.1, textTransform: "uppercase", fontFamily: C.sans,
                   }}>{m}</button>
                 ))}
               </div>
@@ -533,12 +517,12 @@ export default function PanolScreen({ profile, signOut }) {
                   {sel && (
                     <div style={{ marginTop: 8, padding: "10px 12px", borderRadius: 8, background: stockStatus?.bg, border: `1px solid ${stockStatus?.border}`, display: "flex", justifyContent: "space-between", alignItems: "center" }}>
                       <div>
-                        <div style={{ fontSize: 11, fontWeight: 600, color: C.t0 }}>{sel.nombre}</div>
-                        <div style={{ fontSize: 10, color: C.t1, marginTop: 1 }}>{sel.categoria} · {sel.unidad_medida}</div>
+                        <div style={{ fontSize: 12, fontWeight: 700, color: C.t0 }}>{sel.nombre}</div>
+                        <div style={{ fontSize: 11, color: C.t1, marginTop: 1 }}>{sel.categoria} · {sel.unidad_medida}</div>
                       </div>
                       <div style={{ textAlign: "right" }}>
                         <div style={{ fontFamily: C.mono, fontSize: 18, fontWeight: 700, color: stockStatus?.color, lineHeight: 1 }}>{num(sel.stock_actual)}</div>
-                        <div style={{ fontSize: 9, color: stockStatus?.color, letterSpacing: 1.5, textTransform: "uppercase", marginTop: 2 }}>{stockStatus?.label}</div>
+                        <div style={{ fontSize: 10, color: stockStatus?.color, letterSpacing: 1.1, textTransform: "uppercase", marginTop: 2 }}>{stockStatus?.label}</div>
                       </div>
                     </div>
                   )}
@@ -562,7 +546,7 @@ export default function PanolScreen({ profile, signOut }) {
                     {/* Banner de detección de pedido pendiente */}
                     {matchingPedidos.length > 0 && (
                       <div style={{ marginBottom: 12, borderRadius: 10, border: "1px solid rgba(245,158,11,0.35)", background: "rgba(245,158,11,0.07)", padding: "10px 14px" }}>
-                        <div style={{ fontSize: 9, letterSpacing: 2, textTransform: "uppercase", color: C.amber, fontWeight: 700, marginBottom: 8 }}>
+                        <div style={{ fontSize: 10, letterSpacing: 1.3, textTransform: "uppercase", color: C.amber, fontWeight: 700, marginBottom: 8 }}>
                           📦 Este material tiene pedidos pendientes
                         </div>
                         {matchingPedidos.map(({ pedido, item }) => {
@@ -570,22 +554,22 @@ export default function PanolScreen({ profile, signOut }) {
                           return (
                             <div key={pedido.id} style={{ marginBottom: 6, padding: "8px 10px", borderRadius: 8, background: isVinculado ? "rgba(245,158,11,0.15)" : "rgba(255,255,255,0.03)", border: `1px solid ${isVinculado ? "rgba(245,158,11,0.4)" : "rgba(255,255,255,0.06)"}`, display: "flex", alignItems: "center", justifyContent: "space-between", gap: 10 }}>
                               <div>
-                                <div style={{ fontSize: 11, fontWeight: 600, color: C.t0 }}>{pedido.nota || pedido.proveedor}</div>
-                                <div style={{ fontSize: 10, color: C.t2, marginTop: 2 }}>
+                                <div style={{ fontSize: 12, fontWeight: 700, color: C.t0 }}>{pedido.nota || pedido.proveedor}</div>
+                                <div style={{ fontSize: 11, color: C.t2, marginTop: 2 }}>
                                   Pedido: <span style={{ color: C.t1, fontFamily: C.mono }}>{item.cantidad} {item.unidad}</span>
                                   {item.nota_recepcion && <span style={{ color: C.green, marginLeft: 8 }}>· Ya recibido</span>}
                                 </div>
                               </div>
                               <button
                                 onClick={() => setPedidoVinculado(isVinculado ? null : { pedido, item })}
-                                style={{ border: `1px solid ${isVinculado ? C.amber : C.b0}`, background: isVinculado ? "rgba(245,158,11,0.2)" : C.s0, color: isVinculado ? C.amber : C.t1, padding: "4px 12px", borderRadius: 7, cursor: "pointer", fontSize: 11, fontFamily: C.sans, fontWeight: isVinculado ? 700 : 400, whiteSpace: "nowrap" }}>
+                                style={{ border: `1px solid ${isVinculado ? C.amber : C.b0}`, background: isVinculado ? "rgba(245,158,11,0.2)" : C.s0, color: isVinculado ? C.amber : C.t1, padding: "4px 12px", borderRadius: 7, cursor: "pointer", fontSize: 12, fontFamily: C.sans, fontWeight: isVinculado ? 700 : 400, whiteSpace: "nowrap" }}>
                                 {isVinculado ? "✓ Vinculado" : "Vincular"}
                               </button>
                             </div>
                           );
                         })}
                         {pedidoVinculado && (
-                          <div style={{ marginTop: 6, fontSize: 10, color: C.amber }}>
+                          <div style={{ marginTop: 6, fontSize: 11, color: C.amber }}>
                             Al confirmar el ingreso se registrará la recepción en el pedido vinculado.
                           </div>
                         )}
@@ -613,13 +597,13 @@ export default function PanolScreen({ profile, signOut }) {
                     {[-10, -1, +1, +10].map(d => (
                       <button key={d} type="button" onClick={() => ajustarCantidad(d)} style={{
                         border: `1px solid ${C.b0}`, background: "transparent", color: C.t1,
-                        padding: "7px 8px", borderRadius: 7, cursor: "pointer", fontSize: 11,
+                        padding: "7px 8px", borderRadius: 7, cursor: "pointer", fontSize: 12,
                         fontFamily: C.mono, fontWeight: 700, minWidth: 36,
                       }}>{d > 0 ? "+" : ""}{d}</button>
                     ))}
                   </div>
                   {!cantidadRevisada && (
-                    <div style={{ marginTop: 5, fontSize: 10, color: C.amber, display: "flex", alignItems: "center", gap: 4 }}>
+                    <div style={{ marginTop: 5, fontSize: 11, color: C.amber, display: "flex", alignItems: "center", gap: 4 }}>
                       <span style={{ width: 5, height: 5, borderRadius: "50%", background: C.amber, display: "inline-block" }} />
                       Revisá la cantidad antes de confirmar
                     </div>
@@ -639,26 +623,26 @@ export default function PanolScreen({ profile, signOut }) {
                       border: modo === "EGRESO" ? "1px solid rgba(239,68,68,0.3)" : "1px solid rgba(16,185,129,0.3)",
                       color: modo === "EGRESO" ? "#f87171" : "#34d399",
                       borderRadius: 9, cursor: "pointer", fontFamily: C.sans,
-                      fontSize: 13, fontWeight: 700, letterSpacing: 0.5,
+                      fontSize: 14, fontWeight: 700, letterSpacing: 0.5,
                     }}
                   >
                     Confirmar {modo}
                   </button>
-                  <button onClick={limpiar} style={{ border: `1px solid ${C.b0}`, background: "transparent", color: C.t2, padding: "10px 14px", borderRadius: 9, cursor: "pointer", fontFamily: C.sans, fontSize: 11 }}>
+                  <button onClick={limpiar} style={{ border: `1px solid ${C.b0}`, background: "transparent", color: C.t2, padding: "10px 14px", borderRadius: 9, cursor: "pointer", fontFamily: C.sans, fontSize: 12 }}>
                     Limpiar
                   </button>
                 </div>
 
-                {msg && <div style={{ marginTop: 10, padding: "8px 12px", borderRadius: 7, background: "rgba(16,185,129,0.08)", border: "1px solid rgba(16,185,129,0.2)", color: "#34d399", fontSize: 12 }}>{msg}</div>}
-                {err && <div style={{ marginTop: 10, padding: "8px 12px", borderRadius: 7, background: "rgba(239,68,68,0.08)", border: "1px solid rgba(239,68,68,0.2)", color: "#f87171", fontSize: 12 }}>{err}</div>}
+                {msg && <div style={{ marginTop: 10, padding: "8px 12px", borderRadius: 7, background: "rgba(16,185,129,0.08)", border: "1px solid rgba(16,185,129,0.2)", color: "#34d399", fontSize: 13 }}>{msg}</div>}
+                {err && <div style={{ marginTop: 10, padding: "8px 12px", borderRadius: 7, background: "rgba(239,68,68,0.08)", border: "1px solid rgba(239,68,68,0.2)", color: "#f87171", fontSize: 13 }}>{err}</div>}
               </div>
 
               {/* ── PEDIDOS PENDIENTES ── */}
               {pedidosPendientes.length > 0 && (
                 <div style={{ background: C.s0, border: `1px solid rgba(245,158,11,0.25)`, borderRadius: 12, overflow: "hidden", marginBottom: 14 }}>
                   <div style={{ padding: "12px 16px", borderBottom: `1px solid rgba(245,158,11,0.15)`, display: "flex", justifyContent: "space-between", alignItems: "center", background: "rgba(245,158,11,0.04)" }}>
-                    <span style={{ fontSize: 11, fontWeight: 600, color: C.amber }}>📦 Pedidos pendientes</span>
-                    <span style={{ fontSize: 10, color: C.amber, fontFamily: C.mono, background: "rgba(245,158,11,0.15)", padding: "2px 8px", borderRadius: 99 }}>{pedidosPendientes.length}</span>
+                    <span style={{ fontSize: 12, fontWeight: 700, color: C.amber }}>📦 Pedidos pendientes</span>
+                    <span style={{ fontSize: 11, color: C.amber, fontFamily: C.mono, background: "rgba(245,158,11,0.15)", padding: "2px 8px", borderRadius: 99 }}>{pedidosPendientes.length}</span>
                   </div>
                   <div style={{ maxHeight: 480, overflowY: "auto" }}>
                     {pedidosPendientes.map(ped => {
@@ -677,17 +661,17 @@ export default function PanolScreen({ profile, signOut }) {
                           {/* ── Header del pedido ── */}
                           <div style={{ padding: "12px 14px 10px", display: "flex", justifyContent: "space-between", alignItems: "flex-start", gap: 8 }}>
                             <div style={{ flex: 1, minWidth: 0 }}>
-                              <div style={{ fontSize: 12, fontWeight: 600, color: C.t0, lineHeight: 1.3, marginBottom: 2 }}>
+                              <div style={{ fontSize: 13, fontWeight: 600, color: C.t0, lineHeight: 1.3, marginBottom: 2 }}>
                                 {ped.nota || "Pedido de madera"}
                               </div>
                               {ped.fecha_pedido && (
-                                <div style={{ fontSize: 10, color: C.t2, fontFamily: C.mono }}>
+                                <div style={{ fontSize: 11, color: C.t2, fontFamily: C.mono }}>
                                   {new Date(ped.fecha_pedido).toLocaleDateString("es-AR")}
                                 </div>
                               )}
                             </div>
                             <div style={{ display: "flex", alignItems: "center", gap: 5, flexShrink: 0 }}>
-                              <span style={{ fontSize: 8, letterSpacing: 1.2, textTransform: "uppercase", fontWeight: 700, padding: "2px 8px", borderRadius: 5, background: `${estadoColor}18`, color: estadoColor, border: `1px solid ${estadoColor}35` }}>
+                              <span style={{ fontSize: 10, letterSpacing: 1.2, textTransform: "uppercase", fontWeight: 700, padding: "2px 8px", borderRadius: 5, background: `${estadoColor}18`, color: estadoColor, border: `1px solid ${estadoColor}35` }}>
                                 {ped.estado}
                               </span>
                               {/* Botón borrar */}
@@ -695,21 +679,21 @@ export default function PanolScreen({ profile, signOut }) {
                                 <button
                                   onClick={() => setDeletingPedId(ped.id)}
                                   title="Eliminar pedido"
-                                  style={{ border: "1px solid rgba(239,68,68,0.2)", background: "transparent", color: C.t2, padding: "2px 7px", borderRadius: 5, cursor: "pointer", fontSize: 11, fontFamily: C.sans, lineHeight: 1.4 }}>
+                                  style={{ border: "1px solid rgba(239,68,68,0.2)", background: "transparent", color: C.t2, padding: "2px 7px", borderRadius: 5, cursor: "pointer", fontSize: 12, fontFamily: C.sans, lineHeight: 1.4 }}>
                                   🗑
                                 </button>
                               ) : (
                                 <div style={{ display: "flex", alignItems: "center", gap: 4 }}>
-                                  <span style={{ fontSize: 10, color: C.red }}>¿Borrar?</span>
+                                  <span style={{ fontSize: 11, color: C.red }}>¿Borrar?</span>
                                   <button
                                     disabled={actualizandoPed}
                                     onClick={() => eliminarPedido(ped.id)}
-                                    style={{ border: "1px solid rgba(239,68,68,0.4)", background: "rgba(239,68,68,0.12)", color: "#f87171", padding: "2px 8px", borderRadius: 5, cursor: "pointer", fontSize: 10, fontFamily: C.sans, fontWeight: 700 }}>
+                                    style={{ border: "1px solid rgba(239,68,68,0.4)", background: "rgba(239,68,68,0.12)", color: "#f87171", padding: "2px 8px", borderRadius: 5, cursor: "pointer", fontSize: 11, fontFamily: C.sans, fontWeight: 700 }}>
                                     Sí
                                   </button>
                                   <button
                                     onClick={() => setDeletingPedId(null)}
-                                    style={{ border: `1px solid ${C.b0}`, background: "transparent", color: C.t2, padding: "2px 8px", borderRadius: 5, cursor: "pointer", fontSize: 10, fontFamily: C.sans }}>
+                                    style={{ border: `1px solid ${C.b0}`, background: "transparent", color: C.t2, padding: "2px 8px", borderRadius: 5, cursor: "pointer", fontSize: 11, fontFamily: C.sans }}>
                                     No
                                   </button>
                                 </div>
@@ -723,7 +707,7 @@ export default function PanolScreen({ profile, signOut }) {
                               <div style={{ flex: 1, height: 3, borderRadius: 99, background: "rgba(255,255,255,0.06)" }}>
                                 <div style={{ width: `${(recibidos / total) * 100}%`, height: "100%", borderRadius: 99, background: todoRecibido ? C.green : parcial ? "#8b5cf6" : C.t2, transition: "width .3s" }} />
                               </div>
-                              <span style={{ fontSize: 9, color: C.t2, fontFamily: C.mono, flexShrink: 0 }}>{recibidos}/{total} items</span>
+                              <span style={{ fontSize: 10, color: C.t2, fontFamily: C.mono, flexShrink: 0 }}>{recibidos}/{total} items</span>
                             </div>
                           )}
 
@@ -739,17 +723,17 @@ export default function PanolScreen({ profile, signOut }) {
 
                                   {/* Fila principal del item */}
                                   <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: editandoParcial ? 8 : 0 }}>
-                                    <span style={{ fontSize: 13, flexShrink: 0 }}>{yaRecibido ? "✅" : "⬜"}</span>
+                                    <span style={{ fontSize: 14, flexShrink: 0 }}>{yaRecibido ? "✅" : "⬜"}</span>
                                     <div style={{ flex: 1, minWidth: 0 }}>
-                                      <div style={{ fontSize: 11, fontWeight: 600, color: yaRecibido ? C.t2 : C.t0, textDecoration: yaRecibido ? "line-through" : "none", lineHeight: 1.3 }}>
+                                      <div style={{ fontSize: 12, fontWeight: 700, color: yaRecibido ? C.t2 : C.t0, textDecoration: yaRecibido ? "line-through" : "none", lineHeight: 1.3 }}>
                                         {it.descripcion}
                                       </div>
-                                      <div style={{ fontSize: 10, color: C.t2, fontFamily: C.mono, marginTop: 1 }}>
+                                      <div style={{ fontSize: 11, color: C.t2, fontFamily: C.mono, marginTop: 1 }}>
                                         Pedido: {it.cantidad} {it.unidad}
                                         {esMaterialActual && <span style={{ color: "#60a5fa", marginLeft: 6 }}>← seleccionado</span>}
                                       </div>
                                       {yaRecibido && (
-                                        <div style={{ fontSize: 10, color: C.green, marginTop: 2, fontStyle: "italic" }}>{it.nota_recepcion}</div>
+                                        <div style={{ fontSize: 11, color: C.green, marginTop: 2, fontStyle: "italic" }}>{it.nota_recepcion}</div>
                                       )}
                                     </div>
                                   </div>
@@ -762,13 +746,13 @@ export default function PanolScreen({ profile, signOut }) {
                                           <button
                                             disabled={actualizandoPed}
                                             onClick={() => marcarItemRecibido(it, "todo")}
-                                            style={{ border: "1px solid rgba(16,185,129,0.35)", background: "rgba(16,185,129,0.1)", color: "#34d399", padding: "4px 10px", borderRadius: 6, cursor: "pointer", fontSize: 11, fontFamily: C.sans, fontWeight: 600 }}>
+                                            style={{ border: "1px solid rgba(16,185,129,0.35)", background: "rgba(16,185,129,0.1)", color: "#34d399", padding: "4px 10px", borderRadius: 6, cursor: "pointer", fontSize: 12, fontFamily: C.sans, fontWeight: 700 }}>
                                             ✓ Llegó todo
                                           </button>
                                           <button
                                             disabled={actualizandoPed}
                                             onClick={() => { setItemParcialId(it.id); setItemParcialVal(""); }}
-                                            style={{ border: "1px solid rgba(139,92,246,0.35)", background: "rgba(139,92,246,0.08)", color: "#a78bfa", padding: "4px 10px", borderRadius: 6, cursor: "pointer", fontSize: 11, fontFamily: C.sans }}>
+                                            style={{ border: "1px solid rgba(139,92,246,0.35)", background: "rgba(139,92,246,0.08)", color: "#a78bfa", padding: "4px 10px", borderRadius: 6, cursor: "pointer", fontSize: 12, fontFamily: C.sans }}>
                                             ~ Parcial
                                           </button>
                                         </>
@@ -777,7 +761,7 @@ export default function PanolScreen({ profile, signOut }) {
                                         <button
                                           disabled={actualizandoPed}
                                           onClick={() => marcarItemRecibido(it, "desmarcar")}
-                                          style={{ border: `1px solid ${C.b0}`, background: "transparent", color: C.t2, padding: "4px 10px", borderRadius: 6, cursor: "pointer", fontSize: 10, fontFamily: C.sans }}>
+                                          style={{ border: `1px solid ${C.b0}`, background: "transparent", color: C.t2, padding: "4px 10px", borderRadius: 6, cursor: "pointer", fontSize: 11, fontFamily: C.sans }}>
                                           ↩ No llegó
                                         </button>
                                       )}
@@ -793,18 +777,18 @@ export default function PanolScreen({ profile, signOut }) {
                                         placeholder={`de ${it.cantidad}`}
                                         value={itemParcialVal}
                                         onChange={e => setItemParcialVal(e.target.value)}
-                                        style={{ ...INP, flex: 1, padding: "6px 10px", fontFamily: C.mono, fontSize: 13 }}
+                                        style={{ ...INP, flex: 1, padding: "6px 10px", fontFamily: C.mono, fontSize: 14 }}
                                       />
-                                      <span style={{ fontSize: 11, color: C.t2, flexShrink: 0 }}>{it.unidad}</span>
+                                      <span style={{ fontSize: 12, color: C.t2, flexShrink: 0 }}>{it.unidad}</span>
                                       <button
                                         disabled={!itemParcialVal || actualizandoPed}
                                         onClick={() => marcarItemRecibido(it, "parcial", itemParcialVal)}
-                                        style={{ border: "1px solid rgba(139,92,246,0.4)", background: "rgba(139,92,246,0.12)", color: "#a78bfa", padding: "6px 12px", borderRadius: 6, cursor: "pointer", fontSize: 11, fontFamily: C.sans, fontWeight: 600, whiteSpace: "nowrap" }}>
+                                        style={{ border: "1px solid rgba(139,92,246,0.4)", background: "rgba(139,92,246,0.12)", color: "#a78bfa", padding: "6px 12px", borderRadius: 6, cursor: "pointer", fontSize: 12, fontFamily: C.sans, fontWeight: 700, whiteSpace: "nowrap" }}>
                                         Confirmar
                                       </button>
                                       <button
                                         onClick={() => { setItemParcialId(null); setItemParcialVal(""); }}
-                                        style={{ border: `1px solid ${C.b0}`, background: "transparent", color: C.t2, padding: "6px 10px", borderRadius: 6, cursor: "pointer", fontSize: 11, fontFamily: C.sans }}>
+                                        style={{ border: `1px solid ${C.b0}`, background: "transparent", color: C.t2, padding: "6px 10px", borderRadius: 6, cursor: "pointer", fontSize: 12, fontFamily: C.sans }}>
                                         ✕
                                       </button>
                                     </div>
@@ -820,7 +804,7 @@ export default function PanolScreen({ profile, signOut }) {
                               <button
                                 disabled={actualizandoPed}
                                 onClick={() => cambiarEstadoPedido(ped.id, "recibido")}
-                                style={{ border: "1px solid rgba(16,185,129,0.3)", background: "rgba(16,185,129,0.08)", color: "#34d399", padding: "5px 12px", borderRadius: 7, cursor: "pointer", fontSize: 11, fontFamily: C.sans, fontWeight: 600 }}>
+                                style={{ border: "1px solid rgba(16,185,129,0.3)", background: "rgba(16,185,129,0.08)", color: "#34d399", padding: "5px 12px", borderRadius: 7, cursor: "pointer", fontSize: 12, fontFamily: C.sans, fontWeight: 700 }}>
                                 ✓ Marcar pedido recibido
                               </button>
                             )}
@@ -828,7 +812,7 @@ export default function PanolScreen({ profile, signOut }) {
                               <button
                                 disabled={actualizandoPed}
                                 onClick={() => cambiarEstadoPedido(ped.id, "parcial")}
-                                style={{ border: "1px solid rgba(139,92,246,0.3)", background: "rgba(139,92,246,0.08)", color: "#a78bfa", padding: "5px 12px", borderRadius: 7, cursor: "pointer", fontSize: 11, fontFamily: C.sans }}>
+                                style={{ border: "1px solid rgba(139,92,246,0.3)", background: "rgba(139,92,246,0.08)", color: "#a78bfa", padding: "5px 12px", borderRadius: 7, cursor: "pointer", fontSize: 12, fontFamily: C.sans }}>
                                 ~ Llegó parcial
                               </button>
                             )}
@@ -836,7 +820,7 @@ export default function PanolScreen({ profile, signOut }) {
                               <button
                                 disabled={actualizandoPed}
                                 onClick={() => cambiarEstadoPedido(ped.id, "recibido")}
-                                style={{ border: "1px solid rgba(16,185,129,0.4)", background: "rgba(16,185,129,0.12)", color: "#34d399", padding: "5px 12px", borderRadius: 7, cursor: "pointer", fontSize: 11, fontFamily: C.sans, fontWeight: 700 }}>
+                                style={{ border: "1px solid rgba(16,185,129,0.4)", background: "rgba(16,185,129,0.12)", color: "#34d399", padding: "5px 12px", borderRadius: 7, cursor: "pointer", fontSize: 12, fontFamily: C.sans, fontWeight: 700 }}>
                                 ✅ Confirmar recepción completa
                               </button>
                             )}
@@ -852,8 +836,8 @@ export default function PanolScreen({ profile, signOut }) {
               {/* ── MOVIMIENTOS RECIENTES ── */}
               <div style={{ background: C.s0, border: `1px solid ${C.b0}`, borderRadius: 12, overflow: "hidden" }}>
                 <div style={{ padding: "14px 16px", borderBottom: `1px solid ${C.b0}`, display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-                  <span style={{ fontSize: 11, fontWeight: 600, color: C.t0 }}>Últimos movimientos</span>
-                  <span style={{ fontSize: 10, color: C.t2, fontFamily: C.mono }}>{movs.length}</span>
+                  <span style={{ fontSize: 12, fontWeight: 700, color: C.t0 }}>Últimos movimientos</span>
+                  <span style={{ fontSize: 11, color: C.t2, fontFamily: C.mono }}>{movs.length}</span>
                 </div>
                 <div style={{ padding: "0 0 4px" }}>
                   {movs.map(m => {
@@ -873,28 +857,28 @@ export default function PanolScreen({ profile, signOut }) {
                     return (
                       <div key={m.id} style={{ padding: "10px 16px", borderBottom: `1px solid rgba(255,255,255,0.03)` }}>
                         <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", gap: 8 }}>
-                          <div style={{ fontSize: 12, fontWeight: 600, color: C.t0, flex: 1, lineHeight: 1.3 }}>{m.material_nombre}</div>
+                          <div style={{ fontSize: 13, fontWeight: 600, color: C.t0, flex: 1, lineHeight: 1.3 }}>{m.material_nombre}</div>
                           <div style={{ display: "flex", alignItems: "center", gap: 6, flexShrink: 0 }}>
-                            <span style={{ fontFamily: C.mono, fontSize: 13, fontWeight: 700, color }}>
+                            <span style={{ fontFamily: C.mono, fontSize: 14, fontWeight: 700, color }}>
                               {d >= 0 ? "+" : ""}{d}
                             </span>
-                            <span style={{ fontSize: 8, letterSpacing: 1.5, textTransform: "uppercase", padding: "2px 6px", borderRadius: 99, fontWeight: 700, background: badgeBg, color, border: `1px solid ${badgeBorder}` }}>
+                            <span style={{ fontSize: 10, letterSpacing: 1.1, textTransform: "uppercase", padding: "2px 6px", borderRadius: 99, fontWeight: 700, background: badgeBg, color, border: `1px solid ${badgeBorder}` }}>
                               {badge}
                             </span>
                           </div>
                         </div>
                         <div style={{ marginTop: 4, display: "flex", gap: 10, flexWrap: "wrap" }}>
-                          {m.obra && !esAjuste && <span style={{ fontSize: 10, color: C.t2 }}>Obra: <span style={{ color: C.t1 }}>{m.obra}</span></span>}
-                          {esAjuste && <span style={{ fontSize: 10, color: "#a78bfa" }}>Ajuste de inventario</span>}
-                          {m.usuario && <span style={{ fontSize: 10, color: C.t2 }}>Retira: <span style={{ color: C.t1 }}>{m.usuario}</span></span>}
-                          {m.obs_ui && <span style={{ fontSize: 10, color: C.t2, fontStyle: "italic" }}>{m.obs_ui}</span>}
+                          {m.obra && !esAjuste && <span style={{ fontSize: 11, color: C.t2 }}>Obra: <span style={{ color: C.t1 }}>{m.obra}</span></span>}
+                          {esAjuste && <span style={{ fontSize: 11, color: "#a78bfa" }}>Ajuste de inventario</span>}
+                          {m.usuario && <span style={{ fontSize: 11, color: C.t2 }}>Retira: <span style={{ color: C.t1 }}>{m.usuario}</span></span>}
+                          {m.obs_ui && <span style={{ fontSize: 11, color: C.t2, fontStyle: "italic" }}>{m.obs_ui}</span>}
                         </div>
-                        <div style={{ marginTop: 3, fontSize: 10, color: C.t2, fontFamily: C.mono }}>{fmt(m.created_at)}</div>
+                        <div style={{ marginTop: 3, fontSize: 11, color: C.t2, fontFamily: C.mono }}>{fmt(m.created_at)}</div>
                       </div>
                     );
                   })}
                   {!movs.length && (
-                    <div style={{ padding: "24px 16px", textAlign: "center", fontSize: 11, color: C.t2 }}>Sin movimientos recientes</div>
+                    <div style={{ padding: "24px 16px", textAlign: "center", fontSize: 12, color: C.t2 }}>Sin movimientos recientes</div>
                   )}
                 </div>
               </div>

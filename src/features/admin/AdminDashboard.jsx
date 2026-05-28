@@ -2,6 +2,7 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { supabase } from "@/supabaseClient";
 import Sidebar from "@/components/Sidebar";
 import { useResponsive } from "@/hooks/useResponsive";
+import { C } from "@/theme";
 
 function num(v) { const x = Number(v); return Number.isFinite(x) ? x : 0; }
 
@@ -18,23 +19,6 @@ function descargarCSV(filas, nombre) {
 }
 
 // ─── PALETA ────────────────────────────────────────────────────
-const C = {
-  bg: "#09090b",
-  s0: "rgba(255,255,255,0.03)",
-  s1: "rgba(255,255,255,0.06)",
-  b0: "rgba(255,255,255,0.08)",
-  b1: "rgba(255,255,255,0.15)",
-  t0: "#f4f4f5",
-  t1: "#a1a1aa",
-  t2: "#71717a",
-  mono: "'JetBrains Mono', 'IBM Plex Mono', monospace",
-  sans: "'Outfit', system-ui, sans-serif",
-  primary: "#3b82f6",
-  amber: "#f59e0b",
-  green: "#10b981",
-  red: "#ef4444",
-};
-
 const GLASS = {
   backdropFilter: "blur(32px) saturate(130%)",
   WebkitBackdropFilter: "blur(32px) saturate(130%)",
@@ -43,7 +27,7 @@ const GLASS = {
 const INP = {
   background: "rgba(255,255,255,0.04)",
   border: `1px solid ${C.b0}`,
-  color: C.t0, padding: "8px 12px", borderRadius: 8, fontSize: 12,
+  color: C.t0, padding: "8px 12px", borderRadius: 8, fontSize: 13,
   outline: "none", width: "100%", fontFamily: C.sans,
 };
 
@@ -59,7 +43,7 @@ function EstadoChip({ estado }) {
   const meta = ESTADO_META[String(estado).toUpperCase()] ?? ESTADO_META.OK;
   return (
     <span style={{
-      fontSize: 8, letterSpacing: 1.5, textTransform: "uppercase",
+      fontSize: 10, letterSpacing: 1.1, textTransform: "uppercase",
       padding: "2px 8px", borderRadius: 99, fontWeight: 700,
       background: meta.bg, color: meta.color, border: `1px solid ${meta.border}`,
       whiteSpace: "nowrap",
@@ -133,7 +117,7 @@ function KpiCard({ label, value, total, color, bg, border, icon, pulse = false, 
 
       {/* Top row: label + icon */}
       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start" }}>
-        <span style={{ fontSize: 9, letterSpacing: 2, textTransform: "uppercase", color: C.t2, fontWeight: 700 }}>{label}</span>
+        <span style={{ fontSize: 10, letterSpacing: 1.3, textTransform: "uppercase", color: C.t2, fontWeight: 700 }}>{label}</span>
         <span style={{ fontSize: 14, opacity: .6 }}>{icon}</span>
       </div>
 
@@ -146,7 +130,7 @@ function KpiCard({ label, value, total, color, bg, border, icon, pulse = false, 
               <span style={{ width: 6, height: 6, borderRadius: "50%", background: color, display: "inline-block", animation: "kpiPulse 1.4s ease infinite", marginBottom: 3 }} />
             )}
           </div>
-          <div style={{ fontSize: 9, color: C.t2, marginTop: 4, fontFamily: C.mono }}>
+          <div style={{ fontSize: 10, color: C.t2, marginTop: 4, fontFamily: C.mono }}>
             {total > 0 ? `${pct}% del total` : "—"}
           </div>
         </div>
@@ -260,15 +244,15 @@ export default function AdminDashboard({ profile, signOut }) {
     } else { setMsg("⚠️ No soportado en este navegador"); }
   }
 
-  const TH = { padding: "8px 12px", textAlign: "left", fontSize: 9, letterSpacing: 2, textTransform: "uppercase", color: C.t2, fontWeight: 700, borderBottom: `1px solid ${C.b0}`, whiteSpace: "nowrap" };
-  const TD = { padding: "9px 12px", fontSize: 12, borderBottom: `1px solid rgba(255,255,255,0.03)`, color: C.t1 };
+  const TH = { padding: "8px 12px", textAlign: "left", fontSize: 10, letterSpacing: 1.3, textTransform: "uppercase", color: C.t2, fontWeight: 700, borderBottom: `1px solid ${C.b0}`, whiteSpace: "nowrap" };
+  const TD = { padding: "9px 12px", fontSize: 13, borderBottom: `1px solid rgba(255,255,255,0.03)`, color: C.t1 };
 
   return (
     <div style={{ background: C.bg, position: "fixed", inset: 0, overflow: "hidden", color: C.t0, fontFamily: C.sans }}>
       <style>{`
         @import url('https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500;700&display=swap');
         *, *::before, *::after { box-sizing: border-box; }
-        select option { background: #0f0f12; color: #a1a1aa; }
+        select option { background: #0f0f12; color: var(--muted); }
         ::-webkit-scrollbar { width: 3px; height: 3px; }
         ::-webkit-scrollbar-track { background: transparent; }
         ::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.07); border-radius: 99px; }
@@ -294,7 +278,7 @@ export default function AdminDashboard({ profile, signOut }) {
         <div style={{ display: "flex", flexDirection: "column", height: "100vh", overflow: "hidden" }}>
           {/* ── TOPBAR ── */}
           <div style={{
-            height: 50, background: "rgba(12,12,14,0.92)", ...GLASS,
+            height: 50, background: C.topbar, ...GLASS,
             borderBottom: `1px solid ${C.b0}`, padding: isMobile ? "0 12px 0 52px" : "0 18px",
             display: "flex", alignItems: "center", gap: 10, flexShrink: 0,
           }}>
@@ -307,26 +291,26 @@ export default function AdminDashboard({ profile, signOut }) {
               ].map(({ label, n, color, bg, border }) => (
                 <div key={label} style={{ display: "flex", alignItems: "center", gap: 6, padding: "4px 10px", borderRadius: 7, background: bg, border: `1px solid ${border}`, borderLeft: `2px solid ${color}` }}>
                   <span style={{ fontFamily: C.mono, fontSize: 15, fontWeight: 700, color, lineHeight: 1 }}>{n}</span>
-                  <span style={{ fontSize: 8, color: C.t1, letterSpacing: 2, textTransform: "uppercase" }}>{label}</span>
+                  <span style={{ fontSize: 10, color: C.t1, letterSpacing: 1.3, textTransform: "uppercase" }}>{label}</span>
                 </div>
               ))}
             </div>
-            <button onClick={cargar} style={{ border: `1px solid ${C.b0}`, background: "transparent", color: C.t2, padding: "5px 10px", borderRadius: 7, cursor: "pointer", fontFamily: C.sans, fontSize: 11 }}>↻</button>
-            <button onClick={() => setShowModal(true)} style={{ border: "1px solid rgba(59,130,246,0.35)", background: "rgba(59,130,246,0.15)", color: "#60a5fa", padding: "7px 16px", borderRadius: 8, cursor: "pointer", fontFamily: C.sans, fontSize: 12, fontWeight: 600 }}>+ Material</button>
+            <button onClick={cargar} style={{ border: `1px solid ${C.b0}`, background: "transparent", color: C.t2, padding: "5px 10px", borderRadius: 7, cursor: "pointer", fontFamily: C.sans, fontSize: 12 }}>↻</button>
+            <button onClick={() => setShowModal(true)} style={{ border: "1px solid rgba(59,130,246,0.35)", background: "rgba(59,130,246,0.15)", color: "#60a5fa", padding: "7px 16px", borderRadius: 8, cursor: "pointer", fontFamily: C.sans, fontSize: 13, fontWeight: 600 }}>+ Material</button>
           </div>
 
           {/* ── FILTERBAR ── */}
           <div style={{
-            height: 42, background: "rgba(12,12,14,0.85)", ...GLASS,
+            height: 42, background: C.topbarSoft, ...GLASS,
             borderBottom: `1px solid ${C.b0}`, padding: "0 18px",
             display: "flex", alignItems: "center", gap: 8, flexShrink: 0,
           }}>
             <input
-              style={{ ...INP, width: 260, padding: "5px 10px", fontSize: 11 }}
+              style={{ ...INP, width: 260, padding: "5px 10px", fontSize: 12 }}
               placeholder="Buscar material o categoría…"
               value={q} onChange={e => setQ(e.target.value)}
             />
-            <label style={{ display: "flex", gap: 6, alignItems: "center", fontSize: 11, color: C.t2, cursor: "pointer", userSelect: "none", whiteSpace: "nowrap" }}>
+            <label style={{ display: "flex", gap: 6, alignItems: "center", fontSize: 12, color: C.t2, cursor: "pointer", userSelect: "none", whiteSpace: "nowrap" }}>
               <input type="checkbox" checked={soloNoOk} onChange={e => setSoloNoOk(e.target.checked)} style={{ accentColor: C.amber }} />
               Solo no OK
             </label>
@@ -338,7 +322,7 @@ export default function AdminDashboard({ profile, signOut }) {
                 background: filtrados.length ? "rgba(16,185,129,0.07)" : "transparent",
                 color: filtrados.length ? "#34d399" : C.t2,
                 padding: "5px 12px", borderRadius: 7, cursor: filtrados.length ? "pointer" : "not-allowed",
-                fontFamily: C.sans, fontSize: 11,
+                fontFamily: C.sans, fontSize: 12,
               }}
             >↓ CSV <span style={{ fontFamily: C.mono, opacity: 0.7 }}>({filtrados.length})</span></button>
             <button
@@ -348,15 +332,15 @@ export default function AdminDashboard({ profile, signOut }) {
                 background: listaCompra.length ? "rgba(245,158,11,0.07)" : "transparent",
                 color: listaCompra.length ? "#fbbf24" : C.t2,
                 padding: "5px 12px", borderRadius: 7, cursor: listaCompra.length ? "pointer" : "not-allowed",
-                fontFamily: C.sans, fontSize: 11,
+                fontFamily: C.sans, fontSize: 12,
               }}
             >📋 Lista compra <span style={{ fontFamily: C.mono, opacity: 0.7 }}>({listaCompra.length})</span></button>
           </div>
 
           {/* ── MAIN ── */}
           <div style={{ flex: 1, overflow: "auto", padding: "16px 22px" }}>
-            {error && <div style={{ padding: "8px 12px", borderRadius: 8, background: "rgba(239,68,68,0.08)", border: "1px solid rgba(239,68,68,0.2)", color: "#f87171", fontSize: 12, marginBottom: 10 }}>{error}</div>}
-            {msg   && <div style={{ padding: "8px 12px", borderRadius: 8, background: "rgba(16,185,129,0.08)", border: "1px solid rgba(16,185,129,0.2)", color: "#34d399", fontSize: 12, marginBottom: 10 }}>{msg}</div>}
+            {error && <div style={{ padding: "8px 12px", borderRadius: 8, background: "rgba(239,68,68,0.08)", border: "1px solid rgba(239,68,68,0.2)", color: "#f87171", fontSize: 13, marginBottom: 10 }}>{error}</div>}
+            {msg   && <div style={{ padding: "8px 12px", borderRadius: 8, background: "rgba(16,185,129,0.08)", border: "1px solid rgba(16,185,129,0.2)", color: "#34d399", fontSize: 13, marginBottom: 10 }}>{msg}</div>}
 
             {/* KPIs */}
             <div style={{ display: "grid", gridTemplateColumns: "repeat(4,1fr) 220px", gap: 12, marginBottom: 16 }}>
@@ -373,7 +357,7 @@ export default function AdminDashboard({ profile, signOut }) {
                 animation: "slideUp .35s cubic-bezier(.22,1,.36,1) 240ms both",
                 position: "relative", overflow: "hidden",
               }}>
-                <div style={{ fontSize: 9, letterSpacing: 2, textTransform: "uppercase", color: C.t2, fontWeight: 700 }}>Salud stock</div>
+                <div style={{ fontSize: 10, letterSpacing: 1.3, textTransform: "uppercase", color: C.t2, fontWeight: 700 }}>Salud stock</div>
 
                 {/* Big pct */}
                 <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
@@ -382,7 +366,7 @@ export default function AdminDashboard({ profile, signOut }) {
                       <AnimatedNumber value={stats.total > 0 ? Math.round(stats.ok/stats.total*100) : 0} duration={1100} />
                       <span style={{ fontSize: 18, fontWeight: 400, color: C.t2, marginLeft: 2 }}>%</span>
                     </div>
-                    <div style={{ fontSize: 9, color: C.t2, marginTop: 4, fontFamily: C.mono }}>{stats.total} materiales</div>
+                    <div style={{ fontSize: 10, color: C.t2, marginTop: 4, fontFamily: C.mono }}>{stats.total} materiales</div>
                   </div>
 
                   {/* SVG donut */}
@@ -429,9 +413,9 @@ export default function AdminDashboard({ profile, signOut }) {
                     <div key={label} style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
                       <div style={{ display: "flex", alignItems: "center", gap: 5 }}>
                         <div style={{ width: 5, height: 5, borderRadius: "50%", background: c, boxShadow: `0 0 4px ${c}88` }} />
-                        <span style={{ fontSize: 9, color: C.t2, letterSpacing: 1, textTransform: "uppercase" }}>{label}</span>
+                        <span style={{ fontSize: 10, color: C.t2, letterSpacing: 1, textTransform: "uppercase" }}>{label}</span>
                       </div>
-                      <span style={{ fontFamily: C.mono, fontSize: 10, fontWeight: 700, color: n > 0 ? c : C.t2 }}>{n}</span>
+                      <span style={{ fontFamily: C.mono, fontSize: 11, fontWeight: 700, color: n > 0 ? c : C.t2 }}>{n}</span>
                     </div>
                   ))}
                 </div>
@@ -441,19 +425,19 @@ export default function AdminDashboard({ profile, signOut }) {
             {/* Materiales críticos chips */}
             {stats.cr > 0 && (
               <div style={{ display: "flex", gap: 6, flexWrap: "wrap", marginBottom: 14, animation: "fadeIn .4s ease .3s both" }}>
-                <span style={{ fontSize: 9, color: C.t2, letterSpacing: 2, textTransform: "uppercase", alignSelf: "center", marginRight: 2 }}>CRÍTICO</span>
+                <span style={{ fontSize: 10, color: C.t2, letterSpacing: 1.3, textTransform: "uppercase", alignSelf: "center", marginRight: 2 }}>CRÍTICO</span>
                 {rows.filter(r => String(r.estado_ui || r.estado || "").toUpperCase() === "CRITICO").slice(0, 10).map((r, i) => (
                   <div key={r.id} style={{
                     padding: "3px 10px", borderRadius: 99,
                     background: "rgba(239,68,68,0.07)", border: "1px solid rgba(239,68,68,0.18)",
-                    fontSize: 10, color: "#f87171", animation: `fadeIn .3s ease ${i*35}ms both`,
+                    fontSize: 11, color: "#f87171", animation: `fadeIn .3s ease ${i*35}ms both`,
                     display: "flex", alignItems: "center", gap: 5,
                   }}>
                     <span style={{ width: 4, height: 4, borderRadius: "50%", background: C.red, display: "inline-block", animation: "kpiPulse 1.5s ease infinite" }} />
                     {r.nombre}
                   </div>
                 ))}
-                {stats.cr > 10 && <div style={{ padding: "3px 10px", borderRadius: 99, background: "rgba(239,68,68,0.04)", border: "1px solid rgba(239,68,68,0.10)", fontSize: 10, color: C.t2 }}>+{stats.cr-10} más</div>}
+                {stats.cr > 10 && <div style={{ padding: "3px 10px", borderRadius: 99, background: "rgba(239,68,68,0.04)", border: "1px solid rgba(239,68,68,0.10)", fontSize: 11, color: C.t2 }}>+{stats.cr-10} más</div>}
               </div>
             )}
 
@@ -473,10 +457,10 @@ export default function AdminDashboard({ profile, signOut }) {
                     return (
                       <tr key={r.id}>
                         <td style={TD}>
-                          <div style={{ color: C.t0, fontWeight: 600, fontSize: 12 }}>{r.nombre}</div>
-                          <div style={{ fontSize: 10, color: C.t2, marginTop: 1 }}>{r.unidad_medida}</div>
+                          <div style={{ color: C.t0, fontWeight: 600, fontSize: 13 }}>{r.nombre}</div>
+                          <div style={{ fontSize: 11, color: C.t2, marginTop: 1 }}>{r.unidad_medida}</div>
                         </td>
-                        <td style={{ ...TD, fontSize: 10, color: C.t2 }}>{r.categoria || "—"}</td>
+                        <td style={{ ...TD, fontSize: 11, color: C.t2 }}>{r.categoria || "—"}</td>
                         <td style={TD}><EstadoChip estado={st} /></td>
                         <td style={{ ...TD, fontFamily: C.mono, fontWeight: 600, color: C.t0 }}>{num(r.stock_actual).toFixed(2)}</td>
                         <td style={{ ...TD, fontFamily: C.mono, color: C.t2 }}>{num(r.stock_minimo).toFixed(2)}</td>
@@ -486,7 +470,7 @@ export default function AdminDashboard({ profile, signOut }) {
                         </td>
                         <td style={TD}>
                           {r.pedido_pendiente ? (
-                            <span style={{ fontSize: 10, color: "#93c5fd", fontWeight: 700 }}>YA PEDIDO</span>
+                            <span style={{ fontSize: 11, color: "#93c5fd", fontWeight: 700 }}>YA PEDIDO</span>
                           ) : num(r.pedido_sugerido) > 0 ? (
                             <span style={{ fontFamily: C.mono, fontWeight: 700, color: C.amber }}>{num(r.pedido_sugerido).toFixed(2)}</span>
                           ) : (
@@ -498,7 +482,7 @@ export default function AdminDashboard({ profile, signOut }) {
                   })}
                   {!filtrados.length && (
                     <tr>
-                      <td colSpan={8} style={{ ...TD, textAlign: "center", padding: "40px", color: C.t2, fontSize: 11 }}>
+                      <td colSpan={8} style={{ ...TD, textAlign: "center", padding: "40px", color: C.t2, fontSize: 12 }}>
                         Sin resultados para la búsqueda actual
                       </td>
                     </tr>
@@ -516,30 +500,30 @@ export default function AdminDashboard({ profile, signOut }) {
           onClick={e => e.target === e.currentTarget && setShowModal(false)}
           style={{
             position: "fixed", inset: 0, zIndex: 9000,
-            background: "rgba(0,0,0,0.85)", backdropFilter: "blur(32px)",
+            background: "var(--overlay-strong)", backdropFilter: "blur(32px)",
             display: "flex", justifyContent: "center", alignItems: "center",
             animation: "fadeIn .15s ease",
           }}
         >
-          <div style={{ background: "#0d0d10", border: `1px solid ${C.b1}`, borderRadius: 14, padding: 28, width: "min(440px,92vw)", position: "relative" }}>
+          <div style={{ background: C.panelSolid, border: `1px solid ${C.b1}`, borderRadius: 14, padding: 28, width: "min(440px,92vw)", position: "relative" }}>
             <button
               onClick={() => setShowModal(false)}
               style={{ position: "absolute", top: 14, right: 14, background: C.s0, border: `1px solid ${C.b0}`, color: C.t0, width: 28, height: 28, borderRadius: "50%", cursor: "pointer", fontSize: 15, display: "flex", alignItems: "center", justifyContent: "center" }}
             >×</button>
-            <div style={{ fontSize: 9, letterSpacing: 2, color: C.t2, textTransform: "uppercase", marginBottom: 4 }}>Nuevo material</div>
+            <div style={{ fontSize: 10, letterSpacing: 1.3, color: C.t2, textTransform: "uppercase", marginBottom: 4 }}>Nuevo material</div>
             <h2 style={{ margin: "0 0 20px", fontSize: 16, color: C.t0 }}>Alta de Material</h2>
 
             <div style={{ marginBottom: 12 }}>
-              <label style={{ fontSize: 9, letterSpacing: 2, color: C.t2, display: "block", marginBottom: 5, textTransform: "uppercase", fontWeight: 600 }}>Nombre</label>
+              <label style={{ fontSize: 10, letterSpacing: 1.3, color: C.t2, display: "block", marginBottom: 5, textTransform: "uppercase", fontWeight: 700 }}>Nombre</label>
               <input style={INP} value={newMat.nombre} onChange={e => setNewMat({ ...newMat, nombre: e.target.value })} placeholder="Ej: Tablón Cedro" autoFocus />
             </div>
             <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10, marginBottom: 12 }}>
               <div>
-                <label style={{ fontSize: 9, letterSpacing: 2, color: C.t2, display: "block", marginBottom: 5, textTransform: "uppercase", fontWeight: 600 }}>Categoría</label>
+                <label style={{ fontSize: 10, letterSpacing: 1.3, color: C.t2, display: "block", marginBottom: 5, textTransform: "uppercase", fontWeight: 700 }}>Categoría</label>
                 <input style={INP} value={newMat.categoria} onChange={e => setNewMat({ ...newMat, categoria: e.target.value })} />
               </div>
               <div>
-                <label style={{ fontSize: 9, letterSpacing: 2, color: C.t2, display: "block", marginBottom: 5, textTransform: "uppercase", fontWeight: 600 }}>Unidad</label>
+                <label style={{ fontSize: 10, letterSpacing: 1.3, color: C.t2, display: "block", marginBottom: 5, textTransform: "uppercase", fontWeight: 700 }}>Unidad</label>
                 <select style={{ ...INP, cursor: "pointer" }} value={newMat.unidad_medida} onChange={e => setNewMat({ ...newMat, unidad_medida: e.target.value })}>
                   <option value="u">Unidad (u)</option>
                   <option value="m">Metros (m)</option>
@@ -551,17 +535,17 @@ export default function AdminDashboard({ profile, signOut }) {
               </div>
             </div>
             <div style={{ marginBottom: 20 }}>
-              <label style={{ fontSize: 9, letterSpacing: 2, color: C.t2, display: "block", marginBottom: 5, textTransform: "uppercase", fontWeight: 600 }}>Stock mínimo (alerta)</label>
+              <label style={{ fontSize: 10, letterSpacing: 1.3, color: C.t2, display: "block", marginBottom: 5, textTransform: "uppercase", fontWeight: 700 }}>Stock mínimo (alerta)</label>
               <input type="number" style={INP} value={newMat.stock_minimo} onChange={e => setNewMat({ ...newMat, stock_minimo: e.target.value })} />
             </div>
 
             <button
               onClick={crearMaterial}
-              style={{ width: "100%", padding: "11px", border: "1px solid rgba(59,130,246,0.35)", background: "rgba(59,130,246,0.15)", color: "#60a5fa", fontWeight: 700, borderRadius: 10, cursor: "pointer", fontFamily: C.sans, fontSize: 13, marginBottom: 8 }}
+              style={{ width: "100%", padding: "11px", border: "1px solid rgba(59,130,246,0.35)", background: "rgba(59,130,246,0.15)", color: "#60a5fa", fontWeight: 700, borderRadius: 10, cursor: "pointer", fontFamily: C.sans, fontSize: 14, marginBottom: 8 }}
             >Guardar material</button>
             <button
               onClick={() => setShowModal(false)}
-              style={{ width: "100%", padding: "11px", border: `1px solid ${C.b0}`, background: "transparent", color: C.t2, borderRadius: 10, cursor: "pointer", fontFamily: C.sans, fontSize: 12 }}
+              style={{ width: "100%", padding: "11px", border: `1px solid ${C.b0}`, background: "transparent", color: C.t2, borderRadius: 10, cursor: "pointer", fontFamily: C.sans, fontSize: 13 }}
             >Cancelar</button>
           </div>
         </div>

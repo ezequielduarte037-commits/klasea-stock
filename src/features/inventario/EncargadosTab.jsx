@@ -1,3 +1,4 @@
+import { C } from "@/theme";
 /**
  * EncargadosTab.jsx
  *
@@ -34,21 +35,6 @@ function fmtDate(d) {
   return dt.toLocaleDateString("es-AR");
 }
 
-const C = {
-  bg:    "#0f0f12",
-  card:  "rgba(255,255,255,0.03)",
-  b0:    "rgba(255,255,255,0.08)",
-  t0:    "#f4f4f5",
-  t1:    "#a1a1aa",
-  t2:    "#52525b",
-  red:   "#ff453a",
-  amber: "#ffbe35",
-  green: "#30d158",
-  blue:  "#3b82f6",
-  mono:  "'JetBrains Mono', monospace",
-  sans:  "'Outfit', system-ui",
-};
-
 // Determina el estado visual de una obra basado en sus campos
 function getEstadoVisual(obra) {
   if (obra.estado === "terminada") return "terminada";
@@ -62,7 +48,7 @@ const ESTADO_META = {
   sin_material: { emoji: "⚠️", label: "Sin material", color: "#ffbe35" },
   en_proceso:   { emoji: "⏳", label: "En proceso",   color: "#3b82f6" },
   terminada:    { emoji: "✅", label: "Terminada",     color: "#30d158" },
-  pausada:      { emoji: "⏸️", label: "Pausada",       color: "#71717a" },
+  pausada:      { emoji: "⏸️", label: "Pausada",       color: "var(--dim)" },
 };
 
 const INP = {
@@ -71,7 +57,7 @@ const INP = {
   color: C.t0,
   padding: "6px 9px",
   borderRadius: 7,
-  fontSize: 12,
+  fontSize: 13,
   fontFamily: C.sans,
   outline: "none",
   width: "100%",
@@ -109,7 +95,7 @@ function FilaObra({ obra, onSave }) {
     setEditing(false);
   }
 
-  const TD = { padding: "10px 12px", borderBottom: `1px solid rgba(255,255,255,0.035)`, verticalAlign: "middle", fontSize: 12, fontFamily: C.sans };
+  const TD = { padding: "10px 12px", borderBottom: `1px solid rgba(255,255,255,0.035)`, verticalAlign: "middle", fontSize: 13, fontFamily: C.sans };
 
   return (
     <>
@@ -120,7 +106,7 @@ function FilaObra({ obra, onSave }) {
             <span style={{ fontSize: 16 }}>{meta.emoji}</span>
             <div>
               <div>{obra.nombre}</div>
-              {obra.descripcion && <div style={{ fontSize: 10, color: C.t2, marginTop: 1 }}>{obra.descripcion}</div>}
+              {obra.descripcion && <div style={{ fontSize: 11, color: C.t2, marginTop: 1 }}>{obra.descripcion}</div>}
             </div>
           </div>
         </td>
@@ -129,7 +115,7 @@ function FilaObra({ obra, onSave }) {
         <td style={TD}>
           <span style={{
             display: "inline-block", padding: "3px 9px", borderRadius: 5,
-            fontSize: 10, fontWeight: 700,
+            fontSize: 11, fontWeight: 700,
             background: meta.color + "22", color: meta.color,
             border: `1px solid ${meta.color}44`,
             fontFamily: C.sans,
@@ -148,7 +134,7 @@ function FilaObra({ obra, onSave }) {
                 onChange={e => setForm(f => ({ ...f, materiales_pedidos: e.target.checked }))}
                 style={{ accentColor: C.blue, width: 15, height: 15 }}
               />
-              <span style={{ fontSize: 11, color: C.t1 }}>{form.materiales_pedidos ? "Sí" : "No"}</span>
+              <span style={{ fontSize: 12, color: C.t1 }}>{form.materiales_pedidos ? "Sí" : "No"}</span>
             </label>
           ) : (
             <span style={{ fontSize: 14 }}>{obra.materiales_pedidos ? "✅" : "⚠️"}</span>
@@ -163,7 +149,7 @@ function FilaObra({ obra, onSave }) {
               onChange={e => setForm(f => ({ ...f, fecha_pedido_material: e.target.value }))}
             />
           ) : (
-            <span style={{ color: obra.fecha_pedido_material ? C.t0 : C.t2, fontFamily: C.mono, fontSize: 12 }}>
+            <span style={{ color: obra.fecha_pedido_material ? C.t0 : C.t2, fontFamily: C.mono, fontSize: 13 }}>
               {fmtDate(obra.fecha_pedido_material) ?? "—"}
             </span>
           )}
@@ -177,7 +163,7 @@ function FilaObra({ obra, onSave }) {
               onChange={e => setForm(f => ({ ...f, fecha_desmolde_estimada: e.target.value }))}
             />
           ) : (
-            <span style={{ color: obra.fecha_desmolde_estimada ? C.t0 : C.t2, fontFamily: C.mono, fontSize: 12 }}>
+            <span style={{ color: obra.fecha_desmolde_estimada ? C.t0 : C.t2, fontFamily: C.mono, fontSize: 13 }}>
               {fmtDate(obra.fecha_desmolde_estimada) ?? "—"}
             </span>
           )}
@@ -191,7 +177,7 @@ function FilaObra({ obra, onSave }) {
               onChange={e => setForm(f => ({ ...f, fecha_desmolde_real: e.target.value }))}
             />
           ) : (
-            <span style={{ color: obra.fecha_desmolde_real ? C.green : C.t2, fontFamily: C.mono, fontSize: 12 }}>
+            <span style={{ color: obra.fecha_desmolde_real ? C.green : C.t2, fontFamily: C.mono, fontSize: 13 }}>
               {fmtDate(obra.fecha_desmolde_real) ?? "—"}
             </span>
           )}
@@ -207,7 +193,7 @@ function FilaObra({ obra, onSave }) {
               {UBICACIONES.map(u => <option key={u} value={u}>{u || "— Sin asignar —"}</option>)}
             </select>
           ) : (
-            <span style={{ color: obra.ubicacion ? C.t1 : C.t2, fontSize: 12 }}>
+            <span style={{ color: obra.ubicacion ? C.t1 : C.t2, fontSize: 13 }}>
               {obra.ubicacion || "—"}
             </span>
           )}
@@ -222,7 +208,7 @@ function FilaObra({ obra, onSave }) {
                 disabled={saving}
                 style={{
                   border: `1px solid ${C.green}44`, background: `${C.green}18`, color: C.green,
-                  padding: "5px 12px", borderRadius: 6, cursor: "pointer", fontSize: 11, fontWeight: 700, fontFamily: C.sans,
+                  padding: "5px 12px", borderRadius: 6, cursor: "pointer", fontSize: 12, fontWeight: 700, fontFamily: C.sans,
                 }}
               >
                 {saving ? "…" : "Guardar"}
@@ -231,7 +217,7 @@ function FilaObra({ obra, onSave }) {
                 onClick={() => { setEditing(false); setForm({ fecha_pedido_material: obra.fecha_pedido_material ?? "", fecha_desmolde_estimada: obra.fecha_desmolde_estimada ?? "", fecha_desmolde_real: obra.fecha_desmolde_real ?? "", materiales_pedidos: obra.materiales_pedidos ?? false, ubicacion: obra.ubicacion ?? "" }); }}
                 style={{
                   border: `1px solid ${C.b0}`, background: "transparent", color: C.t2,
-                  padding: "5px 12px", borderRadius: 6, cursor: "pointer", fontSize: 11, fontFamily: C.sans,
+                  padding: "5px 12px", borderRadius: 6, cursor: "pointer", fontSize: 12, fontFamily: C.sans,
                 }}
               >
                 Cancelar
@@ -242,7 +228,7 @@ function FilaObra({ obra, onSave }) {
               onClick={() => setEditing(true)}
               style={{
                 border: `1px solid ${C.b0}`, background: "transparent", color: C.t1,
-                padding: "5px 12px", borderRadius: 6, cursor: "pointer", fontSize: 11, fontFamily: C.sans,
+                padding: "5px 12px", borderRadius: 6, cursor: "pointer", fontSize: 12, fontFamily: C.sans,
               }}
             >
               Editar
@@ -311,7 +297,7 @@ export default function EncargadosTab() {
     };
   }, [obras]);
 
-  const TH = { textAlign: "left", fontSize: 9, color: C.t2, padding: "10px 12px", textTransform: "uppercase", letterSpacing: 2, fontFamily: C.sans, borderBottom: `1px solid ${C.b0}` };
+  const TH = { textAlign: "left", fontSize: 10, color: C.t2, padding: "10px 12px", textTransform: "uppercase", letterSpacing: 1.3, fontFamily: C.sans, borderBottom: `1px solid ${C.b0}` };
 
   return (
     <div style={{ fontFamily: C.sans }}>
@@ -329,7 +315,7 @@ export default function EncargadosTab() {
             borderRadius: 10, padding: "12px 16px",
             background: `${color}0a`,
           }}>
-            <div style={{ fontSize: 9, color: C.t2, letterSpacing: 2, textTransform: "uppercase", marginBottom: 6 }}>{emoji} {label}</div>
+            <div style={{ fontSize: 10, color: C.t2, letterSpacing: 1.3, textTransform: "uppercase", marginBottom: 6 }}>{emoji} {label}</div>
             <div style={{ fontFamily: C.mono, fontSize: 22, fontWeight: 700, color }}>{n}</div>
           </div>
         ))}
@@ -341,7 +327,7 @@ export default function EncargadosTab() {
           border: `1px solid ${msg.startsWith("✅") ? C.green : C.red}44`,
           background: `${msg.startsWith("✅") ? C.green : C.red}11`,
           color: msg.startsWith("✅") ? C.green : C.red,
-          borderRadius: 8, padding: "8px 14px", marginBottom: 12, fontSize: 12,
+          borderRadius: 8, padding: "8px 14px", marginBottom: 12, fontSize: 13,
         }}>
           {msg}
         </div>
@@ -362,7 +348,7 @@ export default function EncargadosTab() {
               border: filtroEstado === v ? `1px solid rgba(255,255,255,0.18)` : `1px solid ${C.b0}`,
               background: filtroEstado === v ? "rgba(255,255,255,0.1)" : "transparent",
               color: filtroEstado === v ? C.t0 : C.t2,
-              padding: "6px 14px", borderRadius: 7, cursor: "pointer", fontSize: 11, fontWeight: filtroEstado === v ? 600 : 400,
+              padding: "6px 14px", borderRadius: 7, cursor: "pointer", fontSize: 12, fontWeight: filtroEstado === v ? 600 : 400,
               fontFamily: C.sans,
             }}>
             {v === "activa" ? "🔵 Activas" : v === "terminada" ? "✅ Terminadas" : "Todas"}
@@ -372,7 +358,7 @@ export default function EncargadosTab() {
 
       {/* Tabla */}
       {loading ? (
-        <div style={{ padding: 24, color: C.t2, fontSize: 12 }}>Cargando…</div>
+        <div style={{ padding: 24, color: C.t2, fontSize: 13 }}>Cargando…</div>
       ) : (
         <div style={{
           border: `1px solid ${C.b0}`,
@@ -399,7 +385,7 @@ export default function EncargadosTab() {
               ))}
               {!obrasFiltradas.length && (
                 <tr>
-                  <td colSpan={8} style={{ padding: "32px 16px", textAlign: "center", color: C.t2, fontSize: 12 }}>
+                  <td colSpan={8} style={{ padding: "32px 16px", textAlign: "center", color: C.t2, fontSize: 13 }}>
                     Sin obras con ese filtro.
                   </td>
                 </tr>
@@ -411,15 +397,15 @@ export default function EncargadosTab() {
 
       {/* Leyenda */}
       <div style={{ marginTop: 14, padding: "10px 14px", border: `1px solid ${C.b0}`, borderRadius: 8, background: "rgba(255,255,255,0.015)" }}>
-        <div style={{ fontSize: 11, color: C.t2, marginBottom: 6 }}>Leyenda de estados:</div>
+        <div style={{ fontSize: 12, color: C.t2, marginBottom: 6 }}>Leyenda de estados:</div>
         <div style={{ display: "flex", gap: 16, flexWrap: "wrap" }}>
           {Object.entries(ESTADO_META).map(([k, v]) => (
-            <span key={k} style={{ fontSize: 11, color: v.color }}>
+            <span key={k} style={{ fontSize: 12, color: v.color }}>
               {v.emoji} <span style={{ color: C.t2 }}>{v.label}</span>
             </span>
           ))}
         </div>
-        <div style={{ fontSize: 10, color: C.t2, marginTop: 8 }}>
+        <div style={{ fontSize: 11, color: C.t2, marginTop: 8 }}>
           💡 <strong style={{ color: C.t1 }}>⚠️ Sin material</strong> = obra activa pero los materiales aún no fueron pedidos (aparecerá en "Compras Sugeridas"). 
           Marcá "Mat. pedidos" cuando hagas el pedido para cambiar a ⏳.
         </div>

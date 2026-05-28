@@ -1,3 +1,4 @@
+import { C } from "@/theme";
 // EnchapadoView.jsx  —  Gestión de OTs para Enchapadora
 // ─────────────────────────────────────────────────────────────────────────────
 // SCHEMA COMPLETO (ejecutar en SQL Editor si es tabla nueva):
@@ -43,30 +44,13 @@ import { useState, useEffect, useMemo, useRef } from "react";
 import { supabase } from "@/supabaseClient";
 
 // ── Design tokens ──────────────────────────────────────────────────────────
-const C = {
-  bg:      "#09090b",
-  s0:      "rgba(255,255,255,0.03)",
-  s1:      "rgba(255,255,255,0.06)",
-  b0:      "rgba(255,255,255,0.08)",
-  b1:      "rgba(255,255,255,0.15)",
-  t0:      "#f4f4f5",
-  t1:      "#a1a1aa",
-  t2:      "#71717a",
-  sans:    "'Outfit', system-ui, sans-serif",
-  mono:    "'JetBrains Mono', monospace",
-  green:   "#10b981",
-  red:     "#ef4444",
-  amber:   "#f59e0b",
-  primary: "#3b82f6",
-  purple:  "#a855f7",
-};
 const INP = {
   background: "rgba(255,255,255,0.04)",
   border: `1px solid ${C.b0}`,
   color: C.t0,
   padding: "7px 10px",
   borderRadius: 7,
-  fontSize: 12,
+  fontSize: 13,
   outline: "none",
   width: "100%",
   fontFamily: C.sans,
@@ -339,17 +323,17 @@ alter table enchapado_ots add column if not exists herrajes_enviado    boolean d
   return (
     <div style={{ padding: 28 }}>
       <div style={{ background: "rgba(239,68,68,0.07)", border: "1px solid rgba(239,68,68,0.2)", borderRadius: 12, padding: 20, maxWidth: 580 }}>
-        <div style={{ fontSize: 12, color: "#f87171", fontWeight: 600, marginBottom: 8 }}>⚠ Tablas no encontradas</div>
-        <div style={{ fontSize: 12, color: C.t2, lineHeight: 1.7, marginBottom: 12 }}>
+        <div style={{ fontSize: 13, color: "#f87171", fontWeight: 600, marginBottom: 8 }}>⚠ Tablas no encontradas</div>
+        <div style={{ fontSize: 13, color: C.t2, lineHeight: 1.7, marginBottom: 12 }}>
           Hay que crear las tablas en Supabase. Andá a <strong style={{ color: C.t1 }}>SQL Editor</strong> y ejecutá:
         </div>
-        <button onClick={() => setShow(v => !v)} style={{ background: C.s1, border: `1px solid ${C.b0}`, color: C.t1, padding: "5px 12px", borderRadius: 7, cursor: "pointer", fontSize: 11, fontFamily: C.sans, marginBottom: 10 }}>
+        <button onClick={() => setShow(v => !v)} style={{ background: C.s1, border: `1px solid ${C.b0}`, color: C.t1, padding: "5px 12px", borderRadius: 7, cursor: "pointer", fontSize: 12, fontFamily: C.sans, marginBottom: 10 }}>
           {show ? "Ocultar SQL" : "Ver SQL"}
         </button>
         {show && (
-          <pre style={{ background: "#0a0a0d", border: `1px solid ${C.b0}`, borderRadius: 8, padding: 14, fontSize: 10, color: C.t1, overflowX: "auto", fontFamily: C.mono, lineHeight: 1.8, marginBottom: 12 }}>{sql}</pre>
+          <pre style={{ background: C.panelSolid, border: `1px solid ${C.b0}`, borderRadius: 8, padding: 14, fontSize: 11, color: C.t1, overflowX: "auto", fontFamily: C.mono, lineHeight: 1.8, marginBottom: 12 }}>{sql}</pre>
         )}
-        <button onClick={onRetry} style={{ background: "rgba(59,130,246,0.12)", border: "1px solid rgba(59,130,246,0.3)", color: "#60a5fa", padding: "7px 18px", borderRadius: 8, cursor: "pointer", fontSize: 12, fontFamily: C.sans }}>Reintentar</button>
+        <button onClick={onRetry} style={{ background: "rgba(59,130,246,0.12)", border: "1px solid rgba(59,130,246,0.3)", color: "#60a5fa", padding: "7px 18px", borderRadius: 8, cursor: "pointer", fontSize: 13, fontFamily: C.sans }}>Reintentar</button>
       </div>
     </div>
   );
@@ -388,7 +372,7 @@ function OTCard({ ot, ots, onClick }) {
         flexShrink: 0, width: 46, height: 46, borderRadius: 10,
         background: "rgba(255,255,255,0.04)", border: `1px solid ${C.b0}`,
         display: "flex", alignItems: "center", justifyContent: "center",
-        fontSize: 11, fontWeight: 700, color: C.t0, fontFamily: C.mono,
+        fontSize: 12, fontWeight: 700, color: C.t0, fontFamily: C.mono,
         letterSpacing: 1,
       }}>{ot.modelo}</div>
 
@@ -397,25 +381,25 @@ function OTCard({ ot, ots, onClick }) {
         <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 3 }}>
           <span style={{ fontSize: 14, fontWeight: 600, color: C.t0 }}>{ot.barco}</span>
           {ot.tipo_chapa && (
-            <span style={{ fontSize: 10, color: esNogal(ot.tipo_chapa) ? "#d97706" : C.t2, fontFamily: C.mono, background: esNogal(ot.tipo_chapa) ? "rgba(217,119,6,0.08)" : C.s1, border: `1px solid ${esNogal(ot.tipo_chapa) ? "rgba(217,119,6,0.25)" : C.b0}`, padding: "1px 7px", borderRadius: 5 }}>
+            <span style={{ fontSize: 11, color: esNogal(ot.tipo_chapa) ? "#d97706" : C.t2, fontFamily: C.mono, background: esNogal(ot.tipo_chapa) ? "rgba(217,119,6,0.08)" : C.s1, border: `1px solid ${esNogal(ot.tipo_chapa) ? "rgba(217,119,6,0.25)" : C.b0}`, padding: "1px 7px", borderRadius: 5 }}>
               {ot.tipo_chapa}
             </span>
           )}
         </div>
         {/* Fechas producción */}
-        <div style={{ display: "flex", gap: 12, fontSize: 11, color: C.t2, flexWrap: "wrap" }}>
+        <div style={{ display: "flex", gap: 12, fontSize: 12, color: C.t2, flexWrap: "wrap" }}>
           {desmolde && (
             <span style={{ display: "flex", alignItems: "center", gap: 4 }}>
-              <span style={{ fontSize: 9, color: C.t2, opacity: 0.7 }}>⬡</span>
-              <span style={{ color: C.t2, fontSize: 10 }}>{desmoldeLabel}:</span>
-              <span style={{ fontFamily: C.mono, color: C.t1, fontSize: 10 }}>{fmtFecha(desmolde)}</span>
+              <span style={{ fontSize: 10, color: C.t2, opacity: 0.7 }}>⬡</span>
+              <span style={{ color: C.t2, fontSize: 11 }}>{desmoldeLabel}:</span>
+              <span style={{ fontFamily: C.mono, color: C.t1, fontSize: 11 }}>{fmtFecha(desmolde)}</span>
             </span>
           )}
           {ot.fecha_botada && (
             <span style={{ display: "flex", alignItems: "center", gap: 4 }}>
-              <span style={{ fontSize: 9, color: C.green, opacity: 0.8 }}>⛵</span>
-              <span style={{ color: C.t2, fontSize: 10 }}>Botada:</span>
-              <span style={{ fontFamily: C.mono, color: C.green, fontSize: 10 }}>{fmtFecha(ot.fecha_botada)}</span>
+              <span style={{ fontSize: 10, color: C.green, opacity: 0.8 }}>⛵</span>
+              <span style={{ color: C.t2, fontSize: 11 }}>Botada:</span>
+              <span style={{ fontFamily: C.mono, color: C.green, fontSize: 11 }}>{fmtFecha(ot.fecha_botada)}</span>
             </span>
           )}
         </div>
@@ -423,12 +407,12 @@ function OTCard({ ot, ots, onClick }) {
         {(tPendiente || hPendiente) && (
           <div style={{ display: "flex", gap: 5, marginTop: 5 }}>
             {tPendiente && (
-              <span style={{ fontSize: 9, color: C.amber, background: "rgba(245,158,11,0.08)", border: "1px solid rgba(245,158,11,0.2)", padding: "1px 6px", borderRadius: 4 }}>
+              <span style={{ fontSize: 10, color: C.amber, background: "rgba(245,158,11,0.08)", border: "1px solid rgba(245,158,11,0.2)", padding: "1px 6px", borderRadius: 4 }}>
                 tablones pendientes
               </span>
             )}
             {hPendiente && (
-              <span style={{ fontSize: 9, color: C.purple, background: "rgba(168,85,247,0.08)", border: "1px solid rgba(168,85,247,0.2)", padding: "1px 6px", borderRadius: 4 }}>
+              <span style={{ fontSize: 10, color: C.purple, background: "rgba(168,85,247,0.08)", border: "1px solid rgba(168,85,247,0.2)", padding: "1px 6px", borderRadius: 4 }}>
                 herrajes pendientes
               </span>
             )}
@@ -441,7 +425,7 @@ function OTCard({ ot, ots, onClick }) {
         flexShrink: 0, display: "flex", alignItems: "center", gap: 5,
         background: meta.bg, border: `1px solid ${meta.color}33`,
         padding: "5px 10px", borderRadius: 7,
-        fontSize: 11, fontWeight: 500, color: meta.color,
+        fontSize: 12, fontWeight: 700, color: meta.color,
         fontFamily: C.sans,
       }}>
         <div style={{ width: 5, height: 5, borderRadius: "50%", background: meta.dot, flexShrink: 0 }} />
@@ -487,7 +471,7 @@ function NuevaOTModal({ onClose, onCreate, onEnsureMueblesUnidad }) {
     }
   }
 
-  const LBL = { fontSize: 9, letterSpacing: 2, color: C.t2, display: "block", marginBottom: 5, marginTop: 12, textTransform: "uppercase", fontWeight: 600 };
+  const LBL = { fontSize: 10, letterSpacing: 1.3, color: C.t2, display: "block", marginBottom: 5, marginTop: 12, textTransform: "uppercase", fontWeight: 700 };
 
   async function crear() {
     if (!form.barco.trim()) return;
@@ -534,19 +518,19 @@ function NuevaOTModal({ onClose, onCreate, onEnsureMueblesUnidad }) {
   }
 
   return (
-    <div onClick={onClose} style={{ position: "fixed", inset: 0, zIndex: 2000, background: "rgba(0,0,0,0.88)", backdropFilter: "blur(20px)", WebkitBackdropFilter: "blur(20px)", display: "flex", alignItems: "center", justifyContent: "center" }}>
-      <div onClick={e => e.stopPropagation()} style={{ background: "#0d0d10", border: `1px solid ${C.b1}`, borderRadius: 16, padding: 28, width: "min(520px,94vw)", position: "relative", maxHeight: "90vh", overflowY: "auto" }}>
+    <div onClick={onClose} style={{ position: "fixed", inset: 0, zIndex: 2000, background: "var(--overlay-strong)", backdropFilter: "blur(20px)", WebkitBackdropFilter: "blur(20px)", display: "flex", alignItems: "center", justifyContent: "center" }}>
+      <div onClick={e => e.stopPropagation()} style={{ background: C.panelSolid, border: `1px solid ${C.b1}`, borderRadius: 16, padding: 28, width: "min(520px,94vw)", position: "relative", maxHeight: "90vh", overflowY: "auto" }}>
         <button onClick={onClose} style={{ position: "absolute", top: 14, right: 14, background: C.s0, border: `1px solid ${C.b0}`, color: C.t0, width: 28, height: 28, borderRadius: "50%", cursor: "pointer", fontSize: 15, display: "flex", alignItems: "center", justifyContent: "center" }}>×</button>
 
         <div style={{ fontSize: 16, fontWeight: 700, color: C.t0, marginBottom: 2 }}>Nueva OT — Enchapadora</div>
-        <div style={{ fontSize: 11, color: C.t2, marginBottom: 4 }}>Klase A</div>
+        <div style={{ fontSize: 12, color: C.t2, marginBottom: 4 }}>Klase A</div>
 
         {/* Modelo */}
         <label style={LBL}>Modelo</label>
         <div style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>
           {Object.keys(TEMPLATES).map(m => (
             <button key={m} onClick={() => f("modelo", m)} style={{
-              padding: "6px 14px", borderRadius: 8, cursor: "pointer", fontSize: 12,
+              padding: "6px 14px", borderRadius: 8, cursor: "pointer", fontSize: 13,
               fontWeight: form.modelo === m ? 700 : 400, fontFamily: C.mono,
               background: form.modelo === m ? "rgba(59,130,246,0.15)" : C.s0,
               border: `1px solid ${form.modelo === m ? "rgba(59,130,246,0.45)" : C.b0}`,
@@ -567,7 +551,7 @@ function NuevaOTModal({ onClose, onCreate, onEnsureMueblesUnidad }) {
           onKeyDown={e => e.key === "Enter" && crear()}
         />
         {fechasAutoLookup && (
-          <div style={{ marginTop: 5, fontSize: 11, color: C.green, background: "rgba(16,185,129,0.07)", border: "1px solid rgba(16,185,129,0.2)", borderRadius: 6, padding: "4px 10px" }}>
+          <div style={{ marginTop: 5, fontSize: 12, color: C.green, background: "rgba(16,185,129,0.07)", border: "1px solid rgba(16,185,129,0.2)", borderRadius: 6, padding: "4px 10px" }}>
             ✓ Fechas cargadas automáticamente desde el cronograma 2026
           </div>
         )}
@@ -584,18 +568,18 @@ function NuevaOTModal({ onClose, onCreate, onEnsureMueblesUnidad }) {
             onBlur={() => setTimeout(() => setShowSug(false), 150)}
           />
           {showSug && (
-            <div style={{ position: "absolute", top: "100%", left: 0, right: 0, zIndex: 50, background: "#0d0d10", border: `1px solid ${C.b1}`, borderRadius: 8, marginTop: 3, overflow: "hidden", boxShadow: "0 8px 24px rgba(0,0,0,0.6)" }}>
+            <div style={{ position: "absolute", top: "100%", left: 0, right: 0, zIndex: 50, background: C.panelSolid, border: `1px solid ${C.b1}`, borderRadius: 8, marginTop: 3, overflow: "hidden", boxShadow: "0 8px 24px rgba(0,0,0,0.6)" }}>
               {CHAPAS_SUGERIDAS.filter(s => !form.tipo_chapa || s.toLowerCase().includes(form.tipo_chapa.toLowerCase())).map(s => (
-                <button key={s} onMouseDown={() => f("tipo_chapa", s)} style={{ display: "block", width: "100%", textAlign: "left", padding: "8px 12px", background: "transparent", border: "none", color: esNogal(s) ? "#d97706" : C.t1, cursor: "pointer", fontSize: 12, fontFamily: C.sans, borderBottom: `1px solid ${C.b0}` }}
+                <button key={s} onMouseDown={() => f("tipo_chapa", s)} style={{ display: "block", width: "100%", textAlign: "left", padding: "8px 12px", background: "transparent", border: "none", color: esNogal(s) ? "#d97706" : C.t1, cursor: "pointer", fontSize: 13, fontFamily: C.sans, borderBottom: `1px solid ${C.b0}` }}
                   onMouseEnter={e => e.currentTarget.style.background = C.s1}
                   onMouseLeave={e => e.currentTarget.style.background = "transparent"}
-                >{s}{esNogal(s) && <span style={{ fontSize: 10, color: "rgba(217,119,6,0.7)", marginLeft: 6 }}>nogal</span>}</button>
+                >{s}{esNogal(s) && <span style={{ fontSize: 11, color: "rgba(217,119,6,0.7)", marginLeft: 6 }}>nogal</span>}</button>
               ))}
             </div>
           )}
         </div>
         {form.tipo_chapa && esNogal(form.tipo_chapa) && (
-          <div style={{ marginTop: 5, fontSize: 11, color: "#d97706", background: "rgba(217,119,6,0.07)", border: "1px solid rgba(217,119,6,0.2)", borderRadius: 6, padding: "5px 10px" }}>
+          <div style={{ marginTop: 5, fontSize: 12, color: "#d97706", background: "rgba(217,119,6,0.07)", border: "1px solid rgba(217,119,6,0.2)", borderRadius: 6, padding: "5px 10px" }}>
             ⚠ Chapa de nogal — en Anexo B la Lenga se reemplaza por Tablón de Nogal
           </div>
         )}
@@ -609,9 +593,9 @@ function NuevaOTModal({ onClose, onCreate, onEnsureMueblesUnidad }) {
             { key: "fecha_botada",        label: "Botada" },
           ].map(({ key, label }) => (
             <div key={key}>
-              <div style={{ fontSize: 9, letterSpacing: 1.5, color: C.t2, marginBottom: 4, textTransform: "uppercase" }}>{label}</div>
+              <div style={{ fontSize: 10, letterSpacing: 1.1, color: C.t2, marginBottom: 4, textTransform: "uppercase" }}>{label}</div>
               <input
-                style={{ ...INP, fontSize: 11 }}
+                style={{ ...INP, fontSize: 12 }}
                 type="date"
                 value={form[key]}
                 onChange={e => f(key, e.target.value)}
@@ -635,7 +619,7 @@ function NuevaOTModal({ onClose, onCreate, onEnsureMueblesUnidad }) {
         <button
           onClick={crear}
           disabled={saving || !form.barco.trim()}
-          style={{ marginTop: 20, width: "100%", padding: "11px", background: saving ? C.s1 : "rgba(59,130,246,0.15)", border: "1px solid rgba(59,130,246,0.35)", color: "#60a5fa", fontWeight: 700, borderRadius: 10, cursor: saving ? "not-allowed" : "pointer", fontFamily: C.sans, fontSize: 13, opacity: !form.barco.trim() ? 0.5 : 1 }}
+          style={{ marginTop: 20, width: "100%", padding: "11px", background: saving ? C.s1 : "rgba(59,130,246,0.15)", border: "1px solid rgba(59,130,246,0.35)", color: "#60a5fa", fontWeight: 700, borderRadius: 10, cursor: saving ? "not-allowed" : "pointer", fontFamily: C.sans, fontSize: 14, opacity: !form.barco.trim() ? 0.5 : 1 }}
         >{saving ? "Creando…" : "Crear OT"}</button>
       </div>
     </div>
@@ -865,7 +849,7 @@ function OTDetail({ ot: otInit, ots, onBack, onUpdated, onDeleted, esAdmin, onEn
       font-size:16pt;
       font-weight:800;
       color:#1a1a1a;
-      background:#f4f4f5;
+      background:var(--text);
       padding:4px 12px;
       border:2px solid #1a1a1a;
       border-radius:6px;
@@ -1107,7 +1091,7 @@ ${pagHerrajesHTML}
                : v.toLowerCase().includes("largo") ? C.green
                : C.t2;
     return (
-      <span style={{ fontSize: 10, color: col, background: col + "14", border: `1px solid ${col}33`, padding: "2px 7px", borderRadius: 5, fontFamily: C.mono }}>
+      <span style={{ fontSize: 11, color: col, background: col + "14", border: `1px solid ${col}33`, padding: "2px 7px", borderRadius: 5, fontFamily: C.mono }}>
         {v}
       </span>
     );
@@ -1122,14 +1106,14 @@ ${pagHerrajesHTML}
         style={{
           display: "flex", alignItems: "center", gap: 8,
           padding: "8px 14px", borderRadius: 9, cursor: "pointer",
-          fontFamily: C.sans, fontSize: 12, transition: "all .15s",
+          fontFamily: C.sans, fontSize: 13, transition: "all .15s",
           background: active ? color + "15" : C.s0,
           border: `1px solid ${active ? color + "44" : C.b0}`,
           color: active ? color : C.t2,
         }}
       >
         <span style={{ width: 16, height: 16, borderRadius: 4, border: `2px solid ${active ? color : C.b1}`, background: active ? color : "transparent", display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0, transition: "all .15s" }}>
-          {active && <span style={{ color: "#000", fontSize: 10, lineHeight: 1, fontWeight: 700 }}>✓</span>}
+          {active && <span style={{ color: "#000", fontSize: 11, lineHeight: 1, fontWeight: 700 }}>✓</span>}
         </span>
         {label}
       </button>
@@ -1143,18 +1127,18 @@ ${pagHerrajesHTML}
         <button onClick={onBack} style={{ flexShrink: 0, marginTop: 2, background: C.s0, border: `1px solid ${C.b0}`, color: C.t2, width: 32, height: 32, borderRadius: 8, cursor: "pointer", fontSize: 16, display: "flex", alignItems: "center", justifyContent: "center" }}>‹</button>
         <div style={{ flex: 1 }}>
           <div style={{ display: "flex", alignItems: "center", gap: 10, flexWrap: "wrap" }}>
-            <span style={{ fontSize: 9, fontFamily: C.mono, letterSpacing: 3, color: C.t2, textTransform: "uppercase" }}>Klase A</span>
-            <span style={{ fontFamily: C.mono, fontSize: 13, color: C.t1, background: C.s1, border: `1px solid ${C.b0}`, padding: "2px 8px", borderRadius: 6 }}>{ot.modelo}</span>
+            <span style={{ fontSize: 10, fontFamily: C.mono, letterSpacing: 3, color: C.t2, textTransform: "uppercase" }}>Klase A</span>
+            <span style={{ fontFamily: C.mono, fontSize: 14, color: C.t1, background: C.s1, border: `1px solid ${C.b0}`, padding: "2px 8px", borderRadius: 6 }}>{ot.modelo}</span>
           </div>
           <h2 style={{ margin: "4px 0 0", fontSize: 22, fontWeight: 700, color: C.t0, display: "flex", alignItems: "center", gap: 10 }}>
             {ot.barco}
             {ot.tipo_chapa && (
-              <span style={{ fontSize: 12, fontWeight: 500, color: nogal ? "#d97706" : C.t2, background: nogal ? "rgba(217,119,6,0.08)" : C.s1, border: `1px solid ${nogal ? "rgba(217,119,6,0.25)" : C.b0}`, padding: "2px 9px", borderRadius: 6, fontFamily: C.sans }}>
+              <span style={{ fontSize: 13, fontWeight: 500, color: nogal ? "#d97706" : C.t2, background: nogal ? "rgba(217,119,6,0.08)" : C.s1, border: `1px solid ${nogal ? "rgba(217,119,6,0.25)" : C.b0}`, padding: "2px 9px", borderRadius: 6, fontFamily: C.sans }}>
                 {ot.tipo_chapa}
               </span>
             )}
           </h2>
-          <div style={{ display: "flex", gap: 16, marginTop: 5, fontSize: 11, color: C.t2 }}>
+          <div style={{ display: "flex", gap: 16, marginTop: 5, fontSize: 12, color: C.t2 }}>
             <span>📅 {fmtFecha(ot.fecha)}</span>
             {ot.responsable && <span>👤 {ot.responsable}</span>}
           </div>
@@ -1162,7 +1146,7 @@ ${pagHerrajesHTML}
 
         <div style={{ flexShrink: 0, display: "flex", flexDirection: "column", gap: 5, alignItems: "flex-end" }}>
           {syncMsg && (
-            <div style={{ maxWidth: 250, textAlign: "right", fontSize: 10, lineHeight: 1.45, color: syncMsg.ok ? C.green : "#f87171" }}>
+            <div style={{ maxWidth: 250, textAlign: "right", fontSize: 11, lineHeight: 1.45, color: syncMsg.ok ? C.green : "#f87171" }}>
               {syncMsg.ok
                 ? `${syncMsg.created ? "Alta creada" : "Ya vinculada"} en Muebles - ${syncMsg.lineaNombre} / ${syncMsg.unidadCodigo}`
                 : `Muebles: ${syncMsg.message ?? "No se pudo sincronizar"}`}
@@ -1171,18 +1155,18 @@ ${pagHerrajesHTML}
           <select
             value={ot.estado}
             onChange={e => setEstado(e.target.value)}
-            style={{ background: meta.bg, border: `1px solid ${meta.color}44`, color: meta.color, padding: "7px 12px", borderRadius: 8, fontSize: 12, fontWeight: 600, cursor: "pointer", outline: "none", fontFamily: C.sans }}
+            style={{ background: meta.bg, border: `1px solid ${meta.color}44`, color: meta.color, padding: "7px 12px", borderRadius: 8, fontSize: 13, fontWeight: 600, cursor: "pointer", outline: "none", fontFamily: C.sans }}
           >
             {ESTADOS_OT.map(e => <option key={e} value={e}>{e}</option>)}
           </select>
-          <button onClick={sincronizarMuebles} disabled={syncingMuebles || !onEnsureMueblesUnidad} style={{ background: "rgba(16,185,129,0.12)", border: "1px solid rgba(16,185,129,0.28)", color: C.green, padding: "5px 12px", borderRadius: 7, cursor: syncingMuebles ? "not-allowed" : "pointer", fontSize: 11, fontFamily: C.sans, opacity: syncingMuebles ? 0.7 : 1 }}>
+          <button onClick={sincronizarMuebles} disabled={syncingMuebles || !onEnsureMueblesUnidad} style={{ background: "rgba(16,185,129,0.12)", border: "1px solid rgba(16,185,129,0.28)", color: C.green, padding: "5px 12px", borderRadius: 7, cursor: syncingMuebles ? "not-allowed" : "pointer", fontSize: 12, fontFamily: C.sans, opacity: syncingMuebles ? 0.7 : 1 }}>
             {syncingMuebles ? "Sincronizando..." : "Sincronizar con Muebles"}
           </button>
-          <button onClick={imprimir} style={{ background: C.s0, border: `1px solid ${C.b0}`, color: C.t1, padding: "5px 12px", borderRadius: 7, cursor: "pointer", fontSize: 11, fontFamily: C.sans, display: "flex", alignItems: "center", gap: 5 }}>
+          <button onClick={imprimir} style={{ background: C.s0, border: `1px solid ${C.b0}`, color: C.t1, padding: "5px 12px", borderRadius: 7, cursor: "pointer", fontSize: 12, fontFamily: C.sans, display: "flex", alignItems: "center", gap: 5 }}>
             Imprimir PDF
           </button>
           {esAdmin && (
-            <button onClick={eliminarOT} style={{ background: "transparent", border: "1px solid rgba(239,68,68,0.2)", color: "#f87171", padding: "5px 12px", borderRadius: 7, cursor: "pointer", fontSize: 11, fontFamily: C.sans }}>Eliminar OT</button>
+            <button onClick={eliminarOT} style={{ background: "transparent", border: "1px solid rgba(239,68,68,0.2)", color: "#f87171", padding: "5px 12px", borderRadius: 7, cursor: "pointer", fontSize: 12, fontFamily: C.sans }}>Eliminar OT</button>
           )}
         </div>
       </div>
@@ -1191,7 +1175,7 @@ ${pagHerrajesHTML}
       <Section
         title="Producción"
         action={
-          <button onClick={() => setEditFechas(v => !v)} style={{ background: "none", border: "none", color: C.t2, cursor: "pointer", fontSize: 11, fontFamily: C.sans, padding: "1px 4px" }}>
+          <button onClick={() => setEditFechas(v => !v)} style={{ background: "none", border: "none", color: C.t2, cursor: "pointer", fontSize: 12, fontFamily: C.sans, padding: "1px 4px" }}>
             {editFechas ? "Cancelar" : "Editar fechas"}
           </button>
         }
@@ -1205,9 +1189,9 @@ ${pagHerrajesHTML}
                 { key: "fecha_botada",        label: "Botada" },
               ].map(({ key, label }) => (
                 <div key={key}>
-                  <div style={{ fontSize: 9, letterSpacing: 1.5, color: C.t2, marginBottom: 4, textTransform: "uppercase" }}>{label}</div>
+                  <div style={{ fontSize: 10, letterSpacing: 1.1, color: C.t2, marginBottom: 4, textTransform: "uppercase" }}>{label}</div>
                   <input
-                    style={{ ...INP, fontSize: 11 }}
+                    style={{ ...INP, fontSize: 12 }}
                     type="date"
                     value={fechasForm[key]}
                     onChange={e => setFechasForm(p => ({ ...p, [key]: e.target.value }))}
@@ -1215,7 +1199,7 @@ ${pagHerrajesHTML}
                 </div>
               ))}
             </div>
-            <button onClick={guardarFechas} style={{ padding: "7px 18px", background: "rgba(59,130,246,0.12)", border: "1px solid rgba(59,130,246,0.3)", color: "#60a5fa", borderRadius: 8, cursor: "pointer", fontSize: 12, fontFamily: C.sans }}>
+            <button onClick={guardarFechas} style={{ padding: "7px 18px", background: "rgba(59,130,246,0.12)", border: "1px solid rgba(59,130,246,0.3)", color: "#60a5fa", borderRadius: 8, cursor: "pointer", fontSize: 13, fontFamily: C.sans }}>
               Guardar fechas
             </button>
           </div>
@@ -1227,7 +1211,7 @@ ${pagHerrajesHTML}
               { label: "Botada",         val: ot.fecha_botada,        color: C.green },
             ].map(({ label, val, color }) => (
               <div key={label}>
-                <div style={{ fontSize: 9, letterSpacing: 1.5, color: C.t2, textTransform: "uppercase", marginBottom: 3 }}>{label}</div>
+                <div style={{ fontSize: 10, letterSpacing: 1.1, color: C.t2, textTransform: "uppercase", marginBottom: 3 }}>{label}</div>
                 <div style={{ fontFamily: C.mono, fontSize: 14, fontWeight: 600, color: val ? color : C.t2 }}>
                   {fmtFecha(val)}
                 </div>
@@ -1241,12 +1225,12 @@ ${pagHerrajesHTML}
       <Section title="Placas">
         <div style={{ display: "flex", flexWrap: "wrap", gap: 8 }}>
           {tpl?.placas.map((p, i) => (
-            <div key={i} style={{ fontSize: 12, color: C.t0, background: C.s1, border: `1px solid ${C.b0}`, padding: "6px 12px", borderRadius: 8, fontFamily: C.mono }}>
+            <div key={i} style={{ fontSize: 13, color: C.t0, background: C.s1, border: `1px solid ${C.b0}`, padding: "6px 12px", borderRadius: 8, fontFamily: C.mono }}>
               {p}
             </div>
           ))}
         </div>
-        <div style={{ marginTop: 8, fontSize: 10, color: C.t2 }}>
+        <div style={{ marginTop: 8, fontSize: 11, color: C.t2 }}>
           Identificar cada paquete con modelo, ítem y número de OT.
         </div>
       </Section>
@@ -1254,7 +1238,7 @@ ${pagHerrajesHTML}
       {/* ── SECCIÓN: HOJAS DE CHAPA ─────────────────────────────────────── */}
       <Section title="Hojas de Chapa" badge={ot.tipo_chapa || undefined} badgeColor={nogal ? "#d97706" : C.primary}>
         {loading ? (
-          <div style={{ fontSize: 11, color: C.t2 }}>Cargando…</div>
+          <div style={{ fontSize: 12, color: C.t2 }}>Cargando…</div>
         ) : (
           <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
             {tpl?.items.map(tItem => {
@@ -1263,7 +1247,7 @@ ${pagHerrajesHTML}
               const isEdit = editItem === tItem.id;
               return (
                 <div key={tItem.id} style={{ display: "grid", gridTemplateColumns: "28px 1fr auto", gap: 10, alignItems: "start", padding: "10px 12px", borderRadius: 9, background: isEdit ? "rgba(59,130,246,0.04)" : (val ? C.s0 : "transparent"), border: `1px solid ${isEdit ? "rgba(59,130,246,0.2)" : (val ? C.b0 : "transparent")}`, transition: "all .15s" }}>
-                  <div style={{ fontSize: 11, fontWeight: 700, color: val ? C.t1 : C.t2, fontFamily: C.mono, paddingTop: 1 }}>{tItem.id}</div>
+                  <div style={{ fontSize: 12, fontWeight: 700, color: val ? C.t1 : C.t2, fontFamily: C.mono, paddingTop: 1 }}>{tItem.id}</div>
                   <div>
                     {isEdit ? (
                       <textarea
@@ -1273,21 +1257,21 @@ ${pagHerrajesHTML}
                         onBlur={() => guardarChapas(tItem.id)}
                         onKeyDown={e => { if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); guardarChapas(tItem.id); } if (e.key === "Escape") setEditItem(null); }}
                         placeholder={`Hojas de chapa para ítem ${tItem.id}…`}
-                        style={{ ...INP, minHeight: 56, resize: "vertical", fontSize: 12, lineHeight: 1.7 }}
+                        style={{ ...INP, minHeight: 56, resize: "vertical", fontSize: 13, lineHeight: 1.7 }}
                       />
                     ) : val ? (
-                      <div onClick={() => abrirEdit(tItem.id)} style={{ fontSize: 12, color: C.t0, lineHeight: 1.7, whiteSpace: "pre-wrap", cursor: "text", fontFamily: C.mono }}>{val}</div>
+                      <div onClick={() => abrirEdit(tItem.id)} style={{ fontSize: 13, color: C.t0, lineHeight: 1.7, whiteSpace: "pre-wrap", cursor: "text", fontFamily: C.mono }}>{val}</div>
                     ) : (
-                      <button onClick={() => abrirEdit(tItem.id)} style={{ background: "none", border: "none", color: C.t2, fontSize: 11, cursor: "text", padding: 0, fontFamily: C.sans }}>
+                      <button onClick={() => abrirEdit(tItem.id)} style={{ background: "none", border: "none", color: C.t2, fontSize: 12, cursor: "text", padding: 0, fontFamily: C.sans }}>
                         + Hojas para ítem {tItem.id}
                       </button>
                     )}
-                    <div style={{ marginTop: 3, fontSize: 10, color: C.t2, fontFamily: C.mono }}>
+                    <div style={{ marginTop: 3, fontSize: 11, color: C.t2, fontFamily: C.mono }}>
                       {tItem.material} · {tItem.medidas} · {tItem.caras} · {tItem.veta}
                     </div>
                   </div>
                   {!isEdit && val && (
-                    <button onClick={() => abrirEdit(tItem.id)} style={{ background: C.s0, border: `1px solid ${C.b0}`, color: C.t2, padding: "4px 9px", borderRadius: 6, cursor: "pointer", fontSize: 10, fontFamily: C.sans, marginTop: 1 }}>Editar</button>
+                    <button onClick={() => abrirEdit(tItem.id)} style={{ background: C.s0, border: `1px solid ${C.b0}`, color: C.t2, padding: "4px 9px", borderRadius: 6, cursor: "pointer", fontSize: 11, fontFamily: C.sans, marginTop: 1 }}>Editar</button>
                   )}
                 </div>
               );
@@ -1299,11 +1283,11 @@ ${pagHerrajesHTML}
       {/* ── SECCIÓN: TRABAJO A REALIZAR ─────────────────────────────────── */}
       <Section title="Trabajo a Realizar">
         <div style={{ overflowX: "auto" }}>
-          <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 12, tableLayout: "fixed" }}>
+          <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 13, tableLayout: "fixed" }}>
             <thead>
               <tr style={{ borderBottom: `1px solid ${C.b0}` }}>
                 {["Ítem", "Material", "Medidas", "Caras", "Sentido de Veta"].map((h, i) => (
-                  <th key={i} style={{ textAlign: "left", padding: "6px 10px", fontSize: 9, letterSpacing: 2, color: C.t2, textTransform: "uppercase", fontWeight: 600, width: i === 0 ? 40 : i === 4 ? "auto" : undefined }}>
+                  <th key={i} style={{ textAlign: "left", padding: "6px 10px", fontSize: 10, letterSpacing: 1.3, color: C.t2, textTransform: "uppercase", fontWeight: 700, width: i === 0 ? 40 : i === 4 ? "auto" : undefined }}>
                     {h}
                   </th>
                 ))}
@@ -1312,9 +1296,9 @@ ${pagHerrajesHTML}
             <tbody>
               {tpl?.items.map((it, idx) => (
                 <tr key={it.id} style={{ borderBottom: `1px solid rgba(255,255,255,0.03)`, background: idx % 2 === 0 ? C.s0 : "transparent" }}>
-                  <td style={{ padding: "9px 10px", fontFamily: C.mono, fontSize: 11, fontWeight: 700, color: C.t1 }}>{it.id}</td>
+                  <td style={{ padding: "9px 10px", fontFamily: C.mono, fontSize: 12, fontWeight: 700, color: C.t1 }}>{it.id}</td>
                   <td style={{ padding: "9px 10px", color: C.t0 }}>{it.material}</td>
-                  <td style={{ padding: "9px 10px", color: C.t1, fontFamily: C.mono, fontSize: 11 }}>{it.medidas}</td>
+                  <td style={{ padding: "9px 10px", color: C.t1, fontFamily: C.mono, fontSize: 12 }}>{it.medidas}</td>
                   <td style={{ padding: "9px 10px", color: C.t1 }}>{it.caras}</td>
                   <td style={{ padding: "9px 10px" }}><VetaChip v={it.veta} /></td>
                 </tr>
@@ -1322,7 +1306,7 @@ ${pagHerrajesHTML}
             </tbody>
           </table>
         </div>
-        <div style={{ marginTop: 10, fontSize: 10, color: C.t2, lineHeight: 1.7 }}>
+        <div style={{ marginTop: 10, fontSize: 11, color: C.t2, lineHeight: 1.7 }}>
           Respetar el sentido de veta indicado. · Control y actualización a cargo de Oficina Técnica.
         </div>
       </Section>
@@ -1334,7 +1318,7 @@ ${pagHerrajesHTML}
           <div style={{ display: "flex", gap: 8, flexWrap: "wrap", marginBottom: 12 }}>
             {tablones.map((t, i) => (
               <div key={i} style={{
-                fontSize: 12, padding: "6px 13px", borderRadius: 8, fontFamily: C.mono,
+                fontSize: 13, padding: "6px 13px", borderRadius: 8, fontFamily: C.mono,
                 background: t.includes("Nogal") ? "rgba(217,119,6,0.08)" : C.s1,
                 border: `1px solid ${t.includes("Nogal") ? "rgba(217,119,6,0.25)" : C.b0}`,
                 color: t.includes("Nogal") ? "#d97706" : C.t0,
@@ -1343,9 +1327,9 @@ ${pagHerrajesHTML}
           </div>
                     <div style={{ background: "rgba(255,255,255,0.03)", border: `1px solid ${C.b0}`, padding: "14px 18px", borderRadius: 8, marginBottom: 16 }}>
             <div style={{ fontSize: 14, fontWeight: 700, color: C.t0, marginBottom: 4 }}>Medida: 2,00 m &times; 0,20 m &times; 45 mm</div>
-            <div style={{ fontSize: 12, fontWeight: 700, color: C.green, textTransform: "uppercase", letterSpacing: 1.5, marginBottom: 8 }}>Cepillados en 4 caras</div>
-            <div style={{ fontSize: 11, color: C.t2, fontFamily: C.mono }}>Marcados con: {ot.modelo} / OT: {ot.barco}</div>
-            {nogal && <div style={{ fontSize: 11, color: "#d97706", marginTop: 8 }}>&#9888; La Lenga fue reemplazada por Tabl&oacute;n de Nogal.</div>}
+            <div style={{ fontSize: 13, fontWeight: 700, color: C.green, textTransform: "uppercase", letterSpacing: 1.1, marginBottom: 8 }}>Cepillados en 4 caras</div>
+            <div style={{ fontSize: 12, color: C.t2, fontFamily: C.mono }}>Marcados con: {ot.modelo} / OT: {ot.barco}</div>
+            {nogal && <div style={{ fontSize: 12, color: "#d97706", marginTop: 8 }}>&#9888; La Lenga fue reemplazada por Tabl&oacute;n de Nogal.</div>}
           </div>
           {/* Toggles pedido / enviado */}
           <div style={{ display: "flex", gap: 10, flexWrap: "wrap" }}>
@@ -1366,20 +1350,20 @@ ${pagHerrajesHTML}
           {/* Kit expandible */}
           <button
             onClick={() => setShowHerrajesKit(v => !v)}
-            style={{ background: "none", border: "none", color: C.t2, fontSize: 11, cursor: "pointer", padding: 0, fontFamily: C.sans, display: "flex", alignItems: "center", gap: 5 }}
+            style={{ background: "none", border: "none", color: C.t2, fontSize: 12, cursor: "pointer", padding: 0, fontFamily: C.sans, display: "flex", alignItems: "center", gap: 5 }}
           >
             {showHerrajesKit ? "▾" : "▸"} {showHerrajesKit ? "Ocultar" : "Ver"} kit de herrajes
           </button>
           {showHerrajesKit && (
             <div style={{ marginTop: 10, display: "flex", flexWrap: "wrap", gap: 6 }}>
               {herrajesKit.map((h, i) => (
-                <div key={i} style={{ fontSize: 11, color: C.t1, background: C.s0, border: `1px solid ${C.b0}`, padding: "4px 10px", borderRadius: 7, fontFamily: C.mono }}>
+                <div key={i} style={{ fontSize: 12, color: C.t1, background: C.s0, border: `1px solid ${C.b0}`, padding: "4px 10px", borderRadius: 7, fontFamily: C.mono }}>
                   <span style={{ color: C.purple, fontWeight: 700 }}>{h.q}×</span>{" "}{h.name}
                 </div>
               ))}
             </div>
           )}
-          <div style={{ marginTop: 10, fontSize: 10, color: C.t2, lineHeight: 1.7 }}>
+          <div style={{ marginTop: 10, fontSize: 11, color: C.t2, lineHeight: 1.7 }}>
             Pañol controla cantidades y estado antes del despacho. Un envío = un modelo completo.
           </div>
         </Section>
@@ -1397,14 +1381,14 @@ ${pagHerrajesHTML}
               onKeyDown={e => { if (e.key === "Escape") { setEditNotas(false); setNotasVal(ot.notas ?? ""); } }}
             />
             <div style={{ display: "flex", gap: 8, marginTop: 8 }}>
-              <button onClick={guardarNotas} style={{ padding: "7px 18px", background: "rgba(59,130,246,0.12)", border: "1px solid rgba(59,130,246,0.3)", color: "#60a5fa", borderRadius: 8, cursor: "pointer", fontSize: 12, fontFamily: C.sans }}>Guardar</button>
-              <button onClick={() => { setEditNotas(false); setNotasVal(ot.notas ?? ""); }} style={{ padding: "7px 14px", background: "transparent", border: `1px solid ${C.b0}`, color: C.t2, borderRadius: 8, cursor: "pointer", fontSize: 12, fontFamily: C.sans }}>Cancelar</button>
+              <button onClick={guardarNotas} style={{ padding: "7px 18px", background: "rgba(59,130,246,0.12)", border: "1px solid rgba(59,130,246,0.3)", color: "#60a5fa", borderRadius: 8, cursor: "pointer", fontSize: 13, fontFamily: C.sans }}>Guardar</button>
+              <button onClick={() => { setEditNotas(false); setNotasVal(ot.notas ?? ""); }} style={{ padding: "7px 14px", background: "transparent", border: `1px solid ${C.b0}`, color: C.t2, borderRadius: 8, cursor: "pointer", fontSize: 13, fontFamily: C.sans }}>Cancelar</button>
             </div>
           </div>
         ) : notasVal ? (
-          <div onClick={() => setEditNotas(true)} style={{ fontSize: 12, color: C.t1, lineHeight: 1.7, whiteSpace: "pre-wrap", cursor: "text" }}>{notasVal}</div>
+          <div onClick={() => setEditNotas(true)} style={{ fontSize: 13, color: C.t1, lineHeight: 1.7, whiteSpace: "pre-wrap", cursor: "text" }}>{notasVal}</div>
         ) : (
-          <button onClick={() => setEditNotas(true)} style={{ background: "none", border: "none", color: C.t2, fontSize: 11, cursor: "text", padding: 0, fontFamily: C.sans }}>+ Agregar nota</button>
+          <button onClick={() => setEditNotas(true)} style={{ background: "none", border: "none", color: C.t2, fontSize: 12, cursor: "text", padding: 0, fontFamily: C.sans }}>+ Agregar nota</button>
         )}
       </Section>
     </div>
@@ -1416,9 +1400,9 @@ function Section({ title, badge, badgeColor, action, children }) {
   return (
     <div style={{ marginBottom: 22 }}>
       <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 10, paddingBottom: 8, borderBottom: `1px solid rgba(255,255,255,0.06)` }}>
-        <span style={{ fontSize: 9, letterSpacing: 2, textTransform: "uppercase", color: C.t2, fontWeight: 600 }}>{title}</span>
+        <span style={{ fontSize: 10, letterSpacing: 1.3, textTransform: "uppercase", color: C.t2, fontWeight: 700 }}>{title}</span>
         {badge && (
-          <span style={{ fontSize: 9, padding: "2px 7px", borderRadius: 5, background: (badgeColor ?? C.t2) + "15", border: `1px solid ${(badgeColor ?? C.t2)}33`, color: badgeColor ?? C.t2, letterSpacing: 1 }}>{badge}</span>
+          <span style={{ fontSize: 10, padding: "2px 7px", borderRadius: 5, background: (badgeColor ?? C.t2) + "15", border: `1px solid ${(badgeColor ?? C.t2)}33`, color: badgeColor ?? C.t2, letterSpacing: 1 }}>{badge}</span>
         )}
         {action && <div style={{ marginLeft: "auto" }}>{action}</div>}
       </div>
@@ -1443,7 +1427,7 @@ function PlantillasView() {
                : v.toLowerCase().includes("largo") ? C.green
                : C.t2;
     return (
-      <span style={{ fontSize: 10, color: col, background: col + "14", border: `1px solid ${col}33`, padding: "2px 7px", borderRadius: 5, fontFamily: C.mono }}>
+      <span style={{ fontSize: 11, color: col, background: col + "14", border: `1px solid ${col}33`, padding: "2px 7px", borderRadius: 5, fontFamily: C.mono }}>
         {v}
       </span>
     );
@@ -1453,7 +1437,7 @@ function PlantillasView() {
     <div style={{ padding: "28px 28px 60px", maxWidth: 820 }}>
       <div style={{ marginBottom: 22 }}>
         <div style={{ fontSize: 22, fontWeight: 700, color: C.t0 }}>Plantillas</div>
-        <div style={{ fontSize: 11, color: C.t2, marginTop: 4 }}>
+        <div style={{ fontSize: 12, color: C.t2, marginTop: 4 }}>
           Referencia fija por modelo · Procedimiento Enchapadora · Klase A
         </div>
       </div>
@@ -1462,7 +1446,7 @@ function PlantillasView() {
         {modelos.map(m => (
           <button key={m} onClick={() => setModeloSel(m)} style={{
             padding: "8px 18px", borderRadius: 9, cursor: "pointer",
-            fontSize: 12, fontWeight: modeloSel === m ? 700 : 400,
+            fontSize: 13, fontWeight: modeloSel === m ? 700 : 400,
             fontFamily: C.mono, transition: "all .12s",
             background: modeloSel === m ? "rgba(59,130,246,0.15)" : C.s0,
             border: `1px solid ${modeloSel === m ? "rgba(59,130,246,0.45)" : C.b0}`,
@@ -1473,10 +1457,10 @@ function PlantillasView() {
 
       {/* Simulador de chapa */}
       <div style={{ background: C.s0, border: `1px solid ${C.b0}`, borderRadius: 12, padding: "14px 16px", marginBottom: 24, display: "flex", alignItems: "center", gap: 12, flexWrap: "wrap" }}>
-        <span style={{ fontSize: 10, letterSpacing: 2, textTransform: "uppercase", color: C.t2, fontWeight: 600, whiteSpace: "nowrap" }}>Simular chapa</span>
+        <span style={{ fontSize: 11, letterSpacing: 1.3, textTransform: "uppercase", color: C.t2, fontWeight: 700, whiteSpace: "nowrap" }}>Simular chapa</span>
         <div style={{ position: "relative", flex: 1, minWidth: 200 }}>
           <input
-            style={{ ...INP, padding: "6px 10px", fontSize: 11 }}
+            style={{ ...INP, padding: "6px 10px", fontSize: 12 }}
             placeholder="Ej: Nogal Natural, Roble Plata Rayado…"
             value={chapaSim}
             onChange={e => { setChapaSim(e.target.value); setShowSug(e.target.value.length > 0); }}
@@ -1484,9 +1468,9 @@ function PlantillasView() {
             onBlur={() => setTimeout(() => setShowSug(false), 150)}
           />
           {showSug && (
-            <div style={{ position: "absolute", top: "100%", left: 0, right: 0, zIndex: 50, background: "#0d0d10", border: `1px solid ${C.b1}`, borderRadius: 8, marginTop: 3, overflow: "hidden", boxShadow: "0 8px 24px rgba(0,0,0,0.6)" }}>
+            <div style={{ position: "absolute", top: "100%", left: 0, right: 0, zIndex: 50, background: C.panelSolid, border: `1px solid ${C.b1}`, borderRadius: 8, marginTop: 3, overflow: "hidden", boxShadow: "0 8px 24px rgba(0,0,0,0.6)" }}>
               {CHAPAS_SUGERIDAS.filter(s => !chapaSim || s.toLowerCase().includes(chapaSim.toLowerCase())).map(s => (
-                <button key={s} onMouseDown={() => { setChapaSim(s); setShowSug(false); }} style={{ display: "block", width: "100%", textAlign: "left", padding: "7px 12px", background: "transparent", border: "none", color: esNogal(s) ? "#d97706" : C.t1, cursor: "pointer", fontSize: 11, fontFamily: C.sans, borderBottom: `1px solid ${C.b0}` }}
+                <button key={s} onMouseDown={() => { setChapaSim(s); setShowSug(false); }} style={{ display: "block", width: "100%", textAlign: "left", padding: "7px 12px", background: "transparent", border: "none", color: esNogal(s) ? "#d97706" : C.t1, cursor: "pointer", fontSize: 12, fontFamily: C.sans, borderBottom: `1px solid ${C.b0}` }}
                   onMouseEnter={e => e.currentTarget.style.background = C.s1}
                   onMouseLeave={e => e.currentTarget.style.background = "transparent"}
                 >{s}</button>
@@ -1495,10 +1479,10 @@ function PlantillasView() {
           )}
         </div>
         {chapaSim && (
-          <button onClick={() => setChapaSim("")} style={{ background: "transparent", border: `1px solid ${C.b0}`, color: C.t2, padding: "5px 10px", borderRadius: 7, cursor: "pointer", fontSize: 11, fontFamily: C.sans }}>Limpiar</button>
+          <button onClick={() => setChapaSim("")} style={{ background: "transparent", border: `1px solid ${C.b0}`, color: C.t2, padding: "5px 10px", borderRadius: 7, cursor: "pointer", fontSize: 12, fontFamily: C.sans }}>Limpiar</button>
         )}
         {nogal && (
-          <span style={{ fontSize: 11, color: "#d97706", background: "rgba(217,119,6,0.08)", border: "1px solid rgba(217,119,6,0.2)", padding: "4px 10px", borderRadius: 6 }}>
+          <span style={{ fontSize: 12, color: "#d97706", background: "rgba(217,119,6,0.08)", border: "1px solid rgba(217,119,6,0.2)", padding: "4px 10px", borderRadius: 6 }}>
             ⚠ Nogal — Lenga → Tablón de Nogal en Anexo B
           </span>
         )}
@@ -1508,29 +1492,29 @@ function PlantillasView() {
       <Section title="Placas a enviar">
         <div style={{ display: "flex", flexWrap: "wrap", gap: 8, marginBottom: 8 }}>
           {tpl?.placas.map((p, i) => (
-            <div key={i} style={{ fontSize: 12, color: C.t0, background: C.s1, border: `1px solid ${C.b0}`, padding: "7px 14px", borderRadius: 8, fontFamily: C.mono }}>{p}</div>
+            <div key={i} style={{ fontSize: 13, color: C.t0, background: C.s1, border: `1px solid ${C.b0}`, padding: "7px 14px", borderRadius: 8, fontFamily: C.mono }}>{p}</div>
           ))}
         </div>
-        <div style={{ fontSize: 10, color: C.t2 }}>Identificar cada paquete con modelo, ítem y número de OT.</div>
+        <div style={{ fontSize: 11, color: C.t2 }}>Identificar cada paquete con modelo, ítem y número de OT.</div>
       </Section>
 
       {/* Trabajo a Realizar */}
       <Section title="Trabajo a Realizar">
         <div style={{ overflowX: "auto" }}>
-          <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 12 }}>
+          <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 13 }}>
             <thead>
               <tr style={{ borderBottom: `1px solid ${C.b0}` }}>
                 {["Ítem", "Material", "Medidas", "Caras", "Sentido de Veta"].map((h, i) => (
-                  <th key={i} style={{ textAlign: "left", padding: "6px 12px", fontSize: 9, letterSpacing: 2, color: C.t2, textTransform: "uppercase", fontWeight: 600 }}>{h}</th>
+                  <th key={i} style={{ textAlign: "left", padding: "6px 12px", fontSize: 10, letterSpacing: 1.3, color: C.t2, textTransform: "uppercase", fontWeight: 700 }}>{h}</th>
                 ))}
               </tr>
             </thead>
             <tbody>
               {tpl?.items.map((it, idx) => (
                 <tr key={it.id} style={{ borderBottom: `1px solid rgba(255,255,255,0.03)`, background: idx % 2 === 0 ? C.s0 : "transparent" }}>
-                  <td style={{ padding: "10px 12px", fontFamily: C.mono, fontSize: 11, fontWeight: 700, color: C.t1 }}>{it.id}</td>
+                  <td style={{ padding: "10px 12px", fontFamily: C.mono, fontSize: 12, fontWeight: 700, color: C.t1 }}>{it.id}</td>
                   <td style={{ padding: "10px 12px", color: C.t0 }}>{it.material}</td>
-                  <td style={{ padding: "10px 12px", color: C.t1, fontFamily: C.mono, fontSize: 11 }}>{it.medidas}</td>
+                  <td style={{ padding: "10px 12px", color: C.t1, fontFamily: C.mono, fontSize: 12 }}>{it.medidas}</td>
                   <td style={{ padding: "10px 12px", color: C.t1 }}>{it.caras}</td>
                   <td style={{ padding: "10px 12px" }}><VetaChip v={it.veta} /></td>
                 </tr>
@@ -1538,7 +1522,7 @@ function PlantillasView() {
             </tbody>
           </table>
         </div>
-        <div style={{ marginTop: 10, fontSize: 10, color: C.t2, lineHeight: 1.7 }}>
+        <div style={{ marginTop: 10, fontSize: 11, color: C.t2, lineHeight: 1.7 }}>
           Respetar el sentido de veta indicado. · Las hojas de chapa las escribe el carpintero en cada OT.
         </div>
       </Section>
@@ -1549,35 +1533,35 @@ function PlantillasView() {
           <div style={{ display: "flex", gap: 8, flexWrap: "wrap", marginBottom: 10 }}>
             {tablones?.map((t, i) => (
               <div key={i} style={{
-                fontSize: 12, padding: "7px 14px", borderRadius: 8, fontFamily: C.mono,
+                fontSize: 13, padding: "7px 14px", borderRadius: 8, fontFamily: C.mono,
                 background: t.includes("Nogal") ? "rgba(217,119,6,0.08)" : C.s1,
                 border: `1px solid ${t.includes("Nogal") ? "rgba(217,119,6,0.25)" : C.b0}`,
                 color: t.includes("Nogal") ? "#d97706" : C.t0,
               }}>{t}</div>
             ))}
             {!chapaSim && (
-              <div style={{ fontSize: 11, color: C.t2, alignSelf: "center", fontStyle: "italic" }}>
+              <div style={{ fontSize: 12, color: C.t2, alignSelf: "center", fontStyle: "italic" }}>
                 Simulá una chapa de nogal arriba para ver el reemplazo
               </div>
             )}
           </div>
           <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10 }}>
             <div style={{ background: C.s0, border: `1px solid ${C.b0}`, borderRadius: 9, padding: "10px 14px" }}>
-              <div style={{ fontSize: 9, letterSpacing: 2, textTransform: "uppercase", color: C.t2, marginBottom: 6 }}>Chapa estándar</div>
-              <div style={{ fontFamily: C.mono, fontSize: 12, color: C.t0 }}>{tpl.tablones.lenga} Lenga + {tpl.tablones.okume} Okumé</div>
+              <div style={{ fontSize: 10, letterSpacing: 1.3, textTransform: "uppercase", color: C.t2, marginBottom: 6 }}>Chapa estándar</div>
+              <div style={{ fontFamily: C.mono, fontSize: 13, color: C.t0 }}>{tpl.tablones.lenga} Lenga + {tpl.tablones.okume} Okumé</div>
             </div>
             <div style={{ background: "rgba(217,119,6,0.05)", border: "1px solid rgba(217,119,6,0.2)", borderRadius: 9, padding: "10px 14px" }}>
-              <div style={{ fontSize: 9, letterSpacing: 2, textTransform: "uppercase", color: "#d97706", marginBottom: 6 }}>Con chapa de nogal</div>
-              <div style={{ fontFamily: C.mono, fontSize: 12, color: "#d97706" }}>{tpl.tablones.lenga} Nogal + {tpl.tablones.okume} Okumé</div>
+              <div style={{ fontSize: 10, letterSpacing: 1.3, textTransform: "uppercase", color: "#d97706", marginBottom: 6 }}>Con chapa de nogal</div>
+              <div style={{ fontFamily: C.mono, fontSize: 13, color: "#d97706" }}>{tpl.tablones.lenga} Nogal + {tpl.tablones.okume} Okumé</div>
             </div>
           </div>
-          <div style={{ marginTop: 10, fontSize: 10, color: C.t2, lineHeight: 1.7 }}>
+          <div style={{ marginTop: 10, fontSize: 11, color: C.t2, lineHeight: 1.7 }}>
             Medida estándar: 2,00 m × 0,20 m × 45 mm · Cepillados y marcados por carpintería.
           </div>
         </Section>
       ) : (
         <Section title="Tablones — Anexo B">
-          <div style={{ fontSize: 11, color: C.t2, fontStyle: "italic" }}>Sin datos de tablones para {modeloSel} todavía.</div>
+          <div style={{ fontSize: 12, color: C.t2, fontStyle: "italic" }}>Sin datos de tablones para {modeloSel} todavía.</div>
         </Section>
       )}
 
@@ -1586,18 +1570,18 @@ function PlantillasView() {
         <Section title="Herrajes — Anexo C" badge={`Kit ${modeloSel} · ${HERRAJES[modeloSel].length} ítems`} badgeColor={C.purple}>
           <div style={{ display: "flex", flexWrap: "wrap", gap: 6 }}>
             {HERRAJES[modeloSel].map((h, i) => (
-              <div key={i} style={{ fontSize: 11, color: C.t1, background: C.s0, border: `1px solid ${C.b0}`, padding: "5px 11px", borderRadius: 7, fontFamily: C.mono }}>
+              <div key={i} style={{ fontSize: 12, color: C.t1, background: C.s0, border: `1px solid ${C.b0}`, padding: "5px 11px", borderRadius: 7, fontFamily: C.mono }}>
                 <span style={{ color: C.purple, fontWeight: 700 }}>{h.q}×</span>{" "}{h.name}
               </div>
             ))}
           </div>
-          <div style={{ marginTop: 10, fontSize: 10, color: C.t2, lineHeight: 1.7 }}>
+          <div style={{ marginTop: 10, fontSize: 11, color: C.t2, lineHeight: 1.7 }}>
             Pañol prepara el kit completo antes del despacho a Oberti. Un envío = un modelo.
           </div>
         </Section>
       ) : (
         <Section title="Herrajes — Anexo C">
-          <div style={{ fontSize: 11, color: C.t2, fontStyle: "italic" }}>Sin datos de herrajes para {modeloSel} todavía.</div>
+          <div style={{ fontSize: 12, color: C.t2, fontStyle: "italic" }}>Sin datos de herrajes para {modeloSel} todavía.</div>
         </Section>
       )}
 
@@ -1608,8 +1592,8 @@ function PlantillasView() {
         {modeloSel === "K42" && <MatRow items={["10 placas carpintero", "8 terciados 3 mm", "1 terciado 9 mm", "1 terciado 12 mm", "1 terciado 18 mm", "80 pies Okumé", "60 pies Lenga", "150 m² de chapa"]} />}
         {modeloSel === "K43" && <MatRow items={["13 placas carpintero", "6 terciados 3 mm", "60 pies Okumé", "60 pies Lenga", "160 m² de chapa"]} />}
         {modeloSel === "K52" && <MatRow items={["16 placas carpintero", "10 terciados 3 mm", "4 terciados 9 mm", "1 terciado 12 mm", "100 pies Okumé", "80 pies Lenga", "230 m² de chapa"]} />}
-        {modeloSel === "K55" && <div style={{ fontSize: 11, color: C.t2, fontStyle: "italic" }}>Sin datos de compra para K55 en el procedimiento actual.</div>}
-        <div style={{ marginTop: 10, fontSize: 10, color: C.t2 }}>
+        {modeloSel === "K55" && <div style={{ fontSize: 12, color: C.t2, fontStyle: "italic" }}>Sin datos de compra para K55 en el procedimiento actual.</div>}
+        <div style={{ marginTop: 10, fontSize: 11, color: C.t2 }}>
           Fuente: Procedimiento — Gestión de Maderas, Chapas, Tablones y Herrajes · Oficina Técnica.
         </div>
       </Section>
@@ -1621,7 +1605,7 @@ function MatRow({ items }) {
   return (
     <div style={{ display: "flex", flexWrap: "wrap", gap: 7 }}>
       {items.map((it, i) => (
-        <div key={i} style={{ fontSize: 11, color: C.t1, background: C.s0, border: `1px solid ${C.b0}`, padding: "5px 11px", borderRadius: 7, fontFamily: C.mono }}>{it}</div>
+        <div key={i} style={{ fontSize: 12, color: C.t1, background: C.s0, border: `1px solid ${C.b0}`, padding: "5px 11px", borderRadius: 7, fontFamily: C.mono }}>{it}</div>
       ))}
     </div>
   );
@@ -1723,9 +1707,9 @@ export default function EnchapadoView({ esAdmin, onEnsureMueblesUnidad }) {
   if (view === "plantillas") return (
     <div>
       <div style={{ borderBottom: `1px solid ${C.b0}`, padding: "14px 28px", display: "flex", alignItems: "center", gap: 8 }}>
-        <button onClick={() => setView("list")} style={{ background: "transparent", border: "none", color: C.t2, cursor: "pointer", fontSize: 13, padding: "2px 6px", display: "flex", alignItems: "center", gap: 5, fontFamily: C.sans }}>‹ OTs</button>
+        <button onClick={() => setView("list")} style={{ background: "transparent", border: "none", color: C.t2, cursor: "pointer", fontSize: 14, padding: "2px 6px", display: "flex", alignItems: "center", gap: 5, fontFamily: C.sans }}>‹ OTs</button>
         <span style={{ color: C.b1 }}>|</span>
-        <span style={{ fontSize: 11, color: C.t2, letterSpacing: 2, textTransform: "uppercase" }}>Plantillas</span>
+        <span style={{ fontSize: 12, color: C.t2, letterSpacing: 1.3, textTransform: "uppercase" }}>Plantillas</span>
       </div>
       <PlantillasView />
     </div>
@@ -1743,7 +1727,7 @@ export default function EnchapadoView({ esAdmin, onEnsureMueblesUnidad }) {
   }
 
   const filterBtnSt = act => ({
-    padding: "5px 12px", borderRadius: 7, cursor: "pointer", fontSize: 11,
+    padding: "5px 12px", borderRadius: 7, cursor: "pointer", fontSize: 12,
     fontFamily: C.sans, transition: "all .15s",
     background: act ? C.s1 : "transparent",
     border: `1px solid ${act ? C.b1 : "transparent"}`,
@@ -1756,7 +1740,7 @@ export default function EnchapadoView({ esAdmin, onEnsureMueblesUnidad }) {
       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: 22 }}>
         <div>
           <div style={{ fontSize: 22, fontWeight: 700, color: C.t0 }}>Enchapadora</div>
-          <div style={{ fontSize: 11, color: C.t2, marginTop: 4, fontFamily: C.mono }}>
+          <div style={{ fontSize: 12, color: C.t2, marginTop: 4, fontFamily: C.mono }}>
             {stats.total} OT{stats.total !== 1 ? "s" : ""} · {stats.enviada} enviada{stats.enviada !== 1 ? "s" : ""} · {stats.devuelta} devuelta{stats.devuelta !== 1 ? "s" : ""}
           </div>
         </div>
@@ -1764,12 +1748,12 @@ export default function EnchapadoView({ esAdmin, onEnsureMueblesUnidad }) {
           {esAdmin && (
             <button
               onClick={() => setShowNew(true)}
-              style={{ padding: "9px 18px", background: "rgba(59,130,246,0.12)", border: "1px solid rgba(59,130,246,0.3)", color: "#60a5fa", borderRadius: 9, cursor: "pointer", fontSize: 12, fontWeight: 600, fontFamily: C.sans }}
+              style={{ padding: "9px 18px", background: "rgba(59,130,246,0.12)", border: "1px solid rgba(59,130,246,0.3)", color: "#60a5fa", borderRadius: 9, cursor: "pointer", fontSize: 13, fontWeight: 600, fontFamily: C.sans }}
             >+ Nueva OT</button>
           )}
           <button
             onClick={() => setView("plantillas")}
-            style={{ padding: "9px 16px", background: C.s0, border: `1px solid ${C.b0}`, color: C.t2, borderRadius: 9, cursor: "pointer", fontSize: 12, fontFamily: C.sans }}
+            style={{ padding: "9px 16px", background: C.s0, border: `1px solid ${C.b0}`, color: C.t2, borderRadius: 9, cursor: "pointer", fontSize: 13, fontFamily: C.sans }}
           >Plantillas</button>
         </div>
       </div>
@@ -1782,8 +1766,8 @@ export default function EnchapadoView({ esAdmin, onEnsureMueblesUnidad }) {
           { label: "Devueltas",  val: stats.devuelta,  color: C.green, est: "Devuelta" },
           { label: "Rehacer",    val: stats.rehacer,   color: C.red,   est: "Rehacer" },
         ].filter(s => s.val > 0).map(s => (
-          <button key={s.est} onClick={() => setFiltroE(filtroE === s.est ? "todos" : s.est)} style={{ display: "flex", alignItems: "center", gap: 7, background: filtroE === s.est ? s.color + "15" : C.s0, border: `1px solid ${filtroE === s.est ? s.color + "44" : C.b0}`, color: s.color, padding: "5px 12px", borderRadius: 8, cursor: "pointer", fontSize: 11, fontFamily: C.sans }}>
-            <span style={{ fontFamily: C.mono, fontWeight: 700, fontSize: 13 }}>{s.val}</span>
+          <button key={s.est} onClick={() => setFiltroE(filtroE === s.est ? "todos" : s.est)} style={{ display: "flex", alignItems: "center", gap: 7, background: filtroE === s.est ? s.color + "15" : C.s0, border: `1px solid ${filtroE === s.est ? s.color + "44" : C.b0}`, color: s.color, padding: "5px 12px", borderRadius: 8, cursor: "pointer", fontSize: 12, fontFamily: C.sans }}>
+            <span style={{ fontFamily: C.mono, fontWeight: 700, fontSize: 14 }}>{s.val}</span>
             {s.label}
           </button>
         ))}
@@ -1793,11 +1777,11 @@ export default function EnchapadoView({ esAdmin, onEnsureMueblesUnidad }) {
       <div style={{ display: "flex", gap: 6, marginBottom: 20, flexWrap: "wrap", alignItems: "center" }}>
         <button style={filterBtnSt(filtroM === "todos")} onClick={() => setFiltroM("todos")}>Todos</button>
         {Object.keys(TEMPLATES).map(m => (
-          <button key={m} style={{ ...filterBtnSt(filtroM === m), fontFamily: C.mono, fontSize: 11 }} onClick={() => setFiltroM(filtroM === m ? "todos" : m)}>{m}</button>
+          <button key={m} style={{ ...filterBtnSt(filtroM === m), fontFamily: C.mono, fontSize: 12 }} onClick={() => setFiltroM(filtroM === m ? "todos" : m)}>{m}</button>
         ))}
         <div style={{ flex: 1, minWidth: 160 }}>
           <input
-            style={{ ...INP, padding: "5px 11px", fontSize: 12 }}
+            style={{ ...INP, padding: "5px 11px", fontSize: 13 }}
             placeholder="Buscar barco, chapa, responsable…"
             value={q}
             onChange={e => setQ(e.target.value)}
@@ -1812,13 +1796,13 @@ export default function EnchapadoView({ esAdmin, onEnsureMueblesUnidad }) {
 
       {/* Lista */}
       {loading ? (
-        <div style={{ color: C.t2, fontSize: 12, padding: "40px 0", textAlign: "center" }}>Cargando…</div>
+        <div style={{ color: C.t2, fontSize: 13, padding: "40px 0", textAlign: "center" }}>Cargando…</div>
       ) : ots.length === 0 ? (
-        <div style={{ color: C.t2, fontSize: 12, padding: "60px 0", textAlign: "center", lineHeight: 2 }}>
+        <div style={{ color: C.t2, fontSize: 13, padding: "60px 0", textAlign: "center", lineHeight: 2 }}>
           Sin OTs todavía.{esAdmin && <><br /><span style={{ color: C.t1 }}>Usá "+ Nueva OT" para crear la primera.</span></>}
         </div>
       ) : filtered.length === 0 ? (
-        <div style={{ color: C.t2, fontSize: 12, padding: "40px 0", textAlign: "center" }}>Sin resultados para este filtro.</div>
+        <div style={{ color: C.t2, fontSize: 13, padding: "40px 0", textAlign: "center" }}>Sin resultados para este filtro.</div>
       ) : filtroM !== "todos" ? (
         <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
           {filtered.map(ot => (
@@ -1830,15 +1814,15 @@ export default function EnchapadoView({ esAdmin, onEnsureMueblesUnidad }) {
           <div key={modelo} style={{ marginBottom: 28 }}>
             <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", paddingBottom: 8, borderBottom: `1px solid rgba(255,255,255,0.06)`, marginBottom: 10 }}>
               <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-                <span style={{ fontFamily: C.mono, fontSize: 11, fontWeight: 700, color: C.t1, background: C.s1, border: `1px solid ${C.b0}`, padding: "2px 8px", borderRadius: 6 }}>{modelo}</span>
-                <span style={{ fontSize: 10, color: C.t2 }}>{rows.length} OT{rows.length !== 1 ? "s" : ""}</span>
+                <span style={{ fontFamily: C.mono, fontSize: 12, fontWeight: 700, color: C.t1, background: C.s1, border: `1px solid ${C.b0}`, padding: "2px 8px", borderRadius: 6 }}>{modelo}</span>
+                <span style={{ fontSize: 11, color: C.t2 }}>{rows.length} OT{rows.length !== 1 ? "s" : ""}</span>
               </div>
               <div style={{ display: "flex", gap: 5 }}>
                 {["Enviada", "Devuelta", "Rehacer"].map(est => {
                   const n = rows.filter(r => r.estado === est).length;
                   if (!n) return null;
                   const col = ESTADO_META[est].color;
-                  return <span key={est} style={{ fontSize: 10, color: col, fontFamily: C.mono }}>{n} {est.toLowerCase()}{n > 1 ? "s" : ""}</span>;
+                  return <span key={est} style={{ fontSize: 11, color: col, fontFamily: C.mono }}>{n} {est.toLowerCase()}{n > 1 ? "s" : ""}</span>;
                 })}
               </div>
             </div>

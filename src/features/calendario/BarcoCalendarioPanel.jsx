@@ -1,3 +1,4 @@
+import { C } from "@/theme";
 /**
  * BarcoCalendarioPanel.jsx
  *
@@ -20,24 +21,6 @@ import { createPortal } from "react-dom";
 import { supabase } from "@/supabaseClient";
 
 // ── Paleta (igual al resto de la app) ────────────────────────────
-const C = {
-  bg:     "#0f0f12",
-  card:   "rgba(255,255,255,0.03)",
-  b0:     "rgba(255,255,255,0.08)",
-  t0:     "#f4f4f5",
-  t1:     "#a1a1aa",
-  t2:     "#52525b",
-  red:    "#ff453a",
-  orange: "#ff8c00",
-  amber:  "#ffbe35",
-  green:  "#30d158",
-  blue:   "#3b82f6",
-  cyan:   "#0ea5e9",
-  violet: "#a78bfa",
-  mono:   "'JetBrains Mono', monospace",
-  sans:   "'Outfit', system-ui",
-};
-
 // ── Estilos ───────────────────────────────────────────────────────
 const S = {
   section: {
@@ -59,11 +42,11 @@ const S = {
   body: { padding: "0 0 12px" },
   th: {
     textAlign: "left",
-    fontSize: 9,
+    fontSize: 10,
     color: C.t2,
     padding: "10px 12px",
     textTransform: "uppercase",
-    letterSpacing: 2,
+    letterSpacing: 1.3,
     fontFamily: C.sans,
     fontWeight: 600,
     background: "rgba(0,0,0,0.3)",
@@ -75,14 +58,14 @@ const S = {
     padding: "9px 12px",
     borderBottom: "1px solid rgba(255,255,255,0.03)",
     verticalAlign: "middle",
-    fontSize: 12,
+    fontSize: 13,
     fontFamily: C.sans,
   },
   badge: (color) => ({
     display: "inline-block",
     padding: "2px 8px",
     borderRadius: 5,
-    fontSize: 10,
+    fontSize: 11,
     fontWeight: 700,
     background: color + "22",
     color,
@@ -98,7 +81,7 @@ const S = {
     borderRadius: 6,
     cursor: "pointer",
     fontWeight: 700,
-    fontSize: 11,
+    fontSize: 12,
     fontFamily: C.sans,
     whiteSpace: "nowrap",
     transition: "opacity .15s",
@@ -111,7 +94,7 @@ const S = {
     borderRadius: 7,
     cursor: "pointer",
     fontWeight: active ? 700 : 400,
-    fontSize: 12,
+    fontSize: 13,
     fontFamily: C.sans,
     transition: "all .15s",
   }),
@@ -121,7 +104,7 @@ const S = {
     color: C.t0,
     padding: "7px 10px",
     borderRadius: 7,
-    fontSize: 12,
+    fontSize: 13,
     fontFamily: C.sans,
     outline: "none",
     width: "100%",
@@ -252,7 +235,7 @@ function FilaBarco({ barco, onCambiarEstado, guardando }) {
           display: "inline-block",
           padding: "2px 7px",
           borderRadius: 5,
-          fontSize: 10,
+          fontSize: 11,
           fontWeight: 800,
           background: modeloColor(barco.modelo) + "22",
           color: modeloColor(barco.modelo),
@@ -270,26 +253,26 @@ function FilaBarco({ barco, onCambiarEstado, guardando }) {
 
       {/* Desmolde */}
       <td style={{ ...S.td }}>
-        <div style={{ fontFamily: C.mono, fontSize: 12, color: esReal ? C.green : C.t1 }}>
+        <div style={{ fontFamily: C.mono, fontSize: 13, color: esReal ? C.green : C.t1 }}>
           {fmtDate(desmolde)}
           {esReal && (
-            <span style={{ fontSize: 9, color: C.green, marginLeft: 5, fontWeight: 700, letterSpacing: 0.5 }}>REAL</span>
+            <span style={{ fontSize: 10, color: C.green, marginLeft: 5, fontWeight: 700, letterSpacing: 0.5 }}>REAL</span>
           )}
           {!esReal && desmolde && (
-            <span style={{ fontSize: 9, color: C.t2, marginLeft: 5, letterSpacing: 0.5 }}>EST</span>
+            <span style={{ fontSize: 10, color: C.t2, marginLeft: 5, letterSpacing: 0.5 }}>EST</span>
           )}
         </div>
         {/* Días restantes */}
         {label && !pasado && (
-          <div style={{ fontSize: 10, color, fontFamily: C.mono, marginTop: 2 }}>{label}</div>
+          <div style={{ fontSize: 11, color, fontFamily: C.mono, marginTop: 2 }}>{label}</div>
         )}
         {pasado && (
-          <div style={{ fontSize: 10, color: C.t2, fontFamily: C.sans, marginTop: 2 }}>ya pasó</div>
+          <div style={{ fontSize: 11, color: C.t2, fontFamily: C.sans, marginTop: 2 }}>ya pasó</div>
         )}
       </td>
 
       {/* Botada */}
-      <td style={{ ...S.td, fontFamily: C.mono, fontSize: 11, color: C.t2 }}>
+      <td style={{ ...S.td, fontFamily: C.mono, fontSize: 12, color: C.t2 }}>
         {fmtDate(barco.botada)}
       </td>
 
@@ -306,7 +289,7 @@ function FilaBarco({ barco, onCambiarEstado, guardando }) {
             borderRadius: 6,
             cursor: "pointer",
             fontWeight: 700,
-            fontSize: 11,
+            fontSize: 12,
             fontFamily: C.sans,
             display: "flex",
             alignItems: "center",
@@ -316,7 +299,7 @@ function FilaBarco({ barco, onCambiarEstado, guardando }) {
         >
           <span>{est.icon}</span>
           <span>{est.label}</span>
-          <span style={{ fontSize: 9, opacity: 0.6 }}>▾</span>
+          <span style={{ fontSize: 10, opacity: 0.6 }}>▾</span>
         </button>
 
         {menuAbierto && createPortal(
@@ -327,7 +310,7 @@ function FilaBarco({ barco, onCambiarEstado, guardando }) {
               top: menuPos.top,
               left: menuPos.left,
               zIndex: 9999,
-              background: "#1a1a1f",
+              background: C.panelSolid2,
               border: `1px solid ${C.b0}`,
               borderRadius: 9,
               padding: 4,
@@ -354,7 +337,7 @@ function FilaBarco({ barco, onCambiarEstado, guardando }) {
                   background: barco.estado_pedido === e.key ? `${e.color}22` : "transparent",
                   color: barco.estado_pedido === e.key ? e.color : C.t1,
                   cursor: "pointer",
-                  fontSize: 12,
+                  fontSize: 13,
                   fontFamily: C.sans,
                   fontWeight: barco.estado_pedido === e.key ? 700 : 400,
                   textAlign: "left",
@@ -362,7 +345,7 @@ function FilaBarco({ barco, onCambiarEstado, guardando }) {
               >
                 <span>{e.icon}</span>
                 <span>{e.label}</span>
-                {barco.estado_pedido === e.key && <span style={{ marginLeft: "auto", fontSize: 10 }}>✓</span>}
+                {barco.estado_pedido === e.key && <span style={{ marginLeft: "auto", fontSize: 11 }}>✓</span>}
               </button>
             ))}
           </div>,
@@ -371,7 +354,7 @@ function FilaBarco({ barco, onCambiarEstado, guardando }) {
       </td>
 
       {/* Fecha del pedido */}
-      <td style={{ ...S.td, fontFamily: C.mono, fontSize: 11, color: C.t2 }}>
+      <td style={{ ...S.td, fontFamily: C.mono, fontSize: 12, color: C.t2 }}>
         {barco.fecha_pedido ? fmtDate(barco.fecha_pedido) : "—"}
       </td>
 
@@ -381,7 +364,7 @@ function FilaBarco({ barco, onCambiarEstado, guardando }) {
           <div style={{ display: "flex", gap: 5 }}>
             <input
               autoFocus
-              style={{ ...S.input, padding: "4px 8px", fontSize: 11 }}
+              style={{ ...S.input, padding: "4px 8px", fontSize: 12 }}
               value={nota}
               onChange={e => setNota(e.target.value)}
               onKeyDown={e => {
@@ -396,7 +379,7 @@ function FilaBarco({ barco, onCambiarEstado, guardando }) {
           </div>
         ) : (
           <span
-            style={{ color: nota ? C.t1 : C.t2, fontSize: 11, cursor: "pointer" }}
+            style={{ color: nota ? C.t1 : C.t2, fontSize: 12, cursor: "pointer" }}
             onClick={() => setNotaEdit(true)}
             title="Clic para editar"
           >
@@ -567,7 +550,7 @@ export default function BarcoCalendarioPanel() {
               {kpis.sinPedir} sin pedir
             </span>
           )}
-          <span style={{ fontSize: 11, color: C.t2, fontFamily: C.sans }}>
+          <span style={{ fontSize: 12, color: C.t2, fontFamily: C.sans }}>
             {kpis.pedidos > 0 && `${kpis.pedidos} pedido${kpis.pedidos !== 1 ? "s" : ""} en curso`}
             {kpis.recibidos > 0 && ` · ${kpis.recibidos} recibido${kpis.recibidos !== 1 ? "s" : ""}`}
           </span>
@@ -579,7 +562,7 @@ export default function BarcoCalendarioPanel() {
         <div style={S.body}>
 
           {err && (
-            <div style={{ padding: "12px 20px", color: C.red, fontSize: 12, fontFamily: C.sans }}>
+            <div style={{ padding: "12px 20px", color: C.red, fontSize: 13, fontFamily: C.sans }}>
               {err}
             </div>
           )}
@@ -605,7 +588,7 @@ export default function BarcoCalendarioPanel() {
                 gap: 3,
               }}>
                 <span style={{ fontFamily: C.mono, fontSize: 22, fontWeight: 700, color, lineHeight: 1 }}>{val}</span>
-                <span style={{ fontSize: 10, color: C.t2, textTransform: "uppercase", letterSpacing: 1.5, fontFamily: C.sans }}>{label}</span>
+                <span style={{ fontSize: 11, color: C.t2, textTransform: "uppercase", letterSpacing: 1.1, fontFamily: C.sans }}>{label}</span>
               </div>
             ))}
           </div>
@@ -633,7 +616,7 @@ export default function BarcoCalendarioPanel() {
                     borderRadius: 6,
                     cursor: "pointer",
                     fontWeight: filtroModelo === m ? 700 : 400,
-                    fontSize: 12,
+                    fontSize: 13,
                     fontFamily: C.sans,
                   }}
                   onClick={() => setFiltroModelo(m)}
@@ -653,7 +636,7 @@ export default function BarcoCalendarioPanel() {
                 color: C.t1,
                 padding: "5px 10px",
                 borderRadius: 7,
-                fontSize: 12,
+                fontSize: 13,
                 fontFamily: C.sans,
                 outline: "none",
                 cursor: "pointer",
@@ -674,7 +657,7 @@ export default function BarcoCalendarioPanel() {
             />
 
             {/* Toggle solo activos */}
-            <label style={{ display: "flex", alignItems: "center", gap: 6, cursor: "pointer", fontSize: 12, color: C.t1, fontFamily: C.sans }}>
+            <label style={{ display: "flex", alignItems: "center", gap: 6, cursor: "pointer", fontSize: 13, color: C.t1, fontFamily: C.sans }}>
               <input
                 type="checkbox"
                 checked={soloActivos}
@@ -685,7 +668,7 @@ export default function BarcoCalendarioPanel() {
             </label>
 
             {/* Toggle vista */}
-            <label style={{ display: "flex", alignItems: "center", gap: 6, cursor: "pointer", fontSize: 12, color: C.t1, fontFamily: C.sans, marginLeft: "auto" }}>
+            <label style={{ display: "flex", alignItems: "center", gap: 6, cursor: "pointer", fontSize: 13, color: C.t1, fontFamily: C.sans, marginLeft: "auto" }}>
               <input
                 type="checkbox"
                 checked={vistaAgrupada}
@@ -702,7 +685,7 @@ export default function BarcoCalendarioPanel() {
               padding: "5px 12px",
               borderRadius: 7,
               cursor: "pointer",
-              fontSize: 12,
+              fontSize: 13,
               fontFamily: C.sans,
             }}>
               ↺
@@ -711,7 +694,7 @@ export default function BarcoCalendarioPanel() {
 
           {/* ── Loading ─────────────────────────────────────────── */}
           {loading && (
-            <div style={{ padding: "24px 20px", color: C.t2, fontSize: 12, fontFamily: C.sans }}>
+            <div style={{ padding: "24px 20px", color: C.t2, fontSize: 13, fontFamily: C.sans }}>
               Cargando barcos…
             </div>
           )}
@@ -768,7 +751,7 @@ export default function BarcoCalendarioPanel() {
                         <span style={{
                           padding: "2px 10px",
                           borderRadius: 6,
-                          fontSize: 11,
+                          fontSize: 12,
                           fontWeight: 800,
                           background: modeloColor(modelo) + "22",
                           color: modeloColor(modelo),
@@ -777,7 +760,7 @@ export default function BarcoCalendarioPanel() {
                         }}>
                           {modelo}
                         </span>
-                        <span style={{ fontSize: 11, color: C.t2, fontFamily: C.sans }}>
+                        <span style={{ fontSize: 12, color: C.t2, fontFamily: C.sans }}>
                           {barcosGrupo.length} barco{barcosGrupo.length !== 1 ? "s" : ""}
                         </span>
                         {/* Mini KPI del grupo */}
@@ -830,7 +813,7 @@ export default function BarcoCalendarioPanel() {
           {/* ── Leyenda ─────────────────────────────────────────── */}
           <div style={{
             padding: "10px 16px 0",
-            fontSize: 10,
+            fontSize: 11,
             color: C.t2,
             fontFamily: C.sans,
             display: "flex",

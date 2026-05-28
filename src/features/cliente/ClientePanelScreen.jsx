@@ -110,8 +110,8 @@ body::before {
   padding:0 12px; height:var(--nav-h); background:transparent; border:none;
   cursor:pointer; position:relative; gap:3px; white-space:nowrap; flex-shrink:0;
 }
-.nv-n { font-family:var(--mono); font-size:7.5px; color:var(--t3); letter-spacing:.08em; transition:color .22s; }
-.nv-l { font-family:var(--cond); font-size:10px; font-weight:700; letter-spacing:.15em;
+.nv-n { font-family:var(--mono); font-size:10px; color:var(--t3); letter-spacing:.08em; transition:color .22s; }
+.nv-l { font-family:var(--cond); font-size:11px; font-weight:700; letter-spacing:.15em;
   text-transform:uppercase; color:var(--t3); transition:color .22s; }
 .nv::after {
   content:''; position:absolute; bottom:0; left:50%; width:0; height:2px;
@@ -129,7 +129,7 @@ body::before {
 
 /* ── SECTION HEADER ── */
 .sh { position:relative; margin-bottom:56px; overflow:visible; }
-.sh-eye { font-family:var(--cond); font-size:11px; font-weight:700; letter-spacing:.25em;
+.sh-eye { font-family:var(--cond); font-size:12px; font-weight:700; letter-spacing:.13em;
   text-transform:uppercase; color:var(--accent); margin-bottom:12px; display:block; }
 .sh-t { font-family:var(--serif); font-weight:500;
   font-size:clamp(40px,5vw,64px); color:var(--t1); line-height:1.05; letter-spacing:-.02em; }
@@ -152,7 +152,7 @@ body::before {
 /* ── STEP / TIMELINE ── */
 .step { display:flex; gap:22px; padding:18px 0; border-bottom:1px solid var(--e1); }
 .step:last-child { border-bottom:none; }
-.step-n { font-family:var(--mono); font-size:10px; color:var(--accent); font-weight: 700; opacity:.6; flex-shrink:0; min-width:20px; margin-top:3px; }
+.step-n { font-family:var(--mono); font-size:11px; color:var(--accent); font-weight: 700; opacity:.6; flex-shrink:0; min-width:20px; margin-top:3px; }
 
 /* Timeline checklist */
 .tl-wrap { position:relative; padding-left:42px; }
@@ -168,7 +168,7 @@ body::before {
   justify-content:center; transition:all .25s var(--ez); flex-shrink:0;
 }
 .tl-mark.done { border-color:var(--ok); background:var(--ok2); }
-.tl-mn { font-family:var(--mono); font-size:9px; color:var(--t3); }
+.tl-mn { font-family:var(--mono); font-size:10px; color:var(--t3); }
 
 /* ── INPUTS ── */
 .inp, .sel, .ta {
@@ -186,7 +186,7 @@ body::before {
 .tabs { display:flex; border-bottom:1px solid var(--e1); }
 .tab {
   flex:1; padding:16px 8px; background:transparent; border:none; cursor:pointer;
-  font-family:var(--cond); font-size:11px; font-weight:700; letter-spacing:.15em;
+  font-family:var(--cond); font-size:12px; font-weight:700; letter-spacing:.15em;
   text-transform:uppercase; color:var(--t3); transition:color .2s;
   border-bottom:2px solid transparent; margin-bottom:-1px;
 }
@@ -202,7 +202,7 @@ body::before {
 
 /* ── TOAST ── */
 .twrap { position:fixed; bottom:22px; right:22px; z-index:9999; display:flex; flex-direction:column; gap:8px; pointer-events:none; }
-.tst { padding:14px 18px; font-family:var(--body); font-size:13px; font-weight:500; border-radius: 6px; animation:toast .3s var(--ez) both; max-width:320px; line-height:1.5; box-shadow: 0 4px 12px rgba(0,0,0,0.3); }
+.tst { padding:14px 18px; font-family:var(--body); font-size:14px; font-weight:500; border-radius: 6px; animation:toast .3s var(--ez) both; max-width:320px; line-height:1.5; box-shadow: 0 4px 12px rgba(0,0,0,0.3); }
 .tok { background:var(--s1); border:1px solid rgba(16,185,129,.3); color:var(--ok); }
 .terr { background:var(--s1); border:1px solid rgba(239,68,68,.35); color:var(--err); }
 .tinf { background:var(--s2); border:1px solid var(--e2); color:var(--t2); }
@@ -243,7 +243,7 @@ body::before {
 .mob-drawer { display:none; position:fixed; inset:0; z-index:899; padding-top:var(--nav-h); }
 .mob-bg { position:absolute; inset:0; background:rgba(0,0,0,.88); backdrop-filter:blur(6px); }
 .mob-nav { position:relative; background:var(--s1); border-bottom:1px solid var(--e1); }
-.mob-nv { display:flex; align-items:center; gap:14px; padding:18px 24px; background:transparent; border:none; cursor:pointer; font-family:var(--cond); font-size:13px; font-weight:700; letter-spacing:.2em; text-transform:uppercase; color:var(--t3); width:100%; text-align:left; transition:color .18s; }
+.mob-nv { display:flex; align-items:center; gap:14px; padding:18px 24px; background:transparent; border:none; cursor:pointer; font-family:var(--cond); font-size:14px; font-weight:700; letter-spacing:.12em; text-transform:uppercase; color:var(--t3); width:100%; text-align:left; transition:color .18s; }
 .mob-nv:hover { color:var(--t2); }
 .mob-nv.on { color:var(--t1); }
 
@@ -515,7 +515,7 @@ body::before {
   display:block;
   margin-top:4px;
   color: rgba(148,163,184,.84);
-  font-size: 12px;
+  font-size: 13px;
   line-height:1.45;
 }
 .ka-search-tag {
@@ -566,8 +566,8 @@ body::before {
   text-transform:uppercase;
 }
 .yacht3d-head { top:14px; }
-.yacht3d-foot { bottom:14px; color:rgba(148,163,184,.82); font-size:9px; }
-.yacht3d-head span { color:var(--t1); font-size:10px; font-weight:900; }
+.yacht3d-foot { bottom:14px; color:rgba(148,163,184,.82); font-size:10px; }
+.yacht3d-head span { color:var(--t1); font-size:11px; font-weight:900; }
 .yacht3d-head button {
   border: 1px solid rgba(216,195,161,.28);
   background: rgba(216,195,161,.08);
@@ -650,10 +650,10 @@ function Toasts({list}){
    MICRO-COMPONENTS
 ═══════════════════════════════════════════════════════════════ */
 function Cap({children,style:st={},sm}){
-  return <span style={{fontFamily:"var(--cond)",fontSize:sm?9:11,fontWeight:700,letterSpacing:".2em",textTransform:"uppercase",color:"var(--t3)",...st}}>{children}</span>;
+  return <span style={{fontFamily:"var(--cond)",fontSize:sm?9:11,fontWeight:700,letterSpacing:".12em",textTransform:"uppercase",color:"var(--t3)",...st}}>{children}</span>;
 }
 function Lbl({children}){
-  return <label style={{display:"block",fontFamily:"var(--cond)",fontSize:10,fontWeight:700,letterSpacing:".18em",textTransform:"uppercase",color:"var(--t3)",marginBottom:10}}>{children}</label>;
+  return <label style={{display:"block",fontFamily:"var(--cond)",fontSize:11,fontWeight:700,letterSpacing:".12em",textTransform:"uppercase",color:"var(--t3)",marginBottom:10}}>{children}</label>;
 }
 function GDot({pulse}){
   return <span style={{width:6,height:6,borderRadius:"50%",background:"var(--accent)",flexShrink:0,display:"inline-block",animation:pulse?"gPulse 2s ease-in-out infinite":"none"}}/>;
@@ -703,8 +703,8 @@ function CircularGauge({pct,liters,maxL}){
       <circle cx={CX} cy={CY} r={6} fill={color} style={{filter:`drop-shadow(0 0 4px ${color})`}}/>
       <circle cx={CX} cy={CY} r={2.5} fill="var(--void)"/>
       <text x={CX} y={CY-8} textAnchor="middle" fill="#F8FAFC" style={{fontFamily:"var(--mono)",fontSize:34,fontWeight:700}}>{pct}</text>
-      <text x={CX} y={CY+12} textAnchor="middle" fill="rgba(255,255,255,0.3)" style={{fontFamily:"var(--mono)",fontSize:10}}>% COMBUSTIBLE</text>
-      <text x={CX} y={CY+30} textAnchor="middle" fill={color} style={{fontFamily:"var(--mono)",fontSize:12,fontWeight:700}}>{liters} L / {maxL} L</text>
+      <text x={CX} y={CY+12} textAnchor="middle" fill="rgba(255,255,255,0.3)" style={{fontFamily:"var(--mono)",fontSize:11}}>% COMBUSTIBLE</text>
+      <text x={CX} y={CY+30} textAnchor="middle" fill={color} style={{fontFamily:"var(--mono)",fontSize:13,fontWeight:700}}>{liters} L / {maxL} L</text>
     </svg>
   );
 }
@@ -724,9 +724,9 @@ function TankBar({label,liters,maxL,color,icon}){
         ))}
       </div>
       <div style={{textAlign:"center"}}>
-        <p style={{fontFamily:"var(--mono)",fontSize:20,fontWeight:700,color,lineHeight:1}}>{pct}<span style={{fontSize:12,opacity:.6}}>%</span></p>
+        <p style={{fontFamily:"var(--mono)",fontSize:20,fontWeight:700,color,lineHeight:1}}>{pct}<span style={{fontSize:13,opacity:.6}}>%</span></p>
         <Cap sm style={{display:"block",marginTop:6}}>{label}</Cap>
-        <p style={{fontFamily:"var(--mono)",fontSize:10,color:"var(--t3)",marginTop:4}}>{liters}L</p>
+        <p style={{fontFamily:"var(--mono)",fontSize:11,color:"var(--t3)",marginTop:4}}>{liters}L</p>
       </div>
     </div>
   );
@@ -749,7 +749,7 @@ function BatteryBank({label,voltage,pct,charging}){
       </div>
       <p style={{fontFamily:"var(--mono)",fontSize:16,fontWeight:700,color,textAlign:"center",lineHeight:1}}>{voltage}V</p>
       <Cap sm style={{textAlign:"center"}}>{label}</Cap>
-      <p style={{fontFamily:"var(--mono)",fontSize:10,color:"var(--t3)",textAlign:"center"}}>{pct}%</p>
+      <p style={{fontFamily:"var(--mono)",fontSize:11,color:"var(--t3)",textAlign:"center"}}>{pct}%</p>
     </div>
   );
 }
@@ -826,12 +826,12 @@ function MotorGauge({ value, min, max, label, unit, zones, size=130, animated=tr
         </text>
 
         <text x={CX} y={CY+42} textAnchor="middle" fill="rgba(255,255,255,0.3)"
-          style={{fontFamily:"var(--mono)",fontSize:8,letterSpacing:".1em"}}>
+          style={{fontFamily:"var(--mono)",fontSize:10,letterSpacing:".1em"}}>
           {unit}
         </text>
 
         <text x={CX} y={size+14} textAnchor="middle" fill="rgba(255,255,255,0.4)"
-          style={{fontFamily:"var(--cond)",fontSize:9,fontWeight:700,letterSpacing:".2em"}}>
+          style={{fontFamily:"var(--cond)",fontSize:10,fontWeight:700,letterSpacing:".12em"}}>
           {label}
         </text>
       </svg>
@@ -909,7 +909,7 @@ function DualMotorCluster({ mc }){
           <Cap>Panel de Instrumentos — Motores</Cap>
         </div>
         <div style={{display:"flex",alignItems:"center",gap:12}}>
-          {running&&<><GDot pulse/><span style={{fontFamily:"var(--mono)",fontSize:10,color:"var(--ok)",letterSpacing:".08em",opacity:.9}}>EN MARCHA</span></>}
+          {running&&<><GDot pulse/><span style={{fontFamily:"var(--mono)",fontSize:11,color:"var(--ok)",letterSpacing:".08em",opacity:.9}}>EN MARCHA</span></>}
           <button
             onClick={()=>setRunning(r=>!r)}
             style={{
@@ -917,8 +917,8 @@ function DualMotorCluster({ mc }){
               background:running?"rgba(239,68,68,0.1)":"rgba(216,195,161,0.1)",
               border:`1px solid ${running?"rgba(239,68,68,0.3)":"rgba(216,195,161,0.3)"}`,
               color:running?"var(--err)":"var(--accent)",
-              fontFamily:"var(--cond)",fontWeight:700,fontSize:10,
-              letterSpacing:".2em",textTransform:"uppercase",
+              fontFamily:"var(--cond)",fontWeight:700,fontSize:11,
+              letterSpacing:".12em",textTransform:"uppercase",
               cursor:"pointer",transition:"all .25s",
               display:"flex",alignItems:"center",gap:8,
             }}>
@@ -947,13 +947,13 @@ function DualMotorCluster({ mc }){
                   }}/>
                   <p style={{
                     fontFamily:"var(--cond)",fontSize:15,fontWeight:800,
-                    letterSpacing:".25em",textTransform:"uppercase",
+                    letterSpacing:".13em",textTransform:"uppercase",
                     color:running?"var(--t1)":"var(--t3)",transition:"color .5s"
                   }}>
                     Motor {eng==="babor"?"Babor":"Estribor"}
                   </p>
                   <span style={{
-                    marginLeft:"auto",fontFamily:"var(--mono)",fontSize:10,
+                    marginLeft:"auto",fontFamily:"var(--mono)",fontSize:11,
                     color:"var(--t3)",letterSpacing:".1em"
                   }}>
                     {eng==="babor"?"PORT":"STBD"}
@@ -993,7 +993,7 @@ function DualMotorCluster({ mc }){
                       border:"1px solid var(--e1)",textAlign:"center", borderRadius: "4px"
                     }}>
                       <p style={{fontFamily:"var(--mono)",fontSize:15,color:"var(--t1)",fontWeight:700,lineHeight:1}}>
-                        {item.v}<span style={{fontSize:10,opacity:.5,marginLeft:4}}>{item.u}</span>
+                        {item.v}<span style={{fontSize:11,opacity:.5,marginLeft:4}}>{item.u}</span>
                       </p>
                       <Cap sm style={{marginTop:6,display:"block"}}>{item.l}</Cap>
                     </div>
@@ -1020,7 +1020,7 @@ function DualMotorCluster({ mc }){
           display:"flex",alignItems:"center",gap:12
         }}>
           <AlertTriangle size={14} color="var(--warn)" style={{opacity:.8,flexShrink:0}}/>
-          <p style={{color:"var(--t2)",fontSize:13,fontWeight:400,lineHeight:1.6}}>
+          <p style={{color:"var(--t2)",fontSize:14,fontWeight:400,lineHeight:1.6}}>
             Panel en modo <span style={{color:"var(--t1)"}}>reposo</span>. Use "Simular Arranque" para ver los instrumentos en operación, o conecte al sistema NMEA 2000 para datos reales.
           </p>
         </div>
@@ -1061,12 +1061,12 @@ function AnimatedPowerFlowDiagram({active}){
               stroke={isActive?s.color:"rgba(255,255,255,0.08)"} strokeWidth={isActive?"1.5":"1"}
               style={{transition:"all .4s"}}/>
             <text x="66" y={s.y+16} textAnchor="middle"
-              style={{fontFamily:"var(--cond)",fontSize:10,fontWeight:700,letterSpacing:".18em",
+              style={{fontFamily:"var(--cond)",fontSize:11,fontWeight:700,letterSpacing:".12em",
                 fill:isActive?s.color:"rgba(255,255,255,0.3)",transition:"fill .4s"}}>
               {s.label}
             </text>
             <text x="66" y={s.y+30} textAnchor="middle"
-              style={{fontFamily:"var(--mono)",fontSize:9,fill:isActive?s.color:"rgba(255,255,255,0.15)",
+              style={{fontFamily:"var(--mono)",fontSize:10,fill:isActive?s.color:"rgba(255,255,255,0.15)",
                 transition:"fill .4s"}}>
               {s.sub}
             </text>
@@ -1099,11 +1099,11 @@ function AnimatedPowerFlowDiagram({active}){
       <rect x="222" y="72" width="64" height="46" rx="4"
         fill="rgba(255,255,255,0.05)" stroke="rgba(255,255,255,0.15)" strokeWidth="1"/>
       <text x="254" y="90" textAnchor="middle"
-        style={{fontFamily:"var(--cond)",fontSize:9,fontWeight:700,letterSpacing:".18em",fill:"var(--t2)"}}>
+        style={{fontFamily:"var(--cond)",fontSize:10,fontWeight:700,letterSpacing:".12em",fill:"var(--t2)"}}>
         SELECTOR
       </text>
       <text x="254" y="107" textAnchor="middle"
-        style={{fontFamily:"var(--mono)",fontSize:9,fill:"var(--t3)"}}>
+        style={{fontFamily:"var(--mono)",fontSize:10,fill:"var(--t3)"}}>
         FUENTE
       </text>
 
@@ -1136,7 +1136,7 @@ function AnimatedPowerFlowDiagram({active}){
               </circle>
             )}
             <text x="441" y={y+14} textAnchor="middle"
-              style={{fontFamily:"var(--cond)",fontSize:9,fontWeight:600,
+              style={{fontFamily:"var(--cond)",fontSize:10,fontWeight: 700,
                 letterSpacing:".15em",fill:"rgba(255,255,255,0.4)"}}>
               {l.toUpperCase()}
             </text>
@@ -1201,12 +1201,12 @@ function EmergencyOverlay({ onClose }){
             <div>
               <p style={{
                 fontFamily:"var(--cond)",fontSize:14,fontWeight:800,
-                letterSpacing:".4em",color:"var(--err)",textTransform:"uppercase"
+                letterSpacing:".13em",color:"var(--err)",textTransform:"uppercase"
               }}>
                 MODO EMERGENCIA
               </p>
               <p style={{
-                fontFamily:"var(--mono)",fontSize:10,
+                fontFamily:"var(--mono)",fontSize:11,
                 color:"rgba(239,68,68,0.7)",letterSpacing:".1em",marginTop:4
               }}>
                 PREFECTURA NAVAL ARG: 106  ·  GUARDIA COSTERA: 0800-666-3500  ·  VHF CANAL 16
@@ -1218,7 +1218,7 @@ function EmergencyOverlay({ onClose }){
               padding:"10px 24px",background:"transparent",
               border:"1px solid rgba(255,255,255,0.15)", borderRadius: "6px",
               color:"rgba(255,255,255,0.6)",fontFamily:"var(--cond)",
-              fontWeight:700,fontSize:10,letterSpacing:".2em",
+              fontWeight:700,fontSize:11,letterSpacing:".12em",
               textTransform:"uppercase",cursor:"pointer",
               display:"flex",alignItems:"center",gap:8,transition:"all .2s"
             }}
@@ -1251,7 +1251,7 @@ function EmergencyOverlay({ onClose }){
               <div style={{color:p.color,opacity:activeProc===p.id?1:.6,marginBottom:16,transition:"opacity .25s"}}>{p.icon}</div>
               <p style={{
                 fontFamily:"var(--cond)",fontSize:15,fontWeight:800,
-                letterSpacing:".2em",color:activeProc===p.id?"var(--t1)":"var(--t3)",
+                letterSpacing:".12em",color:activeProc===p.id?"var(--t1)":"var(--t3)",
                 textTransform:"uppercase",transition:"color .25s"
               }}>
                 {p.t}
@@ -1320,7 +1320,7 @@ function EmergencyOverlay({ onClose }){
             textAlign:"center",animation:"fade .4s .2s both"
           }}>
             <p style={{
-              fontFamily:"var(--cond)",fontSize:12,fontWeight:700,letterSpacing:".25em",
+              fontFamily:"var(--cond)",fontSize:13,fontWeight:700,letterSpacing:".13em",
               color:"var(--t3)",textTransform:"uppercase",marginBottom:8
             }}>
               Seleccione el tipo de emergencia
@@ -1364,7 +1364,7 @@ function CompassRose({size=280,style={}}){
         const {x,y}=polarPt(R,R,R*0.52,c.d-90);
         return <text key={c.l} x={x} y={y+4} textAnchor="middle"
           fill="rgba(216,195,161,0.5)"
-          style={{fontFamily:"var(--cond)",fontSize:10,fontWeight:600,letterSpacing:".1em"}}>{c.l}</text>;
+          style={{fontFamily:"var(--cond)",fontSize:11,fontWeight: 700,letterSpacing:".1em"}}>{c.l}</text>;
       })}
       <circle cx={R} cy={R} r={5} fill="rgba(216,195,161,0.6)"/>
       <circle cx={R} cy={R} r={2} fill="rgba(216,195,161,1)"/>
@@ -1381,7 +1381,7 @@ function WindyWidget(){
         <Wind size={14} color="var(--t3)"/>
         <Cap>Radar Meteorológico · ECMWF</Cap>
         <div style={{display:"flex",alignItems:"center",gap:8,marginLeft:"auto"}}>
-          {loaded&&<><GDot pulse/><span style={{fontFamily:"var(--mono)",fontSize:10,color:"var(--accent)",fontWeight:700,letterSpacing:".1em",opacity:.9}}>LIVE</span></>}
+          {loaded&&<><GDot pulse/><span style={{fontFamily:"var(--mono)",fontSize:11,color:"var(--accent)",fontWeight:700,letterSpacing:".1em",opacity:.9}}>LIVE</span></>}
           {!loaded&&<Cap sm>CARGANDO…</Cap>}
         </div>
       </div>
@@ -1483,7 +1483,7 @@ function SecBienvenida({cliente,goTo,onEmergency,onReplayIntro,onSearch}){
             <span style={{opacity:.4,animation:"pulse 1s ease-in-out infinite",animationDelay:".5s"}}>:</span>
             <span style={{fontSize:16,opacity:.5}}>{ss}</span>
           </p>
-          <p style={{fontFamily:"var(--mono)",fontSize:10,color:"var(--accent)",letterSpacing:".2em",marginTop:6}}>34°25′S  58°32′O · ARG</p>
+          <p style={{fontFamily:"var(--mono)",fontSize:11,color:"var(--accent)",letterSpacing:".12em",marginTop:6}}>34°25′S  58°32′O · ARG</p>
         </div>
 
         {/* Weather pill */}
@@ -1493,17 +1493,17 @@ function SecBienvenida({cliente,goTo,onEmergency,onReplayIntro,onSearch}){
               background:"rgba(15,23,42,0.6)",border:"1px solid var(--e2)",backdropFilter:"blur(16px)"}}>
               <div style={{display:"flex",alignItems:"center",gap:8}}>
                 <Thermometer size={14} color="var(--t2)"/>
-                <span style={{fontFamily:"var(--mono)",fontSize:13,fontWeight:700,color:"var(--t1)",letterSpacing:".04em"}}>{wx.t}°C</span>
+                <span style={{fontFamily:"var(--mono)",fontSize:14,fontWeight:700,color:"var(--t1)",letterSpacing:".04em"}}>{wx.t}°C</span>
               </div>
               <div style={{width:1,height:16,background:"var(--e2)"}}/>
               <div style={{display:"flex",alignItems:"center",gap:8}}>
                 <Wind size={14} color="var(--t2)"/>
-                <span style={{fontFamily:"var(--mono)",fontSize:12,color:"var(--t2)",letterSpacing:".04em"}}>{wx.d} {wx.w}<span style={{fontSize:9,opacity:.6}}> km/h</span></span>
+                <span style={{fontFamily:"var(--mono)",fontSize:13,color:"var(--t2)",letterSpacing:".04em"}}>{wx.d} {wx.w}<span style={{fontSize:10,opacity:.6}}> km/h</span></span>
               </div>
               <div style={{width:1,height:16,background:"var(--e2)"}}/>
               <div style={{display:"flex",alignItems:"center",gap:8}}>
                 <Activity size={14} color="var(--t2)"/>
-                <span style={{fontFamily:"var(--mono)",fontSize:12,color:"var(--t2)",letterSpacing:".04em"}}>{wx.p}<span style={{fontSize:9,opacity:.6}}> hPa</span></span>
+                <span style={{fontFamily:"var(--mono)",fontSize:13,color:"var(--t2)",letterSpacing:".04em"}}>{wx.p}<span style={{fontSize:10,opacity:.6}}> hPa</span></span>
               </div>
               <GDot pulse/>
             </div>
@@ -1517,7 +1517,7 @@ function SecBienvenida({cliente,goTo,onEmergency,onReplayIntro,onSearch}){
               <Cap sm style={{color:"rgba(226,232,240,.76)"}}>Visual de unidad</Cap>
             </div>
             <button onClick={()=>{const next=imgMode==="detail"?"cinema":"detail";setImgMode(next);ls("hero_img_mode",next);}}
-              style={{border:"1px solid rgba(255,255,255,.12)",background:"rgba(255,255,255,.06)",borderRadius:999,color:"var(--t1)",padding:"7px 10px",fontFamily:"var(--mono)",fontSize:10,fontWeight:800,cursor:"pointer"}}>
+              style={{border:"1px solid rgba(255,255,255,.12)",background:"rgba(255,255,255,.06)",borderRadius:999,color:"var(--t1)",padding:"7px 10px",fontFamily:"var(--mono)",fontSize:11,fontWeight:800,cursor:"pointer"}}>
               {imgMode==="detail"?"NITIDA":"CINE"}
             </button>
           </div>
@@ -1525,7 +1525,7 @@ function SecBienvenida({cliente,goTo,onEmergency,onReplayIntro,onSearch}){
             onChange={e=>{const v=Number(e.target.value);setFocal(v);ls("hero_img_focal",String(v));}}
             aria-label="Ajustar posicion de imagen"
             style={{width:"100%",accentColor:"var(--accent)",cursor:"pointer"}}/>
-          <div style={{display:"flex",justifyContent:"space-between",marginTop:8,fontFamily:"var(--mono)",fontSize:9,color:"rgba(148,163,184,.75)",letterSpacing:".12em"}}>
+          <div style={{display:"flex",justifyContent:"space-between",marginTop:8,fontFamily:"var(--mono)",fontSize:10,color:"rgba(148,163,184,.75)",letterSpacing:".12em"}}>
             <span>POPA</span><span>FOCO</span><span>PROA</span>
           </div>
         </div>
@@ -1537,7 +1537,7 @@ function SecBienvenida({cliente,goTo,onEmergency,onReplayIntro,onSearch}){
         {/* Hero text */}
         <div style={{position:"absolute",bottom:"clamp(40px,6vw,90px)",left:"clamp(24px,5vw,64px)",maxWidth:720}}>
           <div style={{marginBottom:10,animation:"enter .6s .04s var(--ez) both"}}>
-            <span style={{fontFamily:"var(--cond)",fontSize:13,fontWeight:800,letterSpacing:".3em",color:"var(--accent)",textTransform:"uppercase"}}>{cliente?.modelo_barco||"KLASE A"}</span>
+            <span style={{fontFamily:"var(--cond)",fontSize:14,fontWeight:800,letterSpacing:".13em",color:"var(--accent)",textTransform:"uppercase"}}>{cliente?.modelo_barco||"KLASE A"}</span>
           </div>
           
           <div style={{animation:"enter .8s .12s var(--ez) both"}}>
@@ -1558,7 +1558,7 @@ function SecBienvenida({cliente,goTo,onEmergency,onReplayIntro,onSearch}){
           {hull&&(
             <div style={{marginTop:16,animation:"enter .8s .24s var(--ez) both"}}>
               <div style={{display:"inline-flex",alignItems:"center",gap:16,paddingLeft:18,borderLeft:"2px solid var(--accent)"}}>
-                <span style={{fontFamily:"var(--mono)",fontSize:12,color:"rgba(255,255,255,0.6)",letterSpacing:".15em", fontWeight: 700}}>{hull}</span>
+                <span style={{fontFamily:"var(--mono)",fontSize:13,color:"rgba(255,255,255,0.6)",letterSpacing:".15em", fontWeight: 700}}>{hull}</span>
               </div>
             </div>
           )}
@@ -1570,7 +1570,7 @@ function SecBienvenida({cliente,goTo,onEmergency,onReplayIntro,onSearch}){
           <div style={{display:"flex",gap:14,marginTop:32,animation:"enter .8s .42s var(--ez) both",flexWrap:"wrap"}}>
             <button onClick={onSearch}
               style={{padding:"14px 28px",background:"rgba(255,255,255,0.08)",color:"var(--t1)",border:"1px solid rgba(255,255,255,.16)", borderRadius:"999px",
-                fontFamily:"var(--cond)",fontWeight:800,fontSize:11,letterSpacing:".25em",
+                fontFamily:"var(--cond)",fontWeight:800,fontSize:12,letterSpacing:".13em",
                 textTransform:"uppercase",cursor:"pointer",transition:"filter .2s,transform .15s",display:"flex",alignItems:"center",gap:10}}
               onMouseEnter={e=>{e.currentTarget.style.filter="brightness(1.12)";e.currentTarget.style.transform="translateY(-2px)"}}
               onMouseLeave={e=>{e.currentTarget.style.filter="brightness(1)";e.currentTarget.style.transform="translateY(0)"}}>
@@ -1578,7 +1578,7 @@ function SecBienvenida({cliente,goTo,onEmergency,onReplayIntro,onSearch}){
             </button>
             <button onClick={()=>goTo("soporte")}
               style={{padding:"14px 32px",background:"var(--accent)",color:"#020617",border:"none", borderRadius:"999px",
-                fontFamily:"var(--cond)",fontWeight:800,fontSize:11,letterSpacing:".25em",
+                fontFamily:"var(--cond)",fontWeight:800,fontSize:12,letterSpacing:".13em",
                 textTransform:"uppercase",cursor:"pointer",transition:"filter .2s,transform .15s"}}
               onMouseEnter={e=>{e.currentTarget.style.filter="brightness(1.15)";e.currentTarget.style.transform="translateY(-2px)"}}
               onMouseLeave={e=>{e.currentTarget.style.filter="brightness(1)";e.currentTarget.style.transform="translateY(0)"}}>
@@ -1587,7 +1587,7 @@ function SecBienvenida({cliente,goTo,onEmergency,onReplayIntro,onSearch}){
             <button onClick={onEmergency}
               style={{padding:"14px 28px",background:"rgba(239,68,68,0.1)", borderRadius:"999px",
                 color:"var(--err)",border:"1px solid rgba(239,68,68,0.3)",
-                fontFamily:"var(--cond)",fontWeight:700,fontSize:11,letterSpacing:".25em",
+                fontFamily:"var(--cond)",fontWeight:700,fontSize:12,letterSpacing:".13em",
                 textTransform:"uppercase",cursor:"pointer",transition:"all .2s",
                 display:"flex",alignItems:"center",gap:10}}
               onMouseEnter={e=>{e.currentTarget.style.background="rgba(239,68,68,0.2)";e.currentTarget.style.borderColor="rgba(239,68,68,0.5)"}}
@@ -1598,7 +1598,7 @@ function SecBienvenida({cliente,goTo,onEmergency,onReplayIntro,onSearch}){
             <button onClick={onReplayIntro}
               style={{padding:"14px 28px",background:"rgba(255,255,255,0.06)", borderRadius:"999px",
                 color:"var(--t1)",border:"1px solid rgba(255,255,255,0.14)",
-                fontFamily:"var(--cond)",fontWeight:700,fontSize:11,letterSpacing:".25em",
+                fontFamily:"var(--cond)",fontWeight:700,fontSize:12,letterSpacing:".13em",
                 textTransform:"uppercase",cursor:"pointer",transition:"all .2s",
                 display:"flex",alignItems:"center",gap:10}}
               onMouseEnter={e=>{e.currentTarget.style.background="rgba(216,195,161,0.12)";e.currentTarget.style.borderColor="rgba(216,195,161,0.38)";e.currentTarget.style.color="var(--accent)"}}
@@ -1629,10 +1629,10 @@ function SecBienvenida({cliente,goTo,onEmergency,onReplayIntro,onSearch}){
       {/* Module grid */}
       <div style={{maxWidth:1400,margin:"0 auto",padding:"0 var(--gutter)"}}>
         <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",padding:"28px 0 20px",borderBottom:"1px solid var(--e1)"}}>
-          <Cap style={{fontSize: 12}}>Acceso Directo</Cap>
+          <Cap style={{fontSize: 13}}>Acceso Directo</Cap>
           <div style={{display:"flex",alignItems:"center",gap:10}}>
             <div style={{width:48,height:1,background:"linear-gradient(90deg,transparent,var(--accent))"}}/>
-            <span style={{fontFamily:"var(--mono)",fontSize:10,color:"var(--t3)",letterSpacing:".1em", fontWeight:700}}>08 MÓDULOS</span>
+            <span style={{fontFamily:"var(--mono)",fontSize:11,color:"var(--t3)",letterSpacing:".1em", fontWeight:700}}>08 MÓDULOS</span>
           </div>
         </div>
         
@@ -1650,10 +1650,10 @@ function SecBienvenida({cliente,goTo,onEmergency,onReplayIntro,onSearch}){
               <div style={{position:"absolute",bottom:0,left:0,right:0,height:2,background:"linear-gradient(90deg,var(--accent),transparent)"}}/>
               <div style={{display:"flex",justifyContent:"space-between",alignItems:"flex-start",marginBottom:20}}>
                 <div style={{color:"var(--accent)",opacity:.8}}>{a.ico}</div>
-                <span style={{fontFamily:"var(--mono)",fontSize:10,color:"var(--t3)",opacity:.7,letterSpacing:".08em", fontWeight: 700}}>{a.n}</span>
+                <span style={{fontFamily:"var(--mono)",fontSize:11,color:"var(--t3)",opacity:.7,letterSpacing:".08em", fontWeight: 700}}>{a.n}</span>
               </div>
               <p style={{fontFamily:"var(--serif)",fontSize:22,fontWeight:600,color:"var(--t1)",lineHeight:1.1,letterSpacing:"-.01em",marginBottom:8}}>{a.t}</p>
-              <p style={{fontFamily:"var(--body)",fontSize:13,color:"var(--t3)",fontWeight:400,lineHeight:1.6}}>{a.d}</p>
+              <p style={{fontFamily:"var(--body)",fontSize:14,color:"var(--t3)",fontWeight:400,lineHeight:1.6}}>{a.d}</p>
             </button>
           ))}
         </div>
@@ -1688,7 +1688,7 @@ function SecIdentidad({cliente,push}){
             </div>
             <div>
               <p style={{fontFamily:"var(--serif)",fontSize:26,fontWeight:600,color:"var(--t1)",letterSpacing:"-.01em"}}>{cliente?.modelo_barco||"Mi Barco"}</p>
-              <p style={{fontFamily:"var(--mono)",fontSize:11,color:"var(--t3)",letterSpacing:".1em",marginTop:4}}>{[cliente?.nombre_barco,cliente?.numero_unidad].filter(Boolean).join("  ·  ")||"Sin nombre asignado"}</p>
+              <p style={{fontFamily:"var(--mono)",fontSize:12,color:"var(--t3)",letterSpacing:".1em",marginTop:4}}>{[cliente?.nombre_barco,cliente?.numero_unidad].filter(Boolean).join("  ·  ")||"Sin nombre asignado"}</p>
             </div>
           </div>
           {[["mat","Matrícula","RP-123456"],["mmsi","MMSI / Radio VHF","701000452"],["senal","Señal Distintiva","LW 9844"]].map(([k,l,ph])=>(
@@ -1726,7 +1726,7 @@ function SecIdentidad({cliente,push}){
             <Lbl>Asistencia / Remolque</Lbl>
             <input className="inp" value={v["trem"]} placeholder="+54 9 ···· ···· ····" onChange={e=>up("trem",e.target.value)}/>
           </div>
-          <button onClick={save} style={{width:"100%",padding:"16px",borderRadius:"4px",background:saved?"var(--ok2)":"transparent",border:`1px solid ${saved?"rgba(16,185,129,.4)":"var(--e2)"}`,color:saved?"var(--ok)":"var(--t1)",fontFamily:"var(--cond)",fontWeight:800,fontSize:11,letterSpacing:".25em",textTransform:"uppercase",cursor:"pointer",transition:"all .3s",display:"flex",alignItems:"center",justifyContent:"center",gap:10}}>
+          <button onClick={save} style={{width:"100%",padding:"16px",borderRadius:"4px",background:saved?"var(--ok2)":"transparent",border:`1px solid ${saved?"rgba(16,185,129,.4)":"var(--e2)"}`,color:saved?"var(--ok)":"var(--t1)",fontFamily:"var(--cond)",fontWeight:800,fontSize:12,letterSpacing:".13em",textTransform:"uppercase",cursor:"pointer",transition:"all .3s",display:"flex",alignItems:"center",justifyContent:"center",gap:10}}>
             {saved?<><Check size={14}/> GUARDADO</>:"GUARDAR EN ESTE DISPOSITIVO"}
           </button>
         </div>
@@ -1751,7 +1751,7 @@ function ProximoService(){
       <div style={{display:"flex",alignItems:"center",gap:10,marginBottom:24}}>
         <Wrench size={16} color="var(--t3)"/><Cap>Próximo Service Programado</Cap>
         {dias!==null&&<div style={{marginLeft:"auto",padding:"6px 14px",borderRadius:"4px",border:`1px solid ${ac}30`,background:`${ac}0a`}}>
-          <span style={{fontFamily:"var(--mono)",fontSize:10,color:ac,fontWeight:700,letterSpacing:".06em"}}>{dias<0?`Vencido hace ${Math.abs(dias)} días`:dias===0?"Hoy":`Faltan ${dias} días`}</span>
+          <span style={{fontFamily:"var(--mono)",fontSize:11,color:ac,fontWeight:700,letterSpacing:".06em"}}>{dias<0?`Vencido hace ${Math.abs(dias)} días`:dias===0?"Hoy":`Faltan ${dias} días`}</span>
         </div>}
       </div>
       <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fit,minmax(220px,1fr))",gap:24,marginBottom:24}}>
@@ -1760,7 +1760,7 @@ function ProximoService(){
         <div><Lbl>Horas de Motor Actuales</Lbl><input className="inp" type="number" value={data.horas} onChange={e=>up("horas",e.target.value)} placeholder="Ej: 1250"/></div>
       </div>
       <div style={{marginBottom:24}}><Lbl>Observaciones</Lbl><input className="inp" value={data.obs} onChange={e=>up("obs",e.target.value)} placeholder="Taller, teléfono, repuestos pendientes..."/></div>
-      <button onClick={save} style={{padding:"12px 24px",borderRadius:"4px",background:saved?"var(--ok2)":"transparent",border:`1px solid ${saved?"rgba(16,185,129,.4)":"var(--e2)"}`,color:saved?"var(--ok)":"var(--t1)",fontFamily:"var(--cond)",fontWeight:700,fontSize:10,letterSpacing:".2em",textTransform:"uppercase",cursor:"pointer",transition:"all .3s",display:"inline-flex",alignItems:"center",gap:8}}>
+      <button onClick={save} style={{padding:"12px 24px",borderRadius:"4px",background:saved?"var(--ok2)":"transparent",border:`1px solid ${saved?"rgba(16,185,129,.4)":"var(--e2)"}`,color:saved?"var(--ok)":"var(--t1)",fontFamily:"var(--cond)",fontWeight:700,fontSize:11,letterSpacing:".12em",textTransform:"uppercase",cursor:"pointer",transition:"all .3s",display:"inline-flex",alignItems:"center",gap:8}}>
         {saved?<><Check size={12}/>GUARDADO</>:<><RefreshCw size={12}/>GUARDAR</>}
       </button>
     </div>
@@ -1787,7 +1787,7 @@ function BitacoraMantenimiento(){
     <div className="card" style={{padding:"36px 32px"}}>
       <div style={{display:"flex",alignItems:"center",gap:10,marginBottom:24}}>
         <Activity size={16} color="var(--t3)"/><Cap>Bitácora de Mantenimiento</Cap>
-        {ts&&<span style={{marginLeft:"auto",fontFamily:"var(--mono)",fontSize:9,color:"var(--t3)",letterSpacing:".04em"}}>Guardado {ts}</span>}
+        {ts&&<span style={{marginLeft:"auto",fontFamily:"var(--mono)",fontSize:10,color:"var(--t3)",letterSpacing:".04em"}}>Guardado {ts}</span>}
       </div>
       <table style={{width:"100%",borderCollapse:"collapse",marginBottom:28}}>
         <thead><tr style={{borderBottom:"1px solid var(--e2)"}}>{["Ítem","Estado","Observaciones / Fecha"].map(h=><th key={h} style={{textAlign:"left",paddingBottom:14,paddingRight:16}}><Cap sm>{h}</Cap></th>)}</tr></thead>
@@ -1795,15 +1795,15 @@ function BitacoraMantenimiento(){
           <tr key={row.n} style={{borderBottom:"1px solid rgba(255,255,255,.04)"}}>
             <td style={{padding:"16px 16px 16px 0",color:"var(--t1)",fontSize:14,fontWeight:500,whiteSpace:"nowrap"}}>{row.n}</td>
             <td style={{padding:"16px 16px 16px 0",minWidth:140}}>
-              <select className="sel" value={row.e} onChange={e=>upd(i,"e",e.target.value)} style={{width:"auto",fontSize:13,fontWeight:600,color:sc(row.e),padding:"4px 0", borderBottom: "none"}}>
+              <select className="sel" value={row.e} onChange={e=>upd(i,"e",e.target.value)} style={{width:"auto",fontSize:14,fontWeight:600,color:sc(row.e),padding:"4px 0", borderBottom: "none"}}>
                 <option>OK</option><option>Atención</option><option>Service Pendiente</option>
               </select>
             </td>
-            <td style={{padding:"16px 0"}}><input className="inp" value={row.o} onChange={e=>upd(i,"o",e.target.value)} style={{fontSize:13,color:"var(--t2)", borderBottom: "none"}} placeholder="Sin observaciones"/></td>
+            <td style={{padding:"16px 0"}}><input className="inp" value={row.o} onChange={e=>upd(i,"o",e.target.value)} style={{fontSize:14,color:"var(--t2)", borderBottom: "none"}} placeholder="Sin observaciones"/></td>
           </tr>
         ))}</tbody>
       </table>
-      <button onClick={save} style={{padding:"12px 24px",borderRadius:"4px",background:saved?"var(--ok2)":"transparent",border:`1px solid ${saved?"rgba(16,185,129,.4)":"var(--e2)"}`,color:saved?"var(--ok)":"var(--t1)",fontFamily:"var(--cond)",fontWeight:700,fontSize:10,letterSpacing:".2em",textTransform:"uppercase",cursor:"pointer",transition:"all .3s",display:"inline-flex",alignItems:"center",gap:8}}>
+      <button onClick={save} style={{padding:"12px 24px",borderRadius:"4px",background:saved?"var(--ok2)":"transparent",border:`1px solid ${saved?"rgba(16,185,129,.4)":"var(--e2)"}`,color:saved?"var(--ok)":"var(--t1)",fontFamily:"var(--cond)",fontWeight:700,fontSize:11,letterSpacing:".12em",textTransform:"uppercase",cursor:"pointer",transition:"all .3s",display:"inline-flex",alignItems:"center",gap:8}}>
         {saved?<><Check size={12}/>GUARDADO</>:<><RefreshCw size={12}/>GUARDAR</>}
       </button>
     </div>
@@ -1866,17 +1866,17 @@ function SecPlanificador({mc}){
             <Cap sm style={{color:"var(--accent)",display:"block",marginBottom:14}}>Autonomía Estimada</Cap>
             <div style={{display:"flex",alignItems:"baseline",gap:16}}>
               <span style={{fontFamily:"var(--mono)",fontSize:48,color:"var(--t1)",fontWeight:700,lineHeight:1}}>{hrs}</span>
-              <span style={{fontFamily:"var(--cond)",fontSize:13,fontWeight:700,color:"var(--t3)",letterSpacing:".15em"}}>HORAS</span>
+              <span style={{fontFamily:"var(--cond)",fontSize:14,fontWeight:700,color:"var(--t3)",letterSpacing:".15em"}}>HORAS</span>
               <span style={{color:"var(--e2)",fontSize:28,margin:"0 6px"}}>/</span>
               <span style={{fontFamily:"var(--mono)",fontSize:40,color:"var(--t1)",fontWeight:700}}>{nm}</span>
-              <span style={{fontFamily:"var(--cond)",fontSize:13,fontWeight:700,color:"var(--t3)",letterSpacing:".15em"}}>NM</span>
+              <span style={{fontFamily:"var(--cond)",fontSize:14,fontWeight:700,color:"var(--t3)",letterSpacing:".15em"}}>NM</span>
             </div>
           </div>
         </div>
         <div className="card" style={{padding:"40px 32px"}}>
           <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:16}}>
             <div style={{display:"flex",alignItems:"center",gap:10}}><Navigation size={16} color="var(--t3)"/><Cap>Protocolo Pre-Zarpe</Cap></div>
-            <span style={{fontFamily:"var(--mono)",fontSize:12,fontWeight:700,color:done===ITEMS.length?"var(--ok)":"var(--t3)"}}>{done}/{ITEMS.length}</span>
+            <span style={{fontFamily:"var(--mono)",fontSize:13,fontWeight:700,color:done===ITEMS.length?"var(--ok)":"var(--t3)"}}>{done}/{ITEMS.length}</span>
           </div>
           <div style={{marginBottom:28}}>
             <div className="pbar" style={{height:"4px"}}>
@@ -1885,7 +1885,7 @@ function SecPlanificador({mc}){
             <div style={{display:"flex",justifyContent:"space-between",marginTop:10}}>
               <Cap sm style={{color:done===ITEMS.length?"var(--ok)":undefined}}>{pDone}% completado</Cap>
               <button onClick={()=>{setChk(Object.fromEntries(ITEMS.map(c=>[c.id,false])));ITEMS.forEach(c=>ls("c_"+c.id,"false"))}}
-                style={{fontFamily:"var(--cond)",fontSize:9,fontWeight:800,letterSpacing:".15em",color:"var(--t3)",background:"transparent",border:"none",cursor:"pointer",textTransform:"uppercase",padding:0,display:"flex",alignItems:"center",gap:6}}>
+                style={{fontFamily:"var(--cond)",fontSize:10,fontWeight:800,letterSpacing:".15em",color:"var(--t3)",background:"transparent",border:"none",cursor:"pointer",textTransform:"uppercase",padding:0,display:"flex",alignItems:"center",gap:6}}>
                 <RotateCcw size={10}/>REINICIAR
               </button>
             </div>
@@ -1934,7 +1934,7 @@ function TableroFotos(){
     <div className="card" style={{padding:"32px"}}>
       <div style={{display:"flex",alignItems:"center",gap:10,marginBottom:16}}>
         <ImageIcon size={14} color="var(--t3)"/><Cap>Referencia Visual — Tableros y Paneles</Cap>
-        <span style={{marginLeft:"auto",fontFamily:"var(--mono)",fontSize:10,color:"var(--t3)"}}>{fotos.length} foto{fotos.length!==1?"s":""}</span>
+        <span style={{marginLeft:"auto",fontFamily:"var(--mono)",fontSize:11,color:"var(--t3)"}}>{fotos.length} foto{fotos.length!==1?"s":""}</span>
       </div>
       <p style={{color:"var(--t2)",fontSize:14,fontWeight:400,lineHeight:1.65,marginBottom:20}}>Fotos de tableros y paneles para referencia rápida. Solo en este dispositivo.</p>
       <div className="pgallery" style={{marginBottom:fotos.length?16:0}}>
@@ -1956,10 +1956,10 @@ function TableroFotos(){
           {uploading?<div className="shim" style={{width:32,height:32,borderRadius:"50%"}}/>:<><Upload size={18} color="var(--t3)"/><Cap sm>Agregar foto</Cap></>}
         </div>
       </div>
-      {fotos.length===0&&<p style={{fontFamily:"var(--mono)",fontSize:10,color:"var(--t3)",textAlign:"center",padding:"8px 0"}}>Sin fotos · no se sube ningún archivo a la nube</p>}
+      {fotos.length===0&&<p style={{fontFamily:"var(--mono)",fontSize:11,color:"var(--t3)",textAlign:"center",padding:"8px 0"}}>Sin fotos · no se sube ningún archivo a la nube</p>}
       {lb!==null&&(
         <div onClick={()=>setLb(null)} style={{position:"fixed",inset:0,background:"rgba(2,6,23,.96)",zIndex:99999,display:"flex",alignItems:"center",justifyContent:"center",padding:24,animation:"fade .2s both"}}>
-          <button onClick={()=>setLb(null)} style={{position:"absolute",top:24,right:24,background:"transparent",border:"1px solid var(--e2)",borderRadius:"6px",color:"var(--t2)",padding:"8px 16px",cursor:"pointer",fontFamily:"var(--cond)",fontSize:10,fontWeight:700,letterSpacing:".15em",display:"flex",gap:8,alignItems:"center"}}><X size={14}/>CERRAR</button>
+          <button onClick={()=>setLb(null)} style={{position:"absolute",top:24,right:24,background:"transparent",border:"1px solid var(--e2)",borderRadius:"6px",color:"var(--t2)",padding:"8px 16px",cursor:"pointer",fontFamily:"var(--cond)",fontSize:11,fontWeight:700,letterSpacing:".15em",display:"flex",gap:8,alignItems:"center"}}><X size={14}/>CERRAR</button>
           <img src={fotos[lb]?.url} alt="" style={{maxWidth:"100%",maxHeight:"90vh",objectFit:"contain",animation:"enter .3s var(--ez) both"}}/>
           {fotos.length>1&&<>
             <button onClick={e=>{e.stopPropagation();setLb(i=>(i-1+fotos.length)%fotos.length)}} style={{position:"absolute",left:24,top:"50%",transform:"translateY(-50%)",background:"rgba(255,255,255,.05)",border:"1px solid var(--e2)",borderRadius:"50%",color:"var(--t1)",width:48,height:48,cursor:"pointer",fontSize:20}}>‹</button>
@@ -1994,13 +1994,13 @@ function SecEnergia({mc}){
         <div style={{display:"flex",alignItems:"center",gap:10,marginBottom:24}}>
           <Zap size={16} color="var(--t3)"/><Cap>Diagrama de Fuentes — Flujo en Tiempo Real</Cap>
           <div style={{marginLeft:"auto",padding:"6px 14px",borderRadius:"4px",background:"var(--accent3)",border:"1px solid rgba(216,195,161,.2)"}}>
-            <span style={{fontFamily:"var(--mono)",fontSize:10,color:"var(--accent)",fontWeight:700,letterSpacing:".1em"}}>
+            <span style={{fontFamily:"var(--mono)",fontSize:11,color:"var(--accent)",fontWeight:700,letterSpacing:".1em"}}>
               ACTIVO: {tab==="puerto"?"SHORE 220V":tab==="grupo"?"GENERADOR":"INVERTER"}
             </span>
           </div>
         </div>
         <AnimatedPowerFlowDiagram active={tab}/>
-        <p style={{fontFamily:"var(--mono)",fontSize:10,color:"var(--t3)",textAlign:"center",marginTop:16,letterSpacing:".06em",opacity:.8}}>
+        <p style={{fontFamily:"var(--mono)",fontSize:11,color:"var(--t3)",textAlign:"center",marginTop:16,letterSpacing:".06em",opacity:.8}}>
           Los puntos animados representan flujo de energía activo hacia las cargas
         </p>
       </div>
@@ -2014,7 +2014,7 @@ function SecEnergia({mc}){
           </div>
           <div style={{padding:"16px 20px",borderRadius:"6px",background:"var(--err2)",border:"1px solid rgba(239,68,68,.2)",marginBottom:10}}>
             <Cap sm style={{color:"rgba(239,68,68,0.8)",display:"block",marginBottom:8}}>IMPORTANTE</Cap>
-            <p style={{color:"#FCA5A5",fontSize:13,fontWeight:400,lineHeight:1.7}}>
+            <p style={{color:"#FCA5A5",fontSize:14,fontWeight:400,lineHeight:1.7}}>
               El switch <strong style={{fontWeight:700,color:"var(--err)"}}>PARALLEL</strong> une ambos bancos. Úselo SOLO en emergencia para arrancar motores.
             </p>
           </div>
@@ -2070,7 +2070,7 @@ function SecPropulsion({mc}){
           <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:24}}>
             <div style={{display:"flex",alignItems:"center",gap:10}}><Power size={16} color="var(--t3)"/><Cap>Secuencia de Arranque</Cap></div>
             <div style={{display:"flex",gap:12,alignItems:"center"}}>
-              <span style={{fontFamily:"var(--mono)",fontSize:12,fontWeight:700,color:done===steps.length?"var(--ok)":"var(--t3)"}}>{done}/{steps.length}</span>
+              <span style={{fontFamily:"var(--mono)",fontSize:13,fontWeight:700,color:done===steps.length?"var(--ok)":"var(--t3)"}}>{done}/{steps.length}</span>
               <button onClick={()=>setChk({})} style={{background:"transparent",border:"none",cursor:"pointer",color:"var(--t3)",display:"flex",padding:0}}><RotateCcw size={14}/></button>
             </div>
           </div>
@@ -2087,7 +2087,7 @@ function SecPropulsion({mc}){
                   </div>
                   <div style={{paddingTop:2}}>
                     <p style={{color:s.hl&&!on?"var(--warn)":on?"var(--t2)":"var(--t1)",fontSize:15,fontWeight:500,marginBottom:4,transition:"color .18s",textDecoration:on?"line-through":"none",textDecorationColor:"var(--t3)"}}>{s.t}</p>
-                    <p style={{color:"var(--t3)",fontSize:13,fontWeight:400,lineHeight:1.6}}>{s.d}</p>
+                    <p style={{color:"var(--t3)",fontSize:14,fontWeight:400,lineHeight:1.6}}>{s.d}</p>
                   </div>
                 </div>
               );
@@ -2102,8 +2102,8 @@ function SecPropulsion({mc}){
               <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:16}}>
                 {[{c:"var(--info)",t:"Tomar Mando",d:"Neutral · COMMAND 1.5s"},{c:"var(--warn)",t:"Calentamiento",d:"WARM 1.5s · luz parpadea"},{c:"#A78BFA",t:"Sincronizar",d:"ENGINE 1.5s · una palanca"},{c:"var(--err)",t:"Falla Electrónica",d:"Override → mecánico"}].map(item=>(
                   <div key={item.t} style={{padding:"18px 16px",borderRadius:"6px",borderLeft:`3px solid ${item.c}60`,background:`${item.c}10`}}>
-                    <p style={{fontFamily:"var(--cond)",fontSize:10,fontWeight:800,letterSpacing:".15em",color:item.c,textTransform:"uppercase",marginBottom:8}}>{item.t}</p>
-                    <p style={{color:"var(--t1)",fontSize:13,lineHeight:1.6,fontWeight:400}}>{item.d}</p>
+                    <p style={{fontFamily:"var(--cond)",fontSize:11,fontWeight:800,letterSpacing:".15em",color:item.c,textTransform:"uppercase",marginBottom:8}}>{item.t}</p>
+                    <p style={{color:"var(--t1)",fontSize:14,lineHeight:1.6,fontWeight:400}}>{item.d}</p>
                   </div>
                 ))}
               </div>
@@ -2115,13 +2115,13 @@ function SecPropulsion({mc}){
             </div>
             <p style={{color:"var(--t1)",fontSize:15,fontWeight:400,lineHeight:1.8,marginBottom:16}}>Use siempre la <strong style={{color:"var(--accent)",fontWeight:700}}>LLAVE DE CONTACTO</strong>. Deje enfriar 5 minutos antes de apagar el panel principal.</p>
             <div style={{padding:"16px 20px",borderRadius:"6px",borderLeft:"3px solid rgba(239,68,68,.5)",background:"var(--err2)"}}>
-              <p style={{color:"#FCA5A5",fontSize:13,fontWeight:400,lineHeight:1.7}}>El botón <strong style={{fontWeight:700}}>STOP ROJO</strong> es solo para emergencias absolutas. Usarlo habitualmente daña el sistema de inyección.</p>
+              <p style={{color:"#FCA5A5",fontSize:14,fontWeight:400,lineHeight:1.7}}>El botón <strong style={{fontWeight:700}}>STOP ROJO</strong> es solo para emergencias absolutas. Usarlo habitualmente daña el sistema de inyección.</p>
             </div>
           </div>
           <div className="card" style={{padding:"28px 32px",display:"flex",alignItems:"center",justifyContent:"space-between",gap:20}}>
             <div>
               <p style={{color:"var(--t1)",fontSize:16,fontWeight:600,marginBottom:6}}>Hélice de Proa (Bow Thruster)</p>
-              <p style={{color:"var(--t3)",fontSize:13,fontWeight:400,lineHeight:1.6}}>Máximo 30 segundos continuos · Pausa 2 minutos mínimo · Solo en maniobras, no navegando.</p>
+              <p style={{color:"var(--t3)",fontSize:14,fontWeight:400,lineHeight:1.6}}>Máximo 30 segundos continuos · Pausa 2 minutos mínimo · Solo en maniobras, no navegando.</p>
             </div>
             <div style={{width:52,height:52,borderRadius:"8px",border:"1px solid var(--e2)",display:"flex",alignItems:"center",justifyContent:"center",background:"var(--s2)",flexShrink:0}}>
               <Compass size={24} color="var(--t3)"/>
@@ -2149,7 +2149,7 @@ function SecSistemas({mc}){
           <TankBar label="AGUA POTABLE" liters={ac} maxL={ac} color="var(--info)" icon={<Droplets size={24}/>}/>
           {ta&&<TankBar label="AGUAS NEGRAS" liters={0} maxL={200} color="var(--t3)" icon={<Activity size={24}/>}/>}
         </div>
-        <p style={{color:"var(--t3)",fontSize:13,fontWeight:400,lineHeight:1.65,textAlign:"center",marginTop:32}}>Los valores de capacidad son de referencia. El nivel real se lee en los sensores del tablero de navegación.</p>
+        <p style={{color:"var(--t3)",fontSize:14,fontWeight:400,lineHeight:1.65,textAlign:"center",marginTop:32}}>Los valores de capacidad son de referencia. El nivel real se lee en los sensores del tablero de navegación.</p>
       </div>
       <div className="card" style={{marginBottom:16,overflow:"hidden"}}>
         <div style={{padding:"24px 32px",borderBottom:"1px solid var(--e1)",display:"flex",alignItems:"center",gap:12,background:"rgba(216,195,161,0.05)"}}>
@@ -2161,17 +2161,17 @@ function SecSistemas({mc}){
         </div>
         <div style={{padding:"36px",display:"grid",gridTemplateColumns:"repeat(auto-fit,minmax(320px,1fr))",gap:32}}>
           <div>
-            <p style={{fontFamily:"var(--cond)",fontSize:12,fontWeight:800,letterSpacing:".2em",color:"var(--ok)",textTransform:"uppercase",marginBottom:20}}>Antes de Usar</p>
+            <p style={{fontFamily:"var(--cond)",fontSize:13,fontWeight:800,letterSpacing:".12em",color:"var(--ok)",textTransform:"uppercase",marginBottom:20}}>Antes de Usar</p>
             {["Motor/es ENCENDIDOS — el malacate consume 600-800A y agota las baterías en segundos si no hay carga.","Verificar que la cadena esté bien guiada en el hawse pipe (guía). Jamás operar con la cadena torcida.","Asegurarse de que nadie esté parado sobre la cadena ni cerca del ancla.","En maniobra de fondeo: navegar a 0-1 kn sobre el punto elegido, no dejar caer el ancla desde velocidad."].map((t,i)=>(
               <div key={i} className="step"><span className="step-n">0{i+1}</span><p style={{color:"var(--t1)",fontSize:14,lineHeight:1.72,fontWeight:400}}>{t}</p></div>
             ))}
           </div>
           <div>
-            <p style={{fontFamily:"var(--cond)",fontSize:12,fontWeight:800,letterSpacing:".2em",color:"var(--err)",textTransform:"uppercase",marginBottom:20}}>Errores Frecuentes</p>
+            <p style={{fontFamily:"var(--cond)",fontSize:13,fontWeight:800,letterSpacing:".12em",color:"var(--err)",textTransform:"uppercase",marginBottom:20}}>Errores Frecuentes</p>
             {[{e:"Usar el malacate para 'arrancar' el ancla trabada",s:"Girar el barco con el motor para liberarla, nunca forzar el malacate."},{e:"Correr el malacate sin parar más de 30 seg",s:"El motor se calienta. Pausas de 2 min cada 30 seg de uso continuo."},{e:"Usar con motores apagados",s:"Las baterías de servicio no toleran la descarga. Siempre con motores en marcha."},{e:"Subir el ancla a máxima velocidad desde mucha profundidad",s:"Use velocidad media y limpie la cadena con el manguerón mientras sube."}].map((item,i)=>(
               <div key={i} style={{padding:"16px 0",borderBottom:"1px solid rgba(255,255,255,.05)"}}>
                 <p style={{color:"var(--err)",fontSize:14,fontWeight:600,marginBottom:6,opacity:.9}}>✕ {item.e}</p>
-                <p style={{color:"var(--t2)",fontSize:13,fontWeight:400,lineHeight:1.6,paddingLeft:20}}>→ {item.s}</p>
+                <p style={{color:"var(--t2)",fontSize:14,fontWeight:400,lineHeight:1.6,paddingLeft:20}}>→ {item.s}</p>
               </div>
             ))}
           </div>
@@ -2186,7 +2186,7 @@ function SecSistemas({mc}){
               <div>
                 <p style={{color:"var(--t1)",fontSize:15,fontWeight:600,marginBottom:12}}>{row.t}</p>
                 <div style={{display:"flex",flexWrap:"wrap",gap:8}}>
-                  {row.items.map(i=><span key={i} style={{padding:"6px 12px",borderRadius:"4px",border:"1px solid var(--e2)",fontSize:12,color:"var(--t2)", fontWeight:500}}>{i}</span>)}
+                  {row.items.map(i=><span key={i} style={{padding:"6px 12px",borderRadius:"4px",border:"1px solid var(--e2)",fontSize:13,color:"var(--t2)", fontWeight:500}}>{i}</span>)}
                 </div>
               </div>
             </div>
@@ -2195,7 +2195,7 @@ function SecSistemas({mc}){
         <div className="card" style={{padding:"36px 32px"}}>
           <div style={{display:"flex",alignItems:"center",gap:10,marginBottom:24}}><Activity size={16} color="var(--t3)"/><Cap>Bombas y Equipos Críticos</Cap></div>
           {[{t:"Bomba de Achique (Bilge)",d:"Automática. Si se activa frecuentemente hay filtración — reportar inmediatamente."},{t:"Bomba de Agua Potable",d:"Activación constante = pérdida de presión. Revisar grifería. Verificar acumulador de presión."},{t:"Intercambiadores de Calor",d:"El escape debe expulsar agua salada continuamente. Chorro cortado = sobrecalentamiento inminente."},{t:"Macerador de Aguas Negras",d:"No verter papel ni toallitas. Solo papel higiénico de marca autorizada para embarcaciones."}].map((item,i)=>(
-            <div key={i} className="step"><span className="step-n">0{i+1}</span><div><p style={{color:"var(--t1)",fontSize:15,fontWeight:600,marginBottom:4}}>{item.t}</p><p style={{color:"var(--t3)",fontSize:13,fontWeight:400,lineHeight:1.7}}>{item.d}</p></div></div>
+            <div key={i} className="step"><span className="step-n">0{i+1}</span><div><p style={{color:"var(--t1)",fontSize:15,fontWeight:600,marginBottom:4}}>{item.t}</p><p style={{color:"var(--t3)",fontSize:14,fontWeight:400,lineHeight:1.7}}>{item.d}</p></div></div>
           ))}
         </div>
       </div>
@@ -2220,11 +2220,11 @@ function SecSeguridad({onEmergency}){
           <Radio size={18} color="var(--err)"/>
         </div>
         <div style={{flex:1}}>
-          <p style={{fontFamily:"var(--cond)",fontSize:13,fontWeight:800,letterSpacing:".25em",color:"var(--err)",textTransform:"uppercase",marginBottom:4}}>Emergencia — MAYDAY</p>
-          <p style={{fontFamily:"var(--mono)",fontSize:11,color:"rgba(239,68,68,0.8)",letterSpacing:".06em",lineHeight:1.6}}>VHF Canal 16 · Prefectura Naval Argentina: 106 · Guardia Costera: 0800-666-3500</p>
+          <p style={{fontFamily:"var(--cond)",fontSize:14,fontWeight:800,letterSpacing:".13em",color:"var(--err)",textTransform:"uppercase",marginBottom:4}}>Emergencia — MAYDAY</p>
+          <p style={{fontFamily:"var(--mono)",fontSize:12,color:"rgba(239,68,68,0.8)",letterSpacing:".06em",lineHeight:1.6}}>VHF Canal 16 · Prefectura Naval Argentina: 106 · Guardia Costera: 0800-666-3500</p>
         </div>
         <button onClick={onEmergency}
-          style={{padding:"12px 24px",borderRadius:"4px",background:"rgba(239,68,68,0.15)",border:"1px solid rgba(239,68,68,0.5)",color:"var(--err)",fontFamily:"var(--cond)",fontWeight:800,fontSize:10,letterSpacing:".2em",textTransform:"uppercase",cursor:"pointer",whiteSpace:"nowrap",display:"flex",alignItems:"center",gap:10,transition:"all .2s",flexShrink:0}}
+          style={{padding:"12px 24px",borderRadius:"4px",background:"rgba(239,68,68,0.15)",border:"1px solid rgba(239,68,68,0.5)",color:"var(--err)",fontFamily:"var(--cond)",fontWeight:800,fontSize:11,letterSpacing:".12em",textTransform:"uppercase",cursor:"pointer",whiteSpace:"nowrap",display:"flex",alignItems:"center",gap:10,transition:"all .2s",flexShrink:0}}
           onMouseEnter={e=>e.currentTarget.style.background="rgba(239,68,68,0.25)"}
           onMouseLeave={e=>e.currentTarget.style.background="rgba(239,68,68,0.15)"}>
           <div style={{width:6,height:6,borderRadius:"50%",background:"var(--err)",animation:"pulse .8s ease-in-out infinite"}}/>
@@ -2254,7 +2254,7 @@ function SecSeguridad({onEmergency}){
           <details key={d.t} style={{borderBottom:"1px solid rgba(255,255,255,.05)"}}>
             <summary style={{display:"flex",justifyContent:"space-between",alignItems:"center",padding:"20px 0"}}>
               <div style={{display:"flex",alignItems:"center",gap:16}}>
-                <span style={{fontFamily:"var(--mono)",fontSize:11,color:"var(--accent)",opacity:.6,letterSpacing:".04em", fontWeight:700}}>0{i+1}</span>
+                <span style={{fontFamily:"var(--mono)",fontSize:12,color:"var(--accent)",opacity:.6,letterSpacing:".04em", fontWeight:700}}>0{i+1}</span>
                 <span style={{color:"var(--t1)",fontSize:15,fontWeight:500}}>{d.t}</span>
               </div>
               <i className="arr"><ChevronRight size={16}/></i>
@@ -2307,11 +2307,11 @@ function SecTutoriales(){
       <div style={{display:"flex",gap:8,marginBottom:24,flexWrap:"wrap",alignItems:"center"}}>
         {cats.map(c=>(
           <button key={c} onClick={()=>setFilter(c)}
-            style={{padding:"10px 20px",borderRadius:"4px",background:filter===c?"var(--s2)":"var(--s1)",border:`1px solid ${filter===c?"rgba(216,195,161,.4)":"var(--e1)"}`,cursor:"pointer",fontFamily:"var(--cond)",fontSize:11,fontWeight:800,letterSpacing:".2em",color:filter===c?"var(--accent)":"var(--t3)",textTransform:"uppercase",transition:"all .18s"}}>
+            style={{padding:"10px 20px",borderRadius:"4px",background:filter===c?"var(--s2)":"var(--s1)",border:`1px solid ${filter===c?"rgba(216,195,161,.4)":"var(--e1)"}`,cursor:"pointer",fontFamily:"var(--cond)",fontSize:12,fontWeight:800,letterSpacing:".12em",color:filter===c?"var(--accent)":"var(--t3)",textTransform:"uppercase",transition:"all .18s"}}>
             {c}
           </button>
         ))}
-        <span style={{marginLeft:"auto",fontFamily:"var(--mono)",fontSize:10,color:"var(--t3)",letterSpacing:".08em", fontWeight:700}}>{filtered.length} videos</span>
+        <span style={{marginLeft:"auto",fontFamily:"var(--mono)",fontSize:11,color:"var(--t3)",letterSpacing:".08em", fontWeight:700}}>{filtered.length} videos</span>
       </div>
       <div className="stg" style={{display:"grid",gridTemplateColumns:"repeat(auto-fill,minmax(340px,1fr))",gap:16}}>
         {filtered.map((v,i)=>{
@@ -2328,17 +2328,17 @@ function SecTutoriales(){
               <div className="vcard-play"><Play size={24} color="rgba(216,195,161,.9)"/></div>
               <div style={{position:"absolute",top:0,left:0,right:0,padding:"18px",display:"flex",justifyContent:"space-between",alignItems:"flex-start"}}>
                 <div style={{padding:"4px 12px",borderRadius:"4px",background:"rgba(2,6,23,.85)",border:`1px solid ${color}40`,backdropFilter:"blur(12px)"}}>
-                  <span style={{fontFamily:"var(--cond)",fontSize:10,fontWeight:800,color,letterSpacing:".15em"}}>{v.c.toUpperCase()}</span>
+                  <span style={{fontFamily:"var(--cond)",fontSize:11,fontWeight:800,color,letterSpacing:".15em"}}>{v.c.toUpperCase()}</span>
                 </div>
-                <span style={{fontFamily:"var(--mono)",fontSize:9,color:"rgba(255,255,255,0.4)",letterSpacing:".1em", fontWeight:700}}>{v.ref}</span>
+                <span style={{fontFamily:"var(--mono)",fontSize:10,color:"rgba(255,255,255,0.4)",letterSpacing:".1em", fontWeight:700}}>{v.ref}</span>
               </div>
               <div style={{position:"absolute",bottom:0,left:0,right:0,padding:"24px"}}>
                 <div style={{display:"flex",gap:10,alignItems:"center",marginBottom:12}}>
                   <div style={{height:2,flex:1,background:`linear-gradient(90deg,${color}60,transparent)`}}/>
-                  <span style={{fontFamily:"var(--mono)",fontSize:10,color:"rgba(255,255,255,0.4)",letterSpacing:".08em", fontWeight:700}}>{pad(i+1)}/{pad(V.length)}</span>
+                  <span style={{fontFamily:"var(--mono)",fontSize:11,color:"rgba(255,255,255,0.4)",letterSpacing:".08em", fontWeight:700}}>{pad(i+1)}/{pad(V.length)}</span>
                 </div>
                 <p style={{fontFamily:"var(--serif)",color:"var(--t1)",fontSize:22,fontWeight:600,marginBottom:6,lineHeight:1.2}}>{v.t}</p>
-                <p style={{fontFamily:"var(--body)",color:"var(--t2)",fontSize:13,fontWeight:400}}>{v.d}</p>
+                <p style={{fontFamily:"var(--body)",color:"var(--t2)",fontSize:14,fontWeight:400}}>{v.d}</p>
               </div>
             </div>
           );
@@ -2349,8 +2349,8 @@ function SecTutoriales(){
           style={{position:"fixed",inset:0,background:"rgba(2,6,23,.98)",backdropFilter:"blur(10px)",display:"flex",alignItems:"center",justifyContent:"center",zIndex:99999,padding:24,animation:"fade .25s both"}}>
           <div style={{width:"100%",maxWidth:1000,animation:"enter .35s var(--ez) both"}}>
             <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:16}}>
-              <span style={{fontFamily:"var(--mono)",fontSize:12,color:"var(--t2)",letterSpacing:".15em", fontWeight:700}}>{V.find(x=>x.id===vid)?.ref}</span>
-              <button onClick={()=>setVid(null)} style={{background:"rgba(255,255,255,0.05)",border:"1px solid var(--e2)",borderRadius:"6px",color:"var(--t1)",padding:"10px 24px",cursor:"pointer",fontFamily:"var(--cond)",fontSize:11,fontWeight:800,letterSpacing:".2em",textTransform:"uppercase",display:"flex",alignItems:"center",gap:10}}>
+              <span style={{fontFamily:"var(--mono)",fontSize:13,color:"var(--t2)",letterSpacing:".15em", fontWeight:700}}>{V.find(x=>x.id===vid)?.ref}</span>
+              <button onClick={()=>setVid(null)} style={{background:"rgba(255,255,255,0.05)",border:"1px solid var(--e2)",borderRadius:"6px",color:"var(--t1)",padding:"10px 24px",cursor:"pointer",fontFamily:"var(--cond)",fontSize:12,fontWeight:800,letterSpacing:".12em",textTransform:"uppercase",display:"flex",alignItems:"center",gap:10}}>
                 <X size={14}/> CERRAR
               </button>
             </div>
@@ -2427,7 +2427,7 @@ function SecSoporte({clienteId,nombreBarco,push}){
               </div>
               <p style={{fontFamily:"var(--serif)",fontSize:32,fontWeight:600,color:"var(--t1)",marginBottom:12}}>Enviado</p>
               <p style={{color:"var(--t3)",fontSize:14,lineHeight:1.85,fontWeight:400}}>Nuestro equipo revisará su reporte y se contactará por WhatsApp.</p>
-              <button onClick={()=>setDone(false)} style={{marginTop:24,padding:"12px 24px",borderRadius:"4px",background:"var(--s1)",border:"1px solid var(--e2)",color:"var(--t1)",fontFamily:"var(--cond)",fontSize:11,fontWeight:800,letterSpacing:".2em",textTransform:"uppercase",cursor:"pointer"}}>NUEVO REPORTE</button>
+              <button onClick={()=>setDone(false)} style={{marginTop:24,padding:"12px 24px",borderRadius:"4px",background:"var(--s1)",border:"1px solid var(--e2)",color:"var(--t1)",fontFamily:"var(--cond)",fontSize:12,fontWeight:800,letterSpacing:".12em",textTransform:"uppercase",cursor:"pointer"}}>NUEVO REPORTE</button>
             </div>
           ):(
             <>
@@ -2438,7 +2438,7 @@ function SecSoporte({clienteId,nombreBarco,push}){
               <div style={{marginBottom:32}}>
                 <div style={{display:"flex",alignItems:"center",gap:8,marginBottom:12}}>
                   <Paperclip size={12} color="var(--t3)"/><Lbl style={{marginBottom:0}}>Fotos / Videos</Lbl>
-                  {archivos.length>0&&<span style={{marginLeft:"auto",fontFamily:"var(--mono)",fontSize:10,color:"var(--t3)", fontWeight:700}}>{archivos.length} arch.</span>}
+                  {archivos.length>0&&<span style={{marginLeft:"auto",fontFamily:"var(--mono)",fontSize:11,color:"var(--t3)", fontWeight:700}}>{archivos.length} arch.</span>}
                 </div>
                 {archivos.length>0&&(
                   <div style={{display:"flex",flexDirection:"column",gap:8,marginBottom:16}}>
@@ -2446,8 +2446,8 @@ function SecSoporte({clienteId,nombreBarco,push}){
                       <div key={a.id} style={{display:"flex",alignItems:"center",gap:12,padding:"10px 14px",borderRadius:"6px",background:"var(--s2)",border:"1px solid var(--e1)"}}>
                         {a.type.startsWith("image/")?<img src={a.url} alt="" style={{width:40,height:40,objectFit:"cover",borderRadius:"4px"}}/>:<div style={{width:40,height:40,background:"var(--s3)",borderRadius:"4px",display:"flex",alignItems:"center",justifyContent:"center"}}><Play size={16} color="var(--t1)"/></div>}
                         <div style={{flex:1,minWidth:0}}>
-                          <p style={{fontSize:13,color:"var(--t1)",fontWeight:500,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap",marginBottom:2}}>{a.name}</p>
-                          <p style={{fontFamily:"var(--mono)",fontSize:10,color:"var(--t3)"}}>{fmtSize(a.size)}</p>
+                          <p style={{fontSize:14,color:"var(--t1)",fontWeight:500,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap",marginBottom:2}}>{a.name}</p>
+                          <p style={{fontFamily:"var(--mono)",fontSize:11,color:"var(--t3)"}}>{fmtSize(a.size)}</p>
                         </div>
                         <button onClick={()=>removeFile(a.id)} style={{background:"transparent",border:"none",cursor:"pointer",color:"var(--t3)",display:"flex",padding:6,transition:"color .18s"}}
                           onMouseEnter={e=>e.currentTarget.style.color="var(--err)"} onMouseLeave={e=>e.currentTarget.style.color="var(--t3)"}><Trash2 size={14}/></button>
@@ -2461,11 +2461,11 @@ function SecSoporte({clienteId,nombreBarco,push}){
                   onClick={()=>inputRef.current?.click()} style={{borderRadius:"6px"}}>
                   <input ref={inputRef} type="file" accept="image/*,video/*" multiple style={{display:"none"}} onChange={e=>handleFiles(e.target.files)}/>
                   <Upload size={20} color="var(--t3)" style={{margin:"0 auto 10px",display:"block"}}/>
-                  <p style={{fontFamily:"var(--body)",fontSize:13,color:"var(--t3)",fontWeight:400}}>Arrastrá o hacé clic para adjuntar</p>
+                  <p style={{fontFamily:"var(--body)",fontSize:14,color:"var(--t3)",fontWeight:400}}>Arrastrá o hacé clic para adjuntar</p>
                 </div>
               </div>
               <button onClick={submit} disabled={send}
-                style={{width:"100%",padding:"18px",borderRadius:"6px",background:send?"rgba(216,195,161,.05)":"var(--accent)",border:`1px solid ${send?"rgba(216,195,161,.2)":"var(--accent)"}`,color:send?"var(--accent)":"#020617",fontFamily:"var(--cond)",fontWeight:800,fontSize:11,letterSpacing:".25em",textTransform:"uppercase",cursor:send?"not-allowed":"pointer",transition:"all .25s",display:"flex",alignItems:"center",justifyContent:"center",gap:10,opacity:send?.7:1}}>
+                style={{width:"100%",padding:"18px",borderRadius:"6px",background:send?"rgba(216,195,161,.05)":"var(--accent)",border:`1px solid ${send?"rgba(216,195,161,.2)":"var(--accent)"}`,color:send?"var(--accent)":"#020617",fontFamily:"var(--cond)",fontWeight:800,fontSize:12,letterSpacing:".13em",textTransform:"uppercase",cursor:send?"not-allowed":"pointer",transition:"all .25s",display:"flex",alignItems:"center",justifyContent:"center",gap:10,opacity:send?.7:1}}>
                 {send?"ENVIANDO…":"ENVIAR REPORTE"}
               </button>
             </>
@@ -2479,7 +2479,7 @@ function SecSoporte({clienteId,nombreBarco,push}){
           {load?(
             <div style={{display:"flex",flexDirection:"column",gap:12}}>{[1,2,3].map(i=><div key={i} className="shim" style={{height:70}}/>)}</div>
           ):(tks||[]).length===0?(
-            <div style={{textAlign:"center",padding:"56px 20px"}}><p style={{fontFamily:"var(--mono)",fontSize:11,fontWeight:700,color:"var(--t3)",letterSpacing:".15em"}}>SIN REPORTES PREVIOS</p></div>
+            <div style={{textAlign:"center",padding:"56px 20px"}}><p style={{fontFamily:"var(--mono)",fontSize:12,fontWeight:700,color:"var(--t3)",letterSpacing:".15em"}}>SIN REPORTES PREVIOS</p></div>
           ):(
             (tks||[]).map(t=>(
               <div key={t.id} style={{padding:"20px 0",borderBottom:"1px solid rgba(255,255,255,.05)"}}>
@@ -2487,7 +2487,7 @@ function SecSoporte({clienteId,nombreBarco,push}){
                   <p style={{color:"var(--t1)",fontSize:15,fontWeight:600,flex:1}}>{t.area}</p>
                   <SBadge estado={t.estado}/>
                 </div>
-                <p style={{color:"var(--t3)",fontSize:13,fontWeight:400,lineHeight:1.7,marginBottom:12}}>{t.descripcion?.slice(0,140)}{t.descripcion?.length>140?"…":""}</p>
+                <p style={{color:"var(--t3)",fontSize:14,fontWeight:400,lineHeight:1.7,marginBottom:12}}>{t.descripcion?.slice(0,140)}{t.descripcion?.length>140?"…":""}</p>
                 {t.adjuntos?.length>0&&(
                   <div style={{display:"flex",gap:8,flexWrap:"wrap",marginBottom:12}}>
                     {t.adjuntos.map((url,i)=>(
@@ -2498,13 +2498,13 @@ function SecSoporte({clienteId,nombreBarco,push}){
                   </div>
                 )}
                 <div style={{display:"flex",justifyContent:"space-between",alignItems:"center"}}>
-                  <span style={{fontFamily:"var(--mono)",fontSize:9,color:"var(--t3)",letterSpacing:".04em", fontWeight:700}}>{new Date(t.fecha_creacion).toLocaleDateString("es-AR",{day:"2-digit",month:"short",year:"numeric"})}</span>
-                  {t.adjuntos?.length>0&&<span style={{fontFamily:"var(--mono)",fontSize:9,color:"var(--t3)", fontWeight:700}}>{t.adjuntos.length} adjunto{t.adjuntos.length>1?"s":""}</span>}
+                  <span style={{fontFamily:"var(--mono)",fontSize:10,color:"var(--t3)",letterSpacing:".04em", fontWeight:700}}>{new Date(t.fecha_creacion).toLocaleDateString("es-AR",{day:"2-digit",month:"short",year:"numeric"})}</span>
+                  {t.adjuntos?.length>0&&<span style={{fontFamily:"var(--mono)",fontSize:10,color:"var(--t3)", fontWeight:700}}>{t.adjuntos.length} adjunto{t.adjuntos.length>1?"s":""}</span>}
                 </div>
                 {t.seguimiento&&(
                   <div style={{marginTop:16,padding:"14px 18px",borderRadius:"6px",background:"var(--info2)",border:"1px solid rgba(59,130,246,.2)"}}>
                     <Cap sm style={{display:"block",marginBottom:6,color:"rgba(59,130,246,.8)"}}>Respuesta técnica</Cap>
-                    <p style={{fontSize:13,color:"#93C5FD",lineHeight:1.75,fontWeight:400}}>{t.seguimiento}</p>
+                    <p style={{fontSize:14,color:"#93C5FD",lineHeight:1.75,fontWeight:400}}>{t.seguimiento}</p>
                   </div>
                 )}
               </div>
@@ -2514,7 +2514,7 @@ function SecSoporte({clienteId,nombreBarco,push}){
       </div>
       {lb&&(
         <div onClick={()=>setLb(null)} style={{position:"fixed",inset:0,background:"rgba(2,6,23,.98)",backdropFilter:"blur(8px)",zIndex:99999,display:"flex",alignItems:"center",justifyContent:"center",padding:24,animation:"fade .2s both"}}>
-          <button onClick={()=>setLb(null)} style={{position:"absolute",top:24,right:24,background:"rgba(255,255,255,.05)",border:"1px solid var(--e2)",borderRadius:"6px",color:"var(--t1)",padding:"10px 20px",cursor:"pointer",fontFamily:"var(--cond)",fontSize:10,fontWeight:800,letterSpacing:".2em",display:"flex",gap:8,alignItems:"center"}}><X size={14}/>CERRAR</button>
+          <button onClick={()=>setLb(null)} style={{position:"absolute",top:24,right:24,background:"rgba(255,255,255,.05)",border:"1px solid var(--e2)",borderRadius:"6px",color:"var(--t1)",padding:"10px 20px",cursor:"pointer",fontFamily:"var(--cond)",fontSize:11,fontWeight:800,letterSpacing:".12em",display:"flex",gap:8,alignItems:"center"}}><X size={14}/>CERRAR</button>
           {lb.type?.startsWith("image/")?<img src={lb.url} alt="" style={{maxWidth:"92vw",maxHeight:"88vh",objectFit:"contain",animation:"enter .3s var(--ez) both"}}/>:<video src={lb.url} controls autoPlay style={{maxWidth:"92vw",maxHeight:"88vh",animation:"enter .3s var(--ez) both"}}/>}
         </div>
       )}
@@ -2662,7 +2662,7 @@ export default function ClientePanelScreen({session,onSignOut}){
           <circle cx="80" cy="80" r="4" fill="rgba(216,195,161,0.6)" style={{animation:"gPulse 1.4s ease-in-out infinite"}}/>
         </svg>
         <div style={{display:"flex",flexDirection:"column",alignItems:"center",gap:14,marginTop:28}}>
-          <span style={{fontFamily:"'Plus Jakarta Sans',sans-serif",fontSize:12,fontWeight:800,letterSpacing:".4em",color:"rgba(216,195,161,0.5)",textTransform:"uppercase"}}>KLASE A</span>
+          <span style={{fontFamily:"'Plus Jakarta Sans',sans-serif",fontSize:13,fontWeight:800,letterSpacing:".13em",color:"rgba(216,195,161,0.5)",textTransform:"uppercase"}}>KLASE A</span>
           <div style={{display:"flex",gap:6}}>
             {[0,.18,.36].map(d=><div key={d} style={{width:4,height:4,background:"rgba(216,195,161,0.4)",borderRadius:"50%",animation:`pulse 1.6s ${d}s ease-in-out infinite`}}/>)}
           </div>
@@ -2692,7 +2692,7 @@ export default function ClientePanelScreen({session,onSignOut}){
       <nav className="nav">
         <div className="nav-brand">
           <img src={logoK} alt="K" style={{width:24,height:24,objectFit:"contain",opacity:.8,flexShrink:0,filter:"grayscale(100%) brightness(2.5)"}}/>
-          <span style={{fontFamily:"var(--cond)",fontWeight:800,fontSize:12,letterSpacing:".35em",color:"rgba(255,255,255,0.9)",marginLeft:4}}>KLASE A</span>
+          <span style={{fontFamily:"var(--cond)",fontWeight:800,fontSize:13,letterSpacing:".13em",color:"rgba(255,255,255,0.9)",marginLeft:4}}>KLASE A</span>
         </div>
         <div className="nav-div"/>
         <div className="nav-items">
@@ -2705,11 +2705,11 @@ export default function ClientePanelScreen({session,onSignOut}){
         </div>
         <div className="nav-right">
           {cliente?.nombre_barco&&(
-            <span style={{fontFamily:"var(--mono)",fontSize:10,fontWeight:700,color:"var(--t2)",letterSpacing:".1em",whiteSpace:"nowrap"}}>{cliente.nombre_barco}</span>
+            <span style={{fontFamily:"var(--mono)",fontSize:11,fontWeight:700,color:"var(--t2)",letterSpacing:".1em",whiteSpace:"nowrap"}}>{cliente.nombre_barco}</span>
           )}
           <button onClick={()=>setSearchOpen(true)} title="Buscar en el panel"
             style={{background:"rgba(255,255,255,0.06)",border:"1px solid rgba(255,255,255,0.12)",borderRadius:"999px",color:"var(--t1)",
-              fontFamily:"var(--cond)",fontWeight:800,fontSize:10,letterSpacing:".18em",
+              fontFamily:"var(--cond)",fontWeight:800,fontSize:11,letterSpacing:".12em",
               textTransform:"uppercase",cursor:"pointer",padding:"9px 14px",
               display:"flex",alignItems:"center",gap:8,transition:"all .2s",flexShrink:0}}
             onMouseEnter={e=>{e.currentTarget.style.background="rgba(255,255,255,0.1)";e.currentTarget.style.borderColor="rgba(255,255,255,0.22)"}}
@@ -2718,7 +2718,7 @@ export default function ClientePanelScreen({session,onSignOut}){
           </button>
           <button onClick={()=>{setIntroDismissed(false);setIntroOpen(true)}} title="Volver a ver introduccion"
             style={{background:"rgba(216,195,161,0.08)",border:"1px solid rgba(216,195,161,0.24)",borderRadius:"4px",color:"var(--accent)",
-              fontFamily:"var(--cond)",fontWeight:800,fontSize:10,letterSpacing:".2em",
+              fontFamily:"var(--cond)",fontWeight:800,fontSize:11,letterSpacing:".12em",
               textTransform:"uppercase",cursor:"pointer",padding:"8px 14px",
               display:"flex",alignItems:"center",gap:8,transition:"all .2s",flexShrink:0}}
             onMouseEnter={e=>{e.currentTarget.style.background="rgba(216,195,161,0.16)";e.currentTarget.style.borderColor="rgba(216,195,161,0.45)"}}
@@ -2727,7 +2727,7 @@ export default function ClientePanelScreen({session,onSignOut}){
           </button>
           <button onClick={()=>setEmergMode(true)}
             style={{background:"transparent",border:"1px solid rgba(239,68,68,0.3)",borderRadius:"4px",color:"rgba(239,68,68,0.8)",
-              fontFamily:"var(--cond)",fontWeight:800,fontSize:10,letterSpacing:".2em",textTransform:"uppercase",
+              fontFamily:"var(--cond)",fontWeight:800,fontSize:11,letterSpacing:".12em",textTransform:"uppercase",
               cursor:"pointer",padding:"8px 16px",display:"flex",alignItems:"center",gap:8,transition:"all .2s",flexShrink:0}}
             onMouseEnter={e=>{e.currentTarget.style.background="rgba(239,68,68,0.1)";e.currentTarget.style.color="var(--err)"}}
             onMouseLeave={e=>{e.currentTarget.style.background="transparent";e.currentTarget.style.color="rgba(239,68,68,0.8)"}}>
@@ -2736,7 +2736,7 @@ export default function ClientePanelScreen({session,onSignOut}){
           </button>
           <button onClick={onSignOut}
             style={{background:"transparent",border:"1px solid var(--e2)",borderRadius:"4px",color:"var(--t2)",
-              fontFamily:"var(--cond)",fontWeight:800,fontSize:10,letterSpacing:".2em",
+              fontFamily:"var(--cond)",fontWeight:800,fontSize:11,letterSpacing:".12em",
               textTransform:"uppercase",cursor:"pointer",padding:"8px 16px",
               display:"flex",alignItems:"center",gap:8,transition:"all .2s",flexShrink:0}}
             onMouseEnter={e=>{e.currentTarget.style.background="var(--s2)";e.currentTarget.style.color="var(--t1)"}}
@@ -2764,7 +2764,7 @@ export default function ClientePanelScreen({session,onSignOut}){
           {NAV_ITEMS.map((item,i)=>(
             <button key={item.id} className={`mob-nv${sec===item.id?" on":""}`} onClick={()=>go(item.id)}>
               <span style={{color:sec===item.id?"var(--accent)":"var(--t3)",display:"flex"}}>{item.ico}</span>
-              <span style={{fontFamily:"var(--mono)",fontSize:10,color:"var(--t3)",opacity:.6,letterSpacing:".06em"}}>{pad(i+1)}</span>
+              <span style={{fontFamily:"var(--mono)",fontSize:11,color:"var(--t3)",opacity:.6,letterSpacing:".06em"}}>{pad(i+1)}</span>
               {item.l}
             </button>
           ))}

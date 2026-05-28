@@ -1,3 +1,5 @@
+import { C } from "@/theme";
+
 export function Skeleton({ width = "100%", height = 14, radius = 6, style }) {
   return (
     <span
@@ -6,7 +8,7 @@ export function Skeleton({ width = "100%", height = 14, radius = 6, style }) {
         display: "inline-block",
         width, height,
         borderRadius: radius,
-        background: "linear-gradient(90deg, rgba(255,255,255,0.045) 0%, rgba(255,255,255,0.09) 50%, rgba(255,255,255,0.045) 100%)",
+        background: `linear-gradient(90deg, ${C.panel} 0%, ${C.panel3} 50%, ${C.panel} 100%)`,
         backgroundSize: "200% 100%",
         animation: "sk-shimmer 1.3s linear infinite",
         ...style,
@@ -29,9 +31,9 @@ export function SkeletonStyles() {
 export function CardSkeleton() {
   return (
     <div style={{
-      border: "1px solid rgba(255,255,255,0.08)",
+      border: `1px solid ${C.border}`,
       borderRadius: 10,
-      background: "rgba(255,255,255,0.025)",
+      background: C.panel,
       padding: "12px 14px",
       display: "grid",
       gap: 8,
@@ -57,8 +59,8 @@ export function CardSkeleton() {
 export function RowSkeleton() {
   return (
     <div style={{
-      borderLeft: "3px solid rgba(255,255,255,0.08)",
-      background: "rgba(255,255,255,0.025)",
+      borderLeft: `3px solid ${C.border}`,
+      background: C.panel,
       borderRadius: 7,
       padding: "10px 13px",
       display: "grid",

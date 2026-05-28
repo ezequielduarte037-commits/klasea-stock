@@ -1,3 +1,4 @@
+import { C } from "@/theme";
 /**
  * ObrasHome.jsx — Landing de Obras
  * Cards estilo HomeScreen para navegar a cada vista de ObrasScreen.
@@ -7,16 +8,6 @@ import { useEffect, useRef, useState, useCallback } from "react";
 import { supabase } from "@/supabaseClient";
 import logoKlasea from "@/assets/logos/logo-klasea.png";
 import logoK      from "@/assets/logos/logo-k.png";
-
-const C = {
-  bg:   "#09090b",
-  b0:   "rgba(255,255,255,0.08)",
-  t0:   "#f4f4f5", t1:"#a1a1aa", t2:"#52525b",
-  sans: "'Outfit', system-ui, sans-serif",
-  mono: "'JetBrains Mono', monospace",
-  blue: "#3b82f6", cyan:"#22d3ee", green:"#10b981",
-  amber:"#f59e0b", red:"#ef4444",
-};
 
 // ─── VISTAS ──────────────────────────────────────────────────────
 const VISTAS = [
@@ -251,11 +242,11 @@ function Ring({ value, total, color, label, delay=0 }) {
             strokeDashoffset={anim?circ*(1-pct):circ}
             style={{transition:"stroke-dashoffset 1.4s cubic-bezier(0.22,1,0.36,1)",filter:`drop-shadow(0 0 4px ${color}88)`}}/>
         </svg>
-        <div style={{position:"absolute",inset:0,display:"flex",alignItems:"center",justifyContent:"center",fontFamily:C.mono,fontSize:12,fontWeight:700,color}}>
+        <div style={{position:"absolute",inset:0,display:"flex",alignItems:"center",justifyContent:"center",fontFamily:C.mono,fontSize:13,fontWeight:700,color}}>
           <AnimNum to={value} color={color}/>
         </div>
       </div>
-      <span style={{fontSize:8.5,color:C.t2,letterSpacing:2,textTransform:"uppercase",fontFamily:C.mono}}>{label}</span>
+      <span style={{fontSize:10,color:C.t2,letterSpacing:1.3,textTransform:"uppercase",fontFamily:C.mono}}>{label}</span>
     </div>
   );
 }
@@ -347,11 +338,11 @@ function Card({ vista, delay, onClick }) {
           <span style={{fontSize:14,fontWeight:700,letterSpacing:"0.2px",
             ...(hov?{background:`linear-gradient(90deg,#fff 0%,#fff 35%,${vista.color} 52%,#fff 68%,#fff 100%)`,
               backgroundSize:"200% auto",WebkitBackgroundClip:"text",WebkitTextFillColor:"transparent",
-              animation:"oh-labelShimmer 1.2s linear 0.08s 1 forwards"}:{color:"#f4f4f5"})}}>
+              animation:"oh-labelShimmer 1.2s linear 0.08s 1 forwards"}:{color:"var(--text)"})}}>
             {vista.label}
           </span>
         </div>
-        <div style={{fontSize:11,lineHeight:1.6,color:hov?"#9ca3af":"#52525b",transition:"color 0.2s",paddingRight:28}}>
+        <div style={{fontSize:12,lineHeight:1.6,color:hov?"#9ca3af":"var(--dim)",transition:"color 0.2s",paddingRight:28}}>
           {vista.desc}
         </div>
       </div>
@@ -377,12 +368,12 @@ function Ticker({ items }) {
       overflow:"hidden",display:"flex",alignItems:"center",
       background:"rgba(0,0,0,0.35)",backdropFilter:"blur(8px)"}}>
       <div style={{padding:"0 12px",borderRight:`1px solid rgba(255,255,255,0.08)`,height:"100%",display:"flex",alignItems:"center",flexShrink:0}}>
-        <span style={{fontSize:8,fontFamily:C.mono,color:C.t2,letterSpacing:2}}>LIVE</span>
+        <span style={{fontSize:10,fontFamily:C.mono,color:C.t2,letterSpacing:1.3}}>LIVE</span>
       </div>
       <div style={{overflow:"hidden",flex:1}}>
         <div style={{display:"flex",whiteSpace:"nowrap",animation:"oh-tickerScroll 32s linear infinite"}}>
           {[...items,...items].map((it,i)=>(
-            <span key={i} style={{display:"inline-flex",alignItems:"center",gap:7,fontFamily:C.mono,fontSize:9,color:C.t1,paddingRight:40}}>
+            <span key={i} style={{display:"inline-flex",alignItems:"center",gap:7,fontFamily:C.mono,fontSize:10,color:C.t1,paddingRight:40}}>
               <span style={{color:it.color,fontSize:5}}>◆</span>
               <span style={{color:C.t2}}>{it.label.toUpperCase()}</span>
               <span style={{color:it.color,fontWeight:700}}>{it.value}</span>
@@ -461,33 +452,33 @@ export default function ObrasHome({ obras: obrasProp, profile, onEnterMapa }) {
           position:"relative",zIndex:2,animation:"oh-headerIn 0.45s cubic-bezier(0.22,1,0.36,1) both"}}>
           <div style={{display:"flex",alignItems:"center",gap:8}}>
             <div style={{width:7,height:7,borderRadius:"50%",background:C.green,animation:"oh-pulseOnline 2.4s ease-out infinite"}}/>
-            <span style={{fontSize:9,color:C.t2,letterSpacing:2.5,textTransform:"uppercase",fontFamily:C.mono}}>Online</span>
+            <span style={{fontSize:10,color:C.t2,letterSpacing:1.3,textTransform:"uppercase",fontFamily:C.mono}}>Online</span>
           </div>
           {live.loaded&&(
             <div style={{display:"flex",alignItems:"center",gap:20}}>
               {[{v:live.activas,c:C.blue,l:"Activas"},{v:live.pausadas,c:C.amber,l:"Pausadas"},{v:live.terminadas,c:C.green,l:"Terminadas"}].map(k=>(
                 <div key={k.l} style={{display:"flex",alignItems:"center",gap:5}}>
                   <div style={{width:4,height:4,borderRadius:"50%",background:k.c,boxShadow:`0 0 7px ${k.c}`,animation:"oh-dotBeat 2.6s ease-in-out infinite"}}/>
-                  <span style={{fontFamily:C.mono,fontSize:13,fontWeight:700,color:k.c}}><AnimNum to={k.v} color={k.c}/></span>
-                  <span style={{fontSize:9,color:C.t2,letterSpacing:1.5,textTransform:"uppercase"}}>{k.l}</span>
+                  <span style={{fontFamily:C.mono,fontSize:14,fontWeight:700,color:k.c}}><AnimNum to={k.v} color={k.c}/></span>
+                  <span style={{fontSize:10,color:C.t2,letterSpacing:1.1,textTransform:"uppercase"}}>{k.l}</span>
                 </div>
               ))}
             </div>
           )}
           <div style={{display:"flex",flexDirection:"column",alignItems:"flex-end",gap:1}}>
             <div style={{display:"flex",alignItems:"baseline",gap:2}}>
-              <span style={{fontFamily:C.mono,fontSize:19,fontWeight:700,color:C.t0,letterSpacing:2.5}}>
+              <span style={{fontFamily:C.mono,fontSize:19,fontWeight:700,color:C.t0,letterSpacing:1.3}}>
                 {hh}<span style={{opacity:.28,animation:"oh-blink 1s step-end infinite"}}>:</span>{mm}
               </span>
-              <span style={{fontFamily:C.mono,fontSize:10,color:C.t2,marginLeft:2}}>{ss}</span>
+              <span style={{fontFamily:C.mono,fontSize:11,color:C.t2,marginLeft:2}}>{ss}</span>
             </div>
-            <span style={{fontSize:8.5,color:C.t2,fontFamily:C.mono,letterSpacing:1.5}}>{fecha.toUpperCase()}</span>
+            <span style={{fontSize:10,color:C.t2,fontFamily:C.mono,letterSpacing:1.1}}>{fecha.toUpperCase()}</span>
           </div>
         </div>
 
         {/* HERO */}
         <div style={{padding:"24px 28px 20px",flexShrink:0,borderBottom:`1px solid ${C.b0}`,position:"relative",zIndex:1}}>
-          <div style={{fontSize:10.5,color:C.t2,letterSpacing:3,textTransform:"uppercase",marginBottom:14,fontFamily:C.mono,animation:"oh-fadeSlideUp 0.4s ease 0.05s both"}}>
+          <div style={{fontSize:11,color:C.t2,letterSpacing:3,textTransform:"uppercase",marginBottom:14,fontFamily:C.mono,animation:"oh-fadeSlideUp 0.4s ease 0.05s both"}}>
             <Typewriter text={greeting} delay={200} speed={32}/>
           </div>
           <div style={{display:"flex",alignItems:"flex-end",justifyContent:"space-between",gap:20}}>
@@ -499,10 +490,10 @@ export default function ObrasHome({ obras: obrasProp, profile, onEnterMapa }) {
                 background:`linear-gradient(90deg,${C.blue}95,${C.cyan}45,transparent)`,
                 transformOrigin:"left",animation:"oh-lineExpand 0.85s cubic-bezier(0.22,1,0.36,1) 0.55s both",
                 boxShadow:`0 0 12px ${C.blue}45`}}/>
-              <div style={{fontSize:10,color:C.t2,marginTop:8,letterSpacing:2.5,textTransform:"uppercase",fontFamily:C.mono,
+              <div style={{fontSize:11,color:C.t2,marginTop:8,letterSpacing:1.3,textTransform:"uppercase",fontFamily:C.mono,
                 display:"flex",alignItems:"center",gap:10,animation:"oh-fadeSlideUp 0.4s ease 0.6s both"}}>
                 <span>Astillero · Mapa de Producción</span>
-                {total>0&&<span style={{padding:"1px 8px",borderRadius:4,background:"rgba(59,130,246,0.08)",border:`1px solid ${C.b0}`,fontSize:9,letterSpacing:1.5,color:C.blue}}>{live.activas} activas</span>}
+                {total>0&&<span style={{padding:"1px 8px",borderRadius:4,background:"rgba(59,130,246,0.08)",border:`1px solid ${C.b0}`,fontSize:10,letterSpacing:1.1,color:C.blue}}>{live.activas} activas</span>}
               </div>
             </div>
             {live.loaded&&total>0&&(
@@ -518,9 +509,9 @@ export default function ObrasHome({ obras: obrasProp, profile, onEnterMapa }) {
         {/* CARDS */}
         <div style={{flex:1,display:"flex",flexDirection:"column",padding:"16px 28px 20px",position:"relative",zIndex:1,overflow:"hidden"}}>
           <div style={{display:"flex",alignItems:"center",gap:12,marginBottom:12,flexShrink:0,animation:"oh-fadeSlideUp 0.4s ease 0.26s both"}}>
-            <span style={{fontSize:9,color:C.t2,letterSpacing:3,textTransform:"uppercase",fontFamily:C.mono}}>Acceso rápido</span>
+            <span style={{fontSize:10,color:C.t2,letterSpacing:3,textTransform:"uppercase",fontFamily:C.mono}}>Acceso rápido</span>
             <div style={{flex:1,height:1,background:`linear-gradient(90deg,${C.b0},transparent)`}}/>
-            <span style={{fontSize:9,color:"rgba(255,255,255,0.09)",fontFamily:C.mono,letterSpacing:2}}>KLASE A · ASTILLERO · OBRAS</span>
+            <span style={{fontSize:10,color:"rgba(255,255,255,0.09)",fontFamily:C.mono,letterSpacing:1.3}}>KLASE A · ASTILLERO · OBRAS</span>
           </div>
           <div style={{flex:1,display:"grid",gridTemplateColumns:`repeat(${VISTAS.length},1fr)`,gap:10}}>
             {VISTAS.map((vista,i)=>(

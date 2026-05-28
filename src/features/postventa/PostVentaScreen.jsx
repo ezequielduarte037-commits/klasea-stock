@@ -1,3 +1,4 @@
+import { C } from "@/theme";
 // PostVentaScreen — tickets vinculados a obras (no a texto libre)
 // SINCRONIZACIÓN: Los clientes creados en ConfiguracionScreen aparecen
 // automáticamente aquí. Los que no tienen GPS muestran un aviso para completar la ubicación.
@@ -38,14 +39,6 @@ function getIcon(tickets) {
 }
 
 // ── TOKENS ───────────────────────────────────────────────────────────
-const C = {
-  bg:"#09090b", s0:"rgba(255,255,255,0.03)", s1:"rgba(255,255,255,0.06)",
-  b0:"rgba(255,255,255,0.08)", b1:"rgba(255,255,255,0.15)", b2:"rgba(255,255,255,0.25)",
-  t0:"#f4f4f5", t1:"#a1a1aa", t2:"#71717a",
-  mono:"'JetBrains Mono','IBM Plex Mono',monospace", sans:"'Outfit',system-ui,sans-serif",
-  primary:"#3b82f6", amber:"#f59e0b", green:"#10b981", red:"#ef4444", blue:"#3b82f6",
-};
-
 // ── MAP HELPERS ───────────────────────────────────────────────────────
 function MapEventsHandler({ isSelecting, onLocationSelected }) {
   useMapEvents({ click(e) { if(isSelecting) onLocationSelected(e.latlng.lat, e.latlng.lng); } });
@@ -64,7 +57,7 @@ function LocationPreview({ lat, lng }) {
   return (
     <div style={{ borderRadius:10, overflow:"hidden", border:"1px solid rgba(61,206,106,0.25)", marginTop:10, position:"relative" }}>
       <iframe title="preview" src={src} width="100%" height="140" style={{ display:"block", border:"none", filter:"invert(0.88) hue-rotate(180deg) saturate(0.7) brightness(0.9)" }} loading="lazy" sandbox="allow-scripts allow-same-origin" />
-      <div style={{ position:"absolute", bottom:6, left:6, background:"rgba(6,10,20,0.88)", border:"1px solid rgba(61,206,106,0.3)", borderRadius:6, padding:"3px 9px", fontFamily:C.mono, fontSize:10, color:C.green, backdropFilter:"blur(8px)", pointerEvents:"none" }}>
+      <div style={{ position:"absolute", bottom:6, left:6, background:"rgba(6,10,20,0.88)", border:"1px solid rgba(61,206,106,0.3)", borderRadius:6, padding:"3px 9px", fontFamily:C.mono, fontSize:11, color:C.green, backdropFilter:"blur(8px)", pointerEvents:"none" }}>
         {la.toFixed(5)}, {ln.toFixed(5)}
       </div>
     </div>
@@ -73,16 +66,16 @@ function LocationPreview({ lat, lng }) {
 
 // ── SELECTOR OBRA (linea → obras en cascada) ─────────────────────────
 function ObraSelector({ value, onChange, obras }) {
-  const INP = { width:"100%", boxSizing:"border-box", background:"rgba(255,255,255,0.05)", border:`1px solid ${C.b0}`, color:C.t0, padding:"9px 12px", borderRadius:9, fontSize:13, outline:"none", fontFamily:C.sans };
-  const LBL = { fontSize:9, letterSpacing:2, color:C.t1, display:"block", marginBottom:6, textTransform:"uppercase", fontWeight:600 };
+  const INP = { width:"100%", boxSizing:"border-box", background:"rgba(255,255,255,0.05)", border:`1px solid ${C.b0}`, color:C.t0, padding:"9px 12px", borderRadius:9, fontSize:14, outline:"none", fontFamily:C.sans };
+  const LBL = { fontSize:10, letterSpacing:1.3, color:C.t1, display:"block", marginBottom:6, textTransform:"uppercase", fontWeight: 700 };
   const obraActual = obras.find(o=>o.id===value);
   return (
     <div style={{ padding:"14px 16px", borderRadius:10, background:"rgba(59,130,246,0.04)", border:"1px solid rgba(59,130,246,0.18)", marginBottom:14 }}>
-      <div style={{ fontSize:9, letterSpacing:2.5, color:"#4a7aaa", textTransform:"uppercase", marginBottom:12, fontWeight:600 }}><Link2 size={11} style={{marginRight:5}}/> Obra vinculada</div>
+      <div style={{ fontSize:10, letterSpacing:1.3, color:"#4a7aaa", textTransform:"uppercase", marginBottom:12, fontWeight: 700 }}><Link2 size={11} style={{marginRight:5}}/> Obra vinculada</div>
       <div>
         <label style={LBL}>Código de obra</label>
         {obras.length === 0 ? (
-          <div style={{ fontSize:11, color:"#52525b", fontStyle:"italic", padding:"8px 0" }}>No hay obras disponibles.</div>
+          <div style={{ fontSize:12, color:"var(--dim)", fontStyle:"italic", padding:"8px 0" }}>No hay obras disponibles.</div>
         ) : (
           <select
             style={{ ...INP, color: value ? "#93c5fd" : C.t2, borderColor: value ? "rgba(59,130,246,0.4)" : C.b0 }}
@@ -97,7 +90,7 @@ function ObraSelector({ value, onChange, obras }) {
         )}
       </div>
       {obraActual && (
-        <div style={{ marginTop:8, padding:"6px 10px", borderRadius:7, background:"rgba(59,130,246,0.08)", border:"1px solid rgba(59,130,246,0.2)", fontSize:11, color:"#93c5fd" }}>
+        <div style={{ marginTop:8, padding:"6px 10px", borderRadius:7, background:"rgba(59,130,246,0.08)", border:"1px solid rgba(59,130,246,0.2)", fontSize:12, color:"#93c5fd" }}>
           <CheckCircle2 size={11} style={{marginRight:5,verticalAlign:"middle"}}/> Obra {obraActual.codigo}
         </div>
       )}
@@ -164,8 +157,8 @@ function EditModal({ barco, obras, onSave, onClose, autoFocusGps = false }) {
     onSave();
   }
 
-  const INP = { width:"100%", boxSizing:"border-box", background:"rgba(255,255,255,0.05)", border:`1px solid ${C.b0}`, color:C.t0, padding:"10px 14px", borderRadius:9, fontSize:13, outline:"none", marginBottom:14, transition:"border-color 0.15s", fontFamily:C.sans };
-  const LBL = { fontSize:9, letterSpacing:2, color:C.t1, display:"block", marginBottom:6, textTransform:"uppercase", fontWeight:600 };
+  const INP = { width:"100%", boxSizing:"border-box", background:"rgba(255,255,255,0.05)", border:`1px solid ${C.b0}`, color:C.t0, padding:"10px 14px", borderRadius:9, fontSize:14, outline:"none", marginBottom:14, transition:"border-color 0.15s", fontFamily:C.sans };
+  const LBL = { fontSize:10, letterSpacing:1.3, color:C.t1, display:"block", marginBottom:6, textTransform:"uppercase", fontWeight: 700 };
   const hasCoords = form.latitud && form.longitud;
 
   return (
@@ -175,23 +168,23 @@ function EditModal({ barco, obras, onSave, onClose, autoFocusGps = false }) {
         <div style={{ display:"flex", justifyContent:"space-between", alignItems:"flex-start", marginBottom:22 }}>
           <div>
             <div style={{ fontSize:16, color:C.t0, fontWeight:700 }}>Editar embarcación</div>
-            <div style={{ fontSize:11, color:C.t1, marginTop:4, fontFamily:C.mono }}>{barco.nombre_barco}</div>
+            <div style={{ fontSize:12, color:C.t1, marginTop:4, fontFamily:C.mono }}>{barco.nombre_barco}</div>
           </div>
           <button onClick={onClose} style={{ background:"transparent", border:"none", color:C.t1, cursor:"pointer", fontSize:20, padding:"4px 8px" }}>×</button>
         </div>
 
         {/* Aviso GPS pendiente */}
         {!barco.latitud && !barco.longitud && (
-          <div style={{ padding:"10px 14px", borderRadius:9, background:"rgba(245,158,11,0.08)", border:"1px solid rgba(245,158,11,0.3)", fontSize:12, color:"#fcd34d", marginBottom:16, display:"flex", alignItems:"center", gap:8 }}>
+          <div style={{ padding:"10px 14px", borderRadius:9, background:"rgba(245,158,11,0.08)", border:"1px solid rgba(245,158,11,0.3)", fontSize:13, color:"#fcd34d", marginBottom:16, display:"flex", alignItems:"center", gap:8 }}>
             <MapPin size={14} color="#f59e0b" style={{flexShrink:0}}/>
             <span>Este barco fue creado desde Configuración. Completá la ubicación GPS para que aparezca en el mapa.</span>
           </div>
         )}
 
-        {err && <div style={{ padding:"10px 14px", borderRadius:9, background:"rgba(239,68,68,0.08)", border:"1px solid rgba(239,68,68,0.25)", fontSize:12, color:"#fca5a5", marginBottom:16 }}>{err}</div>}
+        {err && <div style={{ padding:"10px 14px", borderRadius:9, background:"rgba(239,68,68,0.08)", border:"1px solid rgba(239,68,68,0.25)", fontSize:13, color:"#fca5a5", marginBottom:16 }}>{err}</div>}
 
         <form onSubmit={handleSubmit}>
-          <div style={{ fontSize:9, letterSpacing:2, color:C.t1, textTransform:"uppercase", fontWeight:600, marginBottom:12 }}>Datos</div>
+          <div style={{ fontSize:10, letterSpacing:1.3, color:C.t1, textTransform:"uppercase", fontWeight: 700, marginBottom:12 }}>Datos</div>
           <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr", gap:12, marginBottom:2 }}>
             <div><label style={LBL}>Nombre *</label><input required style={INP} value={form.nombre_barco} onChange={e=>set("nombre_barco",e.target.value)} /></div>
             <div><label style={LBL}>Propietario</label><input style={INP} value={form.propietario} onChange={e=>set("propietario",e.target.value)} /></div>
@@ -203,7 +196,7 @@ function EditModal({ barco, obras, onSave, onClose, autoFocusGps = false }) {
           <ObraSelector value={form.obra_id} onChange={v=>set("obra_id",v)} obras={obras} />
 
           {/* Ubicación GPS — autoFocus si viene de "Completar GPS" */}
-          <div style={{ fontSize:9, letterSpacing:2, color:C.t1, textTransform:"uppercase", fontWeight:600, marginBottom:12 }}>
+          <div style={{ fontSize:10, letterSpacing:1.3, color:C.t1, textTransform:"uppercase", fontWeight: 700, marginBottom:12 }}>
             Ubicación GPS {!barco.latitud ? <span style={{ color:"#f59e0b", fontWeight:700 }}>— PENDIENTE</span> : "(actualizar)"}
           </div>
           <label style={LBL}>Pegar link o coordenadas de Google Maps</label>
@@ -216,10 +209,10 @@ function EditModal({ barco, obras, onSave, onClose, autoFocusGps = false }) {
           {hasCoords && form.link_maps && showPrev && <LocationPreview lat={form.latitud} lng={form.longitud} />}
 
           <div style={{ display:"flex", gap:10, marginTop:16 }}>
-            <button type="submit" disabled={saving} style={{ flex:1, background:"rgba(255,255,255,0.92)", color:"#080c14", border:"none", padding:"11px 20px", borderRadius:9, fontSize:13, fontWeight:700, cursor:saving?"not-allowed":"pointer" }}>
+            <button type="submit" disabled={saving} style={{ flex:1, background:"rgba(255,255,255,0.92)", color:"#080c14", border:"none", padding:"11px 20px", borderRadius:9, fontSize:14, fontWeight:700, cursor:saving?"not-allowed":"pointer" }}>
               {saving ? "Guardando…" : "Guardar cambios"}
             </button>
-            <button type="button" onClick={onClose} style={{ background:"transparent", color:C.t1, padding:"11px 20px", borderRadius:9, border:`1px solid ${C.b0}`, cursor:"pointer", fontWeight:600, fontSize:13 }}>Cancelar</button>
+            <button type="button" onClick={onClose} style={{ background:"transparent", color:C.t1, padding:"11px 20px", borderRadius:9, border:`1px solid ${C.b0}`, cursor:"pointer", fontWeight:600, fontSize:14 }}>Cancelar</button>
           </div>
         </form>
       </div>
@@ -237,44 +230,44 @@ function TicketPopupContent({ barco, tickets, onVerTodos }) {
       <div style={{ fontSize:15, color:"#dde2ea", fontWeight:700, marginBottom:4 }}>{barco.nombre_barco}</div>
       {barco.obras && (
         <div style={{ display:"inline-flex", alignItems:"center", gap:6, padding:"2px 8px", borderRadius:5, background:"rgba(59,130,246,0.12)", border:"1px solid rgba(59,130,246,0.25)", marginBottom:8 }}>
-          <span style={{ fontFamily:C.mono, fontSize:10, color:"#93c5fd", fontWeight:700 }}>Obra {barco.obras.codigo}</span>
+          <span style={{ fontFamily:C.mono, fontSize:11, color:"#93c5fd", fontWeight:700 }}>Obra {barco.obras.codigo}</span>
           
         </div>
       )}
-      <div style={{ fontSize:11, color:"#566070", marginBottom:10 }}>{barco.propietario} · {barco.ubicacion_general}</div>
+      <div style={{ fontSize:12, color:"#566070", marginBottom:10 }}>{barco.propietario} · {barco.ubicacion_general}</div>
       {tickets.length > 0 ? (
         <>
           <div style={{ display:"flex", gap:8, marginBottom:12, flexWrap:"wrap" }}>
             {pendientes.length > 0 && (
-              <span style={{ padding:"3px 10px", borderRadius:99, background:"rgba(239,68,68,0.15)", border:"1px solid rgba(239,68,68,0.35)", color:"#ef4444", fontSize:10, fontWeight:700 }}>
+              <span style={{ padding:"3px 10px", borderRadius:99, background:"rgba(239,68,68,0.15)", border:"1px solid rgba(239,68,68,0.35)", color:"#ef4444", fontSize:11, fontWeight:700 }}>
                 <Circle size={7} color="#ef4444" fill="#ef4444" style={{marginRight:4}}/> {pendientes.length} pendiente{pendientes.length>1?"s":""}
               </span>
             )}
             {enProceso.length > 0 && (
-              <span style={{ padding:"3px 10px", borderRadius:99, background:"rgba(245,158,11,0.15)", border:"1px solid rgba(245,158,11,0.35)", color:"#f59e0b", fontSize:10, fontWeight:700 }}>
+              <span style={{ padding:"3px 10px", borderRadius:99, background:"rgba(245,158,11,0.15)", border:"1px solid rgba(245,158,11,0.35)", color:"#f59e0b", fontSize:11, fontWeight:700 }}>
                 <Circle size={7} color="#f59e0b" fill="#f59e0b" style={{marginRight:4}}/> {enProceso.length} en proceso
               </span>
             )}
           </div>
           {top && (
             <div style={{ padding:"10px 12px", borderRadius:8, background:"rgba(255,255,255,0.04)", border:"1px solid rgba(255,255,255,0.1)", marginBottom:10 }}>
-              <div style={{ fontSize:9, color:"#566070", letterSpacing:2, textTransform:"uppercase", marginBottom:4 }}>{top.area}</div>
-              <div style={{ fontSize:12, color:"#a8b4c0", lineHeight:1.5 }}>{top.descripcion?.slice(0,80)}{top.descripcion?.length>80?"…":""}</div>
-              {top.telefono && <div style={{ fontSize:10, color:"#566070", marginTop:6, display:"flex", alignItems:"center", gap:4 }}><Phone size={9}/> {top.telefono}</div>}
+              <div style={{ fontSize:10, color:"#566070", letterSpacing:1.3, textTransform:"uppercase", marginBottom:4 }}>{top.area}</div>
+              <div style={{ fontSize:13, color:"#a8b4c0", lineHeight:1.5 }}>{top.descripcion?.slice(0,80)}{top.descripcion?.length>80?"…":""}</div>
+              {top.telefono && <div style={{ fontSize:11, color:"#566070", marginTop:6, display:"flex", alignItems:"center", gap:4 }}><Phone size={9}/> {top.telefono}</div>}
             </div>
           )}
-          <button onClick={onVerTodos} style={{ width:"100%", padding:"8px 12px", background:"rgba(239,68,68,0.1)", border:"1px solid rgba(239,68,68,0.25)", color:"#ef4444", borderRadius:8, cursor:"pointer", fontSize:11, fontWeight:700 }}>
+          <button onClick={onVerTodos} style={{ width:"100%", padding:"8px 12px", background:"rgba(239,68,68,0.1)", border:"1px solid rgba(239,68,68,0.25)", color:"#ef4444", borderRadius:8, cursor:"pointer", fontSize:12, fontWeight:700 }}>
             Ver todos los tickets ({tickets.length})
           </button>
         </>
       ) : (
-        <div style={{ fontSize:11, color:"#3a4050", display:"flex", alignItems:"center", gap:6 }}>
+        <div style={{ fontSize:12, color:"#3a4050", display:"flex", alignItems:"center", gap:6 }}>
           <span style={{ width:7, height:7, borderRadius:"50%", background:C.green, boxShadow:`0 0 6px ${C.green}` }} />
           Sin tickets activos
         </div>
       )}
       <div style={{ paddingTop:10, marginTop:10, borderTop:"1px solid rgba(255,255,255,0.07)" }}>
-        <div style={{ fontSize:9, color:"#3a4050", fontFamily:"monospace" }}>{barco.latitud?.toFixed(5)}, {barco.longitud?.toFixed(5)}</div>
+        <div style={{ fontSize:10, color:"#3a4050", fontFamily:"monospace" }}>{barco.latitud?.toFixed(5)}, {barco.longitud?.toFixed(5)}</div>
       </div>
     </div>
   );
@@ -340,7 +333,7 @@ function TicketDrawer({ barco, tickets, onClose, onUpdateStatus }) {
 
     return (
       <div>
-        <div style={{ fontSize:9, color:C.t2, letterSpacing:2, textTransform:"uppercase", marginBottom:10, display:"flex", alignItems:"center", gap:5 }}>
+        <div style={{ fontSize:10, color:C.t2, letterSpacing:1.3, textTransform:"uppercase", marginBottom:10, display:"flex", alignItems:"center", gap:5 }}>
           📎 {adjuntos.length} archivo{adjuntos.length > 1 ? "s" : ""} adjunto{adjuntos.length > 1 ? "s" : ""}
         </div>
         <div style={{ display:"flex", flexDirection:"column", gap:8 }}>
@@ -363,9 +356,9 @@ function TicketDrawer({ barco, tickets, onClose, onUpdateStatus }) {
                   <source src={url}/>
                 </video>
                 <div style={{ padding:"8px 12px", display:"flex", justifyContent:"space-between", alignItems:"center" }}>
-                  <span style={{ fontSize:10, color:C.t2, fontFamily:C.mono }}>▶ {fileName}</span>
+                  <span style={{ fontSize:11, color:C.t2, fontFamily:C.mono }}>▶ {fileName}</span>
                   <a href={url} target="_blank" rel="noopener noreferrer"
-                    style={{ fontSize:10, color:C.primary, textDecoration:"none", fontWeight:700 }}>
+                    style={{ fontSize:11, color:C.primary, textDecoration:"none", fontWeight:700 }}>
                     Descargar ↗
                   </a>
                 </div>
@@ -383,14 +376,14 @@ function TicketDrawer({ barco, tickets, onClose, onUpdateStatus }) {
                   onError={() => setImgErrors(p => ({ ...p, [errKey]: true }))}
                 />
                 <div style={{ padding:"8px 12px", display:"flex", justifyContent:"space-between", alignItems:"center", borderTop:`1px solid ${C.b0}` }}>
-                  <span style={{ fontSize:10, color:C.t2, fontFamily:C.mono, overflow:"hidden", textOverflow:"ellipsis", whiteSpace:"nowrap", maxWidth:"70%" }}>
+                  <span style={{ fontSize:11, color:C.t2, fontFamily:C.mono, overflow:"hidden", textOverflow:"ellipsis", whiteSpace:"nowrap", maxWidth:"70%" }}>
                     🖼 {fileName}
                   </span>
                   <div style={{ display:"flex", gap:8, flexShrink:0 }}>
-                    <span style={{ fontSize:10, color:C.t2 }}>🔍 ver</span>
+                    <span style={{ fontSize:11, color:C.t2 }}>🔍 ver</span>
                     <a href={url} target="_blank" rel="noopener noreferrer"
                       onClick={e => e.stopPropagation()}
-                      style={{ fontSize:10, color:C.primary, textDecoration:"none", fontWeight:700 }}>
+                      style={{ fontSize:11, color:C.primary, textDecoration:"none", fontWeight:700 }}>
                       Abrir ↗
                     </a>
                   </div>
@@ -403,15 +396,15 @@ function TicketDrawer({ barco, tickets, onClose, onUpdateStatus }) {
               <div key={i} style={{ borderRadius:10, border:`1px solid rgba(245,158,11,0.3)`, background:"rgba(245,158,11,0.05)", padding:"12px 16px", display:"flex", alignItems:"center", gap:12 }}>
                 <span style={{ fontSize:24, flexShrink:0 }}>📎</span>
                 <div style={{ flex:1, minWidth:0 }}>
-                  <div style={{ fontSize:11, color:C.t1, fontFamily:C.mono, overflow:"hidden", textOverflow:"ellipsis", whiteSpace:"nowrap", marginBottom:4 }}>
+                  <div style={{ fontSize:12, color:C.t1, fontFamily:C.mono, overflow:"hidden", textOverflow:"ellipsis", whiteSpace:"nowrap", marginBottom:4 }}>
                     {fileName || `Archivo ${i+1}`}
                   </div>
-                  <div style={{ fontSize:10, color:"#f59e0b" }}>
+                  <div style={{ fontSize:11, color:"#f59e0b" }}>
                     {hasErr ? "No se pudo previsualizar — abrí el link directo" : "Archivo adjunto"}
                   </div>
                 </div>
                 <a href={url} target="_blank" rel="noopener noreferrer"
-                  style={{ flexShrink:0, padding:"7px 14px", borderRadius:8, background:"rgba(59,130,246,0.15)", border:"1px solid rgba(59,130,246,0.4)", color:"#60a5fa", fontSize:11, fontWeight:700, textDecoration:"none" }}>
+                  style={{ flexShrink:0, padding:"7px 14px", borderRadius:8, background:"rgba(59,130,246,0.15)", border:"1px solid rgba(59,130,246,0.4)", color:"#60a5fa", fontSize:12, fontWeight:700, textDecoration:"none" }}>
                   Abrir ↗
                 </a>
               </div>
@@ -437,12 +430,12 @@ function TicketDrawer({ barco, tickets, onClose, onUpdateStatus }) {
                 <div style={{ fontSize:17, color:C.t0, fontWeight:700, marginBottom:5 }}>{barco.nombre_barco}</div>
                 <div style={{ display:"flex", gap:7, alignItems:"center", flexWrap:"wrap" }}>
                   {barco.obras && (
-                    <span style={{ fontFamily:C.mono, fontSize:10, padding:"2px 8px", borderRadius:5, background:"rgba(59,130,246,0.12)", border:"1px solid rgba(59,130,246,0.25)", color:"#93c5fd" }}>
+                    <span style={{ fontFamily:C.mono, fontSize:11, padding:"2px 8px", borderRadius:5, background:"rgba(59,130,246,0.12)", border:"1px solid rgba(59,130,246,0.25)", color:"#93c5fd" }}>
                       Obra {barco.obras.codigo}
                     </span>
                   )}
-                  {barco.propietario && <span style={{ fontSize:11, color:C.t1 }}>{barco.propietario}</span>}
-                  {barco.ubicacion_general && <span style={{ fontSize:11, color:C.t2 }}>· {barco.ubicacion_general}</span>}
+                  {barco.propietario && <span style={{ fontSize:12, color:C.t1 }}>{barco.propietario}</span>}
+                  {barco.ubicacion_general && <span style={{ fontSize:12, color:C.t2 }}>· {barco.ubicacion_general}</span>}
                 </div>
               </div>
               <button onClick={onClose}
@@ -459,12 +452,12 @@ function TicketDrawer({ barco, tickets, onClose, onUpdateStatus }) {
                 { key:"todos",       label:`Todos`,        cnt:tickets.length,    color:"#60a5fa" },
               ].map(f => (
                 <button key={f.key} onClick={() => setFiltroEst(f.key)}
-                  style={{ padding:"5px 11px", borderRadius:7, fontSize:10, cursor:"pointer", fontWeight: filtroEst===f.key ? 700 : 400,
+                  style={{ padding:"5px 11px", borderRadius:7, fontSize:11, cursor:"pointer", fontWeight: filtroEst===f.key ? 700 : 400,
                     background: filtroEst===f.key ? `${f.color}18` : "transparent",
                     border: `1px solid ${filtroEst===f.key ? f.color+"55" : C.b0}`,
                     color: filtroEst===f.key ? f.color : C.t2, transition:"all 0.15s", display:"flex", gap:5, alignItems:"center" }}>
                   {f.label}
-                  <span style={{ fontFamily:C.mono, fontSize:9, background:"rgba(255,255,255,0.07)", padding:"0 5px", borderRadius:4 }}>{f.cnt}</span>
+                  <span style={{ fontFamily:C.mono, fontSize:10, background:"rgba(255,255,255,0.07)", padding:"0 5px", borderRadius:4 }}>{f.cnt}</span>
                 </button>
               ))}
             </div>
@@ -473,7 +466,7 @@ function TicketDrawer({ barco, tickets, onClose, onUpdateStatus }) {
           {/* Ticket list */}
           <div style={{ flex:1, overflowY:"auto", padding:"14px 20px" }}>
             {ticketsFiltrados.length === 0 ? (
-              <div style={{ fontSize:12, color:C.t2, textAlign:"center", padding:"36px 0", fontStyle:"italic" }}>
+              <div style={{ fontSize:13, color:C.t2, textAlign:"center", padding:"36px 0", fontStyle:"italic" }}>
                 Sin tickets en esta categoría
               </div>
             ) : ticketsFiltrados.map(t => {
@@ -494,26 +487,26 @@ function TicketDrawer({ barco, tickets, onClose, onUpdateStatus }) {
                     {/* Top row: status + ID + date */}
                     <div style={{ display:"flex", justifyContent:"space-between", alignItems:"flex-start", marginBottom:10 }}>
                       <div style={{ display:"flex", gap:6, alignItems:"center", flexWrap:"wrap" }}>
-                        <span style={{ padding:"3px 10px", borderRadius:99, background:est.bg, border:`1px solid ${est.color}44`, color:est.color, fontSize:9, fontWeight:700, letterSpacing:0.5 }}>
+                        <span style={{ padding:"3px 10px", borderRadius:99, background:est.bg, border:`1px solid ${est.color}44`, color:est.color, fontSize:10, fontWeight:700, letterSpacing:0.5 }}>
                           {est.label}
                         </span>
                         {hasAdjuntos && (
-                          <span style={{ padding:"2px 8px", borderRadius:99, background:"rgba(255,255,255,0.06)", border:`1px solid rgba(255,255,255,0.1)`, color:C.t1, fontSize:9, fontFamily:C.mono }}>
+                          <span style={{ padding:"2px 8px", borderRadius:99, background:"rgba(255,255,255,0.06)", border:`1px solid rgba(255,255,255,0.1)`, color:C.t1, fontSize:10, fontFamily:C.mono }}>
                             📎 {t.adjuntos.length} foto{t.adjuntos.length > 1 ? "s" : ""}
                           </span>
                         )}
                       </div>
                       <div style={{ textAlign:"right", flexShrink:0, marginLeft:10 }}>
-                        <div style={{ color:C.t2, fontSize:9, fontFamily:C.mono, letterSpacing:1 }}>#{shortId(t.id)}</div>
+                        <div style={{ color:C.t2, fontSize:10, fontFamily:C.mono, letterSpacing:1 }}>#{shortId(t.id)}</div>
                         {t.fecha_creacion && (
-                          <div style={{ color:C.t2, fontSize:9, fontFamily:C.mono, marginTop:2 }}>{fmtDate(t.fecha_creacion)}</div>
+                          <div style={{ color:C.t2, fontSize:10, fontFamily:C.mono, marginTop:2 }}>{fmtDate(t.fecha_creacion)}</div>
                         )}
                       </div>
                     </div>
 
                     {/* Area + descripción */}
                     <div style={{ color:C.t0, fontWeight:700, fontSize:14, marginBottom:5 }}>{t.area}</div>
-                    <p style={{ color:C.t1, fontSize:12, margin:0, lineHeight:1.7 }}>{t.descripcion}</p>
+                    <p style={{ color:C.t1, fontSize:13, margin:0, lineHeight:1.7 }}>{t.descripcion}</p>
                   </div>
 
                   {/* ── META (tel + ubicación) ── */}
@@ -521,13 +514,13 @@ function TicketDrawer({ barco, tickets, onClose, onUpdateStatus }) {
                     <div style={{ padding:"10px 16px", borderBottom:`1px solid rgba(255,255,255,0.05)`, display:"flex", gap:10, flexWrap:"wrap", alignItems:"center", background:"rgba(255,255,255,0.01)" }}>
                       {t.telefono && (
                         <a href={`https://wa.me/${t.telefono?.replace(/\D/g,"")}`} target="_blank" rel="noopener noreferrer"
-                          style={{ display:"inline-flex", alignItems:"center", gap:5, padding:"5px 12px", borderRadius:8, background:"rgba(37,211,102,0.1)", border:"1px solid rgba(37,211,102,0.35)", color:"#25d366", fontSize:10, fontWeight:700, textDecoration:"none", fontFamily:C.mono }}
+                          style={{ display:"inline-flex", alignItems:"center", gap:5, padding:"5px 12px", borderRadius:8, background:"rgba(37,211,102,0.1)", border:"1px solid rgba(37,211,102,0.35)", color:"#25d366", fontSize:11, fontWeight:700, textDecoration:"none", fontFamily:C.mono }}
                           onClick={e => e.stopPropagation()}>
                           <Phone size={11}/> {t.telefono}
                         </a>
                       )}
                       {t.ubicacion_barco && (
-                        <span style={{ fontSize:11, color:C.t2, display:"flex", alignItems:"center", gap:4 }}>
+                        <span style={{ fontSize:12, color:C.t2, display:"flex", alignItems:"center", gap:4 }}>
                           <MapPin size={10}/>{t.ubicacion_barco}
                         </span>
                       )}
@@ -547,14 +540,14 @@ function TicketDrawer({ barco, tickets, onClose, onUpdateStatus }) {
                       <div>
                         <textarea autoFocus value={seguimientoTx} onChange={e => setSeguimientoTx(e.target.value)}
                           placeholder="Escribí el seguimiento visible para el cliente…"
-                          style={{ width:"100%", boxSizing:"border-box", background:"rgba(59,130,246,0.06)", border:"1px solid rgba(59,130,246,0.35)", color:C.t0, padding:"10px 12px", borderRadius:8, fontSize:12, lineHeight:1.6, minHeight:80, resize:"vertical", outline:"none", fontFamily:C.sans }} />
+                          style={{ width:"100%", boxSizing:"border-box", background:"rgba(59,130,246,0.06)", border:"1px solid rgba(59,130,246,0.35)", color:C.t0, padding:"10px 12px", borderRadius:8, fontSize:13, lineHeight:1.6, minHeight:80, resize:"vertical", outline:"none", fontFamily:C.sans }} />
                         <div style={{ display:"flex", gap:6, marginTop:8 }}>
                           <button onClick={guardarSeguimiento} disabled={savingSeg}
-                            style={{ flex:1, padding:"8px", borderRadius:8, background:"rgba(59,130,246,0.2)", border:"1px solid rgba(59,130,246,0.4)", color:"#93c5fd", fontSize:11, fontWeight:700, cursor:"pointer" }}>
+                            style={{ flex:1, padding:"8px", borderRadius:8, background:"rgba(59,130,246,0.2)", border:"1px solid rgba(59,130,246,0.4)", color:"#93c5fd", fontSize:12, fontWeight:700, cursor:"pointer" }}>
                             {savingSeg ? "Guardando…" : "✓ Guardar"}
                           </button>
                           <button onClick={() => setSeguimientoId(null)}
-                            style={{ padding:"8px 14px", borderRadius:8, background:"transparent", border:`1px solid ${C.b0}`, color:C.t2, fontSize:11, cursor:"pointer" }}>
+                            style={{ padding:"8px 14px", borderRadius:8, background:"transparent", border:`1px solid ${C.b0}`, color:C.t2, fontSize:12, cursor:"pointer" }}>
                             Cancelar
                           </button>
                         </div>
@@ -562,14 +555,14 @@ function TicketDrawer({ barco, tickets, onClose, onUpdateStatus }) {
                     ) : t.seguimiento ? (
                       <div style={{ padding:"10px 12px", borderRadius:8, background:"rgba(59,130,246,0.07)", border:"1px solid rgba(59,130,246,0.2)" }}>
                         <div style={{ display:"flex", justifyContent:"space-between", alignItems:"center", marginBottom:6 }}>
-                          <span style={{ fontSize:9, color:"#4a7aaa", letterSpacing:2, textTransform:"uppercase", fontWeight:700 }}>Respuesta técnica</span>
-                          <button onClick={() => abrirSeguimiento(t)} style={{ background:"transparent", border:"none", color:"#4a7aaa", cursor:"pointer", fontSize:10, padding:0 }}>✎ editar</button>
+                          <span style={{ fontSize:10, color:"#4a7aaa", letterSpacing:1.3, textTransform:"uppercase", fontWeight:700 }}>Respuesta técnica</span>
+                          <button onClick={() => abrirSeguimiento(t)} style={{ background:"transparent", border:"none", color:"#4a7aaa", cursor:"pointer", fontSize:11, padding:0 }}>✎ editar</button>
                         </div>
-                        <p style={{ fontSize:12, color:"#7aabdc", lineHeight:1.7, margin:0 }}>{t.seguimiento}</p>
+                        <p style={{ fontSize:13, color:"#7aabdc", lineHeight:1.7, margin:0 }}>{t.seguimiento}</p>
                       </div>
                     ) : (
                       <button onClick={() => abrirSeguimiento(t)}
-                        style={{ width:"100%", padding:"8px", borderRadius:8, background:"transparent", border:`1px dashed rgba(255,255,255,0.1)`, color:C.t2, fontSize:10, cursor:"pointer", textAlign:"center", transition:"border-color .15s, color .15s" }}
+                        style={{ width:"100%", padding:"8px", borderRadius:8, background:"transparent", border:`1px dashed rgba(255,255,255,0.1)`, color:C.t2, fontSize:11, cursor:"pointer", textAlign:"center", transition:"border-color .15s, color .15s" }}
                         onMouseEnter={e => { e.currentTarget.style.borderColor = C.b2; e.currentTarget.style.color = C.t1; }}
                         onMouseLeave={e => { e.currentTarget.style.borderColor = "rgba(255,255,255,0.1)"; e.currentTarget.style.color = C.t2; }}>
                         + Agregar respuesta técnica
@@ -585,7 +578,7 @@ function TicketDrawer({ barco, tickets, onClose, onUpdateStatus }) {
                       return (
                         <button key={s} disabled={active || updating === t.id}
                           onClick={() => cambiarEstado(t.id, s)}
-                          style={{ flex:1, padding:"8px 4px", borderRadius:8, border:`1px solid ${active ? col+"66" : C.b0}`, background:active ? `${col}20` : "transparent", color:active ? col : C.t2, fontSize:10, cursor:active ? "default" : "pointer", fontWeight:active ? 700 : 400, transition:"all 0.15s" }}>
+                          style={{ flex:1, padding:"8px 4px", borderRadius:8, border:`1px solid ${active ? col+"66" : C.b0}`, background:active ? `${col}20` : "transparent", color:active ? col : C.t2, fontSize:11, cursor:active ? "default" : "pointer", fontWeight:active ? 700 : 400, transition:"all 0.15s" }}>
                           {s === "pendiente" ? "⏳ Pendiente" : s === "en_proceso" ? "🔧 En Proceso" : "✓ Solucionado"}
                         </button>
                       );
@@ -605,12 +598,12 @@ function TicketDrawer({ barco, tickets, onClose, onUpdateStatus }) {
           onClick={() => setLightbox(null)}
           style={{ position:"fixed", inset:0, background:"rgba(0,0,0,0.97)", zIndex:99999, display:"flex", alignItems:"center", justifyContent:"center", padding:24 }}>
           <button onClick={() => setLightbox(null)}
-            style={{ position:"absolute", top:18, right:18, background:"rgba(255,255,255,0.08)", border:`1px solid ${C.b1}`, color:C.t1, padding:"7px 14px", cursor:"pointer", fontSize:11, borderRadius:8, display:"flex", gap:6, alignItems:"center" }}>
+            style={{ position:"absolute", top:18, right:18, background:"rgba(255,255,255,0.08)", border:`1px solid ${C.b1}`, color:C.t1, padding:"7px 14px", cursor:"pointer", fontSize:12, borderRadius:8, display:"flex", gap:6, alignItems:"center" }}>
             ✕ Cerrar
           </button>
           <a href={lightbox.url} target="_blank" rel="noopener noreferrer"
             onClick={e => e.stopPropagation()}
-            style={{ position:"absolute", top:18, left:18, background:"rgba(255,255,255,0.08)", border:`1px solid ${C.b1}`, color:C.t1, padding:"7px 14px", cursor:"pointer", fontSize:11, borderRadius:8, textDecoration:"none" }}>
+            style={{ position:"absolute", top:18, left:18, background:"rgba(255,255,255,0.08)", border:`1px solid ${C.b1}`, color:C.t1, padding:"7px 14px", cursor:"pointer", fontSize:12, borderRadius:8, textDecoration:"none" }}>
             ↗ Abrir original
           </a>
           {lightbox.tipo === "img"
@@ -828,15 +821,15 @@ export default function PostVentaScreen({ profile, signOut }) {
     page:         { position:"fixed", inset:0, background:C.bg, color:C.t0, fontFamily:C.sans, overflow:"hidden" },
     mapLayer:     { position:"absolute", inset:0, zIndex:0 },
     uiLayer:      { position:"absolute", inset:0, zIndex:10, display:"flex", pointerEvents:"none" },
-    sidebarWrap:  { width: "280px", height: "100%", pointerEvents: "auto", background: "#09090b" },
+    sidebarWrap:  { width: "280px", height: "100%", pointerEvents: "auto", background: C.bg },
     mainUI:       { flex:1, position:"relative", pointerEvents:"none" },
     topbar:       { position:"absolute", top:0, left:0, right:0, height:64, background:"linear-gradient(180deg,rgba(3,5,12,0.92) 0%,rgba(3,5,12,0) 100%)", display:"flex", alignItems:"center", justifyContent:"space-between", padding:"0 28px", pointerEvents:"auto" },
     glassPanel:   { position:"absolute", top:76, left:20, bottom:20, width:368, background:"rgba(3,5,12,0.82)", backdropFilter:"blur(48px) saturate(140%)", WebkitBackdropFilter:"blur(48px) saturate(140%)", border:`1px solid ${C.b1}`, borderRadius:16, display:"flex", flexDirection:"column", pointerEvents:"auto", boxShadow:"0 24px 60px rgba(0,0,0,0.7),inset 0 1px 0 rgba(255,255,255,0.06)" },
     card:         { padding:"12px 20px", borderBottom:`1px solid rgba(255,255,255,0.05)`, cursor:"pointer", transition:"background 0.15s", background:"transparent" },
-    searchInput:  { width:"100%", background:"rgba(255,255,255,0.05)", border:`1px solid ${C.b0}`, color:C.t0, padding:"10px 14px 10px 38px", borderRadius:10, fontSize:13, outline:"none", transition:"border-color 0.2s", boxSizing:"border-box" },
-    btnPrimary:   { background:"rgba(255,255,255,0.92)", color:"#080c14", border:"1px solid rgba(255,255,255,0.25)", padding:"9px 20px", borderRadius:9, fontSize:13, fontWeight:700, cursor:"pointer" },
-    input:        { width:"100%", boxSizing:"border-box", background:"rgba(255,255,255,0.05)", border:`1px solid ${C.b0}`, color:C.t0, padding:"10px 14px", borderRadius:9, fontSize:13, outline:"none", marginBottom:14, transition:"border-color 0.15s" },
-    label:        { fontSize:9, letterSpacing:2, color:C.t1, display:"block", marginBottom:6, textTransform:"uppercase", fontWeight:600 },
+    searchInput:  { width:"100%", background:"rgba(255,255,255,0.05)", border:`1px solid ${C.b0}`, color:C.t0, padding:"10px 14px 10px 38px", borderRadius:10, fontSize:14, outline:"none", transition:"border-color 0.2s", boxSizing:"border-box" },
+    btnPrimary:   { background:"rgba(255,255,255,0.92)", color:"#080c14", border:"1px solid rgba(255,255,255,0.25)", padding:"9px 20px", borderRadius:9, fontSize:14, fontWeight:700, cursor:"pointer" },
+    input:        { width:"100%", boxSizing:"border-box", background:"rgba(255,255,255,0.05)", border:`1px solid ${C.b0}`, color:C.t0, padding:"10px 14px", borderRadius:9, fontSize:14, outline:"none", marginBottom:14, transition:"border-color 0.15s" },
+    label:        { fontSize:10, letterSpacing:1.3, color:C.t1, display:"block", marginBottom:6, textTransform:"uppercase", fontWeight: 700 },
     modalOverlay: { position:"fixed", inset:0, background:"rgba(3,5,12,0.88)", backdropFilter:"blur(24px)", display:"flex", alignItems:"center", justifyContent:"center", zIndex:9999, pointerEvents:"auto" },
     modalBox:     { background:"rgba(6,10,20,0.97)", backdropFilter:"blur(60px)", border:`1px solid ${C.b1}`, padding:"32px 28px", borderRadius:18, width:"100%", maxWidth:540, maxHeight:"92vh", overflowY:"auto" },
   };
@@ -856,7 +849,7 @@ export default function PostVentaScreen({ profile, signOut }) {
         .leaflet-container a.leaflet-popup-close-button { color:rgba(255,255,255,0.3) !important;top:14px !important;right:14px !important;font-size:18px !important;z-index:10 }
         ::-webkit-scrollbar { width:3px } ::-webkit-scrollbar-track { background:transparent } ::-webkit-scrollbar-thumb { background:rgba(255,255,255,0.1);border-radius:99px }
         ${isSelecting ? ".leaflet-container { cursor:crosshair !important }" : ""}
-        select option { background:#0f0f12;color:#a1a1aa }
+        select option { background:#0f0f12;color:var(--muted) }
         input:focus,select:focus { border-color:rgba(59,130,246,0.35) !important }
       `}</style>
 
@@ -889,11 +882,11 @@ export default function PostVentaScreen({ profile, signOut }) {
         <div style={{ ...S.sidebarWrap, width: isMobile ? 0 : S.sidebarWrap.width }}><Sidebar profile={profile} signOut={signOut} /></div>
         <div style={S.mainUI}>
           {isSelecting && (
-            <div style={{ position:"absolute", top:76, left:"50%", transform:"translateX(-50%)", background:C.green, color:"#000", padding:"12px 26px", borderRadius:99, fontWeight:700, fontSize:13, pointerEvents:"auto", boxShadow:`0 8px 32px rgba(61,206,106,0.4)`, display:"flex", alignItems:"center", gap:10, zIndex:9999, cursor:"pointer" }}
+            <div style={{ position:"absolute", top:76, left:"50%", transform:"translateX(-50%)", background:C.green, color:"#000", padding:"12px 26px", borderRadius:99, fontWeight:700, fontSize:14, pointerEvents:"auto", boxShadow:`0 8px 32px rgba(61,206,106,0.4)`, display:"flex", alignItems:"center", gap:10, zIndex:9999, cursor:"pointer" }}
               onClick={()=>{ setIsSelecting(false); setShowModal(true); }}>
               <div style={{ width:8, height:8, borderRadius:"50%", background:"#000", opacity:0.5 }} />
               Hacé clic en la ubicación exacta del barco
-              <span style={{ opacity:0.6, fontSize:11 }}>· toque para cancelar</span>
+              <span style={{ opacity:0.6, fontSize:12 }}>· toque para cancelar</span>
             </div>
           )}
 
@@ -901,12 +894,12 @@ export default function PostVentaScreen({ profile, signOut }) {
             <div style={S.topbar}>
               <div style={{ display:"flex", alignItems:"baseline", gap:10 }}>
                 <span style={{ fontWeight:700, fontSize:16, letterSpacing:0.5, color:C.t0 }}>Post Venta</span>
-                <span style={{ fontSize:11, color:C.t1, letterSpacing:2, textTransform:"uppercase" }}>· Flota</span>
-                <div style={{ marginLeft:8, padding:"2px 10px", borderRadius:99, background:"rgba(61,206,106,0.1)", border:"1px solid rgba(61,206,106,0.25)", fontSize:11, fontFamily:C.mono, color:C.green, fontWeight:600 }}>
+                <span style={{ fontSize:12, color:C.t1, letterSpacing:1.3, textTransform:"uppercase" }}>· Flota</span>
+                <div style={{ marginLeft:8, padding:"2px 10px", borderRadius:99, background:"rgba(61,206,106,0.1)", border:"1px solid rgba(61,206,106,0.25)", fontSize:12, fontFamily:C.mono, color:C.green, fontWeight: 700 }}>
                   {barcosFiltrados.length}
                 </div>
                 {totalTicketsPendientes > 0 && (
-                  <div style={{ padding:"2px 10px", borderRadius:99, background:"rgba(239,68,68,0.15)", border:"1px solid rgba(239,68,68,0.35)", fontSize:11, fontFamily:C.mono, color:"#ef4444", fontWeight:700 }}>
+                  <div style={{ padding:"2px 10px", borderRadius:99, background:"rgba(239,68,68,0.15)", border:"1px solid rgba(239,68,68,0.35)", fontSize:12, fontFamily:C.mono, color:"#ef4444", fontWeight:700 }}>
                     <Circle size={7} color="#ef4444" fill="#ef4444" style={{marginRight:4}}/> {totalTicketsPendientes} pendiente{totalTicketsPendientes>1?"s":""}
                   </div>
                 )}
@@ -914,7 +907,7 @@ export default function PostVentaScreen({ profile, signOut }) {
                 {sinGpsCount > 0 && (
                   <div
                     onClick={() => setSoloSinGps(s => !s)}
-                    style={{ padding:"2px 10px", borderRadius:99, background: soloSinGps ? "rgba(245,158,11,0.2)" : "rgba(245,158,11,0.08)", border: soloSinGps ? "1px solid rgba(245,158,11,0.6)" : "1px solid rgba(245,158,11,0.3)", fontSize:11, fontFamily:C.mono, color:"#f59e0b", fontWeight:600, cursor:"pointer", pointerEvents:"auto" }}
+                    style={{ padding:"2px 10px", borderRadius:99, background: soloSinGps ? "rgba(245,158,11,0.2)" : "rgba(245,158,11,0.08)", border: soloSinGps ? "1px solid rgba(245,158,11,0.6)" : "1px solid rgba(245,158,11,0.3)", fontSize:12, fontFamily:C.mono, color:"#f59e0b", fontWeight: 700, cursor:"pointer", pointerEvents:"auto" }}
                     title="Barcos sin ubicación GPS — clic para filtrar"
                   >
                     <MapPin size={9} style={{marginRight:3}}/> {sinGpsCount} sin GPS
@@ -936,12 +929,12 @@ export default function PostVentaScreen({ profile, signOut }) {
                   <input type="text" placeholder="Buscar barco, propietario, obra…" style={S.searchInput} value={filtro} onChange={e=>setFiltro(e.target.value)} />
                 </div>
                 <div style={{ display:"flex", gap:6, flexWrap:"wrap" }}>
-                  <button onClick={()=>setSoloActivos(a=>!a)} style={{ display:"flex", alignItems:"center", gap:7, padding:"5px 12px", borderRadius:8, border:soloActivos?"1px solid rgba(239,68,68,0.5)":`1px solid ${C.b0}`, background:soloActivos?"rgba(239,68,68,0.12)":"transparent", color:soloActivos?"#ef4444":C.t1, fontSize:11, fontWeight:600, cursor:"pointer", transition:"all 0.15s" }}>
+                  <button onClick={()=>setSoloActivos(a=>!a)} style={{ display:"flex", alignItems:"center", gap:7, padding:"5px 12px", borderRadius:8, border:soloActivos?"1px solid rgba(239,68,68,0.5)":`1px solid ${C.b0}`, background:soloActivos?"rgba(239,68,68,0.12)":"transparent", color:soloActivos?"#ef4444":C.t1, fontSize:12, fontWeight: 700, cursor:"pointer", transition:"all 0.15s" }}>
                     <span style={{ width:7, height:7, borderRadius:"50%", background:soloActivos?"#ef4444":C.t2 }} />
                     {soloActivos ? "Con tickets" : "Todos"}
                   </button>
                   {sinGpsCount > 0 && (
-                    <button onClick={()=>setSoloSinGps(s=>!s)} style={{ display:"flex", alignItems:"center", gap:7, padding:"5px 12px", borderRadius:8, border:soloSinGps?"1px solid rgba(245,158,11,0.5)":`1px solid ${C.b0}`, background:soloSinGps?"rgba(245,158,11,0.12)":"transparent", color:soloSinGps?"#f59e0b":C.t1, fontSize:11, fontWeight:600, cursor:"pointer", transition:"all 0.15s" }}>
+                    <button onClick={()=>setSoloSinGps(s=>!s)} style={{ display:"flex", alignItems:"center", gap:7, padding:"5px 12px", borderRadius:8, border:soloSinGps?"1px solid rgba(245,158,11,0.5)":`1px solid ${C.b0}`, background:soloSinGps?"rgba(245,158,11,0.12)":"transparent", color:soloSinGps?"#f59e0b":C.t1, fontSize:12, fontWeight: 700, cursor:"pointer", transition:"all 0.15s" }}>
                       <MapPin size={9} style={{marginRight:3}}/> {soloSinGps ? `Sin GPS (${sinGpsCount})` : "Todos"}
                     </button>
                   )}
@@ -951,11 +944,11 @@ export default function PostVentaScreen({ profile, signOut }) {
               {/* Lista de barcos */}
               <div style={{ flex:1, overflowY:"auto" }}>
                 {loading ? (
-                  <div style={{ padding:"50px 20px", color:C.t2, fontSize:11, textAlign:"center", letterSpacing:2, textTransform:"uppercase", fontFamily:C.mono }}>Sincronizando…</div>
+                  <div style={{ padding:"50px 20px", color:C.t2, fontSize:12, textAlign:"center", letterSpacing:1.3, textTransform:"uppercase", fontFamily:C.mono }}>Sincronizando…</div>
                 ) : barcosFiltrados.length === 0 ? (
                   <div style={{ padding:"50px 20px", textAlign:"center" }}>
-                    <div style={{ fontSize:11, color:C.t2, letterSpacing:2, textTransform:"uppercase", fontFamily:C.mono }}>Sin registros</div>
-                    {(filtro||soloActivos||soloSinGps) && <button onClick={()=>{ setFiltro(""); setSoloActivos(false); setSoloSinGps(false); }} style={{ marginTop:10, background:"transparent", border:`1px solid ${C.b0}`, color:C.t1, padding:"5px 14px", borderRadius:8, cursor:"pointer", fontSize:11 }}>Limpiar filtros</button>}
+                    <div style={{ fontSize:12, color:C.t2, letterSpacing:1.3, textTransform:"uppercase", fontFamily:C.mono }}>Sin registros</div>
+                    {(filtro||soloActivos||soloSinGps) && <button onClick={()=>{ setFiltro(""); setSoloActivos(false); setSoloSinGps(false); }} style={{ marginTop:10, background:"transparent", border:`1px solid ${C.b0}`, color:C.t1, padding:"5px 14px", borderRadius:8, cursor:"pointer", fontSize:12 }}>Limpiar filtros</button>}
                   </div>
                 ) : barcosFiltrados.map(b => {
                   const bTickets  = getTickets(b);
@@ -968,19 +961,19 @@ export default function PostVentaScreen({ profile, signOut }) {
                       <div style={{ display:"flex", justifyContent:"space-between", alignItems:"flex-start", marginBottom:4 }}>
                         <div style={{ flex:1, minWidth:0 }}>
                           <div style={{ display:"flex", alignItems:"center", gap:6 }}>
-                            <span style={{ fontSize:13, color:C.t0, fontWeight:600, overflow:"hidden", textOverflow:"ellipsis", whiteSpace:"nowrap" }}>
+                            <span style={{ fontSize:14, color:C.t0, fontWeight:600, overflow:"hidden", textOverflow:"ellipsis", whiteSpace:"nowrap" }}>
                               {b.nombre_barco}
                             </span>
                             {sinGps && (
-                              <span style={{ fontSize:9, padding:"1px 6px", borderRadius:4, background:"rgba(245,158,11,0.15)", border:"1px solid rgba(245,158,11,0.3)", color:"#f59e0b", flexShrink:0 }}>sin GPS</span>
+                              <span style={{ fontSize:10, padding:"1px 6px", borderRadius:4, background:"rgba(245,158,11,0.15)", border:"1px solid rgba(245,158,11,0.3)", color:"#f59e0b", flexShrink:0 }}>sin GPS</span>
                             )}
                           </div>
-                          <div style={{ fontSize:11, color:C.t2, marginTop:1 }}>{b.propietario || "—"}</div>
+                          <div style={{ fontSize:12, color:C.t2, marginTop:1 }}>{b.propietario || "—"}</div>
                         </div>
                         <div style={{ display:"flex", gap:5, flexShrink:0, marginLeft:8 }}>
-                          {pendCount > 0 && <span style={{ padding:"2px 8px", borderRadius:99, background:"rgba(239,68,68,0.15)", border:"1px solid rgba(239,68,68,0.35)", color:"#ef4444", fontSize:9, fontWeight:700 }}>{pendCount}</span>}
-                          {procCount > 0 && <span style={{ padding:"2px 8px", borderRadius:99, background:"rgba(245,158,11,0.15)", border:"1px solid rgba(245,158,11,0.35)", color:"#f59e0b", fontSize:9, fontWeight:700 }}>{procCount}</span>}
-                          {solCount  > 0 && <span style={{ padding:"2px 8px", borderRadius:99, background:"rgba(16,185,129,0.15)", border:"1px solid rgba(16,185,129,0.35)", color:"#10b981", fontSize:9, fontWeight:700 }}>✓{solCount}</span>}
+                          {pendCount > 0 && <span style={{ padding:"2px 8px", borderRadius:99, background:"rgba(239,68,68,0.15)", border:"1px solid rgba(239,68,68,0.35)", color:"#ef4444", fontSize:10, fontWeight:700 }}>{pendCount}</span>}
+                          {procCount > 0 && <span style={{ padding:"2px 8px", borderRadius:99, background:"rgba(245,158,11,0.15)", border:"1px solid rgba(245,158,11,0.35)", color:"#f59e0b", fontSize:10, fontWeight:700 }}>{procCount}</span>}
+                          {solCount  > 0 && <span style={{ padding:"2px 8px", borderRadius:99, background:"rgba(16,185,129,0.15)", border:"1px solid rgba(16,185,129,0.35)", color:"#10b981", fontSize:10, fontWeight:700 }}>✓{solCount}</span>}
                           <button onClick={e=>eliminarBarco(e,b.id,b.nombre_barco)} style={{ background:"transparent", border:"none", color:C.t2, cursor:"pointer", fontSize:16, padding:"2px 4px" }} title="Eliminar">×</button>
                         </div>
                       </div>
@@ -988,52 +981,52 @@ export default function PostVentaScreen({ profile, signOut }) {
                       {/* Obra vinculada — obra directa, o heredada del cliente */}
                       {(b.obras || b.obra_id || b.cliente_id) ? (
                         <div style={{ display:"inline-flex", alignItems:"center", gap:5, padding:"1px 7px", borderRadius:5, background:"rgba(59,130,246,0.08)", border:"1px solid rgba(59,130,246,0.2)", marginBottom:6 }}>
-                          <span style={{ fontFamily:C.mono, fontSize:10, color:"#93c5fd", fontWeight:700 }}>
+                          <span style={{ fontFamily:C.mono, fontSize:11, color:"#93c5fd", fontWeight:700 }}>
                             {b.obras ? `Obra ${b.obras.codigo}` : "Obra vinculada"}
                           </span>
                         </div>
                       ) : (
                         <div style={{ display:"inline-flex", padding:"1px 7px", borderRadius:5, background:"rgba(255,255,255,0.03)", border:"1px solid rgba(255,255,255,0.06)", marginBottom:6 }}>
-                          <span style={{ fontSize:9, color:"#3a3a52" }}>Sin obra vinculada</span>
+                          <span style={{ fontSize:10, color:"#3a3a52" }}>Sin obra vinculada</span>
                         </div>
                       )}
 
                       <div style={{ marginBottom:8 }}>
                         {b.ubicacion_general
-                          ? <span style={{ fontSize:12, color:"#8a9aaa" }}>{b.ubicacion_general}{b.detalle_ubicacion && <span style={{ fontSize:11, color:C.t1 }}> · {b.detalle_ubicacion}</span>}</span>
-                          : <span style={{ fontSize:11, color:"#3a3a4a", fontStyle:"italic" }}>Sin lugar registrado</span>
+                          ? <span style={{ fontSize:13, color:"#8a9aaa" }}>{b.ubicacion_general}{b.detalle_ubicacion && <span style={{ fontSize:12, color:C.t1 }}> · {b.detalle_ubicacion}</span>}</span>
+                          : <span style={{ fontSize:12, color:"#3a3a4a", fontStyle:"italic" }}>Sin lugar registrado</span>
                         }
                       </div>
 
                       <div style={{ display:"flex", gap:6, flexWrap:"wrap" }}>
                         {/* Si tiene GPS, mostrar centrar. Si no, ocultar centrar */}
                         {!sinGps && (
-                          <button style={{ background:"rgba(255,255,255,0.04)", border:`1px solid ${C.b0}`, color:C.t1, padding:"5px 12px", borderRadius:7, fontSize:11, fontWeight:600, cursor:"pointer" }}
+                          <button style={{ background:"rgba(255,255,255,0.04)", border:`1px solid ${C.b0}`, color:C.t1, padding:"5px 12px", borderRadius:7, fontSize:12, fontWeight: 700, cursor:"pointer" }}
                             onClick={e=>{ e.stopPropagation(); centrarMapa(b.latitud,b.longitud); }}><Crosshair size={11} style={{marginRight:4}}/> Centrar</button>
                         )}
 
                         {/* Editar siempre visible */}
                         <button
-                          style={{ background:"rgba(59,130,246,0.08)", border:"1px solid rgba(59,130,246,0.25)", color:"#60a5fa", padding:"5px 12px", borderRadius:7, fontSize:11, fontWeight:600, cursor:"pointer" }}
+                          style={{ background:"rgba(59,130,246,0.08)", border:"1px solid rgba(59,130,246,0.25)", color:"#60a5fa", padding:"5px 12px", borderRadius:7, fontSize:12, fontWeight: 700, cursor:"pointer" }}
                           onClick={e=>{ e.stopPropagation(); setEditBarco({ barco: b, autoFocusGps: false }); }}>
                           ✎ Editar
                         </button>
                         {/* GPS pendiente como botón separado */}
                         {sinGps && (
                           <button
-                            style={{ background:"rgba(245,158,11,0.12)", border:"1px solid rgba(245,158,11,0.4)", color:"#f59e0b", padding:"5px 12px", borderRadius:7, fontSize:11, fontWeight:700, cursor:"pointer" }}
+                            style={{ background:"rgba(245,158,11,0.12)", border:"1px solid rgba(245,158,11,0.4)", color:"#f59e0b", padding:"5px 12px", borderRadius:7, fontSize:12, fontWeight:700, cursor:"pointer" }}
                             onClick={e=>{ e.stopPropagation(); setEditBarco({ barco: b, autoFocusGps: true }); }}>
                             📍 GPS
                           </button>
                         )}
 
                         {bTickets.length > 0 && (
-                          <button style={{ background:"rgba(239,68,68,0.08)", border:"1px solid rgba(239,68,68,0.25)", color:"#ef4444", padding:"5px 12px", borderRadius:7, fontSize:11, fontWeight:600, cursor:"pointer" }}
+                          <button style={{ background:"rgba(239,68,68,0.08)", border:"1px solid rgba(239,68,68,0.25)", color:"#ef4444", padding:"5px 12px", borderRadius:7, fontSize:12, fontWeight: 700, cursor:"pointer" }}
                             onClick={e=>{ e.stopPropagation(); setDrawerBarco({barco:b,tickets:bTickets}); }}>
                             🎫 Tickets ({bTickets.length})
                           </button>
                         )}
-                        <button style={{ background:"rgba(61,206,106,0.1)", border:"1px solid rgba(61,206,106,0.3)", color:C.green, padding:"5px 10px", borderRadius:7, fontSize:11, cursor:"pointer" }}
+                        <button style={{ background:"rgba(61,206,106,0.1)", border:"1px solid rgba(61,206,106,0.3)", color:C.green, padding:"5px 10px", borderRadius:7, fontSize:12, cursor:"pointer" }}
                           onClick={e=>compartirWhatsApp(e,b)} title="Compartir por WhatsApp"><ExternalLink size={11}/></button>
                       </div>
                     </div>
@@ -1054,7 +1047,7 @@ export default function PostVentaScreen({ profile, signOut }) {
                       ? <span style={{ width:7, height:7, borderRadius:2, border:`1px solid ${l.color}`, background:"transparent" }} />
                       : <span style={{ width:7, height:7, borderRadius:"50%", background:l.color, boxShadow:`0 0 5px ${l.color}88` }} />
                     }
-                    <span style={{ fontSize:10, color:C.t2 }}>{l.label}</span>
+                    <span style={{ fontSize:11, color:C.t2 }}>{l.label}</span>
                   </div>
                 ))}
               </div>
@@ -1068,27 +1061,27 @@ export default function PostVentaScreen({ profile, signOut }) {
         <div style={S.modalOverlay} onClick={e=>e.target===e.currentTarget && setShowModal(false)}>
           <div style={S.modalBox}>
             <div style={{ display:"flex", justifyContent:"space-between", alignItems:"center", marginBottom:26 }}>
-              <div><div style={{ fontSize:17, color:C.t0, fontWeight:700 }}>Nueva embarcación</div><div style={{ fontSize:11, color:C.t1, marginTop:4 }}>Completá los datos y la ubicación</div></div>
+              <div><div style={{ fontSize:17, color:C.t0, fontWeight:700 }}>Nueva embarcación</div><div style={{ fontSize:12, color:C.t1, marginTop:4 }}>Completá los datos y la ubicación</div></div>
               <button onClick={()=>setShowModal(false)} style={{ background:"transparent", border:"none", color:C.t1, cursor:"pointer", fontSize:20 }}>×</button>
             </div>
             <div style={{ marginBottom:20 }}>
-              <div style={{ fontSize:9, letterSpacing:2, color:C.t1, textTransform:"uppercase", fontWeight:600, marginBottom:10 }}>Ubicación GPS</div>
+              <div style={{ fontSize:10, letterSpacing:1.3, color:C.t1, textTransform:"uppercase", fontWeight: 700, marginBottom:10 }}>Ubicación GPS</div>
               <div style={{ padding:"14px 16px", borderRadius:12, marginBottom:10, border:hasNewCoords&&form.link_maps?"1px solid rgba(61,206,106,0.3)":`1px solid ${C.b0}`, background:hasNewCoords&&form.link_maps?"rgba(61,206,106,0.05)":"rgba(255,255,255,0.02)" }}>
                 <label style={{ ...S.label, marginBottom:8, color:C.blue }}>Opción A · Pegar link o coordenadas de Google Maps</label>
                 <input style={{ ...S.input, marginBottom:0, borderColor:"rgba(74,144,226,0.3)", background:"rgba(74,144,226,0.04)", color:hasNewCoords?C.green:C.t0 }} placeholder="Ej: -34.4183, -58.5846  ó  link largo de Maps" value={form.link_maps} onChange={handleMapsInput} />
                 {hasNewCoords && form.link_maps && showLocPrev && <LocationPreview lat={form.latitud} lng={form.longitud} />}
               </div>
               <div style={{ display:"flex", alignItems:"center", gap:10, margin:"4px 0 8px" }}>
-                <div style={{ flex:1, height:1, background:C.b0 }} /><span style={{ fontSize:9, color:C.t2, letterSpacing:2, textTransform:"uppercase" }}>o</span><div style={{ flex:1, height:1, background:C.b0 }} />
+                <div style={{ flex:1, height:1, background:C.b0 }} /><span style={{ fontSize:10, color:C.t2, letterSpacing:1.3, textTransform:"uppercase" }}>o</span><div style={{ flex:1, height:1, background:C.b0 }} />
               </div>
-              <button type="button" style={{ width:"100%", background:"rgba(255,255,255,0.04)", border:`1px solid ${C.b1}`, color:C.t0, padding:"12px 16px", borderRadius:10, fontSize:13, fontWeight:600, cursor:"pointer", marginBottom:14, textAlign:"left", display:"flex", alignItems:"center", gap:10 }}
+              <button type="button" style={{ width:"100%", background:"rgba(255,255,255,0.04)", border:`1px solid ${C.b1}`, color:C.t0, padding:"12px 16px", borderRadius:10, fontSize:14, fontWeight:600, cursor:"pointer", marginBottom:14, textAlign:"left", display:"flex", alignItems:"center", gap:10 }}
                 onClick={()=>{ setShowModal(false); setIsSelecting(true); }}>
                 <div style={{ width:28, height:28, borderRadius:8, background:"rgba(255,255,255,0.06)", border:`1px solid ${C.b0}`, display:"flex", alignItems:"center", justifyContent:"center", flexShrink:0 }}><Crosshair size={14}/></div>
-                <div><div style={{ fontSize:12, fontWeight:600, color:C.t0 }}>Opción B · Marcar en el mapa</div><div style={{ fontSize:11, color:C.t1, marginTop:2 }}>Hacé clic directo en el lugar exacto</div></div>
+                <div><div style={{ fontSize:13, fontWeight:600, color:C.t0 }}>Opción B · Marcar en el mapa</div><div style={{ fontSize:12, color:C.t1, marginTop:2 }}>Hacé clic directo en el lugar exacto</div></div>
               </button>
             </div>
             <div style={{ borderTop:`1px solid ${C.b0}`, paddingTop:20 }}>
-              <div style={{ fontSize:9, letterSpacing:2, color:C.t1, textTransform:"uppercase", fontWeight:600, marginBottom:14 }}>Datos de la embarcación</div>
+              <div style={{ fontSize:10, letterSpacing:1.3, color:C.t1, textTransform:"uppercase", fontWeight: 700, marginBottom:14 }}>Datos de la embarcación</div>
               <form onSubmit={registrarBarco}>
                 <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr", gap:12 }}>
                   <div><label style={S.label}>Nombre *</label><input required style={S.input} placeholder="K37 Margarita" value={form.nombre_barco} onChange={e=>setForm({...form,nombre_barco:e.target.value})} /></div>
@@ -1105,7 +1098,7 @@ export default function PostVentaScreen({ profile, signOut }) {
                 />
                 <div style={{ display:"flex", gap:10, marginTop:4 }}>
                   <button type="submit" style={{ ...S.btnPrimary, flex:1, padding:"13px", fontSize:14 }}>Guardar</button>
-                  <button type="button" onClick={()=>setShowModal(false)} style={{ background:"transparent", color:C.t1, padding:"13px 20px", borderRadius:9, border:`1px solid ${C.b0}`, cursor:"pointer", fontWeight:600, fontSize:13 }}>Cancelar</button>
+                  <button type="button" onClick={()=>setShowModal(false)} style={{ background:"transparent", color:C.t1, padding:"13px 20px", borderRadius:9, border:`1px solid ${C.b0}`, cursor:"pointer", fontWeight:600, fontSize:14 }}>Cancelar</button>
                 </div>
               </form>
             </div>

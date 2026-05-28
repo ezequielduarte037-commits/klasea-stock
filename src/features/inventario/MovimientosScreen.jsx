@@ -2,22 +2,9 @@ import { useEffect, useMemo, useState } from "react";
 import { supabase } from "@/supabaseClient";
 import Sidebar from "@/components/Sidebar";
 import { useResponsive } from "@/hooks/useResponsive";
+import { C } from "@/theme";
 
 // ─── PALETA ──────────────────────────────────────────────────────────────────
-const C = {
-  bg:   "#09090b",
-  s0:   "rgba(255,255,255,0.03)",
-  s1:   "rgba(255,255,255,0.06)",
-  b0:   "rgba(255,255,255,0.08)",
-  b1:   "rgba(255,255,255,0.15)",
-  t0:   "#f4f4f5",
-  t1:   "#a1a1aa",
-  t2:   "#71717a",
-  mono: "'JetBrains Mono', 'IBM Plex Mono', monospace",
-  sans: "'Outfit', system-ui, sans-serif",
-  green: "#10b981",
-  red:   "#ef4444",
-};
 const GLASS = {
   backdropFilter: "blur(32px) saturate(130%)",
   WebkitBackdropFilter: "blur(32px) saturate(130%)",
@@ -125,7 +112,7 @@ export default function MovimientosScreen({ profile, signOut }) {
       <style>{`
         @import url('https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500;700&display=swap');
         *, *::before, *::after { box-sizing: border-box; }
-        select option { background: #0f0f12; color: #a1a1aa; }
+        select option { background: #0f0f12; color: var(--muted); }
         ::-webkit-scrollbar { width: 3px; height: 3px; }
         ::-webkit-scrollbar-track { background: transparent; }
         ::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.07); border-radius: 99px; }
@@ -148,13 +135,13 @@ export default function MovimientosScreen({ profile, signOut }) {
 
           {/* ── TOPBAR ── */}
           <div style={{
-            height: 50, background: "rgba(12,12,14,0.92)", ...GLASS,
+            height: 50, background: C.topbar, ...GLASS,
             borderBottom: `1px solid ${C.b0}`, padding: isMobile ? "0 12px 0 52px" : "0 18px",
             display: "flex", alignItems: "center", gap: 8, flexShrink: 0,
           }}>
             <div style={{ flex: 1 }}>
-              <div style={{ fontSize: 13, fontWeight: 600, color: C.t0 }}>Movimientos</div>
-              <div style={{ fontSize: 9, color: C.t2, letterSpacing: 1.5, textTransform: "uppercase", marginTop: 1 }}>
+              <div style={{ fontSize: 14, fontWeight: 600, color: C.t0 }}>Movimientos</div>
+              <div style={{ fontSize: 10, color: C.t2, letterSpacing: 1.1, textTransform: "uppercase", marginTop: 1 }}>
                 Historial de stock
               </div>
             </div>
@@ -170,7 +157,7 @@ export default function MovimientosScreen({ profile, signOut }) {
                 borderLeft: `2px solid ${s.color}`,
               }}>
                 <span style={{ fontFamily: C.mono, fontSize: 15, fontWeight: 700, color: s.color, lineHeight: 1 }}>{s.val}</span>
-                <span style={{ fontSize: 8, color: C.t1, letterSpacing: 1.5, textTransform: "uppercase" }}>{s.label}</span>
+                <span style={{ fontSize: 10, color: C.t1, letterSpacing: 1.1, textTransform: "uppercase" }}>{s.label}</span>
               </div>
             ))}
 
@@ -183,12 +170,12 @@ export default function MovimientosScreen({ profile, signOut }) {
                 color: filtrados.length ? C.green : C.t2,
                 padding: "6px 14px", borderRadius: 8,
                 cursor: filtrados.length ? "pointer" : "not-allowed",
-                fontSize: 11, fontFamily: C.sans, fontWeight: 600,
+                fontSize: 12, fontFamily: C.sans, fontWeight: 700,
                 display: "flex", alignItems: "center", gap: 5,
               }}
             >
               ↓ CSV
-              <span style={{ fontSize: 9, opacity: 0.7 }}>
+              <span style={{ fontSize: 10, opacity: 0.7 }}>
                 {filtrados.length !== rows.length ? `${filtrados.length}` : `${rows.length}`}
               </span>
             </button>
@@ -196,14 +183,14 @@ export default function MovimientosScreen({ profile, signOut }) {
 
           {/* ── SEARCH BAR ── */}
           <div style={{
-            height: 44, background: "rgba(12,12,14,0.85)", ...GLASS,
+            height: 44, background: C.topbarSoft, ...GLASS,
             borderBottom: `1px solid ${C.b0}`, padding: "0 18px",
             display: "flex", alignItems: "center", flexShrink: 0,
           }}>
             <input
               style={{
                 background: "transparent", border: "none",
-                color: C.t0, fontSize: 12, fontFamily: C.sans,
+                color: C.t0, fontSize: 13, fontFamily: C.sans,
                 outline: "none", width: "100%", maxWidth: 500,
               }}
               placeholder="⌕  Buscar por material / obra / persona / pañol / proveedor…"
@@ -221,7 +208,7 @@ export default function MovimientosScreen({ profile, signOut }) {
           {/* ── TABLE ── */}
           <div style={{ flex: 1, overflowY: "auto" }}>
             {err && (
-              <div style={{ padding: "10px 18px", color: C.red, fontSize: 12 }}>ERROR: {err}</div>
+              <div style={{ padding: "10px 18px", color: C.red, fontSize: 13 }}>ERROR: {err}</div>
             )}
 
             {/* Header */}
@@ -233,7 +220,7 @@ export default function MovimientosScreen({ profile, signOut }) {
               position: "sticky", top: 0, zIndex: 10,
             }}>
               {["FECHA", "MATERIAL", "DELTA", "OBRA", "PERSONA / PROV", "PAÑOL", "OBS"].map(h => (
-                <div key={h} style={{ fontSize: 9, color: C.t2, letterSpacing: 2, textTransform: "uppercase" }}>
+                <div key={h} style={{ fontSize: 10, color: C.t2, letterSpacing: 1.3, textTransform: "uppercase" }}>
                   {h}
                 </div>
               ))}
@@ -248,18 +235,18 @@ export default function MovimientosScreen({ profile, signOut }) {
                   borderBottom: `1px solid rgba(255,255,255,0.04)`,
                   alignItems: "center",
                 }}>
-                  <div style={{ fontFamily: C.mono, fontSize: 11, color: C.t2 }}>{fmt(r.created_at)}</div>
-                  <div style={{ color: C.t0, fontWeight: 600, fontSize: 12 }}>{r.material_nombre || "—"}</div>
+                  <div style={{ fontFamily: C.mono, fontSize: 12, color: C.t2 }}>{fmt(r.created_at)}</div>
+                  <div style={{ color: C.t0, fontWeight: 600, fontSize: 13 }}>{r.material_nombre || "—"}</div>
                   <div style={{
-                    fontFamily: C.mono, fontWeight: 700, fontSize: 13,
+                    fontFamily: C.mono, fontWeight: 700, fontSize: 14,
                     color: d >= 0 ? C.green : C.red,
                   }}>
                     {d >= 0 ? "+" : ""}{d}
                   </div>
-                  <div style={{ fontSize: 11, color: C.t1 }}>{r.obra || "—"}</div>
-                  <div style={{ fontSize: 11, color: C.t1 }}>{r.usuario || r.proveedor || "—"}</div>
-                  <div style={{ fontSize: 11, color: C.t1 }}>{r.entregado_por || r.recibe || "—"}</div>
-                  <div style={{ fontSize: 11, color: C.t2, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+                  <div style={{ fontSize: 12, color: C.t1 }}>{r.obra || "—"}</div>
+                  <div style={{ fontSize: 12, color: C.t1 }}>{r.usuario || r.proveedor || "—"}</div>
+                  <div style={{ fontSize: 12, color: C.t1 }}>{r.entregado_por || r.recibe || "—"}</div>
+                  <div style={{ fontSize: 12, color: C.t2, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
                     {r.obs_ui || "—"}
                   </div>
                 </div>
@@ -267,7 +254,7 @@ export default function MovimientosScreen({ profile, signOut }) {
             })}
 
             {!filtrados.length && (
-              <div style={{ padding: 40, textAlign: "center", color: C.t2, fontSize: 12 }}>
+              <div style={{ padding: 40, textAlign: "center", color: C.t2, fontSize: 13 }}>
                 No hay movimientos.
               </div>
             )}

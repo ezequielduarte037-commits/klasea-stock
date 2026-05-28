@@ -22,6 +22,7 @@ import PurchaseRequestsScreen from "@/features/compras/PurchaseRequestsScreen";
 
 import { ToastProvider } from "@/components/ui/Toast";
 import { ConfirmProvider } from "@/components/ui/ConfirmDialog";
+import { C } from "@/theme";
 
 import logoK from "@/assets/logos/logo-k.png";
 
@@ -93,10 +94,10 @@ function LoginScreen({ onLoggedIn }) {
   return (
     <div style={{
       position:"fixed", inset:0,
-      background:"#06060a",
+      background:C.bg,
       display:"flex", alignItems:"center", justifyContent:"center",
       fontFamily:"'Outfit', system-ui, sans-serif",
-      color:"#fff", overflow:"hidden", padding:20,
+      color:C.text, overflow:"hidden", padding:20,
     }}>
       <style>{`
         @import url('https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700;900&display=swap');
@@ -108,28 +109,28 @@ function LoginScreen({ onLoggedIn }) {
 
         .ln-field {
           width:100%; box-sizing:border-box;
-          background:rgba(255,255,255,0.04);
-          border:1px solid rgba(255,255,255,0.09);
+          background:var(--panel);
+          border:1px solid var(--border);
           border-radius:10px;
           padding:11px 14px;
-          color:#f0f0f0;
+          color:var(--text);
           font-size:14px;
           font-family:'Outfit',system-ui;
           outline:none;
           transition:border-color .18s, background .18s;
         }
-        .ln-field::placeholder { color:rgba(255,255,255,0.18); }
+        .ln-field::placeholder { color:var(--dim); }
         .ln-field:focus {
-          border-color:rgba(255,255,255,0.28);
-          background:rgba(255,255,255,0.06);
+          border-color:var(--focus);
+          background:var(--panel-2);
         }
 
         .ln-btn {
           width:100%; padding:13px;
-          background:#fff; color:#06060a;
+          background:var(--inverse-bg); color:var(--inverse-text);
           border:none; border-radius:10px;
-          font-size:13px; font-weight:800;
-          letter-spacing:0.18em; text-transform:uppercase;
+          font-size:14px; font-weight:800;
+          letter-spacing:0.12em; text-transform:uppercase;
           cursor:pointer;
           font-family:'Outfit',system-ui;
           transition:opacity .15s, transform .12s;
@@ -143,7 +144,7 @@ function LoginScreen({ onLoggedIn }) {
       <div style={{
         position:"absolute", top:"-15%", left:"50%", transform:"translateX(-50%)",
         width:"600px", height:"400px", borderRadius:"50%",
-        background:"radial-gradient(ellipse, rgba(59,100,246,0.07) 0%, transparent 70%)",
+        background:"radial-gradient(ellipse, var(--login-glow) 0%, transparent 70%)",
         pointerEvents:"none",
       }} />
 
@@ -151,8 +152,8 @@ function LoginScreen({ onLoggedIn }) {
       <div style={{
         position:"absolute", inset:0, pointerEvents:"none",
         backgroundImage:[
-          "linear-gradient(rgba(255,255,255,0.018) 1px, transparent 1px)",
-          "linear-gradient(90deg, rgba(255,255,255,0.018) 1px, transparent 1px)",
+          "linear-gradient(var(--grid-line) 1px, transparent 1px)",
+          "linear-gradient(90deg, var(--grid-line) 1px, transparent 1px)",
         ].join(","),
         backgroundSize:"80px 80px",
       }} />
@@ -161,10 +162,10 @@ function LoginScreen({ onLoggedIn }) {
       <div style={{
         width:"min(380px,100%)",
         borderRadius:18,
-        background:"rgba(14,14,22,0.95)",
-        border:"1px solid rgba(255,255,255,0.07)",
-        backdropFilter:"blur(60px)",
-        boxShadow:"0 40px 120px rgba(0,0,0,0.85), inset 0 1px 0 rgba(255,255,255,0.05)",
+        background:C.panelSolid,
+        border:`1px solid ${C.border2}`,
+        backdropFilter:"var(--glass-filter)",
+        boxShadow:"0 40px 120px var(--shadow-strong), inset 0 1px 0 var(--border)",
         padding:"42px 36px 34px",
         animation:"rise .35s cubic-bezier(.22,1,.36,1) both",
         position:"relative", zIndex:1,
@@ -176,13 +177,13 @@ function LoginScreen({ onLoggedIn }) {
             style={{ width:44, height:44, objectFit:"contain", display:"block", margin:"0 auto 14px" }} />
           <div style={{
             fontWeight:900, fontSize:16,
-            letterSpacing:"0.38em", color:"#fff",
+            letterSpacing:"0.13em", color:C.text,
           }}>
             KLASE A
           </div>
           <div style={{
-            marginTop:6, fontSize:9.5,
-            letterSpacing:"0.22em", color:"rgba(255,255,255,0.22)",
+            marginTop:6, fontSize:10,
+            letterSpacing:"0.12em", color:C.dim,
             textTransform:"uppercase",
           }}>
             Astillero · Acceso al sistema
@@ -195,8 +196,8 @@ function LoginScreen({ onLoggedIn }) {
           <div style={{ marginBottom:13 }}>
             <label style={{
               display:"block", marginBottom:7,
-              fontSize:9, letterSpacing:"0.22em",
-              color:"rgba(255,255,255,0.32)", textTransform:"uppercase", fontWeight:600,
+              fontSize:10, letterSpacing:"0.12em",
+              color:C.dim, textTransform:"uppercase", fontWeight:700,
             }}>
               Usuario
             </label>
@@ -215,8 +216,8 @@ function LoginScreen({ onLoggedIn }) {
           <div style={{ marginBottom:26 }}>
             <label style={{
               display:"block", marginBottom:7,
-              fontSize:9, letterSpacing:"0.22em",
-              color:"rgba(255,255,255,0.32)", textTransform:"uppercase", fontWeight:600,
+              fontSize:10, letterSpacing:"0.12em",
+              color:C.dim, textTransform:"uppercase", fontWeight:700,
             }}>
               Contraseña
             </label>
@@ -235,9 +236,9 @@ function LoginScreen({ onLoggedIn }) {
             <div style={{
               marginBottom:16, padding:"10px 14px",
               borderRadius:9,
-              background:"rgba(239,68,68,0.08)",
-              border:"1px solid rgba(239,68,68,0.25)",
-              color:"#fca5a5", fontSize:12.5, textAlign:"center",
+              background:"var(--red-soft)",
+              border:"1px solid var(--red-border)",
+              color:C.red, fontSize:13, textAlign:"center",
               letterSpacing:"0.01em",
             }}>
               {err}
@@ -252,9 +253,9 @@ function LoginScreen({ onLoggedIn }) {
 
         <div style={{
           marginTop:22, paddingTop:18,
-          borderTop:"1px solid rgba(255,255,255,0.05)",
+          borderTop:`1px solid ${C.border}`,
           textAlign:"center",
-          fontSize:10.5, color:"rgba(255,255,255,0.2)",
+          fontSize:11, color:C.dim,
           letterSpacing:"0.02em",
         }}>
           ¿Olvidaste tu contraseña? Contactá al administrador.
@@ -264,7 +265,7 @@ function LoginScreen({ onLoggedIn }) {
       {/* Footer */}
       <div style={{
         position:"absolute", bottom:16,
-        fontSize:10, color:"rgba(255,255,255,0.14)",
+        fontSize:11, color:C.dim,
         letterSpacing:"0.08em",
       }}>
         © 2026 Astillero Klase A
@@ -332,9 +333,9 @@ export default function App() {
   if (isInitializing) {
     return (
       <div style={{
-        background:"#06060a", color:"rgba(255,255,255,0.3)",
+        background:C.bg, color:C.dim,
         minHeight:"100vh", display:"flex", alignItems:"center", justifyContent:"center",
-        fontSize:10, letterSpacing:"0.3em", textTransform:"uppercase",
+        fontSize:11, letterSpacing:"0.13em", textTransform:"uppercase",
         fontFamily:"'Outfit',system-ui",
       }}>
         Cargando…

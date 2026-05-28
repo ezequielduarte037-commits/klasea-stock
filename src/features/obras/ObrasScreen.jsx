@@ -1,3 +1,4 @@
+import { C } from "@/theme";
 /**
  * ObrasScreen v9
  * CAMBIOS v9:
@@ -109,59 +110,6 @@ function AnimatedNumber({ value, duration = 900 }) {
   return <>{d}</>;
 }
 
-const C = {
-  bg:    "#09090b",
-  s0:    "rgba(255,255,255,0.03)",
-  s1:    "rgba(255,255,255,0.06)",
-  s2:    "rgba(255,255,255,0.09)",
-  b0:    "rgba(255,255,255,0.08)",
-  b1:    "rgba(255,255,255,0.15)",
-  b2:    "rgba(255,255,255,0.25)",
-  t0:    "#f4f4f5",
-  t1:    "#a1a1aa",
-  t2:    "#71717a",
-  mono:  "'JetBrains Mono', 'IBM Plex Mono', monospace",
-  sans:  "'Outfit', system-ui, sans-serif",
-  primary:"#3b82f6",
-  amber:  "#f59e0b",
-  green:  "#10b981",
-  red:    "#ef4444",
-  purple: "#8b5cf6",
-  obra: {
-    activa:    { dot: "#3b82f6", bg: "rgba(59,130,246,0.1)",  border: "rgba(59,130,246,0.25)",  label: "Activa"    },
-    pausada:   { dot: "#f59e0b", bg: "rgba(245,158,11,0.1)",  border: "rgba(245,158,11,0.25)",  label: "Pausada"   },
-    terminada: { dot: "#10b981", bg: "rgba(16,185,129,0.1)",  border: "rgba(16,185,129,0.25)",  label: "Terminada" },
-    cancelada: { dot: "#ef4444", bg: "rgba(239,68,68,0.1)",   border: "rgba(239,68,68,0.25)",   label: "Cancelada" },
-  },
-  etapa: {
-    pendiente:  { dot: "#52525b", bar: "rgba(255,255,255,0.05)", text: "#a1a1aa", label: "Pendiente"  },
-    en_curso:   { dot: "#3b82f6", bar: "rgba(59,130,246,0.15)",  text: "#3b82f6", label: "En curso"   },
-    completado: { dot: "#10b981", bar: "rgba(16,185,129,0.15)",  text: "#10b981", label: "Completado" },
-    bloqueado:  { dot: "#ef4444", bar: "rgba(239,68,68,0.15)",   text: "#ef4444", label: "Bloqueado"  },
-  },
-  tarea: {
-    pendiente:   { dot: "#52525b", text: "#a1a1aa", label: "Pendiente"    },
-    en_progreso: { dot: "#3b82f6", text: "#3b82f6", label: "En progreso"  },
-    finalizada:  { dot: "#10b981", text: "#10b981", label: "Finalizada"   },
-    bloqueada:   { dot: "#ef4444", text: "#ef4444", label: "Bloqueada"    },
-    cancelada:   { dot: "#71717a", text: "#71717a", label: "Cancelada"    },
-  },
-  prioridad: {
-    baja:    { color: "#52525b", label: "Baja"    },
-    media:   { color: "#3b82f6", label: "Media"   },
-    alta:    { color: "#f59e0b", label: "Alta"    },
-    critica: { color: "#ef4444", label: "Crítica" },
-  },
-  oc: {
-    pendiente:  { dot: "#52525b", bg: "rgba(82,82,91,0.12)",   border: "rgba(82,82,91,0.25)",   label: "Pendiente"  },
-    solicitada: { dot: "#3b82f6", bg: "rgba(59,130,246,0.1)",  border: "rgba(59,130,246,0.25)", label: "Solicitada" },
-    aprobada:   { dot: "#f59e0b", bg: "rgba(245,158,11,0.1)",  border: "rgba(245,158,11,0.25)", label: "Aprobada"   },
-    en_camino:  { dot: "#8b5cf6", bg: "rgba(139,92,246,0.1)",  border: "rgba(139,92,246,0.25)", label: "En camino"  },
-    recibida:   { dot: "#10b981", bg: "rgba(16,185,129,0.1)",  border: "rgba(16,185,129,0.25)", label: "Recibida"   },
-    cancelada:  { dot: "#ef4444", bg: "rgba(239,68,68,0.1)",   border: "rgba(239,68,68,0.25)",  label: "Cancelada"  },
-  },
-};
-
 const GLASS = {
   backdropFilter: "blur(32px) saturate(130%)",
   WebkitBackdropFilter: "blur(32px) saturate(130%)",
@@ -185,7 +133,7 @@ const Dot = ({ color, size = 7, glow = false, pulse = false }) => (
 );
 
 const Chip = ({ label, dot, bg, border }) => (
-  <span style={{ fontSize: 8, letterSpacing: 2, textTransform: "uppercase", padding: "3px 8px", borderRadius: 99, background: bg, color: dot, border: `1px solid ${border}`, fontWeight: 600, whiteSpace: "nowrap" }}>
+  <span style={{ fontSize: 10, letterSpacing: 1.3, textTransform: "uppercase", padding: "3px 8px", borderRadius: 99, background: bg, color: dot, border: `1px solid ${border}`, fontWeight: 700, whiteSpace: "nowrap" }}>
     {label}
   </span>
 );
@@ -198,14 +146,14 @@ const ProgressBar = ({ value, color, height = 3, shimmer = false }) => (
 
 function Btn({ onClick, type = "button", children, variant = "ghost", disabled = false, sx = {}, style = {}, ...rest }) {
   const V = {
-    ghost:   { border: "1px solid transparent", background: "transparent", color: C.t1, padding: "4px 10px", borderRadius: 6, fontSize: 11 },
-    outline: { border: `1px solid ${C.b0}`, background: C.s0, color: C.t0, padding: "6px 14px", borderRadius: 8, fontSize: 12 },
-    primary: { border: "1px solid rgba(59,130,246,0.35)", background: "rgba(59,130,246,0.15)", color: "#60a5fa", padding: "7px 18px", borderRadius: 8, fontSize: 12, fontWeight: 600 },
-    danger:  { border: "1px solid rgba(239,68,68,0.3)", background: "rgba(239,68,68,0.08)", color: "#f87171", padding: "6px 14px", borderRadius: 8, fontSize: 12 },
-    sm:      { border: `1px solid ${C.b0}`, background: "transparent", color: C.t1, padding: "2px 8px", borderRadius: 5, fontSize: 10 },
-    confirm: { border: "1px solid rgba(239,68,68,0.4)", background: "rgba(239,68,68,0.12)", color: "#fca5a5", padding: "7px 18px", borderRadius: 8, fontSize: 12, fontWeight: 600 },
-    green:   { border: "1px solid rgba(16,185,129,0.35)", background: "rgba(16,185,129,0.12)", color: "#34d399", padding: "7px 18px", borderRadius: 8, fontSize: 12, fontWeight: 600 },
-    amber:   { border: "1px solid rgba(245,158,11,0.35)", background: "rgba(245,158,11,0.10)", color: "#fbbf24", padding: "7px 18px", borderRadius: 8, fontSize: 12, fontWeight: 600 },
+    ghost:   { border: "1px solid transparent", background: "transparent", color: C.t1, padding: "4px 10px", borderRadius: 6, fontSize: 12 },
+    outline: { border: `1px solid ${C.b0}`, background: C.s0, color: C.t0, padding: "6px 14px", borderRadius: 8, fontSize: 13 },
+    primary: { border: "1px solid rgba(59,130,246,0.35)", background: "rgba(59,130,246,0.15)", color: "#60a5fa", padding: "7px 18px", borderRadius: 8, fontSize: 13, fontWeight: 600 },
+    danger:  { border: "1px solid rgba(239,68,68,0.3)", background: "rgba(239,68,68,0.08)", color: "#f87171", padding: "6px 14px", borderRadius: 8, fontSize: 13 },
+    sm:      { border: `1px solid ${C.b0}`, background: "transparent", color: C.t1, padding: "2px 8px", borderRadius: 5, fontSize: 11 },
+    confirm: { border: "1px solid rgba(239,68,68,0.4)", background: "rgba(239,68,68,0.12)", color: "#fca5a5", padding: "7px 18px", borderRadius: 8, fontSize: 13, fontWeight: 600 },
+    green:   { border: "1px solid rgba(16,185,129,0.35)", background: "rgba(16,185,129,0.12)", color: "#34d399", padding: "7px 18px", borderRadius: 8, fontSize: 13, fontWeight: 600 },
+    amber:   { border: "1px solid rgba(245,158,11,0.35)", background: "rgba(245,158,11,0.10)", color: "#fbbf24", padding: "7px 18px", borderRadius: 8, fontSize: 13, fontWeight: 600 },
   };
   return (
     <button type={type} onClick={onClick} disabled={disabled} {...rest} style={{ cursor: disabled ? "not-allowed" : "pointer", opacity: disabled ? 0.4 : 1, fontFamily: C.sans, transition: "opacity .15s", ...V[variant], ...style, ...sx }}>
@@ -217,7 +165,7 @@ function Btn({ onClick, type = "button", children, variant = "ghost", disabled =
 function InputSt({ label, children }) {
   return (
     <div style={{ marginBottom: 12 }}>
-      {label && <label style={{ fontSize: 9, letterSpacing: 2, color: C.t1, display: "block", marginBottom: 5, textTransform: "uppercase", fontWeight: 600 }}>{label}</label>}
+      {label && <label style={{ fontSize: 10, letterSpacing: 1.3, color: C.t1, display: "block", marginBottom: 5, textTransform: "uppercase", fontWeight: 700 }}>{label}</label>}
       {children}
     </div>
   );
@@ -225,14 +173,14 @@ function InputSt({ label, children }) {
 
 const INP = {
   background: "rgba(255,255,255,0.04)", border: `1px solid ${C.b0}`,
-  color: C.t0, padding: "8px 12px", borderRadius: 8, fontSize: 12,
+  color: C.t0, padding: "8px 12px", borderRadius: 8, fontSize: 13,
   outline: "none", width: "100%",
 };
 
 function Overlay({ onClose, children, maxWidth = 540, fullHeight = false }) {
   return (
     <div onClick={e => e.target === e.currentTarget && onClose?.()} style={{ position: "fixed", inset: 0, zIndex: 9000, background: "rgba(0,0,0,0.85)", ...GLASS, display: "flex", justifyContent: "center", alignItems: fullHeight ? "stretch" : "flex-start", padding: fullHeight ? 0 : "40px 16px", overflowY: fullHeight ? "hidden" : "auto" }}>
-      <div style={{ background: "rgba(15,15,18,0.97)", border: `1px solid ${C.b1}`, borderRadius: fullHeight ? 0 : 14, padding: 0, width: "100%", maxWidth: fullHeight ? "100%" : maxWidth, boxShadow: "0 32px 80px rgba(0,0,0,0.8)", animation: "slideUp 0.38s cubic-bezier(0.22,1,0.36,1)", fontFamily: C.sans, display: "flex", flexDirection: "column", ...(fullHeight ? { height: "100vh" } : { maxHeight: "92vh", overflow: "hidden" }) }}>
+      <div style={{ background: C.panelSolid, border: `1px solid ${C.b1}`, borderRadius: fullHeight ? 0 : 14, padding: 0, width: "100%", maxWidth: fullHeight ? "100%" : maxWidth, boxShadow: "0 32px 80px var(--shadow-strong)", animation: "slideUp 0.38s cubic-bezier(0.22,1,0.36,1)", fontFamily: C.sans, display: "flex", flexDirection: "column", ...(fullHeight ? { height: "100vh" } : { maxHeight: "92vh", overflow: "hidden" }) }}>
         {children}
       </div>
     </div>
@@ -246,8 +194,8 @@ function ConfirmModal({ nombre, tipo, advertencia, onConfirm, onCancel }) {
       <div style={{ padding: 26, textAlign: "center" }}>
         <div style={{ width: 44, height: 44, borderRadius: "50%", margin: "0 auto 14px", background: "rgba(239,68,68,0.12)", border: "1px solid rgba(239,68,68,0.25)", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 18 }}>⚠</div>
         <div style={{ fontSize: 14, color: C.t0, fontWeight: 600, marginBottom: 6 }}>Eliminar {tipo}</div>
-        <div style={{ fontFamily: C.mono, fontSize: 13, color: C.red, marginBottom: 8 }}>{nombre}</div>
-        <div style={{ fontSize: 12, color: C.t1, marginBottom: 22, lineHeight: 1.6 }}>{advertencia}</div>
+        <div style={{ fontFamily: C.mono, fontSize: 14, color: C.red, marginBottom: 8 }}>{nombre}</div>
+        <div style={{ fontSize: 13, color: C.t1, marginBottom: 22, lineHeight: 1.6 }}>{advertencia}</div>
         <div style={{ display: "flex", gap: 8, justifyContent: "center" }}>
           <Btn variant="confirm" onClick={onConfirm}>Sí, eliminar</Btn>
           <Btn variant="outline" onClick={onCancel}>Cancelar</Btn>
@@ -330,10 +278,10 @@ function ObraModal({ lineas, lProcs, lTareas = [], onSave, onClose }) {
     <Overlay onClose={onClose} maxWidth={520}>
       <div style={{ padding: 26, overflowY: "auto" }}>
         <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: 20 }}>
-          <div><div style={{ fontSize: 15, color: C.t0, fontWeight: 600 }}>Nueva obra</div><div style={{ fontSize: 11, color: C.t1, marginTop: 3 }}>Asigná una línea para pre-cargar las etapas</div></div>
+          <div><div style={{ fontSize: 15, color: C.t0, fontWeight: 600 }}>Nueva obra</div><div style={{ fontSize: 12, color: C.t1, marginTop: 3 }}>Asigná una línea para pre-cargar las etapas</div></div>
           <Btn variant="ghost" onClick={onClose} sx={{ fontSize: 18 }}>×</Btn>
         </div>
-        {err && <div style={{ padding: "8px 12px", marginBottom: 12, background: "rgba(239,68,68,0.08)", border: "1px solid rgba(239,68,68,0.25)", borderRadius: 7, fontSize: 12, color: "#fca5a5" }}>{err}</div>}
+        {err && <div style={{ padding: "8px 12px", marginBottom: 12, background: "rgba(239,68,68,0.08)", border: "1px solid rgba(239,68,68,0.25)", borderRadius: 7, fontSize: 13, color: "#fca5a5" }}>{err}</div>}
         <form onSubmit={handleSubmit}>
           <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10, marginBottom: 12 }}>
             <InputSt label="Código *"><input style={{ ...INP, fontFamily: C.mono }} required placeholder="37-105" autoFocus value={form.codigo} onChange={e => set("codigo", e.target.value)} /></InputSt>
@@ -347,8 +295,8 @@ function ObraModal({ lineas, lProcs, lTareas = [], onSave, onClose }) {
           <InputSt label="Notas"><input style={INP} value={form.notas} onChange={e => set("notas", e.target.value)} /></InputSt>
           {procsLinea.length > 0 && (
             <div style={{ marginBottom: 16, padding: "10px 14px", background: "rgba(16,185,129,0.05)", borderRadius: 8, border: "1px solid rgba(16,185,129,0.18)" }}>
-              <div style={{ fontSize: 11, color: "#10b981", marginBottom: 6 }}>Se crean {procsLinea.length} etapas desde {lineaSel?.nombre}</div>
-              <div style={{ display: "flex", gap: 4, flexWrap: "wrap" }}>{procsLinea.map(p => <span key={p.id} style={{ fontSize: 9, padding: "2px 7px", borderRadius: 4, background: C.s0, color: C.t1, border: `1px solid ${C.b0}` }}>{p.nombre}{p.genera_orden_compra ? " ●" : ""}</span>)}</div>
+              <div style={{ fontSize: 12, color: "#10b981", marginBottom: 6 }}>Se crean {procsLinea.length} etapas desde {lineaSel?.nombre}</div>
+              <div style={{ display: "flex", gap: 4, flexWrap: "wrap" }}>{procsLinea.map(p => <span key={p.id} style={{ fontSize: 10, padding: "2px 7px", borderRadius: 4, background: C.s0, color: C.t1, border: `1px solid ${C.b0}` }}>{p.nombre}{p.genera_orden_compra ? " ●" : ""}</span>)}</div>
             </div>
           )}
           <div style={{ display: "flex", gap: 8 }}>
@@ -404,7 +352,7 @@ function EtapaModal({ etapa, obraId, onSave, onClose }) {
           <div style={{ fontSize: 15, color: C.t0, fontWeight: 600 }}>{isEdit ? "Editar etapa" : "Nueva etapa"}</div>
           <Btn variant="ghost" onClick={onClose} sx={{ fontSize: 18 }}>×</Btn>
         </div>
-        {err && <div style={{ padding: "8px 12px", marginBottom: 12, background: "rgba(239,68,68,0.08)", border: "1px solid rgba(239,68,68,0.25)", borderRadius: 7, fontSize: 12, color: "#fca5a5" }}>{err}</div>}
+        {err && <div style={{ padding: "8px 12px", marginBottom: 12, background: "rgba(239,68,68,0.08)", border: "1px solid rgba(239,68,68,0.25)", borderRadius: 7, fontSize: 13, color: "#fca5a5" }}>{err}</div>}
         <form onSubmit={handleSubmit}>
           <InputSt label="Nombre *"><input style={INP} required autoFocus value={form.nombre} onChange={e => set("nombre", e.target.value)} /></InputSt>
           <InputSt label="Descripción"><input style={INP} value={form.descripcion} onChange={e => set("descripcion", e.target.value)} /></InputSt>
@@ -531,21 +479,21 @@ function TareaModal({ tarea, etapaId, obraId, onSave, onClose }) {
         <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: 14 }}>
           <div>
             <div style={{ fontSize: 15, color: C.t0, fontWeight: 600 }}>{isEdit ? "Editar tarea" : "Nueva tarea"}</div>
-            <div style={{ fontSize: 11, color: C.t1, marginTop: 2 }}>Solo el nombre es obligatorio</div>
+            <div style={{ fontSize: 12, color: C.t1, marginTop: 2 }}>Solo el nombre es obligatorio</div>
           </div>
           <Btn variant="ghost" onClick={onClose} sx={{ fontSize: 18 }}>×</Btn>
         </div>
         {/* Tabs */}
         <div style={{ display: "flex", gap: 0, marginBottom: -1 }}>
           {[["general","General"],["archivos",`Archivos${archivos.length ? ` (${archivos.length})` : ""}`]].map(([k, l]) => (
-            <button key={k} type="button" onClick={() => setTab(k)} style={{ padding: "7px 18px", border: "none", borderBottom: tab === k ? `2px solid ${C.primary}` : "2px solid transparent", background: "transparent", color: tab === k ? C.t0 : C.t1, fontSize: 12, cursor: "pointer", fontFamily: C.sans, fontWeight: tab === k ? 600 : 400 }}>{l}</button>
+            <button key={k} type="button" onClick={() => setTab(k)} style={{ padding: "7px 18px", border: "none", borderBottom: tab === k ? `2px solid ${C.primary}` : "2px solid transparent", background: "transparent", color: tab === k ? C.t0 : C.t1, fontSize: 13, cursor: "pointer", fontFamily: C.sans, fontWeight: tab === k ? 600 : 400 }}>{l}</button>
           ))}
         </div>
       </div>
 
       {/* Body scrollable */}
       <div style={{ flex: 1, overflowY: "auto", padding: "20px 24px" }}>
-        {err && <div style={{ padding: "8px 12px", marginBottom: 12, background: "rgba(239,68,68,0.08)", border: "1px solid rgba(239,68,68,0.25)", borderRadius: 7, fontSize: 12, color: "#fca5a5", marginTop: 0 }}>{err}</div>}
+        {err && <div style={{ padding: "8px 12px", marginBottom: 12, background: "rgba(239,68,68,0.08)", border: "1px solid rgba(239,68,68,0.25)", borderRadius: 7, fontSize: 13, color: "#fca5a5", marginTop: 0 }}>{err}</div>}
 
         {tab === "general" && (
           <form id="tarea-form" onSubmit={handleSubmit}>
@@ -554,18 +502,18 @@ function TareaModal({ tarea, etapaId, obraId, onSave, onClose }) {
             {/* Estado + Prioridad */}
             <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12, marginBottom: 12 }}>
               <div>
-                <label style={{ fontSize: 9, letterSpacing: 2, color: C.t1, display: "block", marginBottom: 7, textTransform: "uppercase", fontWeight: 600 }}>Estado</label>
+                <label style={{ fontSize: 10, letterSpacing: 1.3, color: C.t1, display: "block", marginBottom: 7, textTransform: "uppercase", fontWeight: 700 }}>Estado</label>
                 <div style={{ display: "flex", gap: 3, flexWrap: "wrap" }}>
                   {Object.entries(C.tarea).map(([k, v]) => (
-                    <button key={k} type="button" onClick={() => set("estado", k)} style={{ padding: "4px 9px", borderRadius: 6, cursor: "pointer", fontSize: 9, border: form.estado === k ? `1px solid ${v.text}55` : `1px solid ${C.b0}`, background: form.estado === k ? `${v.text}14` : C.s0, color: form.estado === k ? v.text : C.t1, fontFamily: C.sans }}>{v.label}</button>
+                    <button key={k} type="button" onClick={() => set("estado", k)} style={{ padding: "4px 9px", borderRadius: 6, cursor: "pointer", fontSize: 10, border: form.estado === k ? `1px solid ${v.text}55` : `1px solid ${C.b0}`, background: form.estado === k ? `${v.text}14` : C.s0, color: form.estado === k ? v.text : C.t1, fontFamily: C.sans }}>{v.label}</button>
                   ))}
                 </div>
               </div>
               <div>
-                <label style={{ fontSize: 9, letterSpacing: 2, color: C.t1, display: "block", marginBottom: 7, textTransform: "uppercase", fontWeight: 600 }}>Prioridad</label>
+                <label style={{ fontSize: 10, letterSpacing: 1.3, color: C.t1, display: "block", marginBottom: 7, textTransform: "uppercase", fontWeight: 700 }}>Prioridad</label>
                 <div style={{ display: "flex", gap: 3, flexWrap: "wrap" }}>
                   {Object.entries(C.prioridad).map(([k, v]) => (
-                    <button key={k} type="button" onClick={() => set("prioridad", k)} style={{ padding: "4px 9px", borderRadius: 6, cursor: "pointer", fontSize: 9, border: form.prioridad === k ? `1px solid ${v.color}55` : `1px solid ${C.b0}`, background: form.prioridad === k ? `${v.color}18` : C.s0, color: form.prioridad === k ? v.color : C.t1, fontFamily: C.sans }}>{v.label}</button>
+                    <button key={k} type="button" onClick={() => set("prioridad", k)} style={{ padding: "4px 9px", borderRadius: 6, cursor: "pointer", fontSize: 10, border: form.prioridad === k ? `1px solid ${v.color}55` : `1px solid ${C.b0}`, background: form.prioridad === k ? `${v.color}18` : C.s0, color: form.prioridad === k ? v.color : C.t1, fontFamily: C.sans }}>{v.label}</button>
                   ))}
                 </div>
               </div>
@@ -577,7 +525,7 @@ function TareaModal({ tarea, etapaId, obraId, onSave, onClose }) {
 
             {/* RESPONSABLE + PERSONAS */}
             <div style={secBorder}>
-              <div style={{ fontSize: 8, letterSpacing: 2.5, color: C.t2, marginBottom: 10, textTransform: "uppercase" }}>Equipo</div>
+              <div style={{ fontSize: 10, letterSpacing: 1.3, color: C.t2, marginBottom: 10, textTransform: "uppercase" }}>Equipo</div>
               <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10 }}>
                 <InputSt label="Responsable">
                   <input style={INP} placeholder="Nombre del responsable" value={form.responsable} onChange={e => set("responsable", e.target.value)} />
@@ -590,7 +538,7 @@ function TareaModal({ tarea, etapaId, obraId, onSave, onClose }) {
 
             {/* FECHAS */}
             <div style={secBorder}>
-              <div style={{ fontSize: 8, letterSpacing: 2.5, color: C.t2, marginBottom: 10, textTransform: "uppercase" }}>Fechas</div>
+              <div style={{ fontSize: 10, letterSpacing: 1.3, color: C.t2, marginBottom: 10, textTransform: "uppercase" }}>Fechas</div>
               <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 8 }}>
                 <InputSt label="Inicio"><input type="date" style={INP} value={form.fecha_inicio} onChange={e => set("fecha_inicio", e.target.value)} /></InputSt>
                 <InputSt label="Fin estimado"><input type="date" style={INP} value={form.fecha_fin_estimada} onChange={e => set("fecha_fin_estimada", e.target.value)} /></InputSt>
@@ -600,7 +548,7 @@ function TareaModal({ tarea, etapaId, obraId, onSave, onClose }) {
 
             {/* TIEMPO */}
             <div style={secBorder}>
-              <div style={{ fontSize: 8, letterSpacing: 2.5, color: C.t2, marginBottom: 10, textTransform: "uppercase" }}>Tiempo estimado</div>
+              <div style={{ fontSize: 10, letterSpacing: 1.3, color: C.t2, marginBottom: 10, textTransform: "uppercase" }}>Tiempo estimado</div>
               <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 8 }}>
                 <InputSt label="Días estimados">
                   <input type="number" min="0" step="0.5" style={INP} placeholder="0" value={form.dias_estimados} onChange={e => set("dias_estimados", e.target.value)} />
@@ -623,7 +571,7 @@ function TareaModal({ tarea, etapaId, obraId, onSave, onClose }) {
         {tab === "archivos" && (
           <div>
             {!isEdit && (
-              <div style={{ padding: "16px", background: "rgba(245,158,11,0.06)", border: "1px solid rgba(245,158,11,0.2)", borderRadius: 8, marginBottom: 16, fontSize: 11, color: C.amber }}>
+              <div style={{ padding: "16px", background: "rgba(245,158,11,0.06)", border: "1px solid rgba(245,158,11,0.2)", borderRadius: 8, marginBottom: 16, fontSize: 12, color: C.amber }}>
                 ℹ Guarda la tarea primero para poder subir archivos.
               </div>
             )}
@@ -641,30 +589,30 @@ function TareaModal({ tarea, etapaId, obraId, onSave, onClose }) {
                 }}
                 style={{ border: `2px dashed ${C.b1}`, borderRadius: 10, padding: "28px 20px", textAlign: "center", cursor: "pointer", marginBottom: 16, transition: "border-color .2s", background: C.s0 }}>
                 <div style={{ fontSize: 28, marginBottom: 8 }}>"↑"</div>
-                <div style={{ fontSize: 12, color: C.t0, fontWeight: 500, marginBottom: 4 }}>{uploading ? "Subiendo…" : "Arrastrá archivos aquí o hacé click"}</div>
-                <div style={{ fontSize: 10, color: C.t2 }}>Planos (DWG, DXF), PDFs, imágenes, documentos</div>
+                <div style={{ fontSize: 13, color: C.t0, fontWeight: 500, marginBottom: 4 }}>{uploading ? "Subiendo…" : "Arrastrá archivos aquí o hacé click"}</div>
+                <div style={{ fontSize: 11, color: C.t2 }}>Planos (DWG, DXF), PDFs, imágenes, documentos</div>
                 <input ref={fileRef} type="file" multiple style={{ display: "none" }} onChange={e => { [...(e.target.files ?? [])].forEach(f => subirArchivo(f)); e.target.value = ""; }} />
               </div>
             )}
-            {uploadErr && <div style={{ padding: "7px 12px", marginBottom: 12, background: "rgba(239,68,68,0.08)", border: "1px solid rgba(239,68,68,0.25)", borderRadius: 7, fontSize: 11, color: "#fca5a5" }}>{uploadErr}</div>}
+            {uploadErr && <div style={{ padding: "7px 12px", marginBottom: 12, background: "rgba(239,68,68,0.08)", border: "1px solid rgba(239,68,68,0.25)", borderRadius: 7, fontSize: 12, color: "#fca5a5" }}>{uploadErr}</div>}
 
             {/* Lista de archivos */}
-            {loadingArch && <div style={{ textAlign: "center", padding: "24px 0", color: C.t2, fontSize: 11 }}>Cargando archivos…</div>}
+            {loadingArch && <div style={{ textAlign: "center", padding: "24px 0", color: C.t2, fontSize: 12 }}>Cargando archivos…</div>}
             {!loadingArch && archivos.length === 0 && isEdit && (
-              <div style={{ textAlign: "center", padding: "24px 0", color: C.t2, fontSize: 11 }}>Sin archivos adjuntos todavía</div>
+              <div style={{ textAlign: "center", padding: "24px 0", color: C.t2, fontSize: 12 }}>Sin archivos adjuntos todavía</div>
             )}
             <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
               {archivos.map(arch => (
                 <div key={arch.id} style={{ display: "flex", alignItems: "center", gap: 10, padding: "10px 12px", borderRadius: 8, background: C.s0, border: `1px solid ${C.b0}` }}>
                   <span style={{ fontSize: 22, flexShrink: 0 }}>{extIcon(arch.nombre_archivo)}</span>
                   <div style={{ flex: 1, minWidth: 0 }}>
-                    <div style={{ fontSize: 12, color: C.t0, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{arch.nombre_archivo}</div>
-                    <div style={{ fontSize: 10, color: C.t2, marginTop: 2 }}>{fmtBytes(arch.tamano_bytes)} · {fmtDate(arch.created_at?.slice(0, 10))}</div>
+                    <div style={{ fontSize: 13, color: C.t0, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{arch.nombre_archivo}</div>
+                    <div style={{ fontSize: 11, color: C.t2, marginTop: 2 }}>{fmtBytes(arch.tamano_bytes)} · {fmtDate(arch.created_at?.slice(0, 10))}</div>
                   </div>
                   <div style={{ display: "flex", gap: 6, flexShrink: 0 }}>
-                    <a href={arch.url_publica} target="_blank" rel="noreferrer" style={{ fontSize: 10, padding: "3px 10px", borderRadius: 5, border: `1px solid ${C.b0}`, background: "transparent", color: C.t1, textDecoration: "none", cursor: "pointer", fontFamily: C.sans }}>Ver</a>
-                    <a href={arch.url_publica} download={arch.nombre_archivo} style={{ fontSize: 10, padding: "3px 10px", borderRadius: 5, border: `1px solid rgba(59,130,246,0.3)`, background: "rgba(59,130,246,0.08)", color: "#60a5fa", textDecoration: "none", cursor: "pointer", fontFamily: C.sans }}>⬇</a>
-                    <button type="button" onClick={() => eliminarArchivo(arch)} style={{ fontSize: 10, padding: "3px 8px", borderRadius: 5, border: "none", background: "transparent", color: C.t2, cursor: "pointer" }}>×</button>
+                    <a href={arch.url_publica} target="_blank" rel="noreferrer" style={{ fontSize: 11, padding: "3px 10px", borderRadius: 5, border: `1px solid ${C.b0}`, background: "transparent", color: C.t1, textDecoration: "none", cursor: "pointer", fontFamily: C.sans }}>Ver</a>
+                    <a href={arch.url_publica} download={arch.nombre_archivo} style={{ fontSize: 11, padding: "3px 10px", borderRadius: 5, border: `1px solid rgba(59,130,246,0.3)`, background: "rgba(59,130,246,0.08)", color: "#60a5fa", textDecoration: "none", cursor: "pointer", fontFamily: C.sans }}>⬇</a>
+                    <button type="button" onClick={() => eliminarArchivo(arch)} style={{ fontSize: 11, padding: "3px 8px", borderRadius: 5, border: "none", background: "transparent", color: C.t2, cursor: "pointer" }}>×</button>
                   </div>
                 </div>
               ))}
@@ -712,13 +660,13 @@ function TareaCard({ tarea, esGestion, archivosCount, onCambiarEstado, onEditar,
         {/* Info */}
         <div style={{ flex: 1, minWidth: 0 }}>
           <div style={{ display: "flex", alignItems: "center", gap: 6, flexWrap: "wrap", marginBottom: 4 }}>
-            <span style={{ fontSize: 12, color: C.t0, fontWeight: 500, wordBreak: "break-word" }}>{tarea.nombre}</span>
-            {atrasada && <span style={{ fontSize: 8, padding: "1px 6px", borderRadius: 3, background: "rgba(239,68,68,0.12)", color: C.red, border: "1px solid rgba(239,68,68,0.25)", flexShrink: 0 }}>ATRASADA</span>}
-            {urgente && !atrasada && <span style={{ fontSize: 8, padding: "1px 6px", borderRadius: 3, background: "rgba(245,158,11,0.1)", color: C.amber, border: "1px solid rgba(245,158,11,0.25)", flexShrink: 0 }}>VENCE PRONTO</span>}
+            <span style={{ fontSize: 13, color: C.t0, fontWeight: 500, wordBreak: "break-word" }}>{tarea.nombre}</span>
+            {atrasada && <span style={{ fontSize: 10, padding: "1px 6px", borderRadius: 3, background: "rgba(239,68,68,0.12)", color: C.red, border: "1px solid rgba(239,68,68,0.25)", flexShrink: 0 }}>ATRASADA</span>}
+            {urgente && !atrasada && <span style={{ fontSize: 10, padding: "1px 6px", borderRadius: 3, background: "rgba(245,158,11,0.1)", color: C.amber, border: "1px solid rgba(245,158,11,0.25)", flexShrink: 0 }}>VENCE PRONTO</span>}
           </div>
 
           {tarea.descripcion && (
-            <div style={{ fontSize: 10, color: C.t2, marginBottom: 6, lineHeight: 1.5, overflow: "hidden", display: "-webkit-box", WebkitLineClamp: 2, WebkitBoxOrient: "vertical" }}>
+            <div style={{ fontSize: 11, color: C.t2, marginBottom: 6, lineHeight: 1.5, overflow: "hidden", display: "-webkit-box", WebkitLineClamp: 2, WebkitBoxOrient: "vertical" }}>
               {tarea.descripcion}
             </div>
           )}
@@ -726,14 +674,14 @@ function TareaCard({ tarea, esGestion, archivosCount, onCambiarEstado, onEditar,
           {/* Métricas en chips */}
           <div style={{ display: "flex", gap: 6, flexWrap: "wrap", alignItems: "center" }}>
             {/* Estado */}
-            <span style={{ fontSize: 9, padding: "2px 7px", borderRadius: 99, background: `${tc.text}14`, color: tc.text, border: `1px solid ${tc.text}28` }}>{tc.label}</span>
+            <span style={{ fontSize: 10, padding: "2px 7px", borderRadius: 99, background: `${tc.text}14`, color: tc.text, border: `1px solid ${tc.text}28` }}>{tc.label}</span>
 
             {/* Prioridad */}
-            <span style={{ fontSize: 9, padding: "2px 7px", borderRadius: 99, background: `${pc.color}12`, color: pc.color, border: `1px solid ${pc.color}28` }}>{pc.label}</span>
+            <span style={{ fontSize: 10, padding: "2px 7px", borderRadius: 99, background: `${pc.color}12`, color: pc.color, border: `1px solid ${pc.color}28` }}>{pc.label}</span>
 
             {/* Responsable */}
             {tarea.responsable && (
-              <span style={{ fontSize: 9, color: C.t1, display: "flex", alignItems: "center", gap: 3 }}>
+              <span style={{ fontSize: 10, color: C.t1, display: "flex", alignItems: "center", gap: 3 }}>
                 {tarea.responsable}
                 {tarea.personas_necesarias > 1 && ` +${tarea.personas_necesarias - 1}`}
               </span>
@@ -741,7 +689,7 @@ function TareaCard({ tarea, esGestion, archivosCount, onCambiarEstado, onEditar,
 
             {/* Tiempo */}
             {(tarea.dias_estimados || tarea.horas_estimadas) && (
-              <span style={{ fontSize: 9, color: C.t2, fontFamily: C.mono }}>
+              <span style={{ fontSize: 10, color: C.t2, fontFamily: C.mono }}>
                 {tarea.dias_estimados ? `${tarea.dias_estimados}d` : ""}
                 {tarea.dias_estimados && tarea.horas_estimadas ? " / " : ""}
                 {tarea.horas_estimadas ? `${tarea.horas_estimadas}h` : ""}
@@ -750,14 +698,14 @@ function TareaCard({ tarea, esGestion, archivosCount, onCambiarEstado, onEditar,
 
             {/* Fechas */}
             {(tarea.fecha_inicio || tarea.fecha_fin_estimada) && (
-              <span style={{ fontSize: 9, color: atrasada ? C.red : urgente ? C.amber : C.t2, fontFamily: C.mono }}>
+              <span style={{ fontSize: 10, color: atrasada ? C.red : urgente ? C.amber : C.t2, fontFamily: C.mono }}>
                 📅 {fmtDate(tarea.fecha_inicio)} → {fmtDate(tarea.fecha_fin_estimada)}
               </span>
             )}
 
             {/* Archivos */}
             {archivosCount > 0 && (
-              <span style={{ fontSize: 9, color: C.primary }}>{archivosCount} arch.</span>
+              <span style={{ fontSize: 10, color: C.primary }}>{archivosCount} arch.</span>
             )}
           </div>
         </div>
@@ -769,22 +717,22 @@ function TareaCard({ tarea, esGestion, archivosCount, onCambiarEstado, onEditar,
             <div style={{ display: "flex", gap: 3 }}>
               {tarea.estado === "pendiente" && (
                 <button type="button" onClick={() => onCambiarEstado(tarea.id, "en_progreso")}
-                  style={{ fontSize: 9, padding: "3px 8px", borderRadius: 5, border: `1px solid rgba(59,130,246,0.3)`, background: "rgba(59,130,246,0.08)", color: "#60a5fa", cursor: "pointer", fontFamily: C.sans, whiteSpace: "nowrap" }}>
+                  style={{ fontSize: 10, padding: "3px 8px", borderRadius: 5, border: `1px solid rgba(59,130,246,0.3)`, background: "rgba(59,130,246,0.08)", color: "#60a5fa", cursor: "pointer", fontFamily: C.sans, whiteSpace: "nowrap" }}>
                   ▶ Iniciar
                 </button>
               )}
               {tarea.estado === "en_progreso" && (
                 <button type="button" onClick={() => onCambiarEstado(tarea.id, "finalizada")}
-                  style={{ fontSize: 9, padding: "3px 8px", borderRadius: 5, border: `1px solid rgba(16,185,129,0.3)`, background: "rgba(16,185,129,0.08)", color: C.green, cursor: "pointer", fontFamily: C.sans, whiteSpace: "nowrap" }}>
+                  style={{ fontSize: 10, padding: "3px 8px", borderRadius: 5, border: `1px solid rgba(16,185,129,0.3)`, background: "rgba(16,185,129,0.08)", color: C.green, cursor: "pointer", fontFamily: C.sans, whiteSpace: "nowrap" }}>
                   ✓ Finalizar
                 </button>
               )}
             </div>
             <div style={{ display: "flex", gap: 3 }}>
               <button type="button" onClick={() => onEditar(tarea)}
-                style={{ fontSize: 10, padding: "3px 8px", borderRadius: 5, border: `1px solid ${C.b0}`, background: "transparent", color: C.t1, cursor: "pointer" }}>editar</button>
+                style={{ fontSize: 11, padding: "3px 8px", borderRadius: 5, border: `1px solid ${C.b0}`, background: "transparent", color: C.t1, cursor: "pointer" }}>editar</button>
               <button type="button" onClick={() => onEliminar(tarea)}
-                style={{ fontSize: 10, padding: "3px 8px", borderRadius: 5, border: "none", background: "transparent", color: C.t2, cursor: "pointer" }}>×</button>
+                style={{ fontSize: 11, padding: "3px 8px", borderRadius: 5, border: "none", background: "transparent", color: C.t2, cursor: "pointer" }}>×</button>
             </div>
           </div>
         )}
@@ -794,8 +742,8 @@ function TareaCard({ tarea, esGestion, archivosCount, onCambiarEstado, onEditar,
       {tarea.horas_estimadas && tarea.horas_reales && (
         <div style={{ padding: "0 12px 8px" }}>
           <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 2 }}>
-            <span style={{ fontSize: 8, color: C.t2 }}>Horas</span>
-            <span style={{ fontSize: 8, color: C.t2, fontFamily: C.mono }}>{tarea.horas_reales}/{tarea.horas_estimadas}h</span>
+            <span style={{ fontSize: 10, color: C.t2 }}>Horas</span>
+            <span style={{ fontSize: 10, color: C.t2, fontFamily: C.mono }}>{tarea.horas_reales}/{tarea.horas_estimadas}h</span>
           </div>
           <ProgressBar value={pct(num(tarea.horas_reales), num(tarea.horas_estimadas))} color={tc.text} height={2} />
         </div>
@@ -823,8 +771,8 @@ function TareaDetalleModal({ tarea, onClose, onEditar, esGestion }) {
   const Row = ({ icon, label, value, mono }) => value ? (
     <div style={{ display: "flex", gap: 10, padding: "8px 0", borderBottom: `1px solid ${C.b0}` }}>
       <span style={{ width: 20, flexShrink: 0 }}>{icon}</span>
-      <span style={{ fontSize: 11, color: C.t2, width: 120, flexShrink: 0 }}>{label}</span>
-      <span style={{ fontSize: 11, color: C.t0, fontFamily: mono ? C.mono : C.sans, flex: 1 }}>{value}</span>
+      <span style={{ fontSize: 12, color: C.t2, width: 120, flexShrink: 0 }}>{label}</span>
+      <span style={{ fontSize: 12, color: C.t0, fontFamily: mono ? C.mono : C.sans, flex: 1 }}>{value}</span>
     </div>
   ) : null;
 
@@ -837,8 +785,8 @@ function TareaDetalleModal({ tarea, onClose, onEditar, esGestion }) {
           <div style={{ flex: 1 }}>
             <div style={{ fontSize: 18, color: C.t0, fontWeight: 700, marginBottom: 8, lineHeight: 1.3 }}>{tarea.nombre}</div>
             <div style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>
-              <span style={{ fontSize: 9, padding: "3px 9px", borderRadius: 99, background: `${tc.text}14`, color: tc.text, border: `1px solid ${tc.text}28`, letterSpacing: 1, textTransform: "uppercase" }}>{tc.label}</span>
-              <span style={{ fontSize: 9, padding: "3px 9px", borderRadius: 99, background: `${pc.color}12`, color: pc.color, border: `1px solid ${pc.color}28`, letterSpacing: 1, textTransform: "uppercase" }}>Prioridad {pc.label}</span>
+              <span style={{ fontSize: 10, padding: "3px 9px", borderRadius: 99, background: `${tc.text}14`, color: tc.text, border: `1px solid ${tc.text}28`, letterSpacing: 1, textTransform: "uppercase" }}>{tc.label}</span>
+              <span style={{ fontSize: 10, padding: "3px 9px", borderRadius: 99, background: `${pc.color}12`, color: pc.color, border: `1px solid ${pc.color}28`, letterSpacing: 1, textTransform: "uppercase" }}>Prioridad {pc.label}</span>
             </div>
           </div>
           <div style={{ display: "flex", gap: 7, flexShrink: 0 }}>
@@ -853,29 +801,29 @@ function TareaDetalleModal({ tarea, onClose, onEditar, esGestion }) {
 
         {tarea.descripcion && (
           <div style={{ marginBottom: 20, padding: "14px 16px", background: "rgba(59,130,246,0.04)", border: `1px solid rgba(59,130,246,0.15)`, borderRadius: 8 }}>
-            <div style={{ fontSize: 9, letterSpacing: 2, color: C.t2, marginBottom: 6, textTransform: "uppercase" }}>Descripción</div>
-            <div style={{ fontSize: 12, color: C.t1, lineHeight: 1.7, whiteSpace: "pre-wrap" }}>{tarea.descripcion}</div>
+            <div style={{ fontSize: 10, letterSpacing: 1.3, color: C.t2, marginBottom: 6, textTransform: "uppercase" }}>Descripción</div>
+            <div style={{ fontSize: 13, color: C.t1, lineHeight: 1.7, whiteSpace: "pre-wrap" }}>{tarea.descripcion}</div>
           </div>
         )}
 
         <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 20, marginBottom: 20 }}>
           {/* Equipo */}
           <div style={{ padding: "14px 16px", background: C.s0, border: `1px solid ${C.b0}`, borderRadius: 8 }}>
-            <div style={{ fontSize: 9, letterSpacing: 2, color: C.t2, marginBottom: 10, textTransform: "uppercase" }}>Equipo</div>
+            <div style={{ fontSize: 10, letterSpacing: 1.3, color: C.t2, marginBottom: 10, textTransform: "uppercase" }}>Equipo</div>
             <Row icon="·" label="Responsable" value={tarea.responsable} />
             <Row icon="👥" label="Personas" value={tarea.personas_necesarias ? `${tarea.personas_necesarias} persona${tarea.personas_necesarias > 1 ? "s" : ""}` : null} />
           </div>
 
           {/* Tiempo */}
           <div style={{ padding: "14px 16px", background: C.s0, border: `1px solid ${C.b0}`, borderRadius: 8 }}>
-            <div style={{ fontSize: 9, letterSpacing: 2, color: C.t2, marginBottom: 10, textTransform: "uppercase" }}>Tiempo</div>
+            <div style={{ fontSize: 10, letterSpacing: 1.3, color: C.t2, marginBottom: 10, textTransform: "uppercase" }}>Tiempo</div>
             <Row icon="📅" label="Días estimados"  value={tarea.dias_estimados ? `${tarea.dias_estimados}d` : null} mono />
             <Row icon="" label="Horas estimadas" value={tarea.horas_estimadas ? `${tarea.horas_estimadas} hs` : null} mono />
             <Row icon="⏰" label="Horas reales"    value={tarea.horas_reales    ? `${tarea.horas_reales} hs`    : null} mono />
             {tarea.horas_estimadas && tarea.horas_reales && (
               <div style={{ marginTop: 8 }}>
                 <ProgressBar value={pct(num(tarea.horas_reales), num(tarea.horas_estimadas))} color={tc.text} height={4} />
-                <div style={{ fontSize: 9, color: C.t2, marginTop: 3, textAlign: "right" }}>
+                <div style={{ fontSize: 10, color: C.t2, marginTop: 3, textAlign: "right" }}>
                   {pct(num(tarea.horas_reales), num(tarea.horas_estimadas))}% completado
                 </div>
               </div>
@@ -886,12 +834,12 @@ function TareaDetalleModal({ tarea, onClose, onEditar, esGestion }) {
         {/* Fechas */}
         {(tarea.fecha_inicio || tarea.fecha_fin_estimada || tarea.fecha_fin_real) && (
           <div style={{ padding: "14px 16px", background: C.s0, border: `1px solid ${C.b0}`, borderRadius: 8, marginBottom: 20 }}>
-            <div style={{ fontSize: 9, letterSpacing: 2, color: C.t2, marginBottom: 10, textTransform: "uppercase" }}>Fechas</div>
+            <div style={{ fontSize: 10, letterSpacing: 1.3, color: C.t2, marginBottom: 10, textTransform: "uppercase" }}>Fechas</div>
             <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 16 }}>
               {[["Inicio", tarea.fecha_inicio], ["Fin estimado", tarea.fecha_fin_estimada], ["Fin real", tarea.fecha_fin_real]].map(([label, val]) => val && (
                 <div key={label}>
-                  <div style={{ fontSize: 9, color: C.t2, marginBottom: 3 }}>{label}</div>
-                  <div style={{ fontFamily: C.mono, fontSize: 13, color: C.t0 }}>{fmtDateFull(val)}</div>
+                  <div style={{ fontSize: 10, color: C.t2, marginBottom: 3 }}>{label}</div>
+                  <div style={{ fontFamily: C.mono, fontSize: 14, color: C.t0 }}>{fmtDateFull(val)}</div>
                 </div>
               ))}
             </div>
@@ -900,19 +848,19 @@ function TareaDetalleModal({ tarea, onClose, onEditar, esGestion }) {
 
         {tarea.observaciones && (
           <div style={{ padding: "14px 16px", background: C.s0, border: `1px solid ${C.b0}`, borderRadius: 8, marginBottom: 20 }}>
-            <div style={{ fontSize: 9, letterSpacing: 2, color: C.t2, marginBottom: 8, textTransform: "uppercase" }}>Observaciones</div>
-            <div style={{ fontSize: 12, color: C.t1, lineHeight: 1.7, whiteSpace: "pre-wrap" }}>{tarea.observaciones}</div>
+            <div style={{ fontSize: 10, letterSpacing: 1.3, color: C.t2, marginBottom: 8, textTransform: "uppercase" }}>Observaciones</div>
+            <div style={{ fontSize: 13, color: C.t1, lineHeight: 1.7, whiteSpace: "pre-wrap" }}>{tarea.observaciones}</div>
           </div>
         )}
 
         {/* ARCHIVOS */}
         <div>
-          <div style={{ fontSize: 9, letterSpacing: 2, color: C.t2, marginBottom: 10, textTransform: "uppercase" }}>
+          <div style={{ fontSize: 10, letterSpacing: 1.3, color: C.t2, marginBottom: 10, textTransform: "uppercase" }}>
             Archivos adjuntos {archivos.length > 0 && `(${archivos.length})`}
           </div>
-          {loading && <div style={{ color: C.t2, fontSize: 11 }}>Cargando…</div>}
+          {loading && <div style={{ color: C.t2, fontSize: 12 }}>Cargando…</div>}
           {!loading && archivos.length === 0 && (
-            <div style={{ textAlign: "center", padding: "20px 0", color: C.t2, fontSize: 11, border: `1px dashed ${C.b0}`, borderRadius: 8 }}>
+            <div style={{ textAlign: "center", padding: "20px 0", color: C.t2, fontSize: 12, border: `1px dashed ${C.b0}`, borderRadius: 8 }}>
               Sin archivos · Editá la tarea para subir planos y documentos
             </div>
           )}
@@ -922,10 +870,10 @@ function TareaDetalleModal({ tarea, onClose, onEditar, esGestion }) {
                 style={{ display: "flex", alignItems: "center", gap: 10, padding: "10px 12px", borderRadius: 8, background: C.s0, border: `1px solid ${C.b0}`, textDecoration: "none", transition: "border-color .15s" }}>
                 <span style={{ fontSize: 24, flexShrink: 0 }}>{extIcon(arch.nombre_archivo)}</span>
                 <div style={{ flex: 1, minWidth: 0 }}>
-                  <div style={{ fontSize: 11, color: C.t0, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{arch.nombre_archivo}</div>
-                  <div style={{ fontSize: 9, color: C.t2 }}>{fmtBytes(arch.tamano_bytes)}</div>
+                  <div style={{ fontSize: 12, color: C.t0, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{arch.nombre_archivo}</div>
+                  <div style={{ fontSize: 10, color: C.t2 }}>{fmtBytes(arch.tamano_bytes)}</div>
                 </div>
-                <span style={{ fontSize: 10, color: C.t2, flexShrink: 0 }}>→</span>
+                <span style={{ fontSize: 11, color: C.t2, flexShrink: 0 }}>→</span>
               </a>
             ))}
           </div>
@@ -944,11 +892,11 @@ function PredecessorWarnModal({ tareaActual, bloqueantes, onConfirm, onCancel })
           <div style={{ width: 40, height: 40, borderRadius: "50%", background: "rgba(245,158,11,0.12)", border: "1px solid rgba(245,158,11,0.3)", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 18, flexShrink: 0 }}>⚠</div>
           <div>
             <div style={{ fontSize: 14, color: C.t0, fontWeight: 600 }}>Tarea con predecesoras pendientes</div>
-            <div style={{ fontSize: 11, color: C.t2, marginTop: 2 }}>Hay tareas anteriores que todavía no se completaron</div>
+            <div style={{ fontSize: 12, color: C.t2, marginTop: 2 }}>Hay tareas anteriores que todavía no se completaron</div>
           </div>
         </div>
 
-        <div style={{ fontSize: 11, color: C.t1, marginBottom: 10 }}>
+        <div style={{ fontSize: 12, color: C.t1, marginBottom: 10 }}>
           Querés iniciar <span style={{ color: C.t0, fontWeight: 600 }}>"{tareaActual}"</span> pero las siguientes tareas de esta etapa aún no finalizaron:
         </div>
 
@@ -956,15 +904,15 @@ function PredecessorWarnModal({ tareaActual, bloqueantes, onConfirm, onCancel })
           {bloqueantes.map(t => (
             <div key={t.id} style={{ display: "flex", alignItems: "center", gap: 8, padding: "7px 10px", borderRadius: 7, background: "rgba(245,158,11,0.05)", border: "1px solid rgba(245,158,11,0.2)" }}>
               <div style={{ width: 6, height: 6, borderRadius: "50%", background: C.tarea[t.estado]?.dot ?? C.t2, flexShrink: 0 }} />
-              <span style={{ fontSize: 11, color: C.t1, flex: 1 }}>{t.nombre}</span>
-              <span style={{ fontSize: 9, color: C.tarea[t.estado]?.text ?? C.t2, background: `${C.tarea[t.estado]?.text ?? C.t2}14`, padding: "2px 7px", borderRadius: 4, border: `1px solid ${C.tarea[t.estado]?.text ?? C.t2}28` }}>
+              <span style={{ fontSize: 12, color: C.t1, flex: 1 }}>{t.nombre}</span>
+              <span style={{ fontSize: 10, color: C.tarea[t.estado]?.text ?? C.t2, background: `${C.tarea[t.estado]?.text ?? C.t2}14`, padding: "2px 7px", borderRadius: 4, border: `1px solid ${C.tarea[t.estado]?.text ?? C.t2}28` }}>
                 {C.tarea[t.estado]?.label ?? t.estado}
               </span>
             </div>
           ))}
         </div>
 
-        <div style={{ fontSize: 11, color: C.t2, marginBottom: 20, padding: "10px 12px", borderRadius: 7, background: C.s0, border: `1px solid ${C.b0}` }}>
+        <div style={{ fontSize: 12, color: C.t2, marginBottom: 20, padding: "10px 12px", borderRadius: 7, background: C.s0, border: `1px solid ${C.b0}` }}>
           ¿Seguro que querés iniciarla igual?
         </div>
 
@@ -1030,10 +978,10 @@ function EtapaTareasSection({ etapa, tareas, archivosCount, esGestion, onCambiar
       {tareas.length > 0 && (
         <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 8, padding: "4px 0" }}>
           <ProgressBar value={epct} color={ec.dot} height={3} />
-          <span style={{ fontSize: 9, color: ec.text, fontFamily: C.mono, flexShrink: 0 }}>{finalizadas}/{tareas.length} · {epct}%</span>
+          <span style={{ fontSize: 10, color: ec.text, fontFamily: C.mono, flexShrink: 0 }}>{finalizadas}/{tareas.length} · {epct}%</span>
           {esGestion && (
             <button type="button" onClick={() => { setBulkMode(b => !b); setSelectedIds(new Set()); }}
-              style={{ marginLeft: "auto", fontSize: 9, padding: "2px 9px", borderRadius: 5, border: `1px solid ${bulkMode ? "rgba(59,130,246,0.5)" : C.b0}`, background: bulkMode ? "rgba(59,130,246,0.1)" : "transparent", color: bulkMode ? "#60a5fa" : C.t2, cursor: "pointer", fontFamily: C.sans, transition: "all 0.15s", flexShrink: 0 }}>
+              style={{ marginLeft: "auto", fontSize: 10, padding: "2px 9px", borderRadius: 5, border: `1px solid ${bulkMode ? "rgba(59,130,246,0.5)" : C.b0}`, background: bulkMode ? "rgba(59,130,246,0.1)" : "transparent", color: bulkMode ? "#60a5fa" : C.t2, cursor: "pointer", fontFamily: C.sans, transition: "all 0.15s", flexShrink: 0 }}>
               {bulkMode ? "Cancelar" : "Seleccionar"}
             </button>
           )}
@@ -1043,23 +991,23 @@ function EtapaTareasSection({ etapa, tareas, archivosCount, esGestion, onCambiar
       {/* ── Toolbar bulk — aparece cuando hay selección ── */}
       {bulkMode && selectedIds.size > 0 && (
         <div style={{ display: "flex", alignItems: "center", gap: 6, marginBottom: 8, padding: "7px 10px", borderRadius: 8, background: "rgba(59,130,246,0.07)", border: "1px solid rgba(59,130,246,0.2)", animation: "slideUp 0.3s cubic-bezier(0.22,1,0.36,1)" }}>
-          <span style={{ fontSize: 10, color: "#60a5fa", fontFamily: C.mono, fontWeight: 600 }}>{selectedIds.size} seleccionadas</span>
+          <span style={{ fontSize: 11, color: "#60a5fa", fontFamily: C.mono, fontWeight: 700 }}>{selectedIds.size} seleccionadas</span>
           <div style={{ display: "flex", gap: 5, marginLeft: 6 }}>
             <button type="button" onClick={() => bulkCambiar("en_progreso")}
-              style={{ fontSize: 10, padding: "3px 10px", borderRadius: 5, border: "1px solid rgba(59,130,246,0.35)", background: "rgba(59,130,246,0.12)", color: "#60a5fa", cursor: "pointer", fontFamily: C.sans }}>
+              style={{ fontSize: 11, padding: "3px 10px", borderRadius: 5, border: "1px solid rgba(59,130,246,0.35)", background: "rgba(59,130,246,0.12)", color: "#60a5fa", cursor: "pointer", fontFamily: C.sans }}>
               ▶ Iniciar todas
             </button>
             <button type="button" onClick={() => bulkCambiar("finalizada")}
-              style={{ fontSize: 10, padding: "3px 10px", borderRadius: 5, border: "1px solid rgba(16,185,129,0.35)", background: "rgba(16,185,129,0.1)", color: C.green, cursor: "pointer", fontFamily: C.sans }}>
+              style={{ fontSize: 11, padding: "3px 10px", borderRadius: 5, border: "1px solid rgba(16,185,129,0.35)", background: "rgba(16,185,129,0.1)", color: C.green, cursor: "pointer", fontFamily: C.sans }}>
               ✓ Finalizar todas
             </button>
             <button type="button" onClick={() => bulkCambiar("pendiente")}
-              style={{ fontSize: 10, padding: "3px 10px", borderRadius: 5, border: `1px solid ${C.b0}`, background: "transparent", color: C.t2, cursor: "pointer", fontFamily: C.sans }}>
+              style={{ fontSize: 11, padding: "3px 10px", borderRadius: 5, border: `1px solid ${C.b0}`, background: "transparent", color: C.t2, cursor: "pointer", fontFamily: C.sans }}>
               ↩ Reiniciar
             </button>
           </div>
           <button type="button" onClick={selectAll}
-            style={{ marginLeft: "auto", fontSize: 10, padding: "3px 9px", borderRadius: 5, border: `1px solid ${C.b0}`, background: "transparent", color: C.t2, cursor: "pointer", fontFamily: C.sans }}>
+            style={{ marginLeft: "auto", fontSize: 11, padding: "3px 9px", borderRadius: 5, border: `1px solid ${C.b0}`, background: "transparent", color: C.t2, cursor: "pointer", fontFamily: C.sans }}>
             Sel. todas
           </button>
         </div>
@@ -1072,7 +1020,7 @@ function EtapaTareasSection({ etapa, tareas, archivosCount, esGestion, onCambiar
           {bulkMode && !["finalizada","cancelada"].includes(tarea.estado) && (
             <div onClick={() => toggleSelect(tarea.id)}
               style={{ marginTop: 12, width: 16, height: 16, borderRadius: 4, border: `1.5px solid ${selectedIds.has(tarea.id) ? "#60a5fa" : C.b1}`, background: selectedIds.has(tarea.id) ? "rgba(59,130,246,0.2)" : "transparent", cursor: "pointer", flexShrink: 0, display: "flex", alignItems: "center", justifyContent: "center", transition: "all 0.15s" }}>
-              {selectedIds.has(tarea.id) && <span style={{ fontSize: 9, color: "#60a5fa", lineHeight: 1 }}>✓</span>}
+              {selectedIds.has(tarea.id) && <span style={{ fontSize: 10, color: "#60a5fa", lineHeight: 1 }}>✓</span>}
             </div>
           )}
           <div style={{ flex: 1, minWidth: 0 }}>
@@ -1091,12 +1039,12 @@ function EtapaTareasSection({ etapa, tareas, archivosCount, esGestion, onCambiar
 
       {esGestion && (
         <button type="button" onClick={onNueva}
-          style={{ width: "100%", marginTop: 4, padding: "8px 12px", borderRadius: 7, cursor: "pointer", border: `1px dashed ${C.b1}`, background: "transparent", color: C.t2, fontSize: 11, fontFamily: C.sans, display: "flex", alignItems: "center", justifyContent: "center", gap: 6, transition: "border-color .15s, color .15s" }}>
+          style={{ width: "100%", marginTop: 4, padding: "8px 12px", borderRadius: 7, cursor: "pointer", border: `1px dashed ${C.b1}`, background: "transparent", color: C.t2, fontSize: 12, fontFamily: C.sans, display: "flex", alignItems: "center", justifyContent: "center", gap: 6, transition: "border-color .15s, color .15s" }}>
           + Nueva tarea en {etapa.nombre}
         </button>
       )}
       {tareas.length === 0 && !esGestion && (
-        <div style={{ padding: "12px 0", color: C.t2, fontSize: 10, textAlign: "center" }}>Sin tareas en esta etapa</div>
+        <div style={{ padding: "12px 0", color: C.t2, fontSize: 11, textAlign: "center" }}>Sin tareas en esta etapa</div>
       )}
     </div>
   );
@@ -1107,7 +1055,7 @@ function OrdenCompraSection({ genera, tipo, desc, monto, diasPrevio = 7, onChang
   return (
     <div style={{ padding: "10px 12px", background: genera ? "rgba(245,158,11,0.05)" : C.s0, border: `1px solid ${genera ? "rgba(245,158,11,0.2)" : C.b0}`, borderRadius: 8, marginTop: 8, transition: "all .2s" }}>
       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: genera ? 10 : 0 }}>
-        <span style={{ fontSize: 11, color: genera ? C.amber : C.t2 }}>Orden de compra al completar</span>
+        <span style={{ fontSize: 12, color: genera ? C.amber : C.t2 }}>Orden de compra al completar</span>
         <button type="button" onClick={() => onChange("genera_orden_compra", !genera)} style={{ width: 34, height: 18, borderRadius: 99, border: "none", flexShrink: 0, cursor: "pointer", background: genera ? "rgba(245,158,11,0.5)" : "rgba(255,255,255,0.07)", position: "relative", transition: "background .2s" }}>
           <div style={{ position: "absolute", top: 3, left: genera ? 15 : 3, width: 12, height: 12, borderRadius: "50%", background: genera ? "#fbbf24" : "#383838", transition: "left .18s" }} />
         </button>
@@ -1116,7 +1064,7 @@ function OrdenCompraSection({ genera, tipo, desc, monto, diasPrevio = 7, onChang
         <>
           <div style={{ display: "flex", gap: 5, marginBottom: 8 }}>
             {[["aviso","Aviso"],["compra","Orden"]].map(([v, l]) => (
-              <button key={v} type="button" onClick={() => onChange("orden_compra_tipo", v)} style={{ flex: 1, padding: "5px", borderRadius: 6, cursor: "pointer", fontSize: 10, border: tipo === v ? "1px solid rgba(245,158,11,0.4)" : `1px solid ${C.b0}`, background: tipo === v ? "rgba(245,158,11,0.12)" : C.s0, color: tipo === v ? C.amber : C.t1, fontFamily: C.sans }}>{l}</button>
+              <button key={v} type="button" onClick={() => onChange("orden_compra_tipo", v)} style={{ flex: 1, padding: "5px", borderRadius: 6, cursor: "pointer", fontSize: 11, border: tipo === v ? "1px solid rgba(245,158,11,0.4)" : `1px solid ${C.b0}`, background: tipo === v ? "rgba(245,158,11,0.12)" : C.s0, color: tipo === v ? C.amber : C.t1, fontFamily: C.sans }}>{l}</button>
             ))}
           </div>
           <InputSt label="Descripción / Materiales">
@@ -1173,17 +1121,17 @@ function OrdenCompraModal({ oc, obras, onSave, onClose }) {
         <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: 20 }}>
           <div>
             <div style={{ fontSize: 15, color: C.t0, fontWeight: 600 }}>Orden de compra</div>
-            <div style={{ fontSize: 11, color: C.t1, marginTop: 3 }}><span style={{ fontFamily: C.mono }}>{obra?.codigo ?? "—"}</span>{oc.etapa_nombre && <span style={{ color: C.t2 }}> · {oc.etapa_nombre}</span>}</div>
+            <div style={{ fontSize: 12, color: C.t1, marginTop: 3 }}><span style={{ fontFamily: C.mono }}>{obra?.codigo ?? "—"}</span>{oc.etapa_nombre && <span style={{ color: C.t2 }}> · {oc.etapa_nombre}</span>}</div>
           </div>
           <Btn variant="ghost" onClick={onClose} sx={{ fontSize: 18 }}>×</Btn>
         </div>
-        {urg && <div style={{ padding: "8px 12px", marginBottom: 14, borderRadius: 7, background: `${urg.color}12`, border: `1px solid ${urg.color}35`, fontSize: 11, color: urg.color }}> ⚠ {urg.label}</div>}
-        {err && <div style={{ padding: "8px 12px", marginBottom: 12, background: "rgba(239,68,68,0.08)", border: "1px solid rgba(239,68,68,0.25)", borderRadius: 7, fontSize: 12, color: "#fca5a5" }}>{err}</div>}
+        {urg && <div style={{ padding: "8px 12px", marginBottom: 14, borderRadius: 7, background: `${urg.color}12`, border: `1px solid ${urg.color}35`, fontSize: 12, color: urg.color }}> ⚠ {urg.label}</div>}
+        {err && <div style={{ padding: "8px 12px", marginBottom: 12, background: "rgba(239,68,68,0.08)", border: "1px solid rgba(239,68,68,0.25)", borderRadius: 7, fontSize: 13, color: "#fca5a5" }}>{err}</div>}
         <form onSubmit={handleSubmit}>
           <InputSt label="Estado">
             <div style={{ display: "flex", gap: 5, flexWrap: "wrap" }}>
               {Object.entries(C.oc).map(([k, v]) => (
-                <button key={k} type="button" onClick={() => set("estado", k)} style={{ padding: "5px 12px", borderRadius: 6, cursor: "pointer", fontSize: 10, border: form.estado === k ? `1px solid ${v.dot}55` : `1px solid ${C.b0}`, background: form.estado === k ? v.bg : C.s0, color: form.estado === k ? v.dot : C.t1, fontFamily: C.sans }}>{v.label}</button>
+                <button key={k} type="button" onClick={() => set("estado", k)} style={{ padding: "5px 12px", borderRadius: 6, cursor: "pointer", fontSize: 11, border: form.estado === k ? `1px solid ${v.dot}55` : `1px solid ${C.b0}`, background: form.estado === k ? v.bg : C.s0, color: form.estado === k ? v.dot : C.t1, fontFamily: C.sans }}>{v.label}</button>
               ))}
             </div>
           </InputSt>
@@ -1197,7 +1145,7 @@ function OrdenCompraModal({ oc, obras, onSave, onClose }) {
             <InputSt label="Monto real ($)"><input type="number" min="0" step="0.01" style={INP} value={form.monto_real} onChange={e => set("monto_real", e.target.value)} /></InputSt>
           </div>
           <div style={{ padding: "12px 14px", background: C.s0, border: `1px solid ${C.b0}`, borderRadius: 8, marginBottom: 12 }}>
-            <div style={{ fontSize: 8, letterSpacing: 2.5, color: C.t2, marginBottom: 10, textTransform: "uppercase" }}>Fechas</div>
+            <div style={{ fontSize: 10, letterSpacing: 1.3, color: C.t2, marginBottom: 10, textTransform: "uppercase" }}>Fechas</div>
             <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 8 }}>
               <InputSt label="Límite para pedir"><input type="date" style={INP} value={form.fecha_limite_pedido} onChange={e => set("fecha_limite_pedido", e.target.value)} /></InputSt>
               <InputSt label="Pedido el"><input type="date" style={INP} value={form.fecha_pedido} onChange={e => set("fecha_pedido", e.target.value)} /></InputSt>
@@ -1245,11 +1193,11 @@ function NuevaLineaModal({ onClose, onSaved }) {
         <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 20 }}>
           <div>
             <div style={{ fontSize: 15, color: C.t0, fontWeight: 600 }}>Nueva línea de producción</div>
-            <div style={{ fontSize: 11, color: C.t1, marginTop: 3 }}>Luego podés configurar sus etapas con ⚙</div>
+            <div style={{ fontSize: 12, color: C.t1, marginTop: 3 }}>Luego podés configurar sus etapas con ⚙</div>
           </div>
           <Btn variant="ghost" onClick={onClose} sx={{ fontSize: 18 }}>×</Btn>
         </div>
-        {err && <div style={{ padding: "8px 12px", marginBottom: 12, background: "rgba(239,68,68,0.08)", border: "1px solid rgba(239,68,68,0.25)", borderRadius: 7, fontSize: 12, color: "#fca5a5" }}>{err}</div>}
+        {err && <div style={{ padding: "8px 12px", marginBottom: 12, background: "rgba(239,68,68,0.08)", border: "1px solid rgba(239,68,68,0.25)", borderRadius: 7, fontSize: 13, color: "#fca5a5" }}>{err}</div>}
         <form onSubmit={handleSubmit}>
           <InputSt label="Nombre *">
             <input style={INP} required autoFocus placeholder="Ej: Línea Barcos FRP" value={form.nombre} onChange={e => set("nombre", e.target.value)} />
@@ -1461,17 +1409,17 @@ function LineasEtapasModal({ linea, lProcs, lTareas = [], onClose, onSaved }) {
     onSaved();
   }
 
-  const btnIcon = { border: `1px solid ${C.b0}`, background: "transparent", color: C.t2, cursor: "pointer", fontSize: 11, padding: "2px 7px", borderRadius: 5, fontFamily: C.sans };
+  const btnIcon = { border: `1px solid ${C.b0}`, background: "transparent", color: C.t2, cursor: "pointer", fontSize: 12, padding: "2px 7px", borderRadius: 5, fontFamily: C.sans };
 
   return (
     <Overlay onClose={onClose} maxWidth={600}>
-      {toast && <div style={{ position: "fixed", bottom: 24, right: 24, zIndex: 99999, padding: "10px 18px", borderRadius: 8, fontSize: 12, fontFamily: C.sans, background: toast.ok ? "#091510" : "#150909", border: `1px solid ${toast.ok ? "rgba(60,140,80,0.5)" : "rgba(180,60,60,0.5)"}`, color: toast.ok ? "#70c080" : "#c07070" }}>{toast.text}</div>}
+      {toast && <div style={{ position: "fixed", bottom: 24, right: 24, zIndex: 99999, padding: "10px 18px", borderRadius: 8, fontSize: 13, fontFamily: C.sans, background: toast.ok ? "#091510" : "#150909", border: `1px solid ${toast.ok ? "rgba(60,140,80,0.5)" : "rgba(180,60,60,0.5)"}`, color: toast.ok ? "#70c080" : "#c07070" }}>{toast.text}</div>}
       <div style={{ padding: 26, overflowY: "auto" }}>
         <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: 20 }}>
           {!editingLinea ? (
             <div>
               <div style={{ fontSize: 15, color: C.t0, fontWeight: 600 }}>Plantilla de etapas</div>
-              <div style={{ fontSize: 11, color: C.t1, marginTop: 3, display: "flex", alignItems: "center", gap: 6 }}>
+              <div style={{ fontSize: 12, color: C.t1, marginTop: 3, display: "flex", alignItems: "center", gap: 6 }}>
                 <div style={{ width: 8, height: 8, borderRadius: "50%", background: localLinea.color ?? C.t2 }} />
                 {localLinea.nombre}
                 <button type="button" onClick={() => setEditingLinea(true)} style={{ ...btnIcon, marginLeft: 8 }}>✏️ editar línea</button>
@@ -1480,7 +1428,7 @@ function LineasEtapasModal({ linea, lProcs, lTareas = [], onClose, onSaved }) {
             </div>
           ) : (
             <div style={{ flex: 1, marginRight: 20, background: "rgba(59,130,246,0.05)", padding: "12px 16px", borderRadius: 8, border: `1px solid rgba(59,130,246,0.3)` }}>
-               <div style={{ fontSize: 12, color: C.primary, marginBottom: 10, fontWeight: 600 }}>Editar configuración de línea</div>
+               <div style={{ fontSize: 13, color: C.primary, marginBottom: 10, fontWeight: 600 }}>Editar configuración de línea</div>
                <div style={{ display: "grid", gridTemplateColumns: "1fr 80px", gap: 10, marginBottom: 8 }}>
                  <InputSt label="Nombre"><input style={INP} value={lineaForm.nombre} onChange={e=>setLineaForm(f=>({...f, nombre: e.target.value}))} /></InputSt>
                  <InputSt label="Orden"><input type="number" style={INP} value={lineaForm.orden} onChange={e=>setLineaForm(f=>({...f, orden: e.target.value}))} /></InputSt>
@@ -1500,17 +1448,17 @@ function LineasEtapasModal({ linea, lProcs, lTareas = [], onClose, onSaved }) {
           <Btn variant="ghost" onClick={onClose} sx={{ fontSize: 18 }}>×</Btn>
         </div>
         <div style={{ maxHeight: "55vh", overflowY: "auto", marginBottom: 12 }}>
-          {loadingAll && <div style={{ textAlign: "center", padding: "28px 0", color: C.t2, fontSize: 12 }}>Cargando plantilla...</div>}
-          {!loadingAll && items.length === 0 && !adding && <div style={{ textAlign: "center", padding: "28px 0", color: C.t2, fontSize: 12 }}>Sin etapas en esta plantilla</div>}
+          {loadingAll && <div style={{ textAlign: "center", padding: "28px 0", color: C.t2, fontSize: 13 }}>Cargando plantilla...</div>}
+          {!loadingAll && items.length === 0 && !adding && <div style={{ textAlign: "center", padding: "28px 0", color: C.t2, fontSize: 13 }}>Sin etapas en esta plantilla</div>}
           {!loadingAll && items.map((item, idx) => {
             const isEditing = editIdx === idx;
             return (
               <div key={item.id} style={{ border: `1px solid ${isEditing ? "rgba(59,130,246,0.3)" : C.b0}`, borderRadius: 9, marginBottom: 6, background: isEditing ? "rgba(59,130,246,0.04)" : C.s0 }}>
                 <div style={{ display: "flex", alignItems: "center", gap: 8, padding: "9px 12px" }}>
                   <div style={{ width: 3, height: 22, borderRadius: 2, background: item.color ?? "#64748b", flexShrink: 0 }} />
-                  <span style={{ flex: 1, fontSize: 12, color: C.t0, fontWeight: 500 }}>{item.nombre}</span>
-                  {item.dias_estimados && <span style={{ fontSize: 10, color: C.t2, fontFamily: C.mono }}>{item.dias_estimados}d</span>}
-                  {item.genera_orden_compra && <span style={{ fontSize: 9, color: C.amber, background: "rgba(245,158,11,0.1)", border: "1px solid rgba(245,158,11,0.2)", padding: "1px 7px", borderRadius: 4 }}><span style={{fontFamily:"monospace",fontSize:8,opacity:.7}}>OC</span></span>}
+                  <span style={{ flex: 1, fontSize: 13, color: C.t0, fontWeight: 500 }}>{item.nombre}</span>
+                  {item.dias_estimados && <span style={{ fontSize: 11, color: C.t2, fontFamily: C.mono }}>{item.dias_estimados}d</span>}
+                  {item.genera_orden_compra && <span style={{ fontSize: 10, color: C.amber, background: "rgba(245,158,11,0.1)", border: "1px solid rgba(245,158,11,0.2)", padding: "1px 7px", borderRadius: 4 }}><span style={{fontFamily:"monospace",fontSize:10,opacity:.7}}>OC</span></span>}
                   <div style={{ display: "flex", gap: 3 }}>
                     <button type="button" onClick={() => moveItem(idx, -1)} disabled={idx === 0} style={{ ...btnIcon, opacity: idx === 0 ? 0.2 : 1 }}>↑</button>
                     <button type="button" onClick={() => moveItem(idx, 1)} disabled={idx === items.length - 1} style={{ ...btnIcon, opacity: idx === items.length - 1 ? 0.2 : 1 }}>↓</button>
@@ -1522,12 +1470,12 @@ function LineasEtapasModal({ linea, lProcs, lTareas = [], onClose, onSaved }) {
                 {/* ── Tareas de plantilla ── */}
                 <div style={{ borderTop: `1px solid ${C.b0}`, margin: "0 0 0 0" }}>
                   <button type="button" onClick={() => setExpandedProc(expandedProc === item.id ? null : item.id)}
-                    style={{ width: "100%", background: "transparent", border: "none", color: C.t2, cursor: "pointer", fontSize: 10, padding: "6px 12px", display: "flex", alignItems: "center", gap: 6, fontFamily: C.sans }}>
-                    <span style={{ transform: expandedProc === item.id ? "rotate(90deg)" : "none", transition: "transform .15s", display: "inline-block", fontSize: 8 }}>▶</span>
+                    style={{ width: "100%", background: "transparent", border: "none", color: C.t2, cursor: "pointer", fontSize: 11, padding: "6px 12px", display: "flex", alignItems: "center", gap: 6, fontFamily: C.sans }}>
+                    <span style={{ transform: expandedProc === item.id ? "rotate(90deg)" : "none", transition: "transform .15s", display: "inline-block", fontSize: 10 }}>▶</span>
                     <span>
                       {loadingTareas ? "cargando tareas…" : tareasDeProc(item.id).length + " tarea" + (tareasDeProc(item.id).length !== 1 ? "s" : "") + " en plantilla"}
                     </span>
-                    <span style={{ marginLeft: "auto", fontSize: 9, color: C.primary }}>{expandedProc === item.id ? "cerrar" : "ver/editar"}</span>
+                    <span style={{ marginLeft: "auto", fontSize: 10, color: C.primary }}>{expandedProc === item.id ? "cerrar" : "ver/editar"}</span>
                   </button>
                   {expandedProc === item.id && (
                     <div style={{ padding: "0 10px 10px" }}>
@@ -1535,10 +1483,10 @@ function LineasEtapasModal({ linea, lProcs, lTareas = [], onClose, onSaved }) {
                         <div key={tarea.id} style={{ borderRadius: 6, background: editingTarea === tarea.id ? "rgba(59,130,246,0.05)" : "rgba(255,255,255,0.02)", border: "1px solid " + (editingTarea === tarea.id ? "rgba(59,130,246,0.25)" : C.b0), marginBottom: 3, padding: "6px 10px" }}>
                           {editingTarea !== tarea.id ? (
                             <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-                              <span style={{ fontSize: 9, color: C.t2, fontFamily: C.mono, minWidth: 18 }}>{ti + 1}.</span>
-                              <span style={{ flex: 1, fontSize: 11, color: C.t0 }}>{tarea.nombre}</span>
-                              {tarea.horas_estimadas && <span style={{ fontSize: 9, color: C.t2, fontFamily: C.mono }}>{tarea.horas_estimadas}h</span>}
-                              {tarea.personas_necesarias && <span style={{ fontSize: 9, color: C.t2 }}>x{tarea.personas_necesarias}</span>}
+                              <span style={{ fontSize: 10, color: C.t2, fontFamily: C.mono, minWidth: 18 }}>{ti + 1}.</span>
+                              <span style={{ flex: 1, fontSize: 12, color: C.t0 }}>{tarea.nombre}</span>
+                              {tarea.horas_estimadas && <span style={{ fontSize: 10, color: C.t2, fontFamily: C.mono }}>{tarea.horas_estimadas}h</span>}
+                              {tarea.personas_necesarias && <span style={{ fontSize: 10, color: C.t2 }}>x{tarea.personas_necesarias}</span>}
                               <button type="button" onClick={() => { setEditingTarea(tarea.id); setTareaEditBuf({ nombre: tarea.nombre, horas_estimadas: tarea.horas_estimadas ?? "", personas_necesarias: tarea.personas_necesarias ?? "", observaciones: tarea.observaciones ?? "", prioridad: tarea.prioridad ?? "media" }); }} style={{ ...btnIcon }}>editar</button>
                               <button type="button" onClick={() => eliminarTarea(tarea)} style={{ ...btnIcon, color: C.red }}>x</button>
                             </div>
@@ -1573,7 +1521,7 @@ function LineasEtapasModal({ linea, lProcs, lTareas = [], onClose, onSaved }) {
                         </div>
                       ) : (
                         <button type="button" onClick={() => { setAddingTarea(item.id); setTareaForm({ nombre: "", horas_estimadas: "", personas_necesarias: "", observaciones: "", prioridad: "media" }); }}
-                          style={{ width: "100%", marginTop: 4, padding: "5px", border: "1px dashed " + C.b0, borderRadius: 5, background: "transparent", color: C.t2, fontSize: 10, cursor: "pointer", fontFamily: C.sans }}>
+                          style={{ width: "100%", marginTop: 4, padding: "5px", border: "1px dashed " + C.b0, borderRadius: 5, background: "transparent", color: C.t2, fontSize: 11, cursor: "pointer", fontFamily: C.sans }}>
                           + agregar tarea a plantilla
                         </button>
                       )}
@@ -1605,7 +1553,7 @@ function LineasEtapasModal({ linea, lProcs, lTareas = [], onClose, onSaved }) {
           })}
           {adding && (
             <div style={{ border: `1px solid rgba(59,130,246,0.3)`, borderRadius: 9, padding: "12px", background: "rgba(59,130,246,0.04)", marginBottom: 6 }}>
-              <div style={{ fontSize: 11, color: C.primary, marginBottom: 10, fontWeight: 500 }}>Nueva etapa en plantilla</div>
+              <div style={{ fontSize: 12, color: C.primary, marginBottom: 10, fontWeight: 700 }}>Nueva etapa en plantilla</div>
               <div style={{ display: "grid", gridTemplateColumns: "1fr 100px", gap: 8, marginBottom: 8 }}>
                 <InputSt label="Nombre *"><input style={INP} autoFocus placeholder="Ej: Pintura" value={newForm.nombre} onChange={e => setNewForm(f => ({ ...f, nombre: e.target.value }))} /></InputSt>
                 <InputSt label="Días"><input type="number" min="0" step="0.5" style={INP} value={newForm.dias_estimados} onChange={e => setNewForm(f => ({ ...f, dias_estimados: e.target.value }))} /></InputSt>
@@ -1665,33 +1613,33 @@ function OrdenesCompraView({ ordenes, obras, esGestion, onEditOC, onRefresh }) {
         <div style={{ padding: "10px 20px", background: "rgba(239,68,68,0.06)", borderBottom: `1px solid rgba(239,68,68,0.18)`, display: "flex", alignItems: "center", gap: 12, flexShrink: 0 }}>
           <span style={{ fontSize: 16 }}>⚠</span>
           <div>
-            <div style={{ fontSize: 11, color: "#fca5a5", fontWeight: 600 }}>{alertasUrgentes.length} orden{alertasUrgentes.length > 1 ? "es" : ""} urgente{alertasUrgentes.length > 1 ? "s" : ""}</div>
-            <div style={{ fontSize: 10, color: C.t2, marginTop: 2 }}>
+            <div style={{ fontSize: 12, color: "#fca5a5", fontWeight: 700 }}>{alertasUrgentes.length} orden{alertasUrgentes.length > 1 ? "es" : ""} urgente{alertasUrgentes.length > 1 ? "s" : ""}</div>
+            <div style={{ fontSize: 11, color: C.t2, marginTop: 2 }}>
               {alertasUrgentes.slice(0, 4).map(oc => { const obra = obras.find(o => o.id === oc.obra_id); const u = ocUrgencia(oc); return <span key={oc.id} style={{ marginRight: 10, color: u?.color }}>{obra?.codigo} · {oc.etapa_nombre} ({u?.label})</span>; })}
               {alertasUrgentes.length > 4 && <span>+{alertasUrgentes.length - 4} más</span>}
             </div>
           </div>
         </div>
       )}
-      <div style={{ padding: "8px 20px", background: "rgba(12,12,14,0.85)", borderBottom: `1px solid ${C.b0}`, display: "flex", alignItems: "center", gap: 10, flexShrink: 0, flexWrap: "wrap" }}>
-        <input style={{ ...INP, width: 200, padding: "5px 10px", fontSize: 11 }} placeholder="Buscar obra, proveedor…" value={busqueda} onChange={e => setBusqueda(e.target.value)} />
+      <div style={{ padding: "8px 20px", background: C.topbarSoft, borderBottom: `1px solid ${C.b0}`, display: "flex", alignItems: "center", gap: 10, flexShrink: 0, flexWrap: "wrap" }}>
+        <input style={{ ...INP, width: 200, padding: "5px 10px", fontSize: 12 }} placeholder="Buscar obra, proveedor…" value={busqueda} onChange={e => setBusqueda(e.target.value)} />
         <div style={{ display: "flex", gap: 3 }}>
           {[["activas","Activas"],["cerradas","Cerradas"],["todas","Todas"]].map(([v, l]) => (
-            <button key={v} type="button" onClick={() => setFiltroOCEstado(v)} style={{ border: filtroOCEstado === v ? `1px solid ${C.b1}` : `1px solid ${C.b0}`, background: filtroOCEstado === v ? C.s1 : "transparent", color: filtroOCEstado === v ? C.t0 : C.t1, padding: "4px 11px", borderRadius: 5, cursor: "pointer", fontSize: 10, fontFamily: C.sans }}>{l}</button>
+            <button key={v} type="button" onClick={() => setFiltroOCEstado(v)} style={{ border: filtroOCEstado === v ? `1px solid ${C.b1}` : `1px solid ${C.b0}`, background: filtroOCEstado === v ? C.s1 : "transparent", color: filtroOCEstado === v ? C.t0 : C.t1, padding: "4px 11px", borderRadius: 5, cursor: "pointer", fontSize: 11, fontFamily: C.sans }}>{l}</button>
           ))}
         </div>
-        <select style={{ ...INP, width: 160, padding: "5px 10px", fontSize: 11 }} value={filtroOCObra} onChange={e => setFiltroOCObra(e.target.value)}>
+        <select style={{ ...INP, width: 160, padding: "5px 10px", fontSize: 12 }} value={filtroOCObra} onChange={e => setFiltroOCObra(e.target.value)}>
           <option value="todas">Todas las obras</option>
           {obras.filter(o => ordenes.some(oc => oc.obra_id === o.id)).map(o => <option key={o.id} value={o.id}>{o.codigo}</option>)}
         </select>
-        <div style={{ marginLeft: "auto", fontSize: 10, color: C.t2 }}>{ocsFilt.length} órdenes</div>
+        <div style={{ marginLeft: "auto", fontSize: 11, color: C.t2 }}>{ocsFilt.length} órdenes</div>
       </div>
       <div style={{ flex: 1, overflowY: "auto", padding: "16px 20px" }}>
         {porObra.length === 0 && (
           <div style={{ textAlign: "center", padding: "60px 0", color: C.t2 }}>
             
-            <div style={{ fontSize: 12, letterSpacing: 2 }}>Sin órdenes de compra</div>
-            <div style={{ fontSize: 10, marginTop: 6 }}>Las órdenes se generan al completar etapas en etapas configuradas</div>
+            <div style={{ fontSize: 13, letterSpacing: 1.3 }}>Sin órdenes de compra</div>
+            <div style={{ fontSize: 11, marginTop: 6 }}>Las órdenes se generan al completar etapas en etapas configuradas</div>
           </div>
         )}
         {porObra.map(({ obra, ocs }) => {
@@ -1702,45 +1650,45 @@ function OrdenesCompraView({ ordenes, obras, esGestion, onEditOC, onRefresh }) {
               <div style={{ padding: "10px 16px", background: tieneUrgente ? "rgba(239,68,68,0.05)" : tieneProxima ? "rgba(245,158,11,0.04)" : C.s0, display: "flex", alignItems: "center", gap: 10, borderBottom: `1px solid ${C.b0}` }}>
                 <Dot color={obra ? (C.obra[obra.estado]?.dot ?? C.t2) : C.t2} size={7} glow />
                 <span style={{ fontFamily: C.mono, fontSize: 14, color: C.t0, fontWeight: 600 }}>{obra?.codigo ?? "Sin obra"}</span>
-                {obra?.linea_nombre && <span style={{ fontSize: 9, color: C.t2, letterSpacing: 2, textTransform: "uppercase" }}>{obra.linea_nombre}</span>}
-                <span style={{ marginLeft: "auto", fontSize: 10, color: C.t2 }}>{ocs.length} OC</span>
-                {tieneUrgente && <span style={{ fontSize: 9, color: C.red, background: "rgba(239,68,68,0.1)", border: "1px solid rgba(239,68,68,0.25)", padding: "2px 8px", borderRadius: 4 }}>URGENTE</span>}
-                {!tieneUrgente && tieneProxima && <span style={{ fontSize: 9, color: C.amber, background: "rgba(245,158,11,0.1)", border: "1px solid rgba(245,158,11,0.25)", padding: "2px 8px", borderRadius: 4 }}>PRÓXIMA</span>}
+                {obra?.linea_nombre && <span style={{ fontSize: 10, color: C.t2, letterSpacing: 1.3, textTransform: "uppercase" }}>{obra.linea_nombre}</span>}
+                <span style={{ marginLeft: "auto", fontSize: 11, color: C.t2 }}>{ocs.length} OC</span>
+                {tieneUrgente && <span style={{ fontSize: 10, color: C.red, background: "rgba(239,68,68,0.1)", border: "1px solid rgba(239,68,68,0.25)", padding: "2px 8px", borderRadius: 4 }}>URGENTE</span>}
+                {!tieneUrgente && tieneProxima && <span style={{ fontSize: 10, color: C.amber, background: "rgba(245,158,11,0.1)", border: "1px solid rgba(245,158,11,0.25)", padding: "2px 8px", borderRadius: 4 }}>PRÓXIMA</span>}
               </div>
               {ocs.map(oc => {
                 const urg = ocUrgencia(oc); const ocC = C.oc[oc.estado] ?? C.oc.pendiente;
                 return (
                   <div key={oc.id} style={{ padding: "10px 16px", borderBottom: `1px solid ${C.b0}`, display: "flex", alignItems: "flex-start", gap: 12 }}>
                     <div style={{ flexShrink: 0, width: 90 }}>
-                      <div style={{ fontSize: 9, color: C.t2, textTransform: "uppercase", marginBottom: 4 }}>{oc.tipo ?? "aviso"}</div>
-                      <span style={{ fontSize: 9, padding: "2px 8px", borderRadius: 99, background: ocC.bg, color: ocC.dot, border: `1px solid ${ocC.border}` }}>{ocC.label}</span>
+                      <div style={{ fontSize: 10, color: C.t2, textTransform: "uppercase", marginBottom: 4 }}>{oc.tipo ?? "aviso"}</div>
+                      <span style={{ fontSize: 10, padding: "2px 8px", borderRadius: 99, background: ocC.bg, color: ocC.dot, border: `1px solid ${ocC.border}` }}>{ocC.label}</span>
                     </div>
                     <div style={{ flex: 1, minWidth: 0 }}>
-                      <div style={{ fontSize: 12, color: C.t0, fontWeight: 500, marginBottom: 2 }}>{oc.etapa_nombre ?? "—"}{oc.numero_oc && <span style={{ fontFamily: C.mono, fontSize: 9, color: C.primary, marginLeft: 8, background: "rgba(59,130,246,0.1)", padding: "1px 6px", borderRadius: 4 }}>{oc.numero_oc}</span>}</div>
-                      {oc.descripcion && <div style={{ fontSize: 10, color: C.t2, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{oc.descripcion}</div>}
-                      {oc.proveedor && <div style={{ fontSize: 10, color: C.t1, marginTop: 2 }}>{oc.proveedor}</div>}
+                      <div style={{ fontSize: 13, color: C.t0, fontWeight: 500, marginBottom: 2 }}>{oc.etapa_nombre ?? "—"}{oc.numero_oc && <span style={{ fontFamily: C.mono, fontSize: 10, color: C.primary, marginLeft: 8, background: "rgba(59,130,246,0.1)", padding: "1px 6px", borderRadius: 4 }}>{oc.numero_oc}</span>}</div>
+                      {oc.descripcion && <div style={{ fontSize: 11, color: C.t2, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{oc.descripcion}</div>}
+                      {oc.proveedor && <div style={{ fontSize: 11, color: C.t1, marginTop: 2 }}>{oc.proveedor}</div>}
                       <div style={{ display: "flex", gap: 12, marginTop: 5, flexWrap: "wrap" }}>
-                        {oc.fecha_limite_pedido && <span style={{ fontSize: 9, color: urg?.color ?? C.t2 }}>{urg ? urg.label : `Límite: ${fmtDate(oc.fecha_limite_pedido)}`}</span>}
-                        {oc.fecha_pedido && <span style={{ fontSize: 9, color: C.t2 }}>Pedido: {fmtDate(oc.fecha_pedido)}</span>}
-                        {oc.fecha_estimada_entrega && <span style={{ fontSize: 9, color: C.t2 }}>Entrega: {fmtDate(oc.fecha_estimada_entrega)}</span>}
+                        {oc.fecha_limite_pedido && <span style={{ fontSize: 10, color: urg?.color ?? C.t2 }}>{urg ? urg.label : `Límite: ${fmtDate(oc.fecha_limite_pedido)}`}</span>}
+                        {oc.fecha_pedido && <span style={{ fontSize: 10, color: C.t2 }}>Pedido: {fmtDate(oc.fecha_pedido)}</span>}
+                        {oc.fecha_estimada_entrega && <span style={{ fontSize: 10, color: C.t2 }}>Entrega: {fmtDate(oc.fecha_estimada_entrega)}</span>}
                       </div>
                     </div>
                     {(oc.monto_estimado || oc.monto_real) && (
                       <div style={{ flexShrink: 0, textAlign: "right" }}>
-                        {oc.monto_real && <div style={{ fontSize: 12, color: C.green, fontFamily: C.mono }}>${Number(oc.monto_real).toLocaleString("es-AR")}</div>}
-                        {!oc.monto_real && oc.monto_estimado && <div style={{ fontSize: 11, color: C.t2, fontFamily: C.mono }}>~${Number(oc.monto_estimado).toLocaleString("es-AR")}</div>}
-                        <div style={{ fontSize: 8, color: C.t2, marginTop: 1 }}>{oc.monto_real ? "real" : "estimado"}</div>
+                        {oc.monto_real && <div style={{ fontSize: 13, color: C.green, fontFamily: C.mono }}>${Number(oc.monto_real).toLocaleString("es-AR")}</div>}
+                        {!oc.monto_real && oc.monto_estimado && <div style={{ fontSize: 12, color: C.t2, fontFamily: C.mono }}>~${Number(oc.monto_estimado).toLocaleString("es-AR")}</div>}
+                        <div style={{ fontSize: 10, color: C.t2, marginTop: 1 }}>{oc.monto_real ? "real" : "estimado"}</div>
                       </div>
                     )}
                     {esGestion && (
                       <div style={{ flexShrink: 0, display: "flex", flexDirection: "column", gap: 4, alignItems: "flex-end" }}>
-                        <Btn variant="outline" sx={{ padding: "3px 10px", fontSize: 10 }} onClick={() => onEditOC(oc)}>Editar</Btn>
+                        <Btn variant="outline" sx={{ padding: "3px 10px", fontSize: 11 }} onClick={() => onEditOC(oc)}>Editar</Btn>
                         {!["recibida","cancelada"].includes(oc.estado) && (
                           <div style={{ display: "flex", gap: 3 }}>
                             {OC_FLOW.indexOf(oc.estado) < OC_FLOW.length - 1 && (
-                              <button type="button" onClick={() => cambiarEstadoOC(oc.id, OC_FLOW[OC_FLOW.indexOf(oc.estado) + 1])} style={{ fontSize: 9, padding: "2px 8px", borderRadius: 5, border: "1px solid rgba(16,185,129,0.3)", background: "rgba(16,185,129,0.08)", color: C.green, cursor: "pointer", fontFamily: C.sans }}>→ {C.oc[OC_FLOW[OC_FLOW.indexOf(oc.estado) + 1]]?.label}</button>
+                              <button type="button" onClick={() => cambiarEstadoOC(oc.id, OC_FLOW[OC_FLOW.indexOf(oc.estado) + 1])} style={{ fontSize: 10, padding: "2px 8px", borderRadius: 5, border: "1px solid rgba(16,185,129,0.3)", background: "rgba(16,185,129,0.08)", color: C.green, cursor: "pointer", fontFamily: C.sans }}>→ {C.oc[OC_FLOW[OC_FLOW.indexOf(oc.estado) + 1]]?.label}</button>
                             )}
-                            <button type="button" onClick={() => cambiarEstadoOC(oc.id, "cancelada")} style={{ fontSize: 9, padding: "2px 8px", borderRadius: 5, border: `1px solid ${C.b0}`, background: "transparent", color: C.t2, cursor: "pointer", fontFamily: C.sans }}>Cancelar</button>
+                            <button type="button" onClick={() => cambiarEstadoOC(oc.id, "cancelada")} style={{ fontSize: 10, padding: "2px 8px", borderRadius: 5, border: `1px solid ${C.b0}`, background: "transparent", color: C.t2, cursor: "pointer", fontFamily: C.sans }}>Cancelar</button>
                           </div>
                         )}
                       </div>
@@ -2059,13 +2007,13 @@ export default function ObrasScreen({ profile, signOut }) {
   // ═══════════════════════════════════════════════════════════════
   function TreePanel() {
     return (
-      <div style={{ width: 260, flexShrink: 0, borderRight: `1px solid ${C.b0}`, background: "rgba(12,12,14,0.85)", overflow: "auto", display: "flex", flexDirection: "column" }}>
+      <div style={{ width: 260, flexShrink: 0, borderRight: `1px solid ${C.b0}`, background: C.topbarSoft, overflow: "auto", display: "flex", flexDirection: "column" }}>
         <div style={{ padding: "12px 14px 10px", borderBottom: `1px solid ${C.b0}`, display: "flex", justifyContent: "space-between", alignItems: "center", flexShrink: 0 }}>
-          <span style={{ fontSize: 9, letterSpacing: 3, color: C.t2, textTransform: "uppercase" }}>Proyectos</span>
-          {esGestion && <Btn variant="primary" sx={{ padding: "4px 11px", fontSize: 10 }} onClick={() => setShowObraModal(true)}>+ Obra</Btn>}
+          <span style={{ fontSize: 10, letterSpacing: 3, color: C.t2, textTransform: "uppercase" }}>Proyectos</span>
+          {esGestion && <Btn variant="primary" sx={{ padding: "4px 11px", fontSize: 11 }} onClick={() => setShowObraModal(true)}>+ Obra</Btn>}
         </div>
         <div style={{ flex: 1, overflowY: "auto", padding: "6px 0" }}>
-          {loading && <div style={{ textAlign: "center", padding: 40, color: C.t2, fontSize: 11 }}>Cargando…</div>}
+          {loading && <div style={{ textAlign: "center", padding: 40, color: C.t2, fontSize: 12 }}>Cargando…</div>}
           {!loading && obrasFilt.map(obra => {
             const obraEtapas = etapasDeObra(obra.id);
             const expanded   = expandedObras.has(obra.id);
@@ -2074,13 +2022,13 @@ export default function ObrasScreen({ profile, signOut }) {
             return (
               <div key={obra.id}>
                 <div onClick={() => toggleObra(obra.id)} style={{ display: "flex", alignItems: "center", gap: 7, padding: "7px 14px 7px 10px", cursor: "pointer", borderLeft: expandedObras.has(obra.id) ? `2px solid ${oC.dot}` : "2px solid transparent", transition: "background .13s" }}>
-                  <span style={{ fontSize: 8, color: C.t2, width: 10, flexShrink: 0, display: "inline-block", transform: expanded ? "rotate(90deg)" : "none", transition: "transform .18s" }}>▶</span>
+                  <span style={{ fontSize: 10, color: C.t2, width: 10, flexShrink: 0, display: "inline-block", transform: expanded ? "rotate(90deg)" : "none", transition: "transform .18s" }}>▶</span>
                   <Dot color={oC.dot} size={6} glow pulse={obra.estado === "activa"} />
                   <div style={{ flex: 1, minWidth: 0 }}>
-                    <div style={{ fontFamily: C.mono, fontSize: 12, color: C.t1, letterSpacing: 0.5, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{obra.codigo}</div>
+                    <div style={{ fontFamily: C.mono, fontSize: 13, color: C.t1, letterSpacing: 0.5, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{obra.codigo}</div>
                     <ProgressBar value={obrapct} color={oC.dot} height={2} />
                   </div>
-                  <span style={{ fontSize: 9, color: C.t2, fontFamily: C.mono }}>{obrapct}%</span>
+                  <span style={{ fontSize: 10, color: C.t2, fontFamily: C.mono }}>{obrapct}%</span>
                 </div>
                 {expanded && (
                   <>
@@ -2092,8 +2040,8 @@ export default function ObrasScreen({ profile, signOut }) {
                           <div onClick={() => toggleEtapa(etapa.id)} style={{ display: "flex", alignItems: "center", gap: 6, padding: "4px 14px 4px 26px", cursor: "pointer" }}>
                             <span style={{ fontSize: 7, color: C.t2, width: 8, flexShrink: 0, transform: etExp ? "rotate(90deg)" : "none", display: "inline-block", transition: "transform .15s" }}>▶</span>
                             <div style={{ width: 3, height: 16, borderRadius: 2, background: etapa.color ?? C.t1, flexShrink: 0 }} />
-                            <span style={{ flex: 1, fontSize: 10, color: C.t2, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{etapa.nombre}</span>
-                            <span style={{ fontSize: 9, color: C.t2, fontFamily: C.mono }}>{etapaT.length || ""}</span>
+                            <span style={{ flex: 1, fontSize: 11, color: C.t2, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{etapa.nombre}</span>
+                            <span style={{ fontSize: 10, color: C.t2, fontFamily: C.mono }}>{etapaT.length || ""}</span>
                           </div>
                           {etExp && etapaT.map(tarea => {
                             const tc = C.tarea[tarea.estado] ?? C.tarea.pendiente;
@@ -2102,13 +2050,13 @@ export default function ObrasScreen({ profile, signOut }) {
                               <div key={tarea.id} onClick={() => setTareaDetalle(tarea)} style={{ display: "flex", alignItems: "center", gap: 5, padding: "3px 14px 3px 44px", cursor: "pointer" }}>
                                 <div style={{ width: 2, height: 10, borderRadius: 1, background: pc.color, flexShrink: 0 }} />
                                 <Dot color={tc.text} size={4} glow={tarea.estado === "en_progreso"} />
-                                <span style={{ fontSize: 10, color: C.t2, flex: 1, minWidth: 0, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{tarea.nombre}</span>
+                                <span style={{ fontSize: 11, color: C.t2, flex: 1, minWidth: 0, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{tarea.nombre}</span>
                               </div>
                             );
                           })}
                           {etExp && esGestion && (
                             <div onClick={() => abrirNuevaTarea(etapa)} style={{ padding: "3px 14px 3px 44px", cursor: "pointer" }}>
-                              <span style={{ fontSize: 9, color: C.t2 }}>+ tarea</span>
+                              <span style={{ fontSize: 10, color: C.t2 }}>+ tarea</span>
                             </div>
                           )}
                         </div>
@@ -2116,7 +2064,7 @@ export default function ObrasScreen({ profile, signOut }) {
                     })}
                     {esGestion && (
                       <div onClick={() => setEtapaModal({ obraId: obra.id })} style={{ padding: "4px 14px 4px 26px", cursor: "pointer" }}>
-                        <span style={{ fontSize: 9, color: C.t2 }}>+ etapa</span>
+                        <span style={{ fontSize: 10, color: C.t2 }}>+ etapa</span>
                       </div>
                     )}
                   </>
@@ -2124,7 +2072,7 @@ export default function ObrasScreen({ profile, signOut }) {
               </div>
             );
           })}
-          {!loading && !obrasFilt.length && <div style={{ textAlign: "center", padding: "32px 16px", color: C.t2, fontSize: 11 }}>Sin obras</div>}
+          {!loading && !obrasFilt.length && <div style={{ textAlign: "center", padding: "32px 16px", color: C.t2, fontSize: 12 }}>Sin obras</div>}
         </div>
       </div>
     );
@@ -2151,7 +2099,7 @@ export default function ObrasScreen({ profile, signOut }) {
       <div style={{ display: "flex", alignItems: "center", gap: 5, flexShrink: 0 }}
         onClick={esGestion ? e => { e.stopPropagation(); setEditing(true); } : undefined}>
         <span style={{ fontFamily: C.mono, fontSize: 15, color: C.t0, fontWeight: 700, letterSpacing: 0.5 }}>{obra.codigo}</span>
-        {esGestion && <span style={{ fontSize: 9, color: "rgba(255,255,255,0.15)", cursor: "text" }}>✎</span>}
+        {esGestion && <span style={{ fontSize: 10, color: "rgba(255,255,255,0.15)", cursor: "text" }}>✎</span>}
       </div>
     );
 
@@ -2169,12 +2117,12 @@ export default function ObrasScreen({ profile, signOut }) {
   }
 
   function GanttMain() {
-    if (loading) return <div style={{ flex: 1, display: "flex", alignItems: "center", justifyContent: "center", color: C.t2, fontSize: 11, letterSpacing: 3, fontFamily: C.mono }}>Cargando…</div>;
+    if (loading) return <div style={{ flex: 1, display: "flex", alignItems: "center", justifyContent: "center", color: C.t2, fontSize: 12, letterSpacing: 3, fontFamily: C.mono }}>Cargando…</div>;
     if (!obrasFilt.length) return (
       <div style={{ flex: 1, display: "flex", alignItems: "center", justifyContent: "center" }}>
         <div style={{ textAlign: "center" }}>
           <div style={{ fontSize: 28, color: C.t2, marginBottom: 10, letterSpacing: 8 }}>◦</div>
-          <div style={{ color: C.t2, fontSize: 11, letterSpacing: 2 }}>Sin obras con este filtro</div>
+          <div style={{ color: C.t2, fontSize: 12, letterSpacing: 1.3 }}>Sin obras con este filtro</div>
           {esGestion && <div style={{ marginTop: 16 }}><Btn variant="primary" onClick={() => setShowObraModal(true)}>+ Nueva obra</Btn></div>}
         </div>
       </div>
@@ -2192,10 +2140,10 @@ export default function ObrasScreen({ profile, signOut }) {
         {focusedObra && (
           <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 14, animation: "slideUp 0.3s cubic-bezier(0.22,1,0.36,1)" }}>
             <button type="button" onClick={() => { setFocusedObra(null); setExpandedObras(new Set()); }}
-              style={{ display: "flex", alignItems: "center", gap: 7, padding: "5px 14px", borderRadius: 8, border: `1px solid ${C.b0}`, background: C.s0, color: C.t1, cursor: "pointer", fontSize: 11, fontFamily: C.sans, transition: "all 0.15s" }}>
+              style={{ display: "flex", alignItems: "center", gap: 7, padding: "5px 14px", borderRadius: 8, border: `1px solid ${C.b0}`, background: C.s0, color: C.t1, cursor: "pointer", fontSize: 12, fontFamily: C.sans, transition: "all 0.15s" }}>
               ← Volver a todas las obras
             </button>
-            <div style={{ fontSize: 9, color: C.t2, letterSpacing: 2, textTransform: "uppercase", fontFamily: C.mono }}>
+            <div style={{ fontSize: 10, color: C.t2, letterSpacing: 1.3, textTransform: "uppercase", fontFamily: C.mono }}>
               {obrasFilt.find(o => o.id === focusedObra)?.codigo}
             </div>
           </div>
@@ -2239,7 +2187,7 @@ export default function ObrasScreen({ profile, signOut }) {
                   <div style={{ flex: 1, minWidth: 0 }}>
                     {obra.linea_nombre && (() => {
                       const lc = obraAccentColor(obra);
-                      return <div style={{ fontSize: 8, color: lc, letterSpacing: 1.5, textTransform: "uppercase", marginBottom: 5, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", display: "flex", alignItems: "center", gap: 4 }}>
+                      return <div style={{ fontSize: 10, color: lc, letterSpacing: 1.1, textTransform: "uppercase", marginBottom: 5, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", display: "flex", alignItems: "center", gap: 4 }}>
                         <span style={{ display: "inline-block", width: 5, height: 5, borderRadius: "50%", background: lc, boxShadow: `0 0 5px ${lc}`, flexShrink: 0 }}/>
                         {obra.linea_nombre}
                       </div>;
@@ -2250,11 +2198,11 @@ export default function ObrasScreen({ profile, signOut }) {
                   </div>
 
                   <div style={{ display: "flex", flexDirection: "column", alignItems: "flex-end", gap: 2, flexShrink: 0 }}>
-                    <span style={{ fontFamily: C.mono, fontSize: 13, fontWeight: 700, color: oC.dot }}>{obrapct}%</span>
-                    <span style={{ fontFamily: C.mono, fontSize: 9, color: C.t2 }}>{diasR}d</span>
+                    <span style={{ fontFamily: C.mono, fontSize: 14, fontWeight: 700, color: oC.dot }}>{obrapct}%</span>
+                    <span style={{ fontFamily: C.mono, fontSize: 10, color: C.t2 }}>{diasR}d</span>
                   </div>
 
-                  <span style={{ fontSize: 9, color: C.t2, transform: expanded ? "rotate(90deg)" : "none", transition: "transform .2s", flexShrink: 0 }}>▶</span>
+                  <span style={{ fontSize: 10, color: C.t2, transform: expanded ? "rotate(90deg)" : "none", transition: "transform .2s", flexShrink: 0 }}>▶</span>
                 </div>
 
                 {/* mini timeline de etapas — siempre visible */}
@@ -2293,7 +2241,7 @@ export default function ObrasScreen({ profile, signOut }) {
                   {/* ── BOTÓN IMPORTAR TAREAS (obras sin tareas aún) ── */}
                   {esGestion && !tareas.some(t => t.obra_id === obra.id) && (
                     <button type="button" onClick={() => importarTareasAObraExistente(obra)}
-                      style={{ width: "100%", marginBottom: 10, padding: "10px 16px", borderRadius: 8, cursor: "pointer", border: "1px solid rgba(16,185,129,0.4)", background: "rgba(16,185,129,0.08)", color: "#34d399", fontSize: 12, fontFamily: C.sans, fontWeight: 600, display: "flex", alignItems: "center", justifyContent: "center", gap: 8 }}>
+                      style={{ width: "100%", marginBottom: 10, padding: "10px 16px", borderRadius: 8, cursor: "pointer", border: "1px solid rgba(16,185,129,0.4)", background: "rgba(16,185,129,0.08)", color: "#34d399", fontSize: 13, fontFamily: C.sans, fontWeight: 600, display: "flex", alignItems: "center", justifyContent: "center", gap: 8 }}>
                       ⬇ Importar tareas a esta obra desde plantilla de línea
                     </button>
                   )}
@@ -2307,14 +2255,14 @@ export default function ObrasScreen({ profile, signOut }) {
                         ))}
                       </div>
                       <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-                        <div style={{ width: 102, flexShrink: 0, fontSize: 9, color: C.t2 }}>Timeline</div>
+                        <div style={{ width: 102, flexShrink: 0, fontSize: 10, color: C.t2 }}>Timeline</div>
                         <div style={{ flex: 1, height: 14, display: "flex", borderRadius: 4, overflow: "hidden", border: `1px solid ${C.b0}`, background: "rgba(0,0,0,0.4)" }}>
                           {obraEtapas.map((e, idx) => {
                             const ec = C.etapa[e.estado] ?? C.etapa.pendiente;
                             return <div key={e.id} title={`${e.nombre} · ${e.estado}`} style={{ flex: num(e.dias_estimados) / totalDias, height: "100%", background: e.estado === "completado" ? `linear-gradient(90deg,${ec.bar},rgba(16,185,129,0.28))` : e.estado === "en_curso" ? `linear-gradient(90deg,${ec.bar},rgba(59,130,246,0.28))` : ec.bar, borderRight: idx < obraEtapas.length - 1 ? "1px solid rgba(0,0,0,0.5)" : "none", ...(e.estado === "en_curso" ? { animation: "gPulse 2.5s ease infinite" } : {}) }} />;
                           })}
                         </div>
-                        <span style={{ fontFamily: C.mono, fontSize: 9, color: C.t2 }}>{diasR}d</span>
+                        <span style={{ fontFamily: C.mono, fontSize: 10, color: C.t2 }}>{diasR}d</span>
                       </div>
                     </div>
                   )}
@@ -2337,30 +2285,30 @@ export default function ObrasScreen({ profile, signOut }) {
                           <span style={{ fontSize: 7, color: C.t2, width: 9, flexShrink: 0, transform: etExp ? "rotate(90deg)" : "none", display: "inline-block", transition: "transform .15s" }}>▶</span>
 
                           <div style={{ width: 110, flexShrink: 0 }}>
-                            <div style={{ fontSize: 12, color: C.t0, fontWeight: 600, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+                            <div style={{ fontSize: 13, color: C.t0, fontWeight: 600, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
                               {etapa.nombre}{etapa.genera_orden_compra ? " ●" : ""}
                             </div>
-                            <div style={{ fontSize: 9, color: C.t2, marginTop: 1 }}>
+                            <div style={{ fontSize: 10, color: C.t2, marginTop: 1 }}>
                               {etapaT.length > 0 ? `${etapaT.filter(t => t.estado === "finalizada").length}/${etapaT.length} tareas` : "Sin tareas"}
                             </div>
                           </div>
 
                           <div style={{ flex: 1 }}><ProgressBar value={epct} color={ec.dot} height={4} shimmer={etapa.estado === "en_curso"} /></div>
 
-                          <span style={{ fontFamily: C.mono, fontSize: 10, color: ec.text, flex: "0 0 32px", textAlign: "right" }}>{epct}%</span>
-                          <span style={{ fontFamily: C.mono, fontSize: 9, color: C.t2, flex: "0 0 28px", textAlign: "right" }}>{etapa.dias_estimados ?? 0}d</span>
+                          <span style={{ fontFamily: C.mono, fontSize: 11, color: ec.text, flex: "0 0 32px", textAlign: "right" }}>{epct}%</span>
+                          <span style={{ fontFamily: C.mono, fontSize: 10, color: C.t2, flex: "0 0 28px", textAlign: "right" }}>{etapa.dias_estimados ?? 0}d</span>
 
                           {/* Estado quick buttons */}
                           {esGestion && !etapa.isVirtual && (
                             <div style={{ display: "flex", gap: 2, flexShrink: 0 }} onClick={e => e.stopPropagation()}>
                               {[["pendiente","—"],["en_curso","▶"],["completado","✓"]].map(([est, ico]) => (
                                 <button key={est} type="button" onClick={() => cambiarEstadoEtapa(etapa.id, est)}
-                                  style={{ width: 20, height: 20, borderRadius: 4, border: "none", cursor: "pointer", fontSize: 9, background: etapa.estado === est ? `${(C.etapa[est]).dot}28` : "rgba(255,255,255,0.03)", color: etapa.estado === est ? (C.etapa[est]).dot : C.t2 }}>
+                                  style={{ width: 20, height: 20, borderRadius: 4, border: "none", cursor: "pointer", fontSize: 10, background: etapa.estado === est ? `${(C.etapa[est]).dot}28` : "rgba(255,255,255,0.03)", color: etapa.estado === est ? (C.etapa[est]).dot : C.t2 }}>
                                   {ico}
                                 </button>
                               ))}
-                              <button type="button" onClick={() => setEtapaModal({ etapa, obraId: etapa.obra_id })} style={{ width: 20, height: 20, borderRadius: 4, border: "none", cursor: "pointer", fontSize: 9, background: "transparent", color: C.t2 }}>editar</button>
-                              <button type="button" onClick={() => pedirBorrado(etapa, "etapa")} style={{ border: "none", background: "transparent", color: C.t2, cursor: "pointer", fontSize: 12, padding: "0 2px" }}>×</button>
+                              <button type="button" onClick={() => setEtapaModal({ etapa, obraId: etapa.obra_id })} style={{ width: 20, height: 20, borderRadius: 4, border: "none", cursor: "pointer", fontSize: 10, background: "transparent", color: C.t2 }}>editar</button>
+                              <button type="button" onClick={() => pedirBorrado(etapa, "etapa")} style={{ border: "none", background: "transparent", color: C.t2, cursor: "pointer", fontSize: 13, padding: "0 2px" }}>×</button>
                             </div>
                           )}
                         </div>
@@ -2387,7 +2335,7 @@ export default function ObrasScreen({ profile, signOut }) {
 
                   {/* + nueva etapa */}
                   {esGestion && (
-                    <button type="button" onClick={() => setEtapaModal({ obraId: obra.id })} style={{ width: "100%", marginTop: 4, padding: "7px 12px", borderRadius: 7, cursor: "pointer", border: `1px dashed ${C.b0}`, background: "transparent", color: C.t2, fontSize: 10, fontFamily: C.sans }}>
+                    <button type="button" onClick={() => setEtapaModal({ obraId: obra.id })} style={{ width: "100%", marginTop: 4, padding: "7px 12px", borderRadius: 7, cursor: "pointer", border: `1px dashed ${C.b0}`, background: "transparent", color: C.t2, fontSize: 11, fontFamily: C.sans }}>
                       + nueva etapa
                     </button>
                   )}
@@ -2433,7 +2381,7 @@ export default function ObrasScreen({ profile, signOut }) {
       <style>{`
         @import url('https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500;700&display=swap');
         *, *::before, *::after { box-sizing: border-box; }
-        select option { background: #0f0f12; color: #a1a1aa; }
+        select option { background: #0f0f12; color: var(--muted); }
         ::-webkit-scrollbar { width: 3px; height: 3px; }
         ::-webkit-scrollbar-track { background: transparent; }
         ::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.07); border-radius: 99px; }
@@ -2476,7 +2424,7 @@ export default function ObrasScreen({ profile, signOut }) {
                 title="Volver al inicio de Obras"
                 style={{ display: "flex", alignItems: "center", gap: 5, padding: "3px 9px", borderRadius: 6,
                   border: "1px solid rgba(255,255,255,0.07)", background: "rgba(255,255,255,0.02)",
-                  color: "rgba(255,255,255,0.28)", cursor: "pointer", fontSize: 10,
+                  color: "rgba(255,255,255,0.28)", cursor: "pointer", fontSize: 11,
                   fontFamily: C.mono, letterSpacing: 1, marginRight: 4, transition: "all .15s" }}
                 onMouseEnter={e => { e.currentTarget.style.borderColor = "rgba(255,255,255,0.18)"; e.currentTarget.style.color = "#fff"; }}
                 onMouseLeave={e => { e.currentTarget.style.borderColor = "rgba(255,255,255,0.07)"; e.currentTarget.style.color = "rgba(255,255,255,0.28)"; }}>
@@ -2497,26 +2445,26 @@ export default function ObrasScreen({ profile, signOut }) {
                   animation: `countIn 0.4s ease ${i * 0.08}s both` }}>
                   <div style={{ width: 5, height: 5, borderRadius: "50%", background: c,
                     boxShadow: `0 0 6px ${c}80` }}/>
-                  <span style={{ fontFamily: C.mono, fontSize: 12, fontWeight: 700, color: c }}>
+                  <span style={{ fontFamily: C.mono, fontSize: 13, fontWeight: 700, color: c }}>
                     <AnimatedNumber value={n} duration={800}/>
                   </span>
-                  <span style={{ fontSize: 8.5, color: C.t2, letterSpacing: 1.5,
+                  <span style={{ fontSize: 10, color: C.t2, letterSpacing: 1.1,
                     textTransform: "uppercase" }}>{label}</span>
                 </div>
               ))}
             </div>
             <div style={{ display: "flex", gap: 3 }}>
-              <button type="button" onClick={() => setMainView("obras")} style={{ padding: "5px 14px", borderRadius: 7, cursor: "pointer", fontSize: 11, fontFamily: C.sans, border: mainView === "obras" ? `1px solid ${C.b1}` : `1px solid ${C.b0}`, background: mainView === "obras" ? C.s1 : "transparent", color: mainView === "obras" ? C.t0 : C.t1, transition: "all 0.18s", boxShadow: mainView === "obras" ? "0 0 0 1px rgba(255,255,255,0.06) inset" : "none" }}><span style={{display:"flex",alignItems:"center",gap:5}}><NavIcon.Grid />Obras</span></button>
-              <button type="button" onClick={() => { setMainView("mapa"); setMapaPanel(null); }} style={{ padding: "5px 14px", borderRadius: 7, cursor: "pointer", fontSize: 11, fontFamily: C.sans, border: mainView === "mapa" ? "1px solid rgba(139,92,246,0.45)" : `1px solid ${C.b0}`, background: mainView === "mapa" ? "rgba(139,92,246,0.12)" : "transparent", color: mainView === "mapa" ? "#a78bfa" : C.t1, transition: "all 0.18s", boxShadow: mainView === "mapa" ? "0 0 16px rgba(139,92,246,0.15)" : "none" }}><span style={{display:"flex",alignItems:"center",gap:5}}><NavIcon.Map />Mapa</span></button>
-              <button type="button" onClick={() => setMainView("ordenes")} style={{ padding: "5px 14px", borderRadius: 7, cursor: "pointer", fontSize: 11, fontFamily: C.sans, border: mainView === "ordenes" ? `1px solid rgba(245,158,11,0.45)` : `1px solid ${C.b0}`, background: mainView === "ordenes" ? "rgba(245,158,11,0.10)" : "transparent", color: mainView === "ordenes" ? C.amber : C.t1, position: "relative", transition: "all 0.18s", boxShadow: mainView === "ordenes" ? "0 0 16px rgba(245,158,11,0.12)" : "none" }}>
+              <button type="button" onClick={() => setMainView("obras")} style={{ padding: "5px 14px", borderRadius: 7, cursor: "pointer", fontSize: 12, fontFamily: C.sans, border: mainView === "obras" ? `1px solid ${C.b1}` : `1px solid ${C.b0}`, background: mainView === "obras" ? C.s1 : "transparent", color: mainView === "obras" ? C.t0 : C.t1, transition: "all 0.18s", boxShadow: mainView === "obras" ? "0 0 0 1px rgba(255,255,255,0.06) inset" : "none" }}><span style={{display:"flex",alignItems:"center",gap:5}}><NavIcon.Grid />Obras</span></button>
+              <button type="button" onClick={() => { setMainView("mapa"); setMapaPanel(null); }} style={{ padding: "5px 14px", borderRadius: 7, cursor: "pointer", fontSize: 12, fontFamily: C.sans, border: mainView === "mapa" ? "1px solid rgba(139,92,246,0.45)" : `1px solid ${C.b0}`, background: mainView === "mapa" ? "rgba(139,92,246,0.12)" : "transparent", color: mainView === "mapa" ? "#a78bfa" : C.t1, transition: "all 0.18s", boxShadow: mainView === "mapa" ? "0 0 16px rgba(139,92,246,0.15)" : "none" }}><span style={{display:"flex",alignItems:"center",gap:5}}><NavIcon.Map />Mapa</span></button>
+              <button type="button" onClick={() => setMainView("ordenes")} style={{ padding: "5px 14px", borderRadius: 7, cursor: "pointer", fontSize: 12, fontFamily: C.sans, border: mainView === "ordenes" ? `1px solid rgba(245,158,11,0.45)` : `1px solid ${C.b0}`, background: mainView === "ordenes" ? "rgba(245,158,11,0.10)" : "transparent", color: mainView === "ordenes" ? C.amber : C.t1, position: "relative", transition: "all 0.18s", boxShadow: mainView === "ordenes" ? "0 0 16px rgba(245,158,11,0.12)" : "none" }}>
                 <span style={{display:"flex",alignItems:"center",gap:5}}><NavIcon.Cart />Compras</span>
-                {alertCountOC > 0 && <span style={{ position: "absolute", top: -4, right: -4, minWidth: 16, height: 16, borderRadius: 8, background: C.red, color: "#fff", fontSize: 9, fontWeight: 700, display: "flex", alignItems: "center", justifyContent: "center", padding: "0 4px" }}>{alertCountOC}</span>}
+                {alertCountOC > 0 && <span style={{ position: "absolute", top: -4, right: -4, minWidth: 16, height: 16, borderRadius: 8, background: C.red, color: "#fff", fontSize: 10, fontWeight: 700, display: "flex", alignItems: "center", justifyContent: "center", padding: "0 4px" }}>{alertCountOC}</span>}
               </button>
-              {!["laminacion"].includes(profile?.role) && <button type="button" onClick={() => setMainView("planificacion")} style={{ padding: "5px 14px", borderRadius: 7, cursor: "pointer", fontSize: 11, fontFamily: C.sans, border: mainView === "planificacion" ? `1px solid rgba(245,158,11,0.45)` : `1px solid ${C.b0}`, background: mainView === "planificacion" ? "rgba(245,158,11,0.10)" : "transparent", color: mainView === "planificacion" ? C.amber : C.t1, position: "relative", transition: "all 0.18s", boxShadow: mainView === "planificacion" ? "0 0 16px rgba(245,158,11,0.12)" : "none" }}>
+              {!["laminacion"].includes(profile?.role) && <button type="button" onClick={() => setMainView("planificacion")} style={{ padding: "5px 14px", borderRadius: 7, cursor: "pointer", fontSize: 12, fontFamily: C.sans, border: mainView === "planificacion" ? `1px solid rgba(245,158,11,0.45)` : `1px solid ${C.b0}`, background: mainView === "planificacion" ? "rgba(245,158,11,0.10)" : "transparent", color: mainView === "planificacion" ? C.amber : C.t1, position: "relative", transition: "all 0.18s", boxShadow: mainView === "planificacion" ? "0 0 16px rgba(245,158,11,0.12)" : "none" }}>
                 Planificación
-                {alertCountAvisos > 0 && <span style={{ position: "absolute", top: -4, right: -4, minWidth: 16, height: 16, borderRadius: 8, background: C.red, color: "#fff", fontSize: 9, fontWeight: 700, display: "flex", alignItems: "center", justifyContent: "center", padding: "0 4px" }}>{alertCountAvisos}</span>}
+                {alertCountAvisos > 0 && <span style={{ position: "absolute", top: -4, right: -4, minWidth: 16, height: 16, borderRadius: 8, background: C.red, color: "#fff", fontSize: 10, fontWeight: 700, display: "flex", alignItems: "center", justifyContent: "center", padding: "0 4px" }}>{alertCountAvisos}</span>}
               </button>}
-              <button type="button" onClick={() => setMainView("piezas_lam")} style={{ padding: "5px 14px", borderRadius: 7, cursor: "pointer", fontSize: 11, fontFamily: C.sans, border: mainView === "piezas_lam" ? `1px solid rgba(16,185,129,0.45)` : `1px solid ${C.b0}`, background: mainView === "piezas_lam" ? "rgba(16,185,129,0.10)" : "transparent", color: mainView === "piezas_lam" ? C.green : C.t1, transition: "all 0.18s", boxShadow: mainView === "piezas_lam" ? "0 0 16px rgba(16,185,129,0.12)" : "none" }}>
+              <button type="button" onClick={() => setMainView("piezas_lam")} style={{ padding: "5px 14px", borderRadius: 7, cursor: "pointer", fontSize: 12, fontFamily: C.sans, border: mainView === "piezas_lam" ? `1px solid rgba(16,185,129,0.45)` : `1px solid ${C.b0}`, background: mainView === "piezas_lam" ? "rgba(16,185,129,0.10)" : "transparent", color: mainView === "piezas_lam" ? C.green : C.t1, transition: "all 0.18s", boxShadow: mainView === "piezas_lam" ? "0 0 16px rgba(16,185,129,0.12)" : "none" }}>
                 <span style={{display:"flex",alignItems:"center",gap:5}}>Piezas Laminación</span>
               </button>
             </div>
@@ -2526,22 +2474,22 @@ export default function ObrasScreen({ profile, signOut }) {
           {mainView === "obras" && (
             <>
               {/* FILTERBAR */}
-              <div style={{ height: 36, background: "rgba(12,12,14,0.85)", ...GLASS, borderBottom: `1px solid ${C.b0}`, padding: "0 18px", display: "flex", alignItems: "center", gap: 4, flexShrink: 0, overflowX: "auto" }}>
-                <span style={{ fontSize: 8, color: C.t2, letterSpacing: 2, textTransform: "uppercase", flexShrink: 0 }}>Estado</span>
+              <div style={{ height: 36, background: C.topbarSoft, ...GLASS, borderBottom: `1px solid ${C.b0}`, padding: "0 18px", display: "flex", alignItems: "center", gap: 4, flexShrink: 0, overflowX: "auto" }}>
+                <span style={{ fontSize: 10, color: C.t2, letterSpacing: 1.3, textTransform: "uppercase", flexShrink: 0 }}>Estado</span>
                 {[["todos","Todos"],["activa","Activas"],["pausada","Pausadas"],["terminada","Terminadas"]].map(([v, l]) => (
-                  <button key={v} type="button" onClick={() => setFiltroEstado(v)} style={{ border: filtroEstado === v ? `1px solid ${C.b1}` : `1px solid rgba(255,255,255,0.04)`, background: filtroEstado === v ? C.s1 : "transparent", color: filtroEstado === v ? C.t0 : C.t1, padding: "3px 11px", borderRadius: 5, cursor: "pointer", fontSize: 10, fontFamily: C.sans }}>{l}</button>
+                  <button key={v} type="button" onClick={() => setFiltroEstado(v)} style={{ border: filtroEstado === v ? `1px solid ${C.b1}` : `1px solid rgba(255,255,255,0.04)`, background: filtroEstado === v ? C.s1 : "transparent", color: filtroEstado === v ? C.t0 : C.t1, padding: "3px 11px", borderRadius: 5, cursor: "pointer", fontSize: 11, fontFamily: C.sans }}>{l}</button>
                 ))}
                 <div style={{ width: 1, height: 12, background: C.b0, margin: "0 3px" }} />
-                <span style={{ fontSize: 8, color: C.t2, letterSpacing: 2, textTransform: "uppercase", flexShrink: 0 }}>Línea</span>
-                <button type="button" onClick={() => setFiltroLinea("todas")} style={{ border: filtroLinea === "todas" ? `1px solid ${C.b1}` : `1px solid rgba(255,255,255,0.04)`, background: filtroLinea === "todas" ? C.s1 : "transparent", color: filtroLinea === "todas" ? C.t0 : C.t1, padding: "3px 11px", borderRadius: 5, cursor: "pointer", fontSize: 10, fontFamily: C.sans }}>Todas</button>
+                <span style={{ fontSize: 10, color: C.t2, letterSpacing: 1.3, textTransform: "uppercase", flexShrink: 0 }}>Línea</span>
+                <button type="button" onClick={() => setFiltroLinea("todas")} style={{ border: filtroLinea === "todas" ? `1px solid ${C.b1}` : `1px solid rgba(255,255,255,0.04)`, background: filtroLinea === "todas" ? C.s1 : "transparent", color: filtroLinea === "todas" ? C.t0 : C.t1, padding: "3px 11px", borderRadius: 5, cursor: "pointer", fontSize: 11, fontFamily: C.sans }}>Todas</button>
                 {lineas.map(l => (
                   <div key={l.id} style={{ display: "flex", alignItems: "center", gap: 1 }}>
-                    <button type="button" onClick={() => setFiltroLinea(filtroLinea === l.id ? "todas" : l.id)} style={{ border: filtroLinea === l.id ? `1px solid ${C.b1}` : `1px solid rgba(255,255,255,0.04)`, borderLeft: filtroLinea === l.id ? `2px solid ${l.color}` : undefined, background: filtroLinea === l.id ? C.s1 : "transparent", color: filtroLinea === l.id ? C.t0 : C.t1, padding: "3px 11px", borderRadius: "5px 0 0 5px", cursor: "pointer", fontSize: 10, fontFamily: C.sans }}>{l.nombre}</button>
-                    {esGestion && <button type="button" onClick={() => setLineasModal({ linea: l })} style={{ border: filtroLinea === l.id ? `1px solid ${C.b1}` : `1px solid rgba(255,255,255,0.04)`, borderLeft: "none", background: filtroLinea === l.id ? C.s1 : "transparent", color: C.t2, padding: "3px 6px", borderRadius: "0 5px 5px 0", cursor: "pointer", fontSize: 9, fontFamily: C.sans }}><NavIcon.Gear /></button>}
+                    <button type="button" onClick={() => setFiltroLinea(filtroLinea === l.id ? "todas" : l.id)} style={{ border: filtroLinea === l.id ? `1px solid ${C.b1}` : `1px solid rgba(255,255,255,0.04)`, borderLeft: filtroLinea === l.id ? `2px solid ${l.color}` : undefined, background: filtroLinea === l.id ? C.s1 : "transparent", color: filtroLinea === l.id ? C.t0 : C.t1, padding: "3px 11px", borderRadius: "5px 0 0 5px", cursor: "pointer", fontSize: 11, fontFamily: C.sans }}>{l.nombre}</button>
+                    {esGestion && <button type="button" onClick={() => setLineasModal({ linea: l })} style={{ border: filtroLinea === l.id ? `1px solid ${C.b1}` : `1px solid rgba(255,255,255,0.04)`, borderLeft: "none", background: filtroLinea === l.id ? C.s1 : "transparent", color: C.t2, padding: "3px 6px", borderRadius: "0 5px 5px 0", cursor: "pointer", fontSize: 10, fontFamily: C.sans }}><NavIcon.Gear /></button>}
                   </div>
                 ))}
                 {esGestion && (
-                  <button type="button" onClick={() => setShowNuevaLineaModal(true)} style={{ border: "1px dashed rgba(59,130,246,0.3)", background: "transparent", color: C.primary, padding: "3px 10px", borderRadius: 5, cursor: "pointer", fontSize: 10, fontFamily: C.sans, flexShrink: 0, opacity: 0.8 }}>+ Nueva línea</button>
+                  <button type="button" onClick={() => setShowNuevaLineaModal(true)} style={{ border: "1px dashed rgba(59,130,246,0.3)", background: "transparent", color: C.primary, padding: "3px 10px", borderRadius: 5, cursor: "pointer", fontSize: 11, fontFamily: C.sans, flexShrink: 0, opacity: 0.8 }}>+ Nueva línea</button>
                 )}
               </div>
 

@@ -1,3 +1,4 @@
+import { C } from "@/theme";
 /**
  * PedidosMaderaScreen.jsx
  *
@@ -28,26 +29,6 @@ import PedirAComprasModal from "@/features/compras/PedirAComprasModal";
 import { useResponsive } from "@/hooks/useResponsive";
 
 // ── Paleta (igual que el resto del sistema) ───────────────────────
-const C = {
-  bg:      "#09090b",
-  s0:      "rgba(255,255,255,0.03)",
-  s1:      "rgba(255,255,255,0.06)",
-  b0:      "rgba(255,255,255,0.08)",
-  b1:      "rgba(255,255,255,0.15)",
-  t0:      "#f4f4f5",
-  t1:      "#a1a1aa",
-  t2:      "#71717a",
-  mono:    "'JetBrains Mono', 'IBM Plex Mono', monospace",
-  sans:    "'Outfit', system-ui, sans-serif",
-  primary: "#3b82f6",
-  amber:   "#f59e0b",
-  green:   "#10b981",
-  red:     "#ef4444",
-  orange:  "#f97316",
-  violet:  "#8b5cf6",
-  cyan:    "#06b6d4",
-};
-
 const GLASS = {
   backdropFilter: "blur(32px) saturate(130%)",
   WebkitBackdropFilter: "blur(32px) saturate(130%)",
@@ -59,7 +40,7 @@ const INP = {
   color: C.t0,
   padding: "9px 12px",
   borderRadius: 8,
-  fontSize: 12,
+  fontSize: 13,
   outline: "none",
   width: "100%",
   fontFamily: "'Outfit', system-ui",
@@ -456,7 +437,7 @@ export default function PedidosMaderaScreen({ profile, signOut }) {
     background: active ? C.s1 : "transparent",
     color:      active ? C.t0 : C.t2,
     padding:    "5px 14px", borderRadius: 6, cursor: "pointer",
-    fontSize:   11, fontFamily: C.sans, fontWeight: active ? 600 : 400,
+    fontSize:   12, fontFamily: C.sans, fontWeight: active ? 600 : 400,
     position: "relative",
   });
 
@@ -465,7 +446,7 @@ export default function PedidosMaderaScreen({ profile, signOut }) {
     background: active ? C.s1 : "transparent",
     color:      active ? C.t0 : C.t2,
     padding:    "3px 11px", borderRadius: 5, cursor: "pointer",
-    fontSize:   10, fontFamily: C.sans, whiteSpace: "nowrap",
+    fontSize:   11, fontFamily: C.sans, whiteSpace: "nowrap",
   });
 
   const btn = (color, filled = false) => ({
@@ -473,7 +454,7 @@ export default function PedidosMaderaScreen({ profile, signOut }) {
     background: filled ? color : `${color}18`,
     color:      filled ? "#fff" : color,
     padding:    "8px 16px", borderRadius: 8, cursor: "pointer",
-    fontWeight: 700, fontSize: 12, fontFamily: C.sans, whiteSpace: "nowrap",
+    fontWeight: 700, fontSize: 13, fontFamily: C.sans, whiteSpace: "nowrap",
   });
 
   const btnSm = (color) => ({
@@ -481,7 +462,7 @@ export default function PedidosMaderaScreen({ profile, signOut }) {
     background: `${color}15`,
     color,
     padding:    "5px 12px", borderRadius: 6, cursor: "pointer",
-    fontWeight: 700, fontSize: 11, fontFamily: C.sans, whiteSpace: "nowrap",
+    fontWeight: 700, fontSize: 12, fontFamily: C.sans, whiteSpace: "nowrap",
   });
 
   // ══════════════════════════════════════════════════════════════
@@ -492,7 +473,7 @@ export default function PedidosMaderaScreen({ profile, signOut }) {
       <style>{`
         @import url('https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500;700&display=swap');
         *, *::before, *::after { box-sizing: border-box; }
-        select option { background: #0f0f12; color: #a1a1aa; }
+        select option { background: #0f0f12; color: var(--muted); }
         ::-webkit-scrollbar { width: 3px; height: 3px; }
         ::-webkit-scrollbar-track { background: transparent; }
         ::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.07); border-radius: 99px; }
@@ -518,10 +499,10 @@ export default function PedidosMaderaScreen({ profile, signOut }) {
         <div style={{ display: "flex", flexDirection: "column", height: "100vh", overflow: "hidden" }}>
 
           {/* ── TOPBAR ─────────────────────────────────────────── */}
-          <div style={{ height: 50, background: "rgba(12,12,14,0.92)", ...GLASS, borderBottom: `1px solid ${C.b0}`, padding: isMobile ? "0 12px 0 52px" : "0 18px", display: "flex", alignItems: "center", gap: 8, flexShrink: 0 }}>
+          <div style={{ height: 50, background: C.topbar, ...GLASS, borderBottom: `1px solid ${C.b0}`, padding: isMobile ? "0 12px 0 52px" : "0 18px", display: "flex", alignItems: "center", gap: 8, flexShrink: 0 }}>
             <div style={{ flex: 1 }}>
-              <div style={{ fontSize: 13, fontWeight: 600, color: C.t0 }}>Pedidos de Madera</div>
-              <div style={{ fontSize: 9, color: C.t2, letterSpacing: 1.5, textTransform: "uppercase", marginTop: 1 }}>
+              <div style={{ fontSize: 14, fontWeight: 600, color: C.t0 }}>Pedidos de Madera</div>
+              <div style={{ fontSize: 10, color: C.t2, letterSpacing: 1.1, textTransform: "uppercase", marginTop: 1 }}>
                 Stock · Sugerencias · Ordenes
               </div>
             </div>
@@ -534,13 +515,13 @@ export default function PedidosMaderaScreen({ profile, signOut }) {
             ].map(s => (
               <div key={s.label} style={{ display: "flex", alignItems: "center", gap: 5, padding: "4px 10px", borderRadius: 7, background: C.s0, border: `1px solid ${C.b0}`, borderLeft: `2px solid ${s.color}` }}>
                 <span style={{ fontFamily: C.mono, fontSize: 15, fontWeight: 700, color: s.color, lineHeight: 1 }}>{s.val}</span>
-                <span style={{ fontSize: 8, color: C.t1, letterSpacing: 1.5, textTransform: "uppercase" }}>{s.label}</span>
+                <span style={{ fontSize: 10, color: C.t1, letterSpacing: 1.1, textTransform: "uppercase" }}>{s.label}</span>
               </div>
             ))}
           </div>
 
           {/* ── TAB BAR ────────────────────────────────────────── */}
-          <div style={{ height: 38, background: "rgba(12,12,14,0.85)", ...GLASS, borderBottom: `1px solid ${C.b0}`, padding: "0 18px", display: "flex", alignItems: "center", gap: 4, flexShrink: 0 }}>
+          <div style={{ height: 38, background: C.topbarSoft, ...GLASS, borderBottom: `1px solid ${C.b0}`, padding: "0 18px", display: "flex", alignItems: "center", gap: 4, flexShrink: 0 }}>
             <button style={tabBtn(tab === "sugeridas")} onClick={() => setTab("sugeridas")}>
               Stock y sugerencias
             </button>
@@ -550,7 +531,7 @@ export default function PedidosMaderaScreen({ profile, signOut }) {
             <button style={tabBtn(tab === "historial")} onClick={() => setTab("historial")}>
               Historial
               {cntActivos > 0 && (
-                <span style={{ marginLeft: 6, background: C.amber + "30", color: C.amber, borderRadius: 99, padding: "0 6px", fontSize: 9, fontWeight: 700 }}>
+                <span style={{ marginLeft: 6, background: C.amber + "30", color: C.amber, borderRadius: 99, padding: "0 6px", fontSize: 10, fontWeight: 700 }}>
                   {cntActivos}
                 </span>
               )}
@@ -559,7 +540,7 @@ export default function PedidosMaderaScreen({ profile, signOut }) {
 
           {/* ── ERROR ──────────────────────────────────────────── */}
           {error && (
-            <div style={{ margin: "8px 18px 0", padding: "8px 14px", borderRadius: 8, background: "rgba(239,68,68,0.08)", border: "1px solid rgba(239,68,68,0.3)", color: C.red, fontSize: 12, flexShrink: 0 }}>
+            <div style={{ margin: "8px 18px 0", padding: "8px 14px", borderRadius: 8, background: "rgba(239,68,68,0.08)", border: "1px solid rgba(239,68,68,0.3)", color: C.red, fontSize: 13, flexShrink: 0 }}>
               {error}
             </div>
           )}
@@ -573,7 +554,7 @@ export default function PedidosMaderaScreen({ profile, signOut }) {
                 <>
                   {/* Controles */}
                   <div style={{ display: "flex", gap: 8, alignItems: "center", marginBottom: 12, flexWrap: "wrap" }}>
-                    <span style={{ fontSize: 9, color: C.t2, letterSpacing: 2, textTransform: "uppercase", flexShrink: 0 }}>
+                    <span style={{ fontSize: 10, color: C.t2, letterSpacing: 1.3, textTransform: "uppercase", flexShrink: 0 }}>
                       Cobertura objetivo
                     </span>
                     {[2, 3, 4, 6, 8].map(n => (
@@ -582,12 +563,12 @@ export default function PedidosMaderaScreen({ profile, signOut }) {
                       </button>
                     ))}
                     <div style={{ flex: 1 }} />
-                    <label style={{ display: "flex", alignItems: "center", gap: 6, cursor: "pointer", fontSize: 11, color: C.t1, userSelect: "none" }}>
+                    <label style={{ display: "flex", alignItems: "center", gap: 6, cursor: "pointer", fontSize: 12, color: C.t1, userSelect: "none" }}>
                       <input type="checkbox" checked={soloUrgentes} onChange={e => setSoloUrgentes(e.target.checked)} style={{ accentColor: C.amber }} />
                       Solo urgentes
                     </label>
                     <input
-                      style={{ background: "transparent", border: "none", color: C.t0, fontSize: 11, fontFamily: C.sans, outline: "none", width: 220 }}
+                      style={{ background: "transparent", border: "none", color: C.t0, fontSize: 12, fontFamily: C.sans, outline: "none", width: 220 }}
                       placeholder="Buscar material..."
                       value={qMat}
                       onChange={e => setQMat(e.target.value)}
@@ -599,18 +580,18 @@ export default function PedidosMaderaScreen({ profile, signOut }) {
                     {/* Header */}
                     <div style={{ display: "grid", gridTemplateColumns: "1fr 80px 110px 90px 110px 110px 110px", gap: 8, padding: "10px 16px", background: "rgba(0,0,0,0.3)", borderBottom: `1px solid ${C.b0}` }}>
                       {["Material", "Stock", "Egreso/sem", "Cobertura", `Pedir ${bufferSemanas}s`, "Pedir 4s", "Estado"].map(h => (
-                        <div key={h} style={{ fontSize: 9, color: C.t2, letterSpacing: 2, textTransform: "uppercase" }}>{h}</div>
+                        <div key={h} style={{ fontSize: 10, color: C.t2, letterSpacing: 1.3, textTransform: "uppercase" }}>{h}</div>
                       ))}
                     </div>
 
                     {loading && (
-                      <div style={{ padding: 24, textAlign: "center", color: C.t2, fontSize: 12, fontFamily: C.mono }}>
+                      <div style={{ padding: 24, textAlign: "center", color: C.t2, fontSize: 13, fontFamily: C.mono }}>
                         Cargando...
                       </div>
                     )}
 
                     {!loading && statsOrdenadas.length === 0 && (
-                      <div style={{ padding: 24, textAlign: "center", color: C.t2, fontSize: 12 }}>
+                      <div style={{ padding: 24, textAlign: "center", color: C.t2, fontSize: 13 }}>
                         {soloUrgentes ? "No hay materiales urgentes con el filtro actual." : "No hay datos de consumo registrados."}
                       </div>
                     )}
@@ -630,49 +611,49 @@ export default function PedidosMaderaScreen({ profile, signOut }) {
                             style={{ display: "grid", gridTemplateColumns: "1fr 80px 110px 90px 110px 110px 110px", gap: 8, padding: "11px 16px", borderBottom: `1px solid rgba(255,255,255,0.04)`, alignItems: "center", borderLeft: `3px solid ${color}` }}>
 
                             <div>
-                              <div style={{ fontWeight: 600, fontSize: 13, color: C.t0 }}>{row.mat.nombre}</div>
-                              <div style={{ fontSize: 10, color: C.t2 }}>{row.mat.unidad_medida}</div>
+                              <div style={{ fontWeight: 600, fontSize: 14, color: C.t0 }}>{row.mat.nombre}</div>
+                              <div style={{ fontSize: 11, color: C.t2 }}>{row.mat.unidad_medida}</div>
                             </div>
-                            <div style={{ fontFamily: C.mono, fontSize: 13, fontWeight: 700, color: row.stockActual <= 0 ? C.red : C.t0 }}>
+                            <div style={{ fontFamily: C.mono, fontSize: 14, fontWeight: 700, color: row.stockActual <= 0 ? C.red : C.t0 }}>
                               {Math.round(row.stockActual)}
                             </div>
-                            <div style={{ fontFamily: C.mono, fontSize: 12, color: C.t1 }}>
+                            <div style={{ fontFamily: C.mono, fontSize: 13, color: C.t1 }}>
                               {row.egresoSemanal.toFixed(1)} / sem
                             </div>
-                            <div style={{ fontFamily: C.mono, fontSize: 13, fontWeight: 700, color }}>
+                            <div style={{ fontFamily: C.mono, fontSize: 14, fontWeight: 700, color }}>
                               {semStr} sem
                             </div>
                             <div style={{ fontFamily: C.mono, fontSize: 14, fontWeight: 700, color: cobN > 0 ? C.amber : C.t2 }}>
                               {cobN > 0 ? cobN : "—"}
                             </div>
-                            <div style={{ fontFamily: C.mono, fontSize: 13, color: cob4 > 0 ? C.t1 : C.t2 }}>
+                            <div style={{ fontFamily: C.mono, fontSize: 14, color: cob4 > 0 ? C.t1 : C.t2 }}>
                               {cob4 > 0 ? cob4 : "—"}
                             </div>
                             <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
-                              <span style={{ fontSize: 9, letterSpacing: 1.2, textTransform: "uppercase", fontWeight: 700, padding: "2px 8px", borderRadius: 5, background: color + "22", color, border: `1px solid ${color}44` }}>
+                              <span style={{ fontSize: 10, letterSpacing: 1.2, textTransform: "uppercase", fontWeight: 700, padding: "2px 8px", borderRadius: 5, background: color + "22", color, border: `1px solid ${color}44` }}>
                                 {urgenciaLabel(row.semanasDeStock)}
                               </span>
-                              <span style={{ color: C.t2, fontSize: 11 }}>{isExp ? "▲" : "▼"}</span>
+                              <span style={{ color: C.t2, fontSize: 12 }}>{isExp ? "▲" : "▼"}</span>
                             </div>
                           </div>
 
                           {/* Detalle expandido */}
                           {isExp && (
                             <div style={{ padding: "12px 16px 16px", background: "rgba(255,255,255,0.01)", borderBottom: `1px solid rgba(255,255,255,0.04)` }}>
-                              <div style={{ fontSize: 9, color: C.t2, letterSpacing: 2, textTransform: "uppercase", marginBottom: 8 }}>
+                              <div style={{ fontSize: 10, color: C.t2, letterSpacing: 1.3, textTransform: "uppercase", marginBottom: 8 }}>
                                 Consumo por semana (ultimas 8)
                               </div>
                               <div style={{ display: "flex", gap: 6, flexWrap: "wrap", marginBottom: 12 }}>
                                 {row.porSemana.length > 0 ? row.porSemana.map(s => (
                                   <div key={s.semana} style={{ border: `1px solid ${C.b0}`, borderRadius: 7, padding: "6px 10px", background: "rgba(255,255,255,0.02)", minWidth: 60, textAlign: "center" }}>
-                                    <div style={{ fontSize: 9, color: C.t2, marginBottom: 3 }}>{s.label}</div>
-                                    <div style={{ fontFamily: C.mono, fontSize: 13, color: s.cantidad > 0 ? C.t0 : C.t2, fontWeight: 700 }}>
+                                    <div style={{ fontSize: 10, color: C.t2, marginBottom: 3 }}>{s.label}</div>
+                                    <div style={{ fontFamily: C.mono, fontSize: 14, color: s.cantidad > 0 ? C.t0 : C.t2, fontWeight: 700 }}>
                                       {s.cantidad > 0 ? s.cantidad : "—"}
                                     </div>
                                   </div>
-                                )) : <span style={{ fontSize: 11, color: C.t2 }}>Sin egresos recientes.</span>}
+                                )) : <span style={{ fontSize: 12, color: C.t2 }}>Sin egresos recientes.</span>}
                               </div>
-                              <div style={{ display: "flex", gap: 20, flexWrap: "wrap", fontSize: 11, color: C.t2 }}>
+                              <div style={{ display: "flex", gap: 20, flexWrap: "wrap", fontSize: 12, color: C.t2 }}>
                                 <span>Promedio: <span style={{ fontFamily: C.mono, color: C.t1 }}>{row.egresoSemanal.toFixed(2)}/sem</span></span>
                                 <span>Ventana: <span style={{ fontFamily: C.mono, color: C.t1 }}>{row.semanasObservadas.toFixed(1)} sem</span></span>
                                 <span>Para 4 sem: <span style={{ fontFamily: C.mono, color: C.amber }}>{Math.ceil(row.egresoSemanal * 4)} necesario</span></span>
@@ -692,7 +673,7 @@ export default function PedidosMaderaScreen({ profile, signOut }) {
                     })}
 
                     {!loading && statsOrdenadas.length > 0 && (
-                      <div style={{ padding: "8px 16px", fontSize: 9, color: C.t2, fontFamily: C.mono }}>
+                      <div style={{ padding: "8px 16px", fontSize: 10, color: C.t2, fontFamily: C.mono }}>
                         {statsOrdenadas.length} materiales · Formula: max(0, ceil(egreso/sem x {bufferSemanas}) - stock) · Click en fila para ver historial semanal
                       </div>
                     )}
@@ -709,16 +690,16 @@ export default function PedidosMaderaScreen({ profile, signOut }) {
 
                     {/* Destinatario */}
                     <div style={{ background: C.s0, border: `1px solid ${C.b0}`, borderRadius: 12, padding: 16, marginBottom: 12 }}>
-                      <div style={{ fontSize: 10, color: C.t2, letterSpacing: 2, textTransform: "uppercase", marginBottom: 10 }}>Encabezado del email</div>
+                      <div style={{ fontSize: 11, color: C.t2, letterSpacing: 1.3, textTransform: "uppercase", marginBottom: 10 }}>Encabezado del email</div>
                       <input style={INP} placeholder="Destinatario (ej: David)" value={destinatario} onChange={e => setDestinatario(e.target.value)} />
-                      <div style={{ fontSize: 10, color: C.t2, marginTop: 6 }}>Si lo deja vacio el email empieza directamente con el listado.</div>
+                      <div style={{ fontSize: 11, color: C.t2, marginTop: 6 }}>Si lo deja vacio el email empieza directamente con el listado.</div>
                     </div>
 
                     {/* Obras */}
                     {obras.map((obra, idx) => (
                       <div key={obra.id} style={{ background: C.s0, border: `1px solid ${C.b0}`, borderRadius: 12, padding: 16, marginBottom: 12 }}>
                         <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 12 }}>
-                          <div style={{ fontSize: 10, color: C.t2, letterSpacing: 2, textTransform: "uppercase", flex: 1 }}>
+                          <div style={{ fontSize: 11, color: C.t2, letterSpacing: 1.3, textTransform: "uppercase", flex: 1 }}>
                             Obra {idx + 1}
                           </div>
                           {obras.length > 1 && (
@@ -750,7 +731,7 @@ export default function PedidosMaderaScreen({ profile, signOut }) {
                               <option key={m.id} value={m.id}>{m.nombre} (stock: {Math.round(num(m.stock_actual))})</option>
                             ))}
                           </select>
-                          <button style={{ border: `1px solid ${C.b0}`, background: C.s0, color: C.t1, padding: "9px 14px", borderRadius: 8, cursor: "pointer", fontSize: 12, fontFamily: C.sans, whiteSpace: "nowrap" }}
+                          <button style={{ border: `1px solid ${C.b0}`, background: C.s0, color: C.t1, padding: "9px 14px", borderRadius: 8, cursor: "pointer", fontSize: 13, fontFamily: C.sans, whiteSpace: "nowrap" }}
                             onClick={() => addObraItem(obra.id, null)}>
                             + Manual
                           </button>
@@ -759,14 +740,14 @@ export default function PedidosMaderaScreen({ profile, signOut }) {
                     ))}
 
                     <button
-                      style={{ border: `1px solid ${C.b0}`, background: "transparent", color: C.t1, padding: "8px 16px", borderRadius: 8, cursor: "pointer", fontSize: 12, fontFamily: C.sans, marginBottom: 12, width: "100%" }}
+                      style={{ border: `1px solid ${C.b0}`, background: "transparent", color: C.t1, padding: "8px 16px", borderRadius: 8, cursor: "pointer", fontSize: 13, fontFamily: C.sans, marginBottom: 12, width: "100%" }}
                       onClick={addObra}>
                       + Agregar otra obra
                     </button>
 
                     {/* Stock (reposicion) */}
                     <div style={{ background: C.s0, border: `1px solid ${C.b0}`, borderRadius: 12, padding: 16, marginBottom: 12 }}>
-                      <div style={{ fontSize: 10, color: C.t2, letterSpacing: 2, textTransform: "uppercase", marginBottom: 12 }}>
+                      <div style={{ fontSize: 11, color: C.t2, letterSpacing: 1.3, textTransform: "uppercase", marginBottom: 12 }}>
                         Stock — reposicion general
                       </div>
 
@@ -788,7 +769,7 @@ export default function PedidosMaderaScreen({ profile, signOut }) {
                             <option key={m.id} value={m.id}>{m.nombre} (stock: {Math.round(num(m.stock_actual))})</option>
                           ))}
                         </select>
-                        <button style={{ border: `1px solid ${C.b0}`, background: C.s0, color: C.t1, padding: "9px 14px", borderRadius: 8, cursor: "pointer", fontSize: 12, fontFamily: C.sans, whiteSpace: "nowrap" }}
+                        <button style={{ border: `1px solid ${C.b0}`, background: C.s0, color: C.t1, padding: "9px 14px", borderRadius: 8, cursor: "pointer", fontSize: 13, fontFamily: C.sans, whiteSpace: "nowrap" }}
                           onClick={() => addStockItem(null)}>
                           + Manual
                         </button>
@@ -810,7 +791,7 @@ export default function PedidosMaderaScreen({ profile, signOut }) {
                   <div style={{ position: "sticky", top: 0 }}>
                     <div style={{ background: C.s0, border: `1px solid ${C.b0}`, borderRadius: 12, padding: 16, marginBottom: 12 }}>
                       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 12 }}>
-                        <div style={{ fontSize: 10, color: C.t2, letterSpacing: 2, textTransform: "uppercase" }}>Vista previa del email</div>
+                        <div style={{ fontSize: 11, color: C.t2, letterSpacing: 1.3, textTransform: "uppercase" }}>Vista previa del email</div>
                         <button style={btnSm(C.green)} onClick={copiarEmail}>
                           {copiado ? "Copiado!" : "Copiar"}
                         </button>
@@ -818,7 +799,7 @@ export default function PedidosMaderaScreen({ profile, signOut }) {
                       <textarea
                         readOnly
                         value={emailText}
-                        style={{ width: "100%", minHeight: 380, background: "rgba(0,0,0,0.35)", border: `1px solid ${C.b0}`, color: C.t0, fontFamily: C.mono, fontSize: 12, padding: 14, borderRadius: 10, resize: "vertical", outline: "none", lineHeight: 1.75 }}
+                        style={{ width: "100%", minHeight: 380, background: "rgba(0,0,0,0.35)", border: `1px solid ${C.b0}`, color: C.t0, fontFamily: C.mono, fontSize: 13, padding: 14, borderRadius: 10, resize: "vertical", outline: "none", lineHeight: 1.75 }}
                       />
                     </div>
 
@@ -828,7 +809,7 @@ export default function PedidosMaderaScreen({ profile, signOut }) {
                       return cobN > 0;
                     }).length > 0 && (
                       <div style={{ background: C.s0, border: `1px solid ${C.amber}44`, borderRadius: 12, padding: 16 }}>
-                        <div style={{ fontSize: 10, color: C.amber, letterSpacing: 2, textTransform: "uppercase", marginBottom: 10 }}>
+                        <div style={{ fontSize: 11, color: C.amber, letterSpacing: 1.3, textTransform: "uppercase", marginBottom: 10 }}>
                           El sistema sugiere comprar
                         </div>
                         <div style={{ display: "flex", flexWrap: "wrap", gap: 6 }}>
@@ -845,14 +826,14 @@ export default function PedidosMaderaScreen({ profile, signOut }) {
                               return (
                                 <button
                                   key={r.mat.id}
-                                  style={{ border: `1px solid ${color}44`, background: `${color}15`, color, padding: "4px 10px", borderRadius: 6, cursor: "pointer", fontSize: 11, fontFamily: C.sans }}
+                                  style={{ border: `1px solid ${color}44`, background: `${color}15`, color, padding: "4px 10px", borderRadius: 6, cursor: "pointer", fontSize: 12, fontFamily: C.sans }}
                                   onClick={() => agregarSugerencia(r)}>
                                   + {r.mat.nombre} ({cobN} {r.mat.unidad_medida})
                                 </button>
                               );
                             })}
                         </div>
-                        <div style={{ fontSize: 10, color: C.t2, marginTop: 8 }}>
+                        <div style={{ fontSize: 11, color: C.t2, marginTop: 8 }}>
                           Haciendo click se agrega al Stock del pedido con la cantidad para 4 semanas de cobertura.
                         </div>
                       </div>
@@ -878,12 +859,12 @@ export default function PedidosMaderaScreen({ profile, signOut }) {
                   <div style={{ background: C.s0, border: `1px solid ${C.b0}`, borderRadius: 12, overflow: "hidden", marginBottom: pedidoSel ? 12 : 0 }}>
                     <div style={{ display: "grid", gridTemplateColumns: "100px 1fr 1fr 120px 90px", gap: 10, padding: "10px 16px", background: "rgba(0,0,0,0.3)", borderBottom: `1px solid ${C.b0}` }}>
                       {["Fecha", "Proveedor", "Nota", "Estado", ""].map(h => (
-                        <div key={h} style={{ fontSize: 9, color: C.t2, letterSpacing: 2, textTransform: "uppercase" }}>{h}</div>
+                        <div key={h} style={{ fontSize: 10, color: C.t2, letterSpacing: 1.3, textTransform: "uppercase" }}>{h}</div>
                       ))}
                     </div>
 
                     {loading && (
-                      <div style={{ padding: 20, textAlign: "center", color: C.t2, fontSize: 12, fontFamily: C.mono }}>Cargando...</div>
+                      <div style={{ padding: 20, textAlign: "center", color: C.t2, fontSize: 13, fontFamily: C.mono }}>Cargando...</div>
                     )}
 
                     {pedidosFiltrados.map(p => {
@@ -891,18 +872,18 @@ export default function PedidosMaderaScreen({ profile, signOut }) {
                       const isSelected = pedidoSel?.id === p.id;
                       return (
                         <div key={p.id} className="ped-row" style={{ display: "grid", gridTemplateColumns: "100px 1fr 1fr 120px 90px", gap: 10, padding: "11px 16px", borderBottom: `1px solid rgba(255,255,255,0.04)`, alignItems: "center", background: isSelected ? "rgba(255,255,255,0.025)" : undefined }}>
-                          <div style={{ fontFamily: C.mono, fontSize: 10, color: C.t2 }}>
+                          <div style={{ fontFamily: C.mono, fontSize: 11, color: C.t2 }}>
                             {fmtDate(p.fecha_pedido ?? p.creado_en)}
                           </div>
-                          <div style={{ fontWeight: 600, fontSize: 12, color: C.t0 }}>{p.proveedor}</div>
-                          <div style={{ fontSize: 11, color: C.t2, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{p.nota || "—"}</div>
+                          <div style={{ fontWeight: 600, fontSize: 13, color: C.t0 }}>{p.proveedor}</div>
+                          <div style={{ fontSize: 12, color: C.t2, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{p.nota || "—"}</div>
                           <div>
-                            <span style={{ fontSize: 9, letterSpacing: 1.2, textTransform: "uppercase", fontWeight: 700, padding: "2px 8px", borderRadius: 5, background: m.bg, color: m.color, border: `1px solid ${m.border}` }}>
+                            <span style={{ fontSize: 10, letterSpacing: 1.2, textTransform: "uppercase", fontWeight: 700, padding: "2px 8px", borderRadius: 5, background: m.bg, color: m.color, border: `1px solid ${m.border}` }}>
                               {m.label}
                             </span>
                           </div>
                           <button
-                            style={{ border: `1px solid ${C.b0}`, background: C.s0, color: C.t1, padding: "5px 12px", borderRadius: 7, cursor: "pointer", fontSize: 11, fontFamily: C.sans }}
+                            style={{ border: `1px solid ${C.b0}`, background: C.s0, color: C.t1, padding: "5px 12px", borderRadius: 7, cursor: "pointer", fontSize: 12, fontFamily: C.sans }}
                             onClick={() => isSelected ? setPedidoSel(null) : abrirPedido(p)}>
                             {isSelected ? "Cerrar" : "Abrir"}
                           </button>
@@ -911,7 +892,7 @@ export default function PedidosMaderaScreen({ profile, signOut }) {
                     })}
 
                     {!loading && pedidosFiltrados.length === 0 && (
-                      <div style={{ padding: 28, textAlign: "center", color: C.t2, fontSize: 12 }}>
+                      <div style={{ padding: 28, textAlign: "center", color: C.t2, fontSize: 13 }}>
                         No hay pedidos con este filtro.
                       </div>
                     )}
@@ -925,8 +906,8 @@ export default function PedidosMaderaScreen({ profile, signOut }) {
                           <div style={{ fontWeight: 700, fontSize: 14, color: C.t0 }}>
                             {pedidoSel.proveedor}{pedidoSel.numero ? ` — ${pedidoSel.numero}` : ""}
                           </div>
-                          {pedidoSel.nota && <div style={{ fontSize: 11, color: C.t2, marginTop: 3 }}>{pedidoSel.nota}</div>}
-                          <div style={{ fontSize: 10, color: C.t2, marginTop: 3 }}>
+                          {pedidoSel.nota && <div style={{ fontSize: 12, color: C.t2, marginTop: 3 }}>{pedidoSel.nota}</div>}
+                          <div style={{ fontSize: 11, color: C.t2, marginTop: 3 }}>
                             Creado: {fmtDate(pedidoSel.creado_en)}
                             {pedidoSel.recibido_en ? ` · Recibido: ${fmtDate(pedidoSel.recibido_en)}` : ""}
                           </div>
@@ -936,7 +917,7 @@ export default function PedidosMaderaScreen({ profile, signOut }) {
                             const m = ESTADO_META[est.value];
                             const isActive = pedidoSel.estado === est.value;
                             return (
-                              <button key={est.value} style={{ border: `1px solid ${m.border}`, background: isActive ? m.bg : "transparent", color: isActive ? m.color : C.t2, padding: "5px 12px", borderRadius: 7, cursor: "pointer", fontSize: 11, fontFamily: C.sans, fontWeight: isActive ? 700 : 400 }}
+                              <button key={est.value} style={{ border: `1px solid ${m.border}`, background: isActive ? m.bg : "transparent", color: isActive ? m.color : C.t2, padding: "5px 12px", borderRadius: 7, cursor: "pointer", fontSize: 12, fontFamily: C.sans, fontWeight: isActive ? 700 : 400 }}
                                 onClick={() => cambiarEstado(pedidoSel.id, est.value)}>
                                 {m.label}
                               </button>
@@ -960,7 +941,7 @@ export default function PedidosMaderaScreen({ profile, signOut }) {
                               description: desc,
                               source: "madera", source_ref: pedidoSel.id, sourceLabel: "Madera",
                             };
-                          })()})} style={{ border: "1px solid rgba(96,165,250,0.3)", background: "rgba(96,165,250,0.1)", color: "#60a5fa", padding: "5px 12px", borderRadius: 7, cursor: "pointer", fontSize: 11, fontFamily: C.sans, fontWeight: 600 }}>Pedir a Compras</button>
+                          })()})} style={{ border: "1px solid rgba(96,165,250,0.3)", background: "rgba(96,165,250,0.1)", color: "#60a5fa", padding: "5px 12px", borderRadius: 7, cursor: "pointer", fontSize: 12, fontFamily: C.sans, fontWeight: 700 }}>Pedir a Compras</button>
                         </div>
                       </div>
 
@@ -968,7 +949,7 @@ export default function PedidosMaderaScreen({ profile, signOut }) {
                       <div style={{ background: "rgba(0,0,0,0.2)", borderRadius: 8, overflow: "hidden" }}>
                         <div style={{ display: "grid", gridTemplateColumns: "1fr 80px 70px 80px 1fr", gap: 10, padding: "8px 12px", borderBottom: `1px solid ${C.b0}` }}>
                           {["Descripcion", "Cantidad", "Unidad", "Vinculado", "Nota recepcion"].map(h => (
-                            <div key={h} style={{ fontSize: 9, color: C.t2, letterSpacing: 2, textTransform: "uppercase" }}>{h}</div>
+                            <div key={h} style={{ fontSize: 10, color: C.t2, letterSpacing: 1.3, textTransform: "uppercase" }}>{h}</div>
                           ))}
                         </div>
                         {(() => {
@@ -980,19 +961,19 @@ export default function PedidosMaderaScreen({ profile, signOut }) {
                           }
                           return Object.entries(grupos).map(([cat, items]) => (
                             <div key={cat}>
-                              <div style={{ padding: "8px 12px", fontSize: 10, color: C.t2, letterSpacing: 1.5, textTransform: "uppercase", fontWeight: 700, borderBottom: `1px solid rgba(255,255,255,0.04)`, background: "rgba(255,255,255,0.02)" }}>
+                              <div style={{ padding: "8px 12px", fontSize: 11, color: C.t2, letterSpacing: 1.1, textTransform: "uppercase", fontWeight: 700, borderBottom: `1px solid rgba(255,255,255,0.04)`, background: "rgba(255,255,255,0.02)" }}>
                                 {cat}
                               </div>
                               {items.map(it => (
                                 <div key={it.id} className="item-row" style={{ display: "grid", gridTemplateColumns: "1fr 80px 70px 80px 1fr", gap: 10, padding: "9px 12px", borderBottom: `1px solid rgba(255,255,255,0.04)`, alignItems: "center" }}>
-                                  <div style={{ fontSize: 12, color: C.t0 }}>{it.descripcion}</div>
-                                  <div style={{ fontFamily: C.mono, fontSize: 12, color: C.t1 }}>{num(it.cantidad)}</div>
-                                  <div style={{ fontSize: 11, color: C.t1 }}>{it.unidad}</div>
-                                  <div style={{ fontSize: 11, color: it.material_id ? C.green : C.t2 }}>
+                                  <div style={{ fontSize: 13, color: C.t0 }}>{it.descripcion}</div>
+                                  <div style={{ fontFamily: C.mono, fontSize: 13, color: C.t1 }}>{num(it.cantidad)}</div>
+                                  <div style={{ fontSize: 12, color: C.t1 }}>{it.unidad}</div>
+                                  <div style={{ fontSize: 12, color: it.material_id ? C.green : C.t2 }}>
                                     {it.material_id ? "si" : "—"}
                                   </div>
                                   <input
-                                    style={{ background: "transparent", border: `1px solid ${C.b0}`, color: C.t1, fontSize: 11, borderRadius: 6, padding: "4px 8px", fontFamily: C.sans, outline: "none", width: "100%" }}
+                                    style={{ background: "transparent", border: `1px solid ${C.b0}`, color: C.t1, fontSize: 12, borderRadius: 6, padding: "4px 8px", fontFamily: C.sans, outline: "none", width: "100%" }}
                                     placeholder="Ej: vinieron 3 de 5..."
                                     defaultValue={it.nota_recepcion ?? ""}
                                     onBlur={async e => {
@@ -1006,7 +987,7 @@ export default function PedidosMaderaScreen({ profile, signOut }) {
                           ));
                         })()}
                         {!pedidoSelItems.length && (
-                          <div style={{ padding: 16, textAlign: "center", fontSize: 12, color: C.t2 }}>Sin items registrados.</div>
+                          <div style={{ padding: 16, textAlign: "center", fontSize: 13, color: C.t2 }}>Sin items registrados.</div>
                         )}
                       </div>
                     </div>

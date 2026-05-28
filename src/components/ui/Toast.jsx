@@ -1,13 +1,14 @@
 import { createContext, useCallback, useContext, useState } from "react";
 import { CheckCircle2, AlertTriangle, Info, X, AlertCircle } from "lucide-react";
+import { C } from "@/theme";
 
 const ToastCtx = createContext(null);
 
 const TONE = {
-  success: { color: "#10b981", Icon: CheckCircle2 },
-  error:   { color: "#ef4444", Icon: AlertCircle },
-  warning: { color: "#f59e0b", Icon: AlertTriangle },
-  info:    { color: "#60a5fa", Icon: Info },
+  success: { color: C.green, Icon: CheckCircle2 },
+  error:   { color: C.red, Icon: AlertCircle },
+  warning: { color: C.amber, Icon: AlertTriangle },
+  info:    { color: C.blue, Icon: Info },
 };
 
 let _id = 0;
@@ -87,12 +88,12 @@ function ToastViewport({ items, dismiss }) {
               padding: "11px 13px",
               borderRadius: 11,
               border: `1px solid ${color}44`,
-              background: "rgba(14,14,18,0.92)",
-              backdropFilter: "blur(20px) saturate(140%)",
-              WebkitBackdropFilter: "blur(20px) saturate(140%)",
-              boxShadow: `0 10px 30px rgba(0,0,0,0.45), 0 0 0 1px ${color}10`,
-              color: "#f4f4f5",
-              fontSize: 12.5,
+              background: C.panelSolid,
+              backdropFilter: "var(--glass-filter)",
+              WebkitBackdropFilter: "var(--glass-filter)",
+              boxShadow: `0 10px 30px var(--shadow), 0 0 0 1px ${color}33`,
+              color: C.text,
+              fontSize: 13,
               lineHeight: 1.45,
               animation: "toast-in .18s cubic-bezier(.22,1,.36,1)",
             }}>
@@ -114,7 +115,7 @@ function ToastViewport({ items, dismiss }) {
                 style={{
                   background: "transparent",
                   border: "none",
-                  color: "rgba(255,255,255,0.4)",
+                  color: C.dim,
                   cursor: "pointer",
                   padding: 2,
                   marginTop: -1,

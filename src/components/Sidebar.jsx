@@ -1,8 +1,11 @@
 ﻿import React, { useEffect, useState } from "react";
+import { Eye, Moon, Sun } from "lucide-react";
 import { Link, useLocation } from "react-router-dom";
 import logoK from "@/assets/logos/logo-k.png";
 import { useResponsive } from "@/hooks/useResponsive";
 import { hasAdminAccess } from "@/lib/permissions";
+import { C } from "@/theme";
+import { useTheme } from "@/theme/useTheme";
 
 // ─── SVG ICONS ────────────────────────────────────────────────────────────────
 function Icon({ id, color = "currentColor", size = 14 }) {
@@ -101,7 +104,7 @@ const CSS = `
   @keyframes sb-in    { from{opacity:0;transform:translateX(-14px)} to{opacity:1;transform:translateX(0)} }
   @keyframes sb-down  { from{opacity:0;transform:translateY(-8px)}  to{opacity:1;transform:translateY(0)} }
   @keyframes sb-up    { from{opacity:0;transform:translateY(8px)}   to{opacity:1;transform:translateY(0)} }
-  @keyframes sb-breathe { 0%,100% { background: rgba(255,255,255,0.055); } 50% { background: rgba(255,255,255,0.09); } }
+  @keyframes sb-breathe { 0%,100% { background: var(--panel-2); } 50% { background: var(--panel-3); } }
   @keyframes sb-neon { 0%,100% { opacity:.8; box-shadow: 0 0 6px var(--c)99, 0 0 16px var(--c)44; } 50% { opacity:1;  box-shadow: 0 0 14px var(--c), 0 0 28px var(--c)88, 0 0 44px var(--c)33; } }
   @keyframes sb-beat { 0%,100% { transform:scale(1); opacity:1; } 50% { transform:scale(1.8); opacity:.5; } }
   @keyframes sb-flicker { 0%,100%{opacity:1} 50%{opacity:.55} }
@@ -123,6 +126,7 @@ const CSS = `
   .sb-online { animation: sb-online 3.5s ease-in-out infinite; }
   .sb-out { transition: color .18s, background .18s, border-color .18s; }
   .sb-out:hover { color: #f87171 !important; border-color: rgba(248,113,113,.3) !important; background: rgba(248,113,113,.06) !important; }
+  .sb-theme { transition: color .16s, background .16s; }
 `;
 
 // ─── COMPONENT ────────────────────────────────────────────────────────────────
@@ -134,6 +138,7 @@ export default function Sidebar({ profile, signOut }) {
   const [hov, setHov] = useState(null);
   const [displayInfo, setDisplayInfo] = useState(""); // NUEVO: Estado para el panel inferior
   const { isMobile } = useResponsive();
+  const { theme, setTheme } = useTheme();
   const [menuOpen, setMenuOpen] = useState(false);
   const toggleMenu = () => setMenuOpen(o => !o);
   useEffect(() => { if (!isMobile) setMenuOpen(false); }, [isMobile]);
@@ -155,7 +160,7 @@ export default function Sidebar({ profile, signOut }) {
   const item = (href, label, c, exact = true, delay = 0, info = "") => {
     const on  = exact ? path === href : path.startsWith(href);
     const isH = hov === href;
-    const col = c ?? "#a0a0a0";
+    const col = c ?? C.muted;
     return (
       <Link
         key={href} to={href}
@@ -165,16 +170,16 @@ export default function Sidebar({ profile, signOut }) {
         style={{
           display: "flex", alignItems: "center", gap: 9,
           padding: "8px 16px 8px 18px", margin: "2px 8px", borderRadius: 8,
-          color: on ? "#fff" : isH ? "rgba(255,255,255,.9)" : "rgba(255,255,255,.45)",
-          fontSize: 11.5, letterSpacing: "0.5px", fontWeight: on ? 600 : 500,
+          color: on ? C.text : isH ? C.muted : C.dim,
+          fontSize: 12, letterSpacing: "0.5px", fontWeight: on ? 700 : 600,
           textTransform: "uppercase",
-          background: on ? "rgba(255,255,255,.055)" : isH ? "rgba(255,255,255,.03)" : "transparent",
+          background: on ? C.panel2 : isH ? C.panel : "transparent",
           animation: `sb-in .3s cubic-bezier(.22,1,.36,1) ${delay}ms both`,
         }}
       >
         <div className="sb-shine" style={{ background: `linear-gradient(90deg,${col}18,transparent 55%)` }} />
         {on && <div className="sb-bar" style={{ position: "absolute", left: 0, top: "12%", bottom: "12%", width: 2, borderRadius: "0 2px 2px 0", background: col, "--c": col }}/>}
-        <span className="sb-icon" style={{ color: on ? col : isH ? `${col}` : "rgba(255,255,255,.4)" }}>
+        <span className="sb-icon" style={{ color: on ? col : isH ? `${col}` : C.dim }}>
           <Icon id={href} color="currentColor" size={14} />
         </span>
         <span className="sb-label" style={{ flex: 1 }}>{label}</span>
@@ -188,7 +193,7 @@ export default function Sidebar({ profile, signOut }) {
     const key = `${href}${qs}`;
     const on  = path === href && (qs ? search === qs : !search);
     const isH = hov === key;
-    const col = c ?? "#6b7280";
+    const col = c ?? C.dim;
     return (
       <Link
         key={key} to={key}
@@ -198,14 +203,14 @@ export default function Sidebar({ profile, signOut }) {
         style={{
           display: "flex", alignItems: "center", gap: 8,
           padding: "5px 16px 5px 42px", margin: "1px 8px", borderRadius: 7,
-          color: on ? "rgba(255,255,255,.8)" : isH ? "rgba(255,255,255,.6)" : "rgba(255,255,255,.3)",
-          fontSize: 10, letterSpacing: "1px", textTransform: "uppercase", fontWeight: on ? 600 : 500,
-          background: on ? "rgba(255,255,255,.04)" : isH ? "rgba(255,255,255,.02)" : "transparent",
+          color: on ? C.text : isH ? C.muted : C.dim,
+          fontSize: 11, letterSpacing: "1px", textTransform: "uppercase", fontWeight: on ? 700 : 600,
+          background: on ? C.panel2 : isH ? C.panel : "transparent",
           animation: `sb-in .3s cubic-bezier(.22,1,.36,1) ${delay}ms both`,
         }}
       >
         {on && <div className="sb-bar" style={{ position: "absolute", left: 0, top: "12%", bottom: "12%", width: 2, borderRadius: "0 2px 2px 0", background: col, "--c": col }}/>}
-        <div style={{ width: 3, height: 3, borderRadius: "50%", flexShrink: 0, background: on ? col : "rgba(255,255,255,.14)", boxShadow: on ? `0 0 5px ${col}` : "none", transition: "background .16s" }}/>
+        <div style={{ width: 3, height: 3, borderRadius: "50%", flexShrink: 0, background: on ? col : C.border2, boxShadow: on ? `0 0 5px ${col}` : "none", transition: "background .16s" }}/>
         <span className="sb-label">{label}</span>
       </Link>
     );
@@ -214,28 +219,28 @@ export default function Sidebar({ profile, signOut }) {
   // ── GROUP & DIVIDER ─────────────────────────────────────────────────────
   const group = (label, c, delay = 0) => (
     <div key={`g${label}`} style={{ display: "flex", alignItems: "center", gap: 7, padding: "16px 20px 5px", animation: `sb-in .3s cubic-bezier(.22,1,.36,1) ${delay}ms both` }}>
-      <div style={{ width: 3, height: 3, borderRadius: "50%", flexShrink: 0, background: c ? `${c}66` : "rgba(255,255,255,.18)", boxShadow: c ? `0 0 5px ${c}44` : "none" }}/>
-      <span style={{ fontSize: 8.5, letterSpacing: "2.5px", color: c ? `${c}66` : "rgba(255,255,255,.2)", textTransform: "uppercase", fontWeight: 700 }}>{label}</span>
+      <div style={{ width: 3, height: 3, borderRadius: "50%", flexShrink: 0, background: c ? `${c}88` : C.dim, boxShadow: c ? `0 0 5px ${c}44` : "none" }}/>
+      <span style={{ fontSize: 10, letterSpacing: "1.3px", color: c ? `${c}cc` : C.dim, textTransform: "uppercase", fontWeight: 700 }}>{label}</span>
     </div>
   );
 
   const divider = (k) => (
-    <div key={`d${k}`} style={{ height: 1, margin: "4px 20px", background: "linear-gradient(90deg,transparent,rgba(255,255,255,.05),transparent)" }}/>
+    <div key={`d${k}`} style={{ height: 1, margin: "4px 20px", background: `linear-gradient(90deg,transparent,${C.border},transparent)` }}/>
   );
 
   const sidebarMobileStyle = {
     position: "fixed", top: 0, left: 0, bottom: 0, zIndex: 1000,
-    width: 280, background: "#000",
+    width: 280, background: C.bg,
     display: "flex", flexDirection: "column",
-    borderRight: "1px solid rgba(255,255,255,.06)",
+    borderRight: `1px solid ${C.border}`,
     transform: menuOpen ? "translateX(0)" : "translateX(-100%)",
     transition: "transform .3s cubic-bezier(.22,1,.36,1)",
     overflow: "hidden",
   };
 
   const sidebarDesktopStyle = {
-    width: 280, flexShrink: 0, background: "#000", height: "100%",
-    display: "flex", flexDirection: "column", borderRight: "1px solid rgba(255,255,255,.06)",
+    width: 280, flexShrink: 0, background: C.bg, height: "100%",
+    display: "flex", flexDirection: "column", borderRight: `1px solid ${C.border}`,
     position: "relative", overflow: "hidden",
     animation: "sb-in .38s cubic-bezier(.22,1,.36,1) both",
   };
@@ -249,15 +254,15 @@ export default function Sidebar({ profile, signOut }) {
           {menuOpen && (
             <div onClick={toggleMenu} style={{
               position: "fixed", inset: 0, zIndex: 999,
-              background: "rgba(0,0,0,0.5)", backdropFilter: "blur(2px)",
+              background: "var(--overlay)", backdropFilter: "blur(2px)",
               WebkitBackdropFilter: "blur(2px)",
             }} />
           )}
           <button onClick={toggleMenu} className="resp-hamburger" style={{
             position: "fixed", top: 8, left: 8, zIndex: 1001,
             width: 36, height: 36, borderRadius: 8,
-            background: "rgba(0,0,0,0.7)", border: "1px solid rgba(255,255,255,0.1)",
-            color: "#fff", cursor: "pointer", fontSize: 16,
+            background: C.panelSolid, border: `1px solid ${C.border}`,
+            color: C.text, cursor: "pointer", fontSize: 16,
             display: "flex", alignItems: "center", justifyContent: "center",
             backdropFilter: "blur(6px)", WebkitBackdropFilter: "blur(6px)",
           }}>
@@ -267,29 +272,29 @@ export default function Sidebar({ profile, signOut }) {
       )}
 
       <aside style={isMobile ? sidebarMobileStyle : sidebarDesktopStyle}>
-        <div style={{ position: "absolute", left: 0, right: 0, height: 1, zIndex: 10, pointerEvents: "none", background: "linear-gradient(90deg,transparent,rgba(255,255,255,.15),transparent)", animation: "sb-scan 10s linear infinite 2s" }}/>
-        <div style={{ position: "absolute", top: 0, left: 0, right: 0, height: 180, pointerEvents: "none", background: "radial-gradient(ellipse at 35% 0%, rgba(255,255,255,.04) 0%, transparent 65%)" }}/>
+        <div style={{ position: "absolute", left: 0, right: 0, height: 1, zIndex: 10, pointerEvents: "none", background: `linear-gradient(90deg,transparent,${C.border2},transparent)`, animation: "sb-scan 10s linear infinite 2s" }}/>
+        <div style={{ position: "absolute", top: 0, left: 0, right: 0, height: 180, pointerEvents: "none", background: `radial-gradient(ellipse at 35% 0%, ${C.panel2} 0%, transparent 65%)` }}/>
 
         {/* BRAND ─────────────────────────────────────────────────────────── */}
-        <div style={{ padding: isMobile ? "14px 14px 12px" : "20px 18px 16px", borderBottom: "1px solid rgba(255,255,255,.05)", position: "relative", animation: "sb-down .42s cubic-bezier(.22,1,.36,1) .06s both" }}>
+        <div style={{ padding: isMobile ? "14px 14px 12px" : "20px 18px 16px", borderBottom: `1px solid ${C.border}`, position: "relative", animation: "sb-down .42s cubic-bezier(.22,1,.36,1) .06s both" }}>
           {isMobile && (
             <button onClick={toggleMenu} style={{
               position: "absolute", top: 10, right: 10, zIndex: 5,
-              background: "transparent", border: "none", color: "rgba(255,255,255,.4)",
+              background: "transparent", border: "none", color: C.dim,
               cursor: "pointer", fontSize: 18, padding: 4, lineHeight: 1,
             }}>
               ✕
             </button>
           )}
           <div style={{ display: "flex", alignItems: "center", gap: 11 }}>
-            <div style={{ width: 30, height: 30, borderRadius: 8, flexShrink: 0, background: "rgba(255,255,255,.05)", border: "1px solid rgba(255,255,255,.1)", display: "flex", alignItems: "center", justifyContent: "center", boxShadow: "0 0 20px rgba(255,255,255,.04)" }}>
-              <img src={logoK} alt="K" style={{ width: 15, height: 15, objectFit: "contain" }}/>
+            <div style={{ width: 30, height: 30, borderRadius: 8, flexShrink: 0, background: C.panel2, border: `1px solid ${C.border}`, display: "flex", alignItems: "center", justifyContent: "center", boxShadow: "0 0 20px var(--shadow)" }}>
+              <img src={logoK} alt="K" className="klasea-logo-mono" style={{ width: 15, height: 15, objectFit: "contain" }}/>
             </div>
             <div>
-              <div style={{ fontWeight: 800, letterSpacing: "3.5px", fontSize: 11, lineHeight: 1, background: "linear-gradient(90deg, #fff 0%, #fff 40%, rgba(255,255,255,.45) 50%, #fff 60%, #fff 100%)", backgroundSize: "200% auto", WebkitBackgroundClip: "text", WebkitTextFillColor: "transparent", animation: "sb-shimmer 4s linear infinite" }}>
+              <div style={{ fontWeight: 800, letterSpacing: "1.3px", fontSize: 12, lineHeight: 1, color: C.text }}>
                 KLASE A
               </div>
-              <div style={{ fontSize: 8, letterSpacing: "1.5px", color: "rgba(255,255,255,.2)", textTransform: "uppercase", marginTop: 3, fontWeight: 500 }}>
+              <div style={{ fontSize: 10, letterSpacing: "1.1px", color: C.dim, textTransform: "uppercase", marginTop: 3, fontWeight: 700 }}>
                 Sistema de producción
               </div>
             </div>
@@ -360,30 +365,63 @@ export default function Sidebar({ profile, signOut }) {
         {/* MINI DISPLAY / TOOLTIP PANEL ──────────────────────────────────── */}
         <div style={{
           height: 60, margin: "0 12px 10px 12px", padding: "8px 12px", borderRadius: 8,
-          background: displayInfo ? "rgba(255,255,255,0.03)" : "transparent",
-          border: displayInfo ? "1px solid rgba(255,255,255,0.08)" : "1px solid transparent",
+          background: displayInfo ? C.panel : "transparent",
+          border: displayInfo ? `1px solid ${C.border}` : "1px solid transparent",
           transition: "all 0.2s ease-in-out", display: "flex", alignItems: "center", flexShrink: 0
         }}>
-          <span style={{ fontSize: 10, color: "rgba(255,255,255,0.65)", lineHeight: 1.4, opacity: displayInfo ? 1 : 0, transition: "opacity 0.2s ease-in-out", pointerEvents: "none" }}>
+          <span style={{ fontSize: 11, color: C.muted, lineHeight: 1.4, opacity: displayInfo ? 1 : 0, transition: "opacity 0.2s ease-in-out", pointerEvents: "none" }}>
             {displayInfo}
           </span>
         </div>
 
         {/* FOOTER ────────────────────────────────────────────────────────── */}
-        <div style={{ borderTop: "1px solid rgba(255,255,255,.05)", padding: "12px 16px", display: "flex", alignItems: "center", gap: 10, animation: "sb-up .38s cubic-bezier(.22,1,.36,1) .12s both" }}>
-          <div style={{ width: 30, height: 30, borderRadius: 8, flexShrink: 0, background: "rgba(255,255,255,.06)", border: "1px solid rgba(255,255,255,.09)", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 10, fontWeight: 700, color: "rgba(255,255,255,.55)", letterSpacing: .5 }}>
+        <div style={{ borderTop: `1px solid ${C.border}`, padding: "12px 16px", display: "flex", alignItems: "center", gap: 9, animation: "sb-up .38s cubic-bezier(.22,1,.36,1) .12s both" }}>
+          <div style={{ width: 30, height: 30, borderRadius: 8, flexShrink: 0, background: C.panel2, border: `1px solid ${C.border}`, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 11, fontWeight: 700, color: C.muted, letterSpacing: .5 }}>
             {initials || "?"}
           </div>
           <div style={{ flex: 1, minWidth: 0 }}>
-            <div style={{ fontSize: 11, color: "#e4e4e7", letterSpacing: ".5px", fontWeight: 600, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", marginBottom: 2 }}>
+            <div style={{ fontSize: 12, color: C.text, letterSpacing: ".5px", fontWeight: 700, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", marginBottom: 2 }}>
               {username}
             </div>
             <div style={{ display: "inline-flex", alignItems: "center", gap: 5 }}>
               <div className="sb-online" style={{ width: 5, height: 5, borderRadius: "50%", background: "#22c55e", flexShrink: 0 }}/>
-              <span style={{ fontSize: 8, color: "rgba(255,255,255,.28)", letterSpacing: "1.5px", textTransform: "uppercase", fontWeight: 600 }}>{role}</span>
+              <span style={{ fontSize: 10, color: C.dim, letterSpacing: "1.1px", textTransform: "uppercase", fontWeight: 700 }}>{role}</span>
             </div>
           </div>
-          <button type="button" onClick={signOut} title="Cerrar sesión" className="sb-out" style={{ background: "transparent", border: "1px solid rgba(255,255,255,.07)", borderRadius: 7, color: "rgba(255,255,255,.22)", width: 28, height: 28, display: "flex", alignItems: "center", justifyContent: "center", cursor: "pointer", fontSize: 13, flexShrink: 0 }}>
+          <div style={{ display: "flex", gap: 2, border: `1px solid ${C.border}`, borderRadius: 7, padding: 2, background: C.panel, flexShrink: 0 }}>
+            {[
+              { value: "dark", title: "Oscuro", Icon: Moon },
+              { value: "light", title: "Claro", Icon: Sun },
+              { value: "hc", title: "Alto contraste", Icon: Eye },
+            ].map(({ value, title, Icon: ThemeIcon }) => {
+              const active = theme === value;
+              return (
+                <button
+                  key={value}
+                  type="button"
+                  title={title}
+                  aria-label={title}
+                  onClick={() => setTheme(value)}
+                  className="sb-theme"
+                  style={{
+                    width: 23,
+                    height: 23,
+                    border: "none",
+                    borderRadius: 5,
+                    background: active ? C.panel2 : "transparent",
+                    color: active ? C.text : C.dim,
+                    display: "grid",
+                    placeItems: "center",
+                    cursor: "pointer",
+                    padding: 0,
+                  }}
+                >
+                  {React.createElement(ThemeIcon, { size: 13 })}
+                </button>
+              );
+            })}
+          </div>
+          <button type="button" onClick={signOut} title="Cerrar sesión" className="sb-out" style={{ background: "transparent", border: `1px solid ${C.border}`, borderRadius: 7, color: C.dim, width: 28, height: 28, display: "flex", alignItems: "center", justifyContent: "center", cursor: "pointer", fontSize: 14, flexShrink: 0 }}>
             ↪
           </button>
         </div>

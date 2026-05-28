@@ -1,3 +1,4 @@
+import { C } from "@/theme";
 /**
  * MapaProduccion.jsx  v12 — "PNG Blueprint Edition"
  * ─────────────────────────────────────────────────────────────────────────────
@@ -35,20 +36,6 @@ import GalponPampa from "@/features/obras/GalponPampa";
 import { supabase } from "@/supabaseClient";
 
 /* ─── PALETA ─────────────────────────────────────────────────── */
-const C = {
-  bg:"#05050a", b0:"rgba(255,255,255,0.06)", b1:"rgba(255,255,255,0.12)",
-  s0:"rgba(255,255,255,0.03)", s1:"rgba(255,255,255,0.07)",
-  t0:"#ffffff", t1:"#a1a1aa", t2:"#52525b",
-  sans:"'Outfit', system-ui, sans-serif",
-  mono:"'JetBrains Mono', 'Fira Code', monospace",
-  obra:{
-    activa:   {top:"#1d4ed8",glow:"#3b82f6",label:"Activa"},
-    pausada:  {top:"#92400e",glow:"#f59e0b",label:"Pausada"},
-    terminada:{top:"#065f46",glow:"#10b981",label:"Terminada"},
-    cancelada:{top:"#7f1d1d",glow:"#ef4444",label:"Cancelada"},
-    vacio:    {top:"transparent",glow:"#6366f1",label:"Disponible"},
-  },
-};
 const GLASS={
   background:"rgba(10,10,15,0.88)",
   backdropFilter:"blur(24px) saturate(160%)",
@@ -179,16 +166,16 @@ function AddObraModal({puestoId,puestos,obras,assignedObraIds=new Set(),pendingO
           <div style={{display:"flex",justifyContent:"space-between",alignItems:"center"}}>
             <div style={{display:"flex",gap:8,alignItems:"center"}}>
               <div style={{padding:"4px 8px",background:"rgba(167,139,250,0.15)",borderRadius:6,border:"1px solid rgba(167,139,250,0.3)"}}>
-                <span style={{fontSize:10,letterSpacing:1.5,color:"#a78bfa",textTransform:"uppercase",fontWeight:600}}>Asignar Obra</span>
+                <span style={{fontSize:11,letterSpacing:1.1,color:"#a78bfa",textTransform:"uppercase",fontWeight: 700}}>Asignar Obra</span>
               </div>
-              <span style={{fontFamily:C.mono,fontSize:13,color:C.t2}}>→ Puesto {p?.label??puestoId}</span>
+              <span style={{fontFamily:C.mono,fontSize:14,color:C.t2}}>→ Puesto {p?.label??puestoId}</span>
             </div>
             <button onClick={onClose} style={{background:"transparent",border:"none",color:C.t2,fontSize:16,cursor:"pointer",padding:4,borderRadius:6,lineHeight:1}} onMouseEnter={e=>e.currentTarget.style.color=C.t0} onMouseLeave={e=>e.currentTarget.style.color=C.t2}>✕</button>
           </div>
           <input ref={inputRef} value={q} onChange={e=>setQ(e.target.value)} onKeyDown={handleKeyDown} placeholder="Buscar obra... (↑↓ navegar, Enter asignar)" style={{width:"100%",boxSizing:"border-box",padding:"12px 14px",borderRadius:8,background:"rgba(0,0,0,0.3)",border:`1px solid rgba(255,255,255,0.08)`,color:C.t0,fontSize:14,fontFamily:C.sans,outline:"none"}} onFocus={e=>e.currentTarget.style.border="1px solid rgba(167,139,250,0.5)"} onBlur={e=>e.currentTarget.style.border="1px solid rgba(255,255,255,0.08)"}/>
         </div>
         <div ref={listRef} style={{flex:1,overflowY:"auto",padding:"8px",display:"flex",flexDirection:"column",gap:4}}>
-          {!list.length&&<div style={{textAlign:"center",padding:"32px 8px",fontSize:13,color:C.t2}}>{q?"No se encontraron obras":"No hay obras pendientes de asignar"}</div>}
+          {!list.length&&<div style={{textAlign:"center",padding:"32px 8px",fontSize:14,color:C.t2}}>{q?"No se encontraron obras":"No hay obras pendientes de asignar"}</div>}
           {list.map((obra,i)=>{
             const oC=C.obra[obra.estado]??C.obra.vacio;
             const isSel=i===selIdx;
@@ -197,14 +184,14 @@ function AddObraModal({puestoId,puestos,obras,assignedObraIds=new Set(),pendingO
                 <span style={{fontFamily:C.mono,fontSize:15,color:C.t0,fontWeight:600}}>{obra.codigo}</span>
                 <div style={{display:"flex",alignItems:"center",gap:6}}>
                   <div style={{width:6,height:6,borderRadius:3,background:oC.glow,boxShadow:`0 0 8px ${oC.glow}`}}/>
-                  <span style={{fontSize:10,letterSpacing:1,textTransform:"uppercase",color:oC.glow,fontWeight:500}}>{oC.label}</span>
+                  <span style={{fontSize:11,letterSpacing:1,textTransform:"uppercase",color:oC.glow,fontWeight: 700}}>{oC.label}</span>
                 </div>
               </div>
-              {obra.descripcion&&<div style={{fontSize:12,color:C.t1,whiteSpace:"nowrap",overflow:"hidden",textOverflow:"ellipsis"}}>{obra.descripcion}</div>}
+              {obra.descripcion&&<div style={{fontSize:13,color:C.t1,whiteSpace:"nowrap",overflow:"hidden",textOverflow:"ellipsis"}}>{obra.descripcion}</div>}
             </div>);
           })}
         </div>
-        <div style={{padding:"8px 16px",borderTop:`1px solid ${C.b0}`,fontSize:10,color:C.t2,display:"flex",gap:12,alignItems:"center"}}>
+        <div style={{padding:"8px 16px",borderTop:`1px solid ${C.b0}`,fontSize:11,color:C.t2,display:"flex",gap:12,alignItems:"center"}}>
           <span>↑↓ navegar</span><span>↵ asignar</span><span>Esc cerrar</span>
         </div>
       </div>
@@ -286,17 +273,17 @@ function CommandPalette({obras,puestos,obraByPuesto,onClose,onAction}){
   const groups=useMemo(()=>{
     const ql=q.toLowerCase(), result=[];
     const quickActions=[
-      {type:"action",id:"reset-view", icon:"⌂",label:"Resetear Vista",       sub:"R",    color:"#a1a1aa"},
+      {type:"action",id:"reset-view", icon:"⌂",label:"Resetear Vista",       sub:"R",    color:"var(--muted)"},
       {type:"action",id:"toggle-edit",icon:"◩",label:"Activar Modo Edición", sub:"E",    color:"#fbbf24"},
-      {type:"action",id:"zoom-in",    icon:"+",label:"Acercar Zoom",          sub:"+ / =",color:"#a1a1aa"},
-      {type:"action",id:"zoom-out",   icon:"−",label:"Alejar Zoom",           sub:"−",    color:"#a1a1aa"},
+      {type:"action",id:"zoom-in",    icon:"+",label:"Acercar Zoom",          sub:"+ / =",color:"var(--muted)"},
+      {type:"action",id:"zoom-out",   icon:"−",label:"Alejar Zoom",           sub:"−",    color:"var(--muted)"},
     ].filter(a=>!q||a.label.toLowerCase().includes(ql));
     if(quickActions.length) result.push({group:"Acciones",items:quickActions});
     const freePuestos=puestosLibres.filter(p=>!q||`puesto ${p.label}`.includes(ql)||p.label.includes(q)).slice(0,6).map(p=>({type:"puesto-libre",id:p.id,icon:"◻",label:`Puesto ${p.label}`,sub:"Disponible",color:"#6366f1",p}));
     if(freePuestos.length) result.push({group:"Puestos Disponibles",items:freePuestos});
-    const unassigned=obras.filter(o=>!o.puesto_mapa&&[o.codigo,o.descripcion].some(s=>s?.toLowerCase().includes(ql))).slice(0,8).map(o=>({type:"obra-libre",id:o.id,icon:"●",label:o.codigo,sub:o.descripcion??"Sin descripción",color:C.obra[o.estado]?.glow??"#a1a1aa",obra:o}));
+    const unassigned=obras.filter(o=>!o.puesto_mapa&&[o.codigo,o.descripcion].some(s=>s?.toLowerCase().includes(ql))).slice(0,8).map(o=>({type:"obra-libre",id:o.id,icon:"●",label:o.codigo,sub:o.descripcion??"Sin descripción",color:C.obra[o.estado]?.glow??"var(--muted)",obra:o}));
     if(unassigned.length) result.push({group:"Obras Sin Asignar",items:unassigned});
-    const assigned=obras.filter(o=>o.puesto_mapa&&[o.codigo,o.descripcion].some(s=>s?.toLowerCase().includes(ql))).slice(0,6).map(o=>{const p=puestos.find(px=>px.id===o.puesto_mapa);return{type:"obra-asignada",id:o.id,icon:"◉",label:o.codigo,sub:`Puesto ${p?.label??"?"}`,color:C.obra[o.estado]?.glow??"#a1a1aa",obra:o,p};});
+    const assigned=obras.filter(o=>o.puesto_mapa&&[o.codigo,o.descripcion].some(s=>s?.toLowerCase().includes(ql))).slice(0,6).map(o=>{const p=puestos.find(px=>px.id===o.puesto_mapa);return{type:"obra-asignada",id:o.id,icon:"◉",label:o.codigo,sub:`Puesto ${p?.label??"?"}`,color:C.obra[o.estado]?.glow??"var(--muted)",obra:o,p};});
     if(assigned.length) result.push({group:"Obras en Mapa",items:assigned});
     return result;
   },[q,obras,puestosLibres,puestos,obraByPuesto]);
@@ -316,29 +303,29 @@ function CommandPalette({obras,puestos,obraByPuesto,onClose,onAction}){
         <div style={{padding:"14px 16px",display:"flex",alignItems:"center",gap:12,borderBottom:`1px solid ${C.b0}`}}>
           <span style={{fontSize:16,color:C.t2}}>⌘</span>
           <input ref={inputRef} value={q} onChange={e=>setQ(e.target.value)} onKeyDown={handleKeyDown} placeholder="Buscar obras, puestos, acciones..." style={{flex:1,background:"transparent",border:"none",outline:"none",color:C.t0,fontSize:15,fontFamily:C.sans}}/>
-          <span style={{fontSize:9,color:C.t2,letterSpacing:1.5,fontFamily:C.mono,background:"rgba(255,255,255,0.05)",padding:"3px 7px",borderRadius:5,border:`1px solid ${C.b0}`}}>ESC</span>
+          <span style={{fontSize:10,color:C.t2,letterSpacing:1.1,fontFamily:C.mono,background:"rgba(255,255,255,0.05)",padding:"3px 7px",borderRadius:5,border:`1px solid ${C.b0}`}}>ESC</span>
         </div>
         <div ref={listRef} style={{flex:1,overflowY:"auto",padding:"8px"}}>
-          {groups.length===0&&<div style={{padding:"32px 16px",textAlign:"center",color:C.t2,fontSize:13}}>Sin resultados para "{q}"</div>}
+          {groups.length===0&&<div style={{padding:"32px 16px",textAlign:"center",color:C.t2,fontSize:14}}>Sin resultados para "{q}"</div>}
           {groups.map(({group,items})=>(
             <div key={group} style={{marginBottom:4}}>
-              <div style={{padding:"6px 12px 4px",fontSize:9,letterSpacing:2,textTransform:"uppercase",color:C.t2,fontWeight:600}}>{group}</div>
+              <div style={{padding:"6px 12px 4px",fontSize:10,letterSpacing:1.3,textTransform:"uppercase",color:C.t2,fontWeight: 700}}>{group}</div>
               {items.map((item)=>{
                 const idx=flatIdx++;
                 const isSel=idx===selIdx;
                 return(<div key={item.id} data-idx={idx} onClick={()=>{onAction(item);onClose();}} onMouseEnter={()=>setSelIdx(idx)} style={{display:"flex",alignItems:"center",gap:12,padding:"9px 12px",borderRadius:9,cursor:"pointer",background:isSel?"rgba(255,255,255,0.06)":"transparent",border:`1px solid ${isSel?C.b1:"transparent"}`,marginBottom:2,transition:"background 0.08s"}}>
-                  <span style={{width:22,height:22,borderRadius:6,background:`${item.color}18`,border:`1px solid ${item.color}30`,display:"flex",alignItems:"center",justifyContent:"center",fontSize:11,color:item.color,flexShrink:0}}>{item.icon}</span>
+                  <span style={{width:22,height:22,borderRadius:6,background:`${item.color}18`,border:`1px solid ${item.color}30`,display:"flex",alignItems:"center",justifyContent:"center",fontSize:12,color:item.color,flexShrink:0}}>{item.icon}</span>
                   <div style={{flex:1,minWidth:0}}>
-                    <div style={{fontSize:13,color:C.t0,fontWeight:500,fontFamily:item.type.startsWith("obra")?C.mono:C.sans}}>{item.label}</div>
-                    {item.sub&&<div style={{fontSize:11,color:C.t2,marginTop:1,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{item.sub}</div>}
+                    <div style={{fontSize:14,color:C.t0,fontWeight:500,fontFamily:item.type.startsWith("obra")?C.mono:C.sans}}>{item.label}</div>
+                    {item.sub&&<div style={{fontSize:12,color:C.t2,marginTop:1,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{item.sub}</div>}
                   </div>
-                  {item.sub&&item.type==="action"&&<span style={{fontSize:9,color:C.t2,fontFamily:C.mono,background:"rgba(255,255,255,0.04)",padding:"2px 7px",borderRadius:5,border:`1px solid ${C.b0}`,flexShrink:0}}>{item.sub}</span>}
+                  {item.sub&&item.type==="action"&&<span style={{fontSize:10,color:C.t2,fontFamily:C.mono,background:"rgba(255,255,255,0.04)",padding:"2px 7px",borderRadius:5,border:`1px solid ${C.b0}`,flexShrink:0}}>{item.sub}</span>}
                 </div>);
               })}
             </div>
           ))}
         </div>
-        <div style={{padding:"8px 16px",borderTop:`1px solid ${C.b0}`,display:"flex",gap:16,fontSize:10,color:C.t2}}>
+        <div style={{padding:"8px 16px",borderTop:`1px solid ${C.b0}`,display:"flex",gap:16,fontSize:11,color:C.t2}}>
           <span>↑↓ navegar</span><span>↵ seleccionar</span><span style={{marginLeft:"auto"}}>{flat.length} resultados</span>
         </div>
       </div>
@@ -500,13 +487,13 @@ function CinematicCards({p, obra, oC, memoriaOverride, vp, svgRef}){
               }}>{s.icon}</div>
               <div style={{flex:1,minWidth:0}}>
                 <div style={{
-                  fontSize:6.5, letterSpacing:"2px", fontWeight:700,
+                  fontSize:6.5, letterSpacing:"1.3px", fontWeight:700,
                   fontFamily:"'JetBrains Mono',monospace",
                   color:`${oC.glow}65`, textTransform:"uppercase",
                   marginBottom:3, lineHeight:1,
                 }}>{s.label}</div>
                 <div style={{
-                  fontSize:12.5, fontWeight:600,
+                  fontSize:13, fontWeight:600,
                   color:"rgba(255,255,255,0.92)", lineHeight:1.2,
                   whiteSpace:"nowrap", overflow:"hidden", textOverflow:"ellipsis",
                 }}>{val}</div>
@@ -845,7 +832,7 @@ function FieldBox({ field, isEditing, val, editVal, editRef, onStartEdit, onChan
       {/* Label row */}
       <div style={{ display:"flex", alignItems:"center", gap:5, color:isEditing?"rgba(255,255,255,0.75)":"rgba(255,255,255,0.45)" }}>
         <span style={{ display:"flex", alignItems:"center", flexShrink:0 }}>{field.icon}</span>
-        <span style={{ fontSize:9, letterSpacing:1.4, textTransform:"uppercase", fontFamily:"'JetBrains Mono',monospace", fontWeight:700, lineHeight:1 }}>
+        <span style={{ fontSize:10, letterSpacing:1.4, textTransform:"uppercase", fontFamily:"'JetBrains Mono',monospace", fontWeight:700, lineHeight:1 }}>
           {field.label}
         </span>
         {!isEditing && !empty && (
@@ -863,13 +850,13 @@ function FieldBox({ field, isEditing, val, editVal, editRef, onStartEdit, onChan
           rows={field.wide ? 3 : 2}
           style={{
             width:"100%", background:"transparent", border:"none", outline:"none",
-            color:"#fff", fontSize:13, fontFamily:"'Outfit',system-ui,sans-serif",
+            color:"var(--text)", fontSize:14, fontFamily:"'Outfit',system-ui,sans-serif",
             resize:"none", lineHeight:1.5, padding:0,
           }}
         />
       ) : (
         <div style={{
-          fontSize:13, lineHeight:1.5,
+          fontSize:14, lineHeight:1.5,
           color: empty ? "rgba(255,255,255,0.25)" : "rgba(255,255,255,0.95)",
           fontStyle: empty ? "italic" : "normal",
           fontWeight: empty ? 400 : 500,
@@ -1130,7 +1117,7 @@ function MemoriaHUD({ obra, puesto, oC, memoriaOverride, onSaveMemoria, notas=[]
     const css = [
       "@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&family=JetBrains+Mono:wght@500;600;700&display=swap');",
       "*{box-sizing:border-box;margin:0;padding:0;}",
-      "html,body{background:#e8eaed;font-family:'Inter',sans-serif;font-size:11px;-webkit-print-color-adjust:exact;print-color-adjust:exact;}",
+      "html,body{background:#e8eaed;font-family:'Inter',sans-serif;font-size:12px;-webkit-print-color-adjust:exact;print-color-adjust:exact;}",
       "@page{size:A4;margin:12mm 12mm;}",
       ".page{width:100%;background:#fff;display:flex;flex-direction:column;}",
 
@@ -1142,7 +1129,7 @@ function MemoriaHUD({ obra, puesto, oC, memoriaOverride, onSaveMemoria, notas=[]
       ".hdr-cod{font-size:28px;font-weight:900;font-family:'JetBrains Mono',monospace;color:#fff;letter-spacing:-1px;line-height:1;}",
       ".hdr-meta{flex:1;padding:10px 18px;display:flex;flex-direction:column;gap:5px;justify-content:center;}",
       ".hdr-prop{font-size:15px;font-weight:700;color:#fff;letter-spacing:-0.2px;}",
-      ".hdr-sub{display:flex;align-items:center;gap:10px;font-size:9.5px;color:rgba(255,255,255,.45);}",
+      ".hdr-sub{display:flex;align-items:center;gap:10px;font-size:10px;color:rgba(255,255,255,.45);}",
       ".hdr-sub b{color:rgba(255,255,255,.75);font-weight:600;}",
       ".hdr-sep-v{width:1px;height:12px;background:rgba(255,255,255,.15);}",
       ".hdr-logo{height:26px;mix-blend-mode:screen;align-self:center;margin:10px 16px 10px auto;}",
@@ -1151,30 +1138,30 @@ function MemoriaHUD({ obra, puesto, oC, memoriaOverride, onSaveMemoria, notas=[]
       ".wrap{flex:1;}",
       "table.main{width:100%;border-collapse:collapse;}",
       "table.main td{vertical-align:middle;}",
-      "td.lbl{width:38%;font-size:8.5px;color:#555;padding:5px 10px;line-height:1.3;font-weight:600;background:#f5f6f8;border:1px solid #e0e3e8;text-transform:uppercase;letter-spacing:0.3px;}",
-      "td.val{font-size:10.5px;color:#111;padding:5px 10px;line-height:1.5;background:#fff;border:1px solid #e0e3e8;white-space:pre-wrap;}",
-      "td.val.adic{font-size:10.5px;color:#222;padding:10px;line-height:1.6;}",
+      "td.lbl{width:38%;font-size:10px;color:#555;padding:5px 10px;line-height:1.3;font-weight:700;background:#f5f6f8;border:1px solid #e0e3e8;text-transform:uppercase;letter-spacing:0.3px;}",
+      "td.val{font-size:11px;color:#111;padding:5px 10px;line-height:1.5;background:#fff;border:1px solid #e0e3e8;white-space:pre-wrap;}",
+      "td.val.adic{font-size:11px;color:#222;padding:10px;line-height:1.6;}",
       ".obs-val{color:#888;font-style:italic;}",
       ".blank-val{border-bottom:1px solid #bbb;min-height:14px;display:block;}",
 
       // Section headers
-      "tr.sec-hd td{background:#1a1f2e;color:rgba(255,255,255,.88);font-size:7px;letter-spacing:3px;text-transform:uppercase;font-family:'JetBrains Mono',monospace;font-weight:600;padding:5px 10px;border:none;}",
+      "tr.sec-hd td{background:#1a1f2e;color:rgba(255,255,255,.88);font-size:7px;letter-spacing:3px;text-transform:uppercase;font-family:'JetBrains Mono',monospace;font-weight:700;padding:5px 10px;border:none;}",
       ".sec-lbl{display:inline-block;padding-left:2px;}",
       ".ico{display:inline-block;vertical-align:middle;margin-right:5px;opacity:0.6;width:14px;height:14px;}",
       ".ico svg{vertical-align:top;}",
-      "td.val.adic{font-size:10.5px;color:#222;padding:10px 12px;line-height:1.7;}",
+      "td.val.adic{font-size:11px;color:#222;padding:10px 12px;line-height:1.7;}",
       "td.val.adic-list{padding:6px 12px;}",
       "td.val.adic-list ul{margin:0;padding-left:16px;list-style:disc;}",
-      "td.val.adic-list ul li{font-size:10.5px;color:#222;line-height:1.7;padding:1px 0;}",
+      "td.val.adic-list ul li{font-size:11px;color:#222;line-height:1.7;padding:1px 0;}",
 
       // Equipamiento grid
       "table.eq-table{width:100%;border-collapse:collapse;}",
-      "td.eq-lbl{width:38%;font-size:8.5px;color:#555;padding:5px 10px;background:#f5f6f8;border:1px solid #e0e3e8;font-weight:600;text-transform:uppercase;letter-spacing:0.3px;}",
-      "td.eq-val{width:12%;font-size:10px;color:#111;padding:5px 10px;background:#fff;border:1px solid #e0e3e8;font-weight:700;}",
-      ".eq-chk{display:inline-block;width:12px;height:12px;background:" + ac + ";border-radius:2px;margin-right:6px;vertical-align:middle;text-align:center;line-height:12px;font-size:9px;color:#fff;font-weight:900;}",
+      "td.eq-lbl{width:38%;font-size:10px;color:#555;padding:5px 10px;background:#f5f6f8;border:1px solid #e0e3e8;font-weight:700;text-transform:uppercase;letter-spacing:0.3px;}",
+      "td.eq-val{width:12%;font-size:11px;color:#111;padding:5px 10px;background:#fff;border:1px solid #e0e3e8;font-weight:700;}",
+      ".eq-chk{display:inline-block;width:12px;height:12px;background:" + ac + ";border-radius:2px;margin-right:6px;vertical-align:middle;text-align:center;line-height:12px;font-size:10px;color:#fff;font-weight:900;}",
 
       // Notas
-      "td.nd{font-size:8px;font-family:'JetBrains Mono',monospace;color:#999;white-space:nowrap;width:80px;}",
+      "td.nd{font-size:10px;font-family:'JetBrains Mono',monospace;color:#999;white-space:nowrap;width:80px;}",
 
       // Footer
       ".ftr{border-top:1px solid #e0e3e8;padding:7px 12px;display:flex;justify-content:space-between;align-items:center;flex-shrink:0;}",
@@ -1233,8 +1220,8 @@ function MemoriaHUD({ obra, puesto, oC, memoriaOverride, onSaveMemoria, notas=[]
 
       + "</div>"
       + "<div class='noprint' style='position:fixed;bottom:16px;left:50%;transform:translateX(-50%);display:flex;gap:8px;z-index:999;filter:drop-shadow(0 2px 12px rgba(0,0,0,.28));'>"
-        + "<button onclick='window.print()' style='padding:10px 28px;background:#111;color:#fff;border:none;border-radius:6px;font-size:12px;font-weight:700;cursor:pointer;font-family:Inter,sans-serif;'>Descargar PDF</button>"
-        + "<button onclick='window.close()' style='padding:10px 14px;background:#fff;color:#777;border:1px solid #ccc;border-radius:6px;font-size:12px;cursor:pointer;font-family:Inter,sans-serif;'>Cerrar</button>"
+        + "<button onclick='window.print()' style='padding:10px 28px;background:#111;color:#fff;border:none;border-radius:6px;font-size:13px;font-weight:700;cursor:pointer;font-family:Inter,sans-serif;'>Descargar PDF</button>"
+        + "<button onclick='window.close()' style='padding:10px 14px;background:#fff;color:#777;border:1px solid #ccc;border-radius:6px;font-size:13px;cursor:pointer;font-family:Inter,sans-serif;'>Cerrar</button>"
       + "</div>"
       + "</body></html>";
 
@@ -1280,7 +1267,7 @@ function MemoriaHUD({ obra, puesto, oC, memoriaOverride, onSaveMemoria, notas=[]
         .mem-scroll::-webkit-scrollbar{width:3px}
         .mem-scroll::-webkit-scrollbar-track{background:transparent}
         .mem-scroll::-webkit-scrollbar-thumb{background:${oC.glow}30;border-radius:2px}
-        .mem-input{background:rgba(255,255,255,0.05);border:1px solid rgba(255,255,255,0.1);border-radius:8px;color:#fff;font-size:12px;padding:8px 12px;outline:none;font-family:'Outfit',sans-serif;width:100%;box-sizing:border-box;transition:border-color 0.15s;}
+        .mem-input{background:rgba(255,255,255,0.05);border:1px solid rgba(255,255,255,0.1);border-radius:8px;color:#fff;font-size:13px;padding:8px 12px;outline:none;font-family:'Outfit',sans-serif;width:100%;box-sizing:border-box;transition:border-color 0.15s;}
         .mem-input:focus{border-color:${oC.glow}60;}
         .mem-input::placeholder{color:rgba(255,255,255,0.18);}
         .nota-row:hover .nota-del{opacity:1!important;}
@@ -1296,16 +1283,16 @@ function MemoriaHUD({ obra, puesto, oC, memoriaOverride, onSaveMemoria, notas=[]
           <div style={{display:"flex",flexDirection:"column",gap:4}}>
             <div style={{display:"flex",alignItems:"center",gap:8}}>
               <div style={{width:8,height:8,borderRadius:4,background:oC.glow,boxShadow:`0 0 12px ${oC.glow}`}}/>
-              <span style={{fontFamily:"'JetBrains Mono',monospace",fontSize:20,color:"#fff",fontWeight:800,letterSpacing:0.5}}>
+              <span style={{fontFamily:"'JetBrains Mono',monospace",fontSize:20,color:"var(--text)",fontWeight:800,letterSpacing:0.5}}>
                 {obra?.codigo??`Puesto ${puesto?.label}`}
               </span>
             </div>
             <div style={{display:"flex",alignItems:"center",gap:8}}>
-              <span style={{fontSize:9,letterSpacing:2,textTransform:"uppercase",color:oC.glow,fontWeight:700,
+              <span style={{fontSize:10,letterSpacing:1.3,textTransform:"uppercase",color:oC.glow,fontWeight:700,
                 background:`${oC.glow}12`,padding:"2px 8px",borderRadius:4,border:`1px solid ${oC.glow}25`}}>
                 {obra?.estado?.toUpperCase()??"VACÍO"}
               </span>
-              <span style={{fontSize:9,color:"rgba(255,255,255,0.2)",fontFamily:"'JetBrains Mono',monospace",letterSpacing:1}}>
+              <span style={{fontSize:10,color:"rgba(255,255,255,0.2)",fontFamily:"'JetBrains Mono',monospace",letterSpacing:1}}>
                 PUESTO {puesto?.label} · {puesto?.tipo?.toUpperCase()}
               </span>
             </div>
@@ -1325,7 +1312,7 @@ function MemoriaHUD({ obra, puesto, oC, memoriaOverride, onSaveMemoria, notas=[]
             <div style={{flex:1,height:2,background:"rgba(255,255,255,0.06)",borderRadius:2,overflow:"hidden"}}>
               <div style={{height:"100%",width:`${obra._pct??0}%`,background:oC.glow,boxShadow:`0 0 6px ${oC.glow}`,borderRadius:2,transition:"width 0.4s"}}/>
             </div>
-            <span style={{fontFamily:"'JetBrains Mono',monospace",fontSize:10,color:oC.glow,fontWeight:700,minWidth:28}}>{obra._pct??0}%</span>
+            <span style={{fontFamily:"'JetBrains Mono',monospace",fontSize:11,color:oC.glow,fontWeight:700,minWidth:28}}>{obra._pct??0}%</span>
           </div>
         )}
 
@@ -1347,7 +1334,7 @@ function MemoriaHUD({ obra, puesto, oC, memoriaOverride, onSaveMemoria, notas=[]
                       border:`1px solid ${on?col+"45":"rgba(255,255,255,0.07)"}`,
                       background:on?`${col}12`:"rgba(255,255,255,0.02)",
                       color:on?col:"rgba(255,255,255,0.22)",
-                      transition:"all 0.15s",fontSize:10,fontFamily:"'Outfit',sans-serif",height:26}}>
+                      transition:"all 0.15s",fontSize:11,fontFamily:"'Outfit',sans-serif",height:26}}>
                     <span style={{display:"flex",alignItems:"center"}}>{b.icon}</span>
                     {b.label}
                     {on&&<span style={{display:"flex",alignItems:"center",opacity:0.7}}>{IC.check}</span>}
@@ -1370,7 +1357,7 @@ function MemoriaHUD({ obra, puesto, oC, memoriaOverride, onSaveMemoria, notas=[]
                     placeholder="Detalle / modelo..."
                     value={fields[obsKey]??""}
                     onChange={e=>{setFields(f=>({...f,[obsKey]:e.target.value}));setDirty(true);}}
-                    style={{fontSize:11,padding:"4px 8px",borderRadius:6,height:28}}
+                    style={{fontSize:12,padding:"4px 8px",borderRadius:6,height:28}}
                   />
                 )}
               </div>
@@ -1386,7 +1373,7 @@ function MemoriaHUD({ obra, puesto, oC, memoriaOverride, onSaveMemoria, notas=[]
                 return(
                   <button key={String(opt.val)} onClick={()=>{setFields(f=>({...f,teca_tipo:opt.val}));setDirty(true);}}
                     style={{padding:"0 9px",border:"none",cursor:"pointer",
-                      fontSize:10,fontWeight:active?700:400,fontFamily:"'Outfit',sans-serif",
+                      fontSize:11,fontWeight:active?700:400,fontFamily:"'Outfit',sans-serif",
                       background:active&&opt.val?`${col}18`:"rgba(255,255,255,0.02)",
                       color:active&&opt.val?col:active?"rgba(255,255,255,0.18)":"rgba(255,255,255,0.22)",
                       borderRight:"1px solid rgba(255,255,255,0.06)",transition:"all 0.15s"}}>
@@ -1402,7 +1389,7 @@ function MemoriaHUD({ obra, puesto, oC, memoriaOverride, onSaveMemoria, notas=[]
       {/* ── SCROLLABLE BODY ── */}
       <div className="mem-scroll" style={{flex:1,overflowY:"auto",padding:"10px 22px",display:"flex",flexDirection:"column",gap:4,position:"relative",zIndex:1}}>
 
-        <div style={{fontSize:8,color:"rgba(255,255,255,0.16)",letterSpacing:1.5,textAlign:"center",marginBottom:4,textTransform:"uppercase",fontFamily:"'JetBrains Mono',monospace",display:"flex",alignItems:"center",justifyContent:"center",gap:4}}>
+        <div style={{fontSize:10,color:"rgba(255,255,255,0.16)",letterSpacing:1.1,textAlign:"center",marginBottom:4,textTransform:"uppercase",fontFamily:"'JetBrains Mono',monospace",display:"flex",alignItems:"center",justifyContent:"center",gap:4}}>
           {IC.pencil} <span>Clic en cada campo para editar</span>
         </div>
 
@@ -1419,7 +1406,7 @@ function MemoriaHUD({ obra, puesto, oC, memoriaOverride, onSaveMemoria, notas=[]
               {/* Título de sección */}
               <div style={{display:"flex",alignItems:"center",gap:6,margin:"8px 0 5px"}}>
                 <div style={{height:1,flex:1,background:`linear-gradient(90deg,${oC.glow}30,transparent)`}}/>
-                <span style={{fontSize:7.5,letterSpacing:2,textTransform:"uppercase",color:`${oC.glow}80`,fontFamily:"'JetBrains Mono',monospace",fontWeight:700,flexShrink:0}}>{sec}</span>
+                <span style={{fontSize:10,letterSpacing:1.3,textTransform:"uppercase",color:`${oC.glow}80`,fontFamily:"'JetBrains Mono',monospace",fontWeight:700,flexShrink:0}}>{sec}</span>
                 <div style={{height:1,flex:1,background:`linear-gradient(270deg,${oC.glow}30,transparent)`}}/>
               </div>
               {/* Grid 2 cols */}
@@ -1450,19 +1437,19 @@ function MemoriaHUD({ obra, puesto, oC, memoriaOverride, onSaveMemoria, notas=[]
         {/* Notes section */}
         <div style={{display:"flex",alignItems:"center",gap:5,color:"rgba(255,255,255,0.25)",marginBottom:6}}>
           {IC.msgcircle}
-          <span style={{fontSize:8,letterSpacing:2,textTransform:"uppercase",fontFamily:"'JetBrains Mono',monospace",fontWeight:600}}>
+          <span style={{fontSize:10,letterSpacing:1.3,textTransform:"uppercase",fontFamily:"'JetBrains Mono',monospace",fontWeight: 700}}>
             Notas del Equipo
           </span>
-          {notas.length>0&&<span style={{marginLeft:"auto",fontSize:9,color:oC.glow,background:`${oC.glow}12`,padding:"1px 7px",borderRadius:10,border:`1px solid ${oC.glow}25`}}>{notas.length}</span>}
+          {notas.length>0&&<span style={{marginLeft:"auto",fontSize:10,color:oC.glow,background:`${oC.glow}12`,padding:"1px 7px",borderRadius:10,border:`1px solid ${oC.glow}25`}}>{notas.length}</span>}
         </div>
 
         {notas.map(n=>(
           <div key={n.id} className="nota-row" style={{display:"flex",gap:8,padding:"9px 11px",borderRadius:8,
             background:"rgba(255,255,255,0.03)",border:"1px solid rgba(255,255,255,0.05)",animation:"notaPop 0.2s ease both"}}>
-            <span style={{color:oC.glow,fontSize:8,marginTop:2,flexShrink:0}}>◆</span>
+            <span style={{color:oC.glow,fontSize:10,marginTop:2,flexShrink:0}}>◆</span>
             <div style={{flex:1}}>
-              <div style={{fontSize:12,color:"rgba(255,255,255,0.75)",lineHeight:1.5}}>{n.texto}</div>
-              <div style={{fontSize:8,color:"rgba(255,255,255,0.2)",marginTop:2,fontFamily:"'JetBrains Mono',monospace"}}>{n.fecha}</div>
+              <div style={{fontSize:13,color:"rgba(255,255,255,0.75)",lineHeight:1.5}}>{n.texto}</div>
+              <div style={{fontSize:10,color:"rgba(255,255,255,0.2)",marginTop:2,fontFamily:"'JetBrains Mono',monospace"}}>{n.fecha}</div>
             </div>
             <button className="nota-del" onClick={()=>onDeleteNota?.(obra?.id??puesto?.id,n.id)}
               style={{background:"transparent",border:"none",color:"rgba(239,68,68,0.5)",cursor:"pointer",
@@ -1489,7 +1476,7 @@ function MemoriaHUD({ obra, puesto, oC, memoriaOverride, onSaveMemoria, notas=[]
         <button onClick={saveAll} style={{flex:1,padding:"10px",borderRadius:9,
           border:`1px solid ${dirty?oC.glow+"45":"rgba(255,255,255,0.07)"}`,
           background:dirty?`${oC.glow}14`:"rgba(255,255,255,0.03)",
-          color:dirty?oC.glow:"rgba(255,255,255,0.28)",cursor:"pointer",fontSize:12,fontWeight:700,
+          color:dirty?oC.glow:"rgba(255,255,255,0.28)",cursor:"pointer",fontSize:13,fontWeight:700,
           transition:"all 0.2s",boxShadow:dirty?`0 0 18px ${oC.glow}18`:"none",
           fontFamily:"'Outfit',sans-serif",display:"flex",alignItems:"center",justifyContent:"center",gap:7}}>
           {dirty ? <>{IC.save} Guardar cambios</> : <>{IC.check} Sin cambios</>}
@@ -1502,7 +1489,7 @@ function MemoriaHUD({ obra, puesto, oC, memoriaOverride, onSaveMemoria, notas=[]
           onMouseLeave={e=>{e.currentTarget.style.background="rgba(255,255,255,0.04)";e.currentTarget.style.color="rgba(255,255,255,0.45)";}}>
           {IC.print}
         </button>
-        <span style={{display:"flex",alignItems:"center",fontSize:9,color:"rgba(255,255,255,0.12)",fontFamily:"'JetBrains Mono',monospace"}}>Esc</span>
+        <span style={{display:"flex",alignItems:"center",fontSize:10,color:"rgba(255,255,255,0.12)",fontFamily:"'JetBrains Mono',monospace"}}>Esc</span>
       </div>
     </div>
   );
@@ -1735,7 +1722,7 @@ function KPIPanel({ obras, puestos, obraByPuesto, collapsed, onCollapse, onFocus
       <style>{`
         .kpi-sc::-webkit-scrollbar{width:2px}
         .kpi-sc::-webkit-scrollbar-thumb{background:rgba(255,255,255,0.07);border-radius:2px}
-        .kpi-tab{flex:1;padding:9px 4px;font-size:9.5px;letter-spacing:.5px;background:transparent;border:none;
+        .kpi-tab{flex:1;padding:9px 4px;font-size:10px;letter-spacing:.5px;background:transparent;border:none;
           cursor:pointer;transition:all .18s;font-family:'JetBrains Mono',monospace;}
         .kpi-row{display:flex;align-items:center;justify-content:space-between;
           padding:8px 12px;border-radius:9px;transition:background .15s,border-color .15s;cursor:pointer;}
@@ -1746,7 +1733,7 @@ function KPIPanel({ obras, puestos, obraByPuesto, collapsed, onCollapse, onFocus
       {/* ────── HEADER ────── */}
       <div style={{padding:"14px 16px 10px",borderBottom:"1px solid rgba(255,255,255,0.06)",flexShrink:0}}>
         <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",marginBottom:12}}>
-          <span style={{fontSize:7.5,letterSpacing:3,textTransform:"uppercase",
+          <span style={{fontSize:10,letterSpacing:3,textTransform:"uppercase",
             color:"rgba(255,255,255,0.22)",fontFamily:"'JetBrains Mono',monospace",fontWeight:700}}>
             Resumen
           </span>
@@ -1758,7 +1745,7 @@ function KPIPanel({ obras, puestos, obraByPuesto, collapsed, onCollapse, onFocus
                 background:hasCrit?"rgba(239,68,68,0.15)":"rgba(245,158,11,0.12)",
                 border:`1px solid ${hasCrit?"rgba(239,68,68,0.4)":"rgba(245,158,11,0.3)"}`,
                 color:hasCrit?"#fca5a5":"#fcd34d",
-                fontSize:9,fontWeight:700,fontFamily:"'JetBrains Mono',monospace",
+                fontSize:10,fontWeight:700,fontFamily:"'JetBrains Mono',monospace",
                 boxShadow:hasCrit?"0 0 12px rgba(239,68,68,0.25)":"none",
                 animation:"beacon 2s ease-in-out infinite",
               }}>
@@ -1791,23 +1778,23 @@ function KPIPanel({ obras, puestos, obraByPuesto, collapsed, onCollapse, onFocus
           background:"rgba(255,255,255,0.025)",border:"1px solid rgba(255,255,255,0.05)"}}>
           <OcupRing/>
           <div style={{flex:1,minWidth:0}}>
-            <div style={{fontSize:7,color:"rgba(255,255,255,0.22)",letterSpacing:2,
+            <div style={{fontSize:7,color:"rgba(255,255,255,0.22)",letterSpacing:1.3,
               textTransform:"uppercase",marginBottom:5,fontFamily:"'JetBrains Mono',monospace"}}>
               Puestos
             </div>
             <div style={{display:"flex",alignItems:"baseline",gap:4}}>
               <span style={{fontSize:28,fontWeight:800,color:"#a5b4fc",
                 fontFamily:"'JetBrains Mono',monospace",lineHeight:1}}>{ocupados}</span>
-              <span style={{fontSize:13,color:"rgba(255,255,255,0.2)",fontFamily:"'JetBrains Mono',monospace"}}>
+              <span style={{fontSize:14,color:"rgba(255,255,255,0.2)",fontFamily:"'JetBrains Mono',monospace"}}>
                 /{total}
               </span>
             </div>
             <div style={{display:"flex",gap:10,marginTop:4}}>
-              <span style={{fontSize:9,color:"#34d399",fontWeight:600}}>
+              <span style={{fontSize:10,color:"#34d399",fontWeight: 700}}>
                 {libres} libre{libres!==1?"s":""}
               </span>
               {obrasActivas.length>0&&(
-                <span style={{fontSize:9,color:"rgba(255,255,255,0.25)"}}>
+                <span style={{fontSize:10,color:"rgba(255,255,255,0.25)"}}>
                   avg <span style={{color:"#3b82f6",fontWeight:700}}>{progPct}%</span>
                 </span>
               )}
@@ -1821,7 +1808,7 @@ function KPIPanel({ obras, puestos, obraByPuesto, collapsed, onCollapse, onFocus
         {[
           ["stats","Stats","#6366f1"],
           ["alertas",alertas.length>0?`Alertas · ${alertas.length}`:"Alertas",
-            hasCrit?"#ef4444":alertas.length>0?"#f59e0b":"#3f3f46"]
+            hasCrit?"#ef4444":alertas.length>0?"#f59e0b":"var(--subtle)"]
         ].map(([key,label,ac])=>(
           <button key={key} className="kpi-tab" onClick={()=>setActiveTab(key)} style={{
             color:activeTab===key?"#fff":"rgba(255,255,255,0.3)",
@@ -1839,8 +1826,8 @@ function KPIPanel({ obras, puestos, obraByPuesto, collapsed, onCollapse, onFocus
           {/* Barra progreso promedio */}
           <div style={{marginBottom:16}}>
             <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:6}}>
-              <span style={{fontSize:9,color:"rgba(255,255,255,0.3)",letterSpacing:.5}}>Progreso promedio</span>
-              <span style={{fontFamily:"'JetBrains Mono',monospace",fontSize:13,fontWeight:800,
+              <span style={{fontSize:10,color:"rgba(255,255,255,0.3)",letterSpacing:.5}}>Progreso promedio</span>
+              <span style={{fontFamily:"'JetBrains Mono',monospace",fontSize:14,fontWeight:800,
                 color:"#3b82f6"}}>{progPct}%</span>
             </div>
             <div style={{height:4,borderRadius:3,background:"rgba(255,255,255,0.05)",overflow:"hidden"}}>
@@ -1856,7 +1843,7 @@ function KPIPanel({ obras, puestos, obraByPuesto, collapsed, onCollapse, onFocus
               {label:"Activas",   n:obrasActivas.length,    c:"#3b82f6",pct:obrasActivas.length/Math.max(1,total)*100},
               {label:"Pausadas",  n:obrasPausadas.length,   c:"#f59e0b",pct:obrasPausadas.length/Math.max(1,total)*100},
               {label:"Terminadas",n:obrasTerminadas.length, c:"#10b981",pct:obrasTerminadas.length/Math.max(1,total)*100},
-              {label:"Libres",    n:libres,                 c:"#3f3f46",pct:libres/Math.max(1,total)*100,muted:true},
+              {label:"Libres",    n:libres,                 c:"var(--subtle)",pct:libres/Math.max(1,total)*100,muted:true},
             ].map(({label,n,c,pct,muted})=>(
               <div key={label} style={{
                 display:"flex",alignItems:"center",padding:"9px 12px",borderRadius:9,
@@ -1864,7 +1851,7 @@ function KPIPanel({ obras, puestos, obraByPuesto, collapsed, onCollapse, onFocus
                 border:`1px solid ${n>0&&!muted?c+"20":"rgba(255,255,255,0.04)"}`,
                 borderLeft:`3px solid ${n>0?c:"rgba(255,255,255,0.07)"}`,
               }}>
-                <span style={{fontSize:10.5,flex:1,
+                <span style={{fontSize:11,flex:1,
                   color:n>0&&!muted?"rgba(255,255,255,0.65)":"rgba(255,255,255,0.2)",fontWeight:500}}>
                   {label}
                 </span>
@@ -1886,7 +1873,7 @@ function KPIPanel({ obras, puestos, obraByPuesto, collapsed, onCollapse, onFocus
           {/* Obras fantasma — asignadas a puestos inexistentes */}
           {obrasFantasma.length>0&&(
             <div style={{marginBottom:10}}>
-              <div style={{fontSize:7.5,letterSpacing:2,textTransform:"uppercase",color:"#ef444490",
+              <div style={{fontSize:10,letterSpacing:1.3,textTransform:"uppercase",color:"#ef444490",
                 fontFamily:"'JetBrains Mono',monospace",fontWeight:700,marginBottom:6,
                 display:"flex",alignItems:"center",gap:5}}>
                 <div style={{width:5,height:5,borderRadius:"50%",background:"#ef4444",
@@ -1902,13 +1889,13 @@ function KPIPanel({ obras, puestos, obraByPuesto, collapsed, onCollapse, onFocus
                     border:"1px solid rgba(239,68,68,0.25)",
                     borderLeft:"3px solid #ef4444",
                   }}>
-                    <span style={{fontFamily:"'JetBrains Mono',monospace",fontSize:12,
+                    <span style={{fontFamily:"'JetBrains Mono',monospace",fontSize:13,
                       fontWeight:700,color:"#fca5a5",flex:1,
                       overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>
                       {o.codigo}
                     </span>
                     <button onClick={()=>onDesasignar?.(o.id)} style={{
-                      fontSize:9,padding:"3px 8px",borderRadius:5,
+                      fontSize:10,padding:"3px 8px",borderRadius:5,
                       background:"rgba(239,68,68,0.15)",
                       border:"1px solid rgba(239,68,68,0.35)",
                       color:"#f87171",cursor:"pointer",fontFamily:"'Outfit',sans-serif",
@@ -1929,7 +1916,7 @@ function KPIPanel({ obras, puestos, obraByPuesto, collapsed, onCollapse, onFocus
                 display:"flex",alignItems:"center",justifyContent:"center",color:"#10b981",fontSize:18}}>
                 ✓
               </div>
-              <div style={{fontSize:10,color:"rgba(255,255,255,0.2)",letterSpacing:1,
+              <div style={{fontSize:11,color:"rgba(255,255,255,0.2)",letterSpacing:1,
                 fontFamily:"'JetBrains Mono',monospace"}}>Sin alertas</div>
             </div>
           ):(
@@ -1958,14 +1945,14 @@ function KPIPanel({ obras, puestos, obraByPuesto, collapsed, onCollapse, onFocus
                           background:a.color,boxShadow:`0 0 8px ${a.color}`}}/>
                       </div>
                       {/* codigo */}
-                      <span style={{fontSize:12,fontWeight:700,
+                      <span style={{fontSize:13,fontWeight:700,
                         fontFamily:"'JetBrains Mono',monospace",flex:1,
                         color:isCrit?"#fca5a5":"rgba(255,255,255,0.9)",
                         overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>
                         {a.codigo}
                       </span>
                       {/* etiqueta */}
-                      <span style={{fontSize:8,color:a.color,fontWeight:700,
+                      <span style={{fontSize:10,color:a.color,fontWeight:700,
                         flexShrink:0,textTransform:"uppercase",letterSpacing:.5,
                         background:`${a.color}10`,padding:"1px 6px",borderRadius:4,
                         border:`1px solid ${a.color}20`}}>
@@ -1973,7 +1960,7 @@ function KPIPanel({ obras, puestos, obraByPuesto, collapsed, onCollapse, onFocus
                       </span>
                     </div>
                     {a.detalle&&(
-                      <div style={{fontSize:9,color:"rgba(255,255,255,0.28)",
+                      <div style={{fontSize:10,color:"rgba(255,255,255,0.28)",
                         paddingLeft:14,marginTop:4,lineHeight:1.5,letterSpacing:.2}}>
                         {a.detalle}
                       </div>
@@ -2680,7 +2667,7 @@ export default function MapaProduccion({obras=[],onPuestoClick,onAsignarObra,onC
           {[{v:stats.total,l:"Total",c:C.t0},{v:stats.ocupados,l:"Ocupados",c:"#60a5fa"},{v:stats.libres,l:"Libres",c:"#34d399"}].map(({v,l,c})=>(
             <div key={l} style={{display:"flex",flexDirection:"column",alignItems:"center",padding:"4px 16px",borderRadius:8,...GLASS}}>
               <span style={{fontFamily:C.mono,fontSize:18,fontWeight:800,color:c,textShadow:`0 0 12px ${c}40`}}>{v}</span>
-              <span style={{fontSize:9,letterSpacing:2,textTransform:"uppercase",color:C.t2,fontWeight:600}}>{l}</span>
+              <span style={{fontSize:10,letterSpacing:1.3,textTransform:"uppercase",color:C.t2,fontWeight: 700}}>{l}</span>
             </div>
           ))}
         </div>
@@ -2690,14 +2677,14 @@ export default function MapaProduccion({obras=[],onPuestoClick,onAsignarObra,onC
             {LEGEND.map(({key,color,isWire})=>(
               <div key={key} style={{display:"flex",alignItems:"center",gap:6}}>
                 <div style={{width:10,height:10,borderRadius:isWire?2:5,background:isWire?"transparent":color,border:`1.5px solid ${color}`,boxShadow:isWire?"none":`0 0 10px ${color}80`}}/>
-                <span style={{fontSize:10,color:C.t1,fontWeight:500,letterSpacing:0.5}}>{C.obra[key].label}</span>
+                <span style={{fontSize:11,color:C.t1,fontWeight: 700,letterSpacing:0.5}}>{C.obra[key].label}</span>
               </div>
             ))}
           </div>
           <div style={{display:"flex",gap:8}}>
             {/* Vista Pampa */}
             <button className="glass-btn" onClick={()=>setActiveView(v=>v==="pampa"?"mapa":"pampa")}
-              style={{padding:"8px 14px",borderRadius:8,cursor:"pointer",fontSize:11,fontFamily:C.sans,fontWeight:600,display:"flex",alignItems:"center",gap:6,
+              style={{padding:"8px 14px",borderRadius:8,cursor:"pointer",fontSize:12,fontFamily:C.sans,fontWeight: 700,display:"flex",alignItems:"center",gap:6,
                 background:activeView==="pampa"?"rgba(245,158,11,0.15)":"",
                 borderColor:activeView==="pampa"?"rgba(245,158,11,0.5)":""}}>
               <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke={activeView==="pampa"?"#fbbf24":"currentColor"} strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
@@ -2708,24 +2695,24 @@ export default function MapaProduccion({obras=[],onPuestoClick,onAsignarObra,onC
               </svg>
               <span style={{color:activeView==="pampa"?"#fbbf24":""}}>Pampa</span>
             </button>
-            <button className="glass-btn" onClick={()=>setEditMode(v=>!v)} style={{padding:"8px 16px",borderRadius:8,cursor:"pointer",fontSize:11,fontFamily:C.sans,fontWeight:600,display:"flex",alignItems:"center",gap:6,background:editMode?"rgba(251,191,36,0.15)":"",borderColor:editMode?"rgba(251,191,36,0.4)":""}}>
+            <button className="glass-btn" onClick={()=>setEditMode(v=>!v)} style={{padding:"8px 16px",borderRadius:8,cursor:"pointer",fontSize:12,fontFamily:C.sans,fontWeight: 700,display:"flex",alignItems:"center",gap:6,background:editMode?"rgba(251,191,36,0.15)":"",borderColor:editMode?"rgba(251,191,36,0.4)":""}}>
               <span style={{color:editMode?"#fbbf24":""}}>{editMode?"● Editando Layout":"◩ Editar Layout"}</span>
             </button>
-            <button className="glass-btn" onClick={()=>setCmdPaletteOpen(true)} style={{padding:"8px 14px",borderRadius:8,cursor:"pointer",fontSize:11,fontFamily:C.sans,fontWeight:600,display:"flex",alignItems:"center",gap:8}}>
+            <button className="glass-btn" onClick={()=>setCmdPaletteOpen(true)} style={{padding:"8px 14px",borderRadius:8,cursor:"pointer",fontSize:12,fontFamily:C.sans,fontWeight: 700,display:"flex",alignItems:"center",gap:8}}>
               <span>⌘</span>
-              <span style={{color:C.t2,fontFamily:C.mono,fontSize:10,background:"rgba(255,255,255,0.05)",border:`1px solid ${C.b0}`,padding:"1px 6px",borderRadius:5}}>K</span>
+              <span style={{color:C.t2,fontFamily:C.mono,fontSize:11,background:"rgba(255,255,255,0.05)",border:`1px solid ${C.b0}`,padding:"1px 6px",borderRadius:5}}>K</span>
             </button>
             {editMode&&(
               <div style={{display:"flex",gap:4,alignItems:"center",background:"rgba(0,0,0,0.3)",borderRadius:8,padding:"4px",border:"1px solid rgba(16,185,129,0.3)"}}>
                 {[{key:"chico",l:"37'"},{key:"mediano",l:"42'"},{key:"utility",l:"43'"},{key:"grande",l:"52'"},{key:"crucero",l:"55'"},{key:"xl",l:"64'"},{key:"k85",l:"85'"}].map(({key,l})=>(
-                  <button key={key} onClick={()=>setNewPuestoSize(key)} style={{padding:"4px 10px",borderRadius:6,cursor:"pointer",fontSize:10,fontFamily:C.mono,fontWeight:600,border:"none",background:newPuestoSize===key?"rgba(16,185,129,0.2)":"transparent",color:newPuestoSize===key?"#34d399":C.t2,transition:"all .2s"}}>{l}</button>
+                  <button key={key} onClick={()=>setNewPuestoSize(key)} style={{padding:"4px 10px",borderRadius:6,cursor:"pointer",fontSize:11,fontFamily:C.mono,fontWeight: 700,border:"none",background:newPuestoSize===key?"rgba(16,185,129,0.2)":"transparent",color:newPuestoSize===key?"#34d399":C.t2,transition:"all .2s"}}>{l}</button>
                 ))}
                 <div style={{width:1,height:16,background:C.b1,margin:"0 4px"}}/>
-                <button onClick={addPuesto} style={{padding:"4px 12px",borderRadius:6,cursor:"pointer",fontSize:11,fontWeight:700,border:"none",background:"#10b981",color:"#000",boxShadow:"0 4px 12px rgba(16,185,129,0.4)"}}>+ Agregar</button>
+                <button onClick={addPuesto} style={{padding:"4px 12px",borderRadius:6,cursor:"pointer",fontSize:12,fontWeight:700,border:"none",background:"#10b981",color:"#000",boxShadow:"0 4px 12px rgba(16,185,129,0.4)"}}>+ Agregar</button>
                 <div style={{width:1,height:16,background:C.b1,margin:"0 4px"}}/>
-                <button onClick={resetLayout} style={{padding:"4px 10px",borderRadius:6,cursor:"pointer",fontSize:10,fontWeight:600,border:"1px solid rgba(239,68,68,0.3)",background:"rgba(239,68,68,0.08)",color:"#f87171"}}>↺ Reset</button>
+                <button onClick={resetLayout} style={{padding:"4px 10px",borderRadius:6,cursor:"pointer",fontSize:11,fontWeight: 700,border:"1px solid rgba(239,68,68,0.3)",background:"rgba(239,68,68,0.08)",color:"#f87171"}}>↺ Reset</button>
                 <div style={{width:1,height:16,background:C.b1,margin:"0 4px"}}/>
-                <button onClick={handleSaveLayoutClick} style={{padding:"4px 14px",borderRadius:6,cursor:"pointer",fontSize:11,fontWeight:700,border:`1px solid ${layoutSaved?"rgba(16,185,129,0.5)":"rgba(99,102,241,0.4)"}`,background:layoutSaved?"rgba(16,185,129,0.15)":"rgba(99,102,241,0.15)",color:layoutSaved?"#34d399":"#a5b4fc",transition:"all 0.3s",display:"flex",alignItems:"center",gap:5}}>
+                <button onClick={handleSaveLayoutClick} style={{padding:"4px 14px",borderRadius:6,cursor:"pointer",fontSize:12,fontWeight:700,border:`1px solid ${layoutSaved?"rgba(16,185,129,0.5)":"rgba(99,102,241,0.4)"}`,background:layoutSaved?"rgba(16,185,129,0.15)":"rgba(99,102,241,0.15)",color:layoutSaved?"#34d399":"#a5b4fc",transition:"all 0.3s",display:"flex",alignItems:"center",gap:5}}>
                   {layoutSaved ? <>✓ Guardado</> : <>💾 Guardar para todos</>}
                 </button>
               </div>
@@ -2740,7 +2727,7 @@ export default function MapaProduccion({obras=[],onPuestoClick,onAsignarObra,onC
           {[{i:"+",f:()=>zoomBtn(1.3)},{i:"−",f:()=>zoomBtn(0.77)},{i:"⌂",f:resetVp}].map(({i,f})=>(
             <button key={i} className="glass-btn" onClick={f} style={{width:36,height:36,borderRadius:8,fontSize:i==="⌂"?16:22,display:"flex",alignItems:"center",justifyContent:"center",cursor:"pointer",paddingBottom:i==="+"?2:0}}>{i}</button>
           ))}
-          <div style={{marginTop:4,textAlign:"center",fontFamily:C.mono,fontSize:10,color:C.t1,fontWeight:600}}>{Math.round(vp.scale*100)}%</div>
+          <div style={{marginTop:4,textAlign:"center",fontFamily:C.mono,fontSize:11,color:C.t1,fontWeight: 700}}>{Math.round(vp.scale*100)}%</div>
         </div>
       </div>
 
@@ -2761,7 +2748,7 @@ export default function MapaProduccion({obras=[],onPuestoClick,onAsignarObra,onC
         const rect=svgRef.current?.getBoundingClientRect();if(!rect)return null;
         const tx=Math.min(tooltip.cx-rect.left+24,rect.width-310),ty=Math.max(24,Math.min(tooltip.cy-rect.top-24,rect.height-220));
         const hasFicha=obra&&(obra.propietario||obra.motores||obra.grupo_electrogeno||obra.teca_cockpit||obra.madera_muebles||obra.color_casco);
-        const SpecRow=({label,val})=>val?(<div style={{display:"flex",gap:6,alignItems:"baseline"}}><span style={{fontSize:9,color:"rgba(255,255,255,0.3)",letterSpacing:1,textTransform:"uppercase",fontFamily:C.mono,minWidth:46,flexShrink:0}}>{label}</span><span style={{fontSize:11,color:"rgba(255,255,255,0.7)",lineHeight:1.3}}>{val}</span></div>):null;
+        const SpecRow=({label,val})=>val?(<div style={{display:"flex",gap:6,alignItems:"baseline"}}><span style={{fontSize:10,color:"rgba(255,255,255,0.3)",letterSpacing:1,textTransform:"uppercase",fontFamily:C.mono,minWidth:46,flexShrink:0}}>{label}</span><span style={{fontSize:12,color:"rgba(255,255,255,0.7)",lineHeight:1.3}}>{val}</span></div>):null;
         return(
           <div style={{position:"absolute",left:tx,top:ty,zIndex:20,...GLASS,borderRadius:12,padding:"16px",minWidth:250,maxWidth:310,pointerEvents:"none",animation:"fadeUp 0.15s cubic-bezier(0.16,1,0.3,1)"}}>
             {/* Header */}
@@ -2769,20 +2756,20 @@ export default function MapaProduccion({obras=[],onPuestoClick,onAsignarObra,onC
               <div style={{display:"flex",alignItems:"center",gap:8}}>
                 <div style={{width:10,height:10,borderRadius:5,background:oC.glow,boxShadow:obra?`0 0 12px ${oC.glow}`:"none"}}/>
                 <span style={{fontFamily:C.mono,fontSize:15,color:C.t0,fontWeight:700}}>{obra?obra.codigo:`Puesto ${tooltip.puesto.label}`}</span>
-                {obra?.tipo_cabina&&<span style={{fontSize:8,letterSpacing:1,color:"rgba(255,255,255,0.3)",background:"rgba(255,255,255,0.06)",padding:"1px 5px",borderRadius:3}}>{obra.tipo_cabina}</span>}
+                {obra?.tipo_cabina&&<span style={{fontSize:10,letterSpacing:1,color:"rgba(255,255,255,0.3)",background:"rgba(255,255,255,0.06)",padding:"1px 5px",borderRadius:3}}>{obra.tipo_cabina}</span>}
               </div>
-              <span style={{fontSize:9,letterSpacing:1.5,textTransform:"uppercase",color:oC.glow,fontWeight:600,background:`${oC.glow}15`,padding:"2px 6px",borderRadius:4}}>{oC.label}</span>
+              <span style={{fontSize:10,letterSpacing:1.1,textTransform:"uppercase",color:oC.glow,fontWeight: 700,background:`${oC.glow}15`,padding:"2px 6px",borderRadius:4}}>{oC.label}</span>
             </div>
 
             {/* Propietario / Constructor */}
             {obra?.propietario&&(
-              <div style={{fontSize:11,color:C.t0,marginBottom:8,fontWeight:600,display:"flex",alignItems:"center",gap:5}}>
+              <div style={{fontSize:12,color:C.t0,marginBottom:8,fontWeight: 700,display:"flex",alignItems:"center",gap:5}}>
                 <span style={{display:"flex",alignItems:"center",color:C.t2,flexShrink:0}}><svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round"><circle cx="12" cy="8" r="4"/><path d="M4 20c0-4 3.6-7 8-7s8 3 8 7"/></svg></span>
                 <span>{obra.propietario}</span>
-                {obra.constructor&&<span style={{color:C.t2,fontWeight:400,fontSize:10}}>· {obra.constructor}</span>}
+                {obra.constructor&&<span style={{color:C.t2,fontWeight: 700,fontSize:11}}>· {obra.constructor}</span>}
               </div>
             )}
-            {obra?.descripcion&&!obra?.propietario&&<div style={{fontSize:12,color:C.t1,marginBottom:10,lineHeight:1.5}}>{obra.descripcion}</div>}
+            {obra?.descripcion&&!obra?.propietario&&<div style={{fontSize:13,color:C.t1,marginBottom:10,lineHeight:1.5}}>{obra.descripcion}</div>}
 
             {/* Ficha técnica */}
             {hasFicha&&(
@@ -2792,10 +2779,10 @@ export default function MapaProduccion({obras=[],onPuestoClick,onAsignarObra,onC
                 <SpecRow label="Casco"  val={obra.color_casco}/>
                 {/* Badges de equipamiento */}
                 <div style={{display:"flex",gap:5,flexWrap:"wrap",marginTop:3}}>
-                  {obra.grupo_electrogeno&&<span style={{fontSize:9,padding:"2px 7px",borderRadius:4,background:"rgba(245,158,11,0.12)",color:"#fcd34d",border:"1px solid rgba(245,158,11,0.2)"}}>{obra.grupo_electrogeno_det||"Grupo elect."}</span>}
-                  {obra.teca_cockpit&&<span style={{fontSize:9,padding:"2px 7px",borderRadius:4,background:"rgba(180,140,60,0.12)",color:"#d4b483",border:"1px solid rgba(180,140,60,0.2)"}}>{obra.teca_cockpit_det||"Teca/Infinity"}</span>}
-                  {obra.starlink&&<span style={{fontSize:9,padding:"2px 7px",borderRadius:4,background:"rgba(99,102,241,0.12)",color:"#a5b4fc",border:"1px solid rgba(99,102,241,0.2)"}}>Starlink</span>}
-                  {obra.sternthruster&&<span style={{fontSize:9,padding:"2px 7px",borderRadius:4,background:"rgba(56,189,248,0.12)",color:"#7dd3fc",border:"1px solid rgba(56,189,248,0.2)"}}>Stern</span>}
+                  {obra.grupo_electrogeno&&<span style={{fontSize:10,padding:"2px 7px",borderRadius:4,background:"rgba(245,158,11,0.12)",color:"#fcd34d",border:"1px solid rgba(245,158,11,0.2)"}}>{obra.grupo_electrogeno_det||"Grupo elect."}</span>}
+                  {obra.teca_cockpit&&<span style={{fontSize:10,padding:"2px 7px",borderRadius:4,background:"rgba(180,140,60,0.12)",color:"#d4b483",border:"1px solid rgba(180,140,60,0.2)"}}>{obra.teca_cockpit_det||"Teca/Infinity"}</span>}
+                  {obra.starlink&&<span style={{fontSize:10,padding:"2px 7px",borderRadius:4,background:"rgba(99,102,241,0.12)",color:"#a5b4fc",border:"1px solid rgba(99,102,241,0.2)"}}>Starlink</span>}
+                  {obra.sternthruster&&<span style={{fontSize:10,padding:"2px 7px",borderRadius:4,background:"rgba(56,189,248,0.12)",color:"#7dd3fc",border:"1px solid rgba(56,189,248,0.2)"}}>Stern</span>}
                 </div>
               </div>
             )}
@@ -2803,15 +2790,15 @@ export default function MapaProduccion({obras=[],onPuestoClick,onAsignarObra,onC
             {/* Progreso */}
             {obra?(
               <div style={{display:"flex",flexDirection:"column",gap:6}}>
-                <div style={{display:"flex",justifyContent:"space-between",fontSize:10,fontFamily:C.mono,color:C.t1}}>
+                <div style={{display:"flex",justifyContent:"space-between",fontSize:11,fontFamily:C.mono,color:C.t1}}>
                   <span>Progreso</span><span style={{color:oC.glow,fontWeight:700}}>{obra._pct??0}%</span>
                 </div>
                 <div style={{width:"100%",height:4,background:"rgba(255,255,255,0.08)",borderRadius:2,overflow:"hidden"}}>
                   <div style={{height:"100%",width:`${obra._pct??0}%`,background:oC.glow,boxShadow:`0 0 10px ${oC.glow}`}}/>
                 </div>
-                <div style={{fontSize:10,color:C.t2,marginTop:4}}>Click-derecho → menú · F → enfocar</div>
+                <div style={{fontSize:11,color:C.t2,marginTop:4}}>Click-derecho → menú · F → enfocar</div>
               </div>
-            ):<div style={{fontSize:11,color:C.t2}}>{editMode?"✦ Arrastrá, ↻ rotar, × eliminar":"✦ Click para asignar · F para enfocar"}</div>}
+            ):<div style={{fontSize:12,color:C.t2}}>{editMode?"✦ Arrastrá, ↻ rotar, × eliminar":"✦ Click para asignar · F para enfocar"}</div>}
           </div>
         );
       })()}
@@ -2821,27 +2808,27 @@ export default function MapaProduccion({obras=[],onPuestoClick,onAsignarObra,onC
         const {obra}=dragRef.current,oC=C.obra[obra.estado]??C.obra.vacio;
         const rect=svgRef.current?.getBoundingClientRect();if(!rect)return null;
         return(<div style={{position:"absolute",left:obraDragPos.x-rect.left-80,top:obraDragPos.y-rect.top-30,zIndex:50,pointerEvents:"none",...GLASS,borderColor:oC.glow,borderRadius:12,padding:"12px 20px",boxShadow:`0 16px 32px rgba(0,0,0,0.6),0 0 0 1px ${oC.glow} inset,0 0 20px ${oC.glow}40`}}>
-          <div style={{fontSize:9,color:oC.glow,letterSpacing:2,textTransform:"uppercase",marginBottom:4,fontWeight:600}}>Reubicando</div>
+          <div style={{fontSize:10,color:oC.glow,letterSpacing:1.3,textTransform:"uppercase",marginBottom:4,fontWeight: 700}}>Reubicando</div>
           <div style={{fontFamily:C.mono,fontSize:16,color:C.t0,fontWeight:800}}>{obra.codigo}</div>
-          <div style={{fontSize:11,color:C.t1,marginTop:6}}>{obraDragOver?"↓ Soltar para asignar":"Buscando puesto libre..."}</div>
+          <div style={{fontSize:12,color:C.t1,marginTop:6}}>{obraDragOver?"↓ Soltar para asignar":"Buscando puesto libre..."}</div>
         </div>);
       })()}
 
       {/* STATUS BAR */}
       <div style={{position:"absolute",bottom:16,left:"50%",transform:"translateX(-50%)",zIndex:5,pointerEvents:"none",userSelect:"none"}}>
         {focusedPuesto?(
-          <div style={{padding:"8px 24px",borderRadius:30,background:"rgba(59,130,246,0.12)",border:"1px solid rgba(59,130,246,0.35)",fontSize:11,color:"#60a5fa",letterSpacing:1.2,fontWeight:600,backdropFilter:"blur(8px)"}}>
+          <div style={{padding:"8px 24px",borderRadius:30,background:"rgba(59,130,246,0.12)",border:"1px solid rgba(59,130,246,0.35)",fontSize:12,color:"#60a5fa",letterSpacing:1.2,fontWeight: 700,backdropFilter:"blur(8px)"}}>
             ◎ MODO FOCO — Click en área oscura o <span style={{fontFamily:C.mono,background:"rgba(96,165,250,0.15)",padding:"1px 6px",borderRadius:4}}>Esc</span> para salir
           </div>
         ):editMode?(
-          <div style={{padding:"8px 24px",borderRadius:30,background:"rgba(251,191,36,0.12)",border:"1px solid rgba(251,191,36,0.4)",fontSize:11,color:"#fbbf24",letterSpacing:1.5,fontWeight:600,backdropFilter:"blur(8px)"}}>
+          <div style={{padding:"8px 24px",borderRadius:30,background:"rgba(251,191,36,0.12)",border:"1px solid rgba(251,191,36,0.4)",fontSize:12,color:"#fbbf24",letterSpacing:1.1,fontWeight: 700,backdropFilter:"blur(8px)"}}>
             ✏️ MODO EDICIÓN — <span style={{fontFamily:C.mono,background:"rgba(251,191,36,0.15)",padding:"1px 5px",borderRadius:4}}>E</span> para salir
           </div>
         ):(
           <div style={{display:"flex",gap:12,alignItems:"center",padding:"6px 18px",borderRadius:30,background:"rgba(0,0,0,0.4)",border:`1px solid ${C.b0}`,backdropFilter:"blur(8px)"}}>
             {[["RUEDA","Zoom"],["DRAG","Pan"],["CLICK","Gestionar"],["CLICK-DER","Menú Radial"],["F","Enfocar"],["⌘K","Buscar"]].map(([key,label])=>(
-              <span key={key} style={{fontSize:9,color:C.t2,letterSpacing:1.5}}>
-                <span style={{fontFamily:C.mono,color:C.t1,background:"rgba(255,255,255,0.05)",padding:"1px 5px",borderRadius:4,fontSize:9}}>{key}</span>{" "}{label}
+              <span key={key} style={{fontSize:10,color:C.t2,letterSpacing:1.1}}>
+                <span style={{fontFamily:C.mono,color:C.t1,background:"rgba(255,255,255,0.05)",padding:"1px 5px",borderRadius:4,fontSize:10}}>{key}</span>{" "}{label}
               </span>
             ))}
           </div>
@@ -2879,9 +2866,9 @@ export default function MapaProduccion({obras=[],onPuestoClick,onAsignarObra,onC
               <div style={{padding:"6px 10px 8px",borderBottom:"1px solid rgba(255,255,255,0.06)",marginBottom:2}}>
                 <div style={{display:"flex",alignItems:"center",gap:7}}>
                   <div style={{width:7,height:7,borderRadius:"50%",background:oC2.glow,boxShadow:`0 0 8px ${oC2.glow}`}}/>
-                  <span style={{fontFamily:C.mono,fontSize:14,fontWeight:800,color:"#fff",letterSpacing:0.3}}>{o2.codigo}</span>
+                  <span style={{fontFamily:C.mono,fontSize:14,fontWeight:800,color:"var(--text)",letterSpacing:0.3}}>{o2.codigo}</span>
                 </div>
-                {o2.propietario&&<div style={{fontSize:10,color:"rgba(255,255,255,0.35)",marginTop:2,paddingLeft:14}}>{o2.propietario}</div>}
+                {o2.propietario&&<div style={{fontSize:11,color:"rgba(255,255,255,0.35)",marginTop:2,paddingLeft:14}}>{o2.propietario}</div>}
               </div>
               {/* Botón Etapas */}
               <button onClick={()=>{setClickMenu(null);onPuestoClick?.({puesto:p2,obra:o2});}} style={{
@@ -2898,8 +2885,8 @@ export default function MapaProduccion({obras=[],onPuestoClick,onAsignarObra,onC
                   </svg>
                 </div>
                 <div>
-                  <div style={{fontSize:12,fontWeight:600,color:"#f4f4f5"}}>Etapas</div>
-                  <div style={{fontSize:9,color:"rgba(255,255,255,0.28)",marginTop:1}}>Progreso y tareas</div>
+                  <div style={{fontSize:13,fontWeight:600,color:"var(--text)"}}>Etapas</div>
+                  <div style={{fontSize:10,color:"rgba(255,255,255,0.28)",marginTop:1}}>Progreso y tareas</div>
                 </div>
               </button>
               {/* Botón Memoria */}
@@ -2918,8 +2905,8 @@ export default function MapaProduccion({obras=[],onPuestoClick,onAsignarObra,onC
                   </svg>
                 </div>
                 <div>
-                  <div style={{fontSize:12,fontWeight:600,color:"#f4f4f5"}}>Memoria</div>
-                  <div style={{fontSize:9,color:"rgba(255,255,255,0.28)",marginTop:1}}>Ficha descriptiva</div>
+                  <div style={{fontSize:13,fontWeight:600,color:"var(--text)"}}>Memoria</div>
+                  <div style={{fontSize:10,color:"rgba(255,255,255,0.28)",marginTop:1}}>Ficha descriptiva</div>
                 </div>
               </button>
             </div>
@@ -2954,15 +2941,15 @@ export default function MapaProduccion({obras=[],onPuestoClick,onAsignarObra,onC
 
       {/* CONFIRM DELETE */}
       {confirmDel&&(
-        <div style={{position:"fixed",inset:0,zIndex:1200,background:"rgba(0,0,0,0.8)",display:"flex",alignItems:"center",justifyContent:"center",backdropFilter:"blur(4px)"}} onClick={()=>setConfirmDel(null)}>
+        <div style={{position:"fixed",inset:0,zIndex:1200,background:"var(--overlay-strong)",display:"flex",alignItems:"center",justifyContent:"center",backdropFilter:"blur(4px)"}} onClick={()=>setConfirmDel(null)}>
           <div style={{...GLASS,border:"1px solid rgba(239,68,68,0.4)",borderRadius:16,padding:"24px",width:320,animation:"fadeUp 0.15s ease",boxShadow:"0 24px 48px rgba(0,0,0,0.9),0 0 0 1px rgba(239,68,68,0.2) inset"}} onClick={e=>e.stopPropagation()}>
             <div style={{width:40,height:40,borderRadius:20,background:"rgba(239,68,68,0.15)",display:"flex",alignItems:"center",justifyContent:"center",color:"#ef4444",fontSize:20,marginBottom:16,border:"1px solid rgba(239,68,68,0.3)"}}>!</div>
             <div style={{fontSize:16,color:C.t0,fontWeight:600,marginBottom:8}}>Eliminar Puesto</div>
-            <div style={{fontSize:13,color:C.t1,marginBottom:16,lineHeight:1.5}}>¿Eliminar el puesto <strong style={{color:C.t0}}>{confirmDel}</strong>?</div>
-            {obraByPuesto[confirmDel]&&<div style={{fontSize:12,color:"#f59e0b",marginBottom:24,padding:"10px 12px",borderRadius:8,background:"rgba(245,158,11,0.1)",border:"1px solid rgba(245,158,11,0.3)"}}>La obra asignada quedará sin puesto en el plano.</div>}
+            <div style={{fontSize:14,color:C.t1,marginBottom:16,lineHeight:1.5}}>¿Eliminar el puesto <strong style={{color:C.t0}}>{confirmDel}</strong>?</div>
+            {obraByPuesto[confirmDel]&&<div style={{fontSize:13,color:"#f59e0b",marginBottom:24,padding:"10px 12px",borderRadius:8,background:"rgba(245,158,11,0.1)",border:"1px solid rgba(245,158,11,0.3)"}}>La obra asignada quedará sin puesto en el plano.</div>}
             <div style={{display:"flex",gap:12}}>
-              <button onClick={()=>setConfirmDel(null)} className="glass-btn" style={{flex:1,padding:"10px",borderRadius:8,cursor:"pointer",fontSize:13,fontWeight:600}}>Cancelar</button>
-              <button onClick={()=>removePuesto(confirmDel)} style={{flex:1,padding:"10px",borderRadius:8,border:"none",background:"#ef4444",color:"#fff",cursor:"pointer",fontSize:13,fontWeight:600,boxShadow:"0 4px 12px rgba(239,68,68,0.4)"}}>Eliminar</button>
+              <button onClick={()=>setConfirmDel(null)} className="glass-btn" style={{flex:1,padding:"10px",borderRadius:8,cursor:"pointer",fontSize:14,fontWeight:600}}>Cancelar</button>
+              <button onClick={()=>removePuesto(confirmDel)} style={{flex:1,padding:"10px",borderRadius:8,border:"none",background:"#ef4444",color:"#fff",cursor:"pointer",fontSize:14,fontWeight:600,boxShadow:"0 4px 12px rgba(239,68,68,0.4)"}}>Eliminar</button>
             </div>
           </div>
         </div>

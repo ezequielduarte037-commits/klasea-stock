@@ -87,7 +87,7 @@ function urgenciaPlantilla(dias, tieneTemplates) {
   if (tieneTemplates)
     return { label:"Solicitadas ✓", color:"#10b981", bg:"rgba(16,185,129,0.1)",  border:"rgba(16,185,129,0.22)"  };
   if (dias < -14)
-    return { label:"Vencido",       color:"#71717a", bg:"rgba(113,113,122,0.1)", border:"rgba(113,113,122,0.2)"  };
+    return { label:"Vencido",       color:"var(--dim)", bg:"rgba(113,113,122,0.1)", border:"rgba(113,113,122,0.2)"  };
   if (dias <= 30)
     return { label:"¡Pedir ya!",    color:"#ef4444", bg:"rgba(239,68,68,0.14)",  border:"rgba(239,68,68,0.35)"   };
   if (dias <= 60)
@@ -169,18 +169,18 @@ function PiezaModal({ pieza, onClose, onSave, esAdmin }) {
       transition:"color 0.15s",
     },
     label: { 
-      fontSize:9, letterSpacing:2, color:"#71717a", display:"block", 
+      fontSize:10, letterSpacing:1.3, color:"var(--dim)", display:"block",
       marginBottom:6, marginTop:16, textTransform:"uppercase", fontWeight:600 
     },
     input: {
       background:"rgba(255,255,255,0.04)", border:"1px solid rgba(255,255,255,0.09)",
-      color:"#f4f4f5", padding:"9px 12px", borderRadius:9, width:"100%", fontSize:13,
+      color:"var(--text)", padding:"9px 12px", borderRadius:9, width:"100%", fontSize:14,
       outline:"none", boxSizing:"border-box", transition:"border-color 0.15s",
     },
     textarea: {
       background:"rgba(255,255,255,0.04)", border:"1px solid rgba(255,255,255,0.09)",
-      color:"#f4f4f5", padding:"9px 12px", borderRadius:9, width:"100%",
-      fontSize:13, resize:"vertical", minHeight:70, outline:"none", boxSizing:"border-box",
+      color:"var(--text)", padding:"9px 12px", borderRadius:9, width:"100%",
+      fontSize:14, resize:"vertical", minHeight:70, outline:"none", boxSizing:"border-box",
     },
     btnSave: {
       marginTop:20, width:"100%", padding:"12px",
@@ -195,10 +195,10 @@ function PiezaModal({ pieza, onClose, onSave, esAdmin }) {
       <div style={S.card} onClick={e => e.stopPropagation()}>
         <button style={S.close} onClick={onClose}>×</button>
 
-        <div style={{ fontSize:9, color:"#71717a", letterSpacing:2, textTransform:"uppercase", fontWeight:600 }}>{pieza.sector}</div>
-        <h2 style={{ margin:"6px 0 0", color:"#f4f4f5", fontFamily:"'Outfit',system-ui", fontSize:17, fontWeight:700 }}>
+        <div style={{ fontSize:10, color:"var(--dim)", letterSpacing:1.3, textTransform:"uppercase", fontWeight: 700 }}>{pieza.sector}</div>
+        <h2 style={{ margin:"6px 0 0", color:"var(--text)", fontFamily:"'Outfit',system-ui", fontSize:17, fontWeight:700 }}>
           {pieza.pieza}
-          {pieza.opcional && <span style={{ marginLeft:8, fontSize:9, color:"#71717a", letterSpacing:1.5 }}>OPCIONAL</span>}
+          {pieza.opcional && <span style={{ marginLeft:8, fontSize:10, color:"var(--dim)", letterSpacing:1.1 }}>OPCIONAL</span>}
         </h2>
 
         <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr", gap:10, marginTop: 16 }}>
@@ -721,7 +721,7 @@ export default function MarmoleriaScreen({ profile, signOut }) {
         startY: 50, // Arranca más abajo para no pisar el logo ni los títulos
         head: [["Unidad", "Fecha envío", "Tipo plantilla", "Color", "Sector", "Cantidad", "Estado", "Observaciones"]],
         body: rows,
-        styles: { fontSize: 8 },
+        styles: { fontSize: 10 },
         headStyles: { fillColor: [14, 18, 28] }, // Color oscuro tipo UI
         columnStyles: { 
           7: { cellWidth: 35 } // Darle más ancho a la columna de observaciones
@@ -758,15 +758,15 @@ export default function MarmoleriaScreen({ profile, signOut }) {
     blue:    "#3b82f6",
   };
   const GLASS = { backdropFilter:"blur(32px) saturate(130%)", WebkitBackdropFilter:"blur(32px) saturate(130%)" };
-  const INP   = { background:"rgba(255,255,255,0.04)", border:`1px solid ${C2.b0}`, color:C2.t0, padding:"7px 10px", borderRadius:7, fontSize:12, outline:"none", width:"100%", fontFamily:C2.sans, boxSizing:"border-box" };
-  const INP_SM = { ...INP, padding:"5px 8px", fontSize:11 };
+  const INP   = { background:"rgba(255,255,255,0.04)", border:`1px solid ${C2.b0}`, color:C2.t0, padding:"7px 10px", borderRadius:7, fontSize:13, outline:"none", width:"100%", fontFamily:C2.sans, boxSizing:"border-box" };
+  const INP_SM = { ...INP, padding:"5px 8px", fontSize:12 };
 
   const lineaNavBtn = (sel) => ({
     width:"100%", textAlign:"left", padding:"9px 14px",
     border:"none", borderBottom:`1px solid rgba(255,255,255,0.025)`,
     background: sel ? "rgba(59,130,246,0.1)" : "transparent",
     color: sel ? "#93b4ff" : C2.t2,
-    cursor:"pointer", fontSize:12, fontWeight: sel ? 600 : 400,
+    cursor:"pointer", fontSize:13, fontWeight: sel ? 600 : 400,
     display:"flex", justifyContent:"space-between", alignItems:"center",
     fontFamily: C2.sans,
     borderLeft: sel ? `2px solid ${C2.primary}` : "2px solid transparent",
@@ -775,7 +775,7 @@ export default function MarmoleriaScreen({ profile, signOut }) {
 
   const unidadNavBtn = (sel) => ({
     ...lineaNavBtn(sel),
-    paddingLeft:24, fontSize:11,
+    paddingLeft:24, fontSize:12,
     background: sel ? "rgba(59,130,246,0.08)" : "transparent",
     color: sel ? C2.t0 : "#3a4455",
     borderLeft: sel ? `2px solid ${C2.primary}` : "2px solid transparent",
@@ -787,7 +787,7 @@ export default function MarmoleriaScreen({ profile, signOut }) {
       background: m.bg, color: m.color,
       border: `1px solid ${m.border || C2.b0}`,
       padding:"4px 9px", borderRadius:7,
-      cursor:"pointer", fontSize:11, fontWeight:600, outline:"none",
+      cursor:"pointer", fontSize:12, fontWeight: 700, outline:"none",
       fontFamily: C2.sans,
     };
   };
@@ -891,10 +891,10 @@ export default function MarmoleriaScreen({ profile, signOut }) {
 
             {/* Título */}
             <div style={{ display:"flex", flexDirection:"column", gap:1, minWidth:0, flexShrink:0 }}>
-              <span style={{ fontSize:7.5, color:C2.t2, letterSpacing:3, textTransform:"uppercase", fontFamily:C2.mono, lineHeight:1 }}>Producción</span>
+              <span style={{ fontSize:10, color:C2.t2, letterSpacing:3, textTransform:"uppercase", fontFamily:C2.mono, lineHeight:1 }}>Producción</span>
               <span style={{ fontSize:15, fontWeight:700, color:C2.t0, lineHeight:1.15, letterSpacing:-0.2 }}>
                 Marmolería
-                {unidadId && <span style={{ fontWeight:400, color:C2.t2, fontSize:13 }}> · {lineaSel?.nombre} — {unidadSel?.codigo}</span>}
+                {unidadId && <span style={{ fontWeight:400, color:C2.t2, fontSize:14 }}> · {lineaSel?.nombre} — {unidadSel?.codigo}</span>}
               </span>
             </div>
 
@@ -911,14 +911,14 @@ export default function MarmoleriaScreen({ profile, signOut }) {
                 ].map(({ label, n, c }) => (
                   <div key={label} style={{ display:"flex", alignItems:"center", gap:5, padding:"3px 9px", borderRadius:6,
                     background:C2.s0, border:`1px solid ${C2.b0}`, borderLeft:`2px solid ${c}` }}>
-                    <span style={{ fontFamily:C2.mono, fontSize:13, fontWeight:700, color:c, lineHeight:1 }}>{n}</span>
-                    <span style={{ fontSize:8, color:C2.t1, letterSpacing:2, textTransform:"uppercase" }}>{label}</span>
+                    <span style={{ fontFamily:C2.mono, fontSize:14, fontWeight:700, color:c, lineHeight:1 }}>{n}</span>
+                    <span style={{ fontSize:10, color:C2.t1, letterSpacing:1.3, textTransform:"uppercase" }}>{label}</span>
                   </div>
                 ))}
                 <div style={{ display:"flex", alignItems:"center", gap:4, padding:"3px 10px", borderRadius:6,
                   background: pctColor === C2.green ? "rgba(16,185,129,0.08)" : C2.s0,
                   border:`1px solid ${pctColor === C2.green ? "rgba(16,185,129,0.2)" : C2.b0}` }}>
-                  <span style={{ fontFamily:C2.mono, fontSize:13, fontWeight:700, color:pctColor }}>{porcentaje}%</span>
+                  <span style={{ fontFamily:C2.mono, fontSize:14, fontWeight:700, color:pctColor }}>{porcentaje}%</span>
                 </div>
               </div>
             ) : (
@@ -930,8 +930,8 @@ export default function MarmoleriaScreen({ profile, signOut }) {
                   ].filter(x => x.n > 0).map(({ label, n, c }) => (
                     <div key={label} style={{ display:"flex", alignItems:"center", gap:5, padding:"3px 8px", borderRadius:6,
                       background:C2.s0, border:`1px solid ${C2.b0}`, borderLeft:`2px solid ${c}` }}>
-                      <span style={{ fontFamily:C2.mono, fontSize:13, fontWeight:700, color:c }}>{n}</span>
-                      <span style={{ fontSize:8, color:C2.t1, letterSpacing:2, textTransform:"uppercase" }}>{label}</span>
+                      <span style={{ fontFamily:C2.mono, fontSize:14, fontWeight:700, color:c }}>{n}</span>
+                      <span style={{ fontSize:10, color:C2.t1, letterSpacing:1.3, textTransform:"uppercase" }}>{label}</span>
                     </div>
                   ))}
                 </div>
@@ -945,7 +945,7 @@ export default function MarmoleriaScreen({ profile, signOut }) {
               <button className="action-btn" onClick={() => setShowAddPieza(v => !v)} style={{
                 display:"flex", alignItems:"center", gap:6,
                 border:`1px solid ${C2.b0}`, background:"transparent", color:C2.t1,
-                padding:"6px 13px", borderRadius:8, cursor:"pointer", fontFamily:C2.sans, fontSize:11, transition:"opacity 0.15s" }}>
+                padding:"6px 13px", borderRadius:8, cursor:"pointer", fontFamily:C2.sans, fontSize:12, transition:"opacity 0.15s" }}>
                 <span style={{ fontSize:14, lineHeight:1 }}>{showAddPieza ? "✕" : "+"}</span>
                 {showAddPieza ? "Cancelar" : "Pieza extra"}
               </button>
@@ -954,7 +954,7 @@ export default function MarmoleriaScreen({ profile, signOut }) {
               display:"flex", alignItems:"center", gap:6,
               border:"1px solid rgba(16,185,129,0.28)", background:"rgba(16,185,129,0.07)",
               color:C2.green, padding:"6px 14px", borderRadius:8, cursor:"pointer",
-              fontFamily:C2.sans, fontSize:11, transition:"opacity 0.15s", fontWeight:600 }}>
+              fontFamily:C2.sans, fontSize:12, transition:"opacity 0.15s", fontWeight: 700 }}>
               <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round">
                 <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/>
               </svg>
@@ -974,7 +974,7 @@ export default function MarmoleriaScreen({ profile, signOut }) {
                 <div style={{ position:"absolute", top:-24, right:-24, width:90, height:90, borderRadius:"50%",
                   background:`${k.color}16`, filter:"blur(22px)", pointerEvents:"none" }}/>
                 <div style={{ display:"flex", alignItems:"center", justifyContent:"space-between", marginBottom:9 }}>
-                  <span style={{ fontSize:8.5, letterSpacing:2, textTransform:"uppercase", color:C2.t2, fontWeight:600, fontFamily:C2.mono }}>
+                  <span style={{ fontSize:10, letterSpacing:1.3, textTransform:"uppercase", color:C2.t2, fontWeight: 700, fontFamily:C2.mono }}>
                     {k.label}
                   </span>
                   <div style={{ color:`${k.color}80`, display:"flex" }}>{k.icon}</div>
@@ -983,7 +983,7 @@ export default function MarmoleriaScreen({ profile, signOut }) {
                   color:k.color, lineHeight:1, letterSpacing:"-1px", marginBottom:6 }}>
                   {k.value}
                 </div>
-                <div style={{ fontSize:10, color:C2.t2, lineHeight:1.4 }}>{k.sub}</div>
+                <div style={{ fontSize:11, color:C2.t2, lineHeight:1.4 }}>{k.sub}</div>
                 <div style={{ position:"absolute", bottom:0, left:0, right:0, height:2, borderRadius:"0 0 12px 12px",
                   background:`linear-gradient(90deg, transparent, ${k.color}45, transparent)` }}/>
               </div>
@@ -995,7 +995,7 @@ export default function MarmoleriaScreen({ profile, signOut }) {
             <div style={{ height:38, background:"rgba(7,8,13,0.88)", backdropFilter:"blur(32px) saturate(130%)", WebkitBackdropFilter:"blur(32px) saturate(130%)",
               borderBottom:`1px solid ${C2.b0}`, padding:"0 22px", marginTop:12,
               display:"flex", alignItems:"center", gap:5, flexShrink:0, overflowX:"auto" }}>
-              <span style={{ fontSize:8, color:C2.t2, letterSpacing:2, textTransform:"uppercase", flexShrink:0, fontFamily:C2.mono }}>Estado</span>
+              <span style={{ fontSize:10, color:C2.t2, letterSpacing:1.3, textTransform:"uppercase", flexShrink:0, fontFamily:C2.mono }}>Estado</span>
               {["todos", ...ESTADOS].map(e => {
                 const m = ESTADO_META[e];
                 const active = filtroEstado === e;
@@ -1004,7 +1004,7 @@ export default function MarmoleriaScreen({ profile, signOut }) {
                     border: active ? `1px solid ${m?.border ?? C2.b1}` : "1px solid transparent",
                     background: active ? (m?.bg ?? C2.s1) : "transparent",
                     color: active ? (m?.color ?? C2.t0) : C2.t2,
-                    padding:"2px 10px", borderRadius:5, cursor:"pointer", fontSize:10,
+                    padding:"2px 10px", borderRadius:5, cursor:"pointer", fontSize:11,
                     whiteSpace:"nowrap", fontFamily:C2.sans, transition:"all 0.12s",
                   }}>{e === "todos" ? "Todas" : e}</button>
                 );
@@ -1024,8 +1024,8 @@ export default function MarmoleriaScreen({ profile, signOut }) {
 
               {/* Encabezado nav */}
               <div style={{ padding:"11px 14px 9px", borderBottom:`1px solid ${C2.b0}`, flexShrink:0 }}>
-                <div style={{ fontSize:7.5, letterSpacing:3, color:C2.t2, textTransform:"uppercase", fontFamily:C2.mono, marginBottom:1 }}>Líneas</div>
-                <div style={{ fontSize:11, color:C2.t1, fontWeight:500 }}>Proyectos activos</div>
+                <div style={{ fontSize:10, letterSpacing:3, color:C2.t2, textTransform:"uppercase", fontFamily:C2.mono, marginBottom:1 }}>Líneas</div>
+                <div style={{ fontSize:12, color:C2.t1, fontWeight: 700 }}>Proyectos activos</div>
               </div>
 
               {/* Panel general btn */}
@@ -1034,7 +1034,7 @@ export default function MarmoleriaScreen({ profile, signOut }) {
                 border:"none", borderBottom:`1px solid rgba(255,255,255,0.025)`,
                 background: viewMode === "general" && !unidadId && !lineaId ? "rgba(59,130,246,0.09)" : "transparent",
                 color: viewMode === "general" && !unidadId && !lineaId ? "#93b4ff" : C2.t2,
-                cursor:"pointer", fontSize:11, fontWeight: viewMode === "general" && !unidadId && !lineaId ? 600 : 400,
+                cursor:"pointer", fontSize:12, fontWeight: viewMode === "general" && !unidadId && !lineaId ? 600 : 400,
                 display:"flex", alignItems:"center", gap:8, fontFamily:C2.sans,
                 letterSpacing:0.3, textTransform:"uppercase",
                 borderLeft: viewMode === "general" && !unidadId && !lineaId ? `2px solid ${C2.primary}` : "2px solid transparent",
@@ -1059,7 +1059,7 @@ export default function MarmoleriaScreen({ profile, signOut }) {
                     border:"none", borderBottom:`1px solid rgba(255,255,255,0.025)`,
                     background: selDesmoldes ? "rgba(239,68,68,0.07)" : "transparent",
                     color: selDesmoldes ? "#fca5a5" : C2.t2,
-                    cursor:"pointer", fontSize:11, fontWeight: selDesmoldes ? 600 : 400,
+                    cursor:"pointer", fontSize:12, fontWeight: selDesmoldes ? 600 : 400,
                     display:"flex", alignItems:"center", justifyContent:"space-between",
                     fontFamily:C2.sans, letterSpacing:0.3, textTransform:"uppercase",
                     borderLeft: selDesmoldes ? "2px solid #ef4444" : "2px solid transparent",
@@ -1072,7 +1072,7 @@ export default function MarmoleriaScreen({ profile, signOut }) {
                       Desmoldes
                     </span>
                     {urgentes > 0 && (
-                      <span style={{ fontSize:9, fontWeight:800, color:"#ef4444", background:"rgba(239,68,68,0.15)",
+                      <span style={{ fontSize:10, fontWeight:800, color:"#ef4444", background:"rgba(239,68,68,0.15)",
                         border:"1px solid rgba(239,68,68,0.3)", padding:"1px 6px", borderRadius:99, fontFamily:C2.mono }}>
                         {urgentes}
                       </span>
@@ -1090,7 +1090,7 @@ export default function MarmoleriaScreen({ profile, signOut }) {
                     border:"none", borderBottom:`1px solid rgba(255,255,255,0.025)`,
                     background: selHistorial ? "rgba(168,180,196,0.07)" : "transparent",
                     color: selHistorial ? "#a8b4c4" : C2.t2,
-                    cursor:"pointer", fontSize:11, fontWeight: selHistorial ? 600 : 400,
+                    cursor:"pointer", fontSize:12, fontWeight: selHistorial ? 600 : 400,
                     display:"flex", alignItems:"center", gap:8, fontFamily:C2.sans,
                     letterSpacing:0.3, textTransform:"uppercase",
                     borderLeft: selHistorial ? "2px solid #a8b4c4" : "2px solid transparent",
@@ -1115,7 +1115,7 @@ export default function MarmoleriaScreen({ profile, signOut }) {
                         border:"none", borderBottom:`1px solid rgba(255,255,255,0.025)`,
                         background: selLinea ? "rgba(59,130,246,0.09)" : "transparent",
                         color: selLinea ? "#93b4ff" : C2.t2,
-                        cursor:"pointer", fontSize:12, fontWeight: selLinea ? 600 : 400,
+                        cursor:"pointer", fontSize:13, fontWeight: selLinea ? 600 : 400,
                         display:"flex", justifyContent:"space-between", alignItems:"center",
                         fontFamily:C2.sans,
                         borderLeft: selLinea ? `2px solid ${C2.primary}` : "2px solid transparent",
@@ -1127,7 +1127,7 @@ export default function MarmoleriaScreen({ profile, signOut }) {
                             boxShadow: selLinea ? `0 0 8px ${C2.primary}88` : "none",
                             transition:"all 0.2s" }} />
                           {editLineaId === l.id ? (
-                            <input autoFocus style={{ ...INP_SM, flex:1, margin:0, padding:"2px 6px", fontSize:11 }}
+                            <input autoFocus style={{ ...INP_SM, flex:1, margin:0, padding:"2px 6px", fontSize:12 }}
                               value={editLineaNombre}
                               onChange={e => setEditLineaNombre(e.target.value)}
                               onBlur={() => guardarEditLinea(l.id)}
@@ -1140,9 +1140,9 @@ export default function MarmoleriaScreen({ profile, signOut }) {
                         {esAdmin && selLinea && editLineaId !== l.id && (
                           <div style={{ display:"flex", gap:2, flexShrink:0 }}>
                             <span className="edit-btn" onClick={e => { e.stopPropagation(); setEditLineaNombre(l.nombre); setEditLineaId(l.id); }}
-                              style={{ fontSize:10, color:C2.t2, cursor:"pointer", padding:"2px 5px", borderRadius:4, transition:"color 0.12s" }}>✎</span>
+                              style={{ fontSize:11, color:C2.t2, cursor:"pointer", padding:"2px 5px", borderRadius:4, transition:"color 0.12s" }}>✎</span>
                             <span className="del-btn" onClick={e => { e.stopPropagation(); eliminarLinea(l.id); }}
-                              style={{ fontSize:13, color:C2.t2, cursor:"pointer", padding:"2px 5px", borderRadius:4, transition:"color 0.12s" }}>×</span>
+                              style={{ fontSize:14, color:C2.t2, cursor:"pointer", padding:"2px 5px", borderRadius:4, transition:"color 0.12s" }}>×</span>
                           </div>
                         )}
                       </button>
@@ -1155,14 +1155,14 @@ export default function MarmoleriaScreen({ profile, signOut }) {
                               border:"none", borderBottom:`1px solid rgba(255,255,255,0.02)`,
                               background: unidadId===u.id ? "rgba(59,130,246,0.07)" : "transparent",
                               color: unidadId===u.id ? C2.t0 : "#3a4455",
-                              cursor:"pointer", fontSize:11,
+                              cursor:"pointer", fontSize:12,
                               display:"flex", alignItems:"center", justifyContent:"space-between",
                               fontFamily:C2.mono,
                               borderLeft: unidadId===u.id ? `2px solid ${C2.primary}` : "2px solid transparent",
                               transition:"all 0.15s",
                             }} onClick={() => setUnidadId(u.id)}>
                               {editUnidadId === u.id ? (
-                                <input autoFocus style={{ ...INP_SM, flex:1, padding:"2px 6px", fontSize:11, fontFamily:C2.mono }}
+                                <input autoFocus style={{ ...INP_SM, flex:1, padding:"2px 6px", fontSize:12, fontFamily:C2.mono }}
                                   value={editUnidadCodigo}
                                   onChange={e => setEditUnidadCodigo(e.target.value)}
                                   onBlur={() => guardarEditUnidad(u.id)}
@@ -1174,9 +1174,9 @@ export default function MarmoleriaScreen({ profile, signOut }) {
                               {esAdmin && unidadId === u.id && editUnidadId !== u.id && (
                                 <div style={{ display:"flex", gap:2 }}>
                                   <span className="edit-btn" onClick={e => { e.stopPropagation(); setEditUnidadCodigo(u.codigo); setEditUnidadId(u.id); }}
-                                    style={{ fontSize:10, color:C2.t2, cursor:"pointer", padding:"2px 4px", transition:"color 0.12s" }}>✎</span>
+                                    style={{ fontSize:11, color:C2.t2, cursor:"pointer", padding:"2px 4px", transition:"color 0.12s" }}>✎</span>
                                   <span className="del-btn" onClick={e => { e.stopPropagation(); eliminarUnidad(u.id); }}
-                                    style={{ fontSize:12, color:C2.t2, cursor:"pointer", padding:"2px 4px", transition:"color 0.12s" }}>×</span>
+                                    style={{ fontSize:13, color:C2.t2, cursor:"pointer", padding:"2px 4px", transition:"color 0.12s" }}>×</span>
                                 </div>
                               )}
                             </button>
@@ -1199,7 +1199,7 @@ export default function MarmoleriaScreen({ profile, signOut }) {
               {/* Nueva línea */}
               {esAdmin && (
                 <div style={{ padding:"10px 14px", borderTop:`1px solid ${C2.b0}`, flexShrink:0 }}>
-                  <div style={{ fontSize:8, letterSpacing:2, color:C2.t2, textTransform:"uppercase", marginBottom:5, fontFamily:C2.mono }}>Nueva línea</div>
+                  <div style={{ fontSize:10, letterSpacing:1.3, color:C2.t2, textTransform:"uppercase", marginBottom:5, fontFamily:C2.mono }}>Nueva línea</div>
                   <div style={{ display:"flex", gap:5 }}>
                     <input style={{ ...INP_SM, flex:1 }} placeholder="Ej: K65"
                       value={newLinea} onChange={e => setNewLinea(e.target.value)}
@@ -1230,9 +1230,9 @@ export default function MarmoleriaScreen({ profile, signOut }) {
                   <div style={{ padding:"22px 26px", animation:"slideUp .28s ease" }}>
                     <div style={{ display:"flex", alignItems:"flex-end", justifyContent:"space-between", marginBottom:14 }}>
                       <div>
-                        <div style={{ fontSize:8, color:C2.t2, letterSpacing:3, textTransform:"uppercase", fontFamily:C2.mono, marginBottom:5 }}>Producción 2026</div>
+                        <div style={{ fontSize:10, color:C2.t2, letterSpacing:3, textTransform:"uppercase", fontFamily:C2.mono, marginBottom:5 }}>Producción 2026</div>
                         <h1 style={{ margin:0, fontSize:18, fontWeight:700, color:C2.t0, letterSpacing:-0.3 }}>Desmoldes & Plantillas</h1>
-                        <p style={{ color:C2.t2, fontSize:11, margin:"4px 0 0" }}>
+                        <p style={{ color:C2.t2, fontSize:12, margin:"4px 0 0" }}>
                           Fecha estimada = desmolde + gap histórico por línea
                           &nbsp;·&nbsp; K37 <strong style={{ color:C2.t1 }}>104d</strong>
                           &nbsp;· K42 <strong style={{ color:C2.t1 }}>127d</strong>
@@ -1243,7 +1243,7 @@ export default function MarmoleriaScreen({ profile, signOut }) {
                       {urgentes > 0 && (
                         <div style={{ padding:"6px 14px", borderRadius:8, background:"rgba(239,68,68,0.1)", border:"1px solid rgba(239,68,68,0.25)", textAlign:"center", flexShrink:0 }}>
                           <div style={{ fontFamily:C2.mono, fontSize:20, fontWeight:800, color:"#ef4444" }}>{urgentes}</div>
-                          <div style={{ fontSize:8, color:"#ef4444", letterSpacing:1.5, textTransform:"uppercase" }}>Pedir ya</div>
+                          <div style={{ fontSize:10, color:"#ef4444", letterSpacing:1.1, textTransform:"uppercase" }}>Pedir ya</div>
                         </div>
                       )}
                     </div>
@@ -1253,7 +1253,7 @@ export default function MarmoleriaScreen({ profile, signOut }) {
                         gap:8, padding:"9px 16px", borderBottom:`1px solid ${C2.b0}`,
                         background:"rgba(255,255,255,0.02)" }}>
                         {["Línea","Barco","Desmolde","Gap","Est. plantilla","Días","Estado"].map((h,i) => (
-                          <div key={i} style={{ fontSize:7.5, letterSpacing:2, textTransform:"uppercase", color:C2.t2, fontWeight:700, fontFamily:C2.mono }}>{h}</div>
+                          <div key={i} style={{ fontSize:10, letterSpacing:1.3, textTransform:"uppercase", color:C2.t2, fontWeight:700, fontFamily:C2.mono }}>{h}</div>
                         ))}
                       </div>
 
@@ -1275,16 +1275,16 @@ export default function MarmoleriaScreen({ profile, signOut }) {
                             background: highlight ? "rgba(239,68,68,0.03)" : "transparent",
                             animation:`slideUp 0.28s ease ${Math.min(idx,12)*18}ms both`,
                           }}>
-                            <div style={{ fontFamily:C2.mono, fontSize:11, color:C2.t2 }}>{d.linea}</div>
-                            <div style={{ fontFamily:C2.mono, fontSize:13, fontWeight:700, color: highlight ? C2.t0 : C2.t1 }}>{d.barco}</div>
-                            <div style={{ fontFamily:C2.mono, fontSize:11, color:C2.t2 }}>{fmtDate(d.desmolde)}</div>
-                            <div style={{ fontFamily:C2.mono, fontSize:11, color:C2.t2 }}>+{d.gap}d</div>
-                            <div style={{ fontFamily:C2.mono, fontSize:11, fontWeight: highlight ? 700 : 400, color: highlight ? "#fca5a5" : C2.t1 }}>{fmtDate(d.estStr)}</div>
+                            <div style={{ fontFamily:C2.mono, fontSize:12, color:C2.t2 }}>{d.linea}</div>
+                            <div style={{ fontFamily:C2.mono, fontSize:14, fontWeight:700, color: highlight ? C2.t0 : C2.t1 }}>{d.barco}</div>
+                            <div style={{ fontFamily:C2.mono, fontSize:12, color:C2.t2 }}>{fmtDate(d.desmolde)}</div>
+                            <div style={{ fontFamily:C2.mono, fontSize:12, color:C2.t2 }}>+{d.gap}d</div>
+                            <div style={{ fontFamily:C2.mono, fontSize:12, fontWeight: highlight ? 700 : 400, color: highlight ? "#fca5a5" : C2.t1 }}>{fmtDate(d.estStr)}</div>
                             <div>
-                              <span style={{ fontFamily:C2.mono, fontSize:12, fontWeight:700, color:diasColor }}>{diasLabel}</span>
+                              <span style={{ fontFamily:C2.mono, fontSize:13, fontWeight:700, color:diasColor }}>{diasLabel}</span>
                             </div>
                             <div>
-                              <span style={{ fontSize:9, letterSpacing:0.8, textTransform:"uppercase", padding:"3px 9px",
+                              <span style={{ fontSize:10, letterSpacing:0.8, textTransform:"uppercase", padding:"3px 9px",
                                 borderRadius:99, fontWeight:700,
                                 background:urg.bg, color:urg.color, border:`1px solid ${urg.border}` }}>
                                 {urg.label}
@@ -1295,7 +1295,7 @@ export default function MarmoleriaScreen({ profile, signOut }) {
                       })}
                     </div>
 
-                    <div style={{ marginTop:10, fontSize:10, color:C2.t2 }}>
+                    <div style={{ marginTop:10, fontSize:11, color:C2.t2 }}>
                       Gap = días históricos entre desmolde y primer envío de plantillas en esa línea.
                       "Solicitadas" = el barco tiene al menos una pieza con fecha de envío registrada.
                     </div>
@@ -1308,9 +1308,9 @@ export default function MarmoleriaScreen({ profile, signOut }) {
                 <div style={{ padding:"22px 26px", animation:"slideUp .28s ease" }}>
                   <div style={{ display:"flex", alignItems:"flex-end", justifyContent:"space-between", marginBottom:18 }}>
                     <div>
-                      <div style={{ fontSize:8, color:C2.t2, letterSpacing:3, textTransform:"uppercase", fontFamily:C2.mono, marginBottom:5 }}>Registro</div>
+                      <div style={{ fontSize:10, color:C2.t2, letterSpacing:3, textTransform:"uppercase", fontFamily:C2.mono, marginBottom:5 }}>Registro</div>
                       <h1 style={{ margin:0, fontSize:18, fontWeight:700, color:C2.t0, letterSpacing:-0.3 }}>Historial de Envíos</h1>
-                      <p style={{ color:C2.t2, fontSize:11, margin:"4px 0 0" }}>
+                      <p style={{ color:C2.t2, fontSize:12, margin:"4px 0 0" }}>
                         Todas las plantillas enviadas desde que empezaste a usar el programa
                         {historialEnvios.length > 0 && <> — <strong style={{ color:C2.t1 }}>{historialEnvios.length} registros</strong></>}
                       </p>
@@ -1318,7 +1318,7 @@ export default function MarmoleriaScreen({ profile, signOut }) {
                     <button className="action-btn" onClick={() => setShowSQLModal(true)} style={{
                       display:"flex", alignItems:"center", gap:6, padding:"7px 13px", borderRadius:8, cursor:"pointer",
                       border:`1px solid ${C2.b0}`, background:"rgba(255,255,255,0.03)", color:C2.t2,
-                      fontFamily:C2.mono, fontSize:11, transition:"opacity 0.15s",
+                      fontFamily:C2.mono, fontSize:12, transition:"opacity 0.15s",
                     }}>
                       <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round">
                         <ellipse cx="12" cy="5" rx="9" ry="3"/><path d="M21 12c0 1.66-4 3-9 3s-9-1.34-9-3"/><path d="M3 5v14c0 1.66 4 3 9 3s9-1.34 9-3V5"/>
@@ -1328,14 +1328,14 @@ export default function MarmoleriaScreen({ profile, signOut }) {
                   </div>
 
                   {historialLoading ? (
-                    <div style={{ textAlign:"center", padding:60, fontSize:11, color:C2.t2, letterSpacing:2, textTransform:"uppercase", fontFamily:C2.mono }}>
+                    <div style={{ textAlign:"center", padding:60, fontSize:12, color:C2.t2, letterSpacing:1.3, textTransform:"uppercase", fontFamily:C2.mono }}>
                       Cargando historial…
                     </div>
                   ) : historialEnvios.length === 0 ? (
                     <div style={{ textAlign:"center", padding:"60px 40px", color:C2.t2,
                       background:C2.s0, borderRadius:14, border:`1px dashed ${C2.b0}` }}>
                       <div style={{ fontSize:28, marginBottom:12, opacity:0.3 }}>◎</div>
-                      <div style={{ fontSize:11, letterSpacing:2, textTransform:"uppercase", fontFamily:C2.mono }}>
+                      <div style={{ fontSize:12, letterSpacing:1.3, textTransform:"uppercase", fontFamily:C2.mono }}>
                         Sin registros — los envíos con fecha aparecerán aquí
                       </div>
                     </div>
@@ -1356,7 +1356,7 @@ export default function MarmoleriaScreen({ profile, signOut }) {
                             gap:10, padding:"9px 18px", borderBottom:`1px solid ${C2.b0}`,
                             background:"rgba(255,255,255,0.02)" }}>
                             {["Barco","Sector","Pieza / Color","Fecha envío","Fecha regreso","Estado"].map((h,i) => (
-                              <div key={i} style={{ fontSize:7.5, letterSpacing:2, textTransform:"uppercase", color:C2.t2, fontWeight:700, fontFamily:C2.mono }}>{h}</div>
+                              <div key={i} style={{ fontSize:10, letterSpacing:1.3, textTransform:"uppercase", color:C2.t2, fontWeight:700, fontFamily:C2.mono }}>{h}</div>
                             ))}
                           </div>
                           {historialEnvios.map((p, idx) => {
@@ -1368,20 +1368,20 @@ export default function MarmoleriaScreen({ profile, signOut }) {
                                 borderBottom:`1px solid rgba(255,255,255,0.025)`,
                                 transition:"background 0.12s",
                               }} className="dash-row">
-                                <div style={{ fontFamily:C2.mono, fontSize:12, fontWeight:700, color:C2.t0 }}>{p.codigo_barco}</div>
-                                <div style={{ fontSize:10, color:C2.t2 }}>{p.sector}</div>
+                                <div style={{ fontFamily:C2.mono, fontSize:13, fontWeight:700, color:C2.t0 }}>{p.codigo_barco}</div>
+                                <div style={{ fontSize:11, color:C2.t2 }}>{p.sector}</div>
                                 <div>
-                                  <div style={{ fontSize:12, color:C2.t0, fontWeight:500 }}>{p.pieza}</div>
-                                  {p.color && <div style={{ fontSize:10, color:C2.t2, marginTop:1 }}>{p.color}</div>}
+                                  <div style={{ fontSize:13, color:C2.t0, fontWeight:500 }}>{p.pieza}</div>
+                                  {p.color && <div style={{ fontSize:11, color:C2.t2, marginTop:1 }}>{p.color}</div>}
                                 </div>
-                                <div style={{ fontFamily:C2.mono, fontSize:11, color:C2.t1 }}>
+                                <div style={{ fontFamily:C2.mono, fontSize:12, color:C2.t1 }}>
                                   {p.fecha_envio ? p.fecha_envio.split("-").reverse().join("/") : "—"}
                                 </div>
-                                <div style={{ fontFamily:C2.mono, fontSize:11, color:C2.t2 }}>
+                                <div style={{ fontFamily:C2.mono, fontSize:12, color:C2.t2 }}>
                                   {p.fecha_regreso ? p.fecha_regreso.split("-").reverse().join("/") : "—"}
                                 </div>
                                 <div>
-                                  <span style={{ fontSize:9, letterSpacing:1, textTransform:"uppercase", padding:"3px 8px",
+                                  <span style={{ fontSize:10, letterSpacing:1, textTransform:"uppercase", padding:"3px 8px",
                                     borderRadius:99, fontWeight:700, background:m.bg, color:m.color, border:`1px solid ${m.border}` }}>
                                     {p.estado}
                                   </span>
@@ -1402,9 +1402,9 @@ export default function MarmoleriaScreen({ profile, signOut }) {
 
                   <div style={{ display:"flex", alignItems:"flex-end", justifyContent:"space-between", marginBottom:20 }}>
                     <div>
-                      <div style={{ fontSize:8, color:C2.t2, letterSpacing:3, textTransform:"uppercase", fontFamily:C2.mono, marginBottom:5 }}>Panel General</div>
+                      <div style={{ fontSize:10, color:C2.t2, letterSpacing:3, textTransform:"uppercase", fontFamily:C2.mono, marginBottom:5 }}>Panel General</div>
                       <h1 style={{ margin:0, fontSize:18, fontWeight:700, color:C2.t0, letterSpacing:-0.3 }}>Envíos en Seguimiento</h1>
-                      <p style={{ color:C2.t2, fontSize:11, marginTop:4, margin:"4px 0 0" }}>
+                      <p style={{ color:C2.t2, fontSize:12, marginTop:4, margin:"4px 0 0" }}>
                         Piezas en estado <strong style={{ color:C2.t1 }}>Enviado</strong> o <strong style={{ color:C2.red }}>Rehacer</strong> en toda la fábrica
                       </p>
                     </div>
@@ -1414,7 +1414,7 @@ export default function MarmoleriaScreen({ profile, signOut }) {
                     <div style={{ textAlign:"center", padding:"60px 40px", color:C2.t2,
                       background:C2.s0, borderRadius:14, border:`1px dashed ${C2.b0}` }}>
                       <div style={{ fontSize:28, marginBottom:12, opacity:0.3 }}>◎</div>
-                      <div style={{ fontSize:11, letterSpacing:2, textTransform:"uppercase", fontFamily:C2.mono }}>Todo al día — sin piezas pendientes</div>
+                      <div style={{ fontSize:12, letterSpacing:1.3, textTransform:"uppercase", fontFamily:C2.mono }}>Todo al día — sin piezas pendientes</div>
                     </div>
                   ) : (
                     <div style={{ background:"rgba(255,255,255,0.02)", border:`1px solid ${C2.b0}`, borderRadius:12, overflow:"hidden" }}>
@@ -1423,7 +1423,7 @@ export default function MarmoleriaScreen({ profile, signOut }) {
                         gap:12, padding:"9px 18px", borderBottom:`1px solid ${C2.b0}`,
                         background:"rgba(255,255,255,0.02)" }}>
                         {["Barco","Pieza / Sector","Prioridad","Fecha envío","Estado",""].map((h,i) => (
-                          <div key={i} style={{ fontSize:7.5, letterSpacing:2, textTransform:"uppercase", color:C2.t2, fontWeight:700, fontFamily:C2.mono }}>{h}</div>
+                          <div key={i} style={{ fontSize:10, letterSpacing:1.3, textTransform:"uppercase", color:C2.t2, fontWeight:700, fontFamily:C2.mono }}>{h}</div>
                         ))}
                       </div>
                       {dashboard.map((p, idx) => {
@@ -1440,24 +1440,24 @@ export default function MarmoleriaScreen({ profile, signOut }) {
                             <div style={{ display:"flex", alignItems:"center", gap:7 }}>
                               <div style={{ width:5, height:5, borderRadius:"50%", background:m.color,
                                 boxShadow:`0 0 6px ${m.color}80`, flexShrink:0 }}/>
-                              <span style={{ fontFamily:C2.mono, color:C2.t0, fontWeight:700, fontSize:12 }}>{p.codigo_barco}</span>
+                              <span style={{ fontFamily:C2.mono, color:C2.t0, fontWeight:700, fontSize:13 }}>{p.codigo_barco}</span>
                             </div>
                             <div>
-                              <div style={{ color:C2.t0, fontSize:12, fontWeight:600 }}>{p.pieza}</div>
-                              <div style={{ color:C2.t2, fontSize:10, marginTop:2 }}>{p.sector}{p.color ? ` · ${p.color}` : ""}</div>
+                              <div style={{ color:C2.t0, fontSize:13, fontWeight:600 }}>{p.pieza}</div>
+                              <div style={{ color:C2.t2, fontSize:11, marginTop:2 }}>{p.sector}{p.color ? ` · ${p.color}` : ""}</div>
                             </div>
                             <div>
-                              <span style={{ fontSize:8, letterSpacing:1.5, textTransform:"uppercase",
+                              <span style={{ fontSize:10, letterSpacing:1.1, textTransform:"uppercase",
                                 padding:"3px 9px", borderRadius:99, fontWeight:700,
                                 background:prio.bg, color:prio.color }}>
                                 {p.prioridad || "Media"}
                               </span>
                             </div>
-                            <div style={{ fontFamily:C2.mono, fontSize:11, color:C2.t2 }}>
+                            <div style={{ fontFamily:C2.mono, fontSize:12, color:C2.t2 }}>
                               {p.fecha_envio ? p.fecha_envio.split("-").reverse().join("/") : "—"}
                             </div>
                             <div>
-                              <span style={{ fontSize:9, letterSpacing:1, textTransform:"uppercase",
+                              <span style={{ fontSize:10, letterSpacing:1, textTransform:"uppercase",
                                 padding:"3px 9px", borderRadius:99, fontWeight:700,
                                 background:m.bg, color:m.color, border:`1px solid ${m.border}` }}>
                                 {p.estado}
@@ -1465,7 +1465,7 @@ export default function MarmoleriaScreen({ profile, signOut }) {
                             </div>
                             <button className="edit-btn" onClick={() => setModalPieza(p)}
                               style={{ border:"none", background:"transparent", color:C2.t2, cursor:"pointer",
-                                fontSize:12, padding:"4px", borderRadius:5, transition:"color 0.12s" }}>✎</button>
+                                fontSize:13, padding:"4px", borderRadius:5, transition:"color 0.12s" }}>✎</button>
                           </div>
                         );
                       })}
@@ -1480,12 +1480,12 @@ export default function MarmoleriaScreen({ profile, signOut }) {
                   {/* Header */}
                   <div style={{ display:"flex", alignItems:"flex-start", justifyContent:"space-between", marginBottom:20 }}>
                     <div>
-                      <div style={{ fontSize:8, color:C2.t2, letterSpacing:3, textTransform:"uppercase", fontFamily:C2.mono, marginBottom:5 }}>Plantilla de línea</div>
+                      <div style={{ fontSize:10, color:C2.t2, letterSpacing:3, textTransform:"uppercase", fontFamily:C2.mono, marginBottom:5 }}>Plantilla de línea</div>
                       <h1 style={{ margin:0, fontSize:18, fontWeight:700, color:C2.t0, letterSpacing:-0.3 }}>
                         {lineaSel?.nombre}
-                        <span style={{ fontWeight:400, color:C2.t2, fontSize:13 }}> — {plantillaLinea.length} piezas</span>
+                        <span style={{ fontWeight:400, color:C2.t2, fontSize:14 }}> — {plantillaLinea.length} piezas</span>
                       </h1>
-                      <p style={{ color:C2.t2, fontSize:11, margin:"4px 0 0" }}>
+                      <p style={{ color:C2.t2, fontSize:12, margin:"4px 0 0" }}>
                         Estas piezas se copian automáticamente a cada nuevo barco de esta línea
                       </p>
                     </div>
@@ -1495,7 +1495,7 @@ export default function MarmoleriaScreen({ profile, signOut }) {
                         border:`1px solid ${showAddPlantilla ? "rgba(239,68,68,0.3)" : C2.b0}`,
                         background: showAddPlantilla ? "rgba(239,68,68,0.07)" : "transparent",
                         color: showAddPlantilla ? "#fca5a5" : C2.t1,
-                        padding:"7px 14px", borderRadius:8, cursor:"pointer", fontFamily:C2.sans, fontSize:11, transition:"all 0.15s",
+                        padding:"7px 14px", borderRadius:8, cursor:"pointer", fontFamily:C2.sans, fontSize:12, transition:"all 0.15s",
                       }}>
                         <span style={{ fontSize:14, lineHeight:1 }}>{showAddPlantilla ? "✕" : "+"}</span>
                         {showAddPlantilla ? "Cancelar" : "Agregar pieza"}
@@ -1506,7 +1506,7 @@ export default function MarmoleriaScreen({ profile, signOut }) {
                   {/* Panel agregar */}
                   {showAddPlantilla && esAdmin && (
                     <div style={{ background:C2.s0, border:`1px solid ${C2.b0}`, borderRadius:10, padding:16, marginBottom:16, animation:"slideUp .2s ease" }}>
-                      <div style={{ fontSize:8.5, letterSpacing:2, textTransform:"uppercase", color:C2.t2, marginBottom:10, fontFamily:C2.mono }}>Nueva pieza en plantilla {lineaSel?.nombre}</div>
+                      <div style={{ fontSize:10, letterSpacing:1.3, textTransform:"uppercase", color:C2.t2, marginBottom:10, fontFamily:C2.mono }}>Nueva pieza en plantilla {lineaSel?.nombre}</div>
                       <div style={{ display:"grid", gridTemplateColumns:"1fr 160px auto", gap:8, alignItems:"center" }}>
                         <input style={INP} placeholder="Nombre de la pieza (ej: Alzada baño)"
                           value={formPlantilla.pieza}
@@ -1516,7 +1516,7 @@ export default function MarmoleriaScreen({ profile, signOut }) {
                           value={formPlantilla.sector}
                           onChange={e => setFormPlantilla(f=>({...f, sector:e.target.value}))}
                           onKeyDown={e => e.key === "Enter" && agregarPiezaDirectaPlantilla()} />
-                        <label style={{ display:"flex", alignItems:"center", gap:6, cursor:"pointer", flexShrink:0, color:C2.t1, fontSize:11, userSelect:"none" }}>
+                        <label style={{ display:"flex", alignItems:"center", gap:6, cursor:"pointer", flexShrink:0, color:C2.t1, fontSize:12, userSelect:"none" }}>
                           <input type="checkbox" checked={formPlantilla.opcional}
                             onChange={e => setFormPlantilla(f=>({...f, opcional:e.target.checked}))}
                             style={{ accentColor:C2.primary, width:13, height:13 }} />
@@ -1525,22 +1525,22 @@ export default function MarmoleriaScreen({ profile, signOut }) {
                       </div>
                       <button onClick={agregarPiezaDirectaPlantilla} style={{
                         marginTop:10, border:"1px solid rgba(59,130,246,0.3)", background:"rgba(59,130,246,0.1)",
-                        color:"#60a5fa", padding:"7px 18px", borderRadius:8, cursor:"pointer", fontFamily:C2.sans, fontSize:12, fontWeight:600,
+                        color:"#60a5fa", padding:"7px 18px", borderRadius:8, cursor:"pointer", fontFamily:C2.sans, fontSize:13, fontWeight:600,
                       }}>Agregar a plantilla</button>
                     </div>
                   )}
 
                   {plantillaLoading ? (
-                    <div style={{ textAlign:"center", padding:40, fontSize:11, color:C2.t2, letterSpacing:2, textTransform:"uppercase", fontFamily:C2.mono }}>Cargando…</div>
+                    <div style={{ textAlign:"center", padding:40, fontSize:12, color:C2.t2, letterSpacing:1.3, textTransform:"uppercase", fontFamily:C2.mono }}>Cargando…</div>
                   ) : plantillaLinea.length === 0 ? (
                     <div style={{ textAlign:"center", padding:"60px 40px", color:C2.t2,
                       background:C2.s0, borderRadius:14, border:`1px dashed ${C2.b0}` }}>
                       <div style={{ fontSize:28, marginBottom:12, opacity:0.3 }}>◫</div>
-                      <div style={{ fontSize:11, letterSpacing:2, textTransform:"uppercase", fontFamily:C2.mono, marginBottom:12 }}>Plantilla vacía</div>
+                      <div style={{ fontSize:12, letterSpacing:1.3, textTransform:"uppercase", fontFamily:C2.mono, marginBottom:12 }}>Plantilla vacía</div>
                       {esAdmin && (
                         <button onClick={() => setShowAddPlantilla(true)} style={{
                           border:"1px solid rgba(59,130,246,0.3)", background:"rgba(59,130,246,0.1)",
-                          color:"#60a5fa", padding:"8px 20px", borderRadius:8, cursor:"pointer", fontFamily:C2.sans, fontSize:12, fontWeight:600,
+                          color:"#60a5fa", padding:"8px 20px", borderRadius:8, cursor:"pointer", fontFamily:C2.sans, fontSize:13, fontWeight:600,
                         }}>+ Agregar primera pieza</button>
                       )}
                     </div>
@@ -1557,7 +1557,7 @@ export default function MarmoleriaScreen({ profile, signOut }) {
                           gap:12, padding:"9px 18px", borderBottom:`1px solid ${C2.b0}`,
                           background:"rgba(255,255,255,0.02)" }}>
                           {["Pieza","Sector","Opcional",""].map((h,i) => (
-                            <div key={i} style={{ fontSize:7.5, letterSpacing:2, textTransform:"uppercase", color:C2.t2, fontWeight:700, fontFamily:C2.mono }}>{h}</div>
+                            <div key={i} style={{ fontSize:10, letterSpacing:1.3, textTransform:"uppercase", color:C2.t2, fontWeight:700, fontFamily:C2.mono }}>{h}</div>
                           ))}
                         </div>
 
@@ -1568,8 +1568,8 @@ export default function MarmoleriaScreen({ profile, signOut }) {
                               borderBottom:`1px solid rgba(255,255,255,0.04)`,
                               display:"flex", alignItems:"center", justifyContent:"space-between" }}>
                               <div style={{ display:"flex", alignItems:"center", gap:8 }}>
-                                <span style={{ fontSize:8, letterSpacing:2.5, fontWeight:700, color:C2.t2, textTransform:"uppercase", fontFamily:C2.mono }}>{sector}</span>
-                                <span style={{ fontSize:9, color:C2.t2, fontFamily:C2.mono, opacity:0.6 }}>({rows.length})</span>
+                                <span style={{ fontSize:10, letterSpacing:1.3, fontWeight:700, color:C2.t2, textTransform:"uppercase", fontFamily:C2.mono }}>{sector}</span>
+                                <span style={{ fontSize:10, color:C2.t2, fontFamily:C2.mono, opacity:0.6 }}>({rows.length})</span>
                               </div>
                             </div>
 
@@ -1586,17 +1586,17 @@ export default function MarmoleriaScreen({ profile, signOut }) {
                                   {isEditing ? (
                                     /* ── Modo edición inline ── */
                                     <>
-                                      <input autoFocus style={{ ...INP_SM, fontSize:12 }}
+                                      <input autoFocus style={{ ...INP_SM, fontSize:13 }}
                                         value={editPlantillaForm.pieza}
                                         onChange={e => setEditPlantillaForm(f=>({...f, pieza:e.target.value}))}
                                         onKeyDown={e => e.key === "Enter" && editarPiezaPlantilla(p.id)}
                                         placeholder="Nombre de la pieza" />
-                                      <input style={{ ...INP_SM, fontSize:11 }}
+                                      <input style={{ ...INP_SM, fontSize:12 }}
                                         value={editPlantillaForm.sector}
                                         onChange={e => setEditPlantillaForm(f=>({...f, sector:e.target.value}))}
                                         onKeyDown={e => e.key === "Enter" && editarPiezaPlantilla(p.id)}
                                         placeholder="Sector" />
-                                      <label style={{ display:"flex", alignItems:"center", gap:5, cursor:"pointer", color:C2.t1, fontSize:11 }}>
+                                      <label style={{ display:"flex", alignItems:"center", gap:5, cursor:"pointer", color:C2.t1, fontSize:12 }}>
                                         <input type="checkbox" checked={editPlantillaForm.opcional}
                                           onChange={e => setEditPlantillaForm(f=>({...f, opcional:e.target.checked}))}
                                           style={{ accentColor:C2.primary, width:13, height:13 }} />
@@ -1605,24 +1605,24 @@ export default function MarmoleriaScreen({ profile, signOut }) {
                                       <div style={{ display:"flex", gap:3, justifyContent:"flex-end" }}>
                                         <button onClick={() => editarPiezaPlantilla(p.id)} style={{
                                           border:"1px solid rgba(59,130,246,0.35)", background:"rgba(59,130,246,0.12)",
-                                          color:"#60a5fa", padding:"3px 8px", borderRadius:6, cursor:"pointer", fontSize:10, fontFamily:C2.sans, fontWeight:600 }}>✓</button>
+                                          color:"#60a5fa", padding:"3px 8px", borderRadius:6, cursor:"pointer", fontSize:11, fontFamily:C2.sans, fontWeight: 700 }}>✓</button>
                                         <button onClick={() => setEditPlantillaId(null)} style={{
                                           border:`1px solid ${C2.b0}`, background:"transparent",
-                                          color:C2.t2, padding:"3px 7px", borderRadius:6, cursor:"pointer", fontSize:12 }}>✕</button>
+                                          color:C2.t2, padding:"3px 7px", borderRadius:6, cursor:"pointer", fontSize:13 }}>✕</button>
                                       </div>
                                     </>
                                   ) : (
                                     /* ── Modo lectura ── */
                                     <>
-                                      <div style={{ color:C2.t0, fontSize:12, fontWeight:500 }}>{p.pieza}</div>
-                                      <div style={{ color:C2.t2, fontSize:11, fontFamily:C2.mono }}>{p.sector}</div>
+                                      <div style={{ color:C2.t0, fontSize:13, fontWeight:500 }}>{p.pieza}</div>
+                                      <div style={{ color:C2.t2, fontSize:12, fontFamily:C2.mono }}>{p.sector}</div>
                                       <div>
                                         {p.opcional ? (
-                                          <span style={{ fontSize:8, letterSpacing:1.5, textTransform:"uppercase",
+                                          <span style={{ fontSize:10, letterSpacing:1.1, textTransform:"uppercase",
                                             padding:"2px 7px", borderRadius:99, background:"rgba(255,255,255,0.04)",
                                             color:C2.t2, border:`1px solid ${C2.b0}` }}>OPC</span>
                                         ) : (
-                                          <span style={{ fontSize:8, color:"rgba(255,255,255,0.1)" }}>—</span>
+                                          <span style={{ fontSize:10, color:"rgba(255,255,255,0.1)" }}>—</span>
                                         )}
                                       </div>
                                       <div style={{ display:"flex", gap:2, justifyContent:"flex-end" }}>
@@ -1630,7 +1630,7 @@ export default function MarmoleriaScreen({ profile, signOut }) {
                                           <>
                                             <button className="edit-btn" title="Editar pieza" style={{
                                               border:"none", background:"transparent", color:C2.t2,
-                                              padding:"3px 5px", cursor:"pointer", fontSize:12, borderRadius:5, transition:"color 0.12s" }}
+                                              padding:"3px 5px", cursor:"pointer", fontSize:13, borderRadius:5, transition:"color 0.12s" }}
                                               onClick={() => { setEditPlantillaId(p.id); setEditPlantillaForm({ pieza:p.pieza, sector:p.sector, opcional:!!p.opcional }); setShowAddPlantilla(false); }}>✎</button>
                                             <button className="del-btn" title="Quitar de plantilla" style={{
                                               border:"none", background:"transparent", color:C2.t2,
@@ -1657,16 +1657,16 @@ export default function MarmoleriaScreen({ profile, signOut }) {
                 <div style={{ padding:"18px 24px", animation:"slideLeft .2s ease" }}>
 
                   {err && <div style={{ padding:"8px 12px", borderRadius:8, background:"rgba(239,68,68,0.07)",
-                    border:"1px solid rgba(239,68,68,0.18)", color:"#f87171", fontSize:12, marginBottom:12 }}>{err}</div>}
+                    border:"1px solid rgba(239,68,68,0.18)", color:"#f87171", fontSize:13, marginBottom:12 }}>{err}</div>}
 
                   {/* Barra progreso */}
                   <div style={{ background:C2.s0, border:`1px solid ${C2.b0}`, borderRadius:12, padding:"14px 18px", marginBottom:14 }}>
                     <div style={{ display:"flex", justifyContent:"space-between", alignItems:"center", marginBottom:10 }}>
-                      <div style={{ fontSize:11, color:C2.t2 }}>
+                      <div style={{ fontSize:12, color:C2.t2 }}>
                         <span style={{ color:C2.t1, fontWeight:600 }}>{stats.recibido}</span> de {stats.total} piezas recibidas
                       </div>
                       <span style={{ fontFamily:C2.mono, fontSize:22, fontWeight:800, color:pctColor, letterSpacing:"-0.5px" }}>
-                        {porcentaje}<span style={{ fontSize:12, opacity:0.4 }}>%</span>
+                        {porcentaje}<span style={{ fontSize:13, opacity:0.4 }}>%</span>
                       </span>
                     </div>
                     <div style={{ height:4, background:"rgba(255,255,255,0.05)", borderRadius:99, overflow:"hidden" }}>
@@ -1684,16 +1684,16 @@ export default function MarmoleriaScreen({ profile, signOut }) {
                   {/* Panel agregar pieza */}
                   {showAddPieza && esAdmin && (
                     <div style={{ background:C2.s0, border:`1px solid ${C2.b0}`, borderRadius:10, padding:14, marginBottom:14, animation:"slideUp .2s ease" }}>
-                      <div style={{ fontSize:8.5, letterSpacing:2, textTransform:"uppercase", color:C2.t2, marginBottom:8, fontFamily:C2.mono }}>Agregar pieza extra</div>
+                      <div style={{ fontSize:10, letterSpacing:1.3, textTransform:"uppercase", color:C2.t2, marginBottom:8, fontFamily:C2.mono }}>Agregar pieza extra</div>
                       <div style={{ display:"grid", gridTemplateColumns:"1fr 140px", gap:8, marginBottom:10 }}>
                         <input style={INP} placeholder="Nombre de la pieza (ej: Alzada)" value={formPieza.pieza} onChange={e => setFormPieza(f=>({...f,pieza:e.target.value}))} />
                         <input style={INP} placeholder="Sector" value={formPieza.sector} onChange={e => setFormPieza(f=>({...f,sector:e.target.value}))} />
                       </div>
                       <div style={{ display:"flex", gap:8 }}>
-                        <button onClick={agregarPiezaManual} style={{ border:"1px solid rgba(59,130,246,0.3)", background:"rgba(59,130,246,0.1)", color:"#60a5fa", padding:"7px 16px", borderRadius:8, cursor:"pointer", fontFamily:C2.sans, fontSize:12, fontWeight:600 }}>Solo este barco</button>
-                        <button onClick={agregarPiezaAPlantilla} style={{ border:`1px solid ${C2.b0}`, background:"transparent", color:C2.t1, padding:"7px 14px", borderRadius:8, cursor:"pointer", fontFamily:C2.sans, fontSize:12 }}>+ Plantilla de {lineaSel?.nombre}</button>
+                        <button onClick={agregarPiezaManual} style={{ border:"1px solid rgba(59,130,246,0.3)", background:"rgba(59,130,246,0.1)", color:"#60a5fa", padding:"7px 16px", borderRadius:8, cursor:"pointer", fontFamily:C2.sans, fontSize:13, fontWeight:600 }}>Solo este barco</button>
+                        <button onClick={agregarPiezaAPlantilla} style={{ border:`1px solid ${C2.b0}`, background:"transparent", color:C2.t1, padding:"7px 14px", borderRadius:8, cursor:"pointer", fontFamily:C2.sans, fontSize:13 }}>+ Plantilla de {lineaSel?.nombre}</button>
                       </div>
-                      <div style={{ marginTop:8, fontSize:10, color:C2.t2 }}>
+                      <div style={{ marginTop:8, fontSize:11, color:C2.t2 }}>
                         "Solo este barco" agrega al checklist actual. "Plantilla" la incluye en futuros barcos de esta línea.
                       </div>
                     </div>
@@ -1701,9 +1701,9 @@ export default function MarmoleriaScreen({ profile, signOut }) {
 
                   {/* Listado por sector */}
                   {loading ? (
-                    <div style={{ textAlign:"center", padding:40, fontSize:11, color:C2.t2, letterSpacing:2, textTransform:"uppercase", fontFamily:C2.mono }}>Cargando…</div>
+                    <div style={{ textAlign:"center", padding:40, fontSize:12, color:C2.t2, letterSpacing:1.3, textTransform:"uppercase", fontFamily:C2.mono }}>Cargando…</div>
                   ) : Object.keys(porSector).length === 0 ? (
-                    <div style={{ textAlign:"center", padding:"50px 0", fontSize:11, color:C2.t2, letterSpacing:2, textTransform:"uppercase", fontFamily:C2.mono }}>
+                    <div style={{ textAlign:"center", padding:"50px 0", fontSize:12, color:C2.t2, letterSpacing:1.3, textTransform:"uppercase", fontFamily:C2.mono }}>
                       {q || filtroEstado !== "todos" ? "Sin resultados para el filtro" : "Checklist vacío — usá '+ Pieza extra'"}
                     </div>
                   ) : (
@@ -1717,16 +1717,16 @@ export default function MarmoleriaScreen({ profile, signOut }) {
                           <div style={{ display:"flex", justifyContent:"space-between", alignItems:"center",
                             paddingBottom:7, marginBottom:3, borderBottom:`1px solid rgba(255,255,255,0.05)` }}>
                             <div style={{ display:"flex", alignItems:"center", gap:10 }}>
-                              <span style={{ fontSize:8.5, letterSpacing:2.5, fontWeight:700, color:C2.t2, textTransform:"uppercase", fontFamily:C2.mono }}>{sector}</span>
+                              <span style={{ fontSize:10, letterSpacing:1.3, fontWeight:700, color:C2.t2, textTransform:"uppercase", fontFamily:C2.mono }}>{sector}</span>
                               {esAdmin ? (
                                 <input defaultValue={colorSector} placeholder="Material del sector…"
                                   style={{ background:"rgba(255,255,255,0.02)", border:`1px solid ${C2.b0}`,
-                                    color:C2.t1, padding:"3px 8px", borderRadius:6, fontSize:10, outline:"none", width:180 }}
+                                    color:C2.t1, padding:"3px 8px", borderRadius:6, fontSize:11, outline:"none", width:180 }}
                                   onBlur={e => { if (e.target.value !== colorSector) cambiarColorSector(sector, e.target.value); }}
                                   onKeyDown={e => { if (e.key === "Enter") e.target.blur(); }}
                                   title="Presioná Enter para aplicar a todo el sector" />
                               ) : (
-                                colorSector && <span style={{ fontSize:10, color:C2.t2 }}>{colorSector}</span>
+                                colorSector && <span style={{ fontSize:11, color:C2.t2 }}>{colorSector}</span>
                               )}
                             </div>
                             <div style={{ display:"flex", alignItems:"center", gap:8 }}>
@@ -1736,7 +1736,7 @@ export default function MarmoleriaScreen({ profile, signOut }) {
                                   background: recib===activas && activas>0 ? C2.green : C2.primary,
                                   borderRadius:99, transition:"width 0.4s" }}/>
                               </div>
-                              <span style={{ fontSize:9.5, color:C2.t2, fontFamily:C2.mono }}>{recib}/{activas}</span>
+                              <span style={{ fontSize:10, color:C2.t2, fontFamily:C2.mono }}>{recib}/{activas}</span>
                             </div>
                           </div>
 
@@ -1754,22 +1754,22 @@ export default function MarmoleriaScreen({ profile, signOut }) {
                               }}>
                                 <div style={{ cursor:"pointer" }} onClick={() => setModalPieza(p)}>
                                   <div style={{ color: p.estado === "Recibido" ? C2.t2 : C2.t0,
-                                    fontSize:12, fontWeight:500, display:"flex", alignItems:"center", gap:7 }}>
+                                    fontSize:13, fontWeight:500, display:"flex", alignItems:"center", gap:7 }}>
                                     <div style={{ width:5, height:5, borderRadius:"50%", background:meta.color, flexShrink:0,
                                       boxShadow: p.estado==="Recibido" ? `0 0 5px ${meta.color}80` : "none" }}/>
                                     {p.pieza}
                                     <div style={{ width:5, height:5, borderRadius:"50%", background:prio.color,
                                       boxShadow:`0 0 4px ${prio.color}55`, flexShrink:0 }} title={`Prioridad: ${p.prioridad||"Media"}`}/>
-                                    {p.opcional && <span style={{ fontSize:8, color:C2.t2, letterSpacing:1.5, fontFamily:C2.mono }}>OPC</span>}
+                                    {p.opcional && <span style={{ fontSize:10, color:C2.t2, letterSpacing:1.1, fontFamily:C2.mono }}>OPC</span>}
                                   </div>
                                   {(p.fecha_envio || p.fecha_regreso) && (
-                                    <div style={{ fontSize:9, color:C2.t2, marginTop:2, paddingLeft:12, display:"flex", gap:10, fontFamily:C2.mono }}>
+                                    <div style={{ fontSize:10, color:C2.t2, marginTop:2, paddingLeft:12, display:"flex", gap:10, fontFamily:C2.mono }}>
                                       {p.fecha_envio   && <span>↑ {p.fecha_envio.split("-").reverse().join("/")}</span>}
                                       {p.fecha_regreso && <span>↓ {p.fecha_regreso.split("-").reverse().join("/")}</span>}
                                     </div>
                                   )}
                                   {p.observaciones && (
-                                    <div style={{ fontSize:10, color:C2.t2, marginTop:2, paddingLeft:12, fontStyle:"italic", opacity:0.65 }}>{p.observaciones}</div>
+                                    <div style={{ fontSize:11, color:C2.t2, marginTop:2, paddingLeft:12, fontStyle:"italic", opacity:0.65 }}>{p.observaciones}</div>
                                   )}
                                 </div>
 
@@ -1778,7 +1778,7 @@ export default function MarmoleriaScreen({ profile, signOut }) {
                                 </select>
 
                                 <div style={{ display:"flex", gap:2, justifyContent:"flex-end" }}>
-                                  <button className="edit-btn" style={{ border:"none", background:"transparent", color:C2.t2, padding:"3px 5px", cursor:"pointer", fontSize:12, borderRadius:5, transition:"color 0.12s" }}
+                                  <button className="edit-btn" style={{ border:"none", background:"transparent", color:C2.t2, padding:"3px 5px", cursor:"pointer", fontSize:13, borderRadius:5, transition:"color 0.12s" }}
                                     onClick={() => setModalPieza(p)} title="Editar">✎</button>
                                   {esAdmin && (
                                     <button className="del-btn" style={{ border:"none", background:"transparent", color:C2.t2, padding:"3px 5px", cursor:"pointer", fontSize:14, borderRadius:5, transition:"color 0.12s" }}
@@ -1822,9 +1822,9 @@ export default function MarmoleriaScreen({ profile, signOut }) {
               color:"rgba(255,255,255,0.5)", width:28, height:28, borderRadius:"50%",
               cursor:"pointer", fontSize:18, display:"flex", alignItems:"center", justifyContent:"center" }}>×</button>
 
-            <div style={{ fontSize:8, color:"#71717a", letterSpacing:3, textTransform:"uppercase", marginBottom:6, fontFamily:"'JetBrains Mono', monospace" }}>Supabase SQL Editor</div>
-            <h2 style={{ margin:"0 0 4px", fontSize:17, fontWeight:700, color:"#f4f4f5", fontFamily:"'Outfit', system-ui" }}>Consultas SQL</h2>
-            <p style={{ margin:"0 0 20px", fontSize:11, color:"#71717a" }}>
+            <div style={{ fontSize:10, color:"var(--dim)", letterSpacing:3, textTransform:"uppercase", marginBottom:6, fontFamily:"'JetBrains Mono', monospace" }}>Supabase SQL Editor</div>
+            <h2 style={{ margin:"0 0 4px", fontSize:17, fontWeight:700, color:"var(--text)", fontFamily:"'Outfit', system-ui" }}>Consultas SQL</h2>
+            <p style={{ margin:"0 0 20px", fontSize:12, color:"var(--dim)" }}>
               Copiá estas queries y corrélas en el <strong style={{ color:"#a8b4c4" }}>SQL Editor</strong> de tu proyecto Supabase
             </p>
 
@@ -1834,11 +1834,11 @@ export default function MarmoleriaScreen({ profile, signOut }) {
             ].map(({ title, sql }) => (
               <div key={title} style={{ marginBottom:16 }}>
                 <div style={{ display:"flex", justifyContent:"space-between", alignItems:"center", marginBottom:8 }}>
-                  <span style={{ fontSize:11, fontWeight:600, color:"#a8b4c4" }}>{title}</span>
+                  <span style={{ fontSize:12, fontWeight: 700, color:"#a8b4c4" }}>{title}</span>
                   <button onClick={() => { navigator.clipboard.writeText(sql); setSqlCopiado(title); setTimeout(() => setSqlCopiado(""), 2000); }} style={{
                     border:"1px solid rgba(255,255,255,0.1)", background:"rgba(255,255,255,0.04)",
                     color: sqlCopiado === title ? "#10b981" : "#9da3b0", padding:"4px 12px", borderRadius:7,
-                    cursor:"pointer", fontSize:10, fontFamily:"'JetBrains Mono', monospace",
+                    cursor:"pointer", fontSize:11, fontFamily:"'JetBrains Mono', monospace",
                     letterSpacing:0.5, transition:"color 0.2s",
                   }}>
                     {sqlCopiado === title ? "✓ Copiado" : "Copiar"}
@@ -1846,7 +1846,7 @@ export default function MarmoleriaScreen({ profile, signOut }) {
                 </div>
                 <pre style={{ margin:0, padding:"14px 16px", background:"rgba(0,0,0,0.5)",
                   border:"1px solid rgba(255,255,255,0.07)", borderRadius:10, overflowX:"auto",
-                  fontSize:11, color:"#7dd3fc", fontFamily:"'JetBrains Mono', monospace",
+                  fontSize:12, color:"#7dd3fc", fontFamily:"'JetBrains Mono', monospace",
                   lineHeight:1.7, whiteSpace:"pre" }}>
                   {sql}
                 </pre>
@@ -1854,7 +1854,7 @@ export default function MarmoleriaScreen({ profile, signOut }) {
             ))}
 
             <div style={{ marginTop:8, padding:"10px 14px", background:"rgba(59,130,246,0.06)",
-              border:"1px solid rgba(59,130,246,0.15)", borderRadius:8, fontSize:10, color:"#93b4ff" }}>
+              border:"1px solid rgba(59,130,246,0.15)", borderRadius:8, fontSize:11, color:"#93b4ff" }}>
               💡 Las tablas son: <code style={{ fontFamily:"'JetBrains Mono', monospace" }}>marm_lineas</code>, <code style={{ fontFamily:"'JetBrains Mono', monospace" }}>marm_unidades</code>, <code style={{ fontFamily:"'JetBrains Mono', monospace" }}>marm_unidad_piezas</code>
             </div>
           </div>

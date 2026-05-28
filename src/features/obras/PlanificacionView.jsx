@@ -1,3 +1,4 @@
+import { C } from "@/theme";
 /**
  * PlanificacionView — v4 (redesign)
  * Props: obras, etapas, lProcs, ordenes, esGestion, onNuevaOC, onUpdateObra, onUpdateOCEstado
@@ -10,50 +11,6 @@
 import { useMemo, useState, useEffect, useRef } from "react";
 
 // ─── Paleta — idéntica a ObrasScreen ─────────────────────────────────────────
-const C = {
-  bg:    "#09090b",
-  bg1:   "#0c0c10",
-  bg2:   "#111116",
-  bg3:   "#16161c",
-  s0:    "rgba(255,255,255,0.025)",
-  s1:    "rgba(255,255,255,0.05)",
-  s2:    "rgba(255,255,255,0.08)",
-  b0:    "rgba(255,255,255,0.07)",
-  b1:    "rgba(255,255,255,0.12)",
-  b2:    "rgba(255,255,255,0.22)",
-  t0:    "#f4f4f5",
-  t1:    "#a1a1aa",
-  t2:    "#71717a",
-  t3:    "#3f3f46",
-  mono:  "'JetBrains Mono','IBM Plex Mono',monospace",
-  sans:  "'Outfit',system-ui,sans-serif",
-  blue:  "#3b82f6",  blueL: "rgba(59,130,246,0.10)",  blueB: "rgba(59,130,246,0.25)",
-  amber: "#f59e0b",  amberL:"rgba(245,158,11,0.09)",  amberB:"rgba(245,158,11,0.25)",
-  green: "#10b981",  greenL:"rgba(16,185,129,0.09)",  greenB:"rgba(16,185,129,0.25)",
-  red:   "#ef4444",  redL:  "rgba(239,68,68,0.09)",   redB:  "rgba(239,68,68,0.25)",
-  purple:"#8b5cf6",
-  obra: {
-    activa:    { dot:"#3b82f6", bg:"rgba(59,130,246,0.08)",  border:"rgba(59,130,246,0.2)",  label:"Activa"    },
-    pausada:   { dot:"#f59e0b", bg:"rgba(245,158,11,0.08)",  border:"rgba(245,158,11,0.2)",  label:"Pausada"   },
-    terminada: { dot:"#10b981", bg:"rgba(16,185,129,0.08)",  border:"rgba(16,185,129,0.2)",  label:"Terminada" },
-    cancelada: { dot:"#ef4444", bg:"rgba(239,68,68,0.08)",   border:"rgba(239,68,68,0.2)",   label:"Cancelada" },
-  },
-  etapa: {
-    pendiente:  { dot:"#3f3f46", bar:"rgba(255,255,255,0.04)", text:"#71717a" },
-    en_curso:   { dot:"#3b82f6", bar:"rgba(59,130,246,0.25)",  text:"#60a5fa" },
-    completado: { dot:"#10b981", bar:"rgba(16,185,129,0.25)",  text:"#34d399" },
-    bloqueado:  { dot:"#ef4444", bar:"rgba(239,68,68,0.25)",   text:"#f87171" },
-  },
-  oc: {
-    pendiente:  { dot:"#3f3f46", bg:"rgba(63,63,70,0.15)",    border:"rgba(63,63,70,0.3)",    label:"Pendiente"  },
-    pedida:     { dot:"#3b82f6", bg:"rgba(59,130,246,0.10)",  border:"rgba(59,130,246,0.25)", label:"Pedido"     },
-    aprobada:   { dot:"#f59e0b", bg:"rgba(245,158,11,0.10)",  border:"rgba(245,158,11,0.25)", label:"Aprobado"   },
-    en_camino:  { dot:"#8b5cf6", bg:"rgba(139,92,246,0.10)",  border:"rgba(139,92,246,0.25)", label:"En camino"  },
-    recibida:   { dot:"#10b981", bg:"rgba(16,185,129,0.10)",  border:"rgba(16,185,129,0.25)", label:"Recibido"   },
-    cancelada:  { dot:"#ef4444", bg:"rgba(239,68,68,0.10)",   border:"rgba(239,68,68,0.25)",  label:"Cancelada"  },
-  },
-};
-
 // ─── CSS global ───────────────────────────────────────────────────────────────
 const CSS = `
   @import url('https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500;600;700&display=swap');
@@ -175,7 +132,7 @@ const Dot = ({ color, glow = false, pulse = false, size = 7 }) => (
 const Chip = ({ label, color, bg, border }) => (
   <span style={{
     display:"inline-flex", alignItems:"center",
-    fontSize: 9, padding: "2px 8px", borderRadius: 99,
+    fontSize: 10, padding: "2px 8px", borderRadius: 99,
     background: bg, color, border: `1px solid ${border}`,
     fontFamily: C.mono, fontWeight: 700,
     letterSpacing: "0.08em", textTransform: "uppercase",
@@ -227,7 +184,7 @@ function Btn({ children, onClick, variant = "ghost", sm = false, disabled = fals
 const INP = {
   width: "100%", background: C.s0, border: `1px solid ${C.b0}`,
   color: C.t0, padding: "8px 12px", borderRadius: 8,
-  fontSize: 12, outline: "none", fontFamily: C.sans,
+  fontSize: 13, outline: "none", fontFamily: C.sans,
   transition: "border-color .15s",
 };
 
@@ -264,7 +221,7 @@ function GanttBar({ etapas, lProcs, obra, height = 32 }) {
       border: `1px solid ${C.b0}`,
       display: "flex", alignItems: "center", paddingLeft: 14,
     }}>
-      <span style={{ fontSize: 9, color: C.t2, fontFamily: C.mono, letterSpacing: 2, textTransform: "uppercase" }}>
+      <span style={{ fontSize: 10, color: C.t2, fontFamily: C.mono, letterSpacing: 1.3, textTransform: "uppercase" }}>
         Sin procesos configurados
       </span>
     </div>
@@ -323,7 +280,7 @@ function GanttBar({ etapas, lProcs, obra, height = 32 }) {
           <div style={{
             position: "absolute", bottom: "calc(100% + 5px)", left: "50%",
             transform: "translateX(-50%)",
-            fontFamily: C.mono, fontSize: 8, color: C.blue,
+            fontFamily: C.mono, fontSize: 10, color: C.blue,
             whiteSpace: "nowrap", background: C.bg2,
             padding: "2px 6px", borderRadius: 5,
             border: `1px solid ${C.blueB}`,
@@ -344,7 +301,7 @@ function GanttBar({ etapas, lProcs, obra, height = 32 }) {
             <div key={proc.id} style={{ width: `${pct}%`, minWidth: 2, flexShrink: 0, overflow: "hidden" }}>
               {pct > 6 && (
                 <span style={{
-                  fontSize: 9, fontFamily: C.sans,
+                  fontSize: 10, fontFamily: C.sans,
                   color: active ? C.blue : done ? C.green : C.t2,
                   whiteSpace: "nowrap", overflow: "hidden",
                   textOverflow: "ellipsis", display: "block",
@@ -420,12 +377,12 @@ function ObrasList({ obras, etapas, lProcs, ordenes, selectedId, onSelect, filtr
         <div style={{ position: "relative" }}>
           <span style={{
             position: "absolute", left: 10, top: "50%", transform: "translateY(-50%)",
-            fontSize: 11, color: C.t2, pointerEvents: "none", lineHeight: 1,
+            fontSize: 12, color: C.t2, pointerEvents: "none", lineHeight: 1,
           }}>⌕</span>
           <input
             value={busqueda} onChange={e => setBusqueda(e.target.value)}
             placeholder="Buscar código…"
-            style={{ ...INP, paddingLeft: 28, fontSize: 11 }}
+            style={{ ...INP, paddingLeft: 28, fontSize: 12 }}
           />
         </div>
       </div>
@@ -440,7 +397,7 @@ function ObrasList({ obras, etapas, lProcs, ordenes, selectedId, onSelect, filtr
           return (
             <button key={v} type="button" onClick={() => setFiltro(v)} className="pl-btn" style={{
               padding: "3px 9px", borderRadius: 5, cursor: "pointer",
-              fontSize: 10, fontFamily: C.sans, fontWeight: a ? 600 : 400,
+              fontSize: 11, fontFamily: C.sans, fontWeight: a ? 600 : 400,
               background: a ? (oC ? oC.bg : C.s2) : "transparent",
               color: a ? (oC ? oC.dot : C.t0) : C.t2,
               border: a ? `1px solid ${oC ? oC.border : C.b1}` : `1px solid ${C.b0}`,
@@ -456,7 +413,7 @@ function ObrasList({ obras, etapas, lProcs, ordenes, selectedId, onSelect, filtr
         {obras.length === 0 && (
           <div style={{ padding: "48px 16px", textAlign: "center" }}>
             <div style={{ fontSize: 24, color: C.t3, marginBottom: 8 }}>◎</div>
-            <div style={{ fontSize: 12, color: C.t2, fontFamily: C.sans }}>Sin obras</div>
+            <div style={{ fontSize: 13, color: C.t2, fontFamily: C.sans }}>Sin obras</div>
           </div>
         )}
         {obras.map((o, idx) => {
@@ -490,25 +447,25 @@ function ObrasList({ obras, etapas, lProcs, ordenes, selectedId, onSelect, filtr
               <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 3 }}>
                 <div style={{ display: "flex", alignItems: "center", gap: 7 }}>
                   <Dot color={oC.dot} size={6} glow={o.estado === "activa"} pulse={o.estado === "activa"}/>
-                  <span style={{ fontFamily: C.mono, fontSize: 13, fontWeight: 700, color: sel ? oC.dot : C.t0 }}>
+                  <span style={{ fontFamily: C.mono, fontSize: 14, fontWeight: 700, color: sel ? oC.dot : C.t0 }}>
                     {o.codigo}
                   </span>
                 </div>
                 <div style={{ display: "flex", alignItems: "center", gap: 5 }}>
                   {pend > 0 && (
                     <span style={{
-                      fontSize: 9, fontFamily: C.mono, fontWeight: 700,
+                      fontSize: 10, fontFamily: C.mono, fontWeight: 700,
                       color: C.amber, background: C.amberL,
                       border: `1px solid ${C.amberB}`,
                       padding: "1px 6px", borderRadius: 99,
                     }}>{pend}</span>
                   )}
-                  <span style={{ fontFamily: C.mono, fontSize: 10, color: oC.dot }}>{pct}%</span>
+                  <span style={{ fontFamily: C.mono, fontSize: 11, color: oC.dot }}>{pct}%</span>
                 </div>
               </div>
 
               {o.linea_nombre && (
-                <div style={{ fontSize: 10, color: C.t2, fontFamily: C.sans, marginBottom: 5 }}>
+                <div style={{ fontSize: 11, color: C.t2, fontFamily: C.sans, marginBottom: 5 }}>
                   {o.linea_nombre}
                 </div>
               )}
@@ -517,13 +474,13 @@ function ObrasList({ obras, etapas, lProcs, ordenes, selectedId, onSelect, filtr
 
               <div style={{ display: "flex", gap: 8, alignItems: "center", marginTop: 5 }}>
                 {dias !== null && o.estado === "activa" && (
-                  <span style={{ fontSize: 9, fontFamily: C.mono, color: C.blue }}>
+                  <span style={{ fontSize: 10, fontFamily: C.mono, color: C.blue }}>
                     día {dias}
                   </span>
                 )}
                 {actEt && (
                   <span style={{
-                    fontSize: 9, color: C.t2,
+                    fontSize: 10, color: C.t2,
                     overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap",
                     flex: 1,
                   }}>{actEt.nombre}</span>
@@ -579,16 +536,16 @@ function FichaBarco({ obra, onUpdateObra }) {
 
   const SectionHeader = ({ label, color }) => (
     <div style={{
-      fontSize: 8, fontFamily: C.mono, color: color ?? C.t2,
-      textTransform: "uppercase", letterSpacing: 2.5,
+      fontSize: 10, fontFamily: C.mono, color: color ?? C.t2,
+      textTransform: "uppercase", letterSpacing: 1.3,
       marginBottom: 10, fontWeight: 600,
     }}>{label}</div>
   );
 
   const StaticField = ({ label, value }) => (
     <div>
-      <div style={{ fontSize: 9, color: C.t2, fontFamily: C.mono, textTransform: "uppercase", letterSpacing: 1.5, marginBottom: 3 }}>{label}</div>
-      <div style={{ fontSize: 12, color: value ? C.t0 : C.t2, fontFamily: C.sans }}>
+      <div style={{ fontSize: 10, color: C.t2, fontFamily: C.mono, textTransform: "uppercase", letterSpacing: 1.1, marginBottom: 3 }}>{label}</div>
+      <div style={{ fontSize: 13, color: value ? C.t0 : C.t2, fontFamily: C.sans }}>
         {value || <span style={{ fontStyle: "italic", color: C.t3 }}>Sin definir</span>}
       </div>
     </div>
@@ -596,14 +553,14 @@ function FichaBarco({ obra, onUpdateObra }) {
 
   const EditField = ({ k, label, placeholder }) => (
     <div>
-      <div style={{ fontSize: 9, color: C.t1, fontFamily: C.sans, marginBottom: 4 }}>{label}</div>
+      <div style={{ fontSize: 10, color: C.t1, fontFamily: C.sans, marginBottom: 4 }}>{label}</div>
       <input style={INP} value={form[k]} onChange={e => set(k, e.target.value)} placeholder={placeholder}/>
     </div>
   );
 
   const EditArea = ({ k, label, placeholder }) => (
     <div>
-      <div style={{ fontSize: 9, color: C.t1, fontFamily: C.sans, marginBottom: 4 }}>{label}</div>
+      <div style={{ fontSize: 10, color: C.t1, fontFamily: C.sans, marginBottom: 4 }}>{label}</div>
       <textarea style={{...INP, resize: "vertical", minHeight: 60}} value={form[k]} onChange={e => set(k, e.target.value)} placeholder={placeholder}/>
     </div>
   );
@@ -623,8 +580,8 @@ function FichaBarco({ obra, onUpdateObra }) {
       {/* Header de sección */}
       <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
         <div>
-          <div style={{ fontSize: 13, fontWeight: 600, color: C.t0 }}>Ficha técnica del barco</div>
-          <div style={{ fontSize: 11, color: C.t2, marginTop: 2 }}>Configuración de materiales y equipamiento</div>
+          <div style={{ fontSize: 14, fontWeight: 600, color: C.t0 }}>Ficha técnica del barco</div>
+          <div style={{ fontSize: 12, color: C.t2, marginTop: 2 }}>Configuración de materiales y equipamiento</div>
         </div>
         {!editing
           ? <Btn sm onClick={abrirEdicion}>Editar ficha</Btn>
@@ -645,8 +602,8 @@ function FichaBarco({ obra, onUpdateObra }) {
             animation: "fadeIn .3s ease both",
           }}>
             <div style={{ fontSize: 24, color: C.t3, marginBottom: 10 }}>⊡</div>
-            <div style={{ fontSize: 13, color: C.t1, marginBottom: 4 }}>Sin datos técnicos</div>
-            <div style={{ fontSize: 11, color: C.t2, marginBottom: 16 }}>Cargá la configuración de materiales y equipamiento</div>
+            <div style={{ fontSize: 14, color: C.t1, marginBottom: 4 }}>Sin datos técnicos</div>
+            <div style={{ fontSize: 12, color: C.t2, marginBottom: 16 }}>Cargá la configuración de materiales y equipamiento</div>
             <Btn sm onClick={abrirEdicion}>+ Completar ficha</Btn>
           </div>
         ) : (
@@ -699,10 +656,10 @@ function FichaBarco({ obra, onUpdateObra }) {
                       border: `1px solid ${z.color}20`, borderLeft: `3px solid ${z.color}`,
                       animation: "fadeSlideUp .3s ease both",
                     }}>
-                      <div style={{ fontSize: 9, fontFamily: C.mono, color: z.color, textTransform: "uppercase", letterSpacing: 1.5, marginBottom: 5, fontWeight: 700 }}>
+                      <div style={{ fontSize: 10, fontFamily: C.mono, color: z.color, textTransform: "uppercase", letterSpacing: 1.1, marginBottom: 5, fontWeight: 700 }}>
                         {z.label}
                       </div>
-                      <div style={{ fontSize: 12, color: C.t1, fontFamily: C.sans, lineHeight: 1.55 }}>{obra[z.key]}</div>
+                      <div style={{ fontSize: 13, color: C.t1, fontFamily: C.sans, lineHeight: 1.55 }}>{obra[z.key]}</div>
                     </div>
                   ))}
                 </div>
@@ -717,7 +674,7 @@ function FichaBarco({ obra, onUpdateObra }) {
                 borderTop: `2px solid ${C.purple}`,
               }}>
                 <SectionHeader label="Opcionales / Extras" color={C.purple}/>
-                <div style={{ fontSize: 12, color: C.t1, fontFamily: C.sans, lineHeight: 1.6 }}>{obra.opcionales}</div>
+                <div style={{ fontSize: 13, color: C.t1, fontFamily: C.sans, lineHeight: 1.6 }}>{obra.opcionales}</div>
               </div>
             )}
           </div>
@@ -758,7 +715,7 @@ function FichaBarco({ obra, onUpdateObra }) {
               <EditArea k="cocina_desc"  label="Cocina"  placeholder="Mesada: mármol blanco. Bachas: inox. Canilla: Cisal inox…"/>
               <EditArea k="bano_desc"    label="Baño"    placeholder="Mesada: mármol negro. Sanitario: Roca. Ducha: mampara…"/>
               <EditArea k="cockpit_desc" label="Cockpit" placeholder="Tapizado asientos: cuero beige. Alfombra: gris. Madera: teca…"/>
-              <label style={{ display: "flex", alignItems: "center", gap: 8, cursor: "pointer", fontSize: 12, color: C.t1, fontFamily: C.sans, padding: "6px 0" }}>
+              <label style={{ display: "flex", alignItems: "center", gap: 8, cursor: "pointer", fontSize: 13, color: C.t1, fontFamily: C.sans, padding: "6px 0" }}>
                 <input type="checkbox" checked={form.tiene_fly} onChange={e => set("tiene_fly", e.target.checked)}
                   style={{ width: 14, height: 14, accentColor: C.purple, cursor: "pointer" }}/>
                 Incluye Fly
@@ -794,7 +751,7 @@ function OCStepperInline({ oc, onUpdateOCEstado }) {
         borderBottom: `1px solid ${C.b0}`,
         display: "flex", alignItems: "center", justifyContent: "space-between",
       }}>
-        <span style={{ fontSize: 8, fontFamily: C.mono, color: C.t2, textTransform: "uppercase", letterSpacing: 2 }}>
+        <span style={{ fontSize: 10, fontFamily: C.mono, color: C.t2, textTransform: "uppercase", letterSpacing: 1.3 }}>
           Estado del pedido
         </span>
         {next && onUpdateOCEstado && (
@@ -842,7 +799,7 @@ function OCStepperInline({ oc, onUpdateOCEstado }) {
               </div>
 
               <div style={{
-                fontSize: 9, color: clr, fontFamily: C.sans,
+                fontSize: 10, color: clr, fontFamily: C.sans,
                 fontWeight: active ? 600 : 400, textAlign: "center",
               }}>{st.label}</div>
             </div>
@@ -879,8 +836,8 @@ function OCDataGrid({ oc }) {
       }}>
         {fields.map(x => (
           <div key={x.l}>
-            <div style={{ fontSize: 8, fontFamily: C.mono, color: C.t2, textTransform: "uppercase", letterSpacing: 1.5, marginBottom: 2 }}>{x.l}</div>
-            <div style={{ fontSize: 12, color: C.t0, fontFamily: C.sans }}>{x.v}</div>
+            <div style={{ fontSize: 10, fontFamily: C.mono, color: C.t2, textTransform: "uppercase", letterSpacing: 1.1, marginBottom: 2 }}>{x.l}</div>
+            <div style={{ fontSize: 13, color: C.t0, fontFamily: C.sans }}>{x.v}</div>
           </div>
         ))}
       </div>
@@ -888,8 +845,8 @@ function OCDataGrid({ oc }) {
         <>
           <div style={{ height: 1, background: C.b0, margin: "10px 0" }}/>
           <div>
-            <div style={{ fontSize: 8, fontFamily: C.mono, color: C.t2, textTransform: "uppercase", letterSpacing: 1.5, marginBottom: 4 }}>Notas</div>
-            <div style={{ fontSize: 12, color: C.t1, fontFamily: C.sans, lineHeight: 1.55 }}>{oc.notas}</div>
+            <div style={{ fontSize: 10, fontFamily: C.mono, color: C.t2, textTransform: "uppercase", letterSpacing: 1.1, marginBottom: 4 }}>Notas</div>
+            <div style={{ fontSize: 13, color: C.t1, fontFamily: C.sans, lineHeight: 1.55 }}>{oc.notas}</div>
           </div>
         </>
       )}
@@ -970,18 +927,18 @@ function CompraCard({ etapa, diaInicio, obra, oc, onNuevaOC, onUpdateOCEstado })
         <div style={{ flex: 1, minWidth: 0 }}>
           <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: timing ? 2 : 0 }}>
             <span style={{
-              fontSize: 13, fontWeight: 600, fontFamily: C.sans,
+              fontSize: 14, fontWeight: 600, fontFamily: C.sans,
               color: done ? C.t1 : C.t0,
             }}>{etapa.nombre}</span>
             <span style={{
-              fontSize: 9, fontFamily: C.mono, color: C.t2,
+              fontSize: 10, fontFamily: C.mono, color: C.t2,
               padding: "1px 6px", background: C.s0,
               border: `1px solid ${C.b0}`, borderRadius: 4,
             }}>+{diaInicio}d</span>
           </div>
           {timing && (
             <div style={{
-              fontSize: 11, color: vencido ? C.red : urgente && !oc ? C.amber : C.t2,
+              fontSize: 12, color: vencido ? C.red : urgente && !oc ? C.amber : C.t2,
               fontFamily: C.sans, lineHeight: 1.4,
             }}>{timing}</div>
           )}
@@ -1005,7 +962,7 @@ function CompraCard({ etapa, diaInicio, obra, oc, onNuevaOC, onUpdateOCEstado })
         )}
 
         <div style={{
-          fontSize: 8, color: C.t2, flexShrink: 0,
+          fontSize: 10, color: C.t2, flexShrink: 0,
           transition: "transform .2s",
           transform: open ? "rotate(180deg)" : "rotate(0deg)",
         }}>▼</div>
@@ -1033,12 +990,12 @@ function CompraCard({ etapa, diaInicio, obra, oc, onNuevaOC, onUpdateOCEstado })
                 }}>
                   {it.titulo && (
                     <div style={{
-                      fontSize: 8, fontFamily: C.mono, color: accentColor,
-                      letterSpacing: 2, textTransform: "uppercase", marginBottom: 3, fontWeight: 700,
+                      fontSize: 10, fontFamily: C.mono, color: accentColor,
+                      letterSpacing: 1.3, textTransform: "uppercase", marginBottom: 3, fontWeight: 700,
                     }}>{it.titulo}</div>
                   )}
                   {it.desc && (
-                    <div style={{ fontSize: 12, color: C.t1, fontFamily: C.sans, lineHeight: 1.6 }}>
+                    <div style={{ fontSize: 13, color: C.t1, fontFamily: C.sans, lineHeight: 1.6 }}>
                       {it.desc}
                     </div>
                   )}
@@ -1054,8 +1011,8 @@ function CompraCard({ etapa, diaInicio, obra, oc, onNuevaOC, onUpdateOCEstado })
               padding: "8px 12px", background: C.s0,
               border: `1px solid ${C.b0}`, borderRadius: 8,
             }}>
-              <span style={{ fontSize: 9, color: C.t2, fontFamily: C.mono, textTransform: "uppercase", letterSpacing: 1.5 }}>Monto est.</span>
-              <span style={{ fontFamily: C.mono, fontSize: 13, fontWeight: 700, color: C.amber }}>
+              <span style={{ fontSize: 10, color: C.t2, fontFamily: C.mono, textTransform: "uppercase", letterSpacing: 1.1 }}>Monto est.</span>
+              <span style={{ fontFamily: C.mono, fontSize: 14, fontWeight: 700, color: C.amber }}>
                 ${num(etapa.orden_compra_monto_estimado).toLocaleString("es-AR")}
               </span>
             </div>
@@ -1095,8 +1052,8 @@ function ComprasSection({ obra, etapasObra, lProcsLinea, ordenes, onNuevaOC, onU
   if (!compras.length) return (
     <div style={{ padding: "48px 20px", textAlign: "center" }}>
       <div style={{ fontSize: 24, color: C.t3, marginBottom: 8 }}>◎</div>
-      <div style={{ fontSize: 13, color: C.t1, marginBottom: 4 }}>Sin compras configuradas</div>
-      <div style={{ fontSize: 11, color: C.t2 }}>Esta obra no tiene etapas que generen órdenes de compra</div>
+      <div style={{ fontSize: 14, color: C.t1, marginBottom: 4 }}>Sin compras configuradas</div>
+      <div style={{ fontSize: 12, color: C.t2 }}>Esta obra no tiene etapas que generen órdenes de compra</div>
     </div>
   );
 
@@ -1113,7 +1070,7 @@ function ComprasSection({ obra, etapasObra, lProcsLinea, ordenes, onNuevaOC, onU
             background: C.amberL, border: `1px solid ${C.amberB}`,
           }}>
             <Dot color={C.amber} size={5} pulse/>
-            <span style={{ fontSize: 10, color: C.amber, fontFamily: C.sans, fontWeight: 600 }}>
+            <span style={{ fontSize: 11, color: C.amber, fontFamily: C.sans, fontWeight: 700 }}>
               {sinOC} sin gestionar
             </span>
           </div>
@@ -1125,7 +1082,7 @@ function ComprasSection({ obra, etapasObra, lProcsLinea, ordenes, onNuevaOC, onU
             background: C.blueL, border: `1px solid ${C.blueB}`,
           }}>
             <Dot color={C.blue} size={5}/>
-            <span style={{ fontSize: 10, color: C.blue, fontFamily: C.sans, fontWeight: 600 }}>
+            <span style={{ fontSize: 11, color: C.blue, fontFamily: C.sans, fontWeight: 700 }}>
               {conOC} con OC
             </span>
           </div>
@@ -1137,7 +1094,7 @@ function ComprasSection({ obra, etapasObra, lProcsLinea, ordenes, onNuevaOC, onU
             background: C.greenL, border: `1px solid ${C.greenB}`,
           }}>
             <Dot color={C.green} size={5}/>
-            <span style={{ fontSize: 10, color: C.green, fontFamily: C.sans, fontWeight: 600 }}>
+            <span style={{ fontSize: 11, color: C.green, fontFamily: C.sans, fontWeight: 700 }}>
               {done} completadas
             </span>
           </div>
@@ -1218,33 +1175,33 @@ function ObraDetalle({ obra, etapas, lProcs, ordenes, onNuevaOC, onUpdateObra, o
               <Chip label={oC.label} color={oC.dot} bg={oC.bg} border={oC.border}/>
             </div>
             {obra.descripcion && (
-              <div style={{ fontSize: 12, color: C.t1, fontFamily: C.sans, marginBottom: 10, maxWidth: 420 }}>
+              <div style={{ fontSize: 13, color: C.t1, fontFamily: C.sans, marginBottom: 10, maxWidth: 420 }}>
                 {obra.descripcion}
               </div>
             )}
             <div style={{ display: "flex", gap: 20, flexWrap: "wrap" }}>
               {obra.fecha_inicio && (
                 <div>
-                  <div style={{ fontSize: 8, fontFamily: C.mono, color: C.t2, textTransform: "uppercase", letterSpacing: 2, marginBottom: 2 }}>Inicio</div>
-                  <div style={{ fontSize: 12, color: C.t0, fontFamily: C.sans }}>{fmtD(obra.fecha_inicio)}</div>
+                  <div style={{ fontSize: 10, fontFamily: C.mono, color: C.t2, textTransform: "uppercase", letterSpacing: 1.3, marginBottom: 2 }}>Inicio</div>
+                  <div style={{ fontSize: 13, color: C.t0, fontFamily: C.sans }}>{fmtD(obra.fecha_inicio)}</div>
                 </div>
               )}
               {dias !== null && obra.estado === "activa" && (
                 <div>
-                  <div style={{ fontSize: 8, fontFamily: C.mono, color: C.t2, textTransform: "uppercase", letterSpacing: 2, marginBottom: 2 }}>Día actual</div>
-                  <div style={{ fontSize: 12, color: C.blue, fontFamily: C.mono, fontWeight: 700 }}>{dias} / {totalDias}</div>
+                  <div style={{ fontSize: 10, fontFamily: C.mono, color: C.t2, textTransform: "uppercase", letterSpacing: 1.3, marginBottom: 2 }}>Día actual</div>
+                  <div style={{ fontSize: 13, color: C.blue, fontFamily: C.mono, fontWeight: 700 }}>{dias} / {totalDias}</div>
                 </div>
               )}
               {actEt && (
                 <div>
-                  <div style={{ fontSize: 8, fontFamily: C.mono, color: C.t2, textTransform: "uppercase", letterSpacing: 2, marginBottom: 2 }}>En curso</div>
-                  <div style={{ fontSize: 12, color: C.t0, fontFamily: C.sans }}>{actEt.nombre}</div>
+                  <div style={{ fontSize: 10, fontFamily: C.mono, color: C.t2, textTransform: "uppercase", letterSpacing: 1.3, marginBottom: 2 }}>En curso</div>
+                  <div style={{ fontSize: 13, color: C.t0, fontFamily: C.sans }}>{actEt.nombre}</div>
                 </div>
               )}
               {obra.fecha_fin_estimada && (
                 <div>
-                  <div style={{ fontSize: 8, fontFamily: C.mono, color: C.t2, textTransform: "uppercase", letterSpacing: 2, marginBottom: 2 }}>Entrega est.</div>
-                  <div style={{ fontSize: 12, color: C.t0, fontFamily: C.sans }}>{fmtD(obra.fecha_fin_estimada)}</div>
+                  <div style={{ fontSize: 10, fontFamily: C.mono, color: C.t2, textTransform: "uppercase", letterSpacing: 1.3, marginBottom: 2 }}>Entrega est.</div>
+                  <div style={{ fontSize: 13, color: C.t0, fontFamily: C.sans }}>{fmtD(obra.fecha_fin_estimada)}</div>
                 </div>
               )}
             </div>
@@ -1261,7 +1218,7 @@ function ObraDetalle({ obra, etapas, lProcs, ordenes, onNuevaOC, onUpdateObra, o
             <div style={{ width: 100, marginBottom: 4 }}>
               <ProgressBar value={pct} color={pct === 100 ? C.green : oC.dot} height={5} shimmer={obra.estado === "activa"}/>
             </div>
-            <div style={{ fontSize: 10, color: C.t2, fontFamily: C.sans }}>
+            <div style={{ fontSize: 11, color: C.t2, fontFamily: C.sans }}>
               {comp}/{total} etapas
             </div>
           </div>
@@ -1283,7 +1240,7 @@ function ObraDetalle({ obra, etapas, lProcs, ordenes, onNuevaOC, onUpdateObra, o
                 style={{
                   padding: "9px 16px", background: "transparent", border: "none",
                   borderBottom: `2px solid ${a ? C.blue : "transparent"}`,
-                  cursor: "pointer", fontFamily: C.sans, fontSize: 12,
+                  cursor: "pointer", fontFamily: C.sans, fontSize: 13,
                   fontWeight: a ? 600 : 400,
                   color: a ? C.blue : C.t2,
                   display: "flex", alignItems: "center", gap: 7,
@@ -1291,7 +1248,7 @@ function ObraDetalle({ obra, etapas, lProcs, ordenes, onNuevaOC, onUpdateObra, o
                 {t.label}
                 {t.badge !== null && (
                   <span style={{
-                    fontSize: 9, fontFamily: C.mono, fontWeight: 700,
+                    fontSize: 10, fontFamily: C.mono, fontWeight: 700,
                     background: C.amberL, border: `1px solid ${C.amberB}`,
                     color: C.amber, padding: "1px 6px", borderRadius: 99,
                     animation: "fadeIn .3s ease both",
@@ -1333,7 +1290,7 @@ function Vacio() {
         <div style={{ fontSize: 14, color: C.t0, fontFamily: C.sans, fontWeight: 500, marginBottom: 6 }}>
           Seleccioná una obra
         </div>
-        <div style={{ fontSize: 12, color: C.t2, fontFamily: C.sans }}>
+        <div style={{ fontSize: 13, color: C.t2, fontFamily: C.sans }}>
           para ver su planificación y compras
         </div>
       </div>

@@ -1,0 +1,325 @@
+:root,
+[data-theme="dark"] {
+  color-scheme: dark;
+
+  --bg: #09090b;
+  --panel: rgba(255,255,255,0.045);
+  --panel-2: rgba(255,255,255,0.07);
+  --panel-3: rgba(255,255,255,0.09);
+  --panel-solid: #111114;
+  --panel-solid-2: #17171c;
+  --panel-solid-3: #1f1f27;
+  --border: rgba(255,255,255,0.1);
+  --border-2: rgba(255,255,255,0.18);
+  --border-3: rgba(255,255,255,0.28);
+
+  --text: #f4f4f5;
+  --muted: #c1c1c6;
+  --dim: #9a9aa5;
+  --subtle: #777782;
+
+  --blue: #7eb3ff;
+  --amber: #fbbf24;
+  --green: #34d399;
+  --red: #f87171;
+  --violet: #a78bfa;
+  --teal: #5eead4;
+  --cyan: #67e8f9;
+  --orange: #fb923c;
+  --purple: #a78bfa;
+  --indigo: #a5b4fc;
+
+  --blue-soft: rgba(126,179,255,0.13);
+  --blue-border: rgba(126,179,255,0.32);
+  --amber-soft: rgba(251,191,36,0.13);
+  --amber-border: rgba(251,191,36,0.32);
+  --green-soft: rgba(52,211,153,0.13);
+  --green-border: rgba(52,211,153,0.32);
+  --red-soft: rgba(248,113,113,0.13);
+  --red-border: rgba(248,113,113,0.34);
+  --violet-soft: rgba(167,139,250,0.13);
+  --violet-border: rgba(167,139,250,0.32);
+  --teal-soft: rgba(94,234,212,0.12);
+  --teal-border: rgba(94,234,212,0.30);
+  --cyan-soft: rgba(103,232,249,0.12);
+  --cyan-border: rgba(103,232,249,0.30);
+  --orange-soft: rgba(251,146,60,0.13);
+  --orange-border: rgba(251,146,60,0.32);
+
+  --blue-deep: #1d4ed8;
+  --amber-deep: #92400e;
+  --green-deep: #065f46;
+  --red-deep: #7f1d1d;
+  --violet-deep: #5b21b6;
+  --empty-glow: #818cf8;
+
+  --overlay: rgba(0,0,0,0.58);
+  --overlay-strong: rgba(0,0,0,0.78);
+  --shadow: rgba(0,0,0,0.45);
+  --shadow-strong: rgba(0,0,0,0.75);
+  --focus: rgba(126,179,255,0.42);
+  --inverse-bg: #ffffff;
+  --inverse-text: #09090b;
+  --login-glow: rgba(59,100,246,0.07);
+  --grid-line: rgba(255,255,255,0.02);
+  --glass-filter: blur(20px) saturate(140%);
+  /* Topbar = header semi-transparente que va sobre el contenido. */
+  --topbar: rgba(12,12,14,0.92);
+  --topbar-soft: rgba(12,12,14,0.78);
+}
+
+[data-theme="light"] {
+  color-scheme: light;
+
+  /* Fondo: gris suave (tipo zinc-100). Antes era #fafafa casi blanco puro
+     y daba sensación "encandilada" + las cards se perdían contra el fondo. */
+  --bg: #ececef;
+  /* Paneles transparentes: subimos alpha para que las cards se distingan
+     del fondo gris. Antes 0.025 quedaba invisible. */
+  --panel: rgba(0,0,0,0.04);
+  --panel-2: rgba(0,0,0,0.06);
+  --panel-3: rgba(0,0,0,0.09);
+  /* Paneles sólidos: blanco puro para máximo contraste con el bg gris.
+     Las cards "destacadas" se ven recortadas y limpias. */
+  --panel-solid: #ffffff;
+  --panel-solid-2: #f6f6f8;
+  --panel-solid-3: #ebebef;
+  /* Bordes más visibles sobre fondo claro (antes 0.1 se diluía). */
+  --border: rgba(0,0,0,0.14);
+  --border-2: rgba(0,0,0,0.22);
+  --border-3: rgba(0,0,0,0.32);
+
+  --text: #18181b;
+  --muted: #3f3f46;
+  --dim: #52525b;
+  --subtle: #71717a;
+
+  --blue: #1d4ed8;
+  --amber: #b45309;
+  --green: #047857;
+  --red: #b91c1c;
+  --violet: #6d28d9;
+  --teal: #0f766e;
+  --cyan: #0369a1;
+  --orange: #c2410c;
+  --purple: #6d28d9;
+  --indigo: #4338ca;
+
+  --blue-soft: rgba(29,78,216,0.09);
+  --blue-border: rgba(29,78,216,0.26);
+  --amber-soft: rgba(180,83,9,0.10);
+  --amber-border: rgba(180,83,9,0.30);
+  --green-soft: rgba(4,120,87,0.09);
+  --green-border: rgba(4,120,87,0.26);
+  --red-soft: rgba(185,28,28,0.09);
+  --red-border: rgba(185,28,28,0.28);
+  --violet-soft: rgba(109,40,217,0.09);
+  --violet-border: rgba(109,40,217,0.26);
+  --teal-soft: rgba(15,118,110,0.09);
+  --teal-border: rgba(15,118,110,0.26);
+  --cyan-soft: rgba(3,105,161,0.09);
+  --cyan-border: rgba(3,105,161,0.26);
+  --orange-soft: rgba(194,65,12,0.10);
+  --orange-border: rgba(194,65,12,0.28);
+
+  --blue-deep: #dbeafe;
+  --amber-deep: #ffedd5;
+  --green-deep: #d1fae5;
+  --red-deep: #fee2e2;
+  --violet-deep: #ede9fe;
+  --empty-glow: #4338ca;
+
+  --overlay: rgba(40,40,46,0.45);
+  --overlay-strong: rgba(40,40,46,0.6);
+  /* Sombras más marcadas que antes — las cards blancas necesitan
+     un poco de profundidad para no flotar sobre el fondo gris. */
+  --shadow: rgba(20,20,28,0.08);
+  --shadow-strong: rgba(20,20,28,0.16);
+  --focus: rgba(29,78,216,0.34);
+  --inverse-bg: #18181b;
+  --inverse-text: #ffffff;
+  --login-glow: rgba(29,78,216,0.045);
+  --grid-line: rgba(0,0,0,0.045);
+  --glass-filter: blur(18px) saturate(115%);
+  /* En claro, la topbar es un blanco semi-transparente para mantener el feel glass. */
+  --topbar: rgba(255,255,255,0.88);
+  --topbar-soft: rgba(255,255,255,0.7);
+}
+
+[data-theme="hc"] {
+  color-scheme: dark;
+  font-size: 14px;
+
+  --bg: #000000;
+  --panel: #0e0e10;
+  --panel-2: #18181b;
+  --panel-3: #22222a;
+  --panel-solid: #0e0e10;
+  --panel-solid-2: #18181b;
+  --panel-solid-3: #22222a;
+  --border: rgba(255,255,255,0.45);
+  --border-2: rgba(255,255,255,0.68);
+  --border-3: rgba(255,255,255,0.82);
+
+  --text: #ffffff;
+  --muted: #e4e4e7;
+  --dim: #d4d4d8;
+  --subtle: #c4c4cc;
+
+  --blue: #93c5fd;
+  --amber: #fcd34d;
+  --green: #6ee7b7;
+  --red: #fca5a5;
+  --violet: #c4b5fd;
+  --teal: #5eead4;
+  --cyan: #67e8f9;
+  --orange: #fdba74;
+  --purple: #c4b5fd;
+  --indigo: #c7d2fe;
+
+  --blue-soft: #0b2144;
+  --blue-border: rgba(147,197,253,0.72);
+  --amber-soft: #332307;
+  --amber-border: rgba(252,211,77,0.76);
+  --green-soft: #072d22;
+  --green-border: rgba(110,231,183,0.74);
+  --red-soft: #3f1111;
+  --red-border: rgba(252,165,165,0.78);
+  --violet-soft: #20143e;
+  --violet-border: rgba(196,181,253,0.76);
+  --teal-soft: #062c29;
+  --teal-border: rgba(94,234,212,0.72);
+  --cyan-soft: #062b36;
+  --cyan-border: rgba(103,232,249,0.72);
+  --orange-soft: #341805;
+  --orange-border: rgba(253,186,116,0.74);
+
+  --blue-deep: #0b2144;
+  --amber-deep: #332307;
+  --green-deep: #072d22;
+  --red-deep: #3f1111;
+  --violet-deep: #20143e;
+  --empty-glow: #ffffff;
+
+  --overlay: rgba(0,0,0,0.78);
+  --overlay-strong: rgba(0,0,0,0.9);
+  --shadow: rgba(0,0,0,0.7);
+  --shadow-strong: rgba(0,0,0,0.9);
+  --focus: rgba(255,255,255,0.82);
+  --inverse-bg: #ffffff;
+  --inverse-text: #000000;
+  --login-glow: rgba(255,255,255,0);
+  --grid-line: rgba(255,255,255,0.08);
+  --glass-filter: none;
+  /* En HC, topbar sólida negra, sin transparencia. */
+  --topbar: #0e0e10;
+  --topbar-soft: #0e0e10;
+}
+
+html,
+body {
+  background: var(--bg);
+  color: var(--text);
+}
+
+body {
+  transition: background-color 0.18s ease, color 0.18s ease;
+}
+
+input,
+select,
+textarea,
+button {
+  font: inherit;
+}
+
+input::placeholder,
+textarea::placeholder {
+  color: var(--dim);
+  opacity: 1;
+}
+
+select option {
+  background: var(--panel-solid-2);
+  color: var(--text);
+}
+
+::selection {
+  background: var(--blue-soft);
+  color: var(--text);
+}
+
+::-webkit-scrollbar-thumb {
+  background: var(--border-2);
+  border-radius: 99px;
+}
+
+[data-theme="hc"] * {
+  text-shadow: none !important;
+}
+
+[data-theme="hc"] [style*="backdrop-filter"],
+[data-theme="hc"] [style*="backdropFilter"] {
+  backdrop-filter: none !important;
+  -webkit-backdrop-filter: none !important;
+}
+
+.ql-toolbar.ql-snow,
+.ql-container.ql-snow {
+  border-color: var(--border) !important;
+  background: var(--panel-solid) !important;
+  color: var(--text) !important;
+}
+
+.ql-toolbar.ql-snow .ql-stroke {
+  stroke: var(--muted) !important;
+}
+
+.ql-toolbar.ql-snow .ql-fill {
+  fill: var(--muted) !important;
+}
+
+.ql-toolbar.ql-snow .ql-picker,
+.ql-toolbar.ql-snow .ql-picker-label {
+  color: var(--muted) !important;
+}
+
+.ql-editor {
+  color: var(--text) !important;
+  font-size: 14px !important;
+}
+
+[data-theme="light"] .ql-toolbar.ql-snow .ql-stroke {
+  stroke: #27272a !important;
+}
+
+[data-theme="light"] .ql-toolbar.ql-snow .ql-fill {
+  fill: #27272a !important;
+}
+
+[data-theme="hc"] .ql-toolbar.ql-snow,
+[data-theme="hc"] .ql-container.ql-snow {
+  border-color: var(--border-2) !important;
+  background: #000000 !important;
+}
+
+[data-theme="hc"] .ql-toolbar.ql-snow .ql-stroke {
+  stroke: #ffffff !important;
+}
+
+[data-theme="hc"] .ql-toolbar.ql-snow .ql-fill {
+  fill: #ffffff !important;
+}
+
+/* Logo monocromo (logo-k.png) — el asset es blanco para fondo oscuro.
+   En claro lo invertimos para que se vea sobre fondo crema/gris.
+   En HC se queda blanco original sobre negro. */
+.klasea-logo-mono {
+  transition: filter .15s ease;
+}
+[data-theme="light"] .klasea-logo-mono {
+  filter: invert(1) brightness(0.85);
+}
+[data-theme="hc"] .klasea-logo-mono {
+  filter: none;
+}

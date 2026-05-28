@@ -39,26 +39,7 @@ import {
 } from "@/features/compras/purchaseRequestsApi";
 import { printPurchaseRequest } from "@/features/compras/printPurchaseRequest";
 import logoK from "@/assets/logos/logo-k.png";
-
-const C = {
-  bg: "#09090b",
-  panel: "rgba(255,255,255,0.035)",
-  panel2: "rgba(255,255,255,0.055)",
-  panel3: "rgba(255,255,255,0.075)",
-  border: "rgba(255,255,255,0.08)",
-  border2: "rgba(255,255,255,0.14)",
-  text: "#f4f4f5",
-  muted: "#a1a1aa",
-  dim: "#71717a",
-  blue: "#60a5fa",
-  amber: "#f59e0b",
-  green: "#10b981",
-  red: "#ef4444",
-  violet: "#8b5cf6",
-  teal: "#2dd4bf",
-  mono: "'JetBrains Mono', monospace",
-  sans: "'Outfit', system-ui, sans-serif",
-};
+import { C } from "@/theme";
 
 const statusColors = {
   nuevo: C.blue,
@@ -99,7 +80,7 @@ function Pill({ children, color = C.blue }) {
       border: `1px solid ${color}33`,
       borderRadius: 7,
       padding: "4px 9px",
-      fontSize: 10,
+      fontSize: 11,
       fontWeight: 700,
       letterSpacing: 0.9,
       textTransform: "uppercase",
@@ -149,7 +130,7 @@ function PersonChip({ user, tone = "default", onRemove }) {
         placeItems: "center",
         background: `${color}18`,
         color,
-        fontSize: 10,
+        fontSize: 11,
         fontWeight: 800,
         flexShrink: 0,
         letterSpacing: 0,
@@ -157,10 +138,10 @@ function PersonChip({ user, tone = "default", onRemove }) {
         {initials || "?"}
       </div>
       <div style={{ minWidth: 0, flex: 1 }}>
-        <div style={{ color: C.text, fontSize: 12, fontWeight: 650, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+        <div style={{ color: C.text, fontSize: 13, fontWeight: 650, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
           {name}
         </div>
-        <div style={{ color: C.dim, fontSize: 9, textTransform: "uppercase", letterSpacing: 1 }}>
+        <div style={{ color: C.dim, fontSize: 10, textTransform: "uppercase", letterSpacing: 1 }}>
           {tone === "creator" ? "creador" : tone === "buyer" ? "compras" : user?.role || "usuario"}
         </div>
       </div>
@@ -195,7 +176,7 @@ const inputStyle = {
   borderRadius: 8,
   padding: "9px 10px",
   outline: "none",
-  fontSize: 12,
+  fontSize: 13,
   fontFamily: C.sans,
 };
 
@@ -221,7 +202,7 @@ function StatusStepper({ current, onChange }) {
               borderRadius: 7,
               padding: "5px 9px",
               cursor: "pointer",
-              fontSize: 10,
+              fontSize: 11,
               fontWeight: 700,
               letterSpacing: 0.6,
               textTransform: "uppercase",
@@ -260,7 +241,7 @@ function ArchivedBanner({ status }) {
       border: `1px solid ${color}30`,
       borderRadius: 8,
       color,
-      fontSize: 12,
+      fontSize: 13,
       fontWeight: 600,
       margin: "0 0 12px",
     }}>
@@ -550,7 +531,7 @@ export default function PurchaseRequestDetail({ requestId, profile, users = [], 
     return (
       <div style={{ height: "100%", background: C.bg, color: C.text, fontFamily: C.sans, display: "grid", gridTemplateRows: "auto 1fr", overflow: "hidden" }}>
         <SkeletonStyles />
-        <header style={{ padding: "12px 16px", borderBottom: `1px solid ${C.border}`, background: "rgba(12,12,14,0.95)" }}>
+        <header style={{ padding: "12px 16px", borderBottom: `1px solid ${C.border}`, background: C.topbar }}>
           <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
             <Skeleton width={29} height={29} radius={7} />
             <div style={{ display: "grid", gap: 6, flex: 1 }}>
@@ -606,7 +587,7 @@ export default function PurchaseRequestDetail({ requestId, profile, users = [], 
       overflow: "hidden",
     }}>
       <style>{`
-        select option { background: #0f0f12; color: #f4f4f5; }
+        select option { background: #0f0f12; color: var(--text); }
         textarea:focus, select:focus, input:focus {
           border-color: rgba(96,165,250,0.42) !important;
           box-shadow: 0 0 0 3px rgba(96,165,250,0.08);
@@ -621,7 +602,7 @@ export default function PurchaseRequestDetail({ requestId, profile, users = [], 
           to   { opacity: 1; transform: translateY(0);   }
         }
         .pr-message { animation: pr-msg-in .22s ease-out both; }
-        .icon-btn:hover { background: rgba(255,255,255,0.07) !important; color: #f4f4f5 !important; }
+        .icon-btn:hover { background: rgba(255,255,255,0.07) !important; color: var(--text) !important; }
 
         /* Estilos para renderizar el HTML enriquecido que viene de Quill */
         .quill-content ul, .quill-content ol { padding-left: 20px; margin: 6px 0; }
@@ -632,7 +613,7 @@ export default function PurchaseRequestDetail({ requestId, profile, users = [], 
 
       <header style={{
         borderBottom: `1px solid ${C.border}`,
-        background: "rgba(12,12,14,0.95)",
+        background: C.topbar,
       }}>
         <div style={{
           minHeight: 64,
@@ -662,7 +643,7 @@ export default function PurchaseRequestDetail({ requestId, profile, users = [], 
                 </>
               )}
             </div>
-            <div style={{ marginTop: 4, color: C.dim, fontSize: 11, display: "flex", alignItems: "center", gap: 6 }}>
+            <div style={{ marginTop: 4, color: C.dim, fontSize: 12, display: "flex", alignItems: "center", gap: 6 }}>
               <Clock size={11} />
               Creado por {usernameOf(request.creator)} el {fmtDateTime(request.created_at)}
               {request.project?.codigo ? ` · Proyecto ${request.project.codigo}` : ""}
@@ -713,14 +694,14 @@ export default function PurchaseRequestDetail({ requestId, profile, users = [], 
         {manager && (
           <div style={{ padding: "10px 16px", display: "flex", alignItems: "center", gap: 12, flexWrap: "wrap" }}>
             <div style={{ flex: 1 }}>
-              <div style={{ color: C.dim, fontSize: 9, letterSpacing: 1.5, textTransform: "uppercase", fontWeight: 750, marginBottom: 6 }}>
+              <div style={{ color: C.dim, fontSize: 10, letterSpacing: 1.1, textTransform: "uppercase", fontWeight: 750, marginBottom: 6 }}>
                 Estado
               </div>
               <StatusStepper current={request.status} onChange={(status) => patchRequest({ status })} />
             </div>
 
             <div style={{ flexShrink: 0, minWidth: 160 }}>
-              <div style={{ color: C.dim, fontSize: 9, letterSpacing: 1.5, textTransform: "uppercase", fontWeight: 750, marginBottom: 6 }}>
+              <div style={{ color: C.dim, fontSize: 10, letterSpacing: 1.1, textTransform: "uppercase", fontWeight: 750, marginBottom: 6 }}>
                 Proveedor
               </div>
               <input
@@ -741,7 +722,7 @@ export default function PurchaseRequestDetail({ requestId, profile, users = [], 
             </div>
 
             <div style={{ flexShrink: 0 }}>
-              <div style={{ color: C.dim, fontSize: 9, letterSpacing: 1.5, textTransform: "uppercase", fontWeight: 750, marginBottom: 6 }}>
+              <div style={{ color: C.dim, fontSize: 10, letterSpacing: 1.1, textTransform: "uppercase", fontWeight: 750, marginBottom: 6 }}>
                 Prioridad
               </div>
               <div style={{ display: "flex", gap: 4 }}>
@@ -763,7 +744,7 @@ export default function PurchaseRequestDetail({ requestId, profile, users = [], 
                         borderRadius: 7,
                         padding: "5px 9px",
                         cursor: isActive ? "default" : "pointer",
-                        fontSize: 10,
+                        fontSize: 11,
                         fontWeight: 700,
                         textTransform: "uppercase",
                         letterSpacing: 0.6,
@@ -792,8 +773,8 @@ export default function PurchaseRequestDetail({ requestId, profile, users = [], 
           }}>
             <span style={{
               color: C.dim,
-              fontSize: 9,
-              letterSpacing: 1.5,
+              fontSize: 10,
+              letterSpacing: 1.1,
               textTransform: "uppercase",
               fontWeight: 750,
             }}>
@@ -818,7 +799,7 @@ export default function PurchaseRequestDetail({ requestId, profile, users = [], 
                       borderRadius: 7,
                       padding: "5px 10px",
                       cursor: isActive ? "default" : "pointer",
-                      fontSize: 10,
+                      fontSize: 11,
                       fontWeight: 700,
                       textTransform: "uppercase",
                       letterSpacing: 0.6,
@@ -831,7 +812,7 @@ export default function PurchaseRequestDetail({ requestId, profile, users = [], 
               })}
             </div>
             <span style={{ flex: 1 }} />
-            <span style={{ color: C.dim, fontSize: 10 }}>
+            <span style={{ color: C.dim, fontSize: 11 }}>
               El cambio se publica en el chat y se notifica a compras.
             </span>
           </div>
@@ -844,14 +825,14 @@ export default function PurchaseRequestDetail({ requestId, profile, users = [], 
             display: "grid",
             gap: 12,
           }}>
-            <div style={{ color: C.dim, fontSize: 9, letterSpacing: 1.8, textTransform: "uppercase", fontWeight: 750 }}>
+            <div style={{ color: C.dim, fontSize: 10, letterSpacing: 1.2, textTransform: "uppercase", fontWeight: 750 }}>
               Costos y seguimiento
             </div>
 
             <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 10 }}>
               {(request.status === "cotizando" || request.status === "comprado" || request.status === "recibido") && (
                 <div>
-                  <div style={{ color: C.dim, fontSize: 9, letterSpacing: 1.5, textTransform: "uppercase", fontWeight: 750, marginBottom: 6 }}>
+                  <div style={{ color: C.dim, fontSize: 10, letterSpacing: 1.1, textTransform: "uppercase", fontWeight: 750, marginBottom: 6 }}>
                     Monto cotizado $
                   </div>
                   <input
@@ -876,7 +857,7 @@ export default function PurchaseRequestDetail({ requestId, profile, users = [], 
 
               {(request.status === "comprado" || request.status === "recibido") && (
                 <div>
-                  <div style={{ color: C.dim, fontSize: 9, letterSpacing: 1.5, textTransform: "uppercase", fontWeight: 750, marginBottom: 6 }}>
+                  <div style={{ color: C.dim, fontSize: 10, letterSpacing: 1.1, textTransform: "uppercase", fontWeight: 750, marginBottom: 6 }}>
                     Monto real $
                   </div>
                   <input
@@ -901,7 +882,7 @@ export default function PurchaseRequestDetail({ requestId, profile, users = [], 
 
               {(request.status === "comprado" || request.status === "recibido") && (
                 <div>
-                  <div style={{ color: C.dim, fontSize: 9, letterSpacing: 1.5, textTransform: "uppercase", fontWeight: 750, marginBottom: 6 }}>
+                  <div style={{ color: C.dim, fontSize: 10, letterSpacing: 1.1, textTransform: "uppercase", fontWeight: 750, marginBottom: 6 }}>
                     Fecha entrega estimada
                   </div>
                   <input
@@ -929,7 +910,7 @@ export default function PurchaseRequestDetail({ requestId, profile, users = [], 
                 gap: 8,
                 padding: "5px 10px",
                 borderRadius: 6,
-                fontSize: 11,
+                fontSize: 12,
                 fontWeight: 700,
                 background: request.actual_amount <= request.estimated_amount
                   ? "rgba(16,185,129,0.1)"
@@ -958,13 +939,13 @@ export default function PurchaseRequestDetail({ requestId, profile, users = [], 
             display: "grid",
             gap: 12,
           }}>
-            <div style={{ color: C.dim, fontSize: 9, letterSpacing: 1.8, textTransform: "uppercase", fontWeight: 750 }}>
+            <div style={{ color: C.dim, fontSize: 10, letterSpacing: 1.2, textTransform: "uppercase", fontWeight: 750 }}>
               Recepción
             </div>
 
             <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10 }}>
               <div>
-                <div style={{ color: C.dim, fontSize: 9, letterSpacing: 1.5, textTransform: "uppercase", fontWeight: 750, marginBottom: 6 }}>
+                <div style={{ color: C.dim, fontSize: 10, letterSpacing: 1.1, textTransform: "uppercase", fontWeight: 750, marginBottom: 6 }}>
                   Cantidad recibida
                 </div>
                 <input
@@ -985,7 +966,7 @@ export default function PurchaseRequestDetail({ requestId, profile, users = [], 
               </div>
 
               <div>
-                <div style={{ color: C.dim, fontSize: 9, letterSpacing: 1.5, textTransform: "uppercase", fontWeight: 750, marginBottom: 6 }}>
+                <div style={{ color: C.dim, fontSize: 10, letterSpacing: 1.1, textTransform: "uppercase", fontWeight: 750, marginBottom: 6 }}>
                   Fecha recepción
                 </div>
                 <input
@@ -1006,7 +987,7 @@ export default function PurchaseRequestDetail({ requestId, profile, users = [], 
             </div>
 
             <div>
-              <div style={{ color: C.dim, fontSize: 9, letterSpacing: 1.5, textTransform: "uppercase", fontWeight: 750, marginBottom: 6 }}>
+              <div style={{ color: C.dim, fontSize: 10, letterSpacing: 1.1, textTransform: "uppercase", fontWeight: 750, marginBottom: 6 }}>
                 Notas de recepción
               </div>
               <textarea
@@ -1027,7 +1008,7 @@ export default function PurchaseRequestDetail({ requestId, profile, users = [], 
             </div>
 
             <div>
-              <div style={{ color: C.dim, fontSize: 9, letterSpacing: 1.5, textTransform: "uppercase", fontWeight: 750, marginBottom: 6 }}>
+              <div style={{ color: C.dim, fontSize: 10, letterSpacing: 1.1, textTransform: "uppercase", fontWeight: 750, marginBottom: 6 }}>
                 Factura / comprobante
               </div>
               {request.invoice_url ? (
@@ -1045,7 +1026,7 @@ export default function PurchaseRequestDetail({ requestId, profile, users = [], 
                       border: `1px solid rgba(96,165,250,0.2)`,
                       borderRadius: 6,
                       padding: "6px 10px",
-                      fontSize: 12,
+                      fontSize: 13,
                       fontWeight: 600,
                       textDecoration: "none",
                     }}
@@ -1084,7 +1065,7 @@ export default function PurchaseRequestDetail({ requestId, profile, users = [], 
                   color: C.dim,
                   cursor: "pointer",
                   background: C.panel,
-                  fontSize: 12,
+                  fontSize: 13,
                 }}>
                   <Paperclip size={14} />
                   Subir factura / PDF
@@ -1127,12 +1108,12 @@ export default function PurchaseRequestDetail({ requestId, profile, users = [], 
           }}>
             <div>
               {ARCHIVED_STATUSES.includes(request.status) && <ArchivedBanner status={request.status} />}
-              <div style={{ color: C.dim, fontSize: 9, letterSpacing: 1.8, textTransform: "uppercase", marginBottom: 7, fontWeight: 750 }}>
+              <div style={{ color: C.dim, fontSize: 10, letterSpacing: 1.2, textTransform: "uppercase", marginBottom: 7, fontWeight: 750 }}>
                 Descripción
               </div>
               
               {/* Aquí renderizamos el HTML en lugar de texto plano */}
-              <div className="quill-content" style={{ color: C.muted, fontSize: 13, lineHeight: 1.6, whiteSpace: "normal" }}>
+              <div className="quill-content" style={{ color: C.muted, fontSize: 14, lineHeight: 1.6, whiteSpace: "normal" }}>
                 {request.description ? (
                   <div dangerouslySetInnerHTML={{ __html: request.description }} />
                 ) : (
@@ -1141,7 +1122,7 @@ export default function PurchaseRequestDetail({ requestId, profile, users = [], 
               </div>
 
               {request.needed_at && (
-                <div style={{ marginTop: 10, display: "inline-flex", alignItems: "center", gap: 6, color: C.amber, fontSize: 11, background: "rgba(245,158,11,0.08)", border: "1px solid rgba(245,158,11,0.2)", borderRadius: 6, padding: "4px 8px" }}>
+                <div style={{ marginTop: 10, display: "inline-flex", alignItems: "center", gap: 6, color: C.amber, fontSize: 12, background: "rgba(245,158,11,0.08)", border: "1px solid rgba(245,158,11,0.2)", borderRadius: 6, padding: "4px 8px" }}>
                   <Clock size={12} />
                   Necesario para: {new Date(request.needed_at).toLocaleDateString("es-AR", { day: "2-digit", month: "2-digit", year: "numeric" })}
                 </div>
@@ -1166,12 +1147,12 @@ export default function PurchaseRequestDetail({ requestId, profile, users = [], 
             {/* ─── ITEMS ──────────────────────────────────────────────── */}
             <div style={{ marginBottom: items.length || showAddItem ? 20 : 0 }}>
               <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 10 }}>
-                <span style={{ color: C.dim, fontSize: 9, letterSpacing: 1.8, textTransform: "uppercase", fontWeight: 750 }}>Items</span>
-                {items.length > 0 && <span style={{ color: C.dim, fontSize: 10, fontFamily: C.mono }}>{items.length}</span>}
+                <span style={{ color: C.dim, fontSize: 10, letterSpacing: 1.2, textTransform: "uppercase", fontWeight: 750 }}>Items</span>
+                {items.length > 0 && <span style={{ color: C.dim, fontSize: 11, fontFamily: C.mono }}>{items.length}</span>}
                 <span style={{ flex: 1 }} />
                 {canEditItems && !showAddItem && (
                   <button type="button" onClick={() => setShowAddItem(true)} style={{
-                    padding: "2px 10px", borderRadius: 5, cursor: "pointer", fontSize: 10,
+                    padding: "2px 10px", borderRadius: 5, cursor: "pointer", fontSize: 11,
                     border: `1px solid ${C.border}`, background: C.panel, color: C.muted,
                   }}>+ Item</button>
                 )}
@@ -1186,12 +1167,12 @@ export default function PurchaseRequestDetail({ requestId, profile, users = [], 
                 }}>
                   <input value={newItemDesc} onChange={e => setNewItemDesc(e.target.value)}
                     placeholder="Descripción del ítem"
-                    style={{ padding: "6px 8px", borderRadius: 5, border: `1px solid ${C.border}`, background: C.bg, color: C.text, fontSize: 12 }} />
+                    style={{ padding: "6px 8px", borderRadius: 5, border: `1px solid ${C.border}`, background: C.bg, color: C.text, fontSize: 13 }} />
                   <input value={newItemQty} onChange={e => setNewItemQty(e.target.value)}
                     placeholder="Cant."
-                    style={{ padding: "6px 8px", borderRadius: 5, border: `1px solid ${C.border}`, background: C.bg, color: C.text, fontSize: 12 }} />
+                    style={{ padding: "6px 8px", borderRadius: 5, border: `1px solid ${C.border}`, background: C.bg, color: C.text, fontSize: 13 }} />
                   <select value={newItemUnit} onChange={e => setNewItemUnit(e.target.value)}
-                    style={{ padding: "6px 8px", borderRadius: 5, border: `1px solid ${C.border}`, background: C.bg, color: C.text, fontSize: 12 }}>
+                    style={{ padding: "6px 8px", borderRadius: 5, border: `1px solid ${C.border}`, background: C.bg, color: C.text, fontSize: 13 }}>
                     <option value="unidad">unidad</option>
                     <option value="par">par</option>
                     <option value="metro">metro</option>
@@ -1201,11 +1182,11 @@ export default function PurchaseRequestDetail({ requestId, profile, users = [], 
                   </select>
                   <div style={{ display: "flex", gap: 4 }}>
                     <button type="submit" style={{
-                      padding: "6px 10px", borderRadius: 5, cursor: "pointer", fontSize: 11,
+                      padding: "6px 10px", borderRadius: 5, cursor: "pointer", fontSize: 12,
                       border: `1px solid ${C.blue}`, background: "rgba(59,130,246,0.15)", color: C.blue, fontWeight: 600,
                     }}>Agregar</button>
                     <button type="button" onClick={() => { setShowAddItem(false); setNewItemDesc(""); setNewItemQty(""); }}
-                      style={{ padding: "6px 8px", borderRadius: 5, cursor: "pointer", fontSize: 11,
+                      style={{ padding: "6px 8px", borderRadius: 5, cursor: "pointer", fontSize: 12,
                         border: `1px solid ${C.border}`, background: "transparent", color: C.dim }}>✕</button>
                   </div>
                 </form>
@@ -1232,7 +1213,7 @@ export default function PurchaseRequestDetail({ requestId, profile, users = [], 
                         disabled={!canEditItems}
                         style={{
                           padding: "2px 22px 2px 8px",
-                          borderRadius: 5, fontSize: 10, fontWeight: 600,
+                          borderRadius: 5, fontSize: 11, fontWeight: 700,
                           border: `1px solid ${st.color}44`,
                           background: `${st.color}15`,
                           color: st.color,
@@ -1245,17 +1226,17 @@ export default function PurchaseRequestDetail({ requestId, profile, users = [], 
                         ))}
                       </select>
                       <div>
-                        <div style={{ color: C.text, fontSize: 12, fontWeight: 600 }}>{item.description}</div>
+                        <div style={{ color: C.text, fontSize: 13, fontWeight: 600 }}>{item.description}</div>
                         <div style={{ display: "flex", alignItems: "center", gap: 6, flexWrap: "wrap", marginTop: 2 }}>
                           {(item.quantity || item.unit) && (
-                            <span style={{ color: C.dim, fontSize: 10, fontFamily: C.mono }}>
+                            <span style={{ color: C.dim, fontSize: 11, fontFamily: C.mono }}>
                               {item.quantity} {item.unit}
                             </span>
                           )}
                           {item.image_url && (
                             <a href={item.image_url} target="_blank" rel="noreferrer" style={{
                               display: "inline-flex", alignItems: "center", gap: 3,
-                              color: C.blue, fontSize: 9, textDecoration: "none",
+                              color: C.blue, fontSize: 10, textDecoration: "none",
                             }}>
                               <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="8.5" cy="8.5" r="1.5"/><path d="m21 15-5-5L5 21"/></svg>
                               Foto
@@ -1264,14 +1245,14 @@ export default function PurchaseRequestDetail({ requestId, profile, users = [], 
                           {item.link_url && (
                             <a href={item.link_url} target="_blank" rel="noreferrer" style={{
                               display: "inline-flex", alignItems: "center", gap: 3,
-                              color: C.amber, fontSize: 9, textDecoration: "none",
+                              color: C.amber, fontSize: 10, textDecoration: "none",
                             }}>
                               <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"/><path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"/></svg>
                               Enlace
                             </a>
                           )}
                           {item.notes && (
-                            <span style={{ color: C.dim, fontSize: 10, fontStyle: "italic" }}>{item.notes}</span>
+                            <span style={{ color: C.dim, fontSize: 11, fontStyle: "italic" }}>{item.notes}</span>
                           )}
                         </div>
                       </div>
@@ -1279,7 +1260,7 @@ export default function PurchaseRequestDetail({ requestId, profile, users = [], 
                         <button type="button" onClick={() => isEditing ? setEditingItem(null) : startEditItem(item)}
                           title="Editar ítem"
                           style={{
-                            padding: "3px 7px", borderRadius: 4, cursor: "pointer", fontSize: 10,
+                            padding: "3px 7px", borderRadius: 4, cursor: "pointer", fontSize: 11,
                             border: `1px solid ${C.border}`, background: "transparent", color: isEditing ? C.blue : C.dim,
                           }}>{isEditing ? "✕" : "✎"}</button>
                       )}
@@ -1287,7 +1268,7 @@ export default function PurchaseRequestDetail({ requestId, profile, users = [], 
                         <button type="button" onClick={() => handleDeleteItem(item.id)}
                           title="Eliminar ítem"
                           style={{
-                            padding: 3, borderRadius: 4, cursor: "pointer", fontSize: 11,
+                            padding: 3, borderRadius: 4, cursor: "pointer", fontSize: 12,
                             border: `1px solid transparent`, background: "transparent", color: C.dim,
                           }}>✕</button>
                       )}
@@ -1301,21 +1282,21 @@ export default function PurchaseRequestDetail({ requestId, profile, users = [], 
                         background: C.panel2,
                       }}>
                         <div>
-                          <div style={{ color: C.dim, fontSize: 9, letterSpacing: 1.5, textTransform: "uppercase", marginBottom: 3, fontWeight: 700 }}>
+                          <div style={{ color: C.dim, fontSize: 10, letterSpacing: 1.1, textTransform: "uppercase", marginBottom: 3, fontWeight: 700 }}>
                             Enlace / Link
                           </div>
                           <input value={editLinkUrl} onChange={e => setEditLinkUrl(e.target.value)}
                             placeholder="https://ejemplo.com/producto"
-                            style={{ width: "100%", padding: "6px 8px", borderRadius: 5, border: `1px solid ${C.border}`, background: C.bg, color: C.text, fontSize: 12 }} />
+                            style={{ width: "100%", padding: "6px 8px", borderRadius: 5, border: `1px solid ${C.border}`, background: C.bg, color: C.text, fontSize: 13 }} />
                         </div>
                         <div>
-                          <div style={{ color: C.dim, fontSize: 9, letterSpacing: 1.5, textTransform: "uppercase", marginBottom: 3, fontWeight: 700 }}>
+                          <div style={{ color: C.dim, fontSize: 10, letterSpacing: 1.1, textTransform: "uppercase", marginBottom: 3, fontWeight: 700 }}>
                             Foto del producto
                           </div>
                           <label style={{
                             display: "flex", alignItems: "center", gap: 6,
                             padding: "6px 8px", borderRadius: 5, border: `1px dashed ${C.border}`,
-                            background: C.bg, cursor: "pointer", fontSize: 12, color: C.dim,
+                            background: C.bg, cursor: "pointer", fontSize: 13, color: C.dim,
                           }}>
                             <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="8.5" cy="8.5" r="1.5"/><path d="m21 15-5-5L5 21"/></svg>
                             {editImageFile ? editImageFile.name : item.image_url ? "Reemplazar foto" : "Subir foto"}
@@ -1324,22 +1305,22 @@ export default function PurchaseRequestDetail({ requestId, profile, users = [], 
                               <img src={item.image_url} alt="" style={{ height: 28, borderRadius: 4, marginLeft: "auto" }} />
                             )}
                             {editImageFile && (
-                              <span style={{ marginLeft: "auto", color: C.green, fontSize: 10 }}>✓</span>
+                              <span style={{ marginLeft: "auto", color: C.green, fontSize: 11 }}>✓</span>
                             )}
                           </label>
                         </div>
                         <div>
-                          <div style={{ color: C.dim, fontSize: 9, letterSpacing: 1.5, textTransform: "uppercase", marginBottom: 3, fontWeight: 700 }}>
+                          <div style={{ color: C.dim, fontSize: 10, letterSpacing: 1.1, textTransform: "uppercase", marginBottom: 3, fontWeight: 700 }}>
                             Notas
                           </div>
                           <textarea value={editNotes} onChange={e => setEditNotes(e.target.value)}
                             placeholder="Notas u observaciones del ítem"
                             rows={2}
-                            style={{ width: "100%", padding: "6px 8px", borderRadius: 5, border: `1px solid ${C.border}`, background: C.bg, color: C.text, fontSize: 12, resize: "vertical" }} />
+                            style={{ width: "100%", padding: "6px 8px", borderRadius: 5, border: `1px solid ${C.border}`, background: C.bg, color: C.text, fontSize: 13, resize: "vertical" }} />
                         </div>
                         <div style={{ display: "flex", gap: 6, justifyContent: "flex-end" }}>
                           <button type="submit" style={{
-                            padding: "5px 12px", borderRadius: 5, cursor: "pointer", fontSize: 11,
+                            padding: "5px 12px", borderRadius: 5, cursor: "pointer", fontSize: 12,
                             border: `1px solid ${C.blue}`, background: "rgba(59,130,246,0.15)", color: C.blue, fontWeight: 600,
                           }}>Guardar</button>
                         </div>
@@ -1360,7 +1341,7 @@ export default function PurchaseRequestDetail({ requestId, profile, users = [], 
                 border: `1px dashed ${C.border}`,
                 borderRadius: 10,
                 background: "rgba(255,255,255,0.012)",
-                fontSize: 12,
+                fontSize: 13,
                 padding: 24,
                 textAlign: "center",
               }}>
@@ -1374,8 +1355,8 @@ export default function PurchaseRequestDetail({ requestId, profile, users = [], 
                   }}>
                     <MessageSquare size={16} />
                   </div>
-                  <div style={{ color: C.muted, fontWeight: 700, fontSize: 12.5 }}>Sin mensajes todavía</div>
-                  <div style={{ fontSize: 11, color: C.dim, maxWidth: 280 }}>
+                  <div style={{ color: C.muted, fontWeight: 700, fontSize: 13 }}>Sin mensajes todavía</div>
+                  <div style={{ fontSize: 12, color: C.dim, maxWidth: 280 }}>
                     Pedile precisiones a compras o etiquetá con <span style={{ color: C.amber, fontFamily: C.mono }}>@usuario</span> para sumar a alguien.
                   </div>
                 </div>
@@ -1401,21 +1382,21 @@ export default function PurchaseRequestDetail({ requestId, profile, users = [], 
                           color: isMine ? C.blue : C.muted,
                           display: "grid",
                           placeItems: "center",
-                          fontSize: 9,
+                          fontSize: 10,
                           fontWeight: 800,
                           flexShrink: 0,
                         }}>
                           {usernameOf(comment.author).slice(0, 2).toUpperCase()}
                         </div>
-                        <span style={{ color: C.text, fontSize: 12, fontWeight: 700 }}>{usernameOf(comment.author)}</span>
-                        <span style={{ color: C.dim, fontSize: 10, marginLeft: "auto" }}>{fmtDateTime(comment.created_at)}</span>
+                        <span style={{ color: C.text, fontSize: 13, fontWeight: 700 }}>{usernameOf(comment.author)}</span>
+                        <span style={{ color: C.dim, fontSize: 11, marginLeft: "auto" }}>{fmtDateTime(comment.created_at)}</span>
                         {(comment.mentions || []).length > 0 && (
-                          <span style={{ display: "inline-flex", alignItems: "center", gap: 3, color: C.amber, fontSize: 10 }}>
+                          <span style={{ display: "inline-flex", alignItems: "center", gap: 3, color: C.amber, fontSize: 11 }}>
                             <Users size={11} /> {comment.mentions.length}
                           </span>
                         )}
                       </div>
-                      <div style={{ color: C.muted, fontSize: 13, lineHeight: 1.55, whiteSpace: "pre-wrap" }}>
+                      <div style={{ color: C.muted, fontSize: 14, lineHeight: 1.55, whiteSpace: "pre-wrap" }}>
                         {comment.body}
                       </div>
                     </div>
@@ -1434,7 +1415,7 @@ export default function PurchaseRequestDetail({ requestId, profile, users = [], 
               display: "grid",
               gridTemplateColumns: "1fr auto",
               gap: 10,
-              background: "rgba(12,12,14,0.84)",
+              background: C.topbarSoft,
             }}
           >
             <textarea
@@ -1468,13 +1449,13 @@ export default function PurchaseRequestDetail({ requestId, profile, users = [], 
 
         <aside className="pr-aside" style={{ minHeight: 0, overflowY: "auto", padding: 14, display: "grid", gap: 16, alignContent: "start" }}>
           {error && (
-            <div style={{ color: "#fca5a5", background: "rgba(239,68,68,0.08)", border: "1px solid rgba(239,68,68,0.2)", padding: 10, borderRadius: 8, fontSize: 12 }}>
+            <div style={{ color: "#fca5a5", background: "rgba(239,68,68,0.08)", border: "1px solid rgba(239,68,68,0.2)", padding: 10, borderRadius: 8, fontSize: 13 }}>
               {error}
             </div>
           )}
 
           <div>
-            <div style={{ display: "flex", alignItems: "center", gap: 7, color: C.muted, fontSize: 11, fontWeight: 750, marginBottom: 10, letterSpacing: 0.5 }}>
+            <div style={{ display: "flex", alignItems: "center", gap: 7, color: C.muted, fontSize: 12, fontWeight: 750, marginBottom: 10, letterSpacing: 0.5 }}>
               <Users size={13} /> Involucrados
             </div>
             <div style={{ display: "grid", gap: 7 }}>
@@ -1491,7 +1472,7 @@ export default function PurchaseRequestDetail({ requestId, profile, users = [], 
           </div>
 
           <div style={{ padding: 10, border: `1px solid ${C.border}`, borderRadius: 9, background: C.panel }}>
-            <div style={{ display: "flex", alignItems: "center", gap: 7, color: C.muted, fontSize: 11, fontWeight: 750, marginBottom: 9 }}>
+            <div style={{ display: "flex", alignItems: "center", gap: 7, color: C.muted, fontSize: 12, fontWeight: 750, marginBottom: 9 }}>
               <UserPlus size={13} /> Agregar en copia
             </div>
             <div style={{ display: "grid", gap: 7 }}>
@@ -1512,7 +1493,7 @@ export default function PurchaseRequestDetail({ requestId, profile, users = [], 
                   borderRadius: 8,
                   padding: "8px 10px",
                   cursor: newFollowerId ? "pointer" : "default",
-                  fontSize: 12,
+                  fontSize: 13,
                   fontWeight: 700,
                   fontFamily: C.sans,
                   transition: "all .13s",
@@ -1524,7 +1505,7 @@ export default function PurchaseRequestDetail({ requestId, profile, users = [], 
           </div>
 
           <div style={{ padding: 10, border: `1px solid ${C.border}`, borderRadius: 9, background: C.panel, display: "grid", gap: 8 }}>
-            <div style={{ color: C.dim, fontSize: 9, letterSpacing: 1.5, textTransform: "uppercase", fontWeight: 750, marginBottom: 2 }}>
+            <div style={{ color: C.dim, fontSize: 10, letterSpacing: 1.1, textTransform: "uppercase", fontWeight: 750, marginBottom: 2 }}>
               Detalles
             </div>
             <MetaRow icon={<CheckCircle2 size={12} />} label="Estado">
@@ -1566,7 +1547,7 @@ export default function PurchaseRequestDetail({ requestId, profile, users = [], 
                   color: !["recibido", "cancelado"].includes(request.status) && new Date(request.estimated_delivery_at) < new Date() ? C.red : C.text,
                   fontWeight: 600,
                   fontFamily: C.mono,
-                  fontSize: 11,
+                  fontSize: 12,
                 }}>
                   {new Date(request.estimated_delivery_at).toLocaleDateString("es-AR", { day: "2-digit", month: "2-digit", year: "2-digit" })}
                   {!["recibido", "cancelado"].includes(request.status) && new Date(request.estimated_delivery_at) < new Date() && " ⚠"}
@@ -1575,14 +1556,14 @@ export default function PurchaseRequestDetail({ requestId, profile, users = [], 
             )}
             {request.delivered_at && (
               <MetaRow icon={<CheckCircle2 size={12} />} label="Recibido">
-                <span style={{ color: C.green, fontWeight: 600, fontFamily: C.mono, fontSize: 11 }}>
+                <span style={{ color: C.green, fontWeight: 700, fontFamily: C.mono, fontSize: 12 }}>
                   {new Date(request.delivered_at).toLocaleDateString("es-AR", { day: "2-digit", month: "2-digit", year: "2-digit" })}
                 </span>
               </MetaRow>
             )}
             <MetaRow icon={<ImageIcon size={12} />} label="Foto">
               {request.photo_url
-                ? <a href={request.photo_url} target="_blank" rel="noreferrer" style={{ color: C.blue, fontSize: 11, textDecoration: "none" }}>Ver adjunto</a>
+                ? <a href={request.photo_url} target="_blank" rel="noreferrer" style={{ color: C.blue, fontSize: 12, textDecoration: "none" }}>Ver adjunto</a>
                 : <span style={{ color: C.dim }}>Sin adjunto</span>
               }
             </MetaRow>
@@ -1595,7 +1576,7 @@ export default function PurchaseRequestDetail({ requestId, profile, users = [], 
             )}
             {request.project?.codigo && (
               <MetaRow icon={<Paperclip size={12} />} label="Proyecto">
-                <span style={{ color: C.text, fontFamily: C.mono, fontSize: 11 }}>{request.project.codigo}</span>
+                <span style={{ color: C.text, fontFamily: C.mono, fontSize: 12 }}>{request.project.codigo}</span>
               </MetaRow>
             )}
           </div>
@@ -1607,7 +1588,7 @@ export default function PurchaseRequestDetail({ requestId, profile, users = [], 
 
 function MetaRow({ icon, label, children }) {
   return (
-    <div style={{ display: "flex", alignItems: "center", gap: 7, fontSize: 12 }}>
+    <div style={{ display: "flex", alignItems: "center", gap: 7, fontSize: 13 }}>
       <span style={{ color: C.dim, flexShrink: 0 }}>{icon}</span>
       <span style={{ color: C.dim, minWidth: 60 }}>{label}</span>
       <span style={{ marginLeft: "auto" }}>{children}</span>

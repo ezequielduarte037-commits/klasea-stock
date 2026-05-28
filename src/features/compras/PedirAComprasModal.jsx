@@ -2,14 +2,7 @@ import { useEffect, useState } from "react";
 import { ExternalLink, Send, X } from "lucide-react";
 import { createPurchaseRequest, fetchProjects, notifyComprasEmail } from "@/features/compras/purchaseRequestsApi";
 import { useToast } from "@/components/ui/Toast";
-
-const C = {
-  bg: "#09090b", panel: "rgba(255,255,255,0.035)", panel2: "rgba(255,255,255,0.055)",
-  border: "rgba(255,255,255,0.08)", border2: "rgba(255,255,255,0.14)",
-  text: "#f4f4f5", muted: "#a1a1aa", dim: "#71717a",
-  blue: "#60a5fa", green: "#10b981",
-  mono: "'JetBrains Mono', monospace", sans: "'Outfit', system-ui, sans-serif",
-};
+import { C } from "@/theme";
 
 export default function PedirAComprasModal({ open, onClose, prefilled, profile }) {
   const toast = useToast();
@@ -74,7 +67,7 @@ export default function PedirAComprasModal({ open, onClose, prefilled, profile }
       padding: 20,
     }} onClick={(e) => { if (e.target === e.currentTarget) onClose(); }}>
       <form onSubmit={handleSubmit} style={{
-        background: "#0f0f12", border: `1px solid ${C.border}`, borderRadius: 12,
+        background: C.panelSolid, border: `1px solid ${C.border}`, borderRadius: 12,
         padding: 20, width: "100%", maxWidth: 480,
         display: "grid", gap: 12,
       }}>
@@ -89,7 +82,7 @@ export default function PedirAComprasModal({ open, onClose, prefilled, profile }
 
         {prefilled?.source && (
           <div style={{
-            fontSize: 10, color: C.dim, background: C.panel,
+            fontSize: 11, color: C.dim, background: C.panel,
             borderRadius: 6, padding: "6px 10px",
           }}>
             Origen: {prefilled.sourceLabel || prefilled.source}
@@ -103,20 +96,20 @@ export default function PedirAComprasModal({ open, onClose, prefilled, profile }
         )}
 
         <div>
-          <div style={{ color: C.dim, fontSize: 9, letterSpacing: 1.5, textTransform: "uppercase", fontWeight: 700, marginBottom: 4 }}>Título</div>
+          <div style={{ color: C.dim, fontSize: 10, letterSpacing: 1.1, textTransform: "uppercase", fontWeight: 700, marginBottom: 4 }}>Título</div>
           <input value={title} onChange={(e) => setTitle(e.target.value)}
             placeholder="¿Qué necesitás comprar?" required style={inp()} />
         </div>
 
         <div>
-          <div style={{ color: C.dim, fontSize: 9, letterSpacing: 1.5, textTransform: "uppercase", fontWeight: 700, marginBottom: 4 }}>Descripción</div>
+          <div style={{ color: C.dim, fontSize: 10, letterSpacing: 1.1, textTransform: "uppercase", fontWeight: 700, marginBottom: 4 }}>Descripción</div>
           <textarea value={description} onChange={(e) => setDescription(e.target.value)}
             placeholder="Detalles, cantidades, especificaciones..." rows={3} style={inp({ resize: "vertical", minHeight: 60 })} />
         </div>
 
         <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10 }}>
           <div>
-            <div style={{ color: C.dim, fontSize: 9, letterSpacing: 1.5, textTransform: "uppercase", fontWeight: 700, marginBottom: 4 }}>Prioridad</div>
+            <div style={{ color: C.dim, fontSize: 10, letterSpacing: 1.1, textTransform: "uppercase", fontWeight: 700, marginBottom: 4 }}>Prioridad</div>
             <select value={priority} onChange={(e) => setPriority(e.target.value)} style={inp()}>
               {["baja", "media", "alta", "urgente"].map((p) => (
                 <option key={p} value={p}>{p.charAt(0).toUpperCase() + p.slice(1)}</option>
@@ -124,7 +117,7 @@ export default function PedirAComprasModal({ open, onClose, prefilled, profile }
             </select>
           </div>
           <div>
-            <div style={{ color: C.dim, fontSize: 9, letterSpacing: 1.5, textTransform: "uppercase", fontWeight: 700, marginBottom: 4 }}>Proyecto</div>
+            <div style={{ color: C.dim, fontSize: 10, letterSpacing: 1.1, textTransform: "uppercase", fontWeight: 700, marginBottom: 4 }}>Proyecto</div>
             <select value={projectId} onChange={(e) => setProjectId(e.target.value)} style={inp()}>
               <option value="">Sin proyecto</option>
               {projects.map((p) => <option key={p.id} value={p.id}>{p.codigo}</option>)}
@@ -136,7 +129,7 @@ export default function PedirAComprasModal({ open, onClose, prefilled, profile }
           border: "none", borderRadius: 8,
           background: saving ? C.panel2 : C.blue, color: "#fff",
           padding: "10px 12px", cursor: saving ? "default" : "pointer",
-          fontWeight: 800, fontSize: 12, fontFamily: C.sans,
+          fontWeight: 800, fontSize: 13, fontFamily: C.sans,
           opacity: saving || !title.trim() ? 0.5 : 1,
         }}>
           {saving ? "Enviando..." : "Enviar a Compras"}
@@ -150,7 +143,7 @@ function inp(over) {
   return {
     width: "100%", border: `1px solid ${C.border}`, borderRadius: 8,
     background: C.panel2, color: C.text, padding: "9px 11px",
-    fontSize: 12, fontFamily: C.sans, outline: "none",
+    fontSize: 13, fontFamily: C.sans, outline: "none",
     ...over,
   };
 }

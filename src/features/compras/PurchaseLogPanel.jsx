@@ -21,23 +21,7 @@ import {
 } from "@/features/compras/purchaseRequestsApi";
 import { useToast } from "@/components/ui/Toast";
 import { useConfirm } from "@/components/ui/ConfirmDialog";
-
-const C = {
-  bg: "#09090b",
-  panel: "rgba(255,255,255,0.035)",
-  panel2: "rgba(255,255,255,0.055)",
-  panel3: "rgba(255,255,255,0.075)",
-  border: "rgba(255,255,255,0.08)",
-  border2: "rgba(255,255,255,0.14)",
-  text: "#f4f4f5",
-  muted: "#a1a1aa",
-  dim: "#71717a",
-  blue: "#60a5fa",
-  green: "#10b981",
-  red: "#ef4444",
-  mono: "'JetBrains Mono', monospace",
-  sans: "'Outfit', system-ui, sans-serif",
-};
+import { C } from "@/theme";
 
 export default function PurchaseLogPanel({ profile }) {
   const toast = useToast();
@@ -129,21 +113,21 @@ export default function PurchaseLogPanel({ profile }) {
       {/* mini widgets */}
       <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(150px, 1fr))", gap: 10 }}>
         <div style={{ padding: "12px 14px", border: `1px solid ${C.border}`, borderRadius: 10, background: C.panel }}>
-          <div style={{ color: C.dim, fontSize: 9, letterSpacing: 1, textTransform: "uppercase", fontWeight: 600, marginBottom: 4 }}>Este mes</div>
+          <div style={{ color: C.dim, fontSize: 10, letterSpacing: 1, textTransform: "uppercase", fontWeight: 700, marginBottom: 4 }}>Este mes</div>
           <div style={{ display: "flex", alignItems: "baseline", gap: 6 }}>
             <span style={{ color: C.text, fontSize: 20, fontWeight: 800, fontFamily: C.mono }}>
               ${Number(monthlyTotal).toLocaleString("es-AR", { minimumFractionDigits: 0 })}
             </span>
-            <span style={{ color: C.dim, fontSize: 10 }}>en {thisMonth.length} compras</span>
+            <span style={{ color: C.dim, fontSize: 11 }}>en {thisMonth.length} compras</span>
           </div>
         </div>
         <div style={{ padding: "12px 14px", border: `1px solid ${C.border}`, borderRadius: 10, background: C.panel }}>
-          <div style={{ color: C.dim, fontSize: 9, letterSpacing: 1, textTransform: "uppercase", fontWeight: 600, marginBottom: 4 }}>Total registrado</div>
+          <div style={{ color: C.dim, fontSize: 10, letterSpacing: 1, textTransform: "uppercase", fontWeight: 700, marginBottom: 4 }}>Total registrado</div>
           <div style={{ display: "flex", alignItems: "baseline", gap: 6 }}>
             <span style={{ color: C.text, fontSize: 20, fontWeight: 800, fontFamily: C.mono }}>
               ${Number(entries.reduce((s, e) => s + Number(e.amount || 0), 0)).toLocaleString("es-AR", { minimumFractionDigits: 0 })}
             </span>
-            <span style={{ color: C.dim, fontSize: 10 }}>{entries.length} registros</span>
+            <span style={{ color: C.dim, fontSize: 11 }}>{entries.length} registros</span>
           </div>
         </div>
       </div>
@@ -154,7 +138,7 @@ export default function PurchaseLogPanel({ profile }) {
           <button type="button" onClick={() => setShowForm(true)} style={{
             display: "inline-flex", alignItems: "center", gap: 7,
             border: `1px solid ${C.border2}`, background: C.panel2, color: C.text,
-            borderRadius: 8, padding: "8px 14px", cursor: "pointer", fontSize: 12, fontWeight: 750,
+            borderRadius: 8, padding: "8px 14px", cursor: "pointer", fontSize: 13, fontWeight: 750,
           }}>
             <Plus size={14} /> Cargar compra manual
           </button>
@@ -164,7 +148,7 @@ export default function PurchaseLogPanel({ profile }) {
             display: "grid", gap: 10,
           }}>
             <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
-              <div style={{ fontSize: 12, fontWeight: 750, color: C.text }}>Nueva compra manual</div>
+              <div style={{ fontSize: 13, fontWeight: 750, color: C.text }}>Nueva compra manual</div>
               <button type="button" onClick={resetForm} style={{
                 border: "none", background: "none", color: C.dim, cursor: "pointer", padding: 4,
               }}><X size={14} /></button>
@@ -201,7 +185,7 @@ export default function PurchaseLogPanel({ profile }) {
               <label style={{
                 display: "inline-flex", alignItems: "center", gap: 6,
                 border: `1px solid ${C.border}`, borderRadius: 8, padding: "6px 11px",
-                cursor: "pointer", fontSize: 11, color: C.muted, background: C.panel2,
+                cursor: "pointer", fontSize: 12, color: C.muted, background: C.panel2,
               }}>
                 <ImagePlus size={14} /> {invoiceFile ? invoiceFile.name : "Factura"}
                 <input type="file" accept="image/*,.pdf" onChange={(e) => setInvoiceFile(e.target.files[0])}
@@ -209,14 +193,14 @@ export default function PurchaseLogPanel({ profile }) {
               </label>
               {invoiceFile && (
                 <button type="button" onClick={() => setInvoiceFile(null)} style={{
-                  border: "none", background: "none", color: C.red, cursor: "pointer", fontSize: 10,
+                  border: "none", background: "none", color: C.red, cursor: "pointer", fontSize: 11,
                 }}>Quitar</button>
               )}
               <div style={{ flex: 1 }} />
               <button type="submit" disabled={saving || !form.description.trim()} style={{
                 display: "inline-flex", alignItems: "center", gap: 6,
                 border: "none", background: C.blue, color: "#fff", borderRadius: 8,
-                padding: "8px 16px", cursor: "pointer", fontSize: 12, fontWeight: 700,
+                padding: "8px 16px", cursor: "pointer", fontSize: 13, fontWeight: 700,
                 opacity: saving || !form.description.trim() ? 0.5 : 1,
               }}>
                 {saving ? "Guardando..." : <><Upload size={13} /> Guardar</>}
@@ -229,11 +213,11 @@ export default function PurchaseLogPanel({ profile }) {
       {/* list */}
       <div style={{ display: "grid", gap: 6 }}>
         {loading ? (
-          <div style={{ display: "grid", placeItems: "center", padding: 40, color: C.dim, fontSize: 12 }}>
+          <div style={{ display: "grid", placeItems: "center", padding: 40, color: C.dim, fontSize: 13 }}>
             <span style={{ display: "inline-block", width: 14, height: 14, border: `2px solid ${C.border2}`, borderTopColor: C.blue, borderRadius: "50%", animation: "spin 0.8s linear infinite" }} />
           </div>
         ) : entries.length === 0 ? (
-          <div style={{ display: "grid", placeItems: "center", padding: 40, color: C.dim, fontSize: 12, border: `1px dashed ${C.border}`, borderRadius: 10 }}>
+          <div style={{ display: "grid", placeItems: "center", padding: 40, color: C.dim, fontSize: 13, border: `1px dashed ${C.border}`, borderRadius: 10 }}>
             <Package size={28} color={C.border2} style={{ marginBottom: 8 }} />
             <div>No hay compras registradas</div>
           </div>
@@ -245,14 +229,14 @@ export default function PurchaseLogPanel({ profile }) {
             }}>
               <div style={{ minWidth: 0 }}>
                 <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 4 }}>
-                  <span style={{ fontSize: 12, fontWeight: 700, color: C.text }}>{entry.description}</span>
+                  <span style={{ fontSize: 13, fontWeight: 700, color: C.text }}>{entry.description}</span>
                   {entry.amount && (
-                    <span style={{ fontSize: 12, fontWeight: 800, fontFamily: C.mono, color: C.green }}>
+                    <span style={{ fontSize: 13, fontWeight: 800, fontFamily: C.mono, color: C.green }}>
                       ${Number(entry.amount).toLocaleString("es-AR", { minimumFractionDigits: 2 })}
                     </span>
                   )}
                 </div>
-                <div style={{ display: "flex", alignItems: "center", gap: 12, fontSize: 10, color: C.dim }}>
+                <div style={{ display: "flex", alignItems: "center", gap: 12, fontSize: 11, color: C.dim }}>
                   {entry.provider && <span><Store size={10} style={{ display: "inline", verticalAlign: "middle", marginRight: 3 }} />{entry.provider}</span>}
                   <span>{new Date(entry.purchased_at).toLocaleDateString("es-AR")}</span>
                   <span>{usernameOf(entry.creator)}</span>
@@ -283,7 +267,7 @@ function inp(over) {
     background: C.panel2,
     color: C.text,
     padding: "9px 11px",
-    fontSize: 12,
+    fontSize: 13,
     fontFamily: C.sans,
     outline: "none",
     ...over,

@@ -1,3 +1,4 @@
+import { C } from "@/theme";
 /**
  * HomeScreen.jsx  v5  ─ "Full Animation Edition"
  *
@@ -22,16 +23,6 @@ import logoKlasea from "@/assets/logos/logo-klasea.png";
 import logoK      from "@/assets/logos/logo-k.png";
 
 // ─── PALETA ────────────────────────────────────────────────────
-const C = {
-  bg:   "#09090b", s0:"rgba(255,255,255,0.03)", s1:"rgba(255,255,255,0.055)",
-  b0:   "rgba(255,255,255,0.08)", b1:"rgba(255,255,255,0.14)",
-  t0:   "#f4f4f5", t1:"#a1a1aa", t2:"#52525b",
-  sans: "'Outfit', system-ui, sans-serif",
-  mono: "'JetBrains Mono', monospace",
-  blue:"#3b82f6", cyan:"#22d3ee", green:"#10b981",
-  amber:"#f59e0b", red:"#ef4444", indigo:"#818cf8", teal:"#67e8f9",
-};
-
 // ─── MÓDULOS ───────────────────────────────────────────────────
 const MODULOS = [
   { href:"/panol",            label:"Maderas",           desc:"Ingresos, egresos y stock de madera",         color:"#818cf8", roles:["panol","oficina","admin"] },
@@ -531,7 +522,7 @@ function Card({ mod, delay, onClick }) {
               backgroundSize:"200% auto",
               WebkitBackgroundClip:"text", WebkitTextFillColor:"transparent",
               animation:"labelShimmer 1.2s linear 0.08s 1 forwards",
-            } : { color:"#f4f4f5" }),
+            } : { color:"var(--text)" }),
           }}>
             {mod.label}
           </span>
@@ -539,8 +530,8 @@ function Card({ mod, delay, onClick }) {
 
         {/* Descripción */}
         <div style={{
-          fontSize:11, lineHeight:1.6,
-          color: hov ? "#9ca3af" : "#52525b",
+          fontSize:12, lineHeight:1.6,
+          color: hov ? "#9ca3af" : "var(--dim)",
           transition:"color 0.2s",
           paddingRight:28,
         }}>
@@ -652,11 +643,11 @@ function Ring({ value, total, color, size=52, label, delay=0 }) {
             style={{transition:"stroke-dashoffset 1.4s cubic-bezier(0.22,1,0.36,1)",filter:`drop-shadow(0 0 4px ${color}88)`}}/>
         </svg>
         <div style={{ position:"absolute", inset:0, display:"flex", alignItems:"center",
-          justifyContent:"center", fontFamily:"'JetBrains Mono',monospace", fontSize:12, fontWeight:700, color }}>
+          justifyContent:"center", fontFamily:"'JetBrains Mono',monospace", fontSize:13, fontWeight:700, color }}>
           <AnimNum to={value} color={color}/>
         </div>
       </div>
-      <span style={{ fontSize:8.5, color:"#52525b", letterSpacing:2, textTransform:"uppercase",
+      <span style={{ fontSize:10, color:"var(--dim)", letterSpacing:1.3, textTransform:"uppercase",
         fontFamily:"'JetBrains Mono',monospace" }}>{label}</span>
     </div>
   );
@@ -703,15 +694,15 @@ function Ticker({ items }) {
       background:"rgba(0,0,0,0.35)", backdropFilter:"blur(8px)" }}>
       <div style={{ padding:"0 12px", borderRight:`1px solid rgba(255,255,255,0.08)`, height:"100%",
         display:"flex", alignItems:"center", flexShrink:0 }}>
-        <span style={{ fontSize:8, fontFamily:"'JetBrains Mono',monospace", color:"#52525b", letterSpacing:2 }}>LIVE</span>
+        <span style={{ fontSize:10, fontFamily:"'JetBrains Mono',monospace", color:"var(--dim)", letterSpacing:1.3 }}>LIVE</span>
       </div>
       <div style={{ overflow:"hidden", flex:1 }}>
         <div style={{ display:"flex", whiteSpace:"nowrap", animation:"tickerScroll 32s linear infinite" }}>
           {[...items,...items].map((it,i)=>(
             <span key={i} style={{ display:"inline-flex", alignItems:"center", gap:7,
-              fontFamily:"'JetBrains Mono',monospace", fontSize:9, color:"#a1a1aa", paddingRight:40 }}>
+              fontFamily:"'JetBrains Mono',monospace", fontSize:10, color:"var(--muted)", paddingRight:40 }}>
               <span style={{ color:it.color, fontSize:5 }}>◆</span>
-              <span style={{ color:"#52525b" }}>{it.label.toUpperCase()}</span>
+              <span style={{ color:"var(--dim)" }}>{it.label.toUpperCase()}</span>
               <span style={{ color:it.color, fontWeight:700 }}>{it.value}</span>
             </span>
           ))}
@@ -827,7 +818,7 @@ export default function HomeScreen({ profile, signOut }) {
             <div style={{ display:"flex", alignItems:"center", gap:8 }}>
               <div style={{ width:7, height:7, borderRadius:"50%", background:C.green,
                 animation:"pulseOnline 2.4s ease-out infinite" }}/>
-              <span style={{ fontSize:9, color:C.t2, letterSpacing:2.5,
+              <span style={{ fontSize:10, color:C.t2, letterSpacing:1.3,
                 textTransform:"uppercase", fontFamily:C.mono }}>Online</span>
             </div>
 
@@ -843,10 +834,10 @@ export default function HomeScreen({ profile, signOut }) {
                   <div key={k.l} style={{ display:"flex", alignItems:"center", gap:5 }}>
                     <div style={{ width:4, height:4, borderRadius:"50%", background:k.c,
                       boxShadow:`0 0 7px ${k.c}`, animation:"dotBeat 2.6s ease-in-out infinite" }}/>
-                    <span style={{ fontFamily:C.mono, fontSize:13, fontWeight:700, color:k.c }}>
+                    <span style={{ fontFamily:C.mono, fontSize:14, fontWeight:700, color:k.c }}>
                       <AnimNum to={k.v} color={k.c}/>
                     </span>
-                    <span style={{ fontSize:9, color:C.t2, letterSpacing:1.5,
+                    <span style={{ fontSize:10, color:C.t2, letterSpacing:1.1,
                       textTransform:"uppercase" }}>{k.l}</span>
                   </div>
                 ))}
@@ -857,12 +848,12 @@ export default function HomeScreen({ profile, signOut }) {
             <div style={{ display:"flex", flexDirection:"column", alignItems:"flex-end", gap:1 }}>
               <div style={{ display:"flex", alignItems:"baseline", gap:2 }}>
                 <span style={{ fontFamily:C.mono, fontSize:19, fontWeight:700,
-                  color:C.t0, letterSpacing:2.5 }}>
+                  color:C.t0, letterSpacing:1.3 }}>
                   {hh}<span style={{ opacity:.28, animation:"cursorBlink 1s step-end infinite" }}>:</span>{mm}
                 </span>
-                <span style={{ fontFamily:C.mono, fontSize:10, color:C.t2, marginLeft:2 }}>{ss}</span>
+                <span style={{ fontFamily:C.mono, fontSize:11, color:C.t2, marginLeft:2 }}>{ss}</span>
               </div>
-              <span style={{ fontSize:8.5, color:C.t2, fontFamily:C.mono, letterSpacing:1.5 }}>
+              <span style={{ fontSize:10, color:C.t2, fontFamily:C.mono, letterSpacing:1.1 }}>
                 {fecha.toUpperCase()}
               </span>
             </div>
@@ -873,7 +864,7 @@ export default function HomeScreen({ profile, signOut }) {
             borderBottom:`1px solid ${C.b0}`, position:"relative", zIndex:1 }}>
 
             {/* saludo typewriter */}
-            <div style={{ fontSize:10.5, color:C.t2, letterSpacing:3, textTransform:"uppercase",
+            <div style={{ fontSize:11, color:C.t2, letterSpacing:3, textTransform:"uppercase",
               marginBottom:14, fontFamily:C.mono,
               animation:"fadeSlideUp 0.4s ease 0.05s both" }}>
               <Typewriter text={greeting} delay={300} speed={32}/>
@@ -901,17 +892,17 @@ export default function HomeScreen({ profile, signOut }) {
                   boxShadow:`0 0 12px ${C.blue}45` }}/>
 
                 {/* subtítulo */}
-                <div style={{ fontSize:10, color:C.t2, marginTop:9, letterSpacing:2.5,
+                <div style={{ fontSize:11, color:C.t2, marginTop:9, letterSpacing:1.3,
                   textTransform:"uppercase", fontFamily:C.mono,
                   display:"flex", alignItems:"center", gap:10,
                   animation:"fadeSlideUp 0.4s ease 0.6s both" }}>
                   <span>Astillero · Sistema de Producción</span>
                   <span style={{ padding:"1px 8px", borderRadius:4,
                     background:"rgba(255,255,255,0.04)", border:`1px solid ${C.b0}`,
-                    fontSize:9, letterSpacing:1.5, color:C.t2 }}>{role}</span>
+                    fontSize:10, letterSpacing:1.1, color:C.t2 }}>{role}</span>
                   <span style={{ padding:"1px 8px", borderRadius:4,
                     background:"rgba(16,185,129,0.08)", border:"1px solid rgba(16,185,129,0.2)",
-                    fontSize:9, letterSpacing:1.5, color:C.green }}>{modulos.length} módulos</span>
+                    fontSize:10, letterSpacing:1.1, color:C.green }}>{modulos.length} módulos</span>
                 </div>
               </div>
 
@@ -935,12 +926,12 @@ export default function HomeScreen({ profile, signOut }) {
 
             <div style={{ display:"flex", alignItems:"center", gap:12, marginBottom:12, flexShrink:0,
               animation:"fadeSlideUp 0.4s ease 0.26s both" }}>
-              <span style={{ fontSize:9, color:C.t2, letterSpacing:3,
+              <span style={{ fontSize:10, color:C.t2, letterSpacing:3,
                 textTransform:"uppercase", fontFamily:C.mono }}>Acceso rápido</span>
               <div style={{ flex:1, height:1,
                 background:`linear-gradient(90deg,${C.b0},transparent)` }}/>
-              <span style={{ fontSize:9, color:"rgba(255,255,255,0.09)",
-                fontFamily:C.mono, letterSpacing:2 }}>KLASE A · ASTILLERO · v9.0</span>
+              <span style={{ fontSize:10, color:"rgba(255,255,255,0.09)",
+                fontFamily:C.mono, letterSpacing:1.3 }}>KLASE A · ASTILLERO · v9.0</span>
             </div>
 
             <div style={{

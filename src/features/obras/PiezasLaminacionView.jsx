@@ -1,3 +1,4 @@
+import { C } from "@/theme";
 ﻿/**
  * PiezasLaminacionView v5
  *
@@ -46,15 +47,6 @@
 
 import { useEffect, useMemo, useState, useRef, useCallback } from "react";
 import { supabase } from "@/supabaseClient";
-
-const C = {
-  bg:"#09090b", s0:"rgba(255,255,255,0.03)", s1:"rgba(255,255,255,0.06)",
-  b0:"rgba(255,255,255,0.08)", b1:"rgba(255,255,255,0.15)",
-  t0:"#f4f4f5", t1:"#a1a1aa", t2:"#71717a",
-  mono:"'JetBrains Mono','IBM Plex Mono',monospace",
-  sans:"'Outfit',system-ui,sans-serif",
-  green:"#10b981", amber:"#f59e0b", red:"#ef4444", blue:"#3b82f6", purple:"#8b5cf6",
-};
 
 const GLASS = {
   backdropFilter:"blur(24px) saturate(130%)",
@@ -344,7 +336,7 @@ function Dot({ color, size=6, pulse=false }) {
 }
 function Chip({ estado, sm=false }) {
   const e = EST[estado] ?? EST.pendiente;
-  return <span style={{ fontSize:sm?8:9, letterSpacing:1.5, textTransform:"uppercase", padding:sm?"2px 6px":"3px 9px", borderRadius:99, fontWeight:700, background:e.bg, color:e.color, border:`1px solid ${e.border}`, whiteSpace:"nowrap", fontFamily:C.sans }}>{e.label}</span>;
+  return <span style={{ fontSize:sm?8:9, letterSpacing:1.1, textTransform:"uppercase", padding:sm?"2px 6px":"3px 9px", borderRadius:99, fontWeight:700, background:e.bg, color:e.color, border:`1px solid ${e.border}`, whiteSpace:"nowrap", fontFamily:C.sans }}>{e.label}</span>;
 }
 function ProgressRing({ pct, size=44, stroke=3.5, color=C.green }) {
   const r = (size-stroke*2)/2, circ = 2*Math.PI*r;
@@ -362,9 +354,9 @@ function KpiCard({ label, value, total, color, delay=0 }) {
     <div style={{ background:C.s0, border:`1px solid ${C.b0}`, borderRadius:11, padding:"11px 13px", display:"flex", alignItems:"center", gap:10, borderLeft:`2px solid ${color}`, animation:`plv-kpi .35s ${delay}s ease both` }}>
       <ProgressRing pct={p} color={color} size={38} stroke={3} />
       <div>
-        <div style={{ fontSize:8, letterSpacing:2, textTransform:"uppercase", color:C.t2, marginBottom:3 }}>{label}</div>
+        <div style={{ fontSize:10, letterSpacing:1.3, textTransform:"uppercase", color:C.t2, marginBottom:3 }}>{label}</div>
         <div style={{ fontFamily:C.mono, fontSize:20, fontWeight:700, color, lineHeight:1 }}>{value}</div>
-        <div style={{ fontSize:9, color:C.t2, marginTop:2 }}>{p}%</div>
+        <div style={{ fontSize:10, color:C.t2, marginTop:2 }}>{p}%</div>
       </div>
     </div>
   );
@@ -385,21 +377,21 @@ function PiezaFlowCard({ pieza, seg, imagenes=[], esGestion, saving, selected=fa
     <div className={`plv-flow-card${selected ? " plv-card-sel" : ""}`} style={{ border:`1px solid ${selected ? "rgba(59,130,246,0.55)" : C.b0}`, borderLeft:`3px solid ${estInfo.color}`, background:selected ? "rgba(59,130,246,0.08)" : "rgba(255,255,255,0.025)", borderRadius:8, padding:"9px 10px", display:"grid", gap:7 }}>
       <div style={{ display:"flex", alignItems:"center", gap:7 }}>
         <input type="checkbox" className="plv-check" checked={selected} onChange={onToggle} />
-        <span style={{ fontFamily:C.mono, fontSize:10, color:C.t2, minWidth:28 }}>{pieza.pieza_id}</span>
+        <span style={{ fontFamily:C.mono, fontSize:11, color:C.t2, minWidth:28 }}>{pieza.pieza_id}</span>
         <Chip estado={estado} sm />
-        {imagenes.length > 0 && <span style={{ fontSize:9, color:C.t2, marginLeft:"auto" }}>{imagenes.length} foto{imagenes.length>1?"s":""}</span>}
+        {imagenes.length > 0 && <span style={{ fontSize:10, color:C.t2, marginLeft:"auto" }}>{imagenes.length} foto{imagenes.length>1?"s":""}</span>}
       </div>
       <button onClick={onDetalle} style={{ background:"transparent", border:0, padding:0, cursor:"pointer", textAlign:"left", fontFamily:C.sans }}>
-        <div style={{ fontSize:12, color:C.t0, fontWeight:600, lineHeight:1.3 }}>{pieza.desc}</div>
-        {pieza.matriz && <div style={{ marginTop:4, fontSize:10.5, color:C.t2, lineHeight:1.35 }}>{pieza.matriz}</div>}
+        <div style={{ fontSize:13, color:C.t0, fontWeight:600, lineHeight:1.3 }}>{pieza.desc}</div>
+        {pieza.matriz && <div style={{ marginTop:4, fontSize:11, color:C.t2, lineHeight:1.35 }}>{pieza.matriz}</div>}
       </button>
       {(seg?.laminador || seg?.ubicacion || seg?.trayecto || fechaEnvio || fechaRecepcion) && (
         <div style={{ display:"grid", gap:3, paddingTop:6, borderTop:`1px solid ${C.b0}` }}>
-          {seg?.laminador && <div style={{ fontSize:10, color:C.t2 }}>Laminador: <span style={{ color:C.t1 }}>{seg.laminador}</span></div>}
-          {seg?.ubicacion && <div style={{ fontSize:10, color:C.t2 }}>Ubicacion: <span style={{ color:C.t1 }}>{seg.ubicacion}</span></div>}
-          {seg?.trayecto && <div style={{ fontSize:10, color:C.t2 }}>Trayecto: <span style={{ color:C.t1 }}>{seg.trayecto}</span></div>}
+          {seg?.laminador && <div style={{ fontSize:11, color:C.t2 }}>Laminador: <span style={{ color:C.t1 }}>{seg.laminador}</span></div>}
+          {seg?.ubicacion && <div style={{ fontSize:11, color:C.t2 }}>Ubicacion: <span style={{ color:C.t1 }}>{seg.ubicacion}</span></div>}
+          {seg?.trayecto && <div style={{ fontSize:11, color:C.t2 }}>Trayecto: <span style={{ color:C.t1 }}>{seg.trayecto}</span></div>}
           {(fechaEnvio || fechaRecepcion) && (
-            <div style={{ fontSize:10, color:C.t2 }}>
+            <div style={{ fontSize:11, color:C.t2 }}>
               {fechaEnvio && <span>Envio {fechaEnvio}</span>}
               {fechaEnvio && fechaRecepcion && <span> · </span>}
               {fechaRecepcion && <span>Recepcion {fechaRecepcion}</span>}
@@ -409,10 +401,10 @@ function PiezaFlowCard({ pieza, seg, imagenes=[], esGestion, saving, selected=fa
       )}
       {esGestion && (
         <div style={{ display:"flex", gap:5, flexWrap:"wrap" }}>
-          {estado !== "terminada" && <button className="plv-qbtn" disabled={saving} onClick={() => onEstado("terminada")} style={{ border:"1px solid rgba(16,185,129,0.3)", background:"rgba(16,185,129,0.08)", color:"#34d399", padding:"4px 7px", borderRadius:5, cursor:"pointer", fontSize:10, fontWeight:700 }}>Lista</button>}
-          {estado !== "enviada" && <button className="plv-qbtn" disabled={saving} onClick={() => onEstado("enviada")} style={{ border:"1px solid rgba(245,158,11,0.3)", background:"rgba(245,158,11,0.08)", color:C.amber, padding:"4px 7px", borderRadius:5, cursor:"pointer", fontSize:10, fontWeight:700 }}>Enviar</button>}
-          {estado !== "recibida" && <button className="plv-qbtn" disabled={saving} onClick={() => onEstado("recibida")} style={{ border:"1px solid rgba(45,212,191,0.3)", background:"rgba(45,212,191,0.08)", color:"#2dd4bf", padding:"4px 7px", borderRadius:5, cursor:"pointer", fontSize:10, fontWeight:700 }}>Recibir</button>}
-          <button className="plv-qbtn" onClick={onDetalle} style={{ marginLeft:"auto", border:`1px solid ${C.b0}`, background:"transparent", color:C.t2, padding:"4px 7px", borderRadius:5, cursor:"pointer", fontSize:10 }}>Detalle</button>
+          {estado !== "terminada" && <button className="plv-qbtn" disabled={saving} onClick={() => onEstado("terminada")} style={{ border:"1px solid rgba(16,185,129,0.3)", background:"rgba(16,185,129,0.08)", color:"#34d399", padding:"4px 7px", borderRadius:5, cursor:"pointer", fontSize:11, fontWeight:700 }}>Lista</button>}
+          {estado !== "enviada" && <button className="plv-qbtn" disabled={saving} onClick={() => onEstado("enviada")} style={{ border:"1px solid rgba(245,158,11,0.3)", background:"rgba(245,158,11,0.08)", color:C.amber, padding:"4px 7px", borderRadius:5, cursor:"pointer", fontSize:11, fontWeight:700 }}>Enviar</button>}
+          {estado !== "recibida" && <button className="plv-qbtn" disabled={saving} onClick={() => onEstado("recibida")} style={{ border:"1px solid rgba(45,212,191,0.3)", background:"rgba(45,212,191,0.08)", color:"#2dd4bf", padding:"4px 7px", borderRadius:5, cursor:"pointer", fontSize:11, fontWeight:700 }}>Recibir</button>}
+          <button className="plv-qbtn" onClick={onDetalle} style={{ marginLeft:"auto", border:`1px solid ${C.b0}`, background:"transparent", color:C.t2, padding:"4px 7px", borderRadius:5, cursor:"pointer", fontSize:11 }}>Detalle</button>
         </div>
       )}
     </div>
@@ -425,14 +417,14 @@ function RecepcionColumn({ title, subtitle, color, piezas, segMap, imagenesMap, 
       <div style={{ padding:"10px 11px", borderBottom:`1px solid ${C.b0}` }}>
         <div style={{ display:"flex", alignItems:"center", gap:7 }}>
           <Dot color={color} size={6} />
-          <div style={{ fontSize:11, color:C.t0, fontWeight:800, letterSpacing:.5, textTransform:"uppercase" }}>{title}</div>
-          <div style={{ marginLeft:"auto", fontFamily:C.mono, fontSize:13, color }}>{piezas.length}</div>
+          <div style={{ fontSize:12, color:C.t0, fontWeight:800, letterSpacing:.5, textTransform:"uppercase" }}>{title}</div>
+          <div style={{ marginLeft:"auto", fontFamily:C.mono, fontSize:14, color }}>{piezas.length}</div>
         </div>
-        <div style={{ fontSize:9.5, color:C.t2, marginTop:3, lineHeight:1.3 }}>{subtitle}</div>
+        <div style={{ fontSize:10, color:C.t2, marginTop:3, lineHeight:1.3 }}>{subtitle}</div>
       </div>
       <div style={{ flex:1, overflowY:"auto", padding:8, display:"grid", gap:7, alignContent:"start" }}>
         {piezas.length === 0 ? (
-          <div style={{ border:`1px dashed ${C.b0}`, borderRadius:8, padding:"18px 10px", textAlign:"center", color:C.t2, fontSize:10 }}>Sin piezas</div>
+          <div style={{ border:`1px dashed ${C.b0}`, borderRadius:8, padding:"18px 10px", textAlign:"center", color:C.t2, fontSize:11 }}>Sin piezas</div>
         ) : piezas.map(pieza => (
           <PiezaFlowCard
             key={pieza.pieza_id}
@@ -577,19 +569,19 @@ function PiezaModal({ pieza, lineaKey, obraId, segRow, imagenes:imgInit=[], onSa
 
   const INP = {
     background:C.s0, border:`1px solid ${C.b0}`, color:C.t0,
-    padding:"9px 12px", borderRadius:8, fontSize:12, outline:"none",
+    padding:"9px 12px", borderRadius:8, fontSize:13, outline:"none",
     width:"100%", fontFamily:C.sans, boxSizing:"border-box", transition:"border-color .15s",
   };
 
   return (
-    <div onClick={e => e.target===e.currentTarget && onClose()} style={{ position:"fixed", inset:0, zIndex:9100, background:"rgba(0,0,0,0.88)", ...GLASS, display:"flex", alignItems:"flex-start", justifyContent:"center", padding:"40px 20px", overflowY:"auto" }}>
+    <div onClick={e => e.target===e.currentTarget && onClose()} style={{ position:"fixed", inset:0, zIndex:9100, background:"var(--overlay-strong)", ...GLASS, display:"flex", alignItems:"flex-start", justifyContent:"center", padding:"40px 20px", overflowY:"auto" }}>
       {lightbox && <Lightbox url={lightbox} onClose={() => setLightbox(null)} />}
       <div style={{ background:"rgba(13,13,17,0.98)", border:`1px solid ${C.b1}`, borderRadius:14, width:"100%", maxWidth:540, fontFamily:C.sans, boxShadow:"0 32px 80px rgba(0,0,0,0.8)", animation:"plv-slideup .18s ease", marginBottom:40 }}>
 
         {/* header */}
         <div style={{ padding:"18px 20px 14px", borderBottom:`1px solid ${C.b0}`, display:"flex", justifyContent:"space-between", alignItems:"flex-start" }}>
           <div>
-            <div style={{ fontSize:8, letterSpacing:2, textTransform:"uppercase", color:C.t2, marginBottom:5 }}>
+            <div style={{ fontSize:10, letterSpacing:1.3, textTransform:"uppercase", color:C.t2, marginBottom:5 }}>
               {(lineaKey ?? "").toUpperCase()} · Pieza {piezaLabel}
               {pieza.matriz && <span style={{ marginLeft:8, color:C.amber }}>✦ {pieza.matriz}</span>}
             </div>
@@ -602,17 +594,17 @@ function PiezaModal({ pieza, lineaKey, obraId, segRow, imagenes:imgInit=[], onSa
         <div style={{ padding:"18px 20px 22px", display:"flex", flexDirection:"column", gap:14 }}>
 
           {uploadErr && (
-            <div style={{ padding:"8px 12px", borderRadius:7, background:"rgba(239,68,68,0.08)", border:"1px solid rgba(239,68,68,0.25)", fontSize:12, color:"#fca5a5" }}>
+            <div style={{ padding:"8px 12px", borderRadius:7, background:"rgba(239,68,68,0.08)", border:"1px solid rgba(239,68,68,0.25)", fontSize:13, color:"#fca5a5" }}>
               ⚠ {uploadErr}
             </div>
           )}
 
           {/* estado */}
           <div>
-            <label style={{ fontSize:9, letterSpacing:2, color:C.t1, display:"block", marginBottom:8, textTransform:"uppercase", fontWeight:600 }}>Estado</label>
+            <label style={{ fontSize:10, letterSpacing:1.3, color:C.t1, display:"block", marginBottom:8, textTransform:"uppercase", fontWeight: 700 }}>Estado</label>
             <div style={{ display:"flex", flexWrap:"wrap", gap:6 }}>
               {Object.entries(EST).map(([key,e]) => (
-                <button key={key} onClick={() => setEstado(key)} style={{ padding:"6px 13px", borderRadius:99, fontSize:11, fontWeight:600, cursor:"pointer", border:estado===key?`1px solid ${e.border}`:`1px solid ${C.b0}`, background:estado===key?e.bg:"transparent", color:estado===key?e.color:C.t2, transition:"all .15s", fontFamily:C.sans }}>
+                <button key={key} onClick={() => setEstado(key)} style={{ padding:"6px 13px", borderRadius:99, fontSize:12, fontWeight: 700, cursor:"pointer", border:estado===key?`1px solid ${e.border}`:`1px solid ${C.b0}`, background:estado===key?e.bg:"transparent", color:estado===key?e.color:C.t2, transition:"all .15s", fontFamily:C.sans }}>
                   {e.label}
                 </button>
               ))}
@@ -621,7 +613,7 @@ function PiezaModal({ pieza, lineaKey, obraId, segRow, imagenes:imgInit=[], onSa
 
           {/* laminador */}
           <div>
-            <label style={{ fontSize:9, letterSpacing:2, color:C.t1, display:"block", marginBottom:6, textTransform:"uppercase", fontWeight:600 }}>Laminador</label>
+            <label style={{ fontSize:10, letterSpacing:1.3, color:C.t1, display:"block", marginBottom:6, textTransform:"uppercase", fontWeight: 700 }}>Laminador</label>
             <input value={laminador} onChange={e => setLaminador(e.target.value)} placeholder="Nombre del laminador responsable…" style={INP}
               onFocus={e => e.currentTarget.style.borderColor="rgba(59,130,246,0.4)"} onBlur={e => e.currentTarget.style.borderColor=C.b0} />
           </div>
@@ -629,7 +621,7 @@ function PiezaModal({ pieza, lineaKey, obraId, segRow, imagenes:imgInit=[], onSa
           {/* ubicación */}
           {showUbicacion && (
             <div style={{ animation:"plv-fadeup .2s ease" }}>
-              <label style={{ fontSize:9, letterSpacing:2, color:C.t1, display:"block", marginBottom:6, textTransform:"uppercase", fontWeight:600 }}>¿Dónde está?</label>
+              <label style={{ fontSize:10, letterSpacing:1.3, color:C.t1, display:"block", marginBottom:6, textTransform:"uppercase", fontWeight: 700 }}>¿Dónde está?</label>
               <input value={ubicacion} onChange={e => setUbicacion(e.target.value)} placeholder="Planta Pampa, en depósito, montada…" style={INP}
                 onFocus={e => e.currentTarget.style.borderColor="rgba(59,130,246,0.4)"} onBlur={e => e.currentTarget.style.borderColor=C.b0} />
             </div>
@@ -638,10 +630,10 @@ function PiezaModal({ pieza, lineaKey, obraId, segRow, imagenes:imgInit=[], onSa
           {/* trayecto / movimiento entre astilleros */}
           {(estado === "enviada" || estado === "recibida" || trayecto) && (
             <div style={{ animation:"plv-fadeup .2s ease" }}>
-              <label style={{ fontSize:9, letterSpacing:2, color:C.t1, display:"block", marginBottom:6, textTransform:"uppercase", fontWeight:600 }}>Trayecto / Movimiento</label>
+              <label style={{ fontSize:10, letterSpacing:1.3, color:C.t1, display:"block", marginBottom:6, textTransform:"uppercase", fontWeight: 700 }}>Trayecto / Movimiento</label>
               <input value={trayecto} onChange={e => setTrayecto(e.target.value)} placeholder="Ej: Planta Pampa → Astillero Norte" style={INP}
                 onFocus={e => e.currentTarget.style.borderColor="rgba(245,158,11,0.4)"} onBlur={e => e.currentTarget.style.borderColor=C.b0} />
-              <div style={{ fontSize:9, color:C.t2, marginTop:4, lineHeight:1.5 }}>
+              <div style={{ fontSize:10, color:C.t2, marginTop:4, lineHeight:1.5 }}>
                 Indicá el recorrido si la pieza va entre astilleros. Se puede actualizar en cada viaje.
               </div>
             </div>
@@ -651,13 +643,13 @@ function PiezaModal({ pieza, lineaKey, obraId, segRow, imagenes:imgInit=[], onSa
           {(estado === "enviada" || estado === "recibida" || fechaEnvio || fechaRecepcion) && (
             <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr", gap:10, animation:"plv-fadeup .2s ease" }}>
               <div>
-                <label style={{ fontSize:9, letterSpacing:2, color:C.amber, display:"block", marginBottom:6, textTransform:"uppercase", fontWeight:600 }}>↗ Fecha de envío</label>
+                <label style={{ fontSize:10, letterSpacing:1.3, color:C.amber, display:"block", marginBottom:6, textTransform:"uppercase", fontWeight: 700 }}>↗ Fecha de envío</label>
                 <input type="date" value={fechaEnvio} onChange={e => setFechaEnvio(e.target.value)}
                   style={{ ...INP, colorScheme:"dark" }}
                   onFocus={e => e.currentTarget.style.borderColor="rgba(245,158,11,0.4)"} onBlur={e => e.currentTarget.style.borderColor=C.b0} />
               </div>
               <div>
-                <label style={{ fontSize:9, letterSpacing:2, color:"#2dd4bf", display:"block", marginBottom:6, textTransform:"uppercase", fontWeight:600 }}>↙ Fecha de recepción</label>
+                <label style={{ fontSize:10, letterSpacing:1.3, color:"#2dd4bf", display:"block", marginBottom:6, textTransform:"uppercase", fontWeight: 700 }}>↙ Fecha de recepción</label>
                 <input type="date" value={fechaRecepcion} onChange={e => setFechaRecepcion(e.target.value)}
                   style={{ ...INP, colorScheme:"dark" }}
                   onFocus={e => e.currentTarget.style.borderColor="rgba(45,212,191,0.4)"} onBlur={e => e.currentTarget.style.borderColor=C.b0} />
@@ -667,7 +659,7 @@ function PiezaModal({ pieza, lineaKey, obraId, segRow, imagenes:imgInit=[], onSa
 
           {/* observaciones */}
           <div>
-            <label style={{ fontSize:9, letterSpacing:2, color:C.t1, display:"block", marginBottom:6, textTransform:"uppercase", fontWeight:600 }}>Observaciones</label>
+            <label style={{ fontSize:10, letterSpacing:1.3, color:C.t1, display:"block", marginBottom:6, textTransform:"uppercase", fontWeight: 700 }}>Observaciones</label>
             <textarea value={obs} onChange={e => setObs(e.target.value)} rows={3} placeholder="Fecha, problema encontrado, detalles…"
               style={{ ...INP, resize:"vertical", lineHeight:1.6 }}
               onFocus={e => e.currentTarget.style.borderColor="rgba(59,130,246,0.4)"} onBlur={e => e.currentTarget.style.borderColor=C.b0} />
@@ -676,9 +668,9 @@ function PiezaModal({ pieza, lineaKey, obraId, segRow, imagenes:imgInit=[], onSa
           {/* imágenes */}
           <div>
             <div style={{ display:"flex", justifyContent:"space-between", alignItems:"center", marginBottom:10 }}>
-              <label style={{ fontSize:9, letterSpacing:2, color:C.t1, textTransform:"uppercase", fontWeight:600 }}>Imágenes ({imagenes.length})</label>
+              <label style={{ fontSize:10, letterSpacing:1.3, color:C.t1, textTransform:"uppercase", fontWeight: 700 }}>Imágenes ({imagenes.length})</label>
               <button onClick={() => { setUploadErr(""); fileRef.current?.click(); }} disabled={uploading}
-                style={{ border:`1px solid ${C.b0}`, background:C.s0, color:uploading?C.t2:C.t0, padding:"4px 12px", borderRadius:6, cursor:uploading?"not-allowed":"pointer", fontSize:11, fontFamily:C.sans, display:"flex", alignItems:"center", gap:5 }}>
+                style={{ border:`1px solid ${C.b0}`, background:C.s0, color:uploading?C.t2:C.t0, padding:"4px 12px", borderRadius:6, cursor:uploading?"not-allowed":"pointer", fontSize:12, fontFamily:C.sans, display:"flex", alignItems:"center", gap:5 }}>
                 {uploading ? "↑ Subiendo…" : <><IconCamera size={12} color="currentColor"/> &nbsp;Agregar foto</>}
               </button>
               <input ref={fileRef} type="file" accept="image/*,image/heic,image/heif" style={{ display:"none" }}
@@ -687,7 +679,7 @@ function PiezaModal({ pieza, lineaKey, obraId, segRow, imagenes:imgInit=[], onSa
 
             {imagenes.length === 0 && !uploading ? (
               <div onClick={() => { setUploadErr(""); fileRef.current?.click(); }}
-                style={{ border:`1px dashed ${C.b0}`, borderRadius:10, padding:"24px 16px", textAlign:"center", color:C.t2, fontSize:12, cursor:"pointer", transition:"border-color .15s", display:"flex", alignItems:"center", justifyContent:"center", gap:8 }}
+                style={{ border:`1px dashed ${C.b0}`, borderRadius:10, padding:"24px 16px", textAlign:"center", color:C.t2, fontSize:13, cursor:"pointer", transition:"border-color .15s", display:"flex", alignItems:"center", justifyContent:"center", gap:8 }}
                 onMouseEnter={e => e.currentTarget.style.borderColor=C.b1}
                 onMouseLeave={e => e.currentTarget.style.borderColor=C.b0}>
                 <IconCamera size={16} color={C.t2} /><span>Hacé click para agregar una imagen</span>
@@ -698,16 +690,16 @@ function PiezaModal({ pieza, lineaKey, obraId, segRow, imagenes:imgInit=[], onSa
                   <div key={img.storage_path??i} style={{ position:"relative", borderRadius:8, overflow:"hidden", aspectRatio:"1", background:C.s1, border:`1px solid ${C.b0}` }}>
                     {img.url
                       ? <img src={img.url} alt={img.nombre} onClick={() => setLightbox(img.url)} style={{ width:"100%", height:"100%", objectFit:"cover", cursor:"zoom-in", display:"block" }} />
-                      : <div style={{ width:"100%", height:"100%", display:"flex", alignItems:"center", justifyContent:"center", fontSize:10, color:C.t2 }}>sin preview</div>}
-                    <button onClick={() => eliminarImagen(img)} style={{ position:"absolute", top:4, right:4, background:"rgba(0,0,0,0.75)", border:"none", color:"#fff", width:20, height:20, borderRadius:"50%", cursor:"pointer", fontSize:12, display:"flex", alignItems:"center", justifyContent:"center" }}>×</button>
-                    {img.nombre && <div style={{ position:"absolute", bottom:0, left:0, right:0, background:"rgba(0,0,0,0.65)", padding:"3px 5px", fontSize:9, color:"#ccc", overflow:"hidden", textOverflow:"ellipsis", whiteSpace:"nowrap" }}>{img.nombre}</div>}
+                      : <div style={{ width:"100%", height:"100%", display:"flex", alignItems:"center", justifyContent:"center", fontSize:11, color:C.t2 }}>sin preview</div>}
+                    <button onClick={() => eliminarImagen(img)} style={{ position:"absolute", top:4, right:4, background:"rgba(0,0,0,0.75)", border:"none", color:"#fff", width:20, height:20, borderRadius:"50%", cursor:"pointer", fontSize:13, display:"flex", alignItems:"center", justifyContent:"center" }}>×</button>
+                    {img.nombre && <div style={{ position:"absolute", bottom:0, left:0, right:0, background:"rgba(0,0,0,0.65)", padding:"3px 5px", fontSize:10, color:"#ccc", overflow:"hidden", textOverflow:"ellipsis", whiteSpace:"nowrap" }}>{img.nombre}</div>}
                   </div>
                 ))}
                 <div onClick={() => { setUploadErr(""); fileRef.current?.click(); }}
                   style={{ aspectRatio:"1", border:`1px dashed ${C.b0}`, borderRadius:8, display:"flex", flexDirection:"column", alignItems:"center", justifyContent:"center", gap:4, cursor:"pointer", color:C.t2, transition:"border-color .15s" }}
                   onMouseEnter={e => e.currentTarget.style.borderColor=C.b1}
                   onMouseLeave={e => e.currentTarget.style.borderColor=C.b0}>
-                  <span style={{ fontSize:18 }}>+</span><span style={{ fontSize:9, letterSpacing:1 }}>FOTO</span>
+                  <span style={{ fontSize:18 }}>+</span><span style={{ fontSize:10, letterSpacing:1 }}>FOTO</span>
                 </div>
               </div>
             )}
@@ -715,8 +707,8 @@ function PiezaModal({ pieza, lineaKey, obraId, segRow, imagenes:imgInit=[], onSa
 
           {/* acciones */}
           <div style={{ display:"flex", gap:8, justifyContent:"flex-end", paddingTop:2 }}>
-            <button onClick={onClose} style={{ border:`1px solid ${C.b0}`, background:"transparent", color:C.t1, padding:"7px 16px", borderRadius:8, cursor:"pointer", fontSize:12, fontFamily:C.sans }}>Cancelar</button>
-            <button onClick={guardar} disabled={saving} style={{ border:"1px solid rgba(59,130,246,0.35)", background:"rgba(59,130,246,0.15)", color:"#60a5fa", padding:"7px 20px", borderRadius:8, cursor:saving?"not-allowed":"pointer", fontSize:12, fontWeight:600, fontFamily:C.sans, opacity:saving?0.5:1 }}>
+            <button onClick={onClose} style={{ border:`1px solid ${C.b0}`, background:"transparent", color:C.t1, padding:"7px 16px", borderRadius:8, cursor:"pointer", fontSize:13, fontFamily:C.sans }}>Cancelar</button>
+            <button onClick={guardar} disabled={saving} style={{ border:"1px solid rgba(59,130,246,0.35)", background:"rgba(59,130,246,0.15)", color:"#60a5fa", padding:"7px 20px", borderRadius:8, cursor:saving?"not-allowed":"pointer", fontSize:13, fontWeight:600, fontFamily:C.sans, opacity:saving?0.5:1 }}>
               {saving ? "Guardando…" : "Guardar"}
             </button>
           </div>
@@ -992,7 +984,7 @@ export default function PiezasLaminacionView({ obras=[], esGestion=false }) {
       const cnt = byEstExp[k] ?? 0;
       if (cnt === 0) return "";
       return `<span style="display:inline-flex;align-items:center;gap:5px;padding:3px 9px;border:1.5px solid ${e.border};border-radius:4px;margin-right:4px">
-        <b style="font-size:13px;color:${e.color}">${cnt}</b>
+        <b style="font-size:14px;color:${e.color}">${cnt}</b>
         <span style="font-size:7px;font-weight:700;text-transform:uppercase;letter-spacing:1px;color:${e.color}">${e.label}</span>
       </span>`;
     }).join("");
@@ -1008,7 +1000,7 @@ export default function PiezasLaminacionView({ obras=[], esGestion=false }) {
       const tray     = seg?.trayecto ?? "";
 
       const matCell  = hasMat
-        ? `<td style="padding:4px 7px;font-size:8px;color:#92400e;white-space:nowrap;border-right:1px solid #e5e7eb">${p.matriz ? `✦ ${p.matriz}` : ""}</td>`
+        ? `<td style="padding:4px 7px;font-size:10px;color:#92400e;white-space:nowrap;border-right:1px solid #e5e7eb">${p.matriz ? `✦ ${p.matriz}` : ""}</td>`
         : "";
 
       const infoExtra = [
@@ -1023,17 +1015,17 @@ export default function PiezasLaminacionView({ obras=[], esGestion=false }) {
 
       return `<tr style="background:${rowBg}">
         <td style="padding:0;width:3px;border-left:3px solid ${ep.border}"></td>
-        <td style="padding:4px 8px;font-family:'Courier New',monospace;font-size:10px;font-weight:700;color:#111827;white-space:nowrap;border-right:1px solid #e5e7eb">${numStr}</td>
-        <td style="padding:4px 10px;font-size:10px;color:#111827">
+        <td style="padding:4px 8px;font-family:'Courier New',monospace;font-size:11px;font-weight:700;color:#111827;white-space:nowrap;border-right:1px solid #e5e7eb">${numStr}</td>
+        <td style="padding:4px 10px;font-size:11px;color:#111827">
           <div>${p.desc}${p.variant ? ` <span style="font-size:7px;color:#6b7280;font-weight:700;text-transform:uppercase">${p.variant}</span>` : ""}</div>
-          ${infoExtra ? `<div style="font-size:8px;margin-top:1px">${infoExtra}</div>` : ""}
+          ${infoExtra ? `<div style="font-size:10px;margin-top:1px">${infoExtra}</div>` : ""}
         </td>
         ${matCell}
         <td style="padding:4px 8px;white-space:nowrap;border-left:1px solid #e5e7eb">
-          <span style="font-size:8px;font-weight:700;color:${ep.color};text-transform:uppercase;letter-spacing:.4px;border-bottom:1.5px solid ${ep.border};padding-bottom:1px">${ep.label}</span>
+          <span style="font-size:10px;font-weight:700;color:${ep.color};text-transform:uppercase;letter-spacing:.4px;border-bottom:1.5px solid ${ep.border};padding-bottom:1px">${ep.label}</span>
         </td>
-        <td style="padding:4px 8px;font-size:9px;color:#374151;border-left:1px solid #e5e7eb;white-space:nowrap">${fechasCell}</td>
-        <td style="padding:4px 8px;font-size:9px;color:#6b7280;border-left:1px solid #e5e7eb;font-style:${seg?.observaciones?"normal":"italic"}">${seg?.observaciones ?? ""}</td>
+        <td style="padding:4px 8px;font-size:10px;color:#374151;border-left:1px solid #e5e7eb;white-space:nowrap">${fechasCell}</td>
+        <td style="padding:4px 8px;font-size:10px;color:#6b7280;border-left:1px solid #e5e7eb;font-style:${seg?.observaciones?"normal":"italic"}">${seg?.observaciones ?? ""}</td>
       </tr>`;
     }).join("");
 
@@ -1053,15 +1045,15 @@ export default function PiezasLaminacionView({ obras=[], esGestion=false }) {
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&display=swap" rel="stylesheet">
   <style>
     *{box-sizing:border-box;margin:0;padding:0}
-    body{font-family:'Inter',system-ui,sans-serif;color:#111827;background:#fff;font-size:11px}
+    body{font-family:'Inter',system-ui,sans-serif;color:#111827;background:#fff;font-size:12px}
     .page{padding:18px 20px 14px}
     .header{display:flex;justify-content:space-between;align-items:flex-end;padding-bottom:8px;border-bottom:2px solid #111827;margin-bottom:10px}
     .h-left .eyebrow{font-size:7px;font-weight:700;letter-spacing:2px;text-transform:uppercase;color:#9ca3af;margin-bottom:3px}
     .h-left .title{font-size:18px;font-weight:900;color:#111827;letter-spacing:-.5px;line-height:1}
-    .h-left .sub{font-size:9px;color:#6b7280;margin-top:3px}
+    .h-left .sub{font-size:10px;color:#6b7280;margin-top:3px}
     .h-right{text-align:right;flex-shrink:0;padding-left:20px}
     .h-right .linea{font-size:28px;font-weight:900;color:#111827;letter-spacing:-2px;line-height:1}
-    .h-right .date{font-size:8px;color:#9ca3af;margin-top:2px}
+    .h-right .date{font-size:10px;color:#9ca3af;margin-top:2px}
     .summary{display:flex;align-items:center;gap:12px;margin-bottom:8px;padding:6px 10px;background:#f9fafb;border-radius:5px;border:1px solid #e5e7eb}
     .kpis{flex:1;display:flex;flex-wrap:wrap;gap:4px;align-items:center}
     .table-wrap{border:1px solid #e5e7eb;border-radius:4px;overflow:hidden}
@@ -1094,7 +1086,7 @@ export default function PiezasLaminacionView({ obras=[], esGestion=false }) {
 
   <div class="summary">
     <div class="kpis">${kpis}</div>
-    ${modoSeleccion ? `<div style="font-size:8px;color:#6b7280;flex-shrink:0">Selección de ${TOTAL_EXP} / ${TOTAL} piezas</div>` : ""}
+    ${modoSeleccion ? `<div style="font-size:10px;color:#6b7280;flex-shrink:0">Selección de ${TOTAL_EXP} / ${TOTAL} piezas</div>` : ""}
   </div>
 
   <div class="table-wrap">
@@ -1153,7 +1145,7 @@ export default function PiezasLaminacionView({ obras=[], esGestion=false }) {
       `}</style>
 
       {flash && (
-        <div style={{ position:"fixed", bottom:22, right:22, zIndex:9999, padding:"10px 18px", borderRadius:8, fontFamily:C.sans, fontSize:12, fontWeight:600, background: flash.isError ? "rgba(18,6,6,0.97)" : "rgba(6,18,12,0.97)", border: `1px solid ${flash.isError ? "rgba(239,68,68,.4)" : "rgba(16,185,129,.35)"}`, color: flash.isError ? C.red : C.green, animation:"plv-slideup .22s ease", boxShadow:"0 8px 32px rgba(0,0,0,.6)", maxWidth: 360 }}>
+        <div style={{ position:"fixed", bottom:22, right:22, zIndex:9999, padding:"10px 18px", borderRadius:8, fontFamily:C.sans, fontSize:13, fontWeight:600, background: flash.isError ? "rgba(18,6,6,0.97)" : "rgba(6,18,12,0.97)", border: `1px solid ${flash.isError ? "rgba(239,68,68,.4)" : "rgba(16,185,129,.35)"}`, color: flash.isError ? C.red : C.green, animation:"plv-slideup .22s ease", boxShadow:"0 8px 32px rgba(0,0,0,.6)", maxWidth: 360 }}>
           {flash.msg}
         </div>
       )}
@@ -1164,18 +1156,18 @@ export default function PiezasLaminacionView({ obras=[], esGestion=false }) {
         <div style={{ padding:"16px 22px 14px", borderBottom:`1px solid ${C.b0}`, flexShrink:0 }}>
           <div style={{ display:"flex", alignItems:"flex-start", justifyContent:"space-between", gap:12, marginBottom:obraSel&&catalogo?14:0 }}>
             <div>
-              <div style={{ fontSize:9, letterSpacing:2, textTransform:"uppercase", color:C.t2, marginBottom:4 }}>Laminación · Seguimiento de piezas</div>
+              <div style={{ fontSize:10, letterSpacing:1.3, textTransform:"uppercase", color:C.t2, marginBottom:4 }}>Laminación · Seguimiento de piezas</div>
               <h2 style={{ margin:0, fontSize:19, fontWeight:700, color:C.t0, lineHeight:1.2, fontFamily:C.mono, letterSpacing:1 }}>
                 {obraSel ? (obraSel.codigo??obraSel.nombre??"—") : "Piezas de Laminación"}
               </h2>
-              {obraSel?.linea_nombre && <div style={{ fontSize:11, color:C.t2, marginTop:3, letterSpacing:1 }}>{obraSel.linea_nombre}</div>}
+              {obraSel?.linea_nombre && <div style={{ fontSize:12, color:C.t2, marginTop:3, letterSpacing:1 }}>{obraSel.linea_nombre}</div>}
             </div>
             {obraSel && catalogo && (
               <div style={{ display:"flex", alignItems:"center", gap:10, flexShrink:0 }}>
                 <ProgressRing pct={stats.pct} size={50} stroke={4} color={avanceColor} />
                 <div>
                   <div style={{ fontFamily:C.mono, fontSize:20, fontWeight:700, color:avanceColor, lineHeight:1 }}>{stats.pct}%</div>
-                  <div style={{ fontSize:10, color:C.t2, marginTop:2 }}>{stats.terminadas}/{TOTAL} listas</div>
+                  <div style={{ fontSize:11, color:C.t2, marginTop:2 }}>{stats.terminadas}/{TOTAL} listas</div>
                 </div>
               </div>
             )}
@@ -1198,14 +1190,14 @@ export default function PiezasLaminacionView({ obras=[], esGestion=false }) {
           <div style={{ borderRight:`1px solid ${C.b0}`, display:"flex", flexDirection:"column", overflow:"hidden" }}>
             <div style={{ padding:"10px 10px 8px", borderBottom:`1px solid ${C.b0}`, flexShrink:0 }}>
               <div style={{ display:"flex", alignItems:"center", justifyContent:"space-between", marginBottom:8 }}>
-                <span style={{ fontSize:9, color:C.t2, letterSpacing:1.7, textTransform:"uppercase", fontWeight:800 }}>Obras por linea</span>
-                <span style={{ fontSize:10, color:C.t2 }}>{obrasFiltradas.length}/{obras.length}</span>
+                <span style={{ fontSize:10, color:C.t2, letterSpacing:1.2, textTransform:"uppercase", fontWeight:800 }}>Obras por linea</span>
+                <span style={{ fontSize:11, color:C.t2 }}>{obrasFiltradas.length}/{obras.length}</span>
               </div>
               <input value={qObra} onChange={e => setQObra(e.target.value)} placeholder="Buscar obra…"
-                style={{ background:C.s0, border:`1px solid ${C.b0}`, color:C.t0, padding:"6px 10px", borderRadius:7, fontSize:11, outline:"none", width:"100%", boxSizing:"border-box", fontFamily:C.sans }} />
+                style={{ background:C.s0, border:`1px solid ${C.b0}`, color:C.t0, padding:"6px 10px", borderRadius:7, fontSize:12, outline:"none", width:"100%", boxSizing:"border-box", fontFamily:C.sans }} />
             </div>
             <div style={{ flex:1, overflowY:"auto", padding:"8px" }}>
-              {obrasFiltradas.length===0 && <div style={{ padding:"28px 12px", textAlign:"center", color:C.t2, fontSize:11 }}>Sin obras</div>}
+              {obrasFiltradas.length===0 && <div style={{ padding:"28px 12px", textAlign:"center", color:C.t2, fontSize:12 }}>Sin obras</div>}
               {LINE_ORDER.filter(key => obrasPorLinea[key]?.length).map(key => {
                 const meta = LINE_META[key] ?? LINE_META.otros;
                 const items = obrasPorLinea[key];
@@ -1216,8 +1208,8 @@ export default function PiezasLaminacionView({ obras=[], esGestion=false }) {
                   <section key={key} style={{ marginBottom:12 }}>
                     <div style={{ display:"flex", alignItems:"center", gap:7, margin:"2px 2px 7px" }}>
                       <Dot color={meta.color} size={6} />
-                      <div style={{ fontSize:10, color:C.t1, fontWeight:800, letterSpacing:1.4, textTransform:"uppercase" }}>{meta.label}</div>
-                      <div style={{ marginLeft:"auto", fontSize:9, color:C.t2 }}>{items.length} obra{items.length>1?"s":""}</div>
+                      <div style={{ fontSize:11, color:C.t1, fontWeight:800, letterSpacing:1.4, textTransform:"uppercase" }}>{meta.label}</div>
+                      <div style={{ marginLeft:"auto", fontSize:10, color:C.t2 }}>{items.length} obra{items.length>1?"s":""}</div>
                     </div>
                     <div style={{ height:3, background:"rgba(255,255,255,0.06)", borderRadius:99, overflow:"hidden", margin:"0 2px 7px" }}>
                       <div style={{ width:`${pctLinea}%`, height:"100%", background:meta.color, opacity:.75 }} />
@@ -1231,19 +1223,19 @@ export default function PiezasLaminacionView({ obras=[], esGestion=false }) {
                             style={{ width:"100%", textAlign:"left", padding:"10px", borderRadius:9, cursor:"pointer", fontFamily:C.sans, background:sel?"rgba(59,130,246,0.10)":"rgba(255,255,255,0.025)", border:sel?"1px solid rgba(59,130,246,0.55)":`1px solid ${C.b0}`, boxShadow:sel?"inset 0 0 0 1px rgba(59,130,246,0.18)":"none" }}>
                             <div style={{ display:"flex", alignItems:"center", gap:7 }}>
                               <Dot color={estadoColor} size={5} />
-                              <span style={{ fontWeight:800, fontSize:12, color:sel?C.t0:C.t1, overflow:"hidden", textOverflow:"ellipsis", whiteSpace:"nowrap", flex:1, fontFamily:C.mono, letterSpacing:.4 }}>
+                              <span style={{ fontWeight:800, fontSize:13, color:sel?C.t0:C.t1, overflow:"hidden", textOverflow:"ellipsis", whiteSpace:"nowrap", flex:1, fontFamily:C.mono, letterSpacing:.4 }}>
                                 {o.codigo??o.nombre??"-"}
                               </span>
-                              <span style={{ fontSize:9, color:meta.color, fontFamily:C.mono }}>{resumen.pct}%</span>
+                              <span style={{ fontSize:10, color:meta.color, fontFamily:C.mono }}>{resumen.pct}%</span>
                             </div>
                             <div style={{ display:"flex", alignItems:"center", gap:6, marginTop:7 }}>
                               <div style={{ position:"relative", flex:1, height:7, borderRadius:99, background:"rgba(255,255,255,0.07)", overflow:"hidden" }}>
                                 <div style={{ position:"absolute", inset:"0 auto 0 0", width:`${resumen.pct}%`, background:`linear-gradient(90deg,${meta.color}55,${meta.color})` }} />
                                 <div style={{ position:"absolute", inset:"0 auto 0 0", width:`${resumen.pctRecibidas}%`, background:"#2dd4bf" }} />
                               </div>
-                              {resumen.problemas > 0 && <span style={{ fontSize:9, color:C.red, fontFamily:C.mono }}>{resumen.problemas} obs</span>}
+                              {resumen.problemas > 0 && <span style={{ fontSize:10, color:C.red, fontFamily:C.mono }}>{resumen.problemas} obs</span>}
                             </div>
-                            <div style={{ display:"flex", justifyContent:"space-between", gap:8, marginTop:6, fontSize:9.5, color:C.t2 }}>
+                            <div style={{ display:"flex", justifyContent:"space-between", gap:8, marginTop:6, fontSize:10, color:C.t2 }}>
                               <span>{resumen.recibidas}/{resumen.total || "-"} recibidas</span>
                               <span>{resumen.listas} listas/envio</span>
                             </div>
@@ -1261,16 +1253,16 @@ export default function PiezasLaminacionView({ obras=[], esGestion=false }) {
           <div style={{ display:"flex", flexDirection:"column", overflow:"hidden", minWidth:0 }}>
             {!obraSel ? (
               <div style={{ flex:1, display:"flex", alignItems:"center", justifyContent:"center" }}>
-                <div style={{ fontSize:11, color:C.t2, letterSpacing:2, textTransform:"uppercase" }}>Seleccioná una obra</div>
+                <div style={{ fontSize:12, color:C.t2, letterSpacing:1.3, textTransform:"uppercase" }}>Seleccioná una obra</div>
               </div>
             ) : !catalogo ? (
               <div style={{ flex:1, display:"flex", flexDirection:"column", alignItems:"center", justifyContent:"center", gap:14, padding:40 }}>
                 <div style={{ width:52, height:52, borderRadius:"50%", background:C.s0, border:`1px solid ${C.b0}`, display:"flex", alignItems:"center", justifyContent:"center", fontSize:22, color:C.t2 }}>◎</div>
                 <div style={{ fontSize:15, fontWeight:700, color:C.t1 }}>Sin plantilla de piezas</div>
-                <div style={{ fontSize:12, color:C.t2, textAlign:"center", maxWidth:340, lineHeight:1.6 }}>
+                <div style={{ fontSize:13, color:C.t2, textAlign:"center", maxWidth:340, lineHeight:1.6 }}>
                   Esta obra no tiene catálogo. Hay plantillas para K37, K43 y K52.
                 </div>
-                <div style={{ fontSize:10, color:C.t2, fontFamily:C.mono, padding:"6px 14px", borderRadius:6, background:C.s0, border:`1px solid ${C.b0}` }}>
+                <div style={{ fontSize:11, color:C.t2, fontFamily:C.mono, padding:"6px 14px", borderRadius:6, background:C.s0, border:`1px solid ${C.b0}` }}>
                   Línea: {obraSel.linea_nombre??"sin asignar"} · Código: {obraSel.codigo??"—"}
                 </div>
               </div>
@@ -1279,7 +1271,7 @@ export default function PiezasLaminacionView({ obras=[], esGestion=false }) {
                 {/* toolbar */}
                 <div style={{ padding:"9px 14px", borderBottom:`1px solid ${C.b0}`, display:"flex", gap:7, flexWrap:"wrap", alignItems:"center", flexShrink:0 }}>
                   {lineaLabel && (
-                    <span style={{ fontSize:8, fontWeight:700, letterSpacing:1.5, padding:"3px 8px", borderRadius:4,
+                    <span style={{ fontSize:10, fontWeight:700, letterSpacing:1.1, padding:"3px 8px", borderRadius:4,
                       background: lineaKey==="k55"?"rgba(59,130,246,0.1)":lineaKey==="k52"?"rgba(139,92,246,0.1)":lineaKey==="k37"?"rgba(20,184,166,0.1)":"rgba(245,158,11,0.08)",
                       color:      lineaKey==="k55"?C.blue:lineaKey==="k52"?C.purple:lineaKey==="k37"?"#2dd4bf":C.amber,
                       border:     `1px solid ${lineaKey==="k55"?"rgba(59,130,246,0.25)":lineaKey==="k52"?"rgba(139,92,246,0.25)":lineaKey==="k37"?"rgba(20,184,166,0.25)":"rgba(245,158,11,0.2)"}`,
@@ -1295,7 +1287,7 @@ export default function PiezasLaminacionView({ obras=[], esGestion=false }) {
                         <button key={key} onClick={() => setVistaModo(key)}
                           style={{ padding:"3px 10px", borderRadius:5, border: active ? "1px solid rgba(255,255,255,0.18)" : "1px solid transparent",
                             background: active ? "rgba(255,255,255,0.08)" : "transparent", color: active ? C.t0 : C.t2,
-                            fontSize:10, fontWeight:active?800:500, cursor:"pointer", fontFamily:C.sans }}>
+                            fontSize:11, fontWeight:active?800:500, cursor:"pointer", fontFamily:C.sans }}>
                           {label}
                         </button>
                       );
@@ -1312,7 +1304,7 @@ export default function PiezasLaminacionView({ obras=[], esGestion=false }) {
                           <button key={key} onClick={() => setK52Variant(val)}
                             style={{ padding:"3px 10px", borderRadius:5, border: active ? `1px solid ${col}50` : "1px solid transparent",
                               background: active ? `${col}18` : "transparent",
-                              color: active ? col : C.t2, fontSize:10, fontWeight:active?700:500,
+                              color: active ? col : C.t2, fontSize:11, fontWeight:active?700:500,
                               cursor:"pointer", fontFamily:C.sans, transition:"all .15s", whiteSpace:"nowrap" }}>
                             {val === "softop" && "⛵ "}{val === "hardtop" && "🔧 "}{label}
                           </button>
@@ -1322,25 +1314,25 @@ export default function PiezasLaminacionView({ obras=[], esGestion=false }) {
                   )}
 
                   <input value={q} onChange={e => setQ(e.target.value)} placeholder="Buscar pieza…"
-                    style={{ background:C.s0, border:`1px solid ${C.b0}`, color:C.t0, padding:"5px 10px", borderRadius:6, fontSize:11, outline:"none", width:150, fontFamily:C.sans }} />
+                    style={{ background:C.s0, border:`1px solid ${C.b0}`, color:C.t0, padding:"5px 10px", borderRadius:6, fontSize:12, outline:"none", width:150, fontFamily:C.sans }} />
                   <select value={filtroEst} onChange={e => setFiltroEst(e.target.value)}
-                    style={{ background:"#0f0f12", border:`1px solid ${C.b0}`, color:C.t1, padding:"5px 8px", borderRadius:6, fontSize:11, outline:"none", fontFamily:C.sans, cursor:"pointer" }}>
+                    style={{ background:C.panelSolid, border:`1px solid ${C.b0}`, color:C.t1, padding:"5px 8px", borderRadius:6, fontSize:12, outline:"none", fontFamily:C.sans, cursor:"pointer" }}>
                     <option value="todos">Todos los estados</option>
                     {Object.entries(EST).map(([k,e]) => <option key={k} value={k}>{e.label} ({stats.byEst[k]??0})</option>)}
                   </select>
                   {hasMat && (
                     <select value={filtroMat} onChange={e => setFiltroMat(e.target.value)}
-                      style={{ background:"#0f0f12", border:`1px solid ${C.b0}`, color:C.t1, padding:"5px 8px", borderRadius:6, fontSize:11, outline:"none", fontFamily:C.sans, cursor:"pointer" }}>
+                      style={{ background:C.panelSolid, border:`1px solid ${C.b0}`, color:C.t1, padding:"5px 8px", borderRadius:6, fontSize:12, outline:"none", fontFamily:C.sans, cursor:"pointer" }}>
                       <option value="todos">Todas las matrices</option>
                       <option value="nueva">✦ Nueva</option>
                       <option value="estandar">Estándar</option>
                     </select>
                   )}
                   <div style={{ flex:1 }} />
-                  <span style={{ fontSize:10, color:C.t2 }}>{piezasFiltradas.length}/{TOTAL}</span>
+                  <span style={{ fontSize:11, color:C.t2 }}>{piezasFiltradas.length}/{TOTAL}</span>
                   {vistaModo === "recepcion" && piezasFiltradas.length > 0 && (
                     <button onClick={allVisibleSelected ? clearSelection : toggleSelectAll}
-                      style={{ border:`1px solid ${C.b0}`, background:"rgba(255,255,255,0.035)", color:C.t1, padding:"4px 9px", borderRadius:6, cursor:"pointer", fontSize:10, fontWeight:600, fontFamily:C.sans }}>
+                      style={{ border:`1px solid ${C.b0}`, background:"rgba(255,255,255,0.035)", color:C.t1, padding:"4px 9px", borderRadius:6, cursor:"pointer", fontSize:11, fontWeight: 700, fontFamily:C.sans }}>
                       {allVisibleSelected ? "Limpiar sel." : "Seleccionar visibles"}
                     </button>
                   )}
@@ -1348,34 +1340,34 @@ export default function PiezasLaminacionView({ obras=[], esGestion=false }) {
                   {/* export buttons */}
                   <div style={{ display:"flex", gap:4 }}>
                     <button onClick={exportCSV} title="Exportar CSV"
-                      style={{ border:`1px solid rgba(16,185,129,0.3)`, background:"rgba(16,185,129,0.07)", color:"#34d399", padding:"4px 10px", borderRadius:6, cursor:"pointer", fontSize:10, fontWeight:600, fontFamily:C.sans, display:"flex", alignItems:"center", gap:4 }}>
+                      style={{ border:`1px solid rgba(16,185,129,0.3)`, background:"rgba(16,185,129,0.07)", color:"#34d399", padding:"4px 10px", borderRadius:6, cursor:"pointer", fontSize:11, fontWeight: 700, fontFamily:C.sans, display:"flex", alignItems:"center", gap:4 }}>
                       ↓ CSV
                     </button>
                     <button onClick={exportPrint} title={someSelected ? `Imprimir ${selectedIds.length} seleccionadas` : "Imprimir todas"}
-                      style={{ border:`1px solid rgba(59,130,246,0.3)`, background:"rgba(59,130,246,0.07)", color:"#60a5fa", padding:"4px 10px", borderRadius:6, cursor:"pointer", fontSize:10, fontWeight:600, fontFamily:C.sans, display:"flex", alignItems:"center", gap:4 }}>
+                      style={{ border:`1px solid rgba(59,130,246,0.3)`, background:"rgba(59,130,246,0.07)", color:"#60a5fa", padding:"4px 10px", borderRadius:6, cursor:"pointer", fontSize:11, fontWeight: 700, fontFamily:C.sans, display:"flex", alignItems:"center", gap:4 }}>
                       🖨 {someSelected ? `PDF (${selectedIds.length})` : "PDF"}
                     </button>
                   </div>
 
                   {esGestion && someSelected && (
                     <div style={{ display:"flex", gap:5, alignItems:"center", padding:"3px 10px", borderRadius:7, background:"rgba(59,130,246,0.06)", border:"1px solid rgba(59,130,246,0.2)", animation:"plv-fadeup .18s ease" }}>
-                      <span style={{ fontSize:10, color:C.blue, fontFamily:C.mono, marginRight:4 }}>{selectedIds.length} sel.</span>
+                      <span style={{ fontSize:11, color:C.blue, fontFamily:C.mono, marginRight:4 }}>{selectedIds.length} sel.</span>
                       {[["en_proceso","▶ En proceso","rgba(59,130,246,0.35)","rgba(59,130,246,0.12)","#60a5fa"],
                         ["terminada","✓ Terminadas","rgba(16,185,129,0.35)","rgba(16,185,129,0.1)","#34d399"],
                         ["entregada","↗ Entregadas","rgba(139,92,246,0.35)","rgba(139,92,246,0.1)","#a78bfa"],
                         ["pendiente","○ Pendiente",C.b0,"transparent",C.t2]
                       ].map(([est,lbl,border,bg,color]) => (
                         <button key={est} className="plv-qbtn" onClick={() => cambiarEstado(selectedIds, est)} disabled={saving}
-                          style={{ border:`1px solid ${border}`, background:bg, color, padding:"3px 9px", borderRadius:5, cursor:"pointer", fontSize:10, fontWeight:600, fontFamily:C.sans }}>
+                          style={{ border:`1px solid ${border}`, background:bg, color, padding:"3px 9px", borderRadius:5, cursor:"pointer", fontSize:11, fontWeight: 700, fontFamily:C.sans }}>
                           {lbl}
                         </button>
                       ))}
                       <button className="plv-qbtn" onClick={() => cambiarEstado(selectedIds, "enviada")} disabled={saving}
-                        style={{ border:"1px solid rgba(245,158,11,0.35)", background:"rgba(245,158,11,0.1)", color:C.amber, padding:"3px 9px", borderRadius:5, cursor:"pointer", fontSize:10, fontWeight:600, fontFamily:C.sans }}>
+                        style={{ border:"1px solid rgba(245,158,11,0.35)", background:"rgba(245,158,11,0.1)", color:C.amber, padding:"3px 9px", borderRadius:5, cursor:"pointer", fontSize:11, fontWeight: 700, fontFamily:C.sans }}>
                         Enviar
                       </button>
                       <button className="plv-qbtn" onClick={() => cambiarEstado(selectedIds, "recibida")} disabled={saving}
-                        style={{ border:"1px solid rgba(45,212,191,0.35)", background:"rgba(45,212,191,0.1)", color:"#2dd4bf", padding:"3px 9px", borderRadius:5, cursor:"pointer", fontSize:10, fontWeight:600, fontFamily:C.sans }}>
+                        style={{ border:"1px solid rgba(45,212,191,0.35)", background:"rgba(45,212,191,0.1)", color:"#2dd4bf", padding:"3px 9px", borderRadius:5, cursor:"pointer", fontSize:11, fontWeight: 700, fontFamily:C.sans }}>
                         Recibir
                       </button>
                       <button onClick={clearSelection} style={{ background:"transparent", border:"none", color:C.t2, cursor:"pointer", fontSize:14, padding:"0 3px", lineHeight:1 }}>×</button>
@@ -1385,9 +1377,9 @@ export default function PiezasLaminacionView({ obras=[], esGestion=false }) {
                   {esGestion && !someSelected && piezasFiltradas.length > 0 && (
                     <div style={{ display:"flex", gap:5 }}>
                       <button className="plv-qbtn" onClick={() => cambiarEstado(piezasFiltradas.map(p=>p.pieza_id),"en_proceso")} disabled={saving}
-                        style={{ border:"1px solid rgba(59,130,246,0.3)", background:"rgba(59,130,246,0.07)", color:"#60a5fa", padding:"4px 10px", borderRadius:6, cursor:"pointer", fontSize:10, fontWeight:600, fontFamily:C.sans }}>→ En proceso</button>
+                        style={{ border:"1px solid rgba(59,130,246,0.3)", background:"rgba(59,130,246,0.07)", color:"#60a5fa", padding:"4px 10px", borderRadius:6, cursor:"pointer", fontSize:11, fontWeight: 700, fontFamily:C.sans }}>→ En proceso</button>
                       <button className="plv-qbtn" onClick={() => cambiarEstado(piezasFiltradas.map(p=>p.pieza_id),"terminada")} disabled={saving}
-                        style={{ border:"1px solid rgba(16,185,129,0.3)", background:"rgba(16,185,129,0.07)", color:"#34d399", padding:"4px 10px", borderRadius:6, cursor:"pointer", fontSize:10, fontWeight:600, fontFamily:C.sans }}>✓ Terminadas</button>
+                        style={{ border:"1px solid rgba(16,185,129,0.3)", background:"rgba(16,185,129,0.07)", color:"#34d399", padding:"4px 10px", borderRadius:6, cursor:"pointer", fontSize:11, fontWeight: 700, fontFamily:C.sans }}>✓ Terminadas</button>
                     </div>
                   )}
                 </div>
@@ -1395,7 +1387,7 @@ export default function PiezasLaminacionView({ obras=[], esGestion=false }) {
                 {/* tabla */}
                 <div style={{ flex:1, overflow:"hidden", minHeight:0 }}>
                   {loading ? (
-                    <div style={{ padding:"40px 20px", textAlign:"center", color:C.t2, fontSize:11, letterSpacing:2, textTransform:"uppercase" }}>Cargando…</div>
+                    <div style={{ padding:"40px 20px", textAlign:"center", color:C.t2, fontSize:12, letterSpacing:1.3, textTransform:"uppercase" }}>Cargando…</div>
                   ) : vistaModo === "recepcion" ? (
                     <div style={{ height:"100%", display:"grid", gridTemplateColumns:"repeat(5,minmax(190px,1fr))", overflowX:"auto", minHeight:0 }}>
                       <RecepcionColumn title="Laminacion" subtitle="Pendientes o en proceso dentro del galpon de laminacion." color={C.blue}
@@ -1418,12 +1410,12 @@ export default function PiezasLaminacionView({ obras=[], esGestion=false }) {
                     <div style={{ height:"100%", overflowY:"auto" }}>
                     <table style={{ width:"100%", borderCollapse:"collapse" }}>
                       <thead style={{ position:"sticky", top:0, zIndex:2 }}>
-                        <tr style={{ background:"#0c0c0f" }}>
+                        <tr style={{ background:C.panelSolid2 }}>
                           <th style={{ padding:"8px 10px 8px 14px", borderBottom:`1px solid ${C.b0}`, width:28 }}>
                             <input type="checkbox" className="plv-check" checked={allVisibleSelected} onChange={toggleSelectAll} />
                           </th>
                           {["N° pieza","Descripción",...(hasMat?["Matriz"]:[]),"Estado","Laminador","Ubicación","Fotos","Obs.",""].map(h => (
-                            <th key={h} style={{ padding:"8px 12px", textAlign:"left", fontSize:8, color:C.t2, letterSpacing:2, textTransform:"uppercase", borderBottom:`1px solid ${C.b0}`, fontWeight:600, whiteSpace:"nowrap" }}>{h}</th>
+                            <th key={h} style={{ padding:"8px 12px", textAlign:"left", fontSize:10, color:C.t2, letterSpacing:1.3, textTransform:"uppercase", borderBottom:`1px solid ${C.b0}`, fontWeight: 700, whiteSpace:"nowrap" }}>{h}</th>
                           ))}
                         </tr>
                       </thead>
@@ -1437,8 +1429,8 @@ export default function PiezasLaminacionView({ obras=[], esGestion=false }) {
                           const laminador = seg?.laminador;
                           const estInfo   = EST[estado] ?? EST.pendiente;
                           const numLabel  = pieza.sub != null
-                            ? <><span style={{ fontFamily:C.mono, fontSize:10, color:C.t2 }}>{String(pieza.num).padStart(2,"0")}</span><span style={{ color:C.amber, fontFamily:C.mono, fontSize:10 }}> · {pieza.sub}</span></>
-                            : <span style={{ fontFamily:C.mono, fontSize:10, color:C.t2 }}>{String(pieza.num).padStart(2,"0")}</span>;
+                            ? <><span style={{ fontFamily:C.mono, fontSize:11, color:C.t2 }}>{String(pieza.num).padStart(2,"0")}</span><span style={{ color:C.amber, fontFamily:C.mono, fontSize:11 }}> · {pieza.sub}</span></>
+                            : <span style={{ fontFamily:C.mono, fontSize:11, color:C.t2 }}>{String(pieza.num).padStart(2,"0")}</span>;
                           const variantBadge = pieza.variant === "softop"
                             ? <span style={{ fontSize:7, fontWeight:700, letterSpacing:1, padding:"1px 5px", borderRadius:3, background:"rgba(34,211,238,0.10)", color:"#22d3ee", border:"1px solid rgba(34,211,238,0.25)", marginLeft:4, whiteSpace:"nowrap" }}>SOFTOP</span>
                             : pieza.variant === "hardtop"
@@ -1458,7 +1450,7 @@ export default function PiezasLaminacionView({ obras=[], esGestion=false }) {
                                   style={{ background:"transparent", border:"none", cursor:"pointer", textAlign:"left", padding:0, fontFamily:C.sans, display:"flex", alignItems:"center", flexWrap:"wrap", gap:2 }}
                                   onMouseEnter={e => e.currentTarget.querySelector("span").style.color=C.t0}
                                   onMouseLeave={e => e.currentTarget.querySelector("span").style.color=C.t1}>
-                                  <span style={{ fontSize:12, fontWeight:500, color:C.t1, display:"block", transition:"color .15s" }}>{pieza.desc}</span>
+                                  <span style={{ fontSize:13, fontWeight:500, color:C.t1, display:"block", transition:"color .15s" }}>{pieza.desc}</span>
                                   {variantBadge}
                                 </button>
                               </td>
@@ -1466,8 +1458,8 @@ export default function PiezasLaminacionView({ obras=[], esGestion=false }) {
                               {hasMat && (
                                 <td style={{ padding:"10px 12px", borderBottom:`1px solid rgba(255,255,255,0.04)`, verticalAlign:"middle" }}>
                                   {pieza.matriz
-                                    ? <span style={{ fontSize:8, letterSpacing:1, padding:"2px 7px", borderRadius:99, background:"rgba(245,158,11,0.09)", color:C.amber, border:"1px solid rgba(245,158,11,0.2)", fontWeight:700, whiteSpace:"nowrap" }}>✦ {pieza.matriz}</span>
-                                    : <span style={{ opacity:0.15, fontSize:10 }}>—</span>}
+                                    ? <span style={{ fontSize:10, letterSpacing:1, padding:"2px 7px", borderRadius:99, background:"rgba(245,158,11,0.09)", color:C.amber, border:"1px solid rgba(245,158,11,0.2)", fontWeight:700, whiteSpace:"nowrap" }}>✦ {pieza.matriz}</span>
+                                    : <span style={{ opacity:0.15, fontSize:11 }}>—</span>}
                                 </td>
                               )}
 
@@ -1479,7 +1471,7 @@ export default function PiezasLaminacionView({ obras=[], esGestion=false }) {
                                     <div style={{ display:"flex", gap:2, marginLeft:2 }} onClick={e => e.stopPropagation()}>
                                       {estado !== "en_proceso" && (
                                         <button className="plv-qbtn" title="En proceso" onClick={() => cambiarEstado([pieza.pieza_id],"en_proceso")}
-                                          style={{ width:20, height:20, border:"1px solid rgba(59,130,246,0.3)", background:"rgba(59,130,246,0.08)", color:"#60a5fa", borderRadius:4, cursor:"pointer", fontSize:9, display:"flex", alignItems:"center", justifyContent:"center" }}>▶</button>
+                                          style={{ width:20, height:20, border:"1px solid rgba(59,130,246,0.3)", background:"rgba(59,130,246,0.08)", color:"#60a5fa", borderRadius:4, cursor:"pointer", fontSize:10, display:"flex", alignItems:"center", justifyContent:"center" }}>▶</button>
                                       )}
                                       {estado !== "terminada" && (
                                         <button className="plv-qbtn" title="Terminada" onClick={() => cambiarEstado([pieza.pieza_id],"terminada")}
@@ -1494,14 +1486,14 @@ export default function PiezasLaminacionView({ obras=[], esGestion=false }) {
 
                               <td style={{ padding:"10px 12px", borderBottom:`1px solid rgba(255,255,255,0.04)`, verticalAlign:"middle", maxWidth:130 }}>
                                 {laminador
-                                  ? <span style={{ fontSize:11, color:C.t1, display:"block", overflow:"hidden", textOverflow:"ellipsis", whiteSpace:"nowrap" }} title={laminador}>{laminador}</span>
-                                  : <span style={{ opacity:0.18, fontSize:11 }}>—</span>}
+                                  ? <span style={{ fontSize:12, color:C.t1, display:"block", overflow:"hidden", textOverflow:"ellipsis", whiteSpace:"nowrap" }} title={laminador}>{laminador}</span>
+                                  : <span style={{ opacity:0.18, fontSize:12 }}>—</span>}
                               </td>
 
                               <td style={{ padding:"10px 12px", borderBottom:`1px solid rgba(255,255,255,0.04)`, verticalAlign:"middle", maxWidth:130 }}>
                                 {ubicacion
-                                  ? <span style={{ fontSize:10, color:C.t1, display:"block", overflow:"hidden", textOverflow:"ellipsis", whiteSpace:"nowrap" }} title={ubicacion}>{ubicacion}</span>
-                                  : <span style={{ opacity:0.18, fontSize:10 }}>—</span>}
+                                  ? <span style={{ fontSize:11, color:C.t1, display:"block", overflow:"hidden", textOverflow:"ellipsis", whiteSpace:"nowrap" }} title={ubicacion}>{ubicacion}</span>
+                                  : <span style={{ opacity:0.18, fontSize:11 }}>—</span>}
                               </td>
 
                               <td style={{ padding:"8px 12px", borderBottom:`1px solid rgba(255,255,255,0.04)`, verticalAlign:"middle" }}>
@@ -1510,25 +1502,25 @@ export default function PiezasLaminacionView({ obras=[], esGestion=false }) {
                                     img.url ? <img key={i} src={img.url} alt="" className="plv-thumb" onClick={() => setPiezaModal(pieza)}
                                       style={{ width:28, height:28, borderRadius:5, objectFit:"cover", border:`1px solid ${C.b0}` }} /> : null
                                   )}
-                                  {imgs.length>3 && <span style={{ fontSize:9, color:C.t2, background:C.s1, border:`1px solid ${C.b0}`, borderRadius:5, padding:"2px 5px", fontFamily:C.mono }}>+{imgs.length-3}</span>}
+                                  {imgs.length>3 && <span style={{ fontSize:10, color:C.t2, background:C.s1, border:`1px solid ${C.b0}`, borderRadius:5, padding:"2px 5px", fontFamily:C.mono }}>+{imgs.length-3}</span>}
                                   <button onClick={() => setPiezaModal(pieza)}
                                     style={{ background:"transparent", border:`1px dashed ${C.b0}`, color:C.t2, width:28, height:28, borderRadius:5, cursor:"pointer", display:"flex", alignItems:"center", justifyContent:"center", transition:"border-color .15s", flexShrink:0 }}
                                     onMouseEnter={e => e.currentTarget.style.borderColor=C.b1}
                                     onMouseLeave={e => e.currentTarget.style.borderColor=C.b0}>
-                                    {imgs.length===0 ? <IconCamera size={13} color={C.t2} /> : <span style={{ fontSize:13, lineHeight:1 }}>+</span>}
+                                    {imgs.length===0 ? <IconCamera size={13} color={C.t2} /> : <span style={{ fontSize:14, lineHeight:1 }}>+</span>}
                                   </button>
                                 </div>
                               </td>
 
                               <td style={{ padding:"10px 12px", borderBottom:`1px solid rgba(255,255,255,0.04)`, verticalAlign:"middle", maxWidth:150 }}>
                                 {seg?.observaciones
-                                  ? <span style={{ fontSize:11, color:C.t2, display:"block", overflow:"hidden", textOverflow:"ellipsis", whiteSpace:"nowrap" }} title={seg.observaciones}>{seg.observaciones}</span>
-                                  : <span style={{ opacity:0.18, fontSize:11 }}>—</span>}
+                                  ? <span style={{ fontSize:12, color:C.t2, display:"block", overflow:"hidden", textOverflow:"ellipsis", whiteSpace:"nowrap" }} title={seg.observaciones}>{seg.observaciones}</span>
+                                  : <span style={{ opacity:0.18, fontSize:12 }}>—</span>}
                               </td>
 
                               <td style={{ padding:"8px 12px", borderBottom:`1px solid rgba(255,255,255,0.04)`, verticalAlign:"middle" }}>
                                 <button onClick={() => setPiezaModal(pieza)}
-                                  style={{ border:`1px solid ${C.b0}`, background:"transparent", color:C.t2, padding:"3px 9px", borderRadius:5, cursor:"pointer", fontSize:10, fontFamily:C.sans, transition:"all .15s" }}
+                                  style={{ border:`1px solid ${C.b0}`, background:"transparent", color:C.t2, padding:"3px 9px", borderRadius:5, cursor:"pointer", fontSize:11, fontFamily:C.sans, transition:"all .15s" }}
                                   onMouseEnter={e => { e.currentTarget.style.borderColor=C.b1; e.currentTarget.style.color=C.t0; }}
                                   onMouseLeave={e => { e.currentTarget.style.borderColor=C.b0; e.currentTarget.style.color=C.t2; }}>
                                   Detalle
@@ -1543,10 +1535,10 @@ export default function PiezasLaminacionView({ obras=[], esGestion=false }) {
                   )}
                   {!loading && piezasFiltradas.length===0 && (
                     <div style={{ padding:"40px 20px", textAlign:"center" }}>
-                      <div style={{ fontSize:12, color:C.t2 }}>Sin resultados</div>
+                      <div style={{ fontSize:13, color:C.t2 }}>Sin resultados</div>
                       {(q||filtroEst!=="todos"||filtroMat!=="todos") && (
                         <button onClick={() => { setQ(""); setFiltroEst("todos"); setFiltroMat("todos"); }}
-                          style={{ marginTop:10, border:`1px solid ${C.b0}`, background:"transparent", color:C.t1, padding:"5px 12px", borderRadius:6, cursor:"pointer", fontSize:11, fontFamily:C.sans }}>
+                          style={{ marginTop:10, border:`1px solid ${C.b0}`, background:"transparent", color:C.t1, padding:"5px 12px", borderRadius:6, cursor:"pointer", fontSize:12, fontFamily:C.sans }}>
                           Limpiar filtros
                         </button>
                       )}
@@ -1556,11 +1548,11 @@ export default function PiezasLaminacionView({ obras=[], esGestion=false }) {
 
                 {/* pie */}
                 <div style={{ padding:"7px 14px", borderTop:`1px solid ${C.b0}`, flexShrink:0, display:"flex", alignItems:"center", gap:10 }}>
-                  {someSelected && <span style={{ fontSize:10, color:C.blue, fontFamily:C.mono }}>{selectedIds.length} seleccionada{selectedIds.length>1?"s":""}</span>}
+                  {someSelected && <span style={{ fontSize:11, color:C.blue, fontFamily:C.mono }}>{selectedIds.length} seleccionada{selectedIds.length>1?"s":""}</span>}
                   <div style={{ flex:1, height:3, background:"rgba(255,255,255,0.05)", borderRadius:99, overflow:"hidden" }}>
                     <div style={{ height:"100%", width:`${stats.pct}%`, background:`linear-gradient(90deg,${avanceColor}60,${avanceColor})`, borderRadius:99, transition:"width .6s ease" }} />
                   </div>
-                  <span style={{ fontFamily:C.mono, fontSize:10, color:avanceColor, whiteSpace:"nowrap" }}>{stats.pct}% · {stats.terminadas}/{TOTAL}</span>
+                  <span style={{ fontFamily:C.mono, fontSize:11, color:avanceColor, whiteSpace:"nowrap" }}>{stats.pct}% · {stats.terminadas}/{TOTAL}</span>
                 </div>
               </>
             )}

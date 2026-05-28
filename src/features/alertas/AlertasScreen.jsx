@@ -3,24 +3,9 @@ import Sidebar from "@/components/Sidebar";
 import { useResponsive } from "@/hooks/useResponsive";
 import useAlertas from "@/hooks/useAlertas";
 import { hasAdminAccess } from "@/lib/permissions";
+import { C } from "@/theme";
 
 // ─── PALETA (igual que ObrasScreen) ─────────────────────────────────────────
-const C = {
-  bg:   "#09090b",
-  s0:   "rgba(255,255,255,0.03)",
-  s1:   "rgba(255,255,255,0.06)",
-  b0:   "rgba(255,255,255,0.08)",
-  b1:   "rgba(255,255,255,0.15)",
-  t0:   "#f4f4f5",
-  t1:   "#a1a1aa",
-  t2:   "#71717a",
-  mono: "'JetBrains Mono', 'IBM Plex Mono', monospace",
-  sans: "'Outfit', system-ui, sans-serif",
-  primary: "#3b82f6",
-  amber:   "#f59e0b",
-  green:   "#10b981",
-  red:     "#ef4444",
-};
 const GLASS = {
   backdropFilter: "blur(32px) saturate(130%)",
   WebkitBackdropFilter: "blur(32px) saturate(130%)",
@@ -44,7 +29,7 @@ const filterBtn = (active, color) => ({
   background: active ? (color ? `${color}12` : C.s1) : "transparent",
   color: active ? (color ?? C.t0) : C.t2,
   padding: "3px 11px", borderRadius: 5, cursor: "pointer",
-  fontSize: 10, fontFamily: "'Outfit', system-ui",
+  fontSize: 11, fontFamily: "'Outfit', system-ui",
   fontWeight: active ? 600 : 400, whiteSpace: "nowrap",
 });
 
@@ -81,7 +66,7 @@ export default function AlertasScreen({ profile, signOut }) {
       <style>{`
         @import url('https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500;700&display=swap');
         *, *::before, *::after { box-sizing: border-box; }
-        select option { background: #0f0f12; color: #a1a1aa; }
+        select option { background: #0f0f12; color: var(--muted); }
         ::-webkit-scrollbar { width: 3px; height: 3px; }
         ::-webkit-scrollbar-track { background: transparent; }
         ::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.07); border-radius: 99px; }
@@ -105,13 +90,13 @@ export default function AlertasScreen({ profile, signOut }) {
 
           {/* ── TOPBAR ── */}
           <div style={{
-            height: 50, background: "rgba(12,12,14,0.92)", ...GLASS,
+            height: 50, background: C.topbar, ...GLASS,
             borderBottom: `1px solid ${C.b0}`, padding: isMobile ? "0 12px 0 52px" : "0 18px",
             display: "flex", alignItems: "center", gap: 8, flexShrink: 0,
           }}>
             <div style={{ flex: 1 }}>
-              <div style={{ fontSize: 13, fontWeight: 600, color: C.t0 }}>Alertas</div>
-              <div style={{ fontSize: 9, color: C.t2, letterSpacing: 1.5, textTransform: "uppercase", marginTop: 1 }}>
+              <div style={{ fontSize: 14, fontWeight: 600, color: C.t0 }}>Alertas</div>
+              <div style={{ fontSize: 10, color: C.t2, letterSpacing: 1.1, textTransform: "uppercase", marginTop: 1 }}>
                 Centro de notificaciones
               </div>
             </div>
@@ -127,14 +112,14 @@ export default function AlertasScreen({ profile, signOut }) {
                 borderLeft: `2px solid ${s.color}`,
               }}>
                 <span style={{ fontFamily: C.mono, fontSize: 15, fontWeight: 700, color: s.color, lineHeight: 1 }}>{s.val}</span>
-                <span style={{ fontSize: 8, color: C.t1, letterSpacing: 1.5, textTransform: "uppercase" }}>{s.label}</span>
+                <span style={{ fontSize: 10, color: C.t1, letterSpacing: 1.1, textTransform: "uppercase" }}>{s.label}</span>
               </div>
             ))}
 
             <button onClick={recargar} style={{
               border: `1px solid ${C.b0}`, background: C.s0, color: C.t1,
               padding: "6px 14px", borderRadius: 8, cursor: "pointer",
-              fontSize: 11, fontFamily: C.sans,
+              fontSize: 12, fontFamily: C.sans,
             }}>
               ↺ Actualizar
             </button>
@@ -142,11 +127,11 @@ export default function AlertasScreen({ profile, signOut }) {
 
           {/* ── FILTERBAR ── */}
           <div style={{
-            height: 36, background: "rgba(12,12,14,0.85)", ...GLASS,
+            height: 36, background: C.topbarSoft, ...GLASS,
             borderBottom: `1px solid ${C.b0}`, padding: "0 18px",
             display: "flex", alignItems: "center", gap: 4, flexShrink: 0, overflowX: "auto",
           }}>
-            <span style={{ fontSize: 8, color: C.t2, letterSpacing: 2, textTransform: "uppercase", flexShrink: 0 }}>Gravedad</span>
+            <span style={{ fontSize: 10, color: C.t2, letterSpacing: 1.3, textTransform: "uppercase", flexShrink: 0 }}>Gravedad</span>
             <button style={filterBtn(filtroGravedad === "todas")} onClick={() => setFiltroGravedad("todas")}>Todas</button>
             {Object.entries(GRAVEDAD).map(([key, g]) => (
               <button key={key} style={filterBtn(filtroGravedad === key, g.color)} onClick={() => setFiltroGravedad(key)}>
@@ -154,7 +139,7 @@ export default function AlertasScreen({ profile, signOut }) {
               </button>
             ))}
             <div style={{ width: 1, height: 12, background: C.b0, margin: "0 4px", flexShrink: 0 }} />
-            <span style={{ fontSize: 8, color: C.t2, letterSpacing: 2, textTransform: "uppercase", flexShrink: 0 }}>Tipo</span>
+            <span style={{ fontSize: 10, color: C.t2, letterSpacing: 1.3, textTransform: "uppercase", flexShrink: 0 }}>Tipo</span>
             <button style={filterBtn(filtroTipo === "todos")} onClick={() => setFiltroTipo("todos")}>Todos</button>
             {Object.entries(TIPO_LABEL).map(([key, label]) => (
               <button key={key} style={filterBtn(filtroTipo === key)} onClick={() => setFiltroTipo(key)}>
@@ -179,7 +164,7 @@ export default function AlertasScreen({ profile, signOut }) {
                     padding: "12px 14px", borderRadius: 10,
                     border: `1px solid ${s.color}20`, background: `${s.color}08`,
                   }}>
-                    <div style={{ fontSize: 9, color: C.t2, letterSpacing: 1.5, textTransform: "uppercase", marginBottom: 5 }}>{s.label}</div>
+                    <div style={{ fontSize: 10, color: C.t2, letterSpacing: 1.1, textTransform: "uppercase", marginBottom: 5 }}>{s.label}</div>
                     <div style={{ fontFamily: C.mono, fontSize: 26, fontWeight: 700, color: s.color, lineHeight: 1 }}>{s.val}</div>
                   </div>
                 ))}
@@ -190,15 +175,15 @@ export default function AlertasScreen({ profile, signOut }) {
                 <div style={{
                   padding: "10px 14px", borderRadius: 8, marginBottom: 12,
                   background: "rgba(16,185,129,0.08)", border: "1px solid rgba(16,185,129,0.25)",
-                  color: C.green, fontSize: 12,
+                  color: C.green, fontSize: 13,
                 }}>
                   {msg}
                 </div>
               )}
 
               {loading && (
-                <div style={{ textAlign: "center", color: C.t2, padding: 40, fontSize: 11,
-                  letterSpacing: 2, textTransform: "uppercase", fontFamily: C.mono }}>
+                <div style={{ textAlign: "center", color: C.t2, padding: 40, fontSize: 12,
+                  letterSpacing: 1.3, textTransform: "uppercase", fontFamily: C.mono }}>
                   Cargando…
                 </div>
               )}
@@ -207,7 +192,7 @@ export default function AlertasScreen({ profile, signOut }) {
                 <div style={{
                   textAlign: "center", padding: 50, color: C.t2,
                   background: C.s0, border: `1px solid ${C.b0}`, borderRadius: 12,
-                  fontSize: 12,
+                  fontSize: 13,
                 }}>
                   ✅ Sin alertas activas con este filtro
                 </div>
@@ -227,14 +212,14 @@ export default function AlertasScreen({ profile, signOut }) {
                         {/* Badges */}
                         <div style={{ display: "flex", alignItems: "center", gap: 7, marginBottom: 8, flexWrap: "wrap" }}>
                           <span style={{
-                            fontSize: 8, fontWeight: 800, letterSpacing: 1.5, textTransform: "uppercase",
+                            fontSize: 10, fontWeight: 800, letterSpacing: 1.1, textTransform: "uppercase",
                             padding: "2px 8px", borderRadius: 5,
                             background: `${g.color}18`, color: g.color, border: `1px solid ${g.color}30`,
                           }}>
                             {g.icon} {g.label}
                           </span>
                           <span style={{
-                            fontSize: 8, letterSpacing: 1.2, textTransform: "uppercase",
+                            fontSize: 10, letterSpacing: 1.2, textTransform: "uppercase",
                             padding: "2px 8px", borderRadius: 5,
                             background: C.s0, color: C.t2, border: `1px solid ${C.b0}`,
                           }}>
@@ -243,12 +228,12 @@ export default function AlertasScreen({ profile, signOut }) {
                         </div>
 
                         {/* Mensaje */}
-                        <div style={{ color: C.t0, fontWeight: 600, fontSize: 13, marginBottom: 8, lineHeight: 1.5 }}>
+                        <div style={{ color: C.t0, fontWeight: 600, fontSize: 14, marginBottom: 8, lineHeight: 1.5 }}>
                           {a.mensaje}
                         </div>
 
                         {/* Meta */}
-                        <div style={{ fontSize: 10, color: C.t2, display: "flex", gap: 14, flexWrap: "wrap" }}>
+                        <div style={{ fontSize: 11, color: C.t2, display: "flex", gap: 14, flexWrap: "wrap" }}>
                           {a.produccion_obras?.codigo && <span>🏗 {a.produccion_obras.codigo}</span>}
                           {a.procesos?.nombre && <span>{a.procesos.icono ?? "⚙️"} {a.procesos.nombre}</span>}
                           {a.dias_reales != null && <span>⏱ {a.dias_reales} días reales</span>}
@@ -265,7 +250,7 @@ export default function AlertasScreen({ profile, signOut }) {
                             background: "rgba(16,185,129,0.08)",
                             color: C.green, padding: "6px 14px",
                             borderRadius: 8, cursor: "pointer",
-                            fontSize: 11, fontWeight: 600, fontFamily: C.sans, flexShrink: 0,
+                            fontSize: 12, fontWeight: 700, fontFamily: C.sans, flexShrink: 0,
                           }}
                         >
                           ✓ Resolver

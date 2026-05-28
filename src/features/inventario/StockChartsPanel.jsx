@@ -1,3 +1,4 @@
+import { C } from "@/theme";
 /**
  * StockChartsPanel.jsx
  *
@@ -19,23 +20,6 @@ import {
 } from "recharts";
 
 // ── Paleta idéntica al AdminDashboard ────────────────────────────
-const C = {
-  bg:      "#09090b",
-  s0:      "rgba(255,255,255,0.03)",
-  s1:      "rgba(255,255,255,0.06)",
-  b0:      "rgba(255,255,255,0.08)",
-  b1:      "rgba(255,255,255,0.15)",
-  t0:      "#f4f4f5",
-  t1:      "#a1a1aa",
-  t2:      "#71717a",
-  mono:    "'JetBrains Mono', 'IBM Plex Mono', monospace",
-  sans:    "'Outfit', system-ui, sans-serif",
-  primary: "#3b82f6",
-  amber:   "#f59e0b",
-  green:   "#10b981",
-  red:     "#ef4444",
-};
-
 const STATUS_COLORS = {
   OK:       "#10b981",
   ATENCION: "#f59e0b",
@@ -50,12 +34,12 @@ function CustomTooltip({ active, payload, label }) {
   if (!active || !payload?.length) return null;
   return (
     <div style={{
-      background: "#0f0f13",
+      background: C.panelSolid,
       border: `1px solid ${C.b1}`,
       borderRadius: 8,
       padding: "8px 12px",
       fontFamily: C.sans,
-      fontSize: 11,
+      fontSize: 12,
       color: C.t1,
       boxShadow: "0 8px 32px rgba(0,0,0,0.5)",
     }}>
@@ -78,7 +62,7 @@ function DonutLabel({ cx, cy, total }) {
       <text x={cx} y={cy - 8} textAnchor="middle" fill={C.t0} style={{ fontFamily: C.mono, fontSize: 22, fontWeight: 700 }}>
         {total}
       </text>
-      <text x={cx} y={cy + 10} textAnchor="middle" fill={C.t2} style={{ fontFamily: C.sans, fontSize: 9, letterSpacing: 2, textTransform: "uppercase" }}>
+      <text x={cx} y={cy + 10} textAnchor="middle" fill={C.t2} style={{ fontFamily: C.sans, fontSize: 10, letterSpacing: 1.3, textTransform: "uppercase" }}>
         MATERIALES
       </text>
     </>
@@ -98,11 +82,11 @@ function ChartCard({ title, subtitle, children }) {
       gap: 12,
     }}>
       <div>
-        <div style={{ fontSize: 9, letterSpacing: 2, textTransform: "uppercase", color: C.t2, fontWeight: 700 }}>
+        <div style={{ fontSize: 10, letterSpacing: 1.3, textTransform: "uppercase", color: C.t2, fontWeight: 700 }}>
           {title}
         </div>
         {subtitle && (
-          <div style={{ fontSize: 10, color: C.t2, marginTop: 2 }}>{subtitle}</div>
+          <div style={{ fontSize: 11, color: C.t2, marginTop: 2 }}>{subtitle}</div>
         )}
       </div>
       {children}
@@ -117,9 +101,9 @@ function Legend({ items }) {
       {items.map(({ label, color, value }) => (
         <div key={label} style={{ display: "flex", alignItems: "center", gap: 5 }}>
           <div style={{ width: 7, height: 7, borderRadius: 2, background: color }} />
-          <span style={{ fontSize: 9, color: C.t2, letterSpacing: 1 }}>{label}</span>
+          <span style={{ fontSize: 10, color: C.t2, letterSpacing: 1 }}>{label}</span>
           {value != null && (
-            <span style={{ fontFamily: C.mono, fontSize: 10, color, fontWeight: 700 }}>{value}</span>
+            <span style={{ fontFamily: C.mono, fontSize: 11, color, fontWeight: 700 }}>{value}</span>
           )}
         </div>
       ))}
@@ -223,12 +207,12 @@ export default function StockChartsPanel({ rows = [] }) {
               <CartesianGrid vertical={false} stroke="rgba(255,255,255,0.04)" />
               <XAxis
                 dataKey="cat"
-                tick={{ fill: C.t2, fontSize: 8, fontFamily: C.sans }}
+                tick={{ fill: C.t2, fontSize: 10, fontFamily: C.sans }}
                 tickLine={false}
                 axisLine={false}
               />
               <YAxis
-                tick={{ fill: C.t2, fontSize: 8, fontFamily: C.mono }}
+                tick={{ fill: C.t2, fontSize: 10, fontFamily: C.mono }}
                 tickLine={false}
                 axisLine={false}
               />
@@ -249,7 +233,7 @@ export default function StockChartsPanel({ rows = [] }) {
             </BarChart>
           </ResponsiveContainer>
         ) : (
-          <div style={{ height: 130, display: "flex", alignItems: "center", justifyContent: "center", color: C.t2, fontSize: 11 }}>
+          <div style={{ height: 130, display: "flex", alignItems: "center", justifyContent: "center", color: C.t2, fontSize: 12 }}>
             Sin datos de cobertura
           </div>
         )}
@@ -271,14 +255,14 @@ export default function StockChartsPanel({ rows = [] }) {
               <CartesianGrid horizontal={false} stroke="rgba(255,255,255,0.04)" />
               <XAxis
                 type="number"
-                tick={{ fill: C.t2, fontSize: 8, fontFamily: C.mono }}
+                tick={{ fill: C.t2, fontSize: 10, fontFamily: C.mono }}
                 tickLine={false}
                 axisLine={false}
               />
               <YAxis
                 dataKey="name"
                 type="category"
-                tick={{ fill: C.t1, fontSize: 8, fontFamily: C.sans }}
+                tick={{ fill: C.t1, fontSize: 10, fontFamily: C.sans }}
                 tickLine={false}
                 axisLine={false}
                 width={80}
@@ -296,7 +280,7 @@ export default function StockChartsPanel({ rows = [] }) {
             </BarChart>
           </ResponsiveContainer>
         ) : (
-          <div style={{ height: 130, display: "flex", alignItems: "center", justifyContent: "center", color: C.t2, fontSize: 11 }}>
+          <div style={{ height: 130, display: "flex", alignItems: "center", justifyContent: "center", color: C.t2, fontSize: 12 }}>
             No hay pedidos pendientes ✓
           </div>
         )}

@@ -162,9 +162,9 @@ function HeaderBanda({ banda, count, abierto, onClick }) {
         transition: "all .15s",
       }}
     >
-      <span style={{ fontFamily: D.mono, fontSize: 13, color: m.color, lineHeight: 1 }}>{m.icon}</span>
+      <span style={{ fontFamily: D.mono, fontSize: 14, color: m.color, lineHeight: 1 }}>{m.icon}</span>
       <span style={{
-        fontFamily: D.mono, fontWeight: 600, fontSize: 11,
+        fontFamily: D.mono, fontWeight: 700, fontSize: 12,
         color: m.color, letterSpacing: "0.12em",
         textTransform: "uppercase",
       }}>
@@ -173,7 +173,7 @@ function HeaderBanda({ banda, count, abierto, onClick }) {
       <span style={{
         display: "inline-flex", alignItems: "center", justifyContent: "center",
         minWidth: 20, height: 18,
-        fontFamily: D.mono, fontWeight: 600, fontSize: 11,
+        fontFamily: D.mono, fontWeight: 700, fontSize: 12,
         color: m.color,
         background: `${m.color}18`,
         border: `1px solid ${m.color}30`,
@@ -181,10 +181,10 @@ function HeaderBanda({ banda, count, abierto, onClick }) {
       }}>
         {count}
       </span>
-      <span style={{ flex: 1, fontFamily: D.sans, fontSize: 11, color: D.t3, paddingLeft: 2 }}>
+      <span style={{ flex: 1, fontFamily: D.sans, fontSize: 12, color: D.t3, paddingLeft: 2 }}>
         {m.desc}
       </span>
-      <span style={{ fontFamily: D.mono, fontSize: 10, color: D.t3 }}>
+      <span style={{ fontFamily: D.mono, fontSize: 11, color: D.t3 }}>
         {abierto ? "▲" : "▼"}
       </span>
     </div>
@@ -255,7 +255,7 @@ function TarjetaAviso({ aviso, onNuevaOC }) {
             {urgencia.label}
           </span>
           {aviso.fechaPedido && (
-            <span style={{ fontFamily: D.mono, fontSize: 9, color: D.t3 }}>
+            <span style={{ fontFamily: D.mono, fontSize: 10, color: D.t3 }}>
               {fmtCorto(aviso.fechaPedido)}
             </span>
           )}
@@ -276,7 +276,7 @@ function TarjetaAviso({ aviso, onNuevaOC }) {
           </span>
           {obra.linea_nombre && (
             <span style={{
-              fontFamily: D.sans, fontSize: 9, color: D.t3,
+              fontFamily: D.sans, fontSize: 10, color: D.t3,
               textTransform: "uppercase", letterSpacing: "0.08em",
             }}>
               {obra.linea_nombre}
@@ -290,7 +290,7 @@ function TarjetaAviso({ aviso, onNuevaOC }) {
           padding: "8px 14px", gap: 4, minWidth: 0,
         }}>
           <div style={{
-            fontFamily: D.sans, fontWeight: 500, fontSize: 13,
+            fontFamily: D.sans, fontWeight: 500, fontSize: 14,
             color: esResuelto ? D.t2 : D.t1,
             overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap",
           }}>
@@ -300,18 +300,18 @@ function TarjetaAviso({ aviso, onNuevaOC }) {
             display: "flex", alignItems: "center", gap: 6, flexWrap: "wrap",
           }}>
             {items.length > 0 && (
-              <span style={{ fontFamily: D.mono, fontSize: 10, color: D.t3 }}>
+              <span style={{ fontFamily: D.mono, fontSize: 11, color: D.t3 }}>
                 {items.length} ítem{items.length !== 1 ? "s" : ""}
               </span>
             )}
             <span style={{
-              fontFamily: D.sans, fontSize: 10, color: D.t3,
+              fontFamily: D.sans, fontSize: 11, color: D.t3,
               textTransform: "uppercase", letterSpacing: "0.06em",
             }}>
               {isAviso ? "confirmar" : "generar OC"}
             </span>
             {monto > 0 && (
-              <span style={{ fontFamily: D.mono, fontSize: 10, color: color }}>
+              <span style={{ fontFamily: D.mono, fontSize: 11, color: color }}>
                 ${num(monto).toLocaleString("es-AR")}
               </span>
             )}
@@ -333,7 +333,7 @@ function TarjetaAviso({ aviso, onNuevaOC }) {
                   type="button"
                   onClick={emitirOC}
                   style={{
-                    fontFamily: D.mono, fontWeight: 600, fontSize: 11,
+                    fontFamily: D.mono, fontWeight: 700, fontSize: 12,
                     color: "#000",
                     background: color,
                     border: "none", padding: "5px 12px", borderRadius: 5,
@@ -347,7 +347,7 @@ function TarjetaAviso({ aviso, onNuevaOC }) {
               )}
             </>
           )}
-          <span style={{ fontFamily: D.mono, fontSize: 9, color: D.t3, marginLeft: 4 }}>
+          <span style={{ fontFamily: D.mono, fontSize: 10, color: D.t3, marginLeft: 4 }}>
             {expandida ? "▲" : "▼"}
           </span>
         </div>
@@ -376,19 +376,19 @@ function TarjetaAviso({ aviso, onNuevaOC }) {
                     borderLeft: `2px solid ${color}60`,
                     borderRadius: 5,
                   }}>
-                    <span style={{ fontFamily: D.mono, fontSize: 11, color: color, flexShrink: 0, marginTop: 1 }}>
+                    <span style={{ fontFamily: D.mono, fontSize: 12, color: color, flexShrink: 0, marginTop: 1 }}>
                       {String(i + 1).padStart(2, "0")}
                     </span>
                     <div>
                       <p style={{
-                        margin: 0, fontFamily: D.sans, fontSize: 13,
+                        margin: 0, fontFamily: D.sans, fontSize: 14,
                         fontWeight: 400, color: D.t1, lineHeight: 1.5,
                       }}>
                         {texto}
                       </p>
                       {nota && (
                         <p style={{
-                          margin: "3px 0 0", fontFamily: D.mono, fontSize: 10,
+                          margin: "3px 0 0", fontFamily: D.mono, fontSize: 11,
                           color: D.t3, lineHeight: 1.4,
                         }}>
                           ↳ {nota}
@@ -401,7 +401,7 @@ function TarjetaAviso({ aviso, onNuevaOC }) {
             </div>
           ) : (
             <p style={{
-              margin: 0, fontFamily: D.sans, fontSize: 12,
+              margin: 0, fontFamily: D.sans, fontSize: 13,
               color: D.t3, fontStyle: "italic",
             }}>
               Sin ítems especificados — revisar con el área técnica.
@@ -416,30 +416,30 @@ function TarjetaAviso({ aviso, onNuevaOC }) {
           }}>
             {aviso.fechaEtapa && (
               <div style={{ display: "flex", gap: 6, alignItems: "center" }}>
-                <span style={{ fontFamily: D.sans, fontSize: 10, color: D.t3, textTransform: "uppercase", letterSpacing: "0.06em" }}>
+                <span style={{ fontFamily: D.sans, fontSize: 11, color: D.t3, textTransform: "uppercase", letterSpacing: "0.06em" }}>
                   Inicio etapa
                 </span>
-                <span style={{ fontFamily: D.mono, fontSize: 11, color: D.t2 }}>
+                <span style={{ fontFamily: D.mono, fontSize: 12, color: D.t2 }}>
                   {fmtMedio(aviso.fechaEtapa)}
                 </span>
               </div>
             )}
             {aviso.diasPrevio > 0 && (
               <div style={{ display: "flex", gap: 6, alignItems: "center" }}>
-                <span style={{ fontFamily: D.sans, fontSize: 10, color: D.t3, textTransform: "uppercase", letterSpacing: "0.06em" }}>
+                <span style={{ fontFamily: D.sans, fontSize: 11, color: D.t3, textTransform: "uppercase", letterSpacing: "0.06em" }}>
                   Previo
                 </span>
-                <span style={{ fontFamily: D.mono, fontSize: 11, color: D.t2 }}>
+                <span style={{ fontFamily: D.mono, fontSize: 12, color: D.t2 }}>
                   {aviso.diasPrevio}d antes
                 </span>
               </div>
             )}
             {monto > 0 && (
               <div style={{ display: "flex", gap: 6, alignItems: "center" }}>
-                <span style={{ fontFamily: D.sans, fontSize: 10, color: D.t3, textTransform: "uppercase", letterSpacing: "0.06em" }}>
+                <span style={{ fontFamily: D.sans, fontSize: 11, color: D.t3, textTransform: "uppercase", letterSpacing: "0.06em" }}>
                   Monto est.
                 </span>
-                <span style={{ fontFamily: D.mono, fontSize: 12, color, fontWeight: 500 }}>
+                <span style={{ fontFamily: D.mono, fontSize: 13, color, fontWeight: 500 }}>
                   ${num(monto).toLocaleString("es-AR")}
                 </span>
               </div>
@@ -495,11 +495,11 @@ function BarraSuperior({ busqueda, setBusqueda, filtroLinea, setFiltroLinea, lin
       <div style={{ position: "relative", flexShrink: 0 }}>
         <span style={{
           position: "absolute", left: 10, top: "50%", transform: "translateY(-50%)",
-          fontFamily: D.mono, fontSize: 11, color: D.t3, pointerEvents: "none",
+          fontFamily: D.mono, fontSize: 12, color: D.t3, pointerEvents: "none",
         }}>⌕</span>
         <input
           style={{
-            fontFamily: D.sans, fontSize: 12, color: D.t1,
+            fontFamily: D.sans, fontSize: 13, color: D.t1,
             background: D.input, border: `1px solid ${D.line2}`,
             padding: "6px 12px 6px 26px",
             borderRadius: 6, outline: "none", width: 180,
@@ -521,7 +521,7 @@ function BarraSuperior({ busqueda, setBusqueda, filtroLinea, setFiltroLinea, lin
           onClick={() => setFiltroLinea(l.id)}
           style={{
             fontFamily: D.sans, fontWeight: filtroLinea === l.id ? 600 : 400,
-            fontSize: 11, color: filtroLinea === l.id ? D.t1 : D.t2,
+            fontSize: 12, color: filtroLinea === l.id ? D.t1 : D.t2,
             background: filtroLinea === l.id ? D.input : "transparent",
             border: filtroLinea === l.id
               ? `1px solid ${l.color ?? D.line3}`
@@ -563,11 +563,11 @@ function EmptyState({ busqueda }) {
       }}>
         <span style={{ fontFamily: D.mono, fontSize: 20, color: D.t3 }}>✓</span>
       </div>
-      <div style={{ fontFamily: D.mono, fontSize: 11, color: D.t3, letterSpacing: "0.1em", textTransform: "uppercase" }}>
+      <div style={{ fontFamily: D.mono, fontSize: 12, color: D.t3, letterSpacing: "0.1em", textTransform: "uppercase" }}>
         {busqueda ? "Sin resultados para ese filtro" : "Sin avisos de compra activos"}
       </div>
       {busqueda && (
-        <div style={{ fontFamily: D.sans, fontSize: 12, color: D.t3 }}>
+        <div style={{ fontFamily: D.sans, fontSize: 13, color: D.t3 }}>
           Intentá con otro código de obra o quitá el filtro
         </div>
       )}
@@ -705,7 +705,7 @@ export default function AvisosCompraView({ obras, etapas, lineas, lProcs = [], o
                   type="button"
                   onClick={() => setMostrarResueltos(v => !v)}
                   style={{
-                    fontFamily: D.mono, fontSize: 10, color: D.t3,
+                    fontFamily: D.mono, fontSize: 11, color: D.t3,
                     background: "transparent",
                     border: `1px solid ${D.line}`,
                     padding: "5px 14px", borderRadius: 5,

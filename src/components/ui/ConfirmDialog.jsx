@@ -1,5 +1,6 @@
 import { createContext, useCallback, useContext, useEffect, useRef, useState } from "react";
 import { AlertTriangle } from "lucide-react";
+import { C } from "@/theme";
 
 const ConfirmCtx = createContext(null);
 
@@ -55,7 +56,7 @@ export function useConfirm() {
 
 function ConfirmModal({ state, onClose }) {
   const danger = state.tone === "danger";
-  const accent = danger ? "#ef4444" : "#60a5fa";
+  const accent = danger ? C.red : C.blue;
 
   return (
     <>
@@ -70,7 +71,7 @@ function ConfirmModal({ state, onClose }) {
         onClick={(e) => { if (e.target === e.currentTarget) onClose(false); }}
         style={{
           position: "fixed", inset: 0, zIndex: 99998,
-          background: "rgba(2,2,4,0.6)",
+          background: "var(--overlay)",
           backdropFilter: "blur(6px)",
           WebkitBackdropFilter: "blur(6px)",
           display: "grid", placeItems: "center",
@@ -81,12 +82,12 @@ function ConfirmModal({ state, onClose }) {
       >
         <div role="dialog" aria-modal="true" style={{
           width: "min(420px, 100%)",
-          background: "rgba(15,15,18,0.97)",
+          background: C.panelSolid,
           border: `1px solid ${accent}33`,
           borderRadius: 14,
-          boxShadow: `0 30px 80px rgba(0,0,0,0.6), 0 0 0 1px ${accent}10`,
+          boxShadow: `0 30px 80px var(--shadow-strong), 0 0 0 1px ${accent}22`,
           padding: "18px 18px 16px",
-          color: "#f4f4f5",
+          color: C.text,
           animation: "cd-modal-in .18s cubic-bezier(.22,1,.36,1)",
         }}>
           <div style={{ display: "flex", alignItems: "flex-start", gap: 12 }}>
@@ -102,7 +103,7 @@ function ConfirmModal({ state, onClose }) {
             <div style={{ minWidth: 0, flex: 1 }}>
               <div style={{ fontSize: 14, fontWeight: 800, marginBottom: 4 }}>{state.title}</div>
               {state.message && (
-                <div style={{ fontSize: 12.5, lineHeight: 1.5, color: "rgba(255,255,255,0.7)" }}>
+                <div style={{ fontSize: 13, lineHeight: 1.5, color: C.muted }}>
                   {state.message}
                 </div>
               )}
@@ -114,13 +115,13 @@ function ConfirmModal({ state, onClose }) {
               type="button"
               onClick={() => onClose(false)}
               style={{
-                border: "1px solid rgba(255,255,255,0.1)",
+                border: `1px solid ${C.border}`,
                 background: "transparent",
-                color: "rgba(255,255,255,0.7)",
+                color: C.muted,
                 borderRadius: 8,
                 padding: "8px 14px",
                 cursor: "pointer",
-                fontSize: 12,
+                fontSize: 13,
                 fontWeight: 700,
                 fontFamily: "inherit",
               }}
@@ -138,7 +139,7 @@ function ConfirmModal({ state, onClose }) {
                 borderRadius: 8,
                 padding: "8px 14px",
                 cursor: "pointer",
-                fontSize: 12,
+                fontSize: 13,
                 fontWeight: 800,
                 fontFamily: "inherit",
                 letterSpacing: 0.2,

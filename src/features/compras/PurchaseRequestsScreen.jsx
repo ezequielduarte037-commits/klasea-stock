@@ -41,6 +41,7 @@ import {
 } from "@/features/compras/purchaseRequestsApi";
 
 import "react-quill-new/dist/quill.snow.css";
+import { C } from "@/theme";
 
 // Quill pesa ~80kB minificado y solo se usa al crear pedido (rol no-manager).
 // Cargarlo lazy ahorra carga inicial para compras/admin que abren la lista.
@@ -60,26 +61,6 @@ const extractText = (html) => {
   const tmp = document.createElement("DIV");
   tmp.innerHTML = html;
   return tmp.textContent || tmp.innerText || "";
-};
-
-const C = {
-  bg: "#09090b",
-  panel: "rgba(255,255,255,0.035)",
-  panel2: "rgba(255,255,255,0.055)",
-  panel3: "rgba(255,255,255,0.075)",
-  border: "rgba(255,255,255,0.08)",
-  border2: "rgba(255,255,255,0.14)",
-  text: "#f4f4f5",
-  muted: "#a1a1aa",
-  dim: "#71717a",
-  blue: "#60a5fa",
-  amber: "#f59e0b",
-  green: "#10b981",
-  red: "#ef4444",
-  violet: "#8b5cf6",
-  teal: "#2dd4bf",
-  mono: "'JetBrains Mono', monospace",
-  sans: "'Outfit', system-ui, sans-serif",
 };
 
 const statusColors = {
@@ -111,20 +92,20 @@ const ARCHIVED_STATUSES = ["recibido", "cancelado"];
 
 const inputStyle = {
   width: "100%",
-  background: "rgba(255,255,255,0.04)",
+  background: C.panel,
   border: `1px solid ${C.border}`,
   color: C.text,
   borderRadius: 8,
   padding: "9px 10px",
   outline: "none",
-  fontSize: 12,
+  fontSize: 13,
   fontFamily: C.sans,
 };
 
 const labelStyle = {
   color: C.dim,
-  fontSize: 9,
-  letterSpacing: 1.7,
+  fontSize: 10,
+  letterSpacing: 1.2,
   textTransform: "uppercase",
   fontWeight: 750,
   marginBottom: 6,
@@ -176,11 +157,11 @@ function SectionTitle({ icon, title, count }) {
   return (
     <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 12 }}>
       <Icon size={15} color={C.blue} />
-      <h3 style={{ margin: 0, fontSize: 13, color: C.text, fontWeight: 750 }}>{title}</h3>
+      <h3 style={{ margin: 0, fontSize: 14, color: C.text, fontWeight: 750 }}>{title}</h3>
       {count !== undefined && (
         <span style={{
           color: C.dim,
-          fontSize: 10,
+          fontSize: 11,
           fontFamily: C.mono,
           background: C.panel2,
           border: `1px solid ${C.border}`,
@@ -224,7 +205,7 @@ function RequestCard({ request, onClick, profile, isUnread }) {
         <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
           <StatusDot status={request.status} />
           <span style={{
-            fontSize: 13, fontWeight: 750, color: C.text,
+            fontSize: 14, fontWeight: 750, color: C.text,
             overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap",
           }}>
             {request.title}
@@ -237,7 +218,7 @@ function RequestCard({ request, onClick, profile, isUnread }) {
           </span>
         </div>
 
-        <div style={{ color: C.dim, fontSize: 10, display: "flex", alignItems: "center", gap: 4, flexWrap: "wrap" }}>
+        <div style={{ color: C.dim, fontSize: 11, display: "flex", alignItems: "center", gap: 4, flexWrap: "wrap" }}>
           <span>{usernameOf(request.creator)}</span>
           {request.project?.codigo && <><span style={{ color: C.border2 }}>·</span><span style={{ fontFamily: C.mono, color: C.muted }}>{request.project.codigo}</span></>}
           <span style={{ color: C.border2 }}>·</span>
@@ -246,7 +227,7 @@ function RequestCard({ request, onClick, profile, isUnread }) {
 
         {request.description && (
           <div style={{
-            color: C.muted, fontSize: 11, lineHeight: 1.4,
+            color: C.muted, fontSize: 12, lineHeight: 1.4,
             overflow: "hidden", whiteSpace: "nowrap", textOverflow: "ellipsis",
           }}>
             {extractText(request.description)}
@@ -255,7 +236,7 @@ function RequestCard({ request, onClick, profile, isUnread }) {
 
         <div style={{ display: "flex", alignItems: "center", gap: 4, marginTop: 2 }}>
           <span style={{
-            fontSize: 8, fontWeight: 800, letterSpacing: 0.8, textTransform: "uppercase",
+            fontSize: 10, fontWeight: 800, letterSpacing: 0.8, textTransform: "uppercase",
             color, background: `${color}14`, border: `1px solid ${color}28`,
             borderRadius: 5, padding: "1px 5px",
           }}>
@@ -263,7 +244,7 @@ function RequestCard({ request, onClick, profile, isUnread }) {
           </span>
           <span style={{ flex: 1 }} />
           {(request.followers?.length || 0) > 0 && (
-            <span style={{ display: "inline-flex", alignItems: "center", gap: 2, color: C.dim, fontSize: 9 }}>
+            <span style={{ display: "inline-flex", alignItems: "center", gap: 2, color: C.dim, fontSize: 10 }}>
               <Users size={10} /> {request.followers.length}
             </span>
           )}
@@ -317,22 +298,22 @@ function RequestRow({ request, onClick, profile, isUnread }) {
       <div style={{ minWidth: 0 }}>
         <div style={{ display: "flex", alignItems: "center", gap: 6, marginBottom: 2 }}>
           <span style={{
-            fontSize: 13, fontWeight: 700, color: C.text,
+            fontSize: 14, fontWeight: 700, color: C.text,
             overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap",
           }}>
             {request.title}
           </span>
           {isUnread && <span title="Mensaje nuevo" style={{ width: 8, height: 8, borderRadius: "50%", background: dotColor, boxShadow: `0 0 6px ${dotColor}`, flexShrink: 0, animation: "pulse-dot 1.4s ease-in-out infinite" }} />}
           {srcColor && (
-            <span style={{ fontSize: 8, fontWeight: 800, textTransform: "uppercase", letterSpacing: 0.5, color: srcColor }}>
+            <span style={{ fontSize: 10, fontWeight: 800, textTransform: "uppercase", letterSpacing: 0.5, color: srcColor }}>
               {SOURCE_LABELS[request.source] || request.source}
             </span>
           )}
-          <span style={{ color: priorityColors[request.priority], fontSize: 8, fontWeight: 800, textTransform: "uppercase", letterSpacing: 0.5 }}>
+          <span style={{ color: priorityColors[request.priority], fontSize: 10, fontWeight: 800, textTransform: "uppercase", letterSpacing: 0.5 }}>
             {REQUEST_PRIORITIES.find((p) => p.value === request.priority)?.label || request.priority}
           </span>
         </div>
-        <div style={{ fontSize: 10, color: C.dim }}>
+        <div style={{ fontSize: 11, color: C.dim }}>
           {usernameOf(request.creator)}
           {request.project?.codigo ? ` · ${request.project.codigo}` : ""}
           {request.proveedor ? ` · ${request.proveedor}` : ""}
@@ -341,7 +322,7 @@ function RequestRow({ request, onClick, profile, isUnread }) {
       </div>
 
       <span style={{
-        fontSize: 9, fontWeight: 800, letterSpacing: 0.7, textTransform: "uppercase",
+        fontSize: 10, fontWeight: 800, letterSpacing: 0.7, textTransform: "uppercase",
         color, background: `${color}14`, border: `1px solid ${color}28`,
         borderRadius: 5, padding: "2px 7px",
       }}>
@@ -349,12 +330,12 @@ function RequestRow({ request, onClick, profile, isUnread }) {
       </span>
 
       <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
-        <span style={{ fontSize: 10, color: C.dim, fontFamily: C.mono, whiteSpace: "nowrap" }}>
+        <span style={{ fontSize: 11, color: C.dim, fontFamily: C.mono, whiteSpace: "nowrap" }}>
           {fmtDate(request.created_at)}
         </span>
         {request.photo_url && <ImagePlus size={11} color={C.dim} />}
         {(request.followers?.length || 0) > 0 && (
-          <span style={{ display: "inline-flex", alignItems: "center", gap: 2, color: C.dim, fontSize: 9, fontFamily: C.mono }}>
+          <span style={{ display: "inline-flex", alignItems: "center", gap: 2, color: C.dim, fontSize: 10, fontFamily: C.mono }}>
             <Users size={10} /> {request.followers.length}
           </span>
         )}
@@ -379,7 +360,7 @@ function StatChip({ label, count, color, active, onClick }) {
         borderRadius: 5,
         padding: "3px 8px",
         cursor: "pointer",
-        fontSize: 10,
+        fontSize: 11,
         fontWeight: active ? 750 : 600,
         fontFamily: C.sans,
         whiteSpace: "nowrap",
@@ -391,7 +372,7 @@ function StatChip({ label, count, color, active, onClick }) {
       {count !== undefined && (
         <span style={{
           fontFamily: C.mono,
-          fontSize: 10,
+          fontSize: 11,
           color: active ? color : C.dim,
           opacity: 0.65,
         }}>
@@ -723,7 +704,7 @@ export default function PurchaseRequestsScreen({ profile, signOut }) {
       <style>{`
         @import url('https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700;800&family=JetBrains+Mono:wght@400;500;700&display=swap');
         *, *::before, *::after { box-sizing: border-box; }
-        select option { background: #0f0f12; color: #f4f4f5; }
+        select option { background: #0f0f12; color: var(--text); }
         input:focus, select:focus, textarea:focus {
           border-color: rgba(96,165,250,0.42) !important;
           box-shadow: 0 0 0 3px rgba(96,165,250,0.08);
@@ -736,68 +717,75 @@ export default function PurchaseRequestsScreen({ profile, signOut }) {
           animation: pr-card-in .22s cubic-bezier(.22,1,.36,1) both;
         }
         .purchase-card:hover {
-          background: rgba(255,255,255,0.055) !important;
-          border-color: rgba(255,255,255,0.18) !important;
+          background: var(--panel-2) !important;
+          border-color: var(--border-2) !important;
           transform: translateY(-2px);
-          box-shadow: 0 8px 24px rgba(0,0,0,0.32);
+          box-shadow: 0 8px 24px var(--shadow);
         }
         .purchase-card { transition: transform .16s ease, box-shadow .16s ease, border-color .16s ease, background .16s ease !important; }
         .purchase-card:active { transform: translateY(0); transition-duration: .05s !important; }
         .purchase-row:hover {
-          background: rgba(255,255,255,0.055) !important;
-          border-color: rgba(255,255,255,0.18) !important;
+          background: var(--panel-2) !important;
+          border-color: var(--border-2) !important;
         }
         .purchase-row { transition: background .14s ease, border-color .14s ease; }
         .purchase-scroll::-webkit-scrollbar { width: 4px; height: 4px; }
-        .purchase-scroll::-webkit-scrollbar-thumb { background: rgba(255,255,255,.12); border-radius: 99px; }
+        .purchase-scroll::-webkit-scrollbar-thumb { background: var(--border-2); border-radius: 99px; }
         .stat-chip { transition: opacity .14s ease, background .14s ease, color .14s ease; }
         .stat-chip:hover { opacity: .85; }
-        input[type="date"]::-webkit-calendar-picker-indicator { filter: invert(0.5); }
+        input[type="date"]::-webkit-calendar-picker-indicator { opacity: .75; }
         
-        /* Ajustes para ReactQuill MODO OSCURO */
+        /* Ajustes para ReactQuill */
         .ql-toolbar.ql-snow {
           border: none !important;
-          border-bottom: 1px solid rgba(255,255,255,0.08) !important;
-          background: rgba(255,255,255,0.02) !important;
+          border-bottom: 1px solid var(--border) !important;
+          background: var(--panel) !important;
           padding: 8px 12px !important;
         }
         .ql-container.ql-snow {
           border: none !important;
           font-family: 'Outfit', sans-serif !important;
-          font-size: 13px !important;
-          color: #f4f4f5 !important;
+          font-size: 14px !important;
+          color: var(--text) !important;
         }
         .ql-editor {
           min-height: 180px !important; /* Más alto para mayor comodidad */
           padding: 14px !important;
         }
         .ql-editor.ql-blank::before {
-          color: #71717a !important; /* Placeholder oscuro */
+          color: var(--dim) !important; /* Placeholder oscuro */
           font-style: normal !important;
         }
-        /* Invertir colores de los iconos para fondo oscuro */
-        .ql-snow .ql-stroke { stroke: #a1a1aa !important; }
-        .ql-snow .ql-fill, .ql-snow .ql-stroke.ql-fill { fill: #a1a1aa !important; }
-        .ql-snow.ql-toolbar button:hover .ql-stroke { stroke: #f4f4f5 !important; }
-        .ql-snow.ql-toolbar button:hover .ql-fill { fill: #f4f4f5 !important; }
-        .ql-snow.ql-toolbar button.ql-active .ql-stroke { stroke: #60a5fa !important; }
-        .ql-snow.ql-toolbar button.ql-active .ql-fill { fill: #60a5fa !important; }
+        .ql-snow .ql-stroke { stroke: var(--muted) !important; }
+        .ql-snow .ql-fill, .ql-snow .ql-stroke.ql-fill { fill: var(--muted) !important; }
+        .ql-snow.ql-toolbar button:hover .ql-stroke { stroke: var(--text) !important; }
+        .ql-snow.ql-toolbar button:hover .ql-fill { fill: var(--text) !important; }
+        .ql-snow.ql-toolbar button.ql-active .ql-stroke { stroke: var(--blue) !important; }
+        .ql-snow.ql-toolbar button.ql-active .ql-fill { fill: var(--blue) !important; }
         /* Dropdowns de color */
-        .ql-snow .ql-picker { color: #a1a1aa !important; }
-        .ql-snow .ql-picker-options { background-color: #0f0f12 !important; border: 1px solid rgba(255,255,255,0.1) !important; }
+        .ql-snow .ql-picker { color: var(--muted) !important; }
+        .ql-snow .ql-picker-options { background-color: var(--panel-solid-2) !important; border: 1px solid var(--border) !important; }
         /* Tooltip de links */
         .ql-snow .ql-tooltip {
-          background-color: #0f0f12 !important;
-          border: 1px solid rgba(255,255,255,0.1) !important;
-          color: #f4f4f5 !important;
-          box-shadow: 0 4px 12px rgba(0,0,0,0.5) !important;
+          background-color: var(--panel-solid-2) !important;
+          border: 1px solid var(--border) !important;
+          color: var(--text) !important;
+          box-shadow: 0 4px 12px var(--shadow) !important;
         }
         .ql-snow .ql-tooltip input[type="text"] {
-          background-color: rgba(255,255,255,0.05) !important;
-          border: 1px solid rgba(255,255,255,0.1) !important;
-          color: #f4f4f5 !important;
+          background-color: var(--panel) !important;
+          border: 1px solid var(--border) !important;
+          color: var(--text) !important;
         }
-        .ql-snow .ql-tooltip a { color: #60a5fa !important; }
+        .ql-snow .ql-tooltip a { color: var(--blue) !important; }
+        [data-theme="light"] .ql-snow .ql-stroke { stroke: #27272a !important; }
+        [data-theme="light"] .ql-snow .ql-fill,
+        [data-theme="light"] .ql-snow .ql-stroke.ql-fill { fill: #27272a !important; }
+        [data-theme="hc"] .ql-toolbar.ql-snow,
+        [data-theme="hc"] .ql-container.ql-snow {
+          background: #000 !important;
+          border-color: var(--border-2) !important;
+        }
       `}</style>
 
       <div style={{ display: "grid", gridTemplateColumns: isMobile ? "1fr" : "280px 1fr", height: "100%", overflow: "hidden" }}>
@@ -808,7 +796,7 @@ export default function PurchaseRequestsScreen({ profile, signOut }) {
           <header style={{
             display: "grid",
             gap: 0,
-            background: "rgba(12,12,14,0.95)",
+            background: C.topbar,
             borderBottom: `1px solid ${C.border}`,
           }}>
             <div style={{
@@ -855,7 +843,7 @@ export default function PurchaseRequestsScreen({ profile, signOut }) {
                   background: showNew ? "rgba(96,165,250,0.1)" : C.panel2,
                   color: showNew ? C.blue : C.text,
                   borderRadius: 7, padding: "7px 11px", cursor: "pointer",
-                  fontSize: 11, fontWeight: 750,
+                  fontSize: 12, fontWeight: 750,
                   transition: "all .13s",
                 }}>
                   {showNew ? <X size={13} /> : <Plus size={13} />}
@@ -889,22 +877,22 @@ export default function PurchaseRequestsScreen({ profile, signOut }) {
                   <div style={{ position: "relative", flex: "1 1 160px", minWidth: 140 }}>
                     <Search size={12} style={{ position: "absolute", left: 9, top: "50%", transform: "translateY(-50%)", color: C.dim, pointerEvents: "none" }} />
                     <input value={filters.q} onChange={(e) => setFilters((f) => ({ ...f, q: e.target.value }))}
-                      placeholder="Buscar..." style={{ ...inputStyle, paddingLeft: 28, paddingTop: 7, paddingBottom: 7, fontSize: 12 }} />
+                      placeholder="Buscar..." style={{ ...inputStyle, paddingLeft: 28, paddingTop: 7, paddingBottom: 7, fontSize: 13 }} />
                   </div>
-                  <select value={filters.priority} onChange={(e) => setFilters((f) => ({ ...f, priority: e.target.value }))} style={{ ...inputStyle, flex: "0 0 120px", paddingTop: 7, paddingBottom: 7, fontSize: 12 }}>
+                  <select value={filters.priority} onChange={(e) => setFilters((f) => ({ ...f, priority: e.target.value }))} style={{ ...inputStyle, flex: "0 0 120px", paddingTop: 7, paddingBottom: 7, fontSize: 13 }}>
                     <option value="todos">Prioridad</option>
                     {REQUEST_PRIORITIES.map((item) => <option key={item.value} value={item.value}>{item.label}</option>)}
                   </select>
-                  <select value={filters.creator} onChange={(e) => setFilters((f) => ({ ...f, creator: e.target.value }))} style={{ ...inputStyle, flex: "0 0 120px", paddingTop: 7, paddingBottom: 7, fontSize: 12 }}>
+                  <select value={filters.creator} onChange={(e) => setFilters((f) => ({ ...f, creator: e.target.value }))} style={{ ...inputStyle, flex: "0 0 120px", paddingTop: 7, paddingBottom: 7, fontSize: 13 }}>
                     <option value="todos">Creador</option>
                     {users.map((user) => <option key={user.id} value={user.id}>{usernameOf(user)}</option>)}
                   </select>
-                  <select value={filters.project} onChange={(e) => setFilters((f) => ({ ...f, project: e.target.value }))} style={{ ...inputStyle, flex: "0 0 100px", paddingTop: 7, paddingBottom: 7, fontSize: 12 }}>
+                  <select value={filters.project} onChange={(e) => setFilters((f) => ({ ...f, project: e.target.value }))} style={{ ...inputStyle, flex: "0 0 100px", paddingTop: 7, paddingBottom: 7, fontSize: 13 }}>
                     <option value="todos">Proyecto</option>
                     {projects.map((project) => <option key={project.id} value={project.id}>{project.codigo}</option>)}
                   </select>
-                  <input type="date" value={filters.dateFrom} onChange={(e) => setFilters((f) => ({ ...f, dateFrom: e.target.value }))} style={{ ...inputStyle, flex: "0 0 120px", paddingTop: 7, paddingBottom: 7, fontSize: 12 }} />
-                  <input type="date" value={filters.dateTo} onChange={(e) => setFilters((f) => ({ ...f, dateTo: e.target.value }))} style={{ ...inputStyle, flex: "0 0 120px", paddingTop: 7, paddingBottom: 7, fontSize: 12 }} />
+                  <input type="date" value={filters.dateFrom} onChange={(e) => setFilters((f) => ({ ...f, dateFrom: e.target.value }))} style={{ ...inputStyle, flex: "0 0 120px", paddingTop: 7, paddingBottom: 7, fontSize: 13 }} />
+                  <input type="date" value={filters.dateTo} onChange={(e) => setFilters((f) => ({ ...f, dateTo: e.target.value }))} style={{ ...inputStyle, flex: "0 0 120px", paddingTop: 7, paddingBottom: 7, fontSize: 13 }} />
                   {activeFilterCount > 0 && (
                     <button
                       type="button"
@@ -918,7 +906,7 @@ export default function PurchaseRequestsScreen({ profile, signOut }) {
                         borderRadius: 6,
                         padding: "6px 9px",
                         cursor: "pointer",
-                        fontSize: 11,
+                        fontSize: 12,
                         fontWeight: 700,
                         whiteSpace: "nowrap",
                       }}
@@ -965,7 +953,7 @@ export default function PurchaseRequestsScreen({ profile, signOut }) {
                       overflow: "hidden"
                     }}>
                       <Suspense fallback={
-                        <div style={{ padding: 14, color: C.dim, fontSize: 12 }}>
+                        <div style={{ padding: 14, color: C.dim, fontSize: 13 }}>
                           Cargando editor…
                         </div>
                       }>
@@ -995,25 +983,25 @@ export default function PurchaseRequestsScreen({ profile, signOut }) {
                           gap: 6, alignItems: "center",
                           padding: "6px 8px",
                           borderBottom: `1px solid ${C.border}`,
-                          fontSize: 12,
+                          fontSize: 13,
                         }}>
                           <div>
                             <span style={{ color: C.text }}>{item.description}</span>
                             {item.link_url && (
                               <a href={item.link_url} target="_blank" rel="noreferrer" style={{
                                 display: "inline-flex", alignItems: "center", gap: 3,
-                                marginLeft: 6, color: C.amber, fontSize: 9, textDecoration: "none",
+                                marginLeft: 6, color: C.amber, fontSize: 10, textDecoration: "none",
                               }}>
                                 <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"/><path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"/></svg>
                                 Enlace
                               </a>
                             )}
                           </div>
-                          <span style={{ color: C.dim, fontFamily: C.mono, fontSize: 11 }}>
+                          <span style={{ color: C.dim, fontFamily: C.mono, fontSize: 12 }}>
                             {item.quantity} {item.unit}
                           </span>
                           <button type="button" onClick={() => removeCreateItem(i)}
-                            style={{ padding: "2px 6px", borderRadius: 4, cursor: "pointer", fontSize: 11,
+                            style={{ padding: "2px 6px", borderRadius: 4, cursor: "pointer", fontSize: 12,
                               border: `1px solid transparent`, background: "transparent", color: C.dim }}>✕</button>
                         </div>
                       ))}
@@ -1025,16 +1013,16 @@ export default function PurchaseRequestsScreen({ profile, signOut }) {
                           <input value={newItemDesc} onChange={e => setNewItemDesc(e.target.value)}
                             onKeyDown={e => { if (e.key === "Enter") { e.preventDefault(); addCreateItem(); } }}
                             placeholder="Descripción del ítem"
-                            style={{ padding: "6px 8px", borderRadius: 5, border: `1px solid ${C.border}`, background: C.bg, color: C.text, fontSize: 12 }} />
+                            style={{ padding: "6px 8px", borderRadius: 5, border: `1px solid ${C.border}`, background: C.bg, color: C.text, fontSize: 13 }} />
                           <input value={newItemLink} onChange={e => setNewItemLink(e.target.value)}
                             placeholder="Enlace (opcional)"
-                            style={{ padding: "6px 8px", borderRadius: 5, border: `1px solid ${C.border}`, background: C.bg, color: C.amber, fontSize: 11 }} />
+                            style={{ padding: "6px 8px", borderRadius: 5, border: `1px solid ${C.border}`, background: C.bg, color: C.amber, fontSize: 12 }} />
                         </div>
                         <input value={newItemQty} onChange={e => setNewItemQty(e.target.value)}
                           placeholder="Cant."
-                          style={{ padding: "6px 8px", borderRadius: 5, border: `1px solid ${C.border}`, background: C.bg, color: C.text, fontSize: 12 }} />
+                          style={{ padding: "6px 8px", borderRadius: 5, border: `1px solid ${C.border}`, background: C.bg, color: C.text, fontSize: 13 }} />
                         <select value={newItemUnit} onChange={e => setNewItemUnit(e.target.value)}
-                          style={{ padding: "6px 8px", borderRadius: 5, border: `1px solid ${C.border}`, background: C.bg, color: C.text, fontSize: 12 }}>
+                          style={{ padding: "6px 8px", borderRadius: 5, border: `1px solid ${C.border}`, background: C.bg, color: C.text, fontSize: 13 }}>
                           <option value="unidad">unidad</option>
                           <option value="par">par</option>
                           <option value="metro">metro</option>
@@ -1043,7 +1031,7 @@ export default function PurchaseRequestsScreen({ profile, signOut }) {
                           <option value="litro">litro</option>
                         </select>
                         <button type="button" onClick={addCreateItem}
-                          style={{ padding: "6px 10px", borderRadius: 5, cursor: "pointer", fontSize: 11,
+                          style={{ padding: "6px 10px", borderRadius: 5, cursor: "pointer", fontSize: 12,
                             border: `1px solid ${C.blue}`, background: "rgba(59,130,246,0.15)", color: C.blue, fontWeight: 600 }}>+</button>
                       </div>
                     </div>
@@ -1085,7 +1073,7 @@ export default function PurchaseRequestsScreen({ profile, signOut }) {
                       transition: "all .13s",
                     }}>
                       <ImagePlus size={15} />
-                      <span style={{ minWidth: 0, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", fontSize: 12 }}>
+                      <span style={{ minWidth: 0, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", fontSize: 13 }}>
                         {photoFile?.name || "Seleccionar imagen"}
                       </span>
                       <input type="file" accept="image/*" onChange={(e) => setPhotoFile(e.target.files?.[0] || null)} style={{ display: "none" }} />
@@ -1105,7 +1093,7 @@ export default function PurchaseRequestsScreen({ profile, signOut }) {
                           value={userSearch}
                           onChange={(e) => setUserSearch(e.target.value)}
                           placeholder="Buscar usuario..."
-                          style={{ width: "100%", padding: "6px 8px", borderRadius: 5, border: `1px solid ${C.border}`, background: C.bg, color: C.text, fontSize: 12 }}
+                          style={{ width: "100%", padding: "6px 8px", borderRadius: 5, border: `1px solid ${C.border}`, background: C.bg, color: C.text, fontSize: 13 }}
                         />
                       </div>
                       <div style={{ maxHeight: 180, overflowY: "auto", padding: 4 }}>
@@ -1121,7 +1109,7 @@ export default function PurchaseRequestsScreen({ profile, signOut }) {
                             return 0;
                           });
                           return sorted.length === 0 ? (
-                            <div style={{ color: C.dim, fontSize: 11, padding: "12px 8px", textAlign: "center" }}>
+                            <div style={{ color: C.dim, fontSize: 12, padding: "12px 8px", textAlign: "center" }}>
                               {userSearch ? "Sin resultados" : "No hay usuarios disponibles"}
                             </div>
                           ) : sorted.map((user) => (
@@ -1141,8 +1129,8 @@ export default function PurchaseRequestsScreen({ profile, signOut }) {
                                 const updated = [user.id, ...recents.filter((id) => id !== user.id)].slice(0, 10);
                                 localStorage.setItem("pr_recent_cc", JSON.stringify(updated));
                               }} />
-                              <span style={{ color: C.text, fontSize: 12 }}>{usernameOf(user)}</span>
-                              <span style={{ color: C.dim, fontSize: 10, textTransform: "uppercase", marginLeft: "auto" }}>{user.role}</span>
+                              <span style={{ color: C.text, fontSize: 13 }}>{usernameOf(user)}</span>
+                              <span style={{ color: C.dim, fontSize: 11, textTransform: "uppercase", marginLeft: "auto" }}>{user.role}</span>
                             </label>
                           ));
                         })()}
@@ -1151,7 +1139,7 @@ export default function PurchaseRequestsScreen({ profile, signOut }) {
                   </div>
 
                   {error && (
-                    <div style={{ color: "#fca5a5", background: "rgba(239,68,68,0.08)", border: "1px solid rgba(239,68,68,0.2)", padding: 9, borderRadius: 8, fontSize: 12 }}>
+                    <div style={{ color: "#fca5a5", background: "rgba(239,68,68,0.08)", border: "1px solid rgba(239,68,68,0.2)", padding: 9, borderRadius: 8, fontSize: 13 }}>
                       {error}
                     </div>
                   )}
@@ -1162,12 +1150,12 @@ export default function PurchaseRequestsScreen({ profile, signOut }) {
                     style={{
                       border: "none",
                       borderRadius: 8,
-                      background: saving ? C.panel2 : "#f4f4f5",
+                      background: saving ? C.panel2 : "var(--text)",
                       color: saving ? C.dim : "#08080a",
                       padding: "11px 12px",
                       cursor: saving ? "default" : "pointer",
                       fontWeight: 800,
-                      fontSize: 12,
+                      fontSize: 13,
                       fontFamily: C.sans,
                       transition: "all .13s",
                     }}
@@ -1187,18 +1175,18 @@ export default function PurchaseRequestsScreen({ profile, signOut }) {
                   alignItems: "center",
                   gap: 8,
                   borderBottom: `1px solid ${C.border}`,
-                  background: "rgba(12,12,14,0.72)",
+                  background: C.topbarSoft,
                   flexWrap: "wrap",
                 }}>
                   <button type="button" onClick={() => setActiveTab("mine")} style={tabStyle(activeTab === "mine")}>
                     <Inbox size={13} /> Mis pedidos
-                    <span style={{ fontFamily: C.mono, fontSize: 10, color: activeTab === "mine" ? C.blue : C.dim }}>
+                    <span style={{ fontFamily: C.mono, fontSize: 11, color: activeTab === "mine" ? C.blue : C.dim }}>
                       {mine.filter((r) => !ARCHIVED_STATUSES.includes(r.status)).length}
                     </span>
                   </button>
                   <button type="button" onClick={() => setActiveTab("cc")} style={tabStyle(activeTab === "cc")}>
                     <Users size={13} /> En copia
-                    <span style={{ fontFamily: C.mono, fontSize: 10, color: activeTab === "cc" ? C.blue : C.dim }}>
+                    <span style={{ fontFamily: C.mono, fontSize: 11, color: activeTab === "cc" ? C.blue : C.dim }}>
                       {copied.filter((r) => !ARCHIVED_STATUSES.includes(r.status)).length}
                     </span>
                   </button>
@@ -1229,7 +1217,7 @@ export default function PurchaseRequestsScreen({ profile, signOut }) {
                         borderRadius: 8,
                         padding: "7px 11px",
                         cursor: "pointer",
-                        fontSize: 11,
+                        fontSize: 12,
                         fontWeight: 700,
                         transition: "all .13s",
                       }}
@@ -1262,12 +1250,12 @@ export default function PurchaseRequestsScreen({ profile, signOut }) {
                     {manager ? (
                       <div style={{
                         display: "flex", alignItems: "center", gap: 12,
-                        padding: "0 0 8px", fontSize: 11,
+                        padding: "0 0 8px", fontSize: 12,
                       }}>
                         <span style={{ color: C.muted, fontWeight: 700 }}>Todas las solicitudes</span>
-                        <span style={{ color: C.dim, fontSize: 10, fontFamily: C.mono }}>{visibleList.length}</span>
+                        <span style={{ color: C.dim, fontSize: 11, fontFamily: C.mono }}>{visibleList.length}</span>
                         <span style={{ flex: 1 }} />
-                        <span style={{ color: C.dim, fontSize: 10 }}>
+                        <span style={{ color: C.dim, fontSize: 11 }}>
                           {unreadIds.size > 0 && <><span style={{ color: C.violet, fontWeight: 700, fontFamily: C.mono }}>{unreadIds.size}</span> sin leer · </>}
                           <span style={{ color: C.amber, fontWeight: 700, fontFamily: C.mono }}>
                             {requests.filter((r) => r.status === "nuevo" || r.status === "en_revision" || r.status === "cotizando").length}
@@ -1284,7 +1272,7 @@ export default function PurchaseRequestsScreen({ profile, signOut }) {
                           count={visibleList.length}
                         />
                         {unreadIds.size > 0 && (
-                          <div style={{ fontSize: 10, color: C.dim, marginTop: -6, marginBottom: 6 }}>
+                          <div style={{ fontSize: 11, color: C.dim, marginTop: -6, marginBottom: 6 }}>
                             <span style={{ color: C.violet, fontWeight: 700, fontFamily: C.mono }}>{unreadIds.size}</span> sin leer
                           </div>
                         )}
@@ -1315,7 +1303,7 @@ export default function PurchaseRequestsScreen({ profile, signOut }) {
                         borderRadius: 12,
                         color: C.dim,
                         background: "rgba(255,255,255,0.012)",
-                        fontSize: 12,
+                        fontSize: 13,
                         textAlign: "center",
                         padding: 28,
                       }}>
@@ -1329,17 +1317,17 @@ export default function PurchaseRequestsScreen({ profile, signOut }) {
                           }}>
                             <ShoppingCart size={20} />
                           </div>
-                          <div style={{ color: C.muted, fontWeight: 700, fontSize: 13 }}>
+                          <div style={{ color: C.muted, fontWeight: 700, fontSize: 14 }}>
                             No hay solicitudes para mostrar
                           </div>
                           {!manager ? (
-                            <div style={{ fontSize: 11.5, color: C.dim, lineHeight: 1.5 }}>
+                            <div style={{ fontSize: 12, color: C.dim, lineHeight: 1.5 }}>
                               {activeTab === "mine"
                                 ? "Cuando crees un pedido aparecerá acá."
                                 : "Cuando te sumen como copia a un pedido, lo vas a ver acá."}
                             </div>
                           ) : (
-                            <div style={{ fontSize: 11.5, color: C.dim, lineHeight: 1.5 }}>
+                            <div style={{ fontSize: 12, color: C.dim, lineHeight: 1.5 }}>
                               No hay pedidos que coincidan con los filtros actuales.
                             </div>
                           )}
@@ -1352,7 +1340,7 @@ export default function PurchaseRequestsScreen({ profile, signOut }) {
                                 background: "transparent",
                                 border: `1px solid ${C.border2}`,
                                 color: C.blue,
-                                fontSize: 11,
+                                fontSize: 12,
                                 fontWeight: 700,
                                 borderRadius: 7,
                                 padding: "6px 12px",
@@ -1383,8 +1371,8 @@ export default function PurchaseRequestsScreen({ profile, signOut }) {
                           gap: 10,
                           padding: "4px 16px",
                           color: C.dim,
-                          fontSize: 9,
-                          letterSpacing: 1.5,
+                          fontSize: 10,
+                          letterSpacing: 1.1,
                           textTransform: "uppercase",
                           fontWeight: 750,
                         }}>
@@ -1414,7 +1402,7 @@ export default function PurchaseRequestsScreen({ profile, signOut }) {
 }
 
 const DASHBOARD_PRIORITY_COLORS = {
-  baja: "#71717a",
+  baja: "var(--dim)",
   media: "#60a5fa",
   alta: "#f59e0b",
   urgente: "#ef4444",
@@ -1445,7 +1433,7 @@ function StatCard({ label, value, color, icon, subtitle }) {
           </div>
         )}
         <div>
-          <div style={{ color: C.muted, fontSize: 10, letterSpacing: 1, textTransform: "uppercase", fontWeight: 600 }}>
+          <div style={{ color: C.muted, fontSize: 11, letterSpacing: 1, textTransform: "uppercase", fontWeight: 700 }}>
             {label}
           </div>
           <div style={{ color: C.text, fontSize: 22, fontWeight: 800, fontFamily: C.mono, marginTop: 1 }}>
@@ -1454,7 +1442,7 @@ function StatCard({ label, value, color, icon, subtitle }) {
         </div>
       </div>
       {subtitle && (
-        <div style={{ color: C.dim, fontSize: 10, borderTop: `1px solid ${C.border}`, paddingTop: 7, marginTop: 2 }}>
+        <div style={{ color: C.dim, fontSize: 11, borderTop: `1px solid ${C.border}`, paddingTop: 7, marginTop: 2 }}>
           {subtitle}
         </div>
       )}
@@ -1468,7 +1456,7 @@ class DashboardErrorBoundary extends Component {
   render() {
     if (this.state.hasError) {
       return (
-        <div style={{ minHeight: 400, display: "grid", placeItems: "center", color: "#71717a", fontSize: 12 }}>
+        <div style={{ minHeight: 400, display: "grid", placeItems: "center", color: "var(--dim)", fontSize: 13 }}>
           Error al cargar el dashboard. {this.props.fallback}
         </div>
       );
@@ -1480,7 +1468,7 @@ class DashboardErrorBoundary extends Component {
 function DashboardView({ analytics, monthlySpending, overdueItems, loading, requests, onSelectRequest }) {
   if (loading) {
     return (
-      <div style={{ minHeight: 400, display: "grid", placeItems: "center", color: C.dim, fontSize: 12 }}>
+      <div style={{ minHeight: 400, display: "grid", placeItems: "center", color: C.dim, fontSize: 13 }}>
         <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
           <span style={{ display: "inline-block", width: 14, height: 14, border: `2px solid ${C.border2}`, borderTopColor: C.blue, borderRadius: "50%", animation: "spin 0.8s linear infinite" }} />
           Cargando dashboard...
@@ -1491,7 +1479,7 @@ function DashboardView({ analytics, monthlySpending, overdueItems, loading, requ
 
   if (!analytics) {
     return (
-      <div style={{ minHeight: 400, display: "grid", placeItems: "center", color: C.dim, fontSize: 12 }}>
+      <div style={{ minHeight: 400, display: "grid", placeItems: "center", color: C.dim, fontSize: 13 }}>
         Sin datos disponibles
       </div>
     );
@@ -1499,10 +1487,10 @@ function DashboardView({ analytics, monthlySpending, overdueItems, loading, requ
 
   const budgetDiff = analytics.totalEstimated - analytics.totalActual;
   const priorityData = [
-    { name: "Baja", value: requests.filter((r) => r.priority === "baja" && !["recibido", "cancelado"].includes(r.status)).length, color: "#71717a" },
-    { name: "Media", value: requests.filter((r) => r.priority === "media" && !["recibido", "cancelado"].includes(r.status)).length, color: "#60a5fa" },
-    { name: "Alta", value: requests.filter((r) => r.priority === "alta" && !["recibido", "cancelado"].includes(r.status)).length, color: "#f59e0b" },
-    { name: "Urgente", value: requests.filter((r) => r.priority === "urgente" && !["recibido", "cancelado"].includes(r.status)).length, color: "#ef4444" },
+    { name: "Baja", value: requests.filter((r) => r.priority === "baja" && !["recibido", "cancelado"].includes(r.status)).length, color: "var(--dim)" },
+    { name: "Media", value: requests.filter((r) => r.priority === "media" && !["recibido", "cancelado"].includes(r.status)).length, color: C.blue },
+    { name: "Alta", value: requests.filter((r) => r.priority === "alta" && !["recibido", "cancelado"].includes(r.status)).length, color: C.amber },
+    { name: "Urgente", value: requests.filter((r) => r.priority === "urgente" && !["recibido", "cancelado"].includes(r.status)).length, color: C.red },
   ].filter((d) => d.value > 0);
 
   return (
@@ -1553,7 +1541,7 @@ function DashboardView({ analytics, monthlySpending, overdueItems, loading, requ
             background: C.panel,
             padding: 14,
           }}>
-            <div style={{ color: C.dim, fontSize: 9, letterSpacing: 1.8, textTransform: "uppercase", fontWeight: 750, marginBottom: 12 }}>
+            <div style={{ color: C.dim, fontSize: 10, letterSpacing: 1.2, textTransform: "uppercase", fontWeight: 750, marginBottom: 12 }}>
               Gasto mensual
             </div>
             <div style={{ display: "grid", gap: 6 }}>
@@ -1561,13 +1549,13 @@ function DashboardView({ analytics, monthlySpending, overdueItems, loading, requ
                 const maxTotal = Math.max(...monthlySpending.map(d => d.total));
                 return monthlySpending.map((d) => (
                   <div key={d.month} style={{ display: "grid", gridTemplateColumns: "60px 1fr auto", gap: 8, alignItems: "center" }}>
-                    <span style={{ fontSize: 9, color: C.dim, fontFamily: C.mono, textAlign: "right" }}>
+                    <span style={{ fontSize: 10, color: C.dim, fontFamily: C.mono, textAlign: "right" }}>
                       {d.month}
                     </span>
                     <div style={{ height: 20, borderRadius: 4, background: C.border, overflow: "hidden" }}>
                       <div style={{ height: "100%", width: `${Math.max(2, (d.total / maxTotal) * 100)}%`, background: C.blue, borderRadius: 4, transition: "width .4s" }} />
                     </div>
-                    <span style={{ fontSize: 9, color: C.muted, fontFamily: C.mono }}>
+                    <span style={{ fontSize: 10, color: C.muted, fontFamily: C.mono }}>
                       ${Number(d.total).toLocaleString("es-AR", { minimumFractionDigits: 0 })}
                     </span>
                   </div>
@@ -1584,7 +1572,7 @@ function DashboardView({ analytics, monthlySpending, overdueItems, loading, requ
             background: C.panel,
             padding: 14,
           }}>
-            <div style={{ color: C.dim, fontSize: 9, letterSpacing: 1.8, textTransform: "uppercase", fontWeight: 750, marginBottom: 12 }}>
+            <div style={{ color: C.dim, fontSize: 10, letterSpacing: 1.2, textTransform: "uppercase", fontWeight: 750, marginBottom: 12 }}>
               Pendientes por prioridad
             </div>
             <div style={{ display: "grid", gap: 8 }}>
@@ -1594,13 +1582,13 @@ function DashboardView({ analytics, monthlySpending, overdueItems, loading, requ
                   <div key={d.name} style={{ display: "grid", gridTemplateColumns: "1fr auto", gap: 8, alignItems: "center" }}>
                     <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
                       <span style={{ width: 8, height: 8, borderRadius: "50%", background: d.color, display: "inline-block", flexShrink: 0 }} />
-                      <span style={{ fontSize: 10, color: C.muted }}>{d.name}</span>
+                      <span style={{ fontSize: 11, color: C.muted }}>{d.name}</span>
                     </div>
                     <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
                       <div style={{ width: 80, height: 14, borderRadius: 3, background: C.border, overflow: "hidden" }}>
                         <div style={{ height: "100%", width: `${Math.max(2, (d.value / maxVal) * 100)}%`, background: d.color, borderRadius: 3 }} />
                       </div>
-                      <span style={{ fontSize: 11, color: C.text, fontWeight: 700, fontFamily: C.mono, minWidth: 20, textAlign: "right" }}>{d.value}</span>
+                      <span style={{ fontSize: 12, color: C.text, fontWeight: 700, fontFamily: C.mono, minWidth: 20, textAlign: "right" }}>{d.value}</span>
                     </div>
                   </div>
                 ));
@@ -1620,7 +1608,7 @@ function DashboardView({ analytics, monthlySpending, overdueItems, loading, requ
         }}>
           <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 10 }}>
             <Clock size={14} color={C.red} />
-            <span style={{ color: C.red, fontSize: 12, fontWeight: 750, letterSpacing: 0.5 }}>
+            <span style={{ color: C.red, fontSize: 13, fontWeight: 750, letterSpacing: 0.5 }}>
               Pedidos vencidos ({overdueItems.length})
             </span>
           </div>
@@ -1650,15 +1638,15 @@ function DashboardView({ analytics, monthlySpending, overdueItems, loading, requ
                   }}
                 >
                   <div style={{ minWidth: 0 }}>
-                    <div style={{ fontSize: 12, fontWeight: 700, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+                    <div style={{ fontSize: 13, fontWeight: 700, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
                       {item.title}
                     </div>
-                    <div style={{ fontSize: 10, color: C.dim, marginTop: 2 }}>
+                    <div style={{ fontSize: 11, color: C.dim, marginTop: 2 }}>
                       {usernameOf(item.creator)} · {item.project?.codigo || "Sin proyecto"}
                     </div>
                   </div>
                   <span style={{
-                    fontSize: 10,
+                    fontSize: 11,
                     color: C.red,
                     fontWeight: 700,
                     fontFamily: C.mono,
@@ -1671,7 +1659,7 @@ function DashboardView({ analytics, monthlySpending, overdueItems, loading, requ
                   </span>
                   <span style={{
                     ...priorityColors[item.priority],
-                    fontSize: 9,
+                    fontSize: 10,
                     fontWeight: 700,
                     textTransform: "uppercase",
                   }}>
@@ -1693,7 +1681,7 @@ function DashboardView({ analytics, monthlySpending, overdueItems, loading, requ
         display: "flex",
         alignItems: "center",
         justifyContent: "space-between",
-        fontSize: 10,
+        fontSize: 11,
         color: C.dim,
       }}>
         <span>{analytics.totalRequests} solicitudes totales</span>
@@ -1725,7 +1713,7 @@ function tabStyle(active) {
     borderRadius: 8,
     padding: "7px 11px",
     cursor: "pointer",
-    fontSize: 12,
+    fontSize: 13,
     fontWeight: 750,
     transition: "all .12s",
   };
@@ -1739,7 +1727,7 @@ function TabBtn({ active, onClick, children }) {
       color: active ? C.text : C.dim,
       cursor: "pointer",
       padding: "6px 10px",
-      fontSize: 11,
+      fontSize: 12,
       fontWeight: active ? 750 : 600,
       fontFamily: C.sans,
       borderRadius: 6,

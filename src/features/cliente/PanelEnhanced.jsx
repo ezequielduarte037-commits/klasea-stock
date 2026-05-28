@@ -312,7 +312,7 @@ function ArcGauge({
         </span>
         <span style={{
           fontFamily: "var(--font-mono)",
-          fontSize: 8,
+          fontSize: 10,
           color: "var(--t3)",
           letterSpacing: ".12em",
           marginTop: 3,
@@ -436,7 +436,7 @@ function SysIndicator({ status }) {
       }} />
       <span style={{
         fontFamily: "var(--font-mono)",
-        fontSize: 7.5, letterSpacing: ".14em",
+        fontSize: 10, letterSpacing: ".14em",
         color: m.color, textTransform: "uppercase",
       }}>
         {m.label}
@@ -452,7 +452,7 @@ function Cap({ children, style: st = {}, sm }) {
   return (
     <span style={{
       fontFamily: "var(--font-nm)", fontSize: sm ? 8 : 9,
-      letterSpacing: ".2em", textTransform: "uppercase",
+      letterSpacing: ".12em", textTransform: "uppercase",
       fontWeight: 600, color: "var(--t3)", ...st,
     }}>
       {children}
@@ -560,27 +560,27 @@ export function SecBienvenidaPlus({ cliente, mc, goTo }) {
           {/* Clock pill */}
           <div className="wx-pill">
             <span style={{ width: 5, height: 5, borderRadius: "50%", background: "var(--ok)", animation: "pulse 2s ease-in-out infinite", flexShrink: 0 }} />
-            <span style={{ fontFamily: "var(--font-mono)", fontSize: 12, color: "var(--t1)", letterSpacing: ".16em" }}>{timeStr}</span>
+            <span style={{ fontFamily: "var(--font-mono)", fontSize: 13, color: "var(--t1)", letterSpacing: ".12em" }}>{timeStr}</span>
           </div>
           {/* Weather pill */}
           {wx && (
             <div className="wx-pill" style={{ gap: 10 }}>
               <Thermometer size={9} color="var(--t3)" />
-              <span style={{ fontFamily: "var(--font-mono)", fontSize: 9, color: "var(--t1)", letterSpacing: ".1em" }}>{wx.t}°C</span>
+              <span style={{ fontFamily: "var(--font-mono)", fontSize: 10, color: "var(--t1)", letterSpacing: ".1em" }}>{wx.t}°C</span>
               <span style={{ width: 1, height: 10, background: "rgba(255,255,255,0.1)" }} />
               <Wind size={9} color="var(--t3)" />
-              <span style={{ fontFamily: "var(--font-mono)", fontSize: 9, color: "var(--t2)", letterSpacing: ".08em" }}>{wx.dir} {wx.w} KM/H</span>
+              <span style={{ fontFamily: "var(--font-mono)", fontSize: 10, color: "var(--t2)", letterSpacing: ".08em" }}>{wx.dir} {wx.w} KM/H</span>
               {wx.wave !== "—" && (
                 <>
                   <span style={{ width: 1, height: 10, background: "rgba(255,255,255,0.1)" }} />
-                  <span style={{ fontFamily: "var(--font-mono)", fontSize: 9, color: "var(--t2)", letterSpacing: ".08em" }}>OLA {wx.wave} M</span>
+                  <span style={{ fontFamily: "var(--font-mono)", fontSize: 10, color: "var(--t2)", letterSpacing: ".08em" }}>OLA {wx.wave} M</span>
                 </>
               )}
             </div>
           )}
           {/* Date pill */}
           <div style={{ padding: "4px 10px" }}>
-            <span style={{ fontFamily: "var(--font-mono)", fontSize: 8, color: "rgba(255,255,255,0.2)", letterSpacing: ".12em", textTransform: "uppercase" }}>
+            <span style={{ fontFamily: "var(--font-mono)", fontSize: 10, color: "rgba(255,255,255,0.2)", letterSpacing: ".12em", textTransform: "uppercase" }}>
               {dateStr}
             </span>
           </div>
@@ -594,7 +594,7 @@ export function SecBienvenidaPlus({ cliente, mc, goTo }) {
           maxWidth: 560,
         }}>
           <div style={{ marginBottom: 12, animation: "fup .7s .06s var(--ez) both" }}>
-            <Cap style={{ letterSpacing: ".28em" }}>{cliente?.modelo_barco}</Cap>
+            <Cap style={{ letterSpacing: ".13em" }}>{cliente?.modelo_barco}</Cap>
           </div>
           <div style={{ animation: "fup .8s .14s var(--ez) both" }}>
             <h1 style={{
@@ -607,20 +607,20 @@ export function SecBienvenidaPlus({ cliente, mc, goTo }) {
           </div>
           {hull && (
             <div style={{ marginTop: 16, animation: "fup .8s .24s var(--ez) both" }}>
-              <span style={{ fontFamily: "var(--font-mono)", fontSize: 9.5, color: "rgba(255,255,255,0.38)", letterSpacing: ".14em" }}>
+              <span style={{ fontFamily: "var(--font-mono)", fontSize: 10, color: "rgba(255,255,255,0.38)", letterSpacing: ".14em" }}>
                 {hull}
               </span>
             </div>
           )}
           <div style={{ display: "flex", gap: 8, marginTop: 26, animation: "fup .8s .34s var(--ez) both", flexWrap: "wrap" }}>
             <button onClick={() => goTo("soporte")}
-              style={{ padding: "12px 28px", background: "var(--white)", color: "#030304", border: "none", fontFamily: "var(--font-nm)", fontWeight: 600, fontSize: 9, letterSpacing: ".2em", textTransform: "uppercase", cursor: "pointer", borderRadius: 1, transition: "opacity .2s,transform .2s" }}
+              style={{ padding: "12px 28px", background: "var(--white)", color: "#030304", border: "none", fontFamily: "var(--font-nm)", fontWeight: 700, fontSize: 10, letterSpacing: ".12em", textTransform: "uppercase", cursor: "pointer", borderRadius: 1, transition: "opacity .2s,transform .2s" }}
               onMouseEnter={e => { e.currentTarget.style.opacity = ".88"; e.currentTarget.style.transform = "translateY(-1px)"; }}
               onMouseLeave={e => { e.currentTarget.style.opacity = "1"; e.currentTarget.style.transform = "translateY(0)"; }}>
               Reportar Falla
             </button>
             <button onClick={() => goTo("estado")}
-              style={{ padding: "12px 24px", background: "rgba(58,127,208,0.12)", color: "rgba(58,127,208,0.9)", border: "1px solid rgba(58,127,208,0.3)", fontFamily: "var(--font-nm)", fontWeight: 500, fontSize: 9, letterSpacing: ".2em", textTransform: "uppercase", cursor: "pointer", borderRadius: 1, transition: "all .2s", backdropFilter: "blur(8px)" }}
+              style={{ padding: "12px 24px", background: "rgba(58,127,208,0.12)", color: "rgba(58,127,208,0.9)", border: "1px solid rgba(58,127,208,0.3)", fontFamily: "var(--font-nm)", fontWeight: 700, fontSize: 10, letterSpacing: ".12em", textTransform: "uppercase", cursor: "pointer", borderRadius: 1, transition: "all .2s", backdropFilter: "blur(8px)" }}
               onMouseEnter={e => { e.currentTarget.style.background = "rgba(58,127,208,0.2)"; e.currentTarget.style.borderColor = "rgba(58,127,208,0.5)"; }}
               onMouseLeave={e => { e.currentTarget.style.background = "rgba(58,127,208,0.12)"; e.currentTarget.style.borderColor = "rgba(58,127,208,0.3)"; }}>
               Estado de la Unidad
@@ -652,14 +652,14 @@ export function SecBienvenidaPlus({ cliente, mc, goTo }) {
             style={{ "--vital-color": v.color }}>
             <div style={{ display: "flex", alignItems: "center", gap: 5, color: "var(--t3)" }}>
               {v.icon}
-              <span style={{ fontFamily: "var(--font-mono)", fontSize: 7.5, color: "var(--t3)", letterSpacing: ".1em", textTransform: "uppercase" }}>
+              <span style={{ fontFamily: "var(--font-mono)", fontSize: 10, color: "var(--t3)", letterSpacing: ".1em", textTransform: "uppercase" }}>
                 {v.label}
               </span>
             </div>
             <span style={{ fontFamily: "var(--font-mono)", fontSize: 16, fontWeight: 400, color: v.color, letterSpacing: "-.01em", lineHeight: 1 }}>
               {v.value}
             </span>
-            <span style={{ fontFamily: "var(--font-mono)", fontSize: 7.5, color: "var(--t3)", letterSpacing: ".08em" }}>
+            <span style={{ fontFamily: "var(--font-mono)", fontSize: 10, color: "var(--t3)", letterSpacing: ".08em" }}>
               {v.unit}
             </span>
           </div>
@@ -679,9 +679,9 @@ export function SecBienvenidaPlus({ cliente, mc, goTo }) {
             style={{ "--qa-color": a.color }}
             onClick={() => goTo(a.s)}>
             <div className="qa-ico" style={{ color: a.color, opacity: .7 }}>{a.ico}</div>
-            <span style={{ fontFamily: "var(--font-mono)", fontSize: 8, color: "var(--t3)", marginBottom: 10, letterSpacing: ".06em", display: "block" }}>{a.n}</span>
-            <span style={{ display: "block", fontFamily: "var(--font-nm)", fontSize: 9.5, fontWeight: 600, letterSpacing: ".14em", textTransform: "uppercase", color: "var(--t2)", marginBottom: 5 }}>{a.t}</span>
-            <span style={{ display: "block", fontFamily: "var(--font-nm)", fontSize: 10.5, color: "var(--t3)", fontWeight: 300 }}>{a.d}</span>
+            <span style={{ fontFamily: "var(--font-mono)", fontSize: 10, color: "var(--t3)", marginBottom: 10, letterSpacing: ".06em", display: "block" }}>{a.n}</span>
+            <span style={{ display: "block", fontFamily: "var(--font-nm)", fontSize: 10, fontWeight: 700, letterSpacing: ".14em", textTransform: "uppercase", color: "var(--t2)", marginBottom: 5 }}>{a.t}</span>
+            <span style={{ display: "block", fontFamily: "var(--font-nm)", fontSize: 11, color: "var(--t3)", fontWeight: 300 }}>{a.d}</span>
             <div style={{
               marginTop: "auto", paddingTop: 14,
               display: "flex", alignItems: "center", gap: 5,
@@ -758,7 +758,7 @@ export function SecEstado({ cliente, mc }) {
       <div style={{ marginBottom: 36 }}>
         <div style={{ display: "flex", alignItems: "center", gap: 14, marginBottom: 16 }}>
           <div style={{ height: 1, width: 36, background: "linear-gradient(90deg,rgba(255,255,255,0.5),transparent)" }} />
-          <span style={{ fontFamily: "var(--font-mono)", fontSize: 9, color: "rgba(255,255,255,0.2)", letterSpacing: ".22em" }}>
+          <span style={{ fontFamily: "var(--font-mono)", fontSize: 10, color: "rgba(255,255,255,0.2)", letterSpacing: ".12em" }}>
             KLASE-A · VESSEL STATUS
           </span>
         </div>
@@ -766,7 +766,7 @@ export function SecEstado({ cliente, mc }) {
           <h1 style={{ fontFamily: "var(--font-nm)", fontWeight: 200, fontSize: "clamp(24px,3vw,38px)", color: "var(--t1)", letterSpacing: "-.025em", lineHeight: 1.05 }}>
             Estado de la Unidad
           </h1>
-          <span style={{ fontFamily: "var(--font-mono)", fontSize: 9, color: "var(--t3)", letterSpacing: ".1em" }}>
+          <span style={{ fontFamily: "var(--font-mono)", fontSize: 10, color: "var(--t3)", letterSpacing: ".1em" }}>
             {nombre} · {modelo}
           </span>
         </div>
@@ -801,7 +801,7 @@ export function SecEstado({ cliente, mc }) {
               </svg>
             </div>
             <div style={{ textAlign: "center" }}>
-              <p style={{ fontFamily: "var(--font-nm)", fontSize: 12, color: "var(--t2)", fontWeight: 300, marginBottom: 4 }}>
+              <p style={{ fontFamily: "var(--font-nm)", fontSize: 13, color: "var(--t2)", fontWeight: 300, marginBottom: 4 }}>
                 {okCount} de {sistemas.length} sistemas
               </p>
               <SysIndicator status={healthPct >= 90 ? "ok" : healthPct >= 70 ? "warn" : "err"} />
@@ -823,7 +823,7 @@ export function SecEstado({ cliente, mc }) {
                 </div>
                 <ArcGauge value={g.value} max={g.max} unit={g.unit} color={g.color} size={130} strokeW={4} />
                 <p style={{
-                  fontFamily: "var(--font-mono)", fontSize: 9, color: "var(--t3)",
+                  fontFamily: "var(--font-mono)", fontSize: 10, color: "var(--t3)",
                   letterSpacing: ".06em", marginTop: 14, textAlign: "center",
                 }}>
                   {g.detail}
@@ -849,7 +849,7 @@ export function SecEstado({ cliente, mc }) {
                   <span style={{ fontFamily: "var(--font-mono)", fontSize: 26, fontWeight: 400, color: m.color, letterSpacing: "-.02em", lineHeight: 1 }}>
                     {m.value}
                   </span>
-                  <span style={{ fontFamily: "var(--font-mono)", fontSize: 9, color: "var(--t3)" }}>{m.unit}</span>
+                  <span style={{ fontFamily: "var(--font-mono)", fontSize: 10, color: "var(--t3)" }}>{m.unit}</span>
                   {m.trend === "up" && <ArrowUp size={10} color="var(--ok)" />}
                   {m.trend === "down" && <ArrowDown size={10} color="var(--info)" />}
                 </div>
@@ -866,7 +866,7 @@ export function SecEstado({ cliente, mc }) {
             <NauticalClock />
             <div style={{ textAlign: "center" }}>
               <Cap sm style={{ display: "block", marginBottom: 4 }}>Última Posición</Cap>
-              <span style={{ fontFamily: "var(--font-mono)", fontSize: 9.5, color: "rgba(58,127,208,0.6)", letterSpacing: ".08em" }}>
+              <span style={{ fontFamily: "var(--font-mono)", fontSize: 10, color: "rgba(58,127,208,0.6)", letterSpacing: ".08em" }}>
                 34°25'S · 58°32'O
               </span>
             </div>
@@ -897,17 +897,17 @@ export function SecEstado({ cliente, mc }) {
                   {items.map(sys => (
                     <div key={sys.id} className="sys-row">
                       <div style={{ flex: 1, minWidth: 0 }}>
-                        <p style={{ fontFamily: "var(--font-nm)", fontSize: 12, color: "var(--t1)", fontWeight: 400, marginBottom: 2 }}>
+                        <p style={{ fontFamily: "var(--font-nm)", fontSize: 13, color: "var(--t1)", fontWeight: 400, marginBottom: 2 }}>
                           {sys.label}
                         </p>
-                        <p style={{ fontFamily: "var(--font-nm)", fontSize: 10.5, color: "var(--t3)", fontWeight: 300 }}>
+                        <p style={{ fontFamily: "var(--font-nm)", fontSize: 11, color: "var(--t3)", fontWeight: 300 }}>
                           {sys.detail}
                         </p>
                       </div>
                       <div style={{ display: "flex", flexDirection: "column", alignItems: "flex-end", gap: 3, flexShrink: 0 }}>
                         <SysIndicator status={sys.status} />
                         {sys.hrs && (
-                          <span style={{ fontFamily: "var(--font-mono)", fontSize: 8, color: "var(--t3)", letterSpacing: ".06em" }}>
+                          <span style={{ fontFamily: "var(--font-mono)", fontSize: 10, color: "var(--t3)", letterSpacing: ".06em" }}>
                             {sys.hrs}
                           </span>
                         )}
@@ -946,11 +946,11 @@ export function SecEstado({ cliente, mc }) {
                   {/* Content */}
                   <div style={{ flex: 1, paddingBottom: 8 }}>
                     <div style={{ display: "flex", alignItems: "baseline", gap: 12, marginBottom: 3, flexWrap: "wrap" }}>
-                      <span style={{ fontFamily: "var(--font-nm)", fontSize: 13, fontWeight: 400, color: done ? "var(--t1)" : "var(--t2)" }}>
+                      <span style={{ fontFamily: "var(--font-nm)", fontSize: 14, fontWeight: 400, color: done ? "var(--t1)" : "var(--t2)" }}>
                         {item.label}
                       </span>
                       <span style={{
-                        fontFamily: "var(--font-mono)", fontSize: 8,
+                        fontFamily: "var(--font-mono)", fontSize: 10,
                         color: done ? "var(--ok)" : "var(--info)",
                         letterSpacing: ".1em", padding: "2px 8px",
                         background: done ? "rgba(45,184,122,0.08)" : "rgba(58,127,208,0.08)",
@@ -960,10 +960,10 @@ export function SecEstado({ cliente, mc }) {
                         {done ? "REALIZADO" : "PRÓXIMO"}
                       </span>
                     </div>
-                    <p style={{ fontFamily: "var(--font-nm)", fontSize: 11, color: "var(--t3)", fontWeight: 300, marginBottom: 2 }}>
+                    <p style={{ fontFamily: "var(--font-nm)", fontSize: 12, color: "var(--t3)", fontWeight: 300, marginBottom: 2 }}>
                       {item.detail}
                     </p>
-                    <span style={{ fontFamily: "var(--font-mono)", fontSize: 8, color: "var(--t3)", letterSpacing: ".08em" }}>
+                    <span style={{ fontFamily: "var(--font-mono)", fontSize: 10, color: "var(--t3)", letterSpacing: ".08em" }}>
                       {item.date}
                     </span>
                   </div>

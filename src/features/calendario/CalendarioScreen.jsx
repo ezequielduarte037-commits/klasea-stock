@@ -1,3 +1,4 @@
+import { C } from "@/theme";
 /**
  * CalendarioScreen.jsx
  * Calendario de producción — Klase A Astillero
@@ -12,23 +13,6 @@ import { useResponsive } from "@/hooks/useResponsive";
 import { hasAdminAccess } from "@/lib/permissions";
 
 // ─── Design tokens ────────────────────────────────────────────────────────────
-const C = {
-  bg:   "#09090b",
-  s0:   "rgba(255,255,255,0.03)",
-  s1:   "rgba(255,255,255,0.055)",
-  s2:   "rgba(255,255,255,0.08)",
-  b0:   "rgba(255,255,255,0.08)",
-  b1:   "rgba(255,255,255,0.14)",
-  t0:   "#f4f4f5",
-  t1:   "#a1a1aa",
-  t2:   "#52525b",
-  sans: "'Outfit', system-ui, sans-serif",
-  mono: "'JetBrains Mono', monospace",
-  blue:  "#3b82f6",
-  amber: "#f59e0b",
-  red:   "#ef4444",
-};
-
 // ─── Event types ──────────────────────────────────────────────────────────────
 const TIPOS = {
   desmolde:        { label: "Desmolde",         color: "#60a5fa" },
@@ -38,7 +22,7 @@ const TIPOS = {
   entrega_material:{ label: "Entrega material",  color: "#fbbf24" },
   feriado:         { label: "Feriado",           color: "#f87171" },
   reunion:         { label: "Reunión",           color: "#c084fc" },
-  otro:            { label: "Otro",              color: "#a1a1aa" },
+  otro:            { label: "Otro",              color: "var(--muted)" },
 };
 
 // ─── WhatsApp: tipos que disparan notificación ────────────────────────────────
@@ -120,11 +104,11 @@ function EventBadge({ ev, onClick, compact }) {
       className="ev-badge"
     >
       <div style={{ width: 5, height: 5, borderRadius: "50%", background: t.color, flexShrink: 0, marginTop: 4.5 }}/>
-      <span style={{ fontSize: 10, color: t.color, fontWeight: 600, whiteSpace: "normal", wordBreak: "break-word", lineHeight: 1.2, fontFamily: C.sans }}>
+      <span style={{ fontSize: 11, color: t.color, fontWeight: 700, whiteSpace: "normal", wordBreak: "break-word", lineHeight: 1.2, fontFamily: C.sans }}>
         {ev.titulo}{ev.obra ? ` - ${ev.obra}` : ""}
       </span>
       {ev.hora && !compact && (
-        <span style={{ fontSize: 9, color: C.t2, fontFamily: C.mono, flexShrink: 0, marginTop: 1 }}>{ev.hora}</span>
+        <span style={{ fontSize: 10, color: C.t2, fontFamily: C.mono, flexShrink: 0, marginTop: 1 }}>{ev.hora}</span>
       )}
     </div>
   );
@@ -145,15 +129,15 @@ function EventModal({ ev, fechaDefault, onClose, onSave, onDelete, esAdmin }) {
   const ok = form.titulo.trim() && form.fecha;
   const vaANotificar = TIPOS_NOTIFICAR_WA.includes(form.tipo);
 
-  const LBL = { fontSize: 9, letterSpacing: "0.15em", textTransform: "uppercase", color: C.t2, display: "block", marginBottom: 5, fontWeight: 600 };
-  const INP = { background: C.s0, border: `1px solid ${C.b0}`, color: C.t0, padding: "7px 10px", borderRadius: 7, fontSize: 12, outline: "none", width: "100%", fontFamily: C.sans, boxSizing: "border-box" };
+  const LBL = { fontSize: 10, letterSpacing: "0.15em", textTransform: "uppercase", color: C.t2, display: "block", marginBottom: 5, fontWeight: 700 };
+  const INP = { background: C.s0, border: `1px solid ${C.b0}`, color: C.t0, padding: "7px 10px", borderRadius: 7, fontSize: 13, outline: "none", width: "100%", fontFamily: C.sans, boxSizing: "border-box" };
 
   return (
-    <div onClick={onClose} style={{ position: "fixed", inset: 0, zIndex: 3000, background: "rgba(0,0,0,0.85)", display: "flex", alignItems: "center", justifyContent: "center" }}>
-      <div onClick={e => e.stopPropagation()} style={{ background: "#0d0d10", border: `1px solid ${C.b1}`, borderRadius: 14, padding: 26, width: 420, maxWidth: "94vw", maxHeight: "92vh", overflowY: "auto" }}>
+    <div onClick={onClose} style={{ position: "fixed", inset: 0, zIndex: 3000, background: "var(--overlay-strong)", display: "flex", alignItems: "center", justifyContent: "center" }}>
+      <div onClick={e => e.stopPropagation()} style={{ background: C.panelSolid, border: `1px solid ${C.b1}`, borderRadius: 14, padding: 26, width: 420, maxWidth: "94vw", maxHeight: "92vh", overflowY: "auto" }}>
 
         <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 20 }}>
-          <div style={{ fontSize: 13, fontWeight: 700, color: C.t0 }}>{isNew ? "Nuevo evento" : "Editar evento"}</div>
+          <div style={{ fontSize: 14, fontWeight: 700, color: C.t0 }}>{isNew ? "Nuevo evento" : "Editar evento"}</div>
           <button onClick={onClose} style={{ background: C.s0, border: `1px solid ${C.b0}`, color: C.t1, width: 28, height: 28, borderRadius: "50%", cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center" }}>{I.close}</button>
         </div>
 
@@ -162,7 +146,7 @@ function EventModal({ ev, fechaDefault, onClose, onSave, onDelete, esAdmin }) {
           <div style={{ display: "flex", flexWrap: "wrap", gap: 5 }}>
             {Object.entries(TIPOS).map(([key, t]) => (
               <button key={key} onClick={() => f("tipo", key)} style={{
-                padding: "5px 11px", borderRadius: 6, cursor: "pointer", fontSize: 11, fontFamily: C.sans, transition: "all .12s",
+                padding: "5px 11px", borderRadius: 6, cursor: "pointer", fontSize: 12, fontFamily: C.sans, transition: "all .12s",
                 background: form.tipo === key ? `${t.color}22` : "transparent",
                 border: `1px solid ${form.tipo === key ? t.color + "55" : C.b0}`,
                 color: form.tipo === key ? t.color : C.t2,
@@ -200,20 +184,20 @@ function EventModal({ ev, fechaDefault, onClose, onSave, onDelete, esAdmin }) {
         {vaANotificar && (
           <div style={{ marginTop: 16, padding: "8px 12px", background: "rgba(37,211,102,0.07)", border: "1px solid rgba(37,211,102,0.2)", borderRadius: 8, display: "flex", alignItems: "center", gap: 8 }}>
             <span style={{ color: "#25d366", display: "flex" }}>{I.wa}</span>
-            <span style={{ fontSize: 11, color: "rgba(37,211,102,0.8)" }}>Se notificará al grupo de WhatsApp al guardar</span>
+            <span style={{ fontSize: 12, color: "rgba(37,211,102,0.8)" }}>Se notificará al grupo de WhatsApp al guardar</span>
           </div>
         )}
 
         <div style={{ display: "flex", gap: 8, marginTop: 20, justifyContent: "space-between" }}>
           {!isNew && esAdmin && (
-            <button onClick={() => onDelete(ev.id)} style={{ padding: "8px 14px", background: "transparent", border: "1px solid rgba(239,68,68,0.2)", color: "rgba(239,68,68,0.65)", borderRadius: 8, cursor: "pointer", fontSize: 11, fontFamily: C.sans, display: "flex", alignItems: "center", gap: 5 }}>
+            <button onClick={() => onDelete(ev.id)} style={{ padding: "8px 14px", background: "transparent", border: "1px solid rgba(239,68,68,0.2)", color: "rgba(239,68,68,0.65)", borderRadius: 8, cursor: "pointer", fontSize: 12, fontFamily: C.sans, display: "flex", alignItems: "center", gap: 5 }}>
               {I.trash} Eliminar
             </button>
           )}
           <div style={{ display: "flex", gap: 8, marginLeft: "auto" }}>
-            <button onClick={onClose} style={{ padding: "8px 16px", background: C.s0, border: `1px solid ${C.b0}`, color: C.t1, borderRadius: 8, cursor: "pointer", fontSize: 12, fontFamily: C.sans }}>Cancelar</button>
+            <button onClick={onClose} style={{ padding: "8px 16px", background: C.s0, border: `1px solid ${C.b0}`, color: C.t1, borderRadius: 8, cursor: "pointer", fontSize: 13, fontFamily: C.sans }}>Cancelar</button>
             <button onClick={() => ok && onSave(form)} disabled={!ok}
-              style={{ padding: "8px 22px", background: ok ? "rgba(59,130,246,0.14)" : C.s0, border: `1px solid ${ok ? "rgba(59,130,246,0.35)" : C.b0}`, color: ok ? "#60a5fa" : C.t2, borderRadius: 8, cursor: ok ? "pointer" : "not-allowed", fontSize: 12, fontWeight: 600, fontFamily: C.sans, opacity: ok ? 1 : 0.5 }}>
+              style={{ padding: "8px 22px", background: ok ? "rgba(59,130,246,0.14)" : C.s0, border: `1px solid ${ok ? "rgba(59,130,246,0.35)" : C.b0}`, color: ok ? "#60a5fa" : C.t2, borderRadius: 8, cursor: ok ? "pointer" : "not-allowed", fontSize: 13, fontWeight: 600, fontFamily: C.sans, opacity: ok ? 1 : 0.5 }}>
               {isNew ? "Crear evento" : "Guardar cambios"}
             </button>
           </div>
@@ -232,14 +216,14 @@ function DayDetail({ fecha, eventos, onAdd, onEdit, esAdmin }) {
   return (
     <div style={{ width: 260, flexShrink: 0, borderLeft: `1px solid ${C.b0}`, display: "flex", flexDirection: "column", height: "100%" }}>
       <div style={{ padding: "18px 20px 14px", borderBottom: `1px solid ${C.b0}` }}>
-        <div style={{ fontSize: 9, letterSpacing: "0.2em", textTransform: "uppercase", color: C.t2, marginBottom: 4 }}>{DIAS_FULL[(new Date(y, m, d)).getDay()]}</div>
+        <div style={{ fontSize: 10, letterSpacing: "0.2em", textTransform: "uppercase", color: C.t2, marginBottom: 4 }}>{DIAS_FULL[(new Date(y, m, d)).getDay()]}</div>
         <div style={{ fontSize: 28, fontWeight: 700, color: C.t0, fontFamily: C.mono, lineHeight: 1 }}>{d}</div>
-        <div style={{ fontSize: 11, color: C.t2, marginTop: 3 }}>{MESES_ES[m]} {y}</div>
+        <div style={{ fontSize: 12, color: C.t2, marginTop: 3 }}>{MESES_ES[m]} {y}</div>
       </div>
 
       <div style={{ flex: 1, overflowY: "auto", padding: "12px 16px" }}>
         {evs.length === 0 ? (
-          <div style={{ fontSize: 11, color: C.t2, paddingTop: 8 }}>Sin eventos</div>
+          <div style={{ fontSize: 12, color: C.t2, paddingTop: 8 }}>Sin eventos</div>
         ) : evs.map(ev => {
           const t = TIPOS[ev.tipo] ?? TIPOS.otro;
           return (
@@ -248,18 +232,18 @@ function DayDetail({ fecha, eventos, onAdd, onEdit, esAdmin }) {
               className="day-ev"
             >
               <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", gap: 8, marginBottom: 4 }}>
-                <div style={{ fontSize: 12, fontWeight: 600, color: C.t0 }}>{ev.titulo}</div>
+                <div style={{ fontSize: 13, fontWeight: 600, color: C.t0 }}>{ev.titulo}</div>
                 {ev.hora && (
-                  <div style={{ fontSize: 10, color: C.t2, fontFamily: C.mono, flexShrink: 0, display: "flex", alignItems: "center", gap: 3 }}>
+                  <div style={{ fontSize: 11, color: C.t2, fontFamily: C.mono, flexShrink: 0, display: "flex", alignItems: "center", gap: 3 }}>
                     {I.clock} {ev.hora}
                   </div>
                 )}
               </div>
               <div style={{ display: "flex", gap: 5, flexWrap: "wrap" }}>
-                <span style={{ fontSize: 10, color: t.color, background: `${t.color}18`, padding: "1px 7px", borderRadius: 4 }}>{t.label}</span>
-                {ev.obra && <span style={{ fontSize: 10, color: C.t2, background: C.s1, padding: "1px 7px", borderRadius: 4, fontFamily: C.mono }}>{ev.obra}</span>}
+                <span style={{ fontSize: 11, color: t.color, background: `${t.color}18`, padding: "1px 7px", borderRadius: 4 }}>{t.label}</span>
+                {ev.obra && <span style={{ fontSize: 11, color: C.t2, background: C.s1, padding: "1px 7px", borderRadius: 4, fontFamily: C.mono }}>{ev.obra}</span>}
               </div>
-              {ev.notas && <div style={{ fontSize: 11, color: C.t2, marginTop: 5, lineHeight: 1.4 }}>{ev.notas}</div>}
+              {ev.notas && <div style={{ fontSize: 12, color: C.t2, marginTop: 5, lineHeight: 1.4 }}>{ev.notas}</div>}
             </div>
           );
         })}
@@ -267,7 +251,7 @@ function DayDetail({ fecha, eventos, onAdd, onEdit, esAdmin }) {
 
       {esAdmin && (
         <div style={{ padding: "12px 16px", borderTop: `1px solid ${C.b0}` }}>
-          <button onClick={() => onAdd(fecha)} style={{ width: "100%", padding: "8px", background: C.s1, border: `1px solid ${C.b0}`, color: C.t1, borderRadius: 8, cursor: "pointer", fontSize: 11, fontFamily: C.sans, display: "flex", alignItems: "center", justifyContent: "center", gap: 6 }}>
+          <button onClick={() => onAdd(fecha)} style={{ width: "100%", padding: "8px", background: C.s1, border: `1px solid ${C.b0}`, color: C.t1, borderRadius: 8, cursor: "pointer", fontSize: 12, fontFamily: C.sans, display: "flex", alignItems: "center", justifyContent: "center", gap: 6 }}>
             {I.plus} Agregar evento
           </button>
         </div>
@@ -291,7 +275,7 @@ function ProximosEventos({ eventos, onEdit }) {
   let lastDate = null;
   return (
     <div style={{ padding: "16px 20px", borderBottom: `1px solid ${C.b0}` }}>
-      <div style={{ fontSize: 9, letterSpacing: "0.2em", textTransform: "uppercase", color: C.t2, marginBottom: 12 }}>Próximos</div>
+      <div style={{ fontSize: 10, letterSpacing: "0.2em", textTransform: "uppercase", color: C.t2, marginBottom: 12 }}>Próximos</div>
       {proximos.map(ev => {
         const { y, m, d } = parseDate(ev.fecha);
         const showDate = ev.fecha !== lastDate;
@@ -300,7 +284,7 @@ function ProximosEventos({ eventos, onEdit }) {
         return (
           <div key={ev.id}>
             {showDate && (
-              <div style={{ fontSize: 9, color: C.t2, letterSpacing: "0.1em", marginBottom: 4, marginTop: showDate && ev !== proximos[0] ? 8 : 0, display: "flex", alignItems: "center", gap: 6 }}>
+              <div style={{ fontSize: 10, color: C.t2, letterSpacing: "0.1em", marginBottom: 4, marginTop: showDate && ev !== proximos[0] ? 8 : 0, display: "flex", alignItems: "center", gap: 6 }}>
                 <span style={{ fontFamily: C.mono, color: ev.fecha === hoy ? C.amber : C.t2 }}>
                   {ev.fecha === hoy ? "Hoy" : `${d} ${MESES_ES[m].slice(0, 3)}`}
                 </span>
@@ -310,8 +294,8 @@ function ProximosEventos({ eventos, onEdit }) {
             <div onClick={() => onEdit(ev)} style={{ display: "flex", alignItems: "flex-start", gap: 8, padding: "4px 2px", cursor: "pointer", borderRadius: 5, marginBottom: 1 }} className="prox-ev">
               <div style={{ width: 6, height: 6, borderRadius: "50%", background: t.color, marginTop: 4, flexShrink: 0 }}/>
               <div style={{ flex: 1, minWidth: 0 }}>
-                <div style={{ fontSize: 11, color: C.t0, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{ev.titulo}</div>
-                <div style={{ fontSize: 10, color: t.color, marginTop: 1, display: "flex", alignItems: "center", gap: 4 }}>
+                <div style={{ fontSize: 12, color: C.t0, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{ev.titulo}</div>
+                <div style={{ fontSize: 11, color: t.color, marginTop: 1, display: "flex", alignItems: "center", gap: 4 }}>
                   {t.label}{ev.hora ? ` · ${ev.hora}` : ""}{ev.obra ? ` · ${ev.obra}` : ""}
                   {TIPOS_NOTIFICAR_WA.includes(ev.tipo) && <span style={{ color: "#25d366", display: "flex", marginLeft: 2 }}>{I.wa}</span>}
                 </div>
@@ -349,7 +333,7 @@ function MonthView({ year, month, eventos, selDate, onSelectDate, onAddOnDate })
     <div style={{ flex: 1, display: "flex", flexDirection: "column", overflow: "hidden" }}>
       <div style={{ display: "grid", gridTemplateColumns: "repeat(7,1fr)", borderBottom: `1px solid ${C.b0}`, flexShrink: 0 }}>
         {HDOW.map(d => (
-          <div key={d} style={{ padding: "8px 0", textAlign: "center", fontSize: 9, letterSpacing: "0.15em", textTransform: "uppercase", color: C.t2, fontWeight: 600, borderRight: `1px solid ${C.b0}` }}>{d}</div>
+          <div key={d} style={{ padding: "8px 0", textAlign: "center", fontSize: 10, letterSpacing: "0.15em", textTransform: "uppercase", color: C.t2, fontWeight: 700, borderRight: `1px solid ${C.b0}` }}>{d}</div>
         ))}
       </div>
       <div style={{ flex: 1, display: "grid", gridTemplateColumns: "repeat(7,1fr)", gridTemplateRows: "repeat(6,1fr)", overflow: "hidden" }}>
@@ -375,7 +359,7 @@ function MonthView({ year, month, eventos, selDate, onSelectDate, onAddOnDate })
             >
               <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 3 }}>
                 <div style={{
-                  fontSize: 11, fontWeight: isToday ? 700 : 400, fontFamily: isToday ? C.mono : C.sans,
+                  fontSize: 12, fontWeight: isToday ? 700 : 400, fontFamily: isToday ? C.mono : C.sans,
                   color: !cell.current ? C.t2 + "40" : isToday ? C.t0 : isFeriado ? C.red + "99" : dow === 6 ? C.t2 : C.t1,
                   width: 20, height: 20, borderRadius: "50%",
                   display: "flex", alignItems: "center", justifyContent: "center",
@@ -393,7 +377,7 @@ function MonthView({ year, month, eventos, selDate, onSelectDate, onAddOnDate })
               </div>
               <div style={{ flex: 1, overflow: "hidden" }}>
                 {dayEvs.slice(0, 3).map(ev => <EventBadge key={ev.id} ev={ev} onClick={() => onSelectDate(fStr)} compact />)}
-                {dayEvs.length > 3 && <div style={{ fontSize: 9, color: C.t2, paddingLeft: 4 }}>+{dayEvs.length - 3} más</div>}
+                {dayEvs.length > 3 && <div style={{ fontSize: 10, color: C.t2, paddingLeft: 4 }}>+{dayEvs.length - 3} más</div>}
               </div>
             </div>
           );
@@ -440,9 +424,9 @@ function WeekView({ year, month, startOfWeek, eventos, selDate, onSelectDate, on
             >
               <div style={{ padding: "10px 10px 6px", borderBottom: `1px solid ${C.b0}`, display: "flex", justifyContent: "space-between", alignItems: "center" }}>
                 <div>
-                  <div style={{ fontSize: 9, letterSpacing: "0.12em", textTransform: "uppercase", color: C.t2 }}>{HDOW[i]}</div>
+                  <div style={{ fontSize: 10, letterSpacing: "0.12em", textTransform: "uppercase", color: C.t2 }}>{HDOW[i]}</div>
                   <div style={{ fontSize: 20, fontWeight: 700, fontFamily: C.mono, color: isToday ? C.t0 : C.t1, lineHeight: 1.2 }}>{day.d}</div>
-                  <div style={{ fontSize: 9, color: C.t2 }}>{MESES_ES[day.m].slice(0, 3)}</div>
+                  <div style={{ fontSize: 10, color: C.t2 }}>{MESES_ES[day.m].slice(0, 3)}</div>
                 </div>
                 <div className="cell-add" style={{ opacity: 0, transition: "opacity .12s" }}>
                   <button onClick={e => { e.stopPropagation(); onAddOnDate(day.fStr); }}
@@ -578,7 +562,7 @@ export default function CalendarioScreen({ profile, signOut }) {
   }, [weekStart]);
 
   const btnSt = active => ({
-    padding: "5px 12px", borderRadius: 6, cursor: "pointer", fontSize: 11, fontFamily: C.sans,
+    padding: "5px 12px", borderRadius: 6, cursor: "pointer", fontSize: 12, fontFamily: C.sans,
     background: active ? C.s2 : "transparent",
     border: `1px solid ${active ? C.b1 : "transparent"}`,
     color: active ? C.t0 : C.t2, transition: "all .12s",
@@ -591,10 +575,10 @@ export default function CalendarioScreen({ profile, signOut }) {
       </div>
       <div style={{ flex: 1, display: "flex", alignItems: "center", justifyContent: "center", padding: 40 }}>
         <div style={{ background: "rgba(239,68,68,0.06)", border: "1px solid rgba(239,68,68,0.22)", borderRadius: 12, padding: 28, maxWidth: 560 }}>
-          <div style={{ fontSize: 12, color: "#f87171", fontWeight: 600, marginBottom: 10 }}>Falta crear la tabla en Supabase</div>
-          <div style={{ fontSize: 11, color: C.t2, marginBottom: 12 }}>Andá a <strong style={{ color: C.t1 }}>Supabase → SQL Editor</strong> y ejecutá:</div>
-          <pre style={{ background: "#0a0a0d", border: `1px solid ${C.b0}`, borderRadius: 8, padding: 14, fontSize: 11, color: C.t1, overflowX: "auto", fontFamily: C.mono, lineHeight: 1.7 }}>{SQL}</pre>
-          <button onClick={() => { setDbErr(false); cargar(); }} style={{ marginTop: 12, padding: "7px 18px", background: C.s1, border: `1px solid ${C.b0}`, color: C.t0, borderRadius: 7, cursor: "pointer", fontSize: 11, fontFamily: C.sans }}>Reintentar</button>
+          <div style={{ fontSize: 13, color: "#f87171", fontWeight: 600, marginBottom: 10 }}>Falta crear la tabla en Supabase</div>
+          <div style={{ fontSize: 12, color: C.t2, marginBottom: 12 }}>Andá a <strong style={{ color: C.t1 }}>Supabase → SQL Editor</strong> y ejecutá:</div>
+          <pre style={{ background: C.panelSolid, border: `1px solid ${C.b0}`, borderRadius: 8, padding: 14, fontSize: 12, color: C.t1, overflowX: "auto", fontFamily: C.mono, lineHeight: 1.7 }}>{SQL}</pre>
+          <button onClick={() => { setDbErr(false); cargar(); }} style={{ marginTop: 12, padding: "7px 18px", background: C.s1, border: `1px solid ${C.b0}`, color: C.t0, borderRadius: 7, cursor: "pointer", fontSize: 12, fontFamily: C.sans }}>Reintentar</button>
         </div>
       </div>
     </div>
@@ -643,14 +627,14 @@ export default function CalendarioScreen({ profile, signOut }) {
           <div style={{ flex: 1 }}/>
                               <div style={{ position: "relative", display: "flex", alignItems: "center", zIndex: 4000 }}>
             <svg style={{ position: "absolute", left: 10, color: C.t2 }} width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
-            <input type="text" placeholder="Buscar historial..." value={busqueda} onChange={e => setBusqueda(e.target.value)} style={{ background: C.s0, border: `1px solid ${C.b0}`, color: C.t0, padding: "6px 12px 6px 30px", borderRadius: 8, fontSize: 12, outline: "none", width: 220, fontFamily: C.sans }} />
+            <input type="text" placeholder="Buscar historial..." value={busqueda} onChange={e => setBusqueda(e.target.value)} style={{ background: C.s0, border: `1px solid ${C.b0}`, color: C.t0, padding: "6px 12px 6px 30px", borderRadius: 8, fontSize: 13, outline: "none", width: 220, fontFamily: C.sans }} />
             
             {busqueda.trim() && (
-              <div style={{ position: "absolute", top: "100%", right: 0, marginTop: 8, width: 300, background: "#0d0d10", border: `1px solid ${C.b1}`, borderRadius: 10, overflow: "hidden", boxShadow: "0 10px 25px rgba(0,0,0,0.5)", maxHeight: 350, overflowY: "auto" }}>
+              <div style={{ position: "absolute", top: "100%", right: 0, marginTop: 8, width: 300, background: C.panelSolid, border: `1px solid ${C.b1}`, borderRadius: 10, overflow: "hidden", boxShadow: "0 10px 25px rgba(0,0,0,0.5)", maxHeight: 350, overflowY: "auto" }}>
                 {buscando ? (
-                  <div style={{ padding: 12, fontSize: 11, color: C.t2, textAlign: "center" }}>Buscando...</div>
+                  <div style={{ padding: 12, fontSize: 12, color: C.t2, textAlign: "center" }}>Buscando...</div>
                 ) : resultadosBusqueda.length === 0 ? (
-                  <div style={{ padding: 12, fontSize: 11, color: C.t2, textAlign: "center" }}>No se encontraron eventos</div>
+                  <div style={{ padding: 12, fontSize: 12, color: C.t2, textAlign: "center" }}>No se encontraron eventos</div>
                 ) : (
                   resultadosBusqueda.map(ev => {
                     const t = TIPOS[ev.tipo] ?? TIPOS.otro;
@@ -659,8 +643,8 @@ export default function CalendarioScreen({ profile, signOut }) {
                       <div key={ev.id} style={{ padding: "10px 12px", borderBottom: `1px solid ${C.b0}`, display: "flex", gap: 8, alignItems: "flex-start", background: "transparent" }}>
                         <div style={{ width: 6, height: 6, borderRadius: "50%", background: t.color, marginTop: 4, flexShrink: 0 }}/>
                         <div>
-                          <div style={{ fontSize: 12, color: C.t0, fontWeight: 500 }}>{ev.titulo}</div>
-                          <div style={{ fontSize: 10, color: C.t2, marginTop: 2 }}>{d} {MESES_ES[m]} {y} {ev.obra ? `· ${ev.obra}` : ""}</div>
+                          <div style={{ fontSize: 13, color: C.t0, fontWeight: 500 }}>{ev.titulo}</div>
+                          <div style={{ fontSize: 11, color: C.t2, marginTop: 2 }}>{d} {MESES_ES[m]} {y} {ev.obra ? `· ${ev.obra}` : ""}</div>
                         </div>
                       </div>
                     )
@@ -671,7 +655,7 @@ export default function CalendarioScreen({ profile, signOut }) {
           </div>
           {esAdmin && (
             <button onClick={() => setModal({ ev: null, fecha: selDate })}
-              style={{ padding: "7px 14px", background: C.s1, border: `1px solid ${C.b1}`, color: C.t0, borderRadius: 8, cursor: "pointer", fontSize: 11, fontWeight: 600, fontFamily: C.sans, display: "flex", alignItems: "center", gap: 6 }}>
+              style={{ padding: "7px 14px", background: C.s1, border: `1px solid ${C.b1}`, color: C.t0, borderRadius: 8, cursor: "pointer", fontSize: 12, fontWeight: 700, fontFamily: C.sans, display: "flex", alignItems: "center", gap: 6 }}>
               {I.plus} Evento
             </button>
           )}
@@ -683,19 +667,19 @@ export default function CalendarioScreen({ profile, signOut }) {
           {/* Sidebar tipos */}
           <div style={{ width: 200, flexShrink: 0, borderRight: `1px solid ${C.b0}`, overflowY: "auto", display: "flex", flexDirection: "column" }}>
             <div style={{ padding: "14px 18px 10px", borderBottom: `1px solid ${C.b0}` }}>
-              <div style={{ fontSize: 9, letterSpacing: "0.2em", textTransform: "uppercase", color: C.t2, marginBottom: 10 }}>Tipos</div>
+              <div style={{ fontSize: 10, letterSpacing: "0.2em", textTransform: "uppercase", color: C.t2, marginBottom: 10 }}>Tipos</div>
               {Object.entries(TIPOS).map(([k, t]) => (
                 <button key={k} onClick={() => setFiltroTipo(filtroTipo === k ? "todos" : k)}
                   style={{ display: "flex", alignItems: "center", gap: 7, width: "100%", padding: "3px 6px", borderRadius: 5, cursor: "pointer", marginBottom: 1, background: filtroTipo === k ? `${t.color}14` : "transparent", border: "none", textAlign: "left" }}>
                   <div style={{ width: 7, height: 7, borderRadius: 2, background: t.color, flexShrink: 0 }}/>
-                  <span style={{ fontSize: 11, color: filtroTipo === k ? t.color : C.t2 }}>{t.label}</span>
+                  <span style={{ fontSize: 12, color: filtroTipo === k ? t.color : C.t2 }}>{t.label}</span>
                   {TIPOS_NOTIFICAR_WA.includes(k) && (
                     <span style={{ color: "#25d366", marginLeft: "auto", display: "flex" }}>{I.wa}</span>
                   )}
                 </button>
               ))}
               <div style={{ marginTop: 10, padding: "6px 6px", borderRadius: 5, background: "rgba(37,211,102,0.05)", border: "1px solid rgba(37,211,102,0.12)" }}>
-                <span style={{ fontSize: 9, color: "rgba(37,211,102,0.6)", display: "flex", alignItems: "center", gap: 4 }}>
+                <span style={{ fontSize: 10, color: "rgba(37,211,102,0.6)", display: "flex", alignItems: "center", gap: 4 }}>
                   {I.wa} notifica al grupo WA
                 </span>
               </div>
@@ -706,7 +690,7 @@ export default function CalendarioScreen({ profile, signOut }) {
           {/* Calendario */}
           <div style={{ flex: 1, display: "flex", flexDirection: "column", overflow: "hidden" }}>
             {loading ? (
-              <div style={{ flex: 1, display: "flex", alignItems: "center", justifyContent: "center", color: C.t2, fontSize: 12 }}>Cargando…</div>
+              <div style={{ flex: 1, display: "flex", alignItems: "center", justifyContent: "center", color: C.t2, fontSize: 13 }}>Cargando…</div>
             ) : view === "month" ? (
               <MonthView year={year} month={month} eventos={eventosFiltrados} selDate={selDate} onSelectDate={setSelDate} onAddOnDate={fecha => setModal({ ev: null, fecha })} />
             ) : (

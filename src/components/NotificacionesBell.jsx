@@ -1,11 +1,12 @@
 import { useEffect, useRef, useState } from "react";
 import useAlertas from "@/hooks/useAlertas";
 import { hasAdminAccess } from "@/lib/permissions";
+import { C } from "@/theme";
 
 const GRAVEDAD = {
-  critical: { color: "#ff453a", icon: "🔴" },
-  warning:  { color: "#ffd60a", icon: "⚠️" },
-  info:     { color: "#0a84ff", icon: "ℹ️" },
+  critical: { color: C.red, icon: "🔴" },
+  warning:  { color: C.amber, icon: "⚠️" },
+  info:     { color: C.blue, icon: "ℹ️" },
 };
 
 export default function NotificacionesBell({ profile }) {
@@ -38,17 +39,17 @@ export default function NotificacionesBell({ profile }) {
       width: 38,
       height: 38,
       borderRadius: "50%",
-      background: open ? "rgba(255,255,255,0.08)" : "rgba(255,255,255,0.04)",
-      border: `1px solid ${criticas > 0 ? "rgba(255,69,58,0.4)" : "rgba(255,255,255,0.08)"}`,
-      backdropFilter: "blur(20px)",
-      WebkitBackdropFilter: "blur(20px)",
+      background: open ? C.panel2 : C.panel,
+      border: `1px solid ${criticas > 0 ? C.redB : C.border}`,
+      backdropFilter: "var(--glass-filter)",
+      WebkitBackdropFilter: "var(--glass-filter)",
       cursor: "pointer",
       display: "flex",
       alignItems: "center",
       justifyContent: "center",
       fontSize: 16,
       transition: "all 0.2s",
-      boxShadow: criticas > 0 ? "0 0 16px rgba(255,69,58,0.2)" : "none",
+      boxShadow: criticas > 0 ? "0 0 16px var(--red-soft)" : "none",
     },
     badge: {
       position: "absolute",
@@ -57,15 +58,15 @@ export default function NotificacionesBell({ profile }) {
       minWidth: 16,
       height: 16,
       borderRadius: 99,
-      background: criticas > 0 ? "#ff453a" : "#ffd60a",
+      background: criticas > 0 ? C.red : C.amber,
       color: "#000",
-      fontSize: 9,
+      fontSize: 10,
       fontWeight: 900,
       display: "flex",
       alignItems: "center",
       justifyContent: "center",
       padding: "0 4px",
-      border: "1.5px solid #000",
+      border: `1.5px solid ${C.bg}`,
     },
     panel: {
       position: "absolute",
@@ -74,25 +75,25 @@ export default function NotificacionesBell({ profile }) {
       width: 340,
       maxHeight: 480,
       overflowY: "auto",
-      background: "rgba(8,8,8,0.95)",
-      backdropFilter: "blur(40px)",
-      WebkitBackdropFilter: "blur(40px)",
-      border: "1px solid rgba(255,255,255,0.08)",
+      background: C.panelSolid,
+      backdropFilter: "var(--glass-filter)",
+      WebkitBackdropFilter: "var(--glass-filter)",
+      border: `1px solid ${C.border}`,
       borderRadius: 16,
-      boxShadow: "0 20px 60px rgba(0,0,0,0.8)",
+      boxShadow: "0 20px 60px var(--shadow-strong)",
     },
     panelHeader: {
       padding: "14px 16px 12px",
-      borderBottom: "1px solid rgba(255,255,255,0.06)",
+      borderBottom: `1px solid ${C.border}`,
       display: "flex",
       justifyContent: "space-between",
       alignItems: "center",
     },
     panelTitle: {
-      color: "#fff",
+      color: C.text,
       fontFamily: "Montserrat, system-ui",
       fontWeight: 800,
-      fontSize: 13,
+      fontSize: 14,
       letterSpacing: 0.5,
     },
     statRow: {
@@ -100,7 +101,7 @@ export default function NotificacionesBell({ profile }) {
       gap: 8,
     },
     statPill: (color) => ({
-      fontSize: 10,
+      fontSize: 11,
       fontWeight: 700,
       padding: "2px 7px",
       borderRadius: 6,
@@ -111,15 +112,14 @@ export default function NotificacionesBell({ profile }) {
     empty: {
       padding: "30px 16px",
       textAlign: "center",
-      fontSize: 12,
+      fontSize: 13,
       opacity: 0.4,
-      color: "#fff",
+      color: C.text,
     },
-    alertItem: (gravedad) => {
-      const g = GRAVEDAD[gravedad] ?? GRAVEDAD.info;
+    alertItem: () => {
       return {
         padding: "10px 16px",
-        borderBottom: "1px solid rgba(255,255,255,0.04)",
+        borderBottom: `1px solid ${C.border}`,
         display: "flex",
         alignItems: "flex-start",
         gap: 10,
@@ -128,20 +128,20 @@ export default function NotificacionesBell({ profile }) {
     },
     alertMsg: {
       flex: 1,
-      fontSize: 12,
+      fontSize: 13,
       lineHeight: 1.4,
-      color: "#d0d0d0",
+      color: C.text,
     },
     alertMeta: {
-      fontSize: 10,
+      fontSize: 11,
       opacity: 0.4,
       marginTop: 3,
     },
     resolveBtn: {
-      fontSize: 10,
-      color: "#30d158",
+      fontSize: 11,
+      color: C.green,
       background: "transparent",
-      border: "1px solid rgba(48,209,88,0.3)",
+      border: `1px solid ${C.greenB}`,
       borderRadius: 6,
       padding: "2px 7px",
       cursor: "pointer",
@@ -150,10 +150,10 @@ export default function NotificacionesBell({ profile }) {
     },
     footer: {
       padding: "10px 16px",
-      borderTop: "1px solid rgba(255,255,255,0.06)",
+      borderTop: `1px solid ${C.border}`,
       textAlign: "center",
-      fontSize: 11,
-      color: "#555",
+      fontSize: 12,
+      color: C.dim,
     },
   };
 
@@ -174,8 +174,8 @@ export default function NotificacionesBell({ profile }) {
           <div style={S.panelHeader}>
             <span style={S.panelTitle}>Alertas de producción</span>
             <div style={S.statRow}>
-              {criticas > 0 && <span style={S.statPill("#ff453a")}>{criticas} crítica{criticas > 1 ? "s" : ""}</span>}
-              {stats.warnings > 0 && <span style={S.statPill("#ffd60a")}>{stats.warnings} aviso{stats.warnings > 1 ? "s" : ""}</span>}
+              {criticas > 0 && <span style={S.statPill(C.red)}>{criticas} crítica{criticas > 1 ? "s" : ""}</span>}
+              {stats.warnings > 0 && <span style={S.statPill(C.amber)}>{stats.warnings} aviso{stats.warnings > 1 ? "s" : ""}</span>}
             </div>
           </div>
 
@@ -187,7 +187,7 @@ export default function NotificacionesBell({ profile }) {
               const g = GRAVEDAD[a.gravedad] ?? GRAVEDAD.info;
               return (
                 <div key={a.id} style={S.alertItem(a.gravedad)}>
-                  <span style={{ fontSize: 13, flexShrink: 0, marginTop: 1 }}>{g.icon}</span>
+                  <span style={{ fontSize: 14, flexShrink: 0, marginTop: 1 }}>{g.icon}</span>
                   <div style={S.alertMsg}>
                     <div>{a.mensaje}</div>
                     <div style={S.alertMeta}>
