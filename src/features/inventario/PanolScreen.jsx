@@ -497,7 +497,7 @@ export default function PanolScreen({ profile, signOut }) {
 
           {/* ── MAIN ── */}
           <div style={{ flex: 1, overflow: "auto", padding: "20px 22px" }}>
-            <div style={{ display: "grid", gridTemplateColumns: "1fr 380px", gap: 14, alignItems: "start", maxWidth: 1100 }}>
+            <div style={{ display: "grid", gridTemplateColumns: isMobile ? "1fr" : "1fr 380px", gap: 14, alignItems: "start", maxWidth: 1100 }}>
 
               {/* ── FORMULARIO ── */}
               <div style={{ background: C.s0, border: `1px solid ${C.b0}`, borderRadius: 12, padding: 20, animation: "slideUp .3s ease" }}>
@@ -533,7 +533,7 @@ export default function PanolScreen({ profile, signOut }) {
                 </FieldRow>
 
                 {modo === "EGRESO" ? (
-                  <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10 }}>
+                  <div style={{ display: "grid", gridTemplateColumns: isMobile ? "1fr" : "1fr 1fr", gap: 10 }}>
                     <FieldRow label="Retira">
                       <input style={INP} value={retira} onChange={e => setRetira(e.target.value)} />
                     </FieldRow>
@@ -575,7 +575,7 @@ export default function PanolScreen({ profile, signOut }) {
                         )}
                       </div>
                     )}
-                    <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10 }}>
+                    <div style={{ display: "grid", gridTemplateColumns: isMobile ? "1fr" : "1fr 1fr", gap: 10 }}>
                       <FieldRow label="Proveedor">
                         <input style={INP} value={proveedor} onChange={e => setProveedor(e.target.value)} />
                       </FieldRow>

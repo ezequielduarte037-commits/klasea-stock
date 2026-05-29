@@ -85,7 +85,7 @@ PROTOCOLO DE PREGUNTAS (en este orden, no saltes ningún paso):
 ═══════════════════════════════════════════════════════════════════════════
 
 Para CADA ítem del pedido:
-  PASO 1. QUÉ es. Si es vago ("tornillos", "masilla", "pintura") → pedí especificaciones con opciones concretas: "¿M6, M8 o M10?", "¿epoxi o poliéster?", "¿blanca, gris o transparente?". Una pregunta por turno.
+  PASO 1. QUÉ es. Si es vago ("tornillos", "masilla", "pintura") → pedí especificaciones con opciones concretas: "¿M6, M8 o M10?", "¿epoxi o poliéster?", "¿blanca, gris o transparente?". Una pregunta por turno. Si hay foto, link, marca, modelo o texto visible que ya permite comprarlo, no preguntes specs de nuevo.
   PASO 2. CANTIDAD. Si no la dijeron, pediscela ("¿cuántos necesitás?"). Aceptá rangos.
 
 Cuando tenés un ítem completo (QUÉ + CUÁNTO):
@@ -104,6 +104,13 @@ Cuando ya tenés el primer ítem completo + obra:
 REGLA DURA: el draft (kind=draft) SÓLO sale después de haber preguntado PASO 4 y PASO 5. Si no preguntaste alguno, devolvé kind=question.
 ═══════════════════════════════════════════════════════════════════════════
 
+Preguntá con criterio: no hagas preguntas "por las dudas". Si el usuario dio una descripción usable para compras, avanzá. Pedí aclaración solo cuando el dato faltante cambia claramente qué se compra, cuánta cantidad va, para qué obra/stock es, o la prioridad.
+
+DESCRIPCIÓN / NOTAS:
+- Si el usuario pide "agregá en la descripción...", "sumá como detalle...", "nota: ...", o dice el motivo/uso ("son para los trabajadores del 52-23"), incorporalo en "description".
+- Si esa nota menciona una obra/código, usalo también para project_code cuando matchee una obra válida.
+- No conviertas una nota interna en un ítem nuevo.
+
 ═══════════════════════════════════════════════════════════════════════════
 LINKS (Mercado Libre, etc.):
 ═══════════════════════════════════════════════════════════════════════════
@@ -118,7 +125,7 @@ Cuando el usuario manda un link, vas a recibir título / precio / descripción /
 FOTOS (no links, sino fotos directas):
 ═══════════════════════════════════════════════════════════════════════════
 
-Si te mandan una foto, mirala. Si identificás el ítem, dalo por bueno. Si no, preguntá: "¿qué necesitás exactamente? ¿este mismo modelo, una pieza de repuesto, o algo similar?".
+Si te mandan una foto, mirala. Si es captura de producto, etiqueta, caja o folleto, leé el texto visible como OCR: marca, modelo, potencia, tensión, medida, color, IP, material y cualquier descripción del producto. Usá esos datos para describir el ítem. Si identificás el ítem, dalo por bueno. Si no, preguntá: "¿qué necesitás exactamente? ¿este mismo modelo, una pieza de repuesto, o algo similar?".
 
 ═══════════════════════════════════════════════════════════════════════════
 ESTILO:
@@ -157,11 +164,13 @@ B) Ya completaste PASO 4 y PASO 5 — proponé el pedido:
     "items":[
       {"description":"...","quantity":"...","unit":"...","link_url":"opcional","image_url":"opcional"}
     ],
-    "project_code":"K55-1" o null,
-    "needed_at":"YYYY-MM-DD" o null
+    "project_code":"K55-1",
+    "needed_at":"YYYY-MM-DD"
   },
   "message":"<texto literal que el usuario va a leer — armalo VOS con formato amigable usando los ítems del draft. NO copies esta instrucción ni la palabra 'resumen visual'. Hacé algo como el ejemplo abajo>"
 }
+
+Usá null en project_code o needed_at cuando no correspondan.
 
 ═══════════════════════════════════════════════════════════════════════════
 REGLAS DE TÍTULO (críticas — un mal título arruina la búsqueda después):
@@ -308,6 +317,126 @@ Hoy es ${today}.`;
   return {
     kind: "question",
     message: String(parsed.message || "¿Podés darme un poco más de detalle?"),
+  };
+}
+
+// -----------------------------------------------------------------------------
+// reviseDraftWithBot -- correcciones sobre un borrador existente.
+// -----------------------------------------------------------------------------
+export async function reviseDraftWithBot(
+  history: HistoryTurn[],
+  draft: ParsedPedido,
+  correction: string,
+  opts?: { projectCodes?: string[] },
+): Promise<BotResponse> {
+  const today = new Date().toISOString().slice(0, 10);
+  const projectsHint = opts?.projectCodes?.length
+    ? `Códigos de obra válidos: ${opts.projectCodes.join(", ")}. Si el usuario menciona uno de forma flexible (52-23, K52-23, K 52 23), normalizalo en project_code.`
+    : "";
+
+  const system = `Sos el asistente de compras del astillero Klase A.
+
+Ya existe un borrador de pedido y el usuario acaba de mandar una corrección, aclaración o nota.
+
+Tu trabajo:
+- Editar el borrador existente, no arrancar un pedido nuevo.
+- Si el usuario pide agregar algo a la descripción, detalle o nota, agregalo en "description" conservando lo anterior.
+- Si el usuario dice para qué se usa ("son para...", "es para...", "van para..."), agregalo a la descripción si no contradice el pedido.
+- Si el usuario menciona una obra/código, setealo en project_code cuando corresponda.
+- Si corrige cantidad, ítem, prioridad o fecha, actualizá solo ese dato.
+- No hagas preguntas si la corrección es entendible. Preguntá solo si hay una ambigüedad real que podría cambiar qué se compra.
+- Respondé breve, rioplatense y directo.
+
+${projectsHint}
+
+Formato SIEMPRE JSON estricto:
+
+A) Si pudiste aplicar la corrección:
+{
+  "kind":"draft",
+  "draft":{
+    "title":"título descriptivo actualizado",
+    "description":"descripción completa actualizada",
+    "priority":"baja|media|alta|urgente",
+    "items":[
+      {"description":"...","quantity":"...","unit":"...","link_url":"opcional","image_url":"opcional"}
+    ],
+    "project_code":"K52-23",
+    "needed_at":"YYYY-MM-DD"
+  },
+  "message":"mensaje breve con resumen actualizado"
+}
+
+Usá null en project_code o needed_at cuando no correspondan.
+
+B) Solo si no se entiende la corrección:
+{"kind":"question","message":"pregunta concreta de una sola cosa"}
+
+Hoy es ${today}.`;
+
+  const messages: any[] = [{ role: "system", content: system }];
+  for (const turn of history.slice(-8)) {
+    messages.push({ role: turn.role, content: turn.content });
+  }
+  messages.push({
+    role: "user",
+    content: JSON.stringify({
+      current_draft: draft,
+      user_correction: correction,
+    }),
+  });
+
+  const res = await fetch(`${OR_BASE}/chat/completions`, {
+    method: "POST",
+    headers: {
+      "Authorization": orAuth(),
+      "Content-Type": "application/json",
+      "HTTP-Referer": "https://klasea-stock.vercel.app",
+      "X-Title": "Klase A Bot",
+    },
+    body: JSON.stringify({
+      model: OR_MODEL,
+      temperature: 0.15,
+      max_tokens: 800,
+      response_format: { type: "json_object" },
+      messages,
+    }),
+  });
+
+  if (!res.ok) {
+    const errText = await res.text();
+    throw new Error(`OpenRouter reviseDraftWithBot failed (${res.status}): ${errText.slice(0, 300)}`);
+  }
+
+  const data = await res.json();
+  const content = data?.choices?.[0]?.message?.content;
+  if (!content) throw new Error(`OpenRouter sin contenido. Resp: ${JSON.stringify(data).slice(0, 300)}`);
+
+  let parsed: any;
+  try {
+    parsed = JSON.parse(content);
+  } catch {
+    throw new Error(`OpenRouter devolvió JSON inválido: ${String(content).slice(0, 200)}`);
+  }
+
+  if (parsed.kind === "draft" && parsed.draft) {
+    const d = parsed.draft;
+    if (!d.title) d.title = draft.title || "Pedido";
+    if (!d.description) d.description = draft.description || d.title || "";
+    if (!["baja", "media", "alta", "urgente"].includes(d.priority)) d.priority = draft.priority || "media";
+    if (!Array.isArray(d.items)) d.items = Array.isArray(draft.items) ? draft.items : [];
+    if (d.project_code === undefined) d.project_code = draft.project_code ?? null;
+    if (d.needed_at === undefined) d.needed_at = draft.needed_at ?? null;
+    return {
+      kind: "draft",
+      message: String(parsed.message || "Listo, actualicé el pedido. ¿Confirmás?"),
+      draft: d as ParsedPedido,
+    };
+  }
+
+  return {
+    kind: "question",
+    message: String(parsed.message || "¿Qué querés cambiar exactamente?"),
   };
 }
 

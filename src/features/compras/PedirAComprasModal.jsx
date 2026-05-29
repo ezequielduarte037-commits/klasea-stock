@@ -9,6 +9,7 @@ import {
 import { supabase } from "@/supabaseClient";
 import { C } from "@/theme";
 import { useToast } from "@/components/ui/Toast";
+import { useResponsive } from "@/hooks/useResponsive";
 
 // Cuando un purchase_request tiene items con destino "Stock Chubut/Pampa",
 // además de los purchase_request_items creamos un pedido legacy en `pedidos`
@@ -141,6 +142,7 @@ const UNITS = ["unidad", "kg", "litro", "metro", "m²", "lata", "rollo", "par", 
  */
 export default function PedirAComprasModal({ open, onClose, prefilled, profile }) {
   const toast = useToast();
+  const { isMobile } = useResponsive();
   const [title, setTitle] = useState("");
   const [description, setDescription] = useState("");
   const [priority, setPriority] = useState("media");
@@ -345,8 +347,8 @@ export default function PedirAComprasModal({ open, onClose, prefilled, profile }
         background: "var(--overlay-strong)",
         backdropFilter: "blur(6px)",
         WebkitBackdropFilter: "blur(6px)",
-        display: "grid", placeItems: "center",
-        padding: 20,
+        display: "grid", placeItems: isMobile ? "end center" : "center",
+        padding: isMobile ? 0 : 20,
         fontFamily: C.sans,
       }}
     >
@@ -355,11 +357,11 @@ export default function PedirAComprasModal({ open, onClose, prefilled, profile }
         style={{
           background: C.panelSolid,
           border: `1px solid ${C.border}`,
-          borderRadius: 14,
+          borderRadius: isMobile ? "14px 14px 0 0" : 14,
           padding: 0,
           width: "100%",
-          maxWidth: 720,
-          maxHeight: "90vh",
+          maxWidth: isMobile ? "100%" : 720,
+          maxHeight: isMobile ? "94vh" : "90vh",
           overflow: "hidden",
           display: "grid",
           gridTemplateRows: "auto 1fr auto",
@@ -467,14 +469,14 @@ export default function PedirAComprasModal({ open, onClose, prefilled, profile }
                     return (
                       <div key={realIdx} style={{
                         display: "grid",
-                        gridTemplateColumns: "minmax(0, 1fr) 90px 100px 110px auto",
+                        gridTemplateColumns: isMobile ? "1fr 1fr auto" : "minmax(0, 1fr) 90px 100px 110px auto",
                         gap: 6,
                         padding: "6px 8px",
                         borderTop: `1px solid ${C.border}`,
                         alignItems: "center",
                         fontSize: 12,
                       }}>
-                        <div style={{ display: "grid", gap: 4, minWidth: 0 }}>
+                        <div style={{ display: "grid", gap: 4, minWidth: 0, gridColumn: isMobile ? "1 / -1" : undefined }}>
                           <input
                             value={it.description}
                             onChange={(e) => updateItem(realIdx, { description: e.target.value })}
@@ -526,7 +528,7 @@ export default function PedirAComprasModal({ open, onClose, prefilled, profile }
                         <select
                           value={it.destination || ""}
                           onChange={(e) => updateItem(realIdx, { destination: e.target.value })}
-                          style={inp({ padding: "5px 7px", fontSize: 12 })}
+                          style={inp({ padding: "5px 7px", fontSize: 12, gridColumn: isMobile ? "1 / 3" : undefined })}
                         >
                           <option value="">Sin destino</option>
                           {destinationOptions.map((d) => (
@@ -568,12 +570,13 @@ export default function PedirAComprasModal({ open, onClose, prefilled, profile }
             </div>
             <div style={{
               display: "grid",
-              gridTemplateColumns: "1fr 90px 100px",
+              gridTemplateColumns: isMobile ? "1fr 1fr" : "1fr 90px 100px",
               gap: 6,
             }}>
               <input
                 value={newDesc}
                 onChange={(e) => setNewDesc(e.target.value)}
+                style={inp({ padding: "7px 9px", fontSize: 12, gridColumn: isMobile ? "1 / -1" : undefined })}
                 onKeyDown={(e) => {
                   if (e.key === "Enter" && newDesc.trim()) {
                     e.preventDefault();
@@ -581,7 +584,6 @@ export default function PedirAComprasModal({ open, onClose, prefilled, profile }
                   }
                 }}
                 placeholder="Descripción (ej. GELCOAT MN2000B)"
-                style={inp({ padding: "7px 9px", fontSize: 12 })}
               />
               <input
                 value={newQty}

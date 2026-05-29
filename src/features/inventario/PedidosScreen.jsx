@@ -322,7 +322,7 @@ export default function PedidosScreen({ profile, signOut }) {
               <div style={{ background: C.s0, border: `1px solid ${C.b0}`, borderRadius: 12, overflow: "hidden", marginBottom: 14 }}>
                 {/* Table header */}
                 <div style={{
-                  display: "grid", gridTemplateColumns: "100px 1fr 120px 120px 100px",
+                  display: isMobile ? "none" : "grid", gridTemplateColumns: "100px 1fr 120px 120px 100px",
                   gap: 10, padding: "10px 16px",
                   background: "rgba(0,0,0,0.3)",
                   borderBottom: `1px solid ${C.b0}`,
@@ -340,16 +340,16 @@ export default function PedidosScreen({ profile, signOut }) {
 
                 {filtrados.map(p => (
                   <div key={p.id} className="ped-row" style={{
-                    display: "grid", gridTemplateColumns: "100px 1fr 120px 120px 100px",
-                    gap: 10, padding: "11px 16px",
+                    display: "grid", gridTemplateColumns: isMobile ? "1fr auto" : "100px 1fr 120px 120px 100px",
+                    gap: isMobile ? "6px 10px" : 10, padding: "11px 16px",
                     borderBottom: `1px solid rgba(255,255,255,0.04)`,
                     alignItems: "center",
                   }}>
-                    <div style={{ fontFamily: C.mono, fontSize: 11, color: C.t2 }}>{fmtDate(p.fecha_pedido)}</div>
-                    <div style={{ fontWeight: 600, fontSize: 14, color: C.t0 }}>{p.proveedor}</div>
-                    <div style={{ fontSize: 12, color: C.t1 }}>{p.numero || "—"}</div>
-                    <div><EstadoChip estado={p.estado} /></div>
-                    <div>
+                    <div style={{ fontWeight: 600, fontSize: 14, color: C.t0, gridColumn: isMobile ? "1" : undefined, order: isMobile ? 0 : undefined }}>{p.proveedor}</div>
+                    <div style={{ fontFamily: C.mono, fontSize: 11, color: C.t2, gridColumn: isMobile ? "2" : undefined, justifySelf: isMobile ? "end" : undefined, order: isMobile ? 0 : undefined }}>{fmtDate(p.fecha_pedido)}</div>
+                    <div style={{ fontSize: 12, color: C.t1, gridColumn: isMobile ? "1 / -1" : undefined }}>{p.numero ? `Nº ${p.numero}` : "—"}</div>
+                    <div style={{ gridColumn: isMobile ? "1" : undefined }}><EstadoChip estado={p.estado} /></div>
+                    <div style={{ gridColumn: isMobile ? "2" : undefined, justifySelf: isMobile ? "end" : undefined }}>
                       <button
                         style={{
                           border: `1px solid ${C.b0}`, background: C.s0, color: C.t1,

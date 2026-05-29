@@ -12,6 +12,7 @@ import { createClient, SupabaseClient } from "https://esm.sh/@supabase/supabase-
 import { sendText, markRead, downloadMedia } from "../_shared/whatsapp.ts";
 import {
   chatWithBot,
+  reviseDraftWithBot,
   transcribeAudio,
   type BotResponse,
   type HistoryTurn,
@@ -386,9 +387,51 @@ async function handleConfirmation(
     return;
   }
 
-  // Cualquier otra cosa → corrección. Re-procesamos manteniendo el history.
-  // Forzamos un "user" más con el texto de corrección y dejamos al LLM decidir.
-  await handleConversationTurn(db, from, profile, { text: { body: text } }, history);
+  // Cualquier otra cosa → corrección sobre el borrador actual.
+  const { data: projects } = await db.from("produccion_obras")
+    .select("id, codigo").neq("estado", "archivada");
+  const activeProjects = projects ?? [];
+  const projectCodes = activeProjects.map((p: any) => p.codigo).filter(Boolean);
+
+  const directEdit = applySimpleDraftEdit(text, draft, activeProjects);
+  let resp: BotResponse;
+  try {
+    resp = directEdit ?? (await reviseDraftWithBot(history, draft, text, { projectCodes }));
+  } catch (err) {
+    console.error("[wa-webhook] reviseDraftWithBot error:", err);
+    await sendText(from, "No pude aplicar esa corrección. ¿Me la mandás de nuevo más concreta?");
+    return;
+  }
+
+  const userTurn = { role: "user" as const, content: text };
+  const assistantTurn = { role: "assistant" as const, content: resp.message };
+  const newHistory: HistoryTurn[] = [...history, userTurn, assistantTurn].slice(-MAX_HISTORY);
+
+  if (resp.kind === "question") {
+    await db.from("bot_conversations").upsert({
+      phone: from,
+      user_id: profile.id,
+      state: "awaiting_confirm",
+      context: { history: newHistory, draft },
+      last_message_at: new Date().toISOString(),
+    });
+    await sendText(from, resp.message);
+    return;
+  }
+
+  const nextDraft = resp.draft!;
+  const projectId = matchProjectId(activeProjects, nextDraft.project_code) || draft.project_id || null;
+  const savedDraft = { ...nextDraft, project_id: projectId };
+
+  await db.from("bot_conversations").upsert({
+    phone: from,
+    user_id: profile.id,
+    state: "awaiting_confirm",
+    context: { history: newHistory, draft: savedDraft },
+    last_message_at: new Date().toISOString(),
+  });
+
+  await sendText(from, `${resp.message}\n\nRespondé *si* para crear, *no* para descartar, o corregí lo que falte.`);
 }
 
 function matchProjectId(projects: any[], code?: string | null): string | null {
@@ -397,6 +440,110 @@ function matchProjectId(projects: any[], code?: string | null): string | null {
   const target = norm(code);
   const m = projects.find((p) => norm(p.codigo) === target);
   return m?.id || null;
+}
+
+function applySimpleDraftEdit(
+  text: string,
+  draft: ParsedPedido & { project_id?: string | null },
+  projects: any[],
+): BotResponse | null {
+  const note = extractDescriptionNote(text);
+  if (!note) return null;
+
+  const mentionedProject = findMentionedProjectCode(text, projects);
+  const nextProjectCode = mentionedProject || draft.project_code || null;
+  const updatedDraft = {
+    ...draft,
+    description: appendToDescription(draft.description || draft.title || "", note),
+    project_code: nextProjectCode,
+    project_id: matchProjectId(projects, nextProjectCode) || draft.project_id || null,
+  };
+
+  return {
+    kind: "draft",
+    draft: updatedDraft,
+    message: formatDraftUpdateMessage(updatedDraft, "Listo, agregué esa nota a la descripción."),
+  };
+}
+
+function extractDescriptionNote(text: string): string | null {
+  const patterns = [
+    /(?:agr[eé]g(?:a|á|ue|ale|alo|ar)|sum(?:a|á|e|ale)|pon(?:e|é|ele)|inclu(?:i|í|ye|ya))\s+(?:en\s+)?(?:la\s+)?(?:descripci[oó]n|detalle|nota)\s*(?:que|:|-)?\s*(.+)$/i,
+    /(?:descripci[oó]n|detalle|nota)\s*(?:que|:|-)\s*(.+)$/i,
+  ];
+  for (const pattern of patterns) {
+    const match = text.match(pattern);
+    const note = match?.[1]?.trim();
+    if (note) return cleanupNote(note);
+  }
+  return null;
+}
+
+function cleanupNote(note: string): string {
+  return note
+    .replace(/^["'“”]+|["'“”]+$/g, "")
+    .replace(/\s+/g, " ")
+    .trim();
+}
+
+function appendToDescription(description: string, note: string): string {
+  const base = description.trim();
+  const clean = sentenceCase(cleanupNote(note));
+  if (!base) return clean;
+  if (base.toLowerCase().includes(clean.toLowerCase())) return base;
+  const separator = /[.!?]$/.test(base) ? " " : ". ";
+  return `${base}${separator}${clean}`;
+}
+
+function sentenceCase(text: string): string {
+  if (!text) return text;
+  return text.charAt(0).toUpperCase() + text.slice(1);
+}
+
+function findMentionedProjectCode(text: string, projects: any[]): string | null {
+  const normalizedText = normalizeProjectText(text);
+  for (const project of projects) {
+    const code = String(project?.codigo || "");
+    const normalizedCode = normalizeProjectCode(code);
+    if (normalizedCode && normalizedText.includes(normalizedCode)) return code;
+  }
+
+  const raw = text.match(/\b(?:k\s*)?(\d{2}(?:[-\s]\d{1,3})?)\b/i);
+  if (!raw) return null;
+  return `K${raw[1].replace(/\s+/g, "-")}`;
+}
+
+function normalizeProjectCode(value: string): string {
+  return String(value || "").toLowerCase().replace(/^k\s*/, "").replace(/\s+/g, "");
+}
+
+function normalizeProjectText(value: string): string {
+  return String(value || "").toLowerCase().replace(/\bk\s*/g, "").replace(/\s+/g, "");
+}
+
+function formatDraftUpdateMessage(draft: ParsedPedido, lead: string): string {
+  const lines = [
+    lead,
+    "",
+    `*${draft.title || "Pedido"}*`,
+  ];
+  if (draft.project_code) lines.push(`Obra: ${draft.project_code}`);
+  if (draft.priority) lines.push(`Prioridad: ${draft.priority}`);
+  if (draft.description) lines.push(`Descripción: ${truncateText(draft.description, 420)}`);
+  if (Array.isArray(draft.items) && draft.items.length > 0) {
+    lines.push("");
+    lines.push("Ítems:");
+    for (const item of draft.items.slice(0, 8)) {
+      const qty = item.quantity ? `${item.quantity} ${item.unit || ""}`.trim() : "";
+      lines.push(`• ${[qty, item.description].filter(Boolean).join(" - ")}`);
+    }
+  }
+  return lines.join("\n");
+}
+
+function truncateText(value: string, max: number): string {
+  const text = String(value || "");
+  return text.length > max ? `${text.slice(0, max - 1)}…` : text;
 }
 
 // ─────────────────────────────────────────────────────────────────────────────

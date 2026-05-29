@@ -967,16 +967,17 @@ export default function PurchaseRequestsScreen({ profile, signOut }) {
           <div style={{
             minHeight: 0,
             display: "grid",
-            gridTemplateColumns: showNew ? "480px 1fr" : "0 1fr",
+            gridTemplateColumns: isMobile ? "1fr" : (showNew ? "480px 1fr" : "0 1fr"),
             transition: "grid-template-columns .18s ease",
             overflow: "hidden",
           }}>
             <aside className="purchase-scroll" style={{
               overflowY: "auto",
-              borderRight: showNew ? `1px solid ${C.border}` : "none",
-              padding: showNew ? 14 : 0,
+              borderRight: showNew && !isMobile ? `1px solid ${C.border}` : "none",
+              padding: showNew ? (isMobile ? 12 : 14) : 0,
               height: "100%",
               minHeight: 0,
+              display: isMobile && !showNew ? "none" : "block",
             }}>
               {showNew && (
                 <form onSubmit={handleCreate} style={{ display: "grid", gap: 13 }}>
@@ -1209,7 +1210,7 @@ export default function PurchaseRequestsScreen({ profile, signOut }) {
               )}
             </aside>
 
-            <section style={{ minHeight: 0, display: "grid", gridTemplateRows: "auto 1fr", overflow: "hidden" }}>
+            <section style={{ minHeight: 0, display: isMobile && showNew ? "none" : "grid", gridTemplateRows: "auto 1fr", overflow: "hidden" }}>
 
               {!manager && (
                 <div style={{

@@ -911,7 +911,7 @@ export default function PedidosMaderaScreen({ profile, signOut }) {
 
                   {/* Lista de pedidos */}
                   <div style={{ background: C.s0, border: `1px solid ${C.b0}`, borderRadius: 12, overflow: "hidden", marginBottom: pedidoSel ? 12 : 0 }}>
-                    <div style={{ display: "grid", gridTemplateColumns: "100px 1fr 1fr 120px 90px", gap: 10, padding: "10px 16px", background: "rgba(0,0,0,0.3)", borderBottom: `1px solid ${C.b0}` }}>
+                    <div style={{ display: isMobile ? "none" : "grid", gridTemplateColumns: "100px 1fr 1fr 120px 90px", gap: 10, padding: "10px 16px", background: "rgba(0,0,0,0.3)", borderBottom: `1px solid ${C.b0}` }}>
                       {["Fecha", "Proveedor", "Nota", "Estado", ""].map(h => (
                         <div key={h} style={{ fontSize: 10, color: C.t2, letterSpacing: 1.3, textTransform: "uppercase" }}>{h}</div>
                       ))}
@@ -925,19 +925,19 @@ export default function PedidosMaderaScreen({ profile, signOut }) {
                       const m = ESTADO_META[p.estado] ?? { color: C.t2, bg: C.s0, border: C.b0, label: p.estado };
                       const isSelected = pedidoSel?.id === p.id;
                       return (
-                        <div key={p.id} className="ped-row" style={{ display: "grid", gridTemplateColumns: "100px 1fr 1fr 120px 90px", gap: 10, padding: "11px 16px", borderBottom: `1px solid rgba(255,255,255,0.04)`, alignItems: "center", background: isSelected ? "rgba(255,255,255,0.025)" : undefined }}>
-                          <div style={{ fontFamily: C.mono, fontSize: 11, color: C.t2 }}>
+                        <div key={p.id} className="ped-row" style={{ display: "grid", gridTemplateColumns: isMobile ? "1fr auto" : "100px 1fr 1fr 120px 90px", gap: isMobile ? "6px 10px" : 10, padding: "11px 16px", borderBottom: `1px solid rgba(255,255,255,0.04)`, alignItems: "center", background: isSelected ? "rgba(255,255,255,0.025)" : undefined }}>
+                          <div style={{ fontWeight: 600, fontSize: 13, color: C.t0, gridColumn: isMobile ? "1" : undefined }}>{p.proveedor}</div>
+                          <div style={{ fontFamily: C.mono, fontSize: 11, color: C.t2, gridColumn: isMobile ? "2" : undefined, justifySelf: isMobile ? "end" : undefined }}>
                             {fmtDate(p.fecha_pedido ?? p.creado_en)}
                           </div>
-                          <div style={{ fontWeight: 600, fontSize: 13, color: C.t0 }}>{p.proveedor}</div>
-                          <div style={{ fontSize: 12, color: C.t2, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{p.nota || "—"}</div>
-                          <div>
+                          <div style={{ fontSize: 12, color: C.t2, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", gridColumn: isMobile ? "1 / -1" : undefined }}>{p.nota || "—"}</div>
+                          <div style={{ gridColumn: isMobile ? "1" : undefined }}>
                             <span style={{ fontSize: 10, letterSpacing: 1.2, textTransform: "uppercase", fontWeight: 700, padding: "2px 8px", borderRadius: 5, background: m.bg, color: m.color, border: `1px solid ${m.border}` }}>
                               {m.label}
                             </span>
                           </div>
                           <button
-                            style={{ border: `1px solid ${C.b0}`, background: C.s0, color: C.t1, padding: "5px 12px", borderRadius: 7, cursor: "pointer", fontSize: 12, fontFamily: C.sans }}
+                            style={{ border: `1px solid ${C.b0}`, background: C.s0, color: C.t1, padding: "5px 12px", borderRadius: 7, cursor: "pointer", fontSize: 12, fontFamily: C.sans, gridColumn: isMobile ? "2" : undefined, justifySelf: isMobile ? "end" : undefined }}
                             onClick={() => isSelected ? setPedidoSel(null) : abrirPedido(p)}>
                             {isSelected ? "Cerrar" : "Abrir"}
                           </button>
