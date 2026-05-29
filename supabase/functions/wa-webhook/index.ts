@@ -311,6 +311,14 @@ async function handleConversationTurn(
     return;
   }
 
+  if (resp.kind === "draft" && resp.draft) {
+    const directEdit = applySimpleDraftEdit(text, resp.draft, projects ?? []);
+    resp = directEdit ?? {
+      ...resp,
+      message: ensureDescriptionVisible(resp.message, resp.draft),
+    };
+  }
+
   // Guardar el turno del usuario en history (texto que la IA "vio")
   const userText = [
     text,
@@ -422,6 +430,7 @@ async function handleConfirmation(
   const nextDraft = resp.draft!;
   const projectId = matchProjectId(activeProjects, nextDraft.project_code) || draft.project_id || null;
   const savedDraft = { ...nextDraft, project_id: projectId };
+  const message = ensureDescriptionVisible(resp.message, savedDraft);
 
   await db.from("bot_conversations").upsert({
     phone: from,
@@ -431,7 +440,7 @@ async function handleConfirmation(
     last_message_at: new Date().toISOString(),
   });
 
-  await sendText(from, `${resp.message}\n\nRespondé *si* para crear, *no* para descartar, o corregí lo que falte.`);
+  await sendText(from, `${message}\n\nRespondé *si* para crear, *no* para descartar, o corregí lo que falte.`);
 }
 
 function matchProjectId(projects: any[], code?: string | null): string | null {
@@ -539,6 +548,14 @@ function formatDraftUpdateMessage(draft: ParsedPedido, lead: string): string {
     }
   }
   return lines.join("\n");
+}
+
+function ensureDescriptionVisible(message: string, draft: ParsedPedido): string {
+  const description = String(draft.description || "").trim();
+  if (!description || description.length < 8) return message;
+  if (String(draft.title || "").trim().toLowerCase() === description.toLowerCase()) return message;
+  if (message.toLowerCase().includes(description.toLowerCase())) return message;
+  return `${message}\n\nDescripción: ${truncateText(description, 420)}`;
 }
 
 function truncateText(value: string, max: number): string {

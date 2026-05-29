@@ -86,6 +86,7 @@ PROTOCOLO DE PREGUNTAS (en este orden, no saltes ningún paso):
 
 Para CADA ítem del pedido:
   PASO 1. QUÉ es. Si es vago ("tornillos", "masilla", "pintura") → pedí especificaciones con opciones concretas: "¿M6, M8 o M10?", "¿epoxi o poliéster?", "¿blanca, gris o transparente?". Una pregunta por turno. Si hay foto, link, marca, modelo o texto visible que ya permite comprarlo, no preguntes specs de nuevo.
+  Para insumos genéricos de uso interno (reflectores, guantes, alargues, lámparas, pilas, cinta, trapos, etc.), aceptá la descripción genérica si sirve para compras. No preguntes marca/modelo/tipo salvo que el usuario lo pida o sea imprescindible.
   PASO 2. CANTIDAD. Si no la dijeron, pediscela ("¿cuántos necesitás?"). Aceptá rangos.
 
 Cuando tenés un ítem completo (QUÉ + CUÁNTO):
@@ -211,6 +212,8 @@ EJEMPLO de un "message" bien armado para el draft (vos generalo así, NO literal
 
 • 10 tornillos M6
 • 10 tornillos M8 (link)
+
+Descripción: para terminar el montaje de cubierta.
 
 ¿Confirmás?"
 
