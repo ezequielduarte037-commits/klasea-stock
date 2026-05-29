@@ -808,6 +808,27 @@ export default function PurchaseRequestsScreen({ profile, signOut }) {
           background: #000 !important;
           border-color: var(--border-2) !important;
         }
+        @media (max-width: 900px) {
+          .purchase-topbar {
+            height: auto !important;
+            min-height: 50px !important;
+            flex-wrap: wrap !important;
+            padding-top: 8px !important;
+            padding-bottom: 8px !important;
+          }
+          .purchase-tabs {
+            order: 3;
+            width: 100%;
+            overflow-x: auto;
+            padding-bottom: 2px;
+          }
+          .purchase-card:hover {
+            transform: none !important;
+          }
+          .ql-editor {
+            min-height: 140px !important;
+          }
+        }
       `}</style>
 
       <div style={{ display: "grid", gridTemplateColumns: isMobile ? "1fr" : "280px 1fr", height: "100%", overflow: "hidden" }}>
@@ -821,7 +842,7 @@ export default function PurchaseRequestsScreen({ profile, signOut }) {
             background: C.topbar,
             borderBottom: `1px solid ${C.border}`,
           }}>
-            <div style={{
+            <div className="purchase-topbar" style={{
               height: 50,
               display: "flex",
               alignItems: "center",
@@ -843,7 +864,7 @@ export default function PurchaseRequestsScreen({ profile, signOut }) {
               </h1>
 
               {manager && (
-                <div style={{ display: "flex", gap: 2, marginLeft: 10 }}>
+                <div className="purchase-tabs" style={{ display: "flex", gap: 2, marginLeft: isMobile ? 0 : 10 }}>
                   <TabBtn active={managerTab === "lista"} onClick={() => setManagerTab("lista")}>
                     <LayoutList size={12} /> Lista
                   </TabBtn>

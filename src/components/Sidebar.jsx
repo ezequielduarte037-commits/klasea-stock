@@ -148,6 +148,11 @@ export default function Sidebar({ profile, signOut }) {
   const [waOpen, setWaOpen] = useState(false);
   const toggleMenu = () => setMenuOpen(o => !o);
   useEffect(() => { if (!isMobile) setMenuOpen(false); }, [isMobile]);
+  useEffect(() => {
+    if (!isMobile) return undefined;
+    document.body.style.overflow = menuOpen ? "hidden" : "";
+    return () => { document.body.style.overflow = ""; };
+  }, [isMobile, menuOpen]);
 
   const role     = profile?.role ?? "invitado";
   const isAdmin  = hasAdminAccess(profile);
@@ -172,6 +177,7 @@ export default function Sidebar({ profile, signOut }) {
       <Link
         key={href} to={href}
         className={`sb-item${on ? " active" : ""}`}
+        onClick={() => { if (isMobile) setMenuOpen(false); }}
         onMouseEnter={() => { setHov(href); setDisplayInfo(info); }}
         onMouseLeave={() => { setHov(null); setDisplayInfo(""); }}
         style={{
@@ -205,6 +211,7 @@ export default function Sidebar({ profile, signOut }) {
       <Link
         key={key} to={key}
         className={`sb-item${on ? " active" : ""}`}
+        onClick={() => { if (isMobile) setMenuOpen(false); }}
         onMouseEnter={() => { setHov(key); setDisplayInfo(info); }}
         onMouseLeave={() => { setHov(null); setDisplayInfo(""); }}
         style={{
@@ -237,7 +244,7 @@ export default function Sidebar({ profile, signOut }) {
 
   const sidebarMobileStyle = {
     position: "fixed", top: 0, left: 0, bottom: 0, zIndex: 1000,
-    width: 280, background: C.bg,
+    width: "min(86vw, 310px)", background: C.bg,
     display: "flex", flexDirection: "column",
     borderRight: `1px solid ${C.border}`,
     transform: menuOpen ? "translateX(0)" : "translateX(-100%)",

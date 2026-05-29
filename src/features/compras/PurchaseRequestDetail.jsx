@@ -41,6 +41,7 @@ import {
 import { printPurchaseRequest } from "@/features/compras/printPurchaseRequest";
 import logoK from "@/assets/logos/logo-k.png";
 import { C } from "@/theme";
+import { useResponsive } from "@/hooks/useResponsive";
 
 const statusColors = {
   nuevo: C.blue,
@@ -254,6 +255,7 @@ function ArchivedBanner({ status }) {
 }
 
 export default function PurchaseRequestDetail({ requestId, profile, users = [], onBack, onRequestUpdated, onDeleteLocal }) {
+  const { isMobile } = useResponsive();
   const [request, setRequest] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
@@ -649,7 +651,7 @@ export default function PurchaseRequestDetail({ requestId, profile, users = [], 
 
   if (loading) {
     return (
-      <div style={{ height: "100%", background: C.bg, color: C.text, fontFamily: C.sans, display: "grid", gridTemplateRows: "auto 1fr", overflow: "hidden" }}>
+      <div style={{ height: "100%", background: C.bg, color: C.text, fontFamily: C.sans, display: "grid", gridTemplateRows: "auto 1fr", overflow: isMobile ? "auto" : "hidden" }}>
         <SkeletonStyles />
         <header style={{ padding: "12px 16px", borderBottom: `1px solid ${C.border}`, background: C.topbar }}>
           <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
@@ -661,8 +663,8 @@ export default function PurchaseRequestDetail({ requestId, profile, users = [], 
             <Skeleton width={29} height={29} radius={7} />
           </div>
         </header>
-        <div style={{ display: "grid", gridTemplateColumns: "minmax(0, 1fr) 300px", overflow: "hidden" }}>
-          <section style={{ padding: 16, borderRight: `1px solid ${C.border}`, display: "grid", gap: 12, alignContent: "start" }}>
+        <div style={{ display: "grid", gridTemplateColumns: isMobile ? "1fr" : "minmax(0, 1fr) 300px", overflow: isMobile ? "auto" : "hidden" }}>
+          <section style={{ padding: 16, borderRight: isMobile ? "none" : `1px solid ${C.border}`, display: "grid", gap: 12, alignContent: "start" }}>
             <Skeleton width="20%" height={9} />
             <Skeleton width="92%" height={12} />
             <Skeleton width="88%" height={12} />
@@ -672,7 +674,7 @@ export default function PurchaseRequestDetail({ requestId, profile, users = [], 
               <Skeleton key={i} width="100%" height={42} radius={6} />
             ))}
           </section>
-          <aside style={{ padding: 14, display: "grid", gap: 14, alignContent: "start" }}>
+          <aside style={{ padding: 14, display: isMobile ? "none" : "grid", gap: 14, alignContent: "start" }}>
             <Skeleton width="50%" height={11} />
             <Skeleton width="100%" height={40} radius={8} />
             <Skeleton width="100%" height={40} radius={8} />
@@ -1225,16 +1227,21 @@ export default function PurchaseRequestDetail({ requestId, profile, users = [], 
       <div style={{
         minHeight: 0,
         display: "grid",
-        gridTemplateColumns: "minmax(0, 1fr) 300px",
-        overflow: "hidden",
+        gridTemplateColumns: isMobile ? "1fr" : "minmax(0, 1fr) 300px",
+        overflow: isMobile ? "auto" : "hidden",
       }}>
-        <section style={{ minHeight: 0, display: "grid", gridTemplateRows: "auto 1fr auto", borderRight: `1px solid ${C.border}` }}>
+        <section style={{
+          minHeight: 0,
+          display: "grid",
+          gridTemplateRows: isMobile ? "auto auto auto" : "auto 1fr auto",
+          borderRight: isMobile ? "none" : `1px solid ${C.border}`,
+        }}>
 
           <div style={{
-            padding: 16,
+            padding: isMobile ? 12 : 16,
             borderBottom: `1px solid ${C.border}`,
             display: "grid",
-            gridTemplateColumns: request.photo_url ? "1fr 160px" : "1fr",
+            gridTemplateColumns: isMobile || !request.photo_url ? "1fr" : "1fr 160px",
             gap: 14,
           }}>
             <div>
@@ -1273,7 +1280,7 @@ export default function PurchaseRequestDetail({ requestId, profile, users = [], 
             )}
           </div>
 
-          <div className="pr-chat-scroll" style={{ minHeight: 0, overflowY: "auto", padding: "16px 18px" }}>
+          <div className="pr-chat-scroll" style={{ minHeight: 0, overflowY: "auto", padding: isMobile ? "12px" : "16px 18px" }}>
 
             {/* ─── ITEMS ──────────────────────────────────────────────── */}
             <div style={{ marginBottom: items.length || showAddItem ? 20 : 0 }}>
@@ -1641,7 +1648,15 @@ export default function PurchaseRequestDetail({ requestId, profile, users = [], 
           </form>
         </section>
 
-        <aside className="pr-aside" style={{ minHeight: 0, overflowY: "auto", padding: 14, display: "grid", gap: 16, alignContent: "start" }}>
+        <aside className="pr-aside" style={{
+          minHeight: 0,
+          overflowY: "auto",
+          padding: isMobile ? "12px" : 14,
+          display: "grid",
+          gap: 16,
+          alignContent: "start",
+          borderTop: isMobile ? `1px solid ${C.border}` : "none",
+        }}>
           {error && (
             <div style={{ color: "#fca5a5", background: "rgba(239,68,68,0.08)", border: "1px solid rgba(239,68,68,0.2)", padding: 10, borderRadius: 8, fontSize: 13 }}>
               {error}

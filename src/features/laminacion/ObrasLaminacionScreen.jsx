@@ -886,10 +886,16 @@ export default function ObrasLaminacionScreen({ profile, signOut }) {
                 <div style={{ fontSize: 12, color: C.t2, letterSpacing: 1.3, textTransform: "uppercase" }}>Cargando…</div>
               </div>
             ) : (
-              <div style={{ flex: 1, overflow: "hidden", display: "grid", gridTemplateColumns: "300px 1fr" }}>
+              <div style={{ flex: 1, overflow: "hidden", display: "grid", gridTemplateColumns: isMobile ? "1fr" : "300px 1fr" }}>
 
                 {/* LISTA OBRAS */}
-                <div style={{ borderRight: `1px solid ${C.b0}`, display: "flex", flexDirection: "column", height: "100%", overflow: "hidden" }}>
+                <div style={{
+                  borderRight: isMobile ? "none" : `1px solid ${C.b0}`,
+                  display: isMobile && obraSel ? "none" : "flex",
+                  flexDirection: "column",
+                  height: "100%",
+                  overflow: "hidden",
+                }}>
                   <div style={{ padding: "10px 14px", borderBottom: `1px solid ${C.b0}`, flexShrink: 0 }}>
                     <input style={{ ...INP, padding: "6px 10px", fontSize: 12 }} placeholder="Buscar obra…" value={q} onChange={e => setQ(e.target.value)} />
                   </div>
@@ -948,7 +954,18 @@ export default function ObrasLaminacionScreen({ profile, signOut }) {
                 </div>
 
                 {/* PANEL DERECHO */}
-                <div style={{ height: "100%", overflowY: "auto" }}>
+                <div style={{ height: "100%", overflowY: "auto", display: isMobile && !obraSel && viewMode !== "gantt" ? "none" : "block" }}>
+                  {isMobile && obraSel && viewMode !== "gantt" && (
+                    <div style={{ position: "sticky", top: 0, zIndex: 5, padding: "8px 10px", background: C.topbar, borderBottom: `1px solid ${C.b0}` }}>
+                      <button
+                        type="button"
+                        onClick={() => setObraSelId(null)}
+                        style={{ border: `1px solid ${C.b0}`, background: C.s0, color: C.t1, borderRadius: 7, padding: "7px 10px", fontSize: 12, fontWeight: 700, fontFamily: C.sans }}
+                      >
+                        ← Obras
+                      </button>
+                    </div>
+                  )}
                   {viewMode === "gantt" ? (
                     <GanttView obras={obras} obrasFiltradas={obrasFiltradas} alertasPorObra={alertasPorObra} obraSelId={obraSelId} setObraSelId={setObraSelId} />
                   ) : !obraSel ? (
