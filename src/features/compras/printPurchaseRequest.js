@@ -16,11 +16,47 @@ function fmtFull(value) {
   });
 }
 
+function fmtItemQty(item) {
+  const qty = item?.quantity ?? "";
+  const unit = item?.unit ?? "";
+  const text = `${qty}${unit ? ` ${unit}` : ""}`.trim();
+  return text || "-";
+}
+
 export function printPurchaseRequest(request, logoUrl) {
   if (!request) return;
 
   const followers = request.followers ?? [];
   const ccList = followers.map((f) => esc(usernameOf(f.profile))).join(", ") || "—";
+
+  const items = Array.isArray(request.items) ? request.items : [];
+  const itemsHtml = items.length
+    ? `<div class="items">
+        <div class="items-title">Items solicitados</div>
+        <table>
+          <thead>
+            <tr>
+              <th>Detalle</th>
+              <th>Cantidad</th>
+              <th>Destino</th>
+            </tr>
+          </thead>
+          <tbody>
+            ${items.map((it) => `
+              <tr>
+                <td>
+                  <div class="item-desc">${esc(it.description || "Item sin detalle")}</div>
+                  ${it.notes ? `<div class="item-notes">${esc(it.notes)}</div>` : ""}
+                  ${it.link_url ? `<div class="item-link"><a href="${esc(it.link_url)}">${esc(it.link_url)}</a></div>` : ""}
+                </td>
+                <td class="item-qty">${esc(fmtItemQty(it))}</td>
+                <td>${esc(it.destination || "-")}</td>
+              </tr>
+            `).join("")}
+          </tbody>
+        </table>
+      </div>`
+    : "";
 
   const absLogoUrl = logoUrl?.startsWith("/") ? window.location.origin + logoUrl : logoUrl;
 
@@ -45,6 +81,17 @@ export function printPurchaseRequest(request, logoUrl) {
   .body p{margin:0 0 8px}
   .body p:last-child{margin:0}
   .body ul,.body ol{padding-left:20px;margin:6px 0}
+  .items{margin-top:16px;padding-top:12px;border-top:1px solid #eee}
+  .items-title{font-size:12px;text-transform:uppercase;letter-spacing:.08em;color:#777;font-weight:700;margin-bottom:8px}
+  table{width:100%;border-collapse:collapse;font-size:12px}
+  th{text-align:left;color:#777;font-weight:700;border-bottom:1px solid #e5e5e5;padding:7px 6px}
+  td{vertical-align:top;border-bottom:1px solid #f0f0f0;padding:8px 6px;line-height:1.45}
+  th:nth-child(2),td:nth-child(2){width:110px}
+  th:nth-child(3),td:nth-child(3){width:150px}
+  .item-desc{font-weight:700;color:#222}
+  .item-notes{color:#666;font-style:italic;margin-top:3px}
+  .item-link{font-size:11px;margin-top:3px;word-break:break-all}
+  .item-qty{white-space:nowrap;color:#111;font-weight:700}
 </style>
 </head>
 <body>
@@ -65,6 +112,8 @@ export function printPurchaseRequest(request, logoUrl) {
 </div>
 
 <div class="body">${request.description || '<span style="color:#999;font-style:italic">Sin descripción.</span>'}</div>
+
+${itemsHtml}
 
 </body>
 </html>`;

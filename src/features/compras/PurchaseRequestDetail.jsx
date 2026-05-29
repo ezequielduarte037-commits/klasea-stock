@@ -789,7 +789,7 @@ export default function PurchaseRequestDetail({ requestId, profile, users = [], 
               title="Imprimir en formato Webmail"
               className="icon-btn"
               style={iconButtonStyle}
-              onClick={() => printPurchaseRequest(request, logoK)}
+              onClick={() => printPurchaseRequest({ ...request, items }, logoK)}
             >
               <Printer size={14} />
             </button>
