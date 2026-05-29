@@ -11,6 +11,7 @@ import OrdenCompraGenerator from "@/features/inventario/OrdenCompraGenerator";
 import BarcoCalendarioPanel from "@/features/calendario/BarcoCalendarioPanel";
 import { Check, Package, Plus, Trash2, X, RotateCcw, Download, AlertTriangle, ChevronDown, ChevronRight, FileText, ClipboardList, Search, RefreshCw, Edit2, ShoppingCart } from "lucide-react";
 import PedirAComprasModal from "@/features/compras/PedirAComprasModal";
+import { C } from "@/theme";
 
 
 const TABS = ["Stock", "Ingresos", "Egresos", "Pedidos"];
@@ -38,6 +39,29 @@ function hoyLocal() {
   const m = String(d.getMonth() + 1).padStart(2, "0");
   const day = String(d.getDate()).padStart(2, "0");
   return `${y}-${m}-${day}`;
+}
+
+function extraerCodigoLinea(obra) {
+  const nombre = String(obra?.nombre ?? "");
+  const descripcion = String(obra?.descripcion ?? "");
+  const byName = nombre.match(/^K?(\d+)/i);
+  if (byName) return `K${byName[1]}`;
+  const byDescription = descripcion.match(/\b(K\d+)\b/i);
+  if (byDescription) return byDescription[1].toUpperCase();
+  return null;
+}
+
+function destinoObraLaminacion(obra) {
+  const nombre = String(obra?.nombre ?? "").trim();
+  const codigo = extraerCodigoLinea(obra);
+  if (!nombre) return codigo ? `Obra ${codigo}` : "Obra";
+  if (!codigo) return `Obra ${nombre}`;
+  const upper = nombre.toUpperCase();
+  const numero = codigo.replace(/^K/i, "");
+  if (upper.startsWith(codigo)) return `Obra ${nombre}`;
+  if (upper.startsWith(`${numero}-`)) return `Obra K${nombre}`;
+  if (upper === numero) return `Obra ${codigo}`;
+  return `Obra ${codigo}-${nombre}`;
 }
 
 function fmtTs(ts) {
@@ -139,6 +163,7 @@ export default function LaminacionScreen({ profile, signOut }) {
   const [materiales, setMateriales] = useState([]);
   const [movimientos, setMovimientos] = useState([]);
   const [pedidos, setPedidos] = useState([]);
+  const [obrasLam, setObrasLam] = useState([]);
   const [err, setErr] = useState("");
   const [msg, setMsg] = useState("");
   const [q, setQ] = useState("");
@@ -162,6 +187,8 @@ export default function LaminacionScreen({ profile, signOut }) {
   // confModal = { pedido, tipo: "entero" | "parcial", cantParcial: "" }
   const [confModal, setConfModal] = useState(null);
   const [comprasModal, setComprasModal] = useState({ open: false, prefilled: null });
+  const [compraSelector, setCompraSelector] = useState({ open: false, selected: "stock" });
+  const [loadingPlantillaCompra, setLoadingPlantillaCompra] = useState(false);
   // Órdenes expandidas en la tab Pedidos
   const [expandedOrdenes, setExpandedOrdenes] = useState(new Set());
 
@@ -191,9 +218,17 @@ export default function LaminacionScreen({ profile, signOut }) {
       .limit(300);
     setPedidos(data ?? []);
   }
+  async function cargarObrasLam() {
+    const { data } = await supabase
+      .from("laminacion_obras")
+      .select("id,nombre,descripcion,estado")
+      .eq("estado", "activa")
+      .order("nombre");
+    setObrasLam(data ?? []);
+  }
   async function cargar() {
     setErr("");
-    await Promise.all([cargarMateriales(), cargarMovimientos(), cargarPedidos()]);
+    await Promise.all([cargarMateriales(), cargarMovimientos(), cargarPedidos(), cargarObrasLam()]);
   }
 
   useEffect(() => {
@@ -203,6 +238,7 @@ export default function LaminacionScreen({ profile, signOut }) {
       .on("postgres_changes", { event: "*", schema: "public", table: "laminacion_movimientos" }, cargar)
       .on("postgres_changes", { event: "*", schema: "public", table: "laminacion_pedidos" }, cargar)
       .on("postgres_changes", { event: "*", schema: "public", table: "laminacion_materiales" }, cargar)
+      .on("postgres_changes", { event: "*", schema: "public", table: "laminacion_obras" }, cargar)
       .subscribe();
     return () => { supabase.removeChannel(ch); };
   }, []);
@@ -349,6 +385,98 @@ export default function LaminacionScreen({ profile, signOut }) {
   async function getUserId() {
     const { data } = await supabase.auth.getUser().catch(() => ({ data: { user: null } }));
     return data?.user?.id ?? null;
+  }
+
+  function abrirModalCompra(prefilled) {
+    setComprasModal({ open: true, prefilled });
+    setCompraSelector({ open: false, selected: "stock" });
+  }
+
+  async function abrirPedidoComprasDesdeSelector() {
+    const selected = compraSelector.selected;
+    const base = {
+      title: "Solicitud Compra Materiales Laminación",
+      source: "laminacion",
+      sourceLabel: "Laminación",
+    };
+
+    if (selected === "stock") {
+      abrirModalCompra({ ...base, defaultDestination: "Stock Pampa 1050" });
+      return;
+    }
+
+    if (selected === "general") {
+      abrirModalCompra({ ...base, defaultDestination: "" });
+      return;
+    }
+
+    const obra = obrasLam.find((o) => o.id === selected);
+    if (!obra) {
+      setErr("Seleccioná una obra válida.");
+      return;
+    }
+
+    const codigo = extraerCodigoLinea(obra);
+    const defaultDestination = destinoObraLaminacion(obra);
+    const emptyPrefill = {
+      ...base,
+      title: `Solicitud Compra Materiales Laminación ${defaultDestination.replace(/^Obra\s+/i, "")}`,
+      defaultDestination,
+      source_ref: obra.id,
+    };
+
+    if (!codigo) {
+      abrirModalCompra(emptyPrefill);
+      return;
+    }
+
+    setLoadingPlantillaCompra(true);
+    setErr("");
+    try {
+      const { data: plantilla, error: plantillaError } = await supabase
+        .from("linea_plantillas")
+        .select("id,linea,nombre")
+        .eq("linea", codigo)
+        .eq("activa", true)
+        .maybeSingle();
+      if (plantillaError) throw plantillaError;
+
+      if (!plantilla) {
+        abrirModalCompra(emptyPrefill);
+        return;
+      }
+
+      const { data: templateItems, error: itemsError } = await supabase
+        .from("linea_plantilla_items")
+        .select("material_id,cantidad,orden,notas,material:laminacion_materiales(id,nombre,unidad)")
+        .eq("plantilla_id", plantilla.id)
+        .order("orden", { ascending: true });
+      if (itemsError) throw itemsError;
+
+      const mapped = (templateItems ?? [])
+        .filter((it) => it.material_id)
+        .map((it) => ({
+          material_id: it.material_id,
+          description: it.material?.nombre || "Material de laminación",
+          quantity: it.cantidad ?? "",
+          unit: it.material?.unidad || "unidad",
+          destination: defaultDestination,
+          notes: it.notas || "",
+          catalogSource: "laminacion",
+        }));
+
+      if (!mapped.length) {
+        abrirModalCompra(emptyPrefill);
+        return;
+      }
+
+      const ok = window.confirm(`¿Cargo los materiales de la plantilla ${codigo} (${mapped.length} ítems)?`);
+      abrirModalCompra(ok ? { ...emptyPrefill, items: mapped } : emptyPrefill);
+    } catch (error) {
+      setErr(error.message || "No se pudo cargar la plantilla de la obra.");
+    } finally {
+      setLoadingPlantillaCompra(false);
+    }
   }
 
   async function crearIngreso(e) {
@@ -732,6 +860,19 @@ export default function LaminacionScreen({ profile, signOut }) {
                 <div style={S.small}>{esPanol ? "Ingresos · Egresos" : "Control de stock · Ingresos · Egresos · Pedidos"}</div>
               </div>
               <div style={{ display: "flex", gap: 8 }}>
+                <button
+                  style={{
+                    ...S.btn,
+                    border: "1px solid rgba(96,165,250,0.35)",
+                    background: "rgba(96,165,250,0.12)",
+                    color: "var(--blue)",
+                    fontWeight: 700,
+                  }}
+                  onClick={() => setCompraSelector({ open: true, selected: "stock" })}
+                  title="Crear pedido a compras"
+                >
+                  🛒 Pedir a compras
+                </button>
                 {isAdmin && (
                   <button style={S.btn} onClick={() => setShowNuevoMaterial(v => !v)}>
                     {showNuevoMaterial ? " Cancelar" : "+ Nuevo material"}
@@ -1879,6 +2020,117 @@ export default function LaminacionScreen({ profile, signOut }) {
           </div>
         );
       })()}
+
+      {compraSelector.open && (
+        <div
+          onClick={(e) => {
+            if (e.target === e.currentTarget && !loadingPlantillaCompra) {
+              setCompraSelector({ open: false, selected: "stock" });
+            }
+          }}
+          style={{
+            position: "fixed",
+            inset: 0,
+            zIndex: 9998,
+            background: "var(--overlay-strong)",
+            display: "grid",
+            placeItems: "center",
+            padding: 20,
+            backdropFilter: "blur(5px)",
+          }}
+        >
+          <div style={{
+            width: "min(440px, 94vw)",
+            borderRadius: 14,
+            border: `1px solid ${C.border}`,
+            background: C.panelSolid,
+            boxShadow: "0 24px 70px var(--shadow-strong)",
+            padding: 18,
+            color: C.text,
+          }}>
+            <div style={{ display: "flex", alignItems: "center", gap: 9, marginBottom: 12 }}>
+              <ShoppingCart size={16} color={C.blue} />
+              <div>
+                <div style={{ fontSize: 15, fontWeight: 850 }}>Pedir a compras</div>
+                <div style={{ fontSize: 12, color: C.dim, marginTop: 2 }}>Elegí destino para precargar la plantilla si corresponde.</div>
+              </div>
+            </div>
+
+            <label style={{ display: "grid", gap: 6, marginBottom: 14 }}>
+              <span style={{ color: C.dim, fontSize: 10, fontWeight: 800, letterSpacing: 1.2, textTransform: "uppercase" }}>
+                Destino
+              </span>
+              <select
+                value={compraSelector.selected}
+                disabled={loadingPlantillaCompra}
+                onChange={(e) => setCompraSelector((prev) => ({ ...prev, selected: e.target.value }))}
+                style={{
+                  width: "100%",
+                  border: `1px solid ${C.border}`,
+                  borderRadius: 8,
+                  background: C.panel,
+                  color: C.text,
+                  padding: "10px 11px",
+                  outline: "none",
+                  fontSize: 14,
+                  fontFamily: "'Outfit', system-ui",
+                }}
+              >
+                <option value="stock">Stock Pampa 1050</option>
+                <option value="general">Sin obra (general)</option>
+                {obrasLam.map((obra) => {
+                  const codigo = extraerCodigoLinea(obra);
+                  return (
+                    <option key={obra.id} value={obra.id}>
+                      {codigo ? `${codigo} · ` : ""}{obra.nombre}{obra.descripcion ? ` — ${obra.descripcion}` : ""}
+                    </option>
+                  );
+                })}
+              </select>
+            </label>
+
+            <div style={{ display: "flex", justifyContent: "flex-end", gap: 8 }}>
+              <button
+                type="button"
+                disabled={loadingPlantillaCompra}
+                onClick={() => setCompraSelector({ open: false, selected: "stock" })}
+                style={{
+                  border: `1px solid ${C.border}`,
+                  background: "transparent",
+                  color: C.dim,
+                  borderRadius: 8,
+                  padding: "9px 13px",
+                  cursor: loadingPlantillaCompra ? "default" : "pointer",
+                  fontSize: 13,
+                  fontWeight: 750,
+                  fontFamily: "'Outfit', system-ui",
+                }}
+              >
+                Cancelar
+              </button>
+              <button
+                type="button"
+                disabled={loadingPlantillaCompra}
+                onClick={abrirPedidoComprasDesdeSelector}
+                style={{
+                  border: `1px solid ${C.blue}`,
+                  background: C.panel2,
+                  color: C.blue,
+                  borderRadius: 8,
+                  padding: "9px 14px",
+                  cursor: loadingPlantillaCompra ? "default" : "pointer",
+                  fontSize: 13,
+                  fontWeight: 850,
+                  fontFamily: "'Outfit', system-ui",
+                  opacity: loadingPlantillaCompra ? 0.65 : 1,
+                }}
+              >
+                {loadingPlantillaCompra ? "Cargando..." : "Continuar"}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       <PedirAComprasModal
         open={comprasModal.open}

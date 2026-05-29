@@ -3,7 +3,8 @@ import { createClient } from "https://esm.sh/@supabase/supabase-js@2"
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
-  'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
+  'Access-Control-Allow-Methods': 'POST, OPTIONS',
+  'Access-Control-Allow-Headers': '*',
 }
 
 serve(async (req) => {
@@ -49,7 +50,10 @@ serve(async (req) => {
       }
     }
 
-    const link = supabaseUrl.replace('.supabase.co', '.netlify.app')
+    // Link a la app — si vino requestId armamos deep link directo al pedido.
+    const baseUrl = "https://klasea-stock.vercel.app/compras"
+    const requestId = payload.requestId
+    const link = requestId ? `${baseUrl}?open=${requestId}` : baseUrl
     let subject = ""
     let html = ""
 

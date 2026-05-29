@@ -518,6 +518,60 @@ export default function PedidosMaderaScreen({ profile, signOut }) {
                 <span style={{ fontSize: 10, color: C.t1, letterSpacing: 1.1, textTransform: "uppercase" }}>{s.label}</span>
               </div>
             ))}
+            <button
+              onClick={() => {
+                // Pre-cargar el modal con los materiales que necesitan reposición:
+                // sin stock + críticos + urgentes (mismas bandas que el topbar).
+                // Cantidad sugerida = 4 semanas de consumo - stock actual.
+                const sugeridos = stats
+                  .filter(r =>
+                    r.stockActual <= 0
+                    || (r.stockActual > 0 && r.semanasDeStock < 1)
+                    || (r.semanasDeStock >= 1 && r.semanasDeStock < 2)
+                  )
+                  .map(r => {
+                    const cant = Math.max(0, Math.ceil(r.egresoSemanal * 4) - Math.round(r.stockActual));
+                    if (cant <= 0) return null;
+                    return {
+                      description: r.mat.nombre,
+                      quantity: String(cant),
+                      unit: r.mat.unidad_medida || "unidad",
+                      destination: "Stock Chubut 2120",
+                      notes: "",
+                      material_id: r.mat.id,
+                      catalogSource: "madera",
+                    };
+                  })
+                  .filter(Boolean);
+
+                setComprasModal({
+                  open: true,
+                  prefilled: {
+                    title: "Solicitud Compra de Maderas para Stock",
+                    defaultDestination: "Stock Chubut 2120",
+                    source: "madera",
+                    sourceLabel: "Maderas",
+                    items: sugeridos,
+                  },
+                });
+              }}
+              style={{
+                display: "flex", alignItems: "center", gap: 5,
+                padding: "6px 12px",
+                border: "1px solid rgba(96,165,250,0.35)",
+                background: "rgba(96,165,250,0.12)",
+                color: C.primary,
+                borderRadius: 7,
+                cursor: "pointer",
+                fontSize: 12,
+                fontWeight: 700,
+                fontFamily: C.sans,
+                whiteSpace: "nowrap",
+              }}
+              title="Crear pedido a compras (pre-carga materiales que necesitan reposición)"
+            >
+              🛒 Pedir a compras
+            </button>
           </div>
 
           {/* ── TAB BAR ────────────────────────────────────────── */}

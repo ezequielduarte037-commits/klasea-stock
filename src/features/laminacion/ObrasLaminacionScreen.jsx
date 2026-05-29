@@ -40,158 +40,6 @@ const INP = {
 const GANTT_COLORS = ["#3b82f6","#a78bfa","#f59e0b","#10b981","#f43f5e","#0ea5e9","#fb923c","#34d399"];
 function obraGanttColor(idx) { return GANTT_COLORS[idx % GANTT_COLORS.length]; }
 
-// ─── UUID directos de laminacion_materiales ───────────────────────
-const M = {
-  ACELERADOR:  "3cfd9c4c-4c93-4513-90fa-045f01cc3460",
-  AIREX10:     "963f4103-474f-4e19-8836-381bb83787a8",
-  AIREX15:     "cde2e86c-84de-4f6a-86d1-91bf05a10d4f",
-  AIREX20:     "6e5d1272-d42b-49cd-bfbd-47d623c36d3a",
-  AIREX25:     "ad520546-493b-4313-ac74-a9bc056e7454",
-  GEL1000B:    "6c4f8c92-154a-476d-89cf-249f1211eeca",
-  GEL2000B:    "3123f200-d261-4046-a098-645e821f01d2",
-  GEL2008:     "7577227f-b79b-4f71-9945-b37c521e9a27",
-  GEL2017B:    "5a376089-7ed6-4bea-8254-5ea4f0490026",
-  CATALIZADOR: "de7b6037-289d-439a-bd10-fc3141a601e8",
-  LT600:       "74814024-b661-4bca-bdd5-facab2999715",
-  COREMAT:     "a3740499-d14c-480b-9c8f-c7d8cc31deeb",
-  MAT300:      "6357d1e1-a448-4890-b022-62f600f2da96",
-  MAT450:      "c536d864-5fa4-4409-9944-114ed809f7cd",
-  MONOMERO:    "38903dae-16fd-4afb-8e98-704cc8d7fd1f",
-  POLI100:     "dc0d3a3c-e34f-4e87-ac41-08a4bdd5e11a",
-  POLI150:     "42a4f402-a327-4f21-8f0a-fe1df2bc4428",
-  PQ7:         "863eb63f-663a-4881-91c4-12121ad3fa52",
-  REPAIR:      "6843da6b-6d71-4b9e-a294-887e4086b9d0",
-  RESINA101:   "6497b1a1-7d0e-49e0-acd4-600e08a0b359",
-  RESINA504:   "75352cd6-1828-4cdb-8971-60a1be60194b",
-  ROV400:      "39934627-7ae9-4ff7-833f-a428b0da5b13",
-  ROV600:      "594d6723-8e14-497f-83a5-f48ddc0f1562",
-  TALCO:       "c5128caa-51bb-4a62-b35a-864c4dd9faf0", // bolsas 25kg
-  VELO:        "721f20e8-c1f0-4aca-98c9-e9480c9a673c",
-};
-
-// ─── Listas base ─────────────────────────────────────────────────
-// TALCO: 1 bolsa = 25kg  →  K34/37/42/43 = 50kg = 2 bolsas  |  K52 = 25kg = 1 bolsa
-const LISTAS_BASE = {
-  K34: [
-    { id: M.MAT300,      cantidad: 13 },
-    { id: M.ROV600,      cantidad: 4  },
-    { id: M.COREMAT,     cantidad: 2  },
-    { id: M.RESINA101,   cantidad: 7  },
-    { id: M.RESINA504,   cantidad: 1  },
-    { id: M.MONOMERO,    cantidad: 1  },
-    { id: M.CATALIZADOR, cantidad: 2  },
-    { id: M.ACELERADOR,  cantidad: 2  },
-    { id: M.GEL2000B,    cantidad: 11 },
-    { id: M.GEL2008,     cantidad: 4  },
-    { id: M.GEL1000B,    cantidad: 1  },
-    { id: M.REPAIR,      cantidad: 1  },
-    { id: M.AIREX15,     cantidad: 12 },
-    { id: M.TALCO,       cantidad: 2  }, // 2 bolsas × 25kg = 50kg
-    { id: M.PQ7,         cantidad: 3  },
-  ],
-  K37: [
-    { id: M.GEL2000B,    cantidad: 10 },
-    { id: M.GEL2017B,    cantidad: 4  },
-    { id: M.GEL1000B,    cantidad: 1  },
-    { id: M.MAT300,      cantidad: 12 },
-    { id: M.MAT450,      cantidad: 1  },
-    { id: M.ROV400,      cantidad: 2  },
-    { id: M.LT600,       cantidad: 3  },
-    { id: M.VELO,        cantidad: 1  },
-    { id: M.COREMAT,     cantidad: 2  },
-    { id: M.RESINA101,   cantidad: 10 },
-    { id: M.RESINA504,   cantidad: 1  },
-    { id: M.MONOMERO,    cantidad: 2  },
-    { id: M.CATALIZADOR, cantidad: 3  },
-    { id: M.ACELERADOR,  cantidad: 2  },
-    { id: M.AIREX20,     cantidad: 12 },
-    { id: M.AIREX15,     cantidad: 12 },
-    { id: M.TALCO,       cantidad: 2  }, // 2 bolsas
-    { id: M.PQ7,         cantidad: 7  },
-    { id: M.POLI100,     cantidad: 10 },
-  ],
-  K42: [
-    { id: M.GEL2000B,    cantidad: 10 },
-    { id: M.GEL2017B,    cantidad: 4  },
-    { id: M.GEL1000B,    cantidad: 1  },
-    { id: M.VELO,        cantidad: 1  },
-    { id: M.COREMAT,     cantidad: 3  },
-    { id: M.MAT300,      cantidad: 20 },
-    { id: M.MAT450,      cantidad: 2  },
-    { id: M.ROV400,      cantidad: 3  },
-    { id: M.ROV600,      cantidad: 4  },
-    { id: M.RESINA101,   cantidad: 13 },
-    { id: M.RESINA504,   cantidad: 1  },
-    { id: M.MONOMERO,    cantidad: 2  },
-    { id: M.CATALIZADOR, cantidad: 4  },
-    { id: M.ACELERADOR,  cantidad: 3  },
-    { id: M.AIREX20,     cantidad: 9  },
-    { id: M.AIREX15,     cantidad: 7  },
-    { id: M.PQ7,         cantidad: 3  },
-    { id: M.TALCO,       cantidad: 2  }, // 2 bolsas
-    { id: M.POLI100,     cantidad: 10 },
-  ],
-  K43: [
-    { id: M.MAT300,      cantidad: 30 },
-    { id: M.MAT450,      cantidad: 3  },
-    { id: M.ROV400,      cantidad: 6  },
-    { id: M.ROV600,      cantidad: 7  },
-    { id: M.COREMAT,     cantidad: 4  },
-    { id: M.VELO,        cantidad: 1  },
-    { id: M.RESINA101,   cantidad: 18 },
-    { id: M.RESINA504,   cantidad: 1  },
-    { id: M.MONOMERO,    cantidad: 3  },
-    { id: M.CATALIZADOR, cantidad: 4  },
-    { id: M.ACELERADOR,  cantidad: 3  },
-    { id: M.GEL2000B,    cantidad: 21 },
-    { id: M.GEL1000B,    cantidad: 2  },
-    { id: M.GEL2017B,    cantidad: 8  },
-    { id: M.AIREX20,     cantidad: 12 },
-    { id: M.AIREX15,     cantidad: 16 },
-    { id: M.TALCO,       cantidad: 2  }, // 2 bolsas
-    { id: M.PQ7,         cantidad: 8  },
-    { id: M.POLI100,     cantidad: 12 },
-  ],
-  K52: [
-    { id: M.GEL2000B,    cantidad: 13 },
-    { id: M.GEL2017B,    cantidad: 5  },
-    { id: M.GEL1000B,    cantidad: 2  },
-    { id: M.MAT300,      cantidad: 22 },
-    { id: M.ROV600,      cantidad: 10 },
-    { id: M.MAT450,      cantidad: 2  },
-    { id: M.COREMAT,     cantidad: 4  },
-    { id: M.RESINA504,   cantidad: 1  },
-    { id: M.RESINA101,   cantidad: 16 },
-    { id: M.MONOMERO,    cantidad: 3  },
-    { id: M.CATALIZADOR, cantidad: 6  },
-    { id: M.ACELERADOR,  cantidad: 2  },
-    { id: M.TALCO,       cantidad: 1  }, // 1 bolsa = 25kg
-    { id: M.AIREX10,     cantidad: 11 },
-    { id: M.AIREX15,     cantidad: 11 },
-    { id: M.AIREX20,     cantidad: 24 },
-    { id: M.PQ7,         cantidad: 16 },
-    { id: M.POLI100,     cantidad: 14 },
-  ],
-  K55: [
-    { id: M.GEL2000B,    cantidad: 5  },
-    { id: M.GEL1000B,    cantidad: 1  },
-    { id: M.COREMAT,     cantidad: 1  },
-    { id: M.MAT300,      cantidad: 8  },
-    { id: M.MAT450,      cantidad: 2  },
-    { id: M.LT600,       cantidad: 8  },
-    { id: M.RESINA101,   cantidad: 9  },
-    { id: M.RESINA504,   cantidad: 1  },
-    { id: M.MONOMERO,    cantidad: 1  },
-    { id: M.CATALIZADOR, cantidad: 2  },
-    { id: M.ACELERADOR,  cantidad: 2  },
-    { id: M.POLI100,     cantidad: 20 },
-  ],
-  K64: [
-    { id: M.POLI150,     cantidad: 18 },
-    { id: M.POLI100,     cantidad: 15 },
-  ],
-};
-
 function extraerCodigo(obra) {
   const m1 = (obra.nombre ?? "").match(/^(\d+)/);
   if (m1) return "K" + m1[1];
@@ -612,6 +460,8 @@ export default function ObrasLaminacionScreen({ profile, signOut }) {
   const [materiales,    setMateriales]    = useState([]);
   const [obraMats,      setObraMats]      = useState([]);
   const [movimientos,   setMovimientos]   = useState([]);
+  const [plantillas,    setPlantillas]    = useState([]);
+  const [plantillaItems,setPlantillaItems]= useState([]);
   const [loading,       setLoading]       = useState(true);
   const [syncing,       setSyncing]       = useState(false);
   const [loadingBase,   setLoadingBase]   = useState(false);
@@ -633,19 +483,25 @@ export default function ObrasLaminacionScreen({ profile, signOut }) {
 
   async function cargar() {
     setLoading(true); setErr("");
-    const [r1, r2, r3, r4] = await Promise.all([
+    const [r1, r2, r3, r4, r5, r6] = await Promise.all([
       supabase.from("laminacion_obras").select("*").order("created_at", { ascending: false }),
       supabase.from("laminacion_materiales").select("*").order("nombre"),
       supabase.from("laminacion_obra_materiales").select("*"),
       supabase.from("laminacion_movimientos")
         .select("material_id, tipo, cantidad, obra, destino")
         .or("obra.not.is.null,destino.not.is.null"),
+      supabase.from("linea_plantillas").select("*").eq("activa", true).order("linea"),
+      supabase.from("linea_plantilla_items").select("*").order("orden", { ascending: true }),
     ]);
     if (r1.error) { setErr(r1.error.message); setLoading(false); return; }
+    if (r5.error) { setErr(r5.error.message); setLoading(false); return; }
+    if (r6.error) { setErr(r6.error.message); setLoading(false); return; }
     setObras(r1.data ?? []);
     setMateriales(r2.data ?? []);
     setObraMats(r3.data ?? []);
     setMovimientos(r4.data ?? []);
+    setPlantillas(r5.data ?? []);
+    setPlantillaItems(r6.data ?? []);
     setLoading(false);
   }
 
@@ -655,12 +511,27 @@ export default function ObrasLaminacionScreen({ profile, signOut }) {
       .on("postgres_changes", { event: "*", schema: "public", table: "laminacion_obras" }, cargar)
       .on("postgres_changes", { event: "*", schema: "public", table: "laminacion_obra_materiales" }, cargar)
       .on("postgres_changes", { event: "*", schema: "public", table: "laminacion_movimientos" }, cargar)
+      .on("postgres_changes", { event: "*", schema: "public", table: "linea_plantillas" }, cargar)
+      .on("postgres_changes", { event: "*", schema: "public", table: "linea_plantilla_items" }, cargar)
       .subscribe();
     return () => supabase.removeChannel(ch);
   }, []);
 
   const obraSel = useMemo(() => obras.find(o => o.id === obraSelId), [obras, obraSelId]);
   const norm = (s) => (s ?? "").trim().toUpperCase().replace(/\s+/g, " ");
+
+  const plantillasPorLinea = useMemo(() => {
+    const map = {};
+    const itemsOrdenados = [...plantillaItems].sort((a, b) => num(a.orden) - num(b.orden));
+    for (const plantilla of plantillas) {
+      if (!plantilla.linea || plantilla.activa === false) continue;
+      map[plantilla.linea] = {
+        ...plantilla,
+        items: itemsOrdenados.filter((it) => it.plantilla_id === plantilla.id),
+      };
+    }
+    return map;
+  }, [plantillas, plantillaItems]);
 
   const tablaObra = useMemo(() => {
     if (!obraSel) return [];
@@ -813,8 +684,9 @@ export default function ObrasLaminacionScreen({ profile, signOut }) {
     if (!obra) return;
     const codigo = extraerCodigo(obra);
     if (!codigo) return setErr(`No se pudo determinar el modelo de "${obra.nombre}". Incluí el código en la descripción (ej: "K34 — Hunter").`);
-    const lista = LISTAS_BASE[codigo];
-    if (!lista) return setErr(`Sin lista base para ${codigo}. Disponibles: ${Object.keys(LISTAS_BASE).join(", ")}`);
+    const plantilla = plantillasPorLinea[codigo];
+    const lista = plantilla?.items ?? [];
+    if (!lista.length) return setErr(`Sin plantilla activa para ${codigo}. Disponibles: ${Object.keys(plantillasPorLinea).join(", ") || "ninguna"}`);
 
     setLoadingBase(true);
 
@@ -829,8 +701,8 @@ export default function ObrasLaminacionScreen({ profile, signOut }) {
     const mats = matsActual ?? [];
 
     const results = await Promise.all(lista.map(item => {
-      const config = mats.find(om => om.material_id === item.id);
-      if (!config) return Promise.resolve({ error: { message: `UUID ${item.id} no existe en DB` } });
+      const config = mats.find(om => om.material_id === item.material_id);
+      if (!config) return Promise.resolve({ error: { message: `UUID ${item.material_id} no existe en DB` } });
       return supabase.from("laminacion_obra_materiales").update({ cantidad_necesaria: item.cantidad }).eq("id", config.id);
     }));
 
@@ -838,7 +710,7 @@ export default function ObrasLaminacionScreen({ profile, signOut }) {
     setLoadingBase(false);
     await cargar();
     if (errores.length > 0) setErr(`Errores: ${errores.map(r => r.error.message).join(" · ")}`);
-    else setMsg(`✅ Lista base ${codigo} aplicada — ${lista.length} materiales actualizados.`);
+    else setMsg(`✅ Plantilla ${codigo} aplicada — ${lista.length} materiales actualizados.`);
   }
 
   async function importarDesdeBarcos() {
@@ -870,19 +742,19 @@ export default function ObrasLaminacionScreen({ profile, signOut }) {
         await supabase.from("laminacion_obra_materiales")
           .insert(materiales.map(mat => ({ obra_id: obraData.id, material_id: mat.id, cantidad_necesaria: 0 })));
       }
-      const lista = codigo ? LISTAS_BASE[codigo] : null;
-      if (!lista) { sinLista.push(`${obraData.nombre}(${codigo ?? "?"})`); continue; }
+      const lista = codigo ? (plantillasPorLinea[codigo]?.items ?? []) : [];
+      if (!lista.length) { sinLista.push(`${obraData.nombre}(${codigo ?? "?"})`); continue; }
       await Promise.all(lista.map(item =>
         supabase.from("laminacion_obra_materiales")
           .update({ cantidad_necesaria: item.cantidad })
-          .eq("obra_id", obraData.id).eq("material_id", item.id)
+          .eq("obra_id", obraData.id).eq("material_id", item.material_id)
       ));
     }
 
     await cargar(); setLoadingImport(false);
     const n = obrasCreadas.length;
     const sinMsg = sinLista.length ? ` ⚠ Sin lista: ${sinLista.join(", ")}` : "";
-    setMsg(`✅ ${n} obra${n > 1 ? "s" : ""} importada${n > 1 ? "s" : ""} con lista base.${sinMsg}`);
+    setMsg(`✅ ${n} obra${n > 1 ? "s" : ""} importada${n > 1 ? "s" : ""} con plantilla.${sinMsg}`);
   }
 
   const obrasFiltradas = useMemo(() => {
@@ -1031,7 +903,7 @@ export default function ObrasLaminacionScreen({ profile, signOut }) {
                       const obraColor    = C.obra[o.estado]?.dot ?? C.t2;
                       const diasFin      = o.fecha_fin ? diasHasta(o.fecha_fin) : null;
                       const codigoLista  = extraerCodigo(o);
-                      const tieneLista   = codigoLista && !!LISTAS_BASE[codigoLista];
+                      const tieneLista   = codigoLista && !!plantillasPorLinea[codigoLista];
 
                       return (
                         <div key={o.id} onClick={() => setObraSelId(sel ? null : o.id)}

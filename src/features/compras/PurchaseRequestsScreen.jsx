@@ -16,6 +16,22 @@ import {
   Users,
   X,
 } from "lucide-react";
+import {
+  Area,
+  AreaChart,
+  Bar,
+  BarChart,
+  CartesianGrid,
+  Cell,
+  Line,
+  LineChart,
+  Pie,
+  PieChart,
+  ResponsiveContainer,
+  Tooltip,
+  XAxis,
+  YAxis,
+} from "recharts";
 import Sidebar from "@/components/Sidebar";
 import { useResponsive } from "@/hooks/useResponsive";
 import { useToast } from "@/components/ui/Toast";
@@ -121,6 +137,7 @@ function Chip({ children, color = C.blue, size = "sm" }) {
     <span style={{
       display: "inline-flex",
       alignItems: "center",
+      flexShrink: 0,
       color,
       background: `${color}16`,
       border: `1px solid ${color}30`,
@@ -201,11 +218,12 @@ function RequestCard({ request, onClick, profile, isUnread }) {
     >
       <div style={{ background: color, height: "100%" }} />
 
-      <div style={{ padding: "10px 12px", display: "grid", gap: 6 }}>
-        <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+      <div style={{ padding: "10px 12px", display: "grid", gap: 6, minWidth: 0 }}>
+        <div style={{ display: "flex", alignItems: "center", gap: 8, minWidth: 0 }}>
           <StatusDot status={request.status} />
           <span style={{
             fontSize: 14, fontWeight: 750, color: C.text,
+            flex: "1 1 auto", minWidth: 0, display: "block",
             overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap",
           }}>
             {request.title}
@@ -296,9 +314,10 @@ function RequestRow({ request, onClick, profile, isUnread }) {
       }}
     >
       <div style={{ minWidth: 0 }}>
-        <div style={{ display: "flex", alignItems: "center", gap: 6, marginBottom: 2 }}>
+        <div style={{ display: "flex", alignItems: "center", gap: 6, marginBottom: 2, minWidth: 0 }}>
           <span style={{
             fontSize: 14, fontWeight: 700, color: C.text,
+            flex: "1 1 auto", minWidth: 0, display: "block",
             overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap",
           }}>
             {request.title}
@@ -309,7 +328,7 @@ function RequestRow({ request, onClick, profile, isUnread }) {
               {SOURCE_LABELS[request.source] || request.source}
             </span>
           )}
-          <span style={{ color: priorityColors[request.priority], fontSize: 10, fontWeight: 800, textTransform: "uppercase", letterSpacing: 0.5 }}>
+          <span style={{ marginLeft: "auto", flexShrink: 0, color: priorityColors[request.priority], fontSize: 10, fontWeight: 800, textTransform: "uppercase", letterSpacing: 0.5, whiteSpace: "nowrap" }}>
             {REQUEST_PRIORITIES.find((p) => p.value === request.priority)?.label || request.priority}
           </span>
         </div>
@@ -440,7 +459,7 @@ export default function PurchaseRequestsScreen({ profile, signOut }) {
   const [projects, setProjects] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
-  const [selectedId, setSelectedId] = useState(null);
+  const [selectedId, setSelectedId] = useState(() => searchParams.get("open") || null);
   const [activeTab, setActiveTab] = useState(() => searchParams.get("tab") === "cc" ? "cc" : "mine");
   const [showNew, setShowNew] = useState(true);
   const [photoFile, setPhotoFile] = useState(null);
@@ -475,7 +494,8 @@ export default function PurchaseRequestsScreen({ profile, signOut }) {
     dateTo:   searchParams.get("dateTo")   || "",
   }));
 
-  // Sincronizar filtros + tab a la URL para que sean compartibles/back-friendly
+  // Sincronizar filtros + tab + pedido abierto a la URL para que sean
+  // compartibles/back-friendly. También permite deep-link tipo ?open=<id>.
   useEffect(() => {
     const next = new URLSearchParams(searchParams);
     URL_FILTER_KEYS.forEach((k) => {
@@ -485,11 +505,13 @@ export default function PurchaseRequestsScreen({ profile, signOut }) {
     });
     if (activeTab !== "mine") next.set("tab", activeTab);
     else next.delete("tab");
+    if (selectedId) next.set("open", selectedId);
+    else next.delete("open");
     if (next.toString() !== searchParams.toString()) {
       setSearchParams(next, { replace: true });
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [filters, activeTab]);
+  }, [filters, activeTab, selectedId]);
 
   const manager = isPurchaseManager(profile);
 
@@ -1402,22 +1424,26 @@ export default function PurchaseRequestsScreen({ profile, signOut }) {
 }
 
 const DASHBOARD_PRIORITY_COLORS = {
-  baja: "var(--dim)",
-  media: "#60a5fa",
-  alta: "#f59e0b",
-  urgente: "#ef4444",
+  baja: C.dim,
+  media: C.blue,
+  alta: C.amber,
+  urgente: C.red,
 };
 
-function StatCard({ label, value, color, icon, subtitle }) {
+function StatCard({ label, value, color, icon, subtitle, trend }) {
   const Icon = icon;
+  const hasTrend = Array.isArray(trend) && trend.length > 1;
   return (
     <div style={{
-      padding: "14px 16px",
+      padding: "15px 16px",
       border: `1px solid ${C.border}`,
-      borderRadius: 10,
+      borderRadius: 12,
       background: C.panel,
+      minWidth: 0,
+      display: "grid",
+      gap: 10,
     }}>
-      <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 8 }}>
+      <div style={{ display: "flex", alignItems: "center", gap: 10, minWidth: 0 }}>
         {Icon && (
           <div style={{
             width: 32,
@@ -1425,24 +1451,34 @@ function StatCard({ label, value, color, icon, subtitle }) {
             borderRadius: 8,
             display: "grid",
             placeItems: "center",
-            background: `${color}16`,
-            border: `1px solid ${color}30`,
+            background: C.panel2,
+            border: `1px solid ${C.border}`,
             color,
+            flexShrink: 0,
           }}>
             <Icon size={15} />
           </div>
         )}
-        <div>
-          <div style={{ color: C.muted, fontSize: 11, letterSpacing: 1, textTransform: "uppercase", fontWeight: 700 }}>
+        <div style={{ minWidth: 0, flex: 1 }}>
+          <div style={{ color: C.muted, fontSize: 10, letterSpacing: 1.2, textTransform: "uppercase", fontWeight: 750, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>
             {label}
           </div>
-          <div style={{ color: C.text, fontSize: 22, fontWeight: 800, fontFamily: C.mono, marginTop: 1 }}>
+          <div style={{ color: C.text, fontSize: 24, fontWeight: 800, fontFamily: C.mono, marginTop: 2, lineHeight: 1 }}>
             {value}
           </div>
         </div>
+        {hasTrend && (
+          <div style={{ width: 86, height: 34, flexShrink: 0 }}>
+            <ResponsiveContainer width="100%" height="100%">
+              <LineChart data={trend}>
+                <Line type="monotone" dataKey="value" stroke={color} strokeWidth={2} dot={false} isAnimationActive={false} />
+              </LineChart>
+            </ResponsiveContainer>
+          </div>
+        )}
       </div>
       {subtitle && (
-        <div style={{ color: C.dim, fontSize: 11, borderTop: `1px solid ${C.border}`, paddingTop: 7, marginTop: 2 }}>
+        <div style={{ color: C.dim, fontSize: 11, borderTop: `1px solid ${C.border}`, paddingTop: 8, lineHeight: 1.35 }}>
           {subtitle}
         </div>
       )}
@@ -1466,13 +1502,256 @@ class DashboardErrorBoundary extends Component {
 }
 
 function DashboardView({ analytics, monthlySpending, overdueItems, loading, requests, onSelectRequest }) {
+  const totals = analytics || {
+    totalEstimated: 0,
+    totalActual: 0,
+    pending: 0,
+    urgentes: 0,
+    avgDays: 0,
+    totalRequests: 0,
+  };
+
+  const dashboard = useMemo(() => {
+    const list = requests || [];
+    const monthly = monthlySpending || [];
+    const overdue = overdueItems || [];
+    const open = list.filter((r) => !ARCHIVED_STATUSES.includes(r.status));
+    const statusCounts = REQUEST_STATUSES.reduce((acc, s) => ({ ...acc, [s.value]: 0 }), {});
+
+    for (const request of list) {
+      statusCounts[request.status] = (statusCounts[request.status] || 0) + 1;
+    }
+
+    const openCounts = {
+      nuevo: open.filter((r) => r.status === "nuevo").length,
+      en_revision: open.filter((r) => r.status === "en_revision").length,
+      cotizando: open.filter((r) => r.status === "cotizando").length,
+      comprado: open.filter((r) => r.status === "comprado").length,
+    };
+
+    const urgentPending = open
+      .filter((r) => r.priority === "urgente")
+      .sort((a, b) => new Date(a.estimated_delivery_at || a.needed_at || a.created_at || 0) - new Date(b.estimated_delivery_at || b.needed_at || b.created_at || 0));
+
+    const quotePending = open.filter((r) => ["nuevo", "en_revision"].includes(r.status));
+    const activeEstimated = open.reduce((sum, r) => sum + (Number(r.estimated_amount) || 0), 0);
+    const activeActual = open.reduce((sum, r) => sum + (Number(r.actual_amount) || 0), 0);
+
+    const statusFunnelData = ["nuevo", "en_revision", "cotizando", "comprado", "recibido"].map((status) => {
+      const meta = REQUEST_STATUSES.find((s) => s.value === status);
+      return {
+        status,
+        label: meta?.label || status,
+        count: statusCounts[status] || 0,
+        color: statusColors[status] || C.dim,
+      };
+    });
+
+    const priorityData = REQUEST_PRIORITIES.map((p) => ({
+      name: p.label,
+      value: open.filter((r) => r.priority === p.value).length,
+      color: DASHBOARD_PRIORITY_COLORS[p.value] || C.dim,
+    })).filter((d) => d.value > 0);
+
+    function topGroups(getKey) {
+      const map = new Map();
+      for (const request of open) {
+        const key = getKey(request);
+        map.set(key, (map.get(key) || 0) + 1);
+      }
+      return [...map.entries()]
+        .map(([name, value]) => ({ name, value }))
+        .sort((a, b) => b.value - a.value)
+        .slice(0, 5);
+    }
+
+    function monthKey(date) {
+      return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, "0")}`;
+    }
+
+    function monthLabel(key) {
+      const [year, month] = key.split("-").map(Number);
+      return new Date(year, month - 1, 1).toLocaleDateString("es-AR", { month: "short" }).replace(".", "");
+    }
+
+    const monthlyMap = new Map(monthly.map((row) => [row.month, Number(row.total) || 0]));
+    const sortedMonths = [...monthlyMap.keys()].sort();
+    const anchorKey = sortedMonths[sortedMonths.length - 1] || monthKey(new Date());
+    const [anchorYear, anchorMonth] = anchorKey.split("-").map(Number);
+    const anchor = new Date(anchorYear, anchorMonth - 1, 1);
+    const monthlyTrend = [];
+
+    for (let i = 5; i >= 0; i--) {
+      const date = new Date(anchor.getFullYear(), anchor.getMonth() - i, 1);
+      const key = monthKey(date);
+      monthlyTrend.push({
+        month: key,
+        label: monthLabel(key),
+        total: monthlyMap.get(key) || 0,
+      });
+    }
+
+    const completed = list.filter((r) => ["comprado", "recibido"].includes(r.status) && r.created_at && r.updated_at);
+    const cycleMap = new Map();
+    const cycleDays = [];
+
+    for (const request of completed) {
+      const created = new Date(request.created_at);
+      const updated = new Date(request.updated_at);
+      if (Number.isNaN(created.getTime()) || Number.isNaN(updated.getTime())) continue;
+      const key = monthKey(updated);
+      const days = Math.max(0, Math.round((updated - created) / (1000 * 60 * 60 * 24)));
+      const bucket = cycleMap.get(key) || [];
+      bucket.push(days);
+      cycleDays.push(days);
+      cycleMap.set(key, bucket);
+    }
+
+    const cycleMonths = [...cycleMap.keys()].sort();
+    const cycleAnchorKey = cycleMonths[cycleMonths.length - 1] || monthKey(new Date());
+    const [cycleYear, cycleMonth] = cycleAnchorKey.split("-").map(Number);
+    const cycleAnchor = new Date(cycleYear, cycleMonth - 1, 1);
+    const cycleTrend = [];
+
+    for (let i = 5; i >= 0; i--) {
+      const date = new Date(cycleAnchor.getFullYear(), cycleAnchor.getMonth() - i, 1);
+      const key = monthKey(date);
+      const values = cycleMap.get(key) || [];
+      cycleTrend.push({
+        month: key,
+        label: monthLabel(key),
+        value: values.length ? Math.round(values.reduce((sum, v) => sum + v, 0) / values.length) : 0,
+      });
+    }
+
+    return {
+      open,
+      openCounts,
+      urgentPending,
+      quotePending,
+      activeEstimated,
+      activeActual,
+      statusFunnelData,
+      priorityData,
+      creatorData: topGroups((r) => usernameOf(r.creator) || "Sin usuario"),
+      projectData: topGroups((r) => r.project?.codigo || "Sin obra"),
+      monthlyTrend,
+      cycleTrend,
+      avgCycleDays: cycleDays.length ? Math.round(cycleDays.reduce((sum, days) => sum + days, 0) / cycleDays.length) : 0,
+      overdueItems: overdue,
+    };
+  }, [monthlySpending, overdueItems, requests]);
+
+  const formatMoney = (value) => `$${Number(value || 0).toLocaleString("es-AR", { maximumFractionDigits: 0 })}`;
+  const formatCompactMoney = (value) => {
+    const n = Number(value || 0);
+    if (Math.abs(n) >= 1000000) return `$${(n / 1000000).toFixed(1)}M`;
+    if (Math.abs(n) >= 1000) return `$${Math.round(n / 1000)}k`;
+    return `$${n}`;
+  };
+  const budgetDiff = totals.totalEstimated - totals.totalActual;
+  const openBudgetDiff = dashboard.activeEstimated - dashboard.activeActual;
+  const chartTooltipStyle = {
+    background: C.panelSolid,
+    border: `1px solid ${C.border}`,
+    borderRadius: 8,
+    color: C.text,
+    fontSize: 12,
+  };
+  const chartAxisTick = { fill: C.dim, fontSize: 11 };
+  const panelStyle = {
+    border: `1px solid ${C.border}`,
+    borderRadius: 12,
+    background: C.panel,
+    padding: 14,
+    minWidth: 0,
+  };
+  const panelTitleStyle = {
+    color: C.muted,
+    fontSize: 10,
+    letterSpacing: 1.2,
+    textTransform: "uppercase",
+    fontWeight: 750,
+  };
+  const maxStatusCount = Math.max(...dashboard.statusFunnelData.map((d) => d.count), 1);
+  const hasMonthlySpend = dashboard.monthlyTrend.some((d) => d.total > 0);
+  const priorityTotal = dashboard.priorityData.reduce((sum, d) => sum + d.value, 0);
+  const avgDays = dashboard.avgCycleDays || totals.avgDays || 0;
+  const openSubtitle = `${dashboard.openCounts.nuevo} nuevos / ${dashboard.openCounts.cotizando} cotizando / ${dashboard.openCounts.comprado} por recibir`;
+  const quoteSubtitle = `${dashboard.openCounts.nuevo} nuevos / ${dashboard.openCounts.en_revision} en revision`;
+
+  function emptyState(text) {
+    return (
+      <div style={{ minHeight: 150, display: "grid", placeItems: "center", color: C.dim, fontSize: 12, border: `1px dashed ${C.border}`, borderRadius: 10 }}>
+        {text}
+      </div>
+    );
+  }
+
+  function requestMeta(item) {
+    const creator = usernameOf(item.creator);
+    const project = item.project?.codigo || "Sin obra";
+    return `${creator} / ${project}`;
+  }
+
+  function actionItem(item, tone, rightLabel) {
+    const statusLabel = REQUEST_STATUSES.find((s) => s.value === item.status)?.label || item.status;
+    const priorityLabel = REQUEST_PRIORITIES.find((p) => p.value === item.priority)?.label || item.priority;
+
+    return (
+      <button
+        key={item.id}
+        type="button"
+        onClick={() => onSelectRequest(item.id)}
+        style={{
+          display: "grid",
+          gridTemplateColumns: "minmax(0, 1fr) auto",
+          alignItems: "center",
+          gap: 12,
+          width: "100%",
+          textAlign: "left",
+          border: `1px solid ${C.border}`,
+          borderLeft: `3px solid ${tone}`,
+          background: C.panel2,
+          borderRadius: 9,
+          padding: "10px 12px",
+          cursor: "pointer",
+          color: C.text,
+        }}
+      >
+        <div style={{ minWidth: 0 }}>
+          <div style={{ fontSize: 13, fontWeight: 750, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+            {item.title}
+          </div>
+          <div style={{ display: "flex", flexWrap: "wrap", gap: 6, marginTop: 4, color: C.dim, fontSize: 11 }}>
+            <span>{requestMeta(item)}</span>
+            <span style={{ color: C.border2 }}>/</span>
+            <span style={{ color: tone, fontWeight: 700 }}>{priorityLabel}</span>
+            <span style={{ color: C.border2 }}>/</span>
+            <span>{statusLabel}</span>
+          </div>
+        </div>
+        <span style={{
+          color: tone,
+          fontSize: 11,
+          fontWeight: 800,
+          fontFamily: C.mono,
+          whiteSpace: "nowrap",
+        }}>
+          {rightLabel}
+        </span>
+      </button>
+    );
+  }
+
   if (loading) {
     return (
-      <div style={{ minHeight: 400, display: "grid", placeItems: "center", color: C.dim, fontSize: 13 }}>
-        <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
-          <span style={{ display: "inline-block", width: 14, height: 14, border: `2px solid ${C.border2}`, borderTopColor: C.blue, borderRadius: "50%", animation: "spin 0.8s linear infinite" }} />
-          Cargando dashboard...
+      <div style={{ display: "grid", gap: 14 }}>
+        <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(220px, 1fr))", gap: 10 }}>
+          {[0, 1, 2, 3].map((i) => <CardSkeleton key={i} />)}
         </div>
+        <CardSkeleton />
+        <CardSkeleton />
       </div>
     );
   }
@@ -1485,223 +1764,234 @@ function DashboardView({ analytics, monthlySpending, overdueItems, loading, requ
     );
   }
 
-  const budgetDiff = analytics.totalEstimated - analytics.totalActual;
-  const priorityData = [
-    { name: "Baja", value: requests.filter((r) => r.priority === "baja" && !["recibido", "cancelado"].includes(r.status)).length, color: "var(--dim)" },
-    { name: "Media", value: requests.filter((r) => r.priority === "media" && !["recibido", "cancelado"].includes(r.status)).length, color: C.blue },
-    { name: "Alta", value: requests.filter((r) => r.priority === "alta" && !["recibido", "cancelado"].includes(r.status)).length, color: C.amber },
-    { name: "Urgente", value: requests.filter((r) => r.priority === "urgente" && !["recibido", "cancelado"].includes(r.status)).length, color: C.red },
-  ].filter((d) => d.value > 0);
-
   return (
     <div style={{ display: "grid", gap: 16 }}>
-      {/* Summary Cards */}
-      <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(180px, 1fr))", gap: 10 }}>
+      <div style={{ display: "flex", alignItems: "end", justifyContent: "space-between", gap: 16, flexWrap: "wrap" }}>
+        <div>
+          <div style={panelTitleStyle}>Gestion de compras</div>
+          <h2 style={{ margin: "4px 0 0", color: C.text, fontSize: 20, fontWeight: 850, letterSpacing: 0 }}>
+            Tablero operativo
+          </h2>
+        </div>
+        <div style={{ display: "flex", gap: 10, flexWrap: "wrap", color: C.dim, fontSize: 12 }}>
+          <span>Solicitudes: <strong style={{ color: C.text, fontFamily: C.mono }}>{totals.totalRequests}</strong></span>
+          <span>Remanente: <strong style={{ color: budgetDiff >= 0 ? C.green : C.red, fontFamily: C.mono }}>{formatMoney(Math.abs(budgetDiff))}</strong></span>
+        </div>
+      </div>
+
+      <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(220px, 1fr))", gap: 10 }}>
         <StatCard
-          label="Pendientes"
-          value={analytics.pending}
+          label="Pedidos abiertos"
+          value={dashboard.open.length}
           color={C.amber}
           icon={ShoppingCart}
-          subtitle={`${analytics.urgentes} urgentes sin resolver`}
+          subtitle={openSubtitle}
         />
         <StatCard
-          label="Presupuestado"
-          value={`$${Number(analytics.totalEstimated).toLocaleString("es-AR", { minimumFractionDigits: 0 })}`}
-          color={C.blue}
+          label="Urgentes sin resolver"
+          value={dashboard.urgentPending.length}
+          color={dashboard.urgentPending.length > 0 ? C.red : C.green}
+          icon={Package}
+          subtitle={dashboard.urgentPending.length > 0 ? "Requieren seguimiento hoy" : "Sin urgentes pendientes"}
+        />
+        <StatCard
+          label="Pendiente de cotizar"
+          value={dashboard.quotePending.length}
+          color={dashboard.quotePending.length > 0 ? C.violet : C.green}
           icon={Filter}
+          subtitle={quoteSubtitle}
         />
         <StatCard
-          label="Gastado"
-          value={`$${Number(analytics.totalActual).toLocaleString("es-AR", { minimumFractionDigits: 0 })}`}
-          color={analytics.totalActual > analytics.totalEstimated ? C.red : C.green}
-          icon={ShoppingCart}
-          subtitle={
-            analytics.totalEstimated > 0
-              ? analytics.totalActual <= analytics.totalEstimated
-                ? `${((analytics.totalActual / analytics.totalEstimated) * 100).toFixed(0)}% del presupuesto`
-                : `${((analytics.totalActual / analytics.totalEstimated - 1) * 100).toFixed(0)}% excedente`
-              : ""
-          }
-        />
-        <StatCard
-          label="Tiempo promedio"
-          value={`${analytics.avgDays}d`}
-          color={analytics.avgDays <= 3 ? C.green : analytics.avgDays <= 7 ? C.amber : C.red}
+          label="Tiempo medio"
+          value={`${avgDays}d`}
+          color={avgDays <= 3 ? C.green : avgDays <= 7 ? C.amber : C.red}
           icon={Clock}
-          subtitle="Nuevo → Comprado/Recibido"
+          subtitle="Nuevo -> recibido"
+          trend={dashboard.cycleTrend}
         />
       </div>
 
-      {/* Charts */}
-      <div style={{ display: "grid", gridTemplateColumns: monthlySpending.length && priorityData.length ? "1fr 1fr" : "1fr", gap: 12 }}>
-        {monthlySpending.length > 0 && (
-          <div style={{
-            border: `1px solid ${C.border}`,
-            borderRadius: 10,
-            background: C.panel,
-            padding: 14,
-          }}>
-            <div style={{ color: C.dim, fontSize: 10, letterSpacing: 1.2, textTransform: "uppercase", fontWeight: 750, marginBottom: 12 }}>
-              Gasto mensual
-            </div>
-            <div style={{ display: "grid", gap: 6 }}>
-              {(() => {
-                const maxTotal = Math.max(...monthlySpending.map(d => d.total));
-                return monthlySpending.map((d) => (
-                  <div key={d.month} style={{ display: "grid", gridTemplateColumns: "60px 1fr auto", gap: 8, alignItems: "center" }}>
-                    <span style={{ fontSize: 10, color: C.dim, fontFamily: C.mono, textAlign: "right" }}>
-                      {d.month}
-                    </span>
-                    <div style={{ height: 20, borderRadius: 4, background: C.border, overflow: "hidden" }}>
-                      <div style={{ height: "100%", width: `${Math.max(2, (d.total / maxTotal) * 100)}%`, background: C.blue, borderRadius: 4, transition: "width .4s" }} />
-                    </div>
-                    <span style={{ fontSize: 10, color: C.muted, fontFamily: C.mono }}>
-                      ${Number(d.total).toLocaleString("es-AR", { minimumFractionDigits: 0 })}
-                    </span>
-                  </div>
-                ));
-              })()}
-            </div>
+      <div style={panelStyle}>
+        <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 12, marginBottom: 12 }}>
+          <div>
+            <div style={panelTitleStyle}>Funnel de estados</div>
+            <div style={{ color: C.dim, fontSize: 12, marginTop: 3 }}>Nuevo / En revision / Cotizando / Comprado / Recibido</div>
           </div>
-        )}
-
-        {priorityData.length > 0 && (
-          <div style={{
-            border: `1px solid ${C.border}`,
-            borderRadius: 10,
-            background: C.panel,
-            padding: 14,
-          }}>
-            <div style={{ color: C.dim, fontSize: 10, letterSpacing: 1.2, textTransform: "uppercase", fontWeight: 750, marginBottom: 12 }}>
-              Pendientes por prioridad
-            </div>
-            <div style={{ display: "grid", gap: 8 }}>
-              {(() => {
-                const maxVal = Math.max(...priorityData.map(d => d.value));
-                return priorityData.map((d) => (
-                  <div key={d.name} style={{ display: "grid", gridTemplateColumns: "1fr auto", gap: 8, alignItems: "center" }}>
-                    <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
-                      <span style={{ width: 8, height: 8, borderRadius: "50%", background: d.color, display: "inline-block", flexShrink: 0 }} />
-                      <span style={{ fontSize: 11, color: C.muted }}>{d.name}</span>
-                    </div>
-                    <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-                      <div style={{ width: 80, height: 14, borderRadius: 3, background: C.border, overflow: "hidden" }}>
-                        <div style={{ height: "100%", width: `${Math.max(2, (d.value / maxVal) * 100)}%`, background: d.color, borderRadius: 3 }} />
-                      </div>
-                      <span style={{ fontSize: 12, color: C.text, fontWeight: 700, fontFamily: C.mono, minWidth: 20, textAlign: "right" }}>{d.value}</span>
-                    </div>
-                  </div>
-                ));
-              })()}
-            </div>
-          </div>
-        )}
+          <BarChart3 size={18} color={C.blue} />
+        </div>
+        <ResponsiveContainer width="100%" height={250}>
+          <BarChart data={dashboard.statusFunnelData} layout="vertical" margin={{ top: 4, right: 24, left: 6, bottom: 4 }}>
+            <CartesianGrid stroke={C.border} strokeDasharray="3 3" horizontal={false} />
+            <XAxis type="number" allowDecimals={false} domain={[0, maxStatusCount]} stroke={C.border} tick={chartAxisTick} />
+            <YAxis type="category" dataKey="label" width={88} stroke={C.border} tick={chartAxisTick} />
+            <Tooltip
+              cursor={{ fill: C.panel2 }}
+              contentStyle={chartTooltipStyle}
+              labelStyle={{ color: C.text, fontWeight: 700 }}
+              formatter={(value) => [`${value} pedidos`, "Cantidad"]}
+            />
+            <Bar dataKey="count" radius={[0, 7, 7, 0]} barSize={22}>
+              {dashboard.statusFunnelData.map((entry) => <Cell key={entry.status} fill={entry.color} />)}
+            </Bar>
+          </BarChart>
+        </ResponsiveContainer>
       </div>
 
-      {/* Overdue Items */}
-      {overdueItems.length > 0 && (
-        <div style={{
-          border: `1px solid ${C.border}`,
-          borderRadius: 10,
-          background: C.panel,
-          padding: 14,
-        }}>
-          <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 10 }}>
-            <Clock size={14} color={C.red} />
-            <span style={{ color: C.red, fontSize: 13, fontWeight: 750, letterSpacing: 0.5 }}>
-              Pedidos vencidos ({overdueItems.length})
-            </span>
+      <div style={panelStyle}>
+        <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 12, marginBottom: 12 }}>
+          <div>
+            <div style={panelTitleStyle}>Tendencia mensual</div>
+            <div style={{ color: C.dim, fontSize: 12, marginTop: 3 }}>Gasto real registrado en los ultimos 6 meses</div>
           </div>
-          <div style={{ display: "grid", gap: 6 }}>
-            {overdueItems.map((item) => {
-              const daysOverdue = Math.ceil(
-                (new Date() - new Date(item.estimated_delivery_at)) / (1000 * 60 * 60 * 24),
-              );
-              return (
-                <button
-                  key={item.id}
-                  type="button"
-                  onClick={() => onSelectRequest(item.id)}
-                  style={{
-                    display: "grid",
-                    gridTemplateColumns: "1fr auto auto",
-                    alignItems: "center",
-                    gap: 10,
-                    width: "100%",
-                    textAlign: "left",
-                    border: `1px solid ${C.border}`,
-                    background: "rgba(239,68,68,0.04)",
-                    borderRadius: 8,
-                    padding: "9px 12px",
-                    cursor: "pointer",
-                    color: C.text,
-                  }}
-                >
-                  <div style={{ minWidth: 0 }}>
-                    <div style={{ fontSize: 13, fontWeight: 700, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
-                      {item.title}
-                    </div>
-                    <div style={{ fontSize: 11, color: C.dim, marginTop: 2 }}>
-                      {usernameOf(item.creator)} · {item.project?.codigo || "Sin proyecto"}
-                    </div>
-                  </div>
-                  <span style={{
-                    fontSize: 11,
-                    color: C.red,
-                    fontWeight: 700,
-                    fontFamily: C.mono,
-                    background: "rgba(239,68,68,0.08)",
-                    border: "1px solid rgba(239,68,68,0.2)",
-                    borderRadius: 5,
-                    padding: "2px 7px",
-                  }}>
-                    -{daysOverdue}d
-                  </span>
-                  <span style={{
-                    ...priorityColors[item.priority],
-                    fontSize: 10,
-                    fontWeight: 700,
-                    textTransform: "uppercase",
-                  }}>
-                    {REQUEST_PRIORITIES.find((p) => p.value === item.priority)?.label || item.priority.toLowerCase()}
-                  </span>
-                </button>
-              );
-            })}
+          <div style={{ color: hasMonthlySpend ? C.green : C.dim, fontSize: 18, fontWeight: 850, fontFamily: C.mono }}>
+            {formatMoney(dashboard.monthlyTrend.reduce((sum, d) => sum + d.total, 0))}
           </div>
         </div>
-      )}
+        <ResponsiveContainer width="100%" height={260}>
+          <AreaChart data={dashboard.monthlyTrend} margin={{ top: 8, right: 16, left: 0, bottom: 0 }}>
+            <CartesianGrid stroke={C.border} strokeDasharray="3 3" vertical={false} />
+            <XAxis dataKey="label" stroke={C.border} tick={chartAxisTick} />
+            <YAxis stroke={C.border} tick={chartAxisTick} tickFormatter={formatCompactMoney} width={58} />
+            <Tooltip
+              contentStyle={chartTooltipStyle}
+              labelStyle={{ color: C.text, fontWeight: 700 }}
+              formatter={(value) => [formatMoney(value), "Gastado"]}
+            />
+            <Area type="monotone" dataKey="total" stroke={C.blue} fill={C.blue} fillOpacity={0.14} strokeWidth={2} dot={{ r: 3, fill: C.blue }} activeDot={{ r: 5 }} />
+          </AreaChart>
+        </ResponsiveContainer>
+      </div>
 
-      {/* Bottom stats */}
+      <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(260px, 1fr))", gap: 12 }}>
+        <div style={panelStyle}>
+          <div style={{ ...panelTitleStyle, marginBottom: 12 }}>Por prioridad</div>
+          {dashboard.priorityData.length > 0 ? (
+            <>
+              <ResponsiveContainer width="100%" height={210}>
+                <PieChart>
+                  <Tooltip
+                    contentStyle={chartTooltipStyle}
+                    formatter={(value) => [`${value} pedidos`, "Cantidad"]}
+                  />
+                  <Pie data={dashboard.priorityData} dataKey="value" nameKey="name" innerRadius={58} outerRadius={82} paddingAngle={3}>
+                    {dashboard.priorityData.map((entry) => <Cell key={entry.name} fill={entry.color} />)}
+                  </Pie>
+                </PieChart>
+              </ResponsiveContainer>
+              <div style={{ display: "grid", gap: 7 }}>
+                {dashboard.priorityData.map((entry) => (
+                  <div key={entry.name} style={{ display: "grid", gridTemplateColumns: "1fr auto", alignItems: "center", gap: 8, fontSize: 12 }}>
+                    <span style={{ display: "inline-flex", alignItems: "center", gap: 7, color: C.muted }}>
+                      <span style={{ width: 8, height: 8, borderRadius: 99, background: entry.color, flexShrink: 0 }} />
+                      {entry.name}
+                    </span>
+                    <span style={{ color: C.text, fontFamily: C.mono, fontWeight: 800 }}>{entry.value}</span>
+                  </div>
+                ))}
+                <div style={{ color: C.dim, fontSize: 11, borderTop: `1px solid ${C.border}`, paddingTop: 7 }}>
+                  {priorityTotal} pedidos abiertos clasificados
+                </div>
+              </div>
+            </>
+          ) : emptyState("Sin pedidos abiertos")}
+        </div>
+
+        <div style={panelStyle}>
+          <div style={{ ...panelTitleStyle, marginBottom: 12 }}>Top creadores</div>
+          {dashboard.creatorData.length > 0 ? (
+            <ResponsiveContainer width="100%" height={250}>
+              <BarChart data={dashboard.creatorData} layout="vertical" margin={{ top: 4, right: 20, left: 4, bottom: 4 }}>
+                <CartesianGrid stroke={C.border} strokeDasharray="3 3" horizontal={false} />
+                <XAxis type="number" allowDecimals={false} stroke={C.border} tick={chartAxisTick} />
+                <YAxis type="category" dataKey="name" width={92} stroke={C.border} tick={chartAxisTick} />
+                <Tooltip contentStyle={chartTooltipStyle} formatter={(value) => [`${value} pedidos`, "Cantidad"]} />
+                <Bar dataKey="value" fill={C.violet} radius={[0, 6, 6, 0]} barSize={18} />
+              </BarChart>
+            </ResponsiveContainer>
+          ) : emptyState("Sin creadores activos")}
+        </div>
+
+        <div style={panelStyle}>
+          <div style={{ ...panelTitleStyle, marginBottom: 12 }}>Top obras</div>
+          {dashboard.projectData.length > 0 ? (
+            <ResponsiveContainer width="100%" height={250}>
+              <BarChart data={dashboard.projectData} layout="vertical" margin={{ top: 4, right: 20, left: 4, bottom: 4 }}>
+                <CartesianGrid stroke={C.border} strokeDasharray="3 3" horizontal={false} />
+                <XAxis type="number" allowDecimals={false} stroke={C.border} tick={chartAxisTick} />
+                <YAxis type="category" dataKey="name" width={86} stroke={C.border} tick={chartAxisTick} />
+                <Tooltip contentStyle={chartTooltipStyle} formatter={(value) => [`${value} pedidos`, "Cantidad"]} />
+                <Bar dataKey="value" fill={C.teal} radius={[0, 6, 6, 0]} barSize={18} />
+              </BarChart>
+            </ResponsiveContainer>
+          ) : emptyState("Sin obras activas")}
+        </div>
+      </div>
+
+      <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(320px, 1fr))", gap: 12 }}>
+        <div style={panelStyle}>
+          <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 12 }}>
+            <Clock size={14} color={C.red} />
+            <span style={{ color: C.red, fontSize: 13, fontWeight: 800 }}>
+              Vencidos ({dashboard.overdueItems.length})
+            </span>
+          </div>
+          <div style={{ display: "grid", gap: 7 }}>
+            {dashboard.overdueItems.length > 0
+              ? dashboard.overdueItems.slice(0, 8).map((item) => {
+                  const daysOverdue = Math.ceil((new Date() - new Date(item.estimated_delivery_at)) / (1000 * 60 * 60 * 24));
+                  return actionItem(item, C.red, `-${daysOverdue}d`);
+                })
+              : emptyState("Sin pedidos vencidos")}
+          </div>
+        </div>
+
+        <div style={panelStyle}>
+          <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 12 }}>
+            <Package size={14} color={C.amber} />
+            <span style={{ color: C.amber, fontSize: 13, fontWeight: 800 }}>
+              Urgentes pendientes ({dashboard.urgentPending.length})
+            </span>
+          </div>
+          <div style={{ display: "grid", gap: 7 }}>
+            {dashboard.urgentPending.length > 0
+              ? dashboard.urgentPending.slice(0, 8).map((item) => {
+                  const due = item.estimated_delivery_at || item.needed_at;
+                  const label = due ? fmtDate(due) : "Sin fecha";
+                  return actionItem(item, C.amber, label);
+                })
+              : emptyState("Sin urgentes pendientes")}
+          </div>
+        </div>
+      </div>
+
       <div style={{
         border: `1px solid ${C.border}`,
-        borderRadius: 10,
+        borderRadius: 12,
         background: C.panel,
-        padding: "10px 14px",
+        padding: "12px 14px",
         display: "flex",
         alignItems: "center",
         justifyContent: "space-between",
+        gap: 12,
+        flexWrap: "wrap",
         fontSize: 11,
         color: C.dim,
       }}>
-        <span>{analytics.totalRequests} solicitudes totales</span>
-        {analytics.totalActual > 0 && (
+        <span>{totals.totalRequests} solicitudes totales / {dashboard.open.length} abiertas</span>
+        {totals.totalActual > 0 && (
           <span style={{ color: C.muted }}>
-            Presupuesto remanente: <strong style={{ color: budgetDiff >= 0 ? C.green : C.red, fontFamily: C.mono }}>
-              ${Math.abs(budgetDiff).toLocaleString("es-AR", { minimumFractionDigits: 0 })}
-            </strong> {budgetDiff >= 0 ? "disponibles" : "excedidos"}
+            Remanente total: <strong style={{ color: budgetDiff >= 0 ? C.green : C.red, fontFamily: C.mono }}>{formatMoney(Math.abs(budgetDiff))}</strong>
           </span>
         )}
-        {overdueItems.length > 0 && (
-          <span style={{ color: C.red }}>
-            {overdueItems.length} pedido{overdueItems.length > 1 ? "s" : ""} vencido{overdueItems.length > 1 ? "s" : ""}
+        {dashboard.activeEstimated > 0 && (
+          <span style={{ color: C.muted }}>
+            Remanente abierto: <strong style={{ color: openBudgetDiff >= 0 ? C.green : C.red, fontFamily: C.mono }}>{formatMoney(Math.abs(openBudgetDiff))}</strong>
           </span>
         )}
       </div>
     </div>
   );
 }
-
 function tabStyle(active) {
   return {
     display: "inline-flex",

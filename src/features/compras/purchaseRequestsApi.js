@@ -426,6 +426,22 @@ export async function notifyComprasEmail(payload) {
   if (error) console.warn("notifyComprasEmail error:", error)
 }
 
+// Notifica vía WhatsApp AL CREADOR del pedido cuando alguien que NO es él hace
+// una actualización (cambio de status, prioridad, ítem, comentario, etc).
+// Fire-and-forget: si falla (ej. ventana de 24h cerrada), no rompe el flow.
+//
+// payload: { requestId, eventType, payload, actorId }
+//   eventType: "status" | "priority" | "comment" | "item_status"
+//            | "amount" | "delivery_date" | "received"
+export async function notifyWaUpdate(payload) {
+  try {
+    const { error } = await supabase.functions.invoke("notify-wa-update", { body: payload });
+    if (error) console.warn("notifyWaUpdate error:", error);
+  } catch (e) {
+    console.warn("notifyWaUpdate exception:", e);
+  }
+}
+
 // ─── PURCHASE REQUEST ITEMS ─────────────────────────────────────────────
 
 export const ITEM_STATUSES = [

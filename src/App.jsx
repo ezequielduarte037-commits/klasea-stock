@@ -10,6 +10,7 @@ import AdminDashboard        from "@/features/admin/AdminDashboard";
 import MovimientosScreen     from "@/features/inventario/MovimientosScreen";
 import LaminacionScreen      from "@/features/laminacion/LaminacionScreen";
 import ObrasLaminacionScreen from "@/features/laminacion/ObrasLaminacionScreen";
+import PlantillasLineaScreen from "@/features/laminacion/PlantillasLineaScreen";
 import ObrasScreen           from "@/features/obras/ObrasScreen";
 import ConfiguracionScreen   from "@/features/configuracion/ConfiguracionScreen";
 import ProcedimientosScreen  from "@/features/procedimientos/ProcedimientosScreen";
@@ -383,6 +384,7 @@ export default function App() {
         <Route path="/postventa"  element={<RequireAuth session={session}><RequireRole profile={profile} allow={["admin","oficina","tecnica"]}><PostVentaScreen       {...A} /></RequireRole></RequireAuth>} />
         <Route path="/movimientos"element={<RequireAuth session={session}><RequireRole profile={profile} allow={["admin","oficina","tecnica"]}><MovimientosScreen     {...A} /></RequireRole></RequireAuth>} />
         <Route path="/obras-laminacion" element={<RequireAuth session={session}><RequireRole profile={profile} allow={["admin","oficina","tecnica"]}><ObrasLaminacionScreen {...A} /></RequireRole></RequireAuth>} />
+        <Route path="/laminacion/plantillas" element={<RequireAuth session={session}><RequireRole profile={profile} allow={["admin","tecnica"]}><PlantillasLineaScreen {...A} /></RequireRole></RequireAuth>} />
         <Route path="/configuracion"    element={<RequireAuth session={session}><RequireRole profile={profile} allow={["admin"]}><ConfiguracionScreen {...A} /></RequireRole></RequireAuth>} />
         <Route path="/madera" element={<RequireAuth session={session}><RequireRole profile={profile} allow={["admin","oficina","tecnica"]}><PedidosMaderaScreen profile={profile} signOut={signOut} /></RequireRole></RequireAuth>} />  
         <Route path="*" element={<Navigate to="/" replace />} />

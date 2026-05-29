@@ -32,6 +32,7 @@ import {
   REQUEST_STATUSES,
   deletePurchaseRequest,
   notifyComprasEmail,
+  notifyWaUpdate,
   updatePurchaseRequest,
   uploadInvoice,
   uploadItemImage,
@@ -74,6 +75,7 @@ function Pill({ children, color = C.blue }) {
     <span style={{
       display: "inline-flex",
       alignItems: "center",
+      flexShrink: 0,
       gap: 5,
       color,
       background: `${color}16`,
@@ -259,6 +261,7 @@ export default function PurchaseRequestDetail({ requestId, profile, users = [], 
   const [sending, setSending] = useState(false);
   const [newFollowerId, setNewFollowerId] = useState("");
   const [items, setItems] = useState([]);
+  const [generatedMovements, setGeneratedMovements] = useState([]);
   const [newItemDesc, setNewItemDesc] = useState("");
   const [newItemQty, setNewItemQty] = useState("");
   const [newItemUnit, setNewItemUnit] = useState("unidad");
@@ -274,17 +277,29 @@ export default function PurchaseRequestDetail({ requestId, profile, users = [], 
 
   const manager = isPurchaseManager(profile);
 
+  async function fetchGeneratedMovementsForRequest(id) {
+    const { data, error: movementsError } = await supabase
+      .from("laminacion_movimientos")
+      .select("id,material_id,tipo,cantidad,fecha,proveedor,obra,observaciones,created_at, laminacion_materiales(nombre,unidad)")
+      .ilike("observaciones", `%PR-${id}%`)
+      .order("created_at", { ascending: false });
+    if (movementsError) throw movementsError;
+    return data ?? [];
+  }
+
   async function load() {
     if (!requestId) return;
     setError("");
     setLoading(true);
     try {
-      const [data, itemsData] = await Promise.all([
+      const [data, itemsData, movementsData] = await Promise.all([
         fetchPurchaseRequestDetail(requestId),
         fetchRequestItems(requestId),
+        fetchGeneratedMovementsForRequest(requestId),
       ]);
       setRequest(data);
       setItems(itemsData);
+      setGeneratedMovements(movementsData);
     } catch (err) {
       setError(err.message || "No se pudo cargar la solicitud.");
     } finally {
@@ -334,9 +349,13 @@ export default function PurchaseRequestDetail({ requestId, profile, users = [], 
   async function patchRequest(patch) {
     setError("");
     try {
-      // Capturar valores previos para detectar cambios de status / prioridad
+      // Capturar valores previos para detectar cambios de status / prioridad / amounts
       const oldStatus = request.status;
       const oldPriority = request.priority;
+      const oldEstimated = request.estimated_amount;
+      const oldActual = request.actual_amount;
+      const oldDelivery = request.estimated_delivery_at;
+      const oldReceivedQty = request.received_quantity;
 
       if (patch.status === "recibido" && !patch.delivered_at) {
         patch.delivered_at = new Date().toISOString();
@@ -345,7 +364,9 @@ export default function PurchaseRequestDetail({ requestId, profile, users = [], 
       const data = await updatePurchaseRequest(request.id, patch);
       setRequest((prev) => ({ ...prev, ...data }));
 
-      // Cambio de estado: toast + notificación a compras (como antes)
+      const actorName = profile?.username || "Usuario";
+
+      // ── Cambio de estado ──────────────────────────────────────────────
       if (patch.status && patch.status !== oldStatus) {
         const newLabel = REQUEST_STATUSES.find((s) => s.value === patch.status)?.label || patch.status;
         toast.success(`Estado actualizado: ${newLabel}`);
@@ -354,19 +375,53 @@ export default function PurchaseRequestDetail({ requestId, profile, users = [], 
           requestId: request.id,
           requestTitle: request.title,
           changedBy: profile?.id,
-          createdByName: profile?.username || "Usuario",
+          createdByName: actorName,
           newStatus: patch.status,
           oldStatus,
         });
+        notifyWaUpdate({
+          requestId: request.id,
+          eventType: "status",
+          actorId: profile?.id,
+          payload: { oldStatus, newStatus: patch.status, actorName },
+        });
+
+        // Notif especial "recibido" — incluye cantidad recibida si la hay
+        if (patch.status === "recibido") {
+          notifyWaUpdate({
+            requestId: request.id,
+            eventType: "received",
+            actorId: profile?.id,
+            payload: {
+              quantity: patch.received_quantity ?? request.received_quantity ?? "",
+              notes: patch.receipt_notes ?? request.receipt_notes ?? "",
+              actorName,
+            },
+          });
+
+          try {
+            const { data: materialized, error: materializeError } = await supabase.functions.invoke("materialize-received", {
+              body: { requestId: request.id },
+            });
+            if (materializeError) throw materializeError;
+            const created = Number(materialized?.created ?? 0);
+            const skipped = Number(materialized?.skipped ?? 0);
+            toast.success(`Ingresos generados: ${created} creados, ${skipped} sin destino reconocido.`);
+            const nextMovements = await fetchGeneratedMovementsForRequest(request.id);
+            setGeneratedMovements(nextMovements);
+          } catch (materializeErr) {
+            console.warn("No se pudo materializar el pedido recibido:", materializeErr);
+            toast.warning("Pedido recibido, pero no se pudieron generar ingresos automáticos.");
+          }
+        }
       }
 
-      // Cambio de prioridad: comentario en el chat + toast + notificación a compras
+      // ── Cambio de prioridad ───────────────────────────────────────────
       if (patch.priority && patch.priority !== oldPriority) {
         const oldPLabel = REQUEST_PRIORITIES.find((p) => p.value === oldPriority)?.label || oldPriority || "?";
         const newPLabel = REQUEST_PRIORITIES.find((p) => p.value === patch.priority)?.label || patch.priority;
         toast.success(`Prioridad: ${newPLabel}`);
 
-        // Mensaje automático en el chat — el autor es el usuario actual.
         try {
           await addRequestComment(
             request.id,
@@ -374,8 +429,6 @@ export default function PurchaseRequestDetail({ requestId, profile, users = [], 
             users,
           );
         } catch (e) {
-          // No bloqueamos el flujo: el cambio de prioridad ya quedó persistido.
-          // Avisamos al usuario que el mensaje al chat falló (no se pierde silencioso).
           console.warn("No se pudo registrar el cambio de prioridad como comentario:", e);
           toast.warning("Prioridad cambiada, pero no se pudo publicar el mensaje en el chat.");
         }
@@ -385,11 +438,57 @@ export default function PurchaseRequestDetail({ requestId, profile, users = [], 
           requestId: request.id,
           requestTitle: request.title,
           changedBy: profile?.id,
-          createdByName: profile?.username || "Usuario",
+          createdByName: actorName,
           newPriority: patch.priority,
           oldPriority,
           newPriorityLabel: newPLabel,
           oldPriorityLabel: oldPLabel,
+        });
+        notifyWaUpdate({
+          requestId: request.id,
+          eventType: "priority",
+          actorId: profile?.id,
+          payload: { oldPriority, newPriority: patch.priority, actorName },
+        });
+      }
+
+      // ── Cotización (monto estimado) ──────────────────────────────────
+      if (patch.estimated_amount !== undefined && patch.estimated_amount !== oldEstimated && patch.estimated_amount !== null) {
+        notifyWaUpdate({
+          requestId: request.id,
+          eventType: "amount",
+          actorId: profile?.id,
+          payload: { kind: "estimated", amount: patch.estimated_amount, actorName },
+        });
+      }
+
+      // ── Costo real (cuando se compró) ────────────────────────────────
+      if (patch.actual_amount !== undefined && patch.actual_amount !== oldActual && patch.actual_amount !== null) {
+        notifyWaUpdate({
+          requestId: request.id,
+          eventType: "amount",
+          actorId: profile?.id,
+          payload: { kind: "actual", amount: patch.actual_amount, actorName },
+        });
+      }
+
+      // ── Fecha estimada de entrega ────────────────────────────────────
+      if (patch.estimated_delivery_at !== undefined && patch.estimated_delivery_at !== oldDelivery && patch.estimated_delivery_at) {
+        notifyWaUpdate({
+          requestId: request.id,
+          eventType: "delivery_date",
+          actorId: profile?.id,
+          payload: { date: patch.estimated_delivery_at, actorName },
+        });
+      }
+
+      // ── Cantidad recibida (si se actualiza sin cambio de status) ─────
+      if (patch.received_quantity !== undefined && patch.received_quantity !== oldReceivedQty && patch.received_quantity && patch.status !== "recibido" && oldStatus === "recibido") {
+        notifyWaUpdate({
+          requestId: request.id,
+          eventType: "received",
+          actorId: profile?.id,
+          payload: { quantity: patch.received_quantity, notes: patch.receipt_notes || "", actorName },
         });
       }
 
@@ -430,6 +529,7 @@ export default function PurchaseRequestDetail({ requestId, profile, users = [], 
     setSending(true);
     setError("");
     try {
+      const body = message.trim();
       await addRequestComment(request.id, message, users);
       notifyComprasEmail({
         type: "new_message",
@@ -437,7 +537,13 @@ export default function PurchaseRequestDetail({ requestId, profile, users = [], 
         requestTitle: request.title,
         changedBy: profile?.id,
         createdByName: profile?.username || "Usuario",
-        message: message.trim(),
+        message: body,
+      });
+      notifyWaUpdate({
+        requestId: request.id,
+        eventType: "comment",
+        actorId: profile?.id,
+        payload: { body, actorName: profile?.username || "Usuario" },
       });
       setMessage("");
       await load();
@@ -474,8 +580,22 @@ export default function PurchaseRequestDetail({ requestId, profile, users = [], 
   async function handleUpdateItemStatus(item, status) {
     setError("");
     try {
+      const oldStatus = item.status;
       await updateRequestItem(item.id, { status });
       await load();
+      if (status !== oldStatus) {
+        notifyWaUpdate({
+          requestId: request.id,
+          eventType: "item_status",
+          actorId: profile?.id,
+          payload: {
+            itemDescription: item.description,
+            oldStatus,
+            newStatus: status,
+            actorName: profile?.username || "Usuario",
+          },
+        });
+      }
     } catch (err) {
       setError(err.message);
     }
@@ -627,9 +747,20 @@ export default function PurchaseRequestDetail({ requestId, profile, users = [], 
             <ArrowLeft size={15} />
           </button>
           <div style={{ minWidth: 0, flex: 1 }}>
-            <div style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
+            <div style={{ display: "flex", alignItems: "center", gap: 8, minWidth: 0 }}>
               <StatusDot status={request.status} />
-              <h2 style={{ margin: 0, color: C.text, fontSize: 16, fontWeight: 800, letterSpacing: -0.3 }}>
+              <h2 style={{
+                margin: 0,
+                color: C.text,
+                fontSize: 16,
+                fontWeight: 800,
+                letterSpacing: -0.3,
+                flex: "1 1 auto",
+                minWidth: 0,
+                overflow: "hidden",
+                textOverflow: "ellipsis",
+                whiteSpace: "nowrap",
+              }}>
                 {request.title}
               </h2>
               {!manager && (
@@ -1330,6 +1461,69 @@ export default function PurchaseRequestDetail({ requestId, profile, users = [], 
                 );
               })}
             </div>
+
+            {request.status === "recibido" && (
+              <div style={{
+                marginBottom: 20,
+                border: `1px solid ${C.border}`,
+                borderRadius: 10,
+                background: C.panel,
+                overflow: "hidden",
+              }}>
+                <div style={{
+                  display: "flex",
+                  alignItems: "center",
+                  gap: 8,
+                  padding: "9px 11px",
+                  borderBottom: `1px solid ${C.border}`,
+                  background: C.panel2,
+                  color: C.green,
+                  fontSize: 12,
+                  fontWeight: 850,
+                  letterSpacing: 1,
+                  textTransform: "uppercase",
+                }}>
+                  <CheckCircle2 size={14} />
+                  Ingresos generados
+                  <span style={{ marginLeft: "auto", color: C.dim, fontFamily: C.mono, fontSize: 11 }}>
+                    {generatedMovements.length}
+                  </span>
+                </div>
+                {generatedMovements.length === 0 ? (
+                  <div style={{ padding: 12, color: C.dim, fontSize: 13 }}>
+                    No hay ingresos automáticos registrados para este pedido.
+                  </div>
+                ) : (
+                  <div style={{ display: "grid" }}>
+                    {generatedMovements.map((mv) => (
+                      <div
+                        key={mv.id}
+                        style={{
+                          display: "grid",
+                          gridTemplateColumns: "minmax(0, 1fr) auto",
+                          gap: 10,
+                          padding: "9px 11px",
+                          borderTop: `1px solid ${C.border}`,
+                          alignItems: "center",
+                        }}
+                      >
+                        <div style={{ minWidth: 0 }}>
+                          <div style={{ color: C.text, fontSize: 13, fontWeight: 750, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+                            {mv.laminacion_materiales?.nombre || "Material de laminación"}
+                          </div>
+                          <div style={{ color: C.dim, fontSize: 11, marginTop: 2, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+                            {mv.obra || "Sin obra"} · {mv.proveedor || "Sin proveedor"} · {mv.fecha ? new Date(`${mv.fecha}T00:00:00`).toLocaleDateString("es-AR") : "Sin fecha"}
+                          </div>
+                        </div>
+                        <div style={{ color: C.green, fontFamily: C.mono, fontSize: 12, fontWeight: 850, whiteSpace: "nowrap" }}>
+                          +{mv.cantidad} {mv.laminacion_materiales?.unidad || ""}
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
+            )}
 
             {comments.length === 0 ? (
               <div style={{

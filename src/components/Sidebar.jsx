@@ -1,11 +1,12 @@
 ﻿import React, { useEffect, useState } from "react";
-import { Eye, Moon, Sun } from "lucide-react";
+import { Eye, Moon, Phone, Sun } from "lucide-react";
 import { Link, useLocation } from "react-router-dom";
 import logoK from "@/assets/logos/logo-k.png";
 import { useResponsive } from "@/hooks/useResponsive";
 import { hasAdminAccess } from "@/lib/permissions";
 import { C } from "@/theme";
 import { useTheme } from "@/theme/useTheme";
+import VincularWhatsAppModal from "@/features/cuenta/VincularWhatsAppModal";
 
 // ─── SVG ICONS ────────────────────────────────────────────────────────────────
 function Icon({ id, color = "currentColor", size = 14 }) {
@@ -43,6 +44,10 @@ function Icon({ id, color = "currentColor", size = 14 }) {
     "/obras-laminacion": <>
       <path d="M1 15V9L8 1l7 8v6H1z" {...p}/>
       <path d="M6 15v-5h4v5" {...p}/>
+    </>,
+    "/laminacion/plantillas": <>
+      <rect x="2" y="2" width="12" height="12" rx="2" {...p}/>
+      <path d="M5 5h6M5 8h6M5 11h3" {...p}/>
     </>,
     "/admin": <>
       <rect x="1" y="1" width="6" height="6" rx="1" {...p}/>
@@ -140,6 +145,7 @@ export default function Sidebar({ profile, signOut }) {
   const { isMobile } = useResponsive();
   const { theme, setTheme } = useTheme();
   const [menuOpen, setMenuOpen] = useState(false);
+  const [waOpen, setWaOpen] = useState(false);
   const toggleMenu = () => setMenuOpen(o => !o);
   useEffect(() => { if (!isMobile) setMenuOpen(false); }, [isMobile]);
 
@@ -151,6 +157,7 @@ export default function Sidebar({ profile, signOut }) {
   const esGestion = isAdmin || role === "admin" || esTecnica;
   const esAdmin   = isAdmin || role === "admin";
   const esCompras = role === "compras";
+  const puedeEditarPlantillas = isAdmin || role === "admin" || role === "tecnica";
   const puedePedirCompras = esGestion || esPanol || esCompras;
   const comprasLabel = esCompras || esAdmin ? "Gestión de Compras" : "Pedidos";
   const comprasGroup = esCompras || esAdmin ? "Compras" : "Solicitudes";
@@ -328,6 +335,7 @@ export default function Sidebar({ profile, signOut }) {
             {divider("lam")}
             {group("Gestión Laminación", SC.gestion_laminacion, 200)}
             {item("/obras-laminacion", "Por obra",   SC.gestion_laminacion, false, 220, "Detalle de materiales de laminación imputados por casco.")}
+            {puedeEditarPlantillas && item("/laminacion/plantillas", "Plantillas", SC.gestion_laminacion, true, 225, "Recetas base por línea de producción de laminación.")}
             {subItem("/laminacion", "Ingresos",    "?tab=Ingresos",    SC.gestion_laminacion, 235, "Registro de remitos y entradas de insumos de laminación.")}
             {subItem("/laminacion", "Egresos",     "?tab=Egresos",     SC.gestion_laminacion, 250, "Salida de materiales hacia los moldes y producción.")}
             {subItem("/laminacion", "Movimientos", "?tab=Movimientos", SC.gestion_laminacion, 265, "Historial completo de entradas y salidas de la nave.")}
@@ -339,8 +347,7 @@ export default function Sidebar({ profile, signOut }) {
             {group("Gestión Maderas", SC.gestion_maderas, 300)}
             {item("/admin",       "Inventario",  SC.gestion_maderas, true, 320, "Stock general de tableros, placas y listones de madera.")}
             {item("/movimientos", "Movimientos", SC.gestion_maderas, true, 335, "Historial de entradas y salidas del sector carpintería.")}
-            {item("/pedidos",     "Pedidos",     SC.gestion_maderas, true, 350, "Gestión de solicitudes generales de materiales al pañol.")}
-            {item("/madera",      "Pedidos Madera", SC.gestion_maderas, true, 365, "Requerimientos específicos de cortes y placas para muebles.")}
+            {item("/madera",      "Pedidos Madera", SC.gestion_maderas, true, 350, "Requerimientos de cortes y placas para muebles.")}
           </>}
 
           {esGestion && <>
@@ -388,6 +395,25 @@ export default function Sidebar({ profile, signOut }) {
               <span style={{ fontSize: 10, color: C.dim, letterSpacing: "1.1px", textTransform: "uppercase", fontWeight: 700 }}>{role}</span>
             </div>
           </div>
+          {role !== "cliente" && (
+            <button
+              type="button"
+              onClick={() => setWaOpen(true)}
+              title="Vincular WhatsApp"
+              className="sb-out"
+              style={{
+                background: "transparent",
+                border: `1px solid ${C.border}`,
+                borderRadius: 7,
+                color: C.dim,
+                width: 28, height: 28,
+                display: "flex", alignItems: "center", justifyContent: "center",
+                cursor: "pointer", flexShrink: 0,
+              }}
+            >
+              <Phone size={13} />
+            </button>
+          )}
           <div style={{ display: "flex", gap: 2, border: `1px solid ${C.border}`, borderRadius: 7, padding: 2, background: C.panel, flexShrink: 0 }}>
             {[
               { value: "dark", title: "Oscuro", Icon: Moon },
@@ -426,6 +452,11 @@ export default function Sidebar({ profile, signOut }) {
           </button>
         </div>
       </aside>
+      <VincularWhatsAppModal
+        open={waOpen}
+        onClose={() => setWaOpen(false)}
+        profile={profile}
+      />
     </>
   );
 }
