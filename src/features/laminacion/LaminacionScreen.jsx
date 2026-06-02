@@ -1199,7 +1199,8 @@ export default function LaminacionScreen({ profile, signOut }) {
                       ({movFiltrados.filter(m => m.tipo === "ingreso").length})
                     </span>
                   </h3>
-                  <table style={S.table}>
+                  <div style={{ overflowX: "auto" }}>
+                  <table style={{ ...S.table, minWidth: isMobile ? 560 : undefined }}>
                     <thead>
                       <tr>
                         <th style={S.th}>Fecha</th>
@@ -1236,6 +1237,7 @@ export default function LaminacionScreen({ profile, signOut }) {
                       )}
                     </tbody>
                   </table>
+                  </div>
                 </div>
               </>
             )}
@@ -1302,7 +1304,8 @@ export default function LaminacionScreen({ profile, signOut }) {
                       ({movFiltrados.filter(m => m.tipo === "egreso").length})
                     </span>
                   </h3>
-                  <table style={S.table}>
+                  <div style={{ overflowX: "auto" }}>
+                  <table style={{ ...S.table, minWidth: isMobile ? 560 : undefined }}>
                     <thead>
                       <tr>
                         <th style={S.th}>Fecha</th>
@@ -1339,6 +1342,7 @@ export default function LaminacionScreen({ profile, signOut }) {
                       )}
                     </tbody>
                   </table>
+                  </div>
                 </div>
               </>
             )}
