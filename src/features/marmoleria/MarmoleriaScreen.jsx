@@ -876,6 +876,12 @@ export default function MarmoleriaScreen({ profile, signOut }) {
         .action-btn:hover { opacity:0.75; }
         .edit-btn:hover { color:#eeeef0 !important; }
         .del-btn:hover  { color:#ef4444 !important; }
+        /* Tablas anchas en mobile: las filas mantienen ancho mínimo y el
+           contenedor (.mrm-scroll) se desliza horizontalmente. */
+        @media (max-width: 900px) {
+          .mrm-scroll { -webkit-overflow-scrolling: touch; }
+          .mrm-scroll > div { min-width: 620px; }
+        }
       `}</style>
 
       {/* Fondo ambiental */}
@@ -1256,7 +1262,7 @@ export default function MarmoleriaScreen({ profile, signOut }) {
                       )}
                     </div>
 
-                    <div style={{ background:"rgba(255,255,255,0.02)", border:`1px solid ${C2.b0}`, borderRadius:12, overflow:"hidden" }}>
+                    <div className="mrm-scroll" style={{ background:"rgba(255,255,255,0.02)", border:`1px solid ${C2.b0}`, borderRadius:12, overflowX: isMobile ? "auto" : "hidden", overflowY:"hidden" }}>
                       <div style={{ display:"grid", gridTemplateColumns:"55px 76px 100px 50px 110px 90px 130px",
                         gap:8, padding:"9px 16px", borderBottom:`1px solid ${C2.b0}`,
                         background:"rgba(255,255,255,0.02)" }}>
@@ -1359,7 +1365,7 @@ export default function MarmoleriaScreen({ profile, signOut }) {
                     return (
                       <>
                         {/* Tabla principal */}
-                        <div style={{ background:"rgba(255,255,255,0.02)", border:`1px solid ${C2.b0}`, borderRadius:12, overflow:"hidden" }}>
+                        <div className="mrm-scroll" style={{ background:"rgba(255,255,255,0.02)", border:`1px solid ${C2.b0}`, borderRadius:12, overflowX: isMobile ? "auto" : "hidden", overflowY:"hidden" }}>
                           <div style={{ display:"grid", gridTemplateColumns:"80px 100px 1fr 110px 110px 118px",
                             gap:10, padding:"9px 18px", borderBottom:`1px solid ${C2.b0}`,
                             background:"rgba(255,255,255,0.02)" }}>
@@ -1425,7 +1431,7 @@ export default function MarmoleriaScreen({ profile, signOut }) {
                       <div style={{ fontSize:12, letterSpacing:1.3, textTransform:"uppercase", fontFamily:C2.mono }}>Todo al día — sin piezas pendientes</div>
                     </div>
                   ) : (
-                    <div style={{ background:"rgba(255,255,255,0.02)", border:`1px solid ${C2.b0}`, borderRadius:12, overflow:"hidden" }}>
+                    <div className="mrm-scroll" style={{ background:"rgba(255,255,255,0.02)", border:`1px solid ${C2.b0}`, borderRadius:12, overflowX: isMobile ? "auto" : "hidden", overflowY:"hidden" }}>
                       {/* Header tabla */}
                       <div style={{ display:"grid", gridTemplateColumns:"92px 1.6fr 1fr 108px 124px 38px",
                         gap:12, padding:"9px 18px", borderBottom:`1px solid ${C2.b0}`,
@@ -1559,7 +1565,7 @@ export default function MarmoleriaScreen({ profile, signOut }) {
                       porSectorPlantilla[p.sector].push(p);
                     });
                     return (
-                      <div style={{ background:"rgba(255,255,255,0.02)", border:`1px solid ${C2.b0}`, borderRadius:12, overflow:"hidden" }}>
+                      <div className="mrm-scroll" style={{ background:"rgba(255,255,255,0.02)", border:`1px solid ${C2.b0}`, borderRadius:12, overflowX: isMobile ? "auto" : "hidden", overflowY:"hidden" }}>
                         {/* Header tabla */}
                         <div style={{ display:"grid", gridTemplateColumns:"1fr 150px 72px 68px",
                           gap:12, padding:"9px 18px", borderBottom:`1px solid ${C2.b0}`,

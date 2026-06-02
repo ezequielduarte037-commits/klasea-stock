@@ -468,7 +468,7 @@ function CatalogoLinea({ lineaId, lineaNombre, esAdmin, onOpenMueble }) {
       {showAdd && esAdmin && (
         <div style={{ background: C.s0, border: `1px solid ${C.b1}`, borderRadius: 12, padding: 16, marginBottom: 18 }}>
           <div style={{ fontSize: 10, letterSpacing: 1.3, textTransform: "uppercase", color: C.t2, marginBottom: 10 }}>Nuevo mueble</div>
-          <div style={{ display: "grid", gridTemplateColumns: "1fr 140px", gap: 8, marginBottom: 8 }}>
+          <div style={{ display: "grid", gridTemplateColumns: isMobile ? "1fr" : "1fr 140px", gap: 8, marginBottom: 8 }}>
             <div>
               <label style={LBL}>Nombre *</label>
               <input style={INP} placeholder="Ej: Mesa de comedor" value={newM.nombre} onChange={e => setNewM(f => ({...f, nombre: e.target.value}))} onKeyDown={e => e.key === "Enter" && agregar()} autoFocus />
@@ -482,7 +482,7 @@ function CatalogoLinea({ lineaId, lineaNombre, esAdmin, onOpenMueble }) {
             <label style={LBL}>Descripción</label>
             <input style={INP} placeholder="Descripción breve" value={newM.descripcion} onChange={e => setNewM(f => ({...f, descripcion: e.target.value}))} />
           </div>
-          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8, marginBottom: 12 }}>
+          <div style={{ display: "grid", gridTemplateColumns: isMobile ? "1fr" : "1fr 1fr", gap: 8, marginBottom: 12 }}>
             <div>
               <label style={LBL}>Medidas</label>
               <input style={INP} placeholder="Ej: 120x80x75 cm" value={newM.medidas} onChange={e => setNewM(f => ({...f, medidas: e.target.value}))} />
