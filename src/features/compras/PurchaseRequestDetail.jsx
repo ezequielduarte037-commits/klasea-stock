@@ -260,6 +260,9 @@ export default function PurchaseRequestDetail({ requestId, profile, users = [], 
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
   const [message, setMessage] = useState("");
+  // En mobile el panel lateral (involucrados / copia / detalles) arranca oculto
+  // y se muestra con un botón, para priorizar título + descripción + chat.
+  const [showSideMobile, setShowSideMobile] = useState(false);
   const [sending, setSending] = useState(false);
   const [newFollowerId, setNewFollowerId] = useState("");
   const [items, setItems] = useState([]);
@@ -759,8 +762,9 @@ export default function PurchaseRequestDetail({ requestId, profile, users = [], 
               <h2 style={{
                 margin: 0,
                 color: C.text,
-                fontSize: 16,
-                fontWeight: 800,
+                fontSize: isMobile ? 14 : 16,
+                fontWeight: isMobile ? 700 : 800,
+                lineHeight: isMobile ? 1.25 : 1.2,
                 letterSpacing: -0.3,
                 flex: "1 1 auto",
                 minWidth: 0,
@@ -1231,14 +1235,16 @@ export default function PurchaseRequestDetail({ requestId, profile, users = [], 
 
       <div style={{
         minHeight: 0,
-        display: "grid",
-        gridTemplateColumns: isMobile ? "1fr" : "minmax(0, 1fr) 300px",
+        // En mobile usamos flujo de bloque (no grid) para que sección y aside
+        // se apilen sin pisarse. El contenedor scrollea como una sola página.
+        display: isMobile ? "block" : "grid",
+        gridTemplateColumns: isMobile ? undefined : "minmax(0, 1fr) 300px",
         overflow: isMobile ? "auto" : "hidden",
       }}>
         <section style={{
           minHeight: 0,
-          display: "grid",
-          gridTemplateRows: isMobile ? "auto auto auto" : "auto 1fr auto",
+          display: isMobile ? "block" : "grid",
+          gridTemplateRows: isMobile ? undefined : "auto 1fr auto",
           borderRight: isMobile ? "none" : `1px solid ${C.border}`,
         }}>
 
@@ -1653,11 +1659,36 @@ export default function PurchaseRequestDetail({ requestId, profile, users = [], 
           </form>
         </section>
 
+        {/* Mobile: botón para mostrar/ocultar el panel lateral (involucrados/copia) */}
+        {isMobile && (
+          <button
+            type="button"
+            onClick={() => setShowSideMobile((v) => !v)}
+            style={{
+              width: "100%",
+              display: "flex", alignItems: "center", justifyContent: "center", gap: 8,
+              padding: "12px 16px",
+              border: "none",
+              borderTop: `1px solid ${C.border}`,
+              background: C.topbarSoft,
+              color: C.muted,
+              fontSize: 13, fontWeight: 700, fontFamily: C.sans,
+              cursor: "pointer",
+            }}
+          >
+            <Users size={14} />
+            {showSideMobile ? "Ocultar involucrados y copia" : "Ver involucrados y copia"}
+            {(followers.length > 0) && (
+              <span style={{ fontFamily: C.mono, fontSize: 12, color: C.dim }}>· {followers.length + 1}</span>
+            )}
+          </button>
+        )}
+
         <aside className="pr-aside" style={{
           minHeight: 0,
           overflowY: "auto",
           padding: isMobile ? "12px" : 14,
-          display: "grid",
+          display: isMobile && !showSideMobile ? "none" : "grid",
           gap: 16,
           alignContent: "start",
           borderTop: isMobile ? `1px solid ${C.border}` : "none",
