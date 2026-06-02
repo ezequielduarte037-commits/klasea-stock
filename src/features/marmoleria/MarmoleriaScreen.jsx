@@ -257,6 +257,8 @@ export default function MarmoleriaScreen({ profile, signOut }) {
   // UI
   const [lineaId,  setLineaId]  = useState(null);
   const [unidadId, setUnidadId] = useState(null);
+  // Mobile master-detail: true = se ve el menú (líneas/unidades); false = el detalle.
+  const [mobileShowNav, setMobileShowNav] = useState(true);
   const [q,        setQ]        = useState("");
   const [filtroEstado, setFiltroEstado] = useState("todos");
   const [modalPieza, setModalPieza] = useState(null);
@@ -976,8 +978,8 @@ export default function MarmoleriaScreen({ profile, signOut }) {
             </button>
           </div>
 
-          {/* ── KPI CARDS ── */}
-          <div style={{ display:"grid", gridTemplateColumns: isMobile ? "repeat(2,1fr)" : "repeat(4,1fr)", gap: isMobile ? 8 : 10, padding: isMobile ? "10px 12px 0" : "14px 22px 0", flexShrink:0 }}>
+          {/* ── KPI CARDS ── (en mobile solo en el menú, no en el detalle) */}
+          <div style={{ display: isMobile && !mobileShowNav ? "none" : "grid", gridTemplateColumns: isMobile ? "repeat(2,1fr)" : "repeat(4,1fr)", gap: isMobile ? 8 : 10, padding: isMobile ? "10px 12px 0" : "14px 22px 0", flexShrink:0 }}>
             {kpis.map((k, i) => (
               <div key={k.label} className="kpi-card" style={{
                 background:"linear-gradient(135deg, rgba(255,255,255,0.038) 0%, rgba(255,255,255,0.016) 100%)",
@@ -1031,10 +1033,10 @@ export default function MarmoleriaScreen({ profile, signOut }) {
           )}
 
           {/* ── SPLIT CONTENT ── */}
-          <div style={{ flex:1, overflow:"hidden", display:"grid", gridTemplateColumns: isMobile ? "1fr" : "236px 1fr", gridTemplateRows: isMobile ? "auto 1fr" : "1fr", minHeight:0, marginTop: unidadId ? 0 : 12 }}>
+          <div style={{ flex:1, overflow:"hidden", display:"grid", gridTemplateColumns: isMobile ? "1fr" : "236px 1fr", gridTemplateRows: "1fr", minHeight:0, marginTop: (unidadId && !isMobile) ? 0 : 12 }}>
 
-            {/* ── LEFT NAV ── */}
-            <div style={{ borderRight: isMobile ? "none" : `1px solid ${C2.b0}`, borderBottom: isMobile ? `1px solid ${C2.b0}` : "none", background:"rgba(7,8,13,0.97)", display:"flex", flexDirection:"column", height: isMobile ? "auto" : "100%", maxHeight: isMobile ? 168 : undefined, overflow:"hidden" }}>
+            {/* ── LEFT NAV ── (en mobile = menú master-detail, ocupa toda la pantalla) */}
+            <div style={{ borderRight: isMobile ? "none" : `1px solid ${C2.b0}`, background:"rgba(7,8,13,0.97)", display: isMobile && !mobileShowNav ? "none" : "flex", flexDirection:"column", height:"100%", overflow:"hidden" }}>
 
               {/* Encabezado nav */}
               <div style={{ padding:"11px 14px 9px", borderBottom:`1px solid ${C2.b0}`, flexShrink:0 }}>
@@ -1043,7 +1045,7 @@ export default function MarmoleriaScreen({ profile, signOut }) {
               </div>
 
               {/* Panel general btn */}
-              <button className="nav-btn-item" onClick={() => { setUnidadId(null); setLineaId(null); setViewMode("general"); cargarDashboardGeneral(); }} style={{
+              <button className="nav-btn-item" onClick={() => { setUnidadId(null); setLineaId(null); setViewMode("general"); cargarDashboardGeneral(); setMobileShowNav(false); }} style={{
                 width:"100%", textAlign:"left", padding:"10px 14px",
                 border:"none", borderBottom:`1px solid rgba(255,255,255,0.025)`,
                 background: viewMode === "general" && !unidadId && !lineaId ? "rgba(59,130,246,0.09)" : "transparent",
@@ -1068,7 +1070,7 @@ export default function MarmoleriaScreen({ profile, signOut }) {
                   return !desmoldesStatus.has(d.barco) && dias >= -14 && dias <= 30;
                 }).length;
                 return (
-                  <button className="nav-btn-item" onClick={() => { setUnidadId(null); setLineaId(null); setViewMode("desmoldes"); }} style={{
+                  <button className="nav-btn-item" onClick={() => { setUnidadId(null); setLineaId(null); setViewMode("desmoldes"); setMobileShowNav(false); }} style={{
                     width:"100%", textAlign:"left", padding:"10px 14px",
                     border:"none", borderBottom:`1px solid rgba(255,255,255,0.025)`,
                     background: selDesmoldes ? "rgba(239,68,68,0.07)" : "transparent",
@@ -1099,7 +1101,7 @@ export default function MarmoleriaScreen({ profile, signOut }) {
               {(() => {
                 const selHistorial = viewMode === "historial" && !unidadId;
                 return (
-                  <button className="nav-btn-item" onClick={() => { setUnidadId(null); setLineaId(null); setViewMode("historial"); cargarHistorialEnvios(); }} style={{
+                  <button className="nav-btn-item" onClick={() => { setUnidadId(null); setLineaId(null); setViewMode("historial"); cargarHistorialEnvios(); setMobileShowNav(false); }} style={{
                     width:"100%", textAlign:"left", padding:"10px 14px",
                     border:"none", borderBottom:`1px solid rgba(255,255,255,0.025)`,
                     background: selHistorial ? "rgba(168,180,196,0.07)" : "transparent",
@@ -1174,7 +1176,7 @@ export default function MarmoleriaScreen({ profile, signOut }) {
                               fontFamily:C2.mono,
                               borderLeft: unidadId===u.id ? `2px solid ${C2.primary}` : "2px solid transparent",
                               transition:"all 0.15s",
-                            }} onClick={() => setUnidadId(u.id)}>
+                            }} onClick={() => { setUnidadId(u.id); setMobileShowNav(false); }}>
                               {editUnidadId === u.id ? (
                                 <input autoFocus style={{ ...INP_SM, flex:1, padding:"2px 6px", fontSize:12, fontFamily:C2.mono }}
                                   value={editUnidadCodigo}
@@ -1225,7 +1227,20 @@ export default function MarmoleriaScreen({ profile, signOut }) {
             </div>
 
             {/* ── PANEL DERECHO ── */}
-            <div style={{ height:"100%", overflowY:"auto" }}>
+            <div style={{ height:"100%", overflowY:"auto", display: isMobile && mobileShowNav ? "none" : "block" }}>
+
+              {/* Mobile: volver al menú de líneas/unidades */}
+              {isMobile && (
+                <button onClick={() => setMobileShowNav(true)} style={{
+                  position:"sticky", top:0, zIndex:5, width:"100%",
+                  display:"flex", alignItems:"center", gap:8,
+                  padding:"11px 16px", border:"none",
+                  borderBottom:`1px solid ${C2.b0}`, background:"rgba(7,8,13,0.97)",
+                  color:C2.t1, fontSize:13, fontWeight:700, fontFamily:C2.sans, cursor:"pointer",
+                }}>
+                  ‹ Volver al menú
+                </button>
+              )}
 
               {/* ════ DESMOLDES — PENDIENTES DE PLANTILLA ════ */}
               {viewMode === "desmoldes" && !unidadId && (() => {

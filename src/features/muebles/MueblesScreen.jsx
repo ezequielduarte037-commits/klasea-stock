@@ -425,7 +425,7 @@ function CatalogoLinea({ lineaId, lineaNombre, esAdmin, onOpenMueble }) {
   const LBL = { fontSize: 10, letterSpacing: 1.3, color: C.t2, display: "block", marginBottom: 4, textTransform: "uppercase", fontWeight: 700 };
 
   return (
-    <div style={{ padding: isMobile ? "16px 16px 40px 52px" : "28px 28px 40px" }}>
+    <div style={{ padding: isMobile ? "16px 16px 40px" : "28px 28px 40px" }}>
       {/* Header */}
       <div style={{ display: "flex", flexDirection: isMobile ? "column" : "row", gap: isMobile ? 12 : 0, justifyContent: "space-between", alignItems: isMobile ? "stretch" : "flex-start", marginBottom: 24 }}>
         <div>
@@ -613,6 +613,8 @@ export default function MueblesScreen({ profile, signOut }) {
   const [checklist, setChecklist] = useState([]);
   const [lineaId,   setLineaId]   = useState(null);
   const [unidadId,  setUnidadId]  = useState(null);
+  // Mobile master-detail: true = menú (líneas/unidades); false = detalle.
+  const [mobileShowNav, setMobileShowNav] = useState(true);
   const [q,         setQ]         = useState("");
   const [filtro,    setFiltro]    = useState("todos");
   const [loading,   setLoading]   = useState(false);
@@ -882,17 +884,17 @@ export default function MueblesScreen({ profile, signOut }) {
       <div style={{ display: "contents" }}>
         <Sidebar profile={profile} signOut={signOut} />
 
-        <div style={{ display: "grid", gridTemplateColumns: isMobile ? "1fr" : "240px 1fr", gridTemplateRows: isMobile ? "auto 1fr" : "1fr", minHeight: 0, height: "100%", overflow: "hidden" }}>
+        <div style={{ display: "grid", gridTemplateColumns: isMobile ? "1fr" : "240px 1fr", gridTemplateRows: "1fr", minHeight: 0, height: "100%", overflow: "hidden" }}>
 
-          {/* ── LEFT NAV ── */}
-          <div style={{ height: isMobile ? "auto" : "100vh", maxHeight: isMobile ? 168 : undefined, overflowY: "auto", borderRight: isMobile ? "none" : `1px solid ${C.b0}`, borderBottom: isMobile ? `1px solid ${C.b0}` : "none", background: "rgba(9,9,11,0.98)", display: "flex", flexDirection: "column" }}>
-            <div style={{ padding: "14px 12px 10px", borderBottom: `1px solid ${C.b0}`, flexShrink: 0 }}>
+          {/* ── LEFT NAV ── (en mobile = menú master-detail a pantalla completa) */}
+          <div style={{ height: isMobile ? "100%" : "100vh", overflowY: "auto", borderRight: isMobile ? "none" : `1px solid ${C.b0}`, background: "rgba(9,9,11,0.98)", display: isMobile && !mobileShowNav ? "none" : "flex", flexDirection: "column" }}>
+            <div style={{ padding: isMobile ? "14px 12px 10px 52px" : "14px 12px 10px", borderBottom: `1px solid ${C.b0}`, flexShrink: 0 }}>
               {/* Switcher Muebles / Enchapadora */}
               <div style={{ display: "flex", gap: 3, marginBottom: 8, background: "rgba(255,255,255,0.03)", borderRadius: 8, padding: 3, border: `1px solid ${C.b0}` }}>
                 {[["muebles","Muebles"],["enchapadora","Enchapado"]].map(([key, label]) => (
                   <button
                     key={key}
-                    onClick={() => setMainView(key)}
+                    onClick={() => { setMainView(key); setMobileShowNav(key !== "enchapadora"); }}
                     style={{
                       flex: 1, padding: "6px 4px", borderRadius: 6, cursor: "pointer",
                       fontSize: 12, fontWeight: mainView === key ? 600 : 400,
@@ -919,12 +921,12 @@ export default function MueblesScreen({ profile, signOut }) {
                 const sel = lineaId === l.id;
                 return (
                   <div key={l.id}>
-                    <button style={lineaNavBtn(sel)} onClick={() => { setLineaId(l.id); setUnidadId(null); }}>
+                    <button style={lineaNavBtn(sel)} onClick={() => { setLineaId(l.id); setUnidadId(null); setMobileShowNav(false); }}>
                       <span>{l.nombre}</span>
                       {esAdmin && sel && <span style={{ fontSize: 11, color: C.red, cursor: "pointer", padding: "2px 5px" }} onClick={e => { e.stopPropagation(); eliminarLinea(l.id); }}>×</span>}
                     </button>
                     {sel && unidades.map(u => (
-                      <button key={u.id} style={unidadNavBtn(unidadId === u.id)} onClick={() => setUnidadId(u.id)}>
+                      <button key={u.id} style={unidadNavBtn(unidadId === u.id)} onClick={() => { setUnidadId(u.id); setMobileShowNav(false); }}>
                         <span style={{ display: "flex", alignItems: "center", gap: 5 }}>
                           {u.color && <span style={{ width: 5, height: 5, borderRadius: "50%", background: u.color, flexShrink: 0 }} />}
                           {u.codigo}
@@ -956,7 +958,18 @@ export default function MueblesScreen({ profile, signOut }) {
           </div>
 
           {/* ── DETAIL ── */}
-          <div style={{ height: "100vh", overflowY: "auto" }}>
+          <div style={{ height: isMobile ? "100%" : "100vh", overflowY: "auto", display: isMobile && mobileShowNav ? "none" : "block" }}>
+            {isMobile && (
+              <button onClick={() => setMobileShowNav(true)} style={{
+                position: "sticky", top: 0, zIndex: 5, width: "100%",
+                display: "flex", alignItems: "center", gap: 8,
+                padding: "11px 16px 11px 52px", border: "none",
+                borderBottom: `1px solid ${C.b0}`, background: "rgba(9,9,11,0.98)",
+                color: C.t1, fontSize: 13, fontWeight: 700, fontFamily: C.sans, cursor: "pointer",
+              }}>
+                ‹ Volver al menú
+              </button>
+            )}
             {mainView === "enchapadora" ? (
               <EnchapadoView esAdmin={esAdmin} onEnsureMueblesUnidad={ensureUnidadDesdeEnchapado} />
             ) : !lineaId ? (
