@@ -740,17 +740,20 @@ export default function PurchaseRequestDetail({ requestId, profile, users = [], 
         <div style={{
           minHeight: 64,
           display: "flex",
-          alignItems: "center",
-          gap: 12,
+          alignItems: isMobile ? "flex-start" : "center",
+          flexWrap: isMobile ? "wrap" : "nowrap",
+          gap: isMobile ? 8 : 12,
           // En mobile el botón hamburguesa del Sidebar flota arriba-izquierda;
-          // agregamos padding para que no se superponga con el botón "volver".
+          // padding-left para que el botón "volver" no quede debajo de él.
           padding: isMobile ? "10px 12px 10px 50px" : "10px 16px",
           borderBottom: manager ? `1px solid ${C.border}` : "none",
         }}>
           <button type="button" onClick={onBack} title="Volver" className="icon-btn" style={iconButtonStyle}>
             <ArrowLeft size={15} />
           </button>
-          <div style={{ minWidth: 0, flex: 1 }}>
+          {/* En mobile el título baja a su propia línea (order 2 + base 100%);
+              las acciones quedan arriba a la derecha. */}
+          <div style={{ minWidth: 0, flex: isMobile ? "1 1 100%" : 1, order: isMobile ? 2 : 0 }}>
             <div style={{ display: "flex", alignItems: "center", gap: 8, minWidth: 0, flexWrap: isMobile ? "wrap" : "nowrap" }}>
               <StatusDot status={request.status} />
               <h2 style={{
@@ -785,7 +788,7 @@ export default function PurchaseRequestDetail({ requestId, profile, users = [], 
             </div>
           </div>
 
-          <div style={{ display: "flex", gap: 6, flexShrink: 0 }}>
+          <div style={{ display: "flex", gap: 6, flexShrink: 0, marginLeft: isMobile ? "auto" : 0 }}>
             <button
               type="button"
               title="Imprimir en formato Webmail"

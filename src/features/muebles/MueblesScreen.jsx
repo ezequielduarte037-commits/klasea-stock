@@ -334,6 +334,7 @@ function MuebleModal({ mueble, onClose, onSave, onDelete, esAdmin }) {
 
 // ─── CatalogoLinea — vista principal cuando hay línea pero no unidad ─
 function CatalogoLinea({ lineaId, lineaNombre, esAdmin, onOpenMueble }) {
+  const { isMobile } = useResponsive();
   const [muebles,   setMuebles]   = useState([]);
   const [loading,   setLoading]   = useState(true);
   const [q,         setQ]         = useState("");
@@ -424,9 +425,9 @@ function CatalogoLinea({ lineaId, lineaNombre, esAdmin, onOpenMueble }) {
   const LBL = { fontSize: 10, letterSpacing: 1.3, color: C.t2, display: "block", marginBottom: 4, textTransform: "uppercase", fontWeight: 700 };
 
   return (
-    <div style={{ padding: "28px 28px 40px" }}>
+    <div style={{ padding: isMobile ? "16px 16px 40px 52px" : "28px 28px 40px" }}>
       {/* Header */}
-      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: 24 }}>
+      <div style={{ display: "flex", flexDirection: isMobile ? "column" : "row", gap: isMobile ? 12 : 0, justifyContent: "space-between", alignItems: isMobile ? "stretch" : "flex-start", marginBottom: 24 }}>
         <div>
           <div style={{ fontSize: 22, fontWeight: 700, color: C.t0 }}>{lineaNombre}</div>
           <div style={{ display: "flex", alignItems: "center", gap: 10, marginTop: 4 }}>

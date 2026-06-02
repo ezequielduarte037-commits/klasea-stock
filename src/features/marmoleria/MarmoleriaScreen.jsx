@@ -906,10 +906,10 @@ export default function MarmoleriaScreen({ profile, signOut }) {
               </span>
             </div>
 
-            <div style={{ width:1, height:24, background:C2.b0, flexShrink:0 }} />
+            {!isMobile && <div style={{ width:1, height:24, background:C2.b0, flexShrink:0 }} />}
 
-            {/* Stats chips */}
-            {unidadId ? (
+            {/* Stats chips — ocultas en mobile (ya están en las tarjetas de abajo) */}
+            {!isMobile && (unidadId ? (
               <div style={{ display:"flex", gap:5 }}>
                 {[
                   { label:"Recibidas",  n:stats.recibido,  c:C2.green },
@@ -944,7 +944,7 @@ export default function MarmoleriaScreen({ profile, signOut }) {
                   ))}
                 </div>
               )
-            )}
+            ))}
 
             <div style={{ flex:1 }} />
 
