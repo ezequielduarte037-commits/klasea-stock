@@ -1285,7 +1285,7 @@ export default function PurchaseRequestDetail({ requestId, profile, users = [], 
             )}
           </div>
 
-          <div className="pr-chat-scroll" style={{ minHeight: 0, overflowY: "auto", padding: isMobile ? "12px" : "16px 18px" }}>
+          <div className="pr-chat-scroll" style={{ minHeight: 0, overflowY: isMobile ? "visible" : "auto", padding: isMobile ? "12px" : "16px 18px" }}>
 
             {/* ─── ITEMS ──────────────────────────────────────────────── */}
             <div style={{ marginBottom: items.length || showAddItem ? 20 : 0 }}>
