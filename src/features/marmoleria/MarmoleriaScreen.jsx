@@ -977,12 +977,12 @@ export default function MarmoleriaScreen({ profile, signOut }) {
           </div>
 
           {/* ── KPI CARDS ── */}
-          <div style={{ display:"grid", gridTemplateColumns:"repeat(4,1fr)", gap:10, padding:"14px 22px 0", flexShrink:0 }}>
+          <div style={{ display:"grid", gridTemplateColumns: isMobile ? "repeat(2,1fr)" : "repeat(4,1fr)", gap: isMobile ? 8 : 10, padding: isMobile ? "10px 12px 0" : "14px 22px 0", flexShrink:0 }}>
             {kpis.map((k, i) => (
               <div key={k.label} className="kpi-card" style={{
                 background:"linear-gradient(135deg, rgba(255,255,255,0.038) 0%, rgba(255,255,255,0.016) 100%)",
                 border:`1px solid ${C2.b0}`, borderRadius:12,
-                padding:"14px 16px 13px", position:"relative", overflow:"hidden",
+                padding: isMobile ? "10px 12px 9px" : "14px 16px 13px", position:"relative", overflow:"hidden",
                 animation:`kpiFadeIn 0.45s cubic-bezier(0.22,1,0.36,1) ${i*60}ms both`,
               }}>
                 <div style={{ position:"absolute", top:-24, right:-24, width:90, height:90, borderRadius:"50%",
@@ -993,8 +993,8 @@ export default function MarmoleriaScreen({ profile, signOut }) {
                   </span>
                   <div style={{ color:`${k.color}80`, display:"flex" }}>{k.icon}</div>
                 </div>
-                <div style={{ fontFamily:C2.mono, fontSize:k.big ? 30 : 26, fontWeight:800,
-                  color:k.color, lineHeight:1, letterSpacing:"-1px", marginBottom:6 }}>
+                <div style={{ fontFamily:C2.mono, fontSize: isMobile ? (k.big ? 22 : 20) : (k.big ? 30 : 26), fontWeight:800,
+                  color:k.color, lineHeight:1, letterSpacing:"-1px", marginBottom: isMobile ? 4 : 6 }}>
                   {k.value}
                 </div>
                 <div style={{ fontSize:11, color:C2.t2, lineHeight:1.4 }}>{k.sub}</div>
