@@ -335,6 +335,18 @@ export default function PanolScreen({ profile, signOut }) {
 
       await cargarMateriales();
       await cargarMovs();
+
+      // Avisar a compras que el pedido llegó (si está vinculado a un purchase_request)
+      if (pedido?.purchase_request_id) {
+        supabase.functions.invoke("notificar-email-compras", {
+          body: {
+            type: "pedido_recibido",
+            requestId: pedido.purchase_request_id,
+            requestTitle: pedido.nota || "Pedido de maderas",
+            message: `Recibido en pañol el ${hoy}.`,
+          },
+        }).catch(() => {});
+      }
     }
 
     await supabase.from("pedidos").update(patch).eq("id", pedidoId);

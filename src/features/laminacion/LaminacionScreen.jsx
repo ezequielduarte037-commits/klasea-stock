@@ -592,6 +592,32 @@ export default function LaminacionScreen({ profile, signOut }) {
     cargar();
   }
 
+  // Avisa por mail a compras cuando se reciben pedidos de laminación que
+  // vinieron de "Pedir a compras" (tienen purchase_request_item_id). Best-effort.
+  async function avisarComprasRecibido(pedidoIds) {
+    try {
+      const ids = (pedidoIds ?? []).filter(Boolean);
+      if (!ids.length) return;
+      const { data: peds } = await supabase
+        .from("laminacion_pedidos").select("purchase_request_item_id").in("id", ids);
+      const itemIds = [...new Set((peds ?? []).map(p => p.purchase_request_item_id).filter(Boolean))];
+      if (!itemIds.length) return;
+      const { data: items } = await supabase
+        .from("purchase_request_items").select("request_id").in("id", itemIds);
+      const reqIds = [...new Set((items ?? []).map(i => i.request_id).filter(Boolean))];
+      const hoy = new Date().toLocaleDateString("es-AR");
+      for (const reqId of reqIds) {
+        supabase.functions.invoke("notificar-email-compras", {
+          body: {
+            type: "pedido_recibido", requestId: reqId,
+            requestTitle: "Pedido de laminación", source: "laminacion",
+            message: `Recibido en laminación el ${hoy}.`,
+          },
+        }).catch(() => {});
+      }
+    } catch { /* best-effort */ }
+  }
+
   // ── Recepción de pedido desde tab Ingresos (pañolero) ───────────
   async function recibirPedido() {
     if (!confModal) return;
@@ -616,6 +642,7 @@ export default function LaminacionScreen({ profile, signOut }) {
       await supabase.from("laminacion_pedidos")
         .update({ estado: "entregado" })
         .in("id", grupo.items.map(p => p.id));
+      avisarComprasRecibido(grupo.items.map(p => p.id));
       flash(`Orden ${grupo.ref} recibida — stock actualizado`);
       setConfModal(null);
       cargar();
@@ -644,8 +671,10 @@ export default function LaminacionScreen({ profile, signOut }) {
       if (!movs.length) { setErr("Ingresá al menos una cantidad mayor a 0"); return; }
       const { error } = await supabase.from("laminacion_movimientos").insert(movs);
       if (error) { setErr(error.message); return; }
-      if (idsCerrar.length)
+      if (idsCerrar.length) {
         await supabase.from("laminacion_pedidos").update({ estado: "entregado" }).in("id", idsCerrar);
+        avisarComprasRecibido(idsCerrar);
+      }
       for (const { id, obs } of idsParciales) {
         const cant = num(cantsParciales[id]);
         const obsAnterior = obs ? obs + " | " : "";
@@ -673,6 +702,7 @@ export default function LaminacionScreen({ profile, signOut }) {
     if (error) { setErr(error.message); return; }
     if (tipo === "entero") {
       await supabase.from("laminacion_pedidos").update({ estado: "entregado" }).eq("id", pedido.id);
+      avisarComprasRecibido([pedido.id]);
       flash("Recepción completa — stock actualizado");
     } else {
       const obsAnterior = pedido.observaciones ? pedido.observaciones + " | " : "";

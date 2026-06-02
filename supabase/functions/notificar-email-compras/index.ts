@@ -82,6 +82,14 @@ ${source ? `<p><strong>Origen:</strong> ${source}</p>` : ""}
 <p><strong>Por:</strong> ${createdByName || changedBy}</p>
 <hr>
 <a href="${link}" style="display:inline-block;background:#2563eb;color:#fff;padding:10px 24px;border-radius:6px;text-decoration:none;font-weight:700">Ir a la app</a>`
+    } else if (type === "pedido_recibido") {
+      const origen = source === "laminacion" ? "laminación" : "pañol"
+      subject = `[Compras] Pedido recibido en ${origen}: ${requestTitle}`
+      html = `<h2>Pedido recibido ✅</h2>
+<p>El pedido <strong>${requestTitle}</strong> fue recibido en <strong>${origen}</strong>.</p>
+${message ? `<p style="color:#666">${message}</p>` : ""}
+<hr>
+<a href="${link}" style="display:inline-block;background:#16a34a;color:#fff;padding:10px 24px;border-radius:6px;text-decoration:none;font-weight:700">Ver el pedido</a>`
     } else if (type === "priority_update") {
       const oldP = oldPriorityLabel || oldPriority || "?"
       const newP = newPriorityLabel || newPriority || "?"

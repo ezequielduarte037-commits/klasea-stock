@@ -1,6 +1,5 @@
 import { useEffect, useState, useMemo } from "react";
 import { supabase } from "@/supabaseClient";
-import { createClient } from "@supabase/supabase-js";
 import Sidebar from "@/components/Sidebar";
 import { useResponsive } from "@/hooks/useResponsive";
 import NotificacionesBell from "@/components/NotificacionesBell";
@@ -30,12 +29,6 @@ import {
   Recycle // ← ESTA LÍNEA ES LA QUE FALTABA
 } from "lucide-react";
 
-function getAdminClient() {
-  const url = import.meta.env.VITE_SUPABASE_URL;
-  const key = import.meta.env.VITE_SUPABASE_SERVICE_KEY;
-  if (!url || !key) throw new Error("Falta VITE_SUPABASE_SERVICE_KEY en .env");
-  return createClient(url, key, { auth: { autoRefreshToken: false, persistSession: false } });
-}
 
 // ─────────────────────────────────────────────────────────────────────────────
 // SQL QUE HAY QUE EJECUTAR UNA VEZ EN SUPABASE → SQL EDITOR
@@ -252,31 +245,21 @@ function ModalNuevoUsuario({ onClose, onSaved, flash }) {
     if (!form.username.trim() || !form.password) return flash(false,"Usuario y contraseña obligatorios.");
     setBusy(true);
 
-    let adminCli;
-    try { adminCli = getAdminClient(); }
-    catch (err) { setBusy(false); return flash(false, err.message); }
-
-    const email = `${form.username.trim().toLowerCase()}@klasea.local`;
-
-    // Crear usuario via admin API (garantiza que el password quede bien hasheado)
-    const { data: authData, error: authError } = await adminCli.auth.admin.createUser({
-      email,
-      password:      form.password,
-      email_confirm: true,
-      user_metadata: { username: form.username.trim() },
+    // Crear usuario vía edge function admin-usuarios: la service key vive en el
+    // server (Supabase Secrets), nunca en el frontend. La función verifica que
+    // quien llama sea admin antes de crear nada.
+    const { data: res, error: fnError } = await supabase.functions.invoke("admin-usuarios", {
+      body: {
+        action: "create_user",
+        username: form.username.trim(),
+        password: form.password,
+        role: form.role,
+        is_admin: form.is_admin,
+      },
     });
-    if (authError) { setBusy(false); return flash(false, "Error auth: " + authError.message); }
-    const uid = authData.user.id;
-
-    // Upsert profile con el rol correcto (el trigger puede poner otro por defecto)
-    const { error: profError } = await adminCli.from("profiles").upsert(
-      { id: uid, username: form.username.trim(), role: form.role, is_admin: form.is_admin },
-      { onConflict: "id" }
-    );
-    if (profError) {
-      await adminCli.auth.admin.deleteUser(uid);
+    if (fnError || res?.error) {
       setBusy(false);
-      return flash(false, "Error perfil: " + profError.message);
+      return flash(false, "Error: " + (res?.error || fnError?.message || "no se pudo crear el usuario"));
     }
 
     setBusy(false);
@@ -412,31 +395,18 @@ function ModalCliente({ cliente, modelos, onClose, onSaved, flash }) {
     const obraIdValido = form.obra_id && UUID_RE.test(form.obra_id) ? form.obra_id : null;
 
     if (esNuevo) {
-      // ── Crear usuario auth con adminClient ────────────────────────
-      let adminCli;
-      try { adminCli = getAdminClient(); }
-      catch (err) { setBusy(false); return flash(false, err.message); }
-
-      const email = `${form.username.trim().toLowerCase()}@klasea.local`;
-      const { data: authData, error: authError } = await adminCli.auth.admin.createUser({
-        email,
-        password:      form.password,
-        email_confirm: true,
+      // ── Crear usuario auth + perfil vía edge function (service key server-side) ──
+      const { data: cu, error: cuErr } = await supabase.functions.invoke("admin-usuarios", {
+        body: {
+          action: "create_user",
+          username: form.username.trim(),
+          password: form.password,
+          role: "cliente",
+          is_admin: false,
+        },
       });
-      if (authError) { setBusy(false); return flash(false, "Error auth: " + authError.message); }
-      const uid = authData.user.id;
-
-      // ── FIX ROL: usar adminClient para saltear RLS en profiles ────
-      // El trigger crea el perfil con el rol por defecto (panol, etc).
-      // Con el service role podemos sobreescribirlo sin que RLS lo bloquee.
-      const { error: profError } = await adminCli
-        .from("profiles")
-        .upsert({ id: uid, username: form.username.trim(), role: "cliente", is_admin: false },
-                 { onConflict: "id" });
-      if (profError) {
-        // Si falla el upsert, al menos intentar un update directo
-        await adminCli.from("profiles").update({ role: "cliente", is_admin: false }).eq("id", uid);
-      }
+      if (cuErr || cu?.error) { setBusy(false); return flash(false, "Error auth: " + (cu?.error || cuErr?.message || "no se pudo crear el usuario")); }
+      const uid = cu.uid;
 
       // ── Insertar en tabla clientes ────────────────────────────────
       const { error: dbError } = await supabase.from("clientes").insert({
@@ -448,7 +418,8 @@ function ModalCliente({ cliente, modelos, onClose, onSaved, flash }) {
         obra_id:         obraIdValido,
       });
       if (dbError) {
-        await adminCli.auth.admin.deleteUser(uid);
+        // rollback: borrar el usuario auth recién creado
+        await supabase.functions.invoke("admin-usuarios", { body: { action: "delete_user", user_id: uid } });
         setBusy(false);
         return flash(false, "Error DB clientes: " + dbError.message);
       }
@@ -490,15 +461,12 @@ function ModalCliente({ cliente, modelos, onClose, onSaved, flash }) {
         }).eq("id", flotaEx.id);
       }
 
-      // Cambiar contraseña si se ingresó
+      // Cambiar contraseña si se ingresó (vía edge function, service key server-side)
       if (form.password) {
-        try {
-          const adminCli = getAdminClient();
-          const { error: pwErr } = await adminCli.auth.admin.updateUserById(
-            cliente.id, { password: form.password }
-          );
-          if (pwErr) { setBusy(false); return flash(false, "Error contraseña: " + pwErr.message); }
-        } catch(err) { setBusy(false); return flash(false, err.message); }
+        const { data: pw, error: pwErr } = await supabase.functions.invoke("admin-usuarios", {
+          body: { action: "update_password", user_id: cliente.id, password: form.password },
+        });
+        if (pwErr || pw?.error) { setBusy(false); return flash(false, "Error contraseña: " + (pw?.error || pwErr?.message || "no se pudo cambiar")); }
       }
 
       flash(true, "Cliente actualizado.");
