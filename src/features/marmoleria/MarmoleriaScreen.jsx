@@ -719,13 +719,21 @@ export default function MarmoleriaScreen({ profile, signOut }) {
       // 6. Generar Tabla
       autoTable(doc, {
         startY: 50, // Arranca más abajo para no pisar el logo ni los títulos
+        // En páginas de continuación el head se repite arriba; este margen evita
+        // que la tabla arranque pegada al borde y se pise.
+        margin: { top: 16, bottom: 18 },
+        // Clave del fix: si una fila (p. ej. una observación larga) no entra
+        // entera al pie de una página, NO se parte a la mitad — se mueve completa
+        // a la página siguiente. Con el default 'auto' la fila se cortaba y la
+        // primera fila de la página 2 quedaba "bugeada" (pisada/cortada).
+        rowPageBreak: "avoid",
         head: [["Unidad", "Fecha envío", "Tipo plantilla", "Color", "Sector", "Cantidad", "Estado", "Observaciones"]],
         body: rows,
-        styles: { fontSize: 10 },
+        styles: { fontSize: 10, valign: "middle", overflow: "linebreak" },
         headStyles: { fillColor: [14, 18, 28] }, // Color oscuro tipo UI
-        columnStyles: { 
+        columnStyles: {
           7: { cellWidth: 35 } // Darle más ancho a la columna de observaciones
-        } 
+        }
       });
 
       // 7. Guardar el archivo
@@ -1017,10 +1025,10 @@ export default function MarmoleriaScreen({ profile, signOut }) {
           )}
 
           {/* ── SPLIT CONTENT ── */}
-          <div style={{ flex:1, overflow:"hidden", display:"grid", gridTemplateColumns:"236px 1fr", marginTop: unidadId ? 0 : 12 }}>
+          <div style={{ flex:1, overflow:"hidden", display:"grid", gridTemplateColumns: isMobile ? "1fr" : "236px 1fr", gridTemplateRows: isMobile ? "auto 1fr" : "1fr", minHeight:0, marginTop: unidadId ? 0 : 12 }}>
 
             {/* ── LEFT NAV ── */}
-            <div style={{ borderRight:`1px solid ${C2.b0}`, background:"rgba(7,8,13,0.97)", display:"flex", flexDirection:"column", height:"100%", overflow:"hidden" }}>
+            <div style={{ borderRight: isMobile ? "none" : `1px solid ${C2.b0}`, borderBottom: isMobile ? `1px solid ${C2.b0}` : "none", background:"rgba(7,8,13,0.97)", display:"flex", flexDirection:"column", height: isMobile ? "auto" : "100%", maxHeight: isMobile ? 168 : undefined, overflow:"hidden" }}>
 
               {/* Encabezado nav */}
               <div style={{ padding:"11px 14px 9px", borderBottom:`1px solid ${C2.b0}`, flexShrink:0 }}>

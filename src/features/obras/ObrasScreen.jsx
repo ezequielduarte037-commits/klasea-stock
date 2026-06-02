@@ -1811,14 +1811,22 @@ export default function ObrasScreen({ profile, signOut }) {
       clearTimeout(debounceTimer);
       debounceTimer = setTimeout(cargar, 350);
     };
+    // Layout/memorias/notas del mapa viven en mapa_config (singleton). Suscribirse
+    // hace que cuando OTRO usuario mueve puestos o edita memorias, se refleje en vivo.
+    let mapaTimer = null;
+    const cargarMapaDebounced = () => {
+      clearTimeout(mapaTimer);
+      mapaTimer = setTimeout(cargarMapaConfig, 400);
+    };
     const ch = supabase.channel("rt-obras-v8")
       .on("postgres_changes", { event: "*", schema: "public", table: "produccion_obras"    }, cargarDebounced)
       .on("postgres_changes", { event: "*", schema: "public", table: "obra_etapas"         }, cargarDebounced)
       .on("postgres_changes", { event: "*", schema: "public", table: "obra_tareas"         }, cargarDebounced)
       .on("postgres_changes", { event: "*", schema: "public", table: "ordenes_compra"      }, cargarDebounced)
       .on("postgres_changes", { event: "*", schema: "public", table: "obra_tarea_archivos" }, cargarDebounced)
+      .on("postgres_changes", { event: "*", schema: "public", table: "mapa_config"         }, cargarMapaDebounced)
       .subscribe();
-    return () => { clearTimeout(debounceTimer); supabase.removeChannel(ch); };
+    return () => { clearTimeout(debounceTimer); clearTimeout(mapaTimer); supabase.removeChannel(ch); };
   }, []);
 
   // ── HELPERS ───────────────────────────────────────────────────
@@ -2514,18 +2522,15 @@ export default function ObrasScreen({ profile, signOut }) {
                 onSaveMemorias={onSaveMemorias}
                 onPuestoClick={({ puesto, obra }) => setMapaPanel({ puesto, obra })}
                 onAsignarObra={async (puestoId, obraId) => {
-                  // 1. Limpiar cualquier obra que ya ocupe ese puesto (evita colisiones)
-                  await supabase.from("produccion_obras")
-                    .update({ puesto_mapa: null })
-                    .eq("puesto_mapa", puestoId)
-                    .neq("id", obraId);
-                  // 2. Asignar la obra al puesto
-                  await supabase.from("produccion_obras").update({ puesto_mapa: puestoId }).eq("id", obraId);
+                  // Asignación atómica: el RPC libera el puesto y asigna la obra
+                  // en una sola transacción. Sin ventana de carrera → sin colisiones.
+                  const { error } = await supabase.rpc("asignar_obra_a_puesto", { p_obra_id: obraId, p_puesto: puestoId });
+                  if (error) console.error("asignar_obra_a_puesto:", error);
                   cargar();
                 }}
                 onChangeEstado={async (obraId, estado) => {
                   if (estado === "desasignar") {
-                    await supabase.from("produccion_obras").update({ puesto_mapa: null }).eq("id", obraId);
+                    await supabase.rpc("asignar_obra_a_puesto", { p_obra_id: obraId, p_puesto: null });
                   } else {
                     const upd = { estado };
                     if (estado === "terminada") upd.fecha_fin_real = today();
@@ -2534,19 +2539,14 @@ export default function ObrasScreen({ profile, signOut }) {
                   cargar();
                 }}
                 onAsignarObraPampa={async (bahiaId, obraId) => {
-                  // 1. Limpiar cualquier obra que ya ocupe esa bahía (evita colisiones)
-                  await supabase.from("produccion_obras")
-                    .update({ bahia_pampa: null })
-                    .eq("bahia_pampa", bahiaId)
-                    .neq("id", obraId);
-                  // 2. Asignar la obra a la bahía
-                  await supabase.from("produccion_obras").update({ bahia_pampa: bahiaId }).eq("id", obraId);
+                  const { error } = await supabase.rpc("asignar_obra_a_bahia", { p_obra_id: obraId, p_bahia: bahiaId });
+                  if (error) console.error("asignar_obra_a_bahia:", error);
                   cargar();
                 }}
                 onDesasignarObraPampa={async (bahiaId) => {
                   const obra = obrasConPct.find(o => o.bahia_pampa === bahiaId);
                   if (obra) {
-                    await supabase.from("produccion_obras").update({ bahia_pampa: null }).eq("id", obra.id);
+                    await supabase.rpc("asignar_obra_a_bahia", { p_obra_id: obra.id, p_bahia: null });
                     cargar();
                   }
                 }}
@@ -2565,7 +2565,7 @@ export default function ObrasScreen({ profile, signOut }) {
                     // setObraModal(obra);
                   }}
                   onAsignarPuesto={async (puesto, obra) => {
-                    await supabase.from("produccion_obras").update({ puesto_mapa: null }).eq("id", obra.id);
+                    await supabase.rpc("asignar_obra_a_puesto", { p_obra_id: obra.id, p_puesto: null });
                     cargar();
                     setMapaPanel(null);
                   }}

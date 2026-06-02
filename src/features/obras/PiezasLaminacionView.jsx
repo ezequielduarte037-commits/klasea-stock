@@ -47,6 +47,7 @@ import { C } from "@/theme";
 
 import { useEffect, useMemo, useState, useRef, useCallback } from "react";
 import { supabase } from "@/supabaseClient";
+import { useResponsive } from "@/hooks/useResponsive";
 
 const GLASS = {
   backdropFilter:"blur(24px) saturate(130%)",
@@ -720,6 +721,7 @@ function PiezaModal({ pieza, lineaKey, obraId, segRow, imagenes:imgInit=[], onSa
 
 // ─── main ─────────────────────────────────────────────────────────────────────
 export default function PiezasLaminacionView({ obras=[], esGestion=false }) {
+  const { isMobile } = useResponsive();
   const [obraSelId,   setObraSelId]   = useState(null);
   const [seguimiento, setSeguimiento] = useState([]);
   const [seguimientoResumen, setSeguimientoResumen] = useState({});
@@ -1184,10 +1186,10 @@ export default function PiezasLaminacionView({ obras=[], esGestion=false }) {
         </div>
 
         {/* body */}
-        <div style={{ flex:1, overflow:"hidden", display:"grid", gridTemplateColumns:"320px 1fr", minHeight:0 }}>
+        <div style={{ flex:1, overflow:"hidden", display:"grid", gridTemplateColumns: isMobile ? "1fr" : "320px 1fr", gridTemplateRows: isMobile ? "auto 1fr" : "1fr", minHeight:0 }}>
 
           {/* sidebar obras */}
-          <div style={{ borderRight:`1px solid ${C.b0}`, display:"flex", flexDirection:"column", overflow:"hidden" }}>
+          <div style={{ borderRight: isMobile ? "none" : `1px solid ${C.b0}`, borderBottom: isMobile ? `1px solid ${C.b0}` : "none", maxHeight: isMobile ? 168 : undefined, display:"flex", flexDirection:"column", overflow:"hidden" }}>
             <div style={{ padding:"10px 10px 8px", borderBottom:`1px solid ${C.b0}`, flexShrink:0 }}>
               <div style={{ display:"flex", alignItems:"center", justifyContent:"space-between", marginBottom:8 }}>
                 <span style={{ fontSize:10, color:C.t2, letterSpacing:1.2, textTransform:"uppercase", fontWeight:800 }}>Obras por linea</span>

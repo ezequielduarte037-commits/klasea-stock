@@ -14,6 +14,7 @@ import { C } from "@/theme";
  */
 
 import { useMemo } from "react";
+import { useResponsive } from "@/hooks/useResponsive";
 import {
   PieChart, Pie, Cell, Tooltip, ResponsiveContainer,
   BarChart, Bar, XAxis, YAxis, CartesianGrid,
@@ -113,6 +114,7 @@ function Legend({ items }) {
 
 // ── COMPONENTE PRINCIPAL ─────────────────────────────────────────
 export default function StockChartsPanel({ rows = [] }) {
+  const { isMobile } = useResponsive();
   // 1. Donut: distribución por estado
   const pieData = useMemo(() => {
     const counts = { OK: 0, ATENCION: 0, CRITICO: 0, PEDIDO: 0 };
@@ -166,7 +168,7 @@ export default function StockChartsPanel({ rows = [] }) {
   return (
     <div style={{
       display: "grid",
-      gridTemplateColumns: "220px 1fr 1fr",
+      gridTemplateColumns: isMobile ? "1fr" : "220px 1fr 1fr",
       gap: 12,
       marginBottom: 16,
       animation: "slideUp .35s ease",

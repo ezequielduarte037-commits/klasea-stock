@@ -742,14 +742,16 @@ export default function PurchaseRequestDetail({ requestId, profile, users = [], 
           display: "flex",
           alignItems: "center",
           gap: 12,
-          padding: "10px 16px",
+          // En mobile el botón hamburguesa del Sidebar flota arriba-izquierda;
+          // agregamos padding para que no se superponga con el botón "volver".
+          padding: isMobile ? "10px 12px 10px 50px" : "10px 16px",
           borderBottom: manager ? `1px solid ${C.border}` : "none",
         }}>
           <button type="button" onClick={onBack} title="Volver" className="icon-btn" style={iconButtonStyle}>
             <ArrowLeft size={15} />
           </button>
           <div style={{ minWidth: 0, flex: 1 }}>
-            <div style={{ display: "flex", alignItems: "center", gap: 8, minWidth: 0 }}>
+            <div style={{ display: "flex", alignItems: "center", gap: 8, minWidth: 0, flexWrap: isMobile ? "wrap" : "nowrap" }}>
               <StatusDot status={request.status} />
               <h2 style={{
                 margin: 0,
@@ -761,7 +763,7 @@ export default function PurchaseRequestDetail({ requestId, profile, users = [], 
                 minWidth: 0,
                 overflow: "hidden",
                 textOverflow: "ellipsis",
-                whiteSpace: "nowrap",
+                whiteSpace: isMobile ? "normal" : "nowrap",
               }}>
                 {request.title}
               </h2>
@@ -825,15 +827,15 @@ export default function PurchaseRequestDetail({ requestId, profile, users = [], 
         </div>
 
         {manager && (
-          <div style={{ padding: "10px 16px", display: "flex", alignItems: "center", gap: 12, flexWrap: "wrap" }}>
-            <div style={{ flex: 1 }}>
+          <div style={{ padding: "10px 16px", display: "flex", alignItems: isMobile ? "stretch" : "center", gap: 12, flexWrap: "wrap", flexDirection: isMobile ? "column" : "row" }}>
+            <div style={{ flex: 1, minWidth: 0, maxWidth: "100%", overflowX: "auto" }}>
               <div style={{ color: C.dim, fontSize: 10, letterSpacing: 1.1, textTransform: "uppercase", fontWeight: 750, marginBottom: 6 }}>
                 Estado
               </div>
               <StatusStepper current={request.status} onChange={(status) => patchRequest({ status })} />
             </div>
 
-            <div style={{ flexShrink: 0, minWidth: 160 }}>
+            <div style={{ flexShrink: 0, minWidth: isMobile ? 0 : 160 }}>
               <div style={{ color: C.dim, fontSize: 10, letterSpacing: 1.1, textTransform: "uppercase", fontWeight: 750, marginBottom: 6 }}>
                 Proveedor
               </div>
@@ -962,7 +964,7 @@ export default function PurchaseRequestDetail({ requestId, profile, users = [], 
               Costos y seguimiento
             </div>
 
-            <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 10 }}>
+            <div style={{ display: "grid", gridTemplateColumns: isMobile ? "1fr" : "1fr 1fr 1fr", gap: 10 }}>
               {(request.status === "cotizando" || request.status === "comprado" || request.status === "recibido") && (
                 <div>
                   <div style={{ color: C.dim, fontSize: 10, letterSpacing: 1.1, textTransform: "uppercase", fontWeight: 750, marginBottom: 6 }}>
@@ -1076,7 +1078,7 @@ export default function PurchaseRequestDetail({ requestId, profile, users = [], 
               Recepción
             </div>
 
-            <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10 }}>
+            <div style={{ display: "grid", gridTemplateColumns: isMobile ? "1fr" : "1fr 1fr", gap: 10 }}>
               <div>
                 <div style={{ color: C.dim, fontSize: 10, letterSpacing: 1.1, textTransform: "uppercase", fontWeight: 750, marginBottom: 6 }}>
                   Cantidad recibida
@@ -1298,7 +1300,7 @@ export default function PurchaseRequestDetail({ requestId, profile, users = [], 
 
               {showAddItem && (
                 <form onSubmit={handleAddItem} style={{
-                  display: "grid", gridTemplateColumns: "1fr 70px 100px auto",
+                  display: "grid", gridTemplateColumns: isMobile ? "1fr 70px auto" : "1fr 70px 100px auto",
                   gap: 6, marginBottom: 10,
                   padding: 10, borderRadius: 8, border: `1px solid ${C.border}`,
                   background: C.panel,

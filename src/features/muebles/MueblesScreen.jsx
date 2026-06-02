@@ -881,10 +881,10 @@ export default function MueblesScreen({ profile, signOut }) {
       <div style={{ display: "contents" }}>
         <Sidebar profile={profile} signOut={signOut} />
 
-        <div style={{ display: "grid", gridTemplateColumns: "240px 1fr", height: "100%", overflow: "hidden" }}>
+        <div style={{ display: "grid", gridTemplateColumns: isMobile ? "1fr" : "240px 1fr", gridTemplateRows: isMobile ? "auto 1fr" : "1fr", minHeight: 0, height: "100%", overflow: "hidden" }}>
 
           {/* ── LEFT NAV ── */}
-          <div style={{ height: "100vh", overflowY: "auto", borderRight: `1px solid ${C.b0}`, background: "rgba(9,9,11,0.98)", display: "flex", flexDirection: "column" }}>
+          <div style={{ height: isMobile ? "auto" : "100vh", maxHeight: isMobile ? 168 : undefined, overflowY: "auto", borderRight: isMobile ? "none" : `1px solid ${C.b0}`, borderBottom: isMobile ? `1px solid ${C.b0}` : "none", background: "rgba(9,9,11,0.98)", display: "flex", flexDirection: "column" }}>
             <div style={{ padding: "14px 12px 10px", borderBottom: `1px solid ${C.b0}`, flexShrink: 0 }}>
               {/* Switcher Muebles / Enchapadora */}
               <div style={{ display: "flex", gap: 3, marginBottom: 8, background: "rgba(255,255,255,0.03)", borderRadius: 8, padding: 3, border: `1px solid ${C.b0}` }}>
