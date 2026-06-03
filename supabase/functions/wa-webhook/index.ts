@@ -94,6 +94,17 @@ async function handleEvent(body: any): Promise<void> {
   const messageId = msg.id;
   const type = msg.type;
   console.log(`[wa-webhook] msg de ${from} tipo=${type}`);
+
+  // Ignorar mensajes viejos: Meta REINTENTA entregar webhooks que fallaron
+  // (p. ej. durante el outage por el 401). Sin esto, el bot responde "de la nada"
+  // a un mensaje de hace horas. Solo procesamos lo de los últimos ~10 minutos.
+  const tsSec = Number(msg.timestamp || 0);
+  if (tsSec > 0 && Date.now() / 1000 - tsSec > 600) {
+    console.log(`[wa-webhook] mensaje viejo (${Math.round(Date.now() / 1000 - tsSec)}s) — reintento de Meta, ignorado`);
+    if (messageId) markRead(messageId);
+    return;
+  }
+
   if (messageId) markRead(messageId);
 
   const db = supa();
@@ -126,31 +137,49 @@ async function handleEvent(body: any): Promise<void> {
     await sendHelp(from, profile.username);
     return;
   }
-  if (/^(cancelar|salir|reset)\b/i.test(lower)) {
+  // Cancelar / reset: detecta la intención aunque NO esté al inicio
+  // ("quiero cancelar ese pedido", "descartá eso", "olvidate", etc.).
+  if (/\b(cancelar|cancel[aá]|descart\w+|resetear|reset|salir|olvidate|olvid[aá])\b/i.test(lower)) {
     await resetConversation(db, from);
-    await sendText(from, "Listo, cancelé lo que estaba en curso. Mandame algo cuando quieras.");
+    await sendText(from, "Listo, cancelé lo que estaba en curso. Mandame qué necesitás cuando quieras.");
     return;
   }
 
   // 3) Estado de conversación
   const { data: convo } = await db
     .from("bot_conversations")
-    .select("phone, user_id, state, context")
+    .select("phone, user_id, state, context, last_message_at")
     .eq("phone", from)
     .maybeSingle();
 
-  const state = convo?.state || "idle";
-  const ctx = (convo?.context || {}) as { history?: HistoryTurn[]; draft?: ParsedPedido };
+  // Si la última actividad es vieja (>30 min), NO revivimos un borrador colgado:
+  // arrancamos de cero para no tomar un "hola" como corrección de algo viejo.
+  const STALE_MS = 30 * 60 * 1000;
+  const lastAt = convo?.last_message_at ? new Date(convo.last_message_at).getTime() : 0;
+  const stale = lastAt > 0 && Date.now() - lastAt > STALE_MS;
+
+  const state = stale ? "idle" : (convo?.state || "idle");
+  const ctx = (stale ? {} : (convo?.context || {})) as { history?: HistoryTurn[]; draft?: ParsedPedido; photo_urls?: string[] };
   const history: HistoryTurn[] = Array.isArray(ctx.history) ? ctx.history : [];
+  const photoUrls: string[] = Array.isArray(ctx.photo_urls) ? ctx.photo_urls : [];
+
+  // Saludo suelto con algo pendiente → NO es una corrección. Reseteamos y saludamos.
+  const isGreeting = lower.length <= 20 &&
+    /^(hola+|buenas|buen d[ií]a|buenos d[ií]as|buenas tardes|buenas noches|hey|ey|hello|hi|que tal|qué tal)\b/i.test(lower);
+  if (isGreeting && state !== "idle") {
+    await resetConversation(db, from);
+    await sendText(from, `¡Hola ${profile.username}! 👋 ¿Qué necesitás pedir?`);
+    return;
+  }
 
   // 4) Esperando confirmación de un draft → manejar sí/no/correcciones
   if (state === "awaiting_confirm" && ctx.draft) {
-    await handleConfirmation(db, from, profile, inputText, ctx.draft, history);
+    await handleConfirmation(db, from, profile, inputText, ctx.draft, history, photoUrls);
     return;
   }
 
   // 5) Default: turno conversacional con LLM
-  await handleConversationTurn(db, from, profile, msg, history);
+  await handleConversationTurn(db, from, profile, msg, history, photoUrls);
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -232,9 +261,12 @@ async function handleConversationTurn(
   profile: any,
   msg: any,
   history: HistoryTurn[],
+  existingPhotos: string[] = [],
 ): Promise<void> {
   // Armar input multimodal
   const input: MessageInput = { images: [], urls: [] };
+  // URLs de fotos que ya se adjuntaron en turnos previos + las de este turno.
+  const photoUrls: string[] = [...existingPhotos];
 
   // Texto / caption
   let text = "";
@@ -276,6 +308,26 @@ async function handleConversationTurn(
       const base64 = btoa(binary);
       input.images!.push({ mimeType: mimeType || "image/jpeg", base64 });
       console.log(`[wa-webhook] imagen descargada (${buf.length} bytes, ${mimeType})`);
+
+      // Además de usarla para visión, la subimos a storage para adjuntarla al pedido.
+      try {
+        const ext = ((mimeType || "image/jpeg").split("/")[1] || "jpg").split("+")[0];
+        const path = `${profile.id}/wa-${Date.now()}-${crypto.randomUUID()}.${ext}`;
+        const { error: upErr } = await db.storage
+          .from("purchase-request-photos")
+          .upload(path, blob, { cacheControl: "3600", contentType: mimeType || "image/jpeg", upsert: false });
+        if (upErr) {
+          console.error("[wa-webhook] error subiendo foto a storage:", upErr);
+        } else {
+          const { data: pub } = db.storage.from("purchase-request-photos").getPublicUrl(path);
+          if (pub?.publicUrl) {
+            photoUrls.push(pub.publicUrl);
+            console.log(`[wa-webhook] foto adjuntada al pedido: ${pub.publicUrl}`);
+          }
+        }
+      } catch (e) {
+        console.error("[wa-webhook] excepción subiendo foto:", e);
+      }
     } catch (err) {
       console.error("[wa-webhook] error descargando imagen:", err);
     }
@@ -338,7 +390,7 @@ async function handleConversationTurn(
       phone: from,
       user_id: profile.id,
       state: "gathering",
-      context: { history: newHistory },
+      context: { history: newHistory, photo_urls: photoUrls },
       last_message_at: new Date().toISOString(),
     });
     await sendText(from, resp.message);
@@ -353,7 +405,7 @@ async function handleConversationTurn(
     phone: from,
     user_id: profile.id,
     state: "awaiting_confirm",
-    context: { history: newHistory, draft: { ...draft, project_id: projectId } },
+    context: { history: newHistory, draft: { ...draft, project_id: projectId }, photo_urls: photoUrls },
     last_message_at: new Date().toISOString(),
   });
 
@@ -370,12 +422,13 @@ async function handleConfirmation(
   text: string,
   draft: ParsedPedido & { project_id?: string | null },
   history: HistoryTurn[],
+  photoUrls: string[] = [],
 ): Promise<void> {
   const t = text.trim().toLowerCase();
 
   if (/^(si|sí|sip|dale|confirmo|ok|okey|yes|y|listo|👍|✅)\b/i.test(t)) {
     try {
-      const request = await createPurchaseRequestFromBot(db, profile, draft);
+      const request = await createPurchaseRequestFromBot(db, profile, draft, photoUrls);
       await resetConversation(db, from);
       notifyCompras(request.id, draft.title, profile.id, profile.username).catch((e) =>
         console.warn("[wa-webhook] notify compras fail:", e),
@@ -420,7 +473,7 @@ async function handleConfirmation(
       phone: from,
       user_id: profile.id,
       state: "awaiting_confirm",
-      context: { history: newHistory, draft },
+      context: { history: newHistory, draft, photo_urls: photoUrls },
       last_message_at: new Date().toISOString(),
     });
     await sendText(from, resp.message);
@@ -436,7 +489,7 @@ async function handleConfirmation(
     phone: from,
     user_id: profile.id,
     state: "awaiting_confirm",
-    context: { history: newHistory, draft: savedDraft },
+    context: { history: newHistory, draft: savedDraft, photo_urls: photoUrls },
     last_message_at: new Date().toISOString(),
   });
 
@@ -567,7 +620,7 @@ function truncateText(value: string, max: number): string {
 // DB
 // ─────────────────────────────────────────────────────────────────────────────
 async function createPurchaseRequestFromBot(
-  db: SupabaseClient, profile: any, draft: any,
+  db: SupabaseClient, profile: any, draft: any, photoUrls: string[] = [],
 ): Promise<{ id: string }> {
   const payload: any = {
     title: draft.title,
@@ -579,6 +632,8 @@ async function createPurchaseRequestFromBot(
     source: "whatsapp",
     source_ref: profile.username,
     created_by: profile.id,
+    // Foto principal: la primera que el usuario mandó al bot.
+    photo_url: photoUrls[0] || null,
   };
   const { data: request, error } = await db
     .from("purchase_requests").insert(payload).select("id").single();

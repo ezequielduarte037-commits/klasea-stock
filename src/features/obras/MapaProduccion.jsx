@@ -65,7 +65,6 @@ export default function MapaProduccion({obras=[],onPuestoClick,onAsignarObra,onC
   const [editMode,setEditMode]=useState(false);
   const [addObraFor,setAddObraFor]=useState(null);
   const [confirmDel,setConfirmDel]=useState(null);
-  const [pulseKey,setPulseKey]=useState(0);
   const [isDragging,setIsDragging]=useState(false);
   const [clickMenu,setClickMenu]=useState(null); // {puestoId, x, y}
   const [kpiCollapsed,setKpiCollapsed]=useState(false);
@@ -121,7 +120,6 @@ export default function MapaProduccion({obras=[],onPuestoClick,onAsignarObra,onC
     setLayoutSaved(true);
     setTimeout(()=>setLayoutSaved(false), 2500);
   }
-  useEffect(()=>{const id=setInterval(()=>setPulseKey(k=>k+1),3000);return()=>clearInterval(id);},[]);
   useEffect(()=>{
     const el=svgRef.current; if(!el) return;
     const update=()=>setContainerSize({w:el.clientWidth,h:el.clientHeight});
@@ -137,7 +135,7 @@ export default function MapaProduccion({obras=[],onPuestoClick,onAsignarObra,onC
       // Descontar el panel KPI para que el mapa quede centrado en el espacio útil
       const panelW = kpiCollapsed ? KPI_W_COLLAPSED : KPI_W;
       const usableW = width - panelW;
-      const scale=Math.min(usableW*0.92/VB_W,height*0.92/VB_H);
+      const scale=Math.min(usableW*0.965/VB_W,height*0.965/VB_H);
       const next={x:(usableW-VB_W*scale)/2,y:(height-VB_H*scale)/2,scale};
       vpRef.current=next; setVp(next);
     };
@@ -199,6 +197,8 @@ export default function MapaProduccion({obras=[],onPuestoClick,onAsignarObra,onC
       }
     };
     const onMove=(e)=>{
+      // Si hay un puesto/obra en arrastre, NO paneamos el mapa (lo maneja el drag).
+      if(dragRef.current && dragRef.current.type && dragRef.current.type!=="pan") return;
       if(mode==="pan"&&e.touches.length===1){
         const t=e.touches[0]; const dx=t.clientX-last.x, dy=t.clientY-last.y;
         if(Math.abs(dx)+Math.abs(dy)>2){ e.preventDefault(); last={x:t.clientX,y:t.clientY};
@@ -280,19 +280,26 @@ export default function MapaProduccion({obras=[],onPuestoClick,onAsignarObra,onC
 
   const startPan=useCallback(e=>{if(e.button!==0)return;dragRef.current={type:"pan",lastX:e.clientX,lastY:e.clientY,vx:0,vy:0,startX:e.clientX,startY:e.clientY,moved:false};setIsDragging(true);},[]);
   const startPuestoDrag=useCallback((e,p)=>{
-    if(e.button!==0)return;e.stopPropagation();
-    if(editMode){dragRef.current={type:"puesto",puestoId:p.id,startCX:p.cx,startCY:p.cy,startX:e.clientX,startY:e.clientY,moved:false};setIsDragging(true);return;}
+    const touch=e.touches?.[0];
+    if(!touch && e.button!==0)return;  // mouse: solo botón izquierdo. touch: siempre
+    e.stopPropagation();
+    const cx0=touch?touch.clientX:e.clientX, cy0=touch?touch.clientY:e.clientY;
+    if(editMode){dragRef.current={type:"puesto",puestoId:p.id,startCX:p.cx,startCY:p.cy,startX:cx0,startY:cy0,moved:false};setIsDragging(true);return;}
     const obra=obraByPuesto[p.id];
-    if(obra){dragRef.current={type:"obra",obra,puesto:p,fromId:p.id,startX:e.clientX,startY:e.clientY,lastX:e.clientX,lastY:e.clientY,moved:false};obraDragOverRef.current=null;setIsDragging(true);}
-    else{dragRef.current={type:"empty",puestoId:p.id,startX:e.clientX,startY:e.clientY,moved:false};setIsDragging(true);}
+    if(obra){dragRef.current={type:"obra",obra,puesto:p,fromId:p.id,startX:cx0,startY:cy0,lastX:cx0,lastY:cy0,moved:false};obraDragOverRef.current=null;setIsDragging(true);}
+    else{dragRef.current={type:"empty",puestoId:p.id,startX:cx0,startY:cy0,moved:false};setIsDragging(true);}
   },[editMode,obraByPuesto]);
 
   useEffect(()=>{
     if(!isDragging)return;
     document.body.style.cursor="grabbing";
-    const onMove=e=>{
+    const pt=ev=>ev.touches?.[0]??ev.changedTouches?.[0]??ev;
+    const onMove=ev=>{
       const d=dragRef.current;if(!d)return;
+      const e=pt(ev);
       if(Math.hypot(e.clientX-d.startX,e.clientY-d.startY)>4)d.moved=true;
+      // En touch, mientras arrastramos evitamos el scroll de la página.
+      if(ev.touches&&d.moved&&ev.cancelable)ev.preventDefault();
       if(d.type==="pan"){const dx=e.clientX-d.lastX,dy=e.clientY-d.lastY;d.vx=dx;d.vy=dy;d.lastX=e.clientX;d.lastY=e.clientY;setVp(v=>{const n={...v,x:v.x+dx,y:v.y+dy};vpRef.current=n;return n;});}
       else if(d.type==="puesto"&&d.moved){
         /* FIX: guardamos la posición en un ref y usamos RAF para actualizar
@@ -310,9 +317,20 @@ export default function MapaProduccion({obras=[],onPuestoClick,onAsignarObra,onC
           });
         }
       }
-      else if(d.type==="obra"){setObraDragPos({x:e.clientX,y:e.clientY});}
+      else if(d.type==="obra"){
+        setObraDragPos({x:e.clientX,y:e.clientY});
+        // En touch no hay hover: detectamos el puesto debajo del dedo con elementFromPoint.
+        if(ev.touches){
+          const el=document.elementFromPoint(e.clientX,e.clientY);
+          const pid=el?.getAttribute?.("data-pid")||null;
+          if(pid&&pid!==d.fromId){ if(obraDragOverRef.current!==pid){obraDragOverRef.current=pid;setObraDragOver(pid);} }
+          else if(!pid&&obraDragOverRef.current){ obraDragOverRef.current=null;setObraDragOver(null); }
+        }
+      }
     };
-    const onUp=()=>{
+    const onUp=ev=>{
+      // En touch, frenar los eventos de mouse sintéticos (evita doble apertura).
+      if(ev&&ev.changedTouches&&ev.cancelable)ev.preventDefault();
       const d=dragRef.current;document.body.style.cursor="";
       if(dragRafRef.current){cancelAnimationFrame(dragRafRef.current);dragRafRef.current=null;}
       if(d?.type==="pan"){let vx=d.vx,vy=d.vy;const step=()=>{vx*=0.85;vy*=0.85;if(Math.abs(vx)<0.3&&Math.abs(vy)<0.3)return;setVp(v=>{const n={...v,x:v.x+vx,y:v.y+vy};vpRef.current=n;return n;});requestAnimationFrame(step);};requestAnimationFrame(step);}
@@ -328,7 +346,11 @@ export default function MapaProduccion({obras=[],onPuestoClick,onAsignarObra,onC
       setIsDragging(false);dragRef.current=null;
     };
     window.addEventListener("mousemove",onMove);window.addEventListener("mouseup",onUp);
-    return()=>{window.removeEventListener("mousemove",onMove);window.removeEventListener("mouseup",onUp);};
+    window.addEventListener("touchmove",onMove,{passive:false});window.addEventListener("touchend",onUp);
+    return()=>{
+      window.removeEventListener("mousemove",onMove);window.removeEventListener("mouseup",onUp);
+      window.removeEventListener("touchmove",onMove);window.removeEventListener("touchend",onUp);
+    };
   },[isDragging,onAsignarObra,onPuestoClick]);
 
   function addPuesto(){
@@ -336,6 +358,12 @@ export default function MapaProduccion({obras=[],onPuestoClick,onAsignarObra,onC
     const cx=rect?(rect.width/2-v.x)/v.scale:VB_W/2,cy=rect?(rect.height/2-v.y)/v.scale:VB_H/2;
     const sizes={chico:{w:60,h:112,tipo:"k37"},mediano:{w:80,h:155,tipo:"k42"},utility:{w:75,h:158,tipo:"k43"},grande:{w:94,h:185,tipo:"k52"},crucero:{w:110,h:228,tipo:"k55"},xl:{w:128,h:285,tipo:"k64"},k85:{w:180,h:360,tipo:"k85"}};
     setPuestos(prev=>{const id=genId();return[...prev,{id,label:id.replace("puesto-",""),cx,cy,rot:0,...sizes[newPuestoSize]}];});
+  }
+  // Iguala el tamaño de todos los puestos al canónico de su tipo de barco
+  // (mantiene posición y rotación). Arregla que K52 "iguales" se vean distintos.
+  function normalizarTamanos(){
+    const CANON={k37:{w:60,h:112},k42:{w:80,h:155},k43:{w:75,h:158},k52:{w:94,h:185},k55:{w:110,h:228},k64:{w:128,h:285},k85:{w:180,h:360}};
+    setPuestos(prev=>prev.map(p=>{const s=CANON[p.tipo];return s?{...p,w:s.w,h:s.h}:p;}));
   }
   function removePuesto(id){setPuestos(prev=>prev.filter(p=>p.id!==id));setConfirmDel(null);}
   function toggleRot(id){setPuestos(prev=>prev.map(p=>p.id===id?{...p,rot:(p.rot+90)%360}:p));}
@@ -490,13 +518,14 @@ export default function MapaProduccion({obras=[],onPuestoClick,onAsignarObra,onC
       <g key={p.id} transform={`rotate(${p.rot||0},${p.cx},${p.cy})`}
         style={{cursor:editMode?"grab":canDrop?"copy":"pointer"}}
         onMouseDown={e=>startPuestoDrag(e,p)}
+        onTouchStart={e=>startPuestoDrag(e,p)}
         onMouseEnter={()=>{setHovered(p.id);if(canDrop){obraDragOverRef.current=p.id;setObraDragOver(p.id);}}}
         onMouseLeave={()=>{setHovered(null);setTooltip(null);if(obraDragOverRef.current===p.id){obraDragOverRef.current=null;setObraDragOver(null);}}}
         onMouseMove={e=>!obraDragPos&&setTooltip({cx:e.clientX,cy:e.clientY,puesto:p})}
         onClick={e=>{if(dragRef.current&&!dragRef.current.moved){e.stopPropagation();handlePuestoClick(p,e.clientX,e.clientY);}}}
         onContextMenu={e=>handleContextMenu(e,p)}>
       {/* Rect transparente de hit-area — único elemento que captura eventos del mouse */}
-      <rect x={ix} y={iy} width={p.w} height={p.h} fill="transparent" style={{cursor:"inherit"}}/>
+      <rect x={ix} y={iy} width={p.w} height={p.h} fill="transparent" data-pid={p.id} style={{cursor:"inherit"}}/>
       <g transform={sc!==1?`translate(${p.cx*(1-sc)},${p.cy*(1-sc)}) scale(${sc})`:undefined} style={{transition:"transform 0.2s cubic-bezier(0.175,0.885,0.32,1.275)"}}>
 
           {/* Sonar ping para pausadas */}
@@ -586,8 +615,8 @@ export default function MapaProduccion({obras=[],onPuestoClick,onAsignarObra,onC
                   {(()=>{
                     const codigo=obra.codigo??"";
                     const minSide=Math.min(p.w,p.h);
-                    const pillW=Math.max(52, Math.min(codigo.length*8+20, minSide*0.9));
-                    const pillH=20; const fs=Math.max(8,Math.min(12, pillW/(Math.max(codigo.length,1)+1)));
+                    const pillW=Math.max(60, Math.min(codigo.length*9+24, minSide*1.12));
+                    const pillH=24; const fs=Math.max(11,Math.min(16, pillW/(Math.max(codigo.length,1)*0.62+1)));
                     const bw=Math.min(minSide*0.72,88), bh=3;
                     return(<>
                       {/* Pill código — con indicador de color de línea */}
@@ -804,6 +833,8 @@ export default function MapaProduccion({obras=[],onPuestoClick,onAsignarObra,onC
                 ))}
                 <div style={{width:1,height:16,background:C.b1,margin:"0 4px"}}/>
                 <button onClick={addPuesto} style={{padding:"4px 12px",borderRadius:6,cursor:"pointer",fontSize:12,fontWeight:700,border:"none",background:"#10b981",color:"#000",boxShadow:"0 4px 12px rgba(16,185,129,0.4)"}}>+ Agregar</button>
+                <div style={{width:1,height:16,background:C.b1,margin:"0 4px"}}/>
+                <button onClick={normalizarTamanos} title="Pone todos los barcos del mismo tipo al mismo tamaño" style={{padding:"4px 10px",borderRadius:6,cursor:"pointer",fontSize:11,fontWeight:700,border:"1px solid rgba(99,102,241,0.35)",background:"rgba(99,102,241,0.1)",color:"#a5b4fc"}}>⇲ Igualar tamaños</button>
                 <div style={{width:1,height:16,background:C.b1,margin:"0 4px"}}/>
                 <button onClick={resetLayout} style={{padding:"4px 10px",borderRadius:6,cursor:"pointer",fontSize:11,fontWeight: 700,border:"1px solid rgba(239,68,68,0.3)",background:"rgba(239,68,68,0.08)",color:"#f87171"}}>↺ Reset</button>
                 <div style={{width:1,height:16,background:C.b1,margin:"0 4px"}}/>

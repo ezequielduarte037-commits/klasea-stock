@@ -1,4 +1,10 @@
 
+# El webhook de WhatsApp lo llama Meta SIN JWT. Tiene que quedar siempre con
+# verify_jwt = false, si no Meta recibe 401 y el bot "deja de leer mensajes".
+[functions.wa-webhook]
+enabled = true
+verify_jwt = false
+
 [functions.alerta-30min]
 enabled = true
 verify_jwt = true

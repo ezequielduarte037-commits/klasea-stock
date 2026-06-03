@@ -134,6 +134,29 @@ function pct(piezas) {
 }
 
 // ── MODAL DETALLE PIEZA ───────────────────────────────────────────
+function cleanText(value) {
+  return String(value ?? "").replace(/\s+/g, " ").trim();
+}
+
+function splitPiezas(value) {
+  return String(value ?? "")
+    .split(/\r?\n|;/)
+    .map(cleanText)
+    .filter(Boolean);
+}
+
+function uniqueSorted(values) {
+  return [...new Set(values.map(cleanText).filter(Boolean))]
+    .sort((a, b) => a.localeCompare(b, "es-AR", { sensitivity: "base" }));
+}
+
+function resolveSectorName(value, sectores = []) {
+  const clean = cleanText(value);
+  if (!clean) return "";
+  const found = sectores.find((s) => s.toLocaleLowerCase("es-AR") === clean.toLocaleLowerCase("es-AR"));
+  return found || clean;
+}
+
 function PiezaModal({ pieza, onClose, onSave, esAdmin }) {
   const [form, setForm] = useState({
     fecha_envio:   pieza.fecha_envio   ?? "",
@@ -284,12 +307,14 @@ export default function MarmoleriaScreen({ profile, signOut }) {
   const [newUnidad,  setNewUnidad]  = useState("");
   const [showAddPieza, setShowAddPieza] = useState(false);
   const [formPieza, setFormPieza] = useState({ pieza:"", sector:"" });
+  const addPiezaInputRef = useRef(null);
 
   // Plantilla — add/edit directo
   const [showAddPlantilla, setShowAddPlantilla] = useState(false);
   const [formPlantilla, setFormPlantilla]       = useState({ pieza:"", sector:"", opcional:false });
   const [editPlantillaId, setEditPlantillaId]   = useState(null);
   const [editPlantillaForm, setEditPlantillaForm] = useState({ pieza:"", sector:"", opcional:false });
+  const addPlantillaInputRef = useRef(null);
 
   // Edición rápida (Líneas y Unidades)
   const [editLineaId, setEditLineaId] = useState(null);
@@ -330,6 +355,13 @@ export default function MarmoleriaScreen({ profile, signOut }) {
     pendiente: piezas.filter(p => p.estado === "Pendiente").length,
     rehacer:   piezas.filter(p => p.estado === "Rehacer").length,
   }), [piezas]);
+
+  const sectoresPlantilla = useMemo(() => uniqueSorted(plantillaLinea.map(p => p.sector)), [plantillaLinea]);
+  const sectoresBarco = useMemo(() => uniqueSorted(piezas.map(p => p.sector)), [piezas]);
+  const sectoresSugeridos = useMemo(
+    () => uniqueSorted([...sectoresPlantilla, ...sectoresBarco]),
+    [sectoresPlantilla, sectoresBarco]
+  );
 
   const pctColor = porcentaje === 100 ? "#10b981" : porcentaje > 0 ? "#a8b4c4" : "#2c3040";
 
@@ -428,6 +460,14 @@ export default function MarmoleriaScreen({ profile, signOut }) {
     }
   }, [unidadId]);
 
+  useEffect(() => {
+    if (showAddPlantilla) setTimeout(() => addPlantillaInputRef.current?.focus(), 0);
+  }, [showAddPlantilla]);
+
+  useEffect(() => {
+    if (showAddPieza) setTimeout(() => addPiezaInputRef.current?.focus(), 0);
+  }, [showAddPieza]);
+
   // Realtime
   useEffect(() => {
     const ch = supabase.channel("rt-marm")
@@ -523,24 +563,28 @@ export default function MarmoleriaScreen({ profile, signOut }) {
   }
 
   async function agregarPiezaDirectaPlantilla() {
-    if (!formPlantilla.pieza.trim() || !formPlantilla.sector.trim() || !lineaId) return;
-    const { data, error } = await supabase.from("marm_linea_piezas").insert({
+    const piezasNuevas = splitPiezas(formPlantilla.pieza);
+    const sector = resolveSectorName(formPlantilla.sector, sectoresPlantilla);
+    if (!piezasNuevas.length || !sector || !lineaId) return;
+    const payload = piezasNuevas.map((pieza, idx) => ({
       linea_id: lineaId,
-      pieza:    formPlantilla.pieza.trim(),
-      sector:   formPlantilla.sector.trim().toUpperCase(),
+      pieza,
+      sector,
       opcional: formPlantilla.opcional,
-    }).select().single();
+      orden: plantillaLinea.length + idx + 1,
+    }));
+    const { data, error } = await supabase.from("marm_linea_piezas").insert(payload).select();
     if (error) return setErr(error.message);
-    setFormPlantilla({ pieza:"", sector:"", opcional:false });
-    setShowAddPlantilla(false);
-    setPlantillaLinea(prev => [...prev, data].sort((a,b) => (a.sector+a.pieza).localeCompare(b.sector+b.pieza)));
+    setFormPlantilla(f => ({ ...f, pieza:"", sector }));
+    setPlantillaLinea(prev => [...prev, ...(data ?? [])].sort((a,b) => (a.sector+a.pieza).localeCompare(b.sector+b.pieza)));
   }
 
   async function editarPiezaPlantilla(id) {
-    if (!editPlantillaForm.pieza.trim()) return;
+    const sector = resolveSectorName(editPlantillaForm.sector, sectoresPlantilla);
+    if (!editPlantillaForm.pieza.trim() || !sector) return;
     const upd = {
       pieza:    editPlantillaForm.pieza.trim(),
-      sector:   editPlantillaForm.sector.trim().toUpperCase(),
+      sector,
       opcional: editPlantillaForm.opcional,
     };
     const { error } = await supabase.from("marm_linea_piezas").update(upd).eq("id", id);
@@ -612,16 +656,19 @@ export default function MarmoleriaScreen({ profile, signOut }) {
   }
 
   async function agregarPiezaManual() {
-    if (!formPieza.pieza.trim() || !formPieza.sector.trim() || !unidadId) return;
-    const { error } = await supabase.from("marm_unidad_piezas").insert({
-      unidad_id: unidadId,
-      pieza:     formPieza.pieza.trim(),
-      sector:    formPieza.sector.trim(),
-      estado:    "Pendiente",
-    });
+    const piezasNuevas = splitPiezas(formPieza.pieza);
+    const sector = resolveSectorName(formPieza.sector, sectoresBarco);
+    if (!piezasNuevas.length || !sector || !unidadId) return;
+    const { error } = await supabase.from("marm_unidad_piezas").insert(
+      piezasNuevas.map((pieza) => ({
+        unidad_id: unidadId,
+        pieza,
+        sector,
+        estado: "Pendiente",
+      }))
+    );
     if (error) return setErr(error.message);
-    setFormPieza({ pieza:"", sector:"" });
-    setShowAddPieza(false);
+    setFormPieza(f => ({ ...f, pieza:"", sector }));
     cargarPiezas(unidadId);
   }
 
@@ -633,25 +680,32 @@ export default function MarmoleriaScreen({ profile, signOut }) {
 
   // Agregar a la plantilla general de la línea
   async function agregarPiezaAPlantilla() {
-    if (!formPieza.pieza.trim() || !formPieza.sector.trim() || !lineaId) return;
-    const { data:lp, error } = await supabase.from("marm_linea_piezas").insert({
-      linea_id: lineaId,
-      pieza:    formPieza.pieza.trim(),
-      sector:   formPieza.sector.trim(),
-    }).select().single();
+    const piezasNuevas = splitPiezas(formPieza.pieza);
+    const sector = resolveSectorName(formPieza.sector, sectoresSugeridos);
+    if (!piezasNuevas.length || !sector || !lineaId) return;
+    const { data: lps, error } = await supabase.from("marm_linea_piezas").insert(
+      piezasNuevas.map((pieza, idx) => ({
+        linea_id: lineaId,
+        pieza,
+        sector,
+        orden: plantillaLinea.length + idx + 1,
+      }))
+    ).select();
     if (error) return setErr(error.message);
     
-    if (unidadId) {
-      await supabase.from("marm_unidad_piezas").insert({
+    if (unidadId && lps?.length) {
+      await supabase.from("marm_unidad_piezas").insert(lps.map((lp) => ({
         unidad_id: unidadId,
         pieza_id:  lp.id,
         pieza:     lp.pieza,
         sector:    lp.sector,
         estado:    "Pendiente",
-      });
+      })));
     }
-    setFormPieza({ pieza:"", sector:"" });
-    setShowAddPieza(false);
+    setFormPieza(f => ({ ...f, pieza:"", sector }));
+    if (lps?.length) {
+      setPlantillaLinea(prev => [...prev, ...lps].sort((a,b) => (a.sector+a.pieza).localeCompare(b.sector+b.pieza)));
+    }
     if (unidadId) cargarPiezas(unidadId);
   }
 
@@ -770,6 +824,8 @@ export default function MarmoleriaScreen({ profile, signOut }) {
   const GLASS = { backdropFilter:"blur(32px) saturate(130%)", WebkitBackdropFilter:"blur(32px) saturate(130%)" };
   const INP   = { background:"rgba(255,255,255,0.04)", border:`1px solid ${C2.b0}`, color:C2.t0, padding:"7px 10px", borderRadius:7, fontSize:13, outline:"none", width:"100%", fontFamily:C2.sans, boxSizing:"border-box" };
   const INP_SM = { ...INP, padding:"5px 8px", fontSize:12 };
+  const TXT = { ...INP, minHeight:74, resize:"vertical", lineHeight:1.45 };
+  const helpText = { marginTop:6, color:C2.t2, fontSize:11, lineHeight:1.35 };
 
   const lineaNavBtn = (sel) => ({
     width:"100%", textAlign:"left", padding:"9px 14px",
@@ -878,6 +934,7 @@ export default function MarmoleriaScreen({ profile, signOut }) {
         .action-btn:hover { opacity:0.75; }
         .edit-btn:hover { color:#eeeef0 !important; }
         .del-btn:hover  { color:#ef4444 !important; }
+        .sector-chip:hover { border-color:rgba(59,130,246,0.35) !important; color:#93b4ff !important; }
         /* Tablas anchas en mobile: las filas mantienen ancho mínimo y el
            contenedor (.mrm-scroll) se desliza horizontalmente. */
         @media (max-width: 900px) {
@@ -1532,19 +1589,18 @@ export default function MarmoleriaScreen({ profile, signOut }) {
                     )}
                   </div>
 
+                  <datalist id="marm-sectores-plantilla">
+                    {sectoresPlantilla.map((s) => <option key={s} value={s} />)}
+                  </datalist>
+
                   {/* Panel agregar */}
                   {showAddPlantilla && esAdmin && (
-                    <div style={{ background:C2.s0, border:`1px solid ${C2.b0}`, borderRadius:10, padding:16, marginBottom:16, animation:"slideUp .2s ease" }}>
-                      <div style={{ fontSize:10, letterSpacing:1.3, textTransform:"uppercase", color:C2.t2, marginBottom:10, fontFamily:C2.mono }}>Nueva pieza en plantilla {lineaSel?.nombre}</div>
-                      <div style={{ display:"grid", gridTemplateColumns:"1fr 160px auto", gap:8, alignItems:"center" }}>
-                        <input style={INP} placeholder="Nombre de la pieza (ej: Alzada baño)"
-                          value={formPlantilla.pieza}
-                          onChange={e => setFormPlantilla(f=>({...f, pieza:e.target.value}))}
-                          onKeyDown={e => e.key === "Enter" && agregarPiezaDirectaPlantilla()} />
-                        <input style={INP} placeholder="Sector (ej: BAÑOS)"
-                          value={formPlantilla.sector}
-                          onChange={e => setFormPlantilla(f=>({...f, sector:e.target.value}))}
-                          onKeyDown={e => e.key === "Enter" && agregarPiezaDirectaPlantilla()} />
+                    <div style={{ background:C2.s0, border:`1px solid ${C2.b0}`, borderRadius:12, padding:16, marginBottom:16, animation:"slideUp .2s ease" }}>
+                      <div style={{ display:"flex", alignItems:"center", justifyContent:"space-between", gap:12, marginBottom:12 }}>
+                        <div>
+                          <div style={{ fontSize:10, letterSpacing:1.2, textTransform:"uppercase", color:C2.t2, marginBottom:4, fontFamily:C2.mono, fontWeight:700 }}>Nueva pieza en plantilla {lineaSel?.nombre}</div>
+                          <div style={{ fontSize:12, color:C2.t2 }}>Podés pegar varias piezas, una por línea. El sector no se pasa a mayúsculas.</div>
+                        </div>
                         <label style={{ display:"flex", alignItems:"center", gap:6, cursor:"pointer", flexShrink:0, color:C2.t1, fontSize:12, userSelect:"none" }}>
                           <input type="checkbox" checked={formPlantilla.opcional}
                             onChange={e => setFormPlantilla(f=>({...f, opcional:e.target.checked}))}
@@ -1552,10 +1608,45 @@ export default function MarmoleriaScreen({ profile, signOut }) {
                           Opcional
                         </label>
                       </div>
-                      <button onClick={agregarPiezaDirectaPlantilla} style={{
-                        marginTop:10, border:"1px solid rgba(59,130,246,0.3)", background:"rgba(59,130,246,0.1)",
-                        color:"#60a5fa", padding:"7px 18px", borderRadius:8, cursor:"pointer", fontFamily:C2.sans, fontSize:13, fontWeight:600,
-                      }}>Agregar a plantilla</button>
+
+                      <div style={{ display:"grid", gridTemplateColumns: isMobile ? "1fr" : "minmax(260px,1fr) 220px", gap:10, alignItems:"start" }}>
+                        <div>
+                          <textarea ref={addPlantillaInputRef} style={TXT} placeholder={"Nombre de la pieza\nEj: Mesada cockpit\nEj: Tapa bacha cockpit"}
+                            value={formPlantilla.pieza}
+                            onChange={e => setFormPlantilla(f=>({...f, pieza:e.target.value}))}
+                            onKeyDown={e => {
+                              if ((e.ctrlKey || e.metaKey) && e.key === "Enter") agregarPiezaDirectaPlantilla();
+                            }} />
+                          <div style={helpText}>Atajo: Ctrl + Enter para agregar. Separá varias piezas con Enter o punto y coma.</div>
+                        </div>
+                        <div>
+                          <input style={INP} list="marm-sectores-plantilla" placeholder="Sector: Cockpit, Baños, Cocina..."
+                            value={formPlantilla.sector}
+                            onChange={e => setFormPlantilla(f=>({...f, sector:e.target.value}))}
+                            onKeyDown={e => e.key === "Enter" && agregarPiezaDirectaPlantilla()} />
+                          {sectoresPlantilla.length > 0 && (
+                            <div style={{ display:"flex", flexWrap:"wrap", gap:6, marginTop:8 }}>
+                              {sectoresPlantilla.slice(0, 8).map((s) => (
+                                <button key={s} type="button" className="sector-chip"
+                                  onClick={() => setFormPlantilla(f=>({...f, sector:s}))}
+                                  style={{ border:`1px solid ${C2.b0}`, background:"rgba(255,255,255,0.025)", color:C2.t1, borderRadius:99, padding:"4px 8px", cursor:"pointer", fontSize:11, fontFamily:C2.sans }}>
+                                  {s}
+                                </button>
+                              ))}
+                            </div>
+                          )}
+                        </div>
+                      </div>
+
+                      <div style={{ display:"flex", alignItems:"center", gap:8, marginTop:12, flexWrap:"wrap" }}>
+                        <button onClick={agregarPiezaDirectaPlantilla} style={{
+                          border:"1px solid rgba(59,130,246,0.3)", background:"rgba(59,130,246,0.1)",
+                          color:"#60a5fa", padding:"8px 18px", borderRadius:8, cursor:"pointer", fontFamily:C2.sans, fontSize:13, fontWeight:700,
+                        }}>Agregar y seguir</button>
+                        <button type="button" onClick={() => setFormPlantilla({ pieza:"", sector:"", opcional:false })} style={{
+                          border:`1px solid ${C2.b0}`, background:"transparent", color:C2.t2, padding:"8px 12px", borderRadius:8, cursor:"pointer", fontFamily:C2.sans, fontSize:12,
+                        }}>Limpiar</button>
+                      </div>
                     </div>
                   )}
 
@@ -1620,7 +1711,7 @@ export default function MarmoleriaScreen({ profile, signOut }) {
                                         onChange={e => setEditPlantillaForm(f=>({...f, pieza:e.target.value}))}
                                         onKeyDown={e => e.key === "Enter" && editarPiezaPlantilla(p.id)}
                                         placeholder="Nombre de la pieza" />
-                                      <input style={{ ...INP_SM, fontSize:12 }}
+                                      <input style={{ ...INP_SM, fontSize:12 }} list="marm-sectores-plantilla"
                                         value={editPlantillaForm.sector}
                                         onChange={e => setEditPlantillaForm(f=>({...f, sector:e.target.value}))}
                                         onKeyDown={e => e.key === "Enter" && editarPiezaPlantilla(p.id)}
@@ -1712,18 +1803,47 @@ export default function MarmoleriaScreen({ profile, signOut }) {
 
                   {/* Panel agregar pieza */}
                   {showAddPieza && esAdmin && (
-                    <div style={{ background:C2.s0, border:`1px solid ${C2.b0}`, borderRadius:10, padding:14, marginBottom:14, animation:"slideUp .2s ease" }}>
-                      <div style={{ fontSize:10, letterSpacing:1.3, textTransform:"uppercase", color:C2.t2, marginBottom:8, fontFamily:C2.mono }}>Agregar pieza extra</div>
-                      <div style={{ display:"grid", gridTemplateColumns:"1fr 140px", gap:8, marginBottom:10 }}>
-                        <input style={INP} placeholder="Nombre de la pieza (ej: Alzada)" value={formPieza.pieza} onChange={e => setFormPieza(f=>({...f,pieza:e.target.value}))} />
-                        <input style={INP} placeholder="Sector" value={formPieza.sector} onChange={e => setFormPieza(f=>({...f,sector:e.target.value}))} />
+                    <div style={{ background:C2.s0, border:`1px solid ${C2.b0}`, borderRadius:12, padding:14, marginBottom:14, animation:"slideUp .2s ease" }}>
+                      <div style={{ fontSize:10, letterSpacing:1.2, textTransform:"uppercase", color:C2.t2, marginBottom:4, fontFamily:C2.mono, fontWeight:700 }}>Agregar pieza extra</div>
+                      <div style={{ fontSize:12, color:C2.t2, marginBottom:10 }}>Cargá una o varias piezas y elegí el sector. El panel queda abierto para seguir trabajando.</div>
+                      <div style={{ display:"grid", gridTemplateColumns: isMobile ? "1fr" : "minmax(260px,1fr) 220px", gap:10, marginBottom:12, alignItems:"start" }}>
+                        <div>
+                          <textarea ref={addPiezaInputRef} style={TXT} placeholder={"Nombre de la pieza\nEj: Mesada cockpit\nEj: Zócalo cockpit"}
+                            value={formPieza.pieza}
+                            onChange={e => setFormPieza(f=>({...f,pieza:e.target.value}))}
+                            onKeyDown={e => {
+                              if ((e.ctrlKey || e.metaKey) && e.key === "Enter") agregarPiezaManual();
+                            }} />
+                          <div style={helpText}>Separá varias piezas con Enter o punto y coma.</div>
+                        </div>
+                        <div>
+                          <input style={INP} list="marm-sectores-barco" placeholder="Sector: Cockpit, Baños..."
+                            value={formPieza.sector}
+                            onChange={e => setFormPieza(f=>({...f,sector:e.target.value}))}
+                            onKeyDown={e => e.key === "Enter" && agregarPiezaManual()} />
+                          <datalist id="marm-sectores-barco">
+                            {sectoresSugeridos.map((s) => <option key={s} value={s} />)}
+                          </datalist>
+                          {sectoresSugeridos.length > 0 && (
+                            <div style={{ display:"flex", flexWrap:"wrap", gap:6, marginTop:8 }}>
+                              {sectoresSugeridos.slice(0, 8).map((s) => (
+                                <button key={s} type="button" className="sector-chip"
+                                  onClick={() => setFormPieza(f=>({...f, sector:s}))}
+                                  style={{ border:`1px solid ${C2.b0}`, background:"rgba(255,255,255,0.025)", color:C2.t1, borderRadius:99, padding:"4px 8px", cursor:"pointer", fontSize:11, fontFamily:C2.sans }}>
+                                  {s}
+                                </button>
+                              ))}
+                            </div>
+                          )}
+                        </div>
                       </div>
-                      <div style={{ display:"flex", gap:8 }}>
-                        <button onClick={agregarPiezaManual} style={{ border:"1px solid rgba(59,130,246,0.3)", background:"rgba(59,130,246,0.1)", color:"#60a5fa", padding:"7px 16px", borderRadius:8, cursor:"pointer", fontFamily:C2.sans, fontSize:13, fontWeight:600 }}>Solo este barco</button>
-                        <button onClick={agregarPiezaAPlantilla} style={{ border:`1px solid ${C2.b0}`, background:"transparent", color:C2.t1, padding:"7px 14px", borderRadius:8, cursor:"pointer", fontFamily:C2.sans, fontSize:13 }}>+ Plantilla de {lineaSel?.nombre}</button>
+                      <div style={{ display:"flex", gap:8, flexWrap:"wrap" }}>
+                        <button onClick={agregarPiezaManual} style={{ border:"1px solid rgba(59,130,246,0.3)", background:"rgba(59,130,246,0.1)", color:"#60a5fa", padding:"8px 16px", borderRadius:8, cursor:"pointer", fontFamily:C2.sans, fontSize:13, fontWeight:700 }}>Agregar solo a este barco</button>
+                        <button onClick={agregarPiezaAPlantilla} style={{ border:`1px solid ${C2.b0}`, background:"transparent", color:C2.t1, padding:"8px 14px", borderRadius:8, cursor:"pointer", fontFamily:C2.sans, fontSize:13 }}>Agregar también a plantilla de {lineaSel?.nombre}</button>
+                        <button type="button" onClick={() => setFormPieza({ pieza:"", sector:"" })} style={{ border:`1px solid ${C2.b0}`, background:"transparent", color:C2.t2, padding:"8px 12px", borderRadius:8, cursor:"pointer", fontFamily:C2.sans, fontSize:12 }}>Limpiar</button>
                       </div>
                       <div style={{ marginTop:8, fontSize:11, color:C2.t2 }}>
-                        "Solo este barco" agrega al checklist actual. "Plantilla" la incluye en futuros barcos de esta línea.
+                        "Solo este barco" agrega al checklist actual. "También a plantilla" la incluye en futuros barcos de esta línea.
                       </div>
                     </div>
                   )}
