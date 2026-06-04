@@ -259,7 +259,7 @@ function ModalNuevoUsuario({ onClose, onSaved, flash }) {
     });
     if (fnError || res?.error) {
       setBusy(false);
-      return flash(false, "Error: " + (res?.error || fnError?.message || "no se pudo crear el usuario"));
+      return flash(false, "Error: " + (await fnErrorMsg(res, fnError, "no se pudo crear el usuario")));
     }
 
     setBusy(false);
@@ -405,7 +405,7 @@ function ModalCliente({ cliente, modelos, onClose, onSaved, flash }) {
           is_admin: false,
         },
       });
-      if (cuErr || cu?.error) { setBusy(false); return flash(false, "Error auth: " + (cu?.error || cuErr?.message || "no se pudo crear el usuario")); }
+      if (cuErr || cu?.error) { setBusy(false); return flash(false, "Error auth: " + (await fnErrorMsg(cu, cuErr, "no se pudo crear el usuario"))); }
       const uid = cu.uid;
 
       // ── Insertar en tabla clientes ────────────────────────────────
@@ -466,7 +466,7 @@ function ModalCliente({ cliente, modelos, onClose, onSaved, flash }) {
         const { data: pw, error: pwErr } = await supabase.functions.invoke("admin-usuarios", {
           body: { action: "update_password", user_id: cliente.id, password: form.password },
         });
-        if (pwErr || pw?.error) { setBusy(false); return flash(false, "Error contraseña: " + (pw?.error || pwErr?.message || "no se pudo cambiar")); }
+        if (pwErr || pw?.error) { setBusy(false); return flash(false, "Error contraseña: " + (await fnErrorMsg(pw, pwErr, "no se pudo cambiar"))); }
       }
 
       flash(true, "Cliente actualizado.");
@@ -754,6 +754,24 @@ function ModalModelo({ modelo, onClose, onSaved, flash }) {
       </form>
     </Overlay>
   );
+}
+
+// Extrae el mensaje de error REAL de una edge function. Cuando responde non-2xx,
+// supabase-js deja data=null y el cuerpo {error:"..."} queda en fnError.context
+// (un Response). Sin esto solo se ve el genérico "non-2xx status code".
+async function fnErrorMsg(res, fnError, fallback = "no se pudo completar la operación") {
+  if (res?.error) return res.error;
+  const ctx = fnError?.context;
+  if (ctx && typeof ctx.clone === "function") {
+    try {
+      const body = await ctx.clone().json();
+      if (body?.error) return body.error;
+      if (body?.msg) return body.msg;
+    } catch {
+      try { const t = await ctx.clone().text(); if (t) return t.slice(0, 300); } catch { /* noop */ }
+    }
+  }
+  return fnError?.message || fallback;
 }
 
 // ─── PANTALLA PRINCIPAL ───────────────────────────────────────────────────────

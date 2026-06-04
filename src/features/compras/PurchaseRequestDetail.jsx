@@ -283,6 +283,9 @@ export default function PurchaseRequestDetail({ requestId, profile, users = [], 
   const [editLinkUrl, setEditLinkUrl] = useState("");
   const [editImageFile, setEditImageFile] = useState(null);
   const [editNotes, setEditNotes] = useState("");
+  const [editDescription, setEditDescription] = useState("");
+  const [editQuantity, setEditQuantity] = useState("");
+  const [editUnit, setEditUnit] = useState("");
   const bottomRef = useRef(null);
   const reloadTimer = useRef(null);
   const toast = useToast();
@@ -638,14 +641,25 @@ export default function PurchaseRequestDetail({ requestId, profile, users = [], 
     setEditLinkUrl(item.link_url || "");
     setEditImageFile(null);
     setEditNotes(item.notes || "");
+    setEditDescription(item.description || "");
+    setEditQuantity(item.quantity != null ? String(item.quantity) : "");
+    setEditUnit(item.unit || "");
   }
 
   async function handleSaveItem(e) {
     e.preventDefault();
     if (!editingItem) return;
+    const description = editDescription.trim();
+    if (!description) { setError("El nombre del ítem no puede quedar vacío."); return; }
     setError("");
     try {
-      const patch = { link_url: editLinkUrl.trim() || null, notes: editNotes.trim() || null };
+      const patch = {
+        description,
+        quantity: editQuantity.trim() || null,
+        unit: editUnit.trim() || null,
+        link_url: editLinkUrl.trim() || null,
+        notes: editNotes.trim() || null,
+      };
       if (editImageFile) {
         const { imageUrl, imagePath } = await uploadItemImage(editImageFile, request.id);
         patch.image_url = imageUrl;
@@ -1450,6 +1464,35 @@ export default function PurchaseRequestDetail({ requestId, profile, users = [], 
                         borderRadius: 6, border: `1px solid ${C.border}`,
                         background: C.panel2,
                       }}>
+                        <div>
+                          <div style={{ color: C.dim, fontSize: 10, letterSpacing: 1.1, textTransform: "uppercase", marginBottom: 3, fontWeight: 700 }}>
+                            Nombre del ítem
+                          </div>
+                          <input value={editDescription} onChange={e => setEditDescription(e.target.value)}
+                            placeholder="Ej: bisagra de inox pequeña"
+                            style={{ width: "100%", padding: "6px 8px", borderRadius: 5, border: `1px solid ${C.border}`, background: C.bg, color: C.text, fontSize: 13, fontWeight: 600 }} />
+                        </div>
+                        <div style={{ display: "flex", gap: 6 }}>
+                          <div style={{ flex: 1 }}>
+                            <div style={{ color: C.dim, fontSize: 10, letterSpacing: 1.1, textTransform: "uppercase", marginBottom: 3, fontWeight: 700 }}>
+                              Cantidad
+                            </div>
+                            <input value={editQuantity} onChange={e => setEditQuantity(e.target.value)}
+                              placeholder="12"
+                              style={{ width: "100%", padding: "6px 8px", borderRadius: 5, border: `1px solid ${C.border}`, background: C.bg, color: C.text, fontSize: 13 }} />
+                          </div>
+                          <div style={{ width: 130 }}>
+                            <div style={{ color: C.dim, fontSize: 10, letterSpacing: 1.1, textTransform: "uppercase", marginBottom: 3, fontWeight: 700 }}>
+                              Unidad
+                            </div>
+                            <input value={editUnit} onChange={e => setEditUnit(e.target.value)}
+                              placeholder="unidad" list="item-units"
+                              style={{ width: "100%", padding: "6px 8px", borderRadius: 5, border: `1px solid ${C.border}`, background: C.bg, color: C.text, fontSize: 13 }} />
+                            <datalist id="item-units">
+                              {["unidad", "kg", "metro", "m²", "litro", "lata", "rollo", "par", "juego", "caja", "tubo", "bolsa"].map(u => <option key={u} value={u} />)}
+                            </datalist>
+                          </div>
+                        </div>
                         <div>
                           <div style={{ color: C.dim, fontSize: 10, letterSpacing: 1.1, textTransform: "uppercase", marginBottom: 3, fontWeight: 700 }}>
                             Enlace / Link
