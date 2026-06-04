@@ -144,18 +144,18 @@ function urgenciaColor(dias) {
 function urgenciaLabel(dias) {
   if (dias === null) return null;
   if (dias < 0)   return "Pasado";
-  if (dias < 14)  return `${dias}d ⚡`;
-  if (dias < 30)  return `${dias}d ⚠`;
+  if (dias < 14)  return `${dias}d`;
+  if (dias < 30)  return `${dias}d`;
   if (dias < 60)  return `${dias}d`;
   return `${Math.round(dias / 7)}sem`;
 }
 
 // ── Config de estados ────────────────────────────────────────────
 const ESTADOS = [
-  { key: "sin_pedir",            label: "Sin pedir",    color: C.t2,    icon: "○" },
-  { key: "pedido_enviado",       label: "Pedido ✉",    color: C.blue,  icon: "📦" },
-  { key: "materiales_recibidos", label: "Recibido ✓",  color: C.green, icon: "✅" },
-  { key: "finalizado",           label: "Finalizado",  color: C.t2,    icon: "⬜" },
+  { key: "sin_pedir",            label: "Sin pedir",   color: C.t2,    icon: "○" },
+  { key: "pedido_enviado",       label: "Pedido",      color: C.blue,  icon: "●" },
+  { key: "materiales_recibidos", label: "Recibido",    color: C.green, icon: "●" },
+  { key: "finalizado",           label: "Finalizado",  color: C.t2,    icon: "○" },
 ];
 
 function estadoConfig(key) {
@@ -538,11 +538,11 @@ export default function BarcoCalendarioPanel() {
             boxShadow: `0 0 8px ${kpis.urgentes > 0 ? C.red : kpis.sinPedir > 0 ? C.amber : C.green}`,
           }} />
           <span style={{ fontWeight: 700, fontSize: 14, color: C.t0, fontFamily: C.sans }}>
-            🚢 Barcos 2026
+            Barcos 2026
           </span>
           {kpis.urgentes > 0 && (
             <span style={S.badge(C.red)}>
-              ⚡ {kpis.urgentes} urgente{kpis.urgentes !== 1 ? "s" : ""} sin pedir
+              {kpis.urgentes} urgente{kpis.urgentes !== 1 ? "s" : ""} sin pedir
             </span>
           )}
           {kpis.sinPedir > 0 && kpis.urgentes === 0 && (
@@ -771,11 +771,11 @@ export default function BarcoCalendarioPanel() {
                             return d !== null && d >= 0 && d < 30 && b.estado_pedido === "sin_pedir";
                           }).length;
                           return urgentes > 0 ? (
-                            <span style={S.badge(C.red)}>⚡ {urgentes} urgente{urgentes !== 1 ? "s" : ""}</span>
+                            <span style={S.badge(C.red)}>{urgentes} urgente{urgentes !== 1 ? "s" : ""}</span>
                           ) : sinPedir > 0 ? (
                             <span style={S.badge(C.amber)}>{sinPedir} sin pedir</span>
                           ) : (
-                            <span style={S.badge(C.green)}>✓ al día</span>
+                            <span style={S.badge(C.green)}>Al día</span>
                           );
                         })()}
                       </div>
@@ -821,7 +821,8 @@ export default function BarcoCalendarioPanel() {
             flexWrap: "wrap",
           }}>
             <span>EST = fecha estimada · REAL = desmolde confirmado</span>
-            <span>⚡ &lt;14 días · ⚠ &lt;30 días</span>
+            <span style={{ color: C.red }}>Rojo &lt;14 días</span>
+            <span style={{ color: C.amber }}>Ámbar &lt;30 días</span>
             <span>Clic en el estado para cambiar · Clic en la nota para editar</span>
           </div>
         </div>

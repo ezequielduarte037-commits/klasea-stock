@@ -173,9 +173,9 @@ function PasoEntrada({ materiales, onPreview }) {
       <div>
         <div style={{ fontSize: 10, letterSpacing: 1.3, color: C.t2, textTransform: "uppercase", marginBottom: 8 }}>Método de carga</div>
         <div style={{ display: "flex", gap: 6 }}>
-          <button style={MBTN("tabla")}   onClick={() => { setModo("tabla");   setErr(""); }}>📋 Tabla</button>
-          <button style={MBTN("texto")}   onClick={() => { setModo("texto");   setErr(""); }}>📝 Pegar lista</button>
-          <button style={MBTN("archivo")} onClick={() => { setModo("archivo"); setErr(""); }}>📂 Archivo CSV</button>
+          <button style={MBTN("tabla")}   onClick={() => { setModo("tabla");   setErr(""); }}>Tabla</button>
+          <button style={MBTN("texto")}   onClick={() => { setModo("texto");   setErr(""); }}>Pegar lista</button>
+          <button style={MBTN("archivo")} onClick={() => { setModo("archivo"); setErr(""); }}>Archivo CSV</button>
         </div>
       </div>
 

@@ -340,8 +340,8 @@ export default function PedidosMaderaScreen({ profile, signOut }) {
   async function registrarPedido() {
     setGuardando(true); setError("");
     try {
-      const { data: auth } = await supabase.auth.getUser().catch(() => ({ data: { user: null } }));
-      const userId = auth?.user?.id ?? null;
+      const { data: auth } = await supabase.auth.getSession().catch(() => ({ data: { session: null } }));
+      const userId = auth?.session?.user?.id ?? null;
 
       const todosLosItems = [
         ...obras.flatMap(o => o.items
@@ -422,8 +422,8 @@ export default function PedidosMaderaScreen({ profile, signOut }) {
   }
 
   async function cambiarEstado(pedidoId, estado) {
-    const { data: auth } = await supabase.auth.getUser().catch(() => ({ data: { user: null } }));
-    const userId  = auth?.user?.id ?? null;
+    const { data: auth } = await supabase.auth.getSession().catch(() => ({ data: { session: null } }));
+    const userId  = auth?.session?.user?.id ?? null;
     const patch   = { estado };
     if (estado === "recibido") { patch.recibido_por = userId; patch.recibido_en = new Date().toISOString(); }
     await supabase.from("pedidos").update(patch).eq("id", pedidoId);
@@ -570,7 +570,7 @@ export default function PedidosMaderaScreen({ profile, signOut }) {
               }}
               title="Crear pedido a compras (pre-carga materiales que necesitan reposición)"
             >
-              🛒 Pedir a compras
+              Pedir a compras
             </button>
           </div>
 

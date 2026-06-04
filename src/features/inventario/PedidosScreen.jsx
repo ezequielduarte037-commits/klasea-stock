@@ -29,8 +29,8 @@ function fmtTS(ts) {
 const ESTADOS = [
   { value: "pedido",   label: "Pedido",        color: C.amber,   bg: "rgba(245,158,11,0.1)",  border: "rgba(245,158,11,0.25)"  },
   { value: "transito", label: "En tránsito",   color: C.primary, bg: "rgba(59,130,246,0.1)",  border: "rgba(59,130,246,0.25)"  },
-  { value: "parcial",  label: "Parcial ⚠️",    color: C.violet,  bg: "rgba(139,92,246,0.1)",  border: "rgba(139,92,246,0.25)"  },
-  { value: "recibido", label: "Recibido ✅",    color: C.green,   bg: "rgba(16,185,129,0.1)",  border: "rgba(16,185,129,0.25)"  },
+  { value: "parcial",  label: "Parcial",       color: C.violet,  bg: "rgba(139,92,246,0.1)",  border: "rgba(139,92,246,0.25)"  },
+  { value: "recibido", label: "Recibido",      color: C.green,   bg: "rgba(16,185,129,0.1)",  border: "rgba(16,185,129,0.25)"  },
 ];
 
 const ESTADO_META = Object.fromEntries(ESTADOS.map(e => [e.value, e]));
@@ -104,8 +104,8 @@ export default function PedidosScreen({ profile, signOut }) {
   async function crearPedido(e) {
     e.preventDefault(); setError("");
     if (!nuevo.proveedor.trim()) return setError("Proveedor es obligatorio.");
-    const { data: auth } = await supabase.auth.getUser().catch(() => ({ data: { user: null } }));
-    const userId = auth?.user?.id ?? null;
+    const { data: auth } = await supabase.auth.getSession().catch(() => ({ data: { session: null } }));
+    const userId = auth?.session?.user?.id ?? null;
     const { data, error } = await supabase.from("pedidos")
       .insert({ proveedor: nuevo.proveedor.trim(), numero: nuevo.numero.trim() || null, nota: nuevo.nota.trim() || null, estado: "pedido", creado_por: userId })
       .select("*").single();
@@ -145,8 +145,8 @@ export default function PedidosScreen({ profile, signOut }) {
 
   async function cambiarEstado(pedidoId, estado) {
     setError("");
-    const { data: auth } = await supabase.auth.getUser().catch(() => ({ data: { user: null } }));
-    const userId = auth?.user?.id ?? null;
+    const { data: auth } = await supabase.auth.getSession().catch(() => ({ data: { session: null } }));
+    const userId = auth?.session?.user?.id ?? null;
     const patch  = { estado };
     if (estado === "recibido") {
       patch.recibido_por = userId;

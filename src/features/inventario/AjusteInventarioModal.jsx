@@ -224,9 +224,9 @@ function PasoEntrada({ materiales, stockPorMaterial, onPreview }) {
       <div>
         <div style={{ fontSize: 10, letterSpacing: 1.3, color: C.t2, textTransform: "uppercase", marginBottom: 8 }}>Método de carga</div>
         <div style={{ display: "flex", gap: 6 }}>
-          <button style={MODO_BTN("tabla",   "tabla")}   onClick={() => setModo("tabla")}>   📋 Tabla</button>
-          <button style={MODO_BTN("texto",   "texto")}   onClick={() => setModo("texto")}>   📝 Pegar lista</button>
-          <button style={MODO_BTN("archivo", "archivo")} onClick={() => setModo("archivo")}> 📂 Archivo CSV</button>
+          <button style={MODO_BTN("tabla",   "tabla")}   onClick={() => setModo("tabla")}>Tabla</button>
+          <button style={MODO_BTN("texto",   "texto")}   onClick={() => setModo("texto")}>Pegar lista</button>
+          <button style={MODO_BTN("archivo", "archivo")} onClick={() => setModo("archivo")}>Archivo CSV</button>
         </div>
       </div>
 
@@ -494,8 +494,8 @@ export default function AjusteInventarioModal({ materiales, stockPorMaterial, on
   async function confirmar() {
     setSaving(true); setErr("");
     try {
-      const { data: { user } } = await supabase.auth.getUser().catch(() => ({ data: { user: null } }));
-      const userId  = user?.id ?? null;
+      const { data: { session } } = await supabase.auth.getSession().catch(() => ({ data: { session: null } }));
+      const userId  = session?.user?.id ?? null;
       const fecha   = new Date().toISOString().slice(0,10);
       const nota    = observaciones.trim() || `Ajuste de inventario – conteo ${new Date().toLocaleDateString("es-AR")}`;
 

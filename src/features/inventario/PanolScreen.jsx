@@ -288,8 +288,8 @@ export default function PanolScreen({ profile, signOut }) {
 
   async function cambiarEstadoPedido(pedidoId, estado) {
     setActualizandoPed(true);
-    const { data: auth } = await supabase.auth.getUser().catch(() => ({ data: { user: null } }));
-    const userId = auth?.user?.id ?? null;
+    const { data: auth } = await supabase.auth.getSession().catch(() => ({ data: { session: null } }));
+    const userId = auth?.session?.user?.id ?? null;
     const patch = { estado };
     if (estado === "recibido") { patch.recibido_por = userId; patch.recibido_en = new Date().toISOString(); }
 
@@ -559,7 +559,7 @@ export default function PanolScreen({ profile, signOut }) {
                     {matchingPedidos.length > 0 && (
                       <div style={{ marginBottom: 12, borderRadius: 10, border: "1px solid rgba(245,158,11,0.35)", background: "rgba(245,158,11,0.07)", padding: "10px 14px" }}>
                         <div style={{ fontSize: 10, letterSpacing: 1.3, textTransform: "uppercase", color: C.amber, fontWeight: 700, marginBottom: 8 }}>
-                          📦 Este material tiene pedidos pendientes
+                          Este material tiene pedidos pendientes
                         </div>
                         {matchingPedidos.map(({ pedido, item }) => {
                           const isVinculado = pedidoVinculado?.item?.id === item.id;
@@ -653,7 +653,7 @@ export default function PanolScreen({ profile, signOut }) {
               {pedidosPendientes.length > 0 && (
                 <div style={{ background: C.s0, border: `1px solid rgba(245,158,11,0.25)`, borderRadius: 12, overflow: "hidden", marginBottom: 14 }}>
                   <div style={{ padding: "12px 16px", borderBottom: `1px solid rgba(245,158,11,0.15)`, display: "flex", justifyContent: "space-between", alignItems: "center", background: "rgba(245,158,11,0.04)" }}>
-                    <span style={{ fontSize: 12, fontWeight: 700, color: C.amber }}>📦 Pedidos pendientes</span>
+                    <span style={{ fontSize: 12, fontWeight: 700, color: C.amber }}>Pedidos pendientes</span>
                     <span style={{ fontSize: 11, color: C.amber, fontFamily: C.mono, background: "rgba(245,158,11,0.15)", padding: "2px 8px", borderRadius: 99 }}>{pedidosPendientes.length}</span>
                   </div>
                   <div style={{ maxHeight: 480, overflowY: "auto" }}>
@@ -833,7 +833,7 @@ export default function PanolScreen({ profile, signOut }) {
                                 disabled={actualizandoPed}
                                 onClick={() => cambiarEstadoPedido(ped.id, "recibido")}
                                 style={{ border: "1px solid rgba(16,185,129,0.4)", background: "rgba(16,185,129,0.12)", color: "#34d399", padding: "5px 12px", borderRadius: 7, cursor: "pointer", fontSize: 12, fontFamily: C.sans, fontWeight: 700 }}>
-                                ✅ Confirmar recepción completa
+                                Confirmar recepción completa
                               </button>
                             )}
                           </div>

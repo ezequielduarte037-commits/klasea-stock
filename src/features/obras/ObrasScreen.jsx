@@ -19,6 +19,7 @@ import PlanificacionView      from "@/features/obras/PlanificacionView";
 import MapaProduccion         from "@/features/obras/MapaProduccion";
 import PanelDetallesObra      from "@/features/obras/PanelDetallesObra";
 import PiezasLaminacionView   from "@/features/obras/PiezasLaminacionView";
+import FechasView             from "@/features/obras/FechasView";
 import ObrasHome              from "@/features/obras/ObrasHome";
 
 // ─── UTILS ────────────────────────────────────────────────────────────────────
@@ -2475,6 +2476,9 @@ export default function ObrasScreen({ profile, signOut }) {
               <button type="button" onClick={() => setMainView("piezas_lam")} style={{ padding: "5px 14px", borderRadius: 7, cursor: "pointer", fontSize: 12, fontFamily: C.sans, border: mainView === "piezas_lam" ? `1px solid rgba(16,185,129,0.45)` : `1px solid ${C.b0}`, background: mainView === "piezas_lam" ? "rgba(16,185,129,0.10)" : "transparent", color: mainView === "piezas_lam" ? C.green : C.t1, transition: "all 0.18s", boxShadow: mainView === "piezas_lam" ? "0 0 16px rgba(16,185,129,0.12)" : "none" }}>
                 <span style={{display:"flex",alignItems:"center",gap:5}}>Piezas Laminación</span>
               </button>
+              <button type="button" onClick={() => setMainView("fechas")} style={{ padding: "5px 14px", borderRadius: 7, cursor: "pointer", fontSize: 12, fontFamily: C.sans, border: mainView === "fechas" ? `1px solid rgba(34,211,238,0.45)` : `1px solid ${C.b0}`, background: mainView === "fechas" ? "rgba(34,211,238,0.10)" : "transparent", color: mainView === "fechas" ? C.cyan : C.t1, transition: "all 0.18s", boxShadow: mainView === "fechas" ? "0 0 16px rgba(34,211,238,0.12)" : "none" }}>
+                <span style={{display:"flex",alignItems:"center",gap:5}}>Fechas</span>
+              </button>
             </div>
             {mainView === "obras" && esGestion && <Btn variant="primary" onClick={() => setShowObraModal(true)}>+ Nueva obra</Btn>}
           </div>
@@ -2602,6 +2606,18 @@ export default function ObrasScreen({ profile, signOut }) {
 
           {mainView === "piezas_lam" && (
             <PiezasLaminacionView obras={obras} esGestion={esGestion} />
+          )}
+
+          {mainView === "fechas" && (
+            <FechasView
+              obras={obras}
+              lineas={lineas}
+              esGestion={esGestion}
+              onUpdateObra={async (id, fields) => {
+                await supabase.from("produccion_obras").update(fields).eq("id", id);
+                cargar();
+              }}
+            />
           )}
         </div>
       </div>

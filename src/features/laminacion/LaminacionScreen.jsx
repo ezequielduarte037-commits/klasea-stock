@@ -383,8 +383,8 @@ export default function LaminacionScreen({ profile, signOut }) {
   function flash(m) { setMsg(m); setTimeout(() => setMsg(""), 2500); }
 
   async function getUserId() {
-    const { data } = await supabase.auth.getUser().catch(() => ({ data: { user: null } }));
-    return data?.user?.id ?? null;
+    const { data } = await supabase.auth.getSession().catch(() => ({ data: { session: null } }));
+    return data?.session?.user?.id ?? null;
   }
 
   function abrirModalCompra(prefilled) {
@@ -901,7 +901,7 @@ export default function LaminacionScreen({ profile, signOut }) {
                   onClick={() => setCompraSelector({ open: true, selected: "stock" })}
                   title="Crear pedido a compras"
                 >
-                  🛒 Pedir a compras
+                  Pedir a compras
                 </button>
                 {isAdmin && (
                   <button style={S.btn} onClick={() => setShowNuevoMaterial(v => !v)}>
@@ -1115,7 +1115,7 @@ export default function LaminacionScreen({ profile, signOut }) {
                               <div style={{ display: "flex", gap: 6, padding: "6px 14px", background: "rgba(245,158,11,0.03)", borderTop: "1px solid rgba(255,255,255,0.04)" }}>
                                 <button style={{ border: "1px solid rgba(16,185,129,0.3)", background: "rgba(16,185,129,0.08)", color: "#10b981", fontSize: 12, padding: "5px 12px", borderRadius: 7, cursor: "pointer", fontWeight: 700 }}
                                   onClick={() => setConfModal({ tipo: "orden_completa", grupo })}>
-                                  ✓ Recibir completa
+                                  Recibir completa
                                 </button>
                                 <button style={{ border: "1px solid rgba(245,158,11,0.3)", background: "rgba(245,158,11,0.06)", color: "#f59e0b", fontSize: 12, padding: "5px 12px", borderRadius: 7, cursor: "pointer", fontWeight: 700 }}
                                   onClick={() => setConfModal({ tipo: "orden_parcial", grupo, cantsParciales: {} })}>

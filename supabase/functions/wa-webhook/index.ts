@@ -632,8 +632,9 @@ async function createPurchaseRequestFromBot(
     source: "whatsapp",
     source_ref: profile.username,
     created_by: profile.id,
-    // Foto principal: la primera que el usuario mandó al bot.
+    // Foto principal + galería con TODAS las fotos que el usuario mandó al bot.
     photo_url: photoUrls[0] || null,
+    photo_urls: photoUrls.length ? photoUrls : null,
   };
   const { data: request, error } = await db
     .from("purchase_requests").insert(payload).select("id").single();
@@ -646,7 +647,9 @@ async function createPurchaseRequestFromBot(
       quantity: it.quantity || null,
       unit: it.unit || "unidad",
       link_url: it.link_url || null,
-      image_url: it.image_url || null,
+      // Solo conservamos image_url si viene de un link de producto (metadata real).
+      // Una foto suelta no tiene URL de ítem confiable → va a la galería del pedido.
+      image_url: it.link_url ? (it.image_url || null) : null,
     }));
     await db.from("purchase_request_items").insert(itemRows);
   }

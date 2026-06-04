@@ -516,7 +516,8 @@ function PiezaModal({ pieza, lineaKey, obraId, segRow, imagenes:imgInit=[], onSa
 
   async function guardar() {
     setSaving(true);
-    const { data:{ user } } = await supabase.auth.getUser().catch(() => ({ data:{ user:null } }));
+    const { data:{ session } } = await supabase.auth.getSession().catch(() => ({ data:{ session:null } }));
+    const user = session?.user ?? null;
     const { error } = await supabase.from("piezas_laminacion_seguimiento").upsert({
       obra_id: obraId, pieza_id: pieza.pieza_id, pieza_num: pieza.num,
       estado, observaciones: obs.trim()||null, ubicacion: ubicacion.trim()||null,
@@ -535,7 +536,8 @@ function PiezaModal({ pieza, lineaKey, obraId, segRow, imagenes:imgInit=[], onSa
     if (!file) return;
     setUploading(true); setUploadErr("");
     try {
-      const { data:{ user } } = await supabase.auth.getUser().catch(() => ({ data:{ user:null } }));
+      const { data:{ session } } = await supabase.auth.getSession().catch(() => ({ data:{ session:null } }));
+      const user = session?.user ?? null;
       const ext  = file.name.split(".").pop().toLowerCase();
       const safe = pieza.pieza_id.replace(/\//g, "_");
       const path = `${obraId}/${lineaKey ?? "x"}/${safe}/${Date.now()}.${ext}`;
@@ -891,7 +893,8 @@ export default function PiezasLaminacionView({ obras=[], esGestion=false }) {
   async function cambiarEstado(ids, nuevoEstado) {
     if (!obraSelId || !ids.length) return;
     setSaving(true);
-    const { data:{ user } } = await supabase.auth.getUser().catch(() => ({ data:{ user:null } }));
+    const { data:{ session } } = await supabase.auth.getSession().catch(() => ({ data:{ session:null } }));
+    const user = session?.user ?? null;
     const byId = {};
     (catalogo??[]).forEach(p => { byId[p.pieza_id] = p; });
 

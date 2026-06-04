@@ -43,6 +43,14 @@ import logoK from "@/assets/logos/logo-k.png";
 import { C } from "@/theme";
 import { useResponsive } from "@/hooks/useResponsive";
 
+// Solo tratamos como enlace/imagen lo que sea una URL http(s) absoluta y válida.
+// Evita que un valor basura (path relativo inventado por el bot) navegue el SPA al menú.
+const isHttpUrl = (u) => {
+  if (typeof u !== "string") return false;
+  try { const x = new URL(u); return x.protocol === "http:" || x.protocol === "https:"; }
+  catch { return false; }
+};
+
 const statusColors = {
   nuevo: C.blue,
   en_revision: C.violet,
@@ -1252,7 +1260,7 @@ export default function PurchaseRequestDetail({ requestId, profile, users = [], 
             padding: isMobile ? 12 : 16,
             borderBottom: `1px solid ${C.border}`,
             display: "grid",
-            gridTemplateColumns: isMobile || !request.photo_url ? "1fr" : "1fr 160px",
+            gridTemplateColumns: isMobile || !(request.photo_urls?.length || request.photo_url) ? "1fr" : "1fr 160px",
             gap: 14,
           }}>
             <div>
@@ -1277,18 +1285,30 @@ export default function PurchaseRequestDetail({ requestId, profile, users = [], 
                 </div>
               )}
             </div>
-            {request.photo_url && (
-              <a href={request.photo_url} target="_blank" rel="noreferrer" style={{
-                display: "block",
-                borderRadius: 8,
-                border: `1px solid ${C.border}`,
-                overflow: "hidden",
-                background: C.panel,
-                minHeight: 110,
-              }}>
-                <img src={request.photo_url} alt={request.title} style={{ width: "100%", height: "100%", objectFit: "cover", display: "block" }} />
-              </a>
-            )}
+            {(() => {
+              const photos = (request.photo_urls?.length ? request.photo_urls
+                : request.photo_url ? [request.photo_url] : []).filter(isHttpUrl);
+              if (photos.length === 0) return null;
+              const multi = photos.length > 1;
+              return (
+                <div style={{ display: "flex", flexWrap: "wrap", gap: 6, alignContent: "flex-start" }}>
+                  {photos.map((u, i) => (
+                    <a key={i} href={u} target="_blank" rel="noreferrer" style={{
+                      display: "block",
+                      borderRadius: 8,
+                      border: `1px solid ${C.border}`,
+                      overflow: "hidden",
+                      background: C.panel,
+                      width: multi ? "calc(50% - 3px)" : "100%",
+                      height: multi ? 74 : undefined,
+                      minHeight: multi ? undefined : 110,
+                    }}>
+                      <img src={u} alt={`${request.title} ${i + 1}`} style={{ width: "100%", height: "100%", objectFit: "cover", display: "block" }} />
+                    </a>
+                  ))}
+                </div>
+              );
+            })()}
           </div>
 
           <div className="pr-chat-scroll" style={{ minHeight: 0, overflowY: isMobile ? "visible" : "auto", padding: isMobile ? "12px" : "16px 18px" }}>
@@ -1382,7 +1402,7 @@ export default function PurchaseRequestDetail({ requestId, profile, users = [], 
                               {item.quantity} {item.unit}
                             </span>
                           )}
-                          {item.image_url && (
+                          {isHttpUrl(item.image_url) && (
                             <a href={item.image_url} target="_blank" rel="noreferrer" style={{
                               display: "inline-flex", alignItems: "center", gap: 3,
                               color: C.blue, fontSize: 10, textDecoration: "none",
@@ -1391,7 +1411,7 @@ export default function PurchaseRequestDetail({ requestId, profile, users = [], 
                               Foto
                             </a>
                           )}
-                          {item.link_url && (
+                          {isHttpUrl(item.link_url) && (
                             <a href={item.link_url} target="_blank" rel="noreferrer" style={{
                               display: "inline-flex", alignItems: "center", gap: 3,
                               color: C.amber, fontSize: 10, textDecoration: "none",
@@ -1448,9 +1468,9 @@ export default function PurchaseRequestDetail({ requestId, profile, users = [], 
                             background: C.bg, cursor: "pointer", fontSize: 13, color: C.dim,
                           }}>
                             <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="8.5" cy="8.5" r="1.5"/><path d="m21 15-5-5L5 21"/></svg>
-                            {editImageFile ? editImageFile.name : item.image_url ? "Reemplazar foto" : "Subir foto"}
+                            {editImageFile ? editImageFile.name : isHttpUrl(item.image_url) ? "Reemplazar foto" : "Subir foto"}
                             <input type="file" accept="image/*" onChange={e => setEditImageFile(e.target.files?.[0] || null)} style={{ display: "none" }} />
-                            {item.image_url && !editImageFile && (
+                            {isHttpUrl(item.image_url) && !editImageFile && (
                               <img src={item.image_url} alt="" style={{ height: 28, borderRadius: 4, marginLeft: "auto" }} />
                             )}
                             {editImageFile && (
@@ -1807,8 +1827,10 @@ export default function PurchaseRequestDetail({ requestId, profile, users = [], 
               </MetaRow>
             )}
             <MetaRow icon={<ImageIcon size={12} />} label="Foto">
-              {request.photo_url
-                ? <a href={request.photo_url} target="_blank" rel="noreferrer" style={{ color: C.blue, fontSize: 12, textDecoration: "none" }}>Ver adjunto</a>
+              {(request.photo_urls?.length || request.photo_url)
+                ? <a href={(request.photo_urls?.[0]) || request.photo_url} target="_blank" rel="noreferrer" style={{ color: C.blue, fontSize: 12, textDecoration: "none" }}>
+                    {request.photo_urls?.length > 1 ? `Ver ${request.photo_urls.length} adjuntos` : "Ver adjunto"}
+                  </a>
                 : <span style={{ color: C.dim }}>Sin adjunto</span>
               }
             </MetaRow>

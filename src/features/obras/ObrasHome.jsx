@@ -138,6 +138,31 @@ const VISTAS = [
       </svg>
     ),
   },
+  {
+    view:"fechas", label:"Fechas", color:"#22d3ee",
+    desc:"Cuándo pedir o hacer cada cosa según el desmolde de cada barco",
+    art:(c)=>(
+      <svg viewBox="0 0 240 140" fill="none" style={{position:"absolute",inset:0,width:"100%",height:"100%",opacity:0.18}}>
+        {/* cuerpo del calendario */}
+        <rect x="40" y="26" width="160" height="104" rx="8" fill={c} fillOpacity="0.05" stroke={c} strokeWidth="1.2" strokeOpacity="0.5"/>
+        {/* cabecera */}
+        <rect x="40" y="26" width="160" height="20" rx="8" fill={c} fillOpacity="0.16"/>
+        <rect x="40" y="38" width="160" height="8" fill={c} fillOpacity="0.16"/>
+        {/* anillas */}
+        <rect x="68"  y="16" width="6" height="20" rx="3" fill={c} fillOpacity="0.6"/>
+        <rect x="166" y="16" width="6" height="20" rx="3" fill={c} fillOpacity="0.6"/>
+        {/* grilla de días */}
+        {[0,1,2,3].map(r=>(
+          [0,1,2,3,4,5].map(col=>(
+            <rect key={`${r}${col}`} x={50+col*25} y={56+r*16} width="18" height="11" rx="2"
+              fill={c} fillOpacity={(r*6+col)%5===0?0.5:0.09}/>
+          ))
+        ))}
+        {/* marcador "fecha clave" */}
+        <circle cx="59" cy="61.5" r="8" fill="none" stroke={c} strokeWidth="1.4" strokeOpacity="0.75"/>
+      </svg>
+    ),
+  },
 ];
 
 // ─── HOOKS ───────────────────────────────────────────────────────

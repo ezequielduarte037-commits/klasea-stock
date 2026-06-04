@@ -129,11 +129,11 @@ const S = {
 // ── Helpers ──────────────────────────────────────────────────────
 function urgenciaRotacion(semanasDeStock, buffer, sinHistorial) {
   if (sinHistorial)                   return { label: "Sin historial", color: C.t2 };
-  if (semanasDeStock === 0)           return { label: "⚡ Sin stock",  color: C.red };
-  if (semanasDeStock < 1)             return { label: "⚡ Crítico",    color: C.red };
-  if (semanasDeStock < buffer * 0.5)  return { label: "⚠ Urgente",    color: C.orange };
-  if (semanasDeStock < buffer)        return { label: "⚠ Atención",   color: C.amber };
-  return                                     { label: "✓ OK",         color: C.green };
+  if (semanasDeStock === 0)           return { label: "Sin stock",  color: C.red };
+  if (semanasDeStock < 1)             return { label: "Crítico",    color: C.red };
+  if (semanasDeStock < buffer * 0.5)  return { label: "Urgente",    color: C.orange };
+  if (semanasDeStock < buffer)        return { label: "Atención",   color: C.amber };
+  return                                     { label: "OK",         color: C.green };
 }
 
 function SemanasBar({ semanas, buffer }) {
@@ -181,7 +181,7 @@ function FilaSugerida({ row, onCrearPedido }) {
         <td style={{ ...S.td, fontFamily: C.mono, color: C.t1 }}>{row.faltaUsarTotal}</td>
         <td style={S.td}>
           <span style={S.badge(urgColor)}>
-            {urgencia === "alta" ? "⚡ Alta" : urgencia === "media" ? "⚠ Media" : "✓"}
+            {urgencia === "alta" ? "Alta" : urgencia === "media" ? "Media" : "OK"}
           </span>
         </td>
         <td style={{ ...S.td, color: C.t2, fontSize: 12 }}>
@@ -225,7 +225,7 @@ function FilaSugerida({ row, onCrearPedido }) {
                     onCrearPedido(row.mat.id, cant, obs || `Compra sugerida (obras) - ${row.detalle.map(d => d.obra).join(", ")}`);
                     setExpanded(false);
                   }}>
-                  ✚ Crear pedido
+                  + Crear pedido
                 </button>
               </div>
             )}
@@ -322,7 +322,7 @@ function FilaRotacion({ row, buffer, onCrearPedido }) {
                     onCrearPedido(row.mat.id, cant, obs || `Reposición por rotación — ${row.egresoSemanal.toFixed(1)} u/sem, ${buffer} sem buffer`);
                     setExpanded(false);
                   }}>
-                  ✚ Crear pedido
+                  + Crear pedido
                 </button>
               </div>
             )}
@@ -482,8 +482,8 @@ export default function ComprasSugeridasPanel({ materiales, movimientos, stockPo
 
             {/* Toggle modo */}
             <div style={{ display: "flex", gap: 2, background: "rgba(255,255,255,0.03)", border: `1px solid ${C.b0}`, borderRadius: 9, padding: 3 }}>
-              <button style={S.modeBtn(modo === "rotacion")} onClick={() => setModo("rotacion")}>📈 Por rotación</button>
-              <button style={S.modeBtn(modo === "obras")}    onClick={() => setModo("obras")}>🏗 Por obras</button>
+              <button style={S.modeBtn(modo === "rotacion")} onClick={() => setModo("rotacion")}>Por rotación</button>
+              <button style={S.modeBtn(modo === "obras")}    onClick={() => setModo("obras")}>Por obras</button>
             </div>
 
             {/* Buffer (solo rotación) */}
@@ -522,8 +522,8 @@ export default function ComprasSugeridasPanel({ materiales, movimientos, stockPo
               {filasFiltradas.length === 0 && soloConNecesidad && (
                 <div style={{ padding: "20px 20px", color: C.green, fontSize: 14, fontFamily: C.sans }}>
                   {modo === "obras"
-                    ? "✅ Stock suficiente para todas las obras activas."
-                    : `✅ Todos los materiales tienen cobertura para más de ${bufferSemanas} semanas.`}
+                    ? "Stock suficiente para todas las obras activas."
+                    : `Todos los materiales tienen cobertura para más de ${bufferSemanas} semanas.`}
                 </div>
               )}
 
