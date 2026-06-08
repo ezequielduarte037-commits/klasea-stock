@@ -52,7 +52,7 @@ export default function EtiquetasScreen({ profile, signOut }) {
   const card = { background: C.panel, border: `1px solid ${C.border}`, borderRadius: 12, padding: 12 };
 
   return (
-    <div style={{ position: "fixed", inset: 0, background: C.bg, color: C.text, fontFamily: "'Outfit',system-ui", display: "flex", flexDirection: "column", overflow: "hidden" }}>
+    <div style={{ position: "fixed", top: 0, left: 0, right: 0, bottom: 0, background: C.bg, color: C.text, fontFamily: "'Outfit',system-ui", display: "flex", flexDirection: "column", overflow: "hidden" }}>
       <style>{`
         @media print {
           body * { visibility: hidden !important; }
