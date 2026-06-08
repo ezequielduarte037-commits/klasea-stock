@@ -20,6 +20,8 @@ import HomeScreen            from "@/features/home/HomeScreen";
 import CalendarioScreen      from "@/features/calendario/CalendarioScreen";
 import PedidosMaderaScreen   from "@/features/inventario/PedidosMaderaScreen";
 import PurchaseRequestsScreen from "@/features/compras/PurchaseRequestsScreen";
+import ScanEgresoScreen      from "@/features/inventario/ScanEgresoScreen";
+import EtiquetasScreen       from "@/features/inventario/EtiquetasScreen";
 
 import { ToastProvider } from "@/components/ui/Toast";
 import { ConfirmProvider } from "@/components/ui/ConfirmDialog";
@@ -386,7 +388,12 @@ export default function App() {
         <Route path="/obras-laminacion" element={<RequireAuth session={session}><RequireRole profile={profile} allow={["admin","oficina","tecnica"]}><ObrasLaminacionScreen {...A} /></RequireRole></RequireAuth>} />
         <Route path="/laminacion/plantillas" element={<RequireAuth session={session}><RequireRole profile={profile} allow={["admin","tecnica"]}><PlantillasLineaScreen {...A} /></RequireRole></RequireAuth>} />
         <Route path="/configuracion"    element={<RequireAuth session={session}><RequireRole profile={profile} allow={["admin"]}><ConfiguracionScreen {...A} /></RequireRole></RequireAuth>} />
-        <Route path="/madera" element={<RequireAuth session={session}><RequireRole profile={profile} allow={["admin","oficina","tecnica"]}><PedidosMaderaScreen profile={profile} signOut={signOut} /></RequireRole></RequireAuth>} />  
+        <Route path="/madera" element={<RequireAuth session={session}><RequireRole profile={profile} allow={["admin","oficina","tecnica"]}><PedidosMaderaScreen profile={profile} signOut={signOut} /></RequireRole></RequireAuth>} />
+
+        {/* Escáner de pañol (PDA) + impresión de etiquetas QR */}
+        <Route path="/scan"      element={<RequireAuth session={session}><RequireRole profile={profile} allow={["admin","oficina","tecnica","panol"]}><ScanEgresoScreen {...A} /></RequireRole></RequireAuth>} />
+        <Route path="/etiquetas" element={<RequireAuth session={session}><RequireRole profile={profile} allow={["admin","oficina","tecnica"]}><EtiquetasScreen   {...A} /></RequireRole></RequireAuth>} />
+
         <Route path="*" element={<Navigate to="/" replace />} />
       </Routes>
         </ConfirmProvider>
