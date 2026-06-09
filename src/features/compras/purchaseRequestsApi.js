@@ -336,10 +336,14 @@ export async function createAdditionalItem(fields) {
   const payload = {
     board_id: fields.board_id,
     purchase_request_id: fields.purchase_request_id || null,
+    purchase_request_item_id: fields.purchase_request_item_id || null,
     entry_date: fields.entry_date || null,
     provider: fields.provider?.trim() || null,
     detail: fields.detail?.trim(),
+    cantidad: fields.cantidad == null || String(fields.cantidad).trim() === "" ? null : String(fields.cantidad).trim(),
     amount: fields.amount === "" || fields.amount === undefined || fields.amount === null ? null : Number(fields.amount),
+    currency: fields.currency === "USD" ? "USD" : "ARS",
+    link_url: fields.link_url?.trim() || null,
     notes: fields.notes?.trim() || null,
   };
 
@@ -357,6 +361,9 @@ export async function updateAdditionalItem(id, patch) {
   const payload = { ...patch };
   if (payload.provider !== undefined) payload.provider = payload.provider?.trim() || null;
   if (payload.detail !== undefined) payload.detail = payload.detail?.trim();
+  if (payload.cantidad !== undefined) payload.cantidad = payload.cantidad == null || String(payload.cantidad).trim() === "" ? null : String(payload.cantidad).trim();
+  if (payload.currency !== undefined) payload.currency = payload.currency === "USD" ? "USD" : "ARS";
+  if (payload.link_url !== undefined) payload.link_url = payload.link_url?.trim() || null;
   if (payload.notes !== undefined) payload.notes = payload.notes?.trim() || null;
   if (payload.amount !== undefined) {
     payload.amount = payload.amount === "" || payload.amount === null ? null : Number(payload.amount);
@@ -583,6 +590,15 @@ export async function fetchRequestItems(requestId) {
     .select("*")
     .eq("request_id", requestId)
     .order("created_at", { ascending: true });
+  if (error) throw error;
+  return data || [];
+}
+
+export async function fetchAllRequestItems() {
+  const { data, error } = await supabase
+    .from("purchase_request_items")
+    .select("*")
+    .order("created_at", { ascending: false });
   if (error) throw error;
   return data || [];
 }
