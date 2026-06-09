@@ -31,7 +31,21 @@ const EVENTOS = [
   { key: "motor",          label: "Motor",             short: "Motor" },
   { key: "grupo",          label: "Grupo",             short: "Grupo" },
   { key: "tanques",        label: "Tanques",           short: "Tanques" },
+  { key: "baterias",       label: "Baterías",          short: "Baterías" },
 ];
+
+// Orden de columnas reordenable (drag & drop). Se guarda local así cada uno lo
+// acomoda a su gusto; aplica a TODOS los barcos (todas las tablas comparten el orden).
+const ALL_KEYS = EVENTOS.map((e) => e.key);
+const ORDER_LS_KEY = "fechas_col_order_v1";
+function loadColOrder() {
+  try {
+    const saved = JSON.parse(localStorage.getItem(ORDER_LS_KEY) || "[]");
+    const valid = Array.isArray(saved) ? saved.filter((k) => ALL_KEYS.includes(k)) : [];
+    const missing = ALL_KEYS.filter((k) => !valid.includes(k)); // eventos nuevos se agregan al final
+    return [...valid, ...missing];
+  } catch { return [...ALL_KEYS]; }
+}
 
 // ── Helpers de fecha ─────────────────────────────────────────────────────────
 const MS_DIA = 86400000;
@@ -88,7 +102,28 @@ export default function FechasView({ obras = [], lineas = [], esGestion = false,
   const [editor, setEditor] = useState(false);
   const [buffer, setBuffer] = useState({});          // edición de offsets
   const [desmoldes, setDesmoldes] = useState({});     // overlay optimista: id -> {desmolde_estimado, desmolde_real}
+  const [order, setOrder] = useState(loadColOrder);   // orden de columnas (drag)
+  const [dragKey, setDragKey] = useState(null);       // columna que se está arrastrando
   const savingRef = useRef(false);
+
+  // lista de eventos en el orden elegido por el usuario
+  const eventos = useMemo(
+    () => order.map((k) => EVENTOS.find((e) => e.key === k)).filter(Boolean), [order]);
+
+  function moveCol(fromKey, toKey) {
+    if (!fromKey || fromKey === toKey) return;
+    setOrder((prev) => {
+      const arr = prev.filter((k) => k !== fromKey);
+      const idx = arr.indexOf(toKey);
+      arr.splice(idx < 0 ? arr.length : idx, 0, fromKey);
+      try { localStorage.setItem(ORDER_LS_KEY, JSON.stringify(arr)); } catch { /* noop */ }
+      return arr;
+    });
+  }
+  function resetCols() {
+    try { localStorage.removeItem(ORDER_LS_KEY); } catch { /* noop */ }
+    setOrder([...ALL_KEYS]);
+  }
 
   async function cargarOffsets() {
     const { data, error } = await supabase.from("fechas_offsets").select("*");
@@ -213,9 +248,17 @@ export default function FechasView({ obras = [], lineas = [], esGestion = false,
           <div style={{ fontSize: 16, fontWeight: 800, color: C.t0 }}>Fechas</div>
           <div style={{ fontSize: 12, color: C.t2, marginTop: 2 }}>
             Cuándo pedir o hacer cada cosa, según el desmolde de cada barco. Se usa el real si está cargado, si no el estimado.
+            <span style={{ color: C.t3 }}> · Arrastrá los encabezados (⠿) para reordenar las columnas.</span>
           </div>
         </div>
         <div style={{ flex: 1 }} />
+        {order.join() !== ALL_KEYS.join() && (
+          <button type="button" onClick={resetCols} title="Restaurar el orden original de columnas" style={{
+            padding: "7px 12px", borderRadius: 8, cursor: "pointer", fontSize: 12.5, fontWeight: 600,
+            fontFamily: C.sans, border: `1px solid ${C.b1}`, background: C.s1, color: C.t2 }}>
+            ↺ Orden original
+          </button>
+        )}
         {esGestion && (
           <button type="button" onClick={() => setEditor(e => !e)} style={{
             padding: "7px 14px", borderRadius: 8, cursor: "pointer", fontSize: 12.5, fontWeight: 600,
@@ -252,7 +295,7 @@ export default function FechasView({ obras = [], lineas = [], esGestion = false,
                 </tr>
               </thead>
               <tbody>
-                {EVENTOS.map(ev => (
+                {eventos.map(ev => (
                   <tr key={ev.key}>
                     <td style={{ ...td, fontFamily: C.sans, color: C.t0, fontWeight: 600,
                       position: "sticky", left: 0, background: C.s0 }}>{ev.label}</td>
@@ -308,8 +351,18 @@ export default function FechasView({ obras = [], lineas = [], esGestion = false,
                   <th style={{ ...th, left: 0, zIndex: 2, minWidth: 78 }}>Barco</th>
                   <th style={th}>Desmolde est.</th>
                   <th style={th}>Desmolde real</th>
-                  {EVENTOS.map(ev => (
-                    <th key={ev.key} style={{ ...th, textAlign: "center" }} title={ev.label}>
+                  {eventos.map(ev => (
+                    <th key={ev.key}
+                      draggable
+                      onDragStart={() => setDragKey(ev.key)}
+                      onDragEnd={() => setDragKey(null)}
+                      onDragOver={e => e.preventDefault()}
+                      onDrop={e => { e.preventDefault(); moveCol(dragKey, ev.key); setDragKey(null); }}
+                      title="Arrastrá para reordenar la columna"
+                      style={{ ...th, textAlign: "center", cursor: "grab", userSelect: "none",
+                        opacity: dragKey === ev.key ? 0.4 : 1,
+                        background: dragKey && dragKey !== ev.key ? "rgba(34,211,238,0.10)" : th.background }}>
+                      <span style={{ color: C.t3, marginRight: 3, fontSize: 9, letterSpacing: -1 }}>⠿</span>
                       {isMobile ? ev.short : ev.label}
                     </th>
                   ))}
@@ -335,7 +388,7 @@ export default function FechasView({ obras = [], lineas = [], esGestion = false,
                               style={{ ...dateInput, borderColor: real ? "rgba(16,185,129,0.4)" : C.b1 }} />
                           : <span style={{ color: real ? C.green : C.t3 }}>{fmtFecha(parseISO(real))}</span>}
                       </td>
-                      {EVENTOS.map(ev => {
+                      {eventos.map(ev => {
                         const off = getOffset(ev.key, f.token);
                         if (off === null || !desm) {
                           return <td key={ev.key} style={{ ...td, textAlign: "center", color: C.t3 }}>—</td>;
