@@ -957,9 +957,19 @@ export default function PurchaseRequestsScreen({ profile, signOut }) {
                     <option value="todos">Creador</option>
                     {users.map((user) => <option key={user.id} value={user.id}>{usernameOf(user)}</option>)}
                   </select>
-                  <select value={filters.project} onChange={(e) => setFilters((f) => ({ ...f, project: e.target.value }))} style={{ ...inputStyle, flex: "0 0 100px", paddingTop: 7, paddingBottom: 7, fontSize: 13 }}>
-                    <option value="todos">Proyecto</option>
-                    {projects.map((project) => <option key={project.id} value={project.id}>{project.codigo}</option>)}
+                  <select value={filters.project} onChange={(e) => setFilters((f) => ({ ...f, project: e.target.value }))} style={{ ...inputStyle, flex: "0 0 110px", paddingTop: 7, paddingBottom: 7, fontSize: 13 }}>
+                    <option value="todos">Destino</option>
+                    <optgroup label="Obras">
+                      {projects.map((project) => <option key={project.id} value={project.id}>{project.codigo}</option>)}
+                    </optgroup>
+                    {(() => {
+                      const destinos = [...new Set(requests.map((r) => r.destino).filter(Boolean))].sort();
+                      return destinos.length > 0 ? (
+                        <optgroup label="Stock / destinos">
+                          {destinos.map((d) => <option key={`dest:${d}`} value={`dest:${d}`}>{d}</option>)}
+                        </optgroup>
+                      ) : null;
+                    })()}
                   </select>
                   <input type="date" value={filters.dateFrom} onChange={(e) => setFilters((f) => ({ ...f, dateFrom: e.target.value }))} style={{ ...inputStyle, flex: "0 0 120px", paddingTop: 7, paddingBottom: 7, fontSize: 13 }} />
                   <input type="date" value={filters.dateTo} onChange={(e) => setFilters((f) => ({ ...f, dateTo: e.target.value }))} style={{ ...inputStyle, flex: "0 0 120px", paddingTop: 7, paddingBottom: 7, fontSize: 13 }} />
