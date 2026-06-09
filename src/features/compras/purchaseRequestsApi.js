@@ -46,6 +46,16 @@ const DETAIL_SELECT = `
   )
 `;
 
+const ADDITIONAL_BOARD_SELECT = `
+  *,
+  project:produccion_obras!purchase_additional_boards_project_id_fkey(id, codigo, descripcion, estado)
+`;
+
+const ADDITIONAL_ITEM_SELECT = `
+  *,
+  request:purchase_requests!purchase_additional_items_purchase_request_id_fkey(id, title, status, priority, created_at, proveedor, estimated_amount, actual_amount, project_id)
+`;
+
 function safeFilePart(value) {
   return String(value || "archivo")
     .normalize("NFD")
@@ -257,7 +267,122 @@ export async function fetchProjects() {
   return (data || []).filter((project) => project.estado !== "archivada");
 }
 
-// ─── FACTURAS / COMPROBANTES ──────────────────────────────────────────
+// --- ADICIONALES -----------------------------------------------------------
+
+export async function fetchAdditionalBoards() {
+  const { data, error } = await supabase
+    .from("purchase_additional_boards")
+    .select(ADDITIONAL_BOARD_SELECT)
+    .order("updated_at", { ascending: false });
+
+  if (error) throw error;
+  return data || [];
+}
+
+export async function createAdditionalBoard(fields) {
+  const payload = {
+    name: fields.name?.trim(),
+    project_id: fields.project_id || null,
+    notes: fields.notes?.trim() || null,
+    status: fields.status || "activo",
+  };
+
+  const { data, error } = await supabase
+    .from("purchase_additional_boards")
+    .insert(payload)
+    .select(ADDITIONAL_BOARD_SELECT)
+    .single();
+
+  if (error) throw error;
+  return data;
+}
+
+export async function updateAdditionalBoard(id, patch) {
+  const { data, error } = await supabase
+    .from("purchase_additional_boards")
+    .update(patch)
+    .eq("id", id)
+    .select(ADDITIONAL_BOARD_SELECT)
+    .single();
+
+  if (error) throw error;
+  return data;
+}
+
+export async function deleteAdditionalBoard(id) {
+  const { error } = await supabase
+    .from("purchase_additional_boards")
+    .delete()
+    .eq("id", id);
+
+  if (error) throw error;
+}
+
+export async function fetchAdditionalItems(boardId = null) {
+  let query = supabase
+    .from("purchase_additional_items")
+    .select(ADDITIONAL_ITEM_SELECT)
+    .order("entry_date", { ascending: false, nullsFirst: false })
+    .order("created_at", { ascending: false });
+
+  if (boardId) query = query.eq("board_id", boardId);
+
+  const { data, error } = await query;
+  if (error) throw error;
+  return data || [];
+}
+
+export async function createAdditionalItem(fields) {
+  const payload = {
+    board_id: fields.board_id,
+    purchase_request_id: fields.purchase_request_id || null,
+    entry_date: fields.entry_date || null,
+    provider: fields.provider?.trim() || null,
+    detail: fields.detail?.trim(),
+    amount: fields.amount === "" || fields.amount === undefined || fields.amount === null ? null : Number(fields.amount),
+    notes: fields.notes?.trim() || null,
+  };
+
+  const { data, error } = await supabase
+    .from("purchase_additional_items")
+    .insert(payload)
+    .select(ADDITIONAL_ITEM_SELECT)
+    .single();
+
+  if (error) throw error;
+  return data;
+}
+
+export async function updateAdditionalItem(id, patch) {
+  const payload = { ...patch };
+  if (payload.provider !== undefined) payload.provider = payload.provider?.trim() || null;
+  if (payload.detail !== undefined) payload.detail = payload.detail?.trim();
+  if (payload.notes !== undefined) payload.notes = payload.notes?.trim() || null;
+  if (payload.amount !== undefined) {
+    payload.amount = payload.amount === "" || payload.amount === null ? null : Number(payload.amount);
+  }
+
+  const { data, error } = await supabase
+    .from("purchase_additional_items")
+    .update(payload)
+    .eq("id", id)
+    .select(ADDITIONAL_ITEM_SELECT)
+    .single();
+
+  if (error) throw error;
+  return data;
+}
+
+export async function deleteAdditionalItem(id) {
+  const { error } = await supabase
+    .from("purchase_additional_items")
+    .delete()
+    .eq("id", id);
+
+  if (error) throw error;
+}
+
+// --- FACTURAS / COMPROBANTES ----------------------------------------------
 
 export async function uploadInvoice(file, userId) {
   if (!file) return { invoiceUrl: null, invoicePath: null };

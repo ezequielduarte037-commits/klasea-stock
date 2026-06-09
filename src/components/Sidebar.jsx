@@ -21,6 +21,12 @@ function Icon({ id, color = "currentColor", size = 14 }) {
       <rect x="1" y="7" width="14" height="9" rx="2" {...p}/>
       <path d="M8 11v2" {...p}/>
     </>,
+    "/scan": <>
+      <rect x="1.5" y="1.5" width="4" height="4" rx="1" {...p}/>
+      <rect x="10.5" y="1.5" width="4" height="4" rx="1" {...p}/>
+      <rect x="1.5" y="10.5" width="4" height="4" rx="1" {...p}/>
+      <path d="M10.5 10.5h2v2M14.5 10.5v4M10.5 14.5h2" {...p}/>
+    </>,
     "/laminacion": <>
       <path d="M1 6l7-4 7 4-7 4z" {...p}/>
       <path d="M1 11l7 4 7-4" {...p}/>
@@ -319,6 +325,7 @@ export default function Sidebar({ profile, signOut }) {
         <nav style={{ flex: 1, overflowY: "auto", paddingBottom: 8, paddingTop: 4 }}>
           {(esPanol || esGestion) && <>
             {group("Movimientos", SC.movimientos, 60)}
+            {item("/scan",       "Escáner egreso", SC.movimientos, true, 70, "Egreso de madera por escáner — pantalla para el colector de pañol.")}
             {item("/panol",      "Maderas",    SC.movimientos, true, 80, "Control de stock y retiros de materiales de madera para producción.")}
             {item("/laminacion", "Laminación", SC.movimientos, true, 100, "Movimientos e insumos de resinas, fibras y consumibles generales.")}
           </>}

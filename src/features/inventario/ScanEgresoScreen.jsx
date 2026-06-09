@@ -29,7 +29,6 @@ export default function ScanEgresoScreen({ profile }) {
   const [msg, setMsg] = useState(null);     // {ok, text}
   const [busy, setBusy] = useState(false);
   const [hechos, setHechos] = useState(0);  // egresos confirmados en la sesión
-  const [teclado, setTeclado] = useState(false); // permitir VKB para tipear a mano
   const codeRef = useRef(null);
 
   async function cargarMateriales() {
@@ -73,13 +72,17 @@ export default function ScanEgresoScreen({ profile }) {
       return [...prev, { id: m.id, nombre: m.nombre, codigo: m.codigo, unidad: m.unidad_medida, stock: num(m.stock_actual), qty: 1 }];
     });
     setMsg({ ok: true, text: `+ ${m.nombre}` });
-    setCode(""); focusCode();
+    setCode(""); if (codeRef.current) codeRef.current.value = ""; focusCode();
   }
 
   function onScan(e) {
     e?.preventDefault?.();
-    const m = resolver(code);
-    if (!m) { setMsg({ ok: false, text: `No encontré "${code.trim()}"` }); setCode(""); focusCode(); return; }
+    // Leemos del DOM (no del estado): el lector tipea muy rápido y el estado
+    // controlado pierde caracteres → por eso llegaba vacío ("No encontré '').
+    const raw = (codeRef.current?.value ?? code ?? "").trim();
+    if (!raw) { focusCode(); return; }   // Enter vacío del lector → ignorar
+    const m = resolver(raw);
+    if (!m) { setMsg({ ok: false, text: `No encontré "${raw}"` }); setCode(""); if (codeRef.current) codeRef.current.value = ""; focusCode(); return; }
     addMaterial(m);
   }
 
@@ -147,7 +150,7 @@ export default function ScanEgresoScreen({ profile }) {
           </div>
           <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
             {hechos > 0 && <span style={{ fontSize: 11, color: C.green }}>{hechos} listos</span>}
-            <button onClick={() => nav("/")} style={{ background: "transparent", color: C.dim, border: `1px solid ${C.border}`, borderRadius: 7, padding: "4px 9px", fontSize: 11 }}>Inicio</button>
+            <button onClick={() => nav("/panol")} style={{ background: "transparent", color: C.dim, border: `1px solid ${C.border}`, borderRadius: 7, padding: "4px 9px", fontSize: 11 }}>Menú</button>
           </div>
         </div>
 
@@ -160,16 +163,10 @@ export default function ScanEgresoScreen({ profile }) {
 
         {/* Escaneo */}
         <form onSubmit={onScan} style={{ marginBottom: 10 }}>
-          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "baseline" }}>
-            <p style={lbl}>Escaneá el material</p>
-            <button type="button" onClick={() => { setTeclado(t => !t); focusCode(); }}
-              style={{ background: "none", border: "none", color: C.blue, fontSize: 11, cursor: "pointer" }}>
-              {teclado ? "ocultar teclado" : "tipear a mano"}
-            </button>
-          </div>
+          <p style={lbl}>Escaneá el material (o escribí el código y OK)</p>
           <div style={{ display: "flex", gap: 6 }}>
-            <input ref={codeRef} value={code} onChange={e => setCode(e.target.value)}
-              inputMode={teclado ? "text" : "none"} autoComplete="off" autoCapitalize="off" spellCheck={false}
+            <input ref={codeRef} defaultValue="" onChange={e => setCode(e.target.value)}
+              autoComplete="off" autoCapitalize="characters" autoCorrect="off" spellCheck={false} enterKeyHint="enter"
               placeholder="Dispará el lector…" style={{ ...field, flex: 1, fontSize: 18 }} />
             <button type="submit" style={{ ...qbtn, width: 64, fontSize: 14, fontWeight: 700, background: C.blue, color: "#fff", border: "none" }}>OK</button>
           </div>

@@ -13,6 +13,7 @@ import {
   Plus,
   Search,
   ShoppingCart,
+  Table2,
   Users,
   X,
 } from "lucide-react";
@@ -36,12 +37,12 @@ import Sidebar from "@/components/Sidebar";
 import { useResponsive } from "@/hooks/useResponsive";
 import { useToast } from "@/components/ui/Toast";
 import { CardSkeleton, RowSkeleton, Skeleton, SkeletonStyles } from "@/components/ui/Skeleton";
+import AdditionalPurchasesPanel from "@/features/compras/AdditionalPurchasesPanel";
 import PurchaseRequestDetail from "@/features/compras/PurchaseRequestDetail";
 import PurchaseLogPanel from "@/features/compras/PurchaseLogPanel";
 import {
   addRequestItem,
   createPurchaseRequest,
-  deletePurchaseRequest,
   fetchAnalyticsStats,
   fetchMonthlySpending,
   fetchOverdueRequests,
@@ -52,7 +53,6 @@ import {
   notifyComprasEmail,
   REQUEST_PRIORITIES,
   REQUEST_STATUSES,
-  updatePurchaseRequest,
   usernameOf,
 } from "@/features/compras/purchaseRequestsApi";
 
@@ -190,7 +190,7 @@ function SectionTitle({ icon, title, count }) {
   );
 }
 
-function RequestCard({ request, onClick, profile, isUnread }) {
+function RequestCard({ request, onClick, isUnread }) {
   const dotColor = statusDotColors[request.status] || C.blue;
   const color = statusColors[request.status] || C.blue;
   const isArchived = ARCHIVED_STATUSES.includes(request.status);
@@ -277,14 +277,16 @@ const SOURCE_COLORS = {
   laminacion: "#2dd4bf",
   madera: "#f59e0b",
   inventario: "#8b5cf6",
+  adicionales: "#34d399",
 };
 const SOURCE_LABELS = {
   laminacion: "Laminación",
   madera: "Madera",
   inventario: "Inventario",
+  adicionales: "Adicionales",
 };
 
-function RequestRow({ request, onClick, profile, isUnread }) {
+function RequestRow({ request, onClick, isUnread }) {
   const dotColor = statusDotColors[request.status] || C.blue;
   const color = statusColors[request.status] || C.blue;
   const isArchived = ARCHIVED_STATUSES.includes(request.status);
@@ -413,9 +415,9 @@ function ViewToggle({ viewMode, setViewMode }) {
       overflow: "hidden",
     }}>
       {[
-        { value: "grid", Icon: LayoutGrid },
-        { value: "list", Icon: LayoutList },
-      ].map(({ value, Icon }) => (
+        { value: "grid", label: "grid" },
+        { value: "list", label: "list" },
+      ].map(({ value }) => (
         <button
           key={value}
           type="button"
@@ -433,7 +435,7 @@ function ViewToggle({ viewMode, setViewMode }) {
             transition: "all .12s",
           }}
         >
-          <Icon size={12} />
+          {value === "grid" ? <LayoutGrid size={12} /> : <LayoutList size={12} />}
         </button>
       ))}
     </div>
@@ -449,6 +451,7 @@ const emptyForm = {
 };
 
 const URL_FILTER_KEYS = ["q", "status", "priority", "creator", "project", "dateFrom", "dateTo"];
+const MANAGER_TABS = ["lista", "dashboard", "registro", "adicionales"];
 
 export default function PurchaseRequestsScreen({ profile, signOut }) {
   const { isMobile } = useResponsive();
@@ -472,7 +475,10 @@ export default function PurchaseRequestsScreen({ profile, signOut }) {
   const [readMap, setReadMap] = useState(() => {
     try { return JSON.parse(localStorage.getItem("pr_readMap") || "{}"); } catch { return {}; }
   });
-  const [managerTab, setManagerTab] = useState("lista");
+  const [managerTab, setManagerTab] = useState(() => {
+    const tab = searchParams.get("tab");
+    return MANAGER_TABS.includes(tab) ? tab : "lista";
+  });
   const [analytics, setAnalytics] = useState(null);
   const [monthlySpending, setMonthlySpending] = useState([]);
   const [overdueItems, setOverdueItems] = useState([]);
@@ -494,6 +500,8 @@ export default function PurchaseRequestsScreen({ profile, signOut }) {
     dateTo:   searchParams.get("dateTo")   || "",
   }));
 
+  const manager = isPurchaseManager(profile);
+
   // Sincronizar filtros + tab + pedido abierto a la URL para que sean
   // compartibles/back-friendly. También permite deep-link tipo ?open=<id>.
   useEffect(() => {
@@ -503,7 +511,10 @@ export default function PurchaseRequestsScreen({ profile, signOut }) {
       if (v && v !== "todos") next.set(k, v);
       else next.delete(k);
     });
-    if (activeTab !== "mine") next.set("tab", activeTab);
+    if (manager) {
+      if (managerTab !== "lista") next.set("tab", managerTab);
+      else next.delete("tab");
+    } else if (activeTab !== "mine") next.set("tab", activeTab);
     else next.delete("tab");
     if (selectedId) next.set("open", selectedId);
     else next.delete("open");
@@ -511,9 +522,7 @@ export default function PurchaseRequestsScreen({ profile, signOut }) {
       setSearchParams(next, { replace: true });
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [filters, activeTab, selectedId]);
-
-  const manager = isPurchaseManager(profile);
+  }, [filters, activeTab, selectedId, manager, managerTab]);
 
   function markRead(requestId, lastAuthorId) {
     if (lastAuthorId) {
@@ -575,7 +584,7 @@ export default function PurchaseRequestsScreen({ profile, signOut }) {
       })
       .catch(() => {})
       .finally(() => setAnalyticsLoading(false));
-  }, [managerTab, requests]);
+  }, [manager, managerTab, requests]);
 
   const mine = useMemo(() => requests.filter((r) => r.created_by === profile?.id), [requests, profile?.id]);
   const copied = useMemo(() => requests.filter((r) => (r.followers || []).some((f) => f.user_id === profile?.id)), [requests, profile?.id]);
@@ -870,6 +879,9 @@ export default function PurchaseRequestsScreen({ profile, signOut }) {
                   </TabBtn>
                   <TabBtn active={managerTab === "dashboard"} onClick={() => setManagerTab("dashboard")}>
                     <BarChart3 size={12} /> Dashboard
+                  </TabBtn>
+                  <TabBtn active={managerTab === "adicionales"} onClick={() => setManagerTab("adicionales")}>
+                    <Table2 size={12} /> Adicionales
                   </TabBtn>
                   <TabBtn active={managerTab === "registro"} onClick={() => setManagerTab("registro")}>
                     <Package size={12} /> Registro
@@ -1276,7 +1288,15 @@ export default function PurchaseRequestsScreen({ profile, signOut }) {
               )}
 
               <div className="purchase-scroll" style={{ minHeight: 0, overflowY: "auto", padding: 16 }}>
-                {manager && managerTab === "registro" ? (
+                {manager && managerTab === "adicionales" ? (
+                  <AdditionalPurchasesPanel
+                    profile={profile}
+                    projects={projects}
+                    requests={requests}
+                    onSelectRequest={(id) => setSelectedId(id)}
+                    onRequestCreated={loadAll}
+                  />
+                ) : manager && managerTab === "registro" ? (
                   <PurchaseLogPanel profile={profile} />
                 ) : manager && managerTab === "dashboard" ? (
                   <DashboardErrorBoundary fallback="Probá recargar la página.">
@@ -1403,7 +1423,7 @@ export default function PurchaseRequestsScreen({ profile, signOut }) {
                     ) : viewMode === "grid" ? (
                       <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(290px, 1fr))", gap: 10 }}>
                         {visibleList.map((request) => (
-                          <RequestCard key={request.id} request={request} profile={profile} isUnread={unreadIds.has(request.id)} onClick={() => { markRead(request.id, request.last_comment_author_id); setSelectedId(request.id); }} />
+                          <RequestCard key={request.id} request={request} isUnread={unreadIds.has(request.id)} onClick={() => { markRead(request.id, request.last_comment_author_id); setSelectedId(request.id); }} />
                         ))}
                       </div>
                     ) : (
@@ -1425,7 +1445,7 @@ export default function PurchaseRequestsScreen({ profile, signOut }) {
                           <span style={{ textAlign: "right", width: 80 }}>Fecha</span>
                         </div>
                         {visibleList.map((request) => (
-                          <RequestRow key={request.id} request={request} profile={profile} isUnread={unreadIds.has(request.id)} onClick={() => { markRead(request.id, request.last_comment_author_id); setSelectedId(request.id); }} />
+                          <RequestRow key={request.id} request={request} isUnread={unreadIds.has(request.id)} onClick={() => { markRead(request.id, request.last_comment_author_id); setSelectedId(request.id); }} />
                         ))}
                       </div>
                     )}

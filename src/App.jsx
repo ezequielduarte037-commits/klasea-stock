@@ -346,11 +346,17 @@ export default function App() {
     );
   }
   const A = { profile, signOut };
+  // El colector de pañol (PDA) tiene pantalla chica → ahí mandamos directo al
+  // escáner para que un refresh no los saque del flujo. En PC (pantalla grande)
+  // pañol entra a su panel normal con el sidebar, como siempre.
+  const esColector = typeof window !== "undefined" && window.matchMedia("(max-width: 768px)").matches;
   const homeElement = !session || !profile
     ? <Navigate to="/login" replace />
     : profile.role === "cliente"
       ? <Navigate to="/mi-panel" replace />
-      : <HomeScreen profile={profile} signOut={signOut} />;
+      : (profile.role === "panol" && esColector)
+        ? <Navigate to="/scan" replace />
+        : <HomeScreen profile={profile} signOut={signOut} />;
 
   return (
     <BrowserRouter>
