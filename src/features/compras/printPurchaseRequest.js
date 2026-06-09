@@ -30,6 +30,10 @@ export function printPurchaseRequest(request, logoUrl) {
   const ccList = followers.map((f) => esc(usernameOf(f.profile))).join(", ") || "—";
 
   const items = Array.isArray(request.items) ? request.items : [];
+  // Solo mostramos la columna "Destino" si algún ítem tiene destino propio.
+  // Si no (el destino vive a nivel pedido, ya figura en la cabecera) la omitimos
+  // para no dejar una columna de "-".
+  const hasItemDest = items.some((it) => String(it.destination || "").trim());
   const itemsHtml = items.length
     ? `<div class="items">
         <div class="items-title">Items solicitados</div>
@@ -38,7 +42,7 @@ export function printPurchaseRequest(request, logoUrl) {
             <tr>
               <th>Detalle</th>
               <th>Cantidad</th>
-              <th>Destino</th>
+              ${hasItemDest ? "<th>Destino</th>" : ""}
             </tr>
           </thead>
           <tbody>
@@ -50,7 +54,7 @@ export function printPurchaseRequest(request, logoUrl) {
                   ${it.link_url ? `<div class="item-link"><a href="${esc(it.link_url)}">${esc(it.link_url)}</a></div>` : ""}
                 </td>
                 <td class="item-qty">${esc(fmtItemQty(it))}</td>
-                <td>${esc(it.destination || "-")}</td>
+                ${hasItemDest ? `<td>${esc(it.destination || "-")}</td>` : ""}
               </tr>
             `).join("")}
           </tbody>

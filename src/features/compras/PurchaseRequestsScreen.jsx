@@ -598,7 +598,11 @@ export default function PurchaseRequestsScreen({ profile, signOut }) {
       if (filters.status !== "todos" && request.status !== filters.status) return false;
       if (filters.priority !== "todos" && request.priority !== filters.priority) return false;
       if (filters.creator !== "todos" && request.created_by !== filters.creator) return false;
-      if (filters.project !== "todos" && request.project_id !== filters.project) return false;
+      if (filters.project !== "todos") {
+        if (filters.project.startsWith("dest:")) {
+          if ((request.destino || "") !== filters.project.slice(5)) return false;
+        } else if (request.project_id !== filters.project) return false;
+      }
       if (filters.dateFrom && request.created_at?.slice(0, 10) < filters.dateFrom) return false;
       if (filters.dateTo && request.created_at?.slice(0, 10) > filters.dateTo) return false;
       if (!q) return true;
