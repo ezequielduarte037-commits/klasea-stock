@@ -33,6 +33,7 @@ import {
   deletePurchaseRequest,
   notifyComprasEmail,
   notifyWaUpdate,
+  propagateAdditionalFromRequest,
   updatePurchaseRequest,
   uploadInvoice,
   uploadItemImage,
@@ -286,6 +287,7 @@ export default function PurchaseRequestDetail({ requestId, profile, users = [], 
   const [editDescription, setEditDescription] = useState("");
   const [editQuantity, setEditQuantity] = useState("");
   const [editUnit, setEditUnit] = useState("");
+  const [costosOpen, setCostosOpen] = useState(false); // bloque costos/recepción colapsado por defecto
   const bottomRef = useRef(null);
   const reloadTimer = useRef(null);
   const toast = useToast();
@@ -486,6 +488,15 @@ export default function PurchaseRequestDetail({ requestId, profile, users = [], 
           actorId: profile?.id,
           payload: { kind: "actual", amount: patch.actual_amount, actorName },
         });
+      }
+
+      // ── Adicionales: propagar el precio del pedido a sus renglones ────
+      if ((patch.actual_amount !== undefined && patch.actual_amount !== oldActual)
+        || (patch.estimated_amount !== undefined && patch.estimated_amount !== oldEstimated)) {
+        propagateAdditionalFromRequest({ ...request, ...patch }).then((r) => {
+          if (r?.created) toast.success("Sumado a Adicionales de la obra con el precio.");
+          else if (r?.updated) toast.success("Precio sincronizado en Adicionales.");
+        }).catch(() => {});
       }
 
       // ── Fecha estimada de entrega ────────────────────────────────────
@@ -810,7 +821,7 @@ export default function PurchaseRequestDetail({ requestId, profile, users = [], 
             <div style={{ marginTop: 4, color: C.dim, fontSize: 12, display: "flex", alignItems: "center", gap: 6 }}>
               <Clock size={11} />
               Creado por {usernameOf(request.creator)} el {fmtDateTime(request.created_at)}
-              {request.project?.codigo ? ` · Proyecto ${request.project.codigo}` : ""}
+              {request.project?.codigo ? ` · Proyecto ${request.project.codigo}` : request.destino ? ` · ${request.destino}` : ""}
             </div>
           </div>
 
@@ -984,15 +995,24 @@ export default function PurchaseRequestDetail({ requestId, profile, users = [], 
 
         {manager && (request.status === "cotizando" || request.status === "comprado" || request.status === "recibido") && (
           <div style={{
-            padding: "12px 16px",
+            padding: "10px 16px",
             borderBottom: `1px solid ${C.border}`,
             display: "grid",
-            gap: 12,
+            gap: costosOpen ? 12 : 0,
           }}>
-            <div style={{ color: C.dim, fontSize: 10, letterSpacing: 1.2, textTransform: "uppercase", fontWeight: 750 }}>
-              Costos y seguimiento
-            </div>
+            <button type="button" onClick={() => setCostosOpen((o) => !o)} style={{
+              display: "flex", alignItems: "center", justifyContent: "space-between",
+              width: "100%", background: "transparent", border: "none", cursor: "pointer", padding: "2px 0",
+            }}>
+              <span style={{ color: C.dim, fontSize: 10, letterSpacing: 1.2, textTransform: "uppercase", fontWeight: 750 }}>
+                Costos y recepción
+              </span>
+              <span style={{ color: C.blue, fontSize: 11, fontWeight: 700 }}>
+                {costosOpen ? "▾ ocultar" : "▸ cargar precio / recepción"}
+              </span>
+            </button>
 
+            {costosOpen && (<>
             <div style={{ display: "grid", gridTemplateColumns: isMobile ? "1fr" : "1fr 1fr 1fr", gap: 10 }}>
               {(request.status === "cotizando" || request.status === "comprado" || request.status === "recibido") && (
                 <div>
@@ -1093,10 +1113,11 @@ export default function PurchaseRequestDetail({ requestId, profile, users = [], 
                 )}
               </div>
             )}
+            </>)}
           </div>
         )}
 
-        {manager && request.status === "recibido" && (
+        {manager && request.status === "recibido" && costosOpen && (
           <div style={{
             padding: "12px 16px",
             borderBottom: `1px solid ${C.border}`,
@@ -1884,9 +1905,9 @@ export default function PurchaseRequestDetail({ requestId, profile, users = [], 
                 </span>
               </MetaRow>
             )}
-            {request.project?.codigo && (
-              <MetaRow icon={<Paperclip size={12} />} label="Proyecto">
-                <span style={{ color: C.text, fontFamily: C.mono, fontSize: 12 }}>{request.project.codigo}</span>
+            {(request.project?.codigo || request.destino) && (
+              <MetaRow icon={<Paperclip size={12} />} label={request.project?.codigo ? "Proyecto" : "Destino"}>
+                <span style={{ color: C.text, fontFamily: C.mono, fontSize: 12 }}>{request.project?.codigo || request.destino}</span>
               </MetaRow>
             )}
           </div>

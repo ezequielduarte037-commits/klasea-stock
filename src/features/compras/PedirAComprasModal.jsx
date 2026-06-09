@@ -525,16 +525,14 @@ export default function PedirAComprasModal({ open, onClose, prefilled, profile }
                         >
                           {UNITS.map((u) => <option key={u} value={u}>{u}</option>)}
                         </select>
-                        <select
+                        <input
                           value={it.destination || ""}
                           onChange={(e) => updateItem(realIdx, { destination: e.target.value })}
+                          list="dest-options"
+                          placeholder="Destino (obra o stock…)"
+                          autoComplete="off"
                           style={inp({ padding: "5px 7px", fontSize: 12, gridColumn: isMobile ? "1 / 3" : undefined })}
-                        >
-                          <option value="">Sin destino</option>
-                          {destinationOptions.map((d) => (
-                            <option key={d.value} value={d.value}>{d.label}</option>
-                          ))}
-                        </select>
+                        />
                         <button
                           type="button"
                           onClick={() => removeItem(realIdx)}
@@ -599,21 +597,24 @@ export default function PedirAComprasModal({ open, onClose, prefilled, profile }
                 {UNITS.map((u) => <option key={u} value={u}>{u}</option>)}
               </select>
             </div>
+            <datalist id="dest-options">
+              {destinationOptions.map((d) => (
+                <option key={d.value} value={d.value}>{d.label}</option>
+              ))}
+            </datalist>
             <div style={{
               display: "grid",
               gridTemplateColumns: "1fr 1fr",
               gap: 6,
             }}>
-              <select
+              <input
                 value={newDest}
                 onChange={(e) => setNewDest(e.target.value)}
+                list="dest-options"
+                placeholder="Destino (obra o stock…)"
+                autoComplete="off"
                 style={inp({ padding: "7px 9px", fontSize: 12 })}
-              >
-                <option value="">Sin destino</option>
-                {destinationOptions.map((d) => (
-                  <option key={d.value} value={d.value}>{d.label}</option>
-                ))}
-              </select>
+              />
               <input
                 value={newNotes}
                 onChange={(e) => setNewNotes(e.target.value)}

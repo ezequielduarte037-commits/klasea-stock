@@ -112,6 +112,7 @@ export async function createPurchaseRequest({ form, ccUserIds = [], photoFile })
     priority: form.priority || "media",
     status: "nuevo",
     project_id: form.project_id || null,
+    destino: form.destino || null,
     needed_at: form.needed_at || null,
     source: form.source || null,
     source_ref: form.source_ref || null,
@@ -387,6 +388,72 @@ export async function deleteAdditionalItem(id) {
     .eq("id", id);
 
   if (error) throw error;
+}
+
+// Propaga el precio de un pedido hacia sus renglones de "adicionales":
+//  - Si el pedido YA está sumado a una tabla de adicionales → actualiza el importe
+//    del renglón (a nivel pedido) con el monto cargado. Así no hay que re-tipearlo.
+//  - Si NO está sumado y el pedido es claramente un "adicional" de una obra
+//    (título/descr. dice "adicional", o nació desde el tab Adicionales) → lo crea
+//    en la tabla de esa obra. Las compras comunes NO se tocan (no infla el presupuesto).
+// Best-effort: nunca lanza.
+export async function propagateAdditionalFromRequest(request) {
+  try {
+    if (!request?.id) return { skipped: true };
+    const amount = request.actual_amount ?? request.estimated_amount ?? null;
+
+    const { data: linked } = await supabase
+      .from("purchase_additional_items")
+      .select("id")
+      .eq("purchase_request_id", request.id);
+
+    if (linked && linked.length > 0) {
+      if (amount != null) {
+        // Solo el renglón a nivel pedido (no los desglosados, que tienen importe propio)
+        await supabase
+          .from("purchase_additional_items")
+          .update({ amount })
+          .eq("purchase_request_id", request.id)
+          .is("purchase_request_item_id", null);
+      }
+      return { updated: linked.length };
+    }
+
+    const text = `${request.title || ""} ${String(request.description || "").replace(/<[^>]+>/g, " ")}`.toLowerCase();
+    const esAdicional = /\badicional(?:es)?\b/.test(text) || request.source === "adicionales";
+    if (!request.project_id || !esAdicional) return { skipped: true };
+
+    let { data: boards } = await supabase
+      .from("purchase_additional_boards")
+      .select("id")
+      .eq("project_id", request.project_id)
+      .limit(1);
+    let board = boards?.[0];
+    if (!board) {
+      const { data: proj } = await supabase
+        .from("produccion_obras").select("codigo").eq("id", request.project_id).single();
+      const { data: nb } = await supabase
+        .from("purchase_additional_boards")
+        .insert({ name: proj?.codigo || "Obra", project_id: request.project_id, status: "activo" })
+        .select("id").single();
+      board = nb;
+    }
+    if (!board) return { skipped: true };
+
+    await supabase.from("purchase_additional_items").insert({
+      board_id: board.id,
+      purchase_request_id: request.id,
+      entry_date: new Date().toISOString().slice(0, 10),
+      detail: (request.title || "Adicional").slice(0, 260),
+      amount,
+      currency: "ARS",
+      notes: "Generado automáticamente desde el pedido al cargar el monto.",
+    });
+    return { created: true };
+  } catch (err) {
+    console.warn("propagateAdditionalFromRequest:", err?.message || err);
+    return { error: true };
+  }
 }
 
 // --- FACTURAS / COMPROBANTES ----------------------------------------------

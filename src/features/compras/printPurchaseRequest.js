@@ -107,7 +107,7 @@ export function printPurchaseRequest(request, logoUrl) {
   <div><span class="l">De:</span> ${esc(usernameOf(request.creator))}</div>
   <div><span class="l">Para:</span> Compras</div>
   <div><span class="l">Fecha:</span> ${esc(fmtFull(request.created_at))}</div>
-  ${request.project?.codigo ? `<div><span class="l">Proy:</span> ${esc(request.project.codigo)}</div>` : ""}
+  ${request.project?.codigo ? `<div><span class="l">Proy:</span> ${esc(request.project.codigo)}</div>` : request.destino ? `<div><span class="l">Destino:</span> ${esc(request.destino)}</div>` : ""}
   <div><span class="l">CC:</span> ${ccList}</div>
 </div>
 

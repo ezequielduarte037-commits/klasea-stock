@@ -238,7 +238,7 @@ function RequestCard({ request, onClick, isUnread }) {
 
         <div style={{ color: C.dim, fontSize: 11, display: "flex", alignItems: "center", gap: 4, flexWrap: "wrap" }}>
           <span>{usernameOf(request.creator)}</span>
-          {request.project?.codigo && <><span style={{ color: C.border2 }}>·</span><span style={{ fontFamily: C.mono, color: C.muted }}>{request.project.codigo}</span></>}
+          {(request.project?.codigo || request.destino) && <><span style={{ color: C.border2 }}>·</span><span style={{ fontFamily: C.mono, color: C.muted }}>{request.project?.codigo || request.destino}</span></>}
           <span style={{ color: C.border2 }}>·</span>
           <span>{fmtDate(request.created_at)}</span>
         </div>
@@ -336,7 +336,7 @@ function RequestRow({ request, onClick, isUnread }) {
         </div>
         <div style={{ fontSize: 11, color: C.dim }}>
           {usernameOf(request.creator)}
-          {request.project?.codigo ? ` · ${request.project.codigo}` : ""}
+          {(request.project?.codigo || request.destino) ? ` · ${request.project?.codigo || request.destino}` : ""}
           {request.proveedor ? ` · ${request.proveedor}` : ""}
           {request.source_ref ? ` · #${request.source_ref}` : ""}
         </div>
@@ -447,8 +447,11 @@ const emptyForm = {
   description: "",
   priority: "media",
   project_id: "",
+  destino: "",      // texto libre: obra (se resuelve a project_id) o destino libre (ej. Stock Chubut 2120)
   needed_at: "",
 };
+
+const STOCK_DESTINOS = ["Stock Chubut 2120", "Stock Pampa 1050"];
 
 const URL_FILTER_KEYS = ["q", "status", "priority", "creator", "project", "dateFrom", "dateTo"];
 const MANAGER_TABS = ["lista", "dashboard", "registro", "adicionales"];
@@ -599,7 +602,7 @@ export default function PurchaseRequestsScreen({ profile, signOut }) {
       if (filters.dateFrom && request.created_at?.slice(0, 10) < filters.dateFrom) return false;
       if (filters.dateTo && request.created_at?.slice(0, 10) > filters.dateTo) return false;
       if (!q) return true;
-      const haystack = `${request.title || ""} ${request.description || ""} ${request.creator?.username || ""} ${request.project?.codigo || ""} ${request.proveedor || ""}`.toLowerCase();
+      const haystack = `${request.title || ""} ${request.description || ""} ${request.creator?.username || ""} ${request.project?.codigo || ""} ${request.destino || ""} ${request.proveedor || ""}`.toLowerCase();
       return haystack.includes(q);
     });
   }, [requests, filters]);
@@ -610,7 +613,7 @@ export default function PurchaseRequestsScreen({ profile, signOut }) {
     const q = userSearch.trim().toLowerCase();
     if (q) {
       list = list.filter((r) =>
-        `${r.title || ""} ${r.description || ""} ${r.project?.codigo || ""} ${r.proveedor || ""}`.toLowerCase().includes(q),
+        `${r.title || ""} ${r.description || ""} ${r.project?.codigo || ""} ${r.destino || ""} ${r.proveedor || ""}`.toLowerCase().includes(q),
       );
     }
     return list;
@@ -662,7 +665,15 @@ export default function PurchaseRequestsScreen({ profile, signOut }) {
     setError("");
     submittingRef.current = true;
     try {
-      const request = await createPurchaseRequest({ form, ccUserIds, photoFile });
+      // Resolver el campo libre: si coincide con una obra → project_id; si no → destino libre.
+      const destTxt = (form.destino || "").trim();
+      const obraMatch = destTxt && projects.find((p) => (p.codigo || "").toLowerCase() === destTxt.toLowerCase());
+      const formResuelto = {
+        ...form,
+        project_id: obraMatch ? obraMatch.id : null,
+        destino: obraMatch ? null : (destTxt || null),
+      };
+      const request = await createPurchaseRequest({ form: formResuelto, ccUserIds, photoFile });
       if (createItems.length) {
         await Promise.all(createItems.map((item) => addRequestItem(request.id, item)));
       }
@@ -1107,11 +1118,19 @@ export default function PurchaseRequestsScreen({ profile, signOut }) {
                   </div>
 
                   <div>
-                    <div style={labelStyle}>Proyecto / casco</div>
-                    <select value={form.project_id} onChange={(e) => setForm((f) => ({ ...f, project_id: e.target.value }))} style={inputStyle}>
-                      <option value="">Sin proyecto</option>
-                      {projects.map((project) => <option key={project.id} value={project.id}>{project.codigo}</option>)}
-                    </select>
+                    <div style={labelStyle}>Destino</div>
+                    <input
+                      value={form.destino}
+                      onChange={(e) => setForm((f) => ({ ...f, destino: e.target.value }))}
+                      list="pr-destino-options"
+                      placeholder="Obra (ej. 37-36) o destino libre (ej. Stock Chubut 2120)"
+                      autoComplete="off"
+                      style={inputStyle}
+                    />
+                    <datalist id="pr-destino-options">
+                      {projects.map((project) => <option key={project.id} value={project.codigo} />)}
+                      {STOCK_DESTINOS.map((d) => <option key={d} value={d} />)}
+                    </datalist>
                   </div>
 
                   <div>
@@ -1676,7 +1695,7 @@ function DashboardView({ analytics, monthlySpending, overdueItems, loading, requ
       statusFunnelData,
       priorityData,
       creatorData: topGroups((r) => usernameOf(r.creator) || "Sin usuario"),
-      projectData: topGroups((r) => r.project?.codigo || "Sin obra"),
+      projectData: topGroups((r) => r.project?.codigo || r.destino || "Sin obra"),
       monthlyTrend,
       cycleTrend,
       avgCycleDays: cycleDays.length ? Math.round(cycleDays.reduce((sum, days) => sum + days, 0) / cycleDays.length) : 0,
@@ -1732,7 +1751,7 @@ function DashboardView({ analytics, monthlySpending, overdueItems, loading, requ
 
   function requestMeta(item) {
     const creator = usernameOf(item.creator);
-    const project = item.project?.codigo || "Sin obra";
+    const project = item.project?.codigo || item.destino || "Sin obra";
     return `${creator} / ${project}`;
   }
 
