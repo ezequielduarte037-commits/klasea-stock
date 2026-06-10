@@ -1759,15 +1759,20 @@ export default function LaminacionScreen({ profile, signOut }) {
                             const defaultDestination = obraDestino
                               ? (/^Obra\s+/i.test(obraDestino) ? obraDestino : `Obra ${obraDestino}`)
                               : "";
-                            const items = pend.map(p => ({
-                              material_id: p.material_id || null,
-                              catalogSource: "laminacion",
-                              description: p.laminacion_materiales?.nombre || "Material",
-                              quantity: p.cantidad || 1,
-                              unit: p.laminacion_materiales?.unidad || "unidad",
-                              destination: defaultDestination,
-                              notes: p.categoria === "extra" ? "Material extra" : "",
-                            }));
+                            const items = pend.map(p => {
+                              const esExtra = p.categoria === "extra";
+                              return {
+                                material_id: p.material_id || null,
+                                catalogSource: "laminacion",
+                                category: p.categoria || "estándar",
+                                isExtra: esExtra,
+                                description: p.laminacion_materiales?.nombre || "Material",
+                                quantity: p.cantidad || 1,
+                                unit: p.laminacion_materiales?.unidad || "unidad",
+                                destination: esExtra ? "Stock Pampa 1050" : defaultDestination,
+                                notes: esExtra ? "EXTRA - Enviar a Stock Pampa 1050" : "",
+                              };
+                            });
                             let desc = "";
                             if (label) desc += `${grupo.ref} — ${label}\n`;
                             if (estandar.length) {

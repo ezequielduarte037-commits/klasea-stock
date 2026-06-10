@@ -154,6 +154,18 @@ const STOCK_DESTINATIONS = [
 
 const UNITS = ["unidad", "kg", "litro", "metro", "m²", "lata", "rollo", "par", "juego", "caja", "placa"];
 
+function isExtraItem(item) {
+  return item?.isExtra || item?.category === "extra" || /^EXTRA\b/i.test(String(item?.notes || "").trim());
+}
+
+function itemNotesForSubmit(item) {
+  const notes = String(item?.notes || "").trim();
+  if (!isExtraItem(item)) return notes || null;
+  return /^EXTRA\b/i.test(notes)
+    ? notes
+    : ["EXTRA", notes].filter(Boolean).join(" - ");
+}
+
 /**
  * Modal para crear un pedido a compras con ítems.
  *
@@ -207,6 +219,8 @@ export default function PedirAComprasModal({ open, onClose, prefilled, profile, 
             image_url: it.image_url || "",
             material_id: it.material_id || null,
             catalogSource: it.catalogSource || it.catalog_source || "",
+            category: it.category || "",
+            isExtra: Boolean(it.isExtra || it.category === "extra"),
           }))
         : [],
     );
@@ -319,7 +333,7 @@ export default function PedirAComprasModal({ open, onClose, prefilled, profile, 
             quantity: it.quantity || null,
             unit: it.unit || "unidad",
             destination: it.destination || null,
-            notes: it.notes || null,
+            notes: itemNotesForSubmit(it),
             link_url: it.link_url || null,
             image_url: it.image_url || null,
             material_id: it.material_id || null,
@@ -515,6 +529,7 @@ export default function PedirAComprasModal({ open, onClose, prefilled, profile, 
                   </div>
                   {list.map((it) => {
                     const realIdx = items.indexOf(it);
+                    const extra = isExtraItem(it);
                     return (
                       <div key={realIdx} style={{
                         display: "grid",
@@ -522,10 +537,29 @@ export default function PedirAComprasModal({ open, onClose, prefilled, profile, 
                         gap: 6,
                         padding: "6px 8px",
                         borderTop: `1px solid ${C.border}`,
+                        background: extra ? `${C.amber}0d` : "transparent",
                         alignItems: "center",
                         fontSize: 12,
                       }}>
                         <div style={{ display: "grid", gap: 4, minWidth: 0, gridColumn: isMobile ? "1 / -1" : undefined }}>
+                          {extra && (
+                            <span style={{
+                              display: "inline-flex",
+                              alignItems: "center",
+                              width: "fit-content",
+                              color: C.amber,
+                              background: `${C.amber}18`,
+                              border: `1px solid ${C.amber}44`,
+                              borderRadius: 5,
+                              padding: "2px 6px",
+                              fontSize: 10,
+                              fontWeight: 850,
+                              letterSpacing: 0.6,
+                              textTransform: "uppercase",
+                            }}>
+                              Extra - Stock Pampa 1050
+                            </span>
+                          )}
                           <input
                             value={it.description}
                             onChange={(e) => updateItem(realIdx, { description: e.target.value })}
@@ -537,8 +571,9 @@ export default function PedirAComprasModal({ open, onClose, prefilled, profile, 
                             // ("laminacion" / "madera"). Si no llegó, lo inferimos del
                             // destino del ítem.
                             const src = (it.catalogSource || "").toLowerCase();
-                            const isMadera = src === "madera"
-                              || /^Stock\s+(Chubut|Pampa)/i.test(it.destination || "");
+                            const isMadera = src
+                              ? src === "madera"
+                              : /^Stock\s+(Chubut|Pampa)/i.test(it.destination || "");
                             const label = isMadera ? "Catálogo maderas" : "Catálogo laminación";
                             return (
                               <span style={{
