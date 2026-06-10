@@ -1058,6 +1058,7 @@ export default function PedidosMaderaScreen({ profile, signOut }) {
         open={comprasModal.open}
         prefilled={comprasModal.prefilled}
         profile={profile}
+        origen="maderas"
         onClose={(created) => {
           setComprasModal({ open: false, prefilled: null });
           if (created) setError("");

@@ -11,25 +11,25 @@ import { C } from "@/theme";
 import { useToast } from "@/components/ui/Toast";
 import { useResponsive } from "@/hooks/useResponsive";
 
-// Cuando un purchase_request tiene items con destino "Stock Chubut/Pampa",
-// además de los purchase_request_items creamos un pedido legacy en `pedidos`
-// + `pedido_items` para que aparezca en el panel "Pedidos pendientes" del
-// pañol. Al marcar "Llegó todo" desde ahí, un trigger DB sincroniza el
-// purchase_request_item correspondiente. Ver migración 20260605000000.
+// ─────────────────────────────────────────────────────────────────────────────
+// RUTEO DE PEDIDOS LEGACY — POR ORIGEN, no por texto del destino.
 //
-// Cuando hay items con destino "Obra <código>", creamos un laminacion_pedidos
-// por item (en laminación NO hay tabla de items aparte). Cuando el pedido pasa
-// a "entregado", otro trigger DB sincroniza el purchase_request_item.
-// Ver migración 20260606000000.
-async function createLegacyPedidoIfNeeded({ purchaseRequest, requestItemsByDraft, title, profileId }) {
-  const stockEntries = requestItemsByDraft.filter((entry) => {
-    const dest = String(entry?.draft?.destination || "").trim();
-    return /^Stock\s/i.test(dest);
-  });
-  if (stockEntries.length === 0) return;
+// El modal recibe `origen` ("laminacion" | "maderas" | null):
+//   · origen "laminacion" → TODOS los ítems crean laminacion_pedidos (aparecen
+//     en la tab Pedidos de Laminación y se reciben ahí). Nunca tocan madera.
+//   · origen "maderas"    → TODOS los ítems crean el pedido legacy `pedidos` +
+//     `pedido_items` (panel "Pedidos pendientes" del pañol de maderas).
+//   · sin origen (genérico) → heurística vieja por destino: "Stock …" → madera,
+//     "Obra …" → laminación.
+//
+// Los triggers DB siguen igual: al recibir, sincronizan el purchase_request_item
+// (migraciones 20260605000000 y 20260606000000).
+// ─────────────────────────────────────────────────────────────────────────────
+async function createLegacyPedidoMaderas({ purchaseRequest, entries, title, profileId }) {
+  if (entries.length === 0) return;
 
-  // Buscar match de material_id en el catálogo `materiales` por nombre (case-insensitive).
-  // Esto es para que el item del pedido legacy quede ligado al stock real.
+  // Match de material_id en el catálogo `materiales` por nombre (case-insensitive)
+  // para que el item del pedido legacy quede ligado al stock real.
   const { data: matRows } = await supabase
     .from("materiales")
     .select("id, nombre, unidad_medida");
@@ -55,7 +55,7 @@ async function createLegacyPedidoIfNeeded({ purchaseRequest, requestItemsByDraft
     return;
   }
 
-  const rows = stockEntries.map(({ draft, requestItem }) => {
+  const rows = entries.map(({ draft, requestItem }) => {
     const matchedMat = materialesByName.get((draft.description || "").trim().toLowerCase());
     return {
       pedido_id: pedRow.id,
@@ -73,43 +73,76 @@ async function createLegacyPedidoIfNeeded({ purchaseRequest, requestItemsByDraft
   }
 }
 
-// Items con destino "Obra X" → un row por item en laminacion_pedidos.
-// El material_id del item debe apuntar a laminacion_materiales (catalog_source = "laminacion").
-async function createLaminacionPedidosIfNeeded({ requestItemsByDraft, profileId }) {
-  const obraEntries = requestItemsByDraft.filter((entry) => {
-    const dest = String(entry?.draft?.destination || "").trim();
-    return /^Obra\s+/i.test(dest);
-  });
-  if (obraEntries.length === 0) return;
+// Un row de laminacion_pedidos por ítem. laminacion_pedidos exige material_id
+// (la recepción genera el ingreso por material), así que:
+//   1) usamos el material_id del draft si viene del catálogo de laminación;
+//   2) si no, matcheamos laminacion_materiales por nombre;
+//   3) si tampoco existe, lo CREAMOS en el catálogo (así el circuito
+//      pedido → recepción → ingreso cierra completo, sin ítems invisibles).
+async function createLaminacionPedidos({ entries, profileId }) {
+  if (entries.length === 0) return { created: 0, failed: 0 };
 
-  const rows = obraEntries
-    .map(({ draft, requestItem }) => {
-      // Si no tenemos material_id, no podemos insertar en laminacion_pedidos
-      // porque la tabla requiere FK al catálogo. Lo saltamos con warning.
-      const matId = draft.material_id || null;
-      if (!matId) return null;
-      const cantNum = Number.isFinite(Number(draft.quantity)) ? Number(draft.quantity) : 0;
-      if (cantNum <= 0) return null;
-      const obraName = String(draft.destination || "").replace(/^Obra\s+/i, "").trim();
-      return {
+  const { data: lamMats } = await supabase
+    .from("laminacion_materiales")
+    .select("id, nombre");
+  const byName = new Map(
+    (lamMats ?? []).map((m) => [String(m.nombre || "").trim().toLowerCase(), m]),
+  );
+
+  let created = 0;
+  let failed = 0;
+
+  for (const { draft, requestItem } of entries) {
+    try {
+      let matId = draft.material_id || null;
+      if (!matId) {
+        const key = (draft.description || "").trim().toLowerCase();
+        const match = key ? byName.get(key) : null;
+        if (match) {
+          matId = match.id;
+        } else if (key) {
+          const { data: nuevoMat, error: matErr } = await supabase
+            .from("laminacion_materiales")
+            .insert({
+              nombre: (draft.description || "").trim(),
+              categoria: "General",
+              unidad: draft.unit || "unidad",
+              stock_minimo: 0,
+            })
+            .select("id")
+            .single();
+          if (matErr || !nuevoMat) throw matErr || new Error("sin material");
+          matId = nuevoMat.id;
+          byName.set(key, { id: matId, nombre: (draft.description || "").trim() });
+        }
+      }
+      if (!matId) { failed += 1; continue; }
+
+      const cantNum = Number(draft.quantity);
+      const dest = String(draft.destination || "").trim();
+      const obraDestino = /^Obra\s+/i.test(dest)
+        ? dest.replace(/^Obra\s+/i, "").trim()
+        : (dest || "Stock");
+
+      const { error } = await supabase.from("laminacion_pedidos").insert({
         material_id: matId,
-        cantidad: cantNum,
+        cantidad: Number.isFinite(cantNum) && cantNum > 0 ? cantNum : 1,
         estado: "pendiente",
         solicitado_por: profileId || null,
         observaciones: draft.notes || null,
         categoria: "estándar",
-        obra_destino: obraName,
+        obra_destino: obraDestino,
         purchase_request_item_id: requestItem?.id || null,
-      };
-    })
-    .filter(Boolean);
-
-  if (rows.length === 0) return;
-
-  const { error } = await supabase.from("laminacion_pedidos").insert(rows);
-  if (error) {
-    console.warn("[PedirAComprasModal] no se pudieron insertar laminacion_pedidos:", error);
+      });
+      if (error) throw error;
+      created += 1;
+    } catch (e) {
+      console.warn("[PedirAComprasModal] laminacion_pedidos item falló:", e);
+      failed += 1;
+    }
   }
+
+  return { created, failed };
 }
 
 // Destinos "fijos" para stock — además se suman dinámicamente las obras
@@ -140,7 +173,7 @@ const UNITS = ["unidad", "kg", "litro", "metro", "m²", "lata", "rollo", "par", 
  *     items?: [{ material_id?, description, quantity, unit, destination?, notes? }],
  *   }
  */
-export default function PedirAComprasModal({ open, onClose, prefilled, profile }) {
+export default function PedirAComprasModal({ open, onClose, prefilled, profile, origen = null }) {
   const toast = useToast();
   const { isMobile } = useResponsive();
   const [title, setTitle] = useState("");
@@ -296,12 +329,27 @@ export default function PedirAComprasModal({ open, onClose, prefilled, profile }
         }),
       );
 
-      // Para items de Stock Chubut/Pampa: crear pedido legacy que aparezca
-      // en el panel "Pedidos pendientes" del pañol.
+      // Ruteo del pedido legacy según ORIGEN (no según el texto del destino):
+      //   laminacion → todo a laminacion_pedidos · maderas → todo a pedidos/pañol
+      //   sin origen → heurística vieja por destino (Stock→madera, Obra→laminación)
+      const origenEfectivo = origen || prefilled?.origen || null;
+      let entriesMadera = [];
+      let entriesLam = [];
+      if (origenEfectivo === "laminacion") {
+        entriesLam = requestItemsByDraft;
+      } else if (origenEfectivo === "maderas") {
+        entriesMadera = requestItemsByDraft;
+      } else {
+        entriesMadera = requestItemsByDraft.filter((entry) =>
+          /^Stock\s/i.test(String(entry?.draft?.destination || "").trim()));
+        entriesLam = requestItemsByDraft.filter((entry) =>
+          /^Obra\s+/i.test(String(entry?.draft?.destination || "").trim()));
+      }
+
       try {
-        await createLegacyPedidoIfNeeded({
+        await createLegacyPedidoMaderas({
           purchaseRequest: created,
-          requestItemsByDraft,
+          entries: entriesMadera,
           title: title.trim(),
           profileId: profile?.id,
         });
@@ -310,13 +358,14 @@ export default function PedirAComprasModal({ open, onClose, prefilled, profile }
         console.warn("[PedirAComprasModal] error creando pedido legacy:", e);
       }
 
-      // Para items con destino "Obra X": crear laminacion_pedidos por item
-      // (en laminación cada row ES un item, no hay tabla aparte).
       try {
-        await createLaminacionPedidosIfNeeded({
-          requestItemsByDraft,
+        const res = await createLaminacionPedidos({
+          entries: entriesLam,
           profileId: profile?.id,
         });
+        if (res?.failed > 0) {
+          toast.warning(`${res.failed} ítem${res.failed > 1 ? "s" : ""} no se pudo registrar en Pedidos de Laminación (sí quedó en el pedido a compras).`);
+        }
       } catch (e) {
         console.warn("[PedirAComprasModal] error creando laminacion_pedidos:", e);
       }

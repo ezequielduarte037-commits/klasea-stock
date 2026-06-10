@@ -648,13 +648,13 @@ function PiezaModal({ pieza, lineaKey, obraId, segRow, imagenes:imgInit=[], onSa
               <div>
                 <label style={{ fontSize:10, letterSpacing:1.3, color:C.amber, display:"block", marginBottom:6, textTransform:"uppercase", fontWeight: 700 }}>↗ Fecha de envío</label>
                 <input type="date" value={fechaEnvio} onChange={e => setFechaEnvio(e.target.value)}
-                  style={{ ...INP, colorScheme:"dark" }}
+                  style={{ ...INP, colorScheme:"var(--input-color-scheme, dark)" }}
                   onFocus={e => e.currentTarget.style.borderColor="rgba(245,158,11,0.4)"} onBlur={e => e.currentTarget.style.borderColor=C.b0} />
               </div>
               <div>
                 <label style={{ fontSize:10, letterSpacing:1.3, color:"#2dd4bf", display:"block", marginBottom:6, textTransform:"uppercase", fontWeight: 700 }}>↙ Fecha de recepción</label>
                 <input type="date" value={fechaRecepcion} onChange={e => setFechaRecepcion(e.target.value)}
-                  style={{ ...INP, colorScheme:"dark" }}
+                  style={{ ...INP, colorScheme:"var(--input-color-scheme, dark)" }}
                   onFocus={e => e.currentTarget.style.borderColor="rgba(45,212,191,0.4)"} onBlur={e => e.currentTarget.style.borderColor=C.b0} />
               </div>
             </div>

@@ -10,43 +10,43 @@ import { useMemo, useState } from "react";
 const GFONTS = `@import url('https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600&family=IBM+Plex+Sans:wght@300;400;500;600&display=swap');`;
 
 const D = {
-  bg:      "#07070D",
-  panel:   "#0C0C14",
-  card:    "#10101A",
-  cardHov: "#14141F",
-  input:   "#1A1A28",
-  line:    "rgba(255,255,255,0.05)",
-  line2:   "rgba(255,255,255,0.09)",
-  line3:   "rgba(255,255,255,0.14)",
+  bg:      "var(--avisos-bg, #07070D)",
+  panel:   "var(--avisos-panel, #0C0C14)",
+  card:    "var(--avisos-card, #10101A)",
+  cardHov: "var(--avisos-card-hover, #14141F)",
+  input:   "var(--avisos-input, #1A1A28)",
+  line:    "var(--avisos-line, rgba(255,255,255,0.05))",
+  line2:   "var(--avisos-line-2, rgba(255,255,255,0.09))",
+  line3:   "var(--avisos-line-3, rgba(255,255,255,0.14))",
 
-  t1: "#F0F0FA",
-  t2: "#7A7A96",
-  t3: "#3A3A52",
+  t1: "var(--avisos-t1, #F0F0FA)",
+  t2: "var(--avisos-t2, #7A7A96)",
+  t3: "var(--avisos-t3, #3A3A52)",
 
   // Rojo — vencido (único acento cromático real)
-  rd:   "#E84040",
-  rdBg: "rgba(232,64,64,0.07)",
-  rdBd: "rgba(232,64,64,0.22)",
+  rd:   "var(--avisos-red, #E84040)",
+  rdBg: "var(--avisos-red-bg, rgba(232,64,64,0.07))",
+  rdBd: "var(--avisos-red-border, rgba(232,64,64,0.22))",
 
   // Blanco atenuado — urgente/hoy (sin color, alto contraste)
-  am:   "#D0D0E8",
-  amBg: "rgba(208,208,232,0.05)",
-  amBd: "rgba(208,208,232,0.18)",
+  am:   "var(--avisos-amber, #D0D0E8)",
+  amBg: "var(--avisos-amber-bg, rgba(208,208,232,0.05))",
+  amBd: "var(--avisos-amber-border, rgba(208,208,232,0.18))",
 
   // Gris medio — próximo (casi invisible, solo estructura)
-  or:   "#8888A8",
-  orBg: "rgba(136,136,168,0.04)",
-  orBd: "rgba(136,136,168,0.14)",
+  or:   "var(--avisos-orange, #8888A8)",
+  orBg: "var(--avisos-orange-bg, rgba(136,136,168,0.04))",
+  orBd: "var(--avisos-orange-border, rgba(136,136,168,0.14))",
 
   // Gris oscuro — futuro
-  bl:   "#555570",
-  blBg: "transparent",
-  blBd: "rgba(255,255,255,0.07)",
+  bl:   "var(--avisos-blue, #555570)",
+  blBg: "var(--avisos-blue-bg, transparent)",
+  blBd: "var(--avisos-blue-border, rgba(255,255,255,0.07))",
 
   // Verde apagado — resuelto
-  gr:   "#4A9B6A",
-  grBg: "rgba(74,155,106,0.06)",
-  grBd: "rgba(74,155,106,0.16)",
+  gr:   "var(--avisos-green, #4A9B6A)",
+  grBg: "var(--avisos-green-bg, rgba(74,155,106,0.06))",
+  grBd: "var(--avisos-green-border, rgba(74,155,106,0.16))",
 
   sans: "'IBM Plex Sans', system-ui, sans-serif",
   mono: "'IBM Plex Mono', 'Courier New', monospace",

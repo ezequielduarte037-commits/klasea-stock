@@ -32,7 +32,7 @@ function diasHasta(dateStr) {
 // ─── PALETA ──────────────────────────────────────────────────────
 const GLASS = { backdropFilter: "blur(32px) saturate(130%)", WebkitBackdropFilter: "blur(32px) saturate(130%)" };
 const INP = {
-  background: "rgba(255,255,255,0.04)", border: `1px solid ${C.b0}`,
+  background: "var(--input-soft-bg, rgba(255,255,255,0.04))", border: `1px solid ${C.b0}`,
   color: C.t0, padding: "8px 12px", borderRadius: 8, fontSize: 13,
   outline: "none", width: "100%", fontFamily: C.sans,
 };
@@ -126,7 +126,7 @@ function GanttView({ obras, obrasFiltradas, alertasPorObra, obraSelId, setObraSe
       </div>
 
       <div style={{ background: C.s0, border: `1px solid ${C.b0}`, borderRadius: 12, overflow: "hidden" }}>
-        <div style={{ display: "flex", borderBottom: `1px solid ${C.b0}`, background: "rgba(0,0,0,0.3)" }}>
+        <div style={{ display: "flex", borderBottom: `1px solid ${C.b0}`, background: "var(--table-head-bg, rgba(0,0,0,0.3))" }}>
           <div style={{ width: 200, minWidth: 200, padding: "8px 14px", fontSize: 10, color: C.t2, letterSpacing: 1.3, textTransform: "uppercase", borderRight: `1px solid ${C.b0}` }}>Obra</div>
           <div style={{ flex: 1, display: "flex" }}>
             {meses.map((m, i) => {
@@ -151,7 +151,7 @@ function GanttView({ obras, obrasFiltradas, alertasPorObra, obraSelId, setObraSe
           const barLeft = Math.max(0, posicionPct(o.fecha_inicio) ?? 0);
           const barWidth = Math.max(anchoPct(o.fecha_inicio || hoyStr(), o.fecha_fin || o.fecha_inicio || hoyStr()), 0.4);
           return (
-            <div key={o.id} onClick={() => setObraSelId(sel ? null : o.id)} style={{ display: "flex", alignItems: "center", borderBottom: `1px solid rgba(255,255,255,0.03)`, background: sel ? "rgba(255,255,255,0.04)" : "transparent", cursor: "pointer", transition: "background .15s", minHeight: 44 }}>
+            <div key={o.id} onClick={() => setObraSelId(sel ? null : o.id)} style={{ display: "flex", alignItems: "center", borderBottom: "1px solid var(--hairline-border, rgba(255,255,255,0.03))", background: sel ? "var(--selected-row-bg, rgba(255,255,255,0.04))" : "transparent", cursor: "pointer", transition: "background .15s", minHeight: 44 }}>
               <div style={{ width: 200, minWidth: 200, padding: "8px 14px", borderRight: `1px solid ${C.b0}`, display: "flex", flexDirection: "column", gap: 3 }}>
                 <div style={{ display: "flex", alignItems: "center", gap: 5 }}>
                   <div style={{ width: 6, height: 6, borderRadius: "50%", background: barColor, flexShrink: 0 }} />
@@ -164,7 +164,7 @@ function GanttView({ obras, obrasFiltradas, alertasPorObra, obraSelId, setObraSe
                 </div>
               </div>
               <div style={{ flex: 1, position: "relative", height: "100%", minHeight: 44, display: "flex", alignItems: "center" }}>
-                {meses.map((_, i) => (i > 0 && <div key={i} style={{ position: "absolute", left: `${(i / NUM_MESES) * 100}%`, top: 0, bottom: 0, width: 1, background: "rgba(255,255,255,0.04)", pointerEvents: "none" }} />))}
+                {meses.map((_, i) => (i > 0 && <div key={i} style={{ position: "absolute", left: `${(i / NUM_MESES) * 100}%`, top: 0, bottom: 0, width: 1, background: "var(--grid-rule, rgba(255,255,255,0.04))", pointerEvents: "none" }} />))}
                 {hoyPct !== null && hoyPct >= 0 && hoyPct <= 100 && <div style={{ position: "absolute", left: `${hoyPct}%`, top: 0, bottom: 0, width: 1, background: "rgba(59,130,246,0.5)", pointerEvents: "none", zIndex: 2 }} />}
                 {barWidth > 0 && (
                   <div style={{ position: "absolute", left: `${barLeft}%`, width: `${barWidth}%`, height: 20, background: barColor + "33", border: `1px solid ${barColor}88`, borderRadius: 5, display: "flex", alignItems: "center", paddingLeft: 6, overflow: "hidden", zIndex: 1 }}>
@@ -205,8 +205,8 @@ function GanttView({ obras, obrasFiltradas, alertasPorObra, obraSelId, setObraSe
 // ══════════════════════════════════════════════════════════════
 // DETALLE OBRA
 // ══════════════════════════════════════════════════════════════
-const TH = { padding: "8px 12px", textAlign: "left", fontSize: 10, letterSpacing: 1.3, textTransform: "uppercase", color: C.t2, fontWeight: 700, borderBottom: `1px solid rgba(255,255,255,0.08)`, whiteSpace: "nowrap" };
-const TD = { padding: "9px 12px", fontSize: 13, borderBottom: `1px solid rgba(255,255,255,0.03)`, color: "var(--muted)" };
+const TH = { padding: "8px 12px", textAlign: "left", fontSize: 10, letterSpacing: 1.3, textTransform: "uppercase", color: C.t2, fontWeight: 700, borderBottom: "1px solid var(--head-border, rgba(255,255,255,0.08))", whiteSpace: "nowrap" };
+const TD = { padding: "9px 12px", fontSize: 13, borderBottom: "1px solid var(--hairline-border, rgba(255,255,255,0.03))", color: C.t1 };
 
 function DetalleObra({ obraSel, tablaObra, obraStats, esGestion, editNec, setEditNec, savingNec, guardarNecesaria, guardarIngresadoManual, limpiarIngresadoManual, filtroMat, setFiltroMat }) {
   // editIngresado: { [matId]: string } — valor en el input de edición de ingresado
@@ -317,7 +317,7 @@ function DetalleObra({ obraSel, tablaObra, obraStats, esGestion, editNec, setEdi
                       {esGestion ? (
                         <div style={{ display: "flex", gap: 3, justifyContent: "flex-end", alignItems: "center" }}>
                           <input
-                            style={{ background: "rgba(255,255,255,0.04)", border: `1px solid ${C.b0}`, color: C.t0, padding: "3px 6px", borderRadius: 5, fontSize: 12, outline: "none", width: 60, textAlign: "right", fontFamily: C.mono }}
+                            style={{ background: "var(--input-soft-bg, rgba(255,255,255,0.04))", border: `1px solid ${C.b0}`, color: C.t0, padding: "3px 6px", borderRadius: 5, fontSize: 12, outline: "none", width: 60, textAlign: "right", fontFamily: C.mono }}
                             type="number" min="0" step="0.01"
                             placeholder={r.necesario || "0"}
                             value={necVal}

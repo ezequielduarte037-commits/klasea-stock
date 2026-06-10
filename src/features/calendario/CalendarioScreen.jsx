@@ -164,7 +164,7 @@ function EventModal({ ev, fechaDefault, onClose, onSave, onDelete, esAdmin }) {
           <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10 }}>
             <div>
               <label style={LBL}>Fecha *</label>
-              <input style={{ ...INP, colorScheme: "dark" }} type="date" value={form.fecha} onChange={e => f("fecha", e.target.value)} />
+              <input style={{ ...INP, colorScheme: "var(--input-color-scheme, dark)" }} type="date" value={form.fecha} onChange={e => f("fecha", e.target.value)} />
             </div>
             <div>
               <label style={LBL}>Hora</label>
@@ -591,7 +591,7 @@ export default function CalendarioScreen({ profile, signOut }) {
         *, *::before, *::after { box-sizing: border-box; }
         ::-webkit-scrollbar { width: 3px; height: 3px; }
         ::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.08); border-radius: 99px; }
-        input[type="date"], input[type="time"] { color-scheme: dark; }
+        input[type="date"], input[type="time"] { color-scheme: var(--input-color-scheme, dark); }
         .cal-cell:hover { background: rgba(255,255,255,0.025) !important; }
         .cal-cell:hover .cell-add { opacity: 1 !important; }
         .ev-badge:hover { background: rgba(255,255,255,0.06) !important; }

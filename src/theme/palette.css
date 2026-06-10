@@ -73,26 +73,26 @@
 
   /* Fondo: gris suave (tipo zinc-100). Antes era #fafafa casi blanco puro
      y daba sensación "encandilada" + las cards se perdían contra el fondo. */
-  --bg: #ececef;
+  --bg: #f4f5f7;
   /* Paneles transparentes: subimos alpha para que las cards se distingan
      del fondo gris. Antes 0.025 quedaba invisible. */
-  --panel: rgba(0,0,0,0.04);
-  --panel-2: rgba(0,0,0,0.06);
-  --panel-3: rgba(0,0,0,0.09);
+  --panel: rgba(17,24,39,0.045);
+  --panel-2: rgba(17,24,39,0.07);
+  --panel-3: rgba(17,24,39,0.105);
   /* Paneles sólidos: blanco puro para máximo contraste con el bg gris.
      Las cards "destacadas" se ven recortadas y limpias. */
   --panel-solid: #ffffff;
-  --panel-solid-2: #f6f6f8;
-  --panel-solid-3: #ebebef;
+  --panel-solid-2: #f8fafc;
+  --panel-solid-3: #eef1f5;
   /* Bordes más visibles sobre fondo claro (antes 0.1 se diluía). */
-  --border: rgba(0,0,0,0.14);
-  --border-2: rgba(0,0,0,0.22);
-  --border-3: rgba(0,0,0,0.32);
+  --border: rgba(17,24,39,0.16);
+  --border-2: rgba(17,24,39,0.26);
+  --border-3: rgba(17,24,39,0.38);
 
-  --text: #18181b;
-  --muted: #3f3f46;
-  --dim: #52525b;
-  --subtle: #71717a;
+  --text: #111827;
+  --muted: #374151;
+  --dim: #4b5563;
+  --subtle: #6b7280;
 
   --blue: #1d4ed8;
   --amber: #b45309;
@@ -133,17 +133,83 @@
   --overlay-strong: rgba(40,40,46,0.6);
   /* Sombras más marcadas que antes — las cards blancas necesitan
      un poco de profundidad para no flotar sobre el fondo gris. */
-  --shadow: rgba(20,20,28,0.08);
-  --shadow-strong: rgba(20,20,28,0.16);
+  --shadow: rgba(15,23,42,0.10);
+  --shadow-strong: rgba(15,23,42,0.18);
   --focus: rgba(29,78,216,0.34);
   --inverse-bg: #18181b;
   --inverse-text: #ffffff;
-  --login-glow: rgba(29,78,216,0.045);
-  --grid-line: rgba(0,0,0,0.045);
+  --login-glow: rgba(29,78,216,0.035);
+  --grid-line: rgba(17,24,39,0.055);
   --glass-filter: blur(18px) saturate(115%);
   /* En claro, la topbar es un blanco semi-transparente para mantener el feel glass. */
-  --topbar: rgba(255,255,255,0.88);
-  --topbar-soft: rgba(255,255,255,0.7);
+  --topbar: rgba(255,255,255,0.92);
+  --topbar-soft: rgba(255,255,255,0.78);
+
+  /* Alias legacy de theme.css: algunas pantallas antiguas usan nombres sin guion. */
+  --panel2: var(--panel-2);
+  --panel3: var(--panel-3);
+  --ok: var(--green);
+  --bad: var(--red);
+  --warn: var(--amber);
+  --input-color-scheme: light;
+  --input-soft-bg: var(--panel-solid);
+  --date-input-bg: var(--panel-solid);
+  --table-head-bg: var(--panel-solid-2);
+  --hairline-border: var(--border);
+  --head-border: var(--border);
+  --selected-row-bg: var(--panel-2);
+  --grid-rule: var(--border);
+
+  /* Paletas legacy locales que antes estaban hardcodeadas en dark.
+     Solo se definen en light: dark sigue usando sus fallbacks originales. */
+  --mrm-bg: var(--bg);
+  --mrm-s0: var(--panel);
+  --mrm-s1: var(--panel-2);
+  --mrm-input: var(--panel-solid);
+  --mrm-b0: var(--border);
+  --mrm-b1: var(--border-2);
+  --mrm-t0: var(--text);
+  --mrm-t1: var(--muted);
+  --mrm-t2: var(--dim);
+  --mrm-green: var(--green);
+  --mrm-red: var(--red);
+  --mrm-amber: var(--amber);
+  --mrm-primary: var(--blue);
+  --mrm-primary-text: var(--blue);
+  --mrm-blue: var(--blue);
+  --mrm-option-bg: var(--panel-solid);
+  --mrm-option-text: var(--text);
+  --mrm-hover-bg: var(--panel-2);
+  --mrm-hover-text: var(--muted);
+  --mrm-edit-hover-text: var(--text);
+  --mrm-sector-hover-text: var(--blue);
+
+  --avisos-bg: var(--bg);
+  --avisos-panel: var(--panel-solid);
+  --avisos-card: var(--panel-solid);
+  --avisos-card-hover: var(--panel-solid-2);
+  --avisos-input: var(--panel-solid);
+  --avisos-line: var(--border);
+  --avisos-line-2: var(--border-2);
+  --avisos-line-3: var(--border-3);
+  --avisos-t1: var(--text);
+  --avisos-t2: var(--muted);
+  --avisos-t3: var(--dim);
+  --avisos-red: var(--red);
+  --avisos-red-bg: var(--red-soft);
+  --avisos-red-border: var(--red-border);
+  --avisos-amber: var(--amber);
+  --avisos-amber-bg: var(--amber-soft);
+  --avisos-amber-border: var(--amber-border);
+  --avisos-orange: var(--orange);
+  --avisos-orange-bg: var(--orange-soft);
+  --avisos-orange-border: var(--orange-border);
+  --avisos-blue: var(--blue);
+  --avisos-blue-bg: var(--blue-soft);
+  --avisos-blue-border: var(--blue-border);
+  --avisos-green: var(--green);
+  --avisos-green-bg: var(--green-soft);
+  --avisos-green-border: var(--green-border);
 }
 
 [data-theme="hc"] {
@@ -224,6 +290,169 @@ body {
 
 body {
   transition: background-color 0.18s ease, color 0.18s ease;
+}
+
+html[data-theme="light"] {
+  color-scheme: light;
+  background: var(--bg);
+}
+
+html[data-theme="light"] body {
+  background: var(--bg);
+  color: var(--text);
+}
+
+html[data-theme="light"] input:not([type="checkbox"]):not([type="radio"]):not([type="range"]):not([type="file"]):not([type="color"]),
+html[data-theme="light"] select,
+html[data-theme="light"] textarea {
+  background-color: var(--panel-solid) !important;
+  color: var(--text) !important;
+  border-color: var(--border) !important;
+  caret-color: var(--blue);
+}
+
+html[data-theme="light"] input:not([type="checkbox"]):not([type="radio"]):not([type="range"]):not([type="file"]):not([type="color"]):focus,
+html[data-theme="light"] select:focus,
+html[data-theme="light"] textarea:focus {
+  background-color: #ffffff !important;
+  border-color: var(--focus) !important;
+  box-shadow: 0 0 0 3px rgba(29,78,216,0.12) !important;
+}
+
+html[data-theme="light"] select option {
+  background: var(--panel-solid) !important;
+  color: var(--text) !important;
+}
+
+html[data-theme="light"] input[type="date"],
+html[data-theme="light"] input[type="time"] {
+  color-scheme: light !important;
+}
+
+html[data-theme="light"] [style*="background: #07080d"],
+html[data-theme="light"] [style*="background:#07080d"],
+html[data-theme="light"] [style*="background: rgb(7, 8, 13)"],
+html[data-theme="light"] [style*="background: #07070D"],
+html[data-theme="light"] [style*="background:#07070D"],
+html[data-theme="light"] [style*="background: #07070d"],
+html[data-theme="light"] [style*="background:#07070d"],
+html[data-theme="light"] [style*="background: #0f0f12"],
+html[data-theme="light"] [style*="background:#0f0f12"],
+html[data-theme="light"] [style*="background: rgb(15, 15, 18)"],
+html[data-theme="light"] [style*="background: #0a0c12"],
+html[data-theme="light"] [style*="background:#0a0c12"],
+html[data-theme="light"] [style*="background: rgb(10, 12, 18)"] {
+  background: var(--bg) !important;
+  color: var(--text) !important;
+}
+
+html[data-theme="light"] [style*="background: rgba(7, 8, 13"],
+html[data-theme="light"] [style*="background:rgba(7,8,13"],
+html[data-theme="light"] [style*="background: rgba(6, 10, 20"],
+html[data-theme="light"] [style*="background:rgba(6,10,20"],
+html[data-theme="light"] [style*="background: rgba(6, 10, 22"],
+html[data-theme="light"] [style*="background:rgba(6,10,22"],
+html[data-theme="light"] [style*="background: rgba(7, 10, 20"],
+html[data-theme="light"] [style*="background:rgba(7,10,20"],
+html[data-theme="light"] [style*="background: rgba(13, 13, 17"],
+html[data-theme="light"] [style*="background:rgba(13,13,17"],
+html[data-theme="light"] [style*="background: rgba(3, 5, 12"],
+html[data-theme="light"] [style*="background:rgba(3,5,12"] {
+  background: var(--panel-solid) !important;
+  color: var(--text) !important;
+  border-color: var(--border) !important;
+  box-shadow: 0 18px 48px var(--shadow) !important;
+}
+
+html[data-theme="light"] [style*="background: rgba(255, 255, 255, 0.025"],
+html[data-theme="light"] [style*="background:rgba(255,255,255,0.025"],
+html[data-theme="light"] [style*="background: rgba(255, 255, 255, 0.01"],
+html[data-theme="light"] [style*="background:rgba(255,255,255,0.01"],
+html[data-theme="light"] [style*="background: rgba(255, 255, 255, 0.015"],
+html[data-theme="light"] [style*="background:rgba(255,255,255,0.015"],
+html[data-theme="light"] [style*="background: rgba(255, 255, 255, 0.02"],
+html[data-theme="light"] [style*="background:rgba(255,255,255,0.02"],
+html[data-theme="light"] [style*="background: rgba(255, 255, 255, 0.03"],
+html[data-theme="light"] [style*="background:rgba(255,255,255,0.03"],
+html[data-theme="light"] [style*="background: rgba(255, 255, 255, 0.035"],
+html[data-theme="light"] [style*="background:rgba(255,255,255,0.035"],
+html[data-theme="light"] [style*="background: rgba(255, 255, 255, 0.04"],
+html[data-theme="light"] [style*="background:rgba(255,255,255,0.04"],
+html[data-theme="light"] [style*="background: rgba(255, 255, 255, 0.05"],
+html[data-theme="light"] [style*="background:rgba(255,255,255,0.05"],
+html[data-theme="light"] [style*="background: rgba(255, 255, 255, 0.055"],
+html[data-theme="light"] [style*="background:rgba(255,255,255,0.055"],
+html[data-theme="light"] [style*="background: rgba(255, 255, 255, 0.06"],
+html[data-theme="light"] [style*="background:rgba(255,255,255,0.06"],
+html[data-theme="light"] [style*="background: rgba(255, 255, 255, 0.07"],
+html[data-theme="light"] [style*="background:rgba(255,255,255,0.07"],
+html[data-theme="light"] [style*="background: rgba(255, 255, 255, 0.08"],
+html[data-theme="light"] [style*="background:rgba(255,255,255,0.08"],
+html[data-theme="light"] [style*="background: rgba(255, 255, 255, 0.09"],
+html[data-theme="light"] [style*="background:rgba(255,255,255,0.09"],
+html[data-theme="light"] [style*="background: rgba(255, 255, 255, 0.1"],
+html[data-theme="light"] [style*="background:rgba(255,255,255,0.1"] {
+  background: var(--panel) !important;
+}
+
+html[data-theme="light"] [style*="background: rgba(0, 0, 0, 0.2"],
+html[data-theme="light"] [style*="background:rgba(0,0,0,0.2"],
+html[data-theme="light"] [style*="background: rgba(0, 0, 0, 0.3"],
+html[data-theme="light"] [style*="background:rgba(0,0,0,0.3"] {
+  background: var(--panel-solid-2) !important;
+}
+
+html[data-theme="light"] [style*="color: #eeeef0"],
+html[data-theme="light"] [style*="color:#eeeef0"],
+html[data-theme="light"] [style*="color: rgb(238, 238, 240)"] {
+  color: var(--text) !important;
+}
+
+html[data-theme="light"] [style*="color: #9da3b0"],
+html[data-theme="light"] [style*="color:#9da3b0"],
+html[data-theme="light"] [style*="color: rgb(157, 163, 176)"] {
+  color: var(--muted) !important;
+}
+
+html[data-theme="light"] [style*="color: #555d6e"],
+html[data-theme="light"] [style*="color:#555d6e"],
+html[data-theme="light"] [style*="color: rgb(85, 93, 110)"] {
+  color: var(--dim) !important;
+}
+
+html[data-theme="light"] [style*="color: rgba(255, 255, 255"],
+html[data-theme="light"] [style*="color:rgba(255,255,255"] {
+  color: var(--dim) !important;
+}
+
+html[data-theme="light"] [style*="border: 1px solid rgba(255, 255, 255"],
+html[data-theme="light"] [style*="border:1px solid rgba(255,255,255"],
+html[data-theme="light"] [style*="border-bottom: 1px solid rgba(255, 255, 255"],
+html[data-theme="light"] [style*="border-bottom:1px solid rgba(255,255,255"],
+html[data-theme="light"] [style*="border-top: 1px solid rgba(255, 255, 255"],
+html[data-theme="light"] [style*="border-top:1px solid rgba(255,255,255"],
+html[data-theme="light"] [style*="border-right: 1px solid rgba(255, 255, 255"],
+html[data-theme="light"] [style*="border-right:1px solid rgba(255,255,255"],
+html[data-theme="light"] [style*="border-left: 1px solid rgba(255, 255, 255"],
+html[data-theme="light"] [style*="border-left:1px solid rgba(255,255,255"] {
+  border-color: var(--border) !important;
+}
+
+html[data-theme="light"] svg [stroke^="rgba(255,255,255"],
+html[data-theme="light"] svg [stroke^="rgba(255, 255, 255"] {
+  stroke: var(--border) !important;
+}
+
+html[data-theme="light"] svg [fill^="rgba(255,255,255"],
+html[data-theme="light"] svg [fill^="rgba(255, 255, 255"] {
+  fill: var(--panel) !important;
+}
+
+html[data-theme="light"] .leaflet-popup-content-wrapper {
+  background: var(--panel-solid) !important;
+  color: var(--text) !important;
+  border-color: var(--border) !important;
+  box-shadow: 0 16px 48px var(--shadow) !important;
 }
 
 input,

@@ -232,7 +232,7 @@ export default function FechasView({ obras = [], lineas = [], esGestion = false,
   };
   const dateInput = {
     width: 124, padding: "4px 6px", borderRadius: 6, border: `1px solid ${C.b1}`,
-    background: C.bg, color: C.t0, fontFamily: C.mono, fontSize: 12, colorScheme: "dark",
+    background: "var(--date-input-bg, var(--bg))", color: C.t0, fontFamily: C.mono, fontSize: 12, colorScheme: "var(--input-color-scheme, dark)",
   };
 
   const rootStyle = { fontFamily: C.sans, flex: 1, minHeight: 0, overflowY: "auto",

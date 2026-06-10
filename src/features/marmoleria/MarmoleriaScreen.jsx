@@ -805,24 +805,26 @@ export default function MarmoleriaScreen({ profile, signOut }) {
 
   // ── ESTILOS ───────────────────────────────────────────────────
   const C2 = {
-    bg:      "#07080d",
-    s0:      "rgba(255,255,255,0.03)",
-    s1:      "rgba(255,255,255,0.055)",
-    b0:      "rgba(255,255,255,0.07)",
-    b1:      "rgba(255,255,255,0.14)",
-    t0:      "#eeeef0",
-    t1:      "#9da3b0",
-    t2:      "#555d6e",
+    bg:      "var(--mrm-bg, #07080d)",
+    s0:      "var(--mrm-s0, rgba(255,255,255,0.03))",
+    s1:      "var(--mrm-s1, rgba(255,255,255,0.055))",
+    input:   "var(--mrm-input, rgba(255,255,255,0.04))",
+    b0:      "var(--mrm-b0, rgba(255,255,255,0.07))",
+    b1:      "var(--mrm-b1, rgba(255,255,255,0.14))",
+    t0:      "var(--mrm-t0, #eeeef0)",
+    t1:      "var(--mrm-t1, #9da3b0)",
+    t2:      "var(--mrm-t2, #555d6e)",
     mono:    "'JetBrains Mono', monospace",
     sans:    "'Outfit', system-ui, sans-serif",
-    green:   "#10b981",
-    red:     "#ef4444",
-    amber:   "#f59e0b",
-    primary: "#3b82f6",
-    blue:    "#3b82f6",
+    green:   "var(--mrm-green, #10b981)",
+    red:     "var(--mrm-red, #ef4444)",
+    amber:   "var(--mrm-amber, #f59e0b)",
+    primary: "var(--mrm-primary, #3b82f6)",
+    primaryText: "var(--mrm-primary-text, #93b4ff)",
+    blue:    "var(--mrm-blue, #3b82f6)",
   };
   const GLASS = { backdropFilter:"blur(32px) saturate(130%)", WebkitBackdropFilter:"blur(32px) saturate(130%)" };
-  const INP   = { background:"rgba(255,255,255,0.04)", border:`1px solid ${C2.b0}`, color:C2.t0, padding:"7px 10px", borderRadius:7, fontSize:13, outline:"none", width:"100%", fontFamily:C2.sans, boxSizing:"border-box" };
+  const INP   = { background:C2.input, border:`1px solid ${C2.b0}`, color:C2.t0, padding:"7px 10px", borderRadius:7, fontSize:13, outline:"none", width:"100%", fontFamily:C2.sans, boxSizing:"border-box" };
   const INP_SM = { ...INP, padding:"5px 8px", fontSize:12 };
   const TXT = { ...INP, minHeight:74, resize:"vertical", lineHeight:1.45 };
   const helpText = { marginTop:6, color:C2.t2, fontSize:11, lineHeight:1.35 };
@@ -831,7 +833,7 @@ export default function MarmoleriaScreen({ profile, signOut }) {
     width:"100%", textAlign:"left", padding:"9px 14px",
     border:"none", borderBottom:`1px solid rgba(255,255,255,0.025)`,
     background: sel ? "rgba(59,130,246,0.1)" : "transparent",
-    color: sel ? "#93b4ff" : C2.t2,
+    color: sel ? C2.primaryText : C2.t2,
     cursor:"pointer", fontSize:13, fontWeight: sel ? 600 : 400,
     display:"flex", justifyContent:"space-between", alignItems:"center",
     fontFamily: C2.sans,
@@ -918,7 +920,7 @@ export default function MarmoleriaScreen({ profile, signOut }) {
       <style>{`
         @import url('https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700;800&family=JetBrains+Mono:wght@400;500;700&display=swap');
         *, *::before, *::after { box-sizing:border-box; }
-        select option { background:#0a0c12; color:#9da3b0; }
+        select option { background:var(--mrm-option-bg, #0a0c12); color:var(--mrm-option-text, #9da3b0); }
         ::-webkit-scrollbar { width:2px; height:2px; }
         ::-webkit-scrollbar-track { background:transparent; }
         ::-webkit-scrollbar-thumb { background:rgba(255,255,255,0.06); border-radius:99px; }
@@ -928,13 +930,13 @@ export default function MarmoleriaScreen({ profile, signOut }) {
         @keyframes kpiFadeIn { from{opacity:0;transform:translateY(8px) scale(0.97)} to{opacity:1;transform:none} }
         .pieza-row:hover { background:rgba(255,255,255,0.022) !important; }
         .dash-row:hover  { background:rgba(255,255,255,0.025) !important; }
-        .nav-btn-item:hover { background:rgba(255,255,255,0.03) !important; color:#9da3b0 !important; }
+        .nav-btn-item:hover { background:var(--mrm-hover-bg, rgba(255,255,255,0.03)) !important; color:var(--mrm-hover-text, #9da3b0) !important; }
         .kpi-card { transition:transform 0.18s ease, border-color 0.18s ease; }
         .kpi-card:hover { transform:translateY(-2px) !important; border-color:rgba(255,255,255,0.1) !important; }
         .action-btn:hover { opacity:0.75; }
-        .edit-btn:hover { color:#eeeef0 !important; }
+        .edit-btn:hover { color:var(--mrm-edit-hover-text, #eeeef0) !important; }
         .del-btn:hover  { color:#ef4444 !important; }
-        .sector-chip:hover { border-color:rgba(59,130,246,0.35) !important; color:#93b4ff !important; }
+        .sector-chip:hover { border-color:rgba(59,130,246,0.35) !important; color:var(--mrm-sector-hover-text, #93b4ff) !important; }
         /* Tablas anchas en mobile: las filas mantienen ancho mínimo y el
            contenedor (.mrm-scroll) se desliza horizontalmente. */
         @media (max-width: 900px) {
