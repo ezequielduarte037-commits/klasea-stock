@@ -228,8 +228,19 @@ export default function OrdenCompraGenerator({ materiales = [], stockPorMaterial
 
   // ── Cargar plantillas ────────────────────────────────────────
   useEffect(() => {
-    supabase.from("laminacion_plantillas").select("id, modelo, label").order("label")
-      .then(({ data }) => { setPlantillas(data ?? []); setLoadingP(false); });
+    supabase
+      .from("linea_plantillas")
+      .select("id, linea, nombre, descripcion, activa")
+      .eq("activa", true)
+      .order("linea")
+      .then(({ data }) => {
+        const mapped = (data ?? []).map((p) => ({
+          ...p,
+          label: p.nombre ? `${p.linea} · ${p.nombre}` : p.linea,
+        }));
+        setPlantillas(mapped);
+        setLoadingP(false);
+      });
   }, []);
 
   useEffect(() => {
@@ -263,13 +274,18 @@ export default function OrdenCompraGenerator({ materiales = [], stockPorMaterial
     setPlantillaLabel(p?.label ?? "");
     setLoadingItems(true);
     const { data } = await supabase
-      .from("laminacion_plantilla_items").select("*")
+      .from("linea_plantilla_items")
+      .select("id, plantilla_id, material_id, cantidad, orden, notas, material:laminacion_materiales(id,nombre,unidad,categoria)")
       .eq("plantilla_id", id).order("orden");
     const loaded = (data ?? []).map(it => ({
       ...it,
+      descripcion: it.material?.nombre ?? "Material sin nombre",
+      unidad: it.material?.unidad ?? "unid",
+      total: null,
+      total_unidad: "unid",
       _key:       String(it.id),
       _cantEdit:  String(it.cantidad),
-      _totalEdit: it.total != null ? String(it.total) : "",
+      _totalEdit: "",
     }));
     setItems(loaded);
     setSelectedKeys(new Set(loaded.map(it => it._key)));
@@ -310,9 +326,11 @@ export default function OrdenCompraGenerator({ materiales = [], stockPorMaterial
   const itemsConStock = useMemo(() => items.map(it => {
     const overrideMat = overrides[it._key]
       ? materiales.find(m => String(m.id) === String(overrides[it._key])) ?? null : null;
+    const linkedMat = it.material_id
+      ? materiales.find(m => String(m.id) === String(it.material_id)) ?? it.material ?? null : null;
     const { mat: autoMat, score, candidato } = matchMaterialScored(it.descripcion, materiales);
-    const mat       = overrideMat ?? autoMat;
-    const matchMode = overrideMat ? "manual" : autoMat ? "auto" : "none";
+    const mat       = overrideMat ?? linkedMat ?? autoMat;
+    const matchMode = overrideMat ? "manual" : mat ? "auto" : "none";
     const stockActual       = mat ? num(stockPorMaterial[mat.id] ?? 0) : null;
     const cantidadNecesaria = num(it._cantEdit) || num(it.cantidad);
     const aComprar          = stockActual != null ? Math.max(0, cantidadNecesaria - stockActual) : null;
