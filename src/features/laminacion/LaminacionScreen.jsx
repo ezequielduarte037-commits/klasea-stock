@@ -1630,12 +1630,14 @@ export default function LaminacionScreen({ profile, signOut }) {
   stockPorMaterial={stockPorMaterial}
   onCrearOrden={async (items, { plantillaLabel, obraNumero, ordenRef }) => {
     const obs = `${ordenRef} | ${plantillaLabel}${obraNumero ? ` — Obra ${obraNumero}` : ""}`;
+    const obraDestino = obraNumero?.trim() || null;
     const rows = items.map(it => ({
       material_id: it.material_id,
       cantidad: it.cantidad,
       observaciones: obs,
       estado: "pendiente",
       categoria: it.categoria || "estándar",
+      obra_destino: obraDestino,
     }));
     const { error } = await supabase.from("laminacion_pedidos").insert(rows);
     if (error) { flash(`Error: ${error.message}`); return; }
@@ -1751,6 +1753,21 @@ export default function LaminacionScreen({ profile, signOut }) {
                             const estandar = pend.filter(p => p.categoria !== "extra");
                             const extra = pend.filter(p => p.categoria === "extra");
                             const label = grupo.ref.startsWith("__manual_") ? "" : (grupo.label ? grupo.label + "\n" : "");
+                            const obraFromItems = pend.find(p => String(p.obra_destino || "").trim())?.obra_destino?.trim();
+                            const obraFromLabel = grupo.label?.match(/Obra\s+([A-Z]?\d+(?:-\d+)?)/i)?.[1];
+                            const obraDestino = obraFromItems || obraFromLabel || "";
+                            const defaultDestination = obraDestino
+                              ? (/^Obra\s+/i.test(obraDestino) ? obraDestino : `Obra ${obraDestino}`)
+                              : "";
+                            const items = pend.map(p => ({
+                              material_id: p.material_id || null,
+                              catalogSource: "laminacion",
+                              description: p.laminacion_materiales?.nombre || "Material",
+                              quantity: p.cantidad || 1,
+                              unit: p.laminacion_materiales?.unidad || "unidad",
+                              destination: defaultDestination,
+                              notes: p.categoria === "extra" ? "Material extra" : "",
+                            }));
                             let desc = "";
                             if (label) desc += `${grupo.ref} — ${label}\n`;
                             if (estandar.length) {
@@ -1764,6 +1781,10 @@ export default function LaminacionScreen({ profile, signOut }) {
                             return {
                               title: grupo.ref.startsWith("__manual_") ? `Pedido manual — Laminación` : `${grupo.ref} — Laminación`,
                               description: desc,
+                              items,
+                              defaultDestination,
+                              priority: extra.length ? "alta" : "media",
+                              origen: "laminacion",
                               source: "laminacion",
                               source_ref: grupo.ref,
                               sourceLabel: "Laminación",
