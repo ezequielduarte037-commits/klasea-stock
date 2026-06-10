@@ -64,6 +64,12 @@ function destinoObraLaminacion(obra) {
   return `Obra ${codigo}-${nombre}`;
 }
 
+function obraMovimientoDesdeDestino(destino) {
+  const raw = String(destino || "").trim();
+  if (!raw || /^Stock\s/i.test(raw)) return null;
+  return raw.replace(/^Obra\s+/i, "").trim() || null;
+}
+
 function fmtTs(ts) {
   if (!ts) return "—";
   return new Date(ts).toLocaleString("es-AR");
@@ -633,6 +639,7 @@ export default function LaminacionScreen({ profile, signOut }) {
         tipo:         "ingreso",
         cantidad:     num(p.cantidad),
         fecha:        hoyLocal(),
+        obra:         obraMovimientoDesdeDestino(p.obra_destino),
         observaciones: `Recepción completa — ${grupo.ref}`,
         creado_por:   userId,
       }));
@@ -662,6 +669,7 @@ export default function LaminacionScreen({ profile, signOut }) {
           tipo:         "ingreso",
           cantidad:     cant,
           fecha:        hoyLocal(),
+          obra:         obraMovimientoDesdeDestino(p.obra_destino),
           observaciones: `Recepción parcial (${cant} de ${num(p.cantidad)}) — ${grupo.ref}`,
           creado_por:   userId,
         });
@@ -697,7 +705,7 @@ export default function LaminacionScreen({ profile, signOut }) {
       : `Recepción parcial (${cantRecibida} de ${pedido.cantidad}) — pedido #${pedido.id}`;
     const { error } = await supabase.from("laminacion_movimientos").insert({
       material_id: pedido.material_id, tipo: "ingreso", cantidad: cantRecibida,
-      fecha: hoyLocal(), observaciones: obsBase, creado_por: userId,
+      fecha: hoyLocal(), obra: obraMovimientoDesdeDestino(pedido.obra_destino), observaciones: obsBase, creado_por: userId,
     });
     if (error) { setErr(error.message); return; }
     if (tipo === "entero") {
@@ -1637,7 +1645,7 @@ export default function LaminacionScreen({ profile, signOut }) {
       observaciones: obs,
       estado: "pendiente",
       categoria: it.categoria || "estándar",
-      obra_destino: obraDestino,
+      obra_destino: it.categoria === "extra" ? "Stock Pampa 1050" : obraDestino,
     }));
     const { error } = await supabase.from("laminacion_pedidos").insert(rows);
     if (error) { flash(`Error: ${error.message}`); return; }
@@ -1753,7 +1761,9 @@ export default function LaminacionScreen({ profile, signOut }) {
                             const estandar = pend.filter(p => p.categoria !== "extra");
                             const extra = pend.filter(p => p.categoria === "extra");
                             const label = grupo.ref.startsWith("__manual_") ? "" : (grupo.label ? grupo.label + "\n" : "");
-                            const obraFromItems = pend.find(p => String(p.obra_destino || "").trim())?.obra_destino?.trim();
+                            const obraFromItems = pend
+                              .map(p => String(p.obra_destino || "").trim())
+                              .find(dest => dest && !/^Stock\s/i.test(dest));
                             const obraFromLabel = grupo.label?.match(/Obra\s+([A-Z]?\d+(?:-\d+)?)/i)?.[1];
                             const obraDestino = obraFromItems || obraFromLabel || "";
                             const defaultDestination = obraDestino
@@ -1763,6 +1773,7 @@ export default function LaminacionScreen({ profile, signOut }) {
                               const esExtra = p.categoria === "extra";
                               return {
                                 material_id: p.material_id || null,
+                                laminacionPedidoId: p.id,
                                 catalogSource: "laminacion",
                                 category: p.categoria || "estándar",
                                 isExtra: esExtra,

@@ -129,8 +129,8 @@ async function createLaminacionPedidos({ entries, profileId }) {
         cantidad: Number.isFinite(cantNum) && cantNum > 0 ? cantNum : 1,
         estado: "pendiente",
         solicitado_por: profileId || null,
-        observaciones: draft.notes || null,
-        categoria: "estándar",
+        observaciones: itemNotesForSubmit(draft),
+        categoria: draft.category || (isExtraItem(draft) ? "extra" : "estándar"),
         obra_destino: obraDestino,
         purchase_request_item_id: requestItem?.id || null,
       });
@@ -143,6 +143,37 @@ async function createLaminacionPedidos({ entries, profileId }) {
   }
 
   return { created, failed };
+}
+
+async function linkExistingLaminacionPedidos({ entries }) {
+  let linked = 0;
+  let failed = 0;
+
+  for (const { draft, requestItem } of entries) {
+    const pedidoId = draft.laminacionPedidoId || draft.laminacion_pedido_id;
+    if (!pedidoId) continue;
+    try {
+      const dest = String(draft.destination || "").trim();
+      const obraDestino = /^Obra\s+/i.test(dest)
+        ? dest.replace(/^Obra\s+/i, "").trim()
+        : (dest || null);
+      const { error } = await supabase
+        .from("laminacion_pedidos")
+        .update({
+          purchase_request_item_id: requestItem?.id || null,
+          obra_destino: obraDestino,
+          categoria: draft.category || (isExtraItem(draft) ? "extra" : "estándar"),
+        })
+        .eq("id", pedidoId);
+      if (error) throw error;
+      linked += 1;
+    } catch (e) {
+      console.warn("[PedirAComprasModal] no se pudo vincular laminacion_pedidos existente:", e);
+      failed += 1;
+    }
+  }
+
+  return { linked, failed };
 }
 
 // Destinos "fijos" para stock — además se suman dinámicamente las obras
@@ -218,6 +249,7 @@ export default function PedirAComprasModal({ open, onClose, prefilled, profile, 
             link_url: it.link_url || "",
             image_url: it.image_url || "",
             material_id: it.material_id || null,
+            laminacionPedidoId: it.laminacionPedidoId || it.laminacion_pedido_id || null,
             catalogSource: it.catalogSource || it.catalog_source || "",
             category: it.category || "",
             isExtra: Boolean(it.isExtra || it.category === "extra"),
@@ -349,8 +381,12 @@ export default function PedirAComprasModal({ open, onClose, prefilled, profile, 
       const origenEfectivo = origen || prefilled?.origen || null;
       let entriesMadera = [];
       let entriesLam = [];
+      let entriesLamExistentes = [];
       if (origenEfectivo === "laminacion") {
-        entriesLam = requestItemsByDraft;
+        entriesLamExistentes = requestItemsByDraft.filter((entry) =>
+          entry?.draft?.laminacionPedidoId || entry?.draft?.laminacion_pedido_id);
+        entriesLam = requestItemsByDraft.filter((entry) =>
+          !(entry?.draft?.laminacionPedidoId || entry?.draft?.laminacion_pedido_id));
       } else if (origenEfectivo === "maderas") {
         entriesMadera = requestItemsByDraft;
       } else {
@@ -370,6 +406,17 @@ export default function PedirAComprasModal({ open, onClose, prefilled, profile, 
       } catch (e) {
         // No bloquea: el purchase_request ya está creado.
         console.warn("[PedirAComprasModal] error creando pedido legacy:", e);
+      }
+
+      try {
+        const linkedRes = await linkExistingLaminacionPedidos({
+          entries: entriesLamExistentes,
+        });
+        if (linkedRes?.failed > 0) {
+          toast.warning(`${linkedRes.failed} ítem${linkedRes.failed > 1 ? "s" : ""} no se pudo vincular con Pedidos de Laminación (sí quedó en el pedido a compras).`);
+        }
+      } catch (e) {
+        console.warn("[PedirAComprasModal] error vinculando laminacion_pedidos existentes:", e);
       }
 
       try {
