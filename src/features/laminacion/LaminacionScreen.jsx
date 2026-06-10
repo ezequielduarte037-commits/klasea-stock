@@ -64,10 +64,20 @@ function destinoObraLaminacion(obra) {
   return `Obra ${codigo}-${nombre}`;
 }
 
-function obraMovimientoDesdeDestino(destino) {
+function obraMovimientoDesdeDestino(destino, obras = []) {
   const raw = String(destino || "").trim();
   if (!raw || /^Stock\s/i.test(raw)) return null;
-  return raw.replace(/^Obra\s+/i, "").trim() || null;
+  const limpio = raw.replace(/^Obra\s+/i, "").trim();
+  if (!limpio) return null;
+  const norm = (s) => String(s || "").trim().toUpperCase().replace(/\s+/g, " ");
+  const limpioNorm = norm(limpio);
+  const match = (obras || []).find((obra) => {
+    const nombre = String(obra?.nombre || "").trim();
+    const destinoEsperado = destinoObraLaminacion(obra).replace(/^Obra\s+/i, "").trim();
+    return [nombre, destinoEsperado, extraerCodigoLinea(obra)].some((candidate) =>
+      candidate && norm(candidate) === limpioNorm);
+  });
+  return match?.nombre || limpio;
 }
 
 function fmtTs(ts) {
@@ -639,7 +649,7 @@ export default function LaminacionScreen({ profile, signOut }) {
         tipo:         "ingreso",
         cantidad:     num(p.cantidad),
         fecha:        hoyLocal(),
-        obra:         obraMovimientoDesdeDestino(p.obra_destino),
+        obra:         obraMovimientoDesdeDestino(p.obra_destino, obrasLam),
         observaciones: `Recepción completa — ${grupo.ref}`,
         creado_por:   userId,
       }));
@@ -669,7 +679,7 @@ export default function LaminacionScreen({ profile, signOut }) {
           tipo:         "ingreso",
           cantidad:     cant,
           fecha:        hoyLocal(),
-          obra:         obraMovimientoDesdeDestino(p.obra_destino),
+          obra:         obraMovimientoDesdeDestino(p.obra_destino, obrasLam),
           observaciones: `Recepción parcial (${cant} de ${num(p.cantidad)}) — ${grupo.ref}`,
           creado_por:   userId,
         });
@@ -704,8 +714,13 @@ export default function LaminacionScreen({ profile, signOut }) {
       ? `Recepción completa — pedido #${pedido.id}`
       : `Recepción parcial (${cantRecibida} de ${pedido.cantidad}) — pedido #${pedido.id}`;
     const { error } = await supabase.from("laminacion_movimientos").insert({
-      material_id: pedido.material_id, tipo: "ingreso", cantidad: cantRecibida,
-      fecha: hoyLocal(), obra: obraMovimientoDesdeDestino(pedido.obra_destino), observaciones: obsBase, creado_por: userId,
+      material_id: pedido.material_id,
+      tipo: "ingreso",
+      cantidad: cantRecibida,
+      fecha: hoyLocal(),
+      obra: obraMovimientoDesdeDestino(pedido.obra_destino, obrasLam),
+      observaciones: obsBase,
+      creado_por: userId,
     });
     if (error) { setErr(error.message); return; }
     if (tipo === "entero") {
