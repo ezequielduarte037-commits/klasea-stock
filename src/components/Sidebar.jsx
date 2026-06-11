@@ -1,11 +1,12 @@
 ﻿import React, { useEffect, useState } from "react";
-import { Eye, Moon, Phone, Sun } from "lucide-react";
+import { Eye, KeyRound, Moon, Phone, Sun } from "lucide-react";
 import { Link, useLocation } from "react-router-dom";
 import logoK from "@/assets/logos/logo-k.png";
 import { useResponsive } from "@/hooks/useResponsive";
 import { hasAdminAccess } from "@/lib/permissions";
 import { C } from "@/theme";
 import { useTheme } from "@/theme/useTheme";
+import ChangePasswordModal from "@/features/cuenta/ChangePasswordModal";
 import VincularWhatsAppModal from "@/features/cuenta/VincularWhatsAppModal";
 
 // ─── SVG ICONS ────────────────────────────────────────────────────────────────
@@ -152,6 +153,7 @@ export default function Sidebar({ profile, signOut }) {
   const { theme, setTheme } = useTheme();
   const [menuOpen, setMenuOpen] = useState(false);
   const [waOpen, setWaOpen] = useState(false);
+  const [passwordOpen, setPasswordOpen] = useState(false);
   const toggleMenu = () => setMenuOpen(o => !o);
   useEffect(() => { if (!isMobile) setMenuOpen(false); }, [isMobile]);
   useEffect(() => {
@@ -409,6 +411,23 @@ export default function Sidebar({ profile, signOut }) {
               <span style={{ fontSize: 10, color: C.dim, letterSpacing: "1.1px", textTransform: "uppercase", fontWeight: 700 }}>{role}</span>
             </div>
           </div>
+          <button
+            type="button"
+            onClick={() => setPasswordOpen(true)}
+            title="Cambiar contraseña"
+            className="sb-out"
+            style={{
+              background: "transparent",
+              border: `1px solid ${C.border}`,
+              borderRadius: 7,
+              color: C.dim,
+              width: 28, height: 28,
+              display: "flex", alignItems: "center", justifyContent: "center",
+              cursor: "pointer", flexShrink: 0,
+            }}
+          >
+            <KeyRound size={13} />
+          </button>
           {role !== "cliente" && (
             <button
               type="button"
@@ -469,6 +488,11 @@ export default function Sidebar({ profile, signOut }) {
       <VincularWhatsAppModal
         open={waOpen}
         onClose={() => setWaOpen(false)}
+        profile={profile}
+      />
+      <ChangePasswordModal
+        open={passwordOpen}
+        onClose={() => setPasswordOpen(false)}
         profile={profile}
       />
     </>

@@ -25,6 +25,30 @@ function json(body: unknown, status = 200) {
   })
 }
 
+function validatePassword(password: string, username = ""): string | null {
+  const value = String(password || "")
+  const normalized = value.toLowerCase()
+  const user = String(username || "").trim().toLowerCase().replace(/\s+/g, "")
+  const weak = new Set([
+    "1234567890",
+    "123456789",
+    "contraseña",
+    "contrasena",
+    "password",
+    "password123",
+    "klasea123",
+    "astillero123",
+  ])
+
+  if (value.length < 10) return "La contraseña debe tener al menos 10 caracteres"
+  if (!/[a-záéíóúñ]/.test(normalized)) return "La contraseña debe incluir una minúscula"
+  if (!/[A-ZÁÉÍÓÚÑ]/.test(value)) return "La contraseña debe incluir una mayúscula"
+  if (!/\d/.test(value)) return "La contraseña debe incluir un número"
+  if (user && normalized.includes(user)) return "La contraseña no puede contener el usuario"
+  if (weak.has(normalized)) return "La contraseña es demasiado fácil de adivinar"
+  return null
+}
+
 serve(async (req) => {
   if (req.method === "OPTIONS") return new Response("ok", { headers: corsHeaders })
   if (req.method !== "POST") return json({ error: "Method not allowed" }, 405)
@@ -61,6 +85,8 @@ serve(async (req) => {
       const role = String(body.role ?? "")
       const isAdminFlag = body.is_admin === true
       if (!username || !password || !role) return json({ error: "Faltan datos (username/password/role)" }, 400)
+      const passwordError = validatePassword(password, username)
+      if (passwordError) return json({ error: passwordError }, 400)
 
       const email = `${username.toLowerCase()}@klasea.local`
       const { data: created, error: createErr } = await admin.auth.admin.createUser({
@@ -74,7 +100,13 @@ serve(async (req) => {
 
       const { error: profErr } = await admin
         .from("profiles")
-        .upsert({ id: uid, username, role, is_admin: isAdminFlag }, { onConflict: "id" })
+        .upsert({
+          id: uid,
+          username,
+          role,
+          is_admin: isAdminFlag,
+          must_change_password: role !== "cliente",
+        }, { onConflict: "id" })
       if (profErr) {
         // rollback: borrar el usuario auth recién creado
         await admin.auth.admin.deleteUser(uid)
@@ -96,8 +128,20 @@ serve(async (req) => {
       const userId = String(body.user_id ?? "")
       const password = String(body.password ?? "")
       if (!userId || !password) return json({ error: "Falta user_id o password" }, 400)
+      const { data: targetProfile } = await admin
+        .from("profiles")
+        .select("username, role")
+        .eq("id", userId)
+        .maybeSingle()
+      const passwordError = validatePassword(password, targetProfile?.username ?? "")
+      if (passwordError) return json({ error: passwordError }, 400)
       const { error } = await admin.auth.admin.updateUserById(userId, { password })
       if (error) return json({ error: error.message }, 400)
+      await admin
+        .from("profiles")
+        .update({ must_change_password: true })
+        .eq("id", userId)
+        .neq("role", "cliente")
       return json({ ok: true })
     }
 

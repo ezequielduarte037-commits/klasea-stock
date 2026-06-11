@@ -86,7 +86,8 @@ async function handleEvent(body: any): Promise<void> {
     return;
   }
 
-  const msg = value?.messages?.[0];
+  const messages = Array.isArray(value?.messages) ? value.messages : [];
+  const msg = messages[0];
   if (!msg) return;
 
   const from = String(msg.from || "");
@@ -159,9 +160,10 @@ async function handleEvent(body: any): Promise<void> {
   const stale = lastAt > 0 && Date.now() - lastAt > STALE_MS;
 
   const state = stale ? "idle" : (convo?.state || "idle");
-  const ctx = (stale ? {} : (convo?.context || {})) as { history?: HistoryTurn[]; draft?: ParsedPedido; photo_urls?: string[] };
+  const ctx = (stale ? {} : (convo?.context || {})) as { history?: HistoryTurn[]; draft?: ParsedPedido; photo_urls?: string[]; photo_media_ids?: string[] };
   const history: HistoryTurn[] = Array.isArray(ctx.history) ? ctx.history : [];
   const photoUrls: string[] = Array.isArray(ctx.photo_urls) ? ctx.photo_urls : [];
+  const photoMediaIds: string[] = Array.isArray(ctx.photo_media_ids) ? ctx.photo_media_ids : [];
 
   // Saludo suelto con algo pendiente → NO es una corrección. Reseteamos y saludamos.
   const isGreeting = lower.length <= 20 &&
@@ -174,12 +176,12 @@ async function handleEvent(body: any): Promise<void> {
 
   // 4) Esperando confirmación de un draft → manejar sí/no/correcciones
   if (state === "awaiting_confirm" && ctx.draft) {
-    await handleConfirmation(db, from, profile, inputText, ctx.draft, history, photoUrls);
+    await handleConfirmation(db, from, profile, inputText, ctx.draft, history, photoUrls, photoMediaIds, messages);
     return;
   }
 
   // 5) Default: turno conversacional con LLM
-  await handleConversationTurn(db, from, profile, msg, history, photoUrls);
+  await handleConversationTurn(db, from, profile, messages, history, photoUrls, photoMediaIds);
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -255,18 +257,94 @@ async function resetConversation(db: SupabaseClient, phone: string): Promise<voi
 // ─────────────────────────────────────────────────────────────────────────────
 // Turno conversacional (gathering / draft)
 // ─────────────────────────────────────────────────────────────────────────────
+async function uploadPurchasePhotoFromBlob(
+  db: SupabaseClient,
+  profile: any,
+  blob: Blob,
+  mimeType?: string,
+): Promise<string | null> {
+  const ext = ((mimeType || "image/jpeg").split("/")[1] || "jpg").split("+")[0];
+  const path = `${profile.id}/wa-${Date.now()}-${crypto.randomUUID()}.${ext}`;
+  const { error: upErr } = await db.storage
+    .from("purchase-request-photos")
+    .upload(path, blob, { cacheControl: "3600", contentType: mimeType || "image/jpeg", upsert: false });
+
+  if (upErr) {
+    console.error("[wa-webhook] error subiendo foto a storage:", upErr);
+    return null;
+  }
+
+  const { data: pub } = db.storage.from("purchase-request-photos").getPublicUrl(path);
+  return pub?.publicUrl || null;
+}
+
+async function appendIncomingImagesToPhotos(
+  db: SupabaseClient,
+  profile: any,
+  messages: any[],
+  existingPhotos: string[] = [],
+  existingMediaIds: string[] = [],
+  includeVision = false,
+): Promise<{
+  photoUrls: string[];
+  photoMediaIds: string[];
+  visionImages: Array<{ mimeType: string; base64: string }>;
+  added: number;
+}> {
+  const photoUrls = [...existingPhotos];
+  const mediaIds = [...existingMediaIds];
+  const seen = new Set(mediaIds);
+  const visionImages: Array<{ mimeType: string; base64: string }> = [];
+  let added = 0;
+
+  for (const msg of messages || []) {
+    const mediaId = msg?.image?.id;
+    if (!mediaId || seen.has(mediaId)) continue;
+
+    try {
+      const { blob, mimeType } = await downloadMedia(mediaId);
+      if (includeVision) {
+        const buf = new Uint8Array(await blob.arrayBuffer());
+        let binary = "";
+        const chunkSize = 0x8000;
+        for (let i = 0; i < buf.length; i += chunkSize) {
+          binary += String.fromCharCode(...buf.subarray(i, i + chunkSize));
+        }
+        visionImages.push({ mimeType: mimeType || "image/jpeg", base64: btoa(binary) });
+        console.log(`[wa-webhook] imagen descargada (${buf.length} bytes, ${mimeType})`);
+      }
+
+      const publicUrl = await uploadPurchasePhotoFromBlob(db, profile, blob, mimeType);
+      if (publicUrl) {
+        photoUrls.push(publicUrl);
+        mediaIds.push(mediaId);
+        seen.add(mediaId);
+        added += 1;
+        console.log(`[wa-webhook] foto adjuntada al pedido: ${publicUrl}`);
+      }
+    } catch (err) {
+      console.error("[wa-webhook] error adjuntando imagen al pedido pendiente:", err);
+    }
+  }
+
+  return { photoUrls, photoMediaIds: mediaIds, visionImages, added };
+}
+
 async function handleConversationTurn(
   db: SupabaseClient,
   from: string,
   profile: any,
-  msg: any,
+  messages: any[],
   history: HistoryTurn[],
   existingPhotos: string[] = [],
+  existingPhotoMediaIds: string[] = [],
 ): Promise<void> {
+  const msg = messages[0];
   // Armar input multimodal
   const input: MessageInput = { images: [], urls: [] };
   // URLs de fotos que ya se adjuntaron en turnos previos + las de este turno.
-  const photoUrls: string[] = [...existingPhotos];
+  let photoUrls: string[] = [...existingPhotos];
+  let photoMediaIds: string[] = [...existingPhotoMediaIds];
 
   // Texto / caption
   let text = "";
@@ -294,44 +372,17 @@ async function handleConversationTurn(
 
   input.text = text;
 
-  // Imagen → descargo + base64 para vision
-  if (msg.image?.id) {
-    try {
-      const { blob, mimeType } = await downloadMedia(msg.image.id);
-      const buf = new Uint8Array(await blob.arrayBuffer());
-      // btoa con chunks (Deno no maneja > ~100KB en una sola call sin issues)
-      let binary = "";
-      const chunkSize = 0x8000;
-      for (let i = 0; i < buf.length; i += chunkSize) {
-        binary += String.fromCharCode(...buf.subarray(i, i + chunkSize));
-      }
-      const base64 = btoa(binary);
-      input.images!.push({ mimeType: mimeType || "image/jpeg", base64 });
-      console.log(`[wa-webhook] imagen descargada (${buf.length} bytes, ${mimeType})`);
-
-      // Además de usarla para visión, la subimos a storage para adjuntarla al pedido.
-      try {
-        const ext = ((mimeType || "image/jpeg").split("/")[1] || "jpg").split("+")[0];
-        const path = `${profile.id}/wa-${Date.now()}-${crypto.randomUUID()}.${ext}`;
-        const { error: upErr } = await db.storage
-          .from("purchase-request-photos")
-          .upload(path, blob, { cacheControl: "3600", contentType: mimeType || "image/jpeg", upsert: false });
-        if (upErr) {
-          console.error("[wa-webhook] error subiendo foto a storage:", upErr);
-        } else {
-          const { data: pub } = db.storage.from("purchase-request-photos").getPublicUrl(path);
-          if (pub?.publicUrl) {
-            photoUrls.push(pub.publicUrl);
-            console.log(`[wa-webhook] foto adjuntada al pedido: ${pub.publicUrl}`);
-          }
-        }
-      } catch (e) {
-        console.error("[wa-webhook] excepción subiendo foto:", e);
-      }
-    } catch (err) {
-      console.error("[wa-webhook] error descargando imagen:", err);
-    }
-  }
+  const imageResult = await appendIncomingImagesToPhotos(
+    db,
+    profile,
+    messages,
+    photoUrls,
+    photoMediaIds,
+    true,
+  );
+  photoUrls = imageResult.photoUrls;
+  photoMediaIds = imageResult.photoMediaIds;
+  input.images!.push(...imageResult.visionImages);
 
   // URLs en el texto → fetch metadata
   const urls = extractUrls(text);
@@ -390,7 +441,7 @@ async function handleConversationTurn(
       phone: from,
       user_id: profile.id,
       state: "gathering",
-      context: { history: newHistory, photo_urls: photoUrls },
+      context: { history: newHistory, photo_urls: photoUrls, photo_media_ids: photoMediaIds },
       last_message_at: new Date().toISOString(),
     });
     await sendText(from, resp.message);
@@ -405,7 +456,7 @@ async function handleConversationTurn(
     phone: from,
     user_id: profile.id,
     state: "awaiting_confirm",
-    context: { history: newHistory, draft: { ...draft, project_id: projectId }, photo_urls: photoUrls },
+    context: { history: newHistory, draft: { ...draft, project_id: projectId }, photo_urls: photoUrls, photo_media_ids: photoMediaIds },
     last_message_at: new Date().toISOString(),
   });
 
@@ -423,8 +474,30 @@ async function handleConfirmation(
   draft: ParsedPedido & { project_id?: string | null },
   history: HistoryTurn[],
   photoUrls: string[] = [],
+  photoMediaIds: string[] = [],
+  messages: any[] = [],
 ): Promise<void> {
   const t = text.trim().toLowerCase();
+  const incomingImages = await appendIncomingImagesToPhotos(db, profile, messages, photoUrls, photoMediaIds, false);
+  const nextPhotoUrls = incomingImages.photoUrls;
+  const nextPhotoMediaIds = incomingImages.photoMediaIds;
+
+  if (incomingImages.added > 0 && !t) {
+    const newHistory: HistoryTurn[] = [
+      ...history,
+      { role: "user", content: "[imagen adjunta]" },
+      { role: "assistant", content: "Listo, adjunté la foto al pedido pendiente." },
+    ].slice(-MAX_HISTORY);
+    await db.from("bot_conversations").upsert({
+      phone: from,
+      user_id: profile.id,
+      state: "awaiting_confirm",
+      context: { history: newHistory, draft, photo_urls: nextPhotoUrls, photo_media_ids: nextPhotoMediaIds },
+      last_message_at: new Date().toISOString(),
+    });
+    await sendText(from, `Listo, adjunté la foto al ${draft.intent === "aviso" ? "aviso" : "pedido"} pendiente. Van ${nextPhotoUrls.length} foto${nextPhotoUrls.length !== 1 ? "s" : ""}.\n\nRespondé *si* para crear, *no* para descartar, o mandá otra corrección.`);
+    return;
+  }
 
   if (/^(si|sí|sip|dale|confirmo|ok|okey|yes|y|listo|👍|✅)\b/i.test(t)) {
     try {
@@ -439,7 +512,7 @@ async function handleConfirmation(
         return;
       }
 
-      const request = await createPurchaseRequestFromBot(db, profile, draft, photoUrls);
+      const request = await createPurchaseRequestFromBot(db, profile, draft, nextPhotoUrls);
       await resetConversation(db, from);
       notifyCompras(request.id, draft.title, profile.id, profile.username).catch((e) =>
         console.warn("[wa-webhook] notify compras fail:", e),
@@ -475,7 +548,10 @@ async function handleConfirmation(
     return;
   }
 
-  const userTurn = { role: "user" as const, content: text };
+  const userTurn = {
+    role: "user" as const,
+    content: [text, incomingImages.added > 0 ? "[imagen adjunta]" : ""].filter(Boolean).join(" ").trim(),
+  };
   const assistantTurn = { role: "assistant" as const, content: resp.message };
   const newHistory: HistoryTurn[] = [...history, userTurn, assistantTurn].slice(-MAX_HISTORY);
 
@@ -484,7 +560,7 @@ async function handleConfirmation(
       phone: from,
       user_id: profile.id,
       state: "awaiting_confirm",
-      context: { history: newHistory, draft, photo_urls: photoUrls },
+      context: { history: newHistory, draft, photo_urls: nextPhotoUrls, photo_media_ids: nextPhotoMediaIds },
       last_message_at: new Date().toISOString(),
     });
     await sendText(from, resp.message);
@@ -500,7 +576,7 @@ async function handleConfirmation(
     phone: from,
     user_id: profile.id,
     state: "awaiting_confirm",
-    context: { history: newHistory, draft: savedDraft, photo_urls: photoUrls },
+    context: { history: newHistory, draft: savedDraft, photo_urls: nextPhotoUrls, photo_media_ids: nextPhotoMediaIds },
     last_message_at: new Date().toISOString(),
   });
 

@@ -4,6 +4,7 @@ import Sidebar from "@/components/Sidebar";
 import { useResponsive } from "@/hooks/useResponsive";
 import NotificacionesBell from "@/components/NotificacionesBell";
 import { C } from "@/theme";
+import { validatePasswordPolicy } from "@/features/cuenta/passwordPolicy";
 import {
   User,
   Anchor,
@@ -243,6 +244,8 @@ function ModalNuevoUsuario({ onClose, onSaved, flash }) {
   async function submit(e) {
     e.preventDefault();
     if (!form.username.trim() || !form.password) return flash(false,"Usuario y contraseña obligatorios.");
+    const passwordIssues = validatePasswordPolicy(form.password, { username: form.username });
+    if (passwordIssues.length) return flash(false, passwordIssues[0]);
     setBusy(true);
 
     // Crear usuario vía edge function admin-usuarios: la service key vive en el
@@ -271,7 +274,7 @@ function ModalNuevoUsuario({ onClose, onSaved, flash }) {
       <ModalTitle title="Nuevo usuario interno" sub="El usuario podrá ingresar sin confirmar email." onClose={onClose} />
       <form onSubmit={submit}>
         <Field label="Usuario"><input style={Sx.input} required autoFocus autoComplete="off" value={form.username} onChange={e=>set("username",e.target.value)} placeholder="nombre.apellido" /></Field>
-        <Field label="Contraseña"><input type="password" style={Sx.input} required autoComplete="new-password" value={form.password} onChange={e=>set("password",e.target.value)} /></Field>
+        <Field label="Contraseña temporal" hint="Mínimo 10 caracteres, mayúscula, minúscula y número. Se le pedirá cambiarla al ingresar."><input type="password" style={Sx.input} required autoComplete="new-password" value={form.password} onChange={e=>set("password",e.target.value)} /></Field>
         <Field label="Rol"><SelectorRoles value={form.role} onChange={v=>set("role",v)} /></Field>
         <div style={{ display:"flex", justifyContent:"space-between", alignItems:"center", padding:"10px 14px", background:"rgba(255,255,255,0.02)", border:"1px solid rgba(255,255,255,0.05)", borderRadius:8, marginBottom:20, marginTop:14 }}>
           <div>
@@ -290,14 +293,27 @@ function ModalNuevoUsuario({ onClose, onSaved, flash }) {
 }
 
 function ModalEditarUsuario({ usuario, onClose, onSaved, flash }) {
-  const [form, setForm] = useState({ role:usuario.role, is_admin:usuario.is_admin });
+  const [form, setForm] = useState({ role:usuario.role, is_admin:usuario.is_admin, password:"" });
   const [busy, setBusy] = useState(false);
   const set = (k,v) => setForm(f=>({...f,[k]:v}));
   async function guardar() {
+    if (form.password) {
+      const passwordIssues = validatePasswordPolicy(form.password, { username: usuario.username });
+      if (passwordIssues.length) return flash(false, passwordIssues[0]);
+    }
     setBusy(true);
     const { error } = await supabase.from("profiles").update({ role:form.role, is_admin:form.is_admin }).eq("id",usuario.id);
+    if (error) { setBusy(false); return flash(false,error.message); }
+    if (form.password) {
+      const { data: pw, error: pwErr } = await supabase.functions.invoke("admin-usuarios", {
+        body: { action: "update_password", user_id: usuario.id, password: form.password },
+      });
+      if (pwErr || pw?.error) {
+        setBusy(false);
+        return flash(false, "Error contraseña: " + (await fnErrorMsg(pw, pwErr, "no se pudo cambiar")));
+      }
+    }
     setBusy(false);
-    if (error) return flash(false,error.message);
     flash(true,"Permisos actualizados."); onSaved(); onClose();
   }
   async function eliminar() {
@@ -310,6 +326,9 @@ function ModalEditarUsuario({ usuario, onClose, onSaved, flash }) {
     <Overlay onClose={onClose} maxWidth={400}>
       <ModalTitle title="Editar permisos" sub={usuario.username} onClose={onClose} />
       <Field label="Rol"><SelectorRoles value={form.role} onChange={v=>set("role",v)} /></Field>
+      <Field label="Contraseña temporal" hint="Opcional. Si la cargás, se le pedirá cambiarla al ingresar.">
+        <input type="password" style={Sx.input} autoComplete="new-password" value={form.password} onChange={e=>set("password",e.target.value)} placeholder="Dejar vacío para no cambiar" />
+      </Field>
       <div style={{ display:"flex", justifyContent:"space-between", alignItems:"center", padding:"11px 14px", background:"rgba(255,255,255,0.02)", border:"1px solid rgba(255,255,255,0.05)", borderRadius:8, marginBottom:22, marginTop:14 }}>
         <div>
           <div style={{ fontSize:13, color:"var(--muted)" }}>Acceso de administrador</div>
@@ -389,6 +408,10 @@ function ModalCliente({ cliente, modelos, onClose, onSaved, flash }) {
     if (!form.nombre.trim()) return flash(false, "El nombre es obligatorio.");
     if (esNuevo && !form.username.trim()) return flash(false, "El usuario es obligatorio.");
     if (esNuevo && !form.password) return flash(false, "La contraseña es obligatoria.");
+    if (form.password) {
+      const passwordIssues = validatePasswordPolicy(form.password, { username: form.username || form.nombre });
+      if (passwordIssues.length) return flash(false, passwordIssues[0]);
+    }
     setBusy(true);
 
     const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
@@ -500,7 +523,7 @@ function ModalCliente({ cliente, modelos, onClose, onSaved, flash }) {
             <Field label="Contraseña inicial">
               <input style={Sx.input} type="password" required autoComplete="new-password"
                 value={form.password} onChange={e => set("password", e.target.value)}
-                placeholder="Mínimo 6 caracteres" />
+                placeholder="Mínimo 10 caracteres" />
             </Field>
           </div>
         )}
@@ -649,11 +672,14 @@ function ModalPasswordCliente({ cliente, onClose, flash }) {
   const [busy, setBusy] = useState(false);
   async function submit(e) {
     e.preventDefault();
-    if (pw.length < 6) return flash(false,"Mínimo 6 caracteres.");
+    const passwordIssues = validatePasswordPolicy(pw, { username: cliente.username || cliente.nombre_completo });
+    if (passwordIssues.length) return flash(false, passwordIssues[0]);
     setBusy(true);
-    const { error } = await supabase.rpc("cambiar_password_cliente",{ p_uid:cliente.id, p_password:pw });
+    const { data: res, error: fnError } = await supabase.functions.invoke("admin-usuarios", {
+      body: { action: "update_password", user_id: cliente.id, password: pw },
+    });
     setBusy(false);
-    if (error) return flash(false,"Error: "+error.message);
+    if (fnError || res?.error) return flash(false,"Error: "+(await fnErrorMsg(res, fnError, "no se pudo cambiar")));
     flash(true,`Contraseña de ${cliente.nombre_completo} actualizada.`);
     onClose();
   }

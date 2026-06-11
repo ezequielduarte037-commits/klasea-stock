@@ -25,6 +25,7 @@ import EtiquetasScreen       from "@/features/inventario/EtiquetasScreen";
 
 import { ToastProvider } from "@/components/ui/Toast";
 import { ConfirmProvider } from "@/components/ui/ConfirmDialog";
+import ChangePasswordModal from "@/features/cuenta/ChangePasswordModal";
 import { C } from "@/theme";
 
 import logoK from "@/assets/logos/logo-k.png";
@@ -287,11 +288,19 @@ export default function App() {
     if (!s?.user?.id) { setProfile(null); setIsInitializing(false); return; }
 
     // Buscar en profiles (personal interno)
-    const { data: pData } = await supabase
+    let { data: pData, error: pErr } = await supabase
       .from("profiles")
-      .select("id,username,role,is_admin")
+      .select("id,username,role,is_admin,must_change_password")
       .eq("id", s.user.id)
       .single();
+    if (pErr && String(pErr.message || "").includes("must_change_password")) {
+      const retry = await supabase
+        .from("profiles")
+        .select("id,username,role,is_admin")
+        .eq("id", s.user.id)
+        .single();
+      pData = retry.data;
+    }
 
     if (pData) {
       setProfile(pData);
@@ -402,6 +411,13 @@ export default function App() {
 
         <Route path="*" element={<Navigate to="/" replace />} />
       </Routes>
+      <ChangePasswordModal
+        open={!!session && !!profile && profile.role !== "cliente" && profile.must_change_password === true}
+        forced
+        profile={profile}
+        onSignOut={signOut}
+        onChanged={() => setProfile((p) => p ? { ...p, must_change_password: false } : p)}
+      />
         </ConfirmProvider>
       </ToastProvider>
     </BrowserRouter>
