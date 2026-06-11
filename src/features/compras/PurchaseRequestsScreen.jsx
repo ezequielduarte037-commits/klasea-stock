@@ -17,6 +17,7 @@ import {
   Search,
   ShoppingCart,
   Table2,
+  Trash2,
   Users,
   X,
 } from "lucide-react";
@@ -48,6 +49,7 @@ import {
   addComprasAvisoComentario,
   createComprasAviso,
   createPurchaseRequest,
+  deleteComprasAviso,
   fetchComprasAvisos,
   fetchAnalyticsStats,
   fetchMonthlySpending,
@@ -1782,6 +1784,20 @@ function AvisosPanel({
     }
   }
 
+  async function handleDeleteAviso() {
+    if (!selected || !canManage) return;
+    const ok = window.confirm(`¿Borrar definitivamente el aviso "${selected.titulo}"?\n\nEsto elimina también el seguimiento y no queda archivado.`);
+    if (!ok) return;
+    try {
+      await deleteComprasAviso(selected.id);
+      toast.success("Aviso eliminado.");
+      onSelect?.(null);
+      await onRefresh?.();
+    } catch (err) {
+      toast.error(err.message || "No se pudo borrar el aviso.");
+    }
+  }
+
   return (
     <div style={{ display: "grid", gap: 12, minHeight: 0 }}>
       <div style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
@@ -1888,6 +1904,7 @@ function AvisosPanel({
           onStatus={handleStatus}
           onComment={handleComment}
           onConvertToRequest={onConvertToRequest}
+          onDelete={handleDeleteAviso}
         />
       </div>
     </div>
@@ -1933,7 +1950,7 @@ function AvisoListItem({ aviso, active, onClick }) {
   );
 }
 
-function AvisoDetail({ aviso, comment, setComment, savingComment, savingStatus, canManage, onStatus, onComment, onConvertToRequest }) {
+function AvisoDetail({ aviso, comment, setComment, savingComment, savingStatus, canManage, onStatus, onComment, onConvertToRequest, onDelete }) {
   if (!aviso) {
     return (
       <div style={{ border: `1px dashed ${C.border}`, borderRadius: 12, minHeight: 260, display: "grid", placeItems: "center", color: C.dim, fontSize: 13 }}>
@@ -1987,6 +2004,10 @@ function AvisoDetail({ aviso, comment, setComment, savingComment, savingStatus, 
                 Convertir en pedido
               </button>
             )}
+            <button type="button" onClick={onDelete} style={smallActionButton(C.red)}>
+              <Trash2 size={13} />
+              Borrar
+            </button>
           </div>
         )}
       </div>

@@ -367,6 +367,15 @@ export async function addComprasAvisoComentario(avisoId, body) {
   return data;
 }
 
+export async function deleteComprasAviso(id) {
+  const { error } = await supabase
+    .from("compras_avisos")
+    .delete()
+    .eq("id", id);
+
+  if (error) throw error;
+}
+
 // --- ADICIONALES -----------------------------------------------------------
 
 export async function fetchAdditionalBoards() {
