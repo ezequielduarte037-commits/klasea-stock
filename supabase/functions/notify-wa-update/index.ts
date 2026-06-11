@@ -18,6 +18,13 @@
 //   actorId?: string,                 // uuid del usuario que hizo el cambio
 //   payload: { ... }                  // datos del evento (ver formatMessage)
 // }
+// Para avisos:
+// {
+//   avisoId: string,
+//   eventType: "aviso_status" | "aviso_comment",
+//   actorId?: string,
+//   payload: { ... }
+// }
 //
 // Limitación: WhatsApp Cloud API solo permite texto libre si el destinatario
 // interactuó con el bot en las últimas 24h. Fuera de esa ventana hay que usar
@@ -39,6 +46,10 @@ function linkTo(requestId: string): string {
   return `${APP_URL_BASE}?open=${requestId}`;
 }
 
+function linkToAviso(avisoId: string): string {
+  return `${APP_URL_BASE}?tab=avisos&aviso=${avisoId}`;
+}
+
 function supa(): SupabaseClient {
   return createClient(
     Deno.env.get("SUPABASE_URL") ?? "",
@@ -54,15 +65,17 @@ serve(async (req) => {
   let body: any;
   try { body = await req.json(); } catch { return new Response("Invalid JSON", { status: 400 }); }
 
-  const { requestId, eventType, payload = {}, actorId } = body;
-  if (!requestId || !eventType) {
-    return new Response(JSON.stringify({ error: "requestId y eventType requeridos" }), {
+  const { requestId, avisoId, eventType, payload = {}, actorId } = body;
+  if ((!requestId && !avisoId) || !eventType) {
+    return new Response(JSON.stringify({ error: "requestId/avisoId y eventType requeridos" }), {
       status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" },
     });
   }
 
   try {
-    const result = await notifyParticipants({ requestId, eventType, payload, actorId });
+    const result = avisoId
+      ? await notifyAvisoParticipants({ avisoId, eventType, payload, actorId })
+      : await notifyParticipants({ requestId, eventType, payload, actorId });
     return new Response(JSON.stringify({ ok: true, ...result }), {
       status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" },
     });
@@ -76,6 +89,13 @@ serve(async (req) => {
 
 interface NotifyArgs {
   requestId: string;
+  eventType: string;
+  payload: Record<string, any>;
+  actorId?: string;
+}
+
+interface NotifyAvisoArgs {
+  avisoId: string;
   eventType: string;
   payload: Record<string, any>;
   actorId?: string;
@@ -144,7 +164,66 @@ async function notifyParticipants(args: NotifyArgs): Promise<{ sent: number; ski
     }
   }
 
-  return { sent, skipped: userIds.size - phones.length, errors };
+  return { sent, skipped: Math.max(0, phones.length - sent), errors };
+}
+
+async function notifyAvisoParticipants(args: NotifyAvisoArgs): Promise<{ sent: number; skipped: number; errors: number }> {
+  const db = supa();
+
+  const { data: aviso, error: avisoErr } = await db
+    .from("compras_avisos")
+    .select(`
+      id, titulo, estado, prioridad, created_by,
+      creator:profiles!compras_avisos_created_by_fkey(id, username)
+    `)
+    .eq("id", args.avisoId)
+    .maybeSingle();
+
+  if (avisoErr || !aviso) {
+    console.warn("[notify-wa-update] aviso no encontrado:", args.avisoId);
+    return { sent: 0, skipped: 0, errors: 0 };
+  }
+
+  const creatorId = aviso.created_by;
+  if (!creatorId) return { sent: 0, skipped: 0, errors: 0 };
+  if (args.actorId && args.actorId === creatorId) {
+    return { sent: 0, skipped: 1, errors: 0 };
+  }
+
+  const { data: phones, error: phErr } = await db
+    .from("user_phones")
+    .select("user_id, phone, profiles:profiles!user_phones_user_id_fkey(username)")
+    .eq("user_id", creatorId)
+    .not("verified_at", "is", null);
+
+  if (phErr) {
+    console.error("[notify-wa-update] error buscando teléfonos para aviso:", phErr);
+    return { sent: 0, skipped: 0, errors: 1 };
+  }
+
+  if (!phones || phones.length === 0) {
+    return { sent: 0, skipped: 1, errors: 0 };
+  }
+
+  const message = formatAvisoMessage(args.eventType, aviso as any, args.payload);
+  if (!message) {
+    console.warn("[notify-wa-update] eventType aviso desconocido:", args.eventType);
+    return { sent: 0, skipped: phones.length, errors: 0 };
+  }
+
+  let sent = 0, errors = 0;
+  for (const p of phones) {
+    try {
+      await sendText(p.phone, message);
+      sent++;
+      console.log(`[notify-wa-update] aviso enviado a ${p.phone} (${(p as any).profiles?.username}) — ${args.eventType}`);
+    } catch (err) {
+      errors++;
+      console.warn(`[notify-wa-update] falla envío aviso a ${p.phone}:`, String(err).slice(0, 200));
+    }
+  }
+
+  return { sent, skipped: Math.max(0, phones.length - sent), errors };
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -210,6 +289,28 @@ function formatMessage(eventType: string, request: any, payload: Record<string, 
   }
 }
 
+function formatAvisoMessage(eventType: string, aviso: any, payload: Record<string, any>): string | null {
+  const title = aviso.titulo || "Aviso a compras";
+  const actorName = payload.actorName || "Compras";
+
+  switch (eventType) {
+    case "aviso_status": {
+      const oldLabel = labelAvisoStatus(payload.oldStatus);
+      const newLabel = labelAvisoStatus(payload.newStatus);
+      return `📌 *Aviso a compras*\n\n*${title}*\nEstado: ${oldLabel} → *${newLabel}*\n_${actorName}_\n\n🔗 ${linkToAviso(aviso.id)}`;
+    }
+
+    case "aviso_comment": {
+      const body = String(payload.body || "").slice(0, 300);
+      const trail = String(payload.body || "").length > 300 ? "…" : "";
+      return `💬 *Aviso a compras*\n\n*${title}*\n${actorName}:\n${body}${trail}\n\n🔗 ${linkToAviso(aviso.id)}`;
+    }
+
+    default:
+      return null;
+  }
+}
+
 // ─── Labels y emojis ─────────────────────────────────────────────────────────
 function labelStatus(s?: string): string {
   switch (s) {
@@ -219,6 +320,17 @@ function labelStatus(s?: string): string {
     case "comprado": return "Comprado";
     case "recibido": return "Recibido";
     case "cancelado": return "Cancelado";
+    default: return s || "?";
+  }
+}
+
+function labelAvisoStatus(s?: string): string {
+  switch (s) {
+    case "nuevo": return "Nuevo";
+    case "visto": return "Visto";
+    case "en_proceso": return "En proceso";
+    case "resuelto": return "Resuelto";
+    case "descartado": return "Descartado";
     default: return s || "?";
   }
 }

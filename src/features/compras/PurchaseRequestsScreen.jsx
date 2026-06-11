@@ -57,6 +57,7 @@ import {
   fetchPurchaseRequests,
   isPurchaseManager,
   notifyComprasEmail,
+  notifyWaUpdate,
   REQUEST_PRIORITIES,
   REQUEST_STATUSES,
   updateComprasAviso,
@@ -476,7 +477,10 @@ export default function PurchaseRequestsScreen({ profile, signOut }) {
   const [error, setError] = useState("");
   const [selectedId, setSelectedId] = useState(() => searchParams.get("open") || null);
   const [selectedAvisoId, setSelectedAvisoId] = useState(() => searchParams.get("aviso") || null);
-  const [activeTab, setActiveTab] = useState(() => searchParams.get("tab") === "cc" ? "cc" : "mine");
+  const [activeTab, setActiveTab] = useState(() => {
+    const tab = searchParams.get("tab");
+    return tab === "cc" || tab === "avisos" ? tab : "mine";
+  });
   const [showNew, setShowNew] = useState(true);
   const [photoFile, setPhotoFile] = useState(null);
   const [ccUserIds, setCcUserIds] = useState([]);
@@ -533,7 +537,7 @@ export default function PurchaseRequestsScreen({ profile, signOut }) {
     else next.delete("tab");
     if (selectedId) next.set("open", selectedId);
     else next.delete("open");
-    if (manager && managerTab === "avisos" && selectedAvisoId) next.set("aviso", selectedAvisoId);
+    if (((manager && managerTab === "avisos") || (!manager && activeTab === "avisos")) && selectedAvisoId) next.set("aviso", selectedAvisoId);
     else next.delete("aviso");
     if (next.toString() !== searchParams.toString()) {
       setSearchParams(next, { replace: true });
@@ -611,6 +615,7 @@ export default function PurchaseRequestsScreen({ profile, signOut }) {
 
   const mine = useMemo(() => requests.filter((r) => r.created_by === profile?.id), [requests, profile?.id]);
   const copied = useMemo(() => requests.filter((r) => (r.followers || []).some((f) => f.user_id === profile?.id)), [requests, profile?.id]);
+  const myAvisos = useMemo(() => avisos.filter((aviso) => aviso.created_by === profile?.id), [avisos, profile?.id]);
 
   const filtered = useMemo(() => {
     const q = filters.q.trim().toLowerCase();
@@ -1350,20 +1355,28 @@ export default function PurchaseRequestsScreen({ profile, signOut }) {
                       {copied.filter((r) => !ARCHIVED_STATUSES.includes(r.status)).length}
                     </span>
                   </button>
+                  <button type="button" onClick={() => { setActiveTab("avisos"); setShowNew(false); }} style={tabStyle(activeTab === "avisos")}>
+                    <AlertTriangle size={13} /> Mis avisos
+                    <span style={{ fontFamily: C.mono, fontSize: 11, color: activeTab === "avisos" ? C.blue : C.dim }}>
+                      {myAvisos.filter((aviso) => AVISO_ACTIVE_STATUSES.includes(aviso.estado)).length}
+                    </span>
+                  </button>
 
-                  <div style={{ flex: 1, minWidth: 180 }}>
-                    <div style={{ position: "relative" }}>
-                      <Search size={13} style={{ position: "absolute", left: 10, top: "50%", transform: "translateY(-50%)", color: C.dim, pointerEvents: "none" }} />
-                      <input
-                        value={userSearch}
-                        onChange={(e) => setUserSearch(e.target.value)}
-                        placeholder="Buscar pedido..."
-                        style={{ ...inputStyle, paddingLeft: 30 }}
-                      />
+                  {activeTab !== "avisos" && (
+                    <div style={{ flex: 1, minWidth: 180 }}>
+                      <div style={{ position: "relative" }}>
+                        <Search size={13} style={{ position: "absolute", left: 10, top: "50%", transform: "translateY(-50%)", color: C.dim, pointerEvents: "none" }} />
+                        <input
+                          value={userSearch}
+                          onChange={(e) => setUserSearch(e.target.value)}
+                          placeholder="Buscar pedido..."
+                          style={{ ...inputStyle, paddingLeft: 30 }}
+                        />
+                      </div>
                     </div>
-                  </div>
+                  )}
 
-                  {archivedCount > 0 && (
+                  {activeTab !== "avisos" && archivedCount > 0 && (
                     <button
                       type="button"
                       onClick={() => setShowArchived((v) => !v)}
@@ -1387,7 +1400,7 @@ export default function PurchaseRequestsScreen({ profile, signOut }) {
                     </button>
                   )}
 
-                  <ViewToggle viewMode={viewMode} setViewMode={setViewMode} />
+                  {activeTab !== "avisos" && <ViewToggle viewMode={viewMode} setViewMode={setViewMode} />}
                 </div>
               )}
 
@@ -1408,6 +1421,8 @@ export default function PurchaseRequestsScreen({ profile, signOut }) {
                     users={users}
                     selectedId={selectedAvisoId}
                     error={avisosError}
+                    canManage
+                    canCreate
                     onSelect={setSelectedAvisoId}
                     onRefresh={loadAll}
                     onConvertToRequest={convertAvisoToRequest}
@@ -1425,6 +1440,21 @@ export default function PurchaseRequestsScreen({ profile, signOut }) {
                       onSelectRequest={(id) => setSelectedId(id)}
                     />
                   </DashboardErrorBoundary>
+                ) : !manager && activeTab === "avisos" ? (
+                  <AvisosPanel
+                    profile={profile}
+                    avisos={myAvisos}
+                    projects={projects}
+                    users={users}
+                    selectedId={selectedAvisoId}
+                    error={avisosError}
+                    canManage={false}
+                    canCreate={false}
+                    title="Mis avisos"
+                    onSelect={setSelectedAvisoId}
+                    onRefresh={loadAll}
+                    onConvertToRequest={null}
+                  />
                 ) : (
                   <>
                     {manager ? (
@@ -1595,7 +1625,19 @@ function avisoStatusMeta(status) {
   return AVISO_STATUSES.find((s) => s.value === status) || AVISO_STATUSES[0];
 }
 
-function AvisosPanel({ profile, avisos, projects, users, selectedId, error, onSelect, onRefresh, onConvertToRequest }) {
+function AvisosPanel({
+  profile,
+  avisos,
+  projects,
+  selectedId,
+  error,
+  canManage = false,
+  canCreate = false,
+  title = "Avisos a compras",
+  onSelect,
+  onRefresh,
+  onConvertToRequest,
+}) {
   const { isMobile } = useResponsive();
   const toast = useToast();
   const [filters, setFilters] = useState({ q: "", estado: "activos", prioridad: "todos" });
@@ -1692,9 +1734,21 @@ function AvisosPanel({ profile, avisos, projects, users, selectedId, error, onSe
 
   async function handleStatus(nextStatus) {
     if (!selected) return;
+    if (!canManage) return;
+    const oldStatus = selected.estado;
     setSavingStatus(true);
     try {
       await updateComprasAviso(selected.id, { estado: nextStatus });
+      notifyWaUpdate({
+        avisoId: selected.id,
+        eventType: "aviso_status",
+        actorId: profile?.id,
+        payload: {
+          oldStatus,
+          newStatus: nextStatus,
+          actorName: profile?.username || "Compras",
+        },
+      });
       toast.success("Estado actualizado.");
       await onRefresh?.();
     } catch (err) {
@@ -1710,6 +1764,15 @@ function AvisosPanel({ profile, avisos, projects, users, selectedId, error, onSe
     setSavingComment(true);
     try {
       await addComprasAvisoComentario(selected.id, comment);
+      notifyWaUpdate({
+        avisoId: selected.id,
+        eventType: "aviso_comment",
+        actorId: profile?.id,
+        payload: {
+          body: comment.trim(),
+          actorName: profile?.username || "Usuario",
+        },
+      });
       setComment("");
       await onRefresh?.();
     } catch (err) {
@@ -1722,12 +1785,14 @@ function AvisosPanel({ profile, avisos, projects, users, selectedId, error, onSe
   return (
     <div style={{ display: "grid", gap: 12, minHeight: 0 }}>
       <div style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
-        <SectionTitle icon={AlertTriangle} title="Avisos a compras" count={filtered.length} />
+        <SectionTitle icon={AlertTriangle} title={title} count={filtered.length} />
         <span style={{ flex: 1 }} />
-        <button type="button" onClick={() => setShowCreate((v) => !v)} style={smallActionButton(showCreate ? C.amber : C.blue)}>
-          {showCreate ? <X size={13} /> : <Plus size={13} />}
-          {showCreate ? "Cerrar" : "Nuevo aviso"}
-        </button>
+        {canCreate && (
+          <button type="button" onClick={() => setShowCreate((v) => !v)} style={smallActionButton(showCreate ? C.amber : C.blue)}>
+            {showCreate ? <X size={13} /> : <Plus size={13} />}
+            {showCreate ? "Cerrar" : "Nuevo aviso"}
+          </button>
+        )}
       </div>
 
       {error && (
@@ -1736,7 +1801,7 @@ function AvisosPanel({ profile, avisos, projects, users, selectedId, error, onSe
         </div>
       )}
 
-      {showCreate && (
+      {canCreate && showCreate && (
         <form onSubmit={handleCreateAviso} style={{ border: `1px solid ${C.border}`, background: C.panel, borderRadius: 12, padding: 12, display: "grid", gap: 10 }}>
           <div style={{ display: "grid", gridTemplateColumns: isMobile ? "1fr" : "1.2fr 1fr 130px", gap: 10 }}>
             <div>
@@ -1815,11 +1880,11 @@ function AvisosPanel({ profile, avisos, projects, users, selectedId, error, onSe
 
         <AvisoDetail
           aviso={selected}
-          users={users}
           comment={comment}
           setComment={setComment}
           savingComment={savingComment}
           savingStatus={savingStatus}
+          canManage={canManage}
           onStatus={handleStatus}
           onComment={handleComment}
           onConvertToRequest={onConvertToRequest}
@@ -1836,7 +1901,7 @@ function AvisoListItem({ aviso, active, onClick }) {
     <button type="button" onClick={onClick} style={{
       textAlign: "left",
       border: `1px solid ${active ? C.blue + "66" : C.border}`,
-      background: active ? `${C.blue}10` : C.panel,
+      background: active ? C.panelSolid2 : C.panelSolid,
       borderRadius: 10,
       padding: 12,
       color: C.text,
@@ -1844,6 +1909,7 @@ function AvisoListItem({ aviso, active, onClick }) {
       display: "grid",
       gap: 8,
       fontFamily: C.sans,
+      boxShadow: active ? `inset 3px 0 0 ${C.blue}` : `inset 3px 0 0 ${C.border}`,
     }}>
       <div style={{ display: "flex", alignItems: "flex-start", gap: 8 }}>
         <div style={{ minWidth: 0, flex: 1 }}>
@@ -1867,7 +1933,7 @@ function AvisoListItem({ aviso, active, onClick }) {
   );
 }
 
-function AvisoDetail({ aviso, comment, setComment, savingComment, savingStatus, onStatus, onComment, onConvertToRequest }) {
+function AvisoDetail({ aviso, comment, setComment, savingComment, savingStatus, canManage, onStatus, onComment, onConvertToRequest }) {
   if (!aviso) {
     return (
       <div style={{ border: `1px dashed ${C.border}`, borderRadius: 12, minHeight: 260, display: "grid", placeItems: "center", color: C.dim, fontSize: 13 }}>
@@ -1898,27 +1964,31 @@ function AvisoDetail({ aviso, comment, setComment, savingComment, savingStatus, 
             {aviso.detalle}
           </div>
         )}
-        <div style={{ display: "flex", gap: 7, flexWrap: "wrap", alignItems: "center" }}>
-          {AVISO_STATUSES.map((s) => (
-            <button key={s.value} type="button" disabled={savingStatus || aviso.estado === s.value} onClick={() => onStatus(s.value)} style={{
-              border: `1px solid ${aviso.estado === s.value ? s.color + "66" : C.border}`,
-              background: aviso.estado === s.value ? `${s.color}16` : "transparent",
-              color: aviso.estado === s.value ? s.color : C.dim,
-              borderRadius: 7,
-              padding: "6px 9px",
-              cursor: savingStatus || aviso.estado === s.value ? "default" : "pointer",
-              fontSize: 12,
-              fontWeight: 750,
-            }}>
-              {s.label}
-            </button>
-          ))}
-          <span style={{ flex: 1 }} />
-          <button type="button" onClick={() => onConvertToRequest?.(aviso)} style={smallActionButton(C.blue)}>
-            <ShoppingCart size={13} />
-            Convertir en pedido
-          </button>
-        </div>
+        {canManage && (
+          <div style={{ display: "flex", gap: 7, flexWrap: "wrap", alignItems: "center" }}>
+            {AVISO_STATUSES.map((s) => (
+              <button key={s.value} type="button" disabled={savingStatus || aviso.estado === s.value} onClick={() => onStatus(s.value)} style={{
+                border: `1px solid ${aviso.estado === s.value ? s.color + "66" : C.border}`,
+                background: aviso.estado === s.value ? `${s.color}16` : "transparent",
+                color: aviso.estado === s.value ? s.color : C.dim,
+                borderRadius: 7,
+                padding: "6px 9px",
+                cursor: savingStatus || aviso.estado === s.value ? "default" : "pointer",
+                fontSize: 12,
+                fontWeight: 750,
+              }}>
+                {s.label}
+              </button>
+            ))}
+            <span style={{ flex: 1 }} />
+            {onConvertToRequest && (
+              <button type="button" onClick={() => onConvertToRequest?.(aviso)} style={smallActionButton(C.blue)}>
+                <ShoppingCart size={13} />
+                Convertir en pedido
+              </button>
+            )}
+          </div>
+        )}
       </div>
 
       <div style={{ padding: 14, display: "grid", gap: 10 }}>
