@@ -56,6 +56,20 @@ const ADDITIONAL_ITEM_SELECT = `
   request:purchase_requests!purchase_additional_items_purchase_request_id_fkey(id, title, status, priority, created_at, proveedor, estimated_amount, actual_amount, project_id)
 `;
 
+const AVISO_SELECT = `
+  *,
+  creator:profiles!compras_avisos_created_by_fkey(id, username, role, is_admin),
+  resolver:profiles!compras_avisos_resuelto_por_fkey(id, username, role, is_admin),
+  project:produccion_obras!compras_avisos_project_id_fkey(id, codigo, descripcion, estado),
+  comentarios:compras_aviso_comentarios(
+    id,
+    body,
+    created_at,
+    author_id,
+    author:profiles!compras_aviso_comentarios_author_id_fkey(id, username, role, is_admin)
+  )
+`;
+
 function safeFilePart(value) {
   return String(value || "archivo")
     .normalize("NFD")
@@ -266,6 +280,91 @@ export async function fetchProjects() {
 
   if (error) throw error;
   return (data || []).filter((project) => project.estado !== "archivada");
+}
+
+// --- AVISOS A COMPRAS ------------------------------------------------------
+
+export async function fetchComprasAvisos() {
+  const { data, error } = await supabase
+    .from("compras_avisos")
+    .select(AVISO_SELECT)
+    .order("created_at", { ascending: false });
+
+  if (error) throw error;
+  return (data || []).map((aviso) => ({
+    ...aviso,
+    comentarios: [...(aviso.comentarios || [])].sort((a, b) => new Date(a.created_at) - new Date(b.created_at)),
+  }));
+}
+
+export async function createComprasAviso(fields) {
+  const { data: { session } = {}, error: authError } = await supabase.auth.getSession();
+  if (authError) throw authError;
+  const userId = session?.user?.id;
+  if (!userId) throw new Error("No hay usuario autenticado.");
+
+  const payload = {
+    titulo: fields.titulo?.trim(),
+    detalle: fields.detalle?.trim() || null,
+    material: fields.material?.trim() || null,
+    project_id: fields.project_id || null,
+    destino: fields.destino?.trim() || null,
+    prioridad: fields.prioridad || "media",
+    estado: fields.estado || "nuevo",
+    origen: fields.origen || "web",
+    created_by: userId,
+    source_ref: fields.source_ref || null,
+  };
+
+  const { data, error } = await supabase
+    .from("compras_avisos")
+    .insert(payload)
+    .select(AVISO_SELECT)
+    .single();
+
+  if (error) throw error;
+  return { ...data, comentarios: data.comentarios || [] };
+}
+
+export async function updateComprasAviso(id, patch) {
+  const payload = { ...patch };
+  if (payload.estado === "resuelto" || payload.estado === "descartado") {
+    const { data: { session } = {}, error: authError } = await supabase.auth.getSession();
+    if (authError) throw authError;
+    payload.resuelto_por = payload.resuelto_por || session?.user?.id || null;
+    payload.resuelto_en = payload.resuelto_en || new Date().toISOString();
+  } else if (payload.estado && payload.estado !== "resuelto" && payload.estado !== "descartado") {
+    payload.resuelto_por = null;
+    payload.resuelto_en = null;
+  }
+
+  const { data, error } = await supabase
+    .from("compras_avisos")
+    .update(payload)
+    .eq("id", id)
+    .select(AVISO_SELECT)
+    .single();
+
+  if (error) throw error;
+  return { ...data, comentarios: data.comentarios || [] };
+}
+
+export async function addComprasAvisoComentario(avisoId, body) {
+  const clean = body.trim();
+  if (!clean) return null;
+  const { data: { session } = {}, error: authError } = await supabase.auth.getSession();
+  if (authError) throw authError;
+  const userId = session?.user?.id;
+  if (!userId) throw new Error("No hay usuario autenticado.");
+
+  const { data, error } = await supabase
+    .from("compras_aviso_comentarios")
+    .insert({ aviso_id: avisoId, author_id: userId, body: clean })
+    .select("id, body, created_at, author_id, author:profiles!compras_aviso_comentarios_author_id_fkey(id, username, role, is_admin)")
+    .single();
+
+  if (error) throw error;
+  return data;
 }
 
 // --- ADICIONALES -----------------------------------------------------------

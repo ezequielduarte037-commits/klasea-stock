@@ -428,6 +428,17 @@ async function handleConfirmation(
 
   if (/^(si|sí|sip|dale|confirmo|ok|okey|yes|y|listo|👍|✅)\b/i.test(t)) {
     try {
+      if (draft.intent === "aviso") {
+        const aviso = await createAvisoFromBot(db, profile, from, draft);
+        await resetConversation(db, from);
+        notifyComprasAviso(aviso.id, draft.title, profile.id, profile.username).catch((e) =>
+          console.warn("[wa-webhook] notify aviso fail:", e),
+        );
+        const url = `https://klasea-stock.vercel.app/compras?tab=avisos&aviso=${aviso.id}`;
+        await sendText(from, `✅ Aviso registrado: *${draft.title}*\n\nCompras fue notificado.\n🔗 ${url}`);
+        return;
+      }
+
       const request = await createPurchaseRequestFromBot(db, profile, draft, photoUrls);
       await resetConversation(db, from);
       notifyCompras(request.id, draft.title, profile.id, profile.username).catch((e) =>
@@ -444,7 +455,7 @@ async function handleConfirmation(
 
   if (/^(no|nop|cancelar|descartar|borrar)\b/i.test(t)) {
     await resetConversation(db, from);
-    await sendText(from, "OK, descarté el pedido. Mandame otra cosa cuando quieras.");
+    await sendText(from, `OK, descarté el ${draft.intent === "aviso" ? "aviso" : "pedido"}. Mandame otra cosa cuando quieras.`);
     return;
   }
 
@@ -656,6 +667,42 @@ async function createPurchaseRequestFromBot(
   return request;
 }
 
+async function createAvisoFromBot(
+  db: SupabaseClient,
+  profile: any,
+  phone: string,
+  draft: ParsedPedido & { project_id?: string | null },
+): Promise<{ id: string }> {
+  const material = String(draft.material || "").trim()
+    || firstItemDescription(draft)
+    || String(draft.title || "").trim();
+  const payload = {
+    titulo: draft.title || material || "Aviso a compras",
+    detalle: draft.description || draft.title || null,
+    material: material || null,
+    project_id: draft.project_id || null,
+    destino: draft.project_id ? null : (draft.destino || draft.project_code || null),
+    prioridad: draft.priority || "media",
+    estado: "nuevo",
+    origen: "whatsapp",
+    created_by: profile.id,
+    source_ref: `${profile.username || "usuario"} / ${phone}`,
+  };
+
+  const { data, error } = await db
+    .from("compras_avisos")
+    .insert(payload)
+    .select("id")
+    .single();
+  if (error) throw error;
+  return data;
+}
+
+function firstItemDescription(draft: ParsedPedido): string | null {
+  const first = Array.isArray(draft.items) ? draft.items[0] : null;
+  return first?.description ? String(first.description).trim() : null;
+}
+
 async function notifyCompras(
   requestId: string, title: string, userId: string, username: string,
 ): Promise<void> {
@@ -669,6 +716,27 @@ async function notifyCompras(
     body: JSON.stringify({
       type: "new_request", requestId, requestTitle: title,
       changedBy: userId, createdByName: username, source: "whatsapp",
+    }),
+  });
+}
+
+async function notifyComprasAviso(
+  avisoId: string, title: string, userId: string, username: string,
+): Promise<void> {
+  const url = `${Deno.env.get("SUPABASE_URL")}/functions/v1/notificar-email-compras`;
+  await fetch(url, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      "Authorization": `Bearer ${Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")}`,
+    },
+    body: JSON.stringify({
+      type: "nuevo_aviso",
+      avisoId,
+      requestTitle: title,
+      changedBy: userId,
+      createdByName: username,
+      source: "whatsapp",
     }),
   });
 }

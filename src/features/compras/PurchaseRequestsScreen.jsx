@@ -2,7 +2,9 @@ import { Component, lazy, Suspense, useEffect, useMemo, useRef, useState } from 
 import { useSearchParams } from "react-router-dom";
 import {
   Archive,
+  AlertTriangle,
   BarChart3,
+  CheckCircle2,
   Clock,
   Filter,
   ImagePlus,
@@ -11,6 +13,7 @@ import {
   LayoutList,
   Package,
   Plus,
+  MessageSquare,
   Search,
   ShoppingCart,
   Table2,
@@ -42,7 +45,10 @@ import PurchaseRequestDetail from "@/features/compras/PurchaseRequestDetail";
 import PurchaseLogPanel from "@/features/compras/PurchaseLogPanel";
 import {
   addRequestItem,
+  addComprasAvisoComentario,
+  createComprasAviso,
   createPurchaseRequest,
+  fetchComprasAvisos,
   fetchAnalyticsStats,
   fetchMonthlySpending,
   fetchOverdueRequests,
@@ -53,6 +59,7 @@ import {
   notifyComprasEmail,
   REQUEST_PRIORITIES,
   REQUEST_STATUSES,
+  updateComprasAviso,
   usernameOf,
 } from "@/features/compras/purchaseRequestsApi";
 
@@ -454,18 +461,21 @@ const emptyForm = {
 const STOCK_DESTINOS = ["Stock Chubut 2120", "Stock Pampa 1050"];
 
 const URL_FILTER_KEYS = ["q", "status", "priority", "creator", "project", "dateFrom", "dateTo"];
-const MANAGER_TABS = ["lista", "dashboard", "registro", "adicionales"];
+const MANAGER_TABS = ["lista", "dashboard", "avisos", "registro", "adicionales"];
 
 export default function PurchaseRequestsScreen({ profile, signOut }) {
   const { isMobile } = useResponsive();
   const toast = useToast();
   const [searchParams, setSearchParams] = useSearchParams();
   const [requests, setRequests] = useState([]);
+  const [avisos, setAvisos] = useState([]);
+  const [avisosError, setAvisosError] = useState("");
   const [users, setUsers] = useState([]);
   const [projects, setProjects] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
   const [selectedId, setSelectedId] = useState(() => searchParams.get("open") || null);
+  const [selectedAvisoId, setSelectedAvisoId] = useState(() => searchParams.get("aviso") || null);
   const [activeTab, setActiveTab] = useState(() => searchParams.get("tab") === "cc" ? "cc" : "mine");
   const [showNew, setShowNew] = useState(true);
   const [photoFile, setPhotoFile] = useState(null);
@@ -523,11 +533,13 @@ export default function PurchaseRequestsScreen({ profile, signOut }) {
     else next.delete("tab");
     if (selectedId) next.set("open", selectedId);
     else next.delete("open");
+    if (manager && managerTab === "avisos" && selectedAvisoId) next.set("aviso", selectedAvisoId);
+    else next.delete("aviso");
     if (next.toString() !== searchParams.toString()) {
       setSearchParams(next, { replace: true });
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [filters, activeTab, selectedId, manager, managerTab]);
+  }, [filters, activeTab, selectedId, selectedAvisoId, manager, managerTab]);
 
   function markRead(requestId, lastAuthorId) {
     if (lastAuthorId) {
@@ -555,16 +567,22 @@ export default function PurchaseRequestsScreen({ profile, signOut }) {
 
   async function loadAll() {
     setError("");
+    setAvisosError("");
     setLoading(true);
     try {
-      const [reqRows, userRows, projectRows] = await Promise.all([
+      const [reqRows, userRows, projectRows, avisoRows] = await Promise.all([
         fetchPurchaseRequests(),
         fetchProfiles(),
         fetchProjects(),
+        fetchComprasAvisos().catch((err) => {
+          setAvisosError(err.message || "No se pudieron cargar los avisos.");
+          return [];
+        }),
       ]);
       setRequests(reqRows);
       setUsers(userRows);
       setProjects(projectRows);
+      setAvisos(avisoRows);
     } catch (err) {
       setError(err.message || "No se pudo cargar compras.");
     } finally {
@@ -673,6 +691,11 @@ export default function PurchaseRequestsScreen({ profile, signOut }) {
     [requests],
   );
 
+  const avisoNuevoCount = useMemo(() =>
+    avisos.filter((aviso) => aviso.estado === "nuevo").length,
+    [avisos],
+  );
+
   async function handleCreate(e) {
     e.preventDefault();
     if (submittingRef.current) return;
@@ -735,6 +758,27 @@ export default function PurchaseRequestsScreen({ profile, signOut }) {
 
   function removeCreateItem(i) {
     setCreateItems((prev) => prev.filter((_, idx) => idx !== i));
+  }
+
+  function convertAvisoToRequest(aviso) {
+    const destino = aviso.project?.codigo || aviso.destino || "";
+    setForm({
+      ...emptyForm,
+      title: aviso.titulo || aviso.material || "Aviso a compras",
+      description: aviso.detalle || aviso.titulo || "",
+      priority: aviso.prioridad || "media",
+      project_id: aviso.project_id || "",
+      destino,
+    });
+    setCreateItems(aviso.material ? [{
+      description: aviso.material,
+      quantity: null,
+      unit: "unidad",
+      link_url: null,
+    }] : []);
+    setShowNew(true);
+    setManagerTab("lista");
+    toast.success("Aviso cargado como borrador de pedido.");
   }
 
   function toggleCc(userId) {
@@ -910,6 +954,14 @@ export default function PurchaseRequestsScreen({ profile, signOut }) {
                   </TabBtn>
                   <TabBtn active={managerTab === "dashboard"} onClick={() => setManagerTab("dashboard")}>
                     <BarChart3 size={12} /> Dashboard
+                  </TabBtn>
+                  <TabBtn active={managerTab === "avisos"} onClick={() => setManagerTab("avisos")}>
+                    <AlertTriangle size={12} /> Avisos
+                    {avisoNuevoCount > 0 && (
+                      <span style={{ fontFamily: C.mono, fontSize: 10, color: managerTab === "avisos" ? C.text : C.amber }}>
+                        {avisoNuevoCount}
+                      </span>
+                    )}
                   </TabBtn>
                   <TabBtn active={managerTab === "adicionales"} onClick={() => setManagerTab("adicionales")}>
                     <Table2 size={12} /> Adicionales
@@ -1348,6 +1400,18 @@ export default function PurchaseRequestsScreen({ profile, signOut }) {
                     onSelectRequest={(id) => setSelectedId(id)}
                     onRequestCreated={loadAll}
                   />
+                ) : manager && managerTab === "avisos" ? (
+                  <AvisosPanel
+                    profile={profile}
+                    avisos={avisos}
+                    projects={projects}
+                    users={users}
+                    selectedId={selectedAvisoId}
+                    error={avisosError}
+                    onSelect={setSelectedAvisoId}
+                    onRefresh={loadAll}
+                    onConvertToRequest={convertAvisoToRequest}
+                  />
                 ) : manager && managerTab === "registro" ? (
                   <PurchaseLogPanel profile={profile} />
                 ) : manager && managerTab === "dashboard" ? (
@@ -1515,6 +1579,396 @@ export default function PurchaseRequestsScreen({ profile, signOut }) {
       `}</style>
     </div>
   );
+}
+
+const AVISO_STATUSES = [
+  { value: "nuevo", label: "Nuevo", color: C.blue },
+  { value: "visto", label: "Visto", color: C.violet },
+  { value: "en_proceso", label: "En proceso", color: C.amber },
+  { value: "resuelto", label: "Resuelto", color: C.green },
+  { value: "descartado", label: "Descartado", color: C.red },
+];
+
+const AVISO_ACTIVE_STATUSES = ["nuevo", "visto", "en_proceso"];
+
+function avisoStatusMeta(status) {
+  return AVISO_STATUSES.find((s) => s.value === status) || AVISO_STATUSES[0];
+}
+
+function AvisosPanel({ profile, avisos, projects, users, selectedId, error, onSelect, onRefresh, onConvertToRequest }) {
+  const { isMobile } = useResponsive();
+  const toast = useToast();
+  const [filters, setFilters] = useState({ q: "", estado: "activos", prioridad: "todos" });
+  const [comment, setComment] = useState("");
+  const [savingComment, setSavingComment] = useState(false);
+  const [savingStatus, setSavingStatus] = useState(false);
+  const [showCreate, setShowCreate] = useState(false);
+  const [creating, setCreating] = useState(false);
+  const [form, setForm] = useState({
+    titulo: "",
+    detalle: "",
+    material: "",
+    destino: "",
+    prioridad: "media",
+  });
+
+  const filtered = useMemo(() => {
+    const q = filters.q.trim().toLowerCase();
+    return (avisos || []).filter((aviso) => {
+      if (filters.estado === "activos") {
+        if (!AVISO_ACTIVE_STATUSES.includes(aviso.estado)) return false;
+      } else if (filters.estado === "archivados") {
+        if (AVISO_ACTIVE_STATUSES.includes(aviso.estado)) return false;
+      } else if (filters.estado !== "todos" && aviso.estado !== filters.estado) {
+        return false;
+      }
+      if (filters.prioridad !== "todos" && aviso.prioridad !== filters.prioridad) return false;
+      if (!q) return true;
+      const haystack = [
+        aviso.titulo,
+        aviso.detalle,
+        aviso.material,
+        aviso.destino,
+        aviso.project?.codigo,
+        aviso.creator?.username,
+        aviso.source_ref,
+      ].filter(Boolean).join(" ").toLowerCase();
+      return haystack.includes(q);
+    });
+  }, [avisos, filters]);
+
+  const selected = useMemo(() => {
+    if (!filtered.length && !avisos.length) return null;
+    return avisos.find((aviso) => aviso.id === selectedId)
+      || filtered[0]
+      || avisos[0]
+      || null;
+  }, [avisos, filtered, selectedId]);
+
+  useEffect(() => {
+    if (!selectedId && selected?.id) onSelect?.(selected.id);
+  }, [selectedId, selected?.id, onSelect]);
+
+  const activeCount = avisos.filter((aviso) => AVISO_ACTIVE_STATUSES.includes(aviso.estado)).length;
+  const archivedCount = avisos.length - activeCount;
+
+  async function handleCreateAviso(e) {
+    e.preventDefault();
+    if (!form.titulo.trim()) {
+      toast.warning("Cargá un título para el aviso.");
+      return;
+    }
+    setCreating(true);
+    try {
+      const destinoTxt = form.destino.trim();
+      const projectMatch = destinoTxt
+        ? projects.find((project) => String(project.codigo || "").toLowerCase() === destinoTxt.toLowerCase())
+        : null;
+      const aviso = await createComprasAviso({
+        ...form,
+        project_id: projectMatch?.id || null,
+        destino: projectMatch ? null : destinoTxt,
+      });
+      notifyComprasEmail({
+        type: "nuevo_aviso",
+        avisoId: aviso.id,
+        requestTitle: aviso.titulo,
+        message: aviso.detalle || aviso.material || "",
+        changedBy: profile?.id,
+        createdByName: profile?.username || "Usuario",
+        source: "web",
+      });
+      toast.success("Aviso creado.");
+      setForm({ titulo: "", detalle: "", material: "", destino: "", prioridad: "media" });
+      setShowCreate(false);
+      await onRefresh?.();
+      onSelect?.(aviso.id);
+    } catch (err) {
+      toast.error(err.message || "No se pudo crear el aviso.");
+    } finally {
+      setCreating(false);
+    }
+  }
+
+  async function handleStatus(nextStatus) {
+    if (!selected) return;
+    setSavingStatus(true);
+    try {
+      await updateComprasAviso(selected.id, { estado: nextStatus });
+      toast.success("Estado actualizado.");
+      await onRefresh?.();
+    } catch (err) {
+      toast.error(err.message || "No se pudo actualizar el aviso.");
+    } finally {
+      setSavingStatus(false);
+    }
+  }
+
+  async function handleComment(e) {
+    e.preventDefault();
+    if (!selected || !comment.trim()) return;
+    setSavingComment(true);
+    try {
+      await addComprasAvisoComentario(selected.id, comment);
+      setComment("");
+      await onRefresh?.();
+    } catch (err) {
+      toast.error(err.message || "No se pudo guardar el comentario.");
+    } finally {
+      setSavingComment(false);
+    }
+  }
+
+  return (
+    <div style={{ display: "grid", gap: 12, minHeight: 0 }}>
+      <div style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
+        <SectionTitle icon={AlertTriangle} title="Avisos a compras" count={filtered.length} />
+        <span style={{ flex: 1 }} />
+        <button type="button" onClick={() => setShowCreate((v) => !v)} style={smallActionButton(showCreate ? C.amber : C.blue)}>
+          {showCreate ? <X size={13} /> : <Plus size={13} />}
+          {showCreate ? "Cerrar" : "Nuevo aviso"}
+        </button>
+      </div>
+
+      {error && (
+        <div style={{ border: `1px solid ${C.red}44`, background: `${C.red}10`, color: C.red, borderRadius: 10, padding: 12, fontSize: 13, fontWeight: 650 }}>
+          {error}
+        </div>
+      )}
+
+      {showCreate && (
+        <form onSubmit={handleCreateAviso} style={{ border: `1px solid ${C.border}`, background: C.panel, borderRadius: 12, padding: 12, display: "grid", gap: 10 }}>
+          <div style={{ display: "grid", gridTemplateColumns: isMobile ? "1fr" : "1.2fr 1fr 130px", gap: 10 }}>
+            <div>
+              <div style={labelStyle}>Título</div>
+              <input value={form.titulo} onChange={(e) => setForm((f) => ({ ...f, titulo: e.target.value }))} placeholder="Ej. Falta extintor reglamentario" style={inputStyle} />
+            </div>
+            <div>
+              <div style={labelStyle}>Material / tema</div>
+              <input value={form.material} onChange={(e) => setForm((f) => ({ ...f, material: e.target.value }))} placeholder="Extintor, chaleco, baterías..." style={inputStyle} />
+            </div>
+            <div>
+              <div style={labelStyle}>Prioridad</div>
+              <select value={form.prioridad} onChange={(e) => setForm((f) => ({ ...f, prioridad: e.target.value }))} style={inputStyle}>
+                {REQUEST_PRIORITIES.map((p) => <option key={p.value} value={p.value}>{p.label}</option>)}
+              </select>
+            </div>
+          </div>
+          <div style={{ display: "grid", gridTemplateColumns: isMobile ? "1fr" : "1fr 1.5fr auto", gap: 10, alignItems: "end" }}>
+            <div>
+              <div style={labelStyle}>Obra / destino</div>
+              <input value={form.destino} onChange={(e) => setForm((f) => ({ ...f, destino: e.target.value }))} list="aviso-destinos" placeholder="K55-4 o Stock Pampa 1050" style={inputStyle} />
+              <datalist id="aviso-destinos">
+                {projects.map((project) => <option key={project.id} value={project.codigo} />)}
+                {STOCK_DESTINOS.map((d) => <option key={d} value={d} />)}
+              </datalist>
+            </div>
+            <div>
+              <div style={labelStyle}>Detalle</div>
+              <input value={form.detalle} onChange={(e) => setForm((f) => ({ ...f, detalle: e.target.value }))} placeholder="Contexto o aclaración para compras" style={inputStyle} />
+            </div>
+            <button type="submit" disabled={creating} style={{ ...smallActionButton(C.green, true), opacity: creating ? 0.6 : 1 }}>
+              <CheckCircle2 size={13} />
+              {creating ? "Guardando..." : "Crear"}
+            </button>
+          </div>
+        </form>
+      )}
+
+      <div style={{ display: "flex", gap: 7, flexWrap: "wrap", alignItems: "center" }}>
+        <div style={{ position: "relative", flex: "1 1 220px" }}>
+          <Search size={13} style={{ position: "absolute", left: 10, top: "50%", transform: "translateY(-50%)", color: C.dim }} />
+          <input value={filters.q} onChange={(e) => setFilters((f) => ({ ...f, q: e.target.value }))} placeholder="Buscar aviso, obra, material..." style={{ ...inputStyle, paddingLeft: 30 }} />
+        </div>
+        <select value={filters.estado} onChange={(e) => setFilters((f) => ({ ...f, estado: e.target.value }))} style={{ ...inputStyle, flex: "0 0 145px" }}>
+          <option value="activos">Activos ({activeCount})</option>
+          <option value="todos">Todos</option>
+          {archivedCount > 0 && <option value="archivados">Archivados ({archivedCount})</option>}
+          {AVISO_STATUSES.map((s) => <option key={s.value} value={s.value}>{s.label}</option>)}
+        </select>
+        <select value={filters.prioridad} onChange={(e) => setFilters((f) => ({ ...f, prioridad: e.target.value }))} style={{ ...inputStyle, flex: "0 0 130px" }}>
+          <option value="todos">Prioridad</option>
+          {REQUEST_PRIORITIES.map((p) => <option key={p.value} value={p.value}>{p.label}</option>)}
+        </select>
+      </div>
+
+      <div style={{
+        display: "grid",
+        gridTemplateColumns: isMobile ? "1fr" : "minmax(300px, 0.95fr) minmax(360px, 1.25fr)",
+        gap: 12,
+        minHeight: 0,
+      }}>
+        <div style={{ display: "grid", gap: 8, alignContent: "start" }}>
+          {filtered.length === 0 ? (
+            <div style={{ border: `1px dashed ${C.border}`, borderRadius: 12, padding: 26, color: C.dim, textAlign: "center", fontSize: 13 }}>
+              No hay avisos para mostrar.
+            </div>
+          ) : filtered.map((aviso) => (
+            <AvisoListItem
+              key={aviso.id}
+              aviso={aviso}
+              active={selected?.id === aviso.id}
+              onClick={() => onSelect?.(aviso.id)}
+            />
+          ))}
+        </div>
+
+        <AvisoDetail
+          aviso={selected}
+          users={users}
+          comment={comment}
+          setComment={setComment}
+          savingComment={savingComment}
+          savingStatus={savingStatus}
+          onStatus={handleStatus}
+          onComment={handleComment}
+          onConvertToRequest={onConvertToRequest}
+        />
+      </div>
+    </div>
+  );
+}
+
+function AvisoListItem({ aviso, active, onClick }) {
+  const status = avisoStatusMeta(aviso.estado);
+  const prioColor = priorityColors[aviso.prioridad] || C.blue;
+  return (
+    <button type="button" onClick={onClick} style={{
+      textAlign: "left",
+      border: `1px solid ${active ? C.blue + "66" : C.border}`,
+      background: active ? `${C.blue}10` : C.panel,
+      borderRadius: 10,
+      padding: 12,
+      color: C.text,
+      cursor: "pointer",
+      display: "grid",
+      gap: 8,
+      fontFamily: C.sans,
+    }}>
+      <div style={{ display: "flex", alignItems: "flex-start", gap: 8 }}>
+        <div style={{ minWidth: 0, flex: 1 }}>
+          <div style={{ fontSize: 14, fontWeight: 800, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>
+            {aviso.titulo}
+          </div>
+          <div style={{ color: C.dim, fontSize: 12, marginTop: 3, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>
+            {aviso.material || "Sin material"} · {aviso.project?.codigo || aviso.destino || "Sin destino"}
+          </div>
+        </div>
+        <Chip color={prioColor}>{aviso.prioridad || "media"}</Chip>
+      </div>
+      <div style={{ display: "flex", alignItems: "center", gap: 7, flexWrap: "wrap" }}>
+        <Chip color={status.color}>{status.label}</Chip>
+        <span style={{ color: C.dim, fontSize: 11 }}>{aviso.origen || "web"}</span>
+        <span style={{ color: C.dim, fontSize: 11 }}>·</span>
+        <span style={{ color: C.dim, fontSize: 11 }}>{fmtDate(aviso.created_at)}</span>
+        {aviso.creator?.username && <span style={{ color: C.muted, fontSize: 11, marginLeft: "auto" }}>{aviso.creator.username}</span>}
+      </div>
+    </button>
+  );
+}
+
+function AvisoDetail({ aviso, comment, setComment, savingComment, savingStatus, onStatus, onComment, onConvertToRequest }) {
+  if (!aviso) {
+    return (
+      <div style={{ border: `1px dashed ${C.border}`, borderRadius: 12, minHeight: 260, display: "grid", placeItems: "center", color: C.dim, fontSize: 13 }}>
+        Seleccioná un aviso para ver el seguimiento.
+      </div>
+    );
+  }
+  const status = avisoStatusMeta(aviso.estado);
+  return (
+    <div style={{ border: `1px solid ${C.border}`, background: C.panel, borderRadius: 12, overflow: "hidden", minHeight: 360 }}>
+      <div style={{ padding: 14, borderBottom: `1px solid ${C.border}`, display: "grid", gap: 10 }}>
+        <div style={{ display: "flex", gap: 10, alignItems: "flex-start" }}>
+          <div style={{ minWidth: 0, flex: 1 }}>
+            <div style={{ color: C.text, fontSize: 18, fontWeight: 850, lineHeight: 1.2 }}>{aviso.titulo}</div>
+            <div style={{ color: C.dim, fontSize: 12, marginTop: 5 }}>
+              {aviso.project?.codigo || aviso.destino || "Sin destino"} · {aviso.creator?.username || aviso.source_ref || "Sin creador"} · {fmtDate(aviso.created_at)}
+            </div>
+          </div>
+          <Chip color={status.color}>{status.label}</Chip>
+        </div>
+        <div style={{ display: "flex", gap: 7, flexWrap: "wrap" }}>
+          <Chip color={priorityColors[aviso.prioridad] || C.blue}>Prioridad {aviso.prioridad || "media"}</Chip>
+          <Chip color={C.teal}>{aviso.origen || "web"}</Chip>
+          {aviso.material && <Chip color={C.amber}>{aviso.material}</Chip>}
+        </div>
+        {aviso.detalle && (
+          <div style={{ color: C.muted, fontSize: 13, lineHeight: 1.45, background: C.panel2, border: `1px solid ${C.border}`, borderRadius: 9, padding: 10 }}>
+            {aviso.detalle}
+          </div>
+        )}
+        <div style={{ display: "flex", gap: 7, flexWrap: "wrap", alignItems: "center" }}>
+          {AVISO_STATUSES.map((s) => (
+            <button key={s.value} type="button" disabled={savingStatus || aviso.estado === s.value} onClick={() => onStatus(s.value)} style={{
+              border: `1px solid ${aviso.estado === s.value ? s.color + "66" : C.border}`,
+              background: aviso.estado === s.value ? `${s.color}16` : "transparent",
+              color: aviso.estado === s.value ? s.color : C.dim,
+              borderRadius: 7,
+              padding: "6px 9px",
+              cursor: savingStatus || aviso.estado === s.value ? "default" : "pointer",
+              fontSize: 12,
+              fontWeight: 750,
+            }}>
+              {s.label}
+            </button>
+          ))}
+          <span style={{ flex: 1 }} />
+          <button type="button" onClick={() => onConvertToRequest?.(aviso)} style={smallActionButton(C.blue)}>
+            <ShoppingCart size={13} />
+            Convertir en pedido
+          </button>
+        </div>
+      </div>
+
+      <div style={{ padding: 14, display: "grid", gap: 10 }}>
+        <div style={{ display: "flex", alignItems: "center", gap: 7 }}>
+          <MessageSquare size={14} color={C.blue} />
+          <span style={{ color: C.text, fontSize: 13, fontWeight: 800 }}>Seguimiento</span>
+          <span style={{ color: C.dim, fontSize: 11, fontFamily: C.mono }}>{aviso.comentarios?.length || 0}</span>
+        </div>
+        <div style={{ display: "grid", gap: 8 }}>
+          {(aviso.comentarios || []).length === 0 ? (
+            <div style={{ color: C.dim, fontSize: 12, padding: "12px 0" }}>Sin comentarios todavía.</div>
+          ) : aviso.comentarios.map((c) => (
+            <div key={c.id} style={{ border: `1px solid ${C.border}`, borderRadius: 9, padding: 10, background: C.panel2 }}>
+              <div style={{ display: "flex", gap: 8, alignItems: "center", marginBottom: 5 }}>
+                <span style={{ color: C.text, fontWeight: 800, fontSize: 12 }}>{c.author?.username || "Usuario"}</span>
+                <span style={{ color: C.dim, fontSize: 11 }}>{fmtDate(c.created_at)}</span>
+              </div>
+              <div style={{ color: C.muted, fontSize: 13, lineHeight: 1.4, whiteSpace: "pre-wrap" }}>{c.body}</div>
+            </div>
+          ))}
+        </div>
+        <form onSubmit={onComment} style={{ display: "grid", gap: 8 }}>
+          <textarea value={comment} onChange={(e) => setComment(e.target.value)} rows={3} placeholder="Agregar comentario de seguimiento..." style={{ ...inputStyle, resize: "vertical" }} />
+          <button type="submit" disabled={savingComment || !comment.trim()} style={{ ...smallActionButton(C.green, true), justifySelf: "end", opacity: savingComment || !comment.trim() ? 0.55 : 1 }}>
+            <MessageSquare size={13} />
+            {savingComment ? "Guardando..." : "Comentar"}
+          </button>
+        </form>
+      </div>
+    </div>
+  );
+}
+
+function smallActionButton(color, solid = false) {
+  return {
+    display: "inline-flex",
+    alignItems: "center",
+    justifyContent: "center",
+    gap: 6,
+    border: `1px solid ${color}44`,
+    background: solid ? color : `${color}10`,
+    color: solid ? "#08080a" : color,
+    borderRadius: 8,
+    padding: "7px 11px",
+    cursor: "pointer",
+    fontSize: 12,
+    fontWeight: 800,
+    fontFamily: C.sans,
+    whiteSpace: "nowrap",
+  };
 }
 
 const DASHBOARD_PRIORITY_COLORS = {

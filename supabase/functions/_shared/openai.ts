@@ -26,9 +26,12 @@ function groqAuth(): string {
 
 // ─── Tipos ───────────────────────────────────────────────────────────────────
 export interface ParsedPedido {
+  intent?: "pedido" | "aviso";
   title: string;
   description: string;
   priority: "baja" | "media" | "alta" | "urgente";
+  material?: string | null;
+  destino?: string | null;
   items: Array<{
     description: string;
     quantity?: string;
@@ -76,9 +79,18 @@ export async function chatWithBot(
     ? `Códigos de obra válidos en el sistema: ${opts.projectCodes.join(", ")}. Hacé matching flexible (K55-1 ≈ 55-1 ≈ K 55 1).`
     : "";
 
-  const system = `Sos el asistente de compras del astillero Klase A. Recibís pedidos por WhatsApp de la oficina técnica.
+  const system = `Sos el asistente de compras del astillero Klase A. Recibís pedidos y avisos por WhatsApp de la oficina técnica.
 
-Tu misión: armar un pedido completo y útil siguiendo un PROTOCOLO de preguntas. No saltees pasos. Cuando completaste todo el protocolo, recién ahí proponés el draft para confirmar.
+Tu misión: distinguir si el usuario quiere hacer un PEDIDO o registrar un AVISO, y armar un borrador completo y útil. No rompas el flujo de pedidos existente.
+
+INTENCION OBLIGATORIA:
+- PEDIDO = el usuario quiere comprar, conseguir o reponer algo. Ej: "Necesito 6 tubos de adhesivo para el K52", "comprame una bomba para stock".
+- AVISO = el usuario alerta, recuerda o marca a compras que falta algo estándar o reglamentario, sin cargarlo como compra directa. Ej: "Avisá a compras que al K55 le falta el extintor que va estándar", "Ojo que al 52-23 no le cargaron el chaleco salvavidas reglamentario", "recordá pedir las baterías del 55-4 que siempre se olvidan".
+- Si es ambiguo, preguntá UNA vez exactamente: "¿Es un pedido para comprar, o un aviso para que compras lo tenga en cuenta?".
+- Todo draft debe incluir intent: "pedido" o "aviso".
+
+Para PEDIDO: seguí el PROTOCOLO de preguntas de compra.
+Para AVISO: juntá qué material/tema falta, para qué obra o destino, y prioridad. Cuando esté claro, proponé resumen y preguntá confirmación: "¿lo registro como aviso a compras?".
 
 ═══════════════════════════════════════════════════════════════════════════
 REGLA 0 — EXTRAER PRIMERO, PREGUNTAR DESPUÉS (la más importante)
@@ -182,12 +194,15 @@ FORMATO DE RESPUESTA — SIEMPRE JSON ESTRICTO (sin markdown, sin backticks).
 A) Necesitás más info (cualquier paso del protocolo no completado):
 {"kind":"question","message":"<texto literal que el usuario va a leer en WhatsApp>"}
 
-B) Ya completaste PASO 4 y PASO 5 — proponé el pedido:
+B) Ya completaste lo necesario — proponé el pedido o aviso:
 {
   "kind":"draft",
   "draft":{
+    "intent":"pedido|aviso",
     "title":"título DESCRIPTIVO del pedido — ver REGLAS DE TÍTULO abajo",
     "description":"detalle de lo que se pide",
+    "material":"material/tema principal si intent=aviso, si no null",
+    "destino":"destino libre si no hay obra, si no null",
     "priority":"baja|media|alta|urgente",
     "items":[
       {"description":"...","quantity":"...","unit":"...","link_url":"opcional","image_url":"opcional"}
@@ -198,7 +213,7 @@ B) Ya completaste PASO 4 y PASO 5 — proponé el pedido:
   "message":"<texto literal que el usuario va a leer — armalo VOS con formato amigable usando los ítems del draft. NO copies esta instrucción ni la palabra 'resumen visual'. Hacé algo como el ejemplo abajo>"
 }
 
-Usá null en project_code o needed_at cuando no correspondan.
+Usá null en project_code, needed_at, material o destino cuando no correspondan. Para avisos, items puede ser [].
 
 ═══════════════════════════════════════════════════════════════════════════
 REGLAS DE TÍTULO (críticas — un mal título arruina la búsqueda después):
@@ -334,7 +349,10 @@ Hoy es ${today}.`;
     // sanity defaults
     if (!d.title) d.title = (input.text || "Pedido").slice(0, 60);
     if (!d.description) d.description = input.text || "";
+    if (d.intent !== "aviso") d.intent = "pedido";
     if (!["baja", "media", "alta", "urgente"].includes(d.priority)) d.priority = "media";
+    if (d.material === undefined) d.material = d.intent === "aviso" ? d.title : null;
+    if (d.destino === undefined) d.destino = null;
     if (!Array.isArray(d.items)) d.items = [];
     return {
       kind: "draft",
@@ -370,6 +388,7 @@ Ya existe un borrador de pedido y el usuario acaba de mandar una corrección, ac
 
 Tu trabajo:
 - Editar el borrador existente, no arrancar un pedido nuevo.
+- Mantener current_draft.intent. Si el borrador era aviso, sigue siendo aviso salvo que el usuario pida explícitamente convertirlo en pedido.
 - Si el usuario pide agregar algo a la descripción, detalle o nota, agregalo en "description" conservando lo anterior.
 - Si el usuario dice para qué se usa ("son para...", "es para...", "van para..."), agregalo a la descripción si no contradice el pedido.
 - Si el usuario menciona una obra/código, setealo en project_code cuando corresponda.
@@ -385,8 +404,11 @@ A) Si pudiste aplicar la corrección:
 {
   "kind":"draft",
   "draft":{
+    "intent":"pedido|aviso",
     "title":"título descriptivo actualizado",
     "description":"descripción completa actualizada",
+    "material":"material/tema principal si intent=aviso, si no null",
+    "destino":"destino libre si no hay obra, si no null",
     "priority":"baja|media|alta|urgente",
     "items":[
       {"description":"...","quantity":"...","unit":"...","link_url":"opcional","image_url":"opcional"}
@@ -451,9 +473,12 @@ Hoy es ${today}.`;
 
   if (parsed.kind === "draft" && parsed.draft) {
     const d = parsed.draft;
+    if (d.intent !== "aviso" && d.intent !== "pedido") d.intent = draft.intent || "pedido";
     if (!d.title) d.title = draft.title || "Pedido";
     if (!d.description) d.description = draft.description || d.title || "";
     if (!["baja", "media", "alta", "urgente"].includes(d.priority)) d.priority = draft.priority || "media";
+    if (d.material === undefined) d.material = draft.material ?? (d.intent === "aviso" ? d.title : null);
+    if (d.destino === undefined) d.destino = draft.destino ?? null;
     if (!Array.isArray(d.items)) d.items = Array.isArray(draft.items) ? draft.items : [];
     if (d.project_code === undefined) d.project_code = draft.project_code ?? null;
     if (d.needed_at === undefined) d.needed_at = draft.needed_at ?? null;
@@ -509,6 +534,7 @@ export async function parsePedido(rawText: string, opts?: { projectCodes?: strin
   if (r.kind === "draft" && r.draft) return r.draft;
   // Si el LLM quiso preguntar, devolvemos un draft mínimo para no romper el caller.
   return {
+    intent: "pedido",
     title: rawText.slice(0, 60),
     description: rawText,
     priority: "media",

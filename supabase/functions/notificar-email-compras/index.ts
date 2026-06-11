@@ -27,6 +27,7 @@ serve(async (req) => {
       oldPriorityLabel,
       createdByName,
       source,
+      avisoId,
     } = payload
 
     const supabaseUrl = Deno.env.get('SUPABASE_URL') ?? ''
@@ -53,11 +54,20 @@ serve(async (req) => {
     // Link a la app — si vino requestId armamos deep link directo al pedido.
     const baseUrl = "https://klasea-stock.vercel.app/compras"
     const requestId = payload.requestId
-    const link = requestId ? `${baseUrl}?open=${requestId}` : baseUrl
+    const link = avisoId ? `${baseUrl}?tab=avisos&aviso=${avisoId}` : (requestId ? `${baseUrl}?open=${requestId}` : baseUrl)
     let subject = ""
     let html = ""
 
-    if (type === "new_request") {
+    if (type === "nuevo_aviso") {
+      subject = `[Compras] Nuevo aviso: ${requestTitle}`
+      html = `<h2>Nuevo aviso a compras</h2>
+<p><strong>Título:</strong> ${requestTitle}</p>
+${source ? `<p><strong>Origen:</strong> ${source}</p>` : ""}
+<p><strong>Creado por:</strong> ${createdByName || changedBy}</p>
+${message ? `<p><strong>Detalle:</strong></p><blockquote style="border-left:3px solid #f59e0b;padding-left:12px;color:#666;margin:0">${String(message || "").replace(/\n/g, "<br>")}</blockquote>` : ""}
+<hr>
+<a href="${link}" style="display:inline-block;background:#f59e0b;color:#111827;padding:10px 24px;border-radius:6px;text-decoration:none;font-weight:700">Ver aviso</a>`
+    } else if (type === "new_request") {
       subject = `[Compras] Nueva solicitud: ${requestTitle}`
       html = `<h2>Nueva solicitud de compra</h2>
 <p><strong>Título:</strong> ${requestTitle}</p>
