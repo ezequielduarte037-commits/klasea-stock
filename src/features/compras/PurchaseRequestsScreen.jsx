@@ -495,7 +495,7 @@ export default function PurchaseRequestsScreen({ profile, signOut }) {
 
   const [filters, setFilters] = useState(() => ({
     q:        searchParams.get("q")        || "",
-    status:   searchParams.get("status")   || "todos",
+    status:   searchParams.get("status")   || "activos",
     priority: searchParams.get("priority") || "todos",
     creator:  searchParams.get("creator")  || "todos",
     project:  searchParams.get("project")  || "todos",
@@ -511,7 +511,9 @@ export default function PurchaseRequestsScreen({ profile, signOut }) {
     const next = new URLSearchParams(searchParams);
     URL_FILTER_KEYS.forEach((k) => {
       const v = filters[k];
-      if (v && v !== "todos") next.set(k, v);
+      // status default es "activos" → no se escribe; el resto (incluido "todos") sí persiste
+      const isDefault = (k === "status") ? v === "activos" : v === "todos";
+      if (v && !isDefault) next.set(k, v);
       else next.delete(k);
     });
     if (manager) {
@@ -595,7 +597,11 @@ export default function PurchaseRequestsScreen({ profile, signOut }) {
   const filtered = useMemo(() => {
     const q = filters.q.trim().toLowerCase();
     return requests.filter((request) => {
-      if (filters.status !== "todos" && request.status !== filters.status) return false;
+      if (filters.status === "activos") {
+        if (ARCHIVED_STATUSES.includes(request.status)) return false;   // recibido/cancelado = archivado
+      } else if (filters.status !== "todos" && request.status !== filters.status) {
+        return false;
+      }
       if (filters.priority !== "todos" && request.priority !== filters.priority) return false;
       if (filters.creator !== "todos" && request.created_by !== filters.creator) return false;
       if (filters.project !== "todos") {
@@ -630,10 +636,20 @@ export default function PurchaseRequestsScreen({ profile, signOut }) {
 
   const visibleList = manager ? filtered : userFiltered;
 
+  // Agrupado por estado cuando se ve "Activos" o "Todos" (manager). En un estado
+  // puntual no agrupa (todas son del mismo). Mantiene el orden del flujo de compras.
+  const grouped = useMemo(() => {
+    const shouldGroup = manager && (filters.status === "activos" || filters.status === "todos");
+    if (!shouldGroup) return [{ value: "_all", label: null, items: visibleList }];
+    return REQUEST_STATUSES
+      .map((s) => ({ value: s.value, label: s.label, items: visibleList.filter((r) => r.status === s.value) }))
+      .filter((g) => g.items.length > 0);
+  }, [visibleList, filters.status, manager]);
+
   const activeFilterCount = useMemo(() => {
     let n = 0;
     if (filters.q) n++;
-    if (filters.status !== "todos") n++;
+    if (filters.status !== "todos" && filters.status !== "activos") n++;
     if (filters.priority !== "todos") n++;
     if (filters.creator !== "todos") n++;
     if (filters.project !== "todos") n++;
@@ -644,7 +660,7 @@ export default function PurchaseRequestsScreen({ profile, signOut }) {
 
   function clearFilters() {
     setFilters({
-      q: "", status: "todos", priority: "todos", creator: "todos",
+      q: "", status: "activos", priority: "todos", creator: "todos",
       project: "todos", dateFrom: "", dateTo: "",
     });
   }
@@ -929,6 +945,9 @@ export default function PurchaseRequestsScreen({ profile, signOut }) {
                   padding: "5px 16px 7px", overflowX: "auto",
                   borderTop: `1px solid ${C.border}`,
                 }}>
+                  <StatChip label="Activos" count={requests.filter((r) => !ARCHIVED_STATUSES.includes(r.status)).length} color={C.green}
+                    active={filters.status === "activos"}
+                    onClick={() => setFilters((f) => ({ ...f, status: "activos" }))} />
                   <StatChip label="Todos" count={requests.length} color={C.muted}
                     active={filters.status === "todos"}
                     onClick={() => setFilters((f) => ({ ...f, status: "todos" }))} />
@@ -1453,32 +1472,32 @@ export default function PurchaseRequestsScreen({ profile, signOut }) {
                           )}
                         </div>
                       </div>
-                    ) : viewMode === "grid" ? (
-                      <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(290px, 1fr))", gap: 10 }}>
-                        {visibleList.map((request) => (
-                          <RequestCard key={request.id} request={request} isUnread={unreadIds.has(request.id)} onClick={() => { markRead(request.id, request.last_comment_author_id); setSelectedId(request.id); }} />
-                        ))}
-                      </div>
                     ) : (
-                      <div style={{ display: "grid", gap: 5 }}>
-                        <div style={{
-                          display: "grid",
-                          gridTemplateColumns: "1fr auto auto",
-                          alignItems: "center",
-                          gap: 10,
-                          padding: "4px 16px",
-                          color: C.dim,
-                          fontSize: 10,
-                          letterSpacing: 1.1,
-                          textTransform: "uppercase",
-                          fontWeight: 750,
-                        }}>
-                          <span>Solicitud</span>
-                          <span style={{ textAlign: "center", width: 60 }}>Estado</span>
-                          <span style={{ textAlign: "right", width: 80 }}>Fecha</span>
-                        </div>
-                        {visibleList.map((request) => (
-                          <RequestRow key={request.id} request={request} isUnread={unreadIds.has(request.id)} onClick={() => { markRead(request.id, request.last_comment_author_id); setSelectedId(request.id); }} />
+                      <div style={{ display: "grid", gap: 18 }}>
+                        {grouped.map((g) => (
+                          <div key={g.value}>
+                            {g.label && (
+                              <div style={{ display: "flex", alignItems: "center", gap: 8, margin: "0 0 8px" }}>
+                                <span style={{ width: 7, height: 7, borderRadius: "50%", background: statusColors[g.value] || C.dim, boxShadow: `0 0 6px ${statusColors[g.value] || C.dim}66` }} />
+                                <span style={{ fontSize: 11, letterSpacing: 1.1, textTransform: "uppercase", fontWeight: 800, color: C.muted }}>{g.label}</span>
+                                <span style={{ fontSize: 11, color: C.dim, fontFamily: C.mono }}>{g.items.length}</span>
+                                <span style={{ flex: 1, height: 1, background: C.border, marginLeft: 4 }} />
+                              </div>
+                            )}
+                            {viewMode === "grid" ? (
+                              <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(290px, 1fr))", gap: 10 }}>
+                                {g.items.map((request) => (
+                                  <RequestCard key={request.id} request={request} isUnread={unreadIds.has(request.id)} onClick={() => { markRead(request.id, request.last_comment_author_id); setSelectedId(request.id); }} />
+                                ))}
+                              </div>
+                            ) : (
+                              <div style={{ display: "grid", gap: 5 }}>
+                                {g.items.map((request) => (
+                                  <RequestRow key={request.id} request={request} isUnread={unreadIds.has(request.id)} onClick={() => { markRead(request.id, request.last_comment_author_id); setSelectedId(request.id); }} />
+                                ))}
+                              </div>
+                            )}
+                          </div>
                         ))}
                       </div>
                     )}
