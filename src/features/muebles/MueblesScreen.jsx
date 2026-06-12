@@ -6,6 +6,7 @@ import Sidebar from "@/components/Sidebar";
 import { useResponsive } from "@/hooks/useResponsive";
 import { hasAdminAccess } from "@/lib/permissions";
 import EnchapadoView from "@/features/muebles/EnchapadoView";
+import { ChapaSwatch, chapaColor } from "@/features/muebles/chapa";
 import { C } from "@/theme";
 
 // ─── Design tokens ─────────────────────────────────────────────────
@@ -28,6 +29,40 @@ function progreso(rows) {
 
 function normalizeText(value = "") {
   return String(value).trim().toLowerCase();
+}
+
+function normalizeBoatCode(value = "") {
+  return normalizeText(value).replace(/^k(?=\d)/, "");
+}
+
+function nextEstado(estado) {
+  const i = ESTADOS.indexOf(estado);
+  return ESTADOS[(i + 1) % ESTADOS.length] ?? ESTADOS[0];
+}
+
+function formatTraceDate(value) {
+  if (!value) return "";
+  try {
+    return new Date(value).toLocaleString("es-AR", {
+      day: "2-digit",
+      month: "2-digit",
+      year: "2-digit",
+      hour: "2-digit",
+      minute: "2-digit",
+    });
+  } catch {
+    return "";
+  }
+}
+
+function hexToRgb(hex) {
+  const value = String(hex || "").replace("#", "");
+  if (value.length !== 6) return [139, 115, 95];
+  return [
+    parseInt(value.slice(0, 2), 16),
+    parseInt(value.slice(2, 4), 16),
+    parseInt(value.slice(4, 6), 16),
+  ];
 }
 
 function buildImageScopeTag(scopeType, scopeId) {
@@ -611,6 +646,11 @@ export default function MueblesScreen({ profile, signOut }) {
   const [lineas,    setLineas]    = useState([]);
   const [unidades,  setUnidades]  = useState([]);
   const [checklist, setChecklist] = useState([]);
+  const [enchapadoOt, setEnchapadoOt] = useState(null);
+  const [enchapadoLoading, setEnchapadoLoading] = useState(false);
+  const [showManualChapa, setShowManualChapa] = useState(false);
+  const [manualChapaDraft, setManualChapaDraft] = useState("");
+  const [manualChapaSaving, setManualChapaSaving] = useState(false);
   const [lineaId,   setLineaId]   = useState(null);
   const [unidadId,  setUnidadId]  = useState(null);
   // Mobile master-detail: true = menú (líneas/unidades); false = detalle.
@@ -644,20 +684,124 @@ export default function MueblesScreen({ profile, signOut }) {
 
   function selNone() { setSelIds(new Set()); }
 
+  function traceForEstado(estado) {
+    if (estado !== "Completo") return { recibido_por: null, recibido_at: null };
+    return {
+      recibido_por: profile?.username || profile?.nombre_completo || "usuario",
+      recibido_at: new Date().toISOString(),
+    };
+  }
+
+  async function tryUpdateTrace(ids, estado) {
+    const trace = traceForEstado(estado);
+    try {
+      await supabase.from("prod_unidad_checklist").update(trace).in("id", ids);
+    } catch {
+      // Las columnas de trazabilidad pueden no estar aplicadas todavia.
+    }
+    return trace;
+  }
+
   async function bulkSetEstado(estado) {
     if (!selIds.size) return;
     setBulkLoading(true);
     const ids = [...selIds];
     await supabase.from("prod_unidad_checklist").update({ estado }).in("id", ids);
-    setChecklist(p => p.map(r => selIds.has(r.id) ? { ...r, estado } : r));
+    const trace = await tryUpdateTrace(ids, estado);
+    setChecklist(p => p.map(r => selIds.has(r.id) ? { ...r, estado, ...trace } : r));
     setSelIds(new Set());
     setSelMode(false);
     setBulkLoading(false);
   }
 
   async function cargarLineas()     { const { data } = await supabase.from("prod_lineas").select("id,nombre").eq("activa",true).order("nombre"); const rows = data ?? []; setLineas(rows); if (!lineaId && rows.length) setLineaId(rows[0].id); }
-  async function cargarUnidades(lid){ const { data } = await supabase.from("prod_unidades").select("id,codigo,color").eq("linea_id",lid).eq("activa",true).order("codigo"); setUnidades(data ?? []); }
-  async function cargarChecklist(uid){ setLoading(true); const { data, error } = await supabase.from("prod_unidad_checklist").select("id,estado,obs,mueble_id, prod_muebles(id,nombre,sector,descripcion,medidas,material)").eq("unidad_id",uid).order("prod_muebles(sector)").order("prod_muebles(nombre)"); if (error) setErr(error.message); setChecklist(data ?? []); setLoading(false); }
+  async function cargarUnidades(lid){
+    let { data, error } = await supabase
+      .from("prod_unidades")
+      .select("id,codigo,color,chapa_manual")
+      .eq("linea_id",lid)
+      .eq("activa",true)
+      .order("codigo");
+    if (error && String(error.message || "").includes("chapa_manual")) {
+      const retry = await supabase
+        .from("prod_unidades")
+        .select("id,codigo,color")
+        .eq("linea_id",lid)
+        .eq("activa",true)
+        .order("codigo");
+      data = retry.data;
+    }
+    setUnidades(data ?? []);
+  }
+  async function cargarChecklist(uid){
+    setLoading(true);
+    const selectBase = "id,estado,obs,mueble_id,recibido_por,recibido_at, prod_muebles(id,nombre,sector,descripcion,medidas,material)";
+    let { data, error } = await supabase
+      .from("prod_unidad_checklist")
+      .select(selectBase)
+      .eq("unidad_id",uid)
+      .order("prod_muebles(sector)")
+      .order("prod_muebles(nombre)");
+    if (error && String(error.message || "").includes("recibido_")) {
+      const retry = await supabase
+        .from("prod_unidad_checklist")
+        .select("id,estado,obs,mueble_id, prod_muebles(id,nombre,sector,descripcion,medidas,material)")
+        .eq("unidad_id",uid)
+        .order("prod_muebles(sector)")
+        .order("prod_muebles(nombre)");
+      data = retry.data;
+      error = retry.error;
+    }
+    if (error) setErr(error.message);
+    setChecklist(data ?? []);
+    setLoading(false);
+  }
+
+  async function cargarEnchapadoOt(linea, unidad) {
+    if (!linea?.nombre || !unidad?.codigo) { setEnchapadoOt(null); return; }
+    setEnchapadoLoading(true);
+    const modelo = linea.nombre.trim();
+    const barco = unidad.codigo.trim();
+    const barcoLookup = normalizeBoatCode(barco);
+    const { data, error } = await supabase
+      .from("enchapado_ots")
+      .select("id,modelo,barco,tipo_chapa,estado,fecha")
+      .ilike("modelo", `%${modelo}%`)
+      .ilike("barco", `%${barcoLookup}%`)
+      .order("created_at", { ascending: false })
+      .limit(10);
+    if (error) {
+      setEnchapadoOt(null);
+      setEnchapadoLoading(false);
+      return;
+    }
+    const found = (data ?? []).find(row =>
+      normalizeText(row.modelo) === normalizeText(modelo) &&
+      normalizeBoatCode(row.barco) === normalizeBoatCode(barco)
+    ) ?? null;
+    setEnchapadoOt(found);
+    setEnchapadoLoading(false);
+  }
+
+  async function guardarChapaManual() {
+    if (!unidadSel) return;
+    setManualChapaSaving(true);
+    const value = manualChapaDraft.trim();
+    const { data, error } = await supabase
+      .from("prod_unidades")
+      .update({ chapa_manual: value || null })
+      .eq("id", unidadSel.id)
+      .select("id,codigo,color,chapa_manual")
+      .single();
+    if (error) {
+      setErr(`No se pudo guardar el dato manual. Aplicá el SQL de chapa_manual y probá de nuevo. ${error.message}`);
+      setManualChapaSaving(false);
+      return;
+    }
+    setUnidades(prev => prev.map(u => u.id === unidadSel.id ? { ...u, chapa_manual: data?.chapa_manual ?? null } : u));
+    setShowManualChapa(false);
+    setManualChapaSaving(false);
+  }
 
   async function cargarCatalogoLinea(lid) {
     const { data } = await supabase
@@ -789,49 +933,124 @@ export default function MueblesScreen({ profile, signOut }) {
     if (!unidadSel || !lineaSel) return;
 
     const doc = new jsPDF({ unit: "pt", format: "a4" });
+    const pageWidth = doc.internal.pageSize.getWidth();
+    const pageHeight = doc.internal.pageSize.getHeight();
     const fecha = new Date().toLocaleDateString("es-AR");
+    const chapaManualPdf = String(unidadSel.chapa_manual ?? "").trim();
+    const chapaPdf = enchapadoOt
+      ? { tipo: enchapadoOt.tipo_chapa || "Sin especificar", detalle: `OT ${enchapadoOt.estado || "Pendiente"}` }
+      : chapaManualPdf
+        ? { tipo: chapaManualPdf, detalle: "Dato manual - muebles sin OT" }
+        : null;
     const filas = checklist.map((row, idx) => [
       idx + 1,
       row.prod_muebles?.sector ?? "General",
       row.prod_muebles?.nombre ?? "-",
+      row.estado ?? "No enviado",
+      "",
+      "",
       "",
       "",
       row.obs ?? "",
     ]);
 
-    doc.setFillColor(9, 9, 11);
-    doc.rect(0, 0, doc.internal.pageSize.getWidth(), 92, "F");
-    doc.setTextColor(244, 244, 245);
+    doc.setDrawColor(210, 214, 222);
+    doc.setLineWidth(0.8);
+    doc.roundedRect(36, 30, pageWidth - 72, 82, 6, 6, "S");
+
+    doc.setTextColor(24, 24, 27);
     doc.setFont("helvetica", "bold");
-    doc.setFontSize(20);
-    doc.text(`Checklist de recepcion - ${unidadSel.codigo}`, 40, 42);
-    doc.setFontSize(10);
+    doc.setFontSize(18);
+    doc.text(`Checklist de recepcion`, 52, 57);
+    doc.setFontSize(15);
+    doc.text(`${lineaSel.nombre} - ${unidadSel.codigo}`, 52, 80);
+
     doc.setFont("helvetica", "normal");
-    doc.text(`Linea: ${lineaSel.nombre}`, 40, 64);
-    doc.text(`Fecha de impresion: ${fecha}`, 40, 79);
-    doc.text("Recepcionado por: ____________________", 300, 64);
-    doc.text("Firma: ____________________", 300, 79);
+    doc.setFontSize(9);
+    doc.setTextColor(82, 82, 91);
+    doc.text(`Impreso: ${fecha}`, 52, 98);
+    doc.text(`Items: ${checklist.length}`, 138, 98);
+
+    doc.setDrawColor(180, 186, 196);
+    doc.line(325, 55, pageWidth - 52, 55);
+    doc.line(325, 85, pageWidth - 52, 85);
+    doc.setTextColor(63, 63, 70);
+    doc.setFont("helvetica", "bold");
+    doc.text("Recibio", 325, 48);
+    doc.text("Firma", 325, 78);
+
+    if (chapaPdf) {
+      const tone = chapaColor(chapaPdf.tipo);
+      const [r, g, b] = hexToRgb(tone.base);
+      doc.setFillColor(r, g, b);
+      doc.roundedRect(52, 126, 18, 12, 2, 2, "F");
+      doc.setDrawColor(145, 145, 150);
+      doc.roundedRect(52, 126, 18, 12, 2, 2, "S");
+      doc.setTextColor(63, 63, 70);
+      doc.setFontSize(9);
+      doc.setFont("helvetica", "bold");
+      doc.text("Chapa / referencia:", 78, 136);
+      doc.setFont("helvetica", "normal");
+      doc.text(`${chapaPdf.tipo} - ${chapaPdf.detalle}`, 165, 136);
+    }
+
+    doc.setFillColor(250, 250, 250);
+    doc.setDrawColor(225, 228, 235);
+    doc.roundedRect(36, chapaPdf ? 150 : 126, pageWidth - 72, 28, 4, 4, "FD");
+    doc.setTextColor(82, 82, 91);
+    doc.setFont("helvetica", "normal");
+    doc.setFontSize(8.5);
+    doc.text("Uso en taller: marcar a mano OK / Parcial / Rehacer, anotar fecha y observaciones. Luego pasar los cambios al sistema.", 52, chapaPdf ? 168 : 144);
 
     autoTable(doc, {
-      startY: 112,
-      head: [["#", "Sector", "Mueble", "Llego", "Revisado", "Observaciones"]],
+      startY: chapaPdf ? 194 : 170,
+      margin: { left: 36, right: 36, bottom: 34 },
+      head: [["#", "Sector", "Mueble", "Estado actual", "OK", "Parcial", "Rehacer", "Fecha", "Obs / faltantes"]],
       body: filas,
       theme: "grid",
-      styles: { fontSize: 10, cellPadding: 6, lineColor: [220, 220, 220], lineWidth: 0.5, textColor: [30, 30, 30], minCellHeight: 24, valign: "middle" },
-      headStyles: { fillColor: [28, 28, 34], textColor: [244, 244, 245], fontStyle: "bold" },
+      styles: {
+        fontSize: 8.5,
+        cellPadding: 5,
+        lineColor: [205, 210, 218],
+        lineWidth: 0.45,
+        textColor: [24, 24, 27],
+        minCellHeight: 30,
+        valign: "middle",
+        overflow: "linebreak",
+      },
+      headStyles: {
+        fillColor: [241, 243, 247],
+        textColor: [24, 24, 27],
+        fontStyle: "bold",
+        lineColor: [190, 196, 206],
+        lineWidth: 0.6,
+      },
+      alternateRowStyles: { fillColor: [253, 253, 253] },
       columnStyles: {
         0: { cellWidth: 22, halign: "center" },
-        1: { cellWidth: 85 },
-        2: { cellWidth: 180 },
-        3: { cellWidth: 48, halign: "center" },
-        4: { cellWidth: 58, halign: "center" },
-        5: { cellWidth: "auto" },
+        1: { cellWidth: 62 },
+        2: { cellWidth: 150 },
+        3: { cellWidth: 58, halign: "center", fontSize: 7.8, textColor: [82, 82, 91] },
+        4: { cellWidth: 34, halign: "center" },
+        5: { cellWidth: 42, halign: "center" },
+        6: { cellWidth: 48, halign: "center" },
+        7: { cellWidth: 50 },
+        8: { cellWidth: "auto" },
+      },
+      didDrawCell: data => {
+        if (data.section !== "body" || ![4, 5, 6].includes(data.column.index)) return;
+        const size = 8;
+        const x = data.cell.x + data.cell.width / 2 - size / 2;
+        const y = data.cell.y + data.cell.height / 2 - size / 2;
+        doc.setDrawColor(90, 90, 98);
+        doc.setLineWidth(0.7);
+        doc.rect(x, y, size, size);
       },
       didDrawPage: data => {
-        const pageHeight = doc.internal.pageSize.getHeight();
         doc.setFontSize(9);
         doc.setTextColor(120, 120, 128);
         doc.text(`Pagina ${data.pageNumber}`, data.settings.margin.left, pageHeight - 18);
+        doc.text("Klase A - Muebles", pageWidth - 118, pageHeight - 18);
       },
     });
 
@@ -839,7 +1058,7 @@ export default function MueblesScreen({ profile, signOut }) {
   }
 
   useEffect(() => { cargarLineas(); }, []);
-  useEffect(() => { if (lineaId) { cargarUnidades(lineaId); setUnidadId(null); setChecklist([]); } }, [lineaId]);
+  useEffect(() => { if (lineaId) { cargarUnidades(lineaId); setUnidadId(null); setChecklist([]); setEnchapadoOt(null); } }, [lineaId]);
   useEffect(() => { if (unidadId) { cargarChecklist(unidadId); setShowAddItem(false); setAddItemQ(""); } }, [unidadId]);
   useEffect(() => { if (lineaId) cargarCatalogoLinea(lineaId); }, [lineaId]);
 
@@ -848,13 +1067,26 @@ export default function MueblesScreen({ profile, signOut }) {
   async function crearUnidad() { if (!newUnidad.trim() || !lineaId) return; const { data: u, error } = await supabase.from("prod_unidades").insert({ linea_id:lineaId, codigo:newUnidad.trim(), activa:true }).select().single(); if (error) return setErr(error.message); const { data: plantilla } = await supabase.from("prod_linea_muebles").select("mueble_id").eq("linea_id",lineaId); if (plantilla?.length) await supabase.from("prod_unidad_checklist").insert(plantilla.map(p => ({ unidad_id:u.id, mueble_id:p.mueble_id, estado:"No enviado" }))); setNewUnidad(""); cargarUnidades(lineaId); setUnidadId(u.id); }
   async function eliminarUnidad(uid){ if (!window.confirm("¿Eliminar esta unidad?")) return; await supabase.from("prod_unidades").delete().eq("id",uid); setUnidadId(null); setChecklist([]); cargarUnidades(lineaId); }
   async function eliminarItem(rowId){ if (!window.confirm("¿Quitar este ítem?")) return; await supabase.from("prod_unidad_checklist").delete().eq("id",rowId); setChecklist(p => p.filter(r => r.id !== rowId)); }
-  async function setEstado(rowId, estado) { await supabase.from("prod_unidad_checklist").update({ estado }).eq("id",rowId); setChecklist(p => p.map(r => r.id === rowId ? {...r, estado} : r)); }
+  async function setEstado(rowId, estado) {
+    await supabase.from("prod_unidad_checklist").update({ estado }).eq("id",rowId);
+    const trace = await tryUpdateTrace([rowId], estado);
+    setChecklist(p => p.map(r => r.id === rowId ? {...r, estado, ...trace} : r));
+  }
   async function setObs(rowId, obs)       { await supabase.from("prod_unidad_checklist").update({ obs }).eq("id",rowId); setChecklist(p => p.map(r => r.id === rowId ? {...r, obs} : r)); }
   async function editarMueble(mid, form)  { await supabase.from("prod_muebles").update(form).eq("id",mid); if (unidadId) cargarChecklist(unidadId); setModalMueble(null); }
   async function eliminarMuebleCatalogo(mid) { await supabase.from("prod_muebles").delete().eq("id",mid); if (unidadId) cargarChecklist(unidadId); setModalMueble(null); }
 
   const lineaSel  = useMemo(() => lineas.find(l => l.id === lineaId),    [lineas, lineaId]);
   const unidadSel = useMemo(() => unidades.find(u => u.id === unidadId), [unidades, unidadId]);
+  const manualChapa = String(unidadSel?.chapa_manual ?? "").trim();
+  useEffect(() => {
+    if (lineaSel && unidadSel) cargarEnchapadoOt(lineaSel, unidadSel);
+    else setEnchapadoOt(null);
+  }, [lineaSel?.id, lineaSel?.nombre, unidadSel?.id, unidadSel?.codigo]);
+  useEffect(() => {
+    setManualChapaDraft(manualChapa);
+    setShowManualChapa(false);
+  }, [unidadSel?.id, manualChapa]);
   const filtrado  = useMemo(() => { let rows = checklist; if (filtro !== "todos") rows = rows.filter(r => r.estado === filtro); const qq = q.toLowerCase(); if (qq) rows = rows.filter(r => (r.prod_muebles?.nombre ?? "").toLowerCase().includes(qq) || (r.prod_muebles?.sector ?? "").toLowerCase().includes(qq)); return rows; }, [checklist, filtro, q]);
   const porSector = useMemo(() => { const map = {}; filtrado.forEach(r => { const s = r.prod_muebles?.sector || "General"; if (!map[s]) map[s] = []; map[s].push(r); }); return map; }, [filtrado]);
   const pct       = useMemo(() => progreso(checklist), [checklist]);
@@ -863,7 +1095,8 @@ export default function MueblesScreen({ profile, signOut }) {
 
   const lineaNavBtn  = sel => ({ width: "100%", textAlign: "left", padding: "9px 14px", border: "none", borderBottom: `1px solid rgba(255,255,255,0.03)`, background: sel ? C.s1 : "transparent", color: sel ? C.t0 : C.t2, cursor: "pointer", fontSize: 13, fontWeight: sel ? 600 : 400, display: "flex", justifyContent: "space-between", alignItems: "center", fontFamily: C.sans });
   const unidadNavBtn = sel => ({ ...lineaNavBtn(sel), paddingLeft: 22, fontSize: 12, borderLeft: sel ? `2px solid ${C.b1}` : "2px solid transparent" });
-  const estadoSt     = est => { const m = ESTADO_META[est] ?? ESTADO_META["No enviado"]; return { background: m.bg, color: m.color, border: `1px solid ${m.color === C.t2 ? C.b0 : m.color+"44"}`, padding: "5px 9px", borderRadius: 7, fontSize: 12, fontWeight: 700, cursor: "pointer", outline: "none", fontFamily: C.sans }; };
+  const estadoSt     = est => { const m = ESTADO_META[est] ?? ESTADO_META["No enviado"]; return { background: m.bg || C.s0, color: m.color, border: `1px solid ${m.color === C.t2 ? C.b0 : m.color+"44"}`, padding: "7px 10px", borderRadius: 9, fontSize: 12, fontWeight: 800, cursor: "pointer", outline: "none", fontFamily: C.sans }; };
+  const estadoDot    = est => ESTADO_META[est]?.color ?? C.t2;
   const filterTabSt  = act => ({ border: act ? `1px solid ${C.b1}` : "1px solid transparent", background: act ? C.s1 : "transparent", color: act ? C.t0 : C.t2, padding: "5px 14px", borderRadius: 7, cursor: "pointer", fontSize: 12, fontFamily: C.sans, transition: "all .15s" });
 
   return (
@@ -992,9 +1225,83 @@ export default function MueblesScreen({ profile, signOut }) {
               <div style={{ padding: "28px 28px 40px" }}>
                 {/* Header */}
                 <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: 20 }}>
-                  <div>
+                  <div style={{ minWidth: 0 }}>
                     <div style={{ fontSize: 22, fontWeight: 700, color: C.t0 }}>{unidadSel?.codigo}</div>
                     <div style={{ fontSize: 12, color: C.t2, marginTop: 4 }}>{lineaSel?.nombre} · {checklist.length} ítems</div>
+                    <div style={{ marginTop: 10 }}>
+                      {enchapadoLoading ? (
+                        <div style={{ display: "inline-flex", alignItems: "center", gap: 8, padding: "7px 10px", borderRadius: 9, background: C.s0, border: `1px solid ${C.b0}`, color: C.t2, fontSize: 12 }}>
+                          Buscando OT de enchapado...
+                        </div>
+                      ) : enchapadoOt ? (() => {
+                        const tone = chapaColor(enchapadoOt.tipo_chapa);
+                        const estadoMeta = {
+                          Pendiente: { color: C.t2, bg: C.s1 },
+                          Enviada: { color: C.amber, bg: "rgba(245,158,11,0.10)" },
+                          Devuelta: { color: C.green, bg: "rgba(16,185,129,0.10)" },
+                          Rehacer: { color: C.red, bg: "rgba(239,68,68,0.10)" },
+                        }[enchapadoOt.estado] ?? { color: C.t2, bg: C.s1 };
+                        return (
+                          <div style={{ display: "inline-flex", alignItems: "center", gap: 10, flexWrap: "wrap", padding: "8px 10px", borderRadius: 10, background: C.s0, border: `1px solid ${tone.base}55` }}>
+                            <ChapaSwatch tipo={enchapadoOt.tipo_chapa} size="md" />
+                            <div>
+                              <div style={{ fontSize: 10, letterSpacing: 1.2, color: C.t2, textTransform: "uppercase", fontWeight: 800 }}>Chapa de enchapado</div>
+                              <div style={{ fontSize: 13, color: C.t0, fontWeight: 800, marginTop: 1 }}>{enchapadoOt.tipo_chapa || "Sin especificar"}</div>
+                            </div>
+                            <span style={{ fontSize: 11, color: estadoMeta.color, background: estadoMeta.bg, border: `1px solid ${estadoMeta.color}44`, padding: "4px 8px", borderRadius: 7, fontWeight: 800 }}>
+                              OT {enchapadoOt.estado || "Pendiente"}
+                            </span>
+                            <button onClick={() => setMainView("enchapadora")} style={{ background: "transparent", border: `1px solid ${C.b0}`, color: C.t1, padding: "4px 8px", borderRadius: 7, cursor: "pointer", fontSize: 11, fontWeight: 700, fontFamily: C.sans }}>
+                              Ver Enchapado
+                            </button>
+                          </div>
+                        );
+                      })() : (manualChapa && !showManualChapa) ? (() => {
+                        const tone = chapaColor(manualChapa);
+                        return (
+                          <div style={{ display: "inline-flex", alignItems: "center", gap: 10, flexWrap: "wrap", padding: "8px 10px", borderRadius: 10, background: C.s0, border: `1px solid ${tone.base}55` }}>
+                            <ChapaSwatch tipo={manualChapa} size="md" />
+                            <div>
+                              <div style={{ fontSize: 10, letterSpacing: 1.2, color: C.t2, textTransform: "uppercase", fontWeight: 800 }}>Dato manual de muebles</div>
+                              <div style={{ fontSize: 13, color: C.t0, fontWeight: 800, marginTop: 1 }}>{manualChapa}</div>
+                            </div>
+                            <span style={{ fontSize: 11, color: C.amber, background: "rgba(245,158,11,0.10)", border: "1px solid rgba(245,158,11,0.28)", padding: "4px 8px", borderRadius: 7, fontWeight: 800 }}>
+                              Sin OT
+                            </span>
+                            {esAdmin && (
+                              <button onClick={() => setShowManualChapa(true)} style={{ background: "transparent", border: `1px solid ${C.b0}`, color: C.t1, padding: "4px 8px", borderRadius: 7, cursor: "pointer", fontSize: 11, fontWeight: 700, fontFamily: C.sans }}>
+                                Editar
+                              </button>
+                            )}
+                          </div>
+                        );
+                      })() : showManualChapa ? (
+                        <div style={{ display: "inline-flex", alignItems: "center", gap: 8, flexWrap: "wrap", padding: "8px 10px", borderRadius: 10, background: C.s0, border: `1px solid ${C.b0}` }}>
+                          <input
+                            value={manualChapaDraft}
+                            onChange={e => setManualChapaDraft(e.target.value)}
+                            onKeyDown={e => e.key === "Enter" && guardarChapaManual()}
+                            placeholder="Ej: Roble Plata Rayado / muebles ya fabricados"
+                            style={{ ...INP, width: 280, maxWidth: "min(70vw, 320px)", padding: "6px 9px", fontSize: 12 }}
+                          />
+                          <button disabled={manualChapaSaving} onClick={guardarChapaManual} style={{ background: C.green, border: `1px solid ${C.green}`, color: "#04130c", padding: "6px 10px", borderRadius: 7, cursor: manualChapaSaving ? "wait" : "pointer", fontSize: 11, fontWeight: 800, fontFamily: C.sans }}>
+                            {manualChapaSaving ? "Guardando..." : "Guardar"}
+                          </button>
+                          <button onClick={() => { setShowManualChapa(false); setManualChapaDraft(manualChapa); }} style={{ background: "transparent", border: `1px solid ${C.b0}`, color: C.t1, padding: "6px 10px", borderRadius: 7, cursor: "pointer", fontSize: 11, fontWeight: 700, fontFamily: C.sans }}>
+                            Cancelar
+                          </button>
+                        </div>
+                      ) : (
+                        <div style={{ display: "inline-flex", alignItems: "center", gap: 8, flexWrap: "wrap", padding: "7px 10px", borderRadius: 9, background: C.s0, border: `1px solid ${C.b0}`, color: C.t2, fontSize: 12 }}>
+                          Sin OT de enchapado
+                          {esAdmin && (
+                            <button onClick={() => setShowManualChapa(true)} style={{ background: "transparent", border: `1px solid ${C.b0}`, color: C.t1, padding: "4px 8px", borderRadius: 7, cursor: "pointer", fontSize: 11, fontWeight: 700, fontFamily: C.sans }}>
+                              Cargar manual
+                            </button>
+                          )}
+                        </div>
+                      )}
+                    </div>
                   </div>
                   <div style={{ display: "flex", gap: 8, alignItems: "center", flexWrap: "wrap", justifyContent: "flex-end" }}>
                     <button
@@ -1202,7 +1509,7 @@ export default function MueblesScreen({ profile, signOut }) {
                               onClick={() => selMode && toggleSel(r.id)}
                               style={{
                                 display: "grid",
-                                gridTemplateColumns: selMode ? "28px 50px 1fr 130px 28px" : "50px 1fr 130px 28px",
+                                gridTemplateColumns: selMode ? "28px 50px 1fr minmax(150px, 190px) 28px" : "50px 1fr minmax(150px, 190px) 28px",
                                 gap: 14, alignItems: "center",
                                 padding: "10px 8px",
                                 borderRadius: 9,
@@ -1242,15 +1549,46 @@ export default function MueblesScreen({ profile, signOut }) {
                                 {!selMode && <ObsInline value={r.obs} rowId={r.id} onSave={setObs} />}
                               </div>
                               {/* Estado */}
-                              <select
-                                style={estadoSt(r.estado)}
-                                value={r.estado}
-                                disabled={selMode}
-                                onChange={e => setEstado(r.id, e.target.value)}
-                                onClick={e => e.stopPropagation()}
-                              >
-                                {ESTADOS.map(e => <option key={e} value={e}>{e}</option>)}
-                              </select>
+                              <div onClick={e => e.stopPropagation()} style={{ display: "grid", gap: 5 }}>
+                                <button
+                                  type="button"
+                                  disabled={selMode}
+                                  onClick={() => setEstado(r.id, nextEstado(r.estado))}
+                                  title="Tocar para avanzar estado"
+                                  style={{
+                                    ...estadoSt(r.estado),
+                                    width: "100%",
+                                    display: "flex",
+                                    alignItems: "center",
+                                    justifyContent: "space-between",
+                                    gap: 8,
+                                    opacity: selMode ? 0.55 : 1,
+                                  }}
+                                >
+                                  <span style={{ display: "inline-flex", alignItems: "center", gap: 7 }}>
+                                    <span style={{ width: 7, height: 7, borderRadius: "50%", background: estadoDot(r.estado), boxShadow: `0 0 10px ${estadoDot(r.estado)}66` }} />
+                                    {r.estado}
+                                  </span>
+                                  <span style={{ color: C.t2, fontSize: 11 }}>↻</span>
+                                </button>
+                                {!isMobile && !selMode && (
+                                  <select
+                                    style={{ ...estadoSt(r.estado), padding: "4px 7px", fontSize: 11, borderRadius: 7, width: "100%" }}
+                                    value={r.estado}
+                                    onChange={e => setEstado(r.id, e.target.value)}
+                                  >
+                                    {ESTADOS.map(e => <option key={e} value={e}>{e}</option>)}
+                                  </select>
+                                )}
+                                {r.estado === "Completo" && (r.recibido_por || r.recibido_at) && (
+                                  <div style={{ fontSize: 10, color: C.t2, lineHeight: 1.35, display: "grid", gap: 1 }}>
+                                    {r.recibido_at && (
+                                      <span>Fecha recepción: <span style={{ color: C.t1, fontWeight: 800 }}>{formatTraceDate(r.recibido_at)}</span></span>
+                                    )}
+                                    <span>Recibido por: <span style={{ color: C.t1, fontWeight: 800 }}>{r.recibido_por || "usuario"}</span></span>
+                                  </div>
+                                )}
+                              </div>
                               {/* Eliminar */}
                               {esAdmin && !selMode
                                 ? <button style={{ border: "none", background: "transparent", color: C.t2, cursor: "pointer", fontSize: 15, padding: "2px", opacity: 0.5 }} onClick={e => { e.stopPropagation(); eliminarItem(r.id); }}>×</button>

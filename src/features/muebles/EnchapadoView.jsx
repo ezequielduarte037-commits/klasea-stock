@@ -42,6 +42,7 @@ import { C } from "@/theme";
 
 import { useState, useEffect, useMemo, useRef } from "react";
 import { supabase } from "@/supabaseClient";
+import { ChapaSwatch, chapaColor, chapaGradient, esNogal } from "@/features/muebles/chapa";
 
 // ── Design tokens ──────────────────────────────────────────────────────────
 const INP = {
@@ -130,10 +131,10 @@ const TEMPLATES = {
     tablones: { lenga: 5, okume: 4 },
   },
   K55: {
-    placas: ["10 Terciados 3 mm", "4 Terciados 9 mm", "20 Placas de carpintero"],
+    placas: ["10 Terciados 3 mm", "4 Terciados 9 mm", "28 Placas de carpintero"],
     items: [
-      { id: "1", material: "12 placas",          medidas: "160 × 220 cm", caras: "2 caras",  veta: "A lo largo" },
-      { id: "2", material: "4 placas",           medidas: "160 × 220 cm", caras: "1 cara",   veta: "A lo largo" },
+      { id: "1", material: "16 placas",          medidas: "160 × 220 cm", caras: "2 caras",  veta: "A lo largo" },
+      { id: "2", material: "8 placas",           medidas: "160 × 220 cm", caras: "1 cara",   veta: "A lo largo" },
       { id: "3", material: "2 placas",           medidas: "160 × 220 cm", caras: "1 cara",   veta: "A lo ancho" },
       { id: "4", material: "2 placas",           medidas: "160 × 220 cm", caras: "2 caras",  veta: "A lo ancho" },
       { id: "5", material: "10 terciados 3 mm",  medidas: "160 × 220 cm", caras: "1 cara",   veta: "A lo largo" },
@@ -236,16 +237,112 @@ const HERRAJES = {
     { q: 1,  name: "Barral de ropero (1m)" },
     { q: 4,  name: "Soportes de barral de ropero" },
     { q: 42, name: "Imanes para puertas de muebles" },
-    { q: 6,  name: "Correderas de caj�n - LARGO 400mm Cierre suave" },
-    { q: 6,  name: "Correderas de caj�n - LARGO 450mm Cierre suave" },
-    { q: 1,  name: "Correderas de caj�n - LARGO 250mm Cierre suave" },
+    { q: 6,  name: "Correderas de cajón - LARGO 400mm Cierre suave" },
+    { q: 6,  name: "Correderas de cajón - LARGO 450mm Cierre suave" },
+    { q: 1,  name: "Correderas de cajón - LARGO 250mm Cierre suave" },
     { q: 1,  name: "Bisagra tipo piano (700mm)" }
   ],
 };
 
 // ── Helpers ────────────────────────────────────────────────────────────────
-function esNogal(tipoChapa = "") {
-  return tipoChapa.toLowerCase().includes("nogal");
+function dispatchSteps(ot) {
+  const hasTablones = !!TEMPLATES[ot.modelo]?.tablones;
+  const hasHerrajes = !!HERRAJES[ot.modelo];
+  const estado = ot.estado || "Pendiente";
+  const steps = [];
+  if (hasTablones) {
+    steps.push({ key: "tablones_pedido", label: "Tablones pedidos", done: !!ot.tablones_pedido });
+    steps.push({ key: "tablones_enviado", label: "Tablones enviados", done: !!ot.tablones_enviado });
+  }
+  if (hasHerrajes) {
+    steps.push({ key: "herrajes_pedido", label: "Herrajes pedidos", done: !!ot.herrajes_pedido });
+    steps.push({ key: "herrajes_enviado", label: "Herrajes enviados", done: !!ot.herrajes_enviado });
+  }
+  steps.push({ key: "enviada", label: "OT enviada a Oberti", done: estado === "Enviada" || estado === "Devuelta" });
+  steps.push({ key: "devuelta", label: "Devuelta", done: estado === "Devuelta" });
+  return steps;
+}
+
+function dispatchProgress(ot, includeReturn = false) {
+  const steps = dispatchSteps(ot).filter(s => includeReturn || s.key !== "devuelta");
+  const total = steps.length || 1;
+  const done = steps.filter(s => s.done).length;
+  return { done, total, pct: Math.round((done / total) * 100) };
+}
+
+function DispatchProgress({ ot, compact = false }) {
+  const p = dispatchProgress(ot, false);
+  return (
+    <div style={{ display: "flex", alignItems: "center", gap: 7, minWidth: compact ? 118 : 150 }}>
+      <div style={{ flex: 1, height: compact ? 5 : 6, borderRadius: 999, background: C.s1, border: `1px solid ${C.b0}`, overflow: "hidden" }}>
+        <div style={{ width: `${p.pct}%`, height: "100%", background: p.done === p.total ? C.green : C.amber, borderRadius: 999 }} />
+      </div>
+      <span style={{ fontSize: compact ? 10 : 11, color: C.t2, fontFamily: C.mono, fontWeight: 700, whiteSpace: "nowrap" }}>
+        {p.done}/{p.total} despacho
+      </span>
+    </div>
+  );
+}
+
+function ProcessStepper({ ot }) {
+  const steps = dispatchSteps(ot);
+  const isRehacer = ot.estado === "Rehacer";
+  return (
+    <div style={{ background: C.s0, border: `1px solid ${isRehacer ? "rgba(239,68,68,0.35)" : C.b0}`, borderRadius: 12, padding: "13px 14px", marginBottom: 22 }}>
+      <div style={{ display: "flex", justifyContent: "space-between", gap: 12, alignItems: "center", marginBottom: 12, flexWrap: "wrap" }}>
+        <div>
+          <div style={{ fontSize: 10, letterSpacing: 1.3, textTransform: "uppercase", color: C.t2, fontWeight: 800 }}>Proceso de despacho</div>
+          <div style={{ fontSize: 12, color: C.t1, marginTop: 3 }}>
+            Preparar materiales, enviar a Oberti y confirmar devolución.
+          </div>
+        </div>
+        <DispatchProgress ot={ot} />
+      </div>
+      <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(130px, 1fr))", gap: 8 }}>
+        {steps.map((s, idx) => {
+          const done = !!s.done;
+          const color = done ? C.green : isRehacer ? C.red : C.amber;
+          return (
+            <div key={s.key} style={{
+              display: "flex",
+              alignItems: "center",
+              gap: 8,
+              minHeight: 40,
+              padding: "8px 10px",
+              borderRadius: 9,
+              background: done ? `${C.green}12` : C.panel,
+              border: `1px solid ${done ? `${C.green}44` : C.b0}`,
+            }}>
+              <span style={{
+                width: 20,
+                height: 20,
+                borderRadius: "50%",
+                display: "grid",
+                placeItems: "center",
+                flexShrink: 0,
+                background: done ? C.green : "transparent",
+                border: `1px solid ${done ? C.green : color + "66"}`,
+                color: done ? "#06130d" : color,
+                fontSize: 11,
+                fontWeight: 900,
+                fontFamily: C.mono,
+              }}>
+                {done ? "✓" : idx + 1}
+              </span>
+              <span style={{ fontSize: 12, color: done ? C.t0 : C.t2, lineHeight: 1.25, fontWeight: done ? 700 : 600 }}>
+                {s.label}
+              </span>
+            </div>
+          );
+        })}
+      </div>
+      {isRehacer && (
+        <div style={{ marginTop: 10, fontSize: 12, color: C.red, background: "var(--red-soft)", border: "1px solid var(--red-border)", padding: "7px 10px", borderRadius: 8, fontWeight: 700 }}>
+          Esta OT está marcada para rehacer. Revisá materiales antes de volver a enviar.
+        </div>
+      )}
+    </div>
+  );
 }
 
 function tablonesList(modelo, tipoChapa) {
@@ -347,6 +444,7 @@ function OTCard({ ot, ots, onClick }) {
 
   const meta = ESTADO_META[ot.estado] ?? ESTADO_META["Pendiente"];
   const tpl  = TEMPLATES[ot.modelo];
+  const chapa = chapaColor(ot.tipo_chapa);
 
   // Desmolde: preferir real sobre estimado
   const desmolde = ot.fecha_desmolde_real || ot.fecha_desmolde_est;
@@ -381,7 +479,8 @@ function OTCard({ ot, ots, onClick }) {
         <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 3 }}>
           <span style={{ fontSize: 14, fontWeight: 600, color: C.t0 }}>{ot.barco}</span>
           {ot.tipo_chapa && (
-            <span style={{ fontSize: 11, color: esNogal(ot.tipo_chapa) ? "#d97706" : C.t2, fontFamily: C.mono, background: esNogal(ot.tipo_chapa) ? "rgba(217,119,6,0.08)" : C.s1, border: `1px solid ${esNogal(ot.tipo_chapa) ? "rgba(217,119,6,0.25)" : C.b0}`, padding: "1px 7px", borderRadius: 5 }}>
+            <span style={{ display: "inline-flex", alignItems: "center", gap: 6, fontSize: 11, color: C.t0, fontFamily: C.mono, background: C.s1, border: `1px solid ${chapa.base}55`, padding: "2px 7px 2px 4px", borderRadius: 6, minWidth: 0 }}>
+              <ChapaSwatch tipo={ot.tipo_chapa} size="xs" />
               {ot.tipo_chapa}
             </span>
           )}
@@ -418,6 +517,9 @@ function OTCard({ ot, ots, onClick }) {
             )}
           </div>
         )}
+        <div style={{ marginTop: 7 }}>
+          <DispatchProgress ot={ot} compact />
+        </div>
       </div>
 
       {/* Estado */}
@@ -570,14 +672,24 @@ function NuevaOTModal({ onClose, onCreate, onEnsureMueblesUnidad }) {
           {showSug && (
             <div style={{ position: "absolute", top: "100%", left: 0, right: 0, zIndex: 50, background: C.panelSolid, border: `1px solid ${C.b1}`, borderRadius: 8, marginTop: 3, overflow: "hidden", boxShadow: "0 8px 24px rgba(0,0,0,0.6)" }}>
               {CHAPAS_SUGERIDAS.filter(s => !form.tipo_chapa || s.toLowerCase().includes(form.tipo_chapa.toLowerCase())).map(s => (
-                <button key={s} onMouseDown={() => f("tipo_chapa", s)} style={{ display: "block", width: "100%", textAlign: "left", padding: "8px 12px", background: "transparent", border: "none", color: esNogal(s) ? "#d97706" : C.t1, cursor: "pointer", fontSize: 13, fontFamily: C.sans, borderBottom: `1px solid ${C.b0}` }}
+                <button key={s} onMouseDown={() => f("tipo_chapa", s)} style={{ display: "flex", alignItems: "center", gap: 9, width: "100%", textAlign: "left", padding: "8px 12px", background: "transparent", border: "none", color: C.t1, cursor: "pointer", fontSize: 13, fontFamily: C.sans, borderBottom: `1px solid ${C.b0}` }}
                   onMouseEnter={e => e.currentTarget.style.background = C.s1}
                   onMouseLeave={e => e.currentTarget.style.background = "transparent"}
-                >{s}{esNogal(s) && <span style={{ fontSize: 11, color: "rgba(217,119,6,0.7)", marginLeft: 6 }}>nogal</span>}</button>
+                >
+                  <ChapaSwatch tipo={s} size="xs" />
+                  <span style={{ flex: 1 }}>{s}</span>
+                  {esNogal(s) && <span style={{ fontSize: 11, color: "#d97706" }}>nogal</span>}
+                </button>
               ))}
             </div>
           )}
         </div>
+        {form.tipo_chapa && (
+          <div style={{ marginTop: 7, display: "inline-flex", alignItems: "center", gap: 8, fontSize: 12, color: C.t1, background: C.s0, border: `1px solid ${C.b0}`, padding: "5px 8px", borderRadius: 8 }}>
+            <ChapaSwatch tipo={form.tipo_chapa} size="sm" />
+            Vista de tono: <strong style={{ color: C.t0 }}>{form.tipo_chapa}</strong>
+          </div>
+        )}
         {form.tipo_chapa && esNogal(form.tipo_chapa) && (
           <div style={{ marginTop: 5, fontSize: 12, color: "#d97706", background: "rgba(217,119,6,0.07)", border: "1px solid rgba(217,119,6,0.2)", borderRadius: 6, padding: "5px 10px" }}>
             ⚠ Chapa de nogal — en Anexo B la Lenga se reemplaza por Tablón de Nogal
@@ -648,6 +760,7 @@ function OTDetail({ ot: otInit, ots, onBack, onUpdated, onDeleted, esAdmin, onEn
 
   const tpl     = TEMPLATES[ot.modelo];
   const nogal   = esNogal(ot.tipo_chapa);
+  const chapa   = chapaColor(ot.tipo_chapa);
   const tablones = tablonesList(ot.modelo, ot.tipo_chapa);
     const herrajesKit = HERRAJES[ot.modelo] ?? null;
     let otNumStr = "---";
@@ -766,6 +879,38 @@ function OTDetail({ ot: otInit, ots, onBack, onUpdated, onDeleted, esAdmin, onEn
 
   function imprimir() {
     const tablonesLineas = tablonesList(ot.modelo, ot.tipo_chapa) ?? [];
+    const printTone = chapaColor(ot.tipo_chapa);
+    const printChapa = (ot.tipo_chapa || "Sin especificar")
+      .replace(/&/g, "&amp;")
+      .replace(/</g, "&lt;")
+      .replace(/>/g, "&gt;");
+    const chapaPrintBlock = `
+<section style="margin-top:-4px; margin-bottom:14px;">
+  <div style="
+    display:inline-flex;
+    align-items:center;
+    gap:10px;
+    padding:8px 16px 8px 10px;
+    border:2px solid #888;
+    border-radius:8px;
+    background:#f5f5f5;
+    font-family:'JetBrains Mono', monospace;
+    font-size:12pt;
+    font-weight:700;
+    color:#111;
+  ">
+    <span style="
+      display:inline-block;
+      width:30px;
+      height:22px;
+      border-radius:5px;
+      border:1.5px solid #333;
+      background:${chapaGradient(printTone)};
+      vertical-align:middle;
+    "></span>
+    <span>Chapa: ${printChapa}</span>
+  </div>
+</section>`;
 
     // ── Estilos compartidos ───────────────────────────────────────
     const CSS = `
@@ -893,21 +1038,7 @@ function OTDetail({ ot: otInit, ots, onBack, onUpdated, onDeleted, esAdmin, onEn
     <div class="dest-banner">🔨 Para: Enchapadora</div>
     ${miniHeader}
 
-<section style="margin-top:-4px; margin-bottom:14px;">
-  <div style="
-    display:inline-block;
-    padding:8px 16px;
-    border:2px solid #888;
-    border-radius:8px;
-    background:#f5f5f5;
-    font-family:'JetBrains Mono', monospace;
-    font-size:12pt;
-    font-weight:700;
-    color:#111;
-  ">
-    Chapa: ${ot.tipo_chapa || "Sin especificar"}
-  </div>
-</section>
+${chapaPrintBlock}
     ${fechasHTML}
     <section>
       <h3>Placas a enviar</h3>
@@ -948,21 +1079,7 @@ function OTDetail({ ot: otInit, ots, onBack, onUpdated, onDeleted, esAdmin, onEn
     <div class="dest-banner carp">🪵 Para: Carpintería</div>
     ${miniHeader}
 
-<section style="margin-top:-4px; margin-bottom:14px;">
-  <div style="
-    display:inline-block;
-    padding:8px 16px;
-    border:2px solid #888;
-    border-radius:8px;
-    background:#f5f5f5;
-    font-family:'JetBrains Mono', monospace;
-    font-size:12pt;
-    font-weight:700;
-    color:#111;
-  ">
-    Chapa: ${ot.tipo_chapa || "Sin especificar"}
-  </div>
-</section>
+${chapaPrintBlock}
     <section>
       <h3>Anexo B — Tablones Cepillados</h3>
             <div style="background: #f8f8f8; border: 2px solid #bbb; padding: 14px; border-radius: 8px; margin-bottom: 20px; margin-top: 10px;">
@@ -1013,21 +1130,7 @@ function OTDetail({ ot: otInit, ots, onBack, onUpdated, onDeleted, esAdmin, onEn
     <div class="dest-banner paniol">🔩 Para: Pañol / Oberti</div>
     ${miniHeader}
 
-<section style="margin-top:-4px; margin-bottom:14px;">
-  <div style="
-    display:inline-block;
-    padding:8px 16px;
-    border:2px solid #888;
-    border-radius:8px;
-    background:#f5f5f5;
-    font-family:'JetBrains Mono', monospace;
-    font-size:12pt;
-    font-weight:700;
-    color:#111;
-  ">
-    Chapa: ${ot.tipo_chapa || "Sin especificar"}
-  </div>
-</section>
+${chapaPrintBlock}
     <section>
       <h3>Anexo C — Kit de Herrajes (${ot.modelo})</h3>
       <p class="sub" style="margin-bottom:12px">Pañol confirma cantidades antes del despacho. Un envío = un modelo completo.</p>
@@ -1130,10 +1233,11 @@ ${pagHerrajesHTML}
             <span style={{ fontSize: 10, fontFamily: C.mono, letterSpacing: 3, color: C.t2, textTransform: "uppercase" }}>Klase A</span>
             <span style={{ fontFamily: C.mono, fontSize: 14, color: C.t1, background: C.s1, border: `1px solid ${C.b0}`, padding: "2px 8px", borderRadius: 6 }}>{ot.modelo}</span>
           </div>
-          <h2 style={{ margin: "4px 0 0", fontSize: 22, fontWeight: 700, color: C.t0, display: "flex", alignItems: "center", gap: 10 }}>
+          <h2 style={{ margin: "4px 0 0", fontSize: 22, fontWeight: 700, color: C.t0, display: "flex", alignItems: "center", gap: 10, flexWrap: "wrap" }}>
             {ot.barco}
             {ot.tipo_chapa && (
-              <span style={{ fontSize: 13, fontWeight: 500, color: nogal ? "#d97706" : C.t2, background: nogal ? "rgba(217,119,6,0.08)" : C.s1, border: `1px solid ${nogal ? "rgba(217,119,6,0.25)" : C.b0}`, padding: "2px 9px", borderRadius: 6, fontFamily: C.sans }}>
+              <span style={{ display: "inline-flex", alignItems: "center", gap: 8, fontSize: 13, fontWeight: 700, color: C.t0, background: C.s1, border: `1px solid ${chapa.base}55`, padding: "4px 10px 4px 5px", borderRadius: 9, fontFamily: C.sans }}>
+                <ChapaSwatch tipo={ot.tipo_chapa} size="md" />
                 {ot.tipo_chapa}
               </span>
             )}
@@ -1152,13 +1256,16 @@ ${pagHerrajesHTML}
                 : `Muebles: ${syncMsg.message ?? "No se pudo sincronizar"}`}
             </div>
           )}
-          <select
-            value={ot.estado}
-            onChange={e => setEstado(e.target.value)}
-            style={{ background: meta.bg, border: `1px solid ${meta.color}44`, color: meta.color, padding: "7px 12px", borderRadius: 8, fontSize: 13, fontWeight: 600, cursor: "pointer", outline: "none", fontFamily: C.sans }}
-          >
-            {ESTADOS_OT.map(e => <option key={e} value={e}>{e}</option>)}
-          </select>
+          <label style={{ display: "grid", gap: 4 }}>
+            <span style={{ fontSize: 10, letterSpacing: 1.2, textTransform: "uppercase", color: C.t2, fontWeight: 800, textAlign: "right" }}>Estado de la OT</span>
+            <select
+              value={ot.estado}
+              onChange={e => setEstado(e.target.value)}
+              style={{ background: meta.bg, border: `1px solid ${meta.color}55`, color: meta.color, padding: "8px 12px", borderRadius: 8, fontSize: 13, fontWeight: 800, cursor: "pointer", outline: "none", fontFamily: C.sans, boxShadow: `0 0 0 1px ${meta.color}22` }}
+            >
+              {ESTADOS_OT.map(e => <option key={e} value={e}>{e}</option>)}
+            </select>
+          </label>
           <button onClick={sincronizarMuebles} disabled={syncingMuebles || !onEnsureMueblesUnidad} style={{ background: "rgba(16,185,129,0.12)", border: "1px solid rgba(16,185,129,0.28)", color: C.green, padding: "5px 12px", borderRadius: 7, cursor: syncingMuebles ? "not-allowed" : "pointer", fontSize: 12, fontFamily: C.sans, opacity: syncingMuebles ? 0.7 : 1 }}>
             {syncingMuebles ? "Sincronizando..." : "Sincronizar con Muebles"}
           </button>
@@ -1170,6 +1277,8 @@ ${pagHerrajesHTML}
           )}
         </div>
       </div>
+
+      <ProcessStepper ot={ot} />
 
       {/* ── SECCIÓN: FECHAS DE PRODUCCIÓN ───────────────────────────────── */}
       <Section
@@ -1236,7 +1345,16 @@ ${pagHerrajesHTML}
       </Section>
 
       {/* ── SECCIÓN: HOJAS DE CHAPA ─────────────────────────────────────── */}
-      <Section title="Hojas de Chapa" badge={ot.tipo_chapa || undefined} badgeColor={nogal ? "#d97706" : C.primary}>
+      <Section title="Hojas de Chapa" badge={ot.tipo_chapa || undefined} badgeColor={chapa.grain}>
+        {ot.tipo_chapa && (
+          <div style={{ display: "flex", alignItems: "center", gap: 10, background: C.s0, border: `1px solid ${C.b0}`, borderRadius: 10, padding: "9px 11px", marginBottom: 10 }}>
+            <ChapaSwatch tipo={ot.tipo_chapa} size="lg" />
+            <div>
+              <div style={{ fontSize: 10, letterSpacing: 1.2, textTransform: "uppercase", color: C.t2, fontWeight: 800 }}>Tono de chapa</div>
+              <div style={{ fontSize: 14, color: C.t0, fontWeight: 700, marginTop: 2 }}>{ot.tipo_chapa}</div>
+            </div>
+          </div>
+        )}
         {loading ? (
           <div style={{ fontSize: 12, color: C.t2 }}>Cargando…</div>
         ) : (
@@ -1470,14 +1588,18 @@ function PlantillasView() {
           {showSug && (
             <div style={{ position: "absolute", top: "100%", left: 0, right: 0, zIndex: 50, background: C.panelSolid, border: `1px solid ${C.b1}`, borderRadius: 8, marginTop: 3, overflow: "hidden", boxShadow: "0 8px 24px rgba(0,0,0,0.6)" }}>
               {CHAPAS_SUGERIDAS.filter(s => !chapaSim || s.toLowerCase().includes(chapaSim.toLowerCase())).map(s => (
-                <button key={s} onMouseDown={() => { setChapaSim(s); setShowSug(false); }} style={{ display: "block", width: "100%", textAlign: "left", padding: "7px 12px", background: "transparent", border: "none", color: esNogal(s) ? "#d97706" : C.t1, cursor: "pointer", fontSize: 12, fontFamily: C.sans, borderBottom: `1px solid ${C.b0}` }}
+                <button key={s} onMouseDown={() => { setChapaSim(s); setShowSug(false); }} style={{ display: "flex", alignItems: "center", gap: 9, width: "100%", textAlign: "left", padding: "7px 12px", background: "transparent", border: "none", color: C.t1, cursor: "pointer", fontSize: 12, fontFamily: C.sans, borderBottom: `1px solid ${C.b0}` }}
                   onMouseEnter={e => e.currentTarget.style.background = C.s1}
                   onMouseLeave={e => e.currentTarget.style.background = "transparent"}
-                >{s}</button>
+                >
+                  <ChapaSwatch tipo={s} size="xs" />
+                  <span>{s}</span>
+                </button>
               ))}
             </div>
           )}
         </div>
+        {chapaSim && <ChapaSwatch tipo={chapaSim} size="pill" label />}
         {chapaSim && (
           <button onClick={() => setChapaSim("")} style={{ background: "transparent", border: `1px solid ${C.b0}`, color: C.t2, padding: "5px 10px", borderRadius: 7, cursor: "pointer", fontSize: 12, fontFamily: C.sans }}>Limpiar</button>
         )}
@@ -1592,7 +1714,7 @@ function PlantillasView() {
         {modeloSel === "K42" && <MatRow items={["10 placas carpintero", "8 terciados 3 mm", "1 terciado 9 mm", "1 terciado 12 mm", "1 terciado 18 mm", "80 pies Okumé", "60 pies Lenga", "150 m² de chapa"]} />}
         {modeloSel === "K43" && <MatRow items={["13 placas carpintero", "6 terciados 3 mm", "60 pies Okumé", "60 pies Lenga", "160 m² de chapa"]} />}
         {modeloSel === "K52" && <MatRow items={["16 placas carpintero", "10 terciados 3 mm", "4 terciados 9 mm", "1 terciado 12 mm", "100 pies Okumé", "80 pies Lenga", "230 m² de chapa"]} />}
-        {modeloSel === "K55" && <div style={{ fontSize: 12, color: C.t2, fontStyle: "italic" }}>Sin datos de compra para K55 en el procedimiento actual.</div>}
+        {modeloSel === "K55" && <MatRow items={["28 placas carpintero", "10 terciados 3 mm", "4 terciados 9 mm", "6 tablones Lenga", "4 tablones Okumé"]} />}
         <div style={{ marginTop: 10, fontSize: 11, color: C.t2 }}>
           Fuente: Procedimiento — Gestión de Maderas, Chapas, Tablones y Herrajes · Oficina Técnica.
         </div>
@@ -1841,10 +1963,3 @@ export default function EnchapadoView({ esAdmin, onEnsureMueblesUnidad }) {
     </div>
   );
 }
-
-
-
-
-
-
-
