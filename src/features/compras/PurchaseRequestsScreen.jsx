@@ -1184,7 +1184,9 @@ export default function PurchaseRequestsScreen({ profile, signOut }) {
                           style={{ padding: "6px 8px", borderRadius: 5, border: `1px solid ${C.border}`, background: C.bg, color: C.text, fontSize: 13 }}>
                           <option value="unidad">unidad</option>
                           <option value="par">par</option>
+                          <option value="juego">juego</option>
                           <option value="metro">metro</option>
+                          <option value="pies">pies</option>
                           <option value="m²">m²</option>
                           <option value="kg">kg</option>
                           <option value="litro">litro</option>

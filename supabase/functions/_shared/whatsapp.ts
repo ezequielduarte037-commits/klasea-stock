@@ -17,31 +17,53 @@ function authHeader(): string {
   return `Bearer ${token}`;
 }
 
+const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
+
+/**
+ * POST al Graph API con reintento ante errores TRANSITORIOS de Meta.
+ * Meta devuelve seguido un 500 con {"error":{"code":2,"is_transient":true,
+ * "message":"An unexpected error has occurred. Please retry your request later."}}.
+ * Sin reintento, el bot queda mudo al primer blip. Reintentamos solo cuando es
+ * transitorio (5xx o is_transient); en 4xx reales (token, ventana 24h, etc.) cortamos.
+ */
+async function postGraph(label: string, payload: unknown): Promise<unknown> {
+  const url = endpoint();
+  const auth = authHeader();
+  const MAX = 3;
+  let lastErr = "";
+  for (let attempt = 1; attempt <= MAX; attempt++) {
+    const res = await fetch(url, {
+      method: "POST",
+      headers: { "Authorization": auth, "Content-Type": "application/json" },
+      body: JSON.stringify(payload),
+    });
+    if (res.ok) return await res.json();
+
+    const errText = await res.text();
+    lastErr = errText;
+    const transient = res.status >= 500 || /["']?is_transient["']?\s*:\s*true/i.test(errText);
+    if (!transient || attempt === MAX) {
+      throw new Error(`WA ${label} failed (${res.status}): ${errText}`);
+    }
+    console.warn(`[whatsapp] ${label}: error transitorio de Meta (${res.status}), reintento ${attempt}/${MAX - 1}…`);
+    await sleep(attempt * 800); // 800ms, 1600ms
+  }
+  throw new Error(`WA ${label} failed: ${lastErr}`);
+}
+
 /**
  * Envía un mensaje de texto libre. Solo funciona dentro de la ventana de 24h
  * (es decir, el destinatario tiene que haber mandado algo en las últimas 24h).
  * Fuera de la ventana hay que usar templates aprobados.
+ * Reintenta automáticamente ante errores transitorios de Meta.
  */
 export async function sendText(to: string, text: string): Promise<unknown> {
-  const res = await fetch(endpoint(), {
-    method: "POST",
-    headers: {
-      "Authorization": authHeader(),
-      "Content-Type": "application/json",
-    },
-    body: JSON.stringify({
-      messaging_product: "whatsapp",
-      to,
-      type: "text",
-      text: { body: text, preview_url: false },
-    }),
+  return await postGraph("sendText", {
+    messaging_product: "whatsapp",
+    to,
+    type: "text",
+    text: { body: text, preview_url: false },
   });
-
-  if (!res.ok) {
-    const errText = await res.text();
-    throw new Error(`WA sendText failed (${res.status}): ${errText}`);
-  }
-  return await res.json();
 }
 
 /**
@@ -54,29 +76,16 @@ export async function sendTemplate(
   languageCode = "es_AR",
   components?: unknown[],
 ): Promise<unknown> {
-  const res = await fetch(endpoint(), {
-    method: "POST",
-    headers: {
-      "Authorization": authHeader(),
-      "Content-Type": "application/json",
+  return await postGraph("sendTemplate", {
+    messaging_product: "whatsapp",
+    to,
+    type: "template",
+    template: {
+      name: templateName,
+      language: { code: languageCode },
+      ...(components ? { components } : {}),
     },
-    body: JSON.stringify({
-      messaging_product: "whatsapp",
-      to,
-      type: "template",
-      template: {
-        name: templateName,
-        language: { code: languageCode },
-        ...(components ? { components } : {}),
-      },
-    }),
   });
-
-  if (!res.ok) {
-    const errText = await res.text();
-    throw new Error(`WA sendTemplate failed (${res.status}): ${errText}`);
-  }
-  return await res.json();
 }
 
 /**

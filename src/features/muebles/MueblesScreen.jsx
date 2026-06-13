@@ -946,9 +946,6 @@ export default function MueblesScreen({ profile, signOut }) {
       idx + 1,
       row.prod_muebles?.sector ?? "General",
       row.prod_muebles?.nombre ?? "-",
-      row.estado ?? "No enviado",
-      "",
-      "",
       "",
       "",
       row.obs ?? "",
@@ -961,7 +958,7 @@ export default function MueblesScreen({ profile, signOut }) {
     doc.setTextColor(24, 24, 27);
     doc.setFont("helvetica", "bold");
     doc.setFontSize(18);
-    doc.text(`Checklist de recepcion`, 52, 57);
+    doc.text(`Recepcion de muebles`, 52, 57);
     doc.setFontSize(15);
     doc.text(`${lineaSel.nombre} - ${unidadSel.codigo}`, 52, 80);
 
@@ -1000,12 +997,12 @@ export default function MueblesScreen({ profile, signOut }) {
     doc.setTextColor(82, 82, 91);
     doc.setFont("helvetica", "normal");
     doc.setFontSize(8.5);
-    doc.text("Uso en taller: marcar a mano OK / Parcial / Rehacer, anotar fecha y observaciones. Luego pasar los cambios al sistema.", 52, chapaPdf ? 168 : 144);
+    doc.text("Uso en taller: marcar si llego, anotar fecha y observaciones. Luego pasar los cambios al sistema.", 52, chapaPdf ? 168 : 144);
 
     autoTable(doc, {
       startY: chapaPdf ? 194 : 170,
       margin: { left: 36, right: 36, bottom: 34 },
-      head: [["#", "Sector", "Mueble", "Estado actual", "OK", "Parcial", "Rehacer", "Fecha", "Obs / faltantes"]],
+      head: [["#", "Sector", "Mueble", "Llego", "Fecha", "Observaciones"]],
       body: filas,
       theme: "grid",
       styles: {
@@ -1028,17 +1025,14 @@ export default function MueblesScreen({ profile, signOut }) {
       alternateRowStyles: { fillColor: [253, 253, 253] },
       columnStyles: {
         0: { cellWidth: 22, halign: "center" },
-        1: { cellWidth: 62 },
-        2: { cellWidth: 150 },
-        3: { cellWidth: 58, halign: "center", fontSize: 7.8, textColor: [82, 82, 91] },
-        4: { cellWidth: 34, halign: "center" },
-        5: { cellWidth: 42, halign: "center" },
-        6: { cellWidth: 48, halign: "center" },
-        7: { cellWidth: 50 },
-        8: { cellWidth: "auto" },
+        1: { cellWidth: 78 },
+        2: { cellWidth: 210 },
+        3: { cellWidth: 42, halign: "center" },
+        4: { cellWidth: 62 },
+        5: { cellWidth: "auto" },
       },
       didDrawCell: data => {
-        if (data.section !== "body" || ![4, 5, 6].includes(data.column.index)) return;
+        if (data.section !== "body" || data.column.index !== 3) return;
         const size = 8;
         const x = data.cell.x + data.cell.width / 2 - size / 2;
         const y = data.cell.y + data.cell.height / 2 - size / 2;

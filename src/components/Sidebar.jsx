@@ -91,6 +91,12 @@ function Icon({ id, color = "currentColor", size = 14 }) {
       <path d="M4 8.5L6.5 11l5.5-6" {...p}/>
       <rect x="1" y="1" width="14" height="14" rx="3" {...p}/>
     </>,
+    "/rrhh": <>
+      <circle cx="5.5" cy="5" r="2.5" {...p}/>
+      <path d="M1 14c0-2.5 2-4 4.5-4S10 11.5 10 14" {...p}/>
+      <path d="M11 5.5a2.5 2.5 0 1 0 0-0.01" {...p}/>
+      <path d="M11.5 10c2 .3 3.5 1.8 3.5 4" {...p}/>
+    </>,
   };
   return (
     <svg width={size} height={size} viewBox="0 0 16 16" style={{ display: "block", flexShrink: 0 }}>
@@ -109,6 +115,7 @@ const SC = {
   sistema:            "#f87171",   // red
   postventa:          "#67e8f9",   // cyan
   compras:            "#f59e0b",   // amber
+  rrhh:               "#2dd4bf",   // teal
 };
 
 // ─── ANIMATIONS CSS ───────────────────────────────────────────────────────────
@@ -169,6 +176,7 @@ export default function Sidebar({ profile, signOut }) {
   const esTecnica = role === "tecnica" || role === "oficina";
   const esGestion = isAdmin || role === "admin" || esTecnica;
   const esAdmin   = isAdmin || role === "admin";
+  const esRrhh    = esAdmin || role === "rrhh";
   const esCompras = role === "compras";
   const puedeEditarPlantillas = isAdmin || role === "admin" || role === "tecnica";
   const puedePedirCompras = esGestion || esPanol || esCompras;
@@ -370,6 +378,12 @@ export default function Sidebar({ profile, signOut }) {
             {divider("pv")}
             {group("Post Venta", SC.postventa, 370)}
             {item("/postventa", "Barcos Entregados", SC.postventa, true, 390, "Seguimiento de garantías y servicios realizados a clientes.")}
+          </>}
+
+          {esRrhh && <>
+            {divider("rrhh")}
+            {group("RRHH", SC.rrhh, 395)}
+            {item("/rrhh", "Presentismo", SC.rrhh, true, 400, "Asistencia, horas extras e informes del fichero Hikvision.")}
           </>}
 
           {esAdmin && <>

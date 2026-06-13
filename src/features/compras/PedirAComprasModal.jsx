@@ -183,7 +183,7 @@ const STOCK_DESTINATIONS = [
   { value: "Stock Pampa 1050",  label: "Stock Pampa 1050"  },
 ];
 
-const UNITS = ["unidad", "kg", "litro", "metro", "m²", "lata", "rollo", "par", "juego", "caja", "placa"];
+const UNITS = ["unidad", "kg", "litro", "metro", "pies", "m²", "lata", "rollo", "par", "juego", "caja", "placa"];
 
 function isExtraItem(item) {
   return item?.isExtra || item?.category === "extra" || /^EXTRA\b/i.test(String(item?.notes || "").trim());

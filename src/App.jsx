@@ -22,6 +22,7 @@ import PedidosMaderaScreen   from "@/features/inventario/PedidosMaderaScreen";
 import PurchaseRequestsScreen from "@/features/compras/PurchaseRequestsScreen";
 import ScanEgresoScreen      from "@/features/inventario/ScanEgresoScreen";
 import EtiquetasScreen       from "@/features/inventario/EtiquetasScreen";
+import RrhhScreen            from "@/features/rrhh/RrhhScreen";
 
 import { ToastProvider } from "@/components/ui/Toast";
 import { ConfirmProvider } from "@/components/ui/ConfirmDialog";
@@ -43,6 +44,7 @@ function RequireRole({ profile, allow, children }) {
   if (!profile) return <Navigate to="/login" replace />;
   if (profile.is_admin || allow.includes(profile.role)) return children;
   if (profile.role === "compras") return <Navigate to="/compras" replace />;
+  if (profile.role === "rrhh")    return <Navigate to="/rrhh" replace />;
   if (profile.role === "cliente") return <Navigate to="/mi-panel" replace />;
   return <Navigate to="/" replace />;
 }
@@ -363,9 +365,11 @@ export default function App() {
     ? <Navigate to="/login" replace />
     : profile.role === "cliente"
       ? <Navigate to="/mi-panel" replace />
-      : (profile.role === "panol" && esColector)
-        ? <Navigate to="/scan" replace />
-        : <HomeScreen profile={profile} signOut={signOut} />;
+      : profile.role === "rrhh"
+        ? <Navigate to="/rrhh" replace />
+        : (profile.role === "panol" && esColector)
+          ? <Navigate to="/scan" replace />
+          : <HomeScreen profile={profile} signOut={signOut} />;
 
   return (
     <BrowserRouter>
@@ -408,6 +412,7 @@ export default function App() {
         {/* Escáner de pañol (PDA) + impresión de etiquetas QR */}
         <Route path="/scan"      element={<RequireAuth session={session}><RequireRole profile={profile} allow={["admin","oficina","tecnica","panol"]}><ScanEgresoScreen {...A} /></RequireRole></RequireAuth>} />
         <Route path="/etiquetas" element={<RequireAuth session={session}><RequireRole profile={profile} allow={["admin","oficina","tecnica"]}><EtiquetasScreen   {...A} /></RequireRole></RequireAuth>} />
+        <Route path="/rrhh"      element={<RequireAuth session={session}><RequireRole profile={profile} allow={["admin","rrhh"]}><RrhhScreen {...A} /></RequireRole></RequireAuth>} />
 
         <Route path="*" element={<Navigate to="/" replace />} />
       </Routes>

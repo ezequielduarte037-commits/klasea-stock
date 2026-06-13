@@ -195,7 +195,7 @@ const inputStyle = {
 function StatusStepper({ current, onChange }) {
   return (
     <div style={{ display: "flex", alignItems: "center", gap: 4, flexWrap: "wrap" }}>
-      {REQUEST_STATUSES.map((s, i) => {
+      {REQUEST_STATUSES.map((s) => {
         const color = statusColors[s.value];
         const isActive = current === s.value;
         return (
@@ -1379,7 +1379,9 @@ export default function PurchaseRequestDetail({ requestId, profile, users = [], 
                     style={{ padding: "6px 8px", borderRadius: 5, border: `1px solid ${C.border}`, background: C.bg, color: C.text, fontSize: 13 }}>
                     <option value="unidad">unidad</option>
                     <option value="par">par</option>
+                    <option value="juego">juego</option>
                     <option value="metro">metro</option>
+                    <option value="pies">pies</option>
                     <option value="m²">m²</option>
                     <option value="kg">kg</option>
                     <option value="litro">litro</option>
@@ -1510,7 +1512,7 @@ export default function PurchaseRequestDetail({ requestId, profile, users = [], 
                               placeholder="unidad" list="item-units"
                               style={{ width: "100%", padding: "6px 8px", borderRadius: 5, border: `1px solid ${C.border}`, background: C.bg, color: C.text, fontSize: 13 }} />
                             <datalist id="item-units">
-                              {["unidad", "kg", "metro", "m²", "litro", "lata", "rollo", "par", "juego", "caja", "tubo", "bolsa"].map(u => <option key={u} value={u} />)}
+                              {["unidad", "kg", "metro", "pies", "m²", "litro", "lata", "rollo", "par", "juego", "caja", "tubo", "bolsa"].map(u => <option key={u} value={u} />)}
                             </datalist>
                           </div>
                         </div>
