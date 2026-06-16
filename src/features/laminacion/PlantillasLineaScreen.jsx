@@ -305,7 +305,7 @@ export default function PlantillasLineaScreen({ profile, signOut }) {
                 <input
                   value={draft.nombre}
                   onChange={(e) => setDraft((d) => ({ ...d, nombre: e.target.value }))}
-                  placeholder="Hunter 42"
+                  placeholder="Klase A 52"
                   disabled={!canEdit}
                   style={inputStyle()}
                 />

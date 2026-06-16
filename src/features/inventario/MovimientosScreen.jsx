@@ -112,10 +112,10 @@ export default function MovimientosScreen({ profile, signOut }) {
       <style>{`
         @import url('https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500;700&display=swap');
         *, *::before, *::after { box-sizing: border-box; }
-        select option { background: #0f0f12; color: var(--muted); }
+        select option { background: var(--panel-solid); color: var(--muted); }
         ::-webkit-scrollbar { width: 3px; height: 3px; }
         ::-webkit-scrollbar-track { background: transparent; }
-        ::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.07); border-radius: 99px; }
+        ::-webkit-scrollbar-thumb { background: var(--panel-2); border-radius: 99px; }
         input:focus { border-color: rgba(59,130,246,0.35) !important; outline: none; }
         button:not([disabled]):hover { opacity: 0.8; }
         .bg-glow {
@@ -232,7 +232,7 @@ export default function MovimientosScreen({ profile, signOut }) {
                 <div key={r.id} className="mov-row" style={{
                   display: "grid", gridTemplateColumns: COLS, gap: 10,
                   padding: "12px 18px",
-                  borderBottom: `1px solid rgba(255,255,255,0.04)`,
+                  borderBottom: `1px solid var(--panel)`,
                   alignItems: "center",
                 }}>
                   <div style={{ fontFamily: C.mono, fontSize: 12, color: C.t2 }}>{fmt(r.created_at)}</div>

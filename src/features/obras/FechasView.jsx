@@ -220,6 +220,25 @@ export default function FechasView({ obras = [], lineas = [], esGestion = false,
     else supabase.from("produccion_obras").update({ [field]: val }).eq("id", obraId);
   }
 
+  // ── Resumen (KPIs) — recorre cada barco × evento y agrupa por urgencia ────────
+  const resumen = useMemo(() => {
+    let sinDesmolde = 0, ya = 0, pronto = 0;
+    filas.forEach((f) => {
+      const { efectivo } = withDesmolde(f);
+      const desm = parseISO(efectivo);
+      if (!desm) { sinDesmolde += 1; return; }
+      eventos.forEach((ev) => {
+        const off = getOffset(ev.key, f.token);
+        if (off === null) return;
+        const dias = diasHasta(addSemanas(desm, off));
+        if (dias === null || dias < 0) return;
+        if (dias < 14) ya += 1;
+        else if (dias < 30) pronto += 1;
+      });
+    });
+    return { total: filas.length, sinDesmolde, ya, pronto };
+  }, [filas, eventos, offsets, desmoldes]);
+
   // ── Estilos ──────────────────────────────────────────────────────────────────
   const th = {
     padding: "8px 10px", textAlign: "left", fontSize: 11, fontWeight: 700, color: C.t2,
@@ -238,7 +257,11 @@ export default function FechasView({ obras = [], lineas = [], esGestion = false,
   const rootStyle = { fontFamily: C.sans, flex: 1, minHeight: 0, overflowY: "auto",
     padding: isMobile ? 12 : "16px 18px" };
 
-  if (loading) return <div style={rootStyle}><div style={{ color: C.t2 }}>Cargando fechas…</div></div>;
+  if (loading) return (
+    <div style={{ ...rootStyle, display: "flex", alignItems: "center", justifyContent: "center" }}>
+      <div style={{ color: C.t2, fontSize: 12, letterSpacing: 1.3, textTransform: "uppercase" }}>Cargando fechas…</div>
+    </div>
+  );
 
   return (
     <div style={rootStyle}>
@@ -268,6 +291,18 @@ export default function FechasView({ obras = [], lineas = [], esGestion = false,
           </button>
         )}
       </div>
+
+      {/* ── Resumen (KPIs) ────────────────────────────────────────── */}
+      {filas.length > 0 && (
+        <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit,minmax(150px,1fr))", gap: 8, marginBottom: 14 }}>
+          <FvKpi label="Barcos en producción" value={resumen.total} color={C.cyan} />
+          <FvKpi label="Sin desmolde" value={resumen.sinDesmolde}
+            color={resumen.sinDesmolde ? C.amber : C.t2}
+            hint={resumen.sinDesmolde ? "Cargá la fecha para calcular sus eventos" : "Todos con fecha"} />
+          <FvKpi label="Eventos ≤ 14 días" value={resumen.ya} color={resumen.ya ? C.red : C.t2} />
+          <FvKpi label="Próximos · 15–30 días" value={resumen.pronto} color={resumen.pronto ? C.amber : C.t2} />
+        </div>
+      )}
 
       {err && (
         <div style={{ padding: "8px 12px", borderRadius: 8, background: "rgba(239,68,68,0.12)",
@@ -422,5 +457,16 @@ function Legend({ color, text }) {
       <span style={{ width: 9, height: 9, borderRadius: "50%", background: color, boxShadow: `0 0 6px ${color}80` }} />
       {text}
     </span>
+  );
+}
+
+function FvKpi({ label, value, color, hint }) {
+  return (
+    <div style={{ position: "relative", padding: "10px 12px", borderRadius: 10, background: "var(--panel)",
+      border: `1px solid ${C.b0}`, borderLeft: `3px solid ${color}`, overflow: "hidden" }}>
+      <div style={{ fontSize: 10, color: C.t2, letterSpacing: 0.8, textTransform: "uppercase", fontWeight: 700, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{label}</div>
+      <div style={{ fontFamily: C.mono, fontSize: 24, fontWeight: 800, color, lineHeight: 1.1, marginTop: 3 }}>{value}</div>
+      {hint && <div style={{ fontSize: 10.5, color: C.t3, marginTop: 3, lineHeight: 1.3 }}>{hint}</div>}
+    </div>
   );
 }

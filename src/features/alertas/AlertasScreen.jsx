@@ -25,7 +25,7 @@ const TIPO_LABEL = {
 };
 
 const filterBtn = (active, color) => ({
-  border: active ? `1px solid ${color ?? C.b1}` : `1px solid rgba(255,255,255,0.04)`,
+  border: active ? `1px solid ${color ?? C.b1}` : `1px solid var(--panel)`,
   background: active ? (color ? `${color}12` : C.s1) : "transparent",
   color: active ? (color ?? C.t0) : C.t2,
   padding: "3px 11px", borderRadius: 5, cursor: "pointer",
@@ -66,10 +66,10 @@ export default function AlertasScreen({ profile, signOut }) {
       <style>{`
         @import url('https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500;700&display=swap');
         *, *::before, *::after { box-sizing: border-box; }
-        select option { background: #0f0f12; color: var(--muted); }
+        select option { background: var(--panel-solid); color: var(--muted); }
         ::-webkit-scrollbar { width: 3px; height: 3px; }
         ::-webkit-scrollbar-track { background: transparent; }
-        ::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.07); border-radius: 99px; }
+        ::-webkit-scrollbar-thumb { background: var(--panel-2); border-radius: 99px; }
         input:focus, select:focus { border-color: rgba(59,130,246,0.35) !important; outline: none; }
         button:not([disabled]):hover { opacity: 0.8; }
         @keyframes slideUp { from{opacity:0;transform:translateY(10px)} to{opacity:1;transform:translateY(0)} }

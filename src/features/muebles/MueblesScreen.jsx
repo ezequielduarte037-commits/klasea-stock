@@ -11,13 +11,13 @@ import { C } from "@/theme";
 
 // ─── Design tokens ─────────────────────────────────────────────────
 const GLASS = { backdropFilter: "blur(32px) saturate(130%)", WebkitBackdropFilter: "blur(32px) saturate(130%)" };
-const INP   = { background: "rgba(255,255,255,0.04)", border: `1px solid ${C.b0}`, color: C.t0, padding: "7px 10px", borderRadius: 7, fontSize: 13, outline: "none", width: "100%", fontFamily: C.sans };
+const INP   = { background: "var(--panel)", border: `1px solid ${C.b0}`, color: C.t0, padding: "7px 10px", borderRadius: 7, fontSize: 13, outline: "none", width: "100%", fontFamily: C.sans };
 
 const BUCKET  = "muebles-galeria"; // bucket público en Supabase Storage
 const ESTADOS = ["No enviado", "Parcial", "Completo", "Rehacer"];
 const ESTADO_META = {
   "No enviado": { color: C.t2,    bg: "transparent" },
-  "Parcial":    { color: C.t1,    bg: "rgba(255,255,255,0.04)" },
+  "Parcial":    { color: C.t1,    bg: "var(--panel)" },
   "Completo":   { color: C.green, bg: "rgba(16,185,129,0.1)" },
   "Rehacer":    { color: C.red,   bg: "rgba(239,68,68,0.1)" },
 };
@@ -107,10 +107,10 @@ function MiniThumb({ muebleId, scopeType, scopeId, size = 52, onClick }) {
       onClick={onClick}
       style={{
         width: size, height: size, borderRadius: 8, flexShrink: 0,
-        background: "rgba(255,255,255,0.04)",
-        border: "1px solid rgba(255,255,255,0.07)",
+        background: "var(--panel)",
+        border: "1px solid var(--panel-2)",
         display: "flex", alignItems: "center", justifyContent: "center",
-        fontSize: 16, color: "rgba(255,255,255,0.1)",
+        fontSize: 16, color: "var(--border)",
         cursor: onClick ? "pointer" : "default",
       }}
     >🪑</div>
@@ -121,8 +121,8 @@ function MiniThumb({ muebleId, scopeType, scopeId, size = 52, onClick }) {
       style={{
         width: size, height: size, borderRadius: 8, flexShrink: 0,
         overflow: "hidden", cursor: onClick ? "pointer" : "default",
-        border: "1px solid rgba(255,255,255,0.1)",
-        background: "rgba(255,255,255,0.03)",
+        border: "1px solid var(--border)",
+        background: "var(--panel)",
       }}
     >
       <img
@@ -150,14 +150,14 @@ function Lightbox({ images, index, onClose, setIndex }) {
   if (!img) return null;
   return (
     <div onClick={onClose} style={{ position: "fixed", inset: 0, zIndex: 3000, background: "rgba(0,0,0,0.96)", display: "flex", alignItems: "center", justifyContent: "center" }}>
-      <button onClick={onClose} style={{ position: "absolute", top: 18, right: 18, background: "rgba(255,255,255,0.08)", border: `1px solid ${C.b0}`, color: C.t0, width: 34, height: 34, borderRadius: "50%", cursor: "pointer", fontSize: 17, display: "flex", alignItems: "center", justifyContent: "center", zIndex: 10 }}>×</button>
+      <button onClick={onClose} style={{ position: "absolute", top: 18, right: 18, background: "var(--panel-2)", border: `1px solid ${C.b0}`, color: C.t0, width: 34, height: 34, borderRadius: "50%", cursor: "pointer", fontSize: 17, display: "flex", alignItems: "center", justifyContent: "center", zIndex: 10 }}>×</button>
       <div style={{ position: "absolute", top: 22, left: "50%", transform: "translateX(-50%)", fontFamily: C.mono, fontSize: 12, color: C.t2, letterSpacing: 1.3 }}>{index + 1} / {images.length}</div>
-      {images.length > 1 && <button onClick={e => { e.stopPropagation(); setIndex(i => (i - 1 + images.length) % images.length); }} style={{ position: "absolute", left: 18, background: "rgba(255,255,255,0.08)", border: `1px solid ${C.b0}`, color: C.t0, width: 42, height: 42, borderRadius: "50%", cursor: "pointer", fontSize: 20, display: "flex", alignItems: "center", justifyContent: "center" }}>‹</button>}
+      {images.length > 1 && <button onClick={e => { e.stopPropagation(); setIndex(i => (i - 1 + images.length) % images.length); }} style={{ position: "absolute", left: 18, background: "var(--panel-2)", border: `1px solid ${C.b0}`, color: C.t0, width: 42, height: 42, borderRadius: "50%", cursor: "pointer", fontSize: 20, display: "flex", alignItems: "center", justifyContent: "center" }}>‹</button>}
       <div onClick={e => e.stopPropagation()} style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 10, maxWidth: "90vw", maxHeight: "90vh" }}>
         <img src={img.url} alt={img.nombre} style={{ maxWidth: "100%", maxHeight: "82vh", objectFit: "contain", borderRadius: 10 }} />
         <div style={{ fontSize: 12, color: C.t2, fontFamily: C.sans }}>{img.nombre}</div>
       </div>
-      {images.length > 1 && <button onClick={e => { e.stopPropagation(); setIndex(i => (i + 1) % images.length); }} style={{ position: "absolute", right: 18, background: "rgba(255,255,255,0.08)", border: `1px solid ${C.b0}`, color: C.t0, width: 42, height: 42, borderRadius: "50%", cursor: "pointer", fontSize: 20, display: "flex", alignItems: "center", justifyContent: "center" }}>›</button>}
+      {images.length > 1 && <button onClick={e => { e.stopPropagation(); setIndex(i => (i + 1) % images.length); }} style={{ position: "absolute", right: 18, background: "var(--panel-2)", border: `1px solid ${C.b0}`, color: C.t0, width: 42, height: 42, borderRadius: "50%", cursor: "pointer", fontSize: 20, display: "flex", alignItems: "center", justifyContent: "center" }}>›</button>}
     </div>
   );
 }
@@ -282,7 +282,7 @@ function GaleriaMueble({ muebleId, scopeType = "catalogo", scopeId = null, esAdm
         <div style={{ background: C.s0, border: `1px solid ${C.b0}`, borderRadius: 8, padding: 10, marginBottom: 10 }}>
           {progress.map((p, i) => (
             <div key={i} style={{ display: "flex", alignItems: "center", gap: 7, marginBottom: i < progress.length - 1 ? 4 : 0 }}>
-              <div style={{ flex: 1, height: 2, background: "rgba(255,255,255,0.06)", borderRadius: 99 }}>
+              <div style={{ flex: 1, height: 2, background: "var(--panel-2)", borderRadius: 99 }}>
                 <div style={{ height: "100%", width: p.done ? "100%" : "55%", background: p.error ? C.red : C.green, borderRadius: 99, transition: "width .4s" }} />
               </div>
               <span style={{ fontSize: 11, color: p.error ? C.red : p.done ? C.green : C.t2, maxWidth: 200, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
@@ -311,12 +311,12 @@ function GaleriaMueble({ muebleId, scopeType = "catalogo", scopeId = null, esAdm
               style={{ position: "relative", borderRadius: 7, overflow: "hidden", cursor: "pointer", aspectRatio: "4/3", background: C.s0, border: `1px solid ${C.b0}` }}>
               <img src={img.url} alt={img.nombre} loading="lazy" style={{ width: "100%", height: "100%", objectFit: "cover", display: "block" }} />
               <div className="gal-grad" style={{ position: "absolute", inset: 0, background: "linear-gradient(to top,rgba(0,0,0,0.65) 0%,transparent 50%)", opacity: 0, transition: "opacity .18s", pointerEvents: "none" }} />
-              {esAdmin && <button className="gal-del" onClick={e => eliminar(img, e)} style={{ position: "absolute", top: 4, right: 4, width: 18, height: 18, background: "rgba(0,0,0,0.72)", border: "1px solid rgba(255,255,255,0.15)", color: "#fff", borderRadius: "50%", cursor: "pointer", fontSize: 11, display: "flex", alignItems: "center", justifyContent: "center", opacity: 0, transition: "opacity .18s" }}>×</button>}
+              {esAdmin && <button className="gal-del" onClick={e => eliminar(img, e)} style={{ position: "absolute", top: 4, right: 4, width: 18, height: 18, background: "rgba(0,0,0,0.72)", border: "1px solid var(--border-2)", color: "#fff", borderRadius: "50%", cursor: "pointer", fontSize: 11, display: "flex", alignItems: "center", justifyContent: "center", opacity: 0, transition: "opacity .18s" }}>×</button>}
             </div>
           ))}
         </div>
       )}
-      <style>{`.gal-card:hover .gal-grad,.gal-card:hover .gal-del{opacity:1!important}.gal-card:hover{border-color:rgba(255,255,255,0.2)!important}`}</style>
+      <style>{`.gal-card:hover .gal-grad,.gal-card:hover .gal-del{opacity:1!important}.gal-card:hover{border-color:var(--border-2)!important}`}</style>
       {lightbox !== null && <Lightbox images={images} index={lightbox} onClose={() => setLightbox(null)} setIndex={setLightbox} />}
     </div>
   );
@@ -475,7 +475,7 @@ function CatalogoLinea({ lineaId, lineaNombre, esAdmin, onOpenMueble }) {
           <div style={{ display: "flex", gap: 6 }}>
             <button
               onClick={() => { if (!copiarMode) cargarTodasLineas(); setCopiarMode(v => !v); setShowAdd(false); }}
-              style={{ padding: "8px 14px", background: copiarMode ? C.s1 : "rgba(255,255,255,0.04)", border: `1px solid ${copiarMode ? C.b1 : C.b0}`, color: copiarMode ? C.t1 : C.t2, borderRadius: 8, cursor: "pointer", fontSize: 13, fontWeight: 600, fontFamily: C.sans }}
+              style={{ padding: "8px 14px", background: copiarMode ? C.s1 : "var(--panel)", border: `1px solid ${copiarMode ? C.b1 : C.b0}`, color: copiarMode ? C.t1 : C.t2, borderRadius: 8, cursor: "pointer", fontSize: 13, fontWeight: 600, fontFamily: C.sans }}
             >{copiarMode ? "Cancelar" : "Copiar de línea"}</button>
             <button onClick={() => { setShowAdd(v => !v); setCopiarMode(false); }} style={{ padding: "8px 16px", background: showAdd ? C.s1 : "rgba(59,130,246,0.12)", border: `1px solid ${showAdd ? C.b1 : "rgba(59,130,246,0.3)"}`, color: showAdd ? C.t1 : "#60a5fa", borderRadius: 8, cursor: "pointer", fontSize: 13, fontWeight: 600, fontFamily: C.sans }}>
               {showAdd ? "Cancelar" : "+ Nuevo mueble"}
@@ -551,9 +551,9 @@ function CatalogoLinea({ lineaId, lineaNombre, esAdmin, onOpenMueble }) {
         Object.entries(porSector).map(([sector, rows]) => (
           <div key={sector} style={{ marginBottom: 28 }}>
             {/* Sector header */}
-            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "0 0 10px", borderBottom: `1px solid rgba(255,255,255,0.06)`, marginBottom: 6 }}>
+            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "0 0 10px", borderBottom: `1px solid var(--panel-2)`, marginBottom: 6 }}>
               <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-                <div style={{ width: 3, height: 3, borderRadius: "50%", background: "rgba(255,255,255,0.25)" }} />
+                <div style={{ width: 3, height: 3, borderRadius: "50%", background: "var(--border-3)" }} />
                 <span style={{ fontSize: 11, letterSpacing: "0.15em", color: C.t1, textTransform: "uppercase", fontWeight: 700 }}>{sector}</span>
               </div>
               <span style={{ fontSize: 11, color: C.t2, fontFamily: C.mono }}>{rows.length}</span>
@@ -618,7 +618,7 @@ function CatalogoLinea({ lineaId, lineaNombre, esAdmin, onOpenMueble }) {
           </div>
         ))
       )}
-      <style>{`.mueble-row:hover{background:rgba(255,255,255,0.04)!important;border-color:rgba(255,255,255,0.07)!important}`}</style>
+      <style>{`.mueble-row:hover{background:var(--panel)!important;border-color:var(--panel-2)!important}`}</style>
     </div>
   );
 }
@@ -1087,7 +1087,7 @@ export default function MueblesScreen({ profile, signOut }) {
   const pctColor  = pct === 100 ? C.green : pct >= 50 ? C.t1 : C.t2;
   const stats     = useMemo(() => ({ total: checklist.length, completo: checklist.filter(r => r.estado === "Completo").length, parcial: checklist.filter(r => r.estado === "Parcial").length, rehacer: checklist.filter(r => r.estado === "Rehacer").length }), [checklist]);
 
-  const lineaNavBtn  = sel => ({ width: "100%", textAlign: "left", padding: "9px 14px", border: "none", borderBottom: `1px solid rgba(255,255,255,0.03)`, background: sel ? C.s1 : "transparent", color: sel ? C.t0 : C.t2, cursor: "pointer", fontSize: 13, fontWeight: sel ? 600 : 400, display: "flex", justifyContent: "space-between", alignItems: "center", fontFamily: C.sans });
+  const lineaNavBtn  = sel => ({ width: "100%", textAlign: "left", padding: "9px 14px", border: "none", borderBottom: `1px solid var(--panel)`, background: sel ? C.s1 : "transparent", color: sel ? C.t0 : C.t2, cursor: "pointer", fontSize: 13, fontWeight: sel ? 600 : 400, display: "flex", justifyContent: "space-between", alignItems: "center", fontFamily: C.sans });
   const unidadNavBtn = sel => ({ ...lineaNavBtn(sel), paddingLeft: 22, fontSize: 12, borderLeft: sel ? `2px solid ${C.b1}` : "2px solid transparent" });
   const estadoSt     = est => { const m = ESTADO_META[est] ?? ESTADO_META["No enviado"]; return { background: m.bg || C.s0, color: m.color, border: `1px solid ${m.color === C.t2 ? C.b0 : m.color+"44"}`, padding: "7px 10px", borderRadius: 9, fontSize: 12, fontWeight: 800, cursor: "pointer", outline: "none", fontFamily: C.sans }; };
   const estadoDot    = est => ESTADO_META[est]?.color ?? C.t2;
@@ -1099,12 +1099,12 @@ export default function MueblesScreen({ profile, signOut }) {
         @import url('https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500;700&display=swap');
         *, *::before, *::after { box-sizing: border-box; }
         ::-webkit-scrollbar { width: 3px; }
-        ::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.07); border-radius: 99px; }
+        ::-webkit-scrollbar-thumb { background: var(--panel-2); border-radius: 99px; }
         button:not([disabled]):hover { opacity: 0.8; }
         input:focus, select:focus, textarea:focus { border-color: rgba(59,130,246,0.35) !important; outline: none; }
-        select option { background: #0f0f12; color: var(--muted); }
+        select option { background: var(--panel-solid); color: var(--muted); }
         .bg-glow { position: fixed; inset: 0; pointer-events: none; z-index: 0; background: radial-gradient(ellipse 70% 38% at 50% -6%, rgba(59,130,246,0.07) 0%, transparent 65%); }
-        .checklist-row:hover { background: rgba(255,255,255,0.03) !important; }
+        .checklist-row:hover { background: var(--panel) !important; }
       `}</style>
       <div className="bg-glow" />
 
@@ -1114,10 +1114,10 @@ export default function MueblesScreen({ profile, signOut }) {
         <div style={{ display: "grid", gridTemplateColumns: isMobile ? "1fr" : "240px 1fr", gridTemplateRows: "1fr", minHeight: 0, height: "100%", overflow: "hidden" }}>
 
           {/* ── LEFT NAV ── (en mobile = menú master-detail a pantalla completa) */}
-          <div style={{ height: isMobile ? "100%" : "100vh", overflowY: "auto", borderRight: isMobile ? "none" : `1px solid ${C.b0}`, background: "rgba(9,9,11,0.98)", display: isMobile && !mobileShowNav ? "none" : "flex", flexDirection: "column" }}>
+          <div style={{ height: isMobile ? "100%" : "100vh", overflowY: "auto", borderRight: isMobile ? "none" : `1px solid ${C.b0}`, background: C.bg, display: isMobile && !mobileShowNav ? "none" : "flex", flexDirection: "column" }}>
             <div style={{ padding: isMobile ? "14px 12px 10px 52px" : "14px 12px 10px", borderBottom: `1px solid ${C.b0}`, flexShrink: 0 }}>
               {/* Switcher Muebles / Enchapadora */}
-              <div style={{ display: "flex", gap: 3, marginBottom: 8, background: "rgba(255,255,255,0.03)", borderRadius: 8, padding: 3, border: `1px solid ${C.b0}` }}>
+              <div style={{ display: "flex", gap: 3, marginBottom: 8, background: "var(--panel)", borderRadius: 8, padding: 3, border: `1px solid ${C.b0}` }}>
                 {[["muebles","Muebles"],["enchapadora","Enchapado"]].map(([key, label]) => (
                   <button
                     key={key}
@@ -1126,7 +1126,7 @@ export default function MueblesScreen({ profile, signOut }) {
                       flex: 1, padding: "6px 4px", borderRadius: 6, cursor: "pointer",
                       fontSize: 12, fontWeight: mainView === key ? 600 : 400,
                       fontFamily: C.sans, transition: "all .15s",
-                      background: mainView === key ? "rgba(255,255,255,0.07)" : "transparent",
+                      background: mainView === key ? "var(--panel-2)" : "transparent",
                       border: `1px solid ${mainView === key ? C.b0 : "transparent"}`,
                       color: mainView === key ? C.t0 : C.t2,
                     }}
@@ -1191,7 +1191,7 @@ export default function MueblesScreen({ profile, signOut }) {
                 position: "sticky", top: 0, zIndex: 5, width: "100%",
                 display: "flex", alignItems: "center", gap: 8,
                 padding: "11px 16px 11px 52px", border: "none",
-                borderBottom: `1px solid ${C.b0}`, background: "rgba(9,9,11,0.98)",
+                borderBottom: `1px solid ${C.b0}`, background: C.bg,
                 color: C.t1, fontSize: 13, fontWeight: 700, fontFamily: C.sans, cursor: "pointer",
               }}>
                 ‹ Volver al menú
@@ -1341,7 +1341,7 @@ export default function MueblesScreen({ profile, signOut }) {
                 {selMode && (
                   <div style={{
                     position: "sticky", top: 0, zIndex: 50,
-                    background: "rgba(14,18,28,0.97)",
+                    background: C.panelSolid,
                     backdropFilter: "blur(20px)", WebkitBackdropFilter: "blur(20px)",
                     border: `1px solid rgba(59,130,246,0.25)`,
                     borderRadius: 10, padding: "10px 14px", marginBottom: 14,
@@ -1443,7 +1443,7 @@ export default function MueblesScreen({ profile, signOut }) {
                     </div>
                     <span style={{ fontFamily: C.mono, fontSize: 26, fontWeight: 700, color: pctColor, letterSpacing: "-0.02em" }}>{pct}%</span>
                   </div>
-                  <div style={{ height: 4, background: "rgba(255,255,255,0.05)", borderRadius: 99, overflow: "hidden" }}>
+                  <div style={{ height: 4, background: "var(--panel)", borderRadius: 99, overflow: "hidden" }}>
                     <div style={{ height: "100%", width: `${pct}%`, background: pctColor, borderRadius: 99, transition: "width .5s ease" }} />
                   </div>
                 </div>
@@ -1464,7 +1464,7 @@ export default function MueblesScreen({ profile, signOut }) {
                     const completados = rows.filter(r => r.estado === "Completo").length;
                     return (
                       <div key={sector} style={{ marginBottom: 24 }}>
-                        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "0 0 10px", borderBottom: `1px solid rgba(255,255,255,0.06)`, marginBottom: 4 }}>
+                        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "0 0 10px", borderBottom: `1px solid var(--panel-2)`, marginBottom: 4 }}>
                           <div
                             style={{ display: "flex", alignItems: "center", gap: 8, cursor: selMode ? "pointer" : "default" }}
                             onClick={() => {
@@ -1481,14 +1481,14 @@ export default function MueblesScreen({ profile, signOut }) {
                             {selMode && (
                               <div style={{
                                 width: 15, height: 15, borderRadius: 4, flexShrink: 0,
-                                border: `2px solid ${rows.every(r => selIds.has(r.id)) ? "#3b82f6" : "rgba(255,255,255,0.15)"}`,
+                                border: `2px solid ${rows.every(r => selIds.has(r.id)) ? "#3b82f6" : "var(--border-2)"}`,
                                 background: rows.every(r => selIds.has(r.id)) ? "#3b82f6" : "transparent",
                                 display: "flex", alignItems: "center", justifyContent: "center",
                               }}>
                                 {rows.every(r => selIds.has(r.id)) && <span style={{ color: "#fff", fontSize: 10, fontWeight: 700 }}>✓</span>}
                               </div>
                             )}
-                            <div style={{ width: 3, height: 3, borderRadius: "50%", background: "rgba(255,255,255,0.25)" }} />
+                            <div style={{ width: 3, height: 3, borderRadius: "50%", background: "var(--border-3)" }} />
                             <span style={{ fontSize: 11, letterSpacing: "0.15em", color: C.t1, textTransform: "uppercase", fontWeight: 700 }}>{sector}</span>
                           </div>
                           <span style={{ fontSize: 11, color: C.t2, fontFamily: C.mono }}>{completados}/{rows.length}</span>
@@ -1507,7 +1507,7 @@ export default function MueblesScreen({ profile, signOut }) {
                                 gap: 14, alignItems: "center",
                                 padding: "10px 8px",
                                 borderRadius: 9,
-                                borderBottom: "1px solid rgba(255,255,255,0.03)",
+                                borderBottom: "1px solid var(--panel)",
                                 transition: "background .15s",
                                 cursor: selMode ? "pointer" : "default",
                                 background: isSel ? "rgba(59,130,246,0.07)" : "transparent",
@@ -1518,7 +1518,7 @@ export default function MueblesScreen({ profile, signOut }) {
                               {selMode && (
                                 <div style={{
                                   width: 18, height: 18, borderRadius: 5, flexShrink: 0,
-                                  border: `2px solid ${isSel ? "#3b82f6" : "rgba(255,255,255,0.15)"}`,
+                                  border: `2px solid ${isSel ? "#3b82f6" : "var(--border-2)"}`,
                                   background: isSel ? "#3b82f6" : "transparent",
                                   display: "flex", alignItems: "center", justifyContent: "center",
                                   transition: "all .12s",

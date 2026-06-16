@@ -545,7 +545,7 @@ export default function MapaProduccion({obras=[],onPuestoClick,onAsignarObra,onC
             <g style={{pointerEvents:"none", userSelect:"none"}} clipPath={`url(#${clipId})`}>
               <BoatImage opacity={0.60}/>
               <rect x={ix} y={iy} width={p.w} height={p.h} rx={Math.min(p.w,p.h)*0.06}
-                fill="none" stroke="rgba(255,255,255,0.20)" strokeWidth="1.2"
+                fill="none" stroke="var(--border-2)" strokeWidth="1.2"
                 strokeDasharray="6 4" style={{animation:"scan-line 15s linear infinite"}}/>
               <path d={`M${p.cx-10},${p.cy} L${p.cx+10},${p.cy} M${p.cx},${p.cy-10} L${p.cx},${p.cy+10}`}
                 stroke="rgba(255,255,255,0.35)" strokeWidth="1.2"/>
@@ -666,7 +666,10 @@ export default function MapaProduccion({obras=[],onPuestoClick,onAsignarObra,onC
 
 
   return(
-    <div style={{width:"100%",height:"100%",position:"relative",overflow:"hidden",fontFamily:C.sans,background:C.bg}}>
+    // El mapa es un "blueprint": las PNG de los barcos usan mixBlendMode:"screen"
+    // (negro = transparente), por lo que SIEMPRE necesita fondo oscuro. Si dejáramos
+    // C.bg, en modo claro el fondo se vuelve #f4f5f7 y el blend lava todo a blanco.
+    <div style={{width:"100%",height:"100%",position:"relative",overflow:"hidden",fontFamily:C.sans,background:"#09090b"}}>
       {activeView === "pampa" ? (
         <GalponPampa
           obras={obras}
@@ -702,8 +705,8 @@ export default function MapaProduccion({obras=[],onPuestoClick,onAsignarObra,onC
         @keyframes line-breathe {0%,100%{stroke-opacity:0.25} 50%{stroke-opacity:0.55}}
         @keyframes kpi-slideIn  {from{opacity:0;transform:translateY(12px) scale(0.97)}to{opacity:1;transform:translateY(0) scale(1)}}
         @keyframes shimmerScan  {0%,100%{fill:rgba(255,255,255,0)}48%,52%{fill:rgba(255,255,255,0.13)}}
-        .glass-btn{background:rgba(255,255,255,0.03);border:1px solid rgba(255,255,255,0.08);color:${C.t1};transition:all 0.2s;}
-        .glass-btn:hover{background:rgba(255,255,255,0.08);color:${C.t0};border-color:rgba(255,255,255,0.2);}
+        .glass-btn{background:var(--panel);border:1px solid var(--panel-2);color:${C.t1};transition:all 0.2s;}
+        .glass-btn:hover{background:var(--panel-2);color:${C.t0};border-color:var(--border-2);}
       `}</style>
 
       <svg ref={svgRef} style={{position:"absolute",inset:0,width:"100%",height:"100%",display:"block",cursor:isDragging?"grabbing":"grab"}} onMouseDown={startPan} onContextMenu={e=>e.preventDefault()}>
@@ -727,7 +730,7 @@ export default function MapaProduccion({obras=[],onPuestoClick,onAsignarObra,onC
             );
           })}
           <pattern id="dotGrid" x={gsx} y={gsy} width={gsz} height={gsz} patternUnits="userSpaceOnUse">
-            <path d={`M ${gsz} 0 L 0 0 0 ${gsz}`} fill="none" stroke="rgba(255,255,255,0.04)" strokeWidth="0.5"/>
+            <path d={`M ${gsz} 0 L 0 0 0 ${gsz}`} fill="none" stroke="var(--panel)" strokeWidth="0.5"/>
           </pattern>
           <linearGradient id="hl" x1="0%" y1="0%" x2="0%" y2="100%">
             <stop offset="0%"   stopColor="#ffffff" stopOpacity="0.15"/>
@@ -739,8 +742,8 @@ export default function MapaProduccion({obras=[],onPuestoClick,onAsignarObra,onC
         <rect width="100%" height="100%" fill={C.bg}/>
         <rect width="100%" height="100%" fill="none" stroke="none"/>
         <g transform={`translate(${vp.x},${vp.y}) scale(${vp.scale})`}>
-          <rect x="5" y="5" width={VB_W-10} height={VB_H-10} rx="8" fill="rgba(255,255,255,0.01)" stroke="rgba(255,255,255,0.15)" strokeWidth="2"/>
-          {ZONAS.map(z=>{const bc=z.bc||"rgba(255,255,255,0.15)";return(
+          <rect x="5" y="5" width={VB_W-10} height={VB_H-10} rx="8" fill="rgba(255,255,255,0.01)" stroke="var(--border-2)" strokeWidth="2"/>
+          {ZONAS.map(z=>{const bc=z.bc||"var(--border-2)";return(
             <g key={z.id}>
               <rect x={z.x} y={z.y} width={z.w} height={z.h} rx="4" fill={`rgba(255,255,255,${z.dim?0.01:0.02})`} stroke={bc} strokeOpacity={z.bc?0.8:0.4} strokeWidth={z.bc?1.5:1} strokeDasharray={z.dashed?"8 6":"none"}/>
               <text x={z.x+z.w/2} y={z.y+z.h/2-(z.label.split("\n").length-1)*6} textAnchor="middle" fill={z.bc?bc:"rgba(255,255,255,0.4)"} fontSize={z.small?"7":"9"} fontFamily={C.sans} fontWeight={z.bc?"600":"500"} letterSpacing="1" style={{userSelect:"none",pointerEvents:"none"}}>
@@ -748,7 +751,7 @@ export default function MapaProduccion({obras=[],onPuestoClick,onAsignarObra,onC
               </text>
             </g>
           );})}
-          {WALLS.map(([x1,y1,x2,y2],i)=><line key={i} x1={x1} y1={y1} x2={x2} y2={y2} stroke="rgba(255,255,255,0.12)" strokeWidth="1.5"/>)}
+          {WALLS.map(([x1,y1,x2,y2],i)=><line key={i} x1={x1} y1={y1} x2={x2} y2={y2} stroke="var(--border)" strokeWidth="1.5"/>)}
 
           <g style={{opacity:(activeFocusId&&focusedP)?0.10:1,transition:"opacity 0.4s ease",pointerEvents:(activeFocusId&&focusedP)?"none":"auto"}}>
             {(activeFocusId?puestos.filter(p=>p.id!==activeFocusId):puestos).map(p=>renderBoat(p))}
@@ -824,7 +827,7 @@ export default function MapaProduccion({obras=[],onPuestoClick,onAsignarObra,onC
             </button>
             <button className="glass-btn" onClick={()=>setCmdPaletteOpen(true)} style={{padding:"8px 14px",borderRadius:8,cursor:"pointer",fontSize:12,fontFamily:C.sans,fontWeight: 700,display:"flex",alignItems:"center",gap:8}}>
               <span>⌘</span>
-              <span style={{color:C.t2,fontFamily:C.mono,fontSize:11,background:"rgba(255,255,255,0.05)",border:`1px solid ${C.b0}`,padding:"1px 6px",borderRadius:5}}>K</span>
+              <span style={{color:C.t2,fontFamily:C.mono,fontSize:11,background:"var(--panel)",border:`1px solid ${C.b0}`,padding:"1px 6px",borderRadius:5}}>K</span>
             </button>
             {editMode&&(
               <div style={{display:"flex",gap:4,alignItems:"center",background:"rgba(0,0,0,0.3)",borderRadius:8,padding:"4px",border:"1px solid rgba(16,185,129,0.3)"}}>
@@ -882,7 +885,7 @@ export default function MapaProduccion({obras=[],onPuestoClick,onAsignarObra,onC
               <div style={{display:"flex",alignItems:"center",gap:8}}>
                 <div style={{width:10,height:10,borderRadius:5,background:oC.glow,boxShadow:obra?`0 0 12px ${oC.glow}`:"none"}}/>
                 <span style={{fontFamily:C.mono,fontSize:15,color:C.t0,fontWeight:700}}>{obra?obra.codigo:`Puesto ${tooltip.puesto.label}`}</span>
-                {obra?.tipo_cabina&&<span style={{fontSize:10,letterSpacing:1,color:"rgba(255,255,255,0.3)",background:"rgba(255,255,255,0.06)",padding:"1px 5px",borderRadius:3}}>{obra.tipo_cabina}</span>}
+                {obra?.tipo_cabina&&<span style={{fontSize:10,letterSpacing:1,color:"rgba(255,255,255,0.3)",background:"var(--panel-2)",padding:"1px 5px",borderRadius:3}}>{obra.tipo_cabina}</span>}
               </div>
               <span style={{fontSize:10,letterSpacing:1.1,textTransform:"uppercase",color:oC.glow,fontWeight: 700,background:`${oC.glow}15`,padding:"2px 6px",borderRadius:4}}>{oC.label}</span>
             </div>
@@ -899,7 +902,7 @@ export default function MapaProduccion({obras=[],onPuestoClick,onAsignarObra,onC
 
             {/* Ficha técnica */}
             {hasFicha&&(
-              <div style={{display:"flex",flexDirection:"column",gap:5,marginBottom:10,paddingBottom:10,borderBottom:"1px solid rgba(255,255,255,0.06)"}}>
+              <div style={{display:"flex",flexDirection:"column",gap:5,marginBottom:10,paddingBottom:10,borderBottom:"1px solid var(--panel-2)"}}>
                 <SpecRow label="Motor"  val={obra.motores}/>
                 <SpecRow label="Chapa"  val={obra.madera_muebles}/>
                 <SpecRow label="Casco"  val={obra.color_casco}/>
@@ -919,7 +922,7 @@ export default function MapaProduccion({obras=[],onPuestoClick,onAsignarObra,onC
                 <div style={{display:"flex",justifyContent:"space-between",fontSize:11,fontFamily:C.mono,color:C.t1}}>
                   <span>Progreso</span><span style={{color:oC.glow,fontWeight:700}}>{obra._pct??0}%</span>
                 </div>
-                <div style={{width:"100%",height:4,background:"rgba(255,255,255,0.08)",borderRadius:2,overflow:"hidden"}}>
+                <div style={{width:"100%",height:4,background:"var(--panel-2)",borderRadius:2,overflow:"hidden"}}>
                   <div style={{height:"100%",width:`${obra._pct??0}%`,background:oC.glow,boxShadow:`0 0 10px ${oC.glow}`}}/>
                 </div>
                 <div style={{fontSize:11,color:C.t2,marginTop:4}}>Click-derecho → menú · F → enfocar</div>
@@ -954,7 +957,7 @@ export default function MapaProduccion({obras=[],onPuestoClick,onAsignarObra,onC
           <div style={{display:"flex",gap:12,alignItems:"center",padding:"6px 18px",borderRadius:30,background:"rgba(0,0,0,0.4)",border:`1px solid ${C.b0}`,backdropFilter:"blur(8px)"}}>
             {[["RUEDA","Zoom"],["DRAG","Pan"],["CLICK","Gestionar"],["CLICK-DER","Menú Radial"],["F","Enfocar"],["⌘K","Buscar"]].map(([key,label])=>(
               <span key={key} style={{fontSize:10,color:C.t2,letterSpacing:1.1}}>
-                <span style={{fontFamily:C.mono,color:C.t1,background:"rgba(255,255,255,0.05)",padding:"1px 5px",borderRadius:4,fontSize:10}}>{key}</span>{" "}{label}
+                <span style={{fontFamily:C.mono,color:C.t1,background:"var(--panel)",padding:"1px 5px",borderRadius:4,fontSize:10}}>{key}</span>{" "}{label}
               </span>
             ))}
           </div>
@@ -977,7 +980,7 @@ export default function MapaProduccion({obras=[],onPuestoClick,onAsignarObra,onC
               background:"rgba(6,6,14,0.97)",
               backdropFilter:"blur(24px)",
               WebkitBackdropFilter:"blur(24px)",
-              border:`1px solid rgba(255,255,255,0.1)`,
+              border:`1px solid var(--border)`,
               borderRadius:14,
               padding:"8px",
               display:"flex",
@@ -989,7 +992,7 @@ export default function MapaProduccion({obras=[],onPuestoClick,onAsignarObra,onC
               fontFamily:C.sans,
             }} onClick={e=>e.stopPropagation()}>
               {/* Header */}
-              <div style={{padding:"6px 10px 8px",borderBottom:"1px solid rgba(255,255,255,0.06)",marginBottom:2}}>
+              <div style={{padding:"6px 10px 8px",borderBottom:"1px solid var(--panel-2)",marginBottom:2}}>
                 <div style={{display:"flex",alignItems:"center",gap:7}}>
                   <div style={{width:7,height:7,borderRadius:"50%",background:oC2.glow,boxShadow:`0 0 8px ${oC2.glow}`}}/>
                   <span style={{fontFamily:C.mono,fontSize:14,fontWeight:800,color:"var(--text)",letterSpacing:0.3}}>{o2.codigo}</span>
@@ -999,12 +1002,12 @@ export default function MapaProduccion({obras=[],onPuestoClick,onAsignarObra,onC
               {/* Botón Etapas */}
               <button onClick={()=>{setClickMenu(null);onPuestoClick?.({puesto:p2,obra:o2});}} style={{
                 display:"flex",alignItems:"center",gap:10,padding:"9px 12px",
-                borderRadius:9,border:"1px solid rgba(255,255,255,0.06)",
-                background:"rgba(255,255,255,0.03)",cursor:"pointer",
+                borderRadius:9,border:"1px solid var(--panel-2)",
+                background:"var(--panel)",cursor:"pointer",
                 fontFamily:C.sans,textAlign:"left",transition:"all 0.12s",
               }}
                 onMouseEnter={e=>{e.currentTarget.style.background="rgba(96,165,250,0.1)";e.currentTarget.style.borderColor="rgba(96,165,250,0.3)";}}
-                onMouseLeave={e=>{e.currentTarget.style.background="rgba(255,255,255,0.03)";e.currentTarget.style.borderColor="rgba(255,255,255,0.06)";}}>
+                onMouseLeave={e=>{e.currentTarget.style.background="var(--panel)";e.currentTarget.style.borderColor="var(--panel-2)";}}>
                 <div style={{width:28,height:28,borderRadius:8,background:"rgba(96,165,250,0.12)",border:"1px solid rgba(96,165,250,0.2)",display:"flex",alignItems:"center",justifyContent:"center",flexShrink:0}}>
                   <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="#60a5fa" strokeWidth="1.8" strokeLinecap="round">
                     <polyline points="9 11 12 14 22 4"/><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"/>
@@ -1012,18 +1015,18 @@ export default function MapaProduccion({obras=[],onPuestoClick,onAsignarObra,onC
                 </div>
                 <div>
                   <div style={{fontSize:13,fontWeight:600,color:"var(--text)"}}>Etapas</div>
-                  <div style={{fontSize:10,color:"rgba(255,255,255,0.28)",marginTop:1}}>Progreso y tareas</div>
+                  <div style={{fontSize:10,color:"var(--border-3)",marginTop:1}}>Progreso y tareas</div>
                 </div>
               </button>
               {/* Botón Memoria */}
               <button onClick={()=>{setClickMenu(null);setFocusedPuesto(p2.id);centerOnPuesto(p2);}} style={{
                 display:"flex",alignItems:"center",gap:10,padding:"9px 12px",
-                borderRadius:9,border:"1px solid rgba(255,255,255,0.06)",
-                background:"rgba(255,255,255,0.03)",cursor:"pointer",
+                borderRadius:9,border:"1px solid var(--panel-2)",
+                background:"var(--panel)",cursor:"pointer",
                 fontFamily:C.sans,textAlign:"left",transition:"all 0.12s",
               }}
                 onMouseEnter={e=>{e.currentTarget.style.background=`${oC2.glow}15`;e.currentTarget.style.borderColor=`${oC2.glow}35`;}}
-                onMouseLeave={e=>{e.currentTarget.style.background="rgba(255,255,255,0.03)";e.currentTarget.style.borderColor="rgba(255,255,255,0.06)";}}>
+                onMouseLeave={e=>{e.currentTarget.style.background="var(--panel)";e.currentTarget.style.borderColor="var(--panel-2)";}}>
                 <div style={{width:28,height:28,borderRadius:8,background:`${oC2.glow}15`,border:`1px solid ${oC2.glow}25`,display:"flex",alignItems:"center",justifyContent:"center",flexShrink:0}}>
                   <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke={oC2.glow} strokeWidth="1.8" strokeLinecap="round">
                     <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/>
@@ -1032,7 +1035,7 @@ export default function MapaProduccion({obras=[],onPuestoClick,onAsignarObra,onC
                 </div>
                 <div>
                   <div style={{fontSize:13,fontWeight:600,color:"var(--text)"}}>Memoria</div>
-                  <div style={{fontSize:10,color:"rgba(255,255,255,0.28)",marginTop:1}}>Ficha descriptiva</div>
+                  <div style={{fontSize:10,color:"var(--border-3)",marginTop:1}}>Ficha descriptiva</div>
                 </div>
               </button>
             </div>

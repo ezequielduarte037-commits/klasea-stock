@@ -15,8 +15,8 @@ const D = {
   card:    "var(--avisos-card, #10101A)",
   cardHov: "var(--avisos-card-hover, #14141F)",
   input:   "var(--avisos-input, #1A1A28)",
-  line:    "var(--avisos-line, rgba(255,255,255,0.05))",
-  line2:   "var(--avisos-line-2, rgba(255,255,255,0.09))",
+  line:    "var(--avisos-line, var(--panel))",
+  line2:   "var(--avisos-line-2, var(--panel-3))",
   line3:   "var(--avisos-line-3, rgba(255,255,255,0.14))",
 
   t1: "var(--avisos-t1, #F0F0FA)",
@@ -41,7 +41,7 @@ const D = {
   // Gris oscuro — futuro
   bl:   "var(--avisos-blue, #555570)",
   blBg: "var(--avisos-blue-bg, transparent)",
-  blBd: "var(--avisos-blue-border, rgba(255,255,255,0.07))",
+  blBd: "var(--avisos-blue-border, var(--panel-2))",
 
   // Verde apagado — resuelto
   gr:   "var(--avisos-green, #4A9B6A)",

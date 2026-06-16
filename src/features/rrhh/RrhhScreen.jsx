@@ -53,9 +53,9 @@ export default function RrhhScreen({ profile, signOut }) {
       <style>{`
         *, *::before, *::after { box-sizing: border-box; }
         ::-webkit-scrollbar { width: 4px; height: 4px; }
-        ::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.08); border-radius: 99px; }
+        ::-webkit-scrollbar-thumb { background: var(--panel-2); border-radius: 99px; }
         input:focus, select:focus { border-color: rgba(59,130,246,0.35) !important; }
-        select option { background: #0f0f12; color: var(--muted); }
+        select option { background: var(--panel-solid); color: var(--muted); }
       `}</style>
 
       <Sidebar profile={profile} signOut={signOut} />

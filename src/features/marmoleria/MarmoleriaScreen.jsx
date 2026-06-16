@@ -12,7 +12,7 @@ import logoKlaseA from "@/assets/logos/logo-klasea.png";
 // ── ESTADO META ───────────────────────────────────────────────────
 const ESTADOS = ["Pendiente", "Enviado", "Recibido", "No lleva", "Rehacer"];
 const ESTADO_META = {
-  "Pendiente": { color: "#566070", bg: "rgba(255,255,255,0.04)", border: "rgba(255,255,255,0.1)",  dot: "○", label: "Pendiente" },
+  "Pendiente": { color: "#566070", bg: "var(--panel)", border: "var(--border)",  dot: "○", label: "Pendiente" },
   "Enviado":   { color: "#f3f7fc", bg: "rgba(168,180,196,0.1)",  border: "rgba(168,180,196,0.25)", dot: "◑", label: "Enviado"   },
   "Recibido":  { color: "#10b981", bg: "rgba(61,206,106,0.1)",   border: "rgba(61,206,106,0.3)",   dot: "●", label: "Recibido"  },
   "No lleva":  { color: "#2c3040", bg: "transparent",            border: "transparent",            dot: "—", label: "No lleva" },
@@ -169,7 +169,7 @@ function PiezaModal({ pieza, onClose, onSave, esAdmin }) {
   const S = {
     overlay: {
       position:"fixed", inset:0, zIndex:1000,
-      background:"rgba(9,9,11,0.88)",
+      background:"var(--topbar)",
       backdropFilter:"blur(40px) saturate(140%)",
       WebkitBackdropFilter:"blur(40px) saturate(140%)",
       display:"flex", alignItems:"center", justifyContent:"center",
@@ -178,14 +178,14 @@ function PiezaModal({ pieza, onClose, onSave, esAdmin }) {
       background:"rgba(6,10,22,0.96)",
       backdropFilter:"blur(60px)",
       WebkitBackdropFilter:"blur(60px)",
-      border:"1px solid rgba(255,255,255,0.12)",
+      border:"1px solid var(--border)",
       borderRadius:18, padding:"28px 26px", width:"min(520px,92vw)",
       maxHeight:"88vh", overflowY:"auto", position:"relative",
-      boxShadow:"0 32px 80px rgba(0,0,0,0.8), inset 0 1px 0 rgba(255,255,255,0.06)",
+      boxShadow:"0 32px 80px rgba(0,0,0,0.8), inset 0 1px 0 var(--panel-2)",
     },
     close: {
       position:"absolute", top:16, right:16,
-      background:"rgba(255,255,255,0.05)", border:"1px solid rgba(255,255,255,0.1)",
+      background:"var(--panel)", border:"1px solid var(--border)",
       color:"rgba(255,255,255,0.5)", width:28, height:28, borderRadius:"50%",
       cursor:"pointer", fontSize:18, lineHeight:1,
       display:"flex", alignItems:"center", justifyContent:"center",
@@ -196,12 +196,12 @@ function PiezaModal({ pieza, onClose, onSave, esAdmin }) {
       marginBottom:6, marginTop:16, textTransform:"uppercase", fontWeight:600 
     },
     input: {
-      background:"rgba(255,255,255,0.04)", border:"1px solid rgba(255,255,255,0.09)",
+      background:"var(--panel)", border:"1px solid var(--panel-3)",
       color:"var(--text)", padding:"9px 12px", borderRadius:9, width:"100%", fontSize:14,
       outline:"none", boxSizing:"border-box", transition:"border-color 0.15s",
     },
     textarea: {
-      background:"rgba(255,255,255,0.04)", border:"1px solid rgba(255,255,255,0.09)",
+      background:"var(--panel)", border:"1px solid var(--panel-3)",
       color:"var(--text)", padding:"9px 12px", borderRadius:9, width:"100%",
       fontSize:14, resize:"vertical", minHeight:70, outline:"none", boxSizing:"border-box",
     },
@@ -253,7 +253,7 @@ function PiezaModal({ pieza, onClose, onSave, esAdmin }) {
           value={form.foto_ref} onChange={e => setForm(f=>({...f,foto_ref:e.target.value}))} />
 
         {form.foto_ref && form.foto_ref.startsWith("http") && (
-          <img src={form.foto_ref} alt="" style={{ width:"100%", borderRadius:10, marginTop:10, maxHeight:200, objectFit:"contain", background:"#000" }} />
+          <img src={form.foto_ref} loading="lazy" alt="" style={{ width:"100%", borderRadius:10, marginTop:10, maxHeight:200, objectFit:"contain", background:"#000" }} />
         )}
 
         <button style={S.btnSave} onClick={() => { onSave(pieza.id, form); onClose(); }}>
@@ -806,10 +806,10 @@ export default function MarmoleriaScreen({ profile, signOut }) {
   // ── ESTILOS ───────────────────────────────────────────────────
   const C2 = {
     bg:      "var(--mrm-bg, #07080d)",
-    s0:      "var(--mrm-s0, rgba(255,255,255,0.03))",
+    s0:      "var(--mrm-s0, var(--panel))",
     s1:      "var(--mrm-s1, rgba(255,255,255,0.055))",
-    input:   "var(--mrm-input, rgba(255,255,255,0.04))",
-    b0:      "var(--mrm-b0, rgba(255,255,255,0.07))",
+    input:   "var(--mrm-input, var(--panel))",
+    b0:      "var(--mrm-b0, var(--panel-2))",
     b1:      "var(--mrm-b1, rgba(255,255,255,0.14))",
     t0:      "var(--mrm-t0, #eeeef0)",
     t1:      "var(--mrm-t1, #9da3b0)",
@@ -923,16 +923,16 @@ export default function MarmoleriaScreen({ profile, signOut }) {
         select option { background:var(--mrm-option-bg, #0a0c12); color:var(--mrm-option-text, #9da3b0); }
         ::-webkit-scrollbar { width:2px; height:2px; }
         ::-webkit-scrollbar-track { background:transparent; }
-        ::-webkit-scrollbar-thumb { background:rgba(255,255,255,0.06); border-radius:99px; }
+        ::-webkit-scrollbar-thumb { background:var(--panel-2); border-radius:99px; }
         input:focus, select:focus, textarea:focus { border-color:rgba(59,130,246,0.4) !important; outline:none; }
         @keyframes slideUp   { from{opacity:0;transform:translateY(12px)} to{opacity:1;transform:translateY(0)} }
         @keyframes slideLeft { from{opacity:0;transform:translateX(8px)}  to{opacity:1;transform:translateX(0)} }
         @keyframes kpiFadeIn { from{opacity:0;transform:translateY(8px) scale(0.97)} to{opacity:1;transform:none} }
         .pieza-row:hover { background:rgba(255,255,255,0.022) !important; }
-        .dash-row:hover  { background:rgba(255,255,255,0.025) !important; }
-        .nav-btn-item:hover { background:var(--mrm-hover-bg, rgba(255,255,255,0.03)) !important; color:var(--mrm-hover-text, #9da3b0) !important; }
+        .dash-row:hover  { background:var(--panel) !important; }
+        .nav-btn-item:hover { background:var(--mrm-hover-bg, var(--panel)) !important; color:var(--mrm-hover-text, #9da3b0) !important; }
         .kpi-card { transition:transform 0.18s ease, border-color 0.18s ease; }
-        .kpi-card:hover { transform:translateY(-2px) !important; border-color:rgba(255,255,255,0.1) !important; }
+        .kpi-card:hover { transform:translateY(-2px) !important; border-color:var(--border) !important; }
         .action-btn:hover { opacity:0.75; }
         .edit-btn:hover { color:var(--mrm-edit-hover-text, #eeeef0) !important; }
         .del-btn:hover  { color:#ef4444 !important; }
@@ -1336,10 +1336,10 @@ export default function MarmoleriaScreen({ profile, signOut }) {
                       )}
                     </div>
 
-                    <div className="mrm-scroll" style={{ background:"rgba(255,255,255,0.02)", border:`1px solid ${C2.b0}`, borderRadius:12, overflowX: isMobile ? "auto" : "hidden", overflowY:"hidden" }}>
+                    <div className="mrm-scroll" style={{ background:"var(--panel)", border:`1px solid ${C2.b0}`, borderRadius:12, overflowX: isMobile ? "auto" : "hidden", overflowY:"hidden" }}>
                       <div style={{ display:"grid", gridTemplateColumns:"55px 76px 100px 50px 110px 90px 130px",
                         gap:8, padding:"9px 16px", borderBottom:`1px solid ${C2.b0}`,
-                        background:"rgba(255,255,255,0.02)" }}>
+                        background:"var(--panel)" }}>
                         {["Línea","Barco","Desmolde","Gap","Est. plantilla","Días","Estado"].map((h,i) => (
                           <div key={i} style={{ fontSize:10, letterSpacing:1.3, textTransform:"uppercase", color:C2.t2, fontWeight:700, fontFamily:C2.mono }}>{h}</div>
                         ))}
@@ -1405,7 +1405,7 @@ export default function MarmoleriaScreen({ profile, signOut }) {
                     </div>
                     <button className="action-btn" onClick={() => setShowSQLModal(true)} style={{
                       display:"flex", alignItems:"center", gap:6, padding:"7px 13px", borderRadius:8, cursor:"pointer",
-                      border:`1px solid ${C2.b0}`, background:"rgba(255,255,255,0.03)", color:C2.t2,
+                      border:`1px solid ${C2.b0}`, background:"var(--panel)", color:C2.t2,
                       fontFamily:C2.mono, fontSize:12, transition:"opacity 0.15s",
                     }}>
                       <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round">
@@ -1439,10 +1439,10 @@ export default function MarmoleriaScreen({ profile, signOut }) {
                     return (
                       <>
                         {/* Tabla principal */}
-                        <div className="mrm-scroll" style={{ background:"rgba(255,255,255,0.02)", border:`1px solid ${C2.b0}`, borderRadius:12, overflowX: isMobile ? "auto" : "hidden", overflowY:"hidden" }}>
+                        <div className="mrm-scroll" style={{ background:"var(--panel)", border:`1px solid ${C2.b0}`, borderRadius:12, overflowX: isMobile ? "auto" : "hidden", overflowY:"hidden" }}>
                           <div style={{ display:"grid", gridTemplateColumns:"80px 100px 1fr 110px 110px 118px",
                             gap:10, padding:"9px 18px", borderBottom:`1px solid ${C2.b0}`,
-                            background:"rgba(255,255,255,0.02)" }}>
+                            background:"var(--panel)" }}>
                             {["Barco","Sector","Pieza / Color","Fecha envío","Fecha regreso","Estado"].map((h,i) => (
                               <div key={i} style={{ fontSize:10, letterSpacing:1.3, textTransform:"uppercase", color:C2.t2, fontWeight:700, fontFamily:C2.mono }}>{h}</div>
                             ))}
@@ -1505,11 +1505,11 @@ export default function MarmoleriaScreen({ profile, signOut }) {
                       <div style={{ fontSize:12, letterSpacing:1.3, textTransform:"uppercase", fontFamily:C2.mono }}>Todo al día — sin piezas pendientes</div>
                     </div>
                   ) : (
-                    <div className="mrm-scroll" style={{ background:"rgba(255,255,255,0.02)", border:`1px solid ${C2.b0}`, borderRadius:12, overflowX: isMobile ? "auto" : "hidden", overflowY:"hidden" }}>
+                    <div className="mrm-scroll" style={{ background:"var(--panel)", border:`1px solid ${C2.b0}`, borderRadius:12, overflowX: isMobile ? "auto" : "hidden", overflowY:"hidden" }}>
                       {/* Header tabla */}
                       <div style={{ display:"grid", gridTemplateColumns:"92px 1.6fr 1fr 108px 124px 38px",
                         gap:12, padding:"9px 18px", borderBottom:`1px solid ${C2.b0}`,
-                        background:"rgba(255,255,255,0.02)" }}>
+                        background:"var(--panel)" }}>
                         {["Barco","Pieza / Sector","Prioridad","Fecha envío","Estado",""].map((h,i) => (
                           <div key={i} style={{ fontSize:10, letterSpacing:1.3, textTransform:"uppercase", color:C2.t2, fontWeight:700, fontFamily:C2.mono }}>{h}</div>
                         ))}
@@ -1631,7 +1631,7 @@ export default function MarmoleriaScreen({ profile, signOut }) {
                               {sectoresPlantilla.slice(0, 8).map((s) => (
                                 <button key={s} type="button" className="sector-chip"
                                   onClick={() => setFormPlantilla(f=>({...f, sector:s}))}
-                                  style={{ border:`1px solid ${C2.b0}`, background:"rgba(255,255,255,0.025)", color:C2.t1, borderRadius:99, padding:"4px 8px", cursor:"pointer", fontSize:11, fontFamily:C2.sans }}>
+                                  style={{ border:`1px solid ${C2.b0}`, background:"var(--panel)", color:C2.t1, borderRadius:99, padding:"4px 8px", cursor:"pointer", fontSize:11, fontFamily:C2.sans }}>
                                   {s}
                                 </button>
                               ))}
@@ -1673,11 +1673,11 @@ export default function MarmoleriaScreen({ profile, signOut }) {
                       porSectorPlantilla[p.sector].push(p);
                     });
                     return (
-                      <div className="mrm-scroll" style={{ background:"rgba(255,255,255,0.02)", border:`1px solid ${C2.b0}`, borderRadius:12, overflowX: isMobile ? "auto" : "hidden", overflowY:"hidden" }}>
+                      <div className="mrm-scroll" style={{ background:"var(--panel)", border:`1px solid ${C2.b0}`, borderRadius:12, overflowX: isMobile ? "auto" : "hidden", overflowY:"hidden" }}>
                         {/* Header tabla */}
                         <div style={{ display:"grid", gridTemplateColumns:"1fr 150px 72px 68px",
                           gap:12, padding:"9px 18px", borderBottom:`1px solid ${C2.b0}`,
-                          background:"rgba(255,255,255,0.02)" }}>
+                          background:"var(--panel)" }}>
                           {["Pieza","Sector","Opcional",""].map((h,i) => (
                             <div key={i} style={{ fontSize:10, letterSpacing:1.3, textTransform:"uppercase", color:C2.t2, fontWeight:700, fontFamily:C2.mono }}>{h}</div>
                           ))}
@@ -1687,7 +1687,7 @@ export default function MarmoleriaScreen({ profile, signOut }) {
                           <div key={sector}>
                             {/* Cabecera sector */}
                             <div style={{ padding:"7px 18px", background:"rgba(255,255,255,0.015)",
-                              borderBottom:`1px solid rgba(255,255,255,0.04)`,
+                              borderBottom:`1px solid var(--panel)`,
                               display:"flex", alignItems:"center", justifyContent:"space-between" }}>
                               <div style={{ display:"flex", alignItems:"center", gap:8 }}>
                                 <span style={{ fontSize:10, letterSpacing:1.3, fontWeight:700, color:C2.t2, textTransform:"uppercase", fontFamily:C2.mono }}>{sector}</span>
@@ -1741,10 +1741,10 @@ export default function MarmoleriaScreen({ profile, signOut }) {
                                       <div>
                                         {p.opcional ? (
                                           <span style={{ fontSize:10, letterSpacing:1.1, textTransform:"uppercase",
-                                            padding:"2px 7px", borderRadius:99, background:"rgba(255,255,255,0.04)",
+                                            padding:"2px 7px", borderRadius:99, background:"var(--panel)",
                                             color:C2.t2, border:`1px solid ${C2.b0}` }}>OPC</span>
                                         ) : (
-                                          <span style={{ fontSize:10, color:"rgba(255,255,255,0.1)" }}>—</span>
+                                          <span style={{ fontSize:10, color:"var(--border)" }}>—</span>
                                         )}
                                       </div>
                                       <div style={{ display:"flex", gap:2, justifyContent:"flex-end" }}>
@@ -1791,7 +1791,7 @@ export default function MarmoleriaScreen({ profile, signOut }) {
                         {porcentaje}<span style={{ fontSize:13, opacity:0.4 }}>%</span>
                       </span>
                     </div>
-                    <div style={{ height:4, background:"rgba(255,255,255,0.05)", borderRadius:99, overflow:"hidden" }}>
+                    <div style={{ height:4, background:"var(--panel)", borderRadius:99, overflow:"hidden" }}>
                       <div style={{
                         height:"100%", width:`${porcentaje}%`,
                         background: porcentaje === 100
@@ -1831,7 +1831,7 @@ export default function MarmoleriaScreen({ profile, signOut }) {
                               {sectoresSugeridos.slice(0, 8).map((s) => (
                                 <button key={s} type="button" className="sector-chip"
                                   onClick={() => setFormPieza(f=>({...f, sector:s}))}
-                                  style={{ border:`1px solid ${C2.b0}`, background:"rgba(255,255,255,0.025)", color:C2.t1, borderRadius:99, padding:"4px 8px", cursor:"pointer", fontSize:11, fontFamily:C2.sans }}>
+                                  style={{ border:`1px solid ${C2.b0}`, background:"var(--panel)", color:C2.t1, borderRadius:99, padding:"4px 8px", cursor:"pointer", fontSize:11, fontFamily:C2.sans }}>
                                   {s}
                                 </button>
                               ))}
@@ -1866,12 +1866,12 @@ export default function MarmoleriaScreen({ profile, signOut }) {
                         <div key={sector} style={{ marginBottom:24 }}>
                           {/* Cabecera sector */}
                           <div style={{ display:"flex", justifyContent:"space-between", alignItems:"center",
-                            paddingBottom:7, marginBottom:3, borderBottom:`1px solid rgba(255,255,255,0.05)` }}>
+                            paddingBottom:7, marginBottom:3, borderBottom:`1px solid var(--panel)` }}>
                             <div style={{ display:"flex", alignItems:"center", gap:10 }}>
                               <span style={{ fontSize:10, letterSpacing:1.3, fontWeight:700, color:C2.t2, textTransform:"uppercase", fontFamily:C2.mono }}>{sector}</span>
                               {esAdmin ? (
                                 <input defaultValue={colorSector} placeholder="Material del sector…"
-                                  style={{ background:"rgba(255,255,255,0.02)", border:`1px solid ${C2.b0}`,
+                                  style={{ background:"var(--panel)", border:`1px solid ${C2.b0}`,
                                     color:C2.t1, padding:"3px 8px", borderRadius:6, fontSize:11, outline:"none", width:180 }}
                                   onBlur={e => { if (e.target.value !== colorSector) cambiarColorSector(sector, e.target.value); }}
                                   onKeyDown={e => { if (e.key === "Enter") e.target.blur(); }}
@@ -1881,7 +1881,7 @@ export default function MarmoleriaScreen({ profile, signOut }) {
                               )}
                             </div>
                             <div style={{ display:"flex", alignItems:"center", gap:8 }}>
-                              <div style={{ width:52, height:2.5, background:"rgba(255,255,255,0.07)", borderRadius:99, overflow:"hidden" }}>
+                              <div style={{ width:52, height:2.5, background:"var(--panel-2)", borderRadius:99, overflow:"hidden" }}>
                                 <div style={{ height:"100%",
                                   width:`${activas ? recib/activas*100 : 0}%`,
                                   background: recib===activas && activas>0 ? C2.green : C2.primary,
@@ -1964,12 +1964,12 @@ export default function MarmoleriaScreen({ profile, signOut }) {
         <div style={{ position:"fixed", inset:0, zIndex:1000, background:"rgba(0,0,0,0.85)",
           backdropFilter:"blur(40px)", display:"flex", alignItems:"center", justifyContent:"center" }}
           onClick={() => setShowSQLModal(false)}>
-          <div style={{ background:"rgba(7,10,20,0.97)", border:"1px solid rgba(255,255,255,0.1)",
+          <div style={{ background:"rgba(7,10,20,0.97)", border:"1px solid var(--border)",
             borderRadius:16, padding:"26px", width:"min(680px,92vw)", maxHeight:"88vh", overflowY:"auto",
             position:"relative", boxShadow:"0 32px 80px rgba(0,0,0,0.8)" }}
             onClick={e => e.stopPropagation()}>
             <button onClick={() => setShowSQLModal(false)} style={{ position:"absolute", top:14, right:14,
-              background:"rgba(255,255,255,0.05)", border:"1px solid rgba(255,255,255,0.1)",
+              background:"var(--panel)", border:"1px solid var(--border)",
               color:"rgba(255,255,255,0.5)", width:28, height:28, borderRadius:"50%",
               cursor:"pointer", fontSize:18, display:"flex", alignItems:"center", justifyContent:"center" }}>×</button>
 
@@ -1987,7 +1987,7 @@ export default function MarmoleriaScreen({ profile, signOut }) {
                 <div style={{ display:"flex", justifyContent:"space-between", alignItems:"center", marginBottom:8 }}>
                   <span style={{ fontSize:12, fontWeight: 700, color:"#a8b4c4" }}>{title}</span>
                   <button onClick={() => { navigator.clipboard.writeText(sql); setSqlCopiado(title); setTimeout(() => setSqlCopiado(""), 2000); }} style={{
-                    border:"1px solid rgba(255,255,255,0.1)", background:"rgba(255,255,255,0.04)",
+                    border:"1px solid var(--border)", background:"var(--panel)",
                     color: sqlCopiado === title ? "#10b981" : "#9da3b0", padding:"4px 12px", borderRadius:7,
                     cursor:"pointer", fontSize:11, fontFamily:"'JetBrains Mono', monospace",
                     letterSpacing:0.5, transition:"color 0.2s",
@@ -1996,7 +1996,7 @@ export default function MarmoleriaScreen({ profile, signOut }) {
                   </button>
                 </div>
                 <pre style={{ margin:0, padding:"14px 16px", background:"rgba(0,0,0,0.5)",
-                  border:"1px solid rgba(255,255,255,0.07)", borderRadius:10, overflowX:"auto",
+                  border:"1px solid var(--panel-2)", borderRadius:10, overflowX:"auto",
                   fontSize:12, color:"#7dd3fc", fontFamily:"'JetBrains Mono', monospace",
                   lineHeight:1.7, whiteSpace:"pre" }}>
                   {sql}

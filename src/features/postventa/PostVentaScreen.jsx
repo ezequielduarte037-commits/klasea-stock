@@ -66,7 +66,7 @@ function LocationPreview({ lat, lng }) {
 
 // ── SELECTOR OBRA (linea → obras en cascada) ─────────────────────────
 function ObraSelector({ value, onChange, obras }) {
-  const INP = { width:"100%", boxSizing:"border-box", background:"rgba(255,255,255,0.05)", border:`1px solid ${C.b0}`, color:C.t0, padding:"9px 12px", borderRadius:9, fontSize:14, outline:"none", fontFamily:C.sans };
+  const INP = { width:"100%", boxSizing:"border-box", background:"var(--panel)", border:`1px solid ${C.b0}`, color:C.t0, padding:"9px 12px", borderRadius:9, fontSize:14, outline:"none", fontFamily:C.sans };
   const LBL = { fontSize:10, letterSpacing:1.3, color:C.t1, display:"block", marginBottom:6, textTransform:"uppercase", fontWeight: 700 };
   const obraActual = obras.find(o=>o.id===value);
   return (
@@ -157,7 +157,7 @@ function EditModal({ barco, obras, onSave, onClose, autoFocusGps = false }) {
     onSave();
   }
 
-  const INP = { width:"100%", boxSizing:"border-box", background:"rgba(255,255,255,0.05)", border:`1px solid ${C.b0}`, color:C.t0, padding:"10px 14px", borderRadius:9, fontSize:14, outline:"none", marginBottom:14, transition:"border-color 0.15s", fontFamily:C.sans };
+  const INP = { width:"100%", boxSizing:"border-box", background:"var(--panel)", border:`1px solid ${C.b0}`, color:C.t0, padding:"10px 14px", borderRadius:9, fontSize:14, outline:"none", marginBottom:14, transition:"border-color 0.15s", fontFamily:C.sans };
   const LBL = { fontSize:10, letterSpacing:1.3, color:C.t1, display:"block", marginBottom:6, textTransform:"uppercase", fontWeight: 700 };
   const hasCoords = form.latitud && form.longitud;
 
@@ -250,7 +250,7 @@ function TicketPopupContent({ barco, tickets, onVerTodos }) {
             )}
           </div>
           {top && (
-            <div style={{ padding:"10px 12px", borderRadius:8, background:"rgba(255,255,255,0.04)", border:"1px solid rgba(255,255,255,0.1)", marginBottom:10 }}>
+            <div style={{ padding:"10px 12px", borderRadius:8, background:"var(--panel)", border:"1px solid var(--border)", marginBottom:10 }}>
               <div style={{ fontSize:10, color:"#566070", letterSpacing:1.3, textTransform:"uppercase", marginBottom:4 }}>{top.area}</div>
               <div style={{ fontSize:13, color:"#a8b4c0", lineHeight:1.5 }}>{top.descripcion?.slice(0,80)}{top.descripcion?.length>80?"…":""}</div>
               {top.telefono && <div style={{ fontSize:11, color:"#566070", marginTop:6, display:"flex", alignItems:"center", gap:4 }}><Phone size={9}/> {top.telefono}</div>}
@@ -266,7 +266,7 @@ function TicketPopupContent({ barco, tickets, onVerTodos }) {
           Sin tickets activos
         </div>
       )}
-      <div style={{ paddingTop:10, marginTop:10, borderTop:"1px solid rgba(255,255,255,0.07)" }}>
+      <div style={{ paddingTop:10, marginTop:10, borderTop:"1px solid var(--panel-2)" }}>
         <div style={{ fontSize:10, color:"#3a4050", fontFamily:"monospace" }}>{barco.latitud?.toFixed(5)}, {barco.longitud?.toFixed(5)}</div>
       </div>
     </div>
@@ -347,7 +347,7 @@ function TicketDrawer({ barco, tickets, onClose, onUpdateStatus }) {
             const fileName  = decodeURIComponent(url.split("/").pop().split("?")[0]).slice(0, 40);
 
             if (isVideo) return (
-              <div key={i} style={{ borderRadius:10, border:`1px solid ${C.b1}`, overflow:"hidden", background:"rgba(255,255,255,0.03)" }}>
+              <div key={i} style={{ borderRadius:10, border:`1px solid ${C.b1}`, overflow:"hidden", background:"var(--panel)" }}>
                 <video
                   controls
                   style={{ width:"100%", display:"block", maxHeight:260, background:"#000", borderRadius:10 }}
@@ -367,12 +367,12 @@ function TicketDrawer({ barco, tickets, onClose, onUpdateStatus }) {
 
             // Imagen (o cualquier archivo que intenta mostrarse como imagen)
             if (couldBeImg && !hasErr) return (
-              <div key={i} style={{ borderRadius:10, border:`1px solid ${C.b1}`, overflow:"hidden", background:"rgba(255,255,255,0.03)", cursor:"zoom-in" }}
+              <div key={i} style={{ borderRadius:10, border:`1px solid ${C.b1}`, overflow:"hidden", background:"var(--panel)", cursor:"zoom-in" }}
                 onClick={() => setLightbox({ url, tipo:"img" })}>
                 <img
                   src={url}
                   alt={`Adjunto ${i+1}`}
-                  style={{ width:"100%", display:"block", maxHeight:320, objectFit:"contain", background:"#050508" }}
+                  style={{ width:"100%", display:"block", maxHeight:320, objectFit:"contain", background:"var(--panel-2)" }}
                   onError={() => setImgErrors(p => ({ ...p, [errKey]: true }))}
                 />
                 <div style={{ padding:"8px 12px", display:"flex", justifyContent:"space-between", alignItems:"center", borderTop:`1px solid ${C.b0}` }}>
@@ -421,7 +421,7 @@ function TicketDrawer({ barco, tickets, onClose, onUpdateStatus }) {
       <div
         style={{ position:"fixed", inset:0, background:"rgba(3,5,12,0.92)", backdropFilter:"blur(24px)", WebkitBackdropFilter:"blur(24px)", display:"flex", alignItems:"center", justifyContent:"center", zIndex:9999 }}
         onClick={e => e.target === e.currentTarget && onClose()}>
-        <div style={{ background:"rgba(6,10,20,0.98)", border:`1px solid ${C.b1}`, borderRadius:16, width:"min(680px,95vw)", height:"min(88vh,880px)", display:"flex", flexDirection:"column", boxShadow:"0 32px 80px rgba(0,0,0,0.9), 0 0 0 1px rgba(255,255,255,0.04)", overflow:"hidden" }}>
+        <div style={{ background:"rgba(6,10,20,0.98)", border:`1px solid ${C.b1}`, borderRadius:16, width:"min(680px,95vw)", height:"min(88vh,880px)", display:"flex", flexDirection:"column", boxShadow:"0 32px 80px rgba(0,0,0,0.9), 0 0 0 1px var(--panel)", overflow:"hidden" }}>
 
           {/* Header sticky */}
           <div style={{ padding:"20px 24px 14px", borderBottom:`1px solid ${C.b0}`, flexShrink:0, background:"rgba(6,10,20,0.98)" }}>
@@ -439,7 +439,7 @@ function TicketDrawer({ barco, tickets, onClose, onUpdateStatus }) {
                 </div>
               </div>
               <button onClick={onClose}
-                style={{ background:"rgba(255,255,255,0.06)", border:`1px solid ${C.b1}`, color:C.t1, cursor:"pointer", width:30, height:30, borderRadius:8, fontSize:16, display:"flex", alignItems:"center", justifyContent:"center", flexShrink:0 }}>
+                style={{ background:"var(--panel-2)", border:`1px solid ${C.b1}`, color:C.t1, cursor:"pointer", width:30, height:30, borderRadius:8, fontSize:16, display:"flex", alignItems:"center", justifyContent:"center", flexShrink:0 }}>
                 ×
               </button>
             </div>
@@ -457,7 +457,7 @@ function TicketDrawer({ barco, tickets, onClose, onUpdateStatus }) {
                     border: `1px solid ${filtroEst===f.key ? f.color+"55" : C.b0}`,
                     color: filtroEst===f.key ? f.color : C.t2, transition:"all 0.15s", display:"flex", gap:5, alignItems:"center" }}>
                   {f.label}
-                  <span style={{ fontFamily:C.mono, fontSize:10, background:"rgba(255,255,255,0.07)", padding:"0 5px", borderRadius:4 }}>{f.cnt}</span>
+                  <span style={{ fontFamily:C.mono, fontSize:10, background:"var(--panel-2)", padding:"0 5px", borderRadius:4 }}>{f.cnt}</span>
                 </button>
               ))}
             </div>
@@ -483,7 +483,7 @@ function TicketDrawer({ barco, tickets, onClose, onUpdateStatus }) {
                 }}>
 
                   {/* ── HEADER ── */}
-                  <div style={{ padding:"14px 16px 12px", borderBottom:`1px solid rgba(255,255,255,0.05)` }}>
+                  <div style={{ padding:"14px 16px 12px", borderBottom:`1px solid var(--panel)` }}>
                     {/* Top row: status + ID + date */}
                     <div style={{ display:"flex", justifyContent:"space-between", alignItems:"flex-start", marginBottom:10 }}>
                       <div style={{ display:"flex", gap:6, alignItems:"center", flexWrap:"wrap" }}>
@@ -491,7 +491,7 @@ function TicketDrawer({ barco, tickets, onClose, onUpdateStatus }) {
                           {est.label}
                         </span>
                         {hasAdjuntos && (
-                          <span style={{ padding:"2px 8px", borderRadius:99, background:"rgba(255,255,255,0.06)", border:`1px solid rgba(255,255,255,0.1)`, color:C.t1, fontSize:10, fontFamily:C.mono }}>
+                          <span style={{ padding:"2px 8px", borderRadius:99, background:"var(--panel-2)", border:`1px solid var(--border)`, color:C.t1, fontSize:10, fontFamily:C.mono }}>
                             📎 {t.adjuntos.length} foto{t.adjuntos.length > 1 ? "s" : ""}
                           </span>
                         )}
@@ -511,7 +511,7 @@ function TicketDrawer({ barco, tickets, onClose, onUpdateStatus }) {
 
                   {/* ── META (tel + ubicación) ── */}
                   {hasMeta && (
-                    <div style={{ padding:"10px 16px", borderBottom:`1px solid rgba(255,255,255,0.05)`, display:"flex", gap:10, flexWrap:"wrap", alignItems:"center", background:"rgba(255,255,255,0.01)" }}>
+                    <div style={{ padding:"10px 16px", borderBottom:`1px solid var(--panel)`, display:"flex", gap:10, flexWrap:"wrap", alignItems:"center", background:"rgba(255,255,255,0.01)" }}>
                       {t.telefono && (
                         <a href={`https://wa.me/${t.telefono?.replace(/\D/g,"")}`} target="_blank" rel="noopener noreferrer"
                           style={{ display:"inline-flex", alignItems:"center", gap:5, padding:"5px 12px", borderRadius:8, background:"rgba(37,211,102,0.1)", border:"1px solid rgba(37,211,102,0.35)", color:"#25d366", fontSize:11, fontWeight:700, textDecoration:"none", fontFamily:C.mono }}
@@ -529,13 +529,13 @@ function TicketDrawer({ barco, tickets, onClose, onUpdateStatus }) {
 
                   {/* ── ADJUNTOS / FOTOS ── */}
                   {hasAdjuntos && (
-                    <div style={{ padding:"12px 16px", borderBottom:`1px solid rgba(255,255,255,0.05)` }}>
+                    <div style={{ padding:"12px 16px", borderBottom:`1px solid var(--panel)` }}>
                       {renderAdjuntos(t)}
                     </div>
                   )}
 
                   {/* ── SEGUIMIENTO ── */}
-                  <div style={{ padding:"12px 16px", borderBottom:`1px solid rgba(255,255,255,0.05)` }}>
+                  <div style={{ padding:"12px 16px", borderBottom:`1px solid var(--panel)` }}>
                     {seguimientoId === t.id ? (
                       <div>
                         <textarea autoFocus value={seguimientoTx} onChange={e => setSeguimientoTx(e.target.value)}
@@ -562,9 +562,9 @@ function TicketDrawer({ barco, tickets, onClose, onUpdateStatus }) {
                       </div>
                     ) : (
                       <button onClick={() => abrirSeguimiento(t)}
-                        style={{ width:"100%", padding:"8px", borderRadius:8, background:"transparent", border:`1px dashed rgba(255,255,255,0.1)`, color:C.t2, fontSize:11, cursor:"pointer", textAlign:"center", transition:"border-color .15s, color .15s" }}
+                        style={{ width:"100%", padding:"8px", borderRadius:8, background:"transparent", border:`1px dashed var(--border)`, color:C.t2, fontSize:11, cursor:"pointer", textAlign:"center", transition:"border-color .15s, color .15s" }}
                         onMouseEnter={e => { e.currentTarget.style.borderColor = C.b2; e.currentTarget.style.color = C.t1; }}
-                        onMouseLeave={e => { e.currentTarget.style.borderColor = "rgba(255,255,255,0.1)"; e.currentTarget.style.color = C.t2; }}>
+                        onMouseLeave={e => { e.currentTarget.style.borderColor = "var(--border)"; e.currentTarget.style.color = C.t2; }}>
                         + Agregar respuesta técnica
                       </button>
                     )}
@@ -598,16 +598,16 @@ function TicketDrawer({ barco, tickets, onClose, onUpdateStatus }) {
           onClick={() => setLightbox(null)}
           style={{ position:"fixed", inset:0, background:"rgba(0,0,0,0.97)", zIndex:99999, display:"flex", alignItems:"center", justifyContent:"center", padding:24 }}>
           <button onClick={() => setLightbox(null)}
-            style={{ position:"absolute", top:18, right:18, background:"rgba(255,255,255,0.08)", border:`1px solid ${C.b1}`, color:C.t1, padding:"7px 14px", cursor:"pointer", fontSize:12, borderRadius:8, display:"flex", gap:6, alignItems:"center" }}>
+            style={{ position:"absolute", top:18, right:18, background:"var(--panel-2)", border:`1px solid ${C.b1}`, color:C.t1, padding:"7px 14px", cursor:"pointer", fontSize:12, borderRadius:8, display:"flex", gap:6, alignItems:"center" }}>
             ✕ Cerrar
           </button>
           <a href={lightbox.url} target="_blank" rel="noopener noreferrer"
             onClick={e => e.stopPropagation()}
-            style={{ position:"absolute", top:18, left:18, background:"rgba(255,255,255,0.08)", border:`1px solid ${C.b1}`, color:C.t1, padding:"7px 14px", cursor:"pointer", fontSize:12, borderRadius:8, textDecoration:"none" }}>
+            style={{ position:"absolute", top:18, left:18, background:"var(--panel-2)", border:`1px solid ${C.b1}`, color:C.t1, padding:"7px 14px", cursor:"pointer", fontSize:12, borderRadius:8, textDecoration:"none" }}>
             ↗ Abrir original
           </a>
           {lightbox.tipo === "img"
-            ? <img src={lightbox.url} alt="" style={{ maxWidth:"92vw", maxHeight:"88vh", objectFit:"contain", borderRadius:8, boxShadow:"0 0 80px rgba(0,0,0,0.8)" }} />
+            ? <img src={lightbox.url} loading="lazy" alt="" style={{ maxWidth:"92vw", maxHeight:"88vh", objectFit:"contain", borderRadius:8, boxShadow:"0 0 80px rgba(0,0,0,0.8)" }} />
             : <video src={lightbox.url} controls autoPlay style={{ maxWidth:"92vw", maxHeight:"88vh", borderRadius:8 }} />
           }
         </div>
@@ -824,11 +824,11 @@ export default function PostVentaScreen({ profile, signOut }) {
     sidebarWrap:  { width: "280px", height: "100%", pointerEvents: "auto", background: C.bg },
     mainUI:       { flex:1, position:"relative", pointerEvents:"none" },
     topbar:       { position:"absolute", top:0, left:0, right:0, height:64, background:"linear-gradient(180deg,rgba(3,5,12,0.92) 0%,rgba(3,5,12,0) 100%)", display:"flex", alignItems:"center", justifyContent:"space-between", padding:"0 28px", pointerEvents:"auto" },
-    glassPanel:   { position:"absolute", top:76, left:20, bottom:20, width:368, background:"rgba(3,5,12,0.82)", backdropFilter:"blur(48px) saturate(140%)", WebkitBackdropFilter:"blur(48px) saturate(140%)", border:`1px solid ${C.b1}`, borderRadius:16, display:"flex", flexDirection:"column", pointerEvents:"auto", boxShadow:"0 24px 60px rgba(0,0,0,0.7),inset 0 1px 0 rgba(255,255,255,0.06)" },
-    card:         { padding:"12px 20px", borderBottom:`1px solid rgba(255,255,255,0.05)`, cursor:"pointer", transition:"background 0.15s", background:"transparent" },
-    searchInput:  { width:"100%", background:"rgba(255,255,255,0.05)", border:`1px solid ${C.b0}`, color:C.t0, padding:"10px 14px 10px 38px", borderRadius:10, fontSize:14, outline:"none", transition:"border-color 0.2s", boxSizing:"border-box" },
-    btnPrimary:   { background:"rgba(255,255,255,0.92)", color:"#080c14", border:"1px solid rgba(255,255,255,0.25)", padding:"9px 20px", borderRadius:9, fontSize:14, fontWeight:700, cursor:"pointer" },
-    input:        { width:"100%", boxSizing:"border-box", background:"rgba(255,255,255,0.05)", border:`1px solid ${C.b0}`, color:C.t0, padding:"10px 14px", borderRadius:9, fontSize:14, outline:"none", marginBottom:14, transition:"border-color 0.15s" },
+    glassPanel:   { position:"absolute", top:76, left:20, bottom:20, width:368, background:"rgba(3,5,12,0.82)", backdropFilter:"blur(48px) saturate(140%)", WebkitBackdropFilter:"blur(48px) saturate(140%)", border:`1px solid ${C.b1}`, borderRadius:16, display:"flex", flexDirection:"column", pointerEvents:"auto", boxShadow:"0 24px 60px rgba(0,0,0,0.7),inset 0 1px 0 var(--panel-2)" },
+    card:         { padding:"12px 20px", borderBottom:`1px solid var(--panel)`, cursor:"pointer", transition:"background 0.15s", background:"transparent" },
+    searchInput:  { width:"100%", background:"var(--panel)", border:`1px solid ${C.b0}`, color:C.t0, padding:"10px 14px 10px 38px", borderRadius:10, fontSize:14, outline:"none", transition:"border-color 0.2s", boxSizing:"border-box" },
+    btnPrimary:   { background:"rgba(255,255,255,0.92)", color:"#080c14", border:"1px solid var(--border-3)", padding:"9px 20px", borderRadius:9, fontSize:14, fontWeight:700, cursor:"pointer" },
+    input:        { width:"100%", boxSizing:"border-box", background:"var(--panel)", border:`1px solid ${C.b0}`, color:C.t0, padding:"10px 14px", borderRadius:9, fontSize:14, outline:"none", marginBottom:14, transition:"border-color 0.15s" },
     label:        { fontSize:10, letterSpacing:1.3, color:C.t1, display:"block", marginBottom:6, textTransform:"uppercase", fontWeight: 700 },
     modalOverlay: { position:"fixed", inset:0, background:"rgba(3,5,12,0.88)", backdropFilter:"blur(24px)", display:"flex", alignItems:"center", justifyContent:"center", zIndex:9999, pointerEvents:"auto" },
     modalBox:     { background:"rgba(6,10,20,0.97)", backdropFilter:"blur(60px)", border:`1px solid ${C.b1}`, padding:"32px 28px", borderRadius:18, width:"100%", maxWidth:540, maxHeight:"92vh", overflowY:"auto" },
@@ -842,14 +842,14 @@ export default function PostVentaScreen({ profile, signOut }) {
         @import url('https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500;700&display=swap');
         * { box-sizing:border-box; }
         @keyframes pin-pulse { 0%{transform:scale(0.5);opacity:0.8} 100%{transform:scale(1.6);opacity:0} }
-        .boat-card:hover { background:rgba(255,255,255,0.04) !important }
+        .boat-card:hover { background:var(--panel) !important }
         .leaflet-popup-content-wrapper { background:rgba(6,10,20,0.96) !important;backdrop-filter:blur(20px);color:#dde2ea;border:1px solid rgba(255,255,255,0.14) !important;border-radius:14px !important;box-shadow:0 16px 48px rgba(0,0,0,0.9) !important;padding:0 !important }
         .leaflet-popup-content { margin:0 !important }
         .leaflet-popup-tip-container { display:none }
         .leaflet-container a.leaflet-popup-close-button { color:rgba(255,255,255,0.3) !important;top:14px !important;right:14px !important;font-size:18px !important;z-index:10 }
-        ::-webkit-scrollbar { width:3px } ::-webkit-scrollbar-track { background:transparent } ::-webkit-scrollbar-thumb { background:rgba(255,255,255,0.1);border-radius:99px }
+        ::-webkit-scrollbar { width:3px } ::-webkit-scrollbar-track { background:transparent } ::-webkit-scrollbar-thumb { background:var(--border);border-radius:99px }
         ${isSelecting ? ".leaflet-container { cursor:crosshair !important }" : ""}
-        select option { background:#0f0f12;color:var(--muted) }
+        select option { background:var(--panel-solid);color:var(--muted) }
         input:focus,select:focus { border-color:rgba(59,130,246,0.35) !important }
       `}</style>
 
@@ -986,7 +986,7 @@ export default function PostVentaScreen({ profile, signOut }) {
                           </span>
                         </div>
                       ) : (
-                        <div style={{ display:"inline-flex", padding:"1px 7px", borderRadius:5, background:"rgba(255,255,255,0.03)", border:"1px solid rgba(255,255,255,0.06)", marginBottom:6 }}>
+                        <div style={{ display:"inline-flex", padding:"1px 7px", borderRadius:5, background:"var(--panel)", border:"1px solid var(--panel-2)", marginBottom:6 }}>
                           <span style={{ fontSize:10, color:"#3a3a52" }}>Sin obra vinculada</span>
                         </div>
                       )}
@@ -1001,7 +1001,7 @@ export default function PostVentaScreen({ profile, signOut }) {
                       <div style={{ display:"flex", gap:6, flexWrap:"wrap" }}>
                         {/* Si tiene GPS, mostrar centrar. Si no, ocultar centrar */}
                         {!sinGps && (
-                          <button style={{ background:"rgba(255,255,255,0.04)", border:`1px solid ${C.b0}`, color:C.t1, padding:"5px 12px", borderRadius:7, fontSize:12, fontWeight: 700, cursor:"pointer" }}
+                          <button style={{ background:"var(--panel)", border:`1px solid ${C.b0}`, color:C.t1, padding:"5px 12px", borderRadius:7, fontSize:12, fontWeight: 700, cursor:"pointer" }}
                             onClick={e=>{ e.stopPropagation(); centrarMapa(b.latitud,b.longitud); }}><Crosshair size={11} style={{marginRight:4}}/> Centrar</button>
                         )}
 
@@ -1074,9 +1074,9 @@ export default function PostVentaScreen({ profile, signOut }) {
               <div style={{ display:"flex", alignItems:"center", gap:10, margin:"4px 0 8px" }}>
                 <div style={{ flex:1, height:1, background:C.b0 }} /><span style={{ fontSize:10, color:C.t2, letterSpacing:1.3, textTransform:"uppercase" }}>o</span><div style={{ flex:1, height:1, background:C.b0 }} />
               </div>
-              <button type="button" style={{ width:"100%", background:"rgba(255,255,255,0.04)", border:`1px solid ${C.b1}`, color:C.t0, padding:"12px 16px", borderRadius:10, fontSize:14, fontWeight:600, cursor:"pointer", marginBottom:14, textAlign:"left", display:"flex", alignItems:"center", gap:10 }}
+              <button type="button" style={{ width:"100%", background:"var(--panel)", border:`1px solid ${C.b1}`, color:C.t0, padding:"12px 16px", borderRadius:10, fontSize:14, fontWeight:600, cursor:"pointer", marginBottom:14, textAlign:"left", display:"flex", alignItems:"center", gap:10 }}
                 onClick={()=>{ setShowModal(false); setIsSelecting(true); }}>
-                <div style={{ width:28, height:28, borderRadius:8, background:"rgba(255,255,255,0.06)", border:`1px solid ${C.b0}`, display:"flex", alignItems:"center", justifyContent:"center", flexShrink:0 }}><Crosshair size={14}/></div>
+                <div style={{ width:28, height:28, borderRadius:8, background:"var(--panel-2)", border:`1px solid ${C.b0}`, display:"flex", alignItems:"center", justifyContent:"center", flexShrink:0 }}><Crosshair size={14}/></div>
                 <div><div style={{ fontSize:13, fontWeight:600, color:C.t0 }}>Opción B · Marcar en el mapa</div><div style={{ fontSize:12, color:C.t1, marginTop:2 }}>Hacé clic directo en el lugar exacto</div></div>
               </button>
             </div>

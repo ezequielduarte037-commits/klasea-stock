@@ -11,7 +11,7 @@ const GLASS = {
   WebkitBackdropFilter: "blur(32px) saturate(130%)",
 };
 const INP = {
-  background: "rgba(255,255,255,0.04)", border: `1px solid ${C.b0}`,
+  background: "var(--panel)", border: `1px solid ${C.b0}`,
   color: C.t0, padding: "9px 12px", borderRadius: 8, fontSize: 13,
   outline: "none", width: "100%", fontFamily: "'Outfit', system-ui",
   boxSizing: "border-box",
@@ -146,11 +146,11 @@ export default function ProcedimientosScreen({ profile, signOut }) {
     transition: "border-color 0.15s, background 0.15s",
   };
   const MODAL = {
-    background: "rgba(9,9,11,0.97)", ...GLASS,
+    background: "var(--panel-solid)", ...GLASS,
     border: `1px solid ${C.b1}`,
     borderRadius: 16, padding: "26px 24px", width: "100%", maxWidth: 520,
     maxHeight: "90vh", overflowY: "auto",
-    boxShadow: "0 32px 80px rgba(0,0,0,0.8), inset 0 1px 0 rgba(255,255,255,0.06)",
+    boxShadow: "0 32px 80px rgba(0,0,0,0.8), inset 0 1px 0 var(--panel-2)",
   };
 
   return (
@@ -158,10 +158,10 @@ export default function ProcedimientosScreen({ profile, signOut }) {
       <style>{`
         @import url('https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500;700&display=swap');
         *, *::before, *::after { box-sizing: border-box; }
-        select option { background: #0f0f12; color: var(--muted); }
+        select option { background: var(--panel-solid); color: var(--muted); }
         ::-webkit-scrollbar { width: 3px; height: 3px; }
         ::-webkit-scrollbar-track { background: transparent; }
-        ::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.07); border-radius: 99px; }
+        ::-webkit-scrollbar-thumb { background: var(--panel-2); border-radius: 99px; }
         input:focus, select:focus, textarea:focus { border-color: rgba(59,130,246,0.35) !important; outline: none; }
         button:not([disabled]):hover { opacity: 0.8; }
         .bg-glow {
@@ -170,7 +170,7 @@ export default function ProcedimientosScreen({ profile, signOut }) {
             radial-gradient(ellipse 70% 38% at 50% -6%, rgba(59,130,246,0.07) 0%, transparent 65%),
             radial-gradient(ellipse 40% 28% at 92% 88%, rgba(245,158,11,0.02) 0%, transparent 55%);
         }
-        .doc-card:hover { border-color: rgba(255,255,255,0.14) !important; background: rgba(255,255,255,0.05) !important; }
+        .doc-card:hover { border-color: rgba(255,255,255,0.14) !important; background: var(--panel) !important; }
         @media print {
           body * { visibility: hidden; }
           #printable-doc, #printable-doc * { visibility: visible; }
@@ -349,7 +349,7 @@ export default function ProcedimientosScreen({ profile, signOut }) {
           <div style={{
             position: "sticky", top: 0,
             width: "100%", maxWidth: 900,
-            background: "rgba(9,9,11,0.95)", ...GLASS,
+            background: "var(--panel-solid)", ...GLASS,
             border: `1px solid ${C.b0}`, borderRadius: 10, height: 50,
             display: "flex", justifyContent: "space-between", alignItems: "center",
             padding: "0 14px", zIndex: 10, marginBottom: 16,
@@ -413,7 +413,7 @@ export default function ProcedimientosScreen({ profile, signOut }) {
                   <h1 style={{ margin: 0, fontSize: 24, textTransform: "uppercase", fontFamily: "Arial, sans-serif" }}>{selItem.titulo}</h1>
                   <div style={{ fontSize: 13, color: "#555", marginTop: 4 }}>PROCEDIMIENTO OPERATIVO ESTÁNDAR</div>
                 </div>
-                <img src="/logo-k.png" alt="Klase A" style={{ height: 30, opacity: 0.8 }} />
+                <img src="/logo-k.png" loading="lazy" alt="Klase A" style={{ height: 30, opacity: 0.8 }} />
               </div>
               {selItem.descripcion && (
                 <div style={{ marginBottom: 20, fontSize: 14 }}>

@@ -173,7 +173,7 @@ const iconButtonStyle = {
   display: "grid",
   placeItems: "center",
   border: `1px solid ${C.border}`,
-  background: "rgba(255,255,255,0.03)",
+  background: "var(--panel)",
   color: C.muted,
   cursor: "pointer",
   flexShrink: 0,
@@ -182,7 +182,7 @@ const iconButtonStyle = {
 
 const inputStyle = {
   width: "100%",
-  background: "rgba(255,255,255,0.04)",
+  background: "var(--panel)",
   border: `1px solid ${C.border}`,
   color: C.text,
   borderRadius: 8,
@@ -276,6 +276,7 @@ export default function PurchaseRequestDetail({ requestId, profile, users = [], 
   const [newFollowerId, setNewFollowerId] = useState("");
   const [items, setItems] = useState([]);
   const [generatedMovements, setGeneratedMovements] = useState([]);
+  const [descriptionOpen, setDescriptionOpen] = useState(false);
   const [newItemDesc, setNewItemDesc] = useState("");
   const [newItemQty, setNewItemQty] = useState("");
   const [newItemUnit, setNewItemUnit] = useState("unidad");
@@ -294,6 +295,17 @@ export default function PurchaseRequestDetail({ requestId, profile, users = [], 
   const confirm = useConfirm();
 
   const manager = isPurchaseManager(profile);
+  const descriptionIsLong = useMemo(() => {
+    const text = String(request?.description ?? "")
+      .replace(/<[^>]*>/g, " ")
+      .replace(/&nbsp;/g, " ")
+      .trim();
+    return text.length > 520 || (text.match(/\n/g) || []).length > 9;
+  }, [request?.description]);
+
+  useEffect(() => {
+    setDescriptionOpen(false);
+  }, [requestId]);
 
   async function fetchGeneratedMovementsForRequest(id) {
     const { data, error: movementsError } = await supabase
@@ -745,22 +757,22 @@ export default function PurchaseRequestDetail({ requestId, profile, users = [], 
       overflow: "hidden",
     }}>
       <style>{`
-        select option { background: #0f0f12; color: var(--text); }
+        select option { background: var(--panel-solid); color: var(--text); }
         textarea:focus, select:focus, input:focus {
           border-color: rgba(96,165,250,0.42) !important;
           box-shadow: 0 0 0 3px rgba(96,165,250,0.08);
         }
         .pr-chat-scroll::-webkit-scrollbar { width: 4px; }
-        .pr-chat-scroll::-webkit-scrollbar-thumb { background: rgba(255,255,255,.12); border-radius: 99px; }
+        .pr-chat-scroll::-webkit-scrollbar-thumb { background: var(--border); border-radius: 99px; }
         .pr-aside::-webkit-scrollbar { width: 4px; }
-        .pr-aside::-webkit-scrollbar-thumb { background: rgba(255,255,255,.1); border-radius: 99px; }
+        .pr-aside::-webkit-scrollbar-thumb { background: var(--border); border-radius: 99px; }
         @keyframes spin { to { transform: rotate(360deg); } }
         @keyframes pr-msg-in {
           from { opacity: 0; transform: translateY(6px); }
           to   { opacity: 1; transform: translateY(0);   }
         }
         .pr-message { animation: pr-msg-in .22s ease-out both; }
-        .icon-btn:hover { background: rgba(255,255,255,0.07) !important; color: var(--text) !important; }
+        .icon-btn:hover { background: var(--panel-2) !important; color: var(--text) !important; }
 
         /* Estilos para renderizar el HTML enriquecido que viene de Quill */
         .quill-content ul, .quill-content ol { padding-left: 20px; margin: 6px 0; }
@@ -1304,14 +1316,56 @@ export default function PurchaseRequestDetail({ requestId, profile, users = [], 
                 Descripción
               </div>
               
-              {/* Aquí renderizamos el HTML en lugar de texto plano */}
-              <div className="quill-content" style={{ color: C.muted, fontSize: 14, lineHeight: 1.6, whiteSpace: "normal" }}>
+              {/* Las descripciones del editor rico son HTML; las que vienen de los
+                  flujos (ej. la vista email de Laminación) son texto plano con saltos
+                  de línea. Detectamos cuál es: si tiene tags HTML lo renderizamos como
+                  HTML; si es texto plano lo mostramos con pre-wrap (respeta los \n y
+                  además evita el riesgo de innerHTML con texto del usuario). */}
+              <div className="quill-content" style={{
+                color: C.muted,
+                fontSize: 14,
+                lineHeight: 1.6,
+                whiteSpace: "normal",
+                maxHeight: descriptionIsLong && !descriptionOpen ? 210 : "none",
+                overflow: descriptionIsLong && !descriptionOpen ? "hidden" : "visible",
+                border: descriptionIsLong ? `1px solid ${C.border}` : "none",
+                background: descriptionIsLong ? C.panel : "transparent",
+                borderRadius: descriptionIsLong ? 9 : 0,
+                padding: descriptionIsLong ? "10px 12px" : 0,
+              }}>
                 {request.description ? (
-                  <div dangerouslySetInnerHTML={{ __html: request.description }} />
+                  /<[a-z!/][\s\S]*>/i.test(request.description) ? (
+                    <div dangerouslySetInnerHTML={{ __html: request.description }} />
+                  ) : (
+                    <div style={{ whiteSpace: "pre-wrap" }}>{request.description}</div>
+                  )
                 ) : (
                   <span style={{ fontStyle: "italic", color: C.dim }}>Sin descripción.</span>
                 )}
               </div>
+              {descriptionIsLong && (
+                <button
+                  type="button"
+                  onClick={() => setDescriptionOpen(v => !v)}
+                  style={{
+                    marginTop: 8,
+                    display: "inline-flex",
+                    alignItems: "center",
+                    gap: 6,
+                    padding: "5px 9px",
+                    borderRadius: 7,
+                    border: `1px solid ${C.border}`,
+                    background: C.panel,
+                    color: C.blue,
+                    cursor: "pointer",
+                    fontSize: 12,
+                    fontWeight: 750,
+                    fontFamily: C.sans,
+                  }}
+                >
+                  {descriptionOpen ? "Replegar descripcion" : "Ver descripcion completa"}
+                </button>
+              )}
 
               {request.needed_at && (
                 <div style={{ marginTop: 10, display: "inline-flex", alignItems: "center", gap: 6, color: C.amber, fontSize: 12, background: "rgba(245,158,11,0.08)", border: "1px solid rgba(245,158,11,0.2)", borderRadius: 6, padding: "4px 8px" }}>
@@ -1338,7 +1392,7 @@ export default function PurchaseRequestDetail({ requestId, profile, users = [], 
                       height: multi ? 74 : undefined,
                       minHeight: multi ? undefined : 110,
                     }}>
-                      <img src={u} alt={`${request.title} ${i + 1}`} style={{ width: "100%", height: "100%", objectFit: "cover", display: "block" }} />
+                      <img src={u} loading="lazy" alt={`${request.title} ${i + 1}`} style={{ width: "100%", height: "100%", objectFit: "cover", display: "block" }} />
                     </a>
                   ))}
                 </div>
@@ -1537,7 +1591,7 @@ export default function PurchaseRequestDetail({ requestId, profile, users = [], 
                             {editImageFile ? editImageFile.name : isHttpUrl(item.image_url) ? "Reemplazar foto" : "Subir foto"}
                             <input type="file" accept="image/*" onChange={e => setEditImageFile(e.target.files?.[0] || null)} style={{ display: "none" }} />
                             {isHttpUrl(item.image_url) && !editImageFile && (
-                              <img src={item.image_url} alt="" style={{ height: 28, borderRadius: 4, marginLeft: "auto" }} />
+                              <img src={item.image_url} loading="lazy" alt="" style={{ height: 28, borderRadius: 4, marginLeft: "auto" }} />
                             )}
                             {editImageFile && (
                               <span style={{ marginLeft: "auto", color: C.green, fontSize: 11 }}>✓</span>

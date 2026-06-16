@@ -2,7 +2,7 @@
 import { C } from "@/theme";
 
 export const INP = {
-  background: "rgba(255,255,255,0.04)", border: `1px solid ${C.b0}`, color: C.t0,
+  background: "var(--panel)", border: `1px solid ${C.b0}`, color: C.t0,
   padding: "7px 10px", borderRadius: 7, fontSize: 13, outline: "none", fontFamily: C.sans,
 };
 
@@ -102,7 +102,7 @@ export function Td({ children, right, mono, color, style }) {
       padding: "8px 10px", fontSize: 13, color: color ?? C.t0,
       textAlign: right ? "right" : "left",
       fontFamily: mono ? C.mono : C.sans,
-      borderBottom: "1px solid rgba(255,255,255,0.04)",
+      borderBottom: "1px solid var(--panel)",
       whiteSpace: "nowrap", ...style,
     }}>{children}</td>
   );

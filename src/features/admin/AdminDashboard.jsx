@@ -25,7 +25,7 @@ const GLASS = {
 };
 
 const INP = {
-  background: "rgba(255,255,255,0.04)",
+  background: "var(--panel)",
   border: `1px solid ${C.b0}`,
   color: C.t0, padding: "8px 12px", borderRadius: 8, fontSize: 13,
   outline: "none", width: "100%", fontFamily: C.sans,
@@ -84,7 +84,7 @@ function RingChart({ pct, color, size = 52, stroke = 4 }) {
     <svg width={size} height={size} style={{ transform: "rotate(-90deg)", flexShrink: 0 }}>
       {/* Track */}
       <circle cx={size/2} cy={size/2} r={r}
-        fill="none" stroke="rgba(255,255,255,0.05)" strokeWidth={stroke} />
+        fill="none" stroke="var(--panel)" strokeWidth={stroke} />
       {/* Arc */}
       <circle cx={size/2} cy={size/2} r={r}
         fill="none" stroke={color} strokeWidth={stroke}
@@ -138,7 +138,7 @@ function KpiCard({ label, value, total, color, bg, border, icon, pulse = false, 
       </div>
 
       {/* Bottom: thin accent bar */}
-      <div style={{ height: 2, borderRadius: 99, background: "rgba(255,255,255,0.05)", overflow: "hidden" }}>
+      <div style={{ height: 2, borderRadius: 99, background: "var(--panel)", overflow: "hidden" }}>
         <div style={{
           height: "100%", borderRadius: 99,
           width: total > 0 ? `${pct}%` : "0%",
@@ -245,17 +245,17 @@ export default function AdminDashboard({ profile, signOut }) {
   }
 
   const TH = { padding: "8px 12px", textAlign: "left", fontSize: 10, letterSpacing: 1.3, textTransform: "uppercase", color: C.t2, fontWeight: 700, borderBottom: `1px solid ${C.b0}`, whiteSpace: "nowrap" };
-  const TD = { padding: "9px 12px", fontSize: 13, borderBottom: `1px solid rgba(255,255,255,0.03)`, color: C.t1 };
+  const TD = { padding: "9px 12px", fontSize: 13, borderBottom: `1px solid var(--panel)`, color: C.t1 };
 
   return (
     <div style={{ background: C.bg, position: "fixed", inset: 0, overflow: "hidden", color: C.t0, fontFamily: C.sans }}>
       <style>{`
         @import url('https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500;700&display=swap');
         *, *::before, *::after { box-sizing: border-box; }
-        select option { background: #0f0f12; color: var(--muted); }
+        select option { background: var(--panel-solid); color: var(--muted); }
         ::-webkit-scrollbar { width: 3px; height: 3px; }
         ::-webkit-scrollbar-track { background: transparent; }
-        ::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.07); border-radius: 99px; }
+        ::-webkit-scrollbar-thumb { background: var(--panel-2); border-radius: 99px; }
         input:focus, select:focus { border-color: rgba(59,130,246,0.35) !important; outline: none; }
         @keyframes slideUp { from{opacity:0;transform:translateY(10px)} to{opacity:1;transform:translateY(0)} }
         @keyframes fadeIn  { from{opacity:0} to{opacity:1} }
@@ -351,7 +351,7 @@ export default function AdminDashboard({ profile, signOut }) {
 
               {/* SALUD PANEL */}
               <div className="kpi-card" style={{
-                background: "rgba(255,255,255,0.02)", border: "1px solid rgba(255,255,255,0.07)",
+                background: "rgba(255,255,255,0.02)", border: "1px solid var(--panel-2)",
                 borderRadius: 14, padding: "16px 18px",
                 display: "flex", flexDirection: "column", gap: 10,
                 animation: "slideUp .35s cubic-bezier(.22,1,.36,1) 240ms both",
@@ -379,7 +379,7 @@ export default function AdminDashboard({ profile, signOut }) {
                     const oCr = dOk + dAt;
                     return (
                       <svg width={S} height={S} style={{ transform: "rotate(-90deg)", flexShrink: 0 }}>
-                        <circle cx={S/2} cy={S/2} r={r} fill="none" stroke="rgba(255,255,255,0.05)" strokeWidth={4} />
+                        <circle cx={S/2} cy={S/2} r={r} fill="none" stroke="var(--panel)" strokeWidth={4} />
                         {dOk > 0 && <circle cx={S/2} cy={S/2} r={r} fill="none" stroke={C.green} strokeWidth={4}
                           strokeDasharray={`${dOk} ${circ}`} strokeDashoffset={0}
                           style={{ transition: "stroke-dasharray 1.4s cubic-bezier(.22,1,.36,1)", filter: `drop-shadow(0 0 3px ${C.green}99)` }} />}

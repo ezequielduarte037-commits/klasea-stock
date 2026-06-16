@@ -3,23 +3,31 @@
 import { useMemo, useState } from "react";
 import { supabase } from "@/supabaseClient";
 import { C } from "@/theme";
+import { SEDES } from "./api";
 import { BTN, BTN_PRIMARY, GrupoBadge, INP, KpiCard, LBL, Td, Th } from "./ui";
 
-const FORM_VACIO = { dni: "", nombre: "", grupo: "casa", contratista_id: "", ficha: true, activo: true, notas: "" };
+const FORM_VACIO = { dni: "", nombre: "", grupo: "casa", sede: "", contratista_id: "", ficha: true, activo: true, notas: "" };
 
 export default function EmpleadosTab({ empleados, contratistas, onChanged, esAdmin }) {
   const [q, setQ] = useState("");
   const [filtroGrupo, setFiltroGrupo] = useState("todos");
+  const [filtroSede, setFiltroSede] = useState("todas");
   const [verInactivos, setVerInactivos] = useState(false);
   const [verNoFichan, setVerNoFichan] = useState(false);
   const [modal, setModal] = useState(null);     // null | {emp|null}
   const [showContratistas, setShowContratistas] = useState(false);
   const [err, setErr] = useState(null);
+  const [selIds, setSelIds] = useState(new Set());
+  const [bulkLoading, setBulkLoading] = useState(false);
+  const [bulkGrupo, setBulkGrupo] = useState("casa");
+  const [bulkContratistaId, setBulkContratistaId] = useState("");
+  const [bulkSede, setBulkSede] = useState("Pampa");
 
   const filtrados = useMemo(() => {
     let rows = empleados ?? [];
     if (!verInactivos) rows = rows.filter(e => e.activo !== false);
     if (!verNoFichan) rows = rows.filter(e => e.ficha !== false);
+    if (filtroSede !== "todas") rows = rows.filter(e => e.sede === filtroSede);
     if (filtroGrupo === "casa") rows = rows.filter(e => e.grupo === "casa");
     else if (filtroGrupo === "contratistas") rows = rows.filter(e => e.grupo === "contratista");
     else if (filtroGrupo === "sin_asignar") rows = rows.filter(e => e.grupo === "sin_asignar");
@@ -29,7 +37,7 @@ export default function EmpleadosTab({ empleados, contratistas, onChanged, esAdm
       rows = rows.filter(e => e.nombre.toLowerCase().includes(qq) || e.dni.includes(qq));
     }
     return [...rows].sort((a, b) => a.nombre.localeCompare(b.nombre, "es"));
-  }, [empleados, q, filtroGrupo, verInactivos, verNoFichan]);
+  }, [empleados, q, filtroGrupo, filtroSede, verInactivos, verNoFichan]);
 
   const stats = useMemo(() => {
     const act = (empleados ?? []).filter(e => e.activo !== false);
@@ -41,6 +49,50 @@ export default function EmpleadosTab({ empleados, contratistas, onChanged, esAdm
       noFichan: act.filter(e => e.ficha === false).length,
     };
   }, [empleados]);
+
+  function toggleSel(id) {
+    setSelIds(prev => {
+      const next = new Set(prev);
+      next.has(id) ? next.delete(id) : next.add(id);
+      return next;
+    });
+  }
+
+  function selAll() {
+    setSelIds(new Set(filtrados.map(e => e.id)));
+  }
+
+  function selNone() {
+    setSelIds(new Set());
+  }
+
+  async function bulkUpdate(patch) {
+    const ids = [...selIds];
+    if (!ids.length) return;
+    setBulkLoading(true);
+    setErr(null);
+    try {
+      // Por lotes: un .in() con cientos de UUIDs puede pasar el límite de URL.
+      for (let i = 0; i < ids.length; i += 100) {
+        const { error } = await supabase.from("rrhh_empleados").update(patch).in("id", ids.slice(i, i + 100));
+        if (error) throw error;
+      }
+      setSelIds(new Set());
+      onChanged?.();
+    } catch (e) {
+      setErr(e);
+    } finally {
+      setBulkLoading(false);
+    }
+  }
+
+  async function aplicarGrupo() {
+    if (bulkGrupo === "contratista" && !bulkContratistaId) return;
+    await bulkUpdate({
+      grupo: bulkGrupo,
+      contratista_id: bulkGrupo === "contratista" ? bulkContratistaId : null,
+    });
+  }
 
   return (
     <div>
@@ -60,6 +112,10 @@ export default function EmpleadosTab({ empleados, contratistas, onChanged, esAdm
           <option value="sin_asignar">⚠ Sin asignar</option>
           {(contratistas ?? []).map(c => <option key={c.id} value={`c:${c.id}`}>↳ {c.nombre}</option>)}
         </select>
+        <select style={{ ...INP, minWidth: 140 }} value={filtroSede} onChange={e => setFiltroSede(e.target.value)}>
+          <option value="todas">Todas las sedes</option>
+          {SEDES.map(s => <option key={s} value={s}>{s}</option>)}
+        </select>
         <input style={{ ...INP, flex: 1, minWidth: 150 }} placeholder="Buscar nombre o DNI…" value={q} onChange={e => setQ(e.target.value)} />
         <label style={{ fontSize: 12, color: C.t2, display: "flex", gap: 5, alignItems: "center", cursor: "pointer" }}>
           <input type="checkbox" checked={verNoFichan} onChange={e => setVerNoFichan(e.target.checked)} /> ver no-fichan
@@ -73,18 +129,65 @@ export default function EmpleadosTab({ empleados, contratistas, onChanged, esAdm
 
       {err && <div style={{ fontSize: 12, color: "#f87171", marginBottom: 10 }}>{String(err.message ?? err)}</div>}
 
+      {esAdmin && selIds.size > 0 && (
+        <div style={{
+          position: "sticky", top: 0, zIndex: 40,
+          background: "var(--panel-solid)",
+          backdropFilter: "blur(18px)", WebkitBackdropFilter: "blur(18px)",
+          border: "1px solid rgba(59,130,246,0.30)",
+          borderRadius: 10, padding: "10px 12px", marginBottom: 12,
+          display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap",
+          boxShadow: "0 4px 24px rgba(0,0,0,0.35)",
+        }}>
+          <span style={{ fontFamily: C.mono, fontSize: 13, color: "#60a5fa", fontWeight: 700, minWidth: 70 }}>
+            {selIds.size} selec.
+          </span>
+          <button type="button" onClick={selAll} style={{ ...BTN, padding: "4px 10px" }}>Todos del filtro</button>
+          <button type="button" onClick={selNone} style={{ ...BTN, padding: "4px 10px" }}>Ninguno</button>
+          <div style={{ width: 1, height: 26, background: C.b0, margin: "0 2px" }} />
+
+          <select style={{ ...INP, padding: "5px 8px" }} value={bulkGrupo} onChange={e => setBulkGrupo(e.target.value)}>
+            <option value="casa">Grupo: casa</option>
+            <option value="contratista">Grupo: contratista</option>
+          </select>
+          {bulkGrupo === "contratista" && (
+            <select style={{ ...INP, padding: "5px 8px", minWidth: 150 }} value={bulkContratistaId} onChange={e => setBulkContratistaId(e.target.value)}>
+              <option value="">Elegir contratista</option>
+              {(contratistas ?? []).map(c => <option key={c.id} value={c.id}>{c.nombre}</option>)}
+            </select>
+          )}
+          <button type="button" disabled={bulkLoading || !selIds.size || (bulkGrupo === "contratista" && !bulkContratistaId)} onClick={aplicarGrupo} style={{ ...BTN_PRIMARY, padding: "5px 10px", opacity: bulkLoading || !selIds.size ? 0.5 : 1 }}>
+            Aplicar grupo
+          </button>
+
+          <select style={{ ...INP, padding: "5px 8px" }} value={bulkSede} onChange={e => setBulkSede(e.target.value)}>
+            {SEDES.map(s => <option key={s} value={s}>{s}</option>)}
+          </select>
+          <button type="button" disabled={bulkLoading || !selIds.size} onClick={() => bulkUpdate({ sede: bulkSede })} style={{ ...BTN, padding: "5px 10px", opacity: bulkLoading || !selIds.size ? 0.5 : 1 }}>Asignar sede</button>
+          <button type="button" disabled={bulkLoading || !selIds.size} onClick={() => bulkUpdate({ ficha: true })} style={{ ...BTN, padding: "5px 10px", opacity: bulkLoading || !selIds.size ? 0.5 : 1 }}>Ficha si</button>
+          <button type="button" disabled={bulkLoading || !selIds.size} onClick={() => bulkUpdate({ ficha: false })} style={{ ...BTN, padding: "5px 10px", opacity: bulkLoading || !selIds.size ? 0.5 : 1 }}>Ficha no</button>
+          <button type="button" disabled={bulkLoading || !selIds.size} onClick={() => bulkUpdate({ activo: true })} style={{ ...BTN, padding: "5px 10px", opacity: bulkLoading || !selIds.size ? 0.5 : 1 }}>Activo si</button>
+          <button type="button" disabled={bulkLoading || !selIds.size} onClick={() => bulkUpdate({ activo: false })} style={{ ...BTN, padding: "5px 10px", opacity: bulkLoading || !selIds.size ? 0.5 : 1 }}>Activo no</button>
+        </div>
+      )}
+
       <div style={{ fontSize: 12, color: C.t2, marginBottom: 8 }}>{filtrados.length} empleado{filtrados.length !== 1 ? "s" : ""}</div>
 
       <div style={{ overflowX: "auto", border: `1px solid ${C.b0}`, borderRadius: 12 }}>
         <table style={{ width: "100%", borderCollapse: "collapse" }}>
           <thead>
-            <tr><Th>Nombre</Th><Th>DNI</Th><Th>Grupo</Th><Th>Ficha</Th><Th>Estado</Th><Th> </Th></tr>
+            <tr>
+              {esAdmin && <Th><input type="checkbox" checked={filtrados.length > 0 && filtrados.every(e => selIds.has(e.id))} onChange={e => e.target.checked ? selAll() : selNone()} /></Th>}
+              <Th>Nombre</Th><Th>DNI</Th><Th>Sede</Th><Th>Grupo</Th><Th>Ficha</Th><Th>Estado</Th><Th> </Th>
+            </tr>
           </thead>
           <tbody>
             {filtrados.map(e => (
               <tr key={e.id} style={{ opacity: e.activo === false ? 0.5 : 1 }}>
+                {esAdmin && <Td><input type="checkbox" checked={selIds.has(e.id)} onChange={() => toggleSel(e.id)} /></Td>}
                 <Td>{e.nombre}{e.notas && <span title={e.notas} style={{ marginLeft: 6, fontSize: 11, color: C.t2 }}>✎</span>}</Td>
                 <Td mono color={C.t1}>{e.dni}</Td>
+                <Td color={e.sede ? C.t1 : C.t2}>{e.sede ?? "—"}</Td>
                 <Td><GrupoBadge grupo={e.grupo} contratistaNombre={e.contratista?.nombre} /></Td>
                 <Td color={e.ficha === false ? C.t2 : C.green} style={{ fontSize: 12 }}>{e.ficha === false ? "no ficha" : "ficha"}</Td>
                 <Td color={e.activo === false ? "#f87171" : C.green} style={{ fontSize: 12 }}>{e.activo === false ? "inactivo" : "activo"}</Td>
@@ -115,7 +218,7 @@ export default function EmpleadosTab({ empleados, contratistas, onChanged, esAdm
 function EmpleadoModal({ emp, contratistas, onClose, onSaved, onError }) {
   const [form, setForm] = useState(emp ? {
     dni: emp.dni, nombre: emp.nombre, grupo: emp.grupo,
-    contratista_id: emp.contratista_id ?? "", ficha: emp.ficha !== false,
+    sede: emp.sede ?? "", contratista_id: emp.contratista_id ?? "", ficha: emp.ficha !== false,
     activo: emp.activo !== false, notas: emp.notas ?? "",
   } : FORM_VACIO);
   const [saving, setSaving] = useState(false);
@@ -126,6 +229,7 @@ function EmpleadoModal({ emp, contratistas, onClose, onSaved, onError }) {
     setSaving(true);
     const payload = {
       dni: form.dni.trim(), nombre: form.nombre.trim(), grupo: form.grupo,
+      sede: form.sede || null,
       contratista_id: form.grupo === "contratista" && form.contratista_id ? form.contratista_id : null,
       ficha: form.ficha, activo: form.activo, notas: form.notas.trim() || null,
     };
@@ -148,6 +252,12 @@ function EmpleadoModal({ emp, contratistas, onClose, onSaved, onError }) {
         <label style={LBL}>DNI * <span style={{ color: C.t2, textTransform: "none", letterSpacing: 0 }}>(es la llave con el fichero — solo números)</span></label>
         <input style={{ ...INP, width: "100%", marginBottom: 10, fontFamily: C.mono }} value={form.dni}
           onChange={e => set("dni", e.target.value.replace(/\D/g, ""))} disabled={!!emp} />
+
+        <label style={LBL}>Sede</label>
+        <select style={{ ...INP, width: "100%", marginBottom: 10 }} value={form.sede} onChange={e => set("sede", e.target.value)}>
+          <option value="">Sin sede</option>
+          {SEDES.map(s => <option key={s} value={s}>{s}</option>)}
+        </select>
 
         <label style={LBL}>Grupo</label>
         <div style={{ display: "flex", gap: 6, marginBottom: 10 }}>

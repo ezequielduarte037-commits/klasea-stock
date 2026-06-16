@@ -73,7 +73,7 @@ export function ChapaSwatch({ tipo, size = "sm", label = false }) {
     }}>
       {label && (
         <>
-          <span style={{ width: dims.h - 8, height: dims.h - 8, borderRadius: Math.max(3, dims.r - 3), background: "rgba(255,255,255,0.18)", border: "1px solid rgba(255,255,255,0.22)", marginLeft: 2 }} />
+          <span style={{ width: dims.h - 8, height: dims.h - 8, borderRadius: Math.max(3, dims.r - 3), background: "var(--border-2)", border: "1px solid rgba(255,255,255,0.22)", marginLeft: 2 }} />
           <span style={{ fontSize: 11, fontWeight: 800, letterSpacing: 0.2, color: tone.text }}>{tipo || "Sin chapa"}</span>
         </>
       )}

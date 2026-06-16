@@ -3,8 +3,8 @@
 import { useEffect, useMemo, useState } from "react";
 import { C } from "@/theme";
 import {
-  addDays, downloadCsv, duracionMin, fetchMarcaciones, fmtFechaCorta,
-  hoyIso, jornadaDelDia, minToHM, saveConfig,
+  addDays, downloadCsv, duracionMin, extraFueraVentanaMin, fetchMarcaciones, fmtFechaCorta,
+  hoyIso, minToHM, saveConfig, SEDES, timeToMin,
 } from "./api";
 import { BTN, Cargando, ErrorBox, GrupoBadge, INP, KpiCard, LBL, Td, Th } from "./ui";
 
@@ -15,10 +15,11 @@ export default function ExtrasTab({ empleados, contratistas, config, onConfigCha
   const [marcas, setMarcas] = useState(null);
   const [error, setError] = useState(null);
   const [filtroGrupo, setFiltroGrupo] = useState("todos");
+  const [filtroSede, setFiltroSede] = useState("todas");
   const [q, setQ] = useState("");
   const [openId, setOpenId] = useState(null);
   const [showCfg, setShowCfg] = useState(false);
-  const [cfgForm, setCfgForm] = useState({ jornada: config.jornada_min / 60, sabado: config.jornada_sabado_min / 60 });
+  const [cfgForm, setCfgForm] = useState({ inicio: config.hora_inicio ?? "07:00", fin: config.hora_fin ?? "16:00" });
 
   useEffect(() => {
     let alive = true;
@@ -29,6 +30,10 @@ export default function ExtrasTab({ empleados, contratistas, config, onConfigCha
     return () => { alive = false; };
   }, [desde, hasta]);
 
+  useEffect(() => {
+    setCfgForm({ inicio: config.hora_inicio ?? "07:00", fin: config.hora_fin ?? "16:00" });
+  }, [config.hora_inicio, config.hora_fin]);
+
   const empById = useMemo(() => new Map((empleados ?? []).map(e => [e.id, e])), [empleados]);
 
   // Agregado por empleado
@@ -36,21 +41,21 @@ export default function ExtrasTab({ empleados, contratistas, config, onConfigCha
     if (!marcas) return null;
     const map = new Map();
     for (const m of marcas) {
+      if (filtroSede !== "todas" && m.sede !== filtroSede) continue;
       const emp = empById.get(m.empleado_id);
       if (!emp || emp.ficha === false) continue;
       const min = duracionMin(m);
       if (min == null) continue; // sin salida: no se puede computar
-      const jornada = jornadaDelDia(m.fecha, config);
-      const extra = Math.max(0, min - jornada);
+      const extra = extraFueraVentanaMin(m, config) ?? 0;
       let row = map.get(emp.id);
       if (!row) { row = { emp, dias: 0, totalMin: 0, extraMin: 0, detalle: [] }; map.set(emp.id, row); }
       row.dias += 1;
       row.totalMin += min;
       row.extraMin += extra;
-      row.detalle.push({ fecha: m.fecha, min, jornada, extra });
+      row.detalle.push({ fecha: m.fecha, min, extra, entrada: m.entrada, salida: m.salida, sede: m.sede });
     }
     return [...map.values()].sort((a, b) => b.extraMin - a.extraMin || a.emp.nombre.localeCompare(b.emp.nombre, "es"));
-  }, [marcas, empById, config]);
+  }, [marcas, empById, config, filtroSede]);
 
   const filtradas = useMemo(() => {
     if (!filas) return null;
@@ -76,11 +81,12 @@ export default function ExtrasTab({ empleados, contratistas, config, onConfigCha
   }, [filtradas]);
 
   async function guardarCfg() {
-    const j = Math.round(Number(cfgForm.jornada) * 60);
-    const s = Math.round(Number(cfgForm.sabado) * 60);
-    if (!Number.isFinite(j) || j <= 0 || !Number.isFinite(s) || s < 0) return;
-    await saveConfig("jornada_min", j);
-    await saveConfig("jornada_sabado_min", s);
+    const inicio = timeToMin(cfgForm.inicio);
+    const fin = timeToMin(cfgForm.fin);
+    if (inicio == null || fin == null || fin <= inicio) return;
+    await saveConfig("hora_inicio", cfgForm.inicio);
+    await saveConfig("hora_fin", cfgForm.fin);
+    await saveConfig("jornada_min", fin - inicio);
     setShowCfg(false);
     onConfigChange?.();
   }
@@ -89,9 +95,10 @@ export default function ExtrasTab({ empleados, contratistas, config, onConfigCha
     if (!filtradas) return;
     downloadCsv(
       `horas_extras_${desde}_${hasta}.csv`,
-      ["DNI", "Nombre", "Grupo", "Contratista", "Días", "Horas totales", "Horas extra"],
+      ["DNI", "Nombre", "Sede", "Grupo", "Contratista", "Días", "Horas totales", "Horas extra"],
       filtradas.map(r => [
         r.emp.dni, r.emp.nombre,
+        filtroSede === "todas" ? "Todas" : filtroSede,
         r.emp.grupo === "casa" ? "Casa" : r.emp.grupo === "contratista" ? "Contratista" : "Sin asignar",
         r.emp.contratista?.nombre ?? "", r.dias, minToHM(r.totalMin), minToHM(r.extraMin),
       ]),
@@ -111,25 +118,29 @@ export default function ExtrasTab({ empleados, contratistas, config, onConfigCha
           <option value="sin_asignar">Sin asignar</option>
           {(contratistas ?? []).map(c => <option key={c.id} value={`c:${c.id}`}>↳ {c.nombre}</option>)}
         </select>
+        <select style={{ ...INP, minWidth: 140 }} value={filtroSede} onChange={e => setFiltroSede(e.target.value)}>
+          <option value="todas">Todas las sedes</option>
+          {SEDES.map(s => <option key={s} value={s}>{s}</option>)}
+        </select>
         <input style={{ ...INP, flex: 1, minWidth: 140 }} placeholder="Buscar…" value={q} onChange={e => setQ(e.target.value)} />
-        {esAdmin && <button style={BTN} onClick={() => setShowCfg(v => !v)}>⚙ Jornada</button>}
+        {esAdmin && <button style={BTN} onClick={() => setShowCfg(v => !v)}>⚙ Ventana</button>}
         <button style={BTN} onClick={exportar}>⬇ CSV</button>
       </div>
 
       {showCfg && (
         <div style={{ background: C.s0, border: `1px solid ${C.b1}`, borderRadius: 12, padding: 16, marginBottom: 16, display: "flex", gap: 14, alignItems: "flex-end", flexWrap: "wrap" }}>
           <div>
-            <label style={LBL}>Jornada lun–vie (horas)</label>
-            <input type="number" step="0.5" min="1" style={{ ...INP, width: 110 }} value={cfgForm.jornada}
-              onChange={e => setCfgForm(f => ({ ...f, jornada: e.target.value }))} />
+            <label style={LBL}>Inicio lun-vie</label>
+            <input type="time" style={{ ...INP, width: 120 }} value={cfgForm.inicio}
+              onChange={e => setCfgForm(f => ({ ...f, inicio: e.target.value }))} />
           </div>
           <div>
-            <label style={LBL}>Jornada sábado (horas)</label>
-            <input type="number" step="0.5" min="0" style={{ ...INP, width: 110 }} value={cfgForm.sabado}
-              onChange={e => setCfgForm(f => ({ ...f, sabado: e.target.value }))} />
+            <label style={LBL}>Fin lun-vie</label>
+            <input type="time" style={{ ...INP, width: 120 }} value={cfgForm.fin}
+              onChange={e => setCfgForm(f => ({ ...f, fin: e.target.value }))} />
           </div>
           <div style={{ fontSize: 11, color: C.t2, flex: 1, minWidth: 180, lineHeight: 1.6 }}>
-            Lo que supere la jornada del día cuenta como extra. Sábado y domingo (jornada 0) todo es extra, salvo que cargues horas de sábado.
+            Las extras son lo trabajado antes del inicio o despues del fin. Sabado y domingo cuentan todo como extra.
           </div>
           <button style={{ ...BTN, background: "rgba(59,130,246,0.12)", borderColor: "rgba(59,130,246,0.3)", color: "#60a5fa" }} onClick={guardarCfg}>Guardar</button>
         </div>
@@ -143,7 +154,7 @@ export default function ExtrasTab({ empleados, contratistas, config, onConfigCha
           <div style={{ display: "flex", gap: 10, flexWrap: "wrap", marginBottom: 16 }}>
             <KpiCard label="Horas extra del rango" value={minToHM(totales.extra)} color={totales.extra > 0 ? C.amber : C.green} />
             <KpiCard label="Personas con extras" value={totales.conExtra} sub={`de ${totales.personas} con fichadas`} />
-            <KpiCard label="Jornada" value={`${config.jornada_min / 60} h`} sub={config.jornada_sabado_min > 0 ? `L–V · sábado ${config.jornada_sabado_min / 60} h · resto extra` : "L–V 7 a 16 · fuera de eso, todo extra"} />
+            <KpiCard label="Ventana" value={`${config.hora_inicio} - ${config.hora_fin}`} sub="L-V; finde todo extra" />
           </div>
 
           {filtradas.length === 0 ? (

@@ -5,8 +5,8 @@ import { useEffect, useRef, useState } from "react";
 import { supabase } from "@/supabaseClient";
 import { C } from "@/theme";
 import { parseHikvisionReport } from "./hikvisionParser";
-import { fetchBatches, fmtFecha } from "./api";
-import { BTN, BTN_GREEN, BTN_PRIMARY, Cargando, KpiCard } from "./ui";
+import { fetchBatches, fmtFecha, SEDES } from "./api";
+import { BTN, BTN_GREEN, BTN_PRIMARY, Cargando, INP, KpiCard } from "./ui";
 
 export default function ImportarTab({ empleados, onImported }) {
   const fileRef = useRef(null);
@@ -17,6 +17,7 @@ export default function ImportarTab({ empleados, onImported }) {
   const [importing, setImporting] = useState(false);
   const [result, setResult] = useState(null);
   const [batches, setBatches] = useState(null);
+  const [sede, setSede] = useState("");
 
   useEffect(() => { fetchBatches().then(setBatches).catch(() => setBatches([])); }, [result]);
 
@@ -36,7 +37,7 @@ export default function ImportarTab({ empleados, onImported }) {
   const conDatos = parsed ? parsed.empleados.filter(e => e.marcaciones.length) : [];
 
   async function confirmar() {
-    if (!parsed || importing) return;
+    if (!parsed || importing || !sede) return;
     setImporting(true);
     try {
       // 1) Alta automática de DNIs desconocidos como "sin asignar"
@@ -44,17 +45,29 @@ export default function ImportarTab({ empleados, onImported }) {
       if (desconocidos.length) {
         const { data, error } = await supabase
           .from("rrhh_empleados")
-          .upsert(desconocidos.map(e => ({ dni: e.dni, nombre: e.nombre, grupo: "sin_asignar" })), { onConflict: "dni" })
+          .upsert(desconocidos.map(e => ({ dni: e.dni, nombre: e.nombre, grupo: "casa", sede })), { onConflict: "dni" })
           .select("id, dni");
         if (error) throw error;
         nuevosIds = new Map((data ?? []).map(r => [r.dni, r.id]));
       }
       const idOf = (dni) => dniMap.get(dni)?.id ?? nuevosIds.get(dni);
 
+      const existentesSinSede = parsed.empleados
+        .map(e => dniMap.get(e.dni))
+        .filter(e => e?.id && !e.sede)
+        .map(e => e.id);
+      if (existentesSinSede.length) {
+        const { error } = await supabase
+          .from("rrhh_empleados")
+          .update({ sede })
+          .in("id", existentesSinSede);
+        if (error) throw error;
+      }
+
       // 2) Batch
       const { data: batch, error: bErr } = await supabase
         .from("rrhh_import_batches")
-        .insert({ filename: fileName, periodo_desde: parsed.periodo.desde, periodo_hasta: parsed.periodo.hasta })
+        .insert({ filename: fileName, periodo_desde: parsed.periodo.desde, periodo_hasta: parsed.periodo.hasta, sede })
         .select("id").single();
       if (bErr) throw bErr;
 
@@ -66,7 +79,7 @@ export default function ImportarTab({ empleados, onImported }) {
         for (const m of emp.marcaciones) {
           rows.push({
             empleado_id: eid, fecha: m.fecha, entrada: m.entrada,
-            salida: m.salida, fichadas: m.fichadas, batch_id: batch.id,
+            salida: m.salida, fichadas: m.fichadas, batch_id: batch.id, sede,
           });
         }
       }
@@ -93,6 +106,7 @@ export default function ImportarTab({ empleados, onImported }) {
         actualizadas: Math.min(rows.length, existentes ?? 0),
         empleados: parsed.empleados.length,
         desconocidos: desconocidos.length,
+        sede,
       };
       await supabase.from("rrhh_import_batches").update({ stats }).eq("id", batch.id);
 
@@ -139,8 +153,8 @@ export default function ImportarTab({ empleados, onImported }) {
         <div style={{ background: "rgba(16,185,129,0.07)", border: "1px solid rgba(16,185,129,0.25)", borderRadius: 12, padding: 18, marginBottom: 16 }}>
           <div style={{ fontSize: 14, color: C.green, fontWeight: 700, marginBottom: 6 }}>✓ Importación completada</div>
           <div style={{ fontSize: 13, color: C.t1, lineHeight: 1.8 }}>
-            {result.marcaciones} marcaciones procesadas ({result.nuevas} nuevas, {result.actualizadas} ya existían y se actualizaron).
-            {result.desconocidos > 0 && <> Se dieron de alta <strong>{result.desconocidos}</strong> empleados nuevos como “Sin asignar” — clasificalos en la pestaña Empleados.</>}
+            {result.marcaciones} marcaciones procesadas para <strong>{result.sede}</strong> ({result.nuevas} nuevas, {result.actualizadas} ya existían y se actualizaron).
+            {result.desconocidos > 0 && <> Se dieron de alta <strong>{result.desconocidos}</strong> empleados nuevos como gente de la casa.</>}
           </div>
         </div>
       )}
@@ -151,12 +165,21 @@ export default function ImportarTab({ empleados, onImported }) {
           <div style={{ fontSize: 11, letterSpacing: 1.3, textTransform: "uppercase", color: "#60a5fa", fontWeight: 700, marginBottom: 12 }}>
             Vista previa — {fileName}
           </div>
+          <div style={{ marginBottom: 14 }}>
+            <label style={{ fontSize: 10, letterSpacing: 1.3, color: C.t2, display: "block", marginBottom: 4, textTransform: "uppercase", fontWeight: 700 }}>
+              Galpon del reporte *
+            </label>
+            <select style={{ ...INP, minWidth: 190 }} value={sede} onChange={e => setSede(e.target.value)}>
+              <option value="">Elegir Pampa o Chubut</option>
+              {SEDES.map(s => <option key={s} value={s}>{s}</option>)}
+            </select>
+          </div>
           <div style={{ display: "flex", gap: 10, flexWrap: "wrap", marginBottom: 14 }}>
             <KpiCard label="Período" value={`${fmtFecha(parsed.periodo.desde)} – ${fmtFecha(parsed.periodo.hasta)}`} sub={`${parsed.dias.length} día${parsed.dias.length !== 1 ? "s" : ""}`} />
             <KpiCard label="Empleados en el archivo" value={parsed.empleados.length} sub={`${conDatos.length} con fichadas`} />
             <KpiCard label="Marcaciones" value={parsed.totalMarcaciones} />
             <KpiCard label="DNIs nuevos" value={desconocidos.length} color={desconocidos.length ? C.amber : C.green}
-              sub={desconocidos.length ? "se crean como Sin asignar" : "todos ya en el maestro"} />
+              sub={desconocidos.length ? "se crean como casa" : "todos ya en el maestro"} />
           </div>
 
           {desconocidos.length > 0 && (
@@ -170,7 +193,7 @@ export default function ImportarTab({ empleados, onImported }) {
           )}
 
           <div style={{ display: "flex", gap: 8 }}>
-            <button onClick={confirmar} disabled={importing} style={{ ...BTN_GREEN, opacity: importing ? 0.6 : 1, padding: "9px 22px", fontSize: 13 }}>
+            <button onClick={confirmar} disabled={importing || !sede} style={{ ...BTN_GREEN, opacity: importing || !sede ? 0.6 : 1, padding: "9px 22px", fontSize: 13 }}>
               {importing ? "Importando…" : "Confirmar e importar"}
             </button>
             <button onClick={() => setParsed(null)} disabled={importing} style={BTN}>Cancelar</button>
@@ -192,6 +215,7 @@ export default function ImportarTab({ empleados, onImported }) {
           {batches.map(b => (
             <div key={b.id} style={{ display: "flex", alignItems: "center", gap: 14, background: C.s0, border: `1px solid ${C.b0}`, borderRadius: 9, padding: "9px 14px", flexWrap: "wrap" }}>
               <span style={{ fontSize: 13, color: C.t0, fontWeight: 600, flex: 1, minWidth: 140 }}>{b.filename}</span>
+              {b.sede && <span style={{ fontSize: 11, color: "#60a5fa", background: "rgba(59,130,246,0.12)", border: "1px solid rgba(59,130,246,0.25)", padding: "3px 7px", borderRadius: 6 }}>{b.sede}</span>}
               <span style={{ fontSize: 12, color: C.t1, fontFamily: C.mono }}>{fmtFecha(b.periodo_desde)} – {fmtFecha(b.periodo_hasta)}</span>
               {b.stats && <span style={{ fontSize: 12, color: C.t2 }}>{b.stats.marcaciones} marc. · {b.stats.desconocidos ?? 0} nuevos</span>}
               <span style={{ fontSize: 11, color: C.t2 }}>{new Date(b.created_at).toLocaleString("es-AR", { day: "2-digit", month: "2-digit", hour: "2-digit", minute: "2-digit" })}</span>

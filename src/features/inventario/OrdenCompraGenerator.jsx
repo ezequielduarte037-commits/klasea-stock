@@ -30,8 +30,8 @@ const S = {
   section: { border: `1px solid ${C.b0}`, borderRadius: 14, background: C.card, marginBottom: 20, overflow: "hidden" },
   header:  { display: "flex", justifyContent: "space-between", alignItems: "center", padding: "16px 20px", borderBottom: `1px solid ${C.b0}`, cursor: "pointer", userSelect: "none" },
   label:   { fontSize: 11, color: C.t2, letterSpacing: 1.1, textTransform: "uppercase", fontFamily: C.sans, marginBottom: 5, display: "block" },
-  input:   { background: "rgba(255,255,255,0.04)", border: `1px solid ${C.b0}`, color: C.t0, padding: "8px 11px", borderRadius: 8, fontSize: 13, fontFamily: C.sans, outline: "none", width: "100%", boxSizing: "border-box" },
-  select:  { background: "rgba(255,255,255,0.06)", border: `1px solid ${C.b0}`, color: C.t0, padding: "6px 9px", borderRadius: 7, fontSize: 12, fontFamily: C.sans, outline: "none", width: "100%", boxSizing: "border-box", cursor: "pointer" },
+  input:   { background: "var(--panel)", border: `1px solid ${C.b0}`, color: C.t0, padding: "8px 11px", borderRadius: 8, fontSize: 13, fontFamily: C.sans, outline: "none", width: "100%", boxSizing: "border-box" },
+  select:  { background: "var(--panel-2)", border: `1px solid ${C.b0}`, color: C.t0, padding: "6px 9px", borderRadius: 7, fontSize: 12, fontFamily: C.sans, outline: "none", width: "100%", boxSizing: "border-box", cursor: "pointer" },
   btn:   (color, fill = false) => ({ border: `1px solid ${color}55`, background: fill ? color : `${color}18`, color: fill ? "#fff" : color, padding: "8px 16px", borderRadius: 8, cursor: "pointer", fontWeight: 700, fontSize: 13, fontFamily: C.sans, whiteSpace: "nowrap" }),
   btnSm: (color, fill = false) => ({ border: `1px solid ${color}44`, background: fill ? color : `${color}15`, color: fill ? "#fff" : color, padding: "4px 10px", borderRadius: 6, cursor: "pointer", fontWeight: 700, fontSize: 12, fontFamily: C.sans, whiteSpace: "nowrap" }),
   th: { textAlign: "left", fontSize: 10, color: C.t2, padding: "9px 12px", textTransform: "uppercase", letterSpacing: 1.3, fontFamily: C.sans, fontWeight: 700 },
@@ -51,16 +51,32 @@ function fmtFechaLocal(dateStr) {
   return `${d}/${m}/${y}`;
 }
 
-function generarEmail({ obraNumero, plantillaLabel, desmolde, items, stockKeys }) {
+function generarEmail({ obraNumero, plantillaLabel, desmolde, items, stockKeys, extraKeys, extraItems = [], materiales = [] }) {
   const nombreObra  = obraNumero?.trim() || plantillaLabel || "Obra";
   const desmoldeStr = desmolde ? ` (Fecha estimada de desmolde ${fmtFechaLocal(desmolde)})` : "";
-  const aComprar = items.filter(it => !stockKeys.has(it._key));
-  const enStock  = items.filter(it =>  stockKeys.has(it._key));
-  let txt = `Agus,\n\nte detallo los materiales requeridos:\n\nObra ${nombreObra}${desmoldeStr}\n\n`;
+
+  const esExtra  = (it) => extraKeys?.has?.(it._key);
+  const normales = items.filter(it => !esExtra(it));
+  const aComprar = normales.filter(it => !stockKeys.has(it._key));
+  const enStock  = normales.filter(it =>  stockKeys.has(it._key));
+
+  // Extras = marcados en la plantilla + agregados libres → siempre al final.
+  const extrasPlantilla = items.filter(esExtra);
+  const extrasLibres = (extraItems ?? []).map(e => {
+    const mat = materiales.find(m => String(m.id) === String(e.material_id));
+    return { cantidad: e.cantidad, descripcion: mat?.nombre ?? "Extra", unidad: mat?.unidad ?? "unid", total: null, total_unidad: "unid" };
+  });
+  const extras = [...extrasPlantilla, ...extrasLibres];
+
+  let txt = `David,\n\nte detallo los materiales requeridos:\n\nObra ${nombreObra}${desmoldeStr}\n\n`;
   aComprar.forEach(it => { txt += fmtLinea(it) + "\n"; });
   if (enStock.length > 0) {
     txt += `\nRemarcado en celeste los materiales en stock que no son necesario comprar.\n\nStock:\n`;
     enStock.forEach(it => { txt += fmtLinea(it) + "\n"; });
+  }
+  if (extras.length > 0) {
+    txt += `\nExtras (fuera de la lista estándar):\n`;
+    extras.forEach(it => { txt += fmtLinea(it) + "\n"; });
   }
   txt += `\nGracias,`;
   return txt;
@@ -378,8 +394,10 @@ export default function OrdenCompraGenerator({ materiales = [], stockPorMaterial
         categoria:   "extra",
       })),
     ];
+    // Los extras siempre al final (tanto en los pedidos como en el ítem de compras).
+    items.sort((a, b) => (a.categoria === "extra" ? 1 : 0) - (b.categoria === "extra" ? 1 : 0));
     try {
-      await onCrearOrden(items, { plantillaLabel, obraNumero, ordenRef });
+      await onCrearOrden(items, { plantillaLabel, obraNumero, ordenRef, emailText });
       // Marcar todos como creados
       setPedidosCreados(prev => new Set([
         ...prev,
@@ -395,8 +413,8 @@ export default function OrdenCompraGenerator({ materiales = [], stockPorMaterial
       total: it._totalEdit !== "" ? Number(it._totalEdit) : it.total })), [items]);
 
   const emailText = useMemo(() =>
-    generarEmail({ obraNumero, plantillaLabel, desmolde, items: itemsParaEmail, stockKeys }),
-    [obraNumero, plantillaLabel, desmolde, itemsParaEmail, stockKeys]);
+    generarEmail({ obraNumero, plantillaLabel, desmolde, items: itemsParaEmail, stockKeys, extraKeys, extraItems, materiales }),
+    [obraNumero, plantillaLabel, desmolde, itemsParaEmail, stockKeys, extraKeys, extraItems, materiales]);
 
   function copiar() {
     navigator.clipboard.writeText(emailText).then(() => {
@@ -491,7 +509,7 @@ export default function OrdenCompraGenerator({ materiales = [], stockPorMaterial
                 <div style={{ flex: 1 }} />
                 {onCrearOrden && itemsAGenerar.total > 0 && (
                   <button style={S.btn(C.violet, true)} onClick={() => setShowConfirm(true)} disabled={creando}>
-                    {creando ? "Generando…" : `Generar pedido (${itemsAGenerar.total} ítems)`}
+                    {creando ? "Generando…" : `Generar pedido y enviar a Compras (${itemsAGenerar.total})`}
                   </button>
                 )}
               </div>
@@ -738,9 +756,11 @@ export default function OrdenCompraGenerator({ materiales = [], stockPorMaterial
       {showConfirm && (
         <div style={{ position: "fixed", inset: 0, background: "var(--overlay-strong)", zIndex: 9999, display: "flex", alignItems: "center", justifyContent: "center", backdropFilter: "blur(5px)" }}>
           <div style={{ background: C.panelSolid, border: `1px solid ${C.b0}`, borderRadius: 16, padding: 28, width: "min(580px, 94vw)", maxHeight: "85vh", overflow: "auto", boxShadow: "0 24px 64px var(--shadow-strong)" }}>
-            <h3 style={{ margin: "0 0 4px", color: C.t0, fontSize: 16, fontFamily: C.sans }}>Confirmar generación de pedidos</h3>
+            <h3 style={{ margin: "0 0 4px", color: C.t0, fontSize: 16, fontFamily: C.sans }}>Confirmar generación del pedido</h3>
             <p style={{ margin: "0 0 18px", color: C.t1, fontSize: 13, fontFamily: C.sans }}>
-              Se van a crear los siguientes ítems en el sistema. El pañolero los verá en "Pedidos pendientes".
+              Con esto el pedido va a los tres lados a la vez: el <b style={{ color: C.t0 }}>pañolero</b> lo
+              recibe en laminación, impacta en la <b style={{ color: C.t0 }}>plantilla de la obra</b>, y se
+              envía a <b style={{ color: C.t0 }}>Compras</b>.
             </p>
 
             {(plantillaLabel || obraNumero) && (
@@ -764,7 +784,7 @@ export default function OrdenCompraGenerator({ materiales = [], stockPorMaterial
                   {itemsAGenerar.dePlantilla.map(it => {
                     const esExtra = extraKeys.has(it._key);
                     return (
-                    <tr key={it._key} style={{ borderTop: `1px solid rgba(255,255,255,0.04)`, background: esExtra ? `${C.amber}06` : "transparent" }}>
+                    <tr key={it._key} style={{ borderTop: `1px solid var(--panel)`, background: esExtra ? `${C.amber}06` : "transparent" }}>
                       <td style={{ ...S.td, padding: "9px 14px", fontWeight: 600, color: C.t0 }}>
                         {esExtra && <span style={{ fontSize: 10, fontWeight: 800, textTransform: "uppercase", letterSpacing: 0.5, color: C.amber, border: `1px solid ${C.amber}44`, background: `${C.amber}18`, borderRadius: 4, padding: "1px 6px", marginRight: 6 }}>Extra</span>}
                         {it.descripcion}
@@ -784,7 +804,7 @@ export default function OrdenCompraGenerator({ materiales = [], stockPorMaterial
                     const mat = e._mat;
                     const st  = mat ? num(stockPorMaterial[mat.id] ?? 0) : null;
                     return (
-                      <tr key={e.uid} style={{ borderTop: `1px solid rgba(255,255,255,0.04)`, background: `${C.amber}06` }}>
+                      <tr key={e.uid} style={{ borderTop: `1px solid var(--panel)`, background: `${C.amber}06` }}>
                         <td style={{ ...S.td, padding: "9px 14px", fontWeight: 600, color: C.t0 }}>{mat?.nombre ?? "—"}</td>
                         <td style={{ ...S.td, padding: "9px 14px", textAlign: "right", fontFamily: C.mono, color: C.amber, fontWeight: 700, fontSize: 14 }}>
                           {e.cantidad} <span style={{ fontSize: 11, color: C.t2, fontWeight: 700 }}>{mat?.unidad}</span>
@@ -801,14 +821,14 @@ export default function OrdenCompraGenerator({ materiales = [], stockPorMaterial
             </div>
 
             <div style={{ padding: "10px 14px", background: `${C.violet}0d`, border: `1px solid ${C.violet}22`, borderRadius: 8, fontSize: 13, color: C.t1, fontFamily: C.sans, marginBottom: 20 }}>
-               Se van a generar <b style={{ color: C.violet }}>{itemsAGenerar.total} pedido{itemsAGenerar.total !== 1 ? "s" : ""}</b> en el sistema
+               Se van a generar <b style={{ color: C.violet }}>{itemsAGenerar.total} ítem{itemsAGenerar.total !== 1 ? "s" : ""}</b> (pedido de laminación + pedido a Compras)
               {itemsAGenerar.dePlantilla.length > 0 && ` — ${itemsAGenerar.dePlantilla.length} de plantilla`}
               {itemsAGenerar.deExtras.length > 0 && ` + ${itemsAGenerar.deExtras.length} extra${itemsAGenerar.deExtras.length !== 1 ? "s" : ""}`}.
             </div>
 
             <div style={{ display: "flex", gap: 10, justifyContent: "flex-end" }}>
               <button
-                style={{ border: `1px solid ${C.b0}`, background: "rgba(255,255,255,0.04)", color: C.t1, padding: "9px 18px", borderRadius: 8, cursor: "pointer", fontWeight: 700, fontSize: 13, fontFamily: C.sans }}
+                style={{ border: `1px solid ${C.b0}`, background: "var(--panel)", color: C.t1, padding: "9px 18px", borderRadius: 8, cursor: "pointer", fontWeight: 700, fontSize: 13, fontFamily: C.sans }}
                 onClick={() => setShowConfirm(false)}
               >
                 Cancelar

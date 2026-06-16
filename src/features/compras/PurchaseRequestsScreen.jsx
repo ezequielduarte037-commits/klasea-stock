@@ -817,7 +817,7 @@ export default function PurchaseRequestsScreen({ profile, signOut }) {
       <style>{`
         @import url('https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700;800&family=JetBrains+Mono:wght@400;500;700&display=swap');
         *, *::before, *::after { box-sizing: border-box; }
-        select option { background: #0f0f12; color: var(--text); }
+        select option { background: var(--panel-solid); color: var(--text); }
         input:focus, select:focus, textarea:focus {
           border-color: rgba(96,165,250,0.42) !important;
           box-shadow: 0 0 0 3px rgba(96,165,250,0.08);

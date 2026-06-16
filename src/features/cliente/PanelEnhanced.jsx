@@ -76,14 +76,14 @@ export const ENHANCED_CSS = `
 .vital-item {
   display:flex; flex-direction:column; align-items:center; gap:4px;
   padding: 14px 20px; cursor:pointer; transition:background .22s;
-  border-right:1px solid rgba(255,255,255,0.06);
+  border-right:1px solid var(--panel-2);
   position:relative; overflow:hidden;
 }
 .vital-item:last-child { border-right:none; }
 .vital-item:hover { background:rgba(255,255,255,0.025); }
 .vital-item::after {
   content:''; position:absolute; bottom:0; left:0; right:0; height:1px;
-  background:var(--vital-color,rgba(255,255,255,0.1));
+  background:var(--vital-color,var(--border));
   transform:scaleX(0); transition:transform .38s var(--ez);
   transform-origin:left;
 }
@@ -102,7 +102,7 @@ export const ENHANCED_CSS = `
 }
 .gauge-card::before {
   content:''; position:absolute; top:0; left:0; right:0; height:1px;
-  background:linear-gradient(90deg,transparent,var(--g-color,rgba(255,255,255,0.08)),transparent);
+  background:linear-gradient(90deg,transparent,var(--g-color,var(--panel-2)),transparent);
   opacity:0; transition:opacity .35s;
 }
 .gauge-card:hover::before { opacity:1; }
@@ -110,7 +110,7 @@ export const ENHANCED_CSS = `
 /* ── System status row ── */
 .sys-row {
   display:flex; align-items:center; gap:14px;
-  padding:13px 18px; border-bottom:1px solid rgba(255,255,255,.035);
+  padding:13px 18px; border-bottom:1px solid var(--panel);
   cursor:default; transition:background .18s;
 }
 .sys-row:hover { background:rgba(255,255,255,.018); }
@@ -120,7 +120,7 @@ export const ENHANCED_CSS = `
 .tl-track { position:relative; }
 .tl-track::before {
   content:''; position:absolute; left:8px; top:0; bottom:0; width:1px;
-  background:linear-gradient(to bottom,transparent,rgba(255,255,255,0.08),transparent);
+  background:linear-gradient(to bottom,transparent,var(--panel-2),transparent);
 }
 .tl-dot {
   width:17px; height:17px; border-radius:50%; flex-shrink:0;
@@ -150,7 +150,7 @@ export const ENHANCED_CSS = `
 .qa-plus:hover .qa-ico { transform:scale(1.12); }
 .qa-plus::after {
   content:''; position:absolute; bottom:0; left:0; right:0; height:1.5px;
-  background:var(--qa-color,rgba(255,255,255,.07));
+  background:var(--qa-color,var(--panel-2));
   transform:scaleX(0); transition:transform .35s var(--ez); transform-origin:left;
 }
 .qa-plus:hover::after { transform:scaleX(1); }
@@ -168,11 +168,11 @@ export const ENHANCED_CSS = `
 /* ── Weather pill ── */
 .wx-pill {
   display:flex; align-items:center; gap:8px; padding:8px 14px;
-  background:rgba(5,6,9,0.75); border:1px solid rgba(255,255,255,0.08);
+  background:rgba(5,6,9,0.75); border:1px solid var(--panel-2);
   backdrop-filter:blur(16px); transition:border-color .25s;
   border-radius:1px;
 }
-.wx-pill:hover { border-color:rgba(255,255,255,0.16); }
+.wx-pill:hover { border-color:var(--border-2); }
 
 /* ── Clock ── */
 .clock-hand {
@@ -267,7 +267,7 @@ function ArcGauge({
         {/* Tick marks */}
         {ticks.map((t, i) => (
           <line key={i} x1={t.x1} y1={t.y1} x2={t.x2} y2={t.y2}
-            stroke="rgba(255,255,255,0.1)" strokeWidth={1} />
+            stroke="var(--border)" strokeWidth={1} />
         ))}
 
         {/* Fill — animated via CSS */}
@@ -361,17 +361,17 @@ function NauticalClock() {
       <svg width={104} height={104}>
         {/* Outer ring */}
         <circle cx={cx} cy={cx} r={r + 4} fill="none"
-          stroke="rgba(255,255,255,0.06)" strokeWidth={1} />
+          stroke="var(--panel-2)" strokeWidth={1} />
         {/* Face */}
         <circle cx={cx} cy={cx} r={r} fill="rgba(255,255,255,0.015)"
-          stroke="rgba(255,255,255,0.08)" strokeWidth={1} />
+          stroke="var(--panel-2)" strokeWidth={1} />
         {/* Inner ring */}
         <circle cx={cx} cy={cx} r={r - 8} fill="none"
-          stroke="rgba(255,255,255,0.03)" strokeWidth={1} />
+          stroke="var(--panel)" strokeWidth={1} />
         {/* Tick marks */}
         {ticks.map((t, i) => (
           <line key={i} x1={t.x1} y1={t.y1} x2={t.x2} y2={t.y2}
-            stroke={i % 3 === 0 ? "rgba(255,255,255,0.3)" : "rgba(255,255,255,0.1)"}
+            stroke={i % 3 === 0 ? "rgba(255,255,255,0.3)" : "var(--border)"}
             strokeWidth={i % 3 === 0 ? 1.5 : 1} />
         ))}
         {/* Glow center */}
@@ -522,7 +522,7 @@ export function SecBienvenidaPlus({ cliente, mc, goTo }) {
         position: "relative", width: "100%",
         height: "min(76vh,600px)", overflow: "hidden",
       }}>
-        <img src={img} onLoad={() => setImgLoaded(true)} alt=""
+        <img src={img} loading="lazy" onLoad={() => setImgLoaded(true)} alt=""
           style={{
             position: "absolute", inset: 0, width: "100%", height: "100%",
             objectFit: "cover", objectPosition: "center 35%",
@@ -567,12 +567,12 @@ export function SecBienvenidaPlus({ cliente, mc, goTo }) {
             <div className="wx-pill" style={{ gap: 10 }}>
               <Thermometer size={9} color="var(--t3)" />
               <span style={{ fontFamily: "var(--font-mono)", fontSize: 10, color: "var(--t1)", letterSpacing: ".1em" }}>{wx.t}°C</span>
-              <span style={{ width: 1, height: 10, background: "rgba(255,255,255,0.1)" }} />
+              <span style={{ width: 1, height: 10, background: "var(--border)" }} />
               <Wind size={9} color="var(--t3)" />
               <span style={{ fontFamily: "var(--font-mono)", fontSize: 10, color: "var(--t2)", letterSpacing: ".08em" }}>{wx.dir} {wx.w} KM/H</span>
               {wx.wave !== "—" && (
                 <>
-                  <span style={{ width: 1, height: 10, background: "rgba(255,255,255,0.1)" }} />
+                  <span style={{ width: 1, height: 10, background: "var(--border)" }} />
                   <span style={{ fontFamily: "var(--font-mono)", fontSize: 10, color: "var(--t2)", letterSpacing: ".08em" }}>OLA {wx.wave} M</span>
                 </>
               )}
@@ -580,7 +580,7 @@ export function SecBienvenidaPlus({ cliente, mc, goTo }) {
           )}
           {/* Date pill */}
           <div style={{ padding: "4px 10px" }}>
-            <span style={{ fontFamily: "var(--font-mono)", fontSize: 10, color: "rgba(255,255,255,0.2)", letterSpacing: ".12em", textTransform: "uppercase" }}>
+            <span style={{ fontFamily: "var(--font-mono)", fontSize: 10, color: "var(--border-2)", letterSpacing: ".12em", textTransform: "uppercase" }}>
               {dateStr}
             </span>
           </div>
@@ -629,7 +629,7 @@ export function SecBienvenidaPlus({ cliente, mc, goTo }) {
         </div>
 
         {/* Bottom rule */}
-        <div style={{ position: "absolute", bottom: 0, left: 0, right: 0, height: 1, background: "linear-gradient(90deg,rgba(255,255,255,0.14),rgba(255,255,255,0.04),transparent 70%)" }} />
+        <div style={{ position: "absolute", bottom: 0, left: 0, right: 0, height: 1, background: "linear-gradient(90deg,rgba(255,255,255,0.14),var(--panel),transparent 70%)" }} />
       </div>
 
       {/* ── VITALS STRIP ─────────────────────────────────────────── */}
@@ -758,7 +758,7 @@ export function SecEstado({ cliente, mc }) {
       <div style={{ marginBottom: 36 }}>
         <div style={{ display: "flex", alignItems: "center", gap: 14, marginBottom: 16 }}>
           <div style={{ height: 1, width: 36, background: "linear-gradient(90deg,rgba(255,255,255,0.5),transparent)" }} />
-          <span style={{ fontFamily: "var(--font-mono)", fontSize: 10, color: "rgba(255,255,255,0.2)", letterSpacing: ".12em" }}>
+          <span style={{ fontFamily: "var(--font-mono)", fontSize: 10, color: "var(--border-2)", letterSpacing: ".12em" }}>
             KLASE-A · VESSEL STATUS
           </span>
         </div>
@@ -797,7 +797,7 @@ export function SecEstado({ cliente, mc }) {
               {/* Concentric ring decoration */}
               <svg width={150} height={150}
                 style={{ position: "absolute", inset: 0, pointerEvents: "none", opacity: .15 }}>
-                <circle cx={75} cy={75} r={55} fill="none" stroke="rgba(255,255,255,0.2)" strokeWidth={0.5} strokeDasharray="2 4" />
+                <circle cx={75} cy={75} r={55} fill="none" stroke="var(--border-2)" strokeWidth={0.5} strokeDasharray="2 4" />
               </svg>
             </div>
             <div style={{ textAlign: "center" }}>

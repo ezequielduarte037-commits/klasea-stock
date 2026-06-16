@@ -23,6 +23,7 @@ import PurchaseRequestsScreen from "@/features/compras/PurchaseRequestsScreen";
 import ScanEgresoScreen      from "@/features/inventario/ScanEgresoScreen";
 import EtiquetasScreen       from "@/features/inventario/EtiquetasScreen";
 import RrhhScreen            from "@/features/rrhh/RrhhScreen";
+import MaterialesScreen      from "@/features/materiales/MaterialesScreen";
 
 import { ToastProvider } from "@/components/ui/Toast";
 import { ConfirmProvider } from "@/components/ui/ConfirmDialog";
@@ -395,6 +396,7 @@ export default function App() {
         <Route path="/muebles"    element={<RequireAuth session={session}><RequireRole profile={profile} allow={["admin","oficina","tecnica","muebles"]}><MueblesScreen    {...A} /></RequireRole></RequireAuth>} />
         <Route path="/pedidos"    element={<RequireAuth session={session}><RequireRole profile={profile} allow={["admin","oficina","tecnica"]}><PedidosScreen    {...A} /></RequireRole></RequireAuth>} />
         <Route path="/compras"    element={<RequireAuth session={session}><RequireRole profile={profile} allow={["admin","oficina","tecnica","panol","compras"]}><PurchaseRequestsScreen {...A} /></RequireRole></RequireAuth>} />
+        <Route path="/materiales" element={<RequireAuth session={session}><RequireRole profile={profile} allow={["admin","oficina","tecnica","compras"]}><MaterialesScreen {...A} /></RequireRole></RequireAuth>} />
         <Route path="/procedimientos" element={<RequireAuth session={session}><RequireRole profile={profile} allow={["admin","oficina","tecnica","laminacion","muebles","mecanica","electricidad"]}><ProcedimientosScreen {...A} /></RequireRole></RequireAuth>} />
 
         {/* Admin / Oficina */}

@@ -6,15 +6,16 @@ import {
 } from "recharts";
 import { C } from "@/theme";
 import {
-  addDays, diaSemana, duracionMin, fetchMarcaciones, hoyIso, minToHM, timeToMin,
+  addDays, diaSemana, duracionMin, fetchMarcaciones, hoyIso, minToHM, SEDES, timeToMin,
 } from "./api";
-import { Cargando, ErrorBox, KpiCard } from "./ui";
+import { Cargando, ErrorBox, INP, KpiCard } from "./ui";
 
 export default function DashboardTab({ empleados, config }) {
   const hoy = hoyIso();
   const desde = addDays(hoy, -29);
   const [marcas, setMarcas] = useState(null);
   const [error, setError] = useState(null);
+  const [filtroSede, setFiltroSede] = useState("todas");
 
   useEffect(() => {
     let alive = true;
@@ -29,16 +30,18 @@ export default function DashboardTab({ empleados, config }) {
 
   const data = useMemo(() => {
     if (!marcas) return null;
-    const rows = marcas
+    let rows = marcas
       .map(m => ({ m, emp: empById.get(m.empleado_id) }))
       .filter(r => r.emp && r.emp.ficha !== false);
+    if (filtroSede !== "todas") rows = rows.filter(r => r.m.sede === filtroSede);
 
     // Hoy
     const deHoy = rows.filter(r => r.m.fecha === hoy);
     const presHoy = new Set(deHoy.map(r => r.emp.id));
     const casaHoy = new Set(deHoy.filter(r => r.emp.grupo === "casa").map(r => r.emp.id)).size;
     const contrHoy = new Set(deHoy.filter(r => r.emp.grupo === "contratista").map(r => r.emp.id)).size;
-    const activos = (empleados ?? []).filter(e => e.activo !== false && e.ficha !== false);
+    let activos = (empleados ?? []).filter(e => e.activo !== false && e.ficha !== false);
+    if (filtroSede !== "todas") activos = activos.filter(e => e.sede === filtroSede);
     const ausentesHoy = diaSemana(hoy) === 0 ? 0 : activos.filter(e => !presHoy.has(e.id)).length;
 
     // Serie: presentes por día
@@ -81,7 +84,7 @@ export default function DashboardTab({ empleados, config }) {
     const totalMin = rows.reduce((a, r) => a + (duracionMin(r.m) ?? 0), 0);
 
     return { presHoy: presHoy.size, casaHoy, contrHoy, ausentesHoy, serie, horasContr, topTardes, totalMin };
-  }, [marcas, empById, empleados, hoy, tardeMin]);
+  }, [marcas, empById, empleados, hoy, tardeMin, filtroSede]);
 
   if (error) return <ErrorBox error={error} />;
   if (!data) return <Cargando />;
@@ -92,6 +95,12 @@ export default function DashboardTab({ empleados, config }) {
 
   return (
     <div>
+      <div style={{ display: "flex", justifyContent: "flex-end", marginBottom: 14 }}>
+        <select style={{ ...INP, minWidth: 150 }} value={filtroSede} onChange={e => setFiltroSede(e.target.value)}>
+          <option value="todas">Todas las sedes</option>
+          {SEDES.map(s => <option key={s} value={s}>{s}</option>)}
+        </select>
+      </div>
       <div style={{ display: "flex", gap: 10, flexWrap: "wrap", marginBottom: 16 }}>
         <KpiCard label="Presentes hoy" value={data.presHoy} color={C.green} sub={`${data.casaHoy} casa · ${data.contrHoy} contratistas`} />
         <KpiCard label="Ausentes hoy" value={data.ausentesHoy} color={data.ausentesHoy ? "#f87171" : C.green} />
@@ -103,7 +112,7 @@ export default function DashboardTab({ empleados, config }) {
           <div style={title}>Presentes por día (30 días)</div>
           <ResponsiveContainer width="100%" height={210}>
             <LineChart data={data.serie} margin={{ top: 4, right: 8, bottom: 0, left: -22 }}>
-              <CartesianGrid stroke="rgba(255,255,255,0.05)" vertical={false} />
+              <CartesianGrid stroke="var(--panel)" vertical={false} />
               <XAxis dataKey="dia" tick={{ fontSize: 10, fill: C.t2 }} tickLine={false} axisLine={{ stroke: C.b0 }} interval="preserveStartEnd" />
               <YAxis tick={{ fontSize: 10, fill: C.t2 }} tickLine={false} axisLine={false} allowDecimals={false} />
               <Tooltip contentStyle={tooltipStyle} labelStyle={{ color: C.t1 }} />
@@ -119,7 +128,7 @@ export default function DashboardTab({ empleados, config }) {
           ) : (
             <ResponsiveContainer width="100%" height={Math.max(210, data.horasContr.length * 26)}>
               <BarChart data={data.horasContr} layout="vertical" margin={{ top: 0, right: 24, bottom: 0, left: 8 }}>
-                <CartesianGrid stroke="rgba(255,255,255,0.05)" horizontal={false} />
+                <CartesianGrid stroke="var(--panel)" horizontal={false} />
                 <XAxis type="number" tick={{ fontSize: 10, fill: C.t2 }} tickLine={false} axisLine={false} />
                 <YAxis type="category" dataKey="nombre" width={120} tick={{ fontSize: 11, fill: C.t1 }} tickLine={false} axisLine={false} />
                 <Tooltip contentStyle={tooltipStyle} labelStyle={{ color: C.t1 }} formatter={(v) => [`${v} h`, "Horas"]} />

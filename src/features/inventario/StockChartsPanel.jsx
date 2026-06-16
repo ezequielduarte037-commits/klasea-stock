@@ -206,7 +206,7 @@ export default function StockChartsPanel({ rows = [] }) {
         {coverageByCategory.length > 0 ? (
           <ResponsiveContainer width="100%" height={130}>
             <BarChart data={coverageByCategory} margin={{ top: 2, right: 4, bottom: 0, left: -20 }}>
-              <CartesianGrid vertical={false} stroke="rgba(255,255,255,0.04)" />
+              <CartesianGrid vertical={false} stroke="var(--panel)" />
               <XAxis
                 dataKey="cat"
                 tick={{ fill: C.t2, fontSize: 10, fontFamily: C.sans }}
@@ -218,7 +218,7 @@ export default function StockChartsPanel({ rows = [] }) {
                 tickLine={false}
                 axisLine={false}
               />
-              <Tooltip content={<CustomTooltip />} cursor={{ fill: "rgba(255,255,255,0.03)" }} />
+              <Tooltip content={<CustomTooltip />} cursor={{ fill: "var(--panel)" }} />
               <Bar dataKey="avg" name="sem." radius={[3, 3, 0, 0]} maxBarSize={28}>
                 {coverageByCategory.map((entry, i) => (
                   <Cell
@@ -254,7 +254,7 @@ export default function StockChartsPanel({ rows = [] }) {
         {topPedidos.length > 0 ? (
           <ResponsiveContainer width="100%" height={130}>
             <BarChart data={topPedidos} margin={{ top: 2, right: 4, bottom: 0, left: -20 }} layout="vertical">
-              <CartesianGrid horizontal={false} stroke="rgba(255,255,255,0.04)" />
+              <CartesianGrid horizontal={false} stroke="var(--panel)" />
               <XAxis
                 type="number"
                 tick={{ fill: C.t2, fontSize: 10, fontFamily: C.mono }}
@@ -269,7 +269,7 @@ export default function StockChartsPanel({ rows = [] }) {
                 axisLine={false}
                 width={80}
               />
-              <Tooltip content={<CustomTooltip />} cursor={{ fill: "rgba(255,255,255,0.03)" }} />
+              <Tooltip content={<CustomTooltip />} cursor={{ fill: "var(--panel)" }} />
               <Bar dataKey="qty" name="cantidad" radius={[0, 3, 3, 0]} maxBarSize={14}>
                 {topPedidos.map((entry, i) => (
                   <Cell

@@ -52,7 +52,7 @@ const ESTADO_META = {
 };
 
 const INP = {
-  background: "rgba(255,255,255,0.04)",
+  background: "var(--panel)",
   border: `1px solid ${C.b0}`,
   color: C.t0,
   padding: "6px 9px",
@@ -95,7 +95,7 @@ function FilaObra({ obra, onSave }) {
     setEditing(false);
   }
 
-  const TD = { padding: "10px 12px", borderBottom: `1px solid rgba(255,255,255,0.035)`, verticalAlign: "middle", fontSize: 13, fontFamily: C.sans };
+  const TD = { padding: "10px 12px", borderBottom: `1px solid var(--panel)`, verticalAlign: "middle", fontSize: 13, fontFamily: C.sans };
 
   return (
     <>
@@ -345,8 +345,8 @@ export default function EncargadosTab() {
           <button key={v}
             onClick={() => setFiltroEstado(v)}
             style={{
-              border: filtroEstado === v ? `1px solid rgba(255,255,255,0.18)` : `1px solid ${C.b0}`,
-              background: filtroEstado === v ? "rgba(255,255,255,0.1)" : "transparent",
+              border: filtroEstado === v ? `1px solid var(--border-2)` : `1px solid ${C.b0}`,
+              background: filtroEstado === v ? "var(--border)" : "transparent",
               color: filtroEstado === v ? C.t0 : C.t2,
               padding: "6px 14px", borderRadius: 7, cursor: "pointer", fontSize: 12, fontWeight: filtroEstado === v ? 600 : 400,
               fontFamily: C.sans,

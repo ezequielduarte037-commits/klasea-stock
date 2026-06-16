@@ -28,7 +28,7 @@ const GLASS = {
 };
 
 const INP = {
-  background: "rgba(255,255,255,0.04)",
+  background: "var(--panel)",
   border: `1px solid ${C.b0}`,
   color: C.t0, padding: "8px 12px", borderRadius: 8, fontSize: 13,
   outline: "none", width: "100%", fontFamily: C.sans,
@@ -43,7 +43,7 @@ function Btn({ onClick, children, variant = "outline", disabled = false, style =
     amber:   { border: "1px solid rgba(245,158,11,0.3)", background: "rgba(245,158,11,0.07)", color: "#fbbf24", padding: "6px 14px", borderRadius: 8, fontSize: 13 },
     toggle:  (active) => active
       ? { border: `1px solid ${C.b1}`, background: C.s1, color: C.t0, padding: "5px 14px", borderRadius: 6, fontSize: 12, fontWeight: 700 }
-      : { border: "1px solid rgba(255,255,255,0.04)", background: "transparent", color: C.t2, padding: "5px 14px", borderRadius: 6, fontSize: 12 },
+      : { border: "1px solid var(--panel)", background: "transparent", color: C.t2, padding: "5px 14px", borderRadius: 6, fontSize: 12 },
   };
   const base = typeof V[variant] === "function" ? V[variant](style._active) : V[variant];
   return (
@@ -448,10 +448,10 @@ export default function PanolScreen({ profile, signOut }) {
       <style>{`
         @import url('https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500;700&display=swap');
         *, *::before, *::after { box-sizing: border-box; }
-        select option { background: #0f0f12; color: var(--muted); }
+        select option { background: var(--panel-solid); color: var(--muted); }
         ::-webkit-scrollbar { width: 3px; height: 3px; }
         ::-webkit-scrollbar-track { background: transparent; }
-        ::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.07); border-radius: 99px; }
+        ::-webkit-scrollbar-thumb { background: var(--panel-2); border-radius: 99px; }
         input:focus, select:focus, textarea:focus { border-color: rgba(59,130,246,0.35) !important; outline: none; }
         @keyframes slideUp { from{opacity:0;transform:translateY(10px)} to{opacity:1;transform:translateY(0)} }
         button:not([disabled]):hover { opacity: 0.8; }
@@ -564,7 +564,7 @@ export default function PanolScreen({ profile, signOut }) {
                         {matchingPedidos.map(({ pedido, item }) => {
                           const isVinculado = pedidoVinculado?.item?.id === item.id;
                           return (
-                            <div key={pedido.id} style={{ marginBottom: 6, padding: "8px 10px", borderRadius: 8, background: isVinculado ? "rgba(245,158,11,0.15)" : "rgba(255,255,255,0.03)", border: `1px solid ${isVinculado ? "rgba(245,158,11,0.4)" : "rgba(255,255,255,0.06)"}`, display: "flex", alignItems: "center", justifyContent: "space-between", gap: 10 }}>
+                            <div key={pedido.id} style={{ marginBottom: 6, padding: "8px 10px", borderRadius: 8, background: isVinculado ? "rgba(245,158,11,0.15)" : "var(--panel)", border: `1px solid ${isVinculado ? "rgba(245,158,11,0.4)" : "var(--panel-2)"}`, display: "flex", alignItems: "center", justifyContent: "space-between", gap: 10 }}>
                               <div>
                                 <div style={{ fontSize: 12, fontWeight: 700, color: C.t0 }}>{pedido.nota || pedido.proveedor}</div>
                                 <div style={{ fontSize: 11, color: C.t2, marginTop: 2 }}>
@@ -668,7 +668,7 @@ export default function PanolScreen({ profile, signOut }) {
                       const isDeleting = deletingPedId === ped.id;
 
                       return (
-                        <div key={ped.id} style={{ borderBottom: `1px solid rgba(255,255,255,0.04)` }}>
+                        <div key={ped.id} style={{ borderBottom: `1px solid var(--panel)` }}>
 
                           {/* ── Header del pedido ── */}
                           <div style={{ padding: "12px 14px 10px", display: "flex", justifyContent: "space-between", alignItems: "flex-start", gap: 8 }}>
@@ -716,7 +716,7 @@ export default function PanolScreen({ profile, signOut }) {
                           {/* Barra de progreso */}
                           {total > 0 && (
                             <div style={{ padding: "0 14px 10px", display: "flex", alignItems: "center", gap: 8 }}>
-                              <div style={{ flex: 1, height: 3, borderRadius: 99, background: "rgba(255,255,255,0.06)" }}>
+                              <div style={{ flex: 1, height: 3, borderRadius: 99, background: "var(--panel-2)" }}>
                                 <div style={{ width: `${(recibidos / total) * 100}%`, height: "100%", borderRadius: 99, background: todoRecibido ? C.green : parcial ? "#8b5cf6" : C.t2, transition: "width .3s" }} />
                               </div>
                               <span style={{ fontSize: 10, color: C.t2, fontFamily: C.mono, flexShrink: 0 }}>{recibidos}/{total} items</span>
@@ -867,7 +867,7 @@ export default function PanolScreen({ profile, signOut }) {
                       ? (d >= 0 ? "rgba(139,92,246,0.25)" : "rgba(239,68,68,0.25)")
                       : esIng ? "rgba(16,185,129,0.25)" : "rgba(239,68,68,0.25)";
                     return (
-                      <div key={m.id} style={{ padding: "10px 16px", borderBottom: `1px solid rgba(255,255,255,0.03)` }}>
+                      <div key={m.id} style={{ padding: "10px 16px", borderBottom: `1px solid var(--panel)` }}>
                         <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", gap: 8 }}>
                           <div style={{ fontSize: 13, fontWeight: 600, color: C.t0, flex: 1, lineHeight: 1.3 }}>{m.material_nombre}</div>
                           <div style={{ display: "flex", alignItems: "center", gap: 6, flexShrink: 0 }}>

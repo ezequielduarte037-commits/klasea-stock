@@ -118,7 +118,7 @@ export default function EtiquetasScreen() {
               </div>
               <div style={{ display: "flex", gap: 10, alignItems: "center" }}>
                 {m.codigo
-                  ? <img src={qrUrl(m.codigo)} alt={m.codigo} width={68} height={68} style={{ background: "#fff", borderRadius: 6, padding: 3, flexShrink: 0 }} />
+                  ? <img src={qrUrl(m.codigo)} loading="lazy" alt={m.codigo} width={68} height={68} style={{ background: "#fff", borderRadius: 6, padding: 3, flexShrink: 0 }} />
                   : <div style={{ width: 68, height: 68, borderRadius: 6, border: `1px dashed ${C.border}`, display: "grid", placeItems: "center", color: C.dim, fontSize: 10, flexShrink: 0 }}>sin código</div>}
                 <div style={{ flex: 1, minWidth: 0 }}>
                   <div style={{ fontSize: 11, color: C.dim, marginBottom: 4 }}>Código</div>
@@ -140,7 +140,7 @@ export default function EtiquetasScreen() {
       <div id="labels-print">
         {aImprimir.map(m => (
           <div key={m.id} className="lbl-card">
-            <img src={qrUrl(m.codigo)} alt={m.codigo} />
+            <img src={qrUrl(m.codigo)} loading="lazy" alt={m.codigo} />
             <div className="lbl-name">{m.nombre}</div>
             <div className="lbl-code">{m.codigo}</div>
           </div>

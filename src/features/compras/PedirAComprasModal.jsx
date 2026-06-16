@@ -197,6 +197,64 @@ function itemNotesForSubmit(item) {
     : ["EXTRA", notes].filter(Boolean).join(" - ");
 }
 
+// Normaliza un ítem (venga de prefilled o de una plantilla cargada en el modal)
+// al shape interno único. Conserva los ids de los pedidos legacy existentes para
+// poder VINCULAR en vez de duplicar (laminacionPedidoId / maderaPedidoItemId).
+function normalizeDraft(it, fallbackDest = "") {
+  return {
+    description: it.description || "",
+    quantity: it.quantity ?? "",
+    unit: it.unit || "unidad",
+    destination: it.destination || fallbackDest || "",
+    notes: it.notes || "",
+    link_url: it.link_url || "",
+    image_url: it.image_url || "",
+    material_id: it.material_id || null,
+    laminacionPedidoId: it.laminacionPedidoId || it.laminacion_pedido_id || null,
+    maderaPedidoItemId: it.maderaPedidoItemId || it.madera_pedido_item_id || null,
+    maderaPedidoId: it.maderaPedidoId || it.madera_pedido_id || null,
+    catalogSource: it.catalogSource || it.catalog_source || "",
+    category: it.category || "",
+    isExtra: Boolean(it.isExtra || it.category === "extra"),
+  };
+}
+
+// Vincula ítems de un pedido de maderas YA EXISTENTE al purchase_request recién
+// creado, en vez de crear un pedido `pedidos` nuevo (evita duplicados). Marca cada
+// pedido_item con su purchase_request_item_id y el pedido padre con el request id.
+async function linkExistingMaderaPedido({ purchaseRequest, entries }) {
+  let linked = 0;
+  let failed = 0;
+  const pedidoIds = new Set();
+
+  for (const { draft, requestItem } of entries) {
+    const itemId = draft.maderaPedidoItemId || draft.madera_pedido_item_id;
+    if (!itemId) continue;
+    try {
+      const { error } = await supabase
+        .from("pedido_items")
+        .update({ purchase_request_item_id: requestItem?.id || null })
+        .eq("id", itemId);
+      if (error) throw error;
+      if (draft.maderaPedidoId) pedidoIds.add(draft.maderaPedidoId);
+      linked += 1;
+    } catch (e) {
+      console.warn("[PedirAComprasModal] no se pudo vincular pedido_items existente:", e);
+      failed += 1;
+    }
+  }
+
+  for (const pid of pedidoIds) {
+    try {
+      await supabase.from("pedidos").update({ purchase_request_id: purchaseRequest.id }).eq("id", pid);
+    } catch (e) {
+      console.warn("[PedirAComprasModal] no se pudo vincular pedido padre:", e);
+    }
+  }
+
+  return { linked, failed };
+}
+
 /**
  * Modal para crear un pedido a compras con ítems.
  *
@@ -216,7 +274,18 @@ function itemNotesForSubmit(item) {
  *     items?: [{ material_id?, description, quantity, unit, destination?, notes? }],
  *   }
  */
-export default function PedirAComprasModal({ open, onClose, prefilled, profile, origen = null }) {
+export default function PedirAComprasModal({
+  open,
+  onClose,
+  prefilled,
+  profile,
+  origen = null,
+  // Carga de plantillas de obra DENTRO del modal (reemplaza el modal-selector
+  // previo de Laminación). `obrasPlantilla` = [{ id, label }]; `onLoadObraPlantilla`
+  // = async (obraId) => ({ items, title?, defaultDestination?, message? }).
+  obrasPlantilla = [],
+  onLoadObraPlantilla = null,
+}) {
   const toast = useToast();
   const { isMobile } = useResponsive();
   const [title, setTitle] = useState("");
@@ -233,6 +302,10 @@ export default function PedirAComprasModal({ open, onClose, prefilled, profile, 
   const [newDest, setNewDest] = useState("");
   const [newNotes, setNewNotes] = useState("");
 
+  // Carga de plantilla de obra (in-modal)
+  const [plantillaObra, setPlantillaObra] = useState("");
+  const [loadingPlantilla, setLoadingPlantilla] = useState(false);
+
   useEffect(() => {
     if (!open) return;
     setTitle(prefilled?.title || "");
@@ -240,23 +313,12 @@ export default function PedirAComprasModal({ open, onClose, prefilled, profile, 
     setPriority(prefilled?.priority || "media");
     setItems(
       Array.isArray(prefilled?.items)
-        ? prefilled.items.map((it) => ({
-            description: it.description || "",
-            quantity: it.quantity ?? "",
-            unit: it.unit || "unidad",
-            destination: it.destination || prefilled?.defaultDestination || "",
-            notes: it.notes || "",
-            link_url: it.link_url || "",
-            image_url: it.image_url || "",
-            material_id: it.material_id || null,
-            laminacionPedidoId: it.laminacionPedidoId || it.laminacion_pedido_id || null,
-            catalogSource: it.catalogSource || it.catalog_source || "",
-            category: it.category || "",
-            isExtra: Boolean(it.isExtra || it.category === "extra"),
-          }))
+        ? prefilled.items.map((it) => normalizeDraft(it, prefilled?.defaultDestination))
         : [],
     );
     setNewDest(prefilled?.defaultDestination || "");
+    setPlantillaObra("");
+    setLoadingPlantilla(false);
     fetchProjects().then(setProjects).catch((err) => {
       toast.error(err.message || "No se pudieron cargar las obras.");
     });
@@ -331,6 +393,29 @@ export default function PedirAComprasModal({ open, onClose, prefilled, profile, 
     setItems((prev) => prev.map((it, idx) => (idx === i ? { ...it, ...patch } : it)));
   }
 
+  async function handleLoadPlantilla() {
+    if (!plantillaObra || !onLoadObraPlantilla) return;
+    setLoadingPlantilla(true);
+    try {
+      const res = await onLoadObraPlantilla(plantillaObra);
+      const rawItems = Array.isArray(res?.items) ? res.items : Array.isArray(res) ? res : [];
+      if (!rawItems.length) {
+        toast.warning(res?.message || "Esa obra no tiene plantilla de materiales cargada.");
+        return;
+      }
+      const nuevos = rawItems.map((it) => normalizeDraft(it, res?.defaultDestination));
+      setItems((prev) => [...prev, ...nuevos]);
+      if (res?.title && !title.trim()) setTitle(res.title);
+      if (res?.defaultDestination && !newDest.trim()) setNewDest(res.defaultDestination);
+      toast.success(`${nuevos.length} ítem${nuevos.length > 1 ? "s" : ""} cargado${nuevos.length > 1 ? "s" : ""} de la plantilla.`);
+      setPlantillaObra("");
+    } catch (err) {
+      toast.error(err.message || "No se pudo cargar la plantilla.");
+    } finally {
+      setLoadingPlantilla(false);
+    }
+  }
+
   async function handleSubmit(e) {
     e.preventDefault();
     if (!title.trim()) {
@@ -380,6 +465,7 @@ export default function PedirAComprasModal({ open, onClose, prefilled, profile, 
       //   sin origen → heurística vieja por destino (Stock→madera, Obra→laminación)
       const origenEfectivo = origen || prefilled?.origen || null;
       let entriesMadera = [];
+      let entriesMaderaExistentes = [];
       let entriesLam = [];
       let entriesLamExistentes = [];
       if (origenEfectivo === "laminacion") {
@@ -388,7 +474,11 @@ export default function PedirAComprasModal({ open, onClose, prefilled, profile, 
         entriesLam = requestItemsByDraft.filter((entry) =>
           !(entry?.draft?.laminacionPedidoId || entry?.draft?.laminacion_pedido_id));
       } else if (origenEfectivo === "maderas") {
-        entriesMadera = requestItemsByDraft;
+        // Ítems que ya existen como pedido de maderas → se VINCULAN (no se duplican).
+        entriesMaderaExistentes = requestItemsByDraft.filter((entry) =>
+          entry?.draft?.maderaPedidoItemId || entry?.draft?.madera_pedido_item_id);
+        entriesMadera = requestItemsByDraft.filter((entry) =>
+          !(entry?.draft?.maderaPedidoItemId || entry?.draft?.madera_pedido_item_id));
       } else {
         entriesMadera = requestItemsByDraft.filter((entry) =>
           /^Stock\s/i.test(String(entry?.draft?.destination || "").trim()));
@@ -406,6 +496,18 @@ export default function PedirAComprasModal({ open, onClose, prefilled, profile, 
       } catch (e) {
         // No bloquea: el purchase_request ya está creado.
         console.warn("[PedirAComprasModal] error creando pedido legacy:", e);
+      }
+
+      try {
+        const linkedMadera = await linkExistingMaderaPedido({
+          purchaseRequest: created,
+          entries: entriesMaderaExistentes,
+        });
+        if (linkedMadera?.failed > 0) {
+          toast.warning(`${linkedMadera.failed} ítem${linkedMadera.failed > 1 ? "s" : ""} no se pudo vincular con el pedido de maderas existente (sí quedó en el pedido a compras).`);
+        }
+      } catch (e) {
+        console.warn("[PedirAComprasModal] error vinculando pedido de maderas existente:", e);
       }
 
       try {
@@ -547,6 +649,54 @@ export default function PedirAComprasModal({ open, onClose, prefilled, profile, 
               />
             </div>
           </div>
+
+          {/* Cargar plantilla de obra (reemplaza el modal-selector previo) */}
+          {onLoadObraPlantilla && obrasPlantilla.length > 0 && (
+            <div style={{
+              border: `1px dashed ${C.border2}`,
+              borderRadius: 9,
+              padding: 11,
+              background: "rgba(52,211,153,0.05)",
+              display: "grid",
+              gap: 8,
+            }}>
+              <div style={{ ...labelStyle, marginBottom: 0, display: "flex", alignItems: "center", gap: 6 }}>
+                <Package size={12} color={C.teal} /> Cargar plantilla de obra (opcional)
+              </div>
+              <div style={{ display: "grid", gridTemplateColumns: "1fr auto", gap: 6 }}>
+                <select
+                  value={plantillaObra}
+                  onChange={(e) => setPlantillaObra(e.target.value)}
+                  style={inp({ padding: "7px 9px", fontSize: 12 })}
+                >
+                  <option value="">Elegí una obra…</option>
+                  {obrasPlantilla.map((o) => (
+                    <option key={o.id} value={o.id}>{o.label}</option>
+                  ))}
+                </select>
+                <button
+                  type="button"
+                  onClick={handleLoadPlantilla}
+                  disabled={!plantillaObra || loadingPlantilla}
+                  style={{
+                    display: "inline-flex", alignItems: "center", gap: 5,
+                    background: plantillaObra && !loadingPlantilla ? C.teal : C.panel2,
+                    color: plantillaObra && !loadingPlantilla ? "#04201a" : C.dim,
+                    border: "none",
+                    borderRadius: 7,
+                    padding: "7px 14px",
+                    cursor: plantillaObra && !loadingPlantilla ? "pointer" : "default",
+                    fontSize: 12,
+                    fontWeight: 800,
+                    fontFamily: C.sans,
+                    whiteSpace: "nowrap",
+                  }}
+                >
+                  {loadingPlantilla ? "Cargando…" : "Cargar ítems"}
+                </button>
+              </div>
+            </div>
+          )}
 
           {/* Ítems ya agregados, agrupados por destino */}
           {items.length > 0 && (

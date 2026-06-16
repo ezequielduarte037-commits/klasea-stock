@@ -26,6 +26,7 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import { supabase } from "@/supabaseClient";
 import Sidebar from "@/components/Sidebar";
 import PedirAComprasModal from "@/features/compras/PedirAComprasModal";
+import { createPurchaseRequest, addRequestItem, notifyComprasEmail } from "@/features/compras/purchaseRequestsApi";
 import { useResponsive } from "@/hooks/useResponsive";
 
 // ── Paleta (igual que el resto del sistema) ───────────────────────
@@ -35,7 +36,7 @@ const GLASS = {
 };
 
 const INP = {
-  background: "rgba(255,255,255,0.04)",
+  background: "var(--panel)",
   border: `1px solid ${C.b0}`,
   color: C.t0,
   padding: "9px 12px",
@@ -134,8 +135,7 @@ function calcularStats(movimientos, materiales) {
 
 // ── Generador de texto de email (mismo formato que los mails históricos) ──
 function generarEmailTexto({ obras, stockItems, destinatario }) {
-  let txt = "";
-  if (destinatario.trim()) txt += `${destinatario.trim()},\n\n`;
+  let txt = `${destinatario?.trim() || "David"},\n\n`;
   txt += "te detallo las maderas requeridas:\n";
 
   obras.forEach(obra => {
@@ -144,7 +144,8 @@ function generarEmailTexto({ obras, stockItems, destinatario }) {
     txt += `\n${obra.nombre || "Obra"}\n`;
     items.forEach(it => {
       const cant = it.cantidad ? `${it.cantidad} ` : "";
-      txt += `- ${cant}${it.descripcion}\n`;
+      const u = it.unidad?.trim() ? `${it.unidad.trim()} ` : "";
+      txt += `- ${cant}${u}${it.descripcion}\n`;
     });
     if (obra.destino.trim()) txt += `(Recibir en ${obra.destino.trim()})\n`;
   });
@@ -154,11 +155,11 @@ function generarEmailTexto({ obras, stockItems, destinatario }) {
     txt += "\nStock\n";
     stockConItem.forEach(it => {
       const cant = it.cantidad ? `${it.cantidad} ` : "";
-      txt += `${cant}${it.descripcion}\n`;
+      const u = it.unidad?.trim() ? `${it.unidad.trim()} ` : "";
+      txt += `${cant}${u}${it.descripcion}\n`;
     });
   }
 
-  txt += "\nGracias,\nDavid";
   return txt;
 }
 
@@ -176,17 +177,6 @@ export default function PedidosMaderaScreen({ profile, signOut }) {
   const [movimientos,  setMovimientos]  = useState([]);
   const [pedidos,      setPedidos]      = useState([]);
 
-  // Log para detectar si Supabase está mandando números negativos
-  useEffect(() => {
-    if (materiales.length > 0) {
-      console.log("🔥 STOCK CRUDO DE SUPABASE:");
-      materiales.forEach(m => {
-        if (num(m.stock_actual) < 0) {
-          console.warn(`¡ATENCION! El material ${m.nombre} tiene stock negativo en la base de datos: ${m.stock_actual}`);
-        }
-      });
-    }
-  }, [materiales]);
 
   // ── Tab 1: Sugeridas ──────────────────────────────────────────
   const [bufferSemanas, setBufferSemanas] = useState(4);
@@ -346,10 +336,11 @@ export default function PedidosMaderaScreen({ profile, signOut }) {
       const todosLosItems = [
         ...obras.flatMap(o => o.items
           .filter(it => it.descripcion.trim())
-          .map(it => ({ ...it, nota: `Obra: ${o.nombre || "?"}` }))),
+          .map(it => ({ ...it, nota: `Obra: ${o.nombre || "?"}`,
+            dest: o.destino?.trim() || (o.nombre?.trim() ? `Obra ${o.nombre.trim()}` : "Sin obra") }))),
         ...stockItems
           .filter(it => it.descripcion.trim())
-          .map(it => ({ ...it, nota: "Stock" })),
+          .map(it => ({ ...it, nota: "Stock", dest: "Stock Chubut 2120" })),
       ];
 
       if (todosLosItems.length === 0) {
@@ -367,6 +358,7 @@ export default function PedidosMaderaScreen({ profile, signOut }) {
         stockItems.some(it => it.descripcion.trim()) ? "Stock" : "",
       ].filter(Boolean).join(" + ") || "Pedido de madera";
 
+      // 1) Pedido legacy (lo recibe el pañolero → ingreso a stock de maderas)
       const { data: ped, error: e1 } = await supabase
         .from("pedidos")
         .insert({
@@ -380,20 +372,68 @@ export default function PedidosMaderaScreen({ profile, signOut }) {
         .single();
       if (e1) throw e1;
 
-      const { error: e2 } = await supabase.from("pedido_items").insert(
-        todosLosItems.map(it => {
-          const mat = materiales.find(m => m.nombre === it.descripcion);
-          return {
-            pedido_id:      ped.id,
-            material_id:    mat?.id ?? null,
-            descripcion:    it.descripcion.trim(),
-            cantidad:       num(it.cantidad),
-            unidad:         it.unidad || "u",
-            categoria:      it.nota || null,
-          };
-        })
-      );
+      // 2) Pedido a Compras (best-effort). La descripción = la vista email.
+      let created = null;
+      try {
+        created = await createPurchaseRequest({
+          form: {
+            title: `Pedido Maderas — ${notaPedido}`,
+            description: emailText,
+            priority: "media",
+            project_id: null,
+            source: "madera",
+            source_ref: ped.id,
+          },
+        });
+        await supabase.from("pedidos").update({ purchase_request_id: created.id }).eq("id", ped.id);
+      } catch (e) {
+        console.warn("[Maderas] no se pudo crear el pedido a Compras:", e);
+      }
+
+      // 3) Ítems del pedido, cada uno vinculado a su ítem de compras
+      const rows = [];
+      for (const it of todosLosItems) {
+        const mat = materiales.find(m => m.nombre === it.descripcion);
+        let reqItemId = null;
+        if (created) {
+          try {
+            const reqItem = await addRequestItem(created.id, {
+              description: it.descripcion.trim(),
+              quantity:    num(it.cantidad) || null,
+              unit:        it.unidad || "u",
+              destination: it.dest || "Stock Chubut 2120",
+              notes:       it.nota || null,
+              material_id: mat?.id ?? null,
+              catalog_source: "madera",
+            });
+            reqItemId = reqItem?.id || null;
+          } catch (e) {
+            console.warn("[Maderas] no se pudo crear el ítem en Compras:", e);
+          }
+        }
+        rows.push({
+          pedido_id:      ped.id,
+          material_id:    mat?.id ?? null,
+          descripcion:    it.descripcion.trim(),
+          cantidad:       num(it.cantidad),
+          unidad:         it.unidad || "u",
+          categoria:      it.nota || null,
+          purchase_request_item_id: reqItemId,
+        });
+      }
+      const { error: e2 } = await supabase.from("pedido_items").insert(rows);
       if (e2) throw e2;
+
+      if (created) {
+        notifyComprasEmail({
+          type: "new_request",
+          requestId: created.id,
+          requestTitle: `Pedido Maderas — ${notaPedido}`,
+          changedBy: userId,
+          createdByName: profile?.username || "Usuario",
+          source: "madera",
+        });
+      }
 
       // Reset form
       setObras([{ id: nuevoId(), nombre: "", destino: "", items: [] }]);
@@ -442,7 +482,7 @@ export default function PedidosMaderaScreen({ profile, signOut }) {
   });
 
   const filterBtn = (active) => ({
-    border:     active ? `1px solid ${C.b1}` : "1px solid rgba(255,255,255,0.04)",
+    border:     active ? `1px solid ${C.b1}` : "1px solid var(--panel)",
     background: active ? C.s1 : "transparent",
     color:      active ? C.t0 : C.t2,
     padding:    "3px 11px", borderRadius: 5, cursor: "pointer",
@@ -473,10 +513,10 @@ export default function PedidosMaderaScreen({ profile, signOut }) {
       <style>{`
         @import url('https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500;700&display=swap');
         *, *::before, *::after { box-sizing: border-box; }
-        select option { background: #0f0f12; color: var(--muted); }
+        select option { background: var(--panel-solid); color: var(--muted); }
         ::-webkit-scrollbar { width: 3px; height: 3px; }
         ::-webkit-scrollbar-track { background: transparent; }
-        ::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.07); border-radius: 99px; }
+        ::-webkit-scrollbar-thumb { background: var(--panel-2); border-radius: 99px; }
         input:focus, select:focus, textarea:focus { border-color: rgba(59,130,246,0.35) !important; }
         button:not([disabled]):hover { opacity: 0.82; }
         button[disabled] { opacity: 0.4; cursor: not-allowed; }
@@ -518,60 +558,9 @@ export default function PedidosMaderaScreen({ profile, signOut }) {
                 <span style={{ fontSize: 10, color: C.t1, letterSpacing: 1.1, textTransform: "uppercase" }}>{s.label}</span>
               </div>
             ))}
-            <button
-              onClick={() => {
-                // Pre-cargar el modal con los materiales que necesitan reposición:
-                // sin stock + críticos + urgentes (mismas bandas que el topbar).
-                // Cantidad sugerida = 4 semanas de consumo - stock actual.
-                const sugeridos = stats
-                  .filter(r =>
-                    r.stockActual <= 0
-                    || (r.stockActual > 0 && r.semanasDeStock < 1)
-                    || (r.semanasDeStock >= 1 && r.semanasDeStock < 2)
-                  )
-                  .map(r => {
-                    const cant = Math.max(0, Math.ceil(r.egresoSemanal * 4) - Math.round(r.stockActual));
-                    if (cant <= 0) return null;
-                    return {
-                      description: r.mat.nombre,
-                      quantity: String(cant),
-                      unit: r.mat.unidad_medida || "unidad",
-                      destination: "Stock Chubut 2120",
-                      notes: "",
-                      material_id: r.mat.id,
-                      catalogSource: "madera",
-                    };
-                  })
-                  .filter(Boolean);
-
-                setComprasModal({
-                  open: true,
-                  prefilled: {
-                    title: "Solicitud Compra de Maderas para Stock",
-                    defaultDestination: "Stock Chubut 2120",
-                    source: "madera",
-                    sourceLabel: "Maderas",
-                    items: sugeridos,
-                  },
-                });
-              }}
-              style={{
-                display: "flex", alignItems: "center", gap: 5,
-                padding: "6px 12px",
-                border: "1px solid rgba(96,165,250,0.35)",
-                background: "rgba(96,165,250,0.12)",
-                color: C.primary,
-                borderRadius: 7,
-                cursor: "pointer",
-                fontSize: 12,
-                fontWeight: 700,
-                fontFamily: C.sans,
-                whiteSpace: "nowrap",
-              }}
-              title="Crear pedido a compras (pre-carga materiales que necesitan reposición)"
-            >
-              Pedir a compras
-            </button>
+            {/* El pedido a compras se hace desde la tab "Nuevo pedido" (Registrar y
+                enviar a Compras): un solo flujo → ingreso de maderas + stock + compras.
+                Las sugerencias de reposición se agregan al pedido desde la tab Stock. */}
           </div>
 
           {/* ── TAB BAR ────────────────────────────────────────── */}
@@ -662,7 +651,7 @@ export default function PedidosMaderaScreen({ profile, signOut }) {
                           <div
                             className="mat-row"
                             onClick={() => setExpandedMat(isExp ? null : row.mat.id)}
-                            style={{ display: "grid", gridTemplateColumns: "1fr 80px 110px 90px 110px 110px 110px", gap: 8, padding: "11px 16px", borderBottom: `1px solid rgba(255,255,255,0.04)`, alignItems: "center", borderLeft: `3px solid ${color}` }}>
+                            style={{ display: "grid", gridTemplateColumns: "1fr 80px 110px 90px 110px 110px 110px", gap: 8, padding: "11px 16px", borderBottom: `1px solid var(--panel)`, alignItems: "center", borderLeft: `3px solid ${color}` }}>
 
                             <div>
                               <div style={{ fontWeight: 600, fontSize: 14, color: C.t0 }}>{row.mat.nombre}</div>
@@ -693,7 +682,7 @@ export default function PedidosMaderaScreen({ profile, signOut }) {
 
                           {/* Detalle expandido */}
                           {isExp && (
-                            <div style={{ padding: "12px 16px 16px", background: "rgba(255,255,255,0.01)", borderBottom: `1px solid rgba(255,255,255,0.04)` }}>
+                            <div style={{ padding: "12px 16px 16px", background: "rgba(255,255,255,0.01)", borderBottom: `1px solid var(--panel)` }}>
                               <div style={{ fontSize: 10, color: C.t2, letterSpacing: 1.3, textTransform: "uppercase", marginBottom: 8 }}>
                                 Consumo por semana (ultimas 8)
                               </div>
@@ -738,6 +727,17 @@ export default function PedidosMaderaScreen({ profile, signOut }) {
               {/* ══════ TAB 2: NUEVO PEDIDO ══════════════════════ */}
               {tab === "pedido" && (
                 <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 14, alignItems: "start" }}>
+                  <datalist id="unidades-madera">
+                    <option value="unidad" />
+                    <option value="pies" />
+                    <option value="m²" />
+                    <option value="metro" />
+                    <option value="ml" />
+                    <option value="tablón" />
+                    <option value="plancha" />
+                    <option value="tabla" />
+                    <option value="listón" />
+                  </datalist>
 
                   {/* Columna izquierda: editor */}
                   <div>
@@ -771,7 +771,7 @@ export default function PedidosMaderaScreen({ profile, signOut }) {
                           <div key={it.id} style={{ display: "grid", gridTemplateColumns: "1fr 72px 72px auto", gap: 6, marginBottom: 6, alignItems: "center" }}>
                             <input style={INP} placeholder="Descripcion" value={it.descripcion} onChange={e => updateObraItem(obra.id, it.id, "descripcion", e.target.value)} />
                             <input style={INP} placeholder="Cant." type="number" value={it.cantidad} onChange={e => updateObraItem(obra.id, it.id, "cantidad", e.target.value)} />
-                            <input style={INP} placeholder="Unidad" value={it.unidad} onChange={e => updateObraItem(obra.id, it.id, "unidad", e.target.value)} />
+                            <input style={INP} placeholder="Unidad" value={it.unidad} list="unidades-madera" autoComplete="off" onChange={e => updateObraItem(obra.id, it.id, "unidad", e.target.value)} />
                             <button style={{ border: "1px solid rgba(239,68,68,0.3)", background: "rgba(239,68,68,0.08)", color: C.red, padding: "9px 11px", borderRadius: 8, cursor: "pointer", fontSize: 14, fontFamily: C.sans }} onClick={() => removeObraItem(obra.id, it.id)}>
                               x
                             </button>
@@ -809,7 +809,7 @@ export default function PedidosMaderaScreen({ profile, signOut }) {
                         <div key={it.id} style={{ display: "grid", gridTemplateColumns: "1fr 72px 72px auto", gap: 6, marginBottom: 6, alignItems: "center" }}>
                           <input style={INP} placeholder="Descripcion" value={it.descripcion} onChange={e => updateStockItem(it.id, "descripcion", e.target.value)} />
                           <input style={INP} placeholder="Cant." type="number" value={it.cantidad} onChange={e => updateStockItem(it.id, "cantidad", e.target.value)} />
-                          <input style={INP} placeholder="Unidad" value={it.unidad} onChange={e => updateStockItem(it.id, "unidad", e.target.value)} />
+                          <input style={INP} placeholder="Unidad" value={it.unidad} list="unidades-madera" autoComplete="off" onChange={e => updateStockItem(it.id, "unidad", e.target.value)} />
                           <button style={{ border: "1px solid rgba(239,68,68,0.3)", background: "rgba(239,68,68,0.08)", color: C.red, padding: "9px 11px", borderRadius: 8, cursor: "pointer", fontSize: 14, fontFamily: C.sans }} onClick={() => removeStockItem(it.id)}>
                             x
                           </button>
@@ -836,7 +836,7 @@ export default function PedidosMaderaScreen({ profile, signOut }) {
                         {copiado ? "Copiado!" : "Copiar email"}
                       </button>
                       <button style={btn(C.primary)} onClick={registrarPedido} disabled={guardando}>
-                        {guardando ? "Guardando..." : "Registrar pedido"}
+                        {guardando ? "Guardando..." : "Registrar y enviar a Compras"}
                       </button>
                     </div>
                   </div>
@@ -925,7 +925,7 @@ export default function PedidosMaderaScreen({ profile, signOut }) {
                       const m = ESTADO_META[p.estado] ?? { color: C.t2, bg: C.s0, border: C.b0, label: p.estado };
                       const isSelected = pedidoSel?.id === p.id;
                       return (
-                        <div key={p.id} className="ped-row" style={{ display: "grid", gridTemplateColumns: isMobile ? "1fr auto" : "100px 1fr 1fr 120px 90px", gap: isMobile ? "6px 10px" : 10, padding: "11px 16px", borderBottom: `1px solid rgba(255,255,255,0.04)`, alignItems: "center", background: isSelected ? "rgba(255,255,255,0.025)" : undefined }}>
+                        <div key={p.id} className="ped-row" style={{ display: "grid", gridTemplateColumns: isMobile ? "1fr auto" : "100px 1fr 1fr 120px 90px", gap: isMobile ? "6px 10px" : 10, padding: "11px 16px", borderBottom: `1px solid var(--panel)`, alignItems: "center", background: isSelected ? "rgba(255,255,255,0.025)" : undefined }}>
                           <div style={{ fontWeight: 600, fontSize: 13, color: C.t0, gridColumn: isMobile ? "1" : undefined }}>{p.proveedor}</div>
                           <div style={{ fontFamily: C.mono, fontSize: 11, color: C.t2, gridColumn: isMobile ? "2" : undefined, justifySelf: isMobile ? "end" : undefined }}>
                             {fmtDate(p.fecha_pedido ?? p.creado_en)}
@@ -977,25 +977,35 @@ export default function PedidosMaderaScreen({ profile, signOut }) {
                               </button>
                             );
                           })}
-                          <button onClick={() => setComprasModal({ open: true, prefilled: (() => {
-                            const grupos = {};
-                            for (const it of pedidoSelItems) {
-                              const cat = it.categoria || "Sin categoría";
-                              if (!grupos[cat]) grupos[cat] = [];
-                              grupos[cat].push(it);
-                            }
-                            let desc = `Proveedor: ${pedidoSel.proveedor}${pedidoSel.numero ? ` — ${pedidoSel.numero}` : ""}`;
-                            if (pedidoSel.nota) desc += `\nNota: ${pedidoSel.nota}`;
-                            for (const [cat, its] of Object.entries(grupos)) {
-                              desc += `\n\n${cat}:\n`;
-                              desc += its.map(it => `  • ${it.descripcion}: ${it.cantidad} ${it.unidad}`).join("\n");
-                            }
-                            return {
-                              title: `Pedido Madera: ${pedidoSel.proveedor}`,
-                              description: desc,
-                              source: "madera", source_ref: pedidoSel.id, sourceLabel: "Madera",
-                            };
-                          })()})} style={{ border: "1px solid rgba(96,165,250,0.3)", background: "rgba(96,165,250,0.1)", color: "#60a5fa", padding: "5px 12px", borderRadius: 7, cursor: "pointer", fontSize: 12, fontFamily: C.sans, fontWeight: 700 }}>Pedir a Compras</button>
+                          {/* Los pedidos nuevos ya salen a Compras al registrarse. Este botón
+                              solo escala a Compras pedidos viejos que aún no se enviaron. */}
+                          {pedidoSelItems.some(it => it.purchase_request_item_id) ? (
+                            <span title="Este pedido ya está en Compras" style={{ border: "1px solid rgba(16,185,129,0.3)", background: "rgba(16,185,129,0.1)", color: "#34d399", padding: "5px 12px", borderRadius: 7, fontSize: 12, fontFamily: C.sans, fontWeight: 700 }}>✓ En compras</span>
+                          ) : (
+                          <button onClick={() => setComprasModal({ open: true, prefilled: {
+                            title: `Pedido Madera: ${pedidoSel.proveedor}`,
+                            description: [
+                              `Proveedor: ${pedidoSel.proveedor}${pedidoSel.numero ? ` — ${pedidoSel.numero}` : ""}`,
+                              pedidoSel.nota ? `Nota: ${pedidoSel.nota}` : "",
+                            ].filter(Boolean).join("\n"),
+                            source: "madera", source_ref: pedidoSel.id, sourceLabel: "Madera",
+                            defaultDestination: "Stock Chubut 2120",
+                            // Ítems reales del pedido existente: se VINCULAN (no se
+                            // duplica el pedido) gracias a maderaPedidoItemId.
+                            items: pedidoSelItems.map(it => ({
+                              maderaPedidoItemId: it.id,
+                              maderaPedidoId: pedidoSel.id,
+                              material_id: it.material_id || null,
+                              description: it.descripcion || "",
+                              quantity: it.cantidad ?? "",
+                              unit: it.unidad || "unidad",
+                              destination: "Stock Chubut 2120",
+                              category: it.categoria || "",
+                              catalogSource: "madera",
+                              notes: "",
+                            })),
+                          } })} disabled={!pedidoSelItems.length} title={pedidoSelItems.length ? "Vincular este pedido a Compras" : "El pedido no tiene ítems"} style={{ border: "1px solid rgba(96,165,250,0.3)", background: "rgba(96,165,250,0.1)", color: "#60a5fa", padding: "5px 12px", borderRadius: 7, cursor: pedidoSelItems.length ? "pointer" : "not-allowed", opacity: pedidoSelItems.length ? 1 : 0.5, fontSize: 12, fontFamily: C.sans, fontWeight: 700 }}>Pedir a Compras</button>
+                          )}
                         </div>
                       </div>
 
@@ -1015,11 +1025,11 @@ export default function PedidosMaderaScreen({ profile, signOut }) {
                           }
                           return Object.entries(grupos).map(([cat, items]) => (
                             <div key={cat}>
-                              <div style={{ padding: "8px 12px", fontSize: 11, color: C.t2, letterSpacing: 1.1, textTransform: "uppercase", fontWeight: 700, borderBottom: `1px solid rgba(255,255,255,0.04)`, background: "rgba(255,255,255,0.02)" }}>
+                              <div style={{ padding: "8px 12px", fontSize: 11, color: C.t2, letterSpacing: 1.1, textTransform: "uppercase", fontWeight: 700, borderBottom: `1px solid var(--panel)`, background: "rgba(255,255,255,0.02)" }}>
                                 {cat}
                               </div>
                               {items.map(it => (
-                                <div key={it.id} className="item-row" style={{ display: "grid", gridTemplateColumns: "1fr 80px 70px 80px 1fr", gap: 10, padding: "9px 12px", borderBottom: `1px solid rgba(255,255,255,0.04)`, alignItems: "center" }}>
+                                <div key={it.id} className="item-row" style={{ display: "grid", gridTemplateColumns: "1fr 80px 70px 80px 1fr", gap: 10, padding: "9px 12px", borderBottom: `1px solid var(--panel)`, alignItems: "center" }}>
                                   <div style={{ fontSize: 13, color: C.t0 }}>{it.descripcion}</div>
                                   <div style={{ fontFamily: C.mono, fontSize: 13, color: C.t1 }}>{num(it.cantidad)}</div>
                                   <div style={{ fontSize: 12, color: C.t1 }}>{it.unidad}</div>

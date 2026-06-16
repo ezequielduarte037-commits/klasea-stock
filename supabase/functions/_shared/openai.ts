@@ -66,6 +66,111 @@ export interface MessageInput {
   urls?: Array<{ url: string; title?: string; description?: string; price?: string; site?: string }>;
 }
 
+export interface ParsedComprobante {
+  proveedor?: string | null;
+  numero?: string | null;
+  fecha?: string | null;
+  items: Array<{
+    descripcion: string;
+    cantidad?: number | string | null;
+    precio_unitario?: number | string | null;
+    total?: number | string | null;
+  }>;
+}
+
+export async function extraerComprobanteImagen(input: { base64: string; mimeType?: string }): Promise<ParsedComprobante> {
+  const mimeType = input.mimeType || "image/jpeg";
+  const system = `Sos un extractor de comprobantes del astillero Klase A.
+
+Leés fotos de remitos, facturas o presupuestos. Devolvés SOLO JSON estricto, sin markdown.
+
+Objetivo:
+- proveedor: nombre si se ve claro, si no null.
+- numero: número de comprobante/remito/factura/presupuesto si se ve, si no null.
+- fecha: formato YYYY-MM-DD si se puede interpretar, si no null.
+- items: líneas de producto/servicio con descripcion, cantidad, precio_unitario y total.
+
+Reglas:
+- No inventes datos. Si no se ve claro, dejalo null o vacío.
+- Normalizá números: 1.234,56 -> 1234.56. Si hay subtotal/IVA, no lo pongas como ítem.
+- Si no hay precio unitario pero sí cantidad y total, dejá precio_unitario null.
+- Si no hay cantidad clara, dejá cantidad null.
+- Las descripciones tienen que servir para matchear contra un catálogo de materiales.
+
+Formato:
+{
+  "proveedor": "texto|null",
+  "numero": "texto|null",
+  "fecha": "YYYY-MM-DD|null",
+  "items": [
+    {"descripcion":"...", "cantidad":1, "precio_unitario":123.45, "total":123.45}
+  ]
+}`;
+
+  const res = await fetch(`${OR_BASE}/chat/completions`, {
+    method: "POST",
+    headers: {
+      "Authorization": orAuth(),
+      "Content-Type": "application/json",
+      "HTTP-Referer": "https://klasea-stock.vercel.app",
+      "X-Title": "Klase A Comprobantes",
+    },
+    body: JSON.stringify({
+      model: OR_MODEL,
+      temperature: 0,
+      max_tokens: 1400,
+      response_format: { type: "json_object" },
+      messages: [
+        { role: "system", content: system },
+        {
+          role: "user",
+          content: [
+            { type: "text", text: "Extraé los datos de este comprobante. Devolvé JSON estricto." },
+            {
+              type: "image_url",
+              image_url: { url: `data:${mimeType};base64,${input.base64}` },
+            },
+          ],
+        },
+      ],
+    }),
+  });
+
+  if (!res.ok) {
+    const errText = await res.text();
+    throw new Error(`OpenRouter extraerComprobante failed (${res.status}): ${errText.slice(0, 300)}`);
+  }
+
+  const data = await res.json();
+  const content = data?.choices?.[0]?.message?.content;
+  if (!content) throw new Error(`OpenRouter sin contenido. Resp: ${JSON.stringify(data).slice(0, 300)}`);
+
+  let parsed: any;
+  try {
+    parsed = JSON.parse(content);
+  } catch {
+    throw new Error(`OpenRouter devolvió JSON inválido: ${String(content).slice(0, 200)}`);
+  }
+
+  const items = Array.isArray(parsed.items)
+    ? parsed.items
+        .map((it: any) => ({
+          descripcion: String(it.descripcion ?? it.description ?? "").trim(),
+          cantidad: it.cantidad ?? it.quantity ?? null,
+          precio_unitario: it.precio_unitario ?? it.unit_price ?? null,
+          total: it.total ?? null,
+        }))
+        .filter((it: any) => it.descripcion)
+    : [];
+
+  return {
+    proveedor: parsed.proveedor ? String(parsed.proveedor).trim() : null,
+    numero: parsed.numero ? String(parsed.numero).trim() : null,
+    fecha: parsed.fecha ? String(parsed.fecha).slice(0, 10) : null,
+    items,
+  };
+}
+
 // ─────────────────────────────────────────────────────────────────────────────
 // chatWithBot — turno conversacional principal
 // ─────────────────────────────────────────────────────────────────────────────

@@ -413,9 +413,9 @@ function Card({ mod, delay, onClick }) {
         display:"flex", flexDirection:"column", justifyContent:"flex-end",
         padding:"18px 18px 16px",
         background: hov
-          ? `rgba(255,255,255,0.05)`
-          : "rgba(255,255,255,0.025)",
-        border:`1px solid ${hov ? mod.color+"65" : "rgba(255,255,255,0.07)"}`,
+          ? `var(--panel)`
+          : "var(--panel)",
+        border:`1px solid ${hov ? mod.color+"65" : "var(--panel-2)"}`,
         borderRadius:14, cursor:"pointer", textAlign:"left",
         fontFamily:"'Outfit',system-ui,sans-serif",
         transition:"transform 0.18s cubic-bezier(0.22,1,0.36,1), box-shadow 0.22s, border-color 0.22s, background 0.2s",
@@ -440,7 +440,7 @@ function Card({ mod, delay, onClick }) {
       {/* ── Gradiente de legibilidad sobre el arte ── */}
       <div style={{
         position:"absolute", inset:0, pointerEvents:"none",
-        background:`linear-gradient(to top, ${hov?"rgba(9,9,11,0.82)":"rgba(9,9,11,0.72)"} 0%, rgba(9,9,11,0.1) 55%, transparent 100%)`,
+        background:`linear-gradient(to top, ${hov?"var(--home-fade-strong)":"var(--home-fade)"} 0%, var(--home-fade-faint) 55%, transparent 100%)`,
         transition:"background 0.25s",
       }}/>
 
@@ -518,7 +518,7 @@ function Card({ mod, delay, onClick }) {
           <span style={{
             fontSize:14, fontWeight:700, letterSpacing:"0.2px",
             ...(hov ? {
-              background:`linear-gradient(90deg,#fff 0%,#fff 35%,${mod.color} 52%,#fff 68%,#fff 100%)`,
+              background:`linear-gradient(90deg,var(--text) 0%,var(--text) 35%,${mod.color} 52%,var(--text) 68%,var(--text) 100%)`,
               backgroundSize:"200% auto",
               WebkitBackgroundClip:"text", WebkitTextFillColor:"transparent",
               animation:"labelShimmer 1.2s linear 0.08s 1 forwards",
@@ -531,7 +531,7 @@ function Card({ mod, delay, onClick }) {
         {/* Descripción */}
         <div style={{
           fontSize:12, lineHeight:1.6,
-          color: hov ? "#9ca3af" : "var(--dim)",
+          color: hov ? "var(--muted)" : "var(--dim)",
           transition:"color 0.2s",
           paddingRight:28,
         }}>
@@ -543,7 +543,7 @@ function Card({ mod, delay, onClick }) {
       <div style={{
         position:"absolute", bottom:16, right:14, zIndex:10,
         fontSize:15, fontWeight:700,
-        color: hov ? mod.color : "rgba(255,255,255,0.08)",
+        color: hov ? mod.color : "var(--panel-2)",
         transition:"all 0.2s cubic-bezier(0.22,1,0.36,1)",
         transform: hov ? "translate(0,0) scale(1.2)" : "translate(3px,3px) scale(1)",
         filter: hov ? `drop-shadow(0 0 8px ${mod.color})` : "none",
@@ -636,7 +636,7 @@ function Ring({ value, total, color, size=52, label, delay=0 }) {
       animation:`fadeSlideUp 0.5s ease ${delay}ms both` }}>
       <div style={{ position:"relative", width:size, height:size }}>
         <svg width={size} height={size} style={{transform:"rotate(-90deg)",display:"block"}}>
-          <circle cx={size/2} cy={size/2} r={r} fill="none" stroke="rgba(255,255,255,0.05)" strokeWidth="3.5"/>
+          <circle cx={size/2} cy={size/2} r={r} fill="none" stroke="var(--panel)" strokeWidth="3.5"/>
           <circle cx={size/2} cy={size/2} r={r} fill="none" stroke={color} strokeWidth="3.5"
             strokeLinecap="round" strokeDasharray={circ}
             strokeDashoffset={animated?circ*(1-pct):circ}
@@ -661,6 +661,9 @@ function Particles() {
     let W,H,raf;
     const resize=()=>{ W=canvas.width=canvas.offsetWidth; H=canvas.height=canvas.offsetHeight; };
     resize(); window.addEventListener("resize",resize);
+    // El canvas 2D NO entiende variables CSS: ctx.fillStyle="var(--x)" se ignora y
+    // cae a negro → puntos invisibles. Resolvemos el token al color real del tema.
+    const dotColor = getComputedStyle(canvas).getPropertyValue("--border-2").trim() || "rgba(255,255,255,0.18)";
     const N=55;
     const pts=Array.from({length:N},()=>({
       x:Math.random()*W, y:Math.random()*H,
@@ -673,9 +676,9 @@ function Particles() {
         if(d<140){ ctx.beginPath(); ctx.moveTo(pts[i].x,pts[i].y); ctx.lineTo(pts[j].x,pts[j].y);
           ctx.strokeStyle=`rgba(255,255,255,${.022*(1-d/140)})`; ctx.lineWidth=.5; ctx.stroke(); }
       }
+      ctx.fillStyle=dotColor;
       pts.forEach(p=>{
-        ctx.beginPath(); ctx.arc(p.x,p.y,p.r,0,Math.PI*2);
-        ctx.fillStyle="rgba(255,255,255,0.2)"; ctx.fill();
+        ctx.beginPath(); ctx.arc(p.x,p.y,p.r,0,Math.PI*2); ctx.fill();
         p.x+=p.vx; p.y+=p.vy;
         if(p.x<0||p.x>W) p.vx*=-1; if(p.y<0||p.y>H) p.vy*=-1;
       });
@@ -689,10 +692,10 @@ function Particles() {
 
 function Ticker({ items }) {
   return (
-    <div style={{ flexShrink:0, height:26, borderTop:`1px solid rgba(255,255,255,0.08)`,
+    <div style={{ flexShrink:0, height:26, borderTop:`1px solid var(--panel-2)`,
       overflow:"hidden", display:"flex", alignItems:"center",
-      background:"rgba(0,0,0,0.35)", backdropFilter:"blur(8px)" }}>
-      <div style={{ padding:"0 12px", borderRight:`1px solid rgba(255,255,255,0.08)`, height:"100%",
+      background:"var(--topbar-soft)", backdropFilter:"blur(8px)" }}>
+      <div style={{ padding:"0 12px", borderRight:`1px solid var(--panel-2)`, height:"100%",
         display:"flex", alignItems:"center", flexShrink:0 }}>
         <span style={{ fontSize:10, fontFamily:"'JetBrains Mono',monospace", color:"var(--dim)", letterSpacing:1.3 }}>LIVE</span>
       </div>
@@ -777,7 +780,7 @@ export default function HomeScreen({ profile, signOut }) {
 
         .hs-scroll::-webkit-scrollbar{width:3px}
         .hs-scroll::-webkit-scrollbar-track{background:transparent}
-        .hs-scroll::-webkit-scrollbar-thumb{background:rgba(255,255,255,0.07);border-radius:2px}
+        .hs-scroll::-webkit-scrollbar-thumb{background:var(--panel-2);border-radius:2px}
       `}</style>
 
       <div style={{ display:"flex", width:"100vw", height:"100vh",
@@ -810,7 +813,7 @@ export default function HomeScreen({ profile, signOut }) {
           <div style={{ display:"flex", alignItems:"center", justifyContent:"space-between",
             padding:"0 28px", height:46, flexShrink:0,
             borderBottom:`1px solid ${C.b0}`,
-            background:"rgba(9,9,11,0.78)", backdropFilter:"blur(20px)",
+            background:"var(--topbar)", backdropFilter:"blur(20px)",
             position:"relative", zIndex:2,
             animation:"headerIn 0.45s cubic-bezier(0.22,1,0.36,1) both" }}>
 
@@ -875,7 +878,7 @@ export default function HomeScreen({ profile, signOut }) {
 
               {/* LOGO */}
               <div style={{ animation:"logoReveal 0.7s cubic-bezier(0.22,1,0.36,1) 0.12s both" }}>
-                <img src={logoKlasea} alt="Klase A"
+                <img src={logoKlasea} loading="lazy" alt="Klase A"
                   style={{ height:80, objectFit:"contain", display:"block",
                     animation:"glowPulse 4s ease-in-out 1.2s infinite" }}
                   onError={e=>{
@@ -898,7 +901,7 @@ export default function HomeScreen({ profile, signOut }) {
                   animation:"fadeSlideUp 0.4s ease 0.6s both" }}>
                   <span>Astillero · Sistema de Producción</span>
                   <span style={{ padding:"1px 8px", borderRadius:4,
-                    background:"rgba(255,255,255,0.04)", border:`1px solid ${C.b0}`,
+                    background:"var(--panel)", border:`1px solid ${C.b0}`,
                     fontSize:10, letterSpacing:1.1, color:C.t2 }}>{role}</span>
                   <span style={{ padding:"1px 8px", borderRadius:4,
                     background:"rgba(16,185,129,0.08)", border:"1px solid rgba(16,185,129,0.2)",
@@ -930,7 +933,7 @@ export default function HomeScreen({ profile, signOut }) {
                 textTransform:"uppercase", fontFamily:C.mono }}>Acceso rápido</span>
               <div style={{ flex:1, height:1,
                 background:`linear-gradient(90deg,${C.b0},transparent)` }}/>
-              <span style={{ fontSize:10, color:"rgba(255,255,255,0.09)",
+              <span style={{ fontSize:10, color:"var(--panel-3)",
                 fontFamily:C.mono, letterSpacing:1.3 }}>KLASE A · ASTILLERO · v9.0</span>
             </div>
 

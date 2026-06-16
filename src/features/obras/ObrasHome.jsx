@@ -65,52 +65,6 @@ const VISTAS = [
     ),
   },
   {
-    view:"ordenes", label:"Compras", color:"#fbbf24",
-    desc:"Órdenes de compra y proveedores",
-    art:(c)=>(
-      <svg viewBox="0 0 240 140" fill="none" style={{position:"absolute",inset:0,width:"100%",height:"100%",opacity:0.18}}>
-        {[3,2,1,0].map(i=>(
-          <rect key={i} x={28+i*5} y={16+i*4} width="165" height="108" rx="6"
-            fill={c} fillOpacity={0.03+i*0.04} stroke={c} strokeWidth="0.8" strokeOpacity={0.18+i*0.1}/>
-        ))}
-        <rect x="34" y="34" width="65" height="7" rx="2" fill={c} fillOpacity="0.5"/>
-        {[0,1,2,3,4].map(i=>(
-          <g key={i}>
-            <circle cx="42" cy={51+i*14} r="3" fill={c} fillOpacity={[0.7,0.5,0.85,0.4,0.6][i]}/>
-            <rect x="50" y={48+i*14} width={[88,68,95,55,72][i]} height="4" rx="1" fill={c} fillOpacity="0.22"/>
-          </g>
-        ))}
-        <circle cx="178" cy="98" r="24" fill="none" stroke={c} strokeWidth="1.5" strokeOpacity="0.4" strokeDasharray="5 3"/>
-        <circle cx="178" cy="98" r="17" fill={c} fillOpacity="0.07"/>
-        <circle cx="178" cy="98" r="6"  fill={c} fillOpacity="0.35"/>
-      </svg>
-    ),
-  },
-  {
-    view:"planificacion", label:"Planificación", color:"#f59e0b",
-    desc:"Timeline, avisos y seguimiento",
-    art:(c)=>(
-      <svg viewBox="0 0 240 140" fill="none" style={{position:"absolute",inset:0,width:"100%",height:"100%",opacity:0.18}}>
-        <rect x="18" y="14" width="90" height="112" rx="6" fill={c} fillOpacity="0.05" stroke={c} strokeWidth="1" strokeOpacity="0.4"/>
-        <line x1="18" y1="32" x2="108" y2="32" stroke={c} strokeWidth="0.8" strokeOpacity="0.4"/>
-        {[0,1,2,3,4,5,6].map(i=>(
-          [0,1,2,3,4].map(j=>(
-            <rect key={`${i}${j}`} x={22+i*12} y={36+j*18} width="9" height="9" rx="1.5"
-              fill={c} fillOpacity={(i+j)%3===0?0.38:0.08}/>
-          ))
-        ))}
-        <rect x="46" y="72" width="9" height="9" rx="1.5" fill={c} fillOpacity="0.75"/>
-        {[{x:126,y:20,w:100,h:36,p:0.72},{x:126,y:64,w:100,h:36,p:0.44},{x:126,y:108,w:100,h:26,p:0.88}].map((k,i)=>(
-          <g key={i}>
-            <rect x={k.x} y={k.y} width={k.w} height={k.h} rx="5" fill={c} fillOpacity="0.05" stroke={c} strokeWidth="0.8" strokeOpacity="0.3"/>
-            <rect x={k.x+6} y={k.y+k.h-10} width={k.w-12} height="5" rx="2" fill="none" stroke={c} strokeWidth="0.5" strokeOpacity="0.3"/>
-            <rect x={k.x+6} y={k.y+k.h-10} width={(k.w-12)*k.p} height="5" rx="2" fill={c} fillOpacity="0.45"/>
-          </g>
-        ))}
-      </svg>
-    ),
-  },
-  {
     view:"piezas_lam", label:"Piezas Lam.", color:"#34d399",
     desc:"Piezas de laminación por obra",
     art:(c)=>(
@@ -234,6 +188,10 @@ function Particles() {
     const ctx=canvas.getContext("2d"); let W,H,raf;
     const resize=()=>{ W=canvas.width=canvas.offsetWidth; H=canvas.height=canvas.offsetHeight; };
     resize(); window.addEventListener("resize",resize);
+    // El canvas 2D NO entiende variables CSS (ctx.fillStyle="var(--x)" se ignora y
+    // cae a negro → puntos invisibles sobre fondo oscuro). Resolvemos el token a un
+    // color concreto respetando el tema actual.
+    const dotColor = getComputedStyle(canvas).getPropertyValue("--border-2").trim() || "rgba(255,255,255,0.18)";
     const N=45,pts=Array.from({length:N},()=>({x:Math.random()*W,y:Math.random()*H,vx:(Math.random()-.5)*.18,vy:(Math.random()-.5)*.18,r:Math.random()*1.1+.3}));
     const draw=()=>{
       ctx.clearRect(0,0,W,H);
@@ -242,7 +200,8 @@ function Particles() {
         if(d<130){ ctx.beginPath();ctx.moveTo(pts[i].x,pts[i].y);ctx.lineTo(pts[j].x,pts[j].y);
           ctx.strokeStyle=`rgba(255,255,255,${.018*(1-d/130)})`;ctx.lineWidth=.5;ctx.stroke(); }
       }
-      pts.forEach(p=>{ ctx.beginPath();ctx.arc(p.x,p.y,p.r,0,Math.PI*2);ctx.fillStyle="rgba(255,255,255,0.18)";ctx.fill();
+      ctx.fillStyle=dotColor;
+      pts.forEach(p=>{ ctx.beginPath();ctx.arc(p.x,p.y,p.r,0,Math.PI*2);ctx.fill();
         p.x+=p.vx;p.y+=p.vy; if(p.x<0||p.x>W) p.vx*=-1; if(p.y<0||p.y>H) p.vy*=-1; });
       raf=requestAnimationFrame(draw);
     };
@@ -261,7 +220,7 @@ function Ring({ value, total, color, label, delay=0 }) {
     <div style={{display:"flex",flexDirection:"column",alignItems:"center",gap:6,animation:`oh-fadeSlideUp 0.5s ease ${delay}ms both`}}>
       <div style={{position:"relative",width:sz,height:sz}}>
         <svg width={sz} height={sz} style={{transform:"rotate(-90deg)",display:"block"}}>
-          <circle cx={sz/2} cy={sz/2} r={r} fill="none" stroke="rgba(255,255,255,0.05)" strokeWidth="3.5"/>
+          <circle cx={sz/2} cy={sz/2} r={r} fill="none" stroke="var(--panel)" strokeWidth="3.5"/>
           <circle cx={sz/2} cy={sz/2} r={r} fill="none" stroke={color} strokeWidth="3.5"
             strokeLinecap="round" strokeDasharray={circ}
             strokeDashoffset={anim?circ*(1-pct):circ}
@@ -306,8 +265,8 @@ function Card({ vista, delay, onClick }) {
       style={{
         display:"flex",flexDirection:"column",justifyContent:"flex-end",
         padding:"18px 18px 16px",
-        background:hov?"rgba(255,255,255,0.05)":"rgba(255,255,255,0.025)",
-        border:`1px solid ${hov?vista.color+"65":"rgba(255,255,255,0.07)"}`,
+        background:hov?"var(--panel)":"rgba(255,255,255,0.025)",
+        border:`1px solid ${hov?vista.color+"65":"var(--panel-2)"}`,
         borderRadius:14,cursor:"pointer",textAlign:"left",fontFamily:C.sans,
         transition:"transform 0.18s cubic-bezier(0.22,1,0.36,1),box-shadow 0.22s,border-color 0.22s,background 0.2s",
         transform,
@@ -373,7 +332,7 @@ function Card({ vista, delay, onClick }) {
       </div>
       {/* Flecha */}
       <div style={{position:"absolute",bottom:16,right:14,zIndex:10,fontSize:15,fontWeight:700,
-        color:hov?vista.color:"rgba(255,255,255,0.08)",transition:"all 0.2s cubic-bezier(0.22,1,0.36,1)",
+        color:hov?vista.color:"var(--panel-2)",transition:"all 0.2s cubic-bezier(0.22,1,0.36,1)",
         transform:hov?"translate(0,0) scale(1.2)":"translate(3px,3px) scale(1)",
         filter:hov?`drop-shadow(0 0 8px ${vista.color})`:"none"}}>→</div>
       {/* Línea inferior */}
@@ -389,10 +348,10 @@ function Card({ vista, delay, onClick }) {
 // ─── TICKER ──────────────────────────────────────────────────────
 function Ticker({ items }) {
   return(
-    <div style={{flexShrink:0,height:26,borderTop:`1px solid rgba(255,255,255,0.08)`,
+    <div style={{flexShrink:0,height:26,borderTop:`1px solid var(--panel-2)`,
       overflow:"hidden",display:"flex",alignItems:"center",
       background:"rgba(0,0,0,0.35)",backdropFilter:"blur(8px)"}}>
-      <div style={{padding:"0 12px",borderRight:`1px solid rgba(255,255,255,0.08)`,height:"100%",display:"flex",alignItems:"center",flexShrink:0}}>
+      <div style={{padding:"0 12px",borderRight:`1px solid var(--panel-2)`,height:"100%",display:"flex",alignItems:"center",flexShrink:0}}>
         <span style={{fontSize:10,fontFamily:C.mono,color:C.t2,letterSpacing:1.3}}>LIVE</span>
       </div>
       <div style={{overflow:"hidden",flex:1}}>
@@ -473,7 +432,7 @@ export default function ObrasHome({ obras: obrasProp, profile, onEnterMapa }) {
         {/* TOPBAR */}
         <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",
           padding:"0 28px",height:46,flexShrink:0,
-          borderBottom:`1px solid ${C.b0}`,background:"rgba(9,9,11,0.78)",backdropFilter:"blur(20px)",
+          borderBottom:`1px solid ${C.b0}`,background:"var(--topbar)",backdropFilter:"blur(20px)",
           position:"relative",zIndex:2,animation:"oh-headerIn 0.45s cubic-bezier(0.22,1,0.36,1) both"}}>
           <div style={{display:"flex",alignItems:"center",gap:8}}>
             <div style={{width:7,height:7,borderRadius:"50%",background:C.green,animation:"oh-pulseOnline 2.4s ease-out infinite"}}/>
@@ -508,7 +467,7 @@ export default function ObrasHome({ obras: obrasProp, profile, onEnterMapa }) {
           </div>
           <div style={{display:"flex",alignItems:"flex-end",justifyContent:"space-between",gap:20}}>
             <div style={{animation:"oh-logoReveal 0.7s cubic-bezier(0.22,1,0.36,1) 0.12s both"}}>
-              <img src={logoKlasea} alt="Klase A"
+              <img src={logoKlasea} loading="lazy" alt="Klase A"
                 style={{height:72,objectFit:"contain",display:"block",animation:"oh-glowPulse 4s ease-in-out 1.2s infinite"}}
                 onError={e=>{e.currentTarget.src=logoK;e.currentTarget.style.height="56px";}}/>
               <div style={{height:1,width:300,marginTop:10,
@@ -536,7 +495,7 @@ export default function ObrasHome({ obras: obrasProp, profile, onEnterMapa }) {
           <div style={{display:"flex",alignItems:"center",gap:12,marginBottom:12,flexShrink:0,animation:"oh-fadeSlideUp 0.4s ease 0.26s both"}}>
             <span style={{fontSize:10,color:C.t2,letterSpacing:3,textTransform:"uppercase",fontFamily:C.mono}}>Acceso rápido</span>
             <div style={{flex:1,height:1,background:`linear-gradient(90deg,${C.b0},transparent)`}}/>
-            <span style={{fontSize:10,color:"rgba(255,255,255,0.09)",fontFamily:C.mono,letterSpacing:1.3}}>KLASE A · ASTILLERO · OBRAS</span>
+            <span style={{fontSize:10,color:"var(--panel-3)",fontFamily:C.mono,letterSpacing:1.3}}>KLASE A · ASTILLERO · OBRAS</span>
           </div>
           <div style={{flex:1,display:"grid",gridTemplateColumns:`repeat(${VISTAS.length},1fr)`,gap:10}}>
             {VISTAS.map((vista,i)=>(

@@ -40,7 +40,7 @@ const Dot = ({ color, size = 7 }) => (
 );
 
 const ProgressBar = ({ value, color, height = 3 }) => (
-  <div style={{ height, background: "rgba(255,255,255,0.05)", borderRadius: 99, overflow: "hidden", flex: 1 }}>
+  <div style={{ height, background: "var(--panel)", borderRadius: 99, overflow: "hidden", flex: 1 }}>
     <div style={{ height: "100%", width: `${Math.min(100, Math.max(0, value))}%`, background: `linear-gradient(90deg, ${color}60, ${color})`, borderRadius: 99, transition: "width .5s ease" }} />
   </div>
 );
@@ -110,7 +110,7 @@ export default function PanelDetallesObra({
         top: 50, right: 0,
         width: 340,
         height: "calc(100vh - 50px)",
-        background: "rgba(10,10,14,0.97)",
+        background: "var(--panel-solid)",
         borderLeft: `1px solid ${C.b1}`,
         ...GLASS,
         display: "flex",
@@ -345,7 +345,7 @@ function Section({ title, children, accent }) {
         display: "flex", alignItems: "center", gap: 6,
       }}>
         {title}
-        <div style={{ flex: 1, height: 1, background: "rgba(255,255,255,0.06)" }} />
+        <div style={{ flex: 1, height: 1, background: "var(--panel-2)" }} />
       </div>
       {children}
     </div>
@@ -362,8 +362,8 @@ function Grid2({ children }) {
 
 function MetaField({ label, value }) {
   return (
-    <div style={{ padding: "6px 9px", background: "rgba(255,255,255,0.025)", borderRadius: 6, border: "1px solid rgba(255,255,255,0.06)" }}>
-      <div style={{ fontSize: 10, letterSpacing: 1.1, textTransform: "uppercase", color: "rgba(255,255,255,0.25)", marginBottom: 2 }}>{label}</div>
+    <div style={{ padding: "6px 9px", background: "var(--panel)", borderRadius: 6, border: "1px solid var(--panel-2)" }}>
+      <div style={{ fontSize: 10, letterSpacing: 1.1, textTransform: "uppercase", color: "var(--border-3)", marginBottom: 2 }}>{label}</div>
       <div style={{ fontSize: 13, color: "var(--text)", fontFamily: "'JetBrains Mono', monospace" }}>{value ?? "—"}</div>
     </div>
   );

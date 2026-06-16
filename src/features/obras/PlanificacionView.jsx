@@ -17,7 +17,7 @@ const CSS = `
   *, *::before, *::after { box-sizing: border-box; }
   ::-webkit-scrollbar { width: 3px; height: 3px; }
   ::-webkit-scrollbar-track { background: transparent; }
-  ::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.07); border-radius: 99px; }
+  ::-webkit-scrollbar-thumb { background: var(--panel-2); border-radius: 99px; }
   ::-webkit-scrollbar-thumb:hover { background: rgba(255,255,255,0.13); }
   input::placeholder, textarea::placeholder { color: ${C.t3} !important; }
   input:focus, textarea:focus, select:focus { border-color: rgba(59,130,246,0.4) !important; outline: none; }
@@ -35,7 +35,7 @@ const CSS = `
   .pl-row   { transition: background .12s, border-left-color .12s; }
   .pl-row:hover { background: rgba(255,255,255,0.028) !important; }
   .pl-card  { transition: border-color .18s; }
-  .pl-card:hover  { border-color: rgba(255,255,255,0.12) !important; }
+  .pl-card:hover  { border-color: var(--border) !important; }
   .pl-btn   { transition: opacity .13s, transform .1s, background .13s; }
   .pl-btn:hover   { opacity: .82 !important; }
   .pl-btn:active  { transform: scale(.97); }
@@ -142,7 +142,7 @@ const Chip = ({ label, color, bg, border }) => (
 
 function ProgressBar({ value, color, height = 3, shimmer = false }) {
   return (
-    <div style={{ height, background: "rgba(255,255,255,0.05)", borderRadius: 99, overflow: "hidden" }}>
+    <div style={{ height, background: "var(--panel)", borderRadius: 99, overflow: "hidden" }}>
       <div style={{
         height: "100%",
         width: `${Math.min(100, Math.max(0, value))}%`,
@@ -257,7 +257,7 @@ function GanttBar({ etapas, lProcs, obra, height = 32 }) {
               {active && (
                 <div style={{
                   position: "absolute", inset: 0, pointerEvents: "none",
-                  background: "linear-gradient(90deg, transparent 0%, rgba(255,255,255,0.15) 50%, transparent 100%)",
+                  background: "linear-gradient(90deg, transparent 0%, var(--border-2) 50%, transparent 100%)",
                   animation: "shimmer 2.2s ease-in-out infinite",
                   backgroundSize: "200% 100%",
                 }}/>

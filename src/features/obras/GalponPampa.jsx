@@ -18,11 +18,11 @@ import planoFondo from "@/assets/galpon/galpon_pampa.png";
 
 /* ─── PALETA ───────────────────────── */
 const GLASS={
-  background:"rgba(10,10,15,0.88)",
+  background:"var(--topbar)",
   backdropFilter:"blur(24px) saturate(160%)",
   WebkitBackdropFilter:"blur(24px) saturate(160%)",
   border:`1px solid ${C.b0}`,
-  boxShadow:"0 8px 32px -4px rgba(0,0,0,0.7),inset 0 1px 0 rgba(255,255,255,0.05)",
+  boxShadow:"0 8px 32px -4px rgba(0,0,0,0.7),inset 0 1px 0 var(--panel)",
 };
 
 // Coincide exactamente con las dimensiones del PNG galpon_pampa.png (2000×1414)
@@ -88,7 +88,7 @@ function AddObraModal({puestoId,puestos,obras,onAssign,onClose}){
   useEffect(()=>{listRef.current?.children[selIdx]?.scrollIntoView({block:"nearest"});},[selIdx]);
   return(
     <div style={{position:"fixed",inset:0,zIndex:500,background:"rgba(0,0,0,0.6)",display:"flex",alignItems:"flex-start",justifyContent:"center",paddingTop:"12vh",animation:"ppFadeIn 0.15s ease"}} onClick={onClose}>
-      <div style={{width:420,maxHeight:"60vh",display:"flex",flexDirection:"column",...GLASS,borderRadius:16,overflow:"hidden",border:"1px solid rgba(255,255,255,0.1)",boxShadow:"0 24px 48px -12px rgba(0,0,0,0.9)"}} onClick={e=>e.stopPropagation()}>
+      <div style={{width:420,maxHeight:"60vh",display:"flex",flexDirection:"column",...GLASS,borderRadius:16,overflow:"hidden",border:"1px solid var(--border)",boxShadow:"0 24px 48px -12px rgba(0,0,0,0.9)"}} onClick={e=>e.stopPropagation()}>
         <div style={{padding:"16px",borderBottom:`1px solid ${C.b0}`,display:"flex",flexDirection:"column",gap:12}}>
           <div style={{display:"flex",justifyContent:"space-between",alignItems:"center"}}>
             <div style={{display:"flex",gap:8,alignItems:"center"}}>
@@ -101,9 +101,9 @@ function AddObraModal({puestoId,puestos,obras,onAssign,onClose}){
           </div>
           <input ref={inputRef} value={q} onChange={e=>setQ(e.target.value)} onKeyDown={handleKeyDown}
             placeholder="Buscar obra... (↑↓ navegar, Enter asignar)"
-            style={{width:"100%",boxSizing:"border-box",padding:"12px 14px",borderRadius:8,background:"rgba(0,0,0,0.3)",border:`1px solid rgba(255,255,255,0.08)`,color:C.t0,fontSize:14,fontFamily:C.sans,outline:"none"}}
+            style={{width:"100%",boxSizing:"border-box",padding:"12px 14px",borderRadius:8,background:"rgba(0,0,0,0.3)",border:`1px solid var(--panel-2)`,color:C.t0,fontSize:14,fontFamily:C.sans,outline:"none"}}
             onFocus={e=>e.currentTarget.style.border="1px solid rgba(167,139,250,0.5)"}
-            onBlur={e=>e.currentTarget.style.border="1px solid rgba(255,255,255,0.08)"}/>
+            onBlur={e=>e.currentTarget.style.border="1px solid var(--panel-2)"}/>
         </div>
         <div ref={listRef} style={{flex:1,overflowY:"auto",padding:"8px",display:"flex",flexDirection:"column",gap:4}}>
           {!list.length&&<div style={{textAlign:"center",padding:"32px 8px",fontSize:14,color:C.t2}}>{q?"No se encontraron obras":"No hay obras pendientes de asignar"}</div>}
@@ -173,8 +173,8 @@ function RadialMenu({x,y,puesto,obra,editMode,onClose,onAssign,onFocus,onDetail,
   return(
     <div ref={menuRef} style={{position:"fixed",left:x,top:y,zIndex:1000,pointerEvents:"none"}}>
       <svg style={{position:"absolute",left:-(RADIUS+28),top:-(RADIUS+28),width:(RADIUS+28)*2,height:(RADIUS+28)*2,pointerEvents:"none",overflow:"visible"}} aria-hidden>
-        <circle cx={RADIUS+28} cy={RADIUS+28} r={RADIUS} fill="none" stroke="rgba(255,255,255,0.06)" strokeWidth="0.5" strokeDasharray="3 3"/>
-        <circle cx={RADIUS+28} cy={RADIUS+28} r="5" fill="rgba(255,255,255,0.15)" stroke="rgba(255,255,255,0.3)" strokeWidth="1"/>
+        <circle cx={RADIUS+28} cy={RADIUS+28} r={RADIUS} fill="none" stroke="var(--panel-2)" strokeWidth="0.5" strokeDasharray="3 3"/>
+        <circle cx={RADIUS+28} cy={RADIUS+28} r="5" fill="var(--border-2)" stroke="rgba(255,255,255,0.3)" strokeWidth="1"/>
       </svg>
       {actions.map((action,i)=>{
         const angle=(-90+i*step)*(Math.PI/180);
@@ -233,13 +233,13 @@ function CommandPalette({obras,puestos,obraByPuesto,onClose,onAction}){
   let flatIdx=0;
   return(
     <div style={{position:"fixed",inset:0,zIndex:900,background:"rgba(0,0,0,0.55)",display:"flex",alignItems:"flex-start",justifyContent:"center",paddingTop:"10vh",animation:"ppFadeIn 0.12s ease",backdropFilter:"blur(4px)"}} onClick={onClose}>
-      <div style={{width:520,maxHeight:"70vh",display:"flex",flexDirection:"column",...GLASS,borderRadius:16,overflow:"hidden",border:"1px solid rgba(255,255,255,0.12)",boxShadow:"0 32px 64px -12px rgba(0,0,0,0.95)"}} onClick={e=>e.stopPropagation()}>
+      <div style={{width:520,maxHeight:"70vh",display:"flex",flexDirection:"column",...GLASS,borderRadius:16,overflow:"hidden",border:"1px solid var(--border)",boxShadow:"0 32px 64px -12px rgba(0,0,0,0.95)"}} onClick={e=>e.stopPropagation()}>
         <div style={{padding:"14px 16px",display:"flex",alignItems:"center",gap:12,borderBottom:`1px solid ${C.b0}`}}>
           <span style={{fontSize:16,color:C.t2}}>⌘</span>
           <input ref={inputRef} value={q} onChange={e=>setQ(e.target.value)} onKeyDown={handleKeyDown}
             placeholder="Buscar obra, puesto o acción..."
             style={{flex:1,background:"transparent",border:"none",outline:"none",fontSize:15,color:C.t0,fontFamily:C.sans}}/>
-          <kbd style={{padding:"2px 7px",borderRadius:5,background:"rgba(255,255,255,0.06)",border:`1px solid ${C.b0}`,fontSize:11,color:C.t2,fontFamily:C.mono}}>Esc</kbd>
+          <kbd style={{padding:"2px 7px",borderRadius:5,background:"var(--panel-2)",border:`1px solid ${C.b0}`,fontSize:11,color:C.t2,fontFamily:C.mono}}>Esc</kbd>
         </div>
         <div ref={listRef} style={{flex:1,overflowY:"auto",padding:"8px"}}>
           {groups.map(g=>(
@@ -249,7 +249,7 @@ function CommandPalette({obras,puestos,obraByPuesto,onClose,onAction}){
                 const idx=flatIdx++, isSel=idx===selIdx;
                 return(
                   <div key={item.id} data-idx={idx} onClick={()=>{onAction(item);onClose();}} onMouseEnter={()=>setSelIdx(idx)}
-                    style={{display:"flex",alignItems:"center",gap:12,padding:"10px 12px",borderRadius:8,cursor:"pointer",background:isSel?"rgba(255,255,255,0.06)":"transparent",marginBottom:2}}>
+                    style={{display:"flex",alignItems:"center",gap:12,padding:"10px 12px",borderRadius:8,cursor:"pointer",background:isSel?"var(--panel-2)":"transparent",marginBottom:2}}>
                     <div style={{width:28,height:28,borderRadius:8,background:`${item.color}14`,border:`1px solid ${item.color}22`,display:"flex",alignItems:"center",justifyContent:"center",flexShrink:0}}>
                       <span style={{fontSize:14,color:item.color}}>{item.icon}</span>
                     </div>
@@ -257,7 +257,7 @@ function CommandPalette({obras,puestos,obraByPuesto,onClose,onAction}){
                       <div style={{fontSize:14,color:isSel?C.t0:C.t1,fontWeight:isSel?600:400}}>{item.label}</div>
                       {item.sub&&<div style={{fontSize:11,color:C.t2,marginTop:1}}>{item.sub}</div>}
                     </div>
-                    {item.type==="action"&&<kbd style={{padding:"2px 7px",borderRadius:5,background:"rgba(255,255,255,0.06)",border:`1px solid ${C.b0}`,fontSize:11,color:C.t2,fontFamily:C.mono,flexShrink:0}}>{item.sub}</kbd>}
+                    {item.type==="action"&&<kbd style={{padding:"2px 7px",borderRadius:5,background:"var(--panel-2)",border:`1px solid ${C.b0}`,fontSize:11,color:C.t2,fontFamily:C.mono,flexShrink:0}}>{item.sub}</kbd>}
                   </div>
                 );
               })}
@@ -350,7 +350,7 @@ function CinematicCards({p,obra,oC,memoriaOverride,vp,svgRef}){
         </svg>
         {pos.map(s=>{
           const val=(s.val??"").length>24?s.val.slice(0,22)+"…":s.val;
-          return(<div key={s.key} style={{position:"absolute",left:s.cardX,top:s.cardY,width:CARD_W,height:CARD_H,background:"rgba(6,8,24,0.96)",border:`1px solid ${oC.glow}25`,borderRadius:8,boxShadow:`0 4px 24px rgba(0,0,0,0.8),inset 0 1px 0 rgba(255,255,255,0.04)`,display:"flex",alignItems:"center",gap:9,padding:"0 12px",animation:`ppCS_${s.key} 0.5s cubic-bezier(0.22,1,0.36,1) ${s.delay} both`,fontFamily:"'Outfit',system-ui,sans-serif",backdropFilter:"blur(14px)",userSelect:"none"}}>
+          return(<div key={s.key} style={{position:"absolute",left:s.cardX,top:s.cardY,width:CARD_W,height:CARD_H,background:"rgba(6,8,24,0.96)",border:`1px solid ${oC.glow}25`,borderRadius:8,boxShadow:`0 4px 24px rgba(0,0,0,0.8),inset 0 1px 0 var(--panel)`,display:"flex",alignItems:"center",gap:9,padding:"0 12px",animation:`ppCS_${s.key} 0.5s cubic-bezier(0.22,1,0.36,1) ${s.delay} both`,fontFamily:"'Outfit',system-ui,sans-serif",backdropFilter:"blur(14px)",userSelect:"none"}}>
             <div style={{flexShrink:0,width:26,height:26,borderRadius:7,background:`${oC.glow}10`,border:`1px solid ${oC.glow}20`,display:"flex",alignItems:"center",justifyContent:"center",color:`${oC.glow}cc`}}>{s.icon}</div>
             <div style={{flex:1,minWidth:0}}>
               <div style={{fontSize:6.5,letterSpacing:"1.3px",fontWeight:700,fontFamily:"'JetBrains Mono',monospace",color:`${oC.glow}65`,textTransform:"uppercase",marginBottom:3,lineHeight:1}}>{s.label}</div>
@@ -388,7 +388,7 @@ function RadarHUD({puestos,obraByPuesto,vp,containerW,containerH}){
         </g>
         {puestos.map(p=>{const obra=obraByPuesto[p.id];const color=obra?C.obra[obra.estado]?.glow:"#374151";const r=Math.max(1.8,(Math.min(p.w,p.h)*scX)/2.8);return<circle key={p.id} cx={p.cx*scX+PAD} cy={p.cy*scY+PAD} r={r} fill={color} fillOpacity={obra?0.85:0.22} stroke={obra?color:"none"} strokeWidth="0.4" strokeOpacity="0.5"/>;
         })}
-        <rect x={visLeft} y={visTop} width={Math.max(4,visW)} height={Math.max(4,visH)} fill="rgba(255,255,255,0.04)" stroke="rgba(255,255,255,0.45)" strokeWidth="0.6" strokeDasharray="2 2"/>
+        <rect x={visLeft} y={visTop} width={Math.max(4,visW)} height={Math.max(4,visH)} fill="var(--panel)" stroke="rgba(255,255,255,0.45)" strokeWidth="0.6" strokeDasharray="2 2"/>
         <rect x="0.5" y="0.5" width={W-1} height={H-1} rx="9" fill="none" stroke="rgba(0,255,100,0.18)" strokeWidth="0.5"/>
         <text x="8" y={H-6} fill="rgba(0,255,100,0.45)" fontSize="7" fontFamily="monospace" letterSpacing="1">RADAR · PAMPA</text>
       </svg>
@@ -686,7 +686,7 @@ export default function GalponPampa({
           {isEmpty?(
             <g style={{pointerEvents:"none",userSelect:"none"}} clipPath={`url(#${clipId})`}>
               <BoatImage opacity={0.60}/>
-              <rect x={ix} y={iy} width={p.w} height={p.h} rx={Math.min(p.w,p.h)*0.06} fill="none" stroke="rgba(255,255,255,0.20)" strokeWidth="1.2" strokeDasharray="6 4" style={{animation:"ppScanLine 15s linear infinite"}}/>
+              <rect x={ix} y={iy} width={p.w} height={p.h} rx={Math.min(p.w,p.h)*0.06} fill="none" stroke="var(--border-2)" strokeWidth="1.2" strokeDasharray="6 4" style={{animation:"ppScanLine 15s linear infinite"}}/>
               <path d={`M${p.cx-10},${p.cy} L${p.cx+10},${p.cy} M${p.cx},${p.cy-10} L${p.cx},${p.cy+10}`} stroke="rgba(255,255,255,0.35)" strokeWidth="1.2"/>
               {canDrop&&<text x={p.cx} y={p.cy} textAnchor="middle" dominantBaseline="middle" fill="rgba(167,139,250,0.9)" fontSize={Math.min(p.w,p.h)*0.35} fontWeight="300">⊕</text>}
               {canDrop&&<rect x={ix-6} y={iy-6} width={p.w+12} height={p.h+12} rx={Math.min(p.w,p.h)*0.08} fill="rgba(167,139,250,0.04)" stroke="#a78bfa" strokeWidth="1.5" strokeDasharray="8 6" style={{animation:"ppDashRun .5s linear infinite"}}/>}
@@ -738,7 +738,8 @@ export default function GalponPampa({
 
   /* ══════════════ RENDER ══════════════ */
   return(
-    <div style={{width:"100%",height:"100%",position:"relative",overflow:"hidden",fontFamily:C.sans,background:C.bg}}>
+    // Blueprint con mixBlendMode:"screen" (negro = transparente) → fondo SIEMPRE oscuro.
+    <div style={{width:"100%",height:"100%",position:"relative",overflow:"hidden",fontFamily:C.sans,background:"#09090b"}}>
       <style>{`
         @keyframes ppPulseR    {0%{r:0;opacity:0.8;stroke-width:2}70%{r:36;opacity:0;stroke-width:0}100%{r:40;opacity:0}}
         @keyframes ppBeacon    {0%,100%{opacity:1;transform:scale(1)}50%{opacity:0.5;transform:scale(0.85)}}
@@ -751,8 +752,8 @@ export default function GalponPampa({
         @keyframes ppFocusScan {from{stroke-dashoffset:0}to{stroke-dashoffset:-160}}
         @keyframes ppFocusBracket{from{opacity:0;transform:scale(0.7)}to{opacity:1;transform:scale(1)}}
         @keyframes ppDimIn     {from{opacity:0}to{opacity:1}}
-        .pp-glass-btn{background:rgba(255,255,255,0.03);border:1px solid rgba(255,255,255,0.08);color:${C.t1};transition:all 0.2s;}
-        .pp-glass-btn:hover{background:rgba(255,255,255,0.08);color:${C.t0};border-color:rgba(255,255,255,0.2);}
+        .pp-glass-btn{background:var(--panel);border:1px solid var(--panel-2);color:${C.t1};transition:all 0.2s;}
+        .pp-glass-btn:hover{background:var(--panel-2);color:${C.t0};border-color:var(--border-2);}
       `}</style>
 
       {/* ── CANVAS: plano PNG con invert+screen ──────────────────────────
@@ -782,8 +783,8 @@ export default function GalponPampa({
             </clipPath>
           ))}
           <pattern id="ppDotGrid" x={gsx} y={gsy} width={gsz} height={gsz} patternUnits="userSpaceOnUse">
-            <circle cx="2" cy="2" r="1.5" fill="rgba(255,255,255,0.08)"/>
-            <circle cx={gsz/2} cy={gsz/2} r="1" fill="rgba(255,255,255,0.03)"/>
+            <circle cx="2" cy="2" r="1.5" fill="var(--panel-2)"/>
+            <circle cx={gsz/2} cy={gsz/2} r="1" fill="var(--panel)"/>
           </pattern>
         </defs>
 
@@ -874,7 +875,7 @@ export default function GalponPampa({
             <button className="pp-glass-btn" onClick={()=>setCmdPaletteOpen(true)}
               style={{padding:"8px 14px",borderRadius:8,cursor:"pointer",fontSize:12,fontFamily:C.sans,fontWeight: 700,display:"flex",alignItems:"center",gap:8}}>
               <span>⌘</span>
-              <span style={{color:C.t2,fontFamily:C.mono,fontSize:11,background:"rgba(255,255,255,0.05)",border:`1px solid ${C.b0}`,padding:"1px 6px",borderRadius:5}}>K</span>
+              <span style={{color:C.t2,fontFamily:C.mono,fontSize:11,background:"var(--panel)",border:`1px solid ${C.b0}`,padding:"1px 6px",borderRadius:5}}>K</span>
             </button>
             {editMode&&(
               <div style={{display:"flex",gap:4,alignItems:"center",background:"rgba(0,0,0,0.3)",borderRadius:8,padding:"4px",border:"1px solid rgba(16,185,129,0.3)"}}>
@@ -931,7 +932,7 @@ export default function GalponPampa({
                 <div style={{display:"flex",justifyContent:"space-between",fontSize:11,fontFamily:C.mono,color:C.t1}}>
                   <span>Progreso</span><span style={{color:oC.glow,fontWeight:700}}>{obra._pct??0}%</span>
                 </div>
-                <div style={{width:"100%",height:4,background:"rgba(255,255,255,0.08)",borderRadius:2,overflow:"hidden"}}>
+                <div style={{width:"100%",height:4,background:"var(--panel-2)",borderRadius:2,overflow:"hidden"}}>
                   <div style={{height:"100%",width:`${obra._pct??0}%`,background:oC.glow,boxShadow:`0 0 10px ${oC.glow}`}}/>
                 </div>
                 <div style={{fontSize:11,color:C.t2,marginTop:4}}>Click-derecho → menú · F → enfocar</div>
@@ -967,7 +968,7 @@ export default function GalponPampa({
           <div style={{display:"flex",gap:12,alignItems:"center",padding:"6px 18px",borderRadius:30,background:"rgba(0,0,0,0.4)",border:`1px solid ${C.b0}`,backdropFilter:"blur(8px)"}}>
             {[["RUEDA","Zoom"],["DRAG","Pan"],["CLICK","Gestionar"],["CLICK-DER","Menú Radial"],["F","Enfocar"],["⌘K","Buscar"]].map(([key,label])=>(
               <span key={key} style={{fontSize:10,color:C.t2,letterSpacing:1.1}}>
-                <span style={{fontFamily:C.mono,color:C.t1,background:"rgba(255,255,255,0.05)",padding:"1px 5px",borderRadius:4,fontSize:10}}>{key}</span>{" "}{label}
+                <span style={{fontFamily:C.mono,color:C.t1,background:"var(--panel)",padding:"1px 5px",borderRadius:4,fontSize:10}}>{key}</span>{" "}{label}
               </span>
             ))}
           </div>

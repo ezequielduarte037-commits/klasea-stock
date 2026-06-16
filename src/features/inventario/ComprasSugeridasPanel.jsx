@@ -63,7 +63,7 @@ const S = {
   },
   td: {
     padding: "9px 12px",
-    borderBottom: `1px solid rgba(255,255,255,0.03)`,
+    borderBottom: `1px solid var(--panel)`,
     verticalAlign: "middle",
     fontSize: 13,
     fontFamily: C.sans,
@@ -104,7 +104,7 @@ const S = {
     transition: "all .15s",
   }),
   input: {
-    background: "rgba(255,255,255,0.04)",
+    background: "var(--panel)",
     border: `1px solid ${C.b0}`,
     color: C.t0,
     padding: "7px 10px",
@@ -118,7 +118,7 @@ const S = {
   progressBar: {
     height: 4,
     borderRadius: 99,
-    background: "rgba(255,255,255,0.06)",
+    background: "var(--panel-2)",
     overflow: "hidden",
     marginTop: 4,
     position: "relative",
@@ -166,7 +166,7 @@ function FilaSugerida({ row, onCrearPedido }) {
 
   return (
     <>
-      <tr style={{ cursor: "pointer", borderBottom: `1px solid rgba(255,255,255,0.03)` }}
+      <tr style={{ cursor: "pointer", borderBottom: `1px solid var(--panel)` }}
         onClick={() => setExpanded(e => !e)} className="lam-row">
         <td style={S.td}>
           <div style={{ fontWeight: 600, color: C.t0 }}>{row.mat.nombre}</div>
@@ -250,7 +250,7 @@ function FilaRotacion({ row, buffer, onCrearPedido }) {
 
   return (
     <>
-      <tr style={{ cursor: "pointer", borderBottom: `1px solid rgba(255,255,255,0.03)` }}
+      <tr style={{ cursor: "pointer", borderBottom: `1px solid var(--panel)` }}
         onClick={() => setExpanded(e => !e)} className="lam-row">
         <td style={S.td}>
           <div style={{ fontWeight: 600, color: C.t0 }}>{row.mat.nombre}</div>
@@ -481,7 +481,7 @@ export default function ComprasSugeridasPanel({ materiales, movimientos, stockPo
             onClick={e => e.stopPropagation()}>
 
             {/* Toggle modo */}
-            <div style={{ display: "flex", gap: 2, background: "rgba(255,255,255,0.03)", border: `1px solid ${C.b0}`, borderRadius: 9, padding: 3 }}>
+            <div style={{ display: "flex", gap: 2, background: "var(--panel)", border: `1px solid ${C.b0}`, borderRadius: 9, padding: 3 }}>
               <button style={S.modeBtn(modo === "rotacion")} onClick={() => setModo("rotacion")}>Por rotación</button>
               <button style={S.modeBtn(modo === "obras")}    onClick={() => setModo("obras")}>Por obras</button>
             </div>

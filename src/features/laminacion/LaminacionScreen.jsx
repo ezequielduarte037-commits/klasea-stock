@@ -11,6 +11,7 @@ import OrdenCompraGenerator from "@/features/inventario/OrdenCompraGenerator";
 import BarcoCalendarioPanel from "@/features/calendario/BarcoCalendarioPanel";
 import { Check, Package, Plus, Trash2, X, RotateCcw, Download, AlertTriangle, ChevronDown, ChevronRight, FileText, ClipboardList, Search, RefreshCw, Edit2, ShoppingCart } from "lucide-react";
 import PedirAComprasModal from "@/features/compras/PedirAComprasModal";
+import { createPurchaseRequest, addRequestItem, notifyComprasEmail } from "@/features/compras/purchaseRequestsApi";
 import { C } from "@/theme";
 
 
@@ -135,9 +136,9 @@ function RingKpi({ label, value, total, color, sub }) {
   const r = 22; const circ = 2 * Math.PI * r;
   const dash = pct * circ;
   return (
-    <div className="lam-kpi" style={{ background: "rgba(255,255,255,0.03)", border: "1px solid rgba(255,255,255,0.07)", borderRadius: 12, padding: "14px 18px", display: "flex", alignItems: "center", gap: 14, borderLeft: `2px solid ${color}` }}>
+    <div className="lam-kpi" style={{ background: "var(--panel)", border: "1px solid var(--panel-2)", borderRadius: 12, padding: "14px 18px", display: "flex", alignItems: "center", gap: 14, borderLeft: `2px solid ${color}` }}>
       <svg width={54} height={54} style={{ flexShrink: 0, transform: "rotate(-90deg)" }}>
-        <circle cx={27} cy={27} r={r} fill="none" stroke="rgba(255,255,255,0.06)" strokeWidth={3.5} />
+        <circle cx={27} cy={27} r={r} fill="none" stroke="var(--panel-2)" strokeWidth={3.5} />
         <circle cx={27} cy={27} r={r} fill="none" stroke={color} strokeWidth={3.5}
           strokeLinecap="round"
           strokeDasharray={`${dash} ${circ}`}
@@ -203,8 +204,6 @@ export default function LaminacionScreen({ profile, signOut }) {
   // confModal = { pedido, tipo: "entero" | "parcial", cantParcial: "" }
   const [confModal, setConfModal] = useState(null);
   const [comprasModal, setComprasModal] = useState({ open: false, prefilled: null });
-  const [compraSelector, setCompraSelector] = useState({ open: false, selected: "stock" });
-  const [loadingPlantillaCompra, setLoadingPlantillaCompra] = useState(false);
   // Órdenes expandidas en la tab Pedidos
   const [expandedOrdenes, setExpandedOrdenes] = useState(new Set());
 
@@ -401,98 +400,6 @@ export default function LaminacionScreen({ profile, signOut }) {
   async function getUserId() {
     const { data } = await supabase.auth.getSession().catch(() => ({ data: { session: null } }));
     return data?.session?.user?.id ?? null;
-  }
-
-  function abrirModalCompra(prefilled) {
-    setComprasModal({ open: true, prefilled });
-    setCompraSelector({ open: false, selected: "stock" });
-  }
-
-  async function abrirPedidoComprasDesdeSelector() {
-    const selected = compraSelector.selected;
-    const base = {
-      title: "Solicitud Compra Materiales Laminación",
-      source: "laminacion",
-      sourceLabel: "Laminación",
-    };
-
-    if (selected === "stock") {
-      abrirModalCompra({ ...base, defaultDestination: "Stock Pampa 1050" });
-      return;
-    }
-
-    if (selected === "general") {
-      abrirModalCompra({ ...base, defaultDestination: "" });
-      return;
-    }
-
-    const obra = obrasLam.find((o) => o.id === selected);
-    if (!obra) {
-      setErr("Seleccioná una obra válida.");
-      return;
-    }
-
-    const codigo = extraerCodigoLinea(obra);
-    const defaultDestination = destinoObraLaminacion(obra);
-    const emptyPrefill = {
-      ...base,
-      title: `Solicitud Compra Materiales Laminación ${defaultDestination.replace(/^Obra\s+/i, "")}`,
-      defaultDestination,
-      source_ref: obra.id,
-    };
-
-    if (!codigo) {
-      abrirModalCompra(emptyPrefill);
-      return;
-    }
-
-    setLoadingPlantillaCompra(true);
-    setErr("");
-    try {
-      const { data: plantilla, error: plantillaError } = await supabase
-        .from("linea_plantillas")
-        .select("id,linea,nombre")
-        .eq("linea", codigo)
-        .eq("activa", true)
-        .maybeSingle();
-      if (plantillaError) throw plantillaError;
-
-      if (!plantilla) {
-        abrirModalCompra(emptyPrefill);
-        return;
-      }
-
-      const { data: templateItems, error: itemsError } = await supabase
-        .from("linea_plantilla_items")
-        .select("material_id,cantidad,orden,notas,material:laminacion_materiales(id,nombre,unidad)")
-        .eq("plantilla_id", plantilla.id)
-        .order("orden", { ascending: true });
-      if (itemsError) throw itemsError;
-
-      const mapped = (templateItems ?? [])
-        .filter((it) => it.material_id)
-        .map((it) => ({
-          material_id: it.material_id,
-          description: it.material?.nombre || "Material de laminación",
-          quantity: it.cantidad ?? "",
-          unit: it.material?.unidad || "unidad",
-          destination: defaultDestination,
-          notes: it.notas || "",
-          catalogSource: "laminacion",
-        }));
-
-      if (!mapped.length) {
-        abrirModalCompra(emptyPrefill);
-        return;
-      }
-
-      const ok = window.confirm(`¿Cargo los materiales de la plantilla ${codigo} (${mapped.length} ítems)?`);
-      abrirModalCompra(ok ? { ...emptyPrefill, items: mapped } : emptyPrefill);
-    } catch (error) {
-      setErr(error.message || "No se pudo cargar la plantilla de la obra.");
-    } finally {
-      setLoadingPlantillaCompra(false);
-    }
   }
 
   async function crearIngreso(e) {
@@ -812,38 +719,38 @@ export default function LaminacionScreen({ profile, signOut }) {
     layout: { display: "grid", gridTemplateColumns: isMobile ? "1fr" : "280px 1fr", height: "100vh", width: "100%", minWidth: isMobile ? 0 : "100vw" },
     main: { padding: isMobile ? "18px 12px 12px" : 18, paddingLeft: isMobile ? 52 : 18, display: "flex", justifyContent: "center", overflowY: "auto", height: "100%", minWidth: 0 },
     content: { width: "min(1300px, 100%)", minWidth: 0 },
-    card: { border: "1px solid rgba(255,255,255,0.08)", borderRadius: 12, background: "rgba(255,255,255,0.03)", padding: 16, marginBottom: 12 },
-    input: { background: "rgba(255,255,255,0.04)", border: "1px solid rgba(255,255,255,0.08)", color: "var(--text)", padding: "9px 12px", borderRadius: 8, width: "100%", outline: "none", fontSize: 14, boxSizing: "border-box", fontFamily: "'Outfit', system-ui" },
-    select: { background: "rgba(255,255,255,0.04)", border: "1px solid rgba(255,255,255,0.08)", color: "var(--text)", padding: "9px 12px", borderRadius: 8, width: "100%", outline: "none", fontSize: 14, boxSizing: "border-box", fontFamily: "'Outfit', system-ui" },
-    btn: { border: "1px solid rgba(255,255,255,0.08)", background: "rgba(255,255,255,0.05)", color: "var(--text)", padding: "9px 14px", borderRadius: 8, cursor: "pointer", fontWeight: 700, fontSize: 13, fontFamily: "'Outfit', system-ui" },
+    card: { border: "1px solid var(--panel-2)", borderRadius: 12, background: "var(--panel)", padding: 16, marginBottom: 12 },
+    input: { background: "var(--panel)", border: "1px solid var(--panel-2)", color: "var(--text)", padding: "9px 12px", borderRadius: 8, width: "100%", outline: "none", fontSize: 14, boxSizing: "border-box", fontFamily: "'Outfit', system-ui" },
+    select: { background: "var(--panel)", border: "1px solid var(--panel-2)", color: "var(--text)", padding: "9px 12px", borderRadius: 8, width: "100%", outline: "none", fontSize: 14, boxSizing: "border-box", fontFamily: "'Outfit', system-ui" },
+    btn: { border: "1px solid var(--panel-2)", background: "var(--panel)", color: "var(--text)", padding: "9px 14px", borderRadius: 8, cursor: "pointer", fontWeight: 700, fontSize: 13, fontFamily: "'Outfit', system-ui" },
     btnPrimary: { border: "1px solid rgba(59,130,246,0.35)", background: "rgba(59,130,246,0.15)", color: "#60a5fa", padding: "9px 18px", borderRadius: 8, cursor: "pointer", fontWeight: 700, fontSize: 13, fontFamily: "'Outfit', system-ui" },
     btnSmall: (color) => ({ border: `1px solid ${color}40`, background: `${color}15`, color, padding: "4px 10px", borderRadius: 6, cursor: "pointer", fontWeight: 700, fontSize: 12, marginRight: 4, fontFamily: "'Outfit', system-ui" }),
     row2: { display: "grid", gridTemplateColumns: isMobile ? "1fr" : "1fr 1fr", gap: 10 },
     row3: { display: "grid", gridTemplateColumns: isMobile ? "1fr" : "1fr 1fr 1fr", gap: 10 },
     table: { width: "100%", borderCollapse: "collapse" },
-    th: { textAlign: "left", fontSize: 10, color: "var(--dim)", padding: "10px 8px", borderBottom: "1px solid rgba(255,255,255,0.06)", textTransform: "uppercase", letterSpacing: 1.3 },
-    td: { padding: "10px 8px", borderBottom: "1px solid rgba(255,255,255,0.04)", verticalAlign: "middle", fontSize: 13 },
+    th: { textAlign: "left", fontSize: 10, color: "var(--dim)", padding: "10px 8px", borderBottom: "1px solid var(--panel-2)", textTransform: "uppercase", letterSpacing: 1.3 },
+    td: { padding: "10px 8px", borderBottom: "1px solid var(--panel)", verticalAlign: "middle", fontSize: 13 },
     small: { fontSize: 12, color: "var(--dim)" },
     label: { display: "block", fontSize: 10, color: "var(--dim)", textTransform: "uppercase", letterSpacing: 1.3, marginBottom: 6 },
     tab: (active) => ({
       padding: "6px 14px", borderRadius: 7,
-      border: active ? "1px solid rgba(255,255,255,0.15)" : "1px solid rgba(255,255,255,0.04)",
-      background: active ? "rgba(255,255,255,0.08)" : "transparent",
+      border: active ? "1px solid var(--border-2)" : "1px solid var(--panel)",
+      background: active ? "var(--panel-2)" : "transparent",
       color: active ? "var(--text)" : "var(--dim)",
       cursor: "pointer", fontWeight: active ? 600 : 400, fontSize: 12, fontFamily: "'Outfit', system-ui",
     }),
     pillStock: (st) => {
-      const cfg = { OK: ["rgba(16,185,129,0.1)","#10b981"], ATENCION: ["rgba(245,158,11,0.1)","#f59e0b"], CRITICO: ["rgba(239,68,68,0.1)","#ef4444"] }[st] || ["rgba(255,255,255,0.05)","var(--muted)"];
+      const cfg = { OK: ["rgba(16,185,129,0.1)","#10b981"], ATENCION: ["rgba(245,158,11,0.1)","#f59e0b"], CRITICO: ["rgba(239,68,68,0.1)","#ef4444"] }[st] || ["var(--panel)","var(--muted)"];
       return { display: "inline-block", padding: "2px 9px", borderRadius: 5, fontSize: 11, fontWeight: 700, background: cfg[0], color: cfg[1] };
     },
     btnExport: {
-      border: "1px solid rgba(255,255,255,0.08)", background: "rgba(255,255,255,0.03)",
+      border: "1px solid var(--panel-2)", background: "var(--panel)",
       color: "var(--muted)", padding: "6px 14px", borderRadius: 8,
       cursor: "pointer", fontWeight: 700, fontSize: 12,
       display: "inline-flex", alignItems: "center", gap: 5, fontFamily: "'Outfit', system-ui",
     },
     pillPedido: (st) => {
-      const cfg = { pendiente: ["rgba(245,158,11,0.1)","#f59e0b"], entregado: ["rgba(16,185,129,0.1)","#10b981"], cancelado: ["rgba(239,68,68,0.1)","#ef4444"] }[st] || ["rgba(255,255,255,0.05)","var(--muted)"];
+      const cfg = { pendiente: ["rgba(245,158,11,0.1)","#f59e0b"], entregado: ["rgba(16,185,129,0.1)","#10b981"], cancelado: ["rgba(239,68,68,0.1)","#ef4444"] }[st] || ["var(--panel)","var(--muted)"];
       return { display: "inline-block", padding: "2px 9px", borderRadius: 5, fontSize: 11, fontWeight: 700, background: cfg[0], color: cfg[1] };
     },
   };
@@ -857,10 +764,10 @@ export default function LaminacionScreen({ profile, signOut }) {
       <style>{`
         @import url('https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500;700&display=swap');
         *, *::before, *::after { box-sizing: border-box; }
-        select option { background: #0f0f12; color: var(--muted); }
+        select option { background: var(--panel-solid); color: var(--muted); }
         ::-webkit-scrollbar { width: 3px; height: 3px; }
         ::-webkit-scrollbar-track { background: transparent; }
-        ::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.07); border-radius: 99px; }
+        ::-webkit-scrollbar-thumb { background: var(--panel-2); border-radius: 99px; }
         input:focus, select:focus, textarea:focus { border-color: rgba(59,130,246,0.35) !important; outline: none; }
         button:not([disabled]):hover { opacity: 0.8; }
         .bg-glow {
@@ -913,19 +820,8 @@ export default function LaminacionScreen({ profile, signOut }) {
                 <div style={S.small}>{esPanol ? "Ingresos · Egresos" : "Control de stock · Ingresos · Egresos · Pedidos"}</div>
               </div>
               <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
-                <button
-                  style={{
-                    ...S.btn,
-                    border: "1px solid rgba(96,165,250,0.35)",
-                    background: "rgba(96,165,250,0.12)",
-                    color: "var(--blue)",
-                    fontWeight: 700,
-                  }}
-                  onClick={() => setCompraSelector({ open: true, selected: "stock" })}
-                  title="Crear pedido a compras"
-                >
-                  Pedir a compras
-                </button>
+                {/* El pedido a compras se hace desde el Generador de Orden de Compra
+                    (tab Pedidos): un solo flujo que va a laminación, obra y compras. */}
                 {isAdmin && (
                   <button style={S.btn} onClick={() => setShowNuevoMaterial(v => !v)}>
                     {showNuevoMaterial ? " Cancelar" : "+ Nuevo material"}
@@ -999,7 +895,7 @@ export default function LaminacionScreen({ profile, signOut }) {
                   <RingKpi label="OK" value={stockRows.filter(r=>r.estado==="OK").length} total={stockRows.length} color="#10b981" sub={`${Math.round(stockRows.filter(r=>r.estado==="OK").length/Math.max(1,stockRows.length)*100)}% del stock`} />
                   <RingKpi label="Atención" value={stockRows.filter(r=>r.estado==="ATENCION").length} total={stockRows.length} color="#f59e0b" sub="bajo mínimo" />
                   <RingKpi label="Crítico" value={stockRows.filter(r=>r.estado==="CRITICO").length} total={stockRows.length} color="#ef4444" sub="sin stock" />
-                  <div className="lam-kpi" style={{ background: "rgba(255,255,255,0.03)", border: "1px solid rgba(255,255,255,0.07)", borderRadius: 12, padding: "14px 18px", display: "flex", alignItems: "center", gap: 10, borderLeft: "2px solid #3b82f6" }}>
+                  <div className="lam-kpi" style={{ background: "var(--panel)", border: "1px solid var(--panel-2)", borderRadius: 12, padding: "14px 18px", display: "flex", alignItems: "center", gap: 10, borderLeft: "2px solid #3b82f6" }}>
                     <div>
                       <div style={{ fontSize: 10, letterSpacing: 1.3, textTransform: "uppercase", color: "var(--dim)", marginBottom: 5 }}>Pedidos pend.</div>
                       <AnimatedNum value={pedidos.filter(p=>p.estado==="pendiente").length} color="#3b82f6" size={26} />
@@ -1135,7 +1031,7 @@ export default function LaminacionScreen({ profile, signOut }) {
                               </div>
 
                               {/* Acciones de grupo */}
-                              <div style={{ display: "flex", gap: 6, padding: "6px 14px", background: "rgba(245,158,11,0.03)", borderTop: "1px solid rgba(255,255,255,0.04)" }}>
+                              <div style={{ display: "flex", gap: 6, padding: "6px 14px", background: "rgba(245,158,11,0.03)", borderTop: "1px solid var(--panel)" }}>
                                 <button style={{ border: "1px solid rgba(16,185,129,0.3)", background: "rgba(16,185,129,0.08)", color: "#10b981", fontSize: 12, padding: "5px 12px", borderRadius: 7, cursor: "pointer", fontWeight: 700 }}
                                   onClick={() => setConfModal({ tipo: "orden_completa", grupo })}>
                                   Recibir completa
@@ -1153,7 +1049,7 @@ export default function LaminacionScreen({ profile, signOut }) {
                                       const stockActual = num(stockPorMaterial[p.material_id]);
                                       const esExtra = p.categoria === "extra";
                                       return (
-                                        <div key={p.id} style={{ display: "flex", alignItems: "center", gap: 10, padding: "10px 14px", borderTop: i === 0 ? "none" : "1px solid rgba(255,255,255,0.04)", flexWrap: "wrap", background: esExtra ? "rgba(245,158,11,0.04)" : "transparent" }}>
+                                        <div key={p.id} style={{ display: "flex", alignItems: "center", gap: 10, padding: "10px 14px", borderTop: i === 0 ? "none" : "1px solid var(--panel)", flexWrap: "wrap", background: esExtra ? "rgba(245,158,11,0.04)" : "transparent" }}>
                                           {/* Nombre */}
                                           <div style={{ flex: 1, minWidth: 160 }}>
                                         <span style={{ fontWeight: 600, color: "var(--text)", fontSize: 13 }}>{mat?.nombre ?? "Material desconocido"}</span>
@@ -1445,10 +1341,10 @@ export default function LaminacionScreen({ profile, signOut }) {
                         <button key={val} onClick={() => setFiltroTipo(val)} style={{
                           padding: "8px 14px", borderRadius: 8, cursor: "pointer", fontSize: 12, fontWeight: 700,
                           border: filtroTipo === val
-                            ? `1px solid ${color ?? "rgba(255,255,255,0.15)"}`
-                            : "1px solid rgba(255,255,255,0.04)",
+                            ? `1px solid ${color ?? "var(--border-2)"}`
+                            : "1px solid var(--panel)",
                           background: filtroTipo === val
-                            ? color ? `${color}18` : "rgba(255,255,255,0.06)"
+                            ? color ? `${color}18` : "var(--panel-2)"
                             : "transparent",
                           color: filtroTipo === val ? (color ?? "var(--text)") : "var(--dim)",
                           fontFamily: "'Outfit', system-ui",
@@ -1609,7 +1505,7 @@ export default function LaminacionScreen({ profile, signOut }) {
                               </td>
                               <td style={{ ...S.td, padding: "10px 14px" }}>
                                 {m.obra
-                                  ? <span style={{ padding: "2px 8px", borderRadius: 6, background: "rgba(255,255,255,0.06)", color: "#ccc", fontSize: 12, fontFamily: "monospace" }}>{m.obra}</span>
+                                  ? <span style={{ padding: "2px 8px", borderRadius: 6, background: "var(--panel-2)", color: "#ccc", fontSize: 12, fontFamily: "monospace" }}>{m.obra}</span>
                                   : <span style={{ opacity: 0.2, fontSize: 13 }}>—</span>
                                 }
                               </td>
@@ -1651,21 +1547,91 @@ export default function LaminacionScreen({ profile, signOut }) {
 			    <OrdenCompraGenerator
   materiales={materiales}
   stockPorMaterial={stockPorMaterial}
-  onCrearOrden={async (items, { plantillaLabel, obraNumero, ordenRef }) => {
+  onCrearOrden={async (items, { plantillaLabel, obraNumero, ordenRef, emailText }) => {
+    // FLUJO ÚNICO: generar la orden crea de una sola vez:
+    //  1) los pedidos de laminación (el pañolero les da ingreso)
+    //  2) con obra_destino → al recibir, impacta la plantilla del barco
+    //  3) el pedido a Compras (purchase_request) — y se vinculan entre sí
     const obs = `${ordenRef} | ${plantillaLabel}${obraNumero ? ` — Obra ${obraNumero}` : ""}`;
     const obraDestino = obraNumero?.trim() || null;
-    const rows = items.map(it => ({
-      material_id: it.material_id,
-      cantidad: it.cantidad,
-      observaciones: obs,
-      estado: "pendiente",
-      categoria: it.categoria || "estándar",
-      obra_destino: it.categoria === "extra" ? "Stock Pampa 1050" : obraDestino,
-    }));
-    const { error } = await supabase.from("laminacion_pedidos").insert(rows);
-    if (error) { flash(`Error: ${error.message}`); return; }
+    const tituloObra = obraNumero?.trim() ? `Obra ${obraNumero.trim()}` : (plantillaLabel || ordenRef);
+    // La descripción que ve Compras = la vista email (con extras al final), más la ref.
+    const descripcionCompras = emailText ? `Ref: ${ordenRef}\n\n${emailText}` : obs;
+
+    // 1) Pedido a Compras primero (best-effort). Si falla, igual creamos los
+    //    pedidos de laminación; el pañolero puede escalar a compras con el botón.
+    let created = null;
+    try {
+      created = await createPurchaseRequest({
+        form: {
+          title: `Pedido Laminación — ${tituloObra}`,
+          description: descripcionCompras,
+          priority: "media",
+          project_id: null,
+          source: "laminacion",
+          source_ref: ordenRef,
+        },
+      });
+    } catch (e) {
+      console.warn("[Laminacion] no se pudo crear el pedido a Compras:", e);
+    }
+
+    // 2) Un pedido de laminación por ítem, ya vinculado a su request_item (creamos
+    //    el request_item y el pedido juntos para que el id quede atado sin ambigüedad).
+    let okCount = 0;
+    let failCount = 0;
+    for (const it of items) {
+      const esExtra = it.categoria === "extra";
+      const mat = materiales.find(m => String(m.id) === String(it.material_id));
+      let reqItemId = null;
+      if (created) {
+        try {
+          const reqItem = await addRequestItem(created.id, {
+            description: it.descripcion || mat?.nombre || "Material laminación",
+            quantity: it.cantidad ?? null,
+            unit: mat?.unidad || "unidad",
+            destination: esExtra ? "Stock Pampa 1050" : (obraDestino ? `Obra ${obraDestino}` : null),
+            notes: esExtra ? "EXTRA - Stock Pampa 1050" : null,
+            material_id: it.material_id || null,
+            catalog_source: "laminacion",
+          });
+          reqItemId = reqItem?.id || null;
+        } catch (e) {
+          console.warn("[Laminacion] no se pudo crear el ítem en Compras:", e);
+        }
+      }
+      const { error: pedErr } = await supabase.from("laminacion_pedidos").insert({
+        material_id: it.material_id,
+        cantidad: it.cantidad,
+        observaciones: obs,
+        estado: "pendiente",
+        categoria: it.categoria || "estándar",
+        obra_destino: esExtra ? "Stock Pampa 1050" : obraDestino,
+        purchase_request_item_id: reqItemId,
+      });
+      if (pedErr) { failCount += 1; console.warn("[Laminacion] pedido falló:", pedErr); }
+      else okCount += 1;
+    }
+
+    if (created) {
+      notifyComprasEmail({
+        type: "new_request",
+        requestId: created.id,
+        requestTitle: `Pedido Laminación — ${tituloObra}`,
+        changedBy: profile?.id,
+        createdByName: profile?.username || "Usuario",
+        source: "laminacion",
+      });
+    }
+
     cargarPedidos();
-    flash(`Orden ${ordenRef} generada — ${items.length} materiales`);
+    if (okCount === 0) {
+      flash(`No se pudo generar la orden (${failCount} fallaron). Ver consola.`);
+    } else {
+      flash(created
+        ? `Orden ${ordenRef} generada — ${okCount} materiales · enviada a Compras${failCount ? ` (${failCount} con error)` : ""}`
+        : `Orden ${ordenRef} generada — ${okCount} materiales (no se pudo enviar a Compras, ver consola)`);
+    }
   }}
 />
 			   <ComprasSugeridasPanel
@@ -1841,10 +1807,6 @@ export default function LaminacionScreen({ profile, signOut }) {
                                   </div>
                                   {!esManual && <div style={{ fontSize: 12, color: "var(--muted)", marginTop: 2 }}>{grupo.label}</div>}
                                 </div>
-                                {/* debug: raw categoria values */}
-                                <div style={{ fontSize: 10, color: "var(--muted)", fontFamily: "monospace", marginLeft: 8 }}>
-                                  [{grupo.items.map(p => (p.categoria || "null")).join(", ")}]
-                                </div>
 
                                 <div style={{ display: "flex", gap: 10, alignItems: "center", flexWrap: "wrap" }}>
                                   <span style={{ fontSize: 12, color: "var(--dim)" }}>{grupo.items.length} material{grupo.items.length !== 1 ? "es" : ""}</span>
@@ -1853,15 +1815,21 @@ export default function LaminacionScreen({ profile, signOut }) {
                                     {estadoLabel}
                                   </span>
                                   <span style={{ fontSize: 11, color: "var(--dim)" }}>{fmtTs(grupo.createdAt)}</span>
-                                                  {pendientes > 0 && (
+                                                  {/* "Compras" solo para pedidos que TODAVÍA no se enviaron (ej: alta
+                                                      manual). Los generados por el Generador ya van solos a compras. */}
+                                                  {pendientes > 0 && grupo.items.some(p => p.purchase_request_item_id) ? (
+                                                    <span title="Este pedido ya está en Compras" style={{ border: "1px solid rgba(16,185,129,0.3)", background: "rgba(16,185,129,0.08)", color: "#34d399", borderRadius: 7, padding: "4px 8px", display: "flex", alignItems: "center", gap: 4, fontSize: 12, fontWeight: 700 }}>
+                                                      <Check size={12}/> En compras
+                                                    </span>
+                                                  ) : pendientes > 0 ? (
                                                     <button
                                                       onClick={e => { e.stopPropagation(); setComprasModal({ open: true, prefilled: comprasPrefilled }); }}
-                                                      title="Pedir a Compras"
+                                                      title="Enviar este pedido a Compras"
                                                       style={{ border: "1px solid rgba(96,165,250,0.3)", background: "rgba(96,165,250,0.08)", color: "#60a5fa", borderRadius: 7, cursor: "pointer", padding: "4px 8px", display: "flex", alignItems: "center", gap: 4, fontSize: 12 }}
                                                     >
                                                       <ShoppingCart size={12}/> Compras
                                                     </button>
-                                                  )}
+                                                  ) : null}
                                                   {(isAdmin || role === "admin" || role === "oficina" || role === "tecnica") && (
                                                     <button
                                                       onClick={e => { e.stopPropagation(); eliminarOrden(grupo.items); }}
@@ -1876,7 +1844,7 @@ export default function LaminacionScreen({ profile, signOut }) {
 
                               {/* Detalle expandido */}
                               {isExpanded && (
-                                <div style={{ borderTop: `1px solid rgba(255,255,255,0.05)` }}>
+                                <div style={{ borderTop: `1px solid var(--panel)` }}>
                                   <table style={{ ...S.table, margin: 0 }}>
                                     <thead>
                                       <tr>
@@ -1959,19 +1927,19 @@ export default function LaminacionScreen({ profile, signOut }) {
           const { grupo } = confModal;
           return (
             <div style={{ position: "fixed", inset: 0, background: "var(--overlay-strong)", zIndex: 9999, display: "flex", alignItems: "center", justifyContent: "center", backdropFilter: "blur(4px)" }}>
-              <div style={{ background: "var(--panel-solid)", border: "1px solid rgba(255,255,255,0.12)", borderRadius: 16, padding: 28, width: "min(520px, 94vw)", boxShadow: "0 24px 64px rgba(0,0,0,0.6)", maxHeight: "85vh", overflow: "auto" }}>
+              <div style={{ background: "var(--panel-solid)", border: "1px solid var(--border)", borderRadius: 16, padding: 28, width: "min(520px, 94vw)", boxShadow: "0 24px 64px rgba(0,0,0,0.6)", maxHeight: "85vh", overflow: "auto" }}>
                 <h3 style={{ margin: "0 0 4px", color: "var(--text)", fontSize: 16 }}>Confirmar recepción</h3>
                 <p style={{ margin: "0 0 16px", color: "var(--dim)", fontSize: 13 }}>
                   Se registra ingreso por todos los materiales y la orden queda cerrada.
                 </p>
-                <div style={{ background: "rgba(255,255,255,0.03)", border: "1px solid rgba(255,255,255,0.07)", borderRadius: 10, overflow: "hidden", marginBottom: 20 }}>
-                  <div style={{ padding: "10px 14px", background: "rgba(245,158,11,0.07)", borderBottom: "1px solid rgba(255,255,255,0.06)", fontSize: 13, fontWeight: 700, color: "#f59e0b" }}>
+                <div style={{ background: "var(--panel)", border: "1px solid var(--panel-2)", borderRadius: 10, overflow: "hidden", marginBottom: 20 }}>
+                  <div style={{ padding: "10px 14px", background: "rgba(245,158,11,0.07)", borderBottom: "1px solid var(--panel-2)", fontSize: 13, fontWeight: 700, color: "#f59e0b" }}>
                     {grupo.ref} — {grupo.label}
                   </div>
                   {grupo.items.map((p, i) => {
                     const mat = materiales.find(m => String(m.id) === String(p.material_id));
                     return (
-                      <div key={p.id} style={{ display: "flex", justifyContent: "space-between", padding: "9px 14px", borderTop: i === 0 ? "none" : "1px solid rgba(255,255,255,0.04)", fontSize: 13 }}>
+                      <div key={p.id} style={{ display: "flex", justifyContent: "space-between", padding: "9px 14px", borderTop: i === 0 ? "none" : "1px solid var(--panel)", fontSize: 13 }}>
                         <span style={{ color: "var(--text)" }}>
                           {mat?.nombre ?? "—"}
                           {p.categoria === "extra" && <span style={{ marginLeft: 6, fontSize: 10, fontWeight: 800, textTransform: "uppercase", letterSpacing: 0.5, color: "#f59e0b", border: "1px solid rgba(245,158,11,0.3)", borderRadius: 4, padding: "1px 5px" }}>Extra</span>}
@@ -1985,7 +1953,7 @@ export default function LaminacionScreen({ profile, signOut }) {
                    Se registran <b>{grupo.items.length} ingresos</b> y la orden queda como <b>Entregada</b>.
                 </div>
                 <div style={{ display: "flex", gap: 10, justifyContent: "flex-end" }}>
-                  <button style={{ border: "1px solid rgba(255,255,255,0.08)", background: "rgba(255,255,255,0.04)", color: "var(--muted)", padding: "9px 18px", borderRadius: 8, cursor: "pointer", fontWeight: 700, fontSize: 13, fontFamily: "'Outfit', system-ui" }} onClick={() => setConfModal(null)}>Cancelar</button>
+                  <button style={{ border: "1px solid var(--panel-2)", background: "var(--panel)", color: "var(--muted)", padding: "9px 18px", borderRadius: 8, cursor: "pointer", fontWeight: 700, fontSize: 13, fontFamily: "'Outfit', system-ui" }} onClick={() => setConfModal(null)}>Cancelar</button>
                   <button style={{ border: "1px solid rgba(16,185,129,0.5)", background: "rgba(16,185,129,0.2)", color: "#10b981", padding: "9px 22px", borderRadius: 8, cursor: "pointer", fontWeight: 700, fontSize: 13, fontFamily: "'Outfit', system-ui" }} onClick={recibirPedido}>Confirmar recepción</button>
                 </div>
               </div>
@@ -1999,7 +1967,7 @@ export default function LaminacionScreen({ profile, signOut }) {
           const algunaCant = Object.values(cantsParciales).some(v => num(v) > 0);
           return (
             <div style={{ position: "fixed", inset: 0, background: "var(--overlay-strong)", zIndex: 9999, display: "flex", alignItems: "center", justifyContent: "center", backdropFilter: "blur(4px)" }}>
-              <div style={{ background: "var(--panel-solid)", border: "1px solid rgba(255,255,255,0.12)", borderRadius: 16, padding: 28, width: "min(560px, 94vw)", boxShadow: "0 24px 64px rgba(0,0,0,0.6)", maxHeight: "85vh", overflow: "auto" }}>
+              <div style={{ background: "var(--panel-solid)", border: "1px solid var(--border)", borderRadius: 16, padding: 28, width: "min(560px, 94vw)", boxShadow: "0 24px 64px rgba(0,0,0,0.6)", maxHeight: "85vh", overflow: "auto" }}>
                 <h3 style={{ margin: "0 0 4px", color: "var(--text)", fontSize: 16 }}>Recepción parcial</h3>
                 <p style={{ margin: "0 0 4px", color: "var(--dim)", fontSize: 13 }}>
                   Ingresá la cantidad que llegó de cada material. Dejá en 0 los que no llegaron.
@@ -2014,7 +1982,7 @@ export default function LaminacionScreen({ profile, signOut }) {
                     const pedidoNum = num(p.cantidad);
                     const color = cantNum <= 0 ? "var(--dim)" : cantNum >= pedidoNum ? "#10b981" : "#f59e0b";
                     return (
-                      <div key={p.id} style={{ display: "flex", alignItems: "center", gap: 12, padding: "10px 12px", background: "rgba(255,255,255,0.02)", border: `1px solid rgba(255,255,255,0.06)`, borderRadius: 9 }}>
+                      <div key={p.id} style={{ display: "flex", alignItems: "center", gap: 12, padding: "10px 12px", background: "rgba(255,255,255,0.02)", border: `1px solid var(--panel-2)`, borderRadius: 9 }}>
                         <div style={{ flex: 1, fontSize: 13, color: "var(--text)", fontWeight: 600 }}>
                           {mat?.nombre ?? "—"}
                           {p.categoria === "extra" && <span style={{ marginLeft: 6, fontSize: 10, fontWeight: 800, textTransform: "uppercase", letterSpacing: 0.5, color: "#f59e0b", border: "1px solid rgba(245,158,11,0.3)", borderRadius: 4, padding: "1px 5px" }}>Extra</span>}
@@ -2029,7 +1997,7 @@ export default function LaminacionScreen({ profile, signOut }) {
                               ...prev,
                               cantsParciales: { ...prev.cantsParciales, [p.id]: e.target.value }
                             }))}
-                            style={{ background: "rgba(255,255,255,0.05)", border: `1px solid ${color}55`, color: "var(--text)", padding: "7px 10px", borderRadius: 7, width: 80, outline: "none", fontSize: 14, fontFamily: "'JetBrains Mono', monospace", textAlign: "right", boxSizing: "border-box" }}
+                            style={{ background: "var(--panel)", border: `1px solid ${color}55`, color: "var(--text)", padding: "7px 10px", borderRadius: 7, width: 80, outline: "none", fontSize: 14, fontFamily: "'JetBrains Mono', monospace", textAlign: "right", boxSizing: "border-box" }}
                           />
                           <span style={{ fontSize: 11, color: "var(--dim)", minWidth: 28 }}>{mat?.unidad}</span>
                           {cantNum > 0 && (
@@ -2050,7 +2018,7 @@ export default function LaminacionScreen({ profile, signOut }) {
                 </div>
 
                 <div style={{ display: "flex", gap: 10, justifyContent: "flex-end" }}>
-                  <button style={{ border: "1px solid rgba(255,255,255,0.08)", background: "rgba(255,255,255,0.04)", color: "var(--muted)", padding: "9px 18px", borderRadius: 8, cursor: "pointer", fontWeight: 700, fontSize: 13, fontFamily: "'Outfit', system-ui" }} onClick={() => { setConfModal(null); setErr(""); }}>Cancelar</button>
+                  <button style={{ border: "1px solid var(--panel-2)", background: "var(--panel)", color: "var(--muted)", padding: "9px 18px", borderRadius: 8, cursor: "pointer", fontWeight: 700, fontSize: 13, fontFamily: "'Outfit', system-ui" }} onClick={() => { setConfModal(null); setErr(""); }}>Cancelar</button>
                   <button
                     style={{ border: "1px solid rgba(245,158,11,0.5)", background: "rgba(245,158,11,0.18)", color: "#f59e0b", padding: "9px 22px", borderRadius: 8, cursor: algunaCant ? "pointer" : "not-allowed", fontWeight: 700, fontSize: 13, fontFamily: "'Outfit', system-ui", opacity: algunaCant ? 1 : 0.4 }}
                     disabled={!algunaCant}
@@ -2071,19 +2039,19 @@ export default function LaminacionScreen({ profile, signOut }) {
         const esValido = cantFinal > 0;
         return (
           <div style={{ position: "fixed", inset: 0, background: "var(--overlay-strong)", zIndex: 9999, display: "flex", alignItems: "center", justifyContent: "center", backdropFilter: "blur(4px)" }}>
-            <div style={{ background: "var(--panel-solid)", border: "1px solid rgba(255,255,255,0.12)", borderRadius: 16, padding: 28, width: "min(480px, 94vw)", boxShadow: "0 24px 64px rgba(0,0,0,0.6)" }}>
+            <div style={{ background: "var(--panel-solid)", border: "1px solid var(--border)", borderRadius: 16, padding: 28, width: "min(480px, 94vw)", boxShadow: "0 24px 64px rgba(0,0,0,0.6)" }}>
               <h3 style={{ margin: "0 0 4px", color: "var(--text)", fontSize: 16 }}>
                 {tipo === "entero" ? "Confirmar recepción completa" : " Confirmar recepción parcial"}
               </h3>
               <p style={{ margin: "0 0 20px", color: "var(--dim)", fontSize: 13 }}>Esto registra un ingreso y actualiza el stock.</p>
-              <div style={{ background: "rgba(255,255,255,0.03)", border: "1px solid rgba(255,255,255,0.08)", borderRadius: 10, padding: "14px 16px", marginBottom: 20 }}>
+              <div style={{ background: "var(--panel)", border: "1px solid var(--panel-2)", borderRadius: 10, padding: "14px 16px", marginBottom: 20 }}>
                 <div style={{ fontSize: 14, color: "var(--text)", fontWeight: 700, marginBottom: 6 }}>{mat?.nombre ?? "Material"}</div>
                 <div style={{ fontSize: 13, color: "var(--muted)" }}>Cantidad pedida: <b style={{ color: "#f59e0b" }}>{num(pedido?.cantidad)} {mat?.unidad}</b></div>
               </div>
               {tipo === "parcial" && (
                 <div style={{ marginBottom: 20 }}>
                   <label style={{ display: "block", fontSize: 11, color: "var(--dim)", textTransform: "uppercase", letterSpacing: 1.3, marginBottom: 6 }}>Cantidad que llegó ({mat?.unidad})</label>
-                  <input autoFocus style={{ background: "rgba(255,255,255,0.04)", border: "1px solid rgba(245,158,11,0.4)", color: "var(--text)", padding: "10px 12px", borderRadius: 8, width: "100%", outline: "none", fontSize: 15, fontFamily: "'Outfit', system-ui", boxSizing: "border-box" }}
+                  <input autoFocus style={{ background: "var(--panel)", border: "1px solid rgba(245,158,11,0.4)", color: "var(--text)", padding: "10px 12px", borderRadius: 8, width: "100%", outline: "none", fontSize: 15, fontFamily: "'Outfit', system-ui", boxSizing: "border-box" }}
                     type="number" step="0.01" min="0.01" max={num(pedido?.cantidad)} placeholder={`Máx. ${num(pedido?.cantidad)}`}
                     value={cantParcial}
                     onChange={e => setConfModal(prev => ({ ...prev, cantParcial: e.target.value }))}
@@ -2096,7 +2064,7 @@ export default function LaminacionScreen({ profile, signOut }) {
                 </div>
               )}
               <div style={{ display: "flex", gap: 10, justifyContent: "flex-end" }}>
-                <button style={{ border: "1px solid rgba(255,255,255,0.08)", background: "rgba(255,255,255,0.04)", color: "var(--muted)", padding: "9px 18px", borderRadius: 8, cursor: "pointer", fontWeight: 700, fontSize: 13, fontFamily: "'Outfit', system-ui" }} onClick={() => setConfModal(null)}>Cancelar</button>
+                <button style={{ border: "1px solid var(--panel-2)", background: "var(--panel)", color: "var(--muted)", padding: "9px 18px", borderRadius: 8, cursor: "pointer", fontWeight: 700, fontSize: 13, fontFamily: "'Outfit', system-ui" }} onClick={() => setConfModal(null)}>Cancelar</button>
                 <button style={{ border: `1px solid ${tipo === "entero" ? "rgba(16,185,129,0.5)" : "rgba(245,158,11,0.5)"}`, background: tipo === "entero" ? "rgba(16,185,129,0.2)" : "rgba(245,158,11,0.2)", color: tipo === "entero" ? "#10b981" : "#f59e0b", padding: "9px 22px", borderRadius: 8, cursor: esValido ? "pointer" : "not-allowed", fontWeight: 700, fontSize: 13, fontFamily: "'Outfit', system-ui", opacity: esValido ? 1 : 0.5 }}
                   disabled={!esValido} onClick={recibirPedido}>
                   {tipo === "entero" ? " Confirmar" : "Confirmar parcial"}
@@ -2107,117 +2075,9 @@ export default function LaminacionScreen({ profile, signOut }) {
         );
       })()}
 
-      {compraSelector.open && (
-        <div
-          onClick={(e) => {
-            if (e.target === e.currentTarget && !loadingPlantillaCompra) {
-              setCompraSelector({ open: false, selected: "stock" });
-            }
-          }}
-          style={{
-            position: "fixed",
-            inset: 0,
-            zIndex: 9998,
-            background: "var(--overlay-strong)",
-            display: "grid",
-            placeItems: "center",
-            padding: 20,
-            backdropFilter: "blur(5px)",
-          }}
-        >
-          <div style={{
-            width: "min(440px, 94vw)",
-            borderRadius: 14,
-            border: `1px solid ${C.border}`,
-            background: C.panelSolid,
-            boxShadow: "0 24px 70px var(--shadow-strong)",
-            padding: 18,
-            color: C.text,
-          }}>
-            <div style={{ display: "flex", alignItems: "center", gap: 9, marginBottom: 12 }}>
-              <ShoppingCart size={16} color={C.blue} />
-              <div>
-                <div style={{ fontSize: 15, fontWeight: 850 }}>Pedir a compras</div>
-                <div style={{ fontSize: 12, color: C.dim, marginTop: 2 }}>Elegí destino para precargar la plantilla si corresponde.</div>
-              </div>
-            </div>
-
-            <label style={{ display: "grid", gap: 6, marginBottom: 14 }}>
-              <span style={{ color: C.dim, fontSize: 10, fontWeight: 800, letterSpacing: 1.2, textTransform: "uppercase" }}>
-                Destino
-              </span>
-              <select
-                value={compraSelector.selected}
-                disabled={loadingPlantillaCompra}
-                onChange={(e) => setCompraSelector((prev) => ({ ...prev, selected: e.target.value }))}
-                style={{
-                  width: "100%",
-                  border: `1px solid ${C.border}`,
-                  borderRadius: 8,
-                  background: C.panel,
-                  color: C.text,
-                  padding: "10px 11px",
-                  outline: "none",
-                  fontSize: 14,
-                  fontFamily: "'Outfit', system-ui",
-                }}
-              >
-                <option value="stock">Stock Pampa 1050</option>
-                <option value="general">Sin obra (general)</option>
-                {obrasLam.map((obra) => {
-                  const codigo = extraerCodigoLinea(obra);
-                  return (
-                    <option key={obra.id} value={obra.id}>
-                      {codigo ? `${codigo} · ` : ""}{obra.nombre}{obra.descripcion ? ` — ${obra.descripcion}` : ""}
-                    </option>
-                  );
-                })}
-              </select>
-            </label>
-
-            <div style={{ display: "flex", justifyContent: "flex-end", gap: 8 }}>
-              <button
-                type="button"
-                disabled={loadingPlantillaCompra}
-                onClick={() => setCompraSelector({ open: false, selected: "stock" })}
-                style={{
-                  border: `1px solid ${C.border}`,
-                  background: "transparent",
-                  color: C.dim,
-                  borderRadius: 8,
-                  padding: "9px 13px",
-                  cursor: loadingPlantillaCompra ? "default" : "pointer",
-                  fontSize: 13,
-                  fontWeight: 750,
-                  fontFamily: "'Outfit', system-ui",
-                }}
-              >
-                Cancelar
-              </button>
-              <button
-                type="button"
-                disabled={loadingPlantillaCompra}
-                onClick={abrirPedidoComprasDesdeSelector}
-                style={{
-                  border: `1px solid ${C.blue}`,
-                  background: C.panel2,
-                  color: C.blue,
-                  borderRadius: 8,
-                  padding: "9px 14px",
-                  cursor: loadingPlantillaCompra ? "default" : "pointer",
-                  fontSize: 13,
-                  fontWeight: 850,
-                  fontFamily: "'Outfit', system-ui",
-                  opacity: loadingPlantillaCompra ? 0.65 : 1,
-                }}
-              >
-                {loadingPlantillaCompra ? "Cargando..." : "Continuar"}
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
-
+      {/* Modal de compras: solo se usa para ESCALAR a compras un pedido manual
+          existente que todavía no fue enviado (botón "Compras" en cada grupo).
+          El flujo principal (Generador de Orden de Compra) ya manda a compras. */}
       <PedirAComprasModal
         open={comprasModal.open}
         prefilled={comprasModal.prefilled}

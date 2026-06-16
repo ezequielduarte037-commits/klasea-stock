@@ -37,7 +37,7 @@ function AddObraModal({puestoId,puestos,obras,assignedObraIds=new Set(),pendingO
   useEffect(()=>{const el=listRef.current?.children[selIdx];el?.scrollIntoView({block:"nearest"});},[selIdx]);
   return(
     <div style={{position:"fixed",inset:0,zIndex:500,background:"rgba(0,0,0,0.6)",display:"flex",alignItems:"flex-start",justifyContent:"center",paddingTop:"12vh",animation:"fadeIn 0.15s ease"}} onClick={onClose}>
-      <div style={{width:420,maxHeight:"60vh",display:"flex",flexDirection:"column",...GLASS,borderRadius:16,overflow:"hidden",border:"1px solid rgba(255,255,255,0.1)",boxShadow:"0 24px 48px -12px rgba(0,0,0,0.9)"}} onClick={e=>e.stopPropagation()}>
+      <div style={{width:420,maxHeight:"60vh",display:"flex",flexDirection:"column",...GLASS,borderRadius:16,overflow:"hidden",border:"1px solid var(--border)",boxShadow:"0 24px 48px -12px rgba(0,0,0,0.9)"}} onClick={e=>e.stopPropagation()}>
         <div style={{padding:"16px",borderBottom:`1px solid ${C.b0}`,display:"flex",flexDirection:"column",gap:12}}>
           <div style={{display:"flex",justifyContent:"space-between",alignItems:"center"}}>
             <div style={{display:"flex",gap:8,alignItems:"center"}}>
@@ -48,7 +48,7 @@ function AddObraModal({puestoId,puestos,obras,assignedObraIds=new Set(),pendingO
             </div>
             <button onClick={onClose} style={{background:"transparent",border:"none",color:C.t2,fontSize:16,cursor:"pointer",padding:4,borderRadius:6,lineHeight:1}} onMouseEnter={e=>e.currentTarget.style.color=C.t0} onMouseLeave={e=>e.currentTarget.style.color=C.t2}>✕</button>
           </div>
-          <input ref={inputRef} value={q} onChange={e=>setQ(e.target.value)} onKeyDown={handleKeyDown} placeholder="Buscar obra... (↑↓ navegar, Enter asignar)" style={{width:"100%",boxSizing:"border-box",padding:"12px 14px",borderRadius:8,background:"rgba(0,0,0,0.3)",border:`1px solid rgba(255,255,255,0.08)`,color:C.t0,fontSize:14,fontFamily:C.sans,outline:"none"}} onFocus={e=>e.currentTarget.style.border="1px solid rgba(167,139,250,0.5)"} onBlur={e=>e.currentTarget.style.border="1px solid rgba(255,255,255,0.08)"}/>
+          <input ref={inputRef} value={q} onChange={e=>setQ(e.target.value)} onKeyDown={handleKeyDown} placeholder="Buscar obra... (↑↓ navegar, Enter asignar)" style={{width:"100%",boxSizing:"border-box",padding:"12px 14px",borderRadius:8,background:"rgba(0,0,0,0.3)",border:`1px solid var(--panel-2)`,color:C.t0,fontSize:14,fontFamily:C.sans,outline:"none"}} onFocus={e=>e.currentTarget.style.border="1px solid rgba(167,139,250,0.5)"} onBlur={e=>e.currentTarget.style.border="1px solid var(--panel-2)"}/>
         </div>
         <div ref={listRef} style={{flex:1,overflowY:"auto",padding:"8px",display:"flex",flexDirection:"column",gap:4}}>
           {!list.length&&<div style={{textAlign:"center",padding:"32px 8px",fontSize:14,color:C.t2}}>{q?"No se encontraron obras":"No hay obras pendientes de asignar"}</div>}
@@ -116,8 +116,8 @@ function RadialMenu({x,y,puesto,obra,editMode,onClose,onAssign,onFocus,onDetail,
   return(
     <div ref={menuRef} style={{position:"fixed",left:x,top:y,zIndex:1000,pointerEvents:"none"}}>
       <svg style={{position:"absolute",left:-(RADIUS+28),top:-(RADIUS+28),width:(RADIUS+28)*2,height:(RADIUS+28)*2,pointerEvents:"none",overflow:"visible"}} aria-hidden>
-        <circle cx={RADIUS+28} cy={RADIUS+28} r={RADIUS} fill="none" stroke="rgba(255,255,255,0.06)" strokeWidth="0.5" strokeDasharray="3 3"/>
-        <circle cx={RADIUS+28} cy={RADIUS+28} r="5" fill="rgba(255,255,255,0.15)" stroke="rgba(255,255,255,0.3)" strokeWidth="1"/>
+        <circle cx={RADIUS+28} cy={RADIUS+28} r={RADIUS} fill="none" stroke="var(--panel-2)" strokeWidth="0.5" strokeDasharray="3 3"/>
+        <circle cx={RADIUS+28} cy={RADIUS+28} r="5" fill="var(--border-2)" stroke="rgba(255,255,255,0.3)" strokeWidth="1"/>
       </svg>
       {actions.map((action,i)=>{
         const angle=(-90+i*step)*(Math.PI/180);
@@ -175,11 +175,11 @@ function CommandPalette({obras,puestos,obraByPuesto,onClose,onAction}){
   let flatIdx=0;
   return(
     <div style={{position:"fixed",inset:0,zIndex:900,background:"rgba(0,0,0,0.55)",display:"flex",alignItems:"flex-start",justifyContent:"center",paddingTop:"10vh",animation:"fadeIn 0.12s ease",backdropFilter:"blur(4px)"}} onClick={onClose}>
-      <div style={{width:520,maxHeight:"70vh",display:"flex",flexDirection:"column",...GLASS,borderRadius:16,overflow:"hidden",border:"1px solid rgba(255,255,255,0.12)",boxShadow:"0 32px 64px -12px rgba(0,0,0,0.95)"}} onClick={e=>e.stopPropagation()}>
+      <div style={{width:520,maxHeight:"70vh",display:"flex",flexDirection:"column",...GLASS,borderRadius:16,overflow:"hidden",border:"1px solid var(--border)",boxShadow:"0 32px 64px -12px rgba(0,0,0,0.95)"}} onClick={e=>e.stopPropagation()}>
         <div style={{padding:"14px 16px",display:"flex",alignItems:"center",gap:12,borderBottom:`1px solid ${C.b0}`}}>
           <span style={{fontSize:16,color:C.t2}}>⌘</span>
           <input ref={inputRef} value={q} onChange={e=>setQ(e.target.value)} onKeyDown={handleKeyDown} placeholder="Buscar obras, puestos, acciones..." style={{flex:1,background:"transparent",border:"none",outline:"none",color:C.t0,fontSize:15,fontFamily:C.sans}}/>
-          <span style={{fontSize:10,color:C.t2,letterSpacing:1.1,fontFamily:C.mono,background:"rgba(255,255,255,0.05)",padding:"3px 7px",borderRadius:5,border:`1px solid ${C.b0}`}}>ESC</span>
+          <span style={{fontSize:10,color:C.t2,letterSpacing:1.1,fontFamily:C.mono,background:"var(--panel)",padding:"3px 7px",borderRadius:5,border:`1px solid ${C.b0}`}}>ESC</span>
         </div>
         <div ref={listRef} style={{flex:1,overflowY:"auto",padding:"8px"}}>
           {groups.length===0&&<div style={{padding:"32px 16px",textAlign:"center",color:C.t2,fontSize:14}}>Sin resultados para "{q}"</div>}
@@ -189,13 +189,13 @@ function CommandPalette({obras,puestos,obraByPuesto,onClose,onAction}){
               {items.map((item)=>{
                 const idx=flatIdx++;
                 const isSel=idx===selIdx;
-                return(<div key={item.id} data-idx={idx} onClick={()=>{onAction(item);onClose();}} onMouseEnter={()=>setSelIdx(idx)} style={{display:"flex",alignItems:"center",gap:12,padding:"9px 12px",borderRadius:9,cursor:"pointer",background:isSel?"rgba(255,255,255,0.06)":"transparent",border:`1px solid ${isSel?C.b1:"transparent"}`,marginBottom:2,transition:"background 0.08s"}}>
+                return(<div key={item.id} data-idx={idx} onClick={()=>{onAction(item);onClose();}} onMouseEnter={()=>setSelIdx(idx)} style={{display:"flex",alignItems:"center",gap:12,padding:"9px 12px",borderRadius:9,cursor:"pointer",background:isSel?"var(--panel-2)":"transparent",border:`1px solid ${isSel?C.b1:"transparent"}`,marginBottom:2,transition:"background 0.08s"}}>
                   <span style={{width:22,height:22,borderRadius:6,background:`${item.color}18`,border:`1px solid ${item.color}30`,display:"flex",alignItems:"center",justifyContent:"center",fontSize:12,color:item.color,flexShrink:0}}>{item.icon}</span>
                   <div style={{flex:1,minWidth:0}}>
                     <div style={{fontSize:14,color:C.t0,fontWeight:500,fontFamily:item.type.startsWith("obra")?C.mono:C.sans}}>{item.label}</div>
                     {item.sub&&<div style={{fontSize:12,color:C.t2,marginTop:1,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{item.sub}</div>}
                   </div>
-                  {item.sub&&item.type==="action"&&<span style={{fontSize:10,color:C.t2,fontFamily:C.mono,background:"rgba(255,255,255,0.04)",padding:"2px 7px",borderRadius:5,border:`1px solid ${C.b0}`,flexShrink:0}}>{item.sub}</span>}
+                  {item.sub&&item.type==="action"&&<span style={{fontSize:10,color:C.t2,fontFamily:C.mono,background:"var(--panel)",padding:"2px 7px",borderRadius:5,border:`1px solid ${C.b0}`,flexShrink:0}}>{item.sub}</span>}
                 </div>);
               })}
             </div>
@@ -349,7 +349,7 @@ function CinematicCards({p, obra, oC, memoriaOverride, vp, svgRef}){
               background:"rgba(6,8,24,0.96)",
               border:`1px solid ${oC.glow}25`,
               borderRadius:8,
-              boxShadow:`0 4px 24px rgba(0,0,0,0.8), inset 0 1px 0 rgba(255,255,255,0.04)`,
+              boxShadow:`0 4px 24px rgba(0,0,0,0.8), inset 0 1px 0 var(--panel)`,
               display:"flex", alignItems:"center", gap:9, padding:"0 12px",
               animation:`cs_${s.key} 0.5s cubic-bezier(0.22,1,0.36,1) ${s.delay} both`,
               fontFamily:"'Outfit',system-ui,sans-serif",
@@ -397,8 +397,8 @@ function FieldBox({ field, isEditing, val, editVal, editRef, onStartEdit, onChan
       onClick={()=>!isEditing&&onStartEdit(field.key)}
       style={{
         padding:"10px 12px", borderRadius:8, cursor:isEditing?"default":"text",
-        border:`1px solid ${isEditing?"rgba(255,255,255,0.18)":empty?"rgba(255,255,255,0.04)":"rgba(255,255,255,0.08)"}`,
-        background: isEditing?"rgba(255,255,255,0.06)":empty?"rgba(255,255,255,0.02)":"rgba(255,255,255,0.04)",
+        border:`1px solid ${isEditing?"var(--border-2)":empty?"var(--panel)":"var(--panel-2)"}`,
+        background: isEditing?"var(--panel-2)":empty?"rgba(255,255,255,0.02)":"var(--panel)",
         transition:"border-color 0.15s, background 0.15s",
         display:"flex", flexDirection:"column", gap:5,
       }}
@@ -431,7 +431,7 @@ function FieldBox({ field, isEditing, val, editVal, editRef, onStartEdit, onChan
       ) : (
         <div style={{
           fontSize:14, lineHeight:1.5,
-          color: empty ? "rgba(255,255,255,0.25)" : "rgba(255,255,255,0.95)",
+          color: empty ? "var(--border-3)" : "rgba(255,255,255,0.95)",
           fontStyle: empty ? "italic" : "normal",
           fontWeight: empty ? 400 : 500,
           minHeight: field.wide ? 32 : 16,
@@ -698,14 +698,14 @@ function MemoriaHUD({ obra, puesto, oC, memoriaOverride, onSaveMemoria, notas=[]
       // Header
       ".hdr{background:#0d1117;padding:0;}",
       ".hdr-inner{display:flex;align-items:stretch;border-bottom:3px solid " + ac + ";}",
-      ".hdr-num{text-align:center;padding:10px 24px;min-width:130px;border-right:1px solid rgba(255,255,255,.1);display:flex;flex-direction:column;justify-content:center;}",
+      ".hdr-num{text-align:center;padding:10px 24px;min-width:130px;border-right:1px solid var(--border);display:flex;flex-direction:column;justify-content:center;}",
       ".hdr-lbl{font-size:6px;letter-spacing:3px;text-transform:uppercase;color:rgba(255,255,255,.3);font-family:'JetBrains Mono',monospace;margin-bottom:4px;}",
       ".hdr-cod{font-size:28px;font-weight:900;font-family:'JetBrains Mono',monospace;color:#fff;letter-spacing:-1px;line-height:1;}",
       ".hdr-meta{flex:1;padding:10px 18px;display:flex;flex-direction:column;gap:5px;justify-content:center;}",
       ".hdr-prop{font-size:15px;font-weight:700;color:#fff;letter-spacing:-0.2px;}",
       ".hdr-sub{display:flex;align-items:center;gap:10px;font-size:10px;color:rgba(255,255,255,.45);}",
       ".hdr-sub b{color:rgba(255,255,255,.75);font-weight:600;}",
-      ".hdr-sep-v{width:1px;height:12px;background:rgba(255,255,255,.15);}",
+      ".hdr-sep-v{width:1px;height:12px;background:var(--border-2);}",
       ".hdr-logo{height:26px;mix-blend-mode:screen;align-self:center;margin:10px 16px 10px auto;}",
 
       // Tabla principal
@@ -841,9 +841,9 @@ function MemoriaHUD({ obra, puesto, oC, memoriaOverride, onSaveMemoria, notas=[]
         .mem-scroll::-webkit-scrollbar{width:3px}
         .mem-scroll::-webkit-scrollbar-track{background:transparent}
         .mem-scroll::-webkit-scrollbar-thumb{background:${oC.glow}30;border-radius:2px}
-        .mem-input{background:rgba(255,255,255,0.05);border:1px solid rgba(255,255,255,0.1);border-radius:8px;color:#fff;font-size:13px;padding:8px 12px;outline:none;font-family:'Outfit',sans-serif;width:100%;box-sizing:border-box;transition:border-color 0.15s;}
+        .mem-input{background:var(--panel);border:1px solid var(--border);border-radius:8px;color:#fff;font-size:13px;padding:8px 12px;outline:none;font-family:'Outfit',sans-serif;width:100%;box-sizing:border-box;transition:border-color 0.15s;}
         .mem-input:focus{border-color:${oC.glow}60;}
-        .mem-input::placeholder{color:rgba(255,255,255,0.18);}
+        .mem-input::placeholder{color:var(--border-2);}
         .nota-row:hover .nota-del{opacity:1!important;}
       `}</style>
 
@@ -852,7 +852,7 @@ function MemoriaHUD({ obra, puesto, oC, memoriaOverride, onSaveMemoria, notas=[]
         background:`repeating-linear-gradient(0deg,transparent,transparent 3px,${oC.glow}025 3px,${oC.glow}025 4px)`}}/>
 
       {/* ── HEADER ── */}
-      <div style={{padding:"20px 22px 16px",borderBottom:`1px solid rgba(255,255,255,0.06)`,flexShrink:0,position:"relative",zIndex:1}}>
+      <div style={{padding:"20px 22px 16px",borderBottom:`1px solid var(--panel-2)`,flexShrink:0,position:"relative",zIndex:1}}>
         <div style={{display:"flex",alignItems:"flex-start",justifyContent:"space-between",marginBottom:12}}>
           <div style={{display:"flex",flexDirection:"column",gap:4}}>
             <div style={{display:"flex",alignItems:"center",gap:8}}>
@@ -866,16 +866,16 @@ function MemoriaHUD({ obra, puesto, oC, memoriaOverride, onSaveMemoria, notas=[]
                 background:`${oC.glow}12`,padding:"2px 8px",borderRadius:4,border:`1px solid ${oC.glow}25`}}>
                 {obra?.estado?.toUpperCase()??"VACÍO"}
               </span>
-              <span style={{fontSize:10,color:"rgba(255,255,255,0.2)",fontFamily:"'JetBrains Mono',monospace",letterSpacing:1}}>
+              <span style={{fontSize:10,color:"var(--border-2)",fontFamily:"'JetBrains Mono',monospace",letterSpacing:1}}>
                 PUESTO {puesto?.label} · {puesto?.tipo?.toUpperCase()}
               </span>
             </div>
           </div>
-          <button onClick={onClose} style={{background:"transparent",border:"1px solid rgba(255,255,255,0.09)",borderRadius:8,
+          <button onClick={onClose} style={{background:"transparent",border:"1px solid var(--panel-3)",borderRadius:8,
             color:"rgba(255,255,255,0.3)",cursor:"pointer",width:30,height:30,display:"flex",alignItems:"center",justifyContent:"center",
             flexShrink:0,transition:"all 0.15s"}}
-            onMouseEnter={e=>{e.currentTarget.style.borderColor="rgba(255,255,255,0.25)";e.currentTarget.style.color="#fff";}}
-            onMouseLeave={e=>{e.currentTarget.style.borderColor="rgba(255,255,255,0.09)";e.currentTarget.style.color="rgba(255,255,255,0.3)";}}>
+            onMouseEnter={e=>{e.currentTarget.style.borderColor="var(--border-3)";e.currentTarget.style.color="#fff";}}
+            onMouseLeave={e=>{e.currentTarget.style.borderColor="var(--panel-3)";e.currentTarget.style.color="rgba(255,255,255,0.3)";}}>
             {IC.x}
           </button>
         </div>
@@ -883,7 +883,7 @@ function MemoriaHUD({ obra, puesto, oC, memoriaOverride, onSaveMemoria, notas=[]
         {/* Progress bar */}
         {obra&&(
           <div style={{display:"flex",alignItems:"center",gap:10,marginBottom:12}}>
-            <div style={{flex:1,height:2,background:"rgba(255,255,255,0.06)",borderRadius:2,overflow:"hidden"}}>
+            <div style={{flex:1,height:2,background:"var(--panel-2)",borderRadius:2,overflow:"hidden"}}>
               <div style={{height:"100%",width:`${obra._pct??0}%`,background:oC.glow,boxShadow:`0 0 6px ${oC.glow}`,borderRadius:2,transition:"width 0.4s"}}/>
             </div>
             <span style={{fontFamily:"'JetBrains Mono',monospace",fontSize:11,color:oC.glow,fontWeight:700,minWidth:28}}>{obra._pct??0}%</span>
@@ -905,7 +905,7 @@ function MemoriaHUD({ obra, puesto, oC, memoriaOverride, onSaveMemoria, notas=[]
                   {/* Pill principal */}
                   <button onClick={()=>toggleBadge(b.key)}
                     style={{display:"flex",alignItems:"center",gap:5,padding:"4px 9px",borderRadius:6,cursor:"pointer",
-                      border:`1px solid ${on?col+"45":"rgba(255,255,255,0.07)"}`,
+                      border:`1px solid ${on?col+"45":"var(--panel-2)"}`,
                       background:on?`${col}12`:"rgba(255,255,255,0.02)",
                       color:on?col:"rgba(255,255,255,0.22)",
                       transition:"all 0.15s",fontSize:11,fontFamily:"'Outfit',sans-serif",height:26}}>
@@ -918,9 +918,9 @@ function MemoriaHUD({ obra, puesto, oC, memoriaOverride, onSaveMemoria, notas=[]
                     <button onClick={()=>setGearOpen(gearOn?null:b.key)}
                       title="Agregar detalle"
                       style={{width:22,height:26,display:"flex",alignItems:"center",justifyContent:"center",
-                        borderRadius:5,cursor:"pointer",border:`1px solid ${gearOn?col+"50":"rgba(255,255,255,0.06)"}`,
+                        borderRadius:5,cursor:"pointer",border:`1px solid ${gearOn?col+"50":"var(--panel-2)"}`,
                         background:gearOn?`${col}14`:"rgba(255,255,255,0.02)",
-                        color:gearOn?col:"rgba(255,255,255,0.28)",transition:"all 0.15s"}}>
+                        color:gearOn?col:"var(--border-3)",transition:"all 0.15s"}}>
                       {IC.gear}
                     </button>
                   )}
@@ -940,7 +940,7 @@ function MemoriaHUD({ obra, puesto, oC, memoriaOverride, onSaveMemoria, notas=[]
 
           {/* Selector teca — aparece solo si el perfil lo incluye */}
           {tecaField&&(
-            <div style={{display:"flex",borderRadius:6,overflow:"hidden",border:"1px solid rgba(255,255,255,0.08)",height:26,flexShrink:0}}>
+            <div style={{display:"flex",borderRadius:6,overflow:"hidden",border:"1px solid var(--panel-2)",height:26,flexShrink:0}}>
               {tecaField.opts.map(opt=>{
                 const active = fields.teca_tipo===opt.val;
                 const col = tecaField.color;
@@ -949,8 +949,8 @@ function MemoriaHUD({ obra, puesto, oC, memoriaOverride, onSaveMemoria, notas=[]
                     style={{padding:"0 9px",border:"none",cursor:"pointer",
                       fontSize:11,fontWeight:active?700:400,fontFamily:"'Outfit',sans-serif",
                       background:active&&opt.val?`${col}18`:"rgba(255,255,255,0.02)",
-                      color:active&&opt.val?col:active?"rgba(255,255,255,0.18)":"rgba(255,255,255,0.22)",
-                      borderRight:"1px solid rgba(255,255,255,0.06)",transition:"all 0.15s"}}>
+                      color:active&&opt.val?col:active?"var(--border-2)":"rgba(255,255,255,0.22)",
+                      borderRight:"1px solid var(--panel-2)",transition:"all 0.15s"}}>
                     {opt.label}
                   </button>
                 );
@@ -963,7 +963,7 @@ function MemoriaHUD({ obra, puesto, oC, memoriaOverride, onSaveMemoria, notas=[]
       {/* ── SCROLLABLE BODY ── */}
       <div className="mem-scroll" style={{flex:1,overflowY:"auto",padding:"10px 22px",display:"flex",flexDirection:"column",gap:4,position:"relative",zIndex:1}}>
 
-        <div style={{fontSize:10,color:"rgba(255,255,255,0.16)",letterSpacing:1.1,textAlign:"center",marginBottom:4,textTransform:"uppercase",fontFamily:"'JetBrains Mono',monospace",display:"flex",alignItems:"center",justifyContent:"center",gap:4}}>
+        <div style={{fontSize:10,color:"var(--border-2)",letterSpacing:1.1,textAlign:"center",marginBottom:4,textTransform:"uppercase",fontFamily:"'JetBrains Mono',monospace",display:"flex",alignItems:"center",justifyContent:"center",gap:4}}>
           {IC.pencil} <span>Clic en cada campo para editar</span>
         </div>
 
@@ -1009,7 +1009,7 @@ function MemoriaHUD({ obra, puesto, oC, memoriaOverride, onSaveMemoria, notas=[]
         <div style={{height:1,background:`linear-gradient(90deg,transparent,${oC.glow}25,transparent)`,margin:"8px 0 4px"}}/>
 
         {/* Notes section */}
-        <div style={{display:"flex",alignItems:"center",gap:5,color:"rgba(255,255,255,0.25)",marginBottom:6}}>
+        <div style={{display:"flex",alignItems:"center",gap:5,color:"var(--border-3)",marginBottom:6}}>
           {IC.msgcircle}
           <span style={{fontSize:10,letterSpacing:1.3,textTransform:"uppercase",fontFamily:"'JetBrains Mono',monospace",fontWeight: 700}}>
             Notas del Equipo
@@ -1019,11 +1019,11 @@ function MemoriaHUD({ obra, puesto, oC, memoriaOverride, onSaveMemoria, notas=[]
 
         {notas.map(n=>(
           <div key={n.id} className="nota-row" style={{display:"flex",gap:8,padding:"9px 11px",borderRadius:8,
-            background:"rgba(255,255,255,0.03)",border:"1px solid rgba(255,255,255,0.05)",animation:"notaPop 0.2s ease both"}}>
+            background:"var(--panel)",border:"1px solid var(--panel)",animation:"notaPop 0.2s ease both"}}>
             <span style={{color:oC.glow,fontSize:10,marginTop:2,flexShrink:0}}>◆</span>
             <div style={{flex:1}}>
               <div style={{fontSize:13,color:"rgba(255,255,255,0.75)",lineHeight:1.5}}>{n.texto}</div>
-              <div style={{fontSize:10,color:"rgba(255,255,255,0.2)",marginTop:2,fontFamily:"'JetBrains Mono',monospace"}}>{n.fecha}</div>
+              <div style={{fontSize:10,color:"var(--border-2)",marginTop:2,fontFamily:"'JetBrains Mono',monospace"}}>{n.fecha}</div>
             </div>
             <button className="nota-del" onClick={()=>onDeleteNota?.(obra?.id??puesto?.id,n.id)}
               style={{background:"transparent",border:"none",color:"rgba(239,68,68,0.5)",cursor:"pointer",
@@ -1046,24 +1046,24 @@ function MemoriaHUD({ obra, puesto, oC, memoriaOverride, onSaveMemoria, notas=[]
       </div>
 
       {/* ── FOOTER ── */}
-      <div style={{padding:"12px 22px",borderTop:"1px solid rgba(255,255,255,0.06)",flexShrink:0,zIndex:1,display:"flex",gap:8}}>
+      <div style={{padding:"12px 22px",borderTop:"1px solid var(--panel-2)",flexShrink:0,zIndex:1,display:"flex",gap:8}}>
         <button onClick={saveAll} style={{flex:1,padding:"10px",borderRadius:9,
-          border:`1px solid ${dirty?oC.glow+"45":"rgba(255,255,255,0.07)"}`,
-          background:dirty?`${oC.glow}14`:"rgba(255,255,255,0.03)",
-          color:dirty?oC.glow:"rgba(255,255,255,0.28)",cursor:"pointer",fontSize:13,fontWeight:700,
+          border:`1px solid ${dirty?oC.glow+"45":"var(--panel-2)"}`,
+          background:dirty?`${oC.glow}14`:"var(--panel)",
+          color:dirty?oC.glow:"var(--border-3)",cursor:"pointer",fontSize:13,fontWeight:700,
           transition:"all 0.2s",boxShadow:dirty?`0 0 18px ${oC.glow}18`:"none",
           fontFamily:"'Outfit',sans-serif",display:"flex",alignItems:"center",justifyContent:"center",gap:7}}>
           {dirty ? <>{IC.save} Guardar cambios</> : <>{IC.check} Sin cambios</>}
         </button>
         <button onClick={handlePrint} title="Imprimir / Guardar PDF"
-          style={{padding:"10px 13px",borderRadius:9,border:"1px solid rgba(255,255,255,0.1)",
-            background:"rgba(255,255,255,0.04)",color:"rgba(255,255,255,0.45)",cursor:"pointer",
+          style={{padding:"10px 13px",borderRadius:9,border:"1px solid var(--border)",
+            background:"var(--panel)",color:"rgba(255,255,255,0.45)",cursor:"pointer",
             flexShrink:0,display:"flex",alignItems:"center",transition:"all 0.15s"}}
-          onMouseEnter={e=>{e.currentTarget.style.background="rgba(255,255,255,0.09)";e.currentTarget.style.color="#fff";}}
-          onMouseLeave={e=>{e.currentTarget.style.background="rgba(255,255,255,0.04)";e.currentTarget.style.color="rgba(255,255,255,0.45)";}}>
+          onMouseEnter={e=>{e.currentTarget.style.background="var(--panel-3)";e.currentTarget.style.color="#fff";}}
+          onMouseLeave={e=>{e.currentTarget.style.background="var(--panel)";e.currentTarget.style.color="rgba(255,255,255,0.45)";}}>
           {IC.print}
         </button>
-        <span style={{display:"flex",alignItems:"center",fontSize:10,color:"rgba(255,255,255,0.12)",fontFamily:"'JetBrains Mono',monospace"}}>Esc</span>
+        <span style={{display:"flex",alignItems:"center",fontSize:10,color:"var(--border)",fontFamily:"'JetBrains Mono',monospace"}}>Esc</span>
       </div>
     </div>
   );
@@ -1082,7 +1082,7 @@ function RadarHUD({puestos,obraByPuesto,vp,containerW,containerH}){
       <svg width={W} height={H} style={{display:"block",overflow:"visible"}}>
         <rect width={W} height={H} fill="rgba(0,12,6,0.7)"/>
         {[0.25,0.5,0.75,1].map(r=><circle key={r} cx={W/2} cy={H/2} r={(Math.min(W,H)/2-6)*r} fill="none" stroke="rgba(0,255,100,0.07)" strokeWidth="0.4"/>)}
-        {ZONAS.map(z=><rect key={z.id} x={z.x*scX+PAD} y={z.y*scY+PAD} width={z.w*scX} height={z.h*scY} fill={z.bc?`${z.bc}08`:"rgba(255,255,255,0.015)"} stroke={z.bc?`${z.bc}30`:"rgba(255,255,255,0.06)"} strokeWidth="0.3"/>)}
+        {ZONAS.map(z=><rect key={z.id} x={z.x*scX+PAD} y={z.y*scY+PAD} width={z.w*scX} height={z.h*scY} fill={z.bc?`${z.bc}08`:"rgba(255,255,255,0.015)"} stroke={z.bc?`${z.bc}30`:"var(--panel-2)"} strokeWidth="0.3"/>)}
         <g>
           <path d={`M ${W/2} ${H/2} L ${W/2} ${PAD}`} stroke="rgba(0,255,100,0.7)" strokeWidth="1.2" style={{transformOrigin:`${W/2}px ${H/2}px`}}>
             <animateTransform attributeName="transform" type="rotate" from={`0 ${W/2} ${H/2}`} to={`360 ${W/2} ${H/2}`} dur="4s" repeatCount="indefinite"/>
@@ -1097,7 +1097,7 @@ function RadarHUD({puestos,obraByPuesto,vp,containerW,containerH}){
           const r=Math.max(1.8,(p.w*scX)/2.8);
           return<circle key={p.id} cx={p.cx*scX+PAD} cy={p.cy*scY+PAD} r={r} fill={color} fillOpacity={obra?0.85:0.22} stroke={obra?color:"none"} strokeWidth="0.4" strokeOpacity="0.5"/>;
         })}
-        <rect x={visLeft} y={visTop} width={Math.max(4,visW)} height={Math.max(4,visH)} fill="rgba(255,255,255,0.04)" stroke="rgba(255,255,255,0.45)" strokeWidth="0.6" strokeDasharray="2 2"/>
+        <rect x={visLeft} y={visTop} width={Math.max(4,visW)} height={Math.max(4,visH)} fill="var(--panel)" stroke="rgba(255,255,255,0.45)" strokeWidth="0.6" strokeDasharray="2 2"/>
         <rect x="0.5" y="0.5" width={W-1} height={H-1} rx="9" fill="none" stroke="rgba(0,255,100,0.18)" strokeWidth="0.5"/>
         <text x="8" y={H-6} fill="rgba(0,255,100,0.45)" fontSize="7" fontFamily="monospace" letterSpacing="1">RADAR · {puestos.length} PUESTOS</text>
       </svg>
@@ -1173,7 +1173,7 @@ function KPIPanel({ obras, puestos, obraByPuesto, collapsed, onCollapse, onFocus
     const col=ocupPct>80?"#f59e0b":"#6366f1";
     return(
       <svg width={r*2+sw*2} height={r*2+sw*2} style={{flexShrink:0}}>
-        <circle cx={r+sw} cy={r+sw} r={r} fill="none" stroke="rgba(255,255,255,0.05)" strokeWidth={sw}/>
+        <circle cx={r+sw} cy={r+sw} r={r} fill="none" stroke="var(--panel)" strokeWidth={sw}/>
         <circle cx={r+sw} cy={r+sw} r={r} fill="none" stroke={col} strokeWidth={sw}
           strokeLinecap="round"
           strokeDasharray={`${(ocupPct/100)*circ} ${circ}`}
@@ -1191,7 +1191,7 @@ function KPIPanel({ obras, puestos, obraByPuesto, collapsed, onCollapse, onFocus
       position:"absolute",top:0,right:0,bottom:0,width:KPI_W_COLLAPSED,zIndex:9,
       background:"rgba(7,7,12,0.80)",backdropFilter:"blur(24px)",
       WebkitBackdropFilter:"blur(24px)",
-      borderLeft:"1px solid rgba(255,255,255,0.07)",
+      borderLeft:"1px solid var(--panel-2)",
       display:"flex",flexDirection:"column",alignItems:"center",paddingTop:14,gap:10,
       cursor:"pointer",
     }}>
@@ -1202,7 +1202,7 @@ function KPIPanel({ obras, puestos, obraByPuesto, collapsed, onCollapse, onFocus
           animation:"beacon 1.8s ease-in-out infinite"}}/>
       )}
       <svg width="11" height="11" viewBox="0 0 24 24" fill="none"
-        stroke="rgba(255,255,255,0.25)" strokeWidth="2.5" strokeLinecap="round">
+        stroke="var(--border-3)" strokeWidth="2.5" strokeLinecap="round">
         <polyline points="15 18 9 12 15 6"/>
       </svg>
     </div>
@@ -1216,23 +1216,23 @@ function KPIPanel({ obras, puestos, obraByPuesto, collapsed, onCollapse, onFocus
       background:"rgba(6,6,11,0.82)",
       backdropFilter:"blur(32px) saturate(150%)",
       WebkitBackdropFilter:"blur(32px) saturate(150%)",
-      borderLeft:"1px solid rgba(255,255,255,0.07)",
+      borderLeft:"1px solid var(--panel-2)",
       animation:"kpi-slideIn 0.3s cubic-bezier(0.22,1,0.36,1)",
       fontFamily:"'Outfit',system-ui,sans-serif",
     }}>
       <style>{`
         .kpi-sc::-webkit-scrollbar{width:2px}
-        .kpi-sc::-webkit-scrollbar-thumb{background:rgba(255,255,255,0.07);border-radius:2px}
+        .kpi-sc::-webkit-scrollbar-thumb{background:var(--panel-2);border-radius:2px}
         .kpi-tab{flex:1;padding:9px 4px;font-size:10px;letter-spacing:.5px;background:transparent;border:none;
           cursor:pointer;transition:all .18s;font-family:'JetBrains Mono',monospace;}
         .kpi-row{display:flex;align-items:center;justify-content:space-between;
           padding:8px 12px;border-radius:9px;transition:background .15s,border-color .15s;cursor:pointer;}
-        .kpi-row:hover{background:rgba(255,255,255,0.04)!important;}
+        .kpi-row:hover{background:var(--panel)!important;}
         .kpi-alert{border-radius:9px;padding:9px 12px;cursor:pointer;transition:all .15s;}
       `}</style>
 
       {/* ────── HEADER ────── */}
-      <div style={{padding:"14px 16px 10px",borderBottom:"1px solid rgba(255,255,255,0.06)",flexShrink:0}}>
+      <div style={{padding:"14px 16px 10px",borderBottom:"1px solid var(--panel-2)",flexShrink:0}}>
         <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",marginBottom:12}}>
           <span style={{fontSize:10,letterSpacing:3,textTransform:"uppercase",
             color:"rgba(255,255,255,0.22)",fontFamily:"'JetBrains Mono',monospace",fontWeight:700}}>
@@ -1259,11 +1259,11 @@ function KPIPanel({ obras, puestos, obraByPuesto, collapsed, onCollapse, onFocus
             )}
             <div onClick={()=>onCollapse(true)} title="Colapsar" style={{
               width:22,height:22,borderRadius:6,display:"flex",alignItems:"center",justifyContent:"center",
-              cursor:"pointer",border:"1px solid rgba(255,255,255,0.08)",
+              cursor:"pointer",border:"1px solid var(--panel-2)",
               background:"rgba(255,255,255,0.02)",color:"rgba(255,255,255,0.3)",
               transition:"all .15s",
             }}
-              onMouseEnter={e=>{e.currentTarget.style.background="rgba(255,255,255,0.07)";e.currentTarget.style.color="#fff";}}
+              onMouseEnter={e=>{e.currentTarget.style.background="var(--panel-2)";e.currentTarget.style.color="#fff";}}
               onMouseLeave={e=>{e.currentTarget.style.background="rgba(255,255,255,0.02)";e.currentTarget.style.color="rgba(255,255,255,0.3)";}}>
               <svg width="10" height="10" viewBox="0 0 24 24" fill="none"
                 stroke="currentColor" strokeWidth="2.5" strokeLinecap="round">
@@ -1276,7 +1276,7 @@ function KPIPanel({ obras, puestos, obraByPuesto, collapsed, onCollapse, onFocus
         {/* Ocupación hero */}
         <div style={{display:"flex",alignItems:"center",gap:14,
           padding:"12px 14px",borderRadius:10,
-          background:"rgba(255,255,255,0.025)",border:"1px solid rgba(255,255,255,0.05)"}}>
+          background:"rgba(255,255,255,0.025)",border:"1px solid var(--panel)"}}>
           <OcupRing/>
           <div style={{flex:1,minWidth:0}}>
             <div style={{fontSize:7,color:"rgba(255,255,255,0.22)",letterSpacing:1.3,
@@ -1286,7 +1286,7 @@ function KPIPanel({ obras, puestos, obraByPuesto, collapsed, onCollapse, onFocus
             <div style={{display:"flex",alignItems:"baseline",gap:4}}>
               <span style={{fontSize:28,fontWeight:800,color:"#a5b4fc",
                 fontFamily:"'JetBrains Mono',monospace",lineHeight:1}}>{ocupados}</span>
-              <span style={{fontSize:14,color:"rgba(255,255,255,0.2)",fontFamily:"'JetBrains Mono',monospace"}}>
+              <span style={{fontSize:14,color:"var(--border-2)",fontFamily:"'JetBrains Mono',monospace"}}>
                 /{total}
               </span>
             </div>
@@ -1295,7 +1295,7 @@ function KPIPanel({ obras, puestos, obraByPuesto, collapsed, onCollapse, onFocus
                 {libres} libre{libres!==1?"s":""}
               </span>
               {obrasActivas.length>0&&(
-                <span style={{fontSize:10,color:"rgba(255,255,255,0.25)"}}>
+                <span style={{fontSize:10,color:"var(--border-3)"}}>
                   avg <span style={{color:"#3b82f6",fontWeight:700}}>{progPct}%</span>
                 </span>
               )}
@@ -1305,7 +1305,7 @@ function KPIPanel({ obras, puestos, obraByPuesto, collapsed, onCollapse, onFocus
       </div>
 
       {/* ────── TABS ────── */}
-      <div style={{display:"flex",borderBottom:"1px solid rgba(255,255,255,0.06)",flexShrink:0}}>
+      <div style={{display:"flex",borderBottom:"1px solid var(--panel-2)",flexShrink:0}}>
         {[
           ["stats","Stats","#6366f1"],
           ["alertas",alertas.length>0?`Alertas · ${alertas.length}`:"Alertas",
@@ -1331,7 +1331,7 @@ function KPIPanel({ obras, puestos, obraByPuesto, collapsed, onCollapse, onFocus
               <span style={{fontFamily:"'JetBrains Mono',monospace",fontSize:14,fontWeight:800,
                 color:"#3b82f6"}}>{progPct}%</span>
             </div>
-            <div style={{height:4,borderRadius:3,background:"rgba(255,255,255,0.05)",overflow:"hidden"}}>
+            <div style={{height:4,borderRadius:3,background:"var(--panel)",overflow:"hidden"}}>
               <div style={{height:"100%",width:`${progPct}%`,borderRadius:3,
                 background:"linear-gradient(90deg,#3b82f6,#6366f1)",
                 boxShadow:"0 0 8px #3b82f666",transition:"width 0.8s cubic-bezier(0.22,1,0.36,1)"}}/>
@@ -1349,21 +1349,21 @@ function KPIPanel({ obras, puestos, obraByPuesto, collapsed, onCollapse, onFocus
               <div key={label} style={{
                 display:"flex",alignItems:"center",padding:"9px 12px",borderRadius:9,
                 background:n>0&&!muted?`${c}09`:"rgba(255,255,255,0.015)",
-                border:`1px solid ${n>0&&!muted?c+"20":"rgba(255,255,255,0.04)"}`,
-                borderLeft:`3px solid ${n>0?c:"rgba(255,255,255,0.07)"}`,
+                border:`1px solid ${n>0&&!muted?c+"20":"var(--panel)"}`,
+                borderLeft:`3px solid ${n>0?c:"var(--panel-2)"}`,
               }}>
                 <span style={{fontSize:11,flex:1,
-                  color:n>0&&!muted?"rgba(255,255,255,0.65)":"rgba(255,255,255,0.2)",fontWeight:500}}>
+                  color:n>0&&!muted?"rgba(255,255,255,0.65)":"var(--border-2)",fontWeight:500}}>
                   {label}
                 </span>
                 {/* mini barra */}
                 <div style={{width:40,height:3,borderRadius:2,
-                  background:"rgba(255,255,255,0.06)",marginRight:10,overflow:"hidden"}}>
+                  background:"var(--panel-2)",marginRight:10,overflow:"hidden"}}>
                   <div style={{height:"100%",width:`${pct}%`,background:c,borderRadius:2,
                     opacity:muted?0.3:1,transition:"width 0.6s ease"}}/>
                 </div>
                 <span style={{fontFamily:"'JetBrains Mono',monospace",fontSize:15,fontWeight:800,
-                  color:n>0?c:"rgba(255,255,255,0.1)",minWidth:20,textAlign:"right"}}>{n}</span>
+                  color:n>0?c:"var(--border)",minWidth:20,textAlign:"right"}}>{n}</span>
               </div>
             ))}
           </div>
@@ -1417,7 +1417,7 @@ function KPIPanel({ obras, puestos, obraByPuesto, collapsed, onCollapse, onFocus
                 display:"flex",alignItems:"center",justifyContent:"center",color:"#10b981",fontSize:18}}>
                 ✓
               </div>
-              <div style={{fontSize:11,color:"rgba(255,255,255,0.2)",letterSpacing:1,
+              <div style={{fontSize:11,color:"var(--border-2)",letterSpacing:1,
                 fontFamily:"'JetBrains Mono',monospace"}}>Sin alertas</div>
             </div>
           ):(
@@ -1461,7 +1461,7 @@ function KPIPanel({ obras, puestos, obraByPuesto, collapsed, onCollapse, onFocus
                       </span>
                     </div>
                     {a.detalle&&(
-                      <div style={{fontSize:10,color:"rgba(255,255,255,0.28)",
+                      <div style={{fontSize:10,color:"var(--border-3)",
                         paddingLeft:14,marginTop:4,lineHeight:1.5,letterSpacing:.2}}>
                         {a.detalle}
                       </div>

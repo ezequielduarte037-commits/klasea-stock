@@ -46,7 +46,7 @@ import { ChapaSwatch, chapaColor, chapaGradient, esNogal } from "@/features/mueb
 
 // ── Design tokens ──────────────────────────────────────────────────────────
 const INP = {
-  background: "rgba(255,255,255,0.04)",
+  background: "var(--panel)",
   border: `1px solid ${C.b0}`,
   color: C.t0,
   padding: "7px 10px",
@@ -60,7 +60,7 @@ const INP = {
 // ── Estado OT ──────────────────────────────────────────────────────────────
 const ESTADOS_OT = ["Pendiente", "Enviada", "Devuelta", "Rehacer"];
 const ESTADO_META = {
-  "Pendiente": { color: C.t2,    bg: "transparent",              dot: "rgba(255,255,255,0.25)" },
+  "Pendiente": { color: C.t2,    bg: "transparent",              dot: "var(--border-3)" },
   "Enviada":   { color: C.amber, bg: "rgba(245,158,11,0.1)",     dot: C.amber },
   "Devuelta":  { color: C.green, bg: "rgba(16,185,129,0.1)",     dot: C.green },
   "Rehacer":   { color: C.red,   bg: "rgba(239,68,68,0.1)",      dot: C.red },
@@ -468,7 +468,7 @@ function OTCard({ ot, ots, onClick }) {
       {/* Modelo badge */}
       <div style={{
         flexShrink: 0, width: 46, height: 46, borderRadius: 10,
-        background: "rgba(255,255,255,0.04)", border: `1px solid ${C.b0}`,
+        background: "var(--panel)", border: `1px solid ${C.b0}`,
         display: "flex", alignItems: "center", justifyContent: "center",
         fontSize: 12, fontWeight: 700, color: C.t0, fontFamily: C.mono,
         letterSpacing: 1,
@@ -1413,7 +1413,7 @@ ${pagHerrajesHTML}
             </thead>
             <tbody>
               {tpl?.items.map((it, idx) => (
-                <tr key={it.id} style={{ borderBottom: `1px solid rgba(255,255,255,0.03)`, background: idx % 2 === 0 ? C.s0 : "transparent" }}>
+                <tr key={it.id} style={{ borderBottom: `1px solid var(--panel)`, background: idx % 2 === 0 ? C.s0 : "transparent" }}>
                   <td style={{ padding: "9px 10px", fontFamily: C.mono, fontSize: 12, fontWeight: 700, color: C.t1 }}>{it.id}</td>
                   <td style={{ padding: "9px 10px", color: C.t0 }}>{it.material}</td>
                   <td style={{ padding: "9px 10px", color: C.t1, fontFamily: C.mono, fontSize: 12 }}>{it.medidas}</td>
@@ -1443,7 +1443,7 @@ ${pagHerrajesHTML}
               }}>{t}</div>
             ))}
           </div>
-                    <div style={{ background: "rgba(255,255,255,0.03)", border: `1px solid ${C.b0}`, padding: "14px 18px", borderRadius: 8, marginBottom: 16 }}>
+                    <div style={{ background: "var(--panel)", border: `1px solid ${C.b0}`, padding: "14px 18px", borderRadius: 8, marginBottom: 16 }}>
             <div style={{ fontSize: 14, fontWeight: 700, color: C.t0, marginBottom: 4 }}>Medida: 2,00 m &times; 0,20 m &times; 45 mm</div>
             <div style={{ fontSize: 13, fontWeight: 700, color: C.green, textTransform: "uppercase", letterSpacing: 1.1, marginBottom: 8 }}>Cepillados en 4 caras</div>
             <div style={{ fontSize: 12, color: C.t2, fontFamily: C.mono }}>Marcados con: {ot.modelo} / OT: {ot.barco}</div>
@@ -1517,7 +1517,7 @@ ${pagHerrajesHTML}
 function Section({ title, badge, badgeColor, action, children }) {
   return (
     <div style={{ marginBottom: 22 }}>
-      <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 10, paddingBottom: 8, borderBottom: `1px solid rgba(255,255,255,0.06)` }}>
+      <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 10, paddingBottom: 8, borderBottom: `1px solid var(--panel-2)` }}>
         <span style={{ fontSize: 10, letterSpacing: 1.3, textTransform: "uppercase", color: C.t2, fontWeight: 700 }}>{title}</span>
         {badge && (
           <span style={{ fontSize: 10, padding: "2px 7px", borderRadius: 5, background: (badgeColor ?? C.t2) + "15", border: `1px solid ${(badgeColor ?? C.t2)}33`, color: badgeColor ?? C.t2, letterSpacing: 1 }}>{badge}</span>
@@ -1633,7 +1633,7 @@ function PlantillasView() {
             </thead>
             <tbody>
               {tpl?.items.map((it, idx) => (
-                <tr key={it.id} style={{ borderBottom: `1px solid rgba(255,255,255,0.03)`, background: idx % 2 === 0 ? C.s0 : "transparent" }}>
+                <tr key={it.id} style={{ borderBottom: `1px solid var(--panel)`, background: idx % 2 === 0 ? C.s0 : "transparent" }}>
                   <td style={{ padding: "10px 12px", fontFamily: C.mono, fontSize: 12, fontWeight: 700, color: C.t1 }}>{it.id}</td>
                   <td style={{ padding: "10px 12px", color: C.t0 }}>{it.material}</td>
                   <td style={{ padding: "10px 12px", color: C.t1, fontFamily: C.mono, fontSize: 12 }}>{it.medidas}</td>
@@ -1934,7 +1934,7 @@ export default function EnchapadoView({ esAdmin, onEnsureMueblesUnidad }) {
       ) : (
         Object.entries(porModelo).map(([modelo, rows]) => (
           <div key={modelo} style={{ marginBottom: 28 }}>
-            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", paddingBottom: 8, borderBottom: `1px solid rgba(255,255,255,0.06)`, marginBottom: 10 }}>
+            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", paddingBottom: 8, borderBottom: `1px solid var(--panel-2)`, marginBottom: 10 }}>
               <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
                 <span style={{ fontFamily: C.mono, fontSize: 12, fontWeight: 700, color: C.t1, background: C.s1, border: `1px solid ${C.b0}`, padding: "2px 8px", borderRadius: 6 }}>{modelo}</span>
                 <span style={{ fontSize: 11, color: C.t2 }}>{rows.length} OT{rows.length !== 1 ? "s" : ""}</span>
@@ -1959,7 +1959,7 @@ export default function EnchapadoView({ esAdmin, onEnsureMueblesUnidad }) {
 
       {showNew && <NuevaOTModal onClose={() => setShowNew(false)} onCreate={onCreated} onEnsureMueblesUnidad={onEnsureMueblesUnidad} />}
 
-      <style>{`.ot-card:hover { border-color: rgba(255,255,255,0.14) !important; background: rgba(255,255,255,0.05) !important; }`}</style>
+      <style>{`.ot-card:hover { border-color: rgba(255,255,255,0.14) !important; background: var(--panel) !important; }`}</style>
     </div>
   );
 }

@@ -38,11 +38,12 @@ export default function ChangePasswordModal({
 
     setBusy(true);
     try {
-      const { data: userData, error: userErr } = await supabase.auth.getUser();
-      if (userErr || !userData?.user?.email) throw new Error("No pude validar tu sesión.");
+      const { data: sessionData } = await supabase.auth.getSession();
+      const email = sessionData?.session?.user?.email;
+      if (!email) throw new Error("No pude validar tu sesión.");
 
       const { error: reauthErr } = await supabase.auth.signInWithPassword({
-        email: userData.user.email,
+        email,
         password: currentPassword,
       });
       if (reauthErr) throw new Error("La contraseña actual no es correcta.");

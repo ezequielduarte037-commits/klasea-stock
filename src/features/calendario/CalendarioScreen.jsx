@@ -363,7 +363,7 @@ function MonthView({ year, month, eventos, selDate, onSelectDate, onAddOnDate })
                   color: !cell.current ? C.t2 + "40" : isToday ? C.t0 : isFeriado ? C.red + "99" : dow === 6 ? C.t2 : C.t1,
                   width: 20, height: 20, borderRadius: "50%",
                   display: "flex", alignItems: "center", justifyContent: "center",
-                  background: isToday ? "rgba(255,255,255,0.1)" : "transparent",
+                  background: isToday ? "var(--border)" : "transparent",
                   outline: isSel ? `1.5px solid rgba(59,130,246,0.5)` : "none",
                 }}>{cell.d}</div>
                 {cell.current && (
@@ -590,13 +590,13 @@ export default function CalendarioScreen({ profile, signOut }) {
         @import url('https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500;700&display=swap');
         *, *::before, *::after { box-sizing: border-box; }
         ::-webkit-scrollbar { width: 3px; height: 3px; }
-        ::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.08); border-radius: 99px; }
+        ::-webkit-scrollbar-thumb { background: var(--panel-2); border-radius: 99px; }
         input[type="date"], input[type="time"] { color-scheme: var(--input-color-scheme, dark); }
         .cal-cell:hover { background: rgba(255,255,255,0.025) !important; }
         .cal-cell:hover .cell-add { opacity: 1 !important; }
-        .ev-badge:hover { background: rgba(255,255,255,0.06) !important; }
-        .day-ev:hover { background: rgba(255,255,255,0.04) !important; }
-        .prox-ev:hover { background: rgba(255,255,255,0.03) !important; }
+        .ev-badge:hover { background: var(--panel-2) !important; }
+        .day-ev:hover { background: var(--panel) !important; }
+        .prox-ev:hover { background: var(--panel) !important; }
       `}</style>
 
       <div style={{ flexShrink: 0, width: isMobile ? 0 : undefined, overflow: "visible" }}>
@@ -606,7 +606,7 @@ export default function CalendarioScreen({ profile, signOut }) {
       <div style={{ flex: 1, display: "flex", flexDirection: "column", overflow: "hidden" }}>
 
         {/* TOPBAR */}
-        <div style={{ height: 52, flexShrink: 0, borderBottom: `1px solid ${C.b0}`, display: "flex", alignItems: "center", gap: 14, padding: isMobile ? "0 12px 0 52px" : "0 24px", background: "rgba(9,9,11,0.8)", backdropFilter: "blur(20px)" }}>
+        <div style={{ height: 52, flexShrink: 0, borderBottom: `1px solid ${C.b0}`, display: "flex", alignItems: "center", gap: 14, padding: isMobile ? "0 12px 0 52px" : "0 24px", background: "var(--topbar)", backdropFilter: "blur(20px)" }}>
           <div style={{ display: "flex", alignItems: "center", gap: 4 }}>
             <button onClick={view === "month" ? prevMonth : prevWeek} style={{ background: C.s0, border: `1px solid ${C.b0}`, color: C.t1, width: 28, height: 28, borderRadius: 7, cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center" }}>{I.prev}</button>
             <button onClick={view === "month" ? nextMonth : nextWeek} style={{ background: C.s0, border: `1px solid ${C.b0}`, color: C.t1, width: 28, height: 28, borderRadius: 7, cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center" }}>{I.next}</button>

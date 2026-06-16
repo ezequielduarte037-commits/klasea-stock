@@ -47,7 +47,7 @@ const GLASS = {
 };
 
 const INP = {
-  background: "rgba(255,255,255,0.04)", border: `1px solid ${C.b0}`,
+  background: "var(--panel)", border: `1px solid ${C.b0}`,
   color: C.t0, padding: "8px 11px", borderRadius: 7, fontSize: 13,
   outline: "none", fontFamily: C.sans, width: "100%", boxSizing: "border-box",
 };
@@ -162,7 +162,7 @@ function PasoEntrada({ materiales, onPreview }) {
   const MBTN = m => ({
     padding: "6px 14px", borderRadius: 7, cursor: "pointer", fontSize: 12, fontFamily: C.sans,
     border: modo === m ? `1px solid ${C.b1}` : `1px solid ${C.b0}`,
-    background: modo === m ? "rgba(255,255,255,0.07)" : "transparent",
+    background: modo === m ? "var(--panel-2)" : "transparent",
     color: modo === m ? C.t0 : C.t2, fontWeight: modo === m ? 600 : 400,
   });
 
@@ -209,17 +209,17 @@ function PasoEntrada({ materiales, onPreview }) {
                   const diff  = real !== null && !isNaN(real) ? real - stock : null;
                   return (
                     <tr key={mat.id} style={{ background: idx % 2 === 0 ? "transparent" : "rgba(255,255,255,0.012)" }}>
-                      <td style={{ padding: "7px 12px", borderBottom: `1px solid rgba(255,255,255,0.04)`, fontSize: 13, color: C.t0 }}>
+                      <td style={{ padding: "7px 12px", borderBottom: `1px solid var(--panel)`, fontSize: 13, color: C.t0 }}>
                         {mat.nombre}
                         {mat.unidad_medida && <span style={{ fontSize: 10, color: C.t2, marginLeft: 5 }}>{mat.unidad_medida}</span>}
                       </td>
-                      <td style={{ padding: "7px 12px", borderBottom: `1px solid rgba(255,255,255,0.04)`, fontSize: 11, color: C.t2 }}>
+                      <td style={{ padding: "7px 12px", borderBottom: `1px solid var(--panel)`, fontSize: 11, color: C.t2 }}>
                         {mat.categoria || "—"}
                       </td>
-                      <td style={{ padding: "7px 12px", borderBottom: `1px solid rgba(255,255,255,0.04)`, textAlign: "right", fontFamily: C.mono, fontSize: 14, color: stock <= 0 ? C.red : C.t1 }}>
+                      <td style={{ padding: "7px 12px", borderBottom: `1px solid var(--panel)`, textAlign: "right", fontFamily: C.mono, fontSize: 14, color: stock <= 0 ? C.red : C.t1 }}>
                         {stock}
                       </td>
-                      <td style={{ padding: "5px 12px", borderBottom: `1px solid rgba(255,255,255,0.04)` }}>
+                      <td style={{ padding: "5px 12px", borderBottom: `1px solid var(--panel)` }}>
                         <div style={{ display: "flex", alignItems: "center", gap: 6, justifyContent: "flex-end" }}>
                           {diff !== null && !isNaN(diff) && diff !== 0 && (
                             <span style={{ fontSize: 12, fontFamily: C.mono, fontWeight: 700, color: diff > 0 ? C.green : C.red }}>
@@ -343,7 +343,7 @@ function PasoPreview({ lineas, observaciones, setObservaciones, onConfirmar, onV
           <div style={{ fontFamily: C.mono, fontSize: 22, fontWeight: 700, color: C.red }}>{negativos}</div>
         </div>
         {sinCambio > 0 && (
-          <div style={{ flex: 1, background: "rgba(255,255,255,0.03)", border: `1px solid ${C.b0}`, borderRadius: 8, padding: "10px 14px" }}>
+          <div style={{ flex: 1, background: "var(--panel)", border: `1px solid ${C.b0}`, borderRadius: 8, padding: "10px 14px" }}>
             <div style={{ fontSize: 10, letterSpacing: 1.3, color: C.t2, textTransform: "uppercase", marginBottom: 4 }}>Sin cambio</div>
             <div style={{ fontFamily: C.mono, fontSize: 22, fontWeight: 700, color: C.t2 }}>{sinCambio}</div>
           </div>
@@ -364,17 +364,17 @@ function PasoPreview({ lineas, observaciones, setObservaciones, onConfirmar, onV
           <tbody>
             {diffs.map(({ material, stockActual, realQty, diff }) => (
               <tr key={material.id} style={{ background: diff > 0 ? "rgba(16,185,129,0.025)" : "rgba(239,68,68,0.025)" }}>
-                <td style={{ padding: "8px 12px", borderBottom: `1px solid rgba(255,255,255,0.04)`, fontSize: 13, color: C.t0 }}>
+                <td style={{ padding: "8px 12px", borderBottom: `1px solid var(--panel)`, fontSize: 13, color: C.t0 }}>
                   {material.nombre}
                   {material.unidad_medida && <span style={{ fontSize: 10, color: C.t2, marginLeft: 5 }}>{material.unidad_medida}</span>}
                 </td>
-                <td style={{ padding: "8px 12px", borderBottom: `1px solid rgba(255,255,255,0.04)`, textAlign: "right", fontFamily: C.mono, fontSize: 13, color: C.t1 }}>
+                <td style={{ padding: "8px 12px", borderBottom: `1px solid var(--panel)`, textAlign: "right", fontFamily: C.mono, fontSize: 13, color: C.t1 }}>
                   {stockActual}
                 </td>
-                <td style={{ padding: "8px 12px", borderBottom: `1px solid rgba(255,255,255,0.04)`, textAlign: "right", fontFamily: C.mono, fontSize: 13, color: C.t0 }}>
+                <td style={{ padding: "8px 12px", borderBottom: `1px solid var(--panel)`, textAlign: "right", fontFamily: C.mono, fontSize: 13, color: C.t0 }}>
                   {realQty}
                 </td>
-                <td style={{ padding: "8px 12px", borderBottom: `1px solid rgba(255,255,255,0.04)`, textAlign: "right", fontFamily: C.mono, fontSize: 14, fontWeight: 700, color: diff > 0 ? C.green : C.red }}>
+                <td style={{ padding: "8px 12px", borderBottom: `1px solid var(--panel)`, textAlign: "right", fontFamily: C.mono, fontSize: 14, fontWeight: 700, color: diff > 0 ? C.green : C.red }}>
                   {diff > 0 ? `+${diff}` : diff}
                 </td>
               </tr>
@@ -523,7 +523,7 @@ export default function AjusteMaderasModal({ materiales, onClose, onDone }) {
                 <span>Aplicando ajustes…</span>
                 <span style={{ fontFamily: C.mono }}>{progreso.hecho}/{progreso.total}</span>
               </div>
-              <div style={{ height: 4, background: "rgba(255,255,255,0.05)", borderRadius: 99, overflow: "hidden" }}>
+              <div style={{ height: 4, background: "var(--panel)", borderRadius: 99, overflow: "hidden" }}>
                 <div style={{ height: "100%", width: `${pctProgreso}%`, background: `linear-gradient(90deg, ${C.green}70, ${C.green})`, borderRadius: 99, transition: "width .3s ease" }} />
               </div>
             </div>

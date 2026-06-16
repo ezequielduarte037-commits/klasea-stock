@@ -4,13 +4,15 @@
 import { supabase } from "@/supabaseClient";
 
 export const EMPLEADO_SELECT =
-  "id, dni, nombre, grupo, ficha, activo, notas, contratista_id, contratista:rrhh_contratistas(id, nombre)";
+  "id, dni, nombre, grupo, sede, ficha, activo, notas, contratista_id, contratista:rrhh_contratistas(id, nombre)";
+
+export const SEDES = ["Pampa", "Chubut"];
 
 // Error típico cuando todavía no se corrió el SQL en el dashboard.
 export function isMissingTable(error) {
   if (!error) return false;
   const msg = String(error.message ?? "").toLowerCase();
-  return error.code === "42P01" || msg.includes("does not exist") || msg.includes("schema cache");
+  return error.code === "42P01" || msg.includes("does not exist") || msg.includes("schema cache") || msg.includes("not found");
 }
 
 export async function fetchEmpleados() {
@@ -38,7 +40,7 @@ export async function fetchMarcaciones(desde, hasta) {
   for (let from = 0; ; from += PAGE) {
     const { data, error } = await supabase
       .from("rrhh_marcaciones")
-      .select("id, empleado_id, fecha, entrada, salida, fichadas, editado_por")
+      .select("id, empleado_id, fecha, entrada, salida, fichadas, editado_por, sede")
       .gte("fecha", desde)
       .lte("fecha", hasta)
       .order("fecha")
@@ -51,15 +53,29 @@ export async function fetchMarcaciones(desde, hasta) {
   return out;
 }
 
+export async function fetchJustificaciones(desde, hasta) {
+  const { data, error } = await supabase
+    .from("rrhh_justificaciones")
+    .select("empleado_id, fecha, motivo")
+    .gte("fecha", desde)
+    .lte("fecha", hasta);
+  if (error) throw error;
+  return data ?? [];
+}
+
 export async function fetchConfig() {
   const { data, error } = await supabase.from("rrhh_config").select("clave, valor");
   if (error) throw error;
   const cfg = {};
   for (const row of data ?? []) cfg[row.clave] = row.valor;
+  const horaInicio = String(cfg.hora_inicio ?? "07:00");
+  const horaFin = String(cfg.hora_fin ?? "16:00");
   return {
-    jornada_min: Number(cfg.jornada_min ?? 540),          // lun-vie: 7 a 16 = 9 h
+    jornada_min: Number(cfg.jornada_min ?? Math.max(0, (timeToMin(horaFin) ?? 960) - (timeToMin(horaInicio) ?? 420))),
     jornada_sabado_min: Number(cfg.jornada_sabado_min ?? 0), // sábado: todo extra
     tolerancia_tarde: String(cfg.tolerancia_tarde ?? "07:10"), // después: pierde presentismo
+    hora_inicio: horaInicio,
+    hora_fin: horaFin,
   };
 }
 
@@ -70,10 +86,53 @@ export async function saveConfig(clave, valor) {
   if (error) throw error;
 }
 
+export async function guardarJustificacion(empleadoId, fecha, motivo) {
+  const clean = String(motivo ?? "").trim();
+  if (!empleadoId || !fecha) throw new Error("Falta empleado o fecha.");
+
+  if (!clean) {
+    const { error } = await supabase
+      .from("rrhh_justificaciones")
+      .delete()
+      .eq("empleado_id", empleadoId)
+      .eq("fecha", fecha);
+    if (error) throw error;
+    return null;
+  }
+
+  const payload = { empleado_id: empleadoId, fecha, motivo: clean };
+  const upsert = await supabase
+    .from("rrhh_justificaciones")
+    .upsert(payload, { onConflict: "empleado_id,fecha" })
+    .select("empleado_id, fecha, motivo")
+    .single();
+  if (!upsert.error) return upsert.data;
+
+  const msg = String(upsert.error.message ?? "").toLowerCase();
+  if (!msg.includes("unique") && !msg.includes("constraint") && !msg.includes("conflict")) throw upsert.error;
+
+  const { data: updated, error: updateError } = await supabase
+    .from("rrhh_justificaciones")
+    .update({ motivo: clean })
+    .eq("empleado_id", empleadoId)
+    .eq("fecha", fecha)
+    .select("empleado_id, fecha, motivo");
+  if (updateError) throw updateError;
+  if (updated?.length) return updated[0];
+
+  const { data, error } = await supabase
+    .from("rrhh_justificaciones")
+    .insert(payload)
+    .select("empleado_id, fecha, motivo")
+    .single();
+  if (error) throw error;
+  return data;
+}
+
 export async function fetchBatches() {
   const { data, error } = await supabase
     .from("rrhh_import_batches")
-    .select("id, filename, periodo_desde, periodo_hasta, stats, created_at")
+    .select("id, filename, periodo_desde, periodo_hasta, sede, stats, created_at")
     .order("created_at", { ascending: false })
     .limit(20);
   if (error) throw error;
@@ -110,6 +169,21 @@ export function duracionMin(m) {
   return Math.max(0, s - e);
 }
 
+export function extraFueraVentanaMin(m, cfg) {
+  const entrada = timeToMin(m.entrada);
+  const salida = timeToMin(m.salida);
+  if (entrada == null || salida == null) return null;
+  const trabajado = Math.max(0, salida - entrada);
+  const dow = diaSemana(m.fecha);
+  if (dow === 0 || dow === 6) return trabajado;
+
+  const inicio = timeToMin(cfg?.hora_inicio ?? "07:00") ?? 420;
+  const fin = timeToMin(cfg?.hora_fin ?? "16:00") ?? 960;
+  const antes = Math.max(0, Math.min(salida, inicio) - entrada);
+  const despues = Math.max(0, salida - Math.max(entrada, fin));
+  return antes + despues;
+}
+
 export function diaSemana(fechaIso) {
   const [y, mo, d] = fechaIso.split("-").map(Number);
   return new Date(y, mo - 1, d).getDay(); // 0=domingo, 6=sábado
@@ -120,7 +194,9 @@ export function jornadaDelDia(fechaIso, cfg) {
   const dow = diaSemana(fechaIso);
   if (dow === 0) return 0;
   if (dow === 6) return cfg.jornada_sabado_min;
-  return cfg.jornada_min;
+  const inicio = timeToMin(cfg?.hora_inicio ?? "07:00") ?? 420;
+  const fin = timeToMin(cfg?.hora_fin ?? "16:00") ?? 960;
+  return Math.max(0, fin - inicio);
 }
 
 export function hoyIso() {

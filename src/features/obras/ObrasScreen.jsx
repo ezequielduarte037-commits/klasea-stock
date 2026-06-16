@@ -15,7 +15,6 @@ import { supabase } from "@/supabaseClient";
 import Sidebar from "@/components/Sidebar";
 import { useResponsive } from "@/hooks/useResponsive";
 import { hasAdminAccess } from "@/lib/permissions";
-import PlanificacionView      from "@/features/obras/PlanificacionView";
 import MapaProduccion         from "@/features/obras/MapaProduccion";
 import PanelDetallesObra      from "@/features/obras/PanelDetallesObra";
 import PiezasLaminacionView   from "@/features/obras/PiezasLaminacionView";
@@ -74,15 +73,15 @@ const NavIcon = {
       <line x1="5" y1="1" x2="5" y2="11"/><line x1="9" y1="3" x2="9" y2="13"/>
     </svg>
   ),
-  Cart: () => (
-    <svg width="12" height="12" viewBox="0 0 14 14" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round">
-      <path d="M1 1h2l1.8 7h6.4l1.3-4H4.2"/><circle cx="6.2" cy="12" r="0.9"/><circle cx="10.8" cy="12" r="0.9"/>
-    </svg>
-  ),
   Cal: () => (
     <svg width="12" height="12" viewBox="0 0 14 14" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round">
       <rect x="1" y="2.5" width="12" height="10.5" rx="1.5"/>
       <path d="M1 6h12M4.5 1v3M9.5 1v3"/>
+    </svg>
+  ),
+  Pieces: () => (
+    <svg width="12" height="12" viewBox="0 0 14 14" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
+      <path d="M7 1L13 4L7 7L1 4Z"/><path d="M1 7L7 10L13 7"/><path d="M1 10L7 13L13 10"/>
     </svg>
   ),
   Gear: () => (
@@ -140,7 +139,7 @@ const Chip = ({ label, dot, bg, border }) => (
 );
 
 const ProgressBar = ({ value, color, height = 3, shimmer = false }) => (
-  <div style={{ height, background: "rgba(255,255,255,0.05)", borderRadius: 99, overflow: "hidden" }}>
+  <div style={{ height, background: "var(--panel)", borderRadius: 99, overflow: "hidden" }}>
     <div style={{ height: "100%", width: `${Math.min(100, Math.max(0, value))}%`, background: shimmer ? `linear-gradient(90deg, ${color}60, ${color}, ${color}60)` : `linear-gradient(90deg, ${color}70, ${color})`, backgroundSize: shimmer ? "200% 100%" : undefined, animation: shimmer ? "shimmer 2s linear infinite" : undefined, borderRadius: 99, transition: "width .6s cubic-bezier(0.4,0,0.2,1)" }} />
   </div>
 );
@@ -173,7 +172,7 @@ function InputSt({ label, children }) {
 }
 
 const INP = {
-  background: "rgba(255,255,255,0.04)", border: `1px solid ${C.b0}`,
+  background: "var(--panel)", border: `1px solid ${C.b0}`,
   color: C.t0, padding: "8px 12px", borderRadius: 8, fontSize: 13,
   outline: "none", width: "100%",
 };
@@ -1057,7 +1056,7 @@ function OrdenCompraSection({ genera, tipo, desc, monto, diasPrevio = 7, onChang
     <div style={{ padding: "10px 12px", background: genera ? "rgba(245,158,11,0.05)" : C.s0, border: `1px solid ${genera ? "rgba(245,158,11,0.2)" : C.b0}`, borderRadius: 8, marginTop: 8, transition: "all .2s" }}>
       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: genera ? 10 : 0 }}>
         <span style={{ fontSize: 12, color: genera ? C.amber : C.t2 }}>Orden de compra al completar</span>
-        <button type="button" onClick={() => onChange("genera_orden_compra", !genera)} style={{ width: 34, height: 18, borderRadius: 99, border: "none", flexShrink: 0, cursor: "pointer", background: genera ? "rgba(245,158,11,0.5)" : "rgba(255,255,255,0.07)", position: "relative", transition: "background .2s" }}>
+        <button type="button" onClick={() => onChange("genera_orden_compra", !genera)} style={{ width: 34, height: 18, borderRadius: 99, border: "none", flexShrink: 0, cursor: "pointer", background: genera ? "rgba(245,158,11,0.5)" : "var(--panel-2)", position: "relative", transition: "background .2s" }}>
           <div style={{ position: "absolute", top: 3, left: genera ? 15 : 3, width: 12, height: 12, borderRadius: "50%", background: genera ? "#fbbf24" : "#383838", transition: "left .18s" }} />
         </button>
       </div>
@@ -1481,7 +1480,7 @@ function LineasEtapasModal({ linea, lProcs, lTareas = [], onClose, onSaved }) {
                   {expandedProc === item.id && (
                     <div style={{ padding: "0 10px 10px" }}>
                       {tareasDeProc(item.id).map((tarea, ti) => (
-                        <div key={tarea.id} style={{ borderRadius: 6, background: editingTarea === tarea.id ? "rgba(59,130,246,0.05)" : "rgba(255,255,255,0.02)", border: "1px solid " + (editingTarea === tarea.id ? "rgba(59,130,246,0.25)" : C.b0), marginBottom: 3, padding: "6px 10px" }}>
+                        <div key={tarea.id} style={{ borderRadius: 6, background: editingTarea === tarea.id ? "rgba(59,130,246,0.05)" : "var(--panel)", border: "1px solid " + (editingTarea === tarea.id ? "rgba(59,130,246,0.25)" : C.b0), marginBottom: 3, padding: "6px 10px" }}>
                           {editingTarea !== tarea.id ? (
                             <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
                               <span style={{ fontSize: 10, color: C.t2, fontFamily: C.mono, minWidth: 18 }}>{ti + 1}.</span>
@@ -1773,7 +1772,6 @@ export default function ObrasScreen({ profile, signOut }) {
   const [confirmModal,  setConfirmModal]  = useState(null);
   const [lineasModal,         setLineasModal]         = useState(null);
   const [showNuevaLineaModal, setShowNuevaLineaModal] = useState(false);
-  const [ocModal,       setOcModal]       = useState(null);
   const [mapaPanel,     setMapaPanel]     = useState(null); // { puesto, obra } — vista mapa
 
   // ── CARGA ─────────────────────────────────────────────────────
@@ -1861,19 +1859,6 @@ export default function ObrasScreen({ profile, signOut }) {
     if (allTareas.length) return pct(allTareas.filter(t => t.estado === "finalizada").length, allTareas.length);
     return pct(es.filter(e => e.estado === "completado").length, es.length);
   }, [etapasDeObra, tareasDeEtapa]);
-
-  const alertCountOC = useMemo(() => ordenes.filter(oc => {
-    if (!["pendiente","solicitada"].includes(oc.estado)) return false;
-    const u = ocUrgencia(oc); return u && ["vencida","hoy","urgente","proxima"].includes(u.nivel);
-  }).length, [ordenes]);
-
-  const alertCountAvisos = useMemo(() => {
-    const avisosEtapas = etapas.filter(e => e.genera_orden_compra && !e.isVirtual);
-    return avisosEtapas.filter(e => {
-      if (!["completado", "en_curso"].includes(e.estado)) return false;
-      return !ordenes.some(oc => oc.obra_id === e.obra_id && oc.etapa_nombre === e.nombre);
-    }).length;
-  }, [etapas, ordenes]);
 
   // ── ACCIONES ─────────────────────────────────────────────────
   const toggleObra  = id => {
@@ -2108,7 +2093,7 @@ export default function ObrasScreen({ profile, signOut }) {
       <div style={{ display: "flex", alignItems: "center", gap: 5, flexShrink: 0 }}
         onClick={esGestion ? e => { e.stopPropagation(); setEditing(true); } : undefined}>
         <span style={{ fontFamily: C.mono, fontSize: 15, color: C.t0, fontWeight: 700, letterSpacing: 0.5 }}>{obra.codigo}</span>
-        {esGestion && <span style={{ fontSize: 10, color: "rgba(255,255,255,0.15)", cursor: "text" }}>✎</span>}
+        {esGestion && <span style={{ fontSize: 10, color: "var(--border-2)", cursor: "text" }}>✎</span>}
       </div>
     );
 
@@ -2127,15 +2112,30 @@ export default function ObrasScreen({ profile, signOut }) {
 
   function GanttMain() {
     if (loading) return <div style={{ flex: 1, display: "flex", alignItems: "center", justifyContent: "center", color: C.t2, fontSize: 12, letterSpacing: 3, fontFamily: C.mono }}>Cargando…</div>;
-    if (!obrasFilt.length) return (
-      <div style={{ flex: 1, display: "flex", alignItems: "center", justifyContent: "center" }}>
-        <div style={{ textAlign: "center" }}>
-          <div style={{ fontSize: 28, color: C.t2, marginBottom: 10, letterSpacing: 8 }}>◦</div>
-          <div style={{ color: C.t2, fontSize: 12, letterSpacing: 1.3 }}>Sin obras con este filtro</div>
-          {esGestion && <div style={{ marginTop: 16 }}><Btn variant="primary" onClick={() => setShowObraModal(true)}>+ Nueva obra</Btn></div>}
+    if (!obrasFilt.length) {
+      const hayFiltro = filtroEstado !== "todos" || filtroLinea !== "todas";
+      const filtrando = obras.length > 0 && hayFiltro;   // hay obras, pero el filtro las oculta
+      return (
+        <div style={{ flex: 1, display: "flex", alignItems: "center", justifyContent: "center" }}>
+          <div style={{ textAlign: "center", maxWidth: 320, padding: "0 20px" }}>
+            <div style={{ fontSize: 28, color: C.t2, marginBottom: 10, letterSpacing: 8 }}>◦</div>
+            <div style={{ color: C.t1, fontSize: 13, fontWeight: 700 }}>
+              {filtrando ? "Ninguna obra coincide con los filtros" : "Todavía no hay obras"}
+            </div>
+            <div style={{ color: C.t2, fontSize: 12, marginTop: 5, lineHeight: 1.5 }}>
+              {filtrando
+                ? "Probá quitar los filtros de estado o línea para ver el resto."
+                : esGestion ? "Creá la primera obra para empezar a planificar etapas y tareas."
+                            : "Cuando se cargue una obra vas a verla acá."}
+            </div>
+            <div style={{ marginTop: 16, display: "flex", gap: 8, justifyContent: "center", flexWrap: "wrap" }}>
+              {filtrando && <Btn variant="outline" onClick={() => { setFiltroEstado("todos"); setFiltroLinea("todas"); }}>Ver todas</Btn>}
+              {esGestion && <Btn variant="primary" onClick={() => setShowObraModal(true)}>+ Nueva obra</Btn>}
+            </div>
+          </div>
         </div>
-      </div>
-    );
+      );
+    }
 
     // Cuando hay foco, solo mostrar la obra en foco; las demás se ocultan
     const obrasMostradas = focusedObra
@@ -2173,7 +2173,7 @@ export default function ObrasScreen({ profile, signOut }) {
                 display: "flex", flexDirection: "column",
               }}>
               {/* ── OBRA CARD ── */}
-              <div className="obra-gantt-row" style={{ borderRadius: 12, background: expanded ? "rgba(255,255,255,0.04)" : C.s0, border: `1px solid ${expanded ? obraAccentColor(obra)+"40" : C.b0}`, overflow: "hidden", transition: "border-color 0.3s, background 0.3s, box-shadow 0.3s", boxShadow: expanded ? `0 0 0 1px ${obraAccentColor(obra)}20, 0 8px 32px rgba(0,0,0,0.3), inset 0 0 40px ${obraAccentColor(obra)}06` : obra.estado === "activa" ? `0 0 0 1px ${obraAccentColor(obra)}14, inset 0 0 20px ${obraAccentColor(obra)}06` : "none", position: "relative" }}>
+              <div className="obra-gantt-row" style={{ borderRadius: 12, background: expanded ? "var(--panel)" : C.s0, border: `1px solid ${expanded ? obraAccentColor(obra)+"40" : C.b0}`, overflow: "hidden", transition: "border-color 0.3s, background 0.3s, box-shadow 0.3s", boxShadow: expanded ? `0 0 0 1px ${obraAccentColor(obra)}20, 0 8px 32px rgba(0,0,0,0.3), inset 0 0 40px ${obraAccentColor(obra)}06` : obra.estado === "activa" ? `0 0 0 1px ${obraAccentColor(obra)}14, inset 0 0 20px ${obraAccentColor(obra)}06` : "none", position: "relative" }}>
                 {/* accent bar top — color de línea */}
                 {(() => {
                   const ac = obraAccentColor(obra);
@@ -2224,7 +2224,7 @@ export default function ObrasScreen({ profile, signOut }) {
                         <div key={e.id} title={`${e.nombre} · ${e.estado} · ${ep}%`}
                           style={{ flex: num(e.dias_estimados) / totalDias, display: "flex", flexDirection: "column", gap: 2 }}>
                           <div style={{ fontSize: 7, color: C.t2, letterSpacing: 0.5, overflow: "hidden", textOverflow: "clip", whiteSpace: "nowrap", textAlign: "center" }}>{e.nombre}</div>
-                          <div style={{ height: 6, borderRadius: 2, background: "rgba(255,255,255,0.06)", overflow: "hidden" }}>
+                          <div style={{ height: 6, borderRadius: 2, background: "var(--panel-2)", overflow: "hidden" }}>
                             <div style={{ height: "100%", width: `${ep}%`, background: ec.dot, borderRadius: 2, transition: `width 1.1s cubic-bezier(0.22,1,0.36,1) ${idx * 0.08}s`, ...(e.estado === "en_curso" ? { animation: "gPulse 2.8s ease-in-out infinite" } : {}) }}/>
                           </div>
                         </div>
@@ -2284,7 +2284,7 @@ export default function ObrasScreen({ profile, signOut }) {
                     const epct   = pctEtapa(etapa.id);
 
                     return (
-                      <div key={etapa.id} style={{ marginBottom: 6, border: `1px solid ${etExp ? C.b1 : C.b0}`, borderRadius: 9, background: etExp ? "rgba(255,255,255,0.025)" : C.s0, transition: "border-color .15s, background .15s", overflow: "hidden" }}>
+                      <div key={etapa.id} style={{ marginBottom: 6, border: `1px solid ${etExp ? C.b1 : C.b0}`, borderRadius: 9, background: etExp ? "var(--panel)" : C.s0, transition: "border-color .15s, background .15s", overflow: "hidden" }}>
 
                         {/* ── CABECERA DE ETAPA (clic = desplegar/plegar) ── */}
                         <div
@@ -2312,7 +2312,7 @@ export default function ObrasScreen({ profile, signOut }) {
                             <div style={{ display: "flex", gap: 2, flexShrink: 0 }} onClick={e => e.stopPropagation()}>
                               {[["pendiente","—"],["en_curso","▶"],["completado","✓"]].map(([est, ico]) => (
                                 <button key={est} type="button" onClick={() => cambiarEstadoEtapa(etapa.id, est)}
-                                  style={{ width: 20, height: 20, borderRadius: 4, border: "none", cursor: "pointer", fontSize: 10, background: etapa.estado === est ? `${(C.etapa[est]).dot}28` : "rgba(255,255,255,0.03)", color: etapa.estado === est ? (C.etapa[est]).dot : C.t2 }}>
+                                  style={{ width: 20, height: 20, borderRadius: 4, border: "none", cursor: "pointer", fontSize: 10, background: etapa.estado === est ? `${(C.etapa[est]).dot}28` : "var(--panel)", color: etapa.estado === est ? (C.etapa[est]).dot : C.t2 }}>
                                   {ico}
                                 </button>
                               ))}
@@ -2390,10 +2390,10 @@ export default function ObrasScreen({ profile, signOut }) {
       <style>{`
         @import url('https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500;700&display=swap');
         *, *::before, *::after { box-sizing: border-box; }
-        select option { background: #0f0f12; color: var(--muted); }
+        select option { background: var(--panel-solid); color: var(--muted); }
         ::-webkit-scrollbar { width: 3px; height: 3px; }
         ::-webkit-scrollbar-track { background: transparent; }
-        ::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.07); border-radius: 99px; }
+        ::-webkit-scrollbar-thumb { background: var(--panel-2); border-radius: 99px; }
         input:focus, select:focus, textarea:focus { border-color: rgba(59,130,246,0.35) !important; outline: none; }
         /* ── Entradas ── */
         @keyframes cardEnter  { 0%{opacity:0;transform:translateY(18px) scale(0.97)} 60%{opacity:1} 100%{opacity:1;transform:translateY(0) scale(1)} }
@@ -2409,9 +2409,9 @@ export default function ObrasScreen({ profile, signOut }) {
         @keyframes beaconRing { 0%{transform:scale(1);opacity:.7} 100%{transform:scale(2.4);opacity:0} }
         button:not([disabled]):hover { opacity: 0.8; }
         .obra-gantt-row { transition: background .12s, border-color .15s; }
-        .obra-gantt-row:hover { background: rgba(255,255,255,0.035) !important; }
+        .obra-gantt-row:hover { background: var(--panel) !important; }
         .etapa-inner-row { transition: background .1s; }
-        .etapa-inner-row:hover { background: rgba(255,255,255,0.025) !important; }
+        .etapa-inner-row:hover { background: var(--panel) !important; }
         .bg-glow { position: fixed; inset: 0; pointer-events: none; z-index: 0;
           background: radial-gradient(ellipse 70% 38% at 50% -6%, rgba(59,130,246,0.07) 0%, transparent 65%),
                       radial-gradient(ellipse 40% 28% at 92% 88%, rgba(245,158,11,0.02) 0%, transparent 55%); }
@@ -2425,22 +2425,22 @@ export default function ObrasScreen({ profile, signOut }) {
 
         <div style={{ flex: 1, display: "flex", flexDirection: "column", height: "100vh", overflow: "hidden", minWidth: 0 }}>
           {/* TOPBAR — sutil cuando el mapa/obras está abierto */}
-          <div style={{ height: 38, background: "rgba(9,9,11,0.75)", ...GLASS, borderBottom: `1px solid rgba(255,255,255,0.05)`, padding: isMobile ? "0 12px 0 52px" : "0 16px", display: "flex", alignItems: "center", gap: 10, flexShrink: 0 }}>
+          <div style={{ height: 38, background: "var(--topbar)", ...GLASS, borderBottom: `1px solid var(--panel)`, padding: isMobile ? "0 12px 0 52px" : "0 16px", display: "flex", alignItems: "center", gap: 10, flexShrink: 0 }}>
             {/* Pills compactos: solo dot + número + label */}
             <div style={{ display: "flex", gap: 5, flex: 1, alignItems: "center" }}>
               {/* Botón volver a home */}
               <button type="button" onClick={() => setShowHome(true)}
                 title="Volver al inicio de Obras"
                 style={{ display: "flex", alignItems: "center", gap: 5, padding: "3px 9px", borderRadius: 6,
-                  border: "1px solid rgba(255,255,255,0.07)", background: "rgba(255,255,255,0.02)",
-                  color: "rgba(255,255,255,0.28)", cursor: "pointer", fontSize: 11,
+                  border: "1px solid var(--panel-2)", background: "var(--panel)",
+                  color: "var(--border-3)", cursor: "pointer", fontSize: 11,
                   fontFamily: C.mono, letterSpacing: 1, marginRight: 4, transition: "all .15s" }}
-                onMouseEnter={e => { e.currentTarget.style.borderColor = "rgba(255,255,255,0.18)"; e.currentTarget.style.color = "#fff"; }}
-                onMouseLeave={e => { e.currentTarget.style.borderColor = "rgba(255,255,255,0.07)"; e.currentTarget.style.color = "rgba(255,255,255,0.28)"; }}>
+                onMouseEnter={e => { e.currentTarget.style.borderColor = "var(--border-2)"; e.currentTarget.style.color = "var(--text)"; }}
+                onMouseLeave={e => { e.currentTarget.style.borderColor = "var(--panel-2)"; e.currentTarget.style.color = "var(--border-3)"; }}>
                 <svg width="9" height="9" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round"><polyline points="15 18 9 12 15 6"/></svg>
                 Obras
               </button>
-              <div style={{ width: 1, height: 12, background: "rgba(255,255,255,0.07)", marginRight: 4 }}/>
+              <div style={{ width: 1, height: 12, background: "var(--panel-2)", marginRight: 4 }}/>
               {[
                 {label:"Activas",   n:stats.activas,    c:C.obra.activa.dot   },
                 {label:"Pausadas",  n:stats.pausadas,   c:C.obra.pausada.dot  },
@@ -2448,8 +2448,8 @@ export default function ObrasScreen({ profile, signOut }) {
               ].map(({label, n, c}, i) => (
                 <div key={label} style={{ display: "flex", alignItems: "center", gap: 5,
                   padding: "3px 10px", borderRadius: 6,
-                  background: "rgba(255,255,255,0.018)",
-                  border: `1px solid rgba(255,255,255,0.05)`,
+                  background: "var(--panel)",
+                  border: `1px solid var(--panel-2)`,
                   borderLeft: `2px solid ${c}`,
                   animation: `countIn 0.4s ease ${i * 0.08}s both` }}>
                   <div style={{ width: 5, height: 5, borderRadius: "50%", background: c,
@@ -2463,21 +2463,13 @@ export default function ObrasScreen({ profile, signOut }) {
               ))}
             </div>
             <div style={{ display: "flex", gap: 3 }}>
-              <button type="button" onClick={() => setMainView("obras")} style={{ padding: "5px 14px", borderRadius: 7, cursor: "pointer", fontSize: 12, fontFamily: C.sans, border: mainView === "obras" ? `1px solid ${C.b1}` : `1px solid ${C.b0}`, background: mainView === "obras" ? C.s1 : "transparent", color: mainView === "obras" ? C.t0 : C.t1, transition: "all 0.18s", boxShadow: mainView === "obras" ? "0 0 0 1px rgba(255,255,255,0.06) inset" : "none" }}><span style={{display:"flex",alignItems:"center",gap:5}}><NavIcon.Grid />Obras</span></button>
+              <button type="button" onClick={() => setMainView("obras")} style={{ padding: "5px 14px", borderRadius: 7, cursor: "pointer", fontSize: 12, fontFamily: C.sans, border: mainView === "obras" ? `1px solid ${C.b1}` : `1px solid ${C.b0}`, background: mainView === "obras" ? C.s1 : "transparent", color: mainView === "obras" ? C.t0 : C.t1, transition: "all 0.18s", boxShadow: mainView === "obras" ? "0 0 0 1px var(--panel-2) inset" : "none" }}><span style={{display:"flex",alignItems:"center",gap:5}}><NavIcon.Grid />Obras</span></button>
               <button type="button" onClick={() => { setMainView("mapa"); setMapaPanel(null); }} style={{ padding: "5px 14px", borderRadius: 7, cursor: "pointer", fontSize: 12, fontFamily: C.sans, border: mainView === "mapa" ? "1px solid rgba(139,92,246,0.45)" : `1px solid ${C.b0}`, background: mainView === "mapa" ? "rgba(139,92,246,0.12)" : "transparent", color: mainView === "mapa" ? "#a78bfa" : C.t1, transition: "all 0.18s", boxShadow: mainView === "mapa" ? "0 0 16px rgba(139,92,246,0.15)" : "none" }}><span style={{display:"flex",alignItems:"center",gap:5}}><NavIcon.Map />Mapa</span></button>
-              <button type="button" onClick={() => setMainView("ordenes")} style={{ padding: "5px 14px", borderRadius: 7, cursor: "pointer", fontSize: 12, fontFamily: C.sans, border: mainView === "ordenes" ? `1px solid rgba(245,158,11,0.45)` : `1px solid ${C.b0}`, background: mainView === "ordenes" ? "rgba(245,158,11,0.10)" : "transparent", color: mainView === "ordenes" ? C.amber : C.t1, position: "relative", transition: "all 0.18s", boxShadow: mainView === "ordenes" ? "0 0 16px rgba(245,158,11,0.12)" : "none" }}>
-                <span style={{display:"flex",alignItems:"center",gap:5}}><NavIcon.Cart />Compras</span>
-                {alertCountOC > 0 && <span style={{ position: "absolute", top: -4, right: -4, minWidth: 16, height: 16, borderRadius: 8, background: C.red, color: "#fff", fontSize: 10, fontWeight: 700, display: "flex", alignItems: "center", justifyContent: "center", padding: "0 4px" }}>{alertCountOC}</span>}
-              </button>
-              {!["laminacion"].includes(profile?.role) && <button type="button" onClick={() => setMainView("planificacion")} style={{ padding: "5px 14px", borderRadius: 7, cursor: "pointer", fontSize: 12, fontFamily: C.sans, border: mainView === "planificacion" ? `1px solid rgba(245,158,11,0.45)` : `1px solid ${C.b0}`, background: mainView === "planificacion" ? "rgba(245,158,11,0.10)" : "transparent", color: mainView === "planificacion" ? C.amber : C.t1, position: "relative", transition: "all 0.18s", boxShadow: mainView === "planificacion" ? "0 0 16px rgba(245,158,11,0.12)" : "none" }}>
-                Planificación
-                {alertCountAvisos > 0 && <span style={{ position: "absolute", top: -4, right: -4, minWidth: 16, height: 16, borderRadius: 8, background: C.red, color: "#fff", fontSize: 10, fontWeight: 700, display: "flex", alignItems: "center", justifyContent: "center", padding: "0 4px" }}>{alertCountAvisos}</span>}
-              </button>}
               <button type="button" onClick={() => setMainView("piezas_lam")} style={{ padding: "5px 14px", borderRadius: 7, cursor: "pointer", fontSize: 12, fontFamily: C.sans, border: mainView === "piezas_lam" ? `1px solid rgba(16,185,129,0.45)` : `1px solid ${C.b0}`, background: mainView === "piezas_lam" ? "rgba(16,185,129,0.10)" : "transparent", color: mainView === "piezas_lam" ? C.green : C.t1, transition: "all 0.18s", boxShadow: mainView === "piezas_lam" ? "0 0 16px rgba(16,185,129,0.12)" : "none" }}>
-                <span style={{display:"flex",alignItems:"center",gap:5}}>Piezas Laminación</span>
+                <span style={{display:"flex",alignItems:"center",gap:5}}><NavIcon.Pieces />Piezas Laminación</span>
               </button>
               <button type="button" onClick={() => setMainView("fechas")} style={{ padding: "5px 14px", borderRadius: 7, cursor: "pointer", fontSize: 12, fontFamily: C.sans, border: mainView === "fechas" ? `1px solid rgba(34,211,238,0.45)` : `1px solid ${C.b0}`, background: mainView === "fechas" ? "rgba(34,211,238,0.10)" : "transparent", color: mainView === "fechas" ? C.cyan : C.t1, transition: "all 0.18s", boxShadow: mainView === "fechas" ? "0 0 16px rgba(34,211,238,0.12)" : "none" }}>
-                <span style={{display:"flex",alignItems:"center",gap:5}}>Fechas</span>
+                <span style={{display:"flex",alignItems:"center",gap:5}}><NavIcon.Cal />Fechas</span>
               </button>
             </div>
             {mainView === "obras" && esGestion && <Btn variant="primary" onClick={() => setShowObraModal(true)}>+ Nueva obra</Btn>}
@@ -2489,15 +2481,15 @@ export default function ObrasScreen({ profile, signOut }) {
               <div style={{ height: 36, background: C.topbarSoft, ...GLASS, borderBottom: `1px solid ${C.b0}`, padding: "0 18px", display: "flex", alignItems: "center", gap: 4, flexShrink: 0, overflowX: "auto" }}>
                 <span style={{ fontSize: 10, color: C.t2, letterSpacing: 1.3, textTransform: "uppercase", flexShrink: 0 }}>Estado</span>
                 {[["todos","Todos"],["activa","Activas"],["pausada","Pausadas"],["terminada","Terminadas"]].map(([v, l]) => (
-                  <button key={v} type="button" onClick={() => setFiltroEstado(v)} style={{ border: filtroEstado === v ? `1px solid ${C.b1}` : `1px solid rgba(255,255,255,0.04)`, background: filtroEstado === v ? C.s1 : "transparent", color: filtroEstado === v ? C.t0 : C.t1, padding: "3px 11px", borderRadius: 5, cursor: "pointer", fontSize: 11, fontFamily: C.sans }}>{l}</button>
+                  <button key={v} type="button" onClick={() => setFiltroEstado(v)} style={{ border: filtroEstado === v ? `1px solid ${C.b1}` : `1px solid var(--panel)`, background: filtroEstado === v ? C.s1 : "transparent", color: filtroEstado === v ? C.t0 : C.t1, padding: "3px 11px", borderRadius: 5, cursor: "pointer", fontSize: 11, fontFamily: C.sans }}>{l}</button>
                 ))}
                 <div style={{ width: 1, height: 12, background: C.b0, margin: "0 3px" }} />
                 <span style={{ fontSize: 10, color: C.t2, letterSpacing: 1.3, textTransform: "uppercase", flexShrink: 0 }}>Línea</span>
-                <button type="button" onClick={() => setFiltroLinea("todas")} style={{ border: filtroLinea === "todas" ? `1px solid ${C.b1}` : `1px solid rgba(255,255,255,0.04)`, background: filtroLinea === "todas" ? C.s1 : "transparent", color: filtroLinea === "todas" ? C.t0 : C.t1, padding: "3px 11px", borderRadius: 5, cursor: "pointer", fontSize: 11, fontFamily: C.sans }}>Todas</button>
+                <button type="button" onClick={() => setFiltroLinea("todas")} style={{ border: filtroLinea === "todas" ? `1px solid ${C.b1}` : `1px solid var(--panel)`, background: filtroLinea === "todas" ? C.s1 : "transparent", color: filtroLinea === "todas" ? C.t0 : C.t1, padding: "3px 11px", borderRadius: 5, cursor: "pointer", fontSize: 11, fontFamily: C.sans }}>Todas</button>
                 {lineas.map(l => (
                   <div key={l.id} style={{ display: "flex", alignItems: "center", gap: 1 }}>
-                    <button type="button" onClick={() => setFiltroLinea(filtroLinea === l.id ? "todas" : l.id)} style={{ border: filtroLinea === l.id ? `1px solid ${C.b1}` : `1px solid rgba(255,255,255,0.04)`, borderLeft: filtroLinea === l.id ? `2px solid ${l.color}` : undefined, background: filtroLinea === l.id ? C.s1 : "transparent", color: filtroLinea === l.id ? C.t0 : C.t1, padding: "3px 11px", borderRadius: "5px 0 0 5px", cursor: "pointer", fontSize: 11, fontFamily: C.sans }}>{l.nombre}</button>
-                    {esGestion && <button type="button" onClick={() => setLineasModal({ linea: l })} style={{ border: filtroLinea === l.id ? `1px solid ${C.b1}` : `1px solid rgba(255,255,255,0.04)`, borderLeft: "none", background: filtroLinea === l.id ? C.s1 : "transparent", color: C.t2, padding: "3px 6px", borderRadius: "0 5px 5px 0", cursor: "pointer", fontSize: 10, fontFamily: C.sans }}><NavIcon.Gear /></button>}
+                    <button type="button" onClick={() => setFiltroLinea(filtroLinea === l.id ? "todas" : l.id)} style={{ border: filtroLinea === l.id ? `1px solid ${C.b1}` : `1px solid var(--panel)`, borderLeft: filtroLinea === l.id ? `2px solid ${l.color}` : undefined, background: filtroLinea === l.id ? C.s1 : "transparent", color: filtroLinea === l.id ? C.t0 : C.t1, padding: "3px 11px", borderRadius: "5px 0 0 5px", cursor: "pointer", fontSize: 11, fontFamily: C.sans }}>{l.nombre}</button>
+                    {esGestion && <button type="button" onClick={() => setLineasModal({ linea: l })} style={{ border: filtroLinea === l.id ? `1px solid ${C.b1}` : `1px solid var(--panel)`, borderLeft: "none", background: filtroLinea === l.id ? C.s1 : "transparent", color: C.t2, padding: "3px 6px", borderRadius: "0 5px 5px 0", cursor: "pointer", fontSize: 10, fontFamily: C.sans }}><NavIcon.Gear /></button>}
                   </div>
                 ))}
                 {esGestion && (
@@ -2578,32 +2570,6 @@ export default function ObrasScreen({ profile, signOut }) {
             </div>
           )}
 
-          {mainView === "ordenes" && (
-            <OrdenesCompraView ordenes={ordenes} obras={obras} esGestion={esGestion} onEditOC={oc => setOcModal(oc)} onRefresh={cargar} />
-          )}
-
-          {mainView === "planificacion" && (
-            <PlanificacionView
-              obras={obras}
-              etapas={etapas}
-              lProcs={lProcs}
-              ordenes={ordenes}
-              esGestion={esGestion}
-              onNuevaOC={preload => setOcModal(preload)}
-              onUpdateObra={async (id, fields) => {
-                await supabase.from("produccion_obras").update(fields).eq("id", id);
-                cargar();
-              }}
-              onUpdateOCEstado={async (ocId, nuevoEstado) => {
-                const extra = nuevoEstado === "pedida"   ? { fecha_pedido: today() }
-                            : nuevoEstado === "recibida" ? { fecha_recepcion: today() }
-                            : {};
-                await supabase.from("ordenes_compra").update({ estado: nuevoEstado, ...extra }).eq("id", ocId);
-                cargar();
-              }}
-            />
-          )}
-
           {mainView === "piezas_lam" && (
             <PiezasLaminacionView obras={obras} esGestion={esGestion} />
           )}
@@ -2630,7 +2596,6 @@ export default function ObrasScreen({ profile, signOut }) {
       {confirmModal  && <ConfirmModal {...confirmModal} onCancel={() => setConfirmModal(null)} />}
       {lineasModal   && <LineasEtapasModal linea={lineasModal.linea} lProcs={lProcs} lTareas={lTareas} onClose={() => setLineasModal(null)} onSaved={cargar} />}
       {showNuevaLineaModal && <NuevaLineaModal onClose={() => setShowNuevaLineaModal(false)} onSaved={() => { setShowNuevaLineaModal(false); cargar(); }} />}
-      {ocModal       && <OrdenCompraModal oc={ocModal} obras={obras} onSave={() => { setOcModal(null); cargar(); }} onClose={() => setOcModal(null)} />}
     </div>
   );
 }

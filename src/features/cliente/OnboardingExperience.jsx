@@ -505,7 +505,7 @@ export default function OnboardingExperience({
 
         <header className="ka-on-topbar">
           <div className="ka-brand-mark">
-            <img src={logoK} alt="Klase A" />
+            <img src={logoK} loading="lazy" alt="Klase A" />
             <div>
               <span>Klase A</span>
               <small>Marcando tendencia</small>
@@ -1212,7 +1212,7 @@ function Model3D({ moduleId, color }) {
       {!info && (
         <div style={{
           position: "absolute", bottom: 10, left: "50%", transform: "translateX(-50%)",
-          background: "rgba(2,6,23,0.6)", border: "1px solid rgba(255,255,255,0.1)",
+          background: "rgba(2,6,23,0.6)", border: "1px solid var(--border)",
           borderRadius: 20, padding: "5px 14px",
           color: "rgba(148,163,184,0.7)", fontSize: 12, letterSpacing: "0.06em",
           pointerEvents: "none", whiteSpace: "nowrap",
@@ -1340,7 +1340,7 @@ const ONBOARDING_CSS = `
   justify-content:center;
   border-radius: 999px;
   border: 1px solid rgba(255,255,255,.13);
-  background: rgba(255,255,255,.045);
+  background: var(--panel);
   color: rgba(226,232,240,.86);
   cursor: pointer;
   backdrop-filter: blur(18px);
@@ -1367,8 +1367,8 @@ const ONBOARDING_CSS = `
   grid-template-columns: 28px 18px 1fr;
   align-items:center;
   gap: 8px;
-  border: 1px solid rgba(255,255,255,.07);
-  background: rgba(255,255,255,.035);
+  border: 1px solid var(--panel-2);
+  background: var(--panel);
   color: rgba(203,213,225,.64);
   border-radius: 10px;
   padding: 8px 10px;
@@ -1379,8 +1379,8 @@ const ONBOARDING_CSS = `
 .ka-module-rail button:hover,
 .ka-module-rail button.is-active {
   color: #fff;
-  border-color: color-mix(in srgb, var(--module-color) 52%, rgba(255,255,255,.18));
-  background: color-mix(in srgb, var(--module-color) 14%, rgba(255,255,255,.045));
+  border-color: color-mix(in srgb, var(--module-color) 52%, var(--border-2));
+  background: color-mix(in srgb, var(--module-color) 14%, var(--panel));
   transform: translateX(3px);
 }
 .ka-rail-index {
@@ -1411,10 +1411,10 @@ const ONBOARDING_CSS = `
   position: relative;
   min-height: min(66vh, 650px);
   border-radius: 28px;
-  border: 1px solid rgba(255,255,255,.12);
+  border: 1px solid var(--border);
   background: rgba(2,6,23,.34);
   overflow: hidden;
-  box-shadow: 0 34px 110px rgba(0,0,0,.44), inset 0 1px 0 rgba(255,255,255,.08);
+  box-shadow: 0 34px 110px rgba(0,0,0,.44), inset 0 1px 0 var(--panel-2);
   backdrop-filter: blur(24px);
 }
 .ka-hero-image { position:absolute; inset:0; overflow:hidden; }
@@ -1502,7 +1502,7 @@ const ONBOARDING_CSS = `
   bottom:22px;
   padding:18px 20px;
   border-radius:18px;
-  border:1px solid rgba(255,255,255,.12);
+  border:1px solid var(--border);
   background: rgba(2,6,23,.68);
   backdrop-filter: blur(20px);
 }
@@ -1525,7 +1525,7 @@ const ONBOARDING_CSS = `
   overflow-y: auto;
   max-height: 100%;
   scrollbar-width: thin;
-  scrollbar-color: rgba(255,255,255,.12) transparent;
+  scrollbar-color: var(--border) transparent;
 }
 .ka-slide-copy::-webkit-scrollbar { width: 4px; }
 .ka-slide-copy::-webkit-scrollbar-thumb { background: rgba(255,255,255,.14); border-radius:4px; }
@@ -1591,7 +1591,7 @@ const ONBOARDING_CSS = `
 /* Focused step item */
 .ka-step-item {
   border-radius: 13px;
-  border: 1px solid rgba(255,255,255,.06);
+  border: 1px solid var(--panel-2);
   background: transparent;
   cursor: pointer;
   transition: background .18s, border-color .22s, opacity .22s;
@@ -1602,10 +1602,10 @@ const ONBOARDING_CSS = `
 }
 .ka-step-item:hover {
   opacity: 0.65;
-  border-color: rgba(255,255,255,.12);
+  border-color: var(--border);
 }
 .ka-step-item.is-open {
-  background: rgba(255,255,255,.05);
+  background: var(--panel);
   border-color: color-mix(in srgb, var(--accent) 55%, transparent);
   opacity: 1;
   border-left: 3px solid var(--accent);
@@ -1667,7 +1667,7 @@ const ONBOARDING_CSS = `
 .ka-stats-row div {
   padding:14px;
   border-radius: 14px;
-  border:1px solid rgba(255,255,255,.08);
+  border:1px solid var(--panel-2);
   background: rgba(2,6,23,.4);
 }
 .ka-stats-row strong {
@@ -1711,7 +1711,7 @@ const ONBOARDING_CSS = `
   height: 4px;
   border-radius: 999px;
   overflow:hidden;
-  background: rgba(255,255,255,.08);
+  background: var(--panel-2);
 }
 .ka-progress div {
   height:100%;
@@ -1746,11 +1746,11 @@ const ONBOARDING_CSS = `
   border: 0;
   background: #f8fafc;
   color: #020617;
-  box-shadow: 0 12px 36px rgba(255,255,255,.16);
+  box-shadow: 0 12px 36px var(--border-2);
 }
 .ka-ghost {
-  border: 1px solid rgba(255,255,255,.12);
-  background: rgba(255,255,255,.045);
+  border: 1px solid var(--border);
+  background: var(--panel);
   color: rgba(226,232,240,.76);
 }
 .ka-danger {

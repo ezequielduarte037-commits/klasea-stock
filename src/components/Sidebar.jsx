@@ -78,6 +78,11 @@ function Icon({ id, color = "currentColor", size = 14 }) {
       <circle cx="11.8" cy="13" r="1" {...p}/>
       <path d="M7 7h4" {...p}/>
     </>,
+    "/materiales": <>
+      <rect x="2" y="2" width="12" height="4" rx="1" {...p}/>
+      <rect x="2" y="7" width="12" height="7" rx="1" {...p}/>
+      <path d="M5 10h6M5 12h4" {...p}/>
+    </>,
     "/configuracion": <>
       <circle cx="8" cy="8" r="2" {...p}/>
       <path d="M8 1v2M8 13v2M1 8h2M13 8h2M3 3l1.5 1.5M11.5 11.5L13 13M3 13l1.5-1.5M11.5 4.5L13 3" {...p}/>
@@ -115,6 +120,7 @@ const SC = {
   sistema:            "#f87171",   // red
   postventa:          "#67e8f9",   // cyan
   compras:            "#f59e0b",   // amber
+  panol_catalogo:     "#38bdf8",   // sky
   rrhh:               "#2dd4bf",   // teal
 };
 
@@ -162,12 +168,12 @@ export default function Sidebar({ profile, signOut }) {
   const [waOpen, setWaOpen] = useState(false);
   const [passwordOpen, setPasswordOpen] = useState(false);
   const toggleMenu = () => setMenuOpen(o => !o);
-  useEffect(() => { if (!isMobile) setMenuOpen(false); }, [isMobile]);
+  const menuVisible = isMobile && menuOpen;
   useEffect(() => {
     if (!isMobile) return undefined;
-    document.body.style.overflow = menuOpen ? "hidden" : "";
+    document.body.style.overflow = menuVisible ? "hidden" : "";
     return () => { document.body.style.overflow = ""; };
-  }, [isMobile, menuOpen]);
+  }, [isMobile, menuVisible]);
 
   const role     = profile?.role ?? "invitado";
   const isAdmin  = hasAdminAccess(profile);
@@ -180,6 +186,7 @@ export default function Sidebar({ profile, signOut }) {
   const esCompras = role === "compras";
   const puedeEditarPlantillas = isAdmin || role === "admin" || role === "tecnica";
   const puedePedirCompras = esGestion || esPanol || esCompras;
+  const puedeVerMateriales = esGestion || esCompras;
   const comprasLabel = esCompras || esAdmin ? "Gestión de Compras" : "Pedidos";
   const comprasGroup = esCompras || esAdmin ? "Compras" : "Solicitudes";
   const initials  = username.split(" ").filter(Boolean).map(w => w[0]).slice(0, 2).join("").toUpperCase();
@@ -263,7 +270,7 @@ export default function Sidebar({ profile, signOut }) {
     width: "min(86vw, 310px)", background: C.bg,
     display: "flex", flexDirection: "column",
     borderRight: `1px solid ${C.border}`,
-    transform: menuOpen ? "translateX(0)" : "translateX(-100%)",
+    transform: menuVisible ? "translateX(0)" : "translateX(-100%)",
     transition: "transform .3s cubic-bezier(.22,1,.36,1)",
     overflow: "hidden",
   };
@@ -281,7 +288,7 @@ export default function Sidebar({ profile, signOut }) {
 
       {isMobile && (
         <>
-          {menuOpen && (
+          {menuVisible && (
             <div onClick={toggleMenu} style={{
               position: "fixed", inset: 0, zIndex: 999,
               background: "var(--overlay)", backdropFilter: "blur(2px)",
@@ -296,7 +303,7 @@ export default function Sidebar({ profile, signOut }) {
             display: "flex", alignItems: "center", justifyContent: "center",
             backdropFilter: "blur(6px)", WebkitBackdropFilter: "blur(6px)",
           }}>
-            {menuOpen ? "✕" : "☰"}
+            {menuVisible ? "✕" : "☰"}
           </button>
         </>
       )}
@@ -353,6 +360,12 @@ export default function Sidebar({ profile, signOut }) {
             {divider("compras")}
             {group(comprasGroup, SC.compras, 205)}
             {item("/compras", comprasLabel, SC.compras, true, 215, "Solicitudes internas a compras con seguimiento y usuarios en copia.")}
+          </>}
+
+          {puedeVerMateriales && <>
+            {divider("panol-cat")}
+            {group("Pañol", SC.panol_catalogo, 218)}
+            {item("/materiales", "Materiales", SC.panol_catalogo, true, 228, "Carga y curación del catálogo de materiales por sector y modelo.")}
           </>}
 
           {esGestion && <>

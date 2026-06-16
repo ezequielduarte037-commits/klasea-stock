@@ -9,11 +9,11 @@ import k85Img from "@/assets/boats/K85.png";
 
 /* ─── PALETA ─────────────────────────────────────────────────── */
 const GLASS={
-  background:"rgba(10,10,15,0.88)",
+  background:"var(--topbar)",
   backdropFilter:"blur(24px) saturate(160%)",
   WebkitBackdropFilter:"blur(24px) saturate(160%)",
   border:`1px solid ${C.b0}`,
-  boxShadow:"0 8px 32px -4px rgba(0,0,0,0.7),inset 0 1px 0 rgba(255,255,255,0.05)",
+  boxShadow:"0 8px 32px -4px rgba(0,0,0,0.7),inset 0 1px 0 var(--panel)",
 };
 
 const VB_W=1900, VB_H=840;

@@ -2,11 +2,13 @@
  * KLASE A — MERIDIAN EDITION · COMPLETE + ELEVATED
  * Ocean Tech Theme · Modern Glass Bridge UI
  */
-import React, { useEffect, useState, useCallback, useRef } from "react";
+import React, { useEffect, useState, useCallback, useRef, lazy, Suspense } from "react";
 import { supabase } from "@/supabaseClient";
 import logoK from "@/assets/logos/logo-k.png";
 import k52Render from "@/assets/boats/k52.png";
-import OnboardingExperience from "@/features/cliente/OnboardingExperience";
+// Lazy: la experiencia 3D arrastra three.js (~660 kB). Solo se carga cuando el
+// cliente abre el onboarding, no en el arranque de toda la app.
+const OnboardingExperience = lazy(() => import("@/features/cliente/OnboardingExperience"));
 import { hasCompletedOnboarding } from "@/features/cliente/onboardingStorage";
 import Yacht3DViewer from "@/components/Yacht3DViewer";
 import {
@@ -50,9 +52,9 @@ body {
   --s2: #1E293B; /* Slate 800 */
   --s3: #334155; /* Slate 700 */
   --s4: #475569;
-  --e1: rgba(255,255,255,0.06); 
-  --e2: rgba(255,255,255,0.12); 
-  --e3: rgba(255,255,255,0.20);
+  --e1: var(--panel-2); 
+  --e2: var(--border); 
+  --e3: var(--border-2);
   --t1: #F8FAFC; 
   --t2: #94A3B8; 
   --t3: #64748B;
@@ -86,13 +88,13 @@ body::after {
 /* ── DOT GRID ── */
 body::before {
   content: ''; position: fixed; inset: 0; z-index: 0; pointer-events: none;
-  background-image: radial-gradient(circle, rgba(255,255,255,0.03) 1px, transparent 1px);
+  background-image: radial-gradient(circle, var(--panel) 1px, transparent 1px);
   background-size: 24px 24px;
 }
 
 ::-webkit-scrollbar { width: 4px; height: 4px; }
 ::-webkit-scrollbar-track { background: transparent; }
-::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.1); border-radius: 4px; }
+::-webkit-scrollbar-thumb { background: var(--border); border-radius: 4px; }
 
 /* ── NAV ── */
 .nav {
@@ -194,7 +196,7 @@ body::before {
 .tab:hover:not(.on) { color:var(--t2); }
 
 /* ── PROGRESS ── */
-.pbar { height:3px; background:rgba(255,255,255,.05); border-radius: 2px; overflow:hidden; }
+.pbar { height:3px; background:var(--panel); border-radius: 2px; overflow:hidden; }
 .pbar-fill { height:100%; transition:width .7s var(--ez); }
 
 /* ── BADGE ── */
@@ -356,10 +358,10 @@ body::before {
   left: clamp(12px,2vw,26px);
   right: clamp(12px,2vw,26px);
   height: 64px;
-  border: 1px solid rgba(255,255,255,.1);
+  border: 1px solid var(--border);
   border-radius: 22px;
   background: linear-gradient(180deg, rgba(15,23,42,.78), rgba(2,6,23,.64));
-  box-shadow: 0 22px 70px rgba(0,0,0,.28), inset 0 1px 0 rgba(255,255,255,.08);
+  box-shadow: 0 22px 70px rgba(0,0,0,.28), inset 0 1px 0 var(--panel-2);
 }
 .ka-client-os .shell { padding-top: 92px; }
 .ka-client-os .page { max-width: 1320px; padding-top: clamp(34px,5vw,72px); }
@@ -368,10 +370,10 @@ body::before {
 .ka-client-os .motor-panel,
 .ka-client-os .vcard {
   border-radius: 20px !important;
-  border-color: rgba(255,255,255,.09) !important;
+  border-color: var(--panel-3) !important;
   background:
     linear-gradient(180deg, rgba(255,255,255,.055), rgba(255,255,255,.022)) !important;
-  box-shadow: 0 24px 70px rgba(0,0,0,.22), inset 0 1px 0 rgba(255,255,255,.06);
+  box-shadow: 0 24px 70px rgba(0,0,0,.22), inset 0 1px 0 var(--panel-2);
   backdrop-filter: blur(22px);
 }
 .ka-client-os .sh {
@@ -398,7 +400,7 @@ body::before {
   transition: background .24s var(--ez), color .24s var(--ez), transform .2s var(--ez);
 }
 .ka-client-os .nv:hover {
-  background: rgba(255,255,255,.045);
+  background: var(--panel);
   transform: translateY(-1px);
 }
 .ka-client-os .nv.on {
@@ -406,7 +408,7 @@ body::before {
 }
 .ka-client-os .nv::after { bottom: 5px; border-radius: 99px; }
 .ka-hero-premium {
-  border-bottom: 1px solid rgba(255,255,255,.06);
+  border-bottom: 1px solid var(--panel-2);
   background: #020617;
 }
 .ka-hero-premium::before {
@@ -416,23 +418,23 @@ body::before {
   z-index: 2;
   pointer-events:none;
   background:
-    linear-gradient(90deg, rgba(255,255,255,.03) 1px, transparent 1px),
+    linear-gradient(90deg, var(--panel) 1px, transparent 1px),
     linear-gradient(rgba(255,255,255,.022) 1px, transparent 1px);
   background-size: 72px 72px;
   mask-image: linear-gradient(90deg, black, transparent 70%);
 }
 .ka-hero-glass {
-  border: 1px solid rgba(255,255,255,.12);
+  border: 1px solid var(--border);
   background: linear-gradient(180deg, rgba(15,23,42,.48), rgba(2,6,23,.22));
-  box-shadow: 0 24px 90px rgba(0,0,0,.28), inset 0 1px 0 rgba(255,255,255,.08);
+  box-shadow: 0 24px 90px rgba(0,0,0,.28), inset 0 1px 0 var(--panel-2);
   backdrop-filter: blur(22px);
 }
 .ka-module-tile {
   border-radius: 20px !important;
   background:
     radial-gradient(circle at 18% 0%, rgba(216,195,161,.11), transparent 36%),
-    linear-gradient(180deg, rgba(255,255,255,.065), rgba(255,255,255,.025)) !important;
-  border-color: rgba(255,255,255,.09) !important;
+    linear-gradient(180deg, var(--panel-2), rgba(255,255,255,.025)) !important;
+  border-color: var(--panel-3) !important;
   box-shadow: 0 18px 54px rgba(0,0,0,.2);
 }
 .ka-search-overlay {
@@ -450,18 +452,18 @@ body::before {
   width: min(820px, 100%);
   overflow: hidden;
   border-radius: 26px;
-  border: 1px solid rgba(255,255,255,.12);
+  border: 1px solid var(--border);
   background:
     radial-gradient(circle at 20% 0%, rgba(216,195,161,.12), transparent 38%),
     linear-gradient(180deg, rgba(15,23,42,.94), rgba(2,6,23,.94));
-  box-shadow: 0 40px 130px rgba(0,0,0,.5), inset 0 1px 0 rgba(255,255,255,.09);
+  box-shadow: 0 40px 130px rgba(0,0,0,.5), inset 0 1px 0 var(--panel-3);
 }
 .ka-search-input {
   display:flex;
   align-items:center;
   gap:14px;
   padding: 20px 22px;
-  border-bottom: 1px solid rgba(255,255,255,.08);
+  border-bottom: 1px solid var(--panel-2);
 }
 .ka-search-input input {
   flex:1;
@@ -494,7 +496,7 @@ body::before {
 }
 .ka-search-item:hover {
   background: rgba(255,255,255,.055);
-  border-color: rgba(255,255,255,.09);
+  border-color: var(--panel-3);
 }
 .ka-search-icon {
   width:40px;
@@ -533,11 +535,11 @@ body::before {
   position: relative;
   overflow: hidden;
   border-radius: 28px;
-  border: 1px solid rgba(255,255,255,.12);
+  border: 1px solid var(--border);
   background:
     radial-gradient(circle at 50% 24%, rgba(216,195,161,.14), transparent 42%),
     linear-gradient(180deg, rgba(15,23,42,.58), rgba(2,6,23,.36));
-  box-shadow: 0 30px 100px rgba(0,0,0,.36), inset 0 1px 0 rgba(255,255,255,.08);
+  box-shadow: 0 30px 100px rgba(0,0,0,.36), inset 0 1px 0 var(--panel-2);
   backdrop-filter: blur(22px);
 }
 .yacht3d::before {
@@ -611,7 +613,7 @@ body::before {
 .pgallery-item { position: relative; width: 100px; height: 100px; flex-shrink: 0; border-radius: 6px; overflow: hidden; border: 1px solid var(--e2); cursor: pointer; }
 .pgallery-item img { width: 100%; height: 100%; object-fit: cover; }
 .upzone { padding: 32px 20px; text-align: center; border: 1px dashed var(--e2); cursor: pointer; transition: background 0.2s; }
-.upzone:hover, .upzone.drag { background: rgba(255,255,255,0.03); border-color: var(--accent); }
+.upzone:hover, .upzone.drag { background: var(--panel); border-color: var(--accent); }
 
 }
 `;
@@ -689,15 +691,15 @@ function CircularGauge({pct,liters,maxL}){
   const needleBase=polarPt(CX,CY,R-26,needleDeg);
   return(
     <svg viewBox="0 0 220 195" style={{width:"100%",display:"block"}}>
-      <circle cx={CX} cy={CY} r={R+20} fill="none" stroke="rgba(255,255,255,0.03)" strokeWidth="1"/>
-      <path d={arc(CX,CY,R,START,SWEEP)} fill="none" stroke="rgba(255,255,255,0.05)" strokeWidth="10" strokeLinecap="round"/>
+      <circle cx={CX} cy={CY} r={R+20} fill="none" stroke="var(--panel)" strokeWidth="1"/>
+      <path d={arc(CX,CY,R,START,SWEEP)} fill="none" stroke="var(--panel)" strokeWidth="10" strokeLinecap="round"/>
       <path d={arc(CX,CY,R,START,fill)} fill="none" stroke={color} strokeWidth="10" strokeLinecap="round"
         style={{filter:`drop-shadow(0 0 6px ${pct>55?"rgba(16,185,129,.5)":pct>25?"rgba(245,158,11,.5)":"rgba(239,68,68,.5)"})`,transition:"all .9s cubic-bezier(0.25,1,0.35,1)"}}/>
       {ticks.map(i=>{
         const deg=START+(i/10)*SWEEP;
         const inner=polarPt(CX,CY,R-15,deg);
         const outer=polarPt(CX,CY,R+1,deg);
-        return <line key={i} x1={inner.x} y1={inner.y} x2={outer.x} y2={outer.y} stroke={i===0||i===10?"rgba(255,255,255,0.2)":"rgba(255,255,255,0.07)"} strokeWidth={i===0||i===10?1.5:0.8}/>;
+        return <line key={i} x1={inner.x} y1={inner.y} x2={outer.x} y2={outer.y} stroke={i===0||i===10?"var(--border-2)":"var(--panel-2)"} strokeWidth={i===0||i===10?1.5:0.8}/>;
       })}
       <line x1={needleBase.x} y1={needleBase.y} x2={needleTip.x} y2={needleTip.y} stroke={color} strokeWidth="2" strokeLinecap="round" style={{transition:"all .9s cubic-bezier(0.25,1,0.35,1)"}}/>
       <circle cx={CX} cy={CY} r={6} fill={color} style={{filter:`drop-shadow(0 0 4px ${color})`}}/>
@@ -720,7 +722,7 @@ function TankBar({label,liters,maxL,color,icon}){
         <div style={{position:"absolute",bottom:0,left:0,right:0,height:fillH,background:`linear-gradient(to top, ${color}, ${color}90)`,transition:"height 1.1s cubic-bezier(0.25,1,0.35,1)"}}/>
         {pct>5&&<div style={{position:"absolute",bottom:fillH-1,left:0,right:0,height:1,background:"#fff",opacity:.4}}/>}
         {[25,50,75].map(m=>(
-          <div key={m} style={{position:"absolute",left:0,right:0,bottom:`${m}%`,height:1,background:"rgba(255,255,255,0.08)"}}/>
+          <div key={m} style={{position:"absolute",left:0,right:0,bottom:`${m}%`,height:1,background:"var(--panel-2)"}}/>
         ))}
       </div>
       <div style={{textAlign:"center"}}>
@@ -778,8 +780,8 @@ function MotorGauge({ value, min, max, label, unit, zones, size=130, animated=tr
   return(
     <div style={{textAlign:"center"}}>
       <svg viewBox={`0 0 ${size} ${size+16}`} style={{width:size,height:size+16,display:"block",margin:"0 auto"}}>
-        <circle cx={CX} cy={CY} r={R+14} fill="none" stroke="rgba(255,255,255,0.05)" strokeWidth="0.5"/>
-        <circle cx={CX} cy={CY} r={R+8} fill="none" stroke="rgba(255,255,255,0.03)" strokeWidth="0.5"/>
+        <circle cx={CX} cy={CY} r={R+14} fill="none" stroke="var(--panel)" strokeWidth="0.5"/>
+        <circle cx={CX} cy={CY} r={R+8} fill="none" stroke="var(--panel)" strokeWidth="0.5"/>
 
         {zones?.map((z,i)=>{
           const sw=(z.to-z.from)*SWEEP;
@@ -789,7 +791,7 @@ function MotorGauge({ value, min, max, label, unit, zones, size=130, animated=tr
         })}
 
         <path d={arc(CX,CY,R,START,SWEEP)} fill="none"
-          stroke="rgba(255,255,255,0.05)" strokeWidth="8" strokeLinecap="round"/>
+          stroke="var(--panel)" strokeWidth="8" strokeLinecap="round"/>
 
         <path d={arc(CX,CY,R,START,Math.max(0.01,fillSweep))} fill="none"
           stroke={activeColor} strokeWidth="8" strokeLinecap="round"
@@ -806,7 +808,7 @@ function MotorGauge({ value, min, max, label, unit, zones, size=130, animated=tr
           const {x:x1,y:y1}=polarPt(CX,CY,r1,deg);
           const {x:x2,y:y2}=polarPt(CX,CY,r2,deg);
           return <line key={i} x1={x1} y1={y1} x2={x2} y2={y2}
-            stroke={isMajor?"rgba(255,255,255,0.25)":"rgba(255,255,255,0.08)"}
+            stroke={isMajor?"var(--border-3)":"var(--panel-2)"}
             strokeWidth={isMajor?1.5:1}/>;
         })}
 
@@ -964,16 +966,16 @@ function DualMotorCluster({ mc }){
                   display:"grid",gridTemplateColumns:"repeat(auto-fit, minmax(130px, 1fr))",
                   gap:12,
                 }}>
-                  <div style={{padding:"16px 10px",background:"rgba(0,0,0,0.2)",border:"1px solid rgba(255,255,255,0.04)", borderRadius: "6px"}}>
+                  <div style={{padding:"16px 10px",background:"rgba(0,0,0,0.2)",border:"1px solid var(--panel)", borderRadius: "6px"}}>
                     <MotorGauge value={d.rpm} min={0} max={3000} label="RPM" unit="rev/min" zones={rpmZones} size={G_SIZE}/>
                   </div>
-                  <div style={{padding:"16px 10px",background:"rgba(0,0,0,0.2)",border:"1px solid rgba(255,255,255,0.04)", borderRadius: "6px"}}>
+                  <div style={{padding:"16px 10px",background:"rgba(0,0,0,0.2)",border:"1px solid var(--panel)", borderRadius: "6px"}}>
                     <MotorGauge value={d.temp} min={0} max={120} label="TEMP" unit="°C" zones={tempZones} size={G_SIZE}/>
                   </div>
-                  <div style={{padding:"16px 10px",background:"rgba(0,0,0,0.2)",border:"1px solid rgba(255,255,255,0.04)", borderRadius: "6px"}}>
+                  <div style={{padding:"16px 10px",background:"rgba(0,0,0,0.2)",border:"1px solid var(--panel)", borderRadius: "6px"}}>
                     <MotorGauge value={d.oil} min={0} max={80} label="ACEITE" unit="psi" zones={oilZones} size={G_SIZE}/>
                   </div>
-                  <div style={{padding:"16px 10px",background:"rgba(0,0,0,0.2)",border:"1px solid rgba(255,255,255,0.04)", borderRadius: "6px"}}>
+                  <div style={{padding:"16px 10px",background:"rgba(0,0,0,0.2)",border:"1px solid var(--panel)", borderRadius: "6px"}}>
                     <MotorGauge value={d.volt} min={11} max={16} label="VOLTAJE" unit="V" zones={voltZones} size={G_SIZE}/>
                   </div>
                 </div>
@@ -1057,8 +1059,8 @@ function AnimatedPowerFlowDiagram({active}){
         return(
           <g key={s.id}>
             <rect x="14" y={s.y} width="104" height="40" rx="4"
-              fill={isActive?`color-mix(in srgb, ${s.color} 15%, transparent)`:"rgba(255,255,255,0.03)"}
-              stroke={isActive?s.color:"rgba(255,255,255,0.08)"} strokeWidth={isActive?"1.5":"1"}
+              fill={isActive?`color-mix(in srgb, ${s.color} 15%, transparent)`:"var(--panel)"}
+              stroke={isActive?s.color:"var(--panel-2)"} strokeWidth={isActive?"1.5":"1"}
               style={{transition:"all .4s"}}/>
             <text x="66" y={s.y+16} textAnchor="middle"
               style={{fontFamily:"var(--cond)",fontSize:11,fontWeight:700,letterSpacing:".12em",
@@ -1066,7 +1068,7 @@ function AnimatedPowerFlowDiagram({active}){
               {s.label}
             </text>
             <text x="66" y={s.y+30} textAnchor="middle"
-              style={{fontFamily:"var(--mono)",fontSize:10,fill:isActive?s.color:"rgba(255,255,255,0.15)",
+              style={{fontFamily:"var(--mono)",fontSize:10,fill:isActive?s.color:"var(--border-2)",
                 transition:"fill .4s"}}>
               {s.sub}
             </text>
@@ -1074,7 +1076,7 @@ function AnimatedPowerFlowDiagram({active}){
               style={{animation:"gPulse 1.4s ease-in-out infinite"}}/>}
 
             <path d={pathD} fill="none"
-              stroke={isActive?s.color:"rgba(255,255,255,0.05)"}
+              stroke={isActive?s.color:"var(--panel)"}
               strokeWidth={isActive?"2":"1"}
               strokeDasharray={isActive?"none":"4 6"}
               style={{transition:"all .4s"}}
@@ -1097,7 +1099,7 @@ function AnimatedPowerFlowDiagram({active}){
       })}
 
       <rect x="222" y="72" width="64" height="46" rx="4"
-        fill="rgba(255,255,255,0.05)" stroke="rgba(255,255,255,0.15)" strokeWidth="1"/>
+        fill="var(--panel)" stroke="var(--border-2)" strokeWidth="1"/>
       <text x="254" y="90" textAnchor="middle"
         style={{fontFamily:"var(--cond)",fontSize:10,fontWeight:700,letterSpacing:".12em",fill:"var(--t2)"}}>
         SELECTOR
@@ -1107,7 +1109,7 @@ function AnimatedPowerFlowDiagram({active}){
         FUENTE
       </text>
 
-      <line x1="286" y1="95" x2="340" y2="95" stroke="rgba(255,255,255,0.1)" strokeWidth="1.5"/>
+      <line x1="286" y1="95" x2="340" y2="95" stroke="var(--border)" strokeWidth="1.5"/>
 
       {active&&[0,1].map(di=>(
         <circle key={di} cx="0" cy="0" r="2.5" fill="rgba(255,255,255,0.3)">
@@ -1117,16 +1119,16 @@ function AnimatedPowerFlowDiagram({active}){
 
       {loads.map((l,i)=>{
         const y=18+i*34;
-        const sourceColor=active==="puerto"?"var(--info)":active==="grupo"?"var(--warn)":active==="inv"?"var(--ok)":"rgba(255,255,255,0.08)";
+        const sourceColor=active==="puerto"?"var(--info)":active==="grupo"?"var(--warn)":active==="inv"?"var(--ok)":"var(--panel-2)";
         return(
           <g key={l}>
             <line x1="340" y1="95" x2="340" y2={y+10}
-              stroke="rgba(255,255,255,0.08)" strokeWidth="1"/>
+              stroke="var(--panel-2)" strokeWidth="1"/>
             <line x1="340" y1={y+10} x2="366" y2={y+10}
-              stroke="rgba(255,255,255,0.08)" strokeWidth="1"/>
+              stroke="var(--panel-2)" strokeWidth="1"/>
             <rect x="366" y={y} width="150" height="20" rx="2"
-              fill={active?"rgba(255,255,255,0.04)":"rgba(255,255,255,0.02)"}
-              stroke="rgba(255,255,255,0.08)" strokeWidth="1"/>
+              fill={active?"var(--panel)":"rgba(255,255,255,0.02)"}
+              stroke="var(--panel-2)" strokeWidth="1"/>
             {active&&(
               <circle cx="0" cy="0" r="2"
                 fill={sourceColor} opacity="0.7">
@@ -1216,14 +1218,14 @@ function EmergencyOverlay({ onClose }){
           <button onClick={onClose}
             style={{
               padding:"10px 24px",background:"transparent",
-              border:"1px solid rgba(255,255,255,0.15)", borderRadius: "6px",
+              border:"1px solid var(--border-2)", borderRadius: "6px",
               color:"rgba(255,255,255,0.6)",fontFamily:"var(--cond)",
               fontWeight:700,fontSize:11,letterSpacing:".12em",
               textTransform:"uppercase",cursor:"pointer",
               display:"flex",alignItems:"center",gap:8,transition:"all .2s"
             }}
             onMouseEnter={e=>{e.currentTarget.style.borderColor="rgba(255,255,255,0.3)"; e.currentTarget.style.color="#fff"}}
-            onMouseLeave={e=>{e.currentTarget.style.borderColor="rgba(255,255,255,0.15)"; e.currentTarget.style.color="rgba(255,255,255,0.6)"}}>
+            onMouseLeave={e=>{e.currentTarget.style.borderColor="var(--border-2)"; e.currentTarget.style.color="rgba(255,255,255,0.6)"}}>
             <X size={14}/>CERRAR EMERGENCIA
           </button>
         </div>
@@ -1242,12 +1244,12 @@ function EmergencyOverlay({ onClose }){
               onClick={()=>setActiveProc(activeProc===p.id?null:p.id)}
               style={{
                 padding:"26px 24px",textAlign:"left",cursor:"pointer",
-                background:activeProc===p.id?`color-mix(in srgb, ${p.color} 15%, rgba(2,6,23,0.95))`:"rgba(255,255,255,0.03)",
-                border:`1px solid ${activeProc===p.id?p.color:"rgba(255,255,255,0.08)"}`,
+                background:activeProc===p.id?`color-mix(in srgb, ${p.color} 15%, rgba(2,6,23,0.95))`:"var(--panel)",
+                border:`1px solid ${activeProc===p.id?p.color:"var(--panel-2)"}`,
                 borderRadius: "8px", transition:"all .25s",
               }}
-              onMouseEnter={e=>{if(activeProc!==p.id)e.currentTarget.style.background="rgba(255,255,255,0.06)"}}
-              onMouseLeave={e=>{if(activeProc!==p.id)e.currentTarget.style.background="rgba(255,255,255,0.03)"}}>
+              onMouseEnter={e=>{if(activeProc!==p.id)e.currentTarget.style.background="var(--panel-2)"}}
+              onMouseLeave={e=>{if(activeProc!==p.id)e.currentTarget.style.background="var(--panel)"}}>
               <div style={{color:p.color,opacity:activeProc===p.id?1:.6,marginBottom:16,transition:"opacity .25s"}}>{p.icon}</div>
               <p style={{
                 fontFamily:"var(--cond)",fontSize:15,fontWeight:800,
@@ -1316,7 +1318,7 @@ function EmergencyOverlay({ onClose }){
           <div style={{
             padding:"32px", borderRadius: "8px",
             background:"rgba(255,255,255,0.02)",
-            border:"1px dashed rgba(255,255,255,0.1)",
+            border:"1px dashed var(--border)",
             textAlign:"center",animation:"fade .4s .2s both"
           }}>
             <p style={{
@@ -1462,7 +1464,7 @@ function SecBienvenida({cliente,goTo,onEmergency,onReplayIntro,onSearch}){
     <div>
       {/* ── HERO ── */}
       <div className="ka-hero-premium" style={{position:"relative",width:"100%",height:"min(92vh,780px)",overflow:"hidden"}}>
-        <img src={img} onLoad={()=>setLoaded(true)} alt=""
+        <img src={img} loading="lazy" onLoad={()=>setLoaded(true)} alt=""
           style={{position:"absolute",inset:0,width:"100%",height:"100%",objectFit:"cover",objectPosition:`${focal}% 40%`,
             transform:`scale(${heroScale})`,filter:heroFilter,imageRendering:"auto",
             animation:loaded?"kenBurns 18s ease-out both":"none",opacity:loaded?1:0,transition:"opacity 1.1s, filter .35s, object-position .35s, transform .35s"}}/>
@@ -1517,7 +1519,7 @@ function SecBienvenida({cliente,goTo,onEmergency,onReplayIntro,onSearch}){
               <Cap sm style={{color:"rgba(226,232,240,.76)"}}>Visual de unidad</Cap>
             </div>
             <button onClick={()=>{const next=imgMode==="detail"?"cinema":"detail";setImgMode(next);ls("hero_img_mode",next);}}
-              style={{border:"1px solid rgba(255,255,255,.12)",background:"rgba(255,255,255,.06)",borderRadius:999,color:"var(--t1)",padding:"7px 10px",fontFamily:"var(--mono)",fontSize:11,fontWeight:800,cursor:"pointer"}}>
+              style={{border:"1px solid var(--border)",background:"var(--panel-2)",borderRadius:999,color:"var(--t1)",padding:"7px 10px",fontFamily:"var(--mono)",fontSize:11,fontWeight:800,cursor:"pointer"}}>
               {imgMode==="detail"?"NITIDA":"CINE"}
             </button>
           </div>
@@ -1569,7 +1571,7 @@ function SecBienvenida({cliente,goTo,onEmergency,onReplayIntro,onSearch}){
           </div>
           <div style={{display:"flex",gap:14,marginTop:32,animation:"enter .8s .42s var(--ez) both",flexWrap:"wrap"}}>
             <button onClick={onSearch}
-              style={{padding:"14px 28px",background:"rgba(255,255,255,0.08)",color:"var(--t1)",border:"1px solid rgba(255,255,255,.16)", borderRadius:"999px",
+              style={{padding:"14px 28px",background:"var(--panel-2)",color:"var(--t1)",border:"1px solid var(--border-2)", borderRadius:"999px",
                 fontFamily:"var(--cond)",fontWeight:800,fontSize:12,letterSpacing:".13em",
                 textTransform:"uppercase",cursor:"pointer",transition:"filter .2s,transform .15s",display:"flex",alignItems:"center",gap:10}}
               onMouseEnter={e=>{e.currentTarget.style.filter="brightness(1.12)";e.currentTarget.style.transform="translateY(-2px)"}}
@@ -1596,13 +1598,13 @@ function SecBienvenida({cliente,goTo,onEmergency,onReplayIntro,onSearch}){
               Emergencia
             </button>
             <button onClick={onReplayIntro}
-              style={{padding:"14px 28px",background:"rgba(255,255,255,0.06)", borderRadius:"999px",
+              style={{padding:"14px 28px",background:"var(--panel-2)", borderRadius:"999px",
                 color:"var(--t1)",border:"1px solid rgba(255,255,255,0.14)",
                 fontFamily:"var(--cond)",fontWeight:700,fontSize:12,letterSpacing:".13em",
                 textTransform:"uppercase",cursor:"pointer",transition:"all .2s",
                 display:"flex",alignItems:"center",gap:10}}
               onMouseEnter={e=>{e.currentTarget.style.background="rgba(216,195,161,0.12)";e.currentTarget.style.borderColor="rgba(216,195,161,0.38)";e.currentTarget.style.color="var(--accent)"}}
-              onMouseLeave={e=>{e.currentTarget.style.background="rgba(255,255,255,0.06)";e.currentTarget.style.borderColor="rgba(255,255,255,0.14)";e.currentTarget.style.color="var(--t1)"}}>
+              onMouseLeave={e=>{e.currentTarget.style.background="var(--panel-2)";e.currentTarget.style.borderColor="rgba(255,255,255,0.14)";e.currentTarget.style.color="var(--t1)"}}>
               <Play size={13}/>
               Volver a ver introduccion
             </button>
@@ -1792,7 +1794,7 @@ function BitacoraMantenimiento(){
       <table style={{width:"100%",borderCollapse:"collapse",marginBottom:28}}>
         <thead><tr style={{borderBottom:"1px solid var(--e2)"}}>{["Ítem","Estado","Observaciones / Fecha"].map(h=><th key={h} style={{textAlign:"left",paddingBottom:14,paddingRight:16}}><Cap sm>{h}</Cap></th>)}</tr></thead>
         <tbody>{rows.map((row,i)=>(
-          <tr key={row.n} style={{borderBottom:"1px solid rgba(255,255,255,.04)"}}>
+          <tr key={row.n} style={{borderBottom:"1px solid var(--panel)"}}>
             <td style={{padding:"16px 16px 16px 0",color:"var(--t1)",fontSize:14,fontWeight:500,whiteSpace:"nowrap"}}>{row.n}</td>
             <td style={{padding:"16px 16px 16px 0",minWidth:140}}>
               <select className="sel" value={row.e} onChange={e=>upd(i,"e",e.target.value)} style={{width:"auto",fontSize:14,fontWeight:600,color:sc(row.e),padding:"4px 0", borderBottom: "none"}}>
@@ -1940,7 +1942,7 @@ function TableroFotos(){
       <div className="pgallery" style={{marginBottom:fotos.length?16:0}}>
         {fotos.map((f,i)=>(
           <div key={f.id} className="pgallery-item" onClick={()=>setLb(i)}>
-            <img src={f.url} alt={f.name}/>
+            <img src={f.url} loading="lazy" alt={f.name}/>
             <div style={{position:"absolute",inset:0,background:"rgba(2,6,23,.55)",opacity:0,transition:"opacity .2s",display:"flex",alignItems:"center",justifyContent:"center"}}
               onMouseEnter={e=>e.currentTarget.style.opacity=1} onMouseLeave={e=>e.currentTarget.style.opacity=0}><ZoomIn size={20} color="rgba(255,255,255,.9)"/></div>
             <button onClick={e=>{e.stopPropagation();setFotos(p=>p.filter(x=>x.id!==f.id))}}
@@ -1960,10 +1962,10 @@ function TableroFotos(){
       {lb!==null&&(
         <div onClick={()=>setLb(null)} style={{position:"fixed",inset:0,background:"rgba(2,6,23,.96)",zIndex:99999,display:"flex",alignItems:"center",justifyContent:"center",padding:24,animation:"fade .2s both"}}>
           <button onClick={()=>setLb(null)} style={{position:"absolute",top:24,right:24,background:"transparent",border:"1px solid var(--e2)",borderRadius:"6px",color:"var(--t2)",padding:"8px 16px",cursor:"pointer",fontFamily:"var(--cond)",fontSize:11,fontWeight:700,letterSpacing:".15em",display:"flex",gap:8,alignItems:"center"}}><X size={14}/>CERRAR</button>
-          <img src={fotos[lb]?.url} alt="" style={{maxWidth:"100%",maxHeight:"90vh",objectFit:"contain",animation:"enter .3s var(--ez) both"}}/>
+          <img src={fotos[lb]?.url} loading="lazy" alt="" style={{maxWidth:"100%",maxHeight:"90vh",objectFit:"contain",animation:"enter .3s var(--ez) both"}}/>
           {fotos.length>1&&<>
-            <button onClick={e=>{e.stopPropagation();setLb(i=>(i-1+fotos.length)%fotos.length)}} style={{position:"absolute",left:24,top:"50%",transform:"translateY(-50%)",background:"rgba(255,255,255,.05)",border:"1px solid var(--e2)",borderRadius:"50%",color:"var(--t1)",width:48,height:48,cursor:"pointer",fontSize:20}}>‹</button>
-            <button onClick={e=>{e.stopPropagation();setLb(i=>(i+1)%fotos.length)}} style={{position:"absolute",right:24,top:"50%",transform:"translateY(-50%)",background:"rgba(255,255,255,.05)",border:"1px solid var(--e2)",borderRadius:"50%",color:"var(--t1)",width:48,height:48,cursor:"pointer",fontSize:20}}>›</button>
+            <button onClick={e=>{e.stopPropagation();setLb(i=>(i-1+fotos.length)%fotos.length)}} style={{position:"absolute",left:24,top:"50%",transform:"translateY(-50%)",background:"var(--panel)",border:"1px solid var(--e2)",borderRadius:"50%",color:"var(--t1)",width:48,height:48,cursor:"pointer",fontSize:20}}>‹</button>
+            <button onClick={e=>{e.stopPropagation();setLb(i=>(i+1)%fotos.length)}} style={{position:"absolute",right:24,top:"50%",transform:"translateY(-50%)",background:"var(--panel)",border:"1px solid var(--e2)",borderRadius:"50%",color:"var(--t1)",width:48,height:48,cursor:"pointer",fontSize:20}}>›</button>
           </>}
         </div>
       )}
@@ -2169,7 +2171,7 @@ function SecSistemas({mc}){
           <div>
             <p style={{fontFamily:"var(--cond)",fontSize:13,fontWeight:800,letterSpacing:".12em",color:"var(--err)",textTransform:"uppercase",marginBottom:20}}>Errores Frecuentes</p>
             {[{e:"Usar el malacate para 'arrancar' el ancla trabada",s:"Girar el barco con el motor para liberarla, nunca forzar el malacate."},{e:"Correr el malacate sin parar más de 30 seg",s:"El motor se calienta. Pausas de 2 min cada 30 seg de uso continuo."},{e:"Usar con motores apagados",s:"Las baterías de servicio no toleran la descarga. Siempre con motores en marcha."},{e:"Subir el ancla a máxima velocidad desde mucha profundidad",s:"Use velocidad media y limpie la cadena con el manguerón mientras sube."}].map((item,i)=>(
-              <div key={i} style={{padding:"16px 0",borderBottom:"1px solid rgba(255,255,255,.05)"}}>
+              <div key={i} style={{padding:"16px 0",borderBottom:"1px solid var(--panel)"}}>
                 <p style={{color:"var(--err)",fontSize:14,fontWeight:600,marginBottom:6,opacity:.9}}>✕ {item.e}</p>
                 <p style={{color:"var(--t2)",fontSize:14,fontWeight:400,lineHeight:1.6,paddingLeft:20}}>→ {item.s}</p>
               </div>
@@ -2181,7 +2183,7 @@ function SecSistemas({mc}){
         <div className="card" style={{padding:"36px 32px"}}>
           <div style={{display:"flex",alignItems:"center",gap:10,marginBottom:24}}><Zap size={16} color="var(--t3)"/><Cap>Guía de Consumo 220V</Cap></div>
           {[{t:"Generador o Puerto obligatorio",items:["Aire Acondicionado","Anafe Eléctrico","Termotanque","Horno","Lava-vajillas"],c:"var(--err)"},{t:"Apto para Inverter",items:["Heladera","TV y Audio","Carga USB y teléfonos","Microondas (uso breve)","Luces LED"],c:"var(--ok)"}].map((row,ri)=>(
-            <div key={ri} style={{display:"flex",gap:20,padding:"20px 0",borderBottom:ri===0?"1px solid rgba(255,255,255,.05)":"none"}}>
+            <div key={ri} style={{display:"flex",gap:20,padding:"20px 0",borderBottom:ri===0?"1px solid var(--panel)":"none"}}>
               <div style={{width:3,background:row.c,flexShrink:0,opacity:.6,borderRadius:2}}/>
               <div>
                 <p style={{color:"var(--t1)",fontSize:15,fontWeight:600,marginBottom:12}}>{row.t}</p>
@@ -2251,7 +2253,7 @@ function SecSeguridad({onEmergency}){
       <div className="card" style={{padding:"40px 36px",marginBottom:16}}>
         <div style={{display:"flex",alignItems:"center",gap:10,marginBottom:24}}><Info size={16} color="var(--t3)"/><Cap>Diagnóstico Rápido</Cap></div>
         {[{t:"El motor no arranca",b:"Verificar que los cortes de batería estén en ON. Usar switch Parallel solo en emergencia para unir bancos. Si hay olor a combustible, esperar 5 minutos con escotillas abiertas antes de volver a intentar."},{t:"La bomba de agua potable no corta",b:"Hay pérdida de presión en algún punto. Causa más común: duchador de popa mal cerrado, seguido de una grifo que gotea. Revisar también el acumulador de presión (debe tener 2 bar de precarga)."},{t:"El inodoro no funciona o hay mal olor",b:"Grifo de fondo de salida debe estar ABIERTO. Si el olor persiste, el tanque de aguas negras puede estar lleno o el venteo bloqueado. Revisar filtro de carbón del venteo."},{t:"Alta temperatura en motor",b:"Cortar motor INMEDIATAMENTE. Verificar que el grifo de fondo correspondiente esté abierto y libre de algas/obstáculos. Controlar nivel de refrigerante. No arrancar hasta identificar la causa."},{t:"El inverter se apaga solo",b:"Las baterías de servicio bajaron de 12.0V y el inverter se protegió automáticamente. Conectar a 220V de muelle o arrancar motores para cargar. Esperar 30 minutos antes de usar el inverter nuevamente."}].map((d,i)=>(
-          <details key={d.t} style={{borderBottom:"1px solid rgba(255,255,255,.05)"}}>
+          <details key={d.t} style={{borderBottom:"1px solid var(--panel)"}}>
             <summary style={{display:"flex",justifyContent:"space-between",alignItems:"center",padding:"20px 0"}}>
               <div style={{display:"flex",alignItems:"center",gap:16}}>
                 <span style={{fontFamily:"var(--mono)",fontSize:12,color:"var(--accent)",opacity:.6,letterSpacing:".04em", fontWeight:700}}>0{i+1}</span>
@@ -2270,7 +2272,7 @@ function SecSeguridad({onEmergency}){
         <table style={{width:"100%",borderCollapse:"collapse"}}>
           <thead><tr style={{borderBottom:"1px solid var(--e2)"}}>{["Sistema","Amperaje","Ubicación"].map(h=><th key={h} style={{textAlign:"left",paddingBottom:14,paddingRight:16}}><Cap sm>{h}</Cap></th>)}</tr></thead>
           <tbody>{[["Bow Thruster / Malacate","630 A","Sala de Máquinas · Caja Principal"],["Malacate (secundario)","250 A","Sala de Máquinas · Panel de Proa"],["Inverter","200 A","Sala de Máquinas · Junto a Baterías de Servicio"],["Bomba de Achique","40 A","Panel 12V · Sección Sentinas"],["Bomba de Agua Potable","20 A","Panel 12V · Sección Servicios"]].map((r,i)=>(
-            <tr key={i} style={{borderBottom:"1px solid rgba(255,255,255,.04)"}}>
+            <tr key={i} style={{borderBottom:"1px solid var(--panel)"}}>
               {r.map((c,j)=><td key={j} style={{padding:"16px 16px 16px 0",color:j===0?"var(--t1)":j===1?"var(--warn)":"var(--t3)",fontWeight:400,fontSize:14,fontFamily:j===1?"var(--mono)":"inherit"}}>{c}</td>)}
             </tr>
           ))}</tbody>
@@ -2319,7 +2321,7 @@ function SecTutoriales(){
           return(
             <div key={v.id} className="vcard" onClick={()=>setVid(v.id)}>
               <div className="vcard-grid"/>
-              <img src={`https://img.youtube.com/vi/${v.id}/maxresdefault.jpg`} alt={v.t}
+              <img src={`https://img.youtube.com/vi/${v.id}/maxresdefault.jpg`} loading="lazy" alt={v.t}
                 style={{position:"absolute",inset:0,width:"100%",height:"100%",objectFit:"cover",opacity:.35,transition:"opacity .3s"}}
                 onMouseOver={e=>e.target.style.opacity=".6"} onMouseOut={e=>e.target.style.opacity=".35"}/>
               <div className="vcard-ov"/>
@@ -2350,7 +2352,7 @@ function SecTutoriales(){
           <div style={{width:"100%",maxWidth:1000,animation:"enter .35s var(--ez) both"}}>
             <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:16}}>
               <span style={{fontFamily:"var(--mono)",fontSize:13,color:"var(--t2)",letterSpacing:".15em", fontWeight:700}}>{V.find(x=>x.id===vid)?.ref}</span>
-              <button onClick={()=>setVid(null)} style={{background:"rgba(255,255,255,0.05)",border:"1px solid var(--e2)",borderRadius:"6px",color:"var(--t1)",padding:"10px 24px",cursor:"pointer",fontFamily:"var(--cond)",fontSize:12,fontWeight:800,letterSpacing:".12em",textTransform:"uppercase",display:"flex",alignItems:"center",gap:10}}>
+              <button onClick={()=>setVid(null)} style={{background:"var(--panel)",border:"1px solid var(--e2)",borderRadius:"6px",color:"var(--t1)",padding:"10px 24px",cursor:"pointer",fontFamily:"var(--cond)",fontSize:12,fontWeight:800,letterSpacing:".12em",textTransform:"uppercase",display:"flex",alignItems:"center",gap:10}}>
                 <X size={14}/> CERRAR
               </button>
             </div>
@@ -2444,7 +2446,7 @@ function SecSoporte({clienteId,nombreBarco,push}){
                   <div style={{display:"flex",flexDirection:"column",gap:8,marginBottom:16}}>
                     {archivos.map(a=>(
                       <div key={a.id} style={{display:"flex",alignItems:"center",gap:12,padding:"10px 14px",borderRadius:"6px",background:"var(--s2)",border:"1px solid var(--e1)"}}>
-                        {a.type.startsWith("image/")?<img src={a.url} alt="" style={{width:40,height:40,objectFit:"cover",borderRadius:"4px"}}/>:<div style={{width:40,height:40,background:"var(--s3)",borderRadius:"4px",display:"flex",alignItems:"center",justifyContent:"center"}}><Play size={16} color="var(--t1)"/></div>}
+                        {a.type.startsWith("image/")?<img src={a.url} loading="lazy" alt="" style={{width:40,height:40,objectFit:"cover",borderRadius:"4px"}}/>:<div style={{width:40,height:40,background:"var(--s3)",borderRadius:"4px",display:"flex",alignItems:"center",justifyContent:"center"}}><Play size={16} color="var(--t1)"/></div>}
                         <div style={{flex:1,minWidth:0}}>
                           <p style={{fontSize:14,color:"var(--t1)",fontWeight:500,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap",marginBottom:2}}>{a.name}</p>
                           <p style={{fontFamily:"var(--mono)",fontSize:11,color:"var(--t3)"}}>{fmtSize(a.size)}</p>
@@ -2482,7 +2484,7 @@ function SecSoporte({clienteId,nombreBarco,push}){
             <div style={{textAlign:"center",padding:"56px 20px"}}><p style={{fontFamily:"var(--mono)",fontSize:12,fontWeight:700,color:"var(--t3)",letterSpacing:".15em"}}>SIN REPORTES PREVIOS</p></div>
           ):(
             (tks||[]).map(t=>(
-              <div key={t.id} style={{padding:"20px 0",borderBottom:"1px solid rgba(255,255,255,.05)"}}>
+              <div key={t.id} style={{padding:"20px 0",borderBottom:"1px solid var(--panel)"}}>
                 <div style={{display:"flex",justifyContent:"space-between",alignItems:"flex-start",gap:12,marginBottom:10}}>
                   <p style={{color:"var(--t1)",fontSize:15,fontWeight:600,flex:1}}>{t.area}</p>
                   <SBadge estado={t.estado}/>
@@ -2492,7 +2494,7 @@ function SecSoporte({clienteId,nombreBarco,push}){
                   <div style={{display:"flex",gap:8,flexWrap:"wrap",marginBottom:12}}>
                     {t.adjuntos.map((url,i)=>(
                       <div key={i} onClick={()=>setLb({url,type:"image/jpeg"})} style={{width:48,height:48,overflow:"hidden",cursor:"pointer",border:"1px solid var(--e2)",borderRadius:"4px",flexShrink:0}}>
-                        <img src={url} alt="" style={{width:"100%",height:"100%",objectFit:"cover"}} onError={e=>e.target.style.display="none"}/>
+                        <img src={url} loading="lazy" alt="" style={{width:"100%",height:"100%",objectFit:"cover"}} onError={e=>e.target.style.display="none"}/>
                       </div>
                     ))}
                   </div>
@@ -2514,8 +2516,8 @@ function SecSoporte({clienteId,nombreBarco,push}){
       </div>
       {lb&&(
         <div onClick={()=>setLb(null)} style={{position:"fixed",inset:0,background:"rgba(2,6,23,.98)",backdropFilter:"blur(8px)",zIndex:99999,display:"flex",alignItems:"center",justifyContent:"center",padding:24,animation:"fade .2s both"}}>
-          <button onClick={()=>setLb(null)} style={{position:"absolute",top:24,right:24,background:"rgba(255,255,255,.05)",border:"1px solid var(--e2)",borderRadius:"6px",color:"var(--t1)",padding:"10px 20px",cursor:"pointer",fontFamily:"var(--cond)",fontSize:11,fontWeight:800,letterSpacing:".12em",display:"flex",gap:8,alignItems:"center"}}><X size={14}/>CERRAR</button>
-          {lb.type?.startsWith("image/")?<img src={lb.url} alt="" style={{maxWidth:"92vw",maxHeight:"88vh",objectFit:"contain",animation:"enter .3s var(--ez) both"}}/>:<video src={lb.url} controls autoPlay style={{maxWidth:"92vw",maxHeight:"88vh",animation:"enter .3s var(--ez) both"}}/>}
+          <button onClick={()=>setLb(null)} style={{position:"absolute",top:24,right:24,background:"var(--panel)",border:"1px solid var(--e2)",borderRadius:"6px",color:"var(--t1)",padding:"10px 20px",cursor:"pointer",fontFamily:"var(--cond)",fontSize:11,fontWeight:800,letterSpacing:".12em",display:"flex",gap:8,alignItems:"center"}}><X size={14}/>CERRAR</button>
+          {lb.type?.startsWith("image/")?<img src={lb.url} loading="lazy" alt="" style={{maxWidth:"92vw",maxHeight:"88vh",objectFit:"contain",animation:"enter .3s var(--ez) both"}}/>:<video src={lb.url} controls autoPlay style={{maxWidth:"92vw",maxHeight:"88vh",animation:"enter .3s var(--ez) both"}}/>}
         </div>
       )}
     </div>
@@ -2586,7 +2588,7 @@ function ClientSearchOverlay({open,onClose,onGo,onEmergency,onReplayIntro}){
         <div className="ka-search-input">
           <Search size={22} color="var(--accent)"/>
           <input ref={inputRef} value={q} onChange={e=>setQ(e.target.value)} placeholder="Buscar baterias, 220V, grupo, agua, emergencia..." />
-          <button type="button" onClick={onClose} style={{width:34,height:34,borderRadius:999,border:"1px solid rgba(255,255,255,.12)",background:"rgba(255,255,255,.05)",color:"var(--t2)",display:"grid",placeItems:"center",cursor:"pointer"}}>
+          <button type="button" onClick={onClose} style={{width:34,height:34,borderRadius:999,border:"1px solid var(--border)",background:"var(--panel)",color:"var(--t2)",display:"grid",placeItems:"center",cursor:"pointer"}}>
             <X size={16}/>
           </button>
         </div>
@@ -2674,7 +2676,7 @@ export default function ClientePanelScreen({session,onSignOut}){
   const sp={cliente,mc,goTo:go,clienteId:session?.user?.id,nombreBarco:cliente?.nombre_barco,push};
   const shouldAutoOpenIntro=!introDismissed&&!!session?.user?.id&&!hasCompletedOnboarding(session.user.id);
 
-  if (introOpen || shouldAutoOpenIntro) { return ( <OnboardingExperience open={true} userId={session?.user?.id} vesselName={cliente?.nombre_barco || cliente?.modelo_barco || "K52 HT"} onClose={() => { setIntroOpen(false); setIntroDismissed(true); }} onGoTo={(target) => { go(target); setIntroOpen(false); setIntroDismissed(true); }} onEmergency={() => { setIntroOpen(false); setIntroDismissed(true); setEmergMode(true); }} /> ); } return ( <div className="ka-client-os" style={{background:"#020617",minHeight:"100vh"}}>
+  if (introOpen || shouldAutoOpenIntro) { return ( <Suspense fallback={<div style={{background:"#020617",minHeight:"100vh",display:"grid",placeItems:"center",color:"#94a3b8",fontFamily:"system-ui",fontSize:13,letterSpacing:"0.1em"}}>Cargando experiencia…</div>}><OnboardingExperience open={true} userId={session?.user?.id} vesselName={cliente?.nombre_barco || cliente?.modelo_barco || "K52 HT"} onClose={() => { setIntroOpen(false); setIntroDismissed(true); }} onGoTo={(target) => { go(target); setIntroOpen(false); setIntroDismissed(true); }} onEmergency={() => { setIntroOpen(false); setIntroDismissed(true); setEmergMode(true); }} /></Suspense> ); } return ( <div className="ka-client-os" style={{background:"#020617",minHeight:"100vh"}}>
       <style>{CSS}</style>
       <Toasts list={toasts}/>
 
@@ -2691,7 +2693,7 @@ export default function ClientePanelScreen({session,onSignOut}){
       {/* ── NAV ── */}
       <nav className="nav">
         <div className="nav-brand">
-          <img src={logoK} alt="K" style={{width:24,height:24,objectFit:"contain",opacity:.8,flexShrink:0,filter:"grayscale(100%) brightness(2.5)"}}/>
+          <img src={logoK} loading="lazy" alt="K" style={{width:24,height:24,objectFit:"contain",opacity:.8,flexShrink:0,filter:"grayscale(100%) brightness(2.5)"}}/>
           <span style={{fontFamily:"var(--cond)",fontWeight:800,fontSize:13,letterSpacing:".13em",color:"rgba(255,255,255,0.9)",marginLeft:4}}>KLASE A</span>
         </div>
         <div className="nav-div"/>
@@ -2708,12 +2710,12 @@ export default function ClientePanelScreen({session,onSignOut}){
             <span style={{fontFamily:"var(--mono)",fontSize:11,fontWeight:700,color:"var(--t2)",letterSpacing:".1em",whiteSpace:"nowrap"}}>{cliente.nombre_barco}</span>
           )}
           <button onClick={()=>setSearchOpen(true)} title="Buscar en el panel"
-            style={{background:"rgba(255,255,255,0.06)",border:"1px solid rgba(255,255,255,0.12)",borderRadius:"999px",color:"var(--t1)",
+            style={{background:"var(--panel-2)",border:"1px solid var(--border)",borderRadius:"999px",color:"var(--t1)",
               fontFamily:"var(--cond)",fontWeight:800,fontSize:11,letterSpacing:".12em",
               textTransform:"uppercase",cursor:"pointer",padding:"9px 14px",
               display:"flex",alignItems:"center",gap:8,transition:"all .2s",flexShrink:0}}
-            onMouseEnter={e=>{e.currentTarget.style.background="rgba(255,255,255,0.1)";e.currentTarget.style.borderColor="rgba(255,255,255,0.22)"}}
-            onMouseLeave={e=>{e.currentTarget.style.background="rgba(255,255,255,0.06)";e.currentTarget.style.borderColor="rgba(255,255,255,0.12)"}}>
+            onMouseEnter={e=>{e.currentTarget.style.background="var(--border)";e.currentTarget.style.borderColor="rgba(255,255,255,0.22)"}}
+            onMouseLeave={e=>{e.currentTarget.style.background="var(--panel-2)";e.currentTarget.style.borderColor="var(--border)"}}>
             <Search size={13}/>BUSCAR
           </button>
           <button onClick={()=>{setIntroDismissed(false);setIntroOpen(true)}} title="Volver a ver introduccion"

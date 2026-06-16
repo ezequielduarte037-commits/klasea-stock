@@ -153,7 +153,7 @@ function Toggle({ on, onChange, disabled=false }) {
   return (
     <button type="button" disabled={disabled} onClick={onChange} style={{
       width:34, height:19, borderRadius:99, border:"none", flexShrink:0,
-      background: on ? "rgba(160,160,180,0.5)" : "rgba(255,255,255,0.07)",
+      background: on ? "rgba(160,160,180,0.5)" : "var(--panel-2)",
       position:"relative", cursor: disabled ? "not-allowed" : "pointer",
       transition:"background .2s", opacity: disabled ? 0.4 : 1,
     }}>
@@ -227,7 +227,7 @@ function SelectorRoles({ value, onChange }) {
           <button key={r} type="button" onClick={() => onChange(r)} style={{
             padding:"9px 12px", borderRadius:7, cursor:"pointer", textAlign:"left",
             background: sel ? `${rm.color}14` : "rgba(255,255,255,0.02)",
-            border:`1px solid ${sel ? rm.color+"40" : "rgba(255,255,255,0.06)"}`,
+            border:`1px solid ${sel ? rm.color+"40" : "var(--panel-2)"}`,
             color: sel ? rm.color : "var(--dim)",
             fontSize:12, fontFamily:"'Outfit',system-ui",
           }}>{rm.label}</button>
@@ -277,7 +277,7 @@ function ModalNuevoUsuario({ onClose, onSaved, flash }) {
         <Field label="Usuario"><input style={Sx.input} required autoFocus autoComplete="off" value={form.username} onChange={e=>set("username",e.target.value)} placeholder="nombre.apellido" /></Field>
         <Field label="Contraseña temporal" hint="Mínimo 10 caracteres, mayúscula, minúscula y número. Se le pedirá cambiarla al ingresar."><input type="password" style={Sx.input} required autoComplete="new-password" value={form.password} onChange={e=>set("password",e.target.value)} /></Field>
         <Field label="Rol"><SelectorRoles value={form.role} onChange={v=>set("role",v)} /></Field>
-        <div style={{ display:"flex", justifyContent:"space-between", alignItems:"center", padding:"10px 14px", background:"rgba(255,255,255,0.02)", border:"1px solid rgba(255,255,255,0.05)", borderRadius:8, marginBottom:20, marginTop:14 }}>
+        <div style={{ display:"flex", justifyContent:"space-between", alignItems:"center", padding:"10px 14px", background:"rgba(255,255,255,0.02)", border:"1px solid var(--panel)", borderRadius:8, marginBottom:20, marginTop:14 }}>
           <div>
             <div style={{ fontSize:13, color:"var(--muted)" }}>Acceso de administrador</div>
             <div style={{ fontSize:10, color:"var(--dim)", marginTop:1 }}>Puede editar configuración y usuarios</div>
@@ -330,7 +330,7 @@ function ModalEditarUsuario({ usuario, onClose, onSaved, flash }) {
       <Field label="Contraseña temporal" hint="Opcional. Si la cargás, se le pedirá cambiarla al ingresar.">
         <input type="password" style={Sx.input} autoComplete="new-password" value={form.password} onChange={e=>set("password",e.target.value)} placeholder="Dejar vacío para no cambiar" />
       </Field>
-      <div style={{ display:"flex", justifyContent:"space-between", alignItems:"center", padding:"11px 14px", background:"rgba(255,255,255,0.02)", border:"1px solid rgba(255,255,255,0.05)", borderRadius:8, marginBottom:22, marginTop:14 }}>
+      <div style={{ display:"flex", justifyContent:"space-between", alignItems:"center", padding:"11px 14px", background:"rgba(255,255,255,0.02)", border:"1px solid var(--panel)", borderRadius:8, marginBottom:22, marginTop:14 }}>
         <div>
           <div style={{ fontSize:13, color:"var(--muted)" }}>Acceso de administrador</div>
           <div style={{ fontSize:10, color:"var(--dim)", marginTop:1 }}>Configuración, usuarios y sistema</div>
@@ -553,8 +553,8 @@ function ModalCliente({ cliente, modelos, onClose, onSaved, flash }) {
               onClick={() => { setShowNuevaObra(s => !s); setObraErr(""); }}
               style={{
                 fontSize:11, padding:"3px 10px", borderRadius:6, cursor:"pointer",
-                border: showNuevaObra ? "1px solid rgba(59,130,246,0.5)" : "1px solid rgba(255,255,255,0.1)",
-                background: showNuevaObra ? "rgba(59,130,246,0.15)" : "rgba(255,255,255,0.04)",
+                border: showNuevaObra ? "1px solid rgba(59,130,246,0.5)" : "1px solid var(--border)",
+                background: showNuevaObra ? "rgba(59,130,246,0.15)" : "var(--panel)",
                 color: showNuevaObra ? "#93c5fd" : "var(--dim)",
                 fontFamily:"'Outfit',system-ui",
               }}
@@ -605,7 +605,7 @@ function ModalCliente({ cliente, modelos, onClose, onSaved, flash }) {
                 <select
                   style={{
                     ...Sx.input,
-                    borderColor: form.obra_id ? "rgba(59,130,246,0.4)" : "rgba(255,255,255,0.08)",
+                    borderColor: form.obra_id ? "rgba(59,130,246,0.4)" : "var(--panel-2)",
                     color: form.obra_id ? "#93c5fd" : "var(--dim)",
                   }}
                   value={form.obra_id}
@@ -746,7 +746,7 @@ function ModalModelo({ modelo, onClose, onSaved, flash }) {
             <div key={f.key} style={{
               display:"flex", alignItems:"center", justifyContent:"space-between",
               padding:"12px 16px", borderRadius:9,
-              background:"rgba(255,255,255,0.02)", border:"1px solid rgba(255,255,255,0.06)",
+              background:"rgba(255,255,255,0.02)", border:"1px solid var(--panel-2)",
             }}>
               <div>
                 <div style={{ fontSize:13, color:"#d4d4d8" }}>{f.label}{f.unit && <span style={{ color:"var(--dim)", marginLeft:4 }}>({f.unit})</span>}</div>
@@ -907,10 +907,10 @@ export default function ConfiguracionScreen({ profile, signOut }) {
         *,*::before,*::after{box-sizing:border-box;}
         ::-webkit-scrollbar{width:3px;height:3px;}
         ::-webkit-scrollbar-track{background:transparent;}
-        ::-webkit-scrollbar-thumb{background:rgba(255,255,255,0.07);border-radius:99px;}
-        button:focus-visible{outline:1px solid rgba(255,255,255,0.2);outline-offset:2px;}
+        ::-webkit-scrollbar-thumb{background:var(--panel-2);border-radius:99px;}
+        button:focus-visible{outline:1px solid var(--border-2);outline-offset:2px;}
         input:focus,select:focus,textarea:focus{outline:none;border-color:rgba(59,130,246,0.35)!important;}
-        select option{background:#0f0f12;color:var(--muted);}
+        select option{background:var(--panel-solid);color:var(--muted);}
         @keyframes toastIn{from{opacity:0;transform:translateY(10px)}to{opacity:1;transform:translateY(0)}}
         @keyframes slideUp{from{opacity:0;transform:translateY(16px)}to{opacity:1;transform:translateY(0)}}
         button:not([disabled]):hover{opacity:0.8;}
@@ -918,7 +918,7 @@ export default function ConfiguracionScreen({ profile, signOut }) {
           background:radial-gradient(ellipse 70% 38% at 50% -6%,rgba(59,130,246,0.07) 0%,transparent 65%),
                      radial-gradient(ellipse 40% 28% at 92% 88%,rgba(245,158,11,0.02) 0%,transparent 55%);}
         .hrow:hover{background:rgba(255,255,255,0.025)!important;}
-        .hcard:hover{border-color:rgba(255,255,255,0.1)!important;}
+        .hcard:hover{border-color:var(--border)!important;}
       `}</style>
       <div className="bg-glow" />
       <div style={{ display:"grid", gridTemplateColumns: isMobile ? "1fr" : "280px 1fr", height:"100%", overflow:"hidden", position:"relative", zIndex:1 }}>
@@ -957,7 +957,7 @@ export default function ConfiguracionScreen({ profile, signOut }) {
                 { n:stats.clientes, l:"clientes", c:"#10b981" },
                 { n:stats.modelos,  l:"modelos",  c:"#f59e0b" },
               ].map(({n,l,c})=>(
-                <div key={l} style={{ display:"flex", alignItems:"center", gap:5, padding:"4px 10px", borderRadius:7, background:"rgba(255,255,255,0.03)", border:"1px solid rgba(255,255,255,0.08)", borderLeft:`2px solid ${c}` }}>
+                <div key={l} style={{ display:"flex", alignItems:"center", gap:5, padding:"4px 10px", borderRadius:7, background:"var(--panel)", border:"1px solid var(--panel-2)", borderLeft:`2px solid ${c}` }}>
                   <span style={{ fontFamily:"'JetBrains Mono',monospace", fontSize:15, fontWeight:700, color:c, lineHeight:1 }}>{n}</span>
                   <span style={{ fontSize:10, color:"var(--dim)", letterSpacing:1.1, textTransform:"uppercase" }}>{l}</span>
                 </div>
@@ -985,7 +985,7 @@ export default function ConfiguracionScreen({ profile, signOut }) {
                       {usuarios.map(u=>{
                         const rm = ROLE_META[u.role] ?? { color:"#505050", label:u.role };
                         return (
-                          <div key={u.id} className="hcard" style={{ border:"1px solid rgba(255,255,255,0.06)", borderRadius:10, background:"rgba(255,255,255,0.02)", padding:"14px 16px", display:"flex", flexDirection:"column", gap:10, transition:"border-color .15s" }}>
+                          <div key={u.id} className="hcard" style={{ border:"1px solid var(--panel-2)", borderRadius:10, background:"rgba(255,255,255,0.02)", padding:"14px 16px", display:"flex", flexDirection:"column", gap:10, transition:"border-color .15s" }}>
                             <div style={{ display:"flex", alignItems:"center", gap:10 }}>
                               <div style={{ width:38, height:38, borderRadius:"50%", flexShrink:0, background:`${rm.color}18`, border:`1px solid ${rm.color}30`, display:"flex", alignItems:"center", justifyContent:"center", fontFamily:"'JetBrains Mono',monospace", fontSize:13, fontWeight:600, color:rm.color }}>
                                 {(u.username??"?").slice(0,2).toUpperCase()}
@@ -1024,14 +1024,14 @@ export default function ConfiguracionScreen({ profile, signOut }) {
                     {clientes.length===0 ? (
                       <div style={{ textAlign:"center", padding:"60px 0", color:"var(--dim)", fontSize:13 }}>Sin clientes registrados. Creá el primero con "+ Nuevo cliente".</div>
                     ) : (
-                      <div style={{ border:"1px solid rgba(255,255,255,0.06)", borderRadius:10, overflow:"hidden", marginTop:16 }}>
-                        <div style={{ display:"grid", gridTemplateColumns:"1fr 90px 110px 130px 160px", gap:0, padding:"8px 18px", background:"rgba(255,255,255,0.015)", borderBottom:"1px solid rgba(255,255,255,0.06)" }}>
+                      <div style={{ border:"1px solid var(--panel-2)", borderRadius:10, overflow:"hidden", marginTop:16 }}>
+                        <div style={{ display:"grid", gridTemplateColumns:"1fr 90px 110px 130px 160px", gap:0, padding:"8px 18px", background:"rgba(255,255,255,0.015)", borderBottom:"1px solid var(--panel-2)" }}>
                           {["Propietario","Obra","Modelo","Barco","Acciones"].map(h=>(
                             <div key={h} style={{ fontSize:10, letterSpacing:1.3, color:"var(--dim)", textTransform:"uppercase" }}>{h}</div>
                           ))}
                         </div>
                         {clientes.map((c,i)=>(
-                          <div key={c.id} className="hrow" style={{ display:"grid", gridTemplateColumns:"1fr 90px 110px 130px 160px", alignItems:"center", padding:"12px 18px", borderBottom: i<clientes.length-1 ? "1px solid rgba(255,255,255,0.04)" : "none", background:"rgba(255,255,255,0.01)", transition:"background .12s" }}>
+                          <div key={c.id} className="hrow" style={{ display:"grid", gridTemplateColumns:"1fr 90px 110px 130px 160px", alignItems:"center", padding:"12px 18px", borderBottom: i<clientes.length-1 ? "1px solid var(--panel)" : "none", background:"rgba(255,255,255,0.01)", transition:"background .12s" }}>
                             <div>
                               <div style={{ fontSize:14, color:"var(--text)", fontWeight:500 }}>{c.nombre_completo}</div>
                               <div style={{ fontFamily:"'JetBrains Mono',monospace", fontSize:11, color:"var(--dim)", marginTop:2 }}>{c.username ?? c.id.slice(0,10)}</div>
@@ -1079,7 +1079,7 @@ export default function ConfiguracionScreen({ profile, signOut }) {
                           const c = m.caracteristicas ?? {};
                           const clientesConModelo = clientes.filter(x=>x.modelo_barco===m.modelo_barco).length;
                           return (
-                            <div key={m.id} className="hcard" style={{ border:"1px solid rgba(255,255,255,0.07)", borderRadius:12, background:"rgba(255,255,255,0.02)", padding:"18px 20px", transition:"border-color .15s" }}>
+                            <div key={m.id} className="hcard" style={{ border:"1px solid var(--panel-2)", borderRadius:12, background:"rgba(255,255,255,0.02)", padding:"18px 20px", transition:"border-color .15s" }}>
                               <div style={{ display:"flex", justifyContent:"space-between", alignItems:"flex-start", marginBottom:14 }}>
                                 <div>
                                   <div style={{ fontFamily:"'JetBrains Mono',monospace", fontSize:22, fontWeight:700, color:"var(--text)", letterSpacing:-0.5 }}>{m.modelo_barco}</div>
@@ -1096,7 +1096,7 @@ export default function ConfiguracionScreen({ profile, signOut }) {
                                   { ico:<Fuel size={10}/>,     label:"Combustible", val:`${c.combustible??"-"} L` },
                                   { ico:<Droplets size={10}/>, label:"Agua",        val:`${c.agua??"-"} L` },
                                 ].map(s=>(
-                                  <div key={s.label} style={{ padding:"8px 12px", borderRadius:7, background:"rgba(255,255,255,0.025)", border:"1px solid rgba(255,255,255,0.05)" }}>
+                                  <div key={s.label} style={{ padding:"8px 12px", borderRadius:7, background:"rgba(255,255,255,0.025)", border:"1px solid var(--panel)" }}>
                                     <div style={{ fontSize:10, color:"var(--dim)", textTransform:"uppercase", letterSpacing:1, marginBottom:3, display:"flex", alignItems:"center", gap:4 }}><span style={{ opacity:0.6, display:"flex" }}>{s.ico}</span>{s.label}</div>
                                     <div style={{ fontFamily:"'JetBrains Mono',monospace", fontSize:14, color:"var(--muted)" }}>{s.val}</div>
                                   </div>
@@ -1124,8 +1124,8 @@ export default function ConfiguracionScreen({ profile, signOut }) {
                     {Object.keys(configGrupos).length===0 ? (
                       <div style={{ textAlign:"center", padding:"40px 0", color:"var(--dim)", fontSize:13 }}>Sin configuración. Ejecutá el SQL de sistema_config primero.</div>
                     ) : Object.entries(configGrupos).map(([grupo,items])=>(
-                      <div key={grupo} style={{ marginBottom:10, border:"1px solid rgba(255,255,255,0.06)", borderRadius:10, background:"rgba(255,255,255,0.02)", overflow:"hidden" }}>
-                        <div style={{ padding:"10px 18px", borderBottom:"1px solid rgba(255,255,255,0.05)", background:"rgba(255,255,255,0.015)" }}>
+                      <div key={grupo} style={{ marginBottom:10, border:"1px solid var(--panel-2)", borderRadius:10, background:"rgba(255,255,255,0.02)", overflow:"hidden" }}>
+                        <div style={{ padding:"10px 18px", borderBottom:"1px solid var(--panel)", background:"rgba(255,255,255,0.015)" }}>
                           <span style={{ fontSize:10, letterSpacing:3, color:"var(--dim)", textTransform:"uppercase", fontWeight: 700 }}>{grupo}</span>
                         </div>
                         <table style={{ width:"100%", borderCollapse:"collapse" }}>
@@ -1136,7 +1136,7 @@ export default function ConfiguracionScreen({ profile, signOut }) {
                               const isNum   = c.tipo==="number";
                               const curVal  = editConf[c.clave] ?? c.valor;
                               return (
-                                <tr key={c.clave} className="hrow" style={{ borderBottom: ci<items.length-1 ? "1px solid rgba(255,255,255,0.04)" : "none" }}>
+                                <tr key={c.clave} className="hrow" style={{ borderBottom: ci<items.length-1 ? "1px solid var(--panel)" : "none" }}>
                                   <td style={{ padding:"14px 18px", width:"50%" }}>
                                     <div style={{ fontSize:13, color:"var(--muted)" }}>{c.descripcion??c.clave}</div>
                                     <div style={{ fontFamily:"'JetBrains Mono',monospace", fontSize:10, color:"var(--dim)", marginTop:3 }}>{c.clave}</div>

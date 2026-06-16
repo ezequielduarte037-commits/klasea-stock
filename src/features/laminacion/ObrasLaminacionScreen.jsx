@@ -32,7 +32,7 @@ function diasHasta(dateStr) {
 // ─── PALETA ──────────────────────────────────────────────────────
 const GLASS = { backdropFilter: "blur(32px) saturate(130%)", WebkitBackdropFilter: "blur(32px) saturate(130%)" };
 const INP = {
-  background: "var(--input-soft-bg, rgba(255,255,255,0.04))", border: `1px solid ${C.b0}`,
+  background: "var(--input-soft-bg, var(--panel))", border: `1px solid ${C.b0}`,
   color: C.t0, padding: "8px 12px", borderRadius: 8, fontSize: 13,
   outline: "none", width: "100%", fontFamily: C.sans,
 };
@@ -68,7 +68,7 @@ function ProgressBar({ value }) {
   const pct = Math.min(100, Math.max(0, value));
   const barColor = pct >= 100 ? C.green : pct >= 50 ? C.amber : C.red;
   return (
-    <div style={{ height: 4, background: "rgba(255,255,255,0.05)", borderRadius: 99, overflow: "hidden" }}>
+    <div style={{ height: 4, background: "var(--panel)", borderRadius: 99, overflow: "hidden" }}>
       <div style={{ height: "100%", width: `${pct}%`, background: barColor, borderRadius: 99, transition: "width .4s ease" }} />
     </div>
   );
@@ -151,7 +151,7 @@ function GanttView({ obras, obrasFiltradas, alertasPorObra, obraSelId, setObraSe
           const barLeft = Math.max(0, posicionPct(o.fecha_inicio) ?? 0);
           const barWidth = Math.max(anchoPct(o.fecha_inicio || hoyStr(), o.fecha_fin || o.fecha_inicio || hoyStr()), 0.4);
           return (
-            <div key={o.id} onClick={() => setObraSelId(sel ? null : o.id)} style={{ display: "flex", alignItems: "center", borderBottom: "1px solid var(--hairline-border, rgba(255,255,255,0.03))", background: sel ? "var(--selected-row-bg, rgba(255,255,255,0.04))" : "transparent", cursor: "pointer", transition: "background .15s", minHeight: 44 }}>
+            <div key={o.id} onClick={() => setObraSelId(sel ? null : o.id)} style={{ display: "flex", alignItems: "center", borderBottom: "1px solid var(--hairline-border, var(--panel))", background: sel ? "var(--selected-row-bg, var(--panel))" : "transparent", cursor: "pointer", transition: "background .15s", minHeight: 44 }}>
               <div style={{ width: 200, minWidth: 200, padding: "8px 14px", borderRight: `1px solid ${C.b0}`, display: "flex", flexDirection: "column", gap: 3 }}>
                 <div style={{ display: "flex", alignItems: "center", gap: 5 }}>
                   <div style={{ width: 6, height: 6, borderRadius: "50%", background: barColor, flexShrink: 0 }} />
@@ -164,7 +164,7 @@ function GanttView({ obras, obrasFiltradas, alertasPorObra, obraSelId, setObraSe
                 </div>
               </div>
               <div style={{ flex: 1, position: "relative", height: "100%", minHeight: 44, display: "flex", alignItems: "center" }}>
-                {meses.map((_, i) => (i > 0 && <div key={i} style={{ position: "absolute", left: `${(i / NUM_MESES) * 100}%`, top: 0, bottom: 0, width: 1, background: "var(--grid-rule, rgba(255,255,255,0.04))", pointerEvents: "none" }} />))}
+                {meses.map((_, i) => (i > 0 && <div key={i} style={{ position: "absolute", left: `${(i / NUM_MESES) * 100}%`, top: 0, bottom: 0, width: 1, background: "var(--grid-rule, var(--panel))", pointerEvents: "none" }} />))}
                 {hoyPct !== null && hoyPct >= 0 && hoyPct <= 100 && <div style={{ position: "absolute", left: `${hoyPct}%`, top: 0, bottom: 0, width: 1, background: "rgba(59,130,246,0.5)", pointerEvents: "none", zIndex: 2 }} />}
                 {barWidth > 0 && (
                   <div style={{ position: "absolute", left: `${barLeft}%`, width: `${barWidth}%`, height: 20, background: barColor + "33", border: `1px solid ${barColor}88`, borderRadius: 5, display: "flex", alignItems: "center", paddingLeft: 6, overflow: "hidden", zIndex: 1 }}>
@@ -205,8 +205,8 @@ function GanttView({ obras, obrasFiltradas, alertasPorObra, obraSelId, setObraSe
 // ══════════════════════════════════════════════════════════════
 // DETALLE OBRA
 // ══════════════════════════════════════════════════════════════
-const TH = { padding: "8px 12px", textAlign: "left", fontSize: 10, letterSpacing: 1.3, textTransform: "uppercase", color: C.t2, fontWeight: 700, borderBottom: "1px solid var(--head-border, rgba(255,255,255,0.08))", whiteSpace: "nowrap" };
-const TD = { padding: "9px 12px", fontSize: 13, borderBottom: "1px solid var(--hairline-border, rgba(255,255,255,0.03))", color: C.t1 };
+const TH = { padding: "8px 12px", textAlign: "left", fontSize: 10, letterSpacing: 1.3, textTransform: "uppercase", color: C.t2, fontWeight: 700, borderBottom: "1px solid var(--head-border, var(--panel-2))", whiteSpace: "nowrap" };
+const TD = { padding: "9px 12px", fontSize: 13, borderBottom: "1px solid var(--hairline-border, var(--panel))", color: C.t1 };
 
 function DetalleObra({ obraSel, tablaObra, obraStats, esGestion, editNec, setEditNec, savingNec, guardarNecesaria, guardarIngresadoManual, limpiarIngresadoManual, filtroMat, setFiltroMat }) {
   // editIngresado: { [matId]: string } — valor en el input de edición de ingresado
@@ -317,7 +317,7 @@ function DetalleObra({ obraSel, tablaObra, obraStats, esGestion, editNec, setEdi
                       {esGestion ? (
                         <div style={{ display: "flex", gap: 3, justifyContent: "flex-end", alignItems: "center" }}>
                           <input
-                            style={{ background: "var(--input-soft-bg, rgba(255,255,255,0.04))", border: `1px solid ${C.b0}`, color: C.t0, padding: "3px 6px", borderRadius: 5, fontSize: 12, outline: "none", width: 60, textAlign: "right", fontFamily: C.mono }}
+                            style={{ background: "var(--input-soft-bg, var(--panel))", border: `1px solid ${C.b0}`, color: C.t0, padding: "3px 6px", borderRadius: 5, fontSize: 12, outline: "none", width: 60, textAlign: "right", fontFamily: C.mono }}
                             type="number" min="0" step="0.01"
                             placeholder={r.necesario || "0"}
                             value={necVal}
@@ -683,7 +683,7 @@ export default function ObrasLaminacionScreen({ profile, signOut }) {
     const obra = obras.find(o => o.id === obraId);
     if (!obra) return;
     const codigo = extraerCodigo(obra);
-    if (!codigo) return setErr(`No se pudo determinar el modelo de "${obra.nombre}". Incluí el código en la descripción (ej: "K34 — Hunter").`);
+    if (!codigo) return setErr(`No se pudo determinar el modelo de "${obra.nombre}". Incluí el código en la descripción (ej: "K52").`);
     const plantilla = plantillasPorLinea[codigo];
     const lista = plantilla?.items ?? [];
     if (!lista.length) return setErr(`Sin plantilla activa para ${codigo}. Disponibles: ${Object.keys(plantillasPorLinea).join(", ") || "ninguna"}`);
@@ -775,10 +775,10 @@ export default function ObrasLaminacionScreen({ profile, signOut }) {
       <style>{`
         @import url('https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500;700&display=swap');
         *, *::before, *::after { box-sizing: border-box; }
-        select option { background: #0f0f12; color: var(--muted); }
+        select option { background: var(--panel-solid); color: var(--muted); }
         ::-webkit-scrollbar { width: 3px; height: 3px; }
         ::-webkit-scrollbar-track { background: transparent; }
-        ::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.07); border-radius: 99px; }
+        ::-webkit-scrollbar-thumb { background: var(--panel-2); border-radius: 99px; }
         input:focus, select:focus { border-color: rgba(59,130,246,0.35) !important; outline: none; }
         @keyframes slideUp   { from{opacity:0;transform:translateY(10px)} to{opacity:1;transform:translateY(0)} }
         @keyframes slideLeft { from{opacity:0;transform:translateX(10px)} to{opacity:1;transform:translateX(0)} }

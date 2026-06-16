@@ -15,6 +15,21 @@ export default defineConfig({
   // y la app cargue en esos navegadores. Coincide con esbuild (minify por defecto).
   build: {
     target: ['es2019', 'chrome61', 'safari12'],
+    chunkSizeWarningLimit: 1500,
+    rollupOptions: {
+      output: {
+        // Separar las librerías pesadas en chunks propios: baja el bundle
+        // principal y se cachean aparte (la mayoría de las pantallas no las usan).
+        manualChunks: {
+          three: ['three', '@react-three/fiber', '@react-three/drei'],
+          charts: ['recharts'],
+          pdf: ['jspdf', 'jspdf-autotable', 'html2canvas'],
+          maps: ['leaflet', 'react-leaflet'],
+          editor: ['react-quill-new'],
+          sheets: ['xlsx'],
+        },
+      },
+    },
   },
   esbuild: {
     target: 'es2019',

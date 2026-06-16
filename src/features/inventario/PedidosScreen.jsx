@@ -11,7 +11,7 @@ const GLASS = {
   WebkitBackdropFilter: "blur(32px) saturate(130%)",
 };
 const INP = {
-  background: "rgba(255,255,255,0.04)", border: `1px solid ${C.b0}`,
+  background: "var(--panel)", border: `1px solid ${C.b0}`,
   color: C.t0, padding: "9px 12px", borderRadius: 8, fontSize: 13,
   outline: "none", width: "100%", fontFamily: "'Outfit', system-ui",
 };
@@ -36,7 +36,7 @@ const ESTADOS = [
 const ESTADO_META = Object.fromEntries(ESTADOS.map(e => [e.value, e]));
 
 const filterBtn = (active) => ({
-  border: active ? `1px solid ${C.b1}` : "1px solid rgba(255,255,255,0.04)",
+  border: active ? `1px solid ${C.b1}` : "1px solid var(--panel)",
   background: active ? C.s1 : "transparent",
   color: active ? C.t0 : C.t2,
   padding: "3px 11px", borderRadius: 5, cursor: "pointer",
@@ -186,10 +186,10 @@ export default function PedidosScreen({ profile, signOut }) {
       <style>{`
         @import url('https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500;700&display=swap');
         *, *::before, *::after { box-sizing: border-box; }
-        select option { background: #0f0f12; color: var(--muted); }
+        select option { background: var(--panel-solid); color: var(--muted); }
         ::-webkit-scrollbar { width: 3px; height: 3px; }
         ::-webkit-scrollbar-track { background: transparent; }
-        ::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.07); border-radius: 99px; }
+        ::-webkit-scrollbar-thumb { background: var(--panel-2); border-radius: 99px; }
         input:focus, select:focus, textarea:focus { border-color: rgba(59,130,246,0.35) !important; outline: none; }
         button:not([disabled]):hover { opacity: 0.8; }
         .bg-glow {
@@ -342,7 +342,7 @@ export default function PedidosScreen({ profile, signOut }) {
                   <div key={p.id} className="ped-row" style={{
                     display: "grid", gridTemplateColumns: isMobile ? "1fr auto" : "100px 1fr 120px 120px 100px",
                     gap: isMobile ? "6px 10px" : 10, padding: "11px 16px",
-                    borderBottom: `1px solid rgba(255,255,255,0.04)`,
+                    borderBottom: `1px solid var(--panel)`,
                     alignItems: "center",
                   }}>
                     <div style={{ fontWeight: 600, fontSize: 14, color: C.t0, gridColumn: isMobile ? "1" : undefined, order: isMobile ? 0 : undefined }}>{p.proveedor}</div>
@@ -386,20 +386,33 @@ export default function PedidosScreen({ profile, signOut }) {
                       </div>
                     </div>
                     <div style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>
-                      <button onClick={() => setComprasModal({ open: true, prefilled: (() => {
+                      {(() => {
                         const its = items.filter(it => it.pedido_id === pedidoSel.id);
-                        let desc = `Proveedor: ${pedidoSel.proveedor}${pedidoSel.numero ? ` — ${pedidoSel.numero}` : ""}`;
-                        if (pedidoSel.nota) desc += `\nNota: ${pedidoSel.nota}`;
-                        if (its.length) {
-                          desc += `\n\nMateriales:\n`;
-                          desc += its.map(it => `  • ${it.descripcion}: ${it.cantidad} ${it.unidad}`).join("\n");
-                        }
-                        return {
-                          title: `Pedido: ${pedidoSel.proveedor} — ${pedidoSel.numero || ""}`,
-                          description: desc,
-                          source: "inventario", source_ref: pedidoSel.id, sourceLabel: "Inventario",
-                        };
-                      })()})} style={{ border: "1px solid rgba(96,165,250,0.3)", background: "rgba(96,165,250,0.1)", color: "#60a5fa", padding: "5px 12px", borderRadius: 7, cursor: "pointer", fontSize: 12, fontFamily: C.sans, fontWeight: 700 }}>Pedir a Compras</button>
+                        return (
+                          <button onClick={() => setComprasModal({ open: true, prefilled: {
+                            title: `Pedido: ${pedidoSel.proveedor} — ${pedidoSel.numero || ""}`,
+                            description: [
+                              `Proveedor: ${pedidoSel.proveedor}${pedidoSel.numero ? ` — ${pedidoSel.numero}` : ""}`,
+                              pedidoSel.nota ? `Nota: ${pedidoSel.nota}` : "",
+                            ].filter(Boolean).join("\n"),
+                            source: "inventario", source_ref: pedidoSel.id, sourceLabel: "Inventario",
+                            defaultDestination: "Stock Chubut 2120",
+                            // Ítems reales → se VINCULAN (no se duplica el pedido).
+                            items: its.map(it => ({
+                              maderaPedidoItemId: it.id,
+                              maderaPedidoId: pedidoSel.id,
+                              material_id: it.material_id || null,
+                              description: it.descripcion || "",
+                              quantity: it.cantidad ?? "",
+                              unit: it.unidad || "unidad",
+                              destination: "Stock Chubut 2120",
+                              category: it.categoria || "",
+                              catalogSource: "madera",
+                              notes: "",
+                            })),
+                          } })} disabled={!its.length} title={its.length ? "Vincular este pedido a Compras" : "El pedido no tiene ítems"} style={{ border: "1px solid rgba(96,165,250,0.3)", background: "rgba(96,165,250,0.1)", color: "#60a5fa", padding: "5px 12px", borderRadius: 7, cursor: its.length ? "pointer" : "not-allowed", opacity: its.length ? 1 : 0.5, fontSize: 12, fontFamily: C.sans, fontWeight: 700 }}>Pedir a Compras</button>
+                        );
+                      })()}
                       <button style={{
                         border: `1px solid ${C.b0}`, background: "transparent", color: C.t2,
                         padding: "5px 12px", borderRadius: 7, cursor: "pointer", fontSize: 12, fontFamily: C.sans,
@@ -466,7 +479,7 @@ export default function PedidosScreen({ profile, signOut }) {
                         <div key={it.id} className="item-row" style={{
                           display: "grid", gridTemplateColumns: "1fr 80px 70px 80px 1fr 80px",
                           gap: 10, padding: "10px 12px",
-                          borderBottom: `1px solid rgba(255,255,255,0.04)`,
+                          borderBottom: `1px solid var(--panel)`,
                           alignItems: "center",
                         }}>
                           <div style={{ fontSize: 13, color: C.t0 }}>{it.descripcion}</div>

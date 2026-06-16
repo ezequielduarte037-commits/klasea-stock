@@ -82,13 +82,13 @@ create trigger trg_linea_plantillas_upd
 
 insert into public.linea_plantillas (linea, nombre, descripcion, activa)
 values
-  ('K34', 'Hunter 34', 'Lista base de laminacion K34', true),
-  ('K37', 'Hunter 37', 'Lista base de laminacion K37', true),
-  ('K42', 'Hunter 42', 'Lista base de laminacion K42', true),
-  ('K43', 'Hunter 43', 'Lista base de laminacion K43', true),
-  ('K52', 'Hunter 52', 'Lista base de laminacion K52', true),
-  ('K55', 'Hunter 55', 'Lista base de laminacion K55', true),
-  ('K64', 'Hunter 64', 'Lista base de laminacion K64', true)
+  ('K34', 'Hunter 34',  'Lista base de laminacion K34', true),
+  ('K37', 'Klase A 37', 'Lista base de laminacion K37', true),
+  ('K42', 'Klase A 42', 'Lista base de laminacion K42', true),
+  ('K43', 'Klase A 43', 'Lista base de laminacion K43', true),
+  ('K52', 'Klase A 52', 'Lista base de laminacion K52', true),
+  ('K55', 'Klase A 55', 'Lista base de laminacion K55', true),
+  ('K64', 'Klase A 64', 'Lista base de laminacion K64', true)
 on conflict (linea) do update
   set nombre = excluded.nombre,
       descripcion = excluded.descripcion,

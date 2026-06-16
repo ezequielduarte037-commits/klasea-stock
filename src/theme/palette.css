@@ -66,6 +66,10 @@
   /* Topbar = header semi-transparente que va sobre el contenido. */
   --topbar: rgba(12,12,14,0.92);
   --topbar-soft: rgba(12,12,14,0.78);
+  /* Fade de legibilidad de las cards del home (gradiente sobre el arte). */
+  --home-fade-strong: rgba(9,9,11,0.82);
+  --home-fade: rgba(9,9,11,0.72);
+  --home-fade-faint: rgba(9,9,11,0.1);
 }
 
 [data-theme="light"] {
@@ -144,6 +148,10 @@
   /* En claro, la topbar es un blanco semi-transparente para mantener el feel glass. */
   --topbar: rgba(255,255,255,0.92);
   --topbar-soft: rgba(255,255,255,0.78);
+  /* En claro, el fade de las cards va hacia el gris del fondo (no a negro). */
+  --home-fade-strong: rgba(244,245,247,0.94);
+  --home-fade: rgba(244,245,247,0.85);
+  --home-fade-faint: rgba(244,245,247,0.25);
 
   /* Alias legacy de theme.css: algunas pantallas antiguas usan nombres sin guion. */
   --panel2: var(--panel-2);

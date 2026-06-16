@@ -56,7 +56,7 @@ const S = {
   },
   td: {
     padding: "9px 12px",
-    borderBottom: "1px solid var(--hairline-border, rgba(255,255,255,0.03))",
+    borderBottom: "1px solid var(--hairline-border, var(--panel))",
     verticalAlign: "middle",
     fontSize: 13,
     fontFamily: C.sans,
@@ -99,7 +99,7 @@ const S = {
     transition: "all .15s",
   }),
   input: {
-    background: "var(--input-soft-bg, rgba(255,255,255,0.04))",
+    background: "var(--input-soft-bg, var(--panel))",
     border: `1px solid ${C.b0}`,
     color: C.t0,
     padding: "7px 10px",
@@ -224,7 +224,7 @@ function FilaBarco({ barco, onCambiarEstado, guardando }) {
     <tr
       className="lam-row"
       style={{
-        borderBottom: "1px solid var(--hairline-border, rgba(255,255,255,0.03))",
+        borderBottom: "1px solid var(--hairline-border, var(--panel))",
         opacity: finalizado || pasado ? 0.45 : 1,
         transition: "opacity .2s",
       }}
@@ -631,7 +631,7 @@ export default function BarcoCalendarioPanel() {
               value={filtroEstado}
               onChange={e => setFiltroEstado(e.target.value)}
               style={{
-                background: "var(--input-soft-bg, rgba(255,255,255,0.04))",
+                background: "var(--input-soft-bg, var(--panel))",
                 border: `1px solid ${C.b0}`,
                 color: C.t1,
                 padding: "5px 10px",
