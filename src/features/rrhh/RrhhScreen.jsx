@@ -99,7 +99,7 @@ export default function RrhhScreen({ profile, signOut }) {
                 })}
               </div>
 
-              {tab === "presentismo" && <PresentismoTab empleados={empleados} contratistas={contratistas} config={config} />}
+              {tab === "presentismo" && <PresentismoTab empleados={empleados} contratistas={contratistas} config={config} esAdmin={esAdmin} onChanged={cargar} />}
               {tab === "extras" && <ExtrasTab empleados={empleados} contratistas={contratistas} config={config} onConfigChange={cargar} esAdmin={esAdmin} />}
               {tab === "empleados" && <EmpleadosTab empleados={empleados} contratistas={contratistas} onChanged={cargar} esAdmin={esAdmin} />}
               {tab === "importar" && <ImportarTab empleados={empleados} onImported={cargar} />}

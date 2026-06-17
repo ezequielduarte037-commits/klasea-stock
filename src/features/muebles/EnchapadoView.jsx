@@ -42,7 +42,7 @@ import { C } from "@/theme";
 
 import { useState, useEffect, useMemo, useRef } from "react";
 import { supabase } from "@/supabaseClient";
-import { ChapaSwatch, chapaColor, chapaGradient, esNogal } from "@/features/muebles/chapa";
+import { ChapaReferenceCard, ChapaSwatch, chapaColor, chapaGradient, esNogal } from "@/features/muebles/chapa";
 
 // ── Design tokens ──────────────────────────────────────────────────────────
 const INP = {
@@ -75,6 +75,16 @@ const CHAPAS_SUGERIDAS = [
 ];
 
 // ── Plantillas fijas por modelo ────────────────────────────────────────────
+const CHAPAS_REALES = [
+  "Roble Cape Gris", "Roble Avorio", "Roble Fume", "Nocce Canaletto",
+  "Milan Fiume", "Gris TX", "Ebano Negro", "Eucalipto Termotratado",
+  "Wengue T A16", "NRR", "X08", "X14 Egamo", "X18", "X20",
+  "X22 Teka II", "X32 Egamo Negro", "X33 Gris Terso",
+  "X37 Roble Avorio", "X38 Roble Fume", "Xa35 Nogal Rayado",
+];
+
+const CHAPAS_OPCIONES = [...new Set([...CHAPAS_SUGERIDAS, ...CHAPAS_REALES])];
+
 const TEMPLATES = {
   K34: {
     placas: ["3 Terciados 3 mm", "6 Placas de carpintero"],
@@ -671,7 +681,7 @@ function NuevaOTModal({ onClose, onCreate, onEnsureMueblesUnidad }) {
           />
           {showSug && (
             <div style={{ position: "absolute", top: "100%", left: 0, right: 0, zIndex: 50, background: C.panelSolid, border: `1px solid ${C.b1}`, borderRadius: 8, marginTop: 3, overflow: "hidden", boxShadow: "0 8px 24px rgba(0,0,0,0.6)" }}>
-              {CHAPAS_SUGERIDAS.filter(s => !form.tipo_chapa || s.toLowerCase().includes(form.tipo_chapa.toLowerCase())).map(s => (
+              {CHAPAS_OPCIONES.filter(s => !form.tipo_chapa || s.toLowerCase().includes(form.tipo_chapa.toLowerCase())).map(s => (
                 <button key={s} onMouseDown={() => f("tipo_chapa", s)} style={{ display: "flex", alignItems: "center", gap: 9, width: "100%", textAlign: "left", padding: "8px 12px", background: "transparent", border: "none", color: C.t1, cursor: "pointer", fontSize: 13, fontFamily: C.sans, borderBottom: `1px solid ${C.b0}` }}
                   onMouseEnter={e => e.currentTarget.style.background = C.s1}
                   onMouseLeave={e => e.currentTarget.style.background = "transparent"}
@@ -1347,12 +1357,8 @@ ${pagHerrajesHTML}
       {/* ── SECCIÓN: HOJAS DE CHAPA ─────────────────────────────────────── */}
       <Section title="Hojas de Chapa" badge={ot.tipo_chapa || undefined} badgeColor={chapa.grain}>
         {ot.tipo_chapa && (
-          <div style={{ display: "flex", alignItems: "center", gap: 10, background: C.s0, border: `1px solid ${C.b0}`, borderRadius: 10, padding: "9px 11px", marginBottom: 10 }}>
-            <ChapaSwatch tipo={ot.tipo_chapa} size="lg" />
-            <div>
-              <div style={{ fontSize: 10, letterSpacing: 1.2, textTransform: "uppercase", color: C.t2, fontWeight: 800 }}>Tono de chapa</div>
-              <div style={{ fontSize: 14, color: C.t0, fontWeight: 700, marginTop: 2 }}>{ot.tipo_chapa}</div>
-            </div>
+          <div style={{ marginBottom: 10 }}>
+            <ChapaReferenceCard tipo={ot.tipo_chapa} />
           </div>
         )}
         {loading ? (
@@ -1587,7 +1593,7 @@ function PlantillasView() {
           />
           {showSug && (
             <div style={{ position: "absolute", top: "100%", left: 0, right: 0, zIndex: 50, background: C.panelSolid, border: `1px solid ${C.b1}`, borderRadius: 8, marginTop: 3, overflow: "hidden", boxShadow: "0 8px 24px rgba(0,0,0,0.6)" }}>
-              {CHAPAS_SUGERIDAS.filter(s => !chapaSim || s.toLowerCase().includes(chapaSim.toLowerCase())).map(s => (
+              {CHAPAS_OPCIONES.filter(s => !chapaSim || s.toLowerCase().includes(chapaSim.toLowerCase())).map(s => (
                 <button key={s} onMouseDown={() => { setChapaSim(s); setShowSug(false); }} style={{ display: "flex", alignItems: "center", gap: 9, width: "100%", textAlign: "left", padding: "7px 12px", background: "transparent", border: "none", color: C.t1, cursor: "pointer", fontSize: 12, fontFamily: C.sans, borderBottom: `1px solid ${C.b0}` }}
                   onMouseEnter={e => e.currentTarget.style.background = C.s1}
                   onMouseLeave={e => e.currentTarget.style.background = "transparent"}

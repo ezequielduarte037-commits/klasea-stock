@@ -237,9 +237,30 @@ function SelectorRoles({ value, onChange }) {
   );
 }
 
+// Sede del usuario. Relevante sobre todo para rol "panol" (Pampa vs Chubut);
+// los supervisores (admin/compras) suelen ir en "Ambas". Convención = RRHH.
+const SEDES_OPC = [["", "Sin sede"], ["Pampa", "Pampa"], ["Chubut", "Chubut"], ["Ambas", "Ambas"]];
+function SelectorSede({ value, onChange }) {
+  return (
+    <div style={{ display:"flex", gap:5, flexWrap:"wrap" }}>
+      {SEDES_OPC.map(([v, l]) => {
+        const sel = (value || "") === v;
+        return (
+          <button key={v || "none"} type="button" onClick={() => onChange(v)} style={{
+            padding:"8px 14px", borderRadius:7, cursor:"pointer",
+            background: sel ? "rgba(96,165,250,0.14)" : "var(--panel)",
+            border:`1px solid ${sel ? "rgba(96,165,250,0.40)" : "var(--panel-2)"}`,
+            color: sel ? "#60a5fa" : "var(--dim)", fontSize:12, fontFamily:"'Outfit',system-ui",
+          }}>{l}</button>
+        );
+      })}
+    </div>
+  );
+}
+
 // ─── MODAL: NUEVO / EDITAR USUARIO INTERNO ───────────────────────────────────
 function ModalNuevoUsuario({ onClose, onSaved, flash }) {
-  const [form, setForm] = useState({ username:"", password:"", role:"panol", is_admin:false });
+  const [form, setForm] = useState({ username:"", password:"", role:"panol", is_admin:false, sede:"" });
   const [busy, setBusy] = useState(false);
   const set = (k,v) => setForm(f=>({...f,[k]:v}));
   async function submit(e) {
@@ -266,6 +287,15 @@ function ModalNuevoUsuario({ onClose, onSaved, flash }) {
       return flash(false, "Error: " + (await fnErrorMsg(res, fnError, "no se pudo crear el usuario")));
     }
 
+    // La edge function devuelve { uid }. Si se eligió sede, la seteamos en el perfil.
+    if (form.sede && res?.uid) {
+      const { error: sedeError } = await supabase.from("profiles").update({ sede: form.sede }).eq("id", res.uid);
+      if (sedeError) {
+        setBusy(false);
+        return flash(false, "Usuario creado, pero no se pudo guardar la sede: " + sedeError.message);
+      }
+    }
+
     setBusy(false);
     flash(true, `Usuario ${form.username.toUpperCase()} creado.`);
     onSaved(); onClose();
@@ -277,7 +307,10 @@ function ModalNuevoUsuario({ onClose, onSaved, flash }) {
         <Field label="Usuario"><input style={Sx.input} required autoFocus autoComplete="off" value={form.username} onChange={e=>set("username",e.target.value)} placeholder="nombre.apellido" /></Field>
         <Field label="Contraseña temporal" hint="Mínimo 10 caracteres, mayúscula, minúscula y número. Se le pedirá cambiarla al ingresar."><input type="password" style={Sx.input} required autoComplete="new-password" value={form.password} onChange={e=>set("password",e.target.value)} /></Field>
         <Field label="Rol"><SelectorRoles value={form.role} onChange={v=>set("role",v)} /></Field>
-        <div style={{ display:"flex", justifyContent:"space-between", alignItems:"center", padding:"10px 14px", background:"rgba(255,255,255,0.02)", border:"1px solid var(--panel)", borderRadius:8, marginBottom:20, marginTop:14 }}>
+        <Field label="Sede" hint={form.role === "panol" ? "Pañol Pampa solo ve envíos de Pampa, y viceversa. Elegí su sede." : "Para pañol; supervisores van en 'Ambas'."}>
+          <SelectorSede value={form.sede} onChange={v=>set("sede",v)} />
+        </Field>
+        <div style={{ display:"flex", justifyContent:"space-between", alignItems:"center", padding:"10px 14px", background:"var(--panel)", border:"1px solid var(--panel)", borderRadius:8, marginBottom:20, marginTop:14 }}>
           <div>
             <div style={{ fontSize:13, color:"var(--muted)" }}>Acceso de administrador</div>
             <div style={{ fontSize:10, color:"var(--dim)", marginTop:1 }}>Puede editar configuración y usuarios</div>
@@ -294,7 +327,7 @@ function ModalNuevoUsuario({ onClose, onSaved, flash }) {
 }
 
 function ModalEditarUsuario({ usuario, onClose, onSaved, flash }) {
-  const [form, setForm] = useState({ role:usuario.role, is_admin:usuario.is_admin, password:"" });
+  const [form, setForm] = useState({ role:usuario.role, is_admin:usuario.is_admin, password:"", sede:usuario.sede ?? "" });
   const [busy, setBusy] = useState(false);
   const set = (k,v) => setForm(f=>({...f,[k]:v}));
   async function guardar() {
@@ -303,7 +336,7 @@ function ModalEditarUsuario({ usuario, onClose, onSaved, flash }) {
       if (passwordIssues.length) return flash(false, passwordIssues[0]);
     }
     setBusy(true);
-    const { error } = await supabase.from("profiles").update({ role:form.role, is_admin:form.is_admin }).eq("id",usuario.id);
+    const { error } = await supabase.from("profiles").update({ role:form.role, is_admin:form.is_admin, sede:form.sede || null }).eq("id",usuario.id);
     if (error) { setBusy(false); return flash(false,error.message); }
     if (form.password) {
       const { data: pw, error: pwErr } = await supabase.functions.invoke("admin-usuarios", {
@@ -327,6 +360,9 @@ function ModalEditarUsuario({ usuario, onClose, onSaved, flash }) {
     <Overlay onClose={onClose} maxWidth={400}>
       <ModalTitle title="Editar permisos" sub={usuario.username} onClose={onClose} />
       <Field label="Rol"><SelectorRoles value={form.role} onChange={v=>set("role",v)} /></Field>
+      <Field label="Sede" hint={form.role === "panol" ? "Pañol Pampa solo ve envíos de Pampa, y viceversa." : "Para pañol; supervisores van en 'Ambas'."}>
+        <SelectorSede value={form.sede} onChange={v=>set("sede",v)} />
+      </Field>
       <Field label="Contraseña temporal" hint="Opcional. Si la cargás, se le pedirá cambiarla al ingresar.">
         <input type="password" style={Sx.input} autoComplete="new-password" value={form.password} onChange={e=>set("password",e.target.value)} placeholder="Dejar vacío para no cambiar" />
       </Field>
@@ -833,7 +869,7 @@ export default function ConfiguracionScreen({ profile, signOut }) {
   async function cargar() {
     setLoading(true);
     const [r1,r2,r3,r4] = await Promise.all([
-      supabase.from("profiles").select("id,username,role,is_admin,created_at").order("username"),
+      supabase.from("profiles").select("id,username,role,is_admin,sede,created_at").order("username"),
       supabase.from("clientes").select("*, obras(id, codigo)").order("nombre_completo"),
       supabase.from("modelo_configuracion").select("*").order("modelo_barco"),
       supabase.from("sistema_config").select("*").order("grupo").order("clave"),

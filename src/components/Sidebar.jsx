@@ -362,6 +362,12 @@ export default function Sidebar({ profile, signOut }) {
             {item("/compras", comprasLabel, SC.compras, true, 215, "Solicitudes internas a compras con seguimiento y usuarios en copia.")}
           </>}
 
+          {(esPanol || esGestion) && <>
+            {divider("panol-rec")}
+            {group("Pañol · Recepción", SC.panol_catalogo, 216)}
+            {item("/recepcion-panol", "Recepción", SC.panol_catalogo, true, 217, "Pedidos a pañol: recepción, faltantes y seguimiento por sede.")}
+          </>}
+
           {puedeVerMateriales && <>
             {divider("panol-cat")}
             {group("Pañol", SC.panol_catalogo, 218)}

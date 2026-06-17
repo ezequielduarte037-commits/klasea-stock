@@ -520,6 +520,7 @@ export default function PurchaseRequestsScreen({ profile, signOut }) {
   }));
 
   const manager = isPurchaseManager(profile);
+  const canCreateAvisos = manager || ["tecnica", "oficina", "panol"].includes(profile?.role);
 
   // Sincronizar filtros + tab + pedido abierto a la URL para que sean
   // compartibles/back-friendly. También permite deep-link tipo ?open=<id>.
@@ -1453,7 +1454,7 @@ export default function PurchaseRequestsScreen({ profile, signOut }) {
                     selectedId={selectedAvisoId}
                     error={avisosError}
                     canManage={false}
-                    canCreate={false}
+                    canCreate={canCreateAvisos}
                     title="Mis avisos"
                     onSelect={setSelectedAvisoId}
                     onRefresh={loadAll}

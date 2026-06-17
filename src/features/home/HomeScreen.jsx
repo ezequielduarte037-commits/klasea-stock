@@ -35,6 +35,7 @@ const MODULOS = [
   { href:"/movimientos",      label:"Movimientos",       desc:"Ingresos y egresos de maderas del depósito",             color:"#fbbf24", roles:["oficina","admin"] },
   { href:"/pedidos",          label:"Pedidos",           desc:"Órdenes de compra de materiales de madera",             color:"#fbbf24", roles:["oficina","admin"] },
   { href:"/compras",          label:"Compras",           desc:"Solicitudes internas y seguimiento de compras",          color:"#f59e0b", roles:["panol","oficina","admin","compras"] },
+  { href:"/recepcion-panol",  label:"Recepción Pañol",   desc:"Envíos a pañol: recepción, faltantes y seguimiento por sede", color:"#38bdf8", roles:["panol","oficina","admin","compras"] },
   { href:"/postventa",        label:"Barcos Entregados", desc:"Post venta y flota en el agua",               color:"#67e8f9", roles:["oficina","admin"] },
   { href:"/configuracion",    label:"Configuración",     desc:"Usuarios, roles y configuración",             color:"#f87171", roles:["admin"] },
   { href:"/procedimientos",   label:"Procedimientos",    desc:"Instructivos y guías de operación",           color:"#94a3b8", roles:["panol","oficina","admin","laminacion","muebles","mecanica","electricidad"] },
@@ -51,6 +52,7 @@ const MODULE_ROLE_OVERRIDES = {
   "/movimientos": ["tecnica", "oficina", "admin"],
   "/pedidos": ["tecnica", "oficina", "admin"],
   "/compras": ["panol", "tecnica", "oficina", "admin", "compras"],
+  "/recepcion-panol": ["panol", "tecnica", "oficina", "admin", "compras"],
   "/postventa": ["tecnica", "oficina", "admin"],
   "/procedimientos": ["tecnica", "oficina", "admin", "laminacion", "muebles", "mecanica", "electricidad"],
 };

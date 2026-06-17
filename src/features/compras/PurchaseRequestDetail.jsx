@@ -17,6 +17,8 @@ import { supabase } from "@/supabaseClient";
 import { useToast } from "@/components/ui/Toast";
 import { useConfirm } from "@/components/ui/ConfirmDialog";
 import { Skeleton, SkeletonStyles } from "@/components/ui/Skeleton";
+import EnviarAPanolModal from "@/features/panol/EnviarAPanolModal";
+import { fetchEnviosDePedido, ENVIO_ESTADO_META, resumenItems } from "@/features/panol/panolApi";
 import {
   addRequestComment,
   addRequestFollower,
@@ -289,12 +291,19 @@ export default function PurchaseRequestDetail({ requestId, profile, users = [], 
   const [editQuantity, setEditQuantity] = useState("");
   const [editUnit, setEditUnit] = useState("");
   const [costosOpen, setCostosOpen] = useState(false); // bloque costos/recepción colapsado por defecto
+  const [panolModal, setPanolModal] = useState(false);
+  const [enviosPanol, setEnviosPanol] = useState([]); // envíos a pañol vinculados a este pedido
   const bottomRef = useRef(null);
   const reloadTimer = useRef(null);
   const toast = useToast();
   const confirm = useConfirm();
 
   const manager = isPurchaseManager(profile);
+  const itemsParaPanol = useMemo(
+    () => items.filter((it) => !["en_panol", "recibido", "cancelado"].includes(it.status)),
+    [items]
+  );
+  const canSendToPanol = manager && request?.status === "comprado" && itemsParaPanol.length > 0;
   const descriptionIsLong = useMemo(() => {
     const text = String(request?.description ?? "")
       .replace(/<[^>]*>/g, " ")
@@ -322,14 +331,16 @@ export default function PurchaseRequestDetail({ requestId, profile, users = [], 
     setError("");
     setLoading(true);
     try {
-      const [data, itemsData, movementsData] = await Promise.all([
+      const [data, itemsData, movementsData, enviosData] = await Promise.all([
         fetchPurchaseRequestDetail(requestId),
         fetchRequestItems(requestId),
         fetchGeneratedMovementsForRequest(requestId),
+        fetchEnviosDePedido(requestId).catch(() => []),
       ]);
       setRequest(data);
       setItems(itemsData);
       setGeneratedMovements(movementsData);
+      setEnviosPanol(enviosData);
     } catch (err) {
       setError(err.message || "No se pudo cargar la solicitud.");
     } finally {
@@ -1372,6 +1383,54 @@ export default function PurchaseRequestDetail({ requestId, profile, users = [], 
                   <Clock size={12} />
                   Necesario para: {new Date(request.needed_at).toLocaleDateString("es-AR", { day: "2-digit", month: "2-digit", year: "numeric" })}
                 </div>
+              )}
+
+              {/* ── Estado en Pañol (módulo de recepción) ─────────────────── */}
+              {(manager || enviosPanol.length > 0) && (
+                <div style={{ marginTop: 12, paddingTop: 12, borderTop: `1px solid ${C.border}` }}>
+                  <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: enviosPanol.length ? 8 : 0 }}>
+                    <div style={{ flex: 1, color: C.dim, fontSize: 10, letterSpacing: 1.2, textTransform: "uppercase", fontWeight: 750 }}>Estado en Pañol</div>
+                    {canSendToPanol && (
+                      <button type="button" onClick={() => setPanolModal(true)}
+                        style={{ display: "inline-flex", alignItems: "center", gap: 6, padding: "5px 11px", borderRadius: 7, border: "1px solid rgba(96,165,250,0.35)", background: "rgba(96,165,250,0.12)", color: C.blue, cursor: "pointer", fontSize: 12, fontWeight: 750, fontFamily: C.sans }}>
+                        <Send size={12} /> Enviar a Pañol
+                      </button>
+                    )}
+                  </div>
+                  {enviosPanol.length === 0 ? (
+                    <div style={{ fontSize: 12, color: C.dim }}>Todavía no se envió a pañol.</div>
+                  ) : (
+                    <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
+                      {enviosPanol.map(e => {
+                        const r = resumenItems(e.items || []);
+                        const em = ENVIO_ESTADO_META[e.estado] ?? { label: e.estado, color: C.dim };
+                        return (
+                          <div key={e.id} style={{ display: "flex", alignItems: "center", gap: 8, padding: "7px 10px", background: C.panel, border: `1px solid ${C.border}`, borderRadius: 8 }}>
+                            <span style={{ width: 7, height: 7, borderRadius: "50%", background: em.color, flexShrink: 0 }} />
+                            <span style={{ flex: 1, minWidth: 0, fontSize: 12, color: C.text, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{e.titulo} · {e.sede}</span>
+                            <span style={{ fontSize: 11, color: C.muted }}>{r.recibidos}/{r.total}</span>
+                            <span style={{ fontSize: 10, fontWeight: 700, textTransform: "uppercase", color: em.color, background: `${em.color}1c`, border: `1px solid ${em.color}44`, borderRadius: 999, padding: "1px 8px" }}>{em.label}</span>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  )}
+                </div>
+              )}
+
+              {panolModal && (
+                <EnviarAPanolModal
+                  open={panolModal}
+                  profile={profile}
+                  prefill={{
+                    titulo: request.title,
+                    origen: "compra",
+                    purchaseRequestId: request.id,
+                    obraId: request.project_id || null,
+                    items: itemsParaPanol.map(it => ({ descripcion: it.description, cantidad: it.quantity, unidad: it.unit, purchase_request_item_id: it.id })),
+                  }}
+                  onClose={(saved) => { setPanolModal(false); if (saved) load(); }}
+                />
               )}
             </div>
             {(() => {

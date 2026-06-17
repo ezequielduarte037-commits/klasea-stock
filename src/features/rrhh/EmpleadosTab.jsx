@@ -94,6 +94,34 @@ export default function EmpleadosTab({ empleados, contratistas, onChanged, esAdm
     });
   }
 
+  async function borrarEmpleado(emp) {
+    if (!esAdmin || !emp?.id) return;
+    const ok = window.confirm(`¿Borrar a ${emp.nombre} de la lista de empleados?\n\nSe marca como inactivo y deja de fichar, pero no se borra el historial.`);
+    if (!ok) return;
+    setErr(null);
+    const { error } = await supabase
+      .from("rrhh_empleados")
+      .update({ activo: false, ficha: false })
+      .eq("id", emp.id);
+    if (error) {
+      setErr(error);
+      return;
+    }
+    setSelIds(prev => {
+      const next = new Set(prev);
+      next.delete(emp.id);
+      return next;
+    });
+    onChanged?.();
+  }
+
+  async function borrarSeleccionados() {
+    if (!selIds.size) return;
+    const ok = window.confirm(`¿Borrar ${selIds.size} empleado${selIds.size !== 1 ? "s" : ""} de la lista?\n\nSe marcan como inactivos y dejan de fichar, sin borrar historial.`);
+    if (!ok) return;
+    await bulkUpdate({ activo: false, ficha: false });
+  }
+
   return (
     <div>
       <div style={{ display: "flex", gap: 10, flexWrap: "wrap", marginBottom: 16 }}>
@@ -168,6 +196,7 @@ export default function EmpleadosTab({ empleados, contratistas, onChanged, esAdm
           <button type="button" disabled={bulkLoading || !selIds.size} onClick={() => bulkUpdate({ ficha: false })} style={{ ...BTN, padding: "5px 10px", opacity: bulkLoading || !selIds.size ? 0.5 : 1 }}>Ficha no</button>
           <button type="button" disabled={bulkLoading || !selIds.size} onClick={() => bulkUpdate({ activo: true })} style={{ ...BTN, padding: "5px 10px", opacity: bulkLoading || !selIds.size ? 0.5 : 1 }}>Activo si</button>
           <button type="button" disabled={bulkLoading || !selIds.size} onClick={() => bulkUpdate({ activo: false })} style={{ ...BTN, padding: "5px 10px", opacity: bulkLoading || !selIds.size ? 0.5 : 1 }}>Activo no</button>
+          <button type="button" disabled={bulkLoading || !selIds.size} onClick={borrarSeleccionados} style={{ ...BTN, padding: "5px 10px", opacity: bulkLoading || !selIds.size ? 0.5 : 1, color: "#f87171", border: "1px solid rgba(248,113,113,0.35)" }}>Borrar</button>
         </div>
       )}
 
@@ -191,7 +220,16 @@ export default function EmpleadosTab({ empleados, contratistas, onChanged, esAdm
                 <Td><GrupoBadge grupo={e.grupo} contratistaNombre={e.contratista?.nombre} /></Td>
                 <Td color={e.ficha === false ? C.t2 : C.green} style={{ fontSize: 12 }}>{e.ficha === false ? "no ficha" : "ficha"}</Td>
                 <Td color={e.activo === false ? "#f87171" : C.green} style={{ fontSize: 12 }}>{e.activo === false ? "inactivo" : "activo"}</Td>
-                <Td>{esAdmin && <button style={{ ...BTN, padding: "4px 11px", fontSize: 11 }} onClick={() => setModal({ emp: e })}>Editar</button>}</Td>
+                <Td>
+                  {esAdmin && (
+                    <div style={{ display: "flex", gap: 6, justifyContent: "flex-end", flexWrap: "wrap" }}>
+                      <button style={{ ...BTN, padding: "4px 11px", fontSize: 11 }} onClick={() => setModal({ emp: e })}>Editar</button>
+                      {e.activo !== false && (
+                        <button style={{ ...BTN, padding: "4px 11px", fontSize: 11, color: "#f87171", border: "1px solid rgba(248,113,113,0.35)" }} onClick={() => borrarEmpleado(e)}>Borrar</button>
+                      )}
+                    </div>
+                  )}
+                </Td>
               </tr>
             ))}
           </tbody>

@@ -1,5 +1,6 @@
 // Presentismo: vista por dia o rango, ausentes, anomalias y justificaciones.
 import { useEffect, useMemo, useState } from "react";
+import { supabase } from "@/supabaseClient";
 import { C } from "@/theme";
 import {
   addDays,
@@ -30,7 +31,7 @@ function sameGrupo(row, filtroGrupo) {
   return true;
 }
 
-export default function PresentismoTab({ empleados, contratistas, config }) {
+export default function PresentismoTab({ empleados, contratistas, config, esAdmin, onChanged }) {
   const hoy = hoyIso();
   const [modo, setModo] = useState("dia");
   const [fecha, setFecha] = useState(hoy);
@@ -148,6 +149,21 @@ export default function PresentismoTab({ empleados, contratistas, config }) {
     setJustModal(null);
   }
 
+  async function borrarEmpleado(emp) {
+    if (!esAdmin || !emp?.id) return;
+    const ok = window.confirm(`¿Borrar a ${emp.nombre} del presentismo?\n\nSe marca como inactivo y deja de aparecer, sin borrar el historial.`);
+    if (!ok) return;
+    const { error: err } = await supabase
+      .from("rrhh_empleados")
+      .update({ activo: false, ficha: false })
+      .eq("id", emp.id);
+    if (err) {
+      setError(err);
+      return;
+    }
+    onChanged?.();
+  }
+
   function exportar() {
     if (!filtradas) return;
     const presentRows = filtradas.map(r => [
@@ -261,6 +277,7 @@ export default function PresentismoTab({ empleados, contratistas, config }) {
                     <Th right>Salida</Th>
                     <Th right>Horas</Th>
                     <Th>Obs.</Th>
+                    {esAdmin && <Th>Acciones</Th>}
                   </tr>
                 </thead>
                 <tbody>
@@ -288,6 +305,17 @@ export default function PresentismoTab({ empleados, contratistas, config }) {
                           {r.justificacion ? "Editar" : "Justificar"}
                         </button>
                       </Td>
+                      {esAdmin && (
+                        <Td>
+                          <button
+                            type="button"
+                            style={{ ...BTN, padding: "3px 8px", fontSize: 11, color: "#f87171", border: "1px solid rgba(248,113,113,0.35)" }}
+                            onClick={() => borrarEmpleado(r.emp)}
+                          >
+                            Borrar
+                          </button>
+                        </Td>
+                      )}
                     </tr>
                   ))}
                 </tbody>
@@ -316,6 +344,15 @@ export default function PresentismoTab({ empleados, contratistas, config }) {
                     >
                       {justificacion ? "Editar" : "Justificar"}
                     </button>
+                    {esAdmin && (
+                      <button
+                        type="button"
+                        style={{ ...BTN, padding: "2px 7px", fontSize: 11, color: "#f87171", border: "1px solid rgba(248,113,113,0.35)" }}
+                        onClick={() => borrarEmpleado(emp)}
+                      >
+                        Borrar
+                      </button>
+                    )}
                   </div>
                 ))}
               </div>
