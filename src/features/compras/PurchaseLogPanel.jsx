@@ -2,6 +2,7 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import {
   AlertTriangle,
   Calendar,
+  Check,
   ChevronRight,
   ClipboardList,
   DollarSign,
@@ -25,6 +26,7 @@ import {
   deletePurchaseLog,
   fetchAdditionalBoards,
   fetchAdditionalItems,
+  fetchProjects,
   fetchPurchaseLog,
   uploadPurchaseLogInvoice,
   usernameOf,
@@ -283,6 +285,7 @@ function makeCostRow(key, label = key) {
     pedidos: 0,
     items: [],
     adicionales: [],
+    manuales: [],
     ARS: 0,
     USD: 0,
     baseARS: 0,
@@ -307,7 +310,7 @@ function looksAdditional(envio, item, additionalByItem, additionalByRequest) {
   return /\b(adicional|adicionales|extra|extras)\b/.test(text);
 }
 
-function buildCostosPorObra(envios, additionalBoards, additionalItems) {
+function buildCostosPorObra(envios, additionalBoards, additionalItems, entries = EMPTY, obrasById = new Map()) {
   const rows = new Map();
   const boardsById = new Map((additionalBoards || []).map((b) => [b.id, b]));
   const additionalByItem = new Map();
@@ -393,6 +396,29 @@ function buildCostosPorObra(envios, additionalBoards, additionalItems) {
     rows.set(key, row);
   }
 
+  // Compras manuales del registro con obra asignada → suman al gasto de esa obra (ARS).
+  for (const entry of entries || EMPTY) {
+    if (!entry.project_id) continue;
+    const obra = obrasById.get(entry.project_id);
+    const label = obra?.codigo || "Obra";
+    const key = normalizeSearch(label) || entry.project_id;
+    const row = rows.get(key) || makeCostRow(key, label);
+    const amount = Number(entry.amount);
+    const hasAmount = Number.isFinite(amount) && amount > 0;
+    row.manuales.push({
+      id: entry.id,
+      description: entry.description,
+      provider: entry.provider || "",
+      amount: hasAmount ? amount : null,
+      fecha: entry.purchased_at,
+    });
+    if (hasAmount) {
+      row.ARS = (row.ARS || 0) + amount;
+      row.baseARS += amount;
+    }
+    rows.set(key, row);
+  }
+
   return [...rows.values()]
     .map((row) => ({ ...row, pedidos: row.pedidoIds.size }))
     .sort((a, b) => (b.ARS + b.USD * 1000 + b.sinPrecio) - (a.ARS + a.USD * 1000 + a.sinPrecio));
@@ -405,6 +431,7 @@ export default function PurchaseLogPanel({ profile }) {
   const [panolModal, setPanolModal] = useState(false);
   const [entries, setEntries] = useState([]);
   const [envios, setEnvios] = useState([]);
+  const [obras, setObras] = useState([]);
   const [additionalBoards, setAdditionalBoards] = useState([]);
   const [additionalItems, setAdditionalItems] = useState([]);
   const [selectedEnvioId, setSelectedEnvioId] = useState(null);
@@ -422,22 +449,27 @@ export default function PurchaseLogPanel({ profile }) {
     amount: "",
     provider: "",
     notes: "",
+    project_id: "",
     purchased_at: new Date().toISOString().slice(0, 10),
   });
+
+  const obrasById = useMemo(() => new Map((obras || []).map((o) => [o.id, o])), [obras]);
 
   const load = useCallback(async () => {
     setLoading(true);
     try {
-      const [logRows, envioRows, boardRows, additionalRows] = await Promise.all([
+      const [logRows, envioRows, boardRows, additionalRows, obraRows] = await Promise.all([
         fetchPurchaseLog(),
         fetchEnviosRegistro({ limit: 120 }),
         fetchAdditionalBoards(),
         fetchAdditionalItems(),
+        fetchProjects().catch(() => []),
       ]);
       setEntries(logRows);
       setEnvios(envioRows);
       setAdditionalBoards(boardRows);
       setAdditionalItems(additionalRows);
+      setObras(obraRows || []);
     } catch (err) {
       toast.error(err.message || "No se pudo cargar el registro de compras.");
     } finally {
@@ -452,8 +484,8 @@ export default function PurchaseLogPanel({ profile }) {
   }, [envios, selectedEnvioId]);
 
   const costosPorObra = useMemo(
-    () => buildCostosPorObra(envios, additionalBoards, additionalItems),
-    [envios, additionalBoards, additionalItems],
+    () => buildCostosPorObra(envios, additionalBoards, additionalItems, entries, obrasById),
+    [envios, additionalBoards, additionalItems, entries, obrasById],
   );
 
   useEffect(() => {
@@ -464,7 +496,7 @@ export default function PurchaseLogPanel({ profile }) {
   }, [costosPorObra, selectedObraKey]);
 
   function resetForm() {
-    setForm({ description: "", amount: "", provider: "", notes: "", purchased_at: new Date().toISOString().slice(0, 10) });
+    setForm({ description: "", amount: "", provider: "", notes: "", project_id: "", purchased_at: new Date().toISOString().slice(0, 10) });
     setInvoiceFile(null);
     setShowForm(false);
   }
@@ -472,6 +504,10 @@ export default function PurchaseLogPanel({ profile }) {
   async function handleSubmit(e) {
     e.preventDefault();
     if (!form.description.trim()) return;
+    if (String(form.amount || "").trim() && !(Number(form.amount) > 0)) {
+      toast.warning("Si cargas un monto, tiene que ser mayor a 0.");
+      return;
+    }
     setSaving(true);
     try {
       let invoice_url;
@@ -486,6 +522,7 @@ export default function PurchaseLogPanel({ profile }) {
         amount: form.amount ? Number(form.amount) : null,
         provider: form.provider.trim() || null,
         notes: form.notes.trim() || null,
+        project_id: form.project_id || null,
         purchased_at: form.purchased_at || new Date().toISOString().slice(0, 10),
         invoice_url: invoice_url || null,
         invoice_path: invoice_path || null,
@@ -574,6 +611,56 @@ export default function PurchaseLogPanel({ profile }) {
     }
   }
 
+  async function handleApplyManualPriceRows(rows) {
+    const toApply = rows
+      .map((row) => ({ ...row, precio: normalizePriceInput(row.precio_unitario) }))
+      .filter((row) => row.id && row.precio !== null);
+
+    if (!toApply.length) {
+      toast.warning("No hay precios listos para aplicar.");
+      return;
+    }
+
+    setSavingPrices(true);
+    try {
+      for (const row of toApply) {
+        await updateEnvioItemPrice(row.id, {
+          precio_unitario: row.precio,
+          moneda: row.moneda,
+        });
+      }
+      toast.success(`${toApply.length} precio${toApply.length === 1 ? "" : "s"} cargado${toApply.length === 1 ? "" : "s"}.`);
+      setBudgetModal(null);
+      await load();
+    } catch (err) {
+      toast.error(err.message || "No se pudieron aplicar los precios.");
+    } finally {
+      setSavingPrices(false);
+    }
+  }
+
+  async function handleSetItemPrice(itemId, pricePatch) {
+    const precio = normalizePriceInput(pricePatch?.precio_unitario);
+    if (precio === null) {
+      toast.warning("Cargá un precio válido.");
+      return;
+    }
+
+    setSavingPrices(true);
+    try {
+      await updateEnvioItemPrice(itemId, {
+        precio_unitario: precio,
+        moneda: pricePatch.moneda,
+      });
+      toast.success("Precio actualizado.");
+      await load();
+    } catch (err) {
+      toast.error(err.message || "No se pudo actualizar el precio.");
+    } finally {
+      setSavingPrices(false);
+    }
+  }
+
   const thisMonth = entries.filter((e) => {
     const d = new Date(e.purchased_at);
     const now = new Date();
@@ -624,6 +711,8 @@ export default function PurchaseLogPanel({ profile }) {
       codigo: item.codigo,
       cantidad: item.cantidad,
       unidad: item.unidad,
+      precio_unitario: item.precio_unitario,
+      moneda: item.moneda || "ARS",
       pedido: item.pedido,
       obra: costosPorObra.find((row) => row.items.some((it) => it.id === item.id))?.label || "",
     }));
@@ -652,7 +741,7 @@ export default function PurchaseLogPanel({ profile }) {
         </div>
         <ViewTabs value={view} onChange={setView} />
         <button type="button" onClick={() => setPanolModal(true)} style={primaryButton(C.blue)}>
-          <Send size={14} /> Pedido a pañol
+          <Plus size={14} /> Nuevo envío a pañol
         </button>
         <button type="button" onClick={() => setBudgetModal({ obraKey: view === "costos" ? selectedObraKey : "" })} style={secondaryButton()}>
           <Sparkles size={14} /> Cargar precios
@@ -674,6 +763,7 @@ export default function PurchaseLogPanel({ profile }) {
         <ManualForm
           form={form}
           setForm={setForm}
+          obras={obras}
           invoiceFile={invoiceFile}
           setInvoiceFile={setInvoiceFile}
           saving={saving}
@@ -705,6 +795,7 @@ export default function PurchaseLogPanel({ profile }) {
           entries={entries}
           onDeleteLog={handleDeleteLog}
           onOpenBudget={(obraKey) => setBudgetModal({ obraKey })}
+          onSetItemPrice={handleSetItemPrice}
         />
       )}
 
@@ -807,6 +898,7 @@ export default function PurchaseLogPanel({ profile }) {
           saving={savingPrices}
           onClose={() => setBudgetModal(null)}
           onApply={handleApplyBudgetRows}
+          onApplyManual={handleApplyManualPriceRows}
         />
       )}
     </div>
@@ -920,7 +1012,7 @@ function PedidosPanolView({
   );
 }
 
-function GastoObraView({ loading, rows, selectedKey, setSelectedKey, entries, onDeleteLog, onOpenBudget }) {
+function GastoObraView({ loading, rows, selectedKey, setSelectedKey, entries, onDeleteLog, onOpenBudget, onSetItemPrice }) {
   const selected = rows.find((row) => row.key === selectedKey) || rows[0] || null;
   return (
     <div style={{ display: "grid", gridTemplateColumns: "minmax(280px, 0.45fr) minmax(520px, 1fr)", gap: 12, alignItems: "start" }}>
@@ -979,7 +1071,7 @@ function GastoObraView({ loading, rows, selectedKey, setSelectedKey, entries, on
         {!selected ? (
           <EmptyState text="Selecciona una obra para ver el detalle." />
         ) : (
-          <ObraCostDetail row={selected} onOpenBudget={onOpenBudget} />
+          <ObraCostDetail row={selected} onOpenBudget={onOpenBudget} onSetItemPrice={onSetItemPrice} />
         )}
       </section>
 
@@ -990,7 +1082,7 @@ function GastoObraView({ loading, rows, selectedKey, setSelectedKey, entries, on
   );
 }
 
-function ObraCostDetail({ row, onOpenBudget }) {
+function ObraCostDetail({ row, onOpenBudget, onSetItemPrice }) {
   const priced = row.items.filter((item) => item.total).length;
   return (
     <div style={{ display: "grid", gap: 13 }}>
@@ -1030,7 +1122,7 @@ function ObraCostDetail({ row, onOpenBudget }) {
                 </div>
                 {item.tipo === "adicional" ? chip(C.violet, "Adicional") : chip(C.blue, "Normal")}
                 <div style={{ color: C.muted, fontSize: 12 }}>{item.cantidad || "-"} {item.unidad || ""}</div>
-                <div style={{ color: unit ? C.green : C.dim, fontFamily: C.mono, fontSize: 12, fontWeight: 850 }}>{unit ? fmtMoney(unit, item.moneda) : "-"}</div>
+                <InlinePriceEditor item={item} unit={unit} onSave={onSetItemPrice} />
                 <div style={{ color: item.total ? C.green : C.amber, fontFamily: C.mono, fontSize: 12, fontWeight: 900 }}>{item.total ? fmtMoney(item.total.value, item.total.currency) : "Sin precio"}</div>
               </div>
             );
@@ -1053,6 +1145,98 @@ function ObraCostDetail({ row, onOpenBudget }) {
           ))}
         </div>
       )}
+
+      {row.manuales && row.manuales.length > 0 && (
+        <div style={{ display: "grid", gap: 8 }}>
+          <div style={{ color: C.text, fontSize: 14, fontWeight: 900 }}>Compras manuales</div>
+          {row.manuales.map((item) => (
+            <div key={item.id} style={{ border: `1px solid ${C.border}`, background: C.panel, borderRadius: 10, padding: 10, display: "flex", gap: 10, alignItems: "center" }}>
+              <FileText size={15} color={C.blue} />
+              <div style={{ flex: 1, minWidth: 0 }}>
+                <div style={{ color: C.text, fontSize: 13, fontWeight: 850, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{item.description}</div>
+                <div style={{ color: C.dim, fontSize: 11, marginTop: 2 }}>{item.provider || "Sin proveedor"}{item.fecha ? ` · ${fmtDate(item.fecha)}` : ""}</div>
+              </div>
+              <div style={{ color: item.amount ? C.green : C.dim, fontFamily: C.mono, fontSize: 12, fontWeight: 900 }}>{item.amount ? fmtMoney(item.amount, "ARS") : "Sin monto"}</div>
+            </div>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
+
+function InlinePriceEditor({ item, unit, onSave }) {
+  const canEdit = item.source === "panol" && item.id;
+  const [value, setValue] = useState("");
+  const [moneda, setMoneda] = useState(item.moneda || "ARS");
+
+  if (!canEdit) {
+    return (
+      <div style={{ color: unit ? C.green : C.dim, fontFamily: C.mono, fontSize: 12, fontWeight: 850 }}>
+        {unit ? fmtMoney(unit, item.moneda) : "-"}
+      </div>
+    );
+  }
+
+  const hasDraft = normalizePriceInput(value) !== null;
+
+  async function save() {
+    if (!hasDraft) return;
+    await onSave?.(item.id, { precio_unitario: value, moneda });
+    setValue("");
+  }
+
+  return (
+    <div style={{ display: "grid", gap: 5 }}>
+      {unit ? (
+        <div style={{ color: C.green, fontFamily: C.mono, fontSize: 11, fontWeight: 850 }}>
+          {fmtMoney(unit, item.moneda)}
+        </div>
+      ) : (
+        <div style={{ color: C.amber, fontSize: 10, fontWeight: 850 }}>Sin precio</div>
+      )}
+      <div style={{ display: "flex", gap: 4, alignItems: "center" }}>
+        <input
+          value={value}
+          onChange={(e) => setValue(e.target.value)}
+          onBlur={save}
+          placeholder="$ unit."
+          inputMode="decimal"
+          style={{
+            width: 72,
+            boxSizing: "border-box",
+            border: `1px solid ${hasDraft ? C.greenB : C.border}`,
+            background: C.panelSolid,
+            color: C.text,
+            borderRadius: 7,
+            padding: "6px 7px",
+            fontSize: 12,
+            fontFamily: C.mono,
+            outline: "none",
+          }}
+        />
+        <select
+          value={moneda}
+          onChange={(e) => setMoneda(e.target.value)}
+          style={{
+            width: 58,
+            border: `1px solid ${C.border}`,
+            background: C.panelSolid,
+            color: C.text,
+            borderRadius: 7,
+            padding: "6px 5px",
+            fontSize: 11,
+            fontFamily: C.sans,
+            outline: "none",
+          }}
+        >
+          <option value="ARS">ARS</option>
+          <option value="USD">USD</option>
+        </select>
+        <button type="button" onMouseDown={(e) => e.preventDefault()} onClick={save} disabled={!hasDraft} title="Guardar precio" style={{ width: 28, height: 28, display: "grid", placeItems: "center", border: `1px solid ${hasDraft ? C.greenB : C.border}`, background: hasDraft ? "var(--green-soft)" : C.panel, color: hasDraft ? C.green : C.dim, borderRadius: 7, cursor: hasDraft ? "pointer" : "default", padding: 0 }}>
+          <Check size={13} />
+        </button>
+      </div>
     </div>
   );
 }
@@ -1066,10 +1250,23 @@ function MiniMetric({ label, value, color }) {
   );
 }
 
-function BudgetImportModal({ candidates, scopeLabel, saving, onClose, onApply }) {
+function BudgetImportModal({ candidates, scopeLabel, saving, onClose, onApply, onApplyManual }) {
+  const [mode, setMode] = useState("manual");
   const [text, setText] = useState("");
   const [rows, setRows] = useState([]);
   const [fileName, setFileName] = useState("");
+  const [manualRows, setManualRows] = useState(() => [...candidates]
+    .sort((a, b) => {
+      const aHasPrice = a.precio_unitario !== null && a.precio_unitario !== undefined && a.precio_unitario !== "";
+      const bHasPrice = b.precio_unitario !== null && b.precio_unitario !== undefined && b.precio_unitario !== "";
+      return Number(aHasPrice) - Number(bHasPrice) || String(a.descripcion || "").localeCompare(String(b.descripcion || ""));
+    })
+    .map((item) => ({
+      ...item,
+      precioActual: item.precio_unitario,
+      precio_unitario: "",
+      moneda: item.moneda || "ARS",
+    })));
 
   function analyze(nextText = text) {
     setRows(parseBudgetText(nextText, candidates));
@@ -1087,11 +1284,17 @@ function BudgetImportModal({ candidates, scopeLabel, saving, onClose, onApply })
     setRows((prev) => prev.map((row, i) => (i === index ? { ...row, ...patch } : row)));
   }
 
+  function updateManualRow(index, patch) {
+    setManualRows((prev) => prev.map((row, i) => (i === index ? { ...row, ...patch } : row)));
+  }
+
   const ready = rows.filter((row) => row.itemId && normalizePriceInput(row.precio_unitario) !== null).length;
+  const manualReady = manualRows.filter((row) => row.id && normalizePriceInput(row.precio_unitario) !== null).length;
+  const activeReady = mode === "manual" ? manualReady : ready;
 
   return (
     <div onClick={(e) => { if (e.target === e.currentTarget) onClose(); }} style={{ position: "fixed", inset: 0, zIndex: 9999, background: "var(--overlay-strong)", display: "grid", placeItems: "center", padding: 18 }}>
-      <div style={{ width: "min(1100px, 100%)", maxHeight: "90vh", overflow: "hidden", display: "grid", gridTemplateRows: "auto 1fr auto", border: `1px solid ${C.border}`, background: C.panelSolid, color: C.text, borderRadius: 14, boxShadow: `0 20px 70px ${C.shadow || "rgba(0,0,0,0.35)"}` }}>
+      <div style={{ width: "min(1100px, 100%)", maxHeight: "90vh", overflow: "hidden", display: "grid", gridTemplateRows: "auto auto 1fr auto", border: `1px solid ${C.border}`, background: C.panelSolid, color: C.text, borderRadius: 14, boxShadow: `0 20px 70px ${C.shadow || "rgba(0,0,0,0.35)"}` }}>
         <div style={{ padding: 16, borderBottom: `1px solid ${C.border}`, display: "flex", gap: 12, alignItems: "center" }}>
           <div style={{ width: 34, height: 34, borderRadius: 10, display: "grid", placeItems: "center", background: "var(--violet-soft)", color: C.violet, border: `1px solid ${C.border}` }}>
             <Sparkles size={17} />
@@ -1103,6 +1306,85 @@ function BudgetImportModal({ candidates, scopeLabel, saving, onClose, onApply })
           <button type="button" onClick={onClose} style={iconButton(C.dim)}><X size={15} /></button>
         </div>
 
+        <div style={{ padding: "10px 16px", borderBottom: `1px solid ${C.border}`, display: "flex", gap: 8, alignItems: "center", flexWrap: "wrap" }}>
+          {[
+            ["manual", "A mano"],
+            ["paste", "Pegar presupuesto"],
+          ].map(([value, label]) => {
+            const active = mode === value;
+            return (
+              <button
+                key={value}
+                type="button"
+                onClick={() => setMode(value)}
+                style={{
+                  border: `1px solid ${active ? C.blue : C.border}`,
+                  background: active ? "var(--blue-soft)" : C.panel,
+                  color: active ? C.blue : C.text,
+                  borderRadius: 999,
+                  padding: "8px 12px",
+                  cursor: "pointer",
+                  fontSize: 12,
+                  fontWeight: 900,
+                  fontFamily: C.sans,
+                }}
+              >
+                {label}
+              </button>
+            );
+          })}
+          <div style={{ marginLeft: "auto", color: C.dim, fontSize: 12 }}>
+            {mode === "manual" ? "Carga directa por item" : "Detecta precios desde texto"}
+          </div>
+        </div>
+
+        {mode === "manual" ? (
+          <div style={{ overflowY: "auto", padding: 16 }}>
+            <div style={{ border: `1px solid ${C.border}`, borderRadius: 12, overflow: "hidden" }}>
+              <div style={{ display: "grid", gridTemplateColumns: "minmax(260px,1fr) 130px 92px", gap: 8, padding: "9px 10px", background: C.panel, color: C.dim, fontSize: 10, fontWeight: 900, letterSpacing: 0.8, textTransform: "uppercase" }}>
+                <span>Item</span><span>Precio unit.</span><span>Moneda</span>
+              </div>
+              <div style={{ maxHeight: 540, overflowY: "auto" }}>
+                {manualRows.length === 0 ? (
+                  <EmptyState text="No hay items candidatos para cargar precios." compact />
+                ) : manualRows.map((row, index) => {
+                  const currentPrice = normalizePriceInput(row.precioActual);
+                  const draftReady = normalizePriceInput(row.precio_unitario) !== null;
+                  return (
+                    <div key={row.id || `${row.descripcion}-${index}`} style={{ display: "grid", gridTemplateColumns: "minmax(260px,1fr) 130px 92px", gap: 8, alignItems: "center", padding: 10, borderTop: `1px solid ${C.border}`, background: currentPrice !== null ? C.panelSolid : "transparent" }}>
+                      <div style={{ minWidth: 0 }}>
+                        <div style={{ color: C.text, fontSize: 13, fontWeight: 900, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{row.descripcion}</div>
+                        <div style={{ color: C.dim, fontSize: 11, marginTop: 3 }}>
+                          {row.obra || "Sin obra"}{row.codigo ? ` · ${row.codigo}` : ""} · {row.cantidad || "-"} {row.unidad || ""}
+                        </div>
+                        {currentPrice !== null && (
+                          <div style={{ color: C.green, fontFamily: C.mono, fontSize: 11, fontWeight: 850, marginTop: 4 }}>
+                            Actual: {fmtMoney(currentPrice, row.moneda)}
+                          </div>
+                        )}
+                      </div>
+                      <input
+                        value={row.precio_unitario}
+                        onChange={(e) => updateManualRow(index, { precio_unitario: e.target.value })}
+                        placeholder={currentPrice !== null ? String(row.precioActual) : "$ unit."}
+                        inputMode="decimal"
+                        style={inp({ padding: "8px 9px", fontSize: 12, fontFamily: C.mono, textAlign: "right", borderColor: draftReady ? C.greenB : C.border, background: C.panelSolid })}
+                      />
+                      <select
+                        value={row.moneda}
+                        onChange={(e) => updateManualRow(index, { moneda: e.target.value })}
+                        style={inp({ padding: "8px 9px", background: C.panelSolid, fontSize: 12 })}
+                      >
+                        <option value="ARS">ARS</option>
+                        <option value="USD">USD</option>
+                      </select>
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+          </div>
+        ) : (
         <div style={{ overflowY: "auto", padding: 16, display: "grid", gridTemplateColumns: "minmax(300px, 0.8fr) minmax(480px, 1.2fr)", gap: 12 }}>
           <div style={{ display: "grid", gap: 10, alignContent: "start" }}>
             <textarea
@@ -1157,11 +1439,17 @@ function BudgetImportModal({ candidates, scopeLabel, saving, onClose, onApply })
             </div>
           </div>
         </div>
+        )}
 
         <div style={{ padding: 14, borderTop: `1px solid ${C.border}`, display: "flex", gap: 10, alignItems: "center", justifyContent: "flex-end" }}>
-          <div style={{ marginRight: "auto", color: ready ? C.green : C.dim, fontSize: 12, fontWeight: 850 }}>{ready} precios listos para aplicar</div>
+          <div style={{ marginRight: "auto", color: activeReady ? C.green : C.dim, fontSize: 12, fontWeight: 850 }}>{activeReady} precios listos para aplicar</div>
           <button type="button" onClick={onClose} style={secondaryButton()}>Cancelar</button>
-          <button type="button" onClick={() => onApply(rows)} disabled={saving || ready === 0} style={{ ...primaryButton(C.green), opacity: saving || ready === 0 ? 0.55 : 1 }}>
+          <button
+            type="button"
+            onClick={() => (mode === "manual" ? onApplyManual?.(manualRows) : onApply(rows))}
+            disabled={saving || activeReady === 0}
+            style={{ ...primaryButton(C.green), opacity: saving || activeReady === 0 ? 0.55 : 1 }}
+          >
             {saving ? "Aplicando..." : "Aplicar precios"}
           </button>
         </div>
@@ -1170,48 +1458,132 @@ function BudgetImportModal({ candidates, scopeLabel, saving, onClose, onApply })
   );
 }
 
-function ManualForm({ form, setForm, invoiceFile, setInvoiceFile, saving, onSubmit, onCancel }) {
+function ManualForm({ form, setForm, obras = EMPTY, invoiceFile, setInvoiceFile, saving, onSubmit, onCancel }) {
+  const selectedObra = obras.find((obra) => obra.id === form.project_id);
+  const amountText = String(form.amount || "").trim();
+  const amountNumber = Number(form.amount);
+  const amountInvalid = amountText && !(amountNumber > 0);
+  const canSave = Boolean(form.description.trim()) && !amountInvalid && !saving;
+  const preview = [
+    amountText && !amountInvalid ? fmtMoney(amountNumber, "ARS") : "$0",
+    form.provider.trim() || "Sin proveedor",
+    selectedObra?.codigo || "Sin obra",
+    form.purchased_at ? fmtDate(form.purchased_at) : "Sin fecha",
+  ].join(" · ");
+  const labelStyle = {
+    color: C.dim,
+    fontSize: 10,
+    fontWeight: 900,
+    letterSpacing: 0.8,
+    textTransform: "uppercase",
+  };
+  const inputLabel = { display: "grid", gap: 6, alignContent: "start" };
+
   return (
-    <form onSubmit={onSubmit} style={{ ...panelStyle(), display: "grid", gap: 10 }}>
+    <form onSubmit={onSubmit} style={{ ...panelStyle(), display: "grid", gap: 14 }}>
       <div style={sectionHeaderStyle()}>
-        <div style={sectionTitleStyle()}>Nueva compra manual</div>
+        <div>
+          <div style={sectionTitleStyle()}>Nueva compra manual</div>
+          <div style={{ color: C.dim, fontSize: 12, marginTop: 3 }}>Una compra, un monto total y una obra opcional.</div>
+        </div>
         <button type="button" onClick={onCancel} style={iconButton(C.dim)}><X size={14} /></button>
       </div>
 
-      <input value={form.description} onChange={(e) => setForm((f) => ({ ...f, description: e.target.value }))}
-        placeholder="Que compraste?" required style={inp()} />
+      <label style={inputLabel}>
+        <span style={labelStyle}>Descripcion</span>
+        <input
+          value={form.description}
+          onChange={(e) => setForm((f) => ({ ...f, description: e.target.value }))}
+          placeholder="Que compraste?"
+          required
+          style={inp({ background: C.panelSolid, fontWeight: 750 })}
+        />
+      </label>
 
-      <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 160px", gap: 10 }}>
-        <label style={fieldWrap()}>
-          <DollarSign size={14} color={C.dim} />
-          <input value={form.amount} onChange={(e) => setForm((f) => ({ ...f, amount: e.target.value }))}
-            type="number" step="0.01" min="0" placeholder="Monto" style={bareInput()} />
-        </label>
-        <label style={fieldWrap()}>
-          <Store size={14} color={C.dim} />
-          <input value={form.provider} onChange={(e) => setForm((f) => ({ ...f, provider: e.target.value }))}
-            placeholder="Proveedor" style={bareInput()} />
-        </label>
-        <label style={fieldWrap()}>
-          <Calendar size={14} color={C.dim} />
-          <input value={form.purchased_at} onChange={(e) => setForm((f) => ({ ...f, purchased_at: e.target.value }))}
-            type="date" style={bareInput()} />
+      <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(220px, 1fr))", gap: 10 }}>
+      <label style={inputLabel}>
+        <span style={labelStyle}>Obra / barco</span>
+        <select value={form.project_id || ""} onChange={(e) => setForm((f) => ({ ...f, project_id: e.target.value }))}
+          style={inp({ background: C.panelSolid, cursor: "pointer" })}>
+          <option value="">Sin obra (gasto general)</option>
+          {obras.map((o) => <option key={o.id} value={o.id}>{o.codigo}{o.descripcion ? ` — ${o.descripcion}` : ""}</option>)}
+        </select>
+      </label>
+
+        <label style={inputLabel}>
+          <span style={labelStyle}>Proveedor</span>
+          <div style={{ position: "relative" }}>
+            <Store size={14} color={C.dim} style={{ position: "absolute", left: 11, top: "50%", transform: "translateY(-50%)", pointerEvents: "none" }} />
+            <input
+              value={form.provider}
+              onChange={(e) => setForm((f) => ({ ...f, provider: e.target.value }))}
+              placeholder="Proveedor"
+              style={inp({ background: C.panelSolid, paddingLeft: 34 })}
+            />
+          </div>
         </label>
       </div>
 
-      <textarea value={form.notes} onChange={(e) => setForm((f) => ({ ...f, notes: e.target.value }))}
-        placeholder="Notas (opcional)" rows={2} style={inp({ resize: "vertical", minHeight: 44 })} />
-
-      <div style={{ display: "flex", alignItems: "center", gap: 10, flexWrap: "wrap" }}>
-        <label style={{ ...secondaryButton(), cursor: "pointer" }}>
-          <ImagePlus size={14} /> {invoiceFile ? invoiceFile.name : "Adjuntar factura"}
-          <input type="file" accept="image/*,.pdf" onChange={(e) => setInvoiceFile(e.target.files[0])} style={{ display: "none" }} />
+      <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(180px, 1fr))", gap: 10 }}>
+        <label style={inputLabel}>
+          <span style={labelStyle}>Monto</span>
+          <div style={{ position: "relative" }}>
+            <span style={{ position: "absolute", left: 12, top: "50%", transform: "translateY(-50%)", color: amountInvalid ? C.red : C.dim, fontFamily: C.mono, fontSize: 13, fontWeight: 900 }}>$</span>
+            <input
+              value={form.amount}
+              onChange={(e) => setForm((f) => ({ ...f, amount: e.target.value }))}
+              type="number"
+              step="0.01"
+              min="0.01"
+              placeholder="0"
+              style={inp({ background: C.panelSolid, paddingLeft: 30, textAlign: "right", fontFamily: C.mono, fontWeight: 850, borderColor: amountInvalid ? C.red : C.border })}
+            />
+          </div>
+          {amountInvalid && <span style={{ color: C.red, fontSize: 11, fontWeight: 800 }}>El monto tiene que ser mayor a 0.</span>}
         </label>
-        {invoiceFile && <button type="button" onClick={() => setInvoiceFile(null)} style={textDangerButton()}>Quitar</button>}
-        <div style={{ flex: 1 }} />
-        <button type="submit" disabled={saving || !form.description.trim()} style={{ ...primaryButton(C.green), opacity: saving || !form.description.trim() ? 0.55 : 1 }}>
-          {saving ? "Guardando..." : <><Upload size={14} /> Guardar</>}
-        </button>
+        <label style={inputLabel}>
+          <span style={labelStyle}>Fecha</span>
+          <div style={{ position: "relative" }}>
+            <Calendar size={14} color={C.dim} style={{ position: "absolute", left: 11, top: "50%", transform: "translateY(-50%)", pointerEvents: "none" }} />
+            <input
+              value={form.purchased_at}
+              onChange={(e) => setForm((f) => ({ ...f, purchased_at: e.target.value }))}
+              type="date"
+              style={inp({ background: C.panelSolid, paddingLeft: 34 })}
+            />
+          </div>
+        </label>
+      </div>
+
+      <label style={inputLabel}>
+        <span style={labelStyle}>Notas</span>
+        <textarea
+          value={form.notes}
+          onChange={(e) => setForm((f) => ({ ...f, notes: e.target.value }))}
+          placeholder="Notas (opcional)"
+          rows={2}
+          style={inp({ resize: "vertical", minHeight: 54, background: C.panelSolid })}
+        />
+      </label>
+
+      <div style={{ border: `1px solid ${C.border}`, background: C.panel, borderRadius: 12, padding: 12, display: "grid", gridTemplateColumns: "minmax(240px, 1fr) auto", gap: 12, alignItems: "center" }}>
+        <div style={{ minWidth: 0 }}>
+          <div style={labelStyle}>Resumen</div>
+          <div style={{ color: C.text, fontSize: 13, fontWeight: 850, marginTop: 5, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+            {preview}
+          </div>
+        </div>
+        <div style={{ display: "flex", alignItems: "center", gap: 8, justifyContent: "flex-end", flexWrap: "wrap" }}>
+          <label style={{ ...secondaryButton(), cursor: "pointer", maxWidth: 260 }}>
+            <ImagePlus size={14} />
+            <span style={{ overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{invoiceFile ? invoiceFile.name : "Adjuntar factura"}</span>
+            <input type="file" accept="image/*,.pdf" onChange={(e) => setInvoiceFile(e.target.files[0])} style={{ display: "none" }} />
+          </label>
+          {invoiceFile && <button type="button" onClick={() => setInvoiceFile(null)} style={{ ...secondaryButton(), color: C.red }}>Quitar</button>}
+          <button type="submit" disabled={!canSave} style={{ ...primaryButton(C.green), opacity: canSave ? 1 : 0.55 }}>
+            {saving ? "Guardando..." : <><Upload size={14} /> Guardar</>}
+          </button>
+        </div>
       </div>
     </form>
   );
@@ -1489,10 +1861,6 @@ function secondaryButton() {
   };
 }
 
-function textDangerButton() {
-  return { border: "none", background: "none", color: C.red, cursor: "pointer", fontSize: 12, fontWeight: 800 };
-}
-
 function iconButton(color) {
   return {
     width: 29,
@@ -1506,32 +1874,6 @@ function iconButton(color) {
     cursor: "pointer",
     padding: 0,
     flexShrink: 0,
-  };
-}
-
-function fieldWrap() {
-  return {
-    display: "flex",
-    alignItems: "center",
-    gap: 8,
-    border: `1px solid ${C.border}`,
-    borderRadius: 9,
-    padding: "0 10px",
-    background: C.panel,
-  };
-}
-
-function bareInput() {
-  return {
-    width: "100%",
-    minWidth: 0,
-    border: "none",
-    background: "transparent",
-    color: C.text,
-    padding: "10px 0",
-    fontSize: 13,
-    fontFamily: C.sans,
-    outline: "none",
   };
 }
 

@@ -7,6 +7,7 @@ import {
   Clock3,
   MessageSquare,
   PackageOpen,
+  Printer,
   Search,
   Send,
   Trash2,
@@ -20,7 +21,10 @@ import {
 } from "@/features/panol/panolApi";
 import { notifyWaUpdate } from "@/features/compras/purchaseRequestsApi";
 
-const ACCIONES = ["recibido", "parcial", "falta_stock", "sin_info", "rechazado", "pendiente"];
+// Recepción simplificada: el pañolero solo marca recibido o parcial (pendiente
+// queda para revertir). Los estados problema viejos ya no se ofrecen en la UI.
+const ACCIONES = ["recibido", "parcial"];
+const RECEP_ESTADOS = ["pendiente", "recibido", "parcial"];
 const EMPTY_ITEMS = [];
 
 function fmtTs(ts) {
@@ -35,6 +39,10 @@ function money(value, currency = "ARS") {
   return `${currency || "ARS"} ${n.toLocaleString("es-AR", { maximumFractionDigits: 2 })}`;
 }
 
+function escHtml(s) {
+  return String(s ?? "").replace(/[&<>"]/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c]));
+}
+
 function itemSearchText(item) {
   return [
     item.descripcion,
@@ -44,6 +52,13 @@ function itemSearchText(item) {
     item.nota,
     item.estado,
   ].filter(Boolean).join(" ").toLowerCase();
+}
+
+function parseReceivedQty(value) {
+  const raw = String(value ?? "").trim().replace(",", ".");
+  if (!raw) return null;
+  const n = Number(raw);
+  return Number.isFinite(n) && n > 0 ? n : null;
 }
 
 function StatusChip({ estado, compact = false }) {
@@ -236,6 +251,7 @@ export default function PanolEnvioDetail({ envioId, profile, canReceive, isManag
   const [msg, setMsg] = useState("");
   const [itemQ, setItemQ] = useState("");
   const [itemEstado, setItemEstado] = useState("todos");
+  const [partialModal, setPartialModal] = useState(null);
 
   const cargar = useCallback(async () => {
     setLoading(true);
@@ -287,14 +303,24 @@ export default function PanolEnvioDetail({ envioId, profile, canReceive, isManag
     });
   }
 
-  async function aplicar(estado, ids) {
+  function pedirParcial(ids) {
+    const cleanIds = [...new Set(ids)].filter(Boolean);
+    if (!cleanIds.length) return;
+    setPartialModal({ ids: cleanIds });
+  }
+
+  async function aplicar(estado, ids, opts = {}) {
     if (!ids.length) return;
+    if (estado === "parcial" && !String(opts.cantidadRecibida ?? "").trim()) {
+      pedirParcial(ids);
+      return;
+    }
     setSaving(true);
     try {
       const linkedBefore = estado === "recibido" && envio?.purchase_request_id
         ? await fetchLinkedPurchaseRequestForEnvio(envio.id).catch(() => null)
         : null;
-      await marcarItems(ids, estado);
+      await marcarItems(ids, estado, opts);
       await cargar();
       if (linkedBefore && linkedBefore.status !== "recibido") {
         const linkedAfter = await fetchLinkedPurchaseRequestForEnvio(envio.id).catch(() => null);
@@ -314,6 +340,28 @@ export default function PanolEnvioDetail({ envioId, profile, canReceive, isManag
       setSel(new Set());
     } catch (err) {
       toast.error(err.message || "No se pudo actualizar.");
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  async function aplicarParciales(rows) {
+    const cleanRows = rows
+      .map((row) => ({ id: row.id, cantidadRecibida: String(row.cantidadRecibida ?? "").trim() }))
+      .filter((row) => row.id && parseReceivedQty(row.cantidadRecibida) !== null);
+    if (!cleanRows.length) return;
+
+    setSaving(true);
+    try {
+      for (const row of cleanRows) {
+        await marcarItems([row.id], "parcial", { cantidadRecibida: row.cantidadRecibida });
+      }
+      await cargar();
+      setSel(new Set());
+      setPartialModal(null);
+      toast.success(cleanRows.length === 1 ? "Recepcion parcial guardada." : "Recepciones parciales guardadas.");
+    } catch (err) {
+      toast.error(err.message || "No se pudo guardar la recepcion parcial.");
     } finally {
       setSaving(false);
     }
@@ -353,6 +401,57 @@ export default function PanolEnvioDetail({ envioId, profile, canReceive, isManag
     }
   }
 
+  function imprimirEnvio() {
+    if (!envio) return;
+    const items = envio.items || [];
+    const meta = () => [
+      envio.obra?.codigo ? `Obra ${envio.obra.codigo}` : null,
+      `Pañol ${envio.sede || ""}`.trim(),
+      envio.destino ? `Destino: ${envio.destino}` : null,
+      `Prioridad: ${envio.prioridad || "media"}`,
+      `Estado: ${(ENVIO_ESTADO_META[envio.estado]?.label) || envio.estado}`,
+    ].filter(Boolean);
+    const filas = items.map((it, i) => {
+      const em = ITEM_ESTADO_META[it.estado] || ITEM_ESTADO_META.pendiente;
+      const precio = it.precio_unitario != null && it.precio_unitario !== "" ? money(it.precio_unitario, it.moneda) : "";
+      return `<tr>
+        <td class="n">${i + 1}</td>
+        <td>${escHtml(it.descripcion)}${it.codigo ? `<div class="cod">${escHtml(it.codigo)}</div>` : ""}${precio ? `<div class="cod">${escHtml(precio)}</div>` : ""}</td>
+        <td class="c">${escHtml(it.cantidad || "")} ${escHtml(it.unidad || "")}</td>
+        <td class="c rec">${it.cantidad_recibida != null && it.cantidad_recibida !== "" ? escHtml(it.cantidad_recibida) : ""}</td>
+        <td class="c">${escHtml(em.label)}</td>
+        <td>${escHtml(it.nota || "")}</td>
+      </tr>`;
+    }).join("");
+    const html = `<!doctype html><html lang="es"><head><meta charset="utf-8"><title>${escHtml(envio.titulo || "Pedido a Pañol")}</title>
+    <style>
+      *{box-sizing:border-box} body{font-family:Arial,Helvetica,sans-serif;color:#111;margin:24px;font-size:12px}
+      .head{display:flex;justify-content:space-between;align-items:flex-end;border-bottom:2px solid #111;padding-bottom:8px;margin-bottom:6px}
+      .brand{font-size:11px;letter-spacing:2px;text-transform:uppercase;color:#555}
+      h1{font-size:18px;margin:2px 0 0}
+      .meta{display:flex;flex-wrap:wrap;gap:6px 16px;color:#333;margin:8px 0 12px;font-size:12px}
+      table{width:100%;border-collapse:collapse} th,td{border:1px solid #ccc;padding:5px 7px;text-align:left;vertical-align:top}
+      th{background:#f1f1f1;font-size:10px;text-transform:uppercase;letter-spacing:.5px}
+      td.c{text-align:center;white-space:nowrap} td.n{text-align:center;color:#888;width:26px}
+      td.rec{font-weight:bold} .cod{color:#777;font-size:10px;margin-top:2px}
+      .foot{margin-top:14px;color:#777;font-size:10px;display:flex;justify-content:space-between}
+      @media print{body{margin:12mm}}
+    </style></head><body>
+      <div class="head">
+        <div><div class="brand">Astillero Klase A · Pedido a Pañol</div><h1>${escHtml(envio.titulo || "Pedido a Pañol")}</h1></div>
+        <div style="text-align:right;color:#555">${new Date(envio.created_at || Date.now()).toLocaleDateString("es-AR")}</div>
+      </div>
+      <div class="meta">${meta(envio).map((m) => `<span>${escHtml(m)}</span>`).join("")}</div>
+      ${envio.observaciones ? `<div style="margin:0 0 10px;color:#333">Obs.: ${escHtml(envio.observaciones)}</div>` : ""}
+      <table><thead><tr><th>#</th><th>Descripción</th><th>Pedido</th><th>Recibido</th><th>Estado</th><th>Nota</th></tr></thead><tbody>${filas || `<tr><td colspan="6" style="text-align:center;color:#999;padding:18px">Sin ítems</td></tr>`}</tbody></table>
+      <div class="foot"><span>${items.length} ítem${items.length === 1 ? "" : "s"}</span><span>Impreso ${new Date().toLocaleString("es-AR")}</span></div>
+      <script>window.onload=function(){window.print()}</script>
+    </body></html>`;
+    const w = window.open("", "_blank");
+    if (w) { w.document.write(html); w.document.close(); }
+    else toast.error("Habilitá las ventanas emergentes para imprimir.");
+  }
+
   async function borrarEnvio() {
     if (!envio || !isManager) return;
     const ok = window.confirm(`Borrar definitivamente "${envio.titulo}"?\n\nEsto elimina el pedido a pañol, sus items y el historial. No queda cancelado ni archivado.`);
@@ -367,6 +466,9 @@ export default function PanolEnvioDetail({ envioId, profile, canReceive, isManag
   }
 
   const bulkIds = [...sel];
+  const partialItems = partialModal
+    ? items.filter((item) => partialModal.ids.includes(item.id))
+    : EMPTY_ITEMS;
   const statusFilters = [
     ["todos", `Todos (${items.length})`],
     ...ITEM_ESTADOS.map((estado) => [estado, `${ITEM_ESTADO_META[estado].label} (${resumen.by?.[estado] || 0})`]),
@@ -418,6 +520,18 @@ export default function PanolEnvioDetail({ envioId, profile, canReceive, isManag
           </div>
 
           {envio && <EnvioStatusChip estado={envio.estado} />}
+
+          {envio && (
+            <button
+              type="button"
+              onClick={imprimirEnvio}
+              title="Imprimir remito del pedido"
+              style={{ border: `1px solid ${C.border}`, background: C.panelSolid, color: C.muted, borderRadius: 9, cursor: "pointer", padding: "7px 10px", fontSize: 12, fontWeight: 850, fontFamily: C.sans, display: "inline-flex", alignItems: "center", gap: 6, flexShrink: 0 }}
+            >
+              <Printer size={14} />
+              {!isMobile && "Imprimir"}
+            </button>
+          )}
 
           {isManager && (
             <div style={{ display: "flex", gap: 7, flexShrink: 0 }}>
@@ -484,7 +598,7 @@ export default function PanolEnvioDetail({ envioId, profile, canReceive, isManag
             {sel.size} seleccionado{sel.size === 1 ? "" : "s"}
           </span>
           {ACCIONES.map((estado) => (
-            <ActionButton key={estado} estado={estado} disabled={saving} onClick={() => aplicar(estado, bulkIds)} />
+            <ActionButton key={estado} estado={estado} disabled={saving} onClick={() => (estado === "parcial" ? pedirParcial(bulkIds) : aplicar(estado, bulkIds))} />
           ))}
           <button
             type="button"
@@ -627,7 +741,7 @@ export default function PanolEnvioDetail({ envioId, profile, canReceive, isManag
                       canEdit={canReceive && !cerrado}
                       saving={saving}
                       onToggle={() => toggle(item.id)}
-                      onApply={(estado) => aplicar(estado, [item.id])}
+                      onApply={(estado, opts) => aplicar(estado, [item.id], opts)}
                       onSaveNote={(nota) => guardarNota(item, nota)}
                     />
                   ) : (
@@ -638,7 +752,7 @@ export default function PanolEnvioDetail({ envioId, profile, canReceive, isManag
                       canEdit={canReceive && !cerrado}
                       saving={saving}
                       onToggle={() => toggle(item.id)}
-                      onApply={(estado) => aplicar(estado, [item.id])}
+                      onApply={(estado, opts) => aplicar(estado, [item.id], opts)}
                       onSaveNote={(nota) => guardarNota(item, nota)}
                     />
                   )
@@ -742,6 +856,16 @@ export default function PanolEnvioDetail({ envioId, profile, canReceive, isManag
           </section>
         </aside>
       </div>
+
+      {partialModal && (
+        <PartialReceiptModal
+          key={partialModal.ids.join("-")}
+          items={partialItems}
+          saving={saving}
+          onClose={() => setPartialModal(null)}
+          onSave={aplicarParciales}
+        />
+      )}
     </>
   );
 }
@@ -790,7 +914,10 @@ function DesktopItemRow({ item, selected, canEdit, saving, onToggle, onApply, on
         {item.codigo || "-"}
       </div>
 
-      <StatusChip estado={item.estado} compact />
+      <div style={{ display: "grid", gap: 4, justifyItems: "start" }}>
+        <StatusChip estado={item.estado} compact />
+        <PartialQtyHint item={item} />
+      </div>
 
       {canEdit ? (
         <input
@@ -819,7 +946,7 @@ function DesktopItemRow({ item, selected, canEdit, saving, onToggle, onApply, on
       )}
 
       {canEdit && (
-        <div style={{ display: "flex", gap: 6, alignItems: "center" }}>
+        <div style={{ display: "flex", gap: 6, alignItems: "center", flexWrap: "wrap" }}>
           {item.estado !== "recibido" && (
             <ActionButton estado="recibido" disabled={saving} onClick={() => onApply("recibido")}>
               Recibir
@@ -844,8 +971,20 @@ function DesktopItemRow({ item, selected, canEdit, saving, onToggle, onApply, on
               cursor: saving ? "default" : "pointer",
             }}
           >
-            {ITEM_ESTADOS.map((estado) => <option key={estado} value={estado}>{ITEM_ESTADO_META[estado].label}</option>)}
+            {RECEP_ESTADOS.map((estado) => <option key={estado} value={estado}>{ITEM_ESTADO_META[estado].label}</option>)}
           </select>
+          {item.estado === "parcial" && (
+            <input
+              type="number"
+              min="0"
+              key={`${item.id}-cant-${item.cantidad_recibida ?? ""}`}
+              defaultValue={item.cantidad_recibida ?? ""}
+              placeholder="Llegaron"
+              title="¿Cuántos llegaron?"
+              onBlur={(e) => onApply("parcial", { cantidadRecibida: e.target.value.trim() })}
+              style={{ width: 76, boxSizing: "border-box", background: C.panelSolid, border: `1px solid ${ITEM_ESTADO_META.parcial.border}`, color: C.text, padding: "7px 8px", borderRadius: 8, fontSize: 12, fontFamily: C.mono, outline: "none" }}
+            />
+          )}
         </div>
       )}
     </div>
@@ -912,13 +1051,124 @@ function MobileItemCard({ item, selected, canEdit, saving, onToggle, onApply, on
                 fontFamily: C.sans,
               }}
             >
-              {ITEM_ESTADOS.map((estado) => <option key={estado} value={estado}>{ITEM_ESTADO_META[estado].label}</option>)}
+              {RECEP_ESTADOS.map((estado) => <option key={estado} value={estado}>{ITEM_ESTADO_META[estado].label}</option>)}
             </select>
           </div>
+          {item.estado === "parcial" && (
+            <input
+              type="number"
+              min="0"
+              key={`${item.id}-cant-${item.cantidad_recibida ?? ""}`}
+              defaultValue={item.cantidad_recibida ?? ""}
+              placeholder="¿Cuántos llegaron?"
+              onBlur={(e) => onApply("parcial", { cantidadRecibida: e.target.value.trim() })}
+              style={{ width: "100%", boxSizing: "border-box", background: C.panelSolid2, border: `1px solid ${ITEM_ESTADO_META.parcial.border}`, color: C.text, padding: "8px 9px", borderRadius: 8, fontSize: 13, fontFamily: C.mono, outline: "none" }}
+            />
+          )}
         </>
       ) : item.nota ? (
         <div style={{ color: C.dim, fontSize: 12 }}>Nota: {item.nota}</div>
       ) : null}
+    </div>
+  );
+}
+
+function PartialQtyHint({ item }) {
+  if (item.estado !== "parcial") return null;
+  const received = String(item.cantidad_recibida ?? "").trim();
+  return (
+    <span style={{
+      color: received ? ITEM_ESTADO_META.parcial.color : C.red,
+      background: received ? ITEM_ESTADO_META.parcial.bg : "var(--red-soft)",
+      border: `1px solid ${received ? ITEM_ESTADO_META.parcial.border : C.redB}`,
+      borderRadius: 7,
+      padding: "2px 6px",
+      fontSize: 10,
+      fontWeight: 850,
+      fontFamily: C.mono,
+      whiteSpace: "nowrap",
+    }}>
+      {received ? `Llegaron ${received}${item.cantidad ? ` / ${item.cantidad}` : ""}` : "Falta cantidad"}
+    </span>
+  );
+}
+
+function PartialReceiptModal({ items, saving, onClose, onSave }) {
+  const [values, setValues] = useState(() => Object.fromEntries(
+    items.map((item) => [item.id, String(item.cantidad_recibida ?? "")]),
+  ));
+
+  function update(id, value) {
+    setValues((prev) => ({ ...prev, [id]: value }));
+  }
+
+  const rows = items.map((item) => ({
+    id: item.id,
+    cantidadRecibida: String(values[item.id] ?? "").trim(),
+  }));
+  const invalid = rows.some((row) => parseReceivedQty(row.cantidadRecibida) === null);
+
+  return (
+    <div
+      onClick={(e) => { if (e.target === e.currentTarget && !saving) onClose(); }}
+      style={{ position: "fixed", inset: 0, zIndex: 9999, background: "var(--overlay-strong)", display: "grid", placeItems: "center", padding: 16 }}
+    >
+      <div style={{ width: "min(720px, 100%)", maxHeight: "88vh", overflow: "hidden", display: "grid", gridTemplateRows: "auto 1fr auto", border: `1px solid ${C.border}`, background: C.panelSolid, color: C.text, borderRadius: 14, boxShadow: `0 20px 70px ${C.shadow || "rgba(0,0,0,0.35)"}` }}>
+        <div style={{ padding: 16, borderBottom: `1px solid ${C.border}`, display: "flex", alignItems: "center", gap: 10 }}>
+          <div style={{ width: 34, height: 34, borderRadius: 10, display: "grid", placeItems: "center", background: ITEM_ESTADO_META.parcial.bg, color: ITEM_ESTADO_META.parcial.color, border: `1px solid ${ITEM_ESTADO_META.parcial.border}` }}>
+            <PackageOpen size={17} />
+          </div>
+          <div style={{ flex: 1, minWidth: 0 }}>
+            <div style={{ fontSize: 16, fontWeight: 900 }}>Recepcion parcial</div>
+            <div style={{ color: C.dim, fontSize: 12, marginTop: 3 }}>
+              Carga cuanto llego de cada item. Este dato es obligatorio para marcar parcial.
+            </div>
+          </div>
+          <button type="button" onClick={onClose} disabled={saving} style={{ border: "none", background: "transparent", color: C.dim, cursor: saving ? "default" : "pointer", padding: 5 }}>
+            <X size={18} />
+          </button>
+        </div>
+
+        <div style={{ overflowY: "auto", padding: 16, display: "grid", gap: 9 }}>
+          {items.map((item) => {
+            const value = values[item.id] ?? "";
+            const bad = value.trim() && parseReceivedQty(value) === null;
+            return (
+              <div key={item.id} style={{ display: "grid", gridTemplateColumns: "minmax(220px,1fr) 120px 150px", gap: 10, alignItems: "center", border: `1px solid ${bad ? C.redB : C.border}`, background: bad ? "var(--red-soft)" : C.panel, borderRadius: 11, padding: 11 }}>
+                <div style={{ minWidth: 0 }}>
+                  <div style={{ color: C.text, fontSize: 13, fontWeight: 850, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{item.descripcion}</div>
+                  <div style={{ color: C.dim, fontSize: 11, marginTop: 3 }}>{item.codigo || "Sin codigo"}</div>
+                </div>
+                <div style={{ color: C.muted, fontSize: 12, fontWeight: 800 }}>
+                  Pedido: <span style={{ color: C.text, fontFamily: C.mono }}>{item.cantidad || "-"}</span> {item.unidad || ""}
+                </div>
+                <input
+                  autoFocus={items.length === 1}
+                  type="number"
+                  min="0"
+                  step="any"
+                  value={value}
+                  onChange={(e) => update(item.id, e.target.value)}
+                  placeholder="Llegaron"
+                  style={{ width: "100%", boxSizing: "border-box", background: C.panelSolid, border: `1px solid ${bad ? C.red : ITEM_ESTADO_META.parcial.border}`, color: C.text, padding: "9px 10px", borderRadius: 9, fontSize: 14, fontFamily: C.mono, fontWeight: 850, outline: "none" }}
+                />
+              </div>
+            );
+          })}
+        </div>
+
+        <div style={{ padding: 14, borderTop: `1px solid ${C.border}`, display: "flex", alignItems: "center", gap: 10 }}>
+          <div style={{ color: invalid ? C.red : C.dim, fontSize: 12, fontWeight: 800, marginRight: "auto" }}>
+            {invalid ? "Completá una cantidad válida para todos los items." : `${items.length} item${items.length === 1 ? "" : "s"} listo${items.length === 1 ? "" : "s"}.`}
+          </div>
+          <button type="button" onClick={onClose} disabled={saving} style={{ border: `1px solid ${C.border}`, background: "transparent", color: C.dim, borderRadius: 9, padding: "8px 12px", cursor: saving ? "default" : "pointer", fontSize: 13, fontWeight: 800, fontFamily: C.sans }}>
+            Cancelar
+          </button>
+          <button type="button" onClick={() => onSave(rows)} disabled={saving || invalid} style={{ border: `1px solid ${ITEM_ESTADO_META.parcial.border}`, background: ITEM_ESTADO_META.parcial.bg, color: ITEM_ESTADO_META.parcial.color, borderRadius: 9, padding: "8px 13px", cursor: saving || invalid ? "default" : "pointer", fontSize: 13, fontWeight: 900, fontFamily: C.sans, opacity: saving || invalid ? 0.55 : 1 }}>
+            {saving ? "Guardando..." : "Guardar parcial"}
+          </button>
+        </div>
+      </div>
     </div>
   );
 }
