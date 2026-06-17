@@ -9,7 +9,7 @@ const UNITS = ["unidad", "metro", "kg", "litro", "pies", "caja", "rollo", "par",
 const CURRENCIES = ["ARS", "USD"];
 
 const UNIT_ALIASES = {
-  u: "unidad", un: "unidad", unidad: "unidad", unidades: "unidad", uds: "unidad",
+  u: "unidad", un: "unidad", uni: "unidad", unid: "unidad", unidad: "unidad", unidades: "unidad", uds: "unidad",
   m: "metro", mt: "metro", mts: "metro", mtr: "metro", mtrs: "metro", metro: "metro", metros: "metro",
   kg: "kg", kgs: "kg", kilo: "kg", kilos: "kg",
   l: "litro", lt: "litro", lts: "litro", litro: "litro", litros: "litro",
@@ -81,8 +81,48 @@ function detectCode(rest = "") {
 }
 
 export function parsePanolLine(line = "") {
-  let text = String(line || "").replace(/\s+/g, " ").trim();
-  if (!text) return null;
+  const original = String(line || "").trim();
+  if (!original) return null;
+
+  // Formato columnar (remito/lista de proveedor):
+  //   "Descripción | Código | Cantidad | Unidad | $Precio"
+  // Tolerante al orden y a columnas faltantes (mínimo: descripción). Acepta
+  // separador "|" o tabulación, y precio en formato argentino ($39.372,46).
+  if (/[|\t]/.test(original)) {
+    const parts = original.split(/\s*[|\t]\s*/).map((p) => p.trim()).filter(Boolean);
+    if (parts.length >= 2) {
+      let descripcion = parts[0];
+      let codigo = "";
+      let cantidad = "";
+      let unidad = "unidad";
+      let precio = "";
+      for (const p of parts.slice(1)) {
+        const np = normKey(p);
+        // precio: tiene $ o pinta de número con miles/decimales argentinos
+        if (!precio && (/[$]/.test(p) || /^\d{1,3}(\.\d{3})+(,\d+)?$/.test(p) || /^\d+,\d{1,2}$/.test(p))) {
+          precio = normalizePriceForDb(p) || "";
+          continue;
+        }
+        if (unidad === "unidad" && UNIT_ALIASES[np]) { unidad = UNIT_ALIASES[np]; continue; }
+        if (!cantidad && /^\d+(?:[.,]\d+)?$/.test(p)) { cantidad = cleanNumber(p); continue; }
+        // código: alfanumérico con letras y números (ej C1161/2FU, VAE3/4J)
+        if (!codigo && /[a-z]/i.test(p) && /\d/.test(p)) { codigo = p.toUpperCase(); continue; }
+        // cualquier sobrante se suma a la descripción
+        descripcion = `${descripcion} ${p}`.trim();
+      }
+      return {
+        descripcion,
+        codigo,
+        cantidad,
+        unidad,
+        precio_unitario: precio,
+        moneda: "ARS",
+        purchase_request_item_id: null,
+      };
+    }
+  }
+
+  let text = original.replace(/\s+/g, " ");
 
   let cantidad = "";
   let unidad = "unidad";
@@ -368,7 +408,7 @@ export default function EnviarAPanolModal({ open, onClose, prefill }) {
               </div>
               {showBulk && (
                 <div style={{ display: "grid", gap: 6 }}>
-                  <textarea value={bulkText} onChange={(e) => setBulkText(e.target.value)} rows={7} placeholder={"Un ítem por línea...\n20 mtrs Antirruido\n1 INODORO Ovalado I14388\n50 mtrs Cadena 6mm Galvanizada C05066"} style={inp({ resize: "vertical", fontFamily: C.mono, fontSize: 12 })} />
+                  <textarea value={bulkText} onChange={(e) => setBulkText(e.target.value)} rows={7} placeholder={"Un ítem por línea. Texto libre o columnas separadas por |:\n\nDescripción | Código | Cant | Unidad | $Precio\nCODO MACHO HEMBRA 2 FUND | C1162FU | 2 | UNI | $39.372,46\nVALVULA ESFERICA 3/4 JULON | VAE3/4J | 2 | UNI | $6.552,45\n\n20 mtrs Antirruido\n1 INODORO Ovalado I14388"} style={inp({ resize: "vertical", fontFamily: C.mono, fontSize: 12 })} />
                   <button type="button" onClick={addBulk} style={{ justifySelf: "start", background: C.blue, color: "#fff", border: "none", borderRadius: 7, padding: "6px 12px", cursor: "pointer", fontSize: 12, fontWeight: 700, fontFamily: C.sans }}>
                     Analizar y agregar {bulkText.split("\n").map((l) => l.trim()).filter(Boolean).length || ""} ítems
                   </button>
