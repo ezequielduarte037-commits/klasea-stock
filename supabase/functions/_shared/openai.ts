@@ -74,8 +74,17 @@ export interface ParsedComprobante {
     descripcion: string;
     cantidad?: number | string | null;
     precio_unitario?: number | string | null;
+    moneda?: "ARS" | "USD" | string | null;
     total?: number | string | null;
   }>;
+}
+
+function normalizeComprobanteMoneda(value: unknown, fallback?: unknown): "ARS" | "USD" | null {
+  const raw = `${value ?? fallback ?? ""}`.trim().toUpperCase();
+  if (!raw) return null;
+  if (raw.includes("USD") || raw.includes("U$S") || raw.includes("US$") || raw.includes("DOLAR")) return "USD";
+  if (raw.includes("ARS") || raw.includes("$") || raw.includes("PESO")) return "ARS";
+  return null;
 }
 
 export async function extraerComprobanteImagen(input: { base64: string; mimeType?: string }): Promise<ParsedComprobante> {
@@ -88,14 +97,15 @@ Objetivo:
 - proveedor: nombre si se ve claro, si no null.
 - numero: número de comprobante/remito/factura/presupuesto si se ve, si no null.
 - fecha: formato YYYY-MM-DD si se puede interpretar, si no null.
-- items: líneas de producto/servicio con descripcion, cantidad, precio_unitario y total.
+- items: lineas de producto/servicio con descripcion, cantidad, precio_unitario, moneda y total.
 
 Reglas:
 - No inventes datos. Si no se ve claro, dejalo null o vacío.
 - Normalizá números: 1.234,56 -> 1234.56. Si hay subtotal/IVA, no lo pongas como ítem.
 - Si no hay precio unitario pero sí cantidad y total, dejá precio_unitario null.
-- Si no hay cantidad clara, dejá cantidad null.
-- Las descripciones tienen que servir para matchear contra un catálogo de materiales.
+- Si no hay cantidad clara, deja cantidad null.
+- Moneda es obligatoria por item: "USD" o "ARS". Si el documento, encabezado o seccion dice USD/U$S/US$, todos los precios de esa zona son USD aunque cada linea no lo repita. Si no hay ninguna senal de USD, usa ARS.
+- Las descripciones tienen que servir para matchear contra un catalogo de materiales.
 
 Formato:
 {
@@ -103,7 +113,7 @@ Formato:
   "numero": "texto|null",
   "fecha": "YYYY-MM-DD|null",
   "items": [
-    {"descripcion":"...", "cantidad":1, "precio_unitario":123.45, "total":123.45}
+    {"descripcion":"...", "cantidad":1, "precio_unitario":123.45, "moneda":"USD", "total":123.45}
   ]
 }`;
 
@@ -158,6 +168,7 @@ Formato:
           descripcion: String(it.descripcion ?? it.description ?? "").trim(),
           cantidad: it.cantidad ?? it.quantity ?? null,
           precio_unitario: it.precio_unitario ?? it.unit_price ?? null,
+          moneda: normalizeComprobanteMoneda(it.moneda ?? it.currency ?? it.divisa, parsed.moneda ?? parsed.currency ?? parsed.divisa ?? parsed.moneda_documento),
           total: it.total ?? null,
         }))
         .filter((it: any) => it.descripcion)
@@ -174,6 +185,113 @@ Formato:
 // ─────────────────────────────────────────────────────────────────────────────
 // chatWithBot — turno conversacional principal
 // ─────────────────────────────────────────────────────────────────────────────
+// extraerComprobantePDF -- OCR de PDFs de remitos, facturas y presupuestos.
+export async function extraerComprobantePDF(input: { base64: string; mimeType?: string; filename?: string }): Promise<ParsedComprobante> {
+  const mimeType = input.mimeType || "application/pdf";
+  const filename = input.filename || "comprobante.pdf";
+  const system = `Sos un extractor de comprobantes del astillero Klase A.
+
+Lees PDFs de remitos, facturas o presupuestos. Devolves SOLO JSON estricto, sin markdown.
+
+Objetivo:
+- proveedor: nombre si se ve claro, si no null.
+- numero: numero de comprobante/remito/factura/presupuesto si se ve, si no null.
+- fecha: formato YYYY-MM-DD si se puede interpretar, si no null.
+- items: lineas de producto/servicio con descripcion, cantidad, precio_unitario, moneda y total.
+
+Reglas:
+- No inventes datos. Si no se ve claro, dejalo null o vacio.
+- Normaliza numeros: 1.234,56 -> 1234.56. Si hay subtotal/IVA, no lo pongas como item.
+- Si no hay precio unitario pero si cantidad y total, deja precio_unitario null.
+- Si no hay cantidad clara, deja cantidad null.
+- Moneda es obligatoria por item: "USD" o "ARS". Si el documento, encabezado o seccion dice USD/U$S/US$, todos los precios de esa zona son USD aunque cada linea no lo repita. Si no hay ninguna senal de USD, usa ARS.
+- Las descripciones tienen que servir para matchear contra un catalogo de materiales.
+
+Formato:
+{
+  "proveedor": "texto|null",
+  "numero": "texto|null",
+  "fecha": "YYYY-MM-DD|null",
+  "items": [
+    {"descripcion":"...", "cantidad":1, "precio_unitario":123.45, "moneda":"USD", "total":123.45}
+  ]
+}`;
+
+  const res = await fetch(`${OR_BASE}/chat/completions`, {
+    method: "POST",
+    headers: {
+      "Authorization": orAuth(),
+      "Content-Type": "application/json",
+      "HTTP-Referer": "https://klasea-stock.vercel.app",
+      "X-Title": "Klase A Comprobantes",
+    },
+    body: JSON.stringify({
+      model: OR_MODEL,
+      temperature: 0,
+      max_tokens: 3000,
+      response_format: { type: "json_object" },
+      messages: [
+        { role: "system", content: system },
+        {
+          role: "user",
+          content: [
+            { type: "text", text: "Extrae los datos de este PDF. Devolve JSON estricto." },
+            {
+              type: "file",
+              file: {
+                filename,
+                file_data: `data:${mimeType};base64,${input.base64}`,
+              },
+            },
+          ],
+        },
+      ],
+      plugins: [
+        {
+          id: "file-parser",
+          pdf: { engine: "mistral-ocr" },
+        },
+      ],
+    }),
+  });
+
+  if (!res.ok) {
+    const errText = await res.text();
+    throw new Error(`OpenRouter extraerComprobante PDF failed (${res.status}): ${errText.slice(0, 300)}`);
+  }
+
+  const data = await res.json();
+  const content = data?.choices?.[0]?.message?.content;
+  if (!content) throw new Error(`OpenRouter sin contenido. Resp: ${JSON.stringify(data).slice(0, 300)}`);
+
+  let parsed: any;
+  try {
+    parsed = JSON.parse(content);
+  } catch {
+    throw new Error(`OpenRouter devolvio JSON invalido: ${String(content).slice(0, 200)}`);
+  }
+
+  const items = Array.isArray(parsed.items)
+    ? parsed.items
+        .map((it: any) => ({
+          descripcion: String(it.descripcion ?? it.description ?? "").trim(),
+          cantidad: it.cantidad ?? it.quantity ?? null,
+          precio_unitario: it.precio_unitario ?? it.unit_price ?? null,
+          moneda: normalizeComprobanteMoneda(it.moneda ?? it.currency ?? it.divisa, parsed.moneda ?? parsed.currency ?? parsed.divisa ?? parsed.moneda_documento),
+          total: it.total ?? null,
+        }))
+        .filter((it: any) => it.descripcion)
+    : [];
+
+  return {
+    proveedor: parsed.proveedor ? String(parsed.proveedor).trim() : null,
+    numero: parsed.numero ? String(parsed.numero).trim() : null,
+    fecha: parsed.fecha ? String(parsed.fecha).slice(0, 10) : null,
+    items,
+  };
+}
+
+// chatWithBot -- turno conversacional principal.
 export async function chatWithBot(
   history: HistoryTurn[],
   input: MessageInput,

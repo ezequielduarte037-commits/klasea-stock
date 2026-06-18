@@ -166,7 +166,11 @@ function normalizeItem(it) {
   };
 }
 
-export default function EnviarAPanolModal({ open, onClose, prefill }) {
+function stripItemPrice(item) {
+  return { ...item, precio_unitario: "", moneda: "ARS" };
+}
+
+export default function EnviarAPanolModal({ open, onClose, prefill, showPrices = true }) {
   const { isMobile } = useResponsive();
   const toast = useToast();
 
@@ -195,7 +199,8 @@ export default function EnviarAPanolModal({ open, onClose, prefill }) {
     setObraId(prefill?.obraId || "");
     setPrioridad(prefill?.prioridad || "media");
     setObservaciones(prefill?.observaciones || "");
-    setItems(Array.isArray(prefill?.items) ? prefill.items.map(normalizeItem) : []);
+    const nextItems = Array.isArray(prefill?.items) ? prefill.items.map(normalizeItem) : [];
+    setItems(showPrices ? nextItems : nextItems.map(stripItemPrice));
     setNDesc("");
     setNCode("");
     setNCant("");
@@ -210,7 +215,7 @@ export default function EnviarAPanolModal({ open, onClose, prefill }) {
       .order("codigo")
       .then(({ data }) => setObras(data ?? []))
       .catch(() => {});
-  }, [open, prefill]);
+  }, [open, prefill, showPrices]);
 
   const obrasActivas = useMemo(() => {
     const rows = obras.filter((o) => !["terminada", "cancelada", "archivada"].includes(o.estado));
@@ -240,8 +245,8 @@ export default function EnviarAPanolModal({ open, onClose, prefill }) {
       codigo: (nCode || base?.codigo || "").trim().toUpperCase(),
       cantidad: nCant.trim() || base?.cantidad || "",
       unidad: nUnit !== "unidad" ? nUnit : base?.unidad || "unidad",
-      precio_unitario: nPrice.trim(),
-      moneda: nCurrency,
+      precio_unitario: showPrices ? nPrice.trim() : "",
+      moneda: showPrices ? nCurrency : "ARS",
       purchase_request_item_id: null,
     }]);
     resetQuickAdd();
@@ -253,7 +258,7 @@ export default function EnviarAPanolModal({ open, onClose, prefill }) {
       .map(parsePanolLine)
       .filter(Boolean);
     if (!parsed.length) return;
-    setItems((prev) => [...prev, ...parsed]);
+    setItems((prev) => [...prev, ...(showPrices ? parsed : parsed.map(stripItemPrice))]);
     setBulkText("");
     setShowBulk(false);
     const withCode = parsed.filter((it) => it.codigo).length;
@@ -293,7 +298,7 @@ export default function EnviarAPanolModal({ open, onClose, prefill }) {
         origen: prefill?.origen || "manual",
         purchaseRequestId: prefill?.purchaseRequestId || null,
         items: items.map((it) => {
-          const precio = normalizePriceForDb(it.precio_unitario);
+          const precio = showPrices ? normalizePriceForDb(it.precio_unitario) : null;
           return {
             ...it,
             codigo: String(it.codigo || "").trim().toUpperCase() || null,
@@ -313,7 +318,9 @@ export default function EnviarAPanolModal({ open, onClose, prefill }) {
 
   const gridCols = isMobile
     ? "1fr 92px"
-    : "minmax(220px,1.6fr) 112px 76px 96px 98px 78px 28px";
+    : showPrices
+      ? "minmax(220px,1.6fr) 112px 76px 96px 98px 78px 28px"
+      : "minmax(220px,1.6fr) 112px 76px 96px 28px";
 
   return (
     <div
@@ -367,7 +374,7 @@ export default function EnviarAPanolModal({ open, onClose, prefill }) {
               <div style={{ display: "flex", flexDirection: "column", gap: 6, marginBottom: 8 }}>
                 {!isMobile && (
                   <div style={{ display: "grid", gridTemplateColumns: gridCols, gap: 6, padding: "0 7px", fontSize: 9, color: C.t2, letterSpacing: 1.1, textTransform: "uppercase", fontWeight: 800 }}>
-                    <span>Descripción</span><span>Código</span><span>Cant.</span><span>Unidad</span><span>Precio unit.</span><span>Moneda</span><span />
+                    <span>Descripción</span><span>Código</span><span>Cant.</span><span>Unidad</span>{showPrices && <><span>Precio unit.</span><span>Moneda</span></>}<span />
                   </div>
                 )}
                 {items.map((it, i) => (
@@ -378,10 +385,14 @@ export default function EnviarAPanolModal({ open, onClose, prefill }) {
                     <select value={it.unidad || "unidad"} onChange={(e) => updateItem(i, { unidad: e.target.value })} style={inp({ padding: "6px 8px", fontSize: 12, background: C.panelSolid })}>
                       {UNITS.map((u) => <option key={u} value={u}>{u}</option>)}
                     </select>
-                    <input value={it.precio_unitario || ""} onChange={(e) => updateItem(i, { precio_unitario: e.target.value })} placeholder="$ unit." style={inp({ padding: "6px 8px", fontSize: 12 })} />
-                    <select value={it.moneda || "ARS"} onChange={(e) => updateItem(i, { moneda: e.target.value })} style={inp({ padding: "6px 8px", fontSize: 12, background: C.panelSolid })}>
-                      {CURRENCIES.map((c) => <option key={c} value={c}>{c}</option>)}
-                    </select>
+                    {showPrices && (
+                      <>
+                        <input value={it.precio_unitario || ""} onChange={(e) => updateItem(i, { precio_unitario: e.target.value })} placeholder="$ unit." style={inp({ padding: "6px 8px", fontSize: 12 })} />
+                        <select value={it.moneda || "ARS"} onChange={(e) => updateItem(i, { moneda: e.target.value })} style={inp({ padding: "6px 8px", fontSize: 12, background: C.panelSolid })}>
+                          {CURRENCIES.map((c) => <option key={c} value={c}>{c}</option>)}
+                        </select>
+                      </>
+                    )}
                     <button type="button" onClick={() => removeItem(i)} title="Quitar" style={{ border: "none", background: "transparent", color: C.dim, cursor: "pointer", padding: 4, fontSize: 14 }}>x</button>
                   </div>
                 ))}
@@ -389,17 +400,21 @@ export default function EnviarAPanolModal({ open, onClose, prefill }) {
             )}
 
             <div style={{ border: `1px dashed ${C.border2 ?? C.b1}`, borderRadius: 9, padding: 10, background: "rgba(96,165,250,0.04)", display: "grid", gap: 8 }}>
-              <div style={{ display: "grid", gridTemplateColumns: isMobile ? "1fr 1fr" : "minmax(180px,1fr) 110px 80px 100px 96px 78px", gap: 6 }}>
+              <div style={{ display: "grid", gridTemplateColumns: isMobile ? "1fr 1fr" : showPrices ? "minmax(180px,1fr) 110px 80px 100px 96px 78px" : "minmax(180px,1fr) 110px 80px 100px", gap: 6 }}>
                 <input value={nDesc} onChange={(e) => setNDesc(e.target.value)} onKeyDown={(e) => { if (e.key === "Enter") { e.preventDefault(); addItem(); } }} placeholder='Descripción o línea completa: "20 mtrs Antirruido"' style={inp({ padding: "7px 9px", fontSize: 12, gridColumn: isMobile ? "1 / -1" : undefined })} />
                 <input value={nCode} onChange={(e) => setNCode(e.target.value.toUpperCase())} placeholder="Código" style={inp({ padding: "7px 9px", fontSize: 12, fontFamily: C.mono })} />
                 <input value={nCant} onChange={(e) => setNCant(e.target.value)} placeholder="Cant." style={inp({ padding: "7px 9px", fontSize: 12 })} />
                 <select value={nUnit} onChange={(e) => setNUnit(e.target.value)} style={inp({ padding: "7px 9px", fontSize: 12, background: C.panelSolid })}>
                   {UNITS.map((u) => <option key={u} value={u}>{u}</option>)}
                 </select>
-                <input value={nPrice} onChange={(e) => setNPrice(e.target.value)} placeholder="Precio unit." style={inp({ padding: "7px 9px", fontSize: 12 })} />
-                <select value={nCurrency} onChange={(e) => setNCurrency(e.target.value)} style={inp({ padding: "7px 9px", fontSize: 12, background: C.panelSolid })}>
-                  {CURRENCIES.map((c) => <option key={c} value={c}>{c}</option>)}
-                </select>
+                {showPrices && (
+                  <>
+                    <input value={nPrice} onChange={(e) => setNPrice(e.target.value)} placeholder="Precio unit." style={inp({ padding: "7px 9px", fontSize: 12 })} />
+                    <select value={nCurrency} onChange={(e) => setNCurrency(e.target.value)} style={inp({ padding: "7px 9px", fontSize: 12, background: C.panelSolid })}>
+                      {CURRENCIES.map((c) => <option key={c} value={c}>{c}</option>)}
+                    </select>
+                  </>
+                )}
               </div>
               <div style={{ display: "flex", gap: 8, alignItems: "center", flexWrap: "wrap" }}>
                 <button type="button" onClick={addItem} disabled={!nDesc.trim()} style={{ background: nDesc.trim() ? C.blue : "var(--panel-2)", color: nDesc.trim() ? "#fff" : C.dim, border: "none", borderRadius: 7, padding: "6px 12px", cursor: nDesc.trim() ? "pointer" : "default", fontSize: 12, fontWeight: 700, fontFamily: C.sans }}>+ Agregar ítem</button>

@@ -242,6 +242,7 @@ function SideLabel({ label, value }) {
 export default function PanolEnvioDetail({ envioId, profile, canReceive, isManager, onBack }) {
   const { isMobile } = useResponsive();
   const toast = useToast();
+  const canSeePrices = !!profile?.is_admin || profile?.role === "admin";
 
   const [envio, setEnvio] = useState(null);
   const [eventos, setEventos] = useState([]);
@@ -257,7 +258,10 @@ export default function PanolEnvioDetail({ envioId, profile, canReceive, isManag
     setLoading(true);
     try {
       const [e, ev] = await Promise.all([fetchEnvio(envioId), fetchEventos(envioId)]);
-      setEnvio(e);
+      setEnvio(canSeePrices ? e : {
+        ...e,
+        items: (e.items || []).map(({ precio_unitario, moneda, ...item }) => item),
+      });
       setEventos(ev);
       return e;
     } catch (err) {
@@ -265,7 +269,7 @@ export default function PanolEnvioDetail({ envioId, profile, canReceive, isManag
     } finally {
       setLoading(false);
     }
-  }, [envioId, toast]);
+  }, [envioId, toast, canSeePrices]);
 
   useEffect(() => { cargar(); }, [cargar]);
 
@@ -413,7 +417,7 @@ export default function PanolEnvioDetail({ envioId, profile, canReceive, isManag
     ].filter(Boolean);
     const filas = items.map((it, i) => {
       const em = ITEM_ESTADO_META[it.estado] || ITEM_ESTADO_META.pendiente;
-      const precio = it.precio_unitario != null && it.precio_unitario !== "" ? money(it.precio_unitario, it.moneda) : "";
+      const precio = canSeePrices && it.precio_unitario != null && it.precio_unitario !== "" ? money(it.precio_unitario, it.moneda) : "";
       return `<tr>
         <td class="n">${i + 1}</td>
         <td>${escHtml(it.descripcion)}${it.codigo ? `<div class="cod">${escHtml(it.codigo)}</div>` : ""}${precio ? `<div class="cod">${escHtml(precio)}</div>` : ""}</td>
@@ -750,6 +754,7 @@ export default function PanolEnvioDetail({ envioId, profile, canReceive, isManag
                       item={item}
                       selected={sel.has(item.id)}
                       canEdit={canReceive && !cerrado}
+                      canSeePrices={canSeePrices}
                       saving={saving}
                       onToggle={() => toggle(item.id)}
                       onApply={(estado, opts) => aplicar(estado, [item.id], opts)}
@@ -870,7 +875,7 @@ export default function PanolEnvioDetail({ envioId, profile, canReceive, isManag
   );
 }
 
-function DesktopItemRow({ item, selected, canEdit, saving, onToggle, onApply, onSaveNote }) {
+function DesktopItemRow({ item, selected, canEdit, canSeePrices, saving, onToggle, onApply, onSaveNote }) {
   const meta = ITEM_ESTADO_META[item.estado] ?? ITEM_ESTADO_META.pendiente;
   return (
     <div style={{
@@ -899,7 +904,7 @@ function DesktopItemRow({ item, selected, canEdit, saving, onToggle, onApply, on
         <div style={{ color: C.text, fontSize: 13, fontWeight: 800, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
           {item.descripcion}
         </div>
-        {item.precio_unitario !== null && item.precio_unitario !== undefined && (
+        {canSeePrices && item.precio_unitario !== null && item.precio_unitario !== undefined && (
           <div style={{ color: C.green, fontSize: 11, marginTop: 3, fontFamily: C.mono }}>
             {money(item.precio_unitario, item.moneda)}
           </div>

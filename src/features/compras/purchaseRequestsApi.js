@@ -656,6 +656,7 @@ export async function fetchAnalyticsStats() {
 
 const LOG_SELECT = `
   *,
+  items:purchase_log_items(*),
   creator:profiles!purchase_log_created_by_fkey(id, username, role, is_admin)
 `;
 
@@ -679,6 +680,48 @@ export async function createPurchaseLog(entry) {
   return data;
 }
 
+export async function createPurchaseLogConItems({ header, items = [] }) {
+  const { data: log, error } = await supabase
+    .from("purchase_log")
+    .insert(header)
+    .select(LOG_SELECT)
+    .single();
+  if (error) throw error;
+
+  const rows = (items || [])
+    .filter((item) => String(item.descripcion || "").trim())
+    .map((item) => {
+      const price = item.precio_unitario === null || item.precio_unitario === undefined || item.precio_unitario === ""
+        ? null
+        : Number(item.precio_unitario);
+      return {
+        log_id: log.id,
+        descripcion: String(item.descripcion || "").trim(),
+        codigo: String(item.codigo || "").trim() || null,
+        cantidad: item.cantidad == null ? null : String(item.cantidad).trim(),
+        unidad: String(item.unidad || "unidad").trim() || "unidad",
+        precio_unitario: Number.isFinite(price) ? price : null,
+        moneda: item.moneda === "USD" || item.moneda === "ARS" ? item.moneda : null,
+        revisar: Boolean(item.revisar),
+      };
+    });
+
+  if (!rows.length) return log;
+
+  const { error: itemsError } = await supabase
+    .from("purchase_log_items")
+    .insert(rows);
+  if (itemsError) throw itemsError;
+
+  const { data: fullLog, error: reloadError } = await supabase
+    .from("purchase_log")
+    .select(LOG_SELECT)
+    .eq("id", log.id)
+    .single();
+  if (reloadError) throw reloadError;
+  return fullLog;
+}
+
 export async function updatePurchaseLog(id, patch) {
   const { data, error } = await supabase
     .from("purchase_log")
@@ -691,6 +734,12 @@ export async function updatePurchaseLog(id, patch) {
 }
 
 export async function deletePurchaseLog(id) {
+  const { error: itemsError } = await supabase
+    .from("purchase_log_items")
+    .delete()
+    .eq("log_id", id);
+  if (itemsError) throw itemsError;
+
   const { error } = await supabase
     .from("purchase_log")
     .delete()

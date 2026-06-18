@@ -22,7 +22,7 @@ import {
   X,
 } from "lucide-react";
 import {
-  createPurchaseLog,
+  createPurchaseLogConItems,
   deletePurchaseLog,
   fetchAdditionalBoards,
   fetchAdditionalItems,
@@ -43,6 +43,7 @@ import {
 import { useToast } from "@/components/ui/Toast";
 import { useConfirm } from "@/components/ui/ConfirmDialog";
 import EnviarAPanolModal, { parsePanolLine } from "@/features/panol/EnviarAPanolModal";
+import { supabase } from "@/supabaseClient";
 import { C } from "@/theme";
 
 const EMPTY = [];
@@ -70,6 +71,12 @@ function numericQty(value) {
   return Number.isFinite(n) ? n : 1;
 }
 
+function purchaseQtyNumber(value) {
+  if (value === null || value === undefined || String(value).trim() === "") return null;
+  const n = Number(String(value).replace(",", ".").match(/-?\d+(\.\d+)?/)?.[0] || "");
+  return Number.isFinite(n) && n > 0 ? n : null;
+}
+
 function itemTotal(item) {
   const price = Number(item.precio_unitario);
   if (!Number.isFinite(price)) return null;
@@ -77,6 +84,20 @@ function itemTotal(item) {
     currency: item.moneda || "ARS",
     value: price * numericQty(item.cantidad),
   };
+}
+
+function purchaseLogItemTotal(item) {
+  const price = Number(item.precio_unitario);
+  const qty = purchaseQtyNumber(item.cantidad);
+  if (!Number.isFinite(price) || price <= 0 || qty === null) return null;
+  return {
+    currency: item.moneda === "USD" ? "USD" : "ARS",
+    value: price * qty,
+  };
+}
+
+function needsPurchaseItemReview(item) {
+  return purchaseQtyNumber(item.cantidad) === null || normalizePriceInput(item.precio_unitario) === null;
 }
 
 function envioTotals(envio) {
@@ -209,6 +230,76 @@ function normalizePriceInput(value = "") {
   }
   const n = Number(clean);
   return Number.isFinite(n) ? n : null;
+}
+
+function makePurchaseLogItem(patch = {}) {
+  return {
+    localId: crypto.randomUUID?.() || `${Date.now()}-${Math.random().toString(36).slice(2)}`,
+    descripcion: "",
+    codigo: "",
+    cantidad: "",
+    unidad: "unidad",
+    precio_unitario: "",
+    moneda: "ARS",
+    revisar: true,
+    ...patch,
+  };
+}
+
+function normalizePurchaseLogItems(items = EMPTY) {
+  return (items || EMPTY)
+    .filter((item) => String(item.descripcion || "").trim())
+    .map((item) => {
+      const precio = normalizePriceInput(item.precio_unitario);
+      const cantidad = String(item.cantidad || "").trim();
+      return {
+        descripcion: String(item.descripcion || "").trim(),
+        codigo: String(item.codigo || "").trim() || null,
+        cantidad,
+        unidad: String(item.unidad || "unidad").trim() || "unidad",
+        precio_unitario: precio,
+        moneda: item.moneda === "USD" ? "USD" : "ARS",
+        revisar: needsPurchaseItemReview({ ...item, precio_unitario: precio }),
+      };
+    });
+}
+
+function fileToBase64Payload(file) {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = () => {
+      const result = String(reader.result || "");
+      resolve(result.includes(",") ? result.split(",")[1] : result);
+    };
+    reader.onerror = () => reject(reader.error);
+    reader.readAsDataURL(file);
+  });
+}
+
+function mimeTypeForFile(file) {
+  const type = String(file?.type || "").trim();
+  const name = String(file?.name || "").toLowerCase();
+  if (type) return type;
+  if (name.endsWith(".pdf")) return "application/pdf";
+  if (name.endsWith(".png")) return "image/png";
+  if (name.endsWith(".webp")) return "image/webp";
+  if (name.endsWith(".jpg") || name.endsWith(".jpeg")) return "image/jpeg";
+  return "application/octet-stream";
+}
+
+async function readFunctionErrorMessage(error) {
+  const context = error?.context;
+  if (context && typeof context.clone === "function") {
+    try {
+      const payload = await context.clone().json();
+      return payload?.error || payload?.message || error?.message || "";
+    } catch {}
+    try {
+      const text = await context.clone().text();
+      return text || error?.message || "";
+    } catch {}
+  }
+  return error?.message || "";
 }
 
 function detectMoney(line = "") {
@@ -403,18 +494,49 @@ function buildCostosPorObra(envios, additionalBoards, additionalItems, entries =
     const label = obra?.codigo || "Obra";
     const key = normalizeSearch(label) || entry.project_id;
     const row = rows.get(key) || makeCostRow(key, label);
-    const amount = Number(entry.amount);
-    const hasAmount = Number.isFinite(amount) && amount > 0;
-    row.manuales.push({
-      id: entry.id,
-      description: entry.description,
-      provider: entry.provider || "",
-      amount: hasAmount ? amount : null,
-      fecha: entry.purchased_at,
-    });
-    if (hasAmount) {
-      row.ARS = (row.ARS || 0) + amount;
-      row.baseARS += amount;
+
+    if (entry.items?.length) {
+      for (const item of entry.items) {
+        const total = purchaseLogItemTotal(item);
+        const currency = total?.currency || item.moneda || "ARS";
+        const revisar = Boolean(item.revisar) || !total;
+        if (total) {
+          row[currency] = (row[currency] || 0) + total.value;
+          row[`base${currency}`] += total.value;
+        } else {
+          row.sinPrecio += 1;
+        }
+        row.manuales.push({
+          id: item.id,
+          logId: entry.id,
+          description: item.descripcion,
+          codigo: item.codigo || "",
+          cantidad: item.cantidad || "",
+          unidad: item.unidad || "",
+          provider: entry.provider || "",
+          amount: total?.value || null,
+          currency,
+          unitPrice: item.precio_unitario,
+          revisar,
+          fecha: entry.purchased_at,
+          header: entry.description,
+        });
+      }
+    } else {
+      const amount = Number(entry.amount);
+      const hasAmount = Number.isFinite(amount) && amount > 0;
+      row.manuales.push({
+        id: entry.id,
+        description: entry.description,
+        provider: entry.provider || "",
+        amount: hasAmount ? amount : null,
+        currency: "ARS",
+        fecha: entry.purchased_at,
+      });
+      if (hasAmount) {
+        row.ARS = (row.ARS || 0) + amount;
+        row.baseARS += amount;
+      }
     }
     rows.set(key, row);
   }
@@ -428,7 +550,7 @@ export default function PurchaseLogPanel({ profile }) {
   const toast = useToast();
   const confirm = useConfirm();
   const [view, setView] = useState("panol");
-  const [panolModal, setPanolModal] = useState(false);
+  const [panolModal, setPanolModal] = useState(null);
   const [entries, setEntries] = useState([]);
   const [envios, setEnvios] = useState([]);
   const [obras, setObras] = useState([]);
@@ -446,11 +568,11 @@ export default function PurchaseLogPanel({ profile }) {
   const [estado, setEstado] = useState("activos");
   const [form, setForm] = useState({
     description: "",
-    amount: "",
     provider: "",
     notes: "",
     project_id: "",
     purchased_at: new Date().toISOString().slice(0, 10),
+    items: [makePurchaseLogItem()],
   });
 
   const obrasById = useMemo(() => new Map((obras || []).map((o) => [o.id, o])), [obras]);
@@ -496,18 +618,22 @@ export default function PurchaseLogPanel({ profile }) {
   }, [costosPorObra, selectedObraKey]);
 
   function resetForm() {
-    setForm({ description: "", amount: "", provider: "", notes: "", project_id: "", purchased_at: new Date().toISOString().slice(0, 10) });
+    setForm({ description: "", provider: "", notes: "", project_id: "", purchased_at: new Date().toISOString().slice(0, 10), items: [makePurchaseLogItem()] });
     setInvoiceFile(null);
     setShowForm(false);
   }
 
   async function handleSubmit(e) {
     e.preventDefault();
-    if (!form.description.trim()) return;
-    if (String(form.amount || "").trim() && !(Number(form.amount) > 0)) {
-      toast.warning("Si cargas un monto, tiene que ser mayor a 0.");
+    const items = normalizePurchaseLogItems(form.items);
+    if (!form.description.trim() && items.length === 0) {
+      toast.warning("Carga una descripcion o al menos un item.");
       return;
     }
+    const amountARS = items.reduce((sum, item) => {
+      const total = purchaseLogItemTotal(item);
+      return total?.currency === "ARS" ? sum + total.value : sum;
+    }, 0);
     setSaving(true);
     try {
       let invoice_url;
@@ -517,17 +643,20 @@ export default function PurchaseLogPanel({ profile }) {
         invoice_url = r.url;
         invoice_path = r.path;
       }
-      await createPurchaseLog({
-        description: form.description.trim(),
-        amount: form.amount ? Number(form.amount) : null,
-        provider: form.provider.trim() || null,
-        notes: form.notes.trim() || null,
-        project_id: form.project_id || null,
-        purchased_at: form.purchased_at || new Date().toISOString().slice(0, 10),
-        invoice_url: invoice_url || null,
-        invoice_path: invoice_path || null,
+      await createPurchaseLogConItems({
+        header: {
+          description: form.description.trim() || items[0]?.descripcion || "Carga de compra",
+          amount: amountARS > 0 ? amountARS : null,
+          provider: form.provider.trim() || null,
+          notes: form.notes.trim() || null,
+          project_id: form.project_id || null,
+          purchased_at: form.purchased_at || new Date().toISOString().slice(0, 10),
+          invoice_url: invoice_url || null,
+          invoice_path: invoice_path || null,
+        },
+        items,
       });
-      toast.success("Compra registrada");
+      toast.success("Carga de compra registrada");
       resetForm();
       load();
     } catch (err) {
@@ -539,19 +668,36 @@ export default function PurchaseLogPanel({ profile }) {
 
   async function handleDeleteLog(id) {
     const ok = await confirm({
-      title: "Eliminar registro",
-      message: "Esto borra la compra manual del log.",
-      confirmLabel: "Eliminar",
+      title: "Borrar carga de compra",
+      message: "Esto borra la compra cargada y sus items. Usalo para pruebas o correcciones mal cargadas.",
+      confirmLabel: "Borrar",
       tone: "danger",
     });
     if (!ok) return;
     try {
       await deletePurchaseLog(id);
-      toast.success("Registro eliminado");
+      toast.success("Carga de compra borrada");
       load();
     } catch (err) {
       toast.error(err.message || "No se pudo eliminar el registro.");
     }
+  }
+
+  function handleSendLogToPanol(entry) {
+    if (!entry?.items?.length) return;
+    setPanolModal({
+      prefill: {
+        titulo: entry.description || "Compra",
+        origen: "manual",
+        items: (entry.items || EMPTY).map((it) => ({
+          descripcion: it.descripcion,
+          cantidad: it.cantidad,
+          unidad: it.unidad || "unidad",
+          precio_unitario: it.precio_unitario ?? "",
+          moneda: it.moneda || "ARS",
+        })),
+      },
+    });
   }
 
   async function handleDeleteEnvio(envio) {
@@ -740,27 +886,27 @@ export default function PurchaseLogPanel({ profile }) {
           </div>
         </div>
         <ViewTabs value={view} onChange={setView} />
-        <button type="button" onClick={() => setPanolModal(true)} style={primaryButton(C.blue)}>
+        <button type="button" onClick={() => setPanolModal({ prefill: null })} style={primaryButton(C.blue)}>
           <Plus size={14} /> Nuevo envío a pañol
         </button>
         <button type="button" onClick={() => setBudgetModal({ obraKey: view === "costos" ? selectedObraKey : "" })} style={secondaryButton()}>
           <Sparkles size={14} /> Cargar precios
         </button>
         <button type="button" onClick={() => setShowForm((v) => !v)} style={secondaryButton()}>
-          {showForm ? <X size={14} /> : <Plus size={14} />}
-          {showForm ? "Cerrar carga" : "Compra manual"}
+          {showForm ? <X size={14} /> : <ReceiptText size={14} />}
+          {showForm ? "Cerrar carga" : "Cargar compra"}
         </button>
       </header>
 
       <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(170px, 1fr))", gap: 10 }}>
-        <StatCard icon={DollarSign} label="Este mes" value={fmtMoney(monthlyTotal)} detail={`${thisMonth.length} compras manuales`} color={C.green} />
-        <StatCard icon={FileText} label="Manual registrado" value={fmtMoney(manualTotal)} detail={`${entries.length} registros`} color={C.blue} />
+        <StatCard icon={DollarSign} label="Este mes" value={fmtMoney(monthlyTotal)} detail={`${thisMonth.length} cargas registradas`} color={C.green} />
+        <StatCard icon={FileText} label="Registrado" value={fmtMoney(manualTotal)} detail={`${entries.length} registros`} color={C.blue} />
         <StatCard icon={Warehouse} label="A pañol activos" value={panolKpis.enviados} detail={`${panolKpis.itemsPendientes} items pendientes`} color={C.amber} />
         <StatCard icon={AlertTriangle} label="Novedades pañol" value={panolKpis.novedades} detail="faltantes, sin info o rechazados" color={C.red} />
       </div>
 
       {showForm && (
-        <ManualForm
+        <PurchaseLoadForm
           form={form}
           setForm={setForm}
           obras={obras}
@@ -794,6 +940,7 @@ export default function PurchaseLogPanel({ profile }) {
           setSelectedKey={setSelectedObraKey}
           entries={entries}
           onDeleteLog={handleDeleteLog}
+          onSendLogToPanol={handleSendLogToPanol}
           onOpenBudget={(obraKey) => setBudgetModal({ obraKey })}
           onSetItemPrice={handleSetItemPrice}
         />
@@ -876,7 +1023,7 @@ export default function PurchaseLogPanel({ profile }) {
             )}
           </section>
 
-          <ManualLogList entries={entries} loading={loading} onDelete={handleDeleteLog} />
+          <ManualLogList entries={entries} loading={loading} onDelete={handleDeleteLog} onSendToPanol={handleSendLogToPanol} />
         </aside>
       </div>
 
@@ -886,8 +1033,8 @@ export default function PurchaseLogPanel({ profile }) {
         <EnviarAPanolModal
           open
           profile={profile}
-          prefill={null}
-          onClose={(saved) => { setPanolModal(false); if (saved) load(); }}
+          prefill={panolModal.prefill || null}
+          onClose={(saved) => { setPanolModal(null); if (saved) load(); }}
         />
       )}
 
@@ -1012,7 +1159,7 @@ function PedidosPanolView({
   );
 }
 
-function GastoObraView({ loading, rows, selectedKey, setSelectedKey, entries, onDeleteLog, onOpenBudget, onSetItemPrice }) {
+function GastoObraView({ loading, rows, selectedKey, setSelectedKey, entries, onDeleteLog, onSendLogToPanol, onOpenBudget, onSetItemPrice }) {
   const selected = rows.find((row) => row.key === selectedKey) || rows[0] || null;
   return (
     <div style={{ display: "grid", gridTemplateColumns: "minmax(280px, 0.45fr) minmax(520px, 1fr)", gap: 12, alignItems: "start" }}>
@@ -1076,7 +1223,7 @@ function GastoObraView({ loading, rows, selectedKey, setSelectedKey, entries, on
       </section>
 
       <div style={{ gridColumn: "1 / -1" }}>
-        <ManualLogList entries={entries} loading={loading} onDelete={onDeleteLog} />
+        <ManualLogList entries={entries} loading={loading} onDelete={onDeleteLog} onSendToPanol={onSendLogToPanol} />
       </div>
     </div>
   );
@@ -1148,15 +1295,26 @@ function ObraCostDetail({ row, onOpenBudget, onSetItemPrice }) {
 
       {row.manuales && row.manuales.length > 0 && (
         <div style={{ display: "grid", gap: 8 }}>
-          <div style={{ color: C.text, fontSize: 14, fontWeight: 900 }}>Compras manuales</div>
+          <div style={{ color: C.text, fontSize: 14, fontWeight: 900 }}>Cargas de compra</div>
           {row.manuales.map((item) => (
-            <div key={item.id} style={{ border: `1px solid ${C.border}`, background: C.panel, borderRadius: 10, padding: 10, display: "flex", gap: 10, alignItems: "center" }}>
-              <FileText size={15} color={C.blue} />
+            <div key={item.id} style={{ border: `1px solid ${item.revisar ? C.amberB : C.border}`, background: item.revisar ? "var(--amber-soft)" : C.panel, borderRadius: 10, padding: 10, display: "flex", gap: 10, alignItems: "center" }}>
+              <FileText size={15} color={item.revisar ? C.amber : C.blue} />
               <div style={{ flex: 1, minWidth: 0 }}>
-                <div style={{ color: C.text, fontSize: 13, fontWeight: 850, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{item.description}</div>
+                <div style={{ display: "flex", gap: 7, alignItems: "center", minWidth: 0 }}>
+                  <div style={{ color: C.text, fontSize: 13, fontWeight: 850, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{item.description}</div>
+                  {item.revisar && chip(C.amber, "Revisar")}
+                </div>
+                {(item.header || item.codigo || item.cantidad) && (
+                  <div style={{ color: C.dim, fontSize: 11, marginTop: 2 }}>
+                    {item.header ? `${item.header} · ` : ""}{item.codigo ? `${item.codigo} · ` : ""}{item.cantidad ? `${item.cantidad} ${item.unidad || ""}` : ""}
+                  </div>
+                )}
                 <div style={{ color: C.dim, fontSize: 11, marginTop: 2 }}>{item.provider || "Sin proveedor"}{item.fecha ? ` · ${fmtDate(item.fecha)}` : ""}</div>
               </div>
-              <div style={{ color: item.amount ? C.green : C.dim, fontFamily: C.mono, fontSize: 12, fontWeight: 900 }}>{item.amount ? fmtMoney(item.amount, "ARS") : "Sin monto"}</div>
+              <div style={{ display: "grid", gap: 3, justifyItems: "end" }}>
+                {item.unitPrice != null && item.unitPrice !== "" && <div style={{ color: C.dim, fontFamily: C.mono, fontSize: 10 }}>{fmtMoney(item.unitPrice, item.currency)} c/u</div>}
+                <div style={{ color: item.amount ? C.green : C.dim, fontFamily: C.mono, fontSize: 12, fontWeight: 900 }}>{item.amount ? fmtMoney(item.amount, item.currency) : "Sin precio"}</div>
+              </div>
             </div>
           ))}
         </div>
@@ -1458,7 +1616,239 @@ function BudgetImportModal({ candidates, scopeLabel, saving, onClose, onApply, o
   );
 }
 
-function ManualForm({ form, setForm, obras = EMPTY, invoiceFile, setInvoiceFile, saving, onSubmit, onCancel }) {
+function PurchaseLoadForm({ form, setForm, obras = EMPTY, invoiceFile, setInvoiceFile, saving, onSubmit, onCancel }) {
+  const toast = useToast();
+  const [bulkText, setBulkText] = useState("");
+  const [ocrLoading, setOcrLoading] = useState(false);
+  const items = form.items?.length ? form.items : [makePurchaseLogItem()];
+  const totals = items.reduce((acc, item) => {
+    const total = purchaseLogItemTotal({
+      ...item,
+      precio_unitario: normalizePriceInput(item.precio_unitario),
+    });
+    if (total) acc[total.currency] = (acc[total.currency] || 0) + total.value;
+    return acc;
+  }, { ARS: 0, USD: 0 });
+  const itemCount = items.filter((item) => String(item.descripcion || "").trim()).length;
+  const canSave = (Boolean(form.description.trim()) || itemCount > 0) && !saving;
+  const selectedObra = obras.find((obra) => obra.id === form.project_id);
+
+  function setField(field, value) {
+    setForm((f) => ({ ...f, [field]: value }));
+  }
+
+  function setItems(nextItems) {
+    setForm((f) => ({ ...f, items: nextItems.length ? nextItems : [makePurchaseLogItem()] }));
+  }
+
+  function updateItem(localId, patch) {
+    setItems(items.map((item) => (item.localId === localId ? { ...item, ...patch } : item)));
+  }
+
+  function removeItem(localId) {
+    setItems(items.filter((item) => item.localId !== localId));
+  }
+
+  function addItem(patch = {}) {
+    setItems([...items, makePurchaseLogItem(patch)]);
+  }
+
+  function analyzeBulk() {
+    const parsedRows = bulkText
+      .split(/\r?\n/)
+      .map((line) => line.trim())
+      .filter(Boolean)
+      .map((line) => {
+        const parsed = parsePanolLine(line) || {};
+        const row = makePurchaseLogItem({
+          descripcion: parsed.descripcion || line,
+          codigo: parsed.codigo || "",
+          cantidad: parsed.cantidad || "",
+          unidad: parsed.unidad || "unidad",
+          precio_unitario: parsed.precio_unitario || "",
+          moneda: parsed.moneda === "USD" ? "USD" : "ARS",
+        });
+        return { ...row, revisar: needsPurchaseItemReview(row) };
+      });
+    if (!parsedRows.length) return;
+    const current = items.filter((item) => String(item.descripcion || "").trim());
+    setItems([...current, ...parsedRows]);
+    setBulkText("");
+  }
+
+  async function handleReceiptPhoto(file) {
+    if (!file) return;
+    setOcrLoading(true);
+    try {
+      const base64 = await fileToBase64Payload(file);
+      if (!base64) throw new Error("Archivo vacio");
+      const mimeType = mimeTypeForFile(file);
+      const { data, error } = await supabase.functions.invoke("extraer-comprobante", {
+        body: { image_base64: base64, mime_type: mimeType, filename: file.name },
+      });
+      if (error) throw new Error(await readFunctionErrorMessage(error));
+      if (data?.error) throw new Error(data.error);
+      const foundItems = Array.isArray(data?.items) ? data.items : [];
+      if (!foundItems.length) {
+        toast.error("No pude leer el comprobante, probá con otra foto/PDF o cargá a mano");
+        return;
+      }
+      const parsedRows = foundItems.map((it) => {
+        const row = makePurchaseLogItem({
+          descripcion: it.descripcion || "Item sin descripcion",
+          codigo: "",
+          cantidad: it.cantidad ?? "",
+          unidad: "unidad",
+          precio_unitario: it.precio_unitario ?? "",
+          moneda: it.moneda === "USD" ? "USD" : "ARS",
+        });
+        return { ...row, revisar: needsPurchaseItemReview(row) };
+      });
+      const current = items.filter((item) => String(item.descripcion || "").trim());
+      setItems([...current, ...parsedRows]);
+      toast.success(`${parsedRows.length} item${parsedRows.length === 1 ? "" : "s"} detectado${parsedRows.length === 1 ? "" : "s"} del comprobante.`);
+    } catch (err) {
+      const detail = err?.message ? `: ${err.message}` : "";
+      toast.error(`No pude leer el comprobante${detail}`);
+    } finally {
+      setOcrLoading(false);
+    }
+  }
+
+  const labelStyle = {
+    color: C.dim,
+    fontSize: 10,
+    fontWeight: 900,
+    letterSpacing: 0.8,
+    textTransform: "uppercase",
+  };
+  const inputLabel = { display: "grid", gap: 6, alignContent: "start" };
+
+  return (
+    <form onSubmit={onSubmit} style={{ ...panelStyle(), display: "grid", gap: 14 }}>
+      <div style={sectionHeaderStyle()}>
+        <div>
+          <div style={sectionTitleStyle()}>Cargar compra</div>
+          <div style={{ color: C.dim, fontSize: 12, marginTop: 3 }}>
+            Presupuesto, remito o factura con items; lo dudoso queda marcado para revisar.
+          </div>
+        </div>
+        <button type="button" onClick={onCancel} style={iconButton(C.dim)}><X size={14} /></button>
+      </div>
+
+      <div style={{ display: "grid", gridTemplateColumns: "minmax(260px, 1.3fr) minmax(180px, 0.8fr) minmax(150px, 0.6fr) minmax(200px, 0.9fr)", gap: 10 }}>
+        <label style={inputLabel}>
+          <span style={labelStyle}>Titulo / descripcion</span>
+          <input value={form.description} onChange={(e) => setField("description", e.target.value)} placeholder="Ej: Sanitarios 52-23" style={inp({ background: C.panelSolid, fontWeight: 750 })} />
+        </label>
+        <label style={inputLabel}>
+          <span style={labelStyle}>Proveedor</span>
+          <input value={form.provider} onChange={(e) => setField("provider", e.target.value)} placeholder="Proveedor" style={inp({ background: C.panelSolid })} />
+        </label>
+        <label style={inputLabel}>
+          <span style={labelStyle}>Fecha</span>
+          <input value={form.purchased_at} onChange={(e) => setField("purchased_at", e.target.value)} type="date" style={inp({ background: C.panelSolid })} />
+        </label>
+        <label style={inputLabel}>
+          <span style={labelStyle}>Obra / barco</span>
+          <select value={form.project_id || ""} onChange={(e) => setField("project_id", e.target.value)} style={inp({ background: C.panelSolid, cursor: "pointer" })}>
+            <option value="">Sin obra (gasto general)</option>
+            {obras.map((o) => <option key={o.id} value={o.id}>{o.codigo}{o.descripcion ? ` - ${o.descripcion}` : ""}</option>)}
+          </select>
+        </label>
+      </div>
+
+      <label style={inputLabel}>
+        <span style={labelStyle}>Notas</span>
+        <textarea value={form.notes} onChange={(e) => setField("notes", e.target.value)} placeholder="Notas internas (opcional)" rows={2} style={inp({ resize: "vertical", minHeight: 48, background: C.panelSolid })} />
+      </label>
+
+      <section style={{ border: `1px solid ${C.border}`, background: C.panel, borderRadius: 12, padding: 12, display: "grid", gap: 10 }}>
+        <div style={{ display: "flex", gap: 10, alignItems: "flex-start", justifyContent: "space-between", flexWrap: "wrap" }}>
+          <div>
+            <div style={{ color: C.text, fontSize: 14, fontWeight: 900 }}>Items</div>
+            <div style={{ color: C.dim, fontSize: 12, marginTop: 3 }}>Total: {fmtMoney(totals.ARS, "ARS")} {totals.USD > 0 ? ` · ${fmtMoney(totals.USD, "USD")}` : ""}</div>
+          </div>
+          <button type="button" onClick={() => addItem()} style={secondaryButton()}><Plus size={14} /> Agregar item</button>
+        </div>
+
+        <div style={{ border: `1px solid ${C.border}`, borderRadius: 11, overflow: "hidden", minWidth: 0 }}>
+          <div style={{ display: "grid", gridTemplateColumns: "minmax(220px,1.3fr) 100px 90px 90px 116px 80px 36px", gap: 8, padding: "9px 10px", background: C.panelSolid, color: C.dim, fontSize: 10, fontWeight: 900, letterSpacing: 0.8, textTransform: "uppercase" }}>
+            <span>Descripcion</span><span>Codigo</span><span>Cantidad</span><span>Unidad</span><span>Precio unit.</span><span>Moneda</span><span />
+          </div>
+          {items.map((item) => {
+            const revisar = needsPurchaseItemReview(item);
+            return (
+              <div key={item.localId} style={{ display: "grid", gridTemplateColumns: "minmax(220px,1.3fr) 100px 90px 90px 116px 80px 36px", gap: 8, alignItems: "center", padding: 10, borderTop: `1px solid ${C.border}`, background: revisar ? "var(--amber-soft)" : C.panel }}>
+                <div style={{ display: "grid", gap: 4, minWidth: 0 }}>
+                  <input value={item.descripcion} onChange={(e) => updateItem(item.localId, { descripcion: e.target.value })} placeholder="Descripcion del item" style={inp({ padding: "8px 9px", background: C.panelSolid, fontWeight: 750 })} />
+                  {revisar && <span style={{ justifySelf: "start", color: C.amber, fontSize: 10, fontWeight: 900, textTransform: "uppercase" }}>Revisar</span>}
+                </div>
+                <input value={item.codigo || ""} onChange={(e) => updateItem(item.localId, { codigo: e.target.value })} placeholder="Codigo" style={inp({ padding: "8px 9px", background: C.panelSolid, fontSize: 12 })} />
+                <input value={item.cantidad || ""} onChange={(e) => updateItem(item.localId, { cantidad: e.target.value })} placeholder="Cant." inputMode="decimal" style={inp({ padding: "8px 9px", background: C.panelSolid, fontSize: 12, fontFamily: C.mono })} />
+                <input value={item.unidad || ""} onChange={(e) => updateItem(item.localId, { unidad: e.target.value })} placeholder="unidad" style={inp({ padding: "8px 9px", background: C.panelSolid, fontSize: 12 })} />
+                <input value={item.precio_unitario || ""} onChange={(e) => updateItem(item.localId, { precio_unitario: e.target.value })} placeholder="$ unit." inputMode="decimal" style={inp({ padding: "8px 9px", background: C.panelSolid, fontSize: 12, fontFamily: C.mono, textAlign: "right" })} />
+                <select value={item.moneda || "ARS"} onChange={(e) => updateItem(item.localId, { moneda: e.target.value })} style={inp({ padding: "8px 7px", background: C.panelSolid, fontSize: 12 })}>
+                  <option value="ARS">ARS</option>
+                  <option value="USD">USD</option>
+                </select>
+                <button type="button" onClick={() => removeItem(item.localId)} style={iconButton(C.red)} title="Quitar item"><X size={13} /></button>
+              </div>
+            );
+          })}
+        </div>
+      </section>
+
+      <section style={{ border: `1px solid ${C.border}`, background: C.panel, borderRadius: 12, padding: 12, display: "grid", gap: 10 }}>
+        <div>
+          <div style={{ color: C.text, fontSize: 14, fontWeight: 900 }}>Pegar presupuesto / remito / factura</div>
+          <div style={{ color: C.dim, fontSize: 12, marginTop: 3 }}>Una linea por item. Tambien acepta: DESCRIP | CODIGO | CANT | UNIDAD | $PRECIO.</div>
+        </div>
+        <textarea value={bulkText} onChange={(e) => setBulkText(e.target.value)} rows={5} placeholder={"20 mtrs Antirruido\nINODORO Ovalado | I14388 | 1 | unidad | $120.000"} style={inp({ resize: "vertical", minHeight: 110, background: C.panelSolid, fontFamily: C.mono, fontSize: 12 })} />
+        <div style={{ display: "flex", gap: 8, justifyContent: "flex-end", flexWrap: "wrap" }}>
+          <label style={{ ...secondaryButton(), cursor: ocrLoading ? "default" : "pointer", opacity: ocrLoading ? 0.65 : 1 }}>
+            <ImagePlus size={14} /> {ocrLoading ? "Leyendo comprobante..." : "Subir comprobante"}
+            <input
+              type="file"
+              accept="image/*,.pdf,application/pdf"
+              disabled={ocrLoading}
+              onChange={(e) => {
+                handleReceiptPhoto(e.target.files?.[0]);
+                e.target.value = "";
+              }}
+              style={{ display: "none" }}
+            />
+          </label>
+          <button type="button" onClick={analyzeBulk} disabled={!bulkText.trim()} style={{ ...primaryButton(C.violet), opacity: bulkText.trim() ? 1 : 0.55 }}>
+            <Sparkles size={14} /> Analizar
+          </button>
+        </div>
+      </section>
+
+      <div style={{ border: `1px solid ${C.border}`, background: C.panel, borderRadius: 12, padding: 12, display: "grid", gridTemplateColumns: "minmax(240px, 1fr) auto", gap: 12, alignItems: "center" }}>
+        <div style={{ minWidth: 0 }}>
+          <div style={labelStyle}>Resumen</div>
+          <div style={{ color: C.text, fontSize: 13, fontWeight: 850, marginTop: 5, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+            {itemCount} item{itemCount === 1 ? "" : "s"} · {selectedObra?.codigo || "Sin obra"} · {fmtMoney(totals.ARS, "ARS")}{totals.USD > 0 ? ` · ${fmtMoney(totals.USD, "USD")}` : ""}
+          </div>
+        </div>
+        <div style={{ display: "flex", alignItems: "center", gap: 8, justifyContent: "flex-end", flexWrap: "wrap" }}>
+          <label style={{ ...secondaryButton(), cursor: "pointer", maxWidth: 260 }}>
+            <ImagePlus size={14} />
+            <span style={{ overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{invoiceFile ? invoiceFile.name : "Adjuntar factura"}</span>
+            <input type="file" accept="image/*,.pdf" onChange={(e) => setInvoiceFile(e.target.files[0])} style={{ display: "none" }} />
+          </label>
+          {invoiceFile && <button type="button" onClick={() => setInvoiceFile(null)} style={{ ...secondaryButton(), color: C.red }}>Quitar</button>}
+          <button type="submit" disabled={!canSave} style={{ ...primaryButton(C.green), opacity: canSave ? 1 : 0.55 }}>
+            {saving ? "Guardando..." : <><Upload size={14} /> Guardar carga</>}
+          </button>
+        </div>
+      </div>
+    </form>
+  );
+}
+
+function LegacySingleAmountForm({ form, setForm, obras = EMPTY, invoiceFile, setInvoiceFile, saving, onSubmit, onCancel }) {
   const selectedObra = obras.find((obra) => obra.id === form.project_id);
   const amountText = String(form.amount || "").trim();
   const amountNumber = Number(form.amount);
@@ -1483,7 +1873,7 @@ function ManualForm({ form, setForm, obras = EMPTY, invoiceFile, setInvoiceFile,
     <form onSubmit={onSubmit} style={{ ...panelStyle(), display: "grid", gap: 14 }}>
       <div style={sectionHeaderStyle()}>
         <div>
-          <div style={sectionTitleStyle()}>Nueva compra manual</div>
+          <div style={sectionTitleStyle()}>Carga anterior</div>
           <div style={{ color: C.dim, fontSize: 12, marginTop: 3 }}>Una compra, un monto total y una obra opcional.</div>
         </div>
         <button type="button" onClick={onCancel} style={iconButton(C.dim)}><X size={14} /></button>
@@ -1747,22 +2137,22 @@ function EventLine({ ev }) {
   );
 }
 
-function ManualLogList({ entries, loading, onDelete }) {
+function ManualLogList({ entries, loading, onDelete, onSendToPanol }) {
   return (
     <section style={panelStyle()}>
       <div style={sectionHeaderStyle()}>
         <div>
-          <div style={sectionTitleStyle()}>Compras manuales</div>
-          <div style={{ color: C.dim, fontSize: 12, marginTop: 3 }}>Facturas y compras cargadas fuera del flujo de pedidos.</div>
+          <div style={sectionTitleStyle()}>Cargas de compra</div>
+          <div style={{ color: C.dim, fontSize: 12, marginTop: 3 }}>Presupuestos, remitos y facturas cargadas por items.</div>
         </div>
       </div>
       {loading ? (
         <EmptyState text="Cargando compras..." compact />
       ) : entries.length === 0 ? (
-        <EmptyState text="No hay compras manuales registradas." compact />
+        <EmptyState text="No hay cargas de compra registradas." compact />
       ) : (
         <div style={{ display: "grid", gap: 7, maxHeight: 360, overflowY: "auto", paddingRight: 3 }}>
-          {entries.slice(0, 12).map((entry) => (
+          {entries.map((entry) => (
             <div key={entry.id} style={{ border: `1px solid ${C.border}`, background: C.panel, borderRadius: 10, padding: 10, display: "grid", gap: 5 }}>
               <div style={{ display: "flex", gap: 8, alignItems: "flex-start" }}>
                 <div style={{ flex: 1, minWidth: 0 }}>
@@ -1771,7 +2161,19 @@ function ManualLogList({ entries, loading, onDelete }) {
                     {entry.provider || "Sin proveedor"} · {new Date(entry.purchased_at).toLocaleDateString("es-AR")} · {usernameOf(entry.creator)}
                   </div>
                 </div>
-                <button type="button" onClick={() => onDelete(entry.id)} style={iconButton(C.dim)} title="Eliminar"><Trash2 size={13} /></button>
+                {entry.items?.length > 0 && (
+                  <button type="button" onClick={() => onSendToPanol?.(entry)} style={secondaryButton()} title="Enviar a Pañol">
+                    <Send size={13} /> Enviar a pañol
+                  </button>
+                )}
+                <button
+                  type="button"
+                  onClick={() => onDelete(entry.id)}
+                  style={{ ...secondaryButton(), color: C.red, borderColor: `${C.red}55` }}
+                  title="Borrar carga"
+                >
+                  <Trash2 size={13} /> Borrar
+                </button>
               </div>
               <div style={{ display: "flex", justifyContent: "space-between", gap: 8, alignItems: "center" }}>
                 <span style={{ color: C.green, fontFamily: C.mono, fontSize: 13, fontWeight: 850 }}>{entry.amount ? fmtMoney(entry.amount) : "Sin monto"}</span>

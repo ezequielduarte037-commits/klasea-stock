@@ -625,6 +625,7 @@ export default function RecepcionPanolScreen({ profile, signOut }) {
           open={modalOpen}
           profile={profile}
           prefill={sedeLocked ? { sede: sedeLocked } : null}
+          showPrices={isAdmin}
           onClose={(saved) => { setModalOpen(false); if (saved) cargar(); }}
         />
       )}
