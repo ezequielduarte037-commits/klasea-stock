@@ -662,10 +662,15 @@ export default function PurchaseRequestsScreen({ profile, signOut }) {
 
   const visibleList = manager ? filtered : userFiltered;
 
-  // Agrupado por estado cuando se ve "Activos" o "Todos" (manager). En un estado
-  // puntual no agrupa (todas son del mismo). Mantiene el orden del flujo de compras.
+  // Agrupado por estado siguiendo el flujo de compras (Nuevo → En revisión →
+  // Cotizando → Comprado → Recibido → Cancelado). Los archivados (recibido/
+  // cancelado) caen al final solos. En la vista personal (mis pedidos / copiados)
+  // se agrupa siempre; en la del manager solo cuando ve "Activos" o "Todos"
+  // (si filtra por un estado puntual son todas iguales y no tiene sentido agrupar).
   const grouped = useMemo(() => {
-    const shouldGroup = manager && (filters.status === "activos" || filters.status === "todos");
+    const shouldGroup = manager
+      ? (filters.status === "activos" || filters.status === "todos")
+      : true;
     if (!shouldGroup) return [{ value: "_all", label: null, items: visibleList }];
     return REQUEST_STATUSES
       .map((s) => ({ value: s.value, label: s.label, items: visibleList.filter((r) => r.status === s.value) }))

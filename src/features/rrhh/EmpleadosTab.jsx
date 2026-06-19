@@ -8,6 +8,14 @@ import { BTN, BTN_PRIMARY, GrupoBadge, INP, KpiCard, LBL, Td, Th } from "./ui";
 
 const FORM_VACIO = { dni: "", nombre: "", grupo: "casa", sede: "", contratista_id: "", ficha: true, activo: true, notas: "" };
 
+function searchText(value) {
+  return String(value ?? "").toLowerCase();
+}
+
+function digits(value) {
+  return String(value ?? "").replace(/\D/g, "");
+}
+
 export default function EmpleadosTab({ empleados, contratistas, onChanged, esAdmin }) {
   const [q, setQ] = useState("");
   const [filtroGrupo, setFiltroGrupo] = useState("todos");
@@ -33,10 +41,15 @@ export default function EmpleadosTab({ empleados, contratistas, onChanged, esAdm
     else if (filtroGrupo === "sin_asignar") rows = rows.filter(e => e.grupo === "sin_asignar");
     else if (filtroGrupo.startsWith("c:")) rows = rows.filter(e => e.contratista_id === filtroGrupo.slice(2));
     if (q.trim()) {
-      const qq = q.toLowerCase();
-      rows = rows.filter(e => e.nombre.toLowerCase().includes(qq) || e.dni.includes(qq));
+      const qq = searchText(q);
+      const qDni = digits(q);
+      rows = rows.filter(e =>
+        searchText(e.nombre).includes(qq)
+        || searchText(e.dni).includes(qq)
+        || (!!qDni && digits(e.dni).includes(qDni))
+      );
     }
-    return [...rows].sort((a, b) => a.nombre.localeCompare(b.nombre, "es"));
+    return [...rows].sort((a, b) => searchText(a.nombre).localeCompare(searchText(b.nombre), "es"));
   }, [empleados, q, filtroGrupo, filtroSede, verInactivos, verNoFichan]);
 
   const stats = useMemo(() => {

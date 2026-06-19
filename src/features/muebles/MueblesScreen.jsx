@@ -7,6 +7,8 @@ import { useResponsive } from "@/hooks/useResponsive";
 import { hasAdminAccess } from "@/lib/permissions";
 import EnchapadoView from "@/features/muebles/EnchapadoView";
 import { ChapaSwatch, chapaColor } from "@/features/muebles/chapa";
+import { printFaltantes } from "@/features/muebles/printFaltantes";
+import logoKlasea from "@/assets/logos/logo-klasea.png";
 import { C } from "@/theme";
 
 // ─── Design tokens ─────────────────────────────────────────────────
@@ -1051,6 +1053,30 @@ export default function MueblesScreen({ profile, signOut }) {
     doc.save(`checklist_${lineaSel.nombre}_${unidadSel.codigo}.pdf`);
   }
 
+  function imprimirFaltantes() {
+    if (!unidadSel || !lineaSel) return;
+    const faltantes = checklist
+      .filter(r => r.estado !== "Completo")
+      .map(r => ({
+        sector: r.prod_muebles?.sector ?? "General",
+        nombre: r.prod_muebles?.nombre ?? "-",
+        medidas: r.prod_muebles?.medidas ?? "",
+        estado: r.estado,
+        obs: r.obs ?? "",
+      }));
+    const chapaManual = String(unidadSel.chapa_manual ?? "").trim();
+    const chapa = enchapadoOt
+      ? `${enchapadoOt.tipo_chapa || "Sin especificar"} (OT ${enchapadoOt.estado || "Pendiente"})`
+      : chapaManual || "";
+    printFaltantes({
+      linea: lineaSel.nombre,
+      unidad: unidadSel.codigo,
+      chapa,
+      faltantes,
+      total: checklist.length,
+    }, logoKlasea);
+  }
+
   useEffect(() => { cargarLineas(); }, []);
   useEffect(() => { if (lineaId) { cargarUnidades(lineaId); setUnidadId(null); setChecklist([]); setEnchapadoOt(null); } }, [lineaId]);
   useEffect(() => { if (unidadId) { cargarChecklist(unidadId); setShowAddItem(false); setAddItemQ(""); } }, [unidadId]);
@@ -1310,6 +1336,26 @@ export default function MueblesScreen({ profile, signOut }) {
                     >
                       Descargar checklist PDF
                     </button>
+                    {(() => {
+                      const nFalt = checklist.filter(r => r.estado !== "Completo").length;
+                      return (
+                        <button
+                          onClick={imprimirFaltantes}
+                          disabled={!checklist.length}
+                          title="Imprimir, guardar PDF o mandar por WhatsApp los muebles que faltan"
+                          style={{
+                            padding: "7px 14px", borderRadius: 8, cursor: checklist.length ? "pointer" : "not-allowed", fontSize: 12,
+                            fontFamily: C.sans, fontWeight: 600, transition: "all .15s",
+                            background: "rgba(245,158,11,0.12)",
+                            border: "1px solid rgba(245,158,11,0.3)",
+                            color: "#f59e0b",
+                            opacity: checklist.length ? 1 : 0.5,
+                          }}
+                        >
+                          🖨 Faltantes{nFalt ? ` (${nFalt})` : ""}
+                        </button>
+                      );
+                    })()}
                     {esAdmin && (
                       <button
                         onClick={() => { setShowAddItem(v => !v); setAddItemQ(""); setSelMode(false); }}

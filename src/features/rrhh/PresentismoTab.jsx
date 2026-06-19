@@ -468,11 +468,11 @@ export default function PresentismoTab({ empleados, contratistas, config, esAdmi
     rows = rows.filter(r => sameGrupo(r, filtroGrupo));
     if (q.trim()) {
       const qq = q.toLowerCase();
-      rows = rows.filter(r => r.emp.nombre.toLowerCase().includes(qq) || safeText(r.emp.dni).includes(qq));
+      rows = rows.filter(r => safeText(r.emp.nombre).toLowerCase().includes(qq) || safeText(r.emp.dni).includes(qq));
     }
     if (soloAnomalias) rows = rows.filter(r => r.sinSalida || r.tarde);
     return [...rows].sort((a, b) =>
-      a.fecha !== b.fecha ? a.fecha.localeCompare(b.fecha) : a.emp.nombre.localeCompare(b.emp.nombre, "es"));
+      a.fecha !== b.fecha ? a.fecha.localeCompare(b.fecha) : safeText(a.emp.nombre).localeCompare(safeText(b.emp.nombre), "es"));
   }, [filas, filtroSede, filtroGrupo, q, soloAnomalias]);
 
   const ausentes = useMemo(() => {
@@ -487,11 +487,11 @@ export default function PresentismoTab({ empleados, contratistas, config, esAdmi
     rows = rows.filter(e => sameGrupo(e, filtroGrupo));
     if (q.trim()) {
       const qq = q.toLowerCase();
-      rows = rows.filter(e => e.nombre.toLowerCase().includes(qq) || safeText(e.dni).includes(qq));
+      rows = rows.filter(e => safeText(e.nombre).toLowerCase().includes(qq) || safeText(e.dni).includes(qq));
     }
     return rows
       .map(emp => ({ emp, justificacion: justByKey.get(keyJust(emp.id, fecha)) ?? null }))
-      .sort((a, b) => a.emp.nombre.localeCompare(b.emp.nombre, "es"));
+      .sort((a, b) => safeText(a.emp.nombre).localeCompare(safeText(b.emp.nombre), "es"));
   }, [modo, filas, fecha, empleados, filtroSede, filtroGrupo, q, justByKey]);
 
   const stats = useMemo(() => {
@@ -633,7 +633,7 @@ export default function PresentismoTab({ empleados, contratistas, config, esAdmi
         const groupB = b.grupo === "casa" ? "0" : `1-${nombreContratista(b)}`;
         return groupA !== groupB
           ? groupA.localeCompare(groupB, "es")
-          : a.nombre.localeCompare(b.nombre, "es");
+          : safeText(a.nombre).localeCompare(safeText(b.nombre), "es");
       });
 
     for (const fechaIso of fechas) {

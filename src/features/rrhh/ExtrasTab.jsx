@@ -8,6 +8,10 @@ import {
 } from "./api";
 import { BTN, Cargando, ErrorBox, GrupoBadge, INP, KpiCard, LBL, Td, Th } from "./ui";
 
+function safeText(value) {
+  return String(value ?? "").toLowerCase();
+}
+
 export default function ExtrasTab({ empleados, contratistas, config, onConfigChange, esAdmin }) {
   const hoy = hoyIso();
   const [desde, setDesde] = useState(addDays(hoy, -13));
@@ -54,7 +58,7 @@ export default function ExtrasTab({ empleados, contratistas, config, onConfigCha
       row.extraMin += extra;
       row.detalle.push({ fecha: m.fecha, min, extra, entrada: m.entrada, salida: m.salida, sede: m.sede });
     }
-    return [...map.values()].sort((a, b) => b.extraMin - a.extraMin || a.emp.nombre.localeCompare(b.emp.nombre, "es"));
+    return [...map.values()].sort((a, b) => b.extraMin - a.extraMin || safeText(a.emp.nombre).localeCompare(safeText(b.emp.nombre), "es"));
   }, [marcas, empById, config, filtroSede]);
 
   const filtradas = useMemo(() => {
@@ -65,8 +69,8 @@ export default function ExtrasTab({ empleados, contratistas, config, onConfigCha
     else if (filtroGrupo === "sin_asignar") rows = rows.filter(r => r.emp.grupo === "sin_asignar");
     else if (filtroGrupo.startsWith("c:")) rows = rows.filter(r => r.emp.contratista_id === filtroGrupo.slice(2));
     if (q.trim()) {
-      const qq = q.toLowerCase();
-      rows = rows.filter(r => r.emp.nombre.toLowerCase().includes(qq) || r.emp.dni.includes(qq));
+      const qq = safeText(q);
+      rows = rows.filter(r => safeText(r.emp.nombre).includes(qq) || safeText(r.emp.dni).includes(qq));
     }
     return rows;
   }, [filas, filtroGrupo, q]);
