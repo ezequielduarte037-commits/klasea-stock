@@ -121,7 +121,8 @@ export async function fetchLinkedPurchaseRequestForEnvio(envioId) {
 // ─── Escrituras (RPCs) ──────────────────────────────────────────────────────
 export async function crearEnvio({
   titulo, sede, prioridad = "media", obraId = null, destino = null,
-  observaciones = null, origen = "manual", purchaseRequestId = null, items = [],
+  observaciones = null, origen = "manual", purchaseRequestId = null,
+  purchaseLogId = null, items = [],
 }) {
   const { data, error } = await supabase.rpc("panol_crear_envio", {
     p_titulo: titulo,
@@ -143,6 +144,22 @@ export async function crearEnvio({
     })),
   });
   if (error) throw error;
+
+  // Vínculo envío ↔ compra cargada (purchase_log): permite que "Gasto por obra"
+  // cuente el costo una sola vez (lo aporta la compra, no el envío). Best-effort:
+  // si la columna todavía no existe (SQL sin correr), no rompe el flujo.
+  if (data && purchaseLogId) {
+    try {
+      const { error: linkErr } = await supabase
+        .from("panol_envios")
+        .update({ purchase_log_id: purchaseLogId })
+        .eq("id", data);
+      if (linkErr && import.meta.env?.DEV) {
+        console.warn("[panol] no se pudo vincular envío con compra:", linkErr.message);
+      }
+    } catch { /* columna purchase_log_id aún no creada — se ignora */ }
+  }
+
   return data; // id del envío creado
 }
 

@@ -21,6 +21,11 @@ import {
 import { BTN, BTN_PRIMARY, Cargando, ErrorBox, GrupoBadge, INP, KpiCard, Td, Th } from "./ui";
 
 const keyJust = (empleadoId, fecha) => `${empleadoId}::${fecha}`;
+const XLSX_YELLOW = "FFFF00";
+const XLSX_RED = "FFC7CE";
+const XLSX_GROUP = "D9EAF7";
+const XLSX_HEADER = "D9EAD3";
+const XLSX_SECTION = "E7E6E6";
 
 function sameGrupo(row, filtroGrupo) {
   const emp = row.emp ?? row;
@@ -29,6 +34,368 @@ function sameGrupo(row, filtroGrupo) {
   if (filtroGrupo === "contratistas") return emp.grupo === "contratista";
   if (filtroGrupo.startsWith("c:")) return emp.contratista_id === filtroGrupo.slice(2);
   return true;
+}
+
+function safeText(value) {
+  return String(value ?? "").trim();
+}
+
+function splitNombreCompleto(nombre) {
+  const parts = safeText(nombre).split(/\s+/).filter(Boolean);
+  if (parts.length <= 1) return { nombre: parts[0] ?? "", apellido: "" };
+  return { nombre: parts[0], apellido: parts.slice(1).join(" ") };
+}
+
+function nombreContratista(emp) {
+  return emp?.contratista?.nombre || "Sin jefe asignado";
+}
+
+function rangoFechas(desde, hasta) {
+  const out = [];
+  let cur = desde;
+  while (cur && cur <= hasta) {
+    out.push(cur);
+    cur = addDays(cur, 1);
+  }
+  return out;
+}
+
+function buildFichasSheet({ title, periodo, rows, includeJefe }) {
+  const headers = includeJefe
+    ? ["Fecha", "Nombre", "Apellido", "Entrada", "Salida", "Sede", "Jefe", "Estado", "Observaciones"]
+    : ["Fecha", "Nombre", "Apellido", "Entrada", "Salida", "Sede", "Estado", "Observaciones"];
+  const aoa = [];
+  const kinds = [];
+  const add = (row, kind = "normal") => {
+    aoa.push(row);
+    kinds.push(kind);
+  };
+
+  add(["Registros de entradas y salidas"], "title");
+  add([`Hora de exportacion: ${new Date().toLocaleString("es-AR")}`], "meta");
+  add([`Periodo: ${periodo}`], "meta");
+  add([], "blank");
+  add([title], "section");
+  add(headers, "header");
+
+  if (!rows.length) {
+    add(["Sin registros para este filtro."], "empty");
+  } else {
+    for (const row of rows) {
+      if (row.kind === "group") {
+        add([row.label], "group");
+        continue;
+      }
+      const base = [
+        fmtFecha(row.fecha),
+        row.nombre,
+        row.apellido,
+        row.entrada,
+        row.salida,
+        row.sede,
+      ];
+      if (includeJefe) base.push(row.jefe);
+      base.push(row.estado, row.observaciones);
+      add(base, row.kind);
+    }
+  }
+
+  return {
+    aoa,
+    kinds,
+    colCount: headers.length,
+    merges: [
+      [1, 1, 1, headers.length],
+      [2, 1, 2, headers.length],
+      [3, 1, 3, headers.length],
+      [5, 1, 5, headers.length],
+    ],
+    cols: [
+      12,
+      18,
+      28,
+      14,
+      14,
+      12,
+      ...(includeJefe ? [28] : []),
+      18,
+      32,
+    ],
+  };
+}
+
+function xmlEsc(value) {
+  return String(value ?? "")
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;")
+    .replace(/'/g, "&apos;");
+}
+
+function colName(n) {
+  let s = "";
+  while (n > 0) {
+    const m = (n - 1) % 26;
+    s = String.fromCharCode(65 + m) + s;
+    n = Math.floor((n - m - 1) / 26);
+  }
+  return s;
+}
+
+function cellRef(row, col) {
+  return `${colName(col)}${row}`;
+}
+
+function mergeRef([r1, c1, r2, c2]) {
+  return `${cellRef(r1, c1)}:${cellRef(r2, c2)}`;
+}
+
+function styleId(kind) {
+  if (kind === "title") return 1;
+  if (kind === "meta") return 2;
+  if (kind === "section") return 3;
+  if (kind === "header") return 4;
+  if (kind === "group") return 5;
+  if (kind === "tarde") return 6;
+  if (kind === "ausente") return 7;
+  if (kind === "empty") return 8;
+  return 0;
+}
+
+function sheetXml(sheet) {
+  const cols = sheet.cols.map((width, i) => `<col min="${i + 1}" max="${i + 1}" width="${width}" customWidth="1"/>`).join("");
+  const rows = sheet.aoa.map((row, ri) => {
+    const r = ri + 1;
+    const kind = sheet.kinds[ri] ?? "normal";
+    const style = styleId(kind);
+    const effectiveRow = ["title", "meta", "section", "group", "header", "tarde", "ausente", "empty"].includes(kind)
+      ? Array.from({ length: sheet.colCount }, (_, i) => row[i] ?? "")
+      : row;
+    const cells = effectiveRow.map((value, ci) => {
+      const c = ci + 1;
+      return `<c r="${cellRef(r, c)}" t="inlineStr" s="${style}"><is><t xml:space="preserve">${xmlEsc(value)}</t></is></c>`;
+    }).join("");
+    return `<row r="${r}" ht="${kind === "group" ? 22 : 18}" customHeight="1">${cells}</row>`;
+  }).join("");
+  const merges = sheet.merges.length
+    ? `<mergeCells count="${sheet.merges.length}">${sheet.merges.map((m) => `<mergeCell ref="${mergeRef(m)}"/>`).join("")}</mergeCells>`
+    : "";
+
+  return `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+<worksheet xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main" xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships">
+  <sheetViews><sheetView workbookViewId="0"><pane ySplit="6" topLeftCell="A7" activePane="bottomLeft" state="frozen"/></sheetView></sheetViews>
+  <cols>${cols}</cols>
+  <sheetData>${rows}</sheetData>
+  ${merges}
+</worksheet>`;
+}
+
+function stylesXml() {
+  return `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+<styleSheet xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main">
+  <fonts count="3">
+    <font><sz val="11"/><color rgb="FF000000"/><name val="Calibri"/></font>
+    <font><b/><sz val="11"/><color rgb="FF000000"/><name val="Calibri"/></font>
+    <font><sz val="11"/><color rgb="FF666666"/><name val="Calibri"/></font>
+  </fonts>
+  <fills count="7">
+    <fill><patternFill patternType="none"/></fill>
+    <fill><patternFill patternType="gray125"/></fill>
+    <fill><patternFill patternType="solid"><fgColor rgb="FF${XLSX_YELLOW}"/><bgColor indexed="64"/></patternFill></fill>
+    <fill><patternFill patternType="solid"><fgColor rgb="FF${XLSX_RED}"/><bgColor indexed="64"/></patternFill></fill>
+    <fill><patternFill patternType="solid"><fgColor rgb="FF${XLSX_GROUP}"/><bgColor indexed="64"/></patternFill></fill>
+    <fill><patternFill patternType="solid"><fgColor rgb="FF${XLSX_HEADER}"/><bgColor indexed="64"/></patternFill></fill>
+    <fill><patternFill patternType="solid"><fgColor rgb="FF${XLSX_SECTION}"/><bgColor indexed="64"/></patternFill></fill>
+  </fills>
+  <borders count="2">
+    <border><left/><right/><top/><bottom/><diagonal/></border>
+    <border><left style="thin"><color rgb="FFB7B7B7"/></left><right style="thin"><color rgb="FFB7B7B7"/></right><top style="thin"><color rgb="FFB7B7B7"/></top><bottom style="thin"><color rgb="FFB7B7B7"/></bottom><diagonal/></border>
+  </borders>
+  <cellStyleXfs count="1"><xf numFmtId="0" fontId="0" fillId="0" borderId="0"/></cellStyleXfs>
+  <cellXfs count="9">
+    <xf numFmtId="0" fontId="0" fillId="0" borderId="1" xfId="0" applyBorder="1"/>
+    <xf numFmtId="0" fontId="1" fillId="6" borderId="1" xfId="0" applyFill="1" applyFont="1" applyBorder="1"><alignment horizontal="center" vertical="center" wrapText="1"/></xf>
+    <xf numFmtId="0" fontId="2" fillId="0" borderId="1" xfId="0" applyFont="1" applyBorder="1"/>
+    <xf numFmtId="0" fontId="1" fillId="6" borderId="1" xfId="0" applyFill="1" applyFont="1" applyBorder="1"><alignment horizontal="center" vertical="center" wrapText="1"/></xf>
+    <xf numFmtId="0" fontId="1" fillId="5" borderId="1" xfId="0" applyFill="1" applyFont="1" applyBorder="1"><alignment horizontal="center" vertical="center" wrapText="1"/></xf>
+    <xf numFmtId="0" fontId="1" fillId="4" borderId="1" xfId="0" applyFill="1" applyFont="1" applyBorder="1"/>
+    <xf numFmtId="0" fontId="0" fillId="2" borderId="1" xfId="0" applyFill="1" applyBorder="1"/>
+    <xf numFmtId="0" fontId="1" fillId="3" borderId="1" xfId="0" applyFill="1" applyFont="1" applyBorder="1"/>
+    <xf numFmtId="0" fontId="2" fillId="0" borderId="1" xfId="0" applyFont="1" applyBorder="1"><alignment horizontal="center" vertical="center" wrapText="1"/></xf>
+  </cellXfs>
+  <cellStyles count="1"><cellStyle name="Normal" xfId="0" builtinId="0"/></cellStyles>
+  <dxfs count="0"/>
+  <tableStyles count="0" defaultTableStyle="TableStyleMedium9" defaultPivotStyle="PivotStyleMedium4"/>
+</styleSheet>`;
+}
+
+const CRC_TABLE = (() => {
+  const table = new Uint32Array(256);
+  for (let i = 0; i < 256; i += 1) {
+    let c = i;
+    for (let k = 0; k < 8; k += 1) c = (c & 1) ? (0xedb88320 ^ (c >>> 1)) : (c >>> 1);
+    table[i] = c >>> 0;
+  }
+  return table;
+})();
+
+function crc32(bytes) {
+  let c = 0xffffffff;
+  for (const b of bytes) c = CRC_TABLE[(c ^ b) & 0xff] ^ (c >>> 8);
+  return (c ^ 0xffffffff) >>> 0;
+}
+
+function pushU16(out, n) {
+  out.push(n & 0xff, (n >>> 8) & 0xff);
+}
+
+function pushU32(out, n) {
+  out.push(n & 0xff, (n >>> 8) & 0xff, (n >>> 16) & 0xff, (n >>> 24) & 0xff);
+}
+
+function bytesFromNumbers(nums) {
+  return new Uint8Array(nums);
+}
+
+function zipStore(files) {
+  const encoder = new TextEncoder();
+  const localParts = [];
+  const centralParts = [];
+  let offset = 0;
+
+  for (const file of files) {
+    const nameBytes = encoder.encode(file.name);
+    const dataBytes = encoder.encode(file.content);
+    const crc = crc32(dataBytes);
+
+    const local = [];
+    pushU32(local, 0x04034b50);
+    pushU16(local, 20);
+    pushU16(local, 0);
+    pushU16(local, 0);
+    pushU16(local, 0);
+    pushU16(local, 0);
+    pushU32(local, crc);
+    pushU32(local, dataBytes.length);
+    pushU32(local, dataBytes.length);
+    pushU16(local, nameBytes.length);
+    pushU16(local, 0);
+    const localBytes = bytesFromNumbers(local);
+    localParts.push(localBytes, nameBytes, dataBytes);
+
+    const central = [];
+    pushU32(central, 0x02014b50);
+    pushU16(central, 20);
+    pushU16(central, 20);
+    pushU16(central, 0);
+    pushU16(central, 0);
+    pushU16(central, 0);
+    pushU16(central, 0);
+    pushU32(central, crc);
+    pushU32(central, dataBytes.length);
+    pushU32(central, dataBytes.length);
+    pushU16(central, nameBytes.length);
+    pushU16(central, 0);
+    pushU16(central, 0);
+    pushU16(central, 0);
+    pushU16(central, 0);
+    pushU32(central, 0);
+    pushU32(central, offset);
+    centralParts.push(bytesFromNumbers(central), nameBytes);
+
+    offset += localBytes.length + nameBytes.length + dataBytes.length;
+  }
+
+  const centralOffset = offset;
+  const centralSize = centralParts.reduce((sum, part) => sum + part.length, 0);
+  const end = [];
+  pushU32(end, 0x06054b50);
+  pushU16(end, 0);
+  pushU16(end, 0);
+  pushU16(end, files.length);
+  pushU16(end, files.length);
+  pushU32(end, centralSize);
+  pushU32(end, centralOffset);
+  pushU16(end, 0);
+
+  return new Blob([...localParts, ...centralParts, bytesFromNumbers(end)], {
+    type: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+  });
+}
+
+function downloadBlob(filename, blob) {
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement("a");
+  a.href = url;
+  a.download = filename;
+  document.body.appendChild(a);
+  a.click();
+  document.body.removeChild(a);
+  URL.revokeObjectURL(url);
+}
+
+function exportStyledXlsx(filename, sheets) {
+  const files = [
+    {
+      name: "[Content_Types].xml",
+      content: `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+<Types xmlns="http://schemas.openxmlformats.org/package/2006/content-types">
+  <Default Extension="rels" ContentType="application/vnd.openxmlformats-package.relationships+xml"/>
+  <Default Extension="xml" ContentType="application/xml"/>
+  <Override PartName="/xl/workbook.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet.main+xml"/>
+  <Override PartName="/xl/styles.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.styles+xml"/>
+  ${sheets.map((_, i) => `<Override PartName="/xl/worksheets/sheet${i + 1}.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.worksheet+xml"/>`).join("")}
+  <Override PartName="/docProps/core.xml" ContentType="application/vnd.openxmlformats-package.core-properties+xml"/>
+  <Override PartName="/docProps/app.xml" ContentType="application/vnd.openxmlformats-officedocument.extended-properties+xml"/>
+</Types>`,
+    },
+    {
+      name: "_rels/.rels",
+      content: `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+<Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships">
+  <Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/officeDocument" Target="xl/workbook.xml"/>
+  <Relationship Id="rId2" Type="http://schemas.openxmlformats.org/package/2006/relationships/metadata/core-properties" Target="docProps/core.xml"/>
+  <Relationship Id="rId3" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/extended-properties" Target="docProps/app.xml"/>
+</Relationships>`,
+    },
+    {
+      name: "docProps/core.xml",
+      content: `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+<cp:coreProperties xmlns:cp="http://schemas.openxmlformats.org/package/2006/metadata/core-properties" xmlns:dc="http://purl.org/dc/elements/1.1/" xmlns:dcterms="http://purl.org/dc/terms/" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance">
+  <dc:creator>klasea-stock</dc:creator>
+  <cp:lastModifiedBy>klasea-stock</cp:lastModifiedBy>
+  <dcterms:created xsi:type="dcterms:W3CDTF">${new Date().toISOString()}</dcterms:created>
+  <dcterms:modified xsi:type="dcterms:W3CDTF">${new Date().toISOString()}</dcterms:modified>
+</cp:coreProperties>`,
+    },
+    {
+      name: "docProps/app.xml",
+      content: `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+<Properties xmlns="http://schemas.openxmlformats.org/officeDocument/2006/extended-properties" xmlns:vt="http://schemas.openxmlformats.org/officeDocument/2006/docPropsVTypes">
+  <Application>klasea-stock</Application>
+</Properties>`,
+    },
+    {
+      name: "xl/workbook.xml",
+      content: `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+<workbook xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main" xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships">
+  <sheets>${sheets.map((sheet, i) => `<sheet name="${xmlEsc(sheet.name)}" sheetId="${i + 1}" r:id="rId${i + 1}"/>`).join("")}</sheets>
+</workbook>`,
+    },
+    {
+      name: "xl/_rels/workbook.xml.rels",
+      content: `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+<Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships">
+  ${sheets.map((_, i) => `<Relationship Id="rId${i + 1}" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/worksheet" Target="worksheets/sheet${i + 1}.xml"/>`).join("")}
+  <Relationship Id="rId${sheets.length + 1}" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/styles" Target="styles.xml"/>
+</Relationships>`,
+    },
+    { name: "xl/styles.xml", content: stylesXml() },
+    ...sheets.map((sheet, i) => ({ name: `xl/worksheets/sheet${i + 1}.xml`, content: sheetXml(sheet) })),
+  ];
+
+  downloadBlob(filename, zipStore(files));
 }
 
 export default function PresentismoTab({ empleados, contratistas, config, esAdmin, onChanged }) {
@@ -101,7 +468,7 @@ export default function PresentismoTab({ empleados, contratistas, config, esAdmi
     rows = rows.filter(r => sameGrupo(r, filtroGrupo));
     if (q.trim()) {
       const qq = q.toLowerCase();
-      rows = rows.filter(r => r.emp.nombre.toLowerCase().includes(qq) || r.emp.dni.includes(qq));
+      rows = rows.filter(r => r.emp.nombre.toLowerCase().includes(qq) || safeText(r.emp.dni).includes(qq));
     }
     if (soloAnomalias) rows = rows.filter(r => r.sinSalida || r.tarde);
     return [...rows].sort((a, b) =>
@@ -120,7 +487,7 @@ export default function PresentismoTab({ empleados, contratistas, config, esAdmi
     rows = rows.filter(e => sameGrupo(e, filtroGrupo));
     if (q.trim()) {
       const qq = q.toLowerCase();
-      rows = rows.filter(e => e.nombre.toLowerCase().includes(qq) || e.dni.includes(qq));
+      rows = rows.filter(e => e.nombre.toLowerCase().includes(qq) || safeText(e.dni).includes(qq));
     }
     return rows
       .map(emp => ({ emp, justificacion: justByKey.get(keyJust(emp.id, fecha)) ?? null }))
@@ -202,6 +569,104 @@ export default function PresentismoTab({ empleados, contratistas, config, esAdmi
     );
   }
 
+  function exportarXlsx() {
+    if (!filas) return;
+
+    const query = q.trim().toLowerCase();
+    const fechas = rangoFechas(d1, d2);
+    const presentes = new Map();
+    for (const r of filas) presentes.set(`${r.fecha}::${r.emp.id}`, r);
+
+    const pasaFiltrosBase = (emp, sede) => {
+      if (emp.activo === false || emp.ficha === false) return false;
+      if (filtroSede !== "todas" && sede !== filtroSede) return false;
+      if (!sameGrupo(emp, filtroGrupo)) return false;
+      if (query) {
+        const haystack = `${safeText(emp.nombre)} ${safeText(emp.dni)}`.toLowerCase();
+        if (!haystack.includes(query)) return false;
+      }
+      return emp.grupo === "casa" || emp.grupo === "contratista";
+    };
+
+    const toPresentRow = (r) => {
+      const names = splitNombreCompleto(r.emp.nombre);
+      const obs = [
+        r.tarde ? "Tarde" : null,
+        r.sinSalida ? "Sin salida" : null,
+        r.justificacion?.motivo || null,
+      ].filter(Boolean).join(" · ");
+      return {
+        kind: r.tarde ? "tarde" : "normal",
+        fecha: r.fecha,
+        ...names,
+        entrada: r.entrada || "",
+        salida: r.salida || "",
+        sede: r.sede ?? r.emp.sede ?? "",
+        jefe: nombreContratista(r.emp),
+        estado: r.tarde ? "TARDE" : "OK",
+        observaciones: obs,
+      };
+    };
+
+    const toAbsentRow = (emp, fechaIso) => {
+      const justificacion = justByKey.get(keyJust(emp.id, fechaIso));
+      const names = splitNombreCompleto(emp.nombre);
+      return {
+        kind: "ausente",
+        fecha: fechaIso,
+        ...names,
+        entrada: "AUSENTE",
+        salida: "",
+        sede: emp.sede ?? "",
+        jefe: nombreContratista(emp),
+        estado: justificacion ? "AUSENTE JUSTIFICADO" : "AUSENTE",
+        observaciones: justificacion?.motivo ?? "",
+      };
+    };
+
+    const casaRows = [];
+    const contratistaRowsByJefe = new Map();
+    const empleadosOrdenados = [...(empleados ?? [])]
+      .filter((emp) => pasaFiltrosBase(emp, emp.sede))
+      .sort((a, b) => {
+        const groupA = a.grupo === "casa" ? "0" : `1-${nombreContratista(a)}`;
+        const groupB = b.grupo === "casa" ? "0" : `1-${nombreContratista(b)}`;
+        return groupA !== groupB
+          ? groupA.localeCompare(groupB, "es")
+          : a.nombre.localeCompare(b.nombre, "es");
+      });
+
+    for (const fechaIso of fechas) {
+      for (const emp of empleadosOrdenados) {
+        const r = presentes.get(`${fechaIso}::${emp.id}`);
+        const sede = r?.sede ?? emp.sede ?? "";
+        if (!pasaFiltrosBase(emp, sede)) continue;
+
+        const row = r ? toPresentRow(r) : toAbsentRow(emp, fechaIso);
+        if (emp.grupo === "casa") {
+          casaRows.push(row);
+        } else if (emp.grupo === "contratista") {
+          const jefe = nombreContratista(emp);
+          const list = contratistaRowsByJefe.get(jefe) ?? [];
+          list.push(row);
+          contratistaRowsByJefe.set(jefe, list);
+        }
+      }
+    }
+
+    const contratistaRows = [];
+    for (const jefe of [...contratistaRowsByJefe.keys()].sort((a, b) => a.localeCompare(b, "es"))) {
+      contratistaRows.push({ kind: "group", label: `JEFE: ${jefe}` });
+      contratistaRows.push(...contratistaRowsByJefe.get(jefe));
+    }
+
+    const periodo = `${fmtFecha(d1)} - ${fmtFecha(d2)}`;
+    exportStyledXlsx(`fichas_${d1}_${d2}.xlsx`, [
+      { name: "Casa", ...buildFichasSheet({ title: "GENTE DE LA CASA", periodo, rows: casaRows, includeJefe: false }) },
+      { name: "Contratistas", ...buildFichasSheet({ title: "CONTRATISTAS", periodo, rows: contratistaRows, includeJefe: true }) },
+    ]);
+  }
+
   const selSt = (on) => ({
     ...BTN,
     padding: "6px 13px",
@@ -230,6 +695,7 @@ export default function PresentismoTab({ empleados, contratistas, config, esAdmi
           </>
         )}
         <div style={{ flex: 1 }} />
+        <button style={BTN_PRIMARY} onClick={exportarXlsx}>⬇ Exportar XLSX</button>
         <button style={BTN} onClick={exportar}>⬇ Exportar CSV</button>
       </div>
 

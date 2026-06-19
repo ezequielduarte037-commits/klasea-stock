@@ -297,6 +297,7 @@ export default function EnviarAPanolModal({ open, onClose, prefill, showPrices =
         observaciones: observaciones.trim() || null,
         origen: prefill?.origen || "manual",
         purchaseRequestId: prefill?.purchaseRequestId || null,
+        purchaseLogId: prefill?.purchaseLogId || null,
         items: items.map((it) => {
           const precio = showPrices ? normalizePriceForDb(it.precio_unitario) : null;
           return {

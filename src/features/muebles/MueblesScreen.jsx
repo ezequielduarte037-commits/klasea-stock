@@ -154,7 +154,7 @@ function Lightbox({ images, index, onClose, setIndex }) {
       <div style={{ position: "absolute", top: 22, left: "50%", transform: "translateX(-50%)", fontFamily: C.mono, fontSize: 12, color: C.t2, letterSpacing: 1.3 }}>{index + 1} / {images.length}</div>
       {images.length > 1 && <button onClick={e => { e.stopPropagation(); setIndex(i => (i - 1 + images.length) % images.length); }} style={{ position: "absolute", left: 18, background: "var(--panel-2)", border: `1px solid ${C.b0}`, color: C.t0, width: 42, height: 42, borderRadius: "50%", cursor: "pointer", fontSize: 20, display: "flex", alignItems: "center", justifyContent: "center" }}>‹</button>}
       <div onClick={e => e.stopPropagation()} style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 10, maxWidth: "90vw", maxHeight: "90vh" }}>
-        <img src={img.url} alt={img.nombre} style={{ maxWidth: "100%", maxHeight: "82vh", objectFit: "contain", borderRadius: 10 }} />
+        <img src={img.url} loading="lazy" alt={img.nombre} style={{ maxWidth: "100%", maxHeight: "82vh", objectFit: "contain", borderRadius: 10 }} />
         <div style={{ fontSize: 12, color: C.t2, fontFamily: C.sans }}>{img.nombre}</div>
       </div>
       {images.length > 1 && <button onClick={e => { e.stopPropagation(); setIndex(i => (i + 1) % images.length); }} style={{ position: "absolute", right: 18, background: "var(--panel-2)", border: `1px solid ${C.b0}`, color: C.t0, width: 42, height: 42, borderRadius: "50%", cursor: "pointer", fontSize: 20, display: "flex", alignItems: "center", justifyContent: "center" }}>›</button>}

@@ -2,7 +2,6 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import {
   AlertTriangle,
   Calendar,
-  Check,
   ChevronRight,
   ClipboardList,
   DollarSign,
@@ -117,6 +116,16 @@ function totalsLabel(totals) {
   if (totals.ARS) parts.push(fmtMoney(totals.ARS, "ARS"));
   if (totals.USD) parts.push(fmtMoney(totals.USD, "USD"));
   return parts.join(" · ") || "Sin precios";
+}
+
+// Cobertura de precios consistente entre la tarjeta de la obra y su detalle:
+// cuenta TODAS las líneas (ítems de pañol + ítems de cargas de compra), no solo pañol.
+function priceCoverage(row) {
+  const manuales = row.manuales || EMPTY;
+  const total = (row.items || EMPTY).length + manuales.length;
+  const priced = (row.items || EMPTY).filter((i) => i.total).length
+    + manuales.filter((m) => m.amount != null && m.amount !== "").length;
+  return { total, priced, sinPrecio: Math.max(0, total - priced) };
 }
 
 function chip(color, label) {
@@ -389,9 +398,19 @@ function makeCostRow(key, label = key) {
   };
 }
 
-function costKeyFromEnvio(envio) {
-  const label = envio.obra?.codigo || envio.destino || "Sin obra/destino";
-  return normalizeSearch(label) || "sin-obra";
+// Resuelve la obra de un envío. Si no tiene obra linkeada, intenta detectar el
+// código de obra (ej "52-26", "55-4", "K64-19") dentro del título o el destino,
+// para que no caiga en "Sin obra/destino" cuando la obra sí existe.
+function resolveEnvioObra(envio, obraCodeList) {
+  if (envio.obra?.codigo) {
+    return { key: normalizeSearch(envio.obra.codigo) || "sin-obra", label: envio.obra.codigo };
+  }
+  const hay = ` ${normalizeSearch(`${envio.titulo || ""} ${envio.destino || ""}`)} `;
+  for (const o of obraCodeList) {
+    if (o.norm && hay.includes(` ${o.norm} `)) return { key: o.key, label: o.codigo };
+  }
+  const fallback = envio.destino || "Sin obra/destino";
+  return { key: normalizeSearch(fallback) || "sin-obra", label: fallback };
 }
 
 function looksAdditional(envio, item, additionalByItem, additionalByRequest) {
@@ -404,6 +423,12 @@ function looksAdditional(envio, item, additionalByItem, additionalByRequest) {
 function buildCostosPorObra(envios, additionalBoards, additionalItems, entries = EMPTY, obrasById = new Map()) {
   const rows = new Map();
   const boardsById = new Map((additionalBoards || []).map((b) => [b.id, b]));
+  // Códigos de obra normalizados para detectar la obra dentro del título/destino
+  // de envíos que no la tienen linkeada. Códigos largos primero (mejor match).
+  const obraCodeList = [...obrasById.values()]
+    .map((o) => ({ codigo: o.codigo, norm: normalizeSearch(o.codigo || ""), key: normalizeSearch(o.codigo || "") }))
+    .filter((o) => o.norm)
+    .sort((a, b) => b.norm.length - a.norm.length);
   const additionalByItem = new Map();
   const additionalByRequest = new Map();
   const panolRequestItems = new Set();
@@ -422,8 +447,10 @@ function buildCostosPorObra(envios, additionalBoards, additionalItems, entries =
   }
 
   for (const envio of envios || EMPTY) {
-    const key = costKeyFromEnvio(envio);
-    const label = envio.obra?.codigo || envio.destino || "Sin obra/destino";
+    // Envío generado desde una compra cargada (purchase_log): su costo ya lo
+    // aporta la compra en el bloque de abajo. Lo salteamos para no duplicar.
+    if (envio.purchase_log_id) continue;
+    const { key, label } = resolveEnvioObra(envio, obraCodeList);
     const row = rows.get(key) || makeCostRow(key, label);
     row.pedidoIds.add(envio.id);
     for (const item of envio.items || EMPTY) {
@@ -688,7 +715,9 @@ export default function PurchaseLogPanel({ profile }) {
     setPanolModal({
       prefill: {
         titulo: entry.description || "Compra",
-        origen: "manual",
+        origen: "compra",
+        purchaseLogId: entry.id,
+        obraId: entry.project_id || "",
         items: (entry.items || EMPTY).map((it) => ({
           descripcion: it.descripcion,
           cantidad: it.cantidad,
@@ -1206,7 +1235,7 @@ function GastoObraView({ loading, rows, selectedKey, setSelectedKey, entries, on
                     {row.adicionalItems > 0 && <span style={{ color: C.violet }}>{row.adicionalItems} adicionales</span>}
                   </div>
                   <div style={{ color: row.ARS || row.USD ? C.green : C.dim, fontFamily: C.mono, fontSize: 14, fontWeight: 900 }}>{totalsLabel(row)}</div>
-                  {row.sinPrecio > 0 && <div style={{ color: C.amber, fontSize: 11, fontWeight: 800 }}>{row.sinPrecio} items sin precio</div>}
+                  {priceCoverage(row).sinPrecio > 0 && <div style={{ color: C.amber, fontSize: 11, fontWeight: 800 }}>{priceCoverage(row).sinPrecio} items sin precio</div>}
                 </button>
               );
             })}
@@ -1230,7 +1259,8 @@ function GastoObraView({ loading, rows, selectedKey, setSelectedKey, entries, on
 }
 
 function ObraCostDetail({ row, onOpenBudget, onSetItemPrice }) {
-  const priced = row.items.filter((item) => item.total).length;
+  const cov = priceCoverage(row);
+  const hasAdicionales = (row.adicionales?.length || 0) > 0 || (row.adicionalItems || 0) > 0;
   return (
     <div style={{ display: "grid", gap: 13 }}>
       <div style={{ display: "flex", gap: 10, alignItems: "flex-start", flexWrap: "wrap" }}>
@@ -1248,12 +1278,12 @@ function ObraCostDetail({ row, onOpenBudget, onSetItemPrice }) {
       <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(150px, 1fr))", gap: 8 }}>
         <MiniMetric label="Total" value={totalsLabel(row)} color={C.green} />
         <MiniMetric label="Normal" value={totalsLabel({ ARS: row.baseARS, USD: row.baseUSD })} color={C.blue} />
-        <MiniMetric label="Adicionales" value={totalsLabel({ ARS: row.adicionalARS, USD: row.adicionalUSD })} color={C.violet} />
-        <MiniMetric label="Precios cargados" value={`${priced}/${row.items.length}`} color={row.sinPrecio ? C.amber : C.green} />
+        <MiniMetric label="Adicionales" value={hasAdicionales ? totalsLabel({ ARS: row.adicionalARS, USD: row.adicionalUSD }) : "—"} color={C.violet} />
+        <MiniMetric label="Precios cargados" value={`${cov.priced}/${cov.total}`} color={cov.sinPrecio ? C.amber : C.green} />
       </div>
 
       <div style={{ border: `1px solid ${C.border}`, borderRadius: 12, overflow: "hidden" }}>
-        <div style={{ display: "grid", gridTemplateColumns: "minmax(220px,1.5fr) 92px 96px 96px 112px", gap: 8, padding: "9px 11px", background: C.panel, color: C.dim, fontSize: 10, fontWeight: 900, letterSpacing: 0.8, textTransform: "uppercase" }}>
+        <div style={{ display: "grid", gridTemplateColumns: "minmax(200px,1.4fr) 84px 80px 156px 104px", gap: 8, padding: "9px 11px", background: C.panel, color: C.dim, fontSize: 10, fontWeight: 900, letterSpacing: 0.8, textTransform: "uppercase" }}>
           <span>Item</span><span>Tipo</span><span>Cantidad</span><span>Unitario</span><span>Total</span>
         </div>
         <div style={{ maxHeight: 460, overflowY: "auto" }}>
@@ -1262,7 +1292,7 @@ function ObraCostDetail({ row, onOpenBudget, onSetItemPrice }) {
           ) : row.items.map((item) => {
             const unit = item.precio_unitario == null || item.precio_unitario === "" ? null : Number(item.precio_unitario);
             return (
-              <div key={item.id} style={{ display: "grid", gridTemplateColumns: "minmax(220px,1.5fr) 92px 96px 96px 112px", gap: 8, alignItems: "center", padding: "10px 11px", borderTop: `1px solid ${C.border}` }}>
+              <div key={item.id} style={{ display: "grid", gridTemplateColumns: "minmax(200px,1.4fr) 84px 80px 156px 104px", gap: 8, alignItems: "center", padding: "10px 11px", borderTop: `1px solid ${C.border}` }}>
                 <div style={{ minWidth: 0 }}>
                   <div style={{ color: C.text, fontSize: 13, fontWeight: 850, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{item.descripcion}</div>
                   <div style={{ color: C.dim, fontSize: 11, marginTop: 2 }}>{item.pedido}{item.codigo ? ` · ${item.codigo}` : ""}{item.nota ? ` · ${item.nota}` : ""}</div>
@@ -1325,76 +1355,101 @@ function ObraCostDetail({ row, onOpenBudget, onSetItemPrice }) {
 
 function InlinePriceEditor({ item, unit, onSave }) {
   const canEdit = item.source === "panol" && item.id;
-  const [value, setValue] = useState("");
+  const [value, setValue] = useState(unit != null ? String(unit) : "");
   const [moneda, setMoneda] = useState(item.moneda || "ARS");
+  const [saving, setSaving] = useState(false);
+
+  useEffect(() => {
+    setValue(unit != null ? String(unit) : "");
+    setMoneda(item.moneda || "ARS");
+  }, [unit, item.moneda]);
 
   if (!canEdit) {
     return (
-      <div style={{ color: unit ? C.green : C.dim, fontFamily: C.mono, fontSize: 12, fontWeight: 850 }}>
-        {unit ? fmtMoney(unit, item.moneda) : "-"}
+      <div style={{ color: unit != null ? C.green : C.dim, fontFamily: C.mono, fontSize: 12, fontWeight: 850 }}>
+        {unit != null ? fmtMoney(unit, item.moneda) : "—"}
       </div>
     );
   }
 
-  const hasDraft = normalizePriceInput(value) !== null;
+  const draft = normalizePriceInput(value);
+  const draftNum = draft === null ? null : Number(draft);
+  const changed = value.trim() !== "" && draftNum !== null && draftNum !== unit;
 
-  async function save() {
-    if (!hasDraft) return;
-    await onSave?.(item.id, { precio_unitario: value, moneda });
-    setValue("");
+  async function commit(nextMoneda = moneda) {
+    if (saving) return;
+    if (value.trim() === "" || draftNum === null) return;
+    if (draftNum === unit && nextMoneda === (item.moneda || "ARS")) return;
+    setSaving(true);
+    try {
+      await onSave?.(item.id, { precio_unitario: value, moneda: nextMoneda });
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  function toggleMoneda() {
+    const next = moneda === "ARS" ? "USD" : "ARS";
+    setMoneda(next);
+    if (value.trim() !== "" && draftNum !== null) commit(next);
   }
 
   return (
-    <div style={{ display: "grid", gap: 5 }}>
-      {unit ? (
-        <div style={{ color: C.green, fontFamily: C.mono, fontSize: 11, fontWeight: 850 }}>
-          {fmtMoney(unit, item.moneda)}
-        </div>
-      ) : (
-        <div style={{ color: C.amber, fontSize: 10, fontWeight: 850 }}>Sin precio</div>
-      )}
-      <div style={{ display: "flex", gap: 4, alignItems: "center" }}>
-        <input
-          value={value}
-          onChange={(e) => setValue(e.target.value)}
-          onBlur={save}
-          placeholder="$ unit."
-          inputMode="decimal"
-          style={{
-            width: 72,
-            boxSizing: "border-box",
-            border: `1px solid ${hasDraft ? C.greenB : C.border}`,
-            background: C.panelSolid,
-            color: C.text,
-            borderRadius: 7,
-            padding: "6px 7px",
-            fontSize: 12,
-            fontFamily: C.mono,
-            outline: "none",
-          }}
-        />
-        <select
-          value={moneda}
-          onChange={(e) => setMoneda(e.target.value)}
-          style={{
-            width: 58,
-            border: `1px solid ${C.border}`,
-            background: C.panelSolid,
-            color: C.text,
-            borderRadius: 7,
-            padding: "6px 5px",
-            fontSize: 11,
-            fontFamily: C.sans,
-            outline: "none",
-          }}
-        >
-          <option value="ARS">ARS</option>
-          <option value="USD">USD</option>
-        </select>
-        <button type="button" onMouseDown={(e) => e.preventDefault()} onClick={save} disabled={!hasDraft} title="Guardar precio" style={{ width: 28, height: 28, display: "grid", placeItems: "center", border: `1px solid ${hasDraft ? C.greenB : C.border}`, background: hasDraft ? "var(--green-soft)" : C.panel, color: hasDraft ? C.green : C.dim, borderRadius: 7, cursor: hasDraft ? "pointer" : "default", padding: 0 }}>
-          <Check size={13} />
-        </button>
-      </div>
+    <div
+      style={{
+        display: "flex",
+        alignItems: "center",
+        gap: 2,
+        border: `1px solid ${changed ? C.greenB : C.border}`,
+        background: C.panelSolid,
+        borderRadius: 8,
+        padding: "3px 3px 3px 8px",
+        opacity: saving ? 0.6 : 1,
+      }}
+    >
+      <span style={{ color: C.dim, fontSize: 12, fontFamily: C.mono }}>$</span>
+      <input
+        value={value}
+        onChange={(e) => setValue(e.target.value)}
+        onBlur={() => commit()}
+        onKeyDown={(e) => { if (e.key === "Enter") { e.preventDefault(); e.currentTarget.blur(); } }}
+        placeholder="precio"
+        inputMode="decimal"
+        style={{
+          flex: 1,
+          minWidth: 0,
+          width: "100%",
+          border: "none",
+          background: "transparent",
+          color: unit != null ? C.green : C.text,
+          fontSize: 12,
+          fontFamily: C.mono,
+          fontWeight: unit != null ? 850 : 500,
+          outline: "none",
+          padding: "3px 0",
+        }}
+      />
+      <button
+        type="button"
+        onMouseDown={(e) => e.preventDefault()}
+        onClick={toggleMoneda}
+        title="Cambiar moneda"
+        style={{
+          flex: "none",
+          minWidth: 40,
+          border: `1px solid ${C.border}`,
+          background: C.panel,
+          color: moneda === "USD" ? C.green : C.t1,
+          borderRadius: 6,
+          padding: "4px 6px",
+          fontSize: 10,
+          fontWeight: 800,
+          fontFamily: C.sans,
+          cursor: "pointer",
+        }}
+      >
+        {moneda}
+      </button>
     </div>
   );
 }

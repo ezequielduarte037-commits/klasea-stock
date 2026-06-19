@@ -7,13 +7,16 @@ import {
   borrarMaterial,
   crearMaterial,
   fetchCatalogo,
+  fetchObrasAvance,
   guardarProveedor,
   guardarMaterial,
   importarCatalogo,
   isMissingTable,
   precioVigente,
 } from "./api";
+import AvanceTab from "./AvanceTab";
 import ComprobantesTab from "./ComprobantesTab";
+import BandejaTab from "./BandejaTab";
 import { MaterialImageUploader, MaterialThumb, PriceBadge, PriceHistory } from "./MaterialExtras";
 import { fmtMoney } from "./format";
 import ProveedoresTab from "./ProveedoresTab";
@@ -30,10 +33,12 @@ function materialEnArea(m, catId) {
 
 const TABS = [
   { key: "importar", label: "Importar" },
+  { key: "bandeja", label: "Bandeja" },
   { key: "comprobantes", label: "Comprobantes" },
   { key: "revision", label: "Revisión guiada" },
   { key: "variantes", label: "Variantes" },
   { key: "proveedores", label: "Proveedores" },
+  { key: "avance", label: "Avance" },
   { key: "resumen", label: "Resumen" },
 ];
 
@@ -901,6 +906,7 @@ export default function MaterialesScreen({ profile, signOut }) {
   const [batches, setBatches] = useState([]);
   const [proveedores, setProveedores] = useState([]);
   const [comprobantes, setComprobantes] = useState([]);
+  const [obrasAvance, setObrasAvance] = useState([]);
   const [opciones, setOpciones] = useState([]);
   const [setupPendiente, setSetupPendiente] = useState(false);
   const [error, setError] = useState(null);
@@ -914,6 +920,7 @@ export default function MaterialesScreen({ profile, signOut }) {
       setBatches(data.batches);
       setProveedores(data.proveedores ?? []);
       setComprobantes(data.comprobantes ?? []);
+      setObrasAvance(await fetchObrasAvance());
       const ops = await fetchOpciones();      // tolerante: [] si falta el SQL
       setOpciones(ops.opciones ?? []);
       setSetupPendiente(false);
@@ -926,6 +933,7 @@ export default function MaterialesScreen({ profile, signOut }) {
   useEffect(() => {
     let active = true;
     fetchOpciones().then((r) => { if (active) setOpciones(r.opciones ?? []); }).catch(() => {});
+    fetchObrasAvance().then((rows) => { if (active) setObrasAvance(rows); }).catch(() => {});
     fetchCatalogo()
       .then((data) => {
         if (!active) return;
@@ -1005,10 +1013,12 @@ export default function MaterialesScreen({ profile, signOut }) {
               </div>
 
               {tab === "importar" && <ImportarTab batches={batches} onImported={cargar} />}
+              {tab === "bandeja" && <BandejaTab categorias={categorias} materiales={materiales} onChanged={cargar} />}
               {tab === "comprobantes" && <ComprobantesTab categorias={categorias} materiales={materiales} proveedores={proveedores} comprobantes={comprobantes} onChanged={cargar} />}
               {tab === "revision" && <RevisionTab categorias={categorias} materiales={materiales} proveedores={proveedores} opciones={opciones} onChanged={cargar} />}
               {tab === "variantes" && <VariantesTab opciones={opciones} onChanged={cargar} />}
               {tab === "proveedores" && <ProveedoresTab proveedores={proveedores} onChanged={cargar} />}
+              {tab === "avance" && <AvanceTab categorias={categorias} materiales={materiales} batches={batches} obras={obrasAvance} />}
               {tab === "resumen" && <ResumenTab categorias={categorias} materiales={materiales} />}
             </>
           )}

@@ -185,6 +185,91 @@ export async function fetchCatalogo() {
   };
 }
 
+function modeloFromObraCodigo(codigo) {
+  const prefix = String(codigo ?? "").trim().split("-")[0]?.replace(/^K/i, "");
+  return MODELOS.includes(prefix) ? prefix : null;
+}
+
+function normalizeObraAvance(row) {
+  const modelo = MODELOS.includes(String(row?.modelo ?? "")) ? String(row.modelo) : modeloFromObraCodigo(row?.codigo);
+  return { ...row, modelo };
+}
+
+function isMissingModeloColumn(error) {
+  const msg = String(error?.message ?? "").toLowerCase();
+  return error?.code === "42703" || msg.includes("modelo") || (msg.includes("column") && msg.includes("produccion_obras"));
+}
+
+async function fetchProduccionObras(select, onlyActive = true) {
+  let query = supabase
+    .from("produccion_obras")
+    .select(select)
+    .order("codigo", { ascending: true });
+  if (onlyActive) query = query.eq("estado", "activa");
+  const { data, error } = await query;
+  if (error) throw error;
+  return data ?? [];
+}
+
+export async function fetchObrasAvance() {
+  try {
+    let rows;
+    try {
+      rows = await fetchProduccionObras("id, codigo, estado, linea_nombre, modelo", true);
+    } catch (error) {
+      if (!isMissingModeloColumn(error)) throw error;
+      rows = await fetchProduccionObras("id, codigo, estado, linea_nombre", true);
+    }
+
+    if (!rows.length) {
+      try {
+        rows = await fetchProduccionObras("id, codigo, estado, linea_nombre, modelo", false);
+      } catch (error) {
+        if (!isMissingModeloColumn(error)) throw error;
+        rows = await fetchProduccionObras("id, codigo, estado, linea_nombre", false);
+      }
+    }
+
+    return rows.map(normalizeObraAvance);
+  } catch (error) {
+    if (isMissingTable(error)) return [];
+    return [];
+  }
+}
+
+export async function cosecharCandidatos() {
+  const { data, error } = await supabase.rpc("panol_cosechar_candidatos");
+  if (error) throw error;
+  return data ?? 0;
+}
+
+export async function fetchCandidatos({ estado = "pendiente" } = {}) {
+  try {
+    let query = supabase
+      .from("panol_material_candidatos")
+      .select("*")
+      .order("created_at", { ascending: false });
+    if (estado) query = query.eq("estado", estado);
+    const { data, error } = await query;
+    if (error) throw error;
+    return data ?? [];
+  } catch (error) {
+    if (isMissingTable(error)) return [];
+    throw error;
+  }
+}
+
+export async function promoverCandidato(id, accion, { materialId = null, categoriaId = null } = {}) {
+  const { data, error } = await supabase.rpc("panol_promover_candidato", {
+    p_id: id,
+    p_accion: accion,
+    p_material_id: materialId,
+    p_categoria_id: categoriaId,
+  });
+  if (error) throw error;
+  return data ?? null;
+}
+
 async function ensureCategorias(parsed) {
   let categorias = await fetchCategorias();
   const byName = new Map(categorias.map((c) => [norm(c.nombre), c]));
