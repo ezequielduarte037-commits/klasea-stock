@@ -723,26 +723,46 @@ export async function leerPresupuestoConIA({ text = "", file = null, sectores = 
   }
   if (Array.isArray(sectores) && sectores.length) body.sectores = sectores;
   const { data, error } = await supabase.functions.invoke("extraer-comprobante", { body });
-  if (error) throw error;
+  if (error) {
+    // El mensaje real de la función viene en el body de la respuesta (no en error.message).
+    let detalle = "";
+    try { const r = await error.context?.json?.(); detalle = r?.error || ""; } catch { /* ignore */ }
+    if (!detalle) { try { detalle = await error.context?.text?.(); } catch { /* ignore */ } }
+    throw new Error(detalle || error.message || "No se pudo leer el presupuesto.");
+  }
   if (data?.error) throw new Error(data.error);
   return data;
 }
 
-// Actualiza el precio vigente de un material (y registra el historial, tolerante).
-export async function aplicarPrecioMaterial(materialId, { precio, moneda = "ARS", proveedor = null, proveedor_id = null } = {}) {
+// Actualiza el precio vigente de un material (historial tolerante) y, opcionalmente,
+// corrige su sector (categoria_id) si venía mal clasificado.
+export async function aplicarPrecioMaterial(materialId, { precio, moneda = "ARS", proveedor = null, proveedor_id = null, categoria_id = null } = {}) {
+  if (!materialId) return false;
   const pu = toNullableNumber(precio);
-  if (!materialId || pu == null) return false;
   const mon = moneda || "ARS";
-  const { error: matErr } = await supabase
-    .from("panol_materiales")
-    .update({ precio_unitario: pu, moneda: mon, proveedor: proveedor || null, proveedor_id: proveedor_id || null })
-    .eq("id", materialId);
+  const patch = {};
+  if (pu != null) { patch.precio_unitario = pu; patch.moneda = mon; patch.proveedor = proveedor || null; patch.proveedor_id = proveedor_id || null; }
+  if (categoria_id) patch.categoria_id = categoria_id;
+  if (!Object.keys(patch).length) return false;
+  const { error: matErr } = await supabase.from("panol_materiales").update(patch).eq("id", materialId);
   if (matErr) throw matErr;
-  try {
-    await supabase.from("panol_precios").insert({
-      material_id: materialId, proveedor_id: proveedor_id || null, proveedor: proveedor || null,
-      precio_unitario: pu, moneda: mon, fuente: "presupuesto", fecha: new Date().toISOString().slice(0, 10),
-    });
-  } catch { /* historial opcional */ }
+  if (pu != null) {
+    try {
+      await supabase.from("panol_precios").insert({
+        material_id: materialId, proveedor_id: proveedor_id || null, proveedor: proveedor || null,
+        precio_unitario: pu, moneda: mon, fuente: "presupuesto", fecha: new Date().toISOString().slice(0, 10),
+      });
+    } catch { /* historial opcional */ }
+  }
   return true;
+}
+
+// Setea la cantidad del BOM de un material para una línea/modelo, sin tocar las demás.
+export async function setCantidadModelo(materialId, modelo, cantidad) {
+  const n = toNullableNumber(cantidad);
+  if (!materialId || !modelo || n == null || n <= 0) return;
+  const { error } = await supabase
+    .from("panol_material_modelo")
+    .upsert({ material_id: materialId, modelo: String(modelo), variante: VARIANTE_BASE, cantidad: n }, { onConflict: "material_id,modelo,variante" });
+  if (error) throw error;
 }
