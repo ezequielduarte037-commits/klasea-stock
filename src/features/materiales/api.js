@@ -70,13 +70,50 @@ export function precioDesactualizado(material) {
 }
 
 export async function fetchCategorias() {
-  const { data, error } = await supabase
+  // parent_id permite subdivisiones (sector padre → subsectores). Puede no existir
+  // todavía la columna: si falla, reintentamos sin ella para no romper la pantalla.
+  let { data, error } = await supabase
     .from("panol_categorias")
-    .select("id, nombre, orden")
+    .select("id, nombre, orden, parent_id")
     .order("orden", { ascending: true, nullsFirst: false })
     .order("nombre");
+  if (error && String(error.message || "").includes("parent_id")) {
+    const retry = await supabase
+      .from("panol_categorias")
+      .select("id, nombre, orden")
+      .order("orden", { ascending: true, nullsFirst: false })
+      .order("nombre");
+    data = retry.data;
+    error = retry.error;
+  }
   if (error) throw error;
-  return data ?? [];
+  return (data ?? []).map((c) => ({ ...c, parent_id: c.parent_id ?? null }));
+}
+
+// Crea un sector (parentId null) o subsector (parentId = id del padre).
+export async function crearCategoria(nombre, { parentId = null, orden = 0 } = {}) {
+  const { data, error } = await supabase
+    .from("panol_categorias")
+    .insert({ nombre: nombre.trim(), parent_id: parentId, orden })
+    .select("id, nombre, orden, parent_id")
+    .single();
+  if (error) throw error;
+  return data;
+}
+
+export async function renombrarCategoria(id, nombre) {
+  const { error } = await supabase.from("panol_categorias").update({ nombre: nombre.trim() }).eq("id", id);
+  if (error) throw error;
+}
+
+// Borra un subsector y reasigna sus materiales al sector padre (no se pierden).
+export async function borrarSubsector(id, parentId) {
+  if (parentId) {
+    await supabase.from("panol_materiales").update({ categoria_id: parentId }).eq("categoria_id", id);
+    await supabase.from("panol_material_categorias").update({ categoria_id: parentId }).eq("categoria_id", id);
+  }
+  const { error } = await supabase.from("panol_categorias").delete().eq("id", id);
+  if (error) throw error;
 }
 
 export async function fetchBatches() {
@@ -665,4 +702,47 @@ export async function leerComprobanteConIA(file) {
   if (error) throw error;
   if (data?.error) throw new Error(data.error);
   return data;
+}
+
+// Lee un presupuesto desde TEXTO pegado o archivo (imagen/PDF) → { proveedor, items[] }.
+export async function leerPresupuestoConIA({ text = "", file = null, sectores = [] } = {}) {
+  let body;
+  if (text && text.trim()) {
+    body = { text: text.trim() };
+  } else if (file) {
+    const bytes = new Uint8Array(await file.arrayBuffer());
+    let binary = "";
+    for (let i = 0; i < bytes.length; i += 1) binary += String.fromCharCode(bytes[i]);
+    const base64 = btoa(binary);
+    const isPDF = file.type === "application/pdf" || (file.name || "").toLowerCase().endsWith(".pdf");
+    body = isPDF
+      ? { base64, mime_type: "application/pdf", filename: file.name || "presupuesto.pdf" }
+      : { image_base64: base64, mime_type: file.type || "image/jpeg" };
+  } else {
+    throw new Error("Pegá el texto del presupuesto o subí un archivo.");
+  }
+  if (Array.isArray(sectores) && sectores.length) body.sectores = sectores;
+  const { data, error } = await supabase.functions.invoke("extraer-comprobante", { body });
+  if (error) throw error;
+  if (data?.error) throw new Error(data.error);
+  return data;
+}
+
+// Actualiza el precio vigente de un material (y registra el historial, tolerante).
+export async function aplicarPrecioMaterial(materialId, { precio, moneda = "ARS", proveedor = null, proveedor_id = null } = {}) {
+  const pu = toNullableNumber(precio);
+  if (!materialId || pu == null) return false;
+  const mon = moneda || "ARS";
+  const { error: matErr } = await supabase
+    .from("panol_materiales")
+    .update({ precio_unitario: pu, moneda: mon, proveedor: proveedor || null, proveedor_id: proveedor_id || null })
+    .eq("id", materialId);
+  if (matErr) throw matErr;
+  try {
+    await supabase.from("panol_precios").insert({
+      material_id: materialId, proveedor_id: proveedor_id || null, proveedor: proveedor || null,
+      precio_unitario: pu, moneda: mon, fuente: "presupuesto", fecha: new Date().toISOString().slice(0, 10),
+    });
+  } catch { /* historial opcional */ }
+  return true;
 }

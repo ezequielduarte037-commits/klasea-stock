@@ -76,6 +76,7 @@ export interface ParsedComprobante {
     precio_unitario?: number | string | null;
     moneda?: "ARS" | "USD" | string | null;
     total?: number | string | null;
+    sector?: string | null;
   }>;
 }
 
@@ -87,7 +88,20 @@ function normalizeComprobanteMoneda(value: unknown, fallback?: unknown): "ARS" |
   return null;
 }
 
-export async function extraerComprobanteImagen(input: { base64: string; mimeType?: string }): Promise<ParsedComprobante> {
+// Bloque de prompt para que la IA clasifique cada ítem en uno de los sectores dados.
+// Usa criterio náutico de astillero (bow/stern → propulsión, cable → electricidad, etc.).
+function clasificacionBloque(sectores?: string[]): string {
+  const lista = (sectores ?? []).filter((s) => s && s.trim());
+  if (!lista.length) return "";
+  return `
+
+Clasificación de sector (MUY IMPORTANTE):
+- A cada ítem agregale "sector": elegí EXACTAMENTE uno de esta lista (copialo igual): ${lista.map((s) => `"${s}"`).join(", ")}.
+- Usá criterio náutico de astillero. Ejemplos: bow thruster / hélice de proa / stern / sail-drive / eje / transmisión / motor / combustible / escape → propulsión o mecánica; cable / batería / disyuntor / luminaria / cargador / inversor → eléctrico; GPS / radar / sonda / VHF / piloto → electrónica o navegación; bomba de agua / inodoro / tanque / grifería → plomería o sanitarios; ánodo / antifouling / pasacasco → casco; A/C / heladera / cocina → confort.
+- Si dudás entre un sector padre y su subsector, elegí el subsector más específico de la lista. Si ninguno aplica, dejá "sector" en null.`;
+}
+
+export async function extraerComprobanteImagen(input: { base64: string; mimeType?: string; sectores?: string[] }): Promise<ParsedComprobante> {
   const mimeType = input.mimeType || "image/jpeg";
   const system = `Sos un extractor de comprobantes del astillero Klase A.
 
@@ -135,7 +149,7 @@ Formato:
         {
           role: "user",
           content: [
-            { type: "text", text: "Extraé los datos de este comprobante. Devolvé JSON estricto." },
+            { type: "text", text: "Extraé los datos de este comprobante. Devolvé JSON estricto." + clasificacionBloque(input.sectores) },
             {
               type: "image_url",
               image_url: { url: `data:${mimeType};base64,${input.base64}` },
@@ -170,6 +184,96 @@ Formato:
           precio_unitario: it.precio_unitario ?? it.unit_price ?? null,
           moneda: normalizeComprobanteMoneda(it.moneda ?? it.currency ?? it.divisa, parsed.moneda ?? parsed.currency ?? parsed.divisa ?? parsed.moneda_documento),
           total: it.total ?? null,
+          sector: it.sector ? String(it.sector).trim() : null,
+        }))
+        .filter((it: any) => it.descripcion)
+    : [];
+
+  return {
+    proveedor: parsed.proveedor ? String(parsed.proveedor).trim() : null,
+    numero: parsed.numero ? String(parsed.numero).trim() : null,
+    fecha: parsed.fecha ? String(parsed.fecha).slice(0, 10) : null,
+    items,
+  };
+}
+
+// extraerComprobanteTexto -- presupuestos/remitos pegados como TEXTO (WhatsApp, mail).
+export async function extraerComprobanteTexto(input: { text: string; sectores?: string[] }): Promise<ParsedComprobante> {
+  const texto = String(input.text || "").trim();
+  if (!texto) throw new Error("Texto vacío");
+  const system = `Sos un extractor de presupuestos del astillero Klase A.
+
+Recibís el TEXTO de un presupuesto, remito o factura (pegado de WhatsApp, mail o planilla). Devolvés SOLO JSON estricto, sin markdown.
+
+Objetivo:
+- proveedor: nombre si se ve claro, si no null.
+- numero: número de presupuesto/remito si se ve, si no null.
+- fecha: formato YYYY-MM-DD si se puede interpretar, si no null.
+- items: lineas de producto/servicio con descripcion, cantidad, precio_unitario, moneda y total.
+
+Reglas:
+- No inventes datos. Si no se ve claro, dejalo null o vacío.
+- Normalizá números: 1.234,56 -> 1234.56. Si hay subtotal/IVA, no lo pongas como ítem.
+- Si no hay precio unitario pero sí cantidad y total, dejá precio_unitario null.
+- Si no hay cantidad clara, deja cantidad null.
+- Moneda es obligatoria por item: "USD" o "ARS". Si el texto dice USD/U$S/US$, todos esos precios son USD. Si no hay señal de USD, usá ARS.
+- Las descripciones tienen que servir para matchear contra un catalogo de materiales.
+
+Formato:
+{
+  "proveedor": "texto|null",
+  "numero": "texto|null",
+  "fecha": "YYYY-MM-DD|null",
+  "items": [
+    {"descripcion":"...", "cantidad":1, "precio_unitario":123.45, "moneda":"USD", "total":123.45}
+  ]
+}`;
+
+  const res = await fetch(`${OR_BASE}/chat/completions`, {
+    method: "POST",
+    headers: {
+      "Authorization": orAuth(),
+      "Content-Type": "application/json",
+      "HTTP-Referer": "https://klasea-stock.vercel.app",
+      "X-Title": "Klase A Presupuestos",
+    },
+    body: JSON.stringify({
+      model: OR_MODEL,
+      temperature: 0,
+      max_tokens: 1600,
+      response_format: { type: "json_object" },
+      messages: [
+        { role: "system", content: system },
+        { role: "user", content: `Extraé los ítems de este presupuesto. Devolvé JSON estricto.${clasificacionBloque(input.sectores)}\n\n${texto}` },
+      ],
+    }),
+  });
+
+  if (!res.ok) {
+    const errText = await res.text();
+    throw new Error(`OpenRouter extraerComprobanteTexto failed (${res.status}): ${errText.slice(0, 300)}`);
+  }
+
+  const data = await res.json();
+  const content = data?.choices?.[0]?.message?.content;
+  if (!content) throw new Error(`OpenRouter sin contenido. Resp: ${JSON.stringify(data).slice(0, 300)}`);
+
+  let parsed: any;
+  try {
+    parsed = JSON.parse(content);
+  } catch {
+    throw new Error(`OpenRouter devolvió JSON inválido: ${String(content).slice(0, 200)}`);
+  }
+
+  const items = Array.isArray(parsed.items)
+    ? parsed.items
+        .map((it: any) => ({
+          descripcion: String(it.descripcion ?? it.description ?? "").trim(),
+          cantidad: it.cantidad ?? it.quantity ?? null,
+          precio_unitario: it.precio_unitario ?? it.unit_price ?? null,
+          moneda: normalizeComprobanteMoneda(it.moneda ?? it.currency ?? it.divisa, parsed.moneda ?? parsed.currency ?? parsed.divisa ?? parsed.moneda_documento),
+          total: it.total ?? null,
+          sector: it.sector ? String(it.sector).trim() : null,
         }))
         .filter((it: any) => it.descripcion)
     : [];
@@ -186,7 +290,7 @@ Formato:
 // chatWithBot — turno conversacional principal
 // ─────────────────────────────────────────────────────────────────────────────
 // extraerComprobantePDF -- OCR de PDFs de remitos, facturas y presupuestos.
-export async function extraerComprobantePDF(input: { base64: string; mimeType?: string; filename?: string }): Promise<ParsedComprobante> {
+export async function extraerComprobantePDF(input: { base64: string; mimeType?: string; filename?: string; sectores?: string[] }): Promise<ParsedComprobante> {
   const mimeType = input.mimeType || "application/pdf";
   const filename = input.filename || "comprobante.pdf";
   const system = `Sos un extractor de comprobantes del astillero Klase A.
@@ -235,7 +339,7 @@ Formato:
         {
           role: "user",
           content: [
-            { type: "text", text: "Extrae los datos de este PDF. Devolve JSON estricto." },
+            { type: "text", text: "Extrae los datos de este PDF. Devolve JSON estricto." + clasificacionBloque(input.sectores) },
             {
               type: "file",
               file: {
@@ -279,6 +383,7 @@ Formato:
           precio_unitario: it.precio_unitario ?? it.unit_price ?? null,
           moneda: normalizeComprobanteMoneda(it.moneda ?? it.currency ?? it.divisa, parsed.moneda ?? parsed.currency ?? parsed.divisa ?? parsed.moneda_documento),
           total: it.total ?? null,
+          sector: it.sector ? String(it.sector).trim() : null,
         }))
         .filter((it: any) => it.descripcion)
     : [];

@@ -4,7 +4,10 @@ import Sidebar from "@/components/Sidebar";
 import { useResponsive } from "@/hooks/useResponsive";
 import { C } from "@/theme";
 import {
+  aplicarPrecioMaterial,
   borrarMaterial,
+  borrarSubsector,
+  crearCategoria,
   crearMaterial,
   fetchCatalogo,
   fetchObrasAvance,
@@ -12,7 +15,9 @@ import {
   guardarMaterial,
   importarCatalogo,
   isMissingTable,
+  leerPresupuestoConIA,
   precioVigente,
+  renombrarCategoria,
 } from "./api";
 import AvanceTab from "./AvanceTab";
 import ComprobantesTab from "./ComprobantesTab";
@@ -21,7 +26,7 @@ import { MaterialImageUploader, MaterialThumb, PriceBadge, PriceHistory } from "
 import { fmtMoney } from "./format";
 import ProveedoresTab from "./ProveedoresTab";
 import { csvCell, MODELOS, norm, parseMaterialesWorkbook, toBomMap } from "./materialesParser";
-import { fetchOpciones } from "./materialesConfig";
+import { fetchOpciones, setMaterialAreas } from "./materialesConfig";
 import { AreasEditor, CondicionSelect, VariantesTab } from "./MaterialVariantes";
 import { BTN, BTN_GREEN, BTN_PRIMARY, Cargando, ErrorBox, INP, KpiCard, LBL, Td, Th } from "@/features/rrhh/ui";
 
@@ -29,6 +34,87 @@ import { BTN, BTN_GREEN, BTN_PRIMARY, Cargando, ErrorBox, INP, KpiCard, LBL, Td,
 // M2M cargada, cae a su categoría principal.
 function materialEnArea(m, catId) {
   return (m.areas ?? [m.categoria_id]).includes(catId);
+}
+
+// ─── Jerarquía de sectores (padre → subsectores) ──────────────────────
+const esRaiz = (c) => !c.parent_id;
+const hijosDe = (categorias, parentId) => categorias.filter((c) => c.parent_id === parentId);
+
+// Ids "en juego" al pararse en un sector: él mismo + sus subsectores (si es padre).
+function idsScope(categorias, catId) {
+  const hijos = hijosDe(categorias, catId).map((c) => c.id);
+  return new Set([catId, ...hijos]);
+}
+function materialEnScope(m, scopeIds) {
+  return (m.areas ?? [m.categoria_id]).some((a) => scopeIds.has(a));
+}
+
+// Subdivisiones náuticas sugeridas. Se matchean por nombre normalizado del sector
+// padre (si el nombre contiene la clave). El usuario igual puede crear/borrar a mano.
+const SUBDIVISIONES_SUGERIDAS = {
+  mecanic: ["Motores", "Transmisión", "Hélices y ejes", "Combustible", "Escape", "Refrigeración"],
+  propuls: ["Motores", "Transmisión", "Hélices y ejes", "Combustible", "Escape", "Refrigeración"],
+  motor: ["Motores", "Transmisión", "Hélices y ejes", "Combustible", "Escape", "Refrigeración"],
+  electric: ["Baterías", "Cargadores/Inversores", "Tablero y disyuntores", "Iluminación", "Cableado", "Alternadores", "Solar"],
+  electron: ["GPS/Plotter", "Radar", "Sonda", "Piloto automático", "VHF/Radio", "Instrumental"],
+  naveg: ["GPS/Plotter", "Radar", "Sonda", "Piloto automático", "VHF/Radio", "Instrumental"],
+  plomer: ["Agua dulce", "Aguas grises/negras", "Achique/Sentina", "Inodoros"],
+  agua: ["Agua dulce", "Aguas grises/negras", "Achique/Sentina", "Inodoros"],
+  hidraul: ["Dirección", "Flaps/Trim", "Pasarela/Plataforma"],
+  cubierta: ["Malacate/Ancla", "Herrajes y cornamusas", "Cabos/Drizas", "Defensas"],
+  fondeo: ["Malacate/Ancla", "Herrajes y cornamusas", "Cabos/Drizas", "Defensas"],
+  casco: ["Obra viva", "Pintura/antifouling", "Pasacascos", "Ánodos"],
+  estructura: ["Obra viva", "Pintura/antifouling", "Pasacascos", "Ánodos"],
+  confort: ["A/C", "Calefacción", "Heladera", "Cocina"],
+  clima: ["A/C", "Calefacción", "Heladera", "Cocina"],
+  interior: ["Muebles", "Tapizados", "Pisos", "Grifería"],
+  carpinter: ["Muebles", "Tapizados", "Pisos", "Grifería"],
+  segurid: ["Balsa", "Chalecos", "Extintores", "Luces de navegación"],
+};
+function subdivisionesSugeridas(nombre) {
+  const n = norm(nombre || "");
+  for (const [clave, subs] of Object.entries(SUBDIVISIONES_SUGERIDAS)) {
+    if (n.includes(clave)) return subs;
+  }
+  return [];
+}
+
+// ─── Matcheo difuso contra la lista matriz (mismo criterio que Comprobantes) ──
+function scoreMaterial(material, query) {
+  const q = norm(query);
+  if (!q) return 0;
+  const d = norm(material.descripcion);
+  if (d === q) return 100;
+  if (d.includes(q) || q.includes(d)) return 70;
+  const words = q.split(" ").filter((w) => w.length > 2);
+  return words.reduce((acc, word) => acc + (d.includes(word) ? 6 : 0), 0);
+}
+function topMateriales(materiales, query) {
+  return [...materiales]
+    .map((m) => ({ material: m, score: scoreMaterial(m, query) }))
+    .filter((r) => r.score > 0)
+    .sort((a, b) => b.score - a.score || (a.material.descripcion || "").localeCompare(b.material.descripcion || "", "es"))
+    .slice(0, 12)
+    .map((r) => r.material);
+}
+function bestMatchId(materiales, desc) {
+  const tops = topMateriales(materiales.filter((m) => m.activo !== false), desc);
+  return tops.length && scoreMaterial(tops[0], desc) >= 70 ? tops[0].id : "";
+}
+function toNum(v) {
+  if (v === "" || v == null) return null;
+  const n = Number(String(v).replace(",", "."));
+  return Number.isFinite(n) ? n : null;
+}
+
+// Mapea el nombre de sector que sugiere la IA a una categoría real (por nombre).
+function catIdPorNombre(categorias, nombre) {
+  if (!nombre) return "";
+  const n = norm(nombre);
+  const exacto = categorias.find((c) => norm(c.nombre) === n);
+  if (exacto) return exacto.id;
+  const incl = categorias.find((c) => { const cn = norm(c.nombre); return cn && (cn.includes(n) || n.includes(cn)); });
+  return incl?.id || "";
 }
 
 const TABS = [
@@ -39,6 +125,7 @@ const TABS = [
   { key: "variantes", label: "Variantes" },
   { key: "proveedores", label: "Proveedores" },
   { key: "avance", label: "Avance" },
+  { key: "costos", label: "Costo de obra" },
   { key: "resumen", label: "Resumen" },
 ];
 
@@ -273,33 +360,104 @@ function ImportarTab({ batches, onImported }) {
   );
 }
 
-function SectorSelector({ categorias, progressByCat, selectedId, onSelect }) {
+function SectorChip({ cat, progressByCat, selectedId, onSelect, sub = false }) {
+  const p = progressByCat.get(cat.id) ?? { total: 0, revisados: 0 };
+  const on = selectedId === cat.id;
+  const accent = sub ? "rgba(139,92,246,0.16)" : "rgba(59,130,246,0.14)";
+  const accentBd = sub ? "rgba(139,92,246,0.4)" : "rgba(59,130,246,0.35)";
+  const accentTx = sub ? "#a78bfa" : "#60a5fa";
   return (
-    <div style={{ display: "flex", gap: 8, flexWrap: "wrap", marginBottom: 14 }}>
-      {categorias.map((cat) => {
-        const p = progressByCat.get(cat.id) ?? { total: 0, revisados: 0 };
-        const on = selectedId === cat.id;
-        return (
+    <button
+      type="button"
+      onClick={() => onSelect(cat.id)}
+      style={{
+        ...BTN,
+        background: on ? accent : C.s0,
+        border: `1px solid ${on ? accentBd : C.b0}`,
+        color: on ? accentTx : C.t1,
+        padding: sub ? "6px 10px" : "8px 12px",
+        fontSize: sub ? 12 : 13,
+      }}
+    >
+      {cat.nombre}
+      <span style={{ marginLeft: 7, color: on ? accentTx : C.t2, fontFamily: C.mono }}>
+        {p.revisados}/{p.total}
+      </span>
+    </button>
+  );
+}
+
+function SectorSelector({ categorias, progressByCat, selectedId, onSelect, onAddSub, onSuggestSub, onDeleteSub }) {
+  const raices = categorias.filter(esRaiz);
+  const selected = categorias.find((c) => c.id === selectedId);
+  const parentActivo = selected ? (selected.parent_id ? categorias.find((c) => c.id === selected.parent_id) : selected) : raices[0];
+  const subs = parentActivo ? hijosDe(categorias, parentActivo.id) : [];
+  const sugeridas = parentActivo ? subdivisionesSugeridas(parentActivo.nombre) : [];
+
+  return (
+    <div style={{ marginBottom: 14 }}>
+      {/* Sectores raíz */}
+      <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
+        {raices.map((cat) => (
+          <SectorChip key={cat.id} cat={cat} progressByCat={progressByCat} selectedId={selectedId} onSelect={onSelect} />
+        ))}
+      </div>
+
+      {/* Subsectores del sector activo + gestión */}
+      {parentActivo && (
+        <div style={{ display: "flex", gap: 7, flexWrap: "wrap", alignItems: "center", marginTop: 9, paddingLeft: 12, borderLeft: `2px solid ${C.b0}` }}>
           <button
-            key={cat.id}
             type="button"
-            onClick={() => onSelect(cat.id)}
-            style={{
-              ...BTN,
-              background: on ? "rgba(59,130,246,0.14)" : C.s0,
-              border: `1px solid ${on ? "rgba(59,130,246,0.35)" : C.b0}`,
-              color: on ? "#60a5fa" : C.t1,
-              padding: "8px 12px",
-            }}
+            onClick={() => onSelect(parentActivo.id)}
+            style={{ ...BTN, padding: "5px 10px", fontSize: 12, background: selectedId === parentActivo.id ? C.s2 : "transparent", border: `1px solid ${C.b0}`, color: selectedId === parentActivo.id ? C.t0 : C.t2 }}
+            title="Ver todo el sector (incluye subsectores)"
           >
-            {cat.nombre}
-            <span style={{ marginLeft: 7, color: on ? "#93c5fd" : C.t2, fontFamily: C.mono }}>
-              {p.revisados}/{p.total}
-            </span>
+            Todos
           </button>
-        );
-      })}
+          {subs.map((cat) => (
+            <span key={cat.id} style={{ position: "relative", display: "inline-flex", alignItems: "center" }}>
+              <SectorChip cat={cat} progressByCat={progressByCat} selectedId={selectedId} onSelect={onSelect} sub />
+              {selectedId === cat.id && (
+                <button type="button" onClick={() => onDeleteSub(cat)} title="Borrar subsector (sus materiales vuelven al sector)" style={{ ...BTN, padding: "2px 6px", marginLeft: 4, fontSize: 11, color: C.red, border: `1px solid ${C.b0}`, background: "transparent" }}>
+                  <Trash2 size={11} />
+                </button>
+              )}
+            </span>
+          ))}
+          <button type="button" onClick={() => onAddSub(parentActivo)} style={{ ...BTN, padding: "5px 10px", fontSize: 12, color: C.t2, border: `1px dashed ${C.b1}`, background: "transparent" }}>
+            + subsector
+          </button>
+          {subs.length === 0 && sugeridas.length > 0 && (
+            <button type="button" onClick={() => onSuggestSub(parentActivo, sugeridas)} style={{ ...BTN, padding: "5px 10px", fontSize: 12, color: "#a78bfa", border: "1px solid rgba(139,92,246,0.35)", background: "rgba(139,92,246,0.1)" }} title={`Crear: ${sugeridas.join(" · ")}`}>
+              ✨ Sugerir {sugeridas.length}
+            </button>
+          )}
+        </div>
+      )}
     </div>
+  );
+}
+
+// Selector para asignar el material a un subsector (o dejarlo en el sector general).
+// Solo aparece si el sector tiene subsectores; si no, muestra el nombre a secas.
+function SubsectorSelect({ categorias, value, onChange }) {
+  const cat = categorias.find((c) => c.id === value);
+  const raizId = cat?.parent_id ?? value;
+  const raiz = categorias.find((c) => c.id === raizId);
+  const hijos = raiz ? hijosDe(categorias, raizId) : [];
+  if (!raiz || hijos.length === 0) {
+    return <span style={{ fontSize: 12, color: C.t2 }}>{categoriaNombre(categorias, value)}</span>;
+  }
+  return (
+    <select
+      value={value}
+      onChange={(e) => onChange(e.target.value)}
+      style={{ ...INP, padding: "4px 8px", fontSize: 12, width: "auto", color: C.t1 }}
+      title="Asignar a subsector"
+    >
+      <option value={raiz.id}>{raiz.nombre} · (general)</option>
+      {hijos.map((h) => <option key={h.id} value={h.id}>{raiz.nombre} › {h.nombre}</option>)}
+    </select>
   );
 }
 
@@ -332,8 +490,9 @@ function MaterialQueueCard({ material, categorias, opciones = [], ums, proveedor
             Material sin revisar
           </div>
           <div style={{ fontSize: 18, fontWeight: 700, color: C.t0, lineHeight: 1.25 }}>{material.descripcion}</div>
-          <div style={{ fontSize: 12, color: C.t2, marginTop: 4 }}>
-            {categoriaNombre(categorias, material.categoria_id)} · origen {material.origen || "manual"}
+          <div style={{ display: "flex", alignItems: "center", gap: 8, marginTop: 6, flexWrap: "wrap" }}>
+            <SubsectorSelect categorias={categorias} value={draft.categoria_id} onChange={(id) => setDraft((d) => ({ ...d, categoria_id: id }))} />
+            <span style={{ fontSize: 11, color: C.t2 }}>origen {material.origen || "manual"}</span>
           </div>
           <div style={{ display: "flex", gap: 8, flexWrap: "wrap", marginTop: 9 }}>
             <PriceBadge material={material} />
@@ -599,15 +758,16 @@ function ListaMateriales({ categorias, materiales, selectedId, ums, proveedores,
 
   const visibles = useMemo(() => {
     const query = q.trim().toLowerCase();
+    const scope = idsScope(categorias, selectedId);
     return materiales
       .filter(materialActivo)
-      .filter((m) => materialEnArea(m, selectedId))
+      .filter((m) => materialEnScope(m, scope))
       .filter((m) => !soloPendientes || !m.revisado)
       .filter((m) => {
         if (!query) return true;
         return `${m.descripcion ?? ""} ${m.proveedor ?? ""}`.toLowerCase().includes(query);
       });
-  }, [materiales, q, selectedId, soloPendientes]);
+  }, [materiales, categorias, q, selectedId, soloPendientes]);
 
   return (
     <div>
@@ -661,25 +821,326 @@ function ListaMateriales({ categorias, materiales, selectedId, ums, proveedores,
   );
 }
 
+// Cargar presupuesto (texto pegado o archivo PDF/foto) con IA, matchear cada ítem
+// contra la lista matriz y: si coincide → actualizar su precio; si no → crear en el
+// sector/subsector actual. Todo dentro de la Revisión guiada.
+// Selector de sector/subsector con optgroups (para asignar el destino de un ítem).
+function SectorPicker({ categorias, value, onChange, invalid }) {
+  const raices = categorias.filter(esRaiz);
+  return (
+    <select
+      value={value || ""}
+      onChange={(e) => onChange(e.target.value)}
+      style={{ ...INP, flex: 1, fontSize: 12, border: `1px solid ${invalid ? C.red : C.b0}` }}
+    >
+      <option value="">— Elegir sector —</option>
+      {raices.map((r) => (
+        <optgroup key={r.id} label={r.nombre}>
+          <option value={r.id}>{r.nombre} · general</option>
+          {hijosDe(categorias, r.id).map((s) => <option key={s.id} value={s.id}>{r.nombre} › {s.nombre}</option>)}
+        </optgroup>
+      ))}
+    </select>
+  );
+}
+
+function CargarPresupuestoModal({ categorias, materiales, onChanged, onClose }) {
+  const [texto, setTexto] = useState("");
+  const [file, setFile] = useState(null);
+  const [leyendo, setLeyendo] = useState(false);
+  const [items, setItems] = useState(null);
+  const [proveedor, setProveedor] = useState("");
+  const [aplicando, setAplicando] = useState(false);
+  const [resultado, setResultado] = useState(null);
+  const [err, setErr] = useState(null);
+  const fileRef = useRef(null);
+  const activos = useMemo(() => materiales.filter(materialActivo), [materiales]);
+  const nombresSectores = useMemo(() => categorias.map((c) => c.nombre), [categorias]);
+
+  async function leer() {
+    if (!texto.trim() && !file) { setErr(new Error("Pegá el texto del presupuesto o subí un archivo.")); return; }
+    setLeyendo(true); setErr(null); setResultado(null);
+    try {
+      const data = await leerPresupuestoConIA({ text: texto, file, sectores: nombresSectores });
+      setProveedor(data.proveedor || "");
+      const parsed = (data.items || []).map((it) => {
+        const material_id = bestMatchId(activos, it.descripcion || "");
+        const mat = activos.find((m) => m.id === material_id);
+        // El destino: si matchea un material, hereda su sector; si no, el que sugirió la IA.
+        const _catId = mat ? mat.categoria_id : catIdPorNombre(categorias, it.sector);
+        return {
+          descripcion: it.descripcion || "",
+          precio_unitario: it.precio_unitario ?? "",
+          moneda: it.moneda || "ARS",
+          material_id,
+          _catId,
+        };
+      });
+      setItems(parsed);
+      if (!parsed.length) setErr(new Error("La IA no encontró ítems. Probá con más detalle o un archivo."));
+    } catch (e) { setErr(e); } finally { setLeyendo(false); }
+  }
+
+  const setItem = (idx, patch) => setItems((prev) => prev.map((it, i) => (i === idx ? { ...it, ...patch } : it)));
+  const quitar = (idx) => setItems((prev) => prev.filter((_, i) => i !== idx));
+
+  // Inválido: es "crear nuevo" (sin match) y no tiene sector asignado.
+  const faltaSector = (it) => !it.material_id && it.descripcion.trim() && !it._catId;
+
+  async function aplicar() {
+    if (items.some(faltaSector)) { setErr(new Error("Asigná sector a los ítems marcados en rojo antes de aplicar.")); return; }
+    setAplicando(true); setErr(null);
+    let actualizados = 0, creados = 0;
+    try {
+      for (const it of items) {
+        if (!it.descripcion.trim()) continue;
+        if (it.material_id) {
+          await aplicarPrecioMaterial(it.material_id, { precio: it.precio_unitario, moneda: it.moneda, proveedor });
+          actualizados += 1;
+        } else if (it._catId) {
+          await crearMaterial({
+            categoria_id: it._catId,
+            descripcion: it.descripcion.trim(),
+            precio_unitario: toNum(it.precio_unitario),
+            moneda: it.moneda,
+            proveedor: proveedor || "",
+            revisado: false,
+          });
+          creados += 1;
+        }
+      }
+      setResultado({ actualizados, creados });
+      await onChanged?.();
+    } catch (e) { setErr(e); } finally { setAplicando(false); }
+  }
+
+  const coinciden = items?.filter((it) => it.material_id).length ?? 0;
+  const nuevos = items?.filter((it) => !it.material_id && it.descripcion.trim()).length ?? 0;
+  const sinSector = items?.filter(faltaSector).length ?? 0;
+
+  return (
+    <div onClick={onClose} style={{ position: "fixed", inset: 0, zIndex: 2200, background: "rgba(0,0,0,0.6)", backdropFilter: "blur(3px)", display: "flex", alignItems: "flex-start", justifyContent: "center", padding: "5vh 16px", overflowY: "auto" }}>
+      <div onClick={(e) => e.stopPropagation()} style={{ background: C.panelSolid, border: `1px solid ${C.b1}`, borderRadius: 14, padding: 20, width: "min(820px, 96vw)" }}>
+        <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 4 }}>
+          <div style={{ fontSize: 16, fontWeight: 800, color: C.t0 }}>Cargar presupuesto</div>
+          <button type="button" onClick={onClose} style={{ ...BTN, padding: "4px 9px" }}>✕</button>
+        </div>
+        <div style={{ fontSize: 12, color: C.t2, marginBottom: 14 }}>
+          Lo que coincide con la matriz actualiza su precio; lo nuevo lo clasifica la IA por sector (lo confirmás vos). Un presupuesto puede tener cosas de varios sectores.
+        </div>
+
+        {err && <div style={{ marginBottom: 12 }}><ErrorBox error={err} onRetry={() => setErr(null)} /></div>}
+
+        {resultado ? (
+          <div style={{ background: "rgba(16,185,129,0.07)", border: "1px solid rgba(16,185,129,0.25)", borderRadius: 12, padding: 18, textAlign: "center" }}>
+            <div style={{ fontSize: 15, color: C.green, fontWeight: 700 }}>Presupuesto cargado ✓</div>
+            <div style={{ fontSize: 13, color: C.t1, marginTop: 6 }}>{resultado.actualizados} precios actualizados · {resultado.creados} materiales nuevos creados en su sector.</div>
+            <button type="button" onClick={onClose} style={{ ...BTN_PRIMARY, marginTop: 14 }}>Listo</button>
+          </div>
+        ) : items === null ? (
+          <>
+            <textarea
+              value={texto}
+              onChange={(e) => setTexto(e.target.value)}
+              placeholder={"Pegá acá el texto del presupuesto…\nEj:\nBow thruster Side-Power 12V   1u   US$ 1.250\nCable 2.5mm rollo   x3   $45.000\nFiltro Racor combustible   2u   US$ 38"}
+              style={{ ...INP, width: "100%", minHeight: 160, resize: "vertical", fontFamily: C.mono, fontSize: 12.5, lineHeight: 1.5 }}
+            />
+            <div style={{ display: "flex", alignItems: "center", gap: 10, margin: "12px 0", color: C.t2, fontSize: 12 }}>
+              <div style={{ flex: 1, height: 1, background: C.b0 }} /> o subí un archivo <div style={{ flex: 1, height: 1, background: C.b0 }} />
+            </div>
+            <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+              <button type="button" onClick={() => fileRef.current?.click()} style={BTN}><Upload size={14} /> {file ? "Cambiar archivo" : "PDF o foto"}</button>
+              {file && <span style={{ fontSize: 12, color: C.t1, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{file.name}</span>}
+              <input ref={fileRef} type="file" accept="image/*,application/pdf" style={{ display: "none" }} onChange={(e) => setFile(e.target.files?.[0] || null)} />
+              <div style={{ flex: 1 }} />
+              <button type="button" onClick={leer} disabled={leyendo} style={{ ...BTN_PRIMARY, opacity: leyendo ? 0.6 : 1 }}>
+                {leyendo ? "Leyendo con IA…" : "Leer con IA"}
+              </button>
+            </div>
+          </>
+        ) : (
+          <>
+            <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 10, flexWrap: "wrap" }}>
+              <span style={{ fontSize: 12, color: C.t2 }}>Proveedor:</span>
+              <input value={proveedor} onChange={(e) => setProveedor(e.target.value)} placeholder="Proveedor del presupuesto" style={{ ...INP, flex: 1, maxWidth: 280 }} />
+              <div style={{ flex: 1 }} />
+              <span style={{ fontSize: 11, color: C.t2, fontFamily: C.mono }}>{coinciden} coinciden · {nuevos} nuevos{sinSector ? ` · ${sinSector} sin sector` : ""}</span>
+            </div>
+
+            <div style={{ display: "grid", gap: 8, maxHeight: "46vh", overflowY: "auto", paddingRight: 2 }}>
+              {items.map((it, idx) => {
+                const sel = activos.find((m) => m.id === it.material_id);
+                const tops = topMateriales(activos, it.descripcion);
+                const opts = sel && !tops.some((t) => t.id === sel.id) ? [sel, ...tops] : tops;
+                const malSector = faltaSector(it);
+                return (
+                  <div key={idx} style={{ border: `1px solid ${malSector ? "rgba(239,68,68,0.5)" : it.material_id ? "rgba(16,185,129,0.3)" : C.b0}`, borderRadius: 10, padding: 10, background: C.s0 }}>
+                    <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
+                      <input value={it.descripcion} onChange={(e) => setItem(idx, { descripcion: e.target.value })} style={{ ...INP, flex: 1, fontWeight: 600 }} />
+                      <input value={it.precio_unitario} onChange={(e) => setItem(idx, { precio_unitario: e.target.value })} placeholder="Precio" type="number" step="any" style={{ ...INP, width: 100, fontFamily: C.mono }} />
+                      <select value={it.moneda} onChange={(e) => setItem(idx, { moneda: e.target.value })} style={{ ...INP, width: 72 }}>
+                        <option value="ARS">ARS</option>
+                        <option value="USD">USD</option>
+                      </select>
+                      <button type="button" onClick={() => quitar(idx)} title="Quitar" style={{ ...BTN, padding: "6px 8px", color: C.red }}>✕</button>
+                    </div>
+                    <div style={{ display: "flex", gap: 8, alignItems: "center", marginTop: 7 }}>
+                      <span style={{ fontSize: 11, color: it.material_id ? C.green : C.amber, fontWeight: 700, minWidth: 78 }}>
+                        {it.material_id ? "↻ actualiza" : "＋ crea"}
+                      </span>
+                      <select
+                        value={it.material_id || ""}
+                        onChange={(e) => {
+                          const mid = e.target.value;
+                          const mat = activos.find((m) => m.id === mid);
+                          setItem(idx, mat ? { material_id: mid, _catId: mat.categoria_id } : { material_id: "" });
+                        }}
+                        style={{ ...INP, flex: 1, fontSize: 12 }}
+                      >
+                        <option value="">➕ Crear nuevo (elegí sector →)</option>
+                        {opts.map((m) => <option key={m.id} value={m.id}>{m.descripcion} · {categoriaNombre(categorias, m.categoria_id)}</option>)}
+                      </select>
+                    </div>
+                    <div style={{ display: "flex", gap: 8, alignItems: "center", marginTop: 7 }}>
+                      <span style={{ fontSize: 11, color: C.t2, minWidth: 78 }}>Sector</span>
+                      {it.material_id ? (
+                        <span style={{ fontSize: 12, color: C.t1, padding: "6px 0" }}>→ {categoriaNombre(categorias, it._catId)} <span style={{ color: C.t2 }}>(del material)</span></span>
+                      ) : (
+                        <SectorPicker categorias={categorias} value={it._catId} onChange={(v) => setItem(idx, { _catId: v })} invalid={malSector} />
+                      )}
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+
+            <div style={{ display: "flex", alignItems: "center", gap: 10, marginTop: 14 }}>
+              <button type="button" onClick={() => { setItems(null); setResultado(null); }} style={BTN}>← Volver</button>
+              {sinSector > 0 && <span style={{ fontSize: 11, color: C.red }}>{sinSector} ítem(s) sin sector</span>}
+              <div style={{ flex: 1 }} />
+              <button type="button" onClick={aplicar} disabled={aplicando || !items.length} style={{ ...BTN_PRIMARY, opacity: aplicando || !items.length ? 0.6 : 1 }}>
+                {aplicando ? "Aplicando…" : `Aplicar (${coinciden + nuevos})`}
+              </button>
+            </div>
+          </>
+        )}
+      </div>
+    </div>
+  );
+}
+
+// Buscador global: busca en TODO el catálogo y suma el material al sector/subsector
+// actual (multi-área, sin sacarlo de donde estaba) o crea uno nuevo ahí.
+function BuscadorAgregar({ categorias, materiales, selectedId, onChanged }) {
+  const [q, setQ] = useState("");
+  const [busy, setBusy] = useState(null);
+  const [err, setErr] = useState(null);
+  const query = q.trim().toLowerCase();
+  const scope = useMemo(() => idsScope(categorias, selectedId), [categorias, selectedId]);
+  const destino = categoriaNombre(categorias, selectedId);
+
+  const resultados = useMemo(() => {
+    if (query.length < 2) return [];
+    return materiales
+      .filter(materialActivo)
+      .filter((m) => `${m.descripcion ?? ""} ${m.proveedor ?? ""} ${m.codigo ?? ""}`.toLowerCase().includes(query))
+      .sort((a, b) => (a.descripcion ?? "").localeCompare(b.descripcion ?? "", "es"))
+      .slice(0, 40);
+  }, [materiales, query]);
+
+  async function agregar(m) {
+    setBusy(m.id); setErr(null);
+    try {
+      const extras = (m.areas ?? [m.categoria_id]).filter((a) => a !== m.categoria_id && a !== selectedId);
+      await setMaterialAreas(m.id, [...new Set([...extras, selectedId])]);
+      await onChanged?.();
+    } catch (e) { setErr(e); } finally { setBusy(null); }
+  }
+
+  async function crearNuevo() {
+    const desc = q.trim();
+    if (!desc) return;
+    setBusy("nuevo"); setErr(null);
+    try {
+      await crearMaterial({ descripcion: desc, categoria_id: selectedId, revisado: false });
+      setQ("");
+      await onChanged?.();
+    } catch (e) { setErr(e); } finally { setBusy(null); }
+  }
+
+  return (
+    <div style={{ background: C.s0, border: `1px solid ${C.b1}`, borderRadius: 12, padding: 14, marginBottom: 16 }}>
+      <div style={{ fontSize: 11, letterSpacing: 1.2, textTransform: "uppercase", color: C.t2, fontWeight: 700, marginBottom: 9 }}>
+        Buscar en el catálogo y agregar a <span style={{ color: "#60a5fa" }}>{destino}</span>
+      </div>
+      <div style={{ position: "relative" }}>
+        <Search size={15} style={{ position: "absolute", left: 11, top: 11, color: C.t2 }} />
+        <input autoFocus value={q} onChange={(e) => setQ(e.target.value)} placeholder="Buscar material por descripción, proveedor o código…" style={{ ...INP, width: "100%", paddingLeft: 34 }} />
+      </div>
+      {err && <div style={{ marginTop: 8 }}><ErrorBox error={err} onRetry={() => setErr(null)} /></div>}
+
+      {query.length >= 2 && (
+        <div style={{ marginTop: 10, display: "grid", gap: 6 }}>
+          {resultados.map((m) => {
+            const yaEsta = materialEnScope(m, scope);
+            return (
+              <div key={m.id} style={{ display: "flex", alignItems: "center", gap: 10, padding: "8px 10px", borderRadius: 9, background: C.panelSolid, border: `1px solid ${C.b0}` }}>
+                <div style={{ flex: 1, minWidth: 0 }}>
+                  <div style={{ fontSize: 13, color: C.t0, fontWeight: 600, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{m.descripcion}</div>
+                  <div style={{ fontSize: 11, color: C.t2, marginTop: 2 }}>
+                    {categoriaNombre(categorias, m.categoria_id)}{m.proveedor ? ` · ${m.proveedor}` : ""}
+                  </div>
+                </div>
+                <PriceBadge material={m} />
+                {yaEsta ? (
+                  <span style={{ fontSize: 11, color: C.green, fontWeight: 700, padding: "5px 10px", whiteSpace: "nowrap" }}>✓ ya está acá</span>
+                ) : (
+                  <button type="button" disabled={busy === m.id} onClick={() => agregar(m)} style={{ ...BTN_PRIMARY, padding: "6px 12px", fontSize: 12, opacity: busy === m.id ? 0.6 : 1, whiteSpace: "nowrap" }}>
+                    {busy === m.id ? "Agregando…" : "Agregar acá"}
+                  </button>
+                )}
+              </div>
+            );
+          })}
+
+          <button type="button" disabled={busy === "nuevo"} onClick={crearNuevo} style={{ ...BTN, marginTop: 4, justifyContent: "center", border: `1px dashed ${C.b1}`, color: "#60a5fa", padding: "9px" }}>
+            <PackagePlus size={14} /> {busy === "nuevo" ? "Creando…" : <>Crear nuevo <strong style={{ marginLeft: 4 }}>“{q.trim()}”</strong> en {destino}</>}
+          </button>
+
+          {resultados.length === 0 && (
+            <div style={{ fontSize: 12, color: C.t2, textAlign: "center", padding: "6px 0" }}>
+              No hay materiales que coincidan. Podés crearlo nuevo ↑
+            </div>
+          )}
+        </div>
+      )}
+    </div>
+  );
+}
+
 function RevisionTab({ categorias, materiales, proveedores, opciones = [], onChanged }) {
   const [selectedId, setSelectedId] = useState(categorias[0]?.id ?? "");
   const [modo, setModo] = useState("cola");
   const [queueIndex, setQueueIndex] = useState(0);
+  const [showBuscar, setShowBuscar] = useState(false);
+  const [showPresupuesto, setShowPresupuesto] = useState(false);
   const [err, setErr] = useState(null);
   const effectiveSelectedId = selectedId && categorias.some((c) => c.id === selectedId)
     ? selectedId
     : categorias[0]?.id ?? "";
 
   const progressByCat = useMemo(() => {
-    const map = new Map(categorias.map((c) => [c.id, { total: 0, revisados: 0 }]));
-    for (const material of materiales.filter(materialActivo)) {
-      // Un material compartido cuenta en todas sus áreas.
-      for (const catId of material.areas ?? [material.categoria_id]) {
-        const p = map.get(catId);
-        if (!p) continue;
-        p.total += 1;
-        if (material.revisado) p.revisados += 1;
+    // Cada sector cuenta sus materiales por "scope" (él + subsectores), únicos.
+    // Así el padre hace roll-up de los hijos sin doble conteo.
+    const activos = materiales.filter(materialActivo);
+    const map = new Map();
+    for (const c of categorias) {
+      const scope = idsScope(categorias, c.id);
+      let total = 0, revisados = 0;
+      for (const m of activos) {
+        if (materialEnScope(m, scope)) { total += 1; if (m.revisado) revisados += 1; }
       }
+      map.set(c.id, { total, revisados });
     }
     return map;
   }, [categorias, materiales]);
@@ -689,8 +1150,9 @@ function RevisionTab({ categorias, materiales, proveedores, opciones = [], onCha
   }, [materiales]);
 
   const selectedMaterials = useMemo(() => {
-    return materiales.filter(materialActivo).filter((m) => materialEnArea(m, effectiveSelectedId));
-  }, [materiales, effectiveSelectedId]);
+    const scope = idsScope(categorias, effectiveSelectedId);
+    return materiales.filter(materialActivo).filter((m) => materialEnScope(m, scope));
+  }, [materiales, categorias, effectiveSelectedId]);
 
   const queue = useMemo(() => selectedMaterials.filter((m) => !m.revisado), [selectedMaterials]);
   const current = queue.length ? queue[queueIndex % queue.length] : null;
@@ -713,6 +1175,39 @@ function RevisionTab({ categorias, materiales, proveedores, opciones = [], onCha
     }
   }
 
+  async function addSubsector(parent) {
+    const nombre = window.prompt(`Nuevo subsector de "${parent.nombre}":`);
+    if (!nombre?.trim()) return;
+    try {
+      setErr(null);
+      const c = await crearCategoria(nombre, { parentId: parent.id, orden: hijosDe(categorias, parent.id).length });
+      await onChanged?.();
+      setSelectedId(c.id);
+      setQueueIndex(0);
+    } catch (e) { setErr(e); }
+  }
+
+  async function suggestSubsectores(parent, sugeridas) {
+    if (!sugeridas?.length) return;
+    if (!window.confirm(`Crear ${sugeridas.length} subsectores en "${parent.nombre}":\n\n${sugeridas.join(" · ")}`)) return;
+    try {
+      setErr(null);
+      let orden = hijosDe(categorias, parent.id).length;
+      for (const nombre of sugeridas) await crearCategoria(nombre, { parentId: parent.id, orden: orden++ });
+      await onChanged?.();
+    } catch (e) { setErr(e); }
+  }
+
+  async function deleteSubsector(cat) {
+    if (!window.confirm(`¿Borrar el subsector "${cat.nombre}"? Sus materiales vuelven al sector padre.`)) return;
+    try {
+      setErr(null);
+      await borrarSubsector(cat.id, cat.parent_id);
+      if (effectiveSelectedId === cat.id) { setSelectedId(cat.parent_id); setQueueIndex(0); }
+      await onChanged?.();
+    } catch (e) { setErr(e); }
+  }
+
   return (
     <div>
       <SectorSelector
@@ -720,6 +1215,9 @@ function RevisionTab({ categorias, materiales, proveedores, opciones = [], onCha
         progressByCat={progressByCat}
         selectedId={effectiveSelectedId}
         onSelect={(id) => { setSelectedId(id); setQueueIndex(0); }}
+        onAddSub={addSubsector}
+        onSuggestSub={suggestSubsectores}
+        onDeleteSub={deleteSubsector}
       />
 
       <div style={{ display: "flex", alignItems: "center", gap: 12, marginBottom: 14, flexWrap: "wrap" }}>
@@ -747,12 +1245,46 @@ function RevisionTab({ categorias, materiales, proveedores, opciones = [], onCha
             </button>
           ))}
         </div>
+        <button
+          type="button"
+          onClick={() => setShowBuscar((v) => !v)}
+          style={{ ...BTN, background: showBuscar ? "rgba(59,130,246,0.14)" : C.s0, border: `1px solid ${showBuscar ? "rgba(59,130,246,0.35)" : C.b0}`, color: showBuscar ? "#60a5fa" : C.t1 }}
+          title="Buscar en el catálogo y agregar al sector"
+        >
+          <Search size={14} /> {showBuscar ? "Cerrar buscador" : "Buscar y agregar"}
+        </button>
+        <button
+          type="button"
+          onClick={() => setShowPresupuesto(true)}
+          style={{ ...BTN, background: "rgba(139,92,246,0.12)", border: "1px solid rgba(139,92,246,0.35)", color: "#a78bfa" }}
+          title="Cargar un presupuesto (texto o PDF/foto) con IA y matchearlo contra la matriz"
+        >
+          <Upload size={14} /> Cargar presupuesto
+        </button>
         <button type="button" onClick={onChanged} style={BTN} title="Reintentar carga">
           <RefreshCw size={14} /> Actualizar
         </button>
       </div>
 
       {err && <ErrorBox error={err} onRetry={() => setErr(null)} />}
+
+      {showBuscar && (
+        <BuscadorAgregar
+          categorias={categorias}
+          materiales={materiales}
+          selectedId={effectiveSelectedId}
+          onChanged={onChanged}
+        />
+      )}
+
+      {showPresupuesto && (
+        <CargarPresupuestoModal
+          categorias={categorias}
+          materiales={materiales}
+          onChanged={onChanged}
+          onClose={() => setShowPresupuesto(false)}
+        />
+      )}
 
       {modo === "cola" ? (
         current ? (
@@ -898,6 +1430,129 @@ function ResumenTab({ categorias, materiales }) {
   );
 }
 
+// Costo de un material para un modelo: cantidad (BOM del modelo) × precio vigente.
+function costoMaterialModelo(m, modelo) {
+  const cant = Number(toBomMap(m)[modelo]);
+  const tieneCant = Number.isFinite(cant) && cant > 0;
+  const price = precioVigente(m);
+  const pu = price?.precio_unitario != null && price.precio_unitario !== "" ? Number(price.precio_unitario) : null;
+  const tienePrecio = pu != null && Number.isFinite(pu) && pu > 0;
+  return {
+    tieneCant,
+    moneda: price?.moneda === "USD" ? "USD" : "ARS",
+    costo: tieneCant && tienePrecio ? cant * pu : 0,
+    faltaPrecio: tieneCant && !tienePrecio,
+  };
+}
+
+function CostoObraTab({ categorias, materiales }) {
+  const [modelo, setModelo] = useState(MODELOS[0]);
+  const activos = useMemo(() => (materiales ?? []).filter(materialActivo), [materiales]);
+
+  const aggScope = useCallback((scope) => {
+    const acc = { usd: 0, ars: 0, items: 0, sinPrecio: 0 };
+    for (const m of activos) {
+      if (!materialEnScope(m, scope)) continue;
+      const c = costoMaterialModelo(m, modelo);
+      if (!c.tieneCant) continue;
+      acc.items += 1;
+      if (c.faltaPrecio) { acc.sinPrecio += 1; continue; }
+      if (c.moneda === "USD") acc.usd += c.costo; else acc.ars += c.costo;
+    }
+    return acc;
+  }, [activos, modelo]);
+
+  // Total global: cada material cuenta una sola vez (no infla por multi-área).
+  const total = useMemo(() => {
+    const acc = { usd: 0, ars: 0, items: 0, sinPrecio: 0 };
+    for (const m of activos) {
+      const c = costoMaterialModelo(m, modelo);
+      if (!c.tieneCant) continue;
+      acc.items += 1;
+      if (c.faltaPrecio) { acc.sinPrecio += 1; continue; }
+      if (c.moneda === "USD") acc.usd += c.costo; else acc.ars += c.costo;
+    }
+    return acc;
+  }, [activos, modelo]);
+
+  const filas = useMemo(() => categorias.filter(esRaiz).map((r) => ({
+    cat: r,
+    agg: aggScope(idsScope(categorias, r.id)),
+    subs: hijosDe(categorias, r.id).map((s) => ({ cat: s, agg: aggScope(new Set([s.id])) })),
+  })), [categorias, aggScope]);
+
+  const money = (v, mon) => (v ? fmtMoney(v, mon) : "—");
+
+  return (
+    <div>
+      <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 14, flexWrap: "wrap" }}>
+        <span style={{ fontSize: 12, color: C.t2 }}>Modelo de barco:</span>
+        <div style={{ display: "flex", gap: 4, background: C.s0, border: `1px solid ${C.b0}`, borderRadius: 9, padding: 3 }}>
+          {MODELOS.map((mod) => (
+            <button key={mod} type="button" onClick={() => setModelo(mod)} style={{ ...BTN, border: "none", background: modelo === mod ? C.s2 : "transparent", color: modelo === mod ? C.t0 : C.t2, padding: "6px 16px", fontWeight: modelo === mod ? 700 : 500 }}>
+              K{mod}
+            </button>
+          ))}
+        </div>
+      </div>
+
+      <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(150px, 1fr))", gap: 10, marginBottom: 16 }}>
+        <KpiCard label={`Costo materiales USD · K${modelo}`} value={fmtMoney(total.usd, "USD")} color={C.green} />
+        <KpiCard label={`Costo materiales ARS · K${modelo}`} value={fmtMoney(total.ars, "ARS")} color={C.t0} />
+        <KpiCard label="Ítems con cantidad" value={total.items} color={C.t1} />
+        <KpiCard label="Sin precio (faltan cotizar)" value={total.sinPrecio} color={total.sinPrecio ? C.amber : C.green} />
+      </div>
+
+      <div style={{ overflowX: "auto", border: `1px solid ${C.b0}`, borderRadius: 12 }}>
+        <table style={{ width: "100%", minWidth: 640, borderCollapse: "collapse" }}>
+          <thead>
+            <tr>
+              <Th>Sector</Th>
+              <Th right>Ítems</Th>
+              <Th right>Sin precio</Th>
+              <Th right>Costo USD</Th>
+              <Th right>Costo ARS</Th>
+            </tr>
+          </thead>
+          <tbody>
+            {filas.flatMap((f) => [
+              <tr key={f.cat.id}>
+                <Td>{f.cat.nombre}</Td>
+                <Td right mono>{f.agg.items || "—"}</Td>
+                <Td right mono color={f.agg.sinPrecio ? C.amber : C.t2}>{f.agg.sinPrecio || "—"}</Td>
+                <Td right mono>{money(f.agg.usd, "USD")}</Td>
+                <Td right mono>{money(f.agg.ars, "ARS")}</Td>
+              </tr>,
+              ...f.subs.map((s) => (
+                <tr key={s.cat.id} style={{ background: C.s0 }}>
+                  <Td><span style={{ paddingLeft: 18, color: C.t2 }}>↳ {s.cat.nombre}</span></Td>
+                  <Td right mono color={C.t2}>{s.agg.items || "—"}</Td>
+                  <Td right mono color={s.agg.sinPrecio ? C.amber : C.t2}>{s.agg.sinPrecio || "—"}</Td>
+                  <Td right mono color={C.t2}>{money(s.agg.usd, "USD")}</Td>
+                  <Td right mono color={C.t2}>{money(s.agg.ars, "ARS")}</Td>
+                </tr>
+              )),
+            ])}
+          </tbody>
+          <tfoot>
+            <tr style={{ borderTop: `2px solid ${C.b1}` }}>
+              <Td><strong>Total obra K{modelo}</strong></Td>
+              <Td right mono><strong>{total.items}</strong></Td>
+              <Td right mono color={total.sinPrecio ? C.amber : C.t2}><strong>{total.sinPrecio || "—"}</strong></Td>
+              <Td right mono><strong>{fmtMoney(total.usd, "USD")}</strong></Td>
+              <Td right mono><strong>{fmtMoney(total.ars, "ARS")}</strong></Td>
+            </tr>
+          </tfoot>
+        </table>
+      </div>
+
+      <div style={{ fontSize: 11, color: C.t2, marginTop: 10, lineHeight: 1.6 }}>
+        USD y ARS van por separado (no se convierten). Un material en varios sectores suma en cada uno, así que la suma por sector puede superar el total (el total cuenta cada material una vez). “Sin precio” = ítems con cantidad en K{modelo} pero sin precio vigente; cargá la cotización del proveedor en <strong>Comprobantes</strong> y el costo se completa solo.
+      </div>
+    </div>
+  );
+}
+
 export default function MaterialesScreen({ profile, signOut }) {
   const { isMobile } = useResponsive();
   const [tab, setTab] = useState("importar");
@@ -1019,6 +1674,7 @@ export default function MaterialesScreen({ profile, signOut }) {
               {tab === "variantes" && <VariantesTab opciones={opciones} onChanged={cargar} />}
               {tab === "proveedores" && <ProveedoresTab proveedores={proveedores} onChanged={cargar} />}
               {tab === "avance" && <AvanceTab categorias={categorias} materiales={materiales} batches={batches} obras={obrasAvance} />}
+              {tab === "costos" && <CostoObraTab categorias={categorias} materiales={materiales} />}
               {tab === "resumen" && <ResumenTab categorias={categorias} materiales={materiales} />}
             </>
           )}

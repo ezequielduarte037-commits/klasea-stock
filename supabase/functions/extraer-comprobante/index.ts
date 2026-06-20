@@ -1,6 +1,6 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
-import { extraerComprobanteImagen, extraerComprobantePDF } from "../_shared/openai.ts";
+import { extraerComprobanteImagen, extraerComprobantePDF, extraerComprobanteTexto } from "../_shared/openai.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -37,18 +37,27 @@ serve(async (req) => {
     if (userError || !user) return json({ error: "No autenticado" }, 401);
 
     const body = await req.json();
+    const sectores = Array.isArray(body?.sectores) ? body.sectores.map((s: unknown) => String(s)).filter(Boolean) : [];
+
+    // Presupuesto/remito pegado como TEXTO (no requiere archivo).
+    const texto = String(body?.text || body?.texto || "").trim();
+    if (texto) {
+      const parsedTexto = await extraerComprobanteTexto({ text: texto, sectores });
+      return json(parsedTexto);
+    }
+
     const fileBase64 = String(body?.image_base64 || body?.base64 || "").trim();
     const mimeType = String(body?.mime_type || body?.mimeType || "image/jpeg");
     const filename = String(body?.filename || body?.file_name || "comprobante.pdf");
-    if (!fileBase64) return json({ error: "image_base64 es obligatorio" }, 400);
+    if (!fileBase64) return json({ error: "Mandá texto (text) o un archivo (image_base64)." }, 400);
 
     const isImage = mimeType.startsWith("image/");
     const isPDF = mimeType === "application/pdf" || filename.toLowerCase().endsWith(".pdf");
     if (!isImage && !isPDF) return json({ error: "Solo se aceptan imagenes o PDF" }, 400);
 
     const parsed = isPDF
-      ? await extraerComprobantePDF({ base64: fileBase64, mimeType: "application/pdf", filename })
-      : await extraerComprobanteImagen({ base64: fileBase64, mimeType });
+      ? await extraerComprobantePDF({ base64: fileBase64, mimeType: "application/pdf", filename, sectores })
+      : await extraerComprobanteImagen({ base64: fileBase64, mimeType, sectores });
     return json(parsed);
   } catch (error) {
     console.error("[extraer-comprobante]", error);
