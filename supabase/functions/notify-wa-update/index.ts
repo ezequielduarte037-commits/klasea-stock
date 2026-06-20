@@ -7,13 +7,13 @@
 //
 // Reglas:
 //   - Recipient: solo el creator (no assignee, no followers/CC).
-//   - Skip si el actor es el propio creador (no se autonotifica).
+//   - Skip si el actor es el propio creador (no se autonotifica), salvo "created".
 //   - Skip si el creador no tiene teléfono vinculado a WhatsApp.
 //
 // Payload esperado:
 // {
 //   requestId: string,                // uuid del purchase_request
-//   eventType: "status" | "priority" | "comment" | "item_status"
+//   eventType: "created" | "status" | "priority" | "comment" | "item_status"
 //            | "amount" | "delivery_date" | "received",
 //   actorId?: string,                 // uuid del usuario que hizo el cambio
 //   payload: { ... }                  // datos del evento (ver formatMessage)
@@ -123,7 +123,7 @@ async function notifyParticipants(args: NotifyArgs): Promise<{ sent: number; ski
   // Si el actor es el mismo creador (modificó algo de su propio pedido), no se notifica.
   const creatorId = request.created_by;
   if (!creatorId) return { sent: 0, skipped: 0, errors: 0 };
-  if (args.actorId && args.actorId === creatorId) {
+  if (args.eventType !== "created" && args.actorId && args.actorId === creatorId) {
     return { sent: 0, skipped: 1, errors: 0 };
   }
 
@@ -234,6 +234,11 @@ function formatMessage(eventType: string, request: any, payload: Record<string, 
   const actorName = payload.actorName || "Alguien";
 
   switch (eventType) {
+    case "created": {
+      const source = payload.source === "whatsapp" ? "WhatsApp" : "la app";
+      return `Pedido creado: *${title}*\n\nCompras fue notificado.\nCreado desde ${source}.\n\n${linkTo(request.id)}`;
+    }
+
     case "status": {
       const oldLabel = labelStatus(payload.oldStatus);
       const newLabel = labelStatus(payload.newStatus);

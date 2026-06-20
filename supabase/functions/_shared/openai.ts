@@ -115,7 +115,10 @@ Objetivo:
 
 Reglas:
 - No inventes datos. Si no se ve claro, dejalo null o vacío.
-- Normalizá números: 1.234,56 -> 1234.56. Si hay subtotal/IVA, no lo pongas como ítem.
+- NÚMEROS (clave): detectá el formato por el ÚLTIMO separador. En "99,100.00" el punto es decimal y la coma es separador de miles → 99100.00; en "1.234,56" la coma es decimal → 1234.56. Nunca tomes la coma como decimal si después hay un punto.
+- Si hay columnas Cantidad, Precio e Importe/Total, usá la relación Cantidad × Precio = Importe para validar y CORREGIR el precio (el Importe es la verdad). Ej: Cantidad 12, Importe 396000 → precio_unitario = 33000 (no 33).
+- precio_unitario es POR UNIDAD, no el total. Hacé un sanity check: un repuesto náutico no vale $5 ni $33; si te queda un precio absurdamente chico, recalculalo como Importe ÷ cantidad.
+- No pongas IVA, subtotales ni totales generales como ítems.
 - Si no hay precio unitario pero sí cantidad y total, dejá precio_unitario null.
 - Si no hay cantidad clara, deja cantidad null.
 - Moneda es obligatoria por item: "USD" o "ARS". Si el documento, encabezado o seccion dice USD/U$S/US$, todos los precios de esa zona son USD aunque cada linea no lo repita. Si no hay ninguna senal de USD, usa ARS.
@@ -213,7 +216,10 @@ Objetivo:
 
 Reglas:
 - No inventes datos. Si no se ve claro, dejalo null o vacío.
-- Normalizá números: 1.234,56 -> 1234.56. Si hay subtotal/IVA, no lo pongas como ítem.
+- NÚMEROS (clave): detectá el formato por el ÚLTIMO separador. En "99,100.00" el punto es decimal y la coma es separador de miles → 99100.00; en "1.234,56" la coma es decimal → 1234.56. Nunca tomes la coma como decimal si después hay un punto.
+- Si hay columnas Cantidad, Precio e Importe/Total, usá la relación Cantidad × Precio = Importe para validar y CORREGIR el precio (el Importe es la verdad). Ej: Cantidad 12, Importe 396000 → precio_unitario = 33000 (no 33).
+- precio_unitario es POR UNIDAD, no el total. Hacé un sanity check: un repuesto náutico no vale $5 ni $33; si te queda un precio absurdamente chico, recalculalo como Importe ÷ cantidad.
+- No pongas IVA, subtotales ni totales generales como ítems.
 - Si no hay precio unitario pero sí cantidad y total, dejá precio_unitario null.
 - Si no hay cantidad clara, deja cantidad null.
 - Moneda es obligatoria por item: "USD" o "ARS". Si el texto dice USD/U$S/US$, todos esos precios son USD. Si no hay señal de USD, usá ARS.
@@ -305,7 +311,10 @@ Objetivo:
 
 Reglas:
 - No inventes datos. Si no se ve claro, dejalo null o vacio.
-- Normaliza numeros: 1.234,56 -> 1234.56. Si hay subtotal/IVA, no lo pongas como item.
+- NUMEROS (clave): detecta el formato por el ULTIMO separador. En "99,100.00" el punto es decimal y la coma es separador de miles -> 99100.00; en "1.234,56" la coma es decimal -> 1234.56. Nunca tomes la coma como decimal si despues hay un punto.
+- Si hay columnas Cantidad, Precio e Importe/Total, usa la relacion Cantidad x Precio = Importe para validar y CORREGIR el precio (el Importe es la verdad). Ej: Cantidad 12, Importe 396000 -> precio_unitario = 33000 (no 33).
+- precio_unitario es POR UNIDAD, no el total. Haces un sanity check: un repuesto nautico no vale $5 ni $33; si te queda un precio absurdamente chico, recalculalo como Importe / cantidad.
+- No pongas IVA, subtotales ni totales generales como items.
 - Si no hay precio unitario pero si cantidad y total, deja precio_unitario null.
 - Si no hay cantidad clara, deja cantidad null.
 - Moneda es obligatoria por item: "USD" o "ARS". Si el documento, encabezado o seccion dice USD/U$S/US$, todos los precios de esa zona son USD aunque cada linea no lo repita. Si no hay ninguna senal de USD, usa ARS.

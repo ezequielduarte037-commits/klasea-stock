@@ -870,10 +870,21 @@ function CargarPresupuestoModal({ categorias, materiales, onChanged, onClose }) 
         const mat = activos.find((m) => m.id === material_id);
         // El destino: si matchea un material, hereda su sector; si no, el que sugirió la IA.
         const _catId = mat ? mat.categoria_id : catIdPorNombre(categorias, it.sector);
+        // Backstop de precio: si hay importe total y cantidad, el unitario real es total/cantidad.
+        // Corrige cuando la IA leyó mal el formato (ej. "33.000" → 33). El importe manda.
+        const cant = toNum(it.cantidad);
+        const total = toNum(it.total);
+        let precio = it.precio_unitario ?? "";
+        if (cant && cant > 0 && total != null && total > 0) {
+          const leido = toNum(precio);
+          if (leido == null || Math.abs(leido * cant - total) > total * 0.05) {
+            precio = String(Math.round((total / cant) * 100) / 100);
+          }
+        }
         return {
           descripcion: it.descripcion || "",
           cantidad: it.cantidad ?? "",
-          precio_unitario: it.precio_unitario ?? "",
+          precio_unitario: precio,
           moneda: it.moneda || "ARS",
           material_id,
           _catId,
@@ -1025,9 +1036,7 @@ function CargarPresupuestoModal({ categorias, materiales, onChanged, onClose }) 
                       <button type="button" onClick={() => quitar(idx)} title="Quitar" style={{ ...BTN, padding: "6px 8px", color: C.red }}>✕</button>
                     </div>
                     <div style={{ display: "flex", gap: 8, alignItems: "center", marginTop: 7 }}>
-                      <span style={{ fontSize: 11, color: it.material_id ? C.green : C.amber, fontWeight: 700, minWidth: 78 }}>
-                        {it.material_id ? "↻ actualiza" : "＋ crea"}
-                      </span>
+                      <span style={{ fontSize: 11, color: C.t2, minWidth: 78 }}>Vincular</span>
                       <select
                         value={it.material_id || ""}
                         onChange={(e) => {
@@ -1037,9 +1046,16 @@ function CargarPresupuestoModal({ categorias, materiales, onChanged, onClose }) 
                         }}
                         style={{ ...INP, flex: 1, fontSize: 12 }}
                       >
-                        <option value="">➕ Crear nuevo (elegí sector →)</option>
-                        {opts.map((m) => <option key={m.id} value={m.id}>{m.descripcion} · {categoriaNombre(categorias, m.categoria_id)}</option>)}
+                        <option value="">✦ Material nuevo (no vincular con la matriz)</option>
+                        {opts.length > 0 && (
+                          <optgroup label="…o vincular con un material que ya existe:">
+                            {opts.map((m) => <option key={m.id} value={m.id}>{m.descripcion} · {categoriaNombre(categorias, m.categoria_id)}</option>)}
+                          </optgroup>
+                        )}
                       </select>
+                      <span style={{ fontSize: 11, color: it.material_id ? C.green : C.amber, fontWeight: 700, whiteSpace: "nowrap", minWidth: 60, textAlign: "right" }}>
+                        {it.material_id ? "↻ precio" : "＋ nuevo"}
+                      </span>
                     </div>
                     <div style={{ display: "flex", gap: 6, alignItems: "center", marginTop: 7 }}>
                       <span style={{ fontSize: 11, color: C.t2, minWidth: 78 }}>Sector</span>

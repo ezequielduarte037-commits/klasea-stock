@@ -153,6 +153,16 @@ export async function createPurchaseRequest({ form, ccUserIds = [], photoFile })
     if (followersError) throw followersError;
   }
 
+  notifyWaUpdate({
+    requestId: request.id,
+    eventType: "created",
+    actorId: userId,
+    payload: {
+      actorName: request.creator?.username || "Usuario",
+      source: payload.source || "web",
+    },
+  });
+
   return request;
 }
 
