@@ -870,15 +870,18 @@ function CargarPresupuestoModal({ categorias, materiales, onChanged, onClose }) 
         const mat = activos.find((m) => m.id === material_id);
         // El destino: si matchea un material, hereda su sector; si no, el que sugirió la IA.
         const _catId = mat ? mat.categoria_id : catIdPorNombre(categorias, it.sector);
-        // Backstop de precio: si hay importe total y cantidad, el unitario real es total/cantidad.
-        // Corrige cuando la IA leyó mal el formato (ej. "33.000" → 33). El importe manda.
+        // Backstop de precio, SOLO HACIA ARRIBA: el error de formato (coma decimal) hace que el
+        // precio se lea más chico de lo real (33 en vez de 33.000), nunca más grande. Si el
+        // importe/cantidad da claramente MÁS que el precio leído, lo subimos; nunca bajamos un
+        // precio ya leído (eso "dividía" precios correctos cuando la IA leía mal el importe).
         const cant = toNum(it.cantidad);
         const total = toNum(it.total);
         let precio = it.precio_unitario ?? "";
-        if (cant && cant > 0 && total != null && total > 0) {
-          const leido = toNum(precio);
-          if (leido == null || Math.abs(leido * cant - total) > total * 0.05) {
-            precio = String(Math.round((total / cant) * 100) / 100);
+        const leido = toNum(precio);
+        if (cant && cant > 1 && total != null && total > 0) {
+          const calc = total / cant;
+          if (leido == null || calc > leido * 1.5) {
+            precio = String(Math.round(calc * 100) / 100);
           }
         }
         return {
