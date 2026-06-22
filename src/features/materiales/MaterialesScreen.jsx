@@ -825,11 +825,12 @@ function ListaMateriales({ categorias, materiales, selectedId, ums, proveedores,
 // Cargar presupuesto (texto pegado o archivo PDF/foto) con IA, matchear cada ítem
 // contra la lista matriz y: si coincide → actualizar su precio; si no → crear en el
 // sector/subsector actual. Todo dentro de la Revisión guiada.
-// Selector de sector/subsector con optgroups (para asignar el destino de un ítem).
-// Estilos para options/optgroups: los <optgroup> nativos no heredan color y en tema
-// oscuro quedan ilegibles. Forzamos colores del tema (adaptan a claro/oscuro).
+// Selector de sector/subsector (para asignar el destino de un ítem).
+// Los <optgroup> nativos NO respetan el color en Chrome/Windows → títulos ilegibles en
+// tema oscuro. Por eso evitamos optgroup y usamos opciones planas (sí respetan el style),
+// con el sector padre en negrita y los subsectores con el path completo.
 const OPT_ST = { background: C.panelSolid, color: C.t0 };
-const OPTGROUP_ST = { background: C.s1, color: C.t0, fontWeight: 800 };
+const OPT_HEAD = { background: C.panelSolid, color: C.t0, fontWeight: 800 };
 
 function SectorPicker({ categorias, value, onChange, invalid }) {
   const raices = categorias.filter(esRaiz);
@@ -840,13 +841,61 @@ function SectorPicker({ categorias, value, onChange, invalid }) {
       style={{ ...INP, flex: 1, fontSize: 12, border: `1px solid ${invalid ? C.red : C.b0}` }}
     >
       <option value="" style={OPT_ST}>— Elegir sector —</option>
-      {raices.map((r) => (
-        <optgroup key={r.id} label={r.nombre} style={OPTGROUP_ST}>
-          <option value={r.id} style={OPT_ST}>{r.nombre} · general</option>
-          {hijosDe(categorias, r.id).map((s) => <option key={s.id} value={s.id} style={OPT_ST}>{r.nombre} › {s.nombre}</option>)}
-        </optgroup>
-      ))}
+      {raices.flatMap((r) => [
+        <option key={r.id} value={r.id} style={OPT_HEAD}>{r.nombre}</option>,
+        ...hijosDe(categorias, r.id).map((s) => (
+          <option key={s.id} value={s.id} style={OPT_ST}>{"   "}{r.nombre} › {s.nombre}</option>
+        )),
+      ])}
     </select>
+  );
+}
+
+// Buscador por ítem para vincular con un material del catálogo aunque se llame distinto y
+// la IA no lo haya detectado. Busca en TODO el catálogo (no solo en las sugerencias de la IA).
+function VincularItem({ activos, categorias, item, onChange }) {
+  const [q, setQ] = useState("");
+  const sel = activos.find((m) => m.id === item.material_id);
+  const query = q.trim();
+  const resultados = useMemo(() => {
+    if (sel) return [];
+    return topMateriales(activos, query.length >= 2 ? query : item.descripcion).slice(0, 6);
+  }, [q, sel, activos, item.descripcion]);
+
+  return (
+    <div style={{ marginTop: 7 }}>
+      <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
+        <span style={{ fontSize: 11, color: C.t2, minWidth: 78 }}>Vincular</span>
+        {sel ? (
+          <div style={{ flex: 1, display: "flex", alignItems: "center", gap: 8, minWidth: 0 }}>
+            <div style={{ flex: 1, fontSize: 12, color: C.green, fontWeight: 600, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+              ✓ {sel.descripcion} <span style={{ color: C.t2, fontWeight: 400 }}>· {categoriaNombre(categorias, sel.categoria_id)}</span>
+            </div>
+            <button type="button" onClick={() => { onChange(""); setQ(""); }} style={{ ...BTN, padding: "5px 10px", whiteSpace: "nowrap" }}>Cambiar</button>
+          </div>
+        ) : (
+          <input value={q} onChange={(e) => setQ(e.target.value)} placeholder="🔍 Buscar un material del catálogo para vincular (si la IA no lo encontró)…" style={{ ...INP, flex: 1, fontSize: 12 }} />
+        )}
+        <span style={{ fontSize: 11, color: sel ? C.green : C.amber, fontWeight: 700, whiteSpace: "nowrap", minWidth: 104, textAlign: "right" }}>
+          {sel ? "↻ actualiza precio" : "✦ crea uno nuevo"}
+        </span>
+      </div>
+      {!sel && resultados.length > 0 && (
+        <div style={{ display: "grid", gap: 3, marginTop: 5, marginLeft: 86 }}>
+          {resultados.map((m) => (
+            <button
+              key={m.id}
+              type="button"
+              onClick={() => { onChange(m.id); setQ(""); }}
+              style={{ textAlign: "left", background: C.s0, border: `1px solid ${C.b0}`, borderRadius: 7, padding: "6px 10px", color: C.t1, cursor: "pointer", fontSize: 12, display: "flex", justifyContent: "space-between", gap: 10 }}
+            >
+              <span style={{ overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{m.descripcion}</span>
+              <span style={{ color: C.t2, whiteSpace: "nowrap" }}>{categoriaNombre(categorias, m.categoria_id)}</span>
+            </button>
+          ))}
+        </div>
+      )}
+    </div>
   );
 }
 
@@ -1060,9 +1109,6 @@ function CargarPresupuestoModal({ categorias, materiales, onChanged, onClose }) 
 
             <div style={{ display: "grid", gap: 8, maxHeight: "58vh", overflowY: "auto", paddingRight: 4 }}>
               {items.map((it, idx) => {
-                const sel = activos.find((m) => m.id === it.material_id);
-                const tops = topMateriales(activos, it.descripcion);
-                const opts = sel && !tops.some((t) => t.id === sel.id) ? [sel, ...tops] : tops;
                 const malSector = faltaSector(it);
                 return (
                   <div key={idx} style={{ border: `1px solid ${malSector ? "rgba(239,68,68,0.5)" : it.material_id ? "rgba(16,185,129,0.3)" : C.b0}`, borderRadius: 10, padding: 10, background: C.s0 }}>
@@ -1076,28 +1122,15 @@ function CargarPresupuestoModal({ categorias, materiales, onChanged, onClose }) 
                       </select>
                       <button type="button" onClick={() => quitar(idx)} title="Quitar" style={{ ...BTN, padding: "6px 8px", color: C.red }}>✕</button>
                     </div>
-                    <div style={{ display: "flex", gap: 8, alignItems: "center", marginTop: 7 }}>
-                      <span style={{ fontSize: 11, color: C.t2, minWidth: 78 }}>Vincular</span>
-                      <select
-                        value={it.material_id || ""}
-                        onChange={(e) => {
-                          const mid = e.target.value;
-                          const mat = activos.find((m) => m.id === mid);
-                          setItem(idx, mat ? { material_id: mid, _catId: mat.categoria_id } : { material_id: "" });
-                        }}
-                        style={{ ...INP, flex: 1, fontSize: 12 }}
-                      >
-                        <option value="" style={OPT_ST}>✦ Material nuevo (no vincular con la matriz)</option>
-                        {opts.length > 0 && (
-                          <optgroup label="…o vincular con un material que ya existe:" style={OPTGROUP_ST}>
-                            {opts.map((m) => <option key={m.id} value={m.id} style={OPT_ST}>{m.descripcion} · {categoriaNombre(categorias, m.categoria_id)}</option>)}
-                          </optgroup>
-                        )}
-                      </select>
-                      <span style={{ fontSize: 11, color: it.material_id ? C.green : C.amber, fontWeight: 700, whiteSpace: "nowrap", minWidth: 60, textAlign: "right" }}>
-                        {it.material_id ? "↻ precio" : "＋ nuevo"}
-                      </span>
-                    </div>
+                    <VincularItem
+                      activos={activos}
+                      categorias={categorias}
+                      item={it}
+                      onChange={(mid) => {
+                        const mat = activos.find((m) => m.id === mid);
+                        setItem(idx, mat ? { material_id: mid, _catId: mat.categoria_id } : { material_id: "" });
+                      }}
+                    />
                     <div style={{ display: "flex", gap: 6, alignItems: "center", marginTop: 7 }}>
                       <span style={{ fontSize: 11, color: C.t2, minWidth: 78 }}>Sector</span>
                       <SectorPicker categorias={categorias} value={it._catId} onChange={(v) => setItem(idx, { _catId: v })} invalid={malSector} />
