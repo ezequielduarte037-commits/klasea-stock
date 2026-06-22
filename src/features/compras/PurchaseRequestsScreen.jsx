@@ -862,8 +862,8 @@ export default function PurchaseRequestsScreen({ profile, signOut }) {
     }
     if (pendingItemDraft) {
       const msg = newItemDesc.trim()
-        ? "TenÃ©s un Ã­tem escrito sin agregar. TocÃ¡ el + azul para sumarlo al pedido."
-        : "Hay datos de un Ã­tem sin descripciÃ³n. Completalo y tocÃ¡ el + azul, o vaciÃ¡ esos campos.";
+        ? "Tenes un item escrito sin agregar. Toca el + azul para sumarlo al pedido."
+        : "Hay datos de un item sin descripcion. Completalo y toca el + azul, o vacia esos campos.";
       setItemDraftWarning(msg);
       toast.warning(msg);
       return;
@@ -911,7 +911,7 @@ export default function PurchaseRequestsScreen({ profile, signOut }) {
     const desc = newItemDesc.trim();
     if (!desc) {
       if (newItemQty.trim() || newItemLink.trim()) {
-        const msg = "CompletÃ¡ la descripciÃ³n del Ã­tem antes de agregarlo.";
+        const msg = "Completa la descripcion del item antes de agregarlo.";
         setItemDraftWarning(msg);
         toast.warning(msg);
       }
@@ -1537,7 +1537,7 @@ export default function PurchaseRequestsScreen({ profile, signOut }) {
                       border: "none",
                       borderRadius: 8,
                       background: saving ? C.panel2 : "var(--text)",
-                      color: saving ? C.dim : "#08080a",
+                      color: saving ? C.dim : C.bg,
                       padding: "11px 12px",
                       cursor: saving ? "default" : "pointer",
                       fontWeight: 800,
