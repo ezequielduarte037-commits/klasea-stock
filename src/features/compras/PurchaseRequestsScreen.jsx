@@ -462,9 +462,53 @@ const emptyForm = {
 };
 
 const STOCK_DESTINOS = ["Stock Chubut 2120", "Stock Pampa 1050"];
+const CREATE_DRAFT_PREFIX = "purchase-request-create-draft";
 
 const URL_FILTER_KEYS = ["q", "status", "priority", "creator", "project", "dateFrom", "dateTo"];
 const MANAGER_TABS = ["lista", "dashboard", "avisos", "registro", "adicionales"];
+
+function createDraftKey(userId) {
+  return `${CREATE_DRAFT_PREFIX}:${userId || "anon"}`;
+}
+
+function cleanDraftText(value) {
+  return String(value || "")
+    .replace(/<[^>]*>/g, " ")
+    .replace(/&nbsp;/g, " ")
+    .replace(/\s+/g, " ")
+    .trim();
+}
+
+function hasPendingItemDraft({ description, quantity, link }) {
+  return !!(
+    String(description || "").trim()
+    || String(quantity || "").trim()
+    || String(link || "").trim()
+  );
+}
+
+function hasCreateDraftContent(snapshot) {
+  const form = snapshot?.form || {};
+  const item = snapshot?.newItem || {};
+  return !!(
+    String(form.title || "").trim()
+    || cleanDraftText(form.description)
+    || String(form.destino || "").trim()
+    || String(form.needed_at || "").trim()
+    || String(form.project_id || "").trim()
+    || (form.priority && form.priority !== "media")
+    || (snapshot?.ccUserIds || []).length
+    || (snapshot?.createItems || []).length
+    || hasPendingItemDraft(item)
+  );
+}
+
+function formatDraftTime(value) {
+  if (!value) return "";
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return "";
+  return date.toLocaleTimeString("es-AR", { hour: "2-digit", minute: "2-digit" });
+}
 
 export default function PurchaseRequestsScreen({ profile, signOut }) {
   const { isMobile } = useResponsive();
@@ -507,7 +551,11 @@ export default function PurchaseRequestsScreen({ profile, signOut }) {
   const [newItemQty, setNewItemQty] = useState("");
   const [newItemUnit, setNewItemUnit] = useState("unidad");
   const [newItemLink, setNewItemLink] = useState("");
+  const [draftReady, setDraftReady] = useState(false);
+  const [draftSavedAt, setDraftSavedAt] = useState(null);
+  const [itemDraftWarning, setItemDraftWarning] = useState("");
   const submittingRef = useRef(false);
+  const lastDraftJsonRef = useRef("");
 
   const [filters, setFilters] = useState(() => ({
     q:        searchParams.get("q")        || "",
@@ -521,6 +569,83 @@ export default function PurchaseRequestsScreen({ profile, signOut }) {
 
   const manager = isPurchaseManager(profile);
   const canCreateAvisos = manager || ["tecnica", "oficina", "panol"].includes(profile?.role);
+  const pendingItemDraft = hasPendingItemDraft({
+    description: newItemDesc,
+    quantity: newItemQty,
+    link: newItemLink,
+  });
+  const createDraftHasContent = hasCreateDraftContent({
+    form,
+    ccUserIds,
+    createItems,
+    newItem: { description: newItemDesc, quantity: newItemQty, unit: newItemUnit, link: newItemLink },
+  });
+
+  useEffect(() => {
+    if (!profile?.id) return;
+    setDraftReady(false);
+    lastDraftJsonRef.current = "";
+    try {
+      const raw = localStorage.getItem(createDraftKey(profile.id));
+      const draft = raw ? JSON.parse(raw) : null;
+      if (draft && hasCreateDraftContent(draft)) {
+        setForm({ ...emptyForm, ...(draft.form || {}) });
+        setCcUserIds(Array.isArray(draft.ccUserIds) ? draft.ccUserIds : []);
+        setCreateItems(Array.isArray(draft.createItems) ? draft.createItems : []);
+        setNewItemDesc(draft.newItem?.description || "");
+        setNewItemQty(draft.newItem?.quantity || "");
+        setNewItemUnit(draft.newItem?.unit || "unidad");
+        setNewItemLink(draft.newItem?.link || "");
+        setDraftSavedAt(draft.savedAt || null);
+      } else {
+        setDraftSavedAt(null);
+      }
+    } catch {
+      setDraftSavedAt(null);
+    } finally {
+      setDraftReady(true);
+    }
+  }, [profile?.id]);
+
+  useEffect(() => {
+    if (!draftReady || !profile?.id) return;
+    const body = {
+      form,
+      ccUserIds,
+      createItems,
+      newItem: {
+        description: newItemDesc,
+        quantity: newItemQty,
+        unit: newItemUnit,
+        link: newItemLink,
+      },
+    };
+    const key = createDraftKey(profile.id);
+    if (!hasCreateDraftContent(body)) {
+      try { localStorage.removeItem(key); } catch {}
+      lastDraftJsonRef.current = "";
+      setDraftSavedAt(null);
+      return;
+    }
+    const json = JSON.stringify(body);
+    if (json === lastDraftJsonRef.current) return;
+    const savedAt = new Date().toISOString();
+    try {
+      localStorage.setItem(key, JSON.stringify({ ...body, savedAt }));
+      lastDraftJsonRef.current = json;
+      setDraftSavedAt(savedAt);
+    } catch {}
+  }, [
+    draftReady,
+    profile?.id,
+    form,
+    ccUserIds,
+    createItems,
+    newItemDesc,
+    newItemQty,
+    newItemUnit,
+    newItemLink,
+  ]);
 
   // Sincronizar filtros + tab + pedido abierto a la URL para que sean
   // compartibles/back-friendly. También permite deep-link tipo ?open=<id>.
@@ -709,12 +834,38 @@ export default function PurchaseRequestsScreen({ profile, signOut }) {
     [avisos],
   );
 
+  function resetCreateDraft(showToast = false) {
+    try {
+      if (profile?.id) localStorage.removeItem(createDraftKey(profile.id));
+    } catch {}
+    lastDraftJsonRef.current = "";
+    setDraftSavedAt(null);
+    setForm(emptyForm);
+    setCcUserIds([]);
+    setPhotoFile(null);
+    setCreateItems([]);
+    setNewItemDesc("");
+    setNewItemQty("");
+    setNewItemUnit("unidad");
+    setNewItemLink("");
+    setItemDraftWarning("");
+    if (showToast) toast.success("Borrador descartado.");
+  }
+
   async function handleCreate(e) {
     e.preventDefault();
     if (submittingRef.current) return;
     if (!form.title.trim()) {
       setError("El título es obligatorio.");
       toast.warning("El título es obligatorio.");
+      return;
+    }
+    if (pendingItemDraft) {
+      const msg = newItemDesc.trim()
+        ? "TenÃ©s un Ã­tem escrito sin agregar. TocÃ¡ el + azul para sumarlo al pedido."
+        : "Hay datos de un Ã­tem sin descripciÃ³n. Completalo y tocÃ¡ el + azul, o vaciÃ¡ esos campos.";
+      setItemDraftWarning(msg);
+      toast.warning(msg);
       return;
     }
     setSaving(true);
@@ -742,10 +893,7 @@ export default function PurchaseRequestsScreen({ profile, signOut }) {
         source: form.source || undefined,
       });
       toast.success("Solicitud creada. Compras fue notificado.");
-      setForm(emptyForm);
-      setCcUserIds([]);
-      setPhotoFile(null);
-      setCreateItems([]);
+      resetCreateDraft(false);
       setShowNew(false);
       await loadAll();
       setSelectedId(request.id);
@@ -761,12 +909,20 @@ export default function PurchaseRequestsScreen({ profile, signOut }) {
 
   function addCreateItem() {
     const desc = newItemDesc.trim();
-    if (!desc) return;
+    if (!desc) {
+      if (newItemQty.trim() || newItemLink.trim()) {
+        const msg = "CompletÃ¡ la descripciÃ³n del Ã­tem antes de agregarlo.";
+        setItemDraftWarning(msg);
+        toast.warning(msg);
+      }
+      return;
+    }
     setCreateItems((prev) => [...prev, { description: desc, quantity: newItemQty.trim() || null, unit: newItemUnit, link_url: newItemLink.trim() || null }]);
     setNewItemDesc("");
     setNewItemQty("");
     setNewItemUnit("unidad");
     setNewItemLink("");
+    setItemDraftWarning("");
   }
 
   function removeCreateItem(i) {
@@ -789,6 +945,11 @@ export default function PurchaseRequestsScreen({ profile, signOut }) {
       unit: "unidad",
       link_url: null,
     }] : []);
+    setNewItemDesc("");
+    setNewItemQty("");
+    setNewItemUnit("unidad");
+    setNewItemLink("");
+    setItemDraftWarning("");
     setShowNew(true);
     setManagerTab("lista");
     toast.success("Aviso cargado como borrador de pedido.");
@@ -1103,6 +1264,42 @@ export default function PurchaseRequestsScreen({ profile, signOut }) {
               {showNew && (
                 <form onSubmit={handleCreate} style={{ display: "grid", gap: 13 }}>
                   <SectionTitle icon={Plus} title="Nuevo pedido" count="" />
+                  {createDraftHasContent && (
+                    <div style={{
+                      display: "flex",
+                      alignItems: "center",
+                      gap: 8,
+                      flexWrap: "wrap",
+                      border: `1px solid ${C.border}`,
+                      background: C.panel,
+                      borderRadius: 8,
+                      padding: "8px 9px",
+                      marginTop: -8,
+                    }}>
+                      <span style={{ color: C.green, fontSize: 12, fontWeight: 800 }}>
+                        Borrador guardado{formatDraftTime(draftSavedAt) ? ` - ${formatDraftTime(draftSavedAt)}` : ""}
+                      </span>
+                      <span style={{ color: C.dim, fontSize: 11, flex: "1 1 140px" }}>
+                        Se recupera solo si salis y volves.
+                      </span>
+                      <button
+                        type="button"
+                        onClick={() => resetCreateDraft(true)}
+                        style={{
+                          border: `1px solid ${C.border}`,
+                          background: C.panelSolid,
+                          color: C.dim,
+                          borderRadius: 6,
+                          padding: "5px 8px",
+                          cursor: "pointer",
+                          fontSize: 11,
+                          fontWeight: 750,
+                        }}
+                      >
+                        Descartar
+                      </button>
+                    </div>
+                  )}
 
                   <div>
                     <div style={labelStyle}>Título</div>
@@ -1137,7 +1334,7 @@ export default function PurchaseRequestsScreen({ profile, signOut }) {
                   <div>
                     <div style={labelStyle}>Items del pedido</div>
                     <div style={{
-                      border: `1px solid ${C.border}`,
+                      border: `1px solid ${itemDraftWarning ? C.amber : C.border}`,
                       borderRadius: 8,
                       background: C.panel,
                       overflow: "hidden",
@@ -1175,18 +1372,20 @@ export default function PurchaseRequestsScreen({ profile, signOut }) {
                         gap: 5, padding: 7,
                       }}>
                         <div style={{ display: "grid", gap: 3 }}>
-                          <input value={newItemDesc} onChange={e => setNewItemDesc(e.target.value)}
+                          <input value={newItemDesc} onChange={e => { setNewItemDesc(e.target.value); if (itemDraftWarning) setItemDraftWarning(""); }}
                             onKeyDown={e => { if (e.key === "Enter") { e.preventDefault(); addCreateItem(); } }}
                             placeholder="Descripción del ítem"
                             style={{ padding: "6px 8px", borderRadius: 5, border: `1px solid ${C.border}`, background: C.bg, color: C.text, fontSize: 13 }} />
-                          <input value={newItemLink} onChange={e => setNewItemLink(e.target.value)}
+                          <input value={newItemLink} onChange={e => { setNewItemLink(e.target.value); if (itemDraftWarning) setItemDraftWarning(""); }}
+                            onKeyDown={e => { if (e.key === "Enter") { e.preventDefault(); addCreateItem(); } }}
                             placeholder="Enlace (opcional)"
                             style={{ padding: "6px 8px", borderRadius: 5, border: `1px solid ${C.border}`, background: C.bg, color: C.amber, fontSize: 12 }} />
                         </div>
-                        <input value={newItemQty} onChange={e => setNewItemQty(e.target.value)}
+                        <input value={newItemQty} onChange={e => { setNewItemQty(e.target.value); if (itemDraftWarning) setItemDraftWarning(""); }}
+                          onKeyDown={e => { if (e.key === "Enter") { e.preventDefault(); addCreateItem(); } }}
                           placeholder="Cant."
                           style={{ padding: "6px 8px", borderRadius: 5, border: `1px solid ${C.border}`, background: C.bg, color: C.text, fontSize: 13 }} />
-                        <select value={newItemUnit} onChange={e => setNewItemUnit(e.target.value)}
+                        <select value={newItemUnit} onChange={e => { setNewItemUnit(e.target.value); if (itemDraftWarning) setItemDraftWarning(""); }}
                           style={{ padding: "6px 8px", borderRadius: 5, border: `1px solid ${C.border}`, background: C.bg, color: C.text, fontSize: 13 }}>
                           <option value="unidad">unidad</option>
                           <option value="par">par</option>
@@ -1201,6 +1400,18 @@ export default function PurchaseRequestsScreen({ profile, signOut }) {
                           style={{ padding: "6px 10px", borderRadius: 5, cursor: "pointer", fontSize: 12,
                             border: `1px solid ${C.blue}`, background: "rgba(59,130,246,0.15)", color: C.blue, fontWeight: 600 }}>+</button>
                       </div>
+                      {itemDraftWarning && (
+                        <div style={{
+                          color: C.amber,
+                          background: `${C.amber}12`,
+                          borderTop: `1px solid ${C.amber}33`,
+                          padding: "7px 9px",
+                          fontSize: 12,
+                          fontWeight: 750,
+                        }}>
+                          {itemDraftWarning}
+                        </div>
+                      )}
                     </div>
                   </div>
 

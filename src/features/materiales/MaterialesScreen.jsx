@@ -826,6 +826,11 @@ function ListaMateriales({ categorias, materiales, selectedId, ums, proveedores,
 // contra la lista matriz y: si coincide → actualizar su precio; si no → crear en el
 // sector/subsector actual. Todo dentro de la Revisión guiada.
 // Selector de sector/subsector con optgroups (para asignar el destino de un ítem).
+// Estilos para options/optgroups: los <optgroup> nativos no heredan color y en tema
+// oscuro quedan ilegibles. Forzamos colores del tema (adaptan a claro/oscuro).
+const OPT_ST = { background: C.panelSolid, color: C.t0 };
+const OPTGROUP_ST = { background: C.s1, color: C.t0, fontWeight: 800 };
+
 function SectorPicker({ categorias, value, onChange, invalid }) {
   const raices = categorias.filter(esRaiz);
   return (
@@ -834,16 +839,18 @@ function SectorPicker({ categorias, value, onChange, invalid }) {
       onChange={(e) => onChange(e.target.value)}
       style={{ ...INP, flex: 1, fontSize: 12, border: `1px solid ${invalid ? C.red : C.b0}` }}
     >
-      <option value="">— Elegir sector —</option>
+      <option value="" style={OPT_ST}>— Elegir sector —</option>
       {raices.map((r) => (
-        <optgroup key={r.id} label={r.nombre}>
-          <option value={r.id}>{r.nombre} · general</option>
-          {hijosDe(categorias, r.id).map((s) => <option key={s.id} value={s.id}>{r.nombre} › {s.nombre}</option>)}
+        <optgroup key={r.id} label={r.nombre} style={OPTGROUP_ST}>
+          <option value={r.id} style={OPT_ST}>{r.nombre} · general</option>
+          {hijosDe(categorias, r.id).map((s) => <option key={s.id} value={s.id} style={OPT_ST}>{r.nombre} › {s.nombre}</option>)}
         </optgroup>
       ))}
     </select>
   );
 }
+
+const PRESUP_DRAFT_KEY = "klasea:presupuesto-draft";
 
 function CargarPresupuestoModal({ categorias, materiales, onChanged, onClose }) {
   const [texto, setTexto] = useState("");
@@ -854,10 +861,34 @@ function CargarPresupuestoModal({ categorias, materiales, onChanged, onClose }) 
   const [linea, setLinea] = useState("");
   const [aplicando, setAplicando] = useState(false);
   const [resultado, setResultado] = useState(null);
+  const [restaurado, setRestaurado] = useState(false);
   const [err, setErr] = useState(null);
   const fileRef = useRef(null);
   const activos = useMemo(() => materiales.filter(materialActivo), [materiales]);
   const nombresSectores = useMemo(() => categorias.map((c) => c.nombre), [categorias]);
+
+  // Borrador persistente: si cerrás, clickeás afuera o recargás, no se pierde lo cargado.
+  useEffect(() => {
+    try {
+      const d = JSON.parse(localStorage.getItem(PRESUP_DRAFT_KEY) || "null");
+      if (d && (d.texto || (Array.isArray(d.items) && d.items.length))) {
+        if (d.texto) setTexto(d.texto);
+        if (d.proveedor) setProveedor(d.proveedor);
+        if (d.linea) setLinea(d.linea);
+        if (Array.isArray(d.items) && d.items.length) { setItems(d.items); setRestaurado(true); }
+      }
+    } catch { /* ignore */ }
+  }, []);
+  useEffect(() => {
+    if (resultado) return; // ya se aplicó; no re-guardar
+    try { localStorage.setItem(PRESUP_DRAFT_KEY, JSON.stringify({ texto, proveedor, linea, items })); } catch { /* ignore */ }
+  }, [texto, proveedor, linea, items, resultado]);
+  const limpiarBorrador = () => { try { localStorage.removeItem(PRESUP_DRAFT_KEY); } catch { /* ignore */ } };
+  function descartar() {
+    if (!window.confirm("¿Descartar el presupuesto en curso y empezar de cero?")) return;
+    limpiarBorrador();
+    setTexto(""); setFile(null); setItems(null); setProveedor(""); setLinea(""); setErr(null); setRestaurado(false);
+  }
 
   async function leer() {
     if (!texto.trim() && !file) { setErr(new Error("Pegá el texto del presupuesto o subí un archivo.")); return; }
@@ -935,6 +966,7 @@ function CargarPresupuestoModal({ categorias, materiales, onChanged, onClose }) 
         }
       }
       setResultado({ actualizados, creados, movidos, bom });
+      limpiarBorrador();
       await onChanged?.();
     } catch (e) { setErr(e); } finally { setAplicando(false); }
   }
@@ -960,14 +992,20 @@ function CargarPresupuestoModal({ categorias, materiales, onChanged, onClose }) 
   const sinSector = items?.filter(faltaSector).length ?? 0;
 
   return (
-    <div onClick={onClose} style={{ position: "fixed", inset: 0, zIndex: 2200, background: "rgba(0,0,0,0.6)", backdropFilter: "blur(3px)", display: "flex", alignItems: "flex-start", justifyContent: "center", padding: "5vh 16px", overflowY: "auto" }}>
-      <div onClick={(e) => e.stopPropagation()} style={{ background: C.panelSolid, border: `1px solid ${C.b1}`, borderRadius: 14, padding: 20, width: "min(820px, 96vw)" }}>
+    <div style={{ position: "fixed", inset: 0, zIndex: 2200, background: "rgba(0,0,0,0.66)", backdropFilter: "blur(4px)", display: "flex", alignItems: "flex-start", justifyContent: "center", padding: "3vh 12px", overflowY: "auto" }}>
+      <div style={{ background: C.panelSolid, border: `1px solid ${C.b1}`, borderRadius: 16, padding: 22, width: "min(1180px, 97vw)", maxHeight: "94vh", overflowY: "auto" }}>
         <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 4 }}>
-          <div style={{ fontSize: 16, fontWeight: 800, color: C.t0 }}>Cargar presupuesto</div>
-          <button type="button" onClick={onClose} style={{ ...BTN, padding: "4px 9px" }}>✕</button>
+          <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+            <div style={{ fontSize: 17, fontWeight: 800, color: C.t0 }}>Cargar presupuesto</div>
+            {restaurado && !resultado && <span style={{ fontSize: 10.5, color: "#a78bfa", background: "rgba(139,92,246,0.12)", border: "1px solid rgba(139,92,246,0.3)", borderRadius: 6, padding: "2px 8px", fontWeight: 700 }}>● borrador restaurado</span>}
+          </div>
+          <div style={{ display: "flex", gap: 6 }}>
+            {(items || texto) && !resultado && <button type="button" onClick={descartar} style={{ ...BTN, padding: "4px 10px", color: C.red }}>Descartar</button>}
+            <button type="button" onClick={onClose} style={{ ...BTN, padding: "4px 9px" }} title="Cerrar — el borrador se guarda y lo recuperás al volver">✕</button>
+          </div>
         </div>
         <div style={{ fontSize: 12, color: C.t2, marginBottom: 14 }}>
-          Lo que coincide con la matriz actualiza su precio; lo nuevo lo clasifica la IA por sector (lo confirmás vos). Un presupuesto puede tener cosas de varios sectores.
+          Lo que coincide con la matriz actualiza su precio; lo nuevo lo clasifica la IA por sector (lo confirmás vos). Se guarda un borrador automático: si cerrás sin querer, lo recuperás al volver a abrir.
         </div>
 
         {err && <div style={{ marginBottom: 12 }}><ErrorBox error={err} onRetry={() => setErr(null)} /></div>}
@@ -1020,7 +1058,7 @@ function CargarPresupuestoModal({ categorias, materiales, onChanged, onClose }) 
               {linea ? `Las cantidades se cargan al BOM de la línea K${linea} (alimenta el Costo de obra de esa línea).` : "Sin línea: solo se crean/actualizan materiales y precios; las cantidades no se guardan."}
             </div>
 
-            <div style={{ display: "grid", gap: 8, maxHeight: "46vh", overflowY: "auto", paddingRight: 2 }}>
+            <div style={{ display: "grid", gap: 8, maxHeight: "58vh", overflowY: "auto", paddingRight: 4 }}>
               {items.map((it, idx) => {
                 const sel = activos.find((m) => m.id === it.material_id);
                 const tops = topMateriales(activos, it.descripcion);
@@ -1049,10 +1087,10 @@ function CargarPresupuestoModal({ categorias, materiales, onChanged, onClose }) 
                         }}
                         style={{ ...INP, flex: 1, fontSize: 12 }}
                       >
-                        <option value="">✦ Material nuevo (no vincular con la matriz)</option>
+                        <option value="" style={OPT_ST}>✦ Material nuevo (no vincular con la matriz)</option>
                         {opts.length > 0 && (
-                          <optgroup label="…o vincular con un material que ya existe:">
-                            {opts.map((m) => <option key={m.id} value={m.id}>{m.descripcion} · {categoriaNombre(categorias, m.categoria_id)}</option>)}
+                          <optgroup label="…o vincular con un material que ya existe:" style={OPTGROUP_ST}>
+                            {opts.map((m) => <option key={m.id} value={m.id} style={OPT_ST}>{m.descripcion} · {categoriaNombre(categorias, m.categoria_id)}</option>)}
                           </optgroup>
                         )}
                       </select>

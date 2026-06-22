@@ -123,6 +123,7 @@ Reglas:
 - Si no hay cantidad clara, deja cantidad null.
 - Moneda es obligatoria por item: "USD" o "ARS". Si el documento, encabezado o seccion dice USD/U$S/US$, todos los precios de esa zona son USD aunque cada linea no lo repita. Si no hay ninguna senal de USD, usa ARS.
 - Las descripciones tienen que servir para matchear contra un catalogo de materiales.
+- Si el presupuesto trae una columna de Familia/Rubro/Categoria/Tipo ADEMAS de la del articulo, combiná ambas en la descripcion: "Familia - Articulo" (ej. "TAPA TANQUE - ATTWOOD C/VENTEO WTR RECT"; "CALEFACTOR AUTOTERM - MANGUERA AIRE D90 X METRO"). NUNCA dejes solo la segunda columna: la descripcion final tiene que entenderse sola. Si el articulo trae un codigo de proveedor (ej. T13673, C89150), AGREGALO al final de la descripcion entre parentesis (ej. "TAPA TANQUE - ATTWOOD C/VENTEO WTR RECT (T13673)") para poder identificarlo.
 
 Formato:
 {
@@ -224,6 +225,7 @@ Reglas:
 - Si no hay cantidad clara, deja cantidad null.
 - Moneda es obligatoria por item: "USD" o "ARS". Si el texto dice USD/U$S/US$, todos esos precios son USD. Si no hay señal de USD, usá ARS.
 - Las descripciones tienen que servir para matchear contra un catalogo de materiales.
+- Si el presupuesto trae una columna de Familia/Rubro/Categoria/Tipo ADEMAS de la del articulo, combiná ambas en la descripcion: "Familia - Articulo" (ej. "TAPA TANQUE - ATTWOOD C/VENTEO WTR RECT"; "CALEFACTOR AUTOTERM - MANGUERA AIRE D90 X METRO"). NUNCA dejes solo la segunda columna: la descripcion final tiene que entenderse sola. Si el articulo trae un codigo de proveedor (ej. T13673, C89150), AGREGALO al final de la descripcion entre parentesis (ej. "TAPA TANQUE - ATTWOOD C/VENTEO WTR RECT (T13673)") para poder identificarlo.
 
 Formato:
 {
@@ -319,6 +321,7 @@ Reglas:
 - Si no hay cantidad clara, deja cantidad null.
 - Moneda es obligatoria por item: "USD" o "ARS". Si el documento, encabezado o seccion dice USD/U$S/US$, todos los precios de esa zona son USD aunque cada linea no lo repita. Si no hay ninguna senal de USD, usa ARS.
 - Las descripciones tienen que servir para matchear contra un catalogo de materiales.
+- Si el presupuesto trae una columna de Familia/Rubro/Categoria/Tipo ADEMAS de la del articulo, combiná ambas en la descripcion: "Familia - Articulo" (ej. "TAPA TANQUE - ATTWOOD C/VENTEO WTR RECT"; "CALEFACTOR AUTOTERM - MANGUERA AIRE D90 X METRO"). NUNCA dejes solo la segunda columna: la descripcion final tiene que entenderse sola. Si el articulo trae un codigo de proveedor (ej. T13673, C89150), AGREGALO al final de la descripcion entre parentesis (ej. "TAPA TANQUE - ATTWOOD C/VENTEO WTR RECT (T13673)") para poder identificarlo.
 
 Formato:
 {
