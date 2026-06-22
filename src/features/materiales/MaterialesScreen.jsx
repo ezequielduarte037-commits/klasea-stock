@@ -118,15 +118,19 @@ function catIdPorNombre(categorias, nombre) {
   return incl?.id || "";
 }
 
-const TABS = [
+// Principales: lo que se usa a diario. El resto va en un menú "Más ▾".
+const TABS_MAIN = [
+  { key: "matriz", label: "Lista matriz" },
+  { key: "revision", label: "Revisión guiada" },
+  { key: "costos", label: "Costo de obra" },
+];
+const TABS_MORE = [
+  { key: "comprobantes", label: "Comprobantes" },
   { key: "importar", label: "Importar" },
   { key: "bandeja", label: "Bandeja" },
-  { key: "comprobantes", label: "Comprobantes" },
-  { key: "revision", label: "Revisión guiada" },
   { key: "variantes", label: "Variantes" },
   { key: "proveedores", label: "Proveedores" },
   { key: "avance", label: "Avance" },
-  { key: "costos", label: "Costo de obra" },
   { key: "resumen", label: "Resumen" },
 ];
 
@@ -652,7 +656,7 @@ function AltaManual({ categorias, selectedId, ums, proveedores, onCreated }) {
   );
 }
 
-function MaterialRow({ material, categorias, ums, proveedores, onChanged }) {
+function MaterialRow({ material, categorias, ums, proveedores, onChanged, modelos = MODELOS, compact = false }) {
   const [draft, setDraft] = useState(() => ({ ...material, precio_unitario: inputNumberValue(material.precio_unitario) }));
   const [cantidades, setCantidades] = useState(() => toBomMap(material));
   const [saving, setSaving] = useState(false);
@@ -681,13 +685,15 @@ function MaterialRow({ material, categorias, ums, proveedores, onChanged }) {
 
   return (
     <tr>
-      <Td style={{ minWidth: 78 }}>
-        <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
-          <MaterialThumb material={material} size={38} />
-          <MaterialImageUploader material={material} onUploaded={onChanged} compact />
-        </div>
-      </Td>
-      <Td style={{ minWidth: 260 }}>
+      {!compact && (
+        <Td style={{ minWidth: 78 }}>
+          <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
+            <MaterialThumb material={material} size={38} />
+            <MaterialImageUploader material={material} onUploaded={onChanged} compact />
+          </div>
+        </Td>
+      )}
+      <Td style={{ minWidth: compact ? 230 : 260 }}>
         <input value={draft.descripcion || ""} onChange={(e) => setDraft((d) => ({ ...d, descripcion: e.target.value }))} style={{ ...INP, width: "100%" }} />
       </Td>
       <Td style={{ minWidth: 150 }}>
@@ -700,13 +706,15 @@ function MaterialRow({ material, categorias, ums, proveedores, onChanged }) {
         />
         <input value={draft.proveedor || ""} onChange={(e) => setDraft((d) => ({ ...d, proveedor: e.target.value }))} placeholder="Texto" style={{ ...INP, width: "100%", marginTop: 5 }} />
       </Td>
-      <Td style={{ minWidth: 190 }}>
-        <div style={{ display: "grid", gap: 6 }}>
-          <PriceBadge material={material} />
-          <PriceHistory material={material} />
-        </div>
-      </Td>
-      <Td style={{ minWidth: 90 }}>
+      {!compact && (
+        <Td style={{ minWidth: 190 }}>
+          <div style={{ display: "grid", gap: 6 }}>
+            <PriceBadge material={material} />
+            <PriceHistory material={material} />
+          </div>
+        </Td>
+      )}
+      <Td style={{ minWidth: compact ? 72 : 90 }}>
         <input list="materiales-ums" value={draft.unidad_medida || ""} onChange={(e) => setDraft((d) => ({ ...d, unidad_medida: e.target.value }))} style={{ ...INP, width: "100%" }} />
         <datalist id="materiales-ums">
           {ums.map((u) => <option key={u} value={u} />)}
@@ -723,7 +731,7 @@ function MaterialRow({ material, categorias, ums, proveedores, onChanged }) {
       <Td style={{ minWidth: 110 }}>
         <input value={draft.codigo || ""} onChange={(e) => setDraft((d) => ({ ...d, codigo: e.target.value }))} style={{ ...INP, width: "100%" }} />
       </Td>
-      {MODELOS.map((modelo) => (
+      {modelos.map((modelo) => (
         <Td key={modelo} style={{ minWidth: 76 }}>
           <input type="number" step="any" value={cantidades[modelo] ?? ""} onChange={(e) => setCantidades((c) => ({ ...c, [modelo]: e.target.value }))} style={{ ...INP, width: "100%", fontFamily: C.mono }} />
         </Td>
@@ -733,13 +741,15 @@ function MaterialRow({ material, categorias, ums, proveedores, onChanged }) {
           {categorias.map((c) => <option key={c.id} value={c.id}>{c.nombre}</option>)}
         </select>
       </Td>
-      <Td style={{ minWidth: 94 }}>
-        <label style={{ display: "inline-flex", alignItems: "center", gap: 6, fontSize: 12, color: draft.revisado ? C.green : C.t2 }}>
-          <input type="checkbox" checked={!!draft.revisado} onChange={(e) => setDraft((d) => ({ ...d, revisado: e.target.checked }))} />
-          Revisado
-        </label>
-      </Td>
-      <Td style={{ minWidth: 118 }}>
+      {!compact && (
+        <Td style={{ minWidth: 94 }}>
+          <label style={{ display: "inline-flex", alignItems: "center", gap: 6, fontSize: 12, color: draft.revisado ? C.green : C.t2 }}>
+            <input type="checkbox" checked={!!draft.revisado} onChange={(e) => setDraft((d) => ({ ...d, revisado: e.target.checked }))} />
+            Revisado
+          </label>
+        </Td>
+      )}
+      <Td style={{ minWidth: compact ? 90 : 118 }}>
         <div style={{ display: "flex", gap: 5 }}>
           <button type="button" onClick={save} disabled={saving} style={{ ...BTN_GREEN, padding: "6px 8px" }} title="Guardar">
             <Save size={13} />
@@ -753,64 +763,103 @@ function MaterialRow({ material, categorias, ums, proveedores, onChanged }) {
   );
 }
 
-function ListaMateriales({ categorias, materiales, selectedId, ums, proveedores, onChanged }) {
-  const [soloPendientes, setSoloPendientes] = useState(true);
+function ListaMateriales({ categorias, materiales, selectedId, ums, proveedores, onChanged, defaultSoloPendientes = true, compact = false }) {
+  const [soloPendientes, setSoloPendientes] = useState(defaultSoloPendientes);
   const [q, setQ] = useState("");
+  const [linea, setLinea] = useState(""); // "" = todas las líneas
+  const [prov, setProv] = useState(""); // "" = todos. Guarda el id de panol_proveedores.
+  // La lista sale de la tabla de Proveedores (no se infiere de los materiales).
+  const provs = useMemo(
+    () => (proveedores ?? []).filter((p) => p.activo !== false).slice().sort((a, b) => (a.nombre || "").localeCompare(b.nombre || "", "es")),
+    [proveedores],
+  );
 
   const visibles = useMemo(() => {
-    const query = q.trim().toLowerCase();
-    const scope = idsScope(categorias, selectedId);
+    // Buscador: ignora acentos y exige TODAS las palabras (AND), en descripción/proveedor/código.
+    const terms = norm(q).split(/\s+/).filter(Boolean);
+    const scope = selectedId ? idsScope(categorias, selectedId) : null;
+    // Proveedor: matchea por id; si el material sólo tiene el texto, cae al nombre.
+    const provNombre = prov ? norm((proveedores ?? []).find((p) => p.id === prov)?.nombre || "") : "";
     return materiales
       .filter(materialActivo)
-      .filter((m) => materialEnScope(m, scope))
+      .filter((m) => !scope || materialEnScope(m, scope))
+      .filter((m) => !linea || toNum(toBomMap(m)[linea]) > 0) // solo los que van en esa línea
+      .filter((m) => !prov || m.proveedor_id === prov || (provNombre && norm(m.proveedor) === provNombre))
       .filter((m) => !soloPendientes || !m.revisado)
       .filter((m) => {
-        if (!query) return true;
-        return `${m.descripcion ?? ""} ${m.proveedor ?? ""}`.toLowerCase().includes(query);
+        if (!terms.length) return true;
+        const hay = norm(`${m.descripcion ?? ""} ${m.proveedor ?? ""} ${m.codigo ?? ""}`);
+        return terms.every((t) => hay.includes(t));
       });
-  }, [materiales, categorias, q, selectedId, soloPendientes]);
+  }, [materiales, categorias, q, selectedId, soloPendientes, linea, prov, proveedores]);
+
+  // Si se filtra por una línea, mostramos solo esa columna de cantidad (más prolijo y angosto).
+  const modelos = linea ? [linea] : MODELOS;
+
+  // Scroll horizontal con la rueda normal (sin Shift): mientras haya para correr en esa
+  // dirección lo consume; al llegar al borde, suelta para que la página scrollee vertical.
+  const scrollRef = useRef(null);
+  const onWheel = (e) => {
+    const el = scrollRef.current;
+    if (!el || e.deltaY === 0 || e.shiftKey) return;
+    const max = el.scrollWidth - el.clientWidth;
+    if (max <= 0) return;
+    const atStart = el.scrollLeft <= 0;
+    const atEnd = el.scrollLeft >= max - 1;
+    if ((e.deltaY > 0 && !atEnd) || (e.deltaY < 0 && !atStart)) {
+      el.scrollLeft += e.deltaY;
+      e.preventDefault();
+    }
+  };
 
   return (
     <div>
       <div style={{ display: "flex", gap: 8, flexWrap: "wrap", alignItems: "center", marginBottom: 12 }}>
         <div style={{ position: "relative", minWidth: 220, flex: "1 1 260px" }}>
           <Search size={14} style={{ position: "absolute", left: 10, top: 10, color: C.t2 }} />
-          <input value={q} onChange={(e) => setQ(e.target.value)} placeholder="Buscar por descripción o proveedor" style={{ ...INP, width: "100%", paddingLeft: 30 }} />
+          <input value={q} onChange={(e) => setQ(e.target.value)} placeholder="Buscar por descripción, proveedor o código… (varias palabras)" style={{ ...INP, width: "100%", paddingLeft: 30 }} />
+          {q && <button type="button" onClick={() => setQ("")} title="Limpiar" style={{ position: "absolute", right: 6, top: 6, background: "transparent", border: "none", color: C.t2, cursor: "pointer", fontSize: 14, lineHeight: 1, padding: 3 }}>✕</button>}
         </div>
+        <select value={linea} onChange={(e) => setLinea(e.target.value)} style={{ ...INP, width: 150 }} title="Filtrar por línea de producción: solo materiales con cantidad en ese modelo">
+          <option value="" style={OPT_ST}>Todas las líneas</option>
+          {MODELOS.map((m) => <option key={m} value={m} style={OPT_ST}>Solo línea K{m}</option>)}
+        </select>
+        <select value={prov} onChange={(e) => setProv(e.target.value)} style={{ ...INP, width: 180, maxWidth: "40vw" }} title="Filtrar por proveedor">
+          <option value="" style={OPT_ST}>Todos los proveedores</option>
+          {provs.map((p) => <option key={p.id} value={p.id} style={OPT_ST}>{p.nombre}</option>)}
+        </select>
         <label style={{ display: "inline-flex", alignItems: "center", gap: 7, color: C.t1, fontSize: 13 }}>
           <input type="checkbox" checked={soloPendientes} onChange={(e) => setSoloPendientes(e.target.checked)} />
-          Ver sólo no revisados
+          Sólo no revisados
         </label>
-        <span style={{ color: C.t2, fontSize: 12 }}>{visibles.length} materiales</span>
+        <span style={{ color: C.t2, fontSize: 12 }}>{visibles.length} materiales{linea ? ` · K${linea}` : ""}</span>
       </div>
 
-      <div style={{ overflowX: "auto", border: `1px solid ${C.b0}`, borderRadius: 12 }}>
-        <table style={{ width: "100%", minWidth: 1480, borderCollapse: "collapse" }}>
+      <div ref={scrollRef} onWheel={onWheel} style={{ overflowX: "auto", border: `1px solid ${C.b0}`, borderRadius: 12 }}>
+        <table style={{ width: "100%", minWidth: (compact ? 820 : 1252) + modelos.length * 76, borderCollapse: "collapse" }}>
           <thead>
             <tr>
-              <Th>Imagen</Th>
+              {!compact && <Th>Imagen</Th>}
               <Th>Descripción</Th>
               <Th>Proveedor</Th>
-              <Th>Último precio</Th>
+              {!compact && <Th>Último precio</Th>}
               <Th>UM</Th>
               <Th>Precio</Th>
               <Th>Moneda</Th>
               <Th>Código</Th>
-              <Th>K37</Th>
-              <Th>K52</Th>
-              <Th>K55</Th>
+              {modelos.map((m) => <Th key={m}>K{m}</Th>)}
               <Th>Sector</Th>
-              <Th>Estado</Th>
+              {!compact && <Th>Estado</Th>}
               <Th>Acción</Th>
             </tr>
           </thead>
           <tbody>
             {visibles.map((material) => (
-              <MaterialRow key={material.id} material={material} categorias={categorias} ums={ums} proveedores={proveedores} onChanged={onChanged} />
+              <MaterialRow key={material.id} material={material} categorias={categorias} ums={ums} proveedores={proveedores} onChanged={onChanged} modelos={modelos} compact={compact} />
             ))}
             {!visibles.length && (
               <tr>
-                <td colSpan={14} style={{ padding: 18, fontSize: 13, color: C.t2, textAlign: "center" }}>
+                <td colSpan={(compact ? 8 : 11) + modelos.length} style={{ padding: 18, fontSize: 13, color: C.t2, textAlign: "center" }}>
                   No hay materiales con esos filtros.
                 </td>
               </tr>
@@ -1686,9 +1735,66 @@ function CostoObraTab({ categorias, materiales }) {
   );
 }
 
+// Lista matriz: el catálogo completo, navegable por sector/subsector, editable (descripción,
+// precio, cantidades por línea K37/K52/K55, sector). Reusa la tabla MaterialRow.
+function MatrizTab({ categorias, materiales, proveedores, onChanged }) {
+  const [sel, setSel] = useState(""); // "" = todos los sectores
+  const ums = useMemo(
+    () => [...new Set((materiales ?? []).map((m) => m.unidad_medida).filter(Boolean).map(String))].sort((a, b) => a.localeCompare(b, "es")),
+    [materiales],
+  );
+  const raices = useMemo(() => categorias.filter(esRaiz), [categorias]);
+  const selCat = categorias.find((c) => c.id === sel);
+  const parentActivo = selCat ? (selCat.parent_id ? categorias.find((c) => c.id === selCat.parent_id) : selCat) : null;
+  const subs = parentActivo ? hijosDe(categorias, parentActivo.id) : [];
+
+  const countDe = useCallback((id) => {
+    const scope = id ? idsScope(categorias, id) : null;
+    return (materiales ?? []).filter(materialActivo).filter((m) => !scope || materialEnScope(m, scope)).length;
+  }, [materiales, categorias]);
+
+  const Chip = ({ id, label, active }) => (
+    <button
+      type="button"
+      onClick={() => setSel(id)}
+      style={{ ...BTN, padding: "7px 12px", background: active ? "rgba(59,130,246,0.14)" : C.s0, border: `1px solid ${active ? "rgba(59,130,246,0.35)" : C.b0}`, color: active ? "#60a5fa" : C.t1 }}
+    >
+      {label} <span style={{ color: active ? "#93c5fd" : C.t2, fontFamily: C.mono, marginLeft: 5 }}>{countDe(id)}</span>
+    </button>
+  );
+
+  return (
+    <div>
+      <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
+        <Chip id="" label="Todos" active={!sel} />
+        {raices.map((r) => <Chip key={r.id} id={r.id} label={r.nombre} active={sel === r.id || selCat?.parent_id === r.id} />)}
+      </div>
+      {parentActivo && subs.length > 0 && (
+        <div style={{ display: "flex", gap: 7, flexWrap: "wrap", marginTop: 9, paddingLeft: 12, borderLeft: `2px solid ${C.b0}` }}>
+          <Chip id={parentActivo.id} label={`${parentActivo.nombre} · todo`} active={sel === parentActivo.id} />
+          {subs.map((s) => <Chip key={s.id} id={s.id} label={s.nombre} active={sel === s.id} />)}
+        </div>
+      )}
+      <div style={{ marginTop: 16 }}>
+        <ListaMateriales
+          categorias={categorias}
+          materiales={materiales}
+          selectedId={sel}
+          ums={ums}
+          proveedores={proveedores}
+          onChanged={onChanged}
+          defaultSoloPendientes={false}
+          compact
+        />
+      </div>
+    </div>
+  );
+}
+
 export default function MaterialesScreen({ profile, signOut }) {
   const { isMobile } = useResponsive();
-  const [tab, setTab] = useState("importar");
+  const [tab, setTab] = useState("matriz");
+  const [moreOpen, setMoreOpen] = useState(false);
   const [categorias, setCategorias] = useState(null);
   const [materiales, setMateriales] = useState(null);
   const [batches, setBatches] = useState([]);
@@ -1772,34 +1878,37 @@ export default function MaterialesScreen({ profile, signOut }) {
             <Cargando />
           ) : (
             <>
-              <div style={{ display: "flex", gap: 4, marginBottom: 20, flexWrap: "wrap", borderBottom: `1px solid ${C.b0}` }}>
-                {TABS.map((t) => {
-                  const on = tab === t.key;
-                  return (
-                    <button
-                      key={t.key}
-                      type="button"
-                      onClick={() => setTab(t.key)}
-                      style={{
-                        padding: "9px 16px",
-                        cursor: "pointer",
-                        fontSize: 13,
-                        fontFamily: C.sans,
-                        fontWeight: on ? 700 : 500,
-                        color: on ? C.t0 : C.t2,
-                        background: "transparent",
-                        border: "none",
-                        borderBottom: `2px solid ${on ? "#60a5fa" : "transparent"}`,
-                        marginBottom: -1,
-                        transition: "all .15s",
-                      }}
-                    >
-                      {t.label}
-                    </button>
-                  );
-                })}
-              </div>
+              {(() => {
+                const tabStyle = (on) => ({ padding: "9px 16px", cursor: "pointer", fontSize: 13, fontFamily: C.sans, fontWeight: on ? 700 : 500, color: on ? C.t0 : C.t2, background: "transparent", border: "none", borderBottom: `2px solid ${on ? "#60a5fa" : "transparent"}`, marginBottom: -1, transition: "all .15s" });
+                const moreActive = TABS_MORE.find((t) => t.key === tab);
+                return (
+                  <div style={{ display: "flex", gap: 4, marginBottom: 20, flexWrap: "wrap", borderBottom: `1px solid ${C.b0}` }}>
+                    {TABS_MAIN.map((t) => (
+                      <button key={t.key} type="button" onClick={() => { setTab(t.key); setMoreOpen(false); }} style={tabStyle(tab === t.key)}>{t.label}</button>
+                    ))}
+                    <div style={{ position: "relative" }}>
+                      <button type="button" onClick={() => setMoreOpen((o) => !o)} style={{ ...tabStyle(!!moreActive), padding: "9px 14px" }}>
+                        {moreActive ? moreActive.label : "Más"} ▾
+                      </button>
+                      {moreOpen && (
+                        <>
+                          <div onClick={() => setMoreOpen(false)} style={{ position: "fixed", inset: 0, zIndex: 40 }} />
+                          <div style={{ position: "absolute", top: "100%", left: 0, marginTop: 4, zIndex: 41, background: C.panelSolid, border: `1px solid ${C.b1}`, borderRadius: 10, padding: 5, minWidth: 180, boxShadow: "0 8px 28px rgba(0,0,0,0.4)" }}>
+                            {TABS_MORE.map((t) => (
+                              <button key={t.key} type="button" onClick={() => { setTab(t.key); setMoreOpen(false); }}
+                                style={{ display: "block", width: "100%", textAlign: "left", padding: "8px 12px", fontSize: 13, fontFamily: C.sans, borderRadius: 7, cursor: "pointer", border: "none", background: tab === t.key ? C.s1 : "transparent", color: tab === t.key ? C.t0 : C.t1 }}>
+                                {t.label}
+                              </button>
+                            ))}
+                          </div>
+                        </>
+                      )}
+                    </div>
+                  </div>
+                );
+              })()}
 
+              {tab === "matriz" && <MatrizTab categorias={categorias} materiales={materiales} proveedores={proveedores} onChanged={cargar} />}
               {tab === "importar" && <ImportarTab batches={batches} onImported={cargar} />}
               {tab === "bandeja" && <BandejaTab categorias={categorias} materiales={materiales} onChanged={cargar} />}
               {tab === "comprobantes" && <ComprobantesTab categorias={categorias} materiales={materiales} proveedores={proveedores} comprobantes={comprobantes} onChanged={cargar} />}
