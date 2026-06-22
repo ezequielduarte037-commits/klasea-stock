@@ -225,6 +225,52 @@ export async function removeRequestFollower(requestId, userId) {
   if (error) throw error;
 }
 
+export async function setRequestFollowerWhatsapp(requestId, enabled) {
+  const { data: { session } = {}, error: authError } = await supabase.auth.getSession();
+  if (authError) throw authError;
+  const userId = session?.user?.id;
+  if (!userId) throw new Error("No hay usuario autenticado.");
+
+  const { data, error } = await supabase
+    .from("request_followers")
+    .update({
+      notify_whatsapp: !!enabled,
+      notify_whatsapp_at: enabled ? new Date().toISOString() : null,
+    })
+    .eq("request_id", requestId)
+    .eq("user_id", userId)
+    .select("request_id, user_id, notify_whatsapp, notify_whatsapp_at")
+    .single();
+
+  if (error) {
+    if (String(error.message || "").includes("notify_whatsapp")) {
+      throw new Error("Falta aplicar la migracion de notificaciones por WhatsApp.");
+    }
+    throw error;
+  }
+  return data;
+}
+
+export async function fetchRequestFollowerWhatsappPreference(requestId) {
+  const { data: { session } = {}, error: authError } = await supabase.auth.getSession();
+  if (authError) throw authError;
+  const userId = session?.user?.id;
+  if (!userId) return null;
+
+  const { data, error } = await supabase
+    .from("request_followers")
+    .select("request_id, user_id, notify_whatsapp, notify_whatsapp_at")
+    .eq("request_id", requestId)
+    .eq("user_id", userId)
+    .maybeSingle();
+
+  if (error) {
+    if (String(error.message || "").includes("notify_whatsapp")) return null;
+    throw error;
+  }
+  return data;
+}
+
 export function extractMentionUserIds(text, users) {
   const found = new Set();
   const lowered = text.toLowerCase();

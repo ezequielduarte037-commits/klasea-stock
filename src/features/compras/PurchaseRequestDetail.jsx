@@ -2,6 +2,8 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import {
   Archive,
   ArrowLeft,
+  Bell,
+  BellOff,
   CheckCircle2,
   Clock,
   Image as ImageIcon,
@@ -24,6 +26,7 @@ import {
   addRequestFollower,
   fetchPurchaseRequestDetail,
   fetchRequestItems,
+  fetchRequestFollowerWhatsappPreference,
   addRequestItem,
   updateRequestItem,
   deleteRequestItem,
@@ -36,6 +39,7 @@ import {
   notifyComprasEmail,
   notifyWaUpdate,
   propagateAdditionalFromRequest,
+  setRequestFollowerWhatsapp,
   updatePurchaseRequest,
   uploadInvoice,
   uploadItemImage,
@@ -293,6 +297,7 @@ export default function PurchaseRequestDetail({ requestId, profile, users = [], 
   const [costosOpen, setCostosOpen] = useState(false); // bloque costos/recepción colapsado por defecto
   const [panolModal, setPanolModal] = useState(false);
   const [enviosPanol, setEnviosPanol] = useState([]); // envíos a pañol vinculados a este pedido
+  const [savingFollowerWa, setSavingFollowerWa] = useState(false);
   const bottomRef = useRef(null);
   const reloadTimer = useRef(null);
   const toast = useToast();
@@ -304,6 +309,11 @@ export default function PurchaseRequestDetail({ requestId, profile, users = [], 
     [items]
   );
   const canSendToPanol = manager && request?.status === "comprado" && itemsParaPanol.length > 0;
+  const myFollower = useMemo(
+    () => (request?.followers || []).find((item) => item.user_id === profile?.id),
+    [request?.followers, profile?.id],
+  );
+  const followerWaEnabled = !!myFollower?.notify_whatsapp;
   const descriptionIsLong = useMemo(() => {
     const text = String(request?.description ?? "")
       .replace(/<[^>]*>/g, " ")
@@ -331,13 +341,28 @@ export default function PurchaseRequestDetail({ requestId, profile, users = [], 
     setError("");
     setLoading(true);
     try {
-      const [data, itemsData, movementsData, enviosData] = await Promise.all([
+      const [data, itemsData, movementsData, enviosData, waPreference] = await Promise.all([
         fetchPurchaseRequestDetail(requestId),
         fetchRequestItems(requestId),
         fetchGeneratedMovementsForRequest(requestId),
         fetchEnviosDePedido(requestId).catch(() => []),
+        fetchRequestFollowerWhatsappPreference(requestId).catch(() => null),
       ]);
-      setRequest(data);
+      const requestData = waPreference
+        ? {
+            ...data,
+            followers: (data.followers || []).map((item) =>
+              item.user_id === waPreference.user_id
+                ? {
+                    ...item,
+                    notify_whatsapp: waPreference.notify_whatsapp,
+                    notify_whatsapp_at: waPreference.notify_whatsapp_at,
+                  }
+                : item,
+            ),
+          }
+        : data;
+      setRequest(requestData);
       setItems(itemsData);
       setGeneratedMovements(movementsData);
       setEnviosPanol(enviosData);
@@ -570,6 +595,38 @@ export default function PurchaseRequestDetail({ requestId, profile, users = [], 
       onRequestUpdated?.();
     } catch (err) {
       setError(err.message);
+    }
+  }
+
+  async function handleToggleFollowerWhatsapp() {
+    if (!myFollower || savingFollowerWa) return;
+    const next = !followerWaEnabled;
+    setSavingFollowerWa(true);
+    setError("");
+    try {
+      const updated = await setRequestFollowerWhatsapp(request.id, next);
+      setRequest((prev) => ({
+        ...prev,
+        followers: (prev?.followers || []).map((item) =>
+          item.user_id === profile?.id
+            ? {
+                ...item,
+                notify_whatsapp: updated.notify_whatsapp,
+                notify_whatsapp_at: updated.notify_whatsapp_at,
+              }
+            : item,
+        ),
+      }));
+      toast.success(next
+        ? "Listo: el bot te va a avisar las novedades de este pedido."
+        : "Notificaciones por WhatsApp desactivadas para este pedido.");
+      onRequestUpdated?.();
+    } catch (err) {
+      const msg = err.message || "No se pudo cambiar la notificacion por WhatsApp.";
+      setError(msg);
+      toast.error(msg);
+    } finally {
+      setSavingFollowerWa(false);
     }
   }
 
@@ -1913,6 +1970,51 @@ export default function PurchaseRequestDetail({ requestId, profile, users = [], 
                 />
               ))}
             </div>
+            {myFollower && (
+              <div style={{
+                marginTop: 10,
+                border: `1px solid ${followerWaEnabled ? C.green + "55" : C.border}`,
+                background: followerWaEnabled ? `${C.green}12` : C.panel,
+                borderRadius: 9,
+                padding: 10,
+                display: "grid",
+                gap: 8,
+              }}>
+                <button
+                  type="button"
+                  onClick={handleToggleFollowerWhatsapp}
+                  disabled={savingFollowerWa}
+                  style={{
+                    display: "flex",
+                    alignItems: "center",
+                    justifyContent: "center",
+                    gap: 8,
+                    border: `1px solid ${followerWaEnabled ? C.green + "66" : C.blue + "55"}`,
+                    background: followerWaEnabled ? C.green : C.panelSolid,
+                    color: followerWaEnabled ? C.bg : C.blue,
+                    borderRadius: 8,
+                    padding: "8px 10px",
+                    cursor: savingFollowerWa ? "default" : "pointer",
+                    opacity: savingFollowerWa ? 0.65 : 1,
+                    fontSize: 12,
+                    fontWeight: 800,
+                    fontFamily: C.sans,
+                  }}
+                >
+                  {followerWaEnabled ? <BellOff size={13} /> : <Bell size={13} />}
+                  {savingFollowerWa
+                    ? "Guardando..."
+                    : followerWaEnabled
+                      ? "No avisarme por WhatsApp"
+                      : "Notificarme por WhatsApp"}
+                </button>
+                <div style={{ color: followerWaEnabled ? C.green : C.dim, fontSize: 11, lineHeight: 1.35 }}>
+                  {followerWaEnabled
+                    ? "El bot te avisa cuando compras actualice este pedido."
+                    : "Si tenes el bot vinculado, vas a recibir cambios de estado, mensajes e items."}
+                </div>
+              </div>
+            )}
           </div>
 
           <div style={{ padding: 10, border: `1px solid ${C.border}`, borderRadius: 9, background: C.panel }}>

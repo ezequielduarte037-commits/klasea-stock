@@ -6,9 +6,9 @@
 // se entera por WA sin tener que abrir la web.
 //
 // Reglas:
-//   - Recipient: solo el creator (no assignee, no followers/CC).
-//   - Skip si el actor es el propio creador (no se autonotifica), salvo "created".
-//   - Skip si el creador no tiene teléfono vinculado a WhatsApp.
+//   - Recipient: creator + followers que activaron notify_whatsapp.
+//   - Skip si el actor es el propio recipient (no se autonotifica), salvo "created".
+//   - Skip si el destinatario no tiene teléfono vinculado a WhatsApp.
 //
 // Payload esperado:
 // {
@@ -119,19 +119,42 @@ async function notifyParticipants(args: NotifyArgs): Promise<{ sent: number; ski
     return { sent: 0, skipped: 0, errors: 0 };
   }
 
-  // Regla: SOLO se notifica al creador del pedido.
-  // Si el actor es el mismo creador (modificó algo de su propio pedido), no se notifica.
+  // Regla: se notifica al creador y a los copiados que pidieron WhatsApp.
+  // Si el actor es el mismo destinatario, no se notifica.
   const creatorId = request.created_by;
-  if (!creatorId) return { sent: 0, skipped: 0, errors: 0 };
-  if (args.eventType !== "created" && args.actorId && args.actorId === creatorId) {
+  const recipientIds = new Set<string>();
+
+  if (creatorId && (args.eventType === "created" || !args.actorId || args.actorId !== creatorId)) {
+    recipientIds.add(creatorId);
+  }
+
+  const { data: followerRows, error: followerErr } = await db
+    .from("request_followers")
+    .select("user_id")
+    .eq("request_id", args.requestId)
+    .eq("notify_whatsapp", true);
+
+  if (followerErr) {
+    console.error("[notify-wa-update] error buscando followers:", followerErr);
+    return { sent: 0, skipped: 0, errors: 1 };
+  }
+
+  for (const f of followerRows || []) {
+    const uid = String((f as any).user_id || "");
+    if (!uid) continue;
+    if (args.actorId && args.actorId === uid) continue;
+    recipientIds.add(uid);
+  }
+
+  if (recipientIds.size === 0) {
     return { sent: 0, skipped: 1, errors: 0 };
   }
 
-  // Buscar teléfono verificado del creador
+  // Buscar teléfonos verificados de destinatarios
   const { data: phones, error: phErr } = await db
     .from("user_phones")
     .select("user_id, phone, profiles:profiles!user_phones_user_id_fkey(username)")
-    .eq("user_id", creatorId)
+    .in("user_id", [...recipientIds])
     .not("verified_at", "is", null);
 
   if (phErr) {
@@ -140,14 +163,14 @@ async function notifyParticipants(args: NotifyArgs): Promise<{ sent: number; ski
   }
 
   if (!phones || phones.length === 0) {
-    // El creador no tiene WhatsApp vinculado — no podemos notificar.
-    return { sent: 0, skipped: 1, errors: 0 };
+    // Nadie tiene WhatsApp vinculado — no podemos notificar.
+    return { sent: 0, skipped: recipientIds.size, errors: 0 };
   }
 
   const message = formatMessage(args.eventType, request as any, args.payload);
   if (!message) {
     console.warn("[notify-wa-update] eventType desconocido:", args.eventType);
-    return { sent: 0, skipped: phones.length, errors: 0 };
+    return { sent: 0, skipped: recipientIds.size, errors: 0 };
   }
 
   let sent = 0, errors = 0;
@@ -164,7 +187,7 @@ async function notifyParticipants(args: NotifyArgs): Promise<{ sent: number; ski
     }
   }
 
-  return { sent, skipped: Math.max(0, phones.length - sent), errors };
+  return { sent, skipped: Math.max(0, recipientIds.size - sent), errors };
 }
 
 async function notifyAvisoParticipants(args: NotifyAvisoArgs): Promise<{ sent: number; skipped: number; errors: number }> {
