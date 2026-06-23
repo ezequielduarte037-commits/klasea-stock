@@ -40,6 +40,12 @@ function dayToDate(day, periodo) {
     : isoOf({ y: hasta.y, mo: hasta.mo, d: day });
 }
 
+const GAP_SALIDA_MIN = 60; // fichadas más cercanas que esto = mismo evento (duplicado del fichero), no salida
+function fichaToMin(s) {
+  const m = /^(\d{1,2}):(\d{2})/.exec(String(s || "").trim());
+  return m ? Number(m[1]) * 60 + Number(m[2]) : null;
+}
+
 function parsePunches(cell) {
   if (cell == null) return [];
   return String(cell)
@@ -108,12 +114,11 @@ export function parseHikvisionReport(arrayBuffer) {
     for (const { col, fecha } of dayCols) {
       const fichadas = parsePunches(r[col]);
       if (!fichadas.length) continue; // sin fichadas ese día = ausente, no se crea fila
-      marcaciones.push({
-        fecha,
-        entrada: fichadas[0],
-        salida: fichadas.length >= 2 ? fichadas[fichadas.length - 1] : null,
-        fichadas,
-      });
+      const ult = fichadas[fichadas.length - 1];
+      const eMin = fichaToMin(fichadas[0]);
+      const uMin = fichaToMin(ult);
+      const salida = fichadas.length >= 2 && eMin != null && uMin != null && uMin - eMin >= GAP_SALIDA_MIN ? ult : null;
+      marcaciones.push({ fecha, entrada: fichadas[0], salida, fichadas });
     }
     empleados.push({ dni, nombre, marcaciones });
   }

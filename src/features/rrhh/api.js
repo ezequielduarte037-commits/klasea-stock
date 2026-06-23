@@ -50,7 +50,8 @@ export async function fetchMarcaciones(desde, hasta) {
     out.push(...(data ?? []));
     if (!data || data.length < PAGE) break;
   }
-  return out;
+  // Corrige salidas falsas por fichadas duplicadas. Las editadas a mano se respetan.
+  return out.map((m) => (m.editado_por ? m : { ...m, ...resolverEntradaSalida(m) }));
 }
 
 export async function fetchJustificaciones(desde, hasta) {
@@ -161,6 +162,24 @@ export function minToHM(min) {
   return `${neg ? "-" : ""}${Math.floor(v / 60)}:${String(v % 60).padStart(2, "0")}`;
 }
 
+// Una salida sólo cuenta si está lo bastante lejos de la entrada. Fichadas más cercanas
+// que esto son el MISMO evento repetido (el fichero a veces toma la cara 2-3 veces seguidas
+// a la mañana, y eso no es una salida).
+const GAP_SALIDA_MIN = 60;
+
+// Recalcula entrada/salida desde las fichadas reales, descartando los duplicados del fichero.
+// Si no hay fichadas (o fue editada a mano) se respeta lo guardado.
+export function resolverEntradaSalida(m) {
+  const arr = Array.isArray(m?.fichadas) ? m.fichadas.filter(Boolean) : [];
+  if (!arr.length) return { entrada: m?.entrada ?? null, salida: m?.salida ?? null };
+  const entrada = arr[0];
+  if (arr.length < 2) return { entrada, salida: null };
+  const e = timeToMin(entrada);
+  const u = timeToMin(arr[arr.length - 1]);
+  const salida = e != null && u != null && u - e >= GAP_SALIDA_MIN ? arr[arr.length - 1] : null;
+  return { entrada, salida };
+}
+
 // Duración trabajada de una marcación (min) — null si no tiene salida.
 export function duracionMin(m) {
   const e = timeToMin(m.entrada);
@@ -169,19 +188,28 @@ export function duracionMin(m) {
   return Math.max(0, s - e);
 }
 
+// Las extras cuentan en bloques de media hora: menos de 30 min no cuenta y se redondea
+// hacia abajo (35→30, 65→60). Nunca resta por salir unos minutos antes (Math.max(0,...)).
+const EXTRA_BLOQUE_MIN = 30;
+
 export function extraFueraVentanaMin(m, cfg) {
   const entrada = timeToMin(m.entrada);
   const salida = timeToMin(m.salida);
   if (entrada == null || salida == null) return null;
   const trabajado = Math.max(0, salida - entrada);
   const dow = diaSemana(m.fecha);
-  if (dow === 0 || dow === 6) return trabajado;
-
-  const inicio = timeToMin(cfg?.hora_inicio ?? "07:00") ?? 420;
-  const fin = timeToMin(cfg?.hora_fin ?? "16:00") ?? 960;
-  const antes = Math.max(0, Math.min(salida, inicio) - entrada);
-  const despues = Math.max(0, salida - Math.max(entrada, fin));
-  return antes + despues;
+  let bruto;
+  if (dow === 0 || dow === 6) {
+    bruto = trabajado; // sábado/domingo: todo extra
+  } else {
+    const inicio = timeToMin(cfg?.hora_inicio ?? "07:00") ?? 420;
+    const fin = timeToMin(cfg?.hora_fin ?? "16:00") ?? 960;
+    const antes = Math.max(0, Math.min(salida, inicio) - entrada);
+    const despues = Math.max(0, salida - Math.max(entrada, fin));
+    bruto = antes + despues;
+  }
+  const bloque = Number(cfg?.extra_bloque_min) > 0 ? Number(cfg.extra_bloque_min) : EXTRA_BLOQUE_MIN;
+  return Math.floor(bruto / bloque) * bloque; // redondeo hacia abajo; < bloque = 0
 }
 
 export function diaSemana(fechaIso) {

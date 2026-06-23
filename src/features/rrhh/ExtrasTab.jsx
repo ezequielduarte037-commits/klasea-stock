@@ -4,16 +4,22 @@ import { useEffect, useMemo, useState } from "react";
 import { C } from "@/theme";
 import {
   addDays, diaSemana, downloadCsv, duracionMin, fetchMarcaciones, fmtFecha, fmtFechaCorta,
-  hoyIso, minToHM, SEDES, timeToMin,
+  hhmm, hoyIso, minToHM, SEDES, timeToMin,
 } from "./api";
 import { BTN, Cargando, ErrorBox, GrupoBadge, INP, KpiCard, Td, Th } from "./ui";
 
 const EXTRA_DESDE = "16:00";
 const INICIO_CONTEO = "07:00";
 const EXTRA_MINIMA_MIN = 30;
+const EXTRA_BLOQUE_MIN = 30; // las extras se cuentan POR DÍA en bloques de media hora (floor); < 30 min = 0
 
 function safeText(value) {
   return String(value ?? "").toLowerCase();
+}
+
+// Redondea las extras de un día hacia abajo a media hora: 2 min = 0, 35 = 30, 65 = 60.
+function redondearExtra(min) {
+  return Math.floor(Math.max(0, min) / EXTRA_BLOQUE_MIN) * EXTRA_BLOQUE_MIN;
 }
 
 function extraOperativaMin(m) {
@@ -22,10 +28,14 @@ function extraOperativaMin(m) {
   if (entrada == null || salida == null) return 0;
   const dow = diaSemana(m.fecha);
   const inicioConteo = timeToMin(INICIO_CONTEO) ?? 420;
-  if (dow === 6) return Math.max(0, salida - Math.max(entrada, inicioConteo));
-  if (dow === 0) return 0;
-  const desde = timeToMin(EXTRA_DESDE) ?? 975;
-  return Math.max(0, salida - Math.max(entrada, desde));
+  let bruto;
+  if (dow === 6) bruto = Math.max(0, salida - Math.max(entrada, inicioConteo));
+  else if (dow === 0) bruto = 0;
+  else {
+    const desde = timeToMin(EXTRA_DESDE) ?? 975;
+    bruto = Math.max(0, salida - Math.max(entrada, desde));
+  }
+  return redondearExtra(bruto);
 }
 
 function nombreContratista(emp) {
@@ -525,7 +535,7 @@ export default function ExtrasTab({ empleados, contratistas }) {
       </div>
 
       <div style={{ fontSize: 12, color: C.t2, margin: "-4px 0 14px", lineHeight: 1.6 }}>
-        Regla: lunes a viernes suma extra desde {EXTRA_DESDE}, sin importar si entro tarde. Antes de {INICIO_CONTEO} no cuenta para sabados. Se muestran personas con al menos {EXTRA_MINIMA_MIN} minutos extra.
+        Regla: lunes a viernes suma extra desde {EXTRA_DESDE}, sin importar si entro tarde. Antes de {INICIO_CONTEO} no cuenta para sabados. <strong>Las extras se cuentan por día en bloques de media hora</strong> (menos de 30 min no cuenta; 35 → 30; 65 → 60). Se muestran personas con al menos {EXTRA_MINIMA_MIN} minutos extra.
       </div>
 
       {error && <ErrorBox error={error} />}
@@ -592,7 +602,7 @@ function FilaExtra({ r, open, onToggle }) {
                   border: `1px solid ${d.extra > 0 ? "rgba(245,158,11,0.25)" : C.b0}`,
                   color: d.extra > 0 ? C.amber : C.t2,
                 }}>
-                  {fmtFechaCorta(d.fecha)} · {minToHM(d.min)}{d.extra > 0 && ` (+${minToHM(d.extra)})`}
+                  {fmtFechaCorta(d.fecha)} · {hhmm(d.entrada) || "—"}{d.salida ? `–${hhmm(d.salida)}` : " · sin salida"}{d.extra > 0 && ` (+${minToHM(d.extra)})`}
                 </div>
               ))}
             </div>

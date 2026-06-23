@@ -1,5 +1,5 @@
 ﻿import React, { useEffect, useState } from "react";
-import { Eye, KeyRound, Moon, Phone, Sun } from "lucide-react";
+import { Eye, KeyRound, LogOut, Moon, Phone, Sun } from "lucide-react";
 import { Link, useLocation } from "react-router-dom";
 import logoK from "@/assets/logos/logo-k.png";
 import { useResponsive } from "@/hooks/useResponsive";
@@ -150,8 +150,11 @@ const CSS = `
   .sb-dot { animation: sb-beat 2.8s ease-in-out infinite; }
   .sb-online { animation: sb-online 3.5s ease-in-out infinite; }
   .sb-out { transition: color .18s, background .18s, border-color .18s; }
-  .sb-out:hover { color: #f87171 !important; border-color: rgba(248,113,113,.3) !important; background: rgba(248,113,113,.06) !important; }
-  .sb-theme { transition: color .16s, background .16s; }
+  .sb-out:hover { color: var(--blue) !important; border-color: var(--blue-border) !important; background: var(--blue-soft) !important; }
+  .sb-logout { transition: color .18s, background .18s, border-color .18s; }
+  .sb-logout:hover { color: #f87171 !important; border-color: rgba(248,113,113,.3) !important; background: rgba(248,113,113,.06) !important; }
+  .sb-theme { transition: color .16s, background .16s, box-shadow .16s; }
+  .sb-theme:hover { color: var(--text) !important; background: var(--panel-2) !important; }
 `;
 
 // ─── COMPONENT ────────────────────────────────────────────────────────────────
@@ -431,56 +434,103 @@ export default function Sidebar({ profile, signOut }) {
         </div>
 
         {/* FOOTER ────────────────────────────────────────────────────────── */}
-        <div style={{ borderTop: `1px solid ${C.border}`, padding: "12px 16px", display: "flex", alignItems: "center", gap: 9, animation: "sb-up .38s cubic-bezier(.22,1,.36,1) .12s both" }}>
-          <div style={{ width: 30, height: 30, borderRadius: 8, flexShrink: 0, background: C.panel2, border: `1px solid ${C.border}`, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 11, fontWeight: 700, color: C.muted, letterSpacing: .5 }}>
-            {initials || "?"}
-          </div>
-          <div style={{ flex: 1, minWidth: 0 }}>
-            <div style={{ fontSize: 12, color: C.text, letterSpacing: ".5px", fontWeight: 700, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", marginBottom: 2 }}>
-              {username}
-            </div>
-            <div style={{ display: "inline-flex", alignItems: "center", gap: 5 }}>
-              <div className="sb-online" style={{ width: 5, height: 5, borderRadius: "50%", background: "#22c55e", flexShrink: 0 }}/>
-              <span style={{ fontSize: 10, color: C.dim, letterSpacing: "1.1px", textTransform: "uppercase", fontWeight: 700 }}>{role}</span>
-            </div>
-          </div>
-          <button
-            type="button"
-            onClick={() => setPasswordOpen(true)}
-            title="Cambiar contraseña"
-            className="sb-out"
-            style={{
-              background: "transparent",
+        <div style={{
+          borderTop: `1px solid ${C.border}`,
+          padding: "10px 12px 12px",
+          display: "grid",
+          gap: 8,
+          animation: "sb-up .38s cubic-bezier(.22,1,.36,1) .12s both",
+        }}>
+          <div style={{ display: "flex", alignItems: "center", gap: 8, minWidth: 0 }}>
+            <div style={{
+              width: 30,
+              height: 30,
+              borderRadius: 9,
+              flexShrink: 0,
+              background: C.panel2,
               border: `1px solid ${C.border}`,
-              borderRadius: 7,
-              color: C.dim,
-              width: 28, height: 28,
-              display: "flex", alignItems: "center", justifyContent: "center",
-              cursor: "pointer", flexShrink: 0,
-            }}
-          >
-            <KeyRound size={13} />
-          </button>
-          {role !== "cliente" && (
-            <button
-              type="button"
-              onClick={() => setWaOpen(true)}
-              title="Vincular WhatsApp"
-              className="sb-out"
-              style={{
-                background: "transparent",
-                border: `1px solid ${C.border}`,
-                borderRadius: 7,
-                color: C.dim,
-                width: 28, height: 28,
-                display: "flex", alignItems: "center", justifyContent: "center",
-                cursor: "pointer", flexShrink: 0,
-              }}
-            >
-              <Phone size={13} />
-            </button>
-          )}
-          <div style={{ display: "flex", gap: 2, border: `1px solid ${C.border}`, borderRadius: 7, padding: 2, background: C.panel, flexShrink: 0 }}>
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "center",
+              fontSize: 11,
+              fontWeight: 800,
+              color: C.text,
+              letterSpacing: .4,
+            }}>
+              {initials || "?"}
+            </div>
+            <div style={{ flex: 1, minWidth: 0 }}>
+              <div style={{ fontSize: 12, color: C.text, letterSpacing: ".2px", fontWeight: 800, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", marginBottom: 2 }}>
+                {username}
+              </div>
+              <div style={{ display: "inline-flex", alignItems: "center", gap: 5 }}>
+                <div className="sb-online" style={{ width: 5, height: 5, borderRadius: "50%", background: "#22c55e", flexShrink: 0 }}/>
+                <span style={{ fontSize: 10, color: C.dim, letterSpacing: "1px", textTransform: "uppercase", fontWeight: 800 }}>{role}</span>
+              </div>
+            </div>
+
+            <div style={{ display: "flex", alignItems: "center", gap: 4, flexShrink: 0 }}>
+              <button
+                type="button"
+                onClick={() => setPasswordOpen(true)}
+                title="Cambiar contraseña"
+                className="sb-out"
+                style={{
+                  background: C.panel,
+                  border: `1px solid ${C.border}`,
+                  borderRadius: 7,
+                  color: C.dim,
+                  width: 28, height: 28,
+                  display: "flex", alignItems: "center", justifyContent: "center",
+                  cursor: "pointer", flexShrink: 0,
+                }}
+              >
+                <KeyRound size={13} />
+              </button>
+              {role !== "cliente" && (
+                <button
+                  type="button"
+                  onClick={() => setWaOpen(true)}
+                  title="Vincular WhatsApp"
+                  className="sb-out"
+                  style={{
+                    background: C.panel,
+                    border: `1px solid ${C.border}`,
+                    borderRadius: 7,
+                    color: C.dim,
+                    width: 28, height: 28,
+                    display: "flex", alignItems: "center", justifyContent: "center",
+                    cursor: "pointer", flexShrink: 0,
+                  }}
+                >
+                  <Phone size={13} />
+                </button>
+              )}
+              <button
+                type="button"
+                onClick={signOut}
+                title="Cerrar sesión"
+                className="sb-logout"
+                style={{
+                  background: C.panel,
+                  border: `1px solid ${C.border}`,
+                  borderRadius: 7,
+                  color: C.dim,
+                  width: 28,
+                  height: 28,
+                  display: "flex",
+                  alignItems: "center",
+                  justifyContent: "center",
+                  cursor: "pointer",
+                  flexShrink: 0,
+                }}
+              >
+                <LogOut size={13} />
+              </button>
+            </div>
+          </div>
+
+          <div style={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: 3, border: `1px solid ${C.border}`, borderRadius: 8, padding: 2, background: C.panel, flexShrink: 0 }}>
             {[
               { value: "dark", title: "Oscuro", Icon: Moon },
               { value: "light", title: "Claro", Icon: Sun },
@@ -496,16 +546,16 @@ export default function Sidebar({ profile, signOut }) {
                   onClick={() => setTheme(value)}
                   className="sb-theme"
                   style={{
-                    width: 23,
-                    height: 23,
+                    height: 25,
                     border: "none",
-                    borderRadius: 5,
+                    borderRadius: 6,
                     background: active ? C.panel2 : "transparent",
                     color: active ? C.text : C.dim,
                     display: "grid",
                     placeItems: "center",
                     cursor: "pointer",
                     padding: 0,
+                    boxShadow: active ? `inset 0 0 0 1px ${C.border2}` : "none",
                   }}
                 >
                   {React.createElement(ThemeIcon, { size: 13 })}
@@ -513,9 +563,6 @@ export default function Sidebar({ profile, signOut }) {
               );
             })}
           </div>
-          <button type="button" onClick={signOut} title="Cerrar sesión" className="sb-out" style={{ background: "transparent", border: `1px solid ${C.border}`, borderRadius: 7, color: C.dim, width: 28, height: 28, display: "flex", alignItems: "center", justifyContent: "center", cursor: "pointer", fontSize: 14, flexShrink: 0 }}>
-            ↪
-          </button>
         </div>
       </aside>
       <VincularWhatsAppModal
