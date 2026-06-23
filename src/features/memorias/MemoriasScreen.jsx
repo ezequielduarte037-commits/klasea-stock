@@ -23,6 +23,13 @@ import { supabase } from "@/supabaseClient";
 import { C } from "@/theme";
 import { useToast } from "@/components/ui/Toast";
 import logoKlasea from "@/assets/logos/logo-klasea.png";
+import stoneBlackImg from "@/assets/textures/stone-black.jpg";
+import stoneEntzoImg from "@/assets/textures/stone-entzo.jpg";
+import stoneTravertinoImg from "@/assets/textures/stone-travertino.jpg";
+import stoneAriaImg from "@/assets/textures/stone-aria.jpg";
+import stoneDessertImg from "@/assets/textures/stone-dessert.jpg";
+
+import { FadeIn, hoverable, Skeleton, SkeletonStyles, SkeletonCard, SkeletonRow } from "@/components/ui/motion";
 import {
   loadMemoriasFromSupabase,
   saveMemoriaToSupabase,
@@ -113,52 +120,52 @@ const CLIENT_AREAS = [
 ];
 
 const PAINT_OPTIONS = [
-  { label: "Blanco Klase A", meta: "Casco blanco premium", bg: "linear-gradient(135deg, #ffffff, #dfe7ef 48%, #9fb0c3)" },
-  { label: "Azul oscuro", meta: "Banda nautica profunda", bg: "linear-gradient(135deg, #071426, #102a4a 54%, #4b77a8)" },
-  { label: "Gris Marbella", meta: "Gris perla sobrio", bg: "linear-gradient(135deg, #d7d8d2, #8f9697 58%, #505861)" },
-  { label: "Negro brillante", meta: "Look deportivo", bg: "linear-gradient(135deg, #050505, #2a2d33 58%, #8f96a3)" },
-  { label: "Verde ingles", meta: "Clasico personalizado", bg: "linear-gradient(135deg, #071d16, #164836 56%, #71a289)" },
+  { label: "Blanco Klase A", meta: "Casco blanco premium", texture: "paint-white", imageUrl: null },
+  { label: "Azul oscuro", meta: "Banda nautica profunda", texture: "paint-navy", imageUrl: null },
+  { label: "Gris Marbella", meta: "Gris perla sobrio", texture: "paint-grey", imageUrl: null },
+  { label: "Negro brillante", meta: "Look deportivo", texture: "paint-black", imageUrl: null },
+  { label: "Verde ingles", meta: "Clasico personalizado", texture: "paint-green", imageUrl: null },
 ];
 
 const WOOD_OPTIONS = [
-  { label: "Roble Plata Rayado", meta: "Chapa clara, veta lineal", bg: "linear-gradient(90deg, #c8b894 0 10%, #e9dcc2 10% 18%, #9f8d72 18% 22%, #f4ead7 22% 37%, #b6a17e 37% 43%, #ead9b8 43% 65%, #8f7758 65% 70%, #d6c4a2 70% 100%)" },
-  { label: "Roble Tinte Rayado", meta: "Calido y elegante", bg: "linear-gradient(90deg, #6f4526 0 12%, #b9824d 12% 22%, #5b351d 22% 28%, #d1a06c 28% 44%, #7c4b2a 44% 58%, #c89159 58% 74%, #4d2a17 74% 79%, #a86b3d 79% 100%)" },
-  { label: "Nogal Natural", meta: "Nogal profundo", bg: "linear-gradient(90deg, #3b2115 0 9%, #7b4b2e 9% 21%, #2c180f 21% 27%, #a36a42 27% 43%, #57311f 43% 59%, #8d5a37 59% 75%, #301a10 75% 83%, #6d4229 83% 100%)" },
-  { label: "Gris Terso", meta: "Moderno y neutro", bg: "linear-gradient(90deg, #454b52 0 14%, #8c949d 14% 27%, #5e646c 27% 39%, #c3c8cf 39% 55%, #6e747c 55% 70%, #aab0b7 70% 100%)" },
-  { label: "Chocolate", meta: "Oscuro, calido", bg: "linear-gradient(90deg, #1f120c, #3d2518 20%, #6a432b 42%, #2c170f 60%, #8a5b3a 78%, #3b2115)" },
-  { label: "Cedro satin", meta: "Luz rojiza", bg: "linear-gradient(90deg, #8f3f25, #cf7a43 25%, #a5502d 45%, #e5a064 60%, #73351f 82%, #bd6739)" },
+  { label: "Roble Plata Rayado", meta: "Chapa clara, veta lineal", texture: "wood-silver", imageUrl: null },
+  { label: "Roble Tinte Rayado", meta: "Calido y elegante", texture: "wood-oak", imageUrl: null },
+  { label: "Nogal Natural", meta: "Nogal profundo", texture: "wood-walnut", imageUrl: null },
+  { label: "Gris Terso", meta: "Moderno y neutro", texture: "wood-grey", imageUrl: null },
+  { label: "Chocolate", meta: "Oscuro, calido", texture: "wood-choco", imageUrl: null },
+  { label: "Cedro satin", meta: "Luz rojiza", texture: "wood-cedar", imageUrl: null },
 ];
 
 const FLOOR_OPTIONS = [
-  { label: "La Europea White", meta: "Vinilico claro", bg: "repeating-linear-gradient(90deg, #f8fafc 0 18px, #d9dee6 18px 20px, #eef1f4 20px 38px)" },
-  { label: "Infinity gris c/rayas negras", meta: "Cubierta tecnica", bg: "repeating-linear-gradient(90deg, #7f858d 0 22px, #15181d 22px 25px, #a4a9af 25px 48px)" },
-  { label: "Seadek gris", meta: "Textura antideslizante", bg: "radial-gradient(circle at 20% 20%, #c5ccd5 0 2px, transparent 3px), linear-gradient(135deg, #59626d, #afb6bf)" },
-  { label: "Teca", meta: "Cubierta clasica", bg: "repeating-linear-gradient(90deg, #c49355 0 24px, #3e2413 24px 27px, #e0b777 27px 50px)" },
-  { label: "Arena nautica", meta: "Beige tecnico", bg: "repeating-linear-gradient(90deg, #d4c3a2 0 20px, #7d6a4d 20px 22px, #efe4ca 22px 42px)" },
+  { label: "La Europea White", meta: "Vinilico claro", texture: "floor-white", imageUrl: null },
+  { label: "Infinity gris c/rayas negras", meta: "Cubierta tecnica", texture: "floor-infinity", imageUrl: null },
+  { label: "Seadek gris", meta: "Textura antideslizante", texture: "floor-seadek", imageUrl: null },
+  { label: "Teca", meta: "Cubierta clasica", texture: "floor-teak", imageUrl: null },
+  { label: "Arena nautica", meta: "Beige tecnico", texture: "floor-sand", imageUrl: null },
 ];
 
 const STONE_OPTIONS = [
-  { label: "Negro", meta: "Mesada negra", bg: "radial-gradient(circle at 20% 30%, #6b7280 0 1px, transparent 2px), linear-gradient(135deg, #030712, #111827 62%, #4b5563)" },
-  { label: "Dekton Entzo Natural", meta: "Blanco marmolado", bg: "linear-gradient(135deg, #fbfaf4, #d6d2c4 45%, #f4efe3 46%, #b9b1a4 47%, #fffef9)" },
-  { label: "Travertino", meta: "Veta piedra calida", bg: "repeating-linear-gradient(0deg, #dfcfad 0 12px, #b89e77 12px 14px, #f6ead0 14px 29px)" },
-  { label: "Purastone Aria Pulido", meta: "Claro premium", bg: "linear-gradient(135deg, #f7f5ef, #ccd2d8 35%, #ffffff 55%, #bfc6cf)" },
-  { label: "Dessert black mate", meta: "Oscuro mate", bg: "radial-gradient(circle at 70% 20%, #c9a874 0 2px, transparent 3px), linear-gradient(135deg, #15110e, #3f342a)" },
+  { label: "Negro", meta: "Mesada negra", texture: "stone-black", imageUrl: stoneBlackImg },
+  { label: "Dekton Entzo Natural", meta: "Blanco marmolado", texture: "stone-entzo", imageUrl: stoneEntzoImg },
+  { label: "Travertino", meta: "Veta piedra calida", texture: "stone-travertino", imageUrl: stoneTravertinoImg },
+  { label: "Purastone Aria Pulido", meta: "Claro premium", texture: "stone-aria", imageUrl: stoneAriaImg },
+  { label: "Dessert black mate", meta: "Oscuro mate", texture: "stone-dessert", imageUrl: stoneDessertImg },
 ];
 
 const FABRIC_OPTIONS = [
-  { label: "Shani 07", meta: "Textil nautico claro", bg: "repeating-linear-gradient(45deg, #d7d9d4 0 6px, #eef0ea 6px 12px)" },
-  { label: "Bhanu 01", meta: "Hielo elegante", bg: "repeating-linear-gradient(135deg, #f4f1e8 0 7px, #d8d2c5 7px 9px, #fffaf1 9px 16px)" },
-  { label: "Charcoal", meta: "Gris profundo", bg: "repeating-linear-gradient(45deg, #20242b 0 8px, #3b424c 8px 16px)" },
-  { label: "Negro", meta: "Exterior sobrio", bg: "linear-gradient(135deg, #050505, #22252b 55%, #090909)" },
-  { label: "Gris perla", meta: "Neutro luminoso", bg: "repeating-linear-gradient(45deg, #b8bec5 0 8px, #e4e7eb 8px 16px)" },
-  { label: "Azul navy", meta: "Acento nautico", bg: "repeating-linear-gradient(45deg, #061d36 0 8px, #123b63 8px 16px)" },
+  { label: "Shani 07", meta: "Textil nautico claro", texture: "fabric-shani", imageUrl: null },
+  { label: "Bhanu 01", meta: "Hielo elegante", texture: "fabric-bhanu", imageUrl: null },
+  { label: "Charcoal", meta: "Gris profundo", texture: "fabric-charcoal", imageUrl: null },
+  { label: "Negro", meta: "Exterior sobrio", texture: "fabric-black", imageUrl: null },
+  { label: "Gris perla", meta: "Neutro luminoso", texture: "fabric-pearl", imageUrl: null },
+  { label: "Azul navy", meta: "Acento nautico", texture: "fabric-navy", imageUrl: null },
 ];
 
 const CANVAS_OPTIONS = [
-  { label: "Negro", meta: "Lona negra", bg: "linear-gradient(135deg, #060606, #202020)" },
-  { label: "Charcoal con mosquitero", meta: "Cerramiento moderno", bg: "repeating-linear-gradient(90deg, #1f2933 0 8px, #4b5563 8px 10px, #111827 10px 18px)" },
-  { label: "Gris", meta: "Lona gris", bg: "linear-gradient(135deg, #6b7280, #d1d5db)" },
-  { label: "Blanco", meta: "Lona clara", bg: "linear-gradient(135deg, #ffffff, #dbe1e8)" },
+  { label: "Negro", meta: "Lona negra", texture: "canvas-black", imageUrl: null },
+  { label: "Charcoal con mosquitero", meta: "Cerramiento moderno", texture: "canvas-charcoal", imageUrl: null },
+  { label: "Gris", meta: "Lona gris", texture: "canvas-grey", imageUrl: null },
+  { label: "Blanco", meta: "Lona clara", texture: "canvas-white", imageUrl: null },
 ];
 
 function normalizeCode(value) {
@@ -247,14 +254,100 @@ function swatchFor(key, value) {
   const text = String(value || "").toLowerCase();
   const palette = materialPaletteFor(key);
   const found = palette?.options.find((opt) => text && opt.label.toLowerCase() === text);
-  if (found) return { bg: found.bg, label: value };
-  if (!text) return { bg: `linear-gradient(135deg, ${C.panel2}, ${C.panel3})`, label: "Pendiente" };
-  if (key.includes("madera") || key.includes("teca")) return { bg: "linear-gradient(90deg, #7c4a28, #c08b5c, #3f2418)", label: value };
-  if (key.includes("piso")) return { bg: "linear-gradient(135deg, #8a8175, #e5ded5)", label: value };
-  if (key.includes("mesada")) return { bg: "linear-gradient(135deg, #e5e7eb, #9ca3af)", label: value };
-  if (key.includes("tapiceria") || key.includes("acolchado") || key.includes("cerramiento")) return { bg: "linear-gradient(135deg, #64748b, #cbd5e1)", label: value };
-  if (key === "color_casco") return { bg: "linear-gradient(135deg, #f8fafc, #4b5563)", label: value };
-  return { bg: `linear-gradient(135deg, ${C.blue}, ${C.teal})`, label: value };
+  if (found) return { option: found, label: value };
+  
+  // Fallbacks if value exists but not in catalog
+  if (!text) return { option: { texture: "pending", imageUrl: null }, label: "Pendiente" };
+  if (key.includes("madera") || key.includes("teca")) return { option: { texture: "wood-fallback" }, label: value };
+  if (key.includes("piso")) return { option: { texture: "floor-fallback" }, label: value };
+  if (key.includes("mesada")) return { option: { texture: "stone-fallback" }, label: value };
+  if (key.includes("tapiceria") || key.includes("acolchado") || key.includes("cerramiento")) return { option: { texture: "fabric-fallback" }, label: value };
+  if (key === "color_casco") return { option: { texture: "paint-fallback" }, label: value };
+  return { option: { texture: "generic-fallback" }, label: value };
+}
+
+// ============================================================================
+// MOTOR DE TEXTURAS (Híbrido)
+// ============================================================================
+function TextureRenderer({ option, style }) {
+  if (!option) return null;
+  
+  // 1. Si hay imagen real, renderizarla (Preparado para futuro)
+  if (option.imageUrl) {
+    return (
+      <img 
+        src={option.imageUrl} 
+        alt={option.label}
+        style={{ width: "100%", height: "100%", objectFit: "cover", ...style }}
+        draggable={false}
+      />
+    );
+  }
+
+  // 2. Mapeo de CSS Textures
+  const cssMap = {
+    "paint-white": "linear-gradient(135deg, #ffffff, #dfe7ef 48%, #9fb0c3)",
+    "paint-navy": "linear-gradient(135deg, #071426, #102a4a 54%, #4b77a8)",
+    "paint-grey": "linear-gradient(135deg, #d7d8d2, #8f9697 58%, #505861)",
+    "paint-black": "linear-gradient(135deg, #050505, #2a2d33 58%, #8f96a3)",
+    "paint-green": "linear-gradient(135deg, #071d16, #164836 56%, #71a289)",
+    
+    // Maderas con vetas complejas simuladas por multiples gradientes
+    "wood-silver": "linear-gradient(90deg, #c8b894 0 10%, #e9dcc2 10% 18%, #9f8d72 18% 22%, #f4ead7 22% 37%, #b6a17e 37% 43%, #ead9b8 43% 65%, #8f7758 65% 70%, #d6c4a2 70% 100%)",
+    "wood-oak": "linear-gradient(90deg, #6f4526 0 12%, #b9824d 12% 22%, #5b351d 22% 28%, #d1a06c 28% 44%, #7c4b2a 44% 58%, #c89159 58% 74%, #4d2a17 74% 79%, #a86b3d 79% 100%)",
+    "wood-walnut": "linear-gradient(90deg, #3b2115 0 9%, #7b4b2e 9% 21%, #2c180f 21% 27%, #a36a42 27% 43%, #57311f 43% 59%, #8d5a37 59% 75%, #301a10 75% 83%, #6d4229 83% 100%)",
+    "wood-grey": "linear-gradient(90deg, #454b52 0 14%, #8c949d 14% 27%, #5e646c 27% 39%, #c3c8cf 39% 55%, #6e747c 55% 70%, #aab0b7 70% 100%)",
+    "wood-choco": "linear-gradient(90deg, #1f120c, #3d2518 20%, #6a432b 42%, #2c170f 60%, #8a5b3a 78%, #3b2115)",
+    "wood-cedar": "linear-gradient(90deg, #8f3f25, #cf7a43 25%, #a5502d 45%, #e5a064 60%, #73351f 82%, #bd6739)",
+    "wood-fallback": "linear-gradient(90deg, #7c4a28, #c08b5c, #3f2418)",
+
+    // Pisos
+    "floor-white": "repeating-linear-gradient(90deg, #f8fafc 0 18px, #d9dee6 18px 20px, #eef1f4 20px 38px)",
+    "floor-infinity": "repeating-linear-gradient(90deg, #7f858d 0 22px, #15181d 22px 25px, #a4a9af 25px 48px)",
+    "floor-seadek": "radial-gradient(circle at 20% 20%, #c5ccd5 0 2px, transparent 3px), linear-gradient(135deg, #59626d, #afb6bf)",
+    "floor-teak": "repeating-linear-gradient(90deg, #c49355 0 24px, #3e2413 24px 27px, #e0b777 27px 50px)",
+    "floor-sand": "repeating-linear-gradient(90deg, #d4c3a2 0 20px, #7d6a4d 20px 22px, #efe4ca 22px 42px)",
+    "floor-fallback": "linear-gradient(135deg, #8a8175, #e5ded5)",
+
+    // Piedras (Mármol / Dekton)
+    "stone-black": "radial-gradient(circle at 20% 30%, #6b7280 0 1px, transparent 2px), linear-gradient(135deg, #030712, #111827 62%, #4b5563)",
+    "stone-entzo": "linear-gradient(135deg, #fbfaf4, #d6d2c4 45%, #f4efe3 46%, #b9b1a4 47%, #fffef9)",
+    "stone-travertino": "repeating-linear-gradient(0deg, #dfcfad 0 12px, #b89e77 12px 14px, #f6ead0 14px 29px)",
+    "stone-aria": "linear-gradient(135deg, #f7f5ef, #ccd2d8 35%, #ffffff 55%, #bfc6cf)",
+    "stone-dessert": "radial-gradient(circle at 70% 20%, #c9a874 0 2px, transparent 3px), linear-gradient(135deg, #15110e, #3f342a)",
+    "stone-fallback": "linear-gradient(135deg, #e5e7eb, #9ca3af)",
+
+    // Telas (Patrones cross-hatch sutiles via gradients)
+    "fabric-shani": "repeating-linear-gradient(45deg, #d7d9d4 0 4px, transparent 4px 8px), repeating-linear-gradient(-45deg, #eef0ea 0 4px, #d7d9d4 4px 8px)",
+    "fabric-bhanu": "repeating-linear-gradient(45deg, #f4f1e8 0 4px, transparent 4px 8px), repeating-linear-gradient(-45deg, #fffaf1 0 4px, #d8d2c5 4px 8px)",
+    "fabric-charcoal": "repeating-linear-gradient(45deg, #20242b 0 4px, transparent 4px 8px), repeating-linear-gradient(-45deg, #3b424c 0 4px, #20242b 4px 8px)",
+    "fabric-black": "repeating-linear-gradient(45deg, #050505 0 4px, transparent 4px 8px), repeating-linear-gradient(-45deg, #22252b 0 4px, #050505 4px 8px)",
+    "fabric-pearl": "repeating-linear-gradient(45deg, #b8bec5 0 4px, transparent 4px 8px), repeating-linear-gradient(-45deg, #e4e7eb 0 4px, #b8bec5 4px 8px)",
+    "fabric-navy": "repeating-linear-gradient(45deg, #061d36 0 4px, transparent 4px 8px), repeating-linear-gradient(-45deg, #123b63 0 4px, #061d36 4px 8px)",
+    "fabric-fallback": "linear-gradient(135deg, #64748b, #cbd5e1)",
+
+    // Lonas
+    "canvas-black": "linear-gradient(135deg, #060606, #202020)",
+    "canvas-charcoal": "repeating-linear-gradient(90deg, #1f2933 0 4px, #4b5563 4px 6px, #111827 6px 12px)",
+    "canvas-grey": "linear-gradient(135deg, #6b7280, #d1d5db)",
+    "canvas-white": "linear-gradient(135deg, #ffffff, #dbe1e8)",
+
+    "pending": `linear-gradient(135deg, ${C.panel2}, ${C.panel3})`,
+    "generic-fallback": `linear-gradient(135deg, ${C.blue}, ${C.teal})`,
+  };
+
+  const cssBackground = cssMap[option.texture] || cssMap["generic-fallback"];
+
+  return (
+    <div style={{ width: "100%", height: "100%", background: cssBackground, ...style }}>
+      {/* Overlay de ruido suave general para maderas y piedras para darle hiperrealismo sin el peso de un SVG */}
+      {option.texture?.startsWith("wood-") && (
+        <div style={{ position: "absolute", inset: 0, opacity: 0.08, backgroundImage: "linear-gradient(90deg, transparent 0 95%, rgba(0,0,0,0.8) 95% 96%, transparent 96%)", backgroundSize: "18px 100%" }} />
+      )}
+      {/* Specular Highlight (brillo central) */}
+      <div style={{ position: "absolute", inset: 0, background: "linear-gradient(135deg, rgba(255,255,255,0.15) 0%, transparent 40%, rgba(0,0,0,0.1) 100%)", pointerEvents: "none" }} />
+    </div>
+  );
 }
 
 async function fetchActiveObras() {
@@ -324,12 +417,12 @@ function ActionButton({ children, onClick, color = C.blue, disabled = false, pri
   );
 }
 
-function FieldCell({ field, value, obs, onValue, onObs }) {
+function FieldCell({ field, value, obs, onValue, onObs, isMobile = false }) {
   const isToggle = field.type === "toggle" || BOOL_KEYS.has(field.key);
   if (isToggle) {
     const active = !!value;
     return (
-      <div style={{ display: "grid", gridTemplateColumns: "180px minmax(180px, 1fr)", gap: 10, alignItems: "center" }}>
+      <div style={{ display: "grid", gridTemplateColumns: isMobile ? "1fr" : "180px minmax(180px, 1fr)", gap: 10, alignItems: "center" }}>
         <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 6 }}>
           {[
             { label: "Si", value: true, color: C.green },
@@ -370,7 +463,7 @@ function FieldCell({ field, value, obs, onValue, onObs }) {
   }
 
   return (
-    <div style={{ display: "grid", gridTemplateColumns: "minmax(220px, 1fr) minmax(160px, .75fr)", gap: 10 }}>
+    <div style={{ display: "grid", gridTemplateColumns: isMobile ? "1fr" : "minmax(220px, 1fr) minmax(160px, .75fr)", gap: 10 }}>
       <textarea
         value={value || ""}
         onChange={(e) => onValue(e.target.value)}
@@ -546,6 +639,7 @@ export default function MemoriasScreen({ profile, signOut }) {
 
         <main className="mem-main" style={{ minWidth: 0, display: "grid", gridTemplateRows: "auto 1fr", overflow: "hidden", position: "relative" }}>
           <PremiumHeader
+            isMobile={isMobile}
             selected={selected}
             completion={completion}
             savedExists={savedExists}
@@ -604,7 +698,7 @@ export default function MemoriasScreen({ profile, signOut }) {
               </div>
             )}
 
-            <section className="mem-content" style={{ minHeight: 0, overflow: "auto", padding: isMobile ? 12 : 18 }}>
+            <section className="mem-content" style={{ minHeight: 0, overflow: "auto", padding: isMobile ? "10px 10px 92px" : 18 }}>
               {!selected ? (
                 <EmptyState />
               ) : view === "studio" ? (
@@ -630,6 +724,17 @@ export default function MemoriasScreen({ profile, signOut }) {
               )}
             </section>
           </div>
+          {isMobile && (
+            <MobileActionBar
+              selected={selected}
+              dirty={dirty}
+              saving={saving}
+              onBoats={() => setRailOpen(true)}
+              onCopy={copySummary}
+              onPrint={() => window.print()}
+              onSave={save}
+            />
+          )}
         </main>
       </div>
     </div>
@@ -637,6 +742,7 @@ export default function MemoriasScreen({ profile, signOut }) {
 }
 
 function PremiumHeader({
+  isMobile,
   selected,
   completion,
   savedExists,
@@ -657,10 +763,10 @@ function PremiumHeader({
       overflow: "hidden",
       borderBottom: `1px solid ${C.border}`,
       background: `linear-gradient(135deg, ${C.topbar}, ${C.panelSolid2})`,
-      padding: "14px 18px",
+      padding: isMobile ? "10px 10px 10px 58px" : "14px 18px",
       display: "grid",
-      gridTemplateColumns: "minmax(0, 1fr) auto",
-      gap: 14,
+      gridTemplateColumns: isMobile ? "1fr" : "minmax(0, 1fr) auto",
+      gap: isMobile ? 9 : 14,
       alignItems: "center",
     }}>
       <div style={{
@@ -704,7 +810,7 @@ function PremiumHeader({
           borderRadius: 18,
           border: `1px solid ${C.border2}`,
           background: C.panelSolid,
-          display: "grid",
+          display: isMobile ? "none" : "grid",
           placeItems: "center",
           boxShadow: "0 16px 40px var(--shadow)",
           flexShrink: 0,
@@ -726,13 +832,13 @@ function PremiumHeader({
             {!savedExists && seedExists && <StatusPill color={C.amber} label="Base Excel" />}
             {dirty && <StatusPill color={C.blue} label="Cambios sin guardar" />}
           </div>
-          <h1 style={{ margin: "4px 0 0", fontSize: 24, lineHeight: 1.1, fontWeight: 950, letterSpacing: 0, color: C.text, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+          <h1 style={{ margin: "4px 0 0", fontSize: isMobile ? 17 : 24, lineHeight: 1.1, fontWeight: 950, letterSpacing: 0, color: C.text, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
             {selected ? `${selected.codigo}${selected.descripcion ? ` · ${selected.descripcion}` : ""}` : "Memorias descriptivas"}
           </h1>
         </div>
       </div>
 
-      <div style={{ display: "flex", alignItems: "center", justifyContent: "flex-end", gap: 9, flexWrap: "wrap", position: "relative" }}>
+      <div style={{ display: "flex", alignItems: "center", justifyContent: isMobile ? "space-between" : "flex-end", gap: 9, flexWrap: "wrap", position: "relative" }}>
         <div style={{
           display: "grid",
           gridTemplateColumns: "1fr 1fr",
@@ -741,6 +847,7 @@ function PremiumHeader({
           background: C.panel,
           borderRadius: 15,
           padding: 4,
+          flex: isMobile ? "1 1 210px" : "0 0 auto",
         }}>
           {[
             { id: "studio", label: "Vista cliente", icon: <Sparkles size={14} /> },
@@ -754,7 +861,7 @@ function PremiumHeader({
                 onClick={() => onView(opt.id)}
                 className="mem-touch-button"
                 style={{
-                  minHeight: 38,
+                  minHeight: isMobile ? 40 : 38,
                   border: `1px solid ${active ? C.border2 : "transparent"}`,
                   background: active ? C.panelSolid2 : "transparent",
                   color: active ? C.text : C.dim,
@@ -764,7 +871,7 @@ function PremiumHeader({
                   alignItems: "center",
                   gap: 7,
                   cursor: "pointer",
-                  fontSize: 12,
+                  fontSize: isMobile ? 11 : 12,
                   fontWeight: 900,
                   fontFamily: C.sans,
                   whiteSpace: "nowrap",
@@ -776,21 +883,88 @@ function PremiumHeader({
           })}
         </div>
 
-        <div style={{ minWidth: 68, textAlign: "right", marginLeft: 2 }}>
+        <div style={{ minWidth: isMobile ? 52 : 68, textAlign: "right", marginLeft: 2 }}>
           <div style={{ color: completion.pct >= 80 ? C.green : completion.pct >= 45 ? C.amber : C.blue, fontSize: 21, fontWeight: 950, fontFamily: C.mono }}>
             {completion.pct}%
           </div>
           <div style={{ color: C.dim, fontSize: 10, fontWeight: 850 }}>{completion.pending} pendientes</div>
         </div>
 
-        <ActionButton onClick={onLoad} color={C.muted}><RefreshCw size={14} /></ActionButton>
-        <ActionButton onClick={onCopy} color={C.teal} disabled={!selected}><ClipboardCopy size={14} /> Copiar</ActionButton>
-        <ActionButton onClick={onPrint} color={C.amber} disabled={!selected}><Printer size={14} /> PDF</ActionButton>
-        <ActionButton onClick={onSave} color={C.green} disabled={!selected || saving || !dirty} primary={dirty}>
-          <Save size={14} /> {saving ? "Guardando..." : dirty ? "Guardar" : "Guardado"}
-        </ActionButton>
+        {!isMobile && (
+          <>
+            <ActionButton onClick={onLoad} color={C.muted}><RefreshCw size={14} /></ActionButton>
+            <ActionButton onClick={onCopy} color={C.teal} disabled={!selected}><ClipboardCopy size={14} /> Copiar</ActionButton>
+            <ActionButton onClick={onPrint} color={C.amber} disabled={!selected}><Printer size={14} /> PDF</ActionButton>
+            <ActionButton onClick={onSave} color={C.green} disabled={!selected || saving || !dirty} primary={dirty}>
+              <Save size={14} /> {saving ? "Guardando..." : dirty ? "Guardar" : "Guardado"}
+            </ActionButton>
+          </>
+        )}
       </div>
     </header>
+  );
+}
+
+function MobileActionBar({ selected, dirty, saving, onBoats, onCopy, onPrint, onSave }) {
+  return (
+    <div className="mem-no-print" style={{
+      position: "absolute",
+      left: 10,
+      right: 10,
+      bottom: "calc(10px + env(safe-area-inset-bottom))",
+      zIndex: 45,
+      border: `1px solid ${C.border2}`,
+      background: C.panelSolid,
+      boxShadow: "0 18px 60px rgba(0,0,0,.38)",
+      borderRadius: 22,
+      padding: 8,
+      display: "grid",
+      gridTemplateColumns: "1fr 1fr 1fr 1.35fr",
+      gap: 7,
+      backdropFilter: "blur(18px)",
+    }}>
+      <MobileBarButton onClick={onBoats} color={C.blue} label="Barcos">
+        <Ship size={17} />
+      </MobileBarButton>
+      <MobileBarButton onClick={onCopy} color={C.teal} label="Copiar" disabled={!selected}>
+        <ClipboardCopy size={17} />
+      </MobileBarButton>
+      <MobileBarButton onClick={onPrint} color={C.amber} label="PDF" disabled={!selected}>
+        <Printer size={17} />
+      </MobileBarButton>
+      <MobileBarButton onClick={onSave} color={C.green} label={saving ? "Guardando" : dirty ? "Guardar" : "OK"} disabled={!selected || saving || !dirty} primary={dirty}>
+        <Save size={17} />
+      </MobileBarButton>
+    </div>
+  );
+}
+
+function MobileBarButton({ children, onClick, color, label, disabled, primary }) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      disabled={disabled}
+      className="mem-touch-button"
+      style={{
+        minHeight: 54,
+        border: `1px solid ${disabled ? C.border : `${color}55`}`,
+        background: primary ? color : `${color}12`,
+        color: primary ? "var(--bg)" : color,
+        borderRadius: 16,
+        display: "grid",
+        placeItems: "center",
+        gap: 2,
+        fontSize: 10,
+        fontWeight: 950,
+        fontFamily: C.sans,
+        cursor: disabled ? "default" : "pointer",
+        opacity: disabled ? .52 : 1,
+      }}
+    >
+      {children}
+      <span>{label}</span>
+    </button>
   );
 }
 
@@ -882,133 +1056,119 @@ function BoatRail({ open, floating = false, loading, query, setQuery, obras, sel
 function StudioView({ selected, fields, descriptors, areas, selectedArea, activeArea, onArea, onPatch, isMobile }) {
   const summaryFields = descriptors.filter((field) => FEATURE_FIELDS.includes(field.key));
   return (
-    <div style={{ display: "grid", gap: 18, maxWidth: 1480, margin: "0 auto", animation: "memFadeUp .36s ease both" }}>
+    <div style={{ display: "grid", gap: 20, maxWidth: 1480, margin: "0 auto", animation: "memFadeUp .36s ease both" }}>
+      
+      {/* ─── SHOWROOM / CONFIGURADOR PRINCIPAL ─── */}
       <section style={{
-        position: "relative",
-        minHeight: isMobile ? 360 : 410,
-        border: `1px solid ${C.border}`,
-        borderRadius: 28,
-        overflow: "hidden",
-        background: `linear-gradient(135deg, ${C.panelSolid}, ${C.panelSolid2})`,
-        boxShadow: "0 24px 80px var(--shadow)",
+        display: "grid",
+        gridTemplateColumns: isMobile ? "1fr" : "320px minmax(0, 1fr)",
+        gap: 16,
+        minHeight: isMobile ? "auto" : 520,
       }}>
-        <div style={{ position: "absolute", inset: 0, background: `radial-gradient(circle at 18% 18%, ${C.blue}24, transparent 32%), radial-gradient(circle at 82% 20%, ${C.violet}20, transparent 30%), radial-gradient(circle at 50% 100%, ${C.teal}12, transparent 42%)` }} />
-        <div style={{ position: "absolute", inset: 0, opacity: .12, backgroundImage: "linear-gradient(90deg, transparent 0 95%, currentColor 95% 96%, transparent 96%), linear-gradient(0deg, transparent 0 95%, currentColor 95% 96%, transparent 96%)", backgroundSize: "48px 48px", color: C.text }} />
-        <div style={{ position: "relative", display: "grid", gridTemplateColumns: isMobile ? "1fr" : "minmax(0, .95fr) minmax(380px, 1.05fr)", gap: 16, padding: isMobile ? 18 : 26, height: "100%" }}>
-          <div style={{ display: "grid", alignContent: "space-between", gap: 22, minHeight: isMobile ? 300 : 360 }}>
-            <div>
+        {/* Panel lateral: Info de la obra y Areas */}
+        <div style={{ display: "grid", gridTemplateRows: "auto 1fr", gap: 16 }}>
+          <div style={{
+            border: `1px solid ${C.border}`,
+            background: `linear-gradient(135deg, ${C.panelSolid}, ${C.panelSolid2})`,
+            borderRadius: 24,
+            padding: 22,
+            boxShadow: "0 24px 80px var(--shadow)",
+            position: "relative",
+            overflow: "hidden"
+          }}>
+            <div style={{ position: "absolute", inset: 0, opacity: .12, backgroundImage: "linear-gradient(90deg, transparent 0 95%, currentColor 95% 96%, transparent 96%), linear-gradient(0deg, transparent 0 95%, currentColor 95% 96%, transparent 96%)", backgroundSize: "48px 48px", color: C.text }} />
+            <div style={{ position: "relative" }}>
               <div style={{ display: "inline-flex", alignItems: "center", gap: 8, border: `1px solid ${C.border}`, background: C.panel, color: C.muted, borderRadius: 999, padding: "7px 11px", fontSize: 11, letterSpacing: 1.2, textTransform: "uppercase", fontWeight: 950 }}>
-                <Sparkles size={14} color={C.amber} /> Configuracion presencial
+                <Sparkles size={14} color={C.amber} /> {isMobile ? "Configurador" : "Configuracion de acabados"}
               </div>
-              <h2 style={{ margin: "18px 0 0", color: C.text, fontSize: isMobile ? 36 : 56, lineHeight: .95, fontWeight: 950, letterSpacing: 0 }}>
+              <h2 style={{ margin: "18px 0 0", color: C.text, fontSize: isMobile ? 38 : 46, lineHeight: .95, fontWeight: 950, letterSpacing: -1 }}>
                 {selected.codigo}
               </h2>
-              <div style={{ marginTop: 10, color: C.muted, fontSize: isMobile ? 15 : 17, lineHeight: 1.45, maxWidth: 560 }}>
-                {fields.nombre_barco ? `${fields.nombre_barco} · ` : ""}{fields.propietario ? `Cliente: ${fields.propietario}` : "Memoria descriptiva del barco"}
+              <div style={{ marginTop: 8, color: C.muted, fontSize: 14, lineHeight: 1.45 }}>
+                {fields.nombre_barco ? `${fields.nombre_barco} · ` : ""}{fields.propietario ? `Cliente: ${fields.propietario}` : "Memoria descriptiva"}
               </div>
-            </div>
-
-            <div style={{ display: "grid", gridTemplateColumns: isMobile ? "1fr 1fr" : "repeat(4, minmax(0, 1fr))", gap: 10 }}>
-              <LuxuryFact label="Linea" value={lineName(selected)} />
-              <LuxuryFact label="Motor" value={fields.motorizacion || "Pendiente"} />
-              <LuxuryFact label="Casco" value={fields.color_casco || "Pendiente"} />
-              <LuxuryFact label="Constructor" value={fields.constructor || "Pendiente"} />
             </div>
           </div>
 
-          <BoatPreview fields={fields} />
+          <div style={{
+            display: "grid",
+            gap: 10,
+            alignContent: "start",
+          }}>
+            {areas.map((area, index) => {
+              const active = activeArea === area.id;
+              const filled = area.fields.filter((field) => isFilled(fields[field.key])).length;
+              const pct = Math.round((filled / Math.max(area.fields.length, 1)) * 100);
+              return (
+                <button
+                  key={area.id}
+                  type="button"
+                  onClick={() => onArea(area.id)}
+                  className="mem-area-card"
+                  style={{
+                    minHeight: 72,
+                    border: `1px solid ${active ? area.accent : C.border}`,
+                    background: active ? `linear-gradient(135deg, ${area.accent}18, ${C.panelSolid})` : C.panel,
+                    color: C.text,
+                    borderRadius: 20,
+                    padding: 14,
+                    textAlign: "left",
+                    cursor: "pointer",
+                    fontFamily: C.sans,
+                    transition: "transform .18s ease, border-color .18s ease, background .18s ease",
+                    animation: "memFadeUp .42s ease both",
+                    animationDelay: `${index * 45}ms`,
+                    boxShadow: active ? `0 16px 42px ${area.accent}15` : "none",
+                    position: "relative",
+                    overflow: "hidden"
+                  }}
+                >
+                  {active && <div style={{ position: "absolute", left: 0, top: 0, bottom: 0, width: 4, background: area.accent }} />}
+                  <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+                    <span style={{ width: 11, height: 11, borderRadius: 99, background: area.accent, boxShadow: `0 0 18px ${area.accent}` }} />
+                    <strong style={{ fontSize: 16 }}>{area.label}</strong>
+                    <span style={{ marginLeft: "auto", color: area.accent, fontSize: 12, fontWeight: 950, fontFamily: C.mono }}>{pct}%</span>
+                  </div>
+                  <div style={{ color: C.dim, fontSize: 12, marginTop: 4, fontWeight: 750 }}>{area.kicker}</div>
+                </button>
+              );
+            })}
+          </div>
+        </div>
+
+        {/* Visualizador 3D/Showroom */}
+        <div style={{ minWidth: 0, display: "flex", flexDirection: "column" }}>
+          <BoatPreview fields={fields} isMobile={isMobile} />
         </div>
       </section>
 
-      <section style={{
-        display: "grid",
-        gridTemplateColumns: isMobile ? "1fr" : "260px minmax(0, 1fr)",
-        gap: 14,
-        alignItems: "start",
-      }}>
-        <div className="mem-no-print" style={{
-          display: "grid",
-          gap: 10,
-          position: isMobile ? "static" : "sticky",
-          top: 14,
-        }}>
-          {areas.map((area, index) => {
-            const active = activeArea === area.id;
-            const filled = area.fields.filter((field) => isFilled(fields[field.key])).length;
-            const pct = Math.round((filled / Math.max(area.fields.length, 1)) * 100);
-            return (
-              <button
-                key={area.id}
-                type="button"
-                onClick={() => onArea(area.id)}
-                className="mem-area-card"
-                style={{
-                  minHeight: 88,
-                  border: `1px solid ${active ? area.accent : C.border}`,
-                  background: active ? `linear-gradient(135deg, ${area.accent}18, ${C.panelSolid})` : C.panel,
-                  color: C.text,
-                  borderRadius: 19,
-                  padding: 14,
-                  textAlign: "left",
-                  cursor: "pointer",
-                  fontFamily: C.sans,
-                  transition: "transform .18s ease, border-color .18s ease, background .18s ease",
-                  animation: "memFadeUp .42s ease both",
-                  animationDelay: `${index * 45}ms`,
-                  boxShadow: active ? "0 16px 42px var(--shadow)" : "none",
-                }}
-              >
-                <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
-                  <span style={{ width: 11, height: 11, borderRadius: 99, background: area.accent, boxShadow: `0 0 18px ${area.accent}` }} />
-                  <strong style={{ fontSize: 16 }}>{area.label}</strong>
-                  <span style={{ marginLeft: "auto", color: area.accent, fontSize: 12, fontWeight: 950, fontFamily: C.mono }}>{pct}%</span>
-                </div>
-                <div style={{ color: C.dim, fontSize: 12, marginTop: 7, fontWeight: 750 }}>{area.kicker}</div>
-              </button>
-            );
-          })}
+      {/* ─── SELECTORES DE MATERIALES (Carrusel Inferior) ─── */}
+      <section style={{ display: "grid", gap: 24, marginTop: 10 }}>
+        <div style={{ display: "flex", alignItems: "baseline", gap: 12, flexWrap: "wrap", borderBottom: `1px solid ${C.border}`, paddingBottom: 10 }}>
+          <h3 style={{ margin: 0, color: C.text, fontSize: isMobile ? 24 : 28, lineHeight: 1.1, fontWeight: 950 }}>{selectedArea.label}</h3>
+          <span style={{ color: C.dim, fontSize: 14 }}>{selectedArea.kicker}</span>
         </div>
 
-        <div style={{ display: "grid", gap: 14 }}>
-          <div style={{ display: "flex", alignItems: "flex-end", gap: 12, flexWrap: "wrap" }}>
-            <div style={{ flex: 1, minWidth: 240 }}>
-              <div style={{ color: selectedArea.accent, fontSize: 11, letterSpacing: 1.3, textTransform: "uppercase", fontWeight: 950 }}>Sector</div>
-              <h3 style={{ margin: "3px 0 0", color: C.text, fontSize: 28, lineHeight: 1.1, fontWeight: 950 }}>{selectedArea.label}</h3>
-              <div style={{ marginTop: 5, color: C.dim, fontSize: 14 }}>{selectedArea.kicker}</div>
-            </div>
-            <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
-              {summaryFields.slice(0, 5).map((field) => {
-                const sw = swatchFor(field.key, fields[field.key]);
-                return (
-                  <div key={field.key} style={{ display: "flex", alignItems: "center", gap: 8, border: `1px solid ${C.border}`, background: C.panel, borderRadius: 999, padding: "7px 10px" }}>
-                    <span style={{ width: 28, height: 18, borderRadius: 99, border: `1px solid ${C.border}`, background: sw.bg, flexShrink: 0 }} />
-                    <span style={{ color: C.muted, fontSize: 12, fontWeight: 850, maxWidth: 160, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{sw.label}</span>
-                  </div>
-                );
-              })}
-            </div>
-          </div>
-
-          <div style={{ display: "grid", gap: 14 }}>
-            {selectedArea.fields.map((field, index) => (
-              <ClientFieldConfigurator
-                key={field.key}
-                field={field}
-                value={fields[field.key]}
-                obs={fields[`${field.key}_obs`]}
-                onValue={(value) => onPatch(field.key, value)}
-                onObs={(value) => onPatch(`${field.key}_obs`, value)}
-                index={index}
-              />
-            ))}
-          </div>
+        <div style={{ display: "grid", gap: 32 }}>
+          {selectedArea.fields.map((field, index) => (
+            <ClientFieldConfigurator
+              key={field.key}
+              field={field}
+              value={fields[field.key]}
+              obs={fields[`${field.key}_obs`]}
+              onValue={(value) => onPatch(field.key, value)}
+              onObs={(value) => onPatch(`${field.key}_obs`, value)}
+              index={index}
+              isMobile={isMobile}
+            />
+          ))}
         </div>
       </section>
     </div>
   );
 }
 
-function BoatPreview({ fields }) {
+function BoatPreview({ fields, isMobile = false }) {
   const casco = swatchFor("color_casco", fields.color_casco);
   const wood = swatchFor("madera_muebles", fields.madera_muebles);
   const floor = swatchFor("piso", fields.piso || fields.teca_tipo);
@@ -1017,70 +1177,93 @@ function BoatPreview({ fields }) {
 
   return (
     <div style={{
-      alignSelf: "stretch",
-      minHeight: 330,
+      flex: 1,
+      minHeight: isMobile ? 280 : 400,
       border: `1px solid ${C.border}`,
-      borderRadius: 26,
-      background: `linear-gradient(180deg, ${C.panel}, ${C.panelSolid})`,
+      borderRadius: isMobile ? 24 : 28,
+      background: `linear-gradient(180deg, #020408, #0a0d14)`,
       overflow: "hidden",
       position: "relative",
-      boxShadow: "inset 0 1px 0 rgba(255,255,255,.08)",
+      boxShadow: "inset 0 1px 0 rgba(255,255,255,.08), 0 30px 100px rgba(0,0,0,0.6)",
     }}>
-      <div style={{ position: "absolute", inset: 0, background: `radial-gradient(circle at 50% 45%, ${C.blue}1f, transparent 34%)` }} />
+      {/* Iluminacion Showroom */}
+      <div style={{ position: "absolute", top: "-20%", left: "50%", transform: "translateX(-50%)", width: "80%", height: "60%", background: `radial-gradient(ellipse, ${C.blue}20, transparent 60%)`, filter: "blur(40px)", pointerEvents: "none" }} />
+      <div style={{ position: "absolute", bottom: "-30%", left: "50%", transform: "translateX(-50%)", width: "120%", height: "60%", background: `radial-gradient(ellipse, rgba(255,255,255,0.03), transparent 70%)`, pointerEvents: "none" }} />
+      
+      {/* Silueta del Casco */}
       <div style={{
         position: "absolute",
-        left: "7%",
-        right: "7%",
-        top: "25%",
-        height: "34%",
+        left: "10%",
+        right: "10%",
+        top: isMobile ? "20%" : "25%",
+        height: isMobile ? "35%" : "40%",
         borderRadius: "48% 52% 28% 72% / 70% 72% 28% 30%",
-        background: casco.bg,
-        boxShadow: "0 36px 70px rgba(0,0,0,.34)",
+        boxShadow: "0 40px 100px rgba(0,0,0,.8), inset 0 2px 4px rgba(255,255,255,0.2)",
         overflow: "hidden",
       }}>
-        <div style={{ position: "absolute", inset: "18% 12% 42% 20%", borderRadius: "70% 30% 60% 40%", background: "linear-gradient(135deg, rgba(255,255,255,.72), rgba(255,255,255,.12))", border: "1px solid rgba(255,255,255,.35)" }} />
-        <div style={{ position: "absolute", left: "18%", right: "22%", bottom: "18%", height: "14%", borderRadius: 99, background: floor.bg, border: "1px solid rgba(0,0,0,.18)" }} />
-        <div style={{ position: "absolute", left: "46%", right: "24%", top: "48%", height: "18%", borderRadius: 99, background: fabric.bg, border: "1px solid rgba(0,0,0,.16)" }} />
+        <TextureRenderer option={casco.option} />
+        {/* Cabina superior */}
+        <div style={{ position: "absolute", inset: "18% 12% 42% 20%", borderRadius: "70% 30% 60% 40%", background: "linear-gradient(135deg, rgba(255,255,255,.8), rgba(255,255,255,.15))", border: "1px solid rgba(255,255,255,.4)", backdropFilter: "blur(4px)" }} />
+        {/* Piso exterior visible */}
+        <div style={{ position: "absolute", left: "18%", right: "22%", bottom: "18%", height: "14%", borderRadius: 99, border: "1px solid rgba(0,0,0,.4)", overflow: "hidden" }}>
+           <TextureRenderer option={floor.option} />
+        </div>
+        {/* Sillones exteriores visibles */}
+        <div style={{ position: "absolute", left: "46%", right: "24%", top: "48%", height: "18%", borderRadius: 99, border: "1px solid rgba(0,0,0,.3)", overflow: "hidden" }}>
+           <TextureRenderer option={fabric.option} />
+        </div>
       </div>
+
+      {/* Mueble interior simulado */}
       <div style={{
         position: "absolute",
-        left: "20%",
-        right: "18%",
-        top: "51%",
-        height: 20,
+        left: "25%",
+        right: "22%",
+        top: isMobile ? "48%" : "55%",
+        height: isMobile ? 22 : 28,
         borderRadius: 999,
-        background: wood.bg,
-        boxShadow: "0 12px 26px rgba(0,0,0,.28)",
-      }} />
+        boxShadow: "0 20px 40px rgba(0,0,0,.5), inset 0 2px 4px rgba(255,255,255,0.2)",
+        overflow: "hidden"
+      }}>
+        <TextureRenderer option={wood.option} />
+      </div>
+
+      {/* Mesada simulada */}
       <div style={{
         position: "absolute",
-        left: "62%",
-        top: "58%",
-        width: 72,
-        height: 42,
-        borderRadius: 14,
-        background: stone.bg,
+        left: "58%",
+        top: isMobile ? "54%" : "62%",
+        width: isMobile ? 65 : 85,
+        height: isMobile ? 40 : 50,
+        borderRadius: 16,
         border: "1px solid rgba(255,255,255,.25)",
-        boxShadow: "0 12px 26px rgba(0,0,0,.22)",
-      }} />
+        boxShadow: "0 20px 40px rgba(0,0,0,.4), inset 0 1px 2px rgba(255,255,255,0.4)",
+        overflow: "hidden"
+      }}>
+        <TextureRenderer option={stone.option} />
+      </div>
+
+      {/* Resumen de acabados inferiores */}
       <div style={{
         position: "absolute",
-        left: "8%",
-        right: "8%",
-        bottom: 30,
+        left: "4%",
+        right: "4%",
+        bottom: isMobile ? 14 : 24,
         display: "grid",
-        gridTemplateColumns: "repeat(4, minmax(0, 1fr))",
-        gap: 8,
+        gridTemplateColumns: isMobile ? "repeat(2, minmax(0, 1fr))" : "repeat(4, minmax(0, 1fr))",
+        gap: isMobile ? 8 : 12,
       }}>
         {[
-          ["Madera", wood],
+          ["Madera principal", wood],
           ["Piso", floor],
-          ["Tela", fabric],
+          ["Tapicería", fabric],
           ["Mesada", stone],
         ].map(([label, sw]) => (
-          <div key={label} style={{ minWidth: 0, border: `1px solid ${C.border}`, background: C.panelSolid, borderRadius: 14, overflow: "hidden" }}>
-            <div style={{ height: 38, background: sw.bg }} />
-            <div style={{ padding: 8 }}>
+          <div key={label} style={{ minWidth: 0, border: `1px solid rgba(255,255,255,0.08)`, background: "rgba(10,14,20,0.6)", backdropFilter: "blur(12px)", borderRadius: isMobile ? 14 : 18, overflow: "hidden", display: "flex", alignItems: "center", gap: 10, padding: 8 }}>
+            <div style={{ width: 36, height: 36, borderRadius: 10, overflow: "hidden", border: "1px solid rgba(255,255,255,0.1)", flexShrink: 0 }}>
+              <TextureRenderer option={sw.option} />
+            </div>
+            <div style={{ minWidth: 0 }}>
               <div style={{ color: C.dim, fontSize: 9, letterSpacing: 1.1, textTransform: "uppercase", fontWeight: 900 }}>{label}</div>
               <div style={{ color: C.text, fontSize: 11, fontWeight: 900, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", marginTop: 2 }}>{sw.label}</div>
             </div>
@@ -1091,7 +1274,7 @@ function BoatPreview({ fields }) {
   );
 }
 
-function ClientFieldConfigurator({ field, value, obs, onValue, onObs, index }) {
+function ClientFieldConfigurator({ field, value, obs, onValue, onObs, index, isMobile = false }) {
   const palette = materialPaletteFor(field.key);
   const isToggle = field.type === "toggle" || BOOL_KEYS.has(field.key);
   if (isToggle) {
@@ -1103,6 +1286,7 @@ function ClientFieldConfigurator({ field, value, obs, onValue, onObs, index }) {
         onValue={onValue}
         onObs={onObs}
         index={index}
+        isMobile={isMobile}
       />
     );
   }
@@ -1115,6 +1299,7 @@ function ClientFieldConfigurator({ field, value, obs, onValue, onObs, index }) {
         onValue={onValue}
         onObs={onObs}
         index={index}
+        isMobile={isMobile}
       />
     );
   }
@@ -1129,25 +1314,25 @@ function ClientFieldConfigurator({ field, value, obs, onValue, onObs, index }) {
     <article style={{
       border: `1px solid ${C.border}`,
       background: C.panelSolid,
-      borderRadius: 24,
+      borderRadius: isMobile ? 20 : 24,
       overflow: "hidden",
       animation: "memFadeUp .48s ease both",
       animationDelay: `${Math.min(index * 70, 360)}ms`,
       boxShadow: "0 18px 52px var(--shadow)",
     }}>
-      <div style={{ display: "flex", gap: 12, alignItems: "flex-start", padding: 16, borderBottom: `1px solid ${C.border}`, background: `linear-gradient(135deg, ${C.panelSolid2}, ${C.panel})` }}>
-        <div style={{ width: 46, height: 46, borderRadius: 16, border: `1px solid ${C.border}`, background: C.panel, color: C.blue, display: "grid", placeItems: "center", flexShrink: 0 }}>
+      <div style={{ display: "flex", gap: 12, alignItems: "flex-start", padding: isMobile ? 13 : 16, borderBottom: `1px solid ${C.border}`, background: `linear-gradient(135deg, ${C.panelSolid2}, ${C.panel})` }}>
+        <div style={{ width: isMobile ? 40 : 46, height: isMobile ? 40 : 46, borderRadius: 16, border: `1px solid ${C.border}`, background: C.panel, color: C.blue, display: "grid", placeItems: "center", flexShrink: 0 }}>
           <Icon size={19} />
         </div>
         <div style={{ flex: 1, minWidth: 0 }}>
           <div style={{ color: C.dim, fontSize: 10, letterSpacing: 1.25, textTransform: "uppercase", fontWeight: 950 }}>{palette.title}</div>
-          <h4 style={{ margin: "3px 0 0", color: C.text, fontSize: 20, lineHeight: 1.1, fontWeight: 950 }}>{field.label}</h4>
+          <h4 style={{ margin: "3px 0 0", color: C.text, fontSize: isMobile ? 18 : 20, lineHeight: 1.1, fontWeight: 950 }}>{field.label}</h4>
         </div>
-        {current && <StatusPill color={C.green} label="Seleccionado" />}
+        {current && !isMobile && <StatusPill color={C.green} label="Seleccionado" />}
       </div>
 
-      <div style={{ padding: 16, display: "grid", gap: 14 }}>
-        <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(180px, 1fr))", gap: 12 }}>
+      <div style={{ padding: isMobile ? 12 : 16, display: "grid", gap: 14 }}>
+        <div style={{ display: "grid", gridTemplateColumns: isMobile ? "1fr" : "repeat(auto-fill, minmax(200px, 1fr))", gap: isMobile ? 12 : 16 }}>
           {options.map((opt, optIndex) => {
             const active = current && opt.label.toLowerCase() === current.toLowerCase();
             return (
@@ -1158,7 +1343,7 @@ function ClientFieldConfigurator({ field, value, obs, onValue, onObs, index }) {
                 className="mem-material-card"
                 style={{
                   position: "relative",
-                  minHeight: 158,
+                  minHeight: isMobile ? 140 : 180,
                   border: `1px solid ${active ? C.blue : C.border}`,
                   background: C.panel,
                   color: C.text,
@@ -1168,28 +1353,30 @@ function ClientFieldConfigurator({ field, value, obs, onValue, onObs, index }) {
                   textAlign: "left",
                   cursor: "pointer",
                   fontFamily: C.sans,
-                  transition: "transform .18s ease, border-color .18s ease, box-shadow .18s ease",
-                  boxShadow: active ? `0 18px 46px ${C.blue}25, inset 0 0 0 2px ${C.blue}` : "none",
-                  animation: "memFadeUp .42s ease both",
-                  animationDelay: `${Math.min(optIndex * 45, 300)}ms`,
+                  transition: "transform .2s cubic-bezier(0.16, 1, 0.3, 1), border-color .2s ease, box-shadow .2s ease",
+                  transform: active ? "translateY(-4px)" : "none",
+                  boxShadow: active ? `0 24px 50px rgba(0,0,0,0.4), inset 0 0 0 2px ${C.blue}` : "0 4px 12px rgba(0,0,0,0.1)",
+                  animation: "memFadeUp .4s cubic-bezier(0.16, 1, 0.3, 1) both",
+                  animationDelay: `${Math.min(optIndex * 35, 300)}ms`,
                 }}
               >
-                <div style={{ position: "relative", height: 92, background: opt.bg, overflow: "hidden" }}>
-                  <div style={{ position: "absolute", inset: 0, background: "linear-gradient(110deg, transparent 0 32%, rgba(255,255,255,.28) 46%, transparent 60%)", animation: active ? "memSheen 2.8s ease-in-out infinite" : "none" }} />
+                <div style={{ position: "relative", height: isMobile ? 85 : 125, overflow: "hidden" }}>
+                  <TextureRenderer option={opt} />
+                  <div style={{ position: "absolute", inset: 0, background: "linear-gradient(110deg, transparent 0 32%, rgba(255,255,255,.15) 46%, transparent 60%)", animation: active ? "memSheen 2.8s ease-in-out infinite" : "none", pointerEvents: "none" }} />
                 </div>
-                <div style={{ padding: 13 }}>
+                <div style={{ padding: 14 }}>
                   <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
-                    <strong style={{ fontSize: 14, lineHeight: 1.2 }}>{opt.label}</strong>
+                    <strong style={{ fontSize: 15, lineHeight: 1.2 }}>{opt.label}</strong>
                     {active && <CheckCircle2 size={16} color={C.blue} style={{ marginLeft: "auto", flexShrink: 0 }} />}
                   </div>
-                  <div style={{ color: C.dim, fontSize: 12, lineHeight: 1.25, marginTop: 5 }}>{opt.meta}</div>
+                  <div style={{ color: C.dim, fontSize: 13, lineHeight: 1.25, marginTop: 5 }}>{opt.meta}</div>
                 </div>
               </button>
             );
           })}
         </div>
 
-        <div style={{ display: "grid", gridTemplateColumns: "minmax(220px, 1fr) minmax(180px, .55fr)", gap: 10 }}>
+        <div style={{ display: "grid", gridTemplateColumns: isMobile ? "1fr" : "minmax(220px, 1fr) minmax(180px, .55fr)", gap: 10 }}>
           <input
             value={value || ""}
             onChange={(e) => onValue(e.target.value)}
@@ -1208,16 +1395,16 @@ function ClientFieldConfigurator({ field, value, obs, onValue, onObs, index }) {
   );
 }
 
-function FeatureSwitch({ field, value, obs, onValue, onObs, index }) {
+function FeatureSwitch({ field, value, obs, onValue, onObs, index, isMobile = false }) {
   const active = !!value;
   return (
     <article style={{
       border: `1px solid ${active ? `${field.color || C.green}77` : C.border}`,
       background: active ? `${field.color || C.green}12` : C.panelSolid,
       borderRadius: 22,
-      padding: 15,
+      padding: isMobile ? 13 : 15,
       display: "grid",
-      gridTemplateColumns: "minmax(160px, .55fr) minmax(260px, 1fr)",
+      gridTemplateColumns: isMobile ? "1fr" : "minmax(160px, .55fr) minmax(260px, 1fr)",
       gap: 12,
       alignItems: "center",
       animation: "memFadeUp .48s ease both",
@@ -1227,7 +1414,7 @@ function FeatureSwitch({ field, value, obs, onValue, onObs, index }) {
         <div style={{ color: C.dim, fontSize: 10, letterSpacing: 1.2, textTransform: "uppercase", fontWeight: 950 }}>Equipamiento</div>
         <div style={{ color: C.text, fontSize: 17, fontWeight: 950, marginTop: 4 }}>{field.label}</div>
       </div>
-      <div style={{ display: "grid", gridTemplateColumns: "160px minmax(160px, 1fr)", gap: 10 }}>
+      <div style={{ display: "grid", gridTemplateColumns: isMobile ? "1fr" : "160px minmax(160px, 1fr)", gap: 10 }}>
         <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 6 }}>
           {[
             { label: "Si", value: true, color: C.green },
@@ -1263,13 +1450,13 @@ function FeatureSwitch({ field, value, obs, onValue, onObs, index }) {
   );
 }
 
-function DetailEditor({ field, value, obs, onValue, onObs, index }) {
+function DetailEditor({ field, value, obs, onValue, onObs, index, isMobile = false }) {
   return (
     <article style={{
       border: `1px solid ${C.border}`,
       background: C.panelSolid,
       borderRadius: 22,
-      padding: 16,
+      padding: isMobile ? 13 : 16,
       display: "grid",
       gap: 12,
       animation: "memFadeUp .48s ease both",
@@ -1284,7 +1471,7 @@ function DetailEditor({ field, value, obs, onValue, onObs, index }) {
           <div style={{ color: C.text, fontSize: 18, fontWeight: 950 }}>{field.label}</div>
         </div>
       </div>
-      <div style={{ display: "grid", gridTemplateColumns: "minmax(220px, 1fr) minmax(180px, .55fr)", gap: 10 }}>
+      <div style={{ display: "grid", gridTemplateColumns: isMobile ? "1fr" : "minmax(220px, 1fr) minmax(180px, .55fr)", gap: 10 }}>
         <textarea value={value || ""} onChange={(e) => onValue(e.target.value)} placeholder="Escribir definicion..." rows={2} style={cellTextareaStyle()} />
         <textarea value={obs || ""} onChange={(e) => onObs(e.target.value)} placeholder="Observacion" rows={2} style={cellTextareaStyle()} />
       </div>
@@ -1306,7 +1493,7 @@ function SheetView({ selected, fields, grouped, onPatch, isMobile }) {
             <div style={{ color: C.dim, fontSize: 10, letterSpacing: 1.3, textTransform: "uppercase", fontWeight: 900 }}>Planilla tecnica</div>
             <h2 style={{ margin: "4px 0 0", fontSize: 30, lineHeight: 1, fontWeight: 950, letterSpacing: 0 }}>{selected.codigo}</h2>
           </div>
-          <div style={{ display: "grid", gridTemplateColumns: isMobile ? "1fr 1fr" : "repeat(4, minmax(130px, 1fr))", gap: 8, flex: "1 1 560px" }}>
+          <div style={{ display: "grid", gridTemplateColumns: isMobile ? "1fr" : "repeat(4, minmax(130px, 1fr))", gap: 8, flex: "1 1 560px" }}>
             <InfoBox label="Propietario" value={fields.propietario || "Pendiente"} />
             <InfoBox label="Constructor" value={fields.constructor || "Pendiente"} />
             <InfoBox label="Motorizacion" value={fields.motorizacion || "Pendiente"} />
@@ -1323,7 +1510,7 @@ function SheetView({ selected, fields, grouped, onPatch, isMobile }) {
       }}>
         <div style={{
           display: "grid",
-          gridTemplateColumns: isMobile ? "minmax(150px, .8fr) minmax(260px, 1fr)" : "250px minmax(460px, 1fr)",
+          gridTemplateColumns: isMobile ? "1fr" : "250px minmax(460px, 1fr)",
           background: C.panel2,
           borderBottom: `1px solid ${C.border}`,
           color: C.dim,
@@ -1332,8 +1519,8 @@ function SheetView({ selected, fields, grouped, onPatch, isMobile }) {
           textTransform: "uppercase",
           fontWeight: 950,
         }}>
-          <div style={{ padding: "12px 14px" }}>Rubro</div>
-          <div style={{ padding: "12px 14px", borderLeft: `1px solid ${C.border}` }}>Definicion / observacion</div>
+          <div style={{ padding: "12px 14px" }}>{isMobile ? "Memoria tecnica" : "Rubro"}</div>
+          {!isMobile && <div style={{ padding: "12px 14px", borderLeft: `1px solid ${C.border}` }}>Definicion / observacion</div>}
         </div>
 
         {Object.entries(grouped).map(([section, rows]) => (
@@ -1356,13 +1543,13 @@ function SheetView({ selected, fields, grouped, onPatch, isMobile }) {
                 key={`${section}-${field.key}-${field.label}`}
                 style={{
                   display: "grid",
-                  gridTemplateColumns: isMobile ? "minmax(150px, .8fr) minmax(260px, 1fr)" : "250px minmax(460px, 1fr)",
+                  gridTemplateColumns: isMobile ? "1fr" : "250px minmax(460px, 1fr)",
                   borderBottom: `1px solid ${C.border}`,
                   alignItems: "stretch",
                 }}
               >
                 <div style={{
-                  padding: "12px 14px",
+                  padding: isMobile ? "11px 12px 7px" : "12px 14px",
                   display: "flex",
                   gap: 9,
                   alignItems: "center",
@@ -1376,13 +1563,14 @@ function SheetView({ selected, fields, grouped, onPatch, isMobile }) {
                   </span>
                   <span>{field.label}</span>
                 </div>
-                <div style={{ padding: 9, borderLeft: `1px solid ${C.border}`, minWidth: 0 }}>
+                <div style={{ padding: isMobile ? "0 12px 12px" : 9, borderLeft: isMobile ? "none" : `1px solid ${C.border}`, minWidth: 0 }}>
                   <FieldCell
                     field={field}
                     value={fields[field.key]}
                     obs={fields[`${field.key}_obs`]}
                     onValue={(value) => onPatch(field.key, value)}
                     onObs={(value) => onPatch(`${field.key}_obs`, value)}
+                    isMobile={isMobile}
                   />
                 </div>
               </div>
