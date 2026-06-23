@@ -2,9 +2,9 @@ import { C } from "@/theme";
 /**
  * CalendarioScreen.jsx
  * Calendario de producción — Klase A Astillero
- * Eventos: Desmolde · Traslado · Botadura · Entrega · Feriado · Otro
+ * Movimientos: Desmolde · Traslado · Botadura · Entrega · Feriado · Otro
  *
- * v2: integración WhatsApp via Twilio (Supabase Edge Function)
+ * Registro operativo de movimientos de producción.
  */
 import { useEffect, useState, useMemo } from "react";
 import { supabase } from "@/supabaseClient";
@@ -24,15 +24,6 @@ const TIPOS = {
   reunion:         { label: "Reunión",           color: "#c084fc" },
   otro:            { label: "Otro",              color: "var(--muted)" },
 };
-
-// ─── WhatsApp: tipos que disparan notificación ────────────────────────────────
-const TIPOS_NOTIFICAR_WA = [
-  "botadura",
-  "entrega",
-  "entrega_material",
-  "desmolde",
-  "traslado",
-];
 
 // ─── SQL setup ────────────────────────────────────────────────────────────────
 const SQL = `create table calendario_eventos (
@@ -54,7 +45,6 @@ const I = {
   close: <svg width="11" height="11" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round"><path d="M3 3l10 10M13 3L3 13"/></svg>,
   clock: <svg width="11" height="11" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round"><circle cx="8" cy="8" r="6.5"/><path d="M8 4.5v4l2.5 2"/></svg>,
   trash: <svg width="11" height="11" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round"><path d="M2 4h12M5 4V2h6v2M6 7v5M10 7v5M3 4l1 9a1 1 0 001 1h6a1 1 0 001-1l1-9"/></svg>,
-  wa:    <svg width="11" height="11" viewBox="0 0 24 24" fill="currentColor"><path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347z"/><path d="M12 0C5.373 0 0 5.373 0 12c0 2.127.558 4.121 1.532 5.852L0 24l6.335-1.51A11.934 11.934 0 0012 24c6.627 0 12-5.373 12-12S18.627 0 12 0zm0 21.818a9.807 9.807 0 01-5.032-1.386l-.36-.214-3.732.889.937-3.63-.235-.373A9.78 9.78 0 012.182 12C2.182 6.57 6.57 2.182 12 2.182S21.818 6.57 21.818 12 17.43 21.818 12 21.818z"/></svg>,
 };
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
@@ -72,21 +62,6 @@ function today() {
   const n = new Date();
   return dateStr(n.getFullYear(), n.getMonth(), n.getDate());
 }
-
-// ─── WhatsApp notification ────────────────────────────────────────────────────
-async function guardar(form) {
-    const esNuevo = !modal?.ev?.id;
-    if (esNuevo) {
-      const { error } = await supabase.from("calendario_eventos").insert(form);
-      if (error) return alert(error.message);
-    } else {
-      const { error } = await supabase.from("calendario_eventos").update(form).eq("id", modal.ev.id);
-      if (error) return alert(error.message);
-    }
-    // notificarWhatsApp(form, esNuevo);  <-- COMENTADO O BORRADO
-    setModal(null);
-    cargar();
-  }
 
 // ─── EventBadge ───────────────────────────────────────────────────────────────
 function EventBadge({ ev, onClick, compact }) {
@@ -127,7 +102,6 @@ function EventModal({ ev, fechaDefault, onClose, onSave, onDelete, esAdmin }) {
   });
   const f = (k, v) => setForm(p => ({ ...p, [k]: v }));
   const ok = form.titulo.trim() && form.fecha;
-  const vaANotificar = TIPOS_NOTIFICAR_WA.includes(form.tipo);
 
   const LBL = { fontSize: 10, letterSpacing: "0.15em", textTransform: "uppercase", color: C.t2, display: "block", marginBottom: 5, fontWeight: 700 };
   const INP = { background: C.s0, border: `1px solid ${C.b0}`, color: C.t0, padding: "7px 10px", borderRadius: 7, fontSize: 13, outline: "none", width: "100%", fontFamily: C.sans, boxSizing: "border-box" };
@@ -137,12 +111,12 @@ function EventModal({ ev, fechaDefault, onClose, onSave, onDelete, esAdmin }) {
       <div onClick={e => e.stopPropagation()} style={{ background: C.panelSolid, border: `1px solid ${C.b1}`, borderRadius: 14, padding: 26, width: 420, maxWidth: "94vw", maxHeight: "92vh", overflowY: "auto" }}>
 
         <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 20 }}>
-          <div style={{ fontSize: 14, fontWeight: 700, color: C.t0 }}>{isNew ? "Nuevo evento" : "Editar evento"}</div>
+          <div style={{ fontSize: 14, fontWeight: 700, color: C.t0 }}>{isNew ? "Nuevo movimiento" : "Editar movimiento"}</div>
           <button onClick={onClose} style={{ background: C.s0, border: `1px solid ${C.b0}`, color: C.t1, width: 28, height: 28, borderRadius: "50%", cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center" }}>{I.close}</button>
         </div>
 
         <div style={{ marginBottom: 14 }}>
-          <label style={LBL}>Tipo de evento</label>
+          <label style={LBL}>Tipo de movimiento</label>
           <div style={{ display: "flex", flexWrap: "wrap", gap: 5 }}>
             {Object.entries(TIPOS).map(([key, t]) => (
               <button key={key} onClick={() => f("tipo", key)} style={{
@@ -159,7 +133,7 @@ function EventModal({ ev, fechaDefault, onClose, onSave, onDelete, esAdmin }) {
         <div style={{ display: "grid", gap: 12 }}>
           <div>
             <label style={LBL}>Título *</label>
-            <input style={INP} value={form.titulo} onChange={e => f("titulo", e.target.value)} placeholder="Ej: Desmolde casco K37-39" autoFocus />
+            <input style={INP} value={form.titulo} onChange={e => f("titulo", e.target.value)} placeholder="Ej: Traslado K52-25 a cabina" autoFocus />
           </div>
           <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10 }}>
             <div>
@@ -176,17 +150,10 @@ function EventModal({ ev, fechaDefault, onClose, onSave, onDelete, esAdmin }) {
             <input style={INP} value={form.obra} onChange={e => f("obra", e.target.value)} placeholder="K37-39, K52-23…" />
           </div>
           <div>
-            <label style={LBL}>Notas</label>
-            <textarea style={{ ...INP, height: 64, resize: "vertical", lineHeight: 1.6 }} value={form.notas} onChange={e => f("notas", e.target.value)} placeholder="Detalles adicionales…" />
+            <label style={LBL}>Notas / observaciones</label>
+            <textarea style={{ ...INP, height: 74, resize: "vertical", lineHeight: 1.6 }} value={form.notas} onChange={e => f("notas", e.target.value)} placeholder="Datos importantes para consultar después…" />
           </div>
         </div>
-
-        {vaANotificar && (
-          <div style={{ marginTop: 16, padding: "8px 12px", background: "rgba(37,211,102,0.07)", border: "1px solid rgba(37,211,102,0.2)", borderRadius: 8, display: "flex", alignItems: "center", gap: 8 }}>
-            <span style={{ color: "#25d366", display: "flex" }}>{I.wa}</span>
-            <span style={{ fontSize: 12, color: "rgba(37,211,102,0.8)" }}>Se notificará al grupo de WhatsApp al guardar</span>
-          </div>
-        )}
 
         <div style={{ display: "flex", gap: 8, marginTop: 20, justifyContent: "space-between" }}>
           {!isNew && esAdmin && (
@@ -198,7 +165,7 @@ function EventModal({ ev, fechaDefault, onClose, onSave, onDelete, esAdmin }) {
             <button onClick={onClose} style={{ padding: "8px 16px", background: C.s0, border: `1px solid ${C.b0}`, color: C.t1, borderRadius: 8, cursor: "pointer", fontSize: 13, fontFamily: C.sans }}>Cancelar</button>
             <button onClick={() => ok && onSave(form)} disabled={!ok}
               style={{ padding: "8px 22px", background: ok ? "rgba(59,130,246,0.14)" : C.s0, border: `1px solid ${ok ? "rgba(59,130,246,0.35)" : C.b0}`, color: ok ? "#60a5fa" : C.t2, borderRadius: 8, cursor: ok ? "pointer" : "not-allowed", fontSize: 13, fontWeight: 600, fontFamily: C.sans, opacity: ok ? 1 : 0.5 }}>
-              {isNew ? "Crear evento" : "Guardar cambios"}
+              {isNew ? "Guardar movimiento" : "Guardar cambios"}
             </button>
           </div>
         </div>
@@ -214,16 +181,25 @@ function DayDetail({ fecha, eventos, onAdd, onEdit, esAdmin }) {
   const evs = eventos.filter(e => e.fecha === fecha).sort((a, b) => (a.hora || "99") > (b.hora || "99") ? 1 : -1);
 
   return (
-    <div style={{ width: 260, flexShrink: 0, borderLeft: `1px solid ${C.b0}`, display: "flex", flexDirection: "column", height: "100%" }}>
+    <div style={{ width: 300, flexShrink: 0, borderLeft: `1px solid ${C.b0}`, display: "flex", flexDirection: "column", height: "100%", background: C.panelSolid }}>
       <div style={{ padding: "18px 20px 14px", borderBottom: `1px solid ${C.b0}` }}>
-        <div style={{ fontSize: 10, letterSpacing: "0.2em", textTransform: "uppercase", color: C.t2, marginBottom: 4 }}>{DIAS_FULL[(new Date(y, m, d)).getDay()]}</div>
-        <div style={{ fontSize: 28, fontWeight: 700, color: C.t0, fontFamily: C.mono, lineHeight: 1 }}>{d}</div>
-        <div style={{ fontSize: 12, color: C.t2, marginTop: 3 }}>{MESES_ES[m]} {y}</div>
+        <div style={{ fontSize: 10, letterSpacing: "0.18em", textTransform: "uppercase", color: C.t2, marginBottom: 8, fontWeight: 800 }}>Detalle del día</div>
+        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-end", gap: 12 }}>
+          <div>
+            <div style={{ fontSize: 10, letterSpacing: "0.16em", textTransform: "uppercase", color: C.t2, marginBottom: 4 }}>{DIAS_FULL[(new Date(y, m, d)).getDay()]}</div>
+            <div style={{ fontSize: 32, fontWeight: 800, color: C.t0, fontFamily: C.mono, lineHeight: 1 }}>{d}</div>
+            <div style={{ fontSize: 12, color: C.t2, marginTop: 3 }}>{MESES_ES[m]} {y}</div>
+          </div>
+          <div style={{ padding: "7px 9px", borderRadius: 9, background: C.s1, border: `1px solid ${C.b0}`, textAlign: "center" }}>
+            <div style={{ fontFamily: C.mono, color: C.blue, fontWeight: 850, fontSize: 16 }}>{evs.length}</div>
+            <div style={{ color: C.t2, fontSize: 10, textTransform: "uppercase", letterSpacing: "0.08em" }}>mov.</div>
+          </div>
+        </div>
       </div>
 
       <div style={{ flex: 1, overflowY: "auto", padding: "12px 16px" }}>
         {evs.length === 0 ? (
-          <div style={{ fontSize: 12, color: C.t2, paddingTop: 8 }}>Sin eventos</div>
+          <div style={{ fontSize: 12, color: C.t2, paddingTop: 8 }}>Sin movimientos</div>
         ) : evs.map(ev => {
           const t = TIPOS[ev.tipo] ?? TIPOS.otro;
           return (
@@ -252,7 +228,7 @@ function DayDetail({ fecha, eventos, onAdd, onEdit, esAdmin }) {
       {esAdmin && (
         <div style={{ padding: "12px 16px", borderTop: `1px solid ${C.b0}` }}>
           <button onClick={() => onAdd(fecha)} style={{ width: "100%", padding: "8px", background: C.s1, border: `1px solid ${C.b0}`, color: C.t1, borderRadius: 8, cursor: "pointer", fontSize: 12, fontFamily: C.sans, display: "flex", alignItems: "center", justifyContent: "center", gap: 6 }}>
-            {I.plus} Agregar evento
+            {I.plus} Agregar movimiento
           </button>
         </div>
       )}
@@ -260,51 +236,49 @@ function DayDetail({ fecha, eventos, onAdd, onEdit, esAdmin }) {
   );
 }
 
-// ─── ProximosEventos ──────────────────────────────────────────────────────────
-function ProximosEventos({ eventos, onEdit }) {
-  const hoy = today();
-  const proximos = useMemo(() =>
-    [...eventos]
-      .filter(e => e.fecha >= hoy)
-      .sort((a, b) => a.fecha > b.fecha ? 1 : a.fecha < b.fecha ? -1 : (a.hora || "99") > (b.hora || "99") ? 1 : -1)
-      .slice(0, 12),
-    [eventos, hoy]
-  );
-  if (!proximos.length) return null;
-
-  let lastDate = null;
+// ─── Toolbar chips ────────────────────────────────────────────────────────────
+function MetricPill({ label, value, color }) {
   return (
-    <div style={{ padding: "16px 20px", borderBottom: `1px solid ${C.b0}` }}>
-      <div style={{ fontSize: 10, letterSpacing: "0.2em", textTransform: "uppercase", color: C.t2, marginBottom: 12 }}>Próximos</div>
-      {proximos.map(ev => {
-        const { y, m, d } = parseDate(ev.fecha);
-        const showDate = ev.fecha !== lastDate;
-        lastDate = ev.fecha;
-        const t = TIPOS[ev.tipo] ?? TIPOS.otro;
-        return (
-          <div key={ev.id}>
-            {showDate && (
-              <div style={{ fontSize: 10, color: C.t2, letterSpacing: "0.1em", marginBottom: 4, marginTop: showDate && ev !== proximos[0] ? 8 : 0, display: "flex", alignItems: "center", gap: 6 }}>
-                <span style={{ fontFamily: C.mono, color: ev.fecha === hoy ? C.amber : C.t2 }}>
-                  {ev.fecha === hoy ? "Hoy" : `${d} ${MESES_ES[m].slice(0, 3)}`}
-                </span>
-                <div style={{ flex: 1, height: 1, background: C.b0 }}/>
-              </div>
-            )}
-            <div onClick={() => onEdit(ev)} style={{ display: "flex", alignItems: "flex-start", gap: 8, padding: "4px 2px", cursor: "pointer", borderRadius: 5, marginBottom: 1 }} className="prox-ev">
-              <div style={{ width: 6, height: 6, borderRadius: "50%", background: t.color, marginTop: 4, flexShrink: 0 }}/>
-              <div style={{ flex: 1, minWidth: 0 }}>
-                <div style={{ fontSize: 12, color: C.t0, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{ev.titulo}</div>
-                <div style={{ fontSize: 11, color: t.color, marginTop: 1, display: "flex", alignItems: "center", gap: 4 }}>
-                  {t.label}{ev.hora ? ` · ${ev.hora}` : ""}{ev.obra ? ` · ${ev.obra}` : ""}
-                  {TIPOS_NOTIFICAR_WA.includes(ev.tipo) && <span style={{ color: "#25d366", display: "flex", marginLeft: 2 }}>{I.wa}</span>}
-                </div>
-              </div>
-            </div>
-          </div>
-        );
-      })}
+    <div style={{
+      display: "inline-flex",
+      alignItems: "center",
+      gap: 7,
+      height: 30,
+      padding: "0 10px",
+      borderRadius: 999,
+      background: `${color}10`,
+      border: `1px solid ${color}30`,
+      color,
+      flexShrink: 0,
+    }}>
+      <span style={{ fontFamily: C.mono, fontSize: 14, fontWeight: 850 }}>{value}</span>
+      <span style={{ fontSize: 10, color: C.t2, textTransform: "uppercase", letterSpacing: "0.1em", fontWeight: 800 }}>{label}</span>
     </div>
+  );
+}
+
+function FilterChip({ active, label, count, color, onClick }) {
+  return (
+    <button onClick={onClick} style={{
+      height: 30,
+      display: "inline-flex",
+      alignItems: "center",
+      gap: 7,
+      padding: "0 10px",
+      borderRadius: 999,
+      border: `1px solid ${active ? color + "55" : C.b0}`,
+      background: active ? `${color}12` : "transparent",
+      color: active ? color : C.t2,
+      cursor: "pointer",
+      fontSize: 12,
+      fontWeight: active ? 850 : 650,
+      fontFamily: C.sans,
+      whiteSpace: "nowrap",
+    }}>
+      <span style={{ width: 6, height: 6, borderRadius: 99, background: color, opacity: active ? 1 : 0.65 }} />
+      {label}
+      <span style={{ fontFamily: C.mono, fontSize: 11, color: active ? color : C.t2 }}>{count}</span>
+    </button>
   );
 }
 
@@ -516,10 +490,31 @@ export default function CalendarioScreen({ profile, signOut }) {
 
   useEffect(() => { cargar(); }, [year, month]);
 
-      const eventosFiltrados = useMemo(() => {
+  const eventosFiltrados = useMemo(() => {
     if (filtroTipo === "todos") return eventos;
     return eventos.filter(e => e.tipo === filtroTipo);
   }, [eventos, filtroTipo]);
+
+  const eventosMes = useMemo(() => {
+    const prefix = `${year}-${String(month + 1).padStart(2, "0")}-`;
+    return eventos.filter(e => e.fecha?.startsWith(prefix));
+  }, [eventos, month, year]);
+
+  const eventosDia = useMemo(() => eventos.filter(e => e.fecha === selDate), [eventos, selDate]);
+
+  const countsByType = useMemo(() => {
+    const counts = {};
+    eventos.forEach(e => { counts[e.tipo] = (counts[e.tipo] || 0) + 1; });
+    return counts;
+  }, [eventos]);
+
+  const proximosCompactos = useMemo(() =>
+    [...eventosFiltrados]
+      .filter(e => e.fecha >= today())
+      .sort((a, b) => a.fecha > b.fecha ? 1 : a.fecha < b.fecha ? -1 : (a.hora || "99") > (b.hora || "99") ? 1 : -1)
+      .slice(0, 4),
+    [eventosFiltrados]
+  );
 
   async function guardar(form) {
     const esNuevo = !modal?.ev?.id;
@@ -530,13 +525,12 @@ export default function CalendarioScreen({ profile, signOut }) {
       const { error } = await supabase.from("calendario_eventos").update(form).eq("id", modal.ev.id);
       if (error) return alert(error.message);
     }
-    // notificarWhatsApp(form, esNuevo); — el cron de Supabase maneja las notificaciones
     setModal(null);
     cargar();
   }
 
   async function eliminar(id) {
-    if (!window.confirm("¿Eliminar este evento?")) return;
+    if (!window.confirm("¿Eliminar este movimiento?")) return;
     await supabase.from("calendario_eventos").delete().eq("id", id);
     setModal(null);
     cargar();
@@ -634,7 +628,7 @@ export default function CalendarioScreen({ profile, signOut }) {
                 {buscando ? (
                   <div style={{ padding: 12, fontSize: 12, color: C.t2, textAlign: "center" }}>Buscando...</div>
                 ) : resultadosBusqueda.length === 0 ? (
-                  <div style={{ padding: 12, fontSize: 12, color: C.t2, textAlign: "center" }}>No se encontraron eventos</div>
+                  <div style={{ padding: 12, fontSize: 12, color: C.t2, textAlign: "center" }}>No se encontraron movimientos</div>
                 ) : (
                   resultadosBusqueda.map(ev => {
                     const t = TIPOS[ev.tipo] ?? TIPOS.otro;
@@ -656,36 +650,82 @@ export default function CalendarioScreen({ profile, signOut }) {
           {esAdmin && (
             <button onClick={() => setModal({ ev: null, fecha: selDate })}
               style={{ padding: "7px 14px", background: C.s1, border: `1px solid ${C.b1}`, color: C.t0, borderRadius: 8, cursor: "pointer", fontSize: 12, fontWeight: 700, fontFamily: C.sans, display: "flex", alignItems: "center", gap: 6 }}>
-              {I.plus} Evento
+              {I.plus} Movimiento
             </button>
           )}
         </div>
 
+        <div style={{
+          flexShrink: 0,
+          borderBottom: `1px solid ${C.b0}`,
+          background: C.panelSolid,
+          padding: "10px 18px",
+          display: "grid",
+          gridTemplateColumns: isMobile ? "1fr" : "auto 1fr auto",
+          gap: 12,
+          alignItems: "center",
+        }}>
+          <div style={{ display: "flex", gap: 8, alignItems: "center", flexWrap: "wrap" }}>
+            <MetricPill label="Mes" value={eventosMes.length} color={C.blue} />
+            <MetricPill label="Día" value={eventosDia.length} color={C.amber} />
+            <MetricPill label="Rango" value={eventos.length} color={C.green} />
+          </div>
+
+          <div style={{ display: "flex", gap: 6, alignItems: "center", overflowX: "auto", paddingBottom: 1 }}>
+            <FilterChip
+              active={filtroTipo === "todos"}
+              label="Todos"
+              count={eventos.length}
+              color={C.t2}
+              onClick={() => setFiltroTipo("todos")}
+            />
+            {Object.entries(TIPOS).map(([k, t]) => (
+              <FilterChip
+                key={k}
+                active={filtroTipo === k}
+                label={t.label}
+                count={countsByType[k] || 0}
+                color={t.color}
+                onClick={() => setFiltroTipo(filtroTipo === k ? "todos" : k)}
+              />
+            ))}
+          </div>
+
+          <div style={{ display: "flex", gap: 6, alignItems: "center", minWidth: 0, justifyContent: isMobile ? "flex-start" : "flex-end", overflow: "hidden" }}>
+            <span style={{ fontSize: 10, color: C.t2, textTransform: "uppercase", letterSpacing: "0.12em", fontWeight: 800, flexShrink: 0 }}>Próximos</span>
+            {proximosCompactos.length ? proximosCompactos.map((ev) => {
+              const t = TIPOS[ev.tipo] ?? TIPOS.otro;
+              const { m, d } = parseDate(ev.fecha);
+              return (
+                <button key={ev.id} onClick={() => { setSelDate(ev.fecha); setModal({ ev, fecha: ev.fecha }); }}
+                  style={{
+                    display: "inline-flex",
+                    alignItems: "center",
+                    gap: 5,
+                    minWidth: 0,
+                    maxWidth: 160,
+                    padding: "5px 8px",
+                    borderRadius: 999,
+                    border: `1px solid ${t.color}33`,
+                    background: `${t.color}10`,
+                    color: t.color,
+                    cursor: "pointer",
+                    fontSize: 11,
+                    fontWeight: 750,
+                    fontFamily: C.sans,
+                  }}>
+                  <span style={{ fontFamily: C.mono, color: C.t2, flexShrink: 0 }}>{d}/{String(m + 1).padStart(2, "0")}</span>
+                  <span style={{ overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{ev.titulo}</span>
+                </button>
+              );
+            }) : (
+              <span style={{ color: C.t2, fontSize: 12 }}>Sin próximos</span>
+            )}
+          </div>
+        </div>
+
         {/* BODY */}
         <div style={{ flex: 1, display: "flex", overflow: "hidden" }}>
-
-          {/* Sidebar tipos */}
-          <div style={{ width: 200, flexShrink: 0, borderRight: `1px solid ${C.b0}`, overflowY: "auto", display: "flex", flexDirection: "column" }}>
-            <div style={{ padding: "14px 18px 10px", borderBottom: `1px solid ${C.b0}` }}>
-              <div style={{ fontSize: 10, letterSpacing: "0.2em", textTransform: "uppercase", color: C.t2, marginBottom: 10 }}>Tipos</div>
-              {Object.entries(TIPOS).map(([k, t]) => (
-                <button key={k} onClick={() => setFiltroTipo(filtroTipo === k ? "todos" : k)}
-                  style={{ display: "flex", alignItems: "center", gap: 7, width: "100%", padding: "3px 6px", borderRadius: 5, cursor: "pointer", marginBottom: 1, background: filtroTipo === k ? `${t.color}14` : "transparent", border: "none", textAlign: "left" }}>
-                  <div style={{ width: 7, height: 7, borderRadius: 2, background: t.color, flexShrink: 0 }}/>
-                  <span style={{ fontSize: 12, color: filtroTipo === k ? t.color : C.t2 }}>{t.label}</span>
-                  {TIPOS_NOTIFICAR_WA.includes(k) && (
-                    <span style={{ color: "#25d366", marginLeft: "auto", display: "flex" }}>{I.wa}</span>
-                  )}
-                </button>
-              ))}
-              <div style={{ marginTop: 10, padding: "6px 6px", borderRadius: 5, background: "rgba(37,211,102,0.05)", border: "1px solid rgba(37,211,102,0.12)" }}>
-                <span style={{ fontSize: 10, color: "rgba(37,211,102,0.6)", display: "flex", alignItems: "center", gap: 4 }}>
-                  {I.wa} notifica al grupo WA
-                </span>
-              </div>
-            </div>
-            <ProximosEventos eventos={eventosFiltrados} onEdit={ev => setModal({ ev, fecha: ev.fecha })} />
-          </div>
 
           {/* Calendario */}
           <div style={{ flex: 1, display: "flex", flexDirection: "column", overflow: "hidden" }}>

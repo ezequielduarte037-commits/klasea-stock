@@ -2,8 +2,7 @@ import { useEffect, useMemo, useState } from "react";
 import { jsPDF } from "jspdf";
 import autoTable from "jspdf-autotable";
 import {
-  ClipboardList,
-  DollarSign,
+  CalendarRange,
   FileDown,
   Plus,
   RefreshCw,
@@ -17,9 +16,11 @@ import {
 } from "lucide-react";
 import { useToast } from "@/components/ui/Toast";
 import {
+  createCajaChicaClosure,
   createCajaChicaEntries,
   createCajaChicaEntry,
   deleteCajaChicaEntry,
+  fetchCajaChicaClosures,
   fetchCajaChicaEntries,
 } from "@/features/compras/cajaChicaApi";
 import { C } from "@/theme";
@@ -34,6 +35,13 @@ const EMPTY_FORM = {
   centro_costo: "",
   importe: "",
   moneda: "ARS",
+  notas: "",
+};
+
+const EMPTY_CIERRE = {
+  nombre: "",
+  fecha_desde: "",
+  fecha_hasta: "",
   notas: "",
 };
 
@@ -184,14 +192,15 @@ function currentMonthRange() {
   return { from, to };
 }
 
-function reportDateLabel(from, to) {
-  if (from && to) return `${fmtDate(from)} a ${fmtDate(to)}`;
-  if (from) return `desde ${fmtDate(from)}`;
-  if (to) return `hasta ${fmtDate(to)}`;
-  return "todos los movimientos";
+function cierreDateLabel(cierre) {
+  if (!cierre) return "sin cierre";
+  if (cierre.fecha_desde && cierre.fecha_hasta) return `${fmtDate(cierre.fecha_desde)} a ${fmtDate(cierre.fecha_hasta)}`;
+  if (cierre.fecha_desde) return `desde ${fmtDate(cierre.fecha_desde)}`;
+  if (cierre.fecha_hasta) return `hasta ${fmtDate(cierre.fecha_hasta)}`;
+  return "sin fechas";
 }
 
-function exportPdfReport({ rows, stats, dateFrom, dateTo }) {
+function exportPdfReport({ rows, cierre }) {
   const doc = new jsPDF({ unit: "pt", format: "a4" });
   const pageWidth = doc.internal.pageSize.getWidth();
   const left = 42;
@@ -208,17 +217,10 @@ function exportPdfReport({ rows, stats, dateFrom, dateTo }) {
   doc.setFont("helvetica", "normal");
   doc.setFontSize(10);
   doc.setTextColor(...muted);
-  doc.text(`Periodo: ${reportDateLabel(dateFrom, dateTo)} - ${rows.length} movimientos`, left, 74);
-
-  doc.setFont("helvetica", "bold");
-  doc.setFontSize(11);
-  doc.setTextColor(20, 24, 31);
-  doc.text(`Saldo ARS: ${fmtMoney(stats.ARS.ingresos - stats.ARS.egresos)}`, left, 104);
-  doc.text(`Ingresos: ${fmtMoney(stats.ARS.ingresos)}`, left + 180, 104);
-  doc.text(`Egresos: ${fmtMoney(stats.ARS.egresos)}`, left + 340, 104);
+  doc.text(`${cierre?.nombre || "Cierre"} - ${cierreDateLabel(cierre)} - ${rows.length} movimientos`, left, 74);
 
   autoTable(doc, {
-    startY: 126,
+    startY: 104,
     head: [["Fecha", "Proveedor", "Detalle", "Centro", "Egreso", "Ingreso"]],
     body: rows.map((row) => [
       fmtDate(row.fecha),
@@ -242,7 +244,12 @@ function exportPdfReport({ rows, stats, dateFrom, dateTo }) {
     margin: { left, right: left },
   });
 
-  doc.save(`caja-chica-${dateFrom || "inicio"}-${dateTo || "hoy"}.pdf`);
+  const name = String(cierre?.nombre || "caja-chica")
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .replace(/[^a-zA-Z0-9._-]+/g, "-")
+    .replace(/-+/g, "-");
+  doc.save(`${name}-${new Date().toISOString().slice(0, 10)}.pdf`);
 }
 
 function lowerText(value) {
@@ -252,11 +259,25 @@ function lowerText(value) {
     .toLowerCase();
 }
 
+function safeFilePart(value) {
+  return String(value || "archivo")
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .replace(/[^a-zA-Z0-9._-]+/g, "-")
+    .replace(/-+/g, "-")
+    .replace(/^-|-$/g, "")
+    .slice(0, 80);
+}
+
 export default function CajaChicaPanel() {
   const toast = useToast();
+  const [cierres, setCierres] = useState([]);
+  const [selectedCierreId, setSelectedCierreId] = useState("");
+  const [cierreForm, setCierreForm] = useState(EMPTY_CIERRE);
   const [rows, setRows] = useState([]);
   const [loading, setLoading] = useState(true);
   const [missingTable, setMissingTable] = useState(false);
+  const [missingClosuresTable, setMissingClosuresTable] = useState(false);
   const [saving, setSaving] = useState(false);
   const [form, setForm] = useState(EMPTY_FORM);
   const [query, setQuery] = useState("");
@@ -267,10 +288,35 @@ export default function CajaChicaPanel() {
   const [pasteText, setPasteText] = useState("");
   const [importRows, setImportRows] = useState([]);
 
-  async function load() {
+  async function loadCierres(preferredId = selectedCierreId) {
     setLoading(true);
     try {
-      const result = await fetchCajaChicaEntries();
+      const result = await fetchCajaChicaClosures();
+      const nextCierres = result.rows;
+      setCierres(nextCierres);
+      setMissingClosuresTable(Boolean(result.missingTable));
+      const stillExists = nextCierres.some((cierre) => cierre.id === preferredId);
+      setSelectedCierreId(stillExists ? preferredId : (nextCierres[0]?.id || ""));
+    } catch (error) {
+      toast.error(error?.message || "No se pudieron cargar los cierres.");
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  useEffect(() => {
+    loadCierres();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  async function loadEntries(cierreId = selectedCierreId) {
+    if (!cierreId) {
+      setRows([]);
+      return;
+    }
+    setLoading(true);
+    try {
+      const result = await fetchCajaChicaEntries({ cierreId });
       setRows(result.rows);
       setMissingTable(Boolean(result.missingTable));
     } catch (error) {
@@ -281,14 +327,24 @@ export default function CajaChicaPanel() {
   }
 
   useEffect(() => {
-    load();
+    loadEntries(selectedCierreId);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+  }, [selectedCierreId]);
+
+  async function refreshAll() {
+    await loadCierres(selectedCierreId);
+    await loadEntries(selectedCierreId);
+  }
 
   const centros = useMemo(() => {
     return Array.from(new Set(rows.map((row) => row.centro_costo).filter(Boolean)))
       .sort((a, b) => String(a).localeCompare(String(b), "es"));
   }, [rows]);
+
+  const selectedCierre = useMemo(
+    () => cierres.find((cierre) => cierre.id === selectedCierreId) || null,
+    [cierres, selectedCierreId],
+  );
 
   const filteredRows = useMemo(() => {
     const q = lowerText(query);
@@ -337,9 +393,36 @@ export default function CajaChicaPanel() {
     setForm((prev) => ({ ...prev, ...patch }));
   }
 
+  function patchCierreForm(patch) {
+    setCierreForm((prev) => ({ ...prev, ...patch }));
+  }
+
+  async function handleCreateCierre(event) {
+    event.preventDefault();
+    if (!cierreForm.nombre.trim()) {
+      toast.warning("Poné un nombre para el cierre.");
+      return;
+    }
+    setSaving(true);
+    try {
+      const created = await createCajaChicaClosure(cierreForm);
+      setCierreForm(EMPTY_CIERRE);
+      await loadCierres(created.id);
+      toast.success("Cierre creado.");
+    } catch (error) {
+      toast.error(error?.message || "No se pudo crear el cierre.");
+    } finally {
+      setSaving(false);
+    }
+  }
+
   async function handleSubmit(event) {
     event.preventDefault();
     const importe = parseMoney(form.importe);
+    if (!selectedCierreId) {
+      toast.warning("Primero seleccioná o creá un cierre.");
+      return;
+    }
     if (!form.detalle.trim()) {
       toast.warning("Cargá un detalle para el movimiento.");
       return;
@@ -351,9 +434,9 @@ export default function CajaChicaPanel() {
 
     setSaving(true);
     try {
-      await createCajaChicaEntry({ ...form, importe });
+      await createCajaChicaEntry({ ...form, importe, cierre_id: selectedCierreId });
       setForm(EMPTY_FORM);
-      await load();
+      await loadEntries(selectedCierreId);
       toast.success("Movimiento guardado.");
     } catch (error) {
       toast.error(error?.message || "No se pudo guardar el movimiento.");
@@ -363,16 +446,20 @@ export default function CajaChicaPanel() {
   }
 
   async function handlePasteImport() {
+    if (!selectedCierreId) {
+      toast.warning("Primero seleccioná o creá un cierre.");
+      return;
+    }
     if (!importReady.length) {
       toast.warning("No encontré filas listas para importar.");
       return;
     }
     setSaving(true);
     try {
-      await createCajaChicaEntries(importReady.map(normalizeImportRow));
+      await createCajaChicaEntries(importReady.map((row) => ({ ...normalizeImportRow(row), cierre_id: selectedCierreId })));
       setPasteText("");
       setImportRows([]);
-      await load();
+      await loadEntries(selectedCierreId);
       toast.success(`${importReady.length} movimientos importados.`);
     } catch (error) {
       toast.error(error?.message || "No se pudo importar el pegado.");
@@ -412,7 +499,7 @@ export default function CajaChicaPanel() {
     if (!ok) return;
     try {
       await deleteCajaChicaEntry(row.id);
-      await load();
+      await loadEntries(selectedCierreId);
       toast.success("Movimiento borrado.");
     } catch (error) {
       toast.error(error?.message || "No se pudo borrar.");
@@ -437,7 +524,7 @@ export default function CajaChicaPanel() {
     const url = URL.createObjectURL(blob);
     const a = document.createElement("a");
     a.href = url;
-    a.download = `caja-chica-${new Date().toISOString().slice(0, 10)}.csv`;
+    a.download = `${safeFilePart(selectedCierre?.nombre || "caja-chica")}-${new Date().toISOString().slice(0, 10)}.csv`;
     a.click();
     URL.revokeObjectURL(url);
   }
@@ -447,7 +534,7 @@ export default function CajaChicaPanel() {
       toast.warning("No hay movimientos para exportar.");
       return;
     }
-    exportPdfReport({ rows: filteredRows, stats, dateFrom, dateTo });
+    exportPdfReport({ rows: filteredRows, cierre: selectedCierre });
   }
 
   return (
@@ -468,10 +555,10 @@ export default function CajaChicaPanel() {
         <div style={{ flex: 1, minWidth: 220 }}>
           <h2 style={{ margin: 0, fontSize: 20, fontWeight: 850 }}>Caja chica</h2>
           <p style={{ margin: "5px 0 0", color: C.dim, fontSize: 13 }}>
-            Movimientos de ingreso y egreso por proveedor, detalle y centro de costo.
+            Movimientos organizados por cierres semanales o por período.
           </p>
         </div>
-        <button type="button" onClick={load} style={smallBtn()}>
+        <button type="button" onClick={refreshAll} style={smallBtn()}>
           <RefreshCw size={14} /> Actualizar
         </button>
         <button type="button" onClick={exportCsv} disabled={!filteredRows.length} style={smallBtn(!filteredRows.length)}>
@@ -482,7 +569,7 @@ export default function CajaChicaPanel() {
         </button>
       </div>
 
-      {missingTable && (
+      {(missingTable || missingClosuresTable) && (
         <div style={{
           border: `1px solid ${C.amberB}`,
           background: C.amberL,
@@ -492,23 +579,87 @@ export default function CajaChicaPanel() {
           fontSize: 13,
           lineHeight: 1.45,
         }}>
-          Falta crear la tabla de caja chica en Supabase. Te dejo el SQL idempotente al final del mensaje para pegarlo en el SQL Editor.
+          Falta aplicar el SQL de caja chica con cierres en Supabase. Te lo dejo al final para pegarlo en el SQL Editor.
         </div>
       )}
 
-      <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(190px, 1fr))", gap: 10 }}>
-        <Kpi icon={<DollarSign size={16} />} label="Saldo ARS" value={fmtMoney(saldoArs)} color={saldoArs < 0 ? C.red : C.green} />
-        <Kpi icon={<TrendingUp size={16} />} label="Ingresos" value={fmtMoney(stats.ARS.ingresos)} color={C.green} />
-        <Kpi icon={<TrendingDown size={16} />} label="Egresos" value={fmtMoney(stats.ARS.egresos)} color={C.red} />
-        <Kpi icon={<ClipboardList size={16} />} label="Movimientos" value={String(filteredRows.length)} color={C.blue} />
-        {stats.USD.ingresos || stats.USD.egresos ? (
-          <Kpi icon={<DollarSign size={16} />} label="Saldo USD" value={fmtMoney(saldoUsd, "USD")} color={saldoUsd < 0 ? C.red : C.green} />
-        ) : null}
-      </div>
+      <section style={cardStyle()}>
+        <SectionTitle
+          title="Cierres"
+          subtitle="Cada carga queda dentro de un cierre. Usalo como la planilla: un bloque por semana o por período real."
+        />
+        <div style={{ display: "grid", gridTemplateColumns: "minmax(260px, 1fr) minmax(300px, 0.9fr)", gap: 12 }}>
+          <div style={{ display: "grid", gap: 8, alignContent: "start" }}>
+            {cierres.length ? cierres.map((cierre) => (
+              <button
+                key={cierre.id}
+                type="button"
+                onClick={() => setSelectedCierreId(cierre.id)}
+                style={{
+                  textAlign: "left",
+                  border: `1px solid ${selectedCierreId === cierre.id ? C.blueB : C.border}`,
+                  background: selectedCierreId === cierre.id ? C.blueL : C.panel2,
+                  color: C.text,
+                  borderRadius: 10,
+                  padding: 11,
+                  cursor: "pointer",
+                  display: "grid",
+                  gap: 5,
+                }}
+              >
+                <div style={{ display: "flex", justifyContent: "space-between", gap: 10, alignItems: "center" }}>
+                  <strong style={{ fontSize: 13 }}>{cierre.nombre}</strong>
+                  <span style={pill(cierre.estado === "cerrado" ? C.green : C.amber)}>{cierre.estado === "cerrado" ? "Cerrado" : "Abierto"}</span>
+                </div>
+                <div style={{ display: "flex", alignItems: "center", gap: 7, color: C.dim, fontSize: 12 }}>
+                  <CalendarRange size={13} /> {cierreDateLabel(cierre)}
+                </div>
+                {cierre.notas && <div style={{ color: C.dim, fontSize: 12 }}>{cierre.notas}</div>}
+              </button>
+            )) : (
+              <div style={{ border: `1px dashed ${C.border2}`, borderRadius: 10, padding: 18, color: C.dim, fontSize: 13 }}>
+                No hay cierres cargados todavía.
+              </div>
+            )}
+          </div>
+
+          <form onSubmit={handleCreateCierre} style={{ display: "grid", gap: 8, border: `1px solid ${C.border}`, background: C.panel2, borderRadius: 10, padding: 12 }}>
+            <div style={{ fontSize: 13, fontWeight: 850, color: C.text }}>Nuevo cierre</div>
+            <Field label="Nombre">
+              <input value={cierreForm.nombre} onChange={(e) => patchCierreForm({ nombre: e.target.value })} placeholder="Ej: Cierre 14/05 al 21/05" style={inputStyle()} />
+            </Field>
+            <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8 }}>
+              <Field label="Desde">
+                <input type="date" value={cierreForm.fecha_desde} onChange={(e) => patchCierreForm({ fecha_desde: e.target.value })} style={inputStyle()} />
+              </Field>
+              <Field label="Hasta">
+                <input type="date" value={cierreForm.fecha_hasta} onChange={(e) => patchCierreForm({ fecha_hasta: e.target.value })} style={inputStyle()} />
+              </Field>
+            </div>
+            <Field label="Notas">
+              <input value={cierreForm.notas} onChange={(e) => patchCierreForm({ notas: e.target.value })} placeholder="Opcional: feriado, semana corta, etc." style={inputStyle()} />
+            </Field>
+            <button type="submit" disabled={saving || missingClosuresTable} style={primaryBtn(saving || missingClosuresTable)}>
+              <Plus size={14} /> Crear cierre
+            </button>
+          </form>
+        </div>
+      </section>
+
+      {selectedCierre && (
+        <div style={{ border: `1px solid ${C.border}`, background: C.panelSolid, borderRadius: 12, padding: 12, display: "flex", justifyContent: "space-between", gap: 12, alignItems: "center", flexWrap: "wrap" }}>
+          <div>
+            <div style={{ fontSize: 10, letterSpacing: 1.1, color: C.dim, textTransform: "uppercase", fontWeight: 850 }}>Cierre activo</div>
+            <div style={{ fontSize: 16, fontWeight: 850, marginTop: 3 }}>{selectedCierre.nombre}</div>
+            <div style={{ color: C.dim, fontSize: 12, marginTop: 2 }}>{cierreDateLabel(selectedCierre)}</div>
+          </div>
+          <div style={{ fontFamily: C.mono, color: C.blue, fontWeight: 900 }}>{filteredRows.length} movimientos</div>
+        </div>
+      )}
 
       <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(320px, 1fr))", gap: 12 }}>
         <section style={cardStyle()}>
-          <SectionTitle title="Nuevo movimiento" subtitle="Mismo criterio que la planilla: fecha, proveedor, detalle, centro e importe." />
+          <SectionTitle title="Nuevo movimiento" subtitle={selectedCierre ? `Se guarda en ${selectedCierre.nombre}.` : "Primero seleccioná o creá un cierre."} />
           <form onSubmit={handleSubmit} style={{ display: "grid", gap: 10 }}>
             <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(130px, 1fr))", gap: 8 }}>
               <Field label="Fecha">
@@ -563,7 +714,7 @@ export default function CajaChicaPanel() {
                 {form.proveedor ? ` · ${form.proveedor}` : ""}
                 {form.centro_costo ? ` · ${form.centro_costo}` : ""}
               </div>
-              <button type="submit" disabled={saving || missingTable} style={primaryBtn(saving || missingTable)}>
+              <button type="submit" disabled={saving || missingTable || !selectedCierreId} style={primaryBtn(saving || missingTable || !selectedCierreId)}>
                 <Plus size={14} /> Guardar
               </button>
             </div>
@@ -571,7 +722,7 @@ export default function CajaChicaPanel() {
         </section>
 
         <section style={cardStyle()}>
-          <SectionTitle title="Pegar desde Excel" subtitle="Copiá filas de la planilla con columnas Fecha, Proveedor, Detalle, Centro, Importe e Ingreso." />
+          <SectionTitle title="Pegar desde Excel" subtitle={selectedCierre ? "Pegá filas del cierre seleccionado. Primero analizamos y después importamos." : "Seleccioná un cierre antes de importar."} />
           <textarea
             value={pasteText}
             onChange={(e) => setPasteText(e.target.value)}
@@ -589,7 +740,7 @@ export default function CajaChicaPanel() {
               <button type="button" onClick={handleAnalyzePaste} disabled={!pasteText.trim()} style={smallBtn(!pasteText.trim())}>
                 <WandSparkles size={14} /> Analizar
               </button>
-              <button type="button" onClick={handlePasteImport} disabled={saving || missingTable || !importReady.length} style={primaryBtn(saving || missingTable || !importReady.length)}>
+              <button type="button" onClick={handlePasteImport} disabled={saving || missingTable || !selectedCierreId || !importReady.length} style={primaryBtn(saving || missingTable || !selectedCierreId || !importReady.length)}>
                 <Upload size={14} /> Importar listas
               </button>
             </div>
@@ -638,7 +789,7 @@ export default function CajaChicaPanel() {
         </section>
       </div>
 
-      <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(280px, 1fr))", gap: 12 }}>
+      <div style={{ display: "grid", gridTemplateColumns: "1fr", gap: 12 }}>
         <section style={cardStyle({ padding: 0, overflow: "hidden" })}>
           <div style={{ padding: 12, display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(160px, 1fr))", gap: 8, borderBottom: `1px solid ${C.border}` }}>
             <div style={{ position: "relative" }}>
@@ -654,12 +805,6 @@ export default function CajaChicaPanel() {
               <option value="todos">Todos los centros</option>
               {centros.map((centro) => <option key={centro} value={centro}>{centro}</option>)}
             </select>
-            <input type="date" value={dateFrom} onChange={(e) => setDateFrom(e.target.value)} title="Desde" style={inputStyle()} />
-            <input type="date" value={dateTo} onChange={(e) => setDateTo(e.target.value)} title="Hasta" style={inputStyle()} />
-            <div style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>
-              <button type="button" onClick={useCurrentMonth} style={smallBtn()}>Este mes</button>
-              <button type="button" onClick={() => { setDateFrom(""); setDateTo(""); }} style={smallBtn()}>Todo</button>
-            </div>
           </div>
 
           <div style={{ overflowX: "auto" }}>
@@ -702,7 +847,7 @@ export default function CajaChicaPanel() {
           </div>
         </section>
 
-        <aside style={cardStyle()}>
+        <aside style={{ display: "none" }}>
           <SectionTitle title="Centros de costo" subtitle="Egresos principales para revisar por obra o área." />
           <div style={{ display: "grid", gap: 8 }}>
             {centrosTop.length ? centrosTop.map((item) => (
