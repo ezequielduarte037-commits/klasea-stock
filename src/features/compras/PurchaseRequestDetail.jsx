@@ -6,6 +6,7 @@ import {
   BellOff,
   CheckCircle2,
   Clock,
+  Copy,
   Image as ImageIcon,
   MessageSquare,
   Paperclip,
@@ -84,6 +85,42 @@ function fmtDateTime(value) {
     hour: "2-digit",
     minute: "2-digit",
   });
+}
+
+function htmlToText(value) {
+  const raw = String(value || "");
+  if (!raw) return "";
+  return raw
+    .replace(/<br\s*\/?>/gi, "\n")
+    .replace(/<\/p>/gi, "\n")
+    .replace(/<li>/gi, "- ")
+    .replace(/<\/li>/gi, "\n")
+    .replace(/<[^>]*>/g, " ")
+    .replace(/&nbsp;/g, " ")
+    .replace(/&amp;/g, "&")
+    .replace(/&lt;/g, "<")
+    .replace(/&gt;/g, ">")
+    .replace(/[ \t]+\n/g, "\n")
+    .replace(/\n{3,}/g, "\n\n")
+    .replace(/[ \t]{2,}/g, " ")
+    .trim();
+}
+
+async function copyPlainText(text) {
+  if (navigator.clipboard?.writeText) {
+    await navigator.clipboard.writeText(text);
+    return;
+  }
+  const ta = document.createElement("textarea");
+  ta.value = text;
+  ta.style.position = "fixed";
+  ta.style.left = "-9999px";
+  ta.style.top = "0";
+  document.body.appendChild(ta);
+  ta.focus();
+  ta.select();
+  document.execCommand("copy");
+  document.body.removeChild(ta);
 }
 
 function Pill({ children, color = C.blue }) {
@@ -627,6 +664,56 @@ export default function PurchaseRequestDetail({ requestId, profile, users = [], 
       toast.error(msg);
     } finally {
       setSavingFollowerWa(false);
+    }
+  }
+
+  function buildCopyText() {
+    const lines = [];
+    const priorityLabel = REQUEST_PRIORITIES.find((p) => p.value === request.priority)?.label || request.priority;
+    const statusLabel = REQUEST_STATUSES.find((s) => s.value === request.status)?.label || request.status;
+    const destino = request.project?.codigo || request.destino || "";
+    const description = htmlToText(request.description);
+
+    lines.push(`Pedido: ${request.title || "Sin titulo"}`);
+    if (destino) lines.push(`Destino/obra: ${destino}`);
+    if (priorityLabel) lines.push(`Prioridad: ${priorityLabel}`);
+    if (statusLabel) lines.push(`Estado: ${statusLabel}`);
+    if (request.needed_at) {
+      lines.push(`Necesario para: ${new Date(request.needed_at).toLocaleDateString("es-AR")}`);
+    }
+    if (description && items.length === 0) {
+      lines.push("");
+      lines.push("Descripcion:");
+      lines.push(description);
+    }
+
+    lines.push("");
+    lines.push(`Items (${items.length}):`);
+    if (!items.length) {
+      lines.push("- Sin items cargados.");
+    } else {
+      items.forEach((item, index) => {
+        const qty = item.quantity ? [item.quantity, item.unit].filter(Boolean).join(" ").trim() : "";
+        const suffix = qty ? ` - ${qty}` : "";
+        lines.push(`${index + 1}. ${item.description || "Item sin descripcion"}${suffix}`);
+        if (item.destination) lines.push(`   Destino: ${item.destination}`);
+        if (item.notes) lines.push(`   Nota: ${item.notes}`);
+        if (isHttpUrl(item.link_url)) lines.push(`   Link: ${item.link_url}`);
+        if (isHttpUrl(item.image_url)) lines.push(`   Foto: ${item.image_url}`);
+      });
+    }
+
+    return lines.join("\n").trim();
+  }
+
+  async function handleCopyPurchaseText() {
+    try {
+      await copyPlainText(buildCopyText());
+      toast.success(items.length > 0
+        ? `Pedido copiado con ${items.length} items.`
+        : "Pedido copiado.");
+    } catch (err) {
+      toast.error("No se pudo copiar el pedido.");
     }
   }
 
@@ -1524,6 +1611,23 @@ export default function PurchaseRequestDetail({ requestId, profile, users = [], 
                 <span style={{ color: C.dim, fontSize: 10, letterSpacing: 1.2, textTransform: "uppercase", fontWeight: 750 }}>Items</span>
                 {items.length > 0 && <span style={{ color: C.dim, fontSize: 11, fontFamily: C.mono }}>{items.length}</span>}
                 <span style={{ flex: 1 }} />
+                <button type="button" onClick={handleCopyPurchaseText} title="Copiar pedido para mail o mensaje" style={{
+                  display: "inline-flex",
+                  alignItems: "center",
+                  gap: 5,
+                  padding: "4px 9px",
+                  borderRadius: 6,
+                  cursor: "pointer",
+                  fontSize: 11,
+                  border: `1px solid ${C.border}`,
+                  background: C.panel,
+                  color: C.muted,
+                  fontFamily: C.sans,
+                  fontWeight: 750,
+                }}>
+                  <Copy size={12} />
+                  Copiar pedido
+                </button>
                 {canEditItems && !showAddItem && (
                   <button type="button" onClick={() => setShowAddItem(true)} style={{
                     padding: "2px 10px", borderRadius: 5, cursor: "pointer", fontSize: 11,

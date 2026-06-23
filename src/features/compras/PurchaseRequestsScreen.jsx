@@ -19,6 +19,7 @@ import {
   Table2,
   Trash2,
   Users,
+  Wallet,
   X,
 } from "lucide-react";
 import {
@@ -42,6 +43,7 @@ import { useResponsive } from "@/hooks/useResponsive";
 import { useToast } from "@/components/ui/Toast";
 import { CardSkeleton, RowSkeleton, Skeleton, SkeletonStyles } from "@/components/ui/Skeleton";
 import AdditionalPurchasesPanel from "@/features/compras/AdditionalPurchasesPanel";
+import CajaChicaPanel from "@/features/compras/CajaChicaPanel";
 import PurchaseRequestDetail from "@/features/compras/PurchaseRequestDetail";
 import PurchaseLogPanel from "@/features/compras/PurchaseLogPanel";
 import {
@@ -465,7 +467,7 @@ const STOCK_DESTINOS = ["Stock Chubut 2120", "Stock Pampa 1050"];
 const CREATE_DRAFT_PREFIX = "purchase-request-create-draft";
 
 const URL_FILTER_KEYS = ["q", "status", "priority", "creator", "project", "dateFrom", "dateTo"];
-const MANAGER_TABS = ["lista", "dashboard", "avisos", "registro", "adicionales"];
+const MANAGER_TABS = ["lista", "dashboard", "avisos", "registro", "adicionales", "caja"];
 
 function createDraftKey(userId) {
   return `${CREATE_DRAFT_PREFIX}:${userId || "anon"}`;
@@ -1143,6 +1145,9 @@ export default function PurchaseRequestsScreen({ profile, signOut }) {
                   <TabBtn active={managerTab === "registro"} onClick={() => setManagerTab("registro")}>
                     <Package size={12} /> Registro
                   </TabBtn>
+                  <TabBtn active={managerTab === "caja"} onClick={() => setManagerTab("caja")}>
+                    <Wallet size={12} /> Caja chica
+                  </TabBtn>
                 </div>
               )}
 
@@ -1650,6 +1655,8 @@ export default function PurchaseRequestsScreen({ profile, signOut }) {
                   />
                 ) : manager && managerTab === "registro" ? (
                   <PurchaseLogPanel profile={profile} />
+                ) : manager && managerTab === "caja" ? (
+                  <CajaChicaPanel profile={profile} />
                 ) : manager && managerTab === "dashboard" ? (
                   <DashboardErrorBoundary fallback="Probá recargar la página.">
                     <DashboardView
