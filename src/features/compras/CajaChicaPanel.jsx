@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { jsPDF } from "jspdf";
 import autoTable from "jspdf-autotable";
+import logoKUrl from "@/assets/logos/logo-k.png";
 import {
   CalendarRange,
   FileDown,
@@ -200,7 +201,44 @@ function cierreDateLabel(cierre) {
   return "sin fechas";
 }
 
-function exportPdfReport({ rows, cierre }) {
+function loadImage(url) {
+  return new Promise((resolve, reject) => {
+    const img = new Image();
+    img.crossOrigin = "anonymous";
+    img.onload = () => resolve(img);
+    img.onerror = (err) => reject(err);
+    img.src = url;
+    if (img.complete && img.naturalWidth) {
+      resolve(img);
+    }
+  });
+}
+
+async function loadNavyLogo() {
+  const img = await loadImage(logoKUrl);
+  if (!img) return null;
+  try {
+    const w = img.naturalWidth || img.width;
+    const h = img.naturalHeight || img.height;
+    const cvs = document.createElement("canvas");
+    cvs.width = w; cvs.height = h;
+    const ctx = cvs.getContext("2d");
+    ctx.drawImage(img, 0, 0);
+    const data = ctx.getImageData(0, 0, w, h);
+    const px = data.data;
+    for (let i = 0; i < px.length; i += 4) {
+      const lum = (px[i] + px[i + 1] + px[i + 2]) / 3;
+      if (lum > 90) { px[i] = 15; px[i + 1] = 23; px[i + 2] = 42; px[i + 3] = 255; }
+      else { px[i + 3] = 0; }
+    }
+    ctx.putImageData(data, 0, 0);
+    return { dataUrl: cvs.toDataURL("image/png"), aspect: h / w };
+  } catch {
+    return null;
+  }
+}
+
+async function exportPdfReport({ rows, cierre }) {
   const doc = new jsPDF({ unit: "pt", format: "a4" });
   const pageWidth = doc.internal.pageSize.getWidth();
   const left = 42;
@@ -208,19 +246,139 @@ function exportPdfReport({ rows, cierre }) {
   const muted = [98, 107, 123];
   const border = [220, 224, 230];
 
+  try {
+    const logoObj = await loadNavyLogo();
+    if (logoObj) {
+      const logoWidth = 34;
+      const logoHeight = logoObj.aspect * logoWidth;
+      doc.addImage(logoObj.dataUrl, "PNG", pageWidth - left - logoWidth, 26, logoWidth, logoHeight);
+    }
+  } catch (err) {
+    console.error("No se pudo cargar el logo para el PDF:", err);
+  }
+
   doc.setFillColor(...navy);
-  doc.rect(0, 0, pageWidth, 18, "F");
+  doc.rect(0, 0, pageWidth, 6, "F");
+
   doc.setTextColor(...navy);
   doc.setFont("helvetica", "bold");
-  doc.setFontSize(22);
-  doc.text("Caja chica", left, 56);
+  doc.setFontSize(20);
+  doc.text("Caja chica", left, 46);
+
   doc.setFont("helvetica", "normal");
-  doc.setFontSize(10);
+  doc.setFontSize(9);
   doc.setTextColor(...muted);
-  doc.text(`${cierre?.nombre || "Cierre"} - ${cierreDateLabel(cierre)} - ${rows.length} movimientos`, left, 74);
+  doc.text(`${cierre?.nombre || "Cierre"} - ${cierreDateLabel(cierre)}`, left, 60);
+
+  // Calcular totales
+  const stats = { ARS: { ingresos: 0, egresos: 0 }, USD: { ingresos: 0, egresos: 0 } };
+  rows.forEach((row) => {
+    const currency = row.moneda === "USD" ? "USD" : "ARS";
+    const amount = Number(row.importe || 0);
+    if (row.tipo === "ingreso") stats[currency].ingresos += amount;
+    else stats[currency].egresos += amount;
+  });
+
+  const saldoArs = stats.ARS.ingresos - stats.ARS.egresos;
+  const saldoUsd = stats.USD.ingresos - stats.USD.egresos;
+  const hasUsd = stats.USD.ingresos > 0 || stats.USD.egresos > 0;
+
+  // Dibujar tarjetas de totales
+  const yCards = 78;
+  const cardWidth = 160;
+  const gap = 15;
+  const cardHeight = hasUsd ? 52 : 38;
+
+  // Card 1: Ingresos
+  let x = left;
+  doc.setFillColor(248, 250, 252);
+  doc.rect(x, yCards, cardWidth, cardHeight, "F");
+  doc.setDrawColor(226, 232, 240);
+  doc.setLineWidth(1);
+  doc.rect(x, yCards, cardWidth, cardHeight, "S");
+  doc.setFillColor(34, 197, 94); // Verde para ingresos
+  doc.rect(x, yCards, 4, cardHeight, "F");
+
+  let cx = x + 4 + (cardWidth - 4) / 2;
+
+  doc.setFont("helvetica", "bold");
+  doc.setFontSize(7);
+  doc.setTextColor(100, 116, 139);
+  doc.text("TOTAL INGRESOS", cx, yCards + 14, { align: "center" });
+
+  doc.setFont("helvetica", "bold");
+  doc.setFontSize(12);
+  doc.setTextColor(15, 23, 42);
+  doc.text(fmtMoney(stats.ARS.ingresos, "ARS"), cx, yCards + 28, { align: "center" });
+
+  if (hasUsd) {
+    doc.setFont("helvetica", "normal");
+    doc.setFontSize(9);
+    doc.setTextColor(100, 116, 139);
+    doc.text(fmtMoney(stats.USD.ingresos, "USD"), cx, yCards + 42, { align: "center" });
+  }
+
+  // Card 2: Egresos
+  x = left + cardWidth + gap;
+  doc.setFillColor(248, 250, 252);
+  doc.rect(x, yCards, cardWidth, cardHeight, "F");
+  doc.setDrawColor(226, 232, 240);
+  doc.rect(x, yCards, cardWidth, cardHeight, "S");
+  doc.setFillColor(239, 68, 68); // Rojo para egresos
+  doc.rect(x, yCards, 4, cardHeight, "F");
+
+  cx = x + 4 + (cardWidth - 4) / 2;
+
+  doc.setFont("helvetica", "bold");
+  doc.setFontSize(7);
+  doc.setTextColor(100, 116, 139);
+  doc.text("TOTAL EGRESOS", cx, yCards + 14, { align: "center" });
+
+  doc.setFont("helvetica", "bold");
+  doc.setFontSize(12);
+  doc.setTextColor(15, 23, 42);
+  doc.text(fmtMoney(stats.ARS.egresos, "ARS"), cx, yCards + 28, { align: "center" });
+
+  if (hasUsd) {
+    doc.setFont("helvetica", "normal");
+    doc.setFontSize(9);
+    doc.setTextColor(100, 116, 139);
+    doc.text(fmtMoney(stats.USD.egresos, "USD"), cx, yCards + 42, { align: "center" });
+  }
+
+  // Card 3: Saldo
+  x = left + 2 * (cardWidth + gap);
+  doc.setFillColor(248, 250, 252);
+  doc.rect(x, yCards, cardWidth, cardHeight, "F");
+  doc.setDrawColor(226, 232, 240);
+  doc.rect(x, yCards, cardWidth, cardHeight, "S");
+  const saldoColor = saldoArs >= 0 ? [59, 130, 246] : [239, 68, 68];
+  doc.setFillColor(...saldoColor);
+  doc.rect(x, yCards, 4, cardHeight, "F");
+
+  cx = x + 4 + (cardWidth - 4) / 2;
+
+  doc.setFont("helvetica", "bold");
+  doc.setFontSize(7);
+  doc.setTextColor(100, 116, 139);
+  doc.text("SALDO ACTUAL", cx, yCards + 14, { align: "center" });
+
+  doc.setFont("helvetica", "bold");
+  doc.setFontSize(12);
+  doc.setTextColor(...(saldoArs >= 0 ? [15, 23, 42] : [239, 68, 68]));
+  doc.text(fmtMoney(saldoArs, "ARS"), cx, yCards + 28, { align: "center" });
+
+  if (hasUsd) {
+    doc.setFont("helvetica", "normal");
+    doc.setFontSize(9);
+    doc.setTextColor(...(saldoUsd >= 0 ? [100, 116, 139] : [239, 68, 68]));
+    doc.text(fmtMoney(saldoUsd, "USD"), cx, yCards + 42, { align: "center" });
+  }
+
+  const startTableY = yCards + cardHeight + 16;
 
   autoTable(doc, {
-    startY: 104,
+    startY: startTableY,
     head: [["Fecha", "Proveedor", "Detalle", "Centro", "Egreso", "Ingreso"]],
     body: rows.map((row) => [
       fmtDate(row.fecha),
@@ -529,12 +687,17 @@ export default function CajaChicaPanel() {
     URL.revokeObjectURL(url);
   }
 
-  function exportPdf() {
+  async function exportPdf() {
     if (!filteredRows.length) {
       toast.warning("No hay movimientos para exportar.");
       return;
     }
-    exportPdfReport({ rows: filteredRows, cierre: selectedCierre });
+    try {
+      await exportPdfReport({ rows: filteredRows, cierre: selectedCierre });
+    } catch (e) {
+      console.error(e);
+      alert("Error generating PDF: " + e.message + "\n" + e.stack);
+    }
   }
 
   return (
