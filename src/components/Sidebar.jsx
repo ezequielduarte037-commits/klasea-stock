@@ -36,6 +36,11 @@ function Icon({ id, color = "currentColor", size = 14 }) {
       <path d="M1 15s3-4 7-4 7 4 7 4" {...p}/>
       <circle cx="8" cy="7" r="3" {...p}/>
     </>,
+    "/memorias": <>
+      <rect x="2" y="2" width="12" height="12" rx="2" {...p}/>
+      <path d="M5 5h6M5 8h6M5 11h4" {...p}/>
+      <path d="M4 2v12" {...p}/>
+    </>,
     "/marmoleria": <>
       <path d="M8 1l7 7-7 7-7-7z" {...p}/>
       <path d="M8 5.5l2.5 2.5-2.5 2.5-2.5-2.5z" {...p}/>
@@ -362,6 +367,7 @@ export default function Sidebar({ profile, signOut }) {
             {divider("prod")}
             {group("Producción", SC.produccion, 120)}
             {item("/obras",       "Obras",       SC.produccion, true, 140, "Gestión de tareas y seguimiento de avance de cascos en producción.")}
+            {item("/memorias",    "Memorias",    SC.produccion, true, 150, "Memorias descriptivas de barcos activos en formato planilla para reunión.")}
             {item("/marmoleria",  "Marmolería",  SC.produccion, true, 160, "Stock de materiales y cortes (ej. Dekton) para cubiertas y baños.")}
             {item("/muebles",     "Muebles",     SC.produccion, true, 180, "Producción, despiece y ensamblaje de mobiliario.")}
             {item("/calendario",  "Calendario",  SC.produccion, true, 200, "Cronograma general y planificación de fechas del astillero.")}
