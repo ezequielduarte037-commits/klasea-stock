@@ -1638,7 +1638,7 @@ export default function PurchaseRequestDetail({ requestId, profile, users = [], 
 
               {showAddItem && (
                 <form onSubmit={handleAddItem} style={{
-                  display: "grid", gridTemplateColumns: isMobile ? "1fr 70px auto" : "1fr 70px 100px auto",
+                  display: "grid", gridTemplateColumns: isMobile ? "minmax(0, 1fr) 78px" : "1fr 70px 100px auto",
                   gap: 6, marginBottom: 10,
                   padding: 10, borderRadius: 8, border: `1px solid ${C.border}`,
                   background: C.panel,
@@ -1684,7 +1684,7 @@ export default function PurchaseRequestDetail({ requestId, profile, users = [], 
                     transition: "all .12s",
                   }}>
                     <div style={{
-                      display: "grid", gridTemplateColumns: "auto 1fr auto auto",
+                      display: "grid", gridTemplateColumns: isMobile ? "minmax(0, 1fr) auto auto" : "auto 1fr auto auto",
                       gap: 10, alignItems: "center",
                     }}>
                       <select
@@ -1692,6 +1692,9 @@ export default function PurchaseRequestDetail({ requestId, profile, users = [], 
                         onChange={e => handleUpdateItemStatus(item, e.target.value)}
                         disabled={!canEditItems}
                         style={{
+                          gridColumn: isMobile ? "1 / -1" : undefined,
+                          width: isMobile ? "100%" : undefined,
+                          minHeight: isMobile ? 34 : undefined,
                           padding: "2px 22px 2px 8px",
                           borderRadius: 5, fontSize: 11, fontWeight: 700,
                           border: `1px solid ${st.color}44`,
@@ -1705,8 +1708,8 @@ export default function PurchaseRequestDetail({ requestId, profile, users = [], 
                           <option key={s.value} value={s.value}>{s.label}</option>
                         ))}
                       </select>
-                      <div>
-                        <div style={{ color: C.text, fontSize: 13, fontWeight: 600 }}>{item.description}</div>
+                      <div style={{ minWidth: 0 }}>
+                        <div style={{ color: C.text, fontSize: isMobile ? 14 : 13, fontWeight: 700, overflow: "hidden", textOverflow: "ellipsis" }}>{item.description}</div>
                         <div style={{ display: "flex", alignItems: "center", gap: 6, flexWrap: "wrap", marginTop: 2 }}>
                           {(item.quantity || item.unit) && (
                             <span style={{ color: C.dim, fontSize: 11, fontFamily: C.mono }}>

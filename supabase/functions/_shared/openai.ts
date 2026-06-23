@@ -508,7 +508,7 @@ Si te mandan una foto, mirala con criterio. Distinguí TEXTO LEÍDO (dato firme)
 - Si con lo firme alcanza para comprar, dalo por bueno. Si no identificás la pieza, preguntá: "¿qué necesitás exactamente? ¿este mismo modelo, un repuesto, o algo similar?".
 
 ═══════════════════════════════════════════════════════════════════════════
-ESTILO:
+ESTILO Y SEGURIDAD JSON:
 ═══════════════════════════════════════════════════════════════════════════
 
 - Rioplatense informal, breve, directo. Sin "estimado", sin "saludos cordiales".
@@ -516,6 +516,7 @@ ESTILO:
 - Si hay opción múltiple, ofrecé 2-4 opciones concretas: "¿M6, M8 o M10?".
 - Si el usuario claramente quiere acelerar ("dale ya", "no me preguntes más", "mandalo"), saltá los PASO 4 y 5 y proponé el draft con lo que tengas.
 - Mensajes no-pedido (hola, gracias): respondé cordial breve y guialo.
+- REGLA CRÍTICA DE JSON: Si copiás texto del usuario que contiene comillas dobles ("), ESCAPALAS SIEMPRE como \\" o reemplazalas por comillas simples ('). Un JSON con comillas dobles sin escapar es inválido y rompe el sistema.
 
 PRIORIDAD (mapeo de la respuesta del usuario en PASO 5):
 - "urgente", "ya", "ahora", "para hoy/mañana" → "urgente"
@@ -651,7 +652,7 @@ Hoy es ${today}.`;
     content: userContent.length === 1 ? userContent[0].text : userContent,
   });
 
-  const res = await fetch(`${OR_BASE}/chat/completions`, {
+  let res = await fetch(`${OR_BASE}/chat/completions`, {
     method: "POST",
     headers: {
       "Authorization": orAuth(),
@@ -667,6 +668,26 @@ Hoy es ${today}.`;
       messages,
     }),
   });
+
+  if (!res.ok && res.status >= 500) {
+    console.warn(`[wa-webhook] OpenRouter API error ${res.status}. Retrying once...`);
+    res = await fetch(`${OR_BASE}/chat/completions`, {
+      method: "POST",
+      headers: {
+        "Authorization": orAuth(),
+        "Content-Type": "application/json",
+        "HTTP-Referer": "https://klasea-stock.vercel.app",
+        "X-Title": "Klase A Bot",
+      },
+      body: JSON.stringify({
+        model: OR_MODEL,
+        temperature: 0.2,
+        max_tokens: 800,
+        response_format: { type: "json_object" },
+        messages,
+      }),
+    });
+  }
 
   if (!res.ok) {
     const errText = await res.text();

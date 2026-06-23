@@ -783,6 +783,9 @@ export default function HomeScreen({ profile, signOut }) {
         .hs-scroll::-webkit-scrollbar{width:3px}
         .hs-scroll::-webkit-scrollbar-track{background:transparent}
         .hs-scroll::-webkit-scrollbar-thumb{background:var(--panel-2);border-radius:2px}
+
+        /* Foco de teclado visible (accesibilidad), respeta el tema */
+        button:focus-visible, a:focus-visible { outline: 2px solid ${C.blue}; outline-offset: 2px; border-radius: 8px; }
       `}</style>
 
       <div style={{ display:"flex", width:"100vw", height:"100vh",

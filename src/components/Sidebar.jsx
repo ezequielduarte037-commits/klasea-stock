@@ -1,5 +1,5 @@
 ﻿import React, { useEffect, useState } from "react";
-import { Eye, KeyRound, LogOut, Moon, Phone, Sun } from "lucide-react";
+import { Eye, KeyRound, LogOut, Menu, Moon, Phone, Sun, X } from "lucide-react";
 import { Link, useLocation } from "react-router-dom";
 import logoK from "@/assets/logos/logo-k.png";
 import { useResponsive } from "@/hooks/useResponsive";
@@ -137,6 +137,9 @@ const CSS = `
   @keyframes sb-scan { 0% { top: -1px; opacity:0; } 5% { opacity:.6; } 95% { opacity:.6; } 100% { top: 100%; opacity:0; } }
   @keyframes sb-shimmer { 0% { background-position: -200% center; } 100% { background-position: 200% center; } }
   @media (max-width: 768px) { .resp-hamburger { display: flex !important; } }
+  @media (max-width: 900px) {
+    body { overscroll-behavior: none; }
+  }
 
   .sb-item { position: relative; overflow: hidden; transition: color .16s, background .16s; text-decoration: none !important; }
   .sb-item.active { animation: sb-breathe 2.8s ease-in-out infinite; }
@@ -276,6 +279,7 @@ export default function Sidebar({ profile, signOut }) {
     transform: menuVisible ? "translateX(0)" : "translateX(-100%)",
     transition: "transform .3s cubic-bezier(.22,1,.36,1)",
     overflow: "hidden",
+    paddingTop: "env(safe-area-inset-top, 0px)",
   };
 
   const sidebarDesktopStyle = {
@@ -299,14 +303,18 @@ export default function Sidebar({ profile, signOut }) {
             }} />
           )}
           <button onClick={toggleMenu} className="resp-hamburger" style={{
-            position: "fixed", top: 8, left: 8, zIndex: 1001,
-            width: 36, height: 36, borderRadius: 8,
+            position: "fixed",
+            top: "calc(env(safe-area-inset-top, 0px) + 10px)",
+            left: "calc(env(safe-area-inset-left, 0px) + 10px)",
+            zIndex: 1001,
+            width: 42, height: 42, borderRadius: 10,
             background: C.panelSolid, border: `1px solid ${C.border}`,
-            color: C.text, cursor: "pointer", fontSize: 16,
+            color: C.text, cursor: "pointer",
             display: "flex", alignItems: "center", justifyContent: "center",
             backdropFilter: "blur(6px)", WebkitBackdropFilter: "blur(6px)",
+            boxShadow: "0 10px 30px var(--shadow)",
           }}>
-            {menuVisible ? "✕" : "☰"}
+            {menuVisible ? <X size={18} /> : <Menu size={18} />}
           </button>
         </>
       )}

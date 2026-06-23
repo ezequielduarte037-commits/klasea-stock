@@ -1085,6 +1085,9 @@ export default function PurchaseRequestsScreen({ profile, signOut }) {
           .purchase-card:hover {
             transform: none !important;
           }
+          .purchase-scroll {
+            -webkit-overflow-scrolling: touch;
+          }
           .ql-editor {
             min-height: 140px !important;
           }
@@ -1107,7 +1110,7 @@ export default function PurchaseRequestsScreen({ profile, signOut }) {
               display: "flex",
               alignItems: "center",
               gap: 10,
-              padding: isMobile ? "0 12px 0 52px" : "0 16px",
+              padding: isMobile ? "10px 12px 8px 62px" : "0 16px",
             }}>
               <div style={{
                 width: 30, height: 30,
@@ -1256,12 +1259,12 @@ export default function PurchaseRequestsScreen({ profile, signOut }) {
             display: "grid",
             gridTemplateColumns: isMobile ? "1fr" : (showNew ? "480px 1fr" : "0 1fr"),
             transition: "grid-template-columns .18s ease",
-            overflow: "hidden",
+            overflow: isMobile ? "auto" : "hidden",
           }}>
             <aside className="purchase-scroll" style={{
               overflowY: "auto",
               borderRight: showNew && !isMobile ? `1px solid ${C.border}` : "none",
-              padding: showNew ? (isMobile ? 12 : 14) : 0,
+              padding: showNew ? (isMobile ? "12px 12px calc(88px + env(safe-area-inset-bottom, 0px))" : 14) : 0,
               height: "100%",
               minHeight: 0,
               display: isMobile && !showNew ? "none" : "block",
@@ -1346,7 +1349,7 @@ export default function PurchaseRequestsScreen({ profile, signOut }) {
                     }}>
                       {createItems.map((item, i) => (
                         <div key={i} style={{
-                          display: "grid", gridTemplateColumns: "1fr 60px auto",
+                          display: "grid", gridTemplateColumns: isMobile ? "minmax(0, 1fr) auto" : "1fr 60px auto",
                           gap: 6, alignItems: "center",
                           padding: "6px 8px",
                           borderBottom: `1px solid ${C.border}`,
@@ -1373,7 +1376,7 @@ export default function PurchaseRequestsScreen({ profile, signOut }) {
                         </div>
                       ))}
                       <div style={{
-                        display: "grid", gridTemplateColumns: "1fr 70px 100px auto",
+                        display: "grid", gridTemplateColumns: isMobile ? "minmax(0, 1fr) 84px" : "1fr 70px 100px auto",
                         gap: 5, padding: 7,
                       }}>
                         <div style={{ display: "grid", gap: 3 }}>
@@ -1389,9 +1392,9 @@ export default function PurchaseRequestsScreen({ profile, signOut }) {
                         <input value={newItemQty} onChange={e => { setNewItemQty(e.target.value); if (itemDraftWarning) setItemDraftWarning(""); }}
                           onKeyDown={e => { if (e.key === "Enter") { e.preventDefault(); addCreateItem(); } }}
                           placeholder="Cant."
-                          style={{ padding: "6px 8px", borderRadius: 5, border: `1px solid ${C.border}`, background: C.bg, color: C.text, fontSize: 13 }} />
+                          style={{ padding: "6px 8px", minHeight: isMobile ? 42 : undefined, borderRadius: 5, border: `1px solid ${C.border}`, background: C.bg, color: C.text, fontSize: 13 }} />
                         <select value={newItemUnit} onChange={e => { setNewItemUnit(e.target.value); if (itemDraftWarning) setItemDraftWarning(""); }}
-                          style={{ padding: "6px 8px", borderRadius: 5, border: `1px solid ${C.border}`, background: C.bg, color: C.text, fontSize: 13 }}>
+                          style={{ padding: "6px 8px", minHeight: isMobile ? 42 : undefined, borderRadius: 5, border: `1px solid ${C.border}`, background: C.bg, color: C.text, fontSize: 13 }}>
                           <option value="unidad">unidad</option>
                           <option value="par">par</option>
                           <option value="juego">juego</option>
@@ -1402,7 +1405,7 @@ export default function PurchaseRequestsScreen({ profile, signOut }) {
                           <option value="litro">litro</option>
                         </select>
                         <button type="button" onClick={addCreateItem}
-                          style={{ padding: "6px 10px", borderRadius: 5, cursor: "pointer", fontSize: 12,
+                          style={{ padding: "6px 10px", minHeight: isMobile ? 42 : undefined, borderRadius: 5, cursor: "pointer", fontSize: 12,
                             border: `1px solid ${C.blue}`, background: "rgba(59,130,246,0.15)", color: C.blue, fontWeight: 600 }}>+</button>
                       </div>
                       {itemDraftWarning && (
@@ -1420,7 +1423,7 @@ export default function PurchaseRequestsScreen({ profile, signOut }) {
                     </div>
                   </div>
 
-                  <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10 }}>
+                  <div style={{ display: "grid", gridTemplateColumns: isMobile ? "1fr" : "1fr 1fr", gap: 10 }}>
                     <div>
                       <div style={labelStyle}>Prioridad</div>
                       <select value={form.priority} onChange={(e) => setForm((f) => ({ ...f, priority: e.target.value }))} style={inputStyle}>
@@ -1543,12 +1546,16 @@ export default function PurchaseRequestsScreen({ profile, signOut }) {
                       borderRadius: 8,
                       background: saving ? C.panel2 : "var(--text)",
                       color: saving ? C.dim : C.bg,
-                      padding: "11px 12px",
+                      padding: isMobile ? "14px 12px" : "11px 12px",
                       cursor: saving ? "default" : "pointer",
                       fontWeight: 800,
                       fontSize: 13,
                       fontFamily: C.sans,
                       transition: "all .13s",
+                      position: isMobile ? "sticky" : "static",
+                      bottom: isMobile ? "calc(10px + env(safe-area-inset-bottom, 0px))" : undefined,
+                      zIndex: isMobile ? 5 : undefined,
+                      boxShadow: isMobile ? "0 14px 36px var(--shadow-strong)" : "none",
                     }}
                   >
                     {saving ? "Guardando..." : "Crear solicitud"}
@@ -1630,7 +1637,7 @@ export default function PurchaseRequestsScreen({ profile, signOut }) {
                 </div>
               )}
 
-              <div className="purchase-scroll" style={{ minHeight: 0, overflowY: "auto", padding: 16 }}>
+              <div className="purchase-scroll" style={{ minHeight: 0, overflowY: "auto", padding: isMobile ? "12px 12px calc(18px + env(safe-area-inset-bottom, 0px))" : 16 }}>
                 {manager && managerTab === "adicionales" ? (
                   <AdditionalPurchasesPanel
                     profile={profile}
@@ -1721,7 +1728,7 @@ export default function PurchaseRequestsScreen({ profile, signOut }) {
                       <>
                         <SkeletonStyles />
                         {viewMode === "grid" ? (
-                          <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(290px, 1fr))", gap: 10 }}>
+                          <div style={{ display: "grid", gridTemplateColumns: isMobile ? "1fr" : "repeat(auto-fill, minmax(290px, 1fr))", gap: 10 }}>
                             {Array.from({ length: 6 }).map((_, i) => <CardSkeleton key={i} />)}
                           </div>
                         ) : (
@@ -1807,7 +1814,7 @@ export default function PurchaseRequestsScreen({ profile, signOut }) {
                               </div>
                             )}
                             {viewMode === "grid" ? (
-                              <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(290px, 1fr))", gap: 10 }}>
+                              <div style={{ display: "grid", gridTemplateColumns: isMobile ? "1fr" : "repeat(auto-fill, minmax(290px, 1fr))", gap: 10 }}>
                                 {g.items.map((request) => (
                                   <RequestCard key={request.id} request={request} isUnread={unreadIds.has(request.id)} onClick={() => { markRead(request.id, request.last_comment_author_id); setSelectedId(request.id); }} />
                                 ))}
@@ -1873,6 +1880,7 @@ function AvisosPanel({
   const [savingComment, setSavingComment] = useState(false);
   const [savingStatus, setSavingStatus] = useState(false);
   const [showCreate, setShowCreate] = useState(false);
+  const [mobileDetailOpen, setMobileDetailOpen] = useState(false);
   const [creating, setCreating] = useState(false);
   const [form, setForm] = useState({
     titulo: "",
@@ -1921,6 +1929,13 @@ function AvisosPanel({
 
   const activeCount = avisos.filter((aviso) => AVISO_ACTIVE_STATUSES.includes(aviso.estado)).length;
   const archivedCount = avisos.length - activeCount;
+  const showListPane = !isMobile || !mobileDetailOpen;
+  const showDetailPane = !isMobile || mobileDetailOpen;
+
+  function selectAviso(id) {
+    onSelect?.(id);
+    if (isMobile) setMobileDetailOpen(true);
+  }
 
   async function handleCreateAviso(e) {
     e.preventDefault();
@@ -2105,33 +2120,38 @@ function AvisosPanel({
         gap: 12,
         minHeight: 0,
       }}>
-        <div style={{ display: "grid", gap: 8, alignContent: "start" }}>
-          {filtered.length === 0 ? (
-            <div style={{ border: `1px dashed ${C.border}`, borderRadius: 12, padding: 26, color: C.dim, textAlign: "center", fontSize: 13 }}>
-              No hay avisos para mostrar.
-            </div>
-          ) : filtered.map((aviso) => (
-            <AvisoListItem
-              key={aviso.id}
-              aviso={aviso}
-              active={selected?.id === aviso.id}
-              onClick={() => onSelect?.(aviso.id)}
-            />
-          ))}
-        </div>
+        {showListPane && (
+          <div style={{ display: "grid", gap: 8, alignContent: "start" }}>
+            {filtered.length === 0 ? (
+              <div style={{ border: `1px dashed ${C.border}`, borderRadius: 12, padding: 26, color: C.dim, textAlign: "center", fontSize: 13 }}>
+                No hay avisos para mostrar.
+              </div>
+            ) : filtered.map((aviso) => (
+              <AvisoListItem
+                key={aviso.id}
+                aviso={aviso}
+                active={selected?.id === aviso.id}
+                onClick={() => selectAviso(aviso.id)}
+              />
+            ))}
+          </div>
+        )}
 
-        <AvisoDetail
-          aviso={selected}
-          comment={comment}
-          setComment={setComment}
-          savingComment={savingComment}
-          savingStatus={savingStatus}
-          canManage={canManage}
-          onStatus={handleStatus}
-          onComment={handleComment}
-          onConvertToRequest={onConvertToRequest}
-          onDelete={handleDeleteAviso}
-        />
+        {showDetailPane && (
+          <AvisoDetail
+            aviso={selected}
+            comment={comment}
+            setComment={setComment}
+            savingComment={savingComment}
+            savingStatus={savingStatus}
+            canManage={canManage}
+            onStatus={handleStatus}
+            onComment={handleComment}
+            onConvertToRequest={onConvertToRequest}
+            onDelete={handleDeleteAviso}
+            onBack={isMobile ? () => setMobileDetailOpen(false) : null}
+          />
+        )}
       </div>
     </div>
   );
@@ -2176,7 +2196,7 @@ function AvisoListItem({ aviso, active, onClick }) {
   );
 }
 
-function AvisoDetail({ aviso, comment, setComment, savingComment, savingStatus, canManage, onStatus, onComment, onConvertToRequest, onDelete }) {
+function AvisoDetail({ aviso, comment, setComment, savingComment, savingStatus, canManage, onStatus, onComment, onConvertToRequest, onDelete, onBack }) {
   if (!aviso) {
     return (
       <div style={{ border: `1px dashed ${C.border}`, borderRadius: 12, minHeight: 260, display: "grid", placeItems: "center", color: C.dim, fontSize: 13 }}>
@@ -2187,6 +2207,27 @@ function AvisoDetail({ aviso, comment, setComment, savingComment, savingStatus, 
   const status = avisoStatusMeta(aviso.estado);
   return (
     <div style={{ border: `1px solid ${C.border}`, background: C.panel, borderRadius: 12, overflow: "hidden", minHeight: 360 }}>
+      {onBack && (
+        <button
+          type="button"
+          onClick={onBack}
+          style={{
+            width: "100%",
+            border: "none",
+            borderBottom: `1px solid ${C.border}`,
+            background: C.panelSolid,
+            color: C.blue,
+            padding: "10px 12px",
+            textAlign: "left",
+            fontSize: 13,
+            fontWeight: 800,
+            cursor: "pointer",
+            fontFamily: C.sans,
+          }}
+        >
+          Volver a avisos
+        </button>
+      )}
       <div style={{ padding: 14, borderBottom: `1px solid ${C.border}`, display: "grid", gap: 10 }}>
         <div style={{ display: "flex", gap: 10, alignItems: "flex-start" }}>
           <div style={{ minWidth: 0, flex: 1 }}>
