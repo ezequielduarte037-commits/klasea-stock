@@ -472,8 +472,8 @@ export default function OrdenCompraGenerator({ materiales = [], stockPorMaterial
               </select>
             </div>
             <div>
-              <label style={S.label}>Número de obra (ej: K52-25)</label>
-              <input style={S.input} placeholder={plantillaLabel || "K52-25"} value={obraNumero} onChange={e => setObraNumero(e.target.value)} />
+              <label style={S.label}>Obra / destino</label>
+              <input style={S.input} placeholder={plantillaLabel || "K52-25 o Antago"} value={obraNumero} onChange={e => setObraNumero(e.target.value)} />
             </div>
             <div>
               <label style={S.label}>Fecha estimada de desmolde</label>

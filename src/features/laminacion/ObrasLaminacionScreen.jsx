@@ -41,6 +41,8 @@ const GANTT_COLORS = ["#3b82f6","#a78bfa","#f59e0b","#10b981","#f43f5e","#0ea5e9
 function obraGanttColor(idx) { return GANTT_COLORS[idx % GANTT_COLORS.length]; }
 
 function extraerCodigo(obra) {
+  const texto = `${obra.nombre ?? ""} ${obra.descripcion ?? ""}`;
+  if (/\bantago\b/i.test(texto)) return "ANTAGO";
   const m1 = (obra.nombre ?? "").match(/^(\d+)/);
   if (m1) return "K" + m1[1];
   const m2 = (obra.descripcion ?? "").match(/\b(K\d+)\b/i);
@@ -683,7 +685,7 @@ export default function ObrasLaminacionScreen({ profile, signOut }) {
     const obra = obras.find(o => o.id === obraId);
     if (!obra) return;
     const codigo = extraerCodigo(obra);
-    if (!codigo) return setErr(`No se pudo determinar el modelo de "${obra.nombre}". Incluí el código en la descripción (ej: "K52").`);
+    if (!codigo) return setErr(`No se pudo determinar el modelo de "${obra.nombre}". Incluí el código en la descripción (ej: "K52" o "Antago").`);
     const plantilla = plantillasPorLinea[codigo];
     const lista = plantilla?.items ?? [];
     if (!lista.length) return setErr(`Sin plantilla activa para ${codigo}. Disponibles: ${Object.keys(plantillasPorLinea).join(", ") || "ninguna"}`);

@@ -220,7 +220,7 @@ export default function PlantillasLineaScreen({ profile, signOut }) {
               Plantillas por linea
             </h1>
             <p style={{ margin: "5px 0 0", color: C.dim, fontSize: 13, lineHeight: 1.45 }}>
-              Recetas base de materiales de laminacion para K34, K37, K42, K43, K52, K55 y K64.
+              Recetas base de materiales de laminacion para K34, K37, K42, K43, K52, K55, K64 y Antago.
             </p>
           </div>
           {canEdit && (
@@ -296,7 +296,7 @@ export default function PlantillasLineaScreen({ profile, signOut }) {
                 <input
                   value={draft.linea}
                   onChange={(e) => setDraft((d) => ({ ...d, linea: e.target.value.toUpperCase() }))}
-                  placeholder="K42"
+                  placeholder="K42 o ANTAGO"
                   disabled={!canEdit}
                   style={inputStyle({ fontFamily: C.mono, fontWeight: 800 })}
                 />

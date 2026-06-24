@@ -45,6 +45,7 @@ function hoyLocal() {
 function extraerCodigoLinea(obra) {
   const nombre = String(obra?.nombre ?? "");
   const descripcion = String(obra?.descripcion ?? "");
+  if (/\bantago\b/i.test(`${nombre} ${descripcion}`)) return "ANTAGO";
   const byName = nombre.match(/^K?(\d+)/i);
   if (byName) return `K${byName[1]}`;
   const byDescription = descripcion.match(/\b(K\d+)\b/i);
@@ -84,6 +85,10 @@ function obraMovimientoDesdeDestino(destino, obras = []) {
 function fmtTs(ts) {
   if (!ts) return "—";
   return new Date(ts).toLocaleString("es-AR");
+}
+
+function tint(color, amount = 12) {
+  return `color-mix(in srgb, ${color} ${amount}%, transparent)`;
 }
 
 // ── EXPORT UTIL ─────────────────────────────────────────────────
@@ -206,6 +211,7 @@ export default function LaminacionScreen({ profile, signOut }) {
   const [comprasModal, setComprasModal] = useState({ open: false, prefilled: null });
   // Órdenes expandidas en la tab Pedidos
   const [expandedOrdenes, setExpandedOrdenes] = useState(new Set());
+  const [expandedRecepcion, setExpandedRecepcion] = useState(new Set());
 
   // ── Estado específico del tab Movimientos ────────────────────
   const [qMov,        setQMov]        = useState("");
@@ -394,6 +400,83 @@ export default function LaminacionScreen({ profile, signOut }) {
     });
     return rows;
   }, [pedidos, q, filtroPedidoEstado]);
+
+  const ingresosFiltrados = useMemo(
+    () => movFiltrados.filter(m => m.tipo === "ingreso"),
+    [movFiltrados],
+  );
+
+  const pedidosPendientesRecepcion = useMemo(
+    () => pedidos.filter(p => p.estado === "pendiente"),
+    [pedidos],
+  );
+
+  const gruposRecepcion = useMemo(() => {
+    const grupos = {};
+    for (const p of pedidosPendientesRecepcion) {
+      const obs = p.observaciones ?? "";
+      const match = obs.match(/^(OC-\d{8}-[A-Z0-9]+)/);
+      const ref = match ? match[1] : "__manual__";
+      const label = match ? obs.replace(ref + " | ", "") : (obs || "Pedido manual");
+      if (!grupos[ref]) grupos[ref] = { ref, label, items: [], createdAt: p.created_at };
+      grupos[ref].items.push(p);
+    }
+    return Object.values(grupos).sort((a, b) =>
+      new Date(b.createdAt || 0).getTime() - new Date(a.createdAt || 0).getTime());
+  }, [pedidosPendientesRecepcion]);
+
+  const materialIngresoSeleccionado = useMemo(
+    () => materiales.find(m => String(m.id) === String(formIngreso.material_id)) ?? null,
+    [materiales, formIngreso.material_id],
+  );
+
+  const egresosFiltrados = useMemo(
+    () => movFiltrados.filter(m => m.tipo === "egreso"),
+    [movFiltrados],
+  );
+
+  const materialEgresoSeleccionado = useMemo(
+    () => materiales.find(m => String(m.id) === String(formEgreso.material_id)) ?? null,
+    [materiales, formEgreso.material_id],
+  );
+
+  const ingresosStats = useMemo(() => {
+    const hoy = hoyLocal();
+    const ingresos = movimientos.filter(m => m.tipo === "ingreso");
+    return {
+      total: ingresos.length,
+      hoy: ingresos.filter(m => String(m.fecha || m.created_at || "").slice(0, 10) === hoy).length,
+      filtrados: ingresosFiltrados.length,
+      ordenes: gruposRecepcion.length,
+      itemsPendientes: pedidosPendientesRecepcion.length,
+    };
+  }, [movimientos, ingresosFiltrados, gruposRecepcion, pedidosPendientesRecepcion]);
+
+  const egresosStats = useMemo(() => {
+    const hoy = hoyLocal();
+    const egresos = movimientos.filter(m => m.tipo === "egreso");
+    const destinos = new Set(egresos.map(m => String(m.destino || m.obra || "").trim()).filter(Boolean));
+    return {
+      total: egresos.length,
+      hoy: egresos.filter(m => String(m.fecha || m.created_at || "").slice(0, 10) === hoy).length,
+      filtrados: egresosFiltrados.length,
+      destinos: destinos.size,
+    };
+  }, [movimientos, egresosFiltrados]);
+
+  const egresoStockActual = materialEgresoSeleccionado ? num(stockPorMaterial[materialEgresoSeleccionado.id]) : 0;
+  const egresoCantidadPreview = num(formEgreso.cantidad);
+  const egresoStockFinal = egresoStockActual - egresoCantidadPreview;
+  const egresoDejaNegativo = !!materialEgresoSeleccionado && egresoCantidadPreview > egresoStockActual;
+
+  function toggleRecepcion(ref) {
+    setExpandedRecepcion((prev) => {
+      const next = new Set(prev);
+      if (next.has(ref)) next.delete(ref);
+      else next.add(ref);
+      return next;
+    });
+  }
 
   function flash(m) { setMsg(m); setTimeout(() => setMsg(""), 2500); }
 
@@ -972,328 +1055,785 @@ export default function LaminacionScreen({ profile, signOut }) {
 
             {/* ===== TAB INGRESOS ===== */}
             {tab === "Ingresos" && (
-              <>
-                {/* ── Pedidos pendientes agrupados por orden ── */}
-                {(() => {
-                  const pendientes = pedidos.filter(p => p.estado === "pendiente");
-                  if (!pendientes.length) return (
-                    <div style={{ ...S.card, borderColor: "rgba(16,185,129,0.2)", marginBottom: 12 }}>
-                      <div style={{ display: "flex", alignItems: "center", gap: 10, color: "#10b981" }}>
-                        <span style={{ fontSize: 20 }}></span>
-                        <span style={{ fontSize: 14, fontWeight: 600 }}>Sin órdenes pendientes de recepción</span>
+              <div className="lam-tab-content" style={{ display: "grid", gap: 14 }}>
+                <div style={{ display: "grid", gridTemplateColumns: isMobile ? "1fr" : "repeat(4, minmax(0, 1fr))", gap: 10 }}>
+                  {[
+                    { label: "Órdenes abiertas", value: ingresosStats.ordenes, sub: `${ingresosStats.itemsPendientes} materiales pendientes`, color: C.amber, icon: ClipboardList },
+                    { label: "Ingresos hoy", value: ingresosStats.hoy, sub: "movimientos registrados", color: C.green, icon: Check },
+                    { label: "Historial", value: ingresosStats.filtrados, sub: q.trim() ? "en la búsqueda actual" : "ingresos visibles", color: C.blue, icon: FileText },
+                    { label: "Total ingresos", value: ingresosStats.total, sub: "desde el inicio", color: C.teal, icon: Package },
+                  ].map(({ label, value, sub, color, icon: Icon }) => (
+                    <div key={label} style={{
+                      border: `1px solid ${tint(color, 28)}`,
+                      borderRadius: 14,
+                      background: `linear-gradient(135deg, ${tint(color, 10)}, var(--panel) 54%)`,
+                      padding: 14,
+                      display: "flex",
+                      gap: 12,
+                      alignItems: "center",
+                      minHeight: 86,
+                    }}>
+                      <div style={{
+                        width: 38,
+                        height: 38,
+                        borderRadius: 12,
+                        display: "grid",
+                        placeItems: "center",
+                        background: tint(color, 16),
+                        border: `1px solid ${tint(color, 30)}`,
+                        color,
+                        flexShrink: 0,
+                      }}>
+                        <Icon size={18} />
+                      </div>
+                      <div style={{ minWidth: 0 }}>
+                        <div style={{ ...S.label, marginBottom: 3 }}>{label}</div>
+                        <div style={{ fontFamily: C.mono, fontSize: 24, lineHeight: 1, fontWeight: 850, color }}>{value}</div>
+                        <div style={{ ...S.small, marginTop: 5 }}>{sub}</div>
                       </div>
                     </div>
-                  );
+                  ))}
+                </div>
 
-                  // Agrupar por ordenRef (prefijo OC-... en observaciones)
-                  const grupos = {};
-                  for (const p of pendientes) {
-                    const obs = p.observaciones ?? "";
-                    const match = obs.match(/^(OC-\d{8}-[A-Z0-9]+)/);
-                    const ref = match ? match[1] : "__manual__";
-                    const label = match ? obs.replace(ref + " | ", "") : (obs || "Pedido manual");
-                    if (!grupos[ref]) grupos[ref] = { ref, label, items: [], createdAt: p.created_at };
-                    grupos[ref].items.push(p);
-                  }
-
-                  return (
-                    <div style={{ ...S.card, borderColor: "rgba(245,158,11,0.3)", marginBottom: 12 }}>
-                      <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 14 }}>
-                        <span style={{ fontSize: 20 }}></span>
-                        <h3 style={{ margin: 0, color: "var(--text)", fontSize: 14 }}>
-                          Órdenes pendientes de recepción
-                          <span style={{ marginLeft: 8, background: "#ffe7a6", color: "#000", borderRadius: 999, padding: "2px 8px", fontSize: 12, fontWeight: 900 }}>
-                            {Object.keys(grupos).length}
-                          </span>
-                        </h3>
+                <section style={{ ...S.card, padding: 0, overflow: "hidden", borderColor: gruposRecepcion.length ? tint(C.amber, 34) : tint(C.green, 28) }}>
+                  <div style={{
+                    padding: isMobile ? 14 : "14px 16px",
+                    borderBottom: `1px solid ${C.border}`,
+                    display: "flex",
+                    alignItems: isMobile ? "stretch" : "center",
+                    justifyContent: "space-between",
+                    gap: 12,
+                    flexDirection: isMobile ? "column" : "row",
+                    background: gruposRecepcion.length ? tint(C.amber, 7) : tint(C.green, 7),
+                  }}>
+                    <div style={{ display: "flex", alignItems: "center", gap: 12, minWidth: 0 }}>
+                      <div style={{
+                        width: 42,
+                        height: 42,
+                        borderRadius: 13,
+                        display: "grid",
+                        placeItems: "center",
+                        color: gruposRecepcion.length ? C.amber : C.green,
+                        background: tint(gruposRecepcion.length ? C.amber : C.green, 14),
+                        border: `1px solid ${tint(gruposRecepcion.length ? C.amber : C.green, 34)}`,
+                        flexShrink: 0,
+                      }}>
+                        <Package size={19} />
                       </div>
+                      <div style={{ minWidth: 0 }}>
+                        <h3 style={{ margin: 0, color: C.text, fontSize: 16, fontWeight: 850 }}>
+                          Recepción de pedidos
+                        </h3>
+                        <p style={{ margin: "4px 0 0", color: C.dim, fontSize: 13, lineHeight: 1.35 }}>
+                          Materiales comprados pendientes de ingresar al stock de laminación.
+                        </p>
+                      </div>
+                    </div>
+                    <div style={{
+                      alignSelf: isMobile ? "flex-start" : "center",
+                      border: `1px solid ${C.border}`,
+                      background: C.panel,
+                      borderRadius: 999,
+                      padding: "6px 10px",
+                      color: C.muted,
+                      fontSize: 12,
+                      fontWeight: 800,
+                      whiteSpace: "nowrap",
+                    }}>
+                      {gruposRecepcion.length
+                        ? `${gruposRecepcion.length} orden${gruposRecepcion.length !== 1 ? "es" : ""} abiertas`
+                        : "Todo recibido"}
+                    </div>
+                  </div>
 
-                      <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
-                        {Object.values(grupos).map(grupo => {
-                          const todosLosIds = grupo.items.map(p => p.id);
-                          return (
-                            <div key={grupo.ref} style={{ border: "1px solid rgba(245,158,11,0.22)", borderRadius: 12, overflow: "hidden" }}>
-                              {/* Header de la orden */}
-                              <div style={{ padding: "10px 14px", background: "rgba(245,158,11,0.07)", display: "flex", alignItems: "center", gap: 10, flexWrap: "wrap" }}>
-                                <div style={{ flex: 1 }}>
-                                  <span style={{ fontWeight: 700, color: "#f59e0b", fontSize: 14 }}>
-                                    {grupo.ref === "__manual__" ? " Pedido manual" : ` ${grupo.ref}`}
-                                  </span>
-                                  {grupo.ref !== "__manual__" && (
-                                    <span style={{ marginLeft: 8, fontSize: 12, color: "var(--muted)" }}>{grupo.label}</span>
-                                  )}
-                                  <span style={{ marginLeft: 8, fontSize: 11, color: "var(--dim)" }}>{fmtTs(grupo.createdAt)}</span>
-                                </div>
-                                <span style={{ fontSize: 12, color: "var(--dim)" }}>{grupo.items.length} {grupo.items.length === 1 ? "material" : "materiales"}</span>
+                  {!gruposRecepcion.length ? (
+                    <div style={{ padding: 18, display: "flex", alignItems: "center", gap: 12, color: C.green }}>
+                      <Check size={18} />
+                      <div>
+                        <div style={{ fontSize: 14, fontWeight: 800 }}>Sin órdenes pendientes de recepción</div>
+                        <div style={{ ...S.small, marginTop: 2 }}>Cuando compras envíe materiales a laminación van a aparecer acá.</div>
+                      </div>
+                    </div>
+                  ) : (
+                    <div style={{ padding: 14, display: "grid", gap: 12 }}>
+                      {gruposRecepcion.map(grupo => {
+                        const isOpen = expandedRecepcion.has(grupo.ref);
+                        const preview = grupo.items.slice(0, 3)
+                          .map((p) => materiales.find(m => String(m.id) === String(p.material_id))?.nombre)
+                          .filter(Boolean)
+                          .join(" · ");
+                        return (
+                        <article key={grupo.ref} style={{
+                          border: `1px solid ${C.border}`,
+                          borderRadius: 14,
+                          overflow: "hidden",
+                          background: C.panel,
+                        }}>
+                          <div style={{
+                            padding: 14,
+                            display: "grid",
+                            gridTemplateColumns: isMobile ? "1fr" : "minmax(0, 1fr) auto",
+                            gap: 12,
+                            alignItems: "center",
+                            borderBottom: `1px solid ${C.border}`,
+                            background: tint(C.amber, 6),
+                          }}>
+                            <div style={{ minWidth: 0 }}>
+                              <div style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
+                                <span style={{
+                                  border: `1px solid ${tint(C.amber, 38)}`,
+                                  background: tint(C.amber, 14),
+                                  color: C.amber,
+                                  borderRadius: 999,
+                                  padding: "3px 9px",
+                                  fontSize: 12,
+                                  fontWeight: 900,
+                                  fontFamily: C.mono,
+                                }}>
+                                  {grupo.ref === "__manual__" ? "Manual" : grupo.ref}
+                                </span>
                                 {grupo.items.some(p => p.categoria === "extra") && (
-                                  <span style={{ fontSize: 10, fontWeight: 800, textTransform: "uppercase", letterSpacing: 0.5, color: "#f59e0b", border: "1px solid rgba(245,158,11,0.3)", borderRadius: 4, padding: "1px 6px" }}>Incluye extras</span>
+                                  <span style={{
+                                    fontSize: 11,
+                                    fontWeight: 850,
+                                    color: C.amber,
+                                    border: `1px solid ${tint(C.amber, 34)}`,
+                                    borderRadius: 999,
+                                    padding: "3px 8px",
+                                  }}>
+                                    Incluye extras
+                                  </span>
+                                )}
+                                <span style={{ color: C.dim, fontSize: 12 }}>{fmtTs(grupo.createdAt)}</span>
+                              </div>
+                              <div style={{
+                                marginTop: 8,
+                                color: C.text,
+                                fontSize: 15,
+                                fontWeight: 800,
+                                overflow: "hidden",
+                                textOverflow: "ellipsis",
+                                whiteSpace: "nowrap",
+                              }}>
+                                {grupo.ref === "__manual__" ? grupo.label : grupo.label || "Orden de compra"}
+                              </div>
+                              <div style={{ ...S.small, marginTop: 3 }}>
+                                {grupo.items.length} {grupo.items.length === 1 ? "material pendiente" : "materiales pendientes"}
+                                {preview && (
+                                  <span style={{ color: C.dim }}>
+                                    {" "}· {preview}{grupo.items.length > 3 ? "..." : ""}
+                                  </span>
                                 )}
                               </div>
-
-                              {/* Acciones de grupo */}
-                              <div style={{ display: "flex", gap: 6, padding: "6px 14px", background: "rgba(245,158,11,0.03)", borderTop: "1px solid var(--panel)" }}>
-                                <button style={{ border: "1px solid rgba(16,185,129,0.3)", background: "rgba(16,185,129,0.08)", color: "#10b981", fontSize: 12, padding: "5px 12px", borderRadius: 7, cursor: "pointer", fontWeight: 700 }}
-                                  onClick={() => setConfModal({ tipo: "orden_completa", grupo })}>
-                                  Recibir completa
-                                </button>
-                                <button style={{ border: "1px solid rgba(245,158,11,0.3)", background: "rgba(245,158,11,0.06)", color: "#f59e0b", fontSize: 12, padding: "5px 12px", borderRadius: 7, cursor: "pointer", fontWeight: 700 }}
-                                  onClick={() => setConfModal({ tipo: "orden_parcial", grupo, cantsParciales: {} })}>
-                                  ◐ Recibir parcial
-                                </button>
-                              </div>
-
-                              {/* Lista de materiales de la orden */}
-                              <div style={{ display: "flex", flexDirection: "column" }}>
-                                  {grupo.items.map((p, i) => {
-                                      const mat = materiales.find(m => String(m.id) === String(p.material_id));
-                                      const stockActual = num(stockPorMaterial[p.material_id]);
-                                      const esExtra = p.categoria === "extra";
-                                      return (
-                                        <div key={p.id} style={{ display: "flex", alignItems: "center", gap: 10, padding: "10px 14px", borderTop: i === 0 ? "none" : "1px solid var(--panel)", flexWrap: "wrap", background: esExtra ? "rgba(245,158,11,0.04)" : "transparent" }}>
-                                          {/* Nombre */}
-                                          <div style={{ flex: 1, minWidth: 160 }}>
-                                        <span style={{ fontWeight: 600, color: "var(--text)", fontSize: 13 }}>{mat?.nombre ?? "Material desconocido"}</span>
-                                          </div>
-                                          {/* Tipo */}
-                                          <div style={{ fontSize: 11 }}>
-                                            {esExtra
-                                              ? <span style={{ fontWeight: 800, textTransform: "uppercase", letterSpacing: 0.5, color: "#f59e0b", background: "rgba(245,158,11,0.15)", borderRadius: 5, padding: "1px 7px" }}>Extra</span>
-                                              : <span style={{ color: "var(--dim)" }}>Estándar</span>
-                                            }
-                                          </div>
-                                      {/* Cantidades */}
-                                      <div style={{ display: "flex", gap: 14, fontSize: 12, color: "var(--dim)", alignItems: "center" }}>
-                                        <span>Pedido: <b style={{ color: "#f59e0b" }}>{num(p.cantidad)} {mat?.unidad}</b></span>
-                                        <span>Stock: <b style={{ color: stockActual > 0 ? "#10b981" : "#ff453a" }}>{stockActual}</b></span>
-                                      </div>
-                                      {/* Botones por ítem */}
-                                      <div style={{ display: "flex", gap: 6, marginLeft: "auto" }}>
-                                        <button
-                                          style={{ border: "1px solid rgba(16,185,129,0.38)", background: "rgba(16,185,129,0.1)", color: "#10b981", fontSize: 12, padding: "5px 12px", borderRadius: 7, cursor: "pointer", fontWeight: 700 }}
-                                          onClick={() => setConfModal({ pedido: p, tipo: "entero", cantParcial: "" })}
-                                        ><Check size={12} style={{marginRight:4}}/>Llegó</button>
-                                        <button
-                                          style={{ border: "1px solid rgba(245,158,11,0.38)", background: "rgba(245,158,11,0.07)", color: "#f59e0b", fontSize: 12, padding: "5px 12px", borderRadius: 7, cursor: "pointer", fontWeight: 700 }}
-                                          onClick={() => setConfModal({ pedido: p, tipo: "parcial", cantParcial: "" })}
-                                        ><Package size={12} style={{marginRight:4}}/>Parcial</button>
-                                      </div>
-                                    </div>
-                                  );
-                                })}
-                              </div>
                             </div>
-                          );
-                        })}
-                      </div>
+                            <div style={{ display: "flex", gap: 8, flexWrap: "wrap", justifyContent: isMobile ? "flex-start" : "flex-end" }}>
+                              <button
+                                type="button"
+                                style={{
+                                  border: `1px solid ${tint(C.green, 38)}`,
+                                  background: tint(C.green, 13),
+                                  color: C.green,
+                                  fontSize: 13,
+                                  padding: "9px 12px",
+                                  borderRadius: 10,
+                                  cursor: "pointer",
+                                  fontWeight: 850,
+                                  display: "inline-flex",
+                                  alignItems: "center",
+                                  gap: 7,
+                                }}
+                                onClick={() => setConfModal({ tipo: "orden_completa", grupo })}
+                              >
+                                <Check size={14} /> Recibir completa
+                              </button>
+                              <button
+                                type="button"
+                                style={{
+                                  border: `1px solid ${tint(C.amber, 38)}`,
+                                  background: tint(C.amber, 10),
+                                  color: C.amber,
+                                  fontSize: 13,
+                                  padding: "9px 12px",
+                                  borderRadius: 10,
+                                  cursor: "pointer",
+                                  fontWeight: 850,
+                                  display: "inline-flex",
+                                  alignItems: "center",
+                                  gap: 7,
+                                }}
+                                onClick={() => setConfModal({ tipo: "orden_parcial", grupo, cantsParciales: {} })}
+                              >
+                                <Package size={14} /> Parcial
+                              </button>
+                              <button
+                                type="button"
+                                style={{
+                                  border: `1px solid ${C.border}`,
+                                  background: isOpen ? C.panel2 : C.panel,
+                                  color: C.muted,
+                                  fontSize: 13,
+                                  padding: "9px 12px",
+                                  borderRadius: 10,
+                                  cursor: "pointer",
+                                  fontWeight: 850,
+                                  display: "inline-flex",
+                                  alignItems: "center",
+                                  gap: 7,
+                                }}
+                                onClick={() => toggleRecepcion(grupo.ref)}
+                              >
+                                {isOpen ? <ChevronDown size={14} /> : <ChevronRight size={14} />}
+                                {isOpen ? "Ocultar items" : `Ver items (${grupo.items.length})`}
+                              </button>
+                            </div>
+                          </div>
+
+                          {isOpen && (
+                          <div style={{ display: "grid" }}>
+                            {grupo.items.map((p, i) => {
+                              const mat = materiales.find(m => String(m.id) === String(p.material_id));
+                              const stockActual = num(stockPorMaterial[p.material_id]);
+                              const esExtra = p.categoria === "extra";
+                              return (
+                                <div key={p.id} style={{
+                                  display: "grid",
+                                  gridTemplateColumns: isMobile ? "1fr" : "minmax(0, 1fr) auto auto",
+                                  gap: 12,
+                                  alignItems: "center",
+                                  padding: "12px 14px",
+                                  borderTop: i === 0 ? "none" : `1px solid ${C.border}`,
+                                  background: esExtra ? tint(C.amber, 6) : "transparent",
+                                }}>
+                                  <div style={{ minWidth: 0 }}>
+                                    <div style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
+                                      <span style={{ fontWeight: 850, color: C.text, fontSize: 14 }}>
+                                        {mat?.nombre ?? "Material desconocido"}
+                                      </span>
+                                      {esExtra ? (
+                                        <span style={{
+                                          fontWeight: 900,
+                                          textTransform: "uppercase",
+                                          letterSpacing: 0.3,
+                                          color: C.amber,
+                                          background: tint(C.amber, 14),
+                                          borderRadius: 999,
+                                          padding: "2px 7px",
+                                          fontSize: 10,
+                                        }}>
+                                          Extra
+                                        </span>
+                                      ) : (
+                                        <span style={{ color: C.dim, fontSize: 12 }}>Estándar</span>
+                                      )}
+                                    </div>
+                                    <div style={{ display: "flex", gap: 12, flexWrap: "wrap", marginTop: 5, fontSize: 12, color: C.dim }}>
+                                      <span>Pedido <b style={{ color: C.amber }}>{num(p.cantidad)} {mat?.unidad}</b></span>
+                                      <span>Stock actual <b style={{ color: stockActual > 0 ? C.green : C.red }}>{stockActual}</b></span>
+                                    </div>
+                                  </div>
+                                  <div style={{ display: "flex", gap: 8, justifyContent: isMobile ? "flex-start" : "flex-end" }}>
+                                    <button
+                                      type="button"
+                                      style={{
+                                        border: `1px solid ${tint(C.green, 36)}`,
+                                        background: tint(C.green, 10),
+                                        color: C.green,
+                                        fontSize: 12,
+                                        padding: "7px 10px",
+                                        borderRadius: 9,
+                                        cursor: "pointer",
+                                        fontWeight: 850,
+                                        display: "inline-flex",
+                                        alignItems: "center",
+                                        gap: 6,
+                                      }}
+                                      onClick={() => setConfModal({ pedido: p, tipo: "entero", cantParcial: "" })}
+                                    >
+                                      <Check size={13} /> Llegó
+                                    </button>
+                                    <button
+                                      type="button"
+                                      style={{
+                                        border: `1px solid ${tint(C.amber, 36)}`,
+                                        background: tint(C.amber, 8),
+                                        color: C.amber,
+                                        fontSize: 12,
+                                        padding: "7px 10px",
+                                        borderRadius: 9,
+                                        cursor: "pointer",
+                                        fontWeight: 850,
+                                        display: "inline-flex",
+                                        alignItems: "center",
+                                        gap: 6,
+                                      }}
+                                      onClick={() => setConfModal({ pedido: p, tipo: "parcial", cantParcial: "" })}
+                                    >
+                                      <Package size={13} /> Parcial
+                                    </button>
+                                  </div>
+                                </div>
+                              );
+                            })}
+                          </div>
+                          )}
+                        </article>
+                        );
+                      })}
                     </div>
-                  );
-                })()}
+                  )}
+                </section>
 
                 {puedeCargar && (
-                  <div style={S.card}>
-                    <h3 style={{ marginTop: 0, color: "var(--text)" }}>Registrar ingreso</h3>
-                    <form onSubmit={crearIngreso}>
-                      <div style={S.row3}>
-                        <div>
-                          <label style={S.label}>Material</label>
-                          <select style={S.select} value={formIngreso.material_id}
-                            onChange={e => setFormIngreso(f => ({ ...f, material_id: e.target.value }))}>
-                            <option value="">— Seleccionar —</option>
-                            {matOptions}
-                          </select>
-                        </div>
-                        <div>
-                          <label style={S.label}>Cantidad</label>
-                          <input style={S.input} type="number" step="0.01" placeholder="0"
-                            value={formIngreso.cantidad}
-                            onChange={e => setFormIngreso(f => ({ ...f, cantidad: e.target.value }))} />
-                        </div>
-                        <div>
-                          <label style={S.label}>Fecha</label>
-                          <input style={S.input} type="date" value={formIngreso.fecha}
-                            onChange={e => setFormIngreso(f => ({ ...f, fecha: e.target.value }))} />
-                        </div>
+                  <section style={{ ...S.card, padding: 0, overflow: "hidden" }}>
+                    <div style={{ padding: 16, borderBottom: `1px solid ${C.border}`, display: "flex", alignItems: "center", gap: 12 }}>
+                      <div style={{ width: 40, height: 40, borderRadius: 12, display: "grid", placeItems: "center", color: C.blue, background: tint(C.blue, 13), border: `1px solid ${tint(C.blue, 30)}` }}>
+                        <Plus size={18} />
                       </div>
-                      <div style={{ ...S.row3, marginTop: 10 }}>
-                        <div>
-                          <label style={S.label}>Proveedor</label>
-                          <input style={S.input} placeholder="ADS / Plaquimet / Del Bajo / Riedel..."
-                            value={formIngreso.proveedor}
-                            onChange={e => setFormIngreso(f => ({ ...f, proveedor: e.target.value }))} />
+                      <div>
+                        <h3 style={{ margin: 0, color: C.text, fontSize: 16, fontWeight: 850 }}>Registrar ingreso manual</h3>
+                        <p style={{ margin: "4px 0 0", color: C.dim, fontSize: 13 }}>Para remitos sueltos, ajustes operativos o material que llega fuera de una orden.</p>
+                      </div>
+                    </div>
+                    <div style={{ display: "grid", gridTemplateColumns: isMobile ? "1fr" : "minmax(0, 1fr) 280px", gap: 14, padding: 16 }}>
+                      <form onSubmit={crearIngreso} style={{ display: "grid", gap: 12 }}>
+                        <div style={{ display: "grid", gridTemplateColumns: isMobile ? "1fr" : "minmax(0, 1.4fr) 120px 150px", gap: 10 }}>
+                          <div>
+                            <label style={S.label}>Material</label>
+                            <select style={S.select} value={formIngreso.material_id}
+                              onChange={e => setFormIngreso(f => ({ ...f, material_id: e.target.value }))}>
+                              <option value="">— Seleccionar —</option>
+                              {matOptions}
+                            </select>
+                          </div>
+                          <div>
+                            <label style={S.label}>Cantidad</label>
+                            <input style={{ ...S.input, fontFamily: C.mono, fontWeight: 800 }} type="number" step="0.01" placeholder="0"
+                              value={formIngreso.cantidad}
+                              onChange={e => setFormIngreso(f => ({ ...f, cantidad: e.target.value }))} />
+                          </div>
+                          <div>
+                            <label style={S.label}>Fecha</label>
+                            <input style={S.input} type="date" value={formIngreso.fecha}
+                              onChange={e => setFormIngreso(f => ({ ...f, fecha: e.target.value }))} />
+                          </div>
                         </div>
-                        <div>
-                          <label style={S.label}>Obra / Destino</label>
-                          <input style={S.input} placeholder="STOCK / H167 / 37-26..."
-                            value={formIngreso.obra}
-                            onChange={e => setFormIngreso(f => ({ ...f, obra: e.target.value }))} />
+                        <div style={{ display: "grid", gridTemplateColumns: isMobile ? "1fr" : "1fr 1fr", gap: 10 }}>
+                          <div>
+                            <label style={S.label}>Proveedor</label>
+                            <input style={S.input} placeholder="ADS / Plaquimet / Del Bajo / Riedel..."
+                              value={formIngreso.proveedor}
+                              onChange={e => setFormIngreso(f => ({ ...f, proveedor: e.target.value }))} />
+                          </div>
+                          <div>
+                            <label style={S.label}>Obra / Destino</label>
+                            <input style={S.input} placeholder="STOCK / H167 / 37-26 / Antago..."
+                              value={formIngreso.obra}
+                              onChange={e => setFormIngreso(f => ({ ...f, obra: e.target.value }))} />
+                          </div>
                         </div>
                         <div>
                           <label style={S.label}>Observaciones</label>
-                          <input style={S.input} placeholder="Nº de remito, lote, etc."
+                          <input style={S.input} placeholder="Nº de remito, lote, factura, aclaración..."
                             value={formIngreso.observaciones}
                             onChange={e => setFormIngreso(f => ({ ...f, observaciones: e.target.value }))} />
                         </div>
-                      </div>
-                      <div style={{ marginTop: 12 }}>
-                        <button type="submit" style={S.btnPrimary}>Registrar ingreso</button>
-                      </div>
-                    </form>
-                  </div>
+                        <div style={{ display: "flex", justifyContent: "flex-end" }}>
+                          <button type="submit" style={{ ...S.btnPrimary, display: "inline-flex", alignItems: "center", gap: 8, padding: "10px 15px" }}>
+                            <Plus size={15} /> Registrar ingreso
+                          </button>
+                        </div>
+                      </form>
+                      <aside style={{
+                        border: `1px solid ${C.border}`,
+                        borderRadius: 12,
+                        background: C.panel,
+                        padding: 14,
+                        minHeight: 160,
+                      }}>
+                        <div style={{ ...S.label, marginBottom: 10 }}>Resumen</div>
+                        {materialIngresoSeleccionado ? (
+                          <div style={{ display: "grid", gap: 10 }}>
+                            <div>
+                              <div style={{ color: C.text, fontSize: 15, fontWeight: 850, lineHeight: 1.25 }}>{materialIngresoSeleccionado.nombre}</div>
+                              <div style={{ ...S.small, marginTop: 3 }}>{materialIngresoSeleccionado.categoria || "Sin categoría"}</div>
+                            </div>
+                            <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8 }}>
+                              <div style={{ border: `1px solid ${C.border}`, borderRadius: 10, padding: 9 }}>
+                                <div style={{ fontSize: 10, color: C.dim, textTransform: "uppercase", letterSpacing: 1.1 }}>Stock</div>
+                                <div style={{ fontFamily: C.mono, fontWeight: 850, color: C.green, marginTop: 3 }}>{num(stockPorMaterial[materialIngresoSeleccionado.id])}</div>
+                              </div>
+                              <div style={{ border: `1px solid ${C.border}`, borderRadius: 10, padding: 9 }}>
+                                <div style={{ fontSize: 10, color: C.dim, textTransform: "uppercase", letterSpacing: 1.1 }}>Unidad</div>
+                                <div style={{ fontFamily: C.mono, fontWeight: 850, color: C.text, marginTop: 3 }}>{materialIngresoSeleccionado.unidad || "unidad"}</div>
+                              </div>
+                            </div>
+                            <div style={{ fontSize: 12, color: C.dim, lineHeight: 1.45 }}>
+                              Se va a sumar <b style={{ color: C.green }}>{num(formIngreso.cantidad)} {materialIngresoSeleccionado.unidad}</b> al stock.
+                            </div>
+                          </div>
+                        ) : (
+                          <div style={{ display: "grid", placeItems: "center", minHeight: 110, textAlign: "center", color: C.dim, fontSize: 13, lineHeight: 1.45 }}>
+                            Elegí un material para ver stock actual, unidad y resumen antes de registrar.
+                          </div>
+                        )}
+                      </aside>
+                    </div>
+                  </section>
                 )}
 
-                <div style={S.card}>
-                  <h3 style={{ marginTop: 0, color: "var(--text)" }}>
-                    Historial de ingresos
-                    <span style={{ ...S.small, marginLeft: 8 }}>
-                      ({movFiltrados.filter(m => m.tipo === "ingreso").length})
+                <section style={{ ...S.card, padding: 0, overflow: "hidden" }}>
+                  <div style={{
+                    padding: 16,
+                    borderBottom: `1px solid ${C.border}`,
+                    display: "flex",
+                    alignItems: "center",
+                    justifyContent: "space-between",
+                    gap: 10,
+                    flexWrap: "wrap",
+                  }}>
+                    <div>
+                      <h3 style={{ margin: 0, color: C.text, fontSize: 16, fontWeight: 850 }}>Historial de ingresos</h3>
+                      <p style={{ margin: "4px 0 0", color: C.dim, fontSize: 13 }}>
+                        {q.trim() ? "Filtrado por la búsqueda general." : "Últimos movimientos de entrada de materiales."}
+                      </p>
+                    </div>
+                    <span style={{
+                      border: `1px solid ${C.border}`,
+                      background: C.panel,
+                      color: C.muted,
+                      borderRadius: 999,
+                      padding: "6px 10px",
+                      fontSize: 12,
+                      fontWeight: 850,
+                    }}>
+                      {ingresosFiltrados.length} registro{ingresosFiltrados.length !== 1 ? "s" : ""}
                     </span>
-                  </h3>
-                  <div style={{ overflowX: "auto" }}>
-                  <table style={{ ...S.table, minWidth: isMobile ? 560 : undefined }}>
-                    <thead>
-                      <tr>
-                        <th style={S.th}>Fecha</th>
-                        <th style={S.th}>Material</th>
-                        <th style={S.th}>Cantidad</th>
-                        <th style={S.th}>Proveedor</th>
-                        <th style={S.th}>Obra</th>
-                        <th style={S.th}>Observaciones</th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {movFiltrados.filter(m => m.tipo === "ingreso").map(m => (
-                        <tr key={m.id} className="lam-row">
-                          <td style={S.td}>
-                            <span style={S.small}>{fmtDate(m.fecha || m.created_at)}</span>
-                            {m.created_at && (
-                              <div style={{ fontSize: 11, color: "#555", marginTop: 2, fontFamily: "monospace" }}>
-                                {new Date(m.created_at).toLocaleTimeString("es-AR", { hour: "2-digit", minute: "2-digit" })}
-                              </div>
-                            )}
-                          </td>
-                          <td style={S.td}>
-                            <b style={{ color: "var(--text)" }}>{m.laminacion_materiales?.nombre ?? "—"}</b>
-                            <div style={S.small}>{m.laminacion_materiales?.unidad}</div>
-                          </td>
-                          <td style={S.td}><b style={{ color: "#30d158", fontSize: 15 }}>+{num(m.cantidad)}</b></td>
-                          <td style={S.td}><span style={S.small}>{m.proveedor || "—"}</span></td>
-                          <td style={S.td}><span style={S.small}>{m.obra || "—"}</span></td>
-                          <td style={S.td}><span style={S.small}>{m.observaciones || "—"}</span></td>
-                        </tr>
-                      ))}
-                      {!movFiltrados.filter(m => m.tipo === "ingreso").length && (
-                        <tr><td style={S.td} colSpan={6}><span style={S.small}>Sin ingresos registrados.</span></td></tr>
-                      )}
-                    </tbody>
-                  </table>
                   </div>
-                </div>
-              </>
+                  <div style={{ overflowX: "auto" }}>
+                    <table style={{ ...S.table, minWidth: isMobile ? 720 : undefined }}>
+                      <thead>
+                        <tr>
+                          <th style={S.th}>Fecha</th>
+                          <th style={S.th}>Material</th>
+                          <th style={S.th}>Cantidad</th>
+                          <th style={S.th}>Proveedor</th>
+                          <th style={S.th}>Obra</th>
+                          <th style={S.th}>Observaciones</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {ingresosFiltrados.map(m => (
+                          <tr key={m.id} className="lam-row">
+                            <td style={{ ...S.td, borderLeft: `3px solid ${C.green}` }}>
+                              <span style={{ color: C.text, fontSize: 13, fontWeight: 750 }}>{fmtDate(m.fecha || m.created_at)}</span>
+                              {m.created_at && (
+                                <div style={{ fontSize: 11, color: C.dim, marginTop: 2, fontFamily: C.mono }}>
+                                  {new Date(m.created_at).toLocaleTimeString("es-AR", { hour: "2-digit", minute: "2-digit" })}
+                                </div>
+                              )}
+                            </td>
+                            <td style={S.td}>
+                              <b style={{ color: C.text, fontSize: 13 }}>{m.laminacion_materiales?.nombre ?? "—"}</b>
+                              <div style={S.small}>{m.laminacion_materiales?.unidad || "unidad"}</div>
+                            </td>
+                            <td style={S.td}>
+                              <span style={{
+                                display: "inline-flex",
+                                alignItems: "center",
+                                border: `1px solid ${tint(C.green, 34)}`,
+                                background: tint(C.green, 11),
+                                color: C.green,
+                                borderRadius: 999,
+                                padding: "4px 9px",
+                                fontFamily: C.mono,
+                                fontWeight: 850,
+                                fontSize: 13,
+                              }}>
+                                +{num(m.cantidad)}
+                              </span>
+                            </td>
+                            <td style={S.td}><span style={{ color: m.proveedor ? C.muted : C.dim, fontSize: 13 }}>{m.proveedor || "—"}</span></td>
+                            <td style={S.td}><span style={{ color: m.obra ? C.muted : C.dim, fontSize: 13 }}>{m.obra || "—"}</span></td>
+                            <td style={S.td}><span style={{ color: m.observaciones ? C.muted : C.dim, fontSize: 13 }}>{m.observaciones || "—"}</span></td>
+                          </tr>
+                        ))}
+                        {!ingresosFiltrados.length && (
+                          <tr>
+                            <td style={{ ...S.td, textAlign: "center", padding: 28 }} colSpan={6}>
+                              <span style={S.small}>Sin ingresos registrados.</span>
+                            </td>
+                          </tr>
+                        )}
+                      </tbody>
+                    </table>
+                  </div>
+                </section>
+              </div>
             )}
 
             {/* ===== TAB EGRESOS ===== */}
             {tab === "Egresos" && (
-              <>
-                {puedeCargar && (
-                  <div style={S.card}>
-                    <h3 style={{ marginTop: 0, color: "var(--text)" }}>Registrar egreso</h3>
-                    <form onSubmit={crearEgreso}>
-                      <div style={S.row3}>
-                        <div>
-                          <label style={S.label}>Material</label>
-                          <select style={S.select} value={formEgreso.material_id}
-                            onChange={e => setFormEgreso(f => ({ ...f, material_id: e.target.value }))}>
-                            <option value="">— Seleccionar —</option>
-                            {matOptions}
-                          </select>
-                        </div>
-                        <div>
-                          <label style={S.label}>Cantidad</label>
-                          <input style={S.input} type="number" step="0.01" placeholder="0"
-                            value={formEgreso.cantidad}
-                            onChange={e => setFormEgreso(f => ({ ...f, cantidad: e.target.value }))} />
-                        </div>
-                        <div>
-                          <label style={S.label}>Fecha</label>
-                          <input style={S.input} type="date" value={formEgreso.fecha}
-                            onChange={e => setFormEgreso(f => ({ ...f, fecha: e.target.value }))} />
-                        </div>
+              <div className="lam-tab-content" style={{ display: "grid", gap: 14 }}>
+                <div style={{ display: "grid", gridTemplateColumns: isMobile ? "1fr" : "repeat(4, minmax(0, 1fr))", gap: 10 }}>
+                  {[
+                    { label: "Egresos hoy", value: egresosStats.hoy, sub: "salidas registradas", color: C.red, icon: Package },
+                    { label: "Historial", value: egresosStats.filtrados, sub: q.trim() ? "en la búsqueda actual" : "egresos visibles", color: C.blue, icon: FileText },
+                    { label: "Destinos", value: egresosStats.destinos, sub: "con movimientos", color: C.violet, icon: ClipboardList },
+                    { label: "Total egresos", value: egresosStats.total, sub: "desde el inicio", color: C.amber, icon: RotateCcw },
+                  ].map(({ label, value, sub, color, icon: Icon }) => (
+                    <div key={label} style={{
+                      border: `1px solid ${tint(color, 28)}`,
+                      borderRadius: 14,
+                      background: `linear-gradient(135deg, ${tint(color, 10)}, var(--panel) 54%)`,
+                      padding: 14,
+                      display: "flex",
+                      gap: 12,
+                      alignItems: "center",
+                      minHeight: 86,
+                    }}>
+                      <div style={{
+                        width: 38,
+                        height: 38,
+                        borderRadius: 12,
+                        display: "grid",
+                        placeItems: "center",
+                        background: tint(color, 16),
+                        border: `1px solid ${tint(color, 30)}`,
+                        color,
+                        flexShrink: 0,
+                      }}>
+                        <Icon size={18} />
                       </div>
-                      <div style={{ ...S.row3, marginTop: 10 }}>
-                        <div>
-                          <label style={S.label}>Destino / Barco</label>
-                          <input style={S.input} placeholder="H167 / 37-26 / CHUBUT / OTROS..."
-                            value={formEgreso.destino}
-                            onChange={e => setFormEgreso(f => ({ ...f, destino: e.target.value }))} />
+                      <div style={{ minWidth: 0 }}>
+                        <div style={{ ...S.label, marginBottom: 3 }}>{label}</div>
+                        <div style={{ fontFamily: C.mono, fontSize: 24, lineHeight: 1, fontWeight: 850, color }}>{value}</div>
+                        <div style={{ ...S.small, marginTop: 5 }}>{sub}</div>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+
+                {puedeCargar && (
+                  <section style={{ ...S.card, padding: 0, overflow: "hidden", borderColor: egresoDejaNegativo ? tint(C.red, 44) : C.border }}>
+                    <div style={{
+                      padding: 16,
+                      borderBottom: `1px solid ${C.border}`,
+                      display: "flex",
+                      alignItems: "center",
+                      gap: 12,
+                      background: egresoDejaNegativo ? tint(C.red, 7) : "transparent",
+                    }}>
+                      <div style={{
+                        width: 40,
+                        height: 40,
+                        borderRadius: 12,
+                        display: "grid",
+                        placeItems: "center",
+                        color: C.red,
+                        background: tint(C.red, 13),
+                        border: `1px solid ${tint(C.red, 30)}`,
+                        flexShrink: 0,
+                      }}>
+                        <RotateCcw size={18} />
+                      </div>
+                      <div>
+                        <h3 style={{ margin: 0, color: C.text, fontSize: 16, fontWeight: 850 }}>Registrar egreso</h3>
+                        <p style={{ margin: "4px 0 0", color: C.dim, fontSize: 13 }}>
+                          Salida de material hacia obra, persona o destino operativo.
+                        </p>
+                      </div>
+                    </div>
+
+                    <div style={{ display: "grid", gridTemplateColumns: isMobile ? "1fr" : "minmax(0, 1fr) 300px", gap: 14, padding: 16 }}>
+                      <form onSubmit={crearEgreso} style={{ display: "grid", gap: 12 }}>
+                        <div style={{ display: "grid", gridTemplateColumns: isMobile ? "1fr" : "minmax(0, 1.4fr) 120px 150px", gap: 10 }}>
+                          <div>
+                            <label style={S.label}>Material</label>
+                            <select style={S.select} value={formEgreso.material_id}
+                              onChange={e => setFormEgreso(f => ({ ...f, material_id: e.target.value }))}>
+                              <option value="">— Seleccionar —</option>
+                              {matOptions}
+                            </select>
+                          </div>
+                          <div>
+                            <label style={S.label}>Cantidad</label>
+                            <input style={{ ...S.input, fontFamily: C.mono, fontWeight: 800 }} type="number" step="0.01" placeholder="0"
+                              value={formEgreso.cantidad}
+                              onChange={e => setFormEgreso(f => ({ ...f, cantidad: e.target.value }))} />
+                          </div>
+                          <div>
+                            <label style={S.label}>Fecha</label>
+                            <input style={S.input} type="date" value={formEgreso.fecha}
+                              onChange={e => setFormEgreso(f => ({ ...f, fecha: e.target.value }))} />
+                          </div>
                         </div>
-                        <div>
-                          <label style={S.label}>Persona que retira</label>
-                          <input style={S.input} placeholder="Nombre del operario..."
-                            value={formEgreso.nombre_persona}
-                            onChange={e => setFormEgreso(f => ({ ...f, nombre_persona: e.target.value }))} />
+                        <div style={{ display: "grid", gridTemplateColumns: isMobile ? "1fr" : "1fr 1fr", gap: 10 }}>
+                          <div>
+                            <label style={S.label}>Destino / Barco</label>
+                            <input style={S.input} placeholder="H167 / 37-26 / Chubut / Antago..."
+                              value={formEgreso.destino}
+                              onChange={e => setFormEgreso(f => ({ ...f, destino: e.target.value }))} />
+                          </div>
+                          <div>
+                            <label style={S.label}>Persona que retira</label>
+                            <input style={S.input} placeholder="Nombre del operario..."
+                              value={formEgreso.nombre_persona}
+                              onChange={e => setFormEgreso(f => ({ ...f, nombre_persona: e.target.value }))} />
+                          </div>
                         </div>
                         <div>
                           <label style={S.label}>Observaciones</label>
-                          <input style={S.input} placeholder="SE TOMO DE STOCK / SE TOMO DE H167..."
+                          <input style={S.input} placeholder="Se tomó de stock, reemplazo, remito, aclaración..."
                             value={formEgreso.observaciones}
                             onChange={e => setFormEgreso(f => ({ ...f, observaciones: e.target.value }))} />
                         </div>
-                      </div>
-                      <div style={{ marginTop: 12 }}>
-                        <button type="submit" style={S.btnPrimary}>Registrar egreso</button>
-                      </div>
-                    </form>
-                  </div>
+                        <div style={{ display: "flex", justifyContent: "flex-end" }}>
+                          <button type="submit" style={{
+                            ...S.btnPrimary,
+                            border: `1px solid ${tint(C.red, 36)}`,
+                            background: tint(C.red, 13),
+                            color: C.red,
+                            display: "inline-flex",
+                            alignItems: "center",
+                            gap: 8,
+                            padding: "10px 15px",
+                          }}>
+                            <RotateCcw size={15} /> Registrar egreso
+                          </button>
+                        </div>
+                      </form>
+
+                      <aside style={{
+                        border: `1px solid ${egresoDejaNegativo ? tint(C.red, 44) : C.border}`,
+                        borderRadius: 12,
+                        background: egresoDejaNegativo ? tint(C.red, 7) : C.panel,
+                        padding: 14,
+                        minHeight: 178,
+                      }}>
+                        <div style={{ ...S.label, marginBottom: 10 }}>Control de stock</div>
+                        {materialEgresoSeleccionado ? (
+                          <div style={{ display: "grid", gap: 10 }}>
+                            <div>
+                              <div style={{ color: C.text, fontSize: 15, fontWeight: 850, lineHeight: 1.25 }}>{materialEgresoSeleccionado.nombre}</div>
+                              <div style={{ ...S.small, marginTop: 3 }}>{materialEgresoSeleccionado.categoria || "Sin categoría"}</div>
+                            </div>
+                            <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8 }}>
+                              <div style={{ border: `1px solid ${C.border}`, borderRadius: 10, padding: 9 }}>
+                                <div style={{ fontSize: 10, color: C.dim, textTransform: "uppercase", letterSpacing: 1.1 }}>Disponible</div>
+                                <div style={{ fontFamily: C.mono, fontWeight: 850, color: egresoStockActual > 0 ? C.green : C.red, marginTop: 3 }}>{egresoStockActual}</div>
+                              </div>
+                              <div style={{ border: `1px solid ${egresoDejaNegativo ? tint(C.red, 40) : C.border}`, borderRadius: 10, padding: 9 }}>
+                                <div style={{ fontSize: 10, color: C.dim, textTransform: "uppercase", letterSpacing: 1.1 }}>Después</div>
+                                <div style={{ fontFamily: C.mono, fontWeight: 850, color: egresoDejaNegativo ? C.red : C.text, marginTop: 3 }}>{egresoStockFinal}</div>
+                              </div>
+                            </div>
+                            <div style={{ display: "flex", alignItems: "flex-start", gap: 8, fontSize: 12, color: egresoDejaNegativo ? C.red : C.dim, lineHeight: 1.45 }}>
+                              {egresoDejaNegativo ? <AlertTriangle size={15} style={{ flexShrink: 0, marginTop: 1 }} /> : <Check size={15} style={{ flexShrink: 0, marginTop: 1, color: C.green }} />}
+                              <span>
+                                {egresoDejaNegativo
+                                  ? "La salida supera el stock actual. El sistema va a pedir confirmación antes de registrar."
+                                  : <>Se va a descontar <b style={{ color: C.red }}>{egresoCantidadPreview} {materialEgresoSeleccionado.unidad}</b> del stock.</>}
+                              </span>
+                            </div>
+                          </div>
+                        ) : (
+                          <div style={{ display: "grid", placeItems: "center", minHeight: 120, textAlign: "center", color: C.dim, fontSize: 13, lineHeight: 1.45 }}>
+                            Elegí un material para ver cuánto stock hay antes de retirarlo.
+                          </div>
+                        )}
+                      </aside>
+                    </div>
+                  </section>
                 )}
 
-                <div style={S.card}>
-                  <h3 style={{ marginTop: 0, color: "var(--text)" }}>
-                    Historial de egresos
-                    <span style={{ ...S.small, marginLeft: 8 }}>
-                      ({movFiltrados.filter(m => m.tipo === "egreso").length})
+                <section style={{ ...S.card, padding: 0, overflow: "hidden" }}>
+                  <div style={{
+                    padding: 16,
+                    borderBottom: `1px solid ${C.border}`,
+                    display: "flex",
+                    alignItems: "center",
+                    justifyContent: "space-between",
+                    gap: 10,
+                    flexWrap: "wrap",
+                  }}>
+                    <div>
+                      <h3 style={{ margin: 0, color: C.text, fontSize: 16, fontWeight: 850 }}>Historial de egresos</h3>
+                      <p style={{ margin: "4px 0 0", color: C.dim, fontSize: 13 }}>
+                        {q.trim() ? "Filtrado por la búsqueda general." : "Últimas salidas de materiales."}
+                      </p>
+                    </div>
+                    <span style={{
+                      border: `1px solid ${C.border}`,
+                      background: C.panel,
+                      color: C.muted,
+                      borderRadius: 999,
+                      padding: "6px 10px",
+                      fontSize: 12,
+                      fontWeight: 850,
+                    }}>
+                      {egresosFiltrados.length} registro{egresosFiltrados.length !== 1 ? "s" : ""}
                     </span>
-                  </h3>
-                  <div style={{ overflowX: "auto" }}>
-                  <table style={{ ...S.table, minWidth: isMobile ? 560 : undefined }}>
-                    <thead>
-                      <tr>
-                        <th style={S.th}>Fecha</th>
-                        <th style={S.th}>Material</th>
-                        <th style={S.th}>Cantidad</th>
-                        <th style={S.th}>Persona</th>
-                        <th style={S.th}>Destino</th>
-                        <th style={S.th}>Observaciones</th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {movFiltrados.filter(m => m.tipo === "egreso").map(m => (
-                        <tr key={m.id} className="lam-row">
-                          <td style={S.td}>
-                            <span style={S.small}>{fmtDate(m.fecha || m.created_at)}</span>
-                            {m.created_at && (
-                              <div style={{ fontSize: 11, color: "#555", marginTop: 2, fontFamily: "monospace" }}>
-                                {new Date(m.created_at).toLocaleTimeString("es-AR", { hour: "2-digit", minute: "2-digit" })}
-                              </div>
-                            )}
-                          </td>
-                          <td style={S.td}>
-                            <b style={{ color: "var(--text)" }}>{m.laminacion_materiales?.nombre ?? "—"}</b>
-                            <div style={S.small}>{m.laminacion_materiales?.unidad}</div>
-                          </td>
-                          <td style={S.td}><b style={{ color: "#ff453a", fontSize: 15 }}>-{num(m.cantidad)}</b></td>
-                          <td style={S.td}><span style={S.small}>{m.nombre_persona || "—"}</span></td>
-                          <td style={S.td}><span style={S.small}>{m.destino || "—"}</span></td>
-                          <td style={S.td}><span style={S.small}>{m.observaciones || "—"}</span></td>
-                        </tr>
-                      ))}
-                      {!movFiltrados.filter(m => m.tipo === "egreso").length && (
-                        <tr><td style={S.td} colSpan={6}><span style={S.small}>Sin egresos registrados.</span></td></tr>
-                      )}
-                    </tbody>
-                  </table>
                   </div>
-                </div>
-              </>
+                  <div style={{ overflowX: "auto" }}>
+                    <table style={{ ...S.table, minWidth: isMobile ? 720 : undefined }}>
+                      <thead>
+                        <tr>
+                          <th style={S.th}>Fecha</th>
+                          <th style={S.th}>Material</th>
+                          <th style={S.th}>Cantidad</th>
+                          <th style={S.th}>Persona</th>
+                          <th style={S.th}>Destino</th>
+                          <th style={S.th}>Observaciones</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {egresosFiltrados.map(m => (
+                          <tr key={m.id} className="lam-row">
+                            <td style={{ ...S.td, borderLeft: `3px solid ${C.red}` }}>
+                              <span style={{ color: C.text, fontSize: 13, fontWeight: 750 }}>{fmtDate(m.fecha || m.created_at)}</span>
+                              {m.created_at && (
+                                <div style={{ fontSize: 11, color: C.dim, marginTop: 2, fontFamily: C.mono }}>
+                                  {new Date(m.created_at).toLocaleTimeString("es-AR", { hour: "2-digit", minute: "2-digit" })}
+                                </div>
+                              )}
+                            </td>
+                            <td style={S.td}>
+                              <b style={{ color: C.text, fontSize: 13 }}>{m.laminacion_materiales?.nombre ?? "—"}</b>
+                              <div style={S.small}>{m.laminacion_materiales?.unidad || "unidad"}</div>
+                            </td>
+                            <td style={S.td}>
+                              <span style={{
+                                display: "inline-flex",
+                                alignItems: "center",
+                                border: `1px solid ${tint(C.red, 34)}`,
+                                background: tint(C.red, 11),
+                                color: C.red,
+                                borderRadius: 999,
+                                padding: "4px 9px",
+                                fontFamily: C.mono,
+                                fontWeight: 850,
+                                fontSize: 13,
+                              }}>
+                                -{num(m.cantidad)}
+                              </span>
+                            </td>
+                            <td style={S.td}><span style={{ color: m.nombre_persona ? C.muted : C.dim, fontSize: 13 }}>{m.nombre_persona || "—"}</span></td>
+                            <td style={S.td}><span style={{ color: m.destino ? C.muted : C.dim, fontSize: 13 }}>{m.destino || "—"}</span></td>
+                            <td style={S.td}><span style={{ color: m.observaciones ? C.muted : C.dim, fontSize: 13 }}>{m.observaciones || "—"}</span></td>
+                          </tr>
+                        ))}
+                        {!egresosFiltrados.length && (
+                          <tr>
+                            <td style={{ ...S.td, textAlign: "center", padding: 28 }} colSpan={6}>
+                              <span style={S.small}>Sin egresos registrados.</span>
+                            </td>
+                          </tr>
+                        )}
+                      </tbody>
+                    </table>
+                  </div>
+                </section>
+              </div>
             )}
 
             {/* ===== TAB MOVIMIENTOS ===== */}

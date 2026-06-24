@@ -23,11 +23,36 @@ import { supabase } from "@/supabaseClient";
 import { C } from "@/theme";
 import { useToast } from "@/components/ui/Toast";
 import logoKlasea from "@/assets/logos/logo-klasea.png";
-import stoneBlackImg from "@/assets/textures/stone-black.jpg";
-import stoneEntzoImg from "@/assets/textures/stone-entzo.jpg";
-import stoneTravertinoImg from "@/assets/textures/stone-travertino.jpg";
-import stoneAriaImg from "@/assets/textures/stone-aria.jpg";
-import stoneDessertImg from "@/assets/textures/stone-dessert.jpg";
+import stoneBlackImg from "@/assets/textures/stone-black.png";
+import stoneEntzoImg from "@/assets/textures/stone-entzo.png";
+import stoneTravertinoImg from "@/assets/textures/stone-travertino.png";
+import stoneAriaImg from "@/assets/textures/stone-aria.png";
+import stoneDessertImg from "@/assets/textures/stone-dessert.png";
+
+import woodSilverImg from "@/assets/textures/wood-silver.png";
+import woodOakImg from "@/assets/textures/wood-oak.png";
+import woodWalnutImg from "@/assets/textures/wood-walnut.png";
+import woodGreyImg from "@/assets/textures/wood-grey.png";
+import woodChocoImg from "@/assets/textures/wood-choco.png";
+import woodCedarImg from "@/assets/textures/wood-cedar.png";
+
+import floorWhiteImg from "@/assets/textures/floor-white.png";
+import floorInfinityImg from "@/assets/textures/floor-infinity.png";
+import floorSeadekImg from "@/assets/textures/floor-seadek.png";
+import floorSandImg from "@/assets/textures/floor-sand.png";
+
+import fabricShaniImg from "@/assets/textures/fabric-shani.jpg";
+import fabricBhanuImg from "@/assets/textures/fabric-bhanu.jpg";
+import fabricCharcoalImg from "@/assets/textures/fabric-charcoal.jpg";
+import fabricBlackImg from "@/assets/textures/fabric-black.jpg";
+import fabricPearlImg from "@/assets/textures/fabric-pearl.jpg";
+import fabricNavyImg from "@/assets/textures/fabric-navy.jpg";
+
+import canvasBlackImg from "@/assets/textures/canvas-black.jpg";
+import canvasCharcoalImg from "@/assets/textures/canvas-charcoal.jpg";
+import canvasGreyImg from "@/assets/textures/canvas-grey.jpg";
+import canvasWhiteImg from "@/assets/textures/canvas-white.jpg";
+import canvasBeigeImg from "@/assets/textures/canvas-beige.jpg";
 
 import { FadeIn, hoverable, Skeleton, SkeletonStyles, SkeletonCard, SkeletonRow } from "@/components/ui/motion";
 import {
@@ -128,20 +153,20 @@ const PAINT_OPTIONS = [
 ];
 
 const WOOD_OPTIONS = [
-  { label: "Roble Plata Rayado", meta: "Chapa clara, veta lineal", texture: "wood-silver", imageUrl: null },
-  { label: "Roble Tinte Rayado", meta: "Calido y elegante", texture: "wood-oak", imageUrl: null },
-  { label: "Nogal Natural", meta: "Nogal profundo", texture: "wood-walnut", imageUrl: null },
-  { label: "Gris Terso", meta: "Moderno y neutro", texture: "wood-grey", imageUrl: null },
-  { label: "Chocolate", meta: "Oscuro, calido", texture: "wood-choco", imageUrl: null },
-  { label: "Cedro satin", meta: "Luz rojiza", texture: "wood-cedar", imageUrl: null },
+  { label: "Roble Plata Rayado", meta: "Chapa clara, veta lineal", texture: "wood-silver", imageUrl: woodSilverImg },
+  { label: "Roble Tinte Rayado", meta: "Calido y elegante", texture: "wood-oak", imageUrl: woodOakImg },
+  { label: "Nogal Natural", meta: "Nogal profundo", texture: "wood-walnut", imageUrl: woodWalnutImg },
+  { label: "Gris Terso", meta: "Moderno y neutro", texture: "wood-grey", imageUrl: woodGreyImg },
+  { label: "Chocolate", meta: "Oscuro, calido", texture: "wood-choco", imageUrl: woodChocoImg },
+  { label: "Cedro satin", meta: "Luz rojiza", texture: "wood-cedar", imageUrl: woodCedarImg },
 ];
 
 const FLOOR_OPTIONS = [
-  { label: "La Europea White", meta: "Vinilico claro", texture: "floor-white", imageUrl: null },
-  { label: "Infinity gris c/rayas negras", meta: "Cubierta tecnica", texture: "floor-infinity", imageUrl: null },
-  { label: "Seadek gris", meta: "Textura antideslizante", texture: "floor-seadek", imageUrl: null },
-  { label: "Teca", meta: "Cubierta clasica", texture: "floor-teak", imageUrl: null },
-  { label: "Arena nautica", meta: "Beige tecnico", texture: "floor-sand", imageUrl: null },
+  { label: "La Europea White", meta: "Vinilico claro", texture: "floor-white", imageUrl: floorWhiteImg },
+  { label: "Infinity gris c/rayas negras", meta: "Cubierta tecnica", texture: "floor-infinity", imageUrl: floorInfinityImg },
+  { label: "Seadek gris", meta: "Textura antideslizante", texture: "floor-seadek", imageUrl: floorSeadekImg },
+  { label: "Teca", meta: "Cubierta clasica", texture: "floor-teak", imageUrl: null }, // Quota error on this one, fallback to CSS
+  { label: "Arena nautica", meta: "Beige tecnico", texture: "floor-sand", imageUrl: floorSandImg },
 ];
 
 const STONE_OPTIONS = [
@@ -153,19 +178,20 @@ const STONE_OPTIONS = [
 ];
 
 const FABRIC_OPTIONS = [
-  { label: "Shani 07", meta: "Textil nautico claro", texture: "fabric-shani", imageUrl: null },
-  { label: "Bhanu 01", meta: "Hielo elegante", texture: "fabric-bhanu", imageUrl: null },
-  { label: "Charcoal", meta: "Gris profundo", texture: "fabric-charcoal", imageUrl: null },
-  { label: "Negro", meta: "Exterior sobrio", texture: "fabric-black", imageUrl: null },
-  { label: "Gris perla", meta: "Neutro luminoso", texture: "fabric-pearl", imageUrl: null },
-  { label: "Azul navy", meta: "Acento nautico", texture: "fabric-navy", imageUrl: null },
+  { label: "Shani 07", meta: "Textil nautico claro", texture: "fabric-shani", imageUrl: fabricShaniImg },
+  { label: "Bhanu 01", meta: "Hielo elegante", texture: "fabric-bhanu", imageUrl: fabricBhanuImg },
+  { label: "Charcoal", meta: "Gris profundo", texture: "fabric-charcoal", imageUrl: fabricCharcoalImg },
+  { label: "Negro", meta: "Exterior sobrio", texture: "fabric-black", imageUrl: fabricBlackImg },
+  { label: "Gris perla", meta: "Neutro luminoso", texture: "fabric-pearl", imageUrl: fabricPearlImg },
+  { label: "Azul navy", meta: "Acento nautico", texture: "fabric-navy", imageUrl: fabricNavyImg },
 ];
 
 const CANVAS_OPTIONS = [
-  { label: "Negro", meta: "Lona negra", texture: "canvas-black", imageUrl: null },
-  { label: "Charcoal con mosquitero", meta: "Cerramiento moderno", texture: "canvas-charcoal", imageUrl: null },
-  { label: "Gris", meta: "Lona gris", texture: "canvas-grey", imageUrl: null },
-  { label: "Blanco", meta: "Lona clara", texture: "canvas-white", imageUrl: null },
+  { label: "Negro", meta: "Lona negra", texture: "canvas-black", imageUrl: canvasBlackImg },
+  { label: "Charcoal con mosquitero", meta: "Cerramiento moderno", texture: "canvas-charcoal", imageUrl: canvasCharcoalImg },
+  { label: "Gris", meta: "Lona gris", texture: "canvas-grey", imageUrl: canvasGreyImg },
+  { label: "Blanco", meta: "Lona clara", texture: "canvas-white", imageUrl: canvasWhiteImg },
+  { label: "Beige", meta: "Lona neutra", texture: "canvas-beige", imageUrl: canvasBeigeImg },
 ];
 
 function normalizeCode(value) {
@@ -1168,105 +1194,55 @@ function StudioView({ selected, fields, descriptors, areas, selectedArea, active
   );
 }
 
+// Lámina de acabados (mood board) — la "pantalla del cliente": el enchapado/maderas a
+// gran formato + los materiales clave abajo. Reemplaza el viejo placeholder "3D pendiente".
 function BoatPreview({ fields, isMobile = false }) {
-  const casco = swatchFor("color_casco", fields.color_casco);
-  const wood = swatchFor("madera_muebles", fields.madera_muebles);
-  const floor = swatchFor("piso", fields.piso || fields.teca_tipo);
-  const fabric = swatchFor("tapiceria_mamparos", fields.tapiceria_mamparos || fields.color_acolchados);
-  const stone = swatchFor("color_mesadas", fields.color_mesadas);
+  const hero = swatchFor("madera_muebles", fields.madera_muebles);
+  const items = [
+    { label: "Casco", sw: swatchFor("color_casco", fields.color_casco) },
+    { label: "Pisos", sw: swatchFor("piso", fields.piso || fields.teca_tipo) },
+    { label: "Tapicería", sw: swatchFor("tapiceria_mamparos", fields.tapiceria_mamparos || fields.dinette_salon || fields.color_acolchados) },
+    { label: "Mesadas", sw: swatchFor("color_mesadas", fields.color_mesadas) },
+  ];
 
   return (
     <div style={{
       flex: 1,
-      minHeight: isMobile ? 280 : 400,
+      minHeight: isMobile ? 360 : 480,
       border: `1px solid ${C.border}`,
       borderRadius: isMobile ? 24 : 28,
-      background: `linear-gradient(180deg, #020408, #0a0d14)`,
+      background: "linear-gradient(180deg, #070a10, #0c1018)",
       overflow: "hidden",
       position: "relative",
-      boxShadow: "inset 0 1px 0 rgba(255,255,255,.08), 0 30px 100px rgba(0,0,0,0.6)",
+      boxShadow: "inset 0 1px 0 rgba(255,255,255,.05), 0 30px 100px rgba(0,0,0,0.7)",
+      display: "flex",
+      flexDirection: "column",
     }}>
-      {/* Iluminacion Showroom */}
-      <div style={{ position: "absolute", top: "-20%", left: "50%", transform: "translateX(-50%)", width: "80%", height: "60%", background: `radial-gradient(ellipse, ${C.blue}20, transparent 60%)`, filter: "blur(40px)", pointerEvents: "none" }} />
-      <div style={{ position: "absolute", bottom: "-30%", left: "50%", transform: "translateX(-50%)", width: "120%", height: "60%", background: `radial-gradient(ellipse, rgba(255,255,255,0.03), transparent 70%)`, pointerEvents: "none" }} />
-      
-      {/* Silueta del Casco */}
-      <div style={{
-        position: "absolute",
-        left: "10%",
-        right: "10%",
-        top: isMobile ? "20%" : "25%",
-        height: isMobile ? "35%" : "40%",
-        borderRadius: "48% 52% 28% 72% / 70% 72% 28% 30%",
-        boxShadow: "0 40px 100px rgba(0,0,0,.8), inset 0 2px 4px rgba(255,255,255,0.2)",
-        overflow: "hidden",
-      }}>
-        <TextureRenderer option={casco.option} />
-        {/* Cabina superior */}
-        <div style={{ position: "absolute", inset: "18% 12% 42% 20%", borderRadius: "70% 30% 60% 40%", background: "linear-gradient(135deg, rgba(255,255,255,.8), rgba(255,255,255,.15))", border: "1px solid rgba(255,255,255,.4)", backdropFilter: "blur(4px)" }} />
-        {/* Piso exterior visible */}
-        <div style={{ position: "absolute", left: "18%", right: "22%", bottom: "18%", height: "14%", borderRadius: 99, border: "1px solid rgba(0,0,0,.4)", overflow: "hidden" }}>
-           <TextureRenderer option={floor.option} />
+      {/* HERO: enchapado / maderas a gran formato */}
+      <div style={{ position: "relative", flex: "1 1 auto", minHeight: 0 }}>
+        <div style={{ position: "absolute", inset: 0 }}>
+          <TextureRenderer option={hero.option} />
         </div>
-        {/* Sillones exteriores visibles */}
-        <div style={{ position: "absolute", left: "46%", right: "24%", top: "48%", height: "18%", borderRadius: 99, border: "1px solid rgba(0,0,0,.3)", overflow: "hidden" }}>
-           <TextureRenderer option={fabric.option} />
+        <div style={{ position: "absolute", inset: 0, background: "linear-gradient(180deg, rgba(7,10,16,.18) 0%, rgba(7,10,16,0) 32%, rgba(7,10,16,.86) 100%)" }} />
+        <img src={logoKlasea} alt="" draggable={false} style={{ position: "absolute", top: 16, right: 18, height: 26, opacity: .55, filter: "grayscale(1) brightness(2.6)" }} />
+        <div style={{ position: "absolute", left: 20, top: 18, display: "inline-flex", alignItems: "center", gap: 8, padding: "6px 11px", borderRadius: 999, background: "rgba(0,0,0,.4)", border: "1px solid rgba(255,255,255,.16)", backdropFilter: "blur(8px)", color: "#fff", fontSize: 10, letterSpacing: 1.4, textTransform: "uppercase", fontWeight: 800 }}>
+          <Sparkles size={12} color={C.amber} /> Memoria de acabados{fields.propietario ? ` · ${fields.propietario}` : ""}
+        </div>
+        <div style={{ position: "absolute", left: 22, right: 22, bottom: 18 }}>
+          <div style={{ color: "rgba(255,255,255,.72)", fontSize: 11, letterSpacing: 1.6, textTransform: "uppercase", fontWeight: 800 }}>Enchapado · Maderas</div>
+          <div style={{ color: "#fff", fontSize: isMobile ? 24 : 30, fontWeight: 900, lineHeight: 1.05, marginTop: 3, textShadow: "0 2px 18px rgba(0,0,0,.6)" }}>{hero.label}</div>
         </div>
       </div>
 
-      {/* Mueble interior simulado */}
-      <div style={{
-        position: "absolute",
-        left: "25%",
-        right: "22%",
-        top: isMobile ? "48%" : "55%",
-        height: isMobile ? 22 : 28,
-        borderRadius: 999,
-        boxShadow: "0 20px 40px rgba(0,0,0,.5), inset 0 2px 4px rgba(255,255,255,0.2)",
-        overflow: "hidden"
-      }}>
-        <TextureRenderer option={wood.option} />
-      </div>
-
-      {/* Mesada simulada */}
-      <div style={{
-        position: "absolute",
-        left: "58%",
-        top: isMobile ? "54%" : "62%",
-        width: isMobile ? 65 : 85,
-        height: isMobile ? 40 : 50,
-        borderRadius: 16,
-        border: "1px solid rgba(255,255,255,.25)",
-        boxShadow: "0 20px 40px rgba(0,0,0,.4), inset 0 1px 2px rgba(255,255,255,0.4)",
-        overflow: "hidden"
-      }}>
-        <TextureRenderer option={stone.option} />
-      </div>
-
-      {/* Resumen de acabados inferiores */}
-      <div style={{
-        position: "absolute",
-        left: "4%",
-        right: "4%",
-        bottom: isMobile ? 14 : 24,
-        display: "grid",
-        gridTemplateColumns: isMobile ? "repeat(2, minmax(0, 1fr))" : "repeat(4, minmax(0, 1fr))",
-        gap: isMobile ? 8 : 12,
-      }}>
-        {[
-          ["Madera principal", wood],
-          ["Piso", floor],
-          ["Tapicería", fabric],
-          ["Mesada", stone],
-        ].map(([label, sw]) => (
-          <div key={label} style={{ minWidth: 0, border: `1px solid rgba(255,255,255,0.08)`, background: "rgba(10,14,20,0.6)", backdropFilter: "blur(12px)", borderRadius: isMobile ? 14 : 18, overflow: "hidden", display: "flex", alignItems: "center", gap: 10, padding: 8 }}>
-            <div style={{ width: 36, height: 36, borderRadius: 10, overflow: "hidden", border: "1px solid rgba(255,255,255,0.1)", flexShrink: 0 }}>
+      {/* FILA inferior: materiales clave */}
+      <div style={{ flexShrink: 0, display: "grid", gridTemplateColumns: "repeat(4, 1fr)", gap: 1, background: "rgba(255,255,255,.07)", borderTop: "1px solid rgba(255,255,255,.07)" }}>
+        {items.map(({ label, sw }) => (
+          <div key={label} style={{ minWidth: 0, background: "#0c1018", padding: isMobile ? "10px 8px" : "13px 12px" }}>
+            <div style={{ height: isMobile ? 40 : 54, borderRadius: 10, overflow: "hidden", border: "1px solid rgba(255,255,255,.1)", marginBottom: 8 }}>
               <TextureRenderer option={sw.option} />
             </div>
-            <div style={{ minWidth: 0 }}>
-              <div style={{ color: C.dim, fontSize: 9, letterSpacing: 1.1, textTransform: "uppercase", fontWeight: 900 }}>{label}</div>
-              <div style={{ color: C.text, fontSize: 11, fontWeight: 900, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", marginTop: 2 }}>{sw.label}</div>
-            </div>
+            <div style={{ color: "rgba(255,255,255,.45)", fontSize: 9, letterSpacing: 1.2, textTransform: "uppercase", fontWeight: 900 }}>{label}</div>
+            <div style={{ color: "#fff", fontSize: isMobile ? 11 : 12.5, fontWeight: 800, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", marginTop: 2 }}>{sw.label}</div>
           </div>
         ))}
       </div>
