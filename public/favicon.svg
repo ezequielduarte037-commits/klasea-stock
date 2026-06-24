@@ -1,0 +1,27 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100">
+  <style>
+    path, circle { 
+      stroke: #1a1a1a; 
+      fill: none; 
+      stroke-width: 6; 
+      stroke-linecap: round; 
+      stroke-linejoin: round; 
+    }
+    /* En modo oscuro o pestañas oscuras, el icono se vuelve clarito para contrastar */
+    @media (prefers-color-scheme: dark) {
+      path, circle { stroke: #e5e7eb; }
+    }
+  </style>
+  
+  <!-- Círculo exterior -->
+  <circle cx="50" cy="50" r="42" />
+  
+  <!-- Línea vertical central -->
+  <path d="M 40 25 L 40 75" />
+  
+  <!-- Flecha derecha (la K) -->
+  <path d="M 40 50 L 68 22 M 40 50 L 68 78" />
+  
+  <!-- Triangulito/flecha izquierda -->
+  <path d="M 40 50 L 25 38 M 40 50 L 25 62" stroke-width="5" />
+</svg>
