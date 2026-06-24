@@ -504,14 +504,70 @@ export default function MarmoleriaScreen({ profile, signOut }) {
     cargarLineas();
   }
 
+  async function borrarUnidadReal(uid) {
+    const piezas = await supabase.from("marm_unidad_piezas").delete().eq("unidad_id", uid);
+    if (piezas.error) return piezas.error;
+
+    const unidad = await supabase.from("marm_unidades").delete().eq("id", uid);
+    return unidad.error;
+  }
+
+  async function insertarUnidadNueva(codigo) {
+    return supabase
+      .from("marm_unidades")
+      .insert({ linea_id: lineaId, codigo })
+      .select("id,codigo,activa")
+      .single();
+  }
+
   async function crearUnidad() {
     if (!newUnidad.trim() || !lineaId) return;
-    // 1. Crear unidad
-    const { data: u, error } = await supabase
+    setErr("");
+    const codigo = newUnidad.trim();
+
+    let { data: u, error } = await supabase
       .from("marm_unidades")
-      .insert({ linea_id:lineaId, codigo:newUnidad.trim() })
-      .select().single();
+      .select("id,codigo,activa")
+      .eq("linea_id", lineaId)
+      .eq("codigo", codigo)
+      .maybeSingle();
     if (error) return setErr(error.message);
+
+    if (u?.activa === false) {
+      const borrarError = await borrarUnidadReal(u.id);
+      if (borrarError) return setErr(borrarError.message);
+      u = null;
+    }
+
+    if (u) {
+      setUnidadId(u.id);
+      return setErr(`Ya existe un barco con codigo "${codigo}" en esta linea.`);
+    }
+
+    let ins = await insertarUnidadNueva(codigo);
+    if (ins.error) {
+      if (ins.error.code === "23505") {
+        const retry = await supabase
+          .from("marm_unidades")
+          .select("id,codigo,activa")
+          .eq("linea_id", lineaId)
+          .eq("codigo", codigo)
+          .maybeSingle();
+        if (retry.error) return setErr(ins.error.message);
+        if (retry.data?.activa === false) {
+          const borrarError = await borrarUnidadReal(retry.data.id);
+          if (borrarError) return setErr(borrarError.message);
+          ins = await insertarUnidadNueva(codigo);
+        } else if (retry.data) {
+          setUnidadId(retry.data.id);
+          return setErr(`Ya existe un barco con codigo "${codigo}" en esta linea.`);
+        }
+      }
+      if (ins.error) {
+        return setErr(ins.error.message);
+      }
+    }
+    u = ins.data;
 
     // 2. Copiar plantilla de la línea automáticamente
     const { data: plantilla } = await supabase
@@ -521,7 +577,15 @@ export default function MarmoleriaScreen({ profile, signOut }) {
       .order("orden");
 
     if (plantilla?.length) {
-      const inserts = plantilla.map(p => ({
+      const { data: piezasExistentes, error: piezasError } = await supabase
+        .from("marm_unidad_piezas")
+        .select("pieza_id")
+        .eq("unidad_id", u.id)
+        .not("pieza_id", "is", null);
+      if (piezasError) return setErr(piezasError.message);
+
+      const existentes = new Set((piezasExistentes ?? []).map(p => p.pieza_id));
+      const inserts = plantilla.filter(p => !existentes.has(p.id)).map(p => ({
         unidad_id: u.id,
         pieza_id:  p.id,
         pieza:     p.pieza,
@@ -529,7 +593,10 @@ export default function MarmoleriaScreen({ profile, signOut }) {
         opcional:  p.opcional,
         estado:    "Pendiente",
       }));
-      await supabase.from("marm_unidad_piezas").insert(inserts);
+      if (inserts.length) {
+        const { error: insertPiezasError } = await supabase.from("marm_unidad_piezas").insert(inserts);
+        if (insertPiezasError) return setErr(insertPiezasError.message);
+      }
     }
 
     setNewUnidad("");
@@ -539,10 +606,15 @@ export default function MarmoleriaScreen({ profile, signOut }) {
 
   async function eliminarUnidad(uid) {
     if (!window.confirm("¿Eliminar este barco y su checklist?")) return;
-    await supabase.from("marm_unidades").update({ activa:false }).eq("id", uid);
-    setUnidadId(null);
-    setPiezas([]);
+    setErr("");
+    const error = await borrarUnidadReal(uid);
+    if (error) return setErr(error.message);
+    if (unidadId === uid) {
+      setUnidadId(null);
+      setPiezas([]);
+    }
     cargarUnidades(lineaId);
+    cargarDashboardGeneral();
   }
 
   async function cargarPlantillaLinea(lid) {
@@ -594,11 +666,24 @@ export default function MarmoleriaScreen({ profile, signOut }) {
   }
 
   async function guardarEditUnidad(id) {
-    if (!editUnidadCodigo.trim()) {
+    const codigo = editUnidadCodigo.trim();
+    if (!codigo) {
       setEditUnidadId(null);
       return;
     }
-    await supabase.from("marm_unidades").update({ codigo: editUnidadCodigo.trim() }).eq("id", id);
+    setErr("");
+    const { data: existente, error: existeError } = await supabase
+      .from("marm_unidades")
+      .select("id")
+      .eq("linea_id", lineaId)
+      .eq("codigo", codigo)
+      .neq("id", id)
+      .maybeSingle();
+    if (existeError) return setErr(existeError.message);
+    if (existente) return setErr(`Ya existe un barco con codigo "${codigo}" en esta linea.`);
+
+    const { error } = await supabase.from("marm_unidades").update({ codigo }).eq("id", id);
+    if (error) return setErr(error.message);
     setEditUnidadId(null);
     cargarUnidades(lineaId);
   }

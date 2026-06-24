@@ -58,6 +58,16 @@ function fmtBytes(b) {
   return `${(b/1048576).toFixed(1)} MB`;
 }
 
+const MATRIX_DETAIL_KEYS = ["responsable", "personas_necesarias", "involucrados", "observaciones"];
+const hasMatrixDetailColumns = row => !!row && MATRIX_DETAIL_KEYS.some(k => Object.prototype.hasOwnProperty.call(row, k));
+const hasMatrixDetailContent = row => !!(row?.descripcion || row?.responsable || row?.personas_necesarias || row?.involucrados || row?.observaciones);
+const matrixDetailPatch = form => ({
+  responsable: form.responsable?.trim() || null,
+  personas_necesarias: form.personas_necesarias !== "" && form.personas_necesarias != null && Number.isFinite(Number(form.personas_necesarias)) ? parseInt(form.personas_necesarias) : null,
+  involucrados: form.involucrados?.trim() || null,
+  observaciones: form.observaciones?.trim() || null,
+});
+
 // ─── PALETA ────────────────────────────────────────────────────────────────────
 // ─── Nav icons (SVG inline, no deps) ─────────────────────────────────────────
 const NavIcon = {
@@ -233,6 +243,7 @@ function ObraModal({ lineas, lProcs, lTareas = [], onSave, onClose }) {
           await supabase.from("obra_etapas").insert(procsLinea.map((p, i) => ({
             obra_id: nueva.id, linea_proceso_id: p.id, nombre: p.nombre, orden: p.orden ?? i + 1,
             color: p.color ?? "#64748b", dias_estimados: p.dias_estimados, estado: "pendiente",
+            ...(hasMatrixDetailColumns(p) ? { descripcion: p.descripcion ?? null, ...matrixDetailPatch(p) } : {}),
             genera_orden_compra: p.genera_orden_compra ?? false, orden_compra_tipo: p.orden_compra_tipo ?? "aviso",
             orden_compra_descripcion: p.orden_compra_descripcion ?? null,
             orden_compra_monto_estimado: p.orden_compra_monto_estimado ?? null,
@@ -310,12 +321,15 @@ function ObraModal({ lineas, lProcs, lTareas = [], onSave, onClose }) {
 }
 
 // ─── MODAL ETAPA ──────────────────────────────────────────────────────────────
-function EtapaModal({ etapa, obraId, onSave, onClose }) {
+function EtapaModal({ etapa, obraId, detailEnabled = false, onSave, onClose }) {
   const isEdit = !!etapa?.id;
+  const canEditMatrixDetails = detailEnabled || hasMatrixDetailColumns(etapa);
   const [form, setForm] = useState({
     nombre: etapa?.nombre ?? "", descripcion: etapa?.descripcion ?? "", color: etapa?.color ?? "#64748b",
     dias_estimados: etapa?.dias_estimados ?? "", fecha_inicio: etapa?.fecha_inicio ?? "",
     fecha_fin_estimada: etapa?.fecha_fin_estimada ?? "",
+    responsable: etapa?.responsable ?? "", personas_necesarias: etapa?.personas_necesarias ?? "",
+    involucrados: etapa?.involucrados ?? "", observaciones: etapa?.observaciones ?? "",
     genera_orden_compra: etapa?.genera_orden_compra ?? false,
     orden_compra_tipo: etapa?.orden_compra_tipo ?? "aviso", orden_compra_descripcion: etapa?.orden_compra_descripcion ?? "",
     orden_compra_monto_estimado: etapa?.orden_compra_monto_estimado ?? "", orden_compra_dias_previo: etapa?.orden_compra_dias_previo ?? 7,
@@ -338,6 +352,7 @@ function EtapaModal({ etapa, obraId, onSave, onClose }) {
       orden_compra_monto_estimado: form.genera_orden_compra && form.orden_compra_monto_estimado !== "" ? num(form.orden_compra_monto_estimado) : null,
       orden_compra_dias_previo: form.genera_orden_compra ? num(form.orden_compra_dias_previo) : null,
     };
+    if (canEditMatrixDetails) Object.assign(payload, matrixDetailPatch(form));
     const { error } = isEdit
       ? await supabase.from("obra_etapas").update(payload).eq("id", etapa.id)
       : await supabase.from("obra_etapas").insert({ ...payload, obra_id: obraId, orden: 999, estado: "pendiente" });
@@ -355,6 +370,17 @@ function EtapaModal({ etapa, obraId, onSave, onClose }) {
         {err && <div style={{ padding: "8px 12px", marginBottom: 12, background: "rgba(239,68,68,0.08)", border: "1px solid rgba(239,68,68,0.25)", borderRadius: 7, fontSize: 13, color: "#fca5a5" }}>{err}</div>}
         <form onSubmit={handleSubmit}>
           <InputSt label="Nombre *"><input style={INP} required autoFocus value={form.nombre} onChange={e => set("nombre", e.target.value)} /></InputSt>
+          {canEditMatrixDetails && (
+            <div style={{ padding: "12px 14px", background: C.s0, border: `1px solid ${C.b0}`, borderRadius: 8, marginBottom: 12 }}>
+              <div style={{ fontSize: 10, letterSpacing: 1.3, color: C.t2, marginBottom: 10, textTransform: "uppercase", fontWeight: 700 }}>Equipo / involucrados</div>
+              <div style={{ display: "grid", gridTemplateColumns: "1fr 92px", gap: 10, marginBottom: 10 }}>
+                <InputSt label="Responsable"><input style={INP} value={form.responsable} onChange={e => set("responsable", e.target.value)} placeholder="Ej: Maxi / Dionisio" /></InputSt>
+                <InputSt label="Personas"><input type="number" min="0" step="1" style={INP} value={form.personas_necesarias} onChange={e => set("personas_necesarias", e.target.value)} placeholder="2" /></InputSt>
+              </div>
+              <InputSt label="Involucrados"><input style={INP} value={form.involucrados} onChange={e => set("involucrados", e.target.value)} placeholder="Carpintero, pintor, electricista..." /></InputSt>
+              <InputSt label="Observaciones de matriz"><textarea style={{ ...INP, resize: "vertical", minHeight: 54 }} value={form.observaciones} onChange={e => set("observaciones", e.target.value)} placeholder="Notas generales de esta etapa/tarea base..." /></InputSt>
+            </div>
+          )}
           <InputSt label="Descripción"><input style={INP} value={form.descripcion} onChange={e => set("descripcion", e.target.value)} /></InputSt>
           <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10, marginBottom: 12 }}>
             <InputSt label="Días estimados"><input type="number" min="0" step="0.5" style={INP} value={form.dias_estimados} onChange={e => set("dias_estimados", e.target.value)} /></InputSt>
@@ -1226,7 +1252,7 @@ function NuevaLineaModal({ onClose, onSaved }) {
 }
 
 // ─── PLANTILLA LÍNEA ─────────────────────────────────────────────────────────
-function LineasEtapasModal({ linea, lProcs, lTareas = [], onClose, onSaved }) {
+function LineasEtapasModal({ linea, lProcs, lTareas = [], detailEnabled = false, onClose, onSaved }) {
   const [localLinea,  setLocalLinea]  = useState(linea);
   const [editingLinea, setEditingLinea] = useState(false);
   const [lineaForm,   setLineaForm]   = useState({ nombre: linea.nombre, color: linea.color ?? "#3b82f6", orden: linea.orden ?? "" });
@@ -1235,10 +1261,11 @@ function LineasEtapasModal({ linea, lProcs, lTareas = [], onClose, onSaved }) {
   const [loadingAll,  setLoadingAll]  = useState(true);
   const [editIdx,     setEditIdx]     = useState(null);
   const [adding,      setAdding]      = useState(false);
-  const [newForm,     setNewForm]     = useState({ nombre: "", dias_estimados: "", color: "#64748b", genera_orden_compra: false, orden_compra_tipo: "aviso", orden_compra_descripcion: "", orden_compra_monto_estimado: "", orden_compra_dias_previo: 7 });
+  const [newForm,     setNewForm]     = useState({ nombre: "", descripcion: "", dias_estimados: "", color: "#64748b", responsable: "", personas_necesarias: "", involucrados: "", observaciones: "", genera_orden_compra: false, orden_compra_tipo: "aviso", orden_compra_descripcion: "", orden_compra_monto_estimado: "", orden_compra_dias_previo: 7 });
   const [saving,      setSaving]      = useState(false);
   const [toast,       setToast]       = useState(null);
   const [editBuf,     setEditBuf]     = useState({});
+  const [procDetailsEnabled, setProcDetailsEnabled] = useState(detailEnabled);
 
   // ── Tareas de plantilla ──────────────────────────────────────
   const [expandedProc,  setExpandedProc]  = useState(null);
@@ -1262,6 +1289,7 @@ function LineasEtapasModal({ linea, lProcs, lTareas = [], onClose, onSaved }) {
         .eq("linea_id", localLinea.id)
         .order("orden");
       if (procs?.length) setItems(procs);
+      setProcDetailsEnabled(detailEnabled || (procs ?? []).some(hasMatrixDetailColumns));
       setLoadingAll(false);
 
       // 2. Cargar tareas usando los IDs reales que vienen de la DB
@@ -1370,6 +1398,10 @@ function LineasEtapasModal({ linea, lProcs, lTareas = [], onClose, onSaved }) {
       orden_compra_monto_estimado: editBuf.genera_orden_compra && editBuf.orden_compra_monto_estimado !== "" ? num(editBuf.orden_compra_monto_estimado) : null,
       orden_compra_dias_previo: editBuf.genera_orden_compra ? num(editBuf.orden_compra_dias_previo ?? 7) : null,
     };
+    if (procDetailsEnabled) {
+      payload.descripcion = editBuf.descripcion?.trim() || null;
+      Object.assign(payload, matrixDetailPatch(editBuf));
+    }
     const { error } = await supabase.from("linea_procesos").update(payload).eq("id", item.id);
     if (error) { flash(false, error.message); setSaving(false); return; }
     setItems(prev => prev.map((it, i) => i === idx ? { ...it, ...payload } : it));
@@ -1382,6 +1414,7 @@ function LineasEtapasModal({ linea, lProcs, lTareas = [], onClose, onSaved }) {
     const { data, error } = await supabase.from("linea_procesos").insert({
       linea_id: localLinea.id, nombre: newForm.nombre.trim(), dias_estimados: newForm.dias_estimados !== "" ? num(newForm.dias_estimados) : null,
       color: newForm.color, orden: maxOrden + 1, activo: true,
+      ...(procDetailsEnabled ? { descripcion: newForm.descripcion.trim() || null, ...matrixDetailPatch(newForm) } : {}),
       genera_orden_compra: newForm.genera_orden_compra,
       orden_compra_tipo: newForm.genera_orden_compra ? newForm.orden_compra_tipo : null,
       orden_compra_descripcion: newForm.genera_orden_compra ? (newForm.orden_compra_descripcion.trim() || null) : null,
@@ -1390,7 +1423,7 @@ function LineasEtapasModal({ linea, lProcs, lTareas = [], onClose, onSaved }) {
     }).select().single();
     if (error) { flash(false, error.message); setSaving(false); return; }
     setItems(prev => [...prev, data]); setAdding(false);
-    setNewForm({ nombre: "", dias_estimados: "", color: "#64748b", genera_orden_compra: false, orden_compra_tipo: "aviso", orden_compra_descripcion: "", orden_compra_monto_estimado: "", orden_compra_dias_previo: 7 });
+    setNewForm({ nombre: "", descripcion: "", dias_estimados: "", color: "#64748b", responsable: "", personas_necesarias: "", involucrados: "", observaciones: "", genera_orden_compra: false, orden_compra_tipo: "aviso", orden_compra_descripcion: "", orden_compra_monto_estimado: "", orden_compra_dias_previo: 7 });
     flash(true, "Etapa agregada."); setSaving(false); onSaved();
   }
 
@@ -1468,6 +1501,18 @@ function LineasEtapasModal({ linea, lProcs, lTareas = [], onClose, onSaved }) {
                 </div>
 
                 {/* ── Tareas de plantilla ── */}
+                {!isEditing && hasMatrixDetailContent(item) && (
+                  <div style={{ margin: "0 12px 8px 23px", padding: "8px 10px", borderRadius: 7, background: "var(--panel)", border: `1px solid ${C.b0}` }}>
+                    <div style={{ display: "flex", flexWrap: "wrap", gap: 6, marginBottom: item.descripcion || item.observaciones ? 6 : 0 }}>
+                      {item.responsable && <span style={{ fontSize: 10, color: C.blue, fontWeight: 700 }}>Resp. {item.responsable}</span>}
+                      {item.personas_necesarias && <span style={{ fontSize: 10, color: C.t2 }}>x{item.personas_necesarias} personas</span>}
+                      {item.involucrados && <span style={{ fontSize: 10, color: C.green, fontWeight: 700 }}>{item.involucrados}</span>}
+                    </div>
+                    {item.descripcion && <div style={{ fontSize: 11, color: C.t1, lineHeight: 1.45, whiteSpace: "pre-wrap" }}>{item.descripcion}</div>}
+                    {item.observaciones && <div style={{ fontSize: 11, color: C.t2, lineHeight: 1.45, marginTop: item.descripcion ? 4 : 0, whiteSpace: "pre-wrap" }}>{item.observaciones}</div>}
+                  </div>
+                )}
+
                 <div style={{ borderTop: `1px solid ${C.b0}`, margin: "0 0 0 0" }}>
                   <button type="button" onClick={() => setExpandedProc(expandedProc === item.id ? null : item.id)}
                     style={{ width: "100%", background: "transparent", border: "none", color: C.t2, cursor: "pointer", fontSize: 11, padding: "6px 12px", display: "flex", alignItems: "center", gap: 6, fontFamily: C.sans }}>
@@ -1541,6 +1586,18 @@ function LineasEtapasModal({ linea, lProcs, lTareas = [], onClose, onSaved }) {
                         {COLOR_PRESETS.map(c => <div key={c} onClick={() => eb("color", c)} style={{ width: 14, height: 14, borderRadius: 3, background: c, cursor: "pointer", border: (editBuf.color ?? item.color) === c ? "2px solid #fff" : "2px solid transparent" }} />)}
                       </div>
                     </InputSt>
+                    {procDetailsEnabled && (
+                      <div style={{ padding: "10px 12px", borderRadius: 7, background: "var(--panel)", border: `1px solid ${C.b0}`, marginBottom: 8 }}>
+                        <div style={{ fontSize: 10, letterSpacing: 1.2, color: C.t2, textTransform: "uppercase", marginBottom: 8, fontWeight: 700 }}>Detalle de tarea matriz</div>
+                        <InputSt label="Descripcion"><textarea style={{ ...INP, resize: "vertical", minHeight: 48 }} value={editBuf.descripcion ?? item.descripcion ?? ""} onChange={e => eb("descripcion", e.target.value)} /></InputSt>
+                        <div style={{ display: "grid", gridTemplateColumns: "1fr 80px", gap: 8 }}>
+                          <InputSt label="Responsable"><input style={INP} value={editBuf.responsable ?? item.responsable ?? ""} onChange={e => eb("responsable", e.target.value)} /></InputSt>
+                          <InputSt label="Pers."><input type="number" min="0" style={INP} value={editBuf.personas_necesarias ?? item.personas_necesarias ?? ""} onChange={e => eb("personas_necesarias", e.target.value)} /></InputSt>
+                        </div>
+                        <InputSt label="Involucrados"><input style={INP} value={editBuf.involucrados ?? item.involucrados ?? ""} onChange={e => eb("involucrados", e.target.value)} placeholder="Oficios, equipos o personas involucradas" /></InputSt>
+                        <InputSt label="Observaciones"><textarea style={{ ...INP, resize: "vertical", minHeight: 44 }} value={editBuf.observaciones ?? item.observaciones ?? ""} onChange={e => eb("observaciones", e.target.value)} /></InputSt>
+                      </div>
+                    )}
                     <OrdenCompraSection genera={editBuf.genera_orden_compra ?? item.genera_orden_compra ?? false} tipo={editBuf.orden_compra_tipo ?? item.orden_compra_tipo ?? "aviso"} desc={editBuf.orden_compra_descripcion ?? item.orden_compra_descripcion ?? ""} monto={editBuf.orden_compra_monto_estimado ?? item.orden_compra_monto_estimado ?? ""} diasPrevio={editBuf.orden_compra_dias_previo ?? item.orden_compra_dias_previo ?? 7} onChange={eb} />
                     <div style={{ display: "flex", gap: 7, marginTop: 4 }}>
                       <Btn variant="primary" onClick={() => saveEdit(idx)} disabled={saving}>Guardar</Btn>
@@ -1559,6 +1616,18 @@ function LineasEtapasModal({ linea, lProcs, lTareas = [], onClose, onSaved }) {
                 <InputSt label="Días"><input type="number" min="0" step="0.5" style={INP} value={newForm.dias_estimados} onChange={e => setNewForm(f => ({ ...f, dias_estimados: e.target.value }))} /></InputSt>
               </div>
               <InputSt label="Color"><div style={{ display: "flex", gap: 5, alignItems: "center" }}><input type="color" value={newForm.color} onChange={e => setNewForm(f => ({ ...f, color: e.target.value }))} style={{ width: 30, height: 28, border: "none", background: "none", cursor: "pointer" }} />{COLOR_PRESETS.map(c => <div key={c} onClick={() => setNewForm(f => ({ ...f, color: c }))} style={{ width: 14, height: 14, borderRadius: 3, background: c, cursor: "pointer", border: newForm.color === c ? "2px solid #fff" : "2px solid transparent" }} />)}</div></InputSt>
+              {procDetailsEnabled && (
+                <div style={{ padding: "10px 12px", borderRadius: 7, background: "var(--panel)", border: `1px solid ${C.b0}`, marginBottom: 8 }}>
+                  <div style={{ fontSize: 10, letterSpacing: 1.2, color: C.t2, textTransform: "uppercase", marginBottom: 8, fontWeight: 700 }}>Detalle de tarea matriz</div>
+                  <InputSt label="Descripcion"><textarea style={{ ...INP, resize: "vertical", minHeight: 48 }} value={newForm.descripcion} onChange={e => setNewForm(f => ({ ...f, descripcion: e.target.value }))} /></InputSt>
+                  <div style={{ display: "grid", gridTemplateColumns: "1fr 80px", gap: 8 }}>
+                    <InputSt label="Responsable"><input style={INP} value={newForm.responsable} onChange={e => setNewForm(f => ({ ...f, responsable: e.target.value }))} /></InputSt>
+                    <InputSt label="Pers."><input type="number" min="0" style={INP} value={newForm.personas_necesarias} onChange={e => setNewForm(f => ({ ...f, personas_necesarias: e.target.value }))} /></InputSt>
+                  </div>
+                  <InputSt label="Involucrados"><input style={INP} value={newForm.involucrados} onChange={e => setNewForm(f => ({ ...f, involucrados: e.target.value }))} placeholder="Oficios, equipos o personas involucradas" /></InputSt>
+                  <InputSt label="Observaciones"><textarea style={{ ...INP, resize: "vertical", minHeight: 44 }} value={newForm.observaciones} onChange={e => setNewForm(f => ({ ...f, observaciones: e.target.value }))} /></InputSt>
+                </div>
+              )}
               <OrdenCompraSection genera={newForm.genera_orden_compra} tipo={newForm.orden_compra_tipo} desc={newForm.orden_compra_descripcion} monto={newForm.orden_compra_monto_estimado} diasPrevio={newForm.orden_compra_dias_previo} onChange={(k, v) => setNewForm(f => ({ ...f, [k]: v }))} />
               <div style={{ display: "flex", gap: 7, marginTop: 8 }}>
                 <Btn variant="primary" onClick={addEtapa} disabled={saving || !newForm.nombre.trim()}>Agregar</Btn>
@@ -1837,7 +1906,7 @@ export default function ObrasScreen({ profile, signOut }) {
     const procs = lProcs.filter(p => p.linea_id === obra.linea_id).sort((a, b) => (a.orden ?? 0) - (b.orden ?? 0));
     return procs.map(p => {
       const tl = timeline.find(t => t.obra_id === obraId && t.linea_proceso_id === p.id);
-      return { id: `virtual-${obraId}-${p.id}`, obra_id: obraId, isVirtual: true, linea_proceso_id: p.id, nombre: p.nombre, orden: p.orden, color: p.color, dias_estimados: p.dias_estimados, estado: tl?.estado === "completado" ? "completado" : tl?.estado === "en_curso" ? "en_curso" : "pendiente", fecha_inicio: tl?.fecha_inicio, fecha_fin_real: tl?.fecha_fin };
+      return { id: `virtual-${obraId}-${p.id}`, obra_id: obraId, isVirtual: true, linea_proceso_id: p.id, nombre: p.nombre, orden: p.orden, color: p.color, dias_estimados: p.dias_estimados, descripcion: p.descripcion, responsable: p.responsable, personas_necesarias: p.personas_necesarias, involucrados: p.involucrados, observaciones: p.observaciones, estado: tl?.estado === "completado" ? "completado" : tl?.estado === "en_curso" ? "en_curso" : "pendiente", fecha_inicio: tl?.fecha_inicio, fecha_fin_real: tl?.fecha_fin };
     });
   }, [etapas, timeline, obras, lProcs]);
 
@@ -1887,6 +1956,7 @@ export default function ObrasScreen({ profile, signOut }) {
         orden:            etapa.orden ?? 999,
         color:            etapa.color ?? "#64748b",
         dias_estimados:   etapa.dias_estimados,
+        ...(hasMatrixDetailColumns(etapa) ? { descripcion: etapa.descripcion ?? null, ...matrixDetailPatch(etapa) } : {}),
         estado:           etapa.estado ?? "pendiente",
       }).select().single();
       if (error) { alert("No se pudo crear la etapa: " + error.message); return; }
@@ -1988,6 +2058,11 @@ export default function ObrasScreen({ profile, signOut }) {
       _lineaColor: lineas.find(l => l.id === o.linea_id)?.color ?? null,
     })),
     [obras, pctObra, lineas]
+  );
+
+  const matrixDetailsEnabled = useMemo(
+    () => etapas.some(hasMatrixDetailColumns) || lProcs.some(hasMatrixDetailColumns),
+    [etapas, lProcs]
   );
 
   // Helper: color de acento de una obra = color de línea si existe, sino color de estado
@@ -2325,6 +2400,17 @@ export default function ObrasScreen({ profile, signOut }) {
                         {/* ── TAREAS EXPANDIDAS ── */}
                         {etExp && (
                           <div style={{ padding: "8px 12px 4px", borderTop: `1px solid ${C.b0}` }}>
+                            {hasMatrixDetailContent(etapa) && (
+                              <div style={{ marginBottom: 8, padding: "8px 10px", borderRadius: 7, background: "var(--panel)", border: `1px solid ${C.b0}` }}>
+                                <div style={{ display: "flex", flexWrap: "wrap", gap: 7, marginBottom: etapa.descripcion || etapa.observaciones ? 5 : 0 }}>
+                                  {etapa.responsable && <span style={{ fontSize: 10, color: C.blue, fontWeight: 700 }}>Resp. {etapa.responsable}</span>}
+                                  {etapa.personas_necesarias && <span style={{ fontSize: 10, color: C.t2 }}>x{etapa.personas_necesarias} personas</span>}
+                                  {etapa.involucrados && <span style={{ fontSize: 10, color: C.green, fontWeight: 700 }}>{etapa.involucrados}</span>}
+                                </div>
+                                {etapa.descripcion && <div style={{ fontSize: 11, color: C.t1, lineHeight: 1.45, whiteSpace: "pre-wrap" }}>{etapa.descripcion}</div>}
+                                {etapa.observaciones && <div style={{ fontSize: 11, color: C.t2, lineHeight: 1.45, marginTop: etapa.descripcion ? 4 : 0, whiteSpace: "pre-wrap" }}>{etapa.observaciones}</div>}
+                              </div>
+                            )}
                             <EtapaTareasSection
                               etapa={etapa}
                               tareas={etapaT}
@@ -2590,11 +2676,11 @@ export default function ObrasScreen({ profile, signOut }) {
 
       {/* MODALES */}
       {showObraModal && <ObraModal lineas={lineas} lProcs={lProcs} lTareas={lTareas} onSave={nueva => { setShowObraModal(false); cargar(); if (nueva?.id) setExpandedObras(s => new Set(s).add(nueva.id)); }} onClose={() => setShowObraModal(false)} />}
-      {etapaModal    && <EtapaModal etapa={etapaModal.etapa} obraId={etapaModal.obraId} onSave={() => { setEtapaModal(null); cargar(); }} onClose={() => setEtapaModal(null)} />}
+      {etapaModal    && <EtapaModal etapa={etapaModal.etapa} obraId={etapaModal.obraId} detailEnabled={matrixDetailsEnabled} onSave={() => { setEtapaModal(null); cargar(); }} onClose={() => setEtapaModal(null)} />}
       {tareaModal    && <TareaModal tarea={tareaModal.tarea} etapaId={tareaModal.etapaId} obraId={tareaModal.obraId} onSave={() => { setTareaModal(null); cargar(); }} onClose={() => setTareaModal(null)} />}
       {tareaDetalle  && <TareaDetalleModal tarea={tareaDetalle} esGestion={esGestion} onClose={() => setTareaDetalle(null)} onEditar={t => { setTareaDetalle(null); setTareaModal({ tarea: t, etapaId: t.etapa_id, obraId: t.obra_id }); }} />}
       {confirmModal  && <ConfirmModal {...confirmModal} onCancel={() => setConfirmModal(null)} />}
-      {lineasModal   && <LineasEtapasModal linea={lineasModal.linea} lProcs={lProcs} lTareas={lTareas} onClose={() => setLineasModal(null)} onSaved={cargar} />}
+      {lineasModal   && <LineasEtapasModal linea={lineasModal.linea} lProcs={lProcs} lTareas={lTareas} detailEnabled={matrixDetailsEnabled} onClose={() => setLineasModal(null)} onSaved={cargar} />}
       {showNuevaLineaModal && <NuevaLineaModal onClose={() => setShowNuevaLineaModal(false)} onSaved={() => { setShowNuevaLineaModal(false); cargar(); }} />}
     </div>
   );

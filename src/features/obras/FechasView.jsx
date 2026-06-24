@@ -19,8 +19,10 @@ import { useResponsive } from "@/hooks/useResponsive";
  *   fecha_evento = desmolde + semanas * 7 días
  */
 
-// ── Eventos rastreables (orden = columnas de la matriz) ──────────────────────
-const EVENTOS = [
+// ── Eventos rastreables (semilla/fallback). Los reales salen de `fechas_eventos`
+//    y se pueden agregar/quitar desde la UI. Cada offset (fechas_offsets) tiene
+//    además una `referencia`: se cuenta desde el desmolde (default) o la botada. ──
+const EVENTOS_SEED = [
   { key: "madera_muebles", label: "Madera muebles",    short: "Madera" },
   { key: "teca",           label: "Teca",              short: "Teca" },
   { key: "herreria",       label: "Herrería",          short: "Herrería" },
@@ -32,19 +34,23 @@ const EVENTOS = [
   { key: "grupo",          label: "Grupo",             short: "Grupo" },
   { key: "tanques",        label: "Tanques",           short: "Tanques" },
   { key: "baterias",       label: "Baterías",          short: "Baterías" },
+  { key: "botazo",         label: "Botazo",            short: "Botazo" },
 ];
 
-// Orden de columnas reordenable (drag & drop). Se guarda local así cada uno lo
-// acomoda a su gusto; aplica a TODOS los barcos (todas las tablas comparten el orden).
-const ALL_KEYS = EVENTOS.map((e) => e.key);
+// Orden de columnas reordenable (drag & drop), guardado local. Se reconcilia con
+// los eventos efectivos (los nuevos van al final).
 const ORDER_LS_KEY = "fechas_col_order_v1";
-function loadColOrder() {
+function loadColOrder(allKeys) {
   try {
     const saved = JSON.parse(localStorage.getItem(ORDER_LS_KEY) || "[]");
-    const valid = Array.isArray(saved) ? saved.filter((k) => ALL_KEYS.includes(k)) : [];
-    const missing = ALL_KEYS.filter((k) => !valid.includes(k)); // eventos nuevos se agregan al final
+    const valid = Array.isArray(saved) ? saved.filter((k) => allKeys.includes(k)) : [];
+    const missing = allKeys.filter((k) => !valid.includes(k));
     return [...valid, ...missing];
-  } catch { return [...ALL_KEYS]; }
+  } catch { return [...allKeys]; }
+}
+function slugifyKey(s) {
+  return String(s || "").normalize("NFD").replace(/[̀-ͯ]/g, "")
+    .toLowerCase().trim().replace(/[^a-z0-9]+/g, "_").replace(/^_+|_+$/g, "").slice(0, 40);
 }
 
 // ── Helpers de fecha ─────────────────────────────────────────────────────────
@@ -101,14 +107,27 @@ export default function FechasView({ obras = [], lineas = [], esGestion = false,
   const [err, setErr] = useState("");
   const [editor, setEditor] = useState(false);
   const [buffer, setBuffer] = useState({});          // edición de offsets
-  const [desmoldes, setDesmoldes] = useState({});     // overlay optimista: id -> {desmolde_estimado, desmolde_real}
-  const [order, setOrder] = useState(loadColOrder);   // orden de columnas (drag)
+  const [desmoldes, setDesmoldes] = useState({});     // overlay optimista: id -> {desmolde_estimado, desmolde_real, botada}
+  const [eventosDB, setEventosDB] = useState(null);   // eventos de fechas_eventos (null = usa semilla)
+  const [order, setOrder] = useState(() => loadColOrder(EVENTOS_SEED.map((e) => e.key)));
   const [dragKey, setDragKey] = useState(null);       // columna que se está arrastrando
   const savingRef = useRef(false);
 
+  const eventosBase = eventosDB || EVENTOS_SEED;
+  const allKeys = useMemo(() => eventosBase.map((e) => e.key), [eventosBase]);
+
+  // reconciliar el orden guardado con los eventos efectivos (nuevos al final)
+  useEffect(() => {
+    setOrder((prev) => {
+      const valid = prev.filter((k) => allKeys.includes(k));
+      const missing = allKeys.filter((k) => !valid.includes(k));
+      return valid.length + missing.length === prev.length && missing.length === 0 ? prev : [...valid, ...missing];
+    });
+  }, [allKeys]);
+
   // lista de eventos en el orden elegido por el usuario
   const eventos = useMemo(
-    () => order.map((k) => EVENTOS.find((e) => e.key === k)).filter(Boolean), [order]);
+    () => order.map((k) => eventosBase.find((e) => e.key === k)).filter(Boolean), [order, eventosBase]);
 
   function moveCol(fromKey, toKey) {
     if (!fromKey || fromKey === toKey) return;
@@ -122,7 +141,7 @@ export default function FechasView({ obras = [], lineas = [], esGestion = false,
   }
   function resetCols() {
     try { localStorage.removeItem(ORDER_LS_KEY); } catch { /* noop */ }
-    setOrder([...ALL_KEYS]);
+    setOrder([...allKeys]);
   }
 
   async function cargarOffsets() {
@@ -130,14 +149,49 @@ export default function FechasView({ obras = [], lineas = [], esGestion = false,
     if (error) setErr("Error cargando offsets: " + error.message); else setOffsets(data ?? []);
     setLoading(false);
   }
+  async function cargarEventos() {
+    const { data, error } = await supabase.from("fechas_eventos").select("key,label,short,orden,activo").order("orden");
+    if (error) return; // tabla sin crear todavía → usa la semilla
+    const activos = (data ?? []).filter((e) => e.activo !== false);
+    if (activos.length) setEventosDB(activos.map((e) => ({ key: e.key, label: e.label, short: e.short || e.label })));
+  }
+
+  async function agregarEvento() {
+    const label = window.prompt("Nombre del nuevo ítem/evento (ej. Toldos):");
+    if (!label || !label.trim()) return;
+    let key = slugifyKey(label);
+    if (!key) return;
+    if (allKeys.includes(key)) key = `${key}_${Date.now().toString().slice(-4)}`;
+    savingRef.current = true;
+    try {
+      const orden = (eventosBase.length || 0) + 1;
+      const { error } = await supabase.from("fechas_eventos").insert({ key, label: label.trim(), short: label.trim().slice(0, 12), orden });
+      if (error) { setErr("No se pudo agregar: " + error.message); return; }
+      await cargarEventos();
+    } finally { setTimeout(() => { savingRef.current = false; }, 400); }
+  }
+  async function borrarEvento(ev) {
+    if (!window.confirm(`¿Quitar el ítem "${ev.label}" de la matriz? (no borra las fechas cargadas de cada barco)`)) return;
+    savingRef.current = true;
+    try {
+      await supabase.from("fechas_eventos").upsert({ key: ev.key, label: ev.label, short: ev.short || ev.label, activo: false }, { onConflict: "key" });
+      setEventosDB((prev) => (prev || EVENTOS_SEED).filter((e) => e.key !== ev.key));
+    } catch (e) { setErr("No se pudo quitar: " + (e?.message || e)); }
+    finally { setTimeout(() => { savingRef.current = false; }, 400); }
+  }
 
   useEffect(() => {
     cargarOffsets();
+    cargarEventos();
     const ch = supabase.channel("rt-fechas")
       .on("postgres_changes", { event: "*", schema: "public", table: "fechas_offsets" }, async () => {
         if (savingRef.current) return;
         const { data } = await supabase.from("fechas_offsets").select("*");
         setOffsets(data ?? []);
+      })
+      .on("postgres_changes", { event: "*", schema: "public", table: "fechas_eventos" }, () => {
+        if (savingRef.current) return;
+        cargarEventos();
       })
       .subscribe();
     return () => supabase.removeChannel(ch);
@@ -159,6 +213,7 @@ export default function FechasView({ obras = [], lineas = [], esGestion = false,
       color: colorLinea[o.linea_id] || C.t2,
       desmolde_estimado: o.desmolde_estimado || null,
       desmolde_real: o.desmolde_real || null,
+      botada: o.botada || null,
     })), [obras, colorLinea]);
 
   // aplica overlay optimista y resuelve desmolde efectivo
@@ -166,7 +221,8 @@ export default function FechasView({ obras = [], lineas = [], esGestion = false,
     const ov = desmoldes[f.id] || {};
     const est = "desmolde_estimado" in ov ? ov.desmolde_estimado : f.desmolde_estimado;
     const real = "desmolde_real" in ov ? ov.desmolde_real : f.desmolde_real;
-    return { est, real, efectivo: real || est || null };
+    const botada = "botada" in ov ? ov.botada : f.botada;
+    return { est, real, botada: botada || null, efectivo: real || est || null };
   }
 
   const grupos = useMemo(() => {
@@ -181,12 +237,13 @@ export default function FechasView({ obras = [], lineas = [], esGestion = false,
 
   // ── Offsets ──────────────────────────────────────────────────────────────────
   function getOffset(eventoKey, token) {
+    const pick = (o) => ({ semanas: Number(o.semanas), referencia: o.referencia === "botada" ? "botada" : "desmolde" });
     const exact = offsets.find(o => o.evento_key === eventoKey && o.modelo === token);
-    if (exact) return Number(exact.semanas);
+    if (exact) return pick(exact);
     const norm = offsets.find(o => o.evento_key === eventoKey && o.modelo !== "*" && normModelo(o.modelo) === normModelo(token));
-    if (norm) return Number(norm.semanas);
+    if (norm) return pick(norm);
     const def = offsets.find(o => o.evento_key === eventoKey && o.modelo === "*");
-    return def ? Number(def.semanas) : null;
+    return def ? pick(def) : null;
   }
   function getExactOffset(eventoKey, modelo) {
     const r = offsets.find(o => o.evento_key === eventoKey && o.modelo === modelo);
@@ -203,11 +260,40 @@ export default function FechasView({ obras = [], lineas = [], esGestion = false,
       }
       const semanas = Number(trimmed);
       if (Number.isNaN(semanas)) return;
+      const prev0 = offsets.find(o => o.evento_key === eventoKey && o.modelo === modelo);
+      const referencia = prev0?.referencia || "desmolde";
       await supabase.from("fechas_offsets").upsert(
-        { evento_key: eventoKey, modelo, semanas, updated_at: new Date().toISOString() },
+        { evento_key: eventoKey, modelo, semanas, referencia, updated_at: new Date().toISOString() },
         { onConflict: "evento_key,modelo" });
       setOffsets(prev => [...prev.filter(o => !(o.evento_key === eventoKey && o.modelo === modelo)),
-        { evento_key: eventoKey, modelo, semanas }]);
+        { evento_key: eventoKey, modelo, semanas, referencia }]);
+    } catch (e) { setErr("Error guardando: " + (e?.message || e)); }
+    finally { setTimeout(() => { savingRef.current = false; }, 400); }
+  }
+
+  // Referencia del evento (desde qué fecha se cuentan las semanas): se lee del default "*".
+  function getEventoRef(eventoKey) {
+    const def = offsets.find(o => o.evento_key === eventoKey && o.modelo === "*");
+    if (def) return def.referencia === "botada" ? "botada" : "desmolde";
+    const any = offsets.find(o => o.evento_key === eventoKey);
+    return any?.referencia === "botada" ? "botada" : "desmolde";
+  }
+  // Cambia la referencia de TODO el evento (todos los modelos + el default).
+  async function commitReferencia(eventoKey, referencia) {
+    const ref = referencia === "botada" ? "botada" : "desmolde";
+    savingRef.current = true;
+    try {
+      const filas = offsets.filter(o => o.evento_key === eventoKey);
+      const base = filas.length
+        ? filas.map(o => ({ evento_key: eventoKey, modelo: o.modelo, semanas: Number(o.semanas) || 0 }))
+        : [{ evento_key: eventoKey, modelo: "*", semanas: 0 }];
+      const now = new Date().toISOString();
+      const rows = base.map(r => ({ ...r, referencia: ref, updated_at: now }));
+      await supabase.from("fechas_offsets").upsert(rows, { onConflict: "evento_key,modelo" });
+      setOffsets(prev => [
+        ...prev.filter(o => o.evento_key !== eventoKey),
+        ...rows.map(r => ({ evento_key: r.evento_key, modelo: r.modelo, semanas: r.semanas, referencia: ref })),
+      ]);
     } catch (e) { setErr("Error guardando: " + (e?.message || e)); }
     finally { setTimeout(() => { savingRef.current = false; }, 400); }
   }
@@ -224,13 +310,16 @@ export default function FechasView({ obras = [], lineas = [], esGestion = false,
   const resumen = useMemo(() => {
     let sinDesmolde = 0, ya = 0, pronto = 0;
     filas.forEach((f) => {
-      const { efectivo } = withDesmolde(f);
+      const { efectivo, botada } = withDesmolde(f);
       const desm = parseISO(efectivo);
-      if (!desm) { sinDesmolde += 1; return; }
+      const bot = parseISO(botada);
+      if (!desm) sinDesmolde += 1;
       eventos.forEach((ev) => {
         const off = getOffset(ev.key, f.token);
-        if (off === null) return;
-        const dias = diasHasta(addSemanas(desm, off));
+        if (!off) return;
+        const ref = off.referencia === "botada" ? bot : desm;
+        if (!ref) return;
+        const dias = diasHasta(addSemanas(ref, off.semanas));
         if (dias === null || dias < 0) return;
         if (dias < 14) ya += 1;
         else if (dias < 30) pronto += 1;
@@ -265,21 +354,32 @@ export default function FechasView({ obras = [], lineas = [], esGestion = false,
 
   return (
     <div style={rootStyle}>
+      <style>{`
+        .fv-row:hover td { box-shadow: inset 0 0 0 9999px rgba(127,127,127,0.06); }
+        .fv-line { display:flex; align-items:center; gap:8px; margin-bottom:8px; padding:6px 10px; border-radius:10px; background:var(--s0,transparent); }
+      `}</style>
       {/* ── Header ───────────────────────────────────────────────── */}
       <div style={{ display: "flex", alignItems: "center", flexWrap: "wrap", gap: 12, marginBottom: 14 }}>
         <div>
-          <div style={{ fontSize: 16, fontWeight: 800, color: C.t0 }}>Fechas</div>
-          <div style={{ fontSize: 12, color: C.t2, marginTop: 2 }}>
-            Cuándo pedir o hacer cada cosa, según el desmolde de cada barco. Se usa el real si está cargado, si no el estimado.
-            <span style={{ color: C.t3 }}> · Arrastrá los encabezados (⠿) para reordenar las columnas.</span>
+          <div style={{ fontSize: 22, fontWeight: 900, color: C.t0, letterSpacing: -0.4 }}>Fechas de producción</div>
+          <div style={{ fontSize: 12.5, color: C.t2, marginTop: 3, maxWidth: 680, lineHeight: 1.45 }}>
+            Cuándo pedir o hacer cada cosa, calculado desde el desmolde (o la botada) de cada barco. Se usa el real si está cargado.
+            <span style={{ color: C.t3 }}> Arrastrá los encabezados (⠿) para reordenar.</span>
           </div>
         </div>
         <div style={{ flex: 1 }} />
-        {order.join() !== ALL_KEYS.join() && (
+        {order.join() !== allKeys.join() && (
           <button type="button" onClick={resetCols} title="Restaurar el orden original de columnas" style={{
             padding: "7px 12px", borderRadius: 8, cursor: "pointer", fontSize: 12.5, fontWeight: 600,
             fontFamily: C.sans, border: `1px solid ${C.b1}`, background: C.s1, color: C.t2 }}>
             ↺ Orden original
+          </button>
+        )}
+        {esGestion && (
+          <button type="button" onClick={agregarEvento} title="Agregar un ítem/evento a la matriz" style={{
+            padding: "7px 12px", borderRadius: 8, cursor: "pointer", fontSize: 12.5, fontWeight: 600,
+            fontFamily: C.sans, border: "1px solid rgba(16,185,129,0.35)", background: "rgba(16,185,129,0.10)", color: C.green }}>
+            + Ítem
           </button>
         )}
         {esGestion && (
@@ -313,12 +413,14 @@ export default function FechasView({ obras = [], lineas = [], esGestion = false,
       {editor && esGestion && (
         <div style={{ border: `1px solid ${C.b1}`, borderRadius: 12, background: C.s0, padding: 14, marginBottom: 18 }}>
           <div style={{ fontSize: 13, fontWeight: 700, color: C.t0, marginBottom: 4 }}>
-            Tiempos por evento (en semanas respecto al desmolde)
+            Tiempos por ítem (en semanas)
           </div>
           <div style={{ fontSize: 12, color: C.t2, marginBottom: 12 }}>
-            Valor <b style={{ color: C.red }}>negativo = antes</b> del desmolde ·
-            <b style={{ color: C.green }}> positivo = después</b>. La columna
-            <b style={{ color: C.t1 }}> Todas</b> aplica por defecto; una línea puntual la pisa.
+            Valor <b style={{ color: C.red }}>negativo = antes</b> ·
+            <b style={{ color: C.green }}> positivo = después</b> de la fecha de referencia.
+            Con el selector de cada ítem elegís si se cuenta <b style={{ color: C.t1 }}>desde el desmolde o desde la botada</b>
+            (ej. "6 semanas antes de la botada" → Botada y <b style={{ color: C.red }}>-6</b>).
+            La columna <b style={{ color: C.t1 }}>Todas</b> aplica por defecto; una línea puntual la pisa.
           </div>
           <div style={{ overflowX: "auto" }}>
             <table style={{ borderCollapse: "collapse", width: "100%", minWidth: 520 }}>
@@ -333,7 +435,22 @@ export default function FechasView({ obras = [], lineas = [], esGestion = false,
                 {eventos.map(ev => (
                   <tr key={ev.key}>
                     <td style={{ ...td, fontFamily: C.sans, color: C.t0, fontWeight: 600,
-                      position: "sticky", left: 0, background: C.s0 }}>{ev.label}</td>
+                      position: "sticky", left: 0, background: C.s0, minWidth: 150 }}>
+                      <div style={{ display: "flex", flexDirection: "column", gap: 5 }}>
+                        <span style={{ display: "inline-flex", alignItems: "center", gap: 7 }}>
+                          {ev.label}
+                          <button type="button" onClick={() => borrarEvento(ev)} title="Quitar este ítem de la matriz"
+                            style={{ border: "none", background: "transparent", color: C.t3, cursor: "pointer", fontSize: 13, lineHeight: 1, padding: 0 }}>✕</button>
+                        </span>
+                        <select value={getEventoRef(ev.key)} onChange={e => commitReferencia(ev.key, e.target.value)}
+                          title="¿Desde qué fecha se cuentan las semanas de este ítem?"
+                          style={{ fontSize: 10.5, fontFamily: C.sans, fontWeight: 700, color: C.t1, background: C.s1,
+                            border: `1px solid ${getEventoRef(ev.key) === "botada" ? C.blue : C.b1}`, borderRadius: 6, padding: "2px 5px", cursor: "pointer" }}>
+                          <option value="desmolde">⏱ desde Desmolde</option>
+                          <option value="botada">⚓ desde Botada</option>
+                        </select>
+                      </div>
+                    </td>
                     {["*", ...tokens].map(modelo => {
                       const bk = `${ev.key}|${modelo}`;
                       const val = bk in buffer ? buffer[bk] : getExactOffset(ev.key, modelo);
@@ -374,18 +491,20 @@ export default function FechasView({ obras = [], lineas = [], esGestion = false,
       {/* ── Matriz por línea ──────────────────────────────────────── */}
       {grupos.map(([token, lista]) => (
         <div key={token} style={{ marginBottom: 22 }}>
-          <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 8 }}>
-            <span style={{ width: 9, height: 9, borderRadius: 3, background: lista[0]?.color || C.t2 }} />
-            <span style={{ fontSize: 13.5, fontWeight: 800, color: C.t0 }}>Línea {token}</span>
-            <span style={{ fontSize: 11.5, color: C.t2 }}>{lista.length} barco{lista.length !== 1 ? "s" : ""}</span>
+          <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 10, padding: "9px 14px", borderRadius: 12,
+            background: `linear-gradient(90deg, ${lista[0]?.color || C.t2}20, transparent)`, borderLeft: `3px solid ${lista[0]?.color || C.t2}` }}>
+            <span style={{ width: 10, height: 10, borderRadius: "50%", background: lista[0]?.color || C.t2, boxShadow: `0 0 10px ${lista[0]?.color || C.t2}` }} />
+            <span style={{ fontSize: 15, fontWeight: 900, color: C.t0, letterSpacing: .3 }}>Línea {token}</span>
+            <span style={{ fontSize: 11, color: C.t2, fontWeight: 700, background: C.s1, border: `1px solid ${C.b0}`, borderRadius: 999, padding: "2px 9px" }}>{lista.length} barco{lista.length !== 1 ? "s" : ""}</span>
           </div>
-          <div style={{ overflowX: "auto", border: `1px solid ${C.b1}`, borderRadius: 12 }}>
+          <div style={{ overflowX: "auto", border: `1px solid ${C.b1}`, borderRadius: 14 }}>
             <table style={{ borderCollapse: "collapse", width: "100%", minWidth: 920 }}>
               <thead>
                 <tr>
                   <th style={{ ...th, left: 0, zIndex: 2, minWidth: 78 }}>Barco</th>
                   <th style={th}>Desmolde est.</th>
                   <th style={th}>Desmolde real</th>
+                  <th style={th}>Botada</th>
                   {eventos.map(ev => (
                     <th key={ev.key}
                       draggable
@@ -405,10 +524,11 @@ export default function FechasView({ obras = [], lineas = [], esGestion = false,
               </thead>
               <tbody>
                 {lista.map(f => {
-                  const { est, real, efectivo } = withDesmolde(f);
+                  const { est, real, efectivo, botada } = withDesmolde(f);
                   const desm = parseISO(efectivo);
+                  const bot = parseISO(botada);
                   return (
-                    <tr key={f.id}>
+                    <tr key={f.id} className="fv-row">
                       <td style={{ ...td, fontWeight: 700, color: C.t0, position: "sticky", left: 0, background: C.bg }}>{f.codigo}</td>
                       {/* Desmolde estimado */}
                       <td style={td}>
@@ -423,19 +543,28 @@ export default function FechasView({ obras = [], lineas = [], esGestion = false,
                               style={{ ...dateInput, borderColor: real ? "rgba(16,185,129,0.4)" : C.b1 }} />
                           : <span style={{ color: real ? C.green : C.t3 }}>{fmtFecha(parseISO(real))}</span>}
                       </td>
+                      {/* Botada */}
+                      <td style={td}>
+                        {esGestion
+                          ? <input type="date" value={iso(botada)} onChange={e => setDesmolde(f.id, "botada", e.target.value)}
+                              style={{ ...dateInput, borderColor: bot ? "rgba(59,130,246,0.4)" : C.b1 }} />
+                          : <span style={{ color: bot ? C.blue : C.t3 }}>{fmtFecha(bot)}</span>}
+                      </td>
                       {eventos.map(ev => {
                         const off = getOffset(ev.key, f.token);
-                        if (off === null || !desm) {
+                        const ref = off && (off.referencia === "botada" ? bot : desm);
+                        if (!off || !ref) {
                           return <td key={ev.key} style={{ ...td, textAlign: "center", color: C.t3 }}>—</td>;
                         }
-                        const fecha = addSemanas(desm, off);
+                        const fecha = addSemanas(ref, off.semanas);
                         const dias = diasHasta(fecha);
                         const col = colorPorDias(dias);
+                        const diasTxt = dias === null ? "" : dias < 0 ? `hace ${-dias}d` : dias === 0 ? "hoy" : `en ${dias}d`;
                         return (
-                          <td key={ev.key} style={{ ...td, textAlign: "center", color: col.fg, background: col.bg,
-                            fontWeight: dias !== null && dias >= 0 && dias < 30 ? 700 : 500 }}
-                            title={`${ev.label}: ${off > 0 ? "+" : ""}${off} sem · ${col.label || ""}`}>
-                            {fmtFecha(fecha)}
+                          <td key={ev.key} style={{ ...td, textAlign: "center", background: col.bg, padding: "5px 8px" }}
+                            title={`${ev.label}: ${off.semanas > 0 ? "+" : ""}${off.semanas} sem ${off.referencia === "botada" ? "de la botada" : "del desmolde"}`}>
+                            <div style={{ color: col.fg, fontWeight: dias !== null && dias >= 0 && dias < 30 ? 800 : 600 }}>{fmtFecha(fecha)}</div>
+                            {diasTxt && <div style={{ fontSize: 9.5, color: col.fg, opacity: .8, marginTop: 1, fontFamily: C.sans, fontWeight: 700 }}>{diasTxt}</div>}
                           </td>
                         );
                       })}
@@ -462,11 +591,12 @@ function Legend({ color, text }) {
 
 function FvKpi({ label, value, color, hint }) {
   return (
-    <div style={{ position: "relative", padding: "10px 12px", borderRadius: 10, background: "var(--panel)",
-      border: `1px solid ${C.b0}`, borderLeft: `3px solid ${color}`, overflow: "hidden" }}>
-      <div style={{ fontSize: 10, color: C.t2, letterSpacing: 0.8, textTransform: "uppercase", fontWeight: 700, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{label}</div>
-      <div style={{ fontFamily: C.mono, fontSize: 24, fontWeight: 800, color, lineHeight: 1.1, marginTop: 3 }}>{value}</div>
-      {hint && <div style={{ fontSize: 10.5, color: C.t3, marginTop: 3, lineHeight: 1.3 }}>{hint}</div>}
+    <div style={{ position: "relative", padding: "14px 16px", borderRadius: 14, background: `linear-gradient(135deg, ${color}12, var(--panel))`,
+      border: `1px solid ${C.b0}`, overflow: "hidden" }}>
+      <div style={{ position: "absolute", top: 0, left: 0, bottom: 0, width: 3, background: color }} />
+      <div style={{ fontSize: 10.5, color: C.t2, letterSpacing: 1, textTransform: "uppercase", fontWeight: 800, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{label}</div>
+      <div style={{ fontFamily: C.mono, fontSize: 30, fontWeight: 900, color, lineHeight: 1, marginTop: 6 }}>{value}</div>
+      {hint && <div style={{ fontSize: 11, color: C.t3, marginTop: 5, lineHeight: 1.35 }}>{hint}</div>}
     </div>
   );
 }

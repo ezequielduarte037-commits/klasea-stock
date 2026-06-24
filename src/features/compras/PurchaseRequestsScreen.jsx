@@ -473,6 +473,48 @@ function createDraftKey(userId) {
   return `${CREATE_DRAFT_PREFIX}:${userId || "anon"}`;
 }
 
+const SAVED_DRAFTS_PREFIX = "purchase-request-saved-drafts";
+const SAVED_DRAFTS_MAX = 4;
+const SAVED_DRAFT_TTL_MS = 30 * 24 * 60 * 60 * 1000; // 1 mes: se borran solos
+
+function savedDraftsKey(userId) {
+  return `${SAVED_DRAFTS_PREFIX}:${userId || "anon"}`;
+}
+
+function loadSavedDrafts(userId) {
+  try {
+    const raw = localStorage.getItem(savedDraftsKey(userId));
+    const list = raw ? JSON.parse(raw) : [];
+    if (!Array.isArray(list)) return [];
+    const now = Date.now();
+    const vivos = list.filter((d) => {
+      const t = Date.parse(d?.savedAt || "");
+      return Number.isFinite(t) && now - t < SAVED_DRAFT_TTL_MS;
+    });
+    if (vivos.length !== list.length) {
+      try { localStorage.setItem(savedDraftsKey(userId), JSON.stringify(vivos)); } catch {}
+    }
+    return vivos;
+  } catch {
+    return [];
+  }
+}
+
+function writeSavedDrafts(userId, list) {
+  try { localStorage.setItem(savedDraftsKey(userId), JSON.stringify(list)); } catch {}
+}
+
+function draftTitleFrom(body) {
+  const t = cleanDraftText(body?.form?.title);
+  if (t) return t.slice(0, 60);
+  const it = Array.isArray(body?.createItems) && body.createItems[0];
+  const itTxt = it ? cleanDraftText(it.description) : "";
+  if (itTxt) return itTxt.slice(0, 60);
+  const nd = cleanDraftText(body?.newItem?.description);
+  if (nd) return nd.slice(0, 60);
+  return "Pedido sin título";
+}
+
 function cleanDraftText(value) {
   return String(value || "")
     .replace(/<[^>]*>/g, " ")
@@ -555,6 +597,7 @@ export default function PurchaseRequestsScreen({ profile, signOut }) {
   const [newItemLink, setNewItemLink] = useState("");
   const [draftReady, setDraftReady] = useState(false);
   const [draftSavedAt, setDraftSavedAt] = useState(null);
+  const [savedDrafts, setSavedDrafts] = useState([]);
   const [itemDraftWarning, setItemDraftWarning] = useState("");
   const submittingRef = useRef(false);
   const lastDraftJsonRef = useRef("");
@@ -607,6 +650,12 @@ export default function PurchaseRequestsScreen({ profile, signOut }) {
     } finally {
       setDraftReady(true);
     }
+  }, [profile?.id]);
+
+  // Lista de borradores guardados a mano (varios) + purga de los de más de 1 mes.
+  useEffect(() => {
+    if (!profile?.id) { setSavedDrafts([]); return; }
+    setSavedDrafts(loadSavedDrafts(profile.id));
   }, [profile?.id]);
 
   useEffect(() => {
@@ -852,6 +901,59 @@ export default function PurchaseRequestsScreen({ profile, signOut }) {
     setNewItemLink("");
     setItemDraftWarning("");
     if (showToast) toast.success("Borrador descartado.");
+  }
+
+  function currentDraftBody() {
+    return {
+      form,
+      ccUserIds,
+      createItems,
+      newItem: { description: newItemDesc, quantity: newItemQty, unit: newItemUnit, link: newItemLink },
+    };
+  }
+
+  function guardarBorrador() {
+    if (!profile?.id) return;
+    const body = currentDraftBody();
+    if (!hasCreateDraftContent(body)) {
+      toast.warning("No hay nada para guardar todavía.");
+      return;
+    }
+    const entry = {
+      id: (typeof crypto !== "undefined" && crypto.randomUUID) ? crypto.randomUUID() : `d${Date.now()}`,
+      savedAt: new Date().toISOString(),
+      title: draftTitleFrom(body),
+      body,
+    };
+    const next = [entry, ...savedDrafts].slice(0, SAVED_DRAFTS_MAX);
+    writeSavedDrafts(profile.id, next);
+    setSavedDrafts(next);
+    resetCreateDraft(false);
+    toast.success("Borrador guardado. Lo retomás desde la lista de abajo.");
+  }
+
+  function retomarBorrador(id) {
+    const d = savedDrafts.find((x) => x.id === id);
+    if (!d) return;
+    const b = d.body || {};
+    setForm({ ...emptyForm, ...(b.form || {}) });
+    setCcUserIds(Array.isArray(b.ccUserIds) ? b.ccUserIds : []);
+    setCreateItems(Array.isArray(b.createItems) ? b.createItems : []);
+    setNewItemDesc(b.newItem?.description || "");
+    setNewItemQty(b.newItem?.quantity || "");
+    setNewItemUnit(b.newItem?.unit || "unidad");
+    setNewItemLink(b.newItem?.link || "");
+    const next = savedDrafts.filter((x) => x.id !== id);
+    writeSavedDrafts(profile?.id, next);
+    setSavedDrafts(next);
+    setShowNew(true);
+    toast.success("Borrador retomado. Quedó cargado arriba.");
+  }
+
+  function eliminarBorrador(id) {
+    const next = savedDrafts.filter((x) => x.id !== id);
+    writeSavedDrafts(profile?.id, next);
+    setSavedDrafts(next);
   }
 
   async function handleCreate(e) {
@@ -1292,6 +1394,23 @@ export default function PurchaseRequestsScreen({ profile, signOut }) {
                       </span>
                       <button
                         type="button"
+                        onClick={guardarBorrador}
+                        title="Guardar este pedido como borrador aparte para retomarlo cuando quieras"
+                        style={{
+                          border: `1px solid ${C.blue}`,
+                          background: "transparent",
+                          color: C.blue,
+                          borderRadius: 6,
+                          padding: "5px 10px",
+                          cursor: "pointer",
+                          fontSize: 11,
+                          fontWeight: 800,
+                        }}
+                      >
+                        Guardar borrador
+                      </button>
+                      <button
+                        type="button"
                         onClick={() => resetCreateDraft(true)}
                         style={{
                           border: `1px solid ${C.border}`,
@@ -1306,6 +1425,37 @@ export default function PurchaseRequestsScreen({ profile, signOut }) {
                       >
                         Descartar
                       </button>
+                    </div>
+                  )}
+
+                  {savedDrafts.length > 0 && (
+                    <div style={{
+                      border: `1px solid ${C.border}`, background: C.panel, borderRadius: 10,
+                      padding: "9px 10px", marginTop: -6, display: "grid", gap: 7,
+                    }}>
+                      <div style={{ fontSize: 11, fontWeight: 800, color: C.dim, textTransform: "uppercase", letterSpacing: 0.6 }}>
+                        Borradores guardados · {savedDrafts.length}/{SAVED_DRAFTS_MAX}
+                        <span style={{ color: C.muted, fontWeight: 600, textTransform: "none", letterSpacing: 0 }}> — se borran solos al mes</span>
+                      </div>
+                      {savedDrafts.map((d) => (
+                        <div key={d.id} style={{
+                          display: "flex", alignItems: "center", gap: 8,
+                          background: C.panelSolid, border: `1px solid ${C.border}`, borderRadius: 8, padding: "6px 9px",
+                        }}>
+                          <div style={{ flex: 1, minWidth: 0 }}>
+                            <div style={{ fontSize: 12.5, fontWeight: 700, color: C.text, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{d.title}</div>
+                            <div style={{ fontSize: 10.5, color: C.dim }}>{formatDraftTime(d.savedAt)}</div>
+                          </div>
+                          <button type="button" onClick={() => retomarBorrador(d.id)} style={{
+                            border: `1px solid ${C.blue}`, background: "transparent", color: C.blue,
+                            borderRadius: 6, padding: "5px 11px", cursor: "pointer", fontSize: 11.5, fontWeight: 800,
+                          }}>Retomar</button>
+                          <button type="button" onClick={() => eliminarBorrador(d.id)} title="Borrar este borrador" style={{
+                            border: `1px solid ${C.border}`, background: "transparent", color: C.dim,
+                            borderRadius: 6, padding: "5px 9px", cursor: "pointer", fontSize: 12, fontWeight: 800,
+                          }}>✕</button>
+                        </div>
+                      ))}
                     </div>
                   )}
 
