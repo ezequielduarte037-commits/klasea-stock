@@ -5,6 +5,10 @@ import { useResponsive } from "@/hooks/useResponsive";
 import AjusteMaderasModal from "@/features/inventario/AjusteMaderasModal";
 import { C } from "@/theme";
 
+function tint(color, amount = 12) {
+  return `color-mix(in srgb, ${color} ${amount}%, transparent)`;
+}
+
 // --- FUNCIONES AUXILIARES ---
 function num(v) { const x = Number(v); return Number.isFinite(x) ? x : 0; }
 function fmt(ts) { if (!ts) return "—"; return new Date(ts).toLocaleString("es-AR"); }
@@ -443,6 +447,29 @@ export default function PanolScreen({ profile, signOut }) {
       .filter(Boolean);
   }, [modo, materialId, pedidosPendientes, pedidoItemsMap]);
 
+  const movStats = useMemo(() => {
+    const hoy = new Date().toISOString().slice(0, 10);
+    const ingresos = movs.filter(m => num(m.delta) > 0);
+    const egresos = movs.filter(m => num(m.delta) < 0);
+    return {
+      ingresos: ingresos.length,
+      egresos: egresos.length,
+      ingresosHoy: ingresos.filter(m => String(m.created_at || "").slice(0, 10) === hoy).length,
+      egresosHoy: egresos.filter(m => String(m.created_at || "").slice(0, 10) === hoy).length,
+      total: movs.length,
+    };
+  }, [movs]);
+
+  const cantidadNum = num(cantidad);
+  const stockActual = num(sel?.stock_actual);
+  const stockDespues = modo === "EGRESO"
+    ? stockActual - cantidadNum
+    : stockActual + cantidadNum;
+  const stockMinimo = num(sel?.stock_minimo);
+  const quedaNegativo = modo === "EGRESO" && !!sel && cantidadNum > stockActual;
+  const quedaBajoMinimo = modo === "EGRESO" && !!sel && !quedaNegativo && stockDespues <= stockMinimo;
+  const modoColor = modo === "EGRESO" ? C.red : C.green;
+
   return (
     <div style={{ position: "fixed", inset: 0, background: C.bg, color: C.t0, fontFamily: C.sans, display: "grid", gridTemplateColumns: isMobile ? "1fr" : "280px 1fr", overflow: "hidden" }}>
       <style>{`
@@ -509,10 +536,43 @@ export default function PanolScreen({ profile, signOut }) {
 
           {/* ── MAIN ── */}
           <div style={{ flex: 1, overflow: "auto", padding: "20px 22px" }}>
+            <div style={{ display: "grid", gridTemplateColumns: isMobile ? "1fr" : "repeat(4, minmax(0, 1fr))", gap: 10, maxWidth: 1100, marginBottom: 14 }}>
+              {[
+                { label: "Ingresos hoy", value: movStats.ingresosHoy, sub: `${movStats.ingresos} recientes`, color: C.green },
+                { label: "Egresos hoy", value: movStats.egresosHoy, sub: `${movStats.egresos} recientes`, color: C.red },
+                { label: "Pedidos", value: pedidosPendientes.length, sub: "pendientes", color: C.amber },
+                { label: "Movimientos", value: movStats.total, sub: "ultimos registros", color: C.primary },
+              ].map(s => (
+                <div key={s.label} style={{
+                  border: `1px solid ${tint(s.color, 28)}`,
+                  borderRadius: 14,
+                  background: `linear-gradient(135deg, ${tint(s.color, 10)}, ${C.s0} 58%)`,
+                  padding: 13,
+                  minHeight: 78,
+                }}>
+                  <div style={{ fontSize: 10, letterSpacing: 1.2, textTransform: "uppercase", color: C.t2, fontWeight: 800 }}>{s.label}</div>
+                  <div style={{ fontFamily: C.mono, fontSize: 25, fontWeight: 850, color: s.color, lineHeight: 1, marginTop: 6 }}>{s.value}</div>
+                  <div style={{ fontSize: 12, color: C.t2, marginTop: 5 }}>{s.sub}</div>
+                </div>
+              ))}
+            </div>
             <div style={{ display: "grid", gridTemplateColumns: isMobile ? "1fr" : "1fr 380px", gap: 14, alignItems: "start", maxWidth: 1100 }}>
 
               {/* ── FORMULARIO ── */}
-              <div style={{ background: C.s0, border: `1px solid ${C.b0}`, borderRadius: 12, padding: 20, animation: "slideUp .3s ease" }}>
+              <div style={{ background: C.s0, border: `1px solid ${quedaNegativo ? tint(C.red, 48) : C.b0}`, borderRadius: 14, overflow: "hidden", animation: "slideUp .3s ease" }}>
+                <div style={{ padding: 16, borderBottom: `1px solid ${C.b0}`, background: tint(modoColor, 7), display: "flex", alignItems: "center", justifyContent: "space-between", gap: 12 }}>
+                  <div>
+                    <div style={{ fontSize: 16, fontWeight: 850, color: C.t0 }}>Registrar {modo === "EGRESO" ? "egreso" : "ingreso"} de madera</div>
+                    <div style={{ fontSize: 12, color: C.t2, marginTop: 3 }}>
+                      {modo === "EGRESO" ? "Salida hacia obra, persona o destino." : "Entrada por proveedor o pedido recibido."}
+                    </div>
+                  </div>
+                  <div style={{ border: `1px solid ${tint(modoColor, 34)}`, background: tint(modoColor, 14), color: modoColor, borderRadius: 999, padding: "6px 10px", fontSize: 11, fontWeight: 900, letterSpacing: 1.1 }}>
+                    {modo}
+                  </div>
+                </div>
+
+                <div style={{ padding: 16 }}>
 
                 {/* Material selector con preview de stock */}
                 <div style={{ marginBottom: 14, paddingBottom: 14, borderBottom: `1px solid ${C.b0}` }}>
@@ -536,6 +596,23 @@ export default function PanolScreen({ profile, signOut }) {
                         <div style={{ fontFamily: C.mono, fontSize: 18, fontWeight: 700, color: stockStatus?.color, lineHeight: 1 }}>{num(sel.stock_actual)}</div>
                         <div style={{ fontSize: 10, color: stockStatus?.color, letterSpacing: 1.1, textTransform: "uppercase", marginTop: 2 }}>{stockStatus?.label}</div>
                       </div>
+                    </div>
+                  )}
+                  {sel && (
+                    <div style={{ marginTop: 8, display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8 }}>
+                      <div style={{ border: `1px solid ${C.b0}`, borderRadius: 9, padding: 9, background: C.s0 }}>
+                        <div style={{ fontSize: 10, color: C.t2, letterSpacing: 1.1, textTransform: "uppercase", fontWeight: 800 }}>Actual</div>
+                        <div style={{ fontFamily: C.mono, fontWeight: 850, color: stockStatus?.color, marginTop: 3 }}>{stockActual}</div>
+                      </div>
+                      <div style={{ border: `1px solid ${quedaNegativo ? tint(C.red, 42) : quedaBajoMinimo ? tint(C.amber, 42) : C.b0}`, borderRadius: 9, padding: 9, background: quedaNegativo ? tint(C.red, 7) : quedaBajoMinimo ? tint(C.amber, 7) : C.s0 }}>
+                        <div style={{ fontSize: 10, color: C.t2, letterSpacing: 1.1, textTransform: "uppercase", fontWeight: 800 }}>Después</div>
+                        <div style={{ fontFamily: C.mono, fontWeight: 850, color: quedaNegativo ? C.red : quedaBajoMinimo ? C.amber : C.t0, marginTop: 3 }}>{stockDespues}</div>
+                      </div>
+                    </div>
+                  )}
+                  {sel && (quedaNegativo || quedaBajoMinimo) && (
+                    <div style={{ marginTop: 8, border: `1px solid ${quedaNegativo ? tint(C.red, 38) : tint(C.amber, 38)}`, background: quedaNegativo ? tint(C.red, 8) : tint(C.amber, 8), color: quedaNegativo ? C.red : C.amber, borderRadius: 9, padding: "8px 10px", fontSize: 12, fontWeight: 750, lineHeight: 1.35 }}>
+                      {quedaNegativo ? "La salida supera el stock actual. El sistema pedirá confirmación." : "La salida deja este material bajo el mínimo."}
                     </div>
                   )}
                 </div>
@@ -631,14 +708,14 @@ export default function PanolScreen({ profile, signOut }) {
                     onClick={confirmar}
                     style={{
                       flex: 1, padding: "10px",
-                      background: modo === "EGRESO" ? "rgba(239,68,68,0.12)" : "rgba(16,185,129,0.12)",
-                      border: modo === "EGRESO" ? "1px solid rgba(239,68,68,0.3)" : "1px solid rgba(16,185,129,0.3)",
-                      color: modo === "EGRESO" ? "#f87171" : "#34d399",
+                      background: tint(modoColor, 14),
+                      border: `1px solid ${tint(modoColor, 36)}`,
+                      color: modoColor,
                       borderRadius: 9, cursor: "pointer", fontFamily: C.sans,
                       fontSize: 14, fontWeight: 700, letterSpacing: 0.5,
                     }}
                   >
-                    Confirmar {modo}
+                    Confirmar {modo === "EGRESO" ? "egreso" : "ingreso"}
                   </button>
                   <button onClick={limpiar} style={{ border: `1px solid ${C.b0}`, background: "transparent", color: C.t2, padding: "10px 14px", borderRadius: 9, cursor: "pointer", fontFamily: C.sans, fontSize: 12 }}>
                     Limpiar
@@ -647,11 +724,13 @@ export default function PanolScreen({ profile, signOut }) {
 
                 {msg && <div style={{ marginTop: 10, padding: "8px 12px", borderRadius: 7, background: "rgba(16,185,129,0.08)", border: "1px solid rgba(16,185,129,0.2)", color: "#34d399", fontSize: 13 }}>{msg}</div>}
                 {err && <div style={{ marginTop: 10, padding: "8px 12px", borderRadius: 7, background: "rgba(239,68,68,0.08)", border: "1px solid rgba(239,68,68,0.2)", color: "#f87171", fontSize: 13 }}>{err}</div>}
+                </div>
               </div>
 
               {/* ── PEDIDOS PENDIENTES ── */}
+              <div style={{ display: "grid", gap: 14 }}>
               {pedidosPendientes.length > 0 && (
-                <div style={{ background: C.s0, border: `1px solid rgba(245,158,11,0.25)`, borderRadius: 12, overflow: "hidden", marginBottom: 14 }}>
+                <div style={{ background: C.s0, border: `1px solid rgba(245,158,11,0.25)`, borderRadius: 12, overflow: "hidden" }}>
                   <div style={{ padding: "12px 16px", borderBottom: `1px solid rgba(245,158,11,0.15)`, display: "flex", justifyContent: "space-between", alignItems: "center", background: "rgba(245,158,11,0.04)" }}>
                     <span style={{ fontSize: 12, fontWeight: 700, color: C.amber }}>Pedidos pendientes</span>
                     <span style={{ fontSize: 11, color: C.amber, fontFamily: C.mono, background: "rgba(245,158,11,0.15)", padding: "2px 8px", borderRadius: 99 }}>{pedidosPendientes.length}</span>
@@ -893,6 +972,8 @@ export default function PanolScreen({ profile, signOut }) {
                     <div style={{ padding: "24px 16px", textAlign: "center", fontSize: 12, color: C.t2 }}>Sin movimientos recientes</div>
                   )}
                 </div>
+              </div>
+
               </div>
 
             </div>
