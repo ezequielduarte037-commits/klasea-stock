@@ -1,6 +1,6 @@
 import { supabase } from "@/supabaseClient";
 import { MODELOS, norm } from "./materialesParser";
-import { fetchAreasMap, fetchCondicionMap } from "./materialesConfig";
+import { fetchAreasMap, fetchCondicionMap, fetchProveedoresMaterialMap } from "./materialesConfig";
 
 const PAGE = 1000;
 const VARIANTE_BASE = "standard";
@@ -158,7 +158,7 @@ export async function fetchComprobantes() {
 }
 
 export async function fetchCatalogo() {
-  const [categorias, materiales, modelos, batches, precios, imagenes, proveedores, comprobantes, areasRes, condRes] = await Promise.all([
+  const [categorias, materiales, modelos, batches, precios, imagenes, proveedores, comprobantes, areasRes, condRes, provMatRes] = await Promise.all([
     fetchCategorias(),
     fetchPaged("panol_materiales", "id, categoria_id, proveedor_id, codigo, descripcion, proveedor, unidad_medida, precio_unitario, moneda, imagen_url, revisado, origen, notas, activo, batch_id, created_at", "descripcion"),
     fetchPaged("panol_material_modelo", "id, material_id, modelo, cantidad, variante", "id"),
@@ -167,8 +167,9 @@ export async function fetchCatalogo() {
     fetchPaged("panol_material_imagenes", "id, material_id, url, nombre, created_at", "created_at"),
     fetchProveedores(),
     fetchComprobantes(),
-    fetchAreasMap(),       // tolerante: {} si la tabla aún no existe
-    fetchCondicionMap(),   // tolerante
+    fetchAreasMap(),                 // tolerante: {} si la tabla aún no existe
+    fetchCondicionMap(),             // tolerante
+    fetchProveedoresMaterialMap(),   // tolerante: proveedores alternativos por material
   ]);
 
   const modelosByMaterial = new Map();
@@ -213,6 +214,7 @@ export async function fetchCatalogo() {
         imagenes: imgs,
         imagen_url: m.imagen_url || imgs[0]?.url || null,
         areas,
+        proveedores_lista: provMatRes.map.get(m.id) ?? [],
         condicion_valor_id: condRes.map.get(m.id) ?? null,
       };
     }),
@@ -497,6 +499,18 @@ export async function guardarCantidades(materialId, cantidades = {}) {
       .eq("variante", VARIANTE_BASE);
     if (error) throw error;
   }
+}
+
+// Sincroniza los sectores de un material: el primero es el principal (panol_materiales.categoria_id);
+// los demás van como "extra" en la M2M panol_material_categorias (de ahí sale m.areas → multi-sector).
+export async function setSectoresMaterial(materialId, ids) {
+  if (!materialId) return;
+  const limpios = [...new Set((ids || []).filter(Boolean))];
+  const principal = limpios[0] ?? null;
+  await supabase.from("panol_materiales").update({ categoria_id: principal }).eq("id", materialId);
+  await supabase.from("panol_material_categorias").delete().eq("material_id", materialId);
+  const extra = limpios.slice(1).map((categoria_id) => ({ material_id: materialId, categoria_id }));
+  if (extra.length) await supabase.from("panol_material_categorias").insert(extra);
 }
 
 export async function borrarMaterial(materialId) {

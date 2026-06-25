@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { Download, Link as LinkIcon, PackagePlus, RefreshCw, Save, Search, SkipForward, Trash2, Upload } from "lucide-react";
+import { Download, Link as LinkIcon, PackagePlus, Pencil, RefreshCw, Save, Search, SkipForward, Trash2, Upload } from "lucide-react";
 import Sidebar from "@/components/Sidebar";
 import { useResponsive } from "@/hooks/useResponsive";
 import { C } from "@/theme";
@@ -19,6 +19,7 @@ import {
   precioVigente,
   renombrarCategoria,
   setCantidadModelo,
+  setSectoresMaterial,
 } from "./api";
 import AvanceTab from "./AvanceTab";
 import ComprobantesTab from "./ComprobantesTab";
@@ -27,7 +28,7 @@ import { MaterialImageUploader, MaterialThumb, PriceBadge, PriceHistory } from "
 import { fmtMoney } from "./format";
 import ProveedoresTab from "./ProveedoresTab";
 import { csvCell, MODELOS, norm, parseMaterialesWorkbook, toBomMap } from "./materialesParser";
-import { fetchOpciones, setMaterialAreas } from "./materialesConfig";
+import { fetchOpciones, setMaterialAreas, setProveedoresMaterial } from "./materialesConfig";
 import { AreasEditor, CondicionSelect, VariantesTab } from "./MaterialVariantes";
 import { BTN, BTN_GREEN, BTN_PRIMARY, Cargando, ErrorBox, INP, KpiCard, LBL, Td, Th } from "@/features/rrhh/ui";
 
@@ -763,6 +764,163 @@ function MaterialRow({ material, categorias, ums, proveedores, onChanged, modelo
   );
 }
 
+// Fila simple para la "Lista matriz": muestra Item + Proveedor y, al tocar el lápiz,
+// despliega el editor completo. Mucho más angosto que la tabla.
+function MaterialFila({ material, categorias, ums, proveedores, onChanged, linea = "" }) {
+  const [editing, setEditing] = useState(false);
+  const [draft, setDraft] = useState(() => ({ ...material, precio_unitario: inputNumberValue(material.precio_unitario) }));
+  const [cantidades, setCantidades] = useState(() => toBomMap(material));
+  const [sectores, setSectores] = useState(() => (material.areas?.length ? material.areas : [material.categoria_id].filter(Boolean)));
+  const [provExtra, setProvExtra] = useState(() => (material.proveedores_lista || []).map((p) => ({ ...p })));
+  const [saving, setSaving] = useState(false);
+
+  useEffect(() => {
+    setDraft({ ...material, precio_unitario: inputNumberValue(material.precio_unitario) });
+    setCantidades(toBomMap(material));
+    setSectores(material.areas?.length ? material.areas : [material.categoria_id].filter(Boolean));
+    setProvExtra((material.proveedores_lista || []).map((p) => ({ ...p })));
+  }, [material]);
+
+  async function save() {
+    if (!draft.descripcion?.trim() || saving) return;
+    setSaving(true);
+    try {
+      const primary = sectores[0] ?? draft.categoria_id ?? null;
+      await guardarMaterial({ ...draft, categoria_id: primary }, cantidades, { revisado: draft.revisado });
+      await setSectoresMaterial(material.id, sectores);
+      await setProveedoresMaterial(material.id, provExtra);
+      onChanged?.(); setEditing(false);
+    } finally { setSaving(false); }
+  }
+  async function remove() {
+    if (!window.confirm(`¿Borrar "${material.descripcion}"?`)) return;
+    await borrarMaterial(material.id); onChanged?.();
+  }
+
+  const sector = categorias.find((c) => c.id === material.categoria_id)?.nombre;
+  const bom = toBomMap(material);
+  const lineasConQty = MODELOS.filter((m) => toNum(bom[m]) > 0);
+  const lbl = { fontSize: 10, letterSpacing: 0.6, color: C.t2, textTransform: "uppercase", fontWeight: 700, display: "block", marginBottom: 4 };
+
+  return (
+    <div style={{ border: `1px solid ${editing ? C.b1 : C.b0}`, borderRadius: 10, marginBottom: 6, background: editing ? "var(--panel)" : C.s0, overflow: "hidden" }}>
+      <div onClick={() => setEditing((v) => !v)} style={{ display: "flex", alignItems: "center", gap: 10, padding: "9px 12px", cursor: "pointer" }}>
+        <div style={{ flex: 1, minWidth: 0 }}>
+          <div style={{ fontSize: 13, color: C.t0, fontWeight: 600, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{material.descripcion || "(sin descripción)"}</div>
+          <div style={{ display: "flex", gap: 7, marginTop: 2, fontSize: 11, color: C.t2, alignItems: "center", flexWrap: "wrap" }}>
+            <span style={{ overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", maxWidth: 240 }}>{material.proveedor || "Sin proveedor"}</span>
+            {material.proveedores_lista?.length > 0 && (
+              <span title={`Otros proveedores: ${material.proveedores_lista.map((p) => (proveedores.find((x) => x.id === p.proveedor_id)?.nombre || "?") + (p.precio != null && p.precio !== "" ? ` $${p.precio}${p.moneda ? " " + p.moneda : ""}` : "")).join(" · ")}`}
+                style={{ fontSize: 9.5, fontWeight: 700, color: C.t3, border: `1px solid ${C.b0}`, borderRadius: 999, padding: "1px 6px", flexShrink: 0 }}>
+                +{material.proveedores_lista.length} prov
+              </span>
+            )}
+            {sector && <span style={{ color: C.t3 }}>· {sector}</span>}
+            {material.areas?.length > 1 && (
+              <span title={`Multi-sector: ${material.areas.map((a) => categorias.find((c) => c.id === a)?.nombre).filter(Boolean).join(", ")}`}
+                style={{ fontSize: 9.5, fontWeight: 800, color: C.violet || "#a78bfa", background: "rgba(167,139,250,0.14)", border: "1px solid rgba(167,139,250,0.32)", borderRadius: 999, padding: "1px 7px", flexShrink: 0 }}>
+                ⊞ {material.areas.length} sectores
+              </span>
+            )}
+            {material.codigo && <span style={{ fontFamily: C.mono, color: C.t3 }}>· {material.codigo}</span>}
+          </div>
+        </div>
+        {lineasConQty.length > 0 && (
+          <div style={{ display: "flex", gap: 4, flexShrink: 0, flexWrap: "wrap", justifyContent: "flex-end", maxWidth: 220 }}>
+            {lineasConQty.map((m) => {
+              const on = linea === m;
+              return (
+                <span key={m} title={`Lleva ${toNum(bom[m])} en la línea K${m}`}
+                  style={{ fontFamily: C.mono, fontSize: 11, fontWeight: 700, color: on ? "#fff" : C.blue,
+                    background: on ? C.blue : "rgba(59,130,246,0.1)", border: `1px solid ${on ? C.blue : "rgba(59,130,246,0.25)"}`,
+                    borderRadius: 6, padding: "2px 7px" }}>
+                  K{m} {toNum(bom[m])}
+                </span>
+              );
+            })}
+          </div>
+        )}
+        {material.revisado && <span title="Revisado" style={{ color: C.green, fontSize: 13, flexShrink: 0 }}>✓</span>}
+        <button type="button" onClick={(e) => { e.stopPropagation(); setEditing((v) => !v); }} title={editing ? "Cerrar" : "Editar"}
+          style={{ ...BTN, padding: "5px 9px", color: editing ? C.blue : C.t2, flexShrink: 0 }}>
+          <Pencil size={13} />
+        </button>
+      </div>
+
+      {editing && (
+        <div style={{ padding: "0 12px 12px", display: "grid", gap: 9 }}>
+          <div>
+            <span style={lbl}>Descripción</span>
+            <input value={draft.descripcion || ""} onChange={(e) => setDraft((d) => ({ ...d, descripcion: e.target.value }))} style={{ ...INP, width: "100%" }} />
+          </div>
+          <div>
+            <span style={lbl}>Proveedor principal</span>
+            <ProveedorSelect value={draft.proveedor_id || ""} textValue={draft.proveedor || ""} proveedores={proveedores} onCreated={onChanged} onChange={(id, nombre) => setDraft((d) => ({ ...d, proveedor_id: id, proveedor: nombre }))} />
+            <input value={draft.proveedor || ""} onChange={(e) => setDraft((d) => ({ ...d, proveedor: e.target.value }))} placeholder="O escribir libre…" style={{ ...INP, width: "100%", marginTop: 5 }} />
+          </div>
+          <div>
+            <span style={lbl}>Otros proveedores · cada uno con su precio</span>
+            <div style={{ display: "grid", gap: 6 }}>
+              {provExtra.map((p, i) => (
+                <div key={p.proveedor_id || i} style={{ display: "grid", gridTemplateColumns: "1fr 92px 78px 34px", gap: 6, alignItems: "center" }}>
+                  <span style={{ fontSize: 12, color: C.t1, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{proveedores.find((pr) => pr.id === p.proveedor_id)?.nombre || "—"}</span>
+                  <input type="number" step="any" placeholder="Precio" value={p.precio ?? ""} onChange={(e) => setProvExtra((prev) => prev.map((x, j) => (j === i ? { ...x, precio: e.target.value } : x)))} style={{ ...INP, fontFamily: C.mono }} />
+                  <select value={p.moneda || ""} onChange={(e) => setProvExtra((prev) => prev.map((x, j) => (j === i ? { ...x, moneda: e.target.value || null } : x)))} style={{ ...INP }}>{MONEDAS.map((m) => <option key={m || "n"} value={m}>{m || "—"}</option>)}</select>
+                  <button type="button" onClick={() => setProvExtra((prev) => prev.filter((_, j) => j !== i))} style={{ ...BTN, color: C.red, padding: "5px 7px" }} title="Quitar"><Trash2 size={12} /></button>
+                </div>
+              ))}
+              <select value="" onChange={(e) => { const id = e.target.value; if (!id) return; if (provExtra.some((x) => x.proveedor_id === id) || draft.proveedor_id === id) return; setProvExtra((prev) => [...prev, { proveedor_id: id, precio: "", moneda: draft.moneda || "" }]); }} style={{ ...INP, width: "100%" }}>
+                <option value="">+ Agregar proveedor alternativo…</option>
+                {proveedores.filter((pr) => pr.activo !== false).map((pr) => <option key={pr.id} value={pr.id} style={OPT_ST}>{pr.nombre}</option>)}
+              </select>
+            </div>
+          </div>
+          <div style={{ display: "grid", gridTemplateColumns: "80px 1fr 88px 1fr", gap: 8 }}>
+            <div><span style={lbl}>UM</span><input list="materiales-ums" value={draft.unidad_medida || ""} onChange={(e) => setDraft((d) => ({ ...d, unidad_medida: e.target.value }))} style={{ ...INP, width: "100%" }} /><datalist id="materiales-ums">{ums.map((u) => <option key={u} value={u} />)}</datalist></div>
+            <div><span style={lbl}>Precio</span><input type="number" step="any" value={draft.precio_unitario ?? ""} onChange={(e) => setDraft((d) => ({ ...d, precio_unitario: e.target.value }))} style={{ ...INP, width: "100%", fontFamily: C.mono }} /></div>
+            <div><span style={lbl}>Moneda</span><select value={draft.moneda || ""} onChange={(e) => setDraft((d) => ({ ...d, moneda: e.target.value || null }))} style={{ ...INP, width: "100%" }}>{MONEDAS.map((m) => <option key={m || "null"} value={m}>{m || "—"}</option>)}</select></div>
+            <div><span style={lbl}>Código</span><input value={draft.codigo || ""} onChange={(e) => setDraft((d) => ({ ...d, codigo: e.target.value }))} style={{ ...INP, width: "100%" }} /></div>
+          </div>
+          <div>
+            <span style={lbl}>Cantidad por línea</span>
+            <div style={{ display: "flex", gap: 10, flexWrap: "wrap" }}>
+              {MODELOS.map((modelo) => (
+                <div key={modelo} style={{ display: "flex", alignItems: "center", gap: 5 }}>
+                  <span style={{ fontSize: 11, color: linea === modelo ? C.blue : C.t2, fontWeight: 700, fontFamily: C.mono }}>K{modelo}</span>
+                  <input type="number" step="any" value={cantidades[modelo] ?? ""} onChange={(e) => setCantidades((c) => ({ ...c, [modelo]: e.target.value }))} style={{ ...INP, width: 82, fontFamily: C.mono }} />
+                </div>
+              ))}
+            </div>
+          </div>
+          <div>
+            <span style={lbl}>Sectores · el ★ es el principal (tocá para sumar/quitar)</span>
+            <div style={{ display: "flex", flexWrap: "wrap", gap: 5 }}>
+              {categorias.map((c) => {
+                const idx = sectores.indexOf(c.id);
+                const on = idx >= 0;
+                return (
+                  <button type="button" key={c.id} onClick={() => setSectores((prev) => on ? prev.filter((x) => x !== c.id) : [...prev, c.id])}
+                    style={{ fontSize: 10.5, fontWeight: 700, cursor: "pointer", borderRadius: 999, padding: "3px 9px", border: `1px solid ${on ? (C.violet || "#a78bfa") : C.b0}`, background: on ? "rgba(167,139,250,0.14)" : "transparent", color: on ? (C.violet || "#a78bfa") : C.t2 }}>
+                    {idx === 0 ? "★ " : on ? "✓ " : ""}{c.nombre}
+                  </button>
+                );
+              })}
+            </div>
+          </div>
+          <label style={{ display: "inline-flex", alignItems: "center", gap: 6, fontSize: 12, color: draft.revisado ? C.green : C.t2 }}>
+            <input type="checkbox" checked={!!draft.revisado} onChange={(e) => setDraft((d) => ({ ...d, revisado: e.target.checked }))} /> Revisado
+          </label>
+          <div style={{ display: "flex", gap: 6 }}>
+            <button type="button" onClick={save} disabled={saving} style={{ ...BTN_GREEN, padding: "7px 16px", display: "inline-flex", alignItems: "center", gap: 5 }}><Save size={13} /> Guardar</button>
+            <button type="button" onClick={() => setEditing(false)} style={{ ...BTN, padding: "7px 14px" }}>Cancelar</button>
+            <button type="button" onClick={remove} style={{ ...BTN, color: C.red, padding: "7px 10px", marginLeft: "auto" }} title="Borrar"><Trash2 size={13} /></button>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
 function ListaMateriales({ categorias, materiales, selectedId, ums, proveedores, onChanged, defaultSoloPendientes = true, compact = false }) {
   const [soloPendientes, setSoloPendientes] = useState(defaultSoloPendientes);
   const [q, setQ] = useState("");
@@ -814,27 +972,48 @@ function ListaMateriales({ categorias, materiales, selectedId, ums, proveedores,
 
   return (
     <div>
-      <div style={{ display: "flex", gap: 8, flexWrap: "wrap", alignItems: "center", marginBottom: 12 }}>
-        <div style={{ position: "relative", minWidth: 220, flex: "1 1 260px" }}>
-          <Search size={14} style={{ position: "absolute", left: 10, top: 10, color: C.t2 }} />
-          <input value={q} onChange={(e) => setQ(e.target.value)} placeholder="Buscar por descripción, proveedor o código… (varias palabras)" style={{ ...INP, width: "100%", paddingLeft: 30 }} />
-          {q && <button type="button" onClick={() => setQ("")} title="Limpiar" style={{ position: "absolute", right: 6, top: 6, background: "transparent", border: "none", color: C.t2, cursor: "pointer", fontSize: 14, lineHeight: 1, padding: 3 }}>✕</button>}
+      <div style={{ display: "flex", gap: 10, flexWrap: "wrap", alignItems: "center", marginBottom: 16, padding: "11px 13px", background: "var(--panel)", border: `1px solid ${C.b0}`, borderRadius: 14, boxShadow: "0 1px 3px rgba(0,0,0,0.05)" }}>
+        <div style={{ position: "relative", minWidth: 220, flex: "1 1 280px" }}>
+          <Search size={15} style={{ position: "absolute", left: 12, top: "50%", transform: "translateY(-50%)", color: C.t2 }} />
+          <input value={q} onChange={(e) => setQ(e.target.value)} placeholder="Buscar por descripción, proveedor o código…" style={{ ...INP, width: "100%", height: 40, paddingLeft: 36, borderRadius: 10 }} />
+          {q && <button type="button" onClick={() => setQ("")} title="Limpiar" style={{ position: "absolute", right: 10, top: "50%", transform: "translateY(-50%)", background: "transparent", border: "none", color: C.t2, cursor: "pointer", fontSize: 14, lineHeight: 1, padding: 3 }}>✕</button>}
         </div>
-        <select value={linea} onChange={(e) => setLinea(e.target.value)} style={{ ...INP, width: 150 }} title="Filtrar por línea de producción: solo materiales con cantidad en ese modelo">
-          <option value="" style={OPT_ST}>Todas las líneas</option>
-          {MODELOS.map((m) => <option key={m} value={m} style={OPT_ST}>Solo línea K{m}</option>)}
-        </select>
-        <select value={prov} onChange={(e) => setProv(e.target.value)} style={{ ...INP, width: 180, maxWidth: "40vw" }} title="Filtrar por proveedor">
+        <div style={{ display: "inline-flex", gap: 2, background: C.s0, border: `1px solid ${C.b0}`, borderRadius: 10, padding: 3 }}>
+          {[["", "Todas"], ...MODELOS.map((m) => [m, `K${m}`])].map(([val, label]) => {
+            const on = linea === val;
+            return (
+              <button type="button" key={val || "all"} onClick={() => setLinea(val)} title={val ? `Solo materiales de la línea K${val}` : "Todas las líneas"}
+                style={{ border: "none", borderRadius: 7, padding: "7px 13px", cursor: "pointer", fontSize: 12.5, fontWeight: 700, fontFamily: C.sans,
+                  background: on ? C.blue : "transparent", color: on ? "#fff" : C.t2, boxShadow: on ? "0 1px 4px rgba(59,130,246,0.4)" : "none", transition: "all .12s" }}>
+                {label}
+              </button>
+            );
+          })}
+        </div>
+        <select value={prov} onChange={(e) => setProv(e.target.value)} style={{ ...INP, width: 180, maxWidth: "40vw", height: 40, borderRadius: 10 }} title="Filtrar por proveedor">
           <option value="" style={OPT_ST}>Todos los proveedores</option>
           {provs.map((p) => <option key={p.id} value={p.id} style={OPT_ST}>{p.nombre}</option>)}
         </select>
-        <label style={{ display: "inline-flex", alignItems: "center", gap: 7, color: C.t1, fontSize: 13 }}>
-          <input type="checkbox" checked={soloPendientes} onChange={(e) => setSoloPendientes(e.target.checked)} />
+        <button type="button" onClick={() => setSoloPendientes((v) => !v)} title="Mostrar solo los que faltan revisar"
+          style={{ ...BTN, height: 40, padding: "0 13px", borderRadius: 10, display: "inline-flex", alignItems: "center", gap: 7, border: `1px solid ${soloPendientes ? "rgba(245,158,11,0.45)" : C.b0}`, background: soloPendientes ? "rgba(245,158,11,0.12)" : C.s0, color: soloPendientes ? C.amber : C.t1, fontSize: 12.5, fontWeight: 600 }}>
+          <span style={{ width: 15, height: 15, borderRadius: 5, border: `1px solid ${soloPendientes ? C.amber : C.b1}`, background: soloPendientes ? C.amber : "transparent", display: "inline-flex", alignItems: "center", justifyContent: "center", color: "#000", fontSize: 11, lineHeight: 1 }}>{soloPendientes ? "✓" : ""}</span>
           Sólo no revisados
-        </label>
-        <span style={{ color: C.t2, fontSize: 12 }}>{visibles.length} materiales{linea ? ` · K${linea}` : ""}</span>
+        </button>
+        <span style={{ marginLeft: "auto", fontFamily: C.mono, fontSize: 12, fontWeight: 700, color: C.t1, background: C.s0, border: `1px solid ${C.b0}`, borderRadius: 999, padding: "6px 12px", whiteSpace: "nowrap" }}>
+          {visibles.length} ítems{linea ? ` · K${linea}` : ""}
+        </span>
       </div>
 
+      {compact ? (
+        <div>
+          {visibles.map((material) => (
+            <MaterialFila key={material.id} material={material} categorias={categorias} ums={ums} proveedores={proveedores} onChanged={onChanged} linea={linea} />
+          ))}
+          {!visibles.length && (
+            <div style={{ padding: 18, fontSize: 13, color: C.t2, textAlign: "center", border: `1px solid ${C.b0}`, borderRadius: 12 }}>No hay materiales con esos filtros.</div>
+          )}
+        </div>
+      ) : (
       <div ref={scrollRef} onWheel={onWheel} style={{ overflowX: "auto", border: `1px solid ${C.b0}`, borderRadius: 12 }}>
         <table style={{ width: "100%", minWidth: (compact ? 820 : 1252) + modelos.length * 76, borderCollapse: "collapse" }}>
           <thead>
@@ -867,6 +1046,7 @@ function ListaMateriales({ categorias, materiales, selectedId, ums, proveedores,
           </tbody>
         </table>
       </div>
+      )}
     </div>
   );
 }

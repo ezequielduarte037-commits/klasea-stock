@@ -53,6 +53,32 @@ export async function setMaterialAreas(materialId, categoriaIds) {
   }
 }
 
+// ── Proveedores alternativos por material (cada uno con su precio) ───────────
+// El proveedor principal vive en panol_materiales; acá van las alternativas.
+// Tolerante: {} si la tabla aún no existe.
+export async function fetchProveedoresMaterialMap() {
+  const { ok, rows } = await pagedSafe("panol_material_proveedores", "material_id, proveedor_id, precio, moneda", "material_id");
+  const map = new Map();
+  for (const r of rows) {
+    if (!map.has(r.material_id)) map.set(r.material_id, []);
+    map.get(r.material_id).push({ proveedor_id: r.proveedor_id, precio: r.precio, moneda: r.moneda });
+  }
+  return { ok, map };
+}
+
+export async function setProveedoresMaterial(materialId, lista) {
+  const { error: delErr } = await supabase.from("panol_material_proveedores").delete().eq("material_id", materialId);
+  if (delErr) throw delErr;
+  const seen = new Set();
+  const rows = (lista || [])
+    .filter((p) => p.proveedor_id && !seen.has(p.proveedor_id) && seen.add(p.proveedor_id))
+    .map((p) => ({ material_id: materialId, proveedor_id: p.proveedor_id, precio: p.precio === "" || p.precio == null ? null : Number(p.precio), moneda: p.moneda || null }));
+  if (rows.length) {
+    const { error } = await supabase.from("panol_material_proveedores").insert(rows);
+    if (error) throw error;
+  }
+}
+
 // ── Opciones de configuración (dimensiones + valores) ────────────────────────
 // Devuelve [{ id, nombre, orden, valores: [{id, valor, orden}] }]
 export async function fetchOpciones() {
