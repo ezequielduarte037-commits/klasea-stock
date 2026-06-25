@@ -187,6 +187,153 @@ const INP = {
   outline: "none", width: "100%",
 };
 
+const PRIORIDADES = [["baja", "Baja"], ["media", "Media"], ["alta", "Alta"], ["critica", "Crítica"]];
+function PrioridadPicker({ value, onChange }) {
+  return (
+    <div style={{ display: "flex", gap: 5, flexWrap: "wrap" }}>
+      {PRIORIDADES.map(([v, lbl]) => {
+        const on = (value || "media") === v;
+        return <button type="button" key={v} onClick={() => onChange(v)} style={{ fontSize: 11, fontWeight: 700, cursor: "pointer", borderRadius: 6, padding: "4px 11px", border: `1px solid ${on ? C.blue : C.b0}`, background: on ? "rgba(59,130,246,0.12)" : "transparent", color: on ? C.blue : C.t2 }}>{lbl}</button>;
+      })}
+    </div>
+  );
+}
+
+// ── Ficha del barco (datos descriptivos de la obra: cliente, motores, madera, etc.) ──
+const FICHA_FIELDS = [
+  ["cliente", "Cliente"], ["constructor", "Constructor"], ["motores", "Motores"],
+  ["madera", "Madera"], ["grupo_electrogeno", "Grupo electrógeno"],
+  ["desplazamiento", "Desplazamiento"], ["ubicacion_entrega", "Entrega / ubicación"],
+  ["valores_pruebas", "Valores de pruebas"], ["semanas_const", "Semanas de constr."],
+];
+
+function FichaItem({ label, value }) {
+  return (
+    <div style={{ minWidth: 0 }}>
+      <div style={{ fontSize: 9.5, letterSpacing: 0.8, color: C.t3, textTransform: "uppercase", fontWeight: 700, marginBottom: 1 }}>{label}</div>
+      <div style={{ fontSize: 12.5, color: C.t1, fontWeight: 600, whiteSpace: "pre-wrap", lineHeight: 1.35 }}>{value}</div>
+    </div>
+  );
+}
+
+function FichaBarco({ obra, esGestion, onSave }) {
+  const [editing, setEditing] = useState(false);
+  const [buf, setBuf] = useState({});
+  const [saving, setSaving] = useState(false);
+  const botadaStr = obra.botada ? String(obra.botada).slice(0, 10) : "";
+  const presentes = FICHA_FIELDS.filter(([k]) => obra[k]);
+  const tieneAlgo = presentes.length > 0 || !!botadaStr;
+
+  function start() {
+    const b = {};
+    FICHA_FIELDS.forEach(([k]) => { b[k] = obra[k] ?? ""; });
+    b.botada = botadaStr;
+    setBuf(b); setEditing(true);
+  }
+  async function guardar() {
+    setSaving(true);
+    const patch = {};
+    FICHA_FIELDS.forEach(([k]) => { patch[k] = String(buf[k] ?? "").trim() || null; });
+    patch.botada = buf.botada || null;
+    try { await onSave(obra.id, patch); setEditing(false); }
+    finally { setSaving(false); }
+  }
+
+  if (!esGestion && !tieneAlgo) return null;
+
+  return (
+    <div style={{ marginBottom: 10, border: `1px solid ${C.b0}`, borderRadius: 10, background: C.s0, padding: "10px 12px" }}>
+      <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: tieneAlgo || editing ? 9 : 0 }}>
+        <span style={{ fontSize: 10, letterSpacing: 1.3, color: C.t2, textTransform: "uppercase", fontWeight: 700 }}>Ficha del barco</span>
+        {esGestion && !editing && (
+          <button type="button" onClick={start} style={{ border: `1px solid ${C.b1}`, background: "transparent", color: C.t1, borderRadius: 6, padding: "3px 10px", cursor: "pointer", fontSize: 11, fontWeight: 700 }}>
+            {tieneAlgo ? "Editar" : "+ Cargar ficha"}
+          </button>
+        )}
+      </div>
+
+      {editing ? (
+        <>
+          <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(180px, 1fr))", gap: "0 12px" }}>
+            {FICHA_FIELDS.map(([k, label]) => (
+              <InputSt key={k} label={label}>
+                {k === "valores_pruebas"
+                  ? <textarea style={{ ...INP, resize: "vertical", minHeight: 44 }} value={buf[k] ?? ""} onChange={e => setBuf(b => ({ ...b, [k]: e.target.value }))} />
+                  : <input style={INP} value={buf[k] ?? ""} onChange={e => setBuf(b => ({ ...b, [k]: e.target.value }))} />}
+              </InputSt>
+            ))}
+            <InputSt label="Botadura (estimada)">
+              <input type="date" style={INP} value={buf.botada ?? ""} onChange={e => setBuf(b => ({ ...b, botada: e.target.value }))} />
+            </InputSt>
+          </div>
+          <div style={{ display: "flex", gap: 6 }}>
+            <button type="button" disabled={saving} onClick={guardar} style={{ border: "1px solid rgba(16,185,129,0.4)", background: "rgba(16,185,129,0.10)", color: C.green, borderRadius: 7, padding: "6px 14px", cursor: saving ? "default" : "pointer", fontSize: 12, fontWeight: 800 }}>{saving ? "Guardando…" : "Guardar"}</button>
+            <button type="button" onClick={() => setEditing(false)} style={{ border: `1px solid ${C.b1}`, background: "transparent", color: C.t2, borderRadius: 7, padding: "6px 12px", cursor: "pointer", fontSize: 12, fontWeight: 700 }}>Cancelar</button>
+          </div>
+        </>
+      ) : tieneAlgo ? (
+        <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(150px, 1fr))", gap: "7px 14px" }}>
+          {botadaStr && <FichaItem label="Botadura" value={botadaStr.split("-").reverse().join("/")} />}
+          {presentes.map(([k, label]) => <FichaItem key={k} label={label} value={obra[k]} />)}
+        </div>
+      ) : (
+        <div style={{ fontSize: 11, color: C.t3 }}>Sin datos cargados.</div>
+      )}
+    </div>
+  );
+}
+
+// Propaga las predecesoras (dependencias) de la plantilla de línea a las tareas reales de la obra.
+// La plantilla guarda ids de linea_proceso_tareas; al copiarse a la obra cada tarea recibe un id
+// nuevo, así que remapeamos por NOMBRE (único dentro de una obra en la práctica).
+async function propagarPredecesorasObra(obraId, tPlantilla) {
+  const conDeps = (tPlantilla || []).filter(tp => Array.isArray(tp.predecesoras) && tp.predecesoras.length);
+  if (!conDeps.length) return;
+  const nombrePorTplId = {};
+  (tPlantilla || []).forEach(tp => { nombrePorTplId[tp.id] = tp.nombre; });
+  const { data: obraTasks } = await supabase.from("obra_tareas").select("id, nombre").eq("obra_id", obraId);
+  if (!obraTasks?.length) return;
+  const idPorNombre = {};
+  obraTasks.forEach(ot => { idPorNombre[ot.nombre] = ot.id; });
+  const updates = [];
+  for (const tp of conDeps) {
+    const targetId = idPorNombre[tp.nombre];
+    if (!targetId) continue;
+    const predIds = tp.predecesoras.map(pid => idPorNombre[nombrePorTplId[pid]]).filter(Boolean);
+    if (predIds.length) updates.push(supabase.from("obra_tareas").update({ predecesoras: predIds }).eq("id", targetId));
+  }
+  if (updates.length) await Promise.all(updates);
+}
+
+// ─── Alerta de material faltante (SCAFFOLD — se activa cuando exista el BOM) ──────────
+// Idea: cada tarea/etapa va a tener materiales requeridos para poder arrancar (todo eso vive
+// en la lista de materiales / BOM que estamos armando: panol_materiales + panol_material_modelo).
+// Cuando una tarea esté CERCA de su fecha y sus materiales NO estén disponibles (sin stock y sin
+// compra recibida), esta alerta titila en rojo = "hay que comprar con urgencia".
+//
+// Cableado pendiente (cuando el BOM esté listo):
+//   1. Tabla de enlace tarea↔material (ej. obra_tarea_materiales: tarea_id, material_id, cantidad)
+//      o derivar del BOM por modelo (panol_material_modelo) + el sector/etapa.
+//   2. Cruzar contra stock real + compras recibidas para saber qué falta.
+//   3. Pasar ese mapa por contexto y devolverlo acá.
+// Mientras tanto devuelve [] → la alerta nunca se muestra, pero el hook ya está puesto.
+function materialesFaltantesTarea(/* tarea, ctx */) {
+  // TODO(BOM): return ctx?.materialesFaltantesPorTarea?.[tarea.id] ?? [];
+  return [];
+}
+
+function AlertaMaterialTarea({ tarea, cerca = false }) {
+  const faltan = materialesFaltantesTarea(tarea);
+  if (!faltan.length || !cerca) return null; // hoy nunca se muestra (BOM no cableado)
+  return (
+    <span title={"Falta material para iniciar: " + faltan.map(m => m?.nombre ?? m).join(", ")}
+      style={{ fontSize: 10, padding: "1px 6px", borderRadius: 3, background: "rgba(239,68,68,0.18)", color: C.red,
+        border: "1px solid rgba(239,68,68,0.55)", flexShrink: 0, fontWeight: 800, animation: "gPulse 1s ease-in-out infinite" }}>
+      ⚠ FALTA MATERIAL
+    </span>
+  );
+}
+
 function Overlay({ onClose, children, maxWidth = 540, fullHeight = false }) {
   return (
     <div onClick={e => e.target === e.currentTarget && onClose?.()} style={{ position: "fixed", inset: 0, zIndex: 9000, background: "rgba(0,0,0,0.85)", ...GLASS, display: "flex", justifyContent: "center", alignItems: fullHeight ? "stretch" : "flex-start", padding: fullHeight ? 0 : "40px 16px", overflowY: fullHeight ? "hidden" : "auto" }}>
@@ -261,12 +408,13 @@ function ObraModal({ lineas, lProcs, lTareas = [], onSave, onClose }) {
                 const tareasAInsertar = [];
                 for (const etapa of etapasIns.data) {
                   for (const tp of tPlantilla.filter(t => t.linea_proceso_id === etapa.linea_proceso_id)) {
-                    tareasAInsertar.push({ obra_id: nueva.id, etapa_id: etapa.id, nombre: tp.nombre, orden: tp.orden ?? 999, estado: "pendiente", prioridad: tp.prioridad ?? "media", horas_estimadas: tp.horas_estimadas ?? null, personas_necesarias: tp.personas_necesarias ?? null, observaciones: tp.observaciones ?? null });
+                    tareasAInsertar.push({ obra_id: nueva.id, etapa_id: etapa.id, nombre: tp.nombre, orden: tp.orden ?? 999, estado: "pendiente", prioridad: tp.prioridad ?? "media", descripcion: tp.descripcion ?? null, responsable: tp.responsable ?? null, dias_estimados: tp.dias_estimados ?? null, horas_estimadas: tp.horas_estimadas ?? null, personas_necesarias: tp.personas_necesarias ?? null, observaciones: tp.observaciones ?? null });
                   }
                 }
                 if (tareasAInsertar.length) {
                   const { error: errTareas } = await supabase.from("obra_tareas").insert(tareasAInsertar);
                   if (errTareas) throw new Error("Error al insertar tareas: " + errTareas.message);
+                  await propagarPredecesorasObra(nueva.id, tPlantilla);
                 }
               } else {
                 console.warn("La plantilla de línea no tiene tareas en linea_proceso_tareas. Usá ⚙ > Importar para cargarlas.");
@@ -689,6 +837,7 @@ function TareaCard({ tarea, esGestion, archivosCount, onCambiarEstado, onEditar,
             <span style={{ fontSize: 13, color: C.t0, fontWeight: 500, wordBreak: "break-word" }}>{tarea.nombre}</span>
             {atrasada && <span style={{ fontSize: 10, padding: "1px 6px", borderRadius: 3, background: "rgba(239,68,68,0.12)", color: C.red, border: "1px solid rgba(239,68,68,0.25)", flexShrink: 0 }}>ATRASADA</span>}
             {urgente && !atrasada && <span style={{ fontSize: 10, padding: "1px 6px", borderRadius: 3, background: "rgba(245,158,11,0.1)", color: C.amber, border: "1px solid rgba(245,158,11,0.25)", flexShrink: 0 }}>VENCE PRONTO</span>}
+            <AlertaMaterialTarea tarea={tarea} cerca={atrasada || urgente} />
           </div>
 
           {tarea.descripcion && (
@@ -1273,8 +1422,14 @@ function LineasEtapasModal({ linea, lProcs, lTareas = [], detailEnabled = false,
   const [loadingTareas, setLoadingTareas] = useState(true);
   const [addingTarea,   setAddingTarea]   = useState(null);
   const [editingTarea,  setEditingTarea]  = useState(null);
-  const [tareaForm,     setTareaForm]     = useState({ nombre: "", horas_estimadas: "", personas_necesarias: "", observaciones: "", prioridad: "media" });
+  const [tareaForm,     setTareaForm]     = useState({ nombre: "", descripcion: "", responsable: "", horas_estimadas: "", dias_estimados: "", personas_necesarias: "", observaciones: "", prioridad: "media" });
   const [tareaEditBuf,  setTareaEditBuf]  = useState({});
+
+  // ── Drag & drop (reordenar) ──────────────────────────────────
+  const [dragIdx,       setDragIdx]       = useState(null);   // etapa que se arrastra
+  const [dragOverIdx,   setDragOverIdx]   = useState(null);
+  const [tareaDragId,   setTareaDragId]   = useState(null);   // tarea que se arrastra
+  const [tareaDragOver, setTareaDragOver] = useState(null);
 
   // Cargar etapas Y tareas directamente desde DB al abrir el modal
   useEffect(() => {
@@ -1347,6 +1502,9 @@ function LineasEtapasModal({ linea, lProcs, lTareas = [], detailEnabled = false,
     const maxOrden = tDeProc.length ? Math.max(...tDeProc.map(t => t.orden ?? 0)) : 0;
     const { data, error } = await supabase.from("linea_proceso_tareas").insert({
       linea_proceso_id: procId, nombre: tareaForm.nombre.trim(), orden: maxOrden + 1,
+      descripcion: tareaForm.descripcion?.trim() || null,
+      responsable: tareaForm.responsable?.trim() || null,
+      dias_estimados: tareaForm.dias_estimados !== "" ? num(tareaForm.dias_estimados) : null,
       horas_estimadas: tareaForm.horas_estimadas !== "" ? num(tareaForm.horas_estimadas) : null,
       personas_necesarias: tareaForm.personas_necesarias !== "" ? parseInt(tareaForm.personas_necesarias) : null,
       observaciones: tareaForm.observaciones.trim() || null, prioridad: tareaForm.prioridad,
@@ -1354,7 +1512,7 @@ function LineasEtapasModal({ linea, lProcs, lTareas = [], detailEnabled = false,
     if (error) { flash(false, error.message); setSaving(false); return; }
     setTareasState(prev => [...prev, data]);
     setAddingTarea(null);
-    setTareaForm({ nombre: "", horas_estimadas: "", personas_necesarias: "", observaciones: "", prioridad: "media" });
+    setTareaForm({ nombre: "", descripcion: "", responsable: "", horas_estimadas: "", dias_estimados: "", personas_necesarias: "", observaciones: "", prioridad: "media" });
     flash(true, "Tarea agregada."); setSaving(false); onSaved();
   }
 
@@ -1362,10 +1520,14 @@ function LineasEtapasModal({ linea, lProcs, lTareas = [], detailEnabled = false,
     setSaving(true);
     const payload = {
       nombre: tareaEditBuf.nombre?.trim() || undefined,
+      descripcion: tareaEditBuf.descripcion?.trim() || null,
+      responsable: tareaEditBuf.responsable?.trim() || null,
+      dias_estimados: tareaEditBuf.dias_estimados !== "" && tareaEditBuf.dias_estimados != null ? num(tareaEditBuf.dias_estimados) : null,
       horas_estimadas: tareaEditBuf.horas_estimadas !== "" ? num(tareaEditBuf.horas_estimadas) : null,
       personas_necesarias: tareaEditBuf.personas_necesarias !== "" ? parseInt(tareaEditBuf.personas_necesarias) : null,
       observaciones: tareaEditBuf.observaciones?.trim() || null,
       prioridad: tareaEditBuf.prioridad ?? "media",
+      predecesoras: Array.isArray(tareaEditBuf.predecesoras) ? tareaEditBuf.predecesoras : [],
     };
     const { error } = await supabase.from("linea_proceso_tareas").update(payload).eq("id", tareaId);
     if (error) { flash(false, error.message); setSaving(false); return; }
@@ -1442,10 +1604,41 @@ function LineasEtapasModal({ linea, lProcs, lTareas = [], detailEnabled = false,
     onSaved();
   }
 
+  async function reorderEtapas(from, to) {
+    setDragIdx(null); setDragOverIdx(null);
+    if (from == null || to == null || from === to) return;
+    const next = [...items];
+    const [moved] = next.splice(from, 1);
+    next.splice(to, 0, moved);
+    setItems(next);
+    await Promise.all(next.map((it, i) => supabase.from("linea_procesos").update({ orden: i + 1 }).eq("id", it.id)));
+    onSaved();
+  }
+
+  async function reorderTareas(procId, fromId, toId) {
+    setTareaDragId(null); setTareaDragOver(null);
+    if (!fromId || !toId || fromId === toId) return;
+    const list = tareasDeProc(procId);
+    const from = list.findIndex(t => t.id === fromId);
+    const to   = list.findIndex(t => t.id === toId);
+    if (from < 0 || to < 0) return;
+    const next = [...list];
+    const [moved] = next.splice(from, 1);
+    next.splice(to, 0, moved);
+    const ordenById = {}; next.forEach((t, i) => { ordenById[t.id] = i + 1; });
+    setTareasState(prev => prev.map(t => t.linea_proceso_id === procId ? { ...t, orden: ordenById[t.id] ?? t.orden } : t));
+    await Promise.all(next.map((t, i) => supabase.from("linea_proceso_tareas").update({ orden: i + 1 }).eq("id", t.id)));
+    onSaved();
+  }
+
+  // Predecesoras (dependencias) de una tarea: resuelve ids → nombres
+  function nombreTarea(id) { return tareasState.find(t => t.id === id)?.nombre || "tarea"; }
+  const tareasLinea = tareasState.slice().sort((a, b) => (a.orden ?? 0) - (b.orden ?? 0));
+
   const btnIcon = { border: `1px solid ${C.b0}`, background: "transparent", color: C.t2, cursor: "pointer", fontSize: 12, padding: "2px 7px", borderRadius: 5, fontFamily: C.sans };
 
   return (
-    <Overlay onClose={onClose} maxWidth={600}>
+    <Overlay onClose={onClose} maxWidth={840}>
       {toast && <div style={{ position: "fixed", bottom: 24, right: 24, zIndex: 99999, padding: "10px 18px", borderRadius: 8, fontSize: 13, fontFamily: C.sans, background: toast.ok ? "#091510" : "#150909", border: `1px solid ${toast.ok ? "rgba(60,140,80,0.5)" : "rgba(180,60,60,0.5)"}`, color: toast.ok ? "#70c080" : "#c07070" }}>{toast.text}</div>}
       <div style={{ padding: 26, overflowY: "auto" }}>
         <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: 20 }}>
@@ -1480,14 +1673,19 @@ function LineasEtapasModal({ linea, lProcs, lTareas = [], detailEnabled = false,
           )}
           <Btn variant="ghost" onClick={onClose} sx={{ fontSize: 18 }}>×</Btn>
         </div>
-        <div style={{ maxHeight: "55vh", overflowY: "auto", marginBottom: 12 }}>
+        <div style={{ maxHeight: "68vh", overflowY: "auto", marginBottom: 12 }}>
           {loadingAll && <div style={{ textAlign: "center", padding: "28px 0", color: C.t2, fontSize: 13 }}>Cargando plantilla...</div>}
           {!loadingAll && items.length === 0 && !adding && <div style={{ textAlign: "center", padding: "28px 0", color: C.t2, fontSize: 13 }}>Sin etapas en esta plantilla</div>}
           {!loadingAll && items.map((item, idx) => {
             const isEditing = editIdx === idx;
             return (
-              <div key={item.id} style={{ border: `1px solid ${isEditing ? "rgba(59,130,246,0.3)" : C.b0}`, borderRadius: 9, marginBottom: 6, background: isEditing ? "rgba(59,130,246,0.04)" : C.s0 }}>
+              <div key={item.id}
+                onDragOver={e => { if (dragIdx !== null) { e.preventDefault(); setDragOverIdx(idx); } }}
+                onDrop={e => { if (dragIdx !== null) { e.preventDefault(); reorderEtapas(dragIdx, idx); } }}
+                style={{ border: `1px solid ${dragOverIdx === idx && dragIdx !== null && dragIdx !== idx ? C.primary : isEditing ? "rgba(59,130,246,0.3)" : C.b0}`, borderRadius: 9, marginBottom: 6, background: isEditing ? "rgba(59,130,246,0.04)" : C.s0, opacity: dragIdx === idx ? 0.4 : 1, transition: "border-color .12s, opacity .12s" }}>
                 <div style={{ display: "flex", alignItems: "center", gap: 8, padding: "9px 12px" }}>
+                  <span draggable onDragStart={() => setDragIdx(idx)} onDragEnd={() => { setDragIdx(null); setDragOverIdx(null); }}
+                    title="Arrastrá para reordenar la etapa" style={{ cursor: "grab", color: C.t2, fontSize: 13, lineHeight: 1, userSelect: "none", flexShrink: 0, letterSpacing: -1 }}>⠿</span>
                   <div style={{ width: 3, height: 22, borderRadius: 2, background: item.color ?? "#64748b", flexShrink: 0 }} />
                   <span style={{ flex: 1, fontSize: 13, color: C.t0, fontWeight: 500 }}>{item.nombre}</span>
                   {item.dias_estimados && <span style={{ fontSize: 11, color: C.t2, fontFamily: C.mono }}>{item.dias_estimados}d</span>}
@@ -1525,24 +1723,61 @@ function LineasEtapasModal({ linea, lProcs, lTareas = [], detailEnabled = false,
                   {expandedProc === item.id && (
                     <div style={{ padding: "0 10px 10px" }}>
                       {tareasDeProc(item.id).map((tarea, ti) => (
-                        <div key={tarea.id} style={{ borderRadius: 6, background: editingTarea === tarea.id ? "rgba(59,130,246,0.05)" : "var(--panel)", border: "1px solid " + (editingTarea === tarea.id ? "rgba(59,130,246,0.25)" : C.b0), marginBottom: 3, padding: "6px 10px" }}>
+                        <div key={tarea.id}
+                          onDragOver={e => { if (tareaDragId) { e.preventDefault(); setTareaDragOver(tarea.id); } }}
+                          onDrop={e => { if (tareaDragId) { e.preventDefault(); reorderTareas(item.id, tareaDragId, tarea.id); } }}
+                          style={{ borderRadius: 6, background: editingTarea === tarea.id ? "rgba(59,130,246,0.05)" : "var(--panel)", border: "1px solid " + (tareaDragOver === tarea.id && tareaDragId && tareaDragId !== tarea.id ? C.primary : editingTarea === tarea.id ? "rgba(59,130,246,0.25)" : C.b0), marginBottom: 3, padding: "6px 10px", opacity: tareaDragId === tarea.id ? 0.4 : 1 }}>
                           {editingTarea !== tarea.id ? (
                             <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-                              <span style={{ fontSize: 10, color: C.t2, fontFamily: C.mono, minWidth: 18 }}>{ti + 1}.</span>
-                              <span style={{ flex: 1, fontSize: 12, color: C.t0 }}>{tarea.nombre}</span>
+                              <span draggable onDragStart={() => setTareaDragId(tarea.id)} onDragEnd={() => { setTareaDragId(null); setTareaDragOver(null); }}
+                                title="Arrastrá para reordenar la tarea" style={{ cursor: "grab", color: C.t2, fontSize: 11, userSelect: "none", letterSpacing: -1, flexShrink: 0 }}>⠿</span>
+                              <span style={{ fontSize: 10, color: C.t2, fontFamily: C.mono, minWidth: 16 }}>{ti + 1}.</span>
+                              <span style={{ flex: 1, fontSize: 12, color: C.t0 }}>
+                                {tarea.nombre}
+                                {Array.isArray(tarea.predecesoras) && tarea.predecesoras.length > 0 && (
+                                  <span style={{ display: "inline-flex", flexWrap: "wrap", gap: 4, marginLeft: 6, verticalAlign: "middle" }}>
+                                    {tarea.predecesoras.map(pid => (
+                                      <span key={pid} title="Depende de (predecesora)" style={{ fontSize: 9.5, color: C.amber, background: "rgba(245,158,11,0.1)", border: "1px solid rgba(245,158,11,0.25)", borderRadius: 4, padding: "0 5px", fontWeight: 700 }}>⤳ {nombreTarea(pid)}</span>
+                                    ))}
+                                  </span>
+                                )}
+                              </span>
                               {tarea.horas_estimadas && <span style={{ fontSize: 10, color: C.t2, fontFamily: C.mono }}>{tarea.horas_estimadas}h</span>}
                               {tarea.personas_necesarias && <span style={{ fontSize: 10, color: C.t2 }}>x{tarea.personas_necesarias}</span>}
-                              <button type="button" onClick={() => { setEditingTarea(tarea.id); setTareaEditBuf({ nombre: tarea.nombre, horas_estimadas: tarea.horas_estimadas ?? "", personas_necesarias: tarea.personas_necesarias ?? "", observaciones: tarea.observaciones ?? "", prioridad: tarea.prioridad ?? "media" }); }} style={{ ...btnIcon }}>editar</button>
+                              <button type="button" onClick={() => { setEditingTarea(tarea.id); setTareaEditBuf({ nombre: tarea.nombre, descripcion: tarea.descripcion ?? "", responsable: tarea.responsable ?? "", dias_estimados: tarea.dias_estimados ?? "", horas_estimadas: tarea.horas_estimadas ?? "", personas_necesarias: tarea.personas_necesarias ?? "", observaciones: tarea.observaciones ?? "", prioridad: tarea.prioridad ?? "media", predecesoras: Array.isArray(tarea.predecesoras) ? tarea.predecesoras : [] }); }} style={{ ...btnIcon }}>editar</button>
                               <button type="button" onClick={() => eliminarTarea(tarea)} style={{ ...btnIcon, color: C.red }}>x</button>
                             </div>
                           ) : (
                             <div>
-                              <div style={{ display: "grid", gridTemplateColumns: "1fr 70px 60px", gap: 6, marginBottom: 6 }}>
+                              <div style={{ display: "grid", gridTemplateColumns: "1fr 56px 56px 52px", gap: 6, marginBottom: 6 }}>
                                 <InputSt label="Nombre"><input style={INP} autoFocus value={tareaEditBuf.nombre} onChange={e => setTareaEditBuf(f => ({ ...f, nombre: e.target.value }))} /></InputSt>
+                                <InputSt label="Días"><input type="number" min="0" step="0.5" style={INP} value={tareaEditBuf.dias_estimados ?? ""} onChange={e => setTareaEditBuf(f => ({ ...f, dias_estimados: e.target.value }))} /></InputSt>
                                 <InputSt label="Horas"><input type="number" min="0" step="0.5" style={INP} value={tareaEditBuf.horas_estimadas} onChange={e => setTareaEditBuf(f => ({ ...f, horas_estimadas: e.target.value }))} /></InputSt>
                                 <InputSt label="Pers."><input type="number" min="1" style={INP} value={tareaEditBuf.personas_necesarias} onChange={e => setTareaEditBuf(f => ({ ...f, personas_necesarias: e.target.value }))} /></InputSt>
                               </div>
+                              <InputSt label="Descripción / detalle"><textarea style={{ ...INP, resize: "vertical", minHeight: 48 }} placeholder="Qué hay que hacer, materiales necesarios, especificaciones..." value={tareaEditBuf.descripcion ?? ""} onChange={e => setTareaEditBuf(f => ({ ...f, descripcion: e.target.value }))} /></InputSt>
+                              <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8 }}>
+                                <InputSt label="Responsable"><input style={INP} placeholder="Nombre del responsable" value={tareaEditBuf.responsable ?? ""} onChange={e => setTareaEditBuf(f => ({ ...f, responsable: e.target.value }))} /></InputSt>
+                                <InputSt label="Prioridad"><PrioridadPicker value={tareaEditBuf.prioridad} onChange={v => setTareaEditBuf(f => ({ ...f, prioridad: v }))} /></InputSt>
+                              </div>
                               <InputSt label="Observaciones"><input style={INP} value={tareaEditBuf.observaciones} onChange={e => setTareaEditBuf(f => ({ ...f, observaciones: e.target.value }))} /></InputSt>
+                              <InputSt label="Depende de (tareas previas)">
+                                <div style={{ display: "flex", flexWrap: "wrap", gap: 5 }}>
+                                  {tareasLinea.filter(t => t.id !== tarea.id).length === 0
+                                    ? <span style={{ fontSize: 11, color: C.t3 }}>No hay otras tareas en la línea todavía.</span>
+                                    : tareasLinea.filter(t => t.id !== tarea.id).map(t => {
+                                        const on = (tareaEditBuf.predecesoras ?? []).includes(t.id);
+                                        return (
+                                          <button type="button" key={t.id} onClick={() => setTareaEditBuf(f => {
+                                            const cur = f.predecesoras ?? [];
+                                            return { ...f, predecesoras: on ? cur.filter(x => x !== t.id) : [...cur, t.id] };
+                                          })} style={{ fontSize: 10.5, fontWeight: 700, cursor: "pointer", borderRadius: 999, padding: "3px 9px", border: `1px solid ${on ? C.amber : C.b0}`, background: on ? "rgba(245,158,11,0.12)" : "transparent", color: on ? C.amber : C.t2 }}>
+                                            {on ? "✓ " : ""}{t.nombre}
+                                          </button>
+                                        );
+                                      })}
+                                </div>
+                              </InputSt>
                               <div style={{ display: "flex", gap: 6, marginTop: 6 }}>
                                 <Btn variant="primary" onClick={() => guardarTarea(tarea.id)} disabled={saving}>Guardar</Btn>
                                 <Btn variant="outline" onClick={() => { setEditingTarea(null); setTareaEditBuf({}); }}>Cancelar</Btn>
@@ -1553,19 +1788,25 @@ function LineasEtapasModal({ linea, lProcs, lTareas = [], detailEnabled = false,
                       ))}
                       {addingTarea === item.id ? (
                         <div style={{ background: "rgba(59,130,246,0.04)", border: "1px solid rgba(59,130,246,0.2)", borderRadius: 7, padding: 10, marginTop: 6 }}>
-                          <div style={{ display: "grid", gridTemplateColumns: "1fr 70px 60px", gap: 6, marginBottom: 6 }}>
+                          <div style={{ display: "grid", gridTemplateColumns: "1fr 56px 56px 52px", gap: 6, marginBottom: 6 }}>
                             <InputSt label="Nombre *"><input style={INP} autoFocus placeholder="Ej: Laminado de fondo" value={tareaForm.nombre} onChange={e => setTareaForm(f => ({ ...f, nombre: e.target.value }))} /></InputSt>
+                            <InputSt label="Días"><input type="number" min="0" step="0.5" style={INP} placeholder="0" value={tareaForm.dias_estimados} onChange={e => setTareaForm(f => ({ ...f, dias_estimados: e.target.value }))} /></InputSt>
                             <InputSt label="Horas"><input type="number" min="0" step="0.5" style={INP} placeholder="0" value={tareaForm.horas_estimadas} onChange={e => setTareaForm(f => ({ ...f, horas_estimadas: e.target.value }))} /></InputSt>
                             <InputSt label="Pers."><input type="number" min="1" style={INP} placeholder="1" value={tareaForm.personas_necesarias} onChange={e => setTareaForm(f => ({ ...f, personas_necesarias: e.target.value }))} /></InputSt>
+                          </div>
+                          <InputSt label="Descripción / detalle"><textarea style={{ ...INP, resize: "vertical", minHeight: 48 }} placeholder="Qué hay que hacer, materiales necesarios, especificaciones..." value={tareaForm.descripcion} onChange={e => setTareaForm(f => ({ ...f, descripcion: e.target.value }))} /></InputSt>
+                          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8 }}>
+                            <InputSt label="Responsable"><input style={INP} placeholder="Nombre del responsable" value={tareaForm.responsable} onChange={e => setTareaForm(f => ({ ...f, responsable: e.target.value }))} /></InputSt>
+                            <InputSt label="Prioridad"><PrioridadPicker value={tareaForm.prioridad} onChange={v => setTareaForm(f => ({ ...f, prioridad: v }))} /></InputSt>
                           </div>
                           <InputSt label="Observaciones"><input style={INP} placeholder="Rubro, plano, referencia..." value={tareaForm.observaciones} onChange={e => setTareaForm(f => ({ ...f, observaciones: e.target.value }))} /></InputSt>
                           <div style={{ display: "flex", gap: 6, marginTop: 8 }}>
                             <Btn variant="primary" onClick={() => agregarTarea(item.id)} disabled={saving || !tareaForm.nombre.trim()}>Agregar tarea</Btn>
-                            <Btn variant="outline" onClick={() => { setAddingTarea(null); setTareaForm({ nombre: "", horas_estimadas: "", personas_necesarias: "", observaciones: "", prioridad: "media" }); }}>Cancelar</Btn>
+                            <Btn variant="outline" onClick={() => { setAddingTarea(null); setTareaForm({ nombre: "", descripcion: "", responsable: "", horas_estimadas: "", dias_estimados: "", personas_necesarias: "", observaciones: "", prioridad: "media" }); }}>Cancelar</Btn>
                           </div>
                         </div>
                       ) : (
-                        <button type="button" onClick={() => { setAddingTarea(item.id); setTareaForm({ nombre: "", horas_estimadas: "", personas_necesarias: "", observaciones: "", prioridad: "media" }); }}
+                        <button type="button" onClick={() => { setAddingTarea(item.id); setTareaForm({ nombre: "", descripcion: "", responsable: "", horas_estimadas: "", dias_estimados: "", personas_necesarias: "", observaciones: "", prioridad: "media" }); }}
                           style={{ width: "100%", marginTop: 4, padding: "5px", border: "1px dashed " + C.b0, borderRadius: 5, background: "transparent", color: C.t2, fontSize: 11, cursor: "pointer", fontFamily: C.sans }}>
                           + agregar tarea a plantilla
                         </button>
@@ -2011,9 +2252,27 @@ export default function ObrasScreen({ profile, signOut }) {
   // Usa la misma lógica que K43: lee linea_proceso_tareas y copia a obra_tareas.
   // Requiere haber corrido "Importar K42/K52" desde el ⚙ de la línea primero.
   async function importarTareasAObraExistente(obra) {
-    const { data: etapasObra, error: eEt } = await supabase
+    let { data: etapasObra } = await supabase
       .from("obra_etapas").select("id, linea_proceso_id").eq("obra_id", obra.id);
-    if (eEt || !etapasObra?.length) { alert("No se encontraron etapas en esta obra."); return; }
+
+    // Si el barco todavía no tiene etapas persistidas (las ve "virtuales" desde la plantilla),
+    // las creamos primero desde linea_procesos — si no, no hay dónde colgar las tareas.
+    if (!etapasObra?.length) {
+      const procs = lProcs.filter(p => p.linea_id === obra.linea_id).sort((a, b) => (a.orden ?? 0) - (b.orden ?? 0));
+      if (!procs.length) { alert("Esta obra no tiene línea de producción asociada (o la línea no tiene etapas)."); return; }
+      const { error: eIns } = await supabase.from("obra_etapas").insert(procs.map((p, i) => ({
+        obra_id: obra.id, linea_proceso_id: p.id, nombre: p.nombre, orden: p.orden ?? i + 1,
+        color: p.color ?? "#64748b", dias_estimados: p.dias_estimados, estado: "pendiente",
+        ...(hasMatrixDetailColumns(p) ? { descripcion: p.descripcion ?? null, ...matrixDetailPatch(p) } : {}),
+        genera_orden_compra: p.genera_orden_compra ?? false, orden_compra_tipo: p.orden_compra_tipo ?? "aviso",
+        orden_compra_descripcion: p.orden_compra_descripcion ?? null,
+        orden_compra_monto_estimado: p.orden_compra_monto_estimado ?? null,
+        orden_compra_dias_previo: p.orden_compra_dias_previo ?? 7,
+      })));
+      if (eIns) { alert("No se pudieron crear las etapas de esta obra: " + eIns.message); return; }
+      ({ data: etapasObra } = await supabase.from("obra_etapas").select("id, linea_proceso_id").eq("obra_id", obra.id));
+    }
+    if (!etapasObra?.length) { alert("No se encontraron etapas en esta obra."); return; }
 
     const procIds = etapasObra.map(e => e.linea_proceso_id).filter(Boolean);
     if (!procIds.length) { alert("Las etapas no tienen proceso de línea asociado."); return; }
@@ -2028,12 +2287,13 @@ export default function ObrasScreen({ profile, signOut }) {
     const tareasAInsertar = [];
     for (const etapa of etapasObra) {
       for (const tp of tPlantilla.filter(t => t.linea_proceso_id === etapa.linea_proceso_id)) {
-        tareasAInsertar.push({ obra_id: obra.id, etapa_id: etapa.id, nombre: tp.nombre, orden: tp.orden ?? 999, estado: "pendiente", prioridad: tp.prioridad ?? "media", horas_estimadas: tp.horas_estimadas ?? null, personas_necesarias: tp.personas_necesarias ?? null, observaciones: tp.observaciones ?? null });
+        tareasAInsertar.push({ obra_id: obra.id, etapa_id: etapa.id, nombre: tp.nombre, orden: tp.orden ?? 999, estado: "pendiente", prioridad: tp.prioridad ?? "media", descripcion: tp.descripcion ?? null, responsable: tp.responsable ?? null, dias_estimados: tp.dias_estimados ?? null, horas_estimadas: tp.horas_estimadas ?? null, personas_necesarias: tp.personas_necesarias ?? null, observaciones: tp.observaciones ?? null });
       }
     }
     if (!tareasAInsertar.length) { alert("No se encontraron tareas para importar. Verificá que la plantilla de línea tenga tareas cargadas."); return; }
     const { error } = await supabase.from("obra_tareas").insert(tareasAInsertar);
     if (error) { alert("Error al insertar tareas: " + error.message); return; }
+    await propagarPredecesorasObra(obra.id, tPlantilla);
     cargar();
   }
 
@@ -2276,6 +2536,7 @@ export default function ObrasScreen({ profile, signOut }) {
                         {obra.linea_nombre}
                       </div>;
                     })()}
+                    {obra.cliente && <div style={{ fontSize: 11, color: C.t1, fontWeight: 600, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", marginBottom: 5 }}>{obra.cliente}</div>}
                     <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
                       <ProgressBar value={obrapct} color={oC.dot} height={5} shimmer={obra.estado === "activa"}/>
                     </div>
@@ -2321,6 +2582,10 @@ export default function ObrasScreen({ profile, signOut }) {
 
               {expanded && (
                 <div style={{ marginTop: 6, paddingLeft: 8, animation: "expandDown 0.38s cubic-bezier(0.22,1,0.36,1)" }}>
+
+                  <FichaBarco obra={obra} esGestion={esGestion} onSave={async (id, patch) => {
+                    await supabase.from("produccion_obras").update(patch).eq("id", id); cargar();
+                  }} />
 
                   {/* ── BOTÓN IMPORTAR TAREAS (obras sin tareas aún) ── */}
                   {esGestion && !tareas.some(t => t.obra_id === obra.id) && (
