@@ -1,4 +1,4 @@
-﻿import React, { useEffect, useMemo, useRef, useState } from "react";
+import React, { useEffect, useMemo, useRef, useState } from "react";
 import { useLocation } from "react-router-dom";
 import { supabase } from "@/supabaseClient";
 import Sidebar from "@/components/Sidebar";
@@ -469,6 +469,13 @@ export default function LaminacionScreen({ profile, signOut }) {
   const egresoStockFinal = egresoStockActual - egresoCantidadPreview;
   const egresoDejaNegativo = !!materialEgresoSeleccionado && egresoCantidadPreview > egresoStockActual;
 
+  // Pedidos pendientes que coinciden con el material seleccionado para egreso
+  const pedidosDelMaterialEgreso = useMemo(() => {
+    if (!materialEgresoSeleccionado) return [];
+    return pedidos.filter(
+      (p) => String(p.material_id) === String(materialEgresoSeleccionado.id) && p.estado === "pendiente",
+    );
+  }, [pedidos, materialEgresoSeleccionado]);
   function toggleRecepcion(ref) {
     setExpandedRecepcion((prev) => {
       const next = new Set(prev);
@@ -1735,6 +1742,20 @@ export default function LaminacionScreen({ profile, signOut }) {
                                   : <>Se va a descontar <b style={{ color: C.red }}>{egresoCantidadPreview} {materialEgresoSeleccionado.unidad}</b> del stock.</>}
                               </span>
                             </div>
+                            
+                            {pedidosDelMaterialEgreso.length > 0 && (() => {
+                              const obrasSet = new Set(pedidosDelMaterialEgreso.map(p => p.obra_destino || "Varias").filter(Boolean));
+                              const obrasStr = Array.from(obrasSet).join(", ");
+                              const cant = pedidosDelMaterialEgreso.reduce((sum, p) => sum + num(p.cantidad), 0);
+                              return (
+                                <div style={{ display: "flex", alignItems: "flex-start", gap: 8, fontSize: 11, color: C.amber, lineHeight: 1.45, marginTop: 8, background: `${C.amber}15`, padding: "8px 10px", borderRadius: 8, border: `1px solid ${C.amber}25` }}>
+                                  <ShoppingCart size={14} style={{ flexShrink: 0, marginTop: 2 }} />
+                                  <span>
+                                    Hay <strong style={{ color: C.amber, fontWeight: 800 }}>{pedidosDelMaterialEgreso.length}</strong> pedido{pedidosDelMaterialEgreso.length !== 1 ? 's' : ''} pendiente{pedidosDelMaterialEgreso.length !== 1 ? 's' : ''} de este material ({cant} {materialEgresoSeleccionado.unidad}){obrasSet.size > 0 ? ` para la obra: ${obrasStr}` : ''}.
+                                  </span>
+                                </div>
+                              );
+                            })()}
                           </div>
                         ) : (
                           <div style={{ display: "grid", placeItems: "center", minHeight: 120, textAlign: "center", color: C.dim, fontSize: 13, lineHeight: 1.45 }}>

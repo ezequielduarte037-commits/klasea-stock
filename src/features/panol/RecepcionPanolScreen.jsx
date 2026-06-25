@@ -1,5 +1,5 @@
 import { C } from "@/theme";
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
   AlertTriangle,
   CheckCircle2,
@@ -29,7 +29,7 @@ const GLASS = {
 };
 
 const STATE_FILTERS = [
-  ["activos", "Activos"],
+  ["activos", "Por recibir"],
   ["enviado", "Enviados"],
   ["parcial", "Parciales"],
   ["recibido", "Recibidos"],
@@ -60,6 +60,9 @@ const SEGMENTS = [
   ["pendiente", "pendientes"],
 ];
 
+const CLOSED_ENVIO_STATES = new Set(["recibido", "cerrado", "cancelado"]);
+const PRIORITY_WEIGHT = { urgente: 4, alta: 3, media: 2, baja: 1 };
+
 function fmtFecha(ts) {
   if (!ts) return "-";
   return new Date(ts).toLocaleDateString("es-AR", { day: "2-digit", month: "2-digit", year: "2-digit" });
@@ -77,6 +80,51 @@ function rowSearchText(envio) {
   ].filter(Boolean).join(" ").toLowerCase();
 }
 
+function softBgFor(color) {
+  if (color === C.blue) return C.blueL;
+  if (color === C.amber) return C.amberL;
+  if (color === C.green) return C.greenL;
+  if (color === C.red) return C.redL;
+  if (color === C.violet) return "var(--violet-soft)";
+  return String(color || "").startsWith("#") ? `${color}14` : C.panel2;
+}
+
+function softBorderFor(color) {
+  if (color === C.blue) return C.blueB;
+  if (color === C.amber) return C.amberB;
+  if (color === C.green) return C.greenB;
+  if (color === C.red) return C.redB;
+  if (color === C.violet) return "var(--violet-border)";
+  return String(color || "").startsWith("#") ? `${color}38` : C.border;
+}
+
+function actionResumen(envio) {
+  const resumen = resumenItems(envio.items || []);
+  const parciales = resumen.by?.parcial || 0;
+  const accion = (resumen.pendientes || 0) + parciales + (resumen.problemas || 0);
+  const completoPorItems = resumen.total > 0 && accion === 0 && resumen.recibidos === resumen.total;
+  return { ...resumen, parciales, accion, completoPorItems };
+}
+
+function needsReception(envio) {
+  if (CLOSED_ENVIO_STATES.has(envio.estado)) return false;
+  const r = actionResumen(envio);
+  if (r.completoPorItems) return false;
+  return r.total === 0 || r.accion > 0;
+}
+
+function compareReceptionPriority(a, b) {
+  const ra = actionResumen(a);
+  const rb = actionResumen(b);
+  const problemDiff = (rb.problemas || 0) - (ra.problemas || 0);
+  if (problemDiff) return problemDiff;
+  const pendingDiff = (rb.accion || 0) - (ra.accion || 0);
+  if (pendingDiff) return pendingDiff;
+  const prioDiff = (PRIORITY_WEIGHT[b.prioridad] || 0) - (PRIORITY_WEIGHT[a.prioridad] || 0);
+  if (prioDiff) return prioDiff;
+  return new Date(a.created_at || 0) - new Date(b.created_at || 0);
+}
+
 function iconBox(color, IconComponent) {
   const icon = IconComponent ? <IconComponent size={15} /> : null;
   return (
@@ -87,8 +135,8 @@ function iconBox(color, IconComponent) {
       display: "grid",
       placeItems: "center",
       flexShrink: 0,
-      background: `${color}14`,
-      border: `1px solid ${color}38`,
+      background: softBgFor(color),
+      border: `1px solid ${softBorderFor(color)}`,
       color,
     }}>
       {icon}
@@ -246,10 +294,15 @@ function PriorityPill({ prioridad }) {
 }
 
 function DesktopRow({ envio, onOpen }) {
-  const resumen = resumenItems(envio.items || []);
+  const resumen = actionResumen(envio);
   const problemas = resumen.problemas || 0;
   const pendientes = resumen.pendientes || 0;
+  const parciales = resumen.parciales || 0;
   const origen = envio.origen === "compra" ? "Compras" : "Manual";
+  const pendienteTexto = [
+    pendientes > 0 ? `${pendientes} pend.` : null,
+    parciales > 0 ? `${parciales} parcial${parciales === 1 ? "" : "es"}` : null,
+  ].filter(Boolean).join(" · ");
 
   return (
     <button
@@ -303,7 +356,7 @@ function DesktopRow({ envio, onOpen }) {
         <div style={{ display: "flex", gap: 8, color: C.dim, fontSize: 11, minWidth: 0 }}>
           <span style={{ color: C.green, fontWeight: 800 }}>{resumen.recibidos}/{resumen.total}</span>
           <span>recibidos</span>
-          {pendientes > 0 && <span>{pendientes} pend.</span>}
+          {pendienteTexto && <span>{pendienteTexto}</span>}
           {problemas > 0 && <span style={{ color: C.red, fontWeight: 850 }}>{problemas} problema{problemas === 1 ? "" : "s"}</span>}
         </div>
       </div>
@@ -318,8 +371,9 @@ function DesktopRow({ envio, onOpen }) {
 }
 
 function MobileCard({ envio, onOpen }) {
-  const resumen = resumenItems(envio.items || []);
+  const resumen = actionResumen(envio);
   const problemas = resumen.problemas || 0;
+  const accion = resumen.accion || 0;
   return (
     <button
       type="button"
@@ -350,7 +404,9 @@ function MobileCard({ envio, onOpen }) {
       <ProgressSegments resumen={resumen} />
       <div style={{ display: "flex", justifyContent: "space-between", color: C.dim, fontSize: 12 }}>
         <span><strong style={{ color: C.green }}>{resumen.recibidos}/{resumen.total}</strong> recibidos</span>
-        {problemas > 0 ? <span style={{ color: C.red, fontWeight: 850 }}>{problemas} problemas</span> : <PriorityPill prioridad={envio.prioridad} />}
+        {problemas > 0
+          ? <span style={{ color: C.red, fontWeight: 850 }}>{problemas} problemas</span>
+          : accion > 0 ? <span style={{ color: C.amber, fontWeight: 850 }}>{accion} por revisar</span> : <PriorityPill prioridad={envio.prioridad} />}
       </div>
     </button>
   );
@@ -359,6 +415,7 @@ function MobileCard({ envio, onOpen }) {
 export default function RecepcionPanolScreen({ profile, signOut }) {
   const { isMobile } = useResponsive();
   const toast = useToast();
+
 
   const role = profile?.role;
   const isAdmin = !!profile?.is_admin || role === "admin";
@@ -392,29 +449,33 @@ export default function RecepcionPanolScreen({ profile, signOut }) {
 
   const filtrados = useMemo(() => {
     let rows = envios;
-    if (fEstado === "activos") rows = rows.filter((e) => !["cerrado", "cancelado"].includes(e.estado));
+    if (fEstado === "activos") rows = rows.filter(needsReception);
     else if (fEstado !== "todos") rows = rows.filter((e) => e.estado === fEstado);
     if (fPrio !== "todas") rows = rows.filter((e) => e.prioridad === fPrio);
     const term = q.trim().toLowerCase();
     if (term) rows = rows.filter((e) => rowSearchText(e).includes(term));
-    return rows;
+    return [...rows].sort(compareReceptionPriority);
   }, [envios, fEstado, fPrio, q]);
 
   const kpis = useMemo(() => {
     let pendientes = 0;
+    let parciales = 0;
     let problemas = 0;
     let recibidos = 0;
-    let parciales = 0;
+    let accionItems = 0;
     for (const e of envios) {
-      const r = resumenItems(e.items || []);
+      const r = actionResumen(e);
       pendientes += r.pendientes;
+      parciales += r.parciales;
       problemas += r.problemas;
-      if (e.estado === "recibido") recibidos += 1;
-      if (e.estado === "parcial") parciales += 1;
+      accionItems += r.accion;
+      if (e.estado === "recibido" || r.completoPorItems) recibidos += 1;
     }
-    const activos = envios.filter((e) => !["cerrado", "cancelado", "recibido"].includes(e.estado)).length;
-    return { total: envios.length, activos, pendientes, problemas, recibidos, parciales };
+    const activos = envios.filter(needsReception).length;
+    return { total: envios.length, activos, pendientes, problemas, recibidos, parciales, accionItems };
   }, [envios]);
+
+  // (Toast de pendientes eliminado → reemplazado por GlobalPanolBanner global)
 
   const shell = (children) => (
     <div style={{ background: C.bg, position: "fixed", inset: 0, overflow: "hidden", color: C.text, fontFamily: C.sans }}>
@@ -451,9 +512,9 @@ export default function RecepcionPanolScreen({ profile, signOut }) {
         <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
           {iconBox(C.blue, Warehouse)}
           <div style={{ flex: 1, minWidth: 0 }}>
-            <div style={{ fontSize: 19, fontWeight: 900, color: C.text, lineHeight: 1.1 }}>Recepción de Pañol</div>
+            <div style={{ fontSize: 19, fontWeight: 900, color: C.text, lineHeight: 1.1 }}>Recepción Pañol</div>
             <div style={{ fontSize: 11, color: C.dim, letterSpacing: 1.1, textTransform: "uppercase", marginTop: 4, fontWeight: 750 }}>
-              {sedeLocked ? `Pañol ${sedeLocked}` : "Pedidos pendientes de recepción · Pampa y Chubut"}
+              {sedeLocked ? `Pañol ${sedeLocked}` : "Bandeja operativa · Pampa y Chubut"}
             </div>
           </div>
           <SmallButton onClick={cargar} disabled={loading} title="Actualizar">
@@ -490,11 +551,11 @@ export default function RecepcionPanolScreen({ profile, signOut }) {
           gridTemplateColumns: isMobile ? "1fr 1fr" : "repeat(5, minmax(130px, 1fr))",
           gap: 10,
         }}>
-          <KpiCard icon={Inbox} label="Pedidos" value={kpis.total} color={C.blue} detail={`${filtrados.length} visibles`} />
-          <KpiCard icon={Clock3} label="En recepcion" value={kpis.activos} color={C.amber} detail={`${kpis.parciales} parciales`} />
-          <KpiCard icon={PackageOpen} label="Items pend." value={kpis.pendientes} color={C.violet} detail="por recibir" />
+          <KpiCard icon={Clock3} label="Por revisar" value={kpis.activos} color={C.amber} detail={`${kpis.accionItems} items abiertos`} />
+          <KpiCard icon={PackageOpen} label="Pendientes" value={kpis.pendientes} color={C.violet} detail="sin recibir" />
           <KpiCard icon={AlertTriangle} label="Novedades" value={kpis.problemas} color={C.red} detail="faltantes / sin info" />
-          <KpiCard icon={PackageCheck} label="Completados" value={kpis.recibidos} color={C.green} detail="recepcionados" />
+          <KpiCard icon={Inbox} label="Pedidos" value={kpis.total} color={C.blue} detail={`${filtrados.length} visibles`} />
+          <KpiCard icon={PackageCheck} label="Completados" value={kpis.recibidos} color={C.green} detail="no molestan" />
         </div>
       </div>
 
@@ -558,6 +619,34 @@ export default function RecepcionPanolScreen({ profile, signOut }) {
             <SelectFilter label="Sede" value={fSede} onChange={setFSede} options={[["todas", "Todas"], ...SEDES_PANOL.map((s) => [s, s])]} />
           )}
         </div>
+
+        {!loading && kpis.activos > 0 && (
+          <button
+            type="button"
+            onClick={() => setFEstado("activos")}
+            style={{
+              width: "100%",
+              border: `1px solid ${C.amberB}`,
+              background: "var(--amber-soft)",
+              color: C.text,
+              borderRadius: 12,
+              padding: isMobile ? "10px 12px" : "9px 12px",
+              display: "flex",
+              alignItems: "center",
+              gap: 10,
+              cursor: "pointer",
+              textAlign: "left",
+              fontFamily: C.sans,
+            }}
+          >
+            <AlertTriangle size={16} style={{ color: C.amber, flexShrink: 0 }} />
+            <span style={{ flex: 1, minWidth: 0, fontSize: 13, color: C.muted }}>
+              Hay <strong style={{ color: C.text }}>{kpis.activos}</strong> pedido{kpis.activos === 1 ? "" : "s"} pendiente{kpis.activos === 1 ? "" : "s"} de recepción para revisar
+              {kpis.problemas > 0 && <span style={{ color: C.red, fontWeight: 850 }}> · {kpis.problemas} novedad{kpis.problemas === 1 ? "" : "es"}</span>}.
+            </span>
+            {fEstado !== "activos" && <span style={{ color: C.amber, fontSize: 11, fontWeight: 850, textTransform: "uppercase", letterSpacing: 0.7 }}>Ver pendientes</span>}
+          </button>
+        )}
       </div>
 
       <div style={{ flex: 1, minHeight: 0, overflow: "hidden", display: "flex", flexDirection: "column" }}>
@@ -603,9 +692,13 @@ export default function RecepcionPanolScreen({ profile, signOut }) {
               background: C.panel,
             }}>
               <CheckCircle2 size={34} style={{ color: C.green, marginBottom: 10 }} />
-              <div style={{ fontSize: 16, fontWeight: 850, color: C.text }}>No hay pedidos para este filtro</div>
+              <div style={{ fontSize: 16, fontWeight: 850, color: C.text }}>
+                {fEstado === "activos" ? "Todo al día en recepción" : "No hay pedidos para este filtro"}
+              </div>
               <div style={{ fontSize: 13, marginTop: 6 }}>
-                {isManager ? "Podes crear un pedido nuevo o cambiar los filtros." : "Cuando compras envie algo a tu pañol, aparece aca."}
+                {fEstado === "activos"
+                  ? "Los pedidos ya recibidos quedan guardados en el filtro Recibidos."
+                  : isManager ? "Podes crear un pedido nuevo o cambiar los filtros." : "Cuando compras envie algo a tu pañol, aparece acá."}
               </div>
             </div>
           ) : (

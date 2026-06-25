@@ -30,6 +30,7 @@ import MemoriasScreen        from "@/features/memorias/MemoriasScreen";
 import { ToastProvider } from "@/components/ui/Toast";
 import { ConfirmProvider } from "@/components/ui/ConfirmDialog";
 import ChangePasswordModal from "@/features/cuenta/ChangePasswordModal";
+import GlobalPanolBanner from "@/components/GlobalPanolBanner";
 import { C } from "@/theme";
 
 import logoK from "@/assets/logos/logo-k.png";
@@ -429,6 +430,9 @@ export default function App() {
         onSignOut={signOut}
         onChanged={() => setProfile((p) => p ? { ...p, must_change_password: false } : p)}
       />
+      {session && profile && profile.role !== "cliente" && (
+        <GlobalPanolBanner profile={profile} />
+      )}
         </ConfirmProvider>
       </ToastProvider>
     </BrowserRouter>
