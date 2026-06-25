@@ -166,17 +166,44 @@ export function minToHM(min) {
 // que esto son el MISMO evento repetido (el fichero a veces toma la cara 2-3 veces seguidas
 // a la mañana, y eso no es una salida).
 const GAP_SALIDA_MIN = 60;
+const MIN_VALID_PUNCH_MIN = 6 * 60;
+const MAX_VALID_PUNCH_MIN = (19 * 60) + 59;
+const SINGLE_PUNCH_AS_EXIT_MIN = 12 * 60;
+
+function normalizePunches(punches) {
+  return [...new Set((punches ?? [])
+    .map(hhmm)
+    .filter(Boolean)
+    .filter((t) => {
+      const min = timeToMin(t);
+      return min != null && min >= MIN_VALID_PUNCH_MIN && min <= MAX_VALID_PUNCH_MIN;
+    }))]
+    .sort((a, b) => timeToMin(a) - timeToMin(b));
+}
 
 // Recalcula entrada/salida desde las fichadas reales, descartando los duplicados del fichero.
 // Si no hay fichadas (o fue editada a mano) se respeta lo guardado.
 export function resolverEntradaSalida(m) {
-  const arr = Array.isArray(m?.fichadas) ? m.fichadas.filter(Boolean) : [];
-  if (!arr.length) return { entrada: m?.entrada ?? null, salida: m?.salida ?? null };
+  const raw = Array.isArray(m?.fichadas) ? m.fichadas.filter(Boolean) : [];
+  if (!raw.length) return { entrada: hhmm(m?.entrada), salida: hhmm(m?.salida) };
+
+  const arr = normalizePunches(raw);
+  if (!arr.length) return { entrada: null, salida: null };
+
   const entrada = arr[0];
-  if (arr.length < 2) return { entrada, salida: null };
+  const ultima = arr[arr.length - 1];
   const e = timeToMin(entrada);
-  const u = timeToMin(arr[arr.length - 1]);
-  const salida = e != null && u != null && u - e >= GAP_SALIDA_MIN ? arr[arr.length - 1] : null;
+  const u = timeToMin(ultima);
+
+  if (arr.length === 1) {
+    return e >= SINGLE_PUNCH_AS_EXIT_MIN
+      ? { entrada: null, salida: entrada }
+      : { entrada, salida: null };
+  }
+
+  if (e >= SINGLE_PUNCH_AS_EXIT_MIN) return { entrada: null, salida: ultima };
+
+  const salida = e != null && u != null && u - e >= GAP_SALIDA_MIN ? ultima : null;
   return { entrada, salida };
 }
 

@@ -1,23 +1,20 @@
 // Parser del export "AllReport" del fichero Hikvision (.xls BIFF viejo).
-// Lee la hoja "Attendance Record": una fila por empleado, una columna por día
-// del período, y en cada celda las fichadas del día apiladas ("06:45\n16:00\n").
-//
-// Estructura observada del archivo real (índices 0-based, sin header):
-//   fila 2: "Create Time:2026/06/12 13:56:51"
-//   fila 3: "Made Date:2026/06/10-2026/06/12"   ← rango del período
-//   fila 4: Employee ID | Name | Department | 10 | 11 | 12 ...  ← días del mes
-//   fila 6+: datos (la 5 es subheader vacío)
+// Lee la hoja "Attendance Record": una fila por empleado, una columna por dia
+// del periodo, y en cada celda las fichadas del dia apiladas ("06:45\n16:00\n").
 //
 // Employee ID = DNI = rrhh_empleados.dni (la llave de cruce con el maestro).
 
 import * as XLSX from "xlsx";
 
 const TIME_RE = /^\d{1,2}:\d{2}$/;
+const GAP_SALIDA_MIN = 60;
+const MIN_VALID_PUNCH_MIN = 6 * 60;
+const MAX_VALID_PUNCH_MIN = (19 * 60) + 59;
+const SINGLE_PUNCH_AS_EXIT_MIN = 12 * 60;
 
 function pad2(n) { return String(n).padStart(2, "0"); }
 
 function parseMadeDate(text) {
-  // "Made Date:2026/06/10-2026/06/12"
   const m = String(text ?? "").match(/(\d{4})\/(\d{1,2})\/(\d{1,2})\s*-\s*(\d{4})\/(\d{1,2})\/(\d{1,2})/);
   if (!m) return null;
   return {
@@ -28,8 +25,6 @@ function parseMadeDate(text) {
 
 function isoOf({ y, mo, d }) { return `${y}-${pad2(mo)}-${pad2(d)}`; }
 
-// Un número de día de columna → fecha completa, resolviendo cruces de mes
-// (ej. período 28/05-04/06: día 29 → mayo, día 02 → junio).
 function dayToDate(day, periodo) {
   const { desde, hasta } = periodo;
   if (desde.y === hasta.y && desde.mo === hasta.mo) {
@@ -40,38 +35,69 @@ function dayToDate(day, periodo) {
     : isoOf({ y: hasta.y, mo: hasta.mo, d: day });
 }
 
-const GAP_SALIDA_MIN = 60; // fichadas más cercanas que esto = mismo evento (duplicado del fichero), no salida
 function fichaToMin(s) {
   const m = /^(\d{1,2}):(\d{2})/.exec(String(s || "").trim());
   return m ? Number(m[1]) * 60 + Number(m[2]) : null;
 }
 
+function normalizePunches(punches) {
+  return [...new Set((punches ?? [])
+    .map(s => String(s ?? "").trim())
+    .filter(s => TIME_RE.test(s))
+    .map(s => (s.length === 4 ? `0${s}` : s))
+    .filter(s => {
+      const min = fichaToMin(s);
+      return min != null && min >= MIN_VALID_PUNCH_MIN && min <= MAX_VALID_PUNCH_MIN;
+    }))]
+    .sort((a, b) => fichaToMin(a) - fichaToMin(b));
+}
+
+function resolverEntradaSalida(fichadas) {
+  const arr = normalizePunches(fichadas);
+  if (!arr.length) return { entrada: null, salida: null, fichadas: [] };
+
+  const primera = arr[0];
+  const ultima = arr[arr.length - 1];
+  const pMin = fichaToMin(primera);
+  const uMin = fichaToMin(ultima);
+
+  if (arr.length === 1) {
+    return pMin >= SINGLE_PUNCH_AS_EXIT_MIN
+      ? { entrada: null, salida: primera, fichadas: arr }
+      : { entrada: primera, salida: null, fichadas: arr };
+  }
+
+  if (pMin >= SINGLE_PUNCH_AS_EXIT_MIN) {
+    return { entrada: null, salida: ultima, fichadas: arr };
+  }
+
+  const salida = pMin != null && uMin != null && uMin - pMin >= GAP_SALIDA_MIN ? ultima : null;
+  return { entrada: primera, salida, fichadas: arr };
+}
+
 function parsePunches(cell) {
   if (cell == null) return [];
-  return String(cell)
+  return normalizePunches(String(cell)
     .split(/[\n\r]+/)
-    .map(s => s.trim())
-    .filter(s => TIME_RE.test(s))
-    .map(s => (s.length === 4 ? `0${s}` : s)); // 7:04 → 07:04
+    .map(s => s.trim()));
 }
 
 /**
  * Parsea el ArrayBuffer de un AllReport_*.xls.
  * Devuelve { periodo: {desde, hasta}, dias: [...], empleados: [{dni, nombre, marcaciones: [...]}] }
- * donde cada marcación es { fecha, entrada, salida, fichadas }.
- * Lanza Error con mensaje en español si el formato no es el esperado.
+ * donde cada marcacion es { fecha, entrada, salida, fichadas }.
+ * Lanza Error con mensaje en espanol si el formato no es el esperado.
  */
 export function parseHikvisionReport(arrayBuffer) {
   const wb = XLSX.read(arrayBuffer, { type: "array", cellDates: false });
 
   const sheetName = wb.SheetNames.find(n => /attendance\s*record/i.test(n));
   if (!sheetName) {
-    throw new Error(`No encontré la hoja "Attendance Record". Hojas del archivo: ${wb.SheetNames.join(", ")}. ¿Es el export "AllReport" del Hikvision?`);
+    throw new Error(`No encontre la hoja "Attendance Record". Hojas del archivo: ${wb.SheetNames.join(", ")}. Es el export "AllReport" del Hikvision?`);
   }
 
   const rows = XLSX.utils.sheet_to_json(wb.Sheets[sheetName], { header: 1, raw: false, defval: null });
 
-  // Período: buscar "Made Date:" en las primeras filas
   let periodo = null;
   for (let i = 0; i < Math.min(rows.length, 8); i++) {
     for (const cell of rows[i] ?? []) {
@@ -80,18 +106,16 @@ export function parseHikvisionReport(arrayBuffer) {
     }
     if (periodo) break;
   }
-  if (!periodo) throw new Error('No encontré el rango de fechas ("Made Date:...") en el archivo.');
+  if (!periodo) throw new Error('No encontre el rango de fechas ("Made Date:...") en el archivo.');
 
-  // Header: fila que empieza con "Employee ID"
   let headerIdx = -1;
   for (let i = 0; i < Math.min(rows.length, 12); i++) {
     if (String(rows[i]?.[0] ?? "").trim().toLowerCase() === "employee id") { headerIdx = i; break; }
   }
-  if (headerIdx < 0) throw new Error('No encontré la fila de encabezados ("Employee ID").');
+  if (headerIdx < 0) throw new Error('No encontre la fila de encabezados ("Employee ID").');
 
-  // Columnas de día: celdas numéricas (1-31) después de Department
   const header = rows[headerIdx];
-  const dayCols = []; // [{col, fecha}]
+  const dayCols = [];
   for (let c = 3; c < header.length; c++) {
     const v = header[c];
     if (v == null || v === "") continue;
@@ -100,7 +124,7 @@ export function parseHikvisionReport(arrayBuffer) {
       dayCols.push({ col: c, fecha: dayToDate(day, periodo) });
     }
   }
-  if (!dayCols.length) throw new Error("No encontré columnas de días en el encabezado.");
+  if (!dayCols.length) throw new Error("No encontre columnas de dias en el encabezado.");
 
   const empleados = [];
   for (let i = headerIdx + 1; i < rows.length; i++) {
@@ -108,17 +132,13 @@ export function parseHikvisionReport(arrayBuffer) {
     if (!r) continue;
     const dni = String(r[0] ?? "").trim();
     const nombre = String(r[1] ?? "").replace(/\s+/g, " ").trim();
-    if (!/^\d{5,10}$/.test(dni) || !nombre) continue; // subheaders / filas basura
+    if (!/^\d{5,10}$/.test(dni) || !nombre) continue;
 
     const marcaciones = [];
     for (const { col, fecha } of dayCols) {
       const fichadas = parsePunches(r[col]);
-      if (!fichadas.length) continue; // sin fichadas ese día = ausente, no se crea fila
-      const ult = fichadas[fichadas.length - 1];
-      const eMin = fichaToMin(fichadas[0]);
-      const uMin = fichaToMin(ult);
-      const salida = fichadas.length >= 2 && eMin != null && uMin != null && uMin - eMin >= GAP_SALIDA_MIN ? ult : null;
-      marcaciones.push({ fecha, entrada: fichadas[0], salida, fichadas });
+      if (!fichadas.length) continue;
+      marcaciones.push({ fecha, ...resolverEntradaSalida(fichadas) });
     }
     empleados.push({ dni, nombre, marcaciones });
   }

@@ -452,6 +452,7 @@ export default function PresentismoTab({ empleados, contratistas, config, esAdmi
         entrada,
         salida,
         min,
+        sinEntrada: !entrada && !!salida,
         sinSalida: !!entrada && !salida,
         tarde: esDiaHabil && entrada != null && timeToMin(entrada) > tardeMin,
         fichadas: Array.isArray(m.fichadas) ? m.fichadas : [],
@@ -470,7 +471,7 @@ export default function PresentismoTab({ empleados, contratistas, config, esAdmi
       const qq = q.toLowerCase();
       rows = rows.filter(r => safeText(r.emp.nombre).toLowerCase().includes(qq) || safeText(r.emp.dni).includes(qq));
     }
-    if (soloAnomalias) rows = rows.filter(r => r.sinSalida || r.tarde);
+    if (soloAnomalias) rows = rows.filter(r => r.sinEntrada || r.sinSalida || r.tarde);
     return [...rows].sort((a, b) =>
       a.fecha !== b.fecha ? a.fecha.localeCompare(b.fecha) : safeText(a.emp.nombre).localeCompare(safeText(b.emp.nombre), "es"));
   }, [filas, filtroSede, filtroGrupo, q, soloAnomalias]);
@@ -501,7 +502,7 @@ export default function PresentismoTab({ empleados, contratistas, config, esAdmi
       presentes: personas.size,
       casa: new Set(filtradas.filter(r => r.emp.grupo === "casa").map(r => r.emp.id)).size,
       contr: new Set(filtradas.filter(r => r.emp.grupo === "contratista").map(r => r.emp.id)).size,
-      anomalias: filtradas.filter(r => r.sinSalida || r.tarde).length,
+      anomalias: filtradas.filter(r => r.sinEntrada || r.sinSalida || r.tarde).length,
       ausentesJustificados: ausentes.filter(r => r.justificacion).length,
     };
   }, [filtradas, ausentes]);
@@ -544,7 +545,7 @@ export default function PresentismoTab({ empleados, contratistas, config, esAdmi
       r.salida ?? "",
       r.min != null ? minToHM(r.min) : "",
       r.justificacion ? "presente (justificada)" : "presente",
-      [r.sinSalida ? "sin salida" : null, r.tarde ? "tarde" : null].filter(Boolean).join(", "),
+      [r.sinEntrada ? "sin entrada" : null, r.sinSalida ? "sin salida" : null, r.tarde ? "tarde" : null].filter(Boolean).join(", "),
       r.justificacion?.motivo ?? "",
     ]);
     const absentRows = modo === "dia" ? ausentes.map(r => [
@@ -592,6 +593,7 @@ export default function PresentismoTab({ empleados, contratistas, config, esAdmi
       const names = splitNombreCompleto(r.emp.nombre);
       const obs = [
         r.tarde ? "Tarde" : null,
+        r.sinEntrada ? "Sin entrada" : null,
         r.sinSalida ? "Sin salida" : null,
         r.justificacion?.motivo || null,
       ].filter(Boolean).join(" · ");
@@ -603,7 +605,7 @@ export default function PresentismoTab({ empleados, contratistas, config, esAdmi
         salida: r.salida || "",
         sede: r.sede ?? r.emp.sede ?? "",
         jefe: nombreContratista(r.emp),
-        estado: r.tarde ? "TARDE" : "OK",
+        estado: r.sinEntrada ? "SIN ENTRADA" : r.sinSalida ? "SIN SALIDA" : r.tarde ? "TARDE" : "OK",
         observaciones: obs,
       };
     };
@@ -725,7 +727,7 @@ export default function PresentismoTab({ empleados, contratistas, config, esAdmi
             <KpiCard label="Casa" value={stats.casa} color="#60a5fa" />
             <KpiCard label="Contratistas" value={stats.contr} color="#fbbf24" />
             {modo === "dia" && <KpiCard label="Ausentes" value={ausentes.length} color={ausentes.length ? "#f87171" : C.green} sub={stats.ausentesJustificados ? `${stats.ausentesJustificados} just.` : ""} />}
-            <KpiCard label="Anomalias" value={stats.anomalias} color={stats.anomalias ? C.amber : C.green} sub="sin salida / tarde" />
+            <KpiCard label="Anomalias" value={stats.anomalias} color={stats.anomalias ? C.amber : C.green} sub="sin entrada / sin salida / tarde" />
           </div>
 
           {filtradas.length === 0 ? (
@@ -761,6 +763,7 @@ export default function PresentismoTab({ empleados, contratistas, config, esAdmi
                       <Td right mono color={r.min != null ? C.t0 : C.t2}>{r.min != null ? minToHM(r.min) : "—"}</Td>
                       <Td style={{ whiteSpace: "normal", minWidth: 190 }}>
                         {r.tarde && <span style={{ fontSize: 11, color: C.amber, marginRight: 6 }}>tarde</span>}
+                        {r.sinEntrada && <span style={{ fontSize: 11, color: "#f87171", marginRight: 6 }}>sin entrada</span>}
                         {r.sinSalida && <span style={{ fontSize: 11, color: "#f87171", marginRight: 6 }}>sin salida</span>}
                         {r.justificacion && <span title={r.justificacion.motivo} style={{ fontSize: 11, color: C.green, marginRight: 6 }}>justificada</span>}
                         <button

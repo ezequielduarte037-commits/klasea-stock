@@ -5,7 +5,7 @@ import { useEffect, useRef, useState } from "react";
 import { supabase } from "@/supabaseClient";
 import { C } from "@/theme";
 import { parseHikvisionReport } from "./hikvisionParser";
-import { fetchBatches, fmtFecha, SEDES } from "./api";
+import { fetchBatches, fmtFecha, resolverEntradaSalida, SEDES } from "./api";
 import { BTN, BTN_GREEN, BTN_PRIMARY, Cargando, INP, KpiCard } from "./ui";
 
 function cleanText(value) {
@@ -131,11 +131,24 @@ function mergeMarcacionRow(current, next) {
   const fichadas = [...new Set([...(current.fichadas ?? []), ...(next.fichadas ?? [])])]
     .filter(Boolean)
     .sort();
+  const resuelta = resolverEntradaSalida({ fichadas, entrada: current.entrada ?? next.entrada, salida: current.salida ?? next.salida });
+  if (current.editado_por) {
+    return {
+      ...current,
+      ...next,
+      entrada: current.entrada,
+      salida: current.salida,
+      fichadas,
+      sede: current.sede ?? next.sede,
+    };
+  }
   return {
     ...current,
-    entrada: fichadas[0] ?? current.entrada ?? next.entrada,
-    salida: fichadas.length >= 2 ? fichadas[fichadas.length - 1] : (current.salida ?? next.salida ?? null),
+    ...next,
+    entrada: resuelta.entrada,
+    salida: resuelta.salida,
     fichadas,
+    sede: current.sede ?? next.sede,
   };
 }
 
@@ -276,6 +289,23 @@ export default function ImportarTab({ empleados, onImported }) {
           rowsByKey.set(key, mergeMarcacionRow(rowsByKey.get(key), row));
         }
       }
+
+      const empleadoIds = [...new Set([...rowsByKey.values()].map(row => row.empleado_id).filter(Boolean))];
+      if (empleadoIds.length) {
+        const { data: existentesMarcaciones, error: existentesErr } = await supabase
+          .from("rrhh_marcaciones")
+          .select("empleado_id, fecha, entrada, salida, fichadas, editado_por, sede")
+          .in("empleado_id", empleadoIds)
+          .gte("fecha", parsed.periodo.desde)
+          .lte("fecha", parsed.periodo.hasta);
+        if (existentesErr) throw existentesErr;
+        for (const existente of existentesMarcaciones ?? []) {
+          const key = `${existente.empleado_id}|${existente.fecha}`;
+          if (!rowsByKey.has(key)) continue;
+          rowsByKey.set(key, mergeMarcacionRow(existente, rowsByKey.get(key)));
+        }
+      }
+
       const rows = [...rowsByKey.values()];
 
       // ¿cuántas ya existían? (para reportar nuevas vs actualizadas)
