@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { Download, Link as LinkIcon, PackagePlus, Pencil, RefreshCw, Save, Search, SkipForward, Trash2, Upload } from "lucide-react";
+import { Copy, Download, FileText, Link as LinkIcon, PackagePlus, Pencil, RefreshCw, Save, Search, ShoppingCart, SkipForward, Trash2, Upload } from "lucide-react";
 import Sidebar from "@/components/Sidebar";
 import { useResponsive } from "@/hooks/useResponsive";
 import { C } from "@/theme";
@@ -20,6 +20,13 @@ import {
   renombrarCategoria,
   setCantidadModelo,
   setSectoresMaterial,
+  quitarCantidadModelo,
+  fetchAddonsObra,
+  crearAddon,
+  borrarAddon,
+  fetchObraMaterialSnapshot,
+  ensureObraMaterialSnapshot,
+  updateObraSnapshotRows,
 } from "./api";
 import AvanceTab from "./AvanceTab";
 import ComprobantesTab from "./ComprobantesTab";
@@ -30,6 +37,8 @@ import ProveedoresTab from "./ProveedoresTab";
 import { csvCell, MODELOS, norm, parseMaterialesWorkbook, toBomMap } from "./materialesParser";
 import { fetchOpciones, setMaterialAreas, setProveedoresMaterial } from "./materialesConfig";
 import { AreasEditor, CondicionSelect, VariantesTab } from "./MaterialVariantes";
+import { addRequestItem, createPurchaseRequest } from "@/features/compras/purchaseRequestsApi";
+import EnviarAPanolModal from "@/features/panol/EnviarAPanolModal";
 import { BTN, BTN_GREEN, BTN_PRIMARY, Cargando, ErrorBox, INP, KpiCard, LBL, Td, Th } from "@/features/rrhh/ui";
 
 // Un material puede estar en varias áreas (campo m.areas); si todavía no hay
@@ -38,7 +47,7 @@ function materialEnArea(m, catId) {
   return (m.areas ?? [m.categoria_id]).includes(catId);
 }
 
-// ─── Jerarquía de sectores (padre → subsectores) ──────────────────────
+// Jerarqu?a de sectores (padre ? subsectores)
 const esRaiz = (c) => !c.parent_id;
 const hijosDe = (categorias, parentId) => categorias.filter((c) => c.parent_id === parentId);
 
@@ -81,7 +90,7 @@ function subdivisionesSugeridas(nombre) {
   return [];
 }
 
-// ─── Matcheo difuso contra la lista matriz (mismo criterio que Comprobantes) ──
+// Matcheo difuso contra la lista matriz (mismo criterio que Comprobantes)
 function scoreMaterial(material, query) {
   const q = norm(query);
   if (!q) return 0;
@@ -109,6 +118,317 @@ function toNum(v) {
   return Number.isFinite(n) ? n : null;
 }
 
+function qtyText(value, unidad = "") {
+  const n = toNum(value);
+  const qty = n == null ? value : Number.isInteger(n) ? String(n) : String(n).replace(".", ",");
+  return `${qty || "—"}${unidad ? ` ${unidad}` : ""}`;
+}
+
+function materialQty(material, linea) {
+  return toNum(toBomMap(material)[linea]) || 0;
+}
+
+function priceInfo(material) {
+  const p = precioVigente(material);
+  const amount = p?.precio_unitario != null && p.precio_unitario !== "" ? Number(p.precio_unitario) : null;
+  const moneda = p?.moneda === "USD" ? "USD" : "ARS";
+  return {
+    amount: Number.isFinite(amount) && amount > 0 ? amount : null,
+    moneda,
+    text: Number.isFinite(amount) && amount > 0 ? fmtMoney(amount, moneda) : "Sin precio",
+    proveedor: p?.proveedor || material.proveedor || "",
+  };
+}
+
+function mentionsLineaEje(value) {
+  const n = norm(value || "");
+  return n.includes("linea eje") || n.includes("linea de eje") || n.includes("eje") || n.includes("helice");
+}
+
+function materialBucket(material, opciones = []) {
+  const condicion = opciones.find((op) => (op.valores ?? []).some((v) => v.id === material.condicion_valor_id));
+  const valor = condicion?.valores?.find((v) => v.id === material.condicion_valor_id)?.valor || "";
+  if (mentionsLineaEje(`${condicion?.nombre || ""} ${valor} ${material.descripcion || ""}`)) {
+    return { key: "linea_eje", label: "Línea eje", color: C.violet };
+  }
+  if (material.condicion_valor_id) return { key: "variante", label: valor || "Variante", color: C.amber };
+  return { key: "base", label: "Base", color: C.green };
+}
+
+function reviewReasonForText(value) {
+  const text = String(value || "");
+  if (!text.trim()) return "";
+  if (/\?|\u00bf/.test(text)) return "Tiene signo de pregunta";
+  if (/[\uFFFD\u00C3\u00C2\u00E2]/.test(text)) return "Caracteres raros";
+  const n = norm(text);
+  if (/\b(xxx|tbd|s\/d|sin definir|por definir|a definir|revisar)\b/.test(n)) return "Dato a definir";
+  return "";
+}
+
+function reviewInfoForMaterial(material) {
+  const fields = [material?.descripcion, material?.codigo, material?.proveedor, material?.unidad_medida, material?.notas];
+  for (const field of fields) {
+    const reason = reviewReasonForText(field);
+    if (reason) return { flag: true, reason };
+  }
+  return { flag: false, reason: "" };
+}
+
+function ReviewBadge({ reason }) {
+  return (
+    <span
+      title={reason || "Revisar"}
+      style={{
+        fontSize: 10,
+        fontWeight: 900,
+        color: C.amber,
+        background: C.amberL,
+        border: `1px solid ${C.amberB}`,
+        borderRadius: 999,
+        padding: "2px 7px",
+        whiteSpace: "nowrap",
+      }}
+    >
+      Revisar
+    </span>
+  );
+}
+
+const DUPLICATE_STOPWORDS = new Set([
+  "de", "del", "la", "el", "los", "las", "un", "una", "uno", "y", "o", "con", "sin",
+  "para", "por", "p", "x", "tipo", "modelo", "marca", "color", "unidad", "unidades",
+  "kg", "kilo", "kilos", "lts", "lt", "litro", "litros", "mtrs", "mts", "metro", "metros",
+  "mm", "cm", "m2", "m3", "u", "unid", "unids",
+]);
+
+function duplicateComparableText(value) {
+  return String(value || "")
+    .replace(/[“”″]/g, '"')
+    .replace(/[–—]/g, "-")
+    .replace(/½/g, " 1/2")
+    .replace(/¼/g, " 1/4")
+    .replace(/¾/g, " 3/4")
+    .replace(/\(\s*\d+(?:[.,]\d+)?\s*(?:u|un|unid|unidad|unidades|mts?|metros?|m2|m²|kg|lts?|litros?)\s*\)/gi, " ");
+}
+
+function canonicalMeasure(value) {
+  return String(value || "")
+    .toLowerCase()
+    .replace(/[“”″]/g, '"')
+    .replace(/pulg(?:adas?)?/g, '"')
+    .replace(/,/g, ".")
+    .replace(/\s+/g, " ")
+    .replace(/(\d+)\s+(\d+\/\d+)/g, "$1+$2")
+    .replace(/\s*(x)\s*/g, "x")
+    .replace(/\s*"\s*/g, "in")
+    .replace(/\s+/g, "")
+    .replace(/mts?|metros?/g, "m")
+    .replace(/lts?|litros?/g, "l")
+    .replace(/pulg/g, "in");
+}
+
+function measurementSignature(value) {
+  const text = norm(duplicateComparableText(value))
+    .replace(/[“”″]/g, '"')
+    .replace(/½/g, " 1/2")
+    .replace(/¼/g, " 1/4")
+    .replace(/¾/g, " 3/4");
+  const measures = new Set();
+  const patterns = [
+    /\b\d+(?:[.,]\d+)?\s*x\s*\d+(?:[.,]\d+)?(?:\s*x\s*\d+(?:[.,]\d+)?)?\s*(?:mm|cm|m|mts?|metros?|")?\b/g,
+    /\b(?:\d+\s+)?\d+\/\d+\s*(?:"|pulg(?:adas?)?)?/g,
+    /\b\d+(?:[.,]\d+)?\s*(?:"|pulg(?:adas?)?|mm|cm|mts?|metros?|m2|m²|m3|kg|g|lts?|litros?|v|w|kw|amp|a|ah|n|lb|hp|btu|gph)\b/g,
+  ];
+  for (const pattern of patterns) {
+    for (const match of text.matchAll(pattern)) {
+      const value = canonicalMeasure(match[0]);
+      if (value) measures.add(value);
+    }
+  }
+  return measures;
+}
+
+function hasConflictingMeasures(a, b) {
+  return a.measurements.size > 0 && b.measurements.size > 0 && !sameSet(a.measurements, b.measurements);
+}
+
+function strictMeasurementSignature(value) {
+  const text = duplicateComparableText(value)
+    .toLowerCase()
+    .normalize("NFD").replace(/[\u0300-\u036f]/g, "")
+    .replace(/[“”″]/g, '"')
+    .replace(/[¼½¾]/g, (m) => ({ "¼": " 1/4", "½": " 1/2", "¾": " 3/4" }[m] || m));
+  const measures = new Set();
+  const patterns = [
+    /\b\d+(?:[.,]\d+)?\s*x\s*\d+(?:[.,]\d+)?(?:\s*x\s*\d+(?:[.,]\d+)?)?\s*(?:mm|cm|m|mts?|metros?|")?\b/g,
+    /\b(?:\d+\s+)?\d+\/\d+\s*(?:"|pulg(?:adas?)?)?/g,
+    /\b\d+(?:[.,]\d+)?\s*"/g,
+    /\b\d+(?:[.,]\d+)?\s*(?:"|pulg(?:adas?)?|mm|cm|mts?|metros?|m2|m²|m3|kg|g|lts?|litros?|v|w|kw|amp|a|ah|n|lb|hp|btu|gph)\b/g,
+  ];
+  for (const pattern of patterns) {
+    for (const match of text.matchAll(pattern)) {
+      const value = canonicalMeasure(match[0]);
+      if (value) measures.add(value);
+    }
+  }
+  return measures;
+}
+
+function duplicateTokens(value) {
+  return norm(duplicateComparableText(value))
+    .replace(/(\d+)\s+(v|w|mm|cm|kg|lt|lts|m2|m3)\b/g, "$1$2")
+    .replace(/[^a-z0-9]+/g, " ")
+    .split(/\s+/)
+    .map((token) => token.trim())
+    .filter(Boolean)
+    .map((token) => (token.length > 4 && token.endsWith("s") ? token.slice(0, -1) : token))
+    .filter((token) => token.length > 1 && !DUPLICATE_STOPWORDS.has(token));
+}
+
+function duplicateMeta(material) {
+  const tokens = duplicateTokens(material?.descripcion);
+  const code = norm(material?.codigo || "").replace(/[^a-z0-9]+/g, "");
+  const measurements = strictMeasurementSignature(material?.descripcion);
+  return {
+    material,
+    code,
+    text: tokens.join(" "),
+    tokenSet: new Set(tokens),
+    measurements,
+    numbers: new Set(tokens.filter((token) => /\d/.test(token) && !/^\d+(u|unid|unidad|unidades)$/.test(token))),
+  };
+}
+
+function sameSet(a, b) {
+  if (a.size !== b.size) return false;
+  for (const value of a) if (!b.has(value)) return false;
+  return true;
+}
+
+function duplicateScore(a, b) {
+  if (hasConflictingMeasures(a, b)) return { score: 0, reason: "Cambia medida" };
+  if (a.code && b.code && a.code === b.code) return { score: 98, reason: "Mismo codigo" };
+  if (!a.text || !b.text) return { score: 0, reason: "" };
+  if (a.text === b.text) return { score: 96, reason: "Misma descripcion" };
+
+  const shared = [...a.tokenSet].filter((token) => b.tokenSet.has(token)).length;
+  if (shared < 2) return { score: 0, reason: "" };
+
+  const min = Math.min(a.tokenSet.size, b.tokenSet.size) || 1;
+  const union = new Set([...a.tokenSet, ...b.tokenSet]).size || 1;
+  const jaccard = shared / union;
+  const containment = shared / min;
+  const numbersMatter = a.numbers.size > 0 && b.numbers.size > 0;
+  const numberMatch = !numbersMatter || sameSet(a.numbers, b.numbers);
+  if (numbersMatter && !numberMatch) return { score: Math.round(jaccard * 58), reason: "Parecido, pero cambia medida/codigo" };
+
+  const includes = a.text.includes(b.text) || b.text.includes(a.text);
+  let score = jaccard * 70 + containment * 20;
+  if (includes) score += 8;
+  if (numberMatch && numbersMatter) score += 8;
+  if ((a.measurements.size > 0) !== (b.measurements.size > 0)) score -= 12;
+  const rounded = Math.round(score);
+  return {
+    score: rounded,
+    reason: rounded >= 92 ? "Descripcion casi igual" : "Muy parecido",
+  };
+}
+
+function materialCompletenessScore(material) {
+  const precio = priceInfo(material);
+  return (material.revisado ? 25 : 0)
+    + (precio.amount ? 24 : 0)
+    + ((material.modelos?.length || 0) * 6)
+    + (material.codigo ? 8 : 0)
+    + (material.proveedor || material.proveedor_id ? 6 : 0)
+    + (material.imagen_url ? 5 : 0)
+    + (material.notas ? 3 : 0);
+}
+
+function findDuplicateGroups(materiales = [], categorias = [], selectedId = "") {
+  const scope = selectedId ? idsScope(categorias, selectedId) : null;
+  const list = materiales
+    .filter(materialActivo)
+    .filter((m) => !scope || materialEnScope(m, scope));
+  const metas = list.map(duplicateMeta);
+  const parent = metas.map((_, idx) => idx);
+  const bestPairs = new Map();
+
+  const find = (idx) => {
+    while (parent[idx] !== idx) {
+      parent[idx] = parent[parent[idx]];
+      idx = parent[idx];
+    }
+    return idx;
+  };
+  const unite = (a, b) => {
+    const pa = find(a);
+    const pb = find(b);
+    if (pa !== pb) parent[pb] = pa;
+  };
+
+  for (let i = 0; i < metas.length; i += 1) {
+    for (let j = i + 1; j < metas.length; j += 1) {
+      const result = duplicateScore(metas[i], metas[j]);
+      if (result.score >= 84) {
+        unite(i, j);
+        bestPairs.set(`${i}:${j}`, result);
+      }
+    }
+  }
+
+  const grouped = new Map();
+  metas.forEach((meta, idx) => {
+    const key = find(idx);
+    if (!grouped.has(key)) grouped.set(key, []);
+    grouped.get(key).push({ ...meta, idx });
+  });
+
+  return [...grouped.values()]
+    .filter((items) => items.length > 1)
+    .map((items) => {
+      let best = { score: 0, reason: "Muy parecido" };
+      for (let a = 0; a < items.length; a += 1) {
+        for (let b = a + 1; b < items.length; b += 1) {
+          const direct = bestPairs.get(`${items[a].idx}:${items[b].idx}`) || duplicateScore(items[a], items[b]);
+          if (direct.score > best.score) best = direct;
+        }
+      }
+      const materials = items.map((item) => item.material)
+        .sort((a, b) => materialCompletenessScore(b) - materialCompletenessScore(a));
+      return {
+        id: materials.map((m) => m.id).join(":"),
+        score: best.score,
+        reason: best.reason,
+        keeperId: materials[0]?.id,
+        materials,
+      };
+    })
+    .sort((a, b) => b.score - a.score || b.materials.length - a.materials.length);
+}
+
+function buildOrdenTexto({ obra, lineaNombre, rows, groupBy = "proveedor" }) {
+  const grupos = new Map();
+  rows.forEach((row) => {
+    const key = groupBy === "rubro" ? row.rubro : groupBy === "tipo" ? row.tipo : row.proveedor;
+    const label = key || "Sin clasificar";
+    if (!grupos.has(label)) grupos.set(label, []);
+    grupos.get(label).push(row);
+  });
+  const title = obra?.codigo ? `Orden de compra - ${obra.codigo}` : `Orden de compra - ${lineaNombre || "lista matriz"}`;
+  const lines = [title, ""];
+  for (const [label, items] of grupos) {
+    lines.push(label.toUpperCase());
+    items.forEach((item) => {
+      const codigo = item.codigo ? ` (${item.codigo})` : "";
+      const obs = item.obs ? ` - ${item.obs}` : "";
+      lines.push(`- ${qtyText(item.cantidad, item.unidad)} - ${item.descripcion}${codigo}${obs}`);
+    });
+    lines.push("");
+  }
+  return lines.join("\n").trim();
+}
+
 // Mapea el nombre de sector que sugiere la IA a una categoría real (por nombre).
 function catIdPorNombre(categorias, nombre) {
   if (!nombre) return "";
@@ -121,14 +441,15 @@ function catIdPorNombre(categorias, nombre) {
 
 // Principales: lo que se usa a diario. El resto va en un menú "Más ▾".
 const TABS_MAIN = [
-  { key: "matriz", label: "Lista matriz" },
-  { key: "revision", label: "Revisión guiada" },
+  { key: "lineas", label: "Líneas" },
+  { key: "matriz", label: "Catálogo completo" },
   { key: "costos", label: "Costo de obra" },
 ];
 const TABS_MORE = [
   { key: "comprobantes", label: "Comprobantes" },
   { key: "importar", label: "Importar" },
   { key: "bandeja", label: "Bandeja" },
+  { key: "revision", label: "Revisión guiada" },
   { key: "variantes", label: "Variantes" },
   { key: "proveedores", label: "Proveedores" },
   { key: "avance", label: "Avance" },
@@ -661,6 +982,7 @@ function MaterialRow({ material, categorias, ums, proveedores, onChanged, modelo
   const [draft, setDraft] = useState(() => ({ ...material, precio_unitario: inputNumberValue(material.precio_unitario) }));
   const [cantidades, setCantidades] = useState(() => toBomMap(material));
   const [saving, setSaving] = useState(false);
+  const review = reviewInfoForMaterial(material);
 
   useEffect(() => {
     setDraft({ ...material, precio_unitario: inputNumberValue(material.precio_unitario) });
@@ -685,7 +1007,7 @@ function MaterialRow({ material, categorias, ums, proveedores, onChanged, modelo
   }
 
   return (
-    <tr>
+    <tr style={review.flag ? { background: C.amberL } : undefined}>
       {!compact && (
         <Td style={{ minWidth: 78 }}>
           <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
@@ -695,6 +1017,7 @@ function MaterialRow({ material, categorias, ums, proveedores, onChanged, modelo
         </Td>
       )}
       <Td style={{ minWidth: compact ? 230 : 260 }}>
+        {review.flag && <div style={{ marginBottom: 5 }}><ReviewBadge reason={review.reason} /></div>}
         <input value={draft.descripcion || ""} onChange={(e) => setDraft((d) => ({ ...d, descripcion: e.target.value }))} style={{ ...INP, width: "100%" }} />
       </Td>
       <Td style={{ minWidth: 150 }}>
@@ -766,8 +1089,8 @@ function MaterialRow({ material, categorias, ums, proveedores, onChanged, modelo
 
 // Fila simple para la "Lista matriz": muestra Item + Proveedor y, al tocar el lápiz,
 // despliega el editor completo. Mucho más angosto que la tabla.
-function MaterialFila({ material, categorias, ums, proveedores, onChanged, linea = "" }) {
-  const [editing, setEditing] = useState(false);
+function MaterialFila({ material, categorias, ums, proveedores, onChanged, linea = "", initialOpen = false }) {
+  const [editing, setEditing] = useState(initialOpen);
   const [draft, setDraft] = useState(() => ({ ...material, precio_unitario: inputNumberValue(material.precio_unitario) }));
   const [cantidades, setCantidades] = useState(() => toBomMap(material));
   const [sectores, setSectores] = useState(() => (material.areas?.length ? material.areas : [material.categoria_id].filter(Boolean)));
@@ -800,14 +1123,16 @@ function MaterialFila({ material, categorias, ums, proveedores, onChanged, linea
   const sector = categorias.find((c) => c.id === material.categoria_id)?.nombre;
   const bom = toBomMap(material);
   const lineasConQty = MODELOS.filter((m) => toNum(bom[m]) > 0);
+  const review = reviewInfoForMaterial(material);
   const lbl = { fontSize: 10, letterSpacing: 0.6, color: C.t2, textTransform: "uppercase", fontWeight: 700, display: "block", marginBottom: 4 };
 
   return (
-    <div style={{ border: `1px solid ${editing ? C.b1 : C.b0}`, borderRadius: 10, marginBottom: 6, background: editing ? "var(--panel)" : C.s0, overflow: "hidden" }}>
+    <div style={{ border: `1px solid ${editing ? C.b1 : review.flag ? C.amberB : C.b0}`, borderRadius: 10, marginBottom: 6, background: editing ? "var(--panel)" : review.flag ? C.amberL : C.s0, overflow: "hidden" }}>
       <div onClick={() => setEditing((v) => !v)} style={{ display: "flex", alignItems: "center", gap: 10, padding: "9px 12px", cursor: "pointer" }}>
         <div style={{ flex: 1, minWidth: 0 }}>
           <div style={{ fontSize: 13, color: C.t0, fontWeight: 600, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{material.descripcion || "(sin descripción)"}</div>
           <div style={{ display: "flex", gap: 7, marginTop: 2, fontSize: 11, color: C.t2, alignItems: "center", flexWrap: "wrap" }}>
+            {review.flag && <ReviewBadge reason={review.reason} />}
             <span style={{ overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", maxWidth: 240 }}>{material.proveedor || "Sin proveedor"}</span>
             {material.proveedores_lista?.length > 0 && (
               <span title={`Otros proveedores: ${material.proveedores_lista.map((p) => (proveedores.find((x) => x.id === p.proveedor_id)?.nombre || "?") + (p.precio != null && p.precio !== "" ? ` $${p.precio}${p.moneda ? " " + p.moneda : ""}` : "")).join(" · ")}`}
@@ -921,35 +1246,333 @@ function MaterialFila({ material, categorias, ums, proveedores, onChanged, linea
   );
 }
 
-function ListaMateriales({ categorias, materiales, selectedId, ums, proveedores, onChanged, defaultSoloPendientes = true, compact = false }) {
+function PrepararCompra({ items, linea, categorias = [], obra = null, addons = [] }) {
+  const [open, setOpen] = useState(false);
+  const [groupBy, setGroupBy] = useState("proveedor");
+  const [copied, setCopied] = useState(false);
+  const [creando, setCreando] = useState(null);
+  const [hechos, setHechos] = useState([]);
+  const [genErr, setGenErr] = useState(null);
+
+  const orderRows = useMemo(() => {
+    const matRows = (items ?? []).map((m) => {
+      const precio = priceInfo(m);
+      return {
+        descripcion: m.descripcion,
+        codigo: m.codigo,
+        cantidad: materialQty(m, linea) || 1,
+        unidad: m.unidad_medida || "unidad",
+        proveedor: precio.proveedor || m.proveedor || "Sin proveedor",
+        rubro: categoriaNombre(categorias, m.categoria_id),
+        tipo: materialBucket(m).label,
+        obs: m.notas || "",
+        precio,
+      };
+    });
+    const addRows = (addons ?? []).map((a) => ({
+      descripcion: a.descripcion,
+      codigo: "",
+      cantidad: a.cantidad || 1,
+      unidad: "unidad",
+      proveedor: a.proveedor || "Sin proveedor",
+      rubro: a.tipo === "opcional" ? "Opcionales" : "Adicionales",
+      tipo: "Addon",
+      obs: a.observaciones || "",
+      precio: { amount: 0, moneda: null, proveedor: a.proveedor || "" },
+    }));
+    return [...matRows, ...addRows];
+  }, [items, linea, categorias, addons]);
+
+  async function pedirGrupo(g) {
+    setCreando(g.label); setGenErr(null);
+    try {
+      const req = await createPurchaseRequest({ form: {
+        title: `Pedido ${obra?.codigo || `K${linea}`} · ${g.label}`,
+        description: `${g.items.length} ítems${obra ? ` del barco ${obra.codigo}` : ` de la línea K${linea}`} (${groupBy}: ${g.label}).`,
+        priority: "media", source: "materiales", project_id: obra?.id || null,
+      } });
+      for (const row of g.items) {
+        await addRequestItem(req.id, { description: row.descripcion, quantity: toNum(row.cantidad) || 1, unit: row.unidad || null });
+      }
+      setHechos((h) => [...h, g.label]);
+    } catch (e) {
+      setGenErr(e?.message || "No se pudo crear el pedido.");
+    } finally {
+      setCreando(null);
+    }
+  }
+
+  const grupos = useMemo(() => {
+    const map = {};
+    orderRows.forEach((row) => {
+      const key = (groupBy === "rubro" ? row.rubro : groupBy === "tipo" ? row.tipo : row.proveedor).trim() || "Sin clasificar";
+      if (!map[key]) map[key] = { label: key, items: [], usd: 0, ars: 0 };
+      map[key].items.push(row);
+      if (row.precio.amount) {
+        if (row.precio.moneda === "USD") map[key].usd += row.precio.amount * (toNum(row.cantidad) || 1);
+        else map[key].ars += row.precio.amount * (toNum(row.cantidad) || 1);
+      }
+    });
+    return Object.values(map).sort((a, b) => b.items.length - a.items.length || a.label.localeCompare(b.label, "es"));
+  }, [orderRows, groupBy]);
+
+  async function copiarTodo() {
+    const text = buildOrdenTexto({ obra: { codigo: `K${linea}` }, lineaNombre: `K${linea}`, rows: orderRows, groupBy });
+    await navigator.clipboard?.writeText(text);
+    setCopied(true);
+    setTimeout(() => setCopied(false), 1600);
+  }
+
+  if (!items?.length) return null;
+
+  return (
+    <div style={{ marginBottom: 14 }}>
+      <button type="button" onClick={() => setOpen((v) => !v)} style={{ ...BTN, padding: "8px 14px", display: "inline-flex", alignItems: "center", gap: 7, fontWeight: 700 }}>
+        <ShoppingCart size={14} /> Preparar orden de compra {open ? "▴" : "▾"}
+      </button>
+      {open && (
+        <div style={{ marginTop: 10, display: "grid", gap: 8 }}>
+          <div style={{ display: "flex", gap: 8, flexWrap: "wrap", alignItems: "center" }}>
+            <div style={{ fontSize: 11.5, color: C.t2, flex: "1 1 240px" }}>
+              {obra ? `Pedido estándar de ${obra.codigo} (base matriz + addons).` : "Para compras, agrupado por proveedor, rubro o tipo."} Generá el pedido directo o copialo en texto.
+            </div>
+            <select value={groupBy} onChange={(e) => setGroupBy(e.target.value)} style={{ ...INP, width: 150 }}>
+              <option value="proveedor" style={OPT_ST}>Proveedor</option>
+              <option value="rubro" style={OPT_ST}>Rubro</option>
+              <option value="tipo" style={OPT_ST}>Tipo</option>
+            </select>
+            <button type="button" onClick={copiarTodo} style={{ ...BTN_GREEN, padding: "8px 13px" }}>
+              <Copy size={13} /> {copied ? "Copiado" : "Copiar orden"}
+            </button>
+          </div>
+          {genErr && <div style={{ fontSize: 12, color: C.red }}>{genErr}</div>}
+          {grupos.map((g) => (
+            <div key={g.label} style={{ border: `1px solid ${C.b0}`, borderRadius: 10, background: C.s0, padding: "10px 12px", display: "flex", alignItems: "center", gap: 10 }}>
+              <div style={{ flex: 1, minWidth: 0 }}>
+                <div style={{ fontSize: 13, fontWeight: 700, color: C.t0, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{g.label}</div>
+                <div style={{ fontSize: 11.5, color: C.t2 }}>
+                  {g.items.length} items{g.usd ? ` · ${fmtMoney(g.usd, "USD")}` : ""}{g.ars ? ` · ${fmtMoney(g.ars, "ARS")}` : ""}
+                </div>
+              </div>
+              {hechos.includes(g.label)
+                ? <span style={{ fontSize: 12, color: C.green, fontWeight: 800, flexShrink: 0 }}>✓ Pedido creado</span>
+                : <button type="button" onClick={() => pedirGrupo(g)} disabled={creando === g.label} style={{ ...BTN_GREEN, padding: "6px 12px", flexShrink: 0 }}>{creando === g.label ? "Creando…" : "Pedir a compras"}</button>}
+            </div>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
+
+function AgregarItemLinea({ linea, title, materiales = [], categorias = [], proveedores = [], ums = [], onChanged }) {
+  const [open, setOpen] = useState(false);
+  const [mode, setMode] = useState("existente");
+  const [q, setQ] = useState("");
+  const [selectedId, setSelectedId] = useState("");
+  const [cantidad, setCantidad] = useState("1");
+  const [saving, setSaving] = useState(false);
+  const [err, setErr] = useState(null);
+  const [draft, setDraft] = useState({ descripcion: "", codigo: "", categoria_id: "", proveedor_id: "", proveedor: "", unidad_medida: "unidad" });
+
+  useEffect(() => {
+    if (!draft.categoria_id && categorias[0]?.id) setDraft((d) => ({ ...d, categoria_id: categorias[0].id }));
+  }, [categorias, draft.categoria_id]);
+
+  const existentesFuera = useMemo(
+    () => (materiales ?? []).filter(materialActivo).filter((m) => materialQty(m, linea) <= 0),
+    [materiales, linea],
+  );
+
+  const candidatos = useMemo(() => {
+    const query = q.trim();
+    if (query.length >= 2) return topMateriales(existentesFuera, query).slice(0, 8);
+    return existentesFuera
+      .slice()
+      .sort((a, b) => (a.descripcion || "").localeCompare(b.descripcion || "", "es"))
+      .slice(0, 8);
+  }, [existentesFuera, q]);
+
+  const selected = existentesFuera.find((m) => m.id === selectedId);
+  const qty = toNum(cantidad);
+  const canSaveExisting = selected && qty != null && qty > 0;
+  const canSaveNew = draft.descripcion.trim() && draft.categoria_id && qty != null && qty > 0;
+
+  function resetSoft() {
+    setQ("");
+    setSelectedId("");
+    setCantidad("1");
+    setDraft((d) => ({ ...d, descripcion: "", codigo: "", proveedor_id: "", proveedor: "", unidad_medida: d.unidad_medida || "unidad" }));
+  }
+
+  async function addExisting() {
+    if (!canSaveExisting || saving) return;
+    setSaving(true); setErr(null);
+    try {
+      await setCantidadModelo(selected.id, linea, cantidad);
+      resetSoft();
+      await onChanged?.();
+    } catch (e) {
+      setErr(e);
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  async function createAndAdd() {
+    if (!canSaveNew || saving) return;
+    setSaving(true); setErr(null);
+    try {
+      const id = await crearMaterial({ ...draft, revisado: false }, {});
+      await setCantidadModelo(id, linea, cantidad);
+      resetSoft();
+      setMode("existente");
+      await onChanged?.();
+    } catch (e) {
+      setErr(e);
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  if (!open) {
+    return (
+      <button type="button" onClick={() => setOpen(true)} style={{ ...BTN_GREEN, padding: "9px 14px", marginBottom: 14, display: "inline-flex", alignItems: "center", gap: 7 }}>
+        <PackagePlus size={14} /> Agregar ítem a {title || `K${linea}`}
+      </button>
+    );
+  }
+
+  return (
+    <div style={{ border: `1px solid ${C.greenB || C.b1}`, borderRadius: 14, background: C.greenL || C.s0, padding: 13, marginBottom: 14 }}>
+      <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 10, marginBottom: 11, flexWrap: "wrap" }}>
+        <div>
+          <div style={{ fontSize: 13, fontWeight: 950, color: C.t0 }}>Agregar ítem a {title || `K${linea}`}</div>
+          <div style={{ fontSize: 11.5, color: C.t2, marginTop: 2 }}>Sumá un material existente o creá uno nuevo ya vinculado a esta matriz.</div>
+        </div>
+        <button type="button" onClick={() => setOpen(false)} style={{ ...BTN, padding: "6px 10px" }}>Cerrar</button>
+      </div>
+
+      <div style={{ display: "inline-flex", gap: 3, background: C.bg, border: `1px solid ${C.b0}`, borderRadius: 10, padding: 3, marginBottom: 10 }}>
+        {[
+          ["existente", "Existente"],
+          ["nuevo", "Nuevo"],
+        ].map(([key, label]) => {
+          const on = mode === key;
+          return (
+            <button key={key} type="button" onClick={() => { setMode(key); setErr(null); }} style={{ border: "none", borderRadius: 7, padding: "7px 12px", cursor: "pointer", fontSize: 12, fontWeight: 850, color: on ? "#fff" : C.t2, background: on ? C.blue : "transparent" }}>
+              {label}
+            </button>
+          );
+        })}
+      </div>
+
+      {mode === "existente" ? (
+        <div style={{ display: "grid", gap: 10 }}>
+          <div style={{ display: "grid", gridTemplateColumns: "minmax(220px, 1fr) 92px auto", gap: 8, alignItems: "center" }}>
+            <input value={q} onChange={(e) => { setQ(e.target.value); setSelectedId(""); }} placeholder="Buscar material fuera de esta línea..." style={{ ...INP, height: 38 }} />
+            <input type="number" step="any" min="0" value={cantidad} onChange={(e) => setCantidad(e.target.value)} placeholder="Cant." style={{ ...INP, height: 38, fontFamily: C.mono }} />
+            <button type="button" onClick={addExisting} disabled={!canSaveExisting || saving} style={{ ...BTN_GREEN, height: 38, padding: "0 13px" }}>
+              {saving ? "Agregando..." : "Agregar"}
+            </button>
+          </div>
+          <div style={{ display: "grid", gap: 6 }}>
+            {candidatos.map((m) => {
+              const on = selectedId === m.id;
+              return (
+                <button
+                  type="button"
+                  key={m.id}
+                  onClick={() => setSelectedId(m.id)}
+                  style={{ textAlign: "left", border: `1px solid ${on ? C.blueB : C.b0}`, background: on ? C.blueL : C.bg, color: C.t0, borderRadius: 10, padding: "9px 11px", cursor: "pointer", display: "flex", gap: 10, justifyContent: "space-between", alignItems: "center" }}
+                >
+                  <span style={{ minWidth: 0 }}>
+                    <span style={{ display: "block", fontSize: 12.5, fontWeight: 900, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{m.descripcion}</span>
+                    <span style={{ display: "block", fontSize: 11, color: C.t2, marginTop: 2 }}>{categoriaNombre(categorias, m.categoria_id)}{m.proveedor ? ` · ${m.proveedor}` : ""}</span>
+                  </span>
+                  <span style={{ fontFamily: C.mono, fontSize: 11, color: C.t2, whiteSpace: "nowrap" }}>{m.unidad_medida || "unidad"}</span>
+                </button>
+              );
+            })}
+            {!candidatos.length && (
+              <div style={{ padding: 14, color: C.t2, fontSize: 12, border: `1px dashed ${C.b0}`, borderRadius: 10, textAlign: "center" }}>
+                No encontré materiales para agregar. Podés crearlo desde la pestaña Nuevo.
+              </div>
+            )}
+          </div>
+        </div>
+      ) : (
+        <div style={{ display: "grid", gap: 8 }}>
+          <div style={{ display: "grid", gridTemplateColumns: "minmax(220px, 1.2fr) 110px 92px", gap: 8 }}>
+            <input value={draft.descripcion} onChange={(e) => setDraft((d) => ({ ...d, descripcion: e.target.value }))} placeholder="Descripción del material" style={{ ...INP, height: 38 }} />
+            <input value={draft.unidad_medida} onChange={(e) => setDraft((d) => ({ ...d, unidad_medida: e.target.value }))} list="linea-add-ums" placeholder="Unidad" style={{ ...INP, height: 38 }} />
+            <input type="number" step="any" min="0" value={cantidad} onChange={(e) => setCantidad(e.target.value)} placeholder="Cant." style={{ ...INP, height: 38, fontFamily: C.mono }} />
+          </div>
+          <datalist id="linea-add-ums">
+            {ums.map((u) => <option key={u} value={u} />)}
+          </datalist>
+          <div style={{ display: "grid", gridTemplateColumns: "minmax(180px, .8fr) minmax(180px, .8fr) 130px auto", gap: 8, alignItems: "center" }}>
+            <select value={draft.categoria_id || ""} onChange={(e) => setDraft((d) => ({ ...d, categoria_id: e.target.value }))} style={{ ...INP, height: 38 }}>
+              <option value="" style={OPT_ST}>Elegir rubro</option>
+              {categorias.map((c) => <option key={c.id} value={c.id} style={OPT_ST}>{categoriaNombre(categorias, c.id)}</option>)}
+            </select>
+            <ProveedorSelect
+              value={draft.proveedor_id}
+              textValue={draft.proveedor}
+              proveedores={proveedores}
+              onCreated={onChanged}
+              onChange={(id, nombre) => setDraft((d) => ({ ...d, proveedor_id: id, proveedor: nombre }))}
+            />
+            <input value={draft.codigo} onChange={(e) => setDraft((d) => ({ ...d, codigo: e.target.value }))} placeholder="Código" style={{ ...INP, height: 38 }} />
+            <button type="button" onClick={createAndAdd} disabled={!canSaveNew || saving} style={{ ...BTN_GREEN, height: 38, padding: "0 13px" }}>
+              {saving ? "Creando..." : "Crear y agregar"}
+            </button>
+          </div>
+        </div>
+      )}
+
+      {err && <div style={{ marginTop: 9, fontSize: 12, color: C.red }}>{err.message || "No se pudo guardar el ítem."}</div>}
+    </div>
+  );
+}
+
+function ListaMateriales({ categorias, materiales, selectedId, ums, proveedores, onChanged, defaultSoloPendientes = true, compact = false, lineaFija = "" }) {
   const [soloPendientes, setSoloPendientes] = useState(defaultSoloPendientes);
   const [q, setQ] = useState("");
-  const [linea, setLinea] = useState(""); // "" = todas las líneas
+  const [lineaState, setLineaState] = useState(""); // "" = todas las líneas
   const [prov, setProv] = useState(""); // "" = todos. Guarda el id de panol_proveedores.
+  const [rubro, setRubro] = useState("");
+  const linea = lineaFija || lineaState;
   // La lista sale de la tabla de Proveedores (no se infiere de los materiales).
   const provs = useMemo(
     () => (proveedores ?? []).filter((p) => p.activo !== false).slice().sort((a, b) => (a.nombre || "").localeCompare(b.nombre || "", "es")),
     [proveedores],
+  );
+  const rubrosFiltro = useMemo(
+    () => (categorias ?? []).slice().sort((a, b) => categoriaNombre(categorias, a.id).localeCompare(categoriaNombre(categorias, b.id), "es")),
+    [categorias],
   );
 
   const visibles = useMemo(() => {
     // Buscador: ignora acentos y exige TODAS las palabras (AND), en descripción/proveedor/código.
     const terms = norm(q).split(/\s+/).filter(Boolean);
     const scope = selectedId ? idsScope(categorias, selectedId) : null;
+    const rubroScope = rubro ? idsScope(categorias, rubro) : null;
     // Proveedor: matchea por id; si el material sólo tiene el texto, cae al nombre.
     const provNombre = prov ? norm((proveedores ?? []).find((p) => p.id === prov)?.nombre || "") : "";
     return materiales
       .filter(materialActivo)
       .filter((m) => !scope || materialEnScope(m, scope))
+      .filter((m) => !rubroScope || materialEnScope(m, rubroScope))
       .filter((m) => !linea || toNum(toBomMap(m)[linea]) > 0) // solo los que van en esa línea
       .filter((m) => !prov || m.proveedor_id === prov || (provNombre && norm(m.proveedor) === provNombre))
-      .filter((m) => !soloPendientes || !m.revisado)
+      .filter((m) => !soloPendientes || !priceInfo(m).amount)
       .filter((m) => {
         if (!terms.length) return true;
         const hay = norm(`${m.descripcion ?? ""} ${m.proveedor ?? ""} ${m.codigo ?? ""}`);
         return terms.every((t) => hay.includes(t));
       });
-  }, [materiales, categorias, q, selectedId, soloPendientes, linea, prov, proveedores]);
+  }, [materiales, categorias, q, selectedId, soloPendientes, linea, prov, proveedores, rubro]);
 
   // Si se filtra por una línea, mostramos solo esa columna de cantidad (más prolijo y angosto).
   const modelos = linea ? [linea] : MODELOS;
@@ -978,31 +1601,37 @@ function ListaMateriales({ categorias, materiales, selectedId, ums, proveedores,
           <input value={q} onChange={(e) => setQ(e.target.value)} placeholder="Buscar por descripción, proveedor o código…" style={{ ...INP, width: "100%", height: 40, paddingLeft: 36, borderRadius: 10 }} />
           {q && <button type="button" onClick={() => setQ("")} title="Limpiar" style={{ position: "absolute", right: 10, top: "50%", transform: "translateY(-50%)", background: "transparent", border: "none", color: C.t2, cursor: "pointer", fontSize: 14, lineHeight: 1, padding: 3 }}>✕</button>}
         </div>
-        <div style={{ display: "inline-flex", gap: 2, background: C.s0, border: `1px solid ${C.b0}`, borderRadius: 10, padding: 3 }}>
+        {!lineaFija && <div style={{ display: "inline-flex", gap: 2, background: C.s0, border: `1px solid ${C.b0}`, borderRadius: 10, padding: 3 }}>
           {[["", "Todas"], ...MODELOS.map((m) => [m, `K${m}`])].map(([val, label]) => {
             const on = linea === val;
             return (
-              <button type="button" key={val || "all"} onClick={() => setLinea(val)} title={val ? `Solo materiales de la línea K${val}` : "Todas las líneas"}
+              <button type="button" key={val || "all"} onClick={() => setLineaState(val)} title={val ? `Solo materiales de la línea K${val}` : "Todas las líneas"}
                 style={{ border: "none", borderRadius: 7, padding: "7px 13px", cursor: "pointer", fontSize: 12.5, fontWeight: 700, fontFamily: C.sans,
                   background: on ? C.blue : "transparent", color: on ? "#fff" : C.t2, boxShadow: on ? "0 1px 4px rgba(59,130,246,0.4)" : "none", transition: "all .12s" }}>
                 {label}
               </button>
             );
           })}
-        </div>
+        </div>}
         <select value={prov} onChange={(e) => setProv(e.target.value)} style={{ ...INP, width: 180, maxWidth: "40vw", height: 40, borderRadius: 10 }} title="Filtrar por proveedor">
           <option value="" style={OPT_ST}>Todos los proveedores</option>
           {provs.map((p) => <option key={p.id} value={p.id} style={OPT_ST}>{p.nombre}</option>)}
         </select>
-        <button type="button" onClick={() => setSoloPendientes((v) => !v)} title="Mostrar solo los que faltan revisar"
+        <select value={rubro} onChange={(e) => setRubro(e.target.value)} style={{ ...INP, width: 180, maxWidth: "40vw", height: 40, borderRadius: 10 }} title="Filtrar por rubro">
+          <option value="" style={OPT_ST}>Todos los rubros</option>
+          {rubrosFiltro.map((c) => <option key={c.id} value={c.id} style={OPT_ST}>{categoriaNombre(categorias, c.id)}</option>)}
+        </select>
+        <button type="button" onClick={() => setSoloPendientes((v) => !v)} title="Mostrar solo items sin precio"
           style={{ ...BTN, height: 40, padding: "0 13px", borderRadius: 10, display: "inline-flex", alignItems: "center", gap: 7, border: `1px solid ${soloPendientes ? "rgba(245,158,11,0.45)" : C.b0}`, background: soloPendientes ? "rgba(245,158,11,0.12)" : C.s0, color: soloPendientes ? C.amber : C.t1, fontSize: 12.5, fontWeight: 600 }}>
           <span style={{ width: 15, height: 15, borderRadius: 5, border: `1px solid ${soloPendientes ? C.amber : C.b1}`, background: soloPendientes ? C.amber : "transparent", display: "inline-flex", alignItems: "center", justifyContent: "center", color: "#000", fontSize: 11, lineHeight: 1 }}>{soloPendientes ? "✓" : ""}</span>
-          Sólo no revisados
+          Sólo sin precio
         </button>
         <span style={{ marginLeft: "auto", fontFamily: C.mono, fontSize: 12, fontWeight: 700, color: C.t1, background: C.s0, border: `1px solid ${C.b0}`, borderRadius: 999, padding: "6px 12px", whiteSpace: "nowrap" }}>
           {visibles.length} ítems{linea ? ` · K${linea}` : ""}
         </span>
       </div>
+
+      {lineaFija && <PrepararCompra items={visibles} linea={lineaFija} categorias={categorias} />}
 
       {compact ? (
         <div>
@@ -1021,7 +1650,7 @@ function ListaMateriales({ categorias, materiales, selectedId, ums, proveedores,
               {!compact && <Th>Imagen</Th>}
               <Th>Descripción</Th>
               <Th>Proveedor</Th>
-              {!compact && <Th>Último precio</Th>}
+              {!compact && <Th>?ltimo precio</Th>}
               <Th>UM</Th>
               <Th>Precio</Th>
               <Th>Moneda</Th>
@@ -1073,7 +1702,7 @@ function SectorPicker({ categorias, value, onChange, invalid }) {
       {raices.flatMap((r) => [
         <option key={r.id} value={r.id} style={OPT_HEAD}>{r.nombre}</option>,
         ...hijosDe(categorias, r.id).map((s) => (
-          <option key={s.id} value={s.id} style={OPT_ST}>{"   "}{r.nombre} › {s.nombre}</option>
+          <option key={s.id} value={s.id} style={OPT_ST}>{"   "}{r.nombre} › {s.nombre}</option>
         )),
       ])}
     </select>
@@ -1082,7 +1711,7 @@ function SectorPicker({ categorias, value, onChange, invalid }) {
 
 // Buscador por ítem para vincular con un material del catálogo aunque se llame distinto y
 // la IA no lo haya detectado. Busca en TODO el catálogo (no solo en las sugerencias de la IA).
-function VincularItem({ activos, categorias, item, onChange }) {
+function VincularItem({ activos, categorias, item, onChange, soloPrecios = false }) {
   const [q, setQ] = useState("");
   const sel = activos.find((m) => m.id === item.material_id);
   const query = q.trim();
@@ -1103,10 +1732,10 @@ function VincularItem({ activos, categorias, item, onChange }) {
             <button type="button" onClick={() => { onChange(""); setQ(""); }} style={{ ...BTN, padding: "5px 10px", whiteSpace: "nowrap" }}>Cambiar</button>
           </div>
         ) : (
-          <input value={q} onChange={(e) => setQ(e.target.value)} placeholder="🔍 Buscar un material del catálogo para vincular (si la IA no lo encontró)…" style={{ ...INP, flex: 1, fontSize: 12 }} />
+          <input value={q} onChange={(e) => setQ(e.target.value)} placeholder="ðŸ” Buscar un material del catálogo para vincular (si la IA no lo encontró)…" style={{ ...INP, flex: 1, fontSize: 12 }} />
         )}
         <span style={{ fontSize: 11, color: sel ? C.green : C.amber, fontWeight: 700, whiteSpace: "nowrap", minWidth: 104, textAlign: "right" }}>
-          {sel ? "↻ actualiza precio" : "✦ crea uno nuevo"}
+          {sel ? "actualiza precio" : soloPrecios ? "vincular" : "crea uno nuevo"}
         </span>
       </div>
       {!sel && resultados.length > 0 && (
@@ -1129,8 +1758,9 @@ function VincularItem({ activos, categorias, item, onChange }) {
 }
 
 const PRESUP_DRAFT_KEY = "klasea:presupuesto-draft";
+const PRECIOS_DRAFT_KEY = "klasea:precios-draft";
 
-function CargarPresupuestoModal({ categorias, materiales, onChanged, onClose }) {
+function CargarPresupuestoModal({ categorias, materiales, onChanged, onClose, soloPrecios = false }) {
   const [texto, setTexto] = useState("");
   const [file, setFile] = useState(null);
   const [leyendo, setLeyendo] = useState(false);
@@ -1142,13 +1772,14 @@ function CargarPresupuestoModal({ categorias, materiales, onChanged, onClose }) 
   const [restaurado, setRestaurado] = useState(false);
   const [err, setErr] = useState(null);
   const fileRef = useRef(null);
+  const draftKey = soloPrecios ? PRECIOS_DRAFT_KEY : PRESUP_DRAFT_KEY;
   const activos = useMemo(() => materiales.filter(materialActivo), [materiales]);
   const nombresSectores = useMemo(() => categorias.map((c) => c.nombre), [categorias]);
 
   // Borrador persistente: si cerrás, clickeás afuera o recargás, no se pierde lo cargado.
   useEffect(() => {
     try {
-      const d = JSON.parse(localStorage.getItem(PRESUP_DRAFT_KEY) || "null");
+      const d = JSON.parse(localStorage.getItem(draftKey) || "null");
       if (d && (d.texto || (Array.isArray(d.items) && d.items.length))) {
         if (d.texto) setTexto(d.texto);
         if (d.proveedor) setProveedor(d.proveedor);
@@ -1156,12 +1787,12 @@ function CargarPresupuestoModal({ categorias, materiales, onChanged, onClose }) 
         if (Array.isArray(d.items) && d.items.length) { setItems(d.items); setRestaurado(true); }
       }
     } catch { /* ignore */ }
-  }, []);
+  }, [draftKey]);
   useEffect(() => {
     if (resultado) return; // ya se aplicó; no re-guardar
-    try { localStorage.setItem(PRESUP_DRAFT_KEY, JSON.stringify({ texto, proveedor, linea, items })); } catch { /* ignore */ }
-  }, [texto, proveedor, linea, items, resultado]);
-  const limpiarBorrador = () => { try { localStorage.removeItem(PRESUP_DRAFT_KEY); } catch { /* ignore */ } };
+    try { localStorage.setItem(draftKey, JSON.stringify({ texto, proveedor, linea, items })); } catch { /* ignore */ }
+  }, [texto, proveedor, linea, items, resultado, draftKey]);
+  const limpiarBorrador = () => { try { localStorage.removeItem(draftKey); } catch { /* ignore */ } };
   function descartar() {
     if (!window.confirm("¿Descartar el presupuesto en curso y empezar de cero?")) return;
     limpiarBorrador();
@@ -1212,8 +1843,29 @@ function CargarPresupuestoModal({ categorias, materiales, onChanged, onClose }) 
 
   // Inválido: es "crear nuevo" (sin match) y no tiene sector asignado.
   const faltaSector = (it) => !it.material_id && it.descripcion.trim() && !it._catId;
+  const faltaVinculo = (it) => soloPrecios && it.descripcion.trim() && !it.material_id;
+  const precioValido = (it) => toNum(it.precio_unitario) != null;
 
   async function aplicar() {
+    if (soloPrecios) {
+      const aplicables = items.filter((it) => it.material_id && precioValido(it));
+      if (!aplicables.length) {
+        setErr(new Error("No hay precios listos para aplicar. Vinculá al menos un ítem del comprobante con un material existente y cargale precio."));
+        return;
+      }
+      setAplicando(true); setErr(null);
+      let actualizados = 0;
+      try {
+        for (const it of aplicables) {
+          await aplicarPrecioMaterial(it.material_id, { precio: it.precio_unitario, moneda: it.moneda, proveedor });
+          actualizados += 1;
+        }
+        setResultado({ actualizados, omitidos: items.length - actualizados, soloPrecios: true });
+        limpiarBorrador();
+        await onChanged?.();
+      } catch (e) { setErr(e); } finally { setAplicando(false); }
+      return;
+    }
     if (items.some(faltaSector)) { setErr(new Error("Asigná sector a los ítems marcados en rojo antes de aplicar.")); return; }
     setAplicando(true); setErr(null);
     let actualizados = 0, creados = 0, movidos = 0, bom = 0;
@@ -1268,13 +1920,15 @@ function CargarPresupuestoModal({ categorias, materiales, onChanged, onClose }) 
   const coinciden = items?.filter((it) => it.material_id).length ?? 0;
   const nuevos = items?.filter((it) => !it.material_id && it.descripcion.trim()).length ?? 0;
   const sinSector = items?.filter(faltaSector).length ?? 0;
+  const sinVinculo = items?.filter(faltaVinculo).length ?? 0;
+  const listosPrecio = items?.filter((it) => it.material_id && precioValido(it)).length ?? 0;
 
   return (
     <div style={{ position: "fixed", inset: 0, zIndex: 2200, background: "rgba(0,0,0,0.66)", backdropFilter: "blur(4px)", display: "flex", alignItems: "flex-start", justifyContent: "center", padding: "3vh 12px", overflowY: "auto" }}>
       <div style={{ background: C.panelSolid, border: `1px solid ${C.b1}`, borderRadius: 16, padding: 22, width: "min(1180px, 97vw)", maxHeight: "94vh", overflowY: "auto" }}>
         <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 4 }}>
           <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
-            <div style={{ fontSize: 17, fontWeight: 800, color: C.t0 }}>Cargar presupuesto</div>
+            <div style={{ fontSize: 17, fontWeight: 800, color: C.t0 }}>{soloPrecios ? "Cargar precios" : "Cargar presupuesto"}</div>
             {restaurado && !resultado && <span style={{ fontSize: 10.5, color: "#a78bfa", background: "rgba(139,92,246,0.12)", border: "1px solid rgba(139,92,246,0.3)", borderRadius: 6, padding: "2px 8px", fontWeight: 700 }}>● borrador restaurado</span>}
           </div>
           <div style={{ display: "flex", gap: 6 }}>
@@ -1283,18 +1937,22 @@ function CargarPresupuestoModal({ categorias, materiales, onChanged, onClose }) 
           </div>
         </div>
         <div style={{ fontSize: 12, color: C.t2, marginBottom: 14 }}>
-          Lo que coincide con la matriz actualiza su precio; lo nuevo lo clasifica la IA por sector (lo confirmás vos). Se guarda un borrador automático: si cerrás sin querer, lo recuperás al volver a abrir.
+          {soloPrecios
+            ? "Leé un PDF, foto o texto con IA, vinculá cada renglón con un material existente y aplicá solo precios. Lo no vinculado queda omitido: no crea materiales nuevos."
+            : "Lo que coincide con la matriz actualiza su precio; lo nuevo lo clasifica la IA por sector (lo confirmás vos). Se guarda un borrador automático: si cerrás sin querer, lo recuperás al volver a abrir."}
         </div>
 
         {err && <div style={{ marginBottom: 12 }}><ErrorBox error={err} onRetry={() => setErr(null)} /></div>}
 
         {resultado ? (
           <div style={{ background: "rgba(16,185,129,0.07)", border: "1px solid rgba(16,185,129,0.25)", borderRadius: 12, padding: 18, textAlign: "center" }}>
-            <div style={{ fontSize: 15, color: C.green, fontWeight: 700 }}>Presupuesto cargado ✓</div>
+            <div style={{ fontSize: 15, color: C.green, fontWeight: 700 }}>{soloPrecios ? "Precios cargados" : "Presupuesto cargado"} ✓</div>
             <div style={{ fontSize: 13, color: C.t1, marginTop: 6 }}>
-              {resultado.actualizados} precios actualizados · {resultado.creados} creados
-              {resultado.movidos ? ` · ${resultado.movidos} reasignados de sector` : ""}
-              {resultado.bom ? ` · ${resultado.bom} cantidades cargadas a la línea` : ""}.
+              {resultado.actualizados} precios actualizados
+              {soloPrecios && resultado.omitidos ? ` · ${resultado.omitidos} omitidos sin vínculo/precio` : ""}
+              {!soloPrecios && resultado.creados ? ` · ${resultado.creados} creados` : ""}
+              {!soloPrecios && resultado.movidos ? ` · ${resultado.movidos} reasignados de sector` : ""}
+              {!soloPrecios && resultado.bom ? ` · ${resultado.bom} cantidades cargadas a la línea` : ""}.
             </div>
             <button type="button" onClick={onClose} style={{ ...BTN_PRIMARY, marginTop: 14 }}>Listo</button>
           </div>
@@ -1324,23 +1982,32 @@ function CargarPresupuestoModal({ categorias, materiales, onChanged, onClose }) 
             <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 4, flexWrap: "wrap" }}>
               <span style={{ fontSize: 12, color: C.t2 }}>Proveedor:</span>
               <input value={proveedor} onChange={(e) => setProveedor(e.target.value)} placeholder="Proveedor" style={{ ...INP, width: 190 }} />
-              <span style={{ fontSize: 12, color: C.t2, marginLeft: 6 }}>Línea de producción:</span>
-              <select value={linea} onChange={(e) => setLinea(e.target.value)} style={{ ...INP, width: 140 }}>
-                <option value="">— Sin línea —</option>
-                {MODELOS.map((m) => <option key={m} value={m}>K{m}</option>)}
-              </select>
+              {!soloPrecios && (
+                <>
+                  <span style={{ fontSize: 12, color: C.t2, marginLeft: 6 }}>Línea de producción:</span>
+                  <select value={linea} onChange={(e) => setLinea(e.target.value)} style={{ ...INP, width: 140 }}>
+                    <option value="">— Sin línea —</option>
+                    {MODELOS.map((m) => <option key={m} value={m}>K{m}</option>)}
+                  </select>
+                </>
+              )}
               <div style={{ flex: 1 }} />
-              <span style={{ fontSize: 11, color: C.t2, fontFamily: C.mono }}>{coinciden} coinciden · {nuevos} nuevos{sinSector ? ` · ${sinSector} sin sector` : ""}</span>
+              <span style={{ fontSize: 11, color: C.t2, fontFamily: C.mono }}>
+                {soloPrecios ? `${listosPrecio} listos · ${sinVinculo} sin vincular` : `${coinciden} coinciden · ${nuevos} nuevos${sinSector ? ` · ${sinSector} sin sector` : ""}`}
+              </span>
             </div>
             <div style={{ fontSize: 11, color: linea ? "#a78bfa" : C.t2, marginBottom: 10 }}>
-              {linea ? `Las cantidades se cargan al BOM de la línea K${linea} (alimenta el Costo de obra de esa línea).` : "Sin línea: solo se crean/actualizan materiales y precios; las cantidades no se guardan."}
+              {soloPrecios
+                ? "Revisá los matches sugeridos por la IA. Si el material no es el correcto, tocá Cambiar y vinculalo manualmente antes de aplicar."
+                : linea ? `Las cantidades se cargan al BOM de la línea K${linea} (alimenta el Costo de obra de esa línea).` : "Sin línea: solo se crean/actualizan materiales y precios; las cantidades no se guardan."}
             </div>
 
             <div style={{ display: "grid", gap: 8, maxHeight: "58vh", overflowY: "auto", paddingRight: 4 }}>
               {items.map((it, idx) => {
                 const malSector = faltaSector(it);
+                const malVinculo = faltaVinculo(it);
                 return (
-                  <div key={idx} style={{ border: `1px solid ${malSector ? "rgba(239,68,68,0.5)" : it.material_id ? "rgba(16,185,129,0.3)" : C.b0}`, borderRadius: 10, padding: 10, background: C.s0 }}>
+                  <div key={idx} style={{ border: `1px solid ${malSector || malVinculo ? "rgba(239,68,68,0.5)" : it.material_id ? "rgba(16,185,129,0.3)" : C.b0}`, borderRadius: 10, padding: 10, background: C.s0 }}>
                     <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
                       <input value={it.descripcion} onChange={(e) => setItem(idx, { descripcion: e.target.value })} style={{ ...INP, flex: 1, fontWeight: 600 }} />
                       <input value={it.cantidad} onChange={(e) => setItem(idx, { cantidad: e.target.value })} placeholder="Cant" type="number" step="any" title="Cantidad para el BOM de la línea" style={{ ...INP, width: 62, fontFamily: C.mono }} />
@@ -1359,16 +2026,19 @@ function CargarPresupuestoModal({ categorias, materiales, onChanged, onClose }) 
                         const mat = activos.find((m) => m.id === mid);
                         setItem(idx, mat ? { material_id: mid, _catId: mat.categoria_id } : { material_id: "" });
                       }}
+                      soloPrecios={soloPrecios}
                     />
-                    <div style={{ display: "flex", gap: 6, alignItems: "center", marginTop: 7 }}>
-                      <span style={{ fontSize: 11, color: C.t2, minWidth: 78 }}>Sector</span>
-                      <SectorPicker categorias={categorias} value={it._catId} onChange={(v) => setItem(idx, { _catId: v })} invalid={malSector} />
-                      <button type="button" onClick={() => crearSubsectorPara(idx)} title="Crear una subdivisión en este sector" style={{ ...BTN, padding: "6px 9px", whiteSpace: "nowrap" }}>＋ sub</button>
-                    </div>
-                    {it.material_id && (() => {
+                    {!soloPrecios && (
+                      <div style={{ display: "flex", gap: 6, alignItems: "center", marginTop: 7 }}>
+                        <span style={{ fontSize: 11, color: C.t2, minWidth: 78 }}>Sector</span>
+                        <SectorPicker categorias={categorias} value={it._catId} onChange={(v) => setItem(idx, { _catId: v })} invalid={malSector} />
+                        <button type="button" onClick={() => crearSubsectorPara(idx)} title="Crear una subdivisión en este sector" style={{ ...BTN, padding: "6px 9px", whiteSpace: "nowrap" }}>ï¼‹ sub</button>
+                      </div>
+                    )}
+                    {!soloPrecios && it.material_id && (() => {
                       const mat = activos.find((m) => m.id === it.material_id);
                       return mat && it._catId && mat.categoria_id !== it._catId ? (
-                        <div style={{ fontSize: 11, color: C.amber, marginTop: 4, paddingLeft: 84 }}>↗ se mueve de “{categoriaNombre(categorias, mat.categoria_id)}” a “{categoriaNombre(categorias, it._catId)}”</div>
+                        <div style={{ fontSize: 11, color: C.amber, marginTop: 4, paddingLeft: 84 }}>? se mueve de ?{categoriaNombre(categorias, mat.categoria_id)}? a ?{categoriaNombre(categorias, it._catId)}?</div>
                       ) : null;
                     })()}
                   </div>
@@ -1377,11 +2047,12 @@ function CargarPresupuestoModal({ categorias, materiales, onChanged, onClose }) 
             </div>
 
             <div style={{ display: "flex", alignItems: "center", gap: 10, marginTop: 14 }}>
-              <button type="button" onClick={() => { setItems(null); setResultado(null); }} style={BTN}>← Volver</button>
+              <button type="button" onClick={() => { setItems(null); setResultado(null); }} style={BTN}>? Volver</button>
               {sinSector > 0 && <span style={{ fontSize: 11, color: C.red }}>{sinSector} ítem(s) sin sector</span>}
+              {soloPrecios && sinVinculo > 0 && <span style={{ fontSize: 11, color: C.amber }}>{sinVinculo} ítem(s) se omiten si no los vinculás</span>}
               <div style={{ flex: 1 }} />
-              <button type="button" onClick={aplicar} disabled={aplicando || !items.length} style={{ ...BTN_PRIMARY, opacity: aplicando || !items.length ? 0.6 : 1 }}>
-                {aplicando ? "Aplicando…" : `Aplicar (${coinciden + nuevos})`}
+              <button type="button" onClick={aplicar} disabled={aplicando || !items.length || (soloPrecios && !listosPrecio)} style={{ ...BTN_PRIMARY, opacity: aplicando || !items.length || (soloPrecios && !listosPrecio) ? 0.6 : 1 }}>
+                {aplicando ? "Aplicando…" : soloPrecios ? `Aplicar precios (${listosPrecio})` : `Aplicar (${coinciden + nuevos})`}
               </button>
             </div>
           </>
@@ -1471,7 +2142,7 @@ function BuscadorAgregar({ categorias, materiales, selectedId, onChanged }) {
 
           {resultados.length === 0 && (
             <div style={{ fontSize: 12, color: C.t2, textAlign: "center", padding: "6px 0" }}>
-              No hay materiales que coincidan. Podés crearlo nuevo ↑
+              No hay materiales que coincidan. Pod?s crearlo nuevo ?
             </div>
           )}
         </div>
@@ -1793,49 +2464,55 @@ function ResumenTab({ categorias, materiales }) {
 }
 
 // Costo de un material para un modelo: cantidad (BOM del modelo) × precio vigente.
-function costoMaterialModelo(m, modelo) {
+function costoMaterialModelo(m, modelo, opciones = []) {
   const cant = Number(toBomMap(m)[modelo]);
   const tieneCant = Number.isFinite(cant) && cant > 0;
   const price = precioVigente(m);
   const pu = price?.precio_unitario != null && price.precio_unitario !== "" ? Number(price.precio_unitario) : null;
   const tienePrecio = pu != null && Number.isFinite(pu) && pu > 0;
+  const bucket = materialBucket(m, opciones);
   return {
     tieneCant,
     moneda: price?.moneda === "USD" ? "USD" : "ARS",
     costo: tieneCant && tienePrecio ? cant * pu : 0,
     faltaPrecio: tieneCant && !tienePrecio,
+    bucket,
   };
 }
 
-function CostoObraTab({ categorias, materiales }) {
+function CostoObraTab({ categorias, materiales, opciones = [] }) {
   const [modelo, setModelo] = useState(MODELOS[0]);
   const activos = useMemo(() => (materiales ?? []).filter(materialActivo), [materiales]);
 
   const aggScope = useCallback((scope) => {
-    const acc = { usd: 0, ars: 0, items: 0, sinPrecio: 0 };
+    const acc = { usd: 0, ars: 0, ejeUsd: 0, ejeArs: 0, items: 0, sinPrecio: 0 };
     for (const m of activos) {
       if (!materialEnScope(m, scope)) continue;
-      const c = costoMaterialModelo(m, modelo);
+      const c = costoMaterialModelo(m, modelo, opciones);
       if (!c.tieneCant) continue;
       acc.items += 1;
       if (c.faltaPrecio) { acc.sinPrecio += 1; continue; }
-      if (c.moneda === "USD") acc.usd += c.costo; else acc.ars += c.costo;
+      if (c.bucket.key === "linea_eje") {
+        if (c.moneda === "USD") acc.ejeUsd += c.costo; else acc.ejeArs += c.costo;
+      } else if (c.moneda === "USD") acc.usd += c.costo; else acc.ars += c.costo;
     }
     return acc;
-  }, [activos, modelo]);
+  }, [activos, modelo, opciones]);
 
   // Total global: cada material cuenta una sola vez (no infla por multi-área).
   const total = useMemo(() => {
-    const acc = { usd: 0, ars: 0, items: 0, sinPrecio: 0 };
+    const acc = { usd: 0, ars: 0, ejeUsd: 0, ejeArs: 0, items: 0, sinPrecio: 0 };
     for (const m of activos) {
-      const c = costoMaterialModelo(m, modelo);
+      const c = costoMaterialModelo(m, modelo, opciones);
       if (!c.tieneCant) continue;
       acc.items += 1;
       if (c.faltaPrecio) { acc.sinPrecio += 1; continue; }
-      if (c.moneda === "USD") acc.usd += c.costo; else acc.ars += c.costo;
+      if (c.bucket.key === "linea_eje") {
+        if (c.moneda === "USD") acc.ejeUsd += c.costo; else acc.ejeArs += c.costo;
+      } else if (c.moneda === "USD") acc.usd += c.costo; else acc.ars += c.costo;
     }
     return acc;
-  }, [activos, modelo]);
+  }, [activos, modelo, opciones]);
 
   const filas = useMemo(() => categorias.filter(esRaiz).map((r) => ({
     cat: r,
@@ -1859,8 +2536,9 @@ function CostoObraTab({ categorias, materiales }) {
       </div>
 
       <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(150px, 1fr))", gap: 10, marginBottom: 16 }}>
-        <KpiCard label={`Costo materiales USD · K${modelo}`} value={fmtMoney(total.usd, "USD")} color={C.green} />
-        <KpiCard label={`Costo materiales ARS · K${modelo}`} value={fmtMoney(total.ars, "ARS")} color={C.t0} />
+        <KpiCard label={`Base estimada USD · K${modelo}`} value={fmtMoney(total.usd, "USD")} sub="Sin línea de eje" color={C.green} />
+        <KpiCard label="Línea de eje USD" value={fmtMoney(total.ejeUsd, "USD")} sub="Sólo si aplica a la obra" color={C.violet} />
+        <KpiCard label={`Base estimada ARS · K${modelo}`} value={fmtMoney(total.ars, "ARS")} color={C.t0} />
         <KpiCard label="Ítems con cantidad" value={total.items} color={C.t1} />
         <KpiCard label="Sin precio (faltan cotizar)" value={total.sinPrecio} color={total.sinPrecio ? C.amber : C.green} />
       </div>
@@ -1872,8 +2550,9 @@ function CostoObraTab({ categorias, materiales }) {
               <Th>Sector</Th>
               <Th right>Ítems</Th>
               <Th right>Sin precio</Th>
-              <Th right>Costo USD</Th>
-              <Th right>Costo ARS</Th>
+              <Th right>Base USD</Th>
+              <Th right>Línea eje USD</Th>
+              <Th right>Base ARS</Th>
             </tr>
           </thead>
           <tbody>
@@ -1883,14 +2562,16 @@ function CostoObraTab({ categorias, materiales }) {
                 <Td right mono>{f.agg.items || "—"}</Td>
                 <Td right mono color={f.agg.sinPrecio ? C.amber : C.t2}>{f.agg.sinPrecio || "—"}</Td>
                 <Td right mono>{money(f.agg.usd, "USD")}</Td>
+                <Td right mono color={f.agg.ejeUsd ? C.violet : C.t2}>{money(f.agg.ejeUsd, "USD")}</Td>
                 <Td right mono>{money(f.agg.ars, "ARS")}</Td>
               </tr>,
               ...f.subs.map((s) => (
                 <tr key={s.cat.id} style={{ background: C.s0 }}>
-                  <Td><span style={{ paddingLeft: 18, color: C.t2 }}>↳ {s.cat.nombre}</span></Td>
+                  <Td><span style={{ paddingLeft: 18, color: C.t2 }}>? {s.cat.nombre}</span></Td>
                   <Td right mono color={C.t2}>{s.agg.items || "—"}</Td>
                   <Td right mono color={s.agg.sinPrecio ? C.amber : C.t2}>{s.agg.sinPrecio || "—"}</Td>
                   <Td right mono color={C.t2}>{money(s.agg.usd, "USD")}</Td>
+                  <Td right mono color={s.agg.ejeUsd ? C.violet : C.t2}>{money(s.agg.ejeUsd, "USD")}</Td>
                   <Td right mono color={C.t2}>{money(s.agg.ars, "ARS")}</Td>
                 </tr>
               )),
@@ -1902,6 +2583,7 @@ function CostoObraTab({ categorias, materiales }) {
               <Td right mono><strong>{total.items}</strong></Td>
               <Td right mono color={total.sinPrecio ? C.amber : C.t2}><strong>{total.sinPrecio || "—"}</strong></Td>
               <Td right mono><strong>{fmtMoney(total.usd, "USD")}</strong></Td>
+              <Td right mono color={total.ejeUsd ? C.violet : C.t2}><strong>{fmtMoney(total.ejeUsd, "USD")}</strong></Td>
               <Td right mono><strong>{fmtMoney(total.ars, "ARS")}</strong></Td>
             </tr>
           </tfoot>
@@ -1915,10 +2597,1104 @@ function CostoObraTab({ categorias, materiales }) {
   );
 }
 
+function ObraMatrizView({ obra, linea, lineaNombre, categorias, materiales, opciones = [], onBack }) {
+  const [q, setQ] = useState("");
+  const [proveedorFilter, setProveedorFilter] = useState("");
+  const [rubroFilter, setRubroFilter] = useState("");
+  const [tipoFilter, setTipoFilter] = useState("todos");
+  const [groupBy, setGroupBy] = useState("proveedor");
+  const [selected, setSelected] = useState(() => new Set());
+  const [copied, setCopied] = useState(false);
+  const [addons, setAddons] = useState([]);
+  const [addForm, setAddForm] = useState({ descripcion: "", cantidad: "1", proveedor: "", tipo: "adicional" });
+  const [snapshot, setSnapshot] = useState([]);
+  const [snapshotBusy, setSnapshotBusy] = useState(false);
+  const [actionBusy, setActionBusy] = useState("");
+  const [flowMsg, setFlowMsg] = useState(null);
+  const [panolPrefill, setPanolPrefill] = useState(null);
+
+  const cargarAddons = useCallback(() => { fetchAddonsObra(obra?.id).then(setAddons).catch(() => {}); }, [obra?.id]);
+  useEffect(() => { cargarAddons(); }, [cargarAddons]);
+
+  const cargarSnapshot = useCallback(() => {
+    fetchObraMaterialSnapshot(obra?.id).then(setSnapshot).catch(() => setSnapshot([]));
+  }, [obra?.id]);
+  useEffect(() => { cargarSnapshot(); }, [cargarSnapshot]);
+
+  useEffect(() => {
+    setSelected(new Set());
+    setSnapshot([]);
+    setFlowMsg(null);
+  }, [obra?.id, linea]);
+
+  const liveRows = useMemo(() => (materiales ?? [])
+    .filter(materialActivo)
+    .filter((m) => materialQty(m, linea) > 0)
+    .map((m) => {
+      const precio = priceInfo(m);
+      const bucket = materialBucket(m, opciones);
+      return {
+        id: m.id,
+        materialId: m.id,
+        source: "matriz",
+        descripcion: m.descripcion,
+        codigo: m.codigo,
+        cantidad: materialQty(m, linea),
+        unidad: m.unidad_medida || "unidad",
+        proveedor: precio.proveedor || m.proveedor || "Sin proveedor",
+        rubro: categoriaNombre(categorias, m.categoria_id),
+        precio,
+        bucket,
+        obs: m.notas || "",
+        revisado: !!m.revisado,
+        review: reviewInfoForMaterial(m),
+      };
+    })
+    .sort((a, b) => {
+      const order = { base: 0, linea_eje: 1, variante: 2 };
+      return (order[a.bucket.key] ?? 9) - (order[b.bucket.key] ?? 9)
+        || a.rubro.localeCompare(b.rubro, "es")
+        || a.descripcion.localeCompare(b.descripcion, "es");
+    }), [materiales, linea, categorias, opciones]);
+
+  const rows = useMemo(() => (
+    snapshot.length ? snapshot.map(snapshotRowToView) : liveRows
+  ), [snapshot, liveRows]);
+  const snapshotActivo = snapshot.length > 0;
+
+  const facets = useMemo(() => {
+    const proveedoresSet = new Set();
+    const rubrosSet = new Set();
+    rows.forEach((row) => {
+      if (row.proveedor) proveedoresSet.add(row.proveedor);
+      if (row.rubro) rubrosSet.add(row.rubro);
+    });
+    return {
+      proveedores: [...proveedoresSet].sort((a, b) => a.localeCompare(b, "es")),
+      rubros: [...rubrosSet].sort((a, b) => a.localeCompare(b, "es")),
+    };
+  }, [rows]);
+
+  const visibleRows = useMemo(() => {
+    const terms = norm(q).split(/\s+/).filter(Boolean);
+    return rows
+      .filter((row) => !proveedorFilter || row.proveedor === proveedorFilter)
+      .filter((row) => !rubroFilter || row.rubro === rubroFilter)
+      .filter((row) => tipoFilter === "todos" || (tipoFilter === "sin_precio" ? !row.precio.amount : tipoFilter === "revisar" ? row.review?.flag : row.bucket.key === tipoFilter))
+      .filter((row) => {
+        if (!terms.length) return true;
+        const hay = norm(`${row.descripcion} ${row.codigo} ${row.proveedor} ${row.rubro} ${row.obs}`);
+        return terms.every((t) => hay.includes(t));
+      });
+  }, [rows, q, proveedorFilter, rubroFilter, tipoFilter]);
+
+  const groupedRows = useMemo(() => {
+    const map = new Map();
+    visibleRows.forEach((row) => {
+      const key = groupBy === "rubro" ? row.rubro : groupBy === "tipo" ? row.bucket.label : row.proveedor;
+      const label = key || "Sin clasificar";
+      if (!map.has(label)) map.set(label, { label, rows: [], usd: 0, ars: 0, sinPrecio: 0, revisar: 0 });
+      const group = map.get(label);
+      group.rows.push(row);
+      if (row.review?.flag) group.revisar += 1;
+      const qty = toNum(row.cantidad) || 1;
+      if (row.precio.amount) {
+        if (row.precio.moneda === "USD") group.usd += row.precio.amount * qty;
+        else group.ars += row.precio.amount * qty;
+      } else {
+        group.sinPrecio += 1;
+      }
+    });
+    return [...map.values()].sort((a, b) => b.rows.length - a.rows.length || a.label.localeCompare(b.label, "es"));
+  }, [visibleRows, groupBy]);
+
+  const kpis = useMemo(() => rows.reduce((acc, row) => {
+    const qty = toNum(row.cantidad) || 1;
+    acc.items += 1;
+    if (row.bucket.key === "linea_eje") acc.lineaEje += 1;
+    if (row.bucket.key === "variante") acc.variantes += 1;
+    if (row.review?.flag) acc.revisar += 1;
+    if (!row.precio.amount) acc.sinPrecio += 1;
+    else if (row.precio.moneda === "USD") {
+      if (row.bucket.key === "linea_eje") acc.ejeUsd += row.precio.amount * qty;
+      else acc.usd += row.precio.amount * qty;
+    } else {
+      acc.ars += row.precio.amount * qty;
+    }
+    return acc;
+  }, { items: 0, sinPrecio: 0, revisar: 0, lineaEje: 0, variantes: 0, usd: 0, ars: 0, ejeUsd: 0 }), [rows]);
+
+  const orderRows = useMemo(() => {
+    const base = selected.size ? visibleRows.filter((r) => selected.has(r.id)) : visibleRows;
+    return base.map((r) => ({
+      id: r.id,
+      snapshotId: r.snapshotId,
+      materialId: r.materialId,
+      descripcion: r.descripcion,
+      codigo: r.codigo,
+      cantidad: r.cantidad,
+      unidad: r.unidad,
+      proveedor: r.proveedor,
+      rubro: r.rubro,
+      tipo: r.bucket.label,
+      precio: r.precio,
+      obs: [r.bucket.key !== "base" ? r.bucket.label : "", r.obs].filter(Boolean).join(" · "),
+    }));
+  }, [visibleRows, selected]);
+
+  function toggleSelected(id) {
+    setSelected((prev) => {
+      const next = new Set(prev);
+      next.has(id) ? next.delete(id) : next.add(id);
+      return next;
+    });
+  }
+
+  async function copiarOrden() {
+    const text = buildOrdenTexto({ obra, lineaNombre, rows: orderRows, groupBy });
+    await navigator.clipboard?.writeText(text);
+    setCopied(true);
+    setTimeout(() => setCopied(false), 1600);
+  }
+
+  async function ensureSnapshotForFlow() {
+    if (snapshot.length) return snapshot;
+    setSnapshotBusy(true);
+    try {
+      const saved = await ensureObraMaterialSnapshot(obra.id, liveRows);
+      if (saved.length) {
+        setSnapshot(saved);
+        setSelected(new Set());
+      }
+      return saved;
+    } finally {
+      setSnapshotBusy(false);
+    }
+  }
+
+  function snapshotIdForOrderRow(row, saved = snapshot) {
+    if (row.snapshotId) return row.snapshotId;
+    if (!row.materialId) return null;
+    return saved.find((s) => s.material_id === row.materialId)?.id || null;
+  }
+
+  async function pedirAComprasObra() {
+    if (!orderRows.length) return;
+    setActionBusy("compras");
+    setFlowMsg(null);
+    try {
+      const saved = await ensureSnapshotForFlow();
+      const req = await createPurchaseRequest({
+        form: {
+          title: `Pedido ${obra.codigo} - ${selected.size ? `${selected.size} items` : "lista filtrada"}`,
+          description: buildOrdenTexto({ obra, lineaNombre, rows: orderRows, groupBy }),
+          priority: "media",
+          source: "materiales_obra",
+          project_id: obra.id,
+          destino: `Obra ${obra.codigo}`,
+        },
+      });
+
+      const touched = [];
+      for (const row of orderRows) {
+        const created = await addRequestItem(req.id, {
+          description: row.descripcion,
+          quantity: toNum(row.cantidad) || 1,
+          unit: row.unidad || "unidad",
+          destination: `Obra ${obra.codigo}`,
+        });
+        const snapId = snapshotIdForOrderRow(row, saved);
+        if (snapId) {
+          touched.push(snapId);
+          await updateObraSnapshotRows([snapId], {
+            estado: "pedido",
+            purchase_request_id: req.id,
+            purchase_request_item_id: created?.id || null,
+          });
+        }
+      }
+      if (touched.length) cargarSnapshot();
+      setFlowMsg({ type: "ok", text: `Pedido creado para compras con ${orderRows.length} items.` });
+    } catch (e) {
+      setFlowMsg({ type: "err", text: e?.message || "No se pudo crear el pedido a compras." });
+    } finally {
+      setActionBusy("");
+    }
+  }
+
+  async function abrirAvisoPanol() {
+    if (!orderRows.length) return;
+    setActionBusy("panol");
+    setFlowMsg(null);
+    try {
+      const saved = await ensureSnapshotForFlow();
+      setPanolPrefill({
+        titulo: `Recepcion ${obra.codigo} - ${selected.size ? `${selected.size} items` : "lista filtrada"}`,
+        sede: obra.sede || "Pampa",
+        obraId: obra.id,
+        prioridad: "media",
+        observaciones: `Recepcion por obra desde lista matriz ${lineaNombre}.`,
+        origen: "manual",
+        items: orderRows.map((row) => ({
+          descripcion: row.descripcion,
+          codigo: row.codigo || "",
+          cantidad: row.cantidad,
+          unidad: row.unidad || "unidad",
+          precio_unitario: row.precio?.amount ?? "",
+          moneda: row.precio?.moneda || "ARS",
+          obra_snapshot_item_id: snapshotIdForOrderRow(row, saved),
+        })),
+      });
+    } catch (e) {
+      setFlowMsg({ type: "err", text: e?.message || "No se pudo preparar el aviso a pañol." });
+    } finally {
+      setActionBusy("");
+    }
+  }
+
+  const chipStyle = (on, color = C.blue) => ({
+    ...BTN,
+    padding: "7px 11px",
+    background: on ? C.s1 : C.s0,
+    border: `1px solid ${on ? C.b1 : C.b0}`,
+    color: on ? color : C.t2,
+    fontWeight: 800,
+  });
+
+  return (
+    <div>
+      <div style={{ border: `1px solid ${C.b0}`, borderRadius: 18, background: "var(--panel)", padding: 18, marginBottom: 16 }}>
+        <div style={{ display: "flex", alignItems: "center", gap: 12, flexWrap: "wrap", marginBottom: 14 }}>
+          <button type="button" onClick={onBack} style={{ ...BTN, padding: "8px 12px" }}>? {lineaNombre}</button>
+          <div style={{ flex: "1 1 240px" }}>
+            <div style={{ fontSize: 24, fontWeight: 950, color: C.t0 }}>{obra.codigo}</div>
+            <div style={{ fontSize: 12.5, color: C.t2, marginTop: 3 }}>
+              Lista completa aplicada a esta obra · {lineaNombre}
+            </div>
+          </div>
+          <button type="button" onClick={copiarOrden} disabled={!orderRows.length} style={{ ...BTN_GREEN, padding: "9px 14px" }}>
+            <Copy size={14} /> {copied ? "Copiado" : "Copiar OC"}
+          </button>
+          <span style={{ fontSize: 11, fontWeight: 900, color: snapshotActivo ? C.green : C.t2, border: `1px solid ${snapshotActivo ? C.greenB : C.b0}`, background: snapshotActivo ? C.greenL : C.s0, borderRadius: 999, padding: "5px 10px" }}>
+            {snapshotActivo ? "Lista fijada" : "Matriz viva"}
+          </span>
+        </div>
+        <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(145px, 1fr))", gap: 10 }}>
+          <KpiCard label="Items" value={kpis.items} color={C.blue} />
+          <KpiCard label="Sin precio" value={kpis.sinPrecio} color={kpis.sinPrecio ? C.amber : C.green} />
+          <KpiCard label="A revisar" value={kpis.revisar} color={kpis.revisar ? C.amber : C.green} />
+          <KpiCard label="Base USD" value={fmtMoney(kpis.usd, "USD")} color={C.green} />
+          <KpiCard label="Línea eje USD" value={fmtMoney(kpis.ejeUsd, "USD")} sub={`${kpis.lineaEje} items`} color={C.violet} />
+          <KpiCard label="ARS" value={fmtMoney(kpis.ars, "ARS")} color={C.t0} />
+        </div>
+      </div>
+
+      {/* Opcionales / adicionales del barco */}
+      <div style={{ border: `1px solid ${C.b0}`, borderRadius: 14, background: "var(--panel)", padding: 13, marginBottom: 16 }}>
+        <div style={{ fontSize: 12, fontWeight: 800, color: C.t0, marginBottom: 10 }}>Opcionales / adicionales de {obra.codigo}</div>
+        <div style={{ display: "flex", gap: 8, flexWrap: "wrap", marginBottom: addons.length ? 10 : 0 }}>
+          <input value={addForm.descripcion} onChange={(e) => setAddForm((f) => ({ ...f, descripcion: e.target.value }))} placeholder="Ítem extra (ej: Bow thruster, TV)" style={{ ...INP, flex: "1 1 220px" }} />
+          <input type="number" value={addForm.cantidad} onChange={(e) => setAddForm((f) => ({ ...f, cantidad: e.target.value }))} style={{ ...INP, width: 64 }} title="Cantidad" />
+          <input value={addForm.proveedor} onChange={(e) => setAddForm((f) => ({ ...f, proveedor: e.target.value }))} placeholder="Proveedor" style={{ ...INP, width: 150 }} />
+          <select value={addForm.tipo} onChange={(e) => setAddForm((f) => ({ ...f, tipo: e.target.value }))} style={{ ...INP, width: 120 }}><option value="adicional" style={OPT_ST}>Adicional</option><option value="opcional" style={OPT_ST}>Opcional</option></select>
+          <button type="button" disabled={!addForm.descripcion.trim()} onClick={async () => { await crearAddon(obra.id, { descripcion: addForm.descripcion.trim(), cantidad: Number(addForm.cantidad) || 1, proveedor: addForm.proveedor.trim() || null, tipo: addForm.tipo }); setAddForm({ descripcion: "", cantidad: "1", proveedor: "", tipo: "adicional" }); cargarAddons(); }} style={{ ...BTN_GREEN, padding: "8px 14px" }}>+ Addon</button>
+        </div>
+        {addons.length > 0 && (
+          <div style={{ display: "flex", flexWrap: "wrap", gap: 6 }}>
+            {addons.map((a) => (
+              <span key={a.id} style={{ display: "inline-flex", alignItems: "center", gap: 6, fontSize: 11.5, fontWeight: 700, color: a.tipo === "opcional" ? C.blue : C.green, background: a.tipo === "opcional" ? "rgba(59,130,246,0.1)" : "rgba(16,185,129,0.1)", border: `1px solid ${C.b0}`, borderRadius: 999, padding: "3px 10px" }}>
+                {a.descripcion}{a.cantidad ? ` ×${a.cantidad}` : ""}
+                <button type="button" onClick={async () => { await borrarAddon(a.id); cargarAddons(); }} style={{ border: "none", background: "transparent", color: C.t2, cursor: "pointer", fontSize: 12, padding: 0, lineHeight: 1 }}>✕</button>
+              </span>
+            ))}
+          </div>
+        )}
+      </div>
+
+      <div style={{ border: `1px solid ${C.b0}`, borderRadius: 14, background: "var(--panel)", padding: 13, marginBottom: 16, display: "grid", gap: 12 }}>
+        <div style={{ display: "flex", gap: 8, flexWrap: "wrap", alignItems: "center" }}>
+          <div style={{ position: "relative", flex: "1 1 280px" }}>
+            <Search size={15} style={{ position: "absolute", left: 12, top: "50%", transform: "translateY(-50%)", color: C.t2 }} />
+            <input value={q} onChange={(e) => setQ(e.target.value)} placeholder="Buscar item, proveedor, rubro, código..." style={{ ...INP, width: "100%", paddingLeft: 36, height: 38 }} />
+          </div>
+          <select value={proveedorFilter} onChange={(e) => setProveedorFilter(e.target.value)} style={{ ...INP, width: 190, height: 38 }} title="Filtrar proveedor">
+            <option value="" style={OPT_ST}>Todos los proveedores</option>
+            {facets.proveedores.map((p) => <option key={p} value={p} style={OPT_ST}>{p}</option>)}
+          </select>
+          <select value={rubroFilter} onChange={(e) => setRubroFilter(e.target.value)} style={{ ...INP, width: 170, height: 38 }} title="Filtrar rubro">
+            <option value="" style={OPT_ST}>Todos los rubros</option>
+            {facets.rubros.map((r) => <option key={r} value={r} style={OPT_ST}>{r}</option>)}
+          </select>
+          {[
+            ["todos", "Todo", C.blue],
+            ["base", "Base", C.green],
+            ["linea_eje", "Línea eje", C.violet],
+            ["variante", "Variantes", C.amber],
+            ["sin_precio", "Sin precio", C.red],
+            ["revisar", "A revisar", C.amber],
+          ].map(([key, label, color]) => (
+            <button key={key} type="button" onClick={() => setTipoFilter(key)} style={chipStyle(tipoFilter === key, color)}>
+              {label}
+            </button>
+          ))}
+        </div>
+        <div style={{ display: "flex", gap: 8, flexWrap: "wrap", alignItems: "center", borderTop: `1px solid ${C.b0}`, paddingTop: 12 }}>
+          <FileText size={16} style={{ color: C.blue }} />
+          <div style={{ flex: "1 1 220px" }}>
+            <div style={{ fontSize: 13, fontWeight: 900, color: C.t0 }}>Orden de compra</div>
+            <div style={{ fontSize: 11.5, color: C.t2 }}>{selected.size ? `${selected.size} seleccionados` : `${visibleRows.length} visibles`} · se copia el texto para compras.</div>
+          </div>
+          <select value={groupBy} onChange={(e) => setGroupBy(e.target.value)} style={{ ...INP, width: 150 }}>
+            <option value="proveedor" style={OPT_ST}>Proveedor</option>
+            <option value="rubro" style={OPT_ST}>Rubro</option>
+            <option value="tipo" style={OPT_ST}>Tipo</option>
+          </select>
+          <button type="button" onClick={copiarOrden} disabled={!orderRows.length} style={{ ...BTN_GREEN, padding: "9px 14px" }}>
+            <Copy size={14} /> {copied ? "Copiado" : "Copiar OC"}
+          </button>
+          <button type="button" onClick={pedirAComprasObra} disabled={!orderRows.length || !!actionBusy || snapshotBusy} style={{ ...BTN_PRIMARY, padding: "9px 14px" }}>
+            <ShoppingCart size={14} /> {actionBusy === "compras" || snapshotBusy ? "Creando..." : "Pedir a compras"}
+          </button>
+          <button type="button" onClick={abrirAvisoPanol} disabled={!orderRows.length || !!actionBusy || snapshotBusy} style={{ ...BTN_GREEN, padding: "9px 14px" }}>
+            <PackagePlus size={14} /> {actionBusy === "panol" || snapshotBusy ? "Preparando..." : "Avisar recepcion a pañol"}
+          </button>
+        </div>
+        {flowMsg && (
+          <div style={{ fontSize: 12.5, fontWeight: 750, color: flowMsg.type === "err" ? C.red : C.green, border: `1px solid ${flowMsg.type === "err" ? "rgba(239,68,68,0.30)" : C.greenB}`, background: flowMsg.type === "err" ? "rgba(239,68,68,0.10)" : C.greenL, borderRadius: 10, padding: "8px 10px" }}>
+            {flowMsg.text}
+          </div>
+        )}
+      </div>
+
+      <div style={{ display: "grid", gap: 12 }}>
+        {groupedRows.map((group) => (
+          <section key={group.label} style={{ border: `1px solid ${C.b0}`, borderRadius: 14, background: "var(--panel)", overflow: "hidden" }}>
+            <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 12, padding: "12px 14px", borderBottom: `1px solid ${C.b0}`, background: C.s0, flexWrap: "wrap" }}>
+              <div style={{ minWidth: 0 }}>
+                <div style={{ fontSize: 14, fontWeight: 950, color: C.t0, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{group.label}</div>
+                <div style={{ fontSize: 11.5, color: C.t2, marginTop: 2 }}>
+                  {group.rows.length} items{group.sinPrecio ? ` · ${group.sinPrecio} sin precio` : ""}
+                </div>
+              </div>
+              <div style={{ display: "flex", gap: 6, flexWrap: "wrap", justifyContent: "flex-end" }}>
+                {group.revisar ? <span style={{ fontSize: 11, fontWeight: 900, color: C.amber, border: `1px solid ${C.amberB}`, borderRadius: 999, padding: "4px 9px", background: C.amberL }}>{group.revisar} a revisar</span> : null}
+                {group.usd ? <span style={{ fontFamily: C.mono, fontSize: 12, color: C.t0, border: `1px solid ${C.b0}`, borderRadius: 999, padding: "4px 9px", background: C.bg }}>{fmtMoney(group.usd, "USD")}</span> : null}
+                {group.ars ? <span style={{ fontFamily: C.mono, fontSize: 12, color: C.t0, border: `1px solid ${C.b0}`, borderRadius: 999, padding: "4px 9px", background: C.bg }}>{fmtMoney(group.ars, "ARS")}</span> : null}
+              </div>
+            </div>
+            <div style={{ display: "grid", gap: 7, padding: 10 }}>
+              {group.rows.map((row) => {
+                const qty = toNum(row.cantidad) || 1;
+                const total = row.precio.amount ? row.precio.amount * qty : null;
+                const estado = SNAPSHOT_ESTADO_META[row.estadoObra] || SNAPSHOT_ESTADO_META.pendiente;
+                return (
+                  <div
+                    key={row.id}
+                    style={{
+                      display: "grid",
+                      gridTemplateColumns: "26px minmax(220px, 1.3fr) minmax(130px, .55fr) minmax(150px, .65fr) minmax(120px, .5fr)",
+                      gap: 10,
+                      alignItems: "center",
+                      padding: "10px 11px",
+                      border: `1px solid ${selected.has(row.id) ? C.blueB : row.review?.flag ? C.amberB : C.b0}`,
+                      borderRadius: 11,
+                      background: selected.has(row.id) ? C.blueL : row.review?.flag ? C.amberL : C.bg,
+                    }}
+                  >
+                    <input type="checkbox" checked={selected.has(row.id)} onChange={() => toggleSelected(row.id)} />
+                    <div style={{ minWidth: 0 }}>
+                      <div style={{ display: "flex", alignItems: "center", gap: 7, minWidth: 0, flexWrap: "wrap" }}>
+                        <span style={{ fontSize: 13.5, fontWeight: 900, color: C.t0, minWidth: 0, overflow: "hidden", textOverflow: "ellipsis" }}>{row.descripcion}</span>
+                        <span style={{ fontSize: 10, fontWeight: 900, color: row.bucket.color, background: `${row.bucket.color}16`, border: `1px solid ${row.bucket.color}44`, borderRadius: 999, padding: "2px 7px", whiteSpace: "nowrap" }}>
+                          {row.bucket.label}
+                        </span>
+                        {row.review?.flag && <ReviewBadge reason={row.review.reason} />}
+                        {snapshotActivo && (
+                          <span style={{ fontSize: 10, fontWeight: 900, color: estado.color, background: estado.bg, border: `1px solid ${estado.border}`, borderRadius: 999, padding: "2px 7px", whiteSpace: "nowrap" }}>
+                            {estado.label}
+                          </span>
+                        )}
+                      </div>
+                      <div style={{ fontSize: 11, color: C.t2, marginTop: 4, lineHeight: 1.35 }}>
+                        {row.codigo || "sin código"}{row.obs ? ` · ${row.obs}` : ""}
+                      </div>
+                    </div>
+                    <div>
+                      <div style={{ fontSize: 10, color: C.t2, fontWeight: 800, textTransform: "uppercase", letterSpacing: 0.6 }}>Cantidad</div>
+                      <div style={{ fontFamily: C.mono, fontSize: 13, fontWeight: 850, color: C.t0 }}>{qtyText(row.cantidad, row.unidad)}</div>
+                    </div>
+                    <div style={{ minWidth: 0 }}>
+                      <div style={{ fontSize: 10, color: C.t2, fontWeight: 800, textTransform: "uppercase", letterSpacing: 0.6 }}>Proveedor</div>
+                      <div style={{ fontSize: 12.5, fontWeight: 850, color: C.t0, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{row.proveedor}</div>
+                      <div style={{ fontSize: 11, color: C.t2, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{row.rubro}</div>
+                    </div>
+                    <div>
+                      <div style={{ fontSize: 10, color: C.t2, fontWeight: 800, textTransform: "uppercase", letterSpacing: 0.6 }}>Precio</div>
+                      <div style={{ fontFamily: C.mono, fontSize: 12.5, fontWeight: 850, color: row.precio.amount ? C.t0 : C.amber }}>{row.precio.text}</div>
+                      {total ? <div style={{ fontFamily: C.mono, fontSize: 10.5, color: C.t2 }}>total {fmtMoney(total, row.precio.moneda)}</div> : null}
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          </section>
+        ))}
+        {!groupedRows.length && (
+          <div style={{ padding: 28, textAlign: "center", color: C.t2, fontSize: 13, border: `1px dashed ${C.b0}`, borderRadius: 14 }}>
+            No hay items con esos filtros.
+          </div>
+        )}
+      </div>
+      <EnviarAPanolModal
+        open={!!panolPrefill}
+        prefill={panolPrefill}
+        showPrices={false}
+        onClose={(saved) => {
+          setPanolPrefill(null);
+          if (saved) {
+            setFlowMsg({ type: "ok", text: "Aviso enviado a pañol para recepcion por obra." });
+            cargarSnapshot();
+          }
+        }}
+      />
+    </div>
+  );
+}
+
+function LineaMatrizView({ linea, obras = [], categorias, materiales, proveedores, opciones = [], ums, onChanged, onBack, onSelectObra }) {
+  const [q, setQ] = useState("");
+  const [proveedorFilter, setProveedorFilter] = useState("");
+  const [rubroFilter, setRubroFilter] = useState("");
+  const [tipoFilter, setTipoFilter] = useState("todos");
+  const [groupBy, setGroupBy] = useState("proveedor");
+  const [selected, setSelected] = useState(() => new Set());
+  const [copied, setCopied] = useState(false);
+  const [editingId, setEditingId] = useState("");
+  const [removingId, setRemovingId] = useState("");
+  const code = String(linea?.codigo || "").replace(/^K/i, "");
+  const title = linea?.nombre || `K${code}`;
+
+  useEffect(() => {
+    setSelected(new Set());
+    setEditingId("");
+    setRemovingId("");
+  }, [code]);
+
+  const rows = useMemo(() => (materiales ?? [])
+    .filter(materialActivo)
+    .filter((m) => materialQty(m, code) > 0)
+    .map((m) => {
+      const precio = priceInfo(m);
+      const bucket = materialBucket(m, opciones);
+      return {
+        id: m.id,
+        material: m,
+        descripcion: m.descripcion,
+        codigo: m.codigo,
+        cantidad: materialQty(m, code),
+        unidad: m.unidad_medida || "unidad",
+        proveedor: precio.proveedor || m.proveedor || "Sin proveedor",
+        rubro: categoriaNombre(categorias, m.categoria_id),
+        precio,
+        bucket,
+        obs: m.notas || "",
+        revisado: !!m.revisado,
+        review: reviewInfoForMaterial(m),
+      };
+    })
+    .sort((a, b) => {
+      const order = { base: 0, linea_eje: 1, variante: 2 };
+      return (order[a.bucket.key] ?? 9) - (order[b.bucket.key] ?? 9)
+        || a.rubro.localeCompare(b.rubro, "es")
+        || a.descripcion.localeCompare(b.descripcion, "es");
+    }), [materiales, code, categorias, opciones]);
+
+  const facets = useMemo(() => {
+    const proveedoresSet = new Set();
+    const rubrosSet = new Set();
+    rows.forEach((row) => {
+      if (row.proveedor) proveedoresSet.add(row.proveedor);
+      if (row.rubro) rubrosSet.add(row.rubro);
+    });
+    return {
+      proveedores: [...proveedoresSet].sort((a, b) => a.localeCompare(b, "es")),
+      rubros: [...rubrosSet].sort((a, b) => a.localeCompare(b, "es")),
+    };
+  }, [rows]);
+
+  const visibleRows = useMemo(() => {
+    const terms = norm(q).split(/\s+/).filter(Boolean);
+    return rows
+      .filter((row) => !proveedorFilter || row.proveedor === proveedorFilter)
+      .filter((row) => !rubroFilter || row.rubro === rubroFilter)
+      .filter((row) => tipoFilter === "todos" || (tipoFilter === "sin_precio" ? !row.precio.amount : tipoFilter === "revisar" ? row.review?.flag : row.bucket.key === tipoFilter))
+      .filter((row) => {
+        if (!terms.length) return true;
+        const hay = norm(`${row.descripcion} ${row.codigo} ${row.proveedor} ${row.rubro} ${row.obs}`);
+        return terms.every((t) => hay.includes(t));
+      });
+  }, [rows, q, proveedorFilter, rubroFilter, tipoFilter]);
+
+  const groupedRows = useMemo(() => {
+    const map = new Map();
+    visibleRows.forEach((row) => {
+      const key = groupBy === "rubro" ? row.rubro : groupBy === "tipo" ? row.bucket.label : row.proveedor;
+      const label = key || "Sin clasificar";
+      if (!map.has(label)) map.set(label, { label, rows: [], usd: 0, ars: 0, sinPrecio: 0, revisar: 0 });
+      const group = map.get(label);
+      group.rows.push(row);
+      if (row.review?.flag) group.revisar += 1;
+      const qty = toNum(row.cantidad) || 1;
+      if (row.precio.amount) {
+        if (row.precio.moneda === "USD") group.usd += row.precio.amount * qty;
+        else group.ars += row.precio.amount * qty;
+      } else {
+        group.sinPrecio += 1;
+      }
+    });
+    return [...map.values()].sort((a, b) => b.rows.length - a.rows.length || a.label.localeCompare(b.label, "es"));
+  }, [visibleRows, groupBy]);
+
+  const kpis = useMemo(() => rows.reduce((acc, row) => {
+    const qty = toNum(row.cantidad) || 1;
+    acc.items += 1;
+    if (row.proveedor) acc.proveedores.add(row.proveedor);
+    if (row.rubro) acc.rubros.add(row.rubro);
+    if (row.review?.flag) acc.revisar += 1;
+    if (!row.precio.amount) acc.sinPrecio += 1;
+    else if (row.precio.moneda === "USD") {
+      if (row.bucket.key === "linea_eje") acc.ejeUsd += row.precio.amount * qty;
+      else acc.usd += row.precio.amount * qty;
+    } else {
+      acc.ars += row.precio.amount * qty;
+    }
+    return acc;
+  }, { items: 0, proveedores: new Set(), rubros: new Set(), sinPrecio: 0, revisar: 0, usd: 0, ars: 0, ejeUsd: 0 }), [rows]);
+
+  const orderRows = useMemo(() => {
+    const base = selected.size ? visibleRows.filter((r) => selected.has(r.id)) : visibleRows;
+    return base.map((r) => ({
+      descripcion: r.descripcion,
+      codigo: r.codigo,
+      cantidad: r.cantidad,
+      unidad: r.unidad,
+      proveedor: r.proveedor,
+      rubro: r.rubro,
+      tipo: r.bucket.label,
+      obs: [r.bucket.key !== "base" ? r.bucket.label : "", r.obs].filter(Boolean).join(" · "),
+    }));
+  }, [visibleRows, selected]);
+
+  function toggleSelected(id) {
+    setSelected((prev) => {
+      const next = new Set(prev);
+      next.has(id) ? next.delete(id) : next.add(id);
+      return next;
+    });
+  }
+
+  async function copiarOrden() {
+    const text = buildOrdenTexto({ obra: { codigo: title }, lineaNombre: title, rows: orderRows, groupBy });
+    await navigator.clipboard?.writeText(text);
+    setCopied(true);
+    setTimeout(() => setCopied(false), 1600);
+  }
+
+  async function removeFromLine(row) {
+    if (!window.confirm(`¿Sacar "${row.descripcion}" de ${title}? No se borra del catálogo.`)) return;
+    setRemovingId(row.id);
+    try {
+      await quitarCantidadModelo(row.id, code);
+      setSelected((prev) => {
+        const next = new Set(prev);
+        next.delete(row.id);
+        return next;
+      });
+      if (editingId === row.id) setEditingId("");
+      await onChanged?.();
+    } finally {
+      setRemovingId("");
+    }
+  }
+
+  const chipStyle = (on, color = C.blue) => ({
+    ...BTN,
+    padding: "7px 11px",
+    background: on ? C.s1 : C.s0,
+    border: `1px solid ${on ? C.b1 : C.b0}`,
+    color: on ? color : C.t2,
+    fontWeight: 800,
+  });
+
+  return (
+    <div>
+      <div style={{ border: `1px solid ${C.b0}`, borderRadius: 18, background: "var(--panel)", padding: 18, marginBottom: 16 }}>
+        <div style={{ display: "flex", alignItems: "center", gap: 12, flexWrap: "wrap", marginBottom: 14 }}>
+          <button type="button" onClick={onBack} style={{ ...BTN, padding: "8px 12px" }}>? L?neas</button>
+          <div style={{ flex: "1 1 240px" }}>
+            <div style={{ fontSize: 24, fontWeight: 950, color: C.t0 }}>{title}</div>
+            <div style={{ fontSize: 12.5, color: C.t2, marginTop: 3 }}>Base matriz editable · filtros por proveedor, rubro, tipo e items sin precio.</div>
+          </div>
+          <button type="button" onClick={copiarOrden} disabled={!orderRows.length} style={{ ...BTN_GREEN, padding: "9px 14px" }}>
+            <Copy size={14} /> {copied ? "Copiado" : "Copiar OC"}
+          </button>
+        </div>
+        <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(145px, 1fr))", gap: 10 }}>
+          <KpiCard label="Items" value={kpis.items} color={C.blue} />
+          <KpiCard label="Proveedores" value={kpis.proveedores.size} color={C.teal || C.green} />
+          <KpiCard label="Rubros" value={kpis.rubros.size} color={C.violet} />
+          <KpiCard label="Sin precio" value={kpis.sinPrecio} color={kpis.sinPrecio ? C.amber : C.green} />
+          <KpiCard label="A revisar" value={kpis.revisar} color={kpis.revisar ? C.amber : C.green} />
+          <KpiCard label="Base USD" value={fmtMoney(kpis.usd, "USD")} color={C.green} />
+        </div>
+      </div>
+
+      {obras.length > 0 && (
+        <div style={{ border: `1px solid ${C.b0}`, borderRadius: 14, background: C.s0, padding: 13, marginBottom: 16 }}>
+          <div style={{ fontSize: 11, color: C.t2, fontWeight: 800, textTransform: "uppercase", letterSpacing: 0.6, marginBottom: 9 }}>Obras activas de esta línea</div>
+          <div style={{ display: "flex", gap: 7, flexWrap: "wrap" }}>
+            {obras.map((obra) => (
+              <button
+                type="button"
+                key={obra.id}
+                onClick={() => onSelectObra?.(obra)}
+                style={{ ...BTN, border: `1px solid ${C.b0}`, borderRadius: 999, background: C.bg, color: C.t1, fontFamily: C.mono, fontSize: 12, fontWeight: 850, padding: "5px 10px" }}
+              >
+                {obra.codigo} <span style={{ color: C.blue }}>›</span>
+              </button>
+            ))}
+          </div>
+        </div>
+      )}
+
+      <AgregarItemLinea
+        linea={code}
+        title={title}
+        materiales={materiales}
+        categorias={categorias}
+        proveedores={proveedores}
+        ums={ums}
+        onChanged={onChanged}
+      />
+
+      <div style={{ border: `1px solid ${C.b0}`, borderRadius: 14, background: "var(--panel)", padding: 13, marginBottom: 16, display: "grid", gap: 12 }}>
+        <div style={{ display: "flex", gap: 8, flexWrap: "wrap", alignItems: "center" }}>
+          <div style={{ position: "relative", flex: "1 1 280px" }}>
+            <Search size={15} style={{ position: "absolute", left: 12, top: "50%", transform: "translateY(-50%)", color: C.t2 }} />
+            <input value={q} onChange={(e) => setQ(e.target.value)} placeholder="Buscar item, proveedor, rubro, código..." style={{ ...INP, width: "100%", paddingLeft: 36, height: 38 }} />
+          </div>
+          <select value={proveedorFilter} onChange={(e) => setProveedorFilter(e.target.value)} style={{ ...INP, width: 190, height: 38 }} title="Filtrar proveedor">
+            <option value="" style={OPT_ST}>Todos los proveedores</option>
+            {facets.proveedores.map((p) => <option key={p} value={p} style={OPT_ST}>{p}</option>)}
+          </select>
+          <select value={rubroFilter} onChange={(e) => setRubroFilter(e.target.value)} style={{ ...INP, width: 170, height: 38 }} title="Filtrar rubro">
+            <option value="" style={OPT_ST}>Todos los rubros</option>
+            {facets.rubros.map((r) => <option key={r} value={r} style={OPT_ST}>{r}</option>)}
+          </select>
+          {[
+            ["todos", "Todo", C.blue],
+            ["base", "Base", C.green],
+            ["linea_eje", "Línea eje", C.violet],
+            ["variante", "Variantes", C.amber],
+            ["sin_precio", "Sin precio", C.red],
+            ["revisar", "A revisar", C.amber],
+          ].map(([key, label, color]) => (
+            <button key={key} type="button" onClick={() => setTipoFilter(key)} style={chipStyle(tipoFilter === key, color)}>
+              {label}
+            </button>
+          ))}
+        </div>
+        <div style={{ display: "flex", gap: 8, flexWrap: "wrap", alignItems: "center", borderTop: `1px solid ${C.b0}`, paddingTop: 12 }}>
+          <FileText size={16} style={{ color: C.blue }} />
+          <div style={{ flex: "1 1 220px" }}>
+            <div style={{ fontSize: 13, fontWeight: 900, color: C.t0 }}>Orden de compra</div>
+            <div style={{ fontSize: 11.5, color: C.t2 }}>{selected.size ? `${selected.size} seleccionados` : `${visibleRows.length} visibles`} · se copia el texto para compras.</div>
+          </div>
+          <select value={groupBy} onChange={(e) => setGroupBy(e.target.value)} style={{ ...INP, width: 150 }}>
+            <option value="proveedor" style={OPT_ST}>Proveedor</option>
+            <option value="rubro" style={OPT_ST}>Rubro</option>
+            <option value="tipo" style={OPT_ST}>Tipo</option>
+          </select>
+          <button type="button" onClick={copiarOrden} disabled={!orderRows.length} style={{ ...BTN_GREEN, padding: "9px 14px" }}>
+            <Copy size={14} /> {copied ? "Copiado" : "Copiar OC"}
+          </button>
+        </div>
+      </div>
+
+      <div style={{ display: "grid", gap: 12 }}>
+        {groupedRows.map((group) => (
+          <section key={group.label} style={{ border: `1px solid ${C.b0}`, borderRadius: 14, background: "var(--panel)", overflow: "hidden" }}>
+            <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 12, padding: "12px 14px", borderBottom: `1px solid ${C.b0}`, background: C.s0, flexWrap: "wrap" }}>
+              <div style={{ minWidth: 0 }}>
+                <div style={{ fontSize: 14, fontWeight: 950, color: C.t0, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{group.label}</div>
+                <div style={{ fontSize: 11.5, color: C.t2, marginTop: 2 }}>
+                  {group.rows.length} items{group.sinPrecio ? ` · ${group.sinPrecio} sin precio` : ""}
+                </div>
+              </div>
+              <div style={{ display: "flex", gap: 6, flexWrap: "wrap", justifyContent: "flex-end" }}>
+                {group.revisar ? <span style={{ fontSize: 11, fontWeight: 900, color: C.amber, border: `1px solid ${C.amberB}`, borderRadius: 999, padding: "4px 9px", background: C.amberL }}>{group.revisar} a revisar</span> : null}
+                {group.usd ? <span style={{ fontFamily: C.mono, fontSize: 12, color: C.t0, border: `1px solid ${C.b0}`, borderRadius: 999, padding: "4px 9px", background: C.bg }}>{fmtMoney(group.usd, "USD")}</span> : null}
+                {group.ars ? <span style={{ fontFamily: C.mono, fontSize: 12, color: C.t0, border: `1px solid ${C.b0}`, borderRadius: 999, padding: "4px 9px", background: C.bg }}>{fmtMoney(group.ars, "ARS")}</span> : null}
+              </div>
+            </div>
+            <div style={{ display: "grid", gap: 7, padding: 10 }}>
+              {group.rows.map((row) => {
+                const qty = toNum(row.cantidad) || 1;
+                const total = row.precio.amount ? row.precio.amount * qty : null;
+                const editing = editingId === row.id;
+                return (
+                  <div key={row.id} style={{ display: "grid", gap: 8 }}>
+                    <div
+                      style={{
+                        display: "grid",
+                        gridTemplateColumns: "26px minmax(220px, 1.3fr) minmax(130px, .55fr) minmax(150px, .65fr) minmax(120px, .5fr) 76px",
+                        gap: 10,
+                        alignItems: "center",
+                        padding: "10px 11px",
+                        border: `1px solid ${selected.has(row.id) ? C.blueB : row.review?.flag ? C.amberB : C.b0}`,
+                        borderRadius: 11,
+                        background: selected.has(row.id) ? C.blueL : row.review?.flag ? C.amberL : C.bg,
+                      }}
+                    >
+                      <input type="checkbox" checked={selected.has(row.id)} onChange={() => toggleSelected(row.id)} />
+                      <div style={{ minWidth: 0 }}>
+                        <div style={{ display: "flex", alignItems: "center", gap: 7, minWidth: 0, flexWrap: "wrap" }}>
+                          <span style={{ fontSize: 13.5, fontWeight: 900, color: C.t0, minWidth: 0, overflow: "hidden", textOverflow: "ellipsis" }}>{row.descripcion}</span>
+                          <span style={{ fontSize: 10, fontWeight: 900, color: row.bucket.color, background: `${row.bucket.color}16`, border: `1px solid ${row.bucket.color}44`, borderRadius: 999, padding: "2px 7px", whiteSpace: "nowrap" }}>
+                            {row.bucket.label}
+                          </span>
+                          {row.review?.flag && <ReviewBadge reason={row.review.reason} />}
+                        </div>
+                        <div style={{ fontSize: 11, color: C.t2, marginTop: 4, lineHeight: 1.35 }}>
+                          {row.codigo || "sin código"}{row.obs ? ` · ${row.obs}` : ""}
+                        </div>
+                      </div>
+                      <div>
+                        <div style={{ fontSize: 10, color: C.t2, fontWeight: 800, textTransform: "uppercase", letterSpacing: 0.6 }}>Cantidad</div>
+                        <div style={{ fontFamily: C.mono, fontSize: 13, fontWeight: 850, color: C.t0 }}>{qtyText(row.cantidad, row.unidad)}</div>
+                      </div>
+                      <div style={{ minWidth: 0 }}>
+                        <div style={{ fontSize: 10, color: C.t2, fontWeight: 800, textTransform: "uppercase", letterSpacing: 0.6 }}>Proveedor</div>
+                        <div style={{ fontSize: 12.5, fontWeight: 850, color: C.t0, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{row.proveedor}</div>
+                        <div style={{ fontSize: 11, color: C.t2, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{row.rubro}</div>
+                      </div>
+                      <div>
+                        <div style={{ fontSize: 10, color: C.t2, fontWeight: 800, textTransform: "uppercase", letterSpacing: 0.6 }}>Precio</div>
+                        <div style={{ fontFamily: C.mono, fontSize: 12.5, fontWeight: 850, color: row.precio.amount ? C.t0 : C.amber }}>{row.precio.text}</div>
+                        {total ? <div style={{ fontFamily: C.mono, fontSize: 10.5, color: C.t2 }}>total {fmtMoney(total, row.precio.moneda)}</div> : null}
+                      </div>
+                      <div style={{ display: "flex", gap: 5, justifyContent: "flex-end" }}>
+                        <button type="button" onClick={() => setEditingId((id) => (id === row.id ? "" : row.id))} style={{ ...BTN, padding: "6px 8px", color: editing ? C.blue : C.t2 }} title="Editar item">
+                          <Pencil size={13} />
+                        </button>
+                        <button type="button" onClick={() => removeFromLine(row)} disabled={removingId === row.id} style={{ ...BTN, padding: "6px 8px", color: C.red, borderColor: "rgba(239,68,68,0.28)" }} title={`Sacar de ${title}`}>
+                          <Trash2 size={13} />
+                        </button>
+                      </div>
+                    </div>
+                    {editing && (
+                      <MaterialFila
+                        key={`${row.id}-editor`}
+                        material={row.material}
+                        categorias={categorias}
+                        ums={ums}
+                        proveedores={proveedores}
+                        onChanged={onChanged}
+                        linea={code}
+                        initialOpen
+                      />
+                    )}
+                  </div>
+                );
+              })}
+            </div>
+          </section>
+        ))}
+        {!groupedRows.length && (
+          <div style={{ padding: 28, textAlign: "center", color: C.t2, fontSize: 13, border: `1px dashed ${C.b0}`, borderRadius: 14 }}>
+            No hay items con esos filtros.
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
+
+const SNAPSHOT_ESTADO_META = {
+  pendiente: { label: "Pendiente", color: C.t2, bg: C.s0, border: C.b0 },
+  pedido: { label: "Pedido", color: C.blue, bg: C.blueL, border: C.blueB },
+  comprado: { label: "Comprado", color: C.amber, bg: C.amberL, border: C.amberB },
+  en_panol: { label: "En pañol", color: C.violet, bg: C.s1, border: C.b1 },
+  parcial: { label: "Parcial", color: C.amber, bg: C.amberL, border: C.amberB },
+  recibido: { label: "Recibido", color: C.green, bg: C.greenL, border: C.greenB },
+  problema: { label: "Problema", color: C.red, bg: "rgba(239,68,68,0.10)", border: "rgba(239,68,68,0.30)" },
+};
+
+function snapshotBucket(row) {
+  const key = row?.tipo || "base";
+  if (key === "linea_eje") return { key, label: row?.tipo_label || "Linea eje", color: C.violet };
+  if (key === "variante") return { key, label: row?.tipo_label || "Variante", color: C.amber };
+  if (key === "addon") return { key, label: row?.tipo_label || "Addon", color: C.blue };
+  return { key: "base", label: row?.tipo_label || "Base", color: C.green };
+}
+
+function snapshotRowToView(row) {
+  const amount = row?.precio_unitario != null && row.precio_unitario !== "" ? Number(row.precio_unitario) : null;
+  const moneda = row?.moneda === "USD" ? "USD" : "ARS";
+  const reason = reviewReasonForText(`${row?.descripcion || ""} ${row?.codigo || ""} ${row?.notas || ""}`);
+  return {
+    id: row.id,
+    snapshotId: row.id,
+    materialId: row.material_id,
+    source: "snapshot",
+    descripcion: row.descripcion,
+    codigo: row.codigo,
+    cantidad: row.cantidad || 1,
+    unidad: row.unidad || "unidad",
+    proveedor: row.proveedor || "Sin proveedor",
+    rubro: row.rubro || "Sin rubro",
+    precio: {
+      amount: Number.isFinite(amount) && amount > 0 ? amount : null,
+      moneda,
+      text: Number.isFinite(amount) && amount > 0 ? fmtMoney(amount, moneda) : "Sin precio",
+      proveedor: row.proveedor || "",
+    },
+    bucket: snapshotBucket(row),
+    obs: row.notas || "",
+    revisado: true,
+    review: { flag: !!reason, reason },
+    estadoObra: row.estado || "pendiente",
+  };
+}
+
+function LineasTab({ lineas, obras, categorias, materiales, proveedores, opciones = [], onChanged }) {
+  const [sel, setSel] = useState("");
+  const [selObra, setSelObra] = useState(null);
+  const [q, setQ] = useState("");
+
+  const ums = useMemo(
+    () => [...new Set((materiales ?? []).map((m) => m.unidad_medida).filter(Boolean).map(String))].sort((a, b) => a.localeCompare(b, "es")),
+    [materiales],
+  );
+  const listaLineas = useMemo(() => {
+    const base = lineas?.length ? lineas : MODELOS.map((c) => ({ codigo: c, nombre: `K${c}` }));
+    return base.map((l) => ({ ...l, codigo: String(l.codigo || "").replace(/^K/i, "") }));
+  }, [lineas]);
+
+  const cards = useMemo(() => listaLineas.map((linea) => {
+    const mats = (materiales ?? []).filter(materialActivo).filter((m) => materialQty(m, linea.codigo) > 0);
+    const proveedoresSet = new Set();
+    const rubrosSet = new Set();
+    let usd = 0;
+    let ars = 0;
+    let sinPrecio = 0;
+    mats.forEach((m) => {
+      const precio = priceInfo(m);
+      const qty = materialQty(m, linea.codigo) || 1;
+      if (precio.proveedor || m.proveedor) proveedoresSet.add(precio.proveedor || m.proveedor);
+      rubrosSet.add(categoriaNombre(categorias, m.categoria_id));
+      if (!precio.amount) sinPrecio += 1;
+      else if (precio.moneda === "USD") usd += precio.amount * qty;
+      else ars += precio.amount * qty;
+    });
+    const conPrecio = mats.length - sinPrecio;
+    return {
+      ...linea,
+      items: mats.length,
+      proveedores: proveedoresSet.size,
+      rubros: rubrosSet.size,
+      sinPrecio,
+      usd,
+      ars,
+      progreso: mats.length ? Math.round((conPrecio / mats.length) * 100) : 0,
+      obras: (obras ?? []).filter((o) => String(o.modelo) === String(linea.codigo)),
+    };
+  }), [listaLineas, materiales, categorias, obras]);
+
+  const visibles = useMemo(() => {
+    const terms = norm(q).split(/\s+/).filter(Boolean);
+    if (!terms.length) return cards;
+    return cards.filter((linea) => terms.every((t) => norm(`${linea.codigo} ${linea.nombre}`).includes(t)));
+  }, [cards, q]);
+
+  const totals = useMemo(() => ({
+    lineas: cards.length,
+    obras: cards.reduce((sum, l) => sum + l.obras.length, 0),
+    items: cards.reduce((sum, l) => sum + l.items, 0),
+    sinPrecio: cards.reduce((sum, l) => sum + l.sinPrecio, 0),
+  }), [cards]);
+
+  if (selObra) {
+    const lineaNombre = cards.find((l) => l.codigo === sel)?.nombre || `K${sel}`;
+    return (
+      <ObraMatrizView
+        obra={selObra}
+        linea={sel}
+        lineaNombre={lineaNombre}
+        categorias={categorias}
+        materiales={materiales}
+        opciones={opciones}
+        onBack={() => setSelObra(null)}
+      />
+    );
+  }
+
+  if (sel) {
+    const linea = cards.find((l) => l.codigo === sel) || { codigo: sel, nombre: `K${sel}`, obras: [], items: 0, proveedores: 0, rubros: 0, sinPrecio: 0, usd: 0 };
+    return (
+      <LineaMatrizView
+        linea={linea}
+        obras={linea.obras}
+        categorias={categorias}
+        materiales={materiales}
+        proveedores={proveedores}
+        opciones={opciones}
+        ums={ums}
+        onChanged={onChanged}
+        onBack={() => setSel("")}
+        onSelectObra={setSelObra}
+      />
+    );
+  }
+
+  return (
+    <div>
+      <div style={{ border: `1px solid ${C.b0}`, borderRadius: 20, background: "var(--panel)", padding: 18, marginBottom: 18 }}>
+        <div style={{ display: "flex", alignItems: "flex-start", justifyContent: "space-between", gap: 14, flexWrap: "wrap", marginBottom: 16 }}>
+          <div>
+            <div style={{ fontSize: 22, fontWeight: 950, color: C.t0 }}>Matriz por línea de producción</div>
+            <div style={{ fontSize: 12.5, color: C.t2, marginTop: 4 }}>Entrá a una línea para administrar su base y preparar compras por proveedor o rubro.</div>
+          </div>
+        </div>
+        <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(145px, 1fr))", gap: 10, marginBottom: 14 }}>
+          <KpiCard label="Líneas" value={totals.lineas} color={C.blue} />
+          <KpiCard label="Obras activas" value={totals.obras} color={C.green} />
+          <KpiCard label="Items cargados" value={totals.items} color={C.violet} />
+          <KpiCard label="Sin precio" value={totals.sinPrecio} color={totals.sinPrecio ? C.amber : C.green} />
+        </div>
+        <div style={{ position: "relative" }}>
+          <Search size={15} style={{ position: "absolute", left: 12, top: "50%", transform: "translateY(-50%)", color: C.t2 }} />
+          <input value={q} onChange={(e) => setQ(e.target.value)} placeholder="Buscar línea, ej. K37..." style={{ ...INP, width: "100%", maxWidth: 420, height: 40, paddingLeft: 36, borderRadius: 11 }} />
+        </div>
+      </div>
+
+      <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(270px, 1fr))", gap: 12 }}>
+        {visibles.map((linea) => (
+          <button type="button" key={linea.codigo} onClick={() => setSel(linea.codigo)}
+            style={{ textAlign: "left", cursor: "pointer", border: `1px solid ${C.b0}`, borderRadius: 16, background: "var(--panel)", padding: 16, display: "flex", flexDirection: "column", gap: 12, boxShadow: "0 1px 3px rgba(0,0,0,0.05)", minHeight: 170 }}>
+            <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
+              <span style={{ fontFamily: C.mono, fontSize: 24, fontWeight: 950, color: C.blue }}>{linea.nombre || `K${linea.codigo}`}</span>
+              <span style={{ fontSize: 18, color: C.t3 }}>›</span>
+            </div>
+            <div style={{ display: "grid", gap: 7 }}>
+              <div style={{ height: 7, borderRadius: 99, background: C.s0, border: `1px solid ${C.b0}`, overflow: "hidden" }}>
+                <div style={{ width: `${linea.progreso}%`, height: "100%", background: linea.progreso > 80 ? C.green : C.blue }} />
+              </div>
+              <div style={{ display: "flex", justifyContent: "space-between", fontSize: 11, color: C.t2 }}>
+                <span>{linea.items} items</span>
+                <span>{linea.progreso}% con precio</span>
+              </div>
+            </div>
+            <div style={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: 7 }}>
+              <div><div style={{ fontSize: 10, color: C.t2, fontWeight: 800 }}>OBRAS</div><div style={{ fontFamily: C.mono, fontSize: 14, color: C.t0, fontWeight: 900 }}>{linea.obras.length}</div></div>
+              <div><div style={{ fontSize: 10, color: C.t2, fontWeight: 800 }}>PROV.</div><div style={{ fontFamily: C.mono, fontSize: 14, color: C.t0, fontWeight: 900 }}>{linea.proveedores}</div></div>
+              <div><div style={{ fontSize: 10, color: C.t2, fontWeight: 800 }}>RUBROS</div><div style={{ fontFamily: C.mono, fontSize: 14, color: C.t0, fontWeight: 900 }}>{linea.rubros}</div></div>
+            </div>
+            <div style={{ display: "flex", gap: 6, flexWrap: "wrap", marginTop: "auto" }}>
+              {linea.usd ? <span style={{ fontFamily: C.mono, fontSize: 11, color: C.green, border: `1px solid ${C.greenB}`, background: C.greenL, borderRadius: 999, padding: "3px 8px" }}>{fmtMoney(linea.usd, "USD")}</span> : null}
+              {linea.sinPrecio ? <span style={{ fontSize: 11, color: C.amber, border: `1px solid ${C.amberB}`, background: C.amberL, borderRadius: 999, padding: "3px 8px", fontWeight: 800 }}>{linea.sinPrecio} sin precio</span> : null}
+            </div>
+          </button>
+        ))}
+        {!visibles.length && (
+          <div style={{ padding: 26, textAlign: "center", color: C.t2, fontSize: 13, border: `1px dashed ${C.b0}`, borderRadius: 14 }}>No hay líneas con esa búsqueda.</div>
+        )}
+      </div>
+    </div>
+  );
+}
+
 // Lista matriz: el catálogo completo, navegable por sector/subsector, editable (descripción,
 // precio, cantidades por línea K37/K52/K55, sector). Reusa la tabla MaterialRow.
+function DuplicadosCatalogo({ groups, categorias, ums, proveedores, onChanged }) {
+  const [q, setQ] = useState("");
+  const visibles = useMemo(() => {
+    const terms = norm(q).split(/\s+/).filter(Boolean);
+    if (!terms.length) return groups;
+    return groups.filter((group) => {
+      const hay = norm(group.materials.map((m) => `${m.descripcion || ""} ${m.codigo || ""} ${m.proveedor || ""} ${categoriaNombre(categorias, m.categoria_id)}`).join(" "));
+      return terms.every((term) => hay.includes(term));
+    });
+  }, [groups, q, categorias]);
+  const totalItems = useMemo(() => groups.reduce((sum, group) => sum + group.materials.length, 0), [groups]);
+
+  return (
+    <div style={{ display: "grid", gap: 14 }}>
+      <div style={{ border: `1px solid ${C.amberB}`, background: C.amberL, borderRadius: 16, padding: 14, display: "grid", gap: 10 }}>
+        <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 12, flexWrap: "wrap" }}>
+          <div>
+            <div style={{ fontSize: 16, fontWeight: 950, color: C.t0 }}>Posibles duplicados</div>
+            <div style={{ fontSize: 12, color: C.t2, marginTop: 3 }}>
+              No se borra ni fusiona nada solo. Son grupos para revisar cuando el nombre, codigo o medidas parecen repetidos.
+            </div>
+          </div>
+          <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
+            <span style={{ fontFamily: C.mono, fontSize: 12, color: C.t0, border: `1px solid ${C.amberB}`, background: C.bg, borderRadius: 999, padding: "5px 10px" }}>{groups.length} grupos</span>
+            <span style={{ fontFamily: C.mono, fontSize: 12, color: C.t0, border: `1px solid ${C.amberB}`, background: C.bg, borderRadius: 999, padding: "5px 10px" }}>{totalItems} items</span>
+          </div>
+        </div>
+        <div style={{ position: "relative" }}>
+          <Search size={15} style={{ position: "absolute", left: 12, top: "50%", transform: "translateY(-50%)", color: C.t2 }} />
+          <input value={q} onChange={(e) => setQ(e.target.value)} placeholder="Buscar dentro de duplicados..." style={{ ...INP, width: "100%", maxWidth: 520, height: 38, paddingLeft: 36, background: C.bg }} />
+        </div>
+      </div>
+
+      {visibles.map((group, idx) => (
+        <section key={group.id} style={{ border: `1px solid ${C.b0}`, background: "var(--panel)", borderRadius: 14, overflow: "hidden" }}>
+          <div style={{ padding: "12px 14px", borderBottom: `1px solid ${C.b0}`, background: C.s0, display: "flex", alignItems: "center", justifyContent: "space-between", gap: 10, flexWrap: "wrap" }}>
+            <div>
+              <div style={{ fontSize: 13.5, fontWeight: 950, color: C.t0 }}>Grupo {idx + 1} · {group.reason}</div>
+              <div style={{ fontSize: 11.5, color: C.t2, marginTop: 2 }}>{group.materials.length} items parecidos. Sugerencia: conservar el que tenga mas datos cargados.</div>
+            </div>
+            <span style={{ fontFamily: C.mono, fontSize: 12, fontWeight: 900, color: group.score >= 92 ? C.red : C.amber, border: `1px solid ${group.score >= 92 ? "rgba(239,68,68,0.35)" : C.amberB}`, background: group.score >= 92 ? "rgba(239,68,68,0.1)" : C.amberL, borderRadius: 999, padding: "4px 9px" }}>
+              {group.score}% parecido
+            </span>
+          </div>
+          <div style={{ padding: 10, display: "grid", gap: 8 }}>
+            {group.materials.map((material) => {
+              const keep = material.id === group.keeperId;
+              return (
+                <div key={material.id} style={{ border: keep ? `1px solid ${C.greenB}` : `1px solid ${C.b0}`, borderRadius: 12, background: keep ? C.greenL : C.bg, padding: 8 }}>
+                  <div style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap", marginBottom: 6 }}>
+                    {keep && <span style={{ fontSize: 10.5, fontWeight: 950, color: C.green, border: `1px solid ${C.greenB}`, background: C.bg, borderRadius: 999, padding: "3px 8px" }}>Sugerido para conservar</span>}
+                    <span style={{ fontSize: 11.5, color: C.t2 }}>{categoriaNombre(categorias, material.categoria_id)}</span>
+                    {material.codigo && <span style={{ fontFamily: C.mono, fontSize: 11, color: C.t2 }}>Cod. {material.codigo}</span>}
+                    <PriceBadge material={material} />
+                  </div>
+                  <MaterialFila material={material} categorias={categorias} ums={ums} proveedores={proveedores} onChanged={onChanged} />
+                </div>
+              );
+            })}
+          </div>
+        </section>
+      ))}
+
+      {!visibles.length && (
+        <div style={{ padding: 30, textAlign: "center", color: C.t2, border: `1px dashed ${C.b0}`, borderRadius: 14, fontSize: 13 }}>
+          No hay posibles duplicados con esa busqueda.
+        </div>
+      )}
+    </div>
+  );
+}
+
 function MatrizTab({ categorias, materiales, proveedores, onChanged }) {
   const [sel, setSel] = useState(""); // "" = todos los sectores
+  const [modo, setModo] = useState("lista");
+  const [showPrecios, setShowPrecios] = useState(false);
+  const [catForm, setCatForm] = useState({ root: "", sub: "" });
+  const [catBusy, setCatBusy] = useState("");
+  const [catError, setCatError] = useState("");
   const ums = useMemo(
     () => [...new Set((materiales ?? []).map((m) => m.unidad_medida).filter(Boolean).map(String))].sort((a, b) => a.localeCompare(b, "es")),
     [materiales],
@@ -1927,11 +3703,13 @@ function MatrizTab({ categorias, materiales, proveedores, onChanged }) {
   const selCat = categorias.find((c) => c.id === sel);
   const parentActivo = selCat ? (selCat.parent_id ? categorias.find((c) => c.id === selCat.parent_id) : selCat) : null;
   const subs = parentActivo ? hijosDe(categorias, parentActivo.id) : [];
+  const parentParaSub = parentActivo || raices[0] || null;
 
   const countDe = useCallback((id) => {
     const scope = id ? idsScope(categorias, id) : null;
     return (materiales ?? []).filter(materialActivo).filter((m) => !scope || materialEnScope(m, scope)).length;
   }, [materiales, categorias]);
+  const duplicateGroups = useMemo(() => findDuplicateGroups(materiales ?? [], categorias, sel), [materiales, categorias, sel]);
 
   const Chip = ({ id, label, active }) => (
     <button
@@ -1942,6 +3720,40 @@ function MatrizTab({ categorias, materiales, proveedores, onChanged }) {
       {label} <span style={{ color: active ? "#93c5fd" : C.t2, fontFamily: C.mono, marginLeft: 5 }}>{countDe(id)}</span>
     </button>
   );
+
+  async function crearCategoriaRaiz() {
+    const nombre = catForm.root.trim();
+    if (!nombre) return;
+    setCatBusy("root");
+    setCatError("");
+    try {
+      const created = await crearCategoria(nombre, { parentId: null });
+      setCatForm((f) => ({ ...f, root: "" }));
+      setSel(created.id);
+      await onChanged?.();
+    } catch (e) {
+      setCatError(e?.message || "No se pudo crear la categoria.");
+    } finally {
+      setCatBusy("");
+    }
+  }
+
+  async function crearSubcategoriaActiva() {
+    const nombre = catForm.sub.trim();
+    if (!nombre || !parentParaSub) return;
+    setCatBusy("sub");
+    setCatError("");
+    try {
+      const created = await crearCategoria(nombre, { parentId: parentParaSub.id });
+      setCatForm((f) => ({ ...f, sub: "" }));
+      setSel(created.id);
+      await onChanged?.();
+    } catch (e) {
+      setCatError(e?.message || "No se pudo crear la subcategoria.");
+    } finally {
+      setCatBusy("");
+    }
+  }
 
   return (
     <div>
@@ -1955,17 +3767,72 @@ function MatrizTab({ categorias, materiales, proveedores, onChanged }) {
           {subs.map((s) => <Chip key={s.id} id={s.id} label={s.nombre} active={sel === s.id} />)}
         </div>
       )}
-      <div style={{ marginTop: 16 }}>
-        <ListaMateriales
+      <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(260px, 1fr))", gap: 10, marginTop: 14 }}>
+        <div style={{ border: `1px solid ${C.b0}`, borderRadius: 14, background: "var(--panel)", padding: 12, display: "grid", gap: 8 }}>
+          <div style={{ fontSize: 11, color: C.t2, fontWeight: 900, textTransform: "uppercase", letterSpacing: 0.7 }}>Nueva categoria</div>
+          <div style={{ display: "flex", gap: 8 }}>
+            <input value={catForm.root} onChange={(e) => setCatForm((f) => ({ ...f, root: e.target.value }))} placeholder="Ej: Seguridad" style={{ ...INP, flex: 1, height: 38 }} />
+            <button type="button" onClick={crearCategoriaRaiz} disabled={!catForm.root.trim() || catBusy === "root"} style={{ ...BTN_GREEN, padding: "8px 12px", whiteSpace: "nowrap" }}>
+              + Categoria
+            </button>
+          </div>
+        </div>
+        <div style={{ border: `1px solid ${C.b0}`, borderRadius: 14, background: "var(--panel)", padding: 12, display: "grid", gap: 8 }}>
+          <div style={{ fontSize: 11, color: C.t2, fontWeight: 900, textTransform: "uppercase", letterSpacing: 0.7 }}>
+            Nueva subcategoria {parentParaSub ? `en ${parentParaSub.nombre}` : ""}
+          </div>
+          <div style={{ display: "flex", gap: 8 }}>
+            <input value={catForm.sub} onChange={(e) => setCatForm((f) => ({ ...f, sub: e.target.value }))} placeholder="Ej: Bombas de achique" style={{ ...INP, flex: 1, height: 38 }} />
+            <button type="button" onClick={crearSubcategoriaActiva} disabled={!catForm.sub.trim() || !parentParaSub || catBusy === "sub"} style={{ ...BTN, padding: "8px 12px", whiteSpace: "nowrap", color: C.blue, borderColor: C.blueB, background: C.blueL }}>
+              + Subcategoria
+            </button>
+          </div>
+        </div>
+      </div>
+      {catError && <div style={{ marginTop: 8, fontSize: 12, color: C.red }}>{catError}</div>}
+      <div style={{ display: "flex", gap: 8, flexWrap: "wrap", alignItems: "center", marginTop: 14, padding: "10px 12px", border: `1px solid ${C.b0}`, background: "var(--panel)", borderRadius: 14 }}>
+        <button type="button" onClick={() => setModo("lista")} style={{ ...BTN, padding: "7px 12px", background: modo === "lista" ? C.blueL : C.s0, border: `1px solid ${modo === "lista" ? C.blueB : C.b0}`, color: modo === "lista" ? C.blue : C.t1 }}>
+          Lista completa
+        </button>
+        <button type="button" onClick={() => setModo("duplicados")} style={{ ...BTN, padding: "7px 12px", background: modo === "duplicados" ? C.amberL : C.s0, border: `1px solid ${modo === "duplicados" ? C.amberB : C.b0}`, color: modo === "duplicados" ? C.amber : C.t1 }}>
+          Posibles duplicados <span style={{ fontFamily: C.mono, marginLeft: 5 }}>{duplicateGroups.length}</span>
+        </button>
+        <button
+          type="button"
+          onClick={() => setShowPrecios(true)}
+          style={{ ...BTN, padding: "7px 12px", marginLeft: "auto", background: C.greenL, border: `1px solid ${C.greenB}`, color: C.green }}
+          title="Leer factura, remito, presupuesto, foto o PDF con IA y aplicar precios a materiales existentes"
+        >
+          <Upload size={14} /> Cargar precios
+        </button>
+        <span style={{ fontSize: 11.5, color: C.t2 }}>
+          {sel ? "Analisis limitado al sector seleccionado." : "Analisis sobre todo el catalogo activo."}
+        </span>
+      </div>
+      {showPrecios && (
+        <CargarPresupuestoModal
           categorias={categorias}
           materiales={materiales}
-          selectedId={sel}
-          ums={ums}
-          proveedores={proveedores}
           onChanged={onChanged}
-          defaultSoloPendientes={false}
-          compact
+          onClose={() => setShowPrecios(false)}
+          soloPrecios
         />
+      )}
+      <div style={{ marginTop: 16 }}>
+        {modo === "duplicados" ? (
+          <DuplicadosCatalogo groups={duplicateGroups} categorias={categorias} ums={ums} proveedores={proveedores} onChanged={onChanged} />
+        ) : (
+          <ListaMateriales
+            categorias={categorias}
+            materiales={materiales}
+            selectedId={sel}
+            ums={ums}
+            proveedores={proveedores}
+            onChanged={onChanged}
+            defaultSoloPendientes={false}
+            compact
+          />
+        )}
       </div>
     </div>
   );
@@ -1973,7 +3840,7 @@ function MatrizTab({ categorias, materiales, proveedores, onChanged }) {
 
 export default function MaterialesScreen({ profile, signOut }) {
   const { isMobile } = useResponsive();
-  const [tab, setTab] = useState("matriz");
+  const [tab, setTab] = useState("lineas");
   const [moreOpen, setMoreOpen] = useState(false);
   const [categorias, setCategorias] = useState(null);
   const [materiales, setMateriales] = useState(null);
@@ -2044,9 +3911,9 @@ export default function MaterialesScreen({ profile, signOut }) {
       <div style={{ flex: 1, height: "100%", overflowY: "auto", minWidth: 0 }}>
         <div style={{ padding: isMobile ? "16px 14px 50px 14px" : "26px 30px 60px" }}>
           <div style={{ marginBottom: 18, paddingLeft: isMobile ? 40 : 0 }}>
-            <div style={{ fontSize: 22, fontWeight: 700, color: C.t0 }}>Materiales · Catálogo y BOM</div>
+            <div style={{ fontSize: 22, fontWeight: 700, color: C.t0 }}>Listas de compras</div>
             <div style={{ fontSize: 12, color: C.t2, marginTop: 4 }}>
-              Carga guiada por sectores para preparar Pañol y costos, sin movimientos operativos.
+              Líneas de producción → base matriz por línea → órdenes de compra.
             </div>
           </div>
 
@@ -2088,6 +3955,7 @@ export default function MaterialesScreen({ profile, signOut }) {
                 );
               })()}
 
+              {tab === "lineas" && <LineasTab lineas={[]} obras={obrasAvance} categorias={categorias} materiales={materiales} proveedores={proveedores} opciones={opciones} onChanged={cargar} />}
               {tab === "matriz" && <MatrizTab categorias={categorias} materiales={materiales} proveedores={proveedores} onChanged={cargar} />}
               {tab === "importar" && <ImportarTab batches={batches} onImported={cargar} />}
               {tab === "bandeja" && <BandejaTab categorias={categorias} materiales={materiales} onChanged={cargar} />}
@@ -2096,7 +3964,7 @@ export default function MaterialesScreen({ profile, signOut }) {
               {tab === "variantes" && <VariantesTab opciones={opciones} onChanged={cargar} />}
               {tab === "proveedores" && <ProveedoresTab proveedores={proveedores} onChanged={cargar} />}
               {tab === "avance" && <AvanceTab categorias={categorias} materiales={materiales} batches={batches} obras={obrasAvance} />}
-              {tab === "costos" && <CostoObraTab categorias={categorias} materiales={materiales} />}
+              {tab === "costos" && <CostoObraTab categorias={categorias} materiales={materiales} opciones={opciones} />}
               {tab === "resumen" && <ResumenTab categorias={categorias} materiales={materiales} />}
             </>
           )}

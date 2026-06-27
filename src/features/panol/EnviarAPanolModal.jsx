@@ -163,6 +163,7 @@ function normalizeItem(it) {
     precio_unitario: it.precio_unitario ?? it.precioUnitario ?? "",
     moneda: it.moneda || "ARS",
     purchase_request_item_id: it.purchase_request_item_id ?? it.purchaseRequestItemId ?? null,
+    obra_snapshot_item_id: it.obra_snapshot_item_id ?? it.obraSnapshotItemId ?? null,
   };
 }
 
@@ -248,6 +249,7 @@ export default function EnviarAPanolModal({ open, onClose, prefill, showPrices =
       precio_unitario: showPrices ? nPrice.trim() : "",
       moneda: showPrices ? nCurrency : "ARS",
       purchase_request_item_id: null,
+      obra_snapshot_item_id: null,
     }]);
     resetQuickAdd();
   }

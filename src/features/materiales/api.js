@@ -250,6 +250,94 @@ async function fetchProduccionObras(select, onlyActive = true) {
   return data ?? [];
 }
 
+// Addons por obra (opcionales/adicionales). Tolerante: [] si la tabla aún no existe.
+export async function fetchAddonsObra(obraId) {
+  if (!obraId) return [];
+  try {
+    const { data, error } = await supabase.from("panol_obra_addons").select("*").eq("obra_id", obraId).order("created_at");
+    if (error) return [];
+    return data ?? [];
+  } catch { return []; }
+}
+export async function crearAddon(obraId, fields) {
+  const { error } = await supabase.from("panol_obra_addons").insert({ obra_id: obraId, ...fields });
+  if (error) throw error;
+}
+export async function borrarAddon(id) {
+  const { error } = await supabase.from("panol_obra_addons").delete().eq("id", id);
+  if (error) throw error;
+}
+
+export async function fetchObraMaterialSnapshot(obraId) {
+  if (!obraId) return [];
+  try {
+    const { data, error } = await supabase
+      .from("panol_obra_materiales_snapshot")
+      .select("*")
+      .eq("obra_id", obraId)
+      .order("orden", { ascending: true, nullsFirst: false })
+      .order("created_at", { ascending: true });
+    if (error) return [];
+    return data ?? [];
+  } catch {
+    return [];
+  }
+}
+
+function snapshotPayloadFromRows(obraId, rows = []) {
+  return rows
+    .filter((row) => String(row?.descripcion || "").trim())
+    .map((row, index) => ({
+      obra_id: obraId,
+      material_id: row.materialId ?? row.material_id ?? row.material?.id ?? null,
+      descripcion: String(row.descripcion || "").trim(),
+      codigo: row.codigo || null,
+      cantidad: toNullableNumber(row.cantidad),
+      unidad: row.unidad || row.unidad_medida || "unidad",
+      proveedor: row.proveedor && row.proveedor !== "Sin proveedor" ? row.proveedor : null,
+      rubro: row.rubro || null,
+      tipo: row.bucket?.key || row.tipo_key || row.tipo || "base",
+      tipo_label: row.bucket?.label || row.tipo_label || row.tipo || "Base",
+      precio_unitario: row.precio?.amount ?? toNullableNumber(row.precio_unitario),
+      moneda: row.precio?.moneda || row.moneda || null,
+      notas: row.obs || row.notas || null,
+      source: row.source || "matriz",
+      orden: index,
+      estado: row.estadoObra || row.estado || "pendiente",
+    }));
+}
+
+export async function ensureObraMaterialSnapshot(obraId, rows = []) {
+  if (!obraId) return [];
+  try {
+    const existing = await fetchObraMaterialSnapshot(obraId);
+    if (existing.length) return existing;
+
+    const payload = snapshotPayloadFromRows(obraId, rows);
+    if (!payload.length) return [];
+
+    const { error } = await supabase.from("panol_obra_materiales_snapshot").insert(payload);
+    if (error) return [];
+    return await fetchObraMaterialSnapshot(obraId);
+  } catch {
+    return [];
+  }
+}
+
+export async function updateObraSnapshotRows(ids = [], patch = {}) {
+  const cleanIds = ids.filter(Boolean);
+  if (!cleanIds.length) return;
+  try {
+    const { error } = await supabase
+      .from("panol_obra_materiales_snapshot")
+      .update(patch)
+      .in("id", cleanIds);
+    if (error && !isMissingTable(error)) throw error;
+  } catch (error) {
+    if (!isMissingTable(error)) throw error;
+  }
+}
+
 export async function fetchObrasAvance() {
   try {
     let rows;
@@ -774,9 +862,24 @@ export async function aplicarPrecioMaterial(materialId, { precio, moneda = "ARS"
 // Setea la cantidad del BOM de un material para una línea/modelo, sin tocar las demás.
 export async function setCantidadModelo(materialId, modelo, cantidad) {
   const n = toNullableNumber(cantidad);
-  if (!materialId || !modelo || n == null || n <= 0) return;
+  if (!materialId || !modelo) return;
+  if (n == null || n <= 0) {
+    await quitarCantidadModelo(materialId, modelo);
+    return;
+  }
   const { error } = await supabase
     .from("panol_material_modelo")
     .upsert({ material_id: materialId, modelo: String(modelo), variante: VARIANTE_BASE, cantidad: n }, { onConflict: "material_id,modelo,variante" });
+  if (error) throw error;
+}
+
+export async function quitarCantidadModelo(materialId, modelo) {
+  if (!materialId || !modelo) return;
+  const { error } = await supabase
+    .from("panol_material_modelo")
+    .delete()
+    .eq("material_id", materialId)
+    .eq("modelo", String(modelo))
+    .eq("variante", VARIANTE_BASE);
   if (error) throw error;
 }
