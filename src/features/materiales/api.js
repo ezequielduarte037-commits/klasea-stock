@@ -13,6 +13,12 @@ export function isMissingTable(error) {
   return error.code === "42P01" || msg.includes("does not exist") || msg.includes("schema cache") || msg.includes("not found");
 }
 
+function isMissingColumn(error) {
+  if (!error) return false;
+  const msg = String(error.message ?? "").toLowerCase();
+  return error.code === "42703" || msg.includes("could not find") || msg.includes("column");
+}
+
 async function fetchPaged(table, select, orderColumn = "id") {
   const out = [];
   for (let from = 0; ; from += PAGE) {
@@ -278,10 +284,101 @@ export async function fetchObraMaterialSnapshot(obraId) {
       .order("orden", { ascending: true, nullsFirst: false })
       .order("created_at", { ascending: true });
     if (error) return [];
-    return data ?? [];
+    return await withRecepcionDetalle(data ?? []);
   } catch {
     return [];
   }
+}
+
+function snapshotEstadoFromRecepcion(estado) {
+  if (["pendiente", "recibido", "parcial", "sin_info", "falta_stock", "rechazado"].includes(estado)) return "en_panol";
+  return null;
+}
+
+function estadoListadoObra(row) {
+  const estado = snapshotEstadoFromRecepcion(row?.recepcion_estado) || row?.estado || "pendiente";
+  if (estado === "egresado") return "egresado";
+  if (estado === "pedido" || estado === "comprado") return "comprado";
+  if (["en_panol", "recibido", "parcial", "problema", "sin_info", "falta_stock", "rechazado"].includes(estado)) return "en_panol";
+  return "pendiente";
+}
+
+function latestRecepcionItem(items = []) {
+  return [...items].sort((a, b) => {
+    const ad = new Date(a.marcado_at || a.updated_at || a.created_at || 0).getTime();
+    const bd = new Date(b.marcado_at || b.updated_at || b.created_at || 0).getTime();
+    return bd - ad;
+  })[0] || null;
+}
+
+async function fetchRecepcionItemsForSnapshots(rows = []) {
+  const snapshotIds = rows.map((row) => row.id).filter(Boolean);
+  const requestItemIds = rows.map((row) => row.purchase_request_item_id).filter(Boolean);
+  if (!snapshotIds.length && !requestItemIds.length) return [];
+
+  const select = "id, envio_id, purchase_request_item_id, obra_snapshot_item_id, estado, cantidad_recibida, nota, marcado_at, updated_at, created_at, envio:panol_envios(id,titulo,estado,sede,created_at)";
+  try {
+    let q = supabase.from("panol_envio_items").select(select);
+    const filters = [];
+    if (snapshotIds.length) filters.push(`obra_snapshot_item_id.in.(${snapshotIds.join(",")})`);
+    if (requestItemIds.length) filters.push(`purchase_request_item_id.in.(${requestItemIds.join(",")})`);
+    q = q.or(filters.join(",")).order("created_at", { ascending: false });
+    const { data, error } = await q;
+    if (error) throw error;
+    return data ?? [];
+  } catch (error) {
+    if (!isMissingColumn(error) || !requestItemIds.length) return [];
+    const { data, error: fallbackError } = await supabase
+      .from("panol_envio_items")
+      .select("id, envio_id, purchase_request_item_id, estado, cantidad_recibida, nota, marcado_at, updated_at, created_at, envio:panol_envios(id,titulo,estado,sede,created_at)")
+      .in("purchase_request_item_id", requestItemIds)
+      .order("created_at", { ascending: false });
+    if (fallbackError) return [];
+    return data ?? [];
+  }
+}
+
+async function withRecepcionDetalle(rows = []) {
+  if (!rows.length) return rows;
+  const recepcionItems = await fetchRecepcionItemsForSnapshots(rows);
+  if (!recepcionItems.length) return rows;
+
+  const bySnapshot = new Map();
+  const byPurchaseItem = new Map();
+  for (const item of recepcionItems) {
+    if (item.obra_snapshot_item_id) {
+      const list = bySnapshot.get(item.obra_snapshot_item_id) ?? [];
+      list.push(item);
+      bySnapshot.set(item.obra_snapshot_item_id, list);
+    }
+    if (item.purchase_request_item_id) {
+      const list = byPurchaseItem.get(item.purchase_request_item_id) ?? [];
+      list.push(item);
+      byPurchaseItem.set(item.purchase_request_item_id, list);
+    }
+  }
+
+  return rows.map((row) => {
+    const linked = [
+      ...(bySnapshot.get(row.id) ?? []),
+      ...(byPurchaseItem.get(row.purchase_request_item_id) ?? []),
+    ];
+    const unique = [...new Map(linked.map((item) => [item.id, item])).values()];
+    const latest = latestRecepcionItem(unique);
+    if (!latest) return row;
+    return {
+      ...row,
+      estado: row.estado === "egresado" ? row.estado : snapshotEstadoFromRecepcion(latest.estado) || row.estado,
+      panol_envio_id: latest.envio_id || row.panol_envio_id || null,
+      panol_envio_item_id: latest.id || row.panol_envio_item_id || null,
+      recepcion_estado: latest.estado || row.recepcion_estado || null,
+      recepcion_cantidad_recibida: latest.cantidad_recibida ?? row.recepcion_cantidad_recibida ?? null,
+      recepcion_nota: latest.nota ?? row.recepcion_nota ?? null,
+      recepcion_updated_at: latest.marcado_at || latest.updated_at || row.recepcion_updated_at || null,
+      recepcion_envio: latest.envio || null,
+      recepcion_items: unique,
+    };
+  });
 }
 
 function snapshotPayloadFromRows(obraId, rows = []) {
@@ -357,10 +454,45 @@ export async function fetchObrasAvance() {
       }
     }
 
-    return rows.map(normalizeObraAvance);
+    return await withObrasRecepcion(rows.map(normalizeObraAvance));
   } catch (error) {
     if (isMissingTable(error)) return [];
     return [];
+  }
+}
+
+function resumenRecepcionSnapshot(rows = []) {
+  const out = { total: rows.length, pendiente: 0, comprado: 0, en_panol: 0, egresado: 0 };
+  for (const row of rows) {
+    const estado = estadoListadoObra(row);
+    out[estado] = (out[estado] ?? 0) + 1;
+  }
+  out.abiertos = out.total - out.egresado;
+  out.conMovimiento = out.total - out.pendiente;
+  return out;
+}
+
+async function withObrasRecepcion(rows = []) {
+  if (!rows.length) return rows;
+  const obraIds = rows.map((row) => row.id).filter(Boolean);
+  try {
+    const { data, error } = await supabase
+      .from("panol_obra_materiales_snapshot")
+      .select("obra_id, estado, recepcion_estado")
+      .in("obra_id", obraIds);
+    if (error) return rows;
+    const byObra = new Map();
+    for (const item of data ?? []) {
+      const list = byObra.get(item.obra_id) ?? [];
+      list.push(item);
+      byObra.set(item.obra_id, list);
+    }
+    return rows.map((row) => ({
+      ...row,
+      materiales_recepcion: resumenRecepcionSnapshot(byObra.get(row.id) ?? []),
+    }));
+  } catch {
+    return rows;
   }
 }
 

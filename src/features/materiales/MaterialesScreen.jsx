@@ -2602,6 +2602,7 @@ function ObraMatrizView({ obra, linea, lineaNombre, categorias, materiales, opci
   const [proveedorFilter, setProveedorFilter] = useState("");
   const [rubroFilter, setRubroFilter] = useState("");
   const [tipoFilter, setTipoFilter] = useState("todos");
+  const [estadoFilter, setEstadoFilter] = useState("todos");
   const [groupBy, setGroupBy] = useState("proveedor");
   const [selected, setSelected] = useState(() => new Set());
   const [copied, setCopied] = useState(false);
@@ -2625,6 +2626,7 @@ function ObraMatrizView({ obra, linea, lineaNombre, categorias, materiales, opci
     setSelected(new Set());
     setSnapshot([]);
     setFlowMsg(null);
+    setEstadoFilter("todos");
   }, [obra?.id, linea]);
 
   const liveRows = useMemo(() => (materiales ?? [])
@@ -2682,11 +2684,16 @@ function ObraMatrizView({ obra, linea, lineaNombre, categorias, materiales, opci
       .filter((row) => !rubroFilter || row.rubro === rubroFilter)
       .filter((row) => tipoFilter === "todos" || (tipoFilter === "sin_precio" ? !row.precio.amount : tipoFilter === "revisar" ? row.review?.flag : row.bucket.key === tipoFilter))
       .filter((row) => {
+        if (estadoFilter === "todos") return true;
+        const estado = estadoObraForRow(row);
+        return estado === estadoFilter;
+      })
+      .filter((row) => {
         if (!terms.length) return true;
-        const hay = norm(`${row.descripcion} ${row.codigo} ${row.proveedor} ${row.rubro} ${row.obs}`);
+        const hay = norm(`${row.descripcion} ${row.codigo} ${row.proveedor} ${row.rubro} ${row.obs} ${recepcionMetaForRow(row).label} ${row.recepcion_estado || ""} ${row.recepcion_nota || ""}`);
         return terms.every((t) => hay.includes(t));
       });
-  }, [rows, q, proveedorFilter, rubroFilter, tipoFilter]);
+  }, [rows, q, proveedorFilter, rubroFilter, tipoFilter, estadoFilter]);
 
   const groupedRows = useMemo(() => {
     const map = new Map();
@@ -2713,6 +2720,11 @@ function ObraMatrizView({ obra, linea, lineaNombre, categorias, materiales, opci
     acc.items += 1;
     if (row.bucket.key === "linea_eje") acc.lineaEje += 1;
     if (row.bucket.key === "variante") acc.variantes += 1;
+    const estado = estadoObraForRow(row);
+    if (estado === "pendiente") acc.pendientes += 1;
+    if (estado === "comprado") acc.comprados += 1;
+    if (estado === "en_panol") acc.enPanol += 1;
+    if (estado === "egresado") acc.egresados += 1;
     if (row.review?.flag) acc.revisar += 1;
     if (!row.precio.amount) acc.sinPrecio += 1;
     else if (row.precio.moneda === "USD") {
@@ -2722,8 +2734,7 @@ function ObraMatrizView({ obra, linea, lineaNombre, categorias, materiales, opci
       acc.ars += row.precio.amount * qty;
     }
     return acc;
-  }, { items: 0, sinPrecio: 0, revisar: 0, lineaEje: 0, variantes: 0, usd: 0, ars: 0, ejeUsd: 0 }), [rows]);
-
+  }, { items: 0, sinPrecio: 0, revisar: 0, lineaEje: 0, variantes: 0, pendientes: 0, comprados: 0, enPanol: 0, egresados: 0, usd: 0, ars: 0, ejeUsd: 0 }), [rows]);
   const orderRows = useMemo(() => {
     const base = selected.size ? visibleRows.filter((r) => selected.has(r.id)) : visibleRows;
     return base.map((r) => ({
@@ -2879,13 +2890,12 @@ function ObraMatrizView({ obra, linea, lineaNombre, categorias, materiales, opci
             {snapshotActivo ? "Lista fijada" : "Matriz viva"}
           </span>
         </div>
-        <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(145px, 1fr))", gap: 10 }}>
-          <KpiCard label="Items" value={kpis.items} color={C.blue} />
-          <KpiCard label="Sin precio" value={kpis.sinPrecio} color={kpis.sinPrecio ? C.amber : C.green} />
-          <KpiCard label="A revisar" value={kpis.revisar} color={kpis.revisar ? C.amber : C.green} />
-          <KpiCard label="Base USD" value={fmtMoney(kpis.usd, "USD")} color={C.green} />
-          <KpiCard label="Línea eje USD" value={fmtMoney(kpis.ejeUsd, "USD")} sub={`${kpis.lineaEje} items`} color={C.violet} />
-          <KpiCard label="ARS" value={fmtMoney(kpis.ars, "ARS")} color={C.t0} />
+        <div style={{ display: "flex", gap: 6, flexWrap: "wrap", borderTop: `1px solid ${C.b0}`, paddingTop: 10 }}>
+          <CompactStat label="Items" value={kpis.items} color={C.blue} active={estadoFilter === "todos"} onClick={() => setEstadoFilter("todos")} />
+          <CompactStat label="Pendiente" value={kpis.pendientes} color={C.t2} active={estadoFilter === "pendiente"} onClick={() => setEstadoFilter("pendiente")} />
+          <CompactStat label="Comprado" value={kpis.comprados} color={C.amber} active={estadoFilter === "comprado"} onClick={() => setEstadoFilter("comprado")} />
+          <CompactStat label="En pañol" value={kpis.enPanol} color={C.violet} active={estadoFilter === "en_panol"} onClick={() => setEstadoFilter("en_panol")} />
+          <CompactStat label="Egresado" value={kpis.egresados} color={C.green} active={estadoFilter === "egresado"} onClick={() => setEstadoFilter("egresado")} />
         </div>
       </div>
 
@@ -2925,6 +2935,11 @@ function ObraMatrizView({ obra, linea, lineaNombre, categorias, materiales, opci
             <option value="" style={OPT_ST}>Todos los rubros</option>
             {facets.rubros.map((r) => <option key={r} value={r} style={OPT_ST}>{r}</option>)}
           </select>
+          <select value={estadoFilter} onChange={(e) => setEstadoFilter(e.target.value)} style={{ ...INP, width: 190, height: 38 }} title="Filtrar estado del item">
+            {recepcionFilterOptions(kpis).map(([key, label]) => (
+              <option key={key} value={key} style={OPT_ST}>{label}</option>
+            ))}
+          </select>
           {[
             ["todos", "Todo", C.blue],
             ["base", "Base", C.green],
@@ -2934,6 +2949,15 @@ function ObraMatrizView({ obra, linea, lineaNombre, categorias, materiales, opci
             ["revisar", "A revisar", C.amber],
           ].map(([key, label, color]) => (
             <button key={key} type="button" onClick={() => setTipoFilter(key)} style={chipStyle(tipoFilter === key, color)}>
+              {label}
+            </button>
+          ))}
+        </div>
+        <div style={{ display: "flex", gap: 8, flexWrap: "wrap", alignItems: "center", borderTop: `1px solid ${C.b0}`, paddingTop: 12 }}>
+          <PackagePlus size={16} style={{ color: C.green }} />
+          <div style={{ fontSize: 12, fontWeight: 900, color: C.t0, marginRight: 2 }}>Estado</div>
+          {recepcionFilterOptions(kpis).map(([key, label, color]) => (
+            <button key={key} type="button" onClick={() => setEstadoFilter(key)} style={chipStyle(estadoFilter === key, color)}>
               {label}
             </button>
           ))}
@@ -2986,7 +3010,6 @@ function ObraMatrizView({ obra, linea, lineaNombre, categorias, materiales, opci
               {group.rows.map((row) => {
                 const qty = toNum(row.cantidad) || 1;
                 const total = row.precio.amount ? row.precio.amount * qty : null;
-                const estado = SNAPSHOT_ESTADO_META[row.estadoObra] || SNAPSHOT_ESTADO_META.pendiente;
                 return (
                   <div
                     key={row.id}
@@ -3009,15 +3032,12 @@ function ObraMatrizView({ obra, linea, lineaNombre, categorias, materiales, opci
                           {row.bucket.label}
                         </span>
                         {row.review?.flag && <ReviewBadge reason={row.review.reason} />}
-                        {snapshotActivo && (
-                          <span style={{ fontSize: 10, fontWeight: 900, color: estado.color, background: estado.bg, border: `1px solid ${estado.border}`, borderRadius: 999, padding: "2px 7px", whiteSpace: "nowrap" }}>
-                            {estado.label}
-                          </span>
-                        )}
+                        <RecepcionChip row={row} />
                       </div>
                       <div style={{ fontSize: 11, color: C.t2, marginTop: 4, lineHeight: 1.35 }}>
                         {row.codigo || "sin código"}{row.obs ? ` · ${row.obs}` : ""}
                       </div>
+                      <RecepcionDetalle row={row} />
                     </div>
                     <div>
                       <div style={{ fontSize: 10, color: C.t2, fontWeight: 800, textTransform: "uppercase", letterSpacing: 0.6 }}>Cantidad</div>
@@ -3253,16 +3273,21 @@ function LineaMatrizView({ linea, obras = [], categorias, materiales, proveedore
         <div style={{ border: `1px solid ${C.b0}`, borderRadius: 14, background: C.s0, padding: 13, marginBottom: 16 }}>
           <div style={{ fontSize: 11, color: C.t2, fontWeight: 800, textTransform: "uppercase", letterSpacing: 0.6, marginBottom: 9 }}>Obras activas de esta línea</div>
           <div style={{ display: "flex", gap: 7, flexWrap: "wrap" }}>
-            {obras.map((obra) => (
-              <button
-                type="button"
-                key={obra.id}
-                onClick={() => onSelectObra?.(obra)}
-                style={{ ...BTN, border: `1px solid ${C.b0}`, borderRadius: 999, background: C.bg, color: C.t1, fontFamily: C.mono, fontSize: 12, fontWeight: 850, padding: "5px 10px" }}
-              >
-                {obra.codigo} <span style={{ color: C.blue }}>›</span>
-              </button>
-            ))}
+            {obras.map((obra) => {
+              const meta = obraRecepcionResumenMeta(obra.materiales_recepcion);
+              return (
+                <button
+                  type="button"
+                  key={obra.id}
+                  onClick={() => onSelectObra?.(obra)}
+                  style={{ ...BTN, border: `1px solid ${meta.border}`, borderRadius: 999, background: meta.bg, color: C.t1, fontFamily: C.mono, fontSize: 12, fontWeight: 850, padding: "5px 10px", gap: 7 }}
+                >
+                  <span style={{ color: C.t0 }}>{obra.codigo}</span>
+                  <span style={{ color: meta.color, fontSize: 10.5, fontWeight: 900 }}>{obraRecepcionResumenLabel(obra.materiales_recepcion)}</span>
+                  <span style={{ color: C.blue }}>›</span>
+                </button>
+              );
+            })}
           </div>
         </div>
       )}
@@ -3422,13 +3447,104 @@ function LineaMatrizView({ linea, obras = [], categorias, materiales, proveedore
 
 const SNAPSHOT_ESTADO_META = {
   pendiente: { label: "Pendiente", color: C.t2, bg: C.s0, border: C.b0 },
-  pedido: { label: "Pedido", color: C.blue, bg: C.blueL, border: C.blueB },
   comprado: { label: "Comprado", color: C.amber, bg: C.amberL, border: C.amberB },
   en_panol: { label: "En pañol", color: C.violet, bg: C.s1, border: C.b1 },
-  parcial: { label: "Parcial", color: C.amber, bg: C.amberL, border: C.amberB },
-  recibido: { label: "Recibido", color: C.green, bg: C.greenL, border: C.greenB },
-  problema: { label: "Problema", color: C.red, bg: "rgba(239,68,68,0.10)", border: "rgba(239,68,68,0.30)" },
+  egresado: { label: "Egresado", color: C.green, bg: C.greenL, border: C.greenB },
 };
+
+function estadoFromRecepcion(estado) {
+  if (["pendiente", "recibido", "parcial", "sin_info", "falta_stock", "rechazado"].includes(estado)) return "en_panol";
+  return null;
+}
+
+function estadoObraForRow(row) {
+  const estado = row?.estadoObra || estadoFromRecepcion(row?.recepcion_estado) || "pendiente";
+  if (estado === "egresado") return "egresado";
+  if (estado === "pedido" || estado === "comprado") return "comprado";
+  if (["en_panol", "recibido", "parcial", "problema", "sin_info", "falta_stock", "rechazado"].includes(estado)) return "en_panol";
+  return "pendiente";
+}
+
+function recepcionMetaForRow(row) {
+  const estado = estadoObraForRow(row);
+  return SNAPSHOT_ESTADO_META[estado] || SNAPSHOT_ESTADO_META.pendiente;
+}
+
+function recepcionFilterOptions(kpis) {
+  return [
+    ["todos", `Todo (${kpis.items || 0})`, C.blue],
+    ["pendiente", `Pendiente (${kpis.pendientes || 0})`, C.t2],
+    ["comprado", `Comprado (${kpis.comprados || 0})`, C.amber],
+    ["en_panol", `En pañol (${kpis.enPanol || 0})`, C.violet],
+    ["egresado", `Egresado (${kpis.egresados || 0})`, C.green],
+  ];
+}
+
+function RecepcionChip({ row }) {
+  const meta = recepcionMetaForRow(row);
+  return (
+    <span style={{ fontSize: 10, fontWeight: 900, color: meta.color, background: meta.bg, border: `1px solid ${meta.border}`, borderRadius: 999, padding: "2px 7px", whiteSpace: "nowrap" }}>
+      {meta.label}
+    </span>
+  );
+}
+
+function CompactStat({ label, value, color, active = false, onClick }) {
+  return (
+    <button type="button" onClick={onClick} style={{ display: "inline-flex", alignItems: "center", gap: 6, border: `1px solid ${active ? color : C.b0}`, background: active ? softStateBg(color) : C.s0, borderRadius: 999, padding: "4px 9px", fontSize: 11, fontWeight: 850, color: active ? C.t0 : C.t2, cursor: "pointer", fontFamily: C.sans }}>
+      <span>{label}</span>
+      <span style={{ color, fontFamily: C.mono }}>{value}</span>
+    </button>
+  );
+}
+
+function softStateBg(color) {
+  if (color === C.blue) return C.blueL;
+  if (color === C.amber) return C.amberL;
+  if (color === C.green) return C.greenL;
+  if (color === C.violet) return "var(--violet-soft)";
+  return C.s1;
+}
+
+function RecepcionDetalle({ row }) {
+  const estado = estadoObraForRow(row);
+  const received = String(row?.recepcion_cantidad_recibida ?? "").trim();
+  const nota = String(row?.recepcion_nota ?? "").trim();
+  const envio = row?.recepcion_envio;
+  if (estado === "pendiente" && !received && !nota && !envio) return null;
+
+  const parts = [];
+  if (received) parts.push(`Llegaron ${received}${row?.unidad ? ` ${row.unidad}` : ""}`);
+  if (envio?.titulo) parts.push(envio.titulo);
+  if (nota) parts.push(`Nota: ${nota}`);
+  if (!parts.length && row?.recepcion_estado) parts.push(`Pañol: ${recepcionMetaForRow(row).label}`);
+
+  return (
+    <div style={{ display: "flex", flexWrap: "wrap", gap: 6, marginTop: 6, fontSize: 10.5, color: C.t2, lineHeight: 1.35 }}>
+      {parts.map((part, index) => (
+        <span key={`${part}-${index}`} style={{ border: `1px solid ${C.b0}`, background: C.s0, borderRadius: 999, padding: "2px 7px", maxWidth: "100%", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+          {part}
+        </span>
+      ))}
+    </div>
+  );
+}
+
+function obraRecepcionResumenLabel(resumen) {
+  if (!resumen?.total) return "sin lista";
+  if (resumen.egresado) return `${resumen.egresado}/${resumen.total} egr.`;
+  if (resumen.en_panol) return `${resumen.en_panol}/${resumen.total} pañol`;
+  if (resumen.comprado) return `${resumen.comprado}/${resumen.total} comp.`;
+  return `${resumen.pendiente || 0}/${resumen.total} pend.`;
+}
+
+function obraRecepcionResumenMeta(resumen) {
+  if (!resumen?.total) return { color: C.t2, bg: C.bg, border: C.b0 };
+  if ((resumen.egresado || 0) === resumen.total) return SNAPSHOT_ESTADO_META.egresado;
+  if (resumen.en_panol) return SNAPSHOT_ESTADO_META.en_panol;
+  if (resumen.comprado || resumen.pedido) return SNAPSHOT_ESTADO_META.comprado;
+  return SNAPSHOT_ESTADO_META.pendiente;
+}
 
 function snapshotBucket(row) {
   const key = row?.tipo || "base";
@@ -3463,7 +3579,13 @@ function snapshotRowToView(row) {
     obs: row.notas || "",
     revisado: true,
     review: { flag: !!reason, reason },
-    estadoObra: row.estado || "pendiente",
+    estadoObra: estadoFromRecepcion(row.recepcion_estado) || row.estado || "pendiente",
+    recepcion_estado: row.recepcion_estado || null,
+    recepcion_cantidad_recibida: row.recepcion_cantidad_recibida ?? null,
+    recepcion_nota: row.recepcion_nota ?? null,
+    recepcion_updated_at: row.recepcion_updated_at ?? null,
+    recepcion_envio: row.recepcion_envio ?? null,
+    recepcion_items: row.recepcion_items ?? [],
   };
 }
 

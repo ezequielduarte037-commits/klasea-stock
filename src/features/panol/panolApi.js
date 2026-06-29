@@ -34,6 +34,12 @@ export const ENVIO_ESTADO_META = {
   cancelado:      { label: "Cancelado",      color: "#f87171" },
 };
 
+function isMissingColumn(error) {
+  if (!error) return false;
+  const msg = String(error.message ?? "").toLowerCase();
+  return error.code === "42703" || msg.includes("could not find") || msg.includes("column");
+}
+
 // Resumen de estados de los ítems de un envío (para KPIs y chips de la bandeja).
 export function resumenItems(items = []) {
   const total = items.length;
@@ -118,6 +124,27 @@ export async function fetchLinkedPurchaseRequestForEnvio(envioId) {
   return data ?? null;
 }
 
+export async function fetchMaterialesEgreso({ sede = null, estados = ["en_panol", "recibido", "parcial", "problema"] } = {}) {
+  let data;
+  let error;
+  const runSelect = (select) => supabase
+    .from("panol_obra_materiales_snapshot")
+    .select(select)
+    .in("estado", estados)
+    .order("updated_at", { ascending: false });
+
+  ({ data, error } = await runSelect("*, obra:produccion_obras(id,codigo,linea_nombre,modelo), panol_envio:panol_envios(id,titulo,sede,destino,created_at)"));
+  if (error && isMissingColumn(error)) {
+    ({ data, error } = await runSelect("*, obra:produccion_obras(id,codigo,linea_nombre), panol_envio:panol_envios(id,titulo,sede,destino,created_at)"));
+  }
+  if (error && isMissingColumn(error)) {
+    ({ data, error } = await runSelect("*, obra:produccion_obras(id,codigo), panol_envio:panol_envios(id,titulo,sede,destino,created_at)"));
+  }
+  if (error) throw error;
+  const rows = data ?? [];
+  return sede ? rows.filter((row) => row.panol_envio?.sede === sede) : rows;
+}
+
 // ─── Escrituras (RPCs) ──────────────────────────────────────────────────────
 export async function crearEnvio({
   titulo, sede, prioridad = "media", obraId = null, destino = null,
@@ -177,6 +204,19 @@ export async function marcarItems(itemIds, estado, { nota = null, cantidadRecibi
 export async function setEstadoEnvio(envioId, estado) {
   const { error } = await supabase.rpc("panol_set_estado", { p_envio: envioId, p_estado: estado });
   if (error) throw error;
+}
+
+export async function egresarMaterialesObra(ids = [], { nota = null, retiradoPor = null, sectorDestino = null } = {}) {
+  const p_snapshot_ids = ids.filter(Boolean);
+  if (!p_snapshot_ids.length) return 0;
+  const { data, error } = await supabase.rpc("panol_egresar_obra_materiales", {
+    p_snapshot_ids,
+    p_nota: String(nota || "").trim() || null,
+    p_retirado_por: String(retiradoPor || "").trim() || null,
+    p_sector_destino: String(sectorDestino || "").trim() || null,
+  });
+  if (error) throw error;
+  return data ?? p_snapshot_ids.length;
 }
 
 export async function deleteEnvio(envioId) {

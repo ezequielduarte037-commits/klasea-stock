@@ -382,7 +382,7 @@ export default function Sidebar({ profile, signOut }) {
           {(esPanol || esGestion) && <>
             {divider("panol-rec")}
             {group("Pañol · Recepción", SC.panol_catalogo, 216)}
-            {item("/recepcion-panol", "Recepción", SC.panol_catalogo, true, 217, "Pedidos a pañol: recepción, faltantes y seguimiento por sede.")}
+            {item("/recepcion-panol", "Recepción y egresos", SC.panol_catalogo, true, 217, "Pedidos a pañol: recepción, faltantes, egresos y seguimiento por sede.")}
           </>}
 
           {puedeVerMateriales && <>
