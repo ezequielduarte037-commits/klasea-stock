@@ -5,6 +5,7 @@ import { useResponsive } from "@/hooks/useResponsive";
 import { C } from "@/theme";
 import {
   aplicarPrecioMaterial,
+  archivarMateriales,
   borrarMaterial,
   borrarSubsector,
   crearCategoria,
@@ -17,7 +18,6 @@ import {
   isMissingTable,
   leerPresupuestoConIA,
   precioVigente,
-  renombrarCategoria,
   setCantidadModelo,
   setSectoresMaterial,
   quitarCantidadModelo,
@@ -198,8 +198,107 @@ const DUPLICATE_STOPWORDS = new Set([
   "de", "del", "la", "el", "los", "las", "un", "una", "uno", "y", "o", "con", "sin",
   "para", "por", "p", "x", "tipo", "modelo", "marca", "color", "unidad", "unidades",
   "kg", "kilo", "kilos", "lts", "lt", "litro", "litros", "mtrs", "mts", "metro", "metros",
-  "mm", "cm", "m2", "m3", "u", "unid", "unids",
+  "mm", "cm", "m2", "m3", "u", "unid", "unids", "unidad", "medida", "base", "serie",
+  "aprox", "aproximado", "std", "standard", "estandar", "sistema", "sist",
 ]);
+
+const DUPLICATE_SYNONYMS = new Map([
+  ["aluminio", "alum"], ["alumin", "alum"], ["alum", "alum"],
+  ["inoxidable", "inox"], ["inox", "inox"],
+  ["electrico", "elec"], ["electrica", "elec"], ["electricidad", "elec"],
+  ["leds", "led"], ["televisor", "tv"], ["televisores", "tv"],
+  ["metros", "m"], ["metro", "m"], ["mts", "m"], ["mtrs", "m"],
+  ["unidades", "unidad"], ["unids", "unidad"], ["unid", "unidad"],
+  ["blanca", "blanco"], ["blancos", "blanco"], ["negras", "negro"], ["negros", "negro"],
+  ["calida", "calido"], ["calidos", "calido"], ["fria", "frio"], ["frias", "frio"],
+]);
+
+const DUPLICATE_CODE_IGNORE = new Set(["K37", "K52", "K55", "ARS", "USD"]);
+
+const KNOWN_MATERIAL_BRANDS = [
+  "LG", "Samsung", "Aquasignal", "Aqua Signal", "Jabsco", "Whale", "Rule", "Vetus",
+  "Quick", "Lewmar", "Osculati", "Garmin", "Raymarine", "Simrad", "B&G", "Victron",
+  "Mastervolt", "Dometic", "Isotherm", "Webasto", "VDO", "Wema", "Fusion", "Blue Sea",
+  "Marinco", "Attwood", "Plastimo", "Ronstan", "Harken", "Sika", "Sikaflex", "3M",
+  "Wurth", "Würth", "Julon", "Volvo", "Yanmar", "Mercury", "Suzuki", "Yamaha", "Honda",
+  "Samsung/LG", "LG/Samsung",
+];
+
+function normalizeVariantList(value) {
+  const raw = Array.isArray(value) ? value : String(value || "").split(/[,\n;/]+/);
+  const seen = new Set();
+  return raw
+    .flatMap((item) => String(item || "").split(/\s*\/\s*/))
+    .map((item) => item.trim())
+    .filter(Boolean)
+    .filter((item) => {
+      const key = norm(item);
+      if (seen.has(key)) return false;
+      seen.add(key);
+      return true;
+    });
+}
+
+function providerBrandCandidates(proveedores = []) {
+  return (proveedores || [])
+    .map((p) => p?.nombre || p)
+    .filter(Boolean)
+    .map(String)
+    .filter((name) => {
+      const n = norm(name);
+      return n.length >= 3 && !/(sa|srl|sh|proveedor|ferreteria|electricidad|sanitarios|herrajes|varios|sin proveedor)/i.test(n);
+    });
+}
+
+function brandCandidates(proveedores = []) {
+  return normalizeVariantList([...KNOWN_MATERIAL_BRANDS, ...providerBrandCandidates(proveedores)]);
+}
+
+function escapeRegex(value) {
+  return String(value).replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+}
+
+function extractBrandsFromTitle(value, proveedores = []) {
+  const text = String(value || "");
+  if (!text.trim()) return [];
+  const found = [];
+  for (const brand of brandCandidates(proveedores)) {
+    const parts = normalizeVariantList(brand);
+    for (const part of parts) {
+      if (!part) continue;
+      const pattern = new RegExp(`(^|[^\\p{L}\\p{N}])${escapeRegex(part)}(?=$|[^\\p{L}\\p{N}])`, "iu");
+      if (pattern.test(text)) found.push(part);
+    }
+  }
+  return normalizeVariantList(found);
+}
+
+function cleanTitleBrands(value, variants = [], proveedores = []) {
+  let text = String(value || "");
+  const all = normalizeVariantList([...variants, ...extractBrandsFromTitle(text, proveedores)]);
+  for (const brand of all.sort((a, b) => b.length - a.length)) {
+    const pattern = new RegExp(`(^|[^\\p{L}\\p{N}])${escapeRegex(brand)}(?=$|[^\\p{L}\\p{N}])`, "giu");
+    text = text.replace(pattern, (match, prefix) => prefix && /[\p{L}\p{N}]/u.test(prefix) ? match : (prefix || " "));
+  }
+  return text
+    .replace(/\s*\/\s*/g, " ")
+    .replace(/\(\s*\)/g, " ")
+    .replace(/\[\s*\]/g, " ")
+    .replace(/\s{2,}/g, " ")
+    .replace(/\s+([,.;:])/g, "$1")
+    .trim();
+}
+
+function materialVariants(material) {
+  return normalizeVariantList(material?.variantes);
+}
+
+function prepareMaterialDraftForSave(material, proveedores = [], extraVariants = []) {
+  const detected = extractBrandsFromTitle(material?.descripcion, proveedores);
+  const variantes = normalizeVariantList([...(extraVariants || []), ...materialVariants(material), ...detected]);
+  const descripcion = cleanTitleBrands(material?.descripcion, variantes, proveedores) || String(material?.descripcion || "").trim();
+  return { ...material, descripcion, variantes };
+}
 
 function duplicateComparableText(value) {
   return String(value || "")
@@ -208,7 +307,71 @@ function duplicateComparableText(value) {
     .replace(/½/g, " 1/2")
     .replace(/¼/g, " 1/4")
     .replace(/¾/g, " 3/4")
+    .replace(/\bc\s*\//gi, " con ")
+    .replace(/\bs\s*\//gi, " sin ")
+    .replace(/\b(\d+)\s*(mts?|mtrs?|metros?)\b/gi, "$1 m")
+    .replace(/\b(\d+)\s*(unid|unids|unidad|unidades|u)\b/gi, "$1 unidad")
     .replace(/\(\s*\d+(?:[.,]\d+)?\s*(?:u|un|unid|unidad|unidades|mts?|metros?|m2|m²|kg|lts?|litros?)\s*\)/gi, " ");
+}
+
+function canonicalDuplicateToken(token) {
+  let t = String(token || "").trim();
+  if (!t) return "";
+  if (/^\d+(?:[.,]\d+)?m$/.test(t)) return t.replace(",", ".");
+  if (/^\d+(?:[.,]\d+)?kg$/.test(t)) return t.replace(",", ".");
+  if (DUPLICATE_SYNONYMS.has(t)) return DUPLICATE_SYNONYMS.get(t);
+  if (t.length > 5 && t.endsWith("es")) t = t.slice(0, -2);
+  else if (t.length > 4 && t.endsWith("s")) t = t.slice(0, -1);
+  return DUPLICATE_SYNONYMS.get(t) || t;
+}
+
+function codeCandidatesFromText(value) {
+  const raw = String(value || "")
+    .normalize("NFD").replace(/[\u0300-\u036f]/g, "")
+    .toUpperCase()
+    .replace(/[._]/g, " ");
+  const out = new Set();
+  const patterns = [
+    /\b[A-Z]{1,7}[-/]?\d{2,}[A-Z0-9/-]*\b/g,
+    /\b\d{2,}[A-Z]{1,7}[A-Z0-9/-]*\b/g,
+    /\b[A-Z]{2,}\d[A-Z0-9/-]*\b/g,
+  ];
+  for (const pattern of patterns) {
+    for (const match of raw.matchAll(pattern)) {
+      const code = match[0].replace(/[^A-Z0-9]+/g, "");
+      const looksLikeMeasure = /^\d+(K|V|W|KW|MM|CM|M|KG|G|L|LT|LTS|M2|M3|LED|AH|A|HP|BTU)$/.test(code);
+      const looksLikeBoatModel = /^K\d{2,3}$/.test(code);
+      if (code.length >= 3 && !DUPLICATE_CODE_IGNORE.has(code) && !/^\d+$/.test(code) && !looksLikeMeasure && !looksLikeBoatModel) out.add(code);
+    }
+  }
+  return out;
+}
+
+function intersects(a, b) {
+  for (const value of a) if (b.has(value)) return true;
+  return false;
+}
+
+function diceCoefficient(a, b) {
+  const left = String(a || "").replace(/\s+/g, "");
+  const right = String(b || "").replace(/\s+/g, "");
+  if (left === right) return left ? 1 : 0;
+  if (left.length < 3 || right.length < 3) return 0;
+  const grams = new Map();
+  for (let i = 0; i < left.length - 1; i += 1) {
+    const gram = left.slice(i, i + 2);
+    grams.set(gram, (grams.get(gram) || 0) + 1);
+  }
+  let shared = 0;
+  for (let i = 0; i < right.length - 1; i += 1) {
+    const gram = right.slice(i, i + 2);
+    const count = grams.get(gram) || 0;
+    if (count > 0) {
+      shared += 1;
+      grams.set(gram, count - 1);
+    }
+  }
+  return (2 * shared) / ((left.length - 1) + (right.length - 1));
 }
 
 function canonicalMeasure(value) {
@@ -227,6 +390,7 @@ function canonicalMeasure(value) {
     .replace(/pulg/g, "in");
 }
 
+// eslint-disable-next-line no-unused-vars -- reservado para heuristicas de duplicados mas permisivas.
 function measurementSignature(value) {
   const text = norm(duplicateComparableText(value))
     .replace(/[“”″]/g, '"')
@@ -277,24 +441,32 @@ function strictMeasurementSignature(value) {
 function duplicateTokens(value) {
   return norm(duplicateComparableText(value))
     .replace(/(\d+)\s+(v|w|mm|cm|kg|lt|lts|m2|m3)\b/g, "$1$2")
+    .replace(/(\d+)\s+m\b/g, "$1m")
+    .replace(/(\d+)\s+unidad\b/g, "$1unidad")
     .replace(/[^a-z0-9]+/g, " ")
     .split(/\s+/)
     .map((token) => token.trim())
     .filter(Boolean)
-    .map((token) => (token.length > 4 && token.endsWith("s") ? token.slice(0, -1) : token))
+    .map(canonicalDuplicateToken)
     .filter((token) => token.length > 1 && !DUPLICATE_STOPWORDS.has(token));
 }
 
 function duplicateMeta(material) {
   const tokens = duplicateTokens(material?.descripcion);
   const code = norm(material?.codigo || "").replace(/[^a-z0-9]+/g, "");
+  const codeCandidates = new Set([
+    ...codeCandidatesFromText(material?.codigo),
+    ...codeCandidatesFromText(material?.descripcion),
+  ]);
   const measurements = strictMeasurementSignature(material?.descripcion);
   return {
     material,
     code,
+    codeCandidates,
     text: tokens.join(" "),
     tokenSet: new Set(tokens),
     measurements,
+    categories: new Set([material?.categoria_id, ...(material?.areas || [])].filter(Boolean)),
     numbers: new Set(tokens.filter((token) => /\d/.test(token) && !/^\d+(u|unid|unidad|unidades)$/.test(token))),
   };
 }
@@ -306,13 +478,16 @@ function sameSet(a, b) {
 }
 
 function duplicateScore(a, b) {
+  const codeMatch = (a.code && b.code && a.code === b.code) || intersects(a.codeCandidates, b.codeCandidates);
+  if (codeMatch) return { score: 99, reason: "Mismo codigo detectado" };
   if (hasConflictingMeasures(a, b)) return { score: 0, reason: "Cambia medida" };
   if (a.code && b.code && a.code === b.code) return { score: 98, reason: "Mismo codigo" };
   if (!a.text || !b.text) return { score: 0, reason: "" };
-  if (a.text === b.text) return { score: 96, reason: "Misma descripcion" };
+  if (a.text === b.text) return { score: 97, reason: "Misma descripcion normalizada" };
 
   const shared = [...a.tokenSet].filter((token) => b.tokenSet.has(token)).length;
-  if (shared < 2) return { score: 0, reason: "" };
+  const charScore = diceCoefficient(a.text, b.text);
+  if (shared < 2 && charScore < 0.82) return { score: 0, reason: "" };
 
   const min = Math.min(a.tokenSet.size, b.tokenSet.size) || 1;
   const union = new Set([...a.tokenSet, ...b.tokenSet]).size || 1;
@@ -323,15 +498,49 @@ function duplicateScore(a, b) {
   if (numbersMatter && !numberMatch) return { score: Math.round(jaccard * 58), reason: "Parecido, pero cambia medida/codigo" };
 
   const includes = a.text.includes(b.text) || b.text.includes(a.text);
-  let score = jaccard * 70 + containment * 20;
-  if (includes) score += 8;
-  if (numberMatch && numbersMatter) score += 8;
+  let score = jaccard * 54 + containment * 24 + charScore * 18;
+  if (includes) score += 10;
+  if (numberMatch && numbersMatter) score += 7;
+  if (a.measurements.size > 0 && sameSet(a.measurements, b.measurements)) score += 7;
+  if (intersects(a.categories, b.categories)) score += 4;
+  else score -= 3;
   if ((a.measurements.size > 0) !== (b.measurements.size > 0)) score -= 12;
-  const rounded = Math.round(score);
+  const rounded = Math.max(0, Math.min(99, Math.round(score)));
   return {
     score: rounded,
-    reason: rounded >= 92 ? "Descripcion casi igual" : "Muy parecido",
+    reason: rounded >= 92 ? "Descripcion casi igual" : rounded >= 82 ? "Misma familia / medidas" : "Parecido para revisar",
   };
+}
+
+function duplicateConfidence(group) {
+  if (group.score >= 92) return { key: "alta", label: "Alta", color: C.red, bg: "rgba(239,68,68,0.1)", border: "rgba(239,68,68,0.35)" };
+  if (group.score >= 82) return { key: "media", label: "Media", color: C.amber, bg: C.amberL, border: C.amberB };
+  return { key: "baja", label: "Revisar", color: C.blue, bg: C.blueL, border: C.blueB };
+}
+
+function cleanupReasonForMaterial(material) {
+  const desc = String(material?.descripcion || "").trim();
+  if (!desc) return "Sin descripcion";
+  const n = norm(desc);
+  if (reviewReasonForText(desc)) return reviewReasonForText(desc);
+  if (/^(sin descripcion|descripcion|material|item|varios|vario|prueba|test|null|undefined|nan|xxx|tbd|a definir|por definir|revisar)$/i.test(n)) return "Descripcion generica";
+  if (n.length <= 2) return "Descripcion demasiado corta";
+  if (/^[0-9\s.,;:_-]+$/.test(desc)) return "Solo numeros";
+  if (/^[^\p{L}\p{N}]+$/u.test(desc)) return "Solo simbolos";
+  if (!material?.codigo && !material?.proveedor && !material?.unidad_medida && !precioVigente(material)?.precio_unitario && (material?.modelos || []).length === 0 && n.split(" ").length <= 2) {
+    return "Muy poco dato para catalogo";
+  }
+  return "";
+}
+
+function findCleanupCandidates(materiales = [], categorias = [], selectedId = "") {
+  const scope = selectedId ? idsScope(categorias, selectedId) : null;
+  return materiales
+    .filter(materialActivo)
+    .filter((m) => !scope || materialEnScope(m, scope))
+    .map((material) => ({ material, reason: cleanupReasonForMaterial(material) }))
+    .filter((row) => row.reason)
+    .sort((a, b) => a.reason.localeCompare(b.reason, "es") || String(a.material.descripcion || "").localeCompare(String(b.material.descripcion || ""), "es"));
 }
 
 function materialCompletenessScore(material) {
@@ -370,7 +579,7 @@ function findDuplicateGroups(materiales = [], categorias = [], selectedId = "") 
   for (let i = 0; i < metas.length; i += 1) {
     for (let j = i + 1; j < metas.length; j += 1) {
       const result = duplicateScore(metas[i], metas[j]);
-      if (result.score >= 84) {
+      if (result.score >= 74) {
         unite(i, j);
         bestPairs.set(`${i}:${j}`, result);
       }
@@ -405,6 +614,151 @@ function findDuplicateGroups(materiales = [], categorias = [], selectedId = "") 
       };
     })
     .sort((a, b) => b.score - a.score || b.materials.length - a.materials.length);
+}
+
+function mergeBomMaps(materials = []) {
+  const out = {};
+  for (const modelo of MODELOS) {
+    const values = materials
+      .map((material) => toNum(toBomMap(material)[modelo]))
+      .filter((value) => value != null && value > 0);
+    out[modelo] = values.length ? Math.max(...values) : "";
+  }
+  return out;
+}
+
+function firstFilled(...values) {
+  return values.find((value) => value != null && String(value).trim() !== "") ?? "";
+}
+
+function uniqueLines(values = []) {
+  const seen = new Set();
+  return values
+    .map((value) => String(value || "").trim())
+    .filter(Boolean)
+    .filter((value) => {
+      const key = norm(value);
+      if (seen.has(key)) return false;
+      seen.add(key);
+      return true;
+    });
+}
+
+function mergeProviderExtras(keeper, duplicates = []) {
+  const seen = new Set([keeper?.proveedor_id].filter(Boolean));
+  const out = [];
+  const push = (providerId, precio = "", moneda = "") => {
+    if (!providerId || seen.has(providerId)) return;
+    seen.add(providerId);
+    out.push({ proveedor_id: providerId, precio: precio ?? "", moneda: moneda || "" });
+  };
+  for (const item of keeper?.proveedores_lista || []) push(item.proveedor_id, item.precio, item.moneda);
+  for (const material of duplicates) {
+    const precio = priceInfo(material);
+    push(material.proveedor_id, precio.amount ?? "", precio.moneda || material.moneda || "");
+    for (const item of material.proveedores_lista || []) push(item.proveedor_id, item.precio, item.moneda);
+  }
+  return out;
+}
+
+function mergedDuplicatePayload(group, { keeperId = null, duplicateIds = null, proveedores = [] } = {}) {
+  const keeper = group.materials.find((material) => material.id === (keeperId || group.keeperId)) || group.materials[0];
+  const duplicateSet = duplicateIds ? new Set(duplicateIds) : null;
+  const duplicates = group.materials.filter((material) => material.id !== keeper.id && (!duplicateSet || duplicateSet.has(material.id)));
+  const all = [keeper, ...duplicates];
+  const keeperPrice = priceInfo(keeper);
+  const priceSource = keeperPrice.amount ? keeper : all.find((material) => priceInfo(material).amount) || keeper;
+  const price = priceInfo(priceSource);
+  const variantes = normalizeVariantList([
+    ...all.flatMap((material) => materialVariants(material)),
+    ...all.flatMap((material) => extractBrandsFromTitle(material.descripcion, proveedores)),
+  ]);
+  const notas = uniqueLines([
+    keeper.notas,
+    ...duplicates.map((material) => `Fusionado desde: ${material.descripcion}${material.codigo ? ` (${material.codigo})` : ""}`),
+    ...duplicates.map((material) => material.notas),
+  ]).join("\n");
+  const areas = [...new Set(all.flatMap((material) => material.areas?.length ? material.areas : [material.categoria_id]).filter(Boolean))];
+
+  return {
+    keeper,
+    duplicates,
+    material: {
+      ...keeper,
+      codigo: firstFilled(keeper.codigo, ...duplicates.map((m) => m.codigo)) || null,
+      proveedor_id: firstFilled(keeper.proveedor_id, ...duplicates.map((m) => m.proveedor_id)) || null,
+      proveedor: firstFilled(keeper.proveedor, ...duplicates.map((m) => m.proveedor)) || null,
+      unidad_medida: firstFilled(keeper.unidad_medida, ...duplicates.map((m) => m.unidad_medida)) || null,
+      precio_unitario: price.amount ?? keeper.precio_unitario ?? null,
+      moneda: price.moneda || keeper.moneda || null,
+      imagen_url: firstFilled(keeper.imagen_url, ...duplicates.map((m) => m.imagen_url)) || null,
+      descripcion: cleanTitleBrands(keeper.descripcion, variantes, proveedores) || keeper.descripcion,
+      variantes,
+      notas: notas || null,
+      revisado: true,
+      categoria_id: keeper.categoria_id || areas[0] || null,
+      activo: true,
+    },
+    cantidades: mergeBomMaps(all),
+    areas,
+    proveedoresExtra: mergeProviderExtras(keeper, duplicates),
+  };
+}
+
+function materialReviewLine(material, categorias) {
+  const precio = priceInfo(material);
+  const bom = toBomMap(material);
+  const cantidades = MODELOS
+    .map((modelo) => toNum(bom[modelo]) ? `K${modelo}:${toNum(bom[modelo])}` : "")
+    .filter(Boolean)
+    .join(", ");
+  return [
+    `id=${material.id}`,
+    `desc="${material.descripcion || ""}"`,
+    material.codigo ? `codigo="${material.codigo}"` : "",
+    `sector="${categoriaNombre(categorias, material.categoria_id)}"`,
+    material.proveedor ? `prov="${material.proveedor}"` : "",
+    material.unidad_medida ? `um="${material.unidad_medida}"` : "",
+    materialVariants(material).length ? `variantes="${materialVariants(material).join(" / ")}"` : "",
+    precio.amount ? `precio=${precio.text}` : "",
+    cantidades ? `cant=${cantidades}` : "",
+  ].filter(Boolean).join(" | ");
+}
+
+function buildAiReviewText(groups = [], cleanup = [], categorias = []) {
+  const lines = [
+    "Revisar catálogo de materiales. Decime qué grupos son duplicados reales, cuál conservar, qué datos conviene fusionar y qué items parecen basura para archivar.",
+    "",
+    "POSIBLES DUPLICADOS",
+  ];
+  groups.slice(0, 80).forEach((group, index) => {
+    lines.push("");
+    lines.push(`#${index + 1} - ${group.score}% - ${group.reason}`);
+    group.materials.forEach((material) => lines.push(`- ${materialReviewLine(material, categorias)}`));
+  });
+  if (cleanup.length) {
+    lines.push("");
+    lines.push("COSAS RARAS / POSIBLE BASURA");
+    cleanup.slice(0, 80).forEach((row, index) => {
+      lines.push(`${index + 1}. ${row.reason} - ${materialReviewLine(row.material, categorias)}`);
+    });
+  }
+  return lines.join("\n");
+}
+
+async function copyTextToClipboard(text) {
+  if (navigator.clipboard?.writeText) {
+    await navigator.clipboard.writeText(text);
+    return;
+  }
+  const area = document.createElement("textarea");
+  area.value = text;
+  area.style.position = "fixed";
+  area.style.left = "-9999px";
+  document.body.appendChild(area);
+  area.select();
+  document.execCommand("copy");
+  document.body.removeChild(area);
 }
 
 function buildOrdenTexto({ obra, lineaNombre, rows, groupBy = "proveedor" }) {
@@ -788,9 +1142,53 @@ function SubsectorSelect({ categorias, value, onChange }) {
   );
 }
 
+function VariantsEditor({ value = [], onChange, description = "", proveedores = [], onCleanTitle }) {
+  const [draft, setDraft] = useState("");
+  const variants = normalizeVariantList(value);
+  const detected = extractBrandsFromTitle(description, proveedores).filter((name) => !variants.some((v) => norm(v) === norm(name)));
+
+  const add = (raw = draft) => {
+    const next = normalizeVariantList([...variants, ...normalizeVariantList(raw)]);
+    onChange?.(next);
+    setDraft("");
+  };
+  const remove = (name) => onChange?.(variants.filter((v) => norm(v) !== norm(name)));
+  const extract = () => {
+    const next = normalizeVariantList([...variants, ...detected]);
+    onChange?.(next);
+    onCleanTitle?.(cleanTitleBrands(description, next, proveedores));
+  };
+
+  return (
+    <div style={{ display: "grid", gap: 6 }}>
+      <div style={{ display: "flex", gap: 5, flexWrap: "wrap" }}>
+        {variants.map((variant) => (
+          <span key={variant} style={{ display: "inline-flex", alignItems: "center", gap: 5, color: C.violet, background: "rgba(139,92,246,0.1)", border: "1px solid rgba(139,92,246,0.3)", borderRadius: 999, padding: "3px 7px", fontSize: 11, fontWeight: 850 }}>
+            {variant}
+            <button type="button" onClick={() => remove(variant)} style={{ border: "none", background: "transparent", color: C.violet, cursor: "pointer", padding: 0, lineHeight: 1 }}>x</button>
+          </span>
+        ))}
+        {!variants.length && <span style={{ color: C.t2, fontSize: 11 }}>Sin variantes.</span>}
+      </div>
+      <div style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>
+        <input value={draft} onChange={(e) => setDraft(e.target.value)} onKeyDown={(e) => { if (e.key === "Enter") { e.preventDefault(); add(); } }} placeholder="Ej: LG, Samsung" style={{ ...INP, flex: "1 1 180px", minWidth: 150 }} />
+        <button type="button" onClick={() => add()} disabled={!draft.trim()} style={{ ...BTN, padding: "6px 10px", color: C.violet }}>
+          + Variante
+        </button>
+        {detected.length > 0 && (
+          <button type="button" onClick={extract} style={{ ...BTN, padding: "6px 10px", color: C.blue, border: `1px solid ${C.blueB}`, background: C.blueL }}>
+            Pasar marcas a variantes
+          </button>
+        )}
+      </div>
+    </div>
+  );
+}
+
 function MaterialQueueCard({ material, categorias, opciones = [], ums, proveedores, onSave, onSkip, onDelete, onChanged }) {
   const [draft, setDraft] = useState(() => ({ ...material, precio_unitario: inputNumberValue(material.precio_unitario) }));
   const [cantidades, setCantidades] = useState(() => toBomMap(material));
+  const [variantes, setVariantes] = useState(() => materialVariants(material));
   const [saving, setSaving] = useState(false);
   const [err, setErr] = useState(null);
 
@@ -800,7 +1198,7 @@ function MaterialQueueCard({ material, categorias, opciones = [], ums, proveedor
     setSaving(true);
     setErr(null);
     try {
-      await onSave(draft, cantidades);
+      await onSave(prepareMaterialDraftForSave(draft, proveedores, variantes), cantidades);
     } catch (error) {
       setErr(error);
     } finally {
@@ -852,6 +1250,17 @@ function MaterialQueueCard({ material, categorias, opciones = [], ums, proveedor
           />
           <input value={draft.proveedor || ""} onChange={(e) => setDraft((d) => ({ ...d, proveedor: e.target.value }))} placeholder="Texto proveedor" style={{ ...INP, width: "100%", marginTop: 6 }} />
         </div>
+      </div>
+
+      <div style={{ marginBottom: 12 }}>
+        <label style={LBL}>Variantes del item (marcas/modelos aceptables)</label>
+        <VariantsEditor
+          value={variantes}
+          onChange={setVariantes}
+          description={draft.descripcion}
+          proveedores={proveedores}
+          onCleanTitle={(descripcion) => setDraft((d) => ({ ...d, descripcion }))}
+        />
       </div>
 
       <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(120px, 1fr))", gap: 12, marginBottom: 12 }}>
@@ -912,6 +1321,7 @@ function AltaManual({ categorias, selectedId, ums, proveedores, onCreated }) {
   const [open, setOpen] = useState(false);
   const [draft, setDraft] = useState({ descripcion: "", proveedor_id: "", proveedor: "", unidad_medida: "", precio_unitario: "", moneda: "", codigo: "", categoria_id: selectedId });
   const [cantidades, setCantidades] = useState({ 37: "", 52: "", 55: "" });
+  const [variantes, setVariantes] = useState([]);
   const [saving, setSaving] = useState(false);
 
   useEffect(() => {
@@ -923,9 +1333,10 @@ function AltaManual({ categorias, selectedId, ums, proveedores, onCreated }) {
     if (!draft.descripcion.trim() || saving) return;
     setSaving(true);
     try {
-      await crearMaterial(draft, cantidades);
+      await crearMaterial(prepareMaterialDraftForSave(draft, proveedores, variantes), cantidades);
       setDraft({ descripcion: "", proveedor_id: "", proveedor: "", unidad_medida: "", precio_unitario: "", moneda: "", codigo: "", categoria_id: selectedId });
       setCantidades({ 37: "", 52: "", 55: "" });
+      setVariantes([]);
       setOpen(false);
       onCreated?.();
     } finally {
@@ -957,6 +1368,15 @@ function AltaManual({ categorias, selectedId, ums, proveedores, onCreated }) {
           {categorias.map((c) => <option key={c.id} value={c.id}>{c.nombre}</option>)}
         </select>
       </div>
+      <div style={{ marginBottom: 10 }}>
+        <VariantsEditor
+          value={variantes}
+          onChange={setVariantes}
+          description={draft.descripcion}
+          proveedores={proveedores}
+          onCleanTitle={(descripcion) => setDraft((d) => ({ ...d, descripcion }))}
+        />
+      </div>
       <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(90px, 1fr))", gap: 8, marginBottom: 10 }}>
         <input placeholder="Precio" type="number" step="any" value={draft.precio_unitario} onChange={(e) => setDraft((d) => ({ ...d, precio_unitario: e.target.value }))} style={INP} />
         <select value={draft.moneda} onChange={(e) => setDraft((d) => ({ ...d, moneda: e.target.value }))} style={INP}>
@@ -981,19 +1401,21 @@ function AltaManual({ categorias, selectedId, ums, proveedores, onCreated }) {
 function MaterialRow({ material, categorias, ums, proveedores, onChanged, modelos = MODELOS, compact = false }) {
   const [draft, setDraft] = useState(() => ({ ...material, precio_unitario: inputNumberValue(material.precio_unitario) }));
   const [cantidades, setCantidades] = useState(() => toBomMap(material));
+  const [variantes, setVariantes] = useState(() => materialVariants(material));
   const [saving, setSaving] = useState(false);
   const review = reviewInfoForMaterial(material);
 
   useEffect(() => {
     setDraft({ ...material, precio_unitario: inputNumberValue(material.precio_unitario) });
     setCantidades(toBomMap(material));
+    setVariantes(materialVariants(material));
   }, [material]);
 
   async function save() {
     if (!draft.descripcion?.trim() || saving) return;
     setSaving(true);
     try {
-      await guardarMaterial(draft, cantidades, { revisado: draft.revisado });
+      await guardarMaterial(prepareMaterialDraftForSave(draft, proveedores, variantes), cantidades, { revisado: draft.revisado });
       onChanged?.();
     } finally {
       setSaving(false);
@@ -1019,6 +1441,15 @@ function MaterialRow({ material, categorias, ums, proveedores, onChanged, modelo
       <Td style={{ minWidth: compact ? 230 : 260 }}>
         {review.flag && <div style={{ marginBottom: 5 }}><ReviewBadge reason={review.reason} /></div>}
         <input value={draft.descripcion || ""} onChange={(e) => setDraft((d) => ({ ...d, descripcion: e.target.value }))} style={{ ...INP, width: "100%" }} />
+        <div style={{ marginTop: 6 }}>
+          <VariantsEditor
+            value={variantes}
+            onChange={setVariantes}
+            description={draft.descripcion}
+            proveedores={proveedores}
+            onCleanTitle={(descripcion) => setDraft((d) => ({ ...d, descripcion }))}
+          />
+        </div>
       </Td>
       <Td style={{ minWidth: 150 }}>
         <ProveedorSelect
@@ -1095,6 +1526,7 @@ function MaterialFila({ material, categorias, ums, proveedores, onChanged, linea
   const [cantidades, setCantidades] = useState(() => toBomMap(material));
   const [sectores, setSectores] = useState(() => (material.areas?.length ? material.areas : [material.categoria_id].filter(Boolean)));
   const [provExtra, setProvExtra] = useState(() => (material.proveedores_lista || []).map((p) => ({ ...p })));
+  const [variantes, setVariantes] = useState(() => materialVariants(material));
   const [saving, setSaving] = useState(false);
 
   useEffect(() => {
@@ -1102,6 +1534,7 @@ function MaterialFila({ material, categorias, ums, proveedores, onChanged, linea
     setCantidades(toBomMap(material));
     setSectores(material.areas?.length ? material.areas : [material.categoria_id].filter(Boolean));
     setProvExtra((material.proveedores_lista || []).map((p) => ({ ...p })));
+    setVariantes(materialVariants(material));
   }, [material]);
 
   async function save() {
@@ -1109,7 +1542,8 @@ function MaterialFila({ material, categorias, ums, proveedores, onChanged, linea
     setSaving(true);
     try {
       const primary = sectores[0] ?? draft.categoria_id ?? null;
-      await guardarMaterial({ ...draft, categoria_id: primary }, cantidades, { revisado: draft.revisado });
+      const prepared = prepareMaterialDraftForSave({ ...draft, categoria_id: primary }, proveedores, variantes);
+      await guardarMaterial(prepared, cantidades, { revisado: draft.revisado });
       await setSectoresMaterial(material.id, sectores);
       await setProveedoresMaterial(material.id, provExtra);
       onChanged?.(); setEditing(false);
@@ -1124,6 +1558,7 @@ function MaterialFila({ material, categorias, ums, proveedores, onChanged, linea
   const bom = toBomMap(material);
   const lineasConQty = MODELOS.filter((m) => toNum(bom[m]) > 0);
   const review = reviewInfoForMaterial(material);
+  const savedVariants = materialVariants(material);
   const lbl = { fontSize: 10, letterSpacing: 0.6, color: C.t2, textTransform: "uppercase", fontWeight: 700, display: "block", marginBottom: 4 };
 
   return (
@@ -1148,6 +1583,11 @@ function MaterialFila({ material, categorias, ums, proveedores, onChanged, linea
               </span>
             )}
             {material.codigo && <span style={{ fontFamily: C.mono, color: C.t3 }}>· {material.codigo}</span>}
+            {savedVariants.length > 0 && (
+              <span title={`Variantes: ${savedVariants.join(" / ")}`} style={{ fontSize: 9.5, fontWeight: 800, color: C.violet, background: "rgba(139,92,246,0.1)", border: "1px solid rgba(139,92,246,0.28)", borderRadius: 999, padding: "1px 7px", flexShrink: 0 }}>
+                variantes {savedVariants.join(" / ")}
+              </span>
+            )}
           </div>
         </div>
         {lineasConQty.length > 0 && (
@@ -1177,6 +1617,16 @@ function MaterialFila({ material, categorias, ums, proveedores, onChanged, linea
           <div>
             <span style={lbl}>Descripción</span>
             <input value={draft.descripcion || ""} onChange={(e) => setDraft((d) => ({ ...d, descripcion: e.target.value }))} style={{ ...INP, width: "100%" }} />
+          </div>
+          <div>
+            <span style={lbl}>Variantes del item (marcas/modelos aceptables)</span>
+            <VariantsEditor
+              value={variantes}
+              onChange={setVariantes}
+              description={draft.descripcion}
+              proveedores={proveedores}
+              onCleanTitle={(descripcion) => setDraft((d) => ({ ...d, descripcion }))}
+            />
           </div>
           <div>
             <span style={lbl}>Proveedor principal</span>
@@ -1253,6 +1703,7 @@ function PrepararCompra({ items, linea, categorias = [], obra = null, addons = [
   const [creando, setCreando] = useState(null);
   const [hechos, setHechos] = useState([]);
   const [genErr, setGenErr] = useState(null);
+  const [pedidoTipo, setPedidoTipo] = useState(null);
 
   const orderRows = useMemo(() => {
     const matRows = (items ?? []).map((m) => {
@@ -1284,12 +1735,16 @@ function PrepararCompra({ items, linea, categorias = [], obra = null, addons = [
   }, [items, linea, categorias, addons]);
 
   async function pedirGrupo(g) {
+    if (!pedidoTipo) {
+      setGenErr("Elegí el tipo de pedido.");
+      return;
+    }
     setCreando(g.label); setGenErr(null);
     try {
       const req = await createPurchaseRequest({ form: {
         title: `Pedido ${obra?.codigo || `K${linea}`} · ${g.label}`,
         description: `${g.items.length} ítems${obra ? ` del barco ${obra.codigo}` : ` de la línea K${linea}`} (${groupBy}: ${g.label}).`,
-        priority: "media", source: "materiales", project_id: obra?.id || null,
+        priority: "media", source: "materiales", project_id: obra?.id || null, es_adicional: pedidoTipo === "adicional", tipo_pedido: pedidoTipo,
       } });
       for (const row of g.items) {
         await addRequestItem(req.id, { description: row.descripcion, quantity: toNum(row.cantidad) || 1, unit: row.unidad || null });
@@ -1335,6 +1790,17 @@ function PrepararCompra({ items, linea, categorias = [], obra = null, addons = [
           <div style={{ display: "flex", gap: 8, flexWrap: "wrap", alignItems: "center" }}>
             <div style={{ fontSize: 11.5, color: C.t2, flex: "1 1 240px" }}>
               {obra ? `Pedido estándar de ${obra.codigo} (base matriz + addons).` : "Para compras, agrupado por proveedor, rubro o tipo."} Generá el pedido directo o copialo en texto.
+            </div>
+            <div style={{ display: "inline-flex", gap: 6, border: `1px solid ${C.b0}`, borderRadius: 10, padding: 4, background: C.s0 }}>
+              {[
+                { value: "stock", label: "Stock pañol", color: C.green },
+                { value: "estandar", label: "Estándar", color: C.blue },
+                { value: "adicional", label: "Adicional", color: C.violet },
+              ].map(({ value, label, color }) => (
+                <button key={label} type="button" onClick={() => setPedidoTipo(value)} style={{ ...BTN, padding: "6px 10px", color: pedidoTipo === value ? color : C.t2, background: pedidoTipo === value ? `${color}18` : "transparent", borderColor: pedidoTipo === value ? color : "transparent", fontWeight: 900 }}>
+                  {label}
+                </button>
+              ))}
             </div>
             <select value={groupBy} onChange={(e) => setGroupBy(e.target.value)} style={{ ...INP, width: 150 }}>
               <option value="proveedor" style={OPT_ST}>Proveedor</option>
@@ -1718,7 +2184,7 @@ function VincularItem({ activos, categorias, item, onChange, soloPrecios = false
   const resultados = useMemo(() => {
     if (sel) return [];
     return topMateriales(activos, query.length >= 2 ? query : item.descripcion).slice(0, 6);
-  }, [q, sel, activos, item.descripcion]);
+  }, [activos, item, query, sel]);
 
   return (
     <div style={{ marginTop: 7 }}>
@@ -2613,6 +3079,7 @@ function ObraMatrizView({ obra, linea, lineaNombre, categorias, materiales, opci
   const [actionBusy, setActionBusy] = useState("");
   const [flowMsg, setFlowMsg] = useState(null);
   const [panolPrefill, setPanolPrefill] = useState(null);
+  const [pedidoObraTipo, setPedidoObraTipo] = useState(null);
 
   const cargarAddons = useCallback(() => { fetchAddonsObra(obra?.id).then(setAddons).catch(() => {}); }, [obra?.id]);
   useEffect(() => { cargarAddons(); }, [cargarAddons]);
@@ -2791,6 +3258,10 @@ function ObraMatrizView({ obra, linea, lineaNombre, categorias, materiales, opci
 
   async function pedirAComprasObra() {
     if (!orderRows.length) return;
+    if (!pedidoObraTipo) {
+      setFlowMsg({ type: "err", text: "Elegí el tipo de pedido." });
+      return;
+    }
     setActionBusy("compras");
     setFlowMsg(null);
     try {
@@ -2803,6 +3274,8 @@ function ObraMatrizView({ obra, linea, lineaNombre, categorias, materiales, opci
           source: "materiales_obra",
           project_id: obra.id,
           destino: `Obra ${obra.codigo}`,
+          es_adicional: pedidoObraTipo === "adicional",
+          tipo_pedido: pedidoObraTipo,
         },
       });
 
@@ -2973,6 +3446,17 @@ function ObraMatrizView({ obra, linea, lineaNombre, categorias, materiales, opci
             <option value="rubro" style={OPT_ST}>Rubro</option>
             <option value="tipo" style={OPT_ST}>Tipo</option>
           </select>
+          <div style={{ display: "inline-flex", gap: 6, border: `1px solid ${C.b0}`, borderRadius: 10, padding: 4, background: C.s0 }}>
+            {[
+              { value: "stock", label: "Stock pañol", color: C.green },
+              { value: "estandar", label: "Estándar", color: C.blue },
+              { value: "adicional", label: "Adicional", color: C.violet },
+            ].map(({ value, label, color }) => (
+              <button key={label} type="button" onClick={() => setPedidoObraTipo(value)} style={{ ...BTN, padding: "6px 10px", color: pedidoObraTipo === value ? color : C.t2, background: pedidoObraTipo === value ? `${color}18` : "transparent", borderColor: pedidoObraTipo === value ? color : "transparent", fontWeight: 900 }}>
+                {label}
+              </button>
+            ))}
+          </div>
           <button type="button" onClick={copiarOrden} disabled={!orderRows.length} style={{ ...BTN_GREEN, padding: "9px 14px" }}>
             <Copy size={14} /> {copied ? "Copiado" : "Copiar OC"}
           </button>
@@ -3680,56 +4164,121 @@ function LineasTab({ lineas, obras, categorias, materiales, proveedores, opcione
   }
 
   return (
-    <div>
-      <div style={{ border: `1px solid ${C.b0}`, borderRadius: 20, background: "var(--panel)", padding: 18, marginBottom: 18 }}>
-        <div style={{ display: "flex", alignItems: "flex-start", justifyContent: "space-between", gap: 14, flexWrap: "wrap", marginBottom: 16 }}>
+    <div style={{ animation: "fadeIn 0.4s ease-out" }}>
+      <style>{`
+        @keyframes fadeIn { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
+        .glass-panel {
+          background: rgba(255, 255, 255, 0.03);
+          backdrop-filter: blur(20px);
+          -webkit-backdrop-filter: blur(20px);
+          border: 1px solid rgba(255, 255, 255, 0.1);
+          box-shadow: 0 8px 32px rgba(0, 0, 0, 0.08);
+          border-radius: 24px;
+        }
+        .linea-card {
+          background: linear-gradient(145deg, rgba(255,255,255,0.05) 0%, rgba(255,255,255,0.01) 100%);
+          backdrop-filter: blur(10px);
+          border: 1px solid rgba(255,255,255,0.08);
+          border-radius: 20px;
+          transition: all 0.3s cubic-bezier(0.25, 0.8, 0.25, 1);
+          box-shadow: 0 4px 15px rgba(0,0,0,0.03);
+        }
+        .linea-card:hover {
+          transform: translateY(-5px) scale(1.02);
+          box-shadow: 0 15px 35px rgba(0,0,0,0.1);
+          border-color: rgba(96, 165, 250, 0.4);
+        }
+        .kpi-modern {
+          background: rgba(255,255,255,0.02);
+          border: 1px solid rgba(255,255,255,0.05);
+          border-radius: 16px;
+          padding: 16px;
+          display: flex;
+          flex-direction: column;
+          gap: 6px;
+          transition: transform 0.2s;
+        }
+        .kpi-modern:hover { transform: translateY(-2px); }
+      `}</style>
+
+      <div className="glass-panel" style={{ padding: "16px 20px", marginBottom: 20 }}>
+        <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", flexWrap: "wrap", gap: 16 }}>
           <div>
-            <div style={{ fontSize: 22, fontWeight: 950, color: C.t0 }}>Matriz por línea de producción</div>
-            <div style={{ fontSize: 12.5, color: C.t2, marginTop: 4 }}>Entrá a una línea para administrar su base y preparar compras por proveedor o rubro.</div>
+            <div style={{ fontSize: 20, fontWeight: 900, color: C.t0, letterSpacing: "-0.5px" }}>Matriz por línea de producción</div>
+            <div style={{ fontSize: 13, color: C.t2, marginTop: 2 }}>Selecciona una línea para administrar su base y preparar compras.</div>
           </div>
-        </div>
-        <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(145px, 1fr))", gap: 10, marginBottom: 14 }}>
-          <KpiCard label="Líneas" value={totals.lineas} color={C.blue} />
-          <KpiCard label="Obras activas" value={totals.obras} color={C.green} />
-          <KpiCard label="Items cargados" value={totals.items} color={C.violet} />
-          <KpiCard label="Sin precio" value={totals.sinPrecio} color={totals.sinPrecio ? C.amber : C.green} />
-        </div>
-        <div style={{ position: "relative" }}>
-          <Search size={15} style={{ position: "absolute", left: 12, top: "50%", transform: "translateY(-50%)", color: C.t2 }} />
-          <input value={q} onChange={(e) => setQ(e.target.value)} placeholder="Buscar línea, ej. K37..." style={{ ...INP, width: "100%", maxWidth: 420, height: 40, paddingLeft: 36, borderRadius: 11 }} />
+
+          <div style={{ display: "flex", alignItems: "center", gap: 16, flexWrap: "wrap" }}>
+            <div style={{ display: "flex", gap: 10, flexWrap: "wrap" }}>
+              <div className="kpi-modern" style={{ padding: "6px 12px", flexDirection: "row", alignItems: "center", gap: 8, borderRadius: 10 }}>
+                <span style={{ fontSize: 10, fontWeight: 800, color: C.t2 }}>LÍNEAS</span>
+                <span style={{ fontSize: 16, fontWeight: 900, color: C.blue }}>{totals.lineas}</span>
+              </div>
+              <div className="kpi-modern" style={{ padding: "6px 12px", flexDirection: "row", alignItems: "center", gap: 8, borderRadius: 10 }}>
+                <span style={{ fontSize: 10, fontWeight: 800, color: C.t2 }}>OBRAS</span>
+                <span style={{ fontSize: 16, fontWeight: 900, color: C.green }}>{totals.obras}</span>
+              </div>
+              <div className="kpi-modern" style={{ padding: "6px 12px", flexDirection: "row", alignItems: "center", gap: 8, borderRadius: 10 }}>
+                <span style={{ fontSize: 10, fontWeight: 800, color: C.t2 }}>ITEMS</span>
+                <span style={{ fontSize: 16, fontWeight: 900, color: C.violet }}>{totals.items}</span>
+              </div>
+              <div className="kpi-modern" style={{ padding: "6px 12px", flexDirection: "row", alignItems: "center", gap: 8, borderRadius: 10 }}>
+                <span style={{ fontSize: 10, fontWeight: 800, color: C.t2 }}>SIN PRECIO</span>
+                <span style={{ fontSize: 16, fontWeight: 900, color: totals.sinPrecio ? C.amber : C.green }}>{totals.sinPrecio}</span>
+              </div>
+            </div>
+
+            <div style={{ position: "relative", width: 220 }}>
+              <Search size={14} style={{ position: "absolute", left: 10, top: "50%", transform: "translateY(-50%)", color: C.t2 }} />
+              <input value={q} onChange={(e) => setQ(e.target.value)} placeholder="Buscar línea..." style={{ ...INP, width: "100%", height: 36, paddingLeft: 30, borderRadius: 8, fontSize: 13, background: "rgba(255,255,255,0.03)", border: `1px solid rgba(255,255,255,0.1)`, transition: "all 0.2s" }} />
+            </div>
+          </div>
         </div>
       </div>
 
-      <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(270px, 1fr))", gap: 12 }}>
+      <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(300px, 1fr))", gap: 20 }}>
         {visibles.map((linea) => (
           <button type="button" key={linea.codigo} onClick={() => setSel(linea.codigo)}
-            style={{ textAlign: "left", cursor: "pointer", border: `1px solid ${C.b0}`, borderRadius: 16, background: "var(--panel)", padding: 16, display: "flex", flexDirection: "column", gap: 12, boxShadow: "0 1px 3px rgba(0,0,0,0.05)", minHeight: 170 }}>
+            className="linea-card"
+            style={{ textAlign: "left", cursor: "pointer", padding: 24, display: "flex", flexDirection: "column", gap: 16, minHeight: 190 }}>
             <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
-              <span style={{ fontFamily: C.mono, fontSize: 24, fontWeight: 950, color: C.blue }}>{linea.nombre || `K${linea.codigo}`}</span>
-              <span style={{ fontSize: 18, color: C.t3 }}>›</span>
-            </div>
-            <div style={{ display: "grid", gap: 7 }}>
-              <div style={{ height: 7, borderRadius: 99, background: C.s0, border: `1px solid ${C.b0}`, overflow: "hidden" }}>
-                <div style={{ width: `${linea.progreso}%`, height: "100%", background: linea.progreso > 80 ? C.green : C.blue }} />
+              <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
+                <div style={{ width: 44, height: 44, borderRadius: 12, background: `linear-gradient(135deg, ${C.blue}, #3b82f6)`, display: "flex", alignItems: "center", justifyContent: "center", color: "#fff", fontWeight: 900, fontSize: 18, boxShadow: "0 4px 12px rgba(59,130,246,0.3)" }}>
+                  {linea.nombre?.replace("K", "") || linea.codigo}
+                </div>
+                <span style={{ fontFamily: C.mono, fontSize: 24, fontWeight: 950, color: C.t0 }}>{linea.nombre || `K${linea.codigo}`}</span>
               </div>
-              <div style={{ display: "flex", justifyContent: "space-between", fontSize: 11, color: C.t2 }}>
+              <div style={{ width: 32, height: 32, borderRadius: "50%", background: "rgba(255,255,255,0.05)", display: "flex", alignItems: "center", justifyContent: "center", color: C.t2, transition: "0.2s" }} className="arrow-btn">
+                <span style={{ fontSize: 20, transform: "translateY(-1px)" }}>›</span>
+              </div>
+            </div>
+
+            <div style={{ display: "grid", gap: 8 }}>
+              <div style={{ height: 8, borderRadius: 99, background: "rgba(255,255,255,0.05)", border: `1px solid rgba(255,255,255,0.02)`, overflow: "hidden" }}>
+                <div style={{ width: `${linea.progreso}%`, height: "100%", background: linea.progreso > 80 ? `linear-gradient(90deg, ${C.greenL}, ${C.green})` : `linear-gradient(90deg, #60a5fa, ${C.blue})`, borderRadius: 99, transition: "width 0.5s ease-out" }} />
+              </div>
+              <div style={{ display: "flex", justifyContent: "space-between", fontSize: 12, color: C.t2, fontWeight: 600 }}>
                 <span>{linea.items} items</span>
-                <span>{linea.progreso}% con precio</span>
+                <span style={{ color: linea.progreso > 80 ? C.green : C.blue }}>{linea.progreso}% costeado</span>
               </div>
             </div>
-            <div style={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: 7 }}>
-              <div><div style={{ fontSize: 10, color: C.t2, fontWeight: 800 }}>OBRAS</div><div style={{ fontFamily: C.mono, fontSize: 14, color: C.t0, fontWeight: 900 }}>{linea.obras.length}</div></div>
-              <div><div style={{ fontSize: 10, color: C.t2, fontWeight: 800 }}>PROV.</div><div style={{ fontFamily: C.mono, fontSize: 14, color: C.t0, fontWeight: 900 }}>{linea.proveedores}</div></div>
-              <div><div style={{ fontSize: 10, color: C.t2, fontWeight: 800 }}>RUBROS</div><div style={{ fontFamily: C.mono, fontSize: 14, color: C.t0, fontWeight: 900 }}>{linea.rubros}</div></div>
+
+            <div style={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: 10, background: "rgba(255,255,255,0.02)", borderRadius: 12, padding: "12px", border: "1px solid rgba(255,255,255,0.03)" }}>
+              <div style={{ textAlign: "center" }}><div style={{ fontSize: 10, color: C.t2, fontWeight: 800, letterSpacing: 0.5 }}>OBRAS</div><div style={{ fontFamily: C.mono, fontSize: 16, color: C.t0, fontWeight: 900 }}>{linea.obras.length}</div></div>
+              <div style={{ textAlign: "center", borderLeft: "1px solid rgba(255,255,255,0.05)", borderRight: "1px solid rgba(255,255,255,0.05)" }}><div style={{ fontSize: 10, color: C.t2, fontWeight: 800, letterSpacing: 0.5 }}>PROV.</div><div style={{ fontFamily: C.mono, fontSize: 16, color: C.t0, fontWeight: 900 }}>{linea.proveedores}</div></div>
+              <div style={{ textAlign: "center" }}><div style={{ fontSize: 10, color: C.t2, fontWeight: 800, letterSpacing: 0.5 }}>RUBROS</div><div style={{ fontFamily: C.mono, fontSize: 16, color: C.t0, fontWeight: 900 }}>{linea.rubros}</div></div>
             </div>
-            <div style={{ display: "flex", gap: 6, flexWrap: "wrap", marginTop: "auto" }}>
-              {linea.usd ? <span style={{ fontFamily: C.mono, fontSize: 11, color: C.green, border: `1px solid ${C.greenB}`, background: C.greenL, borderRadius: 999, padding: "3px 8px" }}>{fmtMoney(linea.usd, "USD")}</span> : null}
-              {linea.sinPrecio ? <span style={{ fontSize: 11, color: C.amber, border: `1px solid ${C.amberB}`, background: C.amberL, borderRadius: 999, padding: "3px 8px", fontWeight: 800 }}>{linea.sinPrecio} sin precio</span> : null}
+
+            <div style={{ display: "flex", gap: 8, flexWrap: "wrap", marginTop: "auto", pt: 4 }}>
+              {linea.usd ? <span style={{ fontFamily: C.mono, fontSize: 12, color: C.green, border: `1px solid rgba(34,197,94,0.3)`, background: "rgba(34,197,94,0.1)", borderRadius: 8, padding: "4px 10px", fontWeight: 700 }}>{fmtMoney(linea.usd, "USD")}</span> : null}
+              {linea.sinPrecio ? <span style={{ fontSize: 12, color: C.amber, border: `1px solid rgba(245,158,11,0.3)`, background: "rgba(245,158,11,0.1)", borderRadius: 8, padding: "4px 10px", fontWeight: 800 }}>{linea.sinPrecio} sin precio</span> : null}
             </div>
           </button>
         ))}
         {!visibles.length && (
-          <div style={{ padding: 26, textAlign: "center", color: C.t2, fontSize: 13, border: `1px dashed ${C.b0}`, borderRadius: 14 }}>No hay líneas con esa búsqueda.</div>
+          <div style={{ padding: 40, textAlign: "center", color: C.t2, fontSize: 15, background: "rgba(255,255,255,0.02)", border: `1px dashed rgba(255,255,255,0.1)`, borderRadius: 20, gridColumn: "1 / -1" }}>
+            No encontramos líneas que coincidan con tu búsqueda.
+          </div>
         )}
       </div>
     </div>
@@ -3738,17 +4287,108 @@ function LineasTab({ lineas, obras, categorias, materiales, proveedores, opcione
 
 // Lista matriz: el catálogo completo, navegable por sector/subsector, editable (descripción,
 // precio, cantidades por línea K37/K52/K55, sector). Reusa la tabla MaterialRow.
-function DuplicadosCatalogo({ groups, categorias, ums, proveedores, onChanged }) {
+function DuplicadosCatalogo({ groups, cleanupCandidates = [], categorias, ums, proveedores, onChanged }) {
   const [q, setQ] = useState("");
+  const [filtro, setFiltro] = useState("todos");
+  const [busy, setBusy] = useState("");
+  const [copied, setCopied] = useState(false);
+  const [selectedByGroup, setSelectedByGroup] = useState({});
+  const [keeperByGroup, setKeeperByGroup] = useState({});
   const visibles = useMemo(() => {
     const terms = norm(q).split(/\s+/).filter(Boolean);
-    if (!terms.length) return groups;
     return groups.filter((group) => {
+      if (filtro === "alta" && group.score < 92) return false;
+      if (filtro === "media" && group.score < 82) return false;
+      if (filtro === "revisar" && group.score >= 82) return false;
+      if (filtro === "codigo" && !/codigo|descripcion/i.test(group.reason || "")) return false;
+      if (!terms.length) return true;
       const hay = norm(group.materials.map((m) => `${m.descripcion || ""} ${m.codigo || ""} ${m.proveedor || ""} ${categoriaNombre(categorias, m.categoria_id)}`).join(" "));
       return terms.every((term) => hay.includes(term));
     });
-  }, [groups, q, categorias]);
+  }, [groups, q, filtro, categorias]);
   const totalItems = useMemo(() => groups.reduce((sum, group) => sum + group.materials.length, 0), [groups]);
+  const highConfidence = useMemo(() => groups.filter((group) => group.score >= 92).length, [groups]);
+  const mediumConfidence = useMemo(() => groups.filter((group) => group.score >= 82).length, [groups]);
+
+  function keeperForGroup(group) {
+    return keeperByGroup[group.id] || group.keeperId || group.materials[0]?.id;
+  }
+
+  function selectedIdsForGroup(group) {
+    const keeperId = keeperForGroup(group);
+    const stored = selectedByGroup[group.id];
+    if (stored) return [...stored].filter((id) => id !== keeperId);
+    return group.materials.filter((material) => material.id !== keeperId).map((material) => material.id);
+  }
+
+  function setKeeper(group, materialId) {
+    const previousKeeper = keeperForGroup(group);
+    setKeeperByGroup((prev) => ({ ...prev, [group.id]: materialId }));
+    setSelectedByGroup((prev) => {
+      const next = new Set(prev[group.id] || group.materials.filter((material) => material.id !== materialId).map((material) => material.id));
+      next.delete(materialId);
+      if (previousKeeper && previousKeeper !== materialId) next.add(previousKeeper);
+      return { ...prev, [group.id]: next };
+    });
+  }
+
+  function toggleGroupItem(group, materialId) {
+    if (materialId === keeperForGroup(group)) return;
+    setSelectedByGroup((prev) => {
+      const base = prev[group.id] || new Set(group.materials.filter((material) => material.id !== keeperForGroup(group)).map((material) => material.id));
+      const next = new Set(base);
+      next.has(materialId) ? next.delete(materialId) : next.add(materialId);
+      return { ...prev, [group.id]: next };
+    });
+  }
+
+  function selectAllGroup(group) {
+    const keeperId = keeperForGroup(group);
+    setSelectedByGroup((prev) => ({ ...prev, [group.id]: new Set(group.materials.filter((material) => material.id !== keeperId).map((material) => material.id)) }));
+  }
+
+  function clearGroup(group) {
+    setSelectedByGroup((prev) => ({ ...prev, [group.id]: new Set() }));
+  }
+
+  async function archiveIds(ids, label = "materiales") {
+    const clean = [...new Set(ids.filter(Boolean))];
+    if (!clean.length) return;
+    if (!window.confirm(`¿Archivar ${clean.length} ${label}? Quedan ocultos del catálogo activo, pero no se borran de la base.`)) return;
+    setBusy(`archive-${clean.join(":")}`);
+    try {
+      await archivarMateriales(clean);
+      await onChanged?.();
+    } finally {
+      setBusy("");
+    }
+  }
+
+  async function mergeGroup(group) {
+    const keeperId = keeperForGroup(group);
+    const duplicateIds = selectedIdsForGroup(group);
+    if (!duplicateIds.length) return;
+    const payload = mergedDuplicatePayload(group, { keeperId, duplicateIds, proveedores });
+    if (!payload.duplicates.length) return;
+    const names = payload.duplicates.map((material) => `- ${material.descripcion}`).join("\n");
+    if (!window.confirm(`¿Fusionar este grupo?\n\nConservar:\n${payload.keeper.descripcion}\n\nArchivar después de fusionar:\n${names}`)) return;
+    setBusy(`merge-${group.id}`);
+    try {
+      await guardarMaterial(payload.material, payload.cantidades, { revisado: true });
+      await setMaterialAreas(payload.keeper.id, payload.areas);
+      await setProveedoresMaterial(payload.keeper.id, payload.proveedoresExtra);
+      await archivarMateriales(payload.duplicates.map((material) => material.id));
+      await onChanged?.();
+    } finally {
+      setBusy("");
+    }
+  }
+
+  async function copyForAI() {
+    await copyTextToClipboard(buildAiReviewText(visibles, cleanupCandidates, categorias));
+    setCopied(true);
+    setTimeout(() => setCopied(false), 1600);
+  }
 
   return (
     <div style={{ display: "grid", gap: 14 }}>
@@ -3757,40 +4397,120 @@ function DuplicadosCatalogo({ groups, categorias, ums, proveedores, onChanged })
           <div>
             <div style={{ fontSize: 16, fontWeight: 950, color: C.t0 }}>Posibles duplicados</div>
             <div style={{ fontSize: 12, color: C.t2, marginTop: 3 }}>
-              No se borra ni fusiona nada solo. Son grupos para revisar cuando el nombre, codigo o medidas parecen repetidos.
+              No se borra ni fusiona nada solo. Primero revisás el grupo, después fusionás o archivás con confirmación.
             </div>
           </div>
           <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
             <span style={{ fontFamily: C.mono, fontSize: 12, color: C.t0, border: `1px solid ${C.amberB}`, background: C.bg, borderRadius: 999, padding: "5px 10px" }}>{groups.length} grupos</span>
             <span style={{ fontFamily: C.mono, fontSize: 12, color: C.t0, border: `1px solid ${C.amberB}`, background: C.bg, borderRadius: 999, padding: "5px 10px" }}>{totalItems} items</span>
+            <span style={{ fontFamily: C.mono, fontSize: 12, color: C.t0, border: `1px solid ${C.amberB}`, background: C.bg, borderRadius: 999, padding: "5px 10px" }}>{cleanupCandidates.length} raros</span>
+            <button type="button" onClick={copyForAI} style={{ ...BTN, padding: "5px 10px", color: C.violet, border: "1px solid rgba(139,92,246,0.35)", background: "rgba(139,92,246,0.1)" }} title="Copia los grupos visibles para revisarlos con IA">
+              <Copy size={13} /> {copied ? "Copiado" : "Copiar para IA"}
+            </button>
           </div>
         </div>
         <div style={{ position: "relative" }}>
           <Search size={15} style={{ position: "absolute", left: 12, top: "50%", transform: "translateY(-50%)", color: C.t2 }} />
           <input value={q} onChange={(e) => setQ(e.target.value)} placeholder="Buscar dentro de duplicados..." style={{ ...INP, width: "100%", maxWidth: 520, height: 38, paddingLeft: 36, background: C.bg }} />
         </div>
+        <div style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>
+          {[
+            ["todos", `Todos (${groups.length})`],
+            ["alta", `Alta confianza (${highConfidence})`],
+            ["media", `Media+ (${mediumConfidence})`],
+            ["revisar", `Dudosos (${groups.length - mediumConfidence})`],
+            ["codigo", "Codigo / descripcion"],
+          ].map(([key, label]) => (
+            <button key={key} type="button" onClick={() => setFiltro(key)} style={{ ...BTN, padding: "6px 10px", background: filtro === key ? C.bg : "transparent", border: `1px solid ${filtro === key ? C.amberB : C.b0}`, color: filtro === key ? C.amber : C.t1 }}>
+              {label}
+            </button>
+          ))}
+        </div>
       </div>
 
-      {visibles.map((group, idx) => (
+      {cleanupCandidates.length > 0 && (
+        <section style={{ border: `1px solid ${C.redB || "rgba(239,68,68,0.35)"}`, background: "rgba(239,68,68,0.06)", borderRadius: 14, overflow: "hidden" }}>
+          <div style={{ padding: "11px 14px", borderBottom: `1px solid ${C.b0}`, display: "flex", alignItems: "center", justifyContent: "space-between", gap: 10, flexWrap: "wrap" }}>
+            <div>
+              <div style={{ color: C.t0, fontSize: 13.5, fontWeight: 950 }}>Cosas raras para revisar</div>
+              <div style={{ color: C.t2, fontSize: 11.5, marginTop: 2 }}>Items con texto roto, generico o demasiado pobre. Archivar requiere confirmacion.</div>
+            </div>
+            <button
+              type="button"
+              onClick={() => archiveIds(cleanupCandidates.map((row) => row.material.id), "items raros")}
+              disabled={!!busy}
+              style={{ ...BTN, color: C.red, border: "1px solid rgba(239,68,68,0.28)", background: "rgba(239,68,68,0.08)", opacity: busy ? 0.6 : 1 }}
+            >
+              <Trash2 size={13} /> Archivar todos
+            </button>
+          </div>
+          <div style={{ display: "grid", maxHeight: 280, overflowY: "auto" }}>
+            {cleanupCandidates.map(({ material, reason }) => (
+              <div key={material.id} style={{ display: "grid", gridTemplateColumns: "minmax(0, 1fr) auto", gap: 10, alignItems: "center", padding: "9px 12px", borderBottom: `1px solid ${C.b0}`, background: C.bg }}>
+                <div style={{ minWidth: 0 }}>
+                  <div style={{ color: C.t0, fontSize: 12.5, fontWeight: 850, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{material.descripcion || "(sin descripcion)"}</div>
+                  <div style={{ color: C.t2, fontSize: 11, marginTop: 2, display: "flex", gap: 7, flexWrap: "wrap" }}>
+                    <span>{reason}</span>
+                    <span>{categoriaNombre(categorias, material.categoria_id)}</span>
+                    {material.codigo && <span style={{ fontFamily: C.mono }}>{material.codigo}</span>}
+                  </div>
+                </div>
+                <button type="button" onClick={() => archiveIds([material.id], "item")} disabled={!!busy} style={{ ...BTN, color: C.red, padding: "6px 9px", opacity: busy ? 0.6 : 1 }} title="Archivar item">
+                  <Trash2 size={13} />
+                </button>
+              </div>
+            ))}
+          </div>
+        </section>
+      )}
+
+      {visibles.map((group, idx) => {
+        const meta = duplicateConfidence(group);
+        const keeperId = keeperForGroup(group);
+        const selectedIds = selectedIdsForGroup(group);
+        const groupBusy = busy === `merge-${group.id}` || busy === `archive-${selectedIds.join(":")}`;
+        return (
         <section key={group.id} style={{ border: `1px solid ${C.b0}`, background: "var(--panel)", borderRadius: 14, overflow: "hidden" }}>
           <div style={{ padding: "12px 14px", borderBottom: `1px solid ${C.b0}`, background: C.s0, display: "flex", alignItems: "center", justifyContent: "space-between", gap: 10, flexWrap: "wrap" }}>
             <div>
               <div style={{ fontSize: 13.5, fontWeight: 950, color: C.t0 }}>Grupo {idx + 1} · {group.reason}</div>
               <div style={{ fontSize: 11.5, color: C.t2, marginTop: 2 }}>{group.materials.length} items parecidos. Sugerencia: conservar el que tenga mas datos cargados.</div>
             </div>
-            <span style={{ fontFamily: C.mono, fontSize: 12, fontWeight: 900, color: group.score >= 92 ? C.red : C.amber, border: `1px solid ${group.score >= 92 ? "rgba(239,68,68,0.35)" : C.amberB}`, background: group.score >= 92 ? "rgba(239,68,68,0.1)" : C.amberL, borderRadius: 999, padding: "4px 9px" }}>
-              {group.score}% parecido
-            </span>
+            <div style={{ display: "flex", gap: 7, flexWrap: "wrap", alignItems: "center" }}>
+              <span style={{ fontFamily: C.mono, fontSize: 12, fontWeight: 900, color: meta.color, border: `1px solid ${meta.border}`, background: meta.bg, borderRadius: 999, padding: "4px 9px" }}>
+                {meta.label} · {group.score}%
+              </span>
+              <button type="button" onClick={() => selectAllGroup(group)} disabled={!!busy} style={{ ...BTN, padding: "6px 9px", color: C.t1 }}>
+                Todos
+              </button>
+              <button type="button" onClick={() => clearGroup(group)} disabled={!!busy} style={{ ...BTN, padding: "6px 9px", color: C.t2 }}>
+                Ninguno
+              </button>
+              <button type="button" onClick={() => mergeGroup(group)} disabled={!!busy || selectedIds.length === 0} style={{ ...BTN_GREEN, padding: "6px 10px", opacity: groupBusy ? 0.65 : 1 }} title="Transfiere cantidades, sectores, precio, proveedores y variantes al material conservado">
+                <Save size={13} /> {groupBusy ? "Procesando..." : `Fusionar ${selectedIds.length || ""}`}
+              </button>
+              <button type="button" onClick={() => archiveIds(selectedIds, "duplicados seleccionados")} disabled={!!busy || selectedIds.length === 0} style={{ ...BTN, padding: "6px 10px", color: C.red, border: "1px solid rgba(239,68,68,0.28)", background: "rgba(239,68,68,0.06)", opacity: groupBusy ? 0.65 : 1 }}>
+                <Trash2 size={13} /> Archivar seleccionados
+              </button>
+            </div>
           </div>
           <div style={{ padding: 10, display: "grid", gap: 8 }}>
             {group.materials.map((material) => {
-              const keep = material.id === group.keeperId;
+              const keep = material.id === keeperId;
+              const selected = selectedIds.includes(material.id);
               return (
                 <div key={material.id} style={{ border: keep ? `1px solid ${C.greenB}` : `1px solid ${C.b0}`, borderRadius: 12, background: keep ? C.greenL : C.bg, padding: 8 }}>
                   <div style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap", marginBottom: 6 }}>
-                    {keep && <span style={{ fontSize: 10.5, fontWeight: 950, color: C.green, border: `1px solid ${C.greenB}`, background: C.bg, borderRadius: 999, padding: "3px 8px" }}>Sugerido para conservar</span>}
+                    <label style={{ display: "inline-flex", alignItems: "center", gap: 5, fontSize: 11, color: keep ? C.green : C.t1, fontWeight: 850 }}>
+                      <input type="checkbox" checked={keep ? false : selected} disabled={keep || !!busy} onChange={() => toggleGroupItem(group, material.id)} />
+                      {keep ? "Conservar" : "Duplicado"}
+                    </label>
+                    <button type="button" onClick={() => setKeeper(group, material.id)} disabled={keep || !!busy} style={{ ...BTN, padding: "3px 8px", fontSize: 10.5, color: keep ? C.green : C.t2, border: `1px solid ${keep ? C.greenB : C.b0}`, background: keep ? C.bg : "transparent" }}>
+                      {keep ? "Sugerido para conservar" : "Conservar este"}
+                    </button>
                     <span style={{ fontSize: 11.5, color: C.t2 }}>{categoriaNombre(categorias, material.categoria_id)}</span>
                     {material.codigo && <span style={{ fontFamily: C.mono, fontSize: 11, color: C.t2 }}>Cod. {material.codigo}</span>}
+                    {materialVariants(material).length > 0 && <span style={{ fontSize: 11, color: C.violet, border: "1px solid rgba(139,92,246,0.28)", background: "rgba(139,92,246,0.09)", borderRadius: 999, padding: "2px 7px" }}>Variantes: {materialVariants(material).join(" / ")}</span>}
                     <PriceBadge material={material} />
                   </div>
                   <MaterialFila material={material} categorias={categorias} ums={ums} proveedores={proveedores} onChanged={onChanged} />
@@ -3799,7 +4519,8 @@ function DuplicadosCatalogo({ groups, categorias, ums, proveedores, onChanged })
             })}
           </div>
         </section>
-      ))}
+        );
+      })}
 
       {!visibles.length && (
         <div style={{ padding: 30, textAlign: "center", color: C.t2, border: `1px dashed ${C.b0}`, borderRadius: 14, fontSize: 13 }}>
@@ -3832,6 +4553,7 @@ function MatrizTab({ categorias, materiales, proveedores, onChanged }) {
     return (materiales ?? []).filter(materialActivo).filter((m) => !scope || materialEnScope(m, scope)).length;
   }, [materiales, categorias]);
   const duplicateGroups = useMemo(() => findDuplicateGroups(materiales ?? [], categorias, sel), [materiales, categorias, sel]);
+  const cleanupCandidates = useMemo(() => findCleanupCandidates(materiales ?? [], categorias, sel), [materiales, categorias, sel]);
 
   const Chip = ({ id, label, active }) => (
     <button
@@ -3872,6 +4594,37 @@ function MatrizTab({ categorias, materiales, proveedores, onChanged }) {
       await onChanged?.();
     } catch (e) {
       setCatError(e?.message || "No se pudo crear la subcategoria.");
+    } finally {
+      setCatBusy("");
+    }
+  }
+
+  async function normalizarMarcasScope() {
+    const scope = sel ? idsScope(categorias, sel) : null;
+    const targets = (materiales ?? [])
+      .filter(materialActivo)
+      .filter((m) => !scope || materialEnScope(m, scope))
+      .map((material) => {
+        const prepared = prepareMaterialDraftForSave(material, proveedores, materialVariants(material));
+        const changedTitle = prepared.descripcion !== material.descripcion;
+        const changedVariants = normalizeVariantList(prepared.variantes).join("|") !== materialVariants(material).join("|");
+        return { material, prepared, changed: changedTitle || changedVariants };
+      })
+      .filter((row) => row.changed);
+    if (!targets.length) {
+      window.alert("No encontré marcas para mover a variantes en este filtro.");
+      return;
+    }
+    if (!window.confirm(`¿Normalizar marcas en ${targets.length} materiales visibles?\n\nSe limpian los títulos y las marcas pasan a variantes. No se archiva ni borra nada.`)) return;
+    setCatBusy("brands");
+    setCatError("");
+    try {
+      for (const row of targets) {
+        await guardarMaterial(row.prepared, toBomMap(row.material), { revisado: row.material.revisado });
+      }
+      await onChanged?.();
+    } catch (e) {
+      setCatError(e?.message || "No se pudieron normalizar las marcas.");
     } finally {
       setCatBusy("");
     }
@@ -3927,6 +4680,15 @@ function MatrizTab({ categorias, materiales, proveedores, onChanged }) {
         >
           <Upload size={14} /> Cargar precios
         </button>
+        <button
+          type="button"
+          onClick={normalizarMarcasScope}
+          disabled={catBusy === "brands"}
+          style={{ ...BTN, padding: "7px 12px", background: "rgba(139,92,246,0.1)", border: "1px solid rgba(139,92,246,0.35)", color: C.violet, opacity: catBusy === "brands" ? 0.65 : 1 }}
+          title="Quita marcas conocidas del titulo y las guarda como variantes"
+        >
+          {catBusy === "brands" ? "Normalizando..." : "Normalizar marcas"}
+        </button>
         <span style={{ fontSize: 11.5, color: C.t2 }}>
           {sel ? "Analisis limitado al sector seleccionado." : "Analisis sobre todo el catalogo activo."}
         </span>
@@ -3942,7 +4704,7 @@ function MatrizTab({ categorias, materiales, proveedores, onChanged }) {
       )}
       <div style={{ marginTop: 16 }}>
         {modo === "duplicados" ? (
-          <DuplicadosCatalogo groups={duplicateGroups} categorias={categorias} ums={ums} proveedores={proveedores} onChanged={onChanged} />
+          <DuplicadosCatalogo groups={duplicateGroups} cleanupCandidates={cleanupCandidates} categorias={categorias} ums={ums} proveedores={proveedores} onChanged={onChanged} />
         ) : (
           <ListaMateriales
             categorias={categorias}
@@ -4032,10 +4794,14 @@ export default function MaterialesScreen({ profile, signOut }) {
 
       <div style={{ flex: 1, height: "100%", overflowY: "auto", minWidth: 0 }}>
         <div style={{ padding: isMobile ? "16px 14px 50px 14px" : "26px 30px 60px" }}>
-          <div style={{ marginBottom: 18, paddingLeft: isMobile ? 40 : 0 }}>
-            <div style={{ fontSize: 22, fontWeight: 700, color: C.t0 }}>Listas de compras</div>
-            <div style={{ fontSize: 12, color: C.t2, marginTop: 4 }}>
-              Líneas de producción → base matriz por línea → órdenes de compra.
+          <div style={{ marginBottom: 28, paddingLeft: isMobile ? 40 : 0 }}>
+            <h1 style={{ fontSize: 32, fontWeight: 900, background: "linear-gradient(135deg, var(--t0) 0%, var(--t2) 100%)", WebkitBackgroundClip: "text", WebkitTextFillColor: "transparent", margin: 0, letterSpacing: "-0.5px" }}>Listas de compras</h1>
+            <div style={{ fontSize: 14, color: C.t2, marginTop: 6, display: "flex", alignItems: "center", gap: 8 }}>
+              <span style={{ fontWeight: 600 }}>Líneas de producción</span>
+              <span style={{ opacity: 0.5 }}>›</span>
+              <span style={{ fontWeight: 600 }}>Base matriz</span>
+              <span style={{ opacity: 0.5 }}>›</span>
+              <span style={{ fontWeight: 600 }}>Órdenes de compra</span>
             </div>
           </div>
 

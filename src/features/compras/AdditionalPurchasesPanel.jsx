@@ -979,6 +979,7 @@ export default function AdditionalPurchasesPanel({ profile, projects = [], reque
           needed_at: requestForm.needed_at,
           source: "adicionales",
           source_ref: selected.id,
+          es_adicional: true,
         },
         ccUserIds: [],
         photoFile: null,

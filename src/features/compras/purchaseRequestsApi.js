@@ -18,6 +18,13 @@ export const REQUEST_PRIORITIES = [
   { value: "urgente", label: "Urgente" },
 ];
 
+export function normalizeRequestKind(form = {}) {
+  if (form.tipo_pedido) return form.tipo_pedido;
+  if (form.es_adicional === true) return "adicional";
+  if (form.es_adicional === false) return "estandar";
+  return "estandar"; // default
+}
+
 const REQUEST_SELECT = `
   *,
   creator:profiles!purchase_requests_created_by_fkey(id, username, role, is_admin),
@@ -131,6 +138,7 @@ export async function createPurchaseRequest({ form, ccUserIds = [], photoFile })
     source: form.source || null,
     source_ref: form.source_ref || null,
     source_url: form.source_url || null,
+    es_adicional: normalizeRequestKind(form),
     created_by: userId,
   };
 
@@ -164,6 +172,34 @@ export async function createPurchaseRequest({ form, ccUserIds = [], photoFile })
   });
 
   return request;
+}
+
+// Estado de compra por ítem de una obra (Fase 2): cruza los ítems pedidos (purchase_request_items)
+// de los pedidos linkeados a la obra (project_id) y devuelve un mapa descripción-normalizada -> estado.
+// estado: "recibido" (pisa) | "pedido". Tolerante: Map vacío si falla.
+export async function fetchItemsEstadoPorObra(obraId) {
+  if (!obraId) return new Map();
+  try {
+    const { data, error } = await supabase
+      .from("purchase_requests")
+      .select("status, purchase_request_items(description)")
+      .eq("project_id", obraId)
+      .neq("status", "cancelado");
+    if (error || !data) return new Map();
+    const norm = (s) => String(s || "").toLowerCase().normalize("NFD").replace(/[̀-ͯ]/g, "").replace(/\s+/g, " ").trim();
+    const map = new Map();
+    for (const req of data) {
+      const estado = req.status === "recibido" ? "recibido" : "pedido";
+      for (const it of (req.purchase_request_items || [])) {
+        const k = norm(it.description);
+        if (!k) continue;
+        if (map.get(k) !== "recibido") map.set(k, estado); // recibido tiene prioridad
+      }
+    }
+    return map;
+  } catch {
+    return new Map();
+  }
 }
 
 export async function fetchPurchaseRequests() {
@@ -858,7 +894,7 @@ export async function notifyWaUpdate(payload) {
 
 export const ITEM_STATUSES = [
   { value: "pendiente",  label: "Pendiente",  color: "#a1a1aa" },
-  { value: "en_panol",   label: "En pañol",   color: "#3b82f6" },
+  { value: "en_panol",   label: "Enviado a pañol", color: "#3b82f6" },
   { value: "pedido",     label: "Pedido",     color: "#f59e0b" },
   { value: "recibido",   label: "Recibido",   color: "#10b981" },
   { value: "cancelado",  label: "Cancelado",  color: "#ef4444" },

@@ -41,7 +41,8 @@ import {
 } from "@/features/panol/panolApi";
 import { useToast } from "@/components/ui/Toast";
 import { useConfirm } from "@/components/ui/ConfirmDialog";
-import EnviarAPanolModal, { parsePanolLine } from "@/features/panol/EnviarAPanolModal";
+import EnviarAPanolModal from "@/features/panol/EnviarAPanolModal";
+import { parsePanolLine } from "@/features/panol/panolParsing";
 import { supabase } from "@/supabaseClient";
 import { C } from "@/theme";
 
@@ -302,11 +303,15 @@ async function readFunctionErrorMessage(error) {
     try {
       const payload = await context.clone().json();
       return payload?.error || payload?.message || error?.message || "";
-    } catch {}
+    } catch (jsonError) {
+      void jsonError;
+    }
     try {
       const text = await context.clone().text();
       return text || error?.message || "";
-    } catch {}
+    } catch {
+      return error?.message || "";
+    }
   }
   return error?.message || "";
 }

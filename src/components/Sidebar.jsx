@@ -1,4 +1,4 @@
-﻿import React, { useEffect, useState } from "react";
+import React, { useEffect, useState } from "react";
 import { Eye, KeyRound, LogOut, Menu, Moon, Phone, Sun, X } from "lucide-react";
 import { Link, useLocation } from "react-router-dom";
 import logoK from "@/assets/logos/logo-k.png";
@@ -87,6 +87,12 @@ function Icon({ id, color = "currentColor", size = 14 }) {
       <rect x="2" y="2" width="12" height="4" rx="1" {...p}/>
       <rect x="2" y="7" width="12" height="7" rx="1" {...p}/>
       <path d="M5 10h6M5 12h4" {...p}/>
+    </>,
+    "/stock-panol": <>
+      <path d="M2 5l6-3 6 3-6 3z" {...p}/>
+      <path d="M2 5v6l6 3 6-3V5" {...p}/>
+      <path d="M8 8v6" {...p}/>
+      <path d="M4.5 6.2l6-3" {...p}/>
     </>,
     "/configuracion": <>
       <circle cx="8" cy="8" r="2" {...p}/>
@@ -381,14 +387,15 @@ export default function Sidebar({ profile, signOut }) {
 
           {(esPanol || esGestion) && <>
             {divider("panol-rec")}
-            {group("Pañol · Recepción", SC.panol_catalogo, 216)}
+            {group("Pañol", SC.panol_catalogo, 216)}
             {item("/recepcion-panol", "Recepción y egresos", SC.panol_catalogo, true, 217, "Pedidos a pañol: recepción, faltantes, egresos y seguimiento por sede.")}
+            {item("/stock-panol", "Stock", SC.panol_catalogo, true, 218, "Stock real del pañol por obra, proveedor, rubro y categoría.")}
           </>}
 
           {puedeVerMateriales && <>
             {divider("panol-cat")}
-            {group("Pañol", SC.panol_catalogo, 218)}
-            {item("/materiales", "Materiales", SC.panol_catalogo, true, 228, "Carga y curación del catálogo de materiales por sector y modelo.")}
+            {group("Pañol · Catálogo", SC.panol_catalogo, 218)}
+            {item("/materiales", "Listas de compras", SC.panol_catalogo, true, 228, "Carga y curación del catálogo de materiales por sector y modelo.")}
           </>}
 
           {esGestion && <>

@@ -1,5 +1,5 @@
 import { C } from "@/theme";
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import {
   AlertTriangle,
   ArrowUpRight,
@@ -8,6 +8,7 @@ import {
   Clock3,
   Inbox,
   PackageCheck,
+  PackagePlus,
   PackageOpen,
   Plus,
   RefreshCw,
@@ -19,10 +20,13 @@ import Sidebar from "@/components/Sidebar";
 import { useResponsive } from "@/hooks/useResponsive";
 import { useToast } from "@/components/ui/Toast";
 import {
-  egresarMaterialesObra, fetchEnvios, fetchMaterialesEgreso, ENVIO_ESTADO_META, ITEM_ESTADO_META, resumenItems, SEDES_PANOL,
+  egresarMaterialesObra, fetchEnvios, fetchMaterialesEgreso, fetchObrasEgreso, fetchPanolCatalogMini, ingresarStockGeneral, ENVIO_ESTADO_META, ITEM_ESTADO_META, resumenItems, SEDES_PANOL,
 } from "@/features/panol/panolApi";
 import PanolEnvioDetail from "@/features/panol/PanolEnvioDetail";
 import EnviarAPanolModal from "@/features/panol/EnviarAPanolModal";
+import { leerIngresosPendientes, borrarIngresoPendiente } from "@/features/panol/ingresosPendientes";
+import StockWmsPanel from "@/features/panol/StockWmsPanel";
+import StockPanolScreen from "@/features/panol/StockPanolScreen";
 
 const GLASS = {
   backdropFilter: "var(--glass-filter)",
@@ -455,19 +459,28 @@ function materialSearchText(row) {
     row.codigo,
     row.proveedor,
     row.rubro,
+    row.categoria_nombre,
+    row.categoria,
     row.estado,
     row.obra?.codigo,
     row.panol_envio?.titulo,
     row.panol_envio?.sede,
     row.panol_envio?.destino,
     row.egreso_nota,
+    row.stock_sede,
+    row.stock_nota,
+    row.retirado_por,
+    row.sector_destino,
   ].filter(Boolean).join(" ").toLowerCase();
 }
 
 function materialEstadoMeta(estado) {
-  if (estado === "egresado") return { label: "Egresado", color: C.green, bg: C.greenL, border: C.greenB };
+  if (estado === "en_panol") return { label: "En pañol", color: C.blue, bg: C.blueL, border: C.blueB };
+  if (estado === "recibido") return { label: "Recibido", color: C.green, bg: C.greenL, border: C.greenB };
+  if (estado === "parcial") return { label: "Parcial", color: C.violet, bg: "var(--violet-soft)", border: "var(--violet-border)" };
+  if (estado === "egresado") return { label: "Egresado", color: C.dim, bg: C.panel2, border: C.border };
+  if (estado === "problema" || estado === "falta_stock" || estado === "sin_info" || estado === "rechazado") return { label: "Problema", color: C.red, bg: C.redL, border: C.redB };
   if (estado === "comprado" || estado === "pedido") return { label: "Comprado", color: C.amber, bg: C.amberL, border: C.amberB };
-  if (["en_panol", "recibido", "parcial", "problema"].includes(estado)) return { label: "En pañol", color: C.violet, bg: "var(--violet-soft)", border: "var(--violet-border)" };
   return { label: "Pendiente", color: C.dim, bg: C.panel2, border: C.border };
 }
 
@@ -500,6 +513,21 @@ function materialCantidad(row) {
   return [qty, unit].filter((v) => String(v).trim()).join(" ") || "-";
 }
 
+function numericCantidad(value) {
+  if (value === "" || value == null) return null;
+  const n = Number(String(value).replace(",", "."));
+  return Number.isFinite(n) ? n : null;
+}
+
+function materialDisponible(row) {
+  const qty = numericCantidad(row?.cantidad);
+  return qty != null && qty > 0 ? qty : 1;
+}
+
+function isStockGeneral(row) {
+  return !row?.obra?.id && !row?.obra_id;
+}
+
 function normalizarLineaLabel(raw) {
   const value = String(raw || "").trim();
   if (!value) return "";
@@ -520,6 +548,7 @@ function lineaFromCodigo(codigo) {
 }
 
 function materialLineaLabel(row) {
+  if (isStockGeneral(row)) return row.stock_sede ? `Stock ${row.stock_sede}` : "General";
   return normalizarLineaLabel(row.obra?.linea_nombre)
     || normalizarLineaLabel(row.obra?.modelo)
     || lineaFromCodigo(row.obra?.codigo)
@@ -536,10 +565,12 @@ function lineColor(index) {
 }
 
 function materialObraKey(row) {
+  if (isStockGeneral(row)) return `stock-${String(row.stock_sede || "general").toLowerCase()}`;
   return row.obra?.id || row.obra_id || "sin-obra";
 }
 
 function materialObraLabel(row) {
+  if (isStockGeneral(row)) return row.stock_sede ? `Stock ${row.stock_sede}` : "Stock general";
   return row.obra?.codigo || row.panol_envio?.destino || "Sin obra";
 }
 
@@ -564,7 +595,7 @@ function buildEgresoObraGroups(rows = []) {
     group.rows.push(row);
     if (row.estado === "egresado") group.egresados += 1;
     else group.disponibles += 1;
-    if (row.panol_envio?.sede) group.sedes.add(row.panol_envio.sede);
+    if (row.panol_envio?.sede || row.stock_sede) group.sedes.add(row.panol_envio?.sede || row.stock_sede);
     const ts = row.egreso_at || row.updated_at;
     if (ts && (!group.updatedAt || new Date(ts) > new Date(group.updatedAt))) group.updatedAt = ts;
   }
@@ -702,14 +733,14 @@ function EgresoMaterialRow({ row, selected, canSelect, onToggle, onEgresar, busy
       <div style={{ display: "grid", gap: 3, minWidth: 0 }}>
         {isMobile && <span style={{ color: C.dim, fontSize: 10, fontWeight: 850, textTransform: "uppercase", letterSpacing: 0.8 }}>Obra</span>}
         <span style={{ color: C.text, fontSize: 12, fontWeight: 850, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
-          {row.obra?.codigo || "Sin obra"}
+          {materialObraLabel(row)}
         </span>
       </div>
 
       <div style={{ display: "grid", gap: 3, minWidth: 0 }}>
         {isMobile && <span style={{ color: C.dim, fontSize: 10, fontWeight: 850, textTransform: "uppercase", letterSpacing: 0.8 }}>Pañol</span>}
         <span style={{ color: C.text, fontSize: 12, fontWeight: 850, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
-          {row.panol_envio?.sede || "-"}{row.panol_envio?.titulo ? ` · ${row.panol_envio.titulo}` : ""}
+          {row.panol_envio?.sede || row.stock_sede || "-"}{row.panol_envio?.titulo ? ` · ${row.panol_envio.titulo}` : row.stock_nota ? ` · ${row.stock_nota}` : ""}
         </span>
       </div>
 
@@ -769,41 +800,271 @@ function EgresoMaterialRow({ row, selected, canSelect, onToggle, onEgresar, busy
   );
 }
 
-function EgresoModal({ isOpen, onClose, onConfirm, busy, nota, setNota, retiradoPor, setRetiradoPor, sectorDestino, setSectorDestino, count }) {
+function StockGeneralModal({ open, onClose, onDone, sedeLocked, isMobile, toast, egresoRapido = false, obras = [] }) {
+  const [q, setQ] = useState("");
+  const [catalog, setCatalog] = useState([]);
+  const [selected, setSelected] = useState(null);
+  const [cantidad, setCantidad] = useState("1");
+  const [sede, setSede] = useState(sedeLocked || "Pampa");
+  const [nota, setNota] = useState("");
+  const [retiradoPor, setRetiradoPor] = useState("");
+  const [sectorDestino, setSectorDestino] = useState("");
+  const [destinoObraId, setDestinoObraId] = useState("");
+  const [loading, setLoading] = useState(false);
+  const [saving, setSaving] = useState(false);
+  const obrasActivas = obras.filter((obra) => !["terminada", "cancelada", "archivada"].includes(obra.estado));
+
+  useEffect(() => {
+    if (!open) return undefined;
+    let alive = true;
+    const timer = setTimeout(async () => {
+      setLoading(true);
+      try {
+        const rows = await fetchPanolCatalogMini({ q, limit: 80 });
+        if (alive) setCatalog(rows);
+      } catch {
+        if (alive) setCatalog([]);
+      } finally {
+        if (alive) setLoading(false);
+      }
+    }, 180);
+    return () => {
+      alive = false;
+      clearTimeout(timer);
+    };
+  }, [open, q]);
+
+  useEffect(() => {
+    if (!open) return;
+    setQ("");
+    setCatalog([]);
+    setSelected(null);
+    setCantidad("1");
+    setSede(sedeLocked || "Pampa");
+    setNota("");
+    setRetiradoPor("");
+    setSectorDestino("");
+    setDestinoObraId("");
+  }, [open, sedeLocked]);
+
+  if (!open) return null;
+
+  async function submit() {
+    if (!selected) {
+      toast.warning("Elegí un material.");
+      return;
+    }
+    setSaving(true);
+    try {
+      const snapshotId = await ingresarStockGeneral({ material: selected, cantidad, sede: sedeLocked || sede, nota });
+      if (egresoRapido) {
+        await egresarMaterialesObra([snapshotId], {
+          nota,
+          retiradoPor,
+          sectorDestino,
+          destinoObraId,
+          cantidades: { [snapshotId]: cantidad },
+        });
+      }
+      toast.success(egresoRapido ? "Egreso rapido registrado." : "Stock general ingresado.");
+      onDone?.();
+      onClose();
+    } catch (error) {
+      toast.error(error.message || "No se pudo ingresar el stock.");
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  return (
+    <div style={{ position: "fixed", inset: 0, zIndex: 9999, display: "grid", placeItems: "center", padding: 20 }}>
+      <div style={{ position: "absolute", inset: 0, background: "rgba(0,0,0,0.58)", backdropFilter: "blur(4px)" }} onClick={onClose} />
+      <div style={{ position: "relative", width: "100%", maxWidth: 660, maxHeight: "86vh", overflow: "hidden", background: C.bg1, border: `1px solid ${C.border}`, borderRadius: 16, boxShadow: "0 24px 48px rgba(0,0,0,0.4)", display: "grid", gridTemplateRows: "auto 1fr auto" }}>
+        <div style={{ padding: "18px 22px", borderBottom: `1px solid ${C.border}`, background: C.bg2, display: "flex", alignItems: "center", gap: 10 }}>
+          <PackagePlus size={18} style={{ color: C.blue }} />
+          <div style={{ color: C.text, fontSize: 17, fontWeight: 950 }}>{egresoRapido ? "Egreso rapido" : "Ingreso a stock general"}</div>
+          <div style={{ flex: 1 }} />
+          <button type="button" onClick={onClose} style={{ border: "none", background: "transparent", color: C.dim, cursor: "pointer", display: "grid", placeItems: "center" }}><X size={20} /></button>
+        </div>
+
+        <div style={{ padding: 18, overflowY: "auto", display: "grid", gap: 12 }}>
+          <div style={{ position: "relative" }}>
+            <Search size={15} style={{ position: "absolute", left: 11, top: "50%", transform: "translateY(-50%)", color: C.dim }} />
+            <input value={q} onChange={(e) => setQ(e.target.value)} placeholder="Buscar material del catalogo" style={{ width: "100%", boxSizing: "border-box", background: C.panelSolid, border: `1px solid ${C.border}`, color: C.text, padding: "10px 36px", borderRadius: 10, fontSize: 13, fontFamily: C.sans, outline: "none" }} />
+          </div>
+
+          <div style={{ display: "grid", gridTemplateColumns: isMobile ? "1fr" : "1fr 180px", gap: 12 }}>
+            <div style={{ border: `1px solid ${C.border}`, borderRadius: 12, overflow: "hidden", background: C.panel }}>
+              <div style={{ maxHeight: 280, overflowY: "auto", display: "grid", gap: 0 }}>
+                {loading ? (
+                  <div style={{ color: C.dim, padding: 22, textAlign: "center", fontSize: 12, fontWeight: 850 }}>Cargando...</div>
+                ) : catalog.length ? catalog.map((mat) => {
+                  const active = selected?.id === mat.id;
+                  return (
+                    <button key={mat.id} type="button" onClick={() => { setSelected(mat); setQ(mat.descripcion); }} style={{ border: "none", borderBottom: `1px solid ${C.border}`, background: active ? C.blueL : "transparent", color: C.text, padding: "10px 12px", cursor: "pointer", textAlign: "left", fontFamily: C.sans }}>
+                      <div style={{ fontSize: 13, fontWeight: 900, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{mat.descripcion}</div>
+                      <div style={{ color: C.dim, fontSize: 11, marginTop: 3 }}>{mat.codigo || "sin codigo"}{mat.proveedor ? ` · ${mat.proveedor}` : ""}</div>
+                    </button>
+                  );
+                }) : (
+                  <div style={{ color: C.dim, padding: 24, textAlign: "center", fontSize: 13 }}>Sin resultados</div>
+                )}
+              </div>
+            </div>
+
+            <div style={{ display: "grid", gap: 10, alignContent: "start" }}>
+              <label style={{ display: "grid", gap: 5 }}>
+                <span style={{ color: C.dim, fontSize: 10, fontWeight: 850, letterSpacing: 1, textTransform: "uppercase" }}>Cantidad</span>
+                <input type="number" step="any" min="0.01" value={cantidad} onChange={(e) => setCantidad(e.target.value)} style={{ background: C.panelSolid, border: `1px solid ${C.border}`, color: C.text, borderRadius: 10, padding: "10px 11px", fontSize: 13, fontFamily: C.mono, outline: "none" }} />
+              </label>
+              {!sedeLocked && (
+                <label style={{ display: "grid", gap: 5 }}>
+                  <span style={{ color: C.dim, fontSize: 10, fontWeight: 850, letterSpacing: 1, textTransform: "uppercase" }}>Sede</span>
+                  <select value={sede} onChange={(e) => setSede(e.target.value)} style={{ background: C.panelSolid, border: `1px solid ${C.border}`, color: C.text, borderRadius: 10, padding: "10px 11px", fontSize: 13, fontFamily: C.sans, outline: "none" }}>
+                    {SEDES_PANOL.map((s) => <option key={s} value={s}>{s}</option>)}
+                  </select>
+                </label>
+              )}
+              <label style={{ display: "grid", gap: 5 }}>
+                <span style={{ color: C.dim, fontSize: 10, fontWeight: 850, letterSpacing: 1, textTransform: "uppercase" }}>Nota</span>
+                <textarea value={nota} onChange={(e) => setNota(e.target.value)} rows={4} placeholder="Remito, proveedor, ubicacion..." style={{ background: C.panelSolid, border: `1px solid ${C.border}`, color: C.text, borderRadius: 10, padding: "10px 11px", fontSize: 13, fontFamily: C.sans, outline: "none", resize: "vertical" }} />
+              </label>
+              {egresoRapido && (
+                <>
+                  <label style={{ display: "grid", gap: 5 }}>
+                    <span style={{ color: C.dim, fontSize: 10, fontWeight: 850, letterSpacing: 1, textTransform: "uppercase" }}>Retirado por</span>
+                    <input value={retiradoPor} onChange={(e) => setRetiradoPor(e.target.value)} placeholder="Nombre" style={{ background: C.panelSolid, border: `1px solid ${C.border}`, color: C.text, borderRadius: 10, padding: "10px 11px", fontSize: 13, fontFamily: C.sans, outline: "none" }} />
+                  </label>
+                  <label style={{ display: "grid", gap: 5 }}>
+                    <span style={{ color: C.dim, fontSize: 10, fontWeight: 850, letterSpacing: 1, textTransform: "uppercase" }}>Destino</span>
+                    <input value={sectorDestino} onChange={(e) => setSectorDestino(e.target.value)} placeholder="Sector / uso" style={{ background: C.panelSolid, border: `1px solid ${C.border}`, color: C.text, borderRadius: 10, padding: "10px 11px", fontSize: 13, fontFamily: C.sans, outline: "none" }} />
+                  </label>
+                  <label style={{ display: "grid", gap: 5 }}>
+                    <span style={{ color: C.dim, fontSize: 10, fontWeight: 850, letterSpacing: 1, textTransform: "uppercase" }}>Obra destino</span>
+                    <select value={destinoObraId} onChange={(e) => setDestinoObraId(e.target.value)} style={{ background: C.panelSolid, border: `1px solid ${C.border}`, color: C.text, borderRadius: 10, padding: "10px 11px", fontSize: 13, fontFamily: C.sans, outline: "none" }}>
+                      <option value="">Sin obra</option>
+                      {obrasActivas.map((obra) => <option key={obra.id} value={obra.id}>{obra.codigo}</option>)}
+                    </select>
+                  </label>
+                </>
+              )}
+            </div>
+          </div>
+        </div>
+
+        <div style={{ padding: "14px 18px", borderTop: `1px solid ${C.border}`, background: C.bg2, display: "flex", justifyContent: "flex-end", gap: 10 }}>
+          <button type="button" onClick={onClose} disabled={saving} style={{ border: `1px solid ${C.border}`, background: C.bg1, color: C.text, borderRadius: 10, padding: "9px 13px", cursor: saving ? "default" : "pointer", opacity: saving ? 0.6 : 1, fontWeight: 850, fontFamily: C.sans }}>Cancelar</button>
+          <button type="button" onClick={submit} disabled={saving || !selected} style={{ border: `1px solid ${C.blueB}`, background: selected ? C.blueL : C.panel2, color: selected ? C.blue : C.dim, borderRadius: 10, padding: "9px 13px", cursor: saving || !selected ? "default" : "pointer", opacity: saving ? 0.7 : 1, fontWeight: 950, fontFamily: C.sans }}>
+            {saving ? "Guardando..." : egresoRapido ? "Registrar egreso" : "Ingresar stock"}
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function EgresoModalV2({
+  isOpen,
+  onClose,
+  onConfirm,
+  busy,
+  nota,
+  setNota,
+  retiradoPor,
+  setRetiradoPor,
+  sectorDestino,
+  setSectorDestino,
+  destinoObraId,
+  setDestinoObraId,
+  cantidadesEgreso,
+  setCantidadEgreso,
+  targetRows,
+  obras,
+  count,
+}) {
   if (!isOpen) return null;
+  const obrasActivas = obras.filter((obra) => !["terminada", "cancelada", "archivada"].includes(obra.estado));
   return (
     <div style={{ position: "fixed", inset: 0, zIndex: 9999, display: "grid", placeItems: "center", padding: 20 }}>
       <div style={{ position: "absolute", inset: 0, background: "rgba(0,0,0,0.6)", backdropFilter: "blur(4px)" }} onClick={onClose} />
-      <div style={{ position: "relative", background: C.bg1, border: `1px solid ${C.border}`, borderRadius: 16, width: "100%", maxWidth: 440, overflow: "hidden", boxShadow: "0 24px 48px rgba(0,0,0,0.4)" }}>
+      <div style={{ position: "relative", background: C.bg1, border: `1px solid ${C.border}`, borderRadius: 16, width: "100%", maxWidth: 620, overflow: "hidden", boxShadow: "0 24px 48px rgba(0,0,0,0.4)" }}>
         <div style={{ padding: "20px 24px", borderBottom: `1px solid ${C.border}`, background: C.bg2, display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-          <div style={{ fontSize: 18, fontWeight: 900, color: C.text, fontFamily: C.sans }}>Confirmar Egreso</div>
+          <div style={{ fontSize: 18, fontWeight: 900, color: C.text, fontFamily: C.sans }}>Confirmar egreso</div>
           <button type="button" onClick={onClose} style={{ background: "transparent", border: "none", color: C.muted, cursor: "pointer", display: "grid", placeItems: "center" }}><X size={20} /></button>
         </div>
-        <div style={{ padding: 24, display: "grid", gap: 16 }}>
+        <div style={{ padding: 24, display: "grid", gap: 16, maxHeight: "68vh", overflowY: "auto" }}>
           <div style={{ color: C.text, fontSize: 14, fontFamily: C.sans, opacity: 0.9 }}>
             Vas a egresar <strong style={{ color: C.text, fontWeight: 900 }}>{count}</strong> material{count === 1 ? "" : "es"}.
           </div>
-          
+
+          <div style={{ border: `1px solid ${C.border}`, background: C.bg, borderRadius: 12, overflow: "hidden" }}>
+            <div style={{ padding: "9px 12px", color: C.dim, fontSize: 10, fontWeight: 850, textTransform: "uppercase", letterSpacing: 1, borderBottom: `1px solid ${C.border}` }}>Cantidades</div>
+            <div style={{ display: "grid" }}>
+              {targetRows.map((row) => {
+                const available = materialDisponible(row);
+                const canPartial = available > 1;
+                return (
+                  <div key={row.id} style={{ display: "grid", gridTemplateColumns: "minmax(0, 1fr) 96px", gap: 10, alignItems: "center", padding: "10px 12px", borderBottom: `1px solid ${C.border}` }}>
+                    <div style={{ minWidth: 0 }}>
+                      <div style={{ color: C.text, fontSize: 13, fontWeight: 900, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{row.descripcion}</div>
+                      <div style={{ color: C.dim, fontSize: 11, marginTop: 2 }}>{materialObraLabel(row)} · disponible {materialCantidad(row)}</div>
+                    </div>
+                    <input
+                      type="number"
+                      min="0.01"
+                      step="any"
+                      max={available}
+                      value={cantidadesEgreso[row.id] ?? available}
+                      onChange={(e) => setCantidadEgreso(row.id, e.target.value)}
+                      disabled={!canPartial || busy}
+                      title={canPartial ? "Cantidad a egresar" : "Cantidad completa"}
+                      style={{
+                        width: "100%",
+                        boxSizing: "border-box",
+                        border: `1px solid ${C.border}`,
+                        background: canPartial ? C.panelSolid : C.panel2,
+                        color: C.text,
+                        borderRadius: 9,
+                        padding: "8px 9px",
+                        fontSize: 12,
+                        fontFamily: C.mono,
+                        outline: "none",
+                      }}
+                    />
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+
           <label style={{ display: "grid", gap: 6 }}>
             <span style={{ fontSize: 12, fontWeight: 800, color: C.muted, textTransform: "uppercase", letterSpacing: 1, fontFamily: C.sans }}>Retirado por</span>
-            <input value={retiradoPor} onChange={e => setRetiradoPor(e.target.value)} placeholder="Nombre o DNI de quien retira..." style={{ background: C.bg, border: `1px solid ${C.border2}`, color: C.text, padding: "10px 14px", borderRadius: 10, fontSize: 14, outline: "none", fontFamily: C.sans, transition: "border-color 0.2s" }} />
+            <input value={retiradoPor} onChange={(e) => setRetiradoPor(e.target.value)} placeholder="Nombre o DNI" style={{ background: C.bg, border: `1px solid ${C.border2}`, color: C.text, padding: "10px 14px", borderRadius: 10, fontSize: 14, outline: "none", fontFamily: C.sans }} />
           </label>
 
           <label style={{ display: "grid", gap: 6 }}>
-            <span style={{ fontSize: 12, fontWeight: 800, color: C.muted, textTransform: "uppercase", letterSpacing: 1, fontFamily: C.sans }}>Sector / Destino</span>
-            <input value={sectorDestino} onChange={e => setSectorDestino(e.target.value)} placeholder="Ej: Carpintería, Obra en sitio..." style={{ background: C.bg, border: `1px solid ${C.border2}`, color: C.text, padding: "10px 14px", borderRadius: 10, fontSize: 14, outline: "none", fontFamily: C.sans, transition: "border-color 0.2s" }} />
+            <span style={{ fontSize: 12, fontWeight: 800, color: C.muted, textTransform: "uppercase", letterSpacing: 1, fontFamily: C.sans }}>Sector / destino</span>
+            <input value={sectorDestino} onChange={(e) => setSectorDestino(e.target.value)} placeholder="Ej: carpinteria, obra en sitio" style={{ background: C.bg, border: `1px solid ${C.border2}`, color: C.text, padding: "10px 14px", borderRadius: 10, fontSize: 14, outline: "none", fontFamily: C.sans }} />
+          </label>
+
+          <label style={{ display: "grid", gap: 6 }}>
+            <span style={{ fontSize: 12, fontWeight: 800, color: C.muted, textTransform: "uppercase", letterSpacing: 1, fontFamily: C.sans }}>Reasignar a obra</span>
+            <select value={destinoObraId} onChange={(e) => setDestinoObraId(e.target.value)} style={{ background: C.bg, border: `1px solid ${C.border2}`, color: C.text, padding: "10px 14px", borderRadius: 10, fontSize: 14, outline: "none", fontFamily: C.sans }}>
+              <option value="">Mantener obra / stock</option>
+              {obrasActivas.map((obra) => <option key={obra.id} value={obra.id}>{obra.codigo}</option>)}
+            </select>
           </label>
 
           <label style={{ display: "grid", gap: 6 }}>
             <span style={{ fontSize: 12, fontWeight: 800, color: C.muted, textTransform: "uppercase", letterSpacing: 1, fontFamily: C.sans }}>Observaciones</span>
-            <input value={nota} onChange={e => setNota(e.target.value)} placeholder="Nota opcional..." style={{ background: C.bg, border: `1px solid ${C.border2}`, color: C.text, padding: "10px 14px", borderRadius: 10, fontSize: 14, outline: "none", fontFamily: C.sans, transition: "border-color 0.2s" }} />
+            <input value={nota} onChange={(e) => setNota(e.target.value)} placeholder="Nota opcional" style={{ background: C.bg, border: `1px solid ${C.border2}`, color: C.text, padding: "10px 14px", borderRadius: 10, fontSize: 14, outline: "none", fontFamily: C.sans }} />
           </label>
         </div>
         <div style={{ padding: "16px 24px", background: C.bg2, borderTop: `1px solid ${C.border}`, display: "flex", gap: 12, justifyContent: "flex-end" }}>
-          <button type="button" onClick={onClose} disabled={busy} style={{ padding: "10px 16px", borderRadius: 10, border: `1px solid ${C.border}`, background: C.bg1, color: C.text, fontWeight: 800, cursor: busy ? "default" : "pointer", opacity: busy ? 0.6 : 1, fontFamily: C.sans, transition: "background 0.2s" }}>Cancelar</button>
-          <button type="button" onClick={onConfirm} disabled={busy} style={{ padding: "10px 16px", borderRadius: 10, border: `1px solid ${C.greenB}`, background: C.greenL, color: C.green, fontWeight: 900, cursor: busy ? "default" : "pointer", opacity: busy ? 0.6 : 1, display: "flex", alignItems: "center", gap: 8, fontFamily: C.sans, transition: "all 0.2s" }}>
+          <button type="button" onClick={onClose} disabled={busy} style={{ padding: "10px 16px", borderRadius: 10, border: `1px solid ${C.border}`, background: C.bg1, color: C.text, fontWeight: 800, cursor: busy ? "default" : "pointer", opacity: busy ? 0.6 : 1, fontFamily: C.sans }}>Cancelar</button>
+          <button type="button" onClick={onConfirm} disabled={busy} style={{ padding: "10px 16px", borderRadius: 10, border: `1px solid ${C.greenB}`, background: C.greenL, color: C.green, fontWeight: 900, cursor: busy ? "default" : "pointer", opacity: busy ? 0.6 : 1, display: "flex", alignItems: "center", gap: 8, fontFamily: C.sans }}>
             <ArrowUpRight size={16} />
-            {busy ? "Procesando..." : "Confirmar Egreso"}
+            {busy ? "Procesando..." : "Confirmar egreso"}
           </button>
         </div>
       </div>
@@ -1055,6 +1316,8 @@ function EgresosMaterialesPanel({ sedeLocked, canReceive, isMobile, toast }) {
   const [fLinea, setFLinea] = useState("todas");
   const [selectedObraKey, setSelectedObraKey] = useState(null);
   const [selected, setSelected] = useState(() => new Set());
+  const [obras, setObras] = useState([]);
+  const [stockModalOpen, setStockModalOpen] = useState(false);
   
   const [fRubro, setFRubro] = useState("todos");
   const [fProveedor, setFProveedor] = useState("todos");
@@ -1065,6 +1328,8 @@ function EgresosMaterialesPanel({ sedeLocked, canReceive, isMobile, toast }) {
   const [nota, setNota] = useState("");
   const [retiradoPor, setRetiradoPor] = useState("");
   const [sectorDestino, setSectorDestino] = useState("");
+  const [destinoObraId, setDestinoObraId] = useState("");
+  const [cantidadesEgreso, setCantidadesEgreso] = useState({});
   
   const [busy, setBusy] = useState(false);
 
@@ -1082,6 +1347,12 @@ function EgresosMaterialesPanel({ sedeLocked, canReceive, isMobile, toast }) {
   }, [fEstado, fSede, sedeLocked, toast]);
 
   useEffect(() => { cargar(); }, [cargar]);
+
+  useEffect(() => {
+    fetchObrasEgreso()
+      .then(setObras)
+      .catch(() => setObras([]));
+  }, []);
 
   useEffect(() => {
     setSelectedObraKey(null);
@@ -1135,7 +1406,7 @@ function EgresosMaterialesPanel({ sedeLocked, canReceive, isMobile, toast }) {
     () => obraGroups.find((group) => group.key === selectedObraKey) || null,
     [obraGroups, selectedObraKey],
   );
-  const visibles = selectedGroup?.rows || [];
+  const visibles = useMemo(() => selectedGroup?.rows ?? [], [selectedGroup]);
 
   useEffect(() => {
     if (fLinea !== "todas" && !lineGroups.some((group) => group.key === fLinea)) {
@@ -1162,7 +1433,15 @@ function EgresosMaterialesPanel({ sedeLocked, canReceive, isMobile, toast }) {
     [visibles],
   );
   const selectedIds = useMemo(() => [...selected].filter((id) => selectableIds.includes(id)), [selected, selectableIds]);
+  const egresoTargetRows = useMemo(
+    () => rows.filter((row) => egresoTargetIds.includes(row.id)),
+    [rows, egresoTargetIds],
+  );
   const allSelected = selectableIds.length > 0 && selectedIds.length === selectableIds.length;
+
+  const setCantidadEgreso = useCallback((id, value) => {
+    setCantidadesEgreso((prev) => ({ ...prev, [id]: value }));
+  }, []);
 
   const toggle = (id) => {
     setSelected((prev) => {
@@ -1186,10 +1465,19 @@ function EgresosMaterialesPanel({ sedeLocked, canReceive, isMobile, toast }) {
     setSelectedObraKey(key);
     setSelected(new Set());
     setNota("");
+    setDestinoObraId("");
+    setCantidadesEgreso({});
   };
 
   const openEgresoModal = (ids) => {
-    setEgresoTargetIds(ids);
+    const clean = ids.filter(Boolean);
+    const defaults = {};
+    for (const row of rows) {
+      if (clean.includes(row.id)) defaults[row.id] = String(materialDisponible(row));
+    }
+    setEgresoTargetIds(clean);
+    setCantidadesEgreso(defaults);
+    setDestinoObraId("");
     setEgresoModalOpen(true);
   };
 
@@ -1198,12 +1486,19 @@ function EgresosMaterialesPanel({ sedeLocked, canReceive, isMobile, toast }) {
     if (!clean.length || !canReceive) return;
     setBusy(true);
     try {
-      const count = await egresarMaterialesObra(clean, { nota, retiradoPor, sectorDestino });
+      const cantidades = Object.fromEntries(
+        Object.entries(cantidadesEgreso)
+          .filter(([id]) => clean.includes(id))
+          .map(([id, value]) => [id, String(value || "").trim()]),
+      );
+      const count = await egresarMaterialesObra(clean, { nota, retiradoPor, sectorDestino, destinoObraId, cantidades });
       toast.success(`${count || clean.length} item${(count || clean.length) === 1 ? "" : "s"} egresado${(count || clean.length) === 1 ? "" : "s"}.`);
       setSelected(new Set());
       setNota("");
       setRetiradoPor("");
       setSectorDestino("");
+      setDestinoObraId("");
+      setCantidadesEgreso({});
       setEgresoModalOpen(false);
       await cargar();
     } catch (e) {
@@ -1274,104 +1569,34 @@ function EgresosMaterialesPanel({ sedeLocked, canReceive, isMobile, toast }) {
           {!sedeLocked && (
             <SelectFilter label="Sede" value={fSede} onChange={setFSede} options={[["todas", "Todas"], ...SEDES_PANOL.map((s) => [s, s])]} />
           )}
-          <SmallButton onClick={cargar} disabled={loading} title="Actualizar egresos">
-            <RefreshCw size={15} />
-          </SmallButton>
-        </div>
-
-        {false && selectedGroup && (
-          <div style={{ display: "flex", alignItems: "center", gap: 9, flexWrap: "wrap" }}>
+          {canReceive && (
             <button
               type="button"
-              onClick={() => { setSelectedObraKey(null); setSelected(new Set()); }}
-              style={{
-                border: `1px solid ${C.border}`,
-                background: C.panelSolid,
-                color: C.muted,
-                borderRadius: 9,
-                padding: "8px 10px",
-                cursor: "pointer",
-                fontSize: 12,
-                fontWeight: 850,
-                fontFamily: C.sans,
-              }}
-            >
-              ← Obras
-            </button>
-            <div style={{ minWidth: 0 }}>
-              <div style={{ color: C.text, fontSize: 15, fontWeight: 950 }}>{selectedGroup.label}</div>
-              <div style={{ color: C.dim, fontSize: 11 }}>
-                {selectedGroup.disponibles} en pañol · {selectedGroup.egresados} egresados
-              </div>
-            </div>
-          </div>
-        )}
-
-        {false && canReceive && selectedGroup && (
-          <div style={{ display: "flex", gap: 8, alignItems: "center", flexWrap: "wrap" }}>
-            <button
-              type="button"
-              onClick={toggleAll}
-              disabled={!selectableIds.length || busy}
-              style={{
-                border: `1px solid ${allSelected ? C.greenB : C.border}`,
-                background: allSelected ? C.greenL : C.panelSolid,
-                color: allSelected ? C.green : C.muted,
-                borderRadius: 9,
-                padding: "8px 10px",
-                cursor: !selectableIds.length || busy ? "default" : "pointer",
-                opacity: !selectableIds.length || busy ? 0.55 : 1,
-                fontSize: 12,
-                fontWeight: 850,
-                fontFamily: C.sans,
-              }}
-            >
-              {allSelected ? "Quitar selección" : "Seleccionar visibles"}
-            </button>
-            <input
-              value={nota}
-              onChange={(e) => setNota(e.target.value)}
-              placeholder="Nota de egreso"
-              style={{
-                flex: "1 1 260px",
-                minWidth: isMobile ? "100%" : 220,
-                boxSizing: "border-box",
-                background: C.panelSolid,
-                border: `1px solid ${C.border}`,
-                color: C.text,
-                padding: "8px 10px",
-                borderRadius: 9,
-                fontSize: 13,
-                fontFamily: C.sans,
-                outline: "none",
-              }}
-            />
-            <button
-              type="button"
-              onClick={() => egresar(selectedIds)}
-              disabled={!selectedIds.length || busy}
+              onClick={() => setStockModalOpen(true)}
               style={{
                 display: "inline-flex",
                 alignItems: "center",
                 gap: 7,
-                border: `1px solid ${C.greenB}`,
-                background: C.greenL,
-                color: C.green,
-                borderRadius: 9,
-                padding: "8px 12px",
-                cursor: !selectedIds.length || busy ? "default" : "pointer",
-                opacity: !selectedIds.length || busy ? 0.55 : 1,
-                fontSize: 13,
+                border: `1px solid ${C.blueB}`,
+                background: C.blueL,
+                color: C.blue,
+                borderRadius: 10,
+                padding: "9px 12px",
+                cursor: "pointer",
+                fontSize: 12,
                 fontWeight: 900,
                 fontFamily: C.sans,
                 whiteSpace: "nowrap",
               }}
             >
-              <ArrowUpRight size={15} />
-              Egresar {selectedIds.length || ""}
+              <PackagePlus size={15} />
+              Egreso rapido
             </button>
-          </div>
-        )}
+          )}
+          <SmallButton onClick={cargar} disabled={loading} title="Actualizar egresos">
+            <RefreshCw size={15} />
+          </SmallButton>
+        </div>
       </div>
 
       <EgresosWorkspace
@@ -1398,91 +1623,7 @@ function EgresosMaterialesPanel({ sedeLocked, canReceive, isMobile, toast }) {
         clearObra={() => { setSelectedObraKey(null); setSelected(new Set()); }}
       />
 
-      <div style={{ display: "none" }}>
-        {!isMobile && selectedGroup && (
-          <div style={{
-            display: "grid",
-            gridTemplateColumns: "minmax(280px, 1fr) 112px 130px minmax(190px, 260px) 110px",
-            gap: 12,
-            padding: "11px 32px 9px",
-            borderBottom: `1px solid ${C.border}`,
-            background: C.bg,
-            color: C.dim,
-            fontSize: 10,
-            fontWeight: 850,
-            letterSpacing: 1.1,
-            textTransform: "uppercase",
-            flexShrink: 0,
-          }}>
-            <span>Material</span>
-            <span>Cantidad</span>
-            <span>Obra</span>
-            <span>Pañol</span>
-            <span />
-          </div>
-        )}
-
-        <div style={{ flex: 1, overflowY: "auto", padding: isMobile ? 12 : "12px 18px 18px" }}>
-          {loading ? (
-            <div style={{ padding: 44, textAlign: "center", color: C.dim, fontSize: 12, letterSpacing: 1.2, textTransform: "uppercase", fontWeight: 800 }}>
-              Cargando materiales...
-            </div>
-          ) : !selectedGroup ? (
-            obraGroups.length === 0 ? (
-              <div style={{
-                margin: "18px auto",
-                maxWidth: 520,
-                border: `1px dashed ${C.border2}`,
-                borderRadius: 14,
-                padding: "42px 22px",
-                textAlign: "center",
-                color: C.dim,
-                background: C.panel,
-              }}>
-                <CheckCircle2 size={34} style={{ color: C.green, marginBottom: 10 }} />
-                <div style={{ fontSize: 16, fontWeight: 850, color: C.text }}>No hay obras para este filtro</div>
-              </div>
-            ) : (
-              <div style={{ display: "grid", gap: 8 }}>
-                {obraGroups.map((group) => (
-                  <EgresoObraCard key={group.key} group={group} onOpen={openObra} isMobile={isMobile} />
-                ))}
-              </div>
-            )
-          ) : visibles.length === 0 ? (
-            <div style={{
-              margin: "18px auto",
-              maxWidth: 520,
-              border: `1px dashed ${C.border2}`,
-              borderRadius: 14,
-              padding: "42px 22px",
-              textAlign: "center",
-              color: C.dim,
-              background: C.panel,
-            }}>
-              <CheckCircle2 size={34} style={{ color: C.green, marginBottom: 10 }} />
-              <div style={{ fontSize: 16, fontWeight: 850, color: C.text }}>No hay materiales para este filtro</div>
-            </div>
-          ) : (
-            <div style={{ display: "grid", gap: 8 }}>
-              {visibles.map((row) => (
-                <EgresoMaterialRow
-                  key={row.id}
-                  row={row}
-                  selected={selected.has(row.id)}
-                  canSelect={canReceive && row.estado !== "egresado"}
-                  onToggle={toggle}
-                  onEgresar={openEgresoModal}
-                  busy={busy}
-                  isMobile={isMobile}
-                />
-              ))}
-            </div>
-          )}
-        </div>
-      </div>
-
-      <EgresoModal 
+      <EgresoModalV2
         isOpen={egresoModalOpen}
         onClose={() => setEgresoModalOpen(false)}
         onConfirm={confirmEgreso}
@@ -1493,8 +1634,442 @@ function EgresosMaterialesPanel({ sedeLocked, canReceive, isMobile, toast }) {
         setRetiradoPor={setRetiradoPor}
         sectorDestino={sectorDestino}
         setSectorDestino={setSectorDestino}
+        destinoObraId={destinoObraId}
+        setDestinoObraId={setDestinoObraId}
+        cantidadesEgreso={cantidadesEgreso}
+        setCantidadEgreso={setCantidadEgreso}
+        targetRows={egresoTargetRows}
+        obras={obras}
         count={egresoTargetIds.length}
       />
+      <StockGeneralModal
+        open={stockModalOpen}
+        onClose={() => setStockModalOpen(false)}
+        onDone={cargar}
+        sedeLocked={sedeLocked}
+        isMobile={isMobile}
+        toast={toast}
+        egresoRapido
+        obras={obras}
+      />
+    </>
+  );
+}
+
+const STOCK_REAL_ESTADOS = ["en_panol", "recibido", "parcial"];
+
+function normalizeStockKey(value = "") {
+  return String(value || "")
+    .toLowerCase()
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .replace(/[^\w]+/g, " ")
+    .trim();
+}
+
+function stockMaterialKey(row) {
+  return row.material_id || normalizeStockKey([row.codigo, row.descripcion].filter(Boolean).join(" ")) || row.id;
+}
+
+function isStockDisponible(row) {
+  return STOCK_REAL_ESTADOS.includes(row.estado);
+}
+
+function stockCategoriaLabel(row) {
+  return row.categoria_nombre || row.categoria || "";
+}
+
+function filterOptions(rows = [], getLabel) {
+  const values = new Set();
+  for (const row of rows) {
+    const label = String(getLabel(row) || "").trim();
+    if (label) values.add(label);
+  }
+  return [["todos", "Todos"], ...[...values].sort((a, b) => a.localeCompare(b, "es", { numeric: true })).map((label) => [label, label])];
+}
+
+function buildStockMaterialGroups(rows = []) {
+  const map = new Map();
+  for (const row of rows) {
+    const key = stockMaterialKey(row);
+    if (!map.has(key)) {
+      map.set(key, {
+        key,
+        label: row.descripcion || "(sin descripcion)",
+        codigo: row.codigo || "",
+        proveedor: row.proveedor || "",
+        rows: [],
+        obras: new Set(),
+        obraLabels: new Set(),
+        lineas: new Set(),
+        sedes: new Set(),
+        unidades: new Set(),
+        rubros: new Set(),
+        categorias: new Set(),
+        disponibles: 0,
+        faltantes: 0,
+        egresados: 0,
+        cantidadDisponible: 0,
+        updatedAt: null,
+      });
+    }
+    const group = map.get(key);
+    group.rows.push(row);
+    group.obras.add(materialObraKey(row));
+    group.obraLabels.add(materialObraLabel(row));
+    group.lineas.add(materialLineaLabel(row));
+    if (row.panol_envio?.sede || row.stock_sede) group.sedes.add(row.panol_envio?.sede || row.stock_sede);
+    if (row.unidad) group.unidades.add(row.unidad);
+    if (row.rubro) group.rubros.add(row.rubro);
+    if (stockCategoriaLabel(row)) group.categorias.add(stockCategoriaLabel(row));
+    if (isStockDisponible(row)) {
+      group.disponibles += 1;
+      group.cantidadDisponible += numericCantidad(row.cantidad) ?? 1;
+    }
+    const ts = row.egreso_at || row.recepcion_updated_at || row.updated_at || row.created_at;
+    if (ts && (!group.updatedAt || new Date(ts) > new Date(group.updatedAt))) group.updatedAt = ts;
+  }
+  return [...map.values()].sort((a, b) => {
+    if (b.disponibles !== a.disponibles) return b.disponibles - a.disponibles;
+    if (b.faltantes !== a.faltantes) return b.faltantes - a.faltantes;
+    return a.label.localeCompare(b.label, "es", { numeric: true });
+  });
+}
+
+function stockDisponibleLabel(group) {
+  if (group.unidades.size === 1) {
+    const unit = [...group.unidades][0];
+    return `${Number(group.cantidadDisponible.toFixed(2))} ${unit}`;
+  }
+  return `${group.disponibles} mov.`;
+}
+
+function StockMaterialGroupCard({ group, active, onOpen, isMobile }) {
+  const tags = [...group.categorias, ...group.rubros].slice(0, 2).join(" · ");
+  const destinos = [...group.obraLabels].slice(0, 3).join(" · ");
+  const sedes = [...group.sedes].join(" / ") || "-";
+  return (
+    <button
+      type="button"
+      onClick={() => onOpen(group.key)}
+      style={{
+        width: "100%",
+        display: "grid",
+        gridTemplateColumns: isMobile ? "1fr" : "minmax(0, 1fr) 108px 108px 24px",
+        gap: 10,
+        alignItems: "center",
+        border: `1px solid ${active ? C.blueB : group.disponibles ? C.greenB : C.border}`,
+        background: active ? C.blueL : C.panelSolid,
+        borderRadius: 10,
+        padding: "11px 12px",
+        color: C.text,
+        cursor: "pointer",
+        textAlign: "left",
+        fontFamily: C.sans,
+      }}
+    >
+      <div style={{ minWidth: 0 }}>
+        <div style={{ color: C.text, fontSize: 13.5, fontWeight: 950, lineHeight: 1.25, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+          {group.label}
+        </div>
+        <div style={{ color: C.dim, fontSize: 11, marginTop: 4, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+          {group.codigo || "sin codigo"}{group.proveedor ? ` · ${group.proveedor}` : ""}{tags ? ` · ${tags}` : ""}
+        </div>
+        <div style={{ color: C.t1, fontSize: 11.5, marginTop: 5, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+          {destinos || "Sin asignacion"}{group.obras.size > 3 ? ` · +${group.obras.size - 3}` : ""}
+        </div>
+      </div>
+      <div>
+        <div style={{ color: C.dim, fontSize: 10, fontWeight: 850, letterSpacing: 0.8, textTransform: "uppercase" }}>Stock</div>
+        <div style={{ color: group.disponibles ? C.green : C.dim, fontFamily: C.mono, fontSize: 14, fontWeight: 950 }}>{stockDisponibleLabel(group)}</div>
+      </div>
+      <div>
+        <div style={{ color: C.dim, fontSize: 10, fontWeight: 850, letterSpacing: 0.8, textTransform: "uppercase" }}>Sede</div>
+        <div style={{ color: C.text, fontSize: 12, fontWeight: 900, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{sedes}</div>
+      </div>
+      <ChevronRight size={18} style={{ color: C.dim, justifySelf: isMobile ? "start" : "end" }} />
+    </button>
+  );
+}
+
+function StockAssignmentRow({ row, isMobile }) {
+  const source = row.panol_envio?.titulo || row.stock_nota || row.notas || "";
+  const tags = [stockCategoriaLabel(row), row.rubro].filter(Boolean).join(" · ");
+  const side = (
+    <div style={{ display: "grid", gap: 3, minWidth: 0 }}>
+      {isMobile && <span style={{ color: C.dim, fontSize: 10, fontWeight: 850, textTransform: "uppercase", letterSpacing: 0.8 }}>Origen</span>}
+      <span style={{ color: C.text, fontSize: 12, fontWeight: 850, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+        {row.panol_envio?.sede || row.stock_sede || "-"}{source ? ` · ${source}` : ""}
+      </span>
+    </div>
+  );
+
+  const content = (
+    <>
+      <div style={{ minWidth: 0 }}>
+        <div style={{ color: C.text, fontSize: 13, fontWeight: 900, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+          {materialObraLabel(row)}
+        </div>
+        <div style={{ color: C.dim, fontSize: 11, marginTop: 3, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+          {materialLineaLabel(row)}{tags ? ` · ${tags}` : ""}{row.retirado_por ? ` · retiro ${row.retirado_por}` : ""}
+        </div>
+      </div>
+      <MaterialEstadoPill estado={row.estado} />
+      <span style={{ color: C.text, fontFamily: C.mono, fontSize: 12, fontWeight: 900 }}>{materialCantidad(row)}</span>
+      {side}
+      <span style={{ color: C.dim, fontSize: 12, fontFamily: C.mono, textAlign: isMobile ? "left" : "right" }}>{fmtFecha(row.egreso_at || row.updated_at)}</span>
+    </>
+  );
+
+  if (isMobile) {
+    return (
+      <div style={{ border: `1px solid ${C.border}`, background: C.panelSolid, borderRadius: 12, padding: 12, display: "grid", gap: 10 }}>
+        {content}
+      </div>
+    );
+  }
+
+  return (
+    <div style={{
+      display: "grid",
+      gridTemplateColumns: "minmax(160px, 1fr) 106px 92px minmax(170px, 240px) 78px",
+      gap: 12,
+      alignItems: "center",
+      borderBottom: `1px solid ${C.border}`,
+      padding: "9px 14px",
+    }}>
+      {content}
+    </div>
+  );
+}
+
+export function StockTotalPanel({ sedeLocked, isMobile, toast }) {
+  const [rows, setRows] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [q, setQ] = useState("");
+  const [fSede, setFSede] = useState(sedeLocked || "todas");
+  const [fObra, setFObra] = useState("todas");
+  const [fCategoria, setFCategoria] = useState("todos");
+  const [selectedKey, setSelectedKey] = useState(null);
+
+  const cargar = useCallback(async () => {
+    setLoading(true);
+    try {
+      const sede = sedeLocked || (fSede !== "todas" ? fSede : null);
+      setRows(await fetchMaterialesEgreso({ sede, estados: STOCK_REAL_ESTADOS }));
+    } catch (e) {
+      toast.error(e.message || "No se pudo cargar el stock.");
+    } finally {
+      setLoading(false);
+    }
+  }, [fSede, sedeLocked, toast]);
+
+  useEffect(() => { cargar(); }, [cargar]);
+
+  const searchedRows = useMemo(() => {
+    const term = q.trim().toLowerCase();
+    let filtered = rows;
+    if (term) filtered = filtered.filter((row) => materialSearchText(row).includes(term));
+    return filtered;
+  }, [rows, q]);
+
+  const obraOptions = useMemo(() => {
+    const map = new Map();
+    for (const row of searchedRows) {
+      const key = materialObraKey(row);
+      if (!map.has(key)) map.set(key, materialObraLabel(row));
+    }
+    return [["todas", "Todas"], ...[...map.entries()].sort((a, b) => a[1].localeCompare(b[1], "es", { numeric: true }))];
+  }, [searchedRows]);
+
+  const obraFilteredRows = useMemo(
+    () => (fObra === "todas" ? searchedRows : searchedRows.filter((row) => materialObraKey(row) === fObra)),
+    [searchedRows, fObra],
+  );
+
+  const categoriaOptions = useMemo(() => filterOptions(obraFilteredRows, stockCategoriaLabel), [obraFilteredRows]);
+
+  const filteredRows = useMemo(
+    () => {
+      let filtered = obraFilteredRows;
+      if (fCategoria !== "todos") filtered = filtered.filter((row) => stockCategoriaLabel(row) === fCategoria);
+      return filtered;
+    },
+    [obraFilteredRows, fCategoria],
+  );
+
+  const materialGroups = useMemo(() => buildStockMaterialGroups(filteredRows), [filteredRows]);
+  const selectedGroup = useMemo(
+    () => materialGroups.find((group) => group.key === selectedKey) || null,
+    [materialGroups, selectedKey],
+  );
+
+  const stockKpis = useMemo(() => {
+    let unidades = 0;
+    const destinos = new Set();
+    for (const row of filteredRows) {
+      unidades += numericCantidad(row.cantidad) ?? 1;
+      destinos.add(materialObraKey(row));
+    }
+    return { materiales: materialGroups.length, unidades: Number(unidades.toFixed(2)), destinos: destinos.size, movimientos: filteredRows.length };
+  }, [filteredRows, materialGroups.length]);
+
+  useEffect(() => {
+    if (fObra !== "todas" && !obraOptions.some(([key]) => key === fObra)) {
+      setFObra("todas");
+    }
+  }, [fObra, obraOptions]);
+
+  useEffect(() => {
+    if (fCategoria !== "todos" && !categoriaOptions.some(([key]) => key === fCategoria)) {
+      setFCategoria("todos");
+    }
+  }, [fCategoria, categoriaOptions]);
+
+  useEffect(() => {
+    if (selectedKey && !materialGroups.some((group) => group.key === selectedKey)) {
+      setSelectedKey(null);
+    }
+  }, [materialGroups, selectedKey]);
+
+  return (
+    <>
+      <div style={{
+        background: C.topbarSoft,
+        ...GLASS,
+        borderBottom: `1px solid ${C.border}`,
+        padding: isMobile ? "10px 12px" : "10px 18px",
+        display: "grid",
+        gap: 10,
+        flexShrink: 0,
+      }}>
+        <div style={{ display: "flex", gap: 8, alignItems: "center", flexWrap: "wrap" }}>
+          <div style={{ position: "relative", flex: "1 1 260px", minWidth: isMobile ? "100%" : 260 }}>
+            <Search size={15} style={{ position: "absolute", left: 11, top: "50%", transform: "translateY(-50%)", color: C.dim }} />
+            <input
+              value={q}
+              onChange={(e) => setQ(e.target.value)}
+              placeholder="Buscar material, obra, codigo, proveedor..."
+              style={{
+                width: "100%",
+                boxSizing: "border-box",
+                background: C.panelSolid,
+                border: `1px solid ${C.border}`,
+                color: C.text,
+                padding: "9px 34px",
+                borderRadius: 10,
+                fontSize: 13,
+                fontFamily: C.sans,
+                outline: "none",
+              }}
+            />
+            {q && (
+              <button type="button" onClick={() => setQ("")} title="Limpiar" style={{ position: "absolute", right: 8, top: "50%", transform: "translateY(-50%)", border: "none", background: "transparent", color: C.dim, cursor: "pointer", display: "grid", placeItems: "center", padding: 4 }}>
+                <X size={14} />
+              </button>
+            )}
+          </div>
+
+          <SelectFilter label="Obra" value={fObra} onChange={setFObra} options={obraOptions} />
+          <SelectFilter label="Categoria" value={fCategoria} onChange={setFCategoria} options={categoriaOptions} />
+          {!sedeLocked && (
+            <SelectFilter label="Sede" value={fSede} onChange={setFSede} options={[["todas", "Todas"], ...SEDES_PANOL.map((s) => [s, s])]} />
+          )}
+          <SmallButton onClick={cargar} disabled={loading} title="Actualizar stock">
+            <RefreshCw size={15} />
+          </SmallButton>
+        </div>
+
+        <div style={{ display: "grid", gridTemplateColumns: isMobile ? "1fr 1fr" : "repeat(4, minmax(120px, 1fr))", gap: 8 }}>
+          <KpiCard icon={Warehouse} label="Productos" value={stockKpis.materiales} color={C.blue} detail="agrupados por catálogo" />
+          <KpiCard icon={PackageCheck} label="Disponible" value={stockKpis.unidades} color={C.green} detail="suma de cantidades" />
+          <KpiCard icon={Inbox} label="Destinos" value={stockKpis.destinos} color={C.teal} detail="obras + stock general" />
+          <KpiCard icon={PackageOpen} label="Movimientos" value={stockKpis.movimientos} color={C.violet} detail={sedeLocked || (fSede === "todas" ? "todas las sedes" : fSede)} />
+        </div>
+      </div>
+
+      <div style={{
+        flex: 1,
+        minHeight: 0,
+        overflow: "hidden",
+        padding: isMobile ? 12 : "14px 18px 18px",
+        display: "grid",
+        gridTemplateColumns: isMobile ? "1fr" : "minmax(330px, 420px) minmax(420px, 1fr)",
+        gap: 12,
+      }}>
+        <section style={{ minHeight: 0, border: `1px solid ${C.border}`, background: C.panel, borderRadius: 12, overflow: "hidden", display: "flex", flexDirection: "column" }}>
+          <div style={{ padding: "12px 13px", borderBottom: `1px solid ${C.border}`, background: C.panelSolid, display: "flex", alignItems: "center", justifyContent: "space-between", gap: 10 }}>
+            <div>
+              <div style={{ color: C.text, fontSize: 13, fontWeight: 950 }}>Stock total</div>
+              <div style={{ color: C.dim, fontSize: 11, marginTop: 2 }}>Solo stock disponible: en pañol, recibido o parcial.</div>
+            </div>
+          </div>
+          <div style={{ padding: 8, display: "grid", gap: 7, overflowY: "auto" }}>
+            {loading ? (
+              <div style={{ padding: 28, color: C.dim, textAlign: "center", fontSize: 12, fontWeight: 850, textTransform: "uppercase", letterSpacing: 1 }}>Cargando stock...</div>
+            ) : materialGroups.length === 0 ? (
+              <div style={{ padding: 30, border: `1px dashed ${C.border2}`, borderRadius: 10, color: C.dim, textAlign: "center", fontSize: 13 }}>
+                Todavia no hay stock para estos filtros.
+              </div>
+            ) : materialGroups.map((group) => (
+              <StockMaterialGroupCard
+                key={group.key}
+                group={group}
+                active={selectedGroup?.key === group.key}
+                onOpen={setSelectedKey}
+                isMobile={isMobile}
+              />
+            ))}
+          </div>
+        </section>
+
+        <section style={{ minHeight: 0, border: `1px solid ${C.border}`, background: C.panel, borderRadius: 12, overflow: "hidden", display: "flex", flexDirection: "column" }}>
+          <div style={{ padding: "12px 13px", borderBottom: `1px solid ${C.border}`, background: C.panelSolid, display: "flex", alignItems: "center", justifyContent: "space-between", gap: 10 }}>
+            {selectedGroup ? (
+              <div style={{ minWidth: 0 }}>
+                <div style={{ color: C.text, fontSize: 17, fontWeight: 950, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{selectedGroup.label}</div>
+                <div style={{ color: C.dim, fontSize: 11, marginTop: 3 }}>
+                  {stockDisponibleLabel(selectedGroup)} disponible · {selectedGroup.obras.size} destino{selectedGroup.obras.size === 1 ? "" : "s"}
+                </div>
+              </div>
+            ) : (
+              <div>
+                <div style={{ color: C.text, fontSize: 13, fontWeight: 950 }}>Detalle por material</div>
+                <div style={{ color: C.dim, fontSize: 11, marginTop: 2 }}>Entra a un material para ver obra, linea, estado y origen.</div>
+              </div>
+            )}
+          </div>
+
+          {selectedGroup ? (
+            <>
+              {!isMobile && (
+                <div style={{ display: "grid", gridTemplateColumns: "minmax(160px, 1fr) 106px 92px minmax(170px, 240px) 78px", gap: 12, padding: "9px 14px", color: C.dim, fontSize: 10, fontWeight: 850, letterSpacing: 1, textTransform: "uppercase", borderBottom: `1px solid ${C.border}`, background: C.bg1 }}>
+                  <span>Obra / stock</span>
+                  <span>Estado</span>
+                  <span>Cantidad</span>
+                  <span>Origen</span>
+                  <span>Fecha</span>
+                </div>
+              )}
+              <div style={{ flex: 1, minHeight: 0, overflowY: "auto", display: "flex", flexDirection: "column" }}>
+                {selectedGroup.rows.map((row) => (
+                  <StockAssignmentRow key={row.id} row={row} isMobile={isMobile} />
+                ))}
+              </div>
+            </>
+          ) : (
+            <div style={{ flex: 1, minHeight: 220, display: "grid", placeItems: "center", padding: 18 }}>
+              <div style={{ maxWidth: 360, textAlign: "center", color: C.dim }}>
+                <Warehouse size={34} style={{ color: C.blue, marginBottom: 10 }} />
+                <div style={{ color: C.text, fontSize: 16, fontWeight: 900 }}>Elegi un material</div>
+                <div style={{ fontSize: 13, marginTop: 6, lineHeight: 1.45 }}>
+                  Esta vista muestra el stock real que se fue cargando en recepcion, ingresos directos y egresos.
+                </div>
+              </div>
+            </div>
+          )}
+        </section>
+      </div>
     </>
   );
 }
@@ -1520,6 +2095,15 @@ export default function RecepcionPanolScreen({ profile, signOut }) {
   const [fPrio, setFPrio] = useState("todas");
   const [q, setQ] = useState("");
   const [tab, setTab] = useState("recepcion");
+  const [modalPrefill, setModalPrefill] = useState(null);
+  const [pendientes, setPendientes] = useState(() => leerIngresosPendientes());
+  const refreshPendientes = useCallback(() => setPendientes(leerIngresosPendientes()), []);
+  // Identidad estable: si fuera un objeto inline, cualquier re-render del padre
+  // (p. ej. un toast) reiniciaría el form del modal y borraría los ítems cargados.
+  const modalPrefillEstable = useMemo(
+    () => modalPrefill || { origen: "remito", modo: "remito", sede: sedeLocked || "Pampa" },
+    [modalPrefill, sedeLocked],
+  );
 
   const cargar = useCallback(async () => {
     setLoading(true);
@@ -1608,16 +2192,19 @@ export default function RecepcionPanolScreen({ profile, signOut }) {
           <div style={{ display: "inline-flex", gap: 3, padding: 3, border: `1px solid ${C.border}`, background: C.panel, borderRadius: 11 }}>
             <TabButton active={tab === "recepcion"} onClick={() => setTab("recepcion")}>Recepción</TabButton>
             <TabButton active={tab === "egresos"} onClick={() => setTab("egresos")}>Egresos</TabButton>
+            <TabButton active={tab === "pendientes"} onClick={() => { refreshPendientes(); setTab("pendientes"); }}>
+              Pendientes{pendientes.length > 0 ? ` (${pendientes.length})` : ""}
+            </TabButton>
           </div>
           {tab === "recepcion" && (
             <SmallButton onClick={cargar} disabled={loading} title="Actualizar">
               <RefreshCw size={15} />
             </SmallButton>
           )}
-          {tab === "recepcion" && isManager && (
+          {(tab === "recepcion" || tab === "pendientes") && canReceive && (
             <button
               type="button"
-              onClick={() => setModalOpen(true)}
+              onClick={() => { setModalPrefill(null); setModalOpen(true); }}
               style={{
                 display: "flex",
                 alignItems: "center",
@@ -1635,7 +2222,7 @@ export default function RecepcionPanolScreen({ profile, signOut }) {
               }}
             >
               <Plus size={15} />
-              Nuevo pedido
+              Ingresar materiales
             </button>
           )}
         </div>
@@ -1812,22 +2399,70 @@ export default function RecepcionPanolScreen({ profile, signOut }) {
       </div>
 
         </>
+      ) : tab === "egresos" ? (
+        <StockPanolScreen embedded mode="egreso" profile={profile} />
       ) : (
-        <EgresosMaterialesPanel
-          sedeLocked={sedeLocked}
-          canReceive={canReceive}
-          isMobile={isMobile}
-          toast={toast}
-        />
+        <div style={{ flex: 1, minHeight: 0, overflowY: "auto", padding: isMobile ? 12 : "14px 18px 18px" }}>
+          <section style={{ border: `1px solid ${C.border}`, background: C.panel, borderRadius: 12, overflow: "hidden", maxWidth: 960 }}>
+            <div style={{ padding: "13px 14px", borderBottom: `1px solid ${C.border}`, background: C.panelSolid, display: "flex", alignItems: "center", justifyContent: "space-between", gap: 10, flexWrap: "wrap" }}>
+              <div>
+                <div style={{ color: C.text, fontSize: 14, fontWeight: 950 }}>Ingresos pendientes</div>
+                <div style={{ color: C.dim, fontSize: 11, marginTop: 2 }}>Borradores guardados automaticamente o pausados por el pañolero.</div>
+              </div>
+              <KpiCard icon={Clock3} label="Borradores" value={pendientes.length} color={C.violet} detail="listos para retomar" />
+            </div>
+            <div style={{ padding: 10, display: "grid", gap: 8 }}>
+          {pendientes.length === 0 ? (
+            <div style={{ padding: "28px 20px", textAlign: "center", color: C.dim, border: `1px dashed ${C.border}`, borderRadius: 12, background: C.panel }}>
+              No hay ingresos pendientes. Si se cierra un ingreso a medio cargar, queda guardado aca para continuar.
+            </div>
+          ) : (
+            pendientes.map((d) => {
+              const nItems = Array.isArray(d.items) ? d.items.length : 0;
+              const fecha = d.savedAt ? new Date(d.savedAt).toLocaleString("es-AR", { day: "2-digit", month: "2-digit", hour: "2-digit", minute: "2-digit" }) : "";
+              return (
+                <div key={d.id} style={{ display: "flex", alignItems: "center", gap: 12, padding: "12px 14px", border: `1px solid ${C.border}`, borderRadius: 12, background: C.bg1 }}>
+                  <div style={{ flex: 1, minWidth: 0 }}>
+                    <div style={{ fontSize: 14, fontWeight: 800, color: C.text, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>
+                      {d.titulo?.trim() || "(sin referencia)"}
+                    </div>
+                    <div style={{ fontSize: 12, color: C.dim, marginTop: 3 }}>
+                      {nItems} ítem{nItems === 1 ? "" : "s"}{d.sede ? ` · ${d.sede}` : ""}{fecha ? ` · guardado ${fecha}` : ""}
+                    </div>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setModalPrefill({ origen: "remito", modo: "remito", draftId: d.id, titulo: d.titulo, sede: d.sede, obraId: d.obraId, prioridad: d.prioridad, observaciones: d.observaciones, items: d.items });
+                      setModalOpen(true);
+                    }}
+                    style={{ border: `1px solid ${C.blueB}`, background: "var(--blue-soft)", color: C.blue, borderRadius: 8, padding: "8px 14px", cursor: "pointer", fontSize: 13, fontWeight: 800, fontFamily: C.sans, whiteSpace: "nowrap" }}
+                  >
+                    Retomar
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => { borrarIngresoPendiente(d.id); refreshPendientes(); }}
+                    style={{ border: `1px solid ${C.border}`, background: "transparent", color: C.dim, borderRadius: 8, padding: "8px 12px", cursor: "pointer", fontSize: 13, fontWeight: 700, fontFamily: C.sans }}
+                  >
+                    Borrar
+                  </button>
+                </div>
+              );
+            })
+          )}
+            </div>
+          </section>
+        </div>
       )}
 
-      {tab === "recepcion" && modalOpen && (
+      {modalOpen && (
         <EnviarAPanolModal
           open={modalOpen}
           profile={profile}
-          prefill={sedeLocked ? { sede: sedeLocked } : null}
+          prefill={modalPrefillEstable}
           showPrices={isAdmin}
-          onClose={(saved) => { setModalOpen(false); if (saved) cargar(); }}
+          onClose={(saved) => { setModalOpen(false); setModalPrefill(null); refreshPendientes(); if (saved) cargar(); }}
         />
       )}
     </>,

@@ -291,6 +291,7 @@ export default function PedirAComprasModal({
   const [title, setTitle] = useState("");
   const [description, setDescription] = useState("");
   const [priority, setPriority] = useState("media");
+  const [tipoPedido, setTipoPedido] = useState(null);
   const [items, setItems] = useState([]);
   const [projects, setProjects] = useState([]);
   const [saving, setSaving] = useState(false);
@@ -311,6 +312,7 @@ export default function PedirAComprasModal({
     setTitle(prefilled?.title || "");
     setDescription(prefilled?.description || "");
     setPriority(prefilled?.priority || "media");
+    setTipoPedido(typeof prefilled?.tipo_pedido === "string" ? prefilled.tipo_pedido : (prefilled?.es_adicional === true ? "adicional" : prefilled?.es_adicional === false ? "estandar" : null));
     setItems(
       Array.isArray(prefilled?.items)
         ? prefilled.items.map((it) => normalizeDraft(it, prefilled?.defaultDestination))
@@ -426,6 +428,10 @@ export default function PedirAComprasModal({
       toast.warning("Agregá al menos un ítem.");
       return;
     }
+    if (!tipoPedido) {
+      toast.warning("Elegí el tipo de pedido.");
+      return;
+    }
     setSaving(true);
     try {
       // El project_id del pedido lo dejamos null (los destinos viven en los items).
@@ -434,6 +440,8 @@ export default function PedirAComprasModal({
           title: title.trim(),
           description: description.trim(),
           priority,
+          es_adicional: tipoPedido === "adicional",
+          tipo_pedido: tipoPedido,
           project_id: null,
           source: prefilled?.source || null,
           source_ref: prefilled?.source_ref || null,
@@ -960,6 +968,41 @@ export default function PedirAComprasModal({
               })}
             </div>
           </div>
+
+          <div>
+            <div style={labelStyle}>¿Qué tipo de pedido es?</div>
+            <div style={{ display: "grid", gridTemplateColumns: isMobile ? "1fr" : "repeat(auto-fit, minmax(130px, 1fr))", gap: 8 }}>
+              {[
+                { value: "stock", label: "Stock pañol", detail: "Material general de pañol", color: C.green },
+                { value: "estandar", label: "Estándar", detail: "Matriz base del barco", color: C.blue },
+                { value: "adicional", label: "Adicional / opcional", detail: "Extra para esta obra", color: C.violet },
+              ]
+                .filter(o => !(o.value === "estandar" && newDest.toLowerCase().includes("pampa")))
+                .map((option) => {
+                const active = tipoPedido === option.value;
+                return (
+                  <button
+                    key={option.label}
+                    type="button"
+                    onClick={() => setTipoPedido(option.value)}
+                    style={{
+                      border: `1px solid ${active ? option.color : C.border}`,
+                      background: active ? `${option.color}18` : C.panel,
+                      color: active ? option.color : C.text,
+                      borderRadius: 8,
+                      padding: "9px 10px",
+                      textAlign: "left",
+                      cursor: "pointer",
+                      fontFamily: C.sans,
+                    }}
+                  >
+                    <span style={{ display: "block", fontSize: 12.5, fontWeight: 900 }}>{option.label}</span>
+                    <span style={{ display: "block", marginTop: 2, color: active ? option.color : C.dim, fontSize: 10.5, fontWeight: 650 }}>{option.detail}</span>
+                  </button>
+                );
+              })}
+            </div>
+          </div>
         </div>
 
         {/* ── Footer ─────────────────────────────────────────────────── */}
@@ -988,14 +1031,14 @@ export default function PedirAComprasModal({
           </button>
           <button
             type="submit"
-            disabled={saving || !title.trim() || items.length === 0}
+            disabled={saving || !title.trim() || items.length === 0 || !tipoPedido}
             style={{
               border: "none",
-              background: saving || !title.trim() || items.length === 0 ? C.panel2 : C.blue,
-              color: saving || !title.trim() || items.length === 0 ? C.dim : "#fff",
+              background: saving || !title.trim() || items.length === 0 || !tipoPedido ? C.panel2 : C.blue,
+              color: saving || !title.trim() || items.length === 0 || !tipoPedido ? C.dim : "#fff",
               borderRadius: 7,
               padding: "9px 16px",
-              cursor: saving || !title.trim() || items.length === 0 ? "default" : "pointer",
+              cursor: saving || !title.trim() || items.length === 0 || !tipoPedido ? "default" : "pointer",
               fontSize: 12,
               fontWeight: 800,
               fontFamily: C.sans,

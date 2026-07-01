@@ -346,6 +346,21 @@ export default function PurchaseRequestDetail({ requestId, profile, users = [], 
     [items]
   );
   const canSendToPanol = manager && request?.status === "comprado" && itemsParaPanol.length > 0;
+  const panolPrefill = useMemo(() => {
+    if (!request) return null;
+    return {
+      titulo: request.title,
+      origen: "compra",
+      purchaseRequestId: request.id,
+      obraId: request.project_id || null,
+      items: itemsParaPanol.map((it) => ({
+        descripcion: it.description,
+        cantidad: it.quantity,
+        unidad: it.unit,
+        purchase_request_item_id: it.id,
+      })),
+    };
+  }, [request?.id, request?.project_id, request?.title, itemsParaPanol]);
   const myFollower = useMemo(
     () => (request?.followers || []).find((item) => item.user_id === profile?.id),
     [request?.followers, profile?.id],
@@ -1039,7 +1054,21 @@ export default function PurchaseRequestDetail({ requestId, profile, users = [], 
               <div style={{ color: C.dim, fontSize: 10, letterSpacing: 1.1, textTransform: "uppercase", fontWeight: 750, marginBottom: 6 }}>
                 Estado
               </div>
-              <StatusStepper current={request.status} onChange={(status) => patchRequest({ status })} />
+              <StatusStepper current={request.status} onChange={async (status) => {
+                if (status === "recibido") {
+                  const pend = items.filter((it) => !["recibido", "cancelado"].includes(it.status));
+                  if (pend.length) {
+                    const ok = await confirm({
+                      title: "Ítems sin recibir",
+                      message: `Este pedido todavía tiene ${pend.length} ítem${pend.length === 1 ? "" : "s"} sin recibir. ¿Marcar el pedido como Recibido igual?`,
+                      confirmLabel: "Marcar recibido igual",
+                      tone: "danger",
+                    });
+                    if (!ok) return;
+                  }
+                }
+                patchRequest({ status });
+              }} />
             </div>
 
             <div style={{ flexShrink: 0, minWidth: isMobile ? 0 : 160 }}>
@@ -1566,13 +1595,7 @@ export default function PurchaseRequestDetail({ requestId, profile, users = [], 
                 <EnviarAPanolModal
                   open={panolModal}
                   profile={profile}
-                  prefill={{
-                    titulo: request.title,
-                    origen: "compra",
-                    purchaseRequestId: request.id,
-                    obraId: request.project_id || null,
-                    items: itemsParaPanol.map(it => ({ descripcion: it.description, cantidad: it.quantity, unidad: it.unit, purchase_request_item_id: it.id })),
-                  }}
+                  prefill={panolPrefill}
                   onClose={(saved) => { setPanolModal(false); if (saved) load(); }}
                 />
               )}

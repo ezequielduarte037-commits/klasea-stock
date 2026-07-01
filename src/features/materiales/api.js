@@ -34,6 +34,16 @@ async function fetchPaged(table, select, orderColumn = "id") {
   return out;
 }
 
+async function fetchMaterialesCatalogo() {
+  const baseSelect = "id, categoria_id, proveedor_id, codigo, descripcion, proveedor, unidad_medida, precio_unitario, moneda, imagen_url, revisado, origen, notas, activo, batch_id, created_at";
+  try {
+    return await fetchPaged("panol_materiales", `${baseSelect}, variantes`, "descripcion");
+  } catch (error) {
+    if (!isMissingColumn(error)) throw error;
+    return (await fetchPaged("panol_materiales", baseSelect, "descripcion")).map((row) => ({ ...row, variantes: [] }));
+  }
+}
+
 function safeFilePart(value) {
   return String(value || "archivo")
     .normalize("NFD")
@@ -47,6 +57,20 @@ function toNullableNumber(value) {
   if (value === "" || value == null) return null;
   const n = Number(value);
   return Number.isFinite(n) ? n : null;
+}
+
+function normalizeVariantes(value) {
+  const raw = Array.isArray(value) ? value : String(value || "").split(/[,\n;\/]+/);
+  const seen = new Set();
+  return raw
+    .map((item) => String(item || "").trim())
+    .filter(Boolean)
+    .filter((item) => {
+      const key = norm(item);
+      if (seen.has(key)) return false;
+      seen.add(key);
+      return true;
+    });
 }
 
 export function precioVigente(material) {
@@ -166,7 +190,7 @@ export async function fetchComprobantes() {
 export async function fetchCatalogo() {
   const [categorias, materiales, modelos, batches, precios, imagenes, proveedores, comprobantes, areasRes, condRes, provMatRes] = await Promise.all([
     fetchCategorias(),
-    fetchPaged("panol_materiales", "id, categoria_id, proveedor_id, codigo, descripcion, proveedor, unidad_medida, precio_unitario, moneda, imagen_url, revisado, origen, notas, activo, batch_id, created_at", "descripcion"),
+    fetchMaterialesCatalogo(),
     fetchPaged("panol_material_modelo", "id, material_id, modelo, cantidad, variante", "id"),
     fetchBatches(),
     fetchPaged("panol_precios", "id, material_id, proveedor_id, proveedor, precio_unitario, moneda, fuente, comprobante_id, fecha, created_at", "created_at"),
@@ -219,6 +243,7 @@ export async function fetchCatalogo() {
         ultimo_precio: historial[0] ?? null,
         imagenes: imgs,
         imagen_url: m.imagen_url || imgs[0]?.url || null,
+        variantes: normalizeVariantes(m.variantes),
         areas,
         proveedores_lista: provMatRes.map.get(m.id) ?? [],
         condicion_valor_id: condRes.map.get(m.id) ?? null,
@@ -657,17 +682,23 @@ export async function guardarMaterial(material, cantidades, { revisado } = {}) {
     moneda: material.moneda || null,
     imagen_url: material.imagen_url || null,
     notas: material.notas || null,
+    variantes: normalizeVariantes(material.variantes),
     activo: material.activo ?? true,
   };
   if (revisado != null) patch.revisado = revisado;
 
-  const { error } = await supabase.from("panol_materiales").update(patch).eq("id", material.id);
+  let { error } = await supabase.from("panol_materiales").update(patch).eq("id", material.id);
+  if (error && isMissingColumn(error)) {
+    const { variantes, ...fallbackPatch } = patch;
+    const retry = await supabase.from("panol_materiales").update(fallbackPatch).eq("id", material.id);
+    error = retry.error;
+  }
   if (error) throw error;
   await guardarCantidades(material.id, cantidades);
 }
 
 export async function crearMaterial(material, cantidades = {}) {
-  const { data, error } = await supabase
+  let { data, error } = await supabase
     .from("panol_materiales")
     .insert({
       categoria_id: material.categoria_id,
@@ -679,12 +710,35 @@ export async function crearMaterial(material, cantidades = {}) {
       precio_unitario: toNullableNumber(material.precio_unitario),
       moneda: material.moneda || null,
       imagen_url: material.imagen_url || null,
+      variantes: normalizeVariantes(material.variantes),
       origen: "manual",
       revisado: material.revisado ?? true,
       activo: true,
     })
     .select("id")
     .single();
+  if (error && isMissingColumn(error)) {
+    const retry = await supabase
+      .from("panol_materiales")
+      .insert({
+        categoria_id: material.categoria_id,
+        proveedor_id: material.proveedor_id || null,
+        codigo: material.codigo || null,
+        descripcion: material.descripcion?.trim(),
+        proveedor: material.proveedor || null,
+        unidad_medida: material.unidad_medida || null,
+        precio_unitario: toNullableNumber(material.precio_unitario),
+        moneda: material.moneda || null,
+        imagen_url: material.imagen_url || null,
+        origen: "manual",
+        revisado: material.revisado ?? true,
+        activo: true,
+      })
+      .select("id")
+      .single();
+    data = retry.data;
+    error = retry.error;
+  }
   if (error) throw error;
   await guardarCantidades(data.id, cantidades);
   return data.id;
@@ -738,6 +792,17 @@ export async function borrarMaterial(materialId) {
   if (bomError) throw bomError;
   const { error } = await supabase.from("panol_materiales").delete().eq("id", materialId);
   if (error) throw error;
+}
+
+export async function archivarMateriales(materialIds = []) {
+  const ids = [...new Set((materialIds || []).filter(Boolean))];
+  if (!ids.length) return 0;
+  const { error } = await supabase
+    .from("panol_materiales")
+    .update({ activo: false })
+    .in("id", ids);
+  if (error) throw error;
+  return ids.length;
 }
 
 export async function guardarProveedor(proveedor) {
