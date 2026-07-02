@@ -506,6 +506,32 @@ export async function ensureObraMaterialSnapshot(obraId, rows = []) {
   }
 }
 
+export async function reemplazarObraMaterialSnapshotSeguro(obraId, rows = []) {
+  if (!obraId) return [];
+  const existing = await fetchObraMaterialSnapshot(obraId);
+  const locked = existing.some((row) => (
+    row.purchase_request_id
+    || row.panol_envio_id
+    || row.panol_envio_item_id
+    || row.recepcion_items?.length
+    || !["pendiente", null, undefined, ""].includes(row.estado)
+  ));
+  if (locked) throw new Error("La lista ya tiene compras/recepcion/movimientos vinculados. No se puede regenerar sin perder trazabilidad.");
+
+  const payload = snapshotPayloadFromRows(obraId, rows);
+  if (!payload.length) return [];
+
+  const { error: delError } = await supabase
+    .from("panol_obra_materiales_snapshot")
+    .delete()
+    .eq("obra_id", obraId);
+  if (delError) throw delError;
+
+  const { error } = await supabase.from("panol_obra_materiales_snapshot").insert(payload);
+  if (error) throw error;
+  return await fetchObraMaterialSnapshot(obraId);
+}
+
 export async function updateObraSnapshotRows(ids = [], patch = {}) {
   const cleanIds = ids.filter(Boolean);
   if (!cleanIds.length) return;

@@ -162,3 +162,127 @@ export async function setMaterialCondicion(materialId, opcionValorId) {
     .upsert({ material_id: materialId, opcion_valor_id: opcionValorId }, { onConflict: "material_id" });
   if (error) throw error;
 }
+
+export async function fetchMatrizCondicionantes() {
+  const cond = await pagedSafe(
+    "panol_matriz_condicionantes",
+    "id, modelo, nombre, tipo, descripcion, activo_por_defecto, activo, orden, created_at, updated_at",
+    "orden",
+  );
+  if (!cond.ok) return { ok: false, condicionantes: [] };
+  const itemsRes = await pagedSafe(
+    "panol_matriz_condicionante_items",
+    "id, condicionante_id, material_id, descripcion, cantidad, unidad, tipo_item, notas, activo, orden, created_at, updated_at",
+    "orden",
+  );
+  const materialIds = [...new Set(itemsRes.rows.map((item) => item.material_id).filter(Boolean))];
+  const materialById = new Map();
+  if (materialIds.length) {
+    try {
+      const { data, error } = await supabase
+        .from("panol_materiales")
+        .select("id, descripcion, codigo, unidad_medida, proveedor")
+        .in("id", materialIds);
+      if (error) throw error;
+      for (const material of data ?? []) materialById.set(material.id, material);
+    } catch (error) {
+      if (!isMissingTable(error) && !isMissingColumn(error)) throw error;
+    }
+  }
+  const byCond = new Map();
+  for (const item of itemsRes.rows) {
+    if (!byCond.has(item.condicionante_id)) byCond.set(item.condicionante_id, []);
+    byCond.get(item.condicionante_id).push({
+      ...item,
+      material: item.material_id ? materialById.get(item.material_id) || null : null,
+    });
+  }
+  const condicionantes = cond.rows
+    .sort((a, b) => String(a.modelo).localeCompare(String(b.modelo), "es", { numeric: true }) || (a.orden ?? 0) - (b.orden ?? 0) || a.nombre.localeCompare(b.nombre, "es"))
+    .map((row) => ({ ...row, items: byCond.get(row.id) ?? [] }));
+  return { ok: true, condicionantes };
+}
+
+export async function crearMatrizCondicionante(payload) {
+  const row = {
+    modelo: String(payload.modelo || "").replace(/^K/i, "").trim(),
+    nombre: String(payload.nombre || "").trim(),
+    tipo: payload.tipo || "opcional_estandar",
+    descripcion: String(payload.descripcion || "").trim() || null,
+    activo_por_defecto: payload.activo_por_defecto ?? true,
+    orden: payload.orden ?? 0,
+  };
+  if (!row.modelo) throw new Error("Elegí una línea/modelo.");
+  if (!row.nombre) throw new Error("El nombre del condicionante es obligatorio.");
+  const { error } = await supabase
+    .from("panol_matriz_condicionantes")
+    .upsert(row, { onConflict: "modelo,nombre" });
+  if (error) throw error;
+}
+
+export async function actualizarMatrizCondicionante(id, patch) {
+  const clean = {};
+  for (const key of ["nombre", "tipo", "descripcion", "activo_por_defecto", "activo", "orden"]) {
+    if (Object.prototype.hasOwnProperty.call(patch, key)) clean[key] = patch[key];
+  }
+  clean.updated_at = new Date().toISOString();
+  const { error } = await supabase.from("panol_matriz_condicionantes").update(clean).eq("id", id);
+  if (error) throw error;
+}
+
+export async function borrarMatrizCondicionante(id) {
+  const { error } = await supabase.from("panol_matriz_condicionantes").delete().eq("id", id);
+  if (error) throw error;
+}
+
+export async function agregarMatrizCondicionanteItem(payload) {
+  const row = {
+    condicionante_id: payload.condicionante_id,
+    material_id: payload.material_id || null,
+    descripcion: String(payload.descripcion || "").trim(),
+    cantidad: payload.cantidad === "" || payload.cantidad == null ? null : Number(String(payload.cantidad).replace(",", ".")),
+    unidad: String(payload.unidad || "").trim() || null,
+    tipo_item: payload.tipo_item || "matriz",
+    notas: String(payload.notas || "").trim() || null,
+    orden: payload.orden ?? 0,
+  };
+  if (!row.condicionante_id) throw new Error("Falta el condicionante.");
+  if (!row.descripcion) throw new Error("La descripción del ítem es obligatoria.");
+  if (row.cantidad != null && !Number.isFinite(row.cantidad)) throw new Error("Cantidad inválida.");
+  const { error } = await supabase.from("panol_matriz_condicionante_items").insert(row);
+  if (error) throw error;
+}
+
+export async function borrarMatrizCondicionanteItem(id) {
+  const { error } = await supabase.from("panol_matriz_condicionante_items").delete().eq("id", id);
+  if (error) throw error;
+}
+
+export async function fetchObraMatrizCondicionantes(obraId) {
+  if (!obraId) return { ok: true, map: new Map(), rows: [] };
+  const { ok, rows } = await pagedSafe(
+    "panol_obra_matriz_condicionantes",
+    "obra_id, condicionante_id, activo, notas, created_at, updated_at",
+    "condicionante_id",
+  );
+  const filtered = rows.filter((row) => row.obra_id === obraId);
+  return {
+    ok,
+    rows: filtered,
+    map: new Map(filtered.map((row) => [row.condicionante_id, row])),
+  };
+}
+
+export async function setObraMatrizCondicionante(obraId, condicionanteId, activo, notas = null) {
+  if (!obraId || !condicionanteId) throw new Error("Falta obra o condicionante.");
+  const { error } = await supabase
+    .from("panol_obra_matriz_condicionantes")
+    .upsert({
+      obra_id: obraId,
+      condicionante_id: condicionanteId,
+      activo: !!activo,
+      notas,
+      updated_at: new Date().toISOString(),
+    }, { onConflict: "obra_id,condicionante_id" });
+  if (error) throw error;
+}

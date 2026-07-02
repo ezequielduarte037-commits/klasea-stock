@@ -1,5 +1,6 @@
 import { useMemo, useState } from "react";
-import { Plus, Save, Search, Trash2 } from "lucide-react";
+import { Link2, Plus, Save, Search, Trash2 } from "lucide-react";
+import { supabase } from "@/supabaseClient";
 import { bajaProveedor, guardarProveedor } from "./api";
 import { BTN, BTN_GREEN, BTN_PRIMARY, INP, LBL, Td, Th } from "@/features/rrhh/ui";
 import { C } from "@/theme";
@@ -25,6 +26,22 @@ export default function ProveedoresTab({ proveedores, onChanged }) {
   const [editing, setEditing] = useState(null);
   const [saving, setSaving] = useState(false);
   const [err, setErr] = useState(null);
+  const [linkCopiado, setLinkCopiado] = useState("");
+
+  // Genera (o recupera) el token del portal del proveedor y copia el link.
+  async function copiarLinkPortal(p) {
+    setErr(null);
+    try {
+      const { data, error } = await supabase.rpc("portal_proveedor_link", { p_proveedor: p.nombre });
+      if (error) throw error;
+      const url = `${window.location.origin}/proveedor/${data}`;
+      await navigator.clipboard.writeText(url);
+      setLinkCopiado(p.id);
+      setTimeout(() => setLinkCopiado(""), 1800);
+    } catch (e) {
+      setErr(e.message?.includes("portal_proveedor_link") ? "Falta correr el SQL del portal de proveedores." : (e.message || "No se pudo generar el link."));
+    }
+  }
 
   const visibles = useMemo(() => {
     const query = q.trim().toLowerCase();
@@ -170,6 +187,9 @@ export default function ProveedoresTab({ proveedores, onChanged }) {
                 <Td color={C.t2}>{p.notas || "—"}</Td>
                 <Td>
                   <div style={{ display: "flex", gap: 6 }}>
+                    <button type="button" onClick={() => copiarLinkPortal(p)} title="Copiar link del portal del proveedor (ve sus pedidos, confirma entregas y sube facturas)" style={{ ...BTN, padding: "6px 9px", color: linkCopiado === p.id ? C.green : C.blue }}>
+                      <Link2 size={13} /> {linkCopiado === p.id ? "Copiado" : "Portal"}
+                    </button>
                     <button type="button" onClick={() => setEditing(p)} style={{ ...BTN, padding: "6px 9px" }}>Editar</button>
                     <button type="button" onClick={() => remove(p)} style={{ ...BTN, color: C.red, padding: "6px 9px" }}>
                       <Trash2 size={13} />

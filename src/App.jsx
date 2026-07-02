@@ -26,6 +26,7 @@ import RrhhScreen            from "@/features/rrhh/RrhhScreen";
 import MaterialesScreen      from "@/features/materiales/MaterialesScreen";
 import RecepcionPanolScreen  from "@/features/panol/RecepcionPanolScreen";
 import StockPanolScreen      from "@/features/panol/StockPanolScreen";
+import PortalProveedorScreen from "@/features/proveedores/PortalProveedorScreen";
 import MemoriasScreen        from "@/features/memorias/MemoriasScreen";
 
 import { ToastProvider } from "@/components/ui/Toast";
@@ -391,6 +392,7 @@ export default function App() {
         <ConfirmProvider>
       <Routes>
         <Route path="/login" element={<LoginScreen onLoggedIn={loadProfile} />} />
+        <Route path="/proveedor/:token" element={<PortalProveedorScreen />} />
         <Route path="/"      element={homeElement} />
 
         {/* Panel de cliente */}

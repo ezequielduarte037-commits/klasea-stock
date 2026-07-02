@@ -28,6 +28,7 @@ import {
   borrarAddon,
   fetchObraMaterialSnapshot,
   ensureObraMaterialSnapshot,
+  reemplazarObraMaterialSnapshotSeguro,
   updateObraSnapshotRows,
 } from "./api";
 import AvanceTab from "./AvanceTab";
@@ -37,8 +38,17 @@ import { MaterialImageUploader, MaterialThumb, PriceBadge, PriceHistory } from "
 import { fmtMoney } from "./format";
 import ProveedoresTab from "./ProveedoresTab";
 import { csvCell, MODELOS, norm, parseMaterialesWorkbook, toBomMap } from "./materialesParser";
-import { fetchOpciones, setMaterialAreas, setProveedoresMaterial } from "./materialesConfig";
-import { AreasEditor, CondicionSelect, VariantesTab } from "./MaterialVariantes";
+import {
+  fetchMatrizCondicionantes,
+  fetchObraMatrizCondicionantes,
+  fetchOpciones,
+  setMaterialAreas,
+  setObraMatrizCondicionante,
+  setProveedoresMaterial,
+} from "./materialesConfig";
+import { AreasEditor } from "./MaterialVariantes";
+import MatrizCondicionantesTab from "./MatrizCondicionantes";
+import VariantesMarcasTab from "./VariantesMarcasTab";
 import LectorTab from "./LectorTab";
 import ProveedorTipoBadge from "./ProveedorTipoBadge";
 import { proveedorAlternativas, proveedorMeta, PROVEEDOR_TIPOS, proveedorTipoUi } from "./proveedorMeta";
@@ -156,7 +166,7 @@ function materialBucket(material, opciones = []) {
   if (mentionsLineaEje(`${condicion?.nombre || ""} ${valor} ${material.descripcion || ""}`)) {
     return { key: "linea_eje", label: "Línea eje", color: C.violet };
   }
-  if (material.condicion_valor_id) return { key: "variante", label: valor || "Variante", color: C.amber };
+  if (material.condicion_valor_id) return { key: "condicionante", label: valor || "Condicionante", color: C.amber };
   return { key: "base", label: "Base", color: C.green };
 }
 
@@ -807,7 +817,8 @@ const TABS_MORE = [
   { key: "bandeja", label: "Bandeja" },
   { key: "revision", label: "Revisión guiada" },
   { key: "normalizacion", label: "Normalizar" },
-  { key: "variantes", label: "Variantes" },
+  { key: "condicionantes", label: "Condicionantes" },
+  { key: "variantes", label: "Variantes / marcas" },
   { key: "proveedores", label: "Proveedores" },
   { key: "avance", label: "Avance" },
   { key: "resumen", label: "Resumen" },
@@ -1222,7 +1233,7 @@ function VariantsEditor({ value = [], onChange, description = "", proveedores = 
   );
 }
 
-function MaterialQueueCard({ material, categorias, opciones = [], ums, proveedores, onSave, onSkip, onDelete, onChanged }) {
+function MaterialQueueCard({ material, categorias, ums, proveedores, onSave, onSkip, onDelete, onChanged }) {
   const [draft, setDraft] = useState(() => ({ ...material, precio_unitario: inputNumberValue(material.precio_unitario) }));
   const [cantidades, setCantidades] = useState(() => toBomMap(material));
   const [variantes, setVariantes] = useState(() => materialVariants(material));
@@ -1330,9 +1341,8 @@ function MaterialQueueCard({ material, categorias, opciones = [], ums, proveedor
         ))}
       </div>
 
-      <div style={{ display: "grid", gridTemplateColumns: "minmax(220px, 2fr) minmax(180px, 1fr)", gap: 14, marginBottom: 16, paddingTop: 14, borderTop: `1px solid ${C.b0}` }}>
+      <div style={{ display: "grid", gap: 14, marginBottom: 16, paddingTop: 14, borderTop: `1px solid ${C.b0}` }}>
         <AreasEditor material={material} categorias={categorias} />
-        <CondicionSelect material={material} opciones={opciones} />
       </div>
 
       <datalist id="materiales-ums">
@@ -2795,7 +2805,7 @@ function BuscadorAgregar({ categorias, materiales, selectedId, onChanged }) {
   );
 }
 
-function RevisionTab({ categorias, materiales, proveedores, opciones = [], onChanged }) {
+function RevisionTab({ categorias, materiales, proveedores, onChanged }) {
   const [selectedId, setSelectedId] = useState(categorias[0]?.id ?? "");
   const [modo, setModo] = useState("cola");
   const [queueIndex, setQueueIndex] = useState(0);
@@ -2969,7 +2979,6 @@ function RevisionTab({ categorias, materiales, proveedores, opciones = [], onCha
             key={current.id}
             material={current}
             categorias={categorias}
-            opciones={opciones}
             ums={ums}
             proveedores={proveedores}
             onSave={saveQueue}
@@ -3252,12 +3261,17 @@ function ObraMatrizView({ obra, linea, lineaNombre, categorias, materiales, opci
   const [copied, setCopied] = useState(false);
   const [addons, setAddons] = useState([]);
   const [addForm, setAddForm] = useState({ descripcion: "", cantidad: "1", proveedor: "", tipo: "adicional" });
+  const [addonQ, setAddonQ] = useState("");
+  const [obraPanel, setObraPanel] = useState("");
   const [snapshot, setSnapshot] = useState([]);
   const [snapshotBusy, setSnapshotBusy] = useState(false);
   const [actionBusy, setActionBusy] = useState("");
   const [flowMsg, setFlowMsg] = useState(null);
   const [panolPrefill, setPanolPrefill] = useState(null);
   const [pedidoObraTipo, setPedidoObraTipo] = useState(null);
+  const [condicionantesMatriz, setCondicionantesMatriz] = useState([]);
+  const [condicionantesObra, setCondicionantesObra] = useState(() => new Map());
+  const [condicionanteBusy, setCondicionanteBusy] = useState("");
 
   const cargarAddons = useCallback(() => { fetchAddonsObra(obra?.id).then(setAddons).catch(() => {}); }, [obra?.id]);
   useEffect(() => { cargarAddons(); }, [cargarAddons]);
@@ -3267,14 +3281,65 @@ function ObraMatrizView({ obra, linea, lineaNombre, categorias, materiales, opci
   }, [obra?.id]);
   useEffect(() => { cargarSnapshot(); }, [cargarSnapshot]);
 
+  const cargarCondicionantesObra = useCallback(async () => {
+    if (!obra?.id) return;
+    try {
+      const [defs, overrides] = await Promise.all([
+        fetchMatrizCondicionantes(),
+        fetchObraMatrizCondicionantes(obra.id),
+      ]);
+      setCondicionantesMatriz(defs.condicionantes ?? []);
+      setCondicionantesObra(overrides.map ?? new Map());
+    } catch {
+      setCondicionantesMatriz([]);
+      setCondicionantesObra(new Map());
+    }
+  }, [obra?.id]);
+  useEffect(() => { cargarCondicionantesObra(); }, [cargarCondicionantesObra]);
+
   useEffect(() => {
     setSelected(new Set());
     setSnapshot([]);
     setFlowMsg(null);
     setEstadoFilter("todos");
+    setCondicionantesObra(new Map());
+    setObraPanel("");
+    setAddonQ("");
   }, [obra?.id, linea]);
 
-  const liveRows = useMemo(() => (materiales ?? [])
+  const materialById = useMemo(() => new Map((materiales ?? []).map((material) => [material.id, material])), [materiales]);
+
+  const condicionantesModelo = useMemo(() => (condicionantesMatriz ?? [])
+    .filter((condicionante) => condicionante.activo !== false)
+    .filter((condicionante) => String(condicionante.modelo) === String(linea))
+    .map((condicionante) => ({
+      ...condicionante,
+      activoEnObra: condicionanteActivoEnObra(condicionante, condicionantesObra),
+      definidoEnObra: condicionantesObra.has(condicionante.id),
+    }))
+    .sort((a, b) => (a.orden ?? 0) - (b.orden ?? 0) || a.nombre.localeCompare(b.nombre, "es")),
+  [condicionantesMatriz, condicionantesObra, linea]);
+
+  const condicionantesActivos = useMemo(() => condicionantesModelo.filter((condicionante) => condicionante.activoEnObra), [condicionantesModelo]);
+
+  const visibleAddons = useMemo(() => {
+    const terms = norm(addonQ).split(/\s+/).filter(Boolean);
+    return (addons ?? [])
+      .filter((addon) => {
+        if (!terms.length) return true;
+        const hay = norm(`${addon.descripcion || ""} ${addon.proveedor || ""} ${addon.tipo || ""}`);
+        return terms.every((term) => hay.includes(term));
+      })
+      .sort((a, b) => String(a.descripcion || "").localeCompare(String(b.descripcion || ""), "es", { numeric: true }));
+  }, [addons, addonQ]);
+
+  const addonStats = useMemo(() => ({
+    total: addons.length,
+    adicionales: addons.filter((addon) => addon.tipo !== "opcional").length,
+    opcionales: addons.filter((addon) => addon.tipo === "opcional").length,
+  }), [addons]);
+
+  const baseRows = useMemo(() => (materiales ?? [])
     .filter(materialActivo)
     .filter((m) => materialQty(m, linea) > 0)
     .map((m) => {
@@ -3298,11 +3363,72 @@ function ObraMatrizView({ obra, linea, lineaNombre, categorias, materiales, opci
       };
     })
     .sort((a, b) => {
-      const order = { base: 0, linea_eje: 1, variante: 2 };
+      const order = { base: 0, condicionante: 1, linea_eje: 2, variante: 3 };
       return (order[a.bucket.key] ?? 9) - (order[b.bucket.key] ?? 9)
         || a.rubro.localeCompare(b.rubro, "es")
         || a.descripcion.localeCompare(b.descripcion, "es");
     }), [materiales, linea, categorias, opciones]);
+
+  const liveRows = useMemo(() => {
+    const byKey = new Map(baseRows.map((row) => [row.materialId || row.id, { ...row, baseCantidad: row.cantidad, condicionantes: [] }]));
+
+    for (const condicionante of condicionantesActivos) {
+      for (const item of condicionante.items ?? []) {
+        if (item.activo === false) continue;
+        const delta = condicionanteDelta(item);
+        const material = item.material_id ? materialById.get(item.material_id) || item.material || null : null;
+        const key = item.material_id || `condicionante-${condicionante.id}-${item.id}`;
+        const detalle = {
+          id: item.id,
+          condicionante: condicionante.nombre,
+          delta,
+          label: condicionanteItemLabel(item),
+        };
+
+        if (byKey.has(key)) {
+          const current = byKey.get(key);
+          const nextQty = Math.max(0, (toNum(current.cantidad) || 0) + delta);
+          byKey.set(key, {
+            ...current,
+            cantidad: nextQty,
+            obs: [current.obs, `${condicionante.nombre}: ${detalle.label}`].filter(Boolean).join(" - "),
+            condicionantes: [...(current.condicionantes ?? []), detalle],
+          });
+          continue;
+        }
+
+        if (delta <= 0) continue;
+        const precio = material ? priceInfo(material) : { amount: null, moneda: "ARS", text: "Sin precio", proveedor: "" };
+        byKey.set(key, {
+          id: key,
+          materialId: item.material_id || null,
+          source: "condicionante",
+          descripcion: item.descripcion || material?.descripcion || condicionante.nombre,
+          codigo: material?.codigo || "",
+          cantidad: delta,
+          baseCantidad: 0,
+          unidad: item.unidad || material?.unidad_medida || "unidad",
+          proveedor: precio.proveedor || material?.proveedor || "Sin proveedor",
+          rubro: material ? categoriaNombre(categorias, material.categoria_id) : "Condicionante",
+          precio,
+          bucket: { key: "condicionante", label: "Condicionante", color: C.amber },
+          obs: [condicionante.nombre, item.notas].filter(Boolean).join(" - "),
+          revisado: !!material?.revisado,
+          review: material ? reviewInfoForMaterial(material) : { flag: false, reason: "" },
+          condicionantes: [detalle],
+        });
+      }
+    }
+
+    return [...byKey.values()]
+      .filter((row) => (toNum(row.cantidad) || 0) > 0)
+      .sort((a, b) => {
+        const order = { base: 0, condicionante: 1, linea_eje: 2, variante: 3 };
+        return (order[a.bucket.key] ?? 9) - (order[b.bucket.key] ?? 9)
+          || a.rubro.localeCompare(b.rubro, "es")
+          || a.descripcion.localeCompare(b.descripcion, "es");
+      });
+  }, [baseRows, categorias, condicionantesActivos, materialById]);
 
   const rows = useMemo(() => (
     snapshot.length ? snapshot.map(snapshotRowToView) : liveRows
@@ -3365,6 +3491,7 @@ function ObraMatrizView({ obra, linea, lineaNombre, categorias, materiales, opci
     acc.items += 1;
     if (row.bucket.key === "linea_eje") acc.lineaEje += 1;
     if (row.bucket.key === "variante") acc.variantes += 1;
+    if (row.bucket.key === "condicionante" || row.condicionantes?.length) acc.condicionantes += 1;
     const estado = estadoObraForRow(row);
     if (estado === "pendiente") acc.pendientes += 1;
     if (estado === "comprado") acc.comprados += 1;
@@ -3379,7 +3506,7 @@ function ObraMatrizView({ obra, linea, lineaNombre, categorias, materiales, opci
       acc.ars += row.precio.amount * qty;
     }
     return acc;
-  }, { items: 0, sinPrecio: 0, revisar: 0, lineaEje: 0, variantes: 0, pendientes: 0, comprados: 0, enPanol: 0, egresados: 0, usd: 0, ars: 0, ejeUsd: 0 }), [rows]);
+  }, { items: 0, sinPrecio: 0, revisar: 0, lineaEje: 0, variantes: 0, condicionantes: 0, pendientes: 0, comprados: 0, enPanol: 0, egresados: 0, usd: 0, ars: 0, ejeUsd: 0 }), [rows]);
   const orderRows = useMemo(() => {
     const base = selected.size ? visibleRows.filter((r) => selected.has(r.id)) : visibleRows;
     return base.map((r) => ({
@@ -3514,6 +3641,41 @@ function ObraMatrizView({ obra, linea, lineaNombre, categorias, materiales, opci
     }
   }
 
+  async function toggleCondicionanteObra(condicionante) {
+    if (!obra?.id || condicionanteBusy) return;
+    const next = !condicionante.activoEnObra;
+    setCondicionanteBusy(condicionante.id);
+    setFlowMsg(null);
+    try {
+      await setObraMatrizCondicionante(obra.id, condicionante.id, next);
+      await cargarCondicionantesObra();
+      if (snapshotActivo) {
+        setFlowMsg({ type: "ok", text: "Configuracion guardada. Esta obra ya tiene lista fijada; regenerala para recalcular cantidades." });
+      }
+    } catch (e) {
+      setFlowMsg({ type: "err", text: e?.message || "No se pudo guardar el condicionante de la obra." });
+    } finally {
+      setCondicionanteBusy("");
+    }
+  }
+
+  async function regenerarSnapshotObra() {
+    if (!obra?.id || snapshotBusy) return;
+    if (!window.confirm("Regenerar la lista fija desde la matriz viva? Solo se permite si aun no tiene pedidos o recepciones vinculadas.")) return;
+    setSnapshotBusy(true);
+    setFlowMsg(null);
+    try {
+      const saved = await reemplazarObraMaterialSnapshotSeguro(obra.id, liveRows);
+      setSnapshot(saved);
+      setSelected(new Set());
+      setFlowMsg({ type: "ok", text: "Lista fija regenerada con la configuracion actual de la obra." });
+    } catch (e) {
+      setFlowMsg({ type: "err", text: e?.message || "No se pudo regenerar la lista fija." });
+    } finally {
+      setSnapshotBusy(false);
+    }
+  }
+
   const chipStyle = (on, color = C.blue) => ({
     ...BTN,
     padding: "7px 11px",
@@ -3550,19 +3712,95 @@ function ObraMatrizView({ obra, linea, lineaNombre, categorias, materiales, opci
         </div>
       </div>
 
-      {/* Opcionales / adicionales del barco */}
+      <div style={{ border: `1px solid ${C.b0}`, borderRadius: 14, background: "var(--panel)", padding: 8, marginBottom: 12, display: "flex", gap: 8, alignItems: "center", flexWrap: "wrap" }}>
+        <button type="button" onClick={() => setObraPanel((panel) => (panel === "config" ? "" : "config"))} style={{ ...BTN, padding: "7px 11px", color: obraPanel === "config" ? C.amber : C.t1, background: obraPanel === "config" ? C.amberL : C.s0, borderColor: obraPanel === "config" ? C.amberB : C.b0, fontWeight: 900 }}>
+          Configuracion <span style={{ color: C.amber, fontFamily: C.mono }}>{condicionantesActivos.length}/{condicionantesModelo.length}</span>
+        </button>
+        <button type="button" onClick={() => setObraPanel((panel) => (panel === "adicionales" ? "" : "adicionales"))} style={{ ...BTN, padding: "7px 11px", color: obraPanel === "adicionales" ? C.green : C.t1, background: obraPanel === "adicionales" ? C.greenL : C.s0, borderColor: obraPanel === "adicionales" ? C.greenB : C.b0, fontWeight: 900 }}>
+          Adicionales <span style={{ color: C.green, fontFamily: C.mono }}>{addonStats.total}</span>
+        </button>
+        <div style={{ flex: "1 1 180px", color: C.t2, fontSize: 11.5 }}>
+          La lista queda abajo. Estos paneles se abren solo para ajustar la obra.
+        </div>
+        {obraPanel && (
+          <button type="button" onClick={() => setObraPanel("")} style={{ ...BTN, padding: "6px 9px", fontSize: 11, color: C.t2 }}>
+            Cerrar
+          </button>
+        )}
+      </div>
+
+      {obraPanel === "config" && condicionantesModelo.length > 0 && (
+        <div style={{ border: `1px solid ${C.b0}`, borderRadius: 14, background: "var(--panel)", padding: 10, marginBottom: 12, display: "grid", gap: 8 }}>
+          <div style={{ display: "flex", alignItems: "flex-start", justifyContent: "space-between", gap: 12, flexWrap: "wrap" }}>
+            <div>
+              <div style={{ fontSize: 12.5, fontWeight: 950, color: C.t0 }}>Configuracion de esta obra</div>
+              <div style={{ fontSize: 11, color: C.t2, marginTop: 2, lineHeight: 1.35 }}>
+                Se toca una vez: base + condicionantes activos.
+              </div>
+            </div>
+            <span style={{ fontSize: 11, fontWeight: 900, color: C.amber, border: `1px solid ${C.amberB}`, background: C.amberL, borderRadius: 999, padding: "4px 9px" }}>
+              {condicionantesActivos.length}/{condicionantesModelo.length} activos
+            </span>
+          </div>
+          {snapshotActivo && (
+            <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 10, flexWrap: "wrap", fontSize: 11.5, color: C.amber, border: `1px solid ${C.amberB}`, background: C.amberL, borderRadius: 10, padding: "7px 9px" }}>
+              <span>Esta obra ya tiene lista fijada. Los cambios quedan guardados, pero para que impacten en cantidades hay que regenerar la lista antes de pedir/avisar.</span>
+              <button type="button" onClick={regenerarSnapshotObra} disabled={snapshotBusy} style={{ ...BTN, padding: "5px 9px", fontSize: 11, color: C.amber, borderColor: C.amberB, background: C.bg }}>
+                {snapshotBusy ? "Regenerando..." : "Regenerar lista"}
+              </button>
+            </div>
+          )}
+          <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(190px, 1fr))", gap: 6, maxHeight: 210, overflowY: "auto" }}>
+            {condicionantesModelo.map((condicionante) => {
+              const active = condicionante.activoEnObra;
+              const items = (condicionante.items ?? []).filter((item) => item.activo !== false);
+              return (
+                <div key={condicionante.id} style={{ border: `1px solid ${active ? C.greenB : C.b0}`, background: active ? C.greenL : C.s0, borderRadius: 10, padding: "7px 8px", display: "grid", gap: 5 }} title={condicionante.descripcion || condicionante.nombre}>
+                  <div style={{ display: "flex", gap: 8, alignItems: "flex-start", justifyContent: "space-between" }}>
+                    <div style={{ minWidth: 0 }}>
+                      <div style={{ fontSize: 12, fontWeight: 950, color: C.t0, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{condicionante.nombre}</div>
+                      <div style={{ fontSize: 10, color: C.t2, marginTop: 1 }}>
+                        {condicionante.definidoEnObra ? "Definido en esta obra" : condicionante.activo_por_defecto ? "Activo por defecto" : "Apagado por defecto"}
+                      </div>
+                    </div>
+                    <button type="button" disabled={condicionanteBusy === condicionante.id} onClick={() => toggleCondicionanteObra(condicionante)} style={{ ...BTN, padding: "4px 8px", color: active ? C.green : C.t2, borderColor: active ? C.greenB : C.b0, background: active ? C.bg : C.s0, fontSize: 10.5, fontWeight: 900 }}>
+                      {active ? "Lleva" : "No lleva"}
+                    </button>
+                  </div>
+                  <div style={{ display: "flex", flexWrap: "wrap", gap: 5 }}>
+                    {items.length ? items.slice(0, 4).map((item) => (
+                      <span key={item.id} style={{ fontSize: 10.5, color: condicionanteDelta(item) < 0 ? C.red : C.t1, border: `1px solid ${C.b0}`, background: C.bg, borderRadius: 999, padding: "2px 7px" }}>
+                        {condicionanteItemLabel(item)}
+                      </span>
+                    )) : <span style={{ fontSize: 10.5, color: C.t3 }}>Sin items asociados</span>}
+                    {items.length > 4 && <span style={{ fontSize: 10.5, color: C.t3 }}>+{items.length - 4} mas</span>}
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        </div>
+      )}
+
+      {obraPanel === "adicionales" && (
       <div style={{ border: `1px solid ${C.b0}`, borderRadius: 14, background: "var(--panel)", padding: 13, marginBottom: 16 }}>
-        <div style={{ fontSize: 12, fontWeight: 800, color: C.t0, marginBottom: 10 }}>Opcionales / adicionales de {obra.codigo}</div>
-        <div style={{ display: "flex", gap: 8, flexWrap: "wrap", marginBottom: addons.length ? 10 : 0 }}>
+        <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 10, flexWrap: "wrap", marginBottom: 10 }}>
+          <div>
+            <div style={{ fontSize: 12.5, fontWeight: 950, color: C.t0 }}>Adicionales de {obra.codigo}</div>
+            <div style={{ fontSize: 11, color: C.t2, marginTop: 2 }}>{addonStats.total} total · {addonStats.adicionales} adicionales · {addonStats.opcionales} opcionales</div>
+          </div>
+          <input value={addonQ} onChange={(e) => setAddonQ(e.target.value)} placeholder="Buscar adicional..." style={{ ...INP, width: 240, height: 34 }} />
+        </div>
+        <div style={{ display: "flex", gap: 8, flexWrap: "wrap", marginBottom: visibleAddons.length ? 10 : 0 }}>
           <input value={addForm.descripcion} onChange={(e) => setAddForm((f) => ({ ...f, descripcion: e.target.value }))} placeholder="Ítem extra (ej: Bow thruster, TV)" style={{ ...INP, flex: "1 1 220px" }} />
           <input type="number" value={addForm.cantidad} onChange={(e) => setAddForm((f) => ({ ...f, cantidad: e.target.value }))} style={{ ...INP, width: 64 }} title="Cantidad" />
           <input value={addForm.proveedor} onChange={(e) => setAddForm((f) => ({ ...f, proveedor: e.target.value }))} placeholder="Proveedor" style={{ ...INP, width: 150 }} />
           <select value={addForm.tipo} onChange={(e) => setAddForm((f) => ({ ...f, tipo: e.target.value }))} style={{ ...INP, width: 120 }}><option value="adicional" style={OPT_ST}>Adicional</option><option value="opcional" style={OPT_ST}>Opcional</option></select>
           <button type="button" disabled={!addForm.descripcion.trim()} onClick={async () => { await crearAddon(obra.id, { descripcion: addForm.descripcion.trim(), cantidad: Number(addForm.cantidad) || 1, proveedor: addForm.proveedor.trim() || null, tipo: addForm.tipo }); setAddForm({ descripcion: "", cantidad: "1", proveedor: "", tipo: "adicional" }); cargarAddons(); }} style={{ ...BTN_GREEN, padding: "8px 14px" }}>+ Addon</button>
         </div>
-        {addons.length > 0 && (
-          <div style={{ display: "flex", flexWrap: "wrap", gap: 6 }}>
-            {addons.map((a) => (
+        {visibleAddons.length > 0 && (
+          <div style={{ display: "flex", flexWrap: "wrap", gap: 6, maxHeight: 160, overflowY: "auto", paddingRight: 4 }}>
+            {visibleAddons.map((a) => (
               <span key={a.id} style={{ display: "inline-flex", alignItems: "center", gap: 6, fontSize: 11.5, fontWeight: 700, color: a.tipo === "opcional" ? C.blue : C.green, background: a.tipo === "opcional" ? "rgba(59,130,246,0.1)" : "rgba(16,185,129,0.1)", border: `1px solid ${C.b0}`, borderRadius: 999, padding: "3px 10px" }}>
                 {a.descripcion}{a.cantidad ? ` ×${a.cantidad}` : ""}
                 <button type="button" onClick={async () => { await borrarAddon(a.id); cargarAddons(); }} style={{ border: "none", background: "transparent", color: C.t2, cursor: "pointer", fontSize: 12, padding: 0, lineHeight: 1 }}>✕</button>
@@ -3570,7 +3808,13 @@ function ObraMatrizView({ obra, linea, lineaNombre, categorias, materiales, opci
             ))}
           </div>
         )}
+        {addons.length > 0 && !visibleAddons.length && (
+          <div style={{ border: `1px dashed ${C.b0}`, borderRadius: 10, padding: 12, color: C.t2, fontSize: 12, textAlign: "center" }}>
+            No hay adicionales con ese filtro.
+          </div>
+        )}
       </div>
+      )}
 
       <div style={{ border: `1px solid ${C.b0}`, borderRadius: 14, background: "var(--panel)", padding: 13, marginBottom: 16, display: "grid", gap: 12 }}>
         <div style={{ display: "flex", gap: 8, flexWrap: "wrap", alignItems: "center" }}>
@@ -3594,6 +3838,7 @@ function ObraMatrizView({ obra, linea, lineaNombre, categorias, materiales, opci
           {[
             ["todos", "Todo", C.blue],
             ["base", "Base", C.green],
+            ["condicionante", "Condicionantes", C.amber],
             ["linea_eje", "Línea eje", C.violet],
             ["variante", "Variantes", C.amber],
             ["sin_precio", "Sin precio", C.red],
@@ -3699,6 +3944,20 @@ function ObraMatrizView({ obra, linea, lineaNombre, categorias, materiales, opci
                       <div style={{ fontSize: 11, color: C.t2, marginTop: 4, lineHeight: 1.35 }}>
                         {row.codigo || "sin código"}{row.obs ? ` · ${row.obs}` : ""}
                       </div>
+                      {row.condicionantes?.length ? (
+                        <div style={{ display: "flex", flexWrap: "wrap", gap: 5, marginTop: 6 }}>
+                          {row.baseCantidad != null && row.baseCantidad !== row.cantidad && (
+                            <span style={{ fontSize: 10.5, color: C.t2, border: `1px solid ${C.b0}`, background: C.s0, borderRadius: 999, padding: "2px 7px" }}>
+                              Base {qtyText(row.baseCantidad, row.unidad)}
+                            </span>
+                          )}
+                          {row.condicionantes.map((detalle) => (
+                            <span key={`${detalle.id}-${detalle.condicionante}`} style={{ fontSize: 10.5, color: detalle.delta < 0 ? C.red : C.amber, border: `1px solid ${C.amberB}`, background: C.amberL, borderRadius: 999, padding: "2px 7px" }}>
+                              {detalle.condicionante}: {detalle.label}
+                            </span>
+                          ))}
+                        </div>
+                      ) : null}
                       <RecepcionDetalle row={row} />
                     </div>
                     <div>
@@ -4151,6 +4410,22 @@ function recepcionFilterOptions(kpis) {
   ];
 }
 
+function condicionanteActivoEnObra(condicionante, overrides) {
+  const override = overrides?.get?.(condicionante.id);
+  return override ? !!override.activo : !!condicionante.activo_por_defecto;
+}
+
+function condicionanteDelta(item) {
+  const qty = Math.abs(toNum(item?.cantidad) ?? 1);
+  return item?.tipo_item === "quita" ? -qty : qty;
+}
+
+function condicionanteItemLabel(item) {
+  const delta = condicionanteDelta(item);
+  const prefix = delta < 0 ? "-" : "+";
+  return `${prefix}${qtyText(Math.abs(delta), item?.unidad)} ${item?.descripcion || "item"}`;
+}
+
 function RecepcionChip({ row }) {
   const meta = recepcionMetaForRow(row);
   return (
@@ -4221,6 +4496,7 @@ function snapshotBucket(row) {
   const key = row?.tipo || "base";
   if (key === "linea_eje") return { key, label: row?.tipo_label || "Linea eje", color: C.violet };
   if (key === "variante") return { key, label: row?.tipo_label || "Variante", color: C.amber };
+  if (key === "condicionante") return { key, label: row?.tipo_label || "Condicionante", color: C.amber };
   if (key === "addon") return { key, label: row?.tipo_label || "Addon", color: C.blue };
   return { key: "base", label: row?.tipo_label || "Base", color: C.green };
 }
@@ -5482,9 +5758,10 @@ export default function MaterialesScreen({ profile, signOut }) {
               {tab === "importar" && <ImportarTab batches={batches} onImported={cargar} />}
               {tab === "bandeja" && <BandejaTab categorias={categorias} materiales={materiales} onChanged={cargar} />}
               {tab === "comprobantes" && <ComprobantesTab categorias={categorias} materiales={materiales} proveedores={proveedores} comprobantes={comprobantes} onChanged={cargar} />}
-              {tab === "revision" && <RevisionTab categorias={categorias} materiales={materiales} proveedores={proveedores} opciones={opciones} onChanged={cargar} />}
+              {tab === "revision" && <RevisionTab categorias={categorias} materiales={materiales} proveedores={proveedores} onChanged={cargar} />}
               {tab === "normalizacion" && <NormalizacionTab categorias={categorias} materiales={materiales} proveedores={proveedores} onChanged={cargar} />}
-              {tab === "variantes" && <VariantesTab opciones={opciones} onChanged={cargar} />}
+              {tab === "condicionantes" && <MatrizCondicionantesTab materiales={materiales} />}
+              {tab === "variantes" && <VariantesMarcasTab materiales={materiales} />}
               {tab === "proveedores" && <ProveedoresTab proveedores={proveedores} onChanged={cargar} />}
               {tab === "avance" && <AvanceTab categorias={categorias} materiales={materiales} batches={batches} obras={obrasAvance} />}
               {tab === "costos" && <CostoObraTab categorias={categorias} materiales={materiales} opciones={opciones} />}

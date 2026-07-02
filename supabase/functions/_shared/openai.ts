@@ -101,7 +101,7 @@ Clasificación de sector (MUY IMPORTANTE):
 - Si dudás entre un sector padre y su subsector, elegí el subsector más específico de la lista. Si ninguno aplica, dejá "sector" en null.`;
 }
 
-export async function extraerComprobanteImagen(input: { base64: string; mimeType?: string; sectores?: string[] }): Promise<ParsedComprobante> {
+export async function extraerComprobanteImagen(input: { base64: string; mimeType?: string; sectores?: string[]; contexto?: string }): Promise<ParsedComprobante> {
   const mimeType = input.mimeType || "image/jpeg";
   const system = `Sos un extractor de comprobantes del astillero Klase A.
 
@@ -149,7 +149,7 @@ Formato:
       max_tokens: 1400,
       response_format: { type: "json_object" },
       messages: [
-        { role: "system", content: system },
+        { role: "system", content: system + (input.contexto || "") },
         {
           role: "user",
           content: [
@@ -202,7 +202,7 @@ Formato:
 }
 
 // extraerComprobanteTexto -- presupuestos/remitos pegados como TEXTO (WhatsApp, mail).
-export async function extraerComprobanteTexto(input: { text: string; sectores?: string[] }): Promise<ParsedComprobante> {
+export async function extraerComprobanteTexto(input: { text: string; sectores?: string[]; contexto?: string }): Promise<ParsedComprobante> {
   const texto = String(input.text || "").trim();
   if (!texto) throw new Error("Texto vacío");
   const system = `Sos un extractor de presupuestos del astillero Klase A.
@@ -251,7 +251,7 @@ Formato:
       max_tokens: 1600,
       response_format: { type: "json_object" },
       messages: [
-        { role: "system", content: system },
+        { role: "system", content: system + (input.contexto || "") },
         { role: "user", content: `Extraé los ítems de este presupuesto. Devolvé JSON estricto.${clasificacionBloque(input.sectores)}\n\n${texto}` },
       ],
     }),
@@ -298,7 +298,7 @@ Formato:
 // chatWithBot — turno conversacional principal
 // ─────────────────────────────────────────────────────────────────────────────
 // extraerComprobantePDF -- OCR de PDFs de remitos, facturas y presupuestos.
-export async function extraerComprobantePDF(input: { base64: string; mimeType?: string; filename?: string; sectores?: string[] }): Promise<ParsedComprobante> {
+export async function extraerComprobantePDF(input: { base64: string; mimeType?: string; filename?: string; sectores?: string[]; contexto?: string }): Promise<ParsedComprobante> {
   const mimeType = input.mimeType || "application/pdf";
   const filename = input.filename || "comprobante.pdf";
   const system = `Sos un extractor de comprobantes del astillero Klase A.
@@ -347,7 +347,7 @@ Formato:
       max_tokens: 3000,
       response_format: { type: "json_object" },
       messages: [
-        { role: "system", content: system },
+        { role: "system", content: system + (input.contexto || "") },
         {
           role: "user",
           content: [

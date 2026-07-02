@@ -17,6 +17,7 @@ import {
   Users,
 } from "lucide-react";
 import { supabase } from "@/supabaseClient";
+import PortalProveedorActividad from "./PortalProveedorActividad";
 import { useToast } from "@/components/ui/Toast";
 import { useConfirm } from "@/components/ui/ConfirmDialog";
 import { Skeleton, SkeletonStyles } from "@/components/ui/Skeleton";
@@ -1130,6 +1131,8 @@ export default function PurchaseRequestDetail({ requestId, profile, users = [], 
             </div>
           </div>
         )}
+
+        <PortalProveedorActividad requestId={request?.id} />
 
         {/* Barra independiente de prioridad para creador / CC que no son compras */}
         {!manager && canEditPriority && (
