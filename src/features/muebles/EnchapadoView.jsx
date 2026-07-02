@@ -40,7 +40,7 @@ import { C } from "@/theme";
 //   alter table enchapado_ots add column if not exists herrajes_enviado    boolean default false;
 // ─────────────────────────────────────────────────────────────────────────────
 
-import { useState, useEffect, useMemo, useRef } from "react";
+import { useState, useEffect, useMemo, useRef, useCallback } from "react";
 import { supabase } from "@/supabaseClient";
 import { ChapaReferenceCard, ChapaSwatch, chapaColor, chapaGradient, esNogal } from "@/features/muebles/chapa";
 
@@ -241,16 +241,16 @@ const HERRAJES = {
     { q: 52, name: "Bisagra codo 9 + base" },
   ],
   K55: [
-    { q: 37, name: "Bisagras codo 9" },
+    { q: "1,5m", name: "Bisagra tipo piano" },
     { q: 20, name: "Bisagras codo 0" },
-    { q: 2,  name: "Bisagras codo 18" },
-    { q: 1,  name: "Barral de ropero (1m)" },
-    { q: 4,  name: "Soportes de barral de ropero" },
-    { q: 42, name: "Imanes para puertas de muebles" },
-    { q: 6,  name: "Correderas de cajón - LARGO 400mm Cierre suave" },
-    { q: 6,  name: "Correderas de cajón - LARGO 450mm Cierre suave" },
-    { q: 1,  name: "Correderas de cajón - LARGO 250mm Cierre suave" },
-    { q: 1,  name: "Bisagra tipo piano (700mm)" }
+    { q: 34, name: "Bisagras codo 9" },
+    { q: 8,  name: "Bisagras codo 9 - OPCIONAL camarote sin vestidor" },
+    { q: 2,  name: "Correderas de cajon - LARGO 200mm Cierre suave" },
+    { q: 3,  name: "Correderas de cajon - LARGO 250mm Cierre suave" },
+    { q: 6,  name: "Correderas de cajon - LARGO 400mm Cierre suave" },
+    { q: 6,  name: "Correderas de cajon - LARGO 450mm Cierre suave" },
+    { q: 6,  name: "Resorte a gas para puertas de alacenas - 60N" },
+    { q: 4,  name: "Resorte a gas para puertas de alacenas - 80N" },
   ],
 };
 
@@ -447,11 +447,7 @@ alter table enchapado_ots add column if not exists herrajes_enviado    boolean d
 }
 
 // ── OT Card ────────────────────────────────────────────────────────────────
-function OTCard({ ot, ots, onClick }) {
-    const otNumStr = getOtNum(ot, ots);
-  
-  
-
+function OTCard({ ot, onClick }) {
   const meta = ESTADO_META[ot.estado] ?? ESTADO_META["Pendiente"];
   const tpl  = TEMPLATES[ot.modelo];
   const chapa = chapaColor(ot.tipo_chapa);
@@ -749,7 +745,7 @@ function NuevaOTModal({ onClose, onCreate, onEnsureMueblesUnidad }) {
 }
 
 // ── Vista detalle de una OT ────────────────────────────────────────────────
-function OTDetail({ ot: otInit, ots, onBack, onUpdated, onDeleted, esAdmin, onEnsureMueblesUnidad }) {
+function OTDetail({ ot: otInit, onBack, onUpdated, onDeleted, esAdmin, onEnsureMueblesUnidad }) {
   const [ot,        setOt]        = useState(otInit);
   const [items,     setItems]     = useState([]);
   const [loading,   setLoading]   = useState(true);
@@ -772,24 +768,11 @@ function OTDetail({ ot: otInit, ots, onBack, onUpdated, onDeleted, esAdmin, onEn
   const nogal   = esNogal(ot.tipo_chapa);
   const chapa   = chapaColor(ot.tipo_chapa);
   const tablones = tablonesList(ot.modelo, ot.tipo_chapa);
-    const herrajesKit = HERRAJES[ot.modelo] ?? null;
-    let otNumStr = "---";
-  try {
-    if (ots && ots.length > 0 && ot && ot.modelo && ot.barco) {
-      const mNum = ot.modelo.replace(/[^0-9]/g, "");
-      const mismosModelos = ots.filter(o => o.modelo === ot.modelo).sort((a,b) => new Date(a.created_at) - new Date(b.created_at));
-      const barcosUnicos = [...new Set(mismosModelos.map(o => o.barco.trim().toUpperCase()))];
-      const idx = barcosUnicos.indexOf(ot.barco.trim().toUpperCase());
-      const n = idx >= 0 ? idx + 1 : barcosUnicos.length + 1;
-      otNumStr = `${mNum}-${n}`;
-    }
-  } catch (err) { 
-    console.error("Error al calcular N OT:", err);
-  }
+  const herrajesKit = HERRAJES[ot.modelo] ?? null;
 
   
 
-  async function cargar() {
+  const cargar = useCallback(async () => {
     setLoading(true);
     const { data } = await supabase
       .from("enchapado_ot_items")
@@ -798,9 +781,12 @@ function OTDetail({ ot: otInit, ots, onBack, onUpdated, onDeleted, esAdmin, onEn
       .order("item_id");
     setItems(data ?? []);
     setLoading(false);
-  }
+  }, [ot.id]);
 
-  useEffect(() => { cargar(); }, [ot.id]);
+  useEffect(() => {
+    const timer = setTimeout(() => { cargar(); }, 0);
+    return () => clearTimeout(timer);
+  }, [cargar]);
   useEffect(() => { setSyncMsg(ot.muebles_sync ?? null); }, [ot]);
 
   function abrirEdit(itemId) {
@@ -981,7 +967,6 @@ function OTDetail({ ot: otInit, ots, onBack, onUpdated, onDeleted, esAdmin, onEn
   }`;
 
     // ── Header común (mini versión para páginas 2 y 3) ────────────
-            const shortId = ot.id ? ot.id.split('-')[0].toUpperCase() : "S/N";
     const miniHeader = `
 <header>
   <div>
@@ -1128,7 +1113,7 @@ ${chapaPrintBlock}
     // ── PÁGINA 3: PAÑOL / OBERTI (sólo si hay herrajes) ──────────
     let pagHerrajesHTML = "";
     if (herrajesKit) {
-      const herrajesRows = herrajesKit.map((h, i) => `
+      const herrajesRows = herrajesKit.map((h) => `
         <tr>
           <td style="font-family:'JetBrains Mono',monospace;font-weight:700;color:#555;width:50px">${h.q}×</td>
           <td>${h.name}</td>
@@ -1188,7 +1173,7 @@ ${chapaPrintBlock}
 ${pagEnchapadoHTML}
 ${pagCarpinteriaHTML}
 ${pagHerrajesHTML}
-<script>window.onload = () => window.print();<\/script>
+<script>window.onload = () => window.print();</script>
 </body>
 </html>`;
 
@@ -1742,17 +1727,6 @@ function MatRow({ items }) {
 // ── Main: EnchapadoView ────────────────────────────────────────────────────
 
 // Función Global para calcular OT (ej: 55-3)
-const getOtNum = (ot, ots) => {
-  try {
-    if (!ot || !ot.modelo || !ots) return "---";
-    const mNum = String(ot.modelo).replace(/[^0-9]/g, "");
-    const mismosModelos = ots.filter(o => o.modelo === ot.modelo).sort((a,b) => new Date(a.created_at) - new Date(b.created_at));
-    const barcosUnicos = [...new Set(mismosModelos.map(o => String(o.barco).trim().toUpperCase()))];
-    const idx = barcosUnicos.indexOf(String(ot.barco).trim().toUpperCase());
-    return `${mNum}-${idx >= 0 ? idx + 1 : barcosUnicos.length + 1}`;
-  } catch (e) { return "---"; }
-};
-
 export default function EnchapadoView({ esAdmin, onEnsureMueblesUnidad }) {
   const [ots,        setOts]        = useState([]);
   const [loading,    setLoading]    = useState(true);
@@ -1764,7 +1738,7 @@ export default function EnchapadoView({ esAdmin, onEnsureMueblesUnidad }) {
   const [filtroE,    setFiltroE]    = useState("todos");
   const [q,          setQ]          = useState("");
 
-  async function cargar() {
+  const cargar = useCallback(async () => {
     setLoading(true);
     setSetupError(false);
     const { data, error } = await supabase
@@ -1783,9 +1757,12 @@ export default function EnchapadoView({ esAdmin, onEnsureMueblesUnidad }) {
     }
     setOts(data ?? []);
     setLoading(false);
-  }
+  }, []);
 
-  useEffect(() => { cargar(); }, []);
+  useEffect(() => {
+    const timer = setTimeout(() => { cargar(); }, 0);
+    return () => clearTimeout(timer);
+  }, [cargar]);
 
   function onCreated(ot) {
     setShowNew(false);
