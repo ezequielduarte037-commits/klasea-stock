@@ -228,11 +228,8 @@ function LineaCard({ codigo, stats, onClick }) {
           <StatMini label="Activas" value={stats.obrasActivas} color={C.green} />
           <StatMini label="Negativos" value={stats.negativos} color={hasNeg ? C.red : C.dim} />
         </div>
-        <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 8, borderTop: `1px solid ${C.border}`, paddingTop: 9 }}>
+        <div style={{ borderTop: `1px solid ${C.border}`, paddingTop: 9 }}>
           <span style={{ fontSize: 11, color: C.dim, fontWeight: 750 }}>{stats.totalObras ? "Ver obras →" : "Sin obras con stock"}</span>
-          {stats.costoUsd > 0 && (
-            <span style={{ color: C.green, fontFamily: C.mono, fontWeight: 800, fontSize: 11 }}>USD {fmtQty(stats.costoUsd)}</span>
-          )}
         </div>
       </div>
     </button>
@@ -241,7 +238,7 @@ function LineaCard({ codigo, stats, onClick }) {
 
 function ObraCard({ obra, stats, onClick }) {
   const hasNeg = stats.negativos > 0;
-  const costoTotal = stats.costoUsdStd + stats.costoUsdAdd;
+  const [hover, setHover] = useState(false);
   const estadoColors = {
     activa: C.green, terminada: C.dim, pausada: C.amber,
     cancelada: C.red, archivada: C.dim,
@@ -251,18 +248,22 @@ function ObraCard({ obra, stats, onClick }) {
     <button
       type="button"
       onClick={onClick}
+      onMouseEnter={() => setHover(true)}
+      onMouseLeave={() => setHover(false)}
       style={{
         textAlign: "left", cursor: "pointer",
-        border: `1px solid ${hasNeg ? C.redB : C.border}`,
+        border: `1px solid ${hover ? C.blueB : hasNeg ? C.redB : C.border}`,
         borderRadius: 16, background: hasNeg ? C.redL : C.panelSolid,
         padding: "14px 16px", display: "flex", flexDirection: "column", gap: 10,
-        boxShadow: "0 1px 2px rgba(0,0,0,0.04), 0 8px 22px -14px rgba(0,0,0,0.14)",
+        transform: hover ? "translateY(-3px)" : "none",
+        transition: "transform .18s ease, box-shadow .18s, border-color .18s",
+        boxShadow: hover ? "0 14px 30px -14px rgba(0,0,0,0.26)" : "0 1px 2px rgba(0,0,0,0.04), 0 8px 22px -14px rgba(0,0,0,0.14)",
       }}
     >
       <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 8 }}>
         <div style={{ minWidth: 0 }}>
           <div style={{ fontFamily: C.mono, fontSize: 15, fontWeight: 950, color: C.text }}>{obra.codigo}</div>
-          <div style={{ fontSize: 11, color: C.dim, marginTop: 1 }}>{obra.linea_nombre || `K${obra.modelo}`}</div>
+          <div style={{ fontSize: 11, color: C.dim, marginTop: 1 }}>{obra.linea_nombre || `K${obra.modelo || String(obra.codigo || "").match(/^\s*(\d+)/)?.[1] || ""}`}</div>
         </div>
         <div style={{ display: "flex", alignItems: "center", gap: 7, flexShrink: 0 }}>
           <span style={{ fontSize: 10, fontWeight: 800, color: estadoColor, border: `1px solid ${estadoColor}33`, background: `${estadoColor}11`, borderRadius: 6, padding: "2px 7px", textTransform: "uppercase" }}>
@@ -277,25 +278,6 @@ function ObraCard({ obra, stats, onClick }) {
         <StatMini label="Adicional" value={stats.itemsAdd} color={C.violet} />
         <StatMini label="Neg." value={stats.negativos} color={hasNeg ? C.red : C.dim} />
       </div>
-      {costoTotal > 0 && (
-        <div style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>
-          {stats.costoUsdStock > 0 && (
-            <span style={{ fontSize: 10, color: C.green, border: `1px solid ${C.greenB}`, background: C.greenL, borderRadius: 6, padding: "2px 7px", fontWeight: 700, fontFamily: C.mono }}>
-              Stock USD {fmtQty(stats.costoUsdStock)}
-            </span>
-          )}
-          {stats.costoUsdStd > 0 && (
-            <span style={{ fontSize: 10, color: C.blue, border: `1px solid ${C.blueB}`, background: C.blueL, borderRadius: 6, padding: "2px 7px", fontWeight: 700, fontFamily: C.mono }}>
-              Std USD {fmtQty(stats.costoUsdStd)}
-            </span>
-          )}
-          {stats.costoUsdAdd > 0 && (
-            <span style={{ fontSize: 10, color: C.violet, border: "1px solid rgba(124,58,237,.25)", background: "rgba(124,58,237,.08)", borderRadius: 6, padding: "2px 7px", fontWeight: 700, fontFamily: C.mono }}>
-              Add USD {fmtQty(stats.costoUsdAdd)}
-            </span>
-          )}
-        </div>
-      )}
     </button>
   );
 }
@@ -432,6 +414,7 @@ export default function StockPanolScreen({ profile, signOut, embedded = false, m
 
   const body = (
         <div style={{ display: "flex", flexDirection: "column", height: embedded ? "100%" : "100vh", overflow: "hidden" }}>
+          <style>{"@keyframes stkNav{from{opacity:0;transform:translateY(8px)}to{opacity:1;transform:none}}"}</style>
 
           {/* ── Header (solo pantalla completa) ── */}
           {!embedded && (
@@ -484,7 +467,7 @@ export default function StockPanolScreen({ profile, signOut, embedded = false, m
           </div>
 
           {/* ── Área de contenido ── */}
-          <div style={{ flex: 1, minHeight: 0, overflow: "hidden", display: "flex", flexDirection: "column" }}>
+          <div key={`nav-${tab}-${selLinea || ""}-${selObraId || ""}`} style={{ flex: 1, minHeight: 0, overflow: "hidden", display: "flex", flexDirection: "column", animation: "stkNav .28s ease-out" }}>
 
             {/* ── TAB: Por obra — Level 3 (drill-down a obra) ── */}
             {tab === "obra" && isLevel3 && selObraLocationKey && (

@@ -5,7 +5,9 @@ import { supabase } from "@/supabaseClient";
 import { useResponsive } from "@/hooks/useResponsive";
 import { useToast } from "@/components/ui/Toast";
 import { crearEnvio, crearPanolCatalogMaterial, fetchPanolCatalogMini, fetchRecepcionPedidoMatches, marcarItems, SEDES_PANOL } from "@/features/panol/panolApi";
-import { leerPresupuestoConIA } from "@/features/materiales/api";
+import { fetchProveedores, leerPresupuestoConIA } from "@/features/materiales/api";
+import ProveedorTipoBadge from "@/features/materiales/ProveedorTipoBadge";
+import { proveedorMeta } from "@/features/materiales/proveedorMeta";
 import { guardarIngresoPendiente, borrarIngresoPendiente } from "@/features/panol/ingresosPendientes";
 
 const UNITS = ["unidad", "metro", "kg", "litro", "pies", "caja", "rollo", "par", "juego", "m2"];
@@ -265,9 +267,10 @@ function matchToItem(match, material = null) {
   };
 }
 
-function CatalogLinkRow({ item, catalog = [], onLink, onClear, onCreate, creating = false }) {
+function CatalogLinkRow({ item, catalog = [], proveedores = [], onLink, onClear, onCreate, creating = false }) {
   const [q, setQ] = useState("");
   const selected = catalog.find((material) => material.id === item.material_id);
+  const selectedMeta = useMemo(() => proveedorMeta(selected?.proveedor, proveedores), [selected?.proveedor, proveedores]);
   const results = useMemo(() => {
     const query = q.trim() ? { descripcion: q } : item;
     return selected ? [] : topCatalogMatches(catalog, query, 6);
@@ -282,6 +285,7 @@ function CatalogLinkRow({ item, catalog = [], onLink, onClear, onCreate, creatin
               Conectado: {selected.descripcion}
               <span style={{ color: C.t2, fontWeight: 500 }}>{selected.codigo ? ` · ${selected.codigo}` : ""}{selected.proveedor ? ` · ${selected.proveedor}` : ""}</span>
             </div>
+            <ProveedorTipoBadge meta={selectedMeta} compact />
             <button type="button" onClick={() => { setQ(""); onClear(); }} style={{ border: `1px solid ${C.b0}`, background: C.bg, color: C.t1, borderRadius: 7, padding: "5px 8px", fontSize: 11, fontWeight: 800, cursor: "pointer", fontFamily: C.sans }}>
               Cambiar
             </button>
@@ -310,17 +314,23 @@ function CatalogLinkRow({ item, catalog = [], onLink, onClear, onCreate, creatin
           <div style={{ color: C.amber, fontSize: 10.5, fontWeight: 850 }}>
             Posibles coincidencias: elegí una para evitar duplicados.
           </div>
-          {results.map((material) => (
-            <button
-              key={material.id}
-              type="button"
-              onClick={() => { onLink(material); setQ(""); }}
-              style={{ display: "flex", justifyContent: "space-between", gap: 10, textAlign: "left", border: `1px solid ${C.b0}`, background: C.bg, color: C.t1, borderRadius: 7, padding: "5px 8px", cursor: "pointer", fontSize: 11.5, fontFamily: C.sans }}
-            >
-              <span style={{ minWidth: 0, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{material.descripcion}</span>
-              <span style={{ color: C.t2, whiteSpace: "nowrap" }}>{material.codigo || material.proveedor || `${material._score}%`}</span>
-            </button>
-          ))}
+          {results.map((material) => {
+            const meta = proveedorMeta(material.proveedor, proveedores);
+            return (
+              <button
+                key={material.id}
+                type="button"
+                onClick={() => { onLink(material); setQ(""); }}
+                style={{ display: "flex", justifyContent: "space-between", gap: 10, textAlign: "left", border: `1px solid ${C.b0}`, background: C.bg, color: C.t1, borderRadius: 7, padding: "5px 8px", cursor: "pointer", fontSize: 11.5, fontFamily: C.sans }}
+              >
+                <span style={{ minWidth: 0, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{material.descripcion}</span>
+                <span style={{ display: "inline-flex", alignItems: "center", gap: 5, color: C.t2, whiteSpace: "nowrap" }}>
+                  <span>{material.codigo || material.proveedor || `${material._score}%`}</span>
+                  <ProveedorTipoBadge meta={meta} compact />
+                </span>
+              </button>
+            );
+          })}
         </div>
       )}
       {!selected && q.trim() && results.length === 0 && (
@@ -340,7 +350,7 @@ export default function EnviarAPanolModal({ open, onClose, prefill, showPrices =
   const sedesDisponibles = sedeLocked ? [sedeLocked] : SEDES_PANOL;
 
   const [titulo, setTitulo] = useState("");
-  const [sede, setSede] = useState("Pampa");
+  const [sede, setSede] = useState("");
   const [obraId, setObraId] = useState("");
   const [prioridad, setPrioridad] = useState("media");
   const [observaciones, setObservaciones] = useState("");
@@ -359,6 +369,7 @@ export default function EnviarAPanolModal({ open, onClose, prefill, showPrices =
   const [catalogQ, setCatalogQ] = useState("");
   const [catalog, setCatalog] = useState([]);
   const [fullCatalog, setFullCatalog] = useState([]);
+  const [proveedores, setProveedores] = useState([]);
   const [catalogLoading, setCatalogLoading] = useState(false);
   const [selectedMaterial, setSelectedMaterial] = useState(null);
   const [matches, setMatches] = useState([]);
@@ -373,7 +384,7 @@ export default function EnviarAPanolModal({ open, onClose, prefill, showPrices =
   useEffect(() => {
     if (!open) return;
     setTitulo(prefill?.titulo || "");
-    setSede(sedeLocked || prefill?.sede || "Pampa");
+    setSede(sedeLocked || prefill?.sede || "");
     setObraId(prefill?.obraId || "");
     setPrioridad(prefill?.prioridad || "media");
     setObservaciones(prefill?.observaciones || "");
@@ -407,9 +418,15 @@ export default function EnviarAPanolModal({ open, onClose, prefill, showPrices =
   useEffect(() => {
     if (!open) return undefined;
     let alive = true;
-    fetchPanolCatalogMini({ q: "", limit: 5000 })
-      .then((rows) => { if (alive) setFullCatalog(rows); })
-      .catch(() => { if (alive) setFullCatalog([]); });
+    Promise.allSettled([
+      fetchPanolCatalogMini({ q: "", limit: 5000 }),
+      fetchProveedores(),
+    ])
+      .then(([catalogResult, proveedoresResult]) => {
+        if (!alive) return;
+        setFullCatalog(catalogResult.status === "fulfilled" ? catalogResult.value : []);
+        setProveedores(proveedoresResult.status === "fulfilled" ? proveedoresResult.value ?? [] : []);
+      });
     return () => { alive = false; };
   }, [open]);
 
@@ -621,9 +638,12 @@ export default function EnviarAPanolModal({ open, onClose, prefill, showPrices =
         prepared.push(item);
         continue;
       }
-      const suggestions = topCatalogMatches(catalogRows, item, 3);
-      if (suggestions.length) {
-        throw new Error(`Revisá las sugerencias de catálogo para "${item.descripcion}" antes de guardar.`);
+      // Si hay un match FUERTE con el catálogo, se vincula solo (evita duplicado) sin bloquear.
+      // Si no, se crea el ítem nuevo. Cualquier duplicado dudoso lo resuelve la pestaña de duplicados.
+      const [best] = topCatalogMatches(catalogRows, item, 1);
+      if (best && (best._score || 0) >= 70) {
+        prepared.push({ ...item, ...itemPatchFromMaterial(best, item) });
+        continue;
       }
       const created = await crearPanolCatalogMaterial({
         descripcion: item.descripcion,
@@ -820,11 +840,15 @@ export default function EnviarAPanolModal({ open, onClose, prefill, showPrices =
 
           <div style={{ display: "grid", gridTemplateColumns: isMobile ? "1fr" : "1fr 1fr", gap: 10 }}>
             <div>
-              <span style={lbl}>Sede destino</span>
-              <div style={{ display: "flex", gap: 5 }}>
-                {sedesDisponibles.map((s) => (
-                  <button key={s} type="button" onClick={() => setSede(s)} style={{ flex: 1, padding: "8px 10px", borderRadius: 7, cursor: "pointer", fontSize: 13, fontWeight: 700, fontFamily: C.sans, border: `1px solid ${sede === s ? "rgba(96,165,250,0.45)" : C.b0}`, background: sede === s ? "rgba(96,165,250,0.12)" : "transparent", color: sede === s ? C.primary : C.t1 }}>{s}</button>
-                ))}
+              <span style={lbl}>Sede destino{!sede && !sedeLocked ? " · elegí una" : ""}</span>
+              <div style={{ display: "flex", gap: 6 }}>
+                {sedesDisponibles.map((s) => {
+                  const active = sede === s;
+                  const label = s === "Chubut" ? "Chubut 2120" : s === "Pampa" ? "Pampa 1050" : s;
+                  return (
+                    <button key={s} type="button" onClick={() => setSede(s)} style={{ flex: 1, padding: "11px 10px", borderRadius: 9, cursor: "pointer", fontSize: 13.5, fontWeight: 850, fontFamily: C.sans, border: `1.5px solid ${active ? C.primary : C.b0}`, background: active ? "rgba(96,165,250,0.14)" : "transparent", color: active ? C.primary : C.t1 }}>{label}</button>
+                  );
+                })}
               </div>
             </div>
             <div>
@@ -884,6 +908,7 @@ export default function EnviarAPanolModal({ open, onClose, prefill, showPrices =
                     <div style={{ color: C.t2, fontSize: 12, padding: 12, textAlign: "center" }}>Cargando...</div>
                   ) : catalog.length ? catalog.map((mat) => {
                     const active = selectedMaterial?.id === mat.id;
+                    const meta = proveedorMeta(mat.proveedor, proveedores);
                     return (
                       <button
                         key={mat.id}
@@ -901,8 +926,11 @@ export default function EnviarAPanolModal({ open, onClose, prefill, showPrices =
                         }}
                       >
                         <div style={{ fontSize: 12.5, fontWeight: 850, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{mat.descripcion}</div>
-                        <div style={{ color: C.t2, fontSize: 10.5, marginTop: 2, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>
-                          {mat.codigo || "sin codigo"}{mat.proveedor ? ` · ${mat.proveedor}` : ""}
+                        <div style={{ display: "flex", alignItems: "center", gap: 6, minWidth: 0, color: C.t2, fontSize: 10.5, marginTop: 2 }}>
+                          <span style={{ minWidth: 0, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>
+                            {mat.codigo || "sin codigo"}{mat.proveedor ? ` · ${mat.proveedor}` : ""}
+                          </span>
+                          <ProveedorTipoBadge meta={meta} compact />
                         </div>
                       </button>
                     );
@@ -1023,11 +1051,18 @@ export default function EnviarAPanolModal({ open, onClose, prefill, showPrices =
                       <CatalogLinkRow
                         item={it}
                         catalog={fullCatalog}
+                        proveedores={proveedores}
                         creating={creatingCatalogIndex === i}
                         onLink={(material) => linkCatalogMaterial(i, material)}
                         onClear={() => updateItem(i, { material_id: "" })}
                         onCreate={() => createCatalogMaterialForItem(i)}
                       />
+                    )}
+                    {it.proveedor && (
+                      <div style={{ display: "flex", alignItems: "center", gap: 6, padding: "0 7px 7px", color: C.t2, fontSize: 11, fontWeight: 750, minWidth: 0 }}>
+                        <span style={{ overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>Proveedor: {it.proveedor}</span>
+                        <ProveedorTipoBadge meta={proveedorMeta(it.proveedor, proveedores)} compact />
+                      </div>
                     )}
                   </div>
                 ))}

@@ -11,6 +11,7 @@ import {
   crearCategoria,
   crearMaterial,
   fetchCatalogo,
+  fetchMaterialAudit,
   fetchObrasAvance,
   guardarProveedor,
   guardarMaterial,
@@ -18,6 +19,7 @@ import {
   isMissingTable,
   leerPresupuestoConIA,
   precioVigente,
+  restaurarMaterialAuditChange,
   setCantidadModelo,
   setSectoresMaterial,
   quitarCantidadModelo,
@@ -37,6 +39,9 @@ import ProveedoresTab from "./ProveedoresTab";
 import { csvCell, MODELOS, norm, parseMaterialesWorkbook, toBomMap } from "./materialesParser";
 import { fetchOpciones, setMaterialAreas, setProveedoresMaterial } from "./materialesConfig";
 import { AreasEditor, CondicionSelect, VariantesTab } from "./MaterialVariantes";
+import LectorTab from "./LectorTab";
+import ProveedorTipoBadge from "./ProveedorTipoBadge";
+import { proveedorAlternativas, proveedorMeta, PROVEEDOR_TIPOS, proveedorTipoUi } from "./proveedorMeta";
 import { addRequestItem, createPurchaseRequest } from "@/features/compras/purchaseRequestsApi";
 import EnviarAPanolModal from "@/features/panol/EnviarAPanolModal";
 import { BTN, BTN_GREEN, BTN_PRIMARY, Cargando, ErrorBox, INP, KpiCard, LBL, Td, Th } from "@/features/rrhh/ui";
@@ -281,7 +286,6 @@ function cleanTitleBrands(value, variants = [], proveedores = []) {
     text = text.replace(pattern, (match, prefix) => prefix && /[\p{L}\p{N}]/u.test(prefix) ? match : (prefix || " "));
   }
   return text
-    .replace(/\s*\/\s*/g, " ")
     .replace(/\(\s*\)/g, " ")
     .replace(/\[\s*\]/g, " ")
     .replace(/\s{2,}/g, " ")
@@ -294,9 +298,9 @@ function materialVariants(material) {
 }
 
 function prepareMaterialDraftForSave(material, proveedores = [], extraVariants = []) {
-  const detected = extractBrandsFromTitle(material?.descripcion, proveedores);
-  const variantes = normalizeVariantList([...(extraVariants || []), ...materialVariants(material), ...detected]);
-  const descripcion = cleanTitleBrands(material?.descripcion, variantes, proveedores) || String(material?.descripcion || "").trim();
+  void proveedores;
+  const variantes = normalizeVariantList([...(extraVariants || []), ...materialVariants(material)]);
+  const descripcion = String(material?.descripcion || "").trim();
   return { ...material, descripcion, variantes };
 }
 
@@ -512,12 +516,6 @@ function duplicateScore(a, b) {
   };
 }
 
-function duplicateConfidence(group) {
-  if (group.score >= 92) return { key: "alta", label: "Alta", color: C.red, bg: "rgba(239,68,68,0.1)", border: "rgba(239,68,68,0.35)" };
-  if (group.score >= 82) return { key: "media", label: "Media", color: C.amber, bg: C.amberL, border: C.amberB };
-  return { key: "baja", label: "Revisar", color: C.blue, bg: C.blueL, border: C.blueB };
-}
-
 function cleanupReasonForMaterial(material) {
   const desc = String(material?.descripcion || "").trim();
   if (!desc) return "Sin descripcion";
@@ -576,10 +574,14 @@ function findDuplicateGroups(materiales = [], categorias = [], selectedId = "") 
     if (pa !== pb) parent[pb] = pa;
   };
 
+  // Las MEDIDAS son identidad: dos ítems solo pueden ser duplicados si tienen
+  // los mismos números (ej. "Codo 1/2" ≠ "Codo 1/4", "Tornillo 6mm" ≠ "8mm").
+  const numsOf = (m) => (String(m?.descripcion || "").match(/\d+/g) || []).map(Number).sort((a, b) => a - b).join(",");
   for (let i = 0; i < metas.length; i += 1) {
     for (let j = i + 1; j < metas.length; j += 1) {
+      if (numsOf(metas[i].material) !== numsOf(metas[j].material)) continue;
       const result = duplicateScore(metas[i], metas[j]);
-      if (result.score >= 74) {
+      if (result.score >= 80) {
         unite(i, j);
         bestPairs.set(`${i}:${j}`, result);
       }
@@ -804,10 +806,12 @@ const TABS_MORE = [
   { key: "importar", label: "Importar" },
   { key: "bandeja", label: "Bandeja" },
   { key: "revision", label: "Revisión guiada" },
+  { key: "normalizacion", label: "Normalizar" },
   { key: "variantes", label: "Variantes" },
   { key: "proveedores", label: "Proveedores" },
   { key: "avance", label: "Avance" },
   { key: "resumen", label: "Resumen" },
+  { key: "lector", label: "Lector" },
 ];
 
 const MONEDAS = ["", "USD", "ARS"];
@@ -865,6 +869,39 @@ function ProveedorSelect({ value, textValue, proveedores, onChange, onCreated })
         </button>
       )}
     </div>
+  );
+}
+
+function ProveedorTipoFilter({ value, onChange, style }) {
+  return (
+    <select value={value} onChange={(e) => onChange(e.target.value)} style={style} title="Tipo de proveedor">
+      <option value="todos" style={OPT_ST}>Tipo proveedor: todos</option>
+      {PROVEEDOR_TIPOS.map((tipo) => (
+        <option key={tipo} value={tipo} style={OPT_ST}>{proveedorTipoUi(tipo)?.label || tipo}</option>
+      ))}
+    </select>
+  );
+}
+
+function ProveedorAlternativasHint({ proveedor, proveedores, compact = false }) {
+  const alternativas = useMemo(() => proveedorAlternativas(proveedor, proveedores), [proveedor, proveedores]);
+  if (!alternativas.length) return null;
+  const text = `Alternativas: ${alternativas.join(", ")}`;
+  return (
+    <span
+      title={text}
+      style={{
+        color: C.t3,
+        fontSize: compact ? 10 : 11,
+        fontWeight: 750,
+        whiteSpace: "nowrap",
+        overflow: "hidden",
+        textOverflow: "ellipsis",
+        maxWidth: compact ? 220 : 300,
+      }}
+    >
+      {text}
+    </span>
   );
 }
 
@@ -1520,6 +1557,139 @@ function MaterialRow({ material, categorias, ums, proveedores, onChanged, modelo
 
 // Fila simple para la "Lista matriz": muestra Item + Proveedor y, al tocar el lápiz,
 // despliega el editor completo. Mucho más angosto que la tabla.
+const AUDIT_FIELD_LABELS = {
+  descripcion: "Descripcion",
+  proveedor: "Proveedor",
+  proveedor_id: "Proveedor vinculado",
+  categoria_id: "Rubro",
+  codigo: "Codigo",
+  codigo_barra: "Codigo de barra",
+  unidad_medida: "Unidad",
+  precio_unitario: "Precio",
+  moneda: "Moneda",
+  variantes: "Variantes",
+  notas: "Notas",
+  imagen_url: "Imagen",
+  revisado: "Revisado",
+  activo: "Activo",
+};
+
+function auditDateLabel(value) {
+  if (!value) return "";
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return "";
+  return date.toLocaleString("es-AR", { day: "2-digit", month: "2-digit", hour: "2-digit", minute: "2-digit" });
+}
+
+function auditValueLabel(value) {
+  if (value == null || value === "") return "-";
+  if (Array.isArray(value)) return value.length ? value.join(" / ") : "-";
+  if (typeof value === "boolean") return value ? "si" : "no";
+  if (typeof value === "object") return JSON.stringify(value);
+  return String(value);
+}
+
+function MaterialAuditTrail({ materialId, onRestored }) {
+  const [open, setOpen] = useState(false);
+  const [rows, setRows] = useState([]);
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState("");
+  const [loaded, setLoaded] = useState(false);
+  const [restoring, setRestoring] = useState("");
+
+  async function loadHistory(force = false) {
+    if (!materialId || (!force && loaded)) return;
+    setLoading(true);
+    setError("");
+    try {
+      const data = await fetchMaterialAudit(materialId);
+      setRows(data);
+      setLoaded(true);
+    } catch (e) {
+      setError(e?.message || "No se pudo cargar el historial.");
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  function toggleOpen() {
+    const next = !open;
+    setOpen(next);
+    if (next) loadHistory();
+  }
+
+  async function restoreChange(row) {
+    const fieldLabel = AUDIT_FIELD_LABELS[row.campo] || row.campo;
+    const previous = auditValueLabel(row.valor_anterior);
+    if (!window.confirm(`Restaurar ${fieldLabel} al valor anterior?\n\n${previous}`)) return;
+    setRestoring(row.id);
+    setError("");
+    try {
+      await restaurarMaterialAuditChange(row);
+      await loadHistory(true);
+      await onRestored?.();
+    } catch (e) {
+      setError(e?.message || "No se pudo restaurar el cambio.");
+    } finally {
+      setRestoring("");
+    }
+  }
+
+  return (
+    <div style={{ border: `1px solid ${open ? C.b1 : C.b0}`, borderRadius: 10, background: C.bg, overflow: "hidden" }}>
+      <button
+        type="button"
+        onClick={toggleOpen}
+        style={{ ...BTN, width: "100%", justifyContent: "space-between", border: 0, borderRadius: 0, padding: "8px 10px", color: open ? C.blue : C.t1, background: "transparent" }}
+        title="Ver cambios guardados de este material"
+      >
+        <span style={{ display: "inline-flex", alignItems: "center", gap: 7 }}>
+          <FileText size={13} /> Historial de cambios
+        </span>
+        <span style={{ fontSize: 11, color: C.t3 }}>{open ? "Ocultar" : "Ver"}</span>
+      </button>
+
+      {open && (
+        <div style={{ borderTop: `1px solid ${C.b0}`, padding: 10, display: "grid", gap: 7 }}>
+          {loading && <div style={{ fontSize: 12, color: C.t2 }}>Cargando historial...</div>}
+          {error && <div style={{ fontSize: 12, color: C.red }}>{error}</div>}
+          {!loading && !error && rows.length === 0 && (
+            <div style={{ fontSize: 12, color: C.t2 }}>Sin cambios registrados todavia.</div>
+          )}
+          {!loading && !error && rows.map((row) => (
+            <div key={row.id} style={{ display: "grid", gap: 4, border: `1px solid ${C.b0}`, borderRadius: 9, padding: 8, background: C.s0 }}>
+              <div style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
+                <span style={{ fontSize: 11, fontWeight: 900, color: C.t0 }}>{AUDIT_FIELD_LABELS[row.campo] || row.campo}</span>
+                <span style={{ fontSize: 10.5, color: C.t3, fontFamily: C.mono }}>{auditDateLabel(row.created_at)}</span>
+                {row.origen && <span style={{ fontSize: 10, color: C.t3, border: `1px solid ${C.b0}`, borderRadius: 999, padding: "1px 6px" }}>{row.origen}</span>}
+                <button
+                  type="button"
+                  onClick={() => restoreChange(row)}
+                  disabled={!!restoring || loading || !row.material_id}
+                  style={{ ...BTN, marginLeft: "auto", padding: "3px 7px", fontSize: 10.5, color: C.blue, opacity: restoring && restoring !== row.id ? 0.45 : 1 }}
+                  title="Volver este campo al valor anterior"
+                >
+                  {restoring === row.id ? "Restaurando..." : "Restaurar anterior"}
+                </button>
+              </div>
+              <div style={{ display: "grid", gridTemplateColumns: "minmax(0, 1fr) minmax(0, 1fr)", gap: 7 }}>
+                <div style={{ minWidth: 0 }}>
+                  <div style={{ fontSize: 9.5, color: C.t3, fontWeight: 800, textTransform: "uppercase", letterSpacing: 0.5 }}>Antes</div>
+                  <div title={auditValueLabel(row.valor_anterior)} style={{ fontSize: 11.5, color: C.t2, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{auditValueLabel(row.valor_anterior)}</div>
+                </div>
+                <div style={{ minWidth: 0 }}>
+                  <div style={{ fontSize: 9.5, color: C.green, fontWeight: 800, textTransform: "uppercase", letterSpacing: 0.5 }}>Despues</div>
+                  <div title={auditValueLabel(row.valor_nuevo)} style={{ fontSize: 11.5, color: C.t0, fontWeight: 750, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{auditValueLabel(row.valor_nuevo)}</div>
+                </div>
+              </div>
+            </div>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
+
 function MaterialFila({ material, categorias, ums, proveedores, onChanged, linea = "", initialOpen = false }) {
   const [editing, setEditing] = useState(initialOpen);
   const [draft, setDraft] = useState(() => ({ ...material, precio_unitario: inputNumberValue(material.precio_unitario) }));
@@ -1536,6 +1706,8 @@ function MaterialFila({ material, categorias, ums, proveedores, onChanged, linea
     setProvExtra((material.proveedores_lista || []).map((p) => ({ ...p })));
     setVariantes(materialVariants(material));
   }, [material]);
+
+  const mainProviderMeta = useMemo(() => proveedorMeta(material.proveedor, proveedores), [material.proveedor, proveedores]);
 
   async function save() {
     if (!draft.descripcion?.trim() || saving) return;
@@ -1569,6 +1741,8 @@ function MaterialFila({ material, categorias, ums, proveedores, onChanged, linea
           <div style={{ display: "flex", gap: 7, marginTop: 2, fontSize: 11, color: C.t2, alignItems: "center", flexWrap: "wrap" }}>
             {review.flag && <ReviewBadge reason={review.reason} />}
             <span style={{ overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", maxWidth: 240 }}>{material.proveedor || "Sin proveedor"}</span>
+            <ProveedorTipoBadge meta={mainProviderMeta} compact />
+            <ProveedorAlternativasHint proveedor={material.proveedor} proveedores={proveedores} compact />
             {material.proveedores_lista?.length > 0 && (
               <span title={`Otros proveedores: ${material.proveedores_lista.map((p) => (proveedores.find((x) => x.id === p.proveedor_id)?.nombre || "?") + (p.precio != null && p.precio !== "" ? ` $${p.precio}${p.moneda ? " " + p.moneda : ""}` : "")).join(" · ")}`}
                 style={{ fontSize: 9.5, fontWeight: 700, color: C.t3, border: `1px solid ${C.b0}`, borderRadius: 999, padding: "1px 6px", flexShrink: 0 }}>
@@ -1685,6 +1859,7 @@ function MaterialFila({ material, categorias, ums, proveedores, onChanged, linea
           <label style={{ display: "inline-flex", alignItems: "center", gap: 6, fontSize: 12, color: draft.revisado ? C.green : C.t2 }}>
             <input type="checkbox" checked={!!draft.revisado} onChange={(e) => setDraft((d) => ({ ...d, revisado: e.target.checked }))} /> Revisado
           </label>
+          <MaterialAuditTrail materialId={material.id} onRestored={onChanged} />
           <div style={{ display: "flex", gap: 6 }}>
             <button type="button" onClick={save} disabled={saving} style={{ ...BTN_GREEN, padding: "7px 16px", display: "inline-flex", alignItems: "center", gap: 5 }}><Save size={13} /> Guardar</button>
             <button type="button" onClick={() => setEditing(false)} style={{ ...BTN, padding: "7px 14px" }}>Cancelar</button>
@@ -2007,6 +2182,7 @@ function ListaMateriales({ categorias, materiales, selectedId, ums, proveedores,
   const [q, setQ] = useState("");
   const [lineaState, setLineaState] = useState(""); // "" = todas las líneas
   const [prov, setProv] = useState(""); // "" = todos. Guarda el id de panol_proveedores.
+  const [proveedorTipo, setProveedorTipo] = useState("todos");
   const [rubro, setRubro] = useState("");
   const linea = lineaFija || lineaState;
   // La lista sale de la tabla de Proveedores (no se infiere de los materiales).
@@ -2032,13 +2208,14 @@ function ListaMateriales({ categorias, materiales, selectedId, ums, proveedores,
       .filter((m) => !rubroScope || materialEnScope(m, rubroScope))
       .filter((m) => !linea || toNum(toBomMap(m)[linea]) > 0) // solo los que van en esa línea
       .filter((m) => !prov || m.proveedor_id === prov || (provNombre && norm(m.proveedor) === provNombre))
+      .filter((m) => proveedorTipo === "todos" || proveedorMeta(m.proveedor, proveedores)?.tipo === proveedorTipo)
       .filter((m) => !soloPendientes || !priceInfo(m).amount)
       .filter((m) => {
         if (!terms.length) return true;
         const hay = norm(`${m.descripcion ?? ""} ${m.proveedor ?? ""} ${m.codigo ?? ""}`);
         return terms.every((t) => hay.includes(t));
       });
-  }, [materiales, categorias, q, selectedId, soloPendientes, linea, prov, proveedores, rubro]);
+  }, [materiales, categorias, q, selectedId, soloPendientes, linea, prov, proveedores, rubro, proveedorTipo]);
 
   // Si se filtra por una línea, mostramos solo esa columna de cantidad (más prolijo y angosto).
   const modelos = linea ? [linea] : MODELOS;
@@ -2083,6 +2260,7 @@ function ListaMateriales({ categorias, materiales, selectedId, ums, proveedores,
           <option value="" style={OPT_ST}>Todos los proveedores</option>
           {provs.map((p) => <option key={p.id} value={p.id} style={OPT_ST}>{p.nombre}</option>)}
         </select>
+        <ProveedorTipoFilter value={proveedorTipo} onChange={setProveedorTipo} style={{ ...INP, width: 190, maxWidth: "44vw", height: 40, borderRadius: 10 }} />
         <select value={rubro} onChange={(e) => setRubro(e.target.value)} style={{ ...INP, width: 180, maxWidth: "40vw", height: 40, borderRadius: 10 }} title="Filtrar por rubro">
           <option value="" style={OPT_ST}>Todos los rubros</option>
           {rubrosFiltro.map((c) => <option key={c.id} value={c.id} style={OPT_ST}>{categoriaNombre(categorias, c.id)}</option>)}
@@ -2513,7 +2691,7 @@ function CargarPresupuestoModal({ categorias, materiales, onChanged, onClose, so
             </div>
 
             <div style={{ display: "flex", alignItems: "center", gap: 10, marginTop: 14 }}>
-              <button type="button" onClick={() => { setItems(null); setResultado(null); }} style={BTN}>? Volver</button>
+              <button type="button" onClick={() => { setItems(null); setResultado(null); }} style={BTN}>← Volver</button>
               {sinSector > 0 && <span style={{ fontSize: 11, color: C.red }}>{sinSector} ítem(s) sin sector</span>}
               {soloPrecios && sinVinculo > 0 && <span style={{ fontSize: 11, color: C.amber }}>{sinVinculo} ítem(s) se omiten si no los vinculás</span>}
               <div style={{ flex: 1 }} />
@@ -3349,7 +3527,7 @@ function ObraMatrizView({ obra, linea, lineaNombre, categorias, materiales, opci
     <div>
       <div style={{ border: `1px solid ${C.b0}`, borderRadius: 18, background: "var(--panel)", padding: 18, marginBottom: 16 }}>
         <div style={{ display: "flex", alignItems: "center", gap: 12, flexWrap: "wrap", marginBottom: 14 }}>
-          <button type="button" onClick={onBack} style={{ ...BTN, padding: "8px 12px" }}>? {lineaNombre}</button>
+          <button type="button" onClick={onBack} style={{ ...BTN, padding: "8px 12px" }}>← {lineaNombre}</button>
           <div style={{ flex: "1 1 240px" }}>
             <div style={{ fontSize: 24, fontWeight: 950, color: C.t0 }}>{obra.codigo}</div>
             <div style={{ fontSize: 12.5, color: C.t2, marginTop: 3 }}>
@@ -3565,9 +3743,10 @@ function ObraMatrizView({ obra, linea, lineaNombre, categorias, materiales, opci
   );
 }
 
-function LineaMatrizView({ linea, obras = [], categorias, materiales, proveedores, opciones = [], ums, onChanged, onBack, onSelectObra }) {
+function LineaMatrizView({ linea, obras = [], categorias, materiales, proveedores = [], opciones = [], ums, onChanged, onBack, onSelectObra }) {
   const [q, setQ] = useState("");
   const [proveedorFilter, setProveedorFilter] = useState("");
+  const [proveedorTipoFilter, setProveedorTipoFilter] = useState("todos");
   const [rubroFilter, setRubroFilter] = useState("");
   const [tipoFilter, setTipoFilter] = useState("todos");
   const [groupBy, setGroupBy] = useState("proveedor");
@@ -3590,6 +3769,7 @@ function LineaMatrizView({ linea, obras = [], categorias, materiales, proveedore
     .map((m) => {
       const precio = priceInfo(m);
       const bucket = materialBucket(m, opciones);
+      const proveedor = precio.proveedor || m.proveedor || "Sin proveedor";
       return {
         id: m.id,
         material: m,
@@ -3597,7 +3777,8 @@ function LineaMatrizView({ linea, obras = [], categorias, materiales, proveedore
         codigo: m.codigo,
         cantidad: materialQty(m, code),
         unidad: m.unidad_medida || "unidad",
-        proveedor: precio.proveedor || m.proveedor || "Sin proveedor",
+        proveedor,
+        proveedorMeta: proveedorMeta(proveedor, proveedores),
         rubro: categoriaNombre(categorias, m.categoria_id),
         precio,
         bucket,
@@ -3611,7 +3792,7 @@ function LineaMatrizView({ linea, obras = [], categorias, materiales, proveedore
       return (order[a.bucket.key] ?? 9) - (order[b.bucket.key] ?? 9)
         || a.rubro.localeCompare(b.rubro, "es")
         || a.descripcion.localeCompare(b.descripcion, "es");
-    }), [materiales, code, categorias, opciones]);
+    }), [materiales, code, categorias, opciones, proveedores]);
 
   const facets = useMemo(() => {
     const proveedoresSet = new Set();
@@ -3630,6 +3811,7 @@ function LineaMatrizView({ linea, obras = [], categorias, materiales, proveedore
     const terms = norm(q).split(/\s+/).filter(Boolean);
     return rows
       .filter((row) => !proveedorFilter || row.proveedor === proveedorFilter)
+      .filter((row) => proveedorTipoFilter === "todos" || row.proveedorMeta?.tipo === proveedorTipoFilter)
       .filter((row) => !rubroFilter || row.rubro === rubroFilter)
       .filter((row) => tipoFilter === "todos" || (tipoFilter === "sin_precio" ? !row.precio.amount : tipoFilter === "revisar" ? row.review?.flag : row.bucket.key === tipoFilter))
       .filter((row) => {
@@ -3637,7 +3819,7 @@ function LineaMatrizView({ linea, obras = [], categorias, materiales, proveedore
         const hay = norm(`${row.descripcion} ${row.codigo} ${row.proveedor} ${row.rubro} ${row.obs}`);
         return terms.every((t) => hay.includes(t));
       });
-  }, [rows, q, proveedorFilter, rubroFilter, tipoFilter]);
+  }, [rows, q, proveedorFilter, proveedorTipoFilter, rubroFilter, tipoFilter]);
 
   const groupedRows = useMemo(() => {
     const map = new Map();
@@ -3734,7 +3916,7 @@ function LineaMatrizView({ linea, obras = [], categorias, materiales, proveedore
     <div>
       <div style={{ border: `1px solid ${C.b0}`, borderRadius: 18, background: "var(--panel)", padding: 18, marginBottom: 16 }}>
         <div style={{ display: "flex", alignItems: "center", gap: 12, flexWrap: "wrap", marginBottom: 14 }}>
-          <button type="button" onClick={onBack} style={{ ...BTN, padding: "8px 12px" }}>? L?neas</button>
+          <button type="button" onClick={onBack} style={{ ...BTN, padding: "8px 12px" }}>← Líneas</button>
           <div style={{ flex: "1 1 240px" }}>
             <div style={{ fontSize: 24, fontWeight: 950, color: C.t0 }}>{title}</div>
             <div style={{ fontSize: 12.5, color: C.t2, marginTop: 3 }}>Base matriz editable · filtros por proveedor, rubro, tipo e items sin precio.</div>
@@ -3796,6 +3978,7 @@ function LineaMatrizView({ linea, obras = [], categorias, materiales, proveedore
             <option value="" style={OPT_ST}>Todos los proveedores</option>
             {facets.proveedores.map((p) => <option key={p} value={p} style={OPT_ST}>{p}</option>)}
           </select>
+          <ProveedorTipoFilter value={proveedorTipoFilter} onChange={setProveedorTipoFilter} style={{ ...INP, width: 190, height: 38 }} />
           <select value={rubroFilter} onChange={(e) => setRubroFilter(e.target.value)} style={{ ...INP, width: 170, height: 38 }} title="Filtrar rubro">
             <option value="" style={OPT_ST}>Todos los rubros</option>
             {facets.rubros.map((r) => <option key={r} value={r} style={OPT_ST}>{r}</option>)}
@@ -3884,7 +4067,11 @@ function LineaMatrizView({ linea, obras = [], categorias, materiales, proveedore
                       </div>
                       <div style={{ minWidth: 0 }}>
                         <div style={{ fontSize: 10, color: C.t2, fontWeight: 800, textTransform: "uppercase", letterSpacing: 0.6 }}>Proveedor</div>
-                        <div style={{ fontSize: 12.5, fontWeight: 850, color: C.t0, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{row.proveedor}</div>
+                        <div style={{ display: "flex", alignItems: "center", gap: 6, minWidth: 0 }}>
+                          <span style={{ fontSize: 12.5, fontWeight: 850, color: C.t0, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{row.proveedor}</span>
+                          <ProveedorTipoBadge meta={row.proveedorMeta} compact />
+                        </div>
+                        <ProveedorAlternativasHint proveedor={row.proveedor} proveedores={proveedores} compact />
                         <div style={{ fontSize: 11, color: C.t2, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{row.rubro}</div>
                       </div>
                       <div>
@@ -4131,7 +4318,7 @@ function LineasTab({ lineas, obras, categorias, materiales, proveedores, opcione
   }), [cards]);
 
   if (selObra) {
-    const lineaNombre = cards.find((l) => l.codigo === sel)?.nombre || `K${sel}`;
+    const lineaNombre = cards.find((l) => l.codigo === sel)?.nombre || (sel ? `K${sel}` : "Líneas");
     return (
       <ObraMatrizView
         obra={selObra}
@@ -4257,8 +4444,9 @@ function LineasTab({ lineas, obras, categorias, materiales, proveedores, opcione
               <div style={{ height: 8, borderRadius: 99, background: "rgba(255,255,255,0.05)", border: `1px solid rgba(255,255,255,0.02)`, overflow: "hidden" }}>
                 <div style={{ width: `${linea.progreso}%`, height: "100%", background: linea.progreso > 80 ? `linear-gradient(90deg, ${C.greenL}, ${C.green})` : `linear-gradient(90deg, #60a5fa, ${C.blue})`, borderRadius: 99, transition: "width 0.5s ease-out" }} />
               </div>
-              <div style={{ display: "flex", justifyContent: "space-between", fontSize: 12, color: C.t2, fontWeight: 600 }}>
+              <div style={{ display: "flex", alignItems: "center", gap: 7, fontSize: 12, color: C.t2, fontWeight: 600, flexWrap: "wrap" }}>
                 <span>{linea.items} items</span>
+                <span style={{ opacity: 0.5 }}>·</span>
                 <span style={{ color: linea.progreso > 80 ? C.green : C.blue }}>{linea.progreso}% costeado</span>
               </div>
             </div>
@@ -4269,7 +4457,7 @@ function LineasTab({ lineas, obras, categorias, materiales, proveedores, opcione
               <div style={{ textAlign: "center" }}><div style={{ fontSize: 10, color: C.t2, fontWeight: 800, letterSpacing: 0.5 }}>RUBROS</div><div style={{ fontFamily: C.mono, fontSize: 16, color: C.t0, fontWeight: 900 }}>{linea.rubros}</div></div>
             </div>
 
-            <div style={{ display: "flex", gap: 8, flexWrap: "wrap", marginTop: "auto", pt: 4 }}>
+            <div style={{ display: "flex", gap: 8, flexWrap: "wrap", marginTop: "auto", paddingTop: 4 }}>
               {linea.usd ? <span style={{ fontFamily: C.mono, fontSize: 12, color: C.green, border: `1px solid rgba(34,197,94,0.3)`, background: "rgba(34,197,94,0.1)", borderRadius: 8, padding: "4px 10px", fontWeight: 700 }}>{fmtMoney(linea.usd, "USD")}</span> : null}
               {linea.sinPrecio ? <span style={{ fontSize: 12, color: C.amber, border: `1px solid rgba(245,158,11,0.3)`, background: "rgba(245,158,11,0.1)", borderRadius: 8, padding: "4px 10px", fontWeight: 800 }}>{linea.sinPrecio} sin precio</span> : null}
             </div>
@@ -4285,6 +4473,519 @@ function LineasTab({ lineas, obras, categorias, materiales, proveedores, opcione
   );
 }
 
+const NORMALIZATION_KIND_META = {
+  proveedor: { label: "Proveedor", color: C.blue, bg: C.blueL, border: C.blueB },
+  codigo: { label: "Código", color: C.green, bg: C.greenL, border: C.greenB },
+  unidad: { label: "Unidad", color: C.teal || C.green, bg: "rgba(20,184,166,0.1)", border: "rgba(20,184,166,0.32)" },
+  rubro: { label: "Rubro", color: C.amber, bg: C.amberL, border: C.amberB },
+  fraccion: { label: "Fracción", color: C.red, bg: "rgba(239,68,68,0.08)", border: "rgba(239,68,68,0.28)" },
+};
+
+const NORMALIZATION_FILTERS = [
+  ["todos", "Todo"],
+  ["proveedor", "Proveedor"],
+  ["codigo", "Código"],
+  ["unidad", "Unidad"],
+  ["rubro", "Rubro"],
+  ["fraccion", "Fracciones"],
+];
+
+function hasUsableProvider(material) {
+  const proveedor = norm(material?.proveedor || "");
+  return !!(material?.proveedor_id || (proveedor && proveedor !== "sin proveedor"));
+}
+
+function normalizationTokens(value = "") {
+  return norm(value)
+    .split(/\s+/)
+    .map(canonicalDuplicateToken)
+    .filter((token) => token.length >= 3 && !DUPLICATE_STOPWORDS.has(token));
+}
+
+function setOverlapScore(a, b) {
+  if (!a.size || !b.size) return { shared: 0, score: 0 };
+  let shared = 0;
+  for (const token of a) if (b.has(token)) shared += 1;
+  const union = new Set([...a, ...b]).size || 1;
+  return { shared, score: shared / union };
+}
+
+function providerByName(proveedores = [], name = "") {
+  const key = norm(name);
+  if (!key) return null;
+  return proveedores.find((p) => norm(p.nombre) === key)
+    || proveedores.find((p) => {
+      const current = norm(p.nombre);
+      return current && (current.includes(key) || key.includes(current));
+    })
+    || null;
+}
+
+function providerLabelFromMaterial(material, proveedores = []) {
+  if (material?.proveedor_id) {
+    const p = proveedores.find((proveedor) => proveedor.id === material.proveedor_id);
+    if (p?.nombre) return { id: p.id, nombre: p.nombre };
+  }
+  const nombre = String(material?.proveedor || "").trim();
+  if (!nombre) return null;
+  const p = providerByName(proveedores, nombre);
+  return { id: p?.id || "", nombre: p?.nombre || nombre };
+}
+
+function providerSuggestionForMaterial(material, materiales = [], proveedores = []) {
+  if (hasUsableProvider(material)) return null;
+
+  const directMeta = proveedorMeta(material.descripcion, proveedores);
+  if (directMeta?.nombre) {
+    const direct = providerByName(proveedores, directMeta.nombre);
+    return {
+      proveedor_id: direct?.id || directMeta.id || "",
+      proveedor: direct?.nombre || directMeta.nombre,
+      confidence: "alta",
+      reason: "El proveedor aparece escrito en el título.",
+    };
+  }
+
+  const tokens = new Set(normalizationTokens(material.descripcion));
+  if (tokens.size < 2) return null;
+  const materialAreas = new Set((material.areas?.length ? material.areas : [material.categoria_id]).filter(Boolean));
+  const byProvider = new Map();
+  const materialFirstToken = normalizationTokens(material.descripcion)[0];
+
+  for (const other of materiales || []) {
+    if (!materialActivo(other) || other.id === material.id || !hasUsableProvider(other)) continue;
+    const label = providerLabelFromMaterial(other, proveedores);
+    if (!label?.nombre) continue;
+    const otherTokensList = normalizationTokens(other.descripcion);
+    const otherTokens = new Set(otherTokensList);
+    const overlap = setOverlapScore(tokens, otherTokens);
+    if (!overlap.shared) continue;
+    const otherAreas = new Set((other.areas?.length ? other.areas : [other.categoria_id]).filter(Boolean));
+    const sameArea = materialAreas.size && intersects(materialAreas, otherAreas);
+    const firstTokenBonus = materialFirstToken && materialFirstToken === otherTokensList[0] ? 6 : 0;
+    const score = (overlap.shared * 12) + (overlap.score * 44) + (sameArea ? 20 : 0) + firstTokenBonus;
+    if (score < 28) continue;
+    const key = label.id || norm(label.nombre);
+    const current = byProvider.get(key) || { ...label, score: 0, best: 0, count: 0 };
+    current.score += score;
+    current.best = Math.max(current.best, score);
+    current.count += 1;
+    byProvider.set(key, current);
+  }
+
+  const [best] = [...byProvider.values()].sort((a, b) => (b.score + b.best) - (a.score + a.best));
+  if (!best || best.best < 34) return null;
+  return {
+    proveedor_id: best.id || "",
+    proveedor: best.nombre,
+    confidence: best.best >= 58 || best.count >= 3 ? "alta" : "media",
+    reason: `${best.count} material${best.count === 1 ? "" : "es"} parecido${best.count === 1 ? "" : "s"} ya usan este proveedor.`,
+  };
+}
+
+function categorySuggestionForMaterial(material, materiales = [], categorias = []) {
+  if (material?.categoria_id) return null;
+  const tokens = new Set(normalizationTokens(material.descripcion));
+  if (tokens.size < 2) return null;
+  const byCat = new Map();
+  for (const other of materiales || []) {
+    if (!materialActivo(other) || other.id === material.id || !other.categoria_id) continue;
+    const otherTokens = new Set(normalizationTokens(other.descripcion));
+    const overlap = setOverlapScore(tokens, otherTokens);
+    if (!overlap.shared) continue;
+    const score = (overlap.shared * 14) + (overlap.score * 48);
+    if (score < 34) continue;
+    const current = byCat.get(other.categoria_id) || { id: other.categoria_id, score: 0, best: 0, count: 0 };
+    current.score += score;
+    current.best = Math.max(current.best, score);
+    current.count += 1;
+    byCat.set(other.categoria_id, current);
+  }
+  const [best] = [...byCat.values()].sort((a, b) => (b.score + b.best) - (a.score + a.best));
+  if (!best) return null;
+  return {
+    categoria_id: best.id,
+    confidence: best.best >= 58 || best.count >= 3 ? "alta" : "media",
+    reason: `${best.count} material${best.count === 1 ? "" : "es"} parecido${best.count === 1 ? "" : "s"} están en este rubro.`,
+    label: categoriaNombre(categorias, best.id),
+  };
+}
+
+function unitSuggestionForMaterial(material) {
+  const current = norm(material?.unidad_medida || "");
+  const text = norm(material?.descripcion || "");
+  if (!text || (current && current !== "unidad")) return null;
+  const rules = [
+    [/\b\d+(?:[.,]\d+)?\s*(mts?|mtrs?|metros?)\b/, "metro"],
+    [/\b\d+(?:[.,]\d+)?\s*(kg|kilos?)\b/, "kg"],
+    [/\b\d+(?:[.,]\d+)?\s*(lts?|litros?)\b/, "litro"],
+    [/\b\d+(?:[.,]\d+)?\s*(pies|pie)\b/, "pies"],
+    [/\b\d+(?:[.,]\d+)?\s*(m2|m²)\b/, "m2"],
+    [/\b(caja|cajas)\b/, "caja"],
+    [/\b(rollo|rollos)\b/, "rollo"],
+    [/\b(par|pares)\b/, "par"],
+    [/\b(juego|juegos)\b/, "juego"],
+  ];
+  const found = rules.find(([pattern]) => pattern.test(text));
+  if (!found || current === found[1]) return null;
+  return { unidad_medida: found[1], confidence: "media", reason: "La unidad aparece en la descripción." };
+}
+
+function codeSuggestionForMaterial(material) {
+  if (material?.codigo) return null;
+  const [code] = [...codeCandidatesFromText(`${material?.descripcion || ""} ${material?.notas || ""}`)];
+  if (!code) return null;
+  return { codigo: code, confidence: "media", reason: "Parece un código dentro del texto." };
+}
+
+function repairFractionText(value = "") {
+  let text = String(value || "");
+  for (let i = 0; i < 4; i += 1) {
+    text = text.replace(/(^|[^0-9])([1357])\s+([248])(")/g, "$1$2/$3$4");
+  }
+  return text.replace(/\s{2,}/g, " ").trim();
+}
+
+function fractionSuggestionForMaterial(material) {
+  const descripcion = String(material?.descripcion || "");
+  const repaired = repairFractionText(descripcion);
+  if (!descripcion || repaired === descripcion) return null;
+  return {
+    descripcion: repaired,
+    confidence: "alta",
+    reason: "Parece una fracción que perdió la barra.",
+  };
+}
+
+function buildNormalizationGroups(materiales = [], categorias = [], proveedores = []) {
+  return (materiales || [])
+    .filter(materialActivo)
+    .map((material) => {
+      const actions = [];
+      const provider = providerSuggestionForMaterial(material, materiales, proveedores);
+      if (provider) {
+        actions.push({
+          id: `${material.id}:proveedor`,
+          kind: "proveedor",
+          confidence: provider.confidence,
+          title: "Asignar proveedor sugerido",
+          detail: provider.reason,
+          before: material.proveedor || "Sin proveedor",
+          after: provider.proveedor,
+          patch: { proveedor_id: provider.proveedor_id || null, proveedor: provider.proveedor },
+        });
+      }
+
+      const fraction = fractionSuggestionForMaterial(material);
+      if (fraction) {
+        actions.push({
+          id: `${material.id}:fraccion`,
+          kind: "fraccion",
+          confidence: fraction.confidence,
+          title: "Reparar fracción",
+          detail: fraction.reason,
+          before: material.descripcion || "",
+          after: fraction.descripcion,
+          patch: { descripcion: fraction.descripcion },
+        });
+      }
+
+      const code = codeSuggestionForMaterial(material);
+      if (code) {
+        actions.push({
+          id: `${material.id}:codigo`,
+          kind: "codigo",
+          confidence: code.confidence,
+          title: "Completar código",
+          detail: code.reason,
+          before: "Sin código",
+          after: code.codigo,
+          patch: { codigo: code.codigo },
+        });
+      }
+
+      const unit = unitSuggestionForMaterial(material);
+      if (unit) {
+        actions.push({
+          id: `${material.id}:unidad`,
+          kind: "unidad",
+          confidence: unit.confidence,
+          title: "Ajustar unidad",
+          detail: unit.reason,
+          before: material.unidad_medida || "Sin unidad",
+          after: unit.unidad_medida,
+          patch: { unidad_medida: unit.unidad_medida },
+        });
+      }
+
+      const category = categorySuggestionForMaterial(material, materiales, categorias);
+      if (category) {
+        actions.push({
+          id: `${material.id}:rubro`,
+          kind: "rubro",
+          confidence: category.confidence,
+          title: "Asignar rubro sugerido",
+          detail: category.reason,
+          before: "Sin rubro",
+          after: category.label,
+          patch: { categoria_id: category.categoria_id },
+          areas: [category.categoria_id, ...(material.areas || []).filter((id) => id && id !== material.categoria_id && id !== category.categoria_id)],
+        });
+      }
+
+      return {
+        id: material.id,
+        material,
+        actions,
+        score: actions.reduce((sum, action) => sum + (action.confidence === "alta" ? 3 : 2), 0),
+      };
+    })
+    .filter((group) => group.actions.length)
+    .sort((a, b) => b.score - a.score || String(a.material.descripcion || "").localeCompare(String(b.material.descripcion || ""), "es"));
+}
+
+function ConfidenceBadge({ value }) {
+  const meta = value === "alta"
+    ? { label: "Alta", color: C.green, bg: C.greenL, border: C.greenB }
+    : { label: "Media", color: C.amber, bg: C.amberL, border: C.amberB };
+  return (
+    <span style={{ fontSize: 10, fontWeight: 900, color: meta.color, background: meta.bg, border: `1px solid ${meta.border}`, borderRadius: 999, padding: "2px 7px", whiteSpace: "nowrap" }}>
+      {meta.label}
+    </span>
+  );
+}
+
+function NormalizacionTab({ categorias, materiales, proveedores, onChanged }) {
+  const [q, setQ] = useState("");
+  const [kind, setKind] = useState("todos");
+  const [confidence, setConfidence] = useState("todos");
+  const [selected, setSelected] = useState(() => new Set());
+  const [busy, setBusy] = useState("");
+  const [err, setErr] = useState(null);
+
+  const groups = useMemo(() => buildNormalizationGroups(materiales, categorias, proveedores), [materiales, categorias, proveedores]);
+  const actionById = useMemo(() => {
+    const map = new Map();
+    groups.forEach((group) => group.actions.forEach((action) => map.set(action.id, { ...action, material: group.material })));
+    return map;
+  }, [groups]);
+
+  const visibleGroups = useMemo(() => {
+    const terms = norm(q).split(/\s+/).filter(Boolean);
+    return groups
+      .map((group) => {
+        const actions = group.actions.filter((action) =>
+          (kind === "todos" || action.kind === kind)
+          && (confidence === "todos" || action.confidence === confidence)
+        );
+        return { ...group, visibleActions: actions };
+      })
+      .filter((group) => {
+        if (!group.visibleActions.length) return false;
+        if (!terms.length) return true;
+        const hay = norm([
+          group.material.descripcion,
+          group.material.codigo,
+          group.material.proveedor,
+          categoriaNombre(categorias, group.material.categoria_id),
+          group.visibleActions.map((action) => `${action.title} ${action.before} ${action.after} ${action.detail}`).join(" "),
+        ].join(" "));
+        return terms.every((term) => hay.includes(term));
+      });
+  }, [groups, q, kind, confidence, categorias]);
+
+  const visibleActions = useMemo(() => visibleGroups.flatMap((group) => group.visibleActions.map((action) => ({ ...action, material: group.material }))), [visibleGroups]);
+  const selectedActions = useMemo(() => [...selected].map((id) => actionById.get(id)).filter(Boolean), [selected, actionById]);
+  const kpis = useMemo(() => {
+    const all = groups.flatMap((group) => group.actions);
+    return {
+      materiales: groups.length,
+      acciones: all.length,
+      alta: all.filter((action) => action.confidence === "alta").length,
+      proveedor: all.filter((action) => action.kind === "proveedor").length,
+    };
+  }, [groups]);
+
+  function toggleAction(id) {
+    setSelected((prev) => {
+      const next = new Set(prev);
+      next.has(id) ? next.delete(id) : next.add(id);
+      return next;
+    });
+  }
+
+  function selectVisible(mode = "all") {
+    setSelected((prev) => {
+      const next = new Set(prev);
+      visibleActions
+        .filter((action) => mode !== "alta" || action.confidence === "alta")
+        .forEach((action) => next.add(action.id));
+      return next;
+    });
+  }
+
+  async function applyActions(actions, label = "sugerencias") {
+    const clean = actions.filter(Boolean);
+    if (!clean.length || busy) return;
+    const byMaterial = new Map();
+    clean.forEach((action) => {
+      if (!byMaterial.has(action.material.id)) byMaterial.set(action.material.id, { material: action.material, actions: [] });
+      byMaterial.get(action.material.id).actions.push(action);
+    });
+    if (!window.confirm(`¿Aplicar ${clean.length} ${label} en ${byMaterial.size} material${byMaterial.size === 1 ? "" : "es"}?\n\nNo se archiva ni se borra nada.`)) return;
+    setBusy("apply");
+    setErr(null);
+    try {
+      for (const entry of byMaterial.values()) {
+        let draft = { ...entry.material };
+        let areas = null;
+        for (const action of entry.actions) {
+          draft = { ...draft, ...action.patch };
+          if (action.areas) areas = action.areas;
+        }
+        await guardarMaterial(draft, toBomMap(entry.material), { revisado: entry.material.revisado });
+        if (areas) await setSectoresMaterial(entry.material.id, areas);
+      }
+      setSelected(new Set());
+      await onChanged?.();
+    } catch (e) {
+      setErr(e);
+    } finally {
+      setBusy("");
+    }
+  }
+
+  const chip = (on, color = C.blue) => ({
+    ...BTN,
+    padding: "7px 11px",
+    background: on ? C.s1 : C.s0,
+    border: `1px solid ${on ? C.b1 : C.b0}`,
+    color: on ? color : C.t2,
+    fontWeight: 850,
+  });
+
+  return (
+    <div style={{ display: "grid", gap: 14 }}>
+      <div style={{ border: `1px solid ${C.b0}`, background: "var(--panel)", borderRadius: 18, padding: 16, display: "grid", gap: 13 }}>
+        <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 12, flexWrap: "wrap" }}>
+          <div>
+            <div style={{ fontSize: 20, fontWeight: 950, color: C.t0 }}>Asistente de normalización</div>
+            <div style={{ fontSize: 12.5, color: C.t2, marginTop: 3 }}>Sugerencias confirmables para limpiar nombres, proveedores, códigos, unidades y rubros.</div>
+          </div>
+          <div style={{ display: "grid", gridTemplateColumns: "repeat(3, minmax(110px, 1fr))", gap: 8, minWidth: 330 }}>
+            <KpiCard label="Materiales" value={kpis.materiales} color={C.blue} />
+            <KpiCard label="Sugerencias" value={kpis.acciones} color={C.violet} />
+            <KpiCard label="Alta confianza" value={kpis.alta} color={C.green} />
+          </div>
+        </div>
+
+        <div style={{ display: "flex", gap: 8, flexWrap: "wrap", alignItems: "center" }}>
+          <div style={{ position: "relative", flex: "1 1 280px" }}>
+            <Search size={15} style={{ position: "absolute", left: 12, top: "50%", transform: "translateY(-50%)", color: C.t2 }} />
+            <input value={q} onChange={(e) => setQ(e.target.value)} placeholder="Buscar material, proveedor sugerido, código o rubro..." style={{ ...INP, width: "100%", height: 40, paddingLeft: 36 }} />
+          </div>
+          <select value={kind} onChange={(e) => setKind(e.target.value)} style={{ ...INP, width: 180, height: 40 }}>
+            {NORMALIZATION_FILTERS.map(([key, label]) => (
+              <option key={key} value={key} style={OPT_ST}>{label}</option>
+            ))}
+          </select>
+          <select value={confidence} onChange={(e) => setConfidence(e.target.value)} style={{ ...INP, width: 160, height: 40 }}>
+            <option value="todos" style={OPT_ST}>Confianza: todas</option>
+            <option value="alta" style={OPT_ST}>Alta</option>
+            <option value="media" style={OPT_ST}>Media</option>
+          </select>
+        </div>
+
+        <div style={{ display: "flex", gap: 7, flexWrap: "wrap", alignItems: "center" }}>
+          <button type="button" onClick={() => selectVisible("alta")} disabled={!visibleActions.some((action) => action.confidence === "alta")} style={chip(false, C.green)}>
+            Seleccionar alta confianza
+          </button>
+          <button type="button" onClick={() => selectVisible("all")} disabled={!visibleActions.length} style={chip(false, C.blue)}>
+            Seleccionar visibles
+          </button>
+          <button type="button" onClick={() => setSelected(new Set())} disabled={!selected.size} style={chip(false, C.t2)}>
+            Limpiar selección
+          </button>
+          <div style={{ flex: 1 }} />
+          <span style={{ fontSize: 11.5, color: C.t2 }}>
+            {visibleGroups.length} materiales visibles · {selectedActions.length} seleccionadas
+          </span>
+          <button type="button" onClick={() => applyActions(selectedActions, "sugerencias seleccionadas")} disabled={!selectedActions.length || !!busy} style={{ ...BTN_GREEN, padding: "8px 13px", opacity: !selectedActions.length || busy ? 0.6 : 1 }}>
+            <Save size={14} /> {busy ? "Aplicando..." : "Aplicar selección"}
+          </button>
+        </div>
+        {err && <ErrorBox error={err} onRetry={() => setErr(null)} />}
+      </div>
+
+      <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(220px, 1fr))", gap: 10 }}>
+        <KpiCard label="Sin proveedor sugerido" value={kpis.proveedor} color={C.blue} />
+        <KpiCard label="Visibles" value={visibleActions.length} color={C.amber} />
+      </div>
+
+      <div style={{ display: "grid", gap: 10 }}>
+        {visibleGroups.map((group) => {
+          const material = group.material;
+          return (
+            <section key={group.id} style={{ border: `1px solid ${C.b0}`, background: "var(--panel)", borderRadius: 14, overflow: "hidden" }}>
+              <div style={{ display: "grid", gridTemplateColumns: "minmax(0, 1fr) auto", gap: 10, alignItems: "start", padding: "12px 14px", borderBottom: `1px solid ${C.b0}`, background: C.s0 }}>
+                <div style={{ minWidth: 0 }}>
+                  <div style={{ display: "flex", alignItems: "center", gap: 7, flexWrap: "wrap" }}>
+                    <span style={{ fontSize: 13.5, fontWeight: 950, color: C.t0, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{material.descripcion || "(sin descripción)"}</span>
+                    <PriceBadge material={material} />
+                  </div>
+                  <div style={{ display: "flex", gap: 8, flexWrap: "wrap", color: C.t2, fontSize: 11.5, marginTop: 4 }}>
+                    <span>{categoriaNombre(categorias, material.categoria_id)}</span>
+                    <span>{material.proveedor || "Sin proveedor"}</span>
+                    {material.codigo && <span style={{ fontFamily: C.mono }}>{material.codigo}</span>}
+                    {materialVariants(material).length > 0 && <span style={{ color: C.violet }}>Variantes: {materialVariants(material).join(" / ")}</span>}
+                  </div>
+                </div>
+                <button type="button" onClick={() => applyActions(group.visibleActions.map((action) => ({ ...action, material })), "sugerencias de este material")} disabled={!!busy} style={{ ...BTN, padding: "7px 10px", color: C.green, borderColor: C.greenB, background: C.greenL, opacity: busy ? 0.6 : 1 }}>
+                  Aplicar este
+                </button>
+              </div>
+              <div style={{ display: "grid", gap: 7, padding: 10 }}>
+                {group.visibleActions.map((action) => {
+                  const meta = NORMALIZATION_KIND_META[action.kind] || NORMALIZATION_KIND_META.proveedor;
+                  const checked = selected.has(action.id);
+                  return (
+                    <label key={action.id} style={{ display: "grid", gridTemplateColumns: "22px minmax(0, 1fr)", gap: 8, alignItems: "start", border: `1px solid ${checked ? meta.border : C.b0}`, background: checked ? meta.bg : C.bg, borderRadius: 11, padding: 10, cursor: "pointer" }}>
+                      <input type="checkbox" checked={checked} onChange={() => toggleAction(action.id)} style={{ marginTop: 3 }} />
+                      <div style={{ minWidth: 0, display: "grid", gap: 5 }}>
+                        <div style={{ display: "flex", gap: 7, alignItems: "center", flexWrap: "wrap" }}>
+                          <span style={{ color: meta.color, fontSize: 10.5, fontWeight: 950, textTransform: "uppercase", letterSpacing: 0.6 }}>{meta.label}</span>
+                          <ConfidenceBadge value={action.confidence} />
+                          {action.kind === "proveedor" && <ProveedorTipoBadge meta={proveedorMeta(action.patch.proveedor, proveedores)} compact />}
+                          <span style={{ fontSize: 12.5, fontWeight: 900, color: C.t0 }}>{action.title}</span>
+                        </div>
+                        <div style={{ display: "grid", gap: 3, minWidth: 0 }}>
+                          <div style={{ color: C.t2, fontSize: 11.5, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+                            Antes: <span style={{ color: C.t1 }}>{action.before}</span>
+                          </div>
+                          <div style={{ color: C.t2, fontSize: 11.5, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+                            Después: <span style={{ color: C.t0, fontWeight: 850 }}>{action.after}</span>
+                          </div>
+                        </div>
+                        <div style={{ color: C.t3, fontSize: 11 }}>{action.detail}</div>
+                      </div>
+                    </label>
+                  );
+                })}
+              </div>
+            </section>
+          );
+        })}
+      </div>
+
+      {!visibleGroups.length && (
+        <div style={{ padding: 32, textAlign: "center", color: C.t2, border: `1px dashed ${C.b0}`, borderRadius: 14, fontSize: 13 }}>
+          No hay sugerencias con esos filtros.
+        </div>
+      )}
+    </div>
+  );
+}
+
 // Lista matriz: el catálogo completo, navegable por sector/subsector, editable (descripción,
 // precio, cantidades por línea K37/K52/K55, sector). Reusa la tabla MaterialRow.
 function DuplicadosCatalogo({ groups, cleanupCandidates = [], categorias, ums, proveedores, onChanged }) {
@@ -4294,9 +4995,11 @@ function DuplicadosCatalogo({ groups, cleanupCandidates = [], categorias, ums, p
   const [copied, setCopied] = useState(false);
   const [selectedByGroup, setSelectedByGroup] = useState({});
   const [keeperByGroup, setKeeperByGroup] = useState({});
+  const [dismissed, setDismissed] = useState(() => new Set());
   const visibles = useMemo(() => {
     const terms = norm(q).split(/\s+/).filter(Boolean);
     return groups.filter((group) => {
+      if (dismissed.has(group.id)) return false;
       if (filtro === "alta" && group.score < 92) return false;
       if (filtro === "media" && group.score < 82) return false;
       if (filtro === "revisar" && group.score >= 82) return false;
@@ -4305,7 +5008,7 @@ function DuplicadosCatalogo({ groups, cleanupCandidates = [], categorias, ums, p
       const hay = norm(group.materials.map((m) => `${m.descripcion || ""} ${m.codigo || ""} ${m.proveedor || ""} ${categoriaNombre(categorias, m.categoria_id)}`).join(" "));
       return terms.every((term) => hay.includes(term));
     });
-  }, [groups, q, filtro, categorias]);
+  }, [groups, q, filtro, categorias, dismissed]);
   const totalItems = useMemo(() => groups.reduce((sum, group) => sum + group.materials.length, 0), [groups]);
   const highConfidence = useMemo(() => groups.filter((group) => group.score >= 92).length, [groups]);
   const mediumConfidence = useMemo(() => groups.filter((group) => group.score >= 82).length, [groups]);
@@ -4330,25 +5033,6 @@ function DuplicadosCatalogo({ groups, cleanupCandidates = [], categorias, ums, p
       if (previousKeeper && previousKeeper !== materialId) next.add(previousKeeper);
       return { ...prev, [group.id]: next };
     });
-  }
-
-  function toggleGroupItem(group, materialId) {
-    if (materialId === keeperForGroup(group)) return;
-    setSelectedByGroup((prev) => {
-      const base = prev[group.id] || new Set(group.materials.filter((material) => material.id !== keeperForGroup(group)).map((material) => material.id));
-      const next = new Set(base);
-      next.has(materialId) ? next.delete(materialId) : next.add(materialId);
-      return { ...prev, [group.id]: next };
-    });
-  }
-
-  function selectAllGroup(group) {
-    const keeperId = keeperForGroup(group);
-    setSelectedByGroup((prev) => ({ ...prev, [group.id]: new Set(group.materials.filter((material) => material.id !== keeperId).map((material) => material.id)) }));
-  }
-
-  function clearGroup(group) {
-    setSelectedByGroup((prev) => ({ ...prev, [group.id]: new Set() }));
   }
 
   async function archiveIds(ids, label = "materiales") {
@@ -4465,49 +5149,39 @@ function DuplicadosCatalogo({ groups, cleanupCandidates = [], categorias, ums, p
       )}
 
       {visibles.map((group, idx) => {
-        const meta = duplicateConfidence(group);
         const keeperId = keeperForGroup(group);
-        const selectedIds = selectedIdsForGroup(group);
-        const groupBusy = busy === `merge-${group.id}` || busy === `archive-${selectedIds.join(":")}`;
+        const duplicateIds = group.materials.filter((m) => m.id !== keeperId).map((m) => m.id);
+        const groupBusy = busy === `merge-${group.id}`;
         return (
         <section key={group.id} style={{ border: `1px solid ${C.b0}`, background: "var(--panel)", borderRadius: 14, overflow: "hidden" }}>
           <div style={{ padding: "12px 14px", borderBottom: `1px solid ${C.b0}`, background: C.s0, display: "flex", alignItems: "center", justifyContent: "space-between", gap: 10, flexWrap: "wrap" }}>
             <div>
-              <div style={{ fontSize: 13.5, fontWeight: 950, color: C.t0 }}>Grupo {idx + 1} · {group.reason}</div>
-              <div style={{ fontSize: 11.5, color: C.t2, marginTop: 2 }}>{group.materials.length} items parecidos. Sugerencia: conservar el que tenga mas datos cargados.</div>
+              <div style={{ fontSize: 13.5, fontWeight: 950, color: C.t0 }}>Grupo {idx + 1} · {group.materials.length} parecidos</div>
+              <div style={{ fontSize: 11.5, color: C.t2, marginTop: 2 }}>Elegí cuál conservar. El resto se fusiona (junta los datos) o se archiva.</div>
             </div>
             <div style={{ display: "flex", gap: 7, flexWrap: "wrap", alignItems: "center" }}>
-              <span style={{ fontFamily: C.mono, fontSize: 12, fontWeight: 900, color: meta.color, border: `1px solid ${meta.border}`, background: meta.bg, borderRadius: 999, padding: "4px 9px" }}>
-                {meta.label} · {group.score}%
-              </span>
-              <button type="button" onClick={() => selectAllGroup(group)} disabled={!!busy} style={{ ...BTN, padding: "6px 9px", color: C.t1 }}>
-                Todos
+              <button type="button" onClick={() => mergeGroup(group)} disabled={!!busy} style={{ ...BTN_GREEN, padding: "6px 10px", opacity: groupBusy ? 0.65 : 1 }} title="Junta cantidades, sectores, precio, proveedores y variantes en el conservado y archiva el resto">
+                <Save size={13} /> {groupBusy ? "Procesando..." : "Fusionar en el conservado"}
               </button>
-              <button type="button" onClick={() => clearGroup(group)} disabled={!!busy} style={{ ...BTN, padding: "6px 9px", color: C.t2 }}>
-                Ninguno
+              <button type="button" onClick={() => archiveIds(duplicateIds, "duplicados")} disabled={!!busy} style={{ ...BTN, padding: "6px 10px", color: C.red, border: "1px solid rgba(239,68,68,0.28)", background: "rgba(239,68,68,0.06)" }}>
+                <Trash2 size={13} /> Archivar los otros
               </button>
-              <button type="button" onClick={() => mergeGroup(group)} disabled={!!busy || selectedIds.length === 0} style={{ ...BTN_GREEN, padding: "6px 10px", opacity: groupBusy ? 0.65 : 1 }} title="Transfiere cantidades, sectores, precio, proveedores y variantes al material conservado">
-                <Save size={13} /> {groupBusy ? "Procesando..." : `Fusionar ${selectedIds.length || ""}`}
-              </button>
-              <button type="button" onClick={() => archiveIds(selectedIds, "duplicados seleccionados")} disabled={!!busy || selectedIds.length === 0} style={{ ...BTN, padding: "6px 10px", color: C.red, border: "1px solid rgba(239,68,68,0.28)", background: "rgba(239,68,68,0.06)", opacity: groupBusy ? 0.65 : 1 }}>
-                <Trash2 size={13} /> Archivar seleccionados
+              <button type="button" onClick={() => setDismissed((prev) => new Set(prev).add(group.id))} disabled={!!busy} style={{ ...BTN, padding: "6px 10px", color: C.t2 }} title="Sacar este grupo de la lista (no son duplicados)">
+                No son duplicados
               </button>
             </div>
           </div>
           <div style={{ padding: 10, display: "grid", gap: 8 }}>
             {group.materials.map((material) => {
               const keep = material.id === keeperId;
-              const selected = selectedIds.includes(material.id);
               return (
                 <div key={material.id} style={{ border: keep ? `1px solid ${C.greenB}` : `1px solid ${C.b0}`, borderRadius: 12, background: keep ? C.greenL : C.bg, padding: 8 }}>
                   <div style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap", marginBottom: 6 }}>
-                    <label style={{ display: "inline-flex", alignItems: "center", gap: 5, fontSize: 11, color: keep ? C.green : C.t1, fontWeight: 850 }}>
-                      <input type="checkbox" checked={keep ? false : selected} disabled={keep || !!busy} onChange={() => toggleGroupItem(group, material.id)} />
-                      {keep ? "Conservar" : "Duplicado"}
+                    <label style={{ display: "inline-flex", alignItems: "center", gap: 6, fontSize: 12, color: keep ? C.green : C.t1, fontWeight: 850, cursor: busy ? "default" : "pointer" }}>
+                      <input type="radio" name={`keeper-${group.id}`} checked={keep} disabled={!!busy} onChange={() => setKeeper(group, material.id)} />
+                      {keep ? "Se conserva ✓" : "Conservar este"}
                     </label>
-                    <button type="button" onClick={() => setKeeper(group, material.id)} disabled={keep || !!busy} style={{ ...BTN, padding: "3px 8px", fontSize: 10.5, color: keep ? C.green : C.t2, border: `1px solid ${keep ? C.greenB : C.b0}`, background: keep ? C.bg : "transparent" }}>
-                      {keep ? "Sugerido para conservar" : "Conservar este"}
-                    </button>
+                    {!keep && <span style={{ fontSize: 10.5, color: C.t2 }}>se fusiona / archiva</span>}
                     <span style={{ fontSize: 11.5, color: C.t2 }}>{categoriaNombre(categorias, material.categoria_id)}</span>
                     {material.codigo && <span style={{ fontFamily: C.mono, fontSize: 11, color: C.t2 }}>Cod. {material.codigo}</span>}
                     {materialVariants(material).length > 0 && <span style={{ fontSize: 11, color: C.violet, border: "1px solid rgba(139,92,246,0.28)", background: "rgba(139,92,246,0.09)", borderRadius: 999, padding: "2px 7px" }}>Variantes: {materialVariants(material).join(" / ")}</span>}
@@ -4599,37 +5273,6 @@ function MatrizTab({ categorias, materiales, proveedores, onChanged }) {
     }
   }
 
-  async function normalizarMarcasScope() {
-    const scope = sel ? idsScope(categorias, sel) : null;
-    const targets = (materiales ?? [])
-      .filter(materialActivo)
-      .filter((m) => !scope || materialEnScope(m, scope))
-      .map((material) => {
-        const prepared = prepareMaterialDraftForSave(material, proveedores, materialVariants(material));
-        const changedTitle = prepared.descripcion !== material.descripcion;
-        const changedVariants = normalizeVariantList(prepared.variantes).join("|") !== materialVariants(material).join("|");
-        return { material, prepared, changed: changedTitle || changedVariants };
-      })
-      .filter((row) => row.changed);
-    if (!targets.length) {
-      window.alert("No encontré marcas para mover a variantes en este filtro.");
-      return;
-    }
-    if (!window.confirm(`¿Normalizar marcas en ${targets.length} materiales visibles?\n\nSe limpian los títulos y las marcas pasan a variantes. No se archiva ni borra nada.`)) return;
-    setCatBusy("brands");
-    setCatError("");
-    try {
-      for (const row of targets) {
-        await guardarMaterial(row.prepared, toBomMap(row.material), { revisado: row.material.revisado });
-      }
-      await onChanged?.();
-    } catch (e) {
-      setCatError(e?.message || "No se pudieron normalizar las marcas.");
-    } finally {
-      setCatBusy("");
-    }
-  }
-
   return (
     <div>
       <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
@@ -4679,15 +5322,6 @@ function MatrizTab({ categorias, materiales, proveedores, onChanged }) {
           title="Leer factura, remito, presupuesto, foto o PDF con IA y aplicar precios a materiales existentes"
         >
           <Upload size={14} /> Cargar precios
-        </button>
-        <button
-          type="button"
-          onClick={normalizarMarcasScope}
-          disabled={catBusy === "brands"}
-          style={{ ...BTN, padding: "7px 12px", background: "rgba(139,92,246,0.1)", border: "1px solid rgba(139,92,246,0.35)", color: C.violet, opacity: catBusy === "brands" ? 0.65 : 1 }}
-          title="Quita marcas conocidas del titulo y las guarda como variantes"
-        >
-          {catBusy === "brands" ? "Normalizando..." : "Normalizar marcas"}
         </button>
         <span style={{ fontSize: 11.5, color: C.t2 }}>
           {sel ? "Analisis limitado al sector seleccionado." : "Analisis sobre todo el catalogo activo."}
@@ -4849,11 +5483,13 @@ export default function MaterialesScreen({ profile, signOut }) {
               {tab === "bandeja" && <BandejaTab categorias={categorias} materiales={materiales} onChanged={cargar} />}
               {tab === "comprobantes" && <ComprobantesTab categorias={categorias} materiales={materiales} proveedores={proveedores} comprobantes={comprobantes} onChanged={cargar} />}
               {tab === "revision" && <RevisionTab categorias={categorias} materiales={materiales} proveedores={proveedores} opciones={opciones} onChanged={cargar} />}
+              {tab === "normalizacion" && <NormalizacionTab categorias={categorias} materiales={materiales} proveedores={proveedores} onChanged={cargar} />}
               {tab === "variantes" && <VariantesTab opciones={opciones} onChanged={cargar} />}
               {tab === "proveedores" && <ProveedoresTab proveedores={proveedores} onChanged={cargar} />}
               {tab === "avance" && <AvanceTab categorias={categorias} materiales={materiales} batches={batches} obras={obrasAvance} />}
               {tab === "costos" && <CostoObraTab categorias={categorias} materiales={materiales} opciones={opciones} />}
               {tab === "resumen" && <ResumenTab categorias={categorias} materiales={materiales} />}
+              {tab === "lector" && <LectorTab materiales={materiales} onMaterialUpdate={(id, updates) => setMateriales(prev => prev?.map(m => m.id === id ? { ...m, ...updates } : m))} />}
             </>
           )}
         </div>

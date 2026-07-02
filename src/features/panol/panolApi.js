@@ -103,7 +103,44 @@ export async function fetchEnvio(id) {
     .eq("id", id)
     .single();
   if (error) throw error;
-  return data;
+  return hydrateEnvioItemMaterials(data);
+}
+
+async function hydrateEnvioItemMaterials(envio) {
+  const items = envio?.items || [];
+  const materialIds = [...new Set(items.map((item) => item.material_id).filter(Boolean))];
+  if (!materialIds.length) return envio;
+
+  let materiales = [];
+  try {
+    const { data, error } = await supabase
+      .from("panol_materiales")
+      .select("id,codigo_barra,codigo,descripcion,unidad_medida")
+      .in("id", materialIds);
+    if (error) throw error;
+    materiales = data ?? [];
+  } catch (error) {
+    if (!isMissingColumn(error)) return envio;
+    const { data, error: fallbackError } = await supabase
+      .from("panol_materiales")
+      .select("id,codigo,descripcion,unidad_medida")
+      .in("id", materialIds);
+    if (fallbackError) return envio;
+    materiales = data ?? [];
+  }
+
+  const materialById = new Map(materiales.map((material) => [material.id, material]));
+  return {
+    ...envio,
+    items: items.map((item) => {
+      const material = item.material || materialById.get(item.material_id) || null;
+      return {
+        ...item,
+        material,
+        codigo_barra: item.codigo_barra ?? material?.codigo_barra ?? null,
+      };
+    }),
+  };
 }
 
 export async function fetchEventos(envioId) {
@@ -178,7 +215,7 @@ export async function fetchMaterialesEgreso({ sede = null, estados = ["en_panol"
     try {
       const res = await supabase
         .from("panol_materiales")
-        .select("id,proveedor,categoria_id")
+        .select("id,proveedor,categoria_id,codigo_barra")
         .in("id", materialIds);
       if (res.error) throw res.error;
       materiales = res.data ?? [];
@@ -260,6 +297,7 @@ export async function fetchMaterialesEgreso({ sede = null, estados = ["en_panol"
       request,
       es_adicional: row.es_adicional ?? request?.es_adicional ?? false,
       proveedor: row.proveedor || meta?.proveedor || "",
+      codigo_barra: row.codigo_barra || meta?.codigo_barra || "",
       categoria_id: categoriaId,
       categoria_nombre: row.categoria_nombre || (categoriaId ? categoriaById.get(categoriaId) : "") || "",
     };
@@ -272,16 +310,25 @@ export async function fetchPanolCatalogMini({ q = "", limit = 80 } = {}) {
   try {
     rows = await fetchPaged(
       "panol_materiales",
-      "id,categoria_id,codigo,descripcion,proveedor,unidad_medida,precio_unitario,moneda,activo",
+      "id,categoria_id,codigo,codigo_barra,descripcion,proveedor,unidad_medida,precio_unitario,moneda,activo",
       { order: "descripcion", limit: 1000 },
     );
-  } catch {
-    return [];
+  } catch (error) {
+    if (!isMissingColumn(error)) return [];
+    try {
+      rows = await fetchPaged(
+        "panol_materiales",
+        "id,categoria_id,codigo,descripcion,proveedor,unidad_medida,precio_unitario,moneda,activo",
+        { order: "descripcion", limit: 1000 },
+      );
+    } catch {
+      return [];
+    }
   }
   const term = normalizeSearch(q);
   const active = rows.filter((row) => row.activo !== false);
   const filtered = term
-    ? active.filter((row) => normalizeSearch([row.descripcion, row.codigo, row.proveedor].filter(Boolean).join(" ")).includes(term))
+    ? active.filter((row) => normalizeSearch([row.descripcion, row.codigo, row.codigo_barra, row.proveedor].filter(Boolean).join(" ")).includes(term))
     : active;
   return filtered
     .slice(0, limit)
@@ -289,6 +336,7 @@ export async function fetchPanolCatalogMini({ q = "", limit = 80 } = {}) {
       id: row.id,
       categoria_id: row.categoria_id || null,
       codigo: row.codigo || "",
+      codigo_barra: row.codigo_barra || "",
       descripcion: row.descripcion || "",
       proveedor: row.proveedor || "",
       unidad: row.unidad_medida || "unidad",

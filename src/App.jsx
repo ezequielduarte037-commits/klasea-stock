@@ -137,18 +137,28 @@ function LoginScreen({ onLoggedIn }) {
         }
 
         .ln-btn {
-          width:100%; padding:13px;
-          background:var(--inverse-bg); color:var(--inverse-text);
-          border:none; border-radius:10px;
+          width:100%; padding:14px;
+          background:linear-gradient(135deg, var(--inverse-bg), var(--inverse-bg)); color:var(--inverse-text);
+          border:none; border-radius:12px;
           font-size:14px; font-weight:800;
           letter-spacing:0.12em; text-transform:uppercase;
           cursor:pointer;
           font-family:'Outfit',system-ui;
-          transition:opacity .15s, transform .12s;
+          transition:all .2s cubic-bezier(.22,1,.36,1);
+          box-shadow: 0 4px 12px rgba(0,0,0,0.1);
         }
-        .ln-btn:hover:not(:disabled) { opacity:.88; transform:translateY(-1px); }
+        .ln-btn:hover:not(:disabled) { opacity:0.95; transform:translateY(-2px); box-shadow: 0 6px 20px rgba(0,0,0,0.15); }
         .ln-btn:active               { transform:translateY(0); }
         .ln-btn:disabled             { opacity:.45; cursor:not-allowed; }
+
+        .login-logo {
+          width: 48px; height: 48px;
+          object-fit: contain; display: block;
+          margin: 0 auto 16px;
+        }
+        html[data-theme="light"] .login-logo {
+          filter: invert(1);
+        }
       `}</style>
 
       {/* Glow de fondo */}
@@ -171,21 +181,20 @@ function LoginScreen({ onLoggedIn }) {
 
       {/* Card */}
       <div style={{
-        width:"min(380px,100%)",
-        borderRadius:18,
-        background:C.panelSolid,
-        border:`1px solid ${C.border2}`,
-        backdropFilter:"var(--glass-filter)",
-        boxShadow:"0 40px 120px var(--shadow-strong), inset 0 1px 0 var(--border)",
-        padding:"42px 36px 34px",
-        animation:"rise .35s cubic-bezier(.22,1,.36,1) both",
+        width:"min(400px,100%)",
+        borderRadius:24,
+        background:C.bg1,
+        border:`1px solid ${C.b1}`,
+        backdropFilter:"blur(24px)",
+        boxShadow:"0 30px 80px var(--shadow-strong), inset 0 1px 0 rgba(255,255,255,0.05)",
+        padding:"48px 40px 42px",
+        animation:"rise .4s cubic-bezier(.22,1,.36,1) both",
         position:"relative", zIndex:1,
       }}>
 
         {/* Logo + nombre */}
-        <div style={{ textAlign:"center", marginBottom:38 }}>
-          <img src={logoK} alt="Klase A"
-            style={{ width:44, height:44, objectFit:"contain", display:"block", margin:"0 auto 14px" }} />
+        <div style={{ textAlign:"center", marginBottom:42 }}>
+          <img src={logoK} alt="Klase A" className="login-logo" />
           <div style={{
             fontWeight:900, fontSize:16,
             letterSpacing:"0.13em", color:C.text,
@@ -421,7 +430,7 @@ export default function App() {
         {/* Escáner de pañol (PDA) + impresión de etiquetas QR */}
         <Route path="/scan"      element={<RequireAuth session={session}><RequireRole profile={profile} allow={["admin","oficina","tecnica","panol"]}><ScanEgresoScreen {...A} /></RequireRole></RequireAuth>} />
         <Route path="/etiquetas" element={<RequireAuth session={session}><RequireRole profile={profile} allow={["admin","oficina","tecnica"]}><EtiquetasScreen   {...A} /></RequireRole></RequireAuth>} />
-        <Route path="/rrhh"      element={<RequireAuth session={session}><RequireRole profile={profile} allow={["admin","rrhh"]}><RrhhScreen {...A} /></RequireRole></RequireAuth>} />
+        <Route path="/rrhh"      element={<RequireAuth session={session}><RequireRole profile={profile} allow={["admin","rrhh","tecnica","oficina"]}><RrhhScreen {...A} /></RequireRole></RequireAuth>} />
 
         <Route path="*" element={<Navigate to="/" replace />} />
       </Routes>

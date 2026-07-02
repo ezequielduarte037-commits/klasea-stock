@@ -1,5 +1,5 @@
 import { C } from "@/theme";
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
   AlertTriangle,
   ArrowLeft,
@@ -8,6 +8,7 @@ import {
   MessageSquare,
   PackageOpen,
   Printer,
+  ScanLine,
   Search,
   Send,
   Trash2,
@@ -20,6 +21,8 @@ import {
   fetchLinkedPurchaseRequestForEnvio, ITEM_ESTADOS, ITEM_ESTADO_META, ENVIO_ESTADO_META, resumenItems,
 } from "@/features/panol/panolApi";
 import { notifyWaUpdate } from "@/features/compras/purchaseRequestsApi";
+import BarcodeScanner from "@/features/panol/BarcodeScanner";
+import useKeyboardWedge from "@/features/panol/useKeyboardWedge";
 
 // Recepción simplificada: el pañolero solo marca recibido o parcial (pendiente
 // queda para revertir). Los estados problema viejos ya no se ofrecen en la UI.
@@ -47,6 +50,8 @@ function itemSearchText(item) {
   return [
     item.descripcion,
     item.codigo,
+    item.codigo_barra,
+    item.material?.codigo_barra,
     item.cantidad,
     item.unidad,
     item.nota,
@@ -59,6 +64,66 @@ function parseReceivedQty(value) {
   if (!raw) return null;
   const n = Number(raw);
   return Number.isFinite(n) && n > 0 ? n : null;
+}
+
+function beep(frequency = 800, duration = 100) {
+  try {
+    const AudioContext = window.AudioContext || window.webkitAudioContext;
+    if (!AudioContext) return;
+    const ctx = new AudioContext();
+    const osc = ctx.createOscillator();
+    const gain = ctx.createGain();
+    osc.connect(gain);
+    gain.connect(ctx.destination);
+    osc.frequency.value = frequency;
+    gain.gain.value = 0.1;
+    osc.start();
+    setTimeout(() => { osc.stop(); ctx.close(); }, duration);
+  } catch {
+    // audio no disponible
+  }
+}
+
+function normalizeBarcode(value) {
+  return String(value ?? "").trim().toLowerCase();
+}
+
+function qtyForScan(value) {
+  const match = String(value ?? "").replace(",", ".").match(/\d+(?:\.\d+)?/);
+  if (!match) return null;
+  const n = Number(match[0]);
+  return Number.isFinite(n) && n > 0 ? n : null;
+}
+
+function barcodeOfItem(item) {
+  return normalizeBarcode(item?.codigo_barra || item?.material?.codigo_barra);
+}
+
+function scanReceiptForItem(item) {
+  const ordered = qtyForScan(item?.cantidad);
+  const received = qtyForScan(item?.cantidad_recibida) ?? (item?.estado === "recibido" ? ordered ?? 1 : 0);
+  if (!ordered || ordered <= 1) {
+    return {
+      estado: "recibido",
+      cantidadRecibida: item?.cantidad || "1",
+      label: "Recibido completo",
+    };
+  }
+
+  const next = Math.min(ordered, received + 1);
+  return {
+    estado: next >= ordered ? "recibido" : "parcial",
+    cantidadRecibida: String(next),
+    label: next >= ordered ? `Recibido completo (${next}/${ordered})` : `Parcial (${next}/${ordered})`,
+  };
+}
+
+function isScanComplete(item) {
+  if (item?.estado !== "recibido") return false;
+  const ordered = qtyForScan(item?.cantidad);
+  if (!ordered || ordered <= 1) return true;
+  const received = qtyForScan(item?.cantidad_recibida) ?? ordered;
+  return received >= ordered;
 }
 
 function StatusChip({ estado, compact = false }) {
@@ -230,6 +295,112 @@ function ActionButton({ estado, children, onClick, disabled }) {
   );
 }
 
+function ScanReceiptPanel({
+  value,
+  onChange,
+  onSubmit,
+  onOpenCamera,
+  inputRef,
+  result,
+  busy,
+  isMobile,
+  readyCount,
+}) {
+  const color = result ? (result.ok ? C.green : C.red) : C.blue;
+  const bg = result ? (result.ok ? "var(--green-soft)" : "var(--red-soft)") : "var(--blue-soft)";
+  const border = result ? (result.ok ? C.greenB : C.redB) : C.blueB;
+  return (
+    <div style={{
+      borderBottom: `1px solid ${C.border}`,
+      background: C.topbarSoft,
+      padding: isMobile ? "10px 12px" : "10px 18px",
+      display: "grid",
+      gap: 8,
+      flexShrink: 0,
+    }}>
+      <div style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
+        <div style={{ display: "flex", alignItems: "center", gap: 8, minWidth: 0, flex: "1 1 260px" }}>
+          <div style={{ width: 31, height: 31, borderRadius: 9, display: "grid", placeItems: "center", color, background: bg, border: `1px solid ${border}`, flexShrink: 0 }}>
+            <ScanLine size={16} />
+          </div>
+          <div style={{ minWidth: 0 }}>
+            <div style={{ color: C.text, fontSize: 13, fontWeight: 900 }}>Recepcion por escaneo</div>
+            <div style={{ color: C.dim, fontSize: 11 }}>
+              {readyCount ? `${readyCount} item${readyCount === 1 ? "" : "s"} con codigo de barras · lector PC/USB listo` : "Sin items vinculados a codigo de barras"}
+            </div>
+          </div>
+        </div>
+
+        <div style={{ display: "grid", gridTemplateColumns: isMobile ? "minmax(0, 1fr) auto auto" : "minmax(280px, 420px) auto auto", gap: 8, flex: isMobile ? "1 1 100%" : "0 1 auto", minWidth: isMobile ? "100%" : 0 }}>
+          <input
+            ref={inputRef}
+            value={value}
+            onChange={(e) => onChange(e.target.value)}
+            onKeyDown={(e) => {
+              if (e.key === "Enter" || e.key === "Tab") {
+                e.preventDefault();
+                onSubmit();
+              }
+            }}
+            disabled={busy}
+            placeholder="Escaneá codigo de barras..."
+            autoComplete="off"
+            inputMode="text"
+            style={{
+              minWidth: 0,
+              width: "100%",
+              boxSizing: "border-box",
+              background: C.panelSolid,
+              border: `1px solid ${result ? border : C.border}`,
+              color: C.text,
+              padding: "9px 11px",
+              borderRadius: 9,
+              outline: "none",
+              fontSize: 13,
+              fontFamily: C.mono,
+              boxShadow: result ? `0 0 0 2px ${color}18` : "none",
+            }}
+          />
+          <button
+            type="button"
+            onClick={onSubmit}
+            disabled={busy || !String(value || "").trim()}
+            style={{
+              border: `1px solid ${C.greenB}`,
+              background: String(value || "").trim() ? "var(--green-soft)" : C.panel2,
+              color: String(value || "").trim() ? C.green : C.dim,
+              borderRadius: 9,
+              padding: "9px 12px",
+              cursor: busy || !String(value || "").trim() ? "default" : "pointer",
+              fontSize: 12,
+              fontWeight: 900,
+              fontFamily: C.sans,
+              whiteSpace: "nowrap",
+            }}
+          >
+            {busy ? "Marcando..." : "Recibir"}
+          </button>
+          <button
+            type="button"
+            onClick={onOpenCamera}
+            disabled={busy}
+            title="Escanear con camara"
+            style={{ border: `1px solid ${C.blueB}`, background: "var(--blue-soft)", color: C.blue, borderRadius: 9, padding: "9px 11px", cursor: busy ? "default" : "pointer", display: "inline-flex", alignItems: "center", gap: 6, fontSize: 12, fontWeight: 850, fontFamily: C.sans }}
+          >
+            <ScanLine size={15} /> {!isMobile && "Camara"}
+          </button>
+        </div>
+      </div>
+
+      {result && (
+        <div style={{ border: `1px solid ${border}`, background: bg, color, borderRadius: 9, padding: "8px 10px", fontSize: 12.5, fontWeight: 800 }}>
+          {result.msg}
+        </div>
+      )}
+    </div>
+  );
+}
+
 function SideLabel({ label, value }) {
   return (
     <div style={{ display: "grid", gap: 3 }}>
@@ -253,6 +424,16 @@ export default function PanolEnvioDetail({ envioId, profile, canReceive, isManag
   const [itemQ, setItemQ] = useState("");
   const [itemEstado, setItemEstado] = useState("todos");
   const [partialModal, setPartialModal] = useState(null);
+  const scanInputRef = useRef(null);
+  const [scanCode, setScanCode] = useState("");
+  const [scanBusy, setScanBusy] = useState(false);
+  const [scanResult, setScanResult] = useState(null);
+  const [scanFlashId, setScanFlashId] = useState(null);
+  const [scannerOpen, setScannerOpen] = useState(false);
+
+  const focusScanInput = useCallback(() => {
+    setTimeout(() => scanInputRef.current?.focus(), 60);
+  }, []);
 
   const cargar = useCallback(async () => {
     setLoading(true);
@@ -260,7 +441,12 @@ export default function PanolEnvioDetail({ envioId, profile, canReceive, isManag
       const [e, ev] = await Promise.all([fetchEnvio(envioId), fetchEventos(envioId)]);
       setEnvio(canSeePrices ? e : {
         ...e,
-        items: (e.items || []).map(({ precio_unitario, moneda, ...item }) => item),
+        items: (e.items || []).map((item) => {
+          const clean = { ...item };
+          delete clean.precio_unitario;
+          delete clean.moneda;
+          return clean;
+        }),
       });
       setEventos(ev);
       return e;
@@ -276,6 +462,7 @@ export default function PanolEnvioDetail({ envioId, profile, canReceive, isManag
   const items = envio?.items || EMPTY_ITEMS;
   const resumen = useMemo(() => resumenItems(items), [items]);
   const cerrado = envio && ["cerrado", "cancelado"].includes(envio.estado);
+  const scanEnabled = !!canReceive && !cerrado && !loading;
 
   const filteredItems = useMemo(() => {
     const term = itemQ.trim().toLowerCase();
@@ -289,6 +476,75 @@ export default function PanolEnvioDetail({ envioId, profile, canReceive, isManag
   const visibleIds = useMemo(() => filteredItems.map((item) => item.id), [filteredItems]);
   const selectedVisible = useMemo(() => visibleIds.filter((id) => sel.has(id)).length, [visibleIds, sel]);
   const allVisibleSelected = visibleIds.length > 0 && selectedVisible === visibleIds.length;
+  const scanReadyCount = useMemo(() => items.filter((item) => barcodeOfItem(item)).length, [items]);
+
+  useEffect(() => {
+    if (scanEnabled) focusScanInput();
+  }, [scanEnabled, envioId, focusScanInput]);
+
+  function findItemForScan(code) {
+    const cleanCode = normalizeBarcode(code);
+    const matches = items.filter((item) => barcodeOfItem(item) === cleanCode);
+    return {
+      matches,
+      item: matches.find((item) => !isScanComplete(item)) || null,
+    };
+  }
+
+  async function processScan(rawCode) {
+    const cleanCode = normalizeBarcode(rawCode);
+    if (!cleanCode || scanBusy) return;
+    setScanCode("");
+    setScanBusy(true);
+
+    try {
+      const { matches, item } = findItemForScan(cleanCode);
+      if (!matches.length) {
+        const msgText = scanReadyCount
+          ? `Codigo ${cleanCode} no pertenece a este envio.`
+          : "Este envio no tiene items vinculados a codigo de barras.";
+        setScanResult({ ok: false, code: cleanCode, msg: msgText });
+        beep(300, 200);
+        toast.warning(msgText);
+        return;
+      }
+
+      if (!item) {
+        const msgText = `${matches[0].descripcion} ya estaba recibido.`;
+        setScanResult({ ok: false, code: cleanCode, msg: msgText });
+        beep(520, 160);
+        toast.warning(msgText);
+        return;
+      }
+
+      const receipt = scanReceiptForItem(item);
+      await marcarItems([item.id], receipt.estado, { cantidadRecibida: receipt.cantidadRecibida });
+      await cargar();
+      setItemQ("");
+      setItemEstado("todos");
+      setScanResult({ ok: true, code: cleanCode, msg: `${item.descripcion} - ${receipt.label}` });
+      setScanFlashId(item.id);
+      setTimeout(() => setScanFlashId((current) => (current === item.id ? null : current)), 1400);
+      beep(900, 80);
+    } catch (err) {
+      const msgText = err.message || "No se pudo registrar el escaneo.";
+      setScanResult({ ok: false, code: cleanCode, msg: msgText });
+      beep(300, 200);
+      toast.error(msgText);
+    } finally {
+      setScanBusy(false);
+      focusScanInput();
+    }
+  }
+
+  function submitScan() {
+    processScan(scanCode);
+  }
+
+  useKeyboardWedge({
+    enabled: scanEnabled && !scannerOpen && !partialModal,
+    onScan: processScan,
+  });
 
   function toggle(id) {
     setSel((prev) => {
@@ -614,6 +870,20 @@ export default function PanolEnvioDetail({ envioId, profile, canReceive, isManag
         </div>
       )}
 
+      {scanEnabled && (
+        <ScanReceiptPanel
+          value={scanCode}
+          onChange={setScanCode}
+          onSubmit={submitScan}
+          onOpenCamera={() => setScannerOpen(true)}
+          inputRef={scanInputRef}
+          result={scanResult}
+          busy={scanBusy}
+          isMobile={isMobile}
+          readyCount={scanReadyCount}
+        />
+      )}
+
       <div style={{
         flex: 1,
         minHeight: 0,
@@ -742,6 +1012,7 @@ export default function PanolEnvioDetail({ envioId, profile, canReceive, isManag
                       key={item.id}
                       item={item}
                       selected={sel.has(item.id)}
+                      flash={scanFlashId === item.id}
                       canEdit={canReceive && !cerrado}
                       saving={saving}
                       onToggle={() => toggle(item.id)}
@@ -753,6 +1024,7 @@ export default function PanolEnvioDetail({ envioId, profile, canReceive, isManag
                       key={item.id}
                       item={item}
                       selected={sel.has(item.id)}
+                      flash={scanFlashId === item.id}
                       canEdit={canReceive && !cerrado}
                       canSeePrices={canSeePrices}
                       saving={saving}
@@ -871,11 +1143,20 @@ export default function PanolEnvioDetail({ envioId, profile, canReceive, isManag
           onSave={aplicarParciales}
         />
       )}
+
+      <BarcodeScanner
+        open={scannerOpen}
+        onClose={() => { setScannerOpen(false); focusScanInput(); }}
+        onScan={(code) => {
+          setScannerOpen(false);
+          processScan(code);
+        }}
+      />
     </>
   );
 }
 
-function DesktopItemRow({ item, selected, canEdit, canSeePrices, saving, onToggle, onApply, onSaveNote }) {
+function DesktopItemRow({ item, selected, flash, canEdit, canSeePrices, saving, onToggle, onApply, onSaveNote }) {
   const meta = ITEM_ESTADO_META[item.estado] ?? ITEM_ESTADO_META.pendiente;
   return (
     <div style={{
@@ -888,8 +1169,8 @@ function DesktopItemRow({ item, selected, canEdit, canSeePrices, saving, onToggl
       padding: "9px 18px",
       minHeight: 58,
       borderBottom: `1px solid ${C.border}`,
-      background: selected ? "var(--blue-soft)" : C.bg,
-      borderLeft: `3px solid ${selected ? C.blue : meta.color}`,
+      background: flash ? "var(--green-soft)" : selected ? "var(--blue-soft)" : C.bg,
+      borderLeft: `3px solid ${flash ? C.green : selected ? C.blue : meta.color}`,
     }}>
       {canEdit && (
         <input
@@ -996,14 +1277,14 @@ function DesktopItemRow({ item, selected, canEdit, canSeePrices, saving, onToggl
   );
 }
 
-function MobileItemCard({ item, selected, canEdit, saving, onToggle, onApply, onSaveNote }) {
+function MobileItemCard({ item, selected, flash, canEdit, saving, onToggle, onApply, onSaveNote }) {
   const meta = ITEM_ESTADO_META[item.estado] ?? ITEM_ESTADO_META.pendiente;
   return (
     <div style={{
-      border: `1px solid ${selected ? C.blueB : C.border}`,
-      borderLeft: `4px solid ${selected ? C.blue : meta.color}`,
+      border: `1px solid ${flash ? C.greenB : selected ? C.blueB : C.border}`,
+      borderLeft: `4px solid ${flash ? C.green : selected ? C.blue : meta.color}`,
       borderRadius: 12,
-      background: selected ? "var(--blue-soft)" : C.panelSolid,
+      background: flash ? "var(--green-soft)" : selected ? "var(--blue-soft)" : C.panelSolid,
       padding: 12,
       display: "grid",
       gap: 10,

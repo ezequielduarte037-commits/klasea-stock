@@ -138,7 +138,7 @@ export async function createPurchaseRequest({ form, ccUserIds = [], photoFile })
     source: form.source || null,
     source_ref: form.source_ref || null,
     source_url: form.source_url || null,
-    es_adicional: normalizeRequestKind(form),
+    es_adicional: normalizeRequestKind(form) === "adicional",
     created_by: userId,
   };
 

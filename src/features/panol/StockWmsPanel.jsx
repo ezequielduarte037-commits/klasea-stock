@@ -1,4 +1,4 @@
-import { createElement, useCallback, useEffect, useMemo, useState } from "react";
+import { createElement, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
   AlertTriangle,
   ArrowUpRight,
@@ -13,6 +13,7 @@ import {
 } from "lucide-react";
 import { C } from "@/theme";
 import BarcodeScanner from "@/features/panol/BarcodeScanner";
+import useKeyboardWedge from "@/features/panol/useKeyboardWedge";
 import {
   crearEnvio,
   crearPanolCatalogMaterialParaEgreso,
@@ -40,6 +41,23 @@ function norm(value = "") {
     .replace(/[^\w\s.-]+/g, " ")
     .replace(/\s+/g, " ")
     .trim();
+}
+
+function codeKey(value = "") {
+  return String(value ?? "").trim().toLowerCase();
+}
+
+function groupMatchesCode(group, code) {
+  const clean = codeKey(code);
+  if (!clean) return false;
+  const candidates = [
+    group.codigo,
+    group.codigo_barra,
+    group.material?.codigo,
+    group.material?.codigo_barra,
+    ...(group.rows || []).flatMap((row) => [row.codigo, row.codigo_barra]),
+  ];
+  return candidates.some((value) => codeKey(value) === clean);
 }
 
 function qty(value, fallback = 0) {
@@ -144,6 +162,7 @@ function rowSearchText(row) {
   return norm([
     row.descripcion,
     row.codigo,
+    row.codigo_barra,
     row.proveedor,
     row.rubro,
     row.categoria_nombre,
@@ -180,6 +199,7 @@ function emptyCatalogGroup(material, defaultSede = "Pampa", esAdicional = false)
     material,
     label: material.descripcion || "(sin descripcion)",
     codigo: material.codigo || "",
+    codigo_barra: material.codigo_barra || "",
     proveedor: material.proveedor || "",
     unidad: material.unidad || material.unidad_medida || "unidad",
     total: 0,
@@ -220,11 +240,13 @@ function buildProductGroups(rows = [], fObra = "todas") {
           id: row.material_id || null,
           descripcion: row.descripcion || "",
           codigo: row.codigo || "",
+          codigo_barra: row.codigo_barra || "",
           unidad: row.unidad || "unidad",
           proveedor: row.proveedor || "",
         },
         label: row.descripcion || "(sin descripcion)",
         codigo: row.codigo || "",
+        codigo_barra: row.codigo_barra || "",
         proveedor: row.proveedor || "",
         unidad: row.unidad || "unidad",
         tipoPedido,
@@ -240,6 +262,10 @@ function buildProductGroups(rows = [], fObra = "todas") {
       });
     }
     const group = map.get(key);
+    if (!group.codigo_barra && row.codigo_barra) {
+      group.codigo_barra = row.codigo_barra;
+      group.material.codigo_barra = row.codigo_barra;
+    }
     const delta = rowDelta(row);
     const locKey = rowLocationKey(row);
     if (!group.locationMap.has(locKey)) {
@@ -1192,6 +1218,7 @@ function ProductDetail({ group, isMobile, obras, sedeLocked, canReceive, mode, o
 }
 
 export default function StockWmsPanel({ sedeLocked = null, isMobile = false, toast, mode = "stock", canReceive = true, canCreateCatalog = false, initialFObra = "todas", initialScope = "todos" }) {
+  const searchInputRef = useRef(null);
   const [rows, setRows] = useState([]);
   const [obras, setObras] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -1209,6 +1236,11 @@ export default function StockWmsPanel({ sedeLocked = null, isMobile = false, toa
   const [cart, setCart] = useState([]);
 
   const defaultSede = sedeLocked || (fSede !== "todas" ? fSede : "Pampa");
+
+  useEffect(() => {
+    const timer = setTimeout(() => searchInputRef.current?.focus(), 80);
+    return () => clearTimeout(timer);
+  }, [mode]);
 
   const cargar = useCallback(async () => {
     setLoading(true);
@@ -1262,6 +1294,16 @@ export default function StockWmsPanel({ sedeLocked = null, isMobile = false, toa
   }, [rows]);
 
   const categoriaOptions = useMemo(() => filterOptions(rows, categoryLabel), [rows]);
+  const scanRows = useMemo(() => {
+    let filtered = rows;
+    if (fObra !== "todas") filtered = filtered.filter((row) => rowLocationKey(row) === fObra);
+    if (fCategoria !== "todos") filtered = filtered.filter((row) => categoryLabel(row) === fCategoria);
+    if (kindScope === "stock") filtered = filtered.filter((row) => rowTipoPedido(row) === "stock");
+    if (kindScope === "estandar") filtered = filtered.filter((row) => rowTipoPedido(row) === "estandar");
+    if (kindScope === "adicional") filtered = filtered.filter((row) => rowTipoPedido(row) === "adicional");
+    return filtered;
+  }, [rows, fObra, fCategoria, kindScope]);
+  const scanGroups = useMemo(() => buildProductGroups(scanRows, fObra), [scanRows, fObra]);
 
   const productGroupsBase = useMemo(() => buildProductGroups(searchedRows, fObra), [searchedRows, fObra]);
   const productGroups = useMemo(() => {
@@ -1369,6 +1411,26 @@ export default function StockWmsPanel({ sedeLocked = null, isMobile = false, toa
     setSelectedKey(group.key);
   }
 
+  function applyScanCode(rawCode) {
+    const code = String(rawCode || "").trim();
+    if (!code) return;
+    setQ(code);
+    const exact = scanGroups.find((group) => groupMatchesCode(group, code));
+    if (exact) {
+      setSelectedKey(exact.key);
+      toast?.success?.(`${mode === "egreso" ? "Listo para egresar" : "Producto detectado"}: ${exact.label}`);
+    } else {
+      setSelectedKey(null);
+      if (mode === "egreso") toast?.warning?.("No esta en stock. Buscando en catalogo para egresarlo igual.");
+    }
+    setTimeout(() => searchInputRef.current?.focus(), 60);
+  }
+
+  useKeyboardWedge({
+    enabled: !scannerOpen,
+    onScan: applyScanCode,
+  });
+
   return (
     <>
       <div style={{ background: C.topbarSoft, borderBottom: `1px solid ${C.border}`, padding: isMobile ? "10px 12px" : "10px 18px", display: "grid", gap: 10, flexShrink: 0 }}>
@@ -1376,9 +1438,17 @@ export default function StockWmsPanel({ sedeLocked = null, isMobile = false, toa
           <div style={{ position: "relative", flex: "1 1 320px", minWidth: isMobile ? "100%" : 320 }}>
             <Search size={15} style={{ position: "absolute", left: 11, top: "50%", transform: "translateY(-50%)", color: C.dim }} />
             <input
+              ref={searchInputRef}
               value={q}
               onChange={(event) => setQ(event.target.value)}
+              onKeyDown={(event) => {
+                if (event.key === "Enter" || event.key === "Tab") {
+                  event.preventDefault();
+                  applyScanCode(q);
+                }
+              }}
               placeholder={mode === "egreso" ? "Escanear o buscar codigo / producto..." : "Escanear o buscar codigo, producto, obra, proveedor..."}
+              title="Acepta lector USB/PC: escanea y confirma con Enter o Tab"
               style={{ width: "100%", boxSizing: "border-box", background: C.panelSolid, border: `1px solid ${C.border}`, color: C.text, padding: "9px 34px", borderRadius: 10, fontSize: 13, fontFamily: C.sans, outline: "none" }}
             />
             {q && (
@@ -1390,7 +1460,7 @@ export default function StockWmsPanel({ sedeLocked = null, isMobile = false, toa
           <button type="button" onClick={() => setScannerOpen(true)} title="Escanear con la cámara" style={{ border: `1px solid ${C.blueB}`, background: C.blueL, color: C.blue, borderRadius: 10, padding: "9px 11px", cursor: "pointer", display: "flex", alignItems: "center", gap: 6, fontSize: 12.5, fontWeight: 850, fontFamily: C.sans, flexShrink: 0 }}>
             <ScanLine size={16} />{!isMobile && <span>Escanear</span>}
           </button>
-          <BarcodeScanner open={scannerOpen} onClose={() => setScannerOpen(false)} onScan={(code) => { setQ(code); setScannerOpen(false); }} />
+          <BarcodeScanner open={scannerOpen} onClose={() => setScannerOpen(false)} onScan={(code) => { setScannerOpen(false); applyScanCode(code); }} />
           <SelectFilter label="Vista" value={scope} onChange={setScope} options={[["todos", "Todos"], ["negativos", "A reconciliar"]]} />
           <SelectFilter label="Tipo" value={kindScope} onChange={setKindScope} options={[["todos", `Todos (${kindCounts.todos})`], ["stock", `Stock pañol (${kindCounts.stock})`], ["estandar", `Estándar (${kindCounts.estandar})`], ["adicional", `Adicionales (${kindCounts.adicional})`]]} />
           <SelectFilter label="Obra / stock" value={fObra} onChange={setFObra} options={obraOptions} />

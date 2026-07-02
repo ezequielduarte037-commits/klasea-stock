@@ -1,18 +1,37 @@
-import { useEffect, useRef, useState } from "react";
-import { Camera, X, ScanLine } from "lucide-react";
+import { useCallback, useEffect, useRef, useState } from "react";
+import { Camera, Keyboard, X, ScanLine } from "lucide-react";
 import { C } from "@/theme";
+import useKeyboardWedge from "@/features/panol/useKeyboardWedge";
 
 // Escáner de código de barras / QR con la cámara del dispositivo.
 // Usa la API nativa BarcodeDetector (Chrome/Android). Si no está soportada,
 // cae a input manual. Requiere HTTPS + permiso de cámara.
 export default function BarcodeScanner({ open, onClose, onScan }) {
   const videoRef = useRef(null);
+  const manualRef = useRef(null);
   const onScanRef = useRef(onScan);
   useEffect(() => { onScanRef.current = onScan; }, [onScan]);
   const [error, setError] = useState("");
   const [manual, setManual] = useState("");
 
   const supported = typeof window !== "undefined" && "BarcodeDetector" in window;
+  const pointerCoarse = typeof window !== "undefined" && !!window.matchMedia?.("(pointer: coarse)")?.matches;
+  const preferHardwareInput = !pointerCoarse;
+
+  const submitCode = useCallback((value) => {
+    const code = String(value ?? "").trim();
+    if (!code) return;
+    setManual("");
+    onScanRef.current?.(code);
+  }, []);
+
+  useKeyboardWedge({ enabled: open, onScan: submitCode });
+
+  useEffect(() => {
+    if (!open || !preferHardwareInput) return undefined;
+    const timer = setTimeout(() => manualRef.current?.focus(), 80);
+    return () => clearTimeout(timer);
+  }, [open, preferHardwareInput]);
 
   useEffect(() => {
     if (!open || !supported) return undefined;
@@ -37,7 +56,7 @@ export default function BarcodeScanner({ open, onClose, onScan }) {
             const val = codes && codes.length ? String(codes[0].rawValue || "").trim() : "";
             if (val) {
               done = true;
-              onScanRef.current?.(val);
+              submitCode(val);
               return;
             }
           } catch {
@@ -56,7 +75,7 @@ export default function BarcodeScanner({ open, onClose, onScan }) {
       if (raf) cancelAnimationFrame(raf);
       if (stream) stream.getTracks().forEach((t) => t.stop());
     };
-  }, [open, supported]);
+  }, [open, supported, submitCode]);
 
   if (!open) return null;
 
@@ -75,6 +94,11 @@ export default function BarcodeScanner({ open, onClose, onScan }) {
         </div>
 
         <div style={{ padding: 16, display: "grid", gap: 12 }}>
+          <div style={{ display: "flex", gap: 9, alignItems: "flex-start", border: `1px solid ${C.blueB}`, background: C.blueL, color: C.blue, borderRadius: 10, padding: "10px 11px", fontSize: 12.5, lineHeight: 1.4 }}>
+            <Keyboard size={16} style={{ marginTop: 1, flexShrink: 0 }} />
+            <span>Lector USB / PC activo: escanea directo o enfoca el campo de abajo. Enter o Tab confirma el codigo.</span>
+          </div>
+
           {supported ? (
             <div style={{ position: "relative", borderRadius: 12, overflow: "hidden", background: "#000", aspectRatio: "4 / 3" }}>
               <video ref={videoRef} muted playsInline style={{ width: "100%", height: "100%", objectFit: "cover" }} />
@@ -93,17 +117,23 @@ export default function BarcodeScanner({ open, onClose, onScan }) {
 
           <div style={{ display: "grid", gridTemplateColumns: "1fr auto", gap: 8 }}>
             <input
+              ref={manualRef}
               value={manual}
               onChange={(e) => setManual(e.target.value)}
-              onKeyDown={(e) => { if (e.key === "Enter" && manual.trim()) onScan?.(manual.trim()); }}
+              onKeyDown={(e) => {
+                if ((e.key === "Enter" || e.key === "Tab") && manual.trim()) {
+                  e.preventDefault();
+                  submitCode(manual);
+                }
+              }}
               placeholder="o escribí el código…"
-              autoFocus={!supported}
+              autoFocus={preferHardwareInput || !supported}
               style={{ background: C.panel, border: `1px solid ${C.border}`, color: C.text, borderRadius: 9, padding: "10px 11px", fontSize: 13, fontFamily: C.sans, outline: "none", minWidth: 0 }}
             />
             <button
               type="button"
               disabled={!manual.trim()}
-              onClick={() => manual.trim() && onScan?.(manual.trim())}
+              onClick={() => submitCode(manual)}
               style={{ border: `1px solid ${C.blueB}`, background: manual.trim() ? C.blue : C.panel, color: manual.trim() ? "#fff" : C.dim, borderRadius: 9, padding: "10px 16px", cursor: manual.trim() ? "pointer" : "default", fontSize: 13, fontWeight: 850, fontFamily: C.sans }}
             >
               Usar

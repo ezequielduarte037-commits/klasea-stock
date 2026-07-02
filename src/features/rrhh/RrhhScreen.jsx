@@ -23,7 +23,7 @@ const TABS = [
 
 export default function RrhhScreen({ profile, signOut }) {
   const { isMobile } = useResponsive();
-  const esAdmin = hasAdminAccess(profile) || profile?.role === "admin" || profile?.role === "rrhh";
+  const esAdmin = profile?.is_admin || profile?.role === "admin" || profile?.role === "rrhh";
 
   const [tab, setTab] = useState("presentismo");
   const [empleados, setEmpleados] = useState(null);
@@ -80,7 +80,7 @@ export default function RrhhScreen({ profile, signOut }) {
             <>
               {/* Tabs */}
               <div style={{ display: "flex", gap: 4, marginBottom: 20, flexWrap: "wrap", borderBottom: `1px solid ${C.b0}`, paddingBottom: 0 }}>
-                {TABS.map(t => {
+                {TABS.filter(t => esAdmin || ["presentismo", "extras", "dashboard"].includes(t.key)).map(t => {
                   const on = tab === t.key;
                   return (
                     <button key={t.key} onClick={() => setTab(t.key)} style={{

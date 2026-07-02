@@ -3,6 +3,8 @@ import { Plus, Save, Search, Trash2 } from "lucide-react";
 import { bajaProveedor, guardarProveedor } from "./api";
 import { BTN, BTN_GREEN, BTN_PRIMARY, INP, LBL, Td, Th } from "@/features/rrhh/ui";
 import { C } from "@/theme";
+import ProveedorTipoBadge from "./ProveedorTipoBadge";
+import { PROVEEDOR_TIPOS, proveedorTipoUi } from "./proveedorMeta";
 
 function digits(value) {
   return String(value ?? "").replace(/\D/g, "");
@@ -15,7 +17,7 @@ function formatCuit(value) {
 }
 
 function emptyProveedor() {
-  return { nombre: "", cuit: "", email: "", telefono: "", notas: "", activo: true };
+  return { nombre: "", cuit: "", email: "", telefono: "", notas: "", tipo: "", rubros: "", sede: "", perfil: "", compite_con: "", activo: true };
 }
 
 export default function ProveedoresTab({ proveedores, onChanged }) {
@@ -28,7 +30,7 @@ export default function ProveedoresTab({ proveedores, onChanged }) {
     const query = q.trim().toLowerCase();
     return [...(proveedores ?? [])]
       .filter((p) => p.activo !== false)
-      .filter((p) => !query || `${p.nombre ?? ""} ${p.cuit ?? ""} ${p.email ?? ""}`.toLowerCase().includes(query))
+      .filter((p) => !query || `${p.nombre ?? ""} ${p.cuit ?? ""} ${p.email ?? ""} ${p.tipo ?? ""} ${p.rubros ?? ""} ${p.sede ?? ""} ${p.perfil ?? ""} ${p.compite_con ?? ""}`.toLowerCase().includes(query))
       .sort((a, b) => String(a.nombre ?? "").localeCompare(String(b.nombre ?? ""), "es"));
   }, [proveedores, q]);
 
@@ -79,6 +81,13 @@ export default function ProveedoresTab({ proveedores, onChanged }) {
               <input autoFocus value={editing.nombre || ""} onChange={(e) => setEditing((p) => ({ ...p, nombre: e.target.value }))} style={{ ...INP, width: "100%" }} />
             </div>
             <div>
+              <label style={LBL}>Tipo</label>
+              <select value={editing.tipo || ""} onChange={(e) => setEditing((p) => ({ ...p, tipo: e.target.value || null }))} style={{ ...INP, width: "100%" }}>
+                <option value="">Sin clasificar</option>
+                {PROVEEDOR_TIPOS.map((tipo) => <option key={tipo} value={tipo}>{proveedorTipoUi(tipo)?.label || tipo}</option>)}
+              </select>
+            </div>
+            <div>
               <label style={LBL}>CUIT</label>
               <input value={editing.cuit || ""} onChange={(e) => setEditing((p) => ({ ...p, cuit: e.target.value }))} onBlur={(e) => setEditing((p) => ({ ...p, cuit: formatCuit(e.target.value) }))} placeholder="XX-XXXXXXXX-X" style={{ ...INP, width: "100%" }} />
             </div>
@@ -90,6 +99,24 @@ export default function ProveedoresTab({ proveedores, onChanged }) {
               <label style={LBL}>Teléfono</label>
               <input value={editing.telefono || ""} onChange={(e) => setEditing((p) => ({ ...p, telefono: e.target.value }))} style={{ ...INP, width: "100%" }} />
             </div>
+          </div>
+          <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(180px, 1fr))", gap: 10, marginBottom: 10 }}>
+            <div>
+              <label style={LBL}>Rubros</label>
+              <input value={editing.rubros || ""} onChange={(e) => setEditing((p) => ({ ...p, rubros: e.target.value }))} placeholder="Que trae" style={{ ...INP, width: "100%" }} />
+            </div>
+            <div>
+              <label style={LBL}>Sede predominante</label>
+              <input value={editing.sede || ""} onChange={(e) => setEditing((p) => ({ ...p, sede: e.target.value }))} placeholder="Pampa / Chubut" style={{ ...INP, width: "100%" }} />
+            </div>
+            <div>
+              <label style={LBL}>Compite con</label>
+              <input value={editing.compite_con || ""} onChange={(e) => setEditing((p) => ({ ...p, compite_con: e.target.value }))} placeholder="Grupo comparable" style={{ ...INP, width: "100%" }} />
+            </div>
+          </div>
+          <div style={{ marginBottom: 10 }}>
+            <label style={LBL}>Perfil</label>
+            <input value={editing.perfil || ""} onChange={(e) => setEditing((p) => ({ ...p, perfil: e.target.value }))} placeholder="Contexto del proveedor" style={{ ...INP, width: "100%" }} />
           </div>
           <div style={{ marginBottom: 10 }}>
             <label style={LBL}>Notas</label>
@@ -106,13 +133,13 @@ export default function ProveedoresTab({ proveedores, onChanged }) {
       )}
 
       <div style={{ overflowX: "auto", border: `1px solid ${C.b0}`, borderRadius: 12 }}>
-        <table style={{ width: "100%", minWidth: 760, borderCollapse: "collapse" }}>
+        <table style={{ width: "100%", minWidth: 900, borderCollapse: "collapse" }}>
           <thead>
             <tr>
               <Th>Nombre</Th>
-              <Th>CUIT</Th>
-              <Th>Email</Th>
-              <Th>Teléfono</Th>
+              <Th>Tipo</Th>
+              <Th>Rubros / sede</Th>
+              <Th>Contacto</Th>
               <Th>Notas</Th>
               <Th>Acción</Th>
             </tr>
@@ -120,10 +147,26 @@ export default function ProveedoresTab({ proveedores, onChanged }) {
           <tbody>
             {visibles.map((p) => (
               <tr key={p.id}>
-                <Td>{p.nombre}</Td>
-                <Td mono color={C.t1}>{p.cuit || "—"}</Td>
-                <Td color={C.t1}>{p.email || "—"}</Td>
-                <Td color={C.t1}>{p.telefono || "—"}</Td>
+                <Td>
+                  <div style={{ display: "grid", gap: 3 }}>
+                    <span style={{ color: C.t0, fontWeight: 850 }}>{p.nombre}</span>
+                    {p.compite_con && <span style={{ color: C.t3, fontSize: 11 }}>Compite: {p.compite_con}</span>}
+                  </div>
+                </Td>
+                <Td><ProveedorTipoBadge meta={p} showUnclassified /></Td>
+                <Td color={C.t1}>
+                  <div style={{ display: "grid", gap: 3, fontSize: 12 }}>
+                    <span>{p.rubros || "—"}</span>
+                    {p.sede && <span style={{ color: C.t3 }}>Sede: {p.sede}</span>}
+                  </div>
+                </Td>
+                <Td color={C.t1}>
+                  <div style={{ display: "grid", gap: 3, fontSize: 12 }}>
+                    <span>{p.cuit || "—"}</span>
+                    {p.email && <span>{p.email}</span>}
+                    {p.telefono && <span>{p.telefono}</span>}
+                  </div>
+                </Td>
                 <Td color={C.t2}>{p.notas || "—"}</Td>
                 <Td>
                   <div style={{ display: "flex", gap: 6 }}>

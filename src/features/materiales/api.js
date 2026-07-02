@@ -35,7 +35,7 @@ async function fetchPaged(table, select, orderColumn = "id") {
 }
 
 async function fetchMaterialesCatalogo() {
-  const baseSelect = "id, categoria_id, proveedor_id, codigo, descripcion, proveedor, unidad_medida, precio_unitario, moneda, imagen_url, revisado, origen, notas, activo, batch_id, created_at";
+  const baseSelect = "id, categoria_id, proveedor_id, codigo, descripcion, proveedor, unidad_medida, precio_unitario, moneda, imagen_url, revisado, origen, notas, activo, batch_id, created_at, codigo_barra";
   try {
     return await fetchPaged("panol_materiales", `${baseSelect}, variantes`, "descripcion");
   } catch (error) {
@@ -60,7 +60,7 @@ function toNullableNumber(value) {
 }
 
 function normalizeVariantes(value) {
-  const raw = Array.isArray(value) ? value : String(value || "").split(/[,\n;\/]+/);
+  const raw = Array.isArray(value) ? value : String(value || "").split(/[,\n;/]+/);
   const seen = new Set();
   return raw
     .map((item) => String(item || "").trim())
@@ -159,10 +159,70 @@ export async function fetchBatches() {
 export async function fetchProveedores() {
   const { data, error } = await supabase
     .from("panol_proveedores")
-    .select("id, nombre, cuit, email, telefono, notas, activo")
+    .select("id, nombre, cuit, email, telefono, notas, activo, tipo, rubros, sede, perfil, compite_con")
     .order("nombre");
   if (error) throw error;
   return data ?? [];
+}
+
+export async function fetchMaterialAudit(materialId, limit = 80) {
+  if (!materialId) return [];
+  const cleanLimit = Math.min(Math.max(Number(limit) || 80, 1), 200);
+  const { data, error } = await supabase
+    .from("panol_materiales_audit")
+    .select("id, material_id, material_descripcion, campo, valor_anterior, valor_nuevo, actor_id, origen, contexto, created_at")
+    .eq("material_id", materialId)
+    .order("created_at", { ascending: false })
+    .limit(cleanLimit);
+  if (error) {
+    if (isMissingTable(error)) return [];
+    throw error;
+  }
+  return data ?? [];
+}
+
+const MATERIAL_AUDIT_RESTORE_FIELDS = new Set([
+  "descripcion",
+  "proveedor",
+  "proveedor_id",
+  "categoria_id",
+  "codigo",
+  "codigo_barra",
+  "unidad_medida",
+  "precio_unitario",
+  "moneda",
+  "variantes",
+  "notas",
+  "imagen_url",
+  "revisado",
+  "activo",
+]);
+
+export async function restaurarMaterialAuditChange(auditRow) {
+  const materialId = auditRow?.material_id;
+  const campo = auditRow?.campo;
+  if (!materialId) throw new Error("No se puede restaurar: el material ya no existe.");
+  if (!MATERIAL_AUDIT_RESTORE_FIELDS.has(campo)) throw new Error("Ese campo no se puede restaurar desde el historial.");
+
+  let value = auditRow.valor_anterior;
+  if (campo === "descripcion") {
+    value = String(value || "").trim();
+    if (!value) throw new Error("No se puede restaurar una descripcion vacia.");
+  } else if (campo === "precio_unitario") {
+    value = toNullableNumber(value);
+  } else if (campo === "variantes") {
+    value = normalizeVariantes(value);
+  } else if (campo === "activo" || campo === "revisado") {
+    value = Boolean(value);
+  } else if (value === "") {
+    value = null;
+  }
+
+  const { error } = await supabase
+    .from("panol_materiales")
+    .update({ [campo]: value })
+    .eq("id", materialId);
+  if (error) throw error;
 }
 
 export async function fetchComprobantes() {
@@ -684,12 +744,14 @@ export async function guardarMaterial(material, cantidades, { revisado } = {}) {
     notas: material.notas || null,
     variantes: normalizeVariantes(material.variantes),
     activo: material.activo ?? true,
+    codigo_barra: material.codigo_barra || null,
   };
   if (revisado != null) patch.revisado = revisado;
 
   let { error } = await supabase.from("panol_materiales").update(patch).eq("id", material.id);
   if (error && isMissingColumn(error)) {
-    const { variantes, ...fallbackPatch } = patch;
+    const fallbackPatch = { ...patch };
+    delete fallbackPatch.variantes;
     const retry = await supabase.from("panol_materiales").update(fallbackPatch).eq("id", material.id);
     error = retry.error;
   }
@@ -712,6 +774,7 @@ export async function crearMaterial(material, cantidades = {}) {
       imagen_url: material.imagen_url || null,
       variantes: normalizeVariantes(material.variantes),
       origen: "manual",
+      codigo_barra: material.codigo_barra || null,
       revisado: material.revisado ?? true,
       activo: true,
     })
@@ -812,6 +875,11 @@ export async function guardarProveedor(proveedor) {
     email: proveedor.email || null,
     telefono: proveedor.telefono || null,
     notas: proveedor.notas || null,
+    tipo: proveedor.tipo || null,
+    rubros: proveedor.rubros || null,
+    sede: proveedor.sede || null,
+    perfil: proveedor.perfil || null,
+    compite_con: proveedor.compite_con || null,
     activo: proveedor.activo ?? true,
   };
   if (!patch.nombre) throw new Error("El nombre del proveedor es obligatorio.");

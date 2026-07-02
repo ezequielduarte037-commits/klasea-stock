@@ -14,6 +14,12 @@ function isMissingTable(error) {
   return error.code === "42P01" || msg.includes("does not exist") || msg.includes("schema cache") || msg.includes("not found");
 }
 
+function isMissingColumn(error) {
+  if (!error) return false;
+  const msg = String(error.message ?? "").toLowerCase();
+  return error.code === "42703" || msg.includes("could not find") || msg.includes("column");
+}
+
 async function pagedSafe(table, select, orderColumn) {
   const out = [];
   try {
@@ -58,10 +64,35 @@ export async function setMaterialAreas(materialId, categoriaIds) {
 // Tolerante: {} si la tabla aún no existe.
 export async function fetchProveedoresMaterialMap() {
   const { ok, rows } = await pagedSafe("panol_material_proveedores", "material_id, proveedor_id, precio, moneda", "material_id");
+  const proveedorIds = [...new Set(rows.map((row) => row.proveedor_id).filter(Boolean))];
+  const proveedorById = new Map();
+  if (proveedorIds.length) {
+    try {
+      const { data, error } = await supabase
+        .from("panol_proveedores")
+        .select("id, nombre, tipo, rubros, sede, perfil, compite_con")
+        .in("id", proveedorIds);
+      if (error) throw error;
+      for (const proveedor of data ?? []) proveedorById.set(proveedor.id, proveedor);
+    } catch (error) {
+      if (!isMissingTable(error) && !isMissingColumn(error)) throw error;
+    }
+  }
   const map = new Map();
   for (const r of rows) {
     if (!map.has(r.material_id)) map.set(r.material_id, []);
-    map.get(r.material_id).push({ proveedor_id: r.proveedor_id, precio: r.precio, moneda: r.moneda });
+    const proveedor = proveedorById.get(r.proveedor_id) || null;
+    map.get(r.material_id).push({
+      proveedor_id: r.proveedor_id,
+      precio: r.precio,
+      moneda: r.moneda,
+      proveedor,
+      tipo: proveedor?.tipo || null,
+      rubros: proveedor?.rubros || null,
+      sede: proveedor?.sede || null,
+      perfil: proveedor?.perfil || null,
+      compite_con: proveedor?.compite_con || null,
+    });
   }
   return { ok, map };
 }

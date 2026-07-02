@@ -199,7 +199,7 @@ export default function Sidebar({ profile, signOut }) {
   const esTecnica = role === "tecnica" || role === "oficina";
   const esGestion = isAdmin || role === "admin" || esTecnica;
   const esAdmin   = isAdmin || role === "admin";
-  const esRrhh    = esAdmin || role === "rrhh";
+  const esRrhh    = esAdmin || role === "rrhh" || esTecnica;
   const esCompras = role === "compras";
   const puedeEditarPlantillas = isAdmin || role === "admin" || role === "tecnica";
   const puedePedirCompras = esGestion || esPanol || esCompras;
