@@ -4,6 +4,8 @@ import {
   Archive,
   AlertTriangle,
   BarChart3,
+  Bell,
+  ChevronRight,
   CheckCircle2,
   Clock,
   Filter,
@@ -117,6 +119,7 @@ const priorityColors = {
 };
 
 const ARCHIVED_STATUSES = ["recibido", "cancelado"];
+const EMPTY_ARRAY = [];
 
 const inputStyle = {
   width: "100%",
@@ -467,7 +470,66 @@ const STOCK_DESTINOS = ["Stock Chubut 2120", "Stock Pampa 1050"];
 const CREATE_DRAFT_PREFIX = "purchase-request-create-draft";
 
 const URL_FILTER_KEYS = ["q", "status", "priority", "creator", "project", "dateFrom", "dateTo"];
-const MANAGER_TABS = ["lista", "dashboard", "avisos", "registro", "adicionales", "caja"];
+const MANAGER_TABS = ["pendientes", "lista", "dashboard", "avisos", "registro", "adicionales", "caja"];
+
+function dateOnly(value) {
+  if (!value) return null;
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return null;
+  return new Date(date.getFullYear(), date.getMonth(), date.getDate());
+}
+
+function daysBetween(from, to = new Date()) {
+  const a = dateOnly(from);
+  const b = dateOnly(to);
+  if (!a || !b) return null;
+  return Math.floor((b - a) / (1000 * 60 * 60 * 24));
+}
+
+function requestDueDate(request) {
+  return request?.estimated_delivery_at || request?.needed_at || null;
+}
+
+function attentionTextForRequest(request, unread) {
+  const due = requestDueDate(request);
+  const overdueDays = due ? daysBetween(due) : null;
+  if (unread) return { label: "Comentario sin leer", color: C.violet, score: 95 };
+  if (overdueDays != null && overdueDays > 0) return { label: `Vencido hace ${overdueDays}d`, color: C.red, score: 90 };
+  if (request.priority === "urgente") return { label: "Urgente", color: C.red, score: 85 };
+  if (request.priority === "alta") return { label: "Alta prioridad", color: C.amber, score: 74 };
+  if (request.status === "comprado") return { label: "Comprado, falta cerrar", color: C.teal, score: 58 };
+  if (request.status === "nuevo") return { label: "Nuevo", color: C.blue, score: 45 };
+  return { label: REQUEST_STATUSES.find((s) => s.value === request.status)?.label || request.status, color: statusColors[request.status] || C.dim, score: 20 };
+}
+
+function buildComprasInbox(requests = [], avisos = [], unreadIds = new Set()) {
+  const openRequests = requests.filter((request) => !ARCHIVED_STATUSES.includes(request.status));
+  const today = dateOnly(new Date());
+  const dueSoon = (request) => {
+    const due = dateOnly(requestDueDate(request));
+    if (!due || !today) return false;
+    const diff = Math.floor((due - today) / (1000 * 60 * 60 * 24));
+    return diff >= 0 && diff <= 2;
+  };
+  const activeAvisos = avisos.filter((aviso) => AVISO_ACTIVE_STATUSES.includes(aviso.estado));
+  const sortedRequests = (list) => [...list].sort((a, b) => {
+    const am = attentionTextForRequest(a, unreadIds.has(a.id));
+    const bm = attentionTextForRequest(b, unreadIds.has(b.id));
+    return bm.score - am.score || new Date(b.updated_at || b.created_at || 0) - new Date(a.updated_at || a.created_at || 0);
+  });
+
+  return {
+    openRequests,
+    activeAvisos,
+    unreadRequests: sortedRequests(openRequests.filter((request) => unreadIds.has(request.id))),
+    criticalRequests: sortedRequests(openRequests.filter((request) => {
+      const overdue = requestDueDate(request) && daysBetween(requestDueDate(request)) > 0;
+      return overdue || request.priority === "urgente";
+    })),
+    reviewRequests: sortedRequests(openRequests.filter((request) => ["nuevo", "en_revision"].includes(request.status) || unreadIds.has(request.id) || dueSoon(request))),
+    boughtRequests: sortedRequests(openRequests.filter((request) => request.status === "comprado")),
+  };
+}
 
 function createDraftKey(userId) {
   return `${CREATE_DRAFT_PREFIX}:${userId || "anon"}`;
@@ -492,7 +554,7 @@ function loadSavedDrafts(userId) {
       return Number.isFinite(t) && now - t < SAVED_DRAFT_TTL_MS;
     });
     if (vivos.length !== list.length) {
-      try { localStorage.setItem(savedDraftsKey(userId), JSON.stringify(vivos)); } catch {}
+      try { localStorage.setItem(savedDraftsKey(userId), JSON.stringify(vivos)); } catch { /* localStorage opcional */ }
     }
     return vivos;
   } catch {
@@ -501,7 +563,7 @@ function loadSavedDrafts(userId) {
 }
 
 function writeSavedDrafts(userId, list) {
-  try { localStorage.setItem(savedDraftsKey(userId), JSON.stringify(list)); } catch {}
+  try { localStorage.setItem(savedDraftsKey(userId), JSON.stringify(list)); } catch { /* localStorage opcional */ }
 }
 
 function draftTitleFrom(body) {
@@ -584,7 +646,7 @@ export default function PurchaseRequestsScreen({ profile, signOut }) {
   });
   const [managerTab, setManagerTab] = useState(() => {
     const tab = searchParams.get("tab");
-    return MANAGER_TABS.includes(tab) ? tab : "lista";
+    return MANAGER_TABS.includes(tab) ? tab : "pendientes";
   });
   const [analytics, setAnalytics] = useState(null);
   const [monthlySpending, setMonthlySpending] = useState([]);
@@ -673,7 +735,7 @@ export default function PurchaseRequestsScreen({ profile, signOut }) {
     };
     const key = createDraftKey(profile.id);
     if (!hasCreateDraftContent(body)) {
-      try { localStorage.removeItem(key); } catch {}
+      try { localStorage.removeItem(key); } catch { /* localStorage opcional */ }
       lastDraftJsonRef.current = "";
       setDraftSavedAt(null);
       return;
@@ -685,7 +747,7 @@ export default function PurchaseRequestsScreen({ profile, signOut }) {
       localStorage.setItem(key, JSON.stringify({ ...body, savedAt }));
       lastDraftJsonRef.current = json;
       setDraftSavedAt(savedAt);
-    } catch {}
+    } catch { /* localStorage opcional */ }
   }, [
     draftReady,
     profile?.id,
@@ -710,7 +772,7 @@ export default function PurchaseRequestsScreen({ profile, signOut }) {
       else next.delete(k);
     });
     if (manager) {
-      if (managerTab !== "lista") next.set("tab", managerTab);
+      if (managerTab !== "pendientes") next.set("tab", managerTab);
       else next.delete("tab");
     } else if (activeTab !== "mine") next.set("tab", activeTab);
     else next.delete("tab");
@@ -743,6 +805,16 @@ export default function PurchaseRequestsScreen({ profile, signOut }) {
     }
     return set;
   }, [requests, readMap, profile?.id]);
+
+  const comprasInbox = useMemo(() => buildComprasInbox(requests, avisos, unreadIds), [requests, avisos, unreadIds]);
+  const comprasAttentionCount = useMemo(() => {
+    const ids = new Set();
+    comprasInbox.unreadRequests.forEach((request) => ids.add(request.id));
+    comprasInbox.criticalRequests.forEach((request) => ids.add(request.id));
+    comprasInbox.reviewRequests.forEach((request) => ids.add(request.id));
+    comprasInbox.activeAvisos.forEach((aviso) => ids.add(`aviso:${aviso.id}`));
+    return ids.size;
+  }, [comprasInbox]);
 
   useEffect(() => {
     if (manager) setShowNew(false);
@@ -888,7 +960,7 @@ export default function PurchaseRequestsScreen({ profile, signOut }) {
   function resetCreateDraft(showToast = false) {
     try {
       if (profile?.id) localStorage.removeItem(createDraftKey(profile.id));
-    } catch {}
+    } catch { /* localStorage opcional */ }
     lastDraftJsonRef.current = "";
     setDraftSavedAt(null);
     setForm(emptyForm);
@@ -1230,6 +1302,14 @@ export default function PurchaseRequestsScreen({ profile, signOut }) {
 
               {manager && (
                 <div className="purchase-tabs" style={{ display: "flex", gap: 2, marginLeft: isMobile ? 0 : 10 }}>
+                  <TabBtn active={managerTab === "pendientes"} onClick={() => setManagerTab("pendientes")}>
+                    <Bell size={12} /> Pendientes
+                    {comprasAttentionCount > 0 && (
+                      <span style={{ fontFamily: C.mono, fontSize: 10, color: managerTab === "pendientes" ? C.text : C.amber }}>
+                        {comprasAttentionCount}
+                      </span>
+                    )}
+                  </TabBtn>
                   <TabBtn active={managerTab === "lista"} onClick={() => setManagerTab("lista")}>
                     <LayoutList size={12} /> Lista
                   </TabBtn>
@@ -1788,7 +1868,25 @@ export default function PurchaseRequestsScreen({ profile, signOut }) {
               )}
 
               <div className="purchase-scroll" style={{ minHeight: 0, overflowY: "auto", padding: isMobile ? "12px 12px calc(18px + env(safe-area-inset-bottom, 0px))" : 16 }}>
-                {manager && managerTab === "adicionales" ? (
+                {manager && managerTab === "pendientes" ? (
+                  <PendingComprasPanel
+                    requests={requests}
+                    avisos={avisos}
+                    inbox={comprasInbox}
+                    unreadIds={unreadIds}
+                    loading={loading}
+                    error={error || avisosError}
+                    onSelectRequest={(id) => setSelectedId(id)}
+                    onSelectAviso={(id) => {
+                      setSelectedAvisoId(id);
+                      setManagerTab("avisos");
+                    }}
+                    onGoList={(patch = {}) => {
+                      setFilters((current) => ({ ...current, ...patch }));
+                      setManagerTab("lista");
+                    }}
+                  />
+                ) : manager && managerTab === "adicionales" ? (
                   <AdditionalPurchasesPanel
                     profile={profile}
                     projects={projects}
@@ -1992,6 +2090,385 @@ export default function PurchaseRequestsScreen({ profile, signOut }) {
         @keyframes spin { to { transform: rotate(360deg); } }
         @keyframes pulse-dot { 0%,100% { opacity:1; transform:scale(1); } 50% { opacity:0.4; transform:scale(0.75); } }
       `}</style>
+    </div>
+  );
+}
+
+function PendingComprasPanel({ requests = [], avisos = [], inbox, unreadIds, loading, error, onSelectRequest, onSelectAviso, onGoList }) {
+  const { isMobile } = useResponsive();
+  const [q, setQ] = useState("");
+  const [scope, setScope] = useState("todo");
+  const data = inbox || buildComprasInbox(requests, avisos, unreadIds);
+  const openRequests = data.openRequests || EMPTY_ARRAY;
+  const reviewRequests = data.reviewRequests || EMPTY_ARRAY;
+  const urgentRequests = openRequests.filter((request) => request.priority === "urgente");
+  const overdueRequests = openRequests.filter((request) => requestDueDate(request) && daysBetween(requestDueDate(request)) > 0);
+  const activeAvisos = data.activeAvisos || EMPTY_ARRAY;
+
+  const sections = useMemo(() => {
+    const base = [
+      {
+        key: "criticos",
+        title: "Criticos",
+        subtitle: "Vencidos o urgentes",
+        color: C.red,
+        icon: AlertTriangle,
+        items: data.criticalRequests || EMPTY_ARRAY,
+        type: "request",
+      },
+      {
+        key: "revisar",
+        title: "A revisar",
+        subtitle: "Nuevos, en revision o con comentario pendiente",
+        color: C.blue,
+        icon: Inbox,
+        items: reviewRequests,
+        type: "request",
+      },
+      {
+        key: "avisos",
+        title: "Avisos abiertos",
+        subtitle: "Mensajes internos que compras tiene que resolver",
+        color: C.violet,
+        icon: MessageSquare,
+        items: activeAvisos,
+        type: "aviso",
+      },
+      {
+        key: "comprados",
+        title: "Comprados por cerrar",
+        subtitle: "Comprado, falta recepcion/cierre",
+        color: C.teal,
+        icon: CheckCircle2,
+        items: data.boughtRequests || EMPTY_ARRAY,
+        type: "request",
+      },
+    ];
+
+    const terms = q.trim().toLowerCase().split(/\s+/).filter(Boolean);
+    const matchRequest = (request) => {
+      if (!terms.length) return true;
+      const haystack = `${request.title || ""} ${extractText(request.description || "")} ${request.creator?.username || ""} ${request.assignee?.username || ""} ${request.project?.codigo || ""} ${request.destino || ""} ${request.proveedor || ""}`.toLowerCase();
+      return terms.every((term) => haystack.includes(term));
+    };
+    const matchAviso = (aviso) => {
+      if (!terms.length) return true;
+      const haystack = `${aviso.titulo || ""} ${aviso.detalle || ""} ${aviso.material || ""} ${aviso.creator?.username || ""} ${aviso.project?.codigo || ""} ${aviso.destino || ""}`.toLowerCase();
+      return terms.every((term) => haystack.includes(term));
+    };
+
+    return base
+      .filter((section) => scope === "todo" || section.key === scope)
+      .map((section) => ({
+        ...section,
+        items: section.items.filter(section.type === "aviso" ? matchAviso : matchRequest),
+      }))
+      .filter((section) => section.items.length > 0 || scope !== "todo");
+  }, [activeAvisos, data, q, reviewRequests, scope]);
+
+  const totalVisible = sections.reduce((sum, section) => sum + section.items.length, 0);
+
+  const kpis = [
+    {
+      label: "A revisar",
+      value: reviewRequests.length,
+      color: C.blue,
+      icon: Inbox,
+      onClick: () => setScope("revisar"),
+    },
+    {
+      label: "Urgentes",
+      value: urgentRequests.length,
+      color: urgentRequests.length ? C.red : C.green,
+      icon: AlertTriangle,
+      onClick: () => onGoList({ status: "activos", priority: "urgente" }),
+    },
+    {
+      label: "Vencidos",
+      value: overdueRequests.length,
+      color: overdueRequests.length ? C.red : C.green,
+      icon: Clock,
+      onClick: () => setScope("criticos"),
+    },
+    {
+      label: "Avisos abiertos",
+      value: activeAvisos.length,
+      color: activeAvisos.length ? C.violet : C.green,
+      icon: MessageSquare,
+      onClick: () => setScope("avisos"),
+    },
+  ];
+
+  const scopeButtons = [
+    ["todo", "Todo", totalVisible],
+    ["criticos", "Criticos", data.criticalRequests?.length || 0],
+    ["revisar", "A revisar", reviewRequests.length],
+    ["avisos", "Avisos", activeAvisos.length],
+    ["comprados", "Comprados", data.boughtRequests?.length || 0],
+  ];
+
+  function requestCard(request, tone) {
+    const attention = attentionTextForRequest(request, unreadIds.has(request.id));
+    const statusLabel = REQUEST_STATUSES.find((s) => s.value === request.status)?.label || request.status;
+    const priorityLabel = REQUEST_PRIORITIES.find((p) => p.value === request.priority)?.label || request.priority;
+    const destination = request.project?.codigo || request.destino || "Sin destino";
+    return (
+      <button
+        key={request.id}
+        type="button"
+        onClick={() => onSelectRequest(request.id)}
+        style={{
+          border: `1px solid ${C.border}`,
+          borderLeft: `4px solid ${attention.color || tone}`,
+          background: C.panel,
+          color: C.text,
+          borderRadius: 10,
+          padding: "10px 12px",
+          display: "grid",
+          gridTemplateColumns: "minmax(0, 1fr) auto",
+          gap: 10,
+          alignItems: "center",
+          textAlign: "left",
+          cursor: "pointer",
+        }}
+      >
+        <div style={{ minWidth: 0 }}>
+          <div style={{ display: "flex", alignItems: "center", gap: 7, minWidth: 0 }}>
+            <span style={{ fontSize: 13.5, fontWeight: 850, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+              {request.title}
+            </span>
+            {unreadIds.has(request.id) && <span style={{ width: 7, height: 7, borderRadius: 99, background: C.violet, boxShadow: `0 0 8px ${C.violet}` }} />}
+          </div>
+          <div style={{ display: "flex", gap: 6, flexWrap: "wrap", marginTop: 5, color: C.dim, fontSize: 11 }}>
+            <span>{destination}</span>
+            <span style={{ color: C.border2 }}>/</span>
+            <span>{usernameOf(request.creator)}</span>
+            <span style={{ color: C.border2 }}>/</span>
+            <span>{statusLabel}</span>
+          </div>
+          <div style={{ display: "flex", gap: 6, flexWrap: "wrap", marginTop: 7 }}>
+            <Chip color={attention.color || tone} size="xs">{attention.label}</Chip>
+            {["alta", "urgente"].includes(request.priority) && <Chip color={priorityColors[request.priority] || C.dim} size="xs">{priorityLabel}</Chip>}
+          </div>
+        </div>
+        <ChevronRight size={16} color={C.dim} />
+      </button>
+    );
+  }
+
+  function avisoCard(aviso, tone) {
+    const status = avisoStatusMeta(aviso.estado);
+    const priority = REQUEST_PRIORITIES.find((p) => p.value === aviso.prioridad)?.label || aviso.prioridad || "Media";
+    return (
+      <button
+        key={aviso.id}
+        type="button"
+        onClick={() => onSelectAviso(aviso.id)}
+        style={{
+          border: `1px solid ${C.border}`,
+          borderLeft: `4px solid ${status.color || tone}`,
+          background: C.panel,
+          color: C.text,
+          borderRadius: 10,
+          padding: "10px 12px",
+          display: "grid",
+          gridTemplateColumns: "minmax(0, 1fr) auto",
+          gap: 10,
+          alignItems: "center",
+          textAlign: "left",
+          cursor: "pointer",
+        }}
+      >
+        <div style={{ minWidth: 0 }}>
+          <div style={{ fontSize: 13.5, fontWeight: 850, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+            {aviso.titulo || aviso.material || "Aviso a compras"}
+          </div>
+          <div style={{ display: "flex", gap: 6, flexWrap: "wrap", marginTop: 5, color: C.dim, fontSize: 11 }}>
+            <span>{aviso.project?.codigo || aviso.destino || "Sin destino"}</span>
+            <span style={{ color: C.border2 }}>/</span>
+            <span>{aviso.creator?.username || "Sin creador"}</span>
+            <span style={{ color: C.border2 }}>/</span>
+            <span>{fmtDate(aviso.created_at)}</span>
+          </div>
+          <div style={{ display: "flex", gap: 6, flexWrap: "wrap", marginTop: 7 }}>
+            <Chip color={status.color} size="xs">{status.label}</Chip>
+            <Chip color={priorityColors[aviso.prioridad] || C.blue} size="xs">{priority}</Chip>
+          </div>
+        </div>
+        <ChevronRight size={16} color={C.dim} />
+      </button>
+    );
+  }
+
+  if (loading) {
+    return (
+      <div style={{ display: "grid", gap: 12 }}>
+        <SkeletonStyles />
+        <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(170px, 1fr))", gap: 10 }}>
+          {Array.from({ length: 5 }).map((_, i) => <CardSkeleton key={i} />)}
+        </div>
+        <CardSkeleton />
+        <CardSkeleton />
+      </div>
+    );
+  }
+
+  return (
+    <div style={{ display: "grid", gap: 14 }}>
+      <div style={{ display: "flex", alignItems: "end", justifyContent: "space-between", gap: 12, flexWrap: "wrap" }}>
+        <div>
+          <div style={{ color: C.dim, fontSize: 10, letterSpacing: 1.3, textTransform: "uppercase", fontWeight: 850 }}>Compras</div>
+          <h2 style={{ margin: "4px 0 0", fontSize: 20, color: C.text, fontWeight: 900 }}>Bandeja de pendientes</h2>
+          <div style={{ color: C.dim, fontSize: 12, marginTop: 4 }}>
+            {openRequests.length} pedidos abiertos / {activeAvisos.length} avisos activos
+          </div>
+        </div>
+        <button
+          type="button"
+          onClick={() => onGoList({ status: "activos", priority: "todos" })}
+          style={{
+            border: `1px solid ${C.border}`,
+            background: C.panel,
+            color: C.text,
+            borderRadius: 8,
+            padding: "8px 11px",
+            cursor: "pointer",
+            fontSize: 12,
+            fontWeight: 800,
+            display: "inline-flex",
+            alignItems: "center",
+            gap: 7,
+          }}
+        >
+          <LayoutList size={13} />
+          Ver lista completa
+        </button>
+      </div>
+
+      {error && (
+        <div style={{ border: `1px solid ${C.amber}44`, background: `${C.amber}10`, color: C.amber, borderRadius: 10, padding: 10, fontSize: 12, fontWeight: 750 }}>
+          {error}
+        </div>
+      )}
+
+      <div style={{ display: "grid", gridTemplateColumns: isMobile ? "1fr" : "repeat(4, minmax(0, 1fr))", gap: 10 }}>
+        {kpis.map((kpi) => {
+          const KpiIcon = kpi.icon;
+          return (
+            <button
+              key={kpi.label}
+              type="button"
+              onClick={kpi.onClick}
+              style={{
+                border: `1px solid ${C.border}`,
+                background: C.panel,
+                borderRadius: 12,
+                padding: 12,
+                display: "grid",
+                gap: 9,
+                textAlign: "left",
+                cursor: "pointer",
+                color: C.text,
+                minHeight: 92,
+              }}
+            >
+              <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 8 }}>
+                <span style={{ color: C.dim, fontSize: 10, letterSpacing: 1.1, textTransform: "uppercase", fontWeight: 850 }}>{kpi.label}</span>
+                <KpiIcon size={15} color={kpi.color} />
+              </div>
+              <div style={{ color: kpi.color, fontSize: 25, lineHeight: 1, fontWeight: 950, fontFamily: C.mono }}>{kpi.value}</div>
+            </button>
+          );
+        })}
+      </div>
+
+      <div style={{
+        border: `1px solid ${C.border}`,
+        background: C.topbarSoft,
+        borderRadius: 12,
+        padding: 10,
+        display: "flex",
+        gap: 8,
+        flexWrap: "wrap",
+        alignItems: "center",
+      }}>
+        <div style={{ position: "relative", flex: "1 1 260px", minWidth: 180 }}>
+          <Search size={13} style={{ position: "absolute", left: 10, top: "50%", transform: "translateY(-50%)", color: C.dim }} />
+          <input
+            value={q}
+            onChange={(event) => setQ(event.target.value)}
+            placeholder="Buscar pendiente, obra, proveedor, usuario..."
+            style={{ ...inputStyle, paddingLeft: 31, background: C.bg }}
+          />
+        </div>
+        {scopeButtons.map(([value, label, count]) => (
+          <button
+            key={value}
+            type="button"
+            onClick={() => setScope(value)}
+            style={{
+              border: `1px solid ${scope === value ? C.blue + "55" : C.border}`,
+              background: scope === value ? `${C.blue}14` : C.panel,
+              color: scope === value ? C.blue : C.dim,
+              borderRadius: 8,
+              padding: "7px 9px",
+              cursor: "pointer",
+              fontSize: 12,
+              fontWeight: 850,
+              display: "inline-flex",
+              alignItems: "center",
+              gap: 6,
+            }}
+          >
+            {label}
+            <span style={{ fontFamily: C.mono, fontSize: 11 }}>{count}</span>
+          </button>
+        ))}
+      </div>
+
+      {sections.length === 0 || totalVisible === 0 ? (
+        <div style={{ border: `1px dashed ${C.border}`, background: C.panel, borderRadius: 12, minHeight: 220, display: "grid", placeItems: "center", color: C.dim, textAlign: "center", padding: 24 }}>
+          <div style={{ display: "grid", justifyItems: "center", gap: 9 }}>
+            <CheckCircle2 size={26} color={C.green} />
+            <div style={{ color: C.text, fontSize: 15, fontWeight: 900 }}>No hay pendientes para estos filtros</div>
+            <div style={{ maxWidth: 360, fontSize: 12, lineHeight: 1.45 }}>
+              Cuando aparezcan pedidos nuevos, urgentes, vencidos o avisos abiertos, van a quedar agrupados aca.
+            </div>
+          </div>
+        </div>
+      ) : (
+        <div style={{ display: "grid", gridTemplateColumns: isMobile ? "1fr" : "repeat(auto-fit, minmax(330px, 1fr))", gap: 12, alignItems: "start" }}>
+          {sections.map((section) => {
+            const Icon = section.icon;
+            return (
+              <section key={section.key} style={{ border: `1px solid ${C.border}`, background: C.panel2, borderRadius: 12, overflow: "hidden" }}>
+                <div style={{ padding: "11px 12px", borderBottom: `1px solid ${C.border}`, display: "flex", alignItems: "center", gap: 9 }}>
+                  <Icon size={15} color={section.color} />
+                  <div style={{ minWidth: 0, flex: 1 }}>
+                    <div style={{ fontSize: 13, color: C.text, fontWeight: 900 }}>{section.title}</div>
+                    <div style={{ fontSize: 11, color: C.dim, marginTop: 2 }}>{section.subtitle}</div>
+                  </div>
+                  <span style={{ color: section.color, fontFamily: C.mono, fontSize: 13, fontWeight: 900 }}>{section.items.length}</span>
+                </div>
+                <div style={{ padding: 10, display: "grid", gap: 8 }}>
+                  {section.items.length === 0 ? (
+                    <div style={{ border: `1px dashed ${C.border}`, borderRadius: 10, padding: 18, color: C.dim, fontSize: 12, textAlign: "center" }}>
+                      Sin resultados
+                    </div>
+                  ) : section.items.slice(0, 12).map((item) => (
+                    section.type === "aviso" ? avisoCard(item, section.color) : requestCard(item, section.color)
+                  ))}
+                  {section.items.length > 12 && (
+                    <div style={{ color: C.dim, fontSize: 11, textAlign: "center", padding: "2px 0 4px" }}>
+                      +{section.items.length - 12} mas. Usar busqueda o lista completa.
+                    </div>
+                  )}
+                </div>
+              </section>
+            );
+          })}
+        </div>
+      )}
     </div>
   );
 }

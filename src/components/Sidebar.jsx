@@ -8,6 +8,7 @@ import { C } from "@/theme";
 import { useTheme } from "@/theme/useTheme";
 import ChangePasswordModal from "@/features/cuenta/ChangePasswordModal";
 import VincularWhatsAppModal from "@/features/cuenta/VincularWhatsAppModal";
+import { supabase } from "@/supabaseClient";
 
 // ─── SVG ICONS ────────────────────────────────────────────────────────────────
 function Icon({ id, color = "currentColor", size = 14 }) {
@@ -207,9 +208,43 @@ export default function Sidebar({ profile, signOut }) {
   const comprasLabel = esCompras || esAdmin ? "Gestión de Compras" : "Pedidos";
   const comprasGroup = esCompras || esAdmin ? "Compras" : "Solicitudes";
   const initials  = username.split(" ").filter(Boolean).map(w => w[0]).slice(0, 2).join("").toUpperCase();
+  const [comprasBadge, setComprasBadge] = useState(null);
+
+  useEffect(() => {
+    if (!(esCompras || esAdmin)) {
+      return undefined;
+    }
+    let alive = true;
+    async function loadComprasBadge() {
+      try {
+        const [requestsRes, avisosRes] = await Promise.allSettled([
+          supabase
+            .from("purchase_requests")
+            .select("id", { count: "exact", head: true })
+            .not("status", "in", `("recibido","cancelado")`)
+            .or("status.in.(nuevo,en_revision),priority.eq.urgente"),
+          supabase
+            .from("compras_avisos")
+            .select("id", { count: "exact", head: true })
+            .in("estado", ["nuevo", "visto", "en_proceso"]),
+        ]);
+        const requestCount = requestsRes.status === "fulfilled" && !requestsRes.value.error ? requestsRes.value.count || 0 : 0;
+        const avisoCount = avisosRes.status === "fulfilled" && !avisosRes.value.error ? avisosRes.value.count || 0 : 0;
+        if (alive) setComprasBadge(requestCount + avisoCount);
+      } catch {
+        if (alive) setComprasBadge(null);
+      }
+    }
+    loadComprasBadge();
+    const intervalId = window.setInterval(loadComprasBadge, 60000);
+    return () => {
+      alive = false;
+      window.clearInterval(intervalId);
+    };
+  }, [esCompras, esAdmin]);
 
   // ── NAV ITEM ACTUALIZADO ──────────────────────────────────────────────────────
-  const item = (href, label, c, exact = true, delay = 0, info = "") => {
+  const item = (href, label, c, exact = true, delay = 0, info = "", badge = null) => {
     const on  = exact ? path === href : path.startsWith(href);
     const isH = hov === href;
     const col = c ?? C.muted;
@@ -236,6 +271,27 @@ export default function Sidebar({ profile, signOut }) {
           <Icon id={href} color="currentColor" size={14} />
         </span>
         <span className="sb-label" style={{ flex: 1 }}>{label}</span>
+        {badge != null && badge > 0 && (
+          <span style={{
+            minWidth: 18,
+            height: 18,
+            padding: "0 6px",
+            borderRadius: 999,
+            display: "inline-flex",
+            alignItems: "center",
+            justifyContent: "center",
+            flexShrink: 0,
+            background: `${C.amber}22`,
+            border: `1px solid ${C.amber}55`,
+            color: C.amber,
+            fontSize: 10,
+            fontFamily: C.mono,
+            fontWeight: 900,
+            lineHeight: 1,
+          }}>
+            {badge > 99 ? "99+" : badge}
+          </span>
+        )}
         {on && <div className="sb-dot" style={{ width: 4, height: 4, borderRadius: "50%", flexShrink: 0, background: col, boxShadow: `0 0 8px ${col}` }}/>}
       </Link>
     );
@@ -382,7 +438,7 @@ export default function Sidebar({ profile, signOut }) {
           {puedePedirCompras && <>
             {divider("compras")}
             {group(comprasGroup, SC.compras, 205)}
-            {item("/compras", comprasLabel, SC.compras, true, 215, "Solicitudes internas a compras con seguimiento y usuarios en copia.")}
+            {item("/compras", comprasLabel, SC.compras, true, 215, "Solicitudes internas a compras con seguimiento y usuarios en copia.", esCompras || esAdmin ? comprasBadge : null)}
           </>}
 
           {(esPanol || esGestion) && <>
