@@ -1,8 +1,9 @@
 import { useState, useRef, useEffect, useMemo, useCallback } from "react";
-import { supabase } from "@/supabaseClient";
 import { C } from "@/theme";
 import { Scan, Check, X, Plus, Minus, Search, ArrowRight, Barcode, ClipboardList, RotateCcw } from "lucide-react";
 import { ingresarStockGeneral, egresarProducto, fetchMaterialesEgreso, fetchObrasEgreso, SEDES_PANOL } from "@/features/panol/panolApi";
+import { agregarCodigoBarraMaterial, eliminarCodigoBarraMaterial } from "@/features/materiales/api";
+import { findMaterialByBarcode, materialBarcodeList, materialBarcodeText, materialMatchesBarcode, barcodeKey } from "@/features/materiales/materialBarcodes";
 
 function beep(frequency = 800, duration = 100) {
   try {
@@ -60,10 +61,12 @@ export default function LectorTab({ materiales, onMaterialUpdate }) {
   const [lastResult, setLastResult] = useState(null);
   const [selectedMaterial, setSelectedMaterial] = useState(null);
   const [lastScannedMaterial, setLastScannedMaterial] = useState(null);
+  const [selectedVariante, setSelectedVariante] = useState("");
   const [customQty, setCustomQty] = useState(1);
   const [pendingBarcode, setPendingBarcode] = useState(null);
   const [searchQuery, setSearchQuery] = useState("");
   const [stockLoading, setStockLoading] = useState(false);
+  const [barcodeSaving, setBarcodeSaving] = useState(false);
   const [assignedSession, setAssignedSession] = useState([]);
   const [stockSession, setStockSession] = useState([]);
 
@@ -82,7 +85,8 @@ export default function LectorTab({ materiales, onMaterialUpdate }) {
     return (materiales || []).filter(m =>
       m.descripcion?.toLowerCase().includes(q) ||
       m.codigo?.toLowerCase().includes(q) ||
-      m.codigo_barra?.toLowerCase().includes(q)
+      m.codigo_barra?.toLowerCase().includes(q) ||
+      materialBarcodeText(m).toLowerCase().includes(q)
     );
   }, [materiales, searchQuery]);
 
@@ -93,6 +97,12 @@ export default function LectorTab({ materiales, onMaterialUpdate }) {
   useEffect(() => {
     focusInput();
   }, [mode, focusInput]);
+
+  useEffect(() => {
+    if (!selectedMaterial?.id) return;
+    const fresh = (materiales || []).find((m) => m.id === selectedMaterial.id);
+    if (fresh) setSelectedMaterial(fresh);
+  }, [materiales, selectedMaterial?.id]);
 
   // Load obras for location selector
   useEffect(() => {
@@ -124,6 +134,7 @@ export default function LectorTab({ materiales, onMaterialUpdate }) {
 
   function handleMaterialSelect(m) {
     setSelectedMaterial(m);
+    setSelectedVariante("");
     if (pendingBarcode) {
       processAssignScan(pendingBarcode, m);
       setPendingBarcode(null);
@@ -138,32 +149,43 @@ export default function LectorTab({ materiales, onMaterialUpdate }) {
       focusInput();
       return;
     }
-    const existing = (materiales || []).find(m => m.codigo_barra === code && m.id !== mat.id);
+    if (materialMatchesBarcode(mat, code)) {
+      setLastResult({ ok: true, msg: `Ese codigo ya estaba en: ${mat.descripcion}` });
+      beep(900, 80);
+      focusInput();
+      return;
+    }
+    const existing = findMaterialByBarcode(materiales || [], code, { excludeId: mat.id });
     if (existing) {
       setLastResult({ ok: false, msg: `Ya asignado a: ${existing.descripcion}` });
       beep(300, 200);
       focusInput();
       return;
     }
-    const { error } = await supabase
-      .from("panol_materiales")
-      .update({ codigo_barra: code })
-      .eq("id", mat.id);
-    if (error) {
+    setBarcodeSaving(true);
+    try {
+      const saved = await agregarCodigoBarraMaterial(mat.id, code, { variante: selectedVariante || null });
+      const nextCodes = [...(mat.codigos_barra || []), saved].filter(Boolean);
+      const patch = {
+        codigos_barra: nextCodes,
+        ...(mat.codigo_barra ? {} : { codigo_barra: code }),
+      };
+      onMaterialUpdate?.(mat.id, patch);
+      setSelectedMaterial((prev) => (prev?.id === mat.id ? { ...prev, ...patch } : prev));
+      setAssignedSession(prev => [...prev, { material: mat, codigo_barra: code, variante: selectedVariante || null, ts: Date.now() }]);
+      setLastResult({ ok: true, msg: `Asignado: ${mat.descripcion}` });
+      beep(900, 80);
+    } catch (error) {
       setLastResult({ ok: false, msg: error.message });
       beep(300, 200);
+    } finally {
+      setBarcodeSaving(false);
       focusInput();
-      return;
     }
-    onMaterialUpdate?.(mat.id, { codigo_barra: code });
-    setAssignedSession(prev => [...prev, { material: mat, codigo_barra: code, ts: Date.now() }]);
-    setLastResult({ ok: true, msg: `Asignado: ${mat.descripcion}` });
-    beep(900, 80);
-    focusInput();
   }
 
   async function processStockScan(code) {
-    const material = (materiales || []).find(m => m.codigo_barra === code);
+    const material = findMaterialByBarcode(materiales || [], code);
     if (!material) {
       setLastResult({ ok: false, msg: "Código no encontrado", code });
       setLastScannedMaterial(null);
@@ -172,7 +194,9 @@ export default function LectorTab({ materiales, onMaterialUpdate }) {
       return;
     }
     setLastScannedMaterial(material);
-    setLastResult({ ok: true, msg: material.descripcion });
+    const matched = materialBarcodeList(material).find(b => barcodeKey(b.codigo) === barcodeKey(code));
+    const variantStr = matched?.variante ? ` "${matched.variante}"` : "";
+    setLastResult({ ok: true, msg: `${material.descripcion}${variantStr}` });
     beep(900, 80);
     focusInput();
   }
@@ -210,7 +234,7 @@ export default function LectorTab({ materiales, onMaterialUpdate }) {
 
   // ─ Conteo físico functions ──
   async function processCountScan(code) {
-    const material = (materiales || []).find(m => m.codigo_barra === code);
+    const material = findMaterialByBarcode(materiales || [], code);
     if (!material) {
       setLastResult({ ok: false, msg: "Código no encontrado", code });
       beep(300, 200);
@@ -323,6 +347,37 @@ export default function LectorTab({ materiales, onMaterialUpdate }) {
     }
   }
 
+  function handleScannerBlur() {
+    setTimeout(() => {
+      const active = document.activeElement;
+      if (active && active !== document.body && active !== inputRef.current) return;
+      focusInput();
+    }, 80);
+  }
+
+  async function removeSelectedBarcode(row) {
+    if (!selectedMaterial || barcodeSaving) return;
+    setBarcodeSaving(true);
+    try {
+      await eliminarCodigoBarraMaterial({ id: row.id, materialId: selectedMaterial.id, codigo: row.codigo });
+      const nextCodes = (selectedMaterial.codigos_barra || []).filter((codeRow) => codeRow.id !== row.id && codeRow.codigo !== row.codigo);
+      const patch = {
+        codigos_barra: nextCodes,
+        ...(row.legacy ? { codigo_barra: "" } : {}),
+      };
+      onMaterialUpdate?.(selectedMaterial.id, patch);
+      setSelectedMaterial((prev) => (prev ? { ...prev, ...patch } : prev));
+      setLastResult({ ok: true, msg: `Codigo quitado: ${row.codigo}` });
+      beep(900, 80);
+    } catch (error) {
+      setLastResult({ ok: false, msg: error.message || "No se pudo quitar el codigo" });
+      beep(300, 200);
+    } finally {
+      setBarcodeSaving(false);
+      focusInput();
+    }
+  }
+
   const modeBtn = (active) => ({
     ...btnBase, flex: 1, textAlign: "center",
     background: active ? C.blue : C.panel,
@@ -336,13 +391,13 @@ export default function LectorTab({ materiales, onMaterialUpdate }) {
     <div style={{ padding: "20px 24px", maxWidth: 720, margin: "0 auto" }}>
       {/* Mode selector */}
       <div style={{ display: "flex", gap: 8, marginBottom: 20 }}>
-        <button onClick={() => { setMode("assign"); setPendingBarcode(null); }} style={modeBtn(mode === "assign")}>
+        <button type="button" onClick={() => { setMode("assign"); setPendingBarcode(null); }} style={modeBtn(mode === "assign")}>
           <span style={{ display: "inline-flex", alignItems: "center", gap: 6 }}><Barcode size={14} /> Asignar códigos</span>
         </button>
-        <button onClick={() => setMode("stock")} style={modeBtn(mode === "stock")}>
+        <button type="button" onClick={() => setMode("stock")} style={modeBtn(mode === "stock")}>
           <span style={{ display: "inline-flex", alignItems: "center", gap: 6 }}><Scan size={14} /> Ajuste de stock</span>
         </button>
-        <button onClick={() => setMode("count")} style={modeBtn(mode === "count")}>
+        <button type="button" onClick={() => setMode("count")} style={modeBtn(mode === "count")}>
           <span style={{ display: "inline-flex", alignItems: "center", gap: 6 }}><ClipboardList size={14} /> Conteo físico</span>
         </button>
       </div>
@@ -355,7 +410,7 @@ export default function LectorTab({ materiales, onMaterialUpdate }) {
         <input
           ref={inputRef}
           onKeyDown={handleKeyDown}
-          onBlur={focusInput}
+          onBlur={handleScannerBlur}
           placeholder={
             mode === "assign" ? "Escaneá para asignar al material seleccionado…" :
             mode === "stock" ? "Escaneá para buscar el material…" :
@@ -434,6 +489,51 @@ export default function LectorTab({ materiales, onMaterialUpdate }) {
             })}
           </div>
 
+          {selectedMaterial && (
+            <div style={{ marginTop: 12, padding: 12, borderRadius: 10, border: `1px solid ${C.blueB}`, background: "rgba(59,130,246,0.08)", display: "grid", gap: 8 }}>
+              <div>
+                <div style={{ fontSize: 12, fontWeight: 800, color: C.text }}>{selectedMaterial.descripcion}</div>
+                <div style={{ fontSize: 11, color: C.dim, marginTop: 2 }}>Escaneá un código para sumarlo a este material. No pisa los anteriores.</div>
+              </div>
+              {selectedMaterial.variantes?.length > 0 && (
+                <div>
+                  <div style={{ fontSize: 10, color: C.dim, letterSpacing: 0.5, textTransform: "uppercase", marginBottom: 4, fontWeight: 700 }}>Variante específica (opcional)</div>
+                  <select
+                    value={selectedVariante}
+                    onChange={(e) => setSelectedVariante(e.target.value)}
+                    style={{ ...selectStyle, width: "100%" }}
+                  >
+                    <option value="">Sin variante específica</option>
+                    {selectedMaterial.variantes.map(v => <option key={v} value={v}>{v}</option>)}
+                  </select>
+                </div>
+              )}
+              <div style={{ display: "flex", flexWrap: "wrap", gap: 6 }}>
+                {materialBarcodeList(selectedMaterial).length ? materialBarcodeList(selectedMaterial).map((row) => (
+                  <span
+                    key={`${row.id || "legacy"}-${row.codigo}`}
+                    style={{ display: "inline-flex", alignItems: "center", gap: 6, border: `1px solid ${C.border}`, background: C.panel, color: C.muted, borderRadius: 999, padding: "4px 8px", fontSize: 11, fontFamily: C.mono }}
+                    title={row.etiqueta || "Código de barras"}
+                  >
+                    {row.codigo}
+                    {row.variante && <span style={{ fontFamily: C.sans, color: C.dim, fontWeight: 700 }}>{row.variante}</span>}
+                    <button
+                      type="button"
+                      disabled={barcodeSaving}
+                      onClick={() => removeSelectedBarcode(row)}
+                      title="Quitar código"
+                      style={{ border: "none", background: "transparent", color: C.dim, cursor: barcodeSaving ? "default" : "pointer", padding: 0, display: "grid", placeItems: "center" }}
+                    >
+                      <X size={11} />
+                    </button>
+                  </span>
+                )) : (
+                  <span style={{ color: C.dim, fontSize: 11 }}>Todavía no tiene códigos.</span>
+                )}
+              </div>
+            </div>
+          )}
+
           {/* Session list */}
           {assignedSession.length > 0 && (
             <div style={{ marginTop: 20 }}>
@@ -448,7 +548,10 @@ export default function LectorTab({ materiales, onMaterialUpdate }) {
                 }}>
                   <div>
                     <div style={{ fontWeight: 600, fontSize: 12, color: C.text }}>{entry.material.descripcion}</div>
-                    <div style={{ fontSize: 11, color: C.green, fontFamily: C.mono }}>{entry.codigo_barra}</div>
+                    <div style={{ fontSize: 11, color: C.green, fontFamily: C.mono }}>
+                      {entry.codigo_barra}
+                      {entry.variante && <span style={{ fontFamily: C.sans, color: C.dim, fontWeight: 600, marginLeft: 6 }}>{entry.variante}</span>}
+                    </div>
                   </div>
                   <Check size={14} color={C.green} />
                 </div>
@@ -474,6 +577,7 @@ export default function LectorTab({ materiales, onMaterialUpdate }) {
 
               <div style={{ display: "flex", gap: 8, marginTop: 14, flexWrap: "wrap", alignItems: "center" }}>
                 <button
+                  type="button"
                   onClick={() => adjustStock(1)}
                   disabled={stockLoading}
                   style={{ ...btnBase, background: C.green, color: "#fff", border: "none", display: "flex", alignItems: "center", gap: 4 }}
@@ -481,6 +585,7 @@ export default function LectorTab({ materiales, onMaterialUpdate }) {
                   <Plus size={14} /> 1
                 </button>
                 <button
+                  type="button"
                   onClick={() => adjustStock(-1)}
                   disabled={stockLoading}
                   style={{ ...btnBase, background: C.red, color: "#fff", border: "none", display: "flex", alignItems: "center", gap: 4 }}
@@ -498,6 +603,7 @@ export default function LectorTab({ materiales, onMaterialUpdate }) {
                   style={{ ...inputStyle, width: 70, padding: "8px 10px", fontSize: 13, textAlign: "center" }}
                 />
                 <button
+                  type="button"
                   onClick={() => adjustStock(customQty)}
                   disabled={stockLoading}
                   style={{ ...btnBase, background: C.blue, color: "#fff", border: "none" }}
@@ -505,6 +611,7 @@ export default function LectorTab({ materiales, onMaterialUpdate }) {
                   + Cant.
                 </button>
                 <button
+                  type="button"
                   onClick={() => adjustStock(-customQty)}
                   disabled={stockLoading}
                   style={{ ...btnBase, background: C.red, color: "#fff", border: "none" }}
@@ -525,6 +632,7 @@ export default function LectorTab({ materiales, onMaterialUpdate }) {
                 Código no encontrado: <strong style={{ fontFamily: C.mono }}>{lastResult.code}</strong>
               </div>
               <button
+                type="button"
                 onClick={() => { setMode("assign"); setPendingBarcode(lastResult.code); }}
                 style={{ ...btnBase, background: C.amber, color: "#000", border: "none", fontSize: 12, display: "flex", alignItems: "center", gap: 6 }}
               >
@@ -621,6 +729,7 @@ export default function LectorTab({ materiales, onMaterialUpdate }) {
                 <strong style={{ fontFamily: C.mono }}>{totalUnitsCounted}</strong> unidades contadas
               </div>
               <button
+                type="button"
                 onClick={resetCount}
                 style={{ ...btnBase, background: "transparent", color: C.dim, fontSize: 11, display: "flex", alignItems: "center", gap: 4 }}
               >
@@ -694,6 +803,7 @@ export default function LectorTab({ materiales, onMaterialUpdate }) {
           {countedProducts.some(p => p.diff !== 0) && (
             <div style={{ marginBottom: 20 }}>
               <button
+                type="button"
                 onClick={() => setShowConfirmAdjust(true)}
                 disabled={applying}
                 style={{
@@ -729,12 +839,14 @@ export default function LectorTab({ materiales, onMaterialUpdate }) {
                 </div>
                 <div style={{ display: "flex", gap: 8, justifyContent: "flex-end" }}>
                   <button
+                    type="button"
                     onClick={() => setShowConfirmAdjust(false)}
                     style={{ ...btnBase, background: "transparent", color: C.muted }}
                   >
                     Cancelar
                   </button>
                   <button
+                    type="button"
                     onClick={applyAdjustments}
                     disabled={applying}
                     style={{ ...btnBase, background: C.amber, color: "#000", border: "none" }}
@@ -784,6 +896,7 @@ export default function LectorTab({ materiales, onMaterialUpdate }) {
                 Código no encontrado: <strong style={{ fontFamily: C.mono }}>{lastResult.code}</strong>
               </div>
               <button
+                type="button"
                 onClick={() => { setMode("assign"); setPendingBarcode(lastResult.code); }}
                 style={{ ...btnBase, background: C.amber, color: "#000", border: "none", fontSize: 12, display: "flex", alignItems: "center", gap: 6 }}
               >

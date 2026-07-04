@@ -14,6 +14,7 @@ import {
 import { C } from "@/theme";
 import BarcodeScanner from "@/features/panol/BarcodeScanner";
 import useKeyboardWedge from "@/features/panol/useKeyboardWedge";
+import { materialBarcodeList, materialBarcodeText } from "@/features/materiales/materialBarcodes";
 import {
   crearEnvio,
   crearPanolCatalogMaterialParaEgreso,
@@ -55,7 +56,9 @@ function groupMatchesCode(group, code) {
     group.codigo_barra,
     group.material?.codigo,
     group.material?.codigo_barra,
+    ...materialBarcodeList(group.material).map((row) => row.codigo),
     ...(group.rows || []).flatMap((row) => [row.codigo, row.codigo_barra]),
+    ...(group.rows || []).flatMap((row) => materialBarcodeList(row).map((barcode) => barcode.codigo)),
   ];
   return candidates.some((value) => codeKey(value) === clean);
 }
@@ -163,6 +166,7 @@ function rowSearchText(row) {
     row.descripcion,
     row.codigo,
     row.codigo_barra,
+    materialBarcodeText(row),
     row.proveedor,
     row.rubro,
     row.categoria_nombre,
@@ -241,12 +245,14 @@ function buildProductGroups(rows = [], fObra = "todas") {
           descripcion: row.descripcion || "",
           codigo: row.codigo || "",
           codigo_barra: row.codigo_barra || "",
+          codigos_barra: row.codigos_barra || [],
           unidad: row.unidad || "unidad",
           proveedor: row.proveedor || "",
         },
         label: row.descripcion || "(sin descripcion)",
         codigo: row.codigo || "",
         codigo_barra: row.codigo_barra || "",
+        codigos_barra: row.codigos_barra || [],
         proveedor: row.proveedor || "",
         unidad: row.unidad || "unidad",
         tipoPedido,
@@ -265,6 +271,12 @@ function buildProductGroups(rows = [], fObra = "todas") {
     if (!group.codigo_barra && row.codigo_barra) {
       group.codigo_barra = row.codigo_barra;
       group.material.codigo_barra = row.codigo_barra;
+    }
+    if (row.codigos_barra?.length) {
+      group.material.codigos_barra = [
+        ...(group.material.codigos_barra || []),
+        ...row.codigos_barra,
+      ];
     }
     const delta = rowDelta(row);
     const locKey = rowLocationKey(row);

@@ -10,11 +10,13 @@ import {
   borrarSubsector,
   crearCategoria,
   crearMaterial,
+  agregarCodigoBarraMaterial,
   fetchCatalogo,
   fetchMaterialAudit,
   fetchObrasAvance,
   guardarProveedor,
   guardarMaterial,
+  eliminarCodigoBarraMaterial,
   importarCatalogo,
   isMissingTable,
   leerPresupuestoConIA,
@@ -52,6 +54,7 @@ import VariantesMarcasTab from "./VariantesMarcasTab";
 import LectorTab from "./LectorTab";
 import ProveedorTipoBadge from "./ProveedorTipoBadge";
 import { proveedorAlternativas, proveedorMeta, PROVEEDOR_TIPOS, proveedorTipoUi } from "./proveedorMeta";
+import { materialBarcodeList, materialBarcodeText } from "./materialBarcodes";
 import { addRequestItem, createPurchaseRequest } from "@/features/compras/purchaseRequestsApi";
 import EnviarAPanolModal from "@/features/panol/EnviarAPanolModal";
 import { BTN, BTN_GREEN, BTN_PRIMARY, Cargando, ErrorBox, INP, KpiCard, LBL, Td, Th } from "@/features/rrhh/ui";
@@ -109,7 +112,9 @@ function subdivisionesSugeridas(nombre) {
 function scoreMaterial(material, query) {
   const q = norm(query);
   if (!q) return 0;
-  const d = norm(material.descripcion);
+  const codeText = norm(`${material.codigo ?? ""} ${materialBarcodeText(material)}`);
+  if (codeText && codeText.includes(q)) return 95;
+  const d = norm(`${material.descripcion ?? ""} ${codeText}`);
   if (d === q) return 100;
   if (d.includes(q) || q.includes(d)) return 70;
   const words = q.split(" ").filter((w) => w.length > 2);
@@ -1700,6 +1705,106 @@ function MaterialAuditTrail({ materialId, onRestored }) {
   );
 }
 
+function MaterialBarcodeEditor({ material, onChanged }) {
+  const [newCode, setNewCode] = useState("");
+  const [newLabel, setNewLabel] = useState("");
+  const [newVariante, setNewVariante] = useState("");
+  const [saving, setSaving] = useState(false);
+  const [err, setErr] = useState("");
+
+  const barcodes = materialBarcodeList(material);
+
+  async function addCode() {
+    const codigo = newCode.trim();
+    if (!codigo || saving) return;
+    setSaving(true);
+    setErr("");
+    try {
+      await agregarCodigoBarraMaterial(material.id, codigo, { etiqueta: newLabel, variante: newVariante || null });
+      setNewCode("");
+      setNewLabel("");
+      setNewVariante("");
+      await onChanged?.();
+    } catch (e) {
+      setErr(e?.message || "No se pudo guardar el codigo.");
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  async function removeCode(row) {
+    if (saving) return;
+    setSaving(true);
+    setErr("");
+    try {
+      await eliminarCodigoBarraMaterial({ id: row.id, materialId: material.id, codigo: row.codigo });
+      await onChanged?.();
+    } catch (e) {
+      setErr(e?.message || "No se pudo quitar el codigo.");
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  return (
+    <div style={{ border: `1px solid ${C.b0}`, borderRadius: 10, background: C.bg, padding: 10, display: "grid", gap: 8 }}>
+      <div style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
+        <span style={{ fontSize: 11, fontWeight: 900, color: C.t0 }}>Codigos de barra</span>
+        <span style={{ fontSize: 10.5, color: C.t3 }}>uno o varios por marca/proveedor</span>
+      </div>
+      {barcodes.length ? (
+        <div style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>
+          {barcodes.map((row) => (
+            <span
+              key={`${row.id || "legacy"}-${row.codigo}`}
+              title={row.etiqueta || (row.legacy ? "Principal legacy" : "Codigo alternativo")}
+              style={{ display: "inline-flex", alignItems: "center", gap: 6, border: `1px solid ${C.blueB}`, background: "var(--blue-soft)", color: C.blue, borderRadius: 999, padding: "4px 8px", fontSize: 11, fontWeight: 850, fontFamily: C.mono }}
+            >
+              {row.codigo}
+              {row.variante && <span style={{ fontFamily: C.sans, color: C.bg, background: C.blue, padding: "1px 4px", borderRadius: 4 }}>{row.variante}</span>}
+              {row.etiqueta && <span style={{ fontFamily: C.sans, color: C.t2, fontWeight: 700 }}>{row.etiqueta}</span>}
+              <button type="button" onClick={() => removeCode(row)} disabled={saving} title="Quitar codigo" style={{ border: "none", background: "transparent", color: C.blue, cursor: saving ? "default" : "pointer", padding: 0, display: "grid", placeItems: "center" }}>
+                <Trash2 size={11} />
+              </button>
+            </span>
+          ))}
+        </div>
+      ) : (
+        <div style={{ color: C.t2, fontSize: 11.5 }}>Sin codigos cargados.</div>
+      )}
+      <div style={{ display: "grid", gridTemplateColumns: material.variantes?.length > 0 ? "minmax(130px, 1fr) minmax(100px, 0.7fr) minmax(100px, 0.7fr) auto" : "minmax(160px, 1fr) minmax(120px, 0.7fr) auto", gap: 6 }}>
+        <input
+          value={newCode}
+          onChange={(e) => setNewCode(e.target.value)}
+          onKeyDown={(e) => { if (e.key === "Enter") { e.preventDefault(); addCode(); } }}
+          placeholder="Escanear o escribir codigo"
+          style={{ ...INP, fontFamily: C.mono }}
+        />
+        {material.variantes?.length > 0 && (
+          <select
+            value={newVariante}
+            onChange={(e) => setNewVariante(e.target.value)}
+            style={INP}
+          >
+            <option value="">Variante (opc)</option>
+            {material.variantes.map(v => <option key={v} value={v}>{v}</option>)}
+          </select>
+        )}
+        <input
+          value={newLabel}
+          onChange={(e) => setNewLabel(e.target.value)}
+          placeholder="Etiqueta opcional"
+          style={INP}
+        />
+        <button type="button" onClick={addCode} disabled={saving || !newCode.trim()} style={{ ...BTN_GREEN, padding: "7px 12px", whiteSpace: "nowrap", opacity: saving || !newCode.trim() ? 0.55 : 1 }}>
+          + Codigo
+        </button>
+      </div>
+      {err && <div style={{ color: C.red, fontSize: 11.5 }}>{err}</div>}
+    </div>
+  );
+}
+
 function MaterialFila({ material, categorias, ums, proveedores, onChanged, linea = "", initialOpen = false }) {
   const [editing, setEditing] = useState(initialOpen);
   const [draft, setDraft] = useState(() => ({ ...material, precio_unitario: inputNumberValue(material.precio_unitario) }));
@@ -1840,6 +1945,7 @@ function MaterialFila({ material, categorias, ums, proveedores, onChanged, linea
             <div><span style={lbl}>Moneda</span><select value={draft.moneda || ""} onChange={(e) => setDraft((d) => ({ ...d, moneda: e.target.value || null }))} style={{ ...INP, width: "100%" }}>{MONEDAS.map((m) => <option key={m || "null"} value={m}>{m || "—"}</option>)}</select></div>
             <div><span style={lbl}>Código</span><input value={draft.codigo || ""} onChange={(e) => setDraft((d) => ({ ...d, codigo: e.target.value }))} style={{ ...INP, width: "100%" }} /></div>
           </div>
+          <MaterialBarcodeEditor material={material} onChanged={onChanged} />
           <div>
             <span style={lbl}>Cantidad por línea</span>
             <div style={{ display: "flex", gap: 10, flexWrap: "wrap" }}>
@@ -2222,7 +2328,7 @@ function ListaMateriales({ categorias, materiales, selectedId, ums, proveedores,
       .filter((m) => !soloPendientes || !priceInfo(m).amount)
       .filter((m) => {
         if (!terms.length) return true;
-        const hay = norm(`${m.descripcion ?? ""} ${m.proveedor ?? ""} ${m.codigo ?? ""}`);
+        const hay = norm(`${m.descripcion ?? ""} ${m.proveedor ?? ""} ${m.codigo ?? ""} ${materialBarcodeText(m)}`);
         return terms.every((t) => hay.includes(t));
       });
   }, [materiales, categorias, q, selectedId, soloPendientes, linea, prov, proveedores, rubro, proveedorTipo]);

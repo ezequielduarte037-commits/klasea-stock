@@ -8,6 +8,7 @@ import { crearEnvio, crearPanolCatalogMaterial, fetchPanolCatalogMini, fetchRece
 import { fetchProveedores, leerPresupuestoConIA } from "@/features/materiales/api";
 import ProveedorTipoBadge from "@/features/materiales/ProveedorTipoBadge";
 import { proveedorMeta } from "@/features/materiales/proveedorMeta";
+import { materialBarcodeList, materialBarcodeText } from "@/features/materiales/materialBarcodes";
 import { guardarIngresoPendiente, borrarIngresoPendiente } from "@/features/panol/ingresosPendientes";
 
 const UNITS = ["unidad", "metro", "kg", "litro", "pies", "caja", "rollo", "par", "juego", "m2"];
@@ -81,10 +82,12 @@ function catalogScore(material, queryItem = {}) {
   if (!q) return 0;
   const desc = normSearch(material.descripcion);
   const code = normSearch(material.codigo);
+  const barcode = normSearch(materialBarcodeText(material));
   const proveedor = normSearch(material.proveedor);
-  const text = [desc, code, proveedor].filter(Boolean).join(" ");
+  const text = [desc, code, barcode, proveedor].filter(Boolean).join(" ");
   const queryCode = normSearch(queryItem.codigo || queryItem.code || "");
   if (queryCode && code && queryCode === code) return 110;
+  if (queryCode && barcode && barcode.includes(queryCode)) return 108;
   if (desc === q) return 100;
   if (desc && (desc.includes(q) || q.includes(desc))) return 82;
   const words = q.split(" ").filter((word) => word.length > 2);
@@ -108,6 +111,7 @@ function itemPatchFromMaterial(material, item = {}) {
   return {
     material_id: material?.id || "",
     codigo: item.codigo || material?.codigo || "",
+    codigo_barra: item.codigo_barra || material?.codigo_barra || materialBarcodeList(material)[0]?.codigo || "",
     unidad: item.unidad || material?.unidad || "unidad",
     proveedor: item.proveedor || material?.proveedor || "",
     precio_unitario: item.precio_unitario !== "" && item.precio_unitario != null ? item.precio_unitario : material?.precio_unitario ?? "",
@@ -221,6 +225,7 @@ function normalizeItem(it) {
   return {
     descripcion: parsed?.descripcion || it.descripcion || it.description || "",
     codigo: it.codigo ?? it.code ?? parsed?.codigo ?? "",
+    codigo_barra: it.codigo_barra ?? it.barcode ?? it.codigoBarra ?? "",
     cantidad: it.cantidad ?? it.quantity ?? parsed?.cantidad ?? "",
     unidad: it.unidad ?? it.unit ?? parsed?.unidad ?? "unidad",
     precio_unitario: it.precio_unitario ?? it.precioUnitario ?? "",
@@ -252,6 +257,7 @@ function matchToItem(match, material = null) {
   return {
     descripcion: match.description || material?.descripcion || "",
     codigo: material?.codigo || "",
+    codigo_barra: material?.codigo_barra || materialBarcodeList(material)[0]?.codigo || "",
     cantidad: match.quantity || "",
     unidad: match.unit || material?.unidad || "unidad",
     precio_unitario: material?.precio_unitario ?? "",
@@ -669,6 +675,7 @@ export default function EnviarAPanolModal({ open, onClose, prefill, showPrices =
     setItems((prev) => [...prev, showPrices ? {
       descripcion: material.descripcion,
       codigo: material.codigo || "",
+      codigo_barra: material.codigo_barra || materialBarcodeList(material)[0]?.codigo || "",
       cantidad: "1",
       unidad: material.unidad || "unidad",
       precio_unitario: material.precio_unitario ?? "",
@@ -682,6 +689,7 @@ export default function EnviarAPanolModal({ open, onClose, prefill, showPrices =
     } : stripItemPrice({
       descripcion: material.descripcion,
       codigo: material.codigo || "",
+      codigo_barra: material.codigo_barra || materialBarcodeList(material)[0]?.codigo || "",
       cantidad: "1",
       unidad: material.unidad || "unidad",
       precio_unitario: "",
@@ -909,6 +917,7 @@ export default function EnviarAPanolModal({ open, onClose, prefill, showPrices =
                   ) : catalog.length ? catalog.map((mat) => {
                     const active = selectedMaterial?.id === mat.id;
                     const meta = proveedorMeta(mat.proveedor, proveedores);
+                    const barcode = materialBarcodeList(mat)[0]?.codigo || "";
                     return (
                       <button
                         key={mat.id}
@@ -928,7 +937,7 @@ export default function EnviarAPanolModal({ open, onClose, prefill, showPrices =
                         <div style={{ fontSize: 12.5, fontWeight: 850, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{mat.descripcion}</div>
                         <div style={{ display: "flex", alignItems: "center", gap: 6, minWidth: 0, color: C.t2, fontSize: 10.5, marginTop: 2 }}>
                           <span style={{ minWidth: 0, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>
-                            {mat.codigo || "sin codigo"}{mat.proveedor ? ` · ${mat.proveedor}` : ""}
+                            {mat.codigo || "sin cod. item"}{barcode ? ` · CB ${barcode}` : ""}{mat.proveedor ? ` · ${mat.proveedor}` : ""}
                           </span>
                           <ProveedorTipoBadge meta={meta} compact />
                         </div>
@@ -1019,14 +1028,14 @@ export default function EnviarAPanolModal({ open, onClose, prefill, showPrices =
               <div style={{ display: "flex", flexDirection: "column", gap: 6, marginBottom: 8 }}>
                 {!isMobile && (
                   <div style={{ display: "grid", gridTemplateColumns: gridCols, gap: 6, padding: "0 7px", fontSize: 9, color: C.t2, letterSpacing: 1.1, textTransform: "uppercase", fontWeight: 800 }}>
-                    <span>Descripción</span><span>Código</span><span>Cant.</span><span>Unidad</span>{isRemito && <span>Obra / stock</span>}{showPrices && <><span>Precio unit.</span><span>Moneda</span></>}<span />
+                    <span>Descripción</span><span>Cod. item</span><span>Cant.</span><span>Unidad</span>{isRemito && <span>Obra / stock</span>}{showPrices && <><span>Precio unit.</span><span>Moneda</span></>}<span />
                   </div>
                 )}
                 {items.map((it, i) => (
                   <div key={`${it.panol_envio_item_id || it.purchase_request_item_id || it.material_id || "manual"}-${i}`} style={{ background: "var(--panel)", border: `1px solid ${C.b0}`, borderRadius: 8, overflow: "hidden" }}>
                     <div style={{ display: "grid", gridTemplateColumns: gridCols, gap: 6, alignItems: "center", padding: "7px" }}>
                     <input value={it.descripcion} onChange={(e) => updateItem(i, { descripcion: e.target.value, material_id: "" })} placeholder="Descripción" style={inp({ padding: "6px 8px", fontSize: 12, gridColumn: isMobile ? "1 / -1" : undefined })} />
-                    <input value={it.codigo || ""} onChange={(e) => updateItem(i, { codigo: e.target.value.toUpperCase(), material_id: "" })} placeholder="Código" style={inp({ padding: "6px 8px", fontSize: 12, fontFamily: C.mono })} />
+                    <input value={it.codigo || ""} onChange={(e) => updateItem(i, { codigo: e.target.value.toUpperCase(), material_id: "" })} placeholder="Cod. item" title="Codigo interno/proveedor. El codigo de barras se toma del material vinculado." style={inp({ padding: "6px 8px", fontSize: 12, fontFamily: C.mono })} />
                     <input value={it.cantidad || ""} onChange={(e) => updateItem(i, { cantidad: e.target.value })} placeholder="Cant." style={inp({ padding: "6px 8px", fontSize: 12 })} />
                     <select value={it.unidad || "unidad"} onChange={(e) => updateItem(i, { unidad: e.target.value })} style={inp({ padding: "6px 8px", fontSize: 12, background: C.panelSolid })}>
                       {UNITS.map((u) => <option key={u} value={u}>{u}</option>)}
@@ -1072,7 +1081,7 @@ export default function EnviarAPanolModal({ open, onClose, prefill, showPrices =
             <div style={{ border: `1px dashed ${C.border2 ?? C.b1}`, borderRadius: 9, padding: 10, background: "rgba(96,165,250,0.04)", display: "grid", gap: 8 }}>
               <div style={{ display: "grid", gridTemplateColumns: isMobile ? "1fr 1fr" : showPrices ? "minmax(180px,1fr) 110px 80px 100px 96px 78px" : "minmax(180px,1fr) 110px 80px 100px", gap: 6 }}>
                 <input value={nDesc} onChange={(e) => setNDesc(e.target.value)} onKeyDown={(e) => { if (e.key === "Enter") { e.preventDefault(); addItem(); } }} placeholder='Descripción o línea completa: "20 mtrs Antirruido"' style={inp({ padding: "7px 9px", fontSize: 12, gridColumn: isMobile ? "1 / -1" : undefined })} />
-                <input value={nCode} onChange={(e) => setNCode(e.target.value.toUpperCase())} placeholder="Código" style={inp({ padding: "7px 9px", fontSize: 12, fontFamily: C.mono })} />
+                <input value={nCode} onChange={(e) => setNCode(e.target.value.toUpperCase())} placeholder="Cod. item" title="Codigo interno/proveedor. Para codigo de barras, vinculalo al material del catalogo." style={inp({ padding: "7px 9px", fontSize: 12, fontFamily: C.mono })} />
                 <input value={nCant} onChange={(e) => setNCant(e.target.value)} placeholder="Cant." style={inp({ padding: "7px 9px", fontSize: 12 })} />
                 <select value={nUnit} onChange={(e) => setNUnit(e.target.value)} style={inp({ padding: "7px 9px", fontSize: 12, background: C.panelSolid })}>
                   {UNITS.map((u) => <option key={u} value={u}>{u}</option>)}

@@ -1,6 +1,7 @@
 import { supabase } from "@/supabaseClient";
 import { MODELOS, norm } from "./materialesParser";
 import { fetchAreasMap, fetchCondicionMap, fetchProveedoresMaterialMap } from "./materialesConfig";
+import { barcodeKey } from "./materialBarcodes";
 
 const PAGE = 1000;
 const VARIANTE_BASE = "standard";
@@ -41,6 +42,21 @@ async function fetchMaterialesCatalogo() {
   } catch (error) {
     if (!isMissingColumn(error)) throw error;
     return (await fetchPaged("panol_materiales", baseSelect, "descripcion")).map((row) => ({ ...row, variantes: [] }));
+  }
+}
+
+async function fetchMaterialCodigosBarraRows() {
+  try {
+    return await fetchPaged("panol_material_codigos_barra", "id, material_id, codigo, etiqueta, variante, activo, created_at, updated_at", "codigo");
+  } catch (error) {
+    if (isMissingTable(error) || isMissingColumn(error)) {
+      try {
+        return await fetchPaged("panol_material_codigos_barra", "id, material_id, codigo, etiqueta, activo, created_at, updated_at", "codigo");
+      } catch {
+        return [];
+      }
+    }
+    throw error;
   }
 }
 
@@ -248,9 +264,10 @@ export async function fetchComprobantes() {
 }
 
 export async function fetchCatalogo() {
-  const [categorias, materiales, modelos, batches, precios, imagenes, proveedores, comprobantes, areasRes, condRes, provMatRes] = await Promise.all([
+  const [categorias, materiales, codigosBarra, modelos, batches, precios, imagenes, proveedores, comprobantes, areasRes, condRes, provMatRes] = await Promise.all([
     fetchCategorias(),
     fetchMaterialesCatalogo(),
+    fetchMaterialCodigosBarraRows(),
     fetchPaged("panol_material_modelo", "id, material_id, modelo, cantidad, variante", "id"),
     fetchBatches(),
     fetchPaged("panol_precios", "id, material_id, proveedor_id, proveedor, precio_unitario, moneda, fuente, comprobante_id, fecha, created_at", "created_at"),
@@ -287,6 +304,13 @@ export async function fetchCatalogo() {
   for (const list of imagenesByMaterial.values()) {
     list.sort((a, b) => String(b.created_at ?? "").localeCompare(String(a.created_at ?? "")));
   }
+  const codigosByMaterial = new Map();
+  for (const row of codigosBarra) {
+    if (!row.material_id || row.activo === false) continue;
+    const list = codigosByMaterial.get(row.material_id) ?? [];
+    list.push(row);
+    codigosByMaterial.set(row.material_id, list);
+  }
 
   return {
     categorias,
@@ -304,6 +328,7 @@ export async function fetchCatalogo() {
         imagenes: imgs,
         imagen_url: m.imagen_url || imgs[0]?.url || null,
         variantes: normalizeVariantes(m.variantes),
+        codigos_barra: codigosByMaterial.get(m.id) ?? [],
         areas,
         proveedores_lista: provMatRes.map.get(m.id) ?? [],
         condicion_valor_id: condRes.map.get(m.id) ?? null,
@@ -313,6 +338,87 @@ export async function fetchCatalogo() {
     proveedores,
     comprobantes,
   };
+}
+
+export async function agregarCodigoBarraMaterial(materialId, codigo, { etiqueta = "", variante = null } = {}) {
+  const clean = String(codigo || "").trim();
+  if (!materialId) throw new Error("Falta el material.");
+  if (!clean) throw new Error("Cargá un código de barras.");
+
+  try {
+    const { data, error } = await supabase
+      .from("panol_material_codigos_barra")
+      .insert({
+        material_id: materialId,
+        codigo: clean,
+        etiqueta: String(etiqueta || "").trim() || null,
+        variante: variante || null,
+        activo: true,
+      })
+      .select("id, material_id, codigo, etiqueta, variante, activo, created_at, updated_at")
+      .single();
+    if (error) throw error;
+
+    try {
+      const { data: material } = await supabase
+        .from("panol_materiales")
+        .select("codigo_barra")
+        .eq("id", materialId)
+        .maybeSingle();
+      if (!String(material?.codigo_barra || "").trim()) {
+        await supabase.from("panol_materiales").update({ codigo_barra: clean }).eq("id", materialId);
+      }
+    } catch {
+      // El campo legacy es solo compatibilidad: si falla, el código nuevo ya quedó guardado.
+    }
+    return data;
+  } catch (error) {
+    if (!(isMissingTable(error) || isMissingColumn(error))) throw error;
+    const { error: legacyError } = await supabase
+      .from("panol_materiales")
+      .update({ codigo_barra: clean })
+      .eq("id", materialId);
+    if (legacyError) throw legacyError;
+    return { id: null, material_id: materialId, codigo: clean, etiqueta: etiqueta || "Principal", activo: true, legacy: true };
+  }
+}
+
+export async function eliminarCodigoBarraMaterial({ id = null, materialId = null, codigo = "" } = {}) {
+  const clean = String(codigo || "").trim();
+  if (id) {
+    try {
+      const { error } = await supabase.from("panol_material_codigos_barra").delete().eq("id", id);
+      if (error) throw error;
+    } catch (error) {
+      if (!(isMissingTable(error) || isMissingColumn(error))) throw error;
+    }
+  } else if (materialId && clean) {
+    try {
+      const { error } = await supabase
+        .from("panol_material_codigos_barra")
+        .delete()
+        .eq("material_id", materialId)
+        .eq("codigo", clean);
+      if (error) throw error;
+    } catch (error) {
+      if (!(isMissingTable(error) || isMissingColumn(error))) throw error;
+    }
+  }
+
+  if (materialId && clean) {
+    const { data } = await supabase
+      .from("panol_materiales")
+      .select("codigo_barra")
+      .eq("id", materialId)
+      .maybeSingle();
+    if (barcodeKey(data?.codigo_barra) === barcodeKey(clean)) {
+      const { error } = await supabase
+        .from("panol_materiales")
+        .update({ codigo_barra: null })
+        .eq("id", materialId);
+      if (error) throw error;
+    }
+  }
 }
 
 function modeloFromObraCodigo(codigo) {

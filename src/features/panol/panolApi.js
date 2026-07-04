@@ -1,4 +1,5 @@
 import { supabase } from "@/supabaseClient";
+import { materialBarcodeText } from "@/features/materiales/materialBarcodes";
 
 // ─────────────────────────────────────────────────────────────────────────────
 // API del módulo Pedidos / Recepción a Pañol.
@@ -40,6 +41,12 @@ function isMissingColumn(error) {
   return error.code === "42703" || msg.includes("could not find") || msg.includes("column");
 }
 
+function isMissingTable(error) {
+  if (!error) return false;
+  const msg = String(error.message ?? "").toLowerCase();
+  return error.code === "42P01" || msg.includes("does not exist") || msg.includes("schema cache") || msg.includes("not found");
+}
+
 function normalizeSearch(value = "") {
   return String(value || "")
     .toLowerCase()
@@ -69,6 +76,32 @@ async function fetchPaged(table, select, { order = "id", limit = 1000 } = {}) {
     if (!data || data.length < limit) break;
   }
   return out;
+}
+
+async function fetchBarcodeRowsForMaterialIds(materialIds = []) {
+  const ids = [...new Set(materialIds.filter(Boolean))];
+  if (!ids.length) return new Map();
+  try {
+    const byMaterial = new Map();
+    for (let from = 0; from < ids.length; from += 500) {
+      const chunk = ids.slice(from, from + 500);
+      const { data, error } = await supabase
+        .from("panol_material_codigos_barra")
+        .select("id,material_id,codigo,etiqueta,activo")
+        .in("material_id", chunk)
+        .eq("activo", true);
+      if (error) throw error;
+      for (const row of data ?? []) {
+        const list = byMaterial.get(row.material_id) ?? [];
+        list.push(row);
+        byMaterial.set(row.material_id, list);
+      }
+    }
+    return byMaterial;
+  } catch (error) {
+    if (isMissingTable(error) || isMissingColumn(error)) return new Map();
+    throw error;
+  }
 }
 
 // Resumen de estados de los ítems de un envío (para KPIs y chips de la bandeja).
@@ -130,14 +163,17 @@ async function hydrateEnvioItemMaterials(envio) {
   }
 
   const materialById = new Map(materiales.map((material) => [material.id, material]));
+  const codigosByMaterial = await fetchBarcodeRowsForMaterialIds(materialIds);
   return {
     ...envio,
     items: items.map((item) => {
       const material = item.material || materialById.get(item.material_id) || null;
+      const codigos = material ? codigosByMaterial.get(material.id) ?? [] : [];
+      const hydratedMaterial = material ? { ...material, codigos_barra: codigos } : null;
       return {
         ...item,
-        material,
-        codigo_barra: item.codigo_barra ?? material?.codigo_barra ?? null,
+        material: hydratedMaterial,
+        codigo_barra: item.codigo_barra ?? hydratedMaterial?.codigo_barra ?? codigos[0]?.codigo ?? null,
       };
     }),
   };
@@ -234,7 +270,10 @@ export async function fetchMaterialesEgreso({ sede = null, estados = ["en_panol"
         }
       }
     }
-    for (const mat of materiales) materialById.set(mat.id, mat);
+    const codigosByMaterial = await fetchBarcodeRowsForMaterialIds(materialIds);
+    for (const mat of materiales) {
+      materialById.set(mat.id, { ...mat, codigos_barra: codigosByMaterial.get(mat.id) ?? [] });
+    }
     const categoriaIds = [...new Set(materiales.map((mat) => mat.categoria_id).filter(Boolean))];
     if (categoriaIds.length) {
       try {
@@ -297,7 +336,8 @@ export async function fetchMaterialesEgreso({ sede = null, estados = ["en_panol"
       request,
       es_adicional: row.es_adicional ?? request?.es_adicional ?? false,
       proveedor: row.proveedor || meta?.proveedor || "",
-      codigo_barra: row.codigo_barra || meta?.codigo_barra || "",
+      codigo_barra: row.codigo_barra || meta?.codigo_barra || meta?.codigos_barra?.[0]?.codigo || "",
+      codigos_barra: meta?.codigos_barra || [],
       categoria_id: categoriaId,
       categoria_nombre: row.categoria_nombre || (categoriaId ? categoriaById.get(categoriaId) : "") || "",
     };
@@ -325,10 +365,12 @@ export async function fetchPanolCatalogMini({ q = "", limit = 80 } = {}) {
       return [];
     }
   }
+  const codigosByMaterial = await fetchBarcodeRowsForMaterialIds(rows.map((row) => row.id));
+  const withCodes = rows.map((row) => ({ ...row, codigos_barra: codigosByMaterial.get(row.id) ?? [] }));
   const term = normalizeSearch(q);
-  const active = rows.filter((row) => row.activo !== false);
+  const active = withCodes.filter((row) => row.activo !== false);
   const filtered = term
-    ? active.filter((row) => normalizeSearch([row.descripcion, row.codigo, row.codigo_barra, row.proveedor].filter(Boolean).join(" ")).includes(term))
+    ? active.filter((row) => normalizeSearch([row.descripcion, row.codigo, row.codigo_barra, materialBarcodeText(row), row.proveedor].filter(Boolean).join(" ")).includes(term))
     : active;
   return filtered
     .slice(0, limit)
@@ -336,7 +378,8 @@ export async function fetchPanolCatalogMini({ q = "", limit = 80 } = {}) {
       id: row.id,
       categoria_id: row.categoria_id || null,
       codigo: row.codigo || "",
-      codigo_barra: row.codigo_barra || "",
+      codigo_barra: row.codigo_barra || row.codigos_barra?.[0]?.codigo || "",
+      codigos_barra: row.codigos_barra || [],
       descripcion: row.descripcion || "",
       proveedor: row.proveedor || "",
       unidad: row.unidad_medida || "unidad",

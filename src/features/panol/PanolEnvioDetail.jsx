@@ -23,6 +23,7 @@ import {
 import { notifyWaUpdate } from "@/features/compras/purchaseRequestsApi";
 import BarcodeScanner from "@/features/panol/BarcodeScanner";
 import useKeyboardWedge from "@/features/panol/useKeyboardWedge";
+import { materialBarcodeList, materialBarcodeText } from "@/features/materiales/materialBarcodes";
 
 // Recepción simplificada: el pañolero solo marca recibido o parcial (pendiente
 // queda para revertir). Los estados problema viejos ya no se ofrecen en la UI.
@@ -52,6 +53,7 @@ function itemSearchText(item) {
     item.codigo,
     item.codigo_barra,
     item.material?.codigo_barra,
+    materialBarcodeText(item.material),
     item.cantidad,
     item.unidad,
     item.nota,
@@ -95,8 +97,20 @@ function qtyForScan(value) {
   return Number.isFinite(n) && n > 0 ? n : null;
 }
 
-function barcodeOfItem(item) {
-  return normalizeBarcode(item?.codigo_barra || item?.material?.codigo_barra);
+function barcodesOfItem(item) {
+  const out = new Set();
+  const push = (value) => {
+    const key = normalizeBarcode(value);
+    if (key) out.add(key);
+  };
+  push(item?.codigo_barra);
+  push(item?.material?.codigo_barra);
+  for (const row of materialBarcodeList(item?.material)) push(row.codigo);
+  return [...out];
+}
+
+function firstBarcodeOfItem(item) {
+  return barcodesOfItem(item)[0] || "";
 }
 
 function scanReceiptForItem(item) {
@@ -476,7 +490,7 @@ export default function PanolEnvioDetail({ envioId, profile, canReceive, isManag
   const visibleIds = useMemo(() => filteredItems.map((item) => item.id), [filteredItems]);
   const selectedVisible = useMemo(() => visibleIds.filter((id) => sel.has(id)).length, [visibleIds, sel]);
   const allVisibleSelected = visibleIds.length > 0 && selectedVisible === visibleIds.length;
-  const scanReadyCount = useMemo(() => items.filter((item) => barcodeOfItem(item)).length, [items]);
+  const scanReadyCount = useMemo(() => items.filter((item) => barcodesOfItem(item).length).length, [items]);
 
   useEffect(() => {
     if (scanEnabled) focusScanInput();
@@ -484,7 +498,7 @@ export default function PanolEnvioDetail({ envioId, profile, canReceive, isManag
 
   function findItemForScan(code) {
     const cleanCode = normalizeBarcode(code);
-    const matches = items.filter((item) => barcodeOfItem(item) === cleanCode);
+    const matches = items.filter((item) => barcodesOfItem(item).includes(cleanCode));
     return {
       matches,
       item: matches.find((item) => !isScanComplete(item)) || null,
@@ -994,7 +1008,7 @@ export default function PanolEnvioDetail({ envioId, profile, canReceive, isManag
                   {canReceive && !cerrado && <span />}
                   <span>Item</span>
                   <span>Cantidad</span>
-                  <span>Codigo</span>
+                  <span>Codigo / barra</span>
                   <span>Estado</span>
                   <span>Nota</span>
                   {canReceive && !cerrado && <span>Accion</span>}
@@ -1158,6 +1172,7 @@ export default function PanolEnvioDetail({ envioId, profile, canReceive, isManag
 
 function DesktopItemRow({ item, selected, flash, canEdit, canSeePrices, saving, onToggle, onApply, onSaveNote }) {
   const meta = ITEM_ESTADO_META[item.estado] ?? ITEM_ESTADO_META.pendiente;
+  const barcode = firstBarcodeOfItem(item);
   return (
     <div style={{
       display: "grid",
@@ -1196,8 +1211,15 @@ function DesktopItemRow({ item, selected, flash, canEdit, canSeePrices, saving, 
         {item.cantidad || "-"} <span style={{ color: C.dim, fontWeight: 650 }}>{item.unidad || ""}</span>
       </div>
 
-      <div style={{ color: item.codigo ? C.blue : C.dim, fontFamily: C.mono, fontSize: 12, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
-        {item.codigo || "-"}
+      <div style={{ display: "grid", gap: 2, minWidth: 0 }}>
+        <span style={{ color: item.codigo ? C.blue : C.dim, fontFamily: C.mono, fontSize: 12, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+          {item.codigo || "-"}
+        </span>
+        {barcode && (
+          <span title={`Codigo de barras: ${barcodesOfItem(item).join(" / ")}`} style={{ color: C.green, fontFamily: C.mono, fontSize: 10.5, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+            CB {barcode}
+          </span>
+        )}
       </div>
 
       <div style={{ display: "grid", gap: 4, justifyItems: "start" }}>
@@ -1279,6 +1301,7 @@ function DesktopItemRow({ item, selected, flash, canEdit, canSeePrices, saving, 
 
 function MobileItemCard({ item, selected, flash, canEdit, saving, onToggle, onApply, onSaveNote }) {
   const meta = ITEM_ESTADO_META[item.estado] ?? ITEM_ESTADO_META.pendiente;
+  const barcode = firstBarcodeOfItem(item);
   return (
     <div style={{
       border: `1px solid ${flash ? C.greenB : selected ? C.blueB : C.border}`,
@@ -1295,6 +1318,7 @@ function MobileItemCard({ item, selected, flash, canEdit, saving, onToggle, onAp
           <div style={{ color: C.text, fontSize: 14, fontWeight: 850, lineHeight: 1.2 }}>{item.descripcion}</div>
           <div style={{ color: C.dim, fontSize: 12, marginTop: 4 }}>
             {item.cantidad || "-"} {item.unidad || ""}{item.codigo ? ` · ${item.codigo}` : ""}
+            {barcode ? ` · CB ${barcode}` : ""}
           </div>
         </div>
         <StatusChip estado={item.estado} compact />

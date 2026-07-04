@@ -1,8 +1,9 @@
 import { useCallback, useEffect, useState } from "react";
 import { useParams } from "react-router-dom";
-import { Anchor, CheckCircle2, Clock, FileUp, MessageSquare, Package, RefreshCw } from "lucide-react";
+import { CheckCircle2, Clock, FileUp, MessageSquare, Package, RefreshCw } from "lucide-react";
 import { C } from "@/theme";
 import { supabase } from "@/supabaseClient";
+import logoK from "@/assets/logos/logo-k.png";
 
 // Portal público para proveedores (acceso por link con token, sin cuenta).
 // Todo pasa por la edge function portal-proveedor; acá no se consulta ninguna tabla.
@@ -87,7 +88,7 @@ function PedidoCard({ pedido, token, onDone }) {
   };
 
   return (
-    <div style={{ border: `1px solid ${C.border}`, background: C.panelSolid, borderRadius: 16, overflow: "hidden", boxShadow: "0 1px 2px rgba(0,0,0,0.05)" }}>
+    <div className="portal-card" style={{ border: `1px solid ${C.border}`, background: C.panelSolid, borderRadius: 16, overflow: "hidden", boxShadow: "0 10px 30px -18px rgba(0,0,0,0.35), 0 1px 2px rgba(0,0,0,0.05)" }}>
       <div style={{ padding: "13px 15px", borderBottom: `1px solid ${C.border}` }}>
         <div style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
           <div style={{ fontSize: 15, fontWeight: 850, color: C.text, flex: "1 1 200px", minWidth: 0 }}>{pedido.title}</div>
@@ -189,30 +190,38 @@ export default function PortalProveedorScreen() {
   useEffect(() => { cargar(); }, [cargar]);
 
   return (
-    <div style={{ minHeight: "100vh", background: C.bg, color: C.text, fontFamily: C.sans, padding: "0 0 60px" }}>
-      <div style={{ background: C.topbar, borderBottom: `1px solid ${C.border}`, padding: "16px 18px", display: "flex", alignItems: "center", gap: 12 }}>
-        <div style={{ width: 36, height: 36, borderRadius: 10, display: "grid", placeItems: "center", background: C.blueL, border: `1px solid ${C.blueB}`, color: C.blue }}>
-          <Anchor size={18} />
+    <div style={{ minHeight: "100vh", background: C.bg, color: C.text, fontFamily: C.sans, padding: "0 0 60px", position: "relative", overflow: "hidden" }}>
+      <style>{`
+        @keyframes portalRise { from { opacity: 0; transform: translateY(12px); } to { opacity: 1; transform: none; } }
+        .portal-card { animation: portalRise .38s cubic-bezier(.22,1,.36,1) both; }
+      `}</style>
+
+      {/* Glow + grilla de fondo (mismo lenguaje visual que el login) */}
+      <div style={{ position: "absolute", top: "-12%", left: "50%", transform: "translateX(-50%)", width: 620, height: 380, borderRadius: "50%", background: "radial-gradient(ellipse, var(--login-glow) 0%, transparent 70%)", pointerEvents: "none" }} />
+      <div style={{ position: "absolute", inset: 0, pointerEvents: "none", backgroundImage: "linear-gradient(var(--grid-line) 1px, transparent 1px), linear-gradient(90deg, var(--grid-line) 1px, transparent 1px)", backgroundSize: "80px 80px" }} />
+
+      {/* Hero con logo */}
+      <div style={{ position: "relative", zIndex: 1, textAlign: "center", padding: "38px 18px 8px" }}>
+        <div style={{ width: 64, height: 64, borderRadius: 17, background: "#0d1526", border: "1px solid rgba(148,163,184,0.22)", display: "grid", placeItems: "center", margin: "0 auto 13px", boxShadow: "0 10px 26px -10px rgba(0,0,0,0.5), inset 0 1px 0 rgba(255,255,255,0.06)" }}>
+          <img src={logoK} alt="Klase A" style={{ width: 38, height: 38, objectFit: "contain", display: "block" }} />
         </div>
-        <div style={{ minWidth: 0 }}>
-          <div style={{ fontSize: 17, fontWeight: 900, lineHeight: 1.1 }}>Astillero Klase A</div>
-          <div style={{ fontSize: 11, color: C.dim, letterSpacing: 1, textTransform: "uppercase", marginTop: 2, fontWeight: 750 }}>Portal de proveedores</div>
-        </div>
-        <div style={{ flex: 1 }} />
-        <button type="button" onClick={cargar} disabled={loading} title="Actualizar" style={{ border: `1px solid ${C.border}`, background: C.panelSolid, color: C.text, borderRadius: 10, padding: 9, cursor: loading ? "default" : "pointer", opacity: loading ? 0.6 : 1, display: "grid", placeItems: "center" }}>
+        <div style={{ fontWeight: 900, fontSize: 17, letterSpacing: "0.14em", color: C.text }}>KLASE A</div>
+        <div style={{ marginTop: 5, fontSize: 10.5, letterSpacing: "0.14em", color: C.dim, textTransform: "uppercase", fontWeight: 750 }}>Portal de proveedores</div>
+        <button type="button" onClick={cargar} disabled={loading} title="Actualizar" style={{ position: "absolute", right: 14, top: 14, border: `1px solid ${C.border}`, background: C.panelSolid, color: C.text, borderRadius: 10, padding: 9, cursor: loading ? "default" : "pointer", opacity: loading ? 0.6 : 1, display: "grid", placeItems: "center" }}>
           <RefreshCw size={15} />
         </button>
       </div>
 
-      <div style={{ maxWidth: 680, margin: "0 auto", padding: "18px 14px", display: "grid", gap: 12 }}>
+      <div style={{ position: "relative", zIndex: 1, maxWidth: 680, margin: "0 auto", padding: "18px 14px", display: "grid", gap: 12 }}>
         {loading && <div style={{ padding: 50, textAlign: "center", color: C.dim }}>Cargando pedidos...</div>}
         {!loading && error && (
           <div style={{ padding: "30px 20px", textAlign: "center", color: C.red, border: `1px solid ${C.redB}`, background: C.redL, borderRadius: 14, fontSize: 13.5 }}>{error}</div>
         )}
         {!loading && !error && data && (
           <>
-            <div style={{ fontSize: 14.5, color: C.text }}>
+            <div className="portal-card" style={{ border: `1px solid ${C.blueB}`, background: C.blueL, borderRadius: 14, padding: "13px 16px", fontSize: 14.5, color: C.text }}>
               Hola <strong>{data.proveedor}</strong> 👋 — estos son tus pedidos activos con el astillero.
+              <div style={{ fontSize: 11.5, color: C.dim, marginTop: 3 }}>Confirmá entregas, subí facturas o dejanos un mensaje. Compras lo ve al instante.</div>
             </div>
             {(data.pedidos || []).length === 0 ? (
               <div style={{ padding: "40px 20px", textAlign: "center", color: C.dim, border: `1px dashed ${C.border}`, borderRadius: 14, display: "grid", justifyItems: "center", gap: 8 }}>
