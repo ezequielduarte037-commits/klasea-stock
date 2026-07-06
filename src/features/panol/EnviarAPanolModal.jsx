@@ -1,15 +1,18 @@
 import { C } from "@/theme";
 import { useEffect, useMemo, useRef, useState } from "react";
-import { Bot, Link2, PackageSearch, Search } from "lucide-react";
+import { Bot, Link2, MapPin, PackageSearch, Search } from "lucide-react";
 import { supabase } from "@/supabaseClient";
 import { useResponsive } from "@/hooks/useResponsive";
 import { useToast } from "@/components/ui/Toast";
-import { crearEnvio, crearPanolCatalogMaterial, fetchPanolCatalogMini, fetchRecepcionPedidoMatches, marcarItems, SEDES_PANOL } from "@/features/panol/panolApi";
+import { crearEnvio, crearPanolCatalogMaterial, fetchPanolCatalogMini, fetchRecepcionPedidoMatches, guardarUbicacionMaterial, marcarItems, SEDES_PANOL } from "@/features/panol/panolApi";
 import { fetchProveedores, leerPresupuestoConIA } from "@/features/materiales/api";
 import ProveedorTipoBadge from "@/features/materiales/ProveedorTipoBadge";
 import { proveedorMeta } from "@/features/materiales/proveedorMeta";
 import { materialBarcodeList, materialBarcodeText } from "@/features/materiales/materialBarcodes";
 import { guardarIngresoPendiente, borrarIngresoPendiente } from "@/features/panol/ingresosPendientes";
+import { UbicacionChip } from "@/features/panol/UbicacionPicker";
+import { parseUbicacion } from "@/features/panol/ubicacionUtils";
+import { PANOL_REFERENCE_LAYOUT, PANOL_ROOM_H, PANOL_ROOM_W, applyPanolReferenceLayout } from "@/features/panol/panolLayout";
 
 const UNITS = ["unidad", "metro", "kg", "litro", "pies", "caja", "rollo", "par", "juego", "m2"];
 const CURRENCIES = ["ARS", "USD"];
@@ -116,6 +119,8 @@ function itemPatchFromMaterial(material, item = {}) {
     proveedor: item.proveedor || material?.proveedor || "",
     precio_unitario: item.precio_unitario !== "" && item.precio_unitario != null ? item.precio_unitario : material?.precio_unitario ?? "",
     moneda: item.moneda || material?.moneda || "ARS",
+    ubicacion: item.ubicacion || material?.ubicacion || null,
+    ubicacion_obs: item.ubicacion_obs || material?.ubicacion_obs || "",
     catalog_match_score: material?._score || null,
   };
 }
@@ -234,6 +239,9 @@ function normalizeItem(it) {
     material_id: it.material_id ?? it.materialId ?? "",
     proveedor: it.proveedor ?? "",
     rubro: it.rubro ?? "",
+    ubicacion: it.ubicacion ?? it.ubicacionHabitual ?? "",
+    ubicacion_obs: it.ubicacion_obs ?? it.ubicacionObs ?? "",
+    ubicacion_touched: it.ubicacion_touched ?? false,
     recepcion_estado: it.recepcion_estado ?? it.recepcionEstado ?? null,
     purchase_request_item_id: it.purchase_request_item_id ?? it.purchaseRequestItemId ?? null,
     panol_envio_item_id: it.panol_envio_item_id ?? it.panolEnvioItemId ?? null,
@@ -265,6 +273,9 @@ function matchToItem(match, material = null) {
     obra_id: match.obra_id || "",
     material_id: material?.id || match.material_id || "",
     proveedor: material?.proveedor || "",
+    ubicacion: material?.ubicacion || "",
+    ubicacion_obs: material?.ubicacion_obs || "",
+    ubicacion_touched: false,
     recepcion_estado: "recibido",
     purchase_request_item_id: match.purchase_request_item_id || (match.source === "compra" ? match.id : null),
     panol_envio_item_id: match.panol_envio_item_id || null,
@@ -282,17 +293,18 @@ function CatalogLinkRow({ item, catalog = [], proveedores = [], onLink, onClear,
     return selected ? [] : topCatalogMatches(catalog, query, 6);
   }, [catalog, item, q, selected]);
   return (
-    <div style={{ display: "grid", gap: 5, padding: "0 7px 7px 7px" }}>
-      <div style={{ display: "flex", gap: 7, alignItems: "center", minWidth: 0 }}>
-        <span style={{ color: C.t2, fontSize: 10, fontWeight: 850, textTransform: "uppercase", letterSpacing: 0.8, minWidth: 62 }}>Catalogo</span>
+    <div style={{ display: "grid", gap: 7, padding: "0 10px 10px 10px" }}>
+      <div style={{ display: "flex", gap: 9, alignItems: "center", minWidth: 0 }}>
+        <span style={{ color: C.t2, fontSize: 10.5, fontWeight: 850, textTransform: "uppercase", letterSpacing: 0.8, minWidth: 72 }}>Catalogo</span>
         {selected ? (
           <div style={{ flex: 1, minWidth: 0, display: "flex", alignItems: "center", gap: 8 }}>
-            <div style={{ flex: 1, minWidth: 0, color: C.green, fontSize: 11.5, fontWeight: 800, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+            <div style={{ flex: 1, minWidth: 0, color: C.green, fontSize: 12.5, fontWeight: 800, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
               Conectado: {selected.descripcion}
               <span style={{ color: C.t2, fontWeight: 500 }}>{selected.codigo ? ` · ${selected.codigo}` : ""}{selected.proveedor ? ` · ${selected.proveedor}` : ""}</span>
             </div>
             <ProveedorTipoBadge meta={selectedMeta} compact />
-            <button type="button" onClick={() => { setQ(""); onClear(); }} style={{ border: `1px solid ${C.b0}`, background: C.bg, color: C.t1, borderRadius: 7, padding: "5px 8px", fontSize: 11, fontWeight: 800, cursor: "pointer", fontFamily: C.sans }}>
+            <UbicacionChip ubicacion={selected.ubicacion} obs={selected.ubicacion_obs} />
+            <button type="button" onClick={() => { setQ(""); onClear(); }} style={{ border: `1px solid ${C.b0}`, background: C.bg, color: C.t1, borderRadius: 7, padding: "6px 9px", fontSize: 11.5, fontWeight: 800, cursor: "pointer", fontFamily: C.sans }}>
               Cambiar
             </button>
           </div>
@@ -302,13 +314,13 @@ function CatalogLinkRow({ item, catalog = [], proveedores = [], onLink, onClear,
               value={q}
               onChange={(e) => setQ(e.target.value)}
               placeholder="Buscar material del catalogo"
-              style={inp({ flex: 1, minWidth: 0, padding: "6px 8px", fontSize: 11.5, background: C.bg })}
+              style={inp({ flex: 1, minWidth: 0, padding: "8px 10px", fontSize: 12.5, background: C.bg })}
             />
             <button
               type="button"
               onClick={onCreate}
               disabled={creating || !String(item.descripcion || "").trim()}
-              style={{ border: `1px solid ${C.amberB ?? C.b0}`, background: "rgba(245,158,11,0.08)", color: creating ? C.dim : C.amber, borderRadius: 7, padding: "6px 9px", fontSize: 11, fontWeight: 850, cursor: creating ? "default" : "pointer", fontFamily: C.sans, whiteSpace: "nowrap" }}
+              style={{ border: `1px solid ${C.amberB ?? C.b0}`, background: "rgba(245,158,11,0.08)", color: creating ? C.dim : C.amber, borderRadius: 7, padding: "7px 10px", fontSize: 11.5, fontWeight: 850, cursor: creating ? "default" : "pointer", fontFamily: C.sans, whiteSpace: "nowrap" }}
             >
               {creating ? "Creando..." : "Crear nuevo"}
             </button>
@@ -316,8 +328,8 @@ function CatalogLinkRow({ item, catalog = [], proveedores = [], onLink, onClear,
         )}
       </div>
       {!selected && results.length > 0 && (
-        <div style={{ display: "grid", gap: 4, marginLeft: 69 }}>
-          <div style={{ color: C.amber, fontSize: 10.5, fontWeight: 850 }}>
+        <div style={{ display: "grid", gap: 6, marginLeft: 81 }}>
+          <div style={{ color: C.amber, fontSize: 11, fontWeight: 850 }}>
             Posibles coincidencias: elegí una para evitar duplicados.
           </div>
           {results.map((material) => {
@@ -327,7 +339,7 @@ function CatalogLinkRow({ item, catalog = [], proveedores = [], onLink, onClear,
                 key={material.id}
                 type="button"
                 onClick={() => { onLink(material); setQ(""); }}
-                style={{ display: "flex", justifyContent: "space-between", gap: 10, textAlign: "left", border: `1px solid ${C.b0}`, background: C.bg, color: C.t1, borderRadius: 7, padding: "5px 8px", cursor: "pointer", fontSize: 11.5, fontFamily: C.sans }}
+                style={{ display: "flex", justifyContent: "space-between", gap: 10, textAlign: "left", border: `1px solid ${C.b0}`, background: C.bg, color: C.t1, borderRadius: 7, padding: "7px 9px", cursor: "pointer", fontSize: 12.3, fontFamily: C.sans }}
               >
                 <span style={{ minWidth: 0, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{material.descripcion}</span>
                 <span style={{ display: "inline-flex", alignItems: "center", gap: 5, color: C.t2, whiteSpace: "nowrap" }}>
@@ -340,8 +352,140 @@ function CatalogLinkRow({ item, catalog = [], proveedores = [], onLink, onClear,
         </div>
       )}
       {!selected && q.trim() && results.length === 0 && (
-        <div style={{ marginLeft: 69, color: C.t2, fontSize: 10.5 }}>
+        <div style={{ marginLeft: 81, color: C.t2, fontSize: 11 }}>
           Sin coincidencias claras. Podés crear un material nuevo.
+        </div>
+      )}
+    </div>
+  );
+}
+
+function MiniMapaUbicacion({ selectedCode = "", onPick = null }) {
+  const code = String(selectedCode || "").trim().toUpperCase();
+  const selectedLayout = PANOL_REFERENCE_LAYOUT[code] || null;
+  const shelves = Object.entries(PANOL_REFERENCE_LAYOUT);
+  return (
+    <div style={{ border: `1px solid ${C.b0}`, background: C.bg, borderRadius: 12, padding: 10, minWidth: 0 }}>
+      <div style={{ display: "flex", justifyContent: "space-between", gap: 8, alignItems: "center", marginBottom: 8 }}>
+        <span style={{ color: C.t2, fontSize: 10.5, fontWeight: 850, textTransform: "uppercase", letterSpacing: 0.8 }}>Preview pañol</span>
+        <span style={{ color: selectedLayout ? C.blue : C.t2, fontSize: 12, fontWeight: 900, fontFamily: C.mono }}>{selectedLayout ? code : "Sin estanteria"}</span>
+      </div>
+      <svg viewBox={`0 0 ${PANOL_ROOM_W} ${PANOL_ROOM_H}`} style={{ width: "100%", height: "auto", display: "block", maxHeight: 170 }}>
+        <rect x={0} y={0} width={PANOL_ROOM_W} height={PANOL_ROOM_H} rx={18} fill="rgba(148,163,184,0.08)" stroke="rgba(148,163,184,0.35)" strokeWidth={18} />
+        <rect x={105} y={PANOL_ROOM_H - 34} width={285} height={12} fill={C.amber} rx={5} opacity={0.8} />
+        <rect x={485} y={PANOL_ROOM_H - 34} width={195} height={12} fill="#38bdf8" rx={5} opacity={0.8} />
+        <rect x={1542} y={PANOL_ROOM_H - 34} width={275} height={12} fill={C.amber} rx={5} opacity={0.8} />
+        {shelves.map(([shelfCode, layout]) => {
+          const active = shelfCode === code;
+          const zone = shelfCode.charAt(0);
+          const color = zone === "A" ? "#3b82f6" : zone === "B" ? "#8b5cf6" : zone === "C" ? "#06b6d4" : zone === "D" ? "#10b981" : zone === "E" ? "#f59e0b" : zone === "F" ? "#ec4899" : zone === "G" ? "#84cc16" : zone === "H" ? "#f97316" : zone === "I" ? "#14b8a6" : zone === "J" ? "#6366f1" : zone === "K" ? "#a855f7" : zone === "P" ? "#ef4444" : "#eab308";
+          return (
+            <g key={shelfCode} onClick={() => onPick?.(shelfCode)} style={{ cursor: onPick ? "pointer" : "default" }}>
+              <rect
+                x={layout.x_cm}
+                y={layout.y_cm}
+                width={layout.w_cm}
+                height={layout.h_cm}
+                rx={9}
+                fill={active ? `${color}55` : "rgba(148,163,184,0.18)"}
+                stroke={active ? color : "rgba(100,116,139,0.42)"}
+                strokeWidth={active ? 13 : 4}
+              />
+              {(active || layout.w_cm >= 100 || layout.h_cm >= 140) && (
+                <text x={layout.x_cm + layout.w_cm / 2} y={layout.y_cm + layout.h_cm / 2 + 12} textAnchor="middle" fontSize={active ? 46 : 34} fontWeight={950} fill={active ? color : "rgba(71,85,105,0.55)"} fontFamily={C.sans}>
+                  {shelfCode}
+                </text>
+              )}
+            </g>
+          );
+        })}
+        {selectedLayout && (
+          <circle cx={selectedLayout.x_cm + selectedLayout.w_cm / 2} cy={selectedLayout.y_cm + selectedLayout.h_cm / 2} r={Math.max(42, Math.min(78, Math.max(selectedLayout.w_cm, selectedLayout.h_cm) / 2))} fill="none" stroke={C.blue} strokeWidth={8} strokeDasharray="18 14" opacity={0.9} />
+        )}
+      </svg>
+    </div>
+  );
+}
+
+function ItemLocationRow({ item, material = null, estanterias = [], onChange, isMobile = false }) {
+  const effectiveUbicacion = item.ubicacion || material?.ubicacion || "";
+  const effectiveObs = item.ubicacion_obs || material?.ubicacion_obs || "";
+  const parsed = parseUbicacion(effectiveUbicacion);
+  const cod = parsed.afuera ? "AFUERA" : parsed.cod;
+  const nivel = parsed.nivel ? String(parsed.nivel) : "";
+  const selEst = estanterias.find((est) => est.codigo === cod) || null;
+  const nivelesCount = Array.isArray(selEst?.niveles_cm) ? selEst.niveles_cm.length : 0;
+  const hasCatalogDefault = !!material?.ubicacion;
+  const changed = item.ubicacion_touched;
+  const showPreview = !!cod && cod !== "AFUERA" && (changed || !hasCatalogDefault);
+  const helper = changed
+    ? "Se guardara como ubicacion habitual de este producto."
+    : hasCatalogDefault
+      ? "Recordada del catalogo."
+      : material?.id
+        ? "Elegila una vez y queda recordada."
+        : "Se guardara cuando el item quede vinculado al catalogo.";
+  const field = {
+    background: C.bg,
+    border: `1px solid ${C.b0}`,
+    color: C.t0,
+    borderRadius: 7,
+    padding: "8px 10px",
+    fontSize: 12.5,
+    fontFamily: C.sans,
+    outline: "none",
+    minWidth: 0,
+  };
+  const setLocation = (nextCod, nextNivel = nivel, nextObs = effectiveObs) => {
+    const value = !nextCod ? "" : nextCod === "AFUERA" ? "AFUERA" : (nextNivel ? `${nextCod}-${nextNivel}` : nextCod);
+    onChange({ ubicacion: value, ubicacion_obs: nextObs, ubicacion_touched: true });
+  };
+  return (
+    <div style={{ display: "grid", gap: 8, padding: "0 10px 10px 10px" }}>
+      <div style={{ display: "grid", gridTemplateColumns: isMobile ? "1fr" : "72px minmax(160px, 0.8fr) minmax(128px, 0.55fr) minmax(220px, 1fr) auto", gap: 9, alignItems: "center" }}>
+        <span style={{ color: C.t2, fontSize: 10.5, fontWeight: 850, textTransform: "uppercase", letterSpacing: 0.8, display: "inline-flex", alignItems: "center", gap: 5 }}>
+          <MapPin size={11} /> Ubic.
+        </span>
+        <select
+          value={cod}
+          onChange={(event) => setLocation(event.target.value, "")}
+          style={{ ...field, cursor: "pointer" }}
+        >
+          <option value="">Sin ubicar</option>
+          <option value="AFUERA">Afuera del pañol</option>
+          {estanterias.map((est) => <option key={est.codigo} value={est.codigo}>{est.codigo}</option>)}
+        </select>
+        {cod && cod !== "AFUERA" && nivelesCount > 0 ? (
+          <select value={nivel} onChange={(event) => setLocation(cod, event.target.value)} style={{ ...field, cursor: "pointer" }}>
+            <option value="">Estante</option>
+            {Array.from({ length: nivelesCount }, (_, i) => (
+              <option key={i + 1} value={String(i + 1)}>{i + 1}º estante</option>
+            ))}
+          </select>
+        ) : (
+          <span style={{ display: isMobile ? "none" : "block" }} />
+        )}
+        <input
+          value={effectiveObs}
+          onChange={(event) => onChange({ ubicacion: effectiveUbicacion, ubicacion_obs: event.target.value, ubicacion_touched: true })}
+          placeholder={cod === "AFUERA" ? "Donde queda fisicamente" : "Obs. de ubicacion"}
+          style={field}
+        />
+        <div style={{ display: "flex", gap: 6, alignItems: "center", justifyContent: isMobile ? "flex-start" : "flex-end", minWidth: 0 }}>
+          <UbicacionChip ubicacion={effectiveUbicacion} obs={effectiveObs} />
+          {hasCatalogDefault && changed && (
+            <button type="button" onClick={() => onChange({ ubicacion: material.ubicacion || "", ubicacion_obs: material.ubicacion_obs || "", ubicacion_touched: false })} style={{ border: `1px solid ${C.b0}`, background: "transparent", color: C.t2, borderRadius: 7, padding: "6px 8px", cursor: "pointer", fontSize: 11, fontWeight: 800, fontFamily: C.sans, whiteSpace: "nowrap" }}>
+              Usar habitual
+            </button>
+          )}
+        </div>
+      </div>
+      <div style={{ marginLeft: isMobile ? 0 : 81, color: changed ? C.green : C.t2, fontSize: 11, fontWeight: changed ? 800 : 500 }}>
+        {helper}
+      </div>
+      {showPreview && (
+        <div style={{ marginLeft: isMobile ? 0 : 81 }}>
+          <MiniMapaUbicacion selectedCode={cod} onPick={(shelfCode) => setLocation(shelfCode, "")} />
         </div>
       )}
     </div>
@@ -362,6 +506,7 @@ export default function EnviarAPanolModal({ open, onClose, prefill, showPrices =
   const [observaciones, setObservaciones] = useState("");
   const [items, setItems] = useState([]);
   const [obras, setObras] = useState([]);
+  const [estanterias, setEstanterias] = useState([]);
   const [saving, setSaving] = useState(false);
 
   const [nDesc, setNDesc] = useState("");
@@ -419,6 +564,13 @@ export default function EnviarAPanolModal({ open, onClose, prefill, showPrices =
       .order("codigo")
       .then(({ data }) => setObras(data ?? []))
       .catch(() => {});
+    supabase
+      .from("panol_estanterias")
+      .select("codigo,niveles_cm")
+      .eq("activo", true)
+      .order("codigo")
+      .then(({ data, error }) => { if (!error) setEstanterias(applyPanolReferenceLayout(data ?? [])); })
+      .catch(() => setEstanterias([]));
   }, [open, prefill, showPrices, sedeLocked]);
 
   useEffect(() => {
@@ -545,6 +697,9 @@ export default function EnviarAPanolModal({ open, onClose, prefill, showPrices =
       obra_id: obraId || "",
       material_id: selectedMaterial?.id || "",
       proveedor: selectedMaterial?.proveedor || "",
+      ubicacion: selectedMaterial?.ubicacion || "",
+      ubicacion_obs: selectedMaterial?.ubicacion_obs || "",
+      ubicacion_touched: false,
       recepcion_estado: isRemito ? "recibido" : null,
       purchase_request_item_id: null,
       obra_snapshot_item_id: null,
@@ -597,6 +752,28 @@ export default function EnviarAPanolModal({ open, onClose, prefill, showPrices =
     return id;
   }
 
+  async function rememberTouchedLocations(sourceItems) {
+    const updates = [];
+    const patchByMaterial = new Map();
+    for (const item of sourceItems) {
+      if (!item.material_id || !item.ubicacion_touched) continue;
+      if (patchByMaterial.has(item.material_id)) continue;
+      const patch = {
+        ubicacion: item.ubicacion || null,
+        ubicacionObs: item.ubicacion_obs || null,
+      };
+      patchByMaterial.set(item.material_id, patch);
+      updates.push(guardarUbicacionMaterial(item.material_id, patch));
+    }
+    if (!updates.length) return;
+    await Promise.all(updates);
+    setFullCatalog((prev) => prev.map((material) => {
+      const patch = patchByMaterial.get(material.id);
+      if (!patch) return material;
+      return { ...material, ubicacion: patch.ubicacion || null, ubicacion_obs: patch.ubicacionObs || null };
+    }));
+  }
+
   function closeModal(saved = false) {
     if (!saved && isRemito) persistDraftNow();
     onClose(saved);
@@ -622,6 +799,8 @@ export default function EnviarAPanolModal({ open, onClose, prefill, showPrices =
         proveedor: item.proveedor,
         precio_unitario: item.precio_unitario,
         moneda: item.moneda,
+        ubicacion: item.ubicacion || null,
+        ubicacion_obs: item.ubicacion_obs || null,
       });
       setFullCatalog((prev) => [created, ...prev.filter((mat) => mat.id !== created.id)]);
       linkCatalogMaterial(index, created);
@@ -658,6 +837,8 @@ export default function EnviarAPanolModal({ open, onClose, prefill, showPrices =
         proveedor: item.proveedor,
         precio_unitario: item.precio_unitario,
         moneda: item.moneda,
+        ubicacion: item.ubicacion || null,
+        ubicacion_obs: item.ubicacion_obs || null,
       });
       catalogRows = [created, ...catalogRows];
       createdRows.push(created);
@@ -683,6 +864,9 @@ export default function EnviarAPanolModal({ open, onClose, prefill, showPrices =
       obra_id: obraId || "",
       material_id: material.id,
       proveedor: material.proveedor || "",
+      ubicacion: material.ubicacion || "",
+      ubicacion_obs: material.ubicacion_obs || "",
+      ubicacion_touched: false,
       recepcion_estado: isRemito ? "recibido" : null,
       purchase_request_item_id: null,
       obra_snapshot_item_id: null,
@@ -697,6 +881,9 @@ export default function EnviarAPanolModal({ open, onClose, prefill, showPrices =
       obra_id: obraId || "",
       material_id: material.id,
       proveedor: material.proveedor || "",
+      ubicacion: material.ubicacion || "",
+      ubicacion_obs: material.ubicacion_obs || "",
+      ubicacion_touched: false,
       recepcion_estado: isRemito ? "recibido" : null,
       purchase_request_item_id: null,
       obra_snapshot_item_id: null,
@@ -739,14 +926,18 @@ export default function EnviarAPanolModal({ open, onClose, prefill, showPrices =
           recepcion_estado: isRemito ? "recibido" : null,
         }))
         .filter((it) => it.descripcion);
-      if (!aiItems.length) {
+      const hydratedItems = aiItems.map((item) => {
+        const [best] = topCatalogMatches(catalogRows, item, 1);
+        return best && (best._score || 0) >= 70 ? { ...item, ...itemPatchFromMaterial(best, item) } : item;
+      });
+      if (!hydratedItems.length) {
         toast.warning("La IA no detecto items.");
         return;
       }
-      setItems((prev) => [...prev, ...(showPrices ? aiItems : aiItems.map(stripItemPrice))]);
+      setItems((prev) => [...prev, ...(showPrices ? hydratedItems : hydratedItems.map(stripItemPrice))]);
       if (!titulo.trim() && data?.proveedor) setTitulo(`Remito ${data.proveedor}`);
-      const suggested = aiItems.filter((item) => topCatalogMatches(catalogRows, item, 1).length).length;
-      toast.success(`IA leyo ${aiItems.length} item${aiItems.length === 1 ? "" : "s"} - ${suggested} con sugerencia${suggested === 1 ? "" : "s"} de catalogo.`);
+      const suggested = hydratedItems.filter((item) => item.material_id).length;
+      toast.success(`IA leyo ${hydratedItems.length} item${hydratedItems.length === 1 ? "" : "s"} - ${suggested} vinculado${suggested === 1 ? "" : "s"} al catalogo.`);
     } catch (err) {
       toast.error(err.message || "No se pudo leer el remito.");
     } finally {
@@ -776,6 +967,11 @@ export default function EnviarAPanolModal({ open, onClose, prefill, showPrices =
     try {
       const preparedItems = await ensureCatalogLinksForItems(items);
       setItems(preparedItems);
+      try {
+        await rememberTouchedLocations(preparedItems);
+      } catch (locationError) {
+        toast.warning(locationError.message || "El ingreso sigue, pero no se pudo guardar la ubicacion habitual.");
+      }
       const linkedRecepcionItems = preparedItems
         .map((it) => ({
           id: it.panol_envio_item_id,
@@ -821,26 +1017,40 @@ export default function EnviarAPanolModal({ open, onClose, prefill, showPrices =
     ? "1fr 92px"
     : isRemito
       ? showPrices
-        ? "minmax(220px,1.35fr) 112px 76px 96px 142px 98px 78px 28px"
-        : "minmax(220px,1.35fr) 112px 76px 96px 142px 28px"
+        ? "minmax(320px,1.65fr) 140px 100px 122px 190px 124px 92px 34px"
+        : "minmax(320px,1.65fr) 140px 100px 122px 190px 34px"
       : showPrices
         ? "minmax(220px,1.6fr) 112px 76px 96px 98px 78px 28px"
         : "minmax(220px,1.6fr) 112px 76px 96px 28px";
+  const ubicadosCount = items.filter((item) => item.ubicacion).length;
+  const ingresoDesktop = isRemito && !isMobile;
+  const modalMaxWidth = ingresoDesktop ? 1580 : 1240;
+  const modalHeight = ingresoDesktop ? "calc(100vh - 28px)" : undefined;
+  const bodyPadding = isMobile ? 14 : ingresoDesktop ? 22 : 18;
+  const bodyGap = ingresoDesktop ? 18 : 14;
+  const catalogListHeight = ingresoDesktop ? 278 : 184;
+  const matchesListHeight = ingresoDesktop ? 318 : 224;
 
   return (
     <div
       onClick={(e) => { if (e.target === e.currentTarget) closeModal(false); }}
-      style={{ position: "fixed", inset: 0, zIndex: 9999, background: "var(--overlay-strong)", backdropFilter: "blur(6px)", display: "grid", placeItems: isMobile ? "end center" : "center", padding: isMobile ? 0 : 20, fontFamily: C.sans }}
+      style={{ position: "fixed", inset: 0, zIndex: 9999, background: "var(--overlay-strong)", backdropFilter: "blur(6px)", display: "grid", placeItems: isMobile ? "end center" : "center", padding: isMobile ? 0 : ingresoDesktop ? 14 : 20, fontFamily: C.sans }}
     >
-      <form onSubmit={submit} style={{ background: C.panelSolid, border: `1px solid ${C.border}`, borderRadius: isMobile ? "14px 14px 0 0" : 14, width: "100%", maxWidth: isMobile ? "100%" : 1240, maxHeight: isMobile ? "96vh" : "94vh", overflow: "hidden", display: "grid", gridTemplateRows: "auto 1fr auto", color: C.t0 }}>
-        <div style={{ display: "flex", alignItems: "center", gap: 10, padding: "16px 18px", borderBottom: `1px solid ${C.border}` }}>
+      <form onSubmit={submit} style={{ background: C.panelSolid, border: `1px solid ${C.border}`, borderRadius: isMobile ? "14px 14px 0 0" : 16, width: "100%", maxWidth: isMobile ? "100%" : modalMaxWidth, height: isMobile ? "96vh" : modalHeight, maxHeight: isMobile ? "96vh" : "calc(100vh - 28px)", overflow: "hidden", display: "grid", gridTemplateRows: "auto minmax(0, 1fr) auto", color: C.t0, boxShadow: "0 24px 80px rgba(15,23,42,0.24)" }}>
+        <div style={{ display: "flex", alignItems: "center", gap: 12, padding: ingresoDesktop ? "18px 22px" : "16px 18px", borderBottom: `1px solid ${C.border}` }}>
           <div style={{ fontSize: 16, fontWeight: 800 }}>{isRemito ? "Ingresar materiales" : "Enviar a Pañol"}</div>
           {prefill?.origen === "compra" && <span style={{ fontSize: 9, color: C.dim, background: "var(--panel-2)", border: `1px solid ${C.border}`, borderRadius: 5, padding: "2px 6px", textTransform: "uppercase", letterSpacing: 0.5 }}>desde compra</span>}
+          {isRemito && (
+            <div style={{ display: "flex", gap: 7, flexWrap: "wrap", alignItems: "center", marginLeft: 4 }}>
+              <span style={{ border: `1px solid ${C.b0}`, background: C.bg, color: C.t1, borderRadius: 999, padding: "5px 10px", fontSize: 11.5, fontWeight: 850 }}>{items.length} item{items.length === 1 ? "" : "s"}</span>
+              <span style={{ border: `1px solid ${ubicadosCount === items.length && items.length ? C.greenB : C.b0}`, background: ubicadosCount === items.length && items.length ? C.greenL : C.bg, color: ubicadosCount === items.length && items.length ? C.green : C.t2, borderRadius: 999, padding: "5px 10px", fontSize: 11.5, fontWeight: 850 }}>{ubicadosCount}/{items.length || 0} ubicados</span>
+            </div>
+          )}
           <div style={{ flex: 1 }} />
           <button type="button" onClick={() => closeModal(false)} style={{ border: "none", background: "transparent", color: C.dim, cursor: "pointer", fontSize: 18, padding: 4 }}>x</button>
         </div>
 
-        <div style={{ overflowY: "auto", padding: 18, display: "grid", gap: 14 }}>
+        <div style={{ overflowY: "auto", padding: bodyPadding, display: "grid", gap: bodyGap, minHeight: 0 }}>
           <div>
             <span style={lbl}>{isRemito ? "Referencia / proveedor" : "Título"}</span>
             <input value={titulo} onChange={(e) => setTitulo(e.target.value)} placeholder={isRemito ? 'Ej: "Materiales electricidad K37"' : 'Ej: "Sanitarios K52-25"'} required style={inp()} />
@@ -877,13 +1087,13 @@ export default function EnviarAPanolModal({ open, onClose, prefill, showPrices =
             </div>
           </div>
 
-          <div style={{ border: `1px solid ${C.b0}`, background: "var(--panel)", borderRadius: 12, padding: 12, display: "grid", gap: 10 }}>
+          <div style={{ border: `1px solid ${C.b0}`, background: "var(--panel)", borderRadius: 14, padding: ingresoDesktop ? 16 : 12, display: "grid", gap: ingresoDesktop ? 14 : 10 }}>
             <div style={{ display: "flex", justifyContent: "space-between", gap: 10, alignItems: "center", flexWrap: "wrap" }}>
               <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
                 <PackageSearch size={16} style={{ color: C.blue }} />
-                <span style={{ color: C.t0, fontSize: 13, fontWeight: 900 }}>Catalogo y pedidos abiertos</span>
+                <span style={{ color: C.t0, fontSize: ingresoDesktop ? 14.5 : 13, fontWeight: 900 }}>Buscar material y pedidos a recepcionar</span>
               </div>
-              <label style={{ display: "inline-flex", alignItems: "center", gap: 7, border: `1px solid ${C.b0}`, background: C.bg, color: aiReading ? C.dim : C.violet, borderRadius: 8, padding: "7px 10px", cursor: aiReading ? "default" : "pointer", fontSize: 12, fontWeight: 850 }}>
+              <label style={{ display: "inline-flex", alignItems: "center", gap: 7, border: `1px solid ${C.b0}`, background: C.bg, color: aiReading ? C.dim : C.violet, borderRadius: 8, padding: ingresoDesktop ? "9px 12px" : "7px 10px", cursor: aiReading ? "default" : "pointer", fontSize: ingresoDesktop ? 12.5 : 12, fontWeight: 850 }}>
                 <Bot size={14} />
                 {aiReading ? "Leyendo..." : "Leer remito"}
                 <input
@@ -900,18 +1110,18 @@ export default function EnviarAPanolModal({ open, onClose, prefill, showPrices =
               </label>
             </div>
 
-            <div style={{ display: "grid", gridTemplateColumns: isMobile ? "1fr" : "minmax(220px, 0.9fr) minmax(320px, 1.1fr)", gap: 10, minHeight: 0 }}>
-              <div style={{ display: "grid", gap: 8, minWidth: 0 }}>
+            <div style={{ display: "grid", gridTemplateColumns: isMobile ? "1fr" : "minmax(360px, 0.95fr) minmax(520px, 1.15fr)", gap: ingresoDesktop ? 14 : 10, minHeight: 0 }}>
+              <div style={{ display: "grid", gap: 10, minWidth: 0 }}>
                 <div style={{ position: "relative" }}>
                   <Search size={14} style={{ position: "absolute", left: 10, top: "50%", transform: "translateY(-50%)", color: C.t2 }} />
                   <input
                     value={catalogQ}
                     onChange={(e) => setCatalogQ(e.target.value)}
                     placeholder="Buscar material para recepcionar"
-                    style={inp({ paddingLeft: 32, background: C.bg, height: 36 })}
+                    style={inp({ paddingLeft: 36, background: C.bg, height: ingresoDesktop ? 42 : 36, fontSize: ingresoDesktop ? 13.5 : 13 })}
                   />
                 </div>
-                <div style={{ display: "grid", gap: 6, maxHeight: 184, overflowY: "auto", paddingRight: 2 }}>
+                <div style={{ display: "grid", gap: 7, maxHeight: catalogListHeight, overflowY: "auto", paddingRight: 2 }}>
                   {catalogLoading ? (
                     <div style={{ color: C.t2, fontSize: 12, padding: 12, textAlign: "center" }}>Cargando...</div>
                   ) : catalog.length ? catalog.map((mat) => {
@@ -927,19 +1137,20 @@ export default function EnviarAPanolModal({ open, onClose, prefill, showPrices =
                           border: `1px solid ${active ? C.blueB : C.b0}`,
                           background: active ? "var(--blue-soft)" : C.bg,
                           color: C.t0,
-                          borderRadius: 8,
-                          padding: "8px 9px",
+                          borderRadius: 9,
+                          padding: ingresoDesktop ? "10px 11px" : "8px 9px",
                           cursor: "pointer",
                           textAlign: "left",
                           fontFamily: C.sans,
                         }}
                       >
-                        <div style={{ fontSize: 12.5, fontWeight: 850, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{mat.descripcion}</div>
-                        <div style={{ display: "flex", alignItems: "center", gap: 6, minWidth: 0, color: C.t2, fontSize: 10.5, marginTop: 2 }}>
+                        <div style={{ fontSize: ingresoDesktop ? 13.3 : 12.5, fontWeight: 850, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{mat.descripcion}</div>
+                        <div style={{ display: "flex", alignItems: "center", gap: 6, minWidth: 0, color: C.t2, fontSize: ingresoDesktop ? 11.2 : 10.5, marginTop: 3 }}>
                           <span style={{ minWidth: 0, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>
                             {mat.codigo || "sin cod. item"}{barcode ? ` · CB ${barcode}` : ""}{mat.proveedor ? ` · ${mat.proveedor}` : ""}
                           </span>
                           <ProveedorTipoBadge meta={meta} compact />
+                          <UbicacionChip ubicacion={mat.ubicacion} obs={mat.ubicacion_obs} />
                         </div>
                       </button>
                     );
@@ -951,26 +1162,26 @@ export default function EnviarAPanolModal({ open, onClose, prefill, showPrices =
                   type="button"
                   onClick={() => addCatalogMaterial()}
                   disabled={!selectedMaterial}
-                  style={{ border: `1px solid ${C.blueB}`, background: selectedMaterial ? "var(--blue-soft)" : C.bg, color: selectedMaterial ? C.blue : C.t2, borderRadius: 8, padding: "8px 10px", cursor: selectedMaterial ? "pointer" : "default", fontSize: 12, fontWeight: 850, fontFamily: C.sans }}
+                  style={{ border: `1px solid ${C.blueB}`, background: selectedMaterial ? "var(--blue-soft)" : C.bg, color: selectedMaterial ? C.blue : C.t2, borderRadius: 8, padding: ingresoDesktop ? "10px 12px" : "8px 10px", cursor: selectedMaterial ? "pointer" : "default", fontSize: ingresoDesktop ? 12.5 : 12, fontWeight: 850, fontFamily: C.sans }}
                 >
-                  Ingreso directo a stock
+                  Agregar desde catalogo
                 </button>
               </div>
 
-              <div style={{ display: "grid", gap: 8, minWidth: 0 }}>
+              <div style={{ display: "grid", gap: 10, minWidth: 0 }}>
                 <div style={{ display: "flex", justifyContent: "space-between", gap: 8, alignItems: "center" }}>
-                  <span style={{ color: C.t2, fontSize: 10, letterSpacing: 1, textTransform: "uppercase", fontWeight: 850 }}>Pedidos abiertos</span>
+                  <span style={{ color: C.t2, fontSize: 10.5, letterSpacing: 1, textTransform: "uppercase", fontWeight: 850 }}>Pedidos abiertos</span>
                   <button
                     type="button"
                     onClick={() => addMatches()}
                     disabled={selectedMatches.size === 0}
-                    style={{ border: `1px solid ${C.greenB}`, background: selectedMatches.size ? C.greenL : C.bg, color: selectedMatches.size ? C.green : C.t2, borderRadius: 8, padding: "6px 9px", cursor: selectedMatches.size ? "pointer" : "default", fontSize: 11.5, fontWeight: 900, fontFamily: C.sans }}
+                    style={{ border: `1px solid ${C.greenB}`, background: selectedMatches.size ? C.greenL : C.bg, color: selectedMatches.size ? C.green : C.t2, borderRadius: 8, padding: ingresoDesktop ? "8px 11px" : "6px 9px", cursor: selectedMatches.size ? "pointer" : "default", fontSize: ingresoDesktop ? 12 : 11.5, fontWeight: 900, fontFamily: C.sans }}
                   >
                     <Link2 size={13} style={{ verticalAlign: "-2px", marginRight: 4 }} />
                     Recepcionar {selectedMatches.size || ""}
                   </button>
                 </div>
-                <div style={{ display: "grid", gap: 6, maxHeight: 224, overflowY: "auto", paddingRight: 2 }}>
+                <div style={{ display: "grid", gap: 7, maxHeight: matchesListHeight, overflowY: "auto", paddingRight: 2 }}>
                   {matchesLoading ? (
                     <div style={{ color: C.t2, fontSize: 12, padding: 18, textAlign: "center" }}>Buscando pedidos...</div>
                   ) : matches.length ? matches.map((match) => {
@@ -985,8 +1196,8 @@ export default function EnviarAPanolModal({ open, onClose, prefill, showPrices =
                           border: `1px solid ${checked ? C.greenB : C.b0}`,
                           background: checked ? C.greenL : C.bg,
                           color: C.t0,
-                          borderRadius: 9,
-                          padding: 9,
+                          borderRadius: 10,
+                          padding: ingresoDesktop ? 11 : 9,
                           display: "grid",
                           gridTemplateColumns: "18px minmax(0, 1fr) auto",
                           gap: 8,
@@ -996,12 +1207,12 @@ export default function EnviarAPanolModal({ open, onClose, prefill, showPrices =
                       >
                         <input type="checkbox" checked={checked} onChange={() => toggleMatch(match.id)} style={{ marginTop: 2 }} />
                         <div style={{ minWidth: 0 }}>
-                          <div style={{ color: C.t0, fontSize: 12.5, fontWeight: 900, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{match.description}</div>
-                          <div style={{ color: C.t2, fontSize: 10.5, marginTop: 2, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>
+                          <div style={{ color: C.t0, fontSize: ingresoDesktop ? 13.2 : 12.5, fontWeight: 900, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{match.description}</div>
+                          <div style={{ color: C.t2, fontSize: ingresoDesktop ? 11.2 : 10.5, marginTop: 3, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>
                             {match.source_label ? `${match.source_label} · ` : ""}{match.obra_codigo} · {match.request_title}
                           </div>
                         </div>
-                        <div style={{ color: C.t1, fontFamily: C.mono, fontSize: 11.5, fontWeight: 850, textAlign: "right" }}>
+                        <div style={{ color: C.t1, fontFamily: C.mono, fontSize: ingresoDesktop ? 12.2 : 11.5, fontWeight: 850, textAlign: "right" }}>
                           {match.quantity || "-"} {match.unit || ""}
                         </div>
                       </div>
@@ -1015,6 +1226,7 @@ export default function EnviarAPanolModal({ open, onClose, prefill, showPrices =
           </div>
 
           <div
+            style={isRemito ? { border: `1px solid ${C.b0}`, background: "rgba(96,165,250,0.035)", borderRadius: 14, padding: ingresoDesktop ? 16 : 10, display: "grid", gap: 10 } : undefined}
             onDragOver={(e) => { if (dragMatch) e.preventDefault(); }}
             onDrop={(e) => {
               if (!dragMatch) return;
@@ -1023,33 +1235,46 @@ export default function EnviarAPanolModal({ open, onClose, prefill, showPrices =
               setDragMatch(null);
             }}
           >
-            <span style={lbl}>Ítems - {items.length}</span>
+            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "end", gap: 10, flexWrap: "wrap", marginBottom: 8 }}>
+              <div>
+                <span style={{ ...lbl, marginBottom: 3, fontSize: ingresoDesktop ? 11 : lbl.fontSize }}>Productos a ingresar</span>
+                <div style={{ color: C.t2, fontSize: ingresoDesktop ? 12.5 : 11.5 }}>
+                  Vincula cada producto al catalogo y asignale estanteria. La ubicacion queda recordada para proximos ingresos.
+                </div>
+              </div>
+              <div style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>
+                <span style={{ border: `1px solid ${C.b0}`, background: C.bg, color: C.t1, borderRadius: 999, padding: "4px 9px", fontSize: 11, fontWeight: 850 }}>{items.length} item{items.length === 1 ? "" : "s"}</span>
+                {isRemito && <span style={{ border: `1px solid ${ubicadosCount === items.length && items.length ? C.greenB : C.b0}`, background: ubicadosCount === items.length && items.length ? C.greenL : C.bg, color: ubicadosCount === items.length && items.length ? C.green : C.t2, borderRadius: 999, padding: "4px 9px", fontSize: 11, fontWeight: 850 }}>{ubicadosCount}/{items.length || 0} ubicados</span>}
+              </div>
+            </div>
             {items.length > 0 && (
               <div style={{ display: "flex", flexDirection: "column", gap: 6, marginBottom: 8 }}>
                 {!isMobile && (
-                  <div style={{ display: "grid", gridTemplateColumns: gridCols, gap: 6, padding: "0 7px", fontSize: 9, color: C.t2, letterSpacing: 1.1, textTransform: "uppercase", fontWeight: 800 }}>
+                  <div style={{ display: "grid", gridTemplateColumns: gridCols, gap: 8, padding: "0 10px", fontSize: 9.5, color: C.t2, letterSpacing: 1.1, textTransform: "uppercase", fontWeight: 800 }}>
                     <span>Descripción</span><span>Cod. item</span><span>Cant.</span><span>Unidad</span>{isRemito && <span>Obra / stock</span>}{showPrices && <><span>Precio unit.</span><span>Moneda</span></>}<span />
                   </div>
                 )}
-                {items.map((it, i) => (
-                  <div key={`${it.panol_envio_item_id || it.purchase_request_item_id || it.material_id || "manual"}-${i}`} style={{ background: "var(--panel)", border: `1px solid ${C.b0}`, borderRadius: 8, overflow: "hidden" }}>
-                    <div style={{ display: "grid", gridTemplateColumns: gridCols, gap: 6, alignItems: "center", padding: "7px" }}>
-                    <input value={it.descripcion} onChange={(e) => updateItem(i, { descripcion: e.target.value, material_id: "" })} placeholder="Descripción" style={inp({ padding: "6px 8px", fontSize: 12, gridColumn: isMobile ? "1 / -1" : undefined })} />
-                    <input value={it.codigo || ""} onChange={(e) => updateItem(i, { codigo: e.target.value.toUpperCase(), material_id: "" })} placeholder="Cod. item" title="Codigo interno/proveedor. El codigo de barras se toma del material vinculado." style={inp({ padding: "6px 8px", fontSize: 12, fontFamily: C.mono })} />
-                    <input value={it.cantidad || ""} onChange={(e) => updateItem(i, { cantidad: e.target.value })} placeholder="Cant." style={inp({ padding: "6px 8px", fontSize: 12 })} />
-                    <select value={it.unidad || "unidad"} onChange={(e) => updateItem(i, { unidad: e.target.value })} style={inp({ padding: "6px 8px", fontSize: 12, background: C.panelSolid })}>
+                {items.map((it, i) => {
+                  const linkedMaterial = fullCatalog.find((material) => material.id === it.material_id) || null;
+                  return (
+                  <div key={`${it.panol_envio_item_id || it.purchase_request_item_id || it.material_id || "manual"}-${i}`} style={{ background: "var(--panel)", border: `1px solid ${C.b0}`, borderRadius: 10, overflow: "hidden" }}>
+                    <div style={{ display: "grid", gridTemplateColumns: gridCols, gap: 8, alignItems: "center", padding: "10px" }}>
+                    <input value={it.descripcion} onChange={(e) => updateItem(i, { descripcion: e.target.value, material_id: "" })} placeholder="Descripción" style={inp({ padding: "8px 10px", fontSize: 13, gridColumn: isMobile ? "1 / -1" : undefined })} />
+                    <input value={it.codigo || ""} onChange={(e) => updateItem(i, { codigo: e.target.value.toUpperCase(), material_id: "" })} placeholder="Cod. item" title="Codigo interno/proveedor. El codigo de barras se toma del material vinculado." style={inp({ padding: "8px 10px", fontSize: 13, fontFamily: C.mono })} />
+                    <input value={it.cantidad || ""} onChange={(e) => updateItem(i, { cantidad: e.target.value })} placeholder="Cant." style={inp({ padding: "8px 10px", fontSize: 13 })} />
+                    <select value={it.unidad || "unidad"} onChange={(e) => updateItem(i, { unidad: e.target.value })} style={inp({ padding: "8px 10px", fontSize: 13, background: C.panelSolid })}>
                       {UNITS.map((u) => <option key={u} value={u}>{u}</option>)}
                     </select>
                     {isRemito && (
-                      <select value={it.obra_id || obraId || ""} onChange={(e) => updateItem(i, { obra_id: e.target.value })} style={inp({ padding: "6px 8px", fontSize: 12, background: C.panelSolid })}>
+                      <select value={it.obra_id || obraId || ""} onChange={(e) => updateItem(i, { obra_id: e.target.value })} style={inp({ padding: "8px 10px", fontSize: 13, background: C.panelSolid })}>
                         <option value="">Stock general</option>
                         {obrasActivas.map((o) => <option key={o.id} value={o.id}>{o.codigo}</option>)}
                       </select>
                     )}
                     {showPrices && (
                       <>
-                        <input value={it.precio_unitario || ""} onChange={(e) => updateItem(i, { precio_unitario: e.target.value })} placeholder="$ unit." style={inp({ padding: "6px 8px", fontSize: 12 })} />
-                        <select value={it.moneda || "ARS"} onChange={(e) => updateItem(i, { moneda: e.target.value })} style={inp({ padding: "6px 8px", fontSize: 12, background: C.panelSolid })}>
+                        <input value={it.precio_unitario || ""} onChange={(e) => updateItem(i, { precio_unitario: e.target.value })} placeholder="$ unit." style={inp({ padding: "8px 10px", fontSize: 13 })} />
+                        <select value={it.moneda || "ARS"} onChange={(e) => updateItem(i, { moneda: e.target.value })} style={inp({ padding: "8px 10px", fontSize: 13, background: C.panelSolid })}>
                           {CURRENCIES.map((c) => <option key={c} value={c}>{c}</option>)}
                         </select>
                       </>
@@ -1067,6 +1292,15 @@ export default function EnviarAPanolModal({ open, onClose, prefill, showPrices =
                         onCreate={() => createCatalogMaterialForItem(i)}
                       />
                     )}
+                    {isRemito && (
+                      <ItemLocationRow
+                        item={it}
+                        material={linkedMaterial}
+                        estanterias={estanterias}
+                        isMobile={isMobile}
+                        onChange={(patch) => updateItem(i, patch)}
+                      />
+                    )}
                     {it.proveedor && (
                       <div style={{ display: "flex", alignItems: "center", gap: 6, padding: "0 7px 7px", color: C.t2, fontSize: 11, fontWeight: 750, minWidth: 0 }}>
                         <span style={{ overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>Proveedor: {it.proveedor}</span>
@@ -1074,31 +1308,32 @@ export default function EnviarAPanolModal({ open, onClose, prefill, showPrices =
                       </div>
                     )}
                   </div>
-                ))}
+                  );
+                })}
               </div>
             )}
 
-            <div style={{ border: `1px dashed ${C.border2 ?? C.b1}`, borderRadius: 9, padding: 10, background: "rgba(96,165,250,0.04)", display: "grid", gap: 8 }}>
-              <div style={{ display: "grid", gridTemplateColumns: isMobile ? "1fr 1fr" : showPrices ? "minmax(180px,1fr) 110px 80px 100px 96px 78px" : "minmax(180px,1fr) 110px 80px 100px", gap: 6 }}>
-                <input value={nDesc} onChange={(e) => setNDesc(e.target.value)} onKeyDown={(e) => { if (e.key === "Enter") { e.preventDefault(); addItem(); } }} placeholder='Descripción o línea completa: "20 mtrs Antirruido"' style={inp({ padding: "7px 9px", fontSize: 12, gridColumn: isMobile ? "1 / -1" : undefined })} />
-                <input value={nCode} onChange={(e) => setNCode(e.target.value.toUpperCase())} placeholder="Cod. item" title="Codigo interno/proveedor. Para codigo de barras, vinculalo al material del catalogo." style={inp({ padding: "7px 9px", fontSize: 12, fontFamily: C.mono })} />
-                <input value={nCant} onChange={(e) => setNCant(e.target.value)} placeholder="Cant." style={inp({ padding: "7px 9px", fontSize: 12 })} />
-                <select value={nUnit} onChange={(e) => setNUnit(e.target.value)} style={inp({ padding: "7px 9px", fontSize: 12, background: C.panelSolid })}>
+            <div style={{ border: `1px dashed ${C.border2 ?? C.b1}`, borderRadius: 11, padding: ingresoDesktop ? 14 : 10, background: "rgba(96,165,250,0.04)", display: "grid", gap: ingresoDesktop ? 10 : 8 }}>
+              <div style={{ display: "grid", gridTemplateColumns: isMobile ? "1fr 1fr" : showPrices ? "minmax(260px,1fr) 130px 96px 120px 116px 88px" : "minmax(260px,1fr) 130px 96px 120px", gap: ingresoDesktop ? 8 : 6 }}>
+                <input value={nDesc} onChange={(e) => setNDesc(e.target.value)} onKeyDown={(e) => { if (e.key === "Enter") { e.preventDefault(); addItem(); } }} placeholder='Descripción o línea completa: "20 mtrs Antirruido"' style={inp({ padding: "9px 11px", fontSize: 13, gridColumn: isMobile ? "1 / -1" : undefined })} />
+                <input value={nCode} onChange={(e) => setNCode(e.target.value.toUpperCase())} placeholder="Cod. item" title="Codigo interno/proveedor. Para codigo de barras, vinculalo al material del catalogo." style={inp({ padding: "9px 11px", fontSize: 13, fontFamily: C.mono })} />
+                <input value={nCant} onChange={(e) => setNCant(e.target.value)} placeholder="Cant." style={inp({ padding: "9px 11px", fontSize: 13 })} />
+                <select value={nUnit} onChange={(e) => setNUnit(e.target.value)} style={inp({ padding: "9px 11px", fontSize: 13, background: C.panelSolid })}>
                   {UNITS.map((u) => <option key={u} value={u}>{u}</option>)}
                 </select>
                 {showPrices && (
                   <>
-                    <input value={nPrice} onChange={(e) => setNPrice(e.target.value)} placeholder="Precio unit." style={inp({ padding: "7px 9px", fontSize: 12 })} />
-                    <select value={nCurrency} onChange={(e) => setNCurrency(e.target.value)} style={inp({ padding: "7px 9px", fontSize: 12, background: C.panelSolid })}>
+                    <input value={nPrice} onChange={(e) => setNPrice(e.target.value)} placeholder="Precio unit." style={inp({ padding: "9px 11px", fontSize: 13 })} />
+                    <select value={nCurrency} onChange={(e) => setNCurrency(e.target.value)} style={inp({ padding: "9px 11px", fontSize: 13, background: C.panelSolid })}>
                       {CURRENCIES.map((c) => <option key={c} value={c}>{c}</option>)}
                     </select>
                   </>
                 )}
               </div>
               <div style={{ display: "flex", gap: 8, alignItems: "center", flexWrap: "wrap" }}>
-                <button type="button" onClick={addItem} disabled={!nDesc.trim()} style={{ background: nDesc.trim() ? C.blue : "var(--panel-2)", color: nDesc.trim() ? "#fff" : C.dim, border: "none", borderRadius: 7, padding: "6px 12px", cursor: nDesc.trim() ? "pointer" : "default", fontSize: 12, fontWeight: 700, fontFamily: C.sans }}>+ Agregar ítem</button>
-                <button type="button" onClick={() => setShowBulk((v) => !v)} style={{ background: "transparent", color: C.t2, border: `1px solid ${C.b0}`, borderRadius: 7, padding: "6px 12px", cursor: "pointer", fontSize: 12, fontFamily: C.sans }}>{showBulk ? "Cerrar lista" : "Pegar lista"}</button>
-                <span style={{ color: C.t2, fontSize: 11 }}>Detecta cantidad, unidad y código final.</span>
+                <button type="button" onClick={addItem} disabled={!nDesc.trim()} style={{ background: nDesc.trim() ? C.blue : "var(--panel-2)", color: nDesc.trim() ? "#fff" : C.dim, border: "none", borderRadius: 8, padding: "8px 14px", cursor: nDesc.trim() ? "pointer" : "default", fontSize: 12.5, fontWeight: 800, fontFamily: C.sans }}>+ Agregar ítem</button>
+                <button type="button" onClick={() => setShowBulk((v) => !v)} style={{ background: "transparent", color: C.t2, border: `1px solid ${C.b0}`, borderRadius: 8, padding: "8px 14px", cursor: "pointer", fontSize: 12.5, fontFamily: C.sans }}>{showBulk ? "Cerrar lista" : "Pegar lista"}</button>
+                <span style={{ color: C.t2, fontSize: 11.5 }}>Detecta cantidad, unidad y código final.</span>
               </div>
               {showBulk && (
                 <div style={{ display: "grid", gap: 6 }}>
@@ -1113,11 +1348,11 @@ export default function EnviarAPanolModal({ open, onClose, prefill, showPrices =
 
           <div>
             <span style={lbl}>Observaciones (opcional)</span>
-            <textarea value={observaciones} onChange={(e) => setObservaciones(e.target.value)} rows={2} placeholder="Notas para el pañolero" style={inp({ resize: "vertical", minHeight: 46 })} />
+            <textarea value={observaciones} onChange={(e) => setObservaciones(e.target.value)} rows={2} placeholder="Notas para el pañolero" style={inp({ resize: "vertical", minHeight: ingresoDesktop ? 58 : 46, fontSize: ingresoDesktop ? 13 : 12 })} />
           </div>
         </div>
 
-        <div style={{ display: "flex", gap: 8, alignItems: "center", justifyContent: isRemito ? "space-between" : "flex-end", padding: "12px 18px", borderTop: `1px solid ${C.border}`, background: "var(--panel)" }}>
+        <div style={{ display: "flex", gap: 8, alignItems: "center", justifyContent: isRemito ? "space-between" : "flex-end", padding: ingresoDesktop ? "14px 22px" : "12px 18px", borderTop: `1px solid ${C.border}`, background: "var(--panel)" }}>
           {isRemito && (
             <button
               type="button"
@@ -1127,14 +1362,14 @@ export default function EnviarAPanolModal({ open, onClose, prefill, showPrices =
                 if (ok) { toast.success("Guardado en pendientes."); onClose(false); }
                 else toast.error("No se pudo guardar el pendiente.");
               }}
-              style={{ border: `1px solid ${C.border}`, background: "var(--panel-2)", color: C.t1, borderRadius: 7, padding: "9px 16px", cursor: saving || (!titulo.trim() && items.length === 0) ? "default" : "pointer", opacity: saving || (!titulo.trim() && items.length === 0) ? 0.5 : 1, fontSize: 12, fontWeight: 750, fontFamily: C.sans }}
+              style={{ border: `1px solid ${C.border}`, background: "var(--panel-2)", color: C.t1, borderRadius: 8, padding: ingresoDesktop ? "11px 18px" : "9px 16px", cursor: saving || (!titulo.trim() && items.length === 0) ? "default" : "pointer", opacity: saving || (!titulo.trim() && items.length === 0) ? 0.5 : 1, fontSize: ingresoDesktop ? 12.5 : 12, fontWeight: 800, fontFamily: C.sans }}
             >
               Guardar pendiente
             </button>
           )}
           <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
-          <button type="button" onClick={() => closeModal(false)} style={{ border: `1px solid ${C.border}`, background: "transparent", color: C.dim, borderRadius: 7, padding: "9px 16px", cursor: "pointer", fontSize: 12, fontWeight: 700, fontFamily: C.sans }}>Cancelar</button>
-          <button type="submit" disabled={saving || !titulo.trim() || items.length === 0} style={{ border: "none", background: saving || !titulo.trim() || !items.length ? "var(--panel-2)" : C.blue, color: saving || !titulo.trim() || !items.length ? C.dim : "#fff", borderRadius: 7, padding: "9px 16px", cursor: saving || !titulo.trim() || !items.length ? "default" : "pointer", fontSize: 12, fontWeight: 800, fontFamily: C.sans }}>{saving ? "Guardando..." : isRemito ? "Ingresar a stock" : "Enviar a Pañol"}</button>
+          <button type="button" onClick={() => closeModal(false)} style={{ border: `1px solid ${C.border}`, background: "transparent", color: C.dim, borderRadius: 8, padding: ingresoDesktop ? "11px 18px" : "9px 16px", cursor: "pointer", fontSize: ingresoDesktop ? 12.5 : 12, fontWeight: 700, fontFamily: C.sans }}>Cancelar</button>
+          <button type="submit" disabled={saving || !titulo.trim() || items.length === 0} style={{ border: "none", background: saving || !titulo.trim() || !items.length ? "var(--panel-2)" : C.blue, color: saving || !titulo.trim() || !items.length ? C.dim : "#fff", borderRadius: 8, padding: ingresoDesktop ? "11px 18px" : "9px 16px", cursor: saving || !titulo.trim() || !items.length ? "default" : "pointer", fontSize: ingresoDesktop ? 12.5 : 12, fontWeight: 850, fontFamily: C.sans }}>{saving ? "Guardando..." : isRemito ? "Ingresar a stock" : "Enviar a Pañol"}</button>
           </div>
         </div>
       </form>

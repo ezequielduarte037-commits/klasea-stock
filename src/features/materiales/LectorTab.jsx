@@ -1,9 +1,11 @@
 import { useState, useRef, useEffect, useMemo, useCallback } from "react";
 import { C } from "@/theme";
-import { Scan, Check, X, Plus, Minus, Search, ArrowRight, Barcode, ClipboardList, RotateCcw } from "lucide-react";
-import { ingresarStockGeneral, egresarProducto, fetchMaterialesEgreso, fetchObrasEgreso, SEDES_PANOL } from "@/features/panol/panolApi";
-import { agregarCodigoBarraMaterial, eliminarCodigoBarraMaterial } from "@/features/materiales/api";
+import { Scan, Check, X, Plus, Minus, Search, ArrowRight, Barcode, ClipboardList, RotateCcw, Undo2, Trash2, AlertTriangle, StickyNote } from "lucide-react";
+import { ingresarStockGeneral, egresarProducto, fetchObrasEgreso, marcarMovimientoAnulado, SEDES_PANOL } from "@/features/panol/panolApi";
+import { agregarCodigoBarraMaterial, eliminarCodigoBarraMaterial, crearMaterialRapido, guardarCantidades, actualizarNotasMaterial } from "@/features/materiales/api";
 import { findMaterialByBarcode, materialBarcodeList, materialBarcodeText, materialMatchesBarcode, barcodeKey } from "@/features/materiales/materialBarcodes";
+import { MODELOS, toBomMap } from "@/features/materiales/materialesParser";
+import UbicacionPicker from "@/features/panol/UbicacionPicker";
 
 function beep(frequency = 800, duration = 100) {
   try {
@@ -19,21 +21,10 @@ function beep(frequency = 800, duration = 100) {
   } catch { /* audio not supported */ }
 }
 
-function qty(value, fallback = 0) {
-  const n = Number(String(value ?? "").replace(",", "."));
-  return Number.isFinite(n) ? n : fallback;
-}
 
-function rowDelta(row) {
-  if (row.estado === "egresado" && String(row.source || "").startsWith("egreso")) {
-    return -Math.abs(qty(row.cantidad_egresada, qty(row.cantidad, 1)));
-  }
-  if (row.estado === "egresado" && String(row.source || "").startsWith("transferencia_egreso")) {
-    return -Math.abs(qty(row.cantidad_egresada, qty(row.cantidad, 1)));
-  }
-  if (row.estado === "egresado") return -Math.abs(qty(row.cantidad_egresada, qty(row.cantidad, 1)));
-  return qty(row.cantidad, 1);
-}
+
+
+
 
 const inputStyle = {
   width: "100%", padding: "12px 16px", borderRadius: 10,
@@ -55,7 +46,7 @@ const selectStyle = {
   outline: "none", cursor: "pointer",
 };
 
-export default function LectorTab({ materiales, onMaterialUpdate }) {
+export default function LectorTab({ materiales, categorias = [], onMaterialUpdate, onCatalogChanged }) {
   const [mode, setMode] = useState("assign");
   const inputRef = useRef(null);
   const [lastResult, setLastResult] = useState(null);
@@ -70,14 +61,33 @@ export default function LectorTab({ materiales, onMaterialUpdate }) {
   const [assignedSession, setAssignedSession] = useState([]);
   const [stockSession, setStockSession] = useState([]);
 
-  // Conteo físico state
-  const [countLocation, setCountLocation] = useState({ type: "stock", sede: "Pampa", obraId: "" });
-  const [countRows, setCountRows] = useState([]);
-  const [countedMap, setCountedMap] = useState({});
-  const [countLoading, setCountLoading] = useState(false);
-  const [applying, setApplying] = useState(false);
+  // ─── Conteo/inventario state (multi-step) ───
+  const [countStep, setCountStep] = useState(1);
+  const [countMaterial, setCountMaterial] = useState(null);
+  const [countQty, setCountQty] = useState(1);
+  const [countSede, setCountSede] = useState("Pampa");
+  const [countDestinos, setCountDestinos] = useState([{ id: 1, type: "stock", obraId: "", cantidad: "1" }]);
+  const [countVariante, setCountVariante] = useState("");
+  const [countNotas, setCountNotas] = useState("");
+  const [countSession, setCountSession] = useState([]);
+  const [countSearchQ, setCountSearchQ] = useState("");
+  const [quickCreateOpen, setQuickCreateOpen] = useState(false);
+  const [quickCreateDesc, setQuickCreateDesc] = useState("");
+  const [quickCreateCat, setQuickCreateCat] = useState("");
+  const [quickCreateUM, setQuickCreateUM] = useState("unidad");
+  const [quickCreateProveedor, setQuickCreateProveedor] = useState("");
+  const [quickCreateCodigo, setQuickCreateCodigo] = useState("");
+  const [quickCreatePrecio, setQuickCreatePrecio] = useState("");
+  const [quickCreateMoneda, setQuickCreateMoneda] = useState("ARS");
+  const [quickCreateAlias, setQuickCreateAlias] = useState("");
+  const [quickCreateNotas, setQuickCreateNotas] = useState("");
+  const [quickCreateSaving, setQuickCreateSaving] = useState(false);
+  const [countSaving, setCountSaving] = useState(false);
+  const [countUndoing, setCountUndoing] = useState(null);
   const [obrasList, setObrasList] = useState([]);
-  const [showConfirmAdjust, setShowConfirmAdjust] = useState(false);
+  const [countBarcodeInput, setCountBarcodeInput] = useState("");
+  const [matrixPrompt, setMatrixPrompt] = useState(null); // { cantidades: {52:"1", ...} }
+  const [matrixSaving, setMatrixSaving] = useState(false);
 
   const filteredMaterials = useMemo(() => {
     if (!searchQuery) return materiales || [];
@@ -111,26 +121,8 @@ export default function LectorTab({ materiales, onMaterialUpdate }) {
     }
   }, [mode]);
 
-  // Load digital stock for selected location
-  useEffect(() => {
-    if (mode !== "count") return;
-    setCountLoading(true);
-    setCountRows([]);
-    setCountedMap({});
-    fetchMaterialesEgreso({ sede: countLocation.type === "stock" ? countLocation.sede : null })
-      .then(rows => {
-        const filtered = rows.filter(r => {
-          if (countLocation.type === "stock") {
-            const rowSede = r.stock_sede || r.panol_envio?.sede || "";
-            return rowSede === countLocation.sede;
-          }
-          return r.obra_id === countLocation.obraId;
-        });
-        setCountRows(filtered);
-      })
-      .catch(() => setCountRows([]))
-      .finally(() => setCountLoading(false));
-  }, [mode, countLocation]);
+
+
 
   function handleMaterialSelect(m) {
     setSelectedMaterial(m);
@@ -232,104 +224,289 @@ export default function LectorTab({ materiales, onMaterialUpdate }) {
     }
   }
 
-  // ─ Conteo físico functions ──
-  async function processCountScan(code) {
-    const material = findMaterialByBarcode(materiales || [], code);
-    if (!material) {
-      setLastResult({ ok: false, msg: "Código no encontrado", code });
-      beep(300, 200);
+  // ─── Conteo / inventario functions (multi-step) ───
+
+  const countFilteredMaterials = useMemo(() => {
+    if (!countSearchQ) return materiales || [];
+    const q = countSearchQ.toLowerCase();
+    return (materiales || []).filter(m =>
+      m.descripcion?.toLowerCase().includes(q) ||
+      m.codigo?.toLowerCase().includes(q) ||
+      m.proveedor?.toLowerCase().includes(q) ||
+      materialBarcodeText(m).toLowerCase().includes(q)
+    );
+  }, [materiales, countSearchQ]);
+
+  function selectCountMaterial(m) {
+    setCountMaterial(m);
+    setCountQty(1);
+    setCountVariante("");
+    setCountDestinos([{ id: 1, type: "stock", obraId: "", cantidad: "1" }]);
+    setCountNotas(m.notas || "");
+    setCountStep(2);
+    setLastResult(null);
+  }
+
+  // Mientras haya un solo destino, su cantidad sigue a la cantidad física total
+  // (caso común: no hace falta tocar nada). En cuanto se agrega un 2º destino
+  // para repartir entre varias obras, cada fila se edita a mano.
+  useEffect(() => {
+    setCountDestinos(prev => (prev.length === 1 ? [{ ...prev[0], cantidad: String(countQty) }] : prev));
+  }, [countQty]);
+
+  function addDestinoRow() {
+    setCountDestinos(prev => [...prev, { id: Date.now(), type: "stock", obraId: "", cantidad: "" }]);
+  }
+  function removeDestinoRow(id) {
+    setCountDestinos(prev => (prev.length > 1 ? prev.filter(r => r.id !== id) : prev));
+  }
+  function updateDestinoRow(id, patch) {
+    setCountDestinos(prev => prev.map(r => (r.id === id ? { ...r, ...patch } : r)));
+  }
+
+  const destinosTotal = useMemo(
+    () => countDestinos.reduce((s, r) => s + (Number(r.cantidad) || 0), 0),
+    [countDestinos]
+  );
+  const destinosValid = useMemo(() => {
+    if (destinosTotal !== Number(countQty)) return false;
+    return countDestinos.every(r => (Number(r.cantidad) > 0 ? (r.type !== "obra" || !!r.obraId) : true));
+  }, [countDestinos, destinosTotal, countQty]);
+
+  // ── Línea de producción de una obra (misma derivación que el resto del sistema:
+  //    usa obra.modelo si está cargado, sino lo deriva del prefijo del código "52-23"→"52") ──
+  function lineaDeObra(obraId) {
+    const obra = obrasList.find(o => String(o.id) === String(obraId));
+    if (!obra) return "";
+    const raw = String(obra.modelo || "").trim();
+    if (raw) return raw;
+    const m = String(obra.codigo || "").match(/^\s*(\d+)/);
+    return m ? m[1] : "";
+  }
+
+  // Detecta líneas de producción (entre los destinos "obra" elegidos) donde este
+  // material todavía NO figura en la lista matriz — para preguntar si se agrega.
+  function missingMatrixLineas(mat, destinos) {
+    const bom = toBomMap(mat);
+    const found = new Map();
+    for (const row of destinos) {
+      if (row.type !== "obra" || !(Number(row.cantidad) > 0)) continue;
+      const linea = lineaDeObra(row.obraId);
+      if (!linea || !MODELOS.includes(linea)) continue;
+      const cant = Number(String(bom[linea] ?? "").replace(",", "."));
+      if (!(cant > 0) && !found.has(linea)) found.set(linea, "1");
+    }
+    return found;
+  }
+
+  function processCountScan(code) {
+    // In step 1, scanning finds a material
+    if (countStep === 1) {
+      const material = findMaterialByBarcode(materiales || [], code);
+      if (material) {
+        selectCountMaterial(material);
+        beep(900, 80);
+      } else {
+        setLastResult({ ok: false, msg: "Código no encontrado", code });
+        setCountSearchQ(code);
+        beep(300, 200);
+      }
       focusInput();
       return;
     }
-    setCountedMap(prev => {
-      const current = prev[material.id] || 0;
-      return { ...prev, [material.id]: current + 1 };
-    });
-    setLastResult({ ok: true, msg: `${material.descripcion} → contado: ${(countedMap[material.id] || 0) + 1}` });
-    beep(900, 80);
-    focusInput();
-  }
-
-  function updateCountedQty(materialId, newQty) {
-    setCountedMap(prev => ({ ...prev, [materialId]: Math.max(0, Number(newQty) || 0) }));
-  }
-
-  function resetCount() {
-    setCountedMap({});
-    setLastResult(null);
-    focusInput();
-  }
-
-  const countedProducts = useMemo(() => {
-    return Object.entries(countedMap)
-      .filter(([, q]) => q > 0)
-      .map(([materialId, counted]) => {
-        const material = (materiales || []).find(m => m.id === materialId);
-        const system = countRows
-          .filter(r => r.material_id === materialId)
-          .reduce((sum, r) => sum + rowDelta(r), 0);
-        const diff = counted - system;
-        return { materialId, material, counted, system, diff };
-      })
-      .filter(p => p.material)
-      .sort((a, b) => a.material.descripcion.localeCompare(b.material.descripcion));
-  }, [countedMap, countRows, materiales]);
-
-  const notCountedProducts = useMemo(() => {
-    const countedIds = new Set(Object.keys(countedMap));
-    const systemProducts = new Map();
-    countRows.forEach(r => {
-      if (!r.material_id) return;
-      const current = systemProducts.get(r.material_id) || 0;
-      systemProducts.set(r.material_id, current + rowDelta(r));
-    });
-    return Array.from(systemProducts.entries())
-      .filter(([materialId, balance]) => balance !== 0 && !countedIds.has(materialId))
-      .map(([materialId, system]) => {
-        const material = (materiales || []).find(m => m.id === materialId);
-        return { materialId, material, system };
-      })
-      .filter(p => p.material)
-      .sort((a, b) => a.material.descripcion.localeCompare(b.material.descripcion));
-  }, [countRows, countedMap, materiales]);
-
-  async function applyAdjustments() {
-    const adjustments = countedProducts.filter(p => p.diff !== 0);
-    if (adjustments.length === 0) return;
-    setApplying(true);
-    setLastResult(null);
-    const results = [];
-    for (const adj of adjustments) {
-      try {
-        const cantidad = Math.abs(adj.diff);
-        if (adj.diff > 0) {
-          await ingresarStockGeneral({
-            material: { id: adj.material.id, descripcion: adj.material.descripcion, codigo: adj.material.codigo, unidad: adj.material.unidad_medida },
-            cantidad, nota: `Ajuste por conteo físico (${countLocation.type === "stock" ? `Stock ${countLocation.sede}` : `Obra ${countLocation.obraId}`})`,
-          });
-          results.push({ ok: true, msg: `+${cantidad} ${adj.material.descripcion}` });
-        } else {
-          await egresarProducto({
-            material: { id: adj.material.id, descripcion: adj.material.descripcion, codigo: adj.material.codigo, unidad: adj.material.unidad_medida },
-            cantidad, nota: `Ajuste por conteo físico (${countLocation.type === "stock" ? `Stock ${countLocation.sede}` : `Obra ${countLocation.obraId}`})`,
-          });
-          results.push({ ok: true, msg: `-${cantidad} ${adj.material.descripcion}` });
-        }
-      } catch (err) {
-        results.push({ ok: false, msg: `${adj.material.descripcion}: ${err.message}` });
-      }
+    // In step 3, scanning assigns a barcode
+    if (countStep === 3 && countMaterial) {
+      setCountBarcodeInput(code);
+      beep(900, 80);
+      focusInput();
+      return;
     }
-    setApplying(false);
-    setShowConfirmAdjust(false);
-    const okCount = results.filter(r => r.ok).length;
-    const failCount = results.filter(r => !r.ok).length;
-    setLastResult({
-      ok: failCount === 0,
-      msg: `Ajustados: ${okCount} | Errores: ${failCount}`,
-    });
-    beep(failCount === 0 ? 900 : 300, failCount === 0 ? 150 : 300);
-    setCountedMap({});
-    focusInput();
+  }
+
+  // Se dispara desde el botón "Confirmar": si alguno de los destinos elegidos es
+  // una obra de una línea donde este producto NO figura en la lista matriz,
+  // primero pregunta si corresponde agregarlo ahí. Si no hace falta preguntar,
+  // pasa directo a registrar los movimientos.
+  function handleConfirmClick() {
+    if (!countMaterial || countSaving || !destinosValid) return;
+    const missing = missingMatrixLineas(countMaterial, countDestinos);
+    if (missing.size > 0) {
+      setMatrixPrompt({ cantidades: Object.fromEntries(missing) });
+      return;
+    }
+    runConfirmMovements();
+  }
+
+  async function confirmMatrixAndContinue(add) {
+    if (add && matrixPrompt && countMaterial) {
+      setMatrixSaving(true);
+      try {
+        const merged = { ...toBomMap(countMaterial), ...matrixPrompt.cantidades };
+        await guardarCantidades(countMaterial.id, merged);
+        await onCatalogChanged?.();
+      } catch (err) {
+        setMatrixSaving(false);
+        setMatrixPrompt(null);
+        setLastResult({ ok: false, msg: `No se pudo actualizar la lista matriz: ${err.message}` });
+        return;
+      }
+      setMatrixSaving(false);
+    }
+    setMatrixPrompt(null);
+    await runConfirmMovements();
+  }
+
+  async function runConfirmMovements() {
+    if (!countMaterial || countSaving) return;
+    const mat = countMaterial;
+    const rows = countDestinos.filter(d => Number(d.cantidad) > 0);
+    if (!rows.length) {
+      setLastResult({ ok: false, msg: "Asigná la cantidad contada a al menos un destino." });
+      return;
+    }
+    setCountSaving(true);
+    setLastResult(null);
+    try {
+      // 1. Un ingreso por cada destino (stock general y/o cada obra elegida),
+      // repartiendo la cantidad física contada entre todos los destinos.
+      const allocations = [];
+      for (const row of rows) {
+        const cantidad = Number(row.cantidad);
+        const obraCodigo = row.type === "obra" ? obrasList.find(o => String(o.id) === String(row.obraId))?.codigo : null;
+        const destLabel = row.type === "stock" ? `Stock ${countSede}` : `Obra ${obraCodigo || "?"}`;
+        const snapshotId = await ingresarStockGeneral({
+          material: { id: mat.id, descripcion: mat.descripcion, codigo: mat.codigo, unidad: mat.unidad_medida },
+          cantidad,
+          sede: countSede || null,
+          obraId: row.type === "obra" ? row.obraId : null,
+          nota: `Conteo físico inicial — ${destLabel}`,
+        });
+        allocations.push({ type: row.type, obraId: row.obraId || null, obraCodigo, sede: countSede, cantidad, snapshotId });
+      }
+
+      // 2. Observaciones (si se cargaron o cambiaron)
+      if (countNotas.trim() !== (mat.notas || "").trim()) {
+        try {
+          await actualizarNotasMaterial(mat.id, countNotas.trim());
+          onMaterialUpdate?.(mat.id, { notas: countNotas.trim() || null });
+        } catch {
+          // no crítico para el conteo
+        }
+      }
+
+      // 3. Assign barcode if provided
+      if (countBarcodeInput.trim()) {
+        try {
+          const barcodeAssigned = await agregarCodigoBarraMaterial(mat.id, countBarcodeInput.trim(), { variante: countVariante || null });
+          const nextCodes = [...(mat.codigos_barra || []), barcodeAssigned].filter(Boolean);
+          onMaterialUpdate?.(mat.id, { codigos_barra: nextCodes, ...(mat.codigo_barra ? {} : { codigo_barra: countBarcodeInput.trim() }) });
+        } catch {
+          // barcode assignment failed, not critical
+        }
+      }
+
+      // 4. Add to session
+      const entry = {
+        id: Date.now() + "-" + Math.random().toString(36).slice(2, 6),
+        material: mat,
+        qty: countQty,
+        allocations,
+        variante: countVariante || null,
+        barcode: countBarcodeInput.trim() || null,
+        reverted: false,
+        ts: Date.now(),
+      };
+      setCountSession(prev => [entry, ...prev]);
+      const resumen = allocations.map(a => a.type === "stock" ? `Stock ${a.sede} ×${a.cantidad}` : `Obra ${a.obraCodigo || "?"} ×${a.cantidad}`).join(" · ");
+      setLastResult({ ok: true, msg: `✓ ${mat.descripcion} → ${resumen}` });
+      beep(900, 80);
+
+      // Reset for next item
+      setCountMaterial(null);
+      setCountStep(1);
+      setCountQty(1);
+      setCountVariante("");
+      setCountNotas("");
+      setCountBarcodeInput("");
+      setCountSearchQ("");
+      setCountDestinos([{ id: 1, type: "stock", obraId: "", cantidad: "1" }]);
+    } catch (err) {
+      setLastResult({ ok: false, msg: err.message || "Error al registrar" });
+      beep(300, 200);
+    } finally {
+      setCountSaving(false);
+      focusInput();
+    }
+  }
+
+  async function undoCountItem(entry) {
+    if (countUndoing) return;
+    setCountUndoing(entry.id);
+    try {
+      const mat = entry.material;
+      // Revierte CADA asignación (una por destino) con un movimiento inverso y
+      // anota el original como anulado — mismo patrón que el "Revertir" del
+      // kardex en Stock de pañol, para que quede consistente y trazable ahí
+      // también (y bloqueado contra doble-revert).
+      const nota = "Revertido: error de conteo físico";
+      for (const alloc of entry.allocations) {
+        await egresarProducto({
+          material: { id: mat.id, descripcion: mat.descripcion, codigo: mat.codigo, unidad: mat.unidad_medida },
+          cantidad: alloc.cantidad,
+          sede: alloc.sede || null,
+          obraId: alloc.type === "obra" ? alloc.obraId : null,
+          nota,
+        });
+        if (alloc.snapshotId) {
+          await marcarMovimientoAnulado(alloc.snapshotId, nota).catch(() => null);
+        }
+      }
+      setCountSession(prev => prev.map(e => (e.id === entry.id ? { ...e, reverted: true } : e)));
+      setLastResult({ ok: true, msg: `Revertido: ${mat.descripcion} ×${entry.qty}` });
+      beep(900, 80);
+    } catch (err) {
+      setLastResult({ ok: false, msg: `Error al revertir: ${err.message}` });
+      beep(300, 200);
+    } finally {
+      setCountUndoing(null);
+    }
+  }
+
+  async function handleQuickCreate() {
+    if (!quickCreateDesc.trim() || quickCreateSaving) return;
+    setQuickCreateSaving(true);
+    try {
+      const newMat = await crearMaterialRapido({
+        descripcion: quickCreateDesc.trim(),
+        categoriaId: quickCreateCat || null,
+        unidadMedida: quickCreateUM || "unidad",
+        proveedor: quickCreateProveedor,
+        codigo: quickCreateCodigo,
+        precioUnitario: quickCreatePrecio === "" ? null : quickCreatePrecio,
+        moneda: quickCreateMoneda,
+        alias: quickCreateAlias,
+        notas: quickCreateNotas,
+      });
+      await onCatalogChanged?.();
+      selectCountMaterial(newMat);
+      setQuickCreateOpen(false);
+      setQuickCreateDesc("");
+      setQuickCreateCat("");
+      setQuickCreateUM("unidad");
+      setQuickCreateProveedor("");
+      setQuickCreateCodigo("");
+      setQuickCreatePrecio("");
+      setQuickCreateMoneda("ARS");
+      setQuickCreateAlias("");
+      setQuickCreateNotas("");
+      setLastResult({ ok: true, msg: `Material creado: ${newMat.descripcion}` });
+      beep(900, 80);
+    } catch (err) {
+      setLastResult({ ok: false, msg: err.message || "No se pudo crear" });
+      beep(300, 200);
+    } finally {
+      setQuickCreateSaving(false);
+    }
   }
 
   function handleKeyDown(e) {
@@ -385,7 +562,7 @@ export default function LectorTab({ materiales, onMaterialUpdate }) {
     border: active ? `1px solid ${C.blue}` : `1px solid ${C.border}`,
   });
 
-  const totalUnitsCounted = Object.values(countedMap).reduce((sum, q) => sum + q, 0);
+  const totalUnitsCounted = countSession.reduce((sum, e) => sum + e.qty, 0);
 
   return (
     <div style={{ padding: "20px 24px", maxWidth: 720, margin: "0 auto" }}>
@@ -672,238 +849,504 @@ export default function LectorTab({ materiales, onMaterialUpdate }) {
         </div>
       )}
 
-      {/* ── MODE 3: Conteo físico ── */}
+      {/* ── MODE 3: Inventario / Conteo físico (multi-step) ── */}
       {mode === "count" && (
         <div>
-          {/* Location selector */}
-          <div style={{ marginBottom: 16, padding: 14, borderRadius: 10, background: C.panel, border: `1px solid ${C.border}` }}>
-            <div style={{ fontSize: 10, color: C.dim, letterSpacing: 1.5, textTransform: "uppercase", marginBottom: 8, fontFamily: C.mono }}>
-              Ubicación del conteo
-            </div>
-            <div style={{ display: "flex", gap: 8, flexWrap: "wrap", alignItems: "center" }}>
-              <select
-                value={countLocation.type}
-                onChange={e => setCountLocation(prev => ({ ...prev, type: e.target.value }))}
-                style={selectStyle}
-              >
-                <option value="stock">Stock general</option>
-                <option value="obra">Obra</option>
-              </select>
-
-              {countLocation.type === "stock" ? (
-                <select
-                  value={countLocation.sede}
-                  onChange={e => setCountLocation(prev => ({ ...prev, sede: e.target.value }))}
-                  style={selectStyle}
-                >
-                  {SEDES_PANOL.map(s => <option key={s} value={s}>{s}</option>)}
-                </select>
-              ) : (
-                <select
-                  value={countLocation.obraId}
-                  onChange={e => setCountLocation(prev => ({ ...prev, obraId: e.target.value }))}
-                  style={{ ...selectStyle, minWidth: 180 }}
-                >
-                  <option value="">Seleccionar obra…</option>
-                  {obrasList.map(o => (
-                    <option key={o.id} value={o.id}>{o.codigo}</option>
-                  ))}
-                </select>
-              )}
-
-              {countLoading && (
-                <span style={{ fontSize: 11, color: C.dim, marginLeft: 8 }}>Cargando stock digital…</span>
-              )}
-            </div>
+          {/* Step indicator */}
+          <div style={{ display: "flex", gap: 4, marginBottom: 16, alignItems: "center" }}>
+            {[1, 2, 3].map(s => (
+              <div key={s} style={{
+                flex: 1, height: 4, borderRadius: 4,
+                background: s <= countStep ? C.blue : C.border,
+                transition: "background 0.2s",
+              }} />
+            ))}
+            <span style={{ fontSize: 10, color: C.dim, marginLeft: 8, fontFamily: C.mono, whiteSpace: "nowrap" }}>
+              Paso {countStep}/3
+            </span>
           </div>
 
-          {/* Count stats */}
-          {Object.keys(countedMap).length > 0 && (
-            <div style={{
-              padding: "10px 14px", borderRadius: 8, marginBottom: 16,
-              background: "rgba(59,130,246,0.08)", border: `1px solid rgba(59,130,246,0.2)`,
-              display: "flex", justifyContent: "space-between", alignItems: "center",
-            }}>
-              <div style={{ fontSize: 13, color: C.text }}>
-                <strong style={{ fontFamily: C.mono }}>{Object.keys(countedMap).length}</strong> productos ·{" "}
-                <strong style={{ fontFamily: C.mono }}>{totalUnitsCounted}</strong> unidades contadas
-              </div>
-              <button
-                type="button"
-                onClick={resetCount}
-                style={{ ...btnBase, background: "transparent", color: C.dim, fontSize: 11, display: "flex", alignItems: "center", gap: 4 }}
-              >
-                <RotateCcw size={12} /> Reiniciar
-              </button>
-            </div>
-          )}
+          {/* ── STEP 1: Identify product ── */}
+          {countStep === 1 && (
+            <div>
+              <div style={{ fontSize: 14, fontWeight: 700, color: C.text, marginBottom: 4 }}>¿Qué producto es?</div>
+              <div style={{ fontSize: 11, color: C.dim, marginBottom: 12 }}>Buscá por nombre, código o escaneá el código de barras.</div>
 
-          {/* Counted products table */}
-          {countedProducts.length > 0 && (
-            <div style={{ marginBottom: 20 }}>
-              <div style={{ fontSize: 10, color: C.dim, letterSpacing: 1.5, textTransform: "uppercase", marginBottom: 8, fontFamily: C.mono }}>
-                Productos contados
+              <div style={{ position: "relative", marginBottom: 12 }}>
+                <Search size={14} style={{ position: "absolute", left: 10, top: "50%", transform: "translateY(-50%)", color: C.dim }} />
+                <input
+                  value={countSearchQ}
+                  onChange={e => setCountSearchQ(e.target.value)}
+                  placeholder="Buscar material por nombre o código…"
+                  style={{ ...inputStyle, paddingLeft: 32, fontSize: 13 }}
+                />
               </div>
-              <div style={{ border: `1px solid ${C.border}`, borderRadius: 10, overflow: "hidden" }}>
-                {/* Header */}
-                <div style={{
-                  display: "grid", gridTemplateColumns: "1fr 80px 80px 80px",
-                  gap: 8, padding: "10px 14px",
-                  background: C.panel2, borderBottom: `1px solid ${C.border}`,
-                  fontSize: 10, color: C.dim, letterSpacing: 1, textTransform: "uppercase", fontFamily: C.mono,
-                }}>
-                  <div>Producto</div>
-                  <div style={{ textAlign: "center" }}>Contado</div>
-                  <div style={{ textAlign: "center" }}>Sistema</div>
-                  <div style={{ textAlign: "center" }}>Diferencia</div>
-                </div>
 
-                {/* Rows */}
-                {countedProducts.map(p => (
-                  <div key={p.materialId} style={{
-                    display: "grid", gridTemplateColumns: "1fr 80px 80px 80px",
-                    gap: 8, padding: "10px 14px",
-                    borderBottom: `1px solid ${C.border}`,
-                    background: p.diff === 0 ? "rgba(16,185,129,0.05)" : "transparent",
-                  }}>
-                    <div>
-                      <div style={{ fontWeight: 600, fontSize: 13, color: C.text }}>{p.material.descripcion}</div>
-                      <div style={{ fontSize: 11, color: C.dim, fontFamily: C.mono }}>{p.material.codigo}</div>
-                    </div>
-                    <div style={{ textAlign: "center" }}>
-                      <input
-                        type="number"
-                        min={0}
-                        value={p.counted}
-                        onChange={e => updateCountedQty(p.materialId, e.target.value)}
-                        style={{
-                          width: 60, padding: "4px 6px", borderRadius: 6,
-                          border: `1px solid ${C.border}`, background: C.panel,
-                          color: C.text, fontSize: 13, fontFamily: C.mono,
-                          textAlign: "center", outline: "none",
-                        }}
-                      />
-                    </div>
-                    <div style={{ textAlign: "center", fontSize: 13, fontFamily: C.mono, color: C.muted, paddingTop: 4 }}>
-                      {p.system}
-                    </div>
-                    <div style={{
-                      textAlign: "center", fontSize: 14, fontWeight: 800, fontFamily: C.mono, paddingTop: 4,
-                      color: p.diff === 0 ? C.green : p.diff > 0 ? C.amber : C.red,
-                    }}>
-                      {p.diff > 0 ? `+${p.diff}` : p.diff}
+              <div style={{ maxHeight: 300, overflowY: "auto", border: `1px solid ${C.border}`, borderRadius: 10, background: C.panel }}>
+                {countFilteredMaterials.length === 0 && (
+                  <div style={{ padding: 20, textAlign: "center", color: C.dim, fontSize: 12 }}>Sin resultados</div>
+                )}
+                {countFilteredMaterials.slice(0, 50).map(m => (
+                  <div
+                    key={m.id}
+                    onClick={() => selectCountMaterial(m)}
+                    style={{
+                      padding: "10px 14px", cursor: "pointer",
+                      borderBottom: `1px solid ${C.border}`,
+                      transition: "background 0.1s",
+                    }}
+                    onMouseEnter={e => e.currentTarget.style.background = "rgba(59,130,246,0.08)"}
+                    onMouseLeave={e => e.currentTarget.style.background = "transparent"}
+                  >
+                    <div style={{ fontWeight: 600, fontSize: 13, color: C.text }}>{m.descripcion}</div>
+                    <div style={{ fontSize: 11, color: C.dim, marginTop: 2, fontFamily: C.mono }}>
+                      {m.codigo}{m.proveedor ? ` · ${m.proveedor}` : ""}
+                      {m.variantes?.length > 0 && <span style={{ color: C.blue, marginLeft: 6 }}>({m.variantes.join(", ")})</span>}
                     </div>
                   </div>
                 ))}
               </div>
-            </div>
-          )}
 
-          {/* Apply adjustments button */}
-          {countedProducts.some(p => p.diff !== 0) && (
-            <div style={{ marginBottom: 20 }}>
+              {/* Quick create button */}
               <button
                 type="button"
-                onClick={() => setShowConfirmAdjust(true)}
-                disabled={applying}
+                onClick={() => { setQuickCreateOpen(true); setQuickCreateDesc(countSearchQ); }}
                 style={{
-                  ...btnBase, width: "100%", padding: "12px",
-                  background: C.amber, color: "#000", border: "none",
-                  fontSize: 14, fontWeight: 700,
-                  display: "flex", alignItems: "center", justifyContent: "center", gap: 8,
+                  ...btnBase, width: "100%", marginTop: 10, padding: "10px 14px",
+                  background: "rgba(16,185,129,0.1)", border: `1px solid rgba(16,185,129,0.3)`,
+                  color: C.green, display: "flex", alignItems: "center", justifyContent: "center", gap: 6,
                 }}
               >
-                {applying ? "Aplicando…" : `Aplicar ajustes (${countedProducts.filter(p => p.diff !== 0).length} productos)`}
+                <Plus size={14} /> Crear material nuevo
               </button>
-            </div>
-          )}
 
-          {/* Confirmation modal */}
-          {showConfirmAdjust && (
-            <div style={{
-              position: "fixed", inset: 0, zIndex: 1000,
-              background: "rgba(0,0,0,0.7)", backdropFilter: "blur(4px)",
-              display: "flex", alignItems: "center", justifyContent: "center", padding: 20,
-            }} onClick={() => setShowConfirmAdjust(false)}>
-              <div style={{
-                background: C.panelSolid, border: `1px solid ${C.border}`,
-                borderRadius: 16, padding: 24, maxWidth: 480, width: "100%",
-              }} onClick={e => e.stopPropagation()}>
-                <div style={{ fontSize: 16, fontWeight: 700, color: C.text, marginBottom: 12 }}>
-                  Confirmar ajustes
-                </div>
-                <div style={{ fontSize: 13, color: C.muted, marginBottom: 16, lineHeight: 1.5 }}>
-                  Vas a ajustar <strong style={{ color: C.text }}>{countedProducts.filter(p => p.diff !== 0).length} productos</strong> para igualar el sistema al conteo físico.
-                  <br /><br />
-                  Esta acción genera movimientos de ingreso/egreso en el kardex y es reversible.
-                </div>
-                <div style={{ display: "flex", gap: 8, justifyContent: "flex-end" }}>
-                  <button
-                    type="button"
-                    onClick={() => setShowConfirmAdjust(false)}
-                    style={{ ...btnBase, background: "transparent", color: C.muted }}
-                  >
-                    Cancelar
-                  </button>
-                  <button
-                    type="button"
-                    onClick={applyAdjustments}
-                    disabled={applying}
-                    style={{ ...btnBase, background: C.amber, color: "#000", border: "none" }}
-                  >
-                    {applying ? "Aplicando…" : "Confirmar"}
-                  </button>
-                </div>
-              </div>
-            </div>
-          )}
-
-          {/* Not counted products */}
-          {notCountedProducts.length > 0 && (
-            <div style={{ marginTop: 20 }}>
-              <div style={{ fontSize: 10, color: C.dim, letterSpacing: 1.5, textTransform: "uppercase", marginBottom: 8, fontFamily: C.mono }}>
-                No contados ({notCountedProducts.length}) — saldo en sistema pero no escaneados
-              </div>
-              <div style={{ maxHeight: 200, overflowY: "auto", border: `1px solid ${C.border}`, borderRadius: 10, background: C.panel }}>
-                {notCountedProducts.map(p => (
-                  <div key={p.materialId} style={{
-                    padding: "8px 14px", borderBottom: `1px solid ${C.border}`,
-                    display: "flex", justifyContent: "space-between", alignItems: "center",
-                  }}>
-                    <div>
-                      <div style={{ fontWeight: 600, fontSize: 12, color: C.text }}>{p.material.descripcion}</div>
-                      <div style={{ fontSize: 11, color: C.dim, fontFamily: C.mono }}>{p.material.codigo}</div>
-                    </div>
-                    <span style={{
-                      fontSize: 13, fontWeight: 700, fontFamily: C.mono,
-                      color: p.system > 0 ? C.amber : C.red,
-                    }}>
-                      {p.system > 0 ? `+${p.system}` : p.system}
-                    </span>
+              {/* Quick create inline form */}
+              {quickCreateOpen && (
+                <div style={{
+                  marginTop: 10, padding: 14, borderRadius: 10,
+                  border: `1px solid ${C.border}`, background: C.panel,
+                  display: "grid", gap: 8,
+                }}>
+                  <div style={{ fontSize: 12, fontWeight: 700, color: C.text }}>Alta rápida de material</div>
+                  <input
+                    value={quickCreateDesc}
+                    onChange={e => setQuickCreateDesc(e.target.value)}
+                    placeholder="Descripción del material *"
+                    style={{ ...inputStyle, fontSize: 13 }}
+                    autoFocus
+                  />
+                  <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8 }}>
+                    <select
+                      value={quickCreateCat}
+                      onChange={e => setQuickCreateCat(e.target.value)}
+                      style={selectStyle}
+                    >
+                      <option value="">Rubro (opcional)</option>
+                      {categorias.map(c => <option key={c.id} value={c.id}>{c.nombre}</option>)}
+                    </select>
+                    <input
+                      value={quickCreateUM}
+                      onChange={e => setQuickCreateUM(e.target.value)}
+                      placeholder="UM (ej: unidad, mt, kg)"
+                      style={{ ...inputStyle, fontSize: 13 }}
+                    />
                   </div>
-                ))}
+                  <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8 }}>
+                    <input
+                      value={quickCreateProveedor}
+                      onChange={e => setQuickCreateProveedor(e.target.value)}
+                      placeholder="Proveedor (opcional)"
+                      style={{ ...inputStyle, fontSize: 13 }}
+                    />
+                    <input
+                      value={quickCreateCodigo}
+                      onChange={e => setQuickCreateCodigo(e.target.value)}
+                      placeholder="Código (opcional)"
+                      style={{ ...inputStyle, fontSize: 13, fontFamily: C.mono }}
+                    />
+                  </div>
+                  <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 8 }}>
+                    <input
+                      type="number" step="any"
+                      value={quickCreatePrecio}
+                      onChange={e => setQuickCreatePrecio(e.target.value)}
+                      placeholder="Precio (opcional)"
+                      style={{ ...inputStyle, fontSize: 13, fontFamily: C.mono }}
+                    />
+                    <select value={quickCreateMoneda} onChange={e => setQuickCreateMoneda(e.target.value)} style={selectStyle}>
+                      <option value="ARS">ARS</option>
+                      <option value="USD">USD</option>
+                    </select>
+                    <input
+                      value={quickCreateAlias}
+                      onChange={e => setQuickCreateAlias(e.target.value)}
+                      placeholder="Alias / marca"
+                      style={{ ...inputStyle, fontSize: 13 }}
+                    />
+                  </div>
+                  <div>
+                    <div style={{ fontSize: 10, color: C.dim, letterSpacing: 0.5, textTransform: "uppercase", marginBottom: 4, fontWeight: 700, display: "flex", alignItems: "center", gap: 4 }}>
+                      <StickyNote size={11} /> Observaciones (opcional)
+                    </div>
+                    <textarea
+                      value={quickCreateNotas}
+                      onChange={e => setQuickCreateNotas(e.target.value)}
+                      placeholder="Notas sobre este material…"
+                      rows={2}
+                      style={{ ...inputStyle, fontSize: 13, fontFamily: C.sans, resize: "vertical", letterSpacing: "normal" }}
+                    />
+                  </div>
+                  <div style={{ display: "flex", gap: 8, justifyContent: "flex-end" }}>
+                    <button type="button" onClick={() => setQuickCreateOpen(false)} style={{ ...btnBase, background: "transparent", color: C.dim }}>Cancelar</button>
+                    <button
+                      type="button"
+                      onClick={handleQuickCreate}
+                      disabled={!quickCreateDesc.trim() || quickCreateSaving}
+                      style={{ ...btnBase, background: C.green, color: "#fff", border: "none", opacity: !quickCreateDesc.trim() || quickCreateSaving ? 0.5 : 1 }}
+                    >
+                      {quickCreateSaving ? "Creando…" : "Crear y seleccionar"}
+                    </button>
+                  </div>
+                </div>
+              )}
+            </div>
+          )}
+
+          {/* ── STEP 2: Count and assign destination ── */}
+          {countStep === 2 && countMaterial && (
+            <div>
+              <div style={{ fontSize: 14, fontWeight: 700, color: C.text, marginBottom: 4 }}>¿Cuántos hay y para dónde van?</div>
+
+              {/* Selected material card */}
+              <div style={{
+                padding: 14, borderRadius: 10, marginBottom: 14,
+                background: "rgba(59,130,246,0.08)", border: `1px solid rgba(59,130,246,0.25)`,
+              }}>
+                <div style={{ fontWeight: 700, fontSize: 14, color: C.text }}>{countMaterial.descripcion}</div>
+                <div style={{ fontSize: 11, color: C.dim, fontFamily: C.mono, marginTop: 2 }}>
+                  {countMaterial.codigo}{countMaterial.proveedor ? ` · ${countMaterial.proveedor}` : ""}
+                </div>
+              </div>
+
+              {/* Quantity */}
+              <div style={{ marginBottom: 14 }}>
+                <div style={{ fontSize: 10, color: C.dim, letterSpacing: 0.5, textTransform: "uppercase", marginBottom: 4, fontWeight: 700 }}>Cantidad física</div>
+                <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
+                  <button type="button" onClick={() => setCountQty(q => Math.max(1, q - 1))} style={{ ...btnBase, padding: "8px 12px", background: C.panel }}><Minus size={14} /></button>
+                  <input
+                    type="number"
+                    min={1}
+                    value={countQty}
+                    onChange={e => setCountQty(Math.max(1, parseInt(e.target.value) || 1))}
+                    style={{ ...inputStyle, width: 80, textAlign: "center", fontSize: 18, fontWeight: 700, padding: "8px" }}
+                  />
+                  <button type="button" onClick={() => setCountQty(q => q + 1)} style={{ ...btnBase, padding: "8px 12px", background: C.panel }}><Plus size={14} /></button>
+                  <span style={{ fontSize: 12, color: C.dim }}>{countMaterial.unidad_medida || "unidad"}</span>
+                </div>
+              </div>
+
+              {/* Sede — obligatoria siempre (permiso + dónde vive el stock general),
+                  aplica a todos los destinos de este ítem. */}
+              <div style={{ marginBottom: 14 }}>
+                <div style={{ fontSize: 10, color: C.dim, letterSpacing: 0.5, textTransform: "uppercase", marginBottom: 4, fontWeight: 700 }}>Sede</div>
+                <select value={countSede} onChange={e => setCountSede(e.target.value)} style={selectStyle}>
+                  {SEDES_PANOL.map(s => <option key={s} value={s}>{s}</option>)}
+                </select>
+              </div>
+
+              {/* Destino(s) — si hay más de 1 unidad, se puede repartir entre varias
+                  obras y/o stock general. Con 1 solo destino la cantidad se auto-completa. */}
+              <div style={{ marginBottom: 14 }}>
+                <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 4 }}>
+                  <div style={{ fontSize: 10, color: C.dim, letterSpacing: 0.5, textTransform: "uppercase", fontWeight: 700 }}>Destino(s)</div>
+                  <span style={{ fontSize: 10, fontFamily: C.mono, fontWeight: 800, color: destinosTotal === Number(countQty) ? C.green : C.amber }}>
+                    asignado {destinosTotal} / {countQty}
+                  </span>
+                </div>
+                <div style={{ display: "grid", gap: 6 }}>
+                  {countDestinos.map((row, idx) => (
+                    <div key={row.id} style={{ display: "flex", gap: 6, flexWrap: "wrap", alignItems: "center" }}>
+                      <select
+                        value={row.type}
+                        onChange={e => updateDestinoRow(row.id, { type: e.target.value, obraId: "" })}
+                        style={selectStyle}
+                      >
+                        <option value="stock">Stock general</option>
+                        <option value="obra">Obra</option>
+                      </select>
+                      {row.type === "obra" && (
+                        <select
+                          value={row.obraId}
+                          onChange={e => updateDestinoRow(row.id, { obraId: e.target.value })}
+                          style={{ ...selectStyle, minWidth: 160 }}
+                        >
+                          <option value="">Seleccionar obra…</option>
+                          {obrasList.map(o => <option key={o.id} value={o.id}>{o.codigo}</option>)}
+                        </select>
+                      )}
+                      <input
+                        type="number" min={0}
+                        value={row.cantidad}
+                        onChange={e => updateDestinoRow(row.id, { cantidad: e.target.value })}
+                        disabled={countDestinos.length === 1}
+                        placeholder="Cant."
+                        style={{ ...inputStyle, width: 70, padding: "8px 10px", fontSize: 13, textAlign: "center", opacity: countDestinos.length === 1 ? 0.6 : 1 }}
+                      />
+                      {countDestinos.length > 1 && (
+                        <button type="button" onClick={() => removeDestinoRow(row.id)} style={{ ...btnBase, padding: "6px 8px", background: "transparent", color: C.red }} title="Quitar destino">
+                          <Trash2 size={13} />
+                        </button>
+                      )}
+                      {idx === 0 && countDestinos.length === 1 && (
+                        <span style={{ fontSize: 10, color: C.dim }}>(1 solo destino: usa toda la cantidad)</span>
+                      )}
+                    </div>
+                  ))}
+                </div>
+                <button
+                  type="button"
+                  onClick={addDestinoRow}
+                  style={{ ...btnBase, marginTop: 8, padding: "6px 10px", fontSize: 11, background: "transparent", color: C.blue, border: `1px dashed rgba(59,130,246,0.4)`, display: "inline-flex", alignItems: "center", gap: 4 }}
+                >
+                  <Plus size={12} /> Repartir entre varias obras/stock
+                </button>
+              </div>
+
+              {/* Ubicación en el pañol (estantería/estante, o "afuera" + observación).
+                  Se guarda de forma independiente al conteo — podés fijarla en cualquier
+                  momento con el material seleccionado, no hace falta confirmar el conteo. */}
+              <div style={{ marginBottom: 14, padding: 12, borderRadius: 10, border: `1px solid ${C.border}`, background: C.panel }}>
+                <UbicacionPicker
+                  key={countMaterial.id}
+                  materialId={countMaterial.id}
+                  ubicacion={countMaterial.ubicacion}
+                  ubicacionObs={countMaterial.ubicacion_obs}
+                  onSaved={(ubicacion, obs) => {
+                    onMaterialUpdate?.(countMaterial.id, { ubicacion, ubicacion_obs: obs });
+                    setCountMaterial(prev => (prev ? { ...prev, ubicacion, ubicacion_obs: obs } : prev));
+                  }}
+                />
+              </div>
+
+              {/* Observaciones del producto (se guardan al confirmar el conteo) */}
+              <div style={{ marginBottom: 14 }}>
+                <div style={{ fontSize: 10, color: C.dim, letterSpacing: 0.5, textTransform: "uppercase", marginBottom: 4, fontWeight: 700, display: "flex", alignItems: "center", gap: 4 }}>
+                  <StickyNote size={11} /> Observaciones
+                </div>
+                <textarea
+                  value={countNotas}
+                  onChange={e => setCountNotas(e.target.value)}
+                  placeholder="Notas sobre este material (opcional)…"
+                  rows={2}
+                  style={{ ...inputStyle, fontSize: 13, fontFamily: C.sans, resize: "vertical", letterSpacing: "normal" }}
+                />
+              </div>
+
+              {/* Variant selector */}
+              {countMaterial.variantes?.length > 0 && (
+                <div style={{ marginBottom: 14 }}>
+                  <div style={{ fontSize: 10, color: C.dim, letterSpacing: 0.5, textTransform: "uppercase", marginBottom: 4, fontWeight: 700 }}>Variante (opcional)</div>
+                  <select value={countVariante} onChange={e => setCountVariante(e.target.value)} style={{ ...selectStyle, width: "100%" }}>
+                    <option value="">Sin variante específica</option>
+                    {countMaterial.variantes.map(v => <option key={v} value={v}>{v}</option>)}
+                  </select>
+                </div>
+              )}
+
+              {/* Navigation */}
+              <div style={{ display: "flex", gap: 8, marginTop: 8 }}>
+                <button type="button" onClick={() => { setCountStep(1); setCountMaterial(null); }} style={{ ...btnBase, flex: 1, background: "transparent", color: C.muted }}>← Volver</button>
+                <button
+                  type="button"
+                  onClick={() => setCountStep(3)}
+                  disabled={!destinosValid}
+                  style={{ ...btnBase, flex: 2, background: C.blue, color: "#fff", border: "none", opacity: !destinosValid ? 0.5 : 1 }}
+                >
+                  Siguiente → Código de barras
+                </button>
               </div>
             </div>
           )}
 
-          {/* Not found — offer to assign */}
-          {lastResult && !lastResult.ok && lastResult.code && (
-            <div style={{
-              padding: "12px 14px", borderRadius: 10, marginTop: 16,
-              background: "rgba(245,158,11,0.1)", border: `1px solid rgba(245,158,11,0.3)`,
-            }}>
-              <div style={{ fontSize: 12, color: C.amber, marginBottom: 8 }}>
-                Código no encontrado: <strong style={{ fontFamily: C.mono }}>{lastResult.code}</strong>
+          {/* ── STEP 3: Barcode assignment + confirm ── */}
+          {countStep === 3 && countMaterial && (
+            <div>
+              <div style={{ fontSize: 14, fontWeight: 700, color: C.text, marginBottom: 4 }}>Código de barras (opcional)</div>
+              <div style={{ fontSize: 11, color: C.dim, marginBottom: 12 }}>Escaneá o escribí un código para asignarlo a este material, o saltá este paso.</div>
+
+              {/* Summary card */}
+              <div style={{
+                padding: 12, borderRadius: 10, marginBottom: 14,
+                background: "rgba(59,130,246,0.06)", border: `1px solid rgba(59,130,246,0.2)`,
+                display: "flex", justifyContent: "space-between", alignItems: "center",
+              }}>
+                <div>
+                  <div style={{ fontWeight: 700, fontSize: 13, color: C.text }}>{countMaterial.descripcion}</div>
+                  <div style={{ fontSize: 11, color: C.dim, marginTop: 2 }}>
+                    {countQty} {countMaterial.unidad_medida || "unidad"} →{" "}
+                    {countDestinos.filter(d => Number(d.cantidad) > 0).map(d => (
+                      d.type === "stock" ? `Stock ${countSede} ×${d.cantidad}` : `Obra ${obrasList.find(o => String(o.id) === String(d.obraId))?.codigo || "?"} ×${d.cantidad}`
+                    )).join(" · ")}
+                    {countVariante ? ` · ${countVariante}` : ""}
+                  </div>
+                </div>
+                <span style={{ fontFamily: C.mono, fontWeight: 800, fontSize: 18, color: C.blue }}>{countQty}</span>
               </div>
-              <button
-                type="button"
-                onClick={() => { setMode("assign"); setPendingBarcode(lastResult.code); }}
-                style={{ ...btnBase, background: C.amber, color: "#000", border: "none", fontSize: 12, display: "flex", alignItems: "center", gap: 6 }}
-              >
-                Asignar este código a un producto <ArrowRight size={12} />
-              </button>
+
+              {/* Existing barcodes */}
+              {materialBarcodeList(countMaterial).length > 0 && (
+                <div style={{ marginBottom: 10 }}>
+                  <div style={{ fontSize: 10, color: C.dim, letterSpacing: 0.5, textTransform: "uppercase", marginBottom: 4, fontWeight: 700 }}>Códigos ya asignados</div>
+                  <div style={{ display: "flex", flexWrap: "wrap", gap: 4 }}>
+                    {materialBarcodeList(countMaterial).map(row => (
+                      <span key={`${row.id || "l"}-${row.codigo}`} style={{
+                        display: "inline-flex", alignItems: "center", gap: 4,
+                        border: `1px solid ${C.border}`, background: C.panel,
+                        borderRadius: 999, padding: "3px 8px", fontSize: 10, fontFamily: C.mono, color: C.muted,
+                      }}>
+                        {row.codigo}
+                        {row.variante && <span style={{ fontFamily: C.sans, color: C.dim, fontWeight: 700 }}>{row.variante}</span>}
+                      </span>
+                    ))}
+                  </div>
+                </div>
+              )}
+
+              {/* Barcode input */}
+              <div style={{ marginBottom: 14 }}>
+                <div style={{ fontSize: 10, color: C.dim, letterSpacing: 0.5, textTransform: "uppercase", marginBottom: 4, fontWeight: 700 }}>Nuevo código (opcional)</div>
+                <input
+                  value={countBarcodeInput}
+                  onChange={e => setCountBarcodeInput(e.target.value)}
+                  placeholder="Escaneá o escribí un código…"
+                  style={{ ...inputStyle, fontSize: 13 }}
+                />
+              </div>
+
+              {/* Actions */}
+              <div style={{ display: "flex", gap: 8 }}>
+                <button type="button" onClick={() => setCountStep(2)} style={{ ...btnBase, flex: 1, background: "transparent", color: C.muted }}>← Volver</button>
+                <button
+                  type="button"
+                  onClick={handleConfirmClick}
+                  disabled={countSaving || !destinosValid}
+                  style={{
+                    ...btnBase, flex: 2, padding: "12px",
+                    background: C.green, color: "#fff", border: "none",
+                    fontWeight: 700, fontSize: 14,
+                    opacity: countSaving ? 0.5 : 1,
+                    display: "flex", alignItems: "center", justifyContent: "center", gap: 6,
+                  }}
+                >
+                  {countSaving ? "Guardando…" : <><Check size={16} /> Confirmar</>}
+                </button>
+              </div>
             </div>
           )}
+
+          {/* ── Session history ── */}
+          {countSession.length > 0 && (
+            <div style={{ marginTop: 24 }}>
+              <div style={{
+                display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 8,
+              }}>
+                <div style={{ fontSize: 10, color: C.dim, letterSpacing: 1.5, textTransform: "uppercase", fontFamily: C.mono }}>
+                  Sesión ({countSession.length} items · {totalUnitsCounted} unidades)
+                </div>
+                <button
+                  type="button"
+                  onClick={() => { if (window.confirm("¿Limpiar historial de sesión? (los movimientos de stock ya aplicados NO se revierten)")) setCountSession([]); }}
+                  style={{ ...btnBase, background: "transparent", color: C.dim, fontSize: 10, padding: "4px 8px", display: "flex", alignItems: "center", gap: 4 }}
+                >
+                  <RotateCcw size={10} /> Limpiar
+                </button>
+              </div>
+              <div style={{ border: `1px solid ${C.border}`, borderRadius: 10, overflow: "hidden" }}>
+                {countSession.map(entry => {
+                  const destLabel = entry.allocations.map(a => (
+                    a.type === "stock" ? `Stock ${a.sede} ×${a.cantidad}` : `Obra ${a.obraCodigo || "?"} ×${a.cantidad}`
+                  )).join(" · ");
+                  const isUndoing = countUndoing === entry.id;
+                  return (
+                    <div key={entry.id} style={{
+                      padding: "10px 14px", borderBottom: `1px solid ${C.border}`,
+                      display: "flex", alignItems: "center", gap: 10,
+                      background: isUndoing ? "rgba(239,68,68,0.06)" : "transparent",
+                      opacity: isUndoing ? 0.6 : entry.reverted ? 0.45 : 1,
+                      transition: "all 0.2s",
+                    }}>
+                      <div style={{ flex: 1, minWidth: 0 }}>
+                        <div style={{ fontWeight: 600, fontSize: 12, color: C.text, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", textDecoration: entry.reverted ? "line-through" : "none" }}>
+                          {entry.material.descripcion}
+                          {entry.variante && <span style={{ color: C.dim, fontWeight: 500, marginLeft: 4 }}>({entry.variante})</span>}
+                        </div>
+                        <div style={{ fontSize: 10, color: C.dim, marginTop: 2, display: "flex", gap: 8, flexWrap: "wrap" }}>
+                          <span style={{ fontFamily: C.mono }}>{destLabel}</span>
+                          {entry.barcode && <span style={{ fontFamily: C.mono, color: C.blue }}>⊟ {entry.barcode}</span>}
+                          {entry.reverted && <span style={{ color: C.red, fontWeight: 700 }}>Revertido</span>}
+                        </div>
+                      </div>
+                      <span style={{ fontFamily: C.mono, fontWeight: 800, fontSize: 14, color: entry.reverted ? C.dim : C.green, flexShrink: 0, textDecoration: entry.reverted ? "line-through" : "none" }}>+{entry.qty}</span>
+                      <button
+                        type="button"
+                        onClick={() => undoCountItem(entry)}
+                        disabled={!!countUndoing || entry.reverted}
+                        title={entry.reverted ? "Ya fue revertido" : "Deshacer este movimiento"}
+                        style={{
+                          ...btnBase, padding: "4px 8px", background: "transparent",
+                          color: C.red, border: `1px solid rgba(239,68,68,0.3)`,
+                          fontSize: 10, flexShrink: 0, opacity: (countUndoing || entry.reverted) ? 0.4 : 1,
+                        }}
+                      >
+                        {entry.reverted ? <Undo2 size={11} /> : <RotateCcw size={11} />}
+                      </button>
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+          )}
+        </div>
+      )}
+
+      {/* Aviso: producto no está en la lista matriz de la línea de la obra elegida */}
+      {matrixPrompt && (
+        <div style={{ position: "fixed", inset: 0, zIndex: 1000, background: "rgba(0,0,0,0.7)", backdropFilter: "blur(4px)", display: "flex", alignItems: "center", justifyContent: "center", padding: 20 }} onClick={() => confirmMatrixAndContinue(false)}>
+          <div style={{ background: C.panelSolid || C.panel, border: `1px solid ${C.border}`, borderRadius: 16, padding: 24, maxWidth: 440, width: "100%" }} onClick={e => e.stopPropagation()}>
+            <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 10 }}>
+              <AlertTriangle size={18} color={C.amber} />
+              <div style={{ fontSize: 15, fontWeight: 700, color: C.text }}>¿Agregar a la lista matriz?</div>
+            </div>
+            <div style={{ fontSize: 13, color: C.muted, marginBottom: 14, lineHeight: 1.5 }}>
+              <strong style={{ color: C.text }}>{countMaterial?.descripcion}</strong> todavía no figura en la lista matriz de{" "}
+              {Object.keys(matrixPrompt.cantidades).length === 1 ? "esta línea" : "estas líneas"}:{" "}
+              <strong style={{ color: C.text }}>{Object.keys(matrixPrompt.cantidades).map(l => `K${l}`).join(", ")}</strong>.
+              <br /><br />
+              Si lo agregás, todas las obras de esa línea van a esperar este producto de ahora en más (podés ajustar la cantidad base después desde el catálogo).
+            </div>
+            <div style={{ display: "grid", gap: 6, marginBottom: 14 }}>
+              {Object.entries(matrixPrompt.cantidades).map(([linea, cant]) => (
+                <div key={linea} style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                  <span style={{ fontSize: 12, fontFamily: C.mono, fontWeight: 700, color: C.blue, minWidth: 40 }}>K{linea}</span>
+                  <input
+                    type="number" min={0} step="any"
+                    value={cant}
+                    onChange={e => setMatrixPrompt(prev => ({ ...prev, cantidades: { ...prev.cantidades, [linea]: e.target.value } }))}
+                    style={{ ...inputStyle, width: 90, padding: "6px 10px", fontSize: 13 }}
+                  />
+                  <span style={{ fontSize: 11, color: C.dim }}>cantidad base por barco</span>
+                </div>
+              ))}
+            </div>
+            <div style={{ display: "flex", gap: 8, justifyContent: "flex-end" }}>
+              <button type="button" onClick={() => confirmMatrixAndContinue(false)} disabled={matrixSaving} style={{ ...btnBase, background: "transparent", color: C.muted }}>
+                Solo contar (no agregar)
+              </button>
+              <button type="button" onClick={() => confirmMatrixAndContinue(true)} disabled={matrixSaving} style={{ ...btnBase, background: C.blue, color: "#fff", border: "none" }}>
+                {matrixSaving ? "Guardando…" : "Agregar a la matriz y continuar"}
+              </button>
+            </div>
+          </div>
         </div>
       )}
     </div>

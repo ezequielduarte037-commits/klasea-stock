@@ -13,6 +13,7 @@ import {
 } from "lucide-react";
 import { C } from "@/theme";
 import BarcodeScanner from "@/features/panol/BarcodeScanner";
+import UbicacionPicker, { UbicacionChip } from "@/features/panol/UbicacionPicker";
 import useKeyboardWedge from "@/features/panol/useKeyboardWedge";
 import { materialBarcodeList, materialBarcodeText } from "@/features/materiales/materialBarcodes";
 import {
@@ -256,6 +257,8 @@ function buildProductGroups(rows = [], fObra = "todas") {
         proveedor: row.proveedor || "",
         unidad: row.unidad || "unidad",
         tipoPedido,
+        ubicacion: row.ubicacion || null,
+        ubicacion_obs: row.ubicacion_obs || null,
         total: 0,
         transitQty: 0,
         valueUsd: 0,
@@ -268,6 +271,10 @@ function buildProductGroups(rows = [], fObra = "todas") {
       });
     }
     const group = map.get(key);
+    if (!group.ubicacion && row.ubicacion) {
+      group.ubicacion = row.ubicacion;
+      group.ubicacion_obs = row.ubicacion_obs || null;
+    }
     if (!group.codigo_barra && row.codigo_barra) {
       group.codigo_barra = row.codigo_barra;
       group.material.codigo_barra = row.codigo_barra;
@@ -462,6 +469,7 @@ function ProductCard({ group, active, onOpen, isMobile }) {
           <KindChip tipo={group.tipoPedido} />
           {(group.negativo || group.catalogOnly) && <StateChip negative={group.negativo} catalogOnly={group.catalogOnly} />}
           {group.inTransit && <StateChip transit />}
+          <UbicacionChip ubicacion={group.ubicacion} obs={group.ubicacion_obs} />
         </div>
         <div style={{ color: C.dim, fontSize: 11, marginTop: 4, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
           {group.codigo || "sin codigo"}{group.proveedor ? ` - ${group.proveedor}` : ""}{group.categorias.size ? ` - ${[...group.categorias][0]}` : ""}
@@ -1139,6 +1147,7 @@ function ProductDetail({ group, isMobile, obras, sedeLocked, canReceive, mode, o
             <KindChip tipo={group.tipoPedido} />
             <StateChip negative={group.negativo} catalogOnly={group.catalogOnly} />
             {group.inTransit && <StateChip transit />}
+            <UbicacionChip ubicacion={group.ubicacion} obs={group.ubicacion_obs} size="md" />
           </div>
           <div style={{ color: C.dim, fontSize: 11, marginTop: 3 }}>{group.codigo || "sin codigo"} · disponible {fmtQty(group.total)} {group.unidad}</div>
         </div>
@@ -1154,6 +1163,18 @@ function ProductDetail({ group, isMobile, obras, sedeLocked, canReceive, mode, o
             ))}
           </div>
         </div>
+
+        {canReceive && group.material?.id && (
+          <div style={{ border: `1px solid ${C.border}`, background: C.panelSolid, borderRadius: 12, padding: "10px 12px" }}>
+            <UbicacionPicker
+              materialId={group.material.id}
+              ubicacion={group.ubicacion}
+              ubicacionObs={group.ubicacion_obs}
+              toast={toast}
+              onSaved={() => onDone?.()}
+            />
+          </div>
+        )}
 
         {group.esAdicional && detalleAdicional.length > 0 && (
           <div style={{ border: `1px solid ${C.border}`, background: C.panelSolid, borderRadius: 12, padding: "10px 12px", display: "grid", gap: 6 }}>

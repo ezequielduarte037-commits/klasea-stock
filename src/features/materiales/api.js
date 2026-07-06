@@ -36,12 +36,18 @@ async function fetchPaged(table, select, orderColumn = "id") {
 }
 
 async function fetchMaterialesCatalogo() {
-  const baseSelect = "id, categoria_id, proveedor_id, codigo, descripcion, proveedor, unidad_medida, precio_unitario, moneda, imagen_url, revisado, origen, notas, activo, batch_id, created_at, codigo_barra";
+  const baseSelect = "id, categoria_id, proveedor_id, codigo, descripcion, proveedor, unidad_medida, precio_unitario, moneda, imagen_url, revisado, origen, notas, activo, batch_id, created_at, codigo_barra, ubicacion, ubicacion_obs";
   try {
     return await fetchPaged("panol_materiales", `${baseSelect}, variantes`, "descripcion");
   } catch (error) {
     if (!isMissingColumn(error)) throw error;
-    return (await fetchPaged("panol_materiales", baseSelect, "descripcion")).map((row) => ({ ...row, variantes: [] }));
+    try {
+      return (await fetchPaged("panol_materiales", baseSelect, "descripcion")).map((row) => ({ ...row, variantes: [] }));
+    } catch (error2) {
+      if (!isMissingColumn(error2)) throw error2;
+      const fallbackSelect = "id, categoria_id, proveedor_id, codigo, descripcion, proveedor, unidad_medida, precio_unitario, moneda, imagen_url, revisado, origen, notas, activo, batch_id, created_at, codigo_barra";
+      return (await fetchPaged("panol_materiales", fallbackSelect, "descripcion")).map((row) => ({ ...row, variantes: [], ubicacion: null, ubicacion_obs: null }));
+    }
   }
 }
 
@@ -905,6 +911,8 @@ export async function crearMaterial(material, cantidades = {}) {
       moneda: material.moneda || null,
       imagen_url: material.imagen_url || null,
       variantes: normalizeVariantes(material.variantes),
+      alias: material.alias || null,
+      notas: material.notas || null,
       origen: "manual",
       codigo_barra: material.codigo_barra || null,
       revisado: material.revisado ?? true,
@@ -937,6 +945,50 @@ export async function crearMaterial(material, cantidades = {}) {
   if (error) throw error;
   await guardarCantidades(data.id, cantidades);
   return data.id;
+}
+
+/**
+ * Alta rápida de material desde el flujo de conteo. Acepta los mismos campos
+ * "chicos" que el editor completo del catálogo (proveedor, código, precio,
+ * alias, observaciones) para no tener que volver después a completarlos.
+ * Devuelve el objeto material completo (no solo el ID).
+ */
+export async function crearMaterialRapido({
+  descripcion, categoriaId = null, unidadMedida = "unidad",
+  proveedor = "", codigo = "", precioUnitario = null, moneda = "ARS",
+  alias = "", notas = "",
+} = {}) {
+  if (!String(descripcion || "").trim()) throw new Error("Cargá una descripción.");
+  const id = await crearMaterial({
+    descripcion: String(descripcion).trim(),
+    categoria_id: categoriaId || null,
+    unidad_medida: unidadMedida || "unidad",
+    proveedor: String(proveedor || "").trim() || null,
+    codigo: String(codigo || "").trim() || null,
+    precio_unitario: precioUnitario,
+    moneda: moneda || "ARS",
+    alias: String(alias || "").trim() || null,
+    notas: String(notas || "").trim() || null,
+    revisado: false,
+    origen: "conteo",
+  });
+  const { data, error } = await supabase
+    .from("panol_materiales")
+    .select("*")
+    .eq("id", id)
+    .single();
+  if (error) throw error;
+  return { ...data, variantes: normalizeVariantes(data.variantes), codigos_barra: [], modelos: [], areas: [data.categoria_id].filter(Boolean) };
+}
+
+/** Guarda solo el campo de observaciones (notas) de un material, sin tocar nada más. */
+export async function actualizarNotasMaterial(materialId, notas) {
+  if (!materialId) return;
+  const { error } = await supabase
+    .from("panol_materiales")
+    .update({ notas: String(notas || "").trim() || null })
+    .eq("id", materialId);
+  if (error) throw error;
 }
 
 export async function guardarCantidades(materialId, cantidades = {}) {

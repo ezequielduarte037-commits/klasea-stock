@@ -5,6 +5,7 @@ import { useResponsive } from "@/hooks/useResponsive";
 import { useToast } from "@/components/ui/Toast";
 import { C } from "@/theme";
 import StockWmsPanel from "@/features/panol/StockWmsPanel";
+import MapaPanolTab from "@/features/panol/MapaPanolTab";
 import { fetchMaterialesEgreso, fetchObrasEgreso } from "@/features/panol/panolApi";
 import { MODELOS } from "@/features/materiales/materialesParser";
 
@@ -288,6 +289,7 @@ const TABS = [
   { key: "obra", label: "Por obra" },
   { key: "maestro", label: "Stock maestro" },
   { key: "reconciliar", label: "A reconciliar" },
+  { key: "mapa", label: "Mapa" },
 ];
 
 // ─── Componente principal ─────────────────────────────────────────────────────
@@ -552,6 +554,10 @@ export default function StockPanolScreen({ profile, signOut, embedded = false, m
             {/* ── TAB: A reconciliar ── */}
             {tab === "reconciliar" && (
               <StockWmsPanel key="reconciliar" {...wmsProps} initialScope="negativos" />
+            )}
+
+            {tab === "mapa" && (
+              <MapaPanolTab isMobile={isMobile} toast={toast} canEdit={isManager} />
             )}
           </div>
         </div>

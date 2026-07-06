@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { Copy, Download, FileText, Link as LinkIcon, PackagePlus, Pencil, RefreshCw, Save, Search, ShoppingCart, SkipForward, Trash2, Upload } from "lucide-react";
+import { Copy, Download, FileText, Link as LinkIcon, PackagePlus, Pencil, RefreshCw, Save, Search, ShoppingCart, SkipForward, StickyNote, Trash2, Upload } from "lucide-react";
 import Sidebar from "@/components/Sidebar";
 import { useResponsive } from "@/hooks/useResponsive";
 import { C } from "@/theme";
@@ -10,6 +10,7 @@ import {
   borrarSubsector,
   crearCategoria,
   crearMaterial,
+  actualizarNotasMaterial,
   agregarCodigoBarraMaterial,
   fetchCatalogo,
   fetchMaterialAudit,
@@ -1805,6 +1806,65 @@ function MaterialBarcodeEditor({ material, onChanged }) {
   );
 }
 
+// Botón chico para ver/editar la observación de un material sin abrir el editor
+// completo — pensado para uso rápido durante un conteo o una revisión al vuelo.
+function NotasQuickButton({ material, onChanged }) {
+  const [open, setOpen] = useState(false);
+  const [value, setValue] = useState(material.notas || "");
+  const [saving, setSaving] = useState(false);
+
+  useEffect(() => { setValue(material.notas || ""); }, [material.notas]);
+
+  async function save() {
+    if (saving) return;
+    setSaving(true);
+    try {
+      await actualizarNotasMaterial(material.id, value);
+      onChanged?.();
+      setOpen(false);
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  return (
+    <div style={{ position: "relative", flexShrink: 0 }}>
+      <button
+        type="button"
+        onClick={(e) => { e.stopPropagation(); setOpen((v) => !v); }}
+        title={material.notas ? `Observación: ${material.notas}` : "Agregar observación"}
+        style={{ ...BTN, padding: "5px 9px", color: material.notas ? C.amber : C.t2 }}
+      >
+        <StickyNote size={13} />
+      </button>
+      {open && (
+        <div
+          onClick={(e) => e.stopPropagation()}
+          style={{
+            position: "absolute", top: "calc(100% + 4px)", right: 0, zIndex: 40,
+            width: 260, background: C.s0, border: `1px solid ${C.b1}`, borderRadius: 10,
+            padding: 10, boxShadow: "0 12px 28px rgba(0,0,0,0.35)", display: "grid", gap: 8,
+          }}
+        >
+          <span style={{ fontSize: 10, letterSpacing: 0.6, color: C.t2, textTransform: "uppercase", fontWeight: 700 }}>Observaciones</span>
+          <textarea
+            value={value}
+            onChange={(e) => setValue(e.target.value)}
+            rows={3}
+            autoFocus
+            placeholder="Notas sobre este material…"
+            style={{ ...INP, width: "100%", resize: "vertical" }}
+          />
+          <div style={{ display: "flex", gap: 6, justifyContent: "flex-end" }}>
+            <button type="button" onClick={() => setOpen(false)} style={{ ...BTN, padding: "5px 10px" }}>Cerrar</button>
+            <button type="button" onClick={save} disabled={saving} style={{ ...BTN_GREEN, padding: "5px 10px" }}>{saving ? "Guardando…" : "Guardar"}</button>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
 function MaterialFila({ material, categorias, ums, proveedores, onChanged, linea = "", initialOpen = false }) {
   const [editing, setEditing] = useState(initialOpen);
   const [draft, setDraft] = useState(() => ({ ...material, precio_unitario: inputNumberValue(material.precio_unitario) }));
@@ -1895,6 +1955,7 @@ function MaterialFila({ material, categorias, ums, proveedores, onChanged, linea
           </div>
         )}
         {material.revisado && <span title="Revisado" style={{ color: C.green, fontSize: 13, flexShrink: 0 }}>✓</span>}
+        <NotasQuickButton material={material} onChanged={onChanged} />
         <button type="button" onClick={(e) => { e.stopPropagation(); setEditing((v) => !v); }} title={editing ? "Cerrar" : "Editar"}
           style={{ ...BTN, padding: "5px 9px", color: editing ? C.blue : C.t2, flexShrink: 0 }}>
           <Pencil size={13} />
@@ -1971,6 +2032,10 @@ function MaterialFila({ material, categorias, ums, proveedores, onChanged, linea
                 );
               })}
             </div>
+          </div>
+          <div>
+            <span style={lbl}>Observaciones</span>
+            <textarea value={draft.notas || ""} onChange={(e) => setDraft((d) => ({ ...d, notas: e.target.value }))} rows={2} placeholder="Notas sobre este material…" style={{ ...INP, width: "100%", resize: "vertical" }} />
           </div>
           <label style={{ display: "inline-flex", alignItems: "center", gap: 6, fontSize: 12, color: draft.revisado ? C.green : C.t2 }}>
             <input type="checkbox" checked={!!draft.revisado} onChange={(e) => setDraft((d) => ({ ...d, revisado: e.target.checked }))} /> Revisado
@@ -5872,7 +5937,7 @@ export default function MaterialesScreen({ profile, signOut }) {
               {tab === "avance" && <AvanceTab categorias={categorias} materiales={materiales} batches={batches} obras={obrasAvance} />}
               {tab === "costos" && <CostoObraTab categorias={categorias} materiales={materiales} opciones={opciones} />}
               {tab === "resumen" && <ResumenTab categorias={categorias} materiales={materiales} />}
-              {tab === "lector" && <LectorTab materiales={materiales} onMaterialUpdate={(id, updates) => setMateriales(prev => prev?.map(m => m.id === id ? { ...m, ...updates } : m))} />}
+              {tab === "lector" && <LectorTab materiales={materiales} categorias={categorias} onMaterialUpdate={(id, updates) => setMateriales(prev => prev?.map(m => m.id === id ? { ...m, ...updates } : m))} onCatalogChanged={cargar} />}
             </>
           )}
         </div>

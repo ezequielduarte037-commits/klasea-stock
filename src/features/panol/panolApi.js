@@ -251,7 +251,7 @@ export async function fetchMaterialesEgreso({ sede = null, estados = ["en_panol"
     try {
       const res = await supabase
         .from("panol_materiales")
-        .select("id,proveedor,categoria_id,codigo_barra")
+        .select("id,proveedor,categoria_id,codigo_barra,ubicacion,ubicacion_obs")
         .in("id", materialIds);
       if (res.error) throw res.error;
       materiales = res.data ?? [];
@@ -338,6 +338,8 @@ export async function fetchMaterialesEgreso({ sede = null, estados = ["en_panol"
       proveedor: row.proveedor || meta?.proveedor || "",
       codigo_barra: row.codigo_barra || meta?.codigo_barra || meta?.codigos_barra?.[0]?.codigo || "",
       codigos_barra: meta?.codigos_barra || [],
+      ubicacion: meta?.ubicacion || null,
+      ubicacion_obs: meta?.ubicacion_obs || null,
       categoria_id: categoriaId,
       categoria_nombre: row.categoria_nombre || (categoriaId ? categoriaById.get(categoriaId) : "") || "",
     };
@@ -350,7 +352,7 @@ export async function fetchPanolCatalogMini({ q = "", limit = 80 } = {}) {
   try {
     rows = await fetchPaged(
       "panol_materiales",
-      "id,categoria_id,codigo,codigo_barra,descripcion,proveedor,unidad_medida,precio_unitario,moneda,activo",
+      "id,categoria_id,codigo,codigo_barra,descripcion,proveedor,unidad_medida,precio_unitario,moneda,activo,ubicacion,ubicacion_obs",
       { order: "descripcion", limit: 1000 },
     );
   } catch (error) {
@@ -385,6 +387,8 @@ export async function fetchPanolCatalogMini({ q = "", limit = 80 } = {}) {
       unidad: row.unidad_medida || "unidad",
       precio_unitario: row.precio_unitario ?? "",
       moneda: row.moneda || "ARS",
+      ubicacion: row.ubicacion || null,
+      ubicacion_obs: row.ubicacion_obs || null,
     }));
 }
 
@@ -416,6 +420,8 @@ export async function crearPanolCatalogMaterial({
   precio_unitario = null,
   moneda = "ARS",
   categoria_id = null,
+  ubicacion = null,
+  ubicacion_obs = null,
 } = {}) {
   const cleanDesc = String(descripcion || "").trim();
   if (!cleanDesc) throw new Error("Cargá una descripción para crear el material.");
@@ -428,6 +434,8 @@ export async function crearPanolCatalogMaterial({
     unidad_medida: unidad || "unidad",
     precio_unitario: toNullableNumber(precio_unitario),
     moneda: moneda === "USD" ? "USD" : "ARS",
+    ubicacion: ubicacion || null,
+    ubicacion_obs: String(ubicacion_obs || "").trim() || null,
     origen: "remito",
     revisado: false,
     activo: true,
@@ -435,12 +443,14 @@ export async function crearPanolCatalogMaterial({
   let { data, error } = await supabase
     .from("panol_materiales")
     .insert(patch)
-    .select("id,categoria_id,codigo,descripcion,proveedor,unidad_medida,precio_unitario,moneda,activo")
+    .select("id,categoria_id,codigo,descripcion,proveedor,unidad_medida,precio_unitario,moneda,activo,ubicacion,ubicacion_obs")
     .single();
   if (error && isMissingColumn(error)) {
     const fallbackPatch = { ...patch };
     delete fallbackPatch.origen;
     delete fallbackPatch.revisado;
+    delete fallbackPatch.ubicacion;
+    delete fallbackPatch.ubicacion_obs;
     const retry = await supabase
       .from("panol_materiales")
       .insert(fallbackPatch)
@@ -459,7 +469,26 @@ export async function crearPanolCatalogMaterial({
     unidad: data.unidad_medida || unidad || "unidad",
     precio_unitario: data.precio_unitario ?? "",
     moneda: data.moneda || moneda || "ARS",
+    ubicacion: data.ubicacion || ubicacion || null,
+    ubicacion_obs: data.ubicacion_obs || ubicacion_obs || null,
   };
+}
+
+export async function guardarUbicacionMaterial(materialId, { ubicacion = null, ubicacionObs = null } = {}) {
+  if (!materialId) return null;
+  const patch = {
+    ubicacion: ubicacion || null,
+    ubicacion_obs: String(ubicacionObs || "").trim() || null,
+  };
+  const { error } = await supabase
+    .from("panol_materiales")
+    .update(patch)
+    .eq("id", materialId);
+  if (error) {
+    if (isMissingColumn(error)) throw new Error("Falta correr el SQL de ubicaciones del pañol.");
+    throw error;
+  }
+  return patch;
 }
 
 export async function crearPanolCatalogMaterialParaEgreso({
@@ -715,7 +744,7 @@ export async function fetchObrasEgreso() {
   }
 }
 
-export async function ingresarStockGeneral({ material = null, cantidad, sede = null, nota = null, esAdicional = false } = {}) {
+export async function ingresarStockGeneral({ material = null, cantidad, sede = null, nota = null, esAdicional = false, obraId = null } = {}) {
   const qty = Number(String(cantidad ?? "").replace(",", "."));
   if (!material?.id && !String(material?.descripcion || "").trim()) throw new Error("Elegí un material.");
   if (!Number.isFinite(qty) || qty <= 0) throw new Error("Cargá una cantidad válida.");
@@ -728,6 +757,7 @@ export async function ingresarStockGeneral({ material = null, cantidad, sede = n
     p_sede: sede || null,
     p_nota: String(nota || "").trim() || null,
     p_es_adicional: !!esAdicional,
+    p_obra_id: obraId || null,
   });
   if (error) throw error;
   return data;
