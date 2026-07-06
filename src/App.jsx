@@ -19,6 +19,7 @@ import ClientePanelScreen    from "@/features/cliente/ClientePanelScreen";
 import HomeScreen            from "@/features/home/HomeScreen";
 import CalendarioScreen      from "@/features/calendario/CalendarioScreen";
 import PedidosMaderaScreen   from "@/features/inventario/PedidosMaderaScreen";
+import MaderasScreen         from "@/features/inventario/MaderasScreen";
 import PurchaseRequestsScreen from "@/features/compras/PurchaseRequestsScreen";
 import ScanEgresoScreen      from "@/features/inventario/ScanEgresoScreen";
 import EtiquetasScreen       from "@/features/inventario/EtiquetasScreen";
@@ -28,6 +29,7 @@ import RecepcionPanolScreen  from "@/features/panol/RecepcionPanolScreen";
 import StockPanolScreen      from "@/features/panol/StockPanolScreen";
 import PortalProveedorScreen from "@/features/proveedores/PortalProveedorScreen";
 import MemoriasScreen        from "@/features/memorias/MemoriasScreen";
+import SemaforoScreen        from "@/features/semaforo/SemaforoScreen";
 
 import { ToastProvider } from "@/components/ui/Toast";
 import { ConfirmProvider } from "@/components/ui/ConfirmDialog";
@@ -406,7 +408,7 @@ export default function App() {
         } />
 
         {/* Personal */}
-        <Route path="/panol"      element={<RequireAuth session={session}><RequireRole profile={profile} allow={["admin","oficina","tecnica","panol"]}><PanolScreen      {...A} /></RequireRole></RequireAuth>} />
+        <Route path="/panol"      element={<Navigate to="/madera?tab=Stock" replace />} />
         <Route path="/laminacion" element={<RequireAuth session={session}><RequireRole profile={profile} allow={["admin","oficina","tecnica","panol","laminacion"]}><LaminacionScreen {...A} /></RequireRole></RequireAuth>} />
         <Route path="/muebles"    element={<RequireAuth session={session}><RequireRole profile={profile} allow={["admin","oficina","tecnica","muebles"]}><MueblesScreen    {...A} /></RequireRole></RequireAuth>} />
         <Route path="/pedidos"    element={<RequireAuth session={session}><RequireRole profile={profile} allow={["admin","oficina","tecnica"]}><PedidosScreen    {...A} /></RequireRole></RequireAuth>} />
@@ -419,15 +421,16 @@ export default function App() {
         {/* Admin / Oficina */}
         <Route path="/admin"      element={<RequireAuth session={session}><RequireRole profile={profile} allow={["admin","oficina","tecnica"]}><AdminDashboard       {...A} /></RequireRole></RequireAuth>} />
         <Route path="/obras"      element={<RequireAuth session={session}><RequireRole profile={profile} allow={["admin","oficina","tecnica"]}><ObrasScreen           {...A} /></RequireRole></RequireAuth>} />
+        <Route path="/semaforo"    element={<RequireAuth session={session}><RequireRole profile={profile} allow={["admin","compras"]}><SemaforoScreen         {...A} /></RequireRole></RequireAuth>} />
         <Route path="/memorias"   element={<RequireAuth session={session}><RequireRole profile={profile} allow={["admin","oficina","tecnica"]}><MemoriasScreen        {...A} /></RequireRole></RequireAuth>} />
         <Route path="/marmoleria" element={<RequireAuth session={session}><RequireRole profile={profile} allow={["admin","oficina","tecnica"]}><MarmoleriaScreen      {...A} /></RequireRole></RequireAuth>} />
         <Route path="/calendario" element={<RequireAuth session={session}><RequireRole profile={profile} allow={["admin","oficina","tecnica"]}><CalendarioScreen      {...A} /></RequireRole></RequireAuth>} />
         <Route path="/postventa"  element={<RequireAuth session={session}><RequireRole profile={profile} allow={["admin","oficina","tecnica"]}><PostVentaScreen       {...A} /></RequireRole></RequireAuth>} />
-        <Route path="/movimientos"element={<RequireAuth session={session}><RequireRole profile={profile} allow={["admin","oficina","tecnica"]}><MovimientosScreen     {...A} /></RequireRole></RequireAuth>} />
+        <Route path="/movimientos"element={<Navigate to="/madera?tab=Movimientos" replace />} />
         <Route path="/obras-laminacion" element={<RequireAuth session={session}><RequireRole profile={profile} allow={["admin","oficina","tecnica"]}><ObrasLaminacionScreen {...A} /></RequireRole></RequireAuth>} />
         <Route path="/laminacion/plantillas" element={<RequireAuth session={session}><RequireRole profile={profile} allow={["admin","tecnica"]}><PlantillasLineaScreen {...A} /></RequireRole></RequireAuth>} />
         <Route path="/configuracion"    element={<RequireAuth session={session}><RequireRole profile={profile} allow={["admin"]}><ConfiguracionScreen {...A} /></RequireRole></RequireAuth>} />
-        <Route path="/madera" element={<RequireAuth session={session}><RequireRole profile={profile} allow={["admin","oficina","tecnica"]}><PedidosMaderaScreen profile={profile} signOut={signOut} /></RequireRole></RequireAuth>} />
+        <Route path="/madera" element={<RequireAuth session={session}><RequireRole profile={profile} allow={["admin","oficina","tecnica","panol"]}><MaderasScreen {...A} /></RequireRole></RequireAuth>} />
 
         {/* Escáner de pañol (PDA) + impresión de etiquetas QR */}
         <Route path="/scan"      element={<RequireAuth session={session}><RequireRole profile={profile} allow={["admin","oficina","tecnica","panol"]}><ScanEgresoScreen {...A} /></RequireRole></RequireAuth>} />

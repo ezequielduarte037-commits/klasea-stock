@@ -36,17 +36,18 @@ async function fetchPaged(table, select, orderColumn = "id") {
 }
 
 async function fetchMaterialesCatalogo() {
-  const baseSelect = "id, categoria_id, proveedor_id, codigo, descripcion, proveedor, unidad_medida, precio_unitario, moneda, imagen_url, revisado, origen, notas, activo, batch_id, created_at, codigo_barra, ubicacion, ubicacion_obs";
+  const baseSelect = "id, categoria_id, proveedor_id, codigo, descripcion, alias, proveedor, unidad_medida, precio_unitario, moneda, imagen_url, links, revisado, origen, notas, activo, batch_id, created_at, codigo_barra, ubicacion, ubicacion_obs";
+  const baseSelectNoLinks = "id, categoria_id, proveedor_id, codigo, descripcion, alias, proveedor, unidad_medida, precio_unitario, moneda, imagen_url, revisado, origen, notas, activo, batch_id, created_at, codigo_barra, ubicacion, ubicacion_obs";
   try {
     return await fetchPaged("panol_materiales", `${baseSelect}, variantes`, "descripcion");
   } catch (error) {
     if (!isMissingColumn(error)) throw error;
     try {
-      return (await fetchPaged("panol_materiales", baseSelect, "descripcion")).map((row) => ({ ...row, variantes: [] }));
+      return (await fetchPaged("panol_materiales", `${baseSelectNoLinks}, variantes`, "descripcion")).map((row) => ({ ...row, links: row.links ?? [], variantes: row.variantes ?? [] }));
     } catch (error2) {
       if (!isMissingColumn(error2)) throw error2;
       const fallbackSelect = "id, categoria_id, proveedor_id, codigo, descripcion, proveedor, unidad_medida, precio_unitario, moneda, imagen_url, revisado, origen, notas, activo, batch_id, created_at, codigo_barra";
-      return (await fetchPaged("panol_materiales", fallbackSelect, "descripcion")).map((row) => ({ ...row, variantes: [], ubicacion: null, ubicacion_obs: null }));
+      return (await fetchPaged("panol_materiales", fallbackSelect, "descripcion")).map((row) => ({ ...row, alias: null, links: [], variantes: [], ubicacion: null, ubicacion_obs: null }));
     }
   }
 }
@@ -89,6 +90,24 @@ function normalizeVariantes(value) {
     .filter(Boolean)
     .filter((item) => {
       const key = norm(item);
+      if (seen.has(key)) return false;
+      seen.add(key);
+      return true;
+    });
+}
+
+export function normalizeMaterialLinks(value) {
+  const raw = Array.isArray(value) ? value : [];
+  const seen = new Set();
+  return raw
+    .map((item) => ({
+      label: String(item?.label || item?.titulo || "").trim(),
+      url: String(item?.url || item?.link || "").trim(),
+      nota: String(item?.nota || item?.notes || "").trim(),
+    }))
+    .filter((item) => item.url)
+    .filter((item) => {
+      const key = item.url.toLowerCase();
       if (seen.has(key)) return false;
       seen.add(key);
       return true;
@@ -333,6 +352,7 @@ export async function fetchCatalogo() {
         ultimo_precio: historial[0] ?? null,
         imagenes: imgs,
         imagen_url: m.imagen_url || imgs[0]?.url || null,
+        links: normalizeMaterialLinks(m.links),
         variantes: normalizeVariantes(m.variantes),
         codigos_barra: codigosByMaterial.get(m.id) ?? [],
         areas,
@@ -879,8 +899,10 @@ export async function guardarMaterial(material, cantidades, { revisado } = {}) {
     precio_unitario: toNullableNumber(material.precio_unitario),
     moneda: material.moneda || null,
     imagen_url: material.imagen_url || null,
+    links: normalizeMaterialLinks(material.links),
     notas: material.notas || null,
     variantes: normalizeVariantes(material.variantes),
+    alias: material.alias || null,
     activo: material.activo ?? true,
     codigo_barra: material.codigo_barra || null,
   };
@@ -890,6 +912,8 @@ export async function guardarMaterial(material, cantidades, { revisado } = {}) {
   if (error && isMissingColumn(error)) {
     const fallbackPatch = { ...patch };
     delete fallbackPatch.variantes;
+    delete fallbackPatch.links;
+    delete fallbackPatch.alias;
     const retry = await supabase.from("panol_materiales").update(fallbackPatch).eq("id", material.id);
     error = retry.error;
   }
@@ -910,6 +934,7 @@ export async function crearMaterial(material, cantidades = {}) {
       precio_unitario: toNullableNumber(material.precio_unitario),
       moneda: material.moneda || null,
       imagen_url: material.imagen_url || null,
+      links: normalizeMaterialLinks(material.links),
       variantes: normalizeVariantes(material.variantes),
       alias: material.alias || null,
       notas: material.notas || null,
@@ -1050,6 +1075,60 @@ export async function archivarMateriales(materialIds = []) {
     .in("id", ids);
   if (error) throw error;
   return ids.length;
+}
+
+function sortedMaterialPair(a, b) {
+  const pair = [a, b].filter(Boolean).map(String).sort();
+  return pair.length === 2 && pair[0] !== pair[1] ? pair : null;
+}
+
+function materialPairs(materialIds = []) {
+  const ids = [...new Set((materialIds || []).filter(Boolean).map(String))].sort();
+  const rows = [];
+  for (let i = 0; i < ids.length; i += 1) {
+    for (let j = i + 1; j < ids.length; j += 1) {
+      rows.push({ material_a_id: ids[i], material_b_id: ids[j] });
+    }
+  }
+  return rows;
+}
+
+export async function fetchMaterialDuplicateDecisions() {
+  try {
+    const rows = await fetchPaged(
+      "panol_material_duplicate_decisions",
+      "material_a_id, material_b_id, decision",
+      "created_at",
+    );
+    return rows
+      .filter((row) => row.decision === "not_duplicate")
+      .map((row) => {
+        const pair = sortedMaterialPair(row.material_a_id, row.material_b_id);
+        return pair ? `${pair[0]}:${pair[1]}` : "";
+      })
+      .filter(Boolean);
+  } catch (error) {
+    if (isMissingTable(error) || isMissingColumn(error)) return [];
+    throw error;
+  }
+}
+
+export async function marcarMaterialesNoDuplicados(materialIds = [], { groupKey = "", reason = "" } = {}) {
+  const rows = materialPairs(materialIds).map((row) => ({
+    ...row,
+    decision: "not_duplicate",
+    group_key: groupKey || null,
+    reason: reason || null,
+  }));
+  if (!rows.length) return 0;
+  const { error } = await supabase
+    .from("panol_material_duplicate_decisions")
+    .upsert(rows, { onConflict: "material_a_id,material_b_id" });
+  if (error) {
+    if (isMissingTable(error) || isMissingColumn(error)) return 0;
+    throw error;
+  }
+  return rows.length;
 }
 
 export async function guardarProveedor(proveedor) {

@@ -37,6 +37,12 @@ function Icon({ id, color = "currentColor", size = 14 }) {
       <path d="M1 15s3-4 7-4 7 4 7 4" {...p}/>
       <circle cx="8" cy="7" r="3" {...p}/>
     </>,
+    "/semaforo": <>
+      <rect x="4" y="1" width="8" height="14" rx="2" {...p}/>
+      <circle cx="8" cy="4.5" r="1.5" fill={color} stroke="none"/>
+      <circle cx="8" cy="8" r="1.5" fill={color} stroke="none"/>
+      <circle cx="8" cy="11.5" r="1.5" fill={color} stroke="none"/>
+    </>,
     "/memorias": <>
       <rect x="2" y="2" width="12" height="12" rx="2" {...p}/>
       <path d="M5 5h6M5 8h6M5 11h4" {...p}/>
@@ -134,6 +140,7 @@ const SC = {
   compras:            "#f59e0b",   // amber
   panol_catalogo:     "#38bdf8",   // sky
   rrhh:               "#2dd4bf",   // teal
+  semaforo:           "#f59e0b",   // amber
 };
 
 // ─── ANIMATIONS CSS ───────────────────────────────────────────────────────────
@@ -298,7 +305,7 @@ export default function Sidebar({ profile, signOut }) {
   };
 
   // ── SUB ITEM ACTUALIZADO ──────────────────────────────────────────────────────
-  const subItem = (href, label, qs = "", c, delay = 0, info = "") => {
+  const _subItem = (href, label, qs = "", c, delay = 0, info = "") => {
     const key = `${href}${qs}`;
     const on  = path === href && (qs ? search === qs : !search);
     const isH = hov === key;
@@ -419,10 +426,10 @@ export default function Sidebar({ profile, signOut }) {
         {/* NAV ───────────────────────────────────────────────────────────── */}
         <nav style={{ flex: 1, overflowY: "auto", paddingBottom: 8, paddingTop: 4 }}>
           {(esPanol || esGestion) && <>
-            {group("Movimientos", SC.movimientos, 60)}
-            {item("/scan",       "Escáner egreso", SC.movimientos, true, 70, "Egreso de madera por escáner — pantalla para el colector de pañol.")}
-            {item("/panol",      "Maderas",    SC.movimientos, true, 80, "Control de stock y retiros de materiales de madera para producción.")}
-            {item("/laminacion", "Laminación", SC.movimientos, true, 100, "Movimientos e insumos de resinas, fibras y consumibles generales.")}
+            {group("Inventario", SC.movimientos, 60)}
+            {item("/madera", "Maderas", SC.movimientos, true, 70, "Stock, ingresos, egresos, movimientos y pedidos de maderas.")}
+            {item("/laminacion", "Laminación", SC.movimientos, true, 80, "Stock, ingresos, egresos, movimientos y pedidos de laminación.")}
+            {item("/scan", "Escáner", SC.movimientos, true, 90, "Egreso de madera por escáner.")}
           </>}
 
           {esGestion && <>
@@ -439,6 +446,7 @@ export default function Sidebar({ profile, signOut }) {
             {divider("compras")}
             {group(comprasGroup, SC.compras, 205)}
             {item("/compras", comprasLabel, SC.compras, true, 215, "Solicitudes internas a compras con seguimiento y usuarios en copia.", esCompras || esAdmin ? comprasBadge : null)}
+            {(esCompras || esAdmin) && item("/semaforo", "Semáforo", SC.semaforo, true, 220, "Semáforo de producción: estado visual de avance por obra.")}
           </>}
 
           {(esPanol || esGestion) && <>
@@ -455,22 +463,10 @@ export default function Sidebar({ profile, signOut }) {
           </>}
 
           {esGestion && <>
-            {divider("lam")}
-            {group("Gestión Laminación", SC.gestion_laminacion, 200)}
-            {item("/obras-laminacion", "Por obra",   SC.gestion_laminacion, false, 220, "Detalle de materiales de laminación imputados por casco.")}
+            {divider("lam-prod")}
+            {group("Producción · Laminación", SC.gestion_laminacion, 200)}
+            {item("/obras-laminacion", "Por obra", SC.gestion_laminacion, false, 220, "Detalle de materiales de laminación imputados por casco.")}
             {puedeEditarPlantillas && item("/laminacion/plantillas", "Plantillas", SC.gestion_laminacion, true, 225, "Recetas base por línea de producción de laminación.")}
-            {subItem("/laminacion", "Ingresos",    "?tab=Ingresos",    SC.gestion_laminacion, 235, "Registro de remitos y entradas de insumos de laminación.")}
-            {subItem("/laminacion", "Egresos",     "?tab=Egresos",     SC.gestion_laminacion, 250, "Salida de materiales hacia los moldes y producción.")}
-            {subItem("/laminacion", "Movimientos", "?tab=Movimientos", SC.gestion_laminacion, 265, "Historial completo de entradas y salidas de la nave.")}
-            {subItem("/laminacion", "Pedidos",     "?tab=Pedidos",     SC.gestion_laminacion, 280, "Solicitudes internas y requerimientos a compras.")}
-          </>}
-
-          {esGestion && <>
-            {divider("mad")}
-            {group("Gestión Maderas", SC.gestion_maderas, 300)}
-            {item("/admin",       "Inventario",  SC.gestion_maderas, true, 320, "Stock general de tableros, placas y listones de madera.")}
-            {item("/movimientos", "Movimientos", SC.gestion_maderas, true, 335, "Historial de entradas y salidas del sector carpintería.")}
-            {item("/madera",      "Pedidos Madera", SC.gestion_maderas, true, 350, "Requerimientos de cortes y placas para muebles.")}
           </>}
 
           {esGestion && <>

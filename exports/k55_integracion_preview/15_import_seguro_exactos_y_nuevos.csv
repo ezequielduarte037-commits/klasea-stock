@@ -1,0 +1,199 @@
+﻿excel_row;clasificacion;accion_sugerida;match_type;material_id_candidato;descripcion_candidato;score_candidato;item_original;cantidad_k55_excel;unidad;k37_actual;k52_actual;k55_actual;proveedor;rubro;observacion;flag_original;motivo_revision;loose_score;loose_candidate_id;loose_candidate_desc
+2;STD;REUSAR_ID_Y_SET_K55;EXACTO;ac5fdea1-9bdd-4b1e-98ea-54725dcd3b3e;"Abrazadera inox 1""";1.000;"Abrazadera inox 1""";32;Unidades;10.0;0;0;;Sanitarios;;STD;;;;
+3;STD;REUSAR_ID_Y_SET_K55;EXACTO;b00cefec-d911-4619-b48e-421bfb31d246;"Abrazadera inox 1½""";1.000;"Abrazadera inox 1½""";38;Unidades;10.0;0;0;;Sanitarios;;STD;;;;
+4;STD;REUSAR_ID_Y_SET_K55;EXACTO;153b39e4-c586-41ce-a180-7deeec1416d8;"Abrazadera inox 3/4""";1.000;"Abrazadera inox 3/4""";44;Unidades;8;0;0;;Sanitarios;;STD;;;;
+5;STD;CREAR_MATERIAL_Y_SET_K55;NUEVO;;;;Adaptador tunel sternthruster 250mm;1;Unidades;;;;Flojumar;Mecanica;;STD;;0.143;38d5461f-ce2e-4cd5-bcf0-eb1a23c60df5;"Adaptador rosca H 1/2"" WX1532"
+6;STD;REUSAR_ID_Y_SET_K55;EXACTO;cc87231c-d12b-4c0f-8bdd-e3357aca99dd;Aire acondicionado 16000 BTU;1.000;Aire acondicionado 16000 BTU;3;Unidades;1;0;0;Flojumar;Electricidad;Frio calor platinum, con control, cable y control inalambrico;STD;;;;
+8;STD;REUSAR_ID_Y_SET_K55;EXACTO;babc7783-bbe9-46da-bebb-9952c81747fa;Anafe vitrocerámica 2 hornallas;1.000;Anafe vitrocerámica 2 hornallas;1;Unidades;1.0;0;0;;Electricidad;SAMSUNG CTR432;STD;;;;
+9;STD;CREAR_MATERIAL_Y_SET_K55;NUEVO;;;;Ancla Bruce 30kg galvanizada;1;Unidades;;;;Baron;Carpinteria;;STD;;0.333;66668366-425c-4ed9-b3d2-31a7fa122a3c;Ancla Delta 16kg galvanizada
+10;STD;REUSAR_ID_Y_SET_K55;EXACTO;e476e8a2-6556-491e-aef2-c306266d642c;Ánodo de flaps;1.000;Ánodo de flaps;2;Unidades;2.0;0;0;Flojumar;Mecanica;PERFORMANCE METAL USA;STD;;;;
+14;STD;CREAR_MATERIAL_Y_SET_K55;NUEVO;;;;Antena Starlink mini (Kit);1;Unidades;;;;MercadoLibre;Electricidad;https://www.mercadolibre.com.ar/kit-de-internet-via-satelite-starlink-mini-blanco/p/MLA40656539?pdp_filters=shipping:fulfillment#intervention_type=full&position=1&search_layout=grid&type=cart_intervention&tracking_id=1b74b38a-9d24-4561-abcc-a33a89df7c66;STD;;0.200;582cd69a-2c47-4d6b-9773-5b049bf2be41;Antena TV
+15;STD;REUSAR_ID_Y_SET_K55;EXACTO;df54fb2c-f42c-49e8-95bf-42ed3cda26a2;Antena VHF + base;1.000;Antena VHF + base;2;Unidades;1.0;0;0;Flojumar;Electricidad;SHAKESPEARE 2.4M CON BASE ACERO INOXIDABLE;STD;;;;
+16;STD;REUSAR_ID_Y_SET_K55;EXACTO;d6ea9390-4239-4aa2-9583-7e61287d5c6b;Antirruido metalizado sala maquinas;1.000;Antirruido metalizado sala maquinas;30;Metros^2;20.0;0;0;;Mecanica;;STD;;;;
+17;STD;CREAR_MATERIAL_Y_SET_K55;NUEVO;;;;Automatico Johnson pump 20A;4;Unidades;;;;Flojumar;Electricidad;BOMBAS DE ACHIQUE;STD;;0.143;9f04de6f-b777-41f0-8876-40e62510d848;Switch automático Rule 35A
+21;STD;CREAR_MATERIAL_Y_SET_K55;NUEVO;;;;Bacha Johnson Z52, profundidad 15cm;1;Unidades;;;;;Carpinteria;PROFUNDIDAD 15cm, con sopapa, para cocina;STD;;0.000;;
+22;STD;CREAR_MATERIAL_Y_SET_K55;NUEVO;;;;Bacha Piazza A426 Blanco;2;Unidades;;;;;Carpinteria;Baños proa y popa;STD;;0.200;fafa3d1a-adf9-4d42-bd83-85a5eaf3dffa;Botazo plástico blanco
+23;STD;CREAR_MATERIAL_Y_SET_K55;NUEVO;;;;Baranda hueco flybridge K55;1;Unidades;;;;Maxi Herrero;;;STD;;0.000;;
+24;STD;CREAR_MATERIAL_Y_SET_K55;NUEVO;;;;Baranda perimetral +18 tinteros K55;1;Unidades;;;;Maxi Herrero;;;STD;;0.100;0da15e33-7a69-48aa-838b-1bf72a7630d2;Bisagra codo 18 + base con clip
+28;STD;CREAR_MATERIAL_Y_SET_K55;NUEVO;;;;Barral de ropero;2;Metros;;;;;Carpinteria;Vestidor y camarote proa;STD;;0.200;e476e8a2-6556-491e-aef2-c306266d642c;Ánodo de flaps
+29;STD;CREAR_MATERIAL_Y_SET_K55;NUEVO;;;;Base mesa chica flybridge K55;1;Unidades;;;;Maxi Herrero;;;STD;;0.143;df54fb2c-f42c-49e8-95bf-42ed3cda26a2;Antena VHF + base
+30;STD;CREAR_MATERIAL_Y_SET_K55;NUEVO;;;;Base mesa grande flybridge K55;1;Unidades;;;;Maxi Herrero;;;STD;;0.143;df54fb2c-f42c-49e8-95bf-42ed3cda26a2;Antena VHF + base
+31;STD;REUSAR_ID_Y_SET_K55;EXACTO;f68590a3-750a-426d-ab91-b6d43f6b1cd6;Baterías 12v 180Ah;1.000;Baterías 12v 180Ah;13;Unidades;4;0;0;;;5 Servicio, 2 bow, 2 stern, 2 cada motor;STD;;;;
+34;STD;REUSAR_ID_Y_SET_K55;EXACTO;f60a174a-e250-4f29-b084-d7b19e4e2f12;Bisagra codo 9 + base con clip;1.000;Bisagra codo 9 + base con clip;34;Unidades;30.0;0;0;;Carpinteria;Puertas roperos;STD;;;;
+35;STD;REUSAR_ID_Y_SET_K55;EXACTO;ed03965a-9ca9-42fa-8a21-e4a13c974566;Bisagra oculta para puertas;1.000;Bisagra oculta para puertas;21;Unidades;14.0;0;0;;;7 puertas;STD;;;;
+37;STD;CREAR_MATERIAL_Y_SET_K55;NUEVO;;;;Bisagra tipo piano;1.5;Metros;;;;;Carpinteria;Muebles babor salon, estribor camarote popa;STD;;0.167;bc5d7304-e8b4-46af-b558-4ff39d0cea03;Bisagra chica perno arriba
+39;STD;CREAR_MATERIAL_Y_SET_K55;NUEVO;;;;Bitas K55;8;Unidades;;;;Maxi Herrero;Carpinteria;2 en planchada y 2 en pasamanos 4 cruzadas y lineales;STD;;0.000;;
+40;STD;CREAR_MATERIAL_Y_SET_K55;NUEVO;;;;Bocina Marinco doble INOX electrica 12v;1;Unidades;;;;Flojumar;Electricidad;;STD;;0.143;b00cefec-d911-4619-b48e-421bfb31d246;"Abrazadera inox 1½"""
+41;STD;REUSAR_ID_Y_SET_K55;EXACTO;adc7bd8f-fe7e-4cf3-bf35-5212e176c354;Bomba achique 2000gph 12V;1.000;Bomba achique 2000gph 12V;3;Unidades;3;0;0;Flojumar;Electricidad;STD RULE, variante: Johnson pump 2200gph 12V;STD;;;;
+43;STD;CREAR_MATERIAL_Y_SET_K55;NUEVO;;;;Bomba aire acondicionado 220v 500gph;4;Unidades;;;;Flojumar;Electricidad;Koolair pump PM 500-230;STD;;0.286;cc87231c-d12b-4c0f-8bdd-e3357aca99dd;Aire acondicionado 16000 BTU
+44;STD;CREAR_MATERIAL_Y_SET_K55;NUEVO;;;;Bomba dual 10.4gpm 12v johnson pump;1;Unidades;;;;Flojumar;Electricidad;Presurizadora de agua potable;STD;;0.222;adc7bd8f-fe7e-4cf3-bf35-5212e176c354;Bomba achique 2000gph 12V
+46;STD;REUSAR_ID_Y_SET_K55;EXACTO;fafa3d1a-adf9-4d42-bd83-85a5eaf3dffa;Botazo plástico blanco;1.000;Botazo plástico blanco;44;Metros;27.0;0;0;;;Mismo modelo que el K52;STD;;;;
+49;STD;CREAR_MATERIAL_Y_SET_K55;NUEVO;;;;"Brida cuadrada inox 316, medidas 300 mm interior x 400 mm exterior, espesor = 1/4""";2;Unidades;;;;;Mecanica;TANQUES;STD;;0.214;53668ce1-598d-4cdf-a782-8ce25bc061fc;"Barra 2 1/4"" inox 316 L=2600mm"
+50;STD;CREAR_MATERIAL_Y_SET_K55;NUEVO;;;;Brida de 100 mm interior x 160 mm exterior x 3/8. Inox 316;2;Unidades;;;;;Mecanica;;STD;;0.231;f5baef75-d71b-4fae-a5f3-b4136d8daeeb;Chapa de 2mm Inox. 316 ( x 1,5m)
+51;STD;CREAR_MATERIAL_Y_SET_K55;NUEVO;;;;"Brida de 85 mm interior x 160 mm exterior x 3/8"". Inox 316";2;Unidades;;;;;Mecanica;;STD;;0.267;1be5810e-0c5c-4f85-902b-b45d51ff8ebb;"Brida 120mm ext x 50mm int, chapa 3/8"" inox 316"
+52;STD;CREAR_MATERIAL_Y_SET_K55;NUEVO;;;;Bridas inox + bocina mecanizada y perforada;2;Unidades;;;;Flojumar;Mecanica;;STD;;0.167;b00cefec-d911-4619-b48e-421bfb31d246;"Abrazadera inox 1½"""
+56;STD;REUSAR_ID_Y_SET_K55;EXACTO;2e7c9408-e316-47fe-b7c4-6df1b622ded5;"Buje reduc. 1"" x 3/4"" plástico";1.000;"Buje reduc. 1"" x 3/4"" plástico";2;Unidades;1;0;0;Casa Iriarte;Sanitarios;PX BUJRED1X3/4;STD;;;;
+60;STD;CREAR_MATERIAL_Y_SET_K55;NUEVO;;;;Cable tipo Marinco 3x10mm;12;Metros;;;;Flojumar;Electricidad;;STD;;0.333;646c447a-7c65-4ea4-9adf-1129cb7db021;Cable tipo taller 3x6
+62;STD;CREAR_MATERIAL_Y_SET_K55;NUEVO;;;;Cableado A salon K55;1;Unidades;;;;;Electricidad;Merniez;STD;;0.143;8c467e9e-1eda-4351-9d85-67b3a0e01bfc;Acrílico mesa de salón 5mm
+63;STD;CREAR_MATERIAL_Y_SET_K55;NUEVO;;;;Cableado B camarote principal K55;1;Unidades;;;;;Electricidad;Merniez;STD;;0.000;;
+64;STD;CREAR_MATERIAL_Y_SET_K55;NUEVO;;;;Cableado C cocina K55;1;Unidades;;;;;Electricidad;Merniez;STD;;0.143;1dd21b67-9e5d-4297-99b8-2cd41c931852;Monocomando cocina FV Arizona alto
+65;STD;CREAR_MATERIAL_Y_SET_K55;NUEVO;;;;Cableado D camarote de proa K55;1;Unidades;;;;;Electricidad;Merniez;STD;;0.143;e476e8a2-6556-491e-aef2-c306266d642c;Ánodo de flaps
+66;STD;CREAR_MATERIAL_Y_SET_K55;NUEVO;;;;Cabos 18mm x 12m negro;4;Unidades;;;;;;Amarre;STD;;0.333;64e5a7dc-470c-4a38-b31d-c75aa15d0612;Cabos 14mm x 10m negro
+69;STD;CREAR_MATERIAL_Y_SET_K55;NUEVO;;;;Caja paso Roker Pr1005;1;Unidades;;;;;Electricidad;162x212x81mm;STD;;0.167;57943495-9c5a-48db-a1fe-45a5feb4e1a1;Caja para batería
+70;STD;CREAR_MATERIAL_Y_SET_K55;NUEVO;;;;Caja paso Roker Pr1010/106;4;Unidades;;;;;Electricidad;300x230x106mm;STD;;0.167;57943495-9c5a-48db-a1fe-45a5feb4e1a1;Caja para batería
+71;STD;CREAR_MATERIAL_Y_SET_K55;NUEVO;;;;Cajas exteriores cambre;3;Unidades;;;;;Electricidad;;STD;;0.000;;
+72;STD;REUSAR_ID_Y_SET_K55;EXACTO;c757c46b-dd25-48fd-ab6f-7b885ebdb30b;Calefactor Autoterm Air 4D 12V 4000W;1.000;Calefactor Autoterm Air 4D 12V 4000W;2;Unidades;1.0;0;0;Baron;Sanitarios;(con Comando y kit instalación) Código: C89412;STD;;;;
+73;STD;CREAR_MATERIAL_Y_SET_K55;NUEVO;;;;"Cañeria termofusion 1""";56;Metros;;;;;Sanitarios;TERMOFUSION;STD;;0.250;cc468b9f-0850-4a78-b045-081ed215460c;"Racor 1"""
+74;STD;CREAR_MATERIAL_Y_SET_K55;NUEVO;;;;Canilla de bacha flybridge;1;Unidades;;;;Baron;;Código: C34856;STD;;0.167;e476e8a2-6556-491e-aef2-c306266d642c;Ánodo de flaps
+75;STD;CREAR_MATERIAL_Y_SET_K55;NUEVO;;;;Canilla de cocina;1;Unidades;;;;MercadoLibre;Sanitarios;https://fvsa.com/productos/0412-96p-augusta-profesional-juego-monocomando-para-mesada-de-cocina/;STD;;0.200;e476e8a2-6556-491e-aef2-c306266d642c;Ánodo de flaps
+77;STD;REUSAR_ID_Y_SET_K55;EXACTO;aaa11322-365a-47fa-ae87-57fce52c841f;"Caño corrugado flex 1""";1.000;"Caño corrugado flex 1""";10;Metros;50.0;0;0;;Electricidad;;STD;;;;
+78;STD;CREAR_MATERIAL_Y_SET_K55;NUEVO;;;;Caño D. exterior = 90 mm, e = 4 mm, L = 1100 mm. Inox 316;1;Unidades;;;;;Mecanica;;STD;;0.333;3c73ea17-fec8-46c4-8151-4c58d6d0c8a7;Caño 127 x 2mm inox 316
+81;STD;CREAR_MATERIAL_Y_SET_K55;NUEVO;;;;"CAÑO POLIAMIDA REFORZADO DE 1/4""";2;Unidades;;;;Casa Iriarte;Sanitarios;M PA6SP1/4;STD;;0.286;e6ecd8f3-e5e8-4ed0-8bdc-edaae7b1819d;"Arandela de Inox. 1/4"""
+85;STD;CREAR_MATERIAL_Y_SET_K55;NUEVO;;;;Catalina de fondeo K55;1;Unidades;;;;Maxi Herrero;;;STD;;0.167;e476e8a2-6556-491e-aef2-c306266d642c;Ánodo de flaps
+86;STD;CREAR_MATERIAL_Y_SET_K55;NUEVO;;;;CAVA 8 BOTELLAS PHILCO - PHCAV08N2;1;Unidades;;;;;Electricidad;https://www.philco.com.ar/products/cavas/94PHCAV08N2?srsltid=AfmBOoplwU3k_1q1kg7FczB9AeICWNUXnRLehyzwn8GPbZH1MsdEn-hw;STD;;0.000;;
+90;STD;CREAR_MATERIAL_Y_SET_K55;NUEVO;;;;Cerramiento completo (Lona);1;Unidades;;;;;;;STD;;0.200;f03602e2-8008-4351-bd6a-159fc27db479;Parabrisas completo (3 partes)
+92;STD;CREAR_MATERIAL_Y_SET_K55;NUEVO;;;;Chapa de proa K55;1;Unidades;;;;Maxi Herrero;;;STD;;0.286;99198f93-2d81-4b57-be50-27c609a19b0c;Chapa de roble tinte rayado
+93;STD;CREAR_MATERIAL_Y_SET_K55;NUEVO;;;;Chapas de inox 316 de 2 x 1,25 m, espesor = 2 mm;2;Unidades;;;;;Mecanica;TANQUES;STD;;0.300;f5baef75-d71b-4fae-a5f3-b4136d8daeeb;Chapa de 2mm Inox. 316 ( x 1,5m)
+94;STD;CREAR_MATERIAL_Y_SET_K55;NUEVO;;;;Chapas de inox 316 de 2 x 1,25 m, espesor = 3 mm;2;Unidades;;;;;Mecanica;TANQUES;STD;;0.300;f5baef75-d71b-4fae-a5f3-b4136d8daeeb;Chapa de 2mm Inox. 316 ( x 1,5m)
+95;STD;CREAR_MATERIAL_Y_SET_K55;NUEVO;;;;Chapas de inox 316 de 3 x 1,5 m, espesor = 3 mm;5;Unidades;;;;;Mecanica;TANQUES;STD;;0.333;f5baef75-d71b-4fae-a5f3-b4136d8daeeb;Chapa de 2mm Inox. 316 ( x 1,5m)
+96;STD;CREAR_MATERIAL_Y_SET_K55;NUEVO;;;;"Chapas inox 316 de 400 x 400 mm, espesor = 1/4""";2;Unidades;;;;;Mecanica;TANQUES;STD;;0.333;e6ecd8f3-e5e8-4ed0-8bdc-edaae7b1819d;"Arandela de Inox. 1/4"""
+97;STD;REUSAR_ID_Y_SET_K55;EXACTO;3aa6b2f5-1126-47b8-8070-36f94a65735e;"Codo 90° HH bronce 1""";1.000;"Codo 90° HH bronce 1""";8;Unidades;2.0;0;0;;Sanitarios;;STD;;;;
+103;STD;CREAR_MATERIAL_Y_SET_K55;NUEVO;;;;Compas magnético reglamentario (negro);2;Unidades;;;;;;https://www.baron.com.ar/articulo/ritchie-s-53-negro/c13666;STD;;0.200;36cd4250-24a4-49dd-bfb6-7d05db5bc366;Gelcoat Negro
+104;STD;REUSAR_ID_Y_SET_K55;EXACTO;fd140844-dc8e-42cd-9ac2-bba91eb60d3b;"Conector ""T"" c/espiga WHALE WX1521";1.000;"Conector ""T"" c/espiga WHALE WX1521";11;Unidades;1;0;0;;Sanitarios;ITEM WHALE;STD;;;;
+105;STD;REUSAR_ID_Y_SET_K55;EXACTO;8fc8817c-6b06-4776-82b7-1f3a432b1849;"Conector ""T"" WHALE WX1502";1.000;"Conector ""T"" WHALE WX1502";21;Unidades;7;0;0;;Sanitarios;ITEM WHALE;STD;;;;
+106;STD;REUSAR_ID_Y_SET_K55;EXACTO;d49fc5d0-5fa8-4edd-8463-2797b6bc9457;Conector Codo c/espiga WHALE WX1522;1.000;Conector Codo c/espiga WHALE WX1522;10;Unidades;1;0;0;;Sanitarios;ITEM WHALE;STD;;;;
+107;STD;REUSAR_ID_Y_SET_K55;EXACTO;1feb1b1c-b7e3-4a4f-8bf1-6aba68e400c3;Conector Codo WHALE WX1503;1.000;Conector Codo WHALE WX1503;6;Unidades;3;0;0;Trimer;Sanitarios;ITEM WHALE;STD;;;;
+108;STD;CREAR_MATERIAL_Y_SET_K55;NUEVO;;;;"Conector rosca H termofusion 1""";6;Unidades;;;;;Sanitarios;TERMOFUSION;STD;;0.250;8b3bd84c-e81d-403b-be33-7e946072ca85;"Codo 90º rosca H 1 1/4"" espiga 1"""
+111;STD;CREAR_MATERIAL_Y_SET_K55;NUEVO;;;;Guía telescóp. cierre suave 20cm;2;Unidades;;;;;Carpinteria;;STD;;0.286;67304fb1-ba7d-4c51-ac04-e20c8cda9a10;Guía telescóp. push 25cm
+113;STD;CREAR_MATERIAL_Y_SET_K55;NUEVO;;;;Guía telescóp. cierre suave 40cm;6;Unidades;;;;;Carpinteria;;STD;;0.286;67304fb1-ba7d-4c51-ac04-e20c8cda9a10;Guía telescóp. push 25cm
+115;STD;CREAR_MATERIAL_Y_SET_K55;NUEVO;;;;Corredera ocultas Bronzen LARGO 500mm;1;Unidades;;;;;Carpinteria;https://www.mercadolibre.com.ar/sistema-corredera-pocket-door-mueble-oculto-500mm-par-color-negro/p/MLA48512423#polycard_client=search-desktop&be_origin=backend&search_layout=grid&position=3&type=product&tracking_id=fab1bd4e-5ba8-450b-89e1-d5f2ab5188d3&wid=MLA2055674764&sid=search;STD;;0.143;f5a9a8b7-1cc5-4801-a342-bfa1dc49b6b1;Grillete largo 6mm
+116;STD;REUSAR_ID_Y_SET_K55;EXACTO;c9c72bc3-0ddf-4cba-a046-922a1a4bfb9c;Cuchara bronce Nro 104;1.000;Cuchara bronce Nro 104;3;Unidades;2.0;0;0;Casa Iriarte;Sanitarios;REJ104;STD;;;;
+121;STD;REUSAR_ID_Y_SET_K55;EXACTO;3d0da734-c4f8-47eb-af4f-34fa63f4690a;"Cupla Inoxidable 1""";1.000;"Cupla Inoxidable 1""";5;Unidades;4.0;0;0;;Mecanica;TANQUES;STD;;;;
+122;STD;REUSAR_ID_Y_SET_K55;EXACTO;8d14e4c9-52d3-434f-b91a-ae8a5eeaff0f;"Cupla Inoxidable 1/2""";1.000;"Cupla Inoxidable 1/2""";3;Unidades;7;0;0;;Mecanica;TANQUES;STD;;;;
+123;STD;REUSAR_ID_Y_SET_K55;EXACTO;83c43781-5008-4e3b-b451-d9f3a5d004ae;"Cupla Inoxidable 1/4""";1.000;"Cupla Inoxidable 1/4""";5;Unidades;4;0;0;;Mecanica;TANQUES;STD;;;;
+124;STD;REUSAR_ID_Y_SET_K55;EXACTO;7fa2f38d-bf43-4108-8213-7a961dac9df5;"Cupla Inoxidable 2""";1.000;"Cupla Inoxidable 2""";1;Unidades;2.0;0;0;;Mecanica;TANQUES;STD;;;;
+125;STD;REUSAR_ID_Y_SET_K55;EXACTO;4d48101b-51dd-471c-b036-f5545a434b5e;"Cupla Inoxidable 3/4""";1.000;"Cupla Inoxidable 3/4""";3;Unidades;3;0;0;;Mecanica;TANQUES;STD;;;;
+129;STD;CREAR_MATERIAL_Y_SET_K55;NUEVO;;;;"Destorcedor tipo ""gusano"" INOX p/cadena 10-12mm";1;Unidades;;;;Flojumar;Mecanica;;STD;;0.167;33c0fd9a-947e-4005-8fcb-3dc10673b0a3;"Caño s costura inox Sch.10, 2"" nominal"
+130;STD;CREAR_MATERIAL_Y_SET_K55;NUEVO;;;;Direccion electro asistida twin disk;1;Unidades;;;;;Electricidad;;STD;;0.125;82ec6127-cda1-46be-bfaf-c15b25405644;Bomba de dirección UP28F
+135;STD;REUSAR_ID_Y_SET_K55;EXACTO;a480d9c4-782b-4797-a3b1-add592ac95f0;Duchador frio calor WHALE Twist;1.000;Duchador frio calor WHALE Twist;1;Unidades;1;0;0;Flojumar;Sanitarios;Cockpit;STD;;;;
+137;STD;REUSAR_ID_Y_SET_K55;EXACTO;1cd225a8-7247-4fa4-8ac2-4de9153355ff;"Ducto p/extractor de 3""";1.000;"Ducto p/extractor de 3""";3;Unidades;2;0;0;Trimer;Electricidad;;STD;;;;
+138;STD;CREAR_MATERIAL_Y_SET_K55;NUEVO;;;;Ecosonda;1;Unidades;;;;;;AIRMAR P319 (010-10194-21);STD;;0.000;;
+140;STD;CREAR_MATERIAL_Y_SET_K55;NUEVO;;;;"EMPALME ESPIGA PARA MANGUERA 1"" PLASTICO";3;Unidades;;;;Casa Iriarte;Sanitarios;;STD;;0.286;c35cb2f0-17bc-46de-91a6-08af9d306709;"Manguera cristal alambre 1"""
+141;STD;CREAR_MATERIAL_Y_SET_K55;NUEVO;;;;Enchufe hembra;1;Unidades;;;;;Electricidad;;STD;;0.167;e3596983-974f-445d-abff-6d351c34e271;Ficha Marinco hembra 32A 220V
+142;STD;CREAR_MATERIAL_Y_SET_K55;NUEVO;;;;Enchufe macho;1;Unidades;;;;;Electricidad;;STD;;0.250;3d512356-0a0a-47bd-bdf1-aab145096b23;"Racor macho 1""x1"" plástico"
+143;STD;REUSAR_ID_Y_SET_K55;EXACTO;4c73ef69-6754-42da-83f2-9d880d03dcf2;Entrada agua potable (marina);1.000;Entrada agua potable (marina);1;Unidades;1;0;0;Baron;Sanitarios;B29029;STD;;;;
+144;STD;REUSAR_ID_Y_SET_K55;EXACTO;87ea1a83-1b17-4dbb-81bb-305a82e08bab;"Entrerrosca 1"" bronce";1.000;"Entrerrosca 1"" bronce";2;Unidades;3;0;0;Casa Iriarte;Sanitarios;C 112 1 FU;STD;;;;
+145;STD;REUSAR_ID_Y_SET_K55;EXACTO;dfedeb19-e6a9-4b89-a9df-8ce94ded5967;"Entrerrosca 1/2"" bronce";1.000;"Entrerrosca 1/2"" bronce";4;Unidades;1;0;0;Casa Iriarte;Sanitarios;C 112 1/2 FU;STD;;;;
+146;STD;REUSAR_ID_Y_SET_K55;EXACTO;7a9da0a6-4f72-4e3c-b1ee-228059aa5e7b;"Entrerrosca 1/2"" plástico";1.000;"Entrerrosca 1/2"" plastico";4;Unidades;1;0;0;Casa Iriarte;Sanitarios;PX ENTRR1/2;STD;;;;
+148;STD;REUSAR_ID_Y_SET_K55;EXACTO;7a101f2d-5197-47d8-bd9e-ff5dc4bc67c8;"Entrerrosca de reduccion 3/4"" x 1/2"" plastico";1.000;"Entrerrosca de reduccion 3/4"" x 1/2"" plastico";1;Unidades;1;0;0;Casa Iriarte;Sanitarios;FAG-FIL-MED3/4;STD;;;;
+149;STD;CREAR_MATERIAL_Y_SET_K55;NUEVO;;;;Epuyén – Juego monocomando para mesada de cocina (cromado);1;Unidades;;;;;;0411.04/L2-CR;STD;;0.182;1dd21b67-9e5d-4297-99b8-2cd41c931852;Monocomando cocina FV Arizona alto
+151;STD;CREAR_MATERIAL_Y_SET_K55;NUEVO;;;;Escalera flybridge K55;1;Unidades;;;;Maxi Herrero;;;STD;;0.000;;
+153;STD;REUSAR_ID_Y_SET_K55;EXACTO;6864fa83-e55a-4e23-aae9-aaa77d0f8430;"Extractor Rule 3"" 12V";1.000;"Extractor Rule 3"" 12V";2;Unidades;1.0;0;0;Trimer;Electricidad;;STD;;;;
+155;STD;CREAR_MATERIAL_Y_SET_K55;NUEVO;;;;Faro Marinco 12V dirigible;1;Unidades;;;;Flojumar;Electricidad;;STD;;0.167;f68590a3-750a-426d-ab91-b6d43f6b1cd6;Baterías 12v 180Ah
+156;STD;REUSAR_ID_Y_SET_K55;EXACTO;e3596983-974f-445d-abff-6d351c34e271;Ficha Marinco hembra 32A 220V;1.000;Ficha Marinco hembra 32A 220V;1;Unidades;1;0;0;Flojumar;Electricidad;Marinco 6360CRN;STD;;;;
+157;STD;REUSAR_ID_Y_SET_K55;EXACTO;92226c96-5ae8-4ce2-b786-d55e2a321dbe;"Filtro agua 1""";1.000;"Filtro agua 1""";1;Unidades;1.0;0;0;Casa Iriarte;Sanitarios;FAG-FIL-MED1IN;STD;;;;
+159;STD;CREAR_MATERIAL_Y_SET_K55;NUEVO;;;;"Flexible mallado para agua 1/2"" X 40cm";8;Unidades;;;;Casa Iriarte;Sanitarios;FLAG-AF2076-1/;STD;;0.222;18c68ccb-4fdb-4c50-af42-1b332dc666e0;"Filtro de agua 1 1/2"" inox"
+160;STD;CREAR_MATERIAL_Y_SET_K55;NUEVO;;;;"Flexible mallado para agua 1/2"" X 50cm";3;Unidades;;;;Casa Iriarte;Sanitarios;FLAG-AF2076-1/;STD;;0.222;18c68ccb-4fdb-4c50-af42-1b332dc666e0;"Filtro de agua 1 1/2"" inox"
+162;STD;REUSAR_ID_Y_SET_K55;EXACTO;05a333d2-d432-4be9-a62c-0e9b628345ec;Funda para ficha Marinco 32A 220V;1.000;Funda para ficha Marinco 32A 220V;1;Unidades;1;0;0;Flojumar;Electricidad;;STD;;;;
+163;STD;CREAR_MATERIAL_Y_SET_K55;NUEVO;;;;Generador Kohler 18EFKOZD/21EKOZD;1;Unidades;;;;Trimer;;;STD;;0.000;;
+170;STD;CREAR_MATERIAL_Y_SET_K55;NUEVO;;;;Horno Samsung NV7B4040VAS/BG;1;Unidades;;;;;Electricidad;EMPOTRABLE;STD;;0.000;;
+171;STD;CREAR_MATERIAL_Y_SET_K55;NUEVO;;;;Imanes para puertas de muebles;46;Unidades;;;;Rincon del Herraje;Carpinteria;Rincon del herraje;STD;;0.333;08577a6f-ef38-4996-a467-e8e70ed802b2;Cerraduras de puertas
+173;STD;CREAR_MATERIAL_Y_SET_K55;NUEVO;;;;Inodoro Tecma Thetford silence 2 plusg con bidet y tapa 12v;2;Unidades;;;;Flojumar;Sanitarios;INODOROS. HOLDING TANK;STD;;0.111;3e31665d-5f4c-4938-96d7-d33b59ce2a8d;Bidet
+174;STD;CREAR_MATERIAL_Y_SET_K55;NUEVO;;;;Instrumento agua/combustible aro cromado;2;Unidades;;;;Flojumar;Electricidad;?;STD;;0.143;a6f2bf67-e165-4c87-b7f3-a416d5dab464;"Venteo tanque cromado 3/4"""
+175;STD;CREAR_MATERIAL_Y_SET_K55;NUEVO;;;;Joystick doble Quick italy;2;Unidades;;;;Flojumar;Electricidad;CABLE Y DERIVACION 2 ESTACIONES QUICK;STD;;0.143;d79ef53e-ba28-4014-83cf-c0ff88ad5e9c;Bisagra doble perno abajo
+176;STD;CREAR_MATERIAL_Y_SET_K55;NUEVO;;;;Juego monocomando para bañera y ducha Epuyén 0106/L2 Cromado;2;Unidades;;;;;;Griferia 2 baños;STD;;0.200;d786e85d-e73b-4a9c-807e-66b4cb8df5d4;Monocomando ducha FV Libby
+178;STD;CREAR_MATERIAL_Y_SET_K55;NUEVO;;;;Juego monocomando para lavatorio Epuyén 0206/L2 Cromado;2;Unidades;;;;;;Griferia 2 baños;STD;;0.222;31abfee0-65f4-4392-8b0d-1c59f0df12c6;Monocomando lavatorio FV Libby
+182;STD;CREAR_MATERIAL_Y_SET_K55;NUEVO;;;;Limpia Parabrisas pantograficos;2;Unidades;;;;Tableros Costa;;Tableros Costa;STD;;0.200;f03602e2-8008-4351-bd6a-159fc27db479;Parabrisas completo (3 partes)
+183;STD;CREAR_MATERIAL_Y_SET_K55;NUEVO;;;;Llave carling malacate 2 puntos;2;Unidades;;;;Flojumar;Electricidad;;STD;;0.167;99209f9a-a322-425b-adbf-b30c45b2f7b2;Botón malacate Footswitch
+184;STD;REUSAR_ID_Y_SET_K55;EXACTO;11088a90-8940-4d3f-a7be-1e875ad9191c;Llave corte batería remota Blue Sea;1.000;Llave corte batería remota Blue Sea;6;Unidades;1.0;0;0;Flojumar;Electricidad;Comprobar cantidad al terminar barco 1;STD;;;;
+185;STD;REUSAR_ID_Y_SET_K55;EXACTO;ac10335d-6041-4a9c-b782-c4292069f5ff;Llave de paso Whale WX1573;1.000;Llave de paso Whale WX1573;4;Unidades;1;0;0;;Sanitarios;ITEM WHALE;STD;;;;
+189;STD;CREAR_MATERIAL_Y_SET_K55;NUEVO;;;;Luz banda ROJA led;1;Unidades;;;;Flojumar;Electricidad;KIT HELLA MARINE LED;STD;;0.286;eb3b651c-ac30-4bd9-88d4-237a36f4e014;Luz cortesía LED Azul inox
+190;STD;CREAR_MATERIAL_Y_SET_K55;NUEVO;;;;Luz banda VERDE led;1;Unidades;;;;Flojumar;Electricidad;KIT HELLA MARINE LED;STD;;0.286;eb3b651c-ac30-4bd9-88d4-237a36f4e014;Luz cortesía LED Azul inox
+191;STD;CREAR_MATERIAL_Y_SET_K55;NUEVO;;;;Luz fondeo led blanca 360;1;Unidades;;;;Flojumar;Electricidad;KIT HELLA MARINE LED;STD;;0.250;eb3b651c-ac30-4bd9-88d4-237a36f4e014;Luz cortesía LED Azul inox
+192;STD;CREAR_MATERIAL_Y_SET_K55;NUEVO;;;;Luz navegacion proa blanca led;1;Unidades;;;;Flojumar;Electricidad;KIT HELLA MARINE LED;STD;;0.250;eb3b651c-ac30-4bd9-88d4-237a36f4e014;Luz cortesía LED Azul inox
+193;STD;CREAR_MATERIAL_Y_SET_K55;NUEVO;;;;luz popa led blanca;1;Unidades;;;;Flojumar;Electricidad;KIT HELLA MARINE LED;STD;;0.286;eb3b651c-ac30-4bd9-88d4-237a36f4e014;Luz cortesía LED Azul inox
+195;STD;CREAR_MATERIAL_Y_SET_K55;NUEVO;;;;Malacate Quick italy 1500 watts 12v acero inoxidable;1;Unidades;;;;Flojumar;Electricidad;Fondeo;STD;;0.111;24433b54-8346-4612-b4dd-d745748f2833;"Cupla Inoxidable 1¼"""
+196;STD;REUSAR_ID_Y_SET_K55;EXACTO;c35cb2f0-17bc-46de-91a6-08af9d306709;"Manguera cristal alambre 1""";1.000;"Manguera cristal alambre 1""";65;Metros;25.0;0;0;;Sanitarios;MANGUERAS;STD;;;;
+197;STD;REUSAR_ID_Y_SET_K55;EXACTO;6a984479-40b7-4abe-8031-21a46f8cfd32;"Manguera cristal alambre 1½""";1.000;"Manguera cristal alambre 1½""";50;Metros;25.0;0;0;;Sanitarios;MANGUERAS;STD;;;;
+198;STD;REUSAR_ID_Y_SET_K55;EXACTO;ff86736f-ccad-4a7d-86ff-1a1ef264f95b;"Manguera cristal alambre 3/4""";1.000;"Manguera cristal alambre 3/4""";65;Metros;75;0;0;;Sanitarios;MANGUERAS;STD;;;;
+202;STD;REUSAR_ID_Y_SET_K55;EXACTO;2ece2c3a-6001-4f6c-9799-d866475d1cf7;Multicontrol Victron con cable (para cargador inversor);1.000;Multicontrol Victron con cable (para cargador inversor);1;Unidades;1;0;0;Flojumar;Electricidad;;STD;;;;
+204;STD;CREAR_MATERIAL_Y_SET_K55;NUEVO;;;;"Niple de inox 316 de 3/4"", L = 100 mm";1;Unidades;;;;;Mecanica;TANQUES;STD;;0.300;f5baef75-d71b-4fae-a5f3-b4136d8daeeb;Chapa de 2mm Inox. 316 ( x 1,5m)
+205;STD;CREAR_MATERIAL_Y_SET_K55;NUEVO;;;;Ojo de buey;5;Unidades;;;;;;Cam.Popa x2, Cam.Medio x1, Ambos baños;STD;;0.200;e476e8a2-6556-491e-aef2-c306266d642c;Ánodo de flaps
+206;STD;CREAR_MATERIAL_Y_SET_K55;NUEVO;;;;Panel bomba de achique Johnson pump;5;Unidades;;;;Flojumar;Sanitarios;BOMBAS DE ACHIQUE;STD;;0.250;adc7bd8f-fe7e-4cf3-bf35-5212e176c354;Bomba achique 2000gph 12V
+210;STD;CREAR_MATERIAL_Y_SET_K55;NUEVO;;;;Pasamanos escalera flybridge K55;1;Unidades;;;;Maxi Herrero;;;STD;;0.000;;
+211;STD;CREAR_MATERIAL_Y_SET_K55;NUEVO;;;;Pasamanos varios K55;13;Unidades;;;;Maxi Herrero;;7 solarium proa, 4 carroza, 2 planchada;STD;;0.200;e0a81d07-914f-4097-88e2-563d9b135b27;Varios eléctricos (terminales/precintos/módulos/Carlings)
+212;STD;CREAR_MATERIAL_Y_SET_K55;NUEVO;;;;Percha Epuyén 0166/L2 Cromado;4;Unidades;;;;;;Griferia 2 baños;STD;;0.167;deb7f716-5e8b-479a-9562-955072bd76d6;Percha FV Libby
+214;STD;REUSAR_ID_Y_SET_K55;EXACTO;28bf764a-02c9-48bd-87be-5f6b57c022f6;Perfil aluminio tira LED;1.000;Perfil aluminio tira LED;110;Metros;2.0;0;0;MercadoLibre;;;STD;;;;
+215;STD;CREAR_MATERIAL_Y_SET_K55;NUEVO;;;;Perfiles de aluminio para tiras led;110;Unidades;;;;MercadoLibre;;Seccion 17mm x 7mm;STD;;0.286;81f261fc-56f8-4d85-a6bd-d7344873341a;Tira de LED
+217;STD;CREAR_MATERIAL_Y_SET_K55;NUEVO;;;;Picaportes Currao SARDEGNA - ver color;14;Unidades;;;;;;7 puertas - STD;STD;;0.000;;
+219;STD;CREAR_MATERIAL_Y_SET_K55;NUEVO;;;;Placa de honeycomb (terciado de 6 mm + núcleo de panal de abeja de 15 mm + terciado de 6 mm) de 1,2 mts x 2,45 mts;22;Unidades;;;;;Mecanica;?;STD;;0.167;ab27e43c-2dfa-4688-b2f8-72fe369db0a4;Placa de carpintero
+221;STD;CREAR_MATERIAL_Y_SET_K55;NUEVO;;;;Plaquetas p/precintos;500;Unidades;;;;;Sanitarios;VARIOS;STD;;0.333;053dd435-6b63-4022-bacf-1ae5b75b98eb;Plaquetas (bolsa)
+224;STD;CREAR_MATERIAL_Y_SET_K55;NUEVO;;;;Portarrollo Epuyén 0167/L2 Cromado;2;Unidades;;;;;;Griferia 2 baños;STD;;0.167;5f5ebc3f-3166-4dc2-95ed-eb984b738b17;Portarrollo FV Libby
+226;STD;CREAR_MATERIAL_Y_SET_K55;NUEVO;;;;Precinto 35 CM;500;Unidades;;;;;Sanitarios;VARIOS;STD;;0.000;;
+228;STD;CREAR_MATERIAL_Y_SET_K55;NUEVO;;;;Puertitas cockpit K55;2;Unidades;;;;Maxi Herrero;;;STD;;0.000;;
+231;STD;CREAR_MATERIAL_Y_SET_K55;NUEVO;;;;"Racor H a codo de 1 1/2"" plastico";5;Unidades;;;;Casa Iriarte;Sanitarios;PX CODRAC11/2;STD;;0.333;43a29912-6e14-4947-943c-777112a7e256;"Racor 1/2"" espiga 5/8"""
+233;STD;CREAR_MATERIAL_Y_SET_K55;NUEVO;;;;"Racor H a codo de 1/2"" plastico";5;Unidades;;;;Casa Iriarte;Sanitarios;PX CODRAC11/2;STD;;0.333;43a29912-6e14-4947-943c-777112a7e256;"Racor 1/2"" espiga 5/8"""
+234;STD;CREAR_MATERIAL_Y_SET_K55;NUEVO;;;;"Racor H a codo de 3/4"" plastico";3;Unidades;;;;Casa Iriarte;Sanitarios;PX CODRAC3/4H;STD;;0.333;46f02bc9-81aa-457a-82cb-595892d57904;"Racor 1"" espiga 3/4"""
+238;STD;CREAR_MATERIAL_Y_SET_K55;NUEVO;;;;"Racor M a codo de 1/2"" plastico";8;Unidades;;;;Casa Iriarte;Sanitarios;PX RACCOD1/2M;STD;;0.333;43a29912-6e14-4947-943c-777112a7e256;"Racor 1/2"" espiga 5/8"""
+239;STD;CREAR_MATERIAL_Y_SET_K55;NUEVO;;;;"Racor M a codo de 3/4"" plastico";2;Unidades;;;;Casa Iriarte;Sanitarios;C 110 1 X 3/4 FL;STD;;0.333;46f02bc9-81aa-457a-82cb-595892d57904;"Racor 1"" espiga 3/4"""
+243;STD;CREAR_MATERIAL_Y_SET_K55;NUEVO;;;;"Racor M de bronce 1 1/2"" x 38mm";3;Unidades;;;;Casa Iriarte;Sanitarios;C127 11/2X11/2;STD;;0.333;dfedeb19-e6a9-4b89-a9df-8ce94ded5967;"Entrerrosca 1/2"" bronce"
+244;STD;CREAR_MATERIAL_Y_SET_K55;NUEVO;;;;Radio VHF;1;Unidades;;;;;;"Garmin VHF 215 Marine Radio (010-02097-00)
+Garmin GHS 11 wired VHF Handset (010-01759-00)";STD;;0.250;df54fb2c-f42c-49e8-95bf-42ed3cda26a2;Antena VHF + base
+246;STD;CREAR_MATERIAL_Y_SET_K55;NUEVO;;;;"Recorte chapa de inox 316 según plantilla ""Patas de gallo - K52"", e = ?";4;Unidades;;;;;Mecanica;;STD;;0.308;f5baef75-d71b-4fae-a5f3-b4136d8daeeb;Chapa de 2mm Inox. 316 ( x 1,5m)
+247;STD;CREAR_MATERIAL_Y_SET_K55;NUEVO;;;;REGULADOR DE AGUA AMARRA;1;Unidades;;;;Flojumar;Electricidad;;STD;;0.286;18c68ccb-4fdb-4c50-af42-1b332dc666e0;"Filtro de agua 1 1/2"" inox"
+248;STD;CREAR_MATERIAL_Y_SET_K55;NUEVO;;;;Rejilla D60 Obturable Negra - Calefactor Autoterm;4;Unidades;;;;Baron;Sanitarios;C89099;STD;;0.200;c757c46b-dd25-48fd-ab6f-7b885ebdb30b;Calefactor Autoterm Air 4D 12V 4000W
+249;STD;CREAR_MATERIAL_Y_SET_K55;NUEVO;;;;Rejilla D60 Orientable Negra - Calefactor Autoterm;2;Unidades;;;;Baron;Sanitarios;C89943;STD;;0.200;c757c46b-dd25-48fd-ab6f-7b885ebdb30b;Calefactor Autoterm Air 4D 12V 4000W
+250;STD;CREAR_MATERIAL_Y_SET_K55;NUEVO;;;;Rejilla D90 Obturable Negra - Calefactor Autoterm;5;Unidades;;;;Baron;Sanitarios;C89108;STD;;0.200;c757c46b-dd25-48fd-ab6f-7b885ebdb30b;Calefactor Autoterm Air 4D 12V 4000W
+252;STD;CREAR_MATERIAL_Y_SET_K55;NUEVO;;;;Resorte a gas para puertas de alacenas - 60N;6;Unidades;;;;;Carpinteria;Hafele 60N;STD;;0.250;08577a6f-ef38-4996-a467-e8e70ed802b2;Cerraduras de puertas
+253;STD;CREAR_MATERIAL_Y_SET_K55;NUEVO;;;;Resorte a gas para puertas de alacenas - 80N;4;Unidades;;;;;Carpinteria;Hafele 80N;STD;;0.250;08577a6f-ef38-4996-a467-e8e70ed802b2;Cerraduras de puertas
+254;STD;CREAR_MATERIAL_Y_SET_K55;NUEVO;;;;Rollo de cable negro 1.5mm;100;Metros;;;;;Electricidad;;STD;;0.333;9e691a1c-1ca3-4c83-a43a-2de0b7507e11;Cable 1x1 negro
+255;STD;CREAR_MATERIAL_Y_SET_K55;NUEVO;;;;Rollo de cable rojo 1.5mm;100;Metros;;;;;Electricidad;;STD;;0.333;eccc0db0-3244-4c39-b7fc-dfddcdebba90;Cable 1x1 rojo
+256;STD;REUSAR_ID_Y_SET_K55;EXACTO;39a6c1ab-8840-4cd8-8943-72361d38d84c;Sapito desagote ancla;1.000;Sapito desagote ancla;2;Unidades;2.0;0;0;Baron;;;STD;;;;
+259;STD;REUSAR_ID_Y_SET_K55;EXACTO;867bb5f4-9568-4620-a03b-f151c8804c3c;"Separador agua-gases 2"" Centek 1020200 (grupo)";1.000;"Separador agua-gases 2"" Centek 1020200 (grupo)";1;Unidades;1;0;0;Trimer;Mecanica;;STD;;;;
+260;STD;REUSAR_ID_Y_SET_K55;EXACTO;f3bf7d52-a5fd-4cbb-abf1-b9f9fe627cf7;"Silenciador escape 2"" Centek 1500027w (grupo)";1.000;"Silenciador escape 2"" Centek 1500027w (grupo)";1;Unidades;1;0;0;Trimer;Mecanica;;STD;;;;
+261;STD;CREAR_MATERIAL_Y_SET_K55;NUEVO;;;;"Silenciador Vernalift 6"" Centek 16X16 (motor)";2;Unidades;;;;Trimer;Mecanica;;STD;;0.286;1a2de584-5b07-48c3-b6e6-15e5a6d65844;"Silenciador Vernalift 5"""
+265;STD;CREAR_MATERIAL_Y_SET_K55;NUEVO;;;;Solenoide Quick italy 12v;1;Unidades;;;;Flojumar;Electricidad;;STD;;0.167;f68590a3-750a-426d-ab91-b6d43f6b1cd6;Baterías 12v 180Ah
+266;STD;REUSAR_ID_Y_SET_K55;EXACTO;aea0c1ce-5d96-4c67-9aa9-5d55f3e88a80;"Sopapa bañera c/codo Delta 1½""";1.000;"Sopapa bañera c/codo Delta 1½""";7;Unidades;1.0;0;0;Casa Iriarte;Sanitarios;SOP11/2CO;STD;;;;
+267;STD;CREAR_MATERIAL_Y_SET_K55;NUEVO;;;;Soporte elevador TV - JC35VT-1000;1;Unidades;;;;;Carpinteria;Soporte TV Salon;STD;;0.333;dcc4472d-67f8-4206-8dba-5f6f93f16dd7;Soporte pared TV
+269;STD;REUSAR_ID_Y_SET_K55;EXACTO;dcc4472d-67f8-4206-8dba-5f6f93f16dd7;Soporte pared TV;1.000;Soporte pared TV;2;Unidades;2.0;0;0;;Carpinteria;"Camarote PROA 32"", POPA 43""";STD;;;;
+270;STD;CREAR_MATERIAL_Y_SET_K55;NUEVO;;;;Soportes de barral de ropero;6;Unidades;;;;;Carpinteria;Vestidor y camarote proa;STD;;0.167;e476e8a2-6556-491e-aef2-c306266d642c;Ánodo de flaps
+271;STD;CREAR_MATERIAL_Y_SET_K55;NUEVO;;;;Soportes tapiceria banco cockpit K55;3;Unidades;;;;Maxi Herrero;;;STD;;0.000;;
+272;STD;CREAR_MATERIAL_Y_SET_K55;NUEVO;;;;Soportes tapiceria banco proa K55;7;Unidades;;;;Maxi Herrero;;;STD;;0.000;;
+273;STD;CREAR_MATERIAL_Y_SET_K55;NUEVO;;;;Soportes tapiceria flybridge K55;13;Unidades;;;;Maxi Herrero;;;STD;;0.000;;
+274;STD;CREAR_MATERIAL_Y_SET_K55;NUEVO;;;;Stern thurster Quick doble helice 6,5kw 250mm 12v;1;Unidades;;;;Flojumar;Electricidad;;STD;;0.100;f68590a3-750a-426d-ab91-b6d43f6b1cd6;Baterías 12v 180Ah
+276;STD;CREAR_MATERIAL_Y_SET_K55;NUEVO;;;;"T con espiga rosca central de 1"" plastico";2;Unidades;;;;Casa Iriarte;Sanitarios;PX BUJRED3/4X1;STD;;0.333;8b3bd84c-e81d-403b-be33-7e946072ca85;"Codo 90º rosca H 1 1/4"" espiga 1"""
+277;STD;CREAR_MATERIAL_Y_SET_K55;NUEVO;;;;Tableros electricos COSTA;2;Unidades;;;;;;395x245mm;STD;;0.200;e0a81d07-914f-4097-88e2-563d9b135b27;Varios eléctricos (terminales/precintos/módulos/Carlings)
+278;STD;CREAR_MATERIAL_Y_SET_K55;NUEVO;;;;Tablón Okume;300;Pies;;;;;Mecanica;Chequear cantidad real en barco 4;STD;;0.250;82f19dc4-db85-4f90-95f2-2be5b63cb1a4;Pie de Okumé
+279;STD;CREAR_MATERIAL_Y_SET_K55;NUEVO;;;;Tambucho de proa - Cuadrado 60x60cm;1;Unidades;;;;;;;STD;;0.143;e476e8a2-6556-491e-aef2-c306266d642c;Ánodo de flaps
+280;STD;CREAR_MATERIAL_Y_SET_K55;NUEVO;;;;Tanque acumulador presion Flojet-Jabsco;1;Unidades;;;;Flojumar;Electricidad;;STD;;0.125;026fbef3-d310-48df-b849-1a2fbc861905;Faro Jabsco 135SL c/control
+281;STD;CREAR_MATERIAL_Y_SET_K55;NUEVO;;;;Tanques de agua;2;Unidades;;;;Astillero;;Capacidad total 700 Lts;STD;;0.333;18c68ccb-4fdb-4c50-af42-1b332dc666e0;"Filtro de agua 1 1/2"" inox"
+282;STD;CREAR_MATERIAL_Y_SET_K55;NUEVO;;;;Tanques de combustible con visor;2;Unidades;;;;Astillero;;Capacidad total 1800 Lts;STD;;0.143;e476e8a2-6556-491e-aef2-c306266d642c;Ánodo de flaps
+283;STD;REUSAR_ID_Y_SET_K55;EXACTO;4ceb1c17-382c-45e6-bdb9-de56e2d54d71;"Tapa tanque agua 1 1/2"" cromada c/venteo";1.000;"Tapa tanque agua 1 1/2"" cromada c/venteo";1;Unidades;1;0;0;Flojumar;Sanitarios;FORESTI SUARDI;STD;;;;
+284;STD;REUSAR_ID_Y_SET_K55;EXACTO;e60e499b-2019-4aea-9e77-47800de07984;"Tapa tanque combustible 2"" cromada c/venteo";1.000;"Tapa tanque combustible 2"" cromada c/venteo";2;Unidades;2;0;0;Flojumar;Sanitarios;FORESTI SUARDI;STD;;;;
+286;STD;CREAR_MATERIAL_Y_SET_K55;NUEVO;;;;"Tapon rosca M de 1/2"" plastico";3;Unidades;;;;Casa Iriarte;Sanitarios;PX TAN 1/2;STD;;0.333;38d5461f-ce2e-4cd5-bcf0-eb1a23c60df5;"Adaptador rosca H 1/2"" WX1532"
+287;STD;CREAR_MATERIAL_Y_SET_K55;NUEVO;;;;"T termofusion 1"" rosca central H 1/2""";16;Unidades;;;;;Sanitarios;TERMOFUSION;STD;;0.286;38d5461f-ce2e-4cd5-bcf0-eb1a23c60df5;"Adaptador rosca H 1/2"" WX1532"
+289;STD;CREAR_MATERIAL_Y_SET_K55;NUEVO;;;;Tender lift OPACMARE 5222/90.04;2;Unidades;;;;;;STD;STD;;0.000;;
+290;STD;CREAR_MATERIAL_Y_SET_K55;NUEVO;;;;Termica malacate 130 AMP;1;Unidades;;;;Flojumar;Electricidad;;STD;;0.167;99209f9a-a322-425b-adbf-b30c45b2f7b2;Botón malacate Footswitch
+291;STD;CREAR_MATERIAL_Y_SET_K55;NUEVO;;;;Termotanque CAMCO 76L;1;Unidades;;;;Flojumar;Electricidad;;STD;;0.143;ca45014c-4a90-4490-a2df-67a01966c13f;Termotanque Kuuma 42L (11 gal)
+292;STD;REUSAR_ID_Y_SET_K55;EXACTO;4095c16e-4b0f-4924-92ad-067b49548242;Tira LED blanco cálido;1.000;Tira LED blanco cálido;110;Metros;14.0;0;0;MercadoLibre;Electricidad;Tira de LED COB blanco cálido (2700K, +500 LED/m);STD;;;;
+293;STD;CREAR_MATERIAL_Y_SET_K55;NUEVO;;;;Toallero Epuyén 0163/L2 Cromado;2;Unidades;;;;;;Griferia 2 baños;STD;;0.143;a6f2bf67-e165-4c87-b7f3-a416d5dab464;"Venteo tanque cromado 3/4"""
+295;STD;REUSAR_ID_Y_SET_K55;EXACTO;ea15a6a2-1a99-44c3-9b1e-873c08f9b4b0;"Toma pasacasco 1 1/2"" bronce";1.000;"Toma pasacasco 1 1/2"" bronce";6;Unidades;1;0;0;Casa Iriarte;Sanitarios;TO11/2C;STD;;;;
+296;STD;REUSAR_ID_Y_SET_K55;EXACTO;0d3ba5ed-e6e9-41f5-938a-77a20437cad0;"Toma pasacasco 1"" bronce";1.000;"Toma pasacasco 1"" bronce";9;Unidades;1.0;0;0;Casa Iriarte;Sanitarios;"TO1""C";STD;;;;
+297;STD;REUSAR_ID_Y_SET_K55;EXACTO;4b5668ec-7f50-4c9d-9893-6e729e249c9a;"Toma pasacasco 3/4"" bronce";1.000;"Toma pasacasco 3/4"" bronce";6;Unidades;1;0;0;Casa Iriarte;Sanitarios;TO3/4C;STD;;;;
+300;STD;CREAR_MATERIAL_Y_SET_K55;NUEVO;;;;Tomas cambre de 20 amp;2;Unidades;;;;;Electricidad;;STD;;0.143;e476e8a2-6556-491e-aef2-c306266d642c;Ánodo de flaps
+301;STD;CREAR_MATERIAL_Y_SET_K55;NUEVO;;;;Traba cadena 10-12mm;1;Unidades;;;;;;Fondeo;STD;;0.143;15b642f0-2b8f-486e-9b8b-0eee0657ed50;Cadena 6mm calibrada galvanizada
+302;STD;CREAR_MATERIAL_Y_SET_K55;NUEVO;;;;Tubo bowthruster D= 250mm, e= 9 mm, L = 1,50 m;1;Unidades;;;;;Mecanica;;STD;;0.286;8a7543c8-2701-4b9d-b0bb-1829cc60270b;Tubo bowthruster Ø150mm x1mt
+303;STD;REUSAR_ID_Y_SET_K55;EXACTO;9d2ca04f-b2e5-40a2-be53-7803a385c77e;Tubo Whale azul 15mm WX7152;1.000;Tubo Whale azul 15mm WX7152;60;Metros;25.0;0;0;;Sanitarios;ITEM WHALE;STD;;;;
+304;STD;REUSAR_ID_Y_SET_K55;EXACTO;55c25202-8972-4106-a9db-fccff744e4a6;Tubo Whale rojo 15mm WX7154;1.000;Tubo Whale rojo 15mm WX7154;50;Metros;25.0;0;0;;Sanitarios;ITEM WHALE;STD;;;;
+305;STD;CREAR_MATERIAL_Y_SET_K55;NUEVO;;;;"TV 24"" Noblex";1;Unidades;;;;;Electricidad;TV Camarote MEDIO;STD;;0.250;582cd69a-2c47-4d6b-9773-5b049bf2be41;Antena TV
+307;STD;CREAR_MATERIAL_Y_SET_K55;NUEVO;;;;"TV SAMSUNG 43"" FULL HD T5300";1;Unidades;;;;;Electricidad;TV Camarote POPA;STD;;0.143;582cd69a-2c47-4d6b-9773-5b049bf2be41;Antena TV
+308;STD;CREAR_MATERIAL_Y_SET_K55;NUEVO;;;;"TV SAMSUNG 50"" Crystal UHD 4K U8000F";1;Unidades;;;;;Electricidad;https://shop.samsung.com/ar/50--crystal-uhd-4k-u8000f/p?skuId=139438;STD;;0.125;582cd69a-2c47-4d6b-9773-5b049bf2be41;Antena TV
+310;STD;CREAR_MATERIAL_Y_SET_K55;NUEVO;;;;"Union doble 1"" termofusion";4;Unidades;;;;;Sanitarios;TERMOFUSION;STD;;0.200;cc468b9f-0850-4a78-b045-081ed215460c;"Racor 1"""
+313;STD;REUSAR_ID_Y_SET_K55;EXACTO;892278e1-53d9-45f0-959d-939ebeccd36c;"Union rosca M 1/2"" WHALE WX1514";1.000;"Union rosca M 1/2"" WHALE WX1514";19;Unidades;1;0;0;;Sanitarios;ITEM WHALE;STD;;;;
+315;STD;CREAR_MATERIAL_Y_SET_K55;NUEVO;;;;"Union rosca M 1/2"" bronce x caño poliamida 1/4"" con tuerca y virola";1;Unidades;;;;Casa Iriarte;Sanitarios;C 681/4X1/2;STD;;0.250;e2f5ce1e-8749-4e8d-ba1e-3ca26f309ad4;"Buje reduc. 1 1/2"" x 1 1/4"" bronce"
+317;STD;CREAR_MATERIAL_Y_SET_K55;NUEVO;;;;"Valvula de un solo sentido para bombas de achique 1 1/2""";2;Unidades;;;;Casa Iriarte;Sanitarios;VALRET1/2 COM;STD;;0.200;7ff2198d-5eeb-4699-ac54-0125749fdd29;"Válvula esférica 1/2"""
+318;STD;CREAR_MATERIAL_Y_SET_K55;NUEVO;;;;"Valvula de un solo sentido para bombas de achique 1""";4;Unidades;;;;Casa Iriarte;Sanitarios;VALRET 1 COM;STD;;0.182;f750313f-4ad7-48a6-98e7-da5609999787;"Válvula esférica 1"" HH"
+320;STD;REUSAR_ID_Y_SET_K55;EXACTO;f750313f-4ad7-48a6-98e7-da5609999787;"Válvula esférica 1"" HH";1.000;"Válvula esférica 1"" HH";1;Unidades;3.0;0;0;Casa Iriarte;Sanitarios;VAE1J;STD;;;;
+321;STD;REUSAR_ID_Y_SET_K55;EXACTO;57ebb90c-239a-4bc1-b945-69f63dd9eda8;"Válvula esférica 1/2"" HH";1.000;"Válvula esférica 1/2"" HH";9;Unidades;5.0;0;0;Casa Iriarte;Sanitarios;VAE1/2J;STD;;;;
+324;STD;CREAR_MATERIAL_Y_SET_K55;NUEVO;;;;Victron, combinador de baterias cyrix-ct;1;Unidades;;;;Flojumar;Electricidad;Pendiente de compra 01/04;STD;;0.125;e476e8a2-6556-491e-aef2-c306266d642c;Ánodo de flaps
+325;STD;CREAR_MATERIAL_Y_SET_K55;NUEVO;;;;Visores con bolita para tanques combustible;2;Unidades;;;;;Mecanica;Definir piezas / insumos;STD;;0.182;2ece2c3a-6001-4f6c-9799-d866475d1cf7;Multicontrol Victron con cable (para cargador inversor)

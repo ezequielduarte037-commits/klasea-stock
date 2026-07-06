@@ -1,0 +1,37 @@
+﻿excel_row;clasificacion;obra;descripcion;cantidad;tipo;estado_excel;proveedor;rubro;obs;addon_best_score;addon_best_desc;accion_addon
+19;OBRA_ESPECIFICA;55-2;Bacha de cocina negra -SOLO BARCO 55-2;1;adicional;Comprar;;Carpinteria;;0.880;Bacha de cocina negra;YA_EXISTE_ADDON_PROBABLE
+20;OBRA_ESPECIFICA;55-1;Bacha en popa con mueble, cual?;1;adicional;Especificar;;Sanitarios;;1.000;BACHA en popa con mueble, cual?;YA_EXISTE_ADDON_PROBABLE
+27;OBRA_ESPECIFICA;55-1;Barra de sonido LG sk1d;2;adicional;En Chubut;;Electricidad;;0.880;BARRA DE SONIDO SK1D;YA_EXISTE_ADDON_PROBABLE
+33;OBRA_ESPECIFICA;55-1;Bisagra codo 18 + base con clip;2;adicional;En Chubut;;Carpinteria;;0.880;Bisagras codo 18;YA_EXISTE_ADDON_PROBABLE
+38;OBRA_ESPECIFICA;55-2;Bisagras codo 9 - OPCIONAL camarote sin vestidor;8;opcional;Comprar;;;;1.000;Bisagras codo 9 - OPCIONAL camarote sin vestidor;YA_EXISTE_ADDON_PROBABLE
+38;OBRA_ESPECIFICA;55-3;Bisagras codo 9 - OPCIONAL camarote sin vestidor;8;opcional;Comprar;;;;1.000;Bisagras codo 9 - OPCIONAL camarote sin vestidor;YA_EXISTE_ADDON_PROBABLE
+38;OBRA_ESPECIFICA;55-4;Bisagras codo 9 - OPCIONAL camarote sin vestidor;8;opcional;Comprar;;;;1.000;Bisagras codo 9 - OPCIONAL camarote sin vestidor;YA_EXISTE_ADDON_PROBABLE
+87;OBRA_ESPECIFICA;55-2;Cava VONDOM T8;2;adicional;Comprar;;Electricidad;;0.880;Cava T8;YA_EXISTE_ADDON_PROBABLE
+128;OBRA_ESPECIFICA;55-1;Desagues lineales ducha -SOLO BARCO 55-1;2;adicional;Pedido;;;;0.880;Desagues lineales ducha;YA_EXISTE_ADDON_PROBABLE
+134;OBRA_ESPECIFICA;55-2;Duchador de mano NEGRO + Codo pared;2;adicional;Especificar;;;;1.000;Duchador de mano NEGRO + Codo pared;YA_EXISTE_ADDON_PROBABLE
+139;OBRA_ESPECIFICA;55-1;ELECTROVALVULA 12V ORIGINAL;2;adicional;;Flojumar;Electricidad;;1.000;ELECTROVALVULA 12V ORIGINAL;YA_EXISTE_ADDON_PROBABLE
+152;ADC;55-1;Estabilizador giroscopo;1;adicional;En Chubut;;Electricidad;;1.000;ESTABILIZADOR GIROSCOPO;YA_EXISTE_ADDON_PROBABLE
+165;OBRA_ESPECIFICA;55-1;Grill KENION;1;adicional;En Chubut;Flojumar;Electricidad;;0.880;Grill;YA_EXISTE_ADDON_PROBABLE
+166;OBRA_ESPECIFICA;55-2;Heladera BOSCH KIN86ADD0;1;adicional;Pedido;;Electricidad;;0.880;Heladera KIN86ADD0;YA_EXISTE_ADDON_PROBABLE
+167;OBRA_ESPECIFICA;55-1;Heladera Whirpool WRE25AB PANELABLE - SOLO barco 1;1;adicional;En Chubut;;Electricidad;;0.880;Heladera WRE25AB PANELABLE - SOLO barco 1;YA_EXISTE_ADDON_PROBABLE
+168;OBRA_ESPECIFICA;55-1;HOLDING TANK MATROMARINE ITALIANO 103 LITROS 12V;1;adicional;En Chubut;Flojumar;Sanitarios;;1.000;HOLDING TANK MATROMARINE ITALIANO 103 LITROS 12V;YA_EXISTE_ADDON_PROBABLE
+177;OBRA_ESPECIFICA;55-2;Juego monocomando para bañera y ducha Epuyén 0106/L2 NEGRO;2;adicional;Comprar;;;;1.000;Juego monocomando para bañera y ducha Epuyén 0106/L2 NEGRO;YA_EXISTE_ADDON_PROBABLE
+179;OBRA_ESPECIFICA;55-2;Juego monocomando para lavatorio Epuyén 0206/L2 Negro;2;adicional;Pedido;;;;1.000;Juego monocomando para lavatorio Epuyén 0206/L2 Negro;YA_EXISTE_ADDON_PROBABLE
+180;OBRA_ESPECIFICA;55-2;Lavaropas LG inverter carga frontal;1;adicional;Comprar;;Electricidad;;0.884;Lavaropas inverter carga frontal;YA_EXISTE_ADDON_PROBABLE
+181;OBRA_ESPECIFICA;55-1;Lavavajillas Bosch SMV2ITX09E;1;adicional;En Chubut;;Electricidad;;0.880;Lavavajillas SMV2ITX09E;YA_EXISTE_ADDON_PROBABLE
+181;OBRA_ESPECIFICA;55-2;Lavavajillas Bosch SMV2ITX09E;1;adicional;Comprar;;Electricidad;;0.880;Lavavajillas SMV2ITX09E;YA_EXISTE_ADDON_PROBABLE
+200;VAR;55-1;Microondas SAMSUNG MG23F3K3TAS/BG GRILL;1;variante;Pedido;;Electricidad;;0.880;Grill;YA_EXISTE_ADDON_PROBABLE
+201;OBRA_ESPECIFICA;55-1;Motor Volvo D11-725 70112078912//29;2;adicional;;;Mecanica;;0.723;MOTOR D11-725 70112078912//29 CON ACCESORIOS;YA_EXISTE_ADDON_PROBABLE
+207;OBRA_ESPECIFICA;55-1;Panel de control Tecma thetford before/after;2;adicional;En Chubut;Flojumar;Sanitarios;;1.000;PANEL DE CONTROL TECMA THETFORD BEFORE/AFTER;YA_EXISTE_ADDON_PROBABLE
+213;OBRA_ESPECIFICA;55-2;Percha Epuyén 0166/L2 Negro;4;adicional;Pedido;;;;1.000;Percha Epuyén 0166/L2 Negro;YA_EXISTE_ADDON_PROBABLE
+218;MIXTO;55-1;Piloto automàtico;1;opcional;Pedido;;Electricidad;;1.000;Piloto automàtico;YA_EXISTE_ADDON_PROBABLE
+220;OBRA_ESPECIFICA;55-1;Planchada extensible para bajar a Punta (1mt mas);1;adicional;Revisar;;Electricidad;;1.000;Planchada extensible para bajar a Punta (1mt mas);YA_EXISTE_ADDON_PROBABLE
+223;OBRA_ESPECIFICA;55-1;Plotters 55-1;2;adicional;Comprar;;Electricidad;;0.880;Plotter;YA_EXISTE_ADDON_PROBABLE
+225;OBRA_ESPECIFICA;55-2;Portarrollo Epuyén 0167/L2 Negro;2;adicional;Pedido;;;;1.000;Portarrollo Epuyén 0167/L2 Negro;YA_EXISTE_ADDON_PROBABLE
+288;OBRA_ESPECIFICA;55-1;Tender lift OPACMARE 5220_90_09;2;adicional;En Chubut;;;;1.000;Tender lift OPACMARE OPACMARE 5220_90_09;YA_EXISTE_ADDON_PROBABLE
+288;OBRA_ESPECIFICA;55-2;Tender lift OPACMARE 5220_90_09;2;adicional;Revisar;;;;1.000;Tender lift OPACMARE OPACMARE 5220_90_09;YA_EXISTE_ADDON_PROBABLE
+288;OBRA_ESPECIFICA;55-3;Tender lift OPACMARE 5220_90_09;2;adicional;Revisar;;;;1.000;Tender lift OPACMARE OPACMARE 5220_90_09;YA_EXISTE_ADDON_PROBABLE
+294;OBRA_ESPECIFICA;55-2;Toallero Epuyén 0163/L2 Negro;2;adicional;Pedido;;;;1.000;Toallero Epuyén 0163/L2 Negro;YA_EXISTE_ADDON_PROBABLE
+309;OBRA_ESPECIFICA;55-1;"TV SAMSUNG 55"" QLED Q6F 4K Smart";1;adicional;Comprar;;Electricidad;;0.917;TV 55 QLED Q6F 4K Smart;YA_EXISTE_ADDON_PROBABLE
+316;OBRA_ESPECIFICA;55-1;"Valvula de desvio ""y"" Matromarine italiana";2;adicional;En Chubut;Flojumar;Sanitarios;;1.000;"VALVULA DE DESVIO ""Y"" MATROMARINE ITALIANA";YA_EXISTE_ADDON_PROBABLE
+323;OBRA_ESPECIFICA;55-1;VHF con AIS;1;adicional;En Chubut;;Electricidad;;1.000;VHF con AIS;YA_EXISTE_ADDON_PROBABLE

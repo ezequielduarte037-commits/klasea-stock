@@ -1,0 +1,74 @@
+﻿excel_row;clasificacion;obra;descripcion;cantidad;tipo;estado_excel;proveedor;rubro;obs;addon_best_score;addon_best_desc;accion_addon
+18;OPC;;Bacha (Camarote Marinero), modelo?? Griferia??;1;opcional;;;;;;;SIN_OBRA_NO_ADDON
+19;OBRA_ESPECIFICA;55-2;Bacha de cocina negra -SOLO BARCO 55-2;1;adicional;Comprar;;Carpinteria;;0.880;Bacha de cocina negra;YA_EXISTE_ADDON_PROBABLE
+20;OBRA_ESPECIFICA;55-1;Bacha en popa con mueble, cual?;1;adicional;Especificar;;Sanitarios;;1.000;BACHA en popa con mueble, cual?;YA_EXISTE_ADDON_PROBABLE
+27;OBRA_ESPECIFICA;55-1;Barra de sonido LG sk1d;2;adicional;En Chubut;;Electricidad;;0.880;BARRA DE SONIDO SK1D;YA_EXISTE_ADDON_PROBABLE
+33;OBRA_ESPECIFICA;55-1;Bisagra codo 18 + base con clip;2;adicional;En Chubut;;Carpinteria;;0.880;Bisagras codo 18;YA_EXISTE_ADDON_PROBABLE
+38;OBRA_ESPECIFICA;55-2;Bisagras codo 9 - OPCIONAL camarote sin vestidor;8;opcional;Comprar;;;;1.000;Bisagras codo 9 - OPCIONAL camarote sin vestidor;YA_EXISTE_ADDON_PROBABLE
+38;OBRA_ESPECIFICA;55-3;Bisagras codo 9 - OPCIONAL camarote sin vestidor;8;opcional;Comprar;;;;1.000;Bisagras codo 9 - OPCIONAL camarote sin vestidor;YA_EXISTE_ADDON_PROBABLE
+38;OBRA_ESPECIFICA;55-4;Bisagras codo 9 - OPCIONAL camarote sin vestidor;8;opcional;Comprar;;;;1.000;Bisagras codo 9 - OPCIONAL camarote sin vestidor;YA_EXISTE_ADDON_PROBABLE
+45;OPC;;Bomba p/duchador agua de rio;1;opcional;;;Sanitarios;;;;SIN_OBRA_NO_ADDON
+47;OBRA_ESPECIFICA;55-3;Bowthruster Sleipner side-power 160kh 12V + STERN;1;adicional;Pedido;Trimer;Electricidad;;;;INSERTAR_ADDON
+47;OBRA_ESPECIFICA;55-4;Bowthruster Sleipner side-power 160kh 12V + STERN;1;adicional;Pedido;Trimer;Electricidad;;;;INSERTAR_ADDON
+48;VAR;;BOWTHURSTER QUICK DOBLE HELICE 6,5 KW 250MM 12V;1;variante;;Flojumar;Electricidad;;;;SIN_OBRA_NO_ADDON
+59;OPC;55-1;Cable alargue Quick 12 metros;4;opcional;En Chubut;Flojumar;Electricidad;;;;INSERTAR_ADDON
+61;OPC;55-1;Cable y derivacion 2 estaciones Quick;2;opcional;En Chubut;Flojumar;Electricidad;;;;INSERTAR_ADDON
+76;OBRA_ESPECIFICA;55-2;Canilla de cocina - COLOR NEGRO;1;adicional;Comprar;MercadoLibre;Sanitarios;;0.237;Bacha de cocina negra;INSERTAR_ADDON
+84;OBRA_ESPECIFICA;55-1;Cargador Victron Centaur 24v 60A de 3 salidas;1;adicional;En Chubut;;Electricidad;;;;INSERTAR_ADDON
+87;OBRA_ESPECIFICA;55-2;Cava VONDOM T8;2;adicional;Comprar;;Electricidad;;0.880;Cava T8;YA_EXISTE_ADDON_PROBABLE
+88;VAR;55-1;Cerraduras de puertas BRONZEN (K55);7;variante;Comprar;;;;;;INSERTAR_ADDON
+89;VAR;55-2;Cerraduras de puertas BRONZEN (K55) - OPCIONAL sin vestidor;6;opcional;Comprar;;;;0.188;Bisagras codo 9 - OPCIONAL camarote sin vestidor;INSERTAR_ADDON
+109;VAR;55-1;Control con indicador segunda estacion Lenco;1;variante;En Chubut;Flojumar;Electricidad;;0.148;PANEL DE CONTROL TECMA THETFORD BEFORE/AFTER;INSERTAR_ADDON
+110;VAR;55-1;Control faro segunda estacion Marinco;1;variante;En Chubut;Flojumar;Electricidad;;0.148;PANEL DE CONTROL TECMA THETFORD BEFORE/AFTER;INSERTAR_ADDON
+128;OBRA_ESPECIFICA;55-1;Desagues lineales ducha -SOLO BARCO 55-1;2;adicional;Pedido;;;;0.880;Desagues lineales ducha;YA_EXISTE_ADDON_PROBABLE
+131;OBRA_ESPECIFICA;55-1;Divisor de carga 80A (tiene que tener línea de compensación para el alternador como el Victron Argodiodo 80-2AC);2;adicional;En Chubut;;Electricidad;;;;INSERTAR_ADDON
+132;OPC;;DUCHADOR agua de rio;1;opcional;;;Sanitarios;;;;SIN_OBRA_NO_ADDON
+134;OBRA_ESPECIFICA;55-2;Duchador de mano NEGRO + Codo pared;2;adicional;Especificar;;;;1.000;Duchador de mano NEGRO + Codo pared;YA_EXISTE_ADDON_PROBABLE
+136;OBRA_ESPECIFICA;55-2;Duchador Mano Piazza Lujo D0105ne + Sop Toma Flex 1.5m Negro;2;adicional;Pedido;MercadoLibre;Sanitarios;;0.397;Duchador de mano NEGRO + Codo pared;INSERTAR_ADDON
+139;OBRA_ESPECIFICA;55-1;ELECTROVALVULA 12V ORIGINAL;2;adicional;;Flojumar;Electricidad;;1.000;ELECTROVALVULA 12V ORIGINAL;YA_EXISTE_ADDON_PROBABLE
+150;VAR;55-1;Equipo de audio (elige cliente);1;variante;Especificar;;;;;;INSERTAR_ADDON
+152;ADC;55-1;Estabilizador giroscopo;1;adicional;En Chubut;;Electricidad;;1.000;ESTABILIZADOR GIROSCOPO;YA_EXISTE_ADDON_PROBABLE
+161;OBRA_ESPECIFICA;55-3;Footswich Maxwell con tapa heavy duty grande;2;adicional;Pedido;Trimer;Electricidad;;;;INSERTAR_ADDON
+161;OBRA_ESPECIFICA;55-4;Footswich Maxwell con tapa heavy duty grande;2;adicional;Pedido;Trimer;Electricidad;;;;INSERTAR_ADDON
+165;OBRA_ESPECIFICA;55-1;Grill KENION;1;adicional;En Chubut;Flojumar;Electricidad;;0.880;Grill;YA_EXISTE_ADDON_PROBABLE
+166;OBRA_ESPECIFICA;55-2;Heladera BOSCH KIN86ADD0;1;adicional;Pedido;;Electricidad;;0.880;Heladera KIN86ADD0;YA_EXISTE_ADDON_PROBABLE
+167;OBRA_ESPECIFICA;55-1;Heladera Whirpool WRE25AB PANELABLE - SOLO barco 1;1;adicional;En Chubut;;Electricidad;;0.880;Heladera WRE25AB PANELABLE - SOLO barco 1;YA_EXISTE_ADDON_PROBABLE
+168;OBRA_ESPECIFICA;55-1;HOLDING TANK MATROMARINE ITALIANO 103 LITROS 12V;1;adicional;En Chubut;Flojumar;Sanitarios;;1.000;HOLDING TANK MATROMARINE ITALIANO 103 LITROS 12V;YA_EXISTE_ADDON_PROBABLE
+169;OBRA_ESPECIFICA;55-1;HOLDING TANK MATROMARINE ITALIANO 73 LITROS 12V;1;adicional;;Flojumar;Sanitarios;;0.580;HOLDING TANK MATROMARINE ITALIANO 103 LITROS 12V;INSERTAR_ADDON
+172;OPC;55-1;Inodoro electrico (Camarote Marinero), modelo??;1;opcional;Especificar;Flojumar;;;;;INSERTAR_ADDON
+177;OBRA_ESPECIFICA;55-2;Juego monocomando para bañera y ducha Epuyén 0106/L2 NEGRO;2;adicional;Comprar;;;;1.000;Juego monocomando para bañera y ducha Epuyén 0106/L2 NEGRO;YA_EXISTE_ADDON_PROBABLE
+179;OBRA_ESPECIFICA;55-2;Juego monocomando para lavatorio Epuyén 0206/L2 Negro;2;adicional;Pedido;;;;1.000;Juego monocomando para lavatorio Epuyén 0206/L2 Negro;YA_EXISTE_ADDON_PROBABLE
+180;OBRA_ESPECIFICA;55-2;Lavaropas LG inverter carga frontal;1;adicional;Comprar;;Electricidad;;0.884;Lavaropas inverter carga frontal;YA_EXISTE_ADDON_PROBABLE
+181;OBRA_ESPECIFICA;55-1;Lavavajillas Bosch SMV2ITX09E;1;adicional;En Chubut;;Electricidad;;0.880;Lavavajillas SMV2ITX09E;YA_EXISTE_ADDON_PROBABLE
+181;OBRA_ESPECIFICA;55-2;Lavavajillas Bosch SMV2ITX09E;1;adicional;Comprar;;Electricidad;;0.880;Lavavajillas SMV2ITX09E;YA_EXISTE_ADDON_PROBABLE
+186;OPC;;Luces bajo agua Azul/Blanco;6;opcional;;;;;;;SIN_OBRA_NO_ADDON
+188;OPC;;Luces de lectura;1;opcional;;;;;;;SIN_OBRA_NO_ADDON
+194;OBRA_ESPECIFICA;55-3;Malacate Maxwell RC10 12V INOX;1;adicional;Pedido;Trimer;Electricidad;;;;INSERTAR_ADDON
+194;OBRA_ESPECIFICA;55-4;Malacate Maxwell RC10 12V INOX;1;adicional;Pedido;Trimer;Electricidad;;;;INSERTAR_ADDON
+200;VAR;55-1;Microondas SAMSUNG MG23F3K3TAS/BG GRILL;1;variante;Pedido;;Electricidad;;0.880;Grill;YA_EXISTE_ADDON_PROBABLE
+201;OBRA_ESPECIFICA;55-1;Motor Volvo D11-725 70112078912//29;2;adicional;;;Mecanica;;0.723;MOTOR D11-725 70112078912//29 CON ACCESORIOS;YA_EXISTE_ADDON_PROBABLE
+207;OBRA_ESPECIFICA;55-1;Panel de control Tecma thetford before/after;2;adicional;En Chubut;Flojumar;Sanitarios;;1.000;PANEL DE CONTROL TECMA THETFORD BEFORE/AFTER;YA_EXISTE_ADDON_PROBABLE
+209;OPC;;"Pasacasco 1/2"" bronce";1;opcional;;;Sanitarios;;;;SIN_OBRA_NO_ADDON
+213;OBRA_ESPECIFICA;55-2;Percha Epuyén 0166/L2 Negro;4;adicional;Pedido;;;;1.000;Percha Epuyén 0166/L2 Negro;YA_EXISTE_ADDON_PROBABLE
+216;OPC;55-2;Picaportes Currao SARDEGNA - ver color;12;opcional;Comprar;;;;;;INSERTAR_ADDON
+218;MIXTO;55-1;Piloto automàtico;1;opcional;Pedido;;Electricidad;;1.000;Piloto automàtico;YA_EXISTE_ADDON_PROBABLE
+220;OBRA_ESPECIFICA;55-1;Planchada extensible para bajar a Punta (1mt mas);1;adicional;Revisar;;Electricidad;;1.000;Planchada extensible para bajar a Punta (1mt mas);YA_EXISTE_ADDON_PROBABLE
+223;OBRA_ESPECIFICA;55-1;Plotters 55-1;2;adicional;Comprar;;Electricidad;;0.880;Plotter;YA_EXISTE_ADDON_PROBABLE
+225;OBRA_ESPECIFICA;55-2;Portarrollo Epuyén 0167/L2 Negro;2;adicional;Pedido;;;;1.000;Portarrollo Epuyén 0167/L2 Negro;YA_EXISTE_ADDON_PROBABLE
+227;OPC;;Prefiltro duchador rio;1;opcional;;;Sanitarios;;;;SIN_OBRA_NO_ADDON
+230;OPC;;"Racor 1/2"" bronce";1;opcional;;;Sanitarios;;;;SIN_OBRA_NO_ADDON
+262;OBRA_ESPECIFICA;55-3;"Sistema FLAP Bennett 24 X 12 "" Doble estacion";1;adicional;Pedido;Trimer;Mecanica;;;;INSERTAR_ADDON
+262;OBRA_ESPECIFICA;55-4;"Sistema FLAP Bennett 24 X 12 "" Doble estacion";1;adicional;Pedido;Trimer;Mecanica;;;;INSERTAR_ADDON
+263;OBRA_ESPECIFICA;55-1;"Sistema FLAP Lenco 24 x 16 "" Doble piston";1;adicional;En Chubut;Flojumar;Mecanica;;0.282;TV 24;INSERTAR_ADDON
+263;OBRA_ESPECIFICA;55-2;"Sistema FLAP Lenco 24 x 16 "" Doble piston";1;adicional;Revisar;Flojumar;Mecanica;;;;INSERTAR_ADDON
+264;OBRA_ESPECIFICA;55-1;Solenoide Blue Sea L-Series - 250A 12/24V;1;adicional;Comprar;;Electricidad;;;;INSERTAR_ADDON
+288;OBRA_ESPECIFICA;55-1;Tender lift OPACMARE 5220_90_09;2;adicional;En Chubut;;;;1.000;Tender lift OPACMARE OPACMARE 5220_90_09;YA_EXISTE_ADDON_PROBABLE
+288;OBRA_ESPECIFICA;55-2;Tender lift OPACMARE 5220_90_09;2;adicional;Revisar;;;;1.000;Tender lift OPACMARE OPACMARE 5220_90_09;YA_EXISTE_ADDON_PROBABLE
+288;OBRA_ESPECIFICA;55-3;Tender lift OPACMARE 5220_90_09;2;adicional;Revisar;;;;1.000;Tender lift OPACMARE OPACMARE 5220_90_09;YA_EXISTE_ADDON_PROBABLE
+294;OBRA_ESPECIFICA;55-2;Toallero Epuyén 0163/L2 Negro;2;adicional;Pedido;;;;1.000;Toallero Epuyén 0163/L2 Negro;YA_EXISTE_ADDON_PROBABLE
+309;OBRA_ESPECIFICA;55-1;"TV SAMSUNG 55"" QLED Q6F 4K Smart";1;adicional;Comprar;;Electricidad;;0.917;TV 55 QLED Q6F 4K Smart;YA_EXISTE_ADDON_PROBABLE
+312;OPC;;"Union rosca H 1/2"" WHALE WX1532 - opcional duchador rio";1;opcional;;;Sanitarios;;;;SIN_OBRA_NO_ADDON
+314;OPC;;"Union rosca M 1/2"" WHALE WX1514 - opcional duchador rio";1;opcional;;;Sanitarios;;;;SIN_OBRA_NO_ADDON
+316;OBRA_ESPECIFICA;55-1;"Valvula de desvio ""y"" Matromarine italiana";2;adicional;En Chubut;Flojumar;Sanitarios;;1.000;"VALVULA DE DESVIO ""Y"" MATROMARINE ITALIANA";YA_EXISTE_ADDON_PROBABLE
+319;OPC;;"Válvula esférica 1/2""";1;opcional;;;Sanitarios;;;;SIN_OBRA_NO_ADDON
+323;OBRA_ESPECIFICA;55-1;VHF con AIS;1;adicional;En Chubut;;Electricidad;;1.000;VHF con AIS;YA_EXISTE_ADDON_PROBABLE

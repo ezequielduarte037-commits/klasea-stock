@@ -1,0 +1,5 @@
+﻿excel_row;cantidad;unidad;flag_original;clasificacion;obras_flag;item_original;descripcion_normalizada;observacion;proveedor;sistema_plano;rubro;flag_bool;55_1;55_2;55_3;55_4;notas_sugeridas;dudas;destino_preliminar;grupo_duplicado
+187;6;Unidades;STD;STD;;Luces de lectura;luces de lectura;;;;;False;;;;;;sin rubro;matriz_k55;luces de lectura
+188;1;Unidades;OPC;OPC;;Luces de lectura;luces de lectura;;;;;False;;;;;;clasificacion OPC | sin rubro;revisar_no_matriz;luces de lectura
+216;12;Unidades;OPC;OPC;;Picaportes Currao SARDEGNA - ver color;picaportes currao sardegna - ver color;;;Muebles;;False;NO VA;Comprar;;;"Sistema/Plano: Muebles | Estado por obra: 55-1=NO VA; 55-2=Comprar";clasificacion OPC | sin rubro | posible marca/variante;revisar_no_matriz;picaportes currao sardegna - ver color
+217;14;Unidades;STD;STD;;Picaportes Currao SARDEGNA - ver color;picaportes currao sardegna - ver color;;;Muebles;;False;Comprar;NO VA;;;"Sistema/Plano: Muebles | Estado por obra: 55-1=Comprar; 55-2=NO VA";sin rubro | posible marca/variante;matriz_k55;picaportes currao sardegna - ver color

@@ -166,7 +166,7 @@ function generarEmailTexto({ obras, stockItems, destinatario }) {
 // ══════════════════════════════════════════════════════════════════
 // COMPONENTE PRINCIPAL
 // ══════════════════════════════════════════════════════════════════
-export default function PedidosMaderaScreen({ profile, signOut }) {
+export default function PedidosMaderaScreen({ profile, signOut, embedded = false }) {
   const { isMobile } = useResponsive();
   const [tab,         setTab]         = useState("sugeridas"); // "sugeridas" | "pedido" | "historial"
   const [loading,     setLoading]     = useState(true);
@@ -509,7 +509,7 @@ export default function PedidosMaderaScreen({ profile, signOut }) {
   // RENDER
   // ══════════════════════════════════════════════════════════════
   return (
-    <div style={{ background: C.bg, position: "fixed", inset: 0, overflow: "hidden", color: C.t0, fontFamily: C.sans }}>
+    <div style={{ background: C.bg, position: embedded ? "relative" : "fixed", inset: embedded ? undefined : 0, overflow: "hidden", color: C.t0, fontFamily: C.sans, height: embedded ? "min(760px, calc(100vh - 230px))" : undefined, minHeight: embedded ? 620 : undefined, borderRadius: embedded ? 12 : 0, border: embedded ? `1px solid ${C.b0}` : "none" }}>
       <style>{`
         @import url('https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500;700&display=swap');
         *, *::before, *::after { box-sizing: border-box; }
@@ -521,7 +521,7 @@ export default function PedidosMaderaScreen({ profile, signOut }) {
         button:not([disabled]):hover { opacity: 0.82; }
         button[disabled] { opacity: 0.4; cursor: not-allowed; }
         .bg-glow {
-          position: fixed; inset: 0; pointer-events: none; z-index: 0;
+          position: ${embedded ? "absolute" : "fixed"}; inset: 0; pointer-events: none; z-index: 0;
           background:
             radial-gradient(ellipse 70% 38% at 50% -6%, rgba(59,130,246,0.06) 0%, transparent 65%),
             radial-gradient(ellipse 40% 28% at 92% 88%, rgba(245,158,11,0.03) 0%, transparent 55%);
@@ -533,10 +533,10 @@ export default function PedidosMaderaScreen({ profile, signOut }) {
       `}</style>
       <div className="bg-glow" />
 
-      <div style={{ display: "grid", gridTemplateColumns: isMobile ? "1fr" : "280px 1fr", height: "100%", overflow: "hidden", position: "relative", zIndex: 1 }}>
-        <Sidebar profile={profile} signOut={signOut} />
+      <div style={{ display: "grid", gridTemplateColumns: embedded || isMobile ? "1fr" : "280px 1fr", height: "100%", overflow: "hidden", position: "relative", zIndex: 1 }}>
+        {!embedded && <Sidebar profile={profile} signOut={signOut} />}
 
-        <div style={{ display: "flex", flexDirection: "column", height: "100vh", overflow: "hidden" }}>
+        <div style={{ display: "flex", flexDirection: "column", height: embedded ? "100%" : "100vh", overflow: "hidden" }}>
 
           {/* ── TOPBAR ─────────────────────────────────────────── */}
           <div style={{ height: 50, background: C.topbar, ...GLASS, borderBottom: `1px solid ${C.b0}`, padding: isMobile ? "0 12px 0 52px" : "0 18px", display: "flex", alignItems: "center", gap: 8, flexShrink: 0 }}>

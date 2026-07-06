@@ -1,0 +1,13 @@
+﻿excel_row;clasificacion;obra;descripcion;cantidad;tipo;estado_excel;proveedor;rubro;obs;addon_best_score;addon_best_desc;accion_addon;catalog_exact_desc;catalog_best_score;catalog_best_desc;accion_catalogo
+18;OPC;;Bacha (Camarote Marinero), modelo?? Griferia??;1;opcional;;;;;;;SIN_OBRA_NO_ADDON;;0.223;Cableado B camarote principal K55;CREAR_CATALOGO_SIN_MATRIZ
+45;OPC;;Bomba p/duchador agua de rio;1;opcional;;;Sanitarios;;;;SIN_OBRA_NO_ADDON;;0.376;Bomba agua automática 3GPM + prefiltro;CREAR_CATALOGO_SIN_MATRIZ
+48;VAR;;BOWTHURSTER QUICK DOBLE HELICE 6,5 KW 250MM 12V;1;variante;;Flojumar;Electricidad;;;;SIN_OBRA_NO_ADDON;;0.590;Stern thurster Quick doble helice 6,5kw 250mm 12v;CREAR_CATALOGO_SIN_MATRIZ
+132;OPC;;DUCHADOR agua de rio;1;opcional;;;Sanitarios;;;;SIN_OBRA_NO_ADDON;;0.355;"Filtro agua 1""";CREAR_CATALOGO_SIN_MATRIZ
+186;OPC;;Luces bajo agua Azul/Blanco;6;opcional;;;;;;;SIN_OBRA_NO_ADDON;;0.326;"Filtro agua 1""";CREAR_CATALOGO_SIN_MATRIZ
+188;OPC;;Luces de lectura;1;opcional;;;;;;;SIN_OBRA_NO_ADDON;Luces de lectura;;;EXISTE_CATALOGO
+209;OPC;;"Pasacasco 1/2"" bronce";1;opcional;;;Sanitarios;;;;SIN_OBRA_NO_ADDON;;0.580;"T bronce 1""";CREAR_CATALOGO_SIN_MATRIZ
+227;OPC;;Prefiltro duchador rio;1;opcional;;;Sanitarios;;;;SIN_OBRA_NO_ADDON;;0.237;Duchador con barral FV Polca;CREAR_CATALOGO_SIN_MATRIZ
+230;OPC;;"Racor 1/2"" bronce";1;opcional;;;Sanitarios;;;;SIN_OBRA_NO_ADDON;;0.580;"Racor 1""";CREAR_CATALOGO_SIN_MATRIZ
+312;OPC;;"Union rosca H 1/2"" WHALE WX1532 - opcional duchador rio";1;opcional;;;Sanitarios;;;;SIN_OBRA_NO_ADDON;;0.880;"Union rosca H 1/2"" WHALE WX1532";REVISAR_PROBABLE_DUP
+314;OPC;;"Union rosca M 1/2"" WHALE WX1514 - opcional duchador rio";1;opcional;;;Sanitarios;;;;SIN_OBRA_NO_ADDON;;0.880;"Union rosca M 1/2"" WHALE WX1514";REVISAR_PROBABLE_DUP
+319;OPC;;"Válvula esférica 1/2""";1;opcional;;;Sanitarios;;;;SIN_OBRA_NO_ADDON;"Válvula esférica 1/2""";0.580;"Válvula esférica 1 1/2"" HH";EXISTE_CATALOGO

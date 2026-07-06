@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { Copy, Download, FileText, Link as LinkIcon, PackagePlus, Pencil, RefreshCw, Save, Search, ShoppingCart, SkipForward, StickyNote, Trash2, Upload } from "lucide-react";
+import { Barcode, Copy, Download, ExternalLink, FileText, ImagePlus, Link as LinkIcon, PackagePlus, Pencil, Plus, RefreshCw, Save, Search, ShoppingCart, SkipForward, StickyNote, Trash2, Upload, X } from "lucide-react";
 import Sidebar from "@/components/Sidebar";
 import { useResponsive } from "@/hooks/useResponsive";
 import { C } from "@/theme";
@@ -13,6 +13,7 @@ import {
   actualizarNotasMaterial,
   agregarCodigoBarraMaterial,
   fetchCatalogo,
+  fetchMaterialDuplicateDecisions,
   fetchMaterialAudit,
   fetchObrasAvance,
   guardarProveedor,
@@ -23,9 +24,12 @@ import {
   leerPresupuestoConIA,
   precioVigente,
   restaurarMaterialAuditChange,
+  marcarMaterialesNoDuplicados,
+  normalizeMaterialLinks,
   setCantidadModelo,
   setSectoresMaterial,
   quitarCantidadModelo,
+  uploadMaterialImage,
   fetchAddonsObra,
   crearAddon,
   borrarAddon,
@@ -55,7 +59,7 @@ import VariantesMarcasTab from "./VariantesMarcasTab";
 import LectorTab from "./LectorTab";
 import ProveedorTipoBadge from "./ProveedorTipoBadge";
 import { proveedorAlternativas, proveedorMeta, PROVEEDOR_TIPOS, proveedorTipoUi } from "./proveedorMeta";
-import { materialBarcodeList, materialBarcodeText } from "./materialBarcodes";
+import { barcodeKey, materialBarcodeList, materialBarcodeText } from "./materialBarcodes";
 import { addRequestItem, createPurchaseRequest } from "@/features/compras/purchaseRequestsApi";
 import EnviarAPanolModal from "@/features/panol/EnviarAPanolModal";
 import { BTN, BTN_GREEN, BTN_PRIMARY, Cargando, ErrorBox, INP, KpiCard, LBL, Td, Th } from "@/features/rrhh/ui";
@@ -317,7 +321,13 @@ function prepareMaterialDraftForSave(material, proveedores = [], extraVariants =
   void proveedores;
   const variantes = normalizeVariantList([...(extraVariants || []), ...materialVariants(material)]);
   const descripcion = String(material?.descripcion || "").trim();
-  return { ...material, descripcion, variantes };
+  return {
+    ...material,
+    descripcion,
+    alias: String(material?.alias || "").trim() || null,
+    links: normalizeMaterialLinks(material?.links),
+    variantes,
+  };
 }
 
 function duplicateComparableText(value) {
@@ -1239,6 +1249,166 @@ function VariantsEditor({ value = [], onChange, description = "", proveedores = 
   );
 }
 
+function MaterialLinksEditor({ value = [], onChange, compact = false }) {
+  const links = normalizeMaterialLinks(value);
+  const [draft, setDraft] = useState({ label: "", url: "", nota: "" });
+  const canAdd = draft.url.trim();
+
+  function commitDraft() {
+    if (!canAdd) return;
+    onChange?.(normalizeMaterialLinks([...links, draft]));
+    setDraft({ label: "", url: "", nota: "" });
+  }
+
+  function updateLink(index, patch) {
+    onChange?.(links.map((link, i) => (i === index ? { ...link, ...patch } : link)));
+  }
+
+  function removeLink(index) {
+    onChange?.(links.filter((_, i) => i !== index));
+  }
+
+  return (
+    <div style={{ border: `1px solid ${C.b0}`, borderRadius: 10, background: C.bg, padding: compact ? 8 : 10, display: "grid", gap: 8 }}>
+      <div style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
+        <span style={{ fontSize: 11, fontWeight: 900, color: C.t0 }}>Links utiles</span>
+        <span style={{ fontSize: 10.5, color: C.t3 }}>ficha tecnica, proveedor, compra, manual</span>
+      </div>
+      {links.length > 0 && (
+        <div style={{ display: "grid", gap: 6 }}>
+          {links.map((link, index) => (
+            <div key={`${link.url}-${index}`} style={{ display: "grid", gridTemplateColumns: compact ? "minmax(120px, 1fr) minmax(180px, 1.4fr) 34px" : "minmax(120px, .7fr) minmax(220px, 1.3fr) minmax(160px, .9fr) 34px", gap: 6, alignItems: "center" }}>
+              <input value={link.label || ""} onChange={(e) => updateLink(index, { label: e.target.value })} placeholder="Etiqueta" style={INP} />
+              <input value={link.url || ""} onChange={(e) => updateLink(index, { url: e.target.value })} placeholder="https://..." style={{ ...INP, fontFamily: C.mono }} />
+              {!compact && <input value={link.nota || ""} onChange={(e) => updateLink(index, { nota: e.target.value })} placeholder="Nota breve" style={INP} />}
+              <button type="button" onClick={() => removeLink(index)} style={{ ...BTN, color: C.red, padding: "7px 8px" }} title="Quitar link">
+                <X size={13} />
+              </button>
+            </div>
+          ))}
+        </div>
+      )}
+      <div style={{ display: "grid", gridTemplateColumns: compact ? "minmax(120px, .7fr) minmax(180px, 1.3fr) auto" : "minmax(120px, .7fr) minmax(220px, 1.4fr) minmax(160px, .9fr) auto", gap: 6, alignItems: "center" }}>
+        <input value={draft.label} onChange={(e) => setDraft((d) => ({ ...d, label: e.target.value }))} placeholder="Ficha / ML / proveedor" style={INP} />
+        <input value={draft.url} onChange={(e) => setDraft((d) => ({ ...d, url: e.target.value }))} onKeyDown={(e) => { if (e.key === "Enter") { e.preventDefault(); commitDraft(); } }} placeholder="Pegar link" style={{ ...INP, fontFamily: C.mono }} />
+        {!compact && <input value={draft.nota} onChange={(e) => setDraft((d) => ({ ...d, nota: e.target.value }))} placeholder="Nota opcional" style={INP} />}
+        <button type="button" onClick={commitDraft} disabled={!canAdd} style={{ ...BTN, padding: "7px 10px", color: C.blue, opacity: canAdd ? 1 : 0.5 }}>
+          <Plus size={13} /> Link
+        </button>
+      </div>
+    </div>
+  );
+}
+
+function MaterialLinksSummary({ links = [] }) {
+  const clean = normalizeMaterialLinks(links);
+  if (!clean.length) return null;
+  return (
+    <span style={{ display: "inline-flex", alignItems: "center", gap: 4, color: C.blue, fontSize: 10.5, fontWeight: 800, flexShrink: 0 }}>
+      <ExternalLink size={12} /> {clean.length} link{clean.length === 1 ? "" : "s"}
+    </span>
+  );
+}
+
+function PendingImagePicker({ file, onChange, imageUrl, onImageUrlChange }) {
+  const inputRef = useRef(null);
+  const preview = useMemo(() => (file ? URL.createObjectURL(file) : ""), [file]);
+
+  useEffect(() => {
+    if (!preview) return undefined;
+    return () => URL.revokeObjectURL(preview);
+  }, [preview]);
+
+  return (
+    <div style={{ border: `1px solid ${C.b0}`, borderRadius: 10, background: C.bg, padding: 10, display: "grid", gap: 8 }}>
+      <div style={{ display: "flex", alignItems: "center", gap: 9, flexWrap: "wrap" }}>
+        <div style={{ width: 64, height: 64, borderRadius: 10, border: `1px solid ${C.b0}`, background: C.s0, overflow: "hidden", display: "grid", placeItems: "center", flexShrink: 0 }}>
+          {preview || imageUrl ? (
+            <img src={preview || imageUrl} alt="Preview" style={{ width: "100%", height: "100%", objectFit: "cover" }} />
+          ) : (
+            <ImagePlus size={20} color={C.t2} />
+          )}
+        </div>
+        <div style={{ flex: 1, minWidth: 220, display: "grid", gap: 6 }}>
+          <div style={{ fontSize: 11, fontWeight: 900, color: C.t0 }}>Imagen del item</div>
+          <input value={imageUrl || ""} onChange={(e) => onImageUrlChange?.(e.target.value)} placeholder="URL de imagen o ficha visual" style={{ ...INP, width: "100%" }} />
+          <div style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>
+            <button type="button" onClick={() => inputRef.current?.click()} style={{ ...BTN, padding: "6px 10px", color: C.blue }}>
+              <ImagePlus size={13} /> Elegir archivo
+            </button>
+            {file && (
+              <button type="button" onClick={() => onChange?.(null)} style={{ ...BTN, padding: "6px 10px", color: C.red }}>
+                Quitar archivo
+              </button>
+            )}
+          </div>
+        </div>
+      </div>
+      <input
+        ref={inputRef}
+        type="file"
+        accept="image/*"
+        style={{ display: "none" }}
+        onChange={(e) => { onChange?.(e.target.files?.[0] || null); e.target.value = ""; }}
+      />
+    </div>
+  );
+}
+
+function DraftBarcodeEditor({ value = [], onChange, variantes = [] }) {
+  const [draft, setDraft] = useState({ codigo: "", etiqueta: "", variante: "" });
+  const rows = (value || []).filter((row) => row?.codigo?.trim());
+
+  function addCode() {
+    const codigo = draft.codigo.trim();
+    if (!codigo) return;
+    const key = barcodeKey(codigo);
+    if (rows.some((row) => barcodeKey(row.codigo) === key)) {
+      setDraft({ codigo: "", etiqueta: "", variante: "" });
+      return;
+    }
+    onChange?.([...rows, { codigo, etiqueta: draft.etiqueta.trim(), variante: draft.variante || null }]);
+    setDraft({ codigo: "", etiqueta: "", variante: "" });
+  }
+
+  return (
+    <div style={{ border: `1px solid ${C.b0}`, borderRadius: 10, background: C.bg, padding: 10, display: "grid", gap: 8 }}>
+      <div style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
+        <Barcode size={14} color={C.blue} />
+        <span style={{ fontSize: 11, fontWeight: 900, color: C.t0 }}>Codigos de barra adicionales</span>
+        <span style={{ fontSize: 10.5, color: C.t3 }}>para marcas, cajas o codigos alternativos</span>
+      </div>
+      {rows.length > 0 && (
+        <div style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>
+          {rows.map((row, index) => (
+            <span key={`${row.codigo}-${index}`} style={{ display: "inline-flex", alignItems: "center", gap: 6, border: `1px solid ${C.blueB}`, background: C.blueL, color: C.blue, borderRadius: 999, padding: "4px 8px", fontSize: 11, fontWeight: 850, fontFamily: C.mono }}>
+              {row.codigo}
+              {row.variante && <span style={{ fontFamily: C.sans, color: C.t1, fontWeight: 800 }}>{row.variante}</span>}
+              {row.etiqueta && <span style={{ fontFamily: C.sans, color: C.t2 }}>{row.etiqueta}</span>}
+              <button type="button" onClick={() => onChange?.(rows.filter((_, i) => i !== index))} style={{ border: "none", background: "transparent", color: C.blue, cursor: "pointer", padding: 0 }}>
+                <X size={11} />
+              </button>
+            </span>
+          ))}
+        </div>
+      )}
+      <div style={{ display: "grid", gridTemplateColumns: variantes.length ? "minmax(150px,1fr) minmax(120px,.7fr) minmax(120px,.7fr) auto" : "minmax(150px,1fr) minmax(120px,.7fr) auto", gap: 6 }}>
+        <input value={draft.codigo} onChange={(e) => setDraft((d) => ({ ...d, codigo: e.target.value }))} onKeyDown={(e) => { if (e.key === "Enter") { e.preventDefault(); addCode(); } }} placeholder="Escanear o escribir codigo" style={{ ...INP, fontFamily: C.mono }} />
+        {variantes.length > 0 && (
+          <select value={draft.variante} onChange={(e) => setDraft((d) => ({ ...d, variante: e.target.value }))} style={INP}>
+            <option value="">Variante</option>
+            {variantes.map((v) => <option key={v} value={v}>{v}</option>)}
+          </select>
+        )}
+        <input value={draft.etiqueta} onChange={(e) => setDraft((d) => ({ ...d, etiqueta: e.target.value }))} placeholder="Etiqueta" style={INP} />
+        <button type="button" onClick={addCode} disabled={!draft.codigo.trim()} style={{ ...BTN, padding: "7px 10px", color: C.blue, opacity: draft.codigo.trim() ? 1 : 0.5 }}>
+          <Plus size={13} /> Codigo
+        </button>
+      </div>
+    </div>
+  );
+}
+
 function MaterialQueueCard({ material, categorias, ums, proveedores, onSave, onSkip, onDelete, onChanged }) {
   const [draft, setDraft] = useState(() => ({ ...material, precio_unitario: inputNumberValue(material.precio_unitario) }));
   const [cantidades, setCantidades] = useState(() => toBomMap(material));
@@ -1372,10 +1542,29 @@ function MaterialQueueCard({ material, categorias, ums, proveedores, onSave, onS
 
 function AltaManual({ categorias, selectedId, ums, proveedores, onCreated }) {
   const [open, setOpen] = useState(false);
-  const [draft, setDraft] = useState({ descripcion: "", proveedor_id: "", proveedor: "", unidad_medida: "", precio_unitario: "", moneda: "", codigo: "", categoria_id: selectedId });
+  const emptyDraft = useCallback(() => ({
+    descripcion: "",
+    alias: "",
+    proveedor_id: "",
+    proveedor: "",
+    unidad_medida: "",
+    precio_unitario: "",
+    moneda: "",
+    codigo: "",
+    codigo_barra: "",
+    categoria_id: selectedId,
+    imagen_url: "",
+    links: [],
+    notas: "",
+    revisado: true,
+  }), [selectedId]);
+  const [draft, setDraft] = useState(() => emptyDraft());
   const [cantidades, setCantidades] = useState({ 37: "", 52: "", 55: "" });
   const [variantes, setVariantes] = useState([]);
+  const [codigosExtra, setCodigosExtra] = useState([]);
+  const [imageFile, setImageFile] = useState(null);
   const [saving, setSaving] = useState(false);
+  const [err, setErr] = useState(null);
 
   useEffect(() => {
     setDraft((d) => ({ ...d, categoria_id: d.categoria_id || selectedId }));
@@ -1385,13 +1574,22 @@ function AltaManual({ categorias, selectedId, ums, proveedores, onCreated }) {
     e.preventDefault();
     if (!draft.descripcion.trim() || saving) return;
     setSaving(true);
+    setErr(null);
     try {
-      await crearMaterial(prepareMaterialDraftForSave(draft, proveedores, variantes), cantidades);
-      setDraft({ descripcion: "", proveedor_id: "", proveedor: "", unidad_medida: "", precio_unitario: "", moneda: "", codigo: "", categoria_id: selectedId });
+      const materialId = await crearMaterial(prepareMaterialDraftForSave(draft, proveedores, variantes), cantidades);
+      if (imageFile) await uploadMaterialImage(materialId, imageFile);
+      for (const row of codigosExtra) {
+        if (row.codigo?.trim()) await agregarCodigoBarraMaterial(materialId, row.codigo, { etiqueta: row.etiqueta, variante: row.variante || null });
+      }
+      setDraft(emptyDraft());
       setCantidades({ 37: "", 52: "", 55: "" });
       setVariantes([]);
+      setCodigosExtra([]);
+      setImageFile(null);
       setOpen(false);
       onCreated?.();
+    } catch (error) {
+      setErr(error);
     } finally {
       setSaving(false);
     }
@@ -1406,7 +1604,14 @@ function AltaManual({ categorias, selectedId, ums, proveedores, onCreated }) {
   }
 
   return (
-    <form onSubmit={submit} style={{ background: C.s0, border: `1px solid ${C.b0}`, borderRadius: 12, padding: 14, marginBottom: 14 }}>
+    <form onSubmit={submit} style={{ background: C.s0, border: `1px solid ${C.b1}`, borderRadius: 14, padding: 16, marginBottom: 16, display: "grid", gap: 12 }}>
+      <div style={{ display: "flex", alignItems: "flex-start", justifyContent: "space-between", gap: 12, flexWrap: "wrap" }}>
+        <div>
+          <div style={{ fontSize: 13, fontWeight: 950, color: C.t0 }}>Alta manual de material</div>
+          <div style={{ fontSize: 11.5, color: C.t2, marginTop: 2 }}>Crea el item completo: proveedor, precio, matriz, codigos, links e imagen.</div>
+        </div>
+        <button type="button" onClick={() => setOpen(false)} style={{ ...BTN, padding: "6px 10px" }}>Cerrar</button>
+      </div>
       <div style={{ display: "grid", gridTemplateColumns: "minmax(220px, 2fr) repeat(3, minmax(110px, 1fr))", gap: 8, marginBottom: 8 }}>
         <input autoFocus placeholder="Descripción" value={draft.descripcion} onChange={(e) => setDraft((d) => ({ ...d, descripcion: e.target.value }))} style={INP} />
         <ProveedorSelect
@@ -1420,6 +1625,11 @@ function AltaManual({ categorias, selectedId, ums, proveedores, onCreated }) {
         <select value={draft.categoria_id || ""} onChange={(e) => setDraft((d) => ({ ...d, categoria_id: e.target.value }))} style={INP}>
           {categorias.map((c) => <option key={c.id} value={c.id}>{c.nombre}</option>)}
         </select>
+      </div>
+      <div style={{ display: "grid", gridTemplateColumns: "minmax(180px, .9fr) minmax(180px, .9fr) minmax(220px, 1.2fr)", gap: 8 }}>
+        <input placeholder="Alias / nombre corto" value={draft.alias || ""} onChange={(e) => setDraft((d) => ({ ...d, alias: e.target.value }))} style={INP} />
+        <input placeholder="Codigo de barra principal" value={draft.codigo_barra || ""} onChange={(e) => setDraft((d) => ({ ...d, codigo_barra: e.target.value }))} style={{ ...INP, fontFamily: C.mono }} />
+        <input placeholder="Proveedor texto libre" value={draft.proveedor || ""} onChange={(e) => setDraft((d) => ({ ...d, proveedor: e.target.value }))} style={INP} />
       </div>
       <div style={{ marginBottom: 10 }}>
         <VariantsEditor
@@ -1440,11 +1650,23 @@ function AltaManual({ categorias, selectedId, ums, proveedores, onCreated }) {
           <input key={modelo} placeholder={`K${modelo}`} type="number" step="any" value={cantidades[modelo]} onChange={(e) => setCantidades((c) => ({ ...c, [modelo]: e.target.value }))} style={{ ...INP, fontFamily: C.mono }} />
         ))}
       </div>
+      <div style={{ display: "grid", gridTemplateColumns: "minmax(280px, .95fr) minmax(320px, 1.05fr)", gap: 12 }}>
+        <PendingImagePicker
+          file={imageFile}
+          onChange={setImageFile}
+          imageUrl={draft.imagen_url}
+          onImageUrlChange={(imagen_url) => setDraft((d) => ({ ...d, imagen_url }))}
+        />
+        <DraftBarcodeEditor value={codigosExtra} onChange={setCodigosExtra} variantes={variantes} />
+      </div>
+      <MaterialLinksEditor value={draft.links} onChange={(links) => setDraft((d) => ({ ...d, links }))} />
+      <textarea value={draft.notas || ""} onChange={(e) => setDraft((d) => ({ ...d, notas: e.target.value }))} rows={2} placeholder="Observaciones reales del item (solo aclaraciones utiles)" style={{ ...INP, width: "100%", resize: "vertical" }} />
       <datalist id="materiales-ums">
         {ums.map((u) => <option key={u} value={u} />)}
       </datalist>
-      <div style={{ display: "flex", gap: 8 }}>
-        <button type="submit" disabled={saving || !draft.descripcion.trim()} style={BTN_GREEN}>{saving ? "Guardando…" : "Crear material"}</button>
+      {err && <div style={{ fontSize: 12, color: C.red }}>{err.message || "No se pudo crear el material."}</div>}
+      <div style={{ display: "flex", gap: 8, justifyContent: "flex-end", flexWrap: "wrap" }}>
+        <button type="submit" disabled={saving || !draft.descripcion.trim()} style={BTN_GREEN}>{saving ? "Guardando..." : "Crear material completo"}</button>
         <button type="button" onClick={() => setOpen(false)} style={BTN}>Cancelar</button>
       </div>
     </form>
@@ -1937,6 +2159,7 @@ function MaterialFila({ material, categorias, ums, proveedores, onChanged, linea
                 variantes {savedVariants.join(" / ")}
               </span>
             )}
+            <MaterialLinksSummary links={material.links} />
           </div>
         </div>
         {lineasConQty.length > 0 && (
@@ -1967,6 +2190,17 @@ function MaterialFila({ material, categorias, ums, proveedores, onChanged, linea
           <div>
             <span style={lbl}>Descripción</span>
             <input value={draft.descripcion || ""} onChange={(e) => setDraft((d) => ({ ...d, descripcion: e.target.value }))} style={{ ...INP, width: "100%" }} />
+          </div>
+          <div style={{ display: "grid", gridTemplateColumns: "minmax(180px, .7fr) minmax(260px, 1fr)", gap: 8, alignItems: "end" }}>
+            <div>
+              <span style={lbl}>Alias / nombre corto</span>
+              <input value={draft.alias || ""} onChange={(e) => setDraft((d) => ({ ...d, alias: e.target.value }))} placeholder="Opcional" style={{ ...INP, width: "100%" }} />
+            </div>
+            <div style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
+              <MaterialThumb material={{ ...material, imagen_url: draft.imagen_url }} size={46} />
+              <input value={draft.imagen_url || ""} onChange={(e) => setDraft((d) => ({ ...d, imagen_url: e.target.value }))} placeholder="URL de imagen" style={{ ...INP, flex: "1 1 220px" }} />
+              <MaterialImageUploader material={material} onUploaded={onChanged} compact />
+            </div>
           </div>
           <div>
             <span style={lbl}>Variantes del item (marcas/modelos aceptables)</span>
@@ -2007,6 +2241,7 @@ function MaterialFila({ material, categorias, ums, proveedores, onChanged, linea
             <div><span style={lbl}>Código</span><input value={draft.codigo || ""} onChange={(e) => setDraft((d) => ({ ...d, codigo: e.target.value }))} style={{ ...INP, width: "100%" }} /></div>
           </div>
           <MaterialBarcodeEditor material={material} onChanged={onChanged} />
+          <MaterialLinksEditor value={draft.links} onChange={(links) => setDraft((d) => ({ ...d, links }))} />
           <div>
             <span style={lbl}>Cantidad por línea</span>
             <div style={{ display: "flex", gap: 10, flexWrap: "wrap" }}>
@@ -2195,7 +2430,24 @@ function AgregarItemLinea({ linea, title, materiales = [], categorias = [], prov
   const [cantidad, setCantidad] = useState("1");
   const [saving, setSaving] = useState(false);
   const [err, setErr] = useState(null);
-  const [draft, setDraft] = useState({ descripcion: "", codigo: "", categoria_id: "", proveedor_id: "", proveedor: "", unidad_medida: "unidad" });
+  const [draft, setDraft] = useState({
+    descripcion: "",
+    alias: "",
+    codigo: "",
+    codigo_barra: "",
+    categoria_id: "",
+    proveedor_id: "",
+    proveedor: "",
+    unidad_medida: "unidad",
+    precio_unitario: "",
+    moneda: "",
+    imagen_url: "",
+    links: [],
+    notas: "",
+  });
+  const [variantesNuevo, setVariantesNuevo] = useState([]);
+  const [codigosExtraNuevo, setCodigosExtraNuevo] = useState([]);
+  const [imageFileNuevo, setImageFileNuevo] = useState(null);
 
   useEffect(() => {
     if (!draft.categoria_id && categorias[0]?.id) setDraft((d) => ({ ...d, categoria_id: categorias[0].id }));
@@ -2224,7 +2476,24 @@ function AgregarItemLinea({ linea, title, materiales = [], categorias = [], prov
     setQ("");
     setSelectedId("");
     setCantidad("1");
-    setDraft((d) => ({ ...d, descripcion: "", codigo: "", proveedor_id: "", proveedor: "", unidad_medida: d.unidad_medida || "unidad" }));
+    setDraft((d) => ({
+      ...d,
+      descripcion: "",
+      alias: "",
+      codigo: "",
+      codigo_barra: "",
+      proveedor_id: "",
+      proveedor: "",
+      precio_unitario: "",
+      moneda: "",
+      imagen_url: "",
+      links: [],
+      notas: "",
+      unidad_medida: d.unidad_medida || "unidad",
+    }));
+    setVariantesNuevo([]);
+    setCodigosExtraNuevo([]);
+    setImageFileNuevo(null);
   }
 
   async function addExisting() {
@@ -2245,7 +2514,11 @@ function AgregarItemLinea({ linea, title, materiales = [], categorias = [], prov
     if (!canSaveNew || saving) return;
     setSaving(true); setErr(null);
     try {
-      const id = await crearMaterial({ ...draft, revisado: false }, {});
+      const id = await crearMaterial(prepareMaterialDraftForSave({ ...draft, revisado: false }, proveedores, variantesNuevo), {});
+      if (imageFileNuevo) await uploadMaterialImage(id, imageFileNuevo);
+      for (const row of codigosExtraNuevo) {
+        if (row.codigo?.trim()) await agregarCodigoBarraMaterial(id, row.codigo, { etiqueta: row.etiqueta, variante: row.variante || null });
+      }
       await setCantidadModelo(id, linea, cantidad);
       resetSoft();
       setMode("existente");
@@ -2324,16 +2597,16 @@ function AgregarItemLinea({ linea, title, materiales = [], categorias = [], prov
           </div>
         </div>
       ) : (
-        <div style={{ display: "grid", gap: 8 }}>
-          <div style={{ display: "grid", gridTemplateColumns: "minmax(220px, 1.2fr) 110px 92px", gap: 8 }}>
-            <input value={draft.descripcion} onChange={(e) => setDraft((d) => ({ ...d, descripcion: e.target.value }))} placeholder="Descripción del material" style={{ ...INP, height: 38 }} />
+        <div style={{ display: "grid", gap: 10 }}>
+          <div style={{ display: "grid", gridTemplateColumns: "minmax(260px, 1.4fr) minmax(130px, .6fr) 92px", gap: 8 }}>
+            <input value={draft.descripcion} onChange={(e) => setDraft((d) => ({ ...d, descripcion: e.target.value }))} placeholder="Descripción del material" style={{ ...INP, height: 38, fontWeight: 750 }} />
             <input value={draft.unidad_medida} onChange={(e) => setDraft((d) => ({ ...d, unidad_medida: e.target.value }))} list="linea-add-ums" placeholder="Unidad" style={{ ...INP, height: 38 }} />
             <input type="number" step="any" min="0" value={cantidad} onChange={(e) => setCantidad(e.target.value)} placeholder="Cant." style={{ ...INP, height: 38, fontFamily: C.mono }} />
           </div>
           <datalist id="linea-add-ums">
             {ums.map((u) => <option key={u} value={u} />)}
           </datalist>
-          <div style={{ display: "grid", gridTemplateColumns: "minmax(180px, .8fr) minmax(180px, .8fr) 130px auto", gap: 8, alignItems: "center" }}>
+          <div style={{ display: "grid", gridTemplateColumns: "minmax(170px, .8fr) minmax(210px, 1fr) minmax(130px, .6fr) minmax(130px, .6fr)", gap: 8, alignItems: "center" }}>
             <select value={draft.categoria_id || ""} onChange={(e) => setDraft((d) => ({ ...d, categoria_id: e.target.value }))} style={{ ...INP, height: 38 }}>
               <option value="" style={OPT_ST}>Elegir rubro</option>
               {categorias.map((c) => <option key={c.id} value={c.id} style={OPT_ST}>{categoriaNombre(categorias, c.id)}</option>)}
@@ -2345,9 +2618,38 @@ function AgregarItemLinea({ linea, title, materiales = [], categorias = [], prov
               onCreated={onChanged}
               onChange={(id, nombre) => setDraft((d) => ({ ...d, proveedor_id: id, proveedor: nombre }))}
             />
-            <input value={draft.codigo} onChange={(e) => setDraft((d) => ({ ...d, codigo: e.target.value }))} placeholder="Código" style={{ ...INP, height: 38 }} />
-            <button type="button" onClick={createAndAdd} disabled={!canSaveNew || saving} style={{ ...BTN_GREEN, height: 38, padding: "0 13px" }}>
-              {saving ? "Creando..." : "Crear y agregar"}
+            <input value={draft.codigo} onChange={(e) => setDraft((d) => ({ ...d, codigo: e.target.value }))} placeholder="Código interno" style={{ ...INP, height: 38 }} />
+            <input value={draft.codigo_barra} onChange={(e) => setDraft((d) => ({ ...d, codigo_barra: e.target.value }))} placeholder="Código de barra" style={{ ...INP, height: 38, fontFamily: C.mono }} />
+          </div>
+          <div style={{ display: "grid", gridTemplateColumns: "minmax(180px, .8fr) minmax(160px, .65fr) 110px 94px", gap: 8, alignItems: "center" }}>
+            <input value={draft.alias || ""} onChange={(e) => setDraft((d) => ({ ...d, alias: e.target.value }))} placeholder="Alias / nombre corto" style={{ ...INP, height: 38 }} />
+            <input value={draft.proveedor || ""} onChange={(e) => setDraft((d) => ({ ...d, proveedor: e.target.value }))} placeholder="Proveedor texto libre" style={{ ...INP, height: 38 }} />
+            <input type="number" step="any" value={draft.precio_unitario || ""} onChange={(e) => setDraft((d) => ({ ...d, precio_unitario: e.target.value }))} placeholder="Precio" style={{ ...INP, height: 38, fontFamily: C.mono }} />
+            <select value={draft.moneda || ""} onChange={(e) => setDraft((d) => ({ ...d, moneda: e.target.value }))} style={{ ...INP, height: 38 }}>
+              {MONEDAS.map((m) => <option key={m || "null"} value={m} style={OPT_ST}>{m || "Moneda"}</option>)}
+            </select>
+          </div>
+          <VariantsEditor
+            value={variantesNuevo}
+            onChange={setVariantesNuevo}
+            description={draft.descripcion}
+            proveedores={proveedores}
+            onCleanTitle={(descripcion) => setDraft((d) => ({ ...d, descripcion }))}
+          />
+          <div style={{ display: "grid", gridTemplateColumns: "minmax(280px, .95fr) minmax(320px, 1.05fr)", gap: 10 }}>
+            <PendingImagePicker
+              file={imageFileNuevo}
+              onChange={setImageFileNuevo}
+              imageUrl={draft.imagen_url}
+              onImageUrlChange={(imagen_url) => setDraft((d) => ({ ...d, imagen_url }))}
+            />
+            <DraftBarcodeEditor value={codigosExtraNuevo} onChange={setCodigosExtraNuevo} variantes={variantesNuevo} />
+          </div>
+          <MaterialLinksEditor value={draft.links} onChange={(links) => setDraft((d) => ({ ...d, links }))} compact />
+          <textarea value={draft.notas || ""} onChange={(e) => setDraft((d) => ({ ...d, notas: e.target.value }))} rows={2} placeholder="Observaciones reales del item" style={{ ...INP, width: "100%", resize: "vertical" }} />
+          <div style={{ display: "flex", justifyContent: "flex-end" }}>
+            <button type="button" onClick={createAndAdd} disabled={!canSaveNew || saving} style={{ ...BTN_GREEN, height: 38, padding: "0 14px", opacity: !canSaveNew || saving ? 0.6 : 1 }}>
+              {saving ? "Creando..." : `Crear y agregar a K${linea}`}
             </button>
           </div>
         </div>
@@ -5191,6 +5493,28 @@ function buildNormalizationGroups(materiales = [], categorias = [], proveedores 
     .sort((a, b) => b.score - a.score || String(a.material.descripcion || "").localeCompare(String(b.material.descripcion || ""), "es"));
 }
 
+function duplicatePairKey(a, b) {
+  const ids = [a, b].filter(Boolean).map(String).sort();
+  return ids.length === 2 && ids[0] !== ids[1] ? `${ids[0]}:${ids[1]}` : "";
+}
+
+function duplicateGroupPairKeys(group) {
+  const ids = (group?.materials || []).map((material) => material.id).filter(Boolean).sort();
+  const keys = [];
+  for (let i = 0; i < ids.length; i += 1) {
+    for (let j = i + 1; j < ids.length; j += 1) {
+      const key = duplicatePairKey(ids[i], ids[j]);
+      if (key) keys.push(key);
+    }
+  }
+  return keys;
+}
+
+function duplicateGroupDismissed(group, dismissedPairs) {
+  const keys = duplicateGroupPairKeys(group);
+  return keys.length > 0 && keys.every((key) => dismissedPairs.has(key));
+}
+
 function ConfidenceBadge({ value }) {
   const meta = value === "alta"
     ? { label: "Alta", color: C.green, bg: C.greenL, border: C.greenB }
@@ -5443,10 +5767,28 @@ function DuplicadosCatalogo({ groups, cleanupCandidates = [], categorias, ums, p
   const [selectedByGroup, setSelectedByGroup] = useState({});
   const [keeperByGroup, setKeeperByGroup] = useState({});
   const [dismissed, setDismissed] = useState(() => new Set());
+  const [dismissedPairs, setDismissedPairs] = useState(() => new Set());
+  const [decisionErr, setDecisionErr] = useState(null);
+
+  useEffect(() => {
+    let alive = true;
+    fetchMaterialDuplicateDecisions()
+      .then((keys) => {
+        if (alive) setDismissedPairs(new Set(keys));
+      })
+      .catch((error) => {
+        if (alive) setDecisionErr(error);
+      });
+    return () => {
+      alive = false;
+    };
+  }, []);
+
   const visibles = useMemo(() => {
     const terms = norm(q).split(/\s+/).filter(Boolean);
     return groups.filter((group) => {
       if (dismissed.has(group.id)) return false;
+      if (duplicateGroupDismissed(group, dismissedPairs)) return false;
       if (filtro === "alta" && group.score < 92) return false;
       if (filtro === "media" && group.score < 82) return false;
       if (filtro === "revisar" && group.score >= 82) return false;
@@ -5455,7 +5797,7 @@ function DuplicadosCatalogo({ groups, cleanupCandidates = [], categorias, ums, p
       const hay = norm(group.materials.map((m) => `${m.descripcion || ""} ${m.codigo || ""} ${m.proveedor || ""} ${categoriaNombre(categorias, m.categoria_id)}`).join(" "));
       return terms.every((term) => hay.includes(term));
     });
-  }, [groups, q, filtro, categorias, dismissed]);
+  }, [groups, q, filtro, categorias, dismissed, dismissedPairs]);
   const totalItems = useMemo(() => groups.reduce((sum, group) => sum + group.materials.length, 0), [groups]);
   const highConfidence = useMemo(() => groups.filter((group) => group.score >= 92).length, [groups]);
   const mediumConfidence = useMemo(() => groups.filter((group) => group.score >= 82).length, [groups]);
@@ -5490,6 +5832,34 @@ function DuplicadosCatalogo({ groups, cleanupCandidates = [], categorias, ums, p
     try {
       await archivarMateriales(clean);
       await onChanged?.();
+    } finally {
+      setBusy("");
+    }
+  }
+
+  async function dismissGroup(group) {
+    const ids = group.materials.map((material) => material.id).filter(Boolean);
+    if (ids.length < 2 || busy) return;
+    setBusy(`dismiss-${group.id}`);
+    setDecisionErr(null);
+    try {
+      await marcarMaterialesNoDuplicados(ids, {
+        groupKey: group.id,
+        reason: `${group.reason || "posible duplicado"} (${group.score || 0})`,
+      });
+      const keys = duplicateGroupPairKeys(group);
+      setDismissedPairs((prev) => {
+        const next = new Set(prev);
+        keys.forEach((key) => next.add(key));
+        return next;
+      });
+      setDismissed((prev) => {
+        const next = new Set(prev);
+        next.add(group.id);
+        return next;
+      });
+    } catch (error) {
+      setDecisionErr(error);
     } finally {
       setBusy("");
     }
@@ -5557,6 +5927,7 @@ function DuplicadosCatalogo({ groups, cleanupCandidates = [], categorias, ums, p
             </button>
           ))}
         </div>
+        {decisionErr && <ErrorBox error={decisionErr} onRetry={() => setDecisionErr(null)} />}
       </div>
 
       {cleanupCandidates.length > 0 && (
@@ -5613,8 +5984,8 @@ function DuplicadosCatalogo({ groups, cleanupCandidates = [], categorias, ums, p
               <button type="button" onClick={() => archiveIds(duplicateIds, "duplicados")} disabled={!!busy} style={{ ...BTN, padding: "6px 10px", color: C.red, border: "1px solid rgba(239,68,68,0.28)", background: "rgba(239,68,68,0.06)" }}>
                 <Trash2 size={13} /> Archivar los otros
               </button>
-              <button type="button" onClick={() => setDismissed((prev) => new Set(prev).add(group.id))} disabled={!!busy} style={{ ...BTN, padding: "6px 10px", color: C.t2 }} title="Sacar este grupo de la lista (no son duplicados)">
-                No son duplicados
+              <button type="button" onClick={() => dismissGroup(group)} disabled={!!busy} style={{ ...BTN, padding: "6px 10px", color: C.t2, opacity: busy === `dismiss-${group.id}` ? 0.65 : 1 }} title="Guardar en la base que este grupo no es duplicado">
+                {busy === `dismiss-${group.id}` ? "Guardando..." : "No son duplicados"}
               </button>
             </div>
           </div>

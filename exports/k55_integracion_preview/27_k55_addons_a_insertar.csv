@@ -1,0 +1,33 @@
+﻿excel_row;clasificacion;obra;descripcion;cantidad;tipo;estado_excel;proveedor;rubro;obs;catalog_exact_id;catalog_best_score;catalog_best_desc;addon_best_score;addon_best_desc;accion_addon;accion_catalogo
+19;OBRA_ESPECIFICA;55-2;Bacha de cocina negra -SOLO BARCO 55-2;1;adicional;Comprar;;Carpinteria;;;0.408;Canilla de cocina;0.734;Bacha de cocina negra;INSERTAR_ADDON;CREAR_CATALOGO
+33;OBRA_ESPECIFICA;55-1;Bisagra codo 18 + base con clip;2;adicional;En Chubut;;Carpinteria;;0da15e33-7a69-48aa-838b-1bf72a7630d2;;;0.430;Bisagras codo 18;INSERTAR_ADDON;EXISTE_CATALOGO
+47;OBRA_ESPECIFICA;55-3;Bowthruster Sleipner side-power 160kh 12V + STERN;1;adicional;Pedido;Trimer;Electricidad;;;0.222;Bowthruster 55-12V 55Kg;;;INSERTAR_ADDON;CREAR_CATALOGO
+47;OBRA_ESPECIFICA;55-4;Bowthruster Sleipner side-power 160kh 12V + STERN;1;adicional;Pedido;Trimer;Electricidad;;;0.222;Bowthruster 55-12V 55Kg;;;INSERTAR_ADDON;CREAR_CATALOGO
+59;OPC;55-1;Cable alargue Quick 12 metros;4;opcional;En Chubut;Flojumar;Electricidad;;;0.172;Joystick doble Quick italy;;;INSERTAR_ADDON;CREAR_CATALOGO
+61;OPC;55-1;Cable y derivacion 2 estaciones Quick;2;opcional;En Chubut;Flojumar;Electricidad;;;0.184;Joystick doble Quick italy;;;INSERTAR_ADDON;CREAR_CATALOGO
+76;OBRA_ESPECIFICA;55-2;Canilla de cocina - COLOR NEGRO;1;adicional;Comprar;MercadoLibre;Sanitarios;;;0.752;Canilla de cocina;0.367;Bacha de cocina negra;INSERTAR_ADDON;CREAR_CATALOGO
+84;OBRA_ESPECIFICA;55-1;Cargador Victron Centaur 24v 60A de 3 salidas;1;adicional;En Chubut;;Electricidad;;;0.239;Victron, combinador de baterias cyrix-ct;0.132;"VALVULA DE DESVIO ""Y"" MATROMARINE ITALIANA";INSERTAR_ADDON;CREAR_CATALOGO
+88;VAR;55-1;Cerraduras de puertas BRONZEN (K55);7;variante;Comprar;;;;;0.752;Cerraduras de puertas;0.145;"VALVULA DE DESVIO ""Y"" MATROMARINE ITALIANA";INSERTAR_ADDON;CREAR_CATALOGO
+89;VAR;55-2;Cerraduras de puertas BRONZEN (K55) - OPCIONAL sin vestidor;6;opcional;Comprar;;;;;0.613;Cerraduras de puertas;0.273;Bisagras codo 9 - OPCIONAL camarote sin vestidor;INSERTAR_ADDON;CREAR_CATALOGO
+109;VAR;55-1;Control con indicador segunda estacion Lenco;1;variante;En Chubut;Flojumar;Electricidad;;;0.138;Bisagra codo 0 + base con clip;0.204;VHF con AIS;INSERTAR_ADDON;CREAR_CATALOGO
+110;VAR;55-1;Control faro segunda estacion Marinco;1;variante;En Chubut;Flojumar;Electricidad;;;0.367;Faro Marinco 12V dirigible;0.138;PANEL DE CONTROL TECMA THETFORD BEFORE/AFTER;INSERTAR_ADDON;CREAR_CATALOGO
+128;OBRA_ESPECIFICA;55-1;Desagues lineales ducha -SOLO BARCO 55-1;2;adicional;Pedido;;;;;0.164;Monocomando ducha FV Libby;0.690;Desagues lineales ducha;INSERTAR_ADDON;CREAR_CATALOGO
+131;OBRA_ESPECIFICA;55-1;Divisor de carga 80A (tiene que tener línea de compensación para el alternador como el Victron Argodiodo 80-2AC);2;adicional;En Chubut;;Electricidad;;;0.214;Imanes para puertas de muebles;0.106;"VALVULA DE DESVIO ""Y"" MATROMARINE ITALIANA";INSERTAR_ADDON;CREAR_CATALOGO
+136;OBRA_ESPECIFICA;55-2;Duchador Mano Piazza Lujo D0105ne + Sop Toma Flex 1.5m Negro;2;adicional;Pedido;MercadoLibre;Sanitarios;;;0.628;Duchador mano Piazza lujo;0.333;Duchador de mano NEGRO + Codo pared;INSERTAR_ADDON;CREAR_CATALOGO
+150;VAR;55-1;Equipo de audio (elige cliente);1;variante;Especificar;;;;;0.215;Ánodo de flaps;0.172;BARRA DE SONIDO SK1D;INSERTAR_ADDON;CREAR_CATALOGO
+161;OBRA_ESPECIFICA;55-3;Footswich Maxwell con tapa heavy duty grande;2;adicional;Pedido;Trimer;Electricidad;;;0.197;Inodoro Tecma Thetford silence 2 plusg con bidet y tapa 12v;;;INSERTAR_ADDON;CREAR_CATALOGO
+161;OBRA_ESPECIFICA;55-4;Footswich Maxwell con tapa heavy duty grande;2;adicional;Pedido;Trimer;Electricidad;;;0.197;Inodoro Tecma Thetford silence 2 plusg con bidet y tapa 12v;;;INSERTAR_ADDON;CREAR_CATALOGO
+165;OBRA_ESPECIFICA;55-1;Grill KENION;1;adicional;En Chubut;Flojumar;Electricidad;;;;;0.690;Grill;INSERTAR_ADDON;CREAR_CATALOGO
+169;OBRA_ESPECIFICA;55-1;HOLDING TANK MATROMARINE ITALIANO 73 LITROS 12V;1;adicional;;Flojumar;Sanitarios;;;0.111;Baterías 12v 180Ah;0.550;HOLDING TANK MATROMARINE ITALIANO 103 LITROS 12V;INSERTAR_ADDON;CREAR_CATALOGO
+172;OPC;55-1;Inodoro electrico (Camarote Marinero), modelo??;1;opcional;Especificar;Flojumar;;;;0.125;Cableado B camarote principal K55;;;INSERTAR_ADDON;CREAR_CATALOGO
+194;OBRA_ESPECIFICA;55-3;Malacate Maxwell RC10 12V INOX;1;adicional;Pedido;Trimer;Electricidad;;;0.293;Posavasos inox;;;INSERTAR_ADDON;CREAR_CATALOGO
+194;OBRA_ESPECIFICA;55-4;Malacate Maxwell RC10 12V INOX;1;adicional;Pedido;Trimer;Electricidad;;;0.293;Posavasos inox;;;INSERTAR_ADDON;CREAR_CATALOGO
+200;VAR;55-1;Microondas SAMSUNG MG23F3K3TAS/BG GRILL;1;variante;Pedido;;Electricidad;;;0.167;Horno Samsung NV7B4040VAS/BG;0.535;Grill;INSERTAR_ADDON;CREAR_CATALOGO
+201;OBRA_ESPECIFICA;55-1;Motor Volvo D11-725 70112078912//29;2;adicional;;;Mecanica;;;0.111;"Silenciador Vernalift 6"" Centek 16X16 (motor)";0.658;MOTOR D11-725 70112078912//29 CON ACCESORIOS;INSERTAR_ADDON;CREAR_CATALOGO
+216;OPC;55-2;Picaportes Currao SARDEGNA - ver color;12;opcional;Comprar;;;;9765e3d5-30b9-44f7-aee9-77dec09d3a2d;;;;;INSERTAR_ADDON;EXISTE_CATALOGO
+223;OBRA_ESPECIFICA;55-1;Plotters 55-1;2;adicional;Comprar;;Electricidad;;;0.200;Bowthruster 55-12V 55Kg;0.143;TV 55 QLED Q6F 4K Smart;INSERTAR_ADDON;CREAR_CATALOGO
+262;OBRA_ESPECIFICA;55-3;"Sistema FLAP Bennett 24 X 12 "" Doble estacion";1;adicional;Pedido;Trimer;Mecanica;;;0.157;Bisagra doble perno abajo;;;INSERTAR_ADDON;CREAR_CATALOGO
+262;OBRA_ESPECIFICA;55-4;"Sistema FLAP Bennett 24 X 12 "" Doble estacion";1;adicional;Pedido;Trimer;Mecanica;;;0.157;Bisagra doble perno abajo;;;INSERTAR_ADDON;CREAR_CATALOGO
+263;OBRA_ESPECIFICA;55-1;"Sistema FLAP Lenco 24 x 16 "" Doble piston";1;adicional;En Chubut;Flojumar;Mecanica;;;0.157;Bisagra doble perno abajo;0.125;TV 24;INSERTAR_ADDON;CREAR_CATALOGO
+263;OBRA_ESPECIFICA;55-2;"Sistema FLAP Lenco 24 x 16 "" Doble piston";1;adicional;Revisar;Flojumar;Mecanica;;;0.157;Bisagra doble perno abajo;;;INSERTAR_ADDON;CREAR_CATALOGO
+264;OBRA_ESPECIFICA;55-1;Solenoide Blue Sea L-Series - 250A 12/24V;1;adicional;Comprar;;Electricidad;;;0.290;Llave corte batería Blue Sea;;;INSERTAR_ADDON;CREAR_CATALOGO
