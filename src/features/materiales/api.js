@@ -483,7 +483,20 @@ export async function fetchAddonsObra(obraId) {
   } catch { return []; }
 }
 export async function crearAddon(obraId, fields) {
-  const { error } = await supabase.from("panol_obra_addons").insert({ obra_id: obraId, ...fields });
+  const payload = { obra_id: obraId, ...fields };
+  let { error } = await supabase.from("panol_obra_addons").insert(payload);
+  if (error && isMissingColumn(error)) {
+    const legacyPayload = {
+      obra_id: obraId,
+      descripcion: payload.descripcion,
+      cantidad: payload.cantidad,
+      proveedor: payload.proveedor,
+      tipo: payload.tipo,
+      observaciones: payload.observaciones,
+    };
+    const retry = await supabase.from("panol_obra_addons").insert(legacyPayload);
+    error = retry.error;
+  }
   if (error) throw error;
 }
 export async function borrarAddon(id) {
@@ -621,14 +634,36 @@ function snapshotPayloadFromRows(obraId, rows = []) {
     }));
 }
 
+function snapshotPayloadKey(row) {
+  const materialId = row?.material_id ?? row?.materialId ?? null;
+  const kind = row?.tipo || row?.tipo_key || row?.bucket?.key || row?.source || "";
+  if (kind === "addon" || row?.source === "addon") {
+    const textKey = norm(`${materialId || ""}|${row?.descripcion || ""}|${row?.codigo || ""}|${row?.unidad || row?.unidad_medida || ""}`);
+    return textKey ? `addon:${textKey}` : "";
+  }
+  if (materialId) return `material:${materialId}`;
+  const textKey = norm(`${row?.descripcion || ""}|${row?.codigo || ""}|${row?.unidad || row?.unidad_medida || ""}`);
+  return textKey ? `text:${textKey}` : "";
+}
+
 export async function ensureObraMaterialSnapshot(obraId, rows = []) {
   if (!obraId) return [];
   try {
     const existing = await fetchObraMaterialSnapshot(obraId);
-    if (existing.length) return existing;
-
     const payload = snapshotPayloadFromRows(obraId, rows);
-    if (!payload.length) return [];
+    if (!payload.length) return existing;
+
+    if (existing.length) {
+      const existingKeys = new Set(existing.map(snapshotPayloadKey).filter(Boolean));
+      const missing = payload.filter((row) => {
+        const key = snapshotPayloadKey(row);
+        return key && !existingKeys.has(key);
+      });
+      if (!missing.length) return existing;
+      const { error } = await supabase.from("panol_obra_materiales_snapshot").insert(missing);
+      if (error) return existing;
+      return await fetchObraMaterialSnapshot(obraId);
+    }
 
     const { error } = await supabase.from("panol_obra_materiales_snapshot").insert(payload);
     if (error) return [];
@@ -675,6 +710,42 @@ export async function updateObraSnapshotRows(ids = [], patch = {}) {
     if (error && !isMissingTable(error)) throw error;
   } catch (error) {
     if (!isMissingTable(error)) throw error;
+  }
+}
+
+export async function cambiarEstadoObraSnapshot(snapshotId, estado, nota = "") {
+  if (!snapshotId) throw new Error("Falta el item de obra.");
+  const { data, error } = await supabase
+    .rpc("panol_cambiar_estado_snapshot", {
+      p_snapshot_id: snapshotId,
+      p_estado: estado,
+      p_nota: String(nota || "").trim() || null,
+    });
+  if (error) {
+    if (!(isMissingTable(error) || isMissingColumn(error) || String(error.message || "").includes("function"))) throw error;
+    await updateObraSnapshotRows([snapshotId], { estado });
+    return null;
+  }
+  return data;
+}
+
+export async function fetchObraSnapshotAudit(snapshotId, limit = 50) {
+  if (!snapshotId) return [];
+  try {
+    const { data, error } = await supabase
+      .from("panol_obra_materiales_snapshot_audit")
+      .select("id, snapshot_id, obra_id, material_id, descripcion, campo, valor_anterior, valor_nuevo, nota, origen, created_at, actor:profiles(id, username, role, is_admin)")
+      .eq("snapshot_id", snapshotId)
+      .order("created_at", { ascending: false })
+      .limit(limit);
+    if (error) {
+      if (isMissingTable(error) || isMissingColumn(error)) return [];
+      throw error;
+    }
+    return data ?? [];
+  } catch (error) {
+    if (isMissingTable(error) || isMissingColumn(error)) return [];
+    throw error;
   }
 }
 
@@ -938,7 +1009,7 @@ export async function crearMaterial(material, cantidades = {}) {
       variantes: normalizeVariantes(material.variantes),
       alias: material.alias || null,
       notas: material.notas || null,
-      origen: "manual",
+      origen: material.origen || "manual",
       codigo_barra: material.codigo_barra || null,
       revisado: material.revisado ?? true,
       activo: true,
@@ -958,7 +1029,7 @@ export async function crearMaterial(material, cantidades = {}) {
         precio_unitario: toNullableNumber(material.precio_unitario),
         moneda: material.moneda || null,
         imagen_url: material.imagen_url || null,
-        origen: "manual",
+        origen: material.origen || "manual",
         revisado: material.revisado ?? true,
         activo: true,
       })

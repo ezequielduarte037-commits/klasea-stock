@@ -102,6 +102,7 @@ export default function MapaPanolTab({ isMobile = false, toast, canEdit = false 
   const [q, setQ] = useState("");
   const [zonaFiltro, setZonaFiltro] = useState("");
   const [editMode, setEditMode] = useState(false);
+  const [detalleMat, setDetalleMat] = useState(null); // Nuevo estado para el modal
   const svgRef = useRef(null);
   const dragRef = useRef(null);
 
@@ -376,15 +377,16 @@ export default function MapaPanolTab({ isMobile = false, toast, canEdit = false 
             )}
           </div>
 
-          {selEst && <EstanteriaPanel est={selEst} mats={selMats} onClose={() => setSel(null)} />}
+          {selEst && <EstanteriaPanel est={selEst} mats={selMats} onClose={() => setSel(null)} onMatClick={setDetalleMat} />}
         </div>
       </div>
+      {detalleMat && <MaterialDetalleModal material={detalleMat} onClose={() => setDetalleMat(null)} />}
     </div>
   );
 }
 
 // ── Ficha de estantería: vista frontal a escala + productos por estante ──
-function EstanteriaPanel({ est, mats, onClose }) {
+function EstanteriaPanel({ est, mats, onClose, onMatClick }) {
   const color = zonaColor(est.codigo);
   const niveles = Array.isArray(est.niveles_cm) ? est.niveles_cm : [];
   const alto = est.alto_cm || (niveles.length ? Math.max(...niveles) : 200);
@@ -460,10 +462,12 @@ function EstanteriaPanel({ est, mats, onClose }) {
                 <div key={nivel}>
                   <div style={{ fontSize: 10.5, color, fontWeight: 900, marginBottom: 3 }}>{nivel === 0 ? "Sin estante específico" : `${nivel}º estante`}</div>
                   {items.map((m) => (
-                    <div key={m.id} style={{ display: "flex", gap: 7, alignItems: "baseline", fontSize: 12.5, padding: "4px 8px", background: C.panel, borderRadius: 8, marginBottom: 3 }}>
-                      <span style={{ color: C.text, minWidth: 0 }}>{m.descripcion}</span>
+                    <button key={m.id} type="button" onClick={() => onMatClick?.(m)} style={{ width: "100%", display: "flex", gap: 7, alignItems: "baseline", fontSize: 12.5, padding: "6px 10px", background: C.panel, borderRadius: 8, marginBottom: 4, cursor: "pointer", border: `1px solid transparent`, textAlign: "left", transition: "all 0.15s" }}
+                      onMouseEnter={(e) => { e.currentTarget.style.borderColor = color; e.currentTarget.style.background = `${color}14`; }}
+                      onMouseLeave={(e) => { e.currentTarget.style.borderColor = "transparent"; e.currentTarget.style.background = C.panel; }}>
+                      <span style={{ color: C.text, minWidth: 0, fontWeight: 700 }}>{m.descripcion}</span>
                       {m.ubicacion_obs && <span style={{ color: C.dim, fontSize: 11 }}>· {m.ubicacion_obs}</span>}
-                    </div>
+                    </button>
                   ))}
                 </div>
               ))}
@@ -471,6 +475,163 @@ function EstanteriaPanel({ est, mats, onClose }) {
           )}
         </div>
         {est.notas && <div style={{ fontSize: 11.5, color: C.dim }}>⚠ {est.notas}</div>}
+      </div>
+    </div>
+  );
+}
+
+// ── Modal de Detalle de Material (Radiografía) ──
+function MaterialDetalleModal({ material, onClose }) {
+  const [loading, setLoading] = useState(true);
+  const [data, setData] = useState({ total: 0, general: 0, separados: [] });
+
+  useEffect(() => {
+    async function load() {
+      try {
+        const { data: snaps, error } = await supabase.from("panol_obra_materiales_snapshot")
+          .select("obra_id, obra:produccion_obras(codigo, linea_nombre, estado), cantidad, estado, cantidad_egresada, tipo, recepcion_estado, source, descripcion")
+          .or(`material_id.eq.${material.id},descripcion.ilike."${material.descripcion}"`);
+        
+        if (error) throw error;
+
+        let total = 0;
+        let general = 0;
+        const separadosMap = new Map();
+
+        const IN_STOCK_STATES = new Set(["en_panol", "recibido", "parcial"]);
+        const RECEIVED_STATES = new Set(["recibido", "parcial"]);
+        const DIRECT_STOCK_SOURCES = new Set(["stock_general", "remito", "transferencia_ingreso", "ajuste_ingreso"]);
+
+        function rowCountsAsStock(row) {
+          if (row.estado === "en_panol") return true;
+          if (!IN_STOCK_STATES.has(row.estado)) return false;
+          const rec = String(row.recepcion_estado || "").trim();
+          const src = String(row.source || "").trim();
+          return RECEIVED_STATES.has(rec) || DIRECT_STOCK_SOURCES.has(src) || src.startsWith("stock_") || src.startsWith("transferencia_ingreso");
+        }
+
+        for (const s of snaps || []) {
+          if (rowCountsAsStock(s)) {
+            const qty = Number(s.cantidad || 0);
+            total += qty;
+            
+            if (!s.obra_id) {
+              general += qty;
+            } else {
+              const k = s.obra_id;
+              if (!separadosMap.has(k)) {
+                separadosMap.set(k, {
+                  obra: s.obra?.codigo || "Obra sin código",
+                  linea: s.obra?.linea_nombre || "",
+                  cantidad: 0,
+                });
+              }
+              separadosMap.get(k).cantidad += qty;
+            }
+          } else if (s.estado === "egresado") {
+            const src = String(s.source || "").trim();
+            if (src.startsWith("egreso") || src.startsWith("transferencia_egreso") || !s.obra_id) {
+              const qtyEgresada = Math.abs(Number(s.cantidad_egresada || s.cantidad || 0));
+              total -= qtyEgresada;
+              if (!s.obra_id) general -= qtyEgresada;
+              // No restamos de los separados porque una vez egresado ya no está en el pañol físicamente.
+            }
+          }
+        }
+
+        const separadosArray = [...separadosMap.values()].filter(o => o.cantidad > 0).sort((a, b) => a.obra.localeCompare(b.obra));
+
+        setData({ total: Math.max(0, total), general: Math.max(0, general), separados: separadosArray });
+      } catch (err) {
+        console.error("Error cargando detalle:", err);
+      } finally {
+        setLoading(false);
+      }
+    }
+    load();
+  }, [material.id]);
+
+  return (
+    <div style={{ position: "fixed", inset: 0, zIndex: 9999, display: "flex", justifyContent: "flex-end" }}>
+      <div style={{ position: "absolute", inset: 0, background: "rgba(15,23,42,0.4)", backdropFilter: "blur(4px)" }} onClick={onClose} />
+      
+      <div style={{ position: "relative", width: 450, maxWidth: "100%", background: C.bg, borderLeft: `1px solid ${C.b0}`, display: "flex", flexDirection: "column", boxShadow: "-10px 0 30px rgba(0,0,0,0.2)" }}>
+        <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "16px 20px", borderBottom: `1px solid ${C.b0}`, background: C.s0 }}>
+          <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+            <div style={{ width: 36, height: 36, borderRadius: 10, background: C.blueL, color: C.blue, display: "grid", placeItems: "center" }}>
+              <PackageOpen size={18} />
+            </div>
+            <div>
+              <div style={{ fontSize: 15, fontWeight: 900, color: C.t0 }}>Radiografía del Estante</div>
+              <div style={{ fontSize: 12, color: C.t2 }}>Lo que hay físicamente acá</div>
+            </div>
+          </div>
+          <button type="button" onClick={onClose} style={{ border: "none", background: "transparent", color: C.t2, cursor: "pointer", padding: 6 }}><X size={20} /></button>
+        </div>
+
+        <div style={{ padding: 20, flex: 1, overflowY: "auto", display: "grid", gap: 20, alignContent: "start" }}>
+          <div>
+            <div style={{ fontSize: 16, fontWeight: 900, color: C.t0 }}>{material.descripcion}</div>
+            <div style={{ fontSize: 13, color: C.t2, marginTop: 4, fontFamily: C.mono, display: "flex", gap: 8 }}>
+              {material.codigo && <span style={{ padding: "2px 6px", background: C.s0, border: `1px solid ${C.b0}`, borderRadius: 6 }}>{material.codigo}</span>}
+              <span style={{ padding: "2px 6px", background: C.blueL, color: C.blue, border: `1px solid ${C.blueB}`, borderRadius: 6 }}>UBIC: {material.ubicacion}</span>
+            </div>
+          </div>
+
+          {loading ? (
+            <div style={{ padding: 40, textAlign: "center", color: C.dim }}>Calculando inventario...</div>
+          ) : (
+            <>
+              <div style={{ display: "flex", alignItems: "center", gap: 16, background: C.panelSolid, border: `1px solid ${C.border}`, borderRadius: 14, padding: "16px 20px" }}>
+                <div style={{ flex: 1 }}>
+                  <div style={{ fontSize: 12, color: C.dim, fontWeight: 800, textTransform: "uppercase", letterSpacing: 0.5 }}>Stock Físico Total en Pañol</div>
+                  <div style={{ fontSize: 36, fontWeight: 950, color: data.total > 0 ? C.green : C.t1, fontFamily: C.mono, lineHeight: 1 }}>
+                    {data.total} <span style={{ fontSize: 14, fontWeight: 700, color: C.t2 }}>unidades</span>
+                  </div>
+                </div>
+              </div>
+
+              {data.total > 0 && (
+                <div>
+                  <div style={{ fontSize: 12, color: C.dim, fontWeight: 800, textTransform: "uppercase", letterSpacing: 0.5, marginBottom: 10 }}>Desglose de lo que hay en el estante</div>
+                  
+                  <div style={{ display: "grid", gap: 8 }}>
+                    {/* Stock General */}
+                    <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "10px 14px", background: C.s0, border: `1px solid ${C.b0}`, borderRadius: 10 }}>
+                      <div>
+                        <div style={{ fontSize: 14, fontWeight: 900, color: C.t0 }}>Stock General</div>
+                        <div style={{ fontSize: 11, color: C.t2 }}>Sin asignar a ninguna obra</div>
+                      </div>
+                      <div style={{ fontSize: 15, fontWeight: 900, color: C.t0, fontFamily: C.mono, background: C.bg, padding: "4px 10px", borderRadius: 8, border: `1px solid ${C.b0}` }}>
+                        {data.general} un
+                      </div>
+                    </div>
+
+                    {/* Stock Separado por Obras */}
+                    {data.separados.map((o, i) => (
+                      <div key={i} style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "10px 14px", background: "rgba(56, 189, 248, 0.05)", border: `1px solid rgba(56, 189, 248, 0.2)`, borderRadius: 10 }}>
+                        <div>
+                          <div style={{ fontSize: 14, fontWeight: 900, color: C.t0 }}>Separado para {o.obra}</div>
+                          <div style={{ fontSize: 11, color: C.t2 }}>{o.linea}</div>
+                        </div>
+                        <div style={{ fontSize: 15, fontWeight: 900, color: C.blue, fontFamily: C.mono, background: C.bg, padding: "4px 10px", borderRadius: 8, border: `1px solid rgba(56, 189, 248, 0.3)` }}>
+                          {o.cantidad} un
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+
+              {data.total === 0 && (
+                <div style={{ padding: 16, textAlign: "center", color: C.dim, border: `1px dashed ${C.border}`, borderRadius: 12, fontSize: 12.5 }}>
+                  <div style={{ fontWeight: 800, marginBottom: 4, color: C.t1 }}>¿Hay material físico acá?</div>
+                  El sistema marca 0 unidades. Si estás viendo el material en la estantería, significa que <b>aún no fue ingresado</b> al sistema. Usá el módulo de Conteo para registrarlo.
+                </div>
+              )}
+            </>
+          )}
+        </div>
       </div>
     </div>
   );
