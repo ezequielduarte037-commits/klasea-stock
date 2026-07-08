@@ -33,7 +33,6 @@ import {
   fetchAddonsObra,
   crearAddon,
   actualizarAddon,
-  borrarAddon,
   cambiarEstadoObraSnapshot,
   fetchObraSnapshotAudit,
   fetchObraMaterialSnapshot,
@@ -2799,38 +2798,6 @@ function addonPayloadFromDraft(draft, variantes, { cantidad, tipo = "adicional",
   };
 }
 
-function clearVariantText(value, variants = [], proveedores = []) {
-  return norm(cleanTitleBrands(value, variants, proveedores))
-    .replace(/[^a-z0-9]+/g, " ")
-    .replace(/\s+/g, " ")
-    .trim();
-}
-
-function addonToMatrixVariantMatch(addon, liveRows = [], proveedores = []) {
-  const addonVariants = normalizeVariantList([
-    ...normalizeVariantList(addon?.variantes),
-    ...extractBrandsFromTitle(addon?.descripcion || "", proveedores),
-  ]);
-  if (!addonVariants.length) return null;
-  const addonMeasures = strictMeasurementSignature(addon?.descripcion || "");
-  const addonClean = clearVariantText(addon?.descripcion || "", addonVariants, proveedores);
-  if (!addonClean || addonClean.length < 5) return null;
-
-  const matches = liveRows
-    .filter((row) => row.materialId && row.source !== "addon")
-    .map((row) => {
-      const variants = normalizeVariantList([...addonVariants, ...materialVariants(row.material)]);
-      const rowClean = clearVariantText(row.descripcion || "", variants, proveedores);
-      const rowMeasures = strictMeasurementSignature(row.descripcion || "");
-      if (addonMeasures.size && rowMeasures.size && !sameSet(addonMeasures, rowMeasures)) return null;
-      if (addonClean !== rowClean) return null;
-      return { row, variante: addonVariants[0] };
-    })
-    .filter(Boolean);
-
-  return matches.length === 1 ? matches[0] : null;
-}
-
 function ObraAddonModal({ open, obra, addon = null, materiales = [], categorias = [], proveedores = [], ums = [], onClose, onSaved, onChanged }) {
   const [mode, setMode] = useState("existente");
   const [q, setQ] = useState("");
@@ -4168,18 +4135,6 @@ function ObraMatrizView({ obra, linea, lineaNombre, categorias, materiales, prov
 
   const condicionantesActivos = useMemo(() => condicionantesModelo.filter((condicionante) => condicionante.activoEnObra), [condicionantesModelo]);
 
-  const visibleAddons = useMemo(() => {
-    const terms = norm(addonQ).split(/\s+/).filter(Boolean);
-    return (addons ?? [])
-      .filter((addon) => {
-        if (!terms.length) return true;
-        const material = materialById.get(addon.material_id);
-        const hay = norm(`${addon.descripcion || ""} ${addon.proveedor || ""} ${addon.tipo || ""} ${addon.codigo || ""} ${addon.observaciones || ""} ${material?.descripcion || ""} ${material?.codigo || ""} ${material?.proveedor || ""}`);
-        return terms.every((term) => hay.includes(term));
-      })
-      .sort((a, b) => String(a.descripcion || "").localeCompare(String(b.descripcion || ""), "es", { numeric: true }));
-  }, [addons, addonQ, materialById]);
-
   const addonStats = useMemo(() => ({
     total: addons.length,
     adicionales: addons.filter((addon) => addon.tipo !== "opcional").length,
@@ -4291,14 +4246,6 @@ function ObraMatrizView({ obra, linea, lineaNombre, categorias, materiales, prov
   const obraRows = useMemo(() => [...liveRows, ...addonRows], [liveRows, addonRows]);
   const snapshotRows = useMemo(() => snapshot.map(snapshotRowToView), [snapshot]);
   const rows = useMemo(() => mergeMatrixAndSnapshotRows(obraRows, snapshotRows), [obraRows, snapshotRows]);
-  const addonVariantMatches = useMemo(() => {
-    const map = new Map();
-    for (const addon of addons ?? []) {
-      const match = addonToMatrixVariantMatch(addon, liveRows, proveedores);
-      if (match) map.set(addon.id, match);
-    }
-    return map;
-  }, [addons, liveRows, proveedores]);
   const snapshotActivo = snapshot.length > 0;
   const snapshotParcial = useMemo(() => {
     if (!snapshotRows.length || !liveRows.length) return false;
@@ -4354,9 +4301,11 @@ function ObraMatrizView({ obra, linea, lineaNombre, categorias, materiales, prov
     visibleRows.forEach((row) => {
       const key = groupBy === "rubro" ? row.rubro : groupBy === "tipo" ? row.bucket.label : row.proveedor;
       const label = key || "Sin clasificar";
-      if (!map.has(label)) map.set(label, { label, rows: [], usd: 0, ars: 0, sinPrecio: 0, revisar: 0 });
+      if (!map.has(label)) map.set(label, { label, rows: [], usd: 0, ars: 0, sinPrecio: 0, revisar: 0, esAddon: false });
       const group = map.get(label);
       group.rows.push(row);
+      // Marcar si el grupo contiene adicionales
+      if (row.source === "addon" || row.bucket?.key === "addon") group.esAddon = true;
       if (row.review?.flag) group.revisar += 1;
       const qty = toNum(row.cantidad) || 1;
       if (row.precio.amount) {
@@ -4366,7 +4315,12 @@ function ObraMatrizView({ obra, linea, lineaNombre, categorias, materiales, prov
         group.sinPrecio += 1;
       }
     });
-    return [...map.values()].sort((a, b) => b.rows.length - a.rows.length || a.label.localeCompare(b.label, "es"));
+    // Ordenar: grupos normales primero (por cantidad de ítems), adicionales al final
+    return [...map.values()].sort((a, b) => {
+      if (a.esAddon && !b.esAddon) return 1;
+      if (!a.esAddon && b.esAddon) return -1;
+      return b.rows.length - a.rows.length || a.label.localeCompare(b.label, "es");
+    });
   }, [visibleRows, groupBy]);
 
   const kpis = useMemo(() => rows.reduce((acc, row) => {
@@ -4529,27 +4483,6 @@ function ObraMatrizView({ obra, linea, lineaNombre, categorias, materiales, prov
       });
     } catch (e) {
       setFlowMsg({ type: "err", text: e?.message || "No se pudo preparar el aviso a pañol." });
-    } finally {
-      setActionBusy("");
-    }
-  }
-
-  async function convertirAddonEnVariante(addon, match) {
-    if (!addon?.id || !match?.row?.materialId || !match?.variante) return;
-    if (!window.confirm(`Convertir "${addon.descripcion}" en variante "${match.variante}" de "${match.row.descripcion}"?\n\nSe elimina el adicional propio y queda guardada la variante en la lista fija de ${obra.codigo}.`)) return;
-    setActionBusy(`addon-${addon.id}`);
-    setFlowMsg(null);
-    try {
-      const saved = await ensureObraMaterialSnapshot(obra.id, liveRows);
-      const snapId = saved.find((row) => row.material_id === match.row.materialId)?.id || null;
-      if (!snapId) throw new Error("No se pudo encontrar el item estándar en la lista fija.");
-      await updateObraSnapshotRows([snapId], { variante: match.variante });
-      await borrarAddon(addon.id);
-      await Promise.all([cargarAddons(), cargarSnapshot()]);
-      setFlowMsg({ type: "ok", text: `Convertido: ${match.row.descripcion} queda con variante ${match.variante}.` });
-    } catch (e) {
-      const msg = String(e?.message || "");
-      setFlowMsg({ type: "err", text: msg.includes("variante") ? "Falta correr el SQL de variante por obra para poder convertir." : msg || "No se pudo convertir el adicional en variante." });
     } finally {
       setActionBusy("");
     }
@@ -4749,51 +4682,6 @@ function ObraMatrizView({ obra, linea, lineaNombre, categorias, materiales, prov
               </button>
             </div>
           </div>
-          {visibleAddons.length > 0 ? (
-            <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(240px, 1fr))", gap: 8, maxHeight: 230, overflowY: "auto", paddingRight: 2 }}>
-              {visibleAddons.map((addon) => {
-                const material = materialById.get(addon.material_id) || null;
-                const desc = material?.descripcion || addon.descripcion || "Item adicional";
-                const tipoMeta = addonTipoMeta(addon.tipo);
-                const variantMatch = addonVariantMatches.get(addon.id);
-                return (
-                  <div key={addon.id} style={{ display: "flex", gap: 9, alignItems: "center", border: `1px solid ${C.b0}`, background: C.bg, borderRadius: 10, padding: 9, minWidth: 0, flexWrap: "wrap" }}>
-                    <MaterialThumb material={material || { imagen_url: addon.imagen_url }} size={38} />
-                    <div style={{ flex: 1, minWidth: 0 }}>
-                      <div style={{ display: "flex", gap: 6, alignItems: "center", minWidth: 0 }}>
-                        <span style={{ fontSize: 12.5, fontWeight: 900, color: C.t0, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{desc}</span>
-                        <span style={{ fontSize: 10, fontWeight: 900, color: tipoMeta.color, border: `1px solid ${tipoMeta.border}`, background: tipoMeta.bg, borderRadius: 999, padding: "2px 7px", flexShrink: 0 }}>{tipoMeta.label}</span>
-                      </div>
-                      <div style={{ fontSize: 11, color: C.t2, marginTop: 3, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
-                        {qtyText(addon.cantidad || 1, addon.unidad || material?.unidad_medida || "unidad")} · {material?.proveedor || addon.proveedor || "Sin proveedor"}
-                      </div>
-                      {variantMatch ? (
-                        <button
-                          type="button"
-                          disabled={actionBusy === `addon-${addon.id}`}
-                          onClick={() => convertirAddonEnVariante(addon, variantMatch)}
-                          style={{ ...BTN, marginTop: 7, padding: "5px 8px", fontSize: 10.5, color: C.blue, borderColor: C.blueB, background: C.blueL }}
-                          title={`Convertir en variante de ${variantMatch.row.descripcion}`}
-                        >
-                          {actionBusy === `addon-${addon.id}` ? "Convirtiendo..." : `Convertir en variante de ${variantMatch.row.descripcion}`}
-                        </button>
-                      ) : null}
-                    </div>
-                    <button type="button" onClick={() => { setEditingAddon(addon); setAddonModalOpen(true); }} style={{ ...BTN, color: C.blue, padding: "6px 8px" }} title="Editar adicional">
-                      <Pencil size={13} />
-                    </button>
-                    <button type="button" onClick={async () => { await borrarAddon(addon.id); cargarAddons(); }} style={{ ...BTN, color: C.red, padding: "6px 8px" }} title="Quitar adicional">
-                      <Trash2 size={13} />
-                    </button>
-                  </div>
-                );
-              })}
-            </div>
-          ) : (
-            <div style={{ border: `1px dashed ${C.b0}`, borderRadius: 10, padding: 14, color: C.t2, fontSize: 12, textAlign: "center" }}>
-              {addons.length ? "No hay adicionales con ese filtro." : "Todavia no hay items propios cargados para esta obra."}
-            </div>
-          )}
         </div>
       )}
 
@@ -6810,9 +6698,16 @@ function MatrizTab({ categorias, materiales, proveedores, onChanged }) {
   const [catForm, setCatForm] = useState({ root: "", sub: "" });
   const [catBusy, setCatBusy] = useState("");
   const [catError, setCatError] = useState("");
+  
+  // Excluir materiales con origen='addon_obra' (son ítems propios de obras, no del catálogo)
+  const materialesCatalogo = useMemo(() => 
+    (materiales ?? []).filter(m => m.origen !== 'addon_obra'),
+    [materiales]
+  );
+  
   const ums = useMemo(
-    () => [...new Set((materiales ?? []).map((m) => m.unidad_medida).filter(Boolean).map(String))].sort((a, b) => a.localeCompare(b, "es")),
-    [materiales],
+    () => [...new Set((materialesCatalogo ?? []).map((m) => m.unidad_medida).filter(Boolean).map(String))].sort((a, b) => a.localeCompare(b, "es")),
+    [materialesCatalogo],
   );
   const raices = useMemo(() => categorias.filter(esRaiz), [categorias]);
   const selCat = categorias.find((c) => c.id === sel);
@@ -6822,10 +6717,10 @@ function MatrizTab({ categorias, materiales, proveedores, onChanged }) {
 
   const countDe = useCallback((id) => {
     const scope = id ? idsScope(categorias, id) : null;
-    return (materiales ?? []).filter(materialActivo).filter((m) => !scope || materialEnScope(m, scope)).length;
-  }, [materiales, categorias]);
-  const duplicateGroups = useMemo(() => findDuplicateGroups(materiales ?? [], categorias, sel), [materiales, categorias, sel]);
-  const cleanupCandidates = useMemo(() => findCleanupCandidates(materiales ?? [], categorias, sel), [materiales, categorias, sel]);
+    return (materialesCatalogo ?? []).filter(materialActivo).filter((m) => !scope || materialEnScope(m, scope)).length;
+  }, [materialesCatalogo, categorias]);
+  const duplicateGroups = useMemo(() => findDuplicateGroups(materialesCatalogo ?? [], categorias, sel), [materialesCatalogo, categorias, sel]);
+  const cleanupCandidates = useMemo(() => findCleanupCandidates(materialesCatalogo ?? [], categorias, sel), [materialesCatalogo, categorias, sel]);
 
   const Chip = ({ id, label, active }) => (
     <button
@@ -6940,7 +6835,7 @@ function MatrizTab({ categorias, materiales, proveedores, onChanged }) {
         ) : (
           <ListaMateriales
             categorias={categorias}
-            materiales={materiales}
+            materiales={materialesCatalogo}
             selectedId={sel}
             ums={ums}
             proveedores={proveedores}

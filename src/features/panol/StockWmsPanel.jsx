@@ -16,6 +16,7 @@ import BarcodeScanner from "@/features/panol/BarcodeScanner";
 import UbicacionPicker, { UbicacionChip } from "@/features/panol/UbicacionPicker";
 import useKeyboardWedge from "@/features/panol/useKeyboardWedge";
 import { materialBarcodeList, materialBarcodeText } from "@/features/materiales/materialBarcodes";
+import { fmtDate, rowIsAnulado, rowMovementAt } from "@/features/panol/panolMovimientos";
 import {
   crearEnvio,
   crearPanolCatalogMaterialParaEgreso,
@@ -75,11 +76,6 @@ function fmtQty(value) {
   return Number(Math.round(n * 100) / 100).toLocaleString("es-AR");
 }
 
-function fmtDate(ts) {
-  if (!ts) return "-";
-  return new Date(ts).toLocaleString("es-AR", { day: "2-digit", month: "2-digit", hour: "2-digit", minute: "2-digit" });
-}
-
 function isToday(ts) {
   if (!ts) return false;
   return new Date(ts).toDateString() === new Date().toDateString();
@@ -128,6 +124,11 @@ function rowSource(row) {
   return String(row.source || "").trim();
 }
 
+function rowIsEgreso(row) {
+  const source = rowSource(row);
+  return row.estado === "egresado" || source.startsWith("egreso") || source.startsWith("transferencia_egreso");
+}
+
 function rowIsDirectStock(row) {
   const source = rowSource(row);
   return DIRECT_STOCK_SOURCES.has(source) || source.startsWith("stock_") || source.startsWith("transferencia_ingreso");
@@ -148,13 +149,14 @@ function rowIsTransit(row) {
 
 function rowDelta(row) {
   if (rowCountsAsStock(row)) return qty(row.cantidad, 1);
-  if (row.estado === "egresado" && String(row.source || "").startsWith("egreso")) {
-    return -Math.abs(qty(row.cantidad_egresada, qty(row.cantidad, 1)));
-  }
-  if (row.estado === "egresado" && String(row.source || "").startsWith("transferencia_egreso")) {
+  if (rowIsEgreso(row)) {
     return -Math.abs(qty(row.cantidad_egresada, qty(row.cantidad, 1)));
   }
   return 0;
+}
+
+function rowEgresoQuantity(row) {
+  return Math.abs(rowDelta(row)) || Math.abs(qty(row.cantidad_egresada, qty(row.cantidad, 1)));
 }
 
 function rowUnitPriceUsd(row) {
@@ -174,6 +176,10 @@ function rowSearchText(row) {
     rowObraLabel(row),
     rowSede(row),
     row.estado,
+    row.retirado_por,
+    row.egreso_nota,
+    row.sector_destino,
+    row.egreso_por,
     rowIsAdditional(row) ? "adicional opcional extra" : "estandar base matriz",
     row.request?.title,
     row.request?.description,
@@ -533,7 +539,7 @@ function KardexRow({ row, onRevert, busy }) {
   const isTransit = rowIsTransit(row);
   const label = isTransit ? "Transito" : isOut ? "Egreso" : row.estado === "problema" ? "Problema" : "Ingreso";
   // Guard B: deshabilitar Revertir si ya contiene "[anulado]" en notas
-  const yaAnulado = String(row.notas || "").includes("[anulado]");
+  const yaAnulado = rowIsAnulado(row);
   return (
     <div style={{ display: "grid", gridTemplateColumns: "74px minmax(0, 1fr) 86px 68px", gap: 10, alignItems: "center", padding: "9px 0", borderBottom: `1px solid ${C.border}` }}>
       <span style={{ color: isTransit ? C.amber : isOut ? C.red : C.green, fontSize: 11, fontWeight: 950 }}>{label}</span>
@@ -558,6 +564,108 @@ function KardexRow({ row, onRevert, busy }) {
         </button>
       ) : <span />}
     </div>
+  );
+}
+
+function EgresosHistoryView({ rows, loading, obras, isMobile, onOpenProduct }) {
+  const obraById = useMemo(() => new Map((obras || []).map((obra) => [obra.id, obra])), [obras]);
+  const totals = useMemo(() => {
+    const unidades = rows.reduce((sum, row) => sum + rowEgresoQuantity(row), 0);
+    const hoy = rows.filter((row) => isToday(rowMovementAt(row))).length;
+    const materiales = new Set(rows.map((row) => row.material_id || norm([row.codigo, row.descripcion].filter(Boolean).join(" ")) || row.id));
+    return { unidades, hoy, materiales: materiales.size };
+  }, [rows]);
+
+  function destinoLabel(row) {
+    const destinoObra = row.egreso_destino_obra_id ? obraById.get(row.egreso_destino_obra_id) : null;
+    if (destinoObra?.codigo) return `Transferido a ${destinoObra.codigo}`;
+    if (row.egreso_destino_obra_id) return "Transferido a obra";
+    if (row.sector_destino) return row.sector_destino;
+    return "Salida / consumo";
+  }
+
+  function detalleLabel(row) {
+    return [row.retirado_por ? `Retira: ${row.retirado_por}` : "", row.egreso_nota || row.notas || ""]
+      .filter(Boolean)
+      .join(" - ");
+  }
+
+  return (
+    <section style={{ minHeight: 0, border: `1px solid ${C.border}`, background: C.panel, borderRadius: 12, overflow: "hidden", display: "flex", flexDirection: "column" }}>
+      <div style={{ padding: "13px 14px", borderBottom: `1px solid ${C.border}`, background: C.panelSolid, display: "flex", alignItems: "center", justifyContent: "space-between", gap: 12, flexWrap: "wrap" }}>
+        <div>
+          <div style={{ color: C.text, fontSize: 15, fontWeight: 950 }}>Historial de egresos</div>
+          <div style={{ color: C.dim, fontSize: 11, marginTop: 2 }}>Movimientos ya registrados, filtrados por busqueda, sede, obra y categoria.</div>
+        </div>
+        <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
+          <span style={{ border: `1px solid ${C.border}`, background: C.bg, color: C.text, borderRadius: 999, padding: "6px 9px", fontSize: 11, fontWeight: 900 }}>{rows.length} egresos</span>
+          <span style={{ border: `1px solid ${C.border}`, background: C.bg, color: C.text, borderRadius: 999, padding: "6px 9px", fontSize: 11, fontWeight: 900 }}>{fmtQty(totals.unidades)} unidades</span>
+          <span style={{ border: `1px solid ${C.border}`, background: C.bg, color: C.text, borderRadius: 999, padding: "6px 9px", fontSize: 11, fontWeight: 900 }}>{totals.materiales} productos</span>
+          <span style={{ border: `1px solid ${C.greenB}`, background: C.greenL, color: C.green, borderRadius: 999, padding: "6px 9px", fontSize: 11, fontWeight: 900 }}>{totals.hoy} hoy</span>
+        </div>
+      </div>
+
+      <div style={{ flex: 1, minHeight: 0, overflowY: "auto", padding: 10, display: "grid", gap: 8, alignContent: "start" }}>
+        {loading ? (
+          <div style={{ padding: 30, textAlign: "center", color: C.dim, fontSize: 12, fontWeight: 850 }}>Cargando egresos...</div>
+        ) : rows.length ? rows.map((row) => {
+          const detalle = detalleLabel(row);
+          const qtyOut = rowEgresoQuantity(row);
+          return (
+            <div
+              key={row.id}
+              style={{
+                display: "grid",
+                gridTemplateColumns: isMobile ? "1fr" : "92px minmax(220px, 1.5fr) 92px minmax(150px, 1fr) minmax(150px, 1fr) minmax(180px, 1fr)",
+                gap: isMobile ? 6 : 12,
+                alignItems: "center",
+                border: `1px solid ${C.border}`,
+                background: C.panelSolid,
+                borderRadius: 10,
+                padding: "10px 12px",
+              }}
+            >
+              <div>
+                <div style={{ color: C.red, fontSize: 11, fontWeight: 950 }}>Egreso</div>
+                <div style={{ color: C.dim, fontSize: 10.5, marginTop: 2 }}>{fmtDate(rowMovementAt(row))}</div>
+              </div>
+              <div style={{ minWidth: 0 }}>
+                <div style={{ color: C.text, fontSize: 13, fontWeight: 950, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{row.descripcion || "(sin descripcion)"}</div>
+                <div style={{ color: C.dim, fontSize: 10.5, marginTop: 3, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{row.codigo || "sin codigo"}{row.proveedor ? ` - ${row.proveedor}` : ""}</div>
+                <button
+                  type="button"
+                  onClick={() => onOpenProduct?.(row)}
+                  style={{ marginTop: 6, border: `1px solid ${C.blueB}`, background: C.blueL, color: C.blue, borderRadius: 8, padding: "5px 8px", cursor: "pointer", fontSize: 11, fontWeight: 900, fontFamily: C.sans }}
+                >
+                  Ver producto
+                </button>
+              </div>
+              <div>
+                <div style={{ color: C.dim, fontSize: 9.5, fontWeight: 900, textTransform: "uppercase", letterSpacing: 0.8 }}>Cantidad</div>
+                <div style={{ color: C.red, fontFamily: C.mono, fontSize: 13.5, fontWeight: 950 }}>-{fmtQty(qtyOut)} {row.unidad || ""}</div>
+              </div>
+              <div style={{ minWidth: 0 }}>
+                <div style={{ color: C.dim, fontSize: 9.5, fontWeight: 900, textTransform: "uppercase", letterSpacing: 0.8 }}>Origen</div>
+                <div style={{ color: C.text, fontSize: 12, fontWeight: 850, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{rowObraLabel(row)}</div>
+                <div style={{ color: C.dim, fontSize: 10.5, marginTop: 2 }}>{rowSede(row) || "Sin sede"}</div>
+              </div>
+              <div style={{ minWidth: 0 }}>
+                <div style={{ color: C.dim, fontSize: 9.5, fontWeight: 900, textTransform: "uppercase", letterSpacing: 0.8 }}>Destino</div>
+                <div style={{ color: C.text, fontSize: 12, fontWeight: 850, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{destinoLabel(row)}</div>
+              </div>
+              <div style={{ minWidth: 0 }}>
+                <div style={{ color: C.dim, fontSize: 9.5, fontWeight: 900, textTransform: "uppercase", letterSpacing: 0.8 }}>Detalle</div>
+                <div style={{ color: detalle ? C.text : C.dim, fontSize: 11.5, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{detalle || "Sin nota"}</div>
+              </div>
+            </div>
+          );
+        }) : (
+          <div style={{ padding: 28, border: `1px dashed ${C.border}`, borderRadius: 10, color: C.dim, textAlign: "center", fontSize: 13 }}>
+            Todavia no hay egresos para estos filtros.
+          </div>
+        )}
+      </div>
+    </section>
   );
 }
 
@@ -789,7 +897,7 @@ function EgresoBatchPanel({ group, selectedLocation, obras, sedeLocked, canRecei
       </label>
       <input value={retiradoPor} onChange={(event) => setRetiradoPor(event.target.value)} placeholder="Receptor / DNI" style={{ background: C.bg, border: `1px solid ${C.border}`, color: C.text, borderRadius: 9, padding: "9px 10px", fontSize: 12, fontFamily: C.sans, outline: "none" }} />
       <input value={sectorDestino} onChange={(event) => setSectorDestino(event.target.value)} placeholder="Sector / uso / entrega" style={{ background: C.bg, border: `1px solid ${C.border}`, color: C.text, borderRadius: 9, padding: "9px 10px", fontSize: 12, fontFamily: C.sans, outline: "none" }} />
-      <input value={nota} onChange={(event) => setNota(event.target.value)} placeholder="Observacion / motivo de egreso" style={{ background: C.bg, border: `1px solid ${C.border}`, color: C.text, borderRadius: 9, padding: "9px 10px", fontSize: 12, fontFamily: C.sans, outline: "none" }} />
+      <input value={nota} onChange={(event) => setNota(event.target.value)} placeholder="Observacion / detalle del egreso" style={{ background: C.bg, border: `1px solid ${C.border}`, color: C.text, borderRadius: 9, padding: "9px 10px", fontSize: 12, fontFamily: C.sans, outline: "none" }} />
 
       <div style={{ display: "flex", gap: 8 }}>
         {cart.length > 0 && (
@@ -974,7 +1082,7 @@ function ProductActionPanel({ group, selectedLocation, setSelectedLocationKey, o
         </>
       )}
 
-      <input value={nota} onChange={(event) => setNota(event.target.value)} placeholder={action === "ingresar" ? "Observacion / motivo de ingreso" : "Observacion / motivo de egreso"} style={{ background: C.bg, border: `1px solid ${C.border}`, color: C.text, borderRadius: 9, padding: "9px 10px", fontSize: 12, fontFamily: C.sans, outline: "none" }} />
+      <input value={nota} onChange={(event) => setNota(event.target.value)} placeholder={action === "ingresar" ? "Observacion / motivo de ingreso" : "Observacion / detalle del egreso"} style={{ background: C.bg, border: `1px solid ${C.border}`, color: C.text, borderRadius: 9, padding: "9px 10px", fontSize: 12, fontFamily: C.sans, outline: "none" }} />
 
       <button type="button" onClick={submit} disabled={saving || !canReceive || cantidadNum <= 0 || transitOnly} style={{ display: "inline-flex", alignItems: "center", justifyContent: "center", gap: 7, border: `1px solid ${action === "egresar" ? C.greenB : C.blueB}`, background: action === "egresar" ? C.greenL : C.blueL, color: action === "egresar" ? C.green : C.blue, borderRadius: 10, padding: "10px 12px", fontSize: 13, fontWeight: 950, cursor: saving || !canReceive || cantidadNum <= 0 || transitOnly ? "default" : "pointer", opacity: saving || !canReceive || cantidadNum <= 0 || transitOnly ? 0.6 : 1, fontFamily: C.sans }}>
         {action === "egresar" ? <ArrowUpRight size={15} /> : <PackagePlus size={15} />}
@@ -991,6 +1099,8 @@ function ProductDetail({ group, isMobile, obras, sedeLocked, canReceive, mode, o
   const [selectedLocationKey, setSelectedLocationKey] = useState(initialLocationKey);
   const [reconcilingKey, setReconcilingKey] = useState(null);
   const [revertingId, setRevertingId] = useState(null);
+  const [reversalTarget, setReversalTarget] = useState(null);
+  const [reversalReason, setReversalReason] = useState("");
   // Toggle C: ocultar filas ya anuladas en el kardex
   const [ocultarAnulados, setOcultarAnulados] = useState(false);
 
@@ -1032,7 +1142,7 @@ function ProductDetail({ group, isMobile, obras, sedeLocked, canReceive, mode, o
   const selectedLocation = group.locations.find((loc) => loc.key === selectedLocationKey) || group.locations[0] || defaultLocation(sedeLocked || "Pampa");
   const sortedRows = [...group.rows].sort((a, b) => new Date(b.egreso_at || b.updated_at || b.created_at || 0) - new Date(a.egreso_at || a.updated_at || a.created_at || 0));
   const negativeLocations = group.locations.filter((loc) => loc.available < 0);
-  const visibleKardexRows = ocultarAnulados ? sortedRows.filter((row) => !String(row.notas || "").includes("[anulado]")) : sortedRows;
+  const visibleKardexRows = ocultarAnulados ? sortedRows.filter((row) => !rowIsAnulado(row)) : sortedRows;
   const detalleAdicional = [...(group.detalles || [])]
     .map((value) => String(value || "").replace(/<[^>]+>/g, " ").replace(/\s+/g, " ").trim())
     .filter(Boolean)
@@ -1077,9 +1187,14 @@ function ProductDetail({ group, isMobile, obras, sedeLocked, canReceive, mode, o
     }
   }
 
-  async function revertirMovimiento(row) {
+  async function revertirMovimiento(row, motivoReversion = "") {
     const delta = rowDelta(row);
     if (!delta) return;
+    const motivo = String(motivoReversion || "").trim();
+    if (!motivo) {
+      toast.warning("Escribí el motivo de reversión.");
+      return;
+    }
     const cantidad = Math.abs(delta);
     const sede = rowSede(row) || sedeLocked || "Pampa";
     const obraId = rowObraId(row) || null;
@@ -1091,7 +1206,7 @@ function ProductDetail({ group, isMobile, obras, sedeLocked, canReceive, mode, o
     };
     setRevertingId(row.id);
     try {
-      const nota = `[anulado] Revierte movimiento ${row.id}`;
+      const nota = `[anulado] Revierte movimiento ${row.id} - Motivo reversion: ${motivo}`;
       if (delta > 0) {
         await egresarProducto({
           material,
@@ -1129,6 +1244,8 @@ function ProductDetail({ group, isMobile, obras, sedeLocked, canReceive, mode, o
         await ingresarStockGeneral({ material, cantidad, sede, nota, esAdicional: rowIsAdditional(row) });
       }
       await marcarMovimientoAnulado(row.id, nota).catch(() => null);
+      setReversalTarget(null);
+      setReversalReason("");
       toast.success("Movimiento revertido.");
       await onDone?.();
     } catch (error) {
@@ -1239,13 +1356,75 @@ function ProductDetail({ group, isMobile, obras, sedeLocked, canReceive, mode, o
               {ocultarAnulados ? "Mostrar anulados" : "Ocultar anulados"}
             </button>
           </div>
-          {visibleKardexRows.length ? visibleKardexRows.map((row) => <KardexRow key={row.id} row={row} onRevert={revertirMovimiento} busy={revertingId === row.id} />) : (
+          {visibleKardexRows.length ? visibleKardexRows.map((row) => (
+            <KardexRow
+              key={row.id}
+              row={row}
+              onRevert={(movimiento) => { setReversalTarget(movimiento); setReversalReason(""); }}
+              busy={revertingId === row.id}
+            />
+          )) : (
             <div style={{ color: C.dim, fontSize: 12, padding: "12px 0" }}>
               {(ocultarAnulados && sortedRows.length) ? "Todos los movimientos están anulados. Desactivá el filtro para verlos." : "Producto sin movimientos todavía. Podés egresarlo igual y quedará como negativo a reconciliar."}
             </div>
           )}
         </div>
       </div>
+      {reversalTarget && (
+        <div style={{ position: "fixed", inset: 0, zIndex: 80, background: "rgba(15,23,42,0.38)", display: "grid", placeItems: "center", padding: 16 }}>
+          <div style={{ width: "min(520px, 100%)", border: `1px solid ${C.border}`, background: C.panelSolid, borderRadius: 14, boxShadow: "0 24px 70px rgba(15,23,42,0.22)", overflow: "hidden" }}>
+            <div style={{ padding: "14px 16px", borderBottom: `1px solid ${C.border}`, display: "flex", alignItems: "flex-start", justifyContent: "space-between", gap: 12 }}>
+              <div>
+                <div style={{ color: C.text, fontSize: 16, fontWeight: 950 }}>Revertir movimiento</div>
+                <div style={{ color: C.dim, fontSize: 12, marginTop: 3 }}>
+                  {reversalTarget.descripcion || group.label} · {fmtQty(Math.abs(rowDelta(reversalTarget)))} {reversalTarget.unidad || group.unidad}
+                </div>
+              </div>
+              <button
+                type="button"
+                onClick={() => { setReversalTarget(null); setReversalReason(""); }}
+                disabled={revertingId === reversalTarget.id}
+                style={{ border: `1px solid ${C.border}`, background: C.panel, color: C.dim, borderRadius: 8, width: 30, height: 30, cursor: revertingId === reversalTarget.id ? "default" : "pointer", fontSize: 16, lineHeight: 1 }}
+              >
+                ×
+              </button>
+            </div>
+            <div style={{ padding: 16, display: "grid", gap: 10 }}>
+              <div style={{ border: `1px solid ${C.amberB}`, background: C.amberL, color: C.amber, borderRadius: 10, padding: "9px 10px", fontSize: 12, lineHeight: 1.4 }}>
+                Esto crea el movimiento inverso y deja marcado el original como anulado. El motivo queda en el kardex.
+              </div>
+              <label style={{ display: "grid", gap: 6 }}>
+                <span style={{ color: C.dim, fontSize: 10, fontWeight: 900, textTransform: "uppercase", letterSpacing: 1 }}>Motivo de reversión</span>
+                <textarea
+                  value={reversalReason}
+                  onChange={(event) => setReversalReason(event.target.value)}
+                  placeholder="Ej: carga duplicada, el producto estaba roto, se reemplazó por un adicional, se asignó a otra obra..."
+                  rows={4}
+                  style={{ resize: "vertical", minHeight: 92, background: C.bg, border: `1px solid ${C.border}`, color: C.text, borderRadius: 10, padding: "10px 11px", fontSize: 13, fontFamily: C.sans, outline: "none", lineHeight: 1.45 }}
+                />
+              </label>
+              <div style={{ display: "flex", justifyContent: "flex-end", gap: 8, flexWrap: "wrap" }}>
+                <button
+                  type="button"
+                  onClick={() => { setReversalTarget(null); setReversalReason(""); }}
+                  disabled={revertingId === reversalTarget.id}
+                  style={{ border: `1px solid ${C.border}`, background: C.panel, color: C.text, borderRadius: 10, padding: "9px 12px", cursor: revertingId === reversalTarget.id ? "default" : "pointer", fontSize: 12, fontWeight: 900, fontFamily: C.sans }}
+                >
+                  Cancelar
+                </button>
+                <button
+                  type="button"
+                  onClick={() => revertirMovimiento(reversalTarget, reversalReason)}
+                  disabled={revertingId === reversalTarget.id || !reversalReason.trim()}
+                  style={{ border: `1px solid ${C.redB}`, background: C.redL, color: C.red, borderRadius: 10, padding: "9px 12px", cursor: revertingId === reversalTarget.id || !reversalReason.trim() ? "default" : "pointer", opacity: revertingId === reversalTarget.id || !reversalReason.trim() ? 0.58 : 1, fontSize: 12, fontWeight: 950, fontFamily: C.sans }}
+                >
+                  {revertingId === reversalTarget.id ? "Revirtiendo..." : "Confirmar reversión"}
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
     </section>
   );
 }
@@ -1262,6 +1441,7 @@ export default function StockWmsPanel({ sedeLocked = null, isMobile = false, toa
   const [fCategoria, setFCategoria] = useState("todos");
   const [kindScope, setKindScope] = useState("todos");
   const [scope, setScope] = useState(initialScope);
+  const [egresoView, setEgresoView] = useState("egresar");
   const [selectedKey, setSelectedKey] = useState(null);
   const [catalogMatches, setCatalogMatches] = useState([]);
   const [creating, setCreating] = useState(false);
@@ -1273,6 +1453,10 @@ export default function StockWmsPanel({ sedeLocked = null, isMobile = false, toa
   useEffect(() => {
     const timer = setTimeout(() => searchInputRef.current?.focus(), 80);
     return () => clearTimeout(timer);
+  }, [mode]);
+
+  useEffect(() => {
+    if (mode !== "egreso") setEgresoView("egresar");
   }, [mode]);
 
   const cargar = useCallback(async () => {
@@ -1350,6 +1534,13 @@ export default function StockWmsPanel({ sedeLocked = null, isMobile = false, toa
     }
     return negatives;
   }, [draftGroup, productGroupsBase, q, scope, selectedKey]);
+
+  const historyRows = useMemo(
+    () => searchedRows
+      .filter((row) => rowIsEgreso(row))
+      .sort((a, b) => new Date(rowMovementAt(b) || 0) - new Date(rowMovementAt(a) || 0)),
+    [searchedRows],
+  );
 
   const selectedGroup = useMemo(
     () => productGroups.find((group) => group.key === selectedKey) || null,
@@ -1459,6 +1650,16 @@ export default function StockWmsPanel({ sedeLocked = null, isMobile = false, toa
     setTimeout(() => searchInputRef.current?.focus(), 60);
   }
 
+  function openProductFromHistory(row) {
+    const search = row.codigo || row.descripcion || "";
+    setScope("todos");
+    setKindScope("todos");
+    setQ(search);
+    setSelectedKey(productKey(row, fObra));
+    setEgresoView("egresar");
+    setTimeout(() => searchInputRef.current?.focus(), 60);
+  }
+
   useKeyboardWedge({
     enabled: !scannerOpen,
     onScan: applyScanCode,
@@ -1494,6 +1695,34 @@ export default function StockWmsPanel({ sedeLocked = null, isMobile = false, toa
             <ScanLine size={16} />{!isMobile && <span>Escanear</span>}
           </button>
           <BarcodeScanner open={scannerOpen} onClose={() => setScannerOpen(false)} onScan={(code) => { setScannerOpen(false); applyScanCode(code); }} />
+          {mode === "egreso" && (
+            <div style={{ display: "inline-flex", border: `1px solid ${C.border}`, background: C.panelSolid, borderRadius: 10, padding: 3, gap: 3, flexShrink: 0 }}>
+              {[
+                ["egresar", "Egresar"],
+                ["historial", `Historial (${historyRows.length})`],
+              ].map(([key, label]) => (
+                <button
+                  key={key}
+                  type="button"
+                  onClick={() => setEgresoView(key)}
+                  style={{
+                    border: `1px solid ${egresoView === key ? C.blueB : "transparent"}`,
+                    background: egresoView === key ? C.blueL : "transparent",
+                    color: egresoView === key ? C.blue : C.text,
+                    borderRadius: 8,
+                    padding: "7px 10px",
+                    fontSize: 12,
+                    fontWeight: 900,
+                    cursor: "pointer",
+                    fontFamily: C.sans,
+                    whiteSpace: "nowrap",
+                  }}
+                >
+                  {label}
+                </button>
+              ))}
+            </div>
+          )}
           <SelectFilter label="Vista" value={scope} onChange={setScope} options={[["todos", "Todos"], ["negativos", "A reconciliar"]]} />
           <SelectFilter label="Tipo" value={kindScope} onChange={setKindScope} options={[["todos", `Todos (${kindCounts.todos})`], ["stock", `Stock pañol (${kindCounts.stock})`], ["estandar", `Estándar (${kindCounts.estandar})`], ["adicional", `Adicionales (${kindCounts.adicional})`]]} />
           <SelectFilter label="Obra / stock" value={fObra} onChange={setFObra} options={obraOptions} />
@@ -1514,6 +1743,11 @@ export default function StockWmsPanel({ sedeLocked = null, isMobile = false, toa
         </div>
       </div>
 
+      {mode === "egreso" && egresoView === "historial" ? (
+        <div style={{ flex: 1, minHeight: 0, overflow: "hidden", padding: isMobile ? 12 : "14px 18px 18px", display: "grid" }}>
+          <EgresosHistoryView rows={historyRows} loading={loading} obras={obras} isMobile={isMobile} onOpenProduct={openProductFromHistory} />
+        </div>
+      ) : (
       <div style={{ flex: 1, minHeight: 0, overflow: "hidden", padding: isMobile ? 12 : "14px 18px 18px", display: "grid", gridTemplateColumns: isMobile ? "1fr" : "minmax(360px, 480px) minmax(420px, 1fr)", gap: 12 }}>
         <section style={{ minHeight: 0, border: `1px solid ${C.border}`, background: C.panel, borderRadius: 12, overflow: "hidden", display: "flex", flexDirection: "column" }}>
           <div style={{ padding: "13px 14px", borderBottom: `1px solid ${C.border}`, background: C.panelSolid, display: "flex", alignItems: "center", justifyContent: "space-between", gap: 10 }}>
@@ -1578,6 +1812,7 @@ export default function StockWmsPanel({ sedeLocked = null, isMobile = false, toa
           setCart={setCart}
         />
       </div>
+      )}
     </>
   );
 }

@@ -18,6 +18,7 @@ const LEDGER_STATES = ["en_panol", "recibido", "parcial", "egresado", "problema"
 const IN_STOCK_STATES = new Set(["en_panol", "recibido", "parcial"]);
 const RECEIVED_STATES = new Set(["recibido", "parcial"]);
 const DIRECT_STOCK_SOURCES = new Set(["stock_general", "remito", "transferencia_ingreso", "ajuste_ingreso"]);
+const LINEA_FALLBACK = "OTROS";
 
 // ─── Helpers (replican la lógica local de StockWmsPanel sin importarla) ────────
 
@@ -58,6 +59,17 @@ function rowDelta(row) {
     return -Math.abs(qty(row.cantidad_egresada, qty(row.cantidad, 1)));
   }
   return 0;
+}
+
+function lineaKeyFromObra(obra = {}) {
+  const modelo = String(obra.modelo || "").trim().toUpperCase();
+  if (modelo) return modelo;
+  const match = String(obra.codigo || "").trim().toUpperCase().match(/^([A-Z]*\d+)/);
+  return match?.[1] || LINEA_FALLBACK;
+}
+
+function lineaLabel(key) {
+  return key === LINEA_FALLBACK ? "Sin linea" : key;
 }
 
 /**
@@ -264,7 +276,7 @@ function ObraCard({ obra, stats, onClick }) {
       <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 8 }}>
         <div style={{ minWidth: 0 }}>
           <div style={{ fontFamily: C.mono, fontSize: 15, fontWeight: 950, color: C.text }}>{obra.codigo}</div>
-          <div style={{ fontSize: 11, color: C.dim, marginTop: 1 }}>{obra.linea_nombre || `K${obra.modelo || String(obra.codigo || "").match(/^\s*(\d+)/)?.[1] || ""}`}</div>
+          <div style={{ fontSize: 11, color: C.dim, marginTop: 1 }}>{obra.linea_nombre || `Linea ${lineaLabel(lineaKeyFromObra(obra))}`}</div>
         </div>
         <div style={{ display: "flex", alignItems: "center", gap: 7, flexShrink: 0 }}>
           <span style={{ fontSize: 10, fontWeight: 800, color: estadoColor, border: `1px solid ${estadoColor}33`, background: `${estadoColor}11`, borderRadius: 6, padding: "2px 7px", textTransform: "uppercase" }}>
@@ -347,24 +359,40 @@ export default function StockPanolScreen({ profile, signOut, embedded = false, m
   }, [rows]);
 
   // ── Obras agrupadas por modelo/línea ──
+  const lineasVisibles = useMemo(() => {
+    const found = new Set(obras.map(lineaKeyFromObra));
+    const preferred = MODELOS
+      .map((modelo) => String(modelo || "").trim().toUpperCase())
+      .filter((modelo) => found.has(modelo));
+    const preferredSet = new Set(preferred);
+    const rest = [...found]
+      .filter((linea) => linea && linea !== LINEA_FALLBACK && !preferredSet.has(linea))
+      .sort((a, b) => a.localeCompare(b, "es", { numeric: true }));
+    return found.has(LINEA_FALLBACK) ? [...preferred, ...rest, LINEA_FALLBACK] : [...preferred, ...rest];
+  }, [obras]);
+
   const obrasByLinea = useMemo(() => {
     const map = new Map();
-    for (const m of MODELOS) map.set(m, []);
+    for (const linea of lineasVisibles) map.set(linea, []);
     for (const obra of obras) {
       // obra.modelo suele venir null; derivamos del código ("52-23" → "52")
-      const m = String(obra.modelo || "").trim() || (String(obra.codigo || "").match(/^\s*(\d+)/)?.[1] || "");
-      if (map.has(m)) map.get(m).push(obra);
+      const linea = lineaKeyFromObra(obra);
+      if (!map.has(linea)) map.set(linea, []);
+      map.get(linea).push(obra);
+    }
+    for (const [, lineaObras] of map) {
+      lineaObras.sort((a, b) => String(a.codigo || "").localeCompare(String(b.codigo || ""), "es", { numeric: true }));
     }
     return map;
-  }, [obras]);
+  }, [lineasVisibles, obras]);
 
   // ── Estadísticas por línea ──
   const lineaStats = useMemo(() => {
     const result = {};
-    for (const modelo of MODELOS) {
-      const lineaObras = obrasByLinea.get(modelo) || [];
+    for (const linea of lineasVisibles) {
+      const lineaObras = obrasByLinea.get(linea) || [];
       const statsList = lineaObras.map(o => calcObraStats(rowsByObraId.get(o.id) || []));
-      result[modelo] = {
+      result[linea] = {
         totalObras: lineaObras.length,
         obrasActivas: lineaObras.filter(o => !["terminada", "cancelada", "archivada"].includes(o.estado)).length,
         negativos: statsList.reduce((s, st) => s + st.negativos, 0),
@@ -372,7 +400,7 @@ export default function StockPanolScreen({ profile, signOut, embedded = false, m
       };
     }
     return result;
-  }, [obrasByLinea, rowsByObraId]);
+  }, [lineasVisibles, obrasByLinea, rowsByObraId]);
 
   // ── Estadísticas por obra ──
   const obraStatsMap = useMemo(() => {
@@ -477,7 +505,7 @@ export default function StockPanolScreen({ profile, signOut, embedded = false, m
                 <div style={{ padding: "10px 18px 0", flexShrink: 0 }}>
                   <Breadcrumb items={[
                     { label: "Líneas", onClick: () => { setSelLinea(null); setSelObraId(null); } },
-                    { label: `K${selLinea}`, onClick: () => setSelObraId(null) },
+                    { label: `Linea ${lineaLabel(selLinea)}`, onClick: () => setSelObraId(null) },
                     { label: selObra?.codigo || selObraId },
                   ]} />
                 </div>
@@ -495,7 +523,7 @@ export default function StockPanolScreen({ profile, signOut, embedded = false, m
                 <div style={{ padding: "16px 18px 32px" }}>
                   <Breadcrumb items={[
                     { label: "Líneas", onClick: () => setSelLinea(null) },
-                    { label: `K${selLinea}` },
+                    { label: `Linea ${lineaLabel(selLinea)}` },
                   ]} />
                   {loading ? (
                     <div style={{ padding: 40, textAlign: "center", color: C.dim, fontSize: 13 }}>Cargando...</div>
@@ -504,7 +532,7 @@ export default function StockPanolScreen({ profile, signOut, embedded = false, m
                       <div style={{ width: 46, height: 46, borderRadius: 13, display: "grid", placeItems: "center", background: C.panelSolid, border: `1px solid ${C.border}`, color: C.dim }}>
                         <Inbox size={22} />
                       </div>
-                      <div style={{ fontSize: 13.5, fontWeight: 700, color: C.text }}>No hay obras con stock en la línea K{selLinea}</div>
+                      <div style={{ fontSize: 13.5, fontWeight: 700, color: C.text }}>No hay obras con stock en la linea {lineaLabel(selLinea)}</div>
                       <div style={{ fontSize: 12 }}>Cuando compras envíe materiales a una obra de esta línea, van a aparecer acá.</div>
                     </div>
                   ) : (
@@ -532,12 +560,12 @@ export default function StockPanolScreen({ profile, signOut, embedded = false, m
                     <div style={{ padding: 40, textAlign: "center", color: C.dim, fontSize: 13 }}>Cargando stock...</div>
                   ) : (
                     <div style={{ display: "grid", gridTemplateColumns: isMobile ? "1fr" : "repeat(auto-fill, minmax(240px, 1fr))", gap: 14 }}>
-                      {MODELOS.map(modelo => (
+                      {lineasVisibles.map(linea => (
                         <LineaCard
-                          key={modelo}
-                          codigo={modelo}
-                          stats={lineaStats[modelo] || { totalObras: 0, obrasActivas: 0, negativos: 0, costoUsd: 0 }}
-                          onClick={() => setSelLinea(modelo)}
+                          key={linea}
+                          codigo={lineaLabel(linea)}
+                          stats={lineaStats[linea] || { totalObras: 0, obrasActivas: 0, negativos: 0, costoUsd: 0 }}
+                          onClick={() => setSelLinea(linea)}
                         />
                       ))}
                     </div>
