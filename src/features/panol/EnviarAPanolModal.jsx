@@ -73,6 +73,25 @@ function normSearch(value = "") {
     .trim();
 }
 
+function normalizeVariantList(value) {
+  const raw = Array.isArray(value) ? value : String(value || "").split(/[,\n;/]+/);
+  const seen = new Set();
+  return raw
+    .flatMap((item) => String(item || "").split(/\s*\/\s*/))
+    .map((item) => item.trim())
+    .filter(Boolean)
+    .filter((item) => {
+      const key = normSearch(item);
+      if (seen.has(key)) return false;
+      seen.add(key);
+      return true;
+    });
+}
+
+function materialVariants(material) {
+  return normalizeVariantList(material?.variantes);
+}
+
 function cleanNumber(value = "") {
   const raw = String(value || "").trim().replace(",", ".");
   if (!raw) return "";
@@ -111,6 +130,8 @@ function topCatalogMatches(catalog = [], queryItem = {}, limit = 8) {
 }
 
 function itemPatchFromMaterial(material, item = {}) {
+  const variants = materialVariants(material);
+  const currentVariant = String(item.variante || "").trim();
   return {
     material_id: material?.id || "",
     codigo: item.codigo || material?.codigo || "",
@@ -121,8 +142,14 @@ function itemPatchFromMaterial(material, item = {}) {
     moneda: item.moneda || material?.moneda || "ARS",
     ubicacion: item.ubicacion || material?.ubicacion || null,
     ubicacion_obs: item.ubicacion_obs || material?.ubicacion_obs || "",
+    variante: currentVariant && variants.some((variant) => normSearch(variant) === normSearch(currentVariant)) ? currentVariant : "",
     catalog_match_score: material?._score || null,
   };
+}
+
+function isMissingVariantColumn(error) {
+  const msg = String(error?.message || "").toLowerCase();
+  return error?.code === "42703" || (msg.includes("column") && msg.includes("variante"));
 }
 
 function draftHasContent(payload = {}) {
@@ -246,6 +273,7 @@ function normalizeItem(it) {
     purchase_request_item_id: it.purchase_request_item_id ?? it.purchaseRequestItemId ?? null,
     panol_envio_item_id: it.panol_envio_item_id ?? it.panolEnvioItemId ?? null,
     obra_snapshot_item_id: it.obra_snapshot_item_id ?? it.obraSnapshotItemId ?? null,
+    variante: it.variante ?? it.variant ?? "",
   };
 }
 
@@ -281,6 +309,7 @@ function matchToItem(match, material = null) {
     panol_envio_item_id: match.panol_envio_item_id || null,
     obra_snapshot_item_id: match.obra_snapshot_item_id || null,
     es_adicional: match.es_adicional ?? match.request?.es_adicional ?? null,
+    variante: match.variante || "",
   };
 }
 
@@ -407,6 +436,53 @@ function MiniMapaUbicacion({ selectedCode = "", onPick = null }) {
   );
 }
 
+function ItemVariantRow({ item, material = null, onChange }) {
+  const variants = materialVariants(material);
+  const current = String(item.variante || "");
+  return (
+    <div style={{ display: "flex", gap: 9, alignItems: "center", padding: "0 10px 10px 10px", minWidth: 0, flexWrap: "wrap" }}>
+      <span style={{ color: C.t2, fontSize: 10.5, fontWeight: 850, textTransform: "uppercase", letterSpacing: 0.8, minWidth: 72 }}>Variante</span>
+      <input
+        value={current}
+        onChange={(e) => onChange?.({ variante: e.target.value })}
+        placeholder={variants.length ? "Marca/modelo comprado" : "Ej: Samsung, LG, Webasto"}
+        style={inp({ flex: "0 1 260px", minWidth: 170, padding: "8px 10px", fontSize: 12.5, background: C.panelSolid })}
+        title="Marca/modelo que se compró para este barco"
+      />
+      {variants.length > 0 && (
+        <div style={{ display: "flex", gap: 5, alignItems: "center", flexWrap: "wrap", minWidth: 0 }}>
+          {variants.slice(0, 8).map((variant) => {
+            const active = normSearch(current) === normSearch(variant);
+            return (
+              <button
+                key={variant}
+                type="button"
+                onClick={() => onChange?.({ variante: variant })}
+                style={{
+                  border: `1px solid ${active ? C.blue : C.b0}`,
+                  background: active ? "var(--blue-soft)" : C.bg,
+                  color: active ? C.blue : C.t1,
+                  borderRadius: 999,
+                  padding: "5px 8px",
+                  fontSize: 11,
+                  fontWeight: 850,
+                  cursor: "pointer",
+                  fontFamily: C.sans,
+                }}
+              >
+                {variant}
+              </button>
+            );
+          })}
+        </div>
+      )}
+      <span style={{ color: C.t2, fontSize: 11.5, minWidth: 0 }}>
+        Queda guardada en la lista fija de la obra.
+      </span>
+    </div>
+  );
+}
+
 function ItemLocationRow({ item, material = null, estanterias = [], onChange, isMobile = false }) {
   const effectiveUbicacion = item.ubicacion || material?.ubicacion || "";
   const effectiveObs = item.ubicacion_obs || material?.ubicacion_obs || "";
@@ -496,6 +572,9 @@ export default function EnviarAPanolModal({ open, onClose, prefill, showPrices =
   const { isMobile } = useResponsive();
   const toast = useToast();
   const isRemito = prefill?.origen === "remito" || prefill?.modo === "remito";
+  const isCompraNotice = prefill?.origen === "compra";
+  const isObraNotice = prefill?.origen === "obra_matriz";
+  const needsCatalogLink = isRemito || isCompraNotice || isObraNotice;
   const sedeLocked = lockedSedeForProfile(profile);
   const sedesDisponibles = sedeLocked ? [sedeLocked] : SEDES_PANOL;
 
@@ -700,6 +779,7 @@ export default function EnviarAPanolModal({ open, onClose, prefill, showPrices =
       ubicacion: selectedMaterial?.ubicacion || "",
       ubicacion_obs: selectedMaterial?.ubicacion_obs || "",
       ubicacion_touched: false,
+      variante: "",
       recepcion_estado: isRemito ? "recibido" : null,
       purchase_request_item_id: null,
       obra_snapshot_item_id: null,
@@ -716,6 +796,7 @@ export default function EnviarAPanolModal({ open, onClose, prefill, showPrices =
     const next = parsed.map((item) => ({
       ...item,
       obra_id: obraId || "",
+      variante: "",
       recepcion_estado: isRemito ? "recibido" : null,
     }));
     setItems((prev) => [...prev, ...(showPrices ? next : next.map(stripItemPrice))]);
@@ -772,6 +853,29 @@ export default function EnviarAPanolModal({ open, onClose, prefill, showPrices =
       if (!patch) return material;
       return { ...material, ubicacion: patch.ubicacion || null, ubicacion_obs: patch.ubicacionObs || null };
     }));
+  }
+
+  async function rememberSnapshotVariants(sourceItems) {
+    const updates = sourceItems
+      .filter((item) => Object.prototype.hasOwnProperty.call(item, "variante"))
+      .map((item) => {
+        const query = supabase
+          .from("panol_obra_materiales_snapshot")
+          .update({ variante: String(item.variante || "").trim() || null });
+        if (item.obra_snapshot_item_id) return query.eq("id", item.obra_snapshot_item_id);
+        if (item.purchase_request_item_id) return query.eq("purchase_request_item_id", item.purchase_request_item_id);
+        return null;
+      })
+      .filter(Boolean);
+    if (!updates.length) return;
+    const results = await Promise.all(updates);
+    const error = results.find((result) => result.error)?.error;
+    if (!error) return;
+    if (isMissingVariantColumn(error)) {
+      toast.warning("El envio se creo, pero falta correr el SQL de variante por obra.");
+      return;
+    }
+    toast.warning(error.message || "El envio se creo, pero no se pudo guardar la variante de obra.");
   }
 
   function closeModal(saved = false) {
@@ -867,6 +971,7 @@ export default function EnviarAPanolModal({ open, onClose, prefill, showPrices =
       ubicacion: material.ubicacion || "",
       ubicacion_obs: material.ubicacion_obs || "",
       ubicacion_touched: false,
+      variante: "",
       recepcion_estado: isRemito ? "recibido" : null,
       purchase_request_item_id: null,
       obra_snapshot_item_id: null,
@@ -884,6 +989,7 @@ export default function EnviarAPanolModal({ open, onClose, prefill, showPrices =
       ubicacion: material.ubicacion || "",
       ubicacion_obs: material.ubicacion_obs || "",
       ubicacion_touched: false,
+      variante: "",
       recepcion_estado: isRemito ? "recibido" : null,
       purchase_request_item_id: null,
       obra_snapshot_item_id: null,
@@ -999,6 +1105,7 @@ export default function EnviarAPanolModal({ open, onClose, prefill, showPrices =
           };
         }),
       });
+      await rememberSnapshotVariants(preparedItems);
       for (const linked of linkedRecepcionItems) {
         await marcarItems([linked.id], "recibido", { cantidadRecibida: linked.cantidad || null });
       }
@@ -1239,7 +1346,11 @@ export default function EnviarAPanolModal({ open, onClose, prefill, showPrices =
               <div>
                 <span style={{ ...lbl, marginBottom: 3, fontSize: ingresoDesktop ? 11 : lbl.fontSize }}>Productos a ingresar</span>
                 <div style={{ color: C.t2, fontSize: ingresoDesktop ? 12.5 : 11.5 }}>
-                  Vincula cada producto al catalogo y asignale estanteria. La ubicacion queda recordada para proximos ingresos.
+                  {isCompraNotice
+                    ? "Confirmá el material del catálogo y la variante comprada antes de avisar a pañol."
+                    : isObraNotice
+                      ? "Confirma el material del catalogo y la variante/marca que va a llevar esta obra."
+                      : "Vincula cada producto al catalogo y asignale estanteria. La ubicacion queda recordada para proximos ingresos."}
                 </div>
               </div>
               <div style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>
@@ -1259,8 +1370,8 @@ export default function EnviarAPanolModal({ open, onClose, prefill, showPrices =
                   return (
                   <div key={`${it.panol_envio_item_id || it.purchase_request_item_id || it.material_id || "manual"}-${i}`} style={{ background: "var(--panel)", border: `1px solid ${C.b0}`, borderRadius: 10, overflow: "hidden" }}>
                     <div style={{ display: "grid", gridTemplateColumns: gridCols, gap: 8, alignItems: "center", padding: "10px" }}>
-                    <input value={it.descripcion} onChange={(e) => updateItem(i, { descripcion: e.target.value, material_id: "" })} placeholder="Descripción" style={inp({ padding: "8px 10px", fontSize: 13, gridColumn: isMobile ? "1 / -1" : undefined })} />
-                    <input value={it.codigo || ""} onChange={(e) => updateItem(i, { codigo: e.target.value.toUpperCase(), material_id: "" })} placeholder="Cod. item" title="Codigo interno/proveedor. El codigo de barras se toma del material vinculado." style={inp({ padding: "8px 10px", fontSize: 13, fontFamily: C.mono })} />
+                    <input value={it.descripcion} onChange={(e) => updateItem(i, { descripcion: e.target.value, material_id: "", variante: "" })} placeholder="Descripción" style={inp({ padding: "8px 10px", fontSize: 13, gridColumn: isMobile ? "1 / -1" : undefined })} />
+                    <input value={it.codigo || ""} onChange={(e) => updateItem(i, { codigo: e.target.value.toUpperCase(), material_id: "", variante: "" })} placeholder="Cod. item" title="Codigo interno/proveedor. El codigo de barras se toma del material vinculado." style={inp({ padding: "8px 10px", fontSize: 13, fontFamily: C.mono })} />
                     <input value={it.cantidad || ""} onChange={(e) => updateItem(i, { cantidad: e.target.value })} placeholder="Cant." style={inp({ padding: "8px 10px", fontSize: 13 })} />
                     <select value={it.unidad || "unidad"} onChange={(e) => updateItem(i, { unidad: e.target.value })} style={inp({ padding: "8px 10px", fontSize: 13, background: C.panelSolid })}>
                       {UNITS.map((u) => <option key={u} value={u}>{u}</option>)}
@@ -1281,15 +1392,22 @@ export default function EnviarAPanolModal({ open, onClose, prefill, showPrices =
                     )}
                     <button type="button" onClick={() => removeItem(i)} title="Quitar" style={{ border: "none", background: "transparent", color: C.dim, cursor: "pointer", padding: 4, fontSize: 14 }}>x</button>
                     </div>
-                    {isRemito && (
+                    {needsCatalogLink && (
                       <CatalogLinkRow
                         item={it}
                         catalog={fullCatalog}
                         proveedores={proveedores}
                         creating={creatingCatalogIndex === i}
                         onLink={(material) => linkCatalogMaterial(i, material)}
-                        onClear={() => updateItem(i, { material_id: "" })}
+                        onClear={() => updateItem(i, { material_id: "", variante: "" })}
                         onCreate={() => createCatalogMaterialForItem(i)}
+                      />
+                    )}
+                    {needsCatalogLink && (
+                      <ItemVariantRow
+                        item={it}
+                        material={linkedMaterial}
+                        onChange={(patch) => updateItem(i, patch)}
                       />
                     )}
                     {isRemito && (

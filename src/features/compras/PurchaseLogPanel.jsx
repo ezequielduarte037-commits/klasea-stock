@@ -96,6 +96,60 @@ function purchaseLogItemTotal(item) {
   };
 }
 
+function isMissingVariantColumn(error) {
+  const msg = String(error?.message || "").toLowerCase();
+  return error?.code === "42703" || (msg.includes("column") && msg.includes("variante"));
+}
+
+async function fetchSnapshotLinksForPurchaseLog(entry) {
+  const requestItemIds = [...new Set((entry?.items || EMPTY).map((item) => item.purchase_request_item_id).filter(Boolean))];
+  const materialIds = [...new Set((entry?.items || EMPTY).map((item) => item.material_id).filter(Boolean))];
+
+  async function loadRows(select) {
+    const rows = [];
+    if (requestItemIds.length) {
+      const { data, error } = await supabase
+        .from("panol_obra_materiales_snapshot")
+        .select(select)
+        .in("purchase_request_item_id", requestItemIds)
+        .order("created_at", { ascending: false });
+      if (error) throw error;
+      rows.push(...(data || []));
+    }
+    if (entry?.project_id && materialIds.length) {
+      const { data, error } = await supabase
+        .from("panol_obra_materiales_snapshot")
+        .select(select)
+        .eq("obra_id", entry.project_id)
+        .in("material_id", materialIds)
+        .order("created_at", { ascending: false });
+      if (error) throw error;
+      rows.push(...(data || []));
+    }
+    return rows;
+  }
+
+  let rows = [];
+  try {
+    rows = await loadRows("id,obra_id,purchase_request_item_id,material_id,variante");
+  } catch (error) {
+    if (!isMissingVariantColumn(error)) throw error;
+    rows = await loadRows("id,obra_id,purchase_request_item_id,material_id");
+  }
+
+  const byRequestItem = new Map();
+  const byMaterial = new Map();
+  for (const row of rows) {
+    if (row.purchase_request_item_id && !byRequestItem.has(row.purchase_request_item_id)) {
+      byRequestItem.set(row.purchase_request_item_id, row);
+    }
+    if (row.material_id && !byMaterial.has(row.material_id)) {
+      byMaterial.set(row.material_id, row);
+    }
+  }
+  return { byRequestItem, byMaterial };
+}
+
 function needsPurchaseItemReview(item) {
   return purchaseQtyNumber(item.cantidad) === null || normalizePriceInput(item.precio_unitario) === null;
 }
@@ -545,6 +599,9 @@ function buildCostosPorObra(envios, additionalBoards, additionalItems, entries =
           codigo: item.codigo || "",
           cantidad: item.cantidad || "",
           unidad: item.unidad || "",
+          material_id: item.material_id || "",
+          purchase_request_item_id: item.purchase_request_item_id || null,
+          variante: item.variante || "",
           provider: entry.provider || "",
           amount: total?.value || null,
           currency,
@@ -715,23 +772,39 @@ export default function PurchaseLogPanel({ profile }) {
     }
   }
 
-  function handleSendLogToPanol(entry) {
+  async function handleSendLogToPanol(entry) {
     if (!entry?.items?.length) return;
-    setPanolModal({
-      prefill: {
-        titulo: entry.description || "Compra",
-        origen: "compra",
-        purchaseLogId: entry.id,
-        obraId: entry.project_id || "",
-        items: (entry.items || EMPTY).map((it) => ({
-          descripcion: it.descripcion,
-          cantidad: it.cantidad,
-          unidad: it.unidad || "unidad",
-          precio_unitario: it.precio_unitario ?? "",
-          moneda: it.moneda || "ARS",
-        })),
-      },
-    });
+    try {
+      const links = await fetchSnapshotLinksForPurchaseLog(entry);
+      setPanolModal({
+        prefill: {
+          titulo: entry.description || "Compra",
+          origen: "compra",
+          purchaseLogId: entry.id,
+          obraId: entry.project_id || "",
+          items: (entry.items || EMPTY).map((it) => {
+            const snapshot = (it.purchase_request_item_id && links.byRequestItem.get(it.purchase_request_item_id))
+              || (it.material_id && links.byMaterial.get(it.material_id))
+              || null;
+            return {
+              descripcion: it.descripcion,
+              codigo: it.codigo || "",
+              cantidad: it.cantidad,
+              unidad: it.unidad || "unidad",
+              precio_unitario: it.precio_unitario ?? "",
+              moneda: it.moneda || "ARS",
+              obra_id: snapshot?.obra_id || entry.project_id || "",
+              material_id: it.material_id || snapshot?.material_id || "",
+              purchase_request_item_id: it.purchase_request_item_id || snapshot?.purchase_request_item_id || null,
+              obra_snapshot_item_id: snapshot?.id || null,
+              variante: snapshot?.variante || it.variante || "",
+            };
+          }),
+        },
+      });
+    } catch (err) {
+      toast.error(err.message || "No se pudo preparar el aviso a pañol.");
+    }
   }
 
   async function handleDeleteEnvio(envio) {

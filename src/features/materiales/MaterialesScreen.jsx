@@ -32,6 +32,7 @@ import {
   uploadMaterialImage,
   fetchAddonsObra,
   crearAddon,
+  actualizarAddon,
   borrarAddon,
   cambiarEstadoObraSnapshot,
   fetchObraSnapshotAudit,
@@ -2733,6 +2734,7 @@ function addonRowToView(addon, materialById, categorias = []) {
     obs: addon.observaciones || material?.notas || "",
     imagen_url: material?.imagen_url || addon.imagen_url || "",
     links: normalizeMaterialLinks(material?.links?.length ? material.links : addon.links),
+    variante: addon.variante || "",
     revisado: material?.revisado ?? true,
     review: { flag: !!reason || !!material?.review?.flag, reason: reason || material?.review?.reason || "" },
     estadoObra: addon.estado || "pendiente",
@@ -2757,7 +2759,79 @@ function emptyAddonDraft(categorias = []) {
   };
 }
 
-function ObraAddonModal({ open, obra, materiales = [], categorias = [], proveedores = [], ums = [], onClose, onSaved, onChanged }) {
+function addonDraftFromRow(addon, categorias = []) {
+  return {
+    ...emptyAddonDraft(categorias),
+    descripcion: addon?.descripcion || "",
+    alias: addon?.alias || "",
+    codigo: addon?.codigo || "",
+    codigo_barra: addon?.codigo_barra || "",
+    categoria_id: addon?.categoria_id || categorias[0]?.id || "",
+    proveedor_id: addon?.proveedor_id || "",
+    proveedor: addon?.proveedor || "",
+    unidad_medida: addon?.unidad || addon?.unidad_medida || "unidad",
+    precio_unitario: addon?.precio_unitario ?? "",
+    moneda: addon?.moneda || "",
+    imagen_url: addon?.imagen_url || "",
+    links: normalizeMaterialLinks(addon?.links),
+    notas: addon?.notas || "",
+  };
+}
+
+function addonPayloadFromDraft(draft, variantes, { cantidad, tipo = "adicional", observaciones = "" } = {}) {
+  return {
+    material_id: null,
+    descripcion: String(draft?.descripcion || "").trim(),
+    cantidad: toNum(cantidad) || 1,
+    proveedor: draft?.proveedor || null,
+    tipo,
+    observaciones: String(observaciones || "").trim() || null,
+    codigo: draft?.codigo || null,
+    unidad: draft?.unidad_medida || "unidad",
+    categoria_id: draft?.categoria_id || null,
+    proveedor_id: draft?.proveedor_id || null,
+    precio_unitario: toNum(draft?.precio_unitario),
+    moneda: draft?.moneda || null,
+    imagen_url: draft?.imagen_url || null,
+    links: normalizeMaterialLinks(draft?.links),
+    codigo_barra: draft?.codigo_barra || null,
+    variantes: normalizeVariantList(variantes),
+  };
+}
+
+function clearVariantText(value, variants = [], proveedores = []) {
+  return norm(cleanTitleBrands(value, variants, proveedores))
+    .replace(/[^a-z0-9]+/g, " ")
+    .replace(/\s+/g, " ")
+    .trim();
+}
+
+function addonToMatrixVariantMatch(addon, liveRows = [], proveedores = []) {
+  const addonVariants = normalizeVariantList([
+    ...normalizeVariantList(addon?.variantes),
+    ...extractBrandsFromTitle(addon?.descripcion || "", proveedores),
+  ]);
+  if (!addonVariants.length) return null;
+  const addonMeasures = strictMeasurementSignature(addon?.descripcion || "");
+  const addonClean = clearVariantText(addon?.descripcion || "", addonVariants, proveedores);
+  if (!addonClean || addonClean.length < 5) return null;
+
+  const matches = liveRows
+    .filter((row) => row.materialId && row.source !== "addon")
+    .map((row) => {
+      const variants = normalizeVariantList([...addonVariants, ...materialVariants(row.material)]);
+      const rowClean = clearVariantText(row.descripcion || "", variants, proveedores);
+      const rowMeasures = strictMeasurementSignature(row.descripcion || "");
+      if (addonMeasures.size && rowMeasures.size && !sameSet(addonMeasures, rowMeasures)) return null;
+      if (addonClean !== rowClean) return null;
+      return { row, variante: addonVariants[0] };
+    })
+    .filter(Boolean);
+
+  return matches.length === 1 ? matches[0] : null;
+}
+
+function ObraAddonModal({ open, obra, addon = null, materiales = [], categorias = [], proveedores = [], ums = [], onClose, onSaved, onChanged }) {
   const [mode, setMode] = useState("existente");
   const [q, setQ] = useState("");
   const [selectedId, setSelectedId] = useState("");
@@ -2770,21 +2844,22 @@ function ObraAddonModal({ open, obra, materiales = [], categorias = [], proveedo
   const [imageFileNuevo, setImageFileNuevo] = useState(null);
   const [saving, setSaving] = useState(false);
   const [err, setErr] = useState(null);
+  const editing = !!addon?.id;
 
   useEffect(() => {
     if (!open) return;
-    setMode("existente");
-    setQ("");
-    setSelectedId("");
-    setCantidad("1");
-    setTipo("adicional");
-    setObservaciones("");
-    setDraft(emptyAddonDraft(categorias));
-    setVariantesNuevo([]);
+    setMode(addon?.material_id ? "existente" : "nuevo");
+    setQ(addon?.descripcion || "");
+    setSelectedId(addon?.material_id || "");
+    setCantidad(String(addon?.cantidad ?? "1"));
+    setTipo(addon?.tipo || "adicional");
+    setObservaciones(addon?.observaciones || "");
+    setDraft(addon ? addonDraftFromRow(addon, categorias) : emptyAddonDraft(categorias));
+    setVariantesNuevo(normalizeVariantList(addon?.variantes));
     setCodigosExtraNuevo([]);
     setImageFileNuevo(null);
     setErr(null);
-  }, [open, categorias]);
+  }, [open, addon, categorias]);
 
   const candidatos = useMemo(() => {
     const base = (materiales ?? []).filter(materialActivo);
@@ -2805,7 +2880,9 @@ function ObraAddonModal({ open, obra, materiales = [], categorias = [], proveedo
     if (!canSaveExisting || saving) return;
     setSaving(true); setErr(null);
     try {
-      await crearAddon(obra.id, addonPayloadFromMaterial(selected, { cantidad, tipo, observaciones }));
+      const payload = addonPayloadFromMaterial(selected, { cantidad, tipo, observaciones });
+      if (editing) await actualizarAddon(addon.id, payload);
+      else await crearAddon(obra.id, payload);
       await onSaved?.();
     } catch (e) {
       setErr(e);
@@ -2818,6 +2895,11 @@ function ObraAddonModal({ open, obra, materiales = [], categorias = [], proveedo
     if (!canSaveNew || saving) return;
     setSaving(true); setErr(null);
     try {
+      if (editing) {
+        await actualizarAddon(addon.id, addonPayloadFromDraft(draft, variantesNuevo, { cantidad, tipo, observaciones }));
+        await onSaved?.();
+        return;
+      }
       const prepared = prepareMaterialDraftForSave({ ...draft, revisado: false, origen: "addon_obra" }, proveedores, variantesNuevo);
       const materialId = await crearMaterial(prepared, {});
       let imageUrl = draft.imagen_url || "";
@@ -2844,7 +2926,7 @@ function ObraAddonModal({ open, obra, materiales = [], categorias = [], proveedo
       <div style={{ width: "min(1040px, calc(100vw - 28px))", maxHeight: "92vh", overflowY: "auto", border: `1px solid ${C.b1}`, borderRadius: 16, background: C.panelSolid, boxShadow: "0 30px 90px rgba(0,0,0,.45)" }}>
         <div style={{ position: "sticky", top: 0, zIndex: 2, background: C.panelSolid, borderBottom: `1px solid ${C.b0}`, padding: 16, display: "flex", gap: 12, alignItems: "flex-start", justifyContent: "space-between" }}>
           <div>
-            <div style={{ fontSize: 16, fontWeight: 950, color: C.t0 }}>Agregar item propio a {obra?.codigo}</div>
+            <div style={{ fontSize: 16, fontWeight: 950, color: C.t0 }}>{editing ? "Editar adicional" : "Agregar item propio"} a {obra?.codigo}</div>
             <div style={{ fontSize: 12, color: C.t2, marginTop: 3 }}>No modifica la matriz base: queda asociado solo a esta obra.</div>
           </div>
           <button type="button" onClick={onClose} style={{ ...BTN, padding: "7px 9px" }} title="Cerrar"><X size={15} /></button>
@@ -2933,9 +3015,9 @@ function ObraAddonModal({ open, obra, materiales = [], categorias = [], proveedo
           <div style={{ display: "flex", gap: 8, justifyContent: "flex-end", borderTop: `1px solid ${C.b0}`, paddingTop: 12 }}>
             <button type="button" onClick={onClose} style={{ ...BTN, padding: "8px 13px" }}>Cancelar</button>
             {mode === "existente" ? (
-              <button type="button" onClick={saveExisting} disabled={!canSaveExisting || saving} style={{ ...BTN_GREEN, padding: "8px 14px", opacity: !canSaveExisting || saving ? 0.6 : 1 }}>{saving ? "Guardando..." : "Agregar a la obra"}</button>
+              <button type="button" onClick={saveExisting} disabled={!canSaveExisting || saving} style={{ ...BTN_GREEN, padding: "8px 14px", opacity: !canSaveExisting || saving ? 0.6 : 1 }}>{saving ? "Guardando..." : editing ? "Guardar cambios" : "Agregar a la obra"}</button>
             ) : (
-              <button type="button" onClick={saveNew} disabled={!canSaveNew || saving} style={{ ...BTN_GREEN, padding: "8px 14px", opacity: !canSaveNew || saving ? 0.6 : 1 }}>{saving ? "Creando..." : "Crear y agregar"}</button>
+              <button type="button" onClick={saveNew} disabled={!canSaveNew || saving} style={{ ...BTN_GREEN, padding: "8px 14px", opacity: !canSaveNew || saving ? 0.6 : 1 }}>{saving ? "Guardando..." : editing ? "Guardar cambios" : "Crear y agregar"}</button>
             )}
           </div>
         </div>
@@ -4019,6 +4101,7 @@ function ObraMatrizView({ obra, linea, lineaNombre, categorias, materiales, prov
   const [addons, setAddons] = useState([]);
   const [addonQ, setAddonQ] = useState("");
   const [addonModalOpen, setAddonModalOpen] = useState(false);
+  const [editingAddon, setEditingAddon] = useState(null);
   const [obraPanel, setObraPanel] = useState("");
   const [snapshot, setSnapshot] = useState([]);
   const [snapshotBusy, setSnapshotBusy] = useState(false);
@@ -4030,6 +4113,7 @@ function ObraMatrizView({ obra, linea, lineaNombre, categorias, materiales, prov
   const [condicionantesObra, setCondicionantesObra] = useState(() => new Map());
   const [condicionanteBusy, setCondicionanteBusy] = useState("");
   const [estadoBusy, setEstadoBusy] = useState("");
+  const [varianteBusy, setVarianteBusy] = useState("");
 
   const cargarAddons = useCallback(() => { fetchAddonsObra(obra?.id).then(setAddons).catch(() => {}); }, [obra?.id]);
   useEffect(() => { cargarAddons(); }, [cargarAddons]);
@@ -4064,7 +4148,9 @@ function ObraMatrizView({ obra, linea, lineaNombre, categorias, materiales, prov
     setObraPanel("");
     setAddonQ("");
     setAddonModalOpen(false);
+    setEditingAddon(null);
     setEstadoBusy("");
+    setVarianteBusy("");
   }, [obra?.id, linea]);
 
   const materialById = useMemo(() => new Map((materiales ?? []).map((material) => [material.id, material])), [materiales]);
@@ -4205,9 +4291,23 @@ function ObraMatrizView({ obra, linea, lineaNombre, categorias, materiales, prov
   const obraRows = useMemo(() => [...liveRows, ...addonRows], [liveRows, addonRows]);
   const snapshotRows = useMemo(() => snapshot.map(snapshotRowToView), [snapshot]);
   const rows = useMemo(() => mergeMatrixAndSnapshotRows(obraRows, snapshotRows), [obraRows, snapshotRows]);
+  const addonVariantMatches = useMemo(() => {
+    const map = new Map();
+    for (const addon of addons ?? []) {
+      const match = addonToMatrixVariantMatch(addon, liveRows, proveedores);
+      if (match) map.set(addon.id, match);
+    }
+    return map;
+  }, [addons, liveRows, proveedores]);
   const snapshotActivo = snapshot.length > 0;
   const snapshotParcial = useMemo(() => {
-    if (!snapshotRows.length || !obraRows.length) return false;
+    if (!snapshotRows.length || !liveRows.length) return false;
+    const snapshotKeys = new Set(snapshotRows.map((row, index) => snapshotMergeKey(row, index)).filter(Boolean));
+    const liveKeys = liveRows.map((row, index) => snapshotMergeKey(row, index)).filter(Boolean);
+    return liveKeys.some((key) => !snapshotKeys.has(key));
+  }, [snapshotRows, liveRows]);
+  const snapshotNecesitaSync = useMemo(() => {
+    if (!snapshotRows.length || !obraRows.length) return !snapshotRows.length && !!obraRows.length;
     const snapshotKeys = new Set(snapshotRows.map((row, index) => snapshotMergeKey(row, index)).filter(Boolean));
     const liveKeys = obraRows.map((row, index) => snapshotMergeKey(row, index)).filter(Boolean);
     return liveKeys.some((key) => !snapshotKeys.has(key));
@@ -4244,7 +4344,7 @@ function ObraMatrizView({ obra, linea, lineaNombre, categorias, materiales, prov
       })
       .filter((row) => {
         if (!terms.length) return true;
-        const hay = norm(`${row.descripcion} ${row.codigo} ${row.proveedor} ${row.rubro} ${row.obs} ${recepcionMetaForRow(row).label} ${row.recepcion_estado || ""} ${row.recepcion_nota || ""}`);
+        const hay = norm(`${row.descripcion} ${row.codigo} ${row.proveedor} ${row.rubro} ${row.variante || ""} ${row.obs} ${recepcionMetaForRow(row).label} ${row.recepcion_estado || ""} ${row.recepcion_nota || ""}`);
         return terms.every((t) => hay.includes(t));
       });
   }, [rows, q, proveedorFilter, rubroFilter, tipoFilter, estadoFilter]);
@@ -4305,8 +4405,9 @@ function ObraMatrizView({ obra, linea, lineaNombre, categorias, materiales, prov
       proveedor: r.proveedor,
       rubro: r.rubro,
       tipo: r.bucket.label,
+      variante: r.variante || "",
       precio: r.precio,
-      obs: [r.bucket.key !== "base" ? r.bucket.label : "", r.obs].filter(Boolean).join(" · "),
+      obs: [r.bucket.key !== "base" ? r.bucket.label : "", r.variante ? `Variante: ${r.variante}` : "", r.obs].filter(Boolean).join(" · "),
     }));
   }, [visibleRows, selected]);
 
@@ -4326,7 +4427,7 @@ function ObraMatrizView({ obra, linea, lineaNombre, categorias, materiales, prov
   }
 
   async function ensureSnapshotForFlow() {
-    if (snapshot.length && !snapshotParcial) return snapshot;
+    if (snapshot.length && !snapshotNecesitaSync) return snapshot;
     setSnapshotBusy(true);
     try {
       const saved = await ensureObraMaterialSnapshot(obra.id, obraRows);
@@ -4412,12 +4513,15 @@ function ObraMatrizView({ obra, linea, lineaNombre, categorias, materiales, prov
         obraId: obra.id,
         prioridad: "media",
         observaciones: `Recepcion por obra desde lista matriz ${lineaNombre}.`,
-        origen: "manual",
+        origen: "obra_matriz",
         items: orderRows.map((row) => ({
           descripcion: row.descripcion,
           codigo: row.codigo || "",
           cantidad: row.cantidad,
           unidad: row.unidad || "unidad",
+          material_id: row.materialId || "",
+          proveedor: row.proveedor || "",
+          variante: row.variante || "",
           precio_unitario: row.precio?.amount ?? "",
           moneda: row.precio?.moneda || "ARS",
           obra_snapshot_item_id: snapshotIdForOrderRow(row, saved),
@@ -4425,6 +4529,27 @@ function ObraMatrizView({ obra, linea, lineaNombre, categorias, materiales, prov
       });
     } catch (e) {
       setFlowMsg({ type: "err", text: e?.message || "No se pudo preparar el aviso a pañol." });
+    } finally {
+      setActionBusy("");
+    }
+  }
+
+  async function convertirAddonEnVariante(addon, match) {
+    if (!addon?.id || !match?.row?.materialId || !match?.variante) return;
+    if (!window.confirm(`Convertir "${addon.descripcion}" en variante "${match.variante}" de "${match.row.descripcion}"?\n\nSe elimina el adicional propio y queda guardada la variante en la lista fija de ${obra.codigo}.`)) return;
+    setActionBusy(`addon-${addon.id}`);
+    setFlowMsg(null);
+    try {
+      const saved = await ensureObraMaterialSnapshot(obra.id, liveRows);
+      const snapId = saved.find((row) => row.material_id === match.row.materialId)?.id || null;
+      if (!snapId) throw new Error("No se pudo encontrar el item estándar en la lista fija.");
+      await updateObraSnapshotRows([snapId], { variante: match.variante });
+      await borrarAddon(addon.id);
+      await Promise.all([cargarAddons(), cargarSnapshot()]);
+      setFlowMsg({ type: "ok", text: `Convertido: ${match.row.descripcion} queda con variante ${match.variante}.` });
+    } catch (e) {
+      const msg = String(e?.message || "");
+      setFlowMsg({ type: "err", text: msg.includes("variante") ? "Falta correr el SQL de variante por obra para poder convertir." : msg || "No se pudo convertir el adicional en variante." });
     } finally {
       setActionBusy("");
     }
@@ -4480,6 +4605,25 @@ function ObraMatrizView({ obra, linea, lineaNombre, categorias, materiales, prov
       setFlowMsg({ type: "err", text: e?.message || "No se pudo cambiar el estado del item." });
     } finally {
       setEstadoBusy("");
+    }
+  }
+
+  async function cambiarVarianteRow(row, variante = "") {
+    if (!row || varianteBusy) return;
+    setVarianteBusy(row.id);
+    setFlowMsg(null);
+    try {
+      const saved = await ensureSnapshotForFlow();
+      const snapId = snapshotIdForOrderRow({ ...row, bucketKey: row.bucket?.key }, saved);
+      if (!snapId) throw new Error("No se pudo identificar el item de obra para guardar la variante.");
+      await updateObraSnapshotRows([snapId], { variante: String(variante || "").trim() || null });
+      await cargarSnapshot();
+      setFlowMsg({ type: "ok", text: variante ? `Variante guardada para ${row.descripcion}: ${variante}.` : `Variante limpiada para ${row.descripcion}.` });
+    } catch (e) {
+      const msg = String(e?.message || "");
+      setFlowMsg({ type: "err", text: msg.toLowerCase().includes("variante") ? "Falta correr el SQL de variante por obra para poder guardar esta marca." : msg || "No se pudo guardar la variante del item." });
+    } finally {
+      setVarianteBusy("");
     }
   }
 
@@ -4600,7 +4744,7 @@ function ObraMatrizView({ obra, linea, lineaNombre, categorias, materiales, prov
             </div>
             <div style={{ display: "flex", gap: 8, flexWrap: "wrap", alignItems: "center" }}>
               <input value={addonQ} onChange={(e) => setAddonQ(e.target.value)} placeholder="Buscar adicional..." style={{ ...INP, width: 240, height: 34 }} />
-              <button type="button" onClick={() => setAddonModalOpen(true)} style={{ ...BTN_GREEN, padding: "8px 12px" }}>
+              <button type="button" onClick={() => { setEditingAddon(null); setAddonModalOpen(true); }} style={{ ...BTN_GREEN, padding: "8px 12px" }}>
                 <PackagePlus size={14} /> Agregar item
               </button>
             </div>
@@ -4611,8 +4755,9 @@ function ObraMatrizView({ obra, linea, lineaNombre, categorias, materiales, prov
                 const material = materialById.get(addon.material_id) || null;
                 const desc = material?.descripcion || addon.descripcion || "Item adicional";
                 const tipoMeta = addonTipoMeta(addon.tipo);
+                const variantMatch = addonVariantMatches.get(addon.id);
                 return (
-                  <div key={addon.id} style={{ display: "flex", gap: 9, alignItems: "center", border: `1px solid ${C.b0}`, background: C.bg, borderRadius: 10, padding: 9, minWidth: 0 }}>
+                  <div key={addon.id} style={{ display: "flex", gap: 9, alignItems: "center", border: `1px solid ${C.b0}`, background: C.bg, borderRadius: 10, padding: 9, minWidth: 0, flexWrap: "wrap" }}>
                     <MaterialThumb material={material || { imagen_url: addon.imagen_url }} size={38} />
                     <div style={{ flex: 1, minWidth: 0 }}>
                       <div style={{ display: "flex", gap: 6, alignItems: "center", minWidth: 0 }}>
@@ -4622,7 +4767,21 @@ function ObraMatrizView({ obra, linea, lineaNombre, categorias, materiales, prov
                       <div style={{ fontSize: 11, color: C.t2, marginTop: 3, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
                         {qtyText(addon.cantidad || 1, addon.unidad || material?.unidad_medida || "unidad")} · {material?.proveedor || addon.proveedor || "Sin proveedor"}
                       </div>
+                      {variantMatch ? (
+                        <button
+                          type="button"
+                          disabled={actionBusy === `addon-${addon.id}`}
+                          onClick={() => convertirAddonEnVariante(addon, variantMatch)}
+                          style={{ ...BTN, marginTop: 7, padding: "5px 8px", fontSize: 10.5, color: C.blue, borderColor: C.blueB, background: C.blueL }}
+                          title={`Convertir en variante de ${variantMatch.row.descripcion}`}
+                        >
+                          {actionBusy === `addon-${addon.id}` ? "Convirtiendo..." : `Convertir en variante de ${variantMatch.row.descripcion}`}
+                        </button>
+                      ) : null}
                     </div>
+                    <button type="button" onClick={() => { setEditingAddon(addon); setAddonModalOpen(true); }} style={{ ...BTN, color: C.blue, padding: "6px 8px" }} title="Editar adicional">
+                      <Pencil size={13} />
+                    </button>
                     <button type="button" onClick={async () => { await borrarAddon(addon.id); cargarAddons(); }} style={{ ...BTN, color: C.red, padding: "6px 8px" }} title="Quitar adicional">
                       <Trash2 size={13} />
                     </button>
@@ -4641,13 +4800,15 @@ function ObraMatrizView({ obra, linea, lineaNombre, categorias, materiales, prov
       <ObraAddonModal
         open={addonModalOpen}
         obra={obra}
+        addon={editingAddon}
         materiales={materiales}
         categorias={categorias}
         proveedores={proveedores}
         ums={ums}
-        onClose={() => setAddonModalOpen(false)}
+        onClose={() => { setAddonModalOpen(false); setEditingAddon(null); }}
         onSaved={async () => {
           setAddonModalOpen(false);
+          setEditingAddon(null);
           await cargarAddons();
           await onChanged?.();
         }}
@@ -4756,6 +4917,7 @@ function ObraMatrizView({ obra, linea, lineaNombre, categorias, materiales, prov
               {group.rows.map((row) => {
                 const qty = toNum(row.cantidad) || 1;
                 const total = row.precio.amount ? row.precio.amount * qty : null;
+                const variantOptions = materialVariants(row.material || materialById.get(row.materialId));
                 return (
                   <div
                     key={row.id}
@@ -4777,8 +4939,30 @@ function ObraMatrizView({ obra, linea, lineaNombre, categorias, materiales, prov
                         <span style={{ fontSize: 10, fontWeight: 900, color: row.bucket.color, background: `${row.bucket.color}16`, border: `1px solid ${row.bucket.color}44`, borderRadius: 999, padding: "2px 7px", whiteSpace: "nowrap" }}>
                           {row.bucket.label}
                         </span>
+                        <ObraVarianteControl
+                          row={row}
+                          options={variantOptions}
+                          busy={varianteBusy === row.id || snapshotBusy}
+                          onChange={cambiarVarianteRow}
+                        />
                         {row.review?.flag && <ReviewBadge reason={row.review.reason} />}
                         <RecepcionChip row={row} />
+                        {row.source === "addon" && row.addonId ? (
+                          <button
+                            type="button"
+                            onClick={() => {
+                              const addon = addons.find((item) => item.id === row.addonId);
+                              if (addon) {
+                                setEditingAddon(addon);
+                                setAddonModalOpen(true);
+                              }
+                            }}
+                            style={{ ...BTN, padding: "3px 7px", color: C.blue, fontSize: 10.5 }}
+                            title="Editar adicional"
+                          >
+                            <Pencil size={12} /> Editar
+                          </button>
+                        ) : null}
                       </div>
                       <div style={{ fontSize: 11, color: C.t2, marginTop: 4, lineHeight: 1.35 }}>
                         {row.codigo || "sin código"}{row.obs ? ` · ${row.obs}` : ""}
@@ -5468,6 +5652,7 @@ function snapshotRowToView(row) {
     },
     bucket: snapshotBucket(row),
     obs: row.notas || "",
+    variante: row.variante || "",
     revisado: true,
     review: { flag: !!reason, reason },
     estadoObra: estadoFromRecepcion(row.recepcion_estado) || row.estado || "pendiente",
@@ -5523,6 +5708,7 @@ function mergeSnapshotIntoLive(live, snapshot) {
     precio: snapshot.precio?.amount ? snapshot.precio : live.precio,
     bucket: live.bucket || snapshot.bucket,
     obs: mergeNotes(live.obs, snapshot.obs),
+    variante: snapshot.variante || live.variante || "",
     revisado: live.revisado ?? snapshot.revisado,
     review: live.review?.flag ? live.review : snapshot.review,
     baseCantidad: live.baseCantidad,
@@ -5562,6 +5748,42 @@ function mergeMatrixAndSnapshotRows(liveRows = [], snapshotRows = []) {
   });
 
   return [...merged.values()].sort(compareMatrizRows);
+}
+
+function ObraVarianteControl({ row, options = [], busy = false, onChange }) {
+  const cleanOptions = normalizeVariantList(options);
+  if (!cleanOptions.length) {
+    return row.variante ? (
+      <span style={{ fontSize: 10, fontWeight: 900, color: C.blue, background: C.blueL, border: `1px solid ${C.blueB}`, borderRadius: 999, padding: "2px 7px", whiteSpace: "nowrap" }}>
+        {row.variante}
+      </span>
+    ) : null;
+  }
+  return (
+    <label style={{ display: "inline-flex", alignItems: "center", gap: 5, border: `1px solid ${row.variante ? C.blueB : C.b0}`, background: row.variante ? C.blueL : C.s0, borderRadius: 999, padding: "2px 7px", minHeight: 22 }}>
+      <span style={{ fontSize: 9.5, fontWeight: 900, color: row.variante ? C.blue : C.t2, textTransform: "uppercase" }}>Variante</span>
+      <select
+        value={row.variante || ""}
+        disabled={busy}
+        onChange={(e) => onChange?.(row, e.target.value)}
+        style={{
+          border: "none",
+          outline: "none",
+          background: "transparent",
+          color: row.variante ? C.blue : C.t1,
+          fontSize: 11,
+          fontWeight: 900,
+          fontFamily: C.sans,
+          cursor: busy ? "default" : "pointer",
+          maxWidth: 150,
+        }}
+        title="Variante/marca que lleva esta obra"
+      >
+        <option value="" style={OPT_ST}>Sin definir</option>
+        {cleanOptions.map((variant) => <option key={variant} value={variant} style={OPT_ST}>{variant}</option>)}
+      </select>
+    </label>
+  );
 }
 
 function LineasTab({ lineas, obras, categorias, materiales, proveedores, opciones = [], onChanged }) {

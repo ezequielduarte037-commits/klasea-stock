@@ -352,7 +352,7 @@ export async function fetchPanolCatalogMini({ q = "", limit = 80 } = {}) {
   try {
     rows = await fetchPaged(
       "panol_materiales",
-      "id,categoria_id,codigo,codigo_barra,descripcion,proveedor,unidad_medida,precio_unitario,moneda,activo,ubicacion,ubicacion_obs",
+      "id,categoria_id,codigo,codigo_barra,descripcion,proveedor,unidad_medida,precio_unitario,moneda,activo,ubicacion,ubicacion_obs,variantes",
       { order: "descripcion", limit: 1000 },
     );
   } catch (error) {
@@ -389,6 +389,7 @@ export async function fetchPanolCatalogMini({ q = "", limit = 80 } = {}) {
       moneda: row.moneda || "ARS",
       ubicacion: row.ubicacion || null,
       ubicacion_obs: row.ubicacion_obs || null,
+      variantes: Array.isArray(row.variantes) ? row.variantes : [],
     }));
 }
 
@@ -604,13 +605,26 @@ async function buildPanolEnvioMatches({ material = null, q = "", sede = null, li
     try {
       const { data, error } = await supabase
         .from("panol_obra_materiales_snapshot")
-        .select("id,obra_id,estado,cantidad,unidad,material_id,es_adicional")
+        .select("id,obra_id,estado,cantidad,unidad,material_id,es_adicional,variante")
         .in("id", snapshotIds);
-      if (!error) {
-        for (const row of data ?? []) snapshotById.set(row.id, row);
+      if (error) throw error;
+      for (const row of data ?? []) snapshotById.set(row.id, row);
+    } catch (error) {
+      if (!isMissingColumn(error)) {
+        // Si no hay snapshot, igual sugerimos el item de recepcion.
+      } else {
+        try {
+          const { data, error: fallbackError } = await supabase
+            .from("panol_obra_materiales_snapshot")
+            .select("id,obra_id,estado,cantidad,unidad,material_id,es_adicional")
+            .in("id", snapshotIds);
+          if (!fallbackError) {
+            for (const row of data ?? []) snapshotById.set(row.id, row);
+          }
+        } catch {
+          // Si no hay snapshot, igual sugerimos el item de recepcion.
+        }
       }
-    } catch {
-      // Si no hay snapshot, igual sugerimos el item de recepcion.
     }
   }
 
@@ -655,6 +669,7 @@ async function buildPanolEnvioMatches({ material = null, q = "", sede = null, li
       purchase_request_item_id: item.purchase_request_item_id || null,
       snapshot_estado: snapshot?.estado || null,
       es_adicional: snapshot?.es_adicional ?? false,
+      variante: snapshot?.variante || "",
       created_at: item.created_at || item.updated_at || item.envio?.created_at || "",
       score,
     };
@@ -680,13 +695,26 @@ export async function fetchRecepcionPedidoMatches({ material = null, q = "", lim
     try {
       const { data, error } = await supabase
         .from("panol_obra_materiales_snapshot")
-        .select("id,purchase_request_item_id,obra_id,estado,cantidad,unidad,es_adicional")
+        .select("id,purchase_request_item_id,obra_id,estado,cantidad,unidad,es_adicional,variante")
         .in("purchase_request_item_id", itemIds);
-      if (!error) {
-        for (const row of data ?? []) snapshotByItem.set(row.purchase_request_item_id, row);
+      if (error) throw error;
+      for (const row of data ?? []) snapshotByItem.set(row.purchase_request_item_id, row);
+    } catch (error) {
+      if (!isMissingColumn(error)) {
+        // Snapshot puede no existir todavia; el modal sigue funcionando con el item de compra.
+      } else {
+        try {
+          const { data, error: fallbackError } = await supabase
+            .from("panol_obra_materiales_snapshot")
+            .select("id,purchase_request_item_id,obra_id,estado,cantidad,unidad,es_adicional")
+            .in("purchase_request_item_id", itemIds);
+          if (!fallbackError) {
+            for (const row of data ?? []) snapshotByItem.set(row.purchase_request_item_id, row);
+          }
+        } catch {
+          // Snapshot puede no existir todavia; el modal sigue funcionando con el item de compra.
+        }
       }
-    } catch {
-      // Snapshot puede no existir todavia; el modal sigue funcionando con el item de compra.
     }
   }
 
@@ -714,6 +742,7 @@ export async function fetchRecepcionPedidoMatches({ material = null, q = "", lim
       obra_snapshot_item_id: snapshot?.id || null,
       snapshot_estado: snapshot?.estado || null,
       es_adicional: snapshot?.es_adicional ?? item.request?.es_adicional ?? false,
+      variante: snapshot?.variante || "",
       request_detail: item.request?.description || "",
       created_at: item.created_at || item.request?.created_at || "",
       score,
@@ -873,6 +902,7 @@ export async function crearEnvio({
       recepcion_estado: it.recepcion_estado ?? it.recepcionEstado ?? null,
       purchase_request_item_id: it.purchase_request_item_id ?? it.purchaseRequestItemId ?? null,
       obra_snapshot_item_id: it.obra_snapshot_item_id ?? it.obraSnapshotItemId ?? null,
+      variante: it.variante ?? it.variant ?? null,
       precio_unitario: it.precio_unitario ?? it.precioUnitario ?? null,
       moneda: it.moneda ?? null,
       es_adicional: it.es_adicional ?? it.esAdicional ?? null,

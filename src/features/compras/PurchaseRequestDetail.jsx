@@ -356,9 +356,12 @@ export default function PurchaseRequestDetail({ requestId, profile, users = [], 
       obraId: request.project_id || null,
       items: itemsParaPanol.map((it) => ({
         descripcion: it.description,
+        codigo: it.codigo || it.code || "",
         cantidad: it.quantity,
         unidad: it.unit,
+        material_id: it.material_id || "",
         purchase_request_item_id: it.id,
+        variante: it.variante || "",
       })),
     };
   }, [request?.id, request?.project_id, request?.title, itemsParaPanol]);
@@ -728,7 +731,7 @@ export default function PurchaseRequestDetail({ requestId, profile, users = [], 
       toast.success(items.length > 0
         ? `Pedido copiado con ${items.length} items.`
         : "Pedido copiado.");
-    } catch (err) {
+    } catch {
       toast.error("No se pudo copiar el pedido.");
     }
   }

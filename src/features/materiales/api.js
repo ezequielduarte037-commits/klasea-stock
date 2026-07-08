@@ -482,23 +482,66 @@ export async function fetchAddonsObra(obraId) {
     return data ?? [];
   } catch { return []; }
 }
+
+const ADDON_FIELDS = new Set([
+  "obra_id",
+  "material_id",
+  "descripcion",
+  "cantidad",
+  "proveedor",
+  "tipo",
+  "observaciones",
+  "codigo",
+  "unidad",
+  "categoria_id",
+  "proveedor_id",
+  "precio_unitario",
+  "moneda",
+  "imagen_url",
+  "links",
+  "codigo_barra",
+  "variantes",
+  "estado",
+]);
+
+function addonPayload(fields = {}, includeObraId = true) {
+  return Object.fromEntries(
+    Object.entries(fields).filter(([key]) => ADDON_FIELDS.has(key) && (includeObraId || key !== "obra_id")),
+  );
+}
+
+function legacyAddonPayload(payload = {}, includeObraId = true) {
+  return addonPayload({
+    obra_id: payload.obra_id,
+    descripcion: payload.descripcion,
+    cantidad: payload.cantidad,
+    proveedor: payload.proveedor,
+    tipo: payload.tipo,
+    observaciones: payload.observaciones,
+  }, includeObraId);
+}
+
 export async function crearAddon(obraId, fields) {
-  const payload = { obra_id: obraId, ...fields };
+  const payload = addonPayload({ obra_id: obraId, ...fields });
   let { error } = await supabase.from("panol_obra_addons").insert(payload);
   if (error && isMissingColumn(error)) {
-    const legacyPayload = {
-      obra_id: obraId,
-      descripcion: payload.descripcion,
-      cantidad: payload.cantidad,
-      proveedor: payload.proveedor,
-      tipo: payload.tipo,
-      observaciones: payload.observaciones,
-    };
-    const retry = await supabase.from("panol_obra_addons").insert(legacyPayload);
+    const retry = await supabase.from("panol_obra_addons").insert(legacyAddonPayload(payload));
     error = retry.error;
   }
   if (error) throw error;
 }
+
+export async function actualizarAddon(id, fields) {
+  if (!id) throw new Error("Falta el adicional.");
+  const payload = addonPayload(fields, false);
+  let { error } = await supabase.from("panol_obra_addons").update(payload).eq("id", id);
+  if (error && isMissingColumn(error)) {
+    const retry = await supabase.from("panol_obra_addons").update(legacyAddonPayload(payload, false)).eq("id", id);
+    error = retry.error;
+  }
+  if (error) throw error;
+}
+
 export async function borrarAddon(id) {
   const { error } = await supabase.from("panol_obra_addons").delete().eq("id", id);
   if (error) throw error;
@@ -631,7 +674,16 @@ function snapshotPayloadFromRows(obraId, rows = []) {
       source: row.source || "matriz",
       orden: index,
       estado: row.estadoObra || row.estado || "pendiente",
+      variante: row.variante || row.variante_obra || null,
     }));
+}
+
+function snapshotPayloadWithoutVariant(rows = []) {
+  return rows.map((row) => {
+    const clean = { ...row };
+    delete clean.variante;
+    return clean;
+  });
 }
 
 function snapshotPayloadKey(row) {
@@ -660,12 +712,20 @@ export async function ensureObraMaterialSnapshot(obraId, rows = []) {
         return key && !existingKeys.has(key);
       });
       if (!missing.length) return existing;
-      const { error } = await supabase.from("panol_obra_materiales_snapshot").insert(missing);
+      let { error } = await supabase.from("panol_obra_materiales_snapshot").insert(missing);
+      if (error && isMissingColumn(error)) {
+        const retry = await supabase.from("panol_obra_materiales_snapshot").insert(snapshotPayloadWithoutVariant(missing));
+        error = retry.error;
+      }
       if (error) return existing;
       return await fetchObraMaterialSnapshot(obraId);
     }
 
-    const { error } = await supabase.from("panol_obra_materiales_snapshot").insert(payload);
+    let { error } = await supabase.from("panol_obra_materiales_snapshot").insert(payload);
+    if (error && isMissingColumn(error)) {
+      const retry = await supabase.from("panol_obra_materiales_snapshot").insert(snapshotPayloadWithoutVariant(payload));
+      error = retry.error;
+    }
     if (error) return [];
     return await fetchObraMaterialSnapshot(obraId);
   } catch {
@@ -694,7 +754,11 @@ export async function reemplazarObraMaterialSnapshotSeguro(obraId, rows = []) {
     .eq("obra_id", obraId);
   if (delError) throw delError;
 
-  const { error } = await supabase.from("panol_obra_materiales_snapshot").insert(payload);
+  let { error } = await supabase.from("panol_obra_materiales_snapshot").insert(payload);
+  if (error && isMissingColumn(error)) {
+    const retry = await supabase.from("panol_obra_materiales_snapshot").insert(snapshotPayloadWithoutVariant(payload));
+    error = retry.error;
+  }
   if (error) throw error;
   return await fetchObraMaterialSnapshot(obraId);
 }
