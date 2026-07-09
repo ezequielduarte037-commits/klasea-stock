@@ -5,7 +5,7 @@ import { supabase } from "@/supabaseClient";
 import { useResponsive } from "@/hooks/useResponsive";
 import { useToast } from "@/components/ui/Toast";
 import { crearEnvio, crearPanolCatalogMaterial, fetchPanolCatalogMini, fetchRecepcionAvisosAbiertos, fetchRecepcionPedidoMatches, guardarUbicacionMaterial, marcarItems, SEDES_PANOL } from "@/features/panol/panolApi";
-import { fetchProveedores, leerPresupuestoConIA } from "@/features/materiales/api";
+import { fetchProveedores, leerPresupuestoConIA, variantePrecio } from "@/features/materiales/api";
 import ProveedorTipoBadge from "@/features/materiales/ProveedorTipoBadge";
 import { proveedorMeta } from "@/features/materiales/proveedorMeta";
 import { materialBarcodeList, materialBarcodeText, normalizeBarcode } from "@/features/materiales/materialBarcodes";
@@ -458,6 +458,11 @@ function MiniMapaUbicacion({ selectedCode = "", onPick = null }) {
 function ItemVariantRow({ item, material = null, onChange }) {
   const variants = materialVariants(material);
   const current = String(item.variante || "");
+  // Al elegir una variante, si tiene precio cargado se autocompleta el del ítem.
+  const pickVariant = (variant) => {
+    const p = variantePrecio(material, variant);
+    onChange?.(p ? { variante: variant, precio_unitario: p.amount, moneda: p.moneda } : { variante: variant });
+  };
   return (
     <div style={{ display: "flex", gap: 9, alignItems: "center", padding: "0 10px 10px 10px", minWidth: 0, flexWrap: "wrap" }}>
       <span style={{ color: C.t2, fontSize: 10.5, fontWeight: 850, textTransform: "uppercase", letterSpacing: 0.8, minWidth: 72 }}>Variante</span>
@@ -476,7 +481,7 @@ function ItemVariantRow({ item, material = null, onChange }) {
               <button
                 key={variant}
                 type="button"
-                onClick={() => onChange?.({ variante: variant })}
+                onClick={() => pickVariant(variant)}
                 style={{
                   border: `1px solid ${active ? C.blue : C.b0}`,
                   background: active ? "var(--blue-soft)" : C.bg,

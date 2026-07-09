@@ -360,7 +360,7 @@ export async function fetchPanolCatalogMini({ q = "", limit = 80 } = {}) {
   try {
     rows = await fetchPaged(
       "panol_materiales",
-      "id,categoria_id,codigo,codigo_barra,descripcion,proveedor,unidad_medida,precio_unitario,moneda,activo,ubicacion,ubicacion_obs,variantes",
+      "id,categoria_id,codigo,codigo_barra,descripcion,proveedor,unidad_medida,precio_unitario,moneda,activo,ubicacion,ubicacion_obs,variantes,variantes_precios",
       { order: "descripcion", limit: 1000 },
     );
   } catch (error) {
@@ -368,11 +368,20 @@ export async function fetchPanolCatalogMini({ q = "", limit = 80 } = {}) {
     try {
       rows = await fetchPaged(
         "panol_materiales",
-        "id,categoria_id,codigo,descripcion,proveedor,unidad_medida,precio_unitario,moneda,activo",
+        "id,categoria_id,codigo,codigo_barra,descripcion,proveedor,unidad_medida,precio_unitario,moneda,activo,ubicacion,ubicacion_obs,variantes",
         { order: "descripcion", limit: 1000 },
       );
-    } catch {
-      return [];
+    } catch (error2) {
+      if (!isMissingColumn(error2)) return [];
+      try {
+        rows = await fetchPaged(
+          "panol_materiales",
+          "id,categoria_id,codigo,descripcion,proveedor,unidad_medida,precio_unitario,moneda,activo",
+          { order: "descripcion", limit: 1000 },
+        );
+      } catch {
+        return [];
+      }
     }
   }
   const codigosByMaterial = await fetchBarcodeRowsForMaterialIds(rows.map((row) => row.id));
@@ -398,6 +407,7 @@ export async function fetchPanolCatalogMini({ q = "", limit = 80 } = {}) {
       ubicacion: row.ubicacion || null,
       ubicacion_obs: row.ubicacion_obs || null,
       variantes: Array.isArray(row.variantes) ? row.variantes : [],
+      variantes_precios: row.variantes_precios ?? {},
     }));
 }
 

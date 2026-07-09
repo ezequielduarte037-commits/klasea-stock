@@ -23,6 +23,7 @@ import {
   isMissingTable,
   leerPresupuestoConIA,
   precioVigente,
+  variantePrecioMax,
   restaurarMaterialAuditChange,
   marcarMaterialesNoDuplicados,
   normalizeMaterialLinks,
@@ -157,13 +158,25 @@ function materialQty(material, linea) {
 
 function priceInfo(material) {
   const p = precioVigente(material);
-  const amount = p?.precio_unitario != null && p.precio_unitario !== "" ? Number(p.precio_unitario) : null;
-  const moneda = p?.moneda === "USD" ? "USD" : "ARS";
+  let amount = p?.precio_unitario != null && p.precio_unitario !== "" ? Number(p.precio_unitario) : null;
+  let moneda = p?.moneda === "USD" ? "USD" : "ARS";
+  // Si el material tiene precios por variante, el costo se estima con la MÁS CARA
+  // (peor caso) hasta que se defina qué variante va.
+  const maxVar = variantePrecioMax(material);
+  const priced = Object.keys(material?.variantes_precios || {}).length;
+  let esMax = false;
+  if (maxVar) {
+    amount = maxVar.amount;
+    moneda = maxVar.moneda;
+    esMax = priced > 1;
+  }
+  const ok = Number.isFinite(amount) && amount > 0;
   return {
-    amount: Number.isFinite(amount) && amount > 0 ? amount : null,
+    amount: ok ? amount : null,
     moneda,
-    text: Number.isFinite(amount) && amount > 0 ? fmtMoney(amount, moneda) : "Sin precio",
+    text: ok ? `${fmtMoney(amount, moneda)}${esMax ? " máx" : ""}` : "Sin precio",
     proveedor: p?.proveedor || material.proveedor || "",
+    esMaxVariante: esMax,
   };
 }
 
@@ -1760,6 +1773,8 @@ function MaterialRow({ material, categorias, ums, proveedores, onChanged, modelo
           <VariantsEditor
             value={variantes}
             onChange={setVariantes}
+            precios={variantesPrecios}
+            onPreciosChange={setVariantesPrecios}
             description={draft.descripcion}
             proveedores={proveedores}
             onCleanTitle={(descripcion) => setDraft((d) => ({ ...d, descripcion }))}
