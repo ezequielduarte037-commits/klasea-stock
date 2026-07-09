@@ -319,7 +319,7 @@ function materialVariants(material) {
   return normalizeVariantList(material?.variantes);
 }
 
-function prepareMaterialDraftForSave(material, proveedores = [], extraVariants = []) {
+function prepareMaterialDraftForSave(material, proveedores = [], extraVariants = [], variantesPrecios = null) {
   void proveedores;
   const variantes = normalizeVariantList([...(extraVariants || []), ...materialVariants(material)]);
   const descripcion = String(material?.descripcion || "").trim();
@@ -329,6 +329,8 @@ function prepareMaterialDraftForSave(material, proveedores = [], extraVariants =
     alias: String(material?.alias || "").trim() || null,
     links: normalizeMaterialLinks(material?.links),
     variantes,
+    // undefined → el guardado omite el campo (no pisa lo que hay en la base).
+    variantes_precios: variantesPrecios ?? material?.variantes_precios,
   };
 }
 
@@ -1208,36 +1210,66 @@ function SubsectorSelect({ categorias, value, onChange }) {
   );
 }
 
-function VariantsEditor({ value = [], onChange, description = "", proveedores = [], onCleanTitle }) {
+function VariantsEditor({ value = [], onChange, precios = {}, onPreciosChange, description = "", proveedores = [], onCleanTitle }) {
   const [draft, setDraft] = useState("");
   const variants = normalizeVariantList(value);
   const detected = extractBrandsFromTitle(description, proveedores).filter((name) => !variants.some((v) => norm(v) === norm(name)));
+  const withPrices = !!onPreciosChange;
 
+  const setPrecio = (nombre, patch) => {
+    const cur = precios?.[nombre] || { precio: "", moneda: "ARS" };
+    onPreciosChange?.({ ...(precios || {}), [nombre]: { ...cur, ...patch } });
+  };
   const add = (raw = draft) => {
     const next = normalizeVariantList([...variants, ...normalizeVariantList(raw)]);
     onChange?.(next);
     setDraft("");
   };
-  const remove = (name) => onChange?.(variants.filter((v) => norm(v) !== norm(name)));
+  const remove = (name) => {
+    onChange?.(variants.filter((v) => norm(v) !== norm(name)));
+    if (onPreciosChange && precios?.[name]) { const cp = { ...precios }; delete cp[name]; onPreciosChange(cp); }
+  };
   const extract = () => {
     const next = normalizeVariantList([...variants, ...detected]);
     onChange?.(next);
     onCleanTitle?.(cleanTitleBrands(description, next, proveedores));
   };
 
+  const chip = { display: "inline-flex", alignItems: "center", gap: 5, color: C.violet, background: "rgba(139,92,246,0.1)", border: "1px solid rgba(139,92,246,0.3)", borderRadius: 999, padding: "3px 7px", fontSize: 11, fontWeight: 850 };
+
   return (
     <div style={{ display: "grid", gap: 6 }}>
-      <div style={{ display: "flex", gap: 5, flexWrap: "wrap" }}>
-        {variants.map((variant) => (
-          <span key={variant} style={{ display: "inline-flex", alignItems: "center", gap: 5, color: C.violet, background: "rgba(139,92,246,0.1)", border: "1px solid rgba(139,92,246,0.3)", borderRadius: 999, padding: "3px 7px", fontSize: 11, fontWeight: 850 }}>
-            {variant}
-            <button type="button" onClick={() => remove(variant)} style={{ border: "none", background: "transparent", color: C.violet, cursor: "pointer", padding: 0, lineHeight: 1 }}>x</button>
-          </span>
-        ))}
-        {!variants.length && <span style={{ color: C.t2, fontSize: 11 }}>Sin variantes.</span>}
-      </div>
+      {withPrices ? (
+        <div style={{ display: "grid", gap: 5 }}>
+          {variants.map((variant) => {
+            const p = precios?.[variant] || {};
+            return (
+              <div key={variant} style={{ display: "grid", gridTemplateColumns: "minmax(90px,1fr) 118px 72px auto", gap: 6, alignItems: "center" }}>
+                <span style={{ ...chip, justifySelf: "start", maxWidth: "100%", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{variant}</span>
+                <input value={p.precio ?? ""} onChange={(e) => setPrecio(variant, { precio: e.target.value })} inputMode="decimal" placeholder="Precio" style={{ ...INP, padding: "6px 9px" }} />
+                <select value={p.moneda || "ARS"} onChange={(e) => setPrecio(variant, { moneda: e.target.value })} style={{ ...INP, padding: "6px 6px" }}>
+                  <option value="ARS">ARS</option>
+                  <option value="USD">USD</option>
+                </select>
+                <button type="button" onClick={() => remove(variant)} title="Quitar variante" style={{ ...BTN, color: C.red, padding: "6px 8px" }}>×</button>
+              </div>
+            );
+          })}
+          {!variants.length && <span style={{ color: C.t2, fontSize: 11 }}>Sin variantes.</span>}
+        </div>
+      ) : (
+        <div style={{ display: "flex", gap: 5, flexWrap: "wrap" }}>
+          {variants.map((variant) => (
+            <span key={variant} style={chip}>
+              {variant}
+              <button type="button" onClick={() => remove(variant)} style={{ border: "none", background: "transparent", color: C.violet, cursor: "pointer", padding: 0, lineHeight: 1 }}>x</button>
+            </span>
+          ))}
+          {!variants.length && <span style={{ color: C.t2, fontSize: 11 }}>Sin variantes.</span>}
+        </div>
+      )}
       <div style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>
-        <input value={draft} onChange={(e) => setDraft(e.target.value)} onKeyDown={(e) => { if (e.key === "Enter") { e.preventDefault(); add(); } }} placeholder="Ej: LG, Samsung" style={{ ...INP, flex: "1 1 180px", minWidth: 150 }} />
+        <input value={draft} onChange={(e) => setDraft(e.target.value)} onKeyDown={(e) => { if (e.key === "Enter") { e.preventDefault(); add(); } }} placeholder="Ej: LG, Samsung / 23L, 48L" style={{ ...INP, flex: "1 1 180px", minWidth: 150 }} />
         <button type="button" onClick={() => add()} disabled={!draft.trim()} style={{ ...BTN, padding: "6px 10px", color: C.violet }}>
           + Variante
         </button>
@@ -1563,6 +1595,7 @@ function AltaManual({ categorias, selectedId, ums, proveedores, onCreated }) {
   const [draft, setDraft] = useState(() => emptyDraft());
   const [cantidades, setCantidades] = useState({ 37: "", 52: "", 55: "" });
   const [variantes, setVariantes] = useState([]);
+  const [variantesPrecios, setVariantesPrecios] = useState({});
   const [codigosExtra, setCodigosExtra] = useState([]);
   const [imageFile, setImageFile] = useState(null);
   const [saving, setSaving] = useState(false);
@@ -1578,7 +1611,7 @@ function AltaManual({ categorias, selectedId, ums, proveedores, onCreated }) {
     setSaving(true);
     setErr(null);
     try {
-      const materialId = await crearMaterial(prepareMaterialDraftForSave(draft, proveedores, variantes), cantidades);
+      const materialId = await crearMaterial(prepareMaterialDraftForSave(draft, proveedores, variantes, variantesPrecios), cantidades);
       if (imageFile) await uploadMaterialImage(materialId, imageFile);
       for (const row of codigosExtra) {
         if (row.codigo?.trim()) await agregarCodigoBarraMaterial(materialId, row.codigo, { etiqueta: row.etiqueta, variante: row.variante || null });
@@ -1586,6 +1619,7 @@ function AltaManual({ categorias, selectedId, ums, proveedores, onCreated }) {
       setDraft(emptyDraft());
       setCantidades({ 37: "", 52: "", 55: "" });
       setVariantes([]);
+      setVariantesPrecios({});
       setCodigosExtra([]);
       setImageFile(null);
       setOpen(false);
@@ -1637,6 +1671,8 @@ function AltaManual({ categorias, selectedId, ums, proveedores, onCreated }) {
         <VariantsEditor
           value={variantes}
           onChange={setVariantes}
+          precios={variantesPrecios}
+          onPreciosChange={setVariantesPrecios}
           description={draft.descripcion}
           proveedores={proveedores}
           onCleanTitle={(descripcion) => setDraft((d) => ({ ...d, descripcion }))}
@@ -1679,6 +1715,7 @@ function MaterialRow({ material, categorias, ums, proveedores, onChanged, modelo
   const [draft, setDraft] = useState(() => ({ ...material, precio_unitario: inputNumberValue(material.precio_unitario) }));
   const [cantidades, setCantidades] = useState(() => toBomMap(material));
   const [variantes, setVariantes] = useState(() => materialVariants(material));
+  const [variantesPrecios, setVariantesPrecios] = useState(() => material?.variantes_precios || {});
   const [saving, setSaving] = useState(false);
   const review = reviewInfoForMaterial(material);
 
@@ -1686,13 +1723,14 @@ function MaterialRow({ material, categorias, ums, proveedores, onChanged, modelo
     setDraft({ ...material, precio_unitario: inputNumberValue(material.precio_unitario) });
     setCantidades(toBomMap(material));
     setVariantes(materialVariants(material));
+    setVariantesPrecios(material?.variantes_precios || {});
   }, [material]);
 
   async function save() {
     if (!draft.descripcion?.trim() || saving) return;
     setSaving(true);
     try {
-      await guardarMaterial(prepareMaterialDraftForSave(draft, proveedores, variantes), cantidades, { revisado: draft.revisado });
+      await guardarMaterial(prepareMaterialDraftForSave(draft, proveedores, variantes, variantesPrecios), cantidades, { revisado: draft.revisado });
       onChanged?.();
     } finally {
       setSaving(false);

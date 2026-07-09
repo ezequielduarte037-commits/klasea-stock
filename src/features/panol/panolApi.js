@@ -156,7 +156,7 @@ async function hydrateEnvioItemMaterials(envio) {
   try {
     const { data, error } = await supabase
       .from("panol_materiales")
-      .select("id,codigo_barra,codigo,descripcion,unidad_medida")
+      .select("id,codigo_barra,codigo,descripcion,unidad_medida,ubicacion,ubicacion_obs")
       .in("id", materialIds);
     if (error) throw error;
     materiales = data ?? [];

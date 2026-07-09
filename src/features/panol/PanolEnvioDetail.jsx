@@ -5,6 +5,7 @@ import {
   ArrowLeft,
   ClipboardCheck,
   Clock3,
+  MapPin,
   MessageSquare,
   PackageOpen,
   Printer,
@@ -16,14 +17,18 @@ import {
 } from "lucide-react";
 import { useResponsive } from "@/hooks/useResponsive";
 import { useToast } from "@/components/ui/Toast";
+import { supabase } from "@/supabaseClient";
 import {
-  fetchEnvio, fetchEventos, marcarItems, setEstadoEnvio, comentarEnvio, deleteEnvio,
+  fetchEnvio, fetchEventos, guardarUbicacionMaterial, marcarItems, setEstadoEnvio, comentarEnvio, deleteEnvio,
   fetchLinkedPurchaseRequestForEnvio, ITEM_ESTADOS, ITEM_ESTADO_META, ENVIO_ESTADO_META, resumenItems,
 } from "@/features/panol/panolApi";
 import { notifyWaUpdate } from "@/features/compras/purchaseRequestsApi";
 import BarcodeScanner from "@/features/panol/BarcodeScanner";
 import useKeyboardWedge from "@/features/panol/useKeyboardWedge";
 import { materialBarcodeList, materialBarcodeText } from "@/features/materiales/materialBarcodes";
+import { UbicacionChip } from "@/features/panol/UbicacionPicker";
+import { parseUbicacion } from "@/features/panol/ubicacionUtils";
+import { applyPanolReferenceLayout } from "@/features/panol/panolLayout";
 
 // Recepción simplificada: el pañolero solo marca recibido o parcial (pendiente
 // queda para revertir). Los estados problema viejos ya no se ofrecen en la UI.
@@ -54,6 +59,8 @@ function itemSearchText(item) {
     item.codigo_barra,
     item.material?.codigo_barra,
     materialBarcodeText(item.material),
+    item.material?.ubicacion,
+    item.material?.ubicacion_obs,
     item.cantidad,
     item.unidad,
     item.nota,
@@ -111,6 +118,18 @@ function barcodesOfItem(item) {
 
 function firstBarcodeOfItem(item) {
   return barcodesOfItem(item)[0] || "";
+}
+
+function getItemMaterialId(item) {
+  return item?.material_id || item?.material?.id || null;
+}
+
+function locationFromItem(item) {
+  return {
+    ubicacion: item?.ubicacion || item?.material?.ubicacion || "",
+    ubicacion_obs: item?.ubicacion_obs || item?.material?.ubicacion_obs || "",
+    touched: false,
+  };
 }
 
 function scanReceiptForItem(item) {
@@ -444,6 +463,8 @@ export default function PanolEnvioDetail({ envioId, profile, canReceive, isManag
   const [scanResult, setScanResult] = useState(null);
   const [scanFlashId, setScanFlashId] = useState(null);
   const [scannerOpen, setScannerOpen] = useState(false);
+  const [estanterias, setEstanterias] = useState([]);
+  const [itemLocations, setItemLocations] = useState({});
 
   const focusScanInput = useCallback(() => {
     setTimeout(() => scanInputRef.current?.focus(), 60);
@@ -453,7 +474,7 @@ export default function PanolEnvioDetail({ envioId, profile, canReceive, isManag
     setLoading(true);
     try {
       const [e, ev] = await Promise.all([fetchEnvio(envioId), fetchEventos(envioId)]);
-      setEnvio(canSeePrices ? e : {
+      const nextEnvio = canSeePrices ? e : {
         ...e,
         items: (e.items || []).map((item) => {
           const clean = { ...item };
@@ -461,7 +482,9 @@ export default function PanolEnvioDetail({ envioId, profile, canReceive, isManag
           delete clean.moneda;
           return clean;
         }),
-      });
+      };
+      setEnvio(nextEnvio);
+      setItemLocations(Object.fromEntries((nextEnvio.items || []).map((item) => [item.id, locationFromItem(item)])));
       setEventos(ev);
       return e;
     } catch (err) {
@@ -472,6 +495,23 @@ export default function PanolEnvioDetail({ envioId, profile, canReceive, isManag
   }, [envioId, toast, canSeePrices]);
 
   useEffect(() => { cargar(); }, [cargar]);
+
+  useEffect(() => {
+    let alive = true;
+    supabase
+      .from("panol_estanterias")
+      .select("codigo,niveles_cm")
+      .eq("activo", true)
+      .order("codigo")
+      .then(({ data, error }) => {
+        if (!alive || error) return;
+        setEstanterias(applyPanolReferenceLayout(data ?? []));
+      })
+      .catch(() => {
+        if (alive) setEstanterias([]);
+      });
+    return () => { alive = false; };
+  }, []);
 
   const items = envio?.items || EMPTY_ITEMS;
   const resumen = useMemo(() => resumenItems(items), [items]);
@@ -491,6 +531,52 @@ export default function PanolEnvioDetail({ envioId, profile, canReceive, isManag
   const selectedVisible = useMemo(() => visibleIds.filter((id) => sel.has(id)).length, [visibleIds, sel]);
   const allVisibleSelected = visibleIds.length > 0 && selectedVisible === visibleIds.length;
   const scanReadyCount = useMemo(() => items.filter((item) => barcodesOfItem(item).length).length, [items]);
+
+  function updateItemLocation(itemId, patch) {
+    setItemLocations((prev) => ({
+      ...prev,
+      [itemId]: {
+        ...(prev[itemId] || locationFromItem(items.find((item) => item.id === itemId))),
+        ...patch,
+        touched: patch.touched ?? true,
+      },
+    }));
+  }
+
+  async function rememberReceiptLocations(ids) {
+    const itemById = new Map(items.map((item) => [item.id, item]));
+    const updates = [];
+    for (const id of ids) {
+      const item = itemById.get(id);
+      const materialId = getItemMaterialId(item);
+      const loc = itemLocations[id] || locationFromItem(item);
+      if (!item || !materialId || !loc?.touched) continue;
+      updates.push(guardarUbicacionMaterial(materialId, {
+        ubicacion: loc.ubicacion || null,
+        ubicacionObs: loc.ubicacion_obs || null,
+      }));
+    }
+    if (updates.length) await Promise.all(updates);
+    return updates.length;
+  }
+
+  async function guardarUbicacionItem(itemId) {
+    const item = items.find((row) => row.id === itemId);
+    if (!getItemMaterialId(item)) {
+      toast.warning("Este item no esta vinculado al catalogo, no se puede recordar la ubicacion.");
+      return;
+    }
+    setSaving(true);
+    try {
+      const saved = await rememberReceiptLocations([itemId]);
+      if (saved) toast.success("Ubicacion guardada para proximos ingresos.");
+      await cargar();
+    } catch (err) {
+      toast.error(err.message || "No se pudo guardar la ubicacion.");
+    } finally {
+      setSaving(false);
+    }
+  }
 
   useEffect(() => {
     if (scanEnabled) focusScanInput();
@@ -532,6 +618,7 @@ export default function PanolEnvioDetail({ envioId, profile, canReceive, isManag
       }
 
       const receipt = scanReceiptForItem(item);
+      await rememberReceiptLocations([item.id]);
       await marcarItems([item.id], receipt.estado, { cantidadRecibida: receipt.cantidadRecibida });
       await cargar();
       setItemQ("");
@@ -594,6 +681,9 @@ export default function PanolEnvioDetail({ envioId, profile, canReceive, isManag
       const linkedBefore = estado === "recibido" && envio?.purchase_request_id
         ? await fetchLinkedPurchaseRequestForEnvio(envio.id).catch(() => null)
         : null;
+      if (estado === "recibido" || estado === "parcial") {
+        await rememberReceiptLocations(ids);
+      }
       await marcarItems(ids, estado, opts);
       await cargar();
       if (linkedBefore && linkedBefore.status !== "recibido") {
@@ -627,6 +717,7 @@ export default function PanolEnvioDetail({ envioId, profile, canReceive, isManag
 
     setSaving(true);
     try {
+      await rememberReceiptLocations(cleanRows.map((row) => row.id));
       for (const row of cleanRows) {
         await marcarItems([row.id], "parcial", { cantidadRecibida: row.cantidadRecibida });
       }
@@ -1025,6 +1116,8 @@ export default function PanolEnvioDetail({ envioId, profile, canReceive, isManag
                     <MobileItemCard
                       key={item.id}
                       item={item}
+                      location={itemLocations[item.id]}
+                      estanterias={estanterias}
                       selected={sel.has(item.id)}
                       flash={scanFlashId === item.id}
                       canEdit={canReceive && !cerrado}
@@ -1032,11 +1125,15 @@ export default function PanolEnvioDetail({ envioId, profile, canReceive, isManag
                       onToggle={() => toggle(item.id)}
                       onApply={(estado, opts) => aplicar(estado, [item.id], opts)}
                       onSaveNote={(nota) => guardarNota(item, nota)}
+                      onLocationChange={(patch) => updateItemLocation(item.id, patch)}
+                      onSaveLocation={() => guardarUbicacionItem(item.id)}
                     />
                   ) : (
                     <DesktopItemRow
                       key={item.id}
                       item={item}
+                      location={itemLocations[item.id]}
+                      estanterias={estanterias}
                       selected={sel.has(item.id)}
                       flash={scanFlashId === item.id}
                       canEdit={canReceive && !cerrado}
@@ -1045,6 +1142,8 @@ export default function PanolEnvioDetail({ envioId, profile, canReceive, isManag
                       onToggle={() => toggle(item.id)}
                       onApply={(estado, opts) => aplicar(estado, [item.id], opts)}
                       onSaveNote={(nota) => guardarNota(item, nota)}
+                      onLocationChange={(patch) => updateItemLocation(item.id, patch)}
+                      onSaveLocation={() => guardarUbicacionItem(item.id)}
                     />
                   )
                 ))}
@@ -1170,9 +1269,108 @@ export default function PanolEnvioDetail({ envioId, profile, canReceive, isManag
   );
 }
 
-function DesktopItemRow({ item, selected, flash, canEdit, canSeePrices, saving, onToggle, onApply, onSaveNote }) {
+function ReceiptLocationEditor({ item, location, estanterias = [], saving = false, compact = false, onChange, onSave }) {
+  const effective = location || locationFromItem(item);
+  const parsed = parseUbicacion(effective.ubicacion);
+  const cod = parsed.afuera ? "AFUERA" : parsed.cod;
+  const nivel = parsed.nivel ? String(parsed.nivel) : "";
+  const selectedShelf = estanterias.find((est) => est.codigo === cod) || null;
+  const nivelesCount = Array.isArray(selectedShelf?.niveles_cm) ? selectedShelf.niveles_cm.length : 0;
+  const materialId = getItemMaterialId(item);
+  const hasCatalogDefault = !!item?.material?.ubicacion;
+  const changed = !!effective.touched;
+  const helper = !materialId
+    ? "Vincula el item al catalogo para recordar la ubicacion."
+    : changed
+      ? "Se guarda como ubicacion habitual al recibir o con Guardar."
+      : hasCatalogDefault
+        ? "Ubicacion habitual del catalogo."
+        : "Elegila una vez y queda recordada para proximos ingresos.";
+  const field = {
+    background: C.panelSolid,
+    border: `1px solid ${C.border}`,
+    color: C.text,
+    borderRadius: 8,
+    padding: "7px 9px",
+    fontSize: 12,
+    fontFamily: C.sans,
+    outline: "none",
+    minWidth: 0,
+  };
+  const setLocation = (nextCod, nextNivel = nivel, nextObs = effective.ubicacion_obs) => {
+    const value = !nextCod ? "" : nextCod === "AFUERA" ? "AFUERA" : (nextNivel ? `${nextCod}-${nextNivel}` : nextCod);
+    onChange?.({ ubicacion: value, ubicacion_obs: nextObs, touched: true });
+  };
+
+  return (
+    <div style={{ display: "grid", gap: 6 }}>
+      <div style={{
+        display: "grid",
+        gridTemplateColumns: compact ? "1fr" : "78px minmax(130px, 0.5fr) minmax(105px, 0.35fr) minmax(180px, 1fr) auto",
+        gap: 7,
+        alignItems: "center",
+      }}>
+        <span style={{ color: C.dim, fontSize: 10.5, fontWeight: 850, textTransform: "uppercase", letterSpacing: 0.8, display: "inline-flex", alignItems: "center", gap: 5 }}>
+          <MapPin size={11} /> Ubic.
+        </span>
+        <select value={cod} onChange={(e) => setLocation(e.target.value, "")} disabled={saving} style={{ ...field, cursor: saving ? "default" : "pointer" }}>
+          <option value="">Sin ubicar</option>
+          <option value="AFUERA">Afuera del panol</option>
+          {estanterias.map((est) => <option key={est.codigo} value={est.codigo}>{est.codigo}</option>)}
+        </select>
+        {cod && cod !== "AFUERA" && nivelesCount > 0 ? (
+          <select value={nivel} onChange={(e) => setLocation(cod, e.target.value)} disabled={saving} style={{ ...field, cursor: saving ? "default" : "pointer" }}>
+            <option value="">Estante</option>
+            {Array.from({ length: nivelesCount }, (_, i) => (
+              <option key={i + 1} value={String(i + 1)}>{i + 1} estante</option>
+            ))}
+          </select>
+        ) : (
+          <span style={{ display: compact ? "none" : "block" }} />
+        )}
+        <input
+          value={effective.ubicacion_obs || ""}
+          onChange={(e) => onChange?.({ ubicacion: effective.ubicacion || "", ubicacion_obs: e.target.value, touched: true })}
+          disabled={saving}
+          placeholder={cod === "AFUERA" ? "Donde queda fisicamente" : "Obs. de ubicacion"}
+          style={field}
+        />
+        <div style={{ display: "flex", gap: 6, alignItems: "center", justifyContent: compact ? "flex-start" : "flex-end", flexWrap: "wrap", minWidth: 0 }}>
+          <UbicacionChip ubicacion={effective.ubicacion} obs={effective.ubicacion_obs} />
+          {changed && materialId && (
+            <button
+              type="button"
+              onClick={onSave}
+              disabled={saving}
+              style={{
+                border: `1px solid ${C.greenB}`,
+                background: "var(--green-soft)",
+                color: C.green,
+                borderRadius: 8,
+                padding: "7px 9px",
+                cursor: saving ? "default" : "pointer",
+                fontSize: 11,
+                fontWeight: 900,
+                fontFamily: C.sans,
+                whiteSpace: "nowrap",
+              }}
+            >
+              Guardar
+            </button>
+          )}
+        </div>
+      </div>
+      <div style={{ marginLeft: compact ? 0 : 78, color: changed ? C.green : C.dim, fontSize: 11, fontWeight: changed ? 800 : 500 }}>
+        {helper}
+      </div>
+    </div>
+  );
+}
+
+function DesktopItemRow({ item, location, estanterias, selected, flash, canEdit, canSeePrices, saving, onToggle, onApply, onSaveNote, onLocationChange, onSaveLocation }) {
   const meta = ITEM_ESTADO_META[item.estado] ?? ITEM_ESTADO_META.pendiente;
   const barcode = firstBarcodeOfItem(item);
+  const effectiveLocation = location || locationFromItem(item);
   return (
     <div style={{
       display: "grid",
@@ -1295,13 +1493,36 @@ function DesktopItemRow({ item, selected, flash, canEdit, canSeePrices, saving, 
           )}
         </div>
       )}
+
+      {(canEdit || effectiveLocation.ubicacion) && (
+        <div style={{
+          gridColumn: canEdit ? "2 / -1" : "1 / -1",
+          borderTop: `1px dashed ${C.border}`,
+          paddingTop: 8,
+          marginTop: -1,
+        }}>
+          {canEdit ? (
+            <ReceiptLocationEditor
+              item={item}
+              location={effectiveLocation}
+              estanterias={estanterias}
+              saving={saving}
+              onChange={onLocationChange}
+              onSave={onSaveLocation}
+            />
+          ) : (
+            <UbicacionChip ubicacion={effectiveLocation.ubicacion} obs={effectiveLocation.ubicacion_obs} size="md" />
+          )}
+        </div>
+      )}
     </div>
   );
 }
 
-function MobileItemCard({ item, selected, flash, canEdit, saving, onToggle, onApply, onSaveNote }) {
+function MobileItemCard({ item, location, estanterias, selected, flash, canEdit, saving, onToggle, onApply, onSaveNote, onLocationChange, onSaveLocation }) {
   const meta = ITEM_ESTADO_META[item.estado] ?? ITEM_ESTADO_META.pendiente;
   const barcode = firstBarcodeOfItem(item);
+  const effectiveLocation = location || locationFromItem(item);
   return (
     <div style={{
       border: `1px solid ${flash ? C.greenB : selected ? C.blueB : C.border}`,
@@ -1375,10 +1596,22 @@ function MobileItemCard({ item, selected, flash, canEdit, saving, onToggle, onAp
               style={{ width: "100%", boxSizing: "border-box", background: C.panelSolid2, border: `1px solid ${ITEM_ESTADO_META.parcial.border}`, color: C.text, padding: "8px 9px", borderRadius: 8, fontSize: 13, fontFamily: C.mono, outline: "none" }}
             />
           )}
+          <ReceiptLocationEditor
+            item={item}
+            location={effectiveLocation}
+            estanterias={estanterias}
+            saving={saving}
+            compact
+            onChange={onLocationChange}
+            onSave={onSaveLocation}
+          />
         </>
-      ) : item.nota ? (
-        <div style={{ color: C.dim, fontSize: 12 }}>Nota: {item.nota}</div>
-      ) : null}
+      ) : (
+        <>
+          {item.nota && <div style={{ color: C.dim, fontSize: 12 }}>Nota: {item.nota}</div>}
+          {effectiveLocation.ubicacion && <UbicacionChip ubicacion={effectiveLocation.ubicacion} obs={effectiveLocation.ubicacion_obs} size="md" />}
+        </>
+      )}
     </div>
   );
 }

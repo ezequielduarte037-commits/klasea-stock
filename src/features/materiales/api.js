@@ -39,15 +39,15 @@ async function fetchMaterialesCatalogo() {
   const baseSelect = "id, categoria_id, proveedor_id, codigo, descripcion, alias, proveedor, unidad_medida, precio_unitario, moneda, imagen_url, links, revisado, origen, notas, activo, batch_id, created_at, codigo_barra, ubicacion, ubicacion_obs";
   const baseSelectNoLinks = "id, categoria_id, proveedor_id, codigo, descripcion, alias, proveedor, unidad_medida, precio_unitario, moneda, imagen_url, revisado, origen, notas, activo, batch_id, created_at, codigo_barra, ubicacion, ubicacion_obs";
   try {
-    return await fetchPaged("panol_materiales", `${baseSelect}, variantes`, "descripcion");
+    return (await fetchPaged("panol_materiales", `${baseSelect}, variantes, variantes_precios`, "descripcion")).map((row) => ({ ...row, variantes_precios: row.variantes_precios ?? {} }));
   } catch (error) {
     if (!isMissingColumn(error)) throw error;
     try {
-      return (await fetchPaged("panol_materiales", `${baseSelectNoLinks}, variantes`, "descripcion")).map((row) => ({ ...row, links: row.links ?? [], variantes: row.variantes ?? [] }));
+      return (await fetchPaged("panol_materiales", `${baseSelectNoLinks}, variantes`, "descripcion")).map((row) => ({ ...row, links: row.links ?? [], variantes: row.variantes ?? [], variantes_precios: row.variantes_precios ?? {} }));
     } catch (error2) {
       if (!isMissingColumn(error2)) throw error2;
       const fallbackSelect = "id, categoria_id, proveedor_id, codigo, descripcion, proveedor, unidad_medida, precio_unitario, moneda, imagen_url, revisado, origen, notas, activo, batch_id, created_at, codigo_barra";
-      return (await fetchPaged("panol_materiales", fallbackSelect, "descripcion")).map((row) => ({ ...row, alias: null, links: [], variantes: [], ubicacion: null, ubicacion_obs: null }));
+      return (await fetchPaged("panol_materiales", fallbackSelect, "descripcion")).map((row) => ({ ...row, alias: null, links: [], variantes: [], variantes_precios: {}, ubicacion: null, ubicacion_obs: null }));
     }
   }
 }
@@ -94,6 +94,45 @@ function normalizeVariantes(value) {
       seen.add(key);
       return true;
     });
+}
+
+// Precios por variante: mapa { "23L": { precio, moneda } } en la columna variantes_precios.
+// Solo guarda entradas con precio válido y (si se pasan) para nombres de variante conocidos.
+export function normalizeVariantesPrecios(value, nombres = null) {
+  const src = value && typeof value === "object" && !Array.isArray(value) ? value : {};
+  const permit = nombres ? new Set((nombres || []).map((n) => String(n).trim().toLowerCase())) : null;
+  const out = {};
+  for (const [k, v] of Object.entries(src)) {
+    const nombre = String(k || "").trim();
+    if (!nombre) continue;
+    if (permit && !permit.has(nombre.toLowerCase())) continue;
+    const precio = v == null || v.precio === "" || v.precio == null ? null : Number(String(v.precio).replace(",", "."));
+    if (precio == null || !Number.isFinite(precio)) continue;
+    out[nombre] = { precio, moneda: v?.moneda === "USD" ? "USD" : "ARS" };
+  }
+  return out;
+}
+
+// Precio de una variante puntual (para autocompletar al elegirla).
+export function variantePrecio(material, nombre) {
+  const mapa = material?.variantes_precios;
+  if (!mapa || !nombre) return null;
+  const hit = mapa[nombre] || mapa[String(nombre).trim()];
+  if (!hit || hit.precio == null) return null;
+  return { amount: Number(hit.precio), moneda: hit.moneda === "USD" ? "USD" : "ARS" };
+}
+
+// Precio de la variante más cara (peor caso, para el costo total mientras no se define cuál va).
+export function variantePrecioMax(material) {
+  const mapa = material?.variantes_precios;
+  if (!mapa || typeof mapa !== "object") return null;
+  let best = null;
+  for (const v of Object.values(mapa)) {
+    const amount = v?.precio == null ? null : Number(v.precio);
+    if (amount == null || !Number.isFinite(amount)) continue;
+    if (!best || amount > best.amount) best = { amount, moneda: v?.moneda === "USD" ? "USD" : "ARS" };
+  }
+  return best;
 }
 
 export function normalizeMaterialLinks(value) {
@@ -1044,6 +1083,7 @@ export async function guardarMaterial(material, cantidades, { revisado } = {}) {
     links: normalizeMaterialLinks(material.links),
     notas: material.notas || null,
     variantes: normalizeVariantes(material.variantes),
+    variantes_precios: material.variantes_precios === undefined ? undefined : normalizeVariantesPrecios(material.variantes_precios, material.variantes),
     alias: material.alias || null,
     activo: material.activo ?? true,
     codigo_barra: material.codigo_barra || null,
@@ -1054,6 +1094,7 @@ export async function guardarMaterial(material, cantidades, { revisado } = {}) {
   if (error && isMissingColumn(error)) {
     const fallbackPatch = { ...patch };
     delete fallbackPatch.variantes;
+    delete fallbackPatch.variantes_precios;
     delete fallbackPatch.links;
     delete fallbackPatch.alias;
     const retry = await supabase.from("panol_materiales").update(fallbackPatch).eq("id", material.id);
@@ -1078,6 +1119,7 @@ export async function crearMaterial(material, cantidades = {}) {
       imagen_url: material.imagen_url || null,
       links: normalizeMaterialLinks(material.links),
       variantes: normalizeVariantes(material.variantes),
+      variantes_precios: material.variantes_precios === undefined ? undefined : normalizeVariantesPrecios(material.variantes_precios, material.variantes),
       alias: material.alias || null,
       notas: material.notas || null,
       origen: material.origen || "manual",
