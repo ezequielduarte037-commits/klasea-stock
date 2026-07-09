@@ -1257,8 +1257,9 @@ function VariantsEditor({ value = [], onChange, precios = {}, onPreciosChange, d
           {variants.map((variant) => {
             const p = precios?.[variant] || {};
             return (
-              <div key={variant} style={{ display: "grid", gridTemplateColumns: "minmax(90px,1fr) 118px 72px auto", gap: 6, alignItems: "center" }}>
+              <div key={variant} style={{ display: "grid", gridTemplateColumns: "minmax(72px,0.9fr) minmax(90px,1fr) 104px 64px auto", gap: 6, alignItems: "center" }}>
                 <span style={{ ...chip, justifySelf: "start", maxWidth: "100%", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{variant}</span>
+                <input value={p.codigo ?? ""} onChange={(e) => setPrecio(variant, { codigo: e.target.value })} placeholder="Código" style={{ ...INP, padding: "6px 9px", fontFamily: C.mono }} />
                 <input value={p.precio ?? ""} onChange={(e) => setPrecio(variant, { precio: e.target.value })} inputMode="decimal" placeholder="Precio" style={{ ...INP, padding: "6px 9px" }} />
                 <select value={p.moneda || "ARS"} onChange={(e) => setPrecio(variant, { moneda: e.target.value })} style={{ ...INP, padding: "6px 6px" }}>
                   <option value="ARS">ARS</option>
@@ -1460,6 +1461,7 @@ function MaterialQueueCard({ material, categorias, ums, proveedores, onSave, onS
   const [draft, setDraft] = useState(() => ({ ...material, precio_unitario: inputNumberValue(material.precio_unitario) }));
   const [cantidades, setCantidades] = useState(() => toBomMap(material));
   const [variantes, setVariantes] = useState(() => materialVariants(material));
+  const [variantesPrecios, setVariantesPrecios] = useState(() => material?.variantes_precios || {});
   const [saving, setSaving] = useState(false);
   const [err, setErr] = useState(null);
 
@@ -1469,7 +1471,7 @@ function MaterialQueueCard({ material, categorias, ums, proveedores, onSave, onS
     setSaving(true);
     setErr(null);
     try {
-      await onSave(prepareMaterialDraftForSave(draft, proveedores, variantes), cantidades);
+      await onSave(prepareMaterialDraftForSave(draft, proveedores, variantes, variantesPrecios), cantidades);
     } catch (error) {
       setErr(error);
     } finally {
@@ -1528,6 +1530,8 @@ function MaterialQueueCard({ material, categorias, ums, proveedores, onSave, onS
         <VariantsEditor
           value={variantes}
           onChange={setVariantes}
+          precios={variantesPrecios}
+          onPreciosChange={setVariantesPrecios}
           description={draft.descripcion}
           proveedores={proveedores}
           onCleanTitle={(descripcion) => setDraft((d) => ({ ...d, descripcion }))}
@@ -2149,6 +2153,7 @@ function MaterialFila({ material, categorias, ums, proveedores, onChanged, linea
   const [sectores, setSectores] = useState(() => (material.areas?.length ? material.areas : [material.categoria_id].filter(Boolean)));
   const [provExtra, setProvExtra] = useState(() => (material.proveedores_lista || []).map((p) => ({ ...p })));
   const [variantes, setVariantes] = useState(() => materialVariants(material));
+  const [variantesPrecios, setVariantesPrecios] = useState(() => material?.variantes_precios || {});
   const [saving, setSaving] = useState(false);
 
   useEffect(() => {
@@ -2157,6 +2162,7 @@ function MaterialFila({ material, categorias, ums, proveedores, onChanged, linea
     setSectores(material.areas?.length ? material.areas : [material.categoria_id].filter(Boolean));
     setProvExtra((material.proveedores_lista || []).map((p) => ({ ...p })));
     setVariantes(materialVariants(material));
+    setVariantesPrecios(material?.variantes_precios || {});
   }, [material]);
 
   const mainProviderMeta = useMemo(() => proveedorMeta(material.proveedor, proveedores), [material.proveedor, proveedores]);
@@ -2166,7 +2172,7 @@ function MaterialFila({ material, categorias, ums, proveedores, onChanged, linea
     setSaving(true);
     try {
       const primary = sectores[0] ?? draft.categoria_id ?? null;
-      const prepared = prepareMaterialDraftForSave({ ...draft, categoria_id: primary }, proveedores, variantes);
+      const prepared = prepareMaterialDraftForSave({ ...draft, categoria_id: primary }, proveedores, variantes, variantesPrecios);
       await guardarMaterial(prepared, cantidades, { revisado: draft.revisado });
       await setSectoresMaterial(material.id, sectores);
       await setProveedoresMaterial(material.id, provExtra);
@@ -2262,6 +2268,8 @@ function MaterialFila({ material, categorias, ums, proveedores, onChanged, linea
             <VariantsEditor
               value={variantes}
               onChange={setVariantes}
+              precios={variantesPrecios}
+              onPreciosChange={setVariantesPrecios}
               description={draft.descripcion}
               proveedores={proveedores}
               onCleanTitle={(descripcion) => setDraft((d) => ({ ...d, descripcion }))}
@@ -2501,6 +2509,7 @@ function AgregarItemLinea({ linea, title, materiales = [], categorias = [], prov
     notas: "",
   });
   const [variantesNuevo, setVariantesNuevo] = useState([]);
+  const [variantesPreciosNuevo, setVariantesPreciosNuevo] = useState({});
   const [codigosExtraNuevo, setCodigosExtraNuevo] = useState([]);
   const [imageFileNuevo, setImageFileNuevo] = useState(null);
 
@@ -2547,6 +2556,7 @@ function AgregarItemLinea({ linea, title, materiales = [], categorias = [], prov
       unidad_medida: d.unidad_medida || "unidad",
     }));
     setVariantesNuevo([]);
+    setVariantesPreciosNuevo({});
     setCodigosExtraNuevo([]);
     setImageFileNuevo(null);
   }
@@ -2569,7 +2579,7 @@ function AgregarItemLinea({ linea, title, materiales = [], categorias = [], prov
     if (!canSaveNew || saving) return;
     setSaving(true); setErr(null);
     try {
-      const id = await crearMaterial(prepareMaterialDraftForSave({ ...draft, revisado: false }, proveedores, variantesNuevo), {});
+      const id = await crearMaterial(prepareMaterialDraftForSave({ ...draft, revisado: false }, proveedores, variantesNuevo, variantesPreciosNuevo), {});
       if (imageFileNuevo) await uploadMaterialImage(id, imageFileNuevo);
       for (const row of codigosExtraNuevo) {
         if (row.codigo?.trim()) await agregarCodigoBarraMaterial(id, row.codigo, { etiqueta: row.etiqueta, variante: row.variante || null });
@@ -2687,6 +2697,8 @@ function AgregarItemLinea({ linea, title, materiales = [], categorias = [], prov
           <VariantsEditor
             value={variantesNuevo}
             onChange={setVariantesNuevo}
+            precios={variantesPreciosNuevo}
+            onPreciosChange={setVariantesPreciosNuevo}
             description={draft.descripcion}
             proveedores={proveedores}
             onCleanTitle={(descripcion) => setDraft((d) => ({ ...d, descripcion }))}

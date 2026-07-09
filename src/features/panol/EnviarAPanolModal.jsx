@@ -5,7 +5,7 @@ import { supabase } from "@/supabaseClient";
 import { useResponsive } from "@/hooks/useResponsive";
 import { useToast } from "@/components/ui/Toast";
 import { crearEnvio, crearPanolCatalogMaterial, fetchPanolCatalogMini, fetchRecepcionAvisosAbiertos, fetchRecepcionPedidoMatches, guardarUbicacionMaterial, marcarItems, SEDES_PANOL } from "@/features/panol/panolApi";
-import { fetchProveedores, leerPresupuestoConIA, variantePrecio } from "@/features/materiales/api";
+import { fetchProveedores, leerPresupuestoConIA, variantePrecio, varianteCodigo } from "@/features/materiales/api";
 import ProveedorTipoBadge from "@/features/materiales/ProveedorTipoBadge";
 import { proveedorMeta } from "@/features/materiales/proveedorMeta";
 import { materialBarcodeList, materialBarcodeText, normalizeBarcode } from "@/features/materiales/materialBarcodes";
@@ -458,10 +458,14 @@ function MiniMapaUbicacion({ selectedCode = "", onPick = null }) {
 function ItemVariantRow({ item, material = null, onChange }) {
   const variants = materialVariants(material);
   const current = String(item.variante || "");
-  // Al elegir una variante, si tiene precio cargado se autocompleta el del ítem.
+  // Al elegir una variante, si tiene precio y/o código cargados se autocompletan en el ítem.
   const pickVariant = (variant) => {
     const p = variantePrecio(material, variant);
-    onChange?.(p ? { variante: variant, precio_unitario: p.amount, moneda: p.moneda } : { variante: variant });
+    const cod = varianteCodigo(material, variant);
+    const patch = { variante: variant };
+    if (p) { patch.precio_unitario = p.amount; patch.moneda = p.moneda; }
+    if (cod) patch.codigo = cod;
+    onChange?.(patch);
   };
   return (
     <div style={{ display: "flex", gap: 9, alignItems: "center", padding: "0 10px 10px 10px", minWidth: 0, flexWrap: "wrap" }}>

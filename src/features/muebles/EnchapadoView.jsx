@@ -188,7 +188,7 @@ const BARCOS_FECHAS = {
 };
 
 // ── Herrajes por modelo — Anexo C (Oberti) ────────────────────────────────
-const HERRAJES = {
+const DEFAULT_HERRAJES = {
   K34: [
     { q: 28, name: "Base de bisagra codo" },
     { q: 28, name: "Bisagra codo 9" },
@@ -201,13 +201,15 @@ const HERRAJES = {
     { q: 3,  name: "Retén BCE" },
   ],
   K37: [
-    { q: 31, name: "Bisagra codo 9 + base" },
-    { q: 18, name: "Retén push" },
+    { q: 30, name: "Bisagra codo 9 + base" },
+    { q: 17, name: "Retén push" },
     { q: 1,  name: "Guías telescópicas 25 cm" },
+    { q: 5,  name: "Guías telescópicas 30 cm" },
+    { q: 1,  name: "Guías telescópicas 35 cm" },
     { q: 14, name: "Bisagras ocultas" },
     { q: 4,  name: "Cerraduras Kallay 503" },
-    { q: 3,  name: "Pistones 60N" },
-    { q: 1,  name: "Guías telescópicas 35 cm" },
+    { q: 4,  name: "Pistones 60N" },
+    { q: 2,  name: "Pistones 80N" },
   ],
   K42: [
     { q: 56, name: "Bisagra codo 9" },
@@ -254,10 +256,41 @@ const HERRAJES = {
   ],
 };
 
+const HERRAJES_STORAGE_KEY = "enchapado_herrajes_templates_v1";
+
+function mergeHerrajesTemplates(custom = {}) {
+  const merged = { ...DEFAULT_HERRAJES };
+  Object.entries(custom || {}).forEach(([modelo, rows]) => {
+    if (!Array.isArray(rows)) return;
+    merged[modelo] = rows
+      .map((row) => ({ q: row.q ?? "", name: String(row.name ?? "").trim() }))
+      .filter((row) => row.name);
+  });
+  return merged;
+}
+
+function getHerrajesTemplates() {
+  if (typeof window === "undefined") return DEFAULT_HERRAJES;
+  try {
+    return mergeHerrajesTemplates(JSON.parse(window.localStorage.getItem(HERRAJES_STORAGE_KEY) || "{}"));
+  } catch {
+    return DEFAULT_HERRAJES;
+  }
+}
+
+function saveHerrajesTemplates(next) {
+  if (typeof window === "undefined") return;
+  window.localStorage.setItem(HERRAJES_STORAGE_KEY, JSON.stringify(next));
+}
+
+function herrajesForModelo(modelo) {
+  return getHerrajesTemplates()[modelo] ?? null;
+}
+
 // ── Helpers ────────────────────────────────────────────────────────────────
 function dispatchSteps(ot) {
   const hasTablones = !!TEMPLATES[ot.modelo]?.tablones;
-  const hasHerrajes = !!HERRAJES[ot.modelo];
+  const hasHerrajes = !!herrajesForModelo(ot.modelo);
   const estado = ot.estado || "Pendiente";
   const steps = [];
   if (hasTablones) {
@@ -458,7 +491,7 @@ function OTCard({ ot, onClick }) {
 
   // Indicadores de despacho pendiente
   const tPendiente = tpl?.tablones && !ot.tablones_enviado;
-  const hPendiente = HERRAJES[ot.modelo] && !ot.herrajes_enviado;
+  const hPendiente = herrajesForModelo(ot.modelo) && !ot.herrajes_enviado;
 
   return (
     <div
@@ -768,7 +801,7 @@ function OTDetail({ ot: otInit, onBack, onUpdated, onDeleted, esAdmin, onEnsureM
   const nogal   = esNogal(ot.tipo_chapa);
   const chapa   = chapaColor(ot.tipo_chapa);
   const tablones = tablonesList(ot.modelo, ot.tipo_chapa);
-  const herrajesKit = HERRAJES[ot.modelo] ?? null;
+  const herrajesKit = herrajesForModelo(ot.modelo) ?? null;
 
   
 
@@ -1525,11 +1558,43 @@ function PlantillasView() {
   const [modeloSel, setModeloSel] = useState("K34");
   const [chapaSim,  setChapaSim]  = useState("");
   const [showSug,   setShowSug]   = useState(false);
+  const [herrajesTemplates, setHerrajesTemplates] = useState(() => getHerrajesTemplates());
+  const [editHerrajes, setEditHerrajes] = useState(false);
+  const [herrajesDraft, setHerrajesDraft] = useState([]);
 
   const modelos  = Object.keys(TEMPLATES);
   const tpl      = TEMPLATES[modeloSel] ?? TEMPLATES["K34"];
   const nogal    = esNogal(chapaSim);
   const tablones = tablonesList(modeloSel, chapaSim);
+  const herrajesModelo = herrajesTemplates[modeloSel] ?? null;
+
+  function updateHerrajeDraft(index, patch) {
+    setHerrajesDraft((rows) => rows.map((row, i) => (i === index ? { ...row, ...patch } : row)));
+  }
+
+  function abrirEditorHerrajes() {
+    setHerrajesDraft((herrajesTemplates[modeloSel] ?? []).map((row) => ({ ...row })));
+    setEditHerrajes(true);
+  }
+
+  function guardarHerrajesModelo() {
+    const clean = herrajesDraft
+      .map((row) => ({ q: row.q, name: String(row.name || "").trim() }))
+      .filter((row) => row.name);
+    const next = { ...herrajesTemplates, [modeloSel]: clean };
+    setHerrajesTemplates(next);
+    saveHerrajesTemplates(next);
+    setEditHerrajes(false);
+  }
+
+  function restaurarHerrajesModelo() {
+    const base = (DEFAULT_HERRAJES[modeloSel] ?? []).map((row) => ({ ...row }));
+    const next = { ...herrajesTemplates, [modeloSel]: base };
+    setHerrajesTemplates(next);
+    setHerrajesDraft(base);
+    saveHerrajesTemplates(next);
+    setEditHerrajes(false);
+  }
 
   const VetaChip = ({ v }) => {
     const col = v.toLowerCase().includes("ancho") ? "#60a5fa"
@@ -1553,7 +1618,7 @@ function PlantillasView() {
 
       <div style={{ display: "flex", gap: 6, flexWrap: "wrap", marginBottom: 20 }}>
         {modelos.map(m => (
-          <button key={m} onClick={() => setModeloSel(m)} style={{
+          <button key={m} onClick={() => { setModeloSel(m); setEditHerrajes(false); }} style={{
             padding: "8px 18px", borderRadius: 9, cursor: "pointer",
             fontSize: 13, fontWeight: modeloSel === m ? 700 : 400,
             fontFamily: C.mono, transition: "all .12s",
@@ -1679,15 +1744,49 @@ function PlantillasView() {
       )}
 
       {/* Herrajes Anexo C */}
-      {HERRAJES[modeloSel] ? (
-        <Section title="Herrajes — Anexo C" badge={`Kit ${modeloSel} · ${HERRAJES[modeloSel].length} ítems`} badgeColor={C.purple}>
-          <div style={{ display: "flex", flexWrap: "wrap", gap: 6 }}>
-            {HERRAJES[modeloSel].map((h, i) => (
-              <div key={i} style={{ fontSize: 12, color: C.t1, background: C.s0, border: `1px solid ${C.b0}`, padding: "5px 11px", borderRadius: 7, fontFamily: C.mono }}>
-                <span style={{ color: C.purple, fontWeight: 700 }}>{h.q}×</span>{" "}{h.name}
+      {herrajesModelo ? (
+        <Section
+          title="Herrajes — Anexo C"
+          badge={`Kit ${modeloSel} · ${herrajesModelo.length} ítems`}
+          badgeColor={C.purple}
+          action={(
+            <button
+              onClick={() => (editHerrajes ? setEditHerrajes(false) : abrirEditorHerrajes())}
+              style={{ background: editHerrajes ? C.s1 : "transparent", border: `1px solid ${editHerrajes ? C.b1 : C.b0}`, color: editHerrajes ? C.t0 : C.t2, padding: "5px 10px", borderRadius: 7, cursor: "pointer", fontSize: 12, fontFamily: C.sans }}
+            >
+              {editHerrajes ? "Cerrar edición" : "Editar kit"}
+            </button>
+          )}
+        >
+          {editHerrajes ? (
+            <div style={{ display: "grid", gap: 8 }}>
+              {herrajesDraft.map((h, i) => (
+                <div key={i} style={{ display: "grid", gridTemplateColumns: "86px 1fr auto", gap: 8, alignItems: "center" }}>
+                  <input value={h.q ?? ""} onChange={(e) => updateHerrajeDraft(i, { q: e.target.value })} style={{ ...INP, fontFamily: C.mono }} placeholder="Cant." />
+                  <input value={h.name ?? ""} onChange={(e) => updateHerrajeDraft(i, { name: e.target.value })} style={INP} placeholder="Nombre del herraje" />
+                  <button
+                    onClick={() => setHerrajesDraft((rows) => rows.filter((_, idx) => idx !== i))}
+                    style={{ background: "transparent", border: "1px solid rgba(239,68,68,0.25)", color: C.red, padding: "7px 10px", borderRadius: 7, cursor: "pointer", fontSize: 12, fontFamily: C.sans }}
+                  >
+                    Borrar
+                  </button>
+                </div>
+              ))}
+              <div style={{ display: "flex", gap: 8, flexWrap: "wrap", marginTop: 4 }}>
+                <button onClick={() => setHerrajesDraft((rows) => [...rows, { q: 1, name: "" }])} style={{ background: C.s0, border: `1px solid ${C.b0}`, color: C.t1, padding: "7px 12px", borderRadius: 8, cursor: "pointer", fontSize: 12, fontFamily: C.sans }}>+ Ítem</button>
+                <button onClick={guardarHerrajesModelo} style={{ background: "rgba(16,185,129,0.12)", border: "1px solid rgba(16,185,129,0.28)", color: C.green, padding: "7px 14px", borderRadius: 8, cursor: "pointer", fontSize: 12, fontFamily: C.sans, fontWeight: 700 }}>Guardar plantilla</button>
+                <button onClick={restaurarHerrajesModelo} style={{ background: "transparent", border: `1px solid ${C.b0}`, color: C.t2, padding: "7px 12px", borderRadius: 8, cursor: "pointer", fontSize: 12, fontFamily: C.sans }}>Restaurar base</button>
               </div>
-            ))}
-          </div>
+            </div>
+          ) : (
+            <div style={{ display: "flex", flexWrap: "wrap", gap: 6 }}>
+              {herrajesModelo.map((h, i) => (
+                <div key={i} style={{ fontSize: 12, color: C.t1, background: C.s0, border: `1px solid ${C.b0}`, padding: "5px 11px", borderRadius: 7, fontFamily: C.mono }}>
+                  <span style={{ color: C.purple, fontWeight: 700 }}>{h.q}×</span>{" "}{h.name}
+                </div>
+              ))}
+            </div>
+          )}
           <div style={{ marginTop: 10, fontSize: 11, color: C.t2, lineHeight: 1.7 }}>
             Pañol prepara el kit completo antes del despacho a Oberti. Un envío = un modelo.
           </div>

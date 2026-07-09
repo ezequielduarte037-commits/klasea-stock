@@ -510,6 +510,60 @@ export async function guardarUbicacionMaterial(materialId, { ubicacion = null, u
   return patch;
 }
 
+export async function registrarCambioUbicacionMaterial(material = null, {
+  ubicacionAnterior = null,
+  ubicacionNueva = null,
+  ubicacionObs = null,
+  sede = null,
+  obraId = null,
+  esAdicional = false,
+} = {}) {
+  const materialId = material?.id || null;
+  const desc = String(material?.descripcion || "").trim();
+  if (!materialId && !desc) return null;
+  const from = String(ubicacionAnterior || "").trim() || "sin ubicar";
+  const to = String(ubicacionNueva || "").trim() || "sin ubicar";
+  const obs = String(ubicacionObs || "").trim();
+  const nota = [`Ubicacion: ${from} -> ${to}`, obs ? `Obs: ${obs}` : ""].filter(Boolean).join(" · ");
+  const payload = {
+    obra_id: obraId || null,
+    material_id: materialId,
+    descripcion: desc || null,
+    codigo: String(material?.codigo || "").trim() || null,
+    cantidad: 0,
+    unidad: material?.unidad || material?.unidad_medida || "unidad",
+    proveedor: String(material?.proveedor || "").trim() || null,
+    tipo: "ajuste_ubicacion",
+    tipo_label: "Ajuste ubicacion",
+    notas: nota,
+    source: "ajuste_ubicacion",
+    estado: "en_panol",
+    recepcion_estado: "recibido",
+    recepcion_updated_at: new Date().toISOString(),
+    stock_sede: sede || null,
+    stock_nota: nota,
+    es_adicional: !!esAdicional,
+  };
+  const { data, error } = await supabase
+    .from("panol_obra_materiales_snapshot")
+    .insert(payload)
+    .select("id")
+    .single();
+  if (error) throw error;
+  return data?.id || null;
+}
+
+export async function vincularMovimientosAMaterial(snapshotIds = [], materialId) {
+  const ids = [...new Set((snapshotIds || []).filter(Boolean))];
+  if (!ids.length || !materialId) return 0;
+  const { error } = await supabase
+    .from("panol_obra_materiales_snapshot")
+    .update({ material_id: materialId })
+    .in("id", ids);
+  if (error) throw error;
+  return ids.length;
+}
+
 export async function crearPanolCatalogMaterialParaEgreso({
   descripcion,
   codigo = "",

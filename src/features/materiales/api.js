@@ -96,8 +96,8 @@ function normalizeVariantes(value) {
     });
 }
 
-// Precios por variante: mapa { "23L": { precio, moneda } } en la columna variantes_precios.
-// Solo guarda entradas con precio válido y (si se pasan) para nombres de variante conocidos.
+// Info por variante: mapa { "23L": { precio, moneda, codigo } } en la columna variantes_precios.
+// Guarda entradas que tengan precio Y/O código (para nombres de variante conocidos si se pasan).
 export function normalizeVariantesPrecios(value, nombres = null) {
   const src = value && typeof value === "object" && !Array.isArray(value) ? value : {};
   const permit = nombres ? new Set((nombres || []).map((n) => String(n).trim().toLowerCase())) : null;
@@ -106,9 +106,14 @@ export function normalizeVariantesPrecios(value, nombres = null) {
     const nombre = String(k || "").trim();
     if (!nombre) continue;
     if (permit && !permit.has(nombre.toLowerCase())) continue;
-    const precio = v == null || v.precio === "" || v.precio == null ? null : Number(String(v.precio).replace(",", "."));
-    if (precio == null || !Number.isFinite(precio)) continue;
-    out[nombre] = { precio, moneda: v?.moneda === "USD" ? "USD" : "ARS" };
+    const precioRaw = v == null || v.precio === "" || v.precio == null ? null : Number(String(v.precio).replace(",", "."));
+    const precio = Number.isFinite(precioRaw) ? precioRaw : null;
+    const codigo = String(v?.codigo || "").trim();
+    if (precio == null && !codigo) continue; // sin precio ni código → no se guarda
+    const entry = {};
+    if (precio != null) { entry.precio = precio; entry.moneda = v?.moneda === "USD" ? "USD" : "ARS"; }
+    if (codigo) entry.codigo = codigo;
+    out[nombre] = entry;
   }
   return out;
 }
@@ -120,6 +125,14 @@ export function variantePrecio(material, nombre) {
   const hit = mapa[nombre] || mapa[String(nombre).trim()];
   if (!hit || hit.precio == null) return null;
   return { amount: Number(hit.precio), moneda: hit.moneda === "USD" ? "USD" : "ARS" };
+}
+
+// Código de una variante puntual (para autocompletar al elegirla).
+export function varianteCodigo(material, nombre) {
+  const mapa = material?.variantes_precios;
+  if (!mapa || !nombre) return "";
+  const hit = mapa[nombre] || mapa[String(nombre).trim()];
+  return hit?.codigo ? String(hit.codigo) : "";
 }
 
 // Precio de la variante más cara (peor caso, para el costo total mientras no se define cuál va).
@@ -1165,12 +1178,13 @@ export async function crearMaterial(material, cantidades = {}) {
 export async function crearMaterialRapido({
   descripcion, categoriaId = null, unidadMedida = "unidad",
   proveedor = "", codigo = "", precioUnitario = null, moneda = "ARS",
-  alias = "", notas = "",
+  alias = "", notas = "", variantes = [], variantesPrecios = {}, imagenUrl = null, links = [],
 } = {}) {
   if (!String(descripcion || "").trim()) throw new Error("Cargá una descripción.");
+  if (!categoriaId) throw new Error("Elegí un rubro para el material (es obligatorio).");
   const id = await crearMaterial({
     descripcion: String(descripcion).trim(),
-    categoria_id: categoriaId || null,
+    categoria_id: categoriaId,
     unidad_medida: unidadMedida || "unidad",
     proveedor: String(proveedor || "").trim() || null,
     codigo: String(codigo || "").trim() || null,
@@ -1178,6 +1192,10 @@ export async function crearMaterialRapido({
     moneda: moneda || "ARS",
     alias: String(alias || "").trim() || null,
     notas: String(notas || "").trim() || null,
+    variantes,
+    variantes_precios: variantesPrecios,
+    imagen_url: imagenUrl || null,
+    links,
     revisado: false,
     origen: "conteo",
   });

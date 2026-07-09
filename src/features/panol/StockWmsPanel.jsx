@@ -26,8 +26,10 @@ import {
   fetchPanolCatalogMini,
   ingresarStockGeneral,
   marcarMovimientoAnulado,
+  registrarCambioUbicacionMaterial,
   SEDES_PANOL,
   transferirProducto,
+  vincularMovimientosAMaterial,
 } from "@/features/panol/panolApi";
 
 const LEDGER_STATES = ["en_panol", "recibido", "parcial", "egresado", "problema"];
@@ -147,12 +149,17 @@ function rowIsEgreso(row) {
   return row.estado === "egresado" || source.startsWith("egreso") || source.startsWith("transferencia_egreso");
 }
 
+function rowIsLocationChange(row) {
+  return rowSource(row) === "ajuste_ubicacion";
+}
+
 function rowIsDirectStock(row) {
   const source = rowSource(row);
   return DIRECT_STOCK_SOURCES.has(source) || source.startsWith("stock_") || source.startsWith("transferencia_ingreso");
 }
 
 function rowCountsAsStock(row) {
+  if (rowIsLocationChange(row)) return false;
   if (!IN_STOCK_STATES.has(row.estado)) return false;
   const recepcion = String(row.recepcion_estado || "").trim();
   if (RECEIVED_STATES.has(recepcion)) return true;
@@ -162,6 +169,7 @@ function rowCountsAsStock(row) {
 }
 
 function rowIsTransit(row) {
+  if (rowIsLocationChange(row)) return false;
   return IN_STOCK_STATES.has(row.estado) && !rowCountsAsStock(row);
 }
 
@@ -196,8 +204,11 @@ function rowSearchText(row) {
     row.estado,
     row.retirado_por,
     row.egreso_nota,
+    row.stock_nota,
     row.sector_destino,
     row.egreso_por,
+    row.ubicacion,
+    row.ubicacion_obs,
     rowIsAdditional(row) ? "adicional opcional extra" : "estandar base matriz",
     row.request?.title,
     row.request?.description,
@@ -559,14 +570,16 @@ function LocationButton({ location, active, onClick }) {
 
 function KardexRow({ row, onRevert, busy }) {
   const delta = rowDelta(row);
+  const isLocation = rowIsLocationChange(row);
   const isOut = row.estado === "egresado";
   const isTransit = rowIsTransit(row);
-  const label = isTransit ? "Transito" : isOut ? "Egreso" : row.estado === "problema" ? "Problema" : "Ingreso";
+  const label = isLocation ? "Ubicacion" : isTransit ? "Transito" : isOut ? "Egreso" : row.estado === "problema" ? "Problema" : "Ingreso";
+  const labelColor = isLocation ? C.blue : isTransit ? C.amber : isOut ? C.red : C.green;
   // Guard B: deshabilitar Revertir si ya contiene "[anulado]" en notas
   const yaAnulado = rowIsAnulado(row);
   return (
     <div style={{ display: "grid", gridTemplateColumns: "74px minmax(0, 1fr) 86px 68px", gap: 10, alignItems: "center", padding: "9px 0", borderBottom: `1px solid ${C.border}` }}>
-      <span style={{ color: isTransit ? C.amber : isOut ? C.red : C.green, fontSize: 11, fontWeight: 950 }}>{label}</span>
+      <span style={{ color: labelColor, fontSize: 11, fontWeight: 950 }}>{label}</span>
       <span style={{ minWidth: 0 }}>
         <span style={{ display: "block", color: C.text, fontSize: 12.5, fontWeight: 850, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{rowObraLabel(row)} · {rowSede(row) || "Sin sede"}</span>
         <span style={{ display: "block", color: C.dim, fontSize: 10.5, marginTop: 2, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
@@ -1125,6 +1138,7 @@ function ProductDetail({ group, isMobile, obras, sedeLocked, canReceive, mode, o
   const [revertingId, setRevertingId] = useState(null);
   const [reversalTarget, setReversalTarget] = useState(null);
   const [reversalReason, setReversalReason] = useState("");
+  const [creatingLocationMaterial, setCreatingLocationMaterial] = useState(false);
   // Toggle C: ocultar filas ya anuladas en el kardex
   const [ocultarAnulados, setOcultarAnulados] = useState(false);
 
@@ -1279,6 +1293,54 @@ function ProductDetail({ group, isMobile, obras, sedeLocked, canReceive, mode, o
     }
   }
 
+  async function handleLocationSaved(ubicacionNueva, ubicacionObs) {
+    try {
+      await registrarCambioUbicacionMaterial(
+        {
+          ...group.material,
+          descripcion: group.material?.descripcion || group.label,
+          codigo: group.material?.codigo || group.codigo,
+          unidad: group.material?.unidad || group.unidad,
+          proveedor: group.material?.proveedor || group.proveedor,
+        },
+        {
+          ubicacionAnterior: group.ubicacion,
+          ubicacionNueva,
+          ubicacionObs,
+          sede: selectedLocation?.sede || sedeLocked || "Pampa",
+          obraId: selectedLocation?.obraId || null,
+          esAdicional: group.esAdicional,
+        },
+      );
+    } catch (error) {
+      toast.warning(error.message || "Ubicacion guardada, pero no se pudo registrar en el kardex.");
+    } finally {
+      await onDone?.();
+    }
+  }
+
+  async function crearFichaParaUbicacion() {
+    if (!canReceive || creatingLocationMaterial) return;
+    setCreatingLocationMaterial(true);
+    try {
+      const created = await crearPanolCatalogMaterialParaEgreso({
+        descripcion: group.label,
+        codigo: group.codigo,
+        unidad: group.unidad || "unidad",
+        proveedor: group.proveedor || "",
+      });
+      await vincularMovimientosAMaterial(group.rows.map((row) => row.id), created.id);
+      toast.success("Ficha creada. Ahora podes asignar la estanteria.");
+      await onDone?.();
+      const prefix = group.key.includes("::") ? group.key.split("::")[0] : "all";
+      setSelectedKey(`${prefix}::${created.id}`);
+    } catch (error) {
+      toast.error(error.message || "No se pudo crear la ficha para ubicar el producto.");
+    } finally {
+      setCreatingLocationMaterial(false);
+    }
+  }
+
   return (
     <section style={{ minHeight: 0, border: `1px solid ${C.border}`, background: C.panel, borderRadius: 12, overflow: "hidden", display: "flex", flexDirection: "column" }}>
       <div style={{ padding: "13px 14px", borderBottom: `1px solid ${C.border}`, background: C.panelSolid, display: "flex", justifyContent: "space-between", gap: 10, alignItems: "flex-start" }}>
@@ -1305,15 +1367,36 @@ function ProductDetail({ group, isMobile, obras, sedeLocked, canReceive, mode, o
           </div>
         </div>
 
-        {canReceive && group.material?.id && (
+        {canReceive && (
           <div style={{ border: `1px solid ${C.border}`, background: C.panelSolid, borderRadius: 12, padding: "10px 12px" }}>
-            <UbicacionPicker
-              materialId={group.material.id}
-              ubicacion={group.ubicacion}
-              ubicacionObs={group.ubicacion_obs}
-              toast={toast}
-              onSaved={() => onDone?.()}
-            />
+            {group.material?.id ? (
+              <UbicacionPicker
+                materialId={group.material.id}
+                ubicacion={group.ubicacion}
+                ubicacionObs={group.ubicacion_obs}
+                toast={toast}
+                label="Ubicacion fisica del producto"
+                onSaved={handleLocationSaved}
+              />
+            ) : (
+              <div style={{ display: "grid", gap: 8 }}>
+                <div>
+                  <div style={{ color: C.text, fontSize: 13, fontWeight: 950 }}>Ubicacion fisica del producto</div>
+                  <div style={{ color: C.dim, fontSize: 11.5, lineHeight: 1.4, marginTop: 3 }}>
+                    Este producto todavia no esta vinculado al catalogo. Crea la ficha para poder asignarle estanteria, verlo en el mapa y dejar futuros cambios en el kardex.
+                  </div>
+                </div>
+                <button
+                  type="button"
+                  onClick={crearFichaParaUbicacion}
+                  disabled={creatingLocationMaterial}
+                  style={{ justifySelf: "start", display: "inline-flex", alignItems: "center", gap: 7, border: `1px solid ${C.blueB}`, background: C.blueL, color: C.blue, borderRadius: 9, padding: "8px 11px", cursor: creatingLocationMaterial ? "default" : "pointer", opacity: creatingLocationMaterial ? 0.65 : 1, fontSize: 12, fontWeight: 950, fontFamily: C.sans }}
+                >
+                  <PackagePlus size={14} />
+                  {creatingLocationMaterial ? "Creando..." : "Crear ficha y ubicar"}
+                </button>
+              </div>
+            )}
           </div>
         )}
 

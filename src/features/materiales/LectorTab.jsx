@@ -1,8 +1,8 @@
 import { useState, useRef, useEffect, useMemo, useCallback } from "react";
 import { C } from "@/theme";
-import { Scan, Check, X, Plus, Minus, Search, ArrowRight, Barcode, ClipboardList, RotateCcw, Undo2, Trash2, AlertTriangle, StickyNote } from "lucide-react";
+import { Scan, Check, X, Plus, Minus, Search, ArrowRight, Barcode, ClipboardList, RotateCcw, Undo2, Trash2, AlertTriangle, StickyNote, ImagePlus } from "lucide-react";
 import { ingresarStockGeneral, egresarProducto, fetchObrasEgreso, marcarMovimientoAnulado, SEDES_PANOL } from "@/features/panol/panolApi";
-import { agregarCodigoBarraMaterial, eliminarCodigoBarraMaterial, crearMaterialRapido, guardarCantidades, actualizarNotasMaterial } from "@/features/materiales/api";
+import { agregarCodigoBarraMaterial, eliminarCodigoBarraMaterial, crearMaterialRapido, guardarCantidades, actualizarNotasMaterial, uploadMaterialImage } from "@/features/materiales/api";
 import { findMaterialByBarcode, materialBarcodeList, materialBarcodeText, materialMatchesBarcode, barcodeKey } from "@/features/materiales/materialBarcodes";
 import { MODELOS, toBomMap } from "@/features/materiales/materialesParser";
 import UbicacionPicker from "@/features/panol/UbicacionPicker";
@@ -81,6 +81,25 @@ export default function LectorTab({ materiales, categorias = [], onMaterialUpdat
   const [quickCreateMoneda, setQuickCreateMoneda] = useState("ARS");
   const [quickCreateAlias, setQuickCreateAlias] = useState("");
   const [quickCreateNotas, setQuickCreateNotas] = useState("");
+  const [quickCreateVariantes, setQuickCreateVariantes] = useState([]);
+  const [quickCreateVariantesPrecios, setQuickCreateVariantesPrecios] = useState({});
+  const [quickCreateVarDraft, setQuickCreateVarDraft] = useState("");
+  const [quickCreateImageFile, setQuickCreateImageFile] = useState(null);
+  const quickCreateImageInputRef = useRef(null);
+  const quickImgPreview = useMemo(() => (quickCreateImageFile ? URL.createObjectURL(quickCreateImageFile) : ""), [quickCreateImageFile]);
+  useEffect(() => { if (!quickImgPreview) return undefined; return () => URL.revokeObjectURL(quickImgPreview); }, [quickImgPreview]);
+
+  function addQuickVariant() {
+    const names = quickCreateVarDraft.split(/[,\n;/]+/).map((s) => s.trim()).filter(Boolean);
+    if (!names.length) return;
+    setQuickCreateVariantes((list) => {
+      const seen = new Set(list.map((x) => x.toLowerCase()));
+      const next = [...list];
+      for (const n of names) if (!seen.has(n.toLowerCase())) { seen.add(n.toLowerCase()); next.push(n); }
+      return next;
+    });
+    setQuickCreateVarDraft("");
+  }
   const [quickCreateSaving, setQuickCreateSaving] = useState(false);
   const [countSaving, setCountSaving] = useState(false);
   const [countUndoing, setCountUndoing] = useState(null);
@@ -474,9 +493,14 @@ export default function LectorTab({ materiales, categorias = [], onMaterialUpdat
 
   async function handleQuickCreate() {
     if (!quickCreateDesc.trim() || quickCreateSaving) return;
+    if (!quickCreateCat) {
+      setLastResult({ ok: false, msg: "Elegí un rubro para el material." });
+      beep(300, 200);
+      return;
+    }
     setQuickCreateSaving(true);
     try {
-      const newMat = await crearMaterialRapido({
+      let newMat = await crearMaterialRapido({
         descripcion: quickCreateDesc.trim(),
         categoriaId: quickCreateCat || null,
         unidadMedida: quickCreateUM || "unidad",
@@ -486,7 +510,15 @@ export default function LectorTab({ materiales, categorias = [], onMaterialUpdat
         moneda: quickCreateMoneda,
         alias: quickCreateAlias,
         notas: quickCreateNotas,
+        variantes: quickCreateVariantes,
+        variantesPrecios: quickCreateVariantesPrecios,
       });
+      if (quickCreateImageFile) {
+        try {
+          const url = await uploadMaterialImage(newMat.id, quickCreateImageFile);
+          newMat = { ...newMat, imagen_url: url || newMat.imagen_url };
+        } catch { /* la foto no frena el alta */ }
+      }
       await onCatalogChanged?.();
       selectCountMaterial(newMat);
       setQuickCreateOpen(false);
@@ -499,6 +531,10 @@ export default function LectorTab({ materiales, categorias = [], onMaterialUpdat
       setQuickCreateMoneda("ARS");
       setQuickCreateAlias("");
       setQuickCreateNotas("");
+      setQuickCreateVariantes([]);
+      setQuickCreateVariantesPrecios({});
+      setQuickCreateVarDraft("");
+      setQuickCreateImageFile(null);
       setLastResult({ ok: true, msg: `Material creado: ${newMat.descripcion}` });
       beep(900, 80);
     } catch (err) {
@@ -941,7 +977,7 @@ export default function LectorTab({ materiales, categorias = [], onMaterialUpdat
                       onChange={e => setQuickCreateCat(e.target.value)}
                       style={selectStyle}
                     >
-                      <option value="">Rubro (opcional)</option>
+                      <option value="">Rubro (obligatorio)</option>
                       {categorias.map(c => <option key={c.id} value={c.id}>{c.nombre}</option>)}
                     </select>
                     <input
@@ -996,6 +1032,47 @@ export default function LectorTab({ materiales, categorias = [], onMaterialUpdat
                       style={{ ...inputStyle, fontSize: 13, fontFamily: C.sans, resize: "vertical", letterSpacing: "normal" }}
                     />
                   </div>
+                  {/* Variantes / marcas con precio */}
+                  <div>
+                    <div style={{ fontSize: 10, color: C.dim, letterSpacing: 0.5, textTransform: "uppercase", marginBottom: 4, fontWeight: 700 }}>Variantes / marcas (con precio)</div>
+                    {quickCreateVariantes.length > 0 && (
+                      <div style={{ display: "grid", gap: 5, marginBottom: 6 }}>
+                        {quickCreateVariantes.map((v) => {
+                          const p = quickCreateVariantesPrecios[v] || {};
+                          return (
+                            <div key={v} style={{ display: "grid", gridTemplateColumns: "minmax(52px,0.85fr) minmax(70px,1fr) 84px 54px 28px", gap: 5, alignItems: "center" }}>
+                              <span style={{ color: C.violet, background: "rgba(139,92,246,0.1)", border: "1px solid rgba(139,92,246,0.3)", borderRadius: 999, padding: "3px 9px", fontSize: 11, fontWeight: 850, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{v}</span>
+                              <input value={p.codigo ?? ""} onChange={(e) => setQuickCreateVariantesPrecios((m) => ({ ...m, [v]: { ...(m[v] || { moneda: "ARS" }), codigo: e.target.value } }))} placeholder="Código" style={{ ...inputStyle, fontSize: 12, padding: "6px 8px", fontFamily: C.mono }} />
+                              <input value={p.precio ?? ""} inputMode="decimal" onChange={(e) => setQuickCreateVariantesPrecios((m) => ({ ...m, [v]: { ...(m[v] || { moneda: "ARS" }), precio: e.target.value } }))} placeholder="Precio" style={{ ...inputStyle, fontSize: 12, padding: "6px 8px", fontFamily: C.mono }} />
+                              <select value={p.moneda || "ARS"} onChange={(e) => setQuickCreateVariantesPrecios((m) => ({ ...m, [v]: { ...(m[v] || {}), moneda: e.target.value } }))} style={{ ...selectStyle, fontSize: 12, padding: "6px 4px" }}>
+                                <option value="ARS">ARS</option>
+                                <option value="USD">USD</option>
+                              </select>
+                              <button type="button" title="Quitar variante" onClick={() => { setQuickCreateVariantes((list) => list.filter((x) => x !== v)); setQuickCreateVariantesPrecios((m) => { const c = { ...m }; delete c[v]; return c; }); }} style={{ ...btnBase, padding: "5px 7px", background: "transparent", color: C.red }}>×</button>
+                            </div>
+                          );
+                        })}
+                      </div>
+                    )}
+                    <div style={{ display: "flex", gap: 6 }}>
+                      <input value={quickCreateVarDraft} onChange={(e) => setQuickCreateVarDraft(e.target.value)} onKeyDown={(e) => { if (e.key === "Enter") { e.preventDefault(); addQuickVariant(); } }} placeholder="Ej: 23L, 48L / LG, Samsung" style={{ ...inputStyle, fontSize: 13, flex: 1 }} />
+                      <button type="button" onClick={addQuickVariant} disabled={!quickCreateVarDraft.trim()} style={{ ...btnBase, padding: "7px 10px", color: C.violet, opacity: quickCreateVarDraft.trim() ? 1 : 0.5 }}>+ Variante</button>
+                    </div>
+                  </div>
+
+                  {/* Foto del producto */}
+                  <div>
+                    <div style={{ fontSize: 10, color: C.dim, letterSpacing: 0.5, textTransform: "uppercase", marginBottom: 4, fontWeight: 700 }}>Foto del producto</div>
+                    <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                      <div style={{ width: 52, height: 52, borderRadius: 8, border: `1px solid ${C.border}`, background: C.panel, overflow: "hidden", display: "grid", placeItems: "center", flexShrink: 0 }}>
+                        {quickImgPreview ? <img src={quickImgPreview} alt="" style={{ width: "100%", height: "100%", objectFit: "cover" }} /> : <ImagePlus size={18} color={C.dim} />}
+                      </div>
+                      <button type="button" onClick={() => quickCreateImageInputRef.current?.click()} style={{ ...btnBase, padding: "7px 10px", color: C.blue }}>{quickCreateImageFile ? "Cambiar foto" : "Elegir / sacar foto"}</button>
+                      {quickCreateImageFile && <button type="button" onClick={() => setQuickCreateImageFile(null)} style={{ ...btnBase, padding: "7px 10px", background: "transparent", color: C.red }}>Quitar</button>}
+                      <input ref={quickCreateImageInputRef} type="file" accept="image/*" capture="environment" style={{ display: "none" }} onChange={(e) => { setQuickCreateImageFile(e.target.files?.[0] || null); e.target.value = ""; }} />
+                    </div>
+                  </div>
+
                   <div style={{ display: "flex", gap: 8, justifyContent: "flex-end" }}>
                     <button type="button" onClick={() => setQuickCreateOpen(false)} style={{ ...btnBase, background: "transparent", color: C.dim }}>Cancelar</button>
                     <button
