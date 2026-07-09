@@ -1,21 +1,40 @@
 import { C } from "@/theme";
 import { useEffect, useMemo, useRef, useState } from "react";
-import { Bot, Link2, MapPin, PackageSearch, Search } from "lucide-react";
+import { Bot, Link2, MapPin, PackageSearch, ScanLine, Search } from "lucide-react";
 import { supabase } from "@/supabaseClient";
 import { useResponsive } from "@/hooks/useResponsive";
 import { useToast } from "@/components/ui/Toast";
-import { crearEnvio, crearPanolCatalogMaterial, fetchPanolCatalogMini, fetchRecepcionPedidoMatches, guardarUbicacionMaterial, marcarItems, SEDES_PANOL } from "@/features/panol/panolApi";
+import { crearEnvio, crearPanolCatalogMaterial, fetchPanolCatalogMini, fetchRecepcionAvisosAbiertos, fetchRecepcionPedidoMatches, guardarUbicacionMaterial, marcarItems, SEDES_PANOL } from "@/features/panol/panolApi";
 import { fetchProveedores, leerPresupuestoConIA } from "@/features/materiales/api";
 import ProveedorTipoBadge from "@/features/materiales/ProveedorTipoBadge";
 import { proveedorMeta } from "@/features/materiales/proveedorMeta";
-import { materialBarcodeList, materialBarcodeText } from "@/features/materiales/materialBarcodes";
+import { materialBarcodeList, materialBarcodeText, normalizeBarcode } from "@/features/materiales/materialBarcodes";
 import { guardarIngresoPendiente, borrarIngresoPendiente } from "@/features/panol/ingresosPendientes";
+import useKeyboardWedge from "@/features/panol/useKeyboardWedge";
+import BarcodeScanner from "@/features/panol/BarcodeScanner";
 import { UbicacionChip } from "@/features/panol/UbicacionPicker";
 import { parseUbicacion } from "@/features/panol/ubicacionUtils";
 import { PANOL_REFERENCE_LAYOUT, PANOL_ROOM_H, PANOL_ROOM_W, applyPanolReferenceLayout } from "@/features/panol/panolLayout";
 
 const UNITS = ["unidad", "metro", "kg", "litro", "pies", "caja", "rollo", "par", "juego", "m2"];
 const CURRENCIES = ["ARS", "USD"];
+
+// Feedback sonoro del escaneo (agudo = ok, grave = error). Silencioso si falla.
+function scanBeep(frequency = 880, duration = 90) {
+  try {
+    const Ctx = window.AudioContext || window.webkitAudioContext;
+    if (!Ctx) return;
+    const ctx = new Ctx();
+    const osc = ctx.createOscillator();
+    const gain = ctx.createGain();
+    osc.connect(gain);
+    gain.connect(ctx.destination);
+    osc.frequency.value = frequency;
+    gain.gain.value = 0.05;
+    osc.start();
+    setTimeout(() => { osc.stop(); ctx.close?.(); }, duration);
+  } catch { /* sin audio */ }
+}
 
 const UNIT_ALIASES = {
   u: "unidad", un: "unidad", uni: "unidad", unid: "unidad", unidad: "unidad", unidades: "unidad", uds: "unidad",
@@ -603,18 +622,28 @@ export default function EnviarAPanolModal({ open, onClose, prefill, showPrices =
   const [catalogLoading, setCatalogLoading] = useState(false);
   const [selectedMaterial, setSelectedMaterial] = useState(null);
   const [matches, setMatches] = useState([]);
-  const [matchesLoading, setMatchesLoading] = useState(false);
   const [selectedMatches, setSelectedMatches] = useState(() => new Set());
   const [dragMatch, setDragMatch] = useState(null);
   const [aiReading, setAiReading] = useState(false);
   const [creatingCatalogIndex, setCreatingCatalogIndex] = useState(null);
+  const [scanCode, setScanCode] = useState("");
+  const [scanFlashMat, setScanFlashMat] = useState(null);
+  const [scannerOpen, setScannerOpen] = useState(false);
+  const [searchTab, setSearchTab] = useState("materiales"); // "materiales" | "avisos"
+  const [avisos, setAvisos] = useState([]);
+  const [avisosLoading, setAvisosLoading] = useState(false);
+  const [expandedAviso, setExpandedAviso] = useState(null);
+  const [scanChoice, setScanChoice] = useState(null); // { material, options } cuando el escaneo es ambiguo
   const autoDraftIdRef = useRef(null);
   const lastAutosaveRef = useRef("");
+  const scanInputRef = useRef(null);
 
   useEffect(() => {
     if (!open) return;
     setTitulo(prefill?.titulo || "");
-    setSede(sedeLocked || prefill?.sede || "");
+    // Solo el pañolero (sedeLocked) arranca con sede fija. Compras/admin/otros deben
+    // elegirla a mano en cada aviso → evita mandar a la sede equivocada por defecto.
+    setSede(sedeLocked || "");
     setObraId(prefill?.obraId || "");
     setPrioridad(prefill?.prioridad || "media");
     setObservaciones(prefill?.observaciones || "");
@@ -696,7 +725,6 @@ export default function EnviarAPanolModal({ open, onClose, prefill, showPrices =
     }
     let alive = true;
     const timer = setTimeout(async () => {
-      setMatchesLoading(true);
       try {
         const rows = await fetchRecepcionPedidoMatches({ material: selectedMaterial, q: term, limit: 80, sede });
         if (alive) {
@@ -705,8 +733,6 @@ export default function EnviarAPanolModal({ open, onClose, prefill, showPrices =
         }
       } catch {
         if (alive) setMatches([]);
-      } finally {
-        if (alive) setMatchesLoading(false);
       }
     }, 220);
     return () => {
@@ -743,10 +769,61 @@ export default function EnviarAPanolModal({ open, onClose, prefill, showPrices =
     return () => window.removeEventListener("beforeunload", handler);
   }, [open, isRemito, titulo, sede, obraId, prioridad, observaciones, items, prefill?.draftId]);
 
+  // Todos los avisos/pedidos de compra abiertos, para la pestaña "Avisos de recepción"
+  useEffect(() => {
+    if (!open || !isRemito) return undefined;
+    let alive = true;
+    setAvisosLoading(true);
+    fetchRecepcionAvisosAbiertos({ sede: sedeLocked || null, limit: 1000 })
+      .then((rows) => { if (alive) setAvisos(rows); })
+      .catch(() => { if (alive) setAvisos([]); })
+      .finally(() => { if (alive) setAvisosLoading(false); });
+    return () => { alive = false; };
+  }, [open, isRemito, sedeLocked]);
+
+  // Al elegir la obra por defecto arriba, si hay un aviso de esa obra lo abre para marcar.
+  useEffect(() => {
+    if (!obraId || !avisos.length) return;
+    const match = avisos.find((a) => a.obra_id === obraId);
+    if (match) { setSearchTab("avisos"); setExpandedAviso(match.request_id || match.request_title || null); }
+  }, [obraId, avisos]);
+
+  // Escaneo: foco inicial en el campo (flujo scan-first) + lector global (keyboard wedge)
+  useEffect(() => {
+    if (!open || !isRemito) return undefined;
+    const t = setTimeout(() => scanInputRef.current?.focus(), 90);
+    return () => clearTimeout(t);
+  }, [open, isRemito]);
+
+  useKeyboardWedge({ enabled: open && isRemito && !scannerOpen && !scanChoice, onScan: (code) => processScan(code) });
+
   const obrasActivas = useMemo(() => {
     const rows = obras.filter((o) => !["terminada", "cancelada", "archivada"].includes(o.estado));
     return rows.length ? rows : obras;
   }, [obras]);
+
+  const avisosAgrupados = useMemo(() => {
+    const byReq = new Map();
+    for (const m of avisos) {
+      const key = m.request_id || m.request_title || "sin";
+      if (!byReq.has(key)) byReq.set(key, { key, request_id: m.request_id, request_title: m.request_title, obra_codigo: m.obra_codigo, linea_nombre: m.linea_nombre, items: [] });
+      byReq.get(key).items.push(m);
+    }
+    // Si hay obra seleccionada arriba, se muestran SOLO los avisos de esa obra.
+    const grupos = [...byReq.values()];
+    const filtrados = obraId ? grupos.filter((g) => g.items.some((it) => it.obra_id === obraId)) : grupos;
+    return filtrados.sort((a, b) => String(b.request_id ?? "").localeCompare(String(a.request_id ?? "")));
+  }, [avisos, obraId]);
+
+  const addedPedidoIds = useMemo(() => {
+    const s = new Set();
+    for (const it of items) {
+      if (it.purchase_request_item_id) s.add(it.purchase_request_item_id);
+      if (it.panol_envio_item_id) s.add(it.panol_envio_item_id);
+    }
+    return s;
+  }, [items]);
+  const avisoItemAdded = (m) => addedPedidoIds.has(m.panol_envio_item_id) || addedPedidoIds.has(m.purchase_request_item_id);
 
   if (!open) return null;
 
@@ -996,13 +1073,96 @@ export default function EnviarAPanolModal({ open, onClose, prefill, showPrices =
     })]);
   }
 
-  function toggleMatch(matchId) {
-    setSelectedMatches((prev) => {
-      const next = new Set(prev);
-      if (next.has(matchId)) next.delete(matchId);
-      else next.add(matchId);
-      return next;
-    });
+  function bumpItemQty(idx, by = 1) {
+    setItems((prev) => prev.map((it, i) => {
+      if (i !== idx) return it;
+      const actual = Number(String(it.cantidad ?? "").replace(",", ".")) || 0;
+      return { ...it, cantidad: String(actual + by) };
+    }));
+  }
+
+  function flashMaterial(matId) {
+    if (!matId) return;
+    setScanFlashMat(matId);
+    setTimeout(() => setScanFlashMat((cur) => (cur === matId ? null : cur)), 1300);
+  }
+
+  // Escanear = buscar el producto en los avisos de recepción abiertos y marcarlo ahí
+  // (abriendo el aviso). Si no está en ningún aviso, ingreso directo. Nunca clickear ni borrar.
+  function processScan(rawCode) {
+    if (!isRemito) return;
+    const code = normalizeBarcode(rawCode);
+    if (!code) return;
+    setScanCode("");
+    setTimeout(() => scanInputRef.current?.focus(), 40);
+
+    const material = fullCatalog.find((m) =>
+      materialBarcodeList(m).some((b) => normalizeBarcode(b.codigo) === code)
+      || (m.codigo && normalizeBarcode(m.codigo) === code));
+
+    // 1) ¿Ya está en la lista? Ítem de aviso → aviso "ya marcado"; ingreso directo → +1
+    const existingIdx = items.findIndex((it) =>
+      (material && it.material_id === material.id)
+      || (it.codigo_barra && normalizeBarcode(it.codigo_barra) === code)
+      || (it.codigo && normalizeBarcode(it.codigo) === code));
+    if (existingIdx >= 0) {
+      const it = items[existingIdx];
+      flashMaterial(it.material_id);
+      if (it.panol_envio_item_id || it.purchase_request_item_id) {
+        toast.success(`Ya marcado · ${it.descripcion || "ítem"}`);
+      } else {
+        bumpItemQty(existingIdx, 1);
+        toast.success(`+1 · ${it.descripcion || "ítem"}`);
+      }
+      scanBeep(900, 80);
+      return;
+    }
+
+    if (material) {
+      // 2) ¿Está en algún aviso de recepción abierto? Si hay obra seleccionada, solo
+      //    esa obra. Si queda 1 → se marca; si hay varios → se pregunta a cuál asignar.
+      const enAvisos = avisos.filter((a) => a.material_id === material.id && !avisoItemAdded(a));
+      const candidatos = obraId ? enAvisos.filter((a) => a.obra_id === obraId) : enAvisos;
+      const nAvisos = new Set(candidatos.map((a) => a.request_id)).size;
+      if (candidatos.length && nAvisos === 1) {
+        const elegido = candidatos[0];
+        agregarPedidoItem(elegido);
+        setSearchTab("avisos");
+        setExpandedAviso(elegido.request_id || elegido.request_title || null);
+        flashMaterial(material.id);
+        toast.success(`Recepcionado del aviso · ${elegido.description || material.descripcion}`);
+        scanBeep(900, 80);
+        return;
+      }
+      if (candidatos.length && nAvisos > 1) {
+        // Ambiguo → preguntar a qué aviso/obra asignar este producto
+        setScanChoice({ material, options: candidatos });
+        scanBeep(600, 120);
+        return;
+      }
+      // 3) No está en ningún aviso (para el contexto) → ingreso directo desde el catálogo
+      addCatalogMaterial(material);
+      flashMaterial(material.id);
+      toast.success(`Ingreso directo · ${material.descripcion}`);
+      scanBeep(760, 90);
+      return;
+    }
+
+    // 4) Código desconocido → lo dejo en el alta rápida para cargarlo a mano
+    setNCode(code);
+    scanBeep(300, 200);
+    toast.warning(`Código ${code} no está en el catálogo. Cargalo a mano (te dejé el código puesto).`);
+  }
+
+  // Agregar (marcar) un ítem de un aviso sin escanear: lo vincula al catálogo si puede.
+  function agregarPedidoItem(m) {
+    if (!m) return;
+    const dupe = (m.purchase_request_item_id && items.some((it) => it.purchase_request_item_id === m.purchase_request_item_id))
+      || (m.panol_envio_item_id && items.some((it) => it.panol_envio_item_id === m.panol_envio_item_id));
+    if (dupe) return;
+    const linked = fullCatalog.find((mm) => mm.id === m.material_id) || null;
+    const nuevo = matchToItem(m, linked);
+    setItems((prev) => [...prev, showPrices ? nuevo : stripItemPrice(nuevo)]);
   }
 
   function addMatches(targets = matches.filter((match) => selectedMatches.has(match.id))) {
@@ -1189,15 +1349,6 @@ export default function EnviarAPanolModal({ open, onClose, prefill, showPrices =
             </div>
           </div>
 
-          <div>
-            <span style={lbl}>Prioridad</span>
-            <div style={{ display: "flex", gap: 5, flexWrap: "wrap" }}>
-              {[["baja", "Baja", C.dim], ["media", "Media", C.blue], ["alta", "Alta", C.amber], ["urgente", "Urgente", C.red]].map(([v, l, col]) => (
-                <button key={v} type="button" onClick={() => setPrioridad(v)} style={{ border: `1px solid ${prioridad === v ? col + "66" : C.border}`, background: prioridad === v ? `${col}1c` : "transparent", color: prioridad === v ? col : C.dim, borderRadius: 7, padding: "6px 12px", cursor: "pointer", fontSize: 11, fontWeight: 700, letterSpacing: 0.5, textTransform: "uppercase" }}>{l}</button>
-              ))}
-            </div>
-          </div>
-
           <div style={{ border: `1px solid ${C.b0}`, background: "var(--panel)", borderRadius: 14, padding: ingresoDesktop ? 16 : 12, display: "grid", gap: ingresoDesktop ? 14 : 10 }}>
             <div style={{ display: "flex", justifyContent: "space-between", gap: 10, alignItems: "center", flexWrap: "wrap" }}>
               <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
@@ -1221,7 +1372,33 @@ export default function EnviarAPanolModal({ open, onClose, prefill, showPrices =
               </label>
             </div>
 
-            <div style={{ display: "grid", gridTemplateColumns: isMobile ? "1fr" : "minmax(360px, 0.95fr) minmax(520px, 1.15fr)", gap: ingresoDesktop ? 14 : 10, minHeight: 0 }}>
+            {isRemito && (
+              <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
+                <div style={{ position: "relative", flex: 1, minWidth: 0 }}>
+                  <ScanLine size={16} style={{ position: "absolute", left: 11, top: "50%", transform: "translateY(-50%)", color: C.green }} />
+                  <input
+                    ref={scanInputRef}
+                    value={scanCode}
+                    onChange={(e) => setScanCode(e.target.value)}
+                    onKeyDown={(e) => { if (e.key === "Enter") { e.preventDefault(); processScan(scanCode); } }}
+                    placeholder="Escaneá el código — recepciona del pedido; si no hay, ingreso directo"
+                    style={inp({ paddingLeft: 38, height: ingresoDesktop ? 44 : 38, fontSize: ingresoDesktop ? 14 : 13, border: `1.5px solid ${C.greenB}`, background: C.bg, fontWeight: 700 })}
+                  />
+                </div>
+                <button type="button" onClick={() => setScannerOpen(true)} title="Escanear con la cámara"
+                  style={{ border: `1px solid ${C.greenB}`, background: C.greenL, color: C.green, borderRadius: 9, padding: ingresoDesktop ? "0 16px" : "0 12px", height: ingresoDesktop ? 44 : 38, cursor: "pointer", fontSize: 13, fontWeight: 850, fontFamily: C.sans, display: "flex", alignItems: "center", gap: 7, whiteSpace: "nowrap", flexShrink: 0 }}>
+                  <ScanLine size={16} /> {!isMobile && "Cámara"}
+                </button>
+              </div>
+            )}
+
+            <div style={{ display: "flex", gap: 4, borderBottom: `1px solid ${C.b0}`, marginTop: 2 }}>
+              {[["materiales", "Materiales"], ["avisos", `Avisos de recepción${avisosAgrupados.length ? ` (${avisosAgrupados.length})` : ""}`]].map(([k, l]) => (
+                <button key={k} type="button" onClick={() => setSearchTab(k)} style={{ border: "none", background: "transparent", color: searchTab === k ? C.blue : C.t2, borderBottom: `2px solid ${searchTab === k ? C.blue : "transparent"}`, padding: "8px 12px", cursor: "pointer", fontSize: 13, fontWeight: 850, fontFamily: C.sans, marginBottom: -1 }}>{l}</button>
+              ))}
+            </div>
+
+            {searchTab === "materiales" ? (
               <div style={{ display: "grid", gap: 10, minWidth: 0 }}>
                 <div style={{ position: "relative" }}>
                   <Search size={14} style={{ position: "absolute", left: 10, top: "50%", transform: "translateY(-50%)", color: C.t2 }} />
@@ -1278,62 +1455,48 @@ export default function EnviarAPanolModal({ open, onClose, prefill, showPrices =
                   Agregar desde catalogo
                 </button>
               </div>
-
-              <div style={{ display: "grid", gap: 10, minWidth: 0 }}>
-                <div style={{ display: "flex", justifyContent: "space-between", gap: 8, alignItems: "center" }}>
-                  <span style={{ color: C.t2, fontSize: 10.5, letterSpacing: 1, textTransform: "uppercase", fontWeight: 850 }}>Pedidos abiertos</span>
-                  <button
-                    type="button"
-                    onClick={() => addMatches()}
-                    disabled={selectedMatches.size === 0}
-                    style={{ border: `1px solid ${C.greenB}`, background: selectedMatches.size ? C.greenL : C.bg, color: selectedMatches.size ? C.green : C.t2, borderRadius: 8, padding: ingresoDesktop ? "8px 11px" : "6px 9px", cursor: selectedMatches.size ? "pointer" : "default", fontSize: ingresoDesktop ? 12 : 11.5, fontWeight: 900, fontFamily: C.sans }}
-                  >
-                    <Link2 size={13} style={{ verticalAlign: "-2px", marginRight: 4 }} />
-                    Recepcionar {selectedMatches.size || ""}
-                  </button>
-                </div>
-                <div style={{ display: "grid", gap: 7, maxHeight: matchesListHeight, overflowY: "auto", paddingRight: 2 }}>
-                  {matchesLoading ? (
-                    <div style={{ color: C.t2, fontSize: 12, padding: 18, textAlign: "center" }}>Buscando pedidos...</div>
-                  ) : matches.length ? matches.map((match) => {
-                    const checked = selectedMatches.has(match.id);
-                    return (
-                      <div
-                        key={match.id}
-                        draggable
-                        onDragStart={() => setDragMatch(match)}
-                        onDoubleClick={() => addMatches([match])}
-                        style={{
-                          border: `1px solid ${checked ? C.greenB : C.b0}`,
-                          background: checked ? C.greenL : C.bg,
-                          color: C.t0,
-                          borderRadius: 10,
-                          padding: ingresoDesktop ? 11 : 9,
-                          display: "grid",
-                          gridTemplateColumns: "18px minmax(0, 1fr) auto",
-                          gap: 8,
-                          alignItems: "start",
-                          cursor: "grab",
-                        }}
-                      >
-                        <input type="checkbox" checked={checked} onChange={() => toggleMatch(match.id)} style={{ marginTop: 2 }} />
-                        <div style={{ minWidth: 0 }}>
-                          <div style={{ color: C.t0, fontSize: ingresoDesktop ? 13.2 : 12.5, fontWeight: 900, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{match.description}</div>
-                          <div style={{ color: C.t2, fontSize: ingresoDesktop ? 11.2 : 10.5, marginTop: 3, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>
-                            {match.source_label ? `${match.source_label} · ` : ""}{match.obra_codigo} · {match.request_title}
-                          </div>
+            ) : (
+              <div style={{ display: "grid", gap: 8, minWidth: 0, maxHeight: matchesListHeight, overflowY: "auto", paddingRight: 2 }}>
+                {avisosLoading ? (
+                  <div style={{ color: C.t2, fontSize: 12, padding: 18, textAlign: "center" }}>Cargando avisos...</div>
+                ) : avisosAgrupados.length ? avisosAgrupados.map((av) => {
+                  const abierto = expandedAviso === av.key;
+                  const pendientes = av.items.filter((m) => !avisoItemAdded(m));
+                  const agregados = av.items.length - pendientes.length;
+                  return (
+                    <div key={av.key} style={{ border: `1px solid ${abierto ? C.blueB : C.b0}`, borderRadius: 10, background: C.bg }}>
+                      <div role="button" tabIndex={0} onClick={() => setExpandedAviso(abierto ? null : av.key)} style={{ display: "flex", alignItems: "center", gap: 9, padding: "10px 11px", cursor: "pointer" }}>
+                        <span style={{ color: C.t2, fontSize: 12, width: 12, flexShrink: 0 }}>{abierto ? "▾" : "▸"}</span>
+                        <div style={{ flex: 1, minWidth: 0 }}>
+                          <div style={{ fontSize: ingresoDesktop ? 13.2 : 12.5, fontWeight: 900, color: C.t0, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{av.request_title || "Pedido sin título"}</div>
+                          <div style={{ fontSize: 11, color: C.t2, marginTop: 2, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{av.obra_codigo}{av.linea_nombre ? ` · ${av.linea_nombre}` : ""} · {av.items.length} ítem{av.items.length === 1 ? "" : "s"}{agregados ? ` · ${agregados} agregados` : ""}</div>
                         </div>
-                        <div style={{ color: C.t1, fontFamily: C.mono, fontSize: ingresoDesktop ? 12.2 : 11.5, fontWeight: 850, textAlign: "right" }}>
-                          {match.quantity || "-"} {match.unit || ""}
-                        </div>
+                        {pendientes.length === 0 && <span style={{ color: C.green, fontSize: 12, fontWeight: 900, flexShrink: 0 }}>✓ completo</span>}
                       </div>
-                    );
-                  }) : (
-                    <div style={{ color: C.t2, fontSize: 12, padding: 18, textAlign: "center", border: `1px dashed ${C.b0}`, borderRadius: 8 }}>Sin pedidos abiertos. Si llego igual, cargalo como ingreso directo a stock.</div>
-                  )}
-                </div>
+                      {abierto && (
+                        <div style={{ display: "grid", gap: 6, padding: "0 10px 10px" }}>
+                          {av.items.map((m) => {
+                            const added = avisoItemAdded(m);
+                            return (
+                              <div key={m.id} style={{ display: "grid", gridTemplateColumns: "1fr auto auto", gap: 8, alignItems: "center", padding: "8px 9px", border: `1px solid ${added ? C.greenB : C.b0}`, background: added ? C.greenL : "var(--panel)", borderRadius: 8 }}>
+                                <div style={{ minWidth: 0, fontSize: 12.5, fontWeight: 750, color: C.t0, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{m.description}</div>
+                                <div style={{ fontFamily: C.mono, fontSize: 11.5, color: C.t1, whiteSpace: "nowrap" }}>{m.quantity || "-"} {m.unit || ""}</div>
+                                {added
+                                  ? <span style={{ color: C.green, fontSize: 13, fontWeight: 900, padding: "0 4px" }}>✓</span>
+                                  : <button type="button" onClick={() => agregarPedidoItem(m)} style={{ border: `1px solid ${C.greenB}`, background: C.greenL, color: C.green, borderRadius: 7, padding: "5px 11px", cursor: "pointer", fontSize: 11.5, fontWeight: 850, fontFamily: C.sans }}>Agregar</button>}
+                              </div>
+                            );
+                          })}
+                          <button type="button" onClick={() => pendientes.forEach(agregarPedidoItem)} disabled={pendientes.length === 0} style={{ justifySelf: "start", border: `1px solid ${C.greenB}`, background: pendientes.length ? C.greenL : C.bg, color: pendientes.length ? C.green : C.t2, borderRadius: 7, padding: "6px 12px", cursor: pendientes.length ? "pointer" : "default", fontSize: 12, fontWeight: 850, fontFamily: C.sans }}>Agregar todos los pendientes ({pendientes.length})</button>
+                        </div>
+                      )}
+                    </div>
+                  );
+                }) : (
+                  <div style={{ color: C.t2, fontSize: 12, padding: 18, textAlign: "center", border: `1px dashed ${C.b0}`, borderRadius: 8 }}>{obraId ? "No hay avisos de recepción para la obra seleccionada." : "No hay avisos de recepción abiertos. Escaneá el producto o cargalo como ingreso directo."}</div>
+                )}
               </div>
-            </div>
+            )}
           </div>
 
           <div
@@ -1372,7 +1535,7 @@ export default function EnviarAPanolModal({ open, onClose, prefill, showPrices =
                 {items.map((it, i) => {
                   const linkedMaterial = fullCatalog.find((material) => material.id === it.material_id) || null;
                   return (
-                  <div key={`${it.panol_envio_item_id || it.purchase_request_item_id || it.material_id || "manual"}-${i}`} style={{ background: "var(--panel)", border: `1px solid ${C.b0}`, borderRadius: 10, overflow: "hidden" }}>
+                  <div key={`${it.panol_envio_item_id || it.purchase_request_item_id || it.material_id || "manual"}-${i}`} style={{ background: "var(--panel)", border: `1px solid ${scanFlashMat && it.material_id === scanFlashMat ? C.greenB : C.b0}`, borderRadius: 10, overflow: "hidden", transition: "border-color .25s, box-shadow .25s", boxShadow: scanFlashMat && it.material_id === scanFlashMat ? `0 0 0 2px ${C.greenL}` : "none" }}>
                     <div style={{ display: "grid", gridTemplateColumns: gridCols, gap: 8, alignItems: "center", padding: "10px" }}>
                     <input value={it.descripcion} onChange={(e) => updateItem(i, { descripcion: e.target.value, material_id: "", variante: "" })} placeholder="Descripción" style={inp({ padding: "8px 10px", fontSize: 13, gridColumn: isMobile ? "1 / -1" : undefined })} />
                     <input value={it.codigo || ""} onChange={(e) => updateItem(i, { codigo: e.target.value.toUpperCase(), material_id: "", variante: "" })} placeholder="Cod. item" title="Codigo interno/proveedor. El codigo de barras se toma del material vinculado." style={inp({ padding: "8px 10px", fontSize: 13, fontFamily: C.mono })} />
@@ -1495,6 +1658,58 @@ export default function EnviarAPanolModal({ open, onClose, prefill, showPrices =
           </div>
         </div>
       </form>
+      {scannerOpen && (
+        <BarcodeScanner open={scannerOpen} onClose={() => setScannerOpen(false)} onScan={(code) => processScan(code)} />
+      )}
+
+      {scanChoice && (
+        <div style={{ position: "fixed", inset: 0, zIndex: 10000, background: "var(--overlay-strong)", backdropFilter: "blur(4px)", display: "grid", placeItems: "center", padding: 16, fontFamily: C.sans }}
+          onClick={(e) => { if (e.target === e.currentTarget) { setScanChoice(null); setTimeout(() => scanInputRef.current?.focus(), 40); } }}>
+          <div style={{ background: C.panelSolid, border: `1px solid ${C.border}`, borderRadius: 14, width: "100%", maxWidth: 440, maxHeight: "80vh", overflow: "hidden", display: "grid", gridTemplateRows: "auto minmax(0,1fr) auto", boxShadow: "0 24px 80px rgba(15,23,42,0.24)" }}>
+            <div style={{ padding: "14px 16px", borderBottom: `1px solid ${C.border}` }}>
+              <div style={{ fontSize: 14.5, fontWeight: 900, color: C.t0 }}>¿A qué aviso asignás este producto?</div>
+              <div style={{ fontSize: 12, color: C.t2, marginTop: 3, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{scanChoice.material.descripcion} · aparece en {new Set(scanChoice.options.map((o) => o.request_id)).size} avisos</div>
+            </div>
+            <div style={{ overflowY: "auto", padding: 12, display: "grid", gap: 8 }}>
+              {scanChoice.options.map((op) => (
+                <button key={op.id} type="button"
+                  onClick={() => {
+                    agregarPedidoItem(op);
+                    setSearchTab("avisos");
+                    setExpandedAviso(op.request_id || op.request_title || null);
+                    flashMaterial(scanChoice.material.id);
+                    toast.success(`Recepcionado del aviso · ${op.request_title || scanChoice.material.descripcion}`);
+                    scanBeep(900, 80);
+                    setScanChoice(null);
+                    setTimeout(() => scanInputRef.current?.focus(), 40);
+                  }}
+                  style={{ border: `1px solid ${C.b0}`, background: C.bg, borderRadius: 10, padding: "11px 12px", cursor: "pointer", textAlign: "left", fontFamily: C.sans }}>
+                  <div style={{ fontSize: 13.5, fontWeight: 850, color: C.t0, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{op.obra_codigo}{op.linea_nombre ? ` · ${op.linea_nombre}` : ""}</div>
+                  <div style={{ fontSize: 11.5, color: C.t2, marginTop: 2, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{op.request_title} · {op.quantity || "-"} {op.unit || ""}</div>
+                </button>
+              ))}
+            </div>
+            <div style={{ padding: 12, borderTop: `1px solid ${C.border}`, display: "flex", gap: 8, justifyContent: "space-between", flexWrap: "wrap" }}>
+              <button type="button"
+                onClick={() => {
+                  addCatalogMaterial(scanChoice.material);
+                  flashMaterial(scanChoice.material.id);
+                  toast.success(`Ingreso directo · ${scanChoice.material.descripcion}`);
+                  scanBeep(760, 90);
+                  setScanChoice(null);
+                  setTimeout(() => scanInputRef.current?.focus(), 40);
+                }}
+                style={{ border: `1px solid ${C.b0}`, background: "var(--panel-2)", color: C.t1, borderRadius: 8, padding: "9px 14px", cursor: "pointer", fontSize: 12.5, fontWeight: 800, fontFamily: C.sans }}>
+                Ingreso directo (sin aviso)
+              </button>
+              <button type="button" onClick={() => { setScanChoice(null); setTimeout(() => scanInputRef.current?.focus(), 40); }}
+                style={{ border: "none", background: "transparent", color: C.dim, borderRadius: 8, padding: "9px 14px", cursor: "pointer", fontSize: 12.5, fontWeight: 750, fontFamily: C.sans }}>
+                Cancelar
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

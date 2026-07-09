@@ -594,18 +594,20 @@ function scorePanolEnvioItem(item, material, query) {
   }, material, query);
 }
 
-async function buildPanolEnvioMatches({ material = null, q = "", sede = null, limit = 60 } = {}) {
+async function buildPanolEnvioMatches({ material = null, q = "", sede = null, limit = 60, matchAll = false } = {}) {
   const rows = await fetchPanolEnvioItemsForRecepcion({ sede });
   const openRows = rows.filter((item) => {
     if (["recibido", "rechazado"].includes(item.estado)) return false;
     if (["recibido", "cerrado", "cancelado"].includes(item.envio?.estado)) return false;
     return true;
   });
-  const scored = openRows
-    .map((item) => ({ item, score: scorePanolEnvioItem(item, material, q) }))
-    .filter((row) => row.score >= 60)
-    .sort((a, b) => b.score - a.score || String(b.item.created_at ?? "").localeCompare(String(a.item.created_at ?? "")))
-    .slice(0, limit);
+  const scored = (matchAll
+    ? openRows.map((item) => ({ item, score: 100 }))
+    : openRows
+        .map((item) => ({ item, score: scorePanolEnvioItem(item, material, q) }))
+        .filter((row) => row.score >= 60)
+        .sort((a, b) => b.score - a.score || String(b.item.created_at ?? "").localeCompare(String(a.item.created_at ?? "")))
+  ).slice(0, limit);
 
   const snapshotIds = scored.map(({ item }) => item.obra_snapshot_item_id).filter(Boolean);
   const snapshotById = new Map();
@@ -760,6 +762,13 @@ export async function fetchRecepcionPedidoMatches({ material = null, q = "", lim
   return [...recepcionMatches, ...compraMatches]
     .sort((a, b) => b.score - a.score || String(b.created_at ?? "").localeCompare(String(a.created_at ?? "")))
     .slice(0, limit);
+}
+
+// Avisos de recepción = SOLO los envíos que compras/técnica mandan a pañol
+// (panol_envios) que todavía no se recibieron. NO son los pedidos de compra crudos:
+// eso puede no estar comprado aún y no corresponde que el pañol lo vea.
+export async function fetchRecepcionAvisosAbiertos({ sede = null, limit = 1000 } = {}) {
+  return buildPanolEnvioMatches({ sede, matchAll: true, limit });
 }
 
 export async function fetchObrasEgreso() {
