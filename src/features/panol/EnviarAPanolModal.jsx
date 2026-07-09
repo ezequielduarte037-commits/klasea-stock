@@ -568,7 +568,7 @@ function ItemLocationRow({ item, material = null, estanterias = [], onChange, is
   );
 }
 
-export default function EnviarAPanolModal({ open, onClose, prefill, showPrices = true, profile = null }) {
+export default function EnviarAPanolModal({ open, onClose, prefill, showPrices = true, profile = null, embedded = false }) {
   const { isMobile } = useResponsive();
   const toast = useToast();
   const isRemito = prefill?.origen === "remito" || prefill?.modo === "remito";
@@ -1140,10 +1140,14 @@ export default function EnviarAPanolModal({ open, onClose, prefill, showPrices =
 
   return (
     <div
-      onClick={(e) => { if (e.target === e.currentTarget) closeModal(false); }}
-      style={{ position: "fixed", inset: 0, zIndex: 9999, background: "var(--overlay-strong)", backdropFilter: "blur(6px)", display: "grid", placeItems: isMobile ? "end center" : "center", padding: isMobile ? 0 : ingresoDesktop ? 14 : 20, fontFamily: C.sans }}
+      onClick={embedded ? undefined : (e) => { if (e.target === e.currentTarget) closeModal(false); }}
+      style={embedded
+        ? { height: "100%", minHeight: 0, display: "grid", justifyItems: "center", fontFamily: C.sans }
+        : { position: "fixed", inset: 0, zIndex: 9999, background: "var(--overlay-strong)", backdropFilter: "blur(6px)", display: "grid", placeItems: isMobile ? "end center" : "center", padding: isMobile ? 0 : ingresoDesktop ? 14 : 20, fontFamily: C.sans }}
     >
-      <form onSubmit={submit} style={{ background: C.panelSolid, border: `1px solid ${C.border}`, borderRadius: isMobile ? "14px 14px 0 0" : 16, width: "100%", maxWidth: isMobile ? "100%" : modalMaxWidth, height: isMobile ? "96vh" : modalHeight, maxHeight: isMobile ? "96vh" : "calc(100vh - 28px)", overflow: "hidden", display: "grid", gridTemplateRows: "auto minmax(0, 1fr) auto", color: C.t0, boxShadow: "0 24px 80px rgba(15,23,42,0.24)" }}>
+      <form onSubmit={submit} style={embedded
+        ? { background: C.panelSolid, border: `1px solid ${C.border}`, borderRadius: 12, width: "100%", maxWidth: isMobile ? "100%" : modalMaxWidth, height: "100%", maxHeight: "100%", overflow: "hidden", display: "grid", gridTemplateRows: "auto minmax(0, 1fr) auto", color: C.t0 }
+        : { background: C.panelSolid, border: `1px solid ${C.border}`, borderRadius: isMobile ? "14px 14px 0 0" : 16, width: "100%", maxWidth: isMobile ? "100%" : modalMaxWidth, height: isMobile ? "96vh" : modalHeight, maxHeight: isMobile ? "96vh" : "calc(100vh - 28px)", overflow: "hidden", display: "grid", gridTemplateRows: "auto minmax(0, 1fr) auto", color: C.t0, boxShadow: "0 24px 80px rgba(15,23,42,0.24)" }}>
         <div style={{ display: "flex", alignItems: "center", gap: 12, padding: ingresoDesktop ? "18px 22px" : "16px 18px", borderBottom: `1px solid ${C.border}` }}>
           <div style={{ fontSize: 16, fontWeight: 800 }}>{isRemito ? "Ingresar materiales" : "Enviar a Pañol"}</div>
           {prefill?.origen === "compra" && <span style={{ fontSize: 9, color: C.dim, background: "var(--panel-2)", border: `1px solid ${C.border}`, borderRadius: 5, padding: "2px 6px", textTransform: "uppercase", letterSpacing: 0.5 }}>desde compra</span>}
@@ -1154,7 +1158,7 @@ export default function EnviarAPanolModal({ open, onClose, prefill, showPrices =
             </div>
           )}
           <div style={{ flex: 1 }} />
-          <button type="button" onClick={() => closeModal(false)} style={{ border: "none", background: "transparent", color: C.dim, cursor: "pointer", fontSize: 18, padding: 4 }}>x</button>
+          {!embedded && <button type="button" onClick={() => closeModal(false)} style={{ border: "none", background: "transparent", color: C.dim, cursor: "pointer", fontSize: 18, padding: 4 }}>x</button>}
         </div>
 
         <div style={{ overflowY: "auto", padding: bodyPadding, display: "grid", gap: bodyGap, minHeight: 0 }}>

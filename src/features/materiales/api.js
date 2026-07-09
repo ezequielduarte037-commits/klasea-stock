@@ -505,9 +505,16 @@ const ADDON_FIELDS = new Set([
 ]);
 
 function addonPayload(fields = {}, includeObraId = true) {
-  return Object.fromEntries(
+  const payload = Object.fromEntries(
     Object.entries(fields).filter(([key]) => ADDON_FIELDS.has(key) && (includeObraId || key !== "obra_id")),
   );
+  for (const key of ["obra_id", "material_id", "categoria_id", "proveedor_id"]) {
+    if (payload[key] === "") payload[key] = null;
+  }
+  if ("cantidad" in payload) payload.cantidad = toNullableNumber(payload.cantidad) ?? 1;
+  if ("precio_unitario" in payload) payload.precio_unitario = toNullableNumber(payload.precio_unitario);
+  if (payload.moneda === "") payload.moneda = null;
+  return payload;
 }
 
 function legacyAddonPayload(payload = {}, includeObraId = true) {

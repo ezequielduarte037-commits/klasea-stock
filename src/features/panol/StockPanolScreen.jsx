@@ -409,20 +409,11 @@ export default function StockPanolScreen({ profile, signOut, embedded = false, m
     return map;
   }, [obras, rowsByObraId]);
 
-  // ── Location key para pre-filtrar StockWmsPanel al hacer drill-down ──
+  // Filtro por obra completa para pre-filtrar StockWmsPanel al hacer drill-down.
   const selObraLocationKey = useMemo(() => {
     if (!selObraId) return null;
-    // Buscar la sede predominante de las filas de esta obra
-    const obraRows = rowsByObraId.get(selObraId) || [];
-    if (!obraRows.length) return `${sedeLocked || "Pampa"}::${selObraId}`;
-    const sedeCounts = new Map();
-    for (const r of obraRows) {
-      const s = rowSede(r) || "general";
-      sedeCounts.set(s, (sedeCounts.get(s) || 0) + 1);
-    }
-    const dominantSede = [...sedeCounts.entries()].sort((a, b) => b[1] - a[1])[0][0];
-    return `${dominantSede}::${selObraId}`;
-  }, [selObraId, rowsByObraId, sedeLocked]);
+    return `obra::${selObraId}`;
+  }, [selObraId]);
 
   const selObra = useMemo(() => obras.find(o => o.id === selObraId) || null, [obras, selObraId]);
 

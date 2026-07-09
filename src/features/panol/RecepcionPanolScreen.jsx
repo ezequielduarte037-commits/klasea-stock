@@ -10,7 +10,6 @@ import {
   PackageCheck,
   PackagePlus,
   PackageOpen,
-  Plus,
   RefreshCw,
   Search,
   Warehouse,
@@ -48,6 +47,15 @@ const PRIO_FILTERS = [
   ["media", "Media"],
   ["baja", "Baja"],
 ];
+const PANOL_TAB_STORAGE_KEY = "klasea.panol.recepcion.tab";
+const PANOL_TABS = new Set(["recepcion", "ingresar", "egresos"]);
+
+function readStoredPanolTab() {
+  if (typeof window === "undefined") return "recepcion";
+  let value = window.localStorage.getItem(PANOL_TAB_STORAGE_KEY);
+  if (value === "pendientes") value = "ingresar"; // migración del nombre viejo de la pestaña
+  return PANOL_TABS.has(value) ? value : "recepcion";
+}
 
 const PRIO_META = {
   baja: { label: "Baja", color: C.dim },
@@ -2089,12 +2097,18 @@ export default function RecepcionPanolScreen({ profile, signOut }) {
   const [envios, setEnvios] = useState([]);
   const [loading, setLoading] = useState(true);
   const [sel, setSel] = useState(null);
-  const [modalOpen, setModalOpen] = useState(false);
+  const [ingresoKey, setIngresoKey] = useState(0); // bump → remonta el form inline de ingreso (reset/retomar)
   const [fSede, setFSede] = useState(sedeLocked || "todas");
   const [fEstado, setFEstado] = useState("activos");
   const [fPrio, setFPrio] = useState("todas");
   const [q, setQ] = useState("");
-  const [tab, setTab] = useState("recepcion");
+  const [tab, setTabState] = useState(() => readStoredPanolTab());
+  const setTab = useCallback((nextTab) => {
+    const requested = nextTab === "pendientes" ? "ingresar" : nextTab;
+    const value = PANOL_TABS.has(requested) ? requested : "recepcion";
+    setTabState(value);
+    if (typeof window !== "undefined") window.localStorage.setItem(PANOL_TAB_STORAGE_KEY, value);
+  }, []);
   const [modalPrefill, setModalPrefill] = useState(null);
   const [pendientes, setPendientes] = useState(() => leerIngresosPendientes());
   const refreshPendientes = useCallback(() => setPendientes(leerIngresosPendientes()), []);
@@ -2147,7 +2161,7 @@ export default function RecepcionPanolScreen({ profile, signOut }) {
     return { total: envios.length, activos, pendientes, problemas, recibidos, parciales, accionItems };
   }, [envios]);
 
-  // (Toast de pendientes eliminado → reemplazado por GlobalPanolBanner global)
+  // El aviso flotante de pendientes ahora vive en NotificacionesBell global.
 
   const shell = (children) => (
     <div style={{ background: C.bg, position: "fixed", inset: 0, overflow: "hidden", color: C.text, fontFamily: C.sans }}>
@@ -2191,39 +2205,15 @@ export default function RecepcionPanolScreen({ profile, signOut }) {
           </div>
           <div style={{ display: "inline-flex", gap: 3, padding: 3, border: `1px solid ${C.border}`, background: C.panel, borderRadius: 11 }}>
             <TabButton active={tab === "recepcion"} onClick={() => setTab("recepcion")}>Recepción</TabButton>
-            <TabButton active={tab === "egresos"} onClick={() => setTab("egresos")}>Egresos</TabButton>
-            <TabButton active={tab === "pendientes"} onClick={() => { refreshPendientes(); setTab("pendientes"); }}>
-              Pendientes{pendientes.length > 0 ? ` (${pendientes.length})` : ""}
+            <TabButton active={tab === "ingresar"} onClick={() => { refreshPendientes(); setTab("ingresar"); }}>
+              Ingresar{pendientes.length > 0 ? ` (${pendientes.length})` : ""}
             </TabButton>
+            <TabButton active={tab === "egresos"} onClick={() => setTab("egresos")}>Egresos</TabButton>
           </div>
           {tab === "recepcion" && (
             <SmallButton onClick={cargar} disabled={loading} title="Actualizar">
               <RefreshCw size={15} />
             </SmallButton>
-          )}
-          {(tab === "recepcion" || tab === "pendientes") && canReceive && (
-            <button
-              type="button"
-              onClick={() => { setModalPrefill(null); setModalOpen(true); }}
-              style={{
-                display: "flex",
-                alignItems: "center",
-                gap: 7,
-                padding: "9px 13px",
-                border: `1px solid ${C.blueB}`,
-                background: "var(--blue-soft)",
-                color: C.blue,
-                borderRadius: 9,
-                cursor: "pointer",
-                fontSize: 13,
-                fontWeight: 850,
-                fontFamily: C.sans,
-                whiteSpace: "nowrap",
-              }}
-            >
-              <Plus size={15} />
-              Ingresar materiales
-            </button>
           )}
         </div>
 
@@ -2402,68 +2392,54 @@ export default function RecepcionPanolScreen({ profile, signOut }) {
       ) : tab === "egresos" ? (
         <StockPanolScreen embedded mode="egreso" profile={profile} />
       ) : (
-        <div style={{ flex: 1, minHeight: 0, overflowY: "auto", padding: isMobile ? 12 : "14px 18px 18px" }}>
-          <section style={{ border: `1px solid ${C.border}`, background: C.panel, borderRadius: 12, overflow: "hidden", maxWidth: 960 }}>
-            <div style={{ padding: "13px 14px", borderBottom: `1px solid ${C.border}`, background: C.panelSolid, display: "flex", alignItems: "center", justifyContent: "space-between", gap: 10, flexWrap: "wrap" }}>
-              <div>
-                <div style={{ color: C.text, fontSize: 14, fontWeight: 950 }}>Ingresos pendientes</div>
-                <div style={{ color: C.dim, fontSize: 11, marginTop: 2 }}>Borradores guardados automaticamente o pausados por el pañolero.</div>
-              </div>
-              <KpiCard icon={Clock3} label="Borradores" value={pendientes.length} color={C.violet} detail="listos para retomar" />
-            </div>
-            <div style={{ padding: 10, display: "grid", gap: 8 }}>
-          {pendientes.length === 0 ? (
-            <div style={{ padding: "28px 20px", textAlign: "center", color: C.dim, border: `1px dashed ${C.border}`, borderRadius: 12, background: C.panel }}>
-              No hay ingresos pendientes. Si se cierra un ingreso a medio cargar, queda guardado aca para continuar.
-            </div>
-          ) : (
-            pendientes.map((d) => {
-              const nItems = Array.isArray(d.items) ? d.items.length : 0;
-              const fecha = d.savedAt ? new Date(d.savedAt).toLocaleString("es-AR", { day: "2-digit", month: "2-digit", hour: "2-digit", minute: "2-digit" }) : "";
-              return (
-                <div key={d.id} style={{ display: "flex", alignItems: "center", gap: 12, padding: "12px 14px", border: `1px solid ${C.border}`, borderRadius: 12, background: C.bg1 }}>
-                  <div style={{ flex: 1, minWidth: 0 }}>
-                    <div style={{ fontSize: 14, fontWeight: 800, color: C.text, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>
-                      {d.titulo?.trim() || "(sin referencia)"}
-                    </div>
-                    <div style={{ fontSize: 12, color: C.dim, marginTop: 3 }}>
-                      {nItems} ítem{nItems === 1 ? "" : "s"}{d.sede ? ` · ${d.sede}` : ""}{fecha ? ` · guardado ${fecha}` : ""}
-                    </div>
+        <div style={{ flex: 1, minHeight: 0, display: "flex", flexDirection: "column" }}>
+          {/* Tira de borradores para retomar (solo si hay) */}
+          {pendientes.length > 0 && (
+            <div style={{ display: "flex", alignItems: "center", gap: 8, padding: isMobile ? "8px 12px" : "8px 18px", borderBottom: `1px solid ${C.border}`, background: C.topbarSoft, ...GLASS, overflowX: "auto", flexShrink: 0 }}>
+              <span style={{ fontSize: 11, color: C.dim, fontWeight: 850, textTransform: "uppercase", letterSpacing: 0.6, whiteSpace: "nowrap", flexShrink: 0 }}>
+                Borradores ({pendientes.length}):
+              </span>
+              {pendientes.map((d) => {
+                const nItems = Array.isArray(d.items) ? d.items.length : 0;
+                return (
+                  <div key={d.id} style={{ display: "inline-flex", alignItems: "center", gap: 4, padding: "4px 5px 4px 11px", border: `1px solid ${C.blueB}`, background: "var(--blue-soft)", borderRadius: 999, flexShrink: 0 }}>
+                    <button type="button" title="Retomar este borrador"
+                      onClick={() => {
+                        setModalPrefill({ origen: "remito", modo: "remito", draftId: d.id, titulo: d.titulo, sede: d.sede, obraId: d.obraId, prioridad: d.prioridad, observaciones: d.observaciones, items: d.items });
+                        setIngresoKey((k) => k + 1);
+                      }}
+                      style={{ border: "none", background: "transparent", color: C.blue, cursor: "pointer", fontSize: 12.5, fontWeight: 850, fontFamily: C.sans, whiteSpace: "nowrap", padding: 0 }}>
+                      {d.titulo?.trim() || "(sin referencia)"} · {nItems} ít{nItems === 1 ? "em" : "ems"}
+                    </button>
+                    <button type="button" title="Borrar borrador"
+                      onClick={() => { borrarIngresoPendiente(d.id); refreshPendientes(); }}
+                      style={{ border: "none", background: "transparent", color: C.dim, cursor: "pointer", display: "grid", placeItems: "center", padding: 2, flexShrink: 0 }}>
+                      <X size={13} />
+                    </button>
                   </div>
-                  <button
-                    type="button"
-                    onClick={() => {
-                      setModalPrefill({ origen: "remito", modo: "remito", draftId: d.id, titulo: d.titulo, sede: d.sede, obraId: d.obraId, prioridad: d.prioridad, observaciones: d.observaciones, items: d.items });
-                      setModalOpen(true);
-                    }}
-                    style={{ border: `1px solid ${C.blueB}`, background: "var(--blue-soft)", color: C.blue, borderRadius: 8, padding: "8px 14px", cursor: "pointer", fontSize: 13, fontWeight: 800, fontFamily: C.sans, whiteSpace: "nowrap" }}
-                  >
-                    Retomar
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => { borrarIngresoPendiente(d.id); refreshPendientes(); }}
-                    style={{ border: `1px solid ${C.border}`, background: "transparent", color: C.dim, borderRadius: 8, padding: "8px 12px", cursor: "pointer", fontSize: 13, fontWeight: 700, fontFamily: C.sans }}
-                  >
-                    Borrar
-                  </button>
-                </div>
-              );
-            })
-          )}
+                );
+              })}
             </div>
-          </section>
+          )}
+          {/* Form de ingreso inline (reemplaza al modal) */}
+          <div style={{ flex: 1, minHeight: 0 }}>
+            {canReceive ? (
+              <EnviarAPanolModal
+                key={ingresoKey}
+                open
+                embedded
+                profile={profile}
+                prefill={modalPrefillEstable}
+                showPrices={isAdmin}
+                onClose={(saved) => { setModalPrefill(null); setIngresoKey((k) => k + 1); refreshPendientes(); if (saved) cargar(); }}
+              />
+            ) : (
+              <div style={{ padding: "40px 20px", textAlign: "center", color: C.dim, fontSize: 13 }}>
+                No tenés permisos para ingresar materiales.
+              </div>
+            )}
+          </div>
         </div>
-      )}
-
-      {modalOpen && (
-        <EnviarAPanolModal
-          open={modalOpen}
-          profile={profile}
-          prefill={modalPrefillEstable}
-          showPrices={isAdmin}
-          onClose={(saved) => { setModalOpen(false); setModalPrefill(null); refreshPendientes(); if (saved) cargar(); }}
-        />
       )}
     </>,
   );

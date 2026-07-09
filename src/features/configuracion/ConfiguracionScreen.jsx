@@ -2,7 +2,6 @@ import { useEffect, useState, useMemo } from "react";
 import { supabase } from "@/supabaseClient";
 import Sidebar from "@/components/Sidebar";
 import { useResponsive } from "@/hooks/useResponsive";
-import NotificacionesBell from "@/components/NotificacionesBell";
 import { C } from "@/theme";
 import { validatePasswordPolicy } from "@/features/cuenta/passwordPolicy";
 import {
@@ -421,7 +420,7 @@ function ModalCliente({ cliente, modelos, onClose, onSaved, flash }) {
     } catch { /* no bloquear */ }
     setObrasLoaded(true);
   };
-  useEffect(() => { cargarObras(); }, []);
+  useEffect(() => { queueMicrotask(cargarObras); }, []);
 
   // Crear nueva obra inline — solo codigo (la tabla no tiene numero ni linea)
   async function crearObra() {
@@ -437,7 +436,6 @@ function ModalCliente({ cliente, modelos, onClose, onSaved, flash }) {
     setCreandoObra(false);
   }
 
-  const obrasFiltradas = obras;
   const obraSeleccionada = obras.find(o => o.id === form.obra_id);
 
   async function submit(e) {
@@ -880,7 +878,7 @@ export default function ConfiguracionScreen({ profile, signOut }) {
     setConfig(r4.data   ?? []);
     setLoading(false);
   }
-  useEffect(()=>{ cargar(); }, []);
+  useEffect(() => { queueMicrotask(cargar); }, []);
 
   async function guardarConfig(clave) {
     const valor = editConf[clave];
@@ -959,7 +957,6 @@ export default function ConfiguracionScreen({ profile, signOut }) {
       <div className="bg-glow" />
       <div style={{ display:"grid", gridTemplateColumns: isMobile ? "1fr" : "280px 1fr", height:"100%", overflow:"hidden", position:"relative", zIndex:1 }}>
         <Sidebar profile={profile} signOut={signOut} />
-        <NotificacionesBell profile={profile} />
         <Toast toast={toast} />
         <div style={{ display:"flex", flexDirection:"column", height:"100vh", overflow:"hidden" }}>
           {/* ── TOPBAR ── */}

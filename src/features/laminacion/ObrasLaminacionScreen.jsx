@@ -11,7 +11,6 @@ import { supabase } from "@/supabaseClient";
 import Sidebar from "@/components/Sidebar";
 import { useResponsive } from "@/hooks/useResponsive";
 import { hasAdminAccess } from "@/lib/permissions";
-import NotificacionesBell from "@/components/NotificacionesBell";
 
 function num(v) { const x = Number(v); return Number.isFinite(x) ? x : 0; }
 function fmtDate(d) { if (!d) return "—"; return new Date(d + "T00:00:00").toLocaleDateString("es-AR"); }
@@ -508,7 +507,7 @@ export default function ObrasLaminacionScreen({ profile, signOut }) {
   }
 
   useEffect(() => {
-    cargar();
+    queueMicrotask(cargar);
     const ch = supabase.channel("rt-obras-lam")
       .on("postgres_changes", { event: "*", schema: "public", table: "laminacion_obras" }, cargar)
       .on("postgres_changes", { event: "*", schema: "public", table: "laminacion_obra_materiales" }, cargar)
@@ -791,8 +790,6 @@ export default function ObrasLaminacionScreen({ profile, signOut }) {
                      radial-gradient(ellipse 40% 28% at 92% 88%,rgba(245,158,11,0.02) 0%,transparent 55%); }
       `}</style>
       <div className="bg-glow" />
-      <NotificacionesBell profile={profile} />
-
       <div style={{ display: "grid", gridTemplateColumns: isMobile ? "1fr" : "280px 1fr", height: "100%", overflow: "hidden", position: "relative", zIndex: 1 }}>
         <Sidebar profile={profile} signOut={signOut} />
         <div style={{ display: "flex", flexDirection: "column", height: "100vh", overflow: "hidden" }}>

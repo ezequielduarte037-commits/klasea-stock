@@ -981,7 +981,7 @@ function MaterialDetalleModal({ material, onClose }) {
           {loading ? (
             <div style={{ padding: 60, textAlign: "center", color: C.dim, display: "flex", flexDirection: "column", alignItems: "center", gap: 12 }}>
               <div style={{ width: 24, height: 24, border: `3px solid ${C.b0}`, borderTopColor: C.blue, borderRadius: "50%", animation: "spin 1s linear infinite" }} />
-              <span style={{ fontWeight: 600, fontSize: 14 }}>Calculando inventario...</span>
+              <span style={{ fontWeight: 600, fontSize: 14 }}>Calculando inventario y cargando movimientos...</span>
             </div>
           ) : (
             <>

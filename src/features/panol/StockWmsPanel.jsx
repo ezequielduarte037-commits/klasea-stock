@@ -35,6 +35,13 @@ const IN_STOCK_STATES = new Set(["en_panol", "recibido", "parcial"]);
 const RECEIVED_STATES = new Set(["recibido", "parcial"]);
 const DIRECT_STOCK_SOURCES = new Set(["stock_general", "remito", "transferencia_ingreso", "ajuste_ingreso"]);
 const CATALOG_SEARCH_LIMIT = 12;
+const EGRESO_VIEW_STORAGE_KEY = "klasea.panol.egresoView";
+
+function readStoredEgresoView() {
+  if (typeof window === "undefined") return "egresar";
+  const value = window.localStorage.getItem(EGRESO_VIEW_STORAGE_KEY);
+  return value === "historial" ? "historial" : "egresar";
+}
 
 function norm(value = "") {
   return String(value || "")
@@ -101,6 +108,17 @@ function rowLocationKey(row) {
     // Esto es un hack heurístico; lo ideal es que en StockWmsPanel filtremos mejor.
   }
   return `${rowSede(row) || "general"}::${rowObraId(row) || "stock"}`;
+}
+
+function obraScopeKey(obraId) {
+  return `obra::${obraId}`;
+}
+
+function rowMatchesObraFilter(row, filterValue) {
+  if (!filterValue || filterValue === "todas") return true;
+  const value = String(filterValue);
+  if (value.startsWith("obra::")) return rowObraId(row) === value.slice("obra::".length);
+  return rowLocationKey(row) === value;
 }
 
 function rowIsAdditional(row) {
@@ -268,6 +286,7 @@ function buildProductGroups(rows = [], fObra = "todas") {
         total: 0,
         transitQty: 0,
         valueUsd: 0,
+        hasEgreso: false,
         rows: [],
         locationMap: new Map(),
         categorias: new Set(),
@@ -313,6 +332,7 @@ function buildProductGroups(rows = [], fObra = "todas") {
       location.transitQty += transit;
       group.transitQty += transit;
     }
+    if (rowIsEgreso(row)) group.hasEgreso = true;
     location.rows.push(row);
     group.total += delta;
     group.valueUsd += delta * rowUnitPriceUsd(row);
@@ -332,9 +352,11 @@ function buildProductGroups(rows = [], fObra = "todas") {
   return [...map.values()].map((group) => {
     const locations = [...group.locationMap.values()]
       .sort((a, b) => b.available - a.available || a.label.localeCompare(b.label, "es", { numeric: true }));
+    const hasPositiveStock = locations.some((loc) => loc.available > 0.0001);
     return {
       ...group,
       locations,
+      egresado: group.hasEgreso && !hasPositiveStock && group.transitQty <= 0,
       negativo: group.total < 0 || locations.some((loc) => loc.available < 0),
       inTransit: group.transitQty > 0,
     };
@@ -384,10 +406,10 @@ function KpiCard({ icon, label, value, detail, color }) {
   );
 }
 
-function StateChip({ negative, catalogOnly = false, transit = false }) {
-  const color = transit ? C.amber : catalogOnly ? C.amber : negative ? C.red : C.green;
-  const border = transit ? C.amberB : catalogOnly ? C.amberB : negative ? C.redB : C.greenB;
-  const background = transit ? C.amberL : catalogOnly ? C.amberL : negative ? C.redL : C.greenL;
+function StateChip({ negative, catalogOnly = false, transit = false, egresado = false }) {
+  const color = egresado ? C.red : transit ? C.amber : catalogOnly ? C.amber : negative ? C.red : C.green;
+  const border = egresado ? C.redB : transit ? C.amberB : catalogOnly ? C.amberB : negative ? C.redB : C.greenB;
+  const background = egresado ? C.redL : transit ? C.amberL : catalogOnly ? C.amberL : negative ? C.redL : C.greenL;
   return (
     <span style={{
       color,
@@ -401,7 +423,7 @@ function StateChip({ negative, catalogOnly = false, transit = false }) {
       letterSpacing: 0.6,
       whiteSpace: "nowrap",
     }}>
-      {transit ? "Por recibir" : catalogOnly ? "Sin registro digital" : negative ? "A reconciliar" : "Disponible"}
+      {egresado ? "Egresado" : transit ? "Por recibir" : catalogOnly ? "Sin registro digital" : negative ? "A reconciliar" : "Disponible"}
     </span>
   );
 }
@@ -448,7 +470,8 @@ function ProductCard({ group, active, onOpen, isMobile }) {
     .slice(0, 2)
     .map((loc) => `${loc.label}: ${fmtQty(loc.transitQty)}`)
     .join(" - ");
-  const stockDetail = breakdown || (transitBreakdown ? `Por recibir ${transitBreakdown}` : "Sin stock cargado");
+  const stockDetail = breakdown || (transitBreakdown ? `Por recibir ${transitBreakdown}` : group.egresado ? "Egresado - sin saldo" : "Sin stock cargado");
+  const qtyColor = group.total < 0 || group.egresado ? C.red : C.green;
   return (
     <button
       type="button"
@@ -473,6 +496,7 @@ function ProductCard({ group, active, onOpen, isMobile }) {
         <div style={{ display: "flex", alignItems: "center", gap: 8, minWidth: 0, flexWrap: "wrap" }}>
           <span style={{ color: C.text, fontSize: 13.5, fontWeight: 950, lineHeight: 1.25, minWidth: 0, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{group.label}</span>
           <KindChip tipo={group.tipoPedido} />
+          {group.egresado && <StateChip egresado />}
           {(group.negativo || group.catalogOnly) && <StateChip negative={group.negativo} catalogOnly={group.catalogOnly} />}
           {group.inTransit && <StateChip transit />}
           <UbicacionChip ubicacion={group.ubicacion} obs={group.ubicacion_obs} />
@@ -489,13 +513,13 @@ function ProductCard({ group, active, onOpen, isMobile }) {
       </div>
       <div style={{ display: "grid", gap: 3, minWidth: 0 }}>
         <span style={{ color: C.dim, fontSize: 9.5, fontWeight: 900, textTransform: "uppercase", letterSpacing: 0.8 }}>Deposito / obra</span>
-        <span style={{ color: group.negativo ? C.red : C.t1, fontSize: 11.5, fontWeight: 800, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+        <span style={{ color: group.egresado || group.negativo ? C.red : C.t1, fontSize: 11.5, fontWeight: 800, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
           {stockDetail}{group.locations.length > 4 ? ` - +${group.locations.length - 4}` : ""}
         </span>
       </div>
       <div style={{ display: "grid", justifyItems: isMobile ? "start" : "end", gap: 3 }}>
         <span style={{ color: C.dim, fontSize: 10, fontWeight: 850, textTransform: "uppercase", letterSpacing: 0.8 }}>Disponible</span>
-        <span style={{ color: group.total < 0 ? C.red : C.green, fontFamily: C.mono, fontSize: 17, fontWeight: 950 }}>{fmtQty(group.total)}</span>
+        <span style={{ color: qtyColor, fontFamily: C.mono, fontSize: 17, fontWeight: 950 }}>{fmtQty(group.total)}</span>
       </div>
       <ArrowUpRight size={16} style={{ color: C.dim, transform: "rotate(45deg)", justifySelf: isMobile ? "start" : "end" }} />
     </button>
@@ -1441,7 +1465,7 @@ export default function StockWmsPanel({ sedeLocked = null, isMobile = false, toa
   const [fCategoria, setFCategoria] = useState("todos");
   const [kindScope, setKindScope] = useState("todos");
   const [scope, setScope] = useState(initialScope);
-  const [egresoView, setEgresoView] = useState("egresar");
+  const [egresoView, setEgresoView] = useState(() => readStoredEgresoView());
   const [selectedKey, setSelectedKey] = useState(null);
   const [catalogMatches, setCatalogMatches] = useState([]);
   const [creating, setCreating] = useState(false);
@@ -1449,6 +1473,7 @@ export default function StockWmsPanel({ sedeLocked = null, isMobile = false, toa
   const [cart, setCart] = useState([]);
 
   const defaultSede = sedeLocked || (fSede !== "todas" ? fSede : "Pampa");
+  const canShowHistory = mode === "egreso" || fObra !== "todas";
 
   useEffect(() => {
     const timer = setTimeout(() => searchInputRef.current?.focus(), 80);
@@ -1456,8 +1481,18 @@ export default function StockWmsPanel({ sedeLocked = null, isMobile = false, toa
   }, [mode]);
 
   useEffect(() => {
-    if (mode !== "egreso") setEgresoView("egresar");
-  }, [mode]);
+    if (!canShowHistory) setEgresoView("egresar");
+  }, [canShowHistory]);
+
+  useEffect(() => {
+    if (canShowHistory && typeof window !== "undefined") {
+      window.localStorage.setItem(EGRESO_VIEW_STORAGE_KEY, egresoView);
+    }
+  }, [canShowHistory, egresoView]);
+
+  useEffect(() => {
+    setFObra(initialFObra || "todas");
+  }, [initialFObra]);
 
   const cargar = useCallback(async () => {
     setLoading(true);
@@ -1482,7 +1517,7 @@ export default function StockWmsPanel({ sedeLocked = null, isMobile = false, toa
     const term = norm(q);
     let filtered = rows;
     if (term) filtered = filtered.filter((row) => rowSearchText(row).includes(term));
-    if (fObra !== "todas") filtered = filtered.filter((row) => rowLocationKey(row) === fObra);
+    if (fObra !== "todas") filtered = filtered.filter((row) => rowMatchesObraFilter(row, fObra));
     if (fCategoria !== "todos") filtered = filtered.filter((row) => categoryLabel(row) === fCategoria);
     return filtered;
   }, [rows, q, fObra, fCategoria]);
@@ -1506,14 +1541,21 @@ export default function StockWmsPanel({ sedeLocked = null, isMobile = false, toa
 
   const obraOptions = useMemo(() => {
     const map = new Map();
-    for (const row of rows) if (!map.has(rowLocationKey(row))) map.set(rowLocationKey(row), rowObraLabel(row));
+    for (const row of rows) {
+      const obraId = rowObraId(row);
+      const key = obraId ? obraScopeKey(obraId) : rowLocationKey(row);
+      if (!map.has(key)) map.set(key, rowObraLabel(row));
+    }
+    for (const obra of obras) {
+      if (obra?.id && !map.has(obraScopeKey(obra.id))) map.set(obraScopeKey(obra.id), obra.codigo || "Obra sin codigo");
+    }
     return [["todas", "Todas"], ...[...map.entries()].sort((a, b) => a[1].localeCompare(b[1], "es", { numeric: true }))];
-  }, [rows]);
+  }, [obras, rows]);
 
   const categoriaOptions = useMemo(() => filterOptions(rows, categoryLabel), [rows]);
   const scanRows = useMemo(() => {
     let filtered = rows;
-    if (fObra !== "todas") filtered = filtered.filter((row) => rowLocationKey(row) === fObra);
+    if (fObra !== "todas") filtered = filtered.filter((row) => rowMatchesObraFilter(row, fObra));
     if (fCategoria !== "todos") filtered = filtered.filter((row) => categoryLabel(row) === fCategoria);
     if (kindScope === "stock") filtered = filtered.filter((row) => rowTipoPedido(row) === "stock");
     if (kindScope === "estandar") filtered = filtered.filter((row) => rowTipoPedido(row) === "estandar");
@@ -1695,10 +1737,10 @@ export default function StockWmsPanel({ sedeLocked = null, isMobile = false, toa
             <ScanLine size={16} />{!isMobile && <span>Escanear</span>}
           </button>
           <BarcodeScanner open={scannerOpen} onClose={() => setScannerOpen(false)} onScan={(code) => { setScannerOpen(false); applyScanCode(code); }} />
-          {mode === "egreso" && (
+          {canShowHistory && (
             <div style={{ display: "inline-flex", border: `1px solid ${C.border}`, background: C.panelSolid, borderRadius: 10, padding: 3, gap: 3, flexShrink: 0 }}>
               {[
-                ["egresar", "Egresar"],
+                ["egresar", mode === "egreso" ? "Egresar" : "Stock"],
                 ["historial", `Historial (${historyRows.length})`],
               ].map(([key, label]) => (
                 <button
@@ -1743,7 +1785,7 @@ export default function StockWmsPanel({ sedeLocked = null, isMobile = false, toa
         </div>
       </div>
 
-      {mode === "egreso" && egresoView === "historial" ? (
+      {canShowHistory && egresoView === "historial" ? (
         <div style={{ flex: 1, minHeight: 0, overflow: "hidden", padding: isMobile ? 12 : "14px 18px 18px", display: "grid" }}>
           <EgresosHistoryView rows={historyRows} loading={loading} obras={obras} isMobile={isMobile} onOpenProduct={openProductFromHistory} />
         </div>

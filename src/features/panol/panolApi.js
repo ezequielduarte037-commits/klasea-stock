@@ -57,6 +57,14 @@ function normalizeSearch(value = "") {
     .trim();
 }
 
+function modeloFromObraCodigo(codigo = "") {
+  return String(codigo || "").trim().toUpperCase().match(/^([A-Z]*\d+)/)?.[1] || "";
+}
+
+function withDerivedModelo(obra = {}) {
+  return { ...obra, modelo: obra.modelo || modeloFromObraCodigo(obra.codigo) };
+}
+
 function toNullableNumber(value = "") {
   if (value === "" || value == null) return null;
   const n = Number(String(value).replace(",", "."));
@@ -544,7 +552,7 @@ function scorePedidoMaterial(item, material, query) {
 async function fetchPedidoItemsForRecepcion() {
   const fullSelect = `
     id, request_id, description, quantity, unit, status, destination, material_id, catalog_source, notes, created_at,
-    request:purchase_requests(id,title,status,priority,project_id,created_at,description,es_adicional,project:produccion_obras(id,codigo,linea_nombre,modelo))
+    request:purchase_requests(id,title,status,priority,project_id,created_at,description,es_adicional,project:produccion_obras(id,codigo,linea_nombre))
   `;
   const fallbackSelect = `
     id, request_id, description, quantity, unit, status, material_id, notes, created_at,
@@ -758,10 +766,10 @@ export async function fetchObrasEgreso() {
   try {
     const { data, error } = await supabase
       .from("produccion_obras")
-      .select("id,codigo,estado,linea_nombre,modelo")
+      .select("id,codigo,estado,linea_nombre")
       .order("codigo");
     if (error) throw error;
-    return data ?? [];
+    return (data ?? []).map(withDerivedModelo);
   } catch (error) {
     if (!isMissingColumn(error)) throw error;
     const { data, error: fallbackError } = await supabase
@@ -769,7 +777,7 @@ export async function fetchObrasEgreso() {
       .select("id,codigo,estado")
       .order("codigo");
     if (fallbackError) throw fallbackError;
-    return data ?? [];
+    return (data ?? []).map(withDerivedModelo);
   }
 }
 
