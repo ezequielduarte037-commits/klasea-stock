@@ -1,7 +1,7 @@
 import { useState, useRef, useEffect, useMemo, useCallback } from "react";
 import { C } from "@/theme";
 import { Scan, Check, X, Plus, Minus, Search, ArrowRight, Barcode, ClipboardList, RotateCcw, Undo2, Trash2, AlertTriangle, StickyNote, ImagePlus } from "lucide-react";
-import { ingresarStockGeneral, egresarProducto, fetchObrasEgreso, marcarMovimientoAnulado, SEDES_PANOL } from "@/features/panol/panolApi";
+import { ingresarStockGeneral, egresarProducto, fetchObrasEgreso, marcarMovimientoAnulado, registrarConteoFisico, SEDES_PANOL } from "@/features/panol/panolApi";
 import { agregarCodigoBarraMaterial, eliminarCodigoBarraMaterial, crearMaterialRapido, guardarCantidades, actualizarNotasMaterial, uploadMaterialImage } from "@/features/materiales/api";
 import { findMaterialByBarcode, materialBarcodeList, materialBarcodeText, materialMatchesBarcode, barcodeKey } from "@/features/materiales/materialBarcodes";
 import { MODELOS, toBomMap } from "@/features/materiales/materialesParser";
@@ -393,11 +393,12 @@ export default function LectorTab({ materiales, categorias = [], onMaterialUpdat
         const cantidad = Number(row.cantidad);
         const obraCodigo = row.type === "obra" ? obrasList.find(o => String(o.id) === String(row.obraId))?.codigo : null;
         const destLabel = row.type === "stock" ? `Stock ${countSede}` : `Obra ${obraCodigo || "?"}`;
-        const snapshotId = await ingresarStockGeneral({
+        const snapshotId = await registrarConteoFisico({
           material: { id: mat.id, descripcion: mat.descripcion, codigo: mat.codigo, unidad: mat.unidad_medida },
           cantidad,
           sede: countSede || null,
           obraId: row.type === "obra" ? row.obraId : null,
+          movimiento: "ingreso",
           nota: `Conteo físico inicial — ${destLabel}`,
         });
         allocations.push({ type: row.type, obraId: row.obraId || null, obraCodigo, sede: countSede, cantidad, snapshotId });
@@ -469,11 +470,12 @@ export default function LectorTab({ materiales, categorias = [], onMaterialUpdat
       // también (y bloqueado contra doble-revert).
       const nota = "Revertido: error de conteo físico";
       for (const alloc of entry.allocations) {
-        await egresarProducto({
+        await registrarConteoFisico({
           material: { id: mat.id, descripcion: mat.descripcion, codigo: mat.codigo, unidad: mat.unidad_medida },
           cantidad: alloc.cantidad,
           sede: alloc.sede || null,
           obraId: alloc.type === "obra" ? alloc.obraId : null,
+          movimiento: "egreso",
           nota,
         });
         if (alloc.snapshotId) {

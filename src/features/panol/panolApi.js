@@ -874,6 +874,25 @@ export async function ingresarStockGeneral({ material = null, cantidad, sede = n
 }
 
 // ─── Escrituras (RPCs) ──────────────────────────────────────────────────────
+export async function registrarConteoFisico({ material = null, cantidad, sede = null, obraId = null, nota = null, movimiento = "ingreso" } = {}) {
+  const qty = Number(String(cantidad ?? "").replace(",", "."));
+  if (!material?.id && !String(material?.descripcion || "").trim()) throw new Error("Elegi un material.");
+  if (!Number.isFinite(qty) || qty <= 0) throw new Error("Carga una cantidad valida.");
+  const { data, error } = await supabase.rpc("panol_registrar_conteo_fisico", {
+    p_material_id: material.id || null,
+    p_descripcion: String(material.descripcion || "").trim(),
+    p_codigo: String(material.codigo || "").trim() || null,
+    p_cantidad: qty,
+    p_unidad: material.unidad || material.unidad_medida || "unidad",
+    p_sede: sede || null,
+    p_obra_id: obraId || null,
+    p_nota: String(nota || "").trim() || null,
+    p_movimiento: movimiento === "egreso" ? "egreso" : "ingreso",
+  });
+  if (error) throw error;
+  return data;
+}
+
 export async function egresarProducto({
   material = null,
   descripcion = "",
