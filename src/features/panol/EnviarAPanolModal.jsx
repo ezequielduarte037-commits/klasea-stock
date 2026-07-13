@@ -511,6 +511,59 @@ function ItemVariantRow({ item, material = null, onChange }) {
   );
 }
 
+// Reparto de un ingreso entre varias obras (ej: 3 plotters → 1 a cada obra).
+// Solo tiene sentido con cantidad > 1 y para ingresos directos (sin pedido vinculado).
+function ItemObrasRow({ item, obras = [], onChange }) {
+  const num = (v) => Number(String(v ?? "").replace(",", ".")) || 0;
+  const total = num(item.cantidad);
+  if (total <= 1) return null;
+  const dist = Array.isArray(item.distribucion) ? item.distribucion : null;
+
+  if (!dist) {
+    return (
+      <div style={{ display: "flex", alignItems: "center", gap: 9, padding: "0 10px 10px", minWidth: 0, flexWrap: "wrap" }}>
+        <span style={{ color: C.t2, fontSize: 10.5, fontWeight: 850, textTransform: "uppercase", letterSpacing: 0.8, minWidth: 72 }}>Obras</span>
+        <button type="button" onClick={() => onChange({ distribucion: [{ obra_id: item.obra_id || "", cantidad: String(total) }] })}
+          style={{ border: `1px solid ${C.blueB}`, background: "var(--blue-soft)", color: C.blue, borderRadius: 8, padding: "6px 11px", cursor: "pointer", fontSize: 11.5, fontWeight: 850, fontFamily: C.sans }}>
+          Repartir entre varias obras
+        </button>
+        <span style={{ color: C.t2, fontSize: 11 }}>si estas {total} unidades van a obras distintas</span>
+      </div>
+    );
+  }
+
+  const asignado = dist.reduce((s, d) => s + num(d.cantidad), 0);
+  const resto = Math.round((total - asignado) * 100) / 100;
+  const okColor = asignado === total ? C.green : asignado > total ? C.red : C.amber;
+  const setRow = (idx, patch) => onChange({ distribucion: dist.map((d, k) => (k === idx ? { ...d, ...patch } : d)) });
+  const addRow = () => onChange({ distribucion: [...dist, { obra_id: "", cantidad: resto > 0 ? String(resto) : "" }] });
+  const removeRow = (idx) => { const next = dist.filter((_, k) => k !== idx); onChange({ distribucion: next.length ? next : null }); };
+
+  return (
+    <div style={{ display: "grid", gap: 6, padding: "0 10px 10px", minWidth: 0 }}>
+      <div style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
+        <span style={{ color: C.t2, fontSize: 10.5, fontWeight: 850, textTransform: "uppercase", letterSpacing: 0.8 }}>Reparto por obra</span>
+        <span style={{ color: okColor, fontSize: 11.5, fontWeight: 850 }}>
+          asignado {asignado} / {total}
+          {resto > 0 ? ` · resto ${resto} → ${item.obra_id ? "obra por defecto" : "stock general"}` : asignado > total ? " · te pasaste" : " ✓"}
+        </span>
+        <button type="button" onClick={() => onChange({ distribucion: null })} style={{ border: "none", background: "transparent", color: C.dim, cursor: "pointer", fontSize: 11, textDecoration: "underline" }}>quitar reparto</button>
+      </div>
+      {dist.map((d, k) => (
+        <div key={k} style={{ display: "grid", gridTemplateColumns: "1fr 92px 28px", gap: 6, alignItems: "center" }}>
+          <select value={d.obra_id || ""} onChange={(e) => setRow(k, { obra_id: e.target.value })} style={inp({ padding: "7px 9px", fontSize: 12.5, background: C.panelSolid })}>
+            <option value="">Stock general</option>
+            {obras.map((o) => <option key={o.id} value={o.id}>{o.codigo}</option>)}
+          </select>
+          <input value={d.cantidad ?? ""} onChange={(e) => setRow(k, { cantidad: e.target.value })} inputMode="decimal" placeholder="Cant." style={inp({ padding: "7px 9px", fontSize: 12.5 })} />
+          <button type="button" onClick={() => removeRow(k)} title="Quitar" style={{ border: "none", background: "transparent", color: C.red, cursor: "pointer", fontSize: 15 }}>×</button>
+        </div>
+      ))}
+      <button type="button" onClick={addRow} style={{ justifySelf: "start", border: `1px solid ${C.b0}`, background: C.bg, color: C.blue, borderRadius: 7, padding: "5px 11px", cursor: "pointer", fontSize: 11.5, fontWeight: 800, fontFamily: C.sans }}>+ Agregar obra</button>
+    </div>
+  );
+}
+
 function ItemLocationRow({ item, material = null, estanterias = [], onChange, isMobile = false }) {
   const effectiveUbicacion = item.ubicacion || material?.ubicacion || "";
   const effectiveObs = item.ubicacion_obs || material?.ubicacion_obs || "";
@@ -1258,6 +1311,13 @@ export default function EnviarAPanolModal({ open, onClose, prefill, showPrices =
       toast.warning("Agregá al menos un ítem.");
       return;
     }
+    // El reparto por obra no puede superar la cantidad del ítem.
+    const num = (v) => Number(String(v ?? "").replace(",", ".")) || 0;
+    const sobreAsignado = items.find((it) => Array.isArray(it.distribucion) && it.distribucion.reduce((s, d) => s + num(d.cantidad), 0) > num(it.cantidad) + 0.001);
+    if (sobreAsignado) {
+      toast.warning(`Repartiste más unidades de las que hay en "${sobreAsignado.descripcion || "un ítem"}". Ajustá el reparto por obra.`);
+      return;
+    }
     setSaving(true);
     try {
       const preparedItems = await ensureCatalogLinksForItems(items);
@@ -1282,16 +1342,29 @@ export default function EnviarAPanolModal({ open, onClose, prefill, showPrices =
         origen: isRemito ? "remito" : prefill?.origen || "manual",
         purchaseRequestId: prefill?.purchaseRequestId || null,
         purchaseLogId: prefill?.purchaseLogId || null,
-        items: preparedItems.map((it) => {
+        items: preparedItems.flatMap((it) => {
           const precio = showPrices ? normalizePriceForDb(it.precio_unitario) : null;
-          return {
+          const base = {
             ...it,
-            obra_id: it.obra_id || obraId || null,
             codigo: String(it.codigo || "").trim().toUpperCase() || null,
             precio_unitario: precio,
             moneda: precio ? it.moneda || "ARS" : null,
             recepcion_estado: isRemito ? "recibido" : it.recepcion_estado || null,
           };
+          delete base.distribucion;
+          const total = num(it.cantidad);
+          const soloDirecto = !it.purchase_request_item_id && !it.panol_envio_item_id && !it.obra_snapshot_item_id;
+          const dist = soloDirecto && Array.isArray(it.distribucion)
+            ? it.distribucion.map((d) => ({ obra_id: d.obra_id || null, cantidad: num(d.cantidad) })).filter((d) => d.cantidad > 0)
+            : [];
+          if (dist.length) {
+            // Un ítem de envío por cada obra del reparto; el resto va a la obra por defecto / stock general.
+            const partes = dist.map((d) => ({ ...base, obra_id: d.obra_id, cantidad: String(d.cantidad) }));
+            const resto = Math.round((total - dist.reduce((s, d) => s + d.cantidad, 0)) * 100) / 100;
+            if (resto > 0) partes.push({ ...base, obra_id: it.obra_id || obraId || null, cantidad: String(resto) });
+            return partes;
+          }
+          return [{ ...base, obra_id: it.obra_id || obraId || null }];
         }),
       });
       await rememberSnapshotVariants(preparedItems);
@@ -1614,6 +1687,9 @@ export default function EnviarAPanolModal({ open, onClose, prefill, showPrices =
                         isMobile={isMobile}
                         onChange={(patch) => updateItem(i, patch)}
                       />
+                    )}
+                    {isRemito && !it.purchase_request_item_id && !it.panol_envio_item_id && !it.obra_snapshot_item_id && (
+                      <ItemObrasRow item={it} obras={obrasActivas} onChange={(patch) => updateItem(i, patch)} />
                     )}
                     {it.proveedor && (
                       <div style={{ display: "flex", alignItems: "center", gap: 6, padding: "0 7px 7px", color: C.t2, fontSize: 11, fontWeight: 750, minWidth: 0 }}>
