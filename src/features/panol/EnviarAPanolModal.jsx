@@ -364,14 +364,18 @@ function CatalogLinkRow({ item, catalog = [], proveedores = [], onLink, onClear,
               placeholder="Buscar material del catalogo"
               style={inp({ flex: 1, minWidth: 0, padding: "8px 10px", fontSize: 12.5, background: C.bg })}
             />
-            <button
-              type="button"
-              onClick={onCreate}
-              disabled={creating || !String(item.descripcion || "").trim()}
-              style={{ border: `1px solid ${C.amberB ?? C.b0}`, background: "rgba(245,158,11,0.08)", color: creating ? C.dim : C.amber, borderRadius: 7, padding: "7px 10px", fontSize: 11.5, fontWeight: 850, cursor: creating ? "default" : "pointer", fontFamily: C.sans, whiteSpace: "nowrap" }}
-            >
-              {creating ? "Creando..." : "Crear nuevo"}
-            </button>
+            {onCreate ? (
+              <button
+                type="button"
+                onClick={onCreate}
+                disabled={creating || !String(item.descripcion || "").trim()}
+                style={{ border: `1px solid ${C.amberB ?? C.b0}`, background: "rgba(245,158,11,0.08)", color: creating ? C.dim : C.amber, borderRadius: 7, padding: "7px 10px", fontSize: 11.5, fontWeight: 850, cursor: creating ? "default" : "pointer", fontFamily: C.sans, whiteSpace: "nowrap" }}
+              >
+                {creating ? "Creando..." : "Crear nuevo"}
+              </button>
+            ) : (
+              <span style={{ color: C.amber, fontSize: 11, fontWeight: 800, whiteSpace: "nowrap" }}>↳ Creá el producto en la pestaña “Crear producto”</span>
+            )}
           </>
         )}
       </div>
@@ -401,7 +405,7 @@ function CatalogLinkRow({ item, catalog = [], proveedores = [], onLink, onClear,
       )}
       {!selected && q.trim() && results.length === 0 && (
         <div style={{ marginLeft: 81, color: C.t2, fontSize: 11 }}>
-          Sin coincidencias claras. Podés crear un material nuevo.
+          {onCreate ? "Sin coincidencias claras. Podés crear un material nuevo." : "No está en el catálogo. Crealo en la pestaña “Crear producto” y después ingresalo."}
         </div>
       )}
     </div>
@@ -1087,10 +1091,15 @@ export default function EnviarAPanolModal({ open, onClose, prefill, showPrices =
         continue;
       }
       // Si hay un match FUERTE con el catálogo, se vincula solo (evita duplicado) sin bloquear.
-      // Si no, se crea el ítem nuevo. Cualquier duplicado dudoso lo resuelve la pestaña de duplicados.
       const [best] = topCatalogMatches(catalogRows, item, 1);
       if (best && (best._score || 0) >= 70) {
         prepared.push({ ...item, ...itemPatchFromMaterial(best, item) });
+        continue;
+      }
+      // En el INGRESO de pañol no se crean productos al vuelo: hay que crearlos antes en
+      // la pestaña "Crear producto". Queda sin vincular y el submit lo frena.
+      if (isRemito) {
+        prepared.push(item);
         continue;
       }
       const created = await crearPanolCatalogMaterial({
@@ -1230,10 +1239,10 @@ export default function EnviarAPanolModal({ open, onClose, prefill, showPrices =
       return;
     }
 
-    // 4) Código desconocido → lo dejo en el alta rápida para cargarlo a mano
+    // 4) Código desconocido → no se crea al vuelo; hay que crear el producto primero.
     setNCode(code);
     scanBeep(300, 200);
-    toast.warning(`Código ${code} no está en el catálogo. Cargalo a mano (te dejé el código puesto).`);
+    toast.warning(`Código ${code} no está en el catálogo. Creá el producto en la pestaña “Crear producto” y volvé a escanear.`);
   }
 
   // Agregar (marcar) un ítem de un aviso sin escanear: lo vincula al catálogo si puede.
@@ -1322,6 +1331,15 @@ export default function EnviarAPanolModal({ open, onClose, prefill, showPrices =
     try {
       const preparedItems = await ensureCatalogLinksForItems(items);
       setItems(preparedItems);
+      if (isRemito) {
+        const sinCatalogo = preparedItems.filter((it) => !it.material_id && !it.purchase_request_item_id && !it.panol_envio_item_id && !it.obra_snapshot_item_id && String(it.descripcion || "").trim());
+        if (sinCatalogo.length) {
+          const nombres = sinCatalogo.map((it) => `"${it.descripcion}"`).slice(0, 3).join(", ");
+          toast.warning(`No están en el catálogo: ${nombres}${sinCatalogo.length > 3 ? "…" : ""}. Creálos primero en la pestaña "Crear producto" y después ingresalos.`);
+          setSaving(false);
+          return;
+        }
+      }
       try {
         await rememberTouchedLocations(preparedItems);
       } catch (locationError) {
@@ -1669,7 +1687,7 @@ export default function EnviarAPanolModal({ open, onClose, prefill, showPrices =
                         creating={creatingCatalogIndex === i}
                         onLink={(material) => linkCatalogMaterial(i, material)}
                         onClear={() => updateItem(i, { material_id: "", variante: "" })}
-                        onCreate={() => createCatalogMaterialForItem(i)}
+                        onCreate={isRemito ? undefined : () => createCatalogMaterialForItem(i)}
                       />
                     )}
                     {needsCatalogLink && (
