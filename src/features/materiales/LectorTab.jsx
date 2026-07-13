@@ -399,6 +399,7 @@ export default function LectorTab({ materiales, categorias = [], onMaterialUpdat
           sede: countSede || null,
           obraId: row.type === "obra" ? row.obraId : null,
           movimiento: "ingreso",
+          variante: countVariante || null,
           nota: `Conteo físico inicial — ${destLabel}`,
         });
         allocations.push({ type: row.type, obraId: row.obraId || null, obraCodigo, sede: countSede, cantidad, snapshotId });

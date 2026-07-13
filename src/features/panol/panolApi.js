@@ -259,7 +259,7 @@ export async function fetchMaterialesEgreso({ sede = null, estados = ["en_panol"
     try {
       const res = await supabase
         .from("panol_materiales")
-        .select("id,proveedor,categoria_id,codigo_barra,ubicacion,ubicacion_obs")
+        .select("id,proveedor,categoria_id,codigo_barra,ubicacion,ubicacion_obs,variantes")
         .in("id", materialIds);
       if (res.error) throw res.error;
       materiales = res.data ?? [];
@@ -346,6 +346,7 @@ export async function fetchMaterialesEgreso({ sede = null, estados = ["en_panol"
       proveedor: row.proveedor || meta?.proveedor || "",
       codigo_barra: row.codigo_barra || meta?.codigo_barra || meta?.codigos_barra?.[0]?.codigo || "",
       codigos_barra: meta?.codigos_barra || [],
+      variantes: Array.isArray(meta?.variantes) ? meta.variantes : [],
       ubicacion: meta?.ubicacion || null,
       ubicacion_obs: meta?.ubicacion_obs || null,
       categoria_id: categoriaId,
@@ -854,11 +855,11 @@ export async function fetchObrasEgreso() {
   }
 }
 
-export async function ingresarStockGeneral({ material = null, cantidad, sede = null, nota = null, esAdicional = false, obraId = null } = {}) {
+export async function ingresarStockGeneral({ material = null, cantidad, sede = null, nota = null, esAdicional = false, obraId = null, variante = null } = {}) {
   const qty = Number(String(cantidad ?? "").replace(",", "."));
   if (!material?.id && !String(material?.descripcion || "").trim()) throw new Error("Elegí un material.");
   if (!Number.isFinite(qty) || qty <= 0) throw new Error("Cargá una cantidad válida.");
-  const { data, error } = await supabase.rpc("panol_ingresar_stock_general", {
+  const base = {
     p_material_id: material.id || null,
     p_descripcion: String(material.descripcion || "").trim(),
     p_codigo: String(material.codigo || "").trim() || null,
@@ -868,17 +869,23 @@ export async function ingresarStockGeneral({ material = null, cantidad, sede = n
     p_nota: String(nota || "").trim() || null,
     p_es_adicional: !!esAdicional,
     p_obra_id: obraId || null,
-  });
+  };
+  const varClean = String(variante || "").trim() || null;
+  let { data, error } = await supabase.rpc("panol_ingresar_stock_general", { ...base, p_variante: varClean });
+  // Si el RPC todavía no tiene el parámetro p_variante, reintenta sin él (transición).
+  if (error && (error.code === "PGRST202" || String(error.message || "").toLowerCase().includes("could not find the function"))) {
+    ({ data, error } = await supabase.rpc("panol_ingresar_stock_general", base));
+  }
   if (error) throw error;
   return data;
 }
 
 // ─── Escrituras (RPCs) ──────────────────────────────────────────────────────
-export async function registrarConteoFisico({ material = null, cantidad, sede = null, obraId = null, nota = null, movimiento = "ingreso" } = {}) {
+export async function registrarConteoFisico({ material = null, cantidad, sede = null, obraId = null, nota = null, movimiento = "ingreso", variante = null } = {}) {
   const qty = Number(String(cantidad ?? "").replace(",", "."));
   if (!material?.id && !String(material?.descripcion || "").trim()) throw new Error("Elegi un material.");
   if (!Number.isFinite(qty) || qty <= 0) throw new Error("Carga una cantidad valida.");
-  const { data, error } = await supabase.rpc("panol_registrar_conteo_fisico", {
+  const base = {
     p_material_id: material.id || null,
     p_descripcion: String(material.descripcion || "").trim(),
     p_codigo: String(material.codigo || "").trim() || null,
@@ -888,7 +895,13 @@ export async function registrarConteoFisico({ material = null, cantidad, sede = 
     p_obra_id: obraId || null,
     p_nota: String(nota || "").trim() || null,
     p_movimiento: movimiento === "egreso" ? "egreso" : "ingreso",
-  });
+  };
+  const varClean = String(variante || "").trim() || null;
+  let { data, error } = await supabase.rpc("panol_registrar_conteo_fisico", { ...base, p_variante: varClean });
+  // Fallback si el RPC todavía no tiene p_variante (hasta correr el SQL nuevo).
+  if (error && (error.code === "PGRST202" || String(error.message || "").toLowerCase().includes("could not find the function"))) {
+    ({ data, error } = await supabase.rpc("panol_registrar_conteo_fisico", base));
+  }
   if (error) throw error;
   return data;
 }

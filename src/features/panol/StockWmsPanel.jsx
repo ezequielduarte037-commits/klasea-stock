@@ -3,6 +3,7 @@ import {
   AlertTriangle,
   ArrowUpRight,
   Inbox,
+  MapPin,
   PackageCheck,
   PackagePlus,
   RefreshCw,
@@ -128,9 +129,13 @@ function rowIsAdditional(row) {
 }
 
 function rowTipoPedido(row) {
-  let tipo = row.tipo_pedido || row.request?.tipo_pedido || (rowIsAdditional(row) ? "adicional" : "estandar");
-  if (tipo === "estandar" && rowSede(row) === "Pampa") tipo = "stock";
-  return tipo;
+  // Adicional de una obra
+  if (rowIsAdditional(row) || row.tipo_pedido === "adicional" || row.request?.tipo_pedido === "adicional") return "adicional";
+  // Stock pañol = stock general SIN obra asignada (conteo físico, ingreso general,
+  // transferencias a stock). Estándar = reservado/asignado a una obra puntual.
+  // Antes se clasificaba por sede (Pampa=stock), lo cual no tenía sentido.
+  if (!rowObraId(row)) return "stock";
+  return "estandar";
 }
 
 function productKey(row, fObra) {
@@ -268,6 +273,24 @@ function manualEgresoGroup(text, defaultSede = "Pampa", esAdicional = false) {
   }, defaultSede, esAdicional);
 }
 
+// El tipo del grupo se decide por el STOCK DISPONIBLE, no por el primer renglón
+// (que podía ser un tránsito suelto y forzaba "Estándar"). Si hay stock general
+// disponible → Stock pañol; si el stock disponible está reservado a obra → Estándar.
+function groupTipoFromStock(group) {
+  const stockRows = (group.rows || []).filter((r) => rowCountsAsStock(r));
+  const rowsUse = stockRows.length ? stockRows : (group.rows || []);
+  if (rowsUse.some((r) => rowIsAdditional(r))) return "adicional";
+  if (rowsUse.some((r) => !rowObraId(r))) return "stock";
+  if (rowsUse.some((r) => rowObraId(r))) return "estandar";
+  return group.tipoPedido || "estandar";
+}
+
+// "Solo por recibir": no tiene stock real, solo tránsito (ej. recepciones que
+// quedaron colgadas). Van al fondo del maestro para no molestar.
+function isTransitOnly(group) {
+  return group.total <= 0.0001 && group.transitQty > 0 && !group.negativo;
+}
+
 function buildProductGroups(rows = [], fObra = "todas") {
   const map = new Map();
   for (const row of rows) {
@@ -292,6 +315,8 @@ function buildProductGroups(rows = [], fObra = "todas") {
         proveedor: row.proveedor || "",
         unidad: row.unidad || "unidad",
         tipoPedido,
+        variantes: Array.isArray(row.variantes) ? row.variantes.map((v) => (v && typeof v === "object" ? v.nombre : String(v || ""))).filter(Boolean) : [],
+        variantesEnStock: new Set(),
         ubicacion: row.ubicacion || null,
         ubicacion_obs: row.ubicacion_obs || null,
         total: 0,
@@ -315,6 +340,11 @@ function buildProductGroups(rows = [], fObra = "todas") {
       group.codigo_barra = row.codigo_barra;
       group.material.codigo_barra = row.codigo_barra;
     }
+    if ((!group.variantes || !group.variantes.length) && Array.isArray(row.variantes) && row.variantes.length) {
+      group.variantes = row.variantes.map((v) => (v && typeof v === "object" ? v.nombre : String(v || ""))).filter(Boolean);
+    }
+    const varChosen = String(row.variante || "").trim();
+    if (varChosen) group.variantesEnStock.add(varChosen);
     if (row.codigos_barra?.length) {
       group.material.codigos_barra = [
         ...(group.material.codigos_barra || []),
@@ -332,16 +362,23 @@ function buildProductGroups(rows = [], fObra = "todas") {
         available: 0,
         transitQty: 0,
         valueUsd: 0,
+        variantMap: new Map(),
         rows: [],
       });
     }
     const location = group.locationMap.get(locKey);
     location.available += delta;
     location.valueUsd += delta * rowUnitPriceUsd(row);
+    // Desglose por variante dentro de este depósito/obra (Samsung: 10 · LG: 10)
+    const vName = String(row.variante || "").trim();
+    if (!location.variantMap.has(vName)) location.variantMap.set(vName, { available: 0, transitQty: 0 });
+    const vAgg = location.variantMap.get(vName);
+    vAgg.available += delta;
     if (rowIsTransit(row)) {
       const transit = qty(row.cantidad, 1);
       location.transitQty += transit;
       group.transitQty += transit;
+      vAgg.transitQty += transit;
     }
     if (rowIsEgreso(row)) group.hasEgreso = true;
     location.rows.push(row);
@@ -362,16 +399,28 @@ function buildProductGroups(rows = [], fObra = "todas") {
 
   return [...map.values()].map((group) => {
     const locations = [...group.locationMap.values()]
+      .map((loc) => ({
+        ...loc,
+        porVariante: [...loc.variantMap.entries()]
+          .filter(([name, agg]) => name && (Math.abs(agg.available) > 0.0001 || agg.transitQty > 0))
+          .map(([name, agg]) => ({ variante: name, available: agg.available, transitQty: agg.transitQty }))
+          .sort((a, b) => b.available - a.available),
+      }))
       .sort((a, b) => b.available - a.available || a.label.localeCompare(b.label, "es", { numeric: true }));
     const hasPositiveStock = locations.some((loc) => loc.available > 0.0001);
     return {
       ...group,
+      tipoPedido: groupTipoFromStock(group),
       locations,
       egresado: group.hasEgreso && !hasPositiveStock && group.transitQty <= 0,
       negativo: group.total < 0 || locations.some((loc) => loc.available < 0),
       inTransit: group.transitQty > 0,
     };
   }).sort((a, b) => {
+    // Los "solo por recibir" (sin stock real) van al fondo.
+    const at = isTransitOnly(a) ? 1 : 0;
+    const bt = isTransitOnly(b) ? 1 : 0;
+    if (at !== bt) return at - bt;
     if (a.negativo !== b.negativo) return a.negativo ? -1 : 1;
     if (Math.abs(b.total) !== Math.abs(a.total)) return Math.abs(b.total) - Math.abs(a.total);
     return a.label.localeCompare(b.label, "es", { numeric: true });
@@ -470,7 +519,7 @@ function KindChip({ tipo = "estandar" }) {
   );
 }
 
-function ProductCard({ group, active, onOpen, isMobile }) {
+function ProductCard({ group, active, onOpen, canSeePrices = true }) {
   const breakdown = group.locations
     .filter((loc) => Math.abs(loc.available) > 0.0001)
     .slice(0, 4)
@@ -483,56 +532,76 @@ function ProductCard({ group, active, onOpen, isMobile }) {
     .join(" - ");
   const stockDetail = breakdown || (transitBreakdown ? `Por recibir ${transitBreakdown}` : group.egresado ? "Egresado - sin saldo" : "Sin stock cargado");
   const qtyColor = group.total < 0 || group.egresado ? C.red : C.green;
+  const sinUbicacion = !group.ubicacion;
+  const barcode = group.codigo_barra || materialBarcodeList(group.material)[0]?.codigo || group.codigos_barra?.[0]?.codigo || "";
+  const codeLabel = group.codigo
+    ? (barcode ? `${group.codigo} · CB ${barcode}` : group.codigo)
+    : (barcode ? `CB ${barcode}` : "sin código");
   return (
     <button
       type="button"
       onClick={() => onOpen(group.key)}
       style={{
         width: "100%",
-        display: "grid",
-        gridTemplateColumns: isMobile ? "1fr" : "minmax(0, 1fr) 150px 116px 24px",
-        alignItems: "center",
-        gap: 10,
+        display: "flex",
+        flexDirection: "column",
+        gap: 7,
         border: `1px solid ${active ? C.blueB : group.negativo ? C.redB : C.border}`,
         background: active ? C.blueL : group.negativo ? C.redL : C.panelSolid,
-        borderRadius: 8,
-        padding: "9px 12px",
+        borderRadius: 11,
+        padding: "12px 13px",
         cursor: "pointer",
         color: C.text,
         textAlign: "left",
         fontFamily: C.sans,
       }}
     >
-      <div style={{ minWidth: 0 }}>
-        <div style={{ display: "flex", alignItems: "center", gap: 8, minWidth: 0, flexWrap: "wrap" }}>
-          <span style={{ color: C.text, fontSize: 13.5, fontWeight: 950, lineHeight: 1.25, minWidth: 0, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{group.label}</span>
-          <KindChip tipo={group.tipoPedido} />
-          {group.egresado && <StateChip egresado />}
-          {(group.negativo || group.catalogOnly) && <StateChip negative={group.negativo} catalogOnly={group.catalogOnly} />}
-          {group.inTransit && <StateChip transit />}
-          <UbicacionChip ubicacion={group.ubicacion} obs={group.ubicacion_obs} />
-        </div>
-        <div style={{ color: C.dim, fontSize: 11, marginTop: 4, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
-          {group.codigo || "sin codigo"}{group.proveedor ? ` - ${group.proveedor}` : ""}{group.categorias.size ? ` - ${[...group.categorias][0]}` : ""}
-        </div>
-        {group.valueUsd > 0 && (
-          <div style={{ color: C.dim, fontSize: 10.5, marginTop: 2 }}>Valor USD {fmtQty(group.valueUsd)}</div>
-        )}
-        <div style={{ display: "none" }}>
-          {stockDetail}{group.locations.length > 4 ? ` - +${group.locations.length - 4}` : ""}
+      {/* Fila 1: nombre completo (hasta 2 líneas) + disponible */}
+      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", gap: 12 }}>
+        <span style={{ flex: 1, minWidth: 0, color: C.text, fontSize: 14, fontWeight: 900, lineHeight: 1.3, display: "-webkit-box", WebkitLineClamp: 2, WebkitBoxOrient: "vertical", overflow: "hidden" }}>{group.label}</span>
+        <div style={{ display: "grid", justifyItems: "end", gap: 1, flexShrink: 0 }}>
+          <span style={{ color: qtyColor, fontFamily: C.mono, fontSize: 20, fontWeight: 950, lineHeight: 1 }}>{fmtQty(group.total)}</span>
+          <span style={{ color: C.dim, fontSize: 8.5, fontWeight: 850, textTransform: "uppercase", letterSpacing: 0.6 }}>disponible</span>
         </div>
       </div>
-      <div style={{ display: "grid", gap: 3, minWidth: 0 }}>
-        <span style={{ color: C.dim, fontSize: 9.5, fontWeight: 900, textTransform: "uppercase", letterSpacing: 0.8 }}>Deposito / obra</span>
-        <span style={{ color: group.egresado || group.negativo ? C.red : C.t1, fontSize: 11.5, fontWeight: 800, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
-          {stockDetail}{group.locations.length > 4 ? ` - +${group.locations.length - 4}` : ""}
+      {/* Fila 2: badges + ubicación / sin ubicación */}
+      <div style={{ display: "flex", gap: 6, flexWrap: "wrap", alignItems: "center" }}>
+        <KindChip tipo={group.tipoPedido} />
+        {group.egresado && <StateChip egresado />}
+        {(group.negativo || group.catalogOnly) && <StateChip negative={group.negativo} catalogOnly={group.catalogOnly} />}
+        {group.inTransit && <StateChip transit />}
+        {sinUbicacion ? (
+          <span style={{ display: "inline-flex", alignItems: "center", gap: 4, color: C.amber, background: C.amberL, border: `1px solid ${C.amberB}`, borderRadius: 999, padding: "3px 9px", fontSize: 10, fontWeight: 900 }}>
+            <MapPin size={11} /> Sin ubicación
+          </span>
+        ) : (
+          <UbicacionChip ubicacion={group.ubicacion} obs={group.ubicacion_obs} />
+        )}
+      </div>
+      {/* Variantes del producto (resaltadas las que están en stock) */}
+      {group.variantes?.length > 0 && (
+        <div style={{ display: "flex", gap: 5, flexWrap: "wrap", alignItems: "center" }}>
+          <span style={{ fontSize: 8.5, color: C.dim, fontWeight: 850, textTransform: "uppercase", letterSpacing: 0.6 }}>Variantes</span>
+          {group.variantes.slice(0, 8).map((v) => {
+            const enStock = group.variantesEnStock?.has?.(v);
+            return (
+              <span key={v} style={{ fontSize: 10, fontWeight: 850, color: C.violet, background: enStock ? "rgba(139,92,246,0.16)" : "transparent", border: `1px solid ${enStock ? "rgba(139,92,246,0.42)" : C.border}`, borderRadius: 999, padding: "1px 7px" }}>{v}</span>
+            );
+          })}
+        </div>
+      )}
+      {/* Fila 3: meta (código · proveedor · rubro · valor) */}
+      <div style={{ color: C.dim, fontSize: 11, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+        {codeLabel}{group.proveedor ? ` · ${group.proveedor}` : ""}{group.categorias.size ? ` · ${[...group.categorias][0]}` : ""}
+        {canSeePrices && group.valueUsd > 0 ? ` · USD ${fmtQty(group.valueUsd)}` : ""}
+      </div>
+      {/* Fila 4: depósito / obra */}
+      <div style={{ display: "flex", alignItems: "center", gap: 6, minWidth: 0 }}>
+        <span style={{ color: C.dim, fontSize: 8.5, fontWeight: 900, textTransform: "uppercase", letterSpacing: 0.7, flexShrink: 0 }}>Depósito/obra</span>
+        <span style={{ minWidth: 0, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", fontSize: 11, fontWeight: 700, color: group.egresado || group.negativo ? C.red : C.t1 }}>
+          {stockDetail}{group.locations.length > 4 ? ` · +${group.locations.length - 4}` : ""}
         </span>
       </div>
-      <div style={{ display: "grid", justifyItems: isMobile ? "start" : "end", gap: 3 }}>
-        <span style={{ color: C.dim, fontSize: 10, fontWeight: 850, textTransform: "uppercase", letterSpacing: 0.8 }}>Disponible</span>
-        <span style={{ color: qtyColor, fontFamily: C.mono, fontSize: 17, fontWeight: 950 }}>{fmtQty(group.total)}</span>
-      </div>
-      <ArrowUpRight size={16} style={{ color: C.dim, transform: "rotate(45deg)", justifySelf: isMobile ? "start" : "end" }} />
     </button>
   );
 }
@@ -559,6 +628,15 @@ function LocationButton({ location, active, onClick }) {
       <span style={{ minWidth: 0 }}>
         <span style={{ display: "block", fontSize: 12.5, fontWeight: 900, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{location.label}</span>
         <span style={{ display: "block", color: C.dim, fontSize: 10.5, marginTop: 2 }}>{location.sede || "Sin sede"}</span>
+        {location.porVariante?.length > 0 && (
+          <span style={{ display: "flex", flexWrap: "wrap", gap: 4, marginTop: 4 }}>
+            {location.porVariante.map((pv) => (
+              <span key={pv.variante} style={{ fontSize: 10, fontWeight: 850, color: C.violet, background: "rgba(139,92,246,0.12)", border: "1px solid rgba(139,92,246,0.3)", borderRadius: 999, padding: "1px 7px" }}>
+                {pv.variante}: {fmtQty(pv.available)}{pv.transitQty > 0 ? ` (+${fmtQty(pv.transitQty)} por recibir)` : ""}
+              </span>
+            ))}
+          </span>
+        )}
         {location.transitQty > 0 && (
           <span style={{ display: "block", color: C.amber, fontSize: 10.5, marginTop: 2 }}>por recibir {fmtQty(location.transitQty)}</span>
         )}
@@ -1341,6 +1419,10 @@ function ProductDetail({ group, isMobile, obras, sedeLocked, canReceive, mode, o
     }
   }
 
+  const detBarcode = group.codigo_barra || materialBarcodeList(group.material)[0]?.codigo || group.codigos_barra?.[0]?.codigo || "";
+  const detCode = group.codigo
+    ? (detBarcode ? `${group.codigo} · CB ${detBarcode}` : group.codigo)
+    : (detBarcode ? `CB ${detBarcode}` : "sin código");
   return (
     <section style={{ minHeight: 0, border: `1px solid ${C.border}`, background: C.panel, borderRadius: 12, overflow: "hidden", display: "flex", flexDirection: "column" }}>
       <div style={{ padding: "13px 14px", borderBottom: `1px solid ${C.border}`, background: C.panelSolid, display: "flex", justifyContent: "space-between", gap: 10, alignItems: "flex-start" }}>
@@ -1352,7 +1434,16 @@ function ProductDetail({ group, isMobile, obras, sedeLocked, canReceive, mode, o
             {group.inTransit && <StateChip transit />}
             <UbicacionChip ubicacion={group.ubicacion} obs={group.ubicacion_obs} size="md" />
           </div>
-          <div style={{ color: C.dim, fontSize: 11, marginTop: 3 }}>{group.codigo || "sin codigo"} · disponible {fmtQty(group.total)} {group.unidad}</div>
+          <div style={{ color: C.dim, fontSize: 11, marginTop: 3 }}>{detCode} · disponible {fmtQty(group.total)} {group.unidad}</div>
+          {group.variantes?.length > 0 && (
+            <div style={{ display: "flex", gap: 5, flexWrap: "wrap", alignItems: "center", marginTop: 6 }}>
+              <span style={{ fontSize: 9, color: C.dim, fontWeight: 850, textTransform: "uppercase", letterSpacing: 0.6 }}>Variantes</span>
+              {group.variantes.map((v) => {
+                const enStock = group.variantesEnStock?.has?.(v);
+                return <span key={v} style={{ fontSize: 10.5, fontWeight: 850, color: C.violet, background: enStock ? "rgba(139,92,246,0.16)" : "transparent", border: `1px solid ${enStock ? "rgba(139,92,246,0.42)" : C.border}`, borderRadius: 999, padding: "2px 8px" }}>{v}{enStock ? " ✓" : ""}</span>;
+              })}
+            </div>
+          )}
         </div>
         {isMobile && <button type="button" onClick={() => setSelectedKey(null)} style={{ border: `1px solid ${C.border}`, background: C.panel, color: C.text, borderRadius: 8, padding: "7px 9px", fontSize: 12, fontWeight: 850 }}>Lista</button>}
       </div>
@@ -1536,7 +1627,7 @@ function ProductDetail({ group, isMobile, obras, sedeLocked, canReceive, mode, o
   );
 }
 
-export default function StockWmsPanel({ sedeLocked = null, isMobile = false, toast, mode = "stock", canReceive = true, canCreateCatalog = false, initialFObra = "todas", initialScope = "todos" }) {
+export default function StockWmsPanel({ sedeLocked = null, isMobile = false, toast, mode = "stock", canReceive = true, canCreateCatalog = false, canSeePrices = true, initialFObra = "todas", initialScope = "todos" }) {
   const searchInputRef = useRef(null);
   const [rows, setRows] = useState([]);
   const [obras, setObras] = useState([]);
@@ -1652,6 +1743,7 @@ export default function StockWmsPanel({ sedeLocked = null, isMobile = false, toa
     const withDraft = draftGroup && norm(q) && norm(draftGroup.label).includes(norm(q))
       ? [draftGroup, ...productGroupsBase.filter((group) => group.key !== draftGroup.key)]
       : productGroupsBase;
+    if (scope === "sin_ubicacion") return withDraft.filter((group) => !group.ubicacion);
     if (scope !== "negativos") return withDraft;
     const negatives = withDraft.filter((group) => group.negativo);
     if (draftGroup && selectedKey === draftGroup.key && !negatives.some((group) => group.key === draftGroup.key)) {
@@ -1712,6 +1804,7 @@ export default function StockWmsPanel({ sedeLocked = null, isMobile = false, toa
     const allGroups = buildProductGroups(rows, fObra);
     const totalUnits = allGroups.reduce((sum, group) => sum + group.total, 0);
     const negativos = allGroups.filter((group) => group.negativo).length;
+    const sinUbicacion = allGroups.filter((group) => !group.ubicacion).length;
     const transito = allGroups.reduce((sum, group) => sum + group.transitQty, 0);
     const valorUsd = allGroups.reduce((sum, group) => sum + Math.max(0, group.valueUsd || 0), 0);
     const today = rows.filter((row) => isToday(row.egreso_at || row.recepcion_updated_at || row.updated_at || row.created_at)).length;
@@ -1719,6 +1812,7 @@ export default function StockWmsPanel({ sedeLocked = null, isMobile = false, toa
       productos: allGroups.filter((group) => group.total > 0).length,
       unidades: fmtQty(totalUnits),
       negativos,
+      sinUbicacion,
       transito: fmtQty(transito),
       valorUsd: fmtQty(valorUsd),
       hoy: today,
@@ -1848,7 +1942,7 @@ export default function StockWmsPanel({ sedeLocked = null, isMobile = false, toa
               ))}
             </div>
           )}
-          <SelectFilter label="Vista" value={scope} onChange={setScope} options={[["todos", "Todos"], ["negativos", "A reconciliar"]]} />
+          <SelectFilter label="Vista" value={scope} onChange={setScope} options={[["todos", "Todos"], ["negativos", "A reconciliar"], ["sin_ubicacion", `Sin ubicación${kpis.sinUbicacion ? ` (${kpis.sinUbicacion})` : ""}`]]} />
           <SelectFilter label="Tipo" value={kindScope} onChange={setKindScope} options={[["todos", `Todos (${kindCounts.todos})`], ["stock", `Stock pañol (${kindCounts.stock})`], ["estandar", `Estándar (${kindCounts.estandar})`], ["adicional", `Adicionales (${kindCounts.adicional})`]]} />
           <SelectFilter label="Obra / stock" value={fObra} onChange={setFObra} options={obraOptions} />
           <SelectFilter label="Categoria" value={fCategoria} onChange={setFCategoria} options={categoriaOptions} />
@@ -1858,12 +1952,13 @@ export default function StockWmsPanel({ sedeLocked = null, isMobile = false, toa
           </button>
         </div>
 
-        <div style={{ display: "grid", gridTemplateColumns: isMobile ? "1fr 1fr" : "repeat(6, minmax(120px, 1fr))", gap: 8 }}>
+        <div style={{ display: "grid", gridTemplateColumns: isMobile ? "1fr 1fr" : "repeat(auto-fit, minmax(140px, 1fr))", gap: 8 }}>
           <KpiCard icon={Warehouse} label="Productos en stock" value={kpis.productos} detail="saldo positivo" color={C.blue} />
           <KpiCard icon={PackageCheck} label="Unidades totales" value={kpis.unidades} detail="ingresos menos egresos" color={C.green} />
           <KpiCard icon={AlertTriangle} label="A reconciliar" value={kpis.negativos} detail="productos con negativo" color={kpis.negativos ? C.red : C.dim} />
+          <KpiCard icon={MapPin} label="Sin ubicación" value={kpis.sinUbicacion} detail="hay que ubicarlos" color={kpis.sinUbicacion ? C.amber : C.dim} />
           <KpiCard icon={Inbox} label="Por recibir" value={kpis.transito} detail="no cuenta como stock" color={C.amber} />
-          <KpiCard icon={PackagePlus} label="Valor stock USD" value={kpis.valorUsd} detail="solo precios USD" color={C.green} />
+          {canSeePrices && <KpiCard icon={PackagePlus} label="Valor stock USD" value={kpis.valorUsd} detail="solo precios USD" color={C.green} />}
           <KpiCard icon={Inbox} label="Movimientos hoy" value={kpis.hoy} detail={sedeLocked || (fSede === "todas" ? "todas las sedes" : fSede)} color={C.violet} />
         </div>
       </div>
@@ -1886,7 +1981,7 @@ export default function StockWmsPanel({ sedeLocked = null, isMobile = false, toa
               <div style={{ padding: 30, textAlign: "center", color: C.dim, fontSize: 12, fontWeight: 850 }}>Cargando stock...</div>
             ) : productGroups.length ? (
               productGroups.map((group) => (
-                <ProductCard key={group.key} group={group} active={selectedKey === group.key} onOpen={setSelectedKey} isMobile={isMobile} />
+                <ProductCard key={group.key} group={group} active={selectedKey === group.key} onOpen={setSelectedKey} canSeePrices={canSeePrices} />
               ))
             ) : (
               <div style={{ padding: 22, border: `1px dashed ${C.border}`, borderRadius: 10, color: C.dim, textAlign: "center", fontSize: 13 }}>

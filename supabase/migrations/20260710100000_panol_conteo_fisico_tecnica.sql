@@ -16,7 +16,7 @@ as $$
       where p.id = p_uid
         and (
           coalesce(p.is_admin, false)
-          or p.role in ('admin', 'panol', 'tecnica', 'oficina')
+          or p.role in ('admin', 'tecnica', 'oficina')
         )
     )
   );

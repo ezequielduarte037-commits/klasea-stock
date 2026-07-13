@@ -7,7 +7,8 @@ import { C } from "@/theme";
 import StockWmsPanel from "@/features/panol/StockWmsPanel";
 import MapaPanolTab from "@/features/panol/MapaPanolTab";
 import { fetchMaterialesEgreso, fetchObrasEgreso } from "@/features/panol/panolApi";
-import { MODELOS } from "@/features/materiales/materialesParser";
+import { fmtDate, rowMovementAt, rowIsAnulado } from "@/features/panol/panolMovimientos";
+import { MODELOS, norm } from "@/features/materiales/materialesParser";
 
 const GLASS = {
   backdropFilter: "var(--glass-filter)",
@@ -34,12 +35,12 @@ function fmtQty(v) {
 }
 
 function rowObraId(row) { return row.obra?.id || row.obra_id || ""; }
-function rowSede(row) { return row.stock_sede || row.panol_envio?.sede || ""; }
 function rowIsAdditional(row) { return row.es_adicional === true || row.request?.es_adicional === true; }
 function rowTipoPedido(row) {
-  let tipo = row.tipo_pedido || row.request?.tipo_pedido || (rowIsAdditional(row) ? "adicional" : "estandar");
-  if (tipo === "estandar" && rowSede(row) === "Pampa") tipo = "stock";
-  return tipo;
+  if (rowIsAdditional(row) || row.tipo_pedido === "adicional" || row.request?.tipo_pedido === "adicional") return "adicional";
+  // Stock pañol = stock general sin obra asignada; Estándar = asignado a una obra.
+  if (!rowObraId(row)) return "stock";
+  return "estandar";
 }
 
 function rowSource(row) { return String(row.source || "").trim(); }
@@ -300,9 +301,121 @@ function ObraCard({ obra, stats, onClick }) {
 const TABS = [
   { key: "obra", label: "Por obra" },
   { key: "maestro", label: "Stock maestro" },
+  { key: "movimientos", label: "Movimientos" },
   { key: "reconciliar", label: "A reconciliar" },
   { key: "mapa", label: "Mapa" },
 ];
+
+// ─── Panel de movimientos (historial general: ingresos y egresos) ──────────────
+const MOV_INP = { background: C.panelSolid, border: `1px solid ${C.border}`, color: C.text, borderRadius: 9, padding: "8px 10px", fontSize: 12.5, fontFamily: C.sans, outline: "none" };
+
+function movDestino(row) {
+  return row.obra?.codigo || (row.stock_sede ? `Stock ${row.stock_sede}` : "Stock general");
+}
+
+function MovKpi({ label, value, detail, color }) {
+  return (
+    <div style={{ border: `1px solid ${C.border}`, background: C.panelSolid, borderRadius: 10, padding: "8px 12px", minWidth: 108 }}>
+      <div style={{ fontFamily: C.mono, fontSize: 17, fontWeight: 950, color, lineHeight: 1 }}>{value}</div>
+      <div style={{ fontSize: 10.5, color: C.text, fontWeight: 800, marginTop: 3 }}>{label}</div>
+      <div style={{ fontSize: 10, color: C.dim }}>{detail}</div>
+    </div>
+  );
+}
+
+function MovRow({ m }) {
+  const isOut = m.tipo === "egreso";
+  const col = m.anulado ? C.dim : isOut ? C.red : C.green;
+  return (
+    <div style={{ display: "grid", gridTemplateColumns: "62px 1fr auto", gap: 10, alignItems: "center", padding: "9px 12px", border: `1px solid ${C.border}`, borderRadius: 10, background: C.panelSolid, opacity: m.anulado ? 0.55 : 1 }}>
+      <span style={{ fontSize: 10, fontWeight: 950, color: col, textTransform: "uppercase", letterSpacing: 0.4 }}>{m.anulado ? "Anulado" : isOut ? "Egreso" : "Ingreso"}</span>
+      <div style={{ minWidth: 0 }}>
+        <div style={{ fontSize: 13, fontWeight: 800, color: C.text, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{m.row.descripcion || "(sin descripción)"}{m.row.codigo ? ` · ${m.row.codigo}` : ""}</div>
+        <div style={{ fontSize: 11, color: C.dim, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>
+          {fmtDate(m.fecha)} · {movDestino(m.row)}{m.row.retirado_por || m.row.egreso_por ? ` · ${m.row.retirado_por || m.row.egreso_por}` : ""}{m.row.egreso_nota || m.row.stock_nota || m.row.notas ? ` · ${m.row.egreso_nota || m.row.stock_nota || m.row.notas}` : ""}
+        </div>
+      </div>
+      <span style={{ fontFamily: C.mono, fontSize: 15, fontWeight: 950, color: col, whiteSpace: "nowrap" }}>{isOut ? "−" : "+"}{fmtQty(m.cant)} {m.row.unidad || ""}</span>
+    </div>
+  );
+}
+
+function MovimientosPanel({ rows = [], isMobile = false }) {
+  const [q, setQ] = useState("");
+  const [tipo, setTipo] = useState("todos");
+  const [desde, setDesde] = useState("");
+  const [hasta, setHasta] = useState("");
+  const [sedeF, setSedeF] = useState("todas");
+  const [incluirAnulados, setIncluirAnulados] = useState(false);
+
+  const movimientos = useMemo(() => rows
+    .map((r) => {
+      const isOut = r.estado === "egresado";
+      const cant = isOut ? Math.abs(qty(r.cantidad_egresada, qty(r.cantidad, 1))) : qty(r.cantidad, 1);
+      return { row: r, tipo: isOut ? "egreso" : "ingreso", cant, delta: rowDelta(r), fecha: rowMovementAt(r), anulado: rowIsAnulado(r) };
+    })
+    .filter((m) => m.delta !== 0 || m.row.estado === "egresado")
+    .filter((m) => {
+      if (!incluirAnulados && m.anulado) return false;
+      if (tipo !== "todos" && m.tipo !== tipo) return false;
+      if (sedeF !== "todas" && (m.row.stock_sede || "") !== sedeF) return false;
+      if (desde && (!m.fecha || new Date(m.fecha) < new Date(`${desde}T00:00:00`))) return false;
+      if (hasta && (!m.fecha || new Date(m.fecha) > new Date(`${hasta}T23:59:59`))) return false;
+      if (q.trim()) {
+        const t = norm(q);
+        const hay = norm([m.row.descripcion, m.row.codigo, movDestino(m.row), m.row.retirado_por, m.row.egreso_por, m.row.egreso_nota, m.row.stock_nota, m.row.notas].filter(Boolean).join(" "));
+        if (!hay.includes(t)) return false;
+      }
+      return true;
+    })
+    .sort((a, b) => new Date(b.fecha || 0) - new Date(a.fecha || 0)), [rows, q, tipo, sedeF, desde, hasta, incluirAnulados]);
+
+  const kpis = useMemo(() => {
+    let ing = 0, egr = 0, uIn = 0, uOut = 0;
+    for (const m of movimientos) {
+      if (m.tipo === "egreso") { egr += 1; uOut += m.cant; } else { ing += 1; uIn += m.cant; }
+    }
+    return { ing, egr, uIn, uOut };
+  }, [movimientos]);
+
+  return (
+    <div style={{ flex: 1, overflowY: "auto", padding: isMobile ? 12 : "16px 18px 28px" }}>
+      <div style={{ display: "flex", flexWrap: "wrap", gap: 8, marginBottom: 12 }}>
+        <MovKpi label="Ingresos" value={kpis.ing} detail={`${fmtQty(kpis.uIn)} u`} color={C.green} />
+        <MovKpi label="Egresos" value={kpis.egr} detail={`${fmtQty(kpis.uOut)} u`} color={C.red} />
+        <MovKpi label="Neto" value={fmtQty(kpis.uIn - kpis.uOut)} detail="unidades" color={C.blue} />
+        <MovKpi label="Movimientos" value={movimientos.length} detail="filtrados" color={C.violet} />
+      </div>
+      <div style={{ display: "flex", flexWrap: "wrap", gap: 8, marginBottom: 12, alignItems: "center" }}>
+        <input value={q} onChange={(e) => setQ(e.target.value)} placeholder="Buscar producto, código, obra, quién..." style={{ ...MOV_INP, flex: "1 1 240px", minWidth: 200 }} />
+        <select value={tipo} onChange={(e) => setTipo(e.target.value)} style={MOV_INP}>
+          <option value="todos">Todos</option>
+          <option value="ingreso">Ingresos</option>
+          <option value="egreso">Egresos</option>
+        </select>
+        <select value={sedeF} onChange={(e) => setSedeF(e.target.value)} style={MOV_INP}>
+          <option value="todas">Todas las sedes</option>
+          <option value="Pampa">Pampa</option>
+          <option value="Chubut">Chubut</option>
+        </select>
+        <label style={{ fontSize: 10.5, color: C.dim, display: "inline-flex", gap: 5, alignItems: "center", fontWeight: 800 }}>Desde<input type="date" value={desde} onChange={(e) => setDesde(e.target.value)} style={MOV_INP} /></label>
+        <label style={{ fontSize: 10.5, color: C.dim, display: "inline-flex", gap: 5, alignItems: "center", fontWeight: 800 }}>Hasta<input type="date" value={hasta} onChange={(e) => setHasta(e.target.value)} style={MOV_INP} /></label>
+        <label style={{ fontSize: 11, color: C.dim, display: "inline-flex", gap: 5, alignItems: "center" }}><input type="checkbox" checked={incluirAnulados} onChange={(e) => setIncluirAnulados(e.target.checked)} /> ver anulados</label>
+        {(q || tipo !== "todos" || sedeF !== "todas" || desde || hasta) && (
+          <button type="button" onClick={() => { setQ(""); setTipo("todos"); setSedeF("todas"); setDesde(""); setHasta(""); }} style={{ border: "none", background: "transparent", color: C.dim, cursor: "pointer", fontSize: 11.5, fontWeight: 750, textDecoration: "underline" }}>Limpiar</button>
+        )}
+      </div>
+      {movimientos.length === 0 ? (
+        <div style={{ padding: 40, textAlign: "center", color: C.dim, fontSize: 13, border: `1px dashed ${C.border}`, borderRadius: 12 }}>Sin movimientos con esos filtros.</div>
+      ) : (
+        <div style={{ display: "grid", gap: 6 }}>
+          {movimientos.slice(0, 500).map((m) => <MovRow key={m.row.id} m={m} />)}
+          {movimientos.length > 500 && <div style={{ textAlign: "center", color: C.dim, fontSize: 12, padding: 10 }}>Mostrando 500 de {movimientos.length}. Afiná los filtros (fecha/producto) para ver el resto.</div>}
+        </div>
+      )}
+    </div>
+  );
+}
 
 // ─── Componente principal ─────────────────────────────────────────────────────
 
@@ -316,6 +429,7 @@ export default function StockPanolScreen({ profile, signOut, embedded = false, m
   const userSede = profile?.sede || null;
   const sedeLocked = role === "panol" && (userSede === "Pampa" || userSede === "Chubut") ? userSede : null;
   const canReceive = isManager || role === "panol";
+  const canSeePrices = role !== "panol"; // el pañol no ve precios ni costos
 
   // ── Navegación ──
   const [tab, setTab] = useState("obra");
@@ -424,7 +538,7 @@ export default function StockPanolScreen({ profile, signOut, embedded = false, m
     setSelObraId(null);
   }
 
-  const wmsProps = { sedeLocked, isMobile, toast, mode, canReceive, canCreateCatalog: isManager };
+  const wmsProps = { sedeLocked, isMobile, toast, mode, canReceive, canCreateCatalog: isManager, canSeePrices };
   const isLevel3 = tab === "obra" && selObraId != null;
 
   const refreshBtn = (
@@ -568,6 +682,11 @@ export default function StockPanolScreen({ profile, signOut, embedded = false, m
             {/* ── TAB: Stock maestro ── */}
             {tab === "maestro" && (
               <StockWmsPanel key="maestro" {...wmsProps} />
+            )}
+
+            {/* ── TAB: Movimientos (historial general de ingresos/egresos) ── */}
+            {tab === "movimientos" && (
+              <MovimientosPanel rows={rows} isMobile={isMobile} />
             )}
 
             {/* ── TAB: A reconciliar ── */}
