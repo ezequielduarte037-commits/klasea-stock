@@ -77,7 +77,7 @@ function applyReferenceLayout(rows = []) {
 }
 
 function normText(s) {
-  return String(s || "").toLowerCase().normalize("NFD").replace(/[̀-ͯ]/g, "");
+  return String(s || "").toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "");
 }
 
 // Paleta sobria y armónica para el plano (más apagada que ZONA_COLORS, que se
@@ -90,6 +90,45 @@ const MAPA_ZONA_COLOR = {
 };
 function mapaColor(codigo) {
   return MAPA_ZONA_COLOR[String(codigo || "").charAt(0).toUpperCase()] || "#7c8798";
+}
+
+const LEDGER_STATES = ["en_panol", "recibido", "parcial", "egresado"];
+const IN_STOCK_STATES = new Set(["en_panol", "recibido", "parcial"]);
+const RECEIVED_STATES = new Set(["recibido", "parcial"]);
+const DIRECT_STOCK_SOURCES = new Set(["stock_general", "remito", "transferencia_ingreso", "ajuste_ingreso"]);
+
+function qty(value, fallback = 0) {
+  const n = Number(String(value ?? "").replace(",", "."));
+  return Number.isFinite(n) ? n : fallback;
+}
+
+function fmtQty(value) {
+  const n = Number(value || 0);
+  if (!Number.isFinite(n)) return "0";
+  return Number(Math.round(n * 100) / 100).toLocaleString("es-AR");
+}
+
+function rowSource(row) {
+  return String(row?.source || "").trim().toLowerCase();
+}
+
+function rowIsEgreso(row) {
+  const source = rowSource(row);
+  return row?.estado === "egresado" || source.startsWith("egreso") || source.startsWith("transferencia_egreso");
+}
+
+function rowCountsAsStock(row) {
+  if (!IN_STOCK_STATES.has(row?.estado)) return false;
+  const recepcion = String(row?.recepcion_estado || "").trim();
+  const source = rowSource(row);
+  if (RECEIVED_STATES.has(recepcion)) return true;
+  return DIRECT_STOCK_SOURCES.has(source) || source.startsWith("stock_") || source.startsWith("transferencia_ingreso");
+}
+
+function stockDelta(row) {
+  if (rowCountsAsStock(row)) return qty(row.cantidad, 1);
+  if (rowIsEgreso(row)) return -Math.abs(qty(row.cantidad_egresada, qty(row.cantidad, 1)));
+  return 0;
 }
 
 function KpiChip({ icon, label, value, color }) {
@@ -109,6 +148,7 @@ function KpiChip({ icon, label, value, color }) {
 export default function MapaPanolTab({ isMobile = false, toast, canEdit = false }) {
   const [estanterias, setEstanterias] = useState([]);
   const [materiales, setMateriales] = useState([]);
+  const [stockByMaterialId, setStockByMaterialId] = useState({});
   const [totalCatalogo, setTotalCatalogo] = useState(0);
   const [loading, setLoading] = useState(true);
   const [sel, setSel] = useState(null);
@@ -129,14 +169,34 @@ export default function MapaPanolTab({ isMobile = false, toast, canEdit = false 
     try {
       const [estRes, matRes, totRes] = await Promise.all([
         supabase.from("panol_estanterias").select("*").eq("activo", true).order("codigo"),
-        supabase.from("panol_materiales").select("id, descripcion, ubicacion, ubicacion_obs, codigo").not("ubicacion", "is", null).eq("activo", true),
+        supabase.from("panol_materiales").select("id, descripcion, ubicacion, ubicacion_obs, codigo, unidad_medida").not("ubicacion", "is", null).eq("activo", true),
         supabase.from("panol_materiales").select("id", { count: "exact", head: true }).eq("activo", true),
       ]);
       if (estRes.error) throw estRes.error;
+      if (matRes.error) throw matRes.error;
       setEstanterias(applyReferenceLayout(estRes.data ?? []));
-      setMateriales(matRes.data ?? []);
+      const mats = matRes.data ?? [];
+      setMateriales(mats);
       setTotalCatalogo(totRes.count ?? 0);
+
+      const materialIds = [...new Set(mats.map((m) => m.id).filter(Boolean))];
+      if (!materialIds.length) {
+        setStockByMaterialId({});
+        return;
+      }
+      const { data: stockRows, error: stockError } = await supabase.from("panol_obra_materiales_snapshot")
+        .select("material_id,cantidad,cantidad_egresada,estado,source,recepcion_estado")
+        .in("material_id", materialIds)
+        .in("estado", LEDGER_STATES);
+      if (stockError) throw stockError;
+      const nextStock = {};
+      for (const row of stockRows ?? []) {
+        if (!row.material_id) continue;
+        nextStock[row.material_id] = (nextStock[row.material_id] || 0) + stockDelta(row);
+      }
+      setStockByMaterialId(nextStock);
     } catch (e) {
+      setStockByMaterialId({});
       toast?.error(e.message?.includes("panol_estanterias") ? "Falta correr el SQL del mapa del pañol." : (e.message || "No se pudo cargar el mapa."));
     } finally {
       setLoading(false);
@@ -363,7 +423,7 @@ export default function MapaPanolTab({ isMobile = false, toast, canEdit = false 
         </div>
 
         {/* ── Plano + panel ── */}
-        <div style={{ display: "grid", gap: 12, gridTemplateColumns: isMobile || !selEst ? "1fr" : "minmax(0, 1fr) 320px", alignItems: "start" }}>
+        <div style={{ display: "grid", gap: 12, gridTemplateColumns: isMobile || !selEst ? "1fr" : "minmax(0, 1fr) minmax(340px, 380px)", alignItems: "start" }}>
           <div style={{ display: "grid", gap: 10, minWidth: 0 }}>
             {loading ? (
               <div style={{ padding: 50, textAlign: "center", color: C.dim, fontSize: 13 }}>Cargando el plano...</div>
@@ -599,7 +659,7 @@ export default function MapaPanolTab({ isMobile = false, toast, canEdit = false 
             )}
           </div>
 
-          {selEst && <EstanteriaPanel est={selEst} mats={selMats} onClose={() => setSel(null)} onMatClick={setDetalleMat} />}
+          {selEst && <EstanteriaPanel est={selEst} mats={selMats} stockByMaterialId={stockByMaterialId} onClose={() => setSel(null)} onMatClick={setDetalleMat} />}
         </div>
       </div>
       {detalleMat && <MaterialDetalleModal material={detalleMat} onClose={() => setDetalleMat(null)} />}
@@ -608,12 +668,12 @@ export default function MapaPanolTab({ isMobile = false, toast, canEdit = false 
 }
 
 // ── Ficha de estantería: vista frontal a escala + productos por estante ──
-function EstanteriaPanel({ est, mats, onClose, onMatClick }) {
+function EstanteriaPanel({ est, mats, stockByMaterialId = {}, onClose, onMatClick }) {
   const color = mapaColor(est.codigo);
   const niveles = Array.isArray(est.niveles_cm) ? est.niveles_cm : [];
   const alto = est.alto_cm || (niveles.length ? Math.max(...niveles) : 200);
   const largo = est.largo_cm || 90;
-  const VW = 264;
+  const VW = 220;
   const scale = VW / Math.max(largo, 1);
   const VH = Math.max(90, alto * scale);
   const [filtro, setFiltro] = useState("");
@@ -647,9 +707,9 @@ function EstanteriaPanel({ est, mats, onClose, onMatClick }) {
   }, [filtered]);
 
   return (
-    <div style={{ border: `1px solid ${C.border}`, background: C.panelSolid, borderRadius: 16, overflow: "hidden", boxShadow: "0 14px 34px -18px rgba(0,0,0,0.4)", position: "sticky", top: 10 }}>
+    <div style={{ border: `1px solid ${C.border}`, background: C.panelSolid, borderRadius: 16, overflow: "hidden", boxShadow: "0 14px 34px -18px rgba(0,0,0,0.4)", position: "sticky", top: 10, minWidth: 0, width: "100%", maxHeight: "calc(100vh - 150px)", display: "flex", flexDirection: "column" }}>
       <div style={{ height: 5, background: `linear-gradient(90deg, ${color}, ${color}55)` }} />
-      <div style={{ padding: "13px 15px", display: "grid", gap: 12 }}>
+      <div style={{ padding: "13px 15px", display: "grid", gap: 12, minHeight: 0, overflowY: "auto", overflowX: "hidden" }}>
         <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
           <div style={{ width: 42, height: 42, borderRadius: 12, display: "grid", placeItems: "center", background: `${color}1e`, border: `1px solid ${color}55`, color, fontWeight: 950, fontFamily: C.mono, fontSize: 15 }}>{est.codigo}</div>
           <div style={{ flex: 1, minWidth: 0 }}>
@@ -681,7 +741,7 @@ function EstanteriaPanel({ est, mats, onClose, onMatClick }) {
 
         {/* Vista frontal a escala */}
         {niveles.length > 0 && (
-          <div style={{ background: C.panel, border: `1px solid ${C.border}`, borderRadius: 12, padding: "10px 10px 6px" }}>
+          <div style={{ background: C.panel, border: `1px solid ${C.border}`, borderRadius: 12, padding: "10px 10px 6px", overflow: "hidden" }}>
             <div style={{ fontSize: 10, color: C.dim, fontWeight: 850, textTransform: "uppercase", letterSpacing: 1, marginBottom: 6 }}>Vista frontal · alturas reales</div>
             <svg viewBox={`-44 -10 ${VW + 88} ${VH + 34}`} style={{ width: "100%", height: "auto", display: "block" }}>
               <rect x={0} y={0} width={VW} height={VH} rx={4} fill={`${color}14`} stroke={color} strokeWidth={2.5} />
@@ -733,7 +793,7 @@ function EstanteriaPanel({ est, mats, onClose, onMatClick }) {
               Sin resultados para “{filtro}”.
             </div>
           ) : (
-            <div style={{ display: "grid", gap: 7, maxHeight: 420, overflowY: "auto", paddingRight: 2 }}>
+            <div style={{ display: "grid", gap: 7, maxHeight: "none", overflow: "visible", paddingRight: 0, minWidth: 0 }}>
               {[...matsPorNivel.entries()].sort((a, b) => b[0] - a[0]).map(([nivel, items]) => (
                 <div key={nivel} style={{ display: "grid", gap: 7 }}>
                   {matsPorNivel.size > 1 && (
@@ -743,25 +803,36 @@ function EstanteriaPanel({ est, mats, onClose, onMatClick }) {
                       <div style={{ flex: 1, height: 1, background: C.border }} />
                     </div>
                   )}
-                  {items.map((m) => (
-                    <button key={m.id} type="button" onClick={() => onMatClick?.(m)} style={{ width: "100%", display: "flex", gap: 11, alignItems: "center", padding: "11px 12px", background: C.panel, borderRadius: 12, cursor: "pointer", border: `1px solid ${C.border}`, textAlign: "left", transition: "all 0.15s", boxShadow: "0 1px 2px rgba(0,0,0,0.03)" }}
-                      onMouseEnter={(e) => { e.currentTarget.style.borderColor = color; e.currentTarget.style.background = `${color}10`; e.currentTarget.style.boxShadow = `0 6px 16px -8px ${color}80`; }}
-                      onMouseLeave={(e) => { e.currentTarget.style.borderColor = C.border; e.currentTarget.style.background = C.panel; e.currentTarget.style.boxShadow = "0 1px 2px rgba(0,0,0,0.03)"; }}>
-                      <div style={{ width: 40, height: 40, borderRadius: 11, display: "grid", placeItems: "center", background: `${color}18`, border: `1px solid ${color}33`, color, flexShrink: 0 }}>
-                        <Package size={18} strokeWidth={2.2} />
-                      </div>
-                      <div style={{ flex: 1, minWidth: 0 }}>
-                        <div style={{ fontSize: 13.5, fontWeight: 800, color: C.text, lineHeight: 1.3, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{m.descripcion}</div>
-                        <div style={{ display: "flex", gap: 6, alignItems: "center", marginTop: 5, minWidth: 0 }}>
-                          {m.codigo
-                            ? <span style={{ fontFamily: C.mono, fontSize: 10, fontWeight: 800, color: C.dim, background: C.panelSolid, border: `1px solid ${C.border}`, borderRadius: 5, padding: "1px 6px", flexShrink: 0 }}>{m.codigo}</span>
-                            : <span style={{ fontSize: 11, color: C.dim, fontWeight: 600 }}>Ver stock por obra</span>}
-                          {m.ubicacion_obs && <span style={{ fontSize: 11, color: C.dim, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>· {m.ubicacion_obs}</span>}
+                  {items.map((m) => {
+                    const disponible = stockByMaterialId[m.id] || 0;
+                    const qtyColor = disponible < 0 ? C.red : disponible > 0 ? C.green : C.dim;
+                    const qtyBg = disponible < 0 ? C.redL : disponible > 0 ? C.greenL : C.panelSolid;
+                    const qtyBorder = disponible < 0 ? C.redB : disponible > 0 ? C.greenB : C.border;
+                    return (
+                      <button key={m.id} type="button" onClick={() => onMatClick?.(m)} style={{ width: "100%", minWidth: 0, display: "flex", gap: 10, alignItems: "center", padding: "10px 11px", background: C.panel, borderRadius: 12, cursor: "pointer", border: `1px solid ${C.border}`, textAlign: "left", transition: "all 0.15s", boxShadow: "0 1px 2px rgba(0,0,0,0.03)" }}
+                        onMouseEnter={(e) => { e.currentTarget.style.borderColor = color; e.currentTarget.style.background = `${color}10`; e.currentTarget.style.boxShadow = `0 6px 16px -8px ${color}80`; }}
+                        onMouseLeave={(e) => { e.currentTarget.style.borderColor = C.border; e.currentTarget.style.background = C.panel; e.currentTarget.style.boxShadow = "0 1px 2px rgba(0,0,0,0.03)"; }}>
+                        <div style={{ width: 40, height: 40, borderRadius: 11, display: "grid", placeItems: "center", background: `${color}18`, border: `1px solid ${color}33`, color, flexShrink: 0 }}>
+                          <Package size={18} strokeWidth={2.2} />
                         </div>
-                      </div>
-                      <ChevronRight size={17} style={{ color: C.dim, flexShrink: 0 }} />
-                    </button>
-                  ))}
+                        <div style={{ flex: 1, minWidth: 0 }}>
+                          <div style={{ fontSize: 13, fontWeight: 850, color: C.text, lineHeight: 1.25, overflow: "hidden", display: "-webkit-box", WebkitLineClamp: 2, WebkitBoxOrient: "vertical" }}>{m.descripcion}</div>
+                          <div style={{ display: "flex", gap: 6, alignItems: "center", marginTop: 5, minWidth: 0 }}>
+                            {m.codigo
+                              ? <span style={{ fontFamily: C.mono, fontSize: 10, fontWeight: 800, color: C.dim, background: C.panelSolid, border: `1px solid ${C.border}`, borderRadius: 5, padding: "1px 6px", flexShrink: 0 }}>{m.codigo}</span>
+                              : <span style={{ fontSize: 11, color: C.dim, fontWeight: 600 }}>Ver stock por obra</span>}
+                            {m.ubicacion_obs && <span style={{ fontSize: 11, color: C.dim, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>· {m.ubicacion_obs}</span>}
+                          </div>
+                        </div>
+                        <div style={{ flexShrink: 0, minWidth: 56, border: `1px solid ${qtyBorder}`, background: qtyBg, color: qtyColor, borderRadius: 10, padding: "5px 7px", textAlign: "center" }}>
+                          <div style={{ fontSize: 8.5, color: qtyColor, fontWeight: 900, textTransform: "uppercase", letterSpacing: 0.5, lineHeight: 1 }}>Disp.</div>
+                          <div style={{ fontFamily: C.mono, fontSize: 12.5, fontWeight: 950, lineHeight: 1.2, marginTop: 2 }}>{fmtQty(disponible)}</div>
+                          <div style={{ fontSize: 9, color: qtyColor, opacity: 0.8, fontWeight: 800, lineHeight: 1, marginTop: 1 }}>{m.unidad_medida || "unid"}</div>
+                        </div>
+                        <ChevronRight size={17} style={{ color: C.dim, flexShrink: 0 }} />
+                      </button>
+                    );
+                  })}
                 </div>
               ))}
             </div>

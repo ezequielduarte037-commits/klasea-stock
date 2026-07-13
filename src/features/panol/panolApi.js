@@ -57,6 +57,18 @@ function normalizeSearch(value = "") {
     .trim();
 }
 
+// Conectores/palabras que no aportan a la b\u00fasqueda (los cargan distinto entre \u00edtems).
+const SEARCH_STOPWORDS = new Set(["de", "del", "la", "el", "los", "las", "con", "para", "por", "y", "o", "a", "en", "un", "una", "que", "al", "sin"]);
+
+// Match por palabras: cada palabra "\u00fatil" del t\u00e9rmino debe estar en el texto (en
+// cualquier orden). As\u00ed "caja de" encuentra "caja ducha 800 gph". T\u00e9rminos muy cortos
+// (ej. un c\u00f3digo) caen a substring simple.
+function matchesSearchTokens(text = "", term = "") {
+  const tokens = term.split(" ").filter((t) => t.length >= 2 && !SEARCH_STOPWORDS.has(t));
+  if (!tokens.length) return text.includes(term);
+  return tokens.every((t) => text.includes(t));
+}
+
 function modeloFromObraCodigo(codigo = "") {
   return String(codigo || "").trim().toUpperCase().match(/^([A-Z]*\d+)/)?.[1] || "";
 }
@@ -390,7 +402,7 @@ export async function fetchPanolCatalogMini({ q = "", limit = 80 } = {}) {
   const term = normalizeSearch(q);
   const active = withCodes.filter((row) => row.activo !== false);
   const filtered = term
-    ? active.filter((row) => normalizeSearch([row.descripcion, row.codigo, row.codigo_barra, materialBarcodeText(row), row.proveedor].filter(Boolean).join(" ")).includes(term))
+    ? active.filter((row) => matchesSearchTokens(normalizeSearch([row.descripcion, row.codigo, row.codigo_barra, materialBarcodeText(row), row.proveedor].filter(Boolean).join(" ")), term))
     : active;
   return filtered
     .slice(0, limit)

@@ -976,9 +976,29 @@ export default function EnviarAPanolModal({ open, onClose, prefill, showPrices =
 
   async function createCatalogMaterialForItem(index) {
     const item = items[index];
-    if (!item?.descripcion?.trim()) {
+    const desc = String(item?.descripcion || "").trim();
+    if (!desc) {
       toast.warning("Cargá una descripción antes de crear el material.");
       return null;
+    }
+    if (desc.length < 4) {
+      toast.warning("Descripción muy corta. Agregá marca, medida o modelo (ej: \"Caja ducha 800 GPH\").");
+      return null;
+    }
+    // ¿Ya existe uno parecido? → ofrecer usar ese en vez de duplicar (evita "Caja de ducha" vs "Caja ducha 800 gph").
+    const [best] = topCatalogMatches(fullCatalog, item, 1);
+    if (best && (best._score || 0) >= 58) {
+      const usar = window.confirm(
+        `⚠ Puede que este material YA EXISTA en el catálogo:\n\n"${best.descripcion}"${best.codigo ? ` · ${best.codigo}` : ""}\n\n• Aceptar = usar ESE (recomendado, evita duplicados)\n• Cancelar = crear "${desc}" igual`,
+      );
+      if (usar) {
+        linkCatalogMaterial(index, best);
+        toast.success(`Vinculado a "${best.descripcion}".`);
+        return best;
+      }
+    } else if (desc.length < 6) {
+      const ok = window.confirm(`La descripción "${desc}" es muy escueta. Conviene agregar marca / medida / modelo para no duplicar más adelante.\n\n¿Crear igual?`);
+      if (!ok) return null;
     }
     setCreatingCatalogIndex(index);
     try {
