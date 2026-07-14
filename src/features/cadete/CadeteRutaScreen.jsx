@@ -13,7 +13,7 @@ import {
   updateRuta, uploadComprobanteParada,
 } from "@/features/cadete/cadeteRutasApi";
 // (fetchParadas queda disponible en la API pero acá usamos fetchRutasConParadas)
-import { createCajaChicaEntry, ensureCajaChicaCierreAbierto, fetchCajaChicaEntries } from "@/features/compras/cajaChicaApi";
+import { ensureCajaChicaCierreAbierto, fetchCajaChicaEntries } from "@/features/compras/cajaChicaApi";
 import CajaChicaPanel from "@/features/compras/CajaChicaPanel";
 
 const TODAY = () => new Date().toISOString().slice(0, 10);
@@ -294,8 +294,6 @@ export default function CadeteRutaScreen({ profile, signOut, embedded = false })
   // caja del cadete
   const [cajaSaldo, setCajaSaldo] = useState({ ARS: 0, USD: 0 });
   const [cierreId, setCierreId] = useState(null);
-  const [showCajaForm, setShowCajaForm] = useState(false);
-  const [cajaForm, setCajaForm] = useState({ tipo: "egreso", detalle: "", importe: "", moneda: "ARS" });
 
   const targetCadeteId = isCadete ? profile.id : cadeteId;
 
@@ -427,27 +425,6 @@ export default function CadeteRutaScreen({ profile, signOut, embedded = false })
     } catch (e) { toast.error(e?.message || "No se pudo."); }
   }
 
-  async function guardarMovimientoCaja() {
-    const imp = Number(String(cajaForm.importe).replace(",", "."));
-    if (!cajaForm.detalle.trim()) { toast.warning("Poné un detalle."); return; }
-    if (!Number.isFinite(imp) || imp <= 0) { toast.warning("Poné un importe válido."); return; }
-    try {
-      await createCajaChicaEntry({
-        fecha: TODAY(),
-        tipo: cajaForm.tipo,
-        detalle: cajaForm.detalle,
-        importe: imp,
-        moneda: cajaForm.moneda,
-        owner_id: targetCadeteId,
-        cierre_id: cierreId,
-      });
-      setCajaForm({ tipo: "egreso", detalle: "", importe: "", moneda: "ARS" });
-      setShowCajaForm(false);
-      await loadCaja(targetCadeteId);
-      toast.success("Movimiento cargado en la caja.");
-    } catch (e) { toast.error(e?.message || "No se pudo cargar el movimiento."); }
-  }
-
   const prog = ruta ? rutaProgreso(ruta) : null;
 
   return (
@@ -510,35 +487,15 @@ export default function CadeteRutaScreen({ profile, signOut, embedded = false })
             </div>
           )}
 
-          {/* Caja del cadete */}
-          <div style={{ borderRadius: 12, background: C.panel, border: `1px solid ${C.border}`, padding: 13 }}>
-            <div style={{ display: "flex", alignItems: "center", gap: 7, color: C.dim, fontSize: 10.5, fontWeight: 850, textTransform: "uppercase", letterSpacing: 0.6, marginBottom: 7 }}><Wallet size={13} /> Caja chica</div>
-            <div style={{ fontSize: 22, fontWeight: 950, color: cajaSaldo.ARS < 0 ? C.red : C.green, fontFamily: C.mono }}>{fmtMoney(cajaSaldo.ARS, "ARS")}</div>
-            {Math.abs(cajaSaldo.USD) > 0.001 && <div style={{ fontSize: 14, fontWeight: 900, color: cajaSaldo.USD < 0 ? C.red : C.green, fontFamily: C.mono, marginTop: 2 }}>{fmtMoney(cajaSaldo.USD, "USD")}</div>}
-            <div style={{ fontSize: 10.5, color: C.dim, marginTop: 4 }}>saldo (ingresos − gastos)</div>
-
-            {isCadete && !showCajaForm && (
-              <button type="button" onClick={() => setShowCajaForm(true)} style={{ ...BTN_GHOST, width: "100%", justifyContent: "center", marginTop: 10, display: "inline-flex", alignItems: "center", gap: 6, color: C.blue }}><Plus size={14} /> Cargar movimiento</button>
-            )}
-            {isCadete && showCajaForm && (
-              <div style={{ marginTop: 10, display: "grid", gap: 7 }}>
-                <div style={{ display: "flex", gap: 6 }}>
-                  {[["egreso", "Gasto"], ["ingreso", "Ingreso"]].map(([v, l]) => (
-                    <button key={v} type="button" onClick={() => setCajaForm((s) => ({ ...s, tipo: v }))} style={{ flex: 1, border: `1px solid ${cajaForm.tipo === v ? (v === "ingreso" ? C.greenB : C.redB) : C.border}`, background: cajaForm.tipo === v ? (v === "ingreso" ? C.greenL : C.redL) : "transparent", color: cajaForm.tipo === v ? (v === "ingreso" ? C.green : C.red) : C.text, borderRadius: 8, padding: "7px", cursor: "pointer", fontSize: 12, fontWeight: 850 }}>{l}</button>
-                  ))}
-                </div>
-                <input value={cajaForm.detalle} onChange={(e) => setCajaForm((s) => ({ ...s, detalle: e.target.value }))} placeholder="Detalle (ej: nafta, adelanto)" style={{ ...INP, padding: "8px 10px", fontSize: 12.5 }} />
-                <div style={{ display: "grid", gridTemplateColumns: "1fr 74px", gap: 6 }}>
-                  <input value={cajaForm.importe} onChange={(e) => setCajaForm((s) => ({ ...s, importe: e.target.value }))} inputMode="decimal" placeholder="Importe" style={{ ...INP, padding: "8px 10px", fontFamily: C.mono }} />
-                  <select value={cajaForm.moneda} onChange={(e) => setCajaForm((s) => ({ ...s, moneda: e.target.value }))} style={{ ...INP, padding: "8px 4px", cursor: "pointer" }}><option value="ARS">ARS</option><option value="USD">USD</option></select>
-                </div>
-                <div style={{ display: "flex", gap: 6 }}>
-                  <button type="button" onClick={() => { setShowCajaForm(false); setCajaForm({ tipo: "egreso", detalle: "", importe: "", moneda: "ARS" }); }} style={{ ...BTN_GHOST, flex: 1, textAlign: "center" }}>Cancelar</button>
-                  <button type="button" onClick={guardarMovimientoCaja} style={{ ...BTN_PRIM, background: C.green, flex: 1, justifyContent: "center" }}>Guardar</button>
-                </div>
-              </div>
-            )}
-          </div>
+          {/* Vistazo de la caja del cadete — solo para compras (el cadete la ve completa en su pestaña "Caja chica") */}
+          {!isCadete && (
+            <div style={{ borderRadius: 12, background: C.panel, border: `1px solid ${C.border}`, padding: 13 }}>
+              <div style={{ display: "flex", alignItems: "center", gap: 7, color: C.dim, fontSize: 10.5, fontWeight: 850, textTransform: "uppercase", letterSpacing: 0.6, marginBottom: 7 }}><Wallet size={13} /> Caja del cadete</div>
+              <div style={{ fontSize: 22, fontWeight: 950, color: cajaSaldo.ARS < 0 ? C.red : C.green, fontFamily: C.mono }}>{fmtMoney(cajaSaldo.ARS, "ARS")}</div>
+              {Math.abs(cajaSaldo.USD) > 0.001 && <div style={{ fontSize: 14, fontWeight: 900, color: cajaSaldo.USD < 0 ? C.red : C.green, fontFamily: C.mono, marginTop: 2 }}>{fmtMoney(cajaSaldo.USD, "USD")}</div>}
+              <div style={{ fontSize: 10.5, color: C.dim, marginTop: 4 }}>saldo (ingresos − gastos)</div>
+            </div>
+          )}
 
           {/* Nueva ruta */}
           {(isManager || isCadete) && (

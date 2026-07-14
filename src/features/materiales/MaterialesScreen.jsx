@@ -32,14 +32,17 @@ import {
   quitarCantidadModelo,
   uploadMaterialImage,
   fetchAddonsObra,
+  fetchAddonsMaterial,
   crearAddon,
   actualizarAddon,
+  reasignarAddon,
   cambiarEstadoObraSnapshot,
   fetchObraSnapshotAudit,
   fetchObraMaterialSnapshot,
   ensureObraMaterialSnapshot,
   reemplazarObraMaterialSnapshotSeguro,
   updateObraSnapshotRows,
+  actualizarMaterialDatos,
 } from "./api";
 import AvanceTab from "./AvanceTab";
 import ComprobantesTab from "./ComprobantesTab";
@@ -2146,7 +2149,112 @@ function NotasQuickButton({ material, onChanged }) {
   );
 }
 
-function MaterialFila({ material, categorias, ums, proveedores, onChanged, linea = "", initialOpen = false }) {
+function addonEstaMovible(addon = {}) {
+  return !["en_panol", "recibido", "egresado"].includes(String(addon.estado || "").toLowerCase());
+}
+
+function MaterialAddonAssociations({ material, obras = [], onChanged }) {
+  const [rows, setRows] = useState([]);
+  const [loading, setLoading] = useState(false);
+  const [busy, setBusy] = useState("");
+  const [err, setErr] = useState("");
+  const isAddonMaterial = material?.origen === "addon_obra";
+  const obrasOrdenadas = useMemo(
+    () => (obras ?? []).slice().sort((a, b) => String(a.codigo || "").localeCompare(String(b.codigo || ""), "es", { numeric: true })),
+    [obras],
+  );
+  const obraById = useMemo(() => new Map(obrasOrdenadas.map((obra) => [obra.id, obra])), [obrasOrdenadas]);
+
+  const load = useCallback(async () => {
+    if (!isAddonMaterial || !material?.id) return;
+    setLoading(true);
+    setErr("");
+    try {
+      setRows(await fetchAddonsMaterial(material.id));
+    } catch (error) {
+      setErr(error?.message || "No se pudieron cargar las obras asociadas.");
+    } finally {
+      setLoading(false);
+    }
+  }, [isAddonMaterial, material?.id]);
+
+  useEffect(() => { load(); }, [load]);
+
+  async function move(addon, nextObraId) {
+    if (!addon?.id || !nextObraId || nextObraId === addon.obra_id || busy) return;
+    setBusy(addon.id);
+    setErr("");
+    try {
+      await reasignarAddon(addon.id, nextObraId, {
+        materialId: material.id,
+        fromObraId: addon.obra_id,
+        descripcion: addon.descripcion || material.descripcion || "",
+      });
+      await load();
+      await onChanged?.();
+    } catch (error) {
+      setErr(error?.message || "No se pudo reasignar el adicional.");
+    } finally {
+      setBusy("");
+    }
+  }
+
+  if (!isAddonMaterial) return null;
+
+  return (
+    <div style={{ border: `1px solid ${C.violet}33`, background: "rgba(139,92,246,0.08)", borderRadius: 12, padding: 10, display: "grid", gap: 8 }}>
+      <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 10, flexWrap: "wrap" }}>
+        <div>
+          <div style={{ fontSize: 12, fontWeight: 950, color: C.t0 }}>Asociaciones de obra</div>
+          <div style={{ fontSize: 11, color: C.t2, marginTop: 2 }}>Este material nació como adicional/opcional. Podés moverlo a otra obra si todavía no entró a pañol.</div>
+        </div>
+        <button type="button" onClick={load} disabled={loading} style={{ ...BTN, padding: "6px 9px" }}>
+          <RefreshCw size={13} /> {loading ? "Cargando..." : "Actualizar"}
+        </button>
+      </div>
+      {err && <div style={{ fontSize: 11.5, color: C.red }}>{err}</div>}
+      {loading ? (
+        <div style={{ fontSize: 12, color: C.t2 }}>Cargando asociaciones...</div>
+      ) : rows.length ? (
+        <div style={{ display: "grid", gap: 6 }}>
+          {rows.map((addon) => {
+            const meta = addonTipoMeta(addon.tipo);
+            const current = obraById.get(addon.obra_id);
+            const movible = addonEstaMovible(addon);
+            return (
+              <div key={addon.id} style={{ display: "grid", gridTemplateColumns: "minmax(180px, 1fr) minmax(180px, .8fr)", gap: 8, alignItems: "center", border: `1px solid ${C.b0}`, background: C.bg, borderRadius: 10, padding: 8 }}>
+                <div style={{ minWidth: 0 }}>
+                  <div style={{ display: "flex", alignItems: "center", gap: 6, flexWrap: "wrap" }}>
+                    <span style={{ fontSize: 10, fontWeight: 900, color: meta.color, background: `${meta.color}16`, border: `1px solid ${meta.color}44`, borderRadius: 999, padding: "2px 7px" }}>{meta.label}</span>
+                    <span style={{ fontSize: 11.5, fontWeight: 850, color: C.t0 }}>{current?.codigo || "Sin obra"}</span>
+                    <span style={{ fontFamily: C.mono, fontSize: 11, color: C.t2 }}>{qtyText(addon.cantidad || 1, addon.unidad || material.unidad_medida || "unidad")}</span>
+                  </div>
+                  {addon.observaciones && <div style={{ fontSize: 11, color: C.t2, marginTop: 3, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{addon.observaciones}</div>}
+                </div>
+                <select
+                  value={addon.obra_id || ""}
+                  disabled={!movible || busy === addon.id}
+                  onChange={(e) => move(addon, e.target.value)}
+                  style={{ ...INP, height: 34, opacity: movible ? 1 : 0.62 }}
+                  title={movible ? "Reasignar a otra obra" : "Ya tiene movimiento de pañol; mover desde stock para conservar kardex"}
+                >
+                  <option value="" style={OPT_ST}>Sin obra</option>
+                  {obrasOrdenadas.map((obra) => <option key={obra.id} value={obra.id} style={OPT_ST}>{obra.codigo || "Sin codigo"}</option>)}
+                </select>
+              </div>
+            );
+          })}
+        </div>
+      ) : (
+        <div style={{ fontSize: 12, color: C.t2, border: `1px dashed ${C.b0}`, borderRadius: 10, padding: 10, textAlign: "center" }}>
+          No hay obras asociadas a este adicional.
+        </div>
+      )}
+    </div>
+  );
+}
+
+function MaterialFila({ material, categorias, ums, proveedores, obras = [], onChanged, linea = "", initialOpen = false }) {
   const [editing, setEditing] = useState(initialOpen);
   const [draft, setDraft] = useState(() => ({ ...material, precio_unitario: inputNumberValue(material.precio_unitario) }));
   const [cantidades, setCantidades] = useState(() => toBomMap(material));
@@ -2335,6 +2443,7 @@ function MaterialFila({ material, categorias, ums, proveedores, onChanged, linea
             <span style={lbl}>Observaciones</span>
             <textarea value={draft.notas || ""} onChange={(e) => setDraft((d) => ({ ...d, notas: e.target.value }))} rows={2} placeholder="Notas sobre este material…" style={{ ...INP, width: "100%", resize: "vertical" }} />
           </div>
+          <MaterialAddonAssociations material={material} obras={obras} onChanged={onChanged} />
           <label style={{ display: "inline-flex", alignItems: "center", gap: 6, fontSize: 12, color: draft.revisado ? C.green : C.t2 }}>
             <input type="checkbox" checked={!!draft.revisado} onChange={(e) => setDraft((d) => ({ ...d, revisado: e.target.checked }))} /> Revisado
           </label>
@@ -2760,6 +2869,20 @@ function addonPayloadFromMaterial(material, { cantidad, tipo = "adicional", obse
   };
 }
 
+function addonCatalogOriginNote(tipo, obraCodigo) {
+  const code = String(obraCodigo || "").trim();
+  if (!code) return "";
+  return `Fue ${tipo === "opcional" ? "opcional" : "adicional"} de ${code}.`;
+}
+
+function appendNoteOnce(value, note) {
+  const base = String(value || "").trim();
+  const clean = String(note || "").trim();
+  if (!clean) return base;
+  if (norm(base).includes(norm(clean))) return base;
+  return [base, clean].filter(Boolean).join("\n");
+}
+
 function addonPriceInfo(addon, material) {
   if (material?.id) return priceInfo(material);
   const amount = addon?.precio_unitario != null && addon.precio_unitario !== "" ? Number(addon.precio_unitario) : null;
@@ -2842,12 +2965,13 @@ function addonDraftFromRow(addon, categorias = []) {
   };
 }
 
-function ObraAddonModal({ open, obra, addon = null, materiales = [], categorias = [], proveedores = [], ums = [], onClose, onSaved, onChanged }) {
+function ObraAddonModal({ open, obra, obras = [], addon = null, materiales = [], categorias = [], proveedores = [], ums = [], onClose, onSaved, onChanged }) {
   const [mode, setMode] = useState("existente");
   const [q, setQ] = useState("");
   const [selectedId, setSelectedId] = useState("");
   const [cantidad, setCantidad] = useState("1");
   const [tipo, setTipo] = useState("adicional");
+  const [targetObraId, setTargetObraId] = useState("");
   const [observaciones, setObservaciones] = useState("");
   const [draft, setDraft] = useState(() => emptyAddonDraft(categorias));
   const [variantesNuevo, setVariantesNuevo] = useState([]);
@@ -2859,18 +2983,83 @@ function ObraAddonModal({ open, obra, addon = null, materiales = [], categorias 
 
   useEffect(() => {
     if (!open) return;
-    setMode(addon?.material_id ? "existente" : "nuevo");
+    setMode(addon?.id ? "nuevo" : addon?.material_id ? "existente" : "nuevo");
     setQ(addon?.descripcion || "");
     setSelectedId(addon?.material_id || "");
     setCantidad(String(addon?.cantidad ?? "1"));
     setTipo(addon?.tipo || "adicional");
+    setTargetObraId(addon?.obra_id || obra?.id || "");
     setObservaciones(addon?.observaciones || "");
     setDraft(addon ? addonDraftFromRow(addon, categorias) : emptyAddonDraft(categorias));
     setVariantesNuevo(normalizeVariantList(addon?.variantes));
     setCodigosExtraNuevo([]);
     setImageFileNuevo(null);
     setErr(null);
-  }, [open, addon, categorias]);
+  }, [open, addon, categorias, obra?.id]);
+
+  const obrasDestino = useMemo(() => {
+    const map = new Map();
+    [...(obras ?? []), obra].filter(Boolean).forEach((item) => {
+      if (item?.id) map.set(item.id, item);
+    });
+    return [...map.values()].sort((a, b) => String(a.codigo || "").localeCompare(String(b.codigo || ""), "es", { numeric: true }));
+  }, [obras, obra]);
+
+  const targetObraFinalId = targetObraId || obra?.id || "";
+  const targetObra = obrasDestino.find((item) => item.id === targetObraFinalId) || obra;
+  const estadoAddon = String(addon?.estado || "").toLowerCase();
+  const moveLocked = editing && ["en_panol", "recibido", "egresado"].includes(estadoAddon);
+  const snapshotLocked = !!addon?.__snapshotLocked;
+  const originNote = addonCatalogOriginNote(tipo, targetObra?.codigo || obra?.codigo);
+
+  function addonSnapshotPatch(payload = {}) {
+    return {
+      material_id: payload.material_id || null,
+      descripcion: payload.descripcion || null,
+      codigo: payload.codigo || null,
+      cantidad: payload.cantidad || 1,
+      unidad: payload.unidad || "unidad",
+      proveedor: payload.proveedor || null,
+      rubro: categoriaNombre(categorias, payload.categoria_id) || null,
+      tipo: "addon",
+      tipo_label: addonTipoMeta(payload.tipo || tipo).label,
+      precio_unitario: payload.precio_unitario ?? null,
+      moneda: payload.moneda || null,
+      notas: payload.observaciones || null,
+      source: "addon",
+    };
+  }
+
+  async function syncAddonSnapshot(payload = {}) {
+    if (!editing || !addon?.__snapshotId || snapshotLocked) return;
+    await updateObraSnapshotRows([addon.__snapshotId], addonSnapshotPatch(payload));
+  }
+
+  async function moveAddonIfNeeded() {
+    if (!editing || !targetObraFinalId || targetObraFinalId === (addon?.obra_id || obra?.id)) return;
+    if (moveLocked || snapshotLocked) throw new Error("Este adicional ya tiene movimiento de pañol. Para moverlo hay que hacerlo desde stock/pañol y conservar el kardex.");
+    await reasignarAddon(addon.id, targetObraFinalId, {
+      materialId: addon.material_id || null,
+      fromObraId: addon.obra_id || obra?.id || null,
+      descripcion: addon.descripcion || "",
+    });
+    if (addon?.__snapshotId) {
+      await updateObraSnapshotRows([addon.__snapshotId], { obra_id: targetObraFinalId });
+    }
+  }
+
+  async function ensureMaterialOriginNote(material) {
+    if (!material?.id || !originNote) return material;
+    const nextNotas = appendNoteOnce(material.notas, originNote);
+    if (nextNotas !== String(material.notas || "").trim()) {
+      try {
+        await actualizarNotasMaterial(material.id, nextNotas);
+      } catch {
+        return material;
+      }
+    }
+    return { ...material, notas: nextNotas };
+  }
 
   const candidatos = useMemo(() => {
     const base = (materiales ?? []).filter(materialActivo);
@@ -2891,9 +3080,15 @@ function ObraAddonModal({ open, obra, addon = null, materiales = [], categorias 
     if (!canSaveExisting || saving) return;
     setSaving(true); setErr(null);
     try {
-      const payload = addonPayloadFromMaterial(selected, { cantidad, tipo, observaciones });
-      if (editing) await actualizarAddon(addon.id, payload);
-      else await crearAddon(obra.id, payload);
+      const materialConNota = await ensureMaterialOriginNote(selected);
+      const payload = addonPayloadFromMaterial(materialConNota, { cantidad, tipo, observaciones });
+      if (editing) {
+        await actualizarAddon(addon.id, payload);
+        await syncAddonSnapshot(payload);
+        await moveAddonIfNeeded();
+      } else {
+        await crearAddon(targetObraFinalId || obra.id, payload);
+      }
       await onSaved?.();
     } catch (e) {
       setErr(e);
@@ -2906,11 +3101,16 @@ function ObraAddonModal({ open, obra, addon = null, materiales = [], categorias 
     if (!canSaveNew || saving) return;
     setSaving(true); setErr(null);
     try {
-      const prepared = prepareMaterialDraftForSave({ ...draft, revisado: false, origen: "addon_obra" }, proveedores, variantesNuevo);
+      const prepared = prepareMaterialDraftForSave({
+        ...draft,
+        notas: appendNoteOnce(draft.notas, originNote),
+        revisado: false,
+        origen: "addon_obra",
+      }, proveedores, variantesNuevo);
       let materialId = addon?.material_id || null;
       let imageUrl = draft.imagen_url || "";
       if (materialId) {
-        await guardarMaterial({ ...prepared, id: materialId, imagen_url: imageUrl }, {});
+        await actualizarMaterialDatos({ ...prepared, id: materialId, imagen_url: imageUrl });
       } else {
         materialId = await crearMaterial(prepared, {});
       }
@@ -2922,8 +3122,13 @@ function ObraAddonModal({ open, obra, addon = null, materiales = [], categorias 
         if (row.codigo?.trim()) await agregarCodigoBarraMaterial(materialId, row.codigo, { etiqueta: row.etiqueta, variante: row.variante || null });
       }
       const payload = addonPayloadFromMaterial({ ...prepared, id: materialId, imagen_url: imageUrl }, { cantidad, tipo, observaciones, imagenUrl: imageUrl });
-      if (editing) await actualizarAddon(addon.id, payload);
-      else await crearAddon(obra.id, payload);
+      if (editing) {
+        await actualizarAddon(addon.id, payload);
+        await syncAddonSnapshot(payload);
+        await moveAddonIfNeeded();
+      } else {
+        await crearAddon(targetObraFinalId || obra.id, payload);
+      }
       await onSaved?.();
     } catch (e) {
       setErr(e);
@@ -2948,7 +3153,10 @@ function ObraAddonModal({ open, obra, addon = null, materiales = [], categorias 
         <div style={{ padding: 16, display: "grid", gap: 14 }}>
           <div style={{ display: "flex", gap: 8, flexWrap: "wrap", alignItems: "center", border: `1px solid ${C.b0}`, background: C.panelSolid2, borderRadius: 12, padding: 10 }}>
             <div style={{ display: "inline-flex", gap: 3, background: C.panelSolid, border: `1px solid ${C.b0}`, borderRadius: 10, padding: 3 }}>
-              {[["existente", "Catalogo"], ["nuevo", "Crear en catalogo"]].map(([key, label]) => {
+              {[
+                ["nuevo", editing ? "Editar datos" : "Crear en catalogo"],
+                ["existente", editing ? "Vincular catalogo" : "Catalogo"],
+              ].map(([key, label]) => {
                 const on = mode === key;
                 return (
                   <button key={key} type="button" onClick={() => { setMode(key); setErr(null); }} style={{ border: "none", borderRadius: 7, padding: "7px 12px", cursor: "pointer", fontSize: 12, fontWeight: 850, color: on ? "#fff" : C.t2, background: on ? C.blue : "transparent" }}>
@@ -2962,6 +3170,23 @@ function ObraAddonModal({ open, obra, addon = null, materiales = [], categorias 
               <option value="opcional" style={OPT_ST}>Opcional</option>
             </select>
             <input type="number" step="any" min="0" value={cantidad} onChange={(e) => setCantidad(e.target.value)} placeholder="Cant." style={{ ...INP, width: 92, height: 36, fontFamily: C.mono }} />
+            <label style={{ display: "grid", gap: 3, flex: "1 1 210px", minWidth: 190 }}>
+              <span style={{ fontSize: 9.5, fontWeight: 900, color: C.t2, textTransform: "uppercase", letterSpacing: 0.7 }}>Obra destino</span>
+              <select
+                value={targetObraFinalId}
+                onChange={(e) => setTargetObraId(e.target.value)}
+                disabled={moveLocked || snapshotLocked}
+                style={{ ...INP, height: 36, opacity: moveLocked || snapshotLocked ? 0.65 : 1 }}
+                title={moveLocked || snapshotLocked ? "Este adicional ya tiene movimiento de pañol o compras vinculadas" : "Mover/asociar este adicional a otra obra"}
+              >
+                {obrasDestino.map((item) => (
+                  <option key={item.id} value={item.id} style={OPT_ST}>{item.codigo || "Sin codigo"}</option>
+                ))}
+              </select>
+              {moveLocked || snapshotLocked ? (
+                <span style={{ fontSize: 10.5, color: C.amber }}>Ya tiene movimiento de pañol; mover desde stock para conservar kardex.</span>
+              ) : null}
+            </label>
           </div>
 
           {mode === "existente" ? (
@@ -3039,7 +3264,7 @@ function ObraAddonModal({ open, obra, addon = null, materiales = [], categorias 
   );
 }
 
-function ListaMateriales({ categorias, materiales, selectedId, ums, proveedores, onChanged, defaultSoloPendientes = true, compact = false, lineaFija = "" }) {
+function ListaMateriales({ categorias, materiales, selectedId, ums, proveedores, obras = [], onChanged, defaultSoloPendientes = true, compact = false, lineaFija = "" }) {
   const [soloPendientes, setSoloPendientes] = useState(defaultSoloPendientes);
   const [q, setQ] = useState("");
   const [lineaState, setLineaState] = useState(""); // "" = todas las líneas
@@ -3142,7 +3367,7 @@ function ListaMateriales({ categorias, materiales, selectedId, ums, proveedores,
       {compact ? (
         <div>
           {visibles.map((material) => (
-            <MaterialFila key={material.id} material={material} categorias={categorias} ums={ums} proveedores={proveedores} onChanged={onChanged} linea={linea} />
+            <MaterialFila key={material.id} material={material} categorias={categorias} ums={ums} proveedores={proveedores} obras={obras} onChanged={onChanged} linea={linea} />
           ))}
           {!visibles.length && (
             <div style={{ padding: 18, fontSize: 13, color: C.t2, textAlign: "center", border: `1px solid ${C.b0}`, borderRadius: 12 }}>No hay materiales con esos filtros.</div>
@@ -4102,7 +4327,7 @@ function CostoObraTab({ categorias, materiales, opciones = [] }) {
   );
 }
 
-function ObraMatrizView({ obra, linea, lineaNombre, categorias, materiales, proveedores = [], opciones = [], ums = [], onChanged, onBack }) {
+function ObraMatrizView({ obra, obras = [], linea, lineaNombre, categorias, materiales, proveedores = [], opciones = [], ums = [], onChanged, onBack }) {
   const [q, setQ] = useState("");
   const [proveedorFilter, setProveedorFilter] = useState("");
   const [rubroFilter, setRubroFilter] = useState("");
@@ -4115,6 +4340,9 @@ function ObraMatrizView({ obra, linea, lineaNombre, categorias, materiales, prov
   const [addonQ, setAddonQ] = useState("");
   const [addonModalOpen, setAddonModalOpen] = useState(false);
   const [editingAddon, setEditingAddon] = useState(null);
+  const [reassignAddon, setReassignAddon] = useState(null);
+  const [reassignObraId, setReassignObraId] = useState("");
+  const [reassignBusy, setReassignBusy] = useState(false);
   const [obraPanel, setObraPanel] = useState("");
   const [snapshot, setSnapshot] = useState([]);
   const [snapshotBusy, setSnapshotBusy] = useState(false);
@@ -4128,11 +4356,21 @@ function ObraMatrizView({ obra, linea, lineaNombre, categorias, materiales, prov
   const [estadoBusy, setEstadoBusy] = useState("");
   const [varianteBusy, setVarianteBusy] = useState("");
 
-  const cargarAddons = useCallback(() => { fetchAddonsObra(obra?.id).then(setAddons).catch(() => {}); }, [obra?.id]);
+  const cargarAddons = useCallback(async () => {
+    try {
+      setAddons(await fetchAddonsObra(obra?.id));
+    } catch {
+      setAddons([]);
+    }
+  }, [obra?.id]);
   useEffect(() => { cargarAddons(); }, [cargarAddons]);
 
-  const cargarSnapshot = useCallback(() => {
-    fetchObraMaterialSnapshot(obra?.id).then(setSnapshot).catch(() => setSnapshot([]));
+  const cargarSnapshot = useCallback(async () => {
+    try {
+      setSnapshot(await fetchObraMaterialSnapshot(obra?.id));
+    } catch {
+      setSnapshot([]);
+    }
   }, [obra?.id]);
   useEffect(() => { cargarSnapshot(); }, [cargarSnapshot]);
 
@@ -4162,9 +4400,20 @@ function ObraMatrizView({ obra, linea, lineaNombre, categorias, materiales, prov
     setAddonQ("");
     setAddonModalOpen(false);
     setEditingAddon(null);
+    setReassignAddon(null);
+    setReassignObraId("");
+    setReassignBusy(false);
     setEstadoBusy("");
     setVarianteBusy("");
   }, [obra?.id, linea]);
+
+  const obrasDestinoReassign = useMemo(() => {
+    const map = new Map();
+    [...(obras ?? []), obra].filter(Boolean).forEach((item) => {
+      if (item?.id) map.set(item.id, item);
+    });
+    return [...map.values()].sort((a, b) => String(a.codigo || "").localeCompare(String(b.codigo || ""), "es", { numeric: true }));
+  }, [obras, obra]);
 
   const materialById = useMemo(() => new Map((materiales ?? []).map((material) => [material.id, material])), [materiales]);
 
@@ -4288,6 +4537,16 @@ function ObraMatrizView({ obra, linea, lineaNombre, categorias, materiales, prov
     .map((addon) => addonRowToView(addon, materialById, categorias))
     .sort((a, b) => String(a.descripcion || "").localeCompare(String(b.descripcion || ""), "es", { numeric: true })),
   [addons, materialById, categorias]);
+
+  const addonByMergeKey = useMemo(() => {
+    const map = new Map();
+    addonRows.forEach((row) => {
+      const addon = addons.find((item) => item.id === row.addonId);
+      const key = snapshotMergeKey(row);
+      if (addon && key) map.set(key, addon);
+    });
+    return map;
+  }, [addonRows, addons]);
 
   const obraRows = useMemo(() => [...liveRows, ...addonRows], [liveRows, addonRows]);
   const snapshotRows = useMemo(() => snapshot.map(snapshotRowToView), [snapshot]);
@@ -4606,6 +4865,56 @@ function ObraMatrizView({ obra, linea, lineaNombre, categorias, materiales, prov
     }
   }
 
+  function snapshotLockedForAddon(row) {
+    const recepcionEstado = String(row?.recepcion_estado || "").toLowerCase();
+    if (["recibido", "parcial", "sin_info", "falta_stock", "rechazado"].includes(recepcionEstado)) return true;
+    const estado = String(row?.snapshot_estado || row?.estadoObra || "").toLowerCase();
+    if (estado === "egresado") return true;
+    if (!recepcionEstado && ["en_panol", "recibido"].includes(estado)) return true;
+    return false;
+  }
+
+  function addonForVisibleRow(row) {
+    if (!row || row.bucket?.key !== "addon") return null;
+    const direct = row.addonId ? addons.find((item) => item.id === row.addonId) : null;
+    const byKey = addonByMergeKey.get(snapshotMergeKey(row));
+    const addon = direct || byKey;
+    return addon ? { ...addon, __snapshotId: row.snapshotId || null, __snapshotLocked: snapshotLockedForAddon(row) } : null;
+  }
+
+  function openReassignAddon(addon) {
+    if (!addon) return;
+    setReassignAddon(addon);
+    setReassignObraId(addon.obra_id || obra?.id || "");
+  }
+
+  async function submitReassignAddon() {
+    if (!reassignAddon?.id || !reassignObraId || reassignBusy) return;
+    if (reassignAddon.__snapshotLocked) {
+      setFlowMsg({ type: "err", text: "Este adicional ya tiene movimiento de panol. Movelo desde stock para conservar el kardex." });
+      return;
+    }
+    setReassignBusy(true);
+    setFlowMsg(null);
+    try {
+      await reasignarAddon(reassignAddon.id, reassignObraId, {
+        materialId: reassignAddon.material_id || null,
+        fromObraId: reassignAddon.obra_id || obra?.id || null,
+        descripcion: reassignAddon.descripcion || "",
+      });
+      const destino = obrasDestinoReassign.find((item) => item.id === reassignObraId);
+      setFlowMsg({ type: "ok", text: `Adicional reasignado a ${destino?.codigo || "otra obra"}.` });
+      setReassignAddon(null);
+      setReassignObraId("");
+      await Promise.all([cargarAddons(), cargarSnapshot()]);
+      await onChanged?.();
+    } catch (e) {
+      setFlowMsg({ type: "err", text: e?.message || "No se pudo reasignar el adicional." });
+    } finally {
+      setReassignBusy(false);
+    }
+  }
+
   const chipStyle = (on, color = C.blue) => ({
     ...BTN,
     padding: "7px 11px",
@@ -4734,6 +5043,7 @@ function ObraMatrizView({ obra, linea, lineaNombre, categorias, materiales, prov
       <ObraAddonModal
         open={addonModalOpen}
         obra={obra}
+        obras={obras}
         addon={editingAddon}
         materiales={materiales}
         categorias={categorias}
@@ -4748,6 +5058,68 @@ function ObraMatrizView({ obra, linea, lineaNombre, categorias, materiales, prov
         }}
         onChanged={onChanged}
       />
+
+      {reassignAddon ? (
+        <div style={{ position: "fixed", inset: 0, zIndex: 5100, background: "rgba(2,6,23,.62)", display: "grid", placeItems: "center", padding: 18 }}>
+          <div style={{ width: "min(460px, calc(100vw - 28px))", border: `1px solid ${C.b1}`, borderRadius: 14, background: C.panelSolid, boxShadow: "0 24px 80px rgba(0,0,0,.35)", padding: 16, display: "grid", gap: 12 }}>
+            <div style={{ display: "flex", alignItems: "flex-start", justifyContent: "space-between", gap: 12 }}>
+              <div style={{ minWidth: 0 }}>
+                <div style={{ fontSize: 15, fontWeight: 950, color: C.t0 }}>Reasignar adicional</div>
+                <div style={{ fontSize: 12, color: C.t2, marginTop: 3, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+                  {reassignAddon.descripcion || "Item adicional"}
+                </div>
+              </div>
+              <button type="button" onClick={() => setReassignAddon(null)} style={{ ...BTN, padding: "6px 8px" }} title="Cerrar">
+                <X size={14} />
+              </button>
+            </div>
+
+            {reassignAddon.__snapshotLocked ? (
+              <div style={{ fontSize: 12, color: C.amber, border: `1px solid ${C.amberB}`, background: C.amberL, borderRadius: 10, padding: "8px 9px", lineHeight: 1.35 }}>
+                Este adicional ya tuvo movimiento de panol. Para moverlo hay que hacerlo desde stock y conservar el kardex.
+              </div>
+            ) : (
+              <div style={{ fontSize: 12, color: C.t2, lineHeight: 1.35 }}>
+                Lo mueve de {obra.codigo} a otra obra. Si solo tenia pedido/aviso pendiente tambien se actualiza ese vinculo.
+              </div>
+            )}
+
+            <label style={{ display: "grid", gap: 5 }}>
+              <span style={{ fontSize: 10, fontWeight: 900, color: C.t2, textTransform: "uppercase", letterSpacing: 0.7 }}>Obra destino</span>
+              <select
+                value={reassignObraId}
+                disabled={reassignAddon.__snapshotLocked || reassignBusy}
+                onChange={(e) => setReassignObraId(e.target.value)}
+                style={{ ...INP, height: 38 }}
+              >
+                {obrasDestinoReassign.map((item) => (
+                  <option key={item.id} value={item.id} style={OPT_ST}>
+                    {item.codigo || "Sin codigo"}
+                  </option>
+                ))}
+              </select>
+            </label>
+
+            <div style={{ display: "flex", justifyContent: "flex-end", gap: 8, flexWrap: "wrap" }}>
+              <button type="button" onClick={() => setReassignAddon(null)} disabled={reassignBusy} style={{ ...BTN, padding: "8px 12px" }}>
+                Cancelar
+              </button>
+              <button
+                type="button"
+                disabled={reassignAddon.__snapshotLocked || reassignBusy || !reassignObraId || reassignObraId === (reassignAddon.obra_id || obra?.id)}
+                onClick={submitReassignAddon}
+                style={{
+                  ...BTN_GREEN,
+                  padding: "8px 13px",
+                  opacity: (reassignAddon.__snapshotLocked || reassignBusy || !reassignObraId || reassignObraId === (reassignAddon.obra_id || obra?.id)) ? 0.55 : 1,
+                }}
+              >
+                {reassignBusy ? "Guardando..." : "Reasignar"}
+              </button>
+            </div>
+          </div>
+        </div>
+      ) : null}
 
       <div style={{ border: `1px solid ${C.b0}`, borderRadius: 14, background: "var(--panel)", padding: 13, marginBottom: 16, display: "grid", gap: 12 }}>
         <div style={{ display: "flex", gap: 8, flexWrap: "wrap", alignItems: "center" }}>
@@ -4852,6 +5224,7 @@ function ObraMatrizView({ obra, linea, lineaNombre, categorias, materiales, prov
                 const qty = toNum(row.cantidad) || 1;
                 const total = row.precio.amount ? row.precio.amount * qty : null;
                 const variantOptions = materialVariants(row.material || materialById.get(row.materialId));
+                const editableAddon = addonForVisibleRow(row);
                 return (
                   <div
                     key={row.id}
@@ -4881,21 +5254,29 @@ function ObraMatrizView({ obra, linea, lineaNombre, categorias, materiales, prov
                         />
                         {row.review?.flag && <ReviewBadge reason={row.review.reason} />}
                         <RecepcionChip row={row} />
-                        {row.source === "addon" && row.addonId ? (
-                          <button
-                            type="button"
-                            onClick={() => {
-                              const addon = addons.find((item) => item.id === row.addonId);
-                              if (addon) {
-                                setEditingAddon(addon);
+                        {editableAddon ? (
+                          <>
+                            <button
+                              type="button"
+                              onClick={() => {
+                                setEditingAddon(editableAddon);
                                 setAddonModalOpen(true);
-                              }
-                            }}
-                            style={{ ...BTN, padding: "3px 7px", color: C.blue, fontSize: 10.5 }}
-                            title="Editar adicional"
-                          >
-                            <Pencil size={12} /> Editar
-                          </button>
+                              }}
+                              style={{ ...BTN, padding: "3px 7px", color: C.blue, fontSize: 10.5 }}
+                              title="Editar adicional"
+                            >
+                              <Pencil size={12} /> Editar
+                            </button>
+                            <button
+                              type="button"
+                              disabled={editableAddon.__snapshotLocked}
+                              onClick={() => openReassignAddon(editableAddon)}
+                              style={{ ...BTN, padding: "3px 7px", color: editableAddon.__snapshotLocked ? C.t3 : C.violet, fontSize: 10.5, opacity: editableAddon.__snapshotLocked ? 0.55 : 1 }}
+                              title={editableAddon.__snapshotLocked ? "Ya tiene movimiento de panol" : "Reasignar adicional a otra obra"}
+                            >
+                              <RefreshCw size={12} /> Reasignar
+                            </button>
+                          </>
                         ) : null}
                       </div>
                       <div style={{ fontSize: 11, color: C.t2, marginTop: 4, lineHeight: 1.35 }}>
@@ -5589,7 +5970,11 @@ function snapshotRowToView(row) {
     variante: row.variante || "",
     revisado: true,
     review: { flag: !!reason, reason },
+    snapshot_estado: row.estado || null,
     estadoObra: estadoFromRecepcion(row.recepcion_estado) || row.estado || "pendiente",
+    purchase_request_id: row.purchase_request_id || null,
+    panol_envio_id: row.panol_envio_id || null,
+    panol_envio_item_id: row.panol_envio_item_id || null,
     recepcion_estado: row.recepcion_estado || null,
     recepcion_cantidad_recibida: row.recepcion_cantidad_recibida ?? null,
     recepcion_nota: row.recepcion_nota ?? null,
@@ -5605,7 +5990,7 @@ function snapshotRowToView(row) {
 function snapshotMergeKey(row, index = 0) {
   const materialId = row?.materialId || row?.material_id;
   if (row?.source === "addon" || row?.bucket?.key === "addon") {
-    const addonText = norm(`${materialId || ""}|${row?.descripcion || ""}|${row?.codigo || ""}|${row?.unidad || row?.unidad_medida || ""}`);
+    const addonText = norm(`${row?.descripcion || ""}|${row?.codigo || ""}|${row?.unidad || row?.unidad_medida || ""}`);
     if (addonText) return `addon:${addonText}`;
   }
   if (materialId) return `material:${materialId}`;
@@ -5647,7 +6032,11 @@ function mergeSnapshotIntoLive(live, snapshot) {
     review: live.review?.flag ? live.review : snapshot.review,
     baseCantidad: live.baseCantidad,
     condicionantes: live.condicionantes ?? [],
+    snapshot_estado: snapshot.snapshot_estado || live.snapshot_estado || null,
     estadoObra: snapshot.estadoObra || live.estadoObra,
+    purchase_request_id: snapshot.purchase_request_id || live.purchase_request_id || null,
+    panol_envio_id: snapshot.panol_envio_id || live.panol_envio_id || null,
+    panol_envio_item_id: snapshot.panol_envio_item_id || live.panol_envio_item_id || null,
     recepcion_estado: snapshot.recepcion_estado,
     recepcion_cantidad_recibida: snapshot.recepcion_cantidad_recibida,
     recepcion_nota: snapshot.recepcion_nota,
@@ -5782,6 +6171,7 @@ function LineasTab({ lineas, obras, categorias, materiales, proveedores, opcione
     return (
       <ObraMatrizView
         obra={selObra}
+        obras={obras}
         linea={sel}
         lineaNombre={lineaNombre}
         categorias={categorias}
@@ -6737,7 +7127,7 @@ function DuplicadosCatalogo({ groups, cleanupCandidates = [], categorias, ums, p
   );
 }
 
-function MatrizTab({ categorias, materiales, proveedores, onChanged }) {
+function MatrizTab({ categorias, materiales, proveedores, obras = [], onChanged }) {
   const [sel, setSel] = useState(""); // "" = todos los sectores
   const [modo, setModo] = useState("lista");
   const [showPrecios, setShowPrecios] = useState(false);
@@ -6745,11 +7135,7 @@ function MatrizTab({ categorias, materiales, proveedores, onChanged }) {
   const [catBusy, setCatBusy] = useState("");
   const [catError, setCatError] = useState("");
   
-  // Excluir materiales con origen='addon_obra' (son ítems propios de obras, no del catálogo)
-  const materialesCatalogo = useMemo(() => 
-    (materiales ?? []).filter(m => m.origen !== 'addon_obra'),
-    [materiales]
-  );
+  const materialesCatalogo = useMemo(() => materiales ?? [], [materiales]);
   
   const ums = useMemo(
     () => [...new Set((materialesCatalogo ?? []).map((m) => m.unidad_medida).filter(Boolean).map(String))].sort((a, b) => a.localeCompare(b, "es")),
@@ -6885,6 +7271,7 @@ function MatrizTab({ categorias, materiales, proveedores, onChanged }) {
             selectedId={sel}
             ums={ums}
             proveedores={proveedores}
+            obras={obras}
             onChanged={onChanged}
             defaultSoloPendientes={false}
             compact
@@ -7017,7 +7404,7 @@ export default function MaterialesScreen({ profile, signOut }) {
               })()}
 
               {tab === "lineas" && <LineasTab lineas={[]} obras={obrasAvance} categorias={categorias} materiales={materiales} proveedores={proveedores} opciones={opciones} onChanged={cargar} />}
-              {tab === "matriz" && <MatrizTab categorias={categorias} materiales={materiales} proveedores={proveedores} onChanged={cargar} />}
+              {tab === "matriz" && <MatrizTab categorias={categorias} materiales={materiales} proveedores={proveedores} obras={obrasAvance} onChanged={cargar} />}
               {tab === "importar" && <ImportarTab batches={batches} onImported={cargar} />}
               {tab === "bandeja" && <BandejaTab categorias={categorias} materiales={materiales} onChanged={cargar} />}
               {tab === "comprobantes" && <ComprobantesTab categorias={categorias} materiales={materiales} proveedores={proveedores} comprobantes={comprobantes} onChanged={cargar} />}

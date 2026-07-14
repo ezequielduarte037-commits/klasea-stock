@@ -819,7 +819,7 @@ export default function HomeScreen({ profile, signOut }) {
 
           {/* ── TOPBAR ── */}
           <div style={{ display:"flex", alignItems:"center", justifyContent:"space-between",
-            padding:"0 28px", height:46, flexShrink:0,
+            padding: isMobile ? "0 12px 0 62px" : "0 28px", height:46, flexShrink:0,
             borderBottom:`1px solid ${C.b0}`,
             background:"var(--topbar)", backdropFilter:"blur(20px)",
             position:"relative", zIndex:2,
@@ -833,8 +833,8 @@ export default function HomeScreen({ profile, signOut }) {
                 textTransform:"uppercase", fontFamily:C.mono }}>Online</span>
             </div>
 
-            {/* métricas */}
-            {live.loaded && (
+            {/* métricas (ocultas en mobile: se ven en los rings de abajo) */}
+            {!isMobile && live.loaded && (
               <div style={{ display:"flex", alignItems:"center", gap:20 }}>
                 {[
                   {v:live.activas,    c:C.blue,  l:"Activas"   },
@@ -871,7 +871,7 @@ export default function HomeScreen({ profile, signOut }) {
           </div>
 
           {/* ── HERO ── */}
-          <div style={{ padding:"28px 28px 22px", flexShrink:0,
+          <div style={{ padding: isMobile ? "16px 14px 14px" : "28px 28px 22px", flexShrink:0,
             borderBottom:`1px solid ${C.b0}`, position:"relative", zIndex:1 }}>
 
             {/* saludo typewriter */}
@@ -881,13 +881,15 @@ export default function HomeScreen({ profile, signOut }) {
               <Typewriter text={greeting} delay={300} speed={32}/>
             </div>
 
-            <div style={{ display:"flex", alignItems:"flex-end",
-              justifyContent:"space-between", gap:20 }}>
+            <div style={{ display:"flex",
+              flexDirection: isMobile ? "column" : "row",
+              alignItems: isMobile ? "stretch" : "flex-end",
+              justifyContent:"space-between", gap: isMobile ? 18 : 20 }}>
 
               {/* LOGO */}
               <div style={{ animation:"logoReveal 0.7s cubic-bezier(0.22,1,0.36,1) 0.12s both" }}>
                 <img src={logoKlasea} loading="lazy" alt="Klase A"
-                  style={{ height:80, objectFit:"contain", display:"block",
+                  style={{ height: isMobile ? 54 : 80, objectFit:"contain", display:"block",
                     animation:"glowPulse 4s ease-in-out 1.2s infinite" }}
                   onError={e=>{
                     e.currentTarget.src=logoK;
@@ -896,7 +898,7 @@ export default function HomeScreen({ profile, signOut }) {
                 />
 
                 {/* línea bajo logo */}
-                <div style={{ height:1, width:300, marginTop:11,
+                <div style={{ height:1, width: isMobile ? "100%" : 300, maxWidth:300, marginTop:11,
                   background:`linear-gradient(90deg,${C.blue}95,${C.cyan}45,transparent)`,
                   transformOrigin:"left",
                   animation:"lineExpand 0.85s cubic-bezier(0.22,1,0.36,1) 0.55s both",
@@ -905,7 +907,7 @@ export default function HomeScreen({ profile, signOut }) {
                 {/* subtítulo */}
                 <div style={{ fontSize:11, color:C.t2, marginTop:9, letterSpacing:1.3,
                   textTransform:"uppercase", fontFamily:C.mono,
-                  display:"flex", alignItems:"center", gap:10,
+                  display:"flex", alignItems:"center", gap:10, flexWrap:"wrap",
                   animation:"fadeSlideUp 0.4s ease 0.6s both" }}>
                   <span>Astillero · Sistema de Producción</span>
                   <span style={{ padding:"1px 8px", borderRadius:4,
@@ -919,7 +921,7 @@ export default function HomeScreen({ profile, signOut }) {
 
               {/* KPI RINGS */}
               {live.loaded && total > 0 && (
-                <div style={{ display:"flex", gap:24, flexShrink:0, paddingBottom:2 }}>
+                <div style={{ display:"flex", gap: isMobile ? 14 : 24, flexShrink:0, paddingBottom:2, flexWrap:"wrap", justifyContent: isMobile ? "space-around" : "flex-start" }}>
                   <Ring value={live.activas}    total={total} color={C.blue}  label="Activas"   delay={700}/>
                   <Ring value={live.pausadas}   total={total} color={C.amber} label="Pausadas"  delay={820}/>
                   <Ring value={live.terminadas} total={total} color={C.green} label="Terminadas"delay={940}/>
@@ -933,7 +935,8 @@ export default function HomeScreen({ profile, signOut }) {
 
           {/* ── CARDS ── */}
           <div style={{ flex:1, display:"flex", flexDirection:"column",
-            padding:"16px 28px 20px", position:"relative", zIndex:1, overflow:"hidden" }}>
+            padding: isMobile ? "14px 14px 18px" : "16px 28px 20px", position:"relative", zIndex:1,
+            overflow: isMobile ? "auto" : "hidden" }}>
 
             <div style={{ display:"flex", alignItems:"center", gap:12, marginBottom:12, flexShrink:0,
               animation:"fadeSlideUp 0.4s ease 0.26s both" }}>
@@ -941,15 +944,16 @@ export default function HomeScreen({ profile, signOut }) {
                 textTransform:"uppercase", fontFamily:C.mono }}>Acceso rápido</span>
               <div style={{ flex:1, height:1,
                 background:`linear-gradient(90deg,${C.b0},transparent)` }}/>
-              <span style={{ fontSize:10, color:"var(--panel-3)",
-                fontFamily:C.mono, letterSpacing:1.3 }}>KLASE A · ASTILLERO · v9.0</span>
+              {!isMobile && <span style={{ fontSize:10, color:"var(--panel-3)",
+                fontFamily:C.mono, letterSpacing:1.3 }}>KLASE A · ASTILLERO · v9.0</span>}
             </div>
 
             <div style={{
               flex:1,
               display:"grid",
-              gridTemplateColumns:`repeat(${Math.min(modulos.length, 6)}, 1fr)`,
-              gridTemplateRows:`repeat(${Math.ceil(modulos.length / Math.min(modulos.length, 6))}, 1fr)`,
+              gridTemplateColumns: isMobile ? "repeat(2, 1fr)" : `repeat(${Math.min(modulos.length, 6)}, 1fr)`,
+              gridTemplateRows: isMobile ? "none" : `repeat(${Math.ceil(modulos.length / Math.min(modulos.length, 6))}, 1fr)`,
+              gridAutoRows: isMobile ? "minmax(92px, auto)" : undefined,
               gap:10,
             }}>
               {modulos.map((mod,i) => (

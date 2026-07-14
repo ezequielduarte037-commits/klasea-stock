@@ -26,6 +26,7 @@ import {
   fetchObrasEgreso,
   fetchPanolCatalogMini,
   ingresarStockGeneral,
+  liberarProductoAStock,
   marcarMovimientoAnulado,
   registrarCambioUbicacionMaterial,
   SEDES_PANOL,
@@ -512,6 +513,40 @@ function KindChip({ tipo = "estandar" }) {
   );
 }
 
+// Obras a las que hay stock asignado (ubicaciones con obra y saldo disponible).
+function groupAsignaciones(group) {
+  return (group?.locations || [])
+    .filter((loc) => loc.obraId && loc.available > 0.0001)
+    .map((loc) => ({ obraId: loc.obraId, label: loc.label, sede: loc.sede || "", available: loc.available, key: loc.key }));
+}
+
+// Chip que muestra a qué obra(s) está asignado el stock (reemplaza al confuso "Estándar").
+function AsignadoChip({ asignaciones = [] }) {
+  if (!asignaciones.length) return null;
+  const label = asignaciones.length === 1
+    ? `Asignado · ${asignaciones[0].label}`
+    : `Asignado · ${asignaciones.length} obras`;
+  return (
+    <span style={{
+      color: C.blue,
+      border: `1px solid ${C.blueB}`,
+      background: C.blueL,
+      borderRadius: 999,
+      padding: "3px 9px",
+      fontSize: 10,
+      fontWeight: 950,
+      textTransform: "uppercase",
+      letterSpacing: 0.5,
+      whiteSpace: "nowrap",
+      maxWidth: 180,
+      overflow: "hidden",
+      textOverflow: "ellipsis",
+    }}>
+      {label}
+    </span>
+  );
+}
+
 function ProductCard({ group, active, onOpen, canSeePrices = true }) {
   const breakdown = group.locations
     .filter((loc) => Math.abs(loc.available) > 0.0001)
@@ -560,6 +595,7 @@ function ProductCard({ group, active, onOpen, canSeePrices = true }) {
       {/* Fila 2: badges + ubicación / sin ubicación */}
       <div style={{ display: "flex", gap: 6, flexWrap: "wrap", alignItems: "center" }}>
         <KindChip tipo={group.tipoPedido} />
+        <AsignadoChip asignaciones={groupAsignaciones(group)} />
         <StateChip egresado={group.egresado} transit={group.inTransit} catalogOnly={group.catalogOnly} negative={group.negativo} />
         {sinUbicacion ? (
           <span style={{ display: "inline-flex", alignItems: "center", gap: 4, color: C.amber, background: C.amberL, border: `1px solid ${C.amberB}`, borderRadius: 999, padding: "3px 9px", fontSize: 10, fontWeight: 900 }}>
@@ -859,7 +895,7 @@ function EgresoBatchPanel({ group, selectedLocation, obras, sedeLocked, canRecei
   async function submitBatch() {
     if (!canReceive || !cart.length) return;
     if (movementKind === "transferir" && !destinoObraId) {
-      toast.warning("Elegí la obra destino para transferir.");
+      toast.warning("Elegí la obra a la que asignar el stock.");
       return;
     }
     setSaving(true);
@@ -900,7 +936,7 @@ function EgresoBatchPanel({ group, selectedLocation, obras, sedeLocked, canRecei
           esAdicional: item.esAdicional,
         });
       }
-      toast.success(`${cart.length} producto${cart.length === 1 ? "" : "s"} ${movementKind === "transferir" ? "transferido" : "egresado"}${cart.length === 1 ? "" : "s"}.`);
+      toast.success(`${cart.length} producto${cart.length === 1 ? "" : "s"} ${movementKind === "transferir" ? "asignado" : "egresado"}${cart.length === 1 ? "" : "s"}.`);
       setCart([]);
       setDestinoObraId("");
       setRetiradoPor("");
@@ -990,12 +1026,12 @@ function EgresoBatchPanel({ group, selectedLocation, obras, sedeLocked, canRecei
         <span style={{ color: C.dim, fontSize: 10, fontWeight: 850, textTransform: "uppercase", letterSpacing: 1 }}>Tipo de movimiento</span>
         <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 6 }}>
           <button type="button" onClick={() => setMovementKind("consumir")} style={{ border: `1px solid ${movementKind === "consumir" ? C.greenB : C.border}`, background: movementKind === "consumir" ? C.greenL : C.panel, color: movementKind === "consumir" ? C.green : C.text, borderRadius: 9, padding: "8px 10px", fontSize: 12, fontWeight: 900, cursor: "pointer", fontFamily: C.sans }}>Consumir en obra</button>
-          <button type="button" onClick={() => setMovementKind("transferir")} style={{ border: `1px solid ${movementKind === "transferir" ? C.blueB : C.border}`, background: movementKind === "transferir" ? C.blueL : C.panel, color: movementKind === "transferir" ? C.blue : C.text, borderRadius: 9, padding: "8px 10px", fontSize: 12, fontWeight: 900, cursor: "pointer", fontFamily: C.sans }}>Transferir a obra</button>
+          <button type="button" onClick={() => setMovementKind("transferir")} style={{ border: `1px solid ${movementKind === "transferir" ? C.blueB : C.border}`, background: movementKind === "transferir" ? C.blueL : C.panel, color: movementKind === "transferir" ? C.blue : C.text, borderRadius: 9, padding: "8px 10px", fontSize: 12, fontWeight: 900, cursor: "pointer", fontFamily: C.sans }}>Asignar a obra</button>
         </div>
       </div>
 
       <label style={{ display: "grid", gap: 5 }}>
-        <span style={{ color: C.dim, fontSize: 10, fontWeight: 850, textTransform: "uppercase", letterSpacing: 1 }}>{movementKind === "transferir" ? "Obra destino" : "Reasignar a obra"}</span>
+        <span style={{ color: C.dim, fontSize: 10, fontWeight: 850, textTransform: "uppercase", letterSpacing: 1 }}>{movementKind === "transferir" ? "Asignar a la obra" : "Reasignar a obra"}</span>
         <select value={destinoObraId} onChange={(event) => setDestinoObraId(event.target.value)} style={{ background: C.bg, border: `1px solid ${C.border}`, color: C.text, borderRadius: 9, padding: "9px 10px", fontSize: 12, fontFamily: C.sans, outline: "none" }}>
           <option value="">{movementKind === "transferir" ? "Elegir obra" : "Sin reasignar"}</option>
           {obrasActivas.map((obra) => <option key={obra.id} value={obra.id}>{obra.codigo}</option>)}
@@ -1013,7 +1049,7 @@ function EgresoBatchPanel({ group, selectedLocation, obras, sedeLocked, canRecei
         )}
         <button type="button" onClick={submitBatch} disabled={saving || !canReceive || cart.length === 0} style={{ flex: 1, display: "inline-flex", alignItems: "center", justifyContent: "center", gap: 7, border: `1px solid ${C.greenB}`, background: C.greenL, color: C.green, borderRadius: 10, padding: "10px 12px", fontSize: 13, fontWeight: 950, cursor: saving || !canReceive || cart.length === 0 ? "default" : "pointer", opacity: saving || !canReceive || cart.length === 0 ? 0.6 : 1, fontFamily: C.sans }}>
           <ArrowUpRight size={15} />
-          {saving ? "Registrando..." : `Confirmar ${movementKind === "transferir" ? "transferencia" : "egreso"} (${cart.length})`}
+          {saving ? "Registrando..." : `Confirmar ${movementKind === "transferir" ? "asignación" : "egreso"} (${cart.length})`}
         </button>
       </div>
     </div>
@@ -1033,17 +1069,19 @@ function ProductActionPanel({ group, selectedLocation, setSelectedLocationKey, o
   const [factura, setFactura] = useState("");
   const [codigoLibre, setCodigoLibre] = useState(group?.codigo || "");
   const [unidadLibre, setUnidadLibre] = useState(group?.unidad || "unidad");
+  const [varianteEgreso, setVarianteEgreso] = useState("");
   const [saving, setSaving] = useState(false);
 
   useEffect(() => {
     const available = selectedLocation?.available || 0;
-    setCantidad(action === "egresar" ? String(available > 0 ? Number(available.toFixed(2)) : 1) : "1");
+    setCantidad(action === "ingresar" ? "1" : String(available > 0 ? Number(available.toFixed(2)) : 1));
     setSede(sedeLocked || selectedLocation?.sede || "Pampa");
   }, [action, selectedLocation, sedeLocked]);
 
   useEffect(() => {
     setCodigoLibre(group?.codigo || "");
     setUnidadLibre(group?.unidad || "unidad");
+    setVarianteEgreso("");
   }, [group?.key, group?.codigo, group?.unidad]);
 
   const isCatalogOnly = !!group?.catalogOnly;
@@ -1053,6 +1091,8 @@ function ProductActionPanel({ group, selectedLocation, setSelectedLocationKey, o
   const willGoNegative = action === "egresar" && cantidadNum > (selectedLocation?.available || 0);
   const transitOnly = action === "egresar" && !isCatalogOnly && (selectedLocation?.available || 0) <= 0 && (selectedLocation?.transitQty || 0) > 0;
   const obrasActivas = obras.filter((obra) => !["terminada", "cancelada", "archivada"].includes(obra.estado));
+  const originIsObra = !!selectedLocation?.obraId; // el stock origen ya está asignado a una obra
+  const asignarLabel = originIsObra ? "Reasignar" : "Asignar a obra";
   const ingresoNota = [
     proveedor.trim() ? `Proveedor: ${proveedor.trim()}` : "",
     remito.trim() ? `Remito: ${remito.trim()}` : "",
@@ -1071,6 +1111,10 @@ function ProductActionPanel({ group, selectedLocation, setSelectedLocationKey, o
       toast.warning("Elegí un producto.");
       return;
     }
+    if (action === "asignar" && !destinoObraId) {
+      toast.warning("Elegí la obra a la que asignar el stock.");
+      return;
+    }
     setSaving(true);
     try {
       if (action === "egresar") {
@@ -1087,8 +1131,29 @@ function ProductActionPanel({ group, selectedLocation, setSelectedLocationKey, o
           sectorDestino,
           nota: egresoNota,
           esAdicional: group.esAdicional,
+          variante: varianteEgreso || null,
         });
         toast.success(willGoNegative ? "Egreso registrado. Queda a reconciliar con stock negativo." : "Egreso registrado.");
+      } else if (action === "asignar") {
+        const baseMov = {
+          material: group.material,
+          descripcion: group.label,
+          codigo: group.codigo,
+          unidad: group.unidad,
+          cantidad,
+          sede: movementSede,
+          obraOrigenId: selectedLocation?.obraId || null,
+          retiradoPor,
+          nota: egresoNota,
+          esAdicional: group.esAdicional,
+        };
+        if (destinoObraId === "__stock__") {
+          await liberarProductoAStock(baseMov);
+          toast.success("Stock devuelto a stock general.");
+        } else {
+          await transferirProducto({ ...baseMov, obraDestinoId: destinoObraId });
+          toast.success(originIsObra ? "Stock reasignado a la otra obra." : "Stock asignado a la obra (sigue en el pañol hasta el egreso).");
+        }
       } else {
         await ingresarStockGeneral({ material: group.material, cantidad, sede: sedeLocked || sede, nota: ingresoNota, esAdicional: group.esAdicional });
         toast.success("Ingreso de ajuste registrado.");
@@ -1110,24 +1175,46 @@ function ProductActionPanel({ group, selectedLocation, setSelectedLocationKey, o
 
   return (
     <div style={{ border: `1px solid ${C.border}`, background: C.panelSolid, borderRadius: 12, padding: 12, display: "grid", gap: 10 }}>
-      <div>
-        <div style={{ color: C.text, fontSize: 13, fontWeight: 950 }}>Movimiento de pañol</div>
-        <div style={{ color: C.dim, fontSize: 11, marginTop: 2 }}>
-          {isCatalogOnly ? "Producto del catalogo completo sin registro digital: el egreso queda como negativo a reconciliar." : "Ingreso, egreso o ajuste sobre el stock cargado."}
-        </div>
-      </div>
+      {isCatalogOnly && (
+        <div style={{ color: C.amber, fontSize: 11, lineHeight: 1.35 }}>Sin registro digital: el egreso queda negativo a reconciliar.</div>
+      )}
       <div style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>
-        <button type="button" onClick={() => setAction("egresar")} disabled={mode === "egreso"} style={{ border: `1px solid ${action === "egresar" ? C.greenB : C.border}`, background: action === "egresar" ? C.greenL : C.panel, color: action === "egresar" ? C.green : C.text, borderRadius: 9, padding: "7px 10px", fontSize: 12, fontWeight: 900, cursor: mode === "egreso" ? "default" : "pointer", fontFamily: C.sans }}>Egreso / ajuste -</button>
+        <button type="button" onClick={() => setAction("egresar")} disabled={mode === "egreso"} style={{ border: `1px solid ${action === "egresar" ? C.greenB : C.border}`, background: action === "egresar" ? C.greenL : C.panel, color: action === "egresar" ? C.green : C.text, borderRadius: 9, padding: "7px 12px", fontSize: 12, fontWeight: 900, cursor: mode === "egreso" ? "default" : "pointer", fontFamily: C.sans }}>Egreso</button>
+        {mode !== "egreso" && !isCatalogOnly && (
+          <button type="button" onClick={() => setAction("asignar")} style={{ border: `1px solid ${action === "asignar" ? C.blueB : C.border}`, background: action === "asignar" ? C.blueL : C.panel, color: action === "asignar" ? C.blue : C.text, borderRadius: 9, padding: "7px 12px", fontSize: 12, fontWeight: 900, cursor: "pointer", fontFamily: C.sans }}>{asignarLabel}</button>
+        )}
         {mode !== "egreso" && (
-          <button type="button" onClick={() => setAction("ingresar")} style={{ border: `1px solid ${action === "ingresar" ? C.blueB : C.border}`, background: action === "ingresar" ? C.blueL : C.panel, color: action === "ingresar" ? C.blue : C.text, borderRadius: 9, padding: "7px 10px", fontSize: 12, fontWeight: 900, cursor: "pointer", fontFamily: C.sans }}>Ingreso / ajuste +</button>
+          <button type="button" onClick={() => setAction("ingresar")} style={{ border: `1px solid ${action === "ingresar" ? C.blueB : C.border}`, background: action === "ingresar" ? C.blueL : C.panel, color: action === "ingresar" ? C.blue : C.text, borderRadius: 9, padding: "7px 12px", fontSize: 12, fontWeight: 900, cursor: "pointer", fontFamily: C.sans }}>Ingreso</button>
         )}
       </div>
 
-      {action === "egresar" && !isCatalogOnly && (
+      {(action === "egresar" || action === "asignar") && !isCatalogOnly && (
         <label style={{ display: "grid", gap: 5 }}>
-          <span style={{ color: C.dim, fontSize: 10, fontWeight: 850, textTransform: "uppercase", letterSpacing: 1 }}>Deposito / obra origen</span>
+          <span style={{ color: C.dim, fontSize: 10, fontWeight: 850, textTransform: "uppercase", letterSpacing: 1 }}>{action === "asignar" ? "Depósito / stock a asignar" : "Deposito / obra origen"}</span>
           <select value={selectedLocation?.key || ""} onChange={(event) => setSelectedLocationKey(event.target.value)} style={{ background: C.bg, border: `1px solid ${C.border}`, color: C.text, borderRadius: 9, padding: "9px 10px", fontSize: 12, fontFamily: C.sans, outline: "none" }}>
             {group.locations.map((loc) => <option key={loc.key} value={loc.key}>{loc.label} · {fmtQty(loc.available)}</option>)}
+          </select>
+        </label>
+      )}
+
+      {/* Selector de variante al egresar/asignar cuando el producto tiene variantes */}
+      {(action === "egresar" || action === "asignar") && group.variantes?.length > 0 && (
+        <label style={{ display: "grid", gap: 5 }}>
+          <span style={{ color: C.dim, fontSize: 10, fontWeight: 850, textTransform: "uppercase", letterSpacing: 1 }}>Variante {action === "egresar" ? "a egresar" : "a asignar"}</span>
+          <select value={varianteEgreso} onChange={(event) => setVarianteEgreso(event.target.value)} style={{ background: C.bg, border: `1px solid ${varianteEgreso ? C.violet : C.border}`, color: C.text, borderRadius: 9, padding: "9px 10px", fontSize: 12, fontFamily: C.sans, outline: "none" }}>
+            <option value="">— Sin especificar —</option>
+            {group.variantes.map((v) => <option key={v} value={v}>{v}</option>)}
+          </select>
+        </label>
+      )}
+
+      {action === "asignar" && (
+        <label style={{ display: "grid", gap: 5 }}>
+          <span style={{ color: C.dim, fontSize: 10, fontWeight: 850, textTransform: "uppercase", letterSpacing: 1 }}>{originIsObra ? "Mover a" : "Asignar a la obra"}</span>
+          <select value={destinoObraId} onChange={(event) => setDestinoObraId(event.target.value)} style={{ background: C.bg, border: `1px solid ${destinoObraId ? C.blueB : C.border}`, color: C.text, borderRadius: 9, padding: "9px 10px", fontSize: 12, fontFamily: C.sans, outline: "none" }}>
+            <option value="">Elegir destino</option>
+            {originIsObra && <option value="__stock__">Pasar a stock (liberar)</option>}
+            {obrasActivas.filter((obra) => obra.id !== selectedLocation?.obraId).map((obra) => <option key={obra.id} value={obra.id}>{obra.codigo}</option>)}
           </select>
         </label>
       )}
@@ -1183,17 +1270,24 @@ function ProductActionPanel({ group, selectedLocation, setSelectedLocationKey, o
               {obrasActivas.map((obra) => <option key={obra.id} value={obra.id}>{obra.codigo}</option>)}
             </select>
           </label>
-          <input value={retiradoPor} onChange={(event) => setRetiradoPor(event.target.value)} placeholder="Receptor / DNI" style={{ background: C.bg, border: `1px solid ${C.border}`, color: C.text, borderRadius: 9, padding: "9px 10px", fontSize: 12, fontFamily: C.sans, outline: "none" }} />
-          <input value={sectorDestino} onChange={(event) => setSectorDestino(event.target.value)} placeholder="Sector / uso / entrega" style={{ background: C.bg, border: `1px solid ${C.border}`, color: C.text, borderRadius: 9, padding: "9px 10px", fontSize: 12, fontFamily: C.sans, outline: "none" }} />
+          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8 }}>
+            <input value={retiradoPor} onChange={(event) => setRetiradoPor(event.target.value)} placeholder="Receptor / DNI" style={{ background: C.bg, border: `1px solid ${C.border}`, color: C.text, borderRadius: 9, padding: "9px 10px", fontSize: 12, fontFamily: C.sans, outline: "none", minWidth: 0 }} />
+            <input value={sectorDestino} onChange={(event) => setSectorDestino(event.target.value)} placeholder="Sector / uso" style={{ background: C.bg, border: `1px solid ${C.border}`, color: C.text, borderRadius: 9, padding: "9px 10px", fontSize: 12, fontFamily: C.sans, outline: "none", minWidth: 0 }} />
+          </div>
         </>
       )}
 
-      <input value={nota} onChange={(event) => setNota(event.target.value)} placeholder={action === "ingresar" ? "Observacion / motivo de ingreso" : "Observacion / detalle del egreso"} style={{ background: C.bg, border: `1px solid ${C.border}`, color: C.text, borderRadius: 9, padding: "9px 10px", fontSize: 12, fontFamily: C.sans, outline: "none" }} />
+      <input value={nota} onChange={(event) => setNota(event.target.value)} placeholder="Observación (opcional)" style={{ background: C.bg, border: `1px solid ${C.border}`, color: C.text, borderRadius: 9, padding: "9px 10px", fontSize: 12, fontFamily: C.sans, outline: "none" }} />
 
-      <button type="button" onClick={submit} disabled={saving || !canReceive || cantidadNum <= 0 || transitOnly} style={{ display: "inline-flex", alignItems: "center", justifyContent: "center", gap: 7, border: `1px solid ${action === "egresar" ? C.greenB : C.blueB}`, background: action === "egresar" ? C.greenL : C.blueL, color: action === "egresar" ? C.green : C.blue, borderRadius: 10, padding: "10px 12px", fontSize: 13, fontWeight: 950, cursor: saving || !canReceive || cantidadNum <= 0 || transitOnly ? "default" : "pointer", opacity: saving || !canReceive || cantidadNum <= 0 || transitOnly ? 0.6 : 1, fontFamily: C.sans }}>
-        {action === "egresar" ? <ArrowUpRight size={15} /> : <PackagePlus size={15} />}
-        {saving ? "Registrando..." : action === "egresar" ? "Confirmar egreso" : "Confirmar ingreso"}
-      </button>
+      {(() => {
+        const disabled = saving || !canReceive || cantidadNum <= 0 || transitOnly || (action === "asignar" && !destinoObraId);
+        return (
+          <button type="button" onClick={submit} disabled={disabled} style={{ display: "inline-flex", alignItems: "center", justifyContent: "center", gap: 7, border: `1px solid ${action === "egresar" ? C.greenB : C.blueB}`, background: action === "egresar" ? C.greenL : C.blueL, color: action === "egresar" ? C.green : C.blue, borderRadius: 10, padding: "10px 12px", fontSize: 13, fontWeight: 950, cursor: disabled ? "default" : "pointer", opacity: disabled ? 0.6 : 1, fontFamily: C.sans }}>
+            {action === "egresar" ? <ArrowUpRight size={15} /> : <PackagePlus size={15} />}
+            {saving ? "Registrando..." : action === "egresar" ? "Confirmar egreso" : action === "ingresar" ? "Confirmar ingreso" : destinoObraId === "__stock__" ? "Pasar a stock" : originIsObra ? "Confirmar reasignación" : "Confirmar asignación"}
+          </button>
+        );
+      })()}
     </div>
   );
 }
@@ -1421,6 +1515,7 @@ function ProductDetail({ group, isMobile, obras, sedeLocked, canReceive, mode, o
           <div style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
             <div style={{ color: C.text, fontSize: 17, fontWeight: 950, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{group.label}</div>
             <KindChip tipo={group.tipoPedido} />
+            <AsignadoChip asignaciones={groupAsignaciones(group)} />
             <StateChip egresado={group.egresado} transit={group.inTransit} negative={group.negativo} catalogOnly={group.catalogOnly} />
             <UbicacionChip ubicacion={group.ubicacion} obs={group.ubicacion_obs} size="md" />
           </div>
@@ -1447,6 +1542,7 @@ function ProductDetail({ group, isMobile, obras, sedeLocked, canReceive, mode, o
             ))}
           </div>
         </div>
+
 
         {canReceive && (
           <div style={{ border: `1px solid ${C.border}`, background: C.panelSolid, borderRadius: 12, padding: "10px 12px" }}>
@@ -1933,7 +2029,7 @@ export default function StockWmsPanel({ sedeLocked = null, isMobile = false, toa
             </div>
           )}
           <SelectFilter label="Vista" value={scope} onChange={setScope} options={[["todos", "Todos"], ["negativos", "A reconciliar"], ["sin_ubicacion", `Sin ubicación${kpis.sinUbicacion ? ` (${kpis.sinUbicacion})` : ""}`]]} />
-          <SelectFilter label="Tipo" value={kindScope} onChange={setKindScope} options={[["todos", `Todos (${kindCounts.todos})`], ["stock", `Stock pañol (${kindCounts.stock})`], ["estandar", `Reservado a obra (${kindCounts.estandar})`], ["adicional", `Adicionales (${kindCounts.adicional})`]]} />
+          <SelectFilter label="Tipo" value={kindScope} onChange={setKindScope} options={[["todos", `Todos (${kindCounts.todos})`], ["stock", `Stock pañol (${kindCounts.stock})`], ["estandar", `Asignado a obra (${kindCounts.estandar})`], ["adicional", `Adicionales (${kindCounts.adicional})`]]} />
           <SelectFilter label="Obra / stock" value={fObra} onChange={setFObra} options={obraOptions} />
           <SelectFilter label="Categoria" value={fCategoria} onChange={setFCategoria} options={categoriaOptions} />
           {!sedeLocked && <SelectFilter label="Sede" value={fSede} onChange={setFSede} options={[["todas", "Todas"], ...SEDES_PANOL.map((sede) => [sede, sede])]} />}

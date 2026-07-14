@@ -535,6 +535,21 @@ export async function fetchAddonsObra(obraId) {
   } catch { return []; }
 }
 
+export async function fetchAddonsMaterial(materialId) {
+  if (!materialId) return [];
+  try {
+    const { data, error } = await supabase
+      .from("panol_obra_addons")
+      .select("*")
+      .eq("material_id", materialId)
+      .order("created_at");
+    if (error) return [];
+    return data ?? [];
+  } catch {
+    return [];
+  }
+}
+
 const ADDON_FIELDS = new Set([
   "obra_id",
   "material_id",
@@ -599,6 +614,47 @@ export async function actualizarAddon(id, fields) {
     error = retry.error;
   }
   if (error) throw error;
+}
+
+function addonSnapshotMovible(row = {}) {
+  const recepcionEstado = String(row.recepcion_estado || "").toLowerCase();
+  if (["recibido", "parcial", "sin_info", "falta_stock", "rechazado"].includes(recepcionEstado)) return false;
+  const estado = String(row.estado || "").toLowerCase();
+  return !["en_panol", "recibido", "egresado"].includes(estado);
+}
+
+export async function reasignarAddon(id, obraId, meta = {}) {
+  if (!id) throw new Error("Falta el adicional.");
+  if (!obraId) throw new Error("Elegí una obra destino.");
+  const { error } = await supabase
+    .from("panol_obra_addons")
+    .update({ obra_id: obraId })
+    .eq("id", id);
+  if (error) throw error;
+
+  const materialId = meta?.materialId || null;
+  const fromObraId = meta?.fromObraId || null;
+  if (!materialId || !fromObraId || fromObraId === obraId) return;
+  try {
+    let query = supabase
+      .from("panol_obra_materiales_snapshot")
+      .select("id, estado, recepcion_estado, descripcion, codigo, unidad")
+      .eq("obra_id", fromObraId)
+      .eq("material_id", materialId)
+      .or("tipo.eq.addon,source.eq.addon");
+    if (meta.descripcion) query = query.eq("descripcion", meta.descripcion);
+    const { data, error: snapError } = await query;
+    if (snapError) return;
+    const ids = (data ?? []).filter(addonSnapshotMovible).map((row) => row.id).filter(Boolean);
+    if (!ids.length) return;
+    const { error: updateError } = await supabase
+      .from("panol_obra_materiales_snapshot")
+      .update({ obra_id: obraId })
+      .in("id", ids);
+    if (updateError && !isMissingTable(updateError)) throw updateError;
+  } catch (snapError) {
+    if (!isMissingTable(snapError) && !isMissingColumn(snapError)) throw snapError;
+  }
 }
 
 export async function borrarAddon(id) {
@@ -749,7 +805,7 @@ function snapshotPayloadKey(row) {
   const materialId = row?.material_id ?? row?.materialId ?? null;
   const kind = row?.tipo || row?.tipo_key || row?.bucket?.key || row?.source || "";
   if (kind === "addon" || row?.source === "addon") {
-    const textKey = norm(`${materialId || ""}|${row?.descripcion || ""}|${row?.codigo || ""}|${row?.unidad || row?.unidad_medida || ""}`);
+    const textKey = norm(`${row?.descripcion || ""}|${row?.codigo || ""}|${row?.unidad || row?.unidad_medida || ""}`);
     return textKey ? `addon:${textKey}` : "";
   }
   if (materialId) return `material:${materialId}`;
@@ -1115,6 +1171,41 @@ export async function guardarMaterial(material, cantidades, { revisado } = {}) {
   }
   if (error) throw error;
   await guardarCantidades(material.id, cantidades);
+}
+
+export async function actualizarMaterialDatos(material, { revisado } = {}) {
+  if (!material?.id) throw new Error("Falta el material.");
+  const patch = {
+    categoria_id: material.categoria_id,
+    proveedor_id: material.proveedor_id || null,
+    codigo: material.codigo || null,
+    descripcion: material.descripcion?.trim(),
+    proveedor: material.proveedor || null,
+    unidad_medida: material.unidad_medida || null,
+    precio_unitario: toNullableNumber(material.precio_unitario),
+    moneda: material.moneda || null,
+    imagen_url: material.imagen_url || null,
+    links: normalizeMaterialLinks(material.links),
+    notas: material.notas || null,
+    variantes: normalizeVariantes(material.variantes),
+    variantes_precios: material.variantes_precios === undefined ? undefined : normalizeVariantesPrecios(material.variantes_precios, material.variantes),
+    alias: material.alias || null,
+    activo: material.activo ?? true,
+    codigo_barra: material.codigo_barra || null,
+  };
+  if (revisado != null) patch.revisado = revisado;
+
+  let { error } = await supabase.from("panol_materiales").update(patch).eq("id", material.id);
+  if (error && isMissingColumn(error)) {
+    const fallbackPatch = { ...patch };
+    delete fallbackPatch.variantes;
+    delete fallbackPatch.variantes_precios;
+    delete fallbackPatch.links;
+    delete fallbackPatch.alias;
+    const retry = await supabase.from("panol_materiales").update(fallbackPatch).eq("id", material.id);
+    error = retry.error;
+  }
+  if (error) throw error;
 }
 
 export async function crearMaterial(material, cantidades = {}) {

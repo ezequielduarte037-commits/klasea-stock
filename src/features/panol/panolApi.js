@@ -931,12 +931,13 @@ export async function egresarProducto({
   retiradoPor = null,
   sectorDestino = null,
   esAdicional = false,
+  variante = null,
 } = {}) {
   const qty = Number(String(cantidad ?? "").replace(",", "."));
   const desc = String(descripcion || material?.descripcion || "").trim();
   if (!material?.id && !desc) throw new Error("Elegi o crea un material.");
   if (!Number.isFinite(qty) || qty <= 0) throw new Error("Carga una cantidad valida.");
-  const { data, error } = await supabase.rpc("panol_egresar_producto", {
+  const base = {
     p_material_id: material?.id || null,
     p_descripcion: desc || null,
     p_codigo: String(codigo || material?.codigo || "").trim() || null,
@@ -949,7 +950,13 @@ export async function egresarProducto({
     p_retirado_por: String(retiradoPor || "").trim() || null,
     p_sector_destino: String(sectorDestino || "").trim() || null,
     p_es_adicional: !!esAdicional,
-  });
+  };
+  const varClean = String(variante || "").trim() || null;
+  let { data, error } = await supabase.rpc("panol_egresar_producto", { ...base, p_variante: varClean });
+  // Si el RPC todavía no tiene el parámetro p_variante, reintenta sin él (transición).
+  if (error && (error.code === "PGRST202" || String(error.message || "").toLowerCase().includes("could not find the function"))) {
+    ({ data, error } = await supabase.rpc("panol_egresar_producto", base));
+  }
   if (error) throw error;
   return data;
 }
@@ -981,6 +988,42 @@ export async function transferirProducto({
     p_sede: sede || null,
     p_obra_origen_id: obraOrigenId || null,
     p_obra_destino_id: obraDestinoId,
+    p_nota: String(nota || "").trim() || null,
+    p_retirado_por: String(retiradoPor || "").trim() || null,
+    p_es_adicional: !!esAdicional,
+  });
+  if (error) throw error;
+  return data;
+}
+
+// Libera stock asignado a una obra devolviéndolo a stock general (destino = null).
+// Reusa la RPC de transferencia; requiere que la RPC permita destino nulo.
+export async function liberarProductoAStock({
+  material = null,
+  descripcion = "",
+  codigo = "",
+  cantidad,
+  unidad = "unidad",
+  sede = null,
+  obraOrigenId = null,
+  nota = null,
+  retiradoPor = null,
+  esAdicional = false,
+} = {}) {
+  const qty = Number(String(cantidad ?? "").replace(",", "."));
+  const desc = String(descripcion || material?.descripcion || "").trim();
+  if (!obraOrigenId) throw new Error("No hay obra de origen para liberar.");
+  if (!material?.id && !desc) throw new Error("Elegi o crea un material.");
+  if (!Number.isFinite(qty) || qty <= 0) throw new Error("Carga una cantidad valida.");
+  const { data, error } = await supabase.rpc("panol_transferir_producto", {
+    p_material_id: material?.id || null,
+    p_descripcion: desc || null,
+    p_codigo: String(codigo || material?.codigo || "").trim() || null,
+    p_cantidad: qty,
+    p_unidad: unidad || material?.unidad || material?.unidad_medida || "unidad",
+    p_sede: sede || null,
+    p_obra_origen_id: obraOrigenId,
+    p_obra_destino_id: null,
     p_nota: String(nota || "").trim() || null,
     p_retirado_por: String(retiradoPor || "").trim() || null,
     p_es_adicional: !!esAdicional,
