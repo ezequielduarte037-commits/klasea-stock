@@ -26,6 +26,7 @@ function normalizeEntry(entry = {}) {
     moneda: entry.moneda === "USD" ? "USD" : "ARS",
     notas: cleanText(entry.notas),
     cierre_id: entry.cierre_id || null,
+    owner_id: entry.owner_id || null,
   };
 }
 
@@ -36,16 +37,22 @@ function normalizeClosure(cierre = {}) {
     fecha_hasta: cierre.fecha_hasta || null,
     estado: cierre.estado === "cerrado" ? "cerrado" : "abierto",
     notas: cleanText(cierre.notas),
+    owner_id: cierre.owner_id || null,
   };
 }
 
-export async function fetchCajaChicaClosures({ limit = 80 } = {}) {
-  const { data, error } = await supabase
+// ownerId: undefined = todas · null = caja de compras (sin dueño) · uuid = caja de ese usuario (cadete)
+export async function fetchCajaChicaClosures({ limit = 80, ownerId = undefined } = {}) {
+  let query = supabase
     .from(CLOSURES_TABLE)
     .select("*")
     .order("fecha_desde", { ascending: false, nullsFirst: false })
     .order("created_at", { ascending: false })
     .limit(limit);
+  if (ownerId === null) query = query.is("owner_id", null);
+  else if (ownerId) query = query.eq("owner_id", ownerId);
+
+  const { data, error } = await query;
 
   if (error) {
     if (isMissingTable(error, CLOSURES_TABLE)) return { rows: [], missingTable: true };
@@ -55,7 +62,7 @@ export async function fetchCajaChicaClosures({ limit = 80 } = {}) {
   return { rows: data || [], missingTable: false };
 }
 
-export async function fetchCajaChicaEntries({ limit = 600, cierreId = null } = {}) {
+export async function fetchCajaChicaEntries({ limit = 600, cierreId = null, ownerId = undefined } = {}) {
   let query = supabase
     .from(TABLE)
     .select("*")
@@ -64,6 +71,8 @@ export async function fetchCajaChicaEntries({ limit = 600, cierreId = null } = {
     .limit(limit);
 
   if (cierreId) query = query.eq("cierre_id", cierreId);
+  if (ownerId === null) query = query.is("owner_id", null);
+  else if (ownerId) query = query.eq("owner_id", ownerId);
 
   const { data, error } = await query;
 
@@ -149,4 +158,19 @@ export async function deleteCajaChicaEntry(id) {
     .eq("id", id);
 
   if (error) throw error;
+}
+
+// Devuelve el cierre abierto de una caja (por dueño), creándolo si no existe.
+// Se usa para que los gastos del cadete se agrupen automáticamente en su caja.
+export async function ensureCajaChicaCierreAbierto({ ownerId = null, nombre = "Caja chica" } = {}) {
+  const { rows, missingTable } = await fetchCajaChicaClosures({ ownerId });
+  if (missingTable) return null;
+  const abierto = (rows || []).find((c) => c.estado === "abierto");
+  if (abierto) return abierto;
+  return createCajaChicaClosure({
+    nombre,
+    estado: "abierto",
+    owner_id: ownerId,
+    fecha_desde: new Date().toISOString().slice(0, 10),
+  });
 }

@@ -15,6 +15,35 @@ function norm(s) {
   return String(s || "").toLowerCase().normalize("NFD").replace(/[̀-ͯ]/g, "").replace(/\s+/g, " ").trim();
 }
 
+const STOP = new Set(["de", "del", "con", "para", "por", "los", "las", "una", "que", "la", "el", "y", "o", "a", "en", "un", "sin"]);
+function tokensOf(s) {
+  return norm(s).split(" ").filter((t) => t.length > 2 && !STOP.has(t));
+}
+
+// Similitud entre lo que se está por crear y un material del catálogo (0-100).
+// Detecta duplicados aunque no sean idénticos (palabras compartidas + código/barcode).
+function simScore(desc, codigo, material) {
+  const a = norm(desc);
+  const bDesc = norm(material.descripcion);
+  if (!a || !bDesc) return 0;
+  const codA = norm(codigo);
+  const codB = norm(material.codigo);
+  const barcode = norm([material.codigo_barra, ...(material.codigos_barra || []).map((x) => x.codigo)].filter(Boolean).join(" "));
+  if (codA && codB && codA === codB) return 100;
+  if (codA && barcode && barcode.includes(codA)) return 100;
+  if (a === bDesc) return 100;
+  if (bDesc.includes(a) || a.includes(bDesc)) return 88;
+  const at = tokensOf(desc);
+  if (!at.length) return 0;
+  const bText = norm([material.descripcion, material.proveedor].filter(Boolean).join(" "));
+  const shared = at.filter((t) => bText.includes(t)).length;
+  if (shared === at.length) return 80;
+  if (shared >= 3) return 70;
+  if (shared >= 2) return 60;
+  if (shared >= 1 && at.length <= 2) return 52;
+  return 0;
+}
+
 export default function CrearProductoTab({ isMobile = false, toast }) {
   const [categorias, setCategorias] = useState([]);
   const [proveedores, setProveedores] = useState([]);
@@ -33,6 +62,7 @@ export default function CrearProductoTab({ isMobile = false, toast }) {
   const [varDraft, setVarDraft] = useState("");
   const [imageFile, setImageFile] = useState(null);
   const imgRef = useRef(null);
+  const catalogRef = useRef([]); // catálogo completo para detectar duplicados
   const [ultimos, setUltimos] = useState([]);
 
   const imgPreview = useMemo(() => (imageFile ? URL.createObjectURL(imageFile) : ""), [imageFile]);
@@ -41,6 +71,7 @@ export default function CrearProductoTab({ isMobile = false, toast }) {
   useEffect(() => {
     fetchCategorias().then((c) => setCategorias(c ?? [])).catch(() => setCategorias([]));
     fetchProveedores().then((p) => setProveedores(p ?? [])).catch(() => setProveedores([]));
+    fetchPanolCatalogMini({ q: "", limit: 5000 }).then((rows) => { catalogRef.current = rows ?? []; }).catch(() => { catalogRef.current = []; });
   }, []);
 
   function addVariante() {
@@ -67,20 +98,33 @@ export default function CrearProductoTab({ isMobile = false, toast }) {
     if (!categoriaId) { toast?.warning("Elegí un rubro."); return; }
     if (saving) return;
 
-    // Anti-duplicado: buscar en el catálogo algo parecido antes de crear.
+    // Anti-duplicado: comparar por SIMILITUD contra el catálogo (no solo coincidencia exacta),
+    // así detecta duplicados aunque la descripción no sea idéntica o compartan el código.
+    const cod = codigo.trim();
     try {
-      const similares = await fetchPanolCatalogMini({ q: desc, limit: 4 });
-      const best = (similares || [])[0];
-      if (best && norm(best.descripcion) !== norm(desc)) {
-        const ok = window.confirm(
-          `⚠ Puede que este producto YA EXISTA en el catálogo:\n\n"${best.descripcion}"${best.codigo ? ` · ${best.codigo}` : ""}\n\n• Cancelar = no crear (usá el que ya está en el catálogo al ingresar)\n• Aceptar = crear "${desc}" igual`,
-        );
-        if (!ok) return;
-      } else if (best && norm(best.descripcion) === norm(desc)) {
-        toast?.warning(`Ya existe un producto igual: "${best.descripcion}". No se creó de nuevo.`);
+      let cat = catalogRef.current;
+      if (!cat.length) {
+        cat = (await fetchPanolCatalogMini({ q: "", limit: 5000 })) ?? [];
+        catalogRef.current = cat;
+      }
+      const candidatos = cat
+        .map((m) => ({ m, s: simScore(desc, cod, m) }))
+        .filter((x) => x.s >= 55)
+        .sort((a, b) => b.s - a.s)
+        .slice(0, 4);
+      const exacto = candidatos.find((c) => c.s >= 100);
+      if (exacto) {
+        toast?.warning(`Ya existe: "${exacto.m.descripcion}"${exacto.m.codigo ? ` · ${exacto.m.codigo}` : ""}. No se creó de nuevo — usalo al ingresar.`);
         return;
       }
-    } catch { /* si falla la búsqueda, seguimos y creamos */ }
+      if (candidatos.length) {
+        const lista = candidatos.map((c) => `• ${c.m.descripcion}${c.m.codigo ? ` (${c.m.codigo})` : ""}`).join("\n");
+        const ok = window.confirm(
+          `⚠ Puede que este producto YA EXISTA en el catálogo:\n\n${lista}\n\n¿Igual querés crear "${desc}"?\n\n• Cancelar = NO crear (usá el que ya está al ingresar)\n• Aceptar = crear igual`,
+        );
+        if (!ok) return;
+      }
+    } catch { /* si falla la comparación, seguimos y creamos */ }
 
     setSaving(true);
     try {
@@ -99,7 +143,9 @@ export default function CrearProductoTab({ isMobile = false, toast }) {
       if (imageFile) {
         try { await uploadMaterialImage(mat.id, imageFile); } catch { /* la foto no frena la creación */ }
       }
-      setUltimos((prev) => [{ id: mat.id, descripcion: desc, codigo: codigo.trim(), ts: Date.now() }, ...prev].slice(0, 8));
+      // Sumo el nuevo material al catálogo en memoria para detectar recreaciones inmediatas.
+      catalogRef.current = [{ id: mat.id, descripcion: desc, codigo: cod, proveedor, codigo_barra: "", codigos_barra: [] }, ...catalogRef.current];
+      setUltimos((prev) => [{ id: mat.id, descripcion: desc, codigo: cod, ts: Date.now() }, ...prev].slice(0, 8));
       toast?.success(`✓ Producto creado en el catálogo. Ya lo podés ingresar.`);
       limpiar();
     } catch (err) {

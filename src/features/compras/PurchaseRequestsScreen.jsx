@@ -20,6 +20,7 @@ import {
   ShoppingCart,
   Table2,
   Trash2,
+  Truck,
   Users,
   Wallet,
   X,
@@ -46,6 +47,7 @@ import { useToast } from "@/components/ui/Toast";
 import { CardSkeleton, RowSkeleton, Skeleton, SkeletonStyles } from "@/components/ui/Skeleton";
 import AdditionalPurchasesPanel from "@/features/compras/AdditionalPurchasesPanel";
 import CajaChicaPanel from "@/features/compras/CajaChicaPanel";
+import CadeteRutaScreen from "@/features/cadete/CadeteRutaScreen";
 import PurchaseRequestDetail from "@/features/compras/PurchaseRequestDetail";
 import PurchaseLogPanel from "@/features/compras/PurchaseLogPanel";
 import {
@@ -470,7 +472,7 @@ const STOCK_DESTINOS = ["Stock Chubut 2120", "Stock Pampa 1050"];
 const CREATE_DRAFT_PREFIX = "purchase-request-create-draft";
 
 const URL_FILTER_KEYS = ["q", "status", "priority", "creator", "project", "dateFrom", "dateTo"];
-const MANAGER_TABS = ["pendientes", "lista", "dashboard", "avisos", "registro", "adicionales", "caja"];
+const MANAGER_TABS = ["pendientes", "lista", "dashboard", "avisos", "registro", "adicionales", "caja", "ruta"];
 
 function dateOnly(value) {
   if (!value) return null;
@@ -1333,6 +1335,9 @@ export default function PurchaseRequestsScreen({ profile, signOut }) {
                   <TabBtn active={managerTab === "caja"} onClick={() => setManagerTab("caja")}>
                     <Wallet size={12} /> Caja chica
                   </TabBtn>
+                  <TabBtn active={managerTab === "ruta"} onClick={() => setManagerTab("ruta")}>
+                    <Truck size={12} /> Hoja de ruta
+                  </TabBtn>
                 </div>
               )}
 
@@ -1912,6 +1917,8 @@ export default function PurchaseRequestsScreen({ profile, signOut }) {
                   <PurchaseLogPanel profile={profile} />
                 ) : manager && managerTab === "caja" ? (
                   <CajaChicaPanel profile={profile} />
+                ) : manager && managerTab === "ruta" ? (
+                  <CadeteRutaScreen embedded profile={profile} />
                 ) : manager && managerTab === "dashboard" ? (
                   <DashboardErrorBoundary fallback="Probá recargar la página.">
                     <DashboardView

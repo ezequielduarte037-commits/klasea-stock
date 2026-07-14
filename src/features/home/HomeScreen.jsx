@@ -36,6 +36,7 @@ const MODULOS = [
   { href:"/movimientos",      label:"Movimientos",       desc:"Ingresos y egresos de maderas del depósito",             color:"#fbbf24", roles:["oficina","admin"] },
   { href:"/pedidos",          label:"Pedidos",           desc:"Órdenes de compra de materiales de madera",             color:"#fbbf24", roles:["oficina","admin"] },
   { href:"/compras",          label:"Compras",           desc:"Solicitudes internas y seguimiento de compras",          color:"#f59e0b", roles:["panol","oficina","admin","compras"] },
+  { href:"/cadete",           label:"Hoja de ruta",      desc:"Rutas del cadete: paradas, retiros y su caja chica",     color:"#f59e0b", roles:["oficina","admin","compras"] },
   { href:"/recepcion-panol",  label:"Recepción y egresos",   desc:"Envíos a pañol: recepción, faltantes, egresos y seguimiento por sede", color:"#38bdf8", roles:["panol","oficina","admin","compras"] },
   { href:"/postventa",        label:"Barcos Entregados", desc:"Post venta y flota en el agua",               color:"#67e8f9", roles:["oficina","admin"] },
   { href:"/configuracion",    label:"Configuración",     desc:"Usuarios, roles y configuración",             color:"#f87171", roles:["admin"] },

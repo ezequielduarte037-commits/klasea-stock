@@ -489,18 +489,11 @@ function StateChip({ negative, catalogOnly = false, transit = false, egresado = 
 }
 
 function KindChip({ tipo = "estandar" }) {
-  let color = C.blue, background = C.blueL, border = C.blueB, label = "Estándar";
-  if (tipo === "adicional") {
-    color = C.violet;
-    background = "rgba(124,58,237,0.10)";
-    border = "rgba(124,58,237,0.26)";
-    label = "Adicional";
-  } else if (tipo === "stock") {
-    color = C.green;
-    background = C.greenL;
-    border = C.greenB;
-    label = "Stock pañol";
-  }
+  // Solo mostramos un chip de tipo cuando es "adicional" (lo pide el dueño de la obra).
+  // El resto (estándar / stock general) es simplemente stock disponible en pañol —
+  // el estado "Disponible" ya lo indica el StateChip, así que no metemos ruido.
+  if (tipo !== "adicional") return null;
+  const color = C.violet, background = "rgba(124,58,237,0.10)", border = "rgba(124,58,237,0.26)", label = "Adicional";
   return (
     <span style={{
       color,
@@ -567,9 +560,7 @@ function ProductCard({ group, active, onOpen, canSeePrices = true }) {
       {/* Fila 2: badges + ubicación / sin ubicación */}
       <div style={{ display: "flex", gap: 6, flexWrap: "wrap", alignItems: "center" }}>
         <KindChip tipo={group.tipoPedido} />
-        {group.egresado && <StateChip egresado />}
-        {(group.negativo || group.catalogOnly) && <StateChip negative={group.negativo} catalogOnly={group.catalogOnly} />}
-        {group.inTransit && <StateChip transit />}
+        <StateChip egresado={group.egresado} transit={group.inTransit} catalogOnly={group.catalogOnly} negative={group.negativo} />
         {sinUbicacion ? (
           <span style={{ display: "inline-flex", alignItems: "center", gap: 4, color: C.amber, background: C.amberL, border: `1px solid ${C.amberB}`, borderRadius: 999, padding: "3px 9px", fontSize: 10, fontWeight: 900 }}>
             <MapPin size={11} /> Sin ubicación
@@ -1430,8 +1421,7 @@ function ProductDetail({ group, isMobile, obras, sedeLocked, canReceive, mode, o
           <div style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
             <div style={{ color: C.text, fontSize: 17, fontWeight: 950, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{group.label}</div>
             <KindChip tipo={group.tipoPedido} />
-            <StateChip negative={group.negativo} catalogOnly={group.catalogOnly} />
-            {group.inTransit && <StateChip transit />}
+            <StateChip egresado={group.egresado} transit={group.inTransit} negative={group.negativo} catalogOnly={group.catalogOnly} />
             <UbicacionChip ubicacion={group.ubicacion} obs={group.ubicacion_obs} size="md" />
           </div>
           <div style={{ color: C.dim, fontSize: 11, marginTop: 3 }}>{detCode} · disponible {fmtQty(group.total)} {group.unidad}</div>
@@ -1943,7 +1933,7 @@ export default function StockWmsPanel({ sedeLocked = null, isMobile = false, toa
             </div>
           )}
           <SelectFilter label="Vista" value={scope} onChange={setScope} options={[["todos", "Todos"], ["negativos", "A reconciliar"], ["sin_ubicacion", `Sin ubicación${kpis.sinUbicacion ? ` (${kpis.sinUbicacion})` : ""}`]]} />
-          <SelectFilter label="Tipo" value={kindScope} onChange={setKindScope} options={[["todos", `Todos (${kindCounts.todos})`], ["stock", `Stock pañol (${kindCounts.stock})`], ["estandar", `Estándar (${kindCounts.estandar})`], ["adicional", `Adicionales (${kindCounts.adicional})`]]} />
+          <SelectFilter label="Tipo" value={kindScope} onChange={setKindScope} options={[["todos", `Todos (${kindCounts.todos})`], ["stock", `Stock pañol (${kindCounts.stock})`], ["estandar", `Reservado a obra (${kindCounts.estandar})`], ["adicional", `Adicionales (${kindCounts.adicional})`]]} />
           <SelectFilter label="Obra / stock" value={fObra} onChange={setFObra} options={obraOptions} />
           <SelectFilter label="Categoria" value={fCategoria} onChange={setFCategoria} options={categoriaOptions} />
           {!sedeLocked && <SelectFilter label="Sede" value={fSede} onChange={setFSede} options={[["todas", "Todas"], ...SEDES_PANOL.map((sede) => [sede, sede])]} />}

@@ -2842,27 +2842,6 @@ function addonDraftFromRow(addon, categorias = []) {
   };
 }
 
-function addonPayloadFromDraft(draft, variantes, { cantidad, tipo = "adicional", observaciones = "" } = {}) {
-  return {
-    material_id: null,
-    descripcion: String(draft?.descripcion || "").trim(),
-    cantidad: toNum(cantidad) || 1,
-    proveedor: draft?.proveedor || null,
-    tipo,
-    observaciones: String(observaciones || "").trim() || null,
-    codigo: draft?.codigo || null,
-    unidad: draft?.unidad_medida || "unidad",
-    categoria_id: draft?.categoria_id || null,
-    proveedor_id: draft?.proveedor_id || null,
-    precio_unitario: toNum(draft?.precio_unitario),
-    moneda: draft?.moneda || null,
-    imagen_url: draft?.imagen_url || null,
-    links: normalizeMaterialLinks(draft?.links),
-    codigo_barra: draft?.codigo_barra || null,
-    variantes: normalizeVariantList(variantes),
-  };
-}
-
 function ObraAddonModal({ open, obra, addon = null, materiales = [], categorias = [], proveedores = [], ums = [], onClose, onSaved, onChanged }) {
   const [mode, setMode] = useState("existente");
   const [q, setQ] = useState("");
@@ -2927,14 +2906,14 @@ function ObraAddonModal({ open, obra, addon = null, materiales = [], categorias 
     if (!canSaveNew || saving) return;
     setSaving(true); setErr(null);
     try {
-      if (editing) {
-        await actualizarAddon(addon.id, addonPayloadFromDraft(draft, variantesNuevo, { cantidad, tipo, observaciones }));
-        await onSaved?.();
-        return;
-      }
       const prepared = prepareMaterialDraftForSave({ ...draft, revisado: false, origen: "addon_obra" }, proveedores, variantesNuevo);
-      const materialId = await crearMaterial(prepared, {});
+      let materialId = addon?.material_id || null;
       let imageUrl = draft.imagen_url || "";
+      if (materialId) {
+        await guardarMaterial({ ...prepared, id: materialId, imagen_url: imageUrl }, {});
+      } else {
+        materialId = await crearMaterial(prepared, {});
+      }
       if (imageFileNuevo) {
         const uploaded = await uploadMaterialImage(materialId, imageFileNuevo);
         imageUrl = uploaded?.url || imageUrl;
@@ -2942,7 +2921,9 @@ function ObraAddonModal({ open, obra, addon = null, materiales = [], categorias 
       for (const row of codigosExtraNuevo) {
         if (row.codigo?.trim()) await agregarCodigoBarraMaterial(materialId, row.codigo, { etiqueta: row.etiqueta, variante: row.variante || null });
       }
-      await crearAddon(obra.id, addonPayloadFromMaterial({ ...prepared, id: materialId, imagen_url: imageUrl }, { cantidad, tipo, observaciones, imagenUrl: imageUrl }));
+      const payload = addonPayloadFromMaterial({ ...prepared, id: materialId, imagen_url: imageUrl }, { cantidad, tipo, observaciones, imagenUrl: imageUrl });
+      if (editing) await actualizarAddon(addon.id, payload);
+      else await crearAddon(obra.id, payload);
       await onSaved?.();
     } catch (e) {
       setErr(e);
@@ -2959,7 +2940,7 @@ function ObraAddonModal({ open, obra, addon = null, materiales = [], categorias 
         <div style={{ position: "sticky", top: 0, zIndex: 2, background: C.panelSolid, borderBottom: `1px solid ${C.b0}`, padding: 16, display: "flex", gap: 12, alignItems: "flex-start", justifyContent: "space-between" }}>
           <div>
             <div style={{ fontSize: 16, fontWeight: 950, color: C.t0 }}>{editing ? "Editar adicional" : "Agregar item propio"} a {obra?.codigo}</div>
-            <div style={{ fontSize: 12, color: C.t2, marginTop: 3 }}>No modifica la matriz base: queda asociado solo a esta obra.</div>
+            <div style={{ fontSize: 12, color: C.t2, marginTop: 3 }}>No modifica la matriz base: queda en el catalogo completo y se asocia a esta obra.</div>
           </div>
           <button type="button" onClick={onClose} style={{ ...BTN, padding: "7px 9px" }} title="Cerrar"><X size={15} /></button>
         </div>
@@ -2967,7 +2948,7 @@ function ObraAddonModal({ open, obra, addon = null, materiales = [], categorias 
         <div style={{ padding: 16, display: "grid", gap: 14 }}>
           <div style={{ display: "flex", gap: 8, flexWrap: "wrap", alignItems: "center", border: `1px solid ${C.b0}`, background: C.panelSolid2, borderRadius: 12, padding: 10 }}>
             <div style={{ display: "inline-flex", gap: 3, background: C.panelSolid, border: `1px solid ${C.b0}`, borderRadius: 10, padding: 3 }}>
-              {[["existente", "Catalogo"], ["nuevo", "Crear nuevo"]].map(([key, label]) => {
+              {[["existente", "Catalogo"], ["nuevo", "Crear en catalogo"]].map(([key, label]) => {
                 const on = mode === key;
                 return (
                   <button key={key} type="button" onClick={() => { setMode(key); setErr(null); }} style={{ border: "none", borderRadius: 7, padding: "7px 12px", cursor: "pointer", fontSize: 12, fontWeight: 850, color: on ? "#fff" : C.t2, background: on ? C.blue : "transparent" }}>

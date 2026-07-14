@@ -30,6 +30,7 @@ import StockPanolScreen      from "@/features/panol/StockPanolScreen";
 import PortalProveedorScreen from "@/features/proveedores/PortalProveedorScreen";
 import MemoriasScreen        from "@/features/memorias/MemoriasScreen";
 import SemaforoScreen        from "@/features/semaforo/SemaforoScreen";
+import CadeteRutaScreen      from "@/features/cadete/CadeteRutaScreen";
 
 import { ToastProvider } from "@/components/ui/Toast";
 import { ConfirmProvider } from "@/components/ui/ConfirmDialog";
@@ -52,6 +53,7 @@ function RequireRole({ profile, allow, children }) {
   if (!profile) return <Navigate to="/login" replace />;
   if (profile.is_admin || allow.includes(profile.role)) return children;
   if (profile.role === "compras") return <Navigate to="/compras" replace />;
+  if (profile.role === "cadete")  return <Navigate to="/cadete" replace />;
   if (profile.role === "rrhh")    return <Navigate to="/rrhh" replace />;
   if (profile.role === "cliente") return <Navigate to="/mi-panel" replace />;
   return <Navigate to="/" replace />;
@@ -384,9 +386,11 @@ export default function App() {
       ? <Navigate to="/mi-panel" replace />
       : profile.role === "rrhh"
         ? <Navigate to="/rrhh" replace />
-        : (profile.role === "panol" && esColector)
-          ? <Navigate to="/scan" replace />
-          : <HomeScreen profile={profile} signOut={signOut} />;
+        : profile.role === "cadete"
+          ? <Navigate to="/cadete" replace />
+          : (profile.role === "panol" && esColector)
+            ? <Navigate to="/scan" replace />
+            : <HomeScreen profile={profile} signOut={signOut} />;
 
   return (
     <BrowserRouter>
@@ -413,6 +417,7 @@ export default function App() {
         <Route path="/muebles"    element={<RequireAuth session={session}><RequireRole profile={profile} allow={["admin","oficina","tecnica","muebles"]}><MueblesScreen    {...A} /></RequireRole></RequireAuth>} />
         <Route path="/pedidos"    element={<RequireAuth session={session}><RequireRole profile={profile} allow={["admin","oficina","tecnica"]}><PedidosScreen    {...A} /></RequireRole></RequireAuth>} />
         <Route path="/compras"    element={<RequireAuth session={session}><RequireRole profile={profile} allow={["admin","oficina","tecnica","panol","compras"]}><PurchaseRequestsScreen {...A} /></RequireRole></RequireAuth>} />
+        <Route path="/cadete"     element={<RequireAuth session={session}><RequireRole profile={profile} allow={["admin","oficina","tecnica","compras","cadete"]}><CadeteRutaScreen {...A} /></RequireRole></RequireAuth>} />
         <Route path="/recepcion-panol" element={<RequireAuth session={session}><RequireRole profile={profile} allow={["admin","oficina","tecnica","panol"]}><RecepcionPanolScreen {...A} /></RequireRole></RequireAuth>} />
         <Route path="/stock-panol" element={<RequireAuth session={session}><RequireRole profile={profile} allow={["admin","oficina","tecnica","panol"]}><StockPanolScreen {...A} /></RequireRole></RequireAuth>} />
         <Route path="/materiales" element={<RequireAuth session={session}><RequireRole profile={profile} allow={["admin","oficina","tecnica","compras"]}><MaterialesScreen {...A} /></RequireRole></RequireAuth>} />

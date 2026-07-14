@@ -85,12 +85,13 @@ import {
 //
 // ─────────────────────────────────────────────────────────────────────────────
 
-const ROLES = ["admin","tecnica","compras","panol","oficina","rrhh","laminacion","muebles","mecanica","electricidad"];
+const ROLES = ["admin","tecnica","compras","cadete","panol","oficina","rrhh","laminacion","muebles","mecanica","electricidad"];
 const ROLE_META = {
   admin:        { color:"#8888a8", label:"Admin"        },
   tecnica:      { color:"#60a5fa", label:"Técnica"      },
   oficina:      { color:"#6878a0", label:"Oficina"      },
   compras:      { color:"#a07840", label:"Compras"      },
+  cadete:       { color:"#c08040", label:"Cadete"       },
   rrhh:         { color:"#2dd4bf", label:"RRHH"         },
   laminacion:   { color:"#4a7888", label:"Laminación"   },
   muebles:      { color:"#788050", label:"Muebles"      },

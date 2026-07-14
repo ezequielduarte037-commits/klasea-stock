@@ -24,7 +24,11 @@ import {
   fetchCajaChicaClosures,
   fetchCajaChicaEntries,
 } from "@/features/compras/cajaChicaApi";
+import { fetchProfiles } from "@/features/compras/purchaseRequestsApi";
 import { C } from "@/theme";
+
+// null = caja de compras (histórica, sin dueño). Un uuid = la caja de ese cadete.
+const CAJA_COMPRAS = "__compras__";
 
 const TODAY = new Date().toISOString().slice(0, 10);
 
@@ -427,8 +431,12 @@ function safeFilePart(value) {
     .slice(0, 80);
 }
 
-export default function CajaChicaPanel() {
+// lockedOwnerId: si viene un uuid, el panel queda fijo a la caja de ese usuario
+// (se usa como caja propia del cadete) y se oculta el selector de dueño.
+export default function CajaChicaPanel({ lockedOwnerId } = {}) {
   const toast = useToast();
+  const [owners, setOwners] = useState([]);          // cadetes con caja propia
+  const [ownerSel, setOwnerSel] = useState(lockedOwnerId || CAJA_COMPRAS); // CAJA_COMPRAS | uuid del cadete
   const [cierres, setCierres] = useState([]);
   const [selectedCierreId, setSelectedCierreId] = useState("");
   const [cierreForm, setCierreForm] = useState(EMPTY_CIERRE);
@@ -446,10 +454,28 @@ export default function CajaChicaPanel() {
   const [pasteText, setPasteText] = useState("");
   const [importRows, setImportRows] = useState([]);
 
+  // null = caja de compras; uuid = caja del cadete seleccionado.
+  const ownerId = lockedOwnerId != null ? lockedOwnerId : (ownerSel === CAJA_COMPRAS ? null : ownerSel);
+
+  useEffect(() => {
+    if (lockedOwnerId != null) return; // caja fija: no hace falta el selector de dueños
+    fetchProfiles()
+      .then((rows) => setOwners((rows || []).filter((p) => p.role === "cadete")))
+      .catch(() => setOwners([]));
+  }, [lockedOwnerId]);
+
+  const [isMobile, setIsMobile] = useState(() => typeof window !== "undefined" && window.matchMedia("(max-width: 768px)").matches);
+  useEffect(() => {
+    const mq = window.matchMedia("(max-width: 768px)");
+    const on = (e) => setIsMobile(e.matches);
+    mq.addEventListener?.("change", on);
+    return () => mq.removeEventListener?.("change", on);
+  }, []);
+
   async function loadCierres(preferredId = selectedCierreId) {
     setLoading(true);
     try {
-      const result = await fetchCajaChicaClosures();
+      const result = await fetchCajaChicaClosures({ ownerId });
       const nextCierres = result.rows;
       setCierres(nextCierres);
       setMissingClosuresTable(Boolean(result.missingTable));
@@ -463,9 +489,9 @@ export default function CajaChicaPanel() {
   }
 
   useEffect(() => {
-    loadCierres();
+    loadCierres(ownerSel === CAJA_COMPRAS ? selectedCierreId : "");
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+  }, [ownerSel]);
 
   async function loadEntries(cierreId = selectedCierreId) {
     if (!cierreId) {
@@ -474,7 +500,7 @@ export default function CajaChicaPanel() {
     }
     setLoading(true);
     try {
-      const result = await fetchCajaChicaEntries({ cierreId });
+      const result = await fetchCajaChicaEntries({ cierreId, ownerId });
       setRows(result.rows);
       setMissingTable(Boolean(result.missingTable));
     } catch (error) {
@@ -563,7 +589,7 @@ export default function CajaChicaPanel() {
     }
     setSaving(true);
     try {
-      const created = await createCajaChicaClosure(cierreForm);
+      const created = await createCajaChicaClosure({ ...cierreForm, owner_id: ownerId });
       setCierreForm(EMPTY_CIERRE);
       await loadCierres(created.id);
       toast.success("Cierre creado.");
@@ -592,7 +618,7 @@ export default function CajaChicaPanel() {
 
     setSaving(true);
     try {
-      await createCajaChicaEntry({ ...form, importe, cierre_id: selectedCierreId });
+      await createCajaChicaEntry({ ...form, importe, cierre_id: selectedCierreId, owner_id: ownerId });
       setForm(EMPTY_FORM);
       await loadEntries(selectedCierreId);
       toast.success("Movimiento guardado.");
@@ -614,7 +640,7 @@ export default function CajaChicaPanel() {
     }
     setSaving(true);
     try {
-      await createCajaChicaEntries(importReady.map((row) => ({ ...normalizeImportRow(row), cierre_id: selectedCierreId })));
+      await createCajaChicaEntries(importReady.map((row) => ({ ...normalizeImportRow(row), cierre_id: selectedCierreId, owner_id: ownerId })));
       setPasteText("");
       setImportRows([]);
       await loadEntries(selectedCierreId);
@@ -751,7 +777,31 @@ export default function CajaChicaPanel() {
           title="Cierres"
           subtitle="Cada carga queda dentro de un cierre. Usalo como la planilla: un bloque por semana o por período real."
         />
-        <div style={{ display: "grid", gridTemplateColumns: "minmax(260px, 1fr) minmax(300px, 0.9fr)", gap: 12 }}>
+        {!lockedOwnerId && owners.length > 0 && (
+          <div style={{ display: "flex", gap: 7, flexWrap: "wrap", marginBottom: 12 }}>
+            <span style={{ fontSize: 10, color: C.dim, fontWeight: 850, textTransform: "uppercase", letterSpacing: 0.6, alignSelf: "center" }}>Caja:</span>
+            {[{ id: CAJA_COMPRAS, label: "Compras" }, ...owners.map((o) => ({ id: o.id, label: o.username }))].map((opt) => (
+              <button
+                key={opt.id}
+                type="button"
+                onClick={() => setOwnerSel(opt.id)}
+                style={{
+                  border: `1px solid ${ownerSel === opt.id ? C.blueB : C.border}`,
+                  background: ownerSel === opt.id ? C.blueL : C.panel2,
+                  color: ownerSel === opt.id ? C.blue : C.text,
+                  borderRadius: 999,
+                  padding: "5px 13px",
+                  cursor: "pointer",
+                  fontSize: 12.5,
+                  fontWeight: 850,
+                }}
+              >
+                {opt.label}
+              </button>
+            ))}
+          </div>
+        )}
+        <div style={{ display: "grid", gridTemplateColumns: isMobile ? "1fr" : "minmax(260px, 1fr) minmax(300px, 0.9fr)", gap: 12 }}>
           <div style={{ display: "grid", gap: 8, alignContent: "start" }}>
             {cierres.length ? cierres.map((cierre) => (
               <button
@@ -791,7 +841,7 @@ export default function CajaChicaPanel() {
             <Field label="Nombre">
               <input value={cierreForm.nombre} onChange={(e) => patchCierreForm({ nombre: e.target.value })} placeholder="Ej: Cierre 14/05 al 21/05" style={inputStyle()} />
             </Field>
-            <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8 }}>
+            <div style={{ display: "grid", gridTemplateColumns: isMobile ? "1fr" : "1fr 1fr", gap: 8 }}>
               <Field label="Desde">
                 <input type="date" value={cierreForm.fecha_desde} onChange={(e) => patchCierreForm({ fecha_desde: e.target.value })} style={inputStyle()} />
               </Field>
