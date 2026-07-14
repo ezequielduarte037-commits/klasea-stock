@@ -467,7 +467,9 @@ function MovimientosPanel({ rows = [], obras = [], isMobile = false }) {
 // ─── Componente principal ─────────────────────────────────────────────────────
 
 export default function StockPanolScreen({ profile, signOut, embedded = false, mode = "stock" }) {
-  const { isMobile } = useResponsive();
+  // 1180px: en tablet (sidebar 280px + panel de 2 columnas ~830px) el layout de escritorio
+  // desbordaba y "rompía" la pantalla. Por debajo de 1180 usamos el layout apilado.
+  const { isMobile } = useResponsive(1180);
   const toast = useToast();
 
   const role = profile?.role;

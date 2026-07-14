@@ -699,7 +699,7 @@ export default function MemoriasScreen({ profile, signOut }) {
               dbMemorias={dbMemorias}
               onSelect={(obra) => {
                 setSelectedId(obra.id);
-                if (isMobile) setRailOpen(false);
+                setRailOpen(false); // enfocar la obra: cerrar la lista en cualquier dispositivo (se reabre con el botón Menu)
               }}
             />
 
