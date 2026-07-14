@@ -547,7 +547,7 @@ function AsignadoChip({ asignaciones = [] }) {
   );
 }
 
-function ProductCard({ group, active, onOpen, canSeePrices = true }) {
+function ProductCard({ group, active, onOpen, canSeePrices = true, onAddToCart, inCart = false }) {
   const breakdown = group.locations
     .filter((loc) => Math.abs(loc.available) > 0.0001)
     .slice(0, 4)
@@ -629,6 +629,22 @@ function ProductCard({ group, active, onOpen, canSeePrices = true }) {
           {stockDetail}{group.locations.length > 4 ? ` · +${group.locations.length - 4}` : ""}
         </span>
       </div>
+      {/* Quick-add al carrito (solo en modo egreso) */}
+      {onAddToCart && group.total > 0.0001 && (
+        <span
+          role="button"
+          tabIndex={0}
+          onClick={(e) => { e.stopPropagation(); onAddToCart(group); }}
+          onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); e.stopPropagation(); onAddToCart(group); } }}
+          style={{
+            marginTop: 2, display: "inline-flex", alignItems: "center", justifyContent: "center", gap: 6,
+            border: `1px solid ${inCart ? C.greenB : C.blueB}`, background: inCart ? C.greenL : C.blueL,
+            color: inCart ? C.green : C.blue, borderRadius: 9, padding: "8px 10px", fontSize: 12, fontWeight: 950, cursor: "pointer",
+          }}
+        >
+          {inCart ? "✓ En carrito · sumar más" : "+ Agregar al carrito"}
+        </span>
+      )}
     </button>
   );
 }
@@ -898,6 +914,15 @@ function EgresoBatchPanel({ group, selectedLocation, obras, sedeLocked, canRecei
       toast.warning("Elegí la obra a la que asignar el stock.");
       return;
     }
+    // Egreso sin obra: si hay ítems que salen sin obra, exigir observación + confirmar.
+    if (movementKind !== "transferir" && !destinoObraId && cart.some((it) => !it.obraId)) {
+      if (!nota.trim()) {
+        toast.warning("Hay ítems sin obra. Escribí en la observación a dónde va el material (mantenimiento, obra del río, etc.).");
+        return;
+      }
+      const ok = window.confirm(`¿Estás seguro? Hay ítems que salen SIN obra, con la observación:\n"${nota.trim()}"\n\n¿Confirmás el egreso?`);
+      if (!ok) return;
+    }
     setSaving(true);
     try {
       const egresoNota = [
@@ -1115,6 +1140,15 @@ function ProductActionPanel({ group, selectedLocation, setSelectedLocationKey, o
       toast.warning("Elegí la obra a la que asignar el stock.");
       return;
     }
+    // Egreso sin obra: hay que aclarar a dónde va (mantenimiento, obra del río, etc.) y confirmar.
+    if (action === "egresar" && !destinoObraId && !selectedLocation?.obraId) {
+      if (!nota.trim()) {
+        toast.warning("No seleccionaste obra. Escribí en la observación a dónde va el material (mantenimiento, obra del río, etc.).");
+        return;
+      }
+      const ok = window.confirm(`¿Estás seguro? No seleccionaste obra de egreso.\n\nEl material sale SIN obra, con la observación:\n"${nota.trim()}"\n\n¿Confirmás el egreso?`);
+      if (!ok) return;
+    }
     setSaving(true);
     try {
       if (action === "egresar") {
@@ -1264,11 +1298,14 @@ function ProductActionPanel({ group, selectedLocation, setSelectedLocationKey, o
       {action === "egresar" && (
         <>
           <label style={{ display: "grid", gap: 5 }}>
-            <span style={{ color: C.dim, fontSize: 10, fontWeight: 850, textTransform: "uppercase", letterSpacing: 1 }}>Reasignar a obra</span>
-            <select value={destinoObraId} onChange={(event) => setDestinoObraId(event.target.value)} style={{ background: C.bg, border: `1px solid ${C.border}`, color: C.text, borderRadius: 9, padding: "9px 10px", fontSize: 12, fontFamily: C.sans, outline: "none" }}>
-              <option value="">Sin reasignar</option>
+            <span style={{ color: C.dim, fontSize: 10, fontWeight: 850, textTransform: "uppercase", letterSpacing: 1 }}>Obra a la que va</span>
+            <select value={destinoObraId} onChange={(event) => setDestinoObraId(event.target.value)} style={{ background: C.bg, border: `1px solid ${!destinoObraId && !selectedLocation?.obraId ? C.amberB : C.border}`, color: C.text, borderRadius: 9, padding: "9px 10px", fontSize: 12, fontFamily: C.sans, outline: "none" }}>
+              <option value="">Sin obra (mantenimiento, río, etc.)</option>
               {obrasActivas.map((obra) => <option key={obra.id} value={obra.id}>{obra.codigo}</option>)}
             </select>
+            {!destinoObraId && !selectedLocation?.obraId && (
+              <span style={{ color: C.amber, fontSize: 10.5 }}>Sin obra: es obligatorio detallar abajo a dónde va.</span>
+            )}
           </label>
           <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8 }}>
             <input value={retiradoPor} onChange={(event) => setRetiradoPor(event.target.value)} placeholder="Receptor / DNI" style={{ background: C.bg, border: `1px solid ${C.border}`, color: C.text, borderRadius: 9, padding: "9px 10px", fontSize: 12, fontFamily: C.sans, outline: "none", minWidth: 0 }} />
@@ -1731,6 +1768,27 @@ export default function StockWmsPanel({ sedeLocked = null, isMobile = false, toa
   const [creating, setCreating] = useState(false);
   const [draftGroup, setDraftGroup] = useState(null);
   const [cart, setCart] = useState([]);
+  const cartGroupKeys = useMemo(() => new Set(cart.map((it) => it.groupKey)), [cart]);
+
+  // Agregado rápido al carrito desde la tarjeta (modo egreso): toma el stock disponible
+  // de la ubicación principal y lo suma al carrito, sin abrir el detalle.
+  function quickAddToCart(group) {
+    if (!canReceive) return;
+    const loc = (group.locations || []).find((l) => l.available > 0.0001) || group.locations?.[0];
+    if (!loc) return;
+    const item = makeCartItem(group, loc, {
+      cantidad: loc.available > 0 ? Number(loc.available.toFixed(2)) : 1,
+      sede: sedeLocked || loc.sede,
+      codigo: group.codigo,
+      unidad: group.unidad,
+    });
+    setCart((prev) => {
+      const exists = prev.find((r) => r.key === item.key);
+      if (!exists) return [...prev, item];
+      return prev.map((r) => r.key === item.key ? { ...r, ...item } : r);
+    });
+    toast?.success?.(`${group.label} → carrito`);
+  }
 
   const defaultSede = sedeLocked || (fSede !== "todas" ? fSede : "Pampa");
   const canShowHistory = mode === "egreso" || fObra !== "todas";
@@ -2067,7 +2125,7 @@ export default function StockWmsPanel({ sedeLocked = null, isMobile = false, toa
               <div style={{ padding: 30, textAlign: "center", color: C.dim, fontSize: 12, fontWeight: 850 }}>Cargando stock...</div>
             ) : productGroups.length ? (
               productGroups.map((group) => (
-                <ProductCard key={group.key} group={group} active={selectedKey === group.key} onOpen={setSelectedKey} canSeePrices={canSeePrices} />
+                <ProductCard key={group.key} group={group} active={selectedKey === group.key} onOpen={setSelectedKey} canSeePrices={canSeePrices} onAddToCart={mode === "egreso" ? quickAddToCart : undefined} inCart={cartGroupKeys.has(group.key)} />
               ))
             ) : (
               <div style={{ padding: 22, border: `1px dashed ${C.border}`, borderRadius: 10, color: C.dim, textAlign: "center", fontSize: 13 }}>
