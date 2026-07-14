@@ -657,9 +657,24 @@ export async function reasignarAddon(id, obraId, meta = {}) {
   }
 }
 
-export async function borrarAddon(id) {
+export async function borrarAddon(id, { snapshotId = null } = {}) {
   const { error } = await supabase.from("panol_obra_addons").delete().eq("id", id);
   if (error) throw error;
+  if (snapshotId) await borrarObraSnapshotRows([snapshotId]);
+}
+
+export async function borrarObraSnapshotRows(ids = []) {
+  const cleanIds = ids.filter(Boolean);
+  if (!cleanIds.length) return;
+  try {
+    const { error } = await supabase
+      .from("panol_obra_materiales_snapshot")
+      .delete()
+      .in("id", cleanIds);
+    if (error && !isMissingTable(error)) throw error;
+  } catch (error) {
+    if (!isMissingTable(error)) throw error;
+  }
 }
 
 export async function fetchObraMaterialSnapshot(obraId) {

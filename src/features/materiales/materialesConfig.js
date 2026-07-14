@@ -289,3 +289,41 @@ export async function setObraMatrizCondicionante(obraId, condicionanteId, activo
     }, { onConflict: "obra_id,condicionante_id" });
   if (error) throw error;
 }
+
+export async function fetchObraMaterialExclusiones(obraId) {
+  if (!obraId) return { ok: true, rows: [], materialIds: new Set() };
+  const { ok, rows } = await pagedSafe(
+    "panol_obra_material_exclusiones",
+    "obra_id, material_id, motivo, created_at, updated_at",
+    "material_id",
+  );
+  const filtered = rows.filter((row) => row.obra_id === obraId);
+  return {
+    ok,
+    rows: filtered,
+    materialIds: new Set(filtered.map((row) => row.material_id).filter(Boolean)),
+  };
+}
+
+export async function excluirMaterialDeObra(obraId, materialId, motivo = null) {
+  if (!obraId || !materialId) throw new Error("Falta obra o material.");
+  const { error } = await supabase
+    .from("panol_obra_material_exclusiones")
+    .upsert({
+      obra_id: obraId,
+      material_id: materialId,
+      motivo: String(motivo || "").trim() || null,
+      updated_at: new Date().toISOString(),
+    }, { onConflict: "obra_id,material_id" });
+  if (error) throw error;
+}
+
+export async function restaurarMaterialDeObra(obraId, materialId) {
+  if (!obraId || !materialId) throw new Error("Falta obra o material.");
+  const { error } = await supabase
+    .from("panol_obra_material_exclusiones")
+    .delete()
+    .eq("obra_id", obraId)
+    .eq("material_id", materialId);
+  if (error) throw error;
+}
