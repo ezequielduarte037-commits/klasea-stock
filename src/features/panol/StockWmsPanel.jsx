@@ -437,6 +437,16 @@ function filterOptions(rows, getValue) {
   return [["todos", "Todos"], ...[...values].sort((a, b) => a.localeCompare(b, "es", { numeric: true })).map((value) => [value, value])];
 }
 
+function sortProductGroups(groups, orderBy) {
+  if (orderBy !== "recientes") return groups;
+  return [...groups].sort((a, b) => {
+    const ta = new Date(a.updatedAt || 0).getTime();
+    const tb = new Date(b.updatedAt || 0).getTime();
+    if (tb !== ta) return tb - ta;
+    return String(a.label || "").localeCompare(String(b.label || ""), "es", { numeric: true });
+  });
+}
+
 function SelectFilter({ label, value, onChange, options }) {
   return (
     <label style={{ display: "grid", gap: 4, minWidth: 128 }}>
@@ -1762,6 +1772,7 @@ export default function StockWmsPanel({ sedeLocked = null, isMobile = false, toa
   const [fCategoria, setFCategoria] = useState("todos");
   const [kindScope, setKindScope] = useState("todos");
   const [scope, setScope] = useState(initialScope);
+  const [orderBy, setOrderBy] = useState("default");
   const [egresoView, setEgresoView] = useState(() => readStoredEgresoView());
   const [selectedKey, setSelectedKey] = useState(null);
   const [catalogMatches, setCatalogMatches] = useState([]);
@@ -1887,14 +1898,14 @@ export default function StockWmsPanel({ sedeLocked = null, isMobile = false, toa
     const withDraft = draftGroup && norm(q) && norm(draftGroup.label).includes(norm(q))
       ? [draftGroup, ...productGroupsBase.filter((group) => group.key !== draftGroup.key)]
       : productGroupsBase;
-    if (scope === "sin_ubicacion") return withDraft.filter((group) => !group.ubicacion);
-    if (scope !== "negativos") return withDraft;
+    if (scope === "sin_ubicacion") return sortProductGroups(withDraft.filter((group) => !group.ubicacion), orderBy);
+    if (scope !== "negativos") return sortProductGroups(withDraft, orderBy);
     const negatives = withDraft.filter((group) => group.negativo);
     if (draftGroup && selectedKey === draftGroup.key && !negatives.some((group) => group.key === draftGroup.key)) {
-      return [draftGroup, ...negatives];
+      return [draftGroup, ...sortProductGroups(negatives, orderBy)];
     }
-    return negatives;
-  }, [draftGroup, productGroupsBase, q, scope, selectedKey]);
+    return sortProductGroups(negatives, orderBy);
+  }, [draftGroup, orderBy, productGroupsBase, q, scope, selectedKey]);
 
   const historyRows = useMemo(
     () => searchedRows
@@ -2087,6 +2098,7 @@ export default function StockWmsPanel({ sedeLocked = null, isMobile = false, toa
             </div>
           )}
           <SelectFilter label="Vista" value={scope} onChange={setScope} options={[["todos", "Todos"], ["negativos", "A reconciliar"], ["sin_ubicacion", `Sin ubicación${kpis.sinUbicacion ? ` (${kpis.sinUbicacion})` : ""}`]]} />
+          <SelectFilter label="Orden" value={orderBy} onChange={setOrderBy} options={[["default", "Stock primero"], ["recientes", "Mas recientes"]]} />
           <SelectFilter label="Tipo" value={kindScope} onChange={setKindScope} options={[["todos", `Todos (${kindCounts.todos})`], ["stock", `Stock pañol (${kindCounts.stock})`], ["estandar", `Asignado a obra (${kindCounts.estandar})`], ["adicional", `Adicionales (${kindCounts.adicional})`]]} />
           <SelectFilter label="Obra / stock" value={fObra} onChange={setFObra} options={obraOptions} />
           <SelectFilter label="Categoria" value={fCategoria} onChange={setFCategoria} options={categoriaOptions} />

@@ -69,6 +69,7 @@ function CondicionanteItemForm({ condicionante, materiales, categorias = [], onD
   const [q, setQ] = useState("");
   const [draft, setDraft] = useState({ material_id: "", descripcion: "", cantidad: "", unidad: "", tipo_item: "matriz", notas: "" });
   const [categoriaId, setCategoriaId] = useState("");
+  const [matchesOpen, setMatchesOpen] = useState(false);
   const [saving, setSaving] = useState(false);
   const [creatingMaterial, setCreatingMaterial] = useState(false);
   const [error, setError] = useState("");
@@ -86,8 +87,14 @@ function CondicionanteItemForm({ condicionante, materiales, categorias = [], onD
       .slice(0, 8);
   }, [materiales, q]);
 
+  const selectedMaterial = useMemo(
+    () => (draft.material_id ? (materiales || []).find((material) => material.id === draft.material_id) : null),
+    [draft.material_id, materiales],
+  );
+
   function selectMaterial(material) {
     setQ(material.descripcion || "");
+    setMatchesOpen(false);
     setDraft((prev) => ({
       ...prev,
       material_id: material.id,
@@ -115,6 +122,7 @@ function CondicionanteItemForm({ condicionante, materiales, categorias = [], onD
         notas: `Creado desde condicionante: ${condicionante.nombre}`,
       }, {});
       setQ(desc);
+      setMatchesOpen(false);
       setDraft((prev) => ({
         ...prev,
         material_id: id,
@@ -158,12 +166,14 @@ function CondicionanteItemForm({ condicionante, materiales, categorias = [], onD
             value={q}
             onChange={(event) => {
               setQ(event.target.value);
+              setMatchesOpen(true);
               setDraft((prev) => ({ ...prev, material_id: "", descripcion: event.target.value }));
             }}
+            onFocus={() => setMatchesOpen(true)}
             placeholder="Buscar item base o escribir item condicionado..."
             style={{ ...INP, width: "100%", height: 40, fontWeight: 750 }}
           />
-          {matches.length > 0 && (
+          {matchesOpen && matches.length > 0 && !draft.material_id && (
             <div style={{ position: "absolute", zIndex: 10, left: 0, right: 0, top: "calc(100% + 4px)", border: `1px solid ${C.b1}`, background: C.panelSolid, borderRadius: 10, padding: 5, boxShadow: "0 10px 24px rgba(0,0,0,0.28)", maxHeight: 250, overflowY: "auto" }}>
               {matches.map((material) => (
                 <button key={material.id} type="button" onClick={() => selectMaterial(material)} style={{ display: "grid", width: "100%", textAlign: "left", border: "none", background: "transparent", color: C.t1, cursor: "pointer", padding: "7px 9px", borderRadius: 7, fontFamily: C.sans }}>
@@ -176,7 +186,25 @@ function CondicionanteItemForm({ condicionante, materiales, categorias = [], onD
         </div>
         <div style={{ display: "flex", gap: 8, alignItems: "center", flexWrap: "wrap", border: `1px solid ${draft.material_id ? C.greenB : C.b0}`, background: draft.material_id ? C.greenL : C.s0, borderRadius: 10, padding: "8px 9px" }}>
           {draft.material_id ? (
-            <span style={{ fontSize: 12, color: C.green, fontWeight: 850 }}>Item vinculado al catalogo completo.</span>
+            <>
+              <span style={{ fontSize: 12, color: C.green, fontWeight: 850 }}>Item vinculado:</span>
+              <span style={{ fontSize: 12, color: C.t1, fontWeight: 850, minWidth: 0, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+                {selectedMaterial?.descripcion || draft.descripcion}
+              </span>
+              <span style={{ fontSize: 11, color: C.t3 }}>
+                {[selectedMaterial?.codigo, selectedMaterial?.proveedor].filter(Boolean).join(" · ") || "catalogo completo"}
+              </span>
+              <button
+                type="button"
+                onClick={() => {
+                  setDraft((prev) => ({ ...prev, material_id: "" }));
+                  setMatchesOpen(true);
+                }}
+                style={{ ...BTN, padding: "5px 8px", marginLeft: "auto", fontSize: 11 }}
+              >
+                Cambiar
+              </button>
+            </>
           ) : (
             <>
               <span style={{ fontSize: 12, color: C.t2, fontWeight: 750 }}>No existe en catalogo?</span>
