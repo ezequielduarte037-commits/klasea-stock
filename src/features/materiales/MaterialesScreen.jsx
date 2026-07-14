@@ -2621,6 +2621,7 @@ function AgregarItemLinea({ linea, title, materiales = [], categorias = [], prov
   const [variantesPreciosNuevo, setVariantesPreciosNuevo] = useState({});
   const [codigosExtraNuevo, setCodigosExtraNuevo] = useState([]);
   const [imageFileNuevo, setImageFileNuevo] = useState(null);
+  const [okMsg, setOkMsg] = useState("");
 
   useEffect(() => {
     if (!draft.categoria_id && categorias[0]?.id) setDraft((d) => ({ ...d, categoria_id: categorias[0].id }));
@@ -2643,7 +2644,8 @@ function AgregarItemLinea({ linea, title, materiales = [], categorias = [], prov
   const selected = existentesFuera.find((m) => m.id === selectedId);
   const qty = toNum(cantidad);
   const canSaveExisting = selected && qty != null && qty > 0;
-  const canSaveNew = draft.descripcion.trim() && draft.categoria_id && qty != null && qty > 0;
+  const canCreateCatalogOnly = draft.descripcion.trim() && draft.categoria_id;
+  const canSaveNew = canCreateCatalogOnly && qty != null && qty > 0;
 
   function resetSoft() {
     setQ("");
@@ -2668,6 +2670,7 @@ function AgregarItemLinea({ linea, title, materiales = [], categorias = [], prov
     setVariantesPreciosNuevo({});
     setCodigosExtraNuevo([]);
     setImageFileNuevo(null);
+    setOkMsg("");
   }
 
   async function addExisting() {
@@ -2696,6 +2699,26 @@ function AgregarItemLinea({ linea, title, materiales = [], categorias = [], prov
       await setCantidadModelo(id, linea, cantidad);
       resetSoft();
       setMode("existente");
+      await onChanged?.();
+    } catch (e) {
+      setErr(e);
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  async function createCatalogOnly() {
+    if (!canCreateCatalogOnly || saving) return;
+    setSaving(true); setErr(null); setOkMsg("");
+    try {
+      const id = await crearMaterial(prepareMaterialDraftForSave({ ...draft, revisado: false }, proveedores, variantesNuevo, variantesPreciosNuevo), {});
+      if (imageFileNuevo) await uploadMaterialImage(id, imageFileNuevo);
+      for (const row of codigosExtraNuevo) {
+        if (row.codigo?.trim()) await agregarCodigoBarraMaterial(id, row.codigo, { etiqueta: row.etiqueta, variante: row.variante || null });
+      }
+      resetSoft();
+      setMode("existente");
+      setOkMsg("Item creado en catalogo sin cantidad de matriz. Ahora lo podes usar en condicionantes.");
       await onChanged?.();
     } catch (e) {
       setErr(e);
@@ -2823,7 +2846,10 @@ function AgregarItemLinea({ linea, title, materiales = [], categorias = [], prov
           </div>
           <MaterialLinksEditor value={draft.links} onChange={(links) => setDraft((d) => ({ ...d, links }))} compact />
           <textarea value={draft.notas || ""} onChange={(e) => setDraft((d) => ({ ...d, notas: e.target.value }))} rows={2} placeholder="Observaciones reales del item" style={{ ...INP, width: "100%", resize: "vertical" }} />
-          <div style={{ display: "flex", justifyContent: "flex-end" }}>
+          <div style={{ display: "flex", justifyContent: "flex-end", gap: 8, flexWrap: "wrap" }}>
+            <button type="button" onClick={createCatalogOnly} disabled={!canCreateCatalogOnly || saving} style={{ ...BTN, height: 38, padding: "0 14px", color: C.blue, opacity: !canCreateCatalogOnly || saving ? 0.6 : 1 }} title="Crea el material sin sumarlo a ninguna matriz">
+              {saving ? "Creando..." : "Crear solo en catalogo"}
+            </button>
             <button type="button" onClick={createAndAdd} disabled={!canSaveNew || saving} style={{ ...BTN_GREEN, height: 38, padding: "0 14px", opacity: !canSaveNew || saving ? 0.6 : 1 }}>
               {saving ? "Creando..." : `Crear y agregar a K${linea}`}
             </button>
@@ -2832,6 +2858,7 @@ function AgregarItemLinea({ linea, title, materiales = [], categorias = [], prov
       )}
 
       {err && <div style={{ marginTop: 9, fontSize: 12, color: C.red }}>{err.message || "No se pudo guardar el ítem."}</div>}
+      {okMsg && <div style={{ marginTop: 9, fontSize: 12, color: C.green }}>{okMsg}</div>}
     </div>
   );
 }
@@ -7410,7 +7437,7 @@ export default function MaterialesScreen({ profile, signOut }) {
               {tab === "comprobantes" && <ComprobantesTab categorias={categorias} materiales={materiales} proveedores={proveedores} comprobantes={comprobantes} onChanged={cargar} />}
               {tab === "revision" && <RevisionTab categorias={categorias} materiales={materiales} proveedores={proveedores} onChanged={cargar} />}
               {tab === "normalizacion" && <NormalizacionTab categorias={categorias} materiales={materiales} proveedores={proveedores} onChanged={cargar} />}
-              {tab === "condicionantes" && <MatrizCondicionantesTab materiales={materiales} />}
+              {tab === "condicionantes" && <MatrizCondicionantesTab materiales={materiales} categorias={categorias} onChanged={cargar} />}
               {tab === "variantes" && <VariantesMarcasTab materiales={materiales} />}
               {tab === "proveedores" && <ProveedoresTab proveedores={proveedores} onChanged={cargar} />}
               {tab === "avance" && <AvanceTab categorias={categorias} materiales={materiales} batches={batches} obras={obrasAvance} />}

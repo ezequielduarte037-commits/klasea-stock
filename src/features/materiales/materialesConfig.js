@@ -222,9 +222,12 @@ export async function crearMatrizCondicionante(payload) {
 
 export async function actualizarMatrizCondicionante(id, patch) {
   const clean = {};
-  for (const key of ["nombre", "tipo", "descripcion", "activo_por_defecto", "activo", "orden"]) {
+  for (const key of ["modelo", "nombre", "tipo", "descripcion", "activo_por_defecto", "activo", "orden"]) {
     if (Object.prototype.hasOwnProperty.call(patch, key)) clean[key] = patch[key];
   }
+  if (Object.prototype.hasOwnProperty.call(clean, "modelo")) clean.modelo = String(clean.modelo || "").replace(/^K/i, "").trim();
+  if (Object.prototype.hasOwnProperty.call(clean, "nombre")) clean.nombre = String(clean.nombre || "").trim();
+  if (Object.prototype.hasOwnProperty.call(clean, "descripcion")) clean.descripcion = String(clean.descripcion || "").trim() || null;
   clean.updated_at = new Date().toISOString();
   const { error } = await supabase.from("panol_matriz_condicionantes").update(clean).eq("id", id);
   if (error) throw error;

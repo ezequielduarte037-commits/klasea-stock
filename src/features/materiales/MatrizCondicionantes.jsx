@@ -1,8 +1,9 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { Plus, Trash2 } from "lucide-react";
+import { Pencil, Plus, Save, Trash2, X } from "lucide-react";
 import { C } from "@/theme";
 import { BTN, BTN_GREEN, BTN_PRIMARY, INP, LBL } from "@/features/rrhh/ui";
 import { MODELOS, norm } from "./materialesParser";
+import { crearMaterial } from "./api";
 import {
   actualizarMatrizCondicionante,
   agregarMatrizCondicionanteItem,
@@ -34,6 +35,29 @@ function itemTipoLabel(value) {
   return ITEM_TIPOS.find(([key]) => key === value)?.[1] || value || "Item";
 }
 
+function matchMaterialSearch(material, query) {
+  const tokens = norm(query).split(/\s+/).filter(Boolean);
+  if (!tokens.length) return true;
+  const haystack = norm([
+    material.descripcion,
+    material.alias,
+    material.codigo,
+    material.codigo_barra,
+    material.proveedor,
+    material.unidad_medida,
+  ].filter(Boolean).join(" "));
+  return tokens.every((token) => haystack.includes(token));
+}
+
+function materialSearchScore(material, query) {
+  const phrase = norm(query);
+  const desc = norm(material.descripcion || "");
+  if (desc === phrase) return 0;
+  if (desc.startsWith(phrase)) return 1;
+  if (desc.includes(phrase)) return 2;
+  return 3;
+}
+
 function fmtQty(value, unidad) {
   if (value == null || value === "") return unidad || "-";
   const n = Number(value);
@@ -41,18 +65,24 @@ function fmtQty(value, unidad) {
   return [qty, unidad].filter(Boolean).join(" ");
 }
 
-function CondicionanteItemForm({ condicionante, materiales, onDone }) {
+function CondicionanteItemForm({ condicionante, materiales, categorias = [], onDone, onMaterialCreated }) {
   const [q, setQ] = useState("");
   const [draft, setDraft] = useState({ material_id: "", descripcion: "", cantidad: "", unidad: "", tipo_item: "matriz", notas: "" });
+  const [categoriaId, setCategoriaId] = useState("");
   const [saving, setSaving] = useState(false);
+  const [creatingMaterial, setCreatingMaterial] = useState(false);
   const [error, setError] = useState("");
 
+  useEffect(() => {
+    if (!categoriaId && categorias[0]?.id) setCategoriaId(categorias[0].id);
+  }, [categorias, categoriaId]);
+
   const matches = useMemo(() => {
-    const term = norm(q);
-    if (term.length < 2) return [];
+    if (norm(q).length < 2) return [];
     return (materiales || [])
       .filter((material) => material.activo !== false)
-      .filter((material) => norm([material.descripcion, material.codigo, material.proveedor].filter(Boolean).join(" ")).includes(term))
+      .filter((material) => matchMaterialSearch(material, q))
+      .sort((a, b) => materialSearchScore(a, q) - materialSearchScore(b, q) || String(a.descripcion || "").localeCompare(String(b.descripcion || ""), "es"))
       .slice(0, 8);
   }, [materiales, q]);
 
@@ -64,6 +94,39 @@ function CondicionanteItemForm({ condicionante, materiales, onDone }) {
       descripcion: material.descripcion || "",
       unidad: material.unidad_medida || prev.unidad || "unidad",
     }));
+  }
+
+  async function createCatalogOnly() {
+    const desc = String(draft.descripcion || q || "").trim();
+    if (!desc || creatingMaterial) return;
+    if (!categoriaId) {
+      setError("Elegi un rubro para crear el item en catalogo.");
+      return;
+    }
+    setCreatingMaterial(true);
+    setError("");
+    try {
+      const id = await crearMaterial({
+        descripcion: desc,
+        categoria_id: categoriaId,
+        unidad_medida: draft.unidad || "unidad",
+        revisado: false,
+        origen: "condicionante",
+        notas: `Creado desde condicionante: ${condicionante.nombre}`,
+      }, {});
+      setQ(desc);
+      setDraft((prev) => ({
+        ...prev,
+        material_id: id,
+        descripcion: desc,
+        unidad: prev.unidad || "unidad",
+      }));
+      await onMaterialCreated?.();
+    } catch (e) {
+      setError(e?.message || "No se pudo crear el item en catalogo.");
+    } finally {
+      setCreatingMaterial(false);
+    }
   }
 
   async function save() {
@@ -89,7 +152,7 @@ function CondicionanteItemForm({ condicionante, materiales, onDone }) {
 
   return (
     <div style={{ border: `1px dashed ${C.b0}`, borderRadius: 10, padding: 10, display: "grid", gap: 8, background: C.bg }}>
-      <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(132px, 1fr))", gap: 7, alignItems: "start" }}>
+      <div style={{ display: "grid", gap: 8 }}>
         <div style={{ position: "relative", minWidth: 0 }}>
           <input
             value={q}
@@ -98,7 +161,7 @@ function CondicionanteItemForm({ condicionante, materiales, onDone }) {
               setDraft((prev) => ({ ...prev, material_id: "", descripcion: event.target.value }));
             }}
             placeholder="Buscar item base o escribir item condicionado..."
-            style={{ ...INP, width: "100%" }}
+            style={{ ...INP, width: "100%", height: 40, fontWeight: 750 }}
           />
           {matches.length > 0 && (
             <div style={{ position: "absolute", zIndex: 10, left: 0, right: 0, top: "calc(100% + 4px)", border: `1px solid ${C.b1}`, background: C.panelSolid, borderRadius: 10, padding: 5, boxShadow: "0 10px 24px rgba(0,0,0,0.28)", maxHeight: 250, overflowY: "auto" }}>
@@ -111,23 +174,56 @@ function CondicionanteItemForm({ condicionante, materiales, onDone }) {
             </div>
           )}
         </div>
-        <input value={draft.cantidad} onChange={(event) => setDraft((prev) => ({ ...prev, cantidad: event.target.value }))} placeholder="Cant." style={{ ...INP, width: "100%", fontFamily: C.mono }} />
-        <input value={draft.unidad} onChange={(event) => setDraft((prev) => ({ ...prev, unidad: event.target.value }))} placeholder="Unidad" style={{ ...INP, width: "100%" }} />
-        <select value={draft.tipo_item} onChange={(event) => setDraft((prev) => ({ ...prev, tipo_item: event.target.value }))} style={{ ...INP, width: "100%" }}>
-          {ITEM_TIPOS.map(([key, label]) => <option key={key} value={key}>{label}</option>)}
-        </select>
-        <button type="button" onClick={save} disabled={saving || !(draft.descripcion || q).trim()} style={{ ...BTN_GREEN, height: 38, opacity: saving ? 0.65 : 1 }}>
-          <Plus size={13} /> Agregar
-        </button>
+        <div style={{ display: "flex", gap: 8, alignItems: "center", flexWrap: "wrap" }}>
+          <input value={draft.cantidad} onChange={(event) => setDraft((prev) => ({ ...prev, cantidad: event.target.value }))} placeholder="Cant." style={{ ...INP, width: 110, height: 38, fontFamily: C.mono }} />
+          <input value={draft.unidad} onChange={(event) => setDraft((prev) => ({ ...prev, unidad: event.target.value }))} placeholder="Unidad" style={{ ...INP, width: 140, height: 38 }} />
+          <select value={draft.tipo_item} onChange={(event) => setDraft((prev) => ({ ...prev, tipo_item: event.target.value }))} style={{ ...INP, flex: "1 1 210px", minWidth: 190, height: 38 }}>
+            {ITEM_TIPOS.map(([key, label]) => <option key={key} value={key}>{label}</option>)}
+          </select>
+          <button type="button" onClick={save} disabled={saving || !(draft.descripcion || q).trim()} style={{ ...BTN_GREEN, height: 38, padding: "0 14px", whiteSpace: "nowrap", marginLeft: "auto", opacity: saving ? 0.65 : 1 }}>
+            <Plus size={13} /> Agregar
+          </button>
+        </div>
       </div>
       <input value={draft.notas} onChange={(event) => setDraft((prev) => ({ ...prev, notas: event.target.value }))} placeholder="Ej: si hay vestidor suma 9 bisagras sobre la base" style={{ ...INP, width: "100%" }} />
+      {(draft.descripcion || q).trim() && !draft.material_id ? (
+        <div style={{ display: "flex", gap: 8, alignItems: "center", flexWrap: "wrap" }}>
+          <select value={categoriaId} onChange={(event) => setCategoriaId(event.target.value)} style={{ ...INP, width: 220, height: 34 }}>
+            <option value="">Rubro para catalogo</option>
+            {categorias.map((categoria) => <option key={categoria.id} value={categoria.id}>{categoria.nombre}</option>)}
+          </select>
+          <button type="button" onClick={createCatalogOnly} disabled={creatingMaterial || !categoriaId} style={{ ...BTN, padding: "7px 10px", color: C.blue, opacity: creatingMaterial || !categoriaId ? 0.6 : 1 }}>
+            <Plus size={13} /> {creatingMaterial ? "Creando..." : "Crear item en catalogo sin matriz"}
+          </button>
+          <span style={{ fontSize: 11, color: C.t2 }}>Despues cargale la cantidad en este condicionante.</span>
+        </div>
+      ) : null}
       {error && <div style={{ color: C.red, fontSize: 12 }}>{error}</div>}
     </div>
   );
 }
 
-function CondicionanteCard({ condicionante, materiales, onReload }) {
+function CondicionanteCard({ condicionante, materiales, categorias, modelos, onReload, onMaterialCreated }) {
   const [busy, setBusy] = useState(false);
+  const [editing, setEditing] = useState(false);
+  const [draft, setDraft] = useState(() => ({
+    modelo: String(condicionante.modelo || ""),
+    nombre: condicionante.nombre || "",
+    tipo: condicionante.tipo || "opcional_estandar",
+    descripcion: condicionante.descripcion || "",
+    activo_por_defecto: condicionante.activo_por_defecto ?? true,
+  }));
+
+  useEffect(() => {
+    setDraft({
+      modelo: String(condicionante.modelo || ""),
+      nombre: condicionante.nombre || "",
+      tipo: condicionante.tipo || "opcional_estandar",
+      descripcion: condicionante.descripcion || "",
+      activo_por_defecto: condicionante.activo_por_defecto ?? true,
+    });
+    setEditing(false);
+  }, [condicionante]);
 
   async function update(patch) {
     setBusy(true);
@@ -137,6 +233,18 @@ function CondicionanteCard({ condicionante, materiales, onReload }) {
     } finally {
       setBusy(false);
     }
+  }
+
+  async function saveEdit() {
+    if (!draft.nombre.trim() || busy) return;
+    await update({
+      modelo: draft.modelo,
+      nombre: draft.nombre,
+      tipo: draft.tipo,
+      descripcion: draft.descripcion,
+      activo_por_defecto: draft.activo_por_defecto,
+    });
+    setEditing(false);
   }
 
   async function remove() {
@@ -163,8 +271,9 @@ function CondicionanteCard({ condicionante, materiales, onReload }) {
   return (
     <section style={{ border: `1px solid ${C.b0}`, background: C.s0, borderRadius: 14, overflow: "hidden" }}>
       <div style={{ padding: 13, borderBottom: `1px solid ${C.b0}`, display: "flex", gap: 10, alignItems: "flex-start", justifyContent: "space-between", flexWrap: "wrap" }}>
-        <div style={{ minWidth: 0 }}>
+        <div style={{ minWidth: 0, flex: "1 1 360px" }}>
           <div style={{ display: "flex", gap: 8, alignItems: "center", flexWrap: "wrap" }}>
+            <span style={{ fontSize: 10.5, color: C.violet, border: `1px solid ${C.violet}55`, background: `${C.violet}14`, borderRadius: 999, padding: "2px 7px", fontWeight: 900 }}>K{condicionante.modelo}</span>
             <div style={{ fontSize: 15, fontWeight: 950, color: C.t0 }}>{condicionante.nombre}</div>
             <span style={{ fontSize: 10.5, color: C.blue, border: `1px solid ${C.blueB}`, background: C.blueL, borderRadius: 999, padding: "2px 7px", fontWeight: 900 }}>{tipoLabel(condicionante.tipo)}</span>
             <span style={{ fontSize: 10.5, color: condicionante.activo_por_defecto ? C.green : C.amber, border: `1px solid ${condicionante.activo_por_defecto ? C.greenB : C.amberB}`, background: condicionante.activo_por_defecto ? C.greenL : C.amberL, borderRadius: 999, padding: "2px 7px", fontWeight: 900 }}>
@@ -172,14 +281,46 @@ function CondicionanteCard({ condicionante, materiales, onReload }) {
             </span>
           </div>
           {condicionante.descripcion && <div style={{ color: C.t2, fontSize: 12, marginTop: 5, lineHeight: 1.4 }}>{condicionante.descripcion}</div>}
+          {editing ? (
+            <div style={{ marginTop: 10, display: "grid", gridTemplateColumns: "90px minmax(190px, 1fr) minmax(150px, .65fr)", gap: 8 }}>
+              <select value={draft.modelo} onChange={(event) => setDraft((prev) => ({ ...prev, modelo: event.target.value }))} style={{ ...INP, height: 34 }}>
+                {modelos.map((modelo) => <option key={modelo} value={modelo}>K{modelo}</option>)}
+              </select>
+              <input value={draft.nombre} onChange={(event) => setDraft((prev) => ({ ...prev, nombre: event.target.value }))} placeholder="Nombre del condicionante" style={{ ...INP, height: 34 }} />
+              <select value={draft.tipo} onChange={(event) => setDraft((prev) => ({ ...prev, tipo: event.target.value }))} style={{ ...INP, height: 34 }}>
+                {TIPOS.map(([key, label]) => <option key={key} value={key}>{label}</option>)}
+              </select>
+              <input value={draft.descripcion} onChange={(event) => setDraft((prev) => ({ ...prev, descripcion: event.target.value }))} placeholder="Detalle / cuando aplica" style={{ ...INP, height: 34, gridColumn: "1 / -1" }} />
+              <label style={{ display: "inline-flex", gap: 7, alignItems: "center", color: C.t1, fontSize: 12, fontWeight: 750, gridColumn: "1 / -1" }}>
+                <input type="checkbox" checked={!!draft.activo_por_defecto} onChange={(event) => setDraft((prev) => ({ ...prev, activo_por_defecto: event.target.checked }))} />
+                Activo por defecto en esta linea
+              </label>
+            </div>
+          ) : null}
         </div>
         <div style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>
-          <button type="button" disabled={busy} onClick={() => update({ activo_por_defecto: !condicionante.activo_por_defecto })} style={{ ...BTN, padding: "6px 9px", fontSize: 11 }}>
-            {condicionante.activo_por_defecto ? "Pasar a opcional" : "Activar por defecto"}
-          </button>
-          <button type="button" disabled={busy} onClick={remove} style={{ ...BTN, padding: "6px 8px", color: C.red }} title="Borrar">
-            <Trash2 size={13} />
-          </button>
+          {editing ? (
+            <>
+              <button type="button" disabled={busy || !draft.nombre.trim()} onClick={saveEdit} style={{ ...BTN_GREEN, padding: "6px 9px", fontSize: 11 }}>
+                <Save size={13} /> Guardar
+              </button>
+              <button type="button" disabled={busy} onClick={() => setEditing(false)} style={{ ...BTN, padding: "6px 8px" }} title="Cancelar">
+                <X size={13} />
+              </button>
+            </>
+          ) : (
+            <>
+              <button type="button" disabled={busy} onClick={() => update({ activo_por_defecto: !condicionante.activo_por_defecto })} style={{ ...BTN, padding: "6px 9px", fontSize: 11 }}>
+                {condicionante.activo_por_defecto ? "Pasar a opcional" : "Activar por defecto"}
+              </button>
+              <button type="button" disabled={busy} onClick={() => setEditing(true)} style={{ ...BTN, padding: "6px 8px", color: C.blue }} title="Editar">
+                <Pencil size={13} />
+              </button>
+              <button type="button" disabled={busy} onClick={remove} style={{ ...BTN, padding: "6px 8px", color: C.red }} title="Borrar">
+                <Trash2 size={13} />
+              </button>
+            </>
+          )}
         </div>
       </div>
 
@@ -205,13 +346,13 @@ function CondicionanteCard({ condicionante, materiales, onReload }) {
             Todavia no tiene items asociados.
           </div>
         )}
-        <CondicionanteItemForm condicionante={condicionante} materiales={materiales} onDone={onReload} />
+        <CondicionanteItemForm condicionante={condicionante} materiales={materiales} categorias={categorias} onDone={onReload} onMaterialCreated={onMaterialCreated} />
       </div>
     </section>
   );
 }
 
-export default function MatrizCondicionantesTab({ materiales = [] }) {
+export default function MatrizCondicionantesTab({ materiales = [], categorias = [], onChanged }) {
   const [modelo, setModelo] = useState("55");
   const [rows, setRows] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -298,7 +439,7 @@ export default function MatrizCondicionantesTab({ materiales = [] }) {
       ) : filtered.length ? (
         <div style={{ display: "grid", gap: 12 }}>
           {filtered.map((condicionante) => (
-            <CondicionanteCard key={condicionante.id} condicionante={condicionante} materiales={materiales} onReload={load} />
+            <CondicionanteCard key={condicionante.id} condicionante={condicionante} materiales={materiales} categorias={categorias} modelos={modelos} onReload={load} onMaterialCreated={onChanged} />
           ))}
         </div>
       ) : (
