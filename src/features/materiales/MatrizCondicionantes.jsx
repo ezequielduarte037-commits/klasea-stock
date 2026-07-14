@@ -174,6 +174,28 @@ function CondicionanteItemForm({ condicionante, materiales, categorias = [], onD
             </div>
           )}
         </div>
+        <div style={{ display: "flex", gap: 8, alignItems: "center", flexWrap: "wrap", border: `1px solid ${draft.material_id ? C.greenB : C.b0}`, background: draft.material_id ? C.greenL : C.s0, borderRadius: 10, padding: "8px 9px" }}>
+          {draft.material_id ? (
+            <span style={{ fontSize: 12, color: C.green, fontWeight: 850 }}>Item vinculado al catalogo completo.</span>
+          ) : (
+            <>
+              <span style={{ fontSize: 12, color: C.t2, fontWeight: 750 }}>No existe en catalogo?</span>
+              <select value={categoriaId} onChange={(event) => setCategoriaId(event.target.value)} style={{ ...INP, flex: "0 1 240px", minWidth: 180, height: 34 }}>
+                <option value="">Rubro para catalogo</option>
+                {categorias.map((categoria) => <option key={categoria.id} value={categoria.id}>{categoria.nombre}</option>)}
+              </select>
+              <button
+                type="button"
+                onClick={createCatalogOnly}
+                disabled={creatingMaterial || !categoriaId || !(draft.descripcion || q).trim()}
+                style={{ ...BTN, padding: "7px 10px", color: C.blue, opacity: creatingMaterial || !categoriaId || !(draft.descripcion || q).trim() ? 0.6 : 1 }}
+              >
+                <Plus size={13} /> {creatingMaterial ? "Creando..." : "Crear en catalogo completo"}
+              </button>
+              <span style={{ fontSize: 11, color: C.t2 }}>Se crea sin cantidad de matriz; la cantidad va aca abajo.</span>
+            </>
+          )}
+        </div>
         <div style={{ display: "flex", gap: 8, alignItems: "center", flexWrap: "wrap" }}>
           <input value={draft.cantidad} onChange={(event) => setDraft((prev) => ({ ...prev, cantidad: event.target.value }))} placeholder="Cant." style={{ ...INP, width: 110, height: 38, fontFamily: C.mono }} />
           <input value={draft.unidad} onChange={(event) => setDraft((prev) => ({ ...prev, unidad: event.target.value }))} placeholder="Unidad" style={{ ...INP, width: 140, height: 38 }} />
@@ -186,18 +208,6 @@ function CondicionanteItemForm({ condicionante, materiales, categorias = [], onD
         </div>
       </div>
       <input value={draft.notas} onChange={(event) => setDraft((prev) => ({ ...prev, notas: event.target.value }))} placeholder="Ej: si hay vestidor suma 9 bisagras sobre la base" style={{ ...INP, width: "100%" }} />
-      {(draft.descripcion || q).trim() && !draft.material_id ? (
-        <div style={{ display: "flex", gap: 8, alignItems: "center", flexWrap: "wrap" }}>
-          <select value={categoriaId} onChange={(event) => setCategoriaId(event.target.value)} style={{ ...INP, width: 220, height: 34 }}>
-            <option value="">Rubro para catalogo</option>
-            {categorias.map((categoria) => <option key={categoria.id} value={categoria.id}>{categoria.nombre}</option>)}
-          </select>
-          <button type="button" onClick={createCatalogOnly} disabled={creatingMaterial || !categoriaId} style={{ ...BTN, padding: "7px 10px", color: C.blue, opacity: creatingMaterial || !categoriaId ? 0.6 : 1 }}>
-            <Plus size={13} /> {creatingMaterial ? "Creando..." : "Crear item en catalogo sin matriz"}
-          </button>
-          <span style={{ fontSize: 11, color: C.t2 }}>Despues cargale la cantidad en este condicionante.</span>
-        </div>
-      ) : null}
       {error && <div style={{ color: C.red, fontSize: 12 }}>{error}</div>}
     </div>
   );

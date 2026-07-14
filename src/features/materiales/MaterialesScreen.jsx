@@ -1622,8 +1622,8 @@ function AltaManual({ categorias, selectedId, ums, proveedores, onCreated }) {
   const [err, setErr] = useState(null);
 
   useEffect(() => {
-    setDraft((d) => ({ ...d, categoria_id: d.categoria_id || selectedId }));
-  }, [selectedId]);
+    setDraft((d) => ({ ...d, categoria_id: d.categoria_id || selectedId || categorias[0]?.id || "" }));
+  }, [selectedId, categorias]);
 
   async function submit(e) {
     e.preventDefault();
@@ -1654,7 +1654,7 @@ function AltaManual({ categorias, selectedId, ums, proveedores, onCreated }) {
   if (!open) {
     return (
       <button type="button" onClick={() => setOpen(true)} style={{ ...BTN_PRIMARY, marginBottom: 12 }}>
-        <PackagePlus size={14} /> Alta manual
+        <PackagePlus size={14} /> Crear item en catalogo
       </button>
     );
   }
@@ -7292,17 +7292,20 @@ function MatrizTab({ categorias, materiales, proveedores, obras = [], onChanged 
         {modo === "duplicados" ? (
           <DuplicadosCatalogo groups={duplicateGroups} cleanupCandidates={cleanupCandidates} categorias={categorias} ums={ums} proveedores={proveedores} onChanged={onChanged} />
         ) : (
-          <ListaMateriales
-            categorias={categorias}
-            materiales={materialesCatalogo}
-            selectedId={sel}
-            ums={ums}
-            proveedores={proveedores}
-            obras={obras}
-            onChanged={onChanged}
-            defaultSoloPendientes={false}
-            compact
-          />
+          <>
+            <AltaManual categorias={categorias} selectedId={sel || categorias[0]?.id || ""} ums={ums} proveedores={proveedores} onCreated={onChanged} />
+            <ListaMateriales
+              categorias={categorias}
+              materiales={materialesCatalogo}
+              selectedId={sel}
+              ums={ums}
+              proveedores={proveedores}
+              obras={obras}
+              onChanged={onChanged}
+              defaultSoloPendientes={false}
+              compact
+            />
+          </>
         )}
       </div>
     </div>
