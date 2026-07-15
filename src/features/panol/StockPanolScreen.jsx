@@ -9,6 +9,7 @@ import MapaPanolTab from "@/features/panol/MapaPanolTab";
 import { fetchMaterialesEgreso, fetchObrasEgreso } from "@/features/panol/panolApi";
 import { fmtDate, rowMovementAt, rowIsAnulado } from "@/features/panol/panolMovimientos";
 import { MODELOS, norm } from "@/features/materiales/materialesParser";
+import { hasAdminAccess } from "@/lib/permissions";
 
 const GLASS = {
   backdropFilter: "var(--glass-filter)",
@@ -473,7 +474,7 @@ export default function StockPanolScreen({ profile, signOut, embedded = false, m
   const toast = useToast();
 
   const role = profile?.role;
-  const isAdmin = !!profile?.is_admin || role === "admin";
+  const isAdmin = hasAdminAccess(profile);
   const isManager = isAdmin || role === "compras";
   const userSede = profile?.sede || null;
   const sedeLocked = role === "panol" && (userSede === "Pampa" || userSede === "Chubut") ? userSede : null;

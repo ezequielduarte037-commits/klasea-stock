@@ -27,6 +27,7 @@ import CrearProductoTab from "@/features/panol/CrearProductoTab";
 import { leerIngresosPendientes, borrarIngresoPendiente } from "@/features/panol/ingresosPendientes";
 import StockWmsPanel from "@/features/panol/StockWmsPanel";
 import StockPanolScreen from "@/features/panol/StockPanolScreen";
+import { hasAdminAccess } from "@/lib/permissions";
 
 const GLASS = {
   backdropFilter: "var(--glass-filter)",
@@ -2089,7 +2090,7 @@ export default function RecepcionPanolScreen({ profile, signOut }) {
 
 
   const role = profile?.role;
-  const isAdmin = !!profile?.is_admin || role === "admin";
+  const isAdmin = hasAdminAccess(profile);
   const isManager = isAdmin || role === "compras";
   const userSede = profile?.sede || null;
   const sedeLocked = role === "panol" && (userSede === "Pampa" || userSede === "Chubut") ? userSede : null;

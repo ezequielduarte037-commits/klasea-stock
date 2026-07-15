@@ -1,10 +1,8 @@
-import { createElement, useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
   AlertTriangle,
   ArrowUpRight,
-  Inbox,
   MapPin,
-  PackageCheck,
   PackagePlus,
   RefreshCw,
   ScanLine,
@@ -449,12 +447,12 @@ function sortProductGroups(groups, orderBy) {
 
 function SelectFilter({ label, value, onChange, options }) {
   return (
-    <label style={{ display: "grid", gap: 4, minWidth: 128 }}>
+    <label style={{ display: "grid", gap: 4, minWidth: 112, flex: "1 1 132px", maxWidth: 220 }}>
       <span style={{ color: C.dim, fontSize: 10, fontWeight: 850, letterSpacing: 1, textTransform: "uppercase" }}>{label}</span>
       <select
         value={value}
         onChange={(event) => onChange(event.target.value)}
-        style={{ background: C.panelSolid, border: `1px solid ${C.border}`, color: C.text, borderRadius: 9, padding: "8px 10px", fontSize: 12, fontWeight: 750, fontFamily: C.sans, outline: "none" }}
+        style={{ width: "100%", minWidth: 0, background: C.panelSolid, border: `1px solid ${C.border}`, color: C.text, borderRadius: 9, padding: "8px 10px", fontSize: 12, fontWeight: 750, fontFamily: C.sans, outline: "none" }}
       >
         {options.map(([key, text]) => <option key={key} value={key}>{text}</option>)}
       </select>
@@ -462,39 +460,26 @@ function SelectFilter({ label, value, onChange, options }) {
   );
 }
 
-function KpiCard({ icon, label, value, detail, color }) {
-  return (
-    <div style={{ border: `1px solid ${C.border}`, background: C.panelSolid, borderRadius: 10, padding: "11px 12px", display: "flex", alignItems: "center", gap: 10, minWidth: 0 }}>
-      <div style={{ width: 30, height: 30, borderRadius: 8, display: "grid", placeItems: "center", color, background: `${color}14`, border: `1px solid ${color}33`, flexShrink: 0 }}>
-        {createElement(icon, { size: 15 })}
-      </div>
-      <div style={{ minWidth: 0 }}>
-        <div style={{ color, fontFamily: C.mono, fontSize: 18, fontWeight: 950, lineHeight: 1 }}>{value}</div>
-        <div style={{ color: C.text, fontSize: 12, fontWeight: 900, marginTop: 4 }}>{label}</div>
-        <div style={{ color: C.dim, fontSize: 11, marginTop: 2, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{detail}</div>
-      </div>
-    </div>
-  );
-}
-
-function StateChip({ negative, catalogOnly = false, transit = false, egresado = false }) {
+function StateChip({ negative, catalogOnly = false, transit = false, egresado = false, compact = false }) {
+  if (compact && !egresado && !transit && !catalogOnly && !negative) return null;
   const color = egresado ? C.red : transit ? C.amber : catalogOnly ? C.amber : negative ? C.red : C.green;
   const border = egresado ? C.redB : transit ? C.amberB : catalogOnly ? C.amberB : negative ? C.redB : C.greenB;
   const background = egresado ? C.redL : transit ? C.amberL : catalogOnly ? C.amberL : negative ? C.redL : C.greenL;
+  const label = egresado ? "Egresado" : transit ? "Por recibir" : catalogOnly ? "Sin registro" : negative ? "A reconciliar" : "Disponible";
   return (
     <span style={{
       color,
       border: `1px solid ${border}`,
       background,
       borderRadius: 999,
-      padding: "3px 8px",
-      fontSize: 10,
+      padding: compact ? "2px 7px" : "3px 8px",
+      fontSize: compact ? 9.5 : 10,
       fontWeight: 950,
       textTransform: "uppercase",
-      letterSpacing: 0.6,
+      letterSpacing: compact ? 0.35 : 0.6,
       whiteSpace: "nowrap",
     }}>
-      {egresado ? "Egresado" : transit ? "Por recibir" : catalogOnly ? "Sin registro digital" : negative ? "A reconciliar" : "Disponible"}
+      {label}
     </span>
   );
 }
@@ -531,8 +516,9 @@ function groupAsignaciones(group) {
 }
 
 // Chip que muestra a qué obra(s) está asignado el stock (reemplaza al confuso "Estándar").
-function AsignadoChip({ asignaciones = [] }) {
+function AsignadoChip({ asignaciones = [], compact = false }) {
   if (!asignaciones.length) return null;
+  if (compact) return null;
   const label = asignaciones.length === 1
     ? `Asignado · ${asignaciones[0].label}`
     : `Asignado · ${asignaciones.length} obras`;
@@ -587,7 +573,7 @@ function ProductCard({ group, active, onOpen, canSeePrices = true, onAddToCart, 
         border: `1px solid ${active ? C.blueB : group.negativo ? C.redB : C.border}`,
         background: active ? C.blueL : group.negativo ? C.redL : C.panelSolid,
         borderRadius: 11,
-        padding: "12px 13px",
+        padding: "9px 10px",
         cursor: "pointer",
         color: C.text,
         textAlign: "left",
@@ -596,17 +582,17 @@ function ProductCard({ group, active, onOpen, canSeePrices = true, onAddToCart, 
     >
       {/* Fila 1: nombre completo (hasta 2 líneas) + disponible */}
       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", gap: 12 }}>
-        <span style={{ flex: 1, minWidth: 0, color: C.text, fontSize: 14, fontWeight: 900, lineHeight: 1.3, display: "-webkit-box", WebkitLineClamp: 2, WebkitBoxOrient: "vertical", overflow: "hidden" }}>{group.label}</span>
+        <span style={{ flex: 1, minWidth: 0, color: C.text, fontSize: 13, fontWeight: 900, lineHeight: 1.25, display: "-webkit-box", WebkitLineClamp: active ? 2 : 1, WebkitBoxOrient: "vertical", overflow: "hidden" }}>{group.label}</span>
         <div style={{ display: "grid", justifyItems: "end", gap: 1, flexShrink: 0 }}>
-          <span style={{ color: qtyColor, fontFamily: C.mono, fontSize: 20, fontWeight: 950, lineHeight: 1 }}>{fmtQty(group.total)}</span>
-          <span style={{ color: C.dim, fontSize: 8.5, fontWeight: 850, textTransform: "uppercase", letterSpacing: 0.6 }}>disponible</span>
+          <span style={{ color: qtyColor, fontFamily: C.mono, fontSize: 17, fontWeight: 950, lineHeight: 1 }}>{fmtQty(group.total)}</span>
+          <span style={{ color: C.dim, fontSize: 8, fontWeight: 850, textTransform: "uppercase", letterSpacing: 0.5 }}>{group.unidad || "u"}</span>
         </div>
       </div>
       {/* Fila 2: badges + ubicación / sin ubicación */}
       <div style={{ display: "flex", gap: 6, flexWrap: "wrap", alignItems: "center" }}>
         <KindChip tipo={group.tipoPedido} />
-        <AsignadoChip asignaciones={groupAsignaciones(group)} />
-        <StateChip egresado={group.egresado} transit={group.inTransit} catalogOnly={group.catalogOnly} negative={group.negativo} />
+        <AsignadoChip asignaciones={groupAsignaciones(group)} compact />
+        <StateChip egresado={group.egresado} transit={group.inTransit} catalogOnly={group.catalogOnly} negative={group.negativo} compact />
         {sinUbicacion ? (
           <span style={{ display: "inline-flex", alignItems: "center", gap: 4, color: C.amber, background: C.amberL, border: `1px solid ${C.amberB}`, borderRadius: 999, padding: "3px 9px", fontSize: 10, fontWeight: 900 }}>
             <MapPin size={11} /> Sin ubicación
@@ -616,7 +602,7 @@ function ProductCard({ group, active, onOpen, canSeePrices = true, onAddToCart, 
         )}
       </div>
       {/* Variantes del producto (resaltadas las que están en stock) */}
-      {group.variantes?.length > 0 && (
+      {active && group.variantes?.length > 0 && (
         <div style={{ display: "flex", gap: 5, flexWrap: "wrap", alignItems: "center" }}>
           <span style={{ fontSize: 8.5, color: C.dim, fontWeight: 850, textTransform: "uppercase", letterSpacing: 0.6 }}>Variantes</span>
           {group.variantes.slice(0, 8).map((v) => {
@@ -633,12 +619,12 @@ function ProductCard({ group, active, onOpen, canSeePrices = true, onAddToCart, 
         {canSeePrices && group.valueUsd > 0 ? ` · USD ${fmtQty(group.valueUsd)}` : ""}
       </div>
       {/* Fila 4: depósito / obra */}
-      <div style={{ display: "flex", alignItems: "center", gap: 6, minWidth: 0 }}>
+      {active && <div style={{ display: "flex", alignItems: "center", gap: 6, minWidth: 0 }}>
         <span style={{ color: C.dim, fontSize: 8.5, fontWeight: 900, textTransform: "uppercase", letterSpacing: 0.7, flexShrink: 0 }}>Depósito/obra</span>
         <span style={{ minWidth: 0, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", fontSize: 11, fontWeight: 700, color: group.egresado || group.negativo ? C.red : C.t1 }}>
           {stockDetail}{group.locations.length > 4 ? ` · +${group.locations.length - 4}` : ""}
         </span>
-      </div>
+      </div>}
       {/* Quick-add al carrito (solo en modo egreso) */}
       {onAddToCart && group.total > 0.0001 && (
         <span
@@ -647,9 +633,9 @@ function ProductCard({ group, active, onOpen, canSeePrices = true, onAddToCart, 
           onClick={(e) => { e.stopPropagation(); onAddToCart(group); }}
           onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); e.stopPropagation(); onAddToCart(group); } }}
           style={{
-            marginTop: 2, display: "inline-flex", alignItems: "center", justifyContent: "center", gap: 6,
+            marginTop: 1, display: "inline-flex", alignItems: "center", justifyContent: "center", gap: 6,
             border: `1px solid ${inCart ? C.greenB : C.blueB}`, background: inCart ? C.greenL : C.blueL,
-            color: inCart ? C.green : C.blue, borderRadius: 9, padding: "8px 10px", fontSize: 12, fontWeight: 950, cursor: "pointer",
+            color: inCart ? C.green : C.blue, borderRadius: 9, padding: "6px 9px", fontSize: 11.5, fontWeight: 950, cursor: "pointer",
           }}
         >
           {inCart ? "✓ En carrito · sumar más" : "+ Agregar al carrito"}
@@ -759,7 +745,7 @@ function EgresosHistoryView({ rows, loading, obras, isMobile, onOpenProduct }) {
   }
 
   return (
-    <section style={{ minHeight: 0, border: `1px solid ${C.border}`, background: C.panel, borderRadius: 12, overflow: "hidden", display: "flex", flexDirection: "column" }}>
+    <section style={{ minHeight: 0, minWidth: 0, border: `1px solid ${C.border}`, background: C.panel, borderRadius: 12, overflow: "hidden", display: "flex", flexDirection: "column" }}>
       <div style={{ padding: "13px 14px", borderBottom: `1px solid ${C.border}`, background: C.panelSolid, display: "flex", alignItems: "center", justifyContent: "space-between", gap: 12, flexWrap: "wrap" }}>
         <div>
           <div style={{ color: C.text, fontSize: 15, fontWeight: 950 }}>Historial de egresos</div>
@@ -1218,7 +1204,11 @@ function ProductActionPanel({ group, selectedLocation, setSelectedLocationKey, o
   }
 
   return (
-    <div style={{ border: `1px solid ${C.border}`, background: C.panelSolid, borderRadius: 12, padding: 12, display: "grid", gap: 10 }}>
+    <div style={{ border: `1px solid ${action === "egresar" ? C.greenB : C.border}`, background: C.panelSolid, borderRadius: 12, padding: 13, display: "grid", gap: 11 }}>
+      <div>
+        <div style={{ color: C.text, fontSize: 14, fontWeight: 950 }}>{action === "egresar" ? "Egresar material" : action === "ingresar" ? "Ingresar ajuste" : "Asignar stock"}</div>
+        <div style={{ color: C.dim, fontSize: 11.5, marginTop: 2 }}>{action === "egresar" ? "Cantidad, destino y receptor en un solo paso." : "Movimiento registrado en kardex."}</div>
+      </div>
       {isCatalogOnly && (
         <div style={{ color: C.amber, fontSize: 11, lineHeight: 1.35 }}>Sin registro digital: el egreso queda negativo a reconciliar.</div>
       )}
@@ -1288,8 +1278,8 @@ function ProductActionPanel({ group, selectedLocation, setSelectedLocationKey, o
       )}
 
       <label style={{ display: "grid", gap: 5 }}>
-        <span style={{ color: C.dim, fontSize: 10, fontWeight: 850, textTransform: "uppercase", letterSpacing: 1 }}>Cantidad</span>
-        <input type="number" min="0.01" step="any" value={cantidad} onChange={(event) => setCantidad(event.target.value)} style={{ background: C.bg, border: `1px solid ${willGoNegative ? C.redB : C.border}`, color: C.text, borderRadius: 9, padding: "9px 10px", fontSize: 13, fontFamily: C.mono, outline: "none" }} />
+        <span style={{ color: C.text, fontSize: 10.5, fontWeight: 950, textTransform: "uppercase", letterSpacing: 0.9 }}>Cantidad</span>
+        <input type="number" min="0.01" step="any" value={cantidad} onChange={(event) => setCantidad(event.target.value)} style={{ background: C.bg, border: `1px solid ${willGoNegative ? C.redB : C.border}`, color: C.text, borderRadius: 9, padding: "10px 11px", fontSize: 16, fontWeight: 900, fontFamily: C.mono, outline: "none" }} />
       </label>
 
       {transitOnly && (
@@ -1329,7 +1319,7 @@ function ProductActionPanel({ group, selectedLocation, setSelectedLocationKey, o
       {(() => {
         const disabled = saving || !canReceive || cantidadNum <= 0 || transitOnly || (action === "asignar" && !destinoObraId);
         return (
-          <button type="button" onClick={submit} disabled={disabled} style={{ display: "inline-flex", alignItems: "center", justifyContent: "center", gap: 7, border: `1px solid ${action === "egresar" ? C.greenB : C.blueB}`, background: action === "egresar" ? C.greenL : C.blueL, color: action === "egresar" ? C.green : C.blue, borderRadius: 10, padding: "10px 12px", fontSize: 13, fontWeight: 950, cursor: disabled ? "default" : "pointer", opacity: disabled ? 0.6 : 1, fontFamily: C.sans }}>
+          <button type="button" onClick={submit} disabled={disabled} style={{ display: "inline-flex", alignItems: "center", justifyContent: "center", gap: 8, border: `1px solid ${action === "egresar" ? C.greenB : C.blueB}`, background: action === "egresar" ? C.greenL : C.blueL, color: action === "egresar" ? C.green : C.blue, borderRadius: 10, padding: "12px 13px", fontSize: 14, fontWeight: 950, cursor: disabled ? "default" : "pointer", opacity: disabled ? 0.6 : 1, fontFamily: C.sans }}>
             {action === "egresar" ? <ArrowUpRight size={15} /> : <PackagePlus size={15} />}
             {saving ? "Registrando..." : action === "egresar" ? "Confirmar egreso" : action === "ingresar" ? "Confirmar ingreso" : destinoObraId === "__stock__" ? "Pasar a stock" : originIsObra ? "Confirmar reasignación" : "Confirmar asignación"}
           </button>
@@ -1355,7 +1345,7 @@ function ProductDetail({ group, isMobile, obras, sedeLocked, canReceive, mode, o
   if (!group) {
     if (mode === "egreso") {
       return (
-        <section style={{ minHeight: 0, border: `1px solid ${C.border}`, background: C.panel, borderRadius: 12, overflow: "hidden", display: "flex", flexDirection: "column" }}>
+        <section style={{ minHeight: 0, minWidth: 0, border: `1px solid ${C.border}`, background: C.panel, borderRadius: 12, overflow: "hidden", display: "flex", flexDirection: "column" }}>
           <div style={{ padding: "13px 14px", borderBottom: `1px solid ${C.border}`, background: C.panelSolid }}>
             <div style={{ color: C.text, fontSize: 17, fontWeight: 950 }}>Egreso multiple</div>
             <div style={{ color: C.dim, fontSize: 11, marginTop: 3 }}>Busca productos a la izquierda y agregalos a esta lista.</div>
@@ -1377,7 +1367,7 @@ function ProductDetail({ group, isMobile, obras, sedeLocked, canReceive, mode, o
       );
     }
     return (
-      <section style={{ minHeight: 0, border: `1px solid ${C.border}`, background: C.panel, borderRadius: 12, overflow: "hidden", display: "grid", placeItems: "center", padding: 24 }}>
+      <section style={{ minHeight: 0, minWidth: 0, border: `1px solid ${C.border}`, background: C.panel, borderRadius: 12, overflow: "hidden", display: "grid", placeItems: "center", padding: 24 }}>
         <div style={{ textAlign: "center", maxWidth: 360 }}>
           <Warehouse size={36} style={{ color: C.blue, marginBottom: 10 }} />
           <div style={{ color: C.text, fontSize: 17, fontWeight: 950 }}>Elegí un producto</div>
@@ -1556,7 +1546,7 @@ function ProductDetail({ group, isMobile, obras, sedeLocked, canReceive, mode, o
     ? (detBarcode ? `${group.codigo} · CB ${detBarcode}` : group.codigo)
     : (detBarcode ? `CB ${detBarcode}` : "sin código");
   return (
-    <section style={{ minHeight: 0, border: `1px solid ${C.border}`, background: C.panel, borderRadius: 12, overflow: "hidden", display: "flex", flexDirection: "column" }}>
+    <section style={{ minHeight: 0, minWidth: 0, border: `1px solid ${C.border}`, background: C.panel, borderRadius: 12, overflow: "hidden", display: "flex", flexDirection: "column" }}>
       <div style={{ padding: "13px 14px", borderBottom: `1px solid ${C.border}`, background: C.panelSolid, display: "flex", justifyContent: "space-between", gap: 10, alignItems: "flex-start" }}>
         <div style={{ minWidth: 0 }}>
           <div style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
@@ -1577,7 +1567,7 @@ function ProductDetail({ group, isMobile, obras, sedeLocked, canReceive, mode, o
             </div>
           )}
         </div>
-        {isMobile && <button type="button" onClick={() => setSelectedKey(null)} style={{ border: `1px solid ${C.border}`, background: C.panel, color: C.text, borderRadius: 8, padding: "7px 9px", fontSize: 12, fontWeight: 850 }}>Lista</button>}
+        <button type="button" onClick={() => setSelectedKey(null)} style={{ border: `1px solid ${C.border}`, background: C.panel, color: C.text, borderRadius: 8, padding: "7px 9px", fontSize: 12, fontWeight: 850, cursor: "pointer", flexShrink: 0 }}>{isMobile ? "Lista" : "Cerrar"}</button>
       </div>
 
       <div style={{ flex: 1, minHeight: 0, overflowY: "auto", padding: 12, display: "grid", gap: 12, alignContent: "start" }}>
@@ -1918,6 +1908,7 @@ export default function StockWmsPanel({ sedeLocked = null, isMobile = false, toa
     () => productGroups.find((group) => group.key === selectedKey) || null,
     [productGroups, selectedKey],
   );
+  const hasSelectedProduct = !!selectedGroup;
 
   useEffect(() => {
     if (selectedKey && !productGroups.some((group) => group.key === selectedKey)) setSelectedKey(null);
@@ -2097,6 +2088,9 @@ export default function StockWmsPanel({ sedeLocked = null, isMobile = false, toa
               ))}
             </div>
           )}
+        </div>
+
+        <div style={{ display: "flex", gap: 8, alignItems: "flex-end", flexWrap: "wrap", minWidth: 0 }}>
           <SelectFilter label="Vista" value={scope} onChange={setScope} options={[["todos", "Todos"], ["negativos", "A reconciliar"], ["sin_ubicacion", `Sin ubicación${kpis.sinUbicacion ? ` (${kpis.sinUbicacion})` : ""}`]]} />
           <SelectFilter label="Orden" value={orderBy} onChange={setOrderBy} options={[["default", "Stock primero"], ["recientes", "Mas recientes"]]} />
           <SelectFilter label="Tipo" value={kindScope} onChange={setKindScope} options={[["todos", `Todos (${kindCounts.todos})`], ["stock", `Stock pañol (${kindCounts.stock})`], ["estandar", `Asignado a obra (${kindCounts.estandar})`], ["adicional", `Adicionales (${kindCounts.adicional})`]]} />
@@ -2108,15 +2102,6 @@ export default function StockWmsPanel({ sedeLocked = null, isMobile = false, toa
           </button>
         </div>
 
-        <div style={{ display: "grid", gridTemplateColumns: isMobile ? "1fr 1fr" : "repeat(auto-fit, minmax(140px, 1fr))", gap: 8 }}>
-          <KpiCard icon={Warehouse} label="Productos en stock" value={kpis.productos} detail="saldo positivo" color={C.blue} />
-          <KpiCard icon={PackageCheck} label="Unidades totales" value={kpis.unidades} detail="ingresos menos egresos" color={C.green} />
-          <KpiCard icon={AlertTriangle} label="A reconciliar" value={kpis.negativos} detail="productos con negativo" color={kpis.negativos ? C.red : C.dim} />
-          <KpiCard icon={MapPin} label="Sin ubicación" value={kpis.sinUbicacion} detail="hay que ubicarlos" color={kpis.sinUbicacion ? C.amber : C.dim} />
-          <KpiCard icon={Inbox} label="Por recibir" value={kpis.transito} detail="no cuenta como stock" color={C.amber} />
-          {canSeePrices && <KpiCard icon={PackagePlus} label="Valor stock USD" value={kpis.valorUsd} detail="solo precios USD" color={C.green} />}
-          <KpiCard icon={Inbox} label="Movimientos hoy" value={kpis.hoy} detail={sedeLocked || (fSede === "todas" ? "todas las sedes" : fSede)} color={C.violet} />
-        </div>
       </div>
 
       {canShowHistory && egresoView === "historial" ? (
@@ -2124,15 +2109,15 @@ export default function StockWmsPanel({ sedeLocked = null, isMobile = false, toa
           <EgresosHistoryView rows={historyRows} loading={loading} obras={obras} isMobile={isMobile} onOpenProduct={openProductFromHistory} />
         </div>
       ) : (
-      <div style={{ flex: 1, minHeight: 0, overflow: "hidden", padding: isMobile ? 12 : "14px 18px 18px", display: "grid", gridTemplateColumns: isMobile ? "1fr" : "minmax(360px, 480px) minmax(420px, 1fr)", gap: 12 }}>
-        <section style={{ minHeight: 0, border: `1px solid ${C.border}`, background: C.panel, borderRadius: 12, overflow: "hidden", display: "flex", flexDirection: "column" }}>
-          <div style={{ padding: "13px 14px", borderBottom: `1px solid ${C.border}`, background: C.panelSolid, display: "flex", alignItems: "center", justifyContent: "space-between", gap: 10 }}>
+      <div style={{ flex: 1, minHeight: 0, overflow: "hidden", padding: isMobile ? 12 : "12px 16px 16px", display: "grid", gridTemplateColumns: isMobile || !hasSelectedProduct ? "1fr" : "minmax(280px, 360px) minmax(0, 1fr)", gap: 12 }}>
+        <section style={{ minHeight: 0, minWidth: 0, border: `1px solid ${C.border}`, background: C.panel, borderRadius: 12, overflow: "hidden", display: "flex", flexDirection: "column" }}>
+          <div style={{ padding: "10px 12px", borderBottom: `1px solid ${C.border}`, background: C.panelSolid, display: "flex", alignItems: "center", justifyContent: "space-between", gap: 10 }}>
             <div>
-              <div style={{ color: C.text, fontSize: 14, fontWeight: 950 }}>{mode === "egreso" ? "Egreso sobre stock real" : "Stock maestro"}</div>
-              <div style={{ color: C.dim, fontSize: 11, marginTop: 2 }}>{productGroups.length} productos visibles · stock cargado calculado por kardex</div>
+              <div style={{ color: C.text, fontSize: 14, fontWeight: 950 }}>{mode === "egreso" ? "Elegir material para egresar" : "Stock maestro"}</div>
+              <div style={{ color: C.dim, fontSize: 11, marginTop: 2 }}>{productGroups.length} productos visibles · click en un item para abrir egreso y kardex</div>
             </div>
           </div>
-          <div style={{ padding: 8, display: "grid", gap: 7, overflowY: "auto" }}>
+          <div style={{ padding: 8, display: "grid", gridTemplateColumns: !isMobile && !hasSelectedProduct ? "repeat(auto-fill, minmax(280px, 1fr))" : "1fr", gap: 7, overflowY: "auto" }}>
             {loading ? (
               <div style={{ padding: 30, textAlign: "center", color: C.dim, fontSize: 12, fontWeight: 850 }}>Cargando stock...</div>
             ) : productGroups.length ? (
@@ -2173,20 +2158,22 @@ export default function StockWmsPanel({ sedeLocked = null, isMobile = false, toa
           </div>
         </section>
 
-        <ProductDetail
-          key={selectedGroup?.key || "empty"}
-          group={selectedGroup}
-          isMobile={isMobile}
-          obras={obras}
-          sedeLocked={sedeLocked}
-          canReceive={canReceive}
-          mode={mode}
-          onDone={cargar}
-          toast={toast}
-          setSelectedKey={setSelectedKey}
-          cart={cart}
-          setCart={setCart}
-        />
+        {hasSelectedProduct && (
+          <ProductDetail
+            key={selectedGroup.key}
+            group={selectedGroup}
+            isMobile={isMobile}
+            obras={obras}
+            sedeLocked={sedeLocked}
+            canReceive={canReceive}
+            mode={mode}
+            onDone={cargar}
+            toast={toast}
+            setSelectedKey={setSelectedKey}
+            cart={cart}
+            setCart={setCart}
+          />
+        )}
       </div>
       )}
     </>

@@ -201,24 +201,25 @@ export default function Sidebar({ profile, signOut }) {
   }, [isMobile, menuVisible]);
 
   const role     = profile?.role ?? "invitado";
-  const isAdmin  = hasAdminAccess(profile);
+  const broadAccess = hasAdminAccess(profile);
+  const realAdmin = !!profile?.is_admin || role === "admin";
   const username = profile?.username ?? "—";
   const esPanol   = role === "panol";
   const esTecnica = role === "tecnica" || role === "oficina";
-  const esGestion = isAdmin || role === "admin" || esTecnica;
-  const esAdmin   = isAdmin || role === "admin";
+  const esGestion = broadAccess || esTecnica;
+  const esAdmin   = realAdmin;
   const esRrhh    = esAdmin || role === "rrhh" || esTecnica;
   const esCompras = role === "compras";
-  const puedeEditarPlantillas = isAdmin || role === "admin" || role === "tecnica";
+  const puedeEditarPlantillas = broadAccess || role === "tecnica";
   const puedePedirCompras = esGestion || esPanol || esCompras;
   const puedeVerMateriales = esGestion || esCompras;
-  const comprasLabel = esCompras || esAdmin ? "Gestión de Compras" : "Pedidos";
-  const comprasGroup = esCompras || esAdmin ? "Compras" : "Solicitudes";
+  const comprasLabel = esCompras || realAdmin ? "Gestión de Compras" : "Pedidos";
+  const comprasGroup = esCompras || realAdmin ? "Compras" : "Solicitudes";
   const initials  = username.split(" ").filter(Boolean).map(w => w[0]).slice(0, 2).join("").toUpperCase();
   const [comprasBadge, setComprasBadge] = useState(null);
 
   useEffect(() => {
-    if (!(esCompras || esAdmin)) {
+    if (!(esCompras || realAdmin)) {
       return undefined;
     }
     let alive = true;
@@ -248,7 +249,7 @@ export default function Sidebar({ profile, signOut }) {
       alive = false;
       window.clearInterval(intervalId);
     };
-  }, [esCompras, esAdmin]);
+  }, [esCompras, realAdmin]);
 
   // ── NAV ITEM ACTUALIZADO ──────────────────────────────────────────────────────
   const item = (href, label, c, exact = true, delay = 0, info = "", badge = null) => {
@@ -445,8 +446,8 @@ export default function Sidebar({ profile, signOut }) {
           {puedePedirCompras && <>
             {divider("compras")}
             {group(comprasGroup, SC.compras, 205)}
-            {item("/compras", comprasLabel, SC.compras, true, 215, "Solicitudes internas a compras con seguimiento y usuarios en copia.", esCompras || esAdmin ? comprasBadge : null)}
-            {(esCompras || esAdmin) && item("/semaforo", "Semáforo", SC.semaforo, true, 220, "Semáforo de producción: estado visual de avance por obra.")}
+            {item("/compras", comprasLabel, SC.compras, true, 215, "Solicitudes internas a compras con seguimiento y usuarios en copia.", esCompras || realAdmin ? comprasBadge : null)}
+            {(esCompras || realAdmin) && item("/semaforo", "Semáforo", SC.semaforo, true, 220, "Semáforo de producción: estado visual de avance por obra.")}
           </>}
 
           {(esPanol || esGestion) && <>

@@ -4391,6 +4391,7 @@ function ObraMatrizView({ obra, obras = [], linea, lineaNombre, categorias, mate
   const [exclusionBusy, setExclusionBusy] = useState("");
   const [estadoBusy, setEstadoBusy] = useState("");
   const [varianteBusy, setVarianteBusy] = useState("");
+  const [editingMaterialRowId, setEditingMaterialRowId] = useState("");
 
   const cargarAddons = useCallback(async () => {
     try {
@@ -4456,6 +4457,7 @@ function ObraMatrizView({ obra, obras = [], linea, lineaNombre, categorias, mate
     setExclusionBusy("");
     setEstadoBusy("");
     setVarianteBusy("");
+    setEditingMaterialRowId("");
   }, [obra?.id, linea]);
 
   const obrasDestinoReassign = useMemo(() => {
@@ -4606,7 +4608,10 @@ function ObraMatrizView({ obra, obras = [], linea, lineaNombre, categorias, mate
   }, [addonRows, addons]);
 
   const obraRows = useMemo(() => [...liveRows, ...addonRows], [liveRows, addonRows]);
-  const snapshotRows = useMemo(() => snapshot.map(snapshotRowToView), [snapshot]);
+  const snapshotRows = useMemo(() => snapshot
+    .map(snapshotRowToView)
+    .filter((row) => !row.materialId || !exclusionMaterialIds.has(row.materialId)),
+  [snapshot, exclusionMaterialIds]);
   const rows = useMemo(() => mergeMatrixAndSnapshotRows(obraRows, snapshotRows), [obraRows, snapshotRows]);
   const liveMergeKeys = useMemo(() => new Set(obraRows.map((row, index) => snapshotMergeKey(row, index)).filter(Boolean)), [obraRows]);
   const snapshotActivo = snapshot.length > 0;
@@ -4999,19 +5004,19 @@ function ObraMatrizView({ obra, obras = [], linea, lineaNombre, categorias, mate
   async function deleteAddonRow(addon) {
     if (!addon?.id || addonDeleteBusy) return;
     if (addon.__snapshotLocked) {
-      setFlowMsg({ type: "err", text: "Este adicional ya tiene movimiento de panol. No se borra desde materiales para no romper el kardex." });
+      setFlowMsg({ type: "err", text: "Este item ya tiene movimiento de pañol. Para moverlo o anularlo usá Stock de pañol, así no se rompe el kardex." });
       return;
     }
-    if (!window.confirm(`Borrar "${addon.descripcion || "este adicional"}" de la obra?`)) return;
+    if (!window.confirm(`Quitar "${addon.descripcion || "este adicional"}" solo de ${obra.codigo}?`)) return;
     setAddonDeleteBusy(addon.id);
     setFlowMsg(null);
     try {
       await borrarAddon(addon.id, { snapshotId: addon.__snapshotId || null });
       await Promise.all([cargarAddons(), cargarSnapshot()]);
       await onChanged?.();
-      setFlowMsg({ type: "ok", text: "Adicional borrado de la obra." });
+      setFlowMsg({ type: "ok", text: "Item quitado de esta obra." });
     } catch (e) {
-      setFlowMsg({ type: "err", text: e?.message || "No se pudo borrar el adicional." });
+      setFlowMsg({ type: "err", text: e?.message || "No se pudo quitar el item de esta obra." });
     } finally {
       setAddonDeleteBusy("");
     }
@@ -5020,18 +5025,18 @@ function ObraMatrizView({ obra, obras = [], linea, lineaNombre, categorias, mate
   async function deleteSnapshotOnlyRow(row) {
     if (!row?.snapshotId || snapshotDeleteBusy) return;
     if (snapshotLockedForAddon(row)) {
-      setFlowMsg({ type: "err", text: "Este item ya tiene compra/recepcion/panol asociado. No se puede borrar desde materiales." });
+      setFlowMsg({ type: "err", text: "Este item ya tiene compra, recepción o pañol asociado. Para corregirlo usá el flujo de pañol, así queda historial." });
       return;
     }
-    if (!window.confirm(`Quitar "${row.descripcion}" de la lista de ${obra.codigo}?`)) return;
+    if (!window.confirm(`Quitar "${row.descripcion}" solo de ${obra.codigo}?`)) return;
     setSnapshotDeleteBusy(row.snapshotId);
     setFlowMsg(null);
     try {
       await borrarObraSnapshotRows([row.snapshotId]);
       await cargarSnapshot();
-      setFlowMsg({ type: "ok", text: "Item quitado de la lista fijada de la obra." });
+      setFlowMsg({ type: "ok", text: "Item quitado de esta obra." });
     } catch (e) {
-      setFlowMsg({ type: "err", text: e?.message || "No se pudo quitar el item de la obra." });
+      setFlowMsg({ type: "err", text: e?.message || "No se pudo quitar el item de esta obra." });
     } finally {
       setSnapshotDeleteBusy("");
     }
@@ -5039,16 +5044,12 @@ function ObraMatrizView({ obra, obras = [], linea, lineaNombre, categorias, mate
 
   async function excluirRowDeObra(row) {
     if (!row?.materialId || exclusionBusy) return;
-    if (row.snapshotId && snapshotLockedForAddon(row)) {
-      setFlowMsg({ type: "err", text: "Este item ya tiene compra/recepcion/panol asociado. No se puede quitar solo desde materiales." });
-      return;
-    }
     if (!window.confirm(`Quitar "${row.descripcion}" solo de ${obra.codigo}? No se borra del catalogo ni de la matriz K${linea}.`)) return;
     setExclusionBusy(row.materialId);
     setFlowMsg(null);
     try {
       await excluirMaterialDeObra(obra.id, row.materialId, `No aplica a ${obra.codigo}`);
-      if (row.snapshotId) await borrarObraSnapshotRows([row.snapshotId]);
+      if (row.snapshotId && !snapshotLockedForAddon(row)) await borrarObraSnapshotRows([row.snapshotId]);
       await Promise.all([cargarExclusionesObra(), cargarSnapshot()]);
       setSelected((prev) => {
         const next = new Set(prev);
@@ -5261,11 +5262,12 @@ function ObraMatrizView({ obra, obras = [], linea, lineaNombre, categorias, mate
                   </button>
                   <button
                     type="button"
-                    disabled={addon.__snapshotLocked || addonDeleteBusy === addon.id}
+                    disabled={addonDeleteBusy === addon.id}
                     onClick={() => deleteAddonRow(addon)}
-                    style={{ ...BTN, padding: "6px 8px", color: addon.__snapshotLocked ? C.t3 : C.red, fontSize: 11, opacity: addon.__snapshotLocked ? 0.55 : 1 }}
+                    style={{ ...BTN, padding: "6px 8px", color: addon.__snapshotLocked ? C.t3 : C.red, fontSize: 11, opacity: addon.__snapshotLocked ? 0.8 : 1 }}
+                    title={addon.__snapshotLocked ? "Ya tiene movimiento de pañol: tocá para ver el motivo" : "Quitar solo de esta obra"}
                   >
-                    <Trash2 size={12} /> {addonDeleteBusy === addon.id ? "Borrando..." : "Borrar"}
+                    <Trash2 size={12} /> {addonDeleteBusy === addon.id ? "Quitando..." : "Quitar de esta obra"}
                   </button>
                 </div>
               </div>
@@ -5462,25 +5464,27 @@ function ObraMatrizView({ obra, obras = [], linea, lineaNombre, categorias, mate
               {group.rows.map((row) => {
                 const qty = toNum(row.cantidad) || 1;
                 const total = row.precio.amount ? row.precio.amount * qty : null;
-                const variantOptions = materialVariants(row.material || materialById.get(row.materialId));
+                const materialForRow = row.material || materialById.get(row.materialId);
+                const variantOptions = materialVariants(materialForRow);
                 const editableAddon = addonForVisibleRow(row);
                 const snapshotOnly = snapshotOnlyForRow(row);
+                const editingMaterial = editingMaterialRowId === row.id;
                 return (
-                  <div
-                    key={row.id}
-                    style={{
-                      display: "grid",
-                      gridTemplateColumns: "26px minmax(220px, 1.25fr) minmax(110px, .45fr) minmax(140px, .55fr) minmax(110px, .45fr) minmax(180px, .7fr)",
-                      gap: 10,
-                      alignItems: "center",
-                      padding: "10px 11px",
-                      border: `1px solid ${selected.has(row.id) ? C.blueB : row.review?.flag ? C.amberB : C.b0}`,
-                      borderRadius: 11,
-                      background: selected.has(row.id) ? C.blueL : row.review?.flag ? C.amberL : C.bg,
-                    }}
-                  >
-                    <input type="checkbox" checked={selected.has(row.id)} onChange={() => toggleSelected(row.id)} />
-                    <div style={{ minWidth: 0 }}>
+                  <div key={row.id} style={{ display: "grid", gap: 7 }}>
+                    <div
+                      style={{
+                        display: "grid",
+                        gridTemplateColumns: "26px minmax(220px, 1.25fr) minmax(110px, .45fr) minmax(140px, .55fr) minmax(110px, .45fr) minmax(180px, .7fr)",
+                        gap: 10,
+                        alignItems: "center",
+                        padding: "10px 11px",
+                        border: `1px solid ${selected.has(row.id) ? C.blueB : row.review?.flag ? C.amberB : C.b0}`,
+                        borderRadius: 11,
+                        background: selected.has(row.id) ? C.blueL : row.review?.flag ? C.amberL : C.bg,
+                      }}
+                    >
+                      <input type="checkbox" checked={selected.has(row.id)} onChange={() => toggleSelected(row.id)} />
+                      <div style={{ minWidth: 0 }}>
                       <div style={{ display: "flex", alignItems: "center", gap: 7, minWidth: 0, flexWrap: "wrap" }}>
                         <span style={{ fontSize: 13.5, fontWeight: 900, color: C.t0, minWidth: 0, overflow: "hidden", textOverflow: "ellipsis" }}>{row.descripcion}</span>
                         <span style={{ fontSize: 10, fontWeight: 900, color: row.bucket.color, background: `${row.bucket.color}16`, border: `1px solid ${row.bucket.color}44`, borderRadius: 999, padding: "2px 7px", whiteSpace: "nowrap" }}>
@@ -5502,12 +5506,22 @@ function ObraMatrizView({ obra, obras = [], linea, lineaNombre, categorias, mate
                         {row.source === "matriz" && row.materialId ? (
                           <button
                             type="button"
-                            disabled={exclusionBusy === row.materialId || (row.snapshotId && snapshotLockedForAddon(row))}
+                            disabled={exclusionBusy === row.materialId}
                             onClick={() => excluirRowDeObra(row)}
-                            style={{ ...BTN, padding: "3px 7px", color: row.snapshotId && snapshotLockedForAddon(row) ? C.t3 : C.red, fontSize: 10.5, opacity: row.snapshotId && snapshotLockedForAddon(row) ? 0.55 : 1 }}
-                            title={row.snapshotId && snapshotLockedForAddon(row) ? "Tiene compras/recepcion/panol asociado" : `Quitar solo de ${obra.codigo}`}
+                            style={{ ...BTN, padding: "3px 7px", color: C.red, fontSize: 10.5, opacity: exclusionBusy === row.materialId ? 0.65 : 1 }}
+                            title={`Quitar solo de ${obra.codigo}. Si tiene movimientos, se conserva el kardex.`}
                           >
                             <Trash2 size={12} /> {exclusionBusy === row.materialId ? "Quitando..." : "Quitar de esta obra"}
+                          </button>
+                        ) : null}
+                        {materialForRow && !editableAddon ? (
+                          <button
+                            type="button"
+                            onClick={() => setEditingMaterialRowId((id) => (id === row.id ? "" : row.id))}
+                            style={{ ...BTN, padding: "3px 7px", color: editingMaterial ? C.blue : C.t2, fontSize: 10.5 }}
+                            title="Editar item del catalogo completo"
+                          >
+                            <Pencil size={12} /> {editingMaterial ? "Cerrar edición" : "Editar catálogo"}
                           </button>
                         ) : null}
                         {editableAddon ? (
@@ -5534,24 +5548,24 @@ function ObraMatrizView({ obra, obras = [], linea, lineaNombre, categorias, mate
                             </button>
                             <button
                               type="button"
-                              disabled={editableAddon.__snapshotLocked || addonDeleteBusy === editableAddon.id}
+                              disabled={addonDeleteBusy === editableAddon.id}
                               onClick={() => deleteAddonRow(editableAddon)}
-                              style={{ ...BTN, padding: "3px 7px", color: editableAddon.__snapshotLocked ? C.t3 : C.red, fontSize: 10.5, opacity: editableAddon.__snapshotLocked ? 0.55 : 1 }}
-                              title={editableAddon.__snapshotLocked ? "Ya tiene movimiento de panol" : "Borrar adicional de esta obra"}
+                              style={{ ...BTN, padding: "3px 7px", color: editableAddon.__snapshotLocked ? C.t3 : C.red, fontSize: 10.5, opacity: editableAddon.__snapshotLocked ? 0.8 : 1 }}
+                              title={editableAddon.__snapshotLocked ? "Ya tiene movimiento de pañol: tocá para ver el motivo" : "Quitar solo de esta obra"}
                             >
-                              <Trash2 size={12} /> Borrar
+                              <Trash2 size={12} /> {addonDeleteBusy === editableAddon.id ? "Quitando..." : "Quitar de esta obra"}
                             </button>
                           </>
                         ) : null}
                         {snapshotOnly && !editableAddon ? (
                           <button
                             type="button"
-                            disabled={snapshotLockedForAddon(row) || snapshotDeleteBusy === row.snapshotId}
+                            disabled={snapshotDeleteBusy === row.snapshotId}
                             onClick={() => deleteSnapshotOnlyRow(row)}
-                            style={{ ...BTN, padding: "3px 7px", color: snapshotLockedForAddon(row) ? C.t3 : C.red, fontSize: 10.5, opacity: snapshotLockedForAddon(row) ? 0.55 : 1 }}
-                            title={snapshotLockedForAddon(row) ? "Tiene compras/recepcion/panol asociado" : "Quitar item viejo de esta obra"}
+                            style={{ ...BTN, padding: "3px 7px", color: snapshotLockedForAddon(row) ? C.t3 : C.red, fontSize: 10.5, opacity: snapshotLockedForAddon(row) ? 0.8 : 1 }}
+                            title={snapshotLockedForAddon(row) ? "Tiene compras/recepción/pañol asociado: tocá para ver el motivo" : "Quitar solo de esta obra"}
                           >
-                            <Trash2 size={12} /> {snapshotDeleteBusy === row.snapshotId ? "Quitando..." : "Quitar"}
+                            <Trash2 size={12} /> {snapshotDeleteBusy === row.snapshotId ? "Quitando..." : "Quitar de esta obra"}
                           </button>
                         ) : null}
                       </div>
@@ -5573,26 +5587,41 @@ function ObraMatrizView({ obra, obras = [], linea, lineaNombre, categorias, mate
                         </div>
                       ) : null}
                       <RecepcionDetalle row={row} />
+                      </div>
+                      <div>
+                        <div style={{ fontSize: 10, color: C.t2, fontWeight: 800, textTransform: "uppercase", letterSpacing: 0.6 }}>Cantidad</div>
+                        <div style={{ fontFamily: C.mono, fontSize: 13, fontWeight: 850, color: C.t0 }}>{qtyText(row.cantidad, row.unidad)}</div>
+                      </div>
+                      <div style={{ minWidth: 0 }}>
+                        <div style={{ fontSize: 10, color: C.t2, fontWeight: 800, textTransform: "uppercase", letterSpacing: 0.6 }}>Proveedor</div>
+                        <div style={{ fontSize: 12.5, fontWeight: 850, color: C.t0, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{row.proveedor}</div>
+                        <div style={{ fontSize: 11, color: C.t2, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{row.rubro}</div>
+                      </div>
+                      <div>
+                        <div style={{ fontSize: 10, color: C.t2, fontWeight: 800, textTransform: "uppercase", letterSpacing: 0.6 }}>Precio</div>
+                        <div style={{ fontFamily: C.mono, fontSize: 12.5, fontWeight: 850, color: row.precio.amount ? C.t0 : C.amber }}>{row.precio.text}</div>
+                        {total ? <div style={{ fontFamily: C.mono, fontSize: 10.5, color: C.t2 }}>total {fmtMoney(total, row.precio.moneda)}</div> : null}
+                      </div>
+                      <ObraEstadoControl
+                        row={row}
+                        busy={estadoBusy === row.id || snapshotBusy}
+                        onChange={regularizarEstadoRow}
+                      />
                     </div>
-                    <div>
-                      <div style={{ fontSize: 10, color: C.t2, fontWeight: 800, textTransform: "uppercase", letterSpacing: 0.6 }}>Cantidad</div>
-                      <div style={{ fontFamily: C.mono, fontSize: 13, fontWeight: 850, color: C.t0 }}>{qtyText(row.cantidad, row.unidad)}</div>
-                    </div>
-                    <div style={{ minWidth: 0 }}>
-                      <div style={{ fontSize: 10, color: C.t2, fontWeight: 800, textTransform: "uppercase", letterSpacing: 0.6 }}>Proveedor</div>
-                      <div style={{ fontSize: 12.5, fontWeight: 850, color: C.t0, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{row.proveedor}</div>
-                      <div style={{ fontSize: 11, color: C.t2, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{row.rubro}</div>
-                    </div>
-                    <div>
-                      <div style={{ fontSize: 10, color: C.t2, fontWeight: 800, textTransform: "uppercase", letterSpacing: 0.6 }}>Precio</div>
-                      <div style={{ fontFamily: C.mono, fontSize: 12.5, fontWeight: 850, color: row.precio.amount ? C.t0 : C.amber }}>{row.precio.text}</div>
-                      {total ? <div style={{ fontFamily: C.mono, fontSize: 10.5, color: C.t2 }}>total {fmtMoney(total, row.precio.moneda)}</div> : null}
-                    </div>
-                    <ObraEstadoControl
-                      row={row}
-                      busy={estadoBusy === row.id || snapshotBusy}
-                      onChange={regularizarEstadoRow}
-                    />
+                    {editingMaterial && materialForRow ? (
+                      <MaterialFila
+                        material={materialForRow}
+                        categorias={categorias}
+                        ums={ums}
+                        proveedores={proveedores}
+                        onChanged={async () => {
+                          await onChanged?.();
+                          await cargarSnapshot();
+                        }}
+                        linea={linea}
+                        initialOpen
+                      />
+                    ) : null}
                   </div>
                 );
               })}
