@@ -506,6 +506,25 @@ export async function crearPanolCatalogMaterial({
   };
 }
 
+const CATALOG_CREATION_ORIGINS = new Set(["remito", "conteo", "manual", "addon_obra", "egreso", "stock", "stock_general"]);
+
+export async function fetchPanolMaterialCreations({ limit = 300 } = {}) {
+  try {
+    const { data, error } = await supabase
+      .from("panol_materiales")
+      .select("id, descripcion, codigo, proveedor, unidad_medida, origen, notas, created_at, batch_id")
+      .order("created_at", { ascending: false })
+      .limit(limit);
+    if (error) return [];
+    return (data ?? []).filter((row) => {
+      const origen = String(row.origen || "manual").toLowerCase();
+      return !row.batch_id && CATALOG_CREATION_ORIGINS.has(origen);
+    });
+  } catch {
+    return [];
+  }
+}
+
 export async function guardarUbicacionMaterial(materialId, { ubicacion = null, ubicacionObs = null } = {}) {
   if (!materialId) return null;
   const patch = {
