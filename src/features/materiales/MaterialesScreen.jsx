@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { Barcode, Copy, Download, ExternalLink, FileText, ImagePlus, Link as LinkIcon, PackagePlus, Pencil, Plus, RefreshCw, Save, Search, ShoppingCart, SkipForward, StickyNote, Trash2, Upload, X } from "lucide-react";
+import { Barcode, Copy, Download, ExternalLink, FileText, ImagePlus, Link as LinkIcon, MoreHorizontal, PackagePlus, Pencil, Plus, RefreshCw, Save, Search, ShoppingCart, SkipForward, StickyNote, Trash2, Upload, X } from "lucide-react";
 import Sidebar from "@/components/Sidebar";
 import { useResponsive } from "@/hooks/useResponsive";
 import { C } from "@/theme";
@@ -2269,7 +2269,7 @@ function MaterialAddonAssociations({ material, obras = [], onChanged }) {
   );
 }
 
-function MaterialFila({ material, categorias, ums, proveedores, obras = [], onChanged, linea = "", initialOpen = false }) {
+function MaterialFila({ material, categorias, ums, proveedores, obras = [], onChanged, linea = "", initialOpen = false, stockInfo = null }) {
   const [editing, setEditing] = useState(initialOpen);
   const [draft, setDraft] = useState(() => ({ ...material, precio_unitario: inputNumberValue(material.precio_unitario) }));
   const [cantidades, setCantidades] = useState(() => toBomMap(material));
@@ -2287,8 +2287,6 @@ function MaterialFila({ material, categorias, ums, proveedores, obras = [], onCh
     setVariantes(materialVariants(material));
     setVariantesPrecios(material?.variantes_precios || {});
   }, [material]);
-
-  const mainProviderMeta = useMemo(() => proveedorMeta(material.proveedor, proveedores), [material.proveedor, proveedores]);
 
   async function save() {
     if (!draft.descripcion?.trim() || saving) return;
@@ -2312,36 +2310,34 @@ function MaterialFila({ material, categorias, ums, proveedores, obras = [], onCh
   const lineasConQty = MODELOS.filter((m) => toNum(bom[m]) > 0);
   const review = reviewInfoForMaterial(material);
   const savedVariants = materialVariants(material);
+  const precio = priceInfo(material);
   const lbl = { fontSize: 10, letterSpacing: 0.6, color: C.t2, textTransform: "uppercase", fontWeight: 700, display: "block", marginBottom: 4 };
 
   return (
-    <div style={{ border: `1px solid ${editing ? C.b1 : review.flag ? C.amberB : C.b0}`, borderRadius: 10, marginBottom: 6, background: editing ? "var(--panel)" : review.flag ? C.amberL : C.s0, overflow: "hidden" }}>
-      <div onClick={() => setEditing((v) => !v)} style={{ display: "flex", alignItems: "center", gap: 10, padding: "9px 12px", cursor: "pointer" }}>
-        <div style={{ flex: 1, minWidth: 0 }}>
-          <div style={{ fontSize: 13, color: C.t0, fontWeight: 600, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{material.descripcion || "(sin descripción)"}</div>
-          <div style={{ display: "flex", gap: 7, marginTop: 2, fontSize: 11, color: C.t2, alignItems: "center", flexWrap: "wrap" }}>
-            {review.flag && <ReviewBadge reason={review.reason} />}
-            {material.es_consumible && <span style={{ fontSize: 9.5, fontWeight: 800, color: C.amber, background: C.amberL, border: `1px solid ${C.amberB}`, borderRadius: 999, padding: "1px 7px", flexShrink: 0 }}>Consumible</span>}
-            <span style={{ overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", maxWidth: 240 }}>{material.proveedor || "Sin proveedor"}</span>
-            <ProveedorTipoBadge meta={mainProviderMeta} compact />
-            <ProveedorAlternativasHint proveedor={material.proveedor} proveedores={proveedores} compact />
-            {material.proveedores_lista?.length > 0 && (
-              <span title={`Otros proveedores: ${material.proveedores_lista.map((p) => (proveedores.find((x) => x.id === p.proveedor_id)?.nombre || "?") + (p.precio != null && p.precio !== "" ? ` $${p.precio}${p.moneda ? " " + p.moneda : ""}` : "")).join(" · ")}`}
-                style={{ fontSize: 9.5, fontWeight: 700, color: C.t3, border: `1px solid ${C.b0}`, borderRadius: 999, padding: "1px 6px", flexShrink: 0 }}>
-                +{material.proveedores_lista.length} prov
+    <div style={{ border: `1px solid ${editing ? C.blueB : review.flag ? C.amberB : C.b0}`, borderRadius: 10, marginBottom: 6, background: editing ? "var(--panel)" : C.s0, overflow: "hidden" }}>
+      <div onClick={() => setEditing((v) => !v)} style={{ display: "flex", alignItems: "center", gap: 10, padding: "8px 12px", cursor: "pointer", flexWrap: "wrap" }}>
+        <MaterialThumb material={material} size={36} />
+        <div style={{ flex: "1 1 260px", minWidth: 0 }}>
+          <div style={{ display: "flex", alignItems: "center", gap: 6, minWidth: 0, flexWrap: "wrap" }}>
+            <span style={{ fontSize: 13.5, color: C.t0, fontWeight: 900, lineHeight: 1.25, minWidth: 0, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{material.descripcion || "(sin descripción)"}</span>
+            {savedVariants.length > 0 && (
+              <span title={`Variantes: ${savedVariants.join(" / ")}`} style={{ fontSize: 9.5, fontWeight: 800, color: C.violet, background: "rgba(139,92,246,0.1)", border: "1px solid rgba(139,92,246,0.28)", borderRadius: 999, padding: "1px 6px", flexShrink: 0, maxWidth: 170, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+                {savedVariants.join(" / ")}
               </span>
             )}
-            {sector && <span style={{ color: C.t3 }}>· {sector}</span>}
+            {material.es_consumible && <span style={{ fontSize: 9.5, fontWeight: 800, color: C.amber, background: C.amberL, border: `1px solid ${C.amberB}`, borderRadius: 999, padding: "1px 6px", flexShrink: 0 }}>Consumible</span>}
+            <StockLibreChip info={stockInfo} />
+            {review.flag && <ReviewBadge reason={review.reason} />}
+          </div>
+          <div style={{ display: "flex", gap: 6, marginTop: 3, fontSize: 10.8, color: C.t3, alignItems: "center", flexWrap: "wrap", minWidth: 0 }}>
+            {material.codigo && <span style={{ fontFamily: C.mono, flexShrink: 0 }}>{material.codigo}</span>}
+            {material.codigo && <span style={{ opacity: 0.6 }}>·</span>}
+            <span style={{ color: C.t2, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", maxWidth: 200 }}>{material.proveedor || "Sin proveedor"}</span>
+            {sector && <span style={{ overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", maxWidth: 170 }}>· {sector}</span>}
             {material.areas?.length > 1 && (
               <span title={`Multi-sector: ${material.areas.map((a) => categorias.find((c) => c.id === a)?.nombre).filter(Boolean).join(", ")}`}
-                style={{ fontSize: 9.5, fontWeight: 800, color: C.violet || "#a78bfa", background: "rgba(167,139,250,0.14)", border: "1px solid rgba(167,139,250,0.32)", borderRadius: 999, padding: "1px 7px", flexShrink: 0 }}>
-                ⊞ {material.areas.length} sectores
-              </span>
-            )}
-            {material.codigo && <span style={{ fontFamily: C.mono, color: C.t3 }}>· {material.codigo}</span>}
-            {savedVariants.length > 0 && (
-              <span title={`Variantes: ${savedVariants.join(" / ")}`} style={{ fontSize: 9.5, fontWeight: 800, color: C.violet, background: "rgba(139,92,246,0.1)", border: "1px solid rgba(139,92,246,0.28)", borderRadius: 999, padding: "1px 7px", flexShrink: 0 }}>
-                variantes {savedVariants.join(" / ")}
+                style={{ fontSize: 9.5, fontWeight: 800, color: C.violet || "#a78bfa", flexShrink: 0 }}>
+                ⊞ {material.areas.length}
               </span>
             )}
             <MaterialLinksSummary links={material.links} />
@@ -2362,6 +2358,10 @@ function MaterialFila({ material, categorias, ums, proveedores, obras = [], onCh
             })}
           </div>
         )}
+        <div style={{ minWidth: 86, textAlign: "right", flexShrink: 0 }} title={precio.amount ? `Precio vigente${precio.proveedor ? ` · ${precio.proveedor}` : ""}` : "Sin precio cargado"}>
+          <div style={{ fontFamily: C.mono, fontSize: 11.5, fontWeight: 750, color: precio.amount ? C.t2 : C.amber, whiteSpace: "nowrap" }}>{precio.text}</div>
+          {material.unidad_medida && <div style={{ fontSize: 10, color: C.t3, whiteSpace: "nowrap" }}>{material.unidad_medida}</div>}
+        </div>
         {material.revisado && <span title="Revisado" style={{ color: C.green, fontSize: 13, flexShrink: 0 }}>✓</span>}
         <NotasQuickButton material={material} onChanged={onChanged} />
         <button type="button" onClick={(e) => { e.stopPropagation(); setEditing((v) => !v); }} title={editing ? "Cerrar" : "Editar"}
@@ -3314,6 +3314,19 @@ function ObraAddonModal({ open, obra, obras = [], addon = null, materiales = [],
 function ListaMateriales({ categorias, materiales, selectedId, ums, proveedores, obras = [], onChanged, defaultSoloPendientes = true, compact = false, lineaFija = "" }) {
   const [soloPendientes, setSoloPendientes] = useState(defaultSoloPendientes);
   const [q, setQ] = useState("");
+  // Stock libre de pañol (sin obra asignada) por material, para verlo en el catálogo
+  // antes de comprar. Un solo fetch por montaje; si falla, simplemente no se muestra.
+  const [stockLibre, setStockLibre] = useState(() => new Map());
+  useEffect(() => {
+    let alive = true;
+    fetchStockLibrePanolMateriales()
+      .then((rows) => { if (alive) setStockLibre(new Map((rows ?? []).map((r) => [r.key, r]))); })
+      .catch(() => {});
+    return () => { alive = false; };
+  }, []);
+  const stockInfoFor = (m) => stockLibre.get(`material:${m.id}`)
+    || stockLibre.get(`text:${norm(`${m.descripcion || ""}|${m.codigo || ""}|${m.unidad_medida || ""}`)}`)
+    || null;
   const [lineaState, setLineaState] = useState(""); // "" = todas las líneas
   const [prov, setProv] = useState(""); // "" = todos. Guarda el id de panol_proveedores.
   const [proveedorTipo, setProveedorTipo] = useState("todos");
@@ -3423,7 +3436,7 @@ function ListaMateriales({ categorias, materiales, selectedId, ums, proveedores,
       {compact ? (
         <div>
           {visibles.map((material) => (
-            <MaterialFila key={material.id} material={material} categorias={categorias} ums={ums} proveedores={proveedores} obras={obras} onChanged={onChanged} linea={linea} />
+            <MaterialFila key={material.id} material={material} categorias={categorias} ums={ums} proveedores={proveedores} obras={obras} onChanged={onChanged} linea={linea} stockInfo={stockInfoFor(material)} />
           ))}
           {!visibles.length && (
             <div style={{ padding: 18, fontSize: 13, color: C.t2, textAlign: "center", border: `1px solid ${C.b0}`, borderRadius: 12 }}>No hay materiales con esos filtros.</div>
@@ -4419,6 +4432,8 @@ function ObraMatrizView({ obra, obras = [], linea, lineaNombre, categorias, mate
   const [estadoBusy, setEstadoBusy] = useState("");
   const [varianteBusy, setVarianteBusy] = useState("");
   const [editingMaterialRowId, setEditingMaterialRowId] = useState("");
+  // Fila con el panel de estado/acciones secundarias abierto (⋯). Una a la vez.
+  const [openActionsRowId, setOpenActionsRowId] = useState("");
 
   const cargarAddons = useCallback(async () => {
     try {
@@ -5541,22 +5556,23 @@ function ObraMatrizView({ obra, obras = [], linea, lineaNombre, categorias, mate
                 const editableAddon = addonForVisibleRow(row);
                 const snapshotOnly = snapshotOnlyForRow(row);
                 const editingMaterial = editingMaterialRowId === row.id;
+                const actionsOpen = openActionsRowId === row.id;
                 const rowSelected = selected.has(row.id);
-                const rowBorder = rowSelected ? C.blueB : row.review?.flag ? C.amberB : C.b0;
-                const rowBg = rowSelected ? C.blueL : row.review?.flag ? C.amberL : C.bg;
-                const miniBtn = { ...BTN, padding: "4px 7px", minHeight: 26, borderRadius: 8, fontSize: 10.5, gap: 4 };
+                const rowBorder = rowSelected ? C.blueB : row.review?.flag ? C.amberB : actionsOpen ? C.b1 : C.b0;
+                const rowBg = rowSelected ? C.blueL : C.bg;
+                const miniBtn = { ...BTN, padding: "5px 9px", minHeight: 27, borderRadius: 8, fontSize: 11, gap: 5 };
                 const stockLibreInfo = stockLibreMap.get(stockLibreKeyForRow(row));
                 return (
-                  <div key={row.id} style={{ display: "grid", gap: 7 }}>
+                  <div key={row.id} style={{ display: "grid", gap: 6 }}>
                     <div
                       style={{
                         display: "grid",
                         gridTemplateColumns: isMobile
-                          ? "24px minmax(0, 1fr)"
-                          : "24px minmax(260px, 1fr) minmax(100px, .26fr) minmax(165px, .34fr) minmax(90px, .22fr) minmax(250px, .52fr)",
+                          ? "24px minmax(0, 1fr) auto"
+                          : "24px minmax(260px, 1fr) minmax(84px, .2fr) minmax(150px, .34fr) minmax(96px, .24fr) auto",
                         gap: isMobile ? 8 : 12,
                         alignItems: "start",
-                        padding: isMobile ? "9px 10px" : "9px 12px",
+                        padding: isMobile ? "8px 10px" : "8px 12px",
                         border: `1px solid ${rowBorder}`,
                         borderRadius: 10,
                         background: rowBg,
@@ -5564,89 +5580,23 @@ function ObraMatrizView({ obra, obras = [], linea, lineaNombre, categorias, mate
                     >
                       <input type="checkbox" checked={rowSelected} onChange={() => toggleSelected(row.id)} style={{ marginTop: 4 }} />
                       <div style={{ minWidth: 0 }}>
-                      <div style={{ display: "flex", alignItems: "center", gap: 7, minWidth: 0, flexWrap: "wrap" }}>
+                      <div style={{ display: "flex", alignItems: "center", gap: 6, minWidth: 0, flexWrap: "wrap" }}>
                         <span style={{ fontSize: 13.5, fontWeight: 950, lineHeight: 1.25, color: C.t0, minWidth: 0, overflow: "hidden", textOverflow: "ellipsis" }}>{row.descripcion}</span>
-                        <span style={{ fontSize: 10, fontWeight: 900, color: row.bucket.color, background: `${row.bucket.color}16`, border: `1px solid ${row.bucket.color}44`, borderRadius: 999, padding: "2px 7px", whiteSpace: "nowrap" }}>
-                          {row.bucket.label}
-                        </span>
                         <ObraVarianteControl
                           row={row}
                           options={variantOptions}
                           busy={varianteBusy === row.id || snapshotBusy}
                           onChange={cambiarVarianteRow}
                         />
+                        <span style={{ fontSize: 9.5, fontWeight: 900, color: row.bucket.color, background: `${row.bucket.color}14`, border: `1px solid ${row.bucket.color}3a`, borderRadius: 999, padding: "1px 6px", whiteSpace: "nowrap" }}>
+                          {row.bucket.label}
+                        </span>
                         {row.review?.flag && <ReviewBadge reason={row.review.reason} />}
-                        <RecepcionChip row={row} />
                         <StockLibreChip info={stockLibreInfo} loading={stockLibreLoading} />
                         {snapshotOnly ? (
-                          <span style={{ fontSize: 10, fontWeight: 900, color: C.amber, border: `1px solid ${C.amberB}`, background: C.amberL, borderRadius: 999, padding: "2px 7px", whiteSpace: "nowrap" }}>
+                          <span style={{ fontSize: 9.5, fontWeight: 900, color: C.amber, border: `1px solid ${C.amberB}`, background: C.amberL, borderRadius: 999, padding: "1px 6px", whiteSpace: "nowrap" }}>
                             Fuera de matriz
                           </span>
-                        ) : null}
-                        {row.source === "matriz" && row.materialId ? (
-                          <button
-                            type="button"
-                            disabled={exclusionBusy === row.materialId}
-                            onClick={() => excluirRowDeObra(row)}
-                            style={{ ...miniBtn, color: C.red, opacity: exclusionBusy === row.materialId ? 0.65 : 1 }}
-                            title={`Quitar solo de ${obra.codigo}. Si tiene movimientos, se conserva el kardex.`}
-                          >
-                            <Trash2 size={12} /> {exclusionBusy === row.materialId ? "Sacando..." : "Sacar de esta obra"}
-                          </button>
-                        ) : null}
-                        {materialForRow && !editableAddon ? (
-                          <button
-                            type="button"
-                            onClick={() => setEditingMaterialRowId((id) => (id === row.id ? "" : row.id))}
-                            style={{ ...miniBtn, color: editingMaterial ? C.blue : C.t2 }}
-                            title="Editar item del catalogo completo"
-                          >
-                            <Pencil size={12} /> {editingMaterial ? "Cerrar" : "Editar"}
-                          </button>
-                        ) : null}
-                        {editableAddon ? (
-                          <>
-                            <button
-                              type="button"
-                              onClick={() => {
-                                setEditingAddon(editableAddon);
-                                setAddonModalOpen(true);
-                              }}
-                              style={{ ...miniBtn, color: C.blue }}
-                              title="Editar adicional"
-                            >
-                              <Pencil size={12} /> Editar
-                            </button>
-                            <button
-                              type="button"
-                              disabled={editableAddon.__snapshotLocked}
-                              onClick={() => openReassignAddon(editableAddon)}
-                              style={{ ...miniBtn, color: editableAddon.__snapshotLocked ? C.t3 : C.violet, opacity: editableAddon.__snapshotLocked ? 0.55 : 1 }}
-                              title={editableAddon.__snapshotLocked ? "Ya tiene movimiento de panol" : "Reasignar adicional a otra obra"}
-                            >
-                              <RefreshCw size={12} /> Reasignar
-                            </button>
-                            <button
-                              type="button"
-                              disabled={addonDeleteBusy === editableAddon.id}
-                              onClick={() => deleteAddonRow(editableAddon)}
-                              style={{ ...miniBtn, color: editableAddon.__snapshotLocked ? C.t3 : C.red, opacity: editableAddon.__snapshotLocked ? 0.8 : 1 }}
-                              title={editableAddon.__snapshotLocked ? "Ya tiene movimiento de pañol: tocá para ver el motivo" : "Quitar solo de esta obra"}
-                            >
-                              <Trash2 size={12} /> {addonDeleteBusy === editableAddon.id ? "Sacando..." : "Sacar de esta obra"}
-                            </button>
-                          </>
-                        ) : null}
-                        {snapshotOnly && !editableAddon ? (
-                          <button
-                            type="button"
-                            disabled={snapshotDeleteBusy === row.snapshotId}
-                            onClick={() => deleteSnapshotOnlyRow(row)}
-                            style={{ ...miniBtn, color: snapshotLockedForAddon(row) ? C.t3 : C.red, opacity: snapshotLockedForAddon(row) ? 0.8 : 1 }}
-                            title={snapshotLockedForAddon(row) ? "Tiene compras/recepción/pañol asociado: tocá para ver el motivo" : "Quitar solo de esta obra"}
-                          >
-                            <Trash2 size={12} /> {snapshotDeleteBusy === row.snapshotId ? "Sacando..." : "Sacar de esta obra"}
-                          </button>
                         ) : null}
                       </div>
                       <div style={{ fontSize: 10.8, color: C.t2, marginTop: 3, lineHeight: 1.3 }}>
@@ -5668,28 +5618,107 @@ function ObraMatrizView({ obra, obras = [], linea, lineaNombre, categorias, mate
                       ) : null}
                       <RecepcionDetalle row={row} />
                       </div>
-                      <div style={{ minWidth: 0, gridColumn: isMobile ? "2 / -1" : undefined }}>
-                        <div style={{ fontSize: 10, color: C.t2, fontWeight: 800, textTransform: "uppercase", letterSpacing: 0.6 }}>Cantidad</div>
-                        <div style={{ fontFamily: C.mono, fontSize: 13, fontWeight: 850, color: C.t0 }}>{qtyText(row.cantidad, row.unidad)}</div>
+                      <div style={{ minWidth: 0, gridColumn: isMobile ? "2 / -1" : undefined }} title="Cantidad">
+                        <div style={{ fontFamily: C.mono, fontSize: 12.5, fontWeight: 900, color: C.t0, whiteSpace: "nowrap", marginTop: isMobile ? 0 : 2 }}>{qtyText(row.cantidad, row.unidad)}</div>
                       </div>
-                      <div style={{ minWidth: 0, gridColumn: isMobile ? "2 / -1" : undefined }}>
-                        <div style={{ fontSize: 10, color: C.t2, fontWeight: 800, textTransform: "uppercase", letterSpacing: 0.6 }}>Proveedor</div>
-                        <div style={{ fontSize: 12.5, fontWeight: 850, color: C.t0, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{row.proveedor}</div>
-                        <div style={{ fontSize: 11, color: C.t2, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{row.rubro}</div>
+                      <div style={{ minWidth: 0, gridColumn: isMobile ? "2 / -1" : undefined }} title="Proveedor · rubro">
+                        <div style={{ fontSize: 11.5, fontWeight: 750, color: C.t1, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{row.proveedor}</div>
+                        <div style={{ fontSize: 10.5, color: C.t3, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{row.rubro}</div>
                       </div>
-                      <div style={{ minWidth: 0, gridColumn: isMobile ? "2 / -1" : undefined }}>
-                        <div style={{ fontSize: 10, color: C.t2, fontWeight: 800, textTransform: "uppercase", letterSpacing: 0.6 }}>Precio</div>
-                        <div style={{ fontFamily: C.mono, fontSize: 12.5, fontWeight: 850, color: row.precio.amount ? C.t0 : C.amber }}>{row.precio.text}</div>
-                        {total ? <div style={{ fontFamily: C.mono, fontSize: 10.5, color: C.t2 }}>total {fmtMoney(total, row.precio.moneda)}</div> : null}
+                      <div style={{ minWidth: 0, gridColumn: isMobile ? "2 / -1" : undefined }} title="Precio unitario">
+                        <div style={{ fontFamily: C.mono, fontSize: 11.5, fontWeight: 750, color: row.precio.amount ? C.t2 : C.amber, whiteSpace: "nowrap", marginTop: isMobile ? 0 : 2 }}>{row.precio.text}</div>
+                        {total ? <div style={{ fontFamily: C.mono, fontSize: 10, color: C.t3, whiteSpace: "nowrap" }}>tot {fmtMoney(total, row.precio.moneda)}</div> : null}
                       </div>
-                      <div style={{ minWidth: 0, gridColumn: isMobile ? "2 / -1" : undefined }}>
-                        <ObraEstadoControl
-                          row={row}
-                          busy={estadoBusy === row.id || snapshotBusy}
-                          onChange={regularizarEstadoRow}
-                        />
+                      <div style={{ display: "flex", alignItems: "center", gap: 6, justifyContent: "flex-end", gridColumn: isMobile ? "3" : undefined, gridRow: isMobile ? "1" : undefined }}>
+                        <RecepcionChip row={row} />
+                        <button
+                          type="button"
+                          onClick={() => setOpenActionsRowId((id) => (id === row.id ? "" : row.id))}
+                          title="Estado, historial y acciones"
+                          style={{ ...BTN, padding: "4px 6px", minHeight: 24, borderRadius: 8, color: actionsOpen ? C.blue : C.t2, border: `1px solid ${actionsOpen ? C.blueB : C.b0}` }}
+                        >
+                          <MoreHorizontal size={15} />
+                        </button>
                       </div>
                     </div>
+                    {actionsOpen ? (
+                      <div style={{ display: "flex", flexWrap: "wrap", gap: 14, alignItems: "flex-start", padding: "10px 12px", border: `1px solid ${C.b0}`, borderRadius: 10, background: C.s0 }}>
+                        <div style={{ flex: "1 1 300px", minWidth: 0, maxWidth: 460 }}>
+                          <ObraEstadoControl
+                            row={row}
+                            busy={estadoBusy === row.id || snapshotBusy}
+                            onChange={regularizarEstadoRow}
+                          />
+                        </div>
+                        <div style={{ flex: "1 1 220px", display: "flex", flexWrap: "wrap", gap: 6, alignContent: "flex-start" }}>
+                          {materialForRow && !editableAddon ? (
+                            <button
+                              type="button"
+                              onClick={() => setEditingMaterialRowId((id) => (id === row.id ? "" : row.id))}
+                              style={{ ...miniBtn, color: editingMaterial ? C.blue : C.t1 }}
+                              title="Editar item del catalogo completo"
+                            >
+                              <Pencil size={12} /> {editingMaterial ? "Cerrar edición" : "Editar catálogo"}
+                            </button>
+                          ) : null}
+                          {editableAddon ? (
+                            <>
+                              <button
+                                type="button"
+                                onClick={() => {
+                                  setEditingAddon(editableAddon);
+                                  setAddonModalOpen(true);
+                                }}
+                                style={{ ...miniBtn, color: C.blue }}
+                                title="Editar adicional"
+                              >
+                                <Pencil size={12} /> Editar adicional
+                              </button>
+                              <button
+                                type="button"
+                                disabled={editableAddon.__snapshotLocked}
+                                onClick={() => openReassignAddon(editableAddon)}
+                                style={{ ...miniBtn, color: editableAddon.__snapshotLocked ? C.t3 : C.violet, opacity: editableAddon.__snapshotLocked ? 0.55 : 1 }}
+                                title={editableAddon.__snapshotLocked ? "Ya tiene movimiento de panol" : "Reasignar adicional a otra obra"}
+                              >
+                                <RefreshCw size={12} /> Reasignar
+                              </button>
+                              <button
+                                type="button"
+                                disabled={addonDeleteBusy === editableAddon.id}
+                                onClick={() => deleteAddonRow(editableAddon)}
+                                style={{ ...miniBtn, color: editableAddon.__snapshotLocked ? C.t3 : C.red, opacity: editableAddon.__snapshotLocked ? 0.8 : 1 }}
+                                title={editableAddon.__snapshotLocked ? "Ya tiene movimiento de pañol: tocá para ver el motivo" : "Quitar solo de esta obra"}
+                              >
+                                <Trash2 size={12} /> {addonDeleteBusy === editableAddon.id ? "Sacando..." : "Sacar de esta obra"}
+                              </button>
+                            </>
+                          ) : null}
+                          {row.source === "matriz" && row.materialId ? (
+                            <button
+                              type="button"
+                              disabled={exclusionBusy === row.materialId}
+                              onClick={() => excluirRowDeObra(row)}
+                              style={{ ...miniBtn, color: C.red, opacity: exclusionBusy === row.materialId ? 0.65 : 1 }}
+                              title={`Quitar solo de ${obra.codigo}. Si tiene movimientos, se conserva el kardex.`}
+                            >
+                              <Trash2 size={12} /> {exclusionBusy === row.materialId ? "Sacando..." : "Sacar de esta obra"}
+                            </button>
+                          ) : null}
+                          {snapshotOnly && !editableAddon ? (
+                            <button
+                              type="button"
+                              disabled={snapshotDeleteBusy === row.snapshotId}
+                              onClick={() => deleteSnapshotOnlyRow(row)}
+                              style={{ ...miniBtn, color: snapshotLockedForAddon(row) ? C.t3 : C.red, opacity: snapshotLockedForAddon(row) ? 0.8 : 1 }}
+                              title={snapshotLockedForAddon(row) ? "Tiene compras/recepción/pañol asociado: tocá para ver el motivo" : "Quitar solo de esta obra"}
+                            >
+                              <Trash2 size={12} /> {snapshotDeleteBusy === row.snapshotId ? "Sacando..." : "Sacar de esta obra"}
+                            </button>
+                          ) : null}
+                        </div>
+                      </div>
+                    ) : null}
                     {editingMaterial && materialForRow ? (
                       <MaterialFila
                         material={materialForRow}
@@ -6107,9 +6136,9 @@ function LineaMatrizView({ linea, obras = [], categorias, materiales, proveedore
 
 const SNAPSHOT_ESTADO_META = {
   pendiente: { label: "Pendiente", color: C.t2, bg: C.s0, border: C.b0 },
-  comprado: { label: "Comprado", color: C.amber, bg: C.amberL, border: C.amberB },
-  en_panol: { label: "En pañol", color: C.violet, bg: C.s1, border: C.b1 },
-  egresado: { label: "Egresado", color: C.green, bg: C.greenL, border: C.greenB },
+  comprado: { label: "Comprado", color: C.blue, bg: C.blueL, border: C.blueB },
+  en_panol: { label: "En pañol", color: C.green, bg: C.greenL, border: C.greenB },
+  egresado: { label: "Egresado", color: C.violet, bg: "var(--violet-soft)", border: `${C.violet}55` },
 };
 
 function estadoFromRecepcion(estado) {
@@ -6134,9 +6163,9 @@ function recepcionFilterOptions(kpis) {
   return [
     ["todos", `Todo (${kpis.items || 0})`, C.blue],
     ["pendiente", `Pendiente (${kpis.pendientes || 0})`, C.t2],
-    ["comprado", `Comprado (${kpis.comprados || 0})`, C.amber],
-    ["en_panol", `En pañol (${kpis.enPanol || 0})`, C.violet],
-    ["egresado", `Egresado (${kpis.egresados || 0})`, C.green],
+    ["comprado", `Comprado (${kpis.comprados || 0})`, C.blue],
+    ["en_panol", `En pañol (${kpis.enPanol || 0})`, C.green],
+    ["egresado", `Egresado (${kpis.egresados || 0})`, C.violet],
   ];
 }
 

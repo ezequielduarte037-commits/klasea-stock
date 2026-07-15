@@ -35,6 +35,10 @@ function fmtQty(v) {
   return Number(Math.round(n * 100) / 100).toLocaleString("es-AR");
 }
 
+function isUuidLike(value) {
+  return /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(String(value || "").trim());
+}
+
 function rowObraId(row) { return row.obra?.id || row.obra_id || ""; }
 function rowIsAdditional(row) { return row.es_adicional === true || row.request?.es_adicional === true; }
 function rowTipoPedido(row) {
@@ -57,7 +61,7 @@ function rowCountsAsStock(row) {
 function rowDelta(row) {
   if (rowCountsAsStock(row)) return qty(row.cantidad, 1);
   const src = rowSource(row);
-  if (row.estado === "egresado" && (src.startsWith("egreso") || src.startsWith("transferencia_egreso"))) {
+  if (row.estado === "egresado" && (src.startsWith("egreso") || src.startsWith("transferencia_egreso") || row.egreso_destino_obra_id)) {
     return -Math.abs(qty(row.cantidad_egresada, qty(row.cantidad, 1)));
   }
   return 0;
@@ -314,32 +318,61 @@ function movDestino(row) {
   return row.obra?.codigo || (row.stock_sede ? `Stock ${row.stock_sede}` : "Stock general");
 }
 
+function rowIsAsignacionStock(row) {
+  return rowSource(row) === "transferencia_ingreso";
+}
+
+function rowIsAsignacionMirrorOut(row) {
+  return rowSource(row) === "transferencia_egreso";
+}
+
 // Tipo de movimiento con detalle: ingreso / egreso / asignación / reasignación / a stock.
 const MOV_KIND = {
   ingreso:      { label: "Ingreso",      color: C.green,  sign: "+" },
   egreso:       { label: "Egreso",       color: C.red,    sign: "−" },
   asignacion:   { label: "Asignación",   color: C.blue,   sign: "→" },
   reasignacion: { label: "Reasignación", color: C.violet, sign: "→" },
+  asignacion_egreso:   { label: "Asign. -> egreso", color: C.red,    sign: "−" },
+  reasignacion_egreso: { label: "Reasig. -> egreso", color: C.violet, sign: "−" },
   liberacion:   { label: "A stock",      color: C.amber,  sign: "←" },
   creacion:     { label: "Producto creado", color: C.blue, sign: "" },
 };
-const MOV_INTERNAL = new Set(["asignacion", "reasignacion", "liberacion"]);
+const MOV_INTERNAL = new Set(["asignacion", "reasignacion", "asignacion_egreso", "reasignacion_egreso", "liberacion"]);
 
 function rowMovementKind(row) {
   const src = rowSource(row);
   const label = String(row.tipo_label || "").toLowerCase();
+  if (rowIsAsignacionStock(row)) return row.obra_origen_id ? "reasignacion" : "asignacion";
+  if (row.egreso_destino_obra_id) return row.obra_id ? "reasignacion_egreso" : "asignacion_egreso";
   if (src === "transferencia_egreso") {
     if (label.includes("liber")) return "liberacion";
-    return row.obra_id ? "reasignacion" : "asignacion";
+    return row.obra_id ? "reasignacion_egreso" : "asignacion_egreso";
   }
   if (row.estado === "egresado" || src.startsWith("egreso")) return "egreso";
   return "ingreso";
 }
 
+function cleanHumanField(value) {
+  return isUuidLike(value) ? "" : value;
+}
+
+function rowMovimientoRetira(row) {
+  return cleanHumanField(row.retirado_por || "");
+}
+
+function rowMovimientoUsuario(row) {
+  return cleanHumanField(row.egreso_por_nombre || row.egreso_actor?.username || row.created_by_nombre || row.created_by_actor?.username || row.egreso_por || row.created_by || "");
+}
+
 function movDetalleDestino(row, kind, obraById) {
   const codigo = (id) => (id ? (obraById?.get?.(id)?.codigo || null) : null);
   if (kind === "asignacion" || kind === "reasignacion") {
-    const origen = row.obra_id ? (codigo(row.obra_id) || "obra") : "stock";
+    const origen = row.obra_origen_id ? (codigo(row.obra_origen_id) || "obra") : (row.stock_sede ? `Stock ${row.stock_sede}` : "Stock");
+    const destino = codigo(row.obra_id) || row.obra?.codigo || "obra";
+    return `${origen} → ${destino}`;
+  }
+  if (kind === "asignacion_egreso" || kind === "reasignacion_egreso") {
+    const origen = row.obra_id ? (codigo(row.obra_id) || "obra") : (row.stock_sede ? `Stock ${row.stock_sede}` : "Stock");
     const destino = codigo(row.egreso_destino_obra_id) || "obra";
     return `${origen} → ${destino}`;
   }
@@ -366,9 +399,13 @@ function MovRow({ m, obraById }) {
   const isCreation = m.kind === "creacion";
   const desc = m.row.descripcion || "(sin descripción)";
   const code = m.row.codigo ? ` · ${m.row.codigo}` : "";
+  const variant = String(m.row.variante || "").trim();
+  const retira = rowMovimientoRetira(m.row);
+  const usuario = rowMovimientoUsuario(m.row) || "sin registrar";
   const creationDetail = [
     fmtDate(m.fecha),
     "Catálogo completo",
+    `Usuario: ${usuario}`,
     m.row.proveedor || null,
     m.row.origen ? `origen ${m.row.origen}` : null,
   ].filter(Boolean).join(" · ");
@@ -378,7 +415,7 @@ function MovRow({ m, obraById }) {
       <div style={{ minWidth: 0 }}>
         <div style={{ fontSize: 13, fontWeight: 800, color: C.text, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{desc}{code}</div>
         <div style={{ fontSize: 11, color: C.dim, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>
-          {isCreation ? creationDetail : `${fmtDate(m.fecha)} · ${movDetalleDestino(m.row, m.kind, obraById)}${m.row.retirado_por || m.row.egreso_por ? ` · ${m.row.retirado_por || m.row.egreso_por}` : ""}${detalle ? ` · ${detalle}` : ""}`}
+          {isCreation ? creationDetail : `${fmtDate(m.fecha)} · ${movDetalleDestino(m.row, m.kind, obraById)}${variant ? ` · Variante: ${variant}` : ""}${retira ? ` · Retira: ${retira}` : ""}${usuario ? ` · Usuario: ${usuario}` : ""}${detalle ? ` · ${detalle}` : ""}`}
         </div>
       </div>
       <span style={{ fontFamily: C.mono, fontSize: 15, fontWeight: 950, color: col, whiteSpace: "nowrap" }}>{isCreation ? "Nuevo" : `${meta.sign}${fmtQty(m.cant)} ${m.row.unidad || ""}`}</span>
@@ -404,9 +441,9 @@ function MovimientosPanel({ rows = [], obras = [], materialCreations = [], isMob
       const cant = (isOut || MOV_INTERNAL.has(kind)) ? Math.abs(qty(r.cantidad_egresada, qty(r.cantidad, 1))) : qty(r.cantidad, 1);
       return { key: `stock:${r.id}`, row: r, kind, cant, delta: rowDelta(r), fecha: rowMovementAt(r), anulado: rowIsAnulado(r) };
     })
-    // Ocultar el "espejo" de las transferencias (el ingreso mirror): la acción ya se ve en el egreso.
-    .filter((m) => rowSource(m.row) !== "transferencia_ingreso")
-    .filter((m) => m.delta !== 0 || m.row.estado === "egresado");
+    // Ocultar el espejo negativo de las asignaciones: la acción se ve como asignación azul.
+    .filter((m) => !rowIsAsignacionMirrorOut(m.row))
+    .filter((m) => m.delta !== 0 || m.row.estado === "egresado" || MOV_INTERNAL.has(m.kind));
     const creations = (materialCreations || []).map((row) => ({
       key: `creacion:${row.id}`,
       row,
@@ -427,7 +464,7 @@ function MovimientosPanel({ rows = [], obras = [], materialCreations = [], isMob
       if (q.trim()) {
         const t = norm(q);
         const destino = m.kind === "creacion" ? "catalogo completo producto creado" : movDetalleDestino(m.row, m.kind, obraById);
-        const hay = norm([m.row.descripcion, m.row.codigo, destino, m.row.proveedor, m.row.origen, m.row.retirado_por, m.row.egreso_por, m.row.egreso_nota, m.row.stock_nota, m.row.notas].filter(Boolean).join(" "));
+        const hay = norm([m.row.descripcion, m.row.codigo, m.row.variante, destino, m.row.proveedor, m.row.origen, m.row.retirado_por, m.row.egreso_por_nombre, m.row.created_by_nombre, m.row.egreso_nota, m.row.stock_nota, m.row.notas].filter(Boolean).join(" "));
         if (!hay.includes(t)) return false;
       }
       return true;

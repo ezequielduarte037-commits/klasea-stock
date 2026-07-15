@@ -59,6 +59,10 @@ function codeKey(value = "") {
   return String(value ?? "").trim().toLowerCase();
 }
 
+function isUuidLike(value) {
+  return /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(String(value || "").trim());
+}
+
 function groupMatchesCode(group, code) {
   const clean = codeKey(code);
   if (!clean) return false;
@@ -150,7 +154,79 @@ function rowSource(row) {
 
 function rowIsEgreso(row) {
   const source = rowSource(row);
-  return row.estado === "egresado" || source.startsWith("egreso") || source.startsWith("transferencia_egreso");
+  return !!row.egreso_destino_obra_id || row.estado === "egresado" || source.startsWith("egreso") || source.startsWith("transferencia_egreso");
+}
+
+function rowIsAsignacionStock(row) {
+  return rowSource(row) === "transferencia_ingreso";
+}
+
+function rowIsAsignacionMirrorOut(row) {
+  return rowSource(row) === "transferencia_egreso";
+}
+
+function rowInHistory(row) {
+  return rowIsAsignacionStock(row) || (rowIsEgreso(row) && !rowIsAsignacionMirrorOut(row));
+}
+
+function rowEgresoKind(row) {
+  const source = rowSource(row);
+  if (rowIsAsignacionStock(row)) {
+    return row.obra_origen_id ? "reasignacion" : "asignacion";
+  }
+  if (row.egreso_destino_obra_id || source.startsWith("transferencia_egreso")) {
+    return rowObraId(row) ? "reasignacion_egreso" : "egreso_obra";
+  }
+  return "egreso";
+}
+
+function rowEgresoMeta(row) {
+  const kind = rowEgresoKind(row);
+  if (kind === "asignacion") return { label: "Asignación", color: C.blue };
+  if (kind === "reasignacion") return { label: "Reasignación", color: C.violet };
+  if (kind === "egreso_obra") return { label: "Asign. -> egreso", color: C.red };
+  if (kind === "reasignacion_egreso") return { label: "Reasig. -> egreso", color: C.violet };
+  return { label: "Egreso", color: C.red };
+}
+
+function obraCodigoFromMap(id, obraById = null) {
+  if (!id) return "";
+  return obraById?.get?.(id)?.codigo || "";
+}
+
+function rowOrigenMovimientoLabel(row, obraById = null) {
+  if (rowIsAsignacionStock(row)) {
+    return row.obra_origen_id ? obraCodigoFromMap(row.obra_origen_id, obraById) || "obra" : (row.stock_sede ? `Stock ${row.stock_sede}` : "Stock");
+  }
+  return rowObraLabel(row);
+}
+
+function rowDestinoMovimientoLabel(row, obraById = null) {
+  if (rowIsAsignacionStock(row)) {
+    return obraCodigoFromMap(row.obra_id, obraById) || row.obra?.codigo || "obra";
+  }
+  if (!row.egreso_destino_obra_id) return "";
+  const destino = obraById?.get?.(row.egreso_destino_obra_id) || row.egreso_destino_obra || null;
+  return destino?.codigo || "obra";
+}
+
+function rowMovimientoRuta(row, obraById = null) {
+  const destino = rowDestinoMovimientoLabel(row, obraById);
+  if (destino) return `${rowOrigenMovimientoLabel(row, obraById)} -> ${destino}`;
+  if (row.sector_destino) return row.sector_destino;
+  return rowObraLabel(row);
+}
+
+function cleanHumanField(value) {
+  return isUuidLike(value) ? "" : value;
+}
+
+function rowMovimientoRetira(row) {
+  return cleanHumanField(row.retirado_por || "");
+}
+
+function rowMovimientoUsuario(row) {
+  return cleanHumanField(row.egreso_por_nombre || row.egreso_actor?.username || row.created_by_nombre || row.created_by_actor?.username || row.egreso_por || row.created_by || "");
 }
 
 function rowIsLocationChange(row) {
@@ -199,6 +275,7 @@ function rowSearchText(row) {
     row.descripcion,
     row.codigo,
     row.codigo_barra,
+    row.variante,
     materialBarcodeText(row),
     row.proveedor,
     row.rubro,
@@ -207,10 +284,11 @@ function rowSearchText(row) {
     rowSede(row),
     row.estado,
     row.retirado_por,
+    row.egreso_por_nombre,
+    row.created_by_nombre,
     row.egreso_nota,
     row.stock_nota,
     row.sector_destino,
-    row.egreso_por,
     row.ubicacion,
     row.ubicacion_obs,
     rowIsAdditional(row) ? "adicional opcional extra" : "estandar base matriz",
@@ -685,22 +763,35 @@ function LocationButton({ location, active, onClick }) {
   );
 }
 
-function KardexRow({ row, onRevert, busy }) {
+function KardexRow({ row, onRevert, busy, obraById }) {
   const delta = rowDelta(row);
   const isLocation = rowIsLocationChange(row);
   const isOut = row.estado === "egresado";
+  const isAssignment = rowIsAsignacionStock(row);
   const isTransit = rowIsTransit(row);
-  const label = isLocation ? "Ubicacion" : isTransit ? "Transito" : isOut ? "Egreso" : row.estado === "problema" ? "Problema" : "Ingreso";
-  const labelColor = isLocation ? C.blue : isTransit ? C.amber : isOut ? C.red : C.green;
+  const egresoMeta = rowEgresoMeta(row);
+  const label = isLocation ? "Ubicacion" : isAssignment ? egresoMeta.label : isTransit ? "Transito" : isOut ? egresoMeta.label : row.estado === "problema" ? "Problema" : "Ingreso";
+  const labelColor = isLocation ? C.blue : isAssignment ? egresoMeta.color : isTransit ? C.amber : isOut ? egresoMeta.color : C.green;
+  const descripcion = row.descripcion || "(sin descripcion)";
+  const codigo = row.codigo ? ` · ${row.codigo}` : "";
+  const variante = String(row.variante || "").trim();
+  const detalle = [
+    fmtDate(rowMovementAt(row)),
+    (isOut || isAssignment) ? rowMovimientoRuta(row, obraById) : `${rowObraLabel(row)} · ${rowSede(row) || "Sin sede"}`,
+    variante ? `Variante: ${variante}` : "",
+    rowMovimientoRetira(row) ? `Retira: ${rowMovimientoRetira(row)}` : "",
+    `Usuario: ${rowMovimientoUsuario(row) || "sin registrar"}`,
+    row.egreso_nota || row.notas || "",
+  ].filter(Boolean).join(" · ");
   // Guard B: deshabilitar Revertir si ya contiene "[anulado]" en notas
   const yaAnulado = rowIsAnulado(row);
   return (
     <div style={{ display: "grid", gridTemplateColumns: "74px minmax(0, 1fr) 86px 68px", gap: 10, alignItems: "center", padding: "9px 0", borderBottom: `1px solid ${C.border}` }}>
       <span style={{ color: labelColor, fontSize: 11, fontWeight: 950 }}>{label}</span>
       <span style={{ minWidth: 0 }}>
-        <span style={{ display: "block", color: C.text, fontSize: 12.5, fontWeight: 850, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{rowObraLabel(row)} · {rowSede(row) || "Sin sede"}</span>
+        <span style={{ display: "block", color: C.text, fontSize: 12.5, fontWeight: 850, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{descripcion}{codigo}</span>
         <span style={{ display: "block", color: C.dim, fontSize: 10.5, marginTop: 2, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
-          {fmtDate(row.egreso_at || row.recepcion_updated_at || row.updated_at || row.created_at)}{row.retirado_por ? ` · ${row.retirado_por}` : ""}{row.egreso_nota || row.notas ? ` · ${row.egreso_nota || row.notas}` : ""}
+          {detalle}
         </span>
       </span>
       <span style={{ color: delta < 0 ? C.red : delta > 0 ? C.green : C.dim, fontFamily: C.mono, fontSize: 12.5, fontWeight: 950, textAlign: "right" }}>
@@ -731,15 +822,20 @@ function EgresosHistoryView({ rows, loading, obras, isMobile, onOpenProduct }) {
   }, [rows]);
 
   function destinoLabel(row) {
-    const destinoObra = row.egreso_destino_obra_id ? obraById.get(row.egreso_destino_obra_id) : null;
-    if (destinoObra?.codigo) return `Transferido a ${destinoObra.codigo}`;
-    if (row.egreso_destino_obra_id) return "Transferido a obra";
+    const destinoObra = rowDestinoObraLabel(row, obraById);
+    if (destinoObra) return destinoObra;
     if (row.sector_destino) return row.sector_destino;
     return "Salida / consumo";
   }
 
   function detalleLabel(row) {
-    return [row.retirado_por ? `Retira: ${row.retirado_por}` : "", row.egreso_nota || row.notas || ""]
+    const variante = String(row.variante || "").trim();
+    return [
+      variante ? `Variante: ${variante}` : "",
+      rowMovimientoRetira(row) ? `Retira: ${rowMovimientoRetira(row)}` : "",
+      `Usuario: ${rowMovimientoUsuario(row) || "sin registrar"}`,
+      row.egreso_nota || row.notas || "",
+    ]
       .filter(Boolean)
       .join(" - ");
   }
@@ -748,11 +844,11 @@ function EgresosHistoryView({ rows, loading, obras, isMobile, onOpenProduct }) {
     <section style={{ minHeight: 0, minWidth: 0, border: `1px solid ${C.border}`, background: C.panel, borderRadius: 12, overflow: "hidden", display: "flex", flexDirection: "column" }}>
       <div style={{ padding: "13px 14px", borderBottom: `1px solid ${C.border}`, background: C.panelSolid, display: "flex", alignItems: "center", justifyContent: "space-between", gap: 12, flexWrap: "wrap" }}>
         <div>
-          <div style={{ color: C.text, fontSize: 15, fontWeight: 950 }}>Historial de egresos</div>
-          <div style={{ color: C.dim, fontSize: 11, marginTop: 2 }}>Movimientos ya registrados, filtrados por busqueda, sede, obra y categoria.</div>
+          <div style={{ color: C.text, fontSize: 15, fontWeight: 950 }}>Historial de movimientos</div>
+          <div style={{ color: C.dim, fontSize: 11, marginTop: 2 }}>Egresos, asignaciones y reasignaciones ya registradas.</div>
         </div>
         <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
-          <span style={{ border: `1px solid ${C.border}`, background: C.bg, color: C.text, borderRadius: 999, padding: "6px 9px", fontSize: 11, fontWeight: 900 }}>{rows.length} egresos</span>
+          <span style={{ border: `1px solid ${C.border}`, background: C.bg, color: C.text, borderRadius: 999, padding: "6px 9px", fontSize: 11, fontWeight: 900 }}>{rows.length} movimientos</span>
           <span style={{ border: `1px solid ${C.border}`, background: C.bg, color: C.text, borderRadius: 999, padding: "6px 9px", fontSize: 11, fontWeight: 900 }}>{fmtQty(totals.unidades)} unidades</span>
           <span style={{ border: `1px solid ${C.border}`, background: C.bg, color: C.text, borderRadius: 999, padding: "6px 9px", fontSize: 11, fontWeight: 900 }}>{totals.materiales} productos</span>
           <span style={{ border: `1px solid ${C.greenB}`, background: C.greenL, color: C.green, borderRadius: 999, padding: "6px 9px", fontSize: 11, fontWeight: 900 }}>{totals.hoy} hoy</span>
@@ -761,10 +857,13 @@ function EgresosHistoryView({ rows, loading, obras, isMobile, onOpenProduct }) {
 
       <div style={{ flex: 1, minHeight: 0, overflowY: "auto", padding: 10, display: "grid", gap: 8, alignContent: "start" }}>
         {loading ? (
-          <div style={{ padding: 30, textAlign: "center", color: C.dim, fontSize: 12, fontWeight: 850 }}>Cargando egresos...</div>
+          <div style={{ padding: 30, textAlign: "center", color: C.dim, fontSize: 12, fontWeight: 850 }}>Cargando movimientos...</div>
         ) : rows.length ? rows.map((row) => {
           const detalle = detalleLabel(row);
           const qtyOut = rowEgresoQuantity(row);
+          const tipoMeta = rowEgresoMeta(row);
+          const isAssignment = rowIsAsignacionStock(row);
+          const qtyPrefix = isAssignment ? "→" : "-";
           return (
             <div
               key={row.id}
@@ -780,7 +879,7 @@ function EgresosHistoryView({ rows, loading, obras, isMobile, onOpenProduct }) {
               }}
             >
               <div>
-                <div style={{ color: C.red, fontSize: 11, fontWeight: 950 }}>Egreso</div>
+                <div style={{ color: tipoMeta.color, fontSize: 11, fontWeight: 950 }}>{tipoMeta.label}</div>
                 <div style={{ color: C.dim, fontSize: 10.5, marginTop: 2 }}>{fmtDate(rowMovementAt(row))}</div>
               </div>
               <div style={{ minWidth: 0 }}>
@@ -796,11 +895,11 @@ function EgresosHistoryView({ rows, loading, obras, isMobile, onOpenProduct }) {
               </div>
               <div>
                 <div style={{ color: C.dim, fontSize: 9.5, fontWeight: 900, textTransform: "uppercase", letterSpacing: 0.8 }}>Cantidad</div>
-                <div style={{ color: C.red, fontFamily: C.mono, fontSize: 13.5, fontWeight: 950 }}>-{fmtQty(qtyOut)} {row.unidad || ""}</div>
+                <div style={{ color: tipoMeta.color, fontFamily: C.mono, fontSize: 13.5, fontWeight: 950 }}>{qtyPrefix}{fmtQty(qtyOut)} {row.unidad || ""}</div>
               </div>
               <div style={{ minWidth: 0 }}>
                 <div style={{ color: C.dim, fontSize: 9.5, fontWeight: 900, textTransform: "uppercase", letterSpacing: 0.8 }}>Origen</div>
-                <div style={{ color: C.text, fontSize: 12, fontWeight: 850, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{rowObraLabel(row)}</div>
+                <div style={{ color: C.text, fontSize: 12, fontWeight: 850, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{rowOrigenMovimientoLabel(row, obraById)}</div>
                 <div style={{ color: C.dim, fontSize: 10.5, marginTop: 2 }}>{rowSede(row) || "Sin sede"}</div>
               </div>
               <div style={{ minWidth: 0 }}>
@@ -815,7 +914,7 @@ function EgresosHistoryView({ rows, loading, obras, isMobile, onOpenProduct }) {
           );
         }) : (
           <div style={{ padding: 28, border: `1px dashed ${C.border}`, borderRadius: 10, color: C.dim, textAlign: "center", fontSize: 13 }}>
-            Todavia no hay egresos para estos filtros.
+            Todavia no hay movimientos para estos filtros.
           </div>
         )}
       </div>
@@ -1176,6 +1275,7 @@ function ProductActionPanel({ group, selectedLocation, setSelectedLocationKey, o
           retiradoPor,
           nota: egresoNota,
           esAdicional: group.esAdicional,
+          variante: varianteEgreso || null,
         };
         if (destinoObraId === "__stock__") {
           await liberarProductoAStock(baseMov);
@@ -1341,6 +1441,7 @@ function ProductDetail({ group, isMobile, obras, sedeLocked, canReceive, mode, o
   const [creatingLocationMaterial, setCreatingLocationMaterial] = useState(false);
   // Toggle C: ocultar filas ya anuladas en el kardex
   const [ocultarAnulados, setOcultarAnulados] = useState(false);
+  const obraById = useMemo(() => new Map((obras || []).map((obra) => [obra.id, obra])), [obras]);
 
   if (!group) {
     if (mode === "egreso") {
@@ -1683,6 +1784,7 @@ function ProductDetail({ group, isMobile, obras, sedeLocked, canReceive, mode, o
               row={row}
               onRevert={(movimiento) => { setReversalTarget(movimiento); setReversalReason(""); }}
               busy={revertingId === row.id}
+              obraById={obraById}
             />
           )) : (
             <div style={{ color: C.dim, fontSize: 12, padding: "12px 0" }}>

@@ -47,6 +47,49 @@ function isMissingTable(error) {
   return error.code === "42P01" || msg.includes("does not exist") || msg.includes("schema cache") || msg.includes("not found");
 }
 
+function isUuidLike(value) {
+  return /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(String(value || "").trim());
+}
+
+function numericValue(value, fallback = 0) {
+  const n = Number(String(value ?? "").replace(",", "."));
+  return Number.isFinite(n) ? n : fallback;
+}
+
+async function fetchProfilesMap(ids = []) {
+  const cleanIds = [...new Set(ids.filter(isUuidLike))];
+  const byId = new Map();
+  if (!cleanIds.length) return byId;
+  try {
+    const { data, error } = await supabase
+      .from("profiles")
+      .select("id,username")
+      .in("id", cleanIds);
+    if (error) throw error;
+    for (const profile of data ?? []) byId.set(profile.id, profile);
+  } catch {
+    byId.clear();
+  }
+  return byId;
+}
+
+function transferMovementKey(row, mode = "out") {
+  const materialKey = row.material_id || [
+    String(row.codigo || "").trim().toLowerCase(),
+    normalizeSearch(row.descripcion || ""),
+  ].filter(Boolean).join(":");
+  const origin = mode === "in" ? row.obra_origen_id : row.obra_id;
+  const destination = mode === "in" ? row.obra_id : row.egreso_destino_obra_id;
+  const amount = numericValue(mode === "in" ? row.cantidad : row.cantidad_egresada || row.cantidad, 0);
+  return [
+    materialKey || "material",
+    origin || "stock",
+    destination || "stock",
+    String(row.stock_sede || "").trim().toLowerCase(),
+    Number(Math.round(amount * 1000) / 1000),
+  ].join("|");
+}
+
 function normalizeSearch(value = "") {
   return String(value || "")
     .toLowerCase()
@@ -346,13 +389,25 @@ export async function fetchMaterialesEgreso({ sede = null, estados = ["en_panol"
       }
     }
   }
+  const egresoActorById = await fetchProfilesMap(rows.map((row) => row.egreso_por));
+  const transferActorByKey = new Map();
+  for (const row of rows) {
+    if (row.source !== "transferencia_egreso" || !isUuidLike(row.egreso_por)) continue;
+    const actor = egresoActorById.get(row.egreso_por) || null;
+    if (actor) transferActorByKey.set(transferMovementKey(row, "out"), actor);
+  }
   const hydrated = rows.map((row) => {
     const meta = materialById.get(row.material_id) || null;
     const request = row.purchase_request_id ? requestById.get(row.purchase_request_id) || null : null;
     const categoriaId = row.categoria_id || meta?.categoria_id || null;
+    const directActor = isUuidLike(row.egreso_por) ? egresoActorById.get(row.egreso_por) || null : null;
+    const transferActor = row.source === "transferencia_ingreso" ? transferActorByKey.get(transferMovementKey(row, "in")) || null : null;
+    const egresoActor = directActor || transferActor;
     return {
       ...row,
       obra: row.obra_id ? obrasById.get(row.obra_id) || null : null,
+      egreso_actor: egresoActor,
+      egreso_por_nombre: egresoActor?.username || (isUuidLike(row.egreso_por) ? "" : row.egreso_por || ""),
       request,
       es_adicional: row.es_adicional ?? request?.es_adicional ?? false,
       proveedor: row.proveedor || meta?.proveedor || "",
@@ -510,16 +565,31 @@ const CATALOG_CREATION_ORIGINS = new Set(["remito", "conteo", "manual", "addon_o
 
 export async function fetchPanolMaterialCreations({ limit = 300 } = {}) {
   try {
-    const { data, error } = await supabase
+    let { data, error } = await supabase
       .from("panol_materiales")
-      .select("id, descripcion, codigo, proveedor, unidad_medida, origen, notas, created_at, batch_id")
+      .select("id, descripcion, codigo, proveedor, unidad_medida, origen, notas, created_at, batch_id, created_by")
       .order("created_at", { ascending: false })
       .limit(limit);
+    if (error && isMissingColumn(error)) {
+      const retry = await supabase
+        .from("panol_materiales")
+        .select("id, descripcion, codigo, proveedor, unidad_medida, origen, notas, created_at, batch_id")
+        .order("created_at", { ascending: false })
+        .limit(limit);
+      data = retry.data;
+      error = retry.error;
+    }
     if (error) return [];
-    return (data ?? []).filter((row) => {
+    const rows = (data ?? []).filter((row) => {
       const origen = String(row.origen || "manual").toLowerCase();
       return !row.batch_id && CATALOG_CREATION_ORIGINS.has(origen);
     });
+    const profilesById = await fetchProfilesMap(rows.map((row) => row.created_by));
+    return rows.map((row) => ({
+      ...row,
+      created_by_actor: isUuidLike(row.created_by) ? profilesById.get(row.created_by) || null : null,
+      created_by_nombre: profilesById.get(row.created_by)?.username || "",
+    }));
   } catch {
     return [];
   }
@@ -992,13 +1062,14 @@ export async function transferirProducto({
   nota = null,
   retiradoPor = null,
   esAdicional = false,
+  variante = null,
 } = {}) {
   const qty = Number(String(cantidad ?? "").replace(",", "."));
   const desc = String(descripcion || material?.descripcion || "").trim();
   if (!obraDestinoId) throw new Error("Elegí una obra destino.");
   if (!material?.id && !desc) throw new Error("Elegi o crea un material.");
   if (!Number.isFinite(qty) || qty <= 0) throw new Error("Carga una cantidad valida.");
-  const { data, error } = await supabase.rpc("panol_transferir_producto", {
+  const base = {
     p_material_id: material?.id || null,
     p_descripcion: desc || null,
     p_codigo: String(codigo || material?.codigo || "").trim() || null,
@@ -1010,7 +1081,12 @@ export async function transferirProducto({
     p_nota: String(nota || "").trim() || null,
     p_retirado_por: String(retiradoPor || "").trim() || null,
     p_es_adicional: !!esAdicional,
-  });
+  };
+  const varClean = String(variante || "").trim() || null;
+  let { data, error } = await supabase.rpc("panol_transferir_producto", { ...base, p_variante: varClean });
+  if (error && (error.code === "PGRST202" || String(error.message || "").toLowerCase().includes("could not find the function"))) {
+    ({ data, error } = await supabase.rpc("panol_transferir_producto", base));
+  }
   if (error) throw error;
   return data;
 }
