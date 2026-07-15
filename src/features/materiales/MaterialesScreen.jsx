@@ -41,6 +41,7 @@ import {
   cambiarEstadoObraSnapshot,
   fetchObraSnapshotAudit,
   fetchObraMaterialSnapshot,
+  fetchStockLibrePanolMateriales,
   ensureObraMaterialSnapshot,
   ensureObraMaterialSnapshotRow,
   reemplazarObraMaterialSnapshotSeguro,
@@ -160,6 +161,13 @@ function qtyText(value, unidad = "") {
   const n = toNum(value);
   const qty = n == null ? value : Number.isInteger(n) ? String(n) : String(n).replace(".", ",");
   return `${qty || "—"}${unidad ? ` ${unidad}` : ""}`;
+}
+
+function stockLibreKeyForRow(row) {
+  const materialId = row?.materialId || row?.material_id || row?.material?.id || "";
+  if (materialId) return `material:${materialId}`;
+  const textKey = norm(`${row?.descripcion || ""}|${row?.codigo || ""}|${row?.unidad || row?.unidad_medida || ""}`);
+  return textKey ? `text:${textKey}` : "";
 }
 
 function materialQty(material, linea) {
@@ -4376,6 +4384,7 @@ function CostoObraTab({ categorias, materiales, opciones = [] }) {
 }
 
 function ObraMatrizView({ obra, obras = [], linea, lineaNombre, categorias, materiales, proveedores = [], opciones = [], ums = [], onChanged, onBack }) {
+  const { isMobile } = useResponsive();
   const [q, setQ] = useState("");
   const [proveedorFilter, setProveedorFilter] = useState("");
   const [rubroFilter, setRubroFilter] = useState("");
@@ -4396,6 +4405,8 @@ function ObraMatrizView({ obra, obras = [], linea, lineaNombre, categorias, mate
   const [obraPanel, setObraPanel] = useState("");
   const [snapshot, setSnapshot] = useState([]);
   const [snapshotBusy, setSnapshotBusy] = useState(false);
+  const [stockLibreMap, setStockLibreMap] = useState(() => new Map());
+  const [stockLibreLoading, setStockLibreLoading] = useState(false);
   const [actionBusy, setActionBusy] = useState("");
   const [flowMsg, setFlowMsg] = useState(null);
   const [panolPrefill, setPanolPrefill] = useState(null);
@@ -4426,6 +4437,19 @@ function ObraMatrizView({ obra, obras = [], linea, lineaNombre, categorias, mate
     }
   }, [obra?.id]);
   useEffect(() => { cargarSnapshot(); }, [cargarSnapshot]);
+
+  const cargarStockLibre = useCallback(async () => {
+    setStockLibreLoading(true);
+    try {
+      const rows = await fetchStockLibrePanolMateriales();
+      setStockLibreMap(new Map((rows ?? []).map((row) => [row.key, row])));
+    } catch {
+      setStockLibreMap(new Map());
+    } finally {
+      setStockLibreLoading(false);
+    }
+  }, []);
+  useEffect(() => { cargarStockLibre(); }, [cargarStockLibre]);
 
   const cargarCondicionantesObra = useCallback(async () => {
     if (!obra?.id) return;
@@ -5517,24 +5541,31 @@ function ObraMatrizView({ obra, obras = [], linea, lineaNombre, categorias, mate
                 const editableAddon = addonForVisibleRow(row);
                 const snapshotOnly = snapshotOnlyForRow(row);
                 const editingMaterial = editingMaterialRowId === row.id;
+                const rowSelected = selected.has(row.id);
+                const rowBorder = rowSelected ? C.blueB : row.review?.flag ? C.amberB : C.b0;
+                const rowBg = rowSelected ? C.blueL : row.review?.flag ? C.amberL : C.bg;
+                const miniBtn = { ...BTN, padding: "4px 7px", minHeight: 26, borderRadius: 8, fontSize: 10.5, gap: 4 };
+                const stockLibreInfo = stockLibreMap.get(stockLibreKeyForRow(row));
                 return (
                   <div key={row.id} style={{ display: "grid", gap: 7 }}>
                     <div
                       style={{
                         display: "grid",
-                        gridTemplateColumns: "26px minmax(220px, 1.25fr) minmax(110px, .45fr) minmax(140px, .55fr) minmax(110px, .45fr) minmax(180px, .7fr)",
-                        gap: 10,
-                        alignItems: "center",
-                        padding: "10px 11px",
-                        border: `1px solid ${selected.has(row.id) ? C.blueB : row.review?.flag ? C.amberB : C.b0}`,
-                        borderRadius: 11,
-                        background: selected.has(row.id) ? C.blueL : row.review?.flag ? C.amberL : C.bg,
+                        gridTemplateColumns: isMobile
+                          ? "24px minmax(0, 1fr)"
+                          : "24px minmax(260px, 1fr) minmax(100px, .26fr) minmax(165px, .34fr) minmax(90px, .22fr) minmax(250px, .52fr)",
+                        gap: isMobile ? 8 : 12,
+                        alignItems: "start",
+                        padding: isMobile ? "9px 10px" : "9px 12px",
+                        border: `1px solid ${rowBorder}`,
+                        borderRadius: 10,
+                        background: rowBg,
                       }}
                     >
-                      <input type="checkbox" checked={selected.has(row.id)} onChange={() => toggleSelected(row.id)} />
+                      <input type="checkbox" checked={rowSelected} onChange={() => toggleSelected(row.id)} style={{ marginTop: 4 }} />
                       <div style={{ minWidth: 0 }}>
                       <div style={{ display: "flex", alignItems: "center", gap: 7, minWidth: 0, flexWrap: "wrap" }}>
-                        <span style={{ fontSize: 13.5, fontWeight: 900, color: C.t0, minWidth: 0, overflow: "hidden", textOverflow: "ellipsis" }}>{row.descripcion}</span>
+                        <span style={{ fontSize: 13.5, fontWeight: 950, lineHeight: 1.25, color: C.t0, minWidth: 0, overflow: "hidden", textOverflow: "ellipsis" }}>{row.descripcion}</span>
                         <span style={{ fontSize: 10, fontWeight: 900, color: row.bucket.color, background: `${row.bucket.color}16`, border: `1px solid ${row.bucket.color}44`, borderRadius: 999, padding: "2px 7px", whiteSpace: "nowrap" }}>
                           {row.bucket.label}
                         </span>
@@ -5546,6 +5577,7 @@ function ObraMatrizView({ obra, obras = [], linea, lineaNombre, categorias, mate
                         />
                         {row.review?.flag && <ReviewBadge reason={row.review.reason} />}
                         <RecepcionChip row={row} />
+                        <StockLibreChip info={stockLibreInfo} loading={stockLibreLoading} />
                         {snapshotOnly ? (
                           <span style={{ fontSize: 10, fontWeight: 900, color: C.amber, border: `1px solid ${C.amberB}`, background: C.amberL, borderRadius: 999, padding: "2px 7px", whiteSpace: "nowrap" }}>
                             Fuera de matriz
@@ -5556,20 +5588,20 @@ function ObraMatrizView({ obra, obras = [], linea, lineaNombre, categorias, mate
                             type="button"
                             disabled={exclusionBusy === row.materialId}
                             onClick={() => excluirRowDeObra(row)}
-                            style={{ ...BTN, padding: "3px 7px", color: C.red, fontSize: 10.5, opacity: exclusionBusy === row.materialId ? 0.65 : 1 }}
+                            style={{ ...miniBtn, color: C.red, opacity: exclusionBusy === row.materialId ? 0.65 : 1 }}
                             title={`Quitar solo de ${obra.codigo}. Si tiene movimientos, se conserva el kardex.`}
                           >
-                            <Trash2 size={12} /> {exclusionBusy === row.materialId ? "Quitando..." : "Quitar de esta obra"}
+                            <Trash2 size={12} /> {exclusionBusy === row.materialId ? "Sacando..." : "Sacar de esta obra"}
                           </button>
                         ) : null}
                         {materialForRow && !editableAddon ? (
                           <button
                             type="button"
                             onClick={() => setEditingMaterialRowId((id) => (id === row.id ? "" : row.id))}
-                            style={{ ...BTN, padding: "3px 7px", color: editingMaterial ? C.blue : C.t2, fontSize: 10.5 }}
+                            style={{ ...miniBtn, color: editingMaterial ? C.blue : C.t2 }}
                             title="Editar item del catalogo completo"
                           >
-                            <Pencil size={12} /> {editingMaterial ? "Cerrar edición" : "Editar catálogo"}
+                            <Pencil size={12} /> {editingMaterial ? "Cerrar" : "Editar"}
                           </button>
                         ) : null}
                         {editableAddon ? (
@@ -5580,7 +5612,7 @@ function ObraMatrizView({ obra, obras = [], linea, lineaNombre, categorias, mate
                                 setEditingAddon(editableAddon);
                                 setAddonModalOpen(true);
                               }}
-                              style={{ ...BTN, padding: "3px 7px", color: C.blue, fontSize: 10.5 }}
+                              style={{ ...miniBtn, color: C.blue }}
                               title="Editar adicional"
                             >
                               <Pencil size={12} /> Editar
@@ -5589,7 +5621,7 @@ function ObraMatrizView({ obra, obras = [], linea, lineaNombre, categorias, mate
                               type="button"
                               disabled={editableAddon.__snapshotLocked}
                               onClick={() => openReassignAddon(editableAddon)}
-                              style={{ ...BTN, padding: "3px 7px", color: editableAddon.__snapshotLocked ? C.t3 : C.violet, fontSize: 10.5, opacity: editableAddon.__snapshotLocked ? 0.55 : 1 }}
+                              style={{ ...miniBtn, color: editableAddon.__snapshotLocked ? C.t3 : C.violet, opacity: editableAddon.__snapshotLocked ? 0.55 : 1 }}
                               title={editableAddon.__snapshotLocked ? "Ya tiene movimiento de panol" : "Reasignar adicional a otra obra"}
                             >
                               <RefreshCw size={12} /> Reasignar
@@ -5598,10 +5630,10 @@ function ObraMatrizView({ obra, obras = [], linea, lineaNombre, categorias, mate
                               type="button"
                               disabled={addonDeleteBusy === editableAddon.id}
                               onClick={() => deleteAddonRow(editableAddon)}
-                              style={{ ...BTN, padding: "3px 7px", color: editableAddon.__snapshotLocked ? C.t3 : C.red, fontSize: 10.5, opacity: editableAddon.__snapshotLocked ? 0.8 : 1 }}
+                              style={{ ...miniBtn, color: editableAddon.__snapshotLocked ? C.t3 : C.red, opacity: editableAddon.__snapshotLocked ? 0.8 : 1 }}
                               title={editableAddon.__snapshotLocked ? "Ya tiene movimiento de pañol: tocá para ver el motivo" : "Quitar solo de esta obra"}
                             >
-                              <Trash2 size={12} /> {addonDeleteBusy === editableAddon.id ? "Quitando..." : "Quitar de esta obra"}
+                              <Trash2 size={12} /> {addonDeleteBusy === editableAddon.id ? "Sacando..." : "Sacar de esta obra"}
                             </button>
                           </>
                         ) : null}
@@ -5610,14 +5642,14 @@ function ObraMatrizView({ obra, obras = [], linea, lineaNombre, categorias, mate
                             type="button"
                             disabled={snapshotDeleteBusy === row.snapshotId}
                             onClick={() => deleteSnapshotOnlyRow(row)}
-                            style={{ ...BTN, padding: "3px 7px", color: snapshotLockedForAddon(row) ? C.t3 : C.red, fontSize: 10.5, opacity: snapshotLockedForAddon(row) ? 0.8 : 1 }}
+                            style={{ ...miniBtn, color: snapshotLockedForAddon(row) ? C.t3 : C.red, opacity: snapshotLockedForAddon(row) ? 0.8 : 1 }}
                             title={snapshotLockedForAddon(row) ? "Tiene compras/recepción/pañol asociado: tocá para ver el motivo" : "Quitar solo de esta obra"}
                           >
-                            <Trash2 size={12} /> {snapshotDeleteBusy === row.snapshotId ? "Quitando..." : "Quitar de esta obra"}
+                            <Trash2 size={12} /> {snapshotDeleteBusy === row.snapshotId ? "Sacando..." : "Sacar de esta obra"}
                           </button>
                         ) : null}
                       </div>
-                      <div style={{ fontSize: 11, color: C.t2, marginTop: 4, lineHeight: 1.35 }}>
+                      <div style={{ fontSize: 10.8, color: C.t2, marginTop: 3, lineHeight: 1.3 }}>
                         {row.codigo || "sin código"}{row.obs ? ` · ${row.obs}` : ""}
                       </div>
                       {row.condicionantes?.length ? (
@@ -5636,25 +5668,27 @@ function ObraMatrizView({ obra, obras = [], linea, lineaNombre, categorias, mate
                       ) : null}
                       <RecepcionDetalle row={row} />
                       </div>
-                      <div>
+                      <div style={{ minWidth: 0, gridColumn: isMobile ? "2 / -1" : undefined }}>
                         <div style={{ fontSize: 10, color: C.t2, fontWeight: 800, textTransform: "uppercase", letterSpacing: 0.6 }}>Cantidad</div>
                         <div style={{ fontFamily: C.mono, fontSize: 13, fontWeight: 850, color: C.t0 }}>{qtyText(row.cantidad, row.unidad)}</div>
                       </div>
-                      <div style={{ minWidth: 0 }}>
+                      <div style={{ minWidth: 0, gridColumn: isMobile ? "2 / -1" : undefined }}>
                         <div style={{ fontSize: 10, color: C.t2, fontWeight: 800, textTransform: "uppercase", letterSpacing: 0.6 }}>Proveedor</div>
                         <div style={{ fontSize: 12.5, fontWeight: 850, color: C.t0, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{row.proveedor}</div>
                         <div style={{ fontSize: 11, color: C.t2, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{row.rubro}</div>
                       </div>
-                      <div>
+                      <div style={{ minWidth: 0, gridColumn: isMobile ? "2 / -1" : undefined }}>
                         <div style={{ fontSize: 10, color: C.t2, fontWeight: 800, textTransform: "uppercase", letterSpacing: 0.6 }}>Precio</div>
                         <div style={{ fontFamily: C.mono, fontSize: 12.5, fontWeight: 850, color: row.precio.amount ? C.t0 : C.amber }}>{row.precio.text}</div>
                         {total ? <div style={{ fontFamily: C.mono, fontSize: 10.5, color: C.t2 }}>total {fmtMoney(total, row.precio.moneda)}</div> : null}
                       </div>
-                      <ObraEstadoControl
-                        row={row}
-                        busy={estadoBusy === row.id || snapshotBusy}
-                        onChange={regularizarEstadoRow}
-                      />
+                      <div style={{ minWidth: 0, gridColumn: isMobile ? "2 / -1" : undefined }}>
+                        <ObraEstadoControl
+                          row={row}
+                          busy={estadoBusy === row.id || snapshotBusy}
+                          onChange={regularizarEstadoRow}
+                        />
+                      </div>
                     </div>
                     {editingMaterial && materialForRow ? (
                       <MaterialFila
@@ -6131,6 +6165,19 @@ function RecepcionChip({ row }) {
   );
 }
 
+function StockLibreChip({ info, loading = false }) {
+  if (loading || !info || !(toNum(info.cantidad) > 0)) return null;
+  const sedes = Object.entries(info.sedes || {})
+    .filter(([, qty]) => toNum(qty) > 0)
+    .map(([sede, qty]) => `${sede}: ${qtyText(qty, info.unidad)}`);
+  const title = sedes.length ? `Stock sin obra asignada · ${sedes.join(" · ")}` : "Stock sin obra asignada";
+  return (
+    <span title={title} style={{ fontSize: 10, fontWeight: 950, color: C.green, background: C.greenL, border: `1px solid ${C.greenB}`, borderRadius: 999, padding: "2px 7px", whiteSpace: "nowrap" }}>
+      Stock libre {qtyText(info.cantidad, info.unidad)}
+    </span>
+  );
+}
+
 function CompactStat({ label, value, color, active = false, onClick }) {
   return (
     <button type="button" onClick={onClick} style={{ display: "inline-flex", alignItems: "center", gap: 6, border: `1px solid ${active ? color : C.b0}`, background: active ? softStateBg(color) : C.s0, borderRadius: 999, padding: "4px 9px", fontSize: 11, fontWeight: 850, color: active ? C.t0 : C.t2, cursor: "pointer", fontFamily: C.sans }}>
@@ -6199,25 +6246,30 @@ function ObraEstadoControl({ row, busy = false, onChange }) {
 
   return (
     <div style={{ display: "grid", gap: 5, minWidth: 0 }}>
-      <div style={{ fontSize: 10, color: C.t2, fontWeight: 800, textTransform: "uppercase", letterSpacing: 0.6 }}>Estado obra</div>
-      <select value={estado} onChange={(e) => setEstadoDraft(e.target.value)} disabled={busy} style={{ ...INP, height: 32, padding: "5px 8px", fontSize: 11.5, fontWeight: 800 }}>
-        {OBRA_ESTADO_OPTIONS.map(([value, label]) => <option key={value} value={value} style={OPT_ST}>{label}</option>)}
-      </select>
-      <input
-        value={nota}
-        onChange={(e) => setNota(e.target.value)}
-        placeholder="Nota opcional"
-        disabled={busy}
-        style={{ ...INP, height: 30, padding: "5px 8px", fontSize: 11.5 }}
-      />
-      <div style={{ display: "flex", gap: 5, flexWrap: "wrap" }}>
-        <button type="button" disabled={disabled} onClick={save} style={{ ...BTN_GREEN, padding: "5px 8px", fontSize: 11, opacity: disabled ? 0.55 : 1 }}>
-          {busy ? "Guardando..." : "Guardar"}
-        </button>
-        <button type="button" onClick={() => setHistoryOpen((open) => !open)} disabled={!row.snapshotId} style={{ ...BTN, padding: "5px 8px", fontSize: 11, color: row.snapshotId ? C.blue : C.t3 }} title={row.snapshotId ? "Ver historial" : "Se crea historial al guardar estado"}>
-          Historial
+      <div style={{ display: "grid", gridTemplateColumns: "minmax(102px, 120px) minmax(0, 1fr) auto", gap: 5, alignItems: "center", minWidth: 0 }}>
+        <select
+          value={estado}
+          onChange={(e) => setEstadoDraft(e.target.value)}
+          disabled={busy}
+          title="Estado de esta obra"
+          style={{ ...INP, height: 30, padding: "4px 8px", fontSize: 11.5, fontWeight: 850, minWidth: 0 }}
+        >
+          {OBRA_ESTADO_OPTIONS.map(([value, label]) => <option key={value} value={value} style={OPT_ST}>{label}</option>)}
+        </select>
+        <input
+          value={nota}
+          onChange={(e) => setNota(e.target.value)}
+          placeholder="Nota"
+          disabled={busy}
+          style={{ ...INP, height: 30, padding: "4px 8px", fontSize: 11.5, minWidth: 0 }}
+        />
+        <button type="button" disabled={disabled} onClick={save} style={{ ...BTN_GREEN, padding: "4px 8px", minHeight: 30, fontSize: 10.5, opacity: disabled ? 0.5 : 1 }} title="Guardar cambio de estado">
+          {busy ? "..." : "Guardar"}
         </button>
       </div>
+      <button type="button" onClick={() => setHistoryOpen((open) => !open)} disabled={!row.snapshotId} style={{ ...BTN, justifySelf: "start", padding: "3px 7px", minHeight: 24, fontSize: 10.5, color: row.snapshotId ? C.blue : C.t3 }} title={row.snapshotId ? "Ver historial" : "Se crea historial al guardar estado"}>
+        Historial
+      </button>
       {historyOpen && row.snapshotId && <ObraSnapshotHistory snapshotId={row.snapshotId} />}
     </div>
   );
@@ -6479,8 +6531,8 @@ function ObraVarianteControl({ row, options = [], busy = false, onChange }) {
     ) : null;
   }
   return (
-    <label style={{ display: "inline-flex", alignItems: "center", gap: 5, border: `1px solid ${row.variante ? C.blueB : C.b0}`, background: row.variante ? C.blueL : C.s0, borderRadius: 999, padding: "2px 7px", minHeight: 22 }}>
-      <span style={{ fontSize: 9.5, fontWeight: 900, color: row.variante ? C.blue : C.t2, textTransform: "uppercase" }}>Variante</span>
+    <label style={{ display: "inline-flex", alignItems: "center", gap: 5, border: `1px solid ${row.variante ? C.blueB : C.b0}`, background: row.variante ? C.blueL : C.s0, borderRadius: 999, padding: "2px 6px", minHeight: 21, maxWidth: "100%" }}>
+      <span style={{ fontSize: 9, fontWeight: 900, color: row.variante ? C.blue : C.t2, textTransform: "uppercase" }}>Var.</span>
       <select
         value={row.variante || ""}
         disabled={busy}
@@ -6494,7 +6546,7 @@ function ObraVarianteControl({ row, options = [], busy = false, onChange }) {
           fontWeight: 900,
           fontFamily: C.sans,
           cursor: busy ? "default" : "pointer",
-          maxWidth: 150,
+          maxWidth: 124,
         }}
         title="Variante/marca que lleva esta obra"
       >

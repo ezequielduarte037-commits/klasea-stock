@@ -693,6 +693,64 @@ export async function fetchObraMaterialSnapshot(obraId) {
   }
 }
 
+const STOCK_LIBRE_ESTADOS = new Set(["en_panol", "recibido", "parcial"]);
+
+function stockLibreSnapshotKey(row) {
+  const materialId = row?.material_id ?? row?.materialId ?? null;
+  if (materialId) return `material:${materialId}`;
+  const textKey = norm(`${row?.descripcion || ""}|${row?.codigo || ""}|${row?.unidad || row?.unidad_medida || ""}`);
+  return textKey ? `text:${textKey}` : "";
+}
+
+export async function fetchStockLibrePanolMateriales() {
+  try {
+    const { data, error } = await supabase
+      .from("panol_obra_materiales_snapshot")
+      .select("id, material_id, descripcion, codigo, cantidad, cantidad_egresada, unidad, estado, source, stock_sede")
+      .is("obra_id", null);
+    if (error) return [];
+
+    const map = new Map();
+    for (const row of data ?? []) {
+      const key = stockLibreSnapshotKey(row);
+      if (!key) continue;
+      const estado = String(row.estado || "").toLowerCase();
+      const source = String(row.source || "").toLowerCase();
+      const isSalida = estado === "egresado" || source.startsWith("egreso") || source === "transferencia_egreso";
+      const cantidad = Math.abs(toNullableNumber(row.cantidad_egresada) ?? toNullableNumber(row.cantidad) ?? 0);
+      const delta = isSalida
+        ? -cantidad
+        : STOCK_LIBRE_ESTADOS.has(estado)
+          ? (toNullableNumber(row.cantidad) ?? 0) - (toNullableNumber(row.cantidad_egresada) ?? 0)
+          : 0;
+      if (!delta) continue;
+      const current = map.get(key) || {
+        key,
+        material_id: row.material_id || null,
+        descripcion: row.descripcion || "",
+        codigo: row.codigo || "",
+        unidad: row.unidad || "unidad",
+        cantidad: 0,
+        sedes: {},
+      };
+      current.cantidad += delta;
+      const sede = row.stock_sede || "Sin sede";
+      current.sedes[sede] = (current.sedes[sede] || 0) + delta;
+      map.set(key, current);
+    }
+
+    return [...map.values()]
+      .map((item) => ({
+        ...item,
+        cantidad: Math.max(0, item.cantidad),
+        sedes: Object.fromEntries(Object.entries(item.sedes).map(([sede, qty]) => [sede, Math.max(0, qty)]).filter(([, qty]) => qty > 0)),
+      }))
+      .filter((item) => item.cantidad > 0);
+  } catch {
+    return [];
+  }
+}
+
 function snapshotEstadoFromRecepcion(estado) {
   if (["pendiente", "recibido", "parcial", "sin_info", "falta_stock", "rechazado"].includes(estado)) return "en_panol";
   return null;
