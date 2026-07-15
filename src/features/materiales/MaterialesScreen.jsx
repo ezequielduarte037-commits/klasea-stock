@@ -42,8 +42,10 @@ import {
   fetchObraSnapshotAudit,
   fetchObraMaterialSnapshot,
   ensureObraMaterialSnapshot,
+  ensureObraMaterialSnapshotRow,
   reemplazarObraMaterialSnapshotSeguro,
   updateObraSnapshotRows,
+  asignarVarianteObraSnapshot,
   actualizarMaterialDatos,
 } from "./api";
 import AvanceTab from "./AvanceTab";
@@ -2311,6 +2313,7 @@ function MaterialFila({ material, categorias, ums, proveedores, obras = [], onCh
           <div style={{ fontSize: 13, color: C.t0, fontWeight: 600, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{material.descripcion || "(sin descripción)"}</div>
           <div style={{ display: "flex", gap: 7, marginTop: 2, fontSize: 11, color: C.t2, alignItems: "center", flexWrap: "wrap" }}>
             {review.flag && <ReviewBadge reason={review.reason} />}
+            {material.es_consumible && <span style={{ fontSize: 9.5, fontWeight: 800, color: C.amber, background: C.amberL, border: `1px solid ${C.amberB}`, borderRadius: 999, padding: "1px 7px", flexShrink: 0 }}>Consumible</span>}
             <span style={{ overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", maxWidth: 240 }}>{material.proveedor || "Sin proveedor"}</span>
             <ProveedorTipoBadge meta={mainProviderMeta} compact />
             <ProveedorAlternativasHint proveedor={material.proveedor} proveedores={proveedores} compact />
@@ -2365,6 +2368,10 @@ function MaterialFila({ material, categorias, ums, proveedores, obras = [], onCh
             <span style={lbl}>Descripción</span>
             <input value={draft.descripcion || ""} onChange={(e) => setDraft((d) => ({ ...d, descripcion: e.target.value }))} style={{ ...INP, width: "100%" }} />
           </div>
+          <label style={{ display: "flex", alignItems: "center", gap: 8, cursor: "pointer", fontSize: 12.5, fontWeight: 700, color: draft.es_consumible ? C.amber : C.t1 }}>
+            <input type="checkbox" checked={!!draft.es_consumible} onChange={(e) => setDraft((d) => ({ ...d, es_consumible: e.target.checked }))} style={{ width: 16, height: 16, cursor: "pointer" }} />
+            Es consumible <span style={{ fontWeight: 400, color: C.t2, fontSize: 11 }}>(va al fondo del catálogo, fuera de la matriz del barco)</span>
+          </label>
           <div style={{ display: "grid", gridTemplateColumns: "minmax(180px, .7fr) minmax(260px, 1fr)", gap: 8, alignItems: "end" }}>
             <div>
               <span style={lbl}>Alias / nombre corto</span>
@@ -3303,6 +3310,7 @@ function ListaMateriales({ categorias, materiales, selectedId, ums, proveedores,
   const [prov, setProv] = useState(""); // "" = todos. Guarda el id de panol_proveedores.
   const [proveedorTipo, setProveedorTipo] = useState("todos");
   const [rubro, setRubro] = useState("");
+  const [consumFiltro, setConsumFiltro] = useState("todos"); // todos | sin | solo
   const linea = lineaFija || lineaState;
   // La lista sale de la tabla de Proveedores (no se infiere de los materiales).
   const provs = useMemo(
@@ -3328,13 +3336,16 @@ function ListaMateriales({ categorias, materiales, selectedId, ums, proveedores,
       .filter((m) => !linea || toNum(toBomMap(m)[linea]) > 0) // solo los que van en esa línea
       .filter((m) => !prov || m.proveedor_id === prov || (provNombre && norm(m.proveedor) === provNombre))
       .filter((m) => proveedorTipo === "todos" || proveedorMeta(m.proveedor, proveedores)?.tipo === proveedorTipo)
+      .filter((m) => consumFiltro === "todos" || (consumFiltro === "solo" ? m.es_consumible : !m.es_consumible))
       .filter((m) => !soloPendientes || !priceInfo(m).amount)
       .filter((m) => {
         if (!terms.length) return true;
         const hay = norm(`${m.descripcion ?? ""} ${m.proveedor ?? ""} ${m.codigo ?? ""} ${materialBarcodeText(m)}`);
         return terms.every((t) => hay.includes(t));
-      });
-  }, [materiales, categorias, q, selectedId, soloPendientes, linea, prov, proveedores, rubro, proveedorTipo]);
+      })
+      // Consumibles al fondo (no molestan entre los ítems del barco). Sort estable: mantiene el orden por descripción dentro de cada grupo.
+      .sort((a, b) => (a.es_consumible ? 1 : 0) - (b.es_consumible ? 1 : 0));
+  }, [materiales, categorias, q, selectedId, soloPendientes, linea, prov, proveedores, rubro, proveedorTipo, consumFiltro]);
 
   // Si se filtra por una línea, mostramos solo esa columna de cantidad (más prolijo y angosto).
   const modelos = linea ? [linea] : MODELOS;
@@ -3383,6 +3394,11 @@ function ListaMateriales({ categorias, materiales, selectedId, ums, proveedores,
         <select value={rubro} onChange={(e) => setRubro(e.target.value)} style={{ ...INP, width: 180, maxWidth: "40vw", height: 40, borderRadius: 10 }} title="Filtrar por rubro">
           <option value="" style={OPT_ST}>Todos los rubros</option>
           {rubrosFiltro.map((c) => <option key={c.id} value={c.id} style={OPT_ST}>{categoriaNombre(categorias, c.id)}</option>)}
+        </select>
+        <select value={consumFiltro} onChange={(e) => setConsumFiltro(e.target.value)} style={{ ...INP, width: 175, maxWidth: "40vw", height: 40, borderRadius: 10 }} title="Consumibles">
+          <option value="todos" style={OPT_ST}>Consumibles: al fondo</option>
+          <option value="sin" style={OPT_ST}>Sin consumibles</option>
+          <option value="solo" style={OPT_ST}>Solo consumibles</option>
         </select>
         <button type="button" onClick={() => setSoloPendientes((v) => !v)} title="Mostrar solo items sin precio"
           style={{ ...BTN, height: 40, padding: "0 13px", borderRadius: 10, display: "inline-flex", alignItems: "center", gap: 7, border: `1px solid ${soloPendientes ? "rgba(245,158,11,0.45)" : C.b0}`, background: soloPendientes ? "rgba(245,158,11,0.12)" : C.s0, color: soloPendientes ? C.amber : C.t1, fontSize: 12.5, fontWeight: 600 }}>
@@ -4780,13 +4796,34 @@ function ObraMatrizView({ obra, obras = [], linea, lineaNombre, categorias, mate
   }
 
   function snapshotIdForOrderRow(row, saved = snapshot) {
-    if (row.snapshotId) return row.snapshotId;
+    return snapshotIdsForOrderRow(row, saved)[0] || null;
+  }
+
+  function snapshotIdsForOrderRow(row, saved = snapshot) {
+    if (!row) return [];
+    const ids = new Set();
     if (row.source === "addon" || row.bucketKey === "addon") {
       const rowKey = snapshotMergeKey({ ...row, source: "addon", bucket: { key: "addon" } });
-      return saved.find((s) => snapshotMergeKey(snapshotRowToView(s)) === rowKey)?.id || null;
+      saved.forEach((s) => {
+        const view = snapshotRowToView(s);
+        if (!isLedgerOnlySnapshot(view) && snapshotMergeKey(view) === rowKey) ids.add(s.id);
+      });
+      if (row.snapshotId) ids.add(row.snapshotId);
+      return [...ids];
     }
-    if (!row.materialId) return null;
-    return saved.find((s) => s.material_id === row.materialId)?.id || null;
+    const rowKey = snapshotMergeKey(row);
+    saved.forEach((s) => {
+      const view = snapshotRowToView(s);
+      if (!isLedgerOnlySnapshot(view) && snapshotMergeKey(view) === rowKey) ids.add(s.id);
+    });
+    if (row.snapshotId) ids.add(row.snapshotId);
+    if (!ids.size && row.materialId) {
+      saved.forEach((s) => {
+        const view = snapshotRowToView(s);
+        if (!isLedgerOnlySnapshot(view) && s.material_id === row.materialId) ids.add(s.id);
+      });
+    }
+    return [...ids];
   }
 
   async function pedirAComprasObra() {
@@ -4931,14 +4968,25 @@ function ObraMatrizView({ obra, obras = [], linea, lineaNombre, categorias, mate
     setFlowMsg(null);
     try {
       const saved = await ensureSnapshotForFlow();
-      const snapId = snapshotIdForOrderRow({ ...row, bucketKey: row.bucket?.key }, saved);
-      if (!snapId) throw new Error("No se pudo identificar el item de obra para guardar la variante.");
-      await updateObraSnapshotRows([snapId], { variante: String(variante || "").trim() || null });
+      let snapIds = snapshotIdsForOrderRow({ ...row, bucketKey: row.bucket?.key }, saved);
+      if (!snapIds.length && obra?.id) {
+        const created = await ensureObraMaterialSnapshotRow(obra.id, row);
+        if (created?.id) {
+          snapIds = [created.id];
+          setSnapshot((prev) => [...prev, created]);
+        }
+      }
+      if (!snapIds.length) throw new Error("No se pudo identificar el item de obra para guardar la variante.");
+      await Promise.all(snapIds.map((snapId) => asignarVarianteObraSnapshot(snapId, variante)));
+      const cleanVariante = String(variante || "").trim();
+      setSnapshot((prev) => prev.map((item) => snapIds.includes(item.id) ? { ...item, variante: cleanVariante || null } : item));
       await cargarSnapshot();
       setFlowMsg({ type: "ok", text: variante ? `Variante guardada para ${row.descripcion}: ${variante}.` : `Variante limpiada para ${row.descripcion}.` });
     } catch (e) {
       const msg = String(e?.message || "");
-      setFlowMsg({ type: "err", text: msg.toLowerCase().includes("variante") ? "Falta correr el SQL de variante por obra para poder guardar esta marca." : msg || "No se pudo guardar la variante del item." });
+      const lower = msg.toLowerCase();
+      const missingSql = lower.includes("variante") && (lower.includes("column") || lower.includes("function") || lower.includes("schema cache") || lower.includes("could not find"));
+      setFlowMsg({ type: "err", text: missingSql ? "Falta correr el SQL de variante por obra para poder guardar esta marca." : msg || "No se pudo guardar la variante del item." });
     } finally {
       setVarianteBusy("");
     }
@@ -6290,6 +6338,8 @@ function snapshotRowToView(row) {
     egreso_at: row.egreso_at ?? null,
     egreso_nota: row.egreso_nota ?? null,
     egreso_por: row.egreso_por ?? null,
+    created_at: row.created_at ?? null,
+    updated_at: row.updated_at ?? null,
   };
 }
 
@@ -6375,9 +6425,31 @@ function compareMatrizRows(a, b) {
     || String(a.descripcion || "").localeCompare(String(b.descripcion || ""), "es", { numeric: true });
 }
 
+function snapshotMergePriority(row) {
+  let score = 0;
+  if (String(row?.variante || "").trim()) score += 1000;
+  if (row?.recepcion_estado) score += 140;
+  if (row?.panol_envio_id || row?.panol_envio_item_id) score += 120;
+  if (row?.purchase_request_id) score += 100;
+  if (row?.snapshot_estado && row.snapshot_estado !== "pendiente") score += 60;
+  if (String(row?.obs || "").trim()) score += 10;
+  return score;
+}
+
+function pickSnapshotForMerge(current, candidate) {
+  if (!current) return candidate;
+  const currentScore = snapshotMergePriority(current);
+  const candidateScore = snapshotMergePriority(candidate);
+  if (candidateScore !== currentScore) return candidateScore > currentScore ? candidate : current;
+  const currentDate = new Date(current.updated_at || current.created_at || 0).getTime();
+  const candidateDate = new Date(candidate.updated_at || candidate.created_at || 0).getTime();
+  return candidateDate >= currentDate ? candidate : current;
+}
+
 function mergeMatrixAndSnapshotRows(liveRows = [], snapshotRows = []) {
   if (!snapshotRows.length) return liveRows;
   const merged = new Map();
+  const snapshotsByKey = new Map();
 
   liveRows.forEach((row, index) => {
     merged.set(snapshotMergeKey(row, index), row);
@@ -6385,13 +6457,13 @@ function mergeMatrixAndSnapshotRows(liveRows = [], snapshotRows = []) {
 
   snapshotRows.forEach((row, index) => {
     const key = snapshotMergeKey(row, index);
+    if (!key || isLedgerOnlySnapshot(row)) return;
+    snapshotsByKey.set(key, pickSnapshotForMerge(snapshotsByKey.get(key), row));
+  });
+
+  snapshotsByKey.forEach((row, key) => {
     const live = merged.get(key);
-    if (live) {
-      if (isLedgerOnlySnapshot(row)) return;
-      merged.set(key, mergeSnapshotIntoLive(live, row));
-      return;
-    }
-    if (!isLedgerOnlySnapshot(row)) merged.set(key, row);
+    merged.set(key, live ? mergeSnapshotIntoLive(live, row) : row);
   });
 
   return [...merged.values()].sort(compareMatrizRows);

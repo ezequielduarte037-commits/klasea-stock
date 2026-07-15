@@ -36,8 +36,8 @@ async function fetchPaged(table, select, orderColumn = "id") {
 }
 
 async function fetchMaterialesCatalogo() {
-  const baseSelect = "id, categoria_id, proveedor_id, codigo, descripcion, alias, proveedor, unidad_medida, precio_unitario, moneda, imagen_url, links, revisado, origen, notas, activo, batch_id, created_at, codigo_barra, ubicacion, ubicacion_obs";
-  const baseSelectNoLinks = "id, categoria_id, proveedor_id, codigo, descripcion, alias, proveedor, unidad_medida, precio_unitario, moneda, imagen_url, revisado, origen, notas, activo, batch_id, created_at, codigo_barra, ubicacion, ubicacion_obs";
+  const baseSelect = "id, categoria_id, proveedor_id, codigo, descripcion, alias, proveedor, unidad_medida, precio_unitario, moneda, imagen_url, links, revisado, origen, notas, activo, es_consumible, batch_id, created_at, codigo_barra, ubicacion, ubicacion_obs";
+  const baseSelectNoLinks = "id, categoria_id, proveedor_id, codigo, descripcion, alias, proveedor, unidad_medida, precio_unitario, moneda, imagen_url, revisado, origen, notas, activo, es_consumible, batch_id, created_at, codigo_barra, ubicacion, ubicacion_obs";
   try {
     return (await fetchPaged("panol_materiales", `${baseSelect}, variantes, variantes_precios`, "descripcion")).map((row) => ({ ...row, variantes_precios: row.variantes_precios ?? {} }));
   } catch (error) {
@@ -46,8 +46,8 @@ async function fetchMaterialesCatalogo() {
       return (await fetchPaged("panol_materiales", `${baseSelectNoLinks}, variantes`, "descripcion")).map((row) => ({ ...row, links: row.links ?? [], variantes: row.variantes ?? [], variantes_precios: row.variantes_precios ?? {} }));
     } catch (error2) {
       if (!isMissingColumn(error2)) throw error2;
-      const fallbackSelect = "id, categoria_id, proveedor_id, codigo, descripcion, proveedor, unidad_medida, precio_unitario, moneda, imagen_url, revisado, origen, notas, activo, batch_id, created_at, codigo_barra";
-      return (await fetchPaged("panol_materiales", fallbackSelect, "descripcion")).map((row) => ({ ...row, alias: null, links: [], variantes: [], variantes_precios: {}, ubicacion: null, ubicacion_obs: null }));
+      const fallbackSelect = "id, categoria_id, proveedor_id, codigo, descripcion, proveedor, unidad_medida, precio_unitario, moneda, imagen_url, revisado, origen, notas, activo, es_consumible, batch_id, created_at, codigo_barra";
+      return (await fetchPaged("panol_materiales", fallbackSelect, "descripcion")).map((row) => ({ ...row, alias: null, links: [], variantes: [], variantes_precios: {}, ubicacion: null, ubicacion_obs: null, es_consumible: row.es_consumible ?? false }));
     }
   }
 }
@@ -863,6 +863,29 @@ export async function ensureObraMaterialSnapshot(obraId, rows = []) {
   }
 }
 
+export async function ensureObraMaterialSnapshotRow(obraId, row) {
+  if (!obraId) throw new Error("Falta la obra.");
+  const payload = snapshotPayloadFromRows(obraId, [row])[0];
+  if (!payload) throw new Error("Falta el item de obra.");
+
+  let query = await supabase
+    .from("panol_obra_materiales_snapshot")
+    .insert(payload)
+    .select("*")
+    .single();
+
+  if (query.error && isMissingColumn(query.error)) {
+    query = await supabase
+      .from("panol_obra_materiales_snapshot")
+      .insert(snapshotPayloadWithoutVariant([payload])[0])
+      .select("*")
+      .single();
+  }
+
+  if (query.error) throw query.error;
+  return query.data;
+}
+
 export async function reemplazarObraMaterialSnapshotSeguro(obraId, rows = []) {
   if (!obraId) return [];
   const existing = await fetchObraMaterialSnapshot(obraId);
@@ -905,6 +928,25 @@ export async function updateObraSnapshotRows(ids = [], patch = {}) {
   } catch (error) {
     if (!isMissingTable(error)) throw error;
   }
+}
+
+function isMissingFunction(error) {
+  if (!error) return false;
+  const msg = String(error.message ?? "").toLowerCase();
+  return error.code === "42883" || msg.includes("function") || msg.includes("schema cache");
+}
+
+export async function asignarVarianteObraSnapshot(snapshotId, variante = "") {
+  if (!snapshotId) throw new Error("Falta el item de obra.");
+  const value = String(variante || "").trim() || null;
+  const { data, error } = await supabase.rpc("panol_asignar_variante_snapshot", {
+    p_snapshot_id: snapshotId,
+    p_variante: value,
+  });
+  if (!error) return data;
+  if (!(isMissingFunction(error) || isMissingColumn(error))) throw error;
+  await updateObraSnapshotRows([snapshotId], { variante: value });
+  return null;
 }
 
 export async function cambiarEstadoObraSnapshot(snapshotId, estado, nota = "") {
@@ -1171,6 +1213,8 @@ export async function guardarMaterial(material, cantidades, { revisado } = {}) {
     alias: material.alias || null,
     activo: material.activo ?? true,
     codigo_barra: material.codigo_barra || null,
+    // Solo se incluye si viene definido, para no pisar el flag al editar otros campos.
+    ...(material.es_consumible !== undefined ? { es_consumible: !!material.es_consumible } : {}),
   };
   if (revisado != null) patch.revisado = revisado;
 
@@ -1207,6 +1251,8 @@ export async function actualizarMaterialDatos(material, { revisado } = {}) {
     alias: material.alias || null,
     activo: material.activo ?? true,
     codigo_barra: material.codigo_barra || null,
+    // Solo se incluye si viene definido, para no pisar el flag al editar otros campos.
+    ...(material.es_consumible !== undefined ? { es_consumible: !!material.es_consumible } : {}),
   };
   if (revisado != null) patch.revisado = revisado;
 
@@ -1245,6 +1291,7 @@ export async function crearMaterial(material, cantidades = {}) {
       codigo_barra: material.codigo_barra || null,
       revisado: material.revisado ?? true,
       activo: true,
+      es_consumible: !!material.es_consumible,
     })
     .select("id")
     .single();
@@ -1285,6 +1332,7 @@ export async function crearMaterialRapido({
   descripcion, categoriaId = null, unidadMedida = "unidad",
   proveedor = "", codigo = "", precioUnitario = null, moneda = "ARS",
   alias = "", notas = "", variantes = [], variantesPrecios = {}, imagenUrl = null, links = [],
+  esConsumible = false,
 } = {}) {
   if (!String(descripcion || "").trim()) throw new Error("Cargá una descripción.");
   if (!categoriaId) throw new Error("Elegí un rubro para el material (es obligatorio).");
@@ -1304,6 +1352,7 @@ export async function crearMaterialRapido({
     links,
     revisado: false,
     origen: "conteo",
+    es_consumible: !!esConsumible,
   });
   const { data, error } = await supabase
     .from("panol_materiales")

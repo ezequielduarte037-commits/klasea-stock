@@ -60,6 +60,7 @@ export default function CrearProductoTab({ isMobile = false, toast }) {
   const [variantes, setVariantes] = useState([]);
   const [variantesPrecios, setVariantesPrecios] = useState({});
   const [varDraft, setVarDraft] = useState("");
+  const [esConsumible, setEsConsumible] = useState(false);
   const [imageFile, setImageFile] = useState(null);
   const imgRef = useRef(null);
   const catalogRef = useRef([]); // catálogo completo para detectar duplicados
@@ -88,7 +89,7 @@ export default function CrearProductoTab({ isMobile = false, toast }) {
 
   function limpiar() {
     setDescripcion(""); setCategoriaId(""); setUnidad("unidad"); setProveedor(""); setCodigo("");
-    setPrecio(""); setMoneda("ARS"); setNotas(""); setVariantes([]); setVariantesPrecios({}); setVarDraft(""); setImageFile(null);
+    setPrecio(""); setMoneda("ARS"); setNotas(""); setVariantes([]); setVariantesPrecios({}); setVarDraft(""); setEsConsumible(false); setImageFile(null);
   }
 
   async function crear() {
@@ -139,6 +140,7 @@ export default function CrearProductoTab({ isMobile = false, toast }) {
         notas,
         variantes,
         variantesPrecios,
+        esConsumible,
       });
       if (imageFile) {
         try { await uploadMaterialImage(mat.id, imageFile); } catch { /* la foto no frena la creación */ }
@@ -209,6 +211,15 @@ export default function CrearProductoTab({ isMobile = false, toast }) {
             </div>
             <div />
           </div>
+
+          {/* Es consumible */}
+          <label style={{ display: "flex", alignItems: "center", gap: 9, cursor: "pointer", padding: "9px 11px", borderRadius: 9, border: `1px solid ${esConsumible ? C.amberB : C.border}`, background: esConsumible ? C.amberL : C.panelSolid }}>
+            <input type="checkbox" checked={esConsumible} onChange={(e) => setEsConsumible(e.target.checked)} style={{ width: 17, height: 17, cursor: "pointer" }} />
+            <div>
+              <div style={{ fontSize: 13, fontWeight: 850, color: esConsumible ? C.amber : C.text }}>Es consumible</div>
+              <div style={{ fontSize: 11, color: C.dim, marginTop: 1 }}>Tornillos, lijas, acetona, etc. Va al fondo del catálogo, no molesta en la matriz del barco.</div>
+            </div>
+          </label>
 
           {/* Variantes con código y precio */}
           <div>
