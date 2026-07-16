@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { AlertTriangle, ChevronRight, Inbox, RefreshCw, Warehouse } from "lucide-react";
+import { AlertTriangle, ChevronRight, DollarSign, Inbox, RefreshCw, Warehouse } from "lucide-react";
 import Sidebar from "@/components/Sidebar";
 import { useResponsive } from "@/hooks/useResponsive";
 import { useToast } from "@/components/ui/Toast";
@@ -156,7 +156,7 @@ function IconBox({ color, children }) {
   );
 }
 
-function GlobalKpiBar({ rows }) {
+function GlobalKpiBar({ rows, consumidoUsd = 0 }) {
   const kpis = useMemo(() => {
     const productMap = new Map();
     for (const row of rows) {
@@ -203,14 +203,28 @@ function GlobalKpiBar({ rows }) {
           <div style={{ color: C.dim, fontSize: 10, marginTop: 1 }}>en tránsito</div>
         </div>
       </div>
+      {consumidoUsd > 0 && (
+        <div style={kpiStyle}>
+          <IconBox color={C.green}><DollarSign size={14} /></IconBox>
+          <div>
+            <div style={{ fontFamily: C.mono, fontSize: 17, fontWeight: 950, color: C.green, lineHeight: 1 }}>{fmtQty(consumidoUsd)}</div>
+            <div style={{ color: C.text, fontSize: 11, fontWeight: 800, marginTop: 3 }}>Consumido USD</div>
+            <div style={{ color: C.dim, fontSize: 10, marginTop: 1 }}>egresos valorizados</div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
 
-function LineaCard({ codigo, stats, onClick }) {
+function LineaCard({ codigo, stats, onClick, canSeePrices = true, maxCostoUsd = 0 }) {
   const hasNeg = stats.negativos > 0;
   const accent = hasNeg ? C.red : C.blue;
   const [hover, setHover] = useState(false);
+  // Barra comparativa: proporción del consumo de esta línea vs. la línea que más consumió.
+  const share = canSeePrices && maxCostoUsd > 0 && stats.costoUsd > 0
+    ? Math.max(0.04, Math.min(1, stats.costoUsd / maxCostoUsd))
+    : 0;
   return (
     <button
       type="button"
@@ -218,19 +232,25 @@ function LineaCard({ codigo, stats, onClick }) {
       onMouseEnter={() => setHover(true)}
       onMouseLeave={() => setHover(false)}
       style={{
-        textAlign: "left", cursor: "pointer", padding: 0, overflow: "hidden",
+        position: "relative", textAlign: "left", cursor: "pointer", padding: 0, overflow: "hidden",
         border: `1px solid ${hover ? C.blueB : hasNeg ? C.redB : C.border}`,
-        borderRadius: 18, background: C.panelSolid,
+        borderRadius: 18,
+        background: `linear-gradient(140deg, ${accent}${hover ? "22" : "14"} 0%, transparent 52%), var(--panel)`,
+        ...GLASS,
         display: "flex", flexDirection: "column",
         transform: hover ? "translateY(-4px)" : "none",
-        transition: "transform .2s cubic-bezier(.25,.8,.25,1), box-shadow .2s, border-color .2s",
+        transition: "transform .2s cubic-bezier(.25,.8,.25,1), box-shadow .2s, border-color .2s, background .2s",
         boxShadow: hover
-          ? "0 18px 36px -16px rgba(0,0,0,0.28)"
+          ? `0 18px 40px -16px ${accent}66`
           : "0 1px 2px rgba(0,0,0,0.04), 0 10px 26px -16px rgba(0,0,0,0.16)",
       }}
     >
-      <div style={{ height: 4, background: `linear-gradient(90deg, ${accent}, ${accent}55)` }} />
-      <div style={{ padding: "16px 18px", display: "flex", flexDirection: "column", gap: 14 }}>
+      {/* Watermark del modelo */}
+      <div aria-hidden style={{ position: "absolute", right: -8, top: -18, fontFamily: C.mono, fontSize: 96, fontWeight: 950, color: accent, opacity: hover ? 0.12 : 0.07, lineHeight: 1, pointerEvents: "none", userSelect: "none", transition: "opacity .2s" }}>
+        K{codigo}
+      </div>
+      <div style={{ height: 4, background: `linear-gradient(90deg, ${accent}, ${accent}22)` }} />
+      <div style={{ padding: "16px 18px", display: "flex", flexDirection: "column", gap: 13, position: "relative" }}>
         <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
           <div style={{ width: 46, height: 46, borderRadius: 13, display: "grid", placeItems: "center", color: "#fff", fontWeight: 950, fontSize: 17, fontFamily: C.mono, flexShrink: 0, background: hasNeg ? "linear-gradient(135deg, #f87171, #ef4444)" : "linear-gradient(135deg, #60a5fa, #3b82f6)", boxShadow: hasNeg ? "0 4px 12px rgba(239,68,68,0.3)" : "0 4px 12px rgba(59,130,246,0.3)" }}>
             {codigo}
@@ -240,29 +260,47 @@ function LineaCard({ codigo, stats, onClick }) {
             <div style={{ fontFamily: C.mono, fontSize: 23, fontWeight: 950, color: C.text, lineHeight: 1.05 }}>K{codigo}</div>
           </div>
           <div style={{ flex: 1 }} />
-          <ChevronRight size={18} style={{ color: hover ? C.blue : C.dim, flexShrink: 0, transition: "color .2s" }} />
+          <ChevronRight size={18} style={{ color: hover ? C.blue : C.dim, flexShrink: 0, transition: "color .2s", transform: hover ? "translateX(3px)" : "none" }} />
         </div>
         <div style={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: 8 }}>
           <StatMini label="Obras" value={stats.totalObras} />
           <StatMini label="Activas" value={stats.obrasActivas} color={C.green} />
           <StatMini label="Negativos" value={stats.negativos} color={hasNeg ? C.red : C.dim} />
         </div>
-        <div style={{ borderTop: `1px solid ${C.border}`, paddingTop: 9 }}>
-          <span style={{ fontSize: 11, color: C.dim, fontWeight: 750 }}>{stats.totalObras ? "Ver obras →" : "Sin obras con stock"}</span>
-        </div>
+        {share > 0 ? (
+          <div title="Consumido en egresos (solo precios USD) comparado con la línea que más consumió">
+            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "baseline", marginBottom: 5 }}>
+              <span style={{ fontSize: 10, color: C.dim, fontWeight: 850, textTransform: "uppercase", letterSpacing: 0.6 }}>Consumo USD</span>
+              <span style={{ fontFamily: C.mono, fontSize: 12, fontWeight: 950, color: C.green }}>USD {fmtQty(stats.costoUsd)}</span>
+            </div>
+            <div style={{ height: 6, borderRadius: 999, background: "var(--panel-2, rgba(127,127,127,0.14))", overflow: "hidden" }}>
+              <div style={{ width: `${share * 100}%`, height: "100%", borderRadius: 999, background: "linear-gradient(90deg, #34d399, #10b981)", transition: "width .4s ease" }} />
+            </div>
+          </div>
+        ) : (
+          <div style={{ borderTop: `1px solid ${C.border}`, paddingTop: 9 }}>
+            <span style={{ fontSize: 11, color: C.dim, fontWeight: 750 }}>{stats.totalObras ? "Ver obras →" : "Sin obras con stock"}</span>
+          </div>
+        )}
       </div>
     </button>
   );
 }
 
-function ObraCard({ obra, stats, onClick }) {
+function ObraCard({ obra, stats, onClick, canSeePrices = true }) {
   const hasNeg = stats.negativos > 0;
+  const consumido = (stats.costoUsdStd || 0) + (stats.costoUsdAdd || 0) + (stats.costoUsdStock || 0);
   const [hover, setHover] = useState(false);
   const estadoColors = {
     activa: C.green, terminada: C.dim, pausada: C.amber,
     cancelada: C.red, archivada: C.dim,
   };
   const estadoColor = estadoColors[obra.estado] || C.dim;
+  const isActiva = obra.estado === "activa";
+  // Acento visual: rojo si hay negativos, azul para activas, gris para el resto.
+  const accent = hasNeg ? C.red : isActiva ? C.blue : C.dim;
+  const totalItems = (stats.itemsStock || 0) + (stats.itemsStd || 0) + (stats.itemsAdd || 0);
+  const seg = (n) => (totalItems > 0 ? `${(n / totalItems) * 100}%` : "0%");
   return (
     <button
       type="button"
@@ -270,32 +308,64 @@ function ObraCard({ obra, stats, onClick }) {
       onMouseEnter={() => setHover(true)}
       onMouseLeave={() => setHover(false)}
       style={{
-        textAlign: "left", cursor: "pointer",
+        position: "relative", textAlign: "left", cursor: "pointer", overflow: "hidden",
         border: `1px solid ${hover ? C.blueB : hasNeg ? C.redB : C.border}`,
-        borderRadius: 16, background: hasNeg ? C.redL : C.panelSolid,
-        padding: "14px 16px", display: "flex", flexDirection: "column", gap: 10,
+        borderRadius: 16,
+        background: `linear-gradient(140deg, ${accent}${hover ? "1e" : "10"} 0%, transparent 55%), var(--panel)`,
+        ...GLASS,
+        padding: 0, display: "flex", flexDirection: "column",
+        opacity: isActiva || hasNeg || hover ? 1 : 0.82,
         transform: hover ? "translateY(-3px)" : "none",
-        transition: "transform .18s ease, box-shadow .18s, border-color .18s",
-        boxShadow: hover ? "0 14px 30px -14px rgba(0,0,0,0.26)" : "0 1px 2px rgba(0,0,0,0.04), 0 8px 22px -14px rgba(0,0,0,0.14)",
+        transition: "transform .18s ease, box-shadow .18s, border-color .18s, opacity .18s",
+        boxShadow: hover ? `0 16px 36px -14px ${accent}5a` : "0 1px 2px rgba(0,0,0,0.04), 0 8px 22px -14px rgba(0,0,0,0.14)",
       }}
     >
-      <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 8 }}>
-        <div style={{ minWidth: 0 }}>
-          <div style={{ fontFamily: C.mono, fontSize: 15, fontWeight: 950, color: C.text }}>{obra.codigo}</div>
-          <div style={{ fontSize: 11, color: C.dim, marginTop: 1 }}>{obra.linea_nombre || `Linea ${lineaLabel(lineaKeyFromObra(obra))}`}</div>
-        </div>
-        <div style={{ display: "flex", alignItems: "center", gap: 7, flexShrink: 0 }}>
-          <span style={{ fontSize: 10, fontWeight: 800, color: estadoColor, border: `1px solid ${estadoColor}33`, background: `${estadoColor}11`, borderRadius: 6, padding: "2px 7px", textTransform: "uppercase" }}>
-            {obra.estado}
-          </span>
-          <ChevronRight size={14} style={{ color: C.dim }} />
-        </div>
+      {/* Watermark del código */}
+      <div aria-hidden style={{ position: "absolute", right: -4, top: -12, fontFamily: C.mono, fontSize: 64, fontWeight: 950, color: accent, opacity: hover ? 0.1 : 0.06, lineHeight: 1, pointerEvents: "none", userSelect: "none", whiteSpace: "nowrap", transition: "opacity .2s" }}>
+        {obra.codigo}
       </div>
-      <div style={{ display: "grid", gridTemplateColumns: "repeat(4, 1fr)", gap: 6, background: C.bg, borderRadius: 10, padding: "8px 10px" }}>
-        <StatMini label="Stock" value={stats.itemsStock} color={C.green} />
-        <StatMini label="Estándar" value={stats.itemsStd} color={C.blue} />
-        <StatMini label="Adicional" value={stats.itemsAdd} color={C.violet} />
-        <StatMini label="Neg." value={stats.negativos} color={hasNeg ? C.red : C.dim} />
+      <div style={{ height: 3, background: `linear-gradient(90deg, ${accent}, ${accent}22)`, flexShrink: 0 }} />
+      <div style={{ padding: "13px 15px", display: "flex", flexDirection: "column", gap: 11, position: "relative", flex: 1 }}>
+        <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 8 }}>
+          <div style={{ minWidth: 0 }}>
+            <div style={{ fontFamily: C.mono, fontSize: 17, fontWeight: 950, color: C.text, lineHeight: 1.1 }}>{obra.codigo}</div>
+            <div style={{ fontSize: 11, color: C.dim, marginTop: 2 }}>{obra.linea_nombre || `Linea ${lineaLabel(lineaKeyFromObra(obra))}`}</div>
+          </div>
+          <div style={{ display: "flex", alignItems: "center", gap: 7, flexShrink: 0 }}>
+            <span style={{ fontSize: 10, fontWeight: 800, color: estadoColor, border: `1px solid ${estadoColor}33`, background: `${estadoColor}11`, borderRadius: 6, padding: "2px 7px", textTransform: "uppercase" }}>
+              {obra.estado}
+            </span>
+            <ChevronRight size={14} style={{ color: hover ? C.blue : C.dim, transition: "color .18s, transform .18s", transform: hover ? "translateX(3px)" : "none" }} />
+          </div>
+        </div>
+
+        {totalItems > 0 || hasNeg ? (
+          <>
+            {/* Composición del stock: verde libre · azul asignado · violeta adicional */}
+            {totalItems > 0 && (
+              <div style={{ display: "flex", height: 7, borderRadius: 999, overflow: "hidden", background: "var(--panel-2, rgba(127,127,127,0.14))" }}>
+                {stats.itemsStock > 0 && <div style={{ width: seg(stats.itemsStock), background: "linear-gradient(90deg, #34d399, #10b981)" }} title={`Stock libre: ${stats.itemsStock}`} />}
+                {stats.itemsStd > 0 && <div style={{ width: seg(stats.itemsStd), background: "linear-gradient(90deg, #60a5fa, #3b82f6)" }} title={`Asignado: ${stats.itemsStd}`} />}
+                {stats.itemsAdd > 0 && <div style={{ width: seg(stats.itemsAdd), background: "linear-gradient(90deg, #a78bfa, #8b5cf6)" }} title={`Adicional: ${stats.itemsAdd}`} />}
+              </div>
+            )}
+            <div style={{ display: "grid", gridTemplateColumns: "repeat(4, 1fr)", gap: 6 }}>
+              <StatMini label="Stock" value={stats.itemsStock} color={C.green} />
+              <StatMini label="Asignado" value={stats.itemsStd} color={C.blue} />
+              <StatMini label="Adicional" value={stats.itemsAdd} color={C.violet} />
+              <StatMini label="Neg." value={stats.negativos} color={hasNeg ? C.red : C.dim} />
+            </div>
+          </>
+        ) : (
+          <div style={{ fontSize: 11.5, color: C.dim, padding: "8px 0 2px" }}>Sin ítems en pañol todavía.</div>
+        )}
+
+        {canSeePrices && consumido > 0 && (
+          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 8, borderTop: `1px solid ${C.border}`, paddingTop: 8, marginTop: "auto" }}>
+            <span style={{ fontSize: 10.5, color: C.dim, fontWeight: 750 }}>Consumido (egresos USD)</span>
+            <span style={{ fontFamily: C.mono, fontSize: 12.5, fontWeight: 950, color: C.green, whiteSpace: "nowrap" }}>USD {fmtQty(consumido)}</span>
+          </div>
+        )}
       </div>
     </button>
   );
@@ -323,7 +393,8 @@ function rowIsAsignacionStock(row) {
 }
 
 function rowIsAsignacionMirrorOut(row) {
-  return rowSource(row) === "transferencia_egreso";
+  const label = String(row.tipo_label || "").toLowerCase();
+  return rowSource(row) === "transferencia_egreso" && !label.includes("liber");
 }
 
 // Tipo de movimiento con detalle: ingreso / egreso / asignación / reasignación / a stock.
@@ -437,8 +508,9 @@ function MovimientosPanel({ rows = [], obras = [], materialCreations = [], isMob
     const ledger = rows
     .map((r) => {
       const kind = rowMovementKind(r);
-      const isOut = kind === "egreso";
-      const cant = (isOut || MOV_INTERNAL.has(kind)) ? Math.abs(qty(r.cantidad_egresada, qty(r.cantidad, 1))) : qty(r.cantidad, 1);
+      const outgoing = Math.abs(qty(r.cantidad_egresada, 0)) || Math.abs(qty(r.cantidad, 1));
+      const incoming = Math.abs(qty(r.cantidad, 1));
+      const cant = ["egreso", "asignacion_egreso", "reasignacion_egreso", "liberacion"].includes(kind) ? outgoing : incoming;
       return { key: `stock:${r.id}`, row: r, kind, cant, delta: rowDelta(r), fecha: rowMovementAt(r), anulado: rowIsAnulado(r) };
     })
     // Ocultar el espejo negativo de las asignaciones: la acción se ve como asignación azul.
@@ -548,6 +620,7 @@ export default function StockPanolScreen({ profile, signOut, embedded = false, m
   const [tab, setTab] = useState("obra");
   const [selLinea, setSelLinea] = useState(null); // e.g. "37"
   const [selObraId, setSelObraId] = useState(null);
+  const [soloActivas, setSoloActivas] = useState(false); // filtro nivel 2 (obras de la línea)
 
   // ── Datos ──
   const [rows, setRows] = useState([]);
@@ -639,6 +712,22 @@ export default function StockPanolScreen({ profile, signOut, embedded = false, m
     return map;
   }, [obras, rowsByObraId]);
 
+  // ── Señales globales: negativos (badge en la pestaña) + consumido USD total ──
+  const globalExtras = useMemo(() => {
+    let consumidoUsd = 0;
+    const productMap = new Map();
+    for (const row of rows) {
+      const key = (rowIsAdditional(row) ? "add" : "std") + "::" + (row.material_id || row.descripcion || row.id || "?");
+      productMap.set(key, (productMap.get(key) || 0) + rowDelta(row));
+      if (row.estado === "egresado" && String(row.moneda || "").toUpperCase() === "USD" && !rowSource(row).startsWith("transferencia")) {
+        consumidoUsd += Math.abs(rowDelta(row)) * qty(row.precio_unitario, 0);
+      }
+    }
+    let negativos = 0;
+    for (const [, total] of productMap) if (total < 0) negativos++;
+    return { consumidoUsd, negativos };
+  }, [rows]);
+
   // Filtro por obra completa para pre-filtrar StockWmsPanel al hacer drill-down.
   const selObraLocationKey = useMemo(() => {
     if (!selObraId) return null;
@@ -696,7 +785,7 @@ export default function StockPanolScreen({ profile, signOut, embedded = false, m
           )}
 
           {/* ── Tabs ── */}
-          <div style={{ background: C.topbarSoft, borderBottom: `1px solid ${C.border}`, padding: "0 18px", display: "flex", alignItems: "center", gap: 2, flexShrink: 0 }}>
+          <div style={{ background: C.topbarSoft, borderBottom: `1px solid ${C.border}`, padding: "0 18px", display: "flex", alignItems: "center", gap: 2, flexShrink: 0, overflowX: "auto" }}>
             {TABS.map(t => (
               <button
                 key={t.key}
@@ -709,9 +798,15 @@ export default function StockPanolScreen({ profile, signOut, embedded = false, m
                   background: "transparent", border: "none",
                   borderBottom: `2px solid ${tab === t.key ? C.blue : "transparent"}`,
                   marginBottom: -1, transition: "color .15s, border-color .15s",
+                  display: "inline-flex", alignItems: "center", gap: 6, whiteSpace: "nowrap",
                 }}
               >
                 {t.label}
+                {t.key === "reconciliar" && globalExtras.negativos > 0 && (
+                  <span style={{ fontFamily: C.mono, fontSize: 10, fontWeight: 950, color: "#fff", background: C.red, borderRadius: 999, padding: "1px 6px", lineHeight: 1.4 }}>
+                    {globalExtras.negativos}
+                  </span>
+                )}
               </button>
             ))}
             {embedded && <div style={{ marginLeft: "auto", alignSelf: "center" }}>{refreshBtn}</div>}
@@ -729,6 +824,26 @@ export default function StockPanolScreen({ profile, signOut, embedded = false, m
                     { label: `Linea ${lineaLabel(selLinea)}`, onClick: () => setSelObraId(null) },
                     { label: selObra?.codigo || selObraId },
                   ]} />
+                  {selObra && (() => {
+                    const st = obraStatsMap.get(selObraId) || {};
+                    const consumido = (st.costoUsdStd || 0) + (st.costoUsdAdd || 0) + (st.costoUsdStock || 0);
+                    const estadoColors = { activa: C.green, terminada: C.dim, pausada: C.amber, cancelada: C.red, archivada: C.dim };
+                    const estadoColor = estadoColors[selObra.estado] || C.dim;
+                    return (
+                      <div style={{ margin: "0 0 10px", padding: "9px 14px", border: `1px solid ${C.border}`, borderRadius: 12, background: C.panelSolid, display: "flex", alignItems: "center", gap: 12, flexWrap: "wrap" }}>
+                        <span style={{ fontFamily: C.mono, fontSize: 16, fontWeight: 950, color: C.text }}>{selObra.codigo}</span>
+                        <span style={{ fontSize: 10, fontWeight: 800, color: estadoColor, border: `1px solid ${estadoColor}33`, background: `${estadoColor}11`, borderRadius: 6, padding: "2px 7px", textTransform: "uppercase" }}>{selObra.estado}</span>
+                        {selObra.linea_nombre && <span style={{ fontSize: 11, color: C.dim }}>{selObra.linea_nombre}</span>}
+                        <div style={{ display: "flex", gap: 16, marginLeft: "auto", alignItems: "center", flexWrap: "wrap" }}>
+                          <StatMini label="Stock" value={st.itemsStock ?? 0} color={C.green} />
+                          <StatMini label="Asignado" value={st.itemsStd ?? 0} color={C.blue} />
+                          <StatMini label="Adicional" value={st.itemsAdd ?? 0} color={C.violet} />
+                          <StatMini label="Neg." value={st.negativos ?? 0} color={st.negativos ? C.red : C.dim} />
+                          {canSeePrices && consumido > 0 && <StatMini label="Consumido USD" value={fmtQty(consumido)} color={C.green} />}
+                        </div>
+                      </div>
+                    );
+                  })()}
                 </div>
                 <StockWmsPanel
                   key={`obra-${selObraId}`}
@@ -739,56 +854,85 @@ export default function StockPanolScreen({ profile, signOut, embedded = false, m
             )}
 
             {/* ── TAB: Por obra — Level 2 (obras de la línea) ── */}
-            {tab === "obra" && selLinea && !selObraId && (
+            {tab === "obra" && selLinea && !selObraId && (() => {
+              const todas = obrasByLinea.get(selLinea) || [];
+              const activas = todas.filter(o => !["terminada", "cancelada", "archivada"].includes(o.estado));
+              const visiblesObras = soloActivas ? activas : todas;
+              return (
               <div style={{ flex: 1, overflowY: "auto" }}>
                 <div style={{ padding: "16px 18px 32px" }}>
-                  <Breadcrumb items={[
-                    { label: "Líneas", onClick: () => setSelLinea(null) },
-                    { label: `Linea ${lineaLabel(selLinea)}` },
-                  ]} />
+                  <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 10, flexWrap: "wrap" }}>
+                    <Breadcrumb items={[
+                      { label: "Líneas", onClick: () => setSelLinea(null) },
+                      { label: `Linea ${lineaLabel(selLinea)}` },
+                    ]} />
+                    <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 14 }}>
+                      <span style={{ fontSize: 11, color: C.dim, fontWeight: 750 }}>{todas.length} obras · {activas.length} activas</span>
+                      {todas.length !== activas.length && (
+                        <button
+                          type="button"
+                          onClick={() => setSoloActivas(v => !v)}
+                          style={{ border: `1px solid ${soloActivas ? C.greenB : C.border}`, background: soloActivas ? C.greenL : C.panelSolid, color: soloActivas ? C.green : C.dim, borderRadius: 999, padding: "4px 11px", cursor: "pointer", fontSize: 11, fontWeight: 850, fontFamily: C.sans }}
+                        >
+                          {soloActivas ? "✓ " : ""}Solo activas
+                        </button>
+                      )}
+                    </div>
+                  </div>
                   {loading ? (
                     <div style={{ padding: 40, textAlign: "center", color: C.dim, fontSize: 13 }}>Cargando...</div>
-                  ) : (obrasByLinea.get(selLinea) || []).length === 0 ? (
+                  ) : visiblesObras.length === 0 ? (
                     <div style={{ padding: "44px 24px", textAlign: "center", color: C.dim, border: `1px dashed ${C.border}`, borderRadius: 14, background: C.panel, display: "flex", flexDirection: "column", alignItems: "center", gap: 10 }}>
                       <div style={{ width: 46, height: 46, borderRadius: 13, display: "grid", placeItems: "center", background: C.panelSolid, border: `1px solid ${C.border}`, color: C.dim }}>
                         <Inbox size={22} />
                       </div>
-                      <div style={{ fontSize: 13.5, fontWeight: 700, color: C.text }}>No hay obras con stock en la linea {lineaLabel(selLinea)}</div>
-                      <div style={{ fontSize: 12 }}>Cuando compras envíe materiales a una obra de esta línea, van a aparecer acá.</div>
+                      <div style={{ fontSize: 13.5, fontWeight: 700, color: C.text }}>{todas.length ? "No hay obras activas en esta línea" : `No hay obras con stock en la linea ${lineaLabel(selLinea)}`}</div>
+                      <div style={{ fontSize: 12 }}>{todas.length ? "Sacá el filtro “Solo activas” para ver el resto." : "Cuando compras envíe materiales a una obra de esta línea, van a aparecer acá."}</div>
                     </div>
                   ) : (
                     <div style={{ display: "grid", gridTemplateColumns: isMobile ? "1fr" : "repeat(auto-fill, minmax(290px, 1fr))", gap: 12 }}>
-                      {(obrasByLinea.get(selLinea) || []).map(obra => (
+                      {visiblesObras.map(obra => (
                         <ObraCard
                           key={obra.id}
                           obra={obra}
-                          stats={obraStatsMap.get(obra.id) || { itemsStd: 0, itemsAdd: 0, negativos: 0, costoUsdStd: 0, costoUsdAdd: 0 }}
+                          stats={obraStatsMap.get(obra.id) || { itemsStock: 0, itemsStd: 0, itemsAdd: 0, negativos: 0, costoUsdStd: 0, costoUsdAdd: 0 }}
                           onClick={() => setSelObraId(obra.id)}
+                          canSeePrices={canSeePrices}
                         />
                       ))}
                     </div>
                   )}
                 </div>
               </div>
-            )}
+              );
+            })()}
 
             {/* ── TAB: Por obra — Level 1 (líneas) ── */}
             {tab === "obra" && !selLinea && !selObraId && (
               <div style={{ flex: 1, overflowY: "auto" }}>
                 <div style={{ padding: "18px 18px 32px" }}>
-                  <GlobalKpiBar rows={rows} />
+                  <GlobalKpiBar rows={rows} consumidoUsd={canSeePrices ? globalExtras.consumidoUsd : 0} />
+                  <div style={{ margin: "2px 0 12px" }}>
+                    <div style={{ fontSize: 15, fontWeight: 950, color: C.text }}>Líneas de producción</div>
+                    <div style={{ fontSize: 11.5, color: C.dim, marginTop: 2 }}>Tocá una línea para ver el stock de sus obras.</div>
+                  </div>
                   {loading ? (
                     <div style={{ padding: 40, textAlign: "center", color: C.dim, fontSize: 13 }}>Cargando stock...</div>
                   ) : (
-                    <div style={{ display: "grid", gridTemplateColumns: isMobile ? "1fr" : "repeat(auto-fill, minmax(240px, 1fr))", gap: 14 }}>
-                      {lineasVisibles.map(linea => (
-                        <LineaCard
-                          key={linea}
-                          codigo={lineaLabel(linea)}
-                          stats={lineaStats[linea] || { totalObras: 0, obrasActivas: 0, negativos: 0, costoUsd: 0 }}
-                          onClick={() => setSelLinea(linea)}
-                        />
-                      ))}
+                    <div style={{ display: "grid", gridTemplateColumns: isMobile ? "1fr" : "repeat(auto-fill, minmax(250px, 1fr))", gap: 14 }}>
+                      {(() => {
+                        const maxCostoUsd = Math.max(0, ...lineasVisibles.map(l => lineaStats[l]?.costoUsd || 0));
+                        return lineasVisibles.map(linea => (
+                          <LineaCard
+                            key={linea}
+                            codigo={lineaLabel(linea)}
+                            stats={lineaStats[linea] || { totalObras: 0, obrasActivas: 0, negativos: 0, costoUsd: 0 }}
+                            onClick={() => setSelLinea(linea)}
+                            canSeePrices={canSeePrices}
+                            maxCostoUsd={maxCostoUsd}
+                          />
+                        ));
+                      })()}
                     </div>
                   )}
                 </div>

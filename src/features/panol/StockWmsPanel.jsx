@@ -7,6 +7,7 @@ import {
   RefreshCw,
   ScanLine,
   Search,
+  ShoppingCart,
   Warehouse,
   X,
 } from "lucide-react";
@@ -162,7 +163,8 @@ function rowIsAsignacionStock(row) {
 }
 
 function rowIsAsignacionMirrorOut(row) {
-  return rowSource(row) === "transferencia_egreso";
+  const label = String(row.tipo_label || "").toLowerCase();
+  return rowSource(row) === "transferencia_egreso" && !label.includes("liber");
 }
 
 function rowInHistory(row) {
@@ -822,7 +824,7 @@ function EgresosHistoryView({ rows, loading, obras, isMobile, onOpenProduct }) {
   }, [rows]);
 
   function destinoLabel(row) {
-    const destinoObra = rowDestinoObraLabel(row, obraById);
+    const destinoObra = rowDestinoMovimientoLabel(row, obraById);
     if (destinoObra) return destinoObra;
     if (row.sector_destino) return row.sector_destino;
     return "Salida / consumo";
@@ -946,6 +948,8 @@ function makeCartItem(group, location, { cantidad, sede, codigo, unidad } = {}) 
     catalogOnly: isCatalogOnly,
     transferable: !isCatalogOnly,
     esAdicional: !!group.esAdicional,
+    variantes: Array.isArray(group.variantes) ? group.variantes : [],
+    variante: "",
   };
 }
 
@@ -1026,6 +1030,7 @@ function EgresoBatchPanel({ group, selectedLocation, obras, sedeLocked, canRecei
       ].filter(Boolean).join(" · ");
       for (const item of cart) {
         if (movementKind === "transferir") {
+          // La RPC de transferencia no guarda variante: la dejamos explícita en la nota.
           await transferirProducto({
             material: item.material,
             descripcion: item.label,
@@ -1035,7 +1040,7 @@ function EgresoBatchPanel({ group, selectedLocation, obras, sedeLocked, canRecei
             sede: item.sede,
             obraOrigenId: item.obraId,
             obraDestinoId: destinoObraId,
-            nota: egresoNota,
+            nota: [egresoNota, item.variante ? `Variante: ${item.variante}` : ""].filter(Boolean).join(" · "),
             retiradoPor,
             esAdicional: item.esAdicional,
           });
@@ -1054,6 +1059,7 @@ function EgresoBatchPanel({ group, selectedLocation, obras, sedeLocked, canRecei
           sectorDestino,
           nota: egresoNota,
           esAdicional: item.esAdicional,
+          variante: item.variante || null,
         });
       }
       toast.success(`${cart.length} producto${cart.length === 1 ? "" : "s"} ${movementKind === "transferir" ? "asignado" : "egresado"}${cart.length === 1 ? "" : "s"}.`);
@@ -1130,6 +1136,16 @@ function EgresoBatchPanel({ group, selectedLocation, obras, sedeLocked, canRecei
                 <div style={{ color: C.dim, fontSize: 10.5, marginTop: 2, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
                   {item.locationLabel}{item.sede ? ` · ${item.sede}` : ""}{item.catalogOnly ? " · sin registro digital" : ""}
                 </div>
+                {item.variantes?.length > 0 && (
+                  <select
+                    value={item.variante || ""}
+                    onChange={(event) => updateCartItem(item.key, { variante: event.target.value })}
+                    style={{ background: C.panelSolid, border: `1px solid ${item.variante ? "rgba(139,92,246,0.45)" : C.border}`, color: item.variante ? C.violet : C.text, borderRadius: 8, padding: "4px 7px", fontSize: 11, fontFamily: C.sans, outline: "none", marginTop: 4, width: "100%", cursor: "pointer", fontWeight: item.variante ? 850 : 500 }}
+                  >
+                    <option value="">Variante: sin especificar</option>
+                    {item.variantes.map((v) => <option key={v} value={v}>{v}</option>)}
+                  </select>
+                )}
               </div>
               <input type="number" min="0.01" step="any" value={item.cantidad} onChange={(event) => updateCartItem(item.key, { cantidad: event.target.value })} style={{ background: C.panelSolid, border: `1px solid ${qty(item.cantidad, 0) > item.available ? C.redB : C.border}`, color: C.text, borderRadius: 8, padding: "8px 7px", fontSize: 12, fontFamily: C.mono, outline: "none", minWidth: 0 }} />
               <button type="button" onClick={() => removeCartItem(item.key)} title="Quitar" style={{ border: `1px solid ${C.border}`, background: C.panelSolid, color: C.dim, borderRadius: 8, width: 28, height: 28, display: "grid", placeItems: "center", cursor: "pointer" }}>
@@ -1479,7 +1495,9 @@ function ProductDetail({ group, isMobile, obras, sedeLocked, canReceive, mode, o
   }
 
   const selectedLocation = group.locations.find((loc) => loc.key === selectedLocationKey) || group.locations[0] || defaultLocation(sedeLocked || "Pampa");
-  const sortedRows = [...group.rows].sort((a, b) => new Date(b.egreso_at || b.updated_at || b.created_at || 0) - new Date(a.egreso_at || a.updated_at || a.created_at || 0));
+  const sortedRows = group.rows
+    .filter((row) => !rowIsAsignacionMirrorOut(row))
+    .sort((a, b) => new Date(b.egreso_at || b.updated_at || b.created_at || 0) - new Date(a.egreso_at || a.updated_at || a.created_at || 0));
   const negativeLocations = group.locations.filter((loc) => loc.available < 0);
   const visibleKardexRows = ocultarAnulados ? sortedRows.filter((row) => !rowIsAnulado(row)) : sortedRows;
   const detalleAdicional = [...(group.detalles || [])]
@@ -1852,6 +1870,267 @@ function ProductDetail({ group, isMobile, obras, sedeLocked, canReceive, mode, o
   );
 }
 
+// ─── Carrito flotante (stock maestro / por obra) ─────────────────────────────
+// Junta ítems de distintos orígenes (stock libre / asignado a una obra) y los
+// egresa o asigna en lote. Es EXPLÍCITO: agrupa por origen, muestra qué va a
+// pasar con cada ítem, y pide confirmación si se toca algo asignado a otra obra.
+function CartDrawer({ cart, setCart, obras, canReceive, onDone, toast, isMobile, onClose }) {
+  const [movementKind, setMovementKind] = useState("consumir");
+  const [destinoObraId, setDestinoObraId] = useState("");
+  const [retiradoPor, setRetiradoPor] = useState("");
+  const [sectorDestino, setSectorDestino] = useState("");
+  const [nota, setNota] = useState("");
+  const [saving, setSaving] = useState(false);
+
+  const obrasActivas = obras.filter((obra) => !["terminada", "cancelada", "archivada"].includes(obra.estado));
+  const obraCodigo = (id) => obras.find((o) => o.id === id)?.codigo || "obra";
+  const totalUnidades = cart.reduce((sum, item) => sum + qty(item.cantidad, 0), 0);
+
+  // Grupos por origen: stock libre primero, después cada obra asignada.
+  const grupos = useMemo(() => {
+    const map = new Map();
+    for (const item of cart) {
+      const key = item.obraId ? `obra:${item.obraId}` : `stock:${item.sede || "general"}`;
+      if (!map.has(key)) {
+        map.set(key, {
+          key,
+          obraId: item.obraId || null,
+          label: item.obraId
+            ? `Asignado a ${obras.find((o) => o.id === item.obraId)?.codigo || "obra"}`
+            : `Stock libre${item.sede ? ` · ${item.sede}` : ""}`,
+          color: item.obraId ? C.blue : C.green,
+          items: [],
+        });
+      }
+      map.get(key).items.push(item);
+    }
+    return [...map.values()].sort((a, b) => (a.obraId ? 1 : 0) - (b.obraId ? 1 : 0));
+  }, [cart, obras]);
+
+  function updateCartItem(key, patch) {
+    setCart((prev) => prev.map((item) => (item.key === key ? { ...item, ...patch } : item)));
+  }
+  function removeCartItem(key) {
+    setCart((prev) => prev.filter((item) => item.key !== key));
+  }
+
+  // Ítems asignados a UNA obra que se van a imputar/mover a OTRA → confirmación explícita.
+  const cruzados = destinoObraId
+    ? cart.filter((it) => it.obraId && it.obraId !== destinoObraId)
+    : [];
+
+  const preview = cart.map((item) => {
+    const origen = item.obraId ? obraCodigo(item.obraId) : `Stock${item.sede ? ` ${item.sede}` : ""}`;
+    const varTxt = item.variante ? ` (${item.variante})` : "";
+    const cantTxt = `${fmtQty(qty(item.cantidad, 0))} ${item.unidad || "u"}${varTxt}`;
+    const cruzado = !!(item.obraId && destinoObraId && item.obraId !== destinoObraId);
+    if (movementKind === "transferir") {
+      return { key: item.key, label: item.label, det: `${cantTxt} · ${origen} → reservado a ${destinoObraId ? obraCodigo(destinoObraId) : "…"}`, warn: cruzado };
+    }
+    const dest = destinoObraId ? obraCodigo(destinoObraId) : (item.obraId ? obraCodigo(item.obraId) : "SIN obra (detallar abajo)");
+    return { key: item.key, label: item.label, det: `${cantTxt} · sale de ${origen} → ${dest}`, warn: cruzado || (!destinoObraId && !item.obraId) };
+  });
+
+  async function submitBatch() {
+    if (!canReceive || !cart.length || saving) return;
+    if (movementKind === "transferir" && !destinoObraId) {
+      toast.warning("Elegí la obra a la que asignar el stock.");
+      return;
+    }
+    if (movementKind === "consumir" && !destinoObraId && cart.some((it) => !it.obraId)) {
+      if (!nota.trim()) {
+        toast.warning("Hay ítems de stock libre sin obra. Escribí en la observación a dónde van (mantenimiento, obra del río, etc.).");
+        return;
+      }
+      const ok = window.confirm(`¿Estás seguro? Hay ítems que salen SIN obra, con la observación:\n"${nota.trim()}"\n\n¿Confirmás el egreso?`);
+      if (!ok) return;
+    }
+    if (cruzados.length) {
+      const listado = cruzados.slice(0, 6).map((it) => `• ${it.label} (asignado a ${obraCodigo(it.obraId)})`).join("\n");
+      const extra = cruzados.length > 6 ? `\n… y ${cruzados.length - 6} más` : "";
+      const ok = window.confirm(
+        movementKind === "transferir"
+          ? `⚠ ${cruzados.length} ítem(s) ya están asignados a OTRA obra y se van a MOVER a ${obraCodigo(destinoObraId)}:\n\n${listado}${extra}\n\n¿Confirmás la reasignación?`
+          : `⚠ ${cruzados.length} ítem(s) están asignados a OTRA obra y van a salir imputados a ${obraCodigo(destinoObraId)}:\n\n${listado}${extra}\n\n¿Confirmás?`,
+      );
+      if (!ok) return;
+    }
+    setSaving(true);
+    try {
+      const egresoNota = [
+        sectorDestino.trim() ? `Destino: ${sectorDestino.trim()}` : "",
+        nota.trim(),
+      ].filter(Boolean).join(" · ");
+      for (const item of cart) {
+        if (movementKind === "transferir") {
+          // La RPC de transferencia no guarda variante: la dejamos explícita en la nota.
+          await transferirProducto({
+            material: item.material,
+            descripcion: item.label,
+            codigo: item.codigo,
+            unidad: item.unidad,
+            cantidad: item.cantidad,
+            sede: item.sede,
+            obraOrigenId: item.obraId,
+            obraDestinoId: destinoObraId,
+            nota: [egresoNota, item.variante ? `Variante: ${item.variante}` : ""].filter(Boolean).join(" · "),
+            retiradoPor,
+            esAdicional: item.esAdicional,
+          });
+          continue;
+        }
+        await egresarProducto({
+          material: item.material,
+          descripcion: item.label,
+          codigo: item.codigo,
+          unidad: item.unidad,
+          cantidad: item.cantidad,
+          sede: item.sede,
+          obraId: item.obraId,
+          destinoObraId,
+          retiradoPor,
+          sectorDestino,
+          nota: egresoNota,
+          esAdicional: item.esAdicional,
+          variante: item.variante || null,
+        });
+      }
+      toast.success(`${cart.length} producto${cart.length === 1 ? "" : "s"} ${movementKind === "transferir" ? "asignado" : "egresado"}${cart.length === 1 ? "" : "s"}.`);
+      setCart([]);
+      setDestinoObraId("");
+      setRetiradoPor("");
+      setSectorDestino("");
+      setNota("");
+      await onDone?.();
+    } catch (error) {
+      toast.error(error.message || "No se pudo registrar el movimiento.");
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  const inp = { background: C.panelSolid, border: `1px solid ${C.border}`, color: C.text, borderRadius: 9, padding: "9px 10px", fontSize: 12, fontFamily: C.sans, outline: "none", minWidth: 0 };
+  const disabled = saving || !canReceive || !cart.length || (movementKind === "transferir" && !destinoObraId);
+
+  return (
+    <div style={{ position: "fixed", right: isMobile ? 8 : 16, bottom: isMobile ? 74 : 84, width: isMobile ? "calc(100vw - 16px)" : 470, maxHeight: "78vh", zIndex: 80, display: "flex", flexDirection: "column", borderRadius: 18, overflow: "hidden", border: `1px solid ${C.border}`, background: "var(--panel)", backdropFilter: "blur(16px)", WebkitBackdropFilter: "blur(16px)", boxShadow: "0 30px 70px -18px rgba(0,0,0,0.55)" }}>
+      {/* Header gradiente */}
+      <div style={{ padding: "13px 16px", background: "linear-gradient(135deg, #10b981, #047857)", display: "flex", alignItems: "center", gap: 11, flexShrink: 0 }}>
+        <div style={{ width: 36, height: 36, borderRadius: 11, display: "grid", placeItems: "center", background: "rgba(255,255,255,0.22)", color: "#fff", flexShrink: 0 }}>
+          <ShoppingCart size={18} />
+        </div>
+        <div style={{ flex: 1, minWidth: 0 }}>
+          <div style={{ color: "#fff", fontSize: 15.5, fontWeight: 950, lineHeight: 1.1 }}>Carrito de pañol</div>
+          <div style={{ color: "rgba(255,255,255,0.88)", fontSize: 11, marginTop: 2 }}>{cart.length} producto{cart.length === 1 ? "" : "s"} · {fmtQty(totalUnidades)} unidades</div>
+        </div>
+        <button type="button" onClick={onClose} title="Cerrar" style={{ border: "none", background: "rgba(255,255,255,0.18)", color: "#fff", borderRadius: 9, width: 28, height: 28, display: "grid", placeItems: "center", cursor: "pointer" }}>
+          <X size={15} />
+        </button>
+      </div>
+
+      <div style={{ flex: 1, minHeight: 0, overflowY: "auto", padding: 13, display: "grid", gap: 13, alignContent: "start" }}>
+        {/* Ítems agrupados por origen */}
+        {grupos.map((g) => (
+          <div key={g.key}>
+            <div style={{ display: "flex", alignItems: "center", gap: 7, marginBottom: 6 }}>
+              <span style={{ width: 8, height: 8, borderRadius: 999, background: g.color, flexShrink: 0 }} />
+              <span style={{ fontSize: 10.5, fontWeight: 950, color: g.color, textTransform: "uppercase", letterSpacing: 0.7 }}>{g.label}</span>
+              <span style={{ fontSize: 10.5, color: C.dim }}>· {g.items.length} ítem{g.items.length === 1 ? "" : "s"}</span>
+            </div>
+            <div style={{ display: "grid", gap: 6 }}>
+              {g.items.map((item) => {
+                const excede = !item.catalogOnly && qty(item.cantidad, 0) > item.available;
+                return (
+                  <div key={item.key} style={{ display: "grid", gridTemplateColumns: "minmax(0, 1fr) 84px 28px", gap: 8, alignItems: "center", padding: "8px 10px", border: `1px solid ${excede ? C.amberB : C.border}`, borderRadius: 10, background: C.panelSolid }}>
+                    <div style={{ minWidth: 0 }}>
+                      <div style={{ color: C.text, fontSize: 12.5, fontWeight: 850, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{item.label}</div>
+                      <div style={{ color: excede ? C.amber : C.dim, fontSize: 10.5, marginTop: 1 }}>
+                        {item.catalogOnly ? "sin registro digital" : `disponible ${fmtQty(item.available)} ${item.unidad || ""}`}{excede ? " · queda negativo" : ""}
+                      </div>
+                      {item.variantes?.length > 0 && (
+                        <select
+                          value={item.variante || ""}
+                          onChange={(event) => updateCartItem(item.key, { variante: event.target.value })}
+                          style={{ ...inp, width: "100%", padding: "5px 7px", fontSize: 11, marginTop: 5, cursor: "pointer", color: item.variante ? C.violet : C.text, borderColor: item.variante ? "rgba(139,92,246,0.45)" : C.border, fontWeight: item.variante ? 850 : 500 }}
+                        >
+                          <option value="">Variante: sin especificar</option>
+                          {item.variantes.map((v) => <option key={v} value={v}>{v}</option>)}
+                        </select>
+                      )}
+                    </div>
+                    <input type="number" min="0.01" step="any" value={item.cantidad} onChange={(event) => updateCartItem(item.key, { cantidad: event.target.value })} style={{ ...inp, fontFamily: C.mono, padding: "7px 8px", borderColor: excede ? C.amberB : C.border }} />
+                    <button type="button" onClick={() => removeCartItem(item.key)} title="Quitar" style={{ border: `1px solid ${C.border}`, background: C.panelSolid, color: C.dim, borderRadius: 8, width: 28, height: 28, display: "grid", placeItems: "center", cursor: "pointer" }}>
+                      <X size={13} />
+                    </button>
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+        ))}
+
+        {/* Acción: segmentado grande */}
+        <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8 }}>
+          <button type="button" onClick={() => setMovementKind("consumir")} style={{ border: `2px solid ${movementKind === "consumir" ? C.green : C.border}`, background: movementKind === "consumir" ? C.greenL : C.panelSolid, borderRadius: 12, padding: "10px 12px", cursor: "pointer", textAlign: "left", fontFamily: C.sans }}>
+            <div style={{ display: "flex", alignItems: "center", gap: 6, color: movementKind === "consumir" ? C.green : C.text, fontSize: 13, fontWeight: 950 }}><ArrowUpRight size={15} /> Egresar</div>
+            <div style={{ fontSize: 10.5, color: C.dim, marginTop: 3 }}>Sale del pañol (consumo)</div>
+          </button>
+          <button type="button" onClick={() => setMovementKind("transferir")} style={{ border: `2px solid ${movementKind === "transferir" ? C.blue : C.border}`, background: movementKind === "transferir" ? C.blueL : C.panelSolid, borderRadius: 12, padding: "10px 12px", cursor: "pointer", textAlign: "left", fontFamily: C.sans }}>
+            <div style={{ display: "flex", alignItems: "center", gap: 6, color: movementKind === "transferir" ? C.blue : C.text, fontSize: 13, fontWeight: 950 }}><RefreshCw size={15} /> Asignar</div>
+            <div style={{ fontSize: 10.5, color: C.dim, marginTop: 3 }}>Queda en pañol, reservado a la obra</div>
+          </button>
+        </div>
+
+        {/* Destino */}
+        <label style={{ display: "grid", gap: 5 }}>
+          <span style={{ color: C.dim, fontSize: 10, fontWeight: 850, textTransform: "uppercase", letterSpacing: 1 }}>{movementKind === "transferir" ? "Asignar a la obra" : "Obra a la que va"}</span>
+          <select value={destinoObraId} onChange={(event) => setDestinoObraId(event.target.value)} style={{ ...inp, cursor: "pointer", borderColor: movementKind === "transferir" && !destinoObraId ? C.amberB : C.border }}>
+            <option value="">{movementKind === "transferir" ? "Elegir obra…" : "Cada ítem sale a su obra asignada (stock libre: detallar)"}</option>
+            {obrasActivas.map((obra) => <option key={obra.id} value={obra.id}>{obra.codigo}</option>)}
+          </select>
+        </label>
+
+        {/* Qué va a pasar */}
+        <div style={{ border: `1px dashed ${cruzados.length ? C.amberB : C.blueB}`, background: cruzados.length ? C.amberL : C.blueL, borderRadius: 11, padding: "9px 11px" }}>
+          <div style={{ fontSize: 10, fontWeight: 950, color: cruzados.length ? C.amber : C.blue, textTransform: "uppercase", letterSpacing: 0.7, marginBottom: 6 }}>Qué va a pasar</div>
+          <div style={{ display: "grid", gap: 4 }}>
+            {preview.slice(0, 6).map((p) => (
+              <div key={p.key} style={{ fontSize: 11, lineHeight: 1.35, color: p.warn ? C.amber : C.text }}>
+                <span style={{ fontWeight: 850 }}>{p.warn ? "⚠ " : ""}{p.label}</span>
+                <span style={{ color: p.warn ? C.amber : C.dim }}> — {p.det}</span>
+              </div>
+            ))}
+            {preview.length > 6 && <div style={{ fontSize: 10.5, color: C.dim }}>… y {preview.length - 6} más</div>}
+          </div>
+          {cruzados.length > 0 && (
+            <div style={{ fontSize: 10.5, color: C.amber, fontWeight: 850, marginTop: 6 }}>
+              ⚠ {cruzados.length} ítem{cruzados.length === 1 ? " está" : "s están"} asignado{cruzados.length === 1 ? "" : "s"} a otra obra: se pide confirmación al confirmar.
+            </div>
+          )}
+        </div>
+
+        {/* Datos del retiro */}
+        <div style={{ display: "grid", gridTemplateColumns: movementKind === "consumir" ? "1fr 1fr" : "1fr", gap: 8 }}>
+          <input value={retiradoPor} onChange={(event) => setRetiradoPor(event.target.value)} placeholder="Receptor / DNI" style={inp} />
+          {movementKind === "consumir" && <input value={sectorDestino} onChange={(event) => setSectorDestino(event.target.value)} placeholder="Sector / uso" style={inp} />}
+        </div>
+        <input value={nota} onChange={(event) => setNota(event.target.value)} placeholder="Observación (obligatoria si algo sale sin obra)" style={inp} />
+      </div>
+
+      {/* Footer */}
+      <div style={{ padding: 12, borderTop: `1px solid ${C.border}`, background: C.panelSolid, display: "flex", gap: 8, flexShrink: 0 }}>
+        <button type="button" onClick={() => setCart([])} disabled={saving} style={{ border: `1px solid ${C.border}`, background: C.panel, color: C.dim, borderRadius: 11, padding: "11px 14px", cursor: saving ? "default" : "pointer", fontSize: 12.5, fontWeight: 900, fontFamily: C.sans }}>
+          Vaciar
+        </button>
+        <button type="button" onClick={submitBatch} disabled={disabled} style={{ flex: 1, display: "inline-flex", alignItems: "center", justifyContent: "center", gap: 8, border: "none", background: disabled ? C.panel2 : (movementKind === "transferir" ? "linear-gradient(135deg, #3b82f6, #2563eb)" : "linear-gradient(135deg, #10b981, #047857)"), color: disabled ? C.dim : "#fff", borderRadius: 11, padding: "12px 14px", fontSize: 13.5, fontWeight: 950, cursor: disabled ? "default" : "pointer", fontFamily: C.sans, boxShadow: disabled ? "none" : "0 10px 24px -10px rgba(16,185,129,0.5)" }}>
+          {movementKind === "transferir" ? <RefreshCw size={16} /> : <ArrowUpRight size={16} />}
+          {saving ? "Registrando..." : movementKind === "transferir" ? `Asignar todo (${cart.length})` : `Confirmar egreso (${cart.length})`}
+        </button>
+      </div>
+    </div>
+  );
+}
+
 export default function StockWmsPanel({ sedeLocked = null, isMobile = false, toast, mode = "stock", canReceive = true, canCreateCatalog = false, canSeePrices = true, initialFObra = "todas", initialScope = "todos" }) {
   const searchInputRef = useRef(null);
   const [rows, setRows] = useState([]);
@@ -1871,6 +2150,7 @@ export default function StockWmsPanel({ sedeLocked = null, isMobile = false, toa
   const [creating, setCreating] = useState(false);
   const [draftGroup, setDraftGroup] = useState(null);
   const [cart, setCart] = useState([]);
+  const [cartOpen, setCartOpen] = useState(false); // drawer flotante (modos stock/por obra)
   const cartGroupKeys = useMemo(() => new Set(cart.map((it) => it.groupKey)), [cart]);
 
   // Agregado rápido al carrito desde la tarjeta (modo egreso): toma el stock disponible
@@ -2001,7 +2281,7 @@ export default function StockWmsPanel({ sedeLocked = null, isMobile = false, toa
 
   const historyRows = useMemo(
     () => searchedRows
-      .filter((row) => rowIsEgreso(row))
+      .filter((row) => rowInHistory(row))
       .sort((a, b) => new Date(rowMovementAt(b) || 0) - new Date(rowMovementAt(a) || 0)),
     [searchedRows],
   );
@@ -2224,7 +2504,7 @@ export default function StockWmsPanel({ sedeLocked = null, isMobile = false, toa
               <div style={{ padding: 30, textAlign: "center", color: C.dim, fontSize: 12, fontWeight: 850 }}>Cargando stock...</div>
             ) : productGroups.length ? (
               productGroups.map((group) => (
-                <ProductCard key={group.key} group={group} active={selectedKey === group.key} onOpen={setSelectedKey} canSeePrices={canSeePrices} onAddToCart={mode === "egreso" ? quickAddToCart : undefined} inCart={cartGroupKeys.has(group.key)} />
+                <ProductCard key={group.key} group={group} active={selectedKey === group.key} onOpen={setSelectedKey} canSeePrices={canSeePrices} onAddToCart={canReceive ? quickAddToCart : undefined} inCart={cartGroupKeys.has(group.key)} />
               ))
             ) : (
               <div style={{ padding: 22, border: `1px dashed ${C.border}`, borderRadius: 10, color: C.dim, textAlign: "center", fontSize: 13 }}>
@@ -2277,6 +2557,42 @@ export default function StockWmsPanel({ sedeLocked = null, isMobile = false, toa
           />
         )}
       </div>
+      )}
+
+      {/* ── Carrito flotante (stock maestro / por obra): juntar ítems y egresar/asignar en lote ── */}
+      {mode !== "egreso" && cart.length > 0 && (
+        <>
+          {cartOpen && (
+            <CartDrawer
+              cart={cart}
+              setCart={setCart}
+              obras={obras}
+              canReceive={canReceive}
+              onDone={async () => { setCartOpen(false); await cargar(); }}
+              toast={toast}
+              isMobile={isMobile}
+              onClose={() => setCartOpen(false)}
+            />
+          )}
+          {/* Corrido a la izquierda para no tapar la campanita de notificaciones (esquina inferior derecha) */}
+          <button
+            type="button"
+            onClick={() => setCartOpen((v) => !v)}
+            title="Carrito: egresar o asignar los ítems juntados"
+            style={{
+              position: "fixed", right: isMobile ? 70 : 88, bottom: isMobile ? 12 : 20, zIndex: 81,
+              display: "inline-flex", alignItems: "center", gap: 8,
+              border: "none", background: "linear-gradient(135deg, #10b981, #047857)", color: "#fff",
+              borderRadius: 999, padding: "12px 18px", cursor: "pointer",
+              fontSize: 13.5, fontWeight: 950, fontFamily: C.sans,
+              boxShadow: "0 14px 34px -10px rgba(16,185,129,0.6)",
+            }}
+          >
+            <ShoppingCart size={17} />
+            Carrito
+            <span style={{ fontFamily: C.mono, fontSize: 11.5, fontWeight: 950, background: "rgba(255,255,255,0.25)", borderRadius: 999, padding: "1px 8px" }}>{cart.length}</span>
+          </button>
+        </>
       )}
     </>
   );
