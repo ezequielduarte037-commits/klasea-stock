@@ -300,7 +300,7 @@ export async function fetchMaterialesEgreso({ sede = null, estados = ["en_panol"
     .in("estado", estados)
     .order("updated_at", { ascending: false });
 
-  ({ data, error } = await runSelect("*, panol_envio:panol_envios(id,titulo,sede,destino,created_at)"));
+  ({ data, error } = await runSelect("*, panol_envio:panol_envios(id,titulo,sede,destino,created_at,created_by,recibido_por)"));
   if (error && isMissingColumn(error)) {
     ({ data, error } = await runSelect("*"));
   }
@@ -389,7 +389,11 @@ export async function fetchMaterialesEgreso({ sede = null, estados = ["en_panol"
       }
     }
   }
-  const egresoActorById = await fetchProfilesMap(rows.map((row) => row.egreso_por));
+  const egresoActorById = await fetchProfilesMap([
+    ...rows.map((row) => row.egreso_por),
+    ...rows.map((row) => row.panol_envio?.recibido_por),
+    ...rows.map((row) => row.panol_envio?.created_by),
+  ]);
   const transferActorByKey = new Map();
   for (const row of rows) {
     if (row.source !== "transferencia_egreso" || !isUuidLike(row.egreso_por)) continue;
@@ -402,7 +406,9 @@ export async function fetchMaterialesEgreso({ sede = null, estados = ["en_panol"
     const categoriaId = row.categoria_id || meta?.categoria_id || null;
     const directActor = isUuidLike(row.egreso_por) ? egresoActorById.get(row.egreso_por) || null : null;
     const transferActor = row.source === "transferencia_ingreso" ? transferActorByKey.get(transferMovementKey(row, "in")) || null : null;
-    const egresoActor = directActor || transferActor;
+    const envioReceivedActor = isUuidLike(row.panol_envio?.recibido_por) ? egresoActorById.get(row.panol_envio.recibido_por) || null : null;
+    const envioCreatedActor = isUuidLike(row.panol_envio?.created_by) ? egresoActorById.get(row.panol_envio.created_by) || null : null;
+    const egresoActor = directActor || transferActor || envioReceivedActor || envioCreatedActor;
     return {
       ...row,
       obra: row.obra_id ? obrasById.get(row.obra_id) || null : null,

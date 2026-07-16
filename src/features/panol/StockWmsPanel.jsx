@@ -1,10 +1,11 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { memo, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
   AlertTriangle,
   ArrowUpRight,
   MapPin,
   PackagePlus,
   RefreshCw,
+  Save,
   ScanLine,
   Search,
   ShoppingCart,
@@ -623,7 +624,11 @@ function AsignadoChip({ asignaciones = [], compact = false }) {
   );
 }
 
-function ProductCard({ group, active, onOpen, canSeePrices = true, onAddToCart, inCart = false }) {
+// memo: al agregar al carrito (o seleccionar) solo se re-renderizan las tarjetas
+// afectadas, no las 300+ de la lista — el click se siente inmediato.
+const ProductCard = memo(function ProductCard({ group, active, onOpen, canSeePrices = true, onAddToCart, inCart = false, dense = false }) {
+  const [cartHover, setCartHover] = useState(false);
+  const [hover, setHover] = useState(false);
   const breakdown = group.locations
     .filter((loc) => Math.abs(loc.available) > 0.0001)
     .slice(0, 4)
@@ -641,23 +646,76 @@ function ProductCard({ group, active, onOpen, canSeePrices = true, onAddToCart, 
   const codeLabel = group.codigo
     ? (barcode ? `${group.codigo} · CB ${barcode}` : group.codigo)
     : (barcode ? `CB ${barcode}` : "sin código");
+
+  // ── Variante DENSA (lista angosta con detalle abierto): 2 líneas, micro-chips ──
+  if (dense) {
+    const asigs = groupAsignaciones(group);
+    const estadoMini = group.egresado ? ["EGRESADO", C.red] : group.negativo ? ["NEGATIVO", C.red] : group.inTransit ? ["POR RECIBIR", C.amber] : null;
+    const micro = (label, color) => (
+      <span style={{ fontSize: 8.5, fontWeight: 950, color, border: `1px solid ${color}44`, background: `${color}12`, borderRadius: 999, padding: "0 5px", flexShrink: 0, whiteSpace: "nowrap", lineHeight: "13px" }}>{label}</span>
+    );
+    return (
+      <button
+        type="button"
+        onClick={() => onOpen(group.key)}
+        onMouseEnter={() => setHover(true)}
+        onMouseLeave={() => setHover(false)}
+        style={{ width: "100%", display: "flex", flexDirection: "column", gap: 4, border: `1px solid ${active || hover ? C.blueB : group.negativo ? C.redB : C.border}`, background: active ? C.blueL : hover ? "rgba(59,130,246,0.06)" : C.panelSolid, borderRadius: 9, padding: "7px 9px", cursor: "pointer", color: C.text, textAlign: "left", fontFamily: C.sans, minWidth: 0, transform: hover && !active ? "translateX(2px)" : "none", transition: "border-color .12s, background .12s, transform .12s" }}
+      >
+        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "baseline", gap: 8, minWidth: 0 }}>
+          <span style={{ flex: 1, minWidth: 0, fontSize: 12.5, fontWeight: 900, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{group.label}</span>
+          <span style={{ color: qtyColor, fontFamily: C.mono, fontSize: 14, fontWeight: 950, flexShrink: 0 }}>
+            {fmtQty(group.total)}<span style={{ color: C.dim, fontSize: 9, fontWeight: 800, marginLeft: 3 }}>{group.unidad || "u"}</span>
+          </span>
+        </div>
+        <div style={{ display: "flex", alignItems: "center", gap: 5, minWidth: 0 }}>
+          {estadoMini && micro(estadoMini[0], estadoMini[1])}
+          {asigs.length > 0 && micro(asigs.length === 1 ? asigs[0].label : `${asigs.length} OBRAS`, C.blue)}
+          {group.tipoPedido === "adicional" && micro("ADIC", C.violet)}
+          <span style={{ flex: 1, minWidth: 0, color: C.dim, fontSize: 10, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+            {group.ubicacion ? `${group.ubicacion} · ` : ""}{codeLabel !== "sin código" ? `${group.codigo || barcode} · ` : ""}{stockDetail}
+          </span>
+          {onAddToCart && group.total > 0.0001 && (
+            <span
+              role="button"
+              tabIndex={0}
+              onClick={(e) => { e.stopPropagation(); onAddToCart(group); }}
+              onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); e.stopPropagation(); onAddToCart(group); } }}
+              onMouseEnter={() => setCartHover(true)}
+              onMouseLeave={() => setCartHover(false)}
+              title={inCart ? "Ya está en el carrito · click para actualizar" : "Agregar al carrito"}
+              style={{ flexShrink: 0, display: "grid", placeItems: "center", width: 24, height: 19, borderRadius: 999, border: `1px solid ${inCart || cartHover ? C.greenB : C.border}`, background: inCart || cartHover ? C.greenL : "transparent", color: inCart || cartHover ? C.green : C.dim, cursor: "pointer", transition: "color .12s, border-color .12s, background .12s" }}
+            >
+              <ShoppingCart size={11} />
+            </span>
+          )}
+        </div>
+      </button>
+    );
+  }
+
   return (
     <button
       type="button"
       onClick={() => onOpen(group.key)}
+      onMouseEnter={() => setHover(true)}
+      onMouseLeave={() => setHover(false)}
       style={{
         width: "100%",
         display: "flex",
         flexDirection: "column",
         gap: 7,
-        border: `1px solid ${active ? C.blueB : group.negativo ? C.redB : C.border}`,
-        background: active ? C.blueL : group.negativo ? C.redL : C.panelSolid,
+        border: `1px solid ${active || hover ? C.blueB : group.negativo ? C.redB : C.border}`,
+        background: active ? C.blueL : group.negativo ? C.redL : hover ? "rgba(59,130,246,0.06)" : C.panelSolid,
         borderRadius: 11,
         padding: "9px 10px",
         cursor: "pointer",
         color: C.text,
         textAlign: "left",
         fontFamily: C.sans,
+        transform: hover && !active ? "translateY(-2px)" : "none",
+        boxShadow: hover && !active ? "0 8px 20px -10px rgba(0,0,0,0.25)" : "none",
+        transition: "border-color .12s, background .12s, transform .12s, box-shadow .12s",
       }}
     >
       {/* Fila 1: nombre completo (hasta 2 líneas) + disponible */}
@@ -705,25 +763,32 @@ function ProductCard({ group, active, onOpen, canSeePrices = true, onAddToCart, 
           {stockDetail}{group.locations.length > 4 ? ` · +${group.locations.length - 4}` : ""}
         </span>
       </div>}
-      {/* Quick-add al carrito (solo en modo egreso) */}
+      {/* Quick-add al carrito: chip sutil, no invade la tarjeta */}
       {onAddToCart && group.total > 0.0001 && (
         <span
           role="button"
           tabIndex={0}
           onClick={(e) => { e.stopPropagation(); onAddToCart(group); }}
           onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); e.stopPropagation(); onAddToCart(group); } }}
+          onMouseEnter={() => setCartHover(true)}
+          onMouseLeave={() => setCartHover(false)}
+          title={inCart ? "Ya está en el carrito · click para actualizar" : "Agregar al carrito"}
           style={{
-            marginTop: 1, display: "inline-flex", alignItems: "center", justifyContent: "center", gap: 6,
-            border: `1px solid ${inCart ? C.greenB : C.blueB}`, background: inCart ? C.greenL : C.blueL,
-            color: inCart ? C.green : C.blue, borderRadius: 9, padding: "6px 9px", fontSize: 11.5, fontWeight: 950, cursor: "pointer",
+            alignSelf: "flex-end", display: "inline-flex", alignItems: "center", gap: 5,
+            border: `1px solid ${inCart || cartHover ? C.greenB : C.border}`,
+            background: inCart || cartHover ? C.greenL : "transparent",
+            color: inCart || cartHover ? C.green : C.dim,
+            borderRadius: 999, padding: "2px 9px", fontSize: 10.5, fontWeight: 850, cursor: "pointer",
+            transform: cartHover ? "scale(1.06)" : "none",
+            transition: "color .12s, border-color .12s, background .12s, transform .12s",
           }}
         >
-          {inCart ? "✓ En carrito · sumar más" : "+ Agregar al carrito"}
+          <ShoppingCart size={11} /> {cartHover && !inCart ? "+ Agregar" : inCart ? "En carrito" : "Carrito"}
         </span>
       )}
     </button>
   );
-}
+});
 
 function LocationButton({ location, active, onClick }) {
   return (
@@ -1874,7 +1939,7 @@ function ProductDetail({ group, isMobile, obras, sedeLocked, canReceive, mode, o
 // Junta ítems de distintos orígenes (stock libre / asignado a una obra) y los
 // egresa o asigna en lote. Es EXPLÍCITO: agrupa por origen, muestra qué va a
 // pasar con cada ítem, y pide confirmación si se toca algo asignado a otra obra.
-function CartDrawer({ cart, setCart, obras, canReceive, onDone, toast, isMobile, onClose }) {
+function CartDrawer({ cart, setCart, obras, canReceive, onDone, toast, isMobile, onClose, savedCarts = [], setSavedCarts }) {
   const [movementKind, setMovementKind] = useState("consumir");
   const [destinoObraId, setDestinoObraId] = useState("");
   const [retiradoPor, setRetiradoPor] = useState("");
@@ -2012,6 +2077,28 @@ function CartDrawer({ cart, setCart, obras, canReceive, onDone, toast, isMobile,
   const inp = { background: C.panelSolid, border: `1px solid ${C.border}`, color: C.text, borderRadius: 9, padding: "9px 10px", fontSize: 12, fontFamily: C.sans, outline: "none", minWidth: 0 };
   const disabled = saving || !canReceive || !cart.length || (movementKind === "transferir" && !destinoObraId);
 
+  // ── Carritos guardados con nombre ──
+  function guardarCarrito() {
+    if (!cart.length || !setSavedCarts) return;
+    const ahora = new Date();
+    const sugerido = `Carrito ${ahora.toLocaleDateString("es-AR", { day: "2-digit", month: "2-digit" })} ${ahora.toLocaleTimeString("es-AR", { hour: "2-digit", minute: "2-digit" })}`;
+    const nombre = window.prompt("Nombre para guardar este carrito:", sugerido);
+    if (nombre == null) return;
+    const limpio = nombre.trim() || sugerido;
+    setSavedCarts((prev) => [{ id: Date.now().toString(36), nombre: limpio, items: cart.map((it) => ({ ...it })), savedAt: ahora.toISOString() }, ...prev].slice(0, 20));
+    toast?.success?.(`Carrito "${limpio}" guardado.`);
+    if (window.confirm("Guardado ✓. ¿Vaciar el carrito actual para empezar otro?")) setCart([]);
+  }
+  function cargarGuardado(saved) {
+    if (cart.length && !window.confirm(`¿Reemplazar el carrito actual (${cart.length} ítems) por "${saved.nombre}" (${saved.items.length} ítems)?`)) return;
+    setCart(saved.items.map((it) => ({ ...it })));
+    toast?.success?.(`Carrito "${saved.nombre}" cargado.`);
+  }
+  function borrarGuardado(saved) {
+    if (!window.confirm(`¿Borrar el carrito guardado "${saved.nombre}"?`)) return;
+    setSavedCarts((prev) => prev.filter((s) => s.id !== saved.id));
+  }
+
   return (
     <div style={{ position: "fixed", right: isMobile ? 8 : 16, bottom: isMobile ? 74 : 84, width: isMobile ? "calc(100vw - 16px)" : 470, maxHeight: "78vh", zIndex: 80, display: "flex", flexDirection: "column", borderRadius: 18, overflow: "hidden", border: `1px solid ${C.border}`, background: "var(--panel)", backdropFilter: "blur(16px)", WebkitBackdropFilter: "blur(16px)", boxShadow: "0 30px 70px -18px rgba(0,0,0,0.55)" }}>
       {/* Header gradiente */}
@@ -2023,12 +2110,46 @@ function CartDrawer({ cart, setCart, obras, canReceive, onDone, toast, isMobile,
           <div style={{ color: "#fff", fontSize: 15.5, fontWeight: 950, lineHeight: 1.1 }}>Carrito de pañol</div>
           <div style={{ color: "rgba(255,255,255,0.88)", fontSize: 11, marginTop: 2 }}>{cart.length} producto{cart.length === 1 ? "" : "s"} · {fmtQty(totalUnidades)} unidades</div>
         </div>
+        {cart.length > 0 && setSavedCarts && (
+          <button type="button" onClick={guardarCarrito} title="Guardar este carrito con nombre para retomarlo después" style={{ border: "none", background: "rgba(255,255,255,0.2)", color: "#fff", borderRadius: 9, height: 28, padding: "0 10px", display: "inline-flex", alignItems: "center", gap: 5, cursor: "pointer", fontSize: 11, fontWeight: 900, fontFamily: C.sans }}>
+            <Save size={13} /> Guardar
+          </button>
+        )}
         <button type="button" onClick={onClose} title="Cerrar" style={{ border: "none", background: "rgba(255,255,255,0.18)", color: "#fff", borderRadius: 9, width: 28, height: 28, display: "grid", placeItems: "center", cursor: "pointer" }}>
           <X size={15} />
         </button>
       </div>
 
       <div style={{ flex: 1, minHeight: 0, overflowY: "auto", padding: 13, display: "grid", gap: 13, alignContent: "start" }}>
+        {/* Carritos guardados: cargar / borrar */}
+        {savedCarts.length > 0 && (
+          <div>
+            <div style={{ fontSize: 10.5, fontWeight: 950, color: C.dim, textTransform: "uppercase", letterSpacing: 0.7, marginBottom: 6 }}>Carritos guardados</div>
+            <div style={{ display: "grid", gap: 5 }}>
+              {savedCarts.map((s) => (
+                <div key={s.id} style={{ display: "flex", alignItems: "center", gap: 8, padding: "7px 10px", border: `1px solid ${C.border}`, borderRadius: 10, background: C.panelSolid }}>
+                  <div style={{ flex: 1, minWidth: 0 }}>
+                    <div style={{ fontSize: 12, fontWeight: 850, color: C.text, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{s.nombre}</div>
+                    <div style={{ fontSize: 10, color: C.dim }}>{s.items.length} ítem{s.items.length === 1 ? "" : "s"} · {new Date(s.savedAt).toLocaleDateString("es-AR", { day: "2-digit", month: "2-digit" })}</div>
+                  </div>
+                  <button type="button" onClick={() => cargarGuardado(s)} style={{ border: `1px solid ${C.greenB}`, background: C.greenL, color: C.green, borderRadius: 8, padding: "4px 10px", cursor: "pointer", fontSize: 11, fontWeight: 900, fontFamily: C.sans, flexShrink: 0 }}>
+                    Cargar
+                  </button>
+                  <button type="button" onClick={() => borrarGuardado(s)} title="Borrar guardado" style={{ border: `1px solid ${C.border}`, background: C.panelSolid, color: C.dim, borderRadius: 8, width: 26, height: 26, display: "grid", placeItems: "center", cursor: "pointer", flexShrink: 0 }}>
+                    <X size={12} />
+                  </button>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
+
+        {!cart.length && (
+          <div style={{ padding: "16px 8px", textAlign: "center", color: C.dim, fontSize: 12, border: `1px dashed ${C.border}`, borderRadius: 10 }}>
+            El carrito está vacío. Agregá ítems desde la lista{savedCarts.length ? " o cargá uno guardado" : ""}.
+          </div>
+        )}
+
         {/* Ítems agrupados por origen */}
         {grupos.map((g) => (
           <div key={g.key}>
@@ -2070,6 +2191,7 @@ function CartDrawer({ cart, setCart, obras, canReceive, onDone, toast, isMobile,
         ))}
 
         {/* Acción: segmentado grande */}
+        {cart.length > 0 && (<>
         <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8 }}>
           <button type="button" onClick={() => setMovementKind("consumir")} style={{ border: `2px solid ${movementKind === "consumir" ? C.green : C.border}`, background: movementKind === "consumir" ? C.greenL : C.panelSolid, borderRadius: 12, padding: "10px 12px", cursor: "pointer", textAlign: "left", fontFamily: C.sans }}>
             <div style={{ display: "flex", alignItems: "center", gap: 6, color: movementKind === "consumir" ? C.green : C.text, fontSize: 13, fontWeight: 950 }}><ArrowUpRight size={15} /> Egresar</div>
@@ -2115,6 +2237,7 @@ function CartDrawer({ cart, setCart, obras, canReceive, onDone, toast, isMobile,
           {movementKind === "consumir" && <input value={sectorDestino} onChange={(event) => setSectorDestino(event.target.value)} placeholder="Sector / uso" style={inp} />}
         </div>
         <input value={nota} onChange={(event) => setNota(event.target.value)} placeholder="Observación (obligatoria si algo sale sin obra)" style={inp} />
+        </>)}
       </div>
 
       {/* Footer */}
@@ -2149,13 +2272,45 @@ export default function StockWmsPanel({ sedeLocked = null, isMobile = false, toa
   const [catalogMatches, setCatalogMatches] = useState([]);
   const [creating, setCreating] = useState(false);
   const [draftGroup, setDraftGroup] = useState(null);
-  const [cart, setCart] = useState([]);
+  // Carrito PERSISTENTE (localStorage): si estás egresando y surge otra cosa,
+  // el carrito queda guardado y te espera — sobrevive recargas y cambios de pantalla.
+  // Se limpia solo al confirmar el movimiento o al tocar "Vaciar".
+  const [cart, setCart] = useState(() => {
+    try {
+      const raw = window.localStorage.getItem("klasea:panol-carrito");
+      const parsed = raw ? JSON.parse(raw) : [];
+      return Array.isArray(parsed) ? parsed : [];
+    } catch { return []; }
+  });
+  useEffect(() => {
+    try {
+      if (cart.length) window.localStorage.setItem("klasea:panol-carrito", JSON.stringify(cart));
+      else window.localStorage.removeItem("klasea:panol-carrito");
+    } catch { /* almacenamiento lleno o bloqueado: seguimos sin persistir */ }
+  }, [cart]);
   const [cartOpen, setCartOpen] = useState(false); // drawer flotante (modos stock/por obra)
+  // Carritos GUARDADOS con nombre (además del actual): para pausar un egreso a
+  // medio armar cuando surge otra cosa, y retomarlo después.
+  const [savedCarts, setSavedCarts] = useState(() => {
+    try {
+      const raw = window.localStorage.getItem("klasea:panol-carritos-guardados");
+      const parsed = raw ? JSON.parse(raw) : [];
+      return Array.isArray(parsed) ? parsed : [];
+    } catch { return []; }
+  });
+  useEffect(() => {
+    try {
+      if (savedCarts.length) window.localStorage.setItem("klasea:panol-carritos-guardados", JSON.stringify(savedCarts));
+      else window.localStorage.removeItem("klasea:panol-carritos-guardados");
+    } catch { /* almacenamiento bloqueado: seguimos sin persistir */ }
+  }, [savedCarts]);
   const cartGroupKeys = useMemo(() => new Set(cart.map((it) => it.groupKey)), [cart]);
 
   // Agregado rápido al carrito desde la tarjeta (modo egreso): toma el stock disponible
   // de la ubicación principal y lo suma al carrito, sin abrir el detalle.
-  function quickAddToCart(group) {
+  // useCallback: identidad estable para que las tarjetas memoizadas no se
+  // re-rendericen todas en cada cambio de estado del panel.
+  const quickAddToCart = useCallback((group) => {
     if (!canReceive) return;
     const loc = (group.locations || []).find((l) => l.available > 0.0001) || group.locations?.[0];
     if (!loc) return;
@@ -2171,7 +2326,7 @@ export default function StockWmsPanel({ sedeLocked = null, isMobile = false, toa
       return prev.map((r) => r.key === item.key ? { ...r, ...item } : r);
     });
     toast?.success?.(`${group.label} → carrito`);
-  }
+  }, [canReceive, sedeLocked, toast]);
 
   const defaultSede = sedeLocked || (fSede !== "todas" ? fSede : "Pampa");
   const canShowHistory = mode === "egreso" || fObra !== "todas";
@@ -2195,8 +2350,12 @@ export default function StockWmsPanel({ sedeLocked = null, isMobile = false, toa
     setFObra(initialFObra || "todas");
   }, [initialFObra]);
 
+  // Refresh SILENCIOSO: el spinner de "Cargando" solo aparece la primera vez.
+  // Los refresh posteriores (tras un egreso/asignación) actualizan los datos por
+  // detrás sin blanquear la pantalla — se siente instantáneo.
+  const hasLoadedRef = useRef(false);
   const cargar = useCallback(async () => {
-    setLoading(true);
+    if (!hasLoadedRef.current) setLoading(true);
     try {
       const sede = sedeLocked || (fSede !== "todas" ? fSede : null);
       const [stockRows, obraRows] = await Promise.all([
@@ -2205,6 +2364,7 @@ export default function StockWmsPanel({ sedeLocked = null, isMobile = false, toa
       ]);
       setRows(stockRows);
       setObras(obraRows);
+      hasLoadedRef.current = true;
     } catch (error) {
       toast.error(error.message || "No se pudo cargar el stock.");
     } finally {
@@ -2491,7 +2651,8 @@ export default function StockWmsPanel({ sedeLocked = null, isMobile = false, toa
           <EgresosHistoryView rows={historyRows} loading={loading} obras={obras} isMobile={isMobile} onOpenProduct={openProductFromHistory} />
         </div>
       ) : (
-      <div style={{ flex: 1, minHeight: 0, overflow: "hidden", padding: isMobile ? 12 : "12px 16px 16px", display: "grid", gridTemplateColumns: isMobile || !hasSelectedProduct ? "1fr" : "minmax(280px, 360px) minmax(0, 1fr)", gap: 12 }}>
+      <div style={{ flex: 1, minHeight: 0, overflow: "hidden", padding: isMobile ? 12 : "12px 16px 16px", display: "grid", gridTemplateColumns: isMobile || !hasSelectedProduct ? "1fr" : "330px minmax(0, 1fr)", gap: 12 }}>
+        {/* Lista compacta con detalle abierto: solo scroll vertical, nunca horizontal. */}
         <section style={{ minHeight: 0, minWidth: 0, border: `1px solid ${C.border}`, background: C.panel, borderRadius: 12, overflow: "hidden", display: "flex", flexDirection: "column" }}>
           <div style={{ padding: "10px 12px", borderBottom: `1px solid ${C.border}`, background: C.panelSolid, display: "flex", alignItems: "center", justifyContent: "space-between", gap: 10 }}>
             <div>
@@ -2499,12 +2660,12 @@ export default function StockWmsPanel({ sedeLocked = null, isMobile = false, toa
               <div style={{ color: C.dim, fontSize: 11, marginTop: 2 }}>{productGroups.length} productos visibles · click en un item para abrir egreso y kardex</div>
             </div>
           </div>
-          <div style={{ padding: 8, display: "grid", gridTemplateColumns: !isMobile && !hasSelectedProduct ? "repeat(auto-fill, minmax(280px, 1fr))" : "1fr", gap: 7, overflowY: "auto" }}>
+          <div style={{ padding: 8, display: "grid", gridTemplateColumns: !isMobile && !hasSelectedProduct ? "repeat(auto-fill, minmax(280px, 1fr))" : "1fr", gap: 7, overflowY: "auto", overflowX: "hidden" }}>
             {loading ? (
               <div style={{ padding: 30, textAlign: "center", color: C.dim, fontSize: 12, fontWeight: 850 }}>Cargando stock...</div>
             ) : productGroups.length ? (
               productGroups.map((group) => (
-                <ProductCard key={group.key} group={group} active={selectedKey === group.key} onOpen={setSelectedKey} canSeePrices={canSeePrices} onAddToCart={canReceive ? quickAddToCart : undefined} inCart={cartGroupKeys.has(group.key)} />
+                <ProductCard key={group.key} group={group} active={selectedKey === group.key} onOpen={setSelectedKey} canSeePrices={canSeePrices} onAddToCart={canReceive ? quickAddToCart : undefined} inCart={cartGroupKeys.has(group.key)} dense={!isMobile && hasSelectedProduct} />
               ))
             ) : (
               <div style={{ padding: 22, border: `1px dashed ${C.border}`, borderRadius: 10, color: C.dim, textAlign: "center", fontSize: 13 }}>
@@ -2560,7 +2721,7 @@ export default function StockWmsPanel({ sedeLocked = null, isMobile = false, toa
       )}
 
       {/* ── Carrito flotante (stock maestro / por obra): juntar ítems y egresar/asignar en lote ── */}
-      {mode !== "egreso" && cart.length > 0 && (
+      {mode !== "egreso" && (cart.length > 0 || savedCarts.length > 0) && (
         <>
           {cartOpen && (
             <CartDrawer
@@ -2572,6 +2733,8 @@ export default function StockWmsPanel({ sedeLocked = null, isMobile = false, toa
               toast={toast}
               isMobile={isMobile}
               onClose={() => setCartOpen(false)}
+              savedCarts={savedCarts}
+              setSavedCarts={setSavedCarts}
             />
           )}
           {/* Corrido a la izquierda para no tapar la campanita de notificaciones (esquina inferior derecha) */}
@@ -2590,7 +2753,9 @@ export default function StockWmsPanel({ sedeLocked = null, isMobile = false, toa
           >
             <ShoppingCart size={17} />
             Carrito
-            <span style={{ fontFamily: C.mono, fontSize: 11.5, fontWeight: 950, background: "rgba(255,255,255,0.25)", borderRadius: 999, padding: "1px 8px" }}>{cart.length}</span>
+            <span title={cart.length ? `${cart.length} en el carrito` : `${savedCarts.length} guardado(s)`} style={{ fontFamily: C.mono, fontSize: 11.5, fontWeight: 950, background: "rgba(255,255,255,0.25)", borderRadius: 999, padding: "1px 8px" }}>
+              {cart.length || `💾${savedCarts.length}`}
+            </span>
           </button>
         </>
       )}
