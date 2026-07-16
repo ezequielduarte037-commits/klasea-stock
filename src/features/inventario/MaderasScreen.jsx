@@ -152,6 +152,157 @@ function RingKpi({ label, value, total, color, sub }) {
   );
 }
 
+// Fila de item en la recepcion de pedidos de maderas. Una sola linea: nombre + progreso
+// recibido/pedido + saldo pendiente + acciones (todo / parcial), sin huecos muertos.
+function ItemRecepcionRow({
+  item, material, S, isMobile, puedeCargar,
+  totalItem, recibidoItem, pendienteItem, unidadItem,
+  parcialValue, onParcialChange, onRecibir,
+}) {
+  const [hover, setHover] = useState(false);
+  const vinculado = Boolean(material?.id);
+  const parcialNum = num(parcialValue);
+  const puedeRecibirItem = Boolean(puedeCargar && vinculado && pendienteItem > 0);
+  const puedeRecibirParcial = Boolean(puedeRecibirItem && parcialNum > 0 && parcialNum <= pendienteItem);
+  const completo = pendienteItem <= 0;
+  const pct = totalItem > 0 ? Math.min(100, Math.round((recibidoItem / totalItem) * 100)) : 0;
+  const acento = !vinculado ? C.amber : completo ? C.green : C.blue;
+
+  const chip = (color, texto) => (
+    <span style={{
+      flexShrink: 0, borderRadius: 999, padding: "2px 7px", fontSize: 9,
+      fontWeight: 900, letterSpacing: 0.4, textTransform: "uppercase",
+      color, background: tint(color, 12), border: `1px solid ${tint(color, 30)}`,
+    }}>{texto}</span>
+  );
+
+  return (
+    <div
+      onMouseEnter={() => setHover(true)}
+      onMouseLeave={() => setHover(false)}
+      style={{
+        position: "relative",
+        display: "flex",
+        alignItems: "center",
+        gap: isMobile ? 9 : 12,
+        flexWrap: isMobile ? "wrap" : "nowrap",
+        border: `1px solid ${hover ? tint(acento, 34) : vinculado ? C.border : tint(C.amber, 32)}`,
+        borderRadius: 11,
+        padding: isMobile ? 11 : "9px 12px 9px 15px",
+        background: !vinculado ? tint(C.amber, 7) : hover ? tint(acento, 5) : C.panel,
+        transition: "border-color .14s, background .14s",
+        overflow: "hidden",
+      }}
+    >
+      {!isMobile && (
+        <span style={{ position: "absolute", left: 0, top: 0, bottom: 0, width: 3, background: acento, opacity: completo ? 0.9 : 0.5 }} />
+      )}
+
+      {/* Nombre + vinculo al catalogo */}
+      <div style={{ flex: "1 1 190px", minWidth: 0 }}>
+        <div style={{ display: "flex", alignItems: "center", gap: 7, minWidth: 0 }}>
+          <span style={{ color: C.text, fontSize: 13.5, fontWeight: 850, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+            {item.descripcion || material?.nombre || "Ítem sin descripción"}
+          </span>
+          {!vinculado && chip(C.amber, "Sin vínculo")}
+          {completo && chip(C.green, "Completo")}
+        </div>
+        <div style={{ ...S.small, marginTop: 2, fontSize: 11, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+          {vinculado ? `Catálogo: ${material.nombre}` : "Sin vínculo al catálogo — vinculalo para poder ingresarlo"}
+        </div>
+      </div>
+
+      {/* Progreso recibido / pedido */}
+      <div style={{ flex: isMobile ? "1 1 100%" : "0 0 134px" }}>
+        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "baseline", gap: 6, fontSize: 10, color: C.dim, fontWeight: 800, marginBottom: 3 }}>
+          <span style={{ whiteSpace: "nowrap" }}>{fmtQty(recibidoItem)} de {fmtQty(totalItem)} {unidadItem}</span>
+          <span style={{ color: pct > 0 ? C.green : C.dim, fontFamily: C.mono }}>{pct}%</span>
+        </div>
+        <div style={{ height: 5, borderRadius: 999, background: C.panel2, overflow: "hidden" }}>
+          <div style={{ width: `${pct}%`, height: "100%", background: completo ? C.green : tint(C.green, 65), borderRadius: 999, transition: "width .2s" }} />
+        </div>
+      </div>
+
+      {/* Saldo pendiente */}
+      <div style={{ flex: "0 0 auto", textAlign: isMobile ? "left" : "right", minWidth: 60 }}>
+        <div style={{ fontFamily: C.mono, fontSize: 17, fontWeight: 900, lineHeight: 1, color: completo ? C.green : C.amber }}>
+          {fmtQty(pendienteItem)}
+        </div>
+        <div style={{ fontSize: 9, color: C.dim, fontWeight: 850, letterSpacing: 0.5, textTransform: "uppercase", marginTop: 3 }}>
+          Pendiente
+        </div>
+      </div>
+
+      {/* Acciones */}
+      <div style={{ display: "flex", alignItems: "center", gap: 6, flex: isMobile ? "1 1 100%" : "0 0 auto" }}>
+        <button
+          type="button"
+          onClick={() => onRecibir(pendienteItem)}
+          disabled={!puedeRecibirItem}
+          title={vinculado ? "Recibir todo el saldo pendiente" : "Primero hay que vincular el ítem al catálogo"}
+          style={{
+            ...S.btnPrimary,
+            border: `1px solid ${tint(puedeRecibirItem ? C.green : C.border, 36)}`,
+            background: puedeRecibirItem ? tint(C.green, hover ? 18 : 13) : C.panel2,
+            color: puedeRecibirItem ? C.green : C.dim,
+            display: "inline-flex",
+            alignItems: "center",
+            justifyContent: "center",
+            gap: 6,
+            padding: "7px 11px",
+            fontSize: 12.5,
+            whiteSpace: "nowrap",
+            flex: isMobile ? "1 1 auto" : "0 0 auto",
+            transition: "background .14s",
+          }}
+        >
+          <Check size={14} /> Recibir todo
+        </button>
+        <div style={{
+          display: "flex", alignItems: "center",
+          border: `1px solid ${puedeRecibirParcial ? tint(C.amber, 34) : C.border}`,
+          borderRadius: 9, overflow: "hidden", background: C.bg,
+          opacity: puedeRecibirItem ? 1 : 0.6,
+          transition: "border-color .14s",
+        }}>
+          <input
+            type="number"
+            min="0.01"
+            step="0.01"
+            max={pendienteItem || undefined}
+            value={parcialValue}
+            onChange={(e) => onParcialChange(e.target.value)}
+            placeholder="Parcial"
+            disabled={!puedeRecibirItem}
+            title="Cantidad para un ingreso parcial"
+            style={{
+              ...S.input, width: isMobile ? "100%" : 72, height: 30, border: "none", background: "transparent",
+              padding: "6px 8px", fontFamily: C.mono, fontWeight: 850, fontSize: 12, outline: "none",
+            }}
+          />
+          <button
+            type="button"
+            onClick={() => onRecibir(parcialValue)}
+            disabled={!puedeRecibirParcial}
+            title={vinculado ? "Registrar ingreso parcial" : "Primero hay que vincular el ítem al catálogo"}
+            style={{
+              border: "none",
+              borderLeft: `1px solid ${puedeRecibirParcial ? tint(C.amber, 34) : C.border}`,
+              background: puedeRecibirParcial ? tint(C.amber, 13) : "transparent",
+              color: puedeRecibirParcial ? C.amber : C.dim,
+              padding: "0 9px", height: 30, cursor: puedeRecibirParcial ? "pointer" : "default",
+              display: "inline-flex", alignItems: "center", justifyContent: "center",
+              transition: "background .14s",
+            }}
+          >
+            <Plus size={14} />
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 export default function MaderasScreen({ profile, signOut }) {
   const location = useLocation();
   const navigate = useNavigate();
@@ -901,6 +1052,7 @@ export default function MaderasScreen({ profile, signOut }) {
                     }).length;
                     const sinVinculo = Math.max(0, items.length - vinculados);
                     const vieneDeCompras = pedido.purchase_request_id || items.some((item) => item.purchase_request_item_id);
+                    const itemsCompletos = items.filter((item) => pedidoItemCantidadPendiente(item) <= 0).length;
                     return (
                       <article key={pedido.id} style={{
                         border: `1px solid ${sinVinculo ? tint(C.amber, 34) : C.border}`,
@@ -941,113 +1093,42 @@ export default function MaderasScreen({ profile, signOut }) {
                                 {sinVinculo} sin vincular
                               </span>
                             )}
+                            {itemsCompletos > 0 && (
+                              <span style={{
+                                borderRadius: 999,
+                                padding: "3px 9px",
+                                fontSize: 10,
+                                fontWeight: 850,
+                                color: C.green,
+                                background: tint(C.green, 12),
+                                border: `1px solid ${tint(C.green, 30)}`,
+                              }}>
+                                {itemsCompletos} de {items.length} recibido{itemsCompletos === 1 ? "" : "s"}
+                              </span>
+                            )}
                           </div>
                           <div style={{ ...S.small, marginTop: 4 }}>
-                            {pedido.proveedor || "Sin proveedor"} · {fmtDate(pedido.fecha_pedido || pedido.creado_en)} · {items.length} item{items.length === 1 ? "" : "s"}
+                            {pedido.proveedor || "Sin proveedor"} · {fmtDate(pedido.fecha_pedido || pedido.creado_en)} · {items.length} ítem{items.length === 1 ? "" : "s"}
                           </div>
                           <div style={{ display: "grid", gap: 7, marginTop: 12 }}>
                             {items.map((item) => {
                               const material = materialParaPedidoItem(item);
-                              const totalItem = pedidoItemCantidadTotal(item);
-                              const recibidoItem = pedidoItemCantidadRecibida(item);
-                              const pendienteItem = pedidoItemCantidadPendiente(item);
-                              const unidadItem = item.unidad || item.unidad_medida || material?.unidad_medida || "";
-                              const parcialValue = recepcionParcial[item.id] ?? "";
-                              const parcialNum = num(parcialValue);
-                              const puedeRecibirItem = Boolean(puedeCargar && material?.id && pendienteItem > 0);
-                              const puedeRecibirParcial = Boolean(puedeRecibirItem && parcialNum > 0 && parcialNum <= pendienteItem);
                               return (
-                                <div key={item.id} style={{
-                                  display: "grid",
-                                  gap: 10,
-                                  border: `1px solid ${material?.id ? C.border : tint(C.amber, 32)}`,
-                                  borderRadius: 12,
-                                  padding: 11,
-                                  background: material?.id ? C.panel : tint(C.amber, 7),
-                                }}>
-                                  <div style={{ display: "flex", justifyContent: "space-between", gap: 12, alignItems: "flex-start", flexWrap: "wrap" }}>
-                                    <div style={{ minWidth: 0, flex: "1 1 260px" }}>
-                                      <div style={{ color: C.text, fontSize: 13.5, fontWeight: 850, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: isMobile ? "normal" : "nowrap" }}>
-                                        {item.descripcion || material?.nombre || "Item sin descripcion"}
-                                      </div>
-                                      <div style={{ ...S.small, marginTop: 3 }}>
-                                        {material?.nombre ? `Catalogo: ${material.nombre}` : "Sin vinculo al catalogo"}
-                                      </div>
-                                    </div>
-                                    <div style={{ display: "flex", gap: 6, flexWrap: "wrap", justifyContent: isMobile ? "flex-start" : "flex-end" }}>
-                                      <span style={{ border: `1px solid ${C.border}`, background: C.bg, color: C.text, borderRadius: 999, padding: "4px 8px", fontSize: 11, fontWeight: 850 }}>
-                                        Pedido {fmtQty(totalItem)} {unidadItem}
-                                      </span>
-                                      {recibidoItem > 0 && (
-                                        <span style={{ border: `1px solid ${tint(C.green, 30)}`, background: tint(C.green, 10), color: C.green, borderRadius: 999, padding: "4px 8px", fontSize: 11, fontWeight: 850 }}>
-                                          Recibido {fmtQty(recibidoItem)}
-                                        </span>
-                                      )}
-                                      <span style={{ border: `1px solid ${tint(C.amber, 30)}`, background: tint(C.amber, 10), color: C.amber, borderRadius: 999, padding: "4px 8px", fontSize: 11, fontWeight: 850 }}>
-                                        Pendiente {fmtQty(pendienteItem)}
-                                      </span>
-                                    </div>
-                                  </div>
-                                  <div style={{ display: "flex", gap: 8, alignItems: "center", justifyContent: "flex-end", flexWrap: "wrap" }}>
-                                    <button
-                                      type="button"
-                                      onClick={() => recibirItemMadera(pedido, item, pendienteItem)}
-                                      disabled={!puedeRecibirItem}
-                                      title={material?.id ? "Recibir todo el saldo pendiente" : "Primero hay que vincular el item al catalogo"}
-                                      style={{
-                                        ...S.btnPrimary,
-                                        border: `1px solid ${tint(puedeRecibirItem ? C.green : C.border, 36)}`,
-                                        background: puedeRecibirItem ? tint(C.green, 13) : C.panel2,
-                                        color: puedeRecibirItem ? C.green : C.dim,
-                                        display: "inline-flex",
-                                        alignItems: "center",
-                                        justifyContent: "center",
-                                        gap: 7,
-                                        padding: "8px 11px",
-                                        minWidth: isMobile ? "100%" : 154,
-                                      }}
-                                    >
-                                      <Check size={14} /> Recepcion completa
-                                    </button>
-                                    <div style={{ display: "flex", alignItems: "center", gap: 6, border: `1px solid ${tint(C.amber, 28)}`, background: tint(C.amber, 7), borderRadius: 10, padding: 5, flex: isMobile ? "1 1 100%" : "0 1 270px" }}>
-                                      <span style={{ color: C.amber, fontSize: 11, fontWeight: 900, paddingLeft: 4, whiteSpace: "nowrap" }}>Parcial</span>
-                                      <input
-                                        type="number"
-                                        min="0.01"
-                                        step="0.01"
-                                        max={pendienteItem || undefined}
-                                        value={parcialValue}
-                                        onChange={(e) => setRecepcionParcial((prev) => ({ ...prev, [item.id]: e.target.value }))}
-                                        placeholder="Cant."
-                                        disabled={!puedeRecibirItem}
-                                        style={{ ...S.input, height: 32, padding: "6px 8px", fontFamily: C.mono, fontWeight: 850, opacity: puedeRecibirItem ? 1 : 0.65 }}
-                                      />
-                                      <button
-                                        type="button"
-                                        onClick={() => recibirItemMadera(pedido, item, parcialValue)}
-                                        disabled={!puedeRecibirParcial}
-                                        title={material?.id ? "Registrar ingreso parcial" : "Primero hay que vincular el item al catalogo"}
-                                        style={{
-                                          border: `1px solid ${tint(puedeRecibirParcial ? C.amber : C.border, 36)}`,
-                                          background: puedeRecibirParcial ? C.bg : C.panel2,
-                                          color: puedeRecibirParcial ? C.amber : C.dim,
-                                          borderRadius: 8,
-                                          padding: "7px 10px",
-                                          cursor: puedeRecibirParcial ? "pointer" : "default",
-                                          fontSize: 12,
-                                          fontWeight: 900,
-                                          fontFamily: C.sans,
-                                          display: "inline-flex",
-                                          alignItems: "center",
-                                          gap: 5,
-                                          whiteSpace: "nowrap",
-                                        }}
-                                      >
-                                        <Plus size={13} /> Recibir
-                                      </button>
-                                    </div>
-                                  </div>
-                                </div>
+                                <ItemRecepcionRow
+                                  key={item.id}
+                                  item={item}
+                                  material={material}
+                                  S={S}
+                                  isMobile={isMobile}
+                                  puedeCargar={puedeCargar}
+                                  totalItem={pedidoItemCantidadTotal(item)}
+                                  recibidoItem={pedidoItemCantidadRecibida(item)}
+                                  pendienteItem={pedidoItemCantidadPendiente(item)}
+                                  unidadItem={item.unidad || item.unidad_medida || material?.unidad_medida || ""}
+                                  parcialValue={recepcionParcial[item.id] ?? ""}
+                                  onParcialChange={(valor) => setRecepcionParcial((prev) => ({ ...prev, [item.id]: valor }))}
+                                  onRecibir={(cantidad) => recibirItemMadera(pedido, item, cantidad)}
+                                />
                               );
                             })}
                           </div>

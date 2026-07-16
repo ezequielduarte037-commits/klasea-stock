@@ -3311,9 +3311,11 @@ function ObraAddonModal({ open, obra, obras = [], addon = null, materiales = [],
   );
 }
 
-function ListaMateriales({ categorias, materiales, selectedId, ums, proveedores, obras = [], onChanged, defaultSoloPendientes = true, compact = false, lineaFija = "" }) {
+function ListaMateriales({ categorias, materiales, selectedId, ums, proveedores, obras = [], onChanged, defaultSoloPendientes = true, compact = false, lineaFija = "", externalQuery = null, onExternalQueryChange = null, hideSearch = false }) {
   const [soloPendientes, setSoloPendientes] = useState(defaultSoloPendientes);
   const [q, setQ] = useState("");
+  const searchValue = externalQuery ?? q;
+  const setSearchValue = onExternalQueryChange ?? setQ;
   // Stock libre de pañol (sin obra asignada) por material, para verlo en el catálogo
   // antes de comprar. Un solo fetch por montaje; si falla, simplemente no se muestra.
   const [stockLibre, setStockLibre] = useState(() => new Map());
@@ -3345,7 +3347,7 @@ function ListaMateriales({ categorias, materiales, selectedId, ums, proveedores,
 
   const visibles = useMemo(() => {
     // Buscador: ignora acentos y exige TODAS las palabras (AND), en descripción/proveedor/código.
-    const terms = norm(q).split(/\s+/).filter(Boolean);
+    const terms = norm(searchValue).split(/\s+/).filter(Boolean);
     const scope = selectedId ? idsScope(categorias, selectedId) : null;
     const rubroScope = rubro ? idsScope(categorias, rubro) : null;
     // Proveedor: matchea por id; si el material sólo tiene el texto, cae al nombre.
@@ -3366,7 +3368,7 @@ function ListaMateriales({ categorias, materiales, selectedId, ums, proveedores,
       })
       // Consumibles al fondo (no molestan entre los ítems del barco). Sort estable: mantiene el orden por descripción dentro de cada grupo.
       .sort((a, b) => (a.es_consumible ? 1 : 0) - (b.es_consumible ? 1 : 0));
-  }, [materiales, categorias, q, selectedId, soloPendientes, linea, prov, proveedores, rubro, proveedorTipo, consumFiltro]);
+  }, [materiales, categorias, searchValue, selectedId, soloPendientes, linea, prov, proveedores, rubro, proveedorTipo, consumFiltro]);
 
   // Si se filtra por una línea, mostramos solo esa columna de cantidad (más prolijo y angosto).
   const modelos = linea ? [linea] : MODELOS;
@@ -3390,10 +3392,10 @@ function ListaMateriales({ categorias, materiales, selectedId, ums, proveedores,
   return (
     <div>
       <div style={{ display: "flex", gap: 10, flexWrap: "wrap", alignItems: "center", marginBottom: 16, padding: "11px 13px", background: "var(--panel)", border: `1px solid ${C.b0}`, borderRadius: 14, boxShadow: "0 1px 3px rgba(0,0,0,0.05)" }}>
-        <div style={{ position: "relative", minWidth: 220, flex: "1 1 280px" }}>
+        <div style={{ position: "relative", minWidth: 220, flex: "1 1 280px", display: hideSearch ? "none" : "block" }}>
           <Search size={15} style={{ position: "absolute", left: 12, top: "50%", transform: "translateY(-50%)", color: C.t2 }} />
-          <input value={q} onChange={(e) => setQ(e.target.value)} placeholder="Buscar por descripción, proveedor o código…" style={{ ...INP, width: "100%", height: 40, paddingLeft: 36, borderRadius: 10 }} />
-          {q && <button type="button" onClick={() => setQ("")} title="Limpiar" style={{ position: "absolute", right: 10, top: "50%", transform: "translateY(-50%)", background: "transparent", border: "none", color: C.t2, cursor: "pointer", fontSize: 14, lineHeight: 1, padding: 3 }}>✕</button>}
+          <input value={searchValue} onChange={(e) => setSearchValue(e.target.value)} placeholder="Buscar por descripción, proveedor o código…" style={{ ...INP, width: "100%", height: 40, paddingLeft: 36, borderRadius: 10 }} />
+          {searchValue && <button type="button" onClick={() => setSearchValue("")} title="Limpiar" style={{ position: "absolute", right: 10, top: "50%", transform: "translateY(-50%)", background: "transparent", border: "none", color: C.t2, cursor: "pointer", fontSize: 14, lineHeight: 1, padding: 3 }}>✕</button>}
         </div>
         {!lineaFija && <div style={{ display: "inline-flex", gap: 2, background: C.s0, border: `1px solid ${C.b0}`, borderRadius: 10, padding: 3 }}>
           {[["", "Todas"], ...MODELOS.map((m) => [m, `K${m}`])].map(([val, label]) => {
@@ -7630,6 +7632,8 @@ function DuplicadosCatalogo({ groups, cleanupCandidates = [], categorias, ums, p
 function MatrizTab({ categorias, materiales, proveedores, obras = [], onChanged }) {
   const [sel, setSel] = useState(""); // "" = todos los sectores
   const [modo, setModo] = useState("lista");
+  const [catalogQ, setCatalogQ] = useState("");
+  const [showCatTools, setShowCatTools] = useState(false);
   const [showPrecios, setShowPrecios] = useState(false);
   const [catForm, setCatForm] = useState({ root: "", sub: "" });
   const [catBusy, setCatBusy] = useState("");
@@ -7653,15 +7657,70 @@ function MatrizTab({ categorias, materiales, proveedores, obras = [], onChanged 
   }, [materialesCatalogo, categorias]);
   const duplicateGroups = useMemo(() => findDuplicateGroups(materialesCatalogo ?? [], categorias, sel), [materialesCatalogo, categorias, sel]);
   const cleanupCandidates = useMemo(() => findCleanupCandidates(materialesCatalogo ?? [], categorias, sel), [materialesCatalogo, categorias, sel]);
+  const catalogStats = useMemo(() => {
+    const activos = (materialesCatalogo ?? []).filter(materialActivo);
+    const scope = sel ? idsScope(categorias, sel) : null;
+    const scoped = activos.filter((m) => !scope || materialEnScope(m, scope));
+    return scoped.reduce((acc, material) => {
+      acc.items += 1;
+      if (!priceInfo(material).amount) acc.sinPrecio += 1;
+      if (reviewInfoForMaterial(material).flag) acc.revisar += 1;
+      if (material.es_consumible) acc.consumibles += 1;
+      return acc;
+    }, { items: 0, sinPrecio: 0, revisar: 0, consumibles: 0 });
+  }, [materialesCatalogo, categorias, sel]);
 
   const Chip = ({ id, label, active }) => (
     <button
       type="button"
       onClick={() => setSel(id)}
-      style={{ ...BTN, padding: "7px 12px", background: active ? "rgba(59,130,246,0.14)" : C.s0, border: `1px solid ${active ? "rgba(59,130,246,0.35)" : C.b0}`, color: active ? "#60a5fa" : C.t1 }}
+      style={{
+        ...BTN,
+        flex: "0 0 auto",
+        padding: "7px 11px",
+        minHeight: 34,
+        borderRadius: 999,
+        background: active ? C.blueL : C.s0,
+        border: `1px solid ${active ? C.blueB : C.b0}`,
+        color: active ? C.blue : C.t1,
+        boxShadow: active ? "0 8px 18px -16px rgba(37,99,235,0.75)" : "none",
+      }}
     >
       {label} <span style={{ color: active ? "#93c5fd" : C.t2, fontFamily: C.mono, marginLeft: 5 }}>{countDe(id)}</span>
     </button>
+  );
+
+  const actionStyle = (active, color = C.blue, bg = C.blueL, border = C.blueB) => ({
+    ...BTN,
+    height: 42,
+    padding: "0 13px",
+    borderRadius: 11,
+    background: active ? bg : C.s0,
+    border: `1px solid ${active ? border : C.b0}`,
+    color: active ? color : C.t1,
+    fontWeight: 900,
+    boxShadow: active ? "0 10px 24px -20px rgba(15,23,42,0.75)" : "none",
+  });
+
+  const StatPill = ({ label, value, color = C.blue }) => (
+    <span style={{
+      display: "inline-flex",
+      alignItems: "center",
+      gap: 7,
+      minHeight: 28,
+      border: `1px solid ${C.b0}`,
+      background: C.bg,
+      borderRadius: 999,
+      padding: "4px 9px",
+      color: C.t2,
+      fontSize: 11.5,
+      fontWeight: 750,
+      whiteSpace: "nowrap",
+    }}>
+      <span style={{ width: 6, height: 6, borderRadius: 999, background: color, flexShrink: 0 }} />
+      <span style={{ color: C.t1 }}>{label}</span>
+      <span style={{ color, fontFamily: C.mono, fontWeight: 900 }}>{value}</span>
+    </span>
   );
 
   async function crearCategoriaRaiz() {
@@ -7700,19 +7759,96 @@ function MatrizTab({ categorias, materiales, proveedores, obras = [], onChanged 
 
   return (
     <div>
-      <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
+      <div style={{ border: `1px solid ${C.b0}`, background: C.s0, borderRadius: 18, padding: 12, marginBottom: 12, display: "grid", gap: 11, boxShadow: "0 16px 40px -34px rgba(15,23,42,0.65)" }}>
+        <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(min(100%, 360px), 1fr))", gap: 10, alignItems: "stretch" }}>
+          <div style={{ position: "relative", minWidth: 0 }}>
+            <Search size={19} style={{ position: "absolute", left: 15, top: "50%", transform: "translateY(-50%)", color: C.blue }} />
+            <input
+              autoFocus
+              value={catalogQ}
+              onChange={(e) => {
+                setCatalogQ(e.target.value);
+                if (modo !== "lista") setModo("lista");
+              }}
+              placeholder="Buscar en todo el catalogo: material, codigo, proveedor, rubro..."
+              style={{
+                ...INP,
+                width: "100%",
+                height: 52,
+                paddingLeft: 46,
+                paddingRight: catalogQ ? 44 : 14,
+                borderRadius: 13,
+                fontSize: 14.5,
+                background: C.bg,
+                border: `1px solid ${catalogQ ? C.blueB : C.b0}`,
+                boxShadow: catalogQ ? "0 0 0 3px rgba(59,130,246,0.10)" : "inset 0 1px 0 rgba(255,255,255,0.02)",
+              }}
+            />
+            {catalogQ && (
+              <button type="button" onClick={() => setCatalogQ("")} title="Limpiar busqueda" style={{ position: "absolute", right: 12, top: "50%", transform: "translateY(-50%)", width: 30, height: 30, borderRadius: 9, border: `1px solid ${C.b0}`, background: C.s1, color: C.t2, cursor: "pointer" }}>
+                <X size={14} />
+              </button>
+            )}
+          </div>
+          <div style={{ display: "flex", gap: 7, flexWrap: "wrap", alignItems: "center", justifyContent: "flex-end" }}>
+            <button type="button" onClick={() => setModo("lista")} style={actionStyle(modo === "lista", C.blue, C.blueL, C.blueB)}>
+              <FileText size={14} /> Lista
+            </button>
+            <button type="button" onClick={() => { setCatalogQ(""); setModo("duplicados"); }} style={actionStyle(modo === "duplicados", C.amber, C.amberL, C.amberB)}>
+              <RefreshCw size={14} /> Duplicados <span style={{ fontFamily: C.mono, marginLeft: 2 }}>{duplicateGroups.length}</span>
+            </button>
+            <button type="button" onClick={() => setShowCatTools((v) => !v)} style={actionStyle(showCatTools, C.violet, "var(--violet-soft)", `${C.violet}55`)}>
+              <Plus size={14} /> Organizar
+            </button>
+            <button
+              type="button"
+              onClick={() => setShowPrecios(true)}
+              style={{ ...actionStyle(false), background: C.greenL, borderColor: C.greenB, color: C.green }}
+              title="Leer factura, remito, presupuesto, foto o PDF con IA y aplicar precios a materiales existentes"
+            >
+              <Upload size={14} /> Cargar precios
+            </button>
+          </div>
+        </div>
+        <div style={{ display: "flex", gap: 8, flexWrap: "wrap", alignItems: "center" }}>
+          <StatPill label={sel ? selCat?.nombre || "Sector" : "Catalogo"} value={catalogStats.items} color={C.blue} />
+          <StatPill label="Sin precio" value={catalogStats.sinPrecio} color={catalogStats.sinPrecio ? C.amber : C.green} />
+          <StatPill label="A revisar" value={catalogStats.revisar} color={catalogStats.revisar ? C.amber : C.green} />
+          <StatPill label="Consumibles" value={catalogStats.consumibles} color={C.violet} />
+          <span style={{ marginLeft: "auto", fontSize: 11.5, color: C.t3, fontWeight: 750 }}>
+            {catalogQ ? "Busqueda activa" : "Busca primero; filtra despues si hace falta."}
+          </span>
+        </div>
+      </div>
+      <div style={{ display: "grid", gap: 7, marginBottom: 4 }}>
+        <div style={{ display: "flex", alignItems: "center", gap: 8, color: C.t2, fontSize: 11, fontWeight: 900, textTransform: "uppercase" }}>
+          <span style={{ width: 6, height: 6, borderRadius: 999, background: C.blue }} />
+          Sectores
+        </div>
+        <div style={{ display: "flex", gap: 8, flexWrap: "nowrap", overflowX: "auto", padding: "0 2px 4px" }}>
         <Chip id="" label="Todos" active={!sel} />
         {raices.map((r) => <Chip key={r.id} id={r.id} label={r.nombre} active={sel === r.id || selCat?.parent_id === r.id} />)}
+        </div>
       </div>
       {parentActivo && subs.length > 0 && (
-        <div style={{ display: "flex", gap: 7, flexWrap: "wrap", marginTop: 9, paddingLeft: 12, borderLeft: `2px solid ${C.b0}` }}>
+        <div style={{ display: "flex", gap: 7, flexWrap: "nowrap", overflowX: "auto", marginTop: 8, padding: "0 2px 4px 12px", borderLeft: `2px solid ${C.b0}` }}>
           <Chip id={parentActivo.id} label={`${parentActivo.nombre} · todo`} active={sel === parentActivo.id} />
           {subs.map((s) => <Chip key={s.id} id={s.id} label={s.nombre} active={sel === s.id} />)}
         </div>
       )}
-      <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(260px, 1fr))", gap: 10, marginTop: 14 }}>
-        <div style={{ border: `1px solid ${C.b0}`, borderRadius: 14, background: "var(--panel)", padding: 12, display: "grid", gap: 8 }}>
-          <div style={{ fontSize: 11, color: C.t2, fontWeight: 900, textTransform: "uppercase", letterSpacing: 0.7 }}>Nueva categoria</div>
+      {showCatTools && <div style={{ border: `1px solid ${C.b0}`, borderRadius: 16, background: C.s0, padding: 12, display: "grid", gap: 10, marginTop: 12 }}>
+        <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 10, flexWrap: "wrap" }}>
+          <div>
+            <div style={{ fontSize: 13, fontWeight: 950, color: C.t0 }}>Organizar catalogo</div>
+            <div style={{ fontSize: 11.5, color: C.t2, marginTop: 2 }}>Crear sectores y subsectores sin ensuciar la vista diaria.</div>
+          </div>
+          <button type="button" onClick={() => setShowCatTools(false)} style={{ ...BTN, padding: "5px 9px", color: C.t2 }}>
+            <X size={13} /> Cerrar
+          </button>
+        </div>
+        <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(260px, 1fr))", gap: 10 }}>
+        <div style={{ border: `1px solid ${C.b0}`, borderRadius: 13, background: C.bg, padding: 12, display: "grid", gap: 8 }}>
+          <div style={{ fontSize: 11, color: C.t2, fontWeight: 900, textTransform: "uppercase" }}>Nueva categoria</div>
           <div style={{ display: "flex", gap: 8 }}>
             <input value={catForm.root} onChange={(e) => setCatForm((f) => ({ ...f, root: e.target.value }))} placeholder="Ej: Seguridad" style={{ ...INP, flex: 1, height: 38 }} />
             <button type="button" onClick={crearCategoriaRaiz} disabled={!catForm.root.trim() || catBusy === "root"} style={{ ...BTN_GREEN, padding: "8px 12px", whiteSpace: "nowrap" }}>
@@ -7720,8 +7856,8 @@ function MatrizTab({ categorias, materiales, proveedores, obras = [], onChanged 
             </button>
           </div>
         </div>
-        <div style={{ border: `1px solid ${C.b0}`, borderRadius: 14, background: "var(--panel)", padding: 12, display: "grid", gap: 8 }}>
-          <div style={{ fontSize: 11, color: C.t2, fontWeight: 900, textTransform: "uppercase", letterSpacing: 0.7 }}>
+        <div style={{ border: `1px solid ${C.b0}`, borderRadius: 13, background: C.bg, padding: 12, display: "grid", gap: 8 }}>
+          <div style={{ fontSize: 11, color: C.t2, fontWeight: 900, textTransform: "uppercase" }}>
             Nueva subcategoria {parentParaSub ? `en ${parentParaSub.nombre}` : ""}
           </div>
           <div style={{ display: "flex", gap: 8 }}>
@@ -7731,27 +7867,9 @@ function MatrizTab({ categorias, materiales, proveedores, obras = [], onChanged 
             </button>
           </div>
         </div>
-      </div>
+        </div>
+      </div>}
       {catError && <div style={{ marginTop: 8, fontSize: 12, color: C.red }}>{catError}</div>}
-      <div style={{ display: "flex", gap: 8, flexWrap: "wrap", alignItems: "center", marginTop: 14, padding: "10px 12px", border: `1px solid ${C.b0}`, background: "var(--panel)", borderRadius: 14 }}>
-        <button type="button" onClick={() => setModo("lista")} style={{ ...BTN, padding: "7px 12px", background: modo === "lista" ? C.blueL : C.s0, border: `1px solid ${modo === "lista" ? C.blueB : C.b0}`, color: modo === "lista" ? C.blue : C.t1 }}>
-          Lista completa
-        </button>
-        <button type="button" onClick={() => setModo("duplicados")} style={{ ...BTN, padding: "7px 12px", background: modo === "duplicados" ? C.amberL : C.s0, border: `1px solid ${modo === "duplicados" ? C.amberB : C.b0}`, color: modo === "duplicados" ? C.amber : C.t1 }}>
-          Posibles duplicados <span style={{ fontFamily: C.mono, marginLeft: 5 }}>{duplicateGroups.length}</span>
-        </button>
-        <button
-          type="button"
-          onClick={() => setShowPrecios(true)}
-          style={{ ...BTN, padding: "7px 12px", marginLeft: "auto", background: C.greenL, border: `1px solid ${C.greenB}`, color: C.green }}
-          title="Leer factura, remito, presupuesto, foto o PDF con IA y aplicar precios a materiales existentes"
-        >
-          <Upload size={14} /> Cargar precios
-        </button>
-        <span style={{ fontSize: 11.5, color: C.t2 }}>
-          {sel ? "Analisis limitado al sector seleccionado." : "Analisis sobre todo el catalogo activo."}
-        </span>
-      </div>
       {showPrecios && (
         <CargarPresupuestoModal
           categorias={categorias}
@@ -7777,6 +7895,9 @@ function MatrizTab({ categorias, materiales, proveedores, obras = [], onChanged 
               onChanged={onChanged}
               defaultSoloPendientes={false}
               compact
+              externalQuery={catalogQ}
+              onExternalQueryChange={setCatalogQ}
+              hideSearch
             />
           </>
         )}
