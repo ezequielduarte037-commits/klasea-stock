@@ -58,6 +58,25 @@ function fmtQty(value) {
   return Number.isInteger(n) ? String(n) : n.toFixed(2).replace(/\.?0+$/, "");
 }
 
+function pedidoItemCantidadTotal(item) {
+  return num(item?.cantidad);
+}
+
+function pedidoItemCantidadRecibida(item) {
+  const total = pedidoItemCantidadTotal(item);
+  const recibida = num(item?.cantidad_recibida);
+  if (item?.nota_recepcion && recibida <= 0) return total;
+  return Math.min(recibida, total);
+}
+
+function pedidoItemCantidadPendiente(item) {
+  return Math.max(0, pedidoItemCantidadTotal(item) - pedidoItemCantidadRecibida(item));
+}
+
+function pedidoItemPendiente(item) {
+  return !item?.nota_recepcion && pedidoItemCantidadPendiente(item) > 0;
+}
+
 function movPersona(m = {}) {
   return m.nombre_persona || m.usuario || m.recibe || m.entregado_por || "";
 }
@@ -166,6 +185,7 @@ export default function MaderasScreen({ profile, signOut }) {
   const [msg, setMsg] = useState("");
   const [q, setQ] = useState("");
   const [showAjuste, setShowAjuste] = useState(false);
+  const [recepcionParcial, setRecepcionParcial] = useState({});
 
   const [formIngreso, setFormIngreso] = useState({
     material_id: "", cantidad: "",
@@ -546,7 +566,7 @@ export default function MaderasScreen({ profile, signOut }) {
       .filter((pedido) => activos.has(String(pedido.estado || "").toLowerCase()))
       .map((pedido) => ({
         ...pedido,
-        items: (pedidoItemsByPedido.get(pedido.id) || []).filter((item) => !item.nota_recepcion),
+        items: (pedidoItemsByPedido.get(pedido.id) || []).filter(pedidoItemPendiente),
       }))
       .filter((pedido) => pedido.items.length > 0);
   }, [pedidos, pedidoItemsByPedido]);
@@ -558,43 +578,78 @@ export default function MaderasScreen({ profile, signOut }) {
     return materialByName.get(String(item.descripcion || "").trim().toLowerCase());
   }
 
-  async function recibirItemMadera(pedido, item) {
+  async function recibirItemMadera(pedido, item, cantidadARecibir = null) {
     setErr("");
     const { data: auth } = await supabase.auth.getSession().catch(() => ({ data: { session: null } }));
     const userId = auth?.session?.user?.id ?? null;
     const material = materialParaPedidoItem(item);
+    const totalPedido = pedidoItemCantidadTotal(item);
+    const recibidoActual = pedidoItemCantidadRecibida(item);
+    const pendienteActual = pedidoItemCantidadPendiente(item);
+    const cantidadIngreso = cantidadARecibir == null ? pendienteActual : num(cantidadARecibir);
     if (!material?.id) {
       setErr("No se puede recibir este item: falta vincularlo a un material del catalogo de maderas.");
       return;
     }
-    if (num(item.cantidad) <= 0) {
+    if (totalPedido <= 0) {
       setErr("No se puede recibir este item: la cantidad no es valida.");
       return;
     }
+    if (pendienteActual <= 0) {
+      setErr("Este item ya esta recibido completo.");
+      return;
+    }
+    if (cantidadIngreso <= 0) {
+      setErr("Ingresa una cantidad mayor a 0 para recibir.");
+      return;
+    }
+    if (cantidadIngreso > pendienteActual) {
+      setErr(`La cantidad supera el saldo pendiente (${fmtQty(pendienteActual)}).`);
+      return;
+    }
+    const recibidoNuevo = recibidoActual + cantidadIngreso;
+    const completo = recibidoNuevo >= totalPedido;
+    const unidad = item.unidad || item.unidad_medida || material?.unidad_medida || "";
+    const fechaTexto = new Date().toLocaleDateString("es-AR");
     try {
       await insertarMovimientoMadera({
         materialId: material.id,
-        delta: num(item.cantidad),
+        delta: cantidadIngreso,
         fecha: hoyLocal(),
         proveedor: pedido.proveedor || "Compras",
         obra: item.categoria || pedido.nota || "",
-        observaciones: `Recepcion item pedido madera ${pedido.nota || pedido.proveedor || pedido.id}`,
+        observaciones: completo
+          ? `Recepcion completa pedido madera ${pedido.nota || pedido.proveedor || pedido.id}`
+          : `Recepcion parcial pedido madera ${pedido.nota || pedido.proveedor || pedido.id}: ${fmtQty(recibidoNuevo)} de ${fmtQty(totalPedido)} ${unidad}`.trim(),
       });
       await supabase.from("pedido_items").update({
-        nota_recepcion: `Recibido: ${fmtQty(item.cantidad)} ${item.unidad || item.unidad_medida || ""} - ${new Date().toLocaleDateString("es-AR")}`,
+        cantidad_recibida: completo ? totalPedido : recibidoNuevo,
+        nota_recepcion: completo
+          ? `Recibido: ${fmtQty(totalPedido)} ${unidad} - ${fechaTexto}`
+          : null,
       }).eq("id", item.id);
 
       const pendientesRestantes = (pedidoItemsByPedido.get(pedido.id) || [])
-        .filter((it) => !it.nota_recepcion && String(it.id) !== String(item.id))
+        .map((it) => (String(it.id) === String(item.id)
+          ? { ...it, cantidad_recibida: completo ? totalPedido : recibidoNuevo, nota_recepcion: completo ? "recibido" : null }
+          : it))
+        .filter(pedidoItemPendiente)
         .length;
       const patch = pendientesRestantes > 0
         ? { estado: "parcial" }
         : { estado: "recibido", recibido_en: new Date().toISOString(), recibido_por: userId };
       await supabase.from("pedidos").update(patch).eq("id", pedido.id);
 
-      setMsg(pendientesRestantes > 0
-        ? `Item recibido. Quedan ${pendientesRestantes} pendiente${pendientesRestantes === 1 ? "" : "s"} en este pedido.`
-        : "Ultimo item recibido. Pedido completo.");
+      setRecepcionParcial((prev) => {
+        const next = { ...prev };
+        delete next[item.id];
+        return next;
+      });
+      setMsg(completo
+        ? (pendientesRestantes > 0
+          ? `Item recibido completo. Quedan ${pendientesRestantes} pendiente${pendientesRestantes === 1 ? "" : "s"} en este pedido.`
+          : "Ultimo item recibido. Pedido completo.")
+        : `Ingreso parcial registrado: ${fmtQty(cantidadIngreso)} ${unidad}. Queda pendiente ${fmtQty(totalPedido - recibidoNuevo)} ${unidad}.`);
       setTimeout(() => setMsg(""), 3500);
       await cargar();
     } catch (error) {
@@ -893,49 +948,105 @@ export default function MaderasScreen({ profile, signOut }) {
                           <div style={{ display: "grid", gap: 7, marginTop: 12 }}>
                             {items.map((item) => {
                               const material = materialParaPedidoItem(item);
-                              const puedeRecibirItem = Boolean(puedeCargar && material?.id && num(item.cantidad) > 0);
+                              const totalItem = pedidoItemCantidadTotal(item);
+                              const recibidoItem = pedidoItemCantidadRecibida(item);
+                              const pendienteItem = pedidoItemCantidadPendiente(item);
+                              const unidadItem = item.unidad || item.unidad_medida || material?.unidad_medida || "";
+                              const parcialValue = recepcionParcial[item.id] ?? "";
+                              const parcialNum = num(parcialValue);
+                              const puedeRecibirItem = Boolean(puedeCargar && material?.id && pendienteItem > 0);
+                              const puedeRecibirParcial = Boolean(puedeRecibirItem && parcialNum > 0 && parcialNum <= pendienteItem);
                               return (
                                 <div key={item.id} style={{
                                   display: "grid",
-                                  gridTemplateColumns: isMobile ? "1fr" : "minmax(0, 1fr) 120px 120px",
-                                  gap: 8,
-                                  alignItems: "center",
+                                  gap: 10,
                                   border: `1px solid ${material?.id ? C.border : tint(C.amber, 32)}`,
-                                  borderRadius: 10,
-                                  padding: 9,
-                                  background: material?.id ? "rgba(255,255,255,0.015)" : tint(C.amber, 7),
+                                  borderRadius: 12,
+                                  padding: 11,
+                                  background: material?.id ? C.panel : tint(C.amber, 7),
                                 }}>
-                                  <div style={{ minWidth: 0 }}>
-                                    <div style={{ color: C.text, fontSize: 13, fontWeight: 800, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: isMobile ? "normal" : "nowrap" }}>
-                                      {item.descripcion || material?.nombre || "Item sin descripcion"}
+                                  <div style={{ display: "flex", justifyContent: "space-between", gap: 12, alignItems: "flex-start", flexWrap: "wrap" }}>
+                                    <div style={{ minWidth: 0, flex: "1 1 260px" }}>
+                                      <div style={{ color: C.text, fontSize: 13.5, fontWeight: 850, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: isMobile ? "normal" : "nowrap" }}>
+                                        {item.descripcion || material?.nombre || "Item sin descripcion"}
+                                      </div>
+                                      <div style={{ ...S.small, marginTop: 3 }}>
+                                        {material?.nombre ? `Catalogo: ${material.nombre}` : "Sin vinculo al catalogo"}
+                                      </div>
                                     </div>
-                                    <div style={{ ...S.small, marginTop: 3 }}>
-                                      {material?.nombre ? `Catalogo: ${material.nombre}` : "Sin vinculo al catalogo"}
+                                    <div style={{ display: "flex", gap: 6, flexWrap: "wrap", justifyContent: isMobile ? "flex-start" : "flex-end" }}>
+                                      <span style={{ border: `1px solid ${C.border}`, background: C.bg, color: C.text, borderRadius: 999, padding: "4px 8px", fontSize: 11, fontWeight: 850 }}>
+                                        Pedido {fmtQty(totalItem)} {unidadItem}
+                                      </span>
+                                      {recibidoItem > 0 && (
+                                        <span style={{ border: `1px solid ${tint(C.green, 30)}`, background: tint(C.green, 10), color: C.green, borderRadius: 999, padding: "4px 8px", fontSize: 11, fontWeight: 850 }}>
+                                          Recibido {fmtQty(recibidoItem)}
+                                        </span>
+                                      )}
+                                      <span style={{ border: `1px solid ${tint(C.amber, 30)}`, background: tint(C.amber, 10), color: C.amber, borderRadius: 999, padding: "4px 8px", fontSize: 11, fontWeight: 850 }}>
+                                        Pendiente {fmtQty(pendienteItem)}
+                                      </span>
                                     </div>
                                   </div>
-                                  <div style={{ fontFamily: C.mono, color: C.text, fontSize: 13, fontWeight: 850 }}>
-                                    {fmtQty(item.cantidad)} {item.unidad || item.unidad_medida || material?.unidad_medida || ""}
+                                  <div style={{ display: "flex", gap: 8, alignItems: "center", justifyContent: "flex-end", flexWrap: "wrap" }}>
+                                    <button
+                                      type="button"
+                                      onClick={() => recibirItemMadera(pedido, item, pendienteItem)}
+                                      disabled={!puedeRecibirItem}
+                                      title={material?.id ? "Recibir todo el saldo pendiente" : "Primero hay que vincular el item al catalogo"}
+                                      style={{
+                                        ...S.btnPrimary,
+                                        border: `1px solid ${tint(puedeRecibirItem ? C.green : C.border, 36)}`,
+                                        background: puedeRecibirItem ? tint(C.green, 13) : C.panel2,
+                                        color: puedeRecibirItem ? C.green : C.dim,
+                                        display: "inline-flex",
+                                        alignItems: "center",
+                                        justifyContent: "center",
+                                        gap: 7,
+                                        padding: "8px 11px",
+                                        minWidth: isMobile ? "100%" : 154,
+                                      }}
+                                    >
+                                      <Check size={14} /> Recepcion completa
+                                    </button>
+                                    <div style={{ display: "flex", alignItems: "center", gap: 6, border: `1px solid ${tint(C.amber, 28)}`, background: tint(C.amber, 7), borderRadius: 10, padding: 5, flex: isMobile ? "1 1 100%" : "0 1 270px" }}>
+                                      <span style={{ color: C.amber, fontSize: 11, fontWeight: 900, paddingLeft: 4, whiteSpace: "nowrap" }}>Parcial</span>
+                                      <input
+                                        type="number"
+                                        min="0.01"
+                                        step="0.01"
+                                        max={pendienteItem || undefined}
+                                        value={parcialValue}
+                                        onChange={(e) => setRecepcionParcial((prev) => ({ ...prev, [item.id]: e.target.value }))}
+                                        placeholder="Cant."
+                                        disabled={!puedeRecibirItem}
+                                        style={{ ...S.input, height: 32, padding: "6px 8px", fontFamily: C.mono, fontWeight: 850, opacity: puedeRecibirItem ? 1 : 0.65 }}
+                                      />
+                                      <button
+                                        type="button"
+                                        onClick={() => recibirItemMadera(pedido, item, parcialValue)}
+                                        disabled={!puedeRecibirParcial}
+                                        title={material?.id ? "Registrar ingreso parcial" : "Primero hay que vincular el item al catalogo"}
+                                        style={{
+                                          border: `1px solid ${tint(puedeRecibirParcial ? C.amber : C.border, 36)}`,
+                                          background: puedeRecibirParcial ? C.bg : C.panel2,
+                                          color: puedeRecibirParcial ? C.amber : C.dim,
+                                          borderRadius: 8,
+                                          padding: "7px 10px",
+                                          cursor: puedeRecibirParcial ? "pointer" : "default",
+                                          fontSize: 12,
+                                          fontWeight: 900,
+                                          fontFamily: C.sans,
+                                          display: "inline-flex",
+                                          alignItems: "center",
+                                          gap: 5,
+                                          whiteSpace: "nowrap",
+                                        }}
+                                      >
+                                        <Plus size={13} /> Recibir
+                                      </button>
+                                    </div>
                                   </div>
-                                  <button
-                                    type="button"
-                                    onClick={() => recibirItemMadera(pedido, item)}
-                                    disabled={!puedeRecibirItem}
-                                    title={material?.id ? "Recibir este item" : "Primero hay que vincular el item al catalogo"}
-                                    style={{
-                                      ...S.btnPrimary,
-                                      border: `1px solid ${tint(puedeRecibirItem ? C.green : C.border, 36)}`,
-                                      background: puedeRecibirItem ? tint(C.green, 13) : C.panel2,
-                                      color: puedeRecibirItem ? C.green : C.dim,
-                                      display: "inline-flex",
-                                      alignItems: "center",
-                                      justifyContent: "center",
-                                      gap: 7,
-                                      padding: "8px 11px",
-                                      width: isMobile ? "100%" : "auto",
-                                    }}
-                                  >
-                                    <Check size={14} /> Recibir item
-                                  </button>
                                 </div>
                               );
                             })}

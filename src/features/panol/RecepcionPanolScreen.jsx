@@ -19,7 +19,7 @@ import Sidebar from "@/components/Sidebar";
 import { useResponsive } from "@/hooks/useResponsive";
 import { useToast } from "@/components/ui/Toast";
 import {
-  egresarMaterialesObra, fetchEnvios, fetchMaterialesEgreso, fetchObrasEgreso, fetchPanolCatalogMini, ingresarStockGeneral, ENVIO_ESTADO_META, ITEM_ESTADO_META, resumenItems, SEDES_PANOL,
+  egresarMaterialesObra, fetchEnvios, fetchMaterialesEgreso, fetchObrasEgreso, fetchPanolCatalogMini, ingresarStockGeneral, ENVIO_ESTADO_META, ITEM_ESTADO_META, retiradoPorNombreCompletoError, resumenItems, SEDES_PANOL,
 } from "@/features/panol/panolApi";
 import PanolEnvioDetail from "@/features/panol/PanolEnvioDetail";
 import EnviarAPanolModal from "@/features/panol/EnviarAPanolModal";
@@ -858,10 +858,15 @@ function StockGeneralModal({ open, onClose, onDone, sedeLocked, isMobile, toast,
   }, [open, sedeLocked]);
 
   if (!open) return null;
+  const retiradoError = egresoRapido ? retiradoPorNombreCompletoError(retiradoPor) : "";
 
   async function submit() {
     if (!selected) {
       toast.warning("Elegí un material.");
+      return;
+    }
+    if (egresoRapido && retiradoError) {
+      toast.warning(retiradoError);
       return;
     }
     setSaving(true);
@@ -943,7 +948,8 @@ function StockGeneralModal({ open, onClose, onDone, sedeLocked, isMobile, toast,
                 <>
                   <label style={{ display: "grid", gap: 5 }}>
                     <span style={{ color: C.dim, fontSize: 10, fontWeight: 850, letterSpacing: 1, textTransform: "uppercase" }}>Retirado por</span>
-                    <input value={retiradoPor} onChange={(e) => setRetiradoPor(e.target.value)} placeholder="Nombre" style={{ background: C.panelSolid, border: `1px solid ${C.border}`, color: C.text, borderRadius: 10, padding: "10px 11px", fontSize: 13, fontFamily: C.sans, outline: "none" }} />
+                    <input value={retiradoPor} onChange={(e) => setRetiradoPor(e.target.value)} placeholder="Nombre y apellido de quien retira" style={{ background: C.panelSolid, border: `1px solid ${retiradoError && retiradoPor.trim() ? C.redB : C.border}`, color: C.text, borderRadius: 10, padding: "10px 11px", fontSize: 13, fontFamily: C.sans, outline: "none" }} />
+                    {retiradoError && <span style={{ color: C.amber, fontSize: 10.5, lineHeight: 1.3 }}>Obligatorio: nombre y apellido.</span>}
                   </label>
                   <label style={{ display: "grid", gap: 5 }}>
                     <span style={{ color: C.dim, fontSize: 10, fontWeight: 850, letterSpacing: 1, textTransform: "uppercase" }}>Destino</span>
@@ -993,6 +999,7 @@ function EgresoModalV2({
   count,
 }) {
   if (!isOpen) return null;
+  const retiradoError = retiradoPorNombreCompletoError(retiradoPor);
   const obrasActivas = obras.filter((obra) => !["terminada", "cancelada", "archivada"].includes(obra.estado));
   return (
     <div style={{ position: "fixed", inset: 0, zIndex: 9999, display: "grid", placeItems: "center", padding: 20 }}>
@@ -1049,7 +1056,8 @@ function EgresoModalV2({
 
           <label style={{ display: "grid", gap: 6 }}>
             <span style={{ fontSize: 12, fontWeight: 800, color: C.muted, textTransform: "uppercase", letterSpacing: 1, fontFamily: C.sans }}>Retirado por</span>
-            <input value={retiradoPor} onChange={(e) => setRetiradoPor(e.target.value)} placeholder="Nombre o DNI" style={{ background: C.bg, border: `1px solid ${C.border2}`, color: C.text, padding: "10px 14px", borderRadius: 10, fontSize: 14, outline: "none", fontFamily: C.sans }} />
+            <input value={retiradoPor} onChange={(e) => setRetiradoPor(e.target.value)} placeholder="Nombre y apellido de quien retira" style={{ background: C.bg, border: `1px solid ${retiradoError && retiradoPor.trim() ? C.redB : C.border2}`, color: C.text, padding: "10px 14px", borderRadius: 10, fontSize: 14, outline: "none", fontFamily: C.sans }} />
+            {retiradoError && <span style={{ color: C.amber, fontSize: 11, lineHeight: 1.3 }}>Obligatorio: nombre y apellido, no solo DNI ni un apellido.</span>}
           </label>
 
           <label style={{ display: "grid", gap: 6 }}>
@@ -1494,6 +1502,11 @@ function EgresosMaterialesPanel({ sedeLocked, canReceive, isMobile, toast }) {
   const confirmEgreso = async () => {
     const clean = egresoTargetIds.filter(Boolean);
     if (!clean.length || !canReceive) return;
+    const retiradoError = retiradoPorNombreCompletoError(retiradoPor);
+    if (retiradoError) {
+      toast.warning(retiradoError);
+      return;
+    }
     setBusy(true);
     try {
       const cantidades = Object.fromEntries(

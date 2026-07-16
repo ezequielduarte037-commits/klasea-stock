@@ -90,6 +90,21 @@ function transferMovementKey(row, mode = "out") {
   ].join("|");
 }
 
+export function retiradoPorEsNombreCompleto(value = "") {
+  const words = String(value || "")
+    .trim()
+    .replace(/\s+/g, " ")
+    .split(" ")
+    .map((word) => word.replace(/[^A-Za-zÀ-ÿ]/g, ""))
+    .filter((word) => word.length >= 2);
+  return words.length >= 2;
+}
+
+export function retiradoPorNombreCompletoError(value = "") {
+  if (retiradoPorEsNombreCompleto(value)) return "";
+  return "Completá nombre y apellido de la persona que retira.";
+}
+
 function normalizeSearch(value = "") {
   return String(value || "")
     .toLowerCase()

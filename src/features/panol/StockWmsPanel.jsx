@@ -29,6 +29,7 @@ import {
   liberarProductoAStock,
   marcarMovimientoAnulado,
   registrarCambioUbicacionMaterial,
+  retiradoPorNombreCompletoError,
   SEDES_PANOL,
   transferirProducto,
   vincularMovimientosAMaterial,
@@ -1048,6 +1049,7 @@ function EgresoBatchPanel({ group, selectedLocation, obras, sedeLocked, canRecei
   const obrasActivas = obras.filter((obra) => !["terminada", "cancelada", "archivada"].includes(obra.estado));
   const totalLineas = cart.length;
   const totalUnidades = cart.reduce((sum, item) => sum + qty(item.cantidad, 0), 0);
+  const retiradoError = movementKind === "transferir" ? "" : retiradoPorNombreCompletoError(retiradoPor);
 
   function addCurrentToCart() {
     if (!group || cantidadNum <= 0 || transitOnly) return;
@@ -1076,6 +1078,10 @@ function EgresoBatchPanel({ group, selectedLocation, obras, sedeLocked, canRecei
     if (!canReceive || !cart.length) return;
     if (movementKind === "transferir" && !destinoObraId) {
       toast.warning("Elegí la obra a la que asignar el stock.");
+      return;
+    }
+    if (movementKind !== "transferir" && retiradoError) {
+      toast.warning(retiradoError);
       return;
     }
     // Egreso sin obra: si hay ítems que salen sin obra, exigir observación + confirmar.
@@ -1238,7 +1244,10 @@ function EgresoBatchPanel({ group, selectedLocation, obras, sedeLocked, canRecei
           {obrasActivas.map((obra) => <option key={obra.id} value={obra.id}>{obra.codigo}</option>)}
         </select>
       </label>
-      <input value={retiradoPor} onChange={(event) => setRetiradoPor(event.target.value)} placeholder="Receptor / DNI" style={{ background: C.bg, border: `1px solid ${C.border}`, color: C.text, borderRadius: 9, padding: "9px 10px", fontSize: 12, fontFamily: C.sans, outline: "none" }} />
+      <label style={{ display: "grid", gap: 4 }}>
+        <input value={retiradoPor} onChange={(event) => setRetiradoPor(event.target.value)} placeholder="Nombre y apellido de quien retira" style={{ background: C.bg, border: `1px solid ${retiradoError && retiradoPor.trim() ? C.redB : C.border}`, color: C.text, borderRadius: 9, padding: "9px 10px", fontSize: 12, fontFamily: C.sans, outline: "none" }} />
+        {retiradoError && <span style={{ color: C.amber, fontSize: 10.5, lineHeight: 1.3 }}>Obligatorio para egresos: nombre y apellido, no solo DNI ni un apellido.</span>}
+      </label>
       <input value={sectorDestino} onChange={(event) => setSectorDestino(event.target.value)} placeholder="Sector / uso / entrega" style={{ background: C.bg, border: `1px solid ${C.border}`, color: C.text, borderRadius: 9, padding: "9px 10px", fontSize: 12, fontFamily: C.sans, outline: "none" }} />
       <input value={nota} onChange={(event) => setNota(event.target.value)} placeholder="Observacion / detalle del egreso" style={{ background: C.bg, border: `1px solid ${C.border}`, color: C.text, borderRadius: 9, padding: "9px 10px", fontSize: 12, fontFamily: C.sans, outline: "none" }} />
 
@@ -1305,6 +1314,7 @@ function ProductActionPanel({ group, selectedLocation, setSelectedLocationKey, o
     sectorDestino.trim() ? `Destino: ${sectorDestino.trim()}` : "",
     nota.trim(),
   ].filter(Boolean).join(" · ");
+  const retiradoError = action === "egresar" ? retiradoPorNombreCompletoError(retiradoPor) : "";
 
   async function submit() {
     if (!canReceive) return;
@@ -1314,6 +1324,10 @@ function ProductActionPanel({ group, selectedLocation, setSelectedLocationKey, o
     }
     if (action === "asignar" && !destinoObraId) {
       toast.warning("Elegí la obra a la que asignar el stock.");
+      return;
+    }
+    if (action === "egresar" && retiradoError) {
+      toast.warning(retiradoError);
       return;
     }
     // Egreso sin obra: hay que aclarar a dónde va (mantenimiento, obra del río, etc.) y confirmar.
@@ -1489,7 +1503,10 @@ function ProductActionPanel({ group, selectedLocation, setSelectedLocationKey, o
             )}
           </label>
           <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8 }}>
-            <input value={retiradoPor} onChange={(event) => setRetiradoPor(event.target.value)} placeholder="Receptor / DNI" style={{ background: C.bg, border: `1px solid ${C.border}`, color: C.text, borderRadius: 9, padding: "9px 10px", fontSize: 12, fontFamily: C.sans, outline: "none", minWidth: 0 }} />
+            <label style={{ display: "grid", gap: 4, minWidth: 0 }}>
+              <input value={retiradoPor} onChange={(event) => setRetiradoPor(event.target.value)} placeholder="Nombre y apellido de quien retira" style={{ background: C.bg, border: `1px solid ${retiradoError && retiradoPor.trim() ? C.redB : C.border}`, color: C.text, borderRadius: 9, padding: "9px 10px", fontSize: 12, fontFamily: C.sans, outline: "none", minWidth: 0 }} />
+              {retiradoError && <span style={{ color: C.amber, fontSize: 10.5, lineHeight: 1.3 }}>Obligatorio: nombre y apellido.</span>}
+            </label>
             <input value={sectorDestino} onChange={(event) => setSectorDestino(event.target.value)} placeholder="Sector / uso" style={{ background: C.bg, border: `1px solid ${C.border}`, color: C.text, borderRadius: 9, padding: "9px 10px", fontSize: 12, fontFamily: C.sans, outline: "none", minWidth: 0 }} />
           </div>
         </>
@@ -1950,6 +1967,7 @@ function CartDrawer({ cart, setCart, obras, canReceive, onDone, toast, isMobile,
   const obrasActivas = obras.filter((obra) => !["terminada", "cancelada", "archivada"].includes(obra.estado));
   const obraCodigo = (id) => obras.find((o) => o.id === id)?.codigo || "obra";
   const totalUnidades = cart.reduce((sum, item) => sum + qty(item.cantidad, 0), 0);
+  const retiradoError = movementKind === "consumir" ? retiradoPorNombreCompletoError(retiradoPor) : "";
 
   // Grupos por origen: stock libre primero, después cada obra asignada.
   const grupos = useMemo(() => {
@@ -2000,6 +2018,10 @@ function CartDrawer({ cart, setCart, obras, canReceive, onDone, toast, isMobile,
     if (!canReceive || !cart.length || saving) return;
     if (movementKind === "transferir" && !destinoObraId) {
       toast.warning("Elegí la obra a la que asignar el stock.");
+      return;
+    }
+    if (movementKind === "consumir" && retiradoError) {
+      toast.warning(retiradoError);
       return;
     }
     if (movementKind === "consumir" && !destinoObraId && cart.some((it) => !it.obraId)) {
@@ -2233,7 +2255,10 @@ function CartDrawer({ cart, setCart, obras, canReceive, onDone, toast, isMobile,
 
         {/* Datos del retiro */}
         <div style={{ display: "grid", gridTemplateColumns: movementKind === "consumir" ? "1fr 1fr" : "1fr", gap: 8 }}>
-          <input value={retiradoPor} onChange={(event) => setRetiradoPor(event.target.value)} placeholder="Receptor / DNI" style={inp} />
+          <label style={{ display: "grid", gap: 4, minWidth: 0 }}>
+            <input value={retiradoPor} onChange={(event) => setRetiradoPor(event.target.value)} placeholder="Nombre y apellido de quien retira" style={{ ...inp, borderColor: retiradoError && retiradoPor.trim() ? C.redB : C.border }} />
+            {retiradoError && <span style={{ color: C.amber, fontSize: 10.5, lineHeight: 1.3 }}>Obligatorio: nombre y apellido.</span>}
+          </label>
           {movementKind === "consumir" && <input value={sectorDestino} onChange={(event) => setSectorDestino(event.target.value)} placeholder="Sector / uso" style={inp} />}
         </div>
         <input value={nota} onChange={(event) => setNota(event.target.value)} placeholder="Observación (obligatoria si algo sale sin obra)" style={inp} />
