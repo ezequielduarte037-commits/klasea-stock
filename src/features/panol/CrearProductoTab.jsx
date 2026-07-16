@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from "react";
-import { ImagePlus, PackagePlus } from "lucide-react";
+import { AlertTriangle, ImagePlus, PackagePlus } from "lucide-react";
 import { C } from "@/theme";
 import { crearMaterialRapido, fetchCategorias, fetchProveedores, uploadMaterialImage } from "@/features/materiales/api";
 import { fetchPanolCatalogMini } from "@/features/panol/panolApi";
@@ -44,6 +44,30 @@ function simScore(desc, codigo, material) {
   return 0;
 }
 
+// Coincidencias EN VIVO mientras se escribe: por descripción (simScore) y además por
+// código / código de barra, aunque todavía no haya descripción cargada.
+function matchDuplicados(desc, cod, catalog) {
+  const d = norm(desc);
+  const c = norm(cod);
+  if (d.length < 3 && c.length < 2) return [];
+  const out = [];
+  for (const m of catalog) {
+    let s = d ? simScore(desc, cod, m) : 0;
+    if (c.length >= 2) {
+      const codB = norm(m.codigo);
+      const barcode = norm([m.codigo_barra, ...(m.codigos_barra || []).map((x) => x.codigo)].filter(Boolean).join(" "));
+      if (codB) {
+        if (codB === c) s = 100;
+        else if (codB.includes(c) || c.includes(codB)) s = Math.max(s, 84);
+      }
+      if (barcode && (barcode === c || barcode.split(" ").includes(c))) s = Math.max(s, 100);
+      else if (barcode && barcode.includes(c)) s = Math.max(s, 92);
+    }
+    if (s >= 55) out.push({ m, s });
+  }
+  return out.sort((a, b) => b.s - a.s).slice(0, 6);
+}
+
 export default function CrearProductoTab({ isMobile = false, toast }) {
   const [categorias, setCategorias] = useState([]);
   const [proveedores, setProveedores] = useState([]);
@@ -63,8 +87,16 @@ export default function CrearProductoTab({ isMobile = false, toast }) {
   const [esConsumible, setEsConsumible] = useState(false);
   const [imageFile, setImageFile] = useState(null);
   const imgRef = useRef(null);
-  const catalogRef = useRef([]); // catálogo completo para detectar duplicados
+  const [catalogo, setCatalogo] = useState([]); // catálogo completo para detectar duplicados (en vivo + al crear)
   const [ultimos, setUltimos] = useState([]);
+
+  // Detección de duplicados EN VIVO: debounce para no recalcular sobre todo el catálogo en cada tecla.
+  const [dupQuery, setDupQuery] = useState({ desc: "", cod: "" });
+  useEffect(() => {
+    const t = setTimeout(() => setDupQuery({ desc: descripcion, cod: codigo }), 200);
+    return () => clearTimeout(t);
+  }, [descripcion, codigo]);
+  const duplicados = useMemo(() => matchDuplicados(dupQuery.desc, dupQuery.cod, catalogo), [dupQuery, catalogo]);
 
   const imgPreview = useMemo(() => (imageFile ? URL.createObjectURL(imageFile) : ""), [imageFile]);
   useEffect(() => { if (!imgPreview) return undefined; return () => URL.revokeObjectURL(imgPreview); }, [imgPreview]);
@@ -72,7 +104,7 @@ export default function CrearProductoTab({ isMobile = false, toast }) {
   useEffect(() => {
     fetchCategorias().then((c) => setCategorias(c ?? [])).catch(() => setCategorias([]));
     fetchProveedores().then((p) => setProveedores(p ?? [])).catch(() => setProveedores([]));
-    fetchPanolCatalogMini({ q: "", limit: 5000 }).then((rows) => { catalogRef.current = rows ?? []; }).catch(() => { catalogRef.current = []; });
+    fetchPanolCatalogMini({ q: "", limit: 5000 }).then((rows) => setCatalogo(rows ?? [])).catch(() => setCatalogo([]));
   }, []);
 
   function addVariante() {
@@ -103,10 +135,10 @@ export default function CrearProductoTab({ isMobile = false, toast }) {
     // así detecta duplicados aunque la descripción no sea idéntica o compartan el código.
     const cod = codigo.trim();
     try {
-      let cat = catalogRef.current;
+      let cat = catalogo;
       if (!cat.length) {
         cat = (await fetchPanolCatalogMini({ q: "", limit: 5000 })) ?? [];
-        catalogRef.current = cat;
+        setCatalogo(cat);
       }
       const candidatos = cat
         .map((m) => ({ m, s: simScore(desc, cod, m) }))
@@ -146,7 +178,7 @@ export default function CrearProductoTab({ isMobile = false, toast }) {
         try { await uploadMaterialImage(mat.id, imageFile); } catch { /* la foto no frena la creación */ }
       }
       // Sumo el nuevo material al catálogo en memoria para detectar recreaciones inmediatas.
-      catalogRef.current = [{ id: mat.id, descripcion: desc, codigo: cod, proveedor, codigo_barra: "", codigos_barra: [] }, ...catalogRef.current];
+      setCatalogo((prev) => [{ id: mat.id, descripcion: desc, codigo: cod, proveedor, codigo_barra: "", codigos_barra: [] }, ...prev]);
       setUltimos((prev) => [{ id: mat.id, descripcion: desc, codigo: cod, ts: Date.now() }, ...prev].slice(0, 8));
       toast?.success(`✓ Producto creado en el catálogo. Ya lo podés ingresar.`);
       limpiar();
@@ -173,6 +205,33 @@ export default function CrearProductoTab({ isMobile = false, toast }) {
             <label style={LBL}>Descripción *</label>
             <input value={descripcion} onChange={(e) => setDescripcion(e.target.value)} placeholder='Completa: marca, medida, modelo (ej: "Caja ducha Rule 800 GPH")' style={INP} autoFocus />
           </div>
+
+          {/* Duplicados EN VIVO: aparece mientras escriben descripción o código, antes de crear. */}
+          {duplicados.length > 0 && (
+            <div style={{ border: `1px solid ${C.amberB}`, background: C.amberL, borderRadius: 12, padding: "10px 12px", display: "grid", gap: 7 }}>
+              <div style={{ display: "flex", alignItems: "center", gap: 7, fontSize: 11, fontWeight: 900, color: C.amber, textTransform: "uppercase", letterSpacing: 0.5 }}>
+                <AlertTriangle size={13} /> Ojo · {duplicados.length} posible{duplicados.length === 1 ? "" : "s"} duplicado{duplicados.length === 1 ? "" : "s"} en el catálogo
+              </div>
+              <div style={{ display: "grid", gap: 5 }}>
+                {duplicados.map(({ m, s }) => {
+                  const tag = s >= 100
+                    ? { t: "IGUAL", c: C.red, bg: C.redL, br: C.redB }
+                    : s >= 80
+                      ? { t: "MUY PARECIDO", c: C.amber, bg: C.amberL, br: C.amberB }
+                      : { t: "PARECIDO", c: C.dim, bg: C.panel, br: C.border };
+                  return (
+                    <div key={m.id} style={{ display: "flex", alignItems: "center", gap: 8, fontSize: 12.5, color: C.text, padding: "6px 9px", background: C.panelSolid, borderRadius: 8, border: `1px solid ${C.border}` }}>
+                      <span style={{ flexShrink: 0, fontSize: 9.5, fontWeight: 900, color: tag.c, background: tag.bg, border: `1px solid ${tag.br}`, borderRadius: 999, padding: "2px 7px", letterSpacing: 0.4 }}>{tag.t}</span>
+                      <span style={{ fontWeight: 750, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", minWidth: 0 }}>{m.descripcion}</span>
+                      {m.codigo && <span style={{ color: C.dim, fontFamily: C.mono, fontSize: 11, flexShrink: 0 }}>· {m.codigo}</span>}
+                      {m.proveedor && <span style={{ color: C.dim, fontSize: 11, marginLeft: "auto", flexShrink: 0, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", maxWidth: isMobile ? 90 : 140 }}>{m.proveedor}</span>}
+                    </div>
+                  );
+                })}
+              </div>
+              <div style={{ fontSize: 10.5, color: C.dim }}>Si es lo mismo, no lo crees de nuevo — buscalo directo al ingresar. Si es distinto, aclará marca / medida / modelo para diferenciarlo.</div>
+            </div>
+          )}
 
           <div style={{ display: "grid", gridTemplateColumns: isMobile ? "1fr" : "1fr 1fr", gap: 10 }}>
             <div>

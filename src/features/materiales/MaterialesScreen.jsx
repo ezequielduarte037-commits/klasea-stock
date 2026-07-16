@@ -4664,9 +4664,9 @@ function ObraMatrizView({ obra, obras = [], linea, lineaNombre, categorias, mate
 
   const obraRows = useMemo(() => [...liveRows, ...addonRows], [liveRows, addonRows]);
   const snapshotRows = useMemo(() => snapshot
-    .map(snapshotRowToView)
+    .map((row) => snapshotRowToView(row, materialById, categorias))
     .filter((row) => !row.materialId || !exclusionMaterialIds.has(row.materialId)),
-  [snapshot, exclusionMaterialIds]);
+  [snapshot, materialById, categorias, exclusionMaterialIds]);
   const rows = useMemo(() => mergeMatrixAndSnapshotRows(obraRows, snapshotRows), [obraRows, snapshotRows]);
   const liveMergeKeys = useMemo(() => new Set(obraRows.map((row, index) => snapshotMergeKey(row, index)).filter(Boolean)), [obraRows]);
   const snapshotActivo = snapshot.length > 0;
@@ -6378,32 +6378,51 @@ function snapshotBucket(row) {
   return { key: "base", label: row?.tipo_label || "Base", color: C.green };
 }
 
-function snapshotRowToView(row) {
-  const amount = row?.precio_unitario != null && row.precio_unitario !== "" ? Number(row.precio_unitario) : null;
-  const moneda = row?.moneda === "USD" ? "USD" : "ARS";
-  const reason = reviewReasonForText(`${row?.descripcion || ""} ${row?.codigo || ""} ${row?.notas || ""}`);
+function originalSnapshotLabel(snapshotDescripcion, catalogDescripcion) {
+  const original = String(snapshotDescripcion || "").trim();
+  const catalog = String(catalogDescripcion || "").trim();
+  if (!original || !catalog || norm(original) === norm(catalog)) return "";
+  return `Pedido original: ${original}`;
+}
+
+function snapshotRowToView(row, materialById = new Map(), categorias = []) {
+  const material = row?.material_id ? materialById.get(row.material_id) || null : null;
+  const materialPrice = material ? priceInfo(material) : null;
+  const snapshotAmount = row?.precio_unitario != null && row.precio_unitario !== "" ? Number(row.precio_unitario) : null;
+  const amount = Number.isFinite(materialPrice?.amount) && materialPrice.amount > 0 ? materialPrice.amount : snapshotAmount;
+  const moneda = materialPrice?.moneda || (row?.moneda === "USD" ? "USD" : "ARS");
+  const descripcion = material?.descripcion || row.descripcion;
+  const codigo = material?.codigo || row.codigo;
+  const proveedor = row.proveedor || materialPrice?.proveedor || material?.proveedor || "Sin proveedor";
+  const rubro = material ? categoriaNombre(categorias, material.categoria_id) : row.rubro || "Sin rubro";
+  const pedidoOriginal = originalSnapshotLabel(row.descripcion, material?.descripcion);
+  const obs = mergeNotes(material?.notas || "", mergeNotes(row.notas || "", pedidoOriginal));
+  const reason = reviewReasonForText(`${descripcion || ""} ${codigo || ""} ${obs || ""}`);
   return {
     id: row.id,
     snapshotId: row.id,
     materialId: row.material_id,
+    material,
     source: row.source || "snapshot",
     snapshot_tipo: row.tipo || null,
-    descripcion: row.descripcion,
-    codigo: row.codigo,
+    descripcion,
+    snapshotDescripcion: row.descripcion,
+    descripcionOriginal: pedidoOriginal ? row.descripcion : "",
+    codigo,
     cantidad: row.cantidad || 1,
-    unidad: row.unidad || "unidad",
-    proveedor: row.proveedor || "Sin proveedor",
-    rubro: row.rubro || "Sin rubro",
+    unidad: row.unidad || material?.unidad_medida || "unidad",
+    proveedor,
+    rubro,
     precio: {
       amount: Number.isFinite(amount) && amount > 0 ? amount : null,
       moneda,
-      text: Number.isFinite(amount) && amount > 0 ? fmtMoney(amount, moneda) : "Sin precio",
-      proveedor: row.proveedor || "",
+      text: Number.isFinite(amount) && amount > 0 ? fmtMoney(amount, moneda) : materialPrice?.text || "Sin precio",
+      proveedor,
     },
     bucket: snapshotBucket(row),
-    obs: row.notas || "",
+    obs,
     variante: row.variante || "",
-    revisado: true,
+    revisado: material?.revisado ?? true,
     review: { flag: !!reason, reason },
     snapshot_estado: row.estado || null,
     estadoObra: estadoFromRecepcion(row.recepcion_estado) || row.estado || "pendiente",
@@ -6461,20 +6480,24 @@ function preferSnapshotText(snapshotValue, liveValue, emptyLabel) {
 }
 
 function mergeSnapshotIntoLive(live, snapshot) {
+  const linkedToCatalog = !!(live.materialId || live.material);
   return {
     ...live,
     ...snapshot,
     id: live.id,
     snapshotId: snapshot.snapshotId,
     materialId: live.materialId || snapshot.materialId,
+    material: live.material || snapshot.material || null,
     source: live.source || snapshot.source,
-    descripcion: snapshot.descripcion || live.descripcion,
-    codigo: snapshot.codigo || live.codigo,
+    descripcion: linkedToCatalog ? live.descripcion || snapshot.descripcion : snapshot.descripcion || live.descripcion,
+    snapshotDescripcion: snapshot.snapshotDescripcion || snapshot.descripcion,
+    descripcionOriginal: snapshot.descripcionOriginal || "",
+    codigo: linkedToCatalog ? live.codigo || snapshot.codigo : snapshot.codigo || live.codigo,
     cantidad: toNum(snapshot.cantidad) || toNum(live.cantidad) || 0,
     unidad: snapshot.unidad || live.unidad,
-    proveedor: preferSnapshotText(snapshot.proveedor, live.proveedor, "Sin proveedor"),
-    rubro: preferSnapshotText(snapshot.rubro, live.rubro, "Sin rubro"),
-    precio: snapshot.precio?.amount ? snapshot.precio : live.precio,
+    proveedor: linkedToCatalog ? live.proveedor || snapshot.proveedor : preferSnapshotText(snapshot.proveedor, live.proveedor, "Sin proveedor"),
+    rubro: linkedToCatalog ? live.rubro || snapshot.rubro : preferSnapshotText(snapshot.rubro, live.rubro, "Sin rubro"),
+    precio: linkedToCatalog ? live.precio || snapshot.precio : snapshot.precio?.amount ? snapshot.precio : live.precio,
     bucket: live.bucket || snapshot.bucket,
     obs: mergeNotes(live.obs, snapshot.obs),
     variante: snapshot.variante || live.variante || "",
