@@ -711,23 +711,36 @@ export default function MaderasScreen({ profile, signOut }) {
     return map;
   }, [pedidoItems]);
 
+  const materialParaPedidoItem = useCallback((item) => {
+    if (item.material_id) {
+      return materiales.find((m) => String(m.id) === String(item.material_id));
+    }
+    return materialByName.get(String(item.descripcion || "").trim().toLowerCase());
+  }, [materiales, materialByName]);
+
+  const pedidoItemCantidadRecibidaVista = useCallback((pedido, item) => {
+    void pedido;
+    return pedidoItemCantidadRecibida(item);
+  }, []);
+
+  const pedidoItemCantidadPendienteVista = useCallback((pedido, item) => {
+    return Math.max(0, pedidoItemCantidadTotal(item) - pedidoItemCantidadRecibidaVista(pedido, item));
+  }, [pedidoItemCantidadRecibidaVista]);
+
+  const pedidoItemPendienteVista = useCallback((pedido, item) => {
+    return !item?.nota_recepcion && pedidoItemCantidadPendienteVista(pedido, item) > 0;
+  }, [pedidoItemCantidadPendienteVista]);
+
   const pedidosPendientesIngreso = useMemo(() => {
     const activos = new Set(["pedido", "transito", "parcial", "pendiente", "solicitada", "aprobada", "en_camino", "comprado", "enviado"]);
     return pedidos
       .filter((pedido) => activos.has(String(pedido.estado || "").toLowerCase()))
       .map((pedido) => ({
         ...pedido,
-        items: (pedidoItemsByPedido.get(pedido.id) || []).filter(pedidoItemPendiente),
+        items: (pedidoItemsByPedido.get(pedido.id) || []).filter((item) => pedidoItemPendienteVista(pedido, item)),
       }))
       .filter((pedido) => pedido.items.length > 0);
-  }, [pedidos, pedidoItemsByPedido]);
-
-  function materialParaPedidoItem(item) {
-    if (item.material_id) {
-      return materiales.find((m) => String(m.id) === String(item.material_id));
-    }
-    return materialByName.get(String(item.descripcion || "").trim().toLowerCase());
-  }
+  }, [pedidos, pedidoItemsByPedido, pedidoItemPendienteVista]);
 
   async function recibirItemMadera(pedido, item, cantidadARecibir = null) {
     setErr("");
@@ -735,8 +748,8 @@ export default function MaderasScreen({ profile, signOut }) {
     const userId = auth?.session?.user?.id ?? null;
     const material = materialParaPedidoItem(item);
     const totalPedido = pedidoItemCantidadTotal(item);
-    const recibidoActual = pedidoItemCantidadRecibida(item);
-    const pendienteActual = pedidoItemCantidadPendiente(item);
+    const recibidoActual = pedidoItemCantidadRecibidaVista(pedido, item);
+    const pendienteActual = Math.max(0, totalPedido - recibidoActual);
     const cantidadIngreso = cantidadARecibir == null ? pendienteActual : num(cantidadARecibir);
     if (!material?.id) {
       setErr("No se puede recibir este item: falta vincularlo a un material del catalogo de maderas.");
@@ -762,23 +775,43 @@ export default function MaderasScreen({ profile, signOut }) {
     const completo = recibidoNuevo >= totalPedido;
     const unidad = item.unidad || item.unidad_medida || material?.unidad_medida || "";
     const fechaTexto = new Date().toLocaleDateString("es-AR");
+    const itemPatch = {
+      cantidad_recibida: completo ? totalPedido : recibidoNuevo,
+      nota_recepcion: completo
+        ? `Recibido: ${fmtQty(totalPedido)} ${unidad} - ${fechaTexto}`
+        : null,
+    };
     try {
+      const { data: itemActualizado, error: itemUpdateError } = await supabase
+        .from("pedido_items")
+        .update(itemPatch)
+        .eq("id", item.id)
+        .select("id,cantidad_recibida,nota_recepcion")
+        .maybeSingle();
+      if (itemUpdateError) {
+        throw new Error(`El ingreso quedo registrado en stock, pero no se pudo actualizar la card del pedido: ${itemUpdateError.message}`);
+      }
+      if (!itemActualizado) {
+        throw new Error("El ingreso quedo registrado en stock, pero no se pudo actualizar la card del pedido. Revisa permisos/RLS de pedido_items.");
+      }
+
+      setPedidoItems((prev) => prev.map((it) => (
+        String(it.id) === String(item.id) ? { ...it, ...itemPatch } : it
+      )));
+
       await insertarMovimientoMadera({
         materialId: material.id,
         delta: cantidadIngreso,
         fecha: hoyLocal(),
         proveedor: pedido.proveedor || "Compras",
         obra: item.categoria || pedido.nota || "",
-        observaciones: completo
-          ? `Recepcion completa pedido madera ${pedido.nota || pedido.proveedor || pedido.id}`
-          : `Recepcion parcial pedido madera ${pedido.nota || pedido.proveedor || pedido.id}: ${fmtQty(recibidoNuevo)} de ${fmtQty(totalPedido)} ${unidad}`.trim(),
+        observaciones: [
+          completo
+            ? `Recepcion completa pedido madera ${pedido.nota || pedido.proveedor || pedido.id}`
+            : `Recepcion parcial pedido madera ${pedido.nota || pedido.proveedor || pedido.id}: ${fmtQty(recibidoNuevo)} de ${fmtQty(totalPedido)} ${unidad}`.trim(),
+          `pedido_item:${item.id}`,
+        ].filter(Boolean).join(" · "),
       });
-      await supabase.from("pedido_items").update({
-        cantidad_recibida: completo ? totalPedido : recibidoNuevo,
-        nota_recepcion: completo
-          ? `Recibido: ${fmtQty(totalPedido)} ${unidad} - ${fechaTexto}`
-          : null,
-      }).eq("id", item.id);
 
       const pendientesRestantes = (pedidoItemsByPedido.get(pedido.id) || [])
         .map((it) => (String(it.id) === String(item.id)
@@ -789,7 +822,21 @@ export default function MaderasScreen({ profile, signOut }) {
       const patch = pendientesRestantes > 0
         ? { estado: "parcial" }
         : { estado: "recibido", recibido_en: new Date().toISOString(), recibido_por: userId };
-      await supabase.from("pedidos").update(patch).eq("id", pedido.id);
+      const { data: pedidoActualizado, error: pedidoUpdateError } = await supabase
+        .from("pedidos")
+        .update(patch)
+        .eq("id", pedido.id)
+        .select("id")
+        .maybeSingle();
+      if (pedidoUpdateError) {
+        throw new Error(`El item se actualizo, pero no se pudo actualizar el estado del pedido: ${pedidoUpdateError.message}`);
+      }
+      if (!pedidoActualizado) {
+        throw new Error("El item se actualizo, pero no se pudo actualizar el estado del pedido. Revisa permisos/RLS de pedidos.");
+      }
+      setPedidos((prev) => prev.map((p) => (
+        String(p.id) === String(pedido.id) ? { ...p, ...patch } : p
+      )));
 
       setRecepcionParcial((prev) => {
         const next = { ...prev };
@@ -804,6 +851,7 @@ export default function MaderasScreen({ profile, signOut }) {
       setTimeout(() => setMsg(""), 3500);
       await cargar();
     } catch (error) {
+      await cargar().catch(() => {});
       setErr(error.message || "No se pudo recibir el item");
     }
   }
@@ -1113,6 +1161,8 @@ export default function MaderasScreen({ profile, signOut }) {
                           <div style={{ display: "grid", gap: 7, marginTop: 12 }}>
                             {items.map((item) => {
                               const material = materialParaPedidoItem(item);
+                              const recibidoVista = pedidoItemCantidadRecibidaVista(pedido, item);
+                              const pendienteVista = Math.max(0, pedidoItemCantidadTotal(item) - recibidoVista);
                               return (
                                 <ItemRecepcionRow
                                   key={item.id}
@@ -1122,8 +1172,8 @@ export default function MaderasScreen({ profile, signOut }) {
                                   isMobile={isMobile}
                                   puedeCargar={puedeCargar}
                                   totalItem={pedidoItemCantidadTotal(item)}
-                                  recibidoItem={pedidoItemCantidadRecibida(item)}
-                                  pendienteItem={pedidoItemCantidadPendiente(item)}
+                                  recibidoItem={recibidoVista}
+                                  pendienteItem={pendienteVista}
                                   unidadItem={item.unidad || item.unidad_medida || material?.unidad_medida || ""}
                                   parcialValue={recepcionParcial[item.id] ?? ""}
                                   onParcialChange={(valor) => setRecepcionParcial((prev) => ({ ...prev, [item.id]: valor }))}

@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { Barcode, Copy, Download, ExternalLink, FileText, ImagePlus, Link as LinkIcon, MoreHorizontal, PackagePlus, Pencil, Plus, RefreshCw, Save, Search, ShoppingCart, SkipForward, StickyNote, Trash2, Upload, X } from "lucide-react";
+import { Barcode, Copy, Download, ExternalLink, FileText, ImagePlus, Link as LinkIcon, MoreHorizontal, PackagePlus, Pencil, Plus, RefreshCw, Save, Search, ShoppingCart, SkipForward, SlidersHorizontal, StickyNote, Trash2, Upload, X } from "lucide-react";
 import Sidebar from "@/components/Sidebar";
 import { useResponsive } from "@/hooks/useResponsive";
 import { C } from "@/theme";
@@ -1609,8 +1609,13 @@ function MaterialQueueCard({ material, categorias, ums, proveedores, onSave, onS
   );
 }
 
-function AltaManual({ categorias, selectedId, ums, proveedores, onCreated }) {
-  const [open, setOpen] = useState(false);
+function AltaManual({ categorias, selectedId, ums, proveedores, onCreated, open: controlledOpen, onOpenChange, hideTrigger = false }) {
+  const [internalOpen, setInternalOpen] = useState(false);
+  const open = controlledOpen ?? internalOpen;
+  const setOpenState = useCallback((next) => {
+    if (controlledOpen === undefined) setInternalOpen(next);
+    onOpenChange?.(next);
+  }, [controlledOpen, onOpenChange]);
   const emptyDraft = useCallback(() => ({
     descripcion: "",
     alias: "",
@@ -1657,7 +1662,7 @@ function AltaManual({ categorias, selectedId, ums, proveedores, onCreated }) {
       setVariantesPrecios({});
       setCodigosExtra([]);
       setImageFile(null);
-      setOpen(false);
+      setOpenState(false);
       onCreated?.();
     } catch (error) {
       setErr(error);
@@ -1667,8 +1672,9 @@ function AltaManual({ categorias, selectedId, ums, proveedores, onCreated }) {
   }
 
   if (!open) {
+    if (hideTrigger) return null;
     return (
-      <button type="button" onClick={() => setOpen(true)} style={{ ...BTN_PRIMARY, marginBottom: 12 }}>
+      <button type="button" onClick={() => setOpenState(true)} style={{ ...BTN_PRIMARY, marginBottom: 12 }}>
         <PackagePlus size={14} /> Crear item en catalogo
       </button>
     );
@@ -1681,7 +1687,7 @@ function AltaManual({ categorias, selectedId, ums, proveedores, onCreated }) {
           <div style={{ fontSize: 13, fontWeight: 950, color: C.t0 }}>Alta manual de material</div>
           <div style={{ fontSize: 11.5, color: C.t2, marginTop: 2 }}>Crea el item completo: proveedor, precio, matriz, codigos, links e imagen.</div>
         </div>
-        <button type="button" onClick={() => setOpen(false)} style={{ ...BTN, padding: "6px 10px" }}>Cerrar</button>
+        <button type="button" onClick={() => setOpenState(false)} style={{ ...BTN, padding: "6px 10px" }}>Cerrar</button>
       </div>
       <div style={{ display: "grid", gridTemplateColumns: "minmax(220px, 2fr) repeat(3, minmax(110px, 1fr))", gap: 8, marginBottom: 8 }}>
         <input autoFocus placeholder="Descripción" value={draft.descripcion} onChange={(e) => setDraft((d) => ({ ...d, descripcion: e.target.value }))} style={INP} />
@@ -1740,7 +1746,7 @@ function AltaManual({ categorias, selectedId, ums, proveedores, onCreated }) {
       {err && <div style={{ fontSize: 12, color: C.red }}>{err.message || "No se pudo crear el material."}</div>}
       <div style={{ display: "flex", gap: 8, justifyContent: "flex-end", flexWrap: "wrap" }}>
         <button type="submit" disabled={saving || !draft.descripcion.trim()} style={BTN_GREEN}>{saving ? "Guardando..." : "Crear material completo"}</button>
-        <button type="button" onClick={() => setOpen(false)} style={BTN}>Cancelar</button>
+        <button type="button" onClick={() => setOpenState(false)} style={BTN}>Cancelar</button>
       </div>
     </form>
   );
@@ -1752,6 +1758,7 @@ function MaterialRow({ material, categorias, ums, proveedores, onChanged, modelo
   const [variantes, setVariantes] = useState(() => materialVariants(material));
   const [variantesPrecios, setVariantesPrecios] = useState(() => material?.variantes_precios || {});
   const [saving, setSaving] = useState(false);
+  const [hovered, setHovered] = useState(false);
   const review = reviewInfoForMaterial(material);
 
   useEffect(() => {
@@ -1779,7 +1786,15 @@ function MaterialRow({ material, categorias, ums, proveedores, onChanged, modelo
   }
 
   return (
-    <tr style={review.flag ? { background: C.amberL } : undefined}>
+    <tr
+      onMouseEnter={() => setHovered(true)}
+      onMouseLeave={() => setHovered(false)}
+      style={{
+        background: review.flag ? C.amberL : hovered ? C.s0 : undefined,
+        boxShadow: hovered ? `inset 3px 0 0 ${C.blue}` : undefined,
+        transition: "background .14s ease, box-shadow .14s ease",
+      }}
+    >
       {!compact && (
         <Td style={{ minWidth: 78 }}>
           <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
@@ -2271,6 +2286,7 @@ function MaterialAddonAssociations({ material, obras = [], onChanged }) {
 
 function MaterialFila({ material, categorias, ums, proveedores, obras = [], onChanged, linea = "", initialOpen = false, stockInfo = null }) {
   const [editing, setEditing] = useState(initialOpen);
+  const [hovered, setHovered] = useState(false);
   const [draft, setDraft] = useState(() => ({ ...material, precio_unitario: inputNumberValue(material.precio_unitario) }));
   const [cantidades, setCantidades] = useState(() => toBomMap(material));
   const [sectores, setSectores] = useState(() => (material.areas?.length ? material.areas : [material.categoria_id].filter(Boolean)));
@@ -2312,10 +2328,26 @@ function MaterialFila({ material, categorias, ums, proveedores, obras = [], onCh
   const savedVariants = materialVariants(material);
   const precio = priceInfo(material);
   const lbl = { fontSize: 10, letterSpacing: 0.6, color: C.t2, textTransform: "uppercase", fontWeight: 700, display: "block", marginBottom: 4 };
+  const active = editing || hovered;
 
   return (
-    <div style={{ border: `1px solid ${editing ? C.blueB : review.flag ? C.amberB : C.b0}`, borderRadius: 10, marginBottom: 6, background: editing ? "var(--panel)" : C.s0, overflow: "hidden" }}>
-      <div onClick={() => setEditing((v) => !v)} style={{ display: "flex", alignItems: "center", gap: 10, padding: "8px 12px", cursor: "pointer", flexWrap: "wrap" }}>
+    <div
+      onMouseEnter={() => setHovered(true)}
+      onMouseLeave={() => setHovered(false)}
+      style={{
+        position: "relative",
+        border: `1px solid ${editing ? C.blueB : hovered ? C.blueB : review.flag ? C.amberB : C.b0}`,
+        borderRadius: 10,
+        marginBottom: 6,
+        background: editing ? "var(--panel)" : hovered ? "color-mix(in srgb, var(--panel) 92%, #2563eb 8%)" : C.s0,
+        overflow: "hidden",
+        boxShadow: hovered ? "0 14px 28px -26px rgba(37,99,235,0.9)" : "none",
+        transform: hovered && !editing ? "translateY(-1px)" : "none",
+        transition: "background .14s ease, border-color .14s ease, box-shadow .14s ease, transform .14s ease",
+      }}
+    >
+      <span style={{ position: "absolute", left: 0, top: 0, bottom: 0, width: 3, background: active ? C.blue : "transparent", transition: "background .14s ease" }} />
+      <div onClick={() => setEditing((v) => !v)} style={{ display: "flex", alignItems: "center", gap: 10, padding: "8px 12px 8px 14px", cursor: "pointer", flexWrap: "wrap" }}>
         <MaterialThumb material={material} size={36} />
         <div style={{ flex: "1 1 260px", minWidth: 0 }}>
           <div style={{ display: "flex", alignItems: "center", gap: 6, minWidth: 0, flexWrap: "wrap" }}>
@@ -3334,6 +3366,7 @@ function ListaMateriales({ categorias, materiales, selectedId, ums, proveedores,
   const [proveedorTipo, setProveedorTipo] = useState("todos");
   const [rubro, setRubro] = useState("");
   const [consumFiltro, setConsumFiltro] = useState("todos"); // todos | sin | solo
+  const [advancedOpen, setAdvancedOpen] = useState(false);
   const linea = lineaFija || lineaState;
   // La lista sale de la tabla de Proveedores (no se infiere de los materiales).
   const provs = useMemo(
@@ -3389,26 +3422,82 @@ function ListaMateriales({ categorias, materiales, selectedId, ums, proveedores,
     }
   };
 
+  const activeFilterCount = [
+    linea && !lineaFija,
+    prov,
+    proveedorTipo !== "todos",
+    rubro,
+    consumFiltro !== "todos",
+    soloPendientes,
+  ].filter(Boolean).length;
+
+  const segmentStyle = (on) => ({
+    border: "none",
+    borderRadius: 9,
+    padding: "8px 13px",
+    cursor: "pointer",
+    fontSize: 12.5,
+    fontWeight: 900,
+    fontFamily: C.sans,
+    background: on ? C.blue : "transparent",
+    color: on ? "#fff" : C.t2,
+    boxShadow: on ? "0 8px 18px -14px rgba(37,99,235,0.75)" : "none",
+  });
+
+  const filterControls = (
+    <>
+      <select value={prov} onChange={(e) => setProv(e.target.value)} style={{ ...INP, width: 190, maxWidth: "44vw", height: 40, borderRadius: 10 }} title="Filtrar por proveedor">
+        <option value="" style={OPT_ST}>Todos los proveedores</option>
+        {provs.map((p) => <option key={p.id} value={p.id} style={OPT_ST}>{p.nombre}</option>)}
+      </select>
+      <ProveedorTipoFilter value={proveedorTipo} onChange={setProveedorTipo} style={{ ...INP, width: 190, maxWidth: "44vw", height: 40, borderRadius: 10 }} />
+      <select value={rubro} onChange={(e) => setRubro(e.target.value)} style={{ ...INP, width: 190, maxWidth: "44vw", height: 40, borderRadius: 10 }} title="Filtrar por rubro">
+        <option value="" style={OPT_ST}>Todos los rubros</option>
+        {rubrosFiltro.map((c) => <option key={c.id} value={c.id} style={OPT_ST}>{categoriaNombre(categorias, c.id)}</option>)}
+      </select>
+      <select value={consumFiltro} onChange={(e) => setConsumFiltro(e.target.value)} style={{ ...INP, width: 185, maxWidth: "44vw", height: 40, borderRadius: 10 }} title="Consumibles">
+        <option value="todos" style={OPT_ST}>Consumibles: al fondo</option>
+        <option value="sin" style={OPT_ST}>Sin consumibles</option>
+        <option value="solo" style={OPT_ST}>Solo consumibles</option>
+      </select>
+      <button type="button" onClick={() => setSoloPendientes((v) => !v)} title="Mostrar solo items sin precio"
+        style={{ ...BTN, height: 40, padding: "0 13px", borderRadius: 10, display: "inline-flex", alignItems: "center", gap: 7, border: `1px solid ${soloPendientes ? C.amberB : C.b0}`, background: soloPendientes ? C.amberL : C.s0, color: soloPendientes ? C.amber : C.t1, fontSize: 12.5, fontWeight: 850 }}>
+        <span style={{ width: 16, height: 16, borderRadius: 6, border: `1px solid ${soloPendientes ? C.amber : C.b1}`, background: soloPendientes ? C.amber : "transparent", display: "inline-flex", alignItems: "center", justifyContent: "center", color: "#111827", fontSize: 11, lineHeight: 1 }}>{soloPendientes ? "✓" : ""}</span>
+        Solo sin precio
+      </button>
+    </>
+  );
+
   return (
     <div>
-      <div style={{ display: "flex", gap: 10, flexWrap: "wrap", alignItems: "center", marginBottom: 16, padding: "11px 13px", background: "var(--panel)", border: `1px solid ${C.b0}`, borderRadius: 14, boxShadow: "0 1px 3px rgba(0,0,0,0.05)" }}>
-        <div style={{ position: "relative", minWidth: 220, flex: "1 1 280px", display: hideSearch ? "none" : "block" }}>
+      <div style={{ display: "flex", gap: 10, flexWrap: "wrap", alignItems: "center", marginBottom: hideSearch && advancedOpen ? 8 : 16, padding: hideSearch ? 10 : "11px 13px", background: hideSearch ? "color-mix(in srgb, var(--panel) 84%, transparent)" : "var(--panel)", border: `1px solid ${C.b0}`, borderRadius: 14, boxShadow: hideSearch ? "0 10px 28px -26px rgba(15,23,42,0.75)" : "0 1px 3px rgba(0,0,0,0.05)", backdropFilter: hideSearch ? "blur(10px)" : undefined }}>
+        {!hideSearch && <div style={{ position: "relative", minWidth: 220, flex: "1 1 280px" }}>
           <Search size={15} style={{ position: "absolute", left: 12, top: "50%", transform: "translateY(-50%)", color: C.t2 }} />
           <input value={searchValue} onChange={(e) => setSearchValue(e.target.value)} placeholder="Buscar por descripción, proveedor o código…" style={{ ...INP, width: "100%", height: 40, paddingLeft: 36, borderRadius: 10 }} />
           {searchValue && <button type="button" onClick={() => setSearchValue("")} title="Limpiar" style={{ position: "absolute", right: 10, top: "50%", transform: "translateY(-50%)", background: "transparent", border: "none", color: C.t2, cursor: "pointer", fontSize: 14, lineHeight: 1, padding: 3 }}>✕</button>}
-        </div>
-        {!lineaFija && <div style={{ display: "inline-flex", gap: 2, background: C.s0, border: `1px solid ${C.b0}`, borderRadius: 10, padding: 3 }}>
+        </div>}
+        {!lineaFija && <div style={{ display: "inline-flex", gap: 3, background: C.bg, border: `1px solid ${C.b0}`, borderRadius: 12, padding: 4, boxShadow: "inset 0 1px 0 rgba(255,255,255,0.025)" }}>
           {[["", "Todas"], ...MODELOS.map((m) => [m, `K${m}`])].map(([val, label]) => {
             const on = linea === val;
             return (
               <button type="button" key={val || "all"} onClick={() => setLineaState(val)} title={val ? `Solo materiales de la línea K${val}` : "Todas las líneas"}
-                style={{ border: "none", borderRadius: 7, padding: "7px 13px", cursor: "pointer", fontSize: 12.5, fontWeight: 700, fontFamily: C.sans,
-                  background: on ? C.blue : "transparent", color: on ? "#fff" : C.t2, boxShadow: on ? "0 1px 4px rgba(59,130,246,0.4)" : "none", transition: "all .12s" }}>
+                style={segmentStyle(on)}>
                 {label}
               </button>
             );
           })}
         </div>}
+        {hideSearch ? (
+          <button
+            type="button"
+            onClick={() => setAdvancedOpen((open) => !open)}
+            style={{ ...BTN, height: 40, padding: "0 13px", borderRadius: 11, color: advancedOpen || activeFilterCount ? C.blue : C.t1, border: `1px solid ${advancedOpen || activeFilterCount ? C.blueB : C.b0}`, background: advancedOpen || activeFilterCount ? C.blueL : C.s0, fontWeight: 900 }}
+            title="Proveedor, tipo, rubro, consumibles y sin precio"
+          >
+            <SlidersHorizontal size={14} /> Filtros
+            {activeFilterCount ? <span style={{ fontFamily: C.mono, color: C.blue }}>{activeFilterCount}</span> : null}
+          </button>
+        ) : (<>
         <select value={prov} onChange={(e) => setProv(e.target.value)} style={{ ...INP, width: 180, maxWidth: "40vw", height: 40, borderRadius: 10 }} title="Filtrar por proveedor">
           <option value="" style={OPT_ST}>Todos los proveedores</option>
           {provs.map((p) => <option key={p.id} value={p.id} style={OPT_ST}>{p.nombre}</option>)}
@@ -3428,10 +3517,17 @@ function ListaMateriales({ categorias, materiales, selectedId, ums, proveedores,
           <span style={{ width: 15, height: 15, borderRadius: 5, border: `1px solid ${soloPendientes ? C.amber : C.b1}`, background: soloPendientes ? C.amber : "transparent", display: "inline-flex", alignItems: "center", justifyContent: "center", color: "#000", fontSize: 11, lineHeight: 1 }}>{soloPendientes ? "✓" : ""}</span>
           Sólo sin precio
         </button>
+        </>)}
         <span style={{ marginLeft: "auto", fontFamily: C.mono, fontSize: 12, fontWeight: 700, color: C.t1, background: C.s0, border: `1px solid ${C.b0}`, borderRadius: 999, padding: "6px 12px", whiteSpace: "nowrap" }}>
           {visibles.length} ítems{linea ? ` · K${linea}` : ""}
         </span>
       </div>
+
+      {hideSearch && advancedOpen && (
+        <div style={{ display: "flex", gap: 8, flexWrap: "wrap", alignItems: "center", marginBottom: 16, padding: 11, background: C.s0, border: `1px solid ${C.b0}`, borderRadius: 14 }}>
+          {filterControls}
+        </div>
+      )}
 
       {lineaFija && <PrepararCompra items={visibles} linea={lineaFija} categorias={categorias} />}
 
@@ -6611,6 +6707,16 @@ function ObraVarianteControl({ row, options = [], busy = false, onChange }) {
   );
 }
 
+function LineaMetricDot({ label, value, color }) {
+  return (
+    <span style={{ display: "inline-flex", alignItems: "center", gap: 7, padding: "7px 10px", borderRadius: 999, color: C.t2, fontSize: 12, fontWeight: 850, whiteSpace: "nowrap" }}>
+      <span style={{ width: 7, height: 7, borderRadius: 999, background: color, boxShadow: `0 0 10px ${color}88`, flexShrink: 0 }} />
+      <span>{label}</span>
+      <span style={{ color: C.t0, fontFamily: C.mono, fontWeight: 950 }}>{value}</span>
+    </span>
+  );
+}
+
 function LineasTab({ lineas, obras, categorias, materiales, proveedores, opciones = [], onChanged }) {
   const [sel, setSel] = useState("");
   const [selObra, setSelObra] = useState(null);
@@ -6708,96 +6814,127 @@ function LineasTab({ lineas, obras, categorias, materiales, proveedores, opcione
   return (
     <div style={{ animation: "fadeIn 0.4s ease-out" }}>
       <style>{`
-        @keyframes fadeIn { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
-        .glass-panel {
-          background: rgba(255, 255, 255, 0.03);
-          backdrop-filter: blur(20px);
-          -webkit-backdrop-filter: blur(20px);
-          border: 1px solid rgba(255, 255, 255, 0.1);
-          box-shadow: 0 8px 32px rgba(0, 0, 0, 0.08);
-          border-radius: 24px;
+        @keyframes fadeIn { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: translateY(0); } }
+        .lineas-grid {
+          display: grid;
+          grid-template-columns: repeat(3, minmax(0, 1fr));
+          gap: 18px;
         }
-        .linea-card {
-          background: linear-gradient(145deg, rgba(255,255,255,0.05) 0%, rgba(255,255,255,0.01) 100%);
-          backdrop-filter: blur(10px);
-          border: 1px solid rgba(255,255,255,0.08);
-          border-radius: 20px;
-          transition: all 0.3s cubic-bezier(0.25, 0.8, 0.25, 1);
-          box-shadow: 0 4px 15px rgba(0,0,0,0.03);
+        @media (max-width: 1180px) {
+          .lineas-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
         }
-        .linea-card:hover {
-          transform: translateY(-5px) scale(1.02);
-          box-shadow: 0 15px 35px rgba(0,0,0,0.1);
-          border-color: rgba(96, 165, 250, 0.4);
+        @media (max-width: 760px) {
+          .lineas-grid { grid-template-columns: 1fr; }
         }
-        .kpi-modern {
-          background: rgba(255,255,255,0.02);
-          border: 1px solid rgba(255,255,255,0.05);
-          border-radius: 16px;
-          padding: 16px;
-          display: flex;
-          flex-direction: column;
-          gap: 6px;
-          transition: transform 0.2s;
-        }
-        .kpi-modern:hover { transform: translateY(-2px); }
       `}</style>
 
-      <div className="glass-panel" style={{ padding: "16px 20px", marginBottom: 20 }}>
-        <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", flexWrap: "wrap", gap: 16 }}>
+      <div style={{
+        padding: "22px 24px",
+        marginBottom: 24,
+        border: `1px solid ${C.b0}`,
+        borderRadius: 26,
+        background: "radial-gradient(circle at 12% 0%, rgba(37,99,235,0.08), transparent 34%), linear-gradient(135deg, color-mix(in srgb, var(--panel) 90%, transparent), color-mix(in srgb, var(--panel-2) 68%, transparent))",
+        backdropFilter: "blur(20px)",
+        boxShadow: "0 30px 70px -52px rgba(15,23,42,0.9)",
+      }}>
+        <div style={{ display: "grid", gap: 16 }}>
+        <div style={{ display: "flex", alignItems: "flex-start", justifyContent: "space-between", flexWrap: "wrap", gap: 18 }}>
           <div>
-            <div style={{ fontSize: 20, fontWeight: 900, color: C.t0, letterSpacing: "-0.5px" }}>Matriz por línea de producción</div>
-            <div style={{ fontSize: 13, color: C.t2, marginTop: 2 }}>Selecciona una línea para administrar su base y preparar compras.</div>
+            <div style={{ fontSize: 22, fontWeight: 950, color: C.t0, letterSpacing: "-0.4px" }}>Matriz por línea de producción</div>
+            <div style={{ fontSize: 13, color: C.t2, marginTop: 5 }}>Entrá a una línea para administrar matriz, obras activas y preparación de compras.</div>
           </div>
 
-          <div style={{ display: "flex", alignItems: "center", gap: 16, flexWrap: "wrap" }}>
-            <div style={{ display: "flex", gap: 10, flexWrap: "wrap" }}>
-              <div className="kpi-modern" style={{ padding: "6px 12px", flexDirection: "row", alignItems: "center", gap: 8, borderRadius: 10 }}>
-                <span style={{ fontSize: 10, fontWeight: 800, color: C.t2 }}>LÍNEAS</span>
-                <span style={{ fontSize: 16, fontWeight: 900, color: C.blue }}>{totals.lineas}</span>
-              </div>
-              <div className="kpi-modern" style={{ padding: "6px 12px", flexDirection: "row", alignItems: "center", gap: 8, borderRadius: 10 }}>
-                <span style={{ fontSize: 10, fontWeight: 800, color: C.t2 }}>OBRAS</span>
-                <span style={{ fontSize: 16, fontWeight: 900, color: C.green }}>{totals.obras}</span>
-              </div>
-              <div className="kpi-modern" style={{ padding: "6px 12px", flexDirection: "row", alignItems: "center", gap: 8, borderRadius: 10 }}>
-                <span style={{ fontSize: 10, fontWeight: 800, color: C.t2 }}>ITEMS</span>
-                <span style={{ fontSize: 16, fontWeight: 900, color: C.violet }}>{totals.items}</span>
-              </div>
-              <div className="kpi-modern" style={{ padding: "6px 12px", flexDirection: "row", alignItems: "center", gap: 8, borderRadius: 10 }}>
-                <span style={{ fontSize: 10, fontWeight: 800, color: C.t2 }}>SIN PRECIO</span>
-                <span style={{ fontSize: 16, fontWeight: 900, color: totals.sinPrecio ? C.amber : C.green }}>{totals.sinPrecio}</span>
-              </div>
+            <div style={{ position: "relative", width: 240, maxWidth: "100%" }}>
+              <Search size={15} style={{ position: "absolute", left: 12, top: "50%", transform: "translateY(-50%)", color: C.t2, pointerEvents: "none" }} />
+              <input
+                className="lineas-search"
+                value={q}
+                onChange={(e) => setQ(e.target.value)}
+                placeholder="Buscar línea..."
+                style={{ ...INP, width: "100%", height: 40, paddingLeft: 34, borderRadius: 999, fontSize: 13, background: C.bg, transition: "border-color .3s ease, box-shadow .3s ease" }}
+              />
             </div>
-
-            <div style={{ position: "relative", width: 220 }}>
-              <Search size={14} style={{ position: "absolute", left: 10, top: "50%", transform: "translateY(-50%)", color: C.t2 }} />
-              <input value={q} onChange={(e) => setQ(e.target.value)} placeholder="Buscar línea..." style={{ ...INP, width: "100%", height: 36, paddingLeft: 30, borderRadius: 8, fontSize: 13, background: "rgba(255,255,255,0.03)", border: `1px solid rgba(255,255,255,0.1)`, transition: "all 0.2s" }} />
-            </div>
+        </div>
+          <div style={{
+            display: "inline-flex",
+            alignItems: "center",
+            gap: 4,
+            flexWrap: "wrap",
+            border: `1px solid ${C.b0}`,
+            borderRadius: 999,
+            background: "color-mix(in srgb, var(--panel) 66%, transparent)",
+            backdropFilter: "blur(14px)",
+            padding: 4,
+            width: "fit-content",
+            maxWidth: "100%",
+            boxShadow: "inset 0 1px 0 rgba(255,255,255,0.04)",
+          }}>
+            <LineaMetricDot label="Líneas" value={totals.lineas} color={C.blue} />
+            <LineaMetricDot label="Obras" value={totals.obras} color={C.green} />
+            <LineaMetricDot label="Items" value={totals.items} color={C.violet} />
+            <LineaMetricDot label="Sin precio" value={totals.sinPrecio} color={totals.sinPrecio ? C.amber : C.green} />
           </div>
         </div>
       </div>
 
-      <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(300px, 1fr))", gap: 20 }}>
+      <div className="lineas-grid">
         {visibles.map((linea) => (
           <button type="button" key={linea.codigo} onClick={() => setSel(linea.codigo)}
-            className="linea-card"
-            style={{ textAlign: "left", cursor: "pointer", padding: 24, display: "flex", flexDirection: "column", gap: 16, minHeight: 190 }}>
+            className="linea-premium-card"
+            style={{
+              textAlign: "left",
+              cursor: "pointer",
+              padding: 22,
+              display: "flex",
+              flexDirection: "column",
+              gap: 17,
+              minHeight: 232,
+              border: `1px solid color-mix(in srgb, ${C.b0} 84%, rgba(96,165,250,0.22))`,
+              borderRadius: 24,
+              background: "radial-gradient(circle at 18% 0%, rgba(59,130,246,0.10), transparent 36%), linear-gradient(145deg, color-mix(in srgb, var(--panel) 96%, white 8%), color-mix(in srgb, var(--panel-2) 78%, transparent))",
+              boxShadow: "0 24px 64px -48px rgba(15,23,42,0.95), inset 0 1px 0 rgba(255,255,255,0.045)",
+              transition: "transform .3s ease, box-shadow .3s ease, border-color .3s ease, background .3s ease",
+              position: "relative",
+              overflow: "hidden",
+            }}>
+            <span style={{ position: "absolute", inset: "0 0 auto 0", height: 1, background: "linear-gradient(90deg, transparent, rgba(96,165,250,0.42), transparent)", opacity: 0.8 }} />
             <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
               <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
-                <div style={{ width: 44, height: 44, borderRadius: 12, background: `linear-gradient(135deg, ${C.blue}, #3b82f6)`, display: "flex", alignItems: "center", justifyContent: "center", color: "#fff", fontWeight: 900, fontSize: 18, boxShadow: "0 4px 12px rgba(59,130,246,0.3)" }}>
+                <div style={{
+                  width: 52,
+                  height: 52,
+                  borderRadius: 999,
+                  background: "linear-gradient(145deg, rgba(255,255,255,0.88), rgba(148,163,184,0.18) 44%, rgba(37,99,235,0.16))",
+                  border: "1px solid rgba(148,163,184,0.28)",
+                  display: "flex",
+                  alignItems: "center",
+                  justifyContent: "center",
+                  color: C.blue,
+                  fontWeight: 950,
+                  fontSize: 18,
+                  boxShadow: "inset 0 1px 0 rgba(255,255,255,0.6), 0 12px 24px -18px rgba(37,99,235,0.85)",
+                }}>
                   {linea.nombre?.replace("K", "") || linea.codigo}
                 </div>
-                <span style={{ fontFamily: C.mono, fontSize: 24, fontWeight: 950, color: C.t0 }}>{linea.nombre || `K${linea.codigo}`}</span>
+                <div>
+                  <div style={{ fontFamily: C.mono, fontSize: 25, fontWeight: 950, color: C.t0, letterSpacing: "-0.4px" }}>{linea.nombre || `K${linea.codigo}`}</div>
+                  <div style={{ fontSize: 11.5, color: C.t2, fontWeight: 750 }}>{linea.obras.length} obras activas</div>
+                </div>
               </div>
-              <div style={{ width: 32, height: 32, borderRadius: "50%", background: "rgba(255,255,255,0.05)", display: "flex", alignItems: "center", justifyContent: "center", color: C.t2, transition: "0.2s" }} className="arrow-btn">
-                <span style={{ fontSize: 20, transform: "translateY(-1px)" }}>›</span>
+              <div className="linea-arrow" style={{ width: 34, height: 34, borderRadius: 999, background: C.s0, border: `1px solid ${C.b0}`, display: "flex", alignItems: "center", justifyContent: "center", color: C.t2, transition: "transform .3s ease, color .3s ease, background .3s ease" }}>
+                <span style={{ fontSize: 21, transform: "translateY(-1px)" }}>›</span>
               </div>
             </div>
 
             <div style={{ display: "grid", gap: 8 }}>
-              <div style={{ height: 8, borderRadius: 99, background: "rgba(255,255,255,0.05)", border: `1px solid rgba(255,255,255,0.02)`, overflow: "hidden" }}>
-                <div style={{ width: `${linea.progreso}%`, height: "100%", background: linea.progreso > 80 ? `linear-gradient(90deg, ${C.greenL}, ${C.green})` : `linear-gradient(90deg, #60a5fa, ${C.blue})`, borderRadius: 99, transition: "width 0.5s ease-out" }} />
+              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "baseline", gap: 10 }}>
+                <span style={{ fontSize: 11, color: C.t2, fontWeight: 900, textTransform: "uppercase", letterSpacing: 0.7 }}>Cobertura de precio</span>
+                <span style={{ fontFamily: C.mono, fontSize: 12, color: linea.progreso > 80 ? C.green : C.blue, fontWeight: 950 }}>{linea.progreso}%</span>
+              </div>
+              <div style={{ height: 10, borderRadius: 999, background: C.s0, border: `1px solid ${C.b0}`, overflow: "hidden", position: "relative" }}>
+                <div style={{ width: `${linea.progreso}%`, height: "100%", background: "linear-gradient(90deg, #1d4ed8, #06b6d4)", borderRadius: 999, transition: "width .5s ease-out", position: "relative", boxShadow: "0 0 16px rgba(6,182,212,0.28)" }}>
+                  <span className="progress-glint" style={{ position: "absolute", right: -4, top: -2, width: 14, height: 14, borderRadius: 999, background: "#e0f2fe", boxShadow: "0 0 14px rgba(14,165,233,0.85)", opacity: 0.72, transition: "opacity .3s ease" }} />
+                </div>
               </div>
               <div style={{ display: "flex", alignItems: "center", gap: 7, fontSize: 12, color: C.t2, fontWeight: 600, flexWrap: "wrap" }}>
                 <span>{linea.items} items</span>
@@ -6806,20 +6943,28 @@ function LineasTab({ lineas, obras, categorias, materiales, proveedores, opcione
               </div>
             </div>
 
-            <div style={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: 10, background: "rgba(255,255,255,0.02)", borderRadius: 12, padding: "12px", border: "1px solid rgba(255,255,255,0.03)" }}>
-              <div style={{ textAlign: "center" }}><div style={{ fontSize: 10, color: C.t2, fontWeight: 800, letterSpacing: 0.5 }}>OBRAS</div><div style={{ fontFamily: C.mono, fontSize: 16, color: C.t0, fontWeight: 900 }}>{linea.obras.length}</div></div>
-              <div style={{ textAlign: "center", borderLeft: "1px solid rgba(255,255,255,0.05)", borderRight: "1px solid rgba(255,255,255,0.05)" }}><div style={{ fontSize: 10, color: C.t2, fontWeight: 800, letterSpacing: 0.5 }}>PROV.</div><div style={{ fontFamily: C.mono, fontSize: 16, color: C.t0, fontWeight: 900 }}>{linea.proveedores}</div></div>
-              <div style={{ textAlign: "center" }}><div style={{ fontSize: 10, color: C.t2, fontWeight: 800, letterSpacing: 0.5 }}>RUBROS</div><div style={{ fontFamily: C.mono, fontSize: 16, color: C.t0, fontWeight: 900 }}>{linea.rubros}</div></div>
+            <div style={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: 10, padding: "2px 0 0" }}>
+              {[
+                ["Obras", linea.obras.length],
+                ["Prov.", linea.proveedores],
+                ["Rubros", linea.rubros],
+              ].map(([label, value]) => (
+                <div key={label} style={{ minWidth: 0 }}>
+                  <div style={{ fontFamily: C.mono, fontSize: 25, lineHeight: 1, color: C.t0, fontWeight: 950, letterSpacing: "-0.5px" }}>{value}</div>
+                  <div style={{ fontSize: 10.5, color: C.t2, fontWeight: 850, letterSpacing: 0.25, marginTop: 5 }}>{label}</div>
+                </div>
+              ))}
             </div>
 
             <div style={{ display: "flex", gap: 8, flexWrap: "wrap", marginTop: "auto", paddingTop: 4 }}>
-              {linea.usd ? <span style={{ fontFamily: C.mono, fontSize: 12, color: C.green, border: `1px solid rgba(34,197,94,0.3)`, background: "rgba(34,197,94,0.1)", borderRadius: 8, padding: "4px 10px", fontWeight: 700 }}>{fmtMoney(linea.usd, "USD")}</span> : null}
-              {linea.sinPrecio ? <span style={{ fontSize: 12, color: C.amber, border: `1px solid rgba(245,158,11,0.3)`, background: "rgba(245,158,11,0.1)", borderRadius: 8, padding: "4px 10px", fontWeight: 800 }}>{linea.sinPrecio} sin precio</span> : null}
+              {linea.usd ? <span style={{ display: "inline-flex", alignItems: "center", gap: 6, fontFamily: C.mono, fontSize: 12, color: C.blue, border: `1px solid ${C.blueB}`, background: "color-mix(in srgb, var(--panel) 82%, transparent)", borderRadius: 999, padding: "5px 10px", fontWeight: 900 }}><span style={{ width: 6, height: 6, borderRadius: 99, background: C.blue }} />{fmtMoney(linea.usd, "USD")}</span> : null}
+              {linea.ars ? <span style={{ fontFamily: C.mono, fontSize: 12, color: C.t1, border: `1px solid ${C.b0}`, background: "transparent", borderRadius: 999, padding: "5px 10px", fontWeight: 850 }}>{fmtMoney(linea.ars, "ARS")}</span> : null}
+              {linea.sinPrecio ? <span style={{ display: "inline-flex", alignItems: "center", gap: 6, fontSize: 12, color: C.amber, border: "1px solid rgba(245,158,11,0.24)", background: "rgba(245,158,11,0.045)", borderRadius: 999, padding: "5px 10px", fontWeight: 850 }}><span style={{ width: 6, height: 6, borderRadius: 99, background: C.amber }} />{linea.sinPrecio} sin precio</span> : null}
             </div>
           </button>
         ))}
         {!visibles.length && (
-          <div style={{ padding: 40, textAlign: "center", color: C.t2, fontSize: 15, background: "rgba(255,255,255,0.02)", border: `1px dashed rgba(255,255,255,0.1)`, borderRadius: 20, gridColumn: "1 / -1" }}>
+          <div style={{ padding: 40, textAlign: "center", color: C.t2, fontSize: 15, background: C.s0, border: `1px dashed ${C.b0}`, borderRadius: 20, gridColumn: "1 / -1" }}>
             No encontramos líneas que coincidan con tu búsqueda.
           </div>
         )}
@@ -7635,6 +7780,7 @@ function MatrizTab({ categorias, materiales, proveedores, obras = [], onChanged 
   const [catalogQ, setCatalogQ] = useState("");
   const [showCatTools, setShowCatTools] = useState(false);
   const [showPrecios, setShowPrecios] = useState(false);
+  const [altaOpen, setAltaOpen] = useState(false);
   const [catForm, setCatForm] = useState({ root: "", sub: "" });
   const [catBusy, setCatBusy] = useState("");
   const [catError, setCatError] = useState("");
@@ -7648,13 +7794,16 @@ function MatrizTab({ categorias, materiales, proveedores, obras = [], onChanged 
   const raices = useMemo(() => categorias.filter(esRaiz), [categorias]);
   const selCat = categorias.find((c) => c.id === sel);
   const parentActivo = selCat ? (selCat.parent_id ? categorias.find((c) => c.id === selCat.parent_id) : selCat) : null;
-  const subs = parentActivo ? hijosDe(categorias, parentActivo.id) : [];
   const parentParaSub = parentActivo || raices[0] || null;
 
   const countDe = useCallback((id) => {
     const scope = id ? idsScope(categorias, id) : null;
     return (materialesCatalogo ?? []).filter(materialActivo).filter((m) => !scope || materialEnScope(m, scope)).length;
   }, [materialesCatalogo, categorias]);
+  const sectorOptions = useMemo(() => raices.map((root) => ({
+    root,
+    subs: hijosDe(categorias, root.id),
+  })), [raices, categorias]);
   const duplicateGroups = useMemo(() => findDuplicateGroups(materialesCatalogo ?? [], categorias, sel), [materialesCatalogo, categorias, sel]);
   const cleanupCandidates = useMemo(() => findCleanupCandidates(materialesCatalogo ?? [], categorias, sel), [materialesCatalogo, categorias, sel]);
   const catalogStats = useMemo(() => {
@@ -7669,26 +7818,6 @@ function MatrizTab({ categorias, materiales, proveedores, obras = [], onChanged 
       return acc;
     }, { items: 0, sinPrecio: 0, revisar: 0, consumibles: 0 });
   }, [materialesCatalogo, categorias, sel]);
-
-  const Chip = ({ id, label, active }) => (
-    <button
-      type="button"
-      onClick={() => setSel(id)}
-      style={{
-        ...BTN,
-        flex: "0 0 auto",
-        padding: "7px 11px",
-        minHeight: 34,
-        borderRadius: 999,
-        background: active ? C.blueL : C.s0,
-        border: `1px solid ${active ? C.blueB : C.b0}`,
-        color: active ? C.blue : C.t1,
-        boxShadow: active ? "0 8px 18px -16px rgba(37,99,235,0.75)" : "none",
-      }}
-    >
-      {label} <span style={{ color: active ? "#93c5fd" : C.t2, fontFamily: C.mono, marginLeft: 5 }}>{countDe(id)}</span>
-    </button>
-  );
 
   const actionStyle = (active, color = C.blue, bg = C.blueL, border = C.blueB) => ({
     ...BTN,
@@ -7759,7 +7888,7 @@ function MatrizTab({ categorias, materiales, proveedores, obras = [], onChanged 
 
   return (
     <div>
-      <div style={{ border: `1px solid ${C.b0}`, background: C.s0, borderRadius: 18, padding: 12, marginBottom: 12, display: "grid", gap: 11, boxShadow: "0 16px 40px -34px rgba(15,23,42,0.65)" }}>
+      <div style={{ border: `1px solid ${C.b0}`, background: "color-mix(in srgb, var(--panel) 88%, transparent)", borderRadius: 18, padding: 12, marginBottom: 12, display: "grid", gap: 11, boxShadow: "0 18px 45px -36px rgba(15,23,42,0.75)", backdropFilter: "blur(12px)" }}>
         <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(min(100%, 360px), 1fr))", gap: 10, alignItems: "stretch" }}>
           <div style={{ position: "relative", minWidth: 0 }}>
             <Search size={19} style={{ position: "absolute", left: 15, top: "50%", transform: "translateY(-50%)", color: C.blue }} />
@@ -7791,6 +7920,17 @@ function MatrizTab({ categorias, materiales, proveedores, obras = [], onChanged 
             )}
           </div>
           <div style={{ display: "flex", gap: 7, flexWrap: "wrap", alignItems: "center", justifyContent: "flex-end" }}>
+            <button
+              type="button"
+              onClick={() => {
+                setModo("lista");
+                setAltaOpen(true);
+              }}
+              style={{ ...BTN_PRIMARY, height: 42, padding: "0 14px", borderRadius: 11, boxShadow: "0 14px 28px -18px rgba(37,99,235,0.9)" }}
+              title="Crear un material nuevo en el catalogo completo"
+            >
+              <PackagePlus size={14} /> Crear item
+            </button>
             <button type="button" onClick={() => setModo("lista")} style={actionStyle(modo === "lista", C.blue, C.blueL, C.blueB)}>
               <FileText size={14} /> Lista
             </button>
@@ -7811,6 +7951,36 @@ function MatrizTab({ categorias, materiales, proveedores, obras = [], onChanged 
           </div>
         </div>
         <div style={{ display: "flex", gap: 8, flexWrap: "wrap", alignItems: "center" }}>
+          <select
+            value={sel}
+            onChange={(e) => {
+              setSel(e.target.value);
+              if (modo !== "lista") setModo("lista");
+            }}
+            style={{
+              ...INP,
+              width: 250,
+              maxWidth: "100%",
+              height: 34,
+              borderRadius: 999,
+              background: C.bg,
+              fontSize: 12,
+              fontWeight: 850,
+              color: sel ? C.t0 : C.t2,
+              paddingLeft: 12,
+            }}
+            title="Sector del catalogo"
+          >
+            <option value="" style={OPT_ST}>Sector: Todos ({countDe("")})</option>
+            {sectorOptions.map(({ root, subs: childOptions }) => (
+              <optgroup key={root.id} label={root.nombre}>
+                <option value={root.id} style={OPT_ST}>Todo {root.nombre} ({countDe(root.id)})</option>
+                {childOptions.map((sub) => (
+                  <option key={sub.id} value={sub.id} style={OPT_ST}>{sub.nombre} ({countDe(sub.id)})</option>
+                ))}
+              </optgroup>
+            ))}
+          </select>
           <StatPill label={sel ? selCat?.nombre || "Sector" : "Catalogo"} value={catalogStats.items} color={C.blue} />
           <StatPill label="Sin precio" value={catalogStats.sinPrecio} color={catalogStats.sinPrecio ? C.amber : C.green} />
           <StatPill label="A revisar" value={catalogStats.revisar} color={catalogStats.revisar ? C.amber : C.green} />
@@ -7820,22 +7990,6 @@ function MatrizTab({ categorias, materiales, proveedores, obras = [], onChanged 
           </span>
         </div>
       </div>
-      <div style={{ display: "grid", gap: 7, marginBottom: 4 }}>
-        <div style={{ display: "flex", alignItems: "center", gap: 8, color: C.t2, fontSize: 11, fontWeight: 900, textTransform: "uppercase" }}>
-          <span style={{ width: 6, height: 6, borderRadius: 999, background: C.blue }} />
-          Sectores
-        </div>
-        <div style={{ display: "flex", gap: 8, flexWrap: "nowrap", overflowX: "auto", padding: "0 2px 4px" }}>
-        <Chip id="" label="Todos" active={!sel} />
-        {raices.map((r) => <Chip key={r.id} id={r.id} label={r.nombre} active={sel === r.id || selCat?.parent_id === r.id} />)}
-        </div>
-      </div>
-      {parentActivo && subs.length > 0 && (
-        <div style={{ display: "flex", gap: 7, flexWrap: "nowrap", overflowX: "auto", marginTop: 8, padding: "0 2px 4px 12px", borderLeft: `2px solid ${C.b0}` }}>
-          <Chip id={parentActivo.id} label={`${parentActivo.nombre} · todo`} active={sel === parentActivo.id} />
-          {subs.map((s) => <Chip key={s.id} id={s.id} label={s.nombre} active={sel === s.id} />)}
-        </div>
-      )}
       {showCatTools && <div style={{ border: `1px solid ${C.b0}`, borderRadius: 16, background: C.s0, padding: 12, display: "grid", gap: 10, marginTop: 12 }}>
         <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 10, flexWrap: "wrap" }}>
           <div>
@@ -7884,7 +8038,19 @@ function MatrizTab({ categorias, materiales, proveedores, obras = [], onChanged 
           <DuplicadosCatalogo groups={duplicateGroups} cleanupCandidates={cleanupCandidates} categorias={categorias} ums={ums} proveedores={proveedores} onChanged={onChanged} />
         ) : (
           <>
-            <AltaManual categorias={categorias} selectedId={sel || categorias[0]?.id || ""} ums={ums} proveedores={proveedores} onCreated={onChanged} />
+            <AltaManual
+              categorias={categorias}
+              selectedId={sel || categorias[0]?.id || ""}
+              ums={ums}
+              proveedores={proveedores}
+              onCreated={async () => {
+                setAltaOpen(false);
+                await onChanged?.();
+              }}
+              open={altaOpen}
+              onOpenChange={setAltaOpen}
+              hideTrigger
+            />
             <ListaMateriales
               categorias={categorias}
               materiales={materialesCatalogo}
@@ -7909,7 +8075,10 @@ function MatrizTab({ categorias, materiales, proveedores, obras = [], onChanged 
 export default function MaterialesScreen({ profile, signOut }) {
   const { isMobile } = useResponsive();
   const [tab, setTab] = useState("lineas");
+  const [activeTab, setActiveTab] = useState("lineas");
+  const [switchingTab, setSwitchingTab] = useState(false);
   const [moreOpen, setMoreOpen] = useState(false);
+  const tabSwitchTimer = useRef(null);
   const [categorias, setCategorias] = useState(null);
   const [materiales, setMateriales] = useState(null);
   const [batches, setBatches] = useState([]);
@@ -7961,7 +8130,31 @@ export default function MaterialesScreen({ profile, signOut }) {
     return () => { active = false; };
   }, []);
 
+  useEffect(() => () => {
+    if (tabSwitchTimer.current) window.clearTimeout(tabSwitchTimer.current);
+  }, []);
+
+  const switchTab = useCallback((nextTab) => {
+    setActiveTab(nextTab);
+    setMoreOpen(false);
+    if (tabSwitchTimer.current) {
+      window.clearTimeout(tabSwitchTimer.current);
+      tabSwitchTimer.current = null;
+    }
+    if (nextTab === tab) {
+      setSwitchingTab(false);
+      return;
+    }
+    setSwitchingTab(true);
+    tabSwitchTimer.current = window.setTimeout(() => {
+      setTab(nextTab);
+      tabSwitchTimer.current = null;
+      window.requestAnimationFrame(() => setSwitchingTab(false));
+    }, 120);
+  }, [tab]);
+
   const listo = categorias != null && materiales != null;
+  const activeTabLabel = TABS_MAIN.find((t) => t.key === activeTab)?.label || TABS_MORE.find((t) => t.key === activeTab)?.label || "sección";
 
   return (
     <div style={{ position: "fixed", top: 0, left: 0, right: 0, bottom: 0, background: C.bg, color: C.t0, fontFamily: C.sans, display: "flex", overflow: "hidden" }}>
@@ -7972,6 +8165,102 @@ export default function MaterialesScreen({ profile, signOut }) {
         input:focus, select:focus, textarea:focus { border-color: rgba(59,130,246,0.35) !important; }
         select option { background: var(--panel-solid); color: var(--muted); }
         button { display: inline-flex; align-items: center; justify-content: center; gap: 6px; }
+        .materiales-tabbar {
+          display: inline-flex;
+          gap: 4px;
+          padding: 5px;
+          border: 1px solid color-mix(in srgb, var(--border) 82%, transparent);
+          border-radius: 999px;
+          background: color-mix(in srgb, var(--panel) 74%, transparent);
+          backdrop-filter: blur(14px);
+          -webkit-backdrop-filter: blur(14px);
+          box-shadow: 0 18px 42px -34px rgba(15,23,42,0.78);
+          max-width: 100%;
+          overflow: visible;
+          position: relative;
+          z-index: 70;
+        }
+        .materiales-tab {
+          position: relative;
+          min-height: 36px;
+          padding: 0 15px;
+          border: 0;
+          border-radius: 999px;
+          background: transparent;
+          color: var(--muted);
+          cursor: pointer;
+          font-family: inherit;
+          font-size: 13px;
+          font-weight: 850;
+          white-space: nowrap;
+          transition: color .3s ease, background .3s ease, box-shadow .3s ease, transform .3s ease;
+        }
+        .materiales-tab:hover {
+          background: color-mix(in srgb, var(--panel-2) 64%, transparent);
+          color: var(--text);
+          transform: translateY(-1px);
+        }
+        .materiales-tab.is-active {
+          color: var(--text);
+          background: linear-gradient(135deg, rgba(37,99,235,0.16), rgba(124,58,237,0.14));
+          box-shadow: 0 0 0 1px rgba(96,165,250,0.22), 0 0 9px rgba(59,130,246,0.22);
+        }
+        .materiales-tab.is-active::after {
+          content: "";
+          position: absolute;
+          left: 18px;
+          right: 18px;
+          bottom: 3px;
+          height: 2px;
+          border-radius: 999px;
+          background: linear-gradient(90deg, #2563eb, #7c3aed);
+          filter: drop-shadow(0 0 2px rgba(59,130,246,0.75));
+        }
+        .materiales-tab-content {
+          animation: tabContentIn .24s ease both;
+        }
+        @keyframes tabContentIn {
+          from { opacity: 0; transform: translateY(8px); filter: blur(2px); }
+          to { opacity: 1; transform: translateY(0); filter: blur(0); }
+        }
+        .materiales-tab-loading {
+          min-height: 220px;
+          border: 1px solid color-mix(in srgb, var(--border) 82%, transparent);
+          border-radius: 22px;
+          background: color-mix(in srgb, var(--panel) 78%, transparent);
+          backdrop-filter: blur(14px);
+          display: grid;
+          place-items: center;
+          color: var(--muted);
+          animation: tabContentIn .18s ease both;
+        }
+        .materiales-tab-spinner {
+          width: 28px;
+          height: 28px;
+          border-radius: 999px;
+          border: 2px solid rgba(96,165,250,0.18);
+          border-top-color: #2563eb;
+          animation: spin .75s linear infinite;
+        }
+        @keyframes spin { to { transform: rotate(360deg); } }
+        .lineas-search:focus {
+          outline: none;
+          border-color: rgba(59,130,246,0.65) !important;
+          box-shadow: 0 0 0 3px rgba(59,130,246,0.18), 0 14px 28px -24px rgba(37,99,235,0.75);
+        }
+        .linea-premium-card:hover {
+          transform: translateY(-6px);
+          box-shadow: 0 28px 58px -40px rgba(37,99,235,0.7), 0 18px 36px -30px rgba(15,23,42,0.85);
+          border-color: rgba(96,165,250,0.42) !important;
+        }
+        .linea-premium-card:hover .linea-arrow {
+          transform: translateX(3px);
+          color: #2563eb;
+          background: rgba(37,99,235,0.10);
+        }
+        .linea-premium-card:hover .progress-glint {
+          opacity: 1;
+        }
       `}</style>
 
       <Sidebar profile={profile} signOut={signOut} />
@@ -7998,24 +8287,24 @@ export default function MaterialesScreen({ profile, signOut }) {
           ) : (
             <>
               {(() => {
-                const tabStyle = (on) => ({ padding: "9px 16px", cursor: "pointer", fontSize: 13, fontFamily: C.sans, fontWeight: on ? 700 : 500, color: on ? C.t0 : C.t2, background: "transparent", border: "none", borderBottom: `2px solid ${on ? "#60a5fa" : "transparent"}`, marginBottom: -1, transition: "all .15s" });
-                const moreActive = TABS_MORE.find((t) => t.key === tab);
+                const moreActive = TABS_MORE.find((t) => t.key === activeTab);
                 return (
-                  <div style={{ display: "flex", gap: 4, marginBottom: 20, flexWrap: "wrap", borderBottom: `1px solid ${C.b0}` }}>
+                  <div style={{ display: "flex", marginBottom: 22, minWidth: 0, overflow: "visible", position: "relative", zIndex: 70 }}>
+                    <div className="materiales-tabbar">
                     {TABS_MAIN.map((t) => (
-                      <button key={t.key} type="button" onClick={() => { setTab(t.key); setMoreOpen(false); }} style={tabStyle(tab === t.key)}>{t.label}</button>
+                      <button key={t.key} type="button" onClick={() => switchTab(t.key)} className={`materiales-tab${activeTab === t.key ? " is-active" : ""}`}>{t.label}</button>
                     ))}
                     <div style={{ position: "relative" }}>
-                      <button type="button" onClick={() => setMoreOpen((o) => !o)} style={{ ...tabStyle(!!moreActive), padding: "9px 14px" }}>
+                      <button type="button" onClick={() => setMoreOpen((o) => !o)} className={`materiales-tab${moreActive ? " is-active" : ""}`}>
                         {moreActive ? moreActive.label : "Más"} ▾
                       </button>
                       {moreOpen && (
                         <>
                           <div onClick={() => setMoreOpen(false)} style={{ position: "fixed", inset: 0, zIndex: 40 }} />
-                          <div style={{ position: "absolute", top: "100%", left: 0, marginTop: 4, zIndex: 41, background: C.panelSolid, border: `1px solid ${C.b1}`, borderRadius: 10, padding: 5, minWidth: 180, boxShadow: "0 8px 28px rgba(0,0,0,0.4)" }}>
+                          <div style={{ position: "absolute", top: "calc(100% + 8px)", right: 0, zIndex: 100, background: C.panelSolid, border: `1px solid ${C.b1}`, borderRadius: 14, padding: 6, minWidth: 220, boxShadow: "0 18px 42px -24px rgba(0,0,0,0.55)", backdropFilter: "blur(12px)" }}>
                             {TABS_MORE.map((t) => (
-                              <button key={t.key} type="button" onClick={() => { setTab(t.key); setMoreOpen(false); }}
-                                style={{ display: "block", width: "100%", textAlign: "left", padding: "8px 12px", fontSize: 13, fontFamily: C.sans, borderRadius: 7, cursor: "pointer", border: "none", background: tab === t.key ? C.s1 : "transparent", color: tab === t.key ? C.t0 : C.t1 }}>
+                              <button key={t.key} type="button" onClick={() => switchTab(t.key)}
+                                style={{ display: "flex", width: "100%", justifyContent: "flex-start", textAlign: "left", padding: "9px 12px", fontSize: 13, fontFamily: C.sans, fontWeight: 850, borderRadius: 10, cursor: "pointer", border: "none", background: activeTab === t.key ? C.s1 : "transparent", color: activeTab === t.key ? C.t0 : C.t1 }}>
                                 {t.label}
                               </button>
                             ))}
@@ -8023,24 +8312,36 @@ export default function MaterialesScreen({ profile, signOut }) {
                         </>
                       )}
                     </div>
+                    </div>
                   </div>
                 );
               })()}
 
-              {tab === "lineas" && <LineasTab lineas={[]} obras={obrasAvance} categorias={categorias} materiales={materiales} proveedores={proveedores} opciones={opciones} onChanged={cargar} />}
-              {tab === "matriz" && <MatrizTab categorias={categorias} materiales={materiales} proveedores={proveedores} obras={obrasAvance} onChanged={cargar} />}
-              {tab === "importar" && <ImportarTab batches={batches} onImported={cargar} />}
-              {tab === "bandeja" && <BandejaTab categorias={categorias} materiales={materiales} onChanged={cargar} />}
-              {tab === "comprobantes" && <ComprobantesTab categorias={categorias} materiales={materiales} proveedores={proveedores} comprobantes={comprobantes} onChanged={cargar} />}
-              {tab === "revision" && <RevisionTab categorias={categorias} materiales={materiales} proveedores={proveedores} onChanged={cargar} />}
-              {tab === "normalizacion" && <NormalizacionTab categorias={categorias} materiales={materiales} proveedores={proveedores} onChanged={cargar} />}
-              {tab === "condicionantes" && <MatrizCondicionantesTab materiales={materiales} categorias={categorias} onChanged={cargar} />}
-              {tab === "variantes" && <VariantesMarcasTab materiales={materiales} />}
-              {tab === "proveedores" && <ProveedoresTab proveedores={proveedores} onChanged={cargar} />}
-              {tab === "avance" && <AvanceTab categorias={categorias} materiales={materiales} batches={batches} obras={obrasAvance} />}
-              {tab === "costos" && <CostoObraTab categorias={categorias} materiales={materiales} opciones={opciones} />}
-              {tab === "resumen" && <ResumenTab categorias={categorias} materiales={materiales} />}
-              {tab === "lector" && <LectorTab materiales={materiales} categorias={categorias} onMaterialUpdate={(id, updates) => setMateriales(prev => prev?.map(m => m.id === id ? { ...m, ...updates } : m))} onCatalogChanged={cargar} />}
+              {switchingTab ? (
+                <div className="materiales-tab-loading">
+                  <div style={{ display: "grid", gap: 12, justifyItems: "center" }}>
+                    <span className="materiales-tab-spinner" />
+                    <div style={{ fontSize: 13, fontWeight: 850, color: C.t2 }}>Abriendo {activeTabLabel}...</div>
+                  </div>
+                </div>
+              ) : (
+                <div key={tab} className="materiales-tab-content">
+                  {tab === "lineas" && <LineasTab lineas={[]} obras={obrasAvance} categorias={categorias} materiales={materiales} proveedores={proveedores} opciones={opciones} onChanged={cargar} />}
+                  {tab === "matriz" && <MatrizTab categorias={categorias} materiales={materiales} proveedores={proveedores} obras={obrasAvance} onChanged={cargar} />}
+                  {tab === "importar" && <ImportarTab batches={batches} onImported={cargar} />}
+                  {tab === "bandeja" && <BandejaTab categorias={categorias} materiales={materiales} onChanged={cargar} />}
+                  {tab === "comprobantes" && <ComprobantesTab categorias={categorias} materiales={materiales} proveedores={proveedores} comprobantes={comprobantes} onChanged={cargar} />}
+                  {tab === "revision" && <RevisionTab categorias={categorias} materiales={materiales} proveedores={proveedores} onChanged={cargar} />}
+                  {tab === "normalizacion" && <NormalizacionTab categorias={categorias} materiales={materiales} proveedores={proveedores} onChanged={cargar} />}
+                  {tab === "condicionantes" && <MatrizCondicionantesTab materiales={materiales} categorias={categorias} onChanged={cargar} />}
+                  {tab === "variantes" && <VariantesMarcasTab materiales={materiales} />}
+                  {tab === "proveedores" && <ProveedoresTab proveedores={proveedores} onChanged={cargar} />}
+                  {tab === "avance" && <AvanceTab categorias={categorias} materiales={materiales} batches={batches} obras={obrasAvance} />}
+                  {tab === "costos" && <CostoObraTab categorias={categorias} materiales={materiales} opciones={opciones} />}
+                  {tab === "resumen" && <ResumenTab categorias={categorias} materiales={materiales} />}
+                  {tab === "lector" && <LectorTab materiales={materiales} categorias={categorias} onMaterialUpdate={(id, updates) => setMateriales(prev => prev?.map(m => m.id === id ? { ...m, ...updates } : m))} onCatalogChanged={cargar} />}
+                </div>
+              )}
             </>
           )}
         </div>
