@@ -3,10 +3,11 @@
 import { useMemo, useState } from "react";
 import { supabase } from "@/supabaseClient";
 import { C } from "@/theme";
-import { SEDES } from "./api";
+import useKeyboardWedge from "@/features/panol/useKeyboardWedge";
+import { isMissingColumn, normalizeNfcUid, SEDES } from "./api";
 import { BTN, BTN_PRIMARY, GrupoBadge, INP, KpiCard, LBL, Td, Th } from "./ui";
 
-const FORM_VACIO = { dni: "", nombre: "", grupo: "casa", sede: "", contratista_id: "", ficha: true, activo: true, notas: "" };
+const FORM_VACIO = { dni: "", nombre: "", grupo: "casa", sede: "", contratista_id: "", ficha: true, activo: true, notas: "", nfc_uid: "", foto_url: "" };
 
 function searchText(value) {
   return String(value ?? "").toLowerCase();
@@ -14,6 +15,31 @@ function searchText(value) {
 
 function digits(value) {
   return String(value ?? "").replace(/\D/g, "");
+}
+
+function initials(nombre) {
+  const parts = String(nombre ?? "").trim().split(/\s+/).filter(Boolean).slice(0, 2);
+  return parts.map((part) => part[0]).join("").toUpperCase() || "?";
+}
+
+function EmpleadoAvatar({ emp, size = 30 }) {
+  const foto = String(emp?.foto_url ?? "").trim();
+  return (
+    <div style={{ width: size, height: size, borderRadius: size >= 44 ? 16 : 10, overflow: "hidden", border: `1px solid ${C.b0}`, background: "linear-gradient(135deg, rgba(59,130,246,0.16), rgba(16,185,129,0.14))", color: C.blue, display: "grid", placeItems: "center", flexShrink: 0, fontWeight: 950, fontSize: size >= 44 ? 18 : 11 }}>
+      {foto ? <img src={foto} alt="" loading="lazy" style={{ width: "100%", height: "100%", objectFit: "cover" }} /> : initials(emp?.nombre)}
+    </div>
+  );
+}
+
+function NfcBadge({ uid }) {
+  const clean = normalizeNfcUid(uid);
+  return clean ? (
+    <span title={`Tarjeta ${clean}`} style={{ display: "inline-flex", alignItems: "center", gap: 5, border: `1px solid ${C.greenB}`, background: C.greenL, color: C.green, borderRadius: 999, padding: "3px 8px", fontSize: 10.5, fontWeight: 850, fontFamily: C.mono }}>
+      NFC {clean.slice(-6)}
+    </span>
+  ) : (
+    <span style={{ color: C.t2, fontSize: 11 }}>sin tarjeta</span>
+  );
 }
 
 export default function EmpleadosTab({ empleados, contratistas, onChanged, esAdmin }) {
@@ -46,6 +72,7 @@ export default function EmpleadosTab({ empleados, contratistas, onChanged, esAdm
       rows = rows.filter(e =>
         searchText(e.nombre).includes(qq)
         || searchText(e.dni).includes(qq)
+        || searchText(e.nfc_uid).includes(qq)
         || (!!qDni && digits(e.dni).includes(qDni))
       );
     }
@@ -60,6 +87,7 @@ export default function EmpleadosTab({ empleados, contratistas, onChanged, esAdm
       contr: act.filter(e => e.grupo === "contratista").length,
       sin: act.filter(e => e.grupo === "sin_asignar").length,
       noFichan: act.filter(e => e.ficha === false).length,
+      conNfc: act.filter(e => normalizeNfcUid(e.nfc_uid)).length,
     };
   }, [empleados]);
 
@@ -143,6 +171,7 @@ export default function EmpleadosTab({ empleados, contratistas, onChanged, esAdm
         <KpiCard label="Contratistas" value={stats.contr} color="#fbbf24" sub={`${(contratistas ?? []).length} jefes`} />
         <KpiCard label="Sin asignar" value={stats.sin} color={stats.sin ? "#f87171" : C.green} sub={stats.sin ? "clasificar acá abajo" : "todo clasificado"} />
         <KpiCard label="No fichan" value={stats.noFichan} sub="ignorados en informes" />
+        <KpiCard label="NFC" value={stats.conNfc} color={C.green} sub="tarjetas asignadas" />
       </div>
 
       <div style={{ display: "flex", gap: 8, flexWrap: "wrap", alignItems: "center", marginBottom: 14 }}>
@@ -220,15 +249,26 @@ export default function EmpleadosTab({ empleados, contratistas, onChanged, esAdm
           <thead>
             <tr>
               {esAdmin && <Th><input type="checkbox" checked={filtrados.length > 0 && filtrados.every(e => selIds.has(e.id))} onChange={e => e.target.checked ? selAll() : selNone()} /></Th>}
-              <Th>Nombre</Th><Th>DNI</Th><Th>Sede</Th><Th>Grupo</Th><Th>Ficha</Th><Th>Estado</Th><Th> </Th>
+              <Th>Nombre</Th><Th>DNI</Th><Th>NFC</Th><Th>Sede</Th><Th>Grupo</Th><Th>Ficha</Th><Th>Estado</Th><Th> </Th>
             </tr>
           </thead>
           <tbody>
             {filtrados.map(e => (
               <tr key={e.id} style={{ opacity: e.activo === false ? 0.5 : 1 }}>
                 {esAdmin && <Td><input type="checkbox" checked={selIds.has(e.id)} onChange={() => toggleSel(e.id)} /></Td>}
-                <Td>{e.nombre}{e.notas && <span title={e.notas} style={{ marginLeft: 6, fontSize: 11, color: C.t2 }}>✎</span>}</Td>
+                <Td>
+                  <div style={{ display: "flex", alignItems: "center", gap: 9, minWidth: 190 }}>
+                    <EmpleadoAvatar emp={e} />
+                    <div style={{ minWidth: 0 }}>
+                      <div style={{ color: C.t0, fontWeight: 800, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+                        {e.nombre}{e.notas && <span title={e.notas} style={{ marginLeft: 6, fontSize: 11, color: C.t2 }}>nota</span>}
+                      </div>
+                      {e.foto_url && <div style={{ color: C.t2, fontSize: 10.5, marginTop: 1 }}>foto cargada</div>}
+                    </div>
+                  </div>
+                </Td>
                 <Td mono color={C.t1}>{e.dni}</Td>
+                <Td><NfcBadge uid={e.nfc_uid} /></Td>
                 <Td color={e.sede ? C.t1 : C.t2}>{e.sede ?? "—"}</Td>
                 <Td><GrupoBadge grupo={e.grupo} contratistaNombre={e.contratista?.nombre} /></Td>
                 <Td color={e.ficha === false ? C.t2 : C.green} style={{ fontSize: 12 }}>{e.ficha === false ? "no ficha" : "ficha"}</Td>
@@ -271,24 +311,49 @@ function EmpleadoModal({ emp, contratistas, onClose, onSaved, onError }) {
     dni: emp.dni, nombre: emp.nombre, grupo: emp.grupo,
     sede: emp.sede ?? "", contratista_id: emp.contratista_id ?? "", ficha: emp.ficha !== false,
     activo: emp.activo !== false, notas: emp.notas ?? "",
+    nfc_uid: emp.nfc_uid ?? "", foto_url: emp.foto_url ?? "",
   } : FORM_VACIO);
   const [saving, setSaving] = useState(false);
+  const [scanMsg, setScanMsg] = useState("");
   const set = (k, v) => setForm(f => ({ ...f, [k]: v }));
+
+  useKeyboardWedge({
+    enabled: true,
+    ignoreEditable: false,
+    minLength: 4,
+    timeoutMs: 65,
+    onScan: (code) => {
+      const clean = normalizeNfcUid(code);
+      if (!clean) return;
+      set("nfc_uid", clean);
+      setScanMsg(`Tarjeta detectada: ${clean}`);
+    },
+  });
 
   async function guardar() {
     if (!form.nombre.trim() || !/^\d{5,10}$/.test(form.dni.trim())) return;
     setSaving(true);
+    const nfcUid = normalizeNfcUid(form.nfc_uid);
+    const currentNfc = normalizeNfcUid(emp?.nfc_uid);
+    const nfcChanged = nfcUid !== currentNfc;
+    const auth = nfcChanged ? await supabase.auth.getUser() : null;
     const payload = {
       dni: form.dni.trim(), nombre: form.nombre.trim(), grupo: form.grupo,
       sede: form.sede || null,
       contratista_id: form.grupo === "contratista" && form.contratista_id ? form.contratista_id : null,
       ficha: form.ficha, activo: form.activo, notas: form.notas.trim() || null,
+      nfc_uid: nfcUid || null,
+      foto_url: form.foto_url.trim() || null,
+      ...(nfcChanged ? { nfc_asignado_at: nfcUid ? new Date().toISOString() : null, nfc_asignado_por: auth?.data?.user?.id ?? null } : {}),
     };
     const res = emp
       ? await supabase.from("rrhh_empleados").update(payload).eq("id", emp.id)
       : await supabase.from("rrhh_empleados").insert(payload);
     setSaving(false);
-    if (res.error) { onError?.(res.error); return; }
+    if (res.error) {
+      onError?.(isMissingColumn(res.error) ? new Error("Falta correr la migracion NFC de RRHH antes de guardar tarjetas o fotos.") : res.error);
+      return;
+    }
     onSaved();
   }
 
@@ -303,6 +368,26 @@ function EmpleadoModal({ emp, contratistas, onClose, onSaved, onError }) {
         <label style={LBL}>DNI * <span style={{ color: C.t2, textTransform: "none", letterSpacing: 0 }}>(es la llave con el fichero — solo números)</span></label>
         <input style={{ ...INP, width: "100%", marginBottom: 10, fontFamily: C.mono }} value={form.dni}
           onChange={e => set("dni", e.target.value.replace(/\D/g, ""))} disabled={!!emp} />
+
+        <div style={{ display: "grid", gridTemplateColumns: "auto 1fr", gap: 12, alignItems: "center", border: `1px solid ${C.b0}`, background: C.s0, borderRadius: 12, padding: 10, marginBottom: 10 }}>
+          <EmpleadoAvatar emp={{ nombre: form.nombre, foto_url: form.foto_url }} size={56} />
+          <div style={{ minWidth: 0 }}>
+            <label style={LBL}>Foto del empleado</label>
+            <input style={{ ...INP, width: "100%", marginBottom: 6 }} value={form.foto_url} onChange={e => set("foto_url", e.target.value)} placeholder="URL de foto / ficha visual" />
+            <div style={{ color: C.t2, fontSize: 11, lineHeight: 1.35 }}>Se muestra al egresar material para confirmar visualmente quien retira.</div>
+          </div>
+        </div>
+
+        <div style={{ border: `1px solid ${form.nfc_uid ? C.greenB : C.b0}`, background: form.nfc_uid ? C.greenL : C.s0, borderRadius: 12, padding: 10, marginBottom: 10 }}>
+          <label style={LBL}>Tarjeta NFC/RFID</label>
+          <div style={{ display: "grid", gridTemplateColumns: "1fr auto", gap: 8 }}>
+            <input style={{ ...INP, width: "100%", fontFamily: C.mono, background: C.panelSolid }} value={form.nfc_uid} onChange={e => { set("nfc_uid", normalizeNfcUid(e.target.value)); setScanMsg(""); }} placeholder="Apoya la tarjeta o pega el UID" />
+            <button type="button" onClick={() => { set("nfc_uid", ""); setScanMsg(""); }} style={{ ...BTN, whiteSpace: "nowrap" }}>Limpiar</button>
+          </div>
+          <div style={{ color: form.nfc_uid ? C.green : C.t2, fontSize: 11, lineHeight: 1.35, marginTop: 7 }}>
+            {scanMsg || "Con el modal abierto, apoya la tarjeta. Si el lector escribe como teclado, el UID se completa solo."}
+          </div>
+        </div>
 
         <label style={LBL}>Sede</label>
         <select style={{ ...INP, width: "100%", marginBottom: 10 }} value={form.sede} onChange={e => set("sede", e.target.value)}>

@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useDeferredValue, useEffect, useMemo, useRef, useState, useTransition } from "react";
 import { Barcode, Copy, Download, ExternalLink, FileText, ImagePlus, Link as LinkIcon, MoreHorizontal, PackagePlus, Pencil, Plus, RefreshCw, Save, Search, ShoppingCart, SkipForward, SlidersHorizontal, StickyNote, Trash2, Upload, X } from "lucide-react";
 import Sidebar from "@/components/Sidebar";
 import { useResponsive } from "@/hooks/useResponsive";
@@ -27,10 +27,12 @@ import {
   restaurarMaterialAuditChange,
   marcarMaterialesNoDuplicados,
   normalizeMaterialLinks,
+  normalizeUnidadMedida,
   setCantidadModelo,
   setSectoresMaterial,
   quitarCantidadModelo,
   uploadMaterialImage,
+  uploadMaterialVariantImage,
   fetchAddonsObra,
   fetchAddonsMaterial,
   crearAddon,
@@ -283,7 +285,7 @@ const KNOWN_MATERIAL_BRANDS = [
 ];
 
 function normalizeVariantList(value) {
-  const raw = Array.isArray(value) ? value : String(value || "").split(/[,\n;/]+/);
+  const raw = Array.isArray(value) ? value : String(value || "").split(/[\n;]+/);
   const seen = new Set();
   return raw
     .flatMap((item) => String(item || "").split(/\s*\/\s*/))
@@ -295,6 +297,19 @@ function normalizeVariantList(value) {
       seen.add(key);
       return true;
     });
+}
+
+const STANDARD_UNITS = ["unidad", "metro", "cm", "mm", "kg", "g", "litro", "pies", "caja", "rollo", "par", "juego", "placa", "hoja", "barra", "bolsa", "lata", "tubo", "m2", "m3"];
+
+function buildUnidadOptions(materiales = []) {
+  const canonical = new Set(STANDARD_UNITS);
+  const extras = new Set();
+  for (const material of materiales ?? []) {
+    const unit = normalizeUnidadMedida(material?.unidad_medida, "");
+    if (!unit) continue;
+    if (!canonical.has(unit)) extras.add(unit);
+  }
+  return [...STANDARD_UNITS, ...[...extras].sort((a, b) => a.localeCompare(b, "es"))];
 }
 
 function providerBrandCandidates(proveedores = []) {
@@ -1241,8 +1256,9 @@ function SubsectorSelect({ categorias, value, onChange }) {
   );
 }
 
-function VariantsEditor({ value = [], onChange, precios = {}, onPreciosChange, description = "", proveedores = [], onCleanTitle }) {
+function VariantsEditor({ value = [], onChange, precios = {}, onPreciosChange, description = "", proveedores = [], onCleanTitle, materialId = null }) {
   const [draft, setDraft] = useState("");
+  const [uploadingVariant, setUploadingVariant] = useState("");
   const variants = normalizeVariantList(value);
   const detected = extractBrandsFromTitle(description, proveedores).filter((name) => !variants.some((v) => norm(v) === norm(name)));
   const withPrices = !!onPreciosChange;
@@ -1265,6 +1281,24 @@ function VariantsEditor({ value = [], onChange, precios = {}, onPreciosChange, d
     onChange?.(next);
     onCleanTitle?.(cleanTitleBrands(description, next, proveedores));
   };
+  const handleDraftKeyDown = (event) => {
+    if (event.key === "Enter") {
+      event.preventDefault();
+      add();
+      return;
+    }
+    if (event.key === "," || event.code === "Comma") event.stopPropagation();
+  };
+  const uploadVariantImage = async (variant, file) => {
+    if (!file || !materialId) return;
+    setUploadingVariant(variant);
+    try {
+      const uploaded = await uploadMaterialVariantImage(materialId, variant, file);
+      setPrecio(variant, { imagen_url: uploaded?.url || "" });
+    } finally {
+      setUploadingVariant("");
+    }
+  };
 
   const chip = { display: "inline-flex", alignItems: "center", gap: 5, color: C.violet, background: "rgba(139,92,246,0.1)", border: "1px solid rgba(139,92,246,0.3)", borderRadius: 999, padding: "3px 7px", fontSize: 11, fontWeight: 850 };
 
@@ -1275,14 +1309,30 @@ function VariantsEditor({ value = [], onChange, precios = {}, onPreciosChange, d
           {variants.map((variant) => {
             const p = precios?.[variant] || {};
             return (
-              <div key={variant} style={{ display: "grid", gridTemplateColumns: "minmax(72px,0.9fr) minmax(90px,1fr) 104px 64px auto", gap: 6, alignItems: "center" }}>
+              <div key={variant} style={{ display: "grid", gridTemplateColumns: "minmax(86px,0.9fr) 44px minmax(90px,1fr) 96px 64px minmax(130px,1.05fr) auto", gap: 6, alignItems: "center" }}>
                 <span style={{ ...chip, justifySelf: "start", maxWidth: "100%", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{variant}</span>
+                <label title={materialId ? "Subir foto/plano de esta variante" : "Guardá el material para subir archivo; podés pegar una URL ahora"} style={{ width: 38, height: 34, border: `1px solid ${p.imagen_url ? C.blueB : C.b0}`, background: p.imagen_url ? C.blueL : C.s0, color: p.imagen_url ? C.blue : C.t2, borderRadius: 9, display: "grid", placeItems: "center", overflow: "hidden", cursor: materialId ? "pointer" : "default", opacity: uploadingVariant === variant ? 0.65 : 1 }}>
+                  {p.imagen_url ? <img src={p.imagen_url} alt={variant} style={{ width: "100%", height: "100%", objectFit: "cover" }} /> : <ImagePlus size={14} />}
+                  {materialId && (
+                    <input
+                      type="file"
+                      accept="image/*"
+                      style={{ display: "none" }}
+                      onChange={(event) => {
+                        const file = event.target.files?.[0] || null;
+                        event.target.value = "";
+                        uploadVariantImage(variant, file);
+                      }}
+                    />
+                  )}
+                </label>
                 <input value={p.codigo ?? ""} onChange={(e) => setPrecio(variant, { codigo: e.target.value })} placeholder="Código" style={{ ...INP, padding: "6px 9px", fontFamily: C.mono }} />
                 <input value={p.precio ?? ""} onChange={(e) => setPrecio(variant, { precio: e.target.value })} inputMode="decimal" placeholder="Precio" style={{ ...INP, padding: "6px 9px" }} />
                 <select value={p.moneda || "ARS"} onChange={(e) => setPrecio(variant, { moneda: e.target.value })} style={{ ...INP, padding: "6px 6px" }}>
                   <option value="ARS">ARS</option>
                   <option value="USD">USD</option>
                 </select>
+                <input value={p.imagen_url ?? ""} onChange={(e) => setPrecio(variant, { imagen_url: e.target.value })} placeholder="URL foto/plano" style={{ ...INP, padding: "6px 9px" }} />
                 <button type="button" onClick={() => remove(variant)} title="Quitar variante" style={{ ...BTN, color: C.red, padding: "6px 8px" }}>×</button>
               </div>
             );
@@ -1301,7 +1351,7 @@ function VariantsEditor({ value = [], onChange, precios = {}, onPreciosChange, d
         </div>
       )}
       <div style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>
-        <input value={draft} onChange={(e) => setDraft(e.target.value)} onKeyDown={(e) => { if (e.key === "Enter") { e.preventDefault(); add(); } }} placeholder="Ej: LG, Samsung / 23L, 48L" style={{ ...INP, flex: "1 1 180px", minWidth: 150 }} />
+        <input value={draft} onChange={(e) => setDraft(e.target.value)} onKeyDown={handleDraftKeyDown} placeholder="Ej: LG / Samsung / 23L. Enter agrega." style={{ ...INP, flex: "1 1 180px", minWidth: 150 }} />
         <button type="button" onClick={() => add()} disabled={!draft.trim()} style={{ ...BTN, padding: "6px 10px", color: C.violet }}>
           + Variante
         </button>
@@ -1553,13 +1603,14 @@ function MaterialQueueCard({ material, categorias, ums, proveedores, onSave, onS
           description={draft.descripcion}
           proveedores={proveedores}
           onCleanTitle={(descripcion) => setDraft((d) => ({ ...d, descripcion }))}
+          materialId={material.id}
         />
       </div>
 
       <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(120px, 1fr))", gap: 12, marginBottom: 12 }}>
         <div>
           <label style={LBL}>UM</label>
-          <input list="materiales-ums" value={draft.unidad_medida || ""} onChange={(e) => setDraft((d) => ({ ...d, unidad_medida: e.target.value }))} style={{ ...INP, width: "100%" }} />
+          <input list="materiales-ums" value={draft.unidad_medida || ""} onChange={(e) => setDraft((d) => ({ ...d, unidad_medida: e.target.value }))} onBlur={(e) => setDraft((d) => ({ ...d, unidad_medida: normalizeUnidadMedida(e.target.value, "") }))} style={{ ...INP, width: "100%" }} />
         </div>
         <div>
           <label style={LBL}>Precio</label>
@@ -1698,7 +1749,7 @@ function AltaManual({ categorias, selectedId, ums, proveedores, onCreated, open:
           onCreated={onCreated}
           onChange={(id, nombre) => setDraft((d) => ({ ...d, proveedor_id: id, proveedor: nombre }))}
         />
-        <input list="materiales-ums" placeholder="UM" value={draft.unidad_medida} onChange={(e) => setDraft((d) => ({ ...d, unidad_medida: e.target.value }))} style={INP} />
+        <input list="materiales-ums" placeholder="UM" value={draft.unidad_medida} onChange={(e) => setDraft((d) => ({ ...d, unidad_medida: e.target.value }))} onBlur={(e) => setDraft((d) => ({ ...d, unidad_medida: normalizeUnidadMedida(e.target.value, "") }))} style={INP} />
         <select value={draft.categoria_id || ""} onChange={(e) => setDraft((d) => ({ ...d, categoria_id: e.target.value }))} style={INP}>
           {categorias.map((c) => <option key={c.id} value={c.id}>{c.nombre}</option>)}
         </select>
@@ -1815,6 +1866,7 @@ function MaterialRow({ material, categorias, ums, proveedores, onChanged, modelo
             description={draft.descripcion}
             proveedores={proveedores}
             onCleanTitle={(descripcion) => setDraft((d) => ({ ...d, descripcion }))}
+            materialId={material.id}
           />
         </div>
       </Td>
@@ -1837,7 +1889,7 @@ function MaterialRow({ material, categorias, ums, proveedores, onChanged, modelo
         </Td>
       )}
       <Td style={{ minWidth: compact ? 72 : 90 }}>
-        <input list="materiales-ums" value={draft.unidad_medida || ""} onChange={(e) => setDraft((d) => ({ ...d, unidad_medida: e.target.value }))} style={{ ...INP, width: "100%" }} />
+        <input list="materiales-ums" value={draft.unidad_medida || ""} onChange={(e) => setDraft((d) => ({ ...d, unidad_medida: e.target.value }))} onBlur={(e) => setDraft((d) => ({ ...d, unidad_medida: normalizeUnidadMedida(e.target.value, "") }))} style={{ ...INP, width: "100%" }} />
         <datalist id="materiales-ums">
           {ums.map((u) => <option key={u} value={u} />)}
         </datalist>
@@ -1894,7 +1946,7 @@ const AUDIT_FIELD_LABELS = {
   categoria_id: "Rubro",
   codigo: "Codigo",
   codigo_barra: "Codigo de barra",
-  unidad_medida: "Unidad",
+  unidad_medida: "unidad",
   precio_unitario: "Precio",
   moneda: "Moneda",
   variantes: "Variantes",
@@ -2433,6 +2485,7 @@ function MaterialFila({ material, categorias, ums, proveedores, obras = [], onCh
               description={draft.descripcion}
               proveedores={proveedores}
               onCleanTitle={(descripcion) => setDraft((d) => ({ ...d, descripcion }))}
+              materialId={material.id}
             />
           </div>
           <div>
@@ -2458,7 +2511,7 @@ function MaterialFila({ material, categorias, ums, proveedores, obras = [], onCh
             </div>
           </div>
           <div style={{ display: "grid", gridTemplateColumns: "80px 1fr 88px 1fr", gap: 8 }}>
-            <div><span style={lbl}>UM</span><input list="materiales-ums" value={draft.unidad_medida || ""} onChange={(e) => setDraft((d) => ({ ...d, unidad_medida: e.target.value }))} style={{ ...INP, width: "100%" }} /><datalist id="materiales-ums">{ums.map((u) => <option key={u} value={u} />)}</datalist></div>
+            <div><span style={lbl}>UM</span><input list="materiales-ums" value={draft.unidad_medida || ""} onChange={(e) => setDraft((d) => ({ ...d, unidad_medida: e.target.value }))} onBlur={(e) => setDraft((d) => ({ ...d, unidad_medida: normalizeUnidadMedida(e.target.value, "") }))} style={{ ...INP, width: "100%" }} /><datalist id="materiales-ums">{ums.map((u) => <option key={u} value={u} />)}</datalist></div>
             <div><span style={lbl}>Precio</span><input type="number" step="any" value={draft.precio_unitario ?? ""} onChange={(e) => setDraft((d) => ({ ...d, precio_unitario: e.target.value }))} style={{ ...INP, width: "100%", fontFamily: C.mono }} /></div>
             <div><span style={lbl}>Moneda</span><select value={draft.moneda || ""} onChange={(e) => setDraft((d) => ({ ...d, moneda: e.target.value || null }))} style={{ ...INP, width: "100%" }}>{MONEDAS.map((m) => <option key={m || "null"} value={m}>{m || "—"}</option>)}</select></div>
             <div><span style={lbl}>Código</span><input value={draft.codigo || ""} onChange={(e) => setDraft((d) => ({ ...d, codigo: e.target.value }))} style={{ ...INP, width: "100%" }} /></div>
@@ -2849,7 +2902,7 @@ function AgregarItemLinea({ linea, title, materiales = [], categorias = [], prov
         <div style={{ display: "grid", gap: 10 }}>
           <div style={{ display: "grid", gridTemplateColumns: "minmax(260px, 1.4fr) minmax(130px, .6fr) 92px", gap: 8 }}>
             <input value={draft.descripcion} onChange={(e) => setDraft((d) => ({ ...d, descripcion: e.target.value }))} placeholder="Descripción del material" style={{ ...INP, height: 38, fontWeight: 750 }} />
-            <input value={draft.unidad_medida} onChange={(e) => setDraft((d) => ({ ...d, unidad_medida: e.target.value }))} list="linea-add-ums" placeholder="Unidad" style={{ ...INP, height: 38 }} />
+            <input value={draft.unidad_medida} onChange={(e) => setDraft((d) => ({ ...d, unidad_medida: e.target.value }))} onBlur={(e) => setDraft((d) => ({ ...d, unidad_medida: normalizeUnidadMedida(e.target.value, "unidad") }))} list="linea-add-ums" placeholder="Unidad" style={{ ...INP, height: 38 }} />
             <input type="number" step="any" min="0" value={cantidad} onChange={(e) => setCantidad(e.target.value)} placeholder="Cant." style={{ ...INP, height: 38, fontFamily: C.mono }} />
           </div>
           <datalist id="linea-add-ums">
@@ -3297,7 +3350,7 @@ function ObraAddonModal({ open, obra, obras = [], addon = null, materiales = [],
             <div style={{ display: "grid", gap: 10, border: `1px solid ${C.b0}`, background: C.panelSolid2, borderRadius: 12, padding: 12 }}>
               <div style={{ display: "grid", gridTemplateColumns: "minmax(260px, 1.4fr) minmax(130px, .6fr)", gap: 8 }}>
                 <input value={draft.descripcion} onChange={(e) => setDraft((d) => ({ ...d, descripcion: e.target.value }))} placeholder="Descripcion del material" style={{ ...INP, height: 38, fontWeight: 750 }} />
-                <input value={draft.unidad_medida} onChange={(e) => setDraft((d) => ({ ...d, unidad_medida: e.target.value }))} list="obra-addon-ums" placeholder="Unidad" style={{ ...INP, height: 38 }} />
+                <input value={draft.unidad_medida} onChange={(e) => setDraft((d) => ({ ...d, unidad_medida: e.target.value }))} onBlur={(e) => setDraft((d) => ({ ...d, unidad_medida: normalizeUnidadMedida(e.target.value, "unidad") }))} list="obra-addon-ums" placeholder="Unidad" style={{ ...INP, height: 38 }} />
               </div>
               <datalist id="obra-addon-ums">{ums.map((u) => <option key={u} value={u} />)}</datalist>
               <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(170px, 1fr))", gap: 8, alignItems: "center" }}>
@@ -3367,7 +3420,11 @@ function ListaMateriales({ categorias, materiales, selectedId, ums, proveedores,
   const [rubro, setRubro] = useState("");
   const [consumFiltro, setConsumFiltro] = useState("todos"); // todos | sin | solo
   const [advancedOpen, setAdvancedOpen] = useState(false);
+  const [, startLineaTransition] = useTransition();
   const linea = lineaFija || lineaState;
+  const deferredLinea = useDeferredValue(linea);
+  const lineaLista = lineaFija || deferredLinea;
+  const lineaPendiente = linea !== lineaLista;
   // La lista sale de la tabla de Proveedores (no se infiere de los materiales).
   const provs = useMemo(
     () => (proveedores ?? []).filter((p) => p.activo !== false).slice().sort((a, b) => (a.nombre || "").localeCompare(b.nombre || "", "es")),
@@ -3389,7 +3446,7 @@ function ListaMateriales({ categorias, materiales, selectedId, ums, proveedores,
       .filter(materialActivo)
       .filter((m) => !scope || materialEnScope(m, scope))
       .filter((m) => !rubroScope || materialEnScope(m, rubroScope))
-      .filter((m) => !linea || toNum(toBomMap(m)[linea]) > 0) // solo los que van en esa línea
+      .filter((m) => !lineaLista || toNum(toBomMap(m)[lineaLista]) > 0) // solo los que van en esa línea
       .filter((m) => !prov || m.proveedor_id === prov || (provNombre && norm(m.proveedor) === provNombre))
       .filter((m) => proveedorTipo === "todos" || proveedorMeta(m.proveedor, proveedores)?.tipo === proveedorTipo)
       .filter((m) => consumFiltro === "todos" || (consumFiltro === "solo" ? m.es_consumible : !m.es_consumible))
@@ -3401,10 +3458,10 @@ function ListaMateriales({ categorias, materiales, selectedId, ums, proveedores,
       })
       // Consumibles al fondo (no molestan entre los ítems del barco). Sort estable: mantiene el orden por descripción dentro de cada grupo.
       .sort((a, b) => (a.es_consumible ? 1 : 0) - (b.es_consumible ? 1 : 0));
-  }, [materiales, categorias, searchValue, selectedId, soloPendientes, linea, prov, proveedores, rubro, proveedorTipo, consumFiltro]);
+  }, [materiales, categorias, searchValue, selectedId, soloPendientes, lineaLista, prov, proveedores, rubro, proveedorTipo, consumFiltro]);
 
   // Si se filtra por una línea, mostramos solo esa columna de cantidad (más prolijo y angosto).
-  const modelos = linea ? [linea] : MODELOS;
+  const modelos = lineaLista ? [lineaLista] : MODELOS;
 
   // Scroll horizontal con la rueda normal (sin Shift): mientras haya para correr en esa
   // dirección lo consume; al llegar al borde, suelta para que la página scrollee vertical.
@@ -3430,6 +3487,10 @@ function ListaMateriales({ categorias, materiales, selectedId, ums, proveedores,
     consumFiltro !== "todos",
     soloPendientes,
   ].filter(Boolean).length;
+  const listaTransitionKey = `${lineaLista || "todas"}:${selectedId || "catalogo"}`;
+  const cambiarLinea = useCallback((next) => {
+    startLineaTransition(() => setLineaState(next));
+  }, [startLineaTransition]);
 
   const segmentStyle = (on) => ({
     border: "none",
@@ -3480,7 +3541,7 @@ function ListaMateriales({ categorias, materiales, selectedId, ums, proveedores,
           {[["", "Todas"], ...MODELOS.map((m) => [m, `K${m}`])].map(([val, label]) => {
             const on = linea === val;
             return (
-              <button type="button" key={val || "all"} onClick={() => setLineaState(val)} title={val ? `Solo materiales de la línea K${val}` : "Todas las líneas"}
+              <button type="button" key={val || "all"} onClick={() => cambiarLinea(val)} title={val ? `Solo materiales de la línea K${val}` : "Todas las líneas"}
                 style={segmentStyle(on)}>
                 {label}
               </button>
@@ -3519,7 +3580,7 @@ function ListaMateriales({ categorias, materiales, selectedId, ums, proveedores,
         </button>
         </>)}
         <span style={{ marginLeft: "auto", fontFamily: C.mono, fontSize: 12, fontWeight: 700, color: C.t1, background: C.s0, border: `1px solid ${C.b0}`, borderRadius: 999, padding: "6px 12px", whiteSpace: "nowrap" }}>
-          {visibles.length} ítems{linea ? ` · K${linea}` : ""}
+          {visibles.length} ítems{lineaLista ? ` · K${lineaLista}` : ""}{lineaPendiente ? " · actualizando..." : ""}
         </span>
       </div>
 
@@ -3531,10 +3592,11 @@ function ListaMateriales({ categorias, materiales, selectedId, ums, proveedores,
 
       {lineaFija && <PrepararCompra items={visibles} linea={lineaFija} categorias={categorias} />}
 
+      <div key={listaTransitionKey} className="materiales-list-transition">
       {compact ? (
         <div>
           {visibles.map((material) => (
-            <MaterialFila key={material.id} material={material} categorias={categorias} ums={ums} proveedores={proveedores} obras={obras} onChanged={onChanged} linea={linea} stockInfo={stockInfoFor(material)} />
+            <MaterialFila key={material.id} material={material} categorias={categorias} ums={ums} proveedores={proveedores} obras={obras} onChanged={onChanged} linea={lineaLista} stockInfo={stockInfoFor(material)} />
           ))}
           {!visibles.length && (
             <div style={{ padding: 18, fontSize: 13, color: C.t2, textAlign: "center", border: `1px solid ${C.b0}`, borderRadius: 12 }}>No hay materiales con esos filtros.</div>
@@ -3574,6 +3636,7 @@ function ListaMateriales({ categorias, materiales, selectedId, ums, proveedores,
         </table>
       </div>
       )}
+      </div>
     </div>
   );
 }
@@ -4077,7 +4140,7 @@ function RevisionTab({ categorias, materiales, proveedores, onChanged }) {
   }, [categorias, materiales]);
 
   const ums = useMemo(() => {
-    return [...new Set(materiales.map((m) => m.unidad_medida).filter(Boolean).map(String))].sort((a, b) => a.localeCompare(b, "es"));
+    return buildUnidadOptions(materiales);
   }, [materiales]);
 
   const selectedMaterials = useMemo(() => {
@@ -5264,19 +5327,23 @@ function ObraMatrizView({ obra, obras = [], linea, lineaNombre, categorias, mate
     }
   }
 
-  const chipStyle = (on, color = C.blue) => ({
-    ...BTN,
-    padding: "7px 11px",
-    background: on ? C.s1 : C.s0,
-    border: `1px solid ${on ? C.b1 : C.b0}`,
+  const filterPillStyle = (on, color = C.blue) => ({
+    border: `1px solid ${on ? `${color}66` : C.b0}`,
+    background: on ? `${color}16` : "transparent",
     color: on ? color : C.t2,
-    fontWeight: 800,
+    borderRadius: 999,
+    padding: "7px 11px",
+    fontSize: 12,
+    fontWeight: 900,
+    cursor: "pointer",
+    fontFamily: C.sans,
+    transition: "background .16s ease, border-color .16s ease, color .16s ease, transform .16s ease",
+    whiteSpace: "nowrap",
   });
-
   return (
     <div>
-      <div style={{ border: `1px solid ${C.b0}`, borderRadius: 18, background: "var(--panel)", padding: 18, marginBottom: 16 }}>
-        <div style={{ display: "flex", alignItems: "center", gap: 12, flexWrap: "wrap", marginBottom: 14 }}>
+      <div style={{ border: `1px solid ${C.b0}`, borderRadius: 22, background: "linear-gradient(135deg, color-mix(in srgb, var(--panel) 94%, #ffffff 6%), color-mix(in srgb, var(--panel) 86%, #2563eb 5%))", padding: 18, marginBottom: 16, boxShadow: "0 22px 70px -54px rgba(15,23,42,0.65)" }}>
+        <div style={{ display: "flex", alignItems: "flex-start", gap: 12, flexWrap: "wrap" }}>
           <button type="button" onClick={onBack} style={{ ...BTN, padding: "8px 12px" }}>← {lineaNombre}</button>
           <div style={{ flex: "1 1 240px" }}>
             <div style={{ fontSize: 24, fontWeight: 950, color: C.t0 }}>{obra.codigo}</div>
@@ -5547,13 +5614,13 @@ function ObraMatrizView({ obra, obras = [], linea, lineaNombre, categorias, mate
         </div>
       ) : null}
 
-      <div style={{ border: `1px solid ${C.b0}`, borderRadius: 14, background: "var(--panel)", padding: 13, marginBottom: 16, display: "grid", gap: 12 }}>
+      <div style={{ position: "sticky", top: 0, zIndex: 22, border: `1px solid ${C.b0}`, borderRadius: 16, background: "color-mix(in srgb, var(--panel) 88%, transparent)", backdropFilter: "blur(18px)", WebkitBackdropFilter: "blur(18px)", padding: 11, marginBottom: 16, display: "grid", gap: 10, boxShadow: "0 20px 50px -42px rgba(15,23,42,0.75)" }}>
         <div style={{ display: "flex", gap: 8, flexWrap: "wrap", alignItems: "center" }}>
           <div style={{ position: "relative", flex: "1 1 280px" }}>
             <Search size={15} style={{ position: "absolute", left: 12, top: "50%", transform: "translateY(-50%)", color: C.t2 }} />
             <input value={q} onChange={(e) => setQ(e.target.value)} placeholder="Buscar item, proveedor, rubro, código..." style={{ ...INP, width: "100%", paddingLeft: 36, height: 38 }} />
           </div>
-          <select value={proveedorFilter} onChange={(e) => setProveedorFilter(e.target.value)} style={{ ...INP, width: 190, height: 38 }} title="Filtrar proveedor">
+          <select value={proveedorFilter} onChange={(e) => setProveedorFilter(e.target.value)} style={{ ...INP, width: 178, height: 40, borderRadius: 12 }} title="Filtrar proveedor">
             <option value="" style={OPT_ST}>Todos los proveedores</option>
             {facets.proveedores.map((p) => <option key={p} value={p} style={OPT_ST}>{p}</option>)}
           </select>
@@ -5576,7 +5643,7 @@ function ObraMatrizView({ obra, obras = [], linea, lineaNombre, categorias, mate
             ["sin_precio", "Sin precio", C.red],
             ["revisar", "A revisar", C.amber],
           ].map(([key, label, color]) => (
-            <button key={key} type="button" onClick={() => setTipoFilter(key)} style={chipStyle(tipoFilter === key, color)}>
+            <button key={key} type="button" onClick={() => setTipoFilter(key)} style={filterPillStyle(tipoFilter === key, color)}>
               {label}
             </button>
           ))}
@@ -5585,18 +5652,18 @@ function ObraMatrizView({ obra, obras = [], linea, lineaNombre, categorias, mate
           <PackagePlus size={16} style={{ color: C.green }} />
           <div style={{ fontSize: 12, fontWeight: 900, color: C.t0, marginRight: 2 }}>Estado</div>
           {recepcionFilterOptions(kpis).map(([key, label, color]) => (
-            <button key={key} type="button" onClick={() => setEstadoFilter(key)} style={chipStyle(estadoFilter === key, color)}>
+            <button key={key} type="button" onClick={() => setEstadoFilter(key)} style={filterPillStyle(estadoFilter === key, color)}>
               {label}
             </button>
           ))}
         </div>
-        <div style={{ display: "flex", gap: 8, flexWrap: "wrap", alignItems: "center", borderTop: `1px solid ${C.b0}`, paddingTop: 12 }}>
-          <FileText size={16} style={{ color: C.blue }} />
+        <div style={{ display: "flex", gap: 8, flexWrap: "wrap", alignItems: "center", borderTop: `1px solid ${C.b0}`, paddingTop: 10 }}>
+          <FileText size={15} style={{ color: C.blue }} />
           <div style={{ flex: "1 1 220px" }}>
             <div style={{ fontSize: 13, fontWeight: 900, color: C.t0 }}>Orden de compra</div>
             <div style={{ fontSize: 11.5, color: C.t2 }}>{selected.size ? `${selected.size} seleccionados` : `${visibleRows.length} visibles`} · se copia el texto para compras.</div>
           </div>
-          <select value={groupBy} onChange={(e) => setGroupBy(e.target.value)} style={{ ...INP, width: 150 }}>
+          <select value={groupBy} onChange={(e) => setGroupBy(e.target.value)} style={{ ...INP, width: 150, height: 38, borderRadius: 12 }}>
             <option value="proveedor" style={OPT_ST}>Proveedor</option>
             <option value="rubro" style={OPT_ST}>Rubro</option>
             <option value="tipo" style={OPT_ST}>Tipo</option>
@@ -5631,11 +5698,14 @@ function ObraMatrizView({ obra, obras = [], linea, lineaNombre, categorias, mate
 
       <div style={{ display: "grid", gap: 12 }}>
         {groupedRows.map((group) => (
-          <section key={group.label} style={{ border: `1px solid ${C.b0}`, borderRadius: 14, background: "var(--panel)", overflow: "hidden" }}>
-            <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 12, padding: "12px 14px", borderBottom: `1px solid ${C.b0}`, background: C.s0, flexWrap: "wrap" }}>
+          <section key={group.label} style={{ border: `1px solid ${C.b0}`, borderRadius: 16, background: "var(--panel)", overflow: "hidden", boxShadow: "0 16px 48px -44px rgba(15,23,42,0.75)" }}>
+            <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 12, padding: "10px 14px", borderBottom: `1px solid ${C.b0}`, background: "linear-gradient(90deg, color-mix(in srgb, var(--panel) 86%, #2563eb 4%), var(--panel))", flexWrap: "wrap" }}>
               <div style={{ minWidth: 0 }}>
-                <div style={{ fontSize: 14, fontWeight: 950, color: C.t0, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{group.label}</div>
-                <div style={{ fontSize: 11.5, color: C.t2, marginTop: 2 }}>
+                <div style={{ display: "flex", alignItems: "center", gap: 9, minWidth: 0 }}>
+                  <span style={{ width: 7, height: 7, borderRadius: 999, background: C.blue, boxShadow: `0 0 0 3px ${C.blue}18`, flexShrink: 0 }} />
+                  <div style={{ fontSize: 14.5, fontWeight: 950, color: C.t0, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{group.label}</div>
+                </div>
+                <div style={{ fontSize: 11.5, color: C.t2, marginTop: 3, paddingLeft: 16 }}>
                   {group.rows.length} items{group.sinPrecio ? ` · ${group.sinPrecio} sin precio` : ""}
                 </div>
               </div>
@@ -5645,7 +5715,7 @@ function ObraMatrizView({ obra, obras = [], linea, lineaNombre, categorias, mate
                 {group.ars ? <span style={{ fontFamily: C.mono, fontSize: 12, color: C.t0, border: `1px solid ${C.b0}`, borderRadius: 999, padding: "4px 9px", background: C.bg }}>{fmtMoney(group.ars, "ARS")}</span> : null}
               </div>
             </div>
-            <div style={{ display: "grid", gap: 7, padding: 10 }}>
+            <div style={{ display: "grid", gap: 6, padding: 8, overflowX: "auto" }}>
               {group.rows.map((row) => {
                 const qty = toNum(row.cantidad) || 1;
                 const total = row.precio.amount ? row.precio.amount * qty : null;
@@ -5859,7 +5929,7 @@ function ObraMatrizView({ obra, obras = [], linea, lineaNombre, categorias, mate
   );
 }
 
-function LineaMatrizView({ linea, obras = [], categorias, materiales, proveedores = [], opciones = [], ums, onChanged, onBack, onSelectObra }) {
+function LineaMatrizView({ linea, lineas = [], obras = [], categorias, materiales, proveedores = [], opciones = [], ums, onChanged, onBack, onSelectObra, onSelectLinea }) {
   const [q, setQ] = useState("");
   const [proveedorFilter, setProveedorFilter] = useState("");
   const [proveedorTipoFilter, setProveedorTipoFilter] = useState("todos");
@@ -5870,6 +5940,10 @@ function LineaMatrizView({ linea, obras = [], categorias, materiales, proveedore
   const [copied, setCopied] = useState(false);
   const [editingId, setEditingId] = useState("");
   const [removingId, setRemovingId] = useState("");
+  const [statsOpen, setStatsOpen] = useState(false);
+  const [filtersOpen, setFiltersOpen] = useState(false);
+  const [obrasOpen, setObrasOpen] = useState(false);
+  const [showAddItem, setShowAddItem] = useState(false);
   const code = String(linea?.codigo || "").replace(/^K/i, "");
   const title = linea?.nombre || `K${code}`;
 
@@ -6019,123 +6093,197 @@ function LineaMatrizView({ linea, obras = [], categorias, materiales, proveedore
     }
   }
 
-  const chipStyle = (on, color = C.blue) => ({
-    ...BTN,
-    padding: "7px 11px",
-    background: on ? C.s1 : C.s0,
-    border: `1px solid ${on ? C.b1 : C.b0}`,
+  const filterPillStyle = (on, color = C.blue) => ({
+    border: `1px solid ${on ? `${color}66` : C.b0}`,
+    background: on ? `${color}16` : "transparent",
     color: on ? color : C.t2,
-    fontWeight: 800,
+    borderRadius: 999,
+    padding: "7px 11px",
+    fontSize: 12,
+    fontWeight: 900,
+    cursor: "pointer",
+    fontFamily: C.sans,
+    transition: "background .16s ease, border-color .16s ease, color .16s ease, transform .16s ease",
+    whiteSpace: "nowrap",
   });
+  const activeFilterCount = [
+    proveedorFilter,
+    proveedorTipoFilter !== "todos",
+    rubroFilter,
+    tipoFilter !== "todos",
+    q.trim(),
+  ].filter(Boolean).length;
+  const lineOptions = lineas.length ? lineas : [linea].filter(Boolean);
+  const visibleObras = obras.filter(Boolean);
+  const totalLabel = kpis.usd ? fmtMoney(kpis.usd, "USD") : kpis.ars ? fmtMoney(kpis.ars, "ARS") : "Sin precios";
 
   return (
     <div>
-      <div style={{ border: `1px solid ${C.b0}`, borderRadius: 18, background: "var(--panel)", padding: 18, marginBottom: 16 }}>
-        <div style={{ display: "flex", alignItems: "center", gap: 12, flexWrap: "wrap", marginBottom: 14 }}>
-          <button type="button" onClick={onBack} style={{ ...BTN, padding: "8px 12px" }}>← Líneas</button>
-          <div style={{ flex: "1 1 240px" }}>
-            <div style={{ fontSize: 24, fontWeight: 950, color: C.t0 }}>{title}</div>
-            <div style={{ fontSize: 12.5, color: C.t2, marginTop: 3 }}>Base matriz editable · filtros por proveedor, rubro, tipo e items sin precio.</div>
+      <div style={{ border: `1px solid ${C.b0}`, borderRadius: 22, background: "linear-gradient(135deg, color-mix(in srgb, var(--panel) 96%, #ffffff 4%), color-mix(in srgb, var(--panel) 90%, #2563eb 4%))", padding: 16, marginBottom: 12, boxShadow: "0 20px 70px -58px rgba(15,23,42,0.72)" }}>
+        <div style={{ display: "flex", alignItems: "center", gap: 12, flexWrap: "wrap" }}>
+          <div style={{ flex: "1 1 360px", minWidth: 260 }}>
+            <div style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap", fontSize: 12, color: C.t2, fontWeight: 850 }}>
+              <button type="button" onClick={onBack} style={{ border: "none", background: "transparent", padding: 0, color: C.blue, fontWeight: 900, cursor: "pointer", fontFamily: C.sans }}>
+                Lineas de produccion
+              </button>
+              <span>/</span>
+              <select
+                value={code}
+                onChange={(event) => onSelectLinea?.(event.target.value)}
+                style={{ ...INP, width: 128, height: 34, borderRadius: 999, padding: "0 28px 0 12px", fontWeight: 950, color: C.t0, background: C.s0 }}
+                title="Cambiar linea"
+              >
+                {lineOptions.map((item) => {
+                  const optionCode = String(item?.codigo || "").replace(/^K/i, "");
+                  return <option key={optionCode || item?.nombre} value={optionCode} style={OPT_ST}>{item?.nombre || `K${optionCode}`}</option>;
+                })}
+              </select>
+              <span>/</span>
+              <span style={{ color: C.t1 }}>Base matriz</span>
+            </div>
+            <div style={{ marginTop: 8, display: "flex", alignItems: "baseline", gap: 10, flexWrap: "wrap" }}>
+              <h2 style={{ margin: 0, fontSize: 28, lineHeight: 1.05, fontWeight: 950, color: C.t0, letterSpacing: -0.2 }}>{title}</h2>
+              {kpis.sinPrecio ? <span style={{ fontSize: 11, fontWeight: 950, color: C.amber, border: `1px solid ${C.amberB}`, background: C.amberL, borderRadius: 999, padding: "4px 8px" }}>{kpis.sinPrecio} sin precio</span> : null}
+            </div>
           </div>
-          <button type="button" onClick={copiarOrden} disabled={!orderRows.length} style={{ ...BTN_GREEN, padding: "9px 14px" }}>
-            <Copy size={14} /> {copied ? "Copiado" : "Copiar OC"}
-          </button>
+          <div style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap", justifyContent: "flex-end" }}>
+            <div title="Presupuesto base estimado" style={{ minWidth: 170, textAlign: "right" }}>
+              <div style={{ fontSize: 10.5, color: C.t2, fontWeight: 900, textTransform: "uppercase", letterSpacing: 0.7 }}>Presupuesto total</div>
+              <div style={{ fontFamily: C.mono, fontSize: 18, fontWeight: 950, color: kpis.usd || kpis.ars ? C.green : C.t2 }}>{totalLabel}</div>
+            </div>
+            <button type="button" onClick={() => setStatsOpen((v) => !v)} style={{ ...BTN, height: 38, padding: "0 11px" }} title="Ver estadisticas">
+              {statsOpen ? "Ocultar stats" : "Stats"}
+            </button>
+            <button type="button" onClick={() => setObrasOpen((v) => !v)} style={{ ...BTN, height: 38, padding: "0 12px", color: obrasOpen ? C.blue : C.t1, borderColor: obrasOpen ? C.blueB : C.b0, background: obrasOpen ? C.blueL : C.s0 }}>
+              Obras ({visibleObras.length})
+            </button>
+            <button type="button" onClick={() => setShowAddItem((v) => !v)} style={{ ...BTN_GREEN, height: 38, padding: "0 13px" }}>
+              <Plus size={14} /> Agregar item
+            </button>
+            <button type="button" onClick={copiarOrden} disabled={!orderRows.length} style={{ ...BTN, height: 38, padding: "0 13px", color: C.green, borderColor: C.greenB, background: C.greenL }}>
+              <Copy size={14} /> {copied ? "Copiado" : "Copiar OC"}
+            </button>
+          </div>
         </div>
-        <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(145px, 1fr))", gap: 10 }}>
-          <KpiCard label="Items" value={kpis.items} color={C.blue} />
-          <KpiCard label="Proveedores" value={kpis.proveedores.size} color={C.teal || C.green} />
-          <KpiCard label="Rubros" value={kpis.rubros.size} color={C.violet} />
-          <KpiCard label="Sin precio" value={kpis.sinPrecio} color={kpis.sinPrecio ? C.amber : C.green} />
-          <KpiCard label="A revisar" value={kpis.revisar} color={kpis.revisar ? C.amber : C.green} />
-          <KpiCard label="Base USD" value={fmtMoney(kpis.usd, "USD")} color={C.green} />
-        </div>
+        {statsOpen && (
+          <div style={{ marginTop: 14, display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(120px, 1fr))", gap: 8, borderTop: `1px solid ${C.b0}`, paddingTop: 12 }}>
+            {[
+              ["Items", kpis.items, C.blue],
+              ["Proveedores", kpis.proveedores.size, C.green],
+              ["Rubros", kpis.rubros.size, C.violet],
+              ["A revisar", kpis.revisar, C.amber],
+              ["Base ARS", kpis.ars ? fmtMoney(kpis.ars, "ARS") : "-", C.t2],
+              ["Linea eje USD", kpis.ejeUsd ? fmtMoney(kpis.ejeUsd, "USD") : "-", C.t2],
+            ].map(([label, value, color]) => (
+              <div key={label} style={{ borderLeft: `2px solid ${color}`, padding: "3px 10px", minWidth: 0 }}>
+                <div style={{ fontSize: 10, color: C.t2, textTransform: "uppercase", letterSpacing: 0.7, fontWeight: 900 }}>{label}</div>
+                <div style={{ marginTop: 3, fontFamily: C.mono, fontSize: 13, fontWeight: 950, color }}>{value}</div>
+              </div>
+            ))}
+          </div>
+        )}
+        {obrasOpen && (
+          <div style={{ marginTop: 14, borderTop: `1px solid ${C.b0}`, paddingTop: 12 }}>
+            <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(180px, 1fr))", gap: 8 }}>
+              {visibleObras.map((obra) => {
+                const meta = obraRecepcionResumenMeta(obra.materiales_recepcion);
+                return (
+                  <button
+                    type="button"
+                    key={obra.id}
+                    onClick={() => onSelectObra?.(obra)}
+                    className="obra-linea-tag"
+                    style={{ border: `1px solid ${meta.border}`, borderRadius: 13, background: meta.bg, color: C.t1, fontFamily: C.sans, fontSize: 12, fontWeight: 850, padding: "9px 11px", display: "flex", alignItems: "center", justifyContent: "space-between", gap: 10, cursor: "pointer", textAlign: "left" }}
+                  >
+                    <span style={{ minWidth: 0 }}>
+                      <span style={{ display: "block", color: C.t0, fontWeight: 950 }}>{obra.codigo}</span>
+                      <span style={{ display: "block", color: meta.color, fontSize: 10.5, fontWeight: 900 }}>{obraRecepcionResumenLabel(obra.materiales_recepcion)}</span>
+                    </span>
+                    <span style={{ color: C.blue, fontWeight: 950 }}>›</span>
+                  </button>
+                );
+              })}
+            </div>
+          </div>
+        )}
       </div>
 
-      {obras.length > 0 && (
-        <div style={{ border: `1px solid ${C.b0}`, borderRadius: 14, background: C.s0, padding: 13, marginBottom: 16 }}>
-          <div style={{ fontSize: 11, color: C.t2, fontWeight: 800, textTransform: "uppercase", letterSpacing: 0.6, marginBottom: 9 }}>Obras activas de esta línea</div>
-          <div style={{ display: "flex", gap: 7, flexWrap: "wrap" }}>
-            {obras.map((obra) => {
-              const meta = obraRecepcionResumenMeta(obra.materiales_recepcion);
-              return (
-                <button
-                  type="button"
-                  key={obra.id}
-                  onClick={() => onSelectObra?.(obra)}
-                  style={{ ...BTN, border: `1px solid ${meta.border}`, borderRadius: 999, background: meta.bg, color: C.t1, fontFamily: C.mono, fontSize: 12, fontWeight: 850, padding: "5px 10px", gap: 7 }}
-                >
-                  <span style={{ color: C.t0 }}>{obra.codigo}</span>
-                  <span style={{ color: meta.color, fontSize: 10.5, fontWeight: 900 }}>{obraRecepcionResumenLabel(obra.materiales_recepcion)}</span>
-                  <span style={{ color: C.blue }}>›</span>
-                </button>
-              );
-            })}
-          </div>
+      {showAddItem && (
+        <div style={{ marginBottom: 12 }}>
+          <AgregarItemLinea
+            linea={code}
+            title={title}
+            materiales={materiales}
+            categorias={categorias}
+            proveedores={proveedores}
+            ums={ums}
+            onChanged={onChanged}
+          />
         </div>
       )}
 
-      <AgregarItemLinea
-        linea={code}
-        title={title}
-        materiales={materiales}
-        categorias={categorias}
-        proveedores={proveedores}
-        ums={ums}
-        onChanged={onChanged}
-      />
-
-      <div style={{ border: `1px solid ${C.b0}`, borderRadius: 14, background: "var(--panel)", padding: 13, marginBottom: 16, display: "grid", gap: 12 }}>
+      <div style={{ position: "sticky", top: 0, zIndex: 24, border: `1px solid ${C.b0}`, borderRadius: 16, background: "color-mix(in srgb, var(--panel) 88%, transparent)", backdropFilter: "blur(14px)", padding: 10, marginBottom: 14, display: "grid", gap: 10, boxShadow: "0 16px 42px -38px rgba(15,23,42,0.7)" }}>
         <div style={{ display: "flex", gap: 8, flexWrap: "wrap", alignItems: "center" }}>
-          <div style={{ position: "relative", flex: "1 1 280px" }}>
+          <div style={{ position: "relative", flex: "1 1 320px" }}>
             <Search size={15} style={{ position: "absolute", left: 12, top: "50%", transform: "translateY(-50%)", color: C.t2 }} />
-            <input value={q} onChange={(e) => setQ(e.target.value)} placeholder="Buscar item, proveedor, rubro, código..." style={{ ...INP, width: "100%", paddingLeft: 36, height: 38 }} />
+            <input value={q} onChange={(e) => setQ(e.target.value)} placeholder="Buscar item, proveedor, rubro, codigo..." style={{ ...INP, width: "100%", paddingLeft: 36, height: 40, borderRadius: 12 }} />
           </div>
-          <select value={proveedorFilter} onChange={(e) => setProveedorFilter(e.target.value)} style={{ ...INP, width: 190, height: 38 }} title="Filtrar proveedor">
-            <option value="" style={OPT_ST}>Todos los proveedores</option>
-            {facets.proveedores.map((p) => <option key={p} value={p} style={OPT_ST}>{p}</option>)}
-          </select>
-          <ProveedorTipoFilter value={proveedorTipoFilter} onChange={setProveedorTipoFilter} style={{ ...INP, width: 190, height: 38 }} />
-          <select value={rubroFilter} onChange={(e) => setRubroFilter(e.target.value)} style={{ ...INP, width: 170, height: 38 }} title="Filtrar rubro">
-            <option value="" style={OPT_ST}>Todos los rubros</option>
-            {facets.rubros.map((r) => <option key={r} value={r} style={OPT_ST}>{r}</option>)}
-          </select>
           {[
             ["todos", "Todo", C.blue],
-            ["base", "Base", C.green],
-            ["linea_eje", "Línea eje", C.violet],
-            ["variante", "Variantes", C.amber],
             ["sin_precio", "Sin precio", C.red],
             ["revisar", "A revisar", C.amber],
           ].map(([key, label, color]) => (
-            <button key={key} type="button" onClick={() => setTipoFilter(key)} style={chipStyle(tipoFilter === key, color)}>
+            <button key={key} type="button" onClick={() => setTipoFilter(key)} style={filterPillStyle(tipoFilter === key, color)}>
               {label}
             </button>
           ))}
-        </div>
-        <div style={{ display: "flex", gap: 8, flexWrap: "wrap", alignItems: "center", borderTop: `1px solid ${C.b0}`, paddingTop: 12 }}>
-          <FileText size={16} style={{ color: C.blue }} />
-          <div style={{ flex: "1 1 220px" }}>
-            <div style={{ fontSize: 13, fontWeight: 900, color: C.t0 }}>Orden de compra</div>
-            <div style={{ fontSize: 11.5, color: C.t2 }}>{selected.size ? `${selected.size} seleccionados` : `${visibleRows.length} visibles`} · se copia el texto para compras.</div>
-          </div>
-          <select value={groupBy} onChange={(e) => setGroupBy(e.target.value)} style={{ ...INP, width: 150 }}>
-            <option value="proveedor" style={OPT_ST}>Proveedor</option>
-            <option value="rubro" style={OPT_ST}>Rubro</option>
-            <option value="tipo" style={OPT_ST}>Tipo</option>
-          </select>
-          <button type="button" onClick={copiarOrden} disabled={!orderRows.length} style={{ ...BTN_GREEN, padding: "9px 14px" }}>
-            <Copy size={14} /> {copied ? "Copiado" : "Copiar OC"}
+          <button type="button" onClick={() => setFiltersOpen((v) => !v)} style={{ ...BTN, height: 40, padding: "0 12px", color: filtersOpen || activeFilterCount ? C.blue : C.t1, borderColor: filtersOpen || activeFilterCount ? C.blueB : C.b0, background: filtersOpen || activeFilterCount ? C.blueL : C.s0 }}>
+            <SlidersHorizontal size={14} /> Filtros{activeFilterCount ? ` (${activeFilterCount})` : ""}
           </button>
         </div>
+        {filtersOpen && (
+          <div style={{ display: "flex", gap: 8, flexWrap: "wrap", alignItems: "center", borderTop: `1px solid ${C.b0}`, paddingTop: 10 }}>
+            <select value={proveedorFilter} onChange={(e) => setProveedorFilter(e.target.value)} style={{ ...INP, width: 205, height: 38, borderRadius: 12 }} title="Filtrar proveedor">
+              <option value="" style={OPT_ST}>Todos los proveedores</option>
+              {facets.proveedores.map((p) => <option key={p} value={p} style={OPT_ST}>{p}</option>)}
+            </select>
+            <ProveedorTipoFilter value={proveedorTipoFilter} onChange={setProveedorTipoFilter} style={{ ...INP, width: 188, height: 38, borderRadius: 12 }} />
+            <select value={rubroFilter} onChange={(e) => setRubroFilter(e.target.value)} style={{ ...INP, width: 170, height: 38, borderRadius: 12 }} title="Filtrar rubro">
+              <option value="" style={OPT_ST}>Todos los rubros</option>
+              {facets.rubros.map((r) => <option key={r} value={r} style={OPT_ST}>{r}</option>)}
+            </select>
+            <select value={groupBy} onChange={(e) => setGroupBy(e.target.value)} style={{ ...INP, width: 150, height: 38, borderRadius: 12 }} title="Agrupar por">
+              <option value="proveedor" style={OPT_ST}>Proveedor</option>
+              <option value="rubro" style={OPT_ST}>Rubro</option>
+              <option value="tipo" style={OPT_ST}>Tipo</option>
+            </select>
+            {[
+              ["base", "Base", C.green],
+              ["linea_eje", "Linea eje", C.violet],
+              ["variante", "Variantes", C.amber],
+            ].map(([key, label, color]) => (
+              <button key={key} type="button" onClick={() => setTipoFilter(key)} style={filterPillStyle(tipoFilter === key, color)}>
+                {label}
+              </button>
+            ))}
+            <div style={{ marginLeft: "auto", display: "flex", alignItems: "center", gap: 7, fontSize: 11.5, color: C.t2 }}>
+              <FileText size={14} style={{ color: C.blue }} />
+              {selected.size ? `${selected.size} seleccionados` : `${visibleRows.length} visibles`}
+            </div>
+          </div>
+        )}
       </div>
 
       <div style={{ display: "grid", gap: 12 }}>
         {groupedRows.map((group) => (
-          <section key={group.label} style={{ border: `1px solid ${C.b0}`, borderRadius: 14, background: "var(--panel)", overflow: "hidden" }}>
-            <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 12, padding: "12px 14px", borderBottom: `1px solid ${C.b0}`, background: C.s0, flexWrap: "wrap" }}>
+          <section key={group.label} style={{ border: `1px solid ${C.b0}`, borderRadius: 16, background: "var(--panel)", overflow: "hidden", boxShadow: "0 16px 48px -44px rgba(15,23,42,0.75)" }}>
+            <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 12, padding: "10px 14px", borderBottom: `1px solid ${C.b0}`, background: "linear-gradient(90deg, color-mix(in srgb, var(--panel) 86%, #2563eb 4%), var(--panel))", flexWrap: "wrap" }}>
               <div style={{ minWidth: 0 }}>
-                <div style={{ fontSize: 14, fontWeight: 950, color: C.t0, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{group.label}</div>
-                <div style={{ fontSize: 11.5, color: C.t2, marginTop: 2 }}>
+                <div style={{ display: "flex", alignItems: "center", gap: 9, minWidth: 0 }}>
+                  <span style={{ width: 7, height: 7, borderRadius: 999, background: C.blue, boxShadow: `0 0 0 3px ${C.blue}18`, flexShrink: 0 }} />
+                  <div style={{ fontSize: 14.5, fontWeight: 950, color: C.t0, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{group.label}</div>
+                </div>
+                <div style={{ fontSize: 11.5, color: C.t2, marginTop: 3, paddingLeft: 16 }}>
                   {group.rows.length} items{group.sinPrecio ? ` · ${group.sinPrecio} sin precio` : ""}
                 </div>
               </div>
@@ -6145,7 +6293,7 @@ function LineaMatrizView({ linea, obras = [], categorias, materiales, proveedore
                 {group.ars ? <span style={{ fontFamily: C.mono, fontSize: 12, color: C.t0, border: `1px solid ${C.b0}`, borderRadius: 999, padding: "4px 9px", background: C.bg }}>{fmtMoney(group.ars, "ARS")}</span> : null}
               </div>
             </div>
-            <div style={{ display: "grid", gap: 7, padding: 10 }}>
+            <div style={{ display: "grid", gap: 6, padding: 8, overflowX: "auto" }}>
               {group.rows.map((row) => {
                 const qty = toNum(row.cantidad) || 1;
                 const total = row.precio.amount ? row.precio.amount * qty : null;
@@ -6153,21 +6301,23 @@ function LineaMatrizView({ linea, obras = [], categorias, materiales, proveedore
                 return (
                   <div key={row.id} style={{ display: "grid", gap: 8 }}>
                     <div
+                      className="linea-data-row"
                       style={{
                         display: "grid",
-                        gridTemplateColumns: "26px minmax(220px, 1.3fr) minmax(130px, .55fr) minmax(150px, .65fr) minmax(120px, .5fr) 76px",
-                        gap: 10,
+                        gridTemplateColumns: "28px minmax(280px, 1.45fr) minmax(120px, .45fr) minmax(170px, .65fr) minmax(142px, .55fr) 72px",
+                        gap: 12,
                         alignItems: "center",
-                        padding: "10px 11px",
+                        minWidth: 900,
+                        padding: "11px 12px",
                         border: `1px solid ${selected.has(row.id) ? C.blueB : row.review?.flag ? C.amberB : C.b0}`,
-                        borderRadius: 11,
-                        background: selected.has(row.id) ? C.blueL : row.review?.flag ? C.amberL : C.bg,
+                        borderRadius: 12,
+                        background: selected.has(row.id) ? C.blueL : row.review?.flag ? C.amberL : "color-mix(in srgb, var(--panel) 70%, var(--bg) 30%)",
                       }}
                     >
                       <input type="checkbox" checked={selected.has(row.id)} onChange={() => toggleSelected(row.id)} />
                       <div style={{ minWidth: 0 }}>
                         <div style={{ display: "flex", alignItems: "center", gap: 7, minWidth: 0, flexWrap: "wrap" }}>
-                          <span style={{ fontSize: 13.5, fontWeight: 900, color: C.t0, minWidth: 0, overflow: "hidden", textOverflow: "ellipsis" }}>{row.descripcion}</span>
+                          <span style={{ fontSize: 14, fontWeight: 950, color: C.t0, minWidth: 0, overflow: "hidden", textOverflow: "ellipsis" }}>{row.descripcion}</span>
                           <span style={{ fontSize: 10, fontWeight: 900, color: row.bucket.color, background: `${row.bucket.color}16`, border: `1px solid ${row.bucket.color}44`, borderRadius: 999, padding: "2px 7px", whiteSpace: "nowrap" }}>
                             {row.bucket.label}
                           </span>
@@ -6188,11 +6338,11 @@ function LineaMatrizView({ linea, obras = [], categorias, materiales, proveedore
                           <ProveedorTipoBadge meta={row.proveedorMeta} compact />
                         </div>
                         <ProveedorAlternativasHint proveedor={row.proveedor} proveedores={proveedores} compact />
-                        <div style={{ fontSize: 11, color: C.t2, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{row.rubro}</div>
+                        <div style={{ fontSize: 11, color: C.t2, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{row.bucket.label}</div>
                       </div>
-                      <div>
+                      <div style={{ textAlign: "right" }}>
                         <div style={{ fontSize: 10, color: C.t2, fontWeight: 800, textTransform: "uppercase", letterSpacing: 0.6 }}>Precio</div>
-                        <div style={{ fontFamily: C.mono, fontSize: 12.5, fontWeight: 850, color: row.precio.amount ? C.t0 : C.amber }}>{row.precio.text}</div>
+                        <div style={{ display: "inline-flex", justifyContent: "flex-end", fontFamily: C.mono, fontSize: row.precio.amount ? 12.5 : 11.5, fontWeight: 900, color: row.precio.amount ? C.t0 : C.amber, background: row.precio.amount ? "transparent" : C.amberL, border: row.precio.amount ? "none" : `1px solid ${C.amberB}`, borderRadius: 8, padding: row.precio.amount ? 0 : "3px 7px" }}>{row.precio.amount ? row.precio.text : "Sin precio"}</div>
                         {total ? <div style={{ fontFamily: C.mono, fontSize: 10.5, color: C.t2 }}>total {fmtMoney(total, row.precio.moneda)}</div> : null}
                       </div>
                       <div style={{ display: "flex", gap: 5, justifyContent: "flex-end" }}>
@@ -6721,9 +6871,10 @@ function LineasTab({ lineas, obras, categorias, materiales, proveedores, opcione
   const [sel, setSel] = useState("");
   const [selObra, setSelObra] = useState(null);
   const [q, setQ] = useState("");
+  const [, startRouteTransition] = useTransition();
 
   const ums = useMemo(
-    () => [...new Set((materiales ?? []).map((m) => m.unidad_medida).filter(Boolean).map(String))].sort((a, b) => a.localeCompare(b, "es")),
+    () => buildUnidadOptions(materiales),
     [materiales],
   );
   const listaLineas = useMemo(() => {
@@ -6774,9 +6925,18 @@ function LineasTab({ lineas, obras, categorias, materiales, proveedores, opcione
     sinPrecio: cards.reduce((sum, l) => sum + l.sinPrecio, 0),
   }), [cards]);
 
+  const abrirLinea = useCallback((codigo) => {
+    startRouteTransition(() => setSel(codigo));
+  }, [startRouteTransition]);
+
+  const abrirObra = useCallback((obra) => {
+    startRouteTransition(() => setSelObra(obra));
+  }, [startRouteTransition]);
+
   if (selObra) {
     const lineaNombre = cards.find((l) => l.codigo === sel)?.nombre || (sel ? `K${sel}` : "Líneas");
     return (
+      <div key={`obra-${selObra.id || selObra.codigo}`} className="materiales-route-content">
       <ObraMatrizView
         obra={selObra}
         obras={obras}
@@ -6790,14 +6950,17 @@ function LineasTab({ lineas, obras, categorias, materiales, proveedores, opcione
         onChanged={onChanged}
         onBack={() => setSelObra(null)}
       />
+      </div>
     );
   }
 
   if (sel) {
     const linea = cards.find((l) => l.codigo === sel) || { codigo: sel, nombre: `K${sel}`, obras: [], items: 0, proveedores: 0, rubros: 0, sinPrecio: 0, usd: 0 };
     return (
+      <div key={`linea-${sel}`} className="materiales-route-content">
       <LineaMatrizView
         linea={linea}
+        lineas={cards}
         obras={linea.obras}
         categorias={categorias}
         materiales={materiales}
@@ -6806,8 +6969,10 @@ function LineasTab({ lineas, obras, categorias, materiales, proveedores, opcione
         ums={ums}
         onChanged={onChanged}
         onBack={() => setSel("")}
-        onSelectObra={setSelObra}
+        onSelectLinea={abrirLinea}
+        onSelectObra={abrirObra}
       />
+      </div>
     );
   }
 
@@ -6879,7 +7044,7 @@ function LineasTab({ lineas, obras, categorias, materiales, proveedores, opcione
 
       <div className="lineas-grid">
         {visibles.map((linea) => (
-          <button type="button" key={linea.codigo} onClick={() => setSel(linea.codigo)}
+          <button type="button" key={linea.codigo} onClick={() => abrirLinea(linea.codigo)}
             className="linea-premium-card"
             style={{
               textAlign: "left",
@@ -7788,7 +7953,7 @@ function MatrizTab({ categorias, materiales, proveedores, obras = [], onChanged 
   const materialesCatalogo = useMemo(() => materiales ?? [], [materiales]);
   
   const ums = useMemo(
-    () => [...new Set((materialesCatalogo ?? []).map((m) => m.unidad_medida).filter(Boolean).map(String))].sort((a, b) => a.localeCompare(b, "es")),
+    () => buildUnidadOptions(materialesCatalogo),
     [materialesCatalogo],
   );
   const raices = useMemo(() => categorias.filter(esRaiz), [categorias]);
@@ -8075,10 +8240,7 @@ function MatrizTab({ categorias, materiales, proveedores, obras = [], onChanged 
 export default function MaterialesScreen({ profile, signOut }) {
   const { isMobile } = useResponsive();
   const [tab, setTab] = useState("lineas");
-  const [activeTab, setActiveTab] = useState("lineas");
-  const [switchingTab, setSwitchingTab] = useState(false);
   const [moreOpen, setMoreOpen] = useState(false);
-  const tabSwitchTimer = useRef(null);
   const [categorias, setCategorias] = useState(null);
   const [materiales, setMateriales] = useState(null);
   const [batches, setBatches] = useState([]);
@@ -8130,31 +8292,12 @@ export default function MaterialesScreen({ profile, signOut }) {
     return () => { active = false; };
   }, []);
 
-  useEffect(() => () => {
-    if (tabSwitchTimer.current) window.clearTimeout(tabSwitchTimer.current);
-  }, []);
-
   const switchTab = useCallback((nextTab) => {
-    setActiveTab(nextTab);
     setMoreOpen(false);
-    if (tabSwitchTimer.current) {
-      window.clearTimeout(tabSwitchTimer.current);
-      tabSwitchTimer.current = null;
-    }
-    if (nextTab === tab) {
-      setSwitchingTab(false);
-      return;
-    }
-    setSwitchingTab(true);
-    tabSwitchTimer.current = window.setTimeout(() => {
-      setTab(nextTab);
-      tabSwitchTimer.current = null;
-      window.requestAnimationFrame(() => setSwitchingTab(false));
-    }, 120);
+    if (nextTab !== tab) setTab(nextTab);
   }, [tab]);
 
   const listo = categorias != null && materiales != null;
-  const activeTabLabel = TABS_MAIN.find((t) => t.key === activeTab)?.label || TABS_MORE.find((t) => t.key === activeTab)?.label || "sección";
 
   return (
     <div style={{ position: "fixed", top: 0, left: 0, right: 0, bottom: 0, background: C.bg, color: C.t0, fontFamily: C.sans, display: "flex", overflow: "hidden" }}>
@@ -8216,12 +8359,45 @@ export default function MaterialesScreen({ profile, signOut }) {
           background: linear-gradient(90deg, #2563eb, #7c3aed);
           filter: drop-shadow(0 0 2px rgba(59,130,246,0.75));
         }
+        .obra-linea-tag {
+          transition: transform .18s ease, box-shadow .18s ease, filter .18s ease;
+        }
+        .obra-linea-tag:hover {
+          transform: translateY(-1px);
+          filter: saturate(1.04);
+          box-shadow: 0 18px 38px -28px rgba(37,99,235,0.85);
+        }
+        .linea-data-row {
+          transition: background .16s ease, border-color .16s ease, box-shadow .16s ease, transform .16s ease;
+        }
+        .linea-data-row:hover {
+          background: color-mix(in srgb, var(--panel) 82%, #2563eb 5%) !important;
+          border-color: rgba(96,165,250,.36) !important;
+          box-shadow: 0 14px 34px -30px rgba(37,99,235,.85);
+          transform: translateY(-1px);
+        }
         .materiales-tab-content {
-          animation: tabContentIn .24s ease both;
+          animation: tabContentIn .18s ease-out both;
+        }
+        .materiales-route-content {
+          animation: routeContentIn .16s ease-out both;
+          will-change: opacity, transform;
+        }
+        .materiales-list-transition {
+          animation: listContentIn .12s ease-out both;
+          will-change: opacity, transform;
         }
         @keyframes tabContentIn {
-          from { opacity: 0; transform: translateY(8px); filter: blur(2px); }
-          to { opacity: 1; transform: translateY(0); filter: blur(0); }
+          from { opacity: 0; transform: translateY(6px); }
+          to { opacity: 1; transform: translateY(0); }
+        }
+        @keyframes routeContentIn {
+          from { opacity: 0; transform: translateY(5px); }
+          to { opacity: 1; transform: translateY(0); }
+        }
+        @keyframes listContentIn {
+          from { opacity: 0; transform: translateY(3px); }
+          to { opacity: 1; transform: translateY(0); }
         }
         .materiales-tab-loading {
           min-height: 220px;
@@ -8287,12 +8463,12 @@ export default function MaterialesScreen({ profile, signOut }) {
           ) : (
             <>
               {(() => {
-                const moreActive = TABS_MORE.find((t) => t.key === activeTab);
+                const moreActive = TABS_MORE.find((t) => t.key === tab);
                 return (
                   <div style={{ display: "flex", marginBottom: 22, minWidth: 0, overflow: "visible", position: "relative", zIndex: 70 }}>
                     <div className="materiales-tabbar">
                     {TABS_MAIN.map((t) => (
-                      <button key={t.key} type="button" onClick={() => switchTab(t.key)} className={`materiales-tab${activeTab === t.key ? " is-active" : ""}`}>{t.label}</button>
+                      <button key={t.key} type="button" onClick={() => switchTab(t.key)} className={`materiales-tab${tab === t.key ? " is-active" : ""}`}>{t.label}</button>
                     ))}
                     <div style={{ position: "relative" }}>
                       <button type="button" onClick={() => setMoreOpen((o) => !o)} className={`materiales-tab${moreActive ? " is-active" : ""}`}>
@@ -8304,7 +8480,7 @@ export default function MaterialesScreen({ profile, signOut }) {
                           <div style={{ position: "absolute", top: "calc(100% + 8px)", right: 0, zIndex: 100, background: C.panelSolid, border: `1px solid ${C.b1}`, borderRadius: 14, padding: 6, minWidth: 220, boxShadow: "0 18px 42px -24px rgba(0,0,0,0.55)", backdropFilter: "blur(12px)" }}>
                             {TABS_MORE.map((t) => (
                               <button key={t.key} type="button" onClick={() => switchTab(t.key)}
-                                style={{ display: "flex", width: "100%", justifyContent: "flex-start", textAlign: "left", padding: "9px 12px", fontSize: 13, fontFamily: C.sans, fontWeight: 850, borderRadius: 10, cursor: "pointer", border: "none", background: activeTab === t.key ? C.s1 : "transparent", color: activeTab === t.key ? C.t0 : C.t1 }}>
+                                style={{ display: "flex", width: "100%", justifyContent: "flex-start", textAlign: "left", padding: "9px 12px", fontSize: 13, fontFamily: C.sans, fontWeight: 850, borderRadius: 10, cursor: "pointer", border: "none", background: tab === t.key ? C.s1 : "transparent", color: tab === t.key ? C.t0 : C.t1 }}>
                                 {t.label}
                               </button>
                             ))}
@@ -8317,31 +8493,22 @@ export default function MaterialesScreen({ profile, signOut }) {
                 );
               })()}
 
-              {switchingTab ? (
-                <div className="materiales-tab-loading">
-                  <div style={{ display: "grid", gap: 12, justifyItems: "center" }}>
-                    <span className="materiales-tab-spinner" />
-                    <div style={{ fontSize: 13, fontWeight: 850, color: C.t2 }}>Abriendo {activeTabLabel}...</div>
-                  </div>
-                </div>
-              ) : (
-                <div key={tab} className="materiales-tab-content">
-                  {tab === "lineas" && <LineasTab lineas={[]} obras={obrasAvance} categorias={categorias} materiales={materiales} proveedores={proveedores} opciones={opciones} onChanged={cargar} />}
-                  {tab === "matriz" && <MatrizTab categorias={categorias} materiales={materiales} proveedores={proveedores} obras={obrasAvance} onChanged={cargar} />}
-                  {tab === "importar" && <ImportarTab batches={batches} onImported={cargar} />}
-                  {tab === "bandeja" && <BandejaTab categorias={categorias} materiales={materiales} onChanged={cargar} />}
-                  {tab === "comprobantes" && <ComprobantesTab categorias={categorias} materiales={materiales} proveedores={proveedores} comprobantes={comprobantes} onChanged={cargar} />}
-                  {tab === "revision" && <RevisionTab categorias={categorias} materiales={materiales} proveedores={proveedores} onChanged={cargar} />}
-                  {tab === "normalizacion" && <NormalizacionTab categorias={categorias} materiales={materiales} proveedores={proveedores} onChanged={cargar} />}
-                  {tab === "condicionantes" && <MatrizCondicionantesTab materiales={materiales} categorias={categorias} onChanged={cargar} />}
-                  {tab === "variantes" && <VariantesMarcasTab materiales={materiales} />}
-                  {tab === "proveedores" && <ProveedoresTab proveedores={proveedores} onChanged={cargar} />}
-                  {tab === "avance" && <AvanceTab categorias={categorias} materiales={materiales} batches={batches} obras={obrasAvance} />}
-                  {tab === "costos" && <CostoObraTab categorias={categorias} materiales={materiales} opciones={opciones} />}
-                  {tab === "resumen" && <ResumenTab categorias={categorias} materiales={materiales} />}
-                  {tab === "lector" && <LectorTab materiales={materiales} categorias={categorias} onMaterialUpdate={(id, updates) => setMateriales(prev => prev?.map(m => m.id === id ? { ...m, ...updates } : m))} onCatalogChanged={cargar} />}
-                </div>
-              )}
+              <div key={tab} className="materiales-tab-content">
+                {tab === "lineas" && <LineasTab lineas={[]} obras={obrasAvance} categorias={categorias} materiales={materiales} proveedores={proveedores} opciones={opciones} onChanged={cargar} />}
+                {tab === "matriz" && <MatrizTab categorias={categorias} materiales={materiales} proveedores={proveedores} obras={obrasAvance} onChanged={cargar} />}
+                {tab === "importar" && <ImportarTab batches={batches} onImported={cargar} />}
+                {tab === "bandeja" && <BandejaTab categorias={categorias} materiales={materiales} onChanged={cargar} />}
+                {tab === "comprobantes" && <ComprobantesTab categorias={categorias} materiales={materiales} proveedores={proveedores} comprobantes={comprobantes} onChanged={cargar} />}
+                {tab === "revision" && <RevisionTab categorias={categorias} materiales={materiales} proveedores={proveedores} onChanged={cargar} />}
+                {tab === "normalizacion" && <NormalizacionTab categorias={categorias} materiales={materiales} proveedores={proveedores} onChanged={cargar} />}
+                {tab === "condicionantes" && <MatrizCondicionantesTab materiales={materiales} categorias={categorias} onChanged={cargar} />}
+                {tab === "variantes" && <VariantesMarcasTab materiales={materiales} />}
+                {tab === "proveedores" && <ProveedoresTab proveedores={proveedores} onChanged={cargar} />}
+                {tab === "avance" && <AvanceTab categorias={categorias} materiales={materiales} batches={batches} obras={obrasAvance} />}
+                {tab === "costos" && <CostoObraTab categorias={categorias} materiales={materiales} opciones={opciones} />}
+                {tab === "resumen" && <ResumenTab categorias={categorias} materiales={materiales} />}
+                {tab === "lector" && <LectorTab materiales={materiales} categorias={categorias} onMaterialUpdate={(id, updates) => setMateriales(prev => prev?.map(m => m.id === id ? { ...m, ...updates } : m))} onCatalogChanged={cargar} />}
+              </div>
             </>
           )}
         </div>

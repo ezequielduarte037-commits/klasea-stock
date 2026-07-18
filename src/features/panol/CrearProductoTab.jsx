@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { AlertTriangle, ImagePlus, PackagePlus } from "lucide-react";
 import { C } from "@/theme";
-import { crearMaterialRapido, fetchCategorias, fetchProveedores, uploadMaterialImage } from "@/features/materiales/api";
+import { crearMaterialRapido, fetchCategorias, fetchProveedores, normalizeUnidadMedida, uploadMaterialImage } from "@/features/materiales/api";
 import { fetchPanolCatalogMini } from "@/features/panol/panolApi";
 
 // Pestaña de creación de producto para el pañol. El producto va al CATÁLOGO COMPLETO
@@ -108,7 +108,7 @@ export default function CrearProductoTab({ isMobile = false, toast }) {
   }, []);
 
   function addVariante() {
-    const names = varDraft.split(/[,\n;/]+/).map((s) => s.trim()).filter(Boolean);
+    const names = varDraft.split(/[\n;]+/).flatMap((s) => s.split(/\s*\/\s*/)).map((s) => s.trim()).filter(Boolean);
     if (!names.length) return;
     setVariantes((list) => {
       const seen = new Set(list.map((x) => x.toLowerCase()));
@@ -164,7 +164,7 @@ export default function CrearProductoTab({ isMobile = false, toast }) {
       let mat = await crearMaterialRapido({
         descripcion: desc,
         categoriaId,
-        unidadMedida: unidad || "unidad",
+        unidadMedida: normalizeUnidadMedida(unidad, "unidad"),
         proveedor,
         codigo,
         precioUnitario: precio === "" ? null : precio,
@@ -243,7 +243,7 @@ export default function CrearProductoTab({ isMobile = false, toast }) {
             </div>
             <div>
               <label style={LBL}>Unidad</label>
-              <input value={unidad} onChange={(e) => setUnidad(e.target.value)} placeholder="unidad, mt, kg, litro..." style={INP} />
+              <input value={unidad} onChange={(e) => setUnidad(e.target.value)} onBlur={(e) => setUnidad(normalizeUnidadMedida(e.target.value, "unidad"))} placeholder="unidad, metro, kg, litro..." style={INP} />
             </div>
           </div>
 
@@ -288,11 +288,12 @@ export default function CrearProductoTab({ isMobile = false, toast }) {
                 {variantes.map((v) => {
                   const p = variantesPrecios[v] || {};
                   return (
-                    <div key={v} style={{ display: "grid", gridTemplateColumns: "minmax(64px,0.9fr) minmax(80px,1fr) 104px 62px 28px", gap: 6, alignItems: "center" }}>
+                    <div key={v} style={{ display: "grid", gridTemplateColumns: "minmax(64px,0.9fr) minmax(80px,1fr) 104px 62px minmax(120px,1fr) 28px", gap: 6, alignItems: "center" }}>
                       <span style={{ color: C.violet, background: "rgba(139,92,246,0.1)", border: "1px solid rgba(139,92,246,0.3)", borderRadius: 999, padding: "3px 9px", fontSize: 11, fontWeight: 850, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{v}</span>
                       <input value={p.codigo ?? ""} onChange={(e) => setVariantesPrecios((m) => ({ ...m, [v]: { ...(m[v] || { moneda: "ARS" }), codigo: e.target.value } }))} placeholder="Código" style={{ ...INP, padding: "6px 8px", fontSize: 12, fontFamily: C.mono }} />
                       <input value={p.precio ?? ""} inputMode="decimal" onChange={(e) => setVariantesPrecios((m) => ({ ...m, [v]: { ...(m[v] || { moneda: "ARS" }), precio: e.target.value } }))} placeholder="Precio" style={{ ...INP, padding: "6px 8px", fontSize: 12, fontFamily: C.mono }} />
                       <select value={p.moneda || "ARS"} onChange={(e) => setVariantesPrecios((m) => ({ ...m, [v]: { ...(m[v] || {}), moneda: e.target.value } }))} style={{ ...INP, padding: "6px 4px", fontSize: 12, cursor: "pointer" }}><option value="ARS">ARS</option><option value="USD">USD</option></select>
+                      <input value={p.imagen_url ?? ""} onChange={(e) => setVariantesPrecios((m) => ({ ...m, [v]: { ...(m[v] || { moneda: "ARS" }), imagen_url: e.target.value } }))} placeholder="URL foto/plano" style={{ ...INP, padding: "6px 8px", fontSize: 12 }} />
                       <button type="button" title="Quitar" onClick={() => { setVariantes((l) => l.filter((x) => x !== v)); setVariantesPrecios((m) => { const c = { ...m }; delete c[v]; return c; }); }} style={{ border: "none", background: "transparent", color: C.red, cursor: "pointer", fontSize: 14 }}>×</button>
                     </div>
                   );
@@ -300,7 +301,7 @@ export default function CrearProductoTab({ isMobile = false, toast }) {
               </div>
             )}
             <div style={{ display: "flex", gap: 6 }}>
-              <input value={varDraft} onChange={(e) => setVarDraft(e.target.value)} onKeyDown={(e) => { if (e.key === "Enter") { e.preventDefault(); addVariante(); } }} placeholder="Ej: 23L, 48L / LG, Samsung" style={{ ...INP, flex: 1 }} />
+              <input value={varDraft} onChange={(e) => setVarDraft(e.target.value)} onKeyDown={(e) => { if (e.key === "Enter") { e.preventDefault(); addVariante(); } if (e.key === "," || e.code === "Comma") e.stopPropagation(); }} placeholder="Ej: 23L / 48L / LG. Enter agrega." style={{ ...INP, flex: 1 }} />
               <button type="button" onClick={addVariante} disabled={!varDraft.trim()} style={{ border: `1px solid ${C.border}`, background: C.panel, color: C.violet, borderRadius: 8, padding: "8px 12px", cursor: "pointer", fontSize: 12.5, fontWeight: 800, opacity: varDraft.trim() ? 1 : 0.5 }}>+ Variante</button>
             </div>
           </div>

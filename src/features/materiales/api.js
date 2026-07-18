@@ -82,10 +82,46 @@ function toNullableNumber(value) {
   return Number.isFinite(n) ? n : null;
 }
 
+export function normalizeUnidadMedida(value, fallback = "unidad") {
+  const raw = String(value ?? "").trim();
+  if (!raw) return fallback;
+  const key = raw
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .toLowerCase()
+    .replace(/\./g, "")
+    .replace(/\s+/g, " ")
+    .trim();
+  const aliases = {
+    u: "unidad", un: "unidad", uni: "unidad", unid: "unidad", unidad: "unidad", unidades: "unidad", uds: "unidad", ud: "unidad", und: "unidad", pza: "unidad", pieza: "unidad", piezas: "unidad",
+    m: "metro", mt: "metro", mts: "metro", mtr: "metro", mtrs: "metro", metro: "metro", metros: "metro",
+    cm: "cm", centimetro: "cm", centimetros: "cm",
+    mm: "mm", milimetro: "mm", milimetros: "mm",
+    kg: "kg", kgs: "kg", kilo: "kg", kilos: "kg", kilogramo: "kg", kilogramos: "kg",
+    g: "g", gr: "g", grs: "g", gramo: "g", gramos: "g",
+    l: "litro", lt: "litro", lts: "litro", litro: "litro", litros: "litro",
+    pie: "pies", pies: "pies", ft: "pies",
+    caja: "caja", cajas: "caja",
+    rollo: "rollo", rollos: "rollo",
+    par: "par", pares: "par",
+    juego: "juego", juegos: "juego", kit: "juego", kits: "juego",
+    placa: "placa", placas: "placa", plancha: "placa", planchas: "placa",
+    hoja: "hoja", hojas: "hoja",
+    barra: "barra", barras: "barra",
+    bolsa: "bolsa", bolsas: "bolsa",
+    lata: "lata", latas: "lata",
+    tubo: "tubo", tubos: "tubo",
+    "m2": "m2", "m²": "m2", "metro2": "m2", "metros2": "m2", "metro cuadrado": "m2", "metros cuadrados": "m2",
+    "m3": "m3", "m³": "m3", "metro3": "m3", "metros3": "m3", "metro cubico": "m3", "metros cubicos": "m3",
+  };
+  return aliases[key] || raw.toLowerCase();
+}
+
 function normalizeVariantes(value) {
-  const raw = Array.isArray(value) ? value : String(value || "").split(/[,\n;/]+/);
+  const raw = Array.isArray(value) ? value : String(value || "").split(/[\n;]+/);
   const seen = new Set();
   return raw
+    .flatMap((item) => String(item || "").split(/\s*\/\s*/))
     .map((item) => String(item || "").trim())
     .filter(Boolean)
     .filter((item) => {
@@ -109,10 +145,16 @@ export function normalizeVariantesPrecios(value, nombres = null) {
     const precioRaw = v == null || v.precio === "" || v.precio == null ? null : Number(String(v.precio).replace(",", "."));
     const precio = Number.isFinite(precioRaw) ? precioRaw : null;
     const codigo = String(v?.codigo || "").trim();
+    const imagenUrl = String(v?.imagen_url || v?.imagenUrl || "").trim();
+    if (imagenUrl && precio == null && !codigo) {
+      out[nombre] = { imagen_url: imagenUrl };
+      continue;
+    }
     if (precio == null && !codigo) continue; // sin precio ni código → no se guarda
     const entry = {};
     if (precio != null) { entry.precio = precio; entry.moneda = v?.moneda === "USD" ? "USD" : "ARS"; }
     if (codigo) entry.codigo = codigo;
+    if (imagenUrl) entry.imagen_url = imagenUrl;
     out[nombre] = entry;
   }
   return out;
@@ -1164,7 +1206,7 @@ function materialPatchFromParsed(item, categoriaId, batchId, existing = null) {
     descripcion: existing?.descripcion || item.descripcion,
     proveedor_id: existing?.proveedor_id ?? null,
     proveedor: existing?.proveedor || item.proveedor || null,
-    unidad_medida: existing?.unidad_medida || item.unidad_medida || null,
+    unidad_medida: normalizeUnidadMedida(existing?.unidad_medida || item.unidad_medida, null),
     precio_unitario: existing?.precio_unitario ?? item.precio_unitario ?? null,
     moneda: existing?.moneda ?? null,
     revisado: existing?.revisado ?? false,
@@ -1260,7 +1302,7 @@ export async function guardarMaterial(material, cantidades, { revisado } = {}) {
     codigo: material.codigo || null,
     descripcion: material.descripcion?.trim(),
     proveedor: material.proveedor || null,
-    unidad_medida: material.unidad_medida || null,
+    unidad_medida: normalizeUnidadMedida(material.unidad_medida, null),
     precio_unitario: toNullableNumber(material.precio_unitario),
     moneda: material.moneda || null,
     imagen_url: material.imagen_url || null,
@@ -1298,7 +1340,7 @@ export async function actualizarMaterialDatos(material, { revisado } = {}) {
     codigo: material.codigo || null,
     descripcion: material.descripcion?.trim(),
     proveedor: material.proveedor || null,
-    unidad_medida: material.unidad_medida || null,
+    unidad_medida: normalizeUnidadMedida(material.unidad_medida, null),
     precio_unitario: toNullableNumber(material.precio_unitario),
     moneda: material.moneda || null,
     imagen_url: material.imagen_url || null,
@@ -1336,7 +1378,7 @@ export async function crearMaterial(material, cantidades = {}) {
       codigo: material.codigo || null,
       descripcion: material.descripcion?.trim(),
       proveedor: material.proveedor || null,
-      unidad_medida: material.unidad_medida || null,
+      unidad_medida: normalizeUnidadMedida(material.unidad_medida, null),
       precio_unitario: toNullableNumber(material.precio_unitario),
       moneda: material.moneda || null,
       imagen_url: material.imagen_url || null,
@@ -1362,7 +1404,7 @@ export async function crearMaterial(material, cantidades = {}) {
         codigo: material.codigo || null,
         descripcion: material.descripcion?.trim(),
         proveedor: material.proveedor || null,
-        unidad_medida: material.unidad_medida || null,
+        unidad_medida: normalizeUnidadMedida(material.unidad_medida, null),
         precio_unitario: toNullableNumber(material.precio_unitario),
         moneda: material.moneda || null,
         imagen_url: material.imagen_url || null,
@@ -1397,7 +1439,7 @@ export async function crearMaterialRapido({
   const id = await crearMaterial({
     descripcion: String(descripcion).trim(),
     categoria_id: categoriaId,
-    unidad_medida: unidadMedida || "unidad",
+    unidad_medida: normalizeUnidadMedida(unidadMedida, "unidad"),
     proveedor: String(proveedor || "").trim() || null,
     codigo: String(codigo || "").trim() || null,
     precio_unitario: precioUnitario,
@@ -1592,6 +1634,17 @@ export async function uploadMaterialImage(materialId, file) {
   const { error: matError } = await supabase.from("panol_materiales").update({ imagen_url: publicUrl }).eq("id", materialId);
   if (matError) throw matError;
   return row;
+}
+
+export async function uploadMaterialVariantImage(materialId, variantName, file) {
+  if (!materialId || !variantName || !file) throw new Error("Falta material, variante o archivo.");
+  const ext = file.name?.split(".").pop() || "jpg";
+  const variant = safeFilePart(variantName);
+  const path = `${materialId}/variantes/${variant}/${Date.now()}-${safeFilePart(file.name || `imagen.${ext}`)}`;
+  const { error: uploadError } = await supabase.storage.from(BUCKET_MATERIALES).upload(path, file, { upsert: false });
+  if (uploadError) throw uploadError;
+  const { data: { publicUrl } } = supabase.storage.from(BUCKET_MATERIALES).getPublicUrl(path);
+  return { url: publicUrl, path };
 }
 
 export async function uploadComprobanteFile(file) {
@@ -1824,5 +1877,184 @@ export async function quitarCantidadModelo(materialId, modelo) {
     .eq("material_id", materialId)
     .eq("modelo", String(modelo))
     .eq("variante", VARIANTE_BASE);
+  if (error) throw error;
+}
+
+/* ── Calibración de peso por pieza (balanza) ──────────────────────────────── */
+
+/**
+ * Consumibles del catálogo con su estado de calibración de peso.
+ * Se usa en la pantalla de calibración y para avisar cuáles faltan.
+ */
+export async function fetchConsumiblesPeso() {
+  const cols = "id, descripcion, codigo, unidad_medida, es_consumible, peso_unitario_g, peso_muestra_piezas, peso_calibrado_at";
+  const { data, error } = await supabase
+    .from("panol_materiales")
+    .select(cols)
+    .eq("es_consumible", true)
+    .neq("activo", false)
+    .order("descripcion");
+  if (error) throw error;
+  return data ?? [];
+}
+
+export async function fetchConsumiblesPanol() {
+  const cols = "id, categoria_id, proveedor_id, codigo, codigo_barra, descripcion, alias, proveedor, unidad_medida, precio_unitario, moneda, notas, activo, es_consumible, peso_unitario_g, peso_muestra_piezas, peso_calibrado_at";
+  let { data, error } = await supabase
+    .from("panol_materiales")
+    .select(cols)
+    .eq("es_consumible", true)
+    .neq("activo", false)
+    .order("descripcion");
+  if (error && isMissingColumn(error)) {
+    const retry = await supabase
+      .from("panol_materiales")
+      .select("id, categoria_id, proveedor_id, codigo, codigo_barra, descripcion, alias, proveedor, unidad_medida, precio_unitario, moneda, notas, activo, es_consumible")
+      .eq("es_consumible", true)
+      .neq("activo", false)
+      .order("descripcion");
+    data = retry.data;
+    error = retry.error;
+    if (!error) data = (data ?? []).map((row) => ({ ...row, es_consumible: true, peso_unitario_g: null, peso_muestra_piezas: null, peso_calibrado_at: null }));
+  }
+  if (error && isMissingColumn(error)) {
+    throw new Error("Falta correr el SQL de consumibles y peso unitario.");
+  }
+  if (error) throw error;
+
+  const rows = data ?? [];
+  const codigos = await fetchMaterialCodigosBarraRows();
+  const ids = new Set(rows.map((row) => row.id).filter(Boolean));
+  const codigosByMaterial = new Map();
+  for (const codigo of codigos) {
+    if (!ids.has(codigo.material_id) || codigo.activo === false) continue;
+    const list = codigosByMaterial.get(codigo.material_id) ?? [];
+    list.push(codigo);
+    codigosByMaterial.set(codigo.material_id, list);
+  }
+
+  return rows.map((row) => ({
+    ...row,
+    unidad_medida: normalizeUnidadMedida(row.unidad_medida, "unidad"),
+    codigos_barra: codigosByMaterial.get(row.id) ?? [],
+  }));
+}
+
+export async function crearConsumiblePanol({
+  descripcion = "",
+  categoriaId = null,
+  unidadMedida = "unidad",
+  proveedor = "",
+  codigo = "",
+  codigoBarra = "",
+  notas = "",
+} = {}) {
+  const material = await crearMaterialRapido({
+    descripcion,
+    categoriaId,
+    unidadMedida,
+    proveedor,
+    codigo,
+    notas,
+    esConsumible: true,
+  });
+  const cleanBarcode = String(codigoBarra || "").trim();
+  const codigos = [];
+  if (cleanBarcode) codigos.push(await agregarCodigoBarraMaterial(material.id, cleanBarcode, { etiqueta: "Principal" }));
+  return { ...material, es_consumible: true, codigos_barra: codigos };
+}
+
+export async function actualizarConsumiblePanol(materialId, fields = {}) {
+  if (!materialId) throw new Error("Falta el consumible.");
+  const patch = {
+    descripcion: String(fields.descripcion || "").trim(),
+    categoria_id: fields.categoria_id || null,
+    proveedor: String(fields.proveedor || "").trim() || null,
+    codigo: String(fields.codigo || "").trim() || null,
+    unidad_medida: normalizeUnidadMedida(fields.unidad_medida, "unidad"),
+    notas: String(fields.notas || "").trim() || null,
+    es_consumible: true,
+    activo: fields.activo ?? true,
+  };
+  if (!patch.descripcion) throw new Error("Cargá la descripción del consumible.");
+
+  let { data, error } = await supabase
+    .from("panol_materiales")
+    .update(patch)
+    .eq("id", materialId)
+    .select("id, categoria_id, proveedor_id, codigo, codigo_barra, descripcion, alias, proveedor, unidad_medida, precio_unitario, moneda, notas, activo, es_consumible, peso_unitario_g, peso_muestra_piezas, peso_calibrado_at")
+    .single();
+  if (error && isMissingColumn(error)) {
+    const fallback = { ...patch };
+    delete fallback.es_consumible;
+    const retry = await supabase
+      .from("panol_materiales")
+      .update(fallback)
+      .eq("id", materialId)
+      .select("id, categoria_id, proveedor_id, codigo, codigo_barra, descripcion, alias, proveedor, unidad_medida, precio_unitario, moneda, notas, activo")
+      .single();
+    data = retry.data ? { ...retry.data, es_consumible: true, peso_unitario_g: null, peso_muestra_piezas: null, peso_calibrado_at: null } : retry.data;
+    error = retry.error;
+  }
+  if (error) throw error;
+  return { ...data, unidad_medida: normalizeUnidadMedida(data.unidad_medida, "unidad") };
+}
+
+export async function sacarConsumiblePanol(materialId) {
+  if (!materialId) throw new Error("Falta el consumible.");
+  const { error } = await supabase
+    .from("panol_materiales")
+    .update({ es_consumible: false })
+    .eq("id", materialId);
+  if (error) throw error;
+}
+
+export async function guardarPesoUnitarioDirecto(materialId, pesoUnitarioG) {
+  const g = toNullableNumber(String(pesoUnitarioG ?? "").replace(",", "."));
+  if (!materialId) throw new Error("Falta el consumible.");
+  if (g == null || g <= 0) throw new Error("Cargá un peso unitario válido.");
+  const { data, error } = await supabase
+    .from("panol_materiales")
+    .update({
+      peso_unitario_g: g,
+      peso_muestra_piezas: null,
+      peso_calibrado_at: new Date().toISOString(),
+    })
+    .eq("id", materialId)
+    .select("id, peso_unitario_g, peso_muestra_piezas, peso_calibrado_at")
+    .single();
+  if (error) throw error;
+  return data;
+}
+
+/**
+ * Guarda el peso unitario calculado a partir de una muestra pesada.
+ * `gramosMuestra` es el peso NETO de `piezas` unidades.
+ */
+export async function guardarPesoUnitario(materialId, { gramosMuestra, piezas }) {
+  const g = Number(gramosMuestra);
+  const n = Number(piezas);
+  if (!Number.isFinite(g) || g <= 0) throw new Error("El peso de la muestra no es válido.");
+  if (!Number.isFinite(n) || n <= 0) throw new Error("La cantidad de piezas no es válida.");
+  const { data, error } = await supabase
+    .from("panol_materiales")
+    .update({
+      peso_unitario_g: g / n,
+      peso_muestra_piezas: Math.round(n),
+      peso_calibrado_at: new Date().toISOString(),
+    })
+    .eq("id", materialId)
+    .select("id, peso_unitario_g, peso_muestra_piezas, peso_calibrado_at")
+    .single();
+  if (error) throw error;
+  return data;
+}
+
+/** Borra la calibración de un producto (por si quedó mal cargada). */
+export async function borrarPesoUnitario(materialId) {
+  const { error } = await supabase
+    .from("panol_materiales")
+    .update({ peso_unitario_g: null, peso_muestra_piezas: null, peso_calibrado_at: null })
+    .eq("id", materialId);
   if (error) throw error;
 }

@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { AlertTriangle, ChevronRight, DollarSign, Inbox, RefreshCw, Warehouse } from "lucide-react";
+import { useNavigate } from "react-router-dom";
+import { AlertTriangle, ChevronRight, DollarSign, Inbox, RefreshCw, Scale, Warehouse } from "lucide-react";
 import Sidebar from "@/components/Sidebar";
 import { useResponsive } from "@/hooks/useResponsive";
 import { useToast } from "@/components/ui/Toast";
@@ -603,6 +604,7 @@ function MovimientosPanel({ rows = [], obras = [], materialCreations = [], isMob
 // ─── Componente principal ─────────────────────────────────────────────────────
 
 export default function StockPanolScreen({ profile, signOut, embedded = false, mode = "stock" }) {
+  const nav = useNavigate();
   // 1180px: en tablet (sidebar 280px + panel de 2 columnas ~830px) el layout de escritorio
   // desbordaba y "rompía" la pantalla. Por debajo de 1180 usamos el layout apilado.
   const { isMobile } = useResponsive(1180);
@@ -809,7 +811,22 @@ export default function StockPanolScreen({ profile, signOut, embedded = false, m
                 )}
               </button>
             ))}
-            {embedded && <div style={{ marginLeft: "auto", alignSelf: "center" }}>{refreshBtn}</div>}
+            {/* Acceso a las herramientas de balanza (calibración de peso por pieza). */}
+            <div style={{ marginLeft: "auto", alignSelf: "center", display: "flex", alignItems: "center", gap: 8, paddingLeft: 12 }}>
+              <button
+                type="button"
+                onClick={() => nav("/balanza/calibrar")}
+                title="Cargar el peso por pieza de los consumibles usando la balanza"
+                style={{
+                  display: "inline-flex", alignItems: "center", gap: 6, whiteSpace: "nowrap",
+                  border: `1px solid ${C.border}`, background: C.panel, color: C.violet,
+                  borderRadius: 999, padding: "6px 13px", cursor: "pointer", fontSize: 12, fontWeight: 850,
+                }}
+              >
+                <Scale size={14} /> Balanza
+              </button>
+              {embedded && refreshBtn}
+            </div>
           </div>
 
           {/* ── Área de contenido ── */}

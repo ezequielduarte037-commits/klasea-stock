@@ -3,8 +3,11 @@
 
 import { supabase } from "@/supabaseClient";
 
-export const EMPLEADO_SELECT =
+const EMPLEADO_BASE_SELECT =
   "id, dni, nombre, grupo, sede, ficha, activo, notas, contratista_id, contratista:rrhh_contratistas(id, nombre)";
+
+export const EMPLEADO_SELECT =
+  `${EMPLEADO_BASE_SELECT}, nfc_uid, foto_url, nfc_asignado_at, nfc_asignado_por`;
 
 export const SEDES = ["Pampa", "Chubut"];
 
@@ -15,13 +18,60 @@ export function isMissingTable(error) {
   return error.code === "42P01" || msg.includes("does not exist") || msg.includes("schema cache") || msg.includes("not found");
 }
 
+export function isMissingColumn(error) {
+  if (!error) return false;
+  const msg = String(error.message ?? "").toLowerCase();
+  return error.code === "42703" || msg.includes("column") && (msg.includes("does not exist") || msg.includes("schema cache"));
+}
+
+export function normalizeNfcUid(value) {
+  return String(value ?? "")
+    .trim()
+    .replace(/[^0-9a-z]/gi, "")
+    .toUpperCase();
+}
+
+function withNfcDefaults(rows) {
+  return (rows ?? []).map((row) => ({
+    ...row,
+    nfc_uid: row.nfc_uid ?? null,
+    foto_url: row.foto_url ?? null,
+    nfc_asignado_at: row.nfc_asignado_at ?? null,
+    nfc_asignado_por: row.nfc_asignado_por ?? null,
+  }));
+}
+
 export async function fetchEmpleados() {
-  const { data, error } = await supabase
+  const rich = await supabase
     .from("rrhh_empleados")
     .select(EMPLEADO_SELECT)
     .order("nombre");
+  if (!rich.error) return rich.data ?? [];
+  if (!isMissingColumn(rich.error)) throw rich.error;
+
+  const { data, error } = await supabase
+    .from("rrhh_empleados")
+    .select(EMPLEADO_BASE_SELECT)
+    .order("nombre");
   if (error) throw error;
-  return data ?? [];
+  return withNfcDefaults(data);
+}
+
+export async function buscarEmpleadoPorNfc(uid) {
+  const clean = normalizeNfcUid(uid);
+  if (!clean) return null;
+  const { data, error } = await supabase
+    .from("rrhh_empleados")
+    .select(EMPLEADO_SELECT)
+    .eq("nfc_uid", clean)
+    .maybeSingle();
+  if (error) {
+    if (isMissingColumn(error)) {
+      throw new Error("Falta correr la migracion NFC de RRHH para poder leer tarjetas.");
+    }
+    throw error;
+  }
+  return data ?? null;
 }
 
 export async function fetchContratistas() {

@@ -24,6 +24,7 @@ import {
 import PanolEnvioDetail from "@/features/panol/PanolEnvioDetail";
 import EnviarAPanolModal from "@/features/panol/EnviarAPanolModal";
 import CrearProductoTab from "@/features/panol/CrearProductoTab";
+import ConsumiblesPanolTab from "@/features/panol/ConsumiblesPanolTab";
 import { leerIngresosPendientes, borrarIngresoPendiente } from "@/features/panol/ingresosPendientes";
 import StockWmsPanel from "@/features/panol/StockWmsPanel";
 import StockPanolScreen from "@/features/panol/StockPanolScreen";
@@ -50,7 +51,7 @@ const PRIO_FILTERS = [
   ["baja", "Baja"],
 ];
 const PANOL_TAB_STORAGE_KEY = "klasea.panol.recepcion.tab";
-const PANOL_TABS = new Set(["recepcion", "ingresar", "crear", "egresos"]);
+const PANOL_TABS = new Set(["recepcion", "ingresar", "consumibles", "crear", "egresos"]);
 
 function readStoredPanolTab() {
   if (typeof window === "undefined") return "recepcion";
@@ -2223,6 +2224,7 @@ export default function RecepcionPanolScreen({ profile, signOut }) {
             <TabButton active={tab === "ingresar"} onClick={() => { refreshPendientes(); setTab("ingresar"); }}>
               Ingresar{pendientes.length > 0 ? ` (${pendientes.length})` : ""}
             </TabButton>
+            <TabButton active={tab === "consumibles"} onClick={() => setTab("consumibles")}>Consumibles</TabButton>
             <TabButton active={tab === "crear"} onClick={() => setTab("crear")}>Crear producto</TabButton>
             <TabButton active={tab === "egresos"} onClick={() => setTab("egresos")}>Egresos</TabButton>
           </div>
@@ -2407,6 +2409,8 @@ export default function RecepcionPanolScreen({ profile, signOut }) {
         </>
       ) : tab === "egresos" ? (
         <StockPanolScreen embedded mode="egreso" profile={profile} />
+      ) : tab === "consumibles" ? (
+        <ConsumiblesPanolTab isMobile={isMobile} toast={toast} sedeLocked={sedeLocked} canReceive={canReceive} isAdmin={isAdmin} />
       ) : tab === "crear" ? (
         <CrearProductoTab isMobile={isMobile} toast={toast} />
       ) : (
