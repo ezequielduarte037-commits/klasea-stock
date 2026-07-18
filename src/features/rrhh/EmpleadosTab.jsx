@@ -1,8 +1,9 @@
 // Maestro de empleados: clasificación casa/contratista, flag "ficha",
 // alta/edición, y administración de contratistas (jefes).
-import { useMemo, useState } from "react";
+import { useCallback, useMemo, useState } from "react";
 import { supabase } from "@/supabaseClient";
 import { C } from "@/theme";
+import useNfcBridge from "@/features/panol/useNfcBridge";
 import useKeyboardWedge from "@/features/panol/useKeyboardWedge";
 import { isMissingColumn, normalizeNfcUid, SEDES } from "./api";
 import { BTN, BTN_PRIMARY, GrupoBadge, INP, KpiCard, LBL, Td, Th } from "./ui";
@@ -317,6 +318,23 @@ function EmpleadoModal({ emp, contratistas, onClose, onSaved, onError }) {
   const [scanMsg, setScanMsg] = useState("");
   const set = (k, v) => setForm(f => ({ ...f, [k]: v }));
 
+  const onBridgeUid = useCallback((uid) => {
+    const clean = normalizeNfcUid(uid);
+    if (!clean) return;
+    setForm((f) => ({ ...f, nfc_uid: clean }));
+    setScanMsg(`Tarjeta detectada por ACR122U: ${clean}`);
+  }, []);
+  const nfcBridge = useNfcBridge({ enabled: true, onUid: onBridgeUid });
+  const bridgeOk = nfcBridge.status === "connected";
+  const bridgeLabel = bridgeOk
+    ? "ACR122U conectado"
+    : nfcBridge.status === "connecting"
+      ? "Buscando ACR122U"
+      : "Puente ACR122U no detectado";
+  const bridgeColor = bridgeOk ? C.green : nfcBridge.status === "connecting" ? C.blue : C.amber;
+  const bridgeBg = bridgeOk ? C.greenL : nfcBridge.status === "connecting" ? C.blueL : C.amberL;
+  const bridgeBorder = bridgeOk ? C.greenB : nfcBridge.status === "connecting" ? C.blueB : C.amberB;
+
   useKeyboardWedge({
     enabled: true,
     ignoreEditable: false,
@@ -380,12 +398,22 @@ function EmpleadoModal({ emp, contratistas, onClose, onSaved, onError }) {
 
         <div style={{ border: `1px solid ${form.nfc_uid ? C.greenB : C.b0}`, background: form.nfc_uid ? C.greenL : C.s0, borderRadius: 12, padding: 10, marginBottom: 10 }}>
           <label style={LBL}>Tarjeta NFC/RFID</label>
+          <div style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap", border: `1px solid ${bridgeBorder}`, background: bridgeBg, borderRadius: 10, padding: "7px 8px", marginBottom: 8 }}>
+            <span style={{ color: bridgeColor, fontSize: 10.5, fontWeight: 950, textTransform: "uppercase", letterSpacing: 0.5 }}>{bridgeLabel}</span>
+            {nfcBridge.reader && <span style={{ color: C.t2, fontSize: 10.5 }}>{nfcBridge.reader}</span>}
+            {nfcBridge.lastUid && <span style={{ color: C.t2, fontSize: 10.5, fontFamily: C.mono }}>Ultima {normalizeNfcUid(nfcBridge.lastUid).slice(-8)}</span>}
+            {!bridgeOk && (
+              <button type="button" onClick={nfcBridge.reconnect} style={{ ...BTN, marginLeft: "auto", padding: "5px 8px", color: bridgeColor, borderColor: bridgeBorder, fontSize: 10.5 }}>
+                Reintentar
+              </button>
+            )}
+          </div>
           <div style={{ display: "grid", gridTemplateColumns: "1fr auto", gap: 8 }}>
             <input style={{ ...INP, width: "100%", fontFamily: C.mono, background: C.panelSolid }} value={form.nfc_uid} onChange={e => { set("nfc_uid", normalizeNfcUid(e.target.value)); setScanMsg(""); }} placeholder="Apoya la tarjeta o pega el UID" />
             <button type="button" onClick={() => { set("nfc_uid", ""); setScanMsg(""); }} style={{ ...BTN, whiteSpace: "nowrap" }}>Limpiar</button>
           </div>
           <div style={{ color: form.nfc_uid ? C.green : C.t2, fontSize: 11, lineHeight: 1.35, marginTop: 7 }}>
-            {scanMsg || "Con el modal abierto, apoya la tarjeta. Si el lector escribe como teclado, el UID se completa solo."}
+            {scanMsg || "Con el modal abierto, apoya la tarjeta. Si el puente local esta activo, el UID se completa solo."}
           </div>
         </div>
 

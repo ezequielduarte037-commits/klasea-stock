@@ -5402,7 +5402,7 @@ function ObraMatrizView({ obra, obras = [], linea, lineaNombre, categorias, mate
           </div>
           <div style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap", justifyContent: "flex-end" }}>
             <div title="Presupuesto estimado de esta vista" style={{ minWidth: 142, textAlign: "right" }}>
-              <div style={{ fontSize: 10.5, color: C.t2, fontWeight: 900, textTransform: "uppercase", letterSpacing: 0.7 }}>Total visible</div>
+              <div style={{ fontSize: 10.5, color: C.t2, fontWeight: 900, textTransform: "uppercase", letterSpacing: 0.7 }}>Total obra</div>
               <div style={{ fontFamily: C.mono, fontSize: 17, fontWeight: 950, color: kpis.usd || kpis.ars ? C.green : C.t2 }}>{totalObraLabel}</div>
             </div>
             <button type="button" onClick={copiarOrden} disabled={!orderRows.length} style={{ ...BTN, height: 38, padding: "0 13px", color: C.green, borderColor: C.greenB, background: C.greenL }}>
@@ -5437,7 +5437,7 @@ function ObraMatrizView({ obra, obras = [], linea, lineaNombre, categorias, mate
           </div>
         </div>
       </div>
-      <div style={{ border: `1px solid ${C.b0}`, borderRadius: 22, background: "linear-gradient(135deg, color-mix(in srgb, var(--panel) 96%, #ffffff 4%), color-mix(in srgb, var(--panel) 90%, #2563eb 4%))", padding: isMobile ? 13 : 16, marginBottom: 12, boxShadow: "0 20px 70px -58px rgba(15,23,42,0.72)" }}>
+      <div style={{ display: "none", border: `1px solid ${C.b0}`, borderRadius: 22, background: "linear-gradient(135deg, color-mix(in srgb, var(--panel) 96%, #ffffff 4%), color-mix(in srgb, var(--panel) 90%, #2563eb 4%))", padding: isMobile ? 13 : 16, marginBottom: 12, boxShadow: "0 20px 70px -58px rgba(15,23,42,0.72)" }}>
         <div style={{ display: "flex", alignItems: "center", gap: 12, flexWrap: "wrap" }}>
           <button type="button" onClick={onBack} style={{ ...BTN, padding: "8px 12px" }}>← {lineaNombre}</button>
           <div style={{ flex: "1 1 240px" }}>
@@ -5462,7 +5462,7 @@ function ObraMatrizView({ obra, obras = [], linea, lineaNombre, categorias, mate
         </div>
       </div>
 
-      <div style={{ border: `1px solid ${C.b0}`, borderRadius: 14, background: "var(--panel)", padding: 8, marginBottom: 12, display: "flex", gap: 8, alignItems: "center", flexWrap: "wrap" }}>
+      <div style={{ display: "none", border: `1px solid ${C.b0}`, borderRadius: 14, background: "var(--panel)", padding: 8, marginBottom: 12, gap: 8, alignItems: "center", flexWrap: "wrap" }}>
         <button type="button" onClick={() => setObraPanel((panel) => (panel === "config" ? "" : "config"))} style={{ ...BTN, padding: "7px 11px", color: obraPanel === "config" ? C.amber : C.t1, background: obraPanel === "config" ? C.amberL : C.s0, borderColor: obraPanel === "config" ? C.amberB : C.b0, fontWeight: 900 }}>
           Configuracion <span style={{ color: C.amber, fontFamily: C.mono }}>{condicionantesActivos.length}/{condicionantesModelo.length}</span>
         </button>
@@ -5709,7 +5709,90 @@ function ObraMatrizView({ obra, obras = [], linea, lineaNombre, categorias, mate
         </div>
       ) : null}
 
-      <div style={{ position: "sticky", top: 0, zIndex: 22, border: `1px solid ${C.b0}`, borderRadius: 16, background: "color-mix(in srgb, var(--panel) 88%, transparent)", backdropFilter: "blur(18px)", WebkitBackdropFilter: "blur(18px)", padding: 11, marginBottom: 16, display: "grid", gap: 10, boxShadow: "0 20px 50px -42px rgba(15,23,42,0.75)" }}>
+      <div style={{ position: "sticky", top: 0, zIndex: 23, border: `1px solid ${C.b0}`, borderRadius: 16, background: "color-mix(in srgb, var(--panel) 88%, transparent)", backdropFilter: "blur(16px)", WebkitBackdropFilter: "blur(16px)", padding: 10, marginBottom: 14, display: "grid", gap: 10, boxShadow: "0 16px 42px -38px rgba(15,23,42,0.7)" }}>
+        <div style={{ display: "flex", gap: 8, flexWrap: "wrap", alignItems: "center" }}>
+          <div style={{ position: "relative", flex: "1 1 320px", minWidth: isMobile ? "100%" : 260 }}>
+            <Search size={15} style={{ position: "absolute", left: 12, top: "50%", transform: "translateY(-50%)", color: C.t2 }} />
+            <input value={q} onChange={(e) => setQ(e.target.value)} placeholder="Buscar item, proveedor, rubro, codigo..." style={{ ...INP, width: "100%", paddingLeft: 36, height: 40, borderRadius: 12 }} />
+          </div>
+          {[
+            ["todos", `Todo (${kpis.items})`, C.blue],
+            ["sin_precio", `Sin precio (${kpis.sinPrecio})`, C.red],
+            ["addon", `Adicionales (${addonStats.total})`, C.violet],
+          ].map(([key, label, color]) => (
+            <button key={key} type="button" onClick={() => setTipoFilter(key)} style={filterPillStyle(tipoFilter === key, color)}>
+              {label}
+            </button>
+          ))}
+          <button type="button" onClick={() => setFiltersOpen((v) => !v)} style={{ ...BTN, height: 40, padding: "0 12px", color: filtersOpen || activeObraFilterCount ? C.blue : C.t1, borderColor: filtersOpen || activeObraFilterCount ? C.blueB : C.b0, background: filtersOpen || activeObraFilterCount ? C.blueL : C.s0 }}>
+            <SlidersHorizontal size={14} /> Filtros{activeObraFilterCount ? ` (${activeObraFilterCount})` : ""}
+          </button>
+        </div>
+        {filtersOpen && (
+          <div style={{ display: "flex", gap: 8, flexWrap: "wrap", alignItems: "center", borderTop: `1px solid ${C.b0}`, paddingTop: 10 }}>
+            <select value={proveedorFilter} onChange={(e) => setProveedorFilter(e.target.value)} style={{ ...INP, width: 205, height: 38, borderRadius: 12 }} title="Filtrar proveedor">
+              <option value="" style={OPT_ST}>Todos los proveedores</option>
+              {facets.proveedores.map((p) => <option key={p} value={p} style={OPT_ST}>{p}</option>)}
+            </select>
+            <select value={rubroFilter} onChange={(e) => setRubroFilter(e.target.value)} style={{ ...INP, width: 170, height: 38, borderRadius: 12 }} title="Filtrar rubro">
+              <option value="" style={OPT_ST}>Todos los rubros</option>
+              {facets.rubros.map((r) => <option key={r} value={r} style={OPT_ST}>{r}</option>)}
+            </select>
+            <select value={estadoFilter} onChange={(e) => setEstadoFilter(e.target.value)} style={{ ...INP, width: 190, height: 38, borderRadius: 12 }} title="Filtrar estado del item">
+              {recepcionFilterOptions(kpis).map(([key, label]) => (
+                <option key={key} value={key} style={OPT_ST}>{label}</option>
+              ))}
+            </select>
+            <select value={groupBy} onChange={(e) => setGroupBy(e.target.value)} style={{ ...INP, width: 150, height: 38, borderRadius: 12 }}>
+              <option value="proveedor" style={OPT_ST}>Proveedor</option>
+              <option value="rubro" style={OPT_ST}>Rubro</option>
+              <option value="tipo" style={OPT_ST}>Tipo</option>
+            </select>
+            {[
+              ["base", "Base", C.green],
+              ["condicionante", "Condicionantes", C.amber],
+              ["linea_eje", "Linea eje", C.violet],
+              ["variante", "Variantes", C.amber],
+              ["revisar", "A revisar", C.amber],
+            ].map(([key, label, color]) => (
+              <button key={key} type="button" onClick={() => setTipoFilter(key)} style={filterPillStyle(tipoFilter === key, color)}>
+                {label}
+              </button>
+            ))}
+          </div>
+        )}
+        <div style={{ display: "flex", gap: 8, flexWrap: "wrap", alignItems: "center", borderTop: `1px solid ${C.b0}`, paddingTop: 10 }}>
+          <FileText size={15} style={{ color: C.blue }} />
+          <div style={{ flex: "1 1 220px" }}>
+            <div style={{ fontSize: 12.5, fontWeight: 950, color: C.t0 }}>Orden de compra</div>
+            <div style={{ fontSize: 11.5, color: C.t2 }}>{selected.size ? `${selected.size} seleccionados` : `${visibleRows.length} visibles`} - agrupado por {groupBy === "proveedor" ? "proveedor" : groupBy === "rubro" ? "rubro" : "tipo"}.</div>
+          </div>
+          <div style={{ display: "inline-flex", gap: 6, border: `1px solid ${C.b0}`, borderRadius: 10, padding: 4, background: C.s0 }}>
+            {[
+              { value: "stock", label: "Stock", color: C.green },
+              { value: "estandar", label: "Estandar", color: C.blue },
+              { value: "adicional", label: "Adicional", color: C.violet },
+            ].map(({ value, label, color }) => (
+              <button key={label} type="button" onClick={() => setPedidoObraTipo(value)} style={{ ...BTN, padding: "6px 10px", color: pedidoObraTipo === value ? color : C.t2, background: pedidoObraTipo === value ? `${color}18` : "transparent", borderColor: pedidoObraTipo === value ? color : "transparent", fontWeight: 900 }}>
+                {label}
+              </button>
+            ))}
+          </div>
+          <button type="button" onClick={pedirAComprasObra} disabled={!orderRows.length || !!actionBusy || snapshotBusy} style={{ ...BTN_PRIMARY, padding: "9px 14px" }}>
+            <ShoppingCart size={14} /> {actionBusy === "compras" || snapshotBusy ? "Creando..." : "Pedir"}
+          </button>
+          <button type="button" onClick={abrirAvisoPanol} disabled={!orderRows.length || !!actionBusy || snapshotBusy} style={{ ...BTN_GREEN, padding: "9px 14px" }}>
+            <PackagePlus size={14} /> {actionBusy === "panol" || snapshotBusy ? "Preparando..." : "Avisar panol"}
+          </button>
+        </div>
+        {flowMsg && (
+          <div style={{ fontSize: 12.5, fontWeight: 750, color: flowMsg.type === "err" ? C.red : C.green, border: `1px solid ${flowMsg.type === "err" ? "rgba(239,68,68,0.30)" : C.greenB}`, background: flowMsg.type === "err" ? "rgba(239,68,68,0.10)" : C.greenL, borderRadius: 10, padding: "8px 10px" }}>
+            {flowMsg.text}
+          </div>
+        )}
+      </div>
+
+      <div style={{ display: "none", position: "sticky", top: 0, zIndex: 22, border: `1px solid ${C.b0}`, borderRadius: 16, background: "color-mix(in srgb, var(--panel) 88%, transparent)", backdropFilter: "blur(18px)", WebkitBackdropFilter: "blur(18px)", padding: 11, marginBottom: 16, gap: 10, boxShadow: "0 20px 50px -42px rgba(15,23,42,0.75)" }}>
         <div style={{ display: "flex", gap: 8, flexWrap: "wrap", alignItems: "center" }}>
           <div style={{ position: "relative", flex: "1 1 280px" }}>
             <Search size={15} style={{ position: "absolute", left: 12, top: "50%", transform: "translateY(-50%)", color: C.t2 }} />

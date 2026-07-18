@@ -24,3 +24,6 @@ dist-ssr
 *.sw?
 .env
 .env.*
+# Build del puente NFC (tools/nfc-bridge)
+tools/nfc-bridge/bin/
+tools/nfc-bridge/obj/

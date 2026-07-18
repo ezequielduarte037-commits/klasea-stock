@@ -199,7 +199,10 @@ export default function ScanPedidoScreen({ profile }) {
             material: it.nombre,
             destino: obra.trim() || null,
             prioridad,
-            origen: "panol_scan",
+            // `origen` tiene un CHECK en la base y sólo acepta los valores ya
+            // usados por la app; se deja el default ('web'). La procedencia real
+            // va en source_ref, que es texto libre.
+            source_ref: "colector",
           });
         }
         setCart([]);
@@ -223,7 +226,8 @@ export default function ScanPedidoScreen({ profile }) {
           priority: prioridad,
           project_id: null,
           destino: obra.trim() || null,
-          source: "panol_scan",
+          source: "panol",          // valor ya usado por la app
+          source_ref: "colector",   // para distinguir los que salen del lector
         },
       });
 

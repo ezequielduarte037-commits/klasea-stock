@@ -1,0 +1,23 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+    <TargetFramework>net8.0</TargetFramework>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <AssemblyName>KlaseaNfcBridge</AssemblyName>
+    <RootNamespace>KlaseaNfcBridge</RootNamespace>
+    <InvariantGlobalization>true</InvariantGlobalization>
+    <!-- Un solo .exe portable: se copia a la PC del panol y corre sin instalar nada. -->
+    <PublishSingleFile>true</PublishSingleFile>
+    <SelfContained>true</SelfContained>
+    <RuntimeIdentifier>win-x64</RuntimeIdentifier>
+    <EnableCompressionInSingleFile>true</EnableCompressionInSingleFile>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <PackageReference Include="PCSC" Version="6.2.0" />
+    <PackageReference Include="PCSC.Iso7816" Version="6.2.0" />
+  </ItemGroup>
+
+</Project>

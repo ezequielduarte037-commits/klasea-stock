@@ -17,6 +17,7 @@ import {
 import { C } from "@/theme";
 import BarcodeScanner from "@/features/panol/BarcodeScanner";
 import UbicacionPicker, { UbicacionChip } from "@/features/panol/UbicacionPicker";
+import useNfcBridge from "@/features/panol/useNfcBridge";
 import useKeyboardWedge from "@/features/panol/useKeyboardWedge";
 import { materialBarcodeList, materialBarcodeText } from "@/features/materiales/materialBarcodes";
 import { buscarEmpleadoPorNfc, normalizeNfcUid } from "@/features/rrhh/api";
@@ -163,6 +164,11 @@ function useRetiroNfc({ enabled, onEmpleado, toast }) {
     onScan: resolver,
   });
 
+  const bridge = useNfcBridge({
+    enabled,
+    onUid: resolver,
+  });
+
   const clear = useCallback(() => {
     setEmpleado(null);
     setCode("");
@@ -170,13 +176,23 @@ function useRetiroNfc({ enabled, onEmpleado, toast }) {
     setError("");
   }, []);
 
-  return { empleado, code, setCode, status, error, resolver, clear };
+  return { empleado, code, setCode, status, error, resolver, clear, bridge };
 }
 
 function RetiroNfcBox({ nfc, onClear, compact = false }) {
   const border = nfc.empleado ? C.greenB : nfc.status === "error" ? C.redB : C.blueB;
   const bg = nfc.empleado ? C.greenL : nfc.status === "error" ? C.redL : C.blueL;
   const accent = nfc.empleado ? C.green : nfc.status === "error" ? C.red : C.blue;
+  const bridge = nfc.bridge;
+  const bridgeOk = bridge?.status === "connected";
+  const bridgeLabel = bridgeOk
+    ? "ACR122U conectado"
+    : bridge?.status === "connecting"
+      ? "Buscando ACR122U"
+      : "Puente ACR122U no detectado";
+  const bridgeColor = bridgeOk ? C.green : bridge?.status === "connecting" ? C.blue : C.amber;
+  const bridgeBg = bridgeOk ? C.greenL : bridge?.status === "connecting" ? C.blueL : C.amberL;
+  const bridgeBorder = bridgeOk ? C.greenB : bridge?.status === "connecting" ? C.blueB : C.amberB;
   return (
     <div style={{ border: `1px solid ${border}`, background: bg, borderRadius: 12, padding: compact ? 9 : 11, display: "grid", gap: 9 }}>
       <div style={{ display: "flex", alignItems: "center", gap: 9 }}>
@@ -184,9 +200,20 @@ function RetiroNfcBox({ nfc, onClear, compact = false }) {
           {nfc.empleado ? <UserCheck size={17} /> : <CreditCard size={17} />}
         </div>
         <div style={{ flex: 1, minWidth: 0 }}>
-          <div style={{ color: C.text, fontSize: 12.5, fontWeight: 950 }}>Tarjeta NFC opcional</div>
-          <div style={{ color: C.dim, fontSize: 10.5, marginTop: 1 }}>Si todavia no tiene tarjeta, escribi nombre y apellido abajo y el egreso se puede confirmar igual.</div>
+          <div style={{ color: C.text, fontSize: 12.5, fontWeight: 950 }}>Retiro con tarjeta NFC</div>
+          <div style={{ color: C.dim, fontSize: 10.5, marginTop: 1 }}>Apoya la tarjeta en el lector. Si todavia no tiene tarjeta, escribi nombre y apellido abajo.</div>
         </div>
+      </div>
+
+      <div style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap", border: `1px solid ${bridgeBorder}`, background: bridgeBg, borderRadius: 10, padding: "7px 8px" }}>
+        <span style={{ color: bridgeColor, fontSize: 10.5, fontWeight: 950, textTransform: "uppercase", letterSpacing: 0.5 }}>{bridgeLabel}</span>
+        {bridge?.reader && <span style={{ color: C.dim, fontSize: 10.5 }}>{bridge.reader}</span>}
+        {bridge?.lastUid && <span style={{ color: C.dim, fontSize: 10.5, fontFamily: C.mono }}>Ultima {normalizeNfcUid(bridge.lastUid).slice(-8)}</span>}
+        {!bridgeOk && (
+          <button type="button" onClick={bridge?.reconnect} style={{ marginLeft: "auto", border: `1px solid ${bridgeBorder}`, background: C.panelSolid, color: bridgeColor, borderRadius: 8, padding: "5px 8px", cursor: "pointer", fontSize: 10.5, fontWeight: 900, fontFamily: C.sans }}>
+            Reintentar
+          </button>
+        )}
       </div>
 
       {nfc.empleado && (
