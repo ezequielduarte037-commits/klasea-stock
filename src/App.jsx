@@ -23,6 +23,7 @@ import MaderasScreen         from "@/features/inventario/MaderasScreen";
 import PurchaseRequestsScreen from "@/features/compras/PurchaseRequestsScreen";
 import ScanEgresoScreen      from "@/features/inventario/ScanEgresoScreen";
 import BalanzaDebugScreen    from "@/features/inventario/BalanzaDebugScreen";
+import ScanPedidoScreen      from "@/features/inventario/ScanPedidoScreen";
 import CalibrarPesosScreen   from "@/features/panol/CalibrarPesosScreen";
 import EtiquetasScreen       from "@/features/inventario/EtiquetasScreen";
 import RrhhScreen            from "@/features/rrhh/RrhhScreen";
@@ -441,6 +442,8 @@ export default function App() {
 
         {/* Escáner de pañol (PDA) + impresión de etiquetas QR */}
         <Route path="/scan"      element={<RequireAuth session={session}><RequireRole profile={profile} allow={["admin","oficina","tecnica","panol"]}><ScanEgresoScreen {...A} /></RequireRole></RequireAuth>} />
+        {/* Aviso a compras desde el colector: se escanea lo que hay que reponer */}
+        <Route path="/scan-pedido" element={<RequireAuth session={session}><RequireRole profile={profile} allow={["admin","oficina","tecnica","panol"]}><ScanPedidoScreen {...A} /></RequireRole></RequireAuth>} />
         <Route path="/etiquetas" element={<RequireAuth session={session}><RequireRole profile={profile} allow={["admin","oficina","tecnica"]}><EtiquetasScreen   {...A} /></RequireRole></RequireAuth>} />
 
         {/* Diagnóstico del puerto serie de la balanza (para descubrir su protocolo) */}

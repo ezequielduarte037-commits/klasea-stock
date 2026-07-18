@@ -4,7 +4,7 @@ import { Bot, Link2, MapPin, PackageSearch, ScanLine, Search } from "lucide-reac
 import { supabase } from "@/supabaseClient";
 import { useResponsive } from "@/hooks/useResponsive";
 import { useToast } from "@/components/ui/Toast";
-import { crearEnvio, crearPanolCatalogMaterial, fetchPanolCatalogMini, fetchRecepcionAvisosAbiertos, fetchRecepcionPedidoMatches, guardarUbicacionMaterial, marcarItems, SEDES_PANOL } from "@/features/panol/panolApi";
+import { crearEnvio, crearPanolCatalogMaterial, fetchMaterialesEgreso, fetchPanolCatalogMini, fetchRecepcionAvisosAbiertos, fetchRecepcionPedidoMatches, guardarUbicacionMaterial, marcarItems, SEDES_PANOL } from "@/features/panol/panolApi";
 import { fetchProveedores, leerPresupuestoConIA, variantePrecio, varianteCodigo } from "@/features/materiales/api";
 import ProveedorTipoBadge from "@/features/materiales/ProveedorTipoBadge";
 import { proveedorMeta } from "@/features/materiales/proveedorMeta";
@@ -18,6 +18,110 @@ import { PANOL_REFERENCE_LAYOUT, PANOL_ROOM_H, PANOL_ROOM_W, applyPanolReference
 
 const UNITS = ["unidad", "metro", "kg", "litro", "pies", "caja", "rollo", "par", "juego", "m2"];
 const CURRENCIES = ["ARS", "USD"];
+const STOCK_LEDGER_STATES = ["en_panol", "recibido", "parcial", "egresado", "problema"];
+const STOCK_IN_STATES = new Set(["en_panol", "recibido", "parcial"]);
+const STOCK_RECEIVED_STATES = new Set(["recibido", "parcial"]);
+const STOCK_DIRECT_SOURCES = new Set(["stock_general", "remito", "transferencia_ingreso", "ajuste_ingreso"]);
+
+function stockQty(value, fallback = 0) {
+  const n = Number(String(value ?? "").replace(",", "."));
+  return Number.isFinite(n) ? n : fallback;
+}
+
+function fmtStockQty(value) {
+  const n = Number(value || 0);
+  if (!Number.isFinite(n)) return "0";
+  return Number(Math.round(n * 100) / 100).toLocaleString("es-AR");
+}
+
+function stockRowSource(row) {
+  return String(row?.source || "").trim();
+}
+
+function stockRowIsLocationChange(row) {
+  return stockRowSource(row) === "ajuste_ubicacion";
+}
+
+function stockRowIsDirectStock(row) {
+  const source = stockRowSource(row);
+  return STOCK_DIRECT_SOURCES.has(source) || source.startsWith("stock_") || source.startsWith("transferencia_ingreso");
+}
+
+function stockRowCountsAsAvailable(row) {
+  if (stockRowIsLocationChange(row)) return false;
+  if (!STOCK_IN_STATES.has(row?.estado)) return false;
+  const recepcion = String(row?.recepcion_estado || "").trim();
+  return STOCK_RECEIVED_STATES.has(recepcion) || stockRowIsDirectStock(row);
+}
+
+function stockRowIsEgreso(row) {
+  const source = stockRowSource(row);
+  return !!row?.egreso_destino_obra_id || row?.estado === "egresado" || source.startsWith("egreso") || source.startsWith("transferencia_egreso");
+}
+
+function stockRowDelta(row) {
+  if (stockRowCountsAsAvailable(row)) return stockQty(row.cantidad, 1);
+  if (stockRowIsEgreso(row)) return -Math.abs(stockQty(row.cantidad_egresada, stockQty(row.cantidad, 1)));
+  return 0;
+}
+
+function buildStockByMaterial(rows = []) {
+  const map = new Map();
+  for (const row of rows) {
+    if (!row?.material_id) continue;
+    const delta = stockRowDelta(row);
+    if (!delta) continue;
+    const sede = row.panol_envio?.sede || row.stock_sede || "Sin sede";
+    const current = map.get(row.material_id) || {
+      total: 0,
+      unidad: row.unidad || "unidad",
+      sedes: new Map(),
+    };
+    current.total += delta;
+    if (!current.unidad && row.unidad) current.unidad = row.unidad;
+    current.sedes.set(sede, (current.sedes.get(sede) || 0) + delta);
+    map.set(row.material_id, current);
+  }
+  return map;
+}
+
+function materialStockInfo(material, stockByMaterial) {
+  if (!material?.id) return null;
+  const stock = stockByMaterial?.get?.(material.id);
+  return stock || { total: 0, unidad: material.unidad || "unidad", sedes: new Map() };
+}
+
+function StockActualBadge({ material, stockByMaterial, sede = "", compact = false }) {
+  const stock = materialStockInfo(material, stockByMaterial);
+  if (!stock) return null;
+  const total = stockQty(stock.total, 0);
+  const unidad = stock.unidad || material?.unidad || "unidad";
+  const labelSede = sede ? `Stock ${sede}` : "Stock actual";
+  const color = total < 0 ? C.red : total > 0 ? C.green : C.t2;
+  const bg = total < 0 ? C.redL : total > 0 ? C.greenL : C.bg;
+  const border = total < 0 ? C.redB : total > 0 ? C.greenB : C.b0;
+  return (
+    <span
+      title={`${labelSede}: ${fmtStockQty(total)} ${unidad}`}
+      style={{
+        display: "inline-flex",
+        alignItems: "center",
+        gap: 5,
+        border: `1px solid ${border}`,
+        background: bg,
+        color,
+        borderRadius: 999,
+        padding: compact ? "3px 7px" : "4px 9px",
+        fontSize: compact ? 10.5 : 11.5,
+        fontWeight: 900,
+        whiteSpace: "nowrap",
+        lineHeight: 1,
+      }}
+    >
+      {labelSede}: <span style={{ fontFamily: C.mono }}>{fmtStockQty(total)}</span> {unidad}
+    </span>
+  );
+}
 
 // Feedback sonoro del escaneo (agudo = ok, grave = error). Silencioso si falla.
 function scanBeep(frequency = 880, duration = 90) {
@@ -332,7 +436,7 @@ function matchToItem(match, material = null) {
   };
 }
 
-function CatalogLinkRow({ item, catalog = [], proveedores = [], onLink, onClear, onCreate, creating = false }) {
+function CatalogLinkRow({ item, catalog = [], proveedores = [], stockByMaterial = new Map(), sede = "", onLink, onClear, onCreate, creating = false }) {
   const [q, setQ] = useState("");
   const selected = catalog.find((material) => material.id === item.material_id);
   const selectedMeta = useMemo(() => proveedorMeta(selected?.proveedor, proveedores), [selected?.proveedor, proveedores]);
@@ -351,6 +455,7 @@ function CatalogLinkRow({ item, catalog = [], proveedores = [], onLink, onClear,
               <span style={{ color: C.t2, fontWeight: 500 }}>{selected.codigo ? ` · ${selected.codigo}` : ""}{selected.proveedor ? ` · ${selected.proveedor}` : ""}</span>
             </div>
             <ProveedorTipoBadge meta={selectedMeta} compact />
+            <StockActualBadge material={selected} stockByMaterial={stockByMaterial} sede={sede} compact />
             <UbicacionChip ubicacion={selected.ubicacion} obs={selected.ubicacion_obs} />
             <button type="button" onClick={() => { setQ(""); onClear(); }} style={{ border: `1px solid ${C.b0}`, background: C.bg, color: C.t1, borderRadius: 7, padding: "6px 9px", fontSize: 11.5, fontWeight: 800, cursor: "pointer", fontFamily: C.sans }}>
               Cambiar
@@ -397,6 +502,7 @@ function CatalogLinkRow({ item, catalog = [], proveedores = [], onLink, onClear,
                 <span style={{ display: "inline-flex", alignItems: "center", gap: 5, color: C.t2, whiteSpace: "nowrap" }}>
                   <span>{material.codigo || material.proveedor || `${material._score}%`}</span>
                   <ProveedorTipoBadge meta={meta} compact />
+                  <StockActualBadge material={material} stockByMaterial={stockByMaterial} sede={sede} compact />
                 </span>
               </button>
             );
@@ -685,6 +791,7 @@ export default function EnviarAPanolModal({ open, onClose, prefill, showPrices =
   const [catalog, setCatalog] = useState([]);
   const [fullCatalog, setFullCatalog] = useState([]);
   const [proveedores, setProveedores] = useState([]);
+  const [stockRows, setStockRows] = useState([]);
   const [catalogLoading, setCatalogLoading] = useState(false);
   const [selectedMaterial, setSelectedMaterial] = useState(null);
   const [matches, setMatches] = useState([]);
@@ -703,6 +810,7 @@ export default function EnviarAPanolModal({ open, onClose, prefill, showPrices =
   const autoDraftIdRef = useRef(null);
   const lastAutosaveRef = useRef("");
   const scanInputRef = useRef(null);
+  const stockByMaterial = useMemo(() => buildStockByMaterial(stockRows), [stockRows]);
 
   useEffect(() => {
     if (!open) return;
@@ -726,6 +834,7 @@ export default function EnviarAPanolModal({ open, onClose, prefill, showPrices =
     setCatalogQ("");
     setCatalog([]);
     setFullCatalog([]);
+    setStockRows([]);
     setSelectedMaterial(null);
     setMatches([]);
     setSelectedMatches(new Set());
@@ -758,9 +867,22 @@ export default function EnviarAPanolModal({ open, onClose, prefill, showPrices =
         if (!alive) return;
         setFullCatalog(catalogResult.status === "fulfilled" ? catalogResult.value : []);
         setProveedores(proveedoresResult.status === "fulfilled" ? proveedoresResult.value ?? [] : []);
-      });
+    });
     return () => { alive = false; };
   }, [open]);
+
+  useEffect(() => {
+    if (!open) return undefined;
+    let alive = true;
+    fetchMaterialesEgreso({ sede: sede || null, estados: STOCK_LEDGER_STATES })
+      .then((rows) => {
+        if (alive) setStockRows(rows ?? []);
+      })
+      .catch(() => {
+        if (alive) setStockRows([]);
+      });
+    return () => { alive = false; };
+  }, [open, sede]);
 
   useEffect(() => {
     if (!open) return undefined;
@@ -1559,6 +1681,7 @@ export default function EnviarAPanolModal({ open, onClose, prefill, showPrices =
                           </span>
                           <ProveedorTipoBadge meta={meta} compact />
                           <UbicacionChip ubicacion={mat.ubicacion} obs={mat.ubicacion_obs} />
+                          <StockActualBadge material={mat} stockByMaterial={stockByMaterial} sede={sede} compact />
                         </div>
                       </button>
                     );
@@ -1684,6 +1807,8 @@ export default function EnviarAPanolModal({ open, onClose, prefill, showPrices =
                         item={it}
                         catalog={fullCatalog}
                         proveedores={proveedores}
+                        stockByMaterial={stockByMaterial}
+                        sede={sede}
                         creating={creatingCatalogIndex === i}
                         onLink={(material) => linkCatalogMaterial(i, material)}
                         onClear={() => updateItem(i, { material_id: "", variante: "" })}

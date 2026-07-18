@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { AlertTriangle, ChevronRight, DollarSign, Inbox, RefreshCw, Scale, Warehouse } from "lucide-react";
+import { AlertTriangle, ChevronRight, DollarSign, Inbox, RefreshCw, Scale, ScanLine, Warehouse } from "lucide-react";
 import Sidebar from "@/components/Sidebar";
 import { useResponsive } from "@/hooks/useResponsive";
 import { useToast } from "@/components/ui/Toast";
@@ -824,6 +824,18 @@ export default function StockPanolScreen({ profile, signOut, embedded = false, m
                 }}
               >
                 <Scale size={14} /> Balanza
+              </button>
+              <button
+                type="button"
+                onClick={() => nav("/scan-pedido")}
+                title="Pantalla del colector: escanear productos y pedir reposición a compras"
+                style={{
+                  display: "inline-flex", alignItems: "center", gap: 6, whiteSpace: "nowrap",
+                  border: `1px solid ${C.border}`, background: C.panel, color: C.blue,
+                  borderRadius: 999, padding: "6px 13px", cursor: "pointer", fontSize: 12, fontWeight: 850,
+                }}
+              >
+                <ScanLine size={14} /> Colector
               </button>
               {embedded && refreshBtn}
             </div>

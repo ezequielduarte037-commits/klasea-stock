@@ -184,8 +184,8 @@ function RetiroNfcBox({ nfc, onClear, compact = false }) {
           {nfc.empleado ? <UserCheck size={17} /> : <CreditCard size={17} />}
         </div>
         <div style={{ flex: 1, minWidth: 0 }}>
-          <div style={{ color: C.text, fontSize: 12.5, fontWeight: 950 }}>Retiro con tarjeta NFC</div>
-          <div style={{ color: C.dim, fontSize: 10.5, marginTop: 1 }}>Apoya la tarjeta o pega el UID para identificar a quien retira.</div>
+          <div style={{ color: C.text, fontSize: 12.5, fontWeight: 950 }}>Tarjeta NFC opcional</div>
+          <div style={{ color: C.dim, fontSize: 10.5, marginTop: 1 }}>Si todavia no tiene tarjeta, escribi nombre y apellido abajo y el egreso se puede confirmar igual.</div>
         </div>
       </div>
 
@@ -1386,6 +1386,7 @@ function EgresoBatchPanel({ group, selectedLocation, obras, sedeLocked, canRecei
       <label style={{ display: "grid", gap: 4 }}>
         <input value={retiradoPor} onChange={(event) => setRetiradoPor(event.target.value)} placeholder="Nombre y apellido de quien retira" style={{ background: C.bg, border: `1px solid ${retiradoError && retiradoPor.trim() ? C.redB : C.border}`, color: C.text, borderRadius: 9, padding: "9px 10px", fontSize: 12, fontFamily: C.sans, outline: "none" }} />
         {retiradoError && <span style={{ color: C.amber, fontSize: 10.5, lineHeight: 1.3 }}>Obligatorio para egresos: nombre y apellido, no solo DNI ni un apellido.</span>}
+        {!retiradoError && !retiroNfc.empleado && <span style={{ color: C.dim, fontSize: 10.5, lineHeight: 1.3 }}>La tarjeta es opcional por ahora: con nombre y apellido alcanza.</span>}
       </label>
       <input value={sectorDestino} onChange={(event) => setSectorDestino(event.target.value)} placeholder="Sector / uso / entrega" style={{ background: C.bg, border: `1px solid ${C.border}`, color: C.text, borderRadius: 9, padding: "9px 10px", fontSize: 12, fontFamily: C.sans, outline: "none" }} />
       <input value={nota} onChange={(event) => setNota(event.target.value)} placeholder="Observacion / detalle del egreso" style={{ background: C.bg, border: `1px solid ${C.border}`, color: C.text, borderRadius: 9, padding: "9px 10px", fontSize: 12, fontFamily: C.sans, outline: "none" }} />
@@ -1648,6 +1649,7 @@ function ProductActionPanel({ group, selectedLocation, setSelectedLocationKey, o
             <label style={{ display: "grid", gap: 4, minWidth: 0 }}>
               <input value={retiradoPor} onChange={(event) => setRetiradoPor(event.target.value)} placeholder="Nombre y apellido de quien retira" style={{ background: C.bg, border: `1px solid ${retiradoError && retiradoPor.trim() ? C.redB : C.border}`, color: C.text, borderRadius: 9, padding: "9px 10px", fontSize: 12, fontFamily: C.sans, outline: "none", minWidth: 0 }} />
               {retiradoError && <span style={{ color: C.amber, fontSize: 10.5, lineHeight: 1.3 }}>Obligatorio: nombre y apellido.</span>}
+              {!retiradoError && !retiroNfc.empleado && <span style={{ color: C.dim, fontSize: 10.5, lineHeight: 1.3 }}>La tarjeta es opcional por ahora: con nombre y apellido alcanza.</span>}
             </label>
             <input value={sectorDestino} onChange={(event) => setSectorDestino(event.target.value)} placeholder="Sector / uso" style={{ background: C.bg, border: `1px solid ${C.border}`, color: C.text, borderRadius: 9, padding: "9px 10px", fontSize: 12, fontFamily: C.sans, outline: "none", minWidth: 0 }} />
           </div>
@@ -2405,6 +2407,7 @@ function CartDrawer({ cart, setCart, obras, canReceive, onDone, toast, isMobile,
           <label style={{ display: "grid", gap: 4, minWidth: 0 }}>
             <input value={retiradoPor} onChange={(event) => setRetiradoPor(event.target.value)} placeholder="Nombre y apellido de quien retira" style={{ ...inp, borderColor: retiradoError && retiradoPor.trim() ? C.redB : C.border }} />
             {retiradoError && <span style={{ color: C.amber, fontSize: 10.5, lineHeight: 1.3 }}>Obligatorio: nombre y apellido.</span>}
+            {!retiradoError && !retiroNfc.empleado && <span style={{ color: C.dim, fontSize: 10.5, lineHeight: 1.3 }}>La tarjeta es opcional por ahora: con nombre y apellido alcanza.</span>}
           </label>
           {movementKind === "consumir" && <input value={sectorDestino} onChange={(event) => setSectorDestino(event.target.value)} placeholder="Sector / uso" style={inp} />}
         </div>
