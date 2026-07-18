@@ -152,7 +152,7 @@ export default function ScanEgresoScreen({ profile }) {
             {hechos > 0 && <span style={{ fontSize: 11, color: C.green }}>{hechos} listos</span>}
             {/* Salto directo al otro flujo del colector: pedir reposición a compras. */}
             <button onClick={() => nav("/scan-pedido")} style={{ background: "transparent", color: C.blue, border: `1px solid ${C.border}`, borderRadius: 7, padding: "4px 9px", fontSize: 11 }}>Pedir</button>
-            <button onClick={() => nav("/panol")} style={{ background: "transparent", color: C.dim, border: `1px solid ${C.border}`, borderRadius: 7, padding: "4px 9px", fontSize: 11 }}>Menú</button>
+            <button onClick={() => nav("/colector")} style={{ background: "transparent", color: C.dim, border: `1px solid ${C.border}`, borderRadius: 7, padding: "4px 9px", fontSize: 11 }}>Menú</button>
           </div>
         </div>
 

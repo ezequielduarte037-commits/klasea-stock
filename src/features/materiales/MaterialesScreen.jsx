@@ -4577,6 +4577,7 @@ function ObraMatrizView({ obra, obras = [], linea, lineaNombre, categorias, mate
   const [addonDeleteBusy, setAddonDeleteBusy] = useState("");
   const [snapshotDeleteBusy, setSnapshotDeleteBusy] = useState("");
   const [obraPanel, setObraPanel] = useState("");
+  const [filtersOpen, setFiltersOpen] = useState(false);
   const [snapshot, setSnapshot] = useState([]);
   const [snapshotBusy, setSnapshotBusy] = useState(false);
   const [stockLibreMap, setStockLibreMap] = useState(() => new Map());
@@ -4674,6 +4675,7 @@ function ObraMatrizView({ obra, obras = [], linea, lineaNombre, categorias, mate
     setEstadoBusy("");
     setVarianteBusy("");
     setEditingMaterialRowId("");
+    setFiltersOpen(false);
   }, [obra?.id, linea]);
 
   const obrasDestinoReassign = useMemo(() => {
@@ -5340,10 +5342,103 @@ function ObraMatrizView({ obra, obras = [], linea, lineaNombre, categorias, mate
     transition: "background .16s ease, border-color .16s ease, color .16s ease, transform .16s ease",
     whiteSpace: "nowrap",
   });
+  const activeObraFilterCount = [
+    proveedorFilter,
+    rubroFilter,
+    estadoFilter !== "todos",
+    tipoFilter !== "todos",
+    q.trim(),
+  ].filter(Boolean).length;
+  const totalObraLabel = kpis.usd ? fmtMoney(kpis.usd, "USD") : kpis.ars ? fmtMoney(kpis.ars, "ARS") : "Sin precios";
+  const panelControlStyle = (active, color = C.blue) => ({
+    border: `1px solid ${active ? `${color}55` : "transparent"}`,
+    background: active ? `${color}16` : "transparent",
+    color: active ? color : C.t1,
+    borderRadius: 999,
+    padding: "7px 11px",
+    fontSize: 12,
+    fontWeight: 950,
+    cursor: "pointer",
+    fontFamily: C.sans,
+    display: "inline-flex",
+    alignItems: "center",
+    gap: 6,
+    whiteSpace: "nowrap",
+    transition: "background .18s ease, border-color .18s ease, color .18s ease, transform .18s ease",
+  });
+  const panelControls = [
+    { key: "config", label: "Configuracion", value: `${condicionantesActivos.length}/${condicionantesModelo.length}`, color: C.amber },
+    { key: "adicionales", label: "Adicionales", value: addonStats.total, color: C.green },
+    { key: "excluidos", label: "Excluidos", value: exclusionesDetalle.length, color: C.red },
+  ];
   return (
     <div>
-      <div style={{ border: `1px solid ${C.b0}`, borderRadius: 22, background: "linear-gradient(135deg, color-mix(in srgb, var(--panel) 94%, #ffffff 6%), color-mix(in srgb, var(--panel) 86%, #2563eb 5%))", padding: 18, marginBottom: 16, boxShadow: "0 22px 70px -54px rgba(15,23,42,0.65)" }}>
-        <div style={{ display: "flex", alignItems: "flex-start", gap: 12, flexWrap: "wrap" }}>
+      <div style={{ border: `1px solid ${C.b0}`, borderRadius: 22, background: "linear-gradient(135deg, color-mix(in srgb, var(--panel) 96%, #ffffff 4%), color-mix(in srgb, var(--panel) 90%, #2563eb 4%))", padding: isMobile ? 13 : 16, marginBottom: 12, boxShadow: "0 20px 70px -58px rgba(15,23,42,0.72)" }}>
+        <div style={{ display: "flex", alignItems: "center", gap: 12, flexWrap: "wrap" }}>
+          <div style={{ flex: "1 1 360px", minWidth: 240 }}>
+            <div style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap", color: C.t2, fontSize: 12, fontWeight: 850 }}>
+              <button type="button" onClick={onBack} style={{ border: "none", background: "transparent", padding: 0, color: C.blue, fontWeight: 950, cursor: "pointer", fontFamily: C.sans }}>
+                {lineaNombre}
+              </button>
+              <span>/</span>
+              <span style={{ color: C.t1 }}>Obra</span>
+              <span>/</span>
+              <span style={{ color: C.t0, fontWeight: 950 }}>{obra.codigo}</span>
+            </div>
+            <div style={{ marginTop: 8, display: "flex", alignItems: "center", gap: 10, flexWrap: "wrap" }}>
+              <h2 style={{ margin: 0, color: C.t0, fontSize: isMobile ? 23 : 28, lineHeight: 1.05, fontWeight: 950, letterSpacing: -0.2 }}>{obra.codigo}</h2>
+              <span style={{ fontSize: 11, fontWeight: 950, color: snapshotStatus.color, border: `1px solid ${snapshotStatus.border}`, background: snapshotStatus.bg, borderRadius: 999, padding: "4px 9px" }}>
+                {snapshotStatus.label}
+              </span>
+              {kpis.sinPrecio ? (
+                <span style={{ fontSize: 11, fontWeight: 950, color: C.amber, border: `1px solid ${C.amberB}`, background: C.amberL, borderRadius: 999, padding: "4px 8px" }}>
+                  {kpis.sinPrecio} sin precio
+                </span>
+              ) : null}
+            </div>
+            <div style={{ color: C.t2, fontSize: 12.5, marginTop: 6 }}>
+              Lista aplicada a esta obra. Ajustes puntuales sin ensuciar la matriz base.
+            </div>
+          </div>
+          <div style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap", justifyContent: "flex-end" }}>
+            <div title="Presupuesto estimado de esta vista" style={{ minWidth: 142, textAlign: "right" }}>
+              <div style={{ fontSize: 10.5, color: C.t2, fontWeight: 900, textTransform: "uppercase", letterSpacing: 0.7 }}>Total visible</div>
+              <div style={{ fontFamily: C.mono, fontSize: 17, fontWeight: 950, color: kpis.usd || kpis.ars ? C.green : C.t2 }}>{totalObraLabel}</div>
+            </div>
+            <button type="button" onClick={copiarOrden} disabled={!orderRows.length} style={{ ...BTN, height: 38, padding: "0 13px", color: C.green, borderColor: C.greenB, background: C.greenL }}>
+              <Copy size={14} /> {copied ? "Copiado" : "Copiar OC"}
+            </button>
+          </div>
+        </div>
+        <div style={{ marginTop: 14, display: "flex", gap: 10, alignItems: "center", justifyContent: "space-between", flexWrap: "wrap", borderTop: `1px solid ${C.b0}`, paddingTop: 12 }}>
+          <div style={{ display: "inline-flex", gap: 3, border: `1px solid ${C.b0}`, borderRadius: 999, padding: 4, background: "color-mix(in srgb, var(--panel) 70%, transparent)", maxWidth: "100%", overflowX: "auto" }}>
+            {panelControls.map((item) => {
+              const active = obraPanel === item.key;
+              return (
+                <button key={item.key} type="button" onClick={() => setObraPanel((panel) => (panel === item.key ? "" : item.key))} style={panelControlStyle(active, item.color)}>
+                  {item.label}
+                  <span style={{ fontFamily: C.mono, fontSize: 11, color: active ? item.color : C.t2 }}>{item.value}</span>
+                </button>
+              );
+            })}
+          </div>
+          <div style={{ display: "inline-flex", alignItems: "center", gap: 8, color: C.t2, fontSize: 11.5, flexWrap: "wrap" }}>
+            <button type="button" onClick={() => setEstadoFilter("todos")} style={{ border: "none", background: "transparent", padding: 0, color: estadoFilter === "todos" ? C.blue : C.t2, fontFamily: C.sans, fontSize: 11.5, fontWeight: 850, cursor: "pointer" }}>
+              {kpis.items} items
+            </button>
+            <span style={{ width: 4, height: 4, borderRadius: 999, background: C.b1 }} />
+            <button type="button" onClick={() => setEstadoFilter("pendiente")} style={{ border: "none", background: "transparent", padding: 0, color: estadoFilter === "pendiente" ? C.blue : C.t2, fontFamily: C.sans, fontSize: 11.5, fontWeight: 850, cursor: "pointer" }}>
+              {kpis.pendientes} pendientes
+            </button>
+            <span style={{ width: 4, height: 4, borderRadius: 999, background: C.b1 }} />
+            <button type="button" onClick={() => setEstadoFilter("en_panol")} style={{ border: "none", background: "transparent", padding: 0, color: estadoFilter === "en_panol" ? C.green : C.t2, fontFamily: C.sans, fontSize: 11.5, fontWeight: 850, cursor: "pointer" }}>
+              {kpis.enPanol} en pañol
+            </button>
+          </div>
+        </div>
+      </div>
+      <div style={{ border: `1px solid ${C.b0}`, borderRadius: 22, background: "linear-gradient(135deg, color-mix(in srgb, var(--panel) 96%, #ffffff 4%), color-mix(in srgb, var(--panel) 90%, #2563eb 4%))", padding: isMobile ? 13 : 16, marginBottom: 12, boxShadow: "0 20px 70px -58px rgba(15,23,42,0.72)" }}>
+        <div style={{ display: "flex", alignItems: "center", gap: 12, flexWrap: "wrap" }}>
           <button type="button" onClick={onBack} style={{ ...BTN, padding: "8px 12px" }}>← {lineaNombre}</button>
           <div style={{ flex: "1 1 240px" }}>
             <div style={{ fontSize: 24, fontWeight: 950, color: C.t0 }}>{obra.codigo}</div>

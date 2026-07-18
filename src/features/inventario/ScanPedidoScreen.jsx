@@ -262,7 +262,7 @@ export default function ScanPedidoScreen({ profile }) {
           </div>
           <div>
             <button onClick={() => nav("/scan")} style={{ background: "transparent", color: C.blue, border: `1px solid ${C.border}`, borderRadius: 7, padding: "5px 10px", fontSize: 11, marginRight: 5 }}>Egresar</button>
-            <button onClick={() => nav("/panol")} style={{ background: "transparent", color: C.dim, border: `1px solid ${C.border}`, borderRadius: 7, padding: "5px 10px", fontSize: 11 }}>Menú</button>
+            <button onClick={() => nav("/colector")} style={{ background: "transparent", color: C.dim, border: `1px solid ${C.border}`, borderRadius: 7, padding: "5px 10px", fontSize: 11 }}>Menú</button>
           </div>
         </div>
 

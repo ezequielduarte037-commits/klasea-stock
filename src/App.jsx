@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from "react";
-import { BrowserRouter, Navigate, Route, Routes, useNavigate } from "react-router-dom";
+import { BrowserRouter, Navigate, Route, Routes, useLocation, useNavigate } from "react-router-dom";
 import { supabase } from "./supabaseClient";
 
 import PedidosScreen         from "@/features/inventario/PedidosScreen";
@@ -24,6 +24,7 @@ import PurchaseRequestsScreen from "@/features/compras/PurchaseRequestsScreen";
 import ScanEgresoScreen      from "@/features/inventario/ScanEgresoScreen";
 import BalanzaDebugScreen    from "@/features/inventario/BalanzaDebugScreen";
 import ScanPedidoScreen      from "@/features/inventario/ScanPedidoScreen";
+import ColectorHomeScreen    from "@/features/inventario/ColectorHomeScreen";
 import CalibrarPesosScreen   from "@/features/panol/CalibrarPesosScreen";
 import EtiquetasScreen       from "@/features/inventario/EtiquetasScreen";
 import RrhhScreen            from "@/features/rrhh/RrhhScreen";
@@ -47,6 +48,16 @@ import logoK from "@/assets/logos/logo-k.png";
 // Clientes:  usuario  → usuario@klasea.client
 function toLocalEmail(u)  { return `${String(u||"").trim().toLowerCase()}@klasea.local`;  }
 function toClientEmail(u) { return `${String(u||"").trim().toLowerCase()}@klasea.client`; }
+
+// Rutas del colector: pantalla chica y uso con guantes. La campanita flotante se
+// superpone con los controles y rompe el layout, así que ahí no va.
+const RUTAS_COLECTOR = new Set(["/colector", "/scan", "/scan-pedido"]);
+
+function CampanitaSalvoColector({ profile }) {
+  const { pathname } = useLocation();
+  if (RUTAS_COLECTOR.has(pathname)) return null;
+  return <NotificacionesBell profile={profile} />;
+}
 
 function RequireAuth({ session, children }) {
   if (!session) return <Navigate to="/login" replace />;
@@ -392,7 +403,9 @@ export default function App() {
         : profile.role === "cadete"
           ? <Navigate to="/cadete" replace />
           : (profile.role === "panol" && esColector)
-            ? <Navigate to="/scan" replace />
+            // El colector arranca en una pantalla de elección, no directo al egreso
+            // de maderas: desde el aparato también se piden reposiciones a compras.
+            ? <Navigate to="/colector" replace />
             : <HomeScreen profile={profile} signOut={signOut} />;
 
   return (
@@ -442,6 +455,8 @@ export default function App() {
 
         {/* Escáner de pañol (PDA) + impresión de etiquetas QR */}
         <Route path="/scan"      element={<RequireAuth session={session}><RequireRole profile={profile} allow={["admin","oficina","tecnica","panol"]}><ScanEgresoScreen {...A} /></RequireRole></RequireAuth>} />
+        {/* Arranque del colector: elegir entre egresar maderas o pedir a compras */}
+        <Route path="/colector" element={<RequireAuth session={session}><RequireRole profile={profile} allow={["admin","oficina","tecnica","panol"]}><ColectorHomeScreen {...A} /></RequireRole></RequireAuth>} />
         {/* Aviso a compras desde el colector: se escanea lo que hay que reponer */}
         <Route path="/scan-pedido" element={<RequireAuth session={session}><RequireRole profile={profile} allow={["admin","oficina","tecnica","panol"]}><ScanPedidoScreen {...A} /></RequireRole></RequireAuth>} />
         <Route path="/etiquetas" element={<RequireAuth session={session}><RequireRole profile={profile} allow={["admin","oficina","tecnica"]}><EtiquetasScreen   {...A} /></RequireRole></RequireAuth>} />
@@ -460,7 +475,7 @@ export default function App() {
         onSignOut={signOut}
         onChanged={() => setProfile((p) => p ? { ...p, must_change_password: false } : p)}
       />
-      {session && profile && profile.role !== "cliente" && <NotificacionesBell profile={profile} />}
+      {session && profile && profile.role !== "cliente" && <CampanitaSalvoColector profile={profile} />}
         </ConfirmProvider>
       </ToastProvider>
     </BrowserRouter>
