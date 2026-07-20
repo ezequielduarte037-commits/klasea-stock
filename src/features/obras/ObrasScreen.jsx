@@ -357,7 +357,7 @@ function ConfirmModal({ nombre, tipo, advertencia, onConfirm, onCancel }) {
 }
 
 // ─── MODAL OBRA ───────────────────────────────────────────────────────────────
-function ObraModal({ lineas, lProcs, lTareas = [], onSave, onClose }) {
+function ObraModal({ lineas, lProcs, onSave, onClose }) {
   const [form, setForm] = useState({ codigo: "", descripcion: "", linea_id: "", fecha_inicio: today(), fecha_fin_estimada: "", notas: "" });
   const [saving, setSaving] = useState(false);
   const [err, setErr] = useState("");
@@ -570,23 +570,34 @@ function TareaModal({ tarea, etapaId, obraId, onSave, onClose }) {
   const [saving, setSaving]     = useState(false);
   const [err, setErr]           = useState("");
   const [archivos, setArchivos] = useState([]);
-  const [loadingArch, setLoadingArch] = useState(false);
+  const [loadingArch, setLoadingArch] = useState(isEdit);
   const [uploading, setUploading] = useState(false);
   const [uploadErr, setUploadErr] = useState("");
   const fileRef = useRef();
   const set = (k, v) => setForm(f => ({ ...f, [k]: v }));
 
-  // Cargar archivos si estamos editando
-  useEffect(() => {
-    if (isEdit && tarea?.id) cargarArchivos();
-  }, []);
+  const tareaId = tarea?.id;
 
   async function cargarArchivos() {
+    if (!tareaId) return;
     setLoadingArch(true);
-    const data = await safeQuery(supabase.from("obra_tarea_archivos").select("*").eq("tarea_id", tarea.id).order("created_at"));
+    const data = await safeQuery(supabase.from("obra_tarea_archivos").select("*").eq("tarea_id", tareaId).order("created_at"));
     setArchivos(data);
     setLoadingArch(false);
   }
+
+  // Cargar archivos si estamos editando
+  useEffect(() => {
+    if (!isEdit || !tareaId) return undefined;
+    let active = true;
+    safeQuery(supabase.from("obra_tarea_archivos").select("*").eq("tarea_id", tareaId).order("created_at"))
+      .then(data => {
+        if (!active) return;
+        setArchivos(data);
+        setLoadingArch(false);
+      });
+    return () => { active = false; };
+  }, [isEdit, tareaId]);
 
   async function handleSubmit(e) {
     e.preventDefault();
@@ -617,7 +628,6 @@ function TareaModal({ tarea, etapaId, obraId, onSave, onClose }) {
       return;
     }
     setUploading(true); setUploadErr("");
-    const ext  = file.name.split(".").pop();
     const path = `${obraId}/${etapaId}/${tarea.id}/${Date.now()}_${file.name.replace(/[^a-zA-Z0-9._-]/g, "_")}`;
     const { error: upErr } = await supabase.storage.from(STORAGE_BUCKET).upload(path, file, { upsert: false });
     if (upErr) { setUploadErr(upErr.message); setUploading(false); return; }
@@ -828,6 +838,16 @@ function AvatarResp({ name, size = 22 }) {
     </span>
   );
 }
+function DetailRow({ icon, label, value, mono }) {
+  if (!value) return null;
+  return (
+    <div style={{ display: "flex", gap: 10, padding: "8px 0", borderBottom: `1px solid ${C.b0}` }}>
+      <span style={{ width: 20, flexShrink: 0 }}>{icon}</span>
+      <span style={{ fontSize: 12, color: C.t2, width: 120, flexShrink: 0 }}>{label}</span>
+      <span style={{ fontSize: 12, color: C.t0, fontFamily: mono ? C.mono : C.sans, flex: 1 }}>{value}</span>
+    </div>
+  );
+}
 const LockIcon = () => (
   <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect x="5" y="11" width="14" height="9" rx="2" /><path d="M8 11V8a4 4 0 018 0v3" /></svg>
 );
@@ -843,7 +863,7 @@ function CardAct({ children, color = "var(--dim)", onClick }) {
 // Card de tarea para el tablero Kanban. Minimal: nombre, responsable, etapa,
 // vencimiento y un punto de prioridad. Las acciones aparecen al pasar el mouse.
 // El detalle completo (descripción, fechas, archivos) sigue en TareaDetalleModal.
-function TaskCard({ tarea, etapa, esGestion, archivosCount = 0, bulkMode = false, checked = false, onToggle, onDetalle, onIniciar, onFinalizar, onReabrir, onEditar, onEliminar }) {
+function TaskCard({ tarea, etapa, bloqueantes = [], esGestion, archivosCount = 0, bulkMode = false, checked = false, onToggle, onDetalle, onIniciar, onFinalizar, onReabrir, onEditar, onEliminar }) {
   const [hover, setHover] = useState(false);
   const pc = C.prioridad[tarea.prioridad ?? "media"];
   const done = ["finalizada", "cancelada"].includes(tarea.estado);
@@ -852,7 +872,7 @@ function TaskCard({ tarea, etapa, esGestion, archivosCount = 0, bulkMode = false
   const urgente = dv !== null && dv >= 0 && dv <= 3 && !done;
   const dueColor = done ? C.t3 : atrasada ? C.red : urgente ? C.amber : C.t2;
   const dueTxt = dv === null ? "" : atrasada ? `−${-dv} d` : dv === 0 ? "hoy" : `en ${dv} d`;
-  const bloqueada = (tarea.predecesoras?.length > 0) || tarea.estado === "bloqueada";
+  const bloqueada = bloqueantes.length > 0 || tarea.estado === "bloqueada";
   const etColor = etapa?.color || C.t2;
 
   return (
@@ -880,6 +900,13 @@ function TaskCard({ tarea, etapa, esGestion, archivosCount = 0, bulkMode = false
         {tarea.nombre}
       </div>
 
+      {bloqueantes.length > 0 && (
+        <div style={{ display: "flex", alignItems: "flex-start", gap: 6, marginTop: 8, padding: "6px 8px", borderRadius: 7, background: `${C.amber}0d`, border: `1px solid ${C.amber}22`, color: C.amber, fontSize: 10.5, lineHeight: 1.35 }}>
+          <LockIcon />
+          <span>Bloqueada por: {bloqueantes.map(dep => dep.nombre).join(", ")}</span>
+        </div>
+      )}
+
       <div style={{ display: "flex", alignItems: "center", gap: 8, marginTop: 11 }}>
         <AvatarResp name={tarea.responsable} />
         {etapa && <span style={{ fontSize: 10.5, fontWeight: 500, color: etColor, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", maxWidth: 110 }}>{etapa.nombre}</span>}
@@ -894,7 +921,7 @@ function TaskCard({ tarea, etapa, esGestion, archivosCount = 0, bulkMode = false
       {esGestion && !bulkMode && (
         <div onClick={e => e.stopPropagation()} style={{ overflow: "hidden", maxHeight: hover ? 46 : 0, opacity: hover ? 1 : 0, marginTop: hover ? 11 : 0, transition: "max-height .24s cubic-bezier(.22,1,.36,1), opacity .2s ease, margin-top .24s cubic-bezier(.22,1,.36,1)" }}>
           <div style={{ display: "flex", alignItems: "center", gap: 5, paddingTop: 10, borderTop: `1px solid ${C.b0}` }}>
-            {tarea.estado === "pendiente" && <CardAct color={C.blue} onClick={() => onIniciar(tarea)}>▶ Iniciar</CardAct>}
+            {["pendiente", "bloqueada"].includes(tarea.estado) && <CardAct color={C.blue} onClick={() => onIniciar(tarea)}>▶ Iniciar</CardAct>}
             {tarea.estado === "en_progreso" && <>
               <CardAct color={C.green} onClick={() => onFinalizar(tarea)}>✓ Finalizar</CardAct>
               <CardAct color={C.t2} onClick={() => onReabrir(tarea, "pendiente")}>↩</CardAct>
@@ -911,28 +938,61 @@ function TaskCard({ tarea, etapa, esGestion, archivosCount = 0, bulkMode = false
 }
 
 // ─── MODAL DETALLE TAREA (pantalla completa) ──────────────────────────────────
-function TareaDetalleModal({ tarea, onClose, onEditar, esGestion }) {
+function TaskListRow({ tarea, etapa, bloqueantes = [], esGestion, isMobile, bulkMode, checked, onToggle, onDetalle, onIniciar, onFinalizar, onReabrir }) {
+  const done = ["finalizada", "cancelada"].includes(tarea.estado);
+  const due = diasHasta(tarea.fecha_fin_estimada);
+  const dueColor = done ? C.t3 : (due ?? 99) < 0 ? C.red : due !== null && due <= 3 ? C.amber : C.t2;
+  const tc = C.tarea[tarea.estado] ?? C.tarea.pendiente;
+  const priorityColor = C.prioridad[tarea.prioridad ?? "media"].color;
+  const dueText = done ? "Listo" : due === null ? "Sin fecha" : due < 0 ? `${-due}d tarde` : due === 0 ? "Hoy" : `en ${due}d`;
+
+  return (
+    <div
+      className="obra-task-row"
+      onClick={() => bulkMode ? onToggle(tarea.id) : onDetalle(tarea)}
+      style={{ display: "grid", gridTemplateColumns: isMobile ? "minmax(0,1fr) auto" : bulkMode ? "22px 4px minmax(190px,1fr) 130px 130px 78px 96px 108px" : "4px minmax(190px,1fr) 130px 130px 78px 96px 108px", alignItems: "center", gap: isMobile ? 10 : 12, padding: isMobile ? "12px 10px" : "10px 7px", borderBottom: `1px solid ${C.b0}`, cursor: "pointer", color: C.t0 }}
+    >
+      {bulkMode && (
+        <span style={{ width: 16, height: 16, borderRadius: 4, border: `1.5px solid ${checked ? C.blue : C.b1}`, background: checked ? C.blueL : "transparent", display: "grid", placeItems: "center", fontSize: 10, color: C.blue }}>{checked ? "✓" : ""}</span>
+      )}
+      <span style={{ width: 3, height: 26, borderRadius: 99, background: priorityColor, display: isMobile ? "none" : "block" }} />
+      <div style={{ minWidth: 0 }}>
+        <div style={{ fontWeight: 700, fontSize: 13, color: done ? C.t2 : C.t0, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", textDecoration: tarea.estado === "cancelada" ? "line-through" : "none" }}>{tarea.nombre}</div>
+        {bloqueantes.length > 0 && <div style={{ marginTop: 3, color: C.amber, fontSize: 10.5, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>Bloqueada por: {bloqueantes.map(dep => dep.nombre).join(", ")}</div>}
+        {isMobile && <div style={{ display: "flex", gap: 7, alignItems: "center", marginTop: 4, minWidth: 0 }}><span style={{ color: etapa?.color || C.t2, fontSize: 10.5, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{etapa?.nombre || "Sin etapa"}</span><span style={{ color: C.b2 }}>·</span><span style={{ color: C.t2, fontSize: 10.5 }}>{tarea.responsable || "Sin responsable"}</span></div>}
+      </div>
+      {!isMobile && <span style={{ fontSize: 11, color: etapa?.color || C.t2, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{etapa?.nombre || "Sin etapa"}</span>}
+      {!isMobile && <span style={{ display: "flex", alignItems: "center", gap: 7, minWidth: 0 }}><AvatarResp name={tarea.responsable} size={20} /><span style={{ color: C.t2, fontSize: 11, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{tarea.responsable || "Sin asignar"}</span></span>}
+      <span style={{ fontFamily: C.mono, fontSize: 11, fontWeight: 700, color: dueColor, whiteSpace: "nowrap" }}>{dueText}</span>
+      {!isMobile && <span style={{ fontSize: 11.5, fontWeight: 700, color: tc.text }}>{tc.label}</span>}
+      {!bulkMode && (
+        <div className="obra-task-actions" onClick={e => e.stopPropagation()} style={{ display: "flex", justifyContent: isMobile ? "flex-start" : "flex-end", gap: 5, gridColumn: isMobile ? "1 / -1" : "auto" }}>
+          {esGestion && ["pendiente", "bloqueada"].includes(tarea.estado) && <CardAct color={C.blue} onClick={() => onIniciar(tarea)}>Iniciar</CardAct>}
+          {esGestion && tarea.estado === "en_progreso" && <CardAct color={C.green} onClick={() => onFinalizar(tarea)}>Finalizar</CardAct>}
+          {esGestion && tarea.estado === "finalizada" && <CardAct color={C.t2} onClick={() => onReabrir(tarea)}>Reabrir</CardAct>}
+          {!esGestion && <span style={{ color: C.t3, fontSize: 14 }}>→</span>}
+        </div>
+      )}
+    </div>
+  );
+}
+
+function TareaDetalleModal({ tarea, bloqueantes = [], onClose, onEditar, onIniciar, onFinalizar, onReabrir, esGestion }) {
   const [archivos, setArchivos] = useState([]);
   const [loading, setLoading]   = useState(true);
   const tc = C.tarea[tarea.estado] ?? C.tarea.pendiente;
   const pc = C.prioridad[tarea.prioridad ?? "media"];
 
-  useEffect(() => { cargarArchivos(); }, []);
-
-  async function cargarArchivos() {
-    setLoading(true);
-    const data = await safeQuery(supabase.from("obra_tarea_archivos").select("*").eq("tarea_id", tarea.id).order("created_at"));
-    setArchivos(data);
-    setLoading(false);
-  }
-
-  const Row = ({ icon, label, value, mono }) => value ? (
-    <div style={{ display: "flex", gap: 10, padding: "8px 0", borderBottom: `1px solid ${C.b0}` }}>
-      <span style={{ width: 20, flexShrink: 0 }}>{icon}</span>
-      <span style={{ fontSize: 12, color: C.t2, width: 120, flexShrink: 0 }}>{label}</span>
-      <span style={{ fontSize: 12, color: C.t0, fontFamily: mono ? C.mono : C.sans, flex: 1 }}>{value}</span>
-    </div>
-  ) : null;
+  useEffect(() => {
+    let active = true;
+    safeQuery(supabase.from("obra_tarea_archivos").select("*").eq("tarea_id", tarea.id).order("created_at"))
+      .then(data => {
+        if (!active) return;
+        setArchivos(data);
+        setLoading(false);
+      });
+    return () => { active = false; };
+  }, [tarea.id]);
 
   return (
     <Overlay onClose={onClose} maxWidth={700}>
@@ -947,7 +1007,10 @@ function TareaDetalleModal({ tarea, onClose, onEditar, esGestion }) {
               <span style={{ fontSize: 10, padding: "3px 9px", borderRadius: 99, background: `${pc.color}12`, color: pc.color, border: `1px solid ${pc.color}28`, letterSpacing: 1, textTransform: "uppercase" }}>Prioridad {pc.label}</span>
             </div>
           </div>
-          <div style={{ display: "flex", gap: 7, flexShrink: 0 }}>
+          <div style={{ display: "flex", gap: 7, flexShrink: 0, flexWrap: "wrap", justifyContent: "flex-end" }}>
+            {esGestion && ["pendiente", "bloqueada"].includes(tarea.estado) && <Btn variant="primary" onClick={() => onIniciar(tarea)}>Iniciar</Btn>}
+            {esGestion && tarea.estado === "en_progreso" && <Btn variant="confirm" onClick={() => onFinalizar(tarea)}>Finalizar</Btn>}
+            {esGestion && tarea.estado === "finalizada" && <Btn variant="outline" onClick={() => onReabrir(tarea)}>Reabrir</Btn>}
             {esGestion && <Btn variant="outline" onClick={() => { onClose(); onEditar(tarea); }}>Editar</Btn>}
             <Btn variant="ghost" onClick={onClose} sx={{ fontSize: 18 }}>×</Btn>
           </div>
@@ -956,6 +1019,13 @@ function TareaDetalleModal({ tarea, onClose, onEditar, esGestion }) {
 
       {/* Contenido scrollable */}
       <div style={{ flex: 1, overflowY: "auto", padding: "20px 26px" }}>
+
+        {bloqueantes.length > 0 && (
+          <div style={{ marginBottom: 18, padding: "12px 14px", borderRadius: 8, background: `${C.amber}0d`, border: `1px solid ${C.amber}28` }}>
+            <div style={{ display: "flex", alignItems: "center", gap: 7, color: C.amber, fontSize: 11, fontWeight: 800, textTransform: "uppercase", letterSpacing: 1 }}><LockIcon /> Tarea bloqueada</div>
+            <div style={{ marginTop: 7, color: C.t1, fontSize: 12.5 }}>Para iniciarla primero debe finalizarse: <strong>{bloqueantes.map(dep => dep.nombre).join(", ")}</strong>.</div>
+          </div>
+        )}
 
         {tarea.descripcion && (
           <div style={{ marginBottom: 20, padding: "14px 16px", background: "rgba(59,130,246,0.04)", border: `1px solid rgba(59,130,246,0.15)`, borderRadius: 8 }}>
@@ -968,16 +1038,16 @@ function TareaDetalleModal({ tarea, onClose, onEditar, esGestion }) {
           {/* Equipo */}
           <div style={{ padding: "14px 16px", background: C.s0, border: `1px solid ${C.b0}`, borderRadius: 8 }}>
             <div style={{ fontSize: 10, letterSpacing: 1.3, color: C.t2, marginBottom: 10, textTransform: "uppercase" }}>Equipo</div>
-            <Row icon="·" label="Responsable" value={tarea.responsable} />
-            <Row icon="👥" label="Personas" value={tarea.personas_necesarias ? `${tarea.personas_necesarias} persona${tarea.personas_necesarias > 1 ? "s" : ""}` : null} />
+            <DetailRow icon="·" label="Responsable" value={tarea.responsable} />
+            <DetailRow icon="👥" label="Personas" value={tarea.personas_necesarias ? `${tarea.personas_necesarias} persona${tarea.personas_necesarias > 1 ? "s" : ""}` : null} />
           </div>
 
           {/* Tiempo */}
           <div style={{ padding: "14px 16px", background: C.s0, border: `1px solid ${C.b0}`, borderRadius: 8 }}>
             <div style={{ fontSize: 10, letterSpacing: 1.3, color: C.t2, marginBottom: 10, textTransform: "uppercase" }}>Tiempo</div>
-            <Row icon="📅" label="Días estimados"  value={tarea.dias_estimados ? `${tarea.dias_estimados}d` : null} mono />
-            <Row icon="" label="Horas estimadas" value={tarea.horas_estimadas ? `${tarea.horas_estimadas} hs` : null} mono />
-            <Row icon="⏰" label="Horas reales"    value={tarea.horas_reales    ? `${tarea.horas_reales} hs`    : null} mono />
+            <DetailRow icon="📅" label="Días estimados"  value={tarea.dias_estimados ? `${tarea.dias_estimados}d` : null} mono />
+            <DetailRow icon="" label="Horas estimadas" value={tarea.horas_estimadas ? `${tarea.horas_estimadas} hs` : null} mono />
+            <DetailRow icon="⏰" label="Horas reales"    value={tarea.horas_reales    ? `${tarea.horas_reales} hs`    : null} mono />
             {tarea.horas_estimadas && tarea.horas_reales && (
               <div style={{ marginTop: 8 }}>
                 <ProgressBar value={pct(num(tarea.horas_reales), num(tarea.horas_estimadas))} color={tc.text} height={4} />
@@ -1323,7 +1393,7 @@ function NuevaLineaModal({ onClose, onSaved }) {
 }
 
 // ─── PLANTILLA LÍNEA ─────────────────────────────────────────────────────────
-function LineasEtapasModal({ linea, lProcs, lTareas = [], detailEnabled = false, onClose, onSaved }) {
+function LineasEtapasModal({ linea, lProcs, detailEnabled = false, onClose, onSaved }) {
   const [localLinea,  setLocalLinea]  = useState(linea);
   const [editingLinea, setEditingLinea] = useState(false);
   const [lineaForm,   setLineaForm]   = useState({ nombre: linea.nombre, color: linea.color ?? "#3b82f6", orden: linea.orden ?? "" });
@@ -1340,6 +1410,7 @@ function LineasEtapasModal({ linea, lProcs, lTareas = [], detailEnabled = false,
 
   // ── Tareas de plantilla ──────────────────────────────────────
   const [expandedProc,  setExpandedProc]  = useState(null);
+  const [selectedProc,  setSelectedProc]  = useState(items[0]?.id ?? null);
   const [tareasState,   setTareasState]   = useState([]);
   const [loadingTareas, setLoadingTareas] = useState(true);
   const [addingTarea,   setAddingTarea]   = useState(null);
@@ -1365,7 +1436,11 @@ function LineasEtapasModal({ linea, lProcs, lTareas = [], detailEnabled = false,
         .select("*")
         .eq("linea_id", localLinea.id)
         .order("orden");
-      if (procs?.length) setItems(procs);
+      if (procs?.length) {
+        setItems(procs);
+        setSelectedProc(current => procs.some(proc => proc.id === current) ? current : procs[0].id);
+        setExpandedProc(current => procs.some(proc => proc.id === current) ? current : procs[0].id);
+      }
       setProcDetailsEnabled(detailEnabled || (procs ?? []).some(hasMatrixDetailColumns));
       setLoadingAll(false);
 
@@ -1384,7 +1459,7 @@ function LineasEtapasModal({ linea, lProcs, lTareas = [], detailEnabled = false,
       setLoadingTareas(false);
     }
     fetchAll();
-  }, [localLinea.id]);
+  }, [detailEnabled, localLinea.id]);
 
   async function guardarLinea() {
     if (!lineaForm.nombre.trim()) return;
@@ -1506,7 +1581,7 @@ function LineasEtapasModal({ linea, lProcs, lTareas = [], detailEnabled = false,
       orden_compra_dias_previo: newForm.genera_orden_compra ? num(newForm.orden_compra_dias_previo) : null,
     }).select().single();
     if (error) { flash(false, error.message); setSaving(false); return; }
-    setItems(prev => [...prev, data]); setAdding(false);
+    setItems(prev => [...prev, data]); setAdding(false); setSelectedProc(data.id); setExpandedProc(data.id);
     setNewForm({ nombre: "", descripcion: "", dias_estimados: "", color: "#64748b", responsable: "", personas_necesarias: "", involucrados: "", observaciones: "", genera_orden_compra: false, orden_compra_tipo: "aviso", orden_compra_descripcion: "", orden_compra_monto_estimado: "", orden_compra_dias_previo: 7 });
     flash(true, "Etapa agregada."); setSaving(false); onSaved();
   }
@@ -1515,7 +1590,14 @@ function LineasEtapasModal({ linea, lProcs, lTareas = [], detailEnabled = false,
     if (!window.confirm(`¿Eliminar "${item.nombre}" de la plantilla?`)) return;
     const { error } = await supabase.from("linea_procesos").delete().eq("id", item.id);
     if (error) { flash(false, error.message); return; }
-    setItems(prev => prev.filter(it => it.id !== item.id)); flash(true, "Eliminada."); onSaved();
+    setItems(prev => {
+      const next = prev.filter(it => it.id !== item.id);
+      if (selectedProc === item.id) {
+        setSelectedProc(next[0]?.id ?? null);
+        setExpandedProc(next[0]?.id ?? null);
+      }
+      return next;
+    }); flash(true, "Eliminada."); onSaved();
   }
 
   async function moveItem(idx, dir) {
@@ -1560,13 +1642,14 @@ function LineasEtapasModal({ linea, lProcs, lTareas = [], detailEnabled = false,
   const btnIcon = { border: `1px solid ${C.b0}`, background: "transparent", color: C.t2, cursor: "pointer", fontSize: 12, padding: "2px 7px", borderRadius: 5, fontFamily: C.sans };
 
   return (
-    <Overlay onClose={onClose} maxWidth={840}>
+    <Overlay onClose={onClose} maxWidth={1120}>
       {toast && <div style={{ position: "fixed", bottom: 24, right: 24, zIndex: 99999, padding: "10px 18px", borderRadius: 8, fontSize: 13, fontFamily: C.sans, background: toast.ok ? "#091510" : "#150909", border: `1px solid ${toast.ok ? "rgba(60,140,80,0.5)" : "rgba(180,60,60,0.5)"}`, color: toast.ok ? "#70c080" : "#c07070" }}>{toast.text}</div>}
       <div style={{ padding: 26, overflowY: "auto" }}>
         <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: 20 }}>
           {!editingLinea ? (
             <div>
-              <div style={{ fontSize: 15, color: C.t0, fontWeight: 600 }}>Plantilla de etapas</div>
+              <div style={{ fontSize: 17, color: C.t0, fontWeight: 800 }}>Configuracion de produccion</div>
+              <div style={{ fontSize: 11.5, color: C.t2, marginTop: 3 }}>Define el recorrido y las tareas que se copiaran a cada obra de esta linea.</div>
               <div style={{ fontSize: 12, color: C.t1, marginTop: 3, display: "flex", alignItems: "center", gap: 6 }}>
                 <div style={{ width: 8, height: 8, borderRadius: "50%", background: localLinea.color ?? C.t2 }} />
                 {localLinea.nombre}
@@ -1595,10 +1678,44 @@ function LineasEtapasModal({ linea, lProcs, lTareas = [], detailEnabled = false,
           )}
           <Btn variant="ghost" onClick={onClose} sx={{ fontSize: 18 }}>×</Btn>
         </div>
-        <div style={{ maxHeight: "68vh", overflowY: "auto", marginBottom: 12 }}>
+        <div style={{ display: "flex", alignItems: "center", gap: 18, padding: "10px 0 14px", borderBottom: `1px solid ${C.b0}`, marginBottom: 14, overflowX: "auto" }}>
+          {[
+            ["Etapas", items.length, localLinea.color ?? C.blue],
+            ["Tareas", tareasState.length, C.blue],
+            ["Dependencias", tareasState.filter(t => Array.isArray(t.predecesoras) && t.predecesoras.length > 0).length, C.amber],
+            ["Duracion base", `${items.reduce((sum, item) => sum + num(item.dias_estimados), 0)}d`, C.green],
+          ].map(([label, value, color]) => (
+            <div key={label} style={{ display: "flex", alignItems: "baseline", gap: 7, whiteSpace: "nowrap" }}>
+              <span style={{ fontFamily: C.mono, fontSize: 15, fontWeight: 800, color }}>{value}</span>
+              <span style={{ fontSize: 10, color: C.t2, textTransform: "uppercase", letterSpacing: 1 }}>{label}</span>
+            </div>
+          ))}
+        </div>
+        <div style={{ display: "grid", gridTemplateColumns: "230px minmax(0, 1fr)", gap: 16, alignItems: "start", marginBottom: 12 }}>
+          <aside style={{ maxHeight: "68vh", overflowY: "auto", paddingRight: 4 }}>
+            <div style={{ fontSize: 9.5, color: C.t2, textTransform: "uppercase", letterSpacing: 1.2, fontWeight: 800, margin: "2px 4px 8px" }}>Recorrido de etapas</div>
+            {items.map((item, idx) => {
+              const active = selectedProc === item.id;
+              const total = tareasDeProc(item.id).length;
+              const dependencies = tareasDeProc(item.id).filter(t => Array.isArray(t.predecesoras) && t.predecesoras.length > 0).length;
+              return (
+                <button key={item.id} type="button" onClick={() => { setSelectedProc(item.id); setExpandedProc(item.id); setEditIdx(null); }} style={{ width: "100%", display: "grid", gridTemplateColumns: "4px minmax(0,1fr) auto", gap: 9, alignItems: "center", padding: "10px 9px", marginBottom: 5, borderRadius: 8, border: `1px solid ${active ? C.blueB : C.b0}`, background: active ? C.blueL : "transparent", color: active ? C.t0 : C.t1, cursor: "pointer", textAlign: "left", fontFamily: C.sans }}>
+                  <span style={{ width: 3, height: 28, borderRadius: 99, background: item.color ?? C.t2 }} />
+                  <span style={{ minWidth: 0 }}>
+                    <span style={{ display: "block", fontSize: 12.5, fontWeight: 750, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{idx + 1}. {item.nombre}</span>
+                    <span style={{ display: "block", fontSize: 10, color: C.t2, marginTop: 3 }}>{total} tareas{dependencies ? ` · ${dependencies} dependencias` : ""}</span>
+                  </span>
+                  <span style={{ fontFamily: C.mono, fontSize: 10.5, color: C.t3 }}>{item.dias_estimados ? `${item.dias_estimados}d` : "-"}</span>
+                </button>
+              );
+            })}
+            {!items.length && !loadingAll && <div style={{ padding: "18px 8px", color: C.t3, fontSize: 11.5 }}>Todavia no hay etapas.</div>}
+            {!adding && <button type="button" onClick={() => setAdding(true)} style={{ width: "100%", marginTop: 7, padding: "8px", borderRadius: 8, border: `1px dashed ${C.blueB}`, background: "transparent", color: C.blue, fontSize: 11.5, fontWeight: 700, cursor: "pointer", fontFamily: C.sans }}>+ Nueva etapa</button>}
+          </aside>
+          <div style={{ maxHeight: "68vh", overflowY: "auto", paddingRight: 4 }}>
           {loadingAll && <div style={{ textAlign: "center", padding: "28px 0", color: C.t2, fontSize: 13 }}>Cargando plantilla...</div>}
           {!loadingAll && items.length === 0 && !adding && <div style={{ textAlign: "center", padding: "28px 0", color: C.t2, fontSize: 13 }}>Sin etapas en esta plantilla</div>}
-          {!loadingAll && items.map((item, idx) => {
+          {!loadingAll && items.map((item, idx) => ({ item, idx })).filter(({ item }) => !selectedProc || item.id === selectedProc).map(({ item, idx }) => {
             const isEditing = editIdx === idx;
             return (
               <div key={item.id}
@@ -1799,8 +1916,8 @@ function LineasEtapasModal({ linea, lProcs, lTareas = [], detailEnabled = false,
             </div>
           )}
         </div>
+        </div>
         <div style={{ display: "flex", gap: 8, paddingTop: 12, borderTop: `1px solid ${C.b0}` }}>
-          {!adding && <Btn variant="primary" onClick={() => setAdding(true)}>+ Nueva etapa en plantilla</Btn>}
           <Btn variant="outline" onClick={onClose}>Cerrar</Btn>
         </div>
       </div>
@@ -1940,14 +2057,13 @@ function OrdenesCompraView({ ordenes, obras, esGestion, onEditOC, onRefresh }) {
 export default function ObrasScreen({ profile, signOut }) {
   const { isMobile } = useResponsive();
   const isAdmin   = hasAdminAccess(profile);
-  const esGestion = isAdmin || profile?.role === "oficina";
+  const esGestion = isAdmin || ["oficina", "tecnica"].includes(profile?.role);
 
   const [obras,    setObras]    = useState([]);
   const [etapas,   setEtapas]   = useState([]);
   const [tareas,   setTareas]   = useState([]);
   const [lineas,   setLineas]   = useState([]);
   const [lProcs,   setLProcs]   = useState([]);
-  const [lTareas,  setLTareas]  = useState([]); // plantilla de tareas por linea_proceso
   const [timeline, setTimeline] = useState([]);
   const [ordenes,  setOrdenes]  = useState([]);
   const [archCounts, setArchCounts] = useState({}); // { tarea_id: count }
@@ -1994,7 +2110,8 @@ export default function ObrasScreen({ profile, signOut }) {
   const [focusedObra,    setFocusedObra]    = useState(null); // obra seleccionada (master-detail)
 
   // ── Estado del tablero de tareas de la obra seleccionada ──
-  const [boardView,   setBoardView]   = useState("tablero"); // tablero | lista
+  const [detailView,  setDetailView]  = useState("resumen"); // resumen | tareas
+  const [boardView,   setBoardView]   = useState("lista");   // tablero | lista
   const [etapaFiltro, setEtapaFiltro] = useState(null);      // id de etapa para filtrar, o null
   const [taskChip,    setTaskChip]    = useState("todas");   // filtro rápido
   const [bulkMode,    setBulkMode]    = useState(false);
@@ -2019,19 +2136,18 @@ export default function ObrasScreen({ profile, signOut }) {
   // ── CARGA ─────────────────────────────────────────────────────
   async function cargar() {
     setLoading(true);
-    const [r1, r2, r3, r4, r5, r6, r7, r8] = await Promise.all([
+    const [r1, r2, r3, r4, r5, r6, r7] = await Promise.all([
       safeQuery(supabase.from("produccion_obras").select("*").order("created_at", { ascending: false })),
       safeQuery(supabase.from("obra_etapas").select("*").order("obra_id").order("orden").limit(5000)),
       safeQuery(supabase.from("obra_tareas").select("*").order("etapa_id").order("orden").limit(10000)),
       supabase.from("lineas_produccion").select("*").eq("activa", true).order("orden"),
       supabase.from("linea_procesos").select("*").eq("activo", true).order("linea_id").order("orden"),
-      safeQuery(supabase.from("linea_proceso_tareas").select("*").order("linea_proceso_id").order("orden")),
       safeQuery(supabase.from("obra_timeline").select("*, linea_procesos(id,nombre,orden,dias_estimados,color), procesos(id,nombre,orden,dias_esperados,color)").order("created_at")),
       safeQuery(supabase.from("ordenes_compra").select("*").order("created_at", { ascending: false })),
     ]);
     setObras(r1); setEtapas(r2); setTareas(r3);
     setLineas(r4.data ?? []); setLProcs(r5.data ?? []);
-    setLTareas(r6); setTimeline(r7); setOrdenes(r8);
+    setTimeline(r6); setOrdenes(r7);
 
     // Conteo de archivos por tarea
     const counts = await safeQuery(supabase.from("obra_tarea_archivos").select("tarea_id").not("tarea_id", "is", null));
@@ -2145,7 +2261,7 @@ export default function ObrasScreen({ profile, signOut }) {
   }
 
   async function cambiarEstadoTarea(tareaId, estado) {
-    const upd = { estado }; if (estado === "finalizada") upd.fecha_fin_real = today();
+    const upd = { estado, fecha_fin_real: estado === "finalizada" ? today() : null };
     await supabase.from("obra_tareas").update(upd).eq("id", tareaId); cargar();
   }
 
@@ -2250,7 +2366,7 @@ export default function ObrasScreen({ profile, signOut }) {
 
   // Al cambiar de obra, reseteo los filtros/estado del tablero.
   useEffect(() => {
-    setEtapaFiltro(null); setTaskChip("todas");
+    setDetailView("resumen"); setEtapaFiltro(null); setTaskChip("todas");
     setBulkMode(false); setBulkSel(new Set()); setShowFicha(false);
     setEtapasMgr(false); setAddPick(false);
   }, [focusedObra]);
@@ -2308,6 +2424,9 @@ export default function ObrasScreen({ profile, signOut }) {
             const obrapct = pctObra(obra.id);
             const oC      = C.obra[obra.estado] ?? C.obra.activa;
             const ac      = obraAccentColor(obra);
+            const obraStages = etapasDeObra(obra.id);
+            const activeStage = obraStages.find(e => e.estado === "en_curso") || obraStages.find(e => e.estado !== "completado");
+            const overdueCount = tareas.filter(t => t.obra_id === obra.id && !["finalizada", "cancelada"].includes(t.estado) && (diasHasta(t.fecha_fin_estimada) ?? 99) < 0).length;
             return (
               <div
                 key={obra.id}
@@ -2321,7 +2440,11 @@ export default function ObrasScreen({ profile, signOut }) {
                   <span style={{ marginLeft: "auto", fontFamily: C.mono, fontSize: 12, color: C.t2, fontWeight: 600, flexShrink: 0 }}>{obrapct}%</span>
                 </div>
                 {obra.cliente && <div style={{ fontSize: 11.5, color: C.t2, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{obra.cliente}</div>}
-                {obra.linea_nombre && <div style={{ fontSize: 9.5, color: ac, textTransform: "uppercase", letterSpacing: 0.8, fontWeight: 600, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{obra.linea_nombre}</div>}
+                <div style={{ display: "flex", alignItems: "center", gap: 7, minWidth: 0 }}>
+                  {obra.linea_nombre && <span style={{ fontSize: 9.5, color: ac, textTransform: "uppercase", letterSpacing: 0.8, fontWeight: 700, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{obra.linea_nombre}</span>}
+                  {activeStage && <><span style={{ color: C.b2, fontSize: 9 }}>·</span><span style={{ fontSize: 10.5, color: C.t2, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{activeStage.nombre}</span></>}
+                  {overdueCount > 0 && <span style={{ marginLeft: "auto", fontFamily: C.mono, fontSize: 9.5, color: C.red, fontWeight: 800, whiteSpace: "nowrap" }}>{overdueCount} tarde</span>}
+                </div>
               </div>
             );
           })}
@@ -2426,6 +2549,35 @@ export default function ObrasScreen({ profile, signOut }) {
     const atrasadasN = abiertas.filter(t => (diasHasta(t.fecha_fin_estimada) ?? 99) < 0).length;
     const enCursoN  = obraTasks.filter(t => t.estado === "en_progreso").length;
     const semanaN   = abiertas.filter(t => { const d = diasHasta(t.fecha_fin_estimada); return d !== null && d >= 0 && d <= 7; }).length;
+    const sinResponsableN = abiertas.filter(t => !t.responsable).length;
+    const taskById = new Map(obraTasks.map(t => [t.id, t]));
+    const pendingDependencies = tarea => (Array.isArray(tarea.predecesoras) ? tarea.predecesoras : [])
+      .map(id => taskById.get(id))
+      .filter(dep => dep && !["finalizada", "cancelada"].includes(dep.estado));
+    const bloqueadas = abiertas.filter(t => t.estado === "bloqueada" || pendingDependencies(t).length > 0);
+    const currentStage = obraEtapas.find(e => e.estado === "en_curso")
+      || obraEtapas.find(e => e.estado !== "completado")
+      || obraEtapas.at(-1)
+      || null;
+    const abrirTareas = (etapaId = currentStage?.id ?? null) => {
+      setDetailView("tareas");
+      setEtapaFiltro(etapaId);
+      setTaskChip("todas");
+    };
+    const priorityRank = { critica: 0, alta: 1, media: 2, baja: 3 };
+    const priorityTasks = abiertas.slice().sort((a, b) => {
+      const da = diasHasta(a.fecha_fin_estimada);
+      const db = diasHasta(b.fecha_fin_estimada);
+      const dateA = da === null ? 9999 : da;
+      const dateB = db === null ? 9999 : db;
+      if (dateA !== dateB) return dateA - dateB;
+      return (priorityRank[a.prioridad] ?? 2) - (priorityRank[b.prioridad] ?? 2);
+    });
+    const health = atrasadasN > 0
+      ? { label: "Requiere atencion", color: C.red }
+      : bloqueadas.length > 0
+        ? { label: "Con bloqueos", color: C.amber }
+        : { label: "En curso", color: C.green };
 
     // Tareas visibles según filtros (etapa + chip).
     let vis = obraTasks;
@@ -2434,6 +2586,7 @@ export default function ObrasScreen({ profile, signOut }) {
     if (taskChip === "atrasadas") vis = vis.filter(t => isOpen(t) && (diasHasta(t.fecha_fin_estimada) ?? 99) < 0);
     else if (taskChip === "semana") vis = vis.filter(t => { const d = diasHasta(t.fecha_fin_estimada); return isOpen(t) && d !== null && d >= 0 && d <= 7; });
     else if (taskChip === "sinresp") vis = vis.filter(t => isOpen(t) && !t.responsable);
+    else if (taskChip === "bloqueadas") vis = vis.filter(t => isOpen(t) && (t.estado === "bloqueada" || pendingDependencies(t).length > 0));
     else if (taskChip === "criticas") vis = vis.filter(t => isOpen(t) && t.prioridad === "critica");
 
     const COLS = [
@@ -2447,6 +2600,7 @@ export default function ObrasScreen({ profile, signOut }) {
       { k: "atrasadas", t: "Atrasadas",       n: atrasadasN, c: C.red },
       { k: "semana",    t: "Esta semana",     n: semanaN, c: C.amber },
       { k: "sinresp",   t: "Sin responsable", n: abiertas.filter(t => !t.responsable).length },
+      { k: "bloqueadas", t: "Bloqueadas",      n: bloqueadas.length, c: C.blue },
       { k: "criticas",  t: "Críticas",        n: abiertas.filter(t => t.prioridad === "critica").length, c: C.red },
     ];
 
@@ -2462,7 +2616,7 @@ export default function ObrasScreen({ profile, signOut }) {
     };
     const renderCard = t => (
       <TaskCard key={t.id} tarea={t} etapa={etapaById.get(t.etapa_id)} esGestion={esGestion}
-        archivosCount={archCounts[t.id] ?? 0} bulkMode={bulkMode} checked={bulkSel.has(t.id)} {...cardHandlers} />
+        bloqueantes={pendingDependencies(t)} archivosCount={archCounts[t.id] ?? 0} bulkMode={bulkMode} checked={bulkSel.has(t.id)} {...cardHandlers} />
     );
 
     function agregarTarea() {
@@ -2472,6 +2626,63 @@ export default function ObrasScreen({ profile, signOut }) {
     }
 
     const chipStyle = on => ({ fontSize: 12, fontWeight: 600, padding: "5px 11px", borderRadius: 8, border: "1px solid transparent", background: on ? C.panel2 : "transparent", color: on ? C.t0 : C.t2, cursor: "pointer", fontFamily: C.sans, display: "inline-flex", alignItems: "center", gap: 6 });
+
+    const renderStageRail = (compact = false) => obraEtapas.length > 0 && (
+      <div style={{ display: "flex", overflowX: "auto", padding: compact ? "4px 0 2px" : isMobile ? "14px" : "16px 22px", gap: 0 }}>
+        {obraEtapas.map((e, i) => {
+          const ep = pctEtapa(e.id);
+          const on = etapaFiltro === e.id;
+          const nodeColor = e.estado === "completado" ? C.green : e.estado === "en_curso" ? C.blue : C.b2;
+          const filled = e.estado === "completado" || e.estado === "en_curso";
+          return (
+            <button
+              key={e.id}
+              type="button"
+              onClick={() => { setEtapaFiltro(on ? null : e.id); if (detailView === "resumen") setDetailView("tareas"); }}
+              style={{ border: "none", background: "transparent", padding: 0, minWidth: compact ? 132 : 116, flex: compact ? "1 0 132px" : "1 0 116px", cursor: "pointer", textAlign: "left", fontFamily: C.sans }}
+            >
+              <div style={{ display: "flex", alignItems: "center" }}>
+                <span style={{ width: compact ? 9 : 11, height: compact ? 9 : 11, borderRadius: "50%", border: `2px solid ${on ? C.blue : nodeColor}`, background: filled ? nodeColor : C.bg, flexShrink: 0, boxShadow: on ? `0 0 0 4px ${C.blueL}` : "none" }} />
+                {i < obraEtapas.length - 1 && <span style={{ flex: 1, height: 1, background: e.estado === "completado" ? `${C.green}66` : C.b0 }} />}
+              </div>
+              <div style={{ paddingTop: compact ? 7 : 9, paddingRight: 10 }}>
+                <div style={{ fontSize: compact ? 11.5 : 12, fontWeight: 700, color: on ? C.t0 : C.t1, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{e.nombre}</div>
+                <div style={{ fontSize: 10, color: C.t3, fontFamily: C.mono, marginTop: 2 }}>{ep}% · {tareasDeEtapa(e.id).length}</div>
+              </div>
+            </button>
+          );
+        })}
+      </div>
+    );
+
+    const renderPriorityRow = tarea => {
+      const due = diasHasta(tarea.fecha_fin_estimada);
+      const done = ["finalizada", "cancelada"].includes(tarea.estado);
+      const dueColor = done ? C.t3 : (due ?? 999) < 0 ? C.red : due !== null && due <= 7 ? C.amber : C.t2;
+      const etapa = etapaById.get(tarea.etapa_id);
+      const deps = pendingDependencies(tarea);
+      return (
+        <div key={tarea.id} className="obra-task-row" role="button" tabIndex={0} onClick={() => setTareaDetalle(tarea)} onKeyDown={e => { if (e.key === "Enter" || e.key === " ") setTareaDetalle(tarea); }} style={{ width: "100%", display: "grid", gridTemplateColumns: isMobile ? "minmax(0,1fr) auto" : "minmax(0,1fr) 150px 120px auto 92px", alignItems: "center", gap: 12, padding: "10px 7px", borderBottom: `1px solid ${C.b0}`, color: C.t0, cursor: "pointer", textAlign: "left", fontFamily: C.sans }}>
+          <div style={{ minWidth: 0 }}>
+            <div style={{ fontSize: 13, fontWeight: 700, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{tarea.nombre}</div>
+            {deps.length > 0 && <div style={{ fontSize: 10.5, color: C.amber, marginTop: 3, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>Bloqueada por: {deps.map(dep => dep.nombre).join(", ")}</div>}
+            {isMobile && <div style={{ fontSize: 10.5, color: etapa?.color || C.t2, marginTop: 3 }}>{etapa?.nombre || "Sin etapa"}</div>}
+          </div>
+          {!isMobile && <span style={{ fontSize: 11, color: etapa?.color || C.t2, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{etapa?.nombre || "Sin etapa"}</span>}
+          {!isMobile && <span style={{ display: "flex", alignItems: "center", gap: 7, minWidth: 0 }}><AvatarResp name={tarea.responsable} size={20} /><span style={{ fontSize: 11, color: C.t2, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{tarea.responsable || "Sin asignar"}</span></span>}
+          <span style={{ fontSize: 11, fontFamily: C.mono, fontWeight: 700, color: dueColor, whiteSpace: "nowrap" }}>
+            {deps.length ? `${deps.length} bloqueo${deps.length > 1 ? "s" : ""}` : due === null ? "Sin fecha" : due < 0 ? `${-due}d tarde` : due === 0 ? "Hoy" : `en ${due}d`}
+          </span>
+          {esGestion && <div className="obra-task-actions" onClick={e => e.stopPropagation()} style={{ display: "flex", justifyContent: isMobile ? "flex-start" : "flex-end", gridColumn: isMobile ? "1 / -1" : "auto" }}>
+            {["pendiente", "bloqueada"].includes(tarea.estado)
+              ? <CardAct color={C.blue} onClick={() => iniciarTareaConCheck(tarea)}>Iniciar</CardAct>
+              : tarea.estado === "en_progreso"
+                ? <CardAct color={C.green} onClick={() => cambiarEstadoTarea(tarea.id, "finalizada")}>Finalizar</CardAct>
+                : null}
+          </div>}
+        </div>
+      );
+    };
 
     return (
       <div style={{ flex: 1, minWidth: 0, display: "flex", flexDirection: "column", overflow: "hidden" }}>
@@ -2515,6 +2726,49 @@ export default function ObrasScreen({ profile, signOut }) {
             </div>
           </div>
 
+          <div style={{ display: "grid", gridTemplateColumns: isMobile ? "1fr 1fr" : "minmax(180px,1.4fr) minmax(150px,1fr) repeat(3,minmax(86px,auto))", gap: isMobile ? 10 : 18, alignItems: "center", marginTop: 14, padding: isMobile ? "11px 0 2px" : "12px 0 3px", borderTop: `1px solid ${C.b0}` }}>
+            <div style={{ minWidth: 0, gridColumn: isMobile ? "1 / -1" : "auto" }}>
+              <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 10, marginBottom: 7 }}>
+                <span style={{ fontSize: 10, color: C.t2, textTransform: "uppercase", letterSpacing: 1.2, fontWeight: 700 }}>Avance general</span>
+                <span style={{ fontFamily: C.mono, fontSize: 13, fontWeight: 800, color: C.t0 }}>{avance}%</span>
+              </div>
+              <div style={{ height: 5, borderRadius: 99, background: C.b0, overflow: "hidden" }}>
+                <div style={{ width: `${avance}%`, height: "100%", borderRadius: 99, background: C.blue, transition: "width .25s ease" }} />
+              </div>
+            </div>
+            <div style={{ minWidth: 0 }}>
+              <div style={{ fontSize: 9.5, color: C.t2, textTransform: "uppercase", letterSpacing: 1.1, fontWeight: 700 }}>Etapa actual</div>
+              <div style={{ fontSize: 12.5, color: C.t0, fontWeight: 700, marginTop: 4, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{currentStage?.nombre || "Sin etapas"}</div>
+            </div>
+            <div>
+              <div style={{ fontSize: 9.5, color: C.t2, textTransform: "uppercase", letterSpacing: 1.1, fontWeight: 700 }}>Salud</div>
+              <div style={{ display: "flex", alignItems: "center", gap: 6, color: health.color, fontSize: 11.5, fontWeight: 700, marginTop: 4 }}><span style={{ width: 6, height: 6, borderRadius: "50%", background: health.color }} />{health.label}</div>
+            </div>
+            <div>
+              <div style={{ fontSize: 9.5, color: C.t2, textTransform: "uppercase", letterSpacing: 1.1, fontWeight: 700 }}>Atrasadas</div>
+              <div style={{ fontFamily: C.mono, fontSize: 15, color: atrasadasN ? C.red : C.t0, fontWeight: 800, marginTop: 2 }}>{atrasadasN}</div>
+            </div>
+            <div>
+              <div style={{ fontSize: 9.5, color: C.t2, textTransform: "uppercase", letterSpacing: 1.1, fontWeight: 700 }}>Sin responsable</div>
+              <div style={{ fontFamily: C.mono, fontSize: 15, color: sinResponsableN ? C.amber : C.t0, fontWeight: 800, marginTop: 2 }}>{sinResponsableN}</div>
+            </div>
+          </div>
+
+          <div style={{ display: "flex", alignItems: "center", gap: 20, marginTop: 12, marginBottom: -16, overflowX: "auto" }}>
+            {[
+              ["resumen", "Resumen", null],
+              ["tareas", "Tareas", abiertas.length],
+            ].map(([key, label, count]) => {
+              const active = detailView === key;
+              return (
+                <button key={key} type="button" onClick={() => key === "tareas" ? abrirTareas() : setDetailView(key)} style={{ position: "relative", border: "none", background: "transparent", padding: "8px 1px 12px", color: active ? C.t0 : C.t2, fontSize: 12.5, fontWeight: 700, cursor: "pointer", fontFamily: C.sans, whiteSpace: "nowrap" }}>
+                  {label}{count !== null && <span style={{ marginLeft: 6, color: active ? C.blue : C.t3, fontFamily: C.mono, fontSize: 10.5 }}>{count}</span>}
+                  {active && <span style={{ position: "absolute", left: 0, right: 0, bottom: 0, height: 2, borderRadius: 99, background: C.blue }} />}
+                </button>
+              );
+            })}
+          </div>
+
           {showFicha && (
             <div style={{ marginTop: 12 }}>
               <FichaBarco obra={obra} esGestion={esGestion} onSave={async (id, patch) => {
@@ -2527,19 +2781,73 @@ export default function ObrasScreen({ profile, signOut }) {
         {/* ── CUERPO SCROLLEABLE ── */}
         <div style={{ flex: 1, overflowY: "auto" }}>
           {/* Franja de KPIs — sin gráficos, sólo tipografía */}
-          <div style={{ display: "flex", flexWrap: "wrap", padding: isMobile ? "16px 14px" : "20px 22px", borderBottom: `1px solid ${C.b0}` }}>
-            {[
-              { v: `${avance}%`, l: "Avance", c: C.t0 },
-              { v: atrasadasN, l: "Atrasadas", c: atrasadasN ? C.red : C.t0 },
-              { v: enCursoN, l: "En curso", c: enCursoN ? C.blue : C.t0 },
-              { v: semanaN, l: "Vencen esta semana", c: C.t0 },
-            ].map((s, i, arr) => (
-              <div key={s.l} style={{ paddingRight: 30, marginRight: 30, borderRight: i < arr.length - 1 ? `1px solid ${C.b0}` : "none" }}>
-                <div style={{ fontFamily: C.mono, fontSize: 24, fontWeight: 700, color: s.c, fontVariantNumeric: "tabular-nums", letterSpacing: -0.5 }}>{s.v}</div>
-                <div style={{ fontSize: 10, textTransform: "uppercase", letterSpacing: 1.2, color: C.t2, fontWeight: 600, marginTop: 3 }}>{s.l}</div>
+          {detailView === "resumen" && (
+            <div style={{ padding: isMobile ? "16px 14px 32px" : "20px 22px 40px", animation: "fadeIn .18s ease" }}>
+              <section style={{ paddingBottom: 18, borderBottom: `1px solid ${C.b0}` }}>
+                <div style={{ display: "flex", alignItems: "flex-end", justifyContent: "space-between", gap: 12, marginBottom: 12 }}>
+                  <div>
+                    <div style={{ fontSize: 10, textTransform: "uppercase", letterSpacing: 1.3, color: C.t2, fontWeight: 800 }}>Ruta de produccion</div>
+                    <div style={{ fontSize: 12, color: C.t2, marginTop: 4 }}>Selecciona una etapa para abrir sus tareas.</div>
+                  </div>
+                  {esGestion && <button type="button" onClick={() => setEtapasMgr(true)} style={{ border: `1px solid ${C.b0}`, background: "transparent", color: C.t1, borderRadius: 8, padding: "6px 10px", fontSize: 11.5, fontWeight: 700, cursor: "pointer", fontFamily: C.sans }}>Gestionar etapas</button>}
+                </div>
+                {renderStageRail(true)}
+              </section>
+
+              <div style={{ display: "grid", gridTemplateColumns: isMobile ? "1fr" : "minmax(0,1.7fr) minmax(250px,.8fr)", gap: isMobile ? 22 : 30, paddingTop: 22 }}>
+                <section style={{ minWidth: 0 }}>
+                  <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 8 }}>
+                    <div>
+                      <div style={{ fontSize: 14, color: C.t0, fontWeight: 800 }}>Trabajo prioritario</div>
+                      <div style={{ fontSize: 11, color: C.t2, marginTop: 3 }}>Ordenado por vencimiento y prioridad.</div>
+                    </div>
+                    <button type="button" onClick={() => abrirTareas()} style={{ marginLeft: "auto", border: "none", background: "transparent", color: C.blue, fontSize: 11.5, fontWeight: 700, cursor: "pointer", fontFamily: C.sans }}>Abrir etapa actual</button>
+                  </div>
+                  <div style={{ borderTop: `1px solid ${C.b1}` }}>
+                    {priorityTasks.slice(0, 7).map(renderPriorityRow)}
+                    {!priorityTasks.length && <div style={{ padding: "28px 0", color: C.t2, fontSize: 12.5 }}>No hay tareas pendientes. La obra esta al dia.</div>}
+                  </div>
+                </section>
+
+                <aside style={{ minWidth: 0, borderLeft: isMobile ? "none" : `1px solid ${C.b0}`, paddingLeft: isMobile ? 0 : 24 }}>
+                  <div style={{ fontSize: 14, color: C.t0, fontWeight: 800, marginBottom: 4 }}>Atencion operativa</div>
+                  <div style={{ fontSize: 11, color: C.t2, marginBottom: 12 }}>Lo que necesita una decision o seguimiento.</div>
+                  {[
+                    { key: "atrasadas", label: "Tareas atrasadas", value: atrasadasN, color: C.red },
+                    { key: "semana", label: "Vencen esta semana", value: semanaN, color: C.amber },
+                    { key: "sinresp", label: "Sin responsable", value: sinResponsableN, color: C.t2 },
+                    { key: "bloqueadas", label: "Con dependencias", value: bloqueadas.length, color: C.blue },
+                  ].map(item => (
+                    <button key={item.key} type="button" onClick={() => {
+                      setDetailView("tareas");
+                      setEtapaFiltro(null);
+                      setTaskChip(item.key);
+                    }} style={{ width: "100%", display: "flex", alignItems: "center", gap: 10, padding: "11px 0", border: "none", borderBottom: `1px solid ${C.b0}`, background: "transparent", color: C.t0, cursor: "pointer", textAlign: "left", fontFamily: C.sans }}>
+                      <span style={{ width: 7, height: 7, borderRadius: "50%", background: item.value ? item.color : C.b1, flexShrink: 0 }} />
+                      <span style={{ flex: 1, fontSize: 12.5, color: item.value ? C.t1 : C.t2 }}>{item.label}</span>
+                      <span style={{ fontFamily: C.mono, fontSize: 13, fontWeight: 800, color: item.value ? item.color : C.t3 }}>{item.value}</span>
+                    </button>
+                  ))}
+
+                  <div style={{ marginTop: 20, paddingTop: 16, borderTop: `1px solid ${C.b1}` }}>
+                    <div style={{ fontSize: 10, textTransform: "uppercase", letterSpacing: 1.2, color: C.t2, fontWeight: 800, marginBottom: 10 }}>Plan actual</div>
+                    {[
+                      ["En curso", enCursoN, C.blue],
+                      ["Finalizadas", doneN, C.green],
+                      ["Pendientes", abiertas.length - enCursoN, C.t2],
+                    ].map(([label, value, color]) => (
+                      <div key={label} style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "5px 0", fontSize: 12 }}>
+                        <span style={{ color: C.t2 }}>{label}</span>
+                        <span style={{ color, fontFamily: C.mono, fontWeight: 800 }}>{Math.max(0, value)}</span>
+                      </div>
+                    ))}
+                  </div>
+                </aside>
               </div>
-            ))}
-          </div>
+            </div>
+          )}
+
+          <div style={{ display: detailView === "tareas" ? "block" : "none", animation: "fadeIn .18s ease" }}>
 
           {/* Importar tareas (obras sin tareas aún) */}
           {esGestion && sinTareas && (
@@ -2552,26 +2860,7 @@ export default function ObrasScreen({ profile, signOut }) {
           )}
 
           {/* Stepper de etapas — puntos + hairline, click filtra */}
-          {obraEtapas.length > 0 && (
-            <div style={{ display: "flex", padding: isMobile ? "16px 14px 6px" : "20px 22px 6px", overflowX: "auto" }}>
-              {obraEtapas.map((e, i) => {
-                const ep = pctEtapa(e.id);
-                const on = etapaFiltro === e.id;
-                const nodeCol = e.estado === "completado" ? C.green : e.estado === "en_curso" ? C.blue : C.b2;
-                const filled = e.estado === "completado" || e.estado === "en_curso";
-                return (
-                  <div key={e.id} onClick={() => setEtapaFiltro(on ? null : e.id)} style={{ display: "flex", flexDirection: "column", gap: 9, minWidth: 116, flex: 1, cursor: "pointer", paddingRight: 8 }}>
-                    <div style={{ display: "flex", alignItems: "center" }}>
-                      <span style={{ width: 11, height: 11, borderRadius: "50%", border: `2px solid ${on ? C.blue : nodeCol}`, background: filled ? nodeCol : C.bg, flexShrink: 0, boxShadow: on ? `0 0 0 4px ${C.blueL}` : "none" }} />
-                      {i < obraEtapas.length - 1 && <span style={{ flex: 1, height: 1.5, background: C.b0 }} />}
-                    </div>
-                    <div style={{ fontSize: 12, fontWeight: 600, color: on ? C.t0 : C.t1, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{e.nombre}</div>
-                    <div style={{ fontSize: 10.5, color: C.t3, fontFamily: C.mono }}>{ep}% · {tareasDeEtapa(e.id).length} tareas</div>
-                  </div>
-                );
-              })}
-            </div>
-          )}
+          {renderStageRail(false)}
 
           {/* Detalle de la etapa filtrada (descripción/responsable) */}
           {activeEtapaObj && hasMatrixDetailContent(activeEtapaObj) && (
@@ -2658,32 +2947,32 @@ export default function ObrasScreen({ profile, signOut }) {
           ) : (
             /* Vista Lista */
             <div style={{ padding: isMobile ? "0 14px 32px" : "0 22px 36px" }}>
-              <div style={{ display: "flex", gap: 14, padding: "8px 6px", borderBottom: `1px solid ${C.b1}` }}>
-                {[["Tarea", 1], ["Etapa", 130], ["Resp.", 54], ["Vence", 74], ["Estado", 90]].map(([l, w]) => (
-                  <span key={l} style={{ flex: w === 1 ? 1 : "0 0 auto", width: w === 1 ? "auto" : w, fontSize: 10, textTransform: "uppercase", letterSpacing: 1, color: C.t2, fontWeight: 700 }}>{l}</span>
-                ))}
-              </div>
-              {vis.slice().sort((a, b) => (a.estado === "finalizada") - (b.estado === "finalizada") || (diasHasta(a.fecha_fin_estimada) ?? 999) - (diasHasta(b.fecha_fin_estimada) ?? 999)).map(t => {
-                const done = ["finalizada", "cancelada"].includes(t.estado);
-                const dv = diasHasta(t.fecha_fin_estimada);
-                const dueCol = done ? C.t3 : (dv ?? 99) < 0 ? C.red : (dv !== null && dv <= 3) ? C.amber : C.t2;
-                const et = etapaById.get(t.etapa_id);
-                const tc = C.tarea[t.estado] ?? C.tarea.pendiente;
-                const pcCol = C.prioridad[t.prioridad ?? "media"].color;
-                return (
-                  <div key={t.id} onClick={() => setTareaDetalle(t)} style={{ display: "flex", alignItems: "center", gap: 14, padding: "11px 6px", borderBottom: `1px solid ${C.b0}`, cursor: "pointer" }}>
-                    <span style={{ width: 3, height: 24, borderRadius: 99, background: pcCol, flexShrink: 0 }} />
-                    <span style={{ flex: 1, minWidth: 0, fontWeight: 600, fontSize: 13, color: done ? C.t2 : C.t0, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{t.nombre}</span>
-                    <span style={{ width: 130, flexShrink: 0, fontSize: 11, color: et?.color || C.t2, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{et?.nombre || "—"}</span>
-                    <span style={{ width: 54, flexShrink: 0 }}><AvatarResp name={t.responsable} size={20} /></span>
-                    <span style={{ width: 74, flexShrink: 0, fontFamily: C.mono, fontSize: 11.5, fontWeight: 700, color: dueCol }}>{done ? "✓" : dv === null ? "—" : dv < 0 ? `−${-dv} d` : dv === 0 ? "hoy" : `en ${dv} d`}</span>
-                    <span style={{ width: 90, flexShrink: 0, fontSize: 12, fontWeight: 600, color: tc.text }}>{tc.label}</span>
-                  </div>
-                );
-              })}
+              {!isMobile && <div style={{ display: "grid", gridTemplateColumns: bulkMode ? "22px 4px minmax(190px,1fr) 130px 130px 78px 96px 108px" : "4px minmax(190px,1fr) 130px 130px 78px 96px 108px", gap: 12, padding: "8px 7px", borderBottom: `1px solid ${C.b1}` }}>
+                {bulkMode && <span />}
+                <span />
+                {["Tarea", "Etapa", "Responsable", "Vence", "Estado", "Accion"].map(label => <span key={label} style={{ fontSize: 9.5, textTransform: "uppercase", letterSpacing: 1, color: C.t2, fontWeight: 800 }}>{label}</span>)}
+              </div>}
+              {vis.slice().sort((a, b) => (a.estado === "finalizada") - (b.estado === "finalizada") || (diasHasta(a.fecha_fin_estimada) ?? 999) - (diasHasta(b.fecha_fin_estimada) ?? 999)).map(t => (
+                <TaskListRow
+                  key={t.id}
+                  tarea={t}
+                  etapa={etapaById.get(t.etapa_id)}
+                  bloqueantes={pendingDependencies(t)}
+                  esGestion={esGestion}
+                  isMobile={isMobile}
+                  bulkMode={bulkMode}
+                  checked={bulkSel.has(t.id)}
+                  onToggle={toggleBulkSel}
+                  onDetalle={setTareaDetalle}
+                  onIniciar={iniciarTareaConCheck}
+                  onFinalizar={tarea => cambiarEstadoTarea(tarea.id, "finalizada")}
+                  onReabrir={tarea => cambiarEstadoTarea(tarea.id, "en_progreso")}
+                />
+              ))}
               {!vis.length && <div style={{ padding: "26px 0", color: C.t3, fontSize: 12, textAlign: "center" }}>No hay tareas para estos filtros.</div>}
             </div>
           )}
+          </div>
         </div>
 
         {/* Modales locales del detalle */}
@@ -2747,6 +3036,11 @@ export default function ObrasScreen({ profile, signOut }) {
         ::-webkit-scrollbar-track { background: transparent; }
         ::-webkit-scrollbar-thumb { background: var(--panel-2); border-radius: 99px; }
         input:focus, select:focus, textarea:focus { border-color: rgba(59,130,246,0.35) !important; outline: none; }
+        .obra-task-row { background: transparent; transition: background .18s ease, box-shadow .18s ease, transform .18s ease; }
+        .obra-task-row:hover, .obra-task-row:focus-visible { background: var(--panel-2); box-shadow: inset 3px 0 0 rgba(59,130,246,.72); transform: translateX(2px); outline: none; }
+        .obra-task-actions { opacity: .18; transform: translateX(4px); transition: opacity .18s ease, transform .18s ease; }
+        .obra-task-row:hover .obra-task-actions, .obra-task-row:focus-within .obra-task-actions { opacity: 1; transform: translateX(0); }
+        @media (max-width: 760px) { .obra-task-actions { opacity: 1; transform: none; } }
         /* ── Entradas ── */
         @keyframes cardEnter  { 0%{opacity:0;transform:translateY(18px) scale(0.97)} 60%{opacity:1} 100%{opacity:1;transform:translateY(0) scale(1)} }
         @keyframes slideUp    { 0%{opacity:0;transform:translateY(14px)} 60%{opacity:1} 100%{opacity:1;transform:translateY(0)} }
@@ -2909,7 +3203,7 @@ export default function ObrasScreen({ profile, signOut }) {
                   ordenes={ordenes}
                   esGestion={esGestion}
                   onClose={() => setMapaPanel(null)}
-                  onEditarObra={obra => {
+                  onEditarObra={() => {
                     setMapaPanel(null);
                     // Si querés abrir el modal de edición de obra, activarlo acá
                     // setObraModal(obra);
@@ -2943,12 +3237,23 @@ export default function ObrasScreen({ profile, signOut }) {
       </div>
 
       {/* MODALES */}
-      {showObraModal && <ObraModal lineas={lineas} lProcs={lProcs} lTareas={lTareas} onSave={nueva => { setShowObraModal(false); cargar(); if (nueva?.id) setFocusedObra(nueva.id); }} onClose={() => setShowObraModal(false)} />}
+      {showObraModal && <ObraModal lineas={lineas} lProcs={lProcs} onSave={nueva => { setShowObraModal(false); cargar(); if (nueva?.id) setFocusedObra(nueva.id); }} onClose={() => setShowObraModal(false)} />}
       {etapaModal    && <EtapaModal etapa={etapaModal.etapa} obraId={etapaModal.obraId} detailEnabled={matrixDetailsEnabled} onSave={() => { setEtapaModal(null); cargar(); }} onClose={() => setEtapaModal(null)} />}
       {tareaModal    && <TareaModal tarea={tareaModal.tarea} etapaId={tareaModal.etapaId} obraId={tareaModal.obraId} onSave={() => { setTareaModal(null); cargar(); }} onClose={() => setTareaModal(null)} />}
-      {tareaDetalle  && <TareaDetalleModal tarea={tareaDetalle} esGestion={esGestion} onClose={() => setTareaDetalle(null)} onEditar={t => { setTareaDetalle(null); setTareaModal({ tarea: t, etapaId: t.etapa_id, obraId: t.obra_id }); }} />}
+      {tareaDetalle  && <TareaDetalleModal
+        tarea={tareaDetalle}
+        bloqueantes={(Array.isArray(tareaDetalle.predecesoras) ? tareaDetalle.predecesoras : [])
+          .map(id => tareas.find(t => t.id === id))
+          .filter(dep => dep && !["finalizada", "cancelada"].includes(dep.estado))}
+        esGestion={esGestion}
+        onClose={() => setTareaDetalle(null)}
+        onEditar={t => { setTareaDetalle(null); setTareaModal({ tarea: t, etapaId: t.etapa_id, obraId: t.obra_id }); }}
+        onIniciar={t => { setTareaDetalle(null); iniciarTareaConCheck(t); }}
+        onFinalizar={t => { setTareaDetalle(null); cambiarEstadoTarea(t.id, "finalizada"); }}
+        onReabrir={t => { setTareaDetalle(null); cambiarEstadoTarea(t.id, "en_progreso"); }}
+      />}
       {confirmModal  && <ConfirmModal {...confirmModal} onCancel={() => setConfirmModal(null)} />}
-      {lineasModal   && <LineasEtapasModal linea={lineasModal.linea} lProcs={lProcs} lTareas={lTareas} detailEnabled={matrixDetailsEnabled} onClose={() => setLineasModal(null)} onSaved={cargar} />}
+      {lineasModal   && <LineasEtapasModal linea={lineasModal.linea} lProcs={lProcs} detailEnabled={matrixDetailsEnabled} onClose={() => setLineasModal(null)} onSaved={cargar} />}
       {showNuevaLineaModal && <NuevaLineaModal onClose={() => setShowNuevaLineaModal(false)} onSaved={() => { setShowNuevaLineaModal(false); cargar(); }} />}
     </div>
   );
