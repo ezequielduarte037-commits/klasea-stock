@@ -1268,6 +1268,37 @@ function SubsectorSelect({ categorias, value, onChange }) {
   );
 }
 
+/**
+ * Nombre de variante editable. Usa borrador local y commitea en blur/Enter: si
+ * escribiéramos directo en la lista, la normalización (que descarta vacíos y
+ * duplicados) borraría la variante apenas limpiás el campo para reescribirlo.
+ */
+function VariantNameInput({ value, onCommit, style }) {
+  const [draft, setDraft] = useState(value);
+  useEffect(() => { setDraft(value); }, [value]);
+
+  const commit = () => {
+    const next = draft.trim();
+    if (!next || next === value) { setDraft(value); return; }
+    onCommit(next);
+  };
+
+  return (
+    <input
+      value={draft}
+      onChange={(e) => setDraft(e.target.value)}
+      onBlur={commit}
+      onKeyDown={(e) => {
+        if (e.key === "Enter") { e.preventDefault(); e.currentTarget.blur(); }
+        if (e.key === "Escape") { setDraft(value); e.currentTarget.blur(); }
+        if (e.key === "," || e.code === "Comma") e.stopPropagation();
+      }}
+      title="Editar el nombre de la variante"
+      style={style}
+    />
+  );
+}
+
 function VariantsEditor({ value = [], onChange, precios = {}, onPreciosChange, description = "", proveedores = [], onCleanTitle, materialId = null }) {
   const [draft, setDraft] = useState("");
   const [uploadingVariant, setUploadingVariant] = useState("");
@@ -1287,6 +1318,22 @@ function VariantsEditor({ value = [], onChange, precios = {}, onPreciosChange, d
   const remove = (name) => {
     onChange?.(variants.filter((v) => norm(v) !== norm(name)));
     if (onPreciosChange && precios?.[name]) { const cp = { ...precios }; delete cp[name]; onPreciosChange(cp); }
+  };
+  /**
+   * Renombra una variante. Ojo: precio, código y foto se guardan en un mapa
+   * indexado por NOMBRE, así que hay que mudar esa entrada o se pierde.
+   */
+  const rename = (oldName, nextName) => {
+    const next = String(nextName || "").trim();
+    if (!next || norm(next) === norm(oldName)) return;
+    if (variants.some((v) => norm(v) !== norm(oldName) && norm(v) === norm(next))) return; // ya existe
+    onChange?.(variants.map((v) => (norm(v) === norm(oldName) ? next : v)));
+    if (onPreciosChange && precios && Object.prototype.hasOwnProperty.call(precios, oldName)) {
+      const cp = { ...precios };
+      cp[next] = cp[oldName];
+      delete cp[oldName];
+      onPreciosChange(cp);
+    }
   };
   const extract = () => {
     const next = normalizeVariantList([...variants, ...detected]);
@@ -1313,6 +1360,8 @@ function VariantsEditor({ value = [], onChange, precios = {}, onPreciosChange, d
   };
 
   const chip = { display: "inline-flex", alignItems: "center", gap: 5, color: C.violet, background: "rgba(139,92,246,0.1)", border: "1px solid rgba(139,92,246,0.3)", borderRadius: 999, padding: "3px 7px", fontSize: 11, fontWeight: 850 };
+  // Mismo look que el chip pero editable.
+  const chipInput = { ...chip, outline: "none", fontFamily: C.sans, minWidth: 0, cursor: "text" };
 
   return (
     <div style={{ display: "grid", gap: 6 }}>
@@ -1322,7 +1371,11 @@ function VariantsEditor({ value = [], onChange, precios = {}, onPreciosChange, d
             const p = precios?.[variant] || {};
             return (
               <div key={variant} style={{ display: "grid", gridTemplateColumns: "minmax(86px,0.9fr) 66px minmax(90px,1fr) 96px 64px minmax(130px,1.05fr) auto", gap: 6, alignItems: "center" }}>
-                <span style={{ ...chip, justifySelf: "start", maxWidth: "100%", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{variant}</span>
+                <VariantNameInput
+                  value={variant}
+                  onCommit={(next) => rename(variant, next)}
+                  style={{ ...chipInput, justifySelf: "stretch", width: "100%" }}
+                />
                 <div style={{ width: 66, minHeight: 36, display: "flex", alignItems: "center", gap: 4, opacity: uploadingVariant === variant ? 0.65 : 1 }}>
                   {p.imagen_url ? (
                     <>
@@ -1377,8 +1430,12 @@ function VariantsEditor({ value = [], onChange, precios = {}, onPreciosChange, d
       ) : (
         <div style={{ display: "flex", gap: 5, flexWrap: "wrap" }}>
           {variants.map((variant) => (
-            <span key={variant} style={chip}>
-              {variant}
+            <span key={variant} style={{ ...chip, paddingRight: 5 }}>
+              <VariantNameInput
+                value={variant}
+                onCommit={(next) => rename(variant, next)}
+                style={{ ...chipInput, border: "none", background: "transparent", padding: 0, width: `${Math.max(4, variant.length)}ch` }}
+              />
               <button type="button" onClick={() => remove(variant)} style={{ border: "none", background: "transparent", color: C.violet, cursor: "pointer", padding: 0, lineHeight: 1 }}>x</button>
             </span>
           ))}
@@ -1849,12 +1906,14 @@ function MaterialRow({ material, categorias, ums, proveedores, onChanged, modelo
   // Autoguardado de variantes: "" | "saving" | "ok" | "err"
   const [varSave, setVarSave] = useState("");
   const varTimer = useRef(null);
+  const varsRef = useRef({ list: materialVariants(material), precios: material?.variantes_precios || {} });
 
   useEffect(() => {
     setDraft({ ...material, precio_unitario: inputNumberValue(material.precio_unitario) });
     setCantidades(toBomMap(material));
     setVariantes(materialVariants(material));
     setVariantesPrecios(material?.variantes_precios || {});
+    varsRef.current = { list: materialVariants(material), precios: material?.variantes_precios || {} };
   }, [material]);
 
   useEffect(() => () => clearTimeout(varTimer.current), []);
@@ -1865,13 +1924,20 @@ function MaterialRow({ material, categorias, ums, proveedores, onChanged, modelo
    * No llamamos a onChanged() para no recargar la lista y pisar lo que el
    * usuario esté editando en otras columnas de la misma fila.
    */
-  function autoGuardarVariantes(nextVariantes, nextPrecios) {
+  function aplicarVariantes({ list, precios }) {
     if (!material?.id) return;
+    varsRef.current = {
+      list: list !== undefined ? list : varsRef.current.list,
+      precios: precios !== undefined ? precios : varsRef.current.precios,
+    };
+    if (list !== undefined) setVariantes(list);
+    if (precios !== undefined) setVariantesPrecios(precios);
+
     clearTimeout(varTimer.current);
     setVarSave("saving");
     varTimer.current = setTimeout(async () => {
       try {
-        await guardarVariantesMaterial(material.id, nextVariantes, nextPrecios);
+        await guardarVariantesMaterial(material.id, varsRef.current.list, varsRef.current.precios);
         setVarSave("ok");
         varTimer.current = setTimeout(() => setVarSave(""), 1800);
       } catch {
@@ -1927,9 +1993,9 @@ function MaterialRow({ material, categorias, ums, proveedores, onChanged, modelo
           </div>
           <VariantsEditor
             value={variantes}
-            onChange={(next) => { setVariantes(next); autoGuardarVariantes(next, variantesPrecios); }}
+            onChange={(next) => aplicarVariantes({ list: next })}
             precios={variantesPrecios}
-            onPreciosChange={(next) => { setVariantesPrecios(next); autoGuardarVariantes(variantes, next); }}
+            onPreciosChange={(next) => aplicarVariantes({ precios: next })}
             description={draft.descripcion}
             proveedores={proveedores}
             onCleanTitle={(descripcion) => setDraft((d) => ({ ...d, descripcion }))}
@@ -2413,6 +2479,12 @@ function MaterialFila({ material, categorias, ums, proveedores, obras = [], onCh
   const [variantes, setVariantes] = useState(() => materialVariants(material));
   const [variantesPrecios, setVariantesPrecios] = useState(() => material?.variantes_precios || {});
   const [saving, setSaving] = useState(false);
+  // Autoguardado de variantes: "" | "saving" | "ok" | "err"
+  const [varSave, setVarSave] = useState("");
+  const varTimer = useRef(null);
+  // Última versión de lista+precios. Renombrar dispara onChange y onPreciosChange
+  // seguidos: sin esta ref, la segunda llamada guardaría la lista vieja.
+  const varsRef = useRef({ list: materialVariants(material), precios: material?.variantes_precios || {} });
 
   useEffect(() => {
     setDraft({ ...material, precio_unitario: inputNumberValue(material.precio_unitario) });
@@ -2421,7 +2493,37 @@ function MaterialFila({ material, categorias, ums, proveedores, obras = [], onCh
     setProvExtra((material.proveedores_lista || []).map((p) => ({ ...p })));
     setVariantes(materialVariants(material));
     setVariantesPrecios(material?.variantes_precios || {});
+    varsRef.current = { list: materialVariants(material), precios: material?.variantes_precios || {} };
   }, [material]);
+
+  useEffect(() => () => clearTimeout(varTimer.current), []);
+
+  /**
+   * Las variantes se guardan solas: antes había que acordarse de apretar Guardar
+   * y los cambios se perdían al cerrar la fila. No llamamos a onChanged() para no
+   * recargar la lista y pisar lo que se esté editando en los otros campos.
+   */
+  function aplicarVariantes({ list, precios }) {
+    if (!material?.id) return;
+    varsRef.current = {
+      list: list !== undefined ? list : varsRef.current.list,
+      precios: precios !== undefined ? precios : varsRef.current.precios,
+    };
+    if (list !== undefined) setVariantes(list);
+    if (precios !== undefined) setVariantesPrecios(precios);
+
+    clearTimeout(varTimer.current);
+    setVarSave("saving");
+    varTimer.current = setTimeout(async () => {
+      try {
+        await guardarVariantesMaterial(material.id, varsRef.current.list, varsRef.current.precios);
+        setVarSave("ok");
+        varTimer.current = setTimeout(() => setVarSave(""), 1800);
+      } catch {
+        setVarSave("err");
+      }
+    }, 700);
+  }
 
   async function save() {
     if (!draft.descripcion?.trim() || saving) return;
@@ -2543,12 +2645,17 @@ function MaterialFila({ material, categorias, ums, proveedores, obras = [], onCh
             </div>
           </div>
           <div>
-            <span style={lbl}>Variantes del item (marcas/modelos aceptables)</span>
+            <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+              <span style={lbl}>Variantes del item (marcas/modelos aceptables)</span>
+              {varSave === "saving" && <span style={{ fontSize: 10, color: C.t2, marginBottom: 4 }}>guardando…</span>}
+              {varSave === "ok" && <span style={{ fontSize: 10, color: C.green, fontWeight: 700, marginBottom: 4 }}>guardado ✓</span>}
+              {varSave === "err" && <span style={{ fontSize: 10, color: C.red, fontWeight: 700, marginBottom: 4 }}>no se pudo guardar</span>}
+            </div>
             <VariantsEditor
               value={variantes}
-              onChange={setVariantes}
+              onChange={(next) => aplicarVariantes({ list: next })}
               precios={variantesPrecios}
-              onPreciosChange={setVariantesPrecios}
+              onPreciosChange={(next) => aplicarVariantes({ precios: next })}
               description={draft.descripcion}
               proveedores={proveedores}
               onCleanTitle={(descripcion) => setDraft((d) => ({ ...d, descripcion }))}
