@@ -18,6 +18,7 @@ import {
   fetchObrasAvance,
   guardarProveedor,
   guardarMaterial,
+  guardarVariantesMaterial,
   eliminarCodigoBarraMaterial,
   importarCatalogo,
   isMissingTable,
@@ -363,6 +364,15 @@ function cleanTitleBrands(value, variants = [], proveedores = []) {
 
 function materialVariants(material) {
   return normalizeVariantList(material?.variantes);
+}
+
+function materialVariantImageUrl(material, variant = "") {
+  const selected = String(variant || "").trim();
+  if (!selected) return "";
+  const prices = material?.variantes_precios;
+  if (!prices || typeof prices !== "object" || Array.isArray(prices)) return "";
+  const match = Object.entries(prices).find(([name]) => norm(name) === norm(selected));
+  return String(match?.[1]?.imagen_url || match?.[1]?.imagenUrl || "").trim();
 }
 
 function prepareMaterialDraftForSave(material, proveedores = [], extraVariants = null, variantesPrecios = null) {
@@ -1836,6 +1846,9 @@ function MaterialRow({ material, categorias, ums, proveedores, onChanged, modelo
   const [saving, setSaving] = useState(false);
   const [hovered, setHovered] = useState(false);
   const review = reviewInfoForMaterial(material);
+  // Autoguardado de variantes: "" | "saving" | "ok" | "err"
+  const [varSave, setVarSave] = useState("");
+  const varTimer = useRef(null);
 
   useEffect(() => {
     setDraft({ ...material, precio_unitario: inputNumberValue(material.precio_unitario) });
@@ -1843,6 +1856,29 @@ function MaterialRow({ material, categorias, ums, proveedores, onChanged, modelo
     setVariantes(materialVariants(material));
     setVariantesPrecios(material?.variantes_precios || {});
   }, [material]);
+
+  useEffect(() => () => clearTimeout(varTimer.current), []);
+
+  /**
+   * Las variantes se guardan solas: el botón Guardar de la fila queda lejísimos
+   * a la derecha (tabla ancha con scroll horizontal) y se perdían los cambios.
+   * No llamamos a onChanged() para no recargar la lista y pisar lo que el
+   * usuario esté editando en otras columnas de la misma fila.
+   */
+  function autoGuardarVariantes(nextVariantes, nextPrecios) {
+    if (!material?.id) return;
+    clearTimeout(varTimer.current);
+    setVarSave("saving");
+    varTimer.current = setTimeout(async () => {
+      try {
+        await guardarVariantesMaterial(material.id, nextVariantes, nextPrecios);
+        setVarSave("ok");
+        varTimer.current = setTimeout(() => setVarSave(""), 1800);
+      } catch {
+        setVarSave("err");
+      }
+    }, 700);
+  }
 
   async function save() {
     if (!draft.descripcion?.trim() || saving) return;
@@ -1883,11 +1919,17 @@ function MaterialRow({ material, categorias, ums, proveedores, onChanged, modelo
         {review.flag && <div style={{ marginBottom: 5 }}><ReviewBadge reason={review.reason} /></div>}
         <input value={draft.descripcion || ""} onChange={(e) => setDraft((d) => ({ ...d, descripcion: e.target.value }))} style={{ ...INP, width: "100%" }} />
         <div style={{ marginTop: 6 }}>
+          <div style={{ display: "flex", alignItems: "center", gap: 7, marginBottom: 4, minHeight: 14 }}>
+            <span style={{ fontSize: 9.5, color: C.t3, textTransform: "uppercase", letterSpacing: 0.8, fontWeight: 700 }}>Variantes</span>
+            {varSave === "saving" && <span style={{ fontSize: 10, color: C.t2 }}>guardando…</span>}
+            {varSave === "ok" && <span style={{ fontSize: 10, color: C.green, fontWeight: 700 }}>guardado ✓</span>}
+            {varSave === "err" && <span style={{ fontSize: 10, color: C.red, fontWeight: 700 }}>no se pudo guardar</span>}
+          </div>
           <VariantsEditor
             value={variantes}
-            onChange={setVariantes}
+            onChange={(next) => { setVariantes(next); autoGuardarVariantes(next, variantesPrecios); }}
             precios={variantesPrecios}
-            onPreciosChange={setVariantesPrecios}
+            onPreciosChange={(next) => { setVariantesPrecios(next); autoGuardarVariantes(variantes, next); }}
             description={draft.descripcion}
             proveedores={proveedores}
             onCleanTitle={(descripcion) => setDraft((d) => ({ ...d, descripcion }))}
@@ -5924,6 +5966,8 @@ function ObraMatrizView({ obra, obras = [], linea, lineaNombre, categorias, mate
                 const total = row.precio.amount ? row.precio.amount * qty : null;
                 const materialForRow = row.material || materialById.get(row.materialId);
                 const variantOptions = materialVariants(materialForRow);
+                const rowImageUrl = materialVariantImageUrl(materialForRow, row.variante)
+                  || String(row.imagen_url || materialForRow?.imagen_url || materialForRow?.imagenes?.[0]?.url || "").trim();
                 const editableAddon = addonForVisibleRow(row);
                 const snapshotOnly = snapshotOnlyForRow(row);
                 const editingMaterial = editingMaterialRowId === row.id;
@@ -5950,44 +5994,52 @@ function ObraMatrizView({ obra, obras = [], linea, lineaNombre, categorias, mate
                       }}
                     >
                       <input type="checkbox" checked={rowSelected} onChange={() => toggleSelected(row.id)} style={{ marginTop: 4 }} />
-                      <div style={{ minWidth: 0 }}>
-                      <div style={{ display: "flex", alignItems: "center", gap: 6, minWidth: 0, flexWrap: "wrap" }}>
-                        <span style={{ fontSize: 13.5, fontWeight: 950, lineHeight: 1.25, color: C.t0, minWidth: 0, overflow: "hidden", textOverflow: "ellipsis" }}>{row.descripcion}</span>
-                        <ObraVarianteControl
-                          row={row}
-                          options={variantOptions}
-                          busy={varianteBusy === row.id || snapshotBusy}
-                          onChange={cambiarVarianteRow}
-                        />
-                        <span style={{ fontSize: 9.5, fontWeight: 900, color: row.bucket.color, background: `${row.bucket.color}14`, border: `1px solid ${row.bucket.color}3a`, borderRadius: 999, padding: "1px 6px", whiteSpace: "nowrap" }}>
-                          {row.bucket.label}
-                        </span>
-                        {row.review?.flag && <ReviewBadge reason={row.review.reason} />}
-                        <StockLibreChip info={stockLibreInfo} loading={stockLibreLoading} />
-                        {snapshotOnly ? (
-                          <span style={{ fontSize: 9.5, fontWeight: 900, color: C.amber, border: `1px solid ${C.amberB}`, background: C.amberL, borderRadius: 999, padding: "1px 6px", whiteSpace: "nowrap" }}>
-                            Fuera de matriz
-                          </span>
+                      <div style={{ minWidth: 0, display: "flex", alignItems: "flex-start", gap: rowImageUrl ? 9 : 0 }}>
+                        {rowImageUrl ? (
+                          <MaterialThumb
+                            material={{ ...(materialForRow || {}), imagen_url: rowImageUrl, descripcion: row.variante ? `${row.descripcion} · ${row.variante}` : row.descripcion }}
+                            size={isMobile ? 38 : 42}
+                          />
                         ) : null}
-                      </div>
-                      <div style={{ fontSize: 10.8, color: C.t2, marginTop: 3, lineHeight: 1.3 }}>
-                        {row.codigo || "sin código"}{row.obs ? ` · ${row.obs}` : ""}
-                      </div>
-                      {row.condicionantes?.length ? (
-                        <div style={{ display: "flex", flexWrap: "wrap", gap: 5, marginTop: 6 }}>
-                          {row.baseCantidad != null && row.baseCantidad !== row.cantidad && (
-                            <span style={{ fontSize: 10.5, color: C.t2, border: `1px solid ${C.b0}`, background: C.s0, borderRadius: 999, padding: "2px 7px" }}>
-                              Base {qtyText(row.baseCantidad, row.unidad)}
+                        <div style={{ minWidth: 0, flex: 1 }}>
+                          <div style={{ display: "flex", alignItems: "center", gap: 6, minWidth: 0, flexWrap: "wrap" }}>
+                            <span style={{ fontSize: 13.5, fontWeight: 950, lineHeight: 1.25, color: C.t0, minWidth: 0, overflow: "hidden", textOverflow: "ellipsis" }}>{row.descripcion}</span>
+                            <ObraVarianteControl
+                              row={row}
+                              options={variantOptions}
+                              busy={varianteBusy === row.id || snapshotBusy}
+                              onChange={cambiarVarianteRow}
+                            />
+                            <span style={{ fontSize: 9.5, fontWeight: 900, color: row.bucket.color, background: `${row.bucket.color}14`, border: `1px solid ${row.bucket.color}3a`, borderRadius: 999, padding: "1px 6px", whiteSpace: "nowrap" }}>
+                              {row.bucket.label}
                             </span>
-                          )}
-                          {row.condicionantes.map((detalle) => (
-                            <span key={`${detalle.id}-${detalle.condicionante}`} style={{ fontSize: 10.5, color: detalle.delta < 0 ? C.red : C.amber, border: `1px solid ${C.amberB}`, background: C.amberL, borderRadius: 999, padding: "2px 7px" }}>
-                              {detalle.condicionante}: {detalle.label}
-                            </span>
-                          ))}
+                            {row.review?.flag && <ReviewBadge reason={row.review.reason} />}
+                            <StockLibreChip info={stockLibreInfo} loading={stockLibreLoading} />
+                            {snapshotOnly ? (
+                              <span style={{ fontSize: 9.5, fontWeight: 900, color: C.amber, border: `1px solid ${C.amberB}`, background: C.amberL, borderRadius: 999, padding: "1px 6px", whiteSpace: "nowrap" }}>
+                                Fuera de matriz
+                              </span>
+                            ) : null}
+                          </div>
+                          <div style={{ fontSize: 10.8, color: C.t2, marginTop: 3, lineHeight: 1.3 }}>
+                            {row.codigo || "sin código"}{row.obs ? ` · ${row.obs}` : ""}
+                          </div>
+                          {row.condicionantes?.length ? (
+                            <div style={{ display: "flex", flexWrap: "wrap", gap: 5, marginTop: 6 }}>
+                              {row.baseCantidad != null && row.baseCantidad !== row.cantidad && (
+                                <span style={{ fontSize: 10.5, color: C.t2, border: `1px solid ${C.b0}`, background: C.s0, borderRadius: 999, padding: "2px 7px" }}>
+                                  Base {qtyText(row.baseCantidad, row.unidad)}
+                                </span>
+                              )}
+                              {row.condicionantes.map((detalle) => (
+                                <span key={`${detalle.id}-${detalle.condicionante}`} style={{ fontSize: 10.5, color: detalle.delta < 0 ? C.red : C.amber, border: `1px solid ${C.amberB}`, background: C.amberL, borderRadius: 999, padding: "2px 7px" }}>
+                                  {detalle.condicionante}: {detalle.label}
+                                </span>
+                              ))}
+                            </div>
+                          ) : null}
+                          <RecepcionDetalle row={row} />
                         </div>
-                      ) : null}
-                      <RecepcionDetalle row={row} />
                       </div>
                       <div style={{ minWidth: 0, gridColumn: isMobile ? "2 / -1" : undefined }} title="Cantidad">
                         <div style={{ fontFamily: C.mono, fontSize: 12.5, fontWeight: 900, color: C.t0, whiteSpace: "nowrap", marginTop: isMobile ? 0 : 2 }}>{qtyText(row.cantidad, row.unidad)}</div>

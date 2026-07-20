@@ -1369,6 +1369,30 @@ export async function actualizarMaterialDatos(material, { revisado } = {}) {
   if (error) throw error;
 }
 
+/**
+ * Guarda SOLO las variantes de un material (la lista y su info por variante).
+ *
+ * Update puntual a propósito: el autoguardado del catálogo no debe reescribir el
+ * resto de las columnas, así no pisa cambios que otro usuario haya hecho en el
+ * mismo material mientras esta fila estaba abierta.
+ */
+export async function guardarVariantesMaterial(materialId, variantes, variantesPrecios) {
+  if (!materialId) throw new Error("Falta el material.");
+  const lista = normalizeVariantes(variantes);
+  const patch = { variantes: lista };
+  if (variantesPrecios !== undefined) {
+    patch.variantes_precios = normalizeVariantesPrecios(variantesPrecios, lista);
+  }
+
+  let { error } = await supabase.from("panol_materiales").update(patch).eq("id", materialId);
+  if (error && isMissingColumn(error)) {
+    // Base sin la columna de precios por variante: guardamos al menos la lista.
+    const retry = await supabase.from("panol_materiales").update({ variantes: lista }).eq("id", materialId);
+    error = retry.error;
+  }
+  if (error) throw error;
+}
+
 export async function crearMaterial(material, cantidades = {}) {
   let { data, error } = await supabase
     .from("panol_materiales")
