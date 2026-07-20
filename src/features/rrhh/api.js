@@ -360,7 +360,7 @@ export async function subirFotoEmpleado(empleadoId, archivo) {
   if (!empleadoId) throw new Error("Falta el empleado.");
   if (!archivo) throw new Error("Falta la foto.");
 
-  const ext = archivo.type === "image/png" ? "png" : "jpg";
+  const ext = archivo.type === "image/png" ? "png" : archivo.type === "image/webp" ? "webp" : "jpg";
   const path = `${empleadoId}/${Date.now()}.${ext}`;
 
   const { error: upError } = await supabase.storage

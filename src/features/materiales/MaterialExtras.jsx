@@ -1,5 +1,6 @@
-import { useRef, useState } from "react";
-import { Camera, Clock, ImagePlus } from "lucide-react";
+import { useEffect, useRef, useState } from "react";
+import { createPortal } from "react-dom";
+import { Camera, Clock, ExternalLink, ImagePlus, X } from "lucide-react";
 import { BTN, BTN_PRIMARY } from "@/features/rrhh/ui";
 import { C } from "@/theme";
 import { precioDesactualizado, precioVigente, uploadMaterialImage } from "./api";
@@ -7,8 +8,8 @@ import { fmtDate, fmtMoney } from "./format";
 
 export function MaterialThumb({ material, size = 42 }) {
   const url = material?.imagen_url || material?.imagenes?.[0]?.url;
-  return (
-    <div style={{
+  const [open, setOpen] = useState(false);
+  const frameStyle = {
       width: size,
       height: size,
       borderRadius: 8,
@@ -18,13 +19,70 @@ export function MaterialThumb({ material, size = 42 }) {
       display: "grid",
       placeItems: "center",
       flexShrink: 0,
-    }}>
-      {url ? (
-        <img src={url} loading="lazy" alt={material?.descripcion || "Material"} style={{ width: "100%", height: "100%", objectFit: "cover" }} />
-      ) : (
-        <Camera size={Math.max(14, Math.round(size * 0.38))} color={C.t2} />
-      )}
-    </div>
+      padding: 0,
+      position: "relative",
+  };
+
+  if (!url) {
+    return <div style={frameStyle}><Camera size={Math.max(14, Math.round(size * 0.38))} color={C.t2} /></div>;
+  }
+
+  const alt = material?.descripcion || "Material";
+  return (
+    <>
+      <div
+        role="button"
+        tabIndex={0}
+        onClick={(event) => { event.stopPropagation(); setOpen(true); }}
+        onKeyDown={(event) => {
+          if (event.key !== "Enter" && event.key !== " ") return;
+          event.preventDefault();
+          event.stopPropagation();
+          setOpen(true);
+        }}
+        aria-label={`Abrir imagen de ${alt}`}
+        title="Abrir imagen"
+        style={{ ...frameStyle, cursor: "zoom-in", outline: "none" }}
+      >
+        <img src={url} loading="lazy" alt={alt} style={{ width: "100%", height: "100%", objectFit: "cover" }} />
+      </div>
+      {open && <MaterialImageLightbox url={url} alt={alt} onClose={() => setOpen(false)} />}
+    </>
+  );
+}
+
+export function MaterialImageLightbox({ url, alt = "Imagen del material", onClose }) {
+  useEffect(() => {
+    const onKeyDown = (event) => { if (event.key === "Escape") onClose?.(); };
+    window.addEventListener("keydown", onKeyDown);
+    return () => window.removeEventListener("keydown", onKeyDown);
+  }, [onClose]);
+
+  if (!url || typeof document === "undefined") return null;
+  return createPortal(
+    <div
+      role="dialog"
+      aria-modal="true"
+      aria-label={alt}
+      onClick={(event) => { event.stopPropagation(); onClose?.(); }}
+      style={{ position: "fixed", inset: 0, zIndex: 5000, background: "rgba(2,6,23,0.88)", backdropFilter: "blur(7px)", display: "grid", placeItems: "center", padding: 20 }}
+    >
+      <div onClick={(event) => event.stopPropagation()} style={{ width: "min(1100px, 96vw)", height: "min(820px, 90vh)", minHeight: 240, border: "1px solid rgba(255,255,255,0.18)", background: "rgba(15,23,42,0.94)", borderRadius: 12, boxShadow: "0 28px 90px rgba(0,0,0,0.55)", overflow: "hidden", display: "grid", gridTemplateRows: "auto minmax(0,1fr)" }}>
+        <div style={{ minWidth: 0, display: "flex", alignItems: "center", gap: 10, padding: "10px 12px", borderBottom: "1px solid rgba(255,255,255,0.12)" }}>
+          <div title={alt} style={{ color: "#f8fafc", fontSize: 13, fontWeight: 850, flex: 1, minWidth: 0, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{alt}</div>
+          <a href={url} target="_blank" rel="noreferrer" title="Abrir archivo original" aria-label="Abrir archivo original" style={{ width: 34, height: 34, borderRadius: 8, border: "1px solid rgba(255,255,255,0.16)", color: "#cbd5e1", display: "grid", placeItems: "center" }}>
+            <ExternalLink size={15} />
+          </a>
+          <button type="button" onClick={onClose} title="Cerrar" aria-label="Cerrar imagen" style={{ width: 34, height: 34, borderRadius: 8, border: "1px solid rgba(255,255,255,0.16)", background: "transparent", color: "#f8fafc", display: "grid", placeItems: "center", cursor: "pointer" }}>
+            <X size={17} />
+          </button>
+        </div>
+        <div style={{ minHeight: 0, padding: 14, display: "grid", placeItems: "center", overflow: "auto" }}>
+          <img src={url} alt={alt} style={{ display: "block", maxWidth: "100%", maxHeight: "100%", width: "auto", height: "auto", objectFit: "contain", borderRadius: 6 }} />
+        </div>
+      </div>
+    </div>,
+    document.body,
   );
 }
 

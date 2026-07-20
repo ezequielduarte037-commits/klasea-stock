@@ -365,9 +365,11 @@ function materialVariants(material) {
   return normalizeVariantList(material?.variantes);
 }
 
-function prepareMaterialDraftForSave(material, proveedores = [], extraVariants = [], variantesPrecios = null) {
+function prepareMaterialDraftForSave(material, proveedores = [], extraVariants = null, variantesPrecios = null) {
   void proveedores;
-  const variantes = normalizeVariantList([...(extraVariants || []), ...materialVariants(material)]);
+  // Cuando el editor entrega una lista, esa lista es la fuente definitiva. Mezclarla
+  // con las variantes originales revivia las que el usuario acababa de quitar.
+  const variantes = normalizeVariantList(extraVariants == null ? materialVariants(material) : extraVariants);
   const descripcion = String(material?.descripcion || "").trim();
   return {
     ...material,
@@ -1309,23 +1311,46 @@ function VariantsEditor({ value = [], onChange, precios = {}, onPreciosChange, d
           {variants.map((variant) => {
             const p = precios?.[variant] || {};
             return (
-              <div key={variant} style={{ display: "grid", gridTemplateColumns: "minmax(86px,0.9fr) 44px minmax(90px,1fr) 96px 64px minmax(130px,1.05fr) auto", gap: 6, alignItems: "center" }}>
+              <div key={variant} style={{ display: "grid", gridTemplateColumns: "minmax(86px,0.9fr) 66px minmax(90px,1fr) 96px 64px minmax(130px,1.05fr) auto", gap: 6, alignItems: "center" }}>
                 <span style={{ ...chip, justifySelf: "start", maxWidth: "100%", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{variant}</span>
-                <label title={materialId ? "Subir foto/plano de esta variante" : "Guardá el material para subir archivo; podés pegar una URL ahora"} style={{ width: 38, height: 34, border: `1px solid ${p.imagen_url ? C.blueB : C.b0}`, background: p.imagen_url ? C.blueL : C.s0, color: p.imagen_url ? C.blue : C.t2, borderRadius: 9, display: "grid", placeItems: "center", overflow: "hidden", cursor: materialId ? "pointer" : "default", opacity: uploadingVariant === variant ? 0.65 : 1 }}>
-                  {p.imagen_url ? <img src={p.imagen_url} alt={variant} style={{ width: "100%", height: "100%", objectFit: "cover" }} /> : <ImagePlus size={14} />}
-                  {materialId && (
-                    <input
-                      type="file"
-                      accept="image/*"
-                      style={{ display: "none" }}
-                      onChange={(event) => {
-                        const file = event.target.files?.[0] || null;
-                        event.target.value = "";
-                        uploadVariantImage(variant, file);
-                      }}
-                    />
+                <div style={{ width: 66, minHeight: 36, display: "flex", alignItems: "center", gap: 4, opacity: uploadingVariant === variant ? 0.65 : 1 }}>
+                  {p.imagen_url ? (
+                    <>
+                      <MaterialThumb material={{ imagen_url: p.imagen_url, descripcion: `${description || "Material"} · ${variant}` }} size={36} />
+                      {materialId && (
+                        <label title="Reemplazar foto/plano de esta variante" style={{ width: 24, height: 28, border: `1px solid ${C.b0}`, background: "transparent", color: C.t2, borderRadius: 7, display: "grid", placeItems: "center", cursor: "pointer" }}>
+                          <ImagePlus size={12} />
+                          <input
+                            type="file"
+                            accept="image/*"
+                            style={{ display: "none" }}
+                            onChange={(event) => {
+                              const file = event.target.files?.[0] || null;
+                              event.target.value = "";
+                              uploadVariantImage(variant, file);
+                            }}
+                          />
+                        </label>
+                      )}
+                    </>
+                  ) : (
+                    <label title={materialId ? "Subir foto/plano de esta variante" : "Guardá el material para subir archivo; podés pegar una URL ahora"} style={{ width: 36, height: 34, border: `1px solid ${C.b0}`, background: C.s0, color: C.t2, borderRadius: 9, display: "grid", placeItems: "center", cursor: materialId ? "pointer" : "default" }}>
+                      <ImagePlus size={14} />
+                      {materialId && (
+                        <input
+                          type="file"
+                          accept="image/*"
+                          style={{ display: "none" }}
+                          onChange={(event) => {
+                            const file = event.target.files?.[0] || null;
+                            event.target.value = "";
+                            uploadVariantImage(variant, file);
+                          }}
+                        />
+                      )}
+                    </label>
                   )}
-                </label>
+                </div>
                 <input value={p.codigo ?? ""} onChange={(e) => setPrecio(variant, { codigo: e.target.value })} placeholder="Código" style={{ ...INP, padding: "6px 9px", fontFamily: C.mono }} />
                 <input value={p.precio ?? ""} onChange={(e) => setPrecio(variant, { precio: e.target.value })} inputMode="decimal" placeholder="Precio" style={{ ...INP, padding: "6px 9px" }} />
                 <select value={p.moneda || "ARS"} onChange={(e) => setPrecio(variant, { moneda: e.target.value })} style={{ ...INP, padding: "6px 6px" }}>

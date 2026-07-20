@@ -10,7 +10,6 @@ import {
   ScanLine,
   Search,
   ShoppingCart,
-  UserCheck,
   Warehouse,
   X,
 } from "lucide-react";
@@ -186,67 +185,69 @@ function RetiroNfcBox({ nfc, onClear, compact = false }) {
   const bridge = nfc.bridge;
   const bridgeOk = bridge?.status === "connected";
   const bridgeLabel = bridgeOk
-    ? "ACR122U conectado"
+    ? "Lector NFC conectado"
     : bridge?.status === "connecting"
-      ? "Buscando ACR122U"
-      : "Puente ACR122U no detectado";
+      ? "Conectando lector NFC"
+      : "Lector NFC desconectado";
   const bridgeColor = bridgeOk ? C.green : bridge?.status === "connecting" ? C.blue : C.amber;
-  const bridgeBg = bridgeOk ? C.greenL : bridge?.status === "connecting" ? C.blueL : C.amberL;
-  const bridgeBorder = bridgeOk ? C.greenB : bridge?.status === "connecting" ? C.blueB : C.amberB;
   return (
-    <div style={{ border: `1px solid ${border}`, background: bg, borderRadius: 12, padding: compact ? 9 : 11, display: "grid", gap: 9 }}>
-      <div style={{ display: "flex", alignItems: "center", gap: 9 }}>
-        <div style={{ width: 34, height: 34, borderRadius: 11, background: "rgba(255,255,255,0.18)", border: `1px solid ${border}`, color: accent, display: "grid", placeItems: "center", flexShrink: 0 }}>
-          {nfc.empleado ? <UserCheck size={17} /> : <CreditCard size={17} />}
+    <div style={{ border: `1px solid ${border}`, background: bg, borderRadius: 12, padding: compact ? 10 : 12, display: "grid", gap: compact ? 8 : 10 }}>
+      {nfc.empleado ? (
+        <div style={{ display: "flex", alignItems: "center", gap: 12, minWidth: 0 }}>
+          <EmpleadoRetiroAvatar empleado={nfc.empleado} size={compact ? 60 : 68} />
+          <div style={{ minWidth: 0, flex: 1 }}>
+            <div style={{ color: C.green, fontSize: 9.5, fontWeight: 950, textTransform: "uppercase", letterSpacing: 0.8, marginBottom: 3 }}>Persona validada</div>
+            <div style={{ color: C.text, fontSize: compact ? 15 : 16, fontWeight: 950, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{nfc.empleado.nombre}</div>
+            <div style={{ color: C.dim, fontSize: 11, marginTop: 3 }}>DNI {nfc.empleado.dni || "-"}{nfc.empleado.sede ? ` · ${nfc.empleado.sede}` : ""}</div>
+          </div>
+          <button type="button" onClick={onClear} style={{ border: `1px solid ${C.greenB}`, background: C.panelSolid, color: C.green, borderRadius: 9, padding: "7px 9px", cursor: "pointer", fontSize: 11, fontWeight: 900, fontFamily: C.sans, flexShrink: 0 }}>
+            Cambiar
+          </button>
         </div>
-        <div style={{ flex: 1, minWidth: 0 }}>
-          <div style={{ color: C.text, fontSize: 12.5, fontWeight: 950 }}>Retiro con tarjeta NFC</div>
-          <div style={{ color: C.dim, fontSize: 10.5, marginTop: 1 }}>Apoya la tarjeta en el lector. Si todavia no tiene tarjeta, escribi nombre y apellido abajo.</div>
+      ) : (
+        <div style={{ display: "flex", alignItems: "center", gap: 9 }}>
+          <div style={{ width: 34, height: 34, borderRadius: 11, background: C.panelSolid, border: `1px solid ${border}`, color: accent, display: "grid", placeItems: "center", flexShrink: 0 }}>
+            <CreditCard size={17} />
+          </div>
+          <div style={{ minWidth: 0, flex: 1 }}>
+            <div style={{ color: C.text, fontSize: 12.5, fontWeight: 950 }}>Identificar a quien retira</div>
+            <div style={{ color: C.dim, fontSize: 10.5, marginTop: 1 }}>Apoyá la tarjeta en el lector.</div>
+          </div>
         </div>
-      </div>
+      )}
 
-      <div style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap", border: `1px solid ${bridgeBorder}`, background: bridgeBg, borderRadius: 10, padding: "7px 8px" }}>
-        <span style={{ color: bridgeColor, fontSize: 10.5, fontWeight: 950, textTransform: "uppercase", letterSpacing: 0.5 }}>{bridgeLabel}</span>
-        {bridge?.reader && <span style={{ color: C.dim, fontSize: 10.5 }}>{bridge.reader}</span>}
-        {bridge?.lastUid && <span style={{ color: C.dim, fontSize: 10.5, fontFamily: C.mono }}>Ultima {normalizeNfcUid(bridge.lastUid).slice(-8)}</span>}
+      <div style={{ display: "flex", alignItems: "center", gap: 7, minHeight: 22 }}>
+        <span style={{ width: 7, height: 7, borderRadius: 999, background: bridgeColor, boxShadow: bridgeOk ? `0 0 0 3px ${C.greenL}` : "none", flexShrink: 0 }} />
+        <span style={{ color: bridgeColor, fontSize: 10.5, fontWeight: 900 }}>{bridgeLabel}</span>
         {!bridgeOk && (
-          <button type="button" onClick={bridge?.reconnect} style={{ marginLeft: "auto", border: `1px solid ${bridgeBorder}`, background: C.panelSolid, color: bridgeColor, borderRadius: 8, padding: "5px 8px", cursor: "pointer", fontSize: 10.5, fontWeight: 900, fontFamily: C.sans }}>
+          <button type="button" onClick={bridge?.reconnect} style={{ marginLeft: "auto", border: "none", background: "transparent", color: bridgeColor, padding: "3px 0", cursor: "pointer", fontSize: 10.5, fontWeight: 900, fontFamily: C.sans }}>
             Reintentar
           </button>
         )}
       </div>
 
-      {nfc.empleado && (
-        <div style={{ display: "flex", alignItems: "center", gap: 10, border: `1px solid ${C.greenB}`, background: C.panelSolid, borderRadius: 12, padding: 8 }}>
-          <EmpleadoRetiroAvatar empleado={nfc.empleado} />
-          <div style={{ minWidth: 0, flex: 1 }}>
-            <div style={{ color: C.text, fontSize: 13, fontWeight: 950, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{nfc.empleado.nombre}</div>
-            <div style={{ color: C.dim, fontSize: 11, marginTop: 2 }}>DNI {nfc.empleado.dni || "-"}{nfc.empleado.sede ? ` · ${nfc.empleado.sede}` : ""}</div>
-          </div>
-          <span style={{ color: C.green, fontSize: 10.5, fontWeight: 900, textTransform: "uppercase" }}>Validado</span>
+      {!nfc.empleado && (
+        <div style={{ display: "grid", gridTemplateColumns: "1fr auto auto", gap: 7 }}>
+          <input
+            value={nfc.code}
+            onChange={(event) => nfc.setCode(normalizeNfcUid(event.target.value))}
+            onKeyDown={(event) => {
+              if (event.key === "Enter" || event.key === "Tab") {
+                event.preventDefault();
+                nfc.resolver(nfc.code);
+              }
+            }}
+            placeholder="UID de tarjeta"
+            style={{ background: C.panelSolid, border: `1px solid ${border}`, color: C.text, borderRadius: 9, padding: "8px 9px", fontSize: 12, fontFamily: C.mono, outline: "none", minWidth: 0 }}
+          />
+          <button type="button" onClick={() => nfc.resolver(nfc.code)} style={{ border: `1px solid ${border}`, background: C.panelSolid, color: accent, borderRadius: 9, padding: "8px 10px", cursor: "pointer", fontSize: 12, fontWeight: 900, fontFamily: C.sans }}>
+            Validar
+          </button>
+          <button type="button" onClick={onClear} aria-label="Limpiar tarjeta" title="Limpiar" style={{ border: `1px solid ${C.border}`, background: C.panelSolid, color: C.dim, borderRadius: 9, width: 34, minHeight: 34, display: "grid", placeItems: "center", cursor: "pointer" }}>
+            <X size={14} />
+          </button>
         </div>
       )}
-
-      <div style={{ display: "grid", gridTemplateColumns: "1fr auto auto", gap: 7 }}>
-        <input
-          value={nfc.code}
-          onChange={(event) => nfc.setCode(normalizeNfcUid(event.target.value))}
-          onKeyDown={(event) => {
-            if (event.key === "Enter" || event.key === "Tab") {
-              event.preventDefault();
-              nfc.resolver(nfc.code);
-            }
-          }}
-          placeholder="UID NFC"
-          style={{ background: C.panelSolid, border: `1px solid ${border}`, color: C.text, borderRadius: 9, padding: "8px 9px", fontSize: 12, fontFamily: C.mono, outline: "none", minWidth: 0 }}
-        />
-        <button type="button" onClick={() => nfc.resolver(nfc.code)} style={{ border: `1px solid ${border}`, background: C.panelSolid, color: accent, borderRadius: 9, padding: "8px 10px", cursor: "pointer", fontSize: 12, fontWeight: 900, fontFamily: C.sans }}>
-          Validar
-        </button>
-        <button type="button" onClick={onClear} style={{ border: `1px solid ${C.border}`, background: C.panelSolid, color: C.dim, borderRadius: 9, padding: "8px 10px", cursor: "pointer", fontSize: 12, fontWeight: 850, fontFamily: C.sans }}>
-          Limpiar
-        </button>
-      </div>
       {nfc.status === "buscando" && <div style={{ color: C.blue, fontSize: 11 }}>Buscando empleado...</div>}
       {nfc.error && <div style={{ color: C.red, fontSize: 11 }}>{nfc.error}</div>}
     </div>
@@ -2070,6 +2071,52 @@ function ProductDetail({ group, isMobile, obras, sedeLocked, canReceive, mode, o
   const detCode = group.codigo
     ? (detBarcode ? `${group.codigo} · CB ${detBarcode}` : group.codigo)
     : (detBarcode ? `CB ${detBarcode}` : "sin código");
+  const locationEditor = group.material?.id ? (
+    <UbicacionPicker
+      materialId={group.material.id}
+      ubicacion={group.ubicacion}
+      ubicacionObs={group.ubicacion_obs}
+      toast={toast}
+      label="Ubicacion fisica del producto"
+      onSaved={handleLocationSaved}
+    />
+  ) : (
+    <div style={{ display: "grid", gap: 8 }}>
+      <div>
+        <div style={{ color: C.text, fontSize: 13, fontWeight: 950 }}>Ubicacion fisica del producto</div>
+        <div style={{ color: C.dim, fontSize: 11.5, lineHeight: 1.4, marginTop: 3 }}>
+          Este producto todavia no esta vinculado al catalogo. Crea la ficha para poder asignarle estanteria, verlo en el mapa y dejar futuros cambios en el kardex.
+        </div>
+      </div>
+      <button
+        type="button"
+        onClick={crearFichaParaUbicacion}
+        disabled={creatingLocationMaterial}
+        style={{ justifySelf: "start", display: "inline-flex", alignItems: "center", gap: 7, border: `1px solid ${C.blueB}`, background: C.blueL, color: C.blue, borderRadius: 9, padding: "8px 11px", cursor: creatingLocationMaterial ? "default" : "pointer", opacity: creatingLocationMaterial ? 0.65 : 1, fontSize: 12, fontWeight: 950, fontFamily: C.sans }}
+      >
+        <PackagePlus size={14} />
+        {creatingLocationMaterial ? "Creando..." : "Crear ficha y ubicar"}
+      </button>
+    </div>
+  );
+
+  function renderLocationSection(collapsible = false) {
+    if (!canReceive) return null;
+    if (collapsible) {
+      return (
+        <details style={{ border: `1px solid ${C.border}`, background: C.panelSolid, borderRadius: 11, overflow: "hidden" }}>
+          <summary style={{ listStyle: "none", padding: "9px 11px", display: "flex", alignItems: "center", gap: 8, cursor: "pointer", color: C.text, fontSize: 12, fontWeight: 900 }}>
+            <MapPin size={14} color={C.blue} />
+            <span style={{ flex: 1 }}>Ubicacion y estanteria</span>
+            {group.ubicacion ? <UbicacionChip ubicacion={group.ubicacion} obs={group.ubicacion_obs} /> : <span style={{ color: C.dim, fontSize: 10.5, fontWeight: 700 }}>Sin ubicar</span>}
+          </summary>
+          <div style={{ borderTop: `1px solid ${C.border}`, padding: "10px 12px" }}>{locationEditor}</div>
+        </details>
+      );
+    }
+    return <div style={{ border: `1px solid ${C.border}`, background: C.panelSolid, borderRadius: 12, padding: "10px 12px" }}>{locationEditor}</div>;
+  }
+
   return (
     <section style={{ minHeight: 0, minWidth: 0, border: `1px solid ${C.border}`, background: C.panel, borderRadius: 12, overflow: "hidden", display: "flex", flexDirection: "column" }}>
       <div style={{ padding: "13px 14px", borderBottom: `1px solid ${C.border}`, background: C.panelSolid, display: "flex", justifyContent: "space-between", gap: 10, alignItems: "flex-start" }}>
@@ -2106,38 +2153,7 @@ function ProductDetail({ group, isMobile, obras, sedeLocked, canReceive, mode, o
         </div>
 
 
-        {canReceive && (
-          <div style={{ border: `1px solid ${C.border}`, background: C.panelSolid, borderRadius: 12, padding: "10px 12px" }}>
-            {group.material?.id ? (
-              <UbicacionPicker
-                materialId={group.material.id}
-                ubicacion={group.ubicacion}
-                ubicacionObs={group.ubicacion_obs}
-                toast={toast}
-                label="Ubicacion fisica del producto"
-                onSaved={handleLocationSaved}
-              />
-            ) : (
-              <div style={{ display: "grid", gap: 8 }}>
-                <div>
-                  <div style={{ color: C.text, fontSize: 13, fontWeight: 950 }}>Ubicacion fisica del producto</div>
-                  <div style={{ color: C.dim, fontSize: 11.5, lineHeight: 1.4, marginTop: 3 }}>
-                    Este producto todavia no esta vinculado al catalogo. Crea la ficha para poder asignarle estanteria, verlo en el mapa y dejar futuros cambios en el kardex.
-                  </div>
-                </div>
-                <button
-                  type="button"
-                  onClick={crearFichaParaUbicacion}
-                  disabled={creatingLocationMaterial}
-                  style={{ justifySelf: "start", display: "inline-flex", alignItems: "center", gap: 7, border: `1px solid ${C.blueB}`, background: C.blueL, color: C.blue, borderRadius: 9, padding: "8px 11px", cursor: creatingLocationMaterial ? "default" : "pointer", opacity: creatingLocationMaterial ? 0.65 : 1, fontSize: 12, fontWeight: 950, fontFamily: C.sans }}
-                >
-                  <PackagePlus size={14} />
-                  {creatingLocationMaterial ? "Creando..." : "Crear ficha y ubicar"}
-                </button>
-              </div>
-            )}
-          </div>
-        )}
+        {mode !== "egreso" && renderLocationSection()}
 
         {group.esAdicional && detalleAdicional.length > 0 && (
           <div style={{ border: `1px solid ${C.border}`, background: C.panelSolid, borderRadius: 12, padding: "10px 12px", display: "grid", gap: 6 }}>
@@ -2190,6 +2206,8 @@ function ProductDetail({ group, isMobile, obras, sedeLocked, canReceive, mode, o
             toast={toast}
           />
         )}
+
+        {mode === "egreso" && renderLocationSection(true)}
 
         <div style={{ border: `1px solid ${C.border}`, background: C.panelSolid, borderRadius: 12, padding: "10px 12px" }}>
           <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 6 }}>

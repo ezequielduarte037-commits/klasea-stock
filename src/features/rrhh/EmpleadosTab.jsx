@@ -1,6 +1,6 @@
 // Maestro de empleados: clasificación casa/contratista, flag "ficha",
 // alta/edición, y administración de contratistas (jefes).
-import { useCallback, useMemo, useState } from "react";
+import { useCallback, useMemo, useRef, useState } from "react";
 import { supabase } from "@/supabaseClient";
 import { C } from "@/theme";
 import useNfcBridge from "@/features/panol/useNfcBridge";
@@ -8,7 +8,7 @@ import useKeyboardWedge from "@/features/panol/useKeyboardWedge";
 import { isMissingColumn, normalizeNfcUid, SEDES, subirFotoEmpleado } from "./api";
 import { BTN, BTN_PRIMARY, GrupoBadge, INP, KpiCard, LBL, Td, Th } from "./ui";
 import CapturaFotoModal from "@/components/CapturaFotoModal";
-import { Camera } from "lucide-react";
+import { Camera, ImageUp } from "lucide-react";
 
 const FORM_VACIO = { dni: "", nombre: "", grupo: "casa", sede: "", contratista_id: "", ficha: true, activo: true, notas: "", nfc_uid: "", foto_url: "" };
 
@@ -320,7 +320,34 @@ function EmpleadoModal({ emp, contratistas, onClose, onSaved, onError }) {
   const [scanMsg, setScanMsg] = useState("");
   const [camaraAbierta, setCamaraAbierta] = useState(false);
   const [subiendoFoto, setSubiendoFoto] = useState(false);
+  const fotoInputRef = useRef(null);
   const set = (k, v) => setForm(f => ({ ...f, [k]: v }));
+
+  async function cargarFotoDesdeArchivo(event) {
+    const archivo = event.target.files?.[0];
+    event.target.value = "";
+    if (!archivo || !emp?.id) return;
+
+    const tiposPermitidos = new Set(["image/jpeg", "image/png", "image/webp"]);
+    if (!tiposPermitidos.has(archivo.type)) {
+      onError?.(new Error("La foto debe ser JPG, PNG o WebP."));
+      return;
+    }
+    if (archivo.size > 8 * 1024 * 1024) {
+      onError?.(new Error("La foto supera los 8 MB. Elegí una imagen más liviana."));
+      return;
+    }
+
+    setSubiendoFoto(true);
+    try {
+      const url = await subirFotoEmpleado(emp.id, archivo);
+      set("foto_url", url);
+    } catch (err) {
+      onError?.(err);
+    } finally {
+      setSubiendoFoto(false);
+    }
+  }
 
   const onBridgeUid = useCallback((uid) => {
     const clean = normalizeNfcUid(uid);
@@ -395,14 +422,30 @@ function EmpleadoModal({ emp, contratistas, onClose, onSaved, onError }) {
           <EmpleadoAvatar emp={{ nombre: form.nombre, foto_url: form.foto_url }} size={56} />
           <div style={{ minWidth: 0 }}>
             <label style={LBL}>Foto del empleado</label>
-            <div style={{ display: "flex", gap: 6, marginBottom: 6 }}>
-              <input style={{ ...INP, flex: 1, minWidth: 0 }} value={form.foto_url} onChange={e => set("foto_url", e.target.value)} placeholder="URL de foto / ficha visual" />
+            <input style={{ ...INP, width: "100%", marginBottom: 6 }} value={form.foto_url} onChange={e => set("foto_url", e.target.value)} placeholder="URL de foto / ficha visual" />
+            <input
+              ref={fotoInputRef}
+              type="file"
+              accept="image/jpeg,image/png,image/webp"
+              onChange={cargarFotoDesdeArchivo}
+              style={{ display: "none" }}
+            />
+            <div style={{ display: "flex", gap: 6, marginBottom: 6, flexWrap: "wrap" }}>
+              <button
+                type="button"
+                onClick={() => fotoInputRef.current?.click()}
+                disabled={!emp || subiendoFoto}
+                title={emp ? "Elegir una foto JPG, PNG o WebP" : "Guardá el empleado antes de cargar la foto"}
+                style={{ border: `1px solid ${C.b1}`, background: emp ? C.panelSolid : "transparent", color: emp ? C.t0 : C.t2, borderRadius: 8, minHeight: 34, padding: "0 11px", cursor: emp && !subiendoFoto ? "pointer" : "default", display: "inline-flex", alignItems: "center", gap: 6, fontSize: 12, fontWeight: 800, whiteSpace: "nowrap", opacity: subiendoFoto ? 0.65 : 1 }}
+              >
+                <ImageUp size={14} /> {subiendoFoto ? "Cargando..." : "Cargar imagen"}
+              </button>
               <button
                 type="button"
                 onClick={() => setCamaraAbierta(true)}
-                disabled={!emp}
+                disabled={!emp || subiendoFoto}
                 title={emp ? "Sacar la foto con la cámara de la PC" : "Guardá el empleado primero y después sacale la foto"}
-                style={{ border: `1px solid ${C.b1}`, background: emp ? C.s0 : "transparent", color: emp ? C.blue : C.t2, borderRadius: 8, padding: "0 11px", cursor: emp ? "pointer" : "default", display: "inline-flex", alignItems: "center", gap: 6, fontSize: 12, fontWeight: 800, whiteSpace: "nowrap" }}
+                style={{ border: `1px solid ${C.b1}`, background: emp ? C.s0 : "transparent", color: emp ? C.blue : C.t2, borderRadius: 8, minHeight: 34, padding: "0 11px", cursor: emp && !subiendoFoto ? "pointer" : "default", display: "inline-flex", alignItems: "center", gap: 6, fontSize: 12, fontWeight: 800, whiteSpace: "nowrap", opacity: subiendoFoto ? 0.65 : 1 }}
               >
                 <Camera size={14} /> Sacar
               </button>
