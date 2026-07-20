@@ -1071,6 +1071,69 @@ export async function egresarProducto({
   return data;
 }
 
+export async function registrarRetiroConsumible({
+  material = null,
+  cantidadGramos,
+  sede = null,
+  retiradoPor = null,
+  sectorDestino = null,
+  nota = null,
+} = {}) {
+  const gramos = Number(String(cantidadGramos ?? "").replace(",", "."));
+  const desc = String(material?.descripcion || "").trim();
+  if (!material?.id && !desc) throw new Error("Elegi un consumible.");
+  if (!Number.isFinite(gramos) || gramos <= 0) throw new Error("Carga un peso valido en gramos.");
+  const pesoTxt = `${Math.round(gramos * 1000) / 1000} g`;
+  const detalle = [`Retiro temporal de consumible por peso: ${pesoTxt}`, String(nota || "").trim()].filter(Boolean).join(" · ");
+  const payload = {
+    obra_id: null,
+    material_id: material?.id || null,
+    descripcion: desc,
+    codigo: String(material?.codigo || "").trim() || null,
+    cantidad: 0,
+    cantidad_egresada: 0,
+    unidad: material?.unidad || material?.unidad_medida || "unidad",
+    proveedor: String(material?.proveedor || "").trim() || null,
+    tipo: "consumible",
+    tipo_label: "Retiro consumible",
+    notas: detalle,
+    source: "consumible_retiro",
+    estado: "en_panol",
+    recepcion_estado: null,
+    recepcion_updated_at: new Date().toISOString(),
+    egreso_at: new Date().toISOString(),
+    egreso_nota: detalle,
+    retirado_por: String(retiradoPor || "").trim() || null,
+    sector_destino: String(sectorDestino || "").trim() || null,
+    stock_sede: sede || null,
+    stock_nota: `Peso retirado: ${pesoTxt}`,
+    es_adicional: false,
+  };
+  let { data, error } = await supabase
+    .from("panol_obra_materiales_snapshot")
+    .insert(payload)
+    .select("id")
+    .single();
+  if (error && isMissingColumn(error)) {
+    const fallback = { ...payload };
+    delete fallback.cantidad_egresada;
+    delete fallback.retirado_por;
+    delete fallback.sector_destino;
+    delete fallback.stock_sede;
+    delete fallback.stock_nota;
+    delete fallback.es_adicional;
+    const retry = await supabase
+      .from("panol_obra_materiales_snapshot")
+      .insert(fallback)
+      .select("id")
+      .single();
+    data = retry.data;
+    error = retry.error;
+  }
+  if (error) throw error;
+  return data;
+}
+
 export async function transferirProducto({
   material = null,
   descripcion = "",

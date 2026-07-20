@@ -5,8 +5,10 @@ import { supabase } from "@/supabaseClient";
 import { C } from "@/theme";
 import useNfcBridge from "@/features/panol/useNfcBridge";
 import useKeyboardWedge from "@/features/panol/useKeyboardWedge";
-import { isMissingColumn, normalizeNfcUid, SEDES } from "./api";
+import { isMissingColumn, normalizeNfcUid, SEDES, subirFotoEmpleado } from "./api";
 import { BTN, BTN_PRIMARY, GrupoBadge, INP, KpiCard, LBL, Td, Th } from "./ui";
+import CapturaFotoModal from "@/components/CapturaFotoModal";
+import { Camera } from "lucide-react";
 
 const FORM_VACIO = { dni: "", nombre: "", grupo: "casa", sede: "", contratista_id: "", ficha: true, activo: true, notas: "", nfc_uid: "", foto_url: "" };
 
@@ -316,6 +318,8 @@ function EmpleadoModal({ emp, contratistas, onClose, onSaved, onError }) {
   } : FORM_VACIO);
   const [saving, setSaving] = useState(false);
   const [scanMsg, setScanMsg] = useState("");
+  const [camaraAbierta, setCamaraAbierta] = useState(false);
+  const [subiendoFoto, setSubiendoFoto] = useState(false);
   const set = (k, v) => setForm(f => ({ ...f, [k]: v }));
 
   const onBridgeUid = useCallback((uid) => {
@@ -391,10 +395,44 @@ function EmpleadoModal({ emp, contratistas, onClose, onSaved, onError }) {
           <EmpleadoAvatar emp={{ nombre: form.nombre, foto_url: form.foto_url }} size={56} />
           <div style={{ minWidth: 0 }}>
             <label style={LBL}>Foto del empleado</label>
-            <input style={{ ...INP, width: "100%", marginBottom: 6 }} value={form.foto_url} onChange={e => set("foto_url", e.target.value)} placeholder="URL de foto / ficha visual" />
-            <div style={{ color: C.t2, fontSize: 11, lineHeight: 1.35 }}>Se muestra al egresar material para confirmar visualmente quien retira.</div>
+            <div style={{ display: "flex", gap: 6, marginBottom: 6 }}>
+              <input style={{ ...INP, flex: 1, minWidth: 0 }} value={form.foto_url} onChange={e => set("foto_url", e.target.value)} placeholder="URL de foto / ficha visual" />
+              <button
+                type="button"
+                onClick={() => setCamaraAbierta(true)}
+                disabled={!emp}
+                title={emp ? "Sacar la foto con la cámara de la PC" : "Guardá el empleado primero y después sacale la foto"}
+                style={{ border: `1px solid ${C.b1}`, background: emp ? C.s0 : "transparent", color: emp ? C.blue : C.t2, borderRadius: 8, padding: "0 11px", cursor: emp ? "pointer" : "default", display: "inline-flex", alignItems: "center", gap: 6, fontSize: 12, fontWeight: 800, whiteSpace: "nowrap" }}
+              >
+                <Camera size={14} /> Sacar
+              </button>
+            </div>
+            <div style={{ color: C.t2, fontSize: 11, lineHeight: 1.35 }}>
+              Se muestra al egresar material para confirmar visualmente quien retira.
+              {!emp && " (Primero guardá el empleado.)"}
+            </div>
           </div>
         </div>
+
+        <CapturaFotoModal
+          open={camaraAbierta}
+          titulo={`Foto de ${form.nombre || "empleado"}`}
+          guardando={subiendoFoto}
+          onClose={() => setCamaraAbierta(false)}
+          onCapturar={async (blob) => {
+            if (!emp?.id) return;
+            setSubiendoFoto(true);
+            try {
+              const url = await subirFotoEmpleado(emp.id, blob);
+              set("foto_url", url);
+              setCamaraAbierta(false);
+            } catch (err) {
+              onError?.(err);
+            } finally {
+              setSubiendoFoto(false);
+            }
+          }}
+        />
 
         <div style={{ border: `1px solid ${form.nfc_uid ? C.greenB : C.b0}`, background: form.nfc_uid ? C.greenL : C.s0, borderRadius: 12, padding: 10, marginBottom: 10 }}>
           <label style={LBL}>Tarjeta NFC/RFID</label>

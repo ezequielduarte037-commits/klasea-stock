@@ -10,6 +10,7 @@ import {
   PackageCheck,
   PackagePlus,
   PackageOpen,
+  Printer,
   RefreshCw,
   Search,
   Warehouse,
@@ -25,6 +26,7 @@ import PanolEnvioDetail from "@/features/panol/PanolEnvioDetail";
 import EnviarAPanolModal from "@/features/panol/EnviarAPanolModal";
 import CrearProductoTab from "@/features/panol/CrearProductoTab";
 import ConsumiblesPanolTab from "@/features/panol/ConsumiblesPanolTab";
+import SolicitudPanolPrintable from "@/features/panol/SolicitudPanolPrintable";
 import { leerIngresosPendientes, borrarIngresoPendiente } from "@/features/panol/ingresosPendientes";
 import StockWmsPanel from "@/features/panol/StockWmsPanel";
 import StockPanolScreen from "@/features/panol/StockPanolScreen";
@@ -2119,6 +2121,7 @@ export default function RecepcionPanolScreen({ profile, signOut }) {
   const [fPrio, setFPrio] = useState("todas");
   const [q, setQ] = useState("");
   const [tab, setTabState] = useState(() => readStoredPanolTab());
+  const [solicitudOpen, setSolicitudOpen] = useState(false);
   const setTab = useCallback((nextTab) => {
     const requested = nextTab === "pendientes" ? "ingresar" : nextTab;
     const value = PANOL_TABS.has(requested) ? requested : "recepcion";
@@ -2228,6 +2231,30 @@ export default function RecepcionPanolScreen({ profile, signOut }) {
             <TabButton active={tab === "crear"} onClick={() => setTab("crear")}>Crear producto</TabButton>
             <TabButton active={tab === "egresos"} onClick={() => setTab("egresos")}>Egresos</TabButton>
           </div>
+          <button
+            type="button"
+            onClick={() => setSolicitudOpen(true)}
+            title="Imprimir solicitud manual para panol"
+            style={{
+              border: `1px solid ${C.blueB}`,
+              background: C.blueL,
+              color: C.blue,
+              borderRadius: 10,
+              padding: "9px 12px",
+              minHeight: 36,
+              cursor: "pointer",
+              fontSize: 12,
+              fontWeight: 900,
+              fontFamily: C.sans,
+              display: "inline-flex",
+              alignItems: "center",
+              gap: 7,
+              whiteSpace: "nowrap",
+            }}
+          >
+            <Printer size={15} />
+            Imprimible
+          </button>
           {tab === "recepcion" && (
             <SmallButton onClick={cargar} disabled={loading} title="Actualizar">
               <RefreshCw size={15} />
@@ -2463,6 +2490,7 @@ export default function RecepcionPanolScreen({ profile, signOut }) {
           </div>
         </div>
       )}
+      <SolicitudPanolPrintable open={solicitudOpen} onClose={() => setSolicitudOpen(false)} />
     </>,
   );
 }

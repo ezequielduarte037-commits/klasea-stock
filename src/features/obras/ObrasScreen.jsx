@@ -142,12 +142,6 @@ const Dot = ({ color, size = 7, glow = false, pulse = false }) => (
   <div style={{ width: size, height: size, borderRadius: "50%", background: color, flexShrink: 0, boxShadow: glow ? `0 0 7px ${color}90` : "none", animation: pulse ? "pulseDot 2s ease infinite" : "none" }} />
 );
 
-const Chip = ({ label, dot, bg, border }) => (
-  <span style={{ fontSize: 10, letterSpacing: 1.3, textTransform: "uppercase", padding: "3px 8px", borderRadius: 99, background: bg, color: dot, border: `1px solid ${border}`, fontWeight: 700, whiteSpace: "nowrap" }}>
-    {label}
-  </span>
-);
-
 const ProgressBar = ({ value, color, height = 3, shimmer = false }) => (
   <div style={{ height, background: "var(--panel)", borderRadius: 99, overflow: "hidden" }}>
     <div style={{ height: "100%", width: `${Math.min(100, Math.max(0, value))}%`, background: shimmer ? `linear-gradient(90deg, ${color}60, ${color}, ${color}60)` : `linear-gradient(90deg, ${color}70, ${color})`, backgroundSize: shimmer ? "200% 100%" : undefined, animation: shimmer ? "shimmer 2s linear infinite" : undefined, borderRadius: 99, transition: "width .6s cubic-bezier(0.4,0,0.2,1)" }} />
@@ -806,121 +800,110 @@ function TareaModal({ tarea, etapaId, obraId, onSave, onClose }) {
 }
 
 // ─── TAREA CARD (tarjeta dentro del desplegable de etapa) ──────────────────────
-function TareaCard({ tarea, esGestion, archivosCount, onCambiarEstado, onEditar, onDetalle, onEliminar }) {
-  const tc = C.tarea[tarea.estado] ?? C.tarea.pendiente;
+// Botón cuadrado chico para las acciones inline de una fila de tarea.
+function RowBtn({ children, color = "var(--dim)", title, onClick }) {
+  return (
+    <button
+      type="button"
+      title={title}
+      onClick={onClick}
+      style={{ width: 22, height: 22, display: "grid", placeItems: "center", borderRadius: 6, border: `1px solid ${color}30`, background: `${color}12`, color, cursor: "pointer", fontSize: 11, lineHeight: 1, flexShrink: 0, fontFamily: C.sans }}
+    >
+      {children}
+    </button>
+  );
+}
+
+// Iniciales de un responsable para el avatar (2 letras).
+function initials(name) {
+  const p = String(name || "").trim().split(/\s+/).filter(Boolean);
+  if (!p.length) return "—";
+  if (p.length === 1) return p[0].slice(0, 2).toUpperCase();
+  return (p[0][0] + p[1][0]).toUpperCase();
+}
+function AvatarResp({ name, size = 22 }) {
+  return (
+    <span title={name || "Sin asignar"} style={{ width: size, height: size, borderRadius: "50%", display: "grid", placeItems: "center", fontSize: Math.round(size * 0.42), fontWeight: 700, background: C.s1, color: name ? C.t1 : C.t3, border: `1px solid ${C.b0}`, flexShrink: 0, letterSpacing: 0 }}>
+      {name ? initials(name) : "—"}
+    </span>
+  );
+}
+const LockIcon = () => (
+  <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect x="5" y="11" width="14" height="9" rx="2" /><path d="M8 11V8a4 4 0 018 0v3" /></svg>
+);
+// Botón chico de acción dentro de una card (texto o ícono).
+function CardAct({ children, color = "var(--dim)", onClick }) {
+  return (
+    <button type="button" onClick={onClick} style={{ border: `1px solid ${color}30`, background: `${color}10`, color, borderRadius: 7, padding: "4px 9px", fontSize: 11, fontWeight: 700, cursor: "pointer", fontFamily: C.sans, whiteSpace: "nowrap", lineHeight: 1.2 }}>
+      {children}
+    </button>
+  );
+}
+
+// Card de tarea para el tablero Kanban. Minimal: nombre, responsable, etapa,
+// vencimiento y un punto de prioridad. Las acciones aparecen al pasar el mouse.
+// El detalle completo (descripción, fechas, archivos) sigue en TareaDetalleModal.
+function TaskCard({ tarea, etapa, esGestion, archivosCount = 0, bulkMode = false, checked = false, onToggle, onDetalle, onIniciar, onFinalizar, onReabrir, onEditar, onEliminar }) {
+  const [hover, setHover] = useState(false);
   const pc = C.prioridad[tarea.prioridad ?? "media"];
-  const diasVence = diasHasta(tarea.fecha_fin_estimada);
-  const atrasada  = diasVence !== null && diasVence < 0 && !["finalizada","cancelada"].includes(tarea.estado);
-  const urgente   = diasVence !== null && diasVence <= 2 && !["finalizada","cancelada"].includes(tarea.estado);
+  const done = ["finalizada", "cancelada"].includes(tarea.estado);
+  const dv = diasHasta(tarea.fecha_fin_estimada);
+  const atrasada = dv !== null && dv < 0 && !done;
+  const urgente = dv !== null && dv >= 0 && dv <= 3 && !done;
+  const dueColor = done ? C.t3 : atrasada ? C.red : urgente ? C.amber : C.t2;
+  const dueTxt = dv === null ? "" : atrasada ? `−${-dv} d` : dv === 0 ? "hoy" : `en ${dv} d`;
+  const bloqueada = (tarea.predecesoras?.length > 0) || tarea.estado === "bloqueada";
+  const etColor = etapa?.color || C.t2;
 
   return (
     <div
+      onClick={() => (bulkMode ? onToggle?.(tarea.id) : onDetalle(tarea))}
+      onMouseEnter={() => setHover(true)}
+      onMouseLeave={() => setHover(false)}
       style={{
-        border: `1px solid ${atrasada ? "rgba(239,68,68,0.3)" : urgente ? "rgba(245,158,11,0.25)" : C.b0}`,
-        borderLeft: `3px solid ${pc.color}`,
-        borderRadius: 8, background: C.s0, marginBottom: 6,
-        transition: "border-color .15s, background .15s",
-        cursor: "pointer",
+        position: "relative",
+        background: hover ? C.panelSolid2 : C.panelSolid,
+        border: `1px solid ${checked ? C.blueB : hover ? C.b1 : C.b0}`,
+        borderRadius: 10, padding: "12px 13px", cursor: "pointer",
+        transform: hover ? "translateY(-3px)" : "translateY(0)",
+        boxShadow: hover ? "0 14px 30px -18px rgba(0,0,0,0.6)" : "0 1px 2px -1px rgba(0,0,0,0.15)",
+        transition: "transform .24s cubic-bezier(.22,1,.36,1), box-shadow .24s cubic-bezier(.22,1,.36,1), background .2s ease, border-color .2s ease",
+        willChange: "transform",
       }}
-      onClick={() => onDetalle(tarea)}
     >
-      {/* Row principal */}
-      <div style={{ display: "flex", alignItems: "flex-start", gap: 10, padding: "10px 12px 8px" }}>
-        {/* Estado dot */}
-        <div style={{ paddingTop: 3 }}>
-          <Dot color={tc.text} size={7} glow={tarea.estado === "en_progreso"} />
-        </div>
+      <span title={`Prioridad ${pc.label}`} style={{ position: "absolute", top: 14, right: 13, width: 7, height: 7, borderRadius: "50%", background: pc.color }} />
+      {bulkMode && (
+        <span style={{ position: "absolute", top: 11, left: 11, width: 16, height: 16, borderRadius: 4, border: `1.5px solid ${checked ? C.blue : C.b1}`, background: checked ? C.blueL : "transparent", display: "grid", placeItems: "center", fontSize: 10, color: C.blue, lineHeight: 1 }}>{checked ? "✓" : ""}</span>
+      )}
 
-        {/* Info */}
-        <div style={{ flex: 1, minWidth: 0 }}>
-          <div style={{ display: "flex", alignItems: "center", gap: 6, flexWrap: "wrap", marginBottom: 4 }}>
-            <span style={{ fontSize: 13, color: C.t0, fontWeight: 500, wordBreak: "break-word" }}>{tarea.nombre}</span>
-            {atrasada && <span style={{ fontSize: 10, padding: "1px 6px", borderRadius: 3, background: "rgba(239,68,68,0.12)", color: C.red, border: "1px solid rgba(239,68,68,0.25)", flexShrink: 0 }}>ATRASADA</span>}
-            {urgente && !atrasada && <span style={{ fontSize: 10, padding: "1px 6px", borderRadius: 3, background: "rgba(245,158,11,0.1)", color: C.amber, border: "1px solid rgba(245,158,11,0.25)", flexShrink: 0 }}>VENCE PRONTO</span>}
-            <AlertaMaterialTarea tarea={tarea} cerca={atrasada || urgente} />
-          </div>
-
-          {tarea.descripcion && (
-            <div style={{ fontSize: 11, color: C.t2, marginBottom: 6, lineHeight: 1.5, overflow: "hidden", display: "-webkit-box", WebkitLineClamp: 2, WebkitBoxOrient: "vertical" }}>
-              {tarea.descripcion}
-            </div>
-          )}
-
-          {/* Métricas en chips */}
-          <div style={{ display: "flex", gap: 6, flexWrap: "wrap", alignItems: "center" }}>
-            {/* Estado */}
-            <span style={{ fontSize: 10, padding: "2px 7px", borderRadius: 99, background: `${tc.text}14`, color: tc.text, border: `1px solid ${tc.text}28` }}>{tc.label}</span>
-
-            {/* Prioridad */}
-            <span style={{ fontSize: 10, padding: "2px 7px", borderRadius: 99, background: `${pc.color}12`, color: pc.color, border: `1px solid ${pc.color}28` }}>{pc.label}</span>
-
-            {/* Responsable */}
-            {tarea.responsable && (
-              <span style={{ fontSize: 10, color: C.t1, display: "flex", alignItems: "center", gap: 3 }}>
-                {tarea.responsable}
-                {tarea.personas_necesarias > 1 && ` +${tarea.personas_necesarias - 1}`}
-              </span>
-            )}
-
-            {/* Tiempo */}
-            {(tarea.dias_estimados || tarea.horas_estimadas) && (
-              <span style={{ fontSize: 10, color: C.t2, fontFamily: C.mono }}>
-                {tarea.dias_estimados ? `${tarea.dias_estimados}d` : ""}
-                {tarea.dias_estimados && tarea.horas_estimadas ? " / " : ""}
-                {tarea.horas_estimadas ? `${tarea.horas_estimadas}h` : ""}
-              </span>
-            )}
-
-            {/* Fechas */}
-            {(tarea.fecha_inicio || tarea.fecha_fin_estimada) && (
-              <span style={{ fontSize: 10, color: atrasada ? C.red : urgente ? C.amber : C.t2, fontFamily: C.mono }}>
-                📅 {fmtDate(tarea.fecha_inicio)} → {fmtDate(tarea.fecha_fin_estimada)}
-              </span>
-            )}
-
-            {/* Archivos */}
-            {archivosCount > 0 && (
-              <span style={{ fontSize: 10, color: C.primary }}>{archivosCount} arch.</span>
-            )}
-          </div>
-        </div>
-
-        {/* Acciones (click individual para no abrir detalle) */}
-        {esGestion && (
-          <div style={{ display: "flex", flexDirection: "column", gap: 4, flexShrink: 0 }} onClick={e => e.stopPropagation()}>
-            {/* Cambiar estado quick */}
-            <div style={{ display: "flex", gap: 3 }}>
-              {tarea.estado === "pendiente" && (
-                <button type="button" onClick={() => onCambiarEstado(tarea.id, "en_progreso")}
-                  style={{ fontSize: 10, padding: "3px 8px", borderRadius: 5, border: `1px solid rgba(59,130,246,0.3)`, background: "rgba(59,130,246,0.08)", color: "#60a5fa", cursor: "pointer", fontFamily: C.sans, whiteSpace: "nowrap" }}>
-                  ▶ Iniciar
-                </button>
-              )}
-              {tarea.estado === "en_progreso" && (
-                <button type="button" onClick={() => onCambiarEstado(tarea.id, "finalizada")}
-                  style={{ fontSize: 10, padding: "3px 8px", borderRadius: 5, border: `1px solid rgba(16,185,129,0.3)`, background: "rgba(16,185,129,0.08)", color: C.green, cursor: "pointer", fontFamily: C.sans, whiteSpace: "nowrap" }}>
-                  ✓ Finalizar
-                </button>
-              )}
-            </div>
-            <div style={{ display: "flex", gap: 3 }}>
-              <button type="button" onClick={() => onEditar(tarea)}
-                style={{ fontSize: 11, padding: "3px 8px", borderRadius: 5, border: `1px solid ${C.b0}`, background: "transparent", color: C.t1, cursor: "pointer" }}>editar</button>
-              <button type="button" onClick={() => onEliminar(tarea)}
-                style={{ fontSize: 11, padding: "3px 8px", borderRadius: 5, border: "none", background: "transparent", color: C.t2, cursor: "pointer" }}>×</button>
-            </div>
-          </div>
-        )}
+      <div style={{ fontSize: 13.5, fontWeight: 600, lineHeight: 1.35, color: done ? C.t2 : C.t0, paddingRight: 16, paddingLeft: bulkMode ? 22 : 0, textDecoration: tarea.estado === "cancelada" ? "line-through" : "none" }}>
+        {tarea.nombre}
       </div>
 
-      {/* Barra de progreso de horas si hay reales */}
-      {tarea.horas_estimadas && tarea.horas_reales && (
-        <div style={{ padding: "0 12px 8px" }}>
-          <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 2 }}>
-            <span style={{ fontSize: 10, color: C.t2 }}>Horas</span>
-            <span style={{ fontSize: 10, color: C.t2, fontFamily: C.mono }}>{tarea.horas_reales}/{tarea.horas_estimadas}h</span>
+      <div style={{ display: "flex", alignItems: "center", gap: 8, marginTop: 11 }}>
+        <AvatarResp name={tarea.responsable} />
+        {etapa && <span style={{ fontSize: 10.5, fontWeight: 500, color: etColor, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", maxWidth: 110 }}>{etapa.nombre}</span>}
+        <AlertaMaterialTarea tarea={tarea} cerca={atrasada || urgente} />
+        <span style={{ flex: 1 }} />
+        {archivosCount > 0 && <span style={{ fontSize: 10.5, color: C.t3, fontFamily: C.mono }}>{archivosCount}·arch</span>}
+        {bloqueada && <span title="Tiene predecesoras" style={{ color: C.t3, display: "inline-flex" }}><LockIcon /></span>}
+        {dueTxt && <span title={`Vence ${fmtDate(tarea.fecha_fin_estimada)}`} style={{ fontSize: 11.5, fontFamily: C.mono, fontWeight: 700, color: dueColor }}>{done ? "✓" : dueTxt}</span>}
+      </div>
+
+      {/* Acciones: siempre en el DOM pero colapsadas; se despliegan suave al hover. */}
+      {esGestion && !bulkMode && (
+        <div onClick={e => e.stopPropagation()} style={{ overflow: "hidden", maxHeight: hover ? 46 : 0, opacity: hover ? 1 : 0, marginTop: hover ? 11 : 0, transition: "max-height .24s cubic-bezier(.22,1,.36,1), opacity .2s ease, margin-top .24s cubic-bezier(.22,1,.36,1)" }}>
+          <div style={{ display: "flex", alignItems: "center", gap: 5, paddingTop: 10, borderTop: `1px solid ${C.b0}` }}>
+            {tarea.estado === "pendiente" && <CardAct color={C.blue} onClick={() => onIniciar(tarea)}>▶ Iniciar</CardAct>}
+            {tarea.estado === "en_progreso" && <>
+              <CardAct color={C.green} onClick={() => onFinalizar(tarea)}>✓ Finalizar</CardAct>
+              <CardAct color={C.t2} onClick={() => onReabrir(tarea, "pendiente")}>↩</CardAct>
+            </>}
+            {tarea.estado === "finalizada" && <CardAct color={C.t2} onClick={() => onReabrir(tarea, "en_progreso")}>↩ Reabrir</CardAct>}
+            <span style={{ flex: 1 }} />
+            <CardAct color={C.t2} onClick={() => onEditar(tarea)}>✎</CardAct>
+            <CardAct color={C.t2} onClick={() => onEliminar(tarea)}>×</CardAct>
           </div>
-          <ProgressBar value={pct(num(tarea.horas_reales), num(tarea.horas_estimadas))} color={tc.text} height={2} />
         </div>
       )}
     </div>
@@ -1100,128 +1083,67 @@ function PredecessorWarnModal({ tareaActual, bloqueantes, onConfirm, onCancel })
   );
 }
 
-// ─── SECCIÓN DE TAREAS DENTRO DE ETAPA ───────────────────────────────────────
-function EtapaTareasSection({ etapa, tareas, archivosCount, esGestion, onCambiarEstado, onEditar, onDetalle, onEliminar, onNueva }) {
-  const finalizadas = tareas.filter(t => t.estado === "finalizada").length;
-  const epct = pct(finalizadas, tareas.length);
-  const ec   = C.etapa[etapa.estado] ?? C.etapa.pendiente;
-  const [predWarn,     setPredWarn]     = useState(null);
-  const [bulkMode,     setBulkMode]     = useState(false);
-  const [selectedIds,  setSelectedIds]  = useState(new Set());
-
-  const toggleSelect = id => setSelectedIds(s => { const n = new Set(s); n.has(id) ? n.delete(id) : n.add(id); return n; });
-  const selectAll    = ()  => setSelectedIds(new Set(tareas.filter(t => !["finalizada","cancelada"].includes(t.estado)).map(t => t.id)));
-  const clearSelect  = ()  => { setSelectedIds(new Set()); setBulkMode(false); };
-
-  const bulkCambiar  = async estado => {
-    for (const id of selectedIds) await onCambiarEstado(id, estado);
-    clearSelect();
-  };
-
-  function handleCambiarEstado(tareaId, nuevoEstado) {
-    // Solo chequeamos al iniciar (pendiente → en_progreso)
-    if (nuevoEstado !== "en_progreso") { onCambiarEstado(tareaId, nuevoEstado); return; }
-
-    const tarea = tareas.find(t => t.id === tareaId);
-    if (!tarea) { onCambiarEstado(tareaId, nuevoEstado); return; }
-
-    // Tareas con orden menor que no están finalizadas
-    const bloqueantes = tareas.filter(t =>
-      t.id !== tareaId &&
-      (t.orden ?? 0) < (tarea.orden ?? 0) &&
-      t.estado !== "finalizada" &&
-      t.estado !== "cancelada"
-    );
-
-    if (bloqueantes.length === 0) { onCambiarEstado(tareaId, nuevoEstado); return; }
-
-    setPredWarn({ tareaId, tareaActual: tarea.nombre, bloqueantes, nuevoEstado });
-  }
-
+// ─── GESTOR DE ETAPAS (modal) ────────────────────────────────────────────────
+// Concentra las operaciones de etapa que antes vivían en cada cabecera: cambiar
+// estado (dispara orden de compra si corresponde), editar, eliminar y crear.
+// El tablero queda limpio; esto se abre desde el botón "Etapas".
+function EtapaManagerModal({ rows, esGestion, onEstado, onEditar, onEliminar, onNueva, onClose }) {
   return (
-    <div style={{ marginTop: 4, paddingLeft: 14, paddingBottom: 4 }}>
-      {predWarn && (
-        <PredecessorWarnModal
-          tareaActual={predWarn.tareaActual}
-          bloqueantes={predWarn.bloqueantes}
-          onConfirm={() => { onCambiarEstado(predWarn.tareaId, predWarn.nuevoEstado); setPredWarn(null); }}
-          onCancel={() => setPredWarn(null)}
-        />
-      )}
-
-      {/* ── Barra de resumen + controles bulk ── */}
-      {tareas.length > 0 && (
-        <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 8, padding: "4px 0" }}>
-          <ProgressBar value={epct} color={ec.dot} height={3} />
-          <span style={{ fontSize: 10, color: ec.text, fontFamily: C.mono, flexShrink: 0 }}>{finalizadas}/{tareas.length} · {epct}%</span>
-          {esGestion && (
-            <button type="button" onClick={() => { setBulkMode(b => !b); setSelectedIds(new Set()); }}
-              style={{ marginLeft: "auto", fontSize: 10, padding: "2px 9px", borderRadius: 5, border: `1px solid ${bulkMode ? "rgba(59,130,246,0.5)" : C.b0}`, background: bulkMode ? "rgba(59,130,246,0.1)" : "transparent", color: bulkMode ? "#60a5fa" : C.t2, cursor: "pointer", fontFamily: C.sans, transition: "all 0.15s", flexShrink: 0 }}>
-              {bulkMode ? "Cancelar" : "Seleccionar"}
-            </button>
-          )}
+    <Overlay onClose={onClose} maxWidth={560}>
+      <div style={{ padding: "18px 20px", borderBottom: `1px solid ${C.b0}`, display: "flex", alignItems: "center", gap: 12 }}>
+        <div style={{ flex: 1 }}>
+          <div style={{ fontSize: 15, fontWeight: 700, color: C.t0 }}>Etapas de producción</div>
+          <div style={{ fontSize: 11.5, color: C.t2, marginTop: 2 }}>Estado de cada etapa, orden de compra al completar, y edición.</div>
         </div>
-      )}
-
-      {/* ── Toolbar bulk — aparece cuando hay selección ── */}
-      {bulkMode && selectedIds.size > 0 && (
-        <div style={{ display: "flex", alignItems: "center", gap: 6, marginBottom: 8, padding: "7px 10px", borderRadius: 8, background: "rgba(59,130,246,0.07)", border: "1px solid rgba(59,130,246,0.2)", animation: "slideUp 0.3s cubic-bezier(0.22,1,0.36,1)" }}>
-          <span style={{ fontSize: 11, color: "#60a5fa", fontFamily: C.mono, fontWeight: 700 }}>{selectedIds.size} seleccionadas</span>
-          <div style={{ display: "flex", gap: 5, marginLeft: 6 }}>
-            <button type="button" onClick={() => bulkCambiar("en_progreso")}
-              style={{ fontSize: 11, padding: "3px 10px", borderRadius: 5, border: "1px solid rgba(59,130,246,0.35)", background: "rgba(59,130,246,0.12)", color: "#60a5fa", cursor: "pointer", fontFamily: C.sans }}>
-              ▶ Iniciar todas
-            </button>
-            <button type="button" onClick={() => bulkCambiar("finalizada")}
-              style={{ fontSize: 11, padding: "3px 10px", borderRadius: 5, border: "1px solid rgba(16,185,129,0.35)", background: "rgba(16,185,129,0.1)", color: C.green, cursor: "pointer", fontFamily: C.sans }}>
-              ✓ Finalizar todas
-            </button>
-            <button type="button" onClick={() => bulkCambiar("pendiente")}
-              style={{ fontSize: 11, padding: "3px 10px", borderRadius: 5, border: `1px solid ${C.b0}`, background: "transparent", color: C.t2, cursor: "pointer", fontFamily: C.sans }}>
-              ↩ Reiniciar
-            </button>
-          </div>
-          <button type="button" onClick={selectAll}
-            style={{ marginLeft: "auto", fontSize: 11, padding: "3px 9px", borderRadius: 5, border: `1px solid ${C.b0}`, background: "transparent", color: C.t2, cursor: "pointer", fontFamily: C.sans }}>
-            Sel. todas
+        <Btn variant="ghost" onClick={onClose} sx={{ fontSize: 18 }}>×</Btn>
+      </div>
+      <div style={{ padding: 14, display: "flex", flexDirection: "column", gap: 7, maxHeight: "60vh", overflowY: "auto" }}>
+        {rows.map(({ etapa, total, fin, epct }) => {
+          const ec = C.etapa[etapa.estado] ?? C.etapa.pendiente;
+          return (
+            <div key={etapa.id} style={{ display: "flex", alignItems: "center", gap: 10, padding: "10px 12px", borderRadius: 10, border: `1px solid ${C.b0}`, background: C.s0, borderLeft: `3px solid ${etapa.color ?? "#64748b"}` }}>
+              <div style={{ minWidth: 0, flex: 1 }}>
+                <div style={{ fontSize: 13, fontWeight: 600, color: C.t0, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+                  {etapa.nombre}
+                  {etapa.genera_orden_compra && <span title="Genera orden de compra al completar" style={{ color: C.amber, marginLeft: 6 }}>●</span>}
+                </div>
+                <div style={{ fontSize: 10.5, color: C.t2, marginTop: 2, fontFamily: C.mono }}>
+                  {total > 0 ? `${fin}/${total} tareas · ${epct}%` : "Sin tareas"}{etapa.dias_estimados ? ` · ${etapa.dias_estimados}d` : ""}
+                </div>
+              </div>
+              {esGestion && !etapa.isVirtual ? (
+                <>
+                  <div style={{ display: "flex", gap: 3, flexShrink: 0 }}>
+                    {[["pendiente", "—"], ["en_curso", "▶"], ["completado", "✓"]].map(([est, ico]) => {
+                      const on = etapa.estado === est;
+                      const col = C.etapa[est].dot;
+                      return (
+                        <button key={est} type="button" title={C.etapa[est].label} onClick={() => onEstado(etapa.id, est)}
+                          style={{ width: 24, height: 24, borderRadius: 6, border: `1px solid ${on ? col : C.b0}`, cursor: "pointer", fontSize: 11, background: on ? `${col}20` : "transparent", color: on ? col : C.t2, display: "grid", placeItems: "center" }}>
+                          {ico}
+                        </button>
+                      );
+                    })}
+                  </div>
+                  <RowBtn color={C.t2} title="Editar etapa" onClick={() => onEditar(etapa)}>✎</RowBtn>
+                  <RowBtn color={C.t2} title="Eliminar etapa" onClick={() => onEliminar(etapa)}>×</RowBtn>
+                </>
+              ) : (
+                <span style={{ fontSize: 10, color: ec.text, fontWeight: 700, textTransform: "uppercase", letterSpacing: 0.5, flexShrink: 0 }}>{ec.label}</span>
+              )}
+            </div>
+          );
+        })}
+        {!rows.length && <div style={{ padding: 16, color: C.t2, fontSize: 12, textAlign: "center" }}>Esta obra todavía no tiene etapas.</div>}
+      </div>
+      {esGestion && (
+        <div style={{ padding: 14, borderTop: `1px solid ${C.b0}` }}>
+          <button type="button" onClick={onNueva} style={{ width: "100%", padding: "9px 12px", borderRadius: 9, cursor: "pointer", border: `1px dashed ${C.b1}`, background: "transparent", color: C.t2, fontSize: 12.5, fontFamily: C.sans, fontWeight: 600 }}>
+            + Nueva etapa
           </button>
         </div>
       )}
-
-      {/* ── Cards de tareas ── */}
-      {tareas.map((tarea, tIdx) => (
-        <div key={tarea.id} style={{ display: "flex", alignItems: "flex-start", gap: 6, animation: `cardEnter 0.35s cubic-bezier(0.22,1,0.36,1) ${tIdx * 0.04}s both` }}>
-          {/* Checkbox en modo bulk */}
-          {bulkMode && !["finalizada","cancelada"].includes(tarea.estado) && (
-            <div onClick={() => toggleSelect(tarea.id)}
-              style={{ marginTop: 12, width: 16, height: 16, borderRadius: 4, border: `1.5px solid ${selectedIds.has(tarea.id) ? "#60a5fa" : C.b1}`, background: selectedIds.has(tarea.id) ? "rgba(59,130,246,0.2)" : "transparent", cursor: "pointer", flexShrink: 0, display: "flex", alignItems: "center", justifyContent: "center", transition: "all 0.15s" }}>
-              {selectedIds.has(tarea.id) && <span style={{ fontSize: 10, color: "#60a5fa", lineHeight: 1 }}>✓</span>}
-            </div>
-          )}
-          <div style={{ flex: 1, minWidth: 0 }}>
-            <TareaCard
-              tarea={tarea}
-              esGestion={esGestion && !bulkMode}
-              archivosCount={archivosCount[tarea.id] ?? 0}
-              onCambiarEstado={handleCambiarEstado}
-              onEditar={onEditar}
-              onDetalle={!bulkMode ? onDetalle : () => toggleSelect(tarea.id)}
-              onEliminar={onEliminar}
-            />
-          </div>
-        </div>
-      ))}
-
-      {esGestion && (
-        <button type="button" onClick={onNueva}
-          style={{ width: "100%", marginTop: 4, padding: "8px 12px", borderRadius: 7, cursor: "pointer", border: `1px dashed ${C.b1}`, background: "transparent", color: C.t2, fontSize: 12, fontFamily: C.sans, display: "flex", alignItems: "center", justifyContent: "center", gap: 6, transition: "border-color .15s, color .15s" }}>
-          + Nueva tarea en {etapa.nombre}
-        </button>
-      )}
-      {tareas.length === 0 && !esGestion && (
-        <div style={{ padding: "12px 0", color: C.t2, fontSize: 11, textAlign: "center" }}>Sin tareas en esta etapa</div>
-      )}
-    </div>
+    </Overlay>
   );
 }
 
@@ -2069,9 +1991,19 @@ export default function ObrasScreen({ profile, signOut }) {
 
   const [filtroEstado,   setFiltroEstado]   = useState("activa");
   const [filtroLinea,    setFiltroLinea]    = useState("todas");
-  const [expandedObras,  setExpandedObras]  = useState(new Set());
-  const [expandedEtapas, setExpandedEtapas] = useState(new Set());
-  const [focusedObra,    setFocusedObra]    = useState(null); // id de la obra en foco
+  const [focusedObra,    setFocusedObra]    = useState(null); // obra seleccionada (master-detail)
+
+  // ── Estado del tablero de tareas de la obra seleccionada ──
+  const [boardView,   setBoardView]   = useState("tablero"); // tablero | lista
+  const [etapaFiltro, setEtapaFiltro] = useState(null);      // id de etapa para filtrar, o null
+  const [taskChip,    setTaskChip]    = useState("todas");   // filtro rápido
+  const [bulkMode,    setBulkMode]    = useState(false);
+  const [bulkSel,     setBulkSel]     = useState(new Set());
+  const [showFicha,   setShowFicha]   = useState(false);
+  const [etapasMgr,   setEtapasMgr]   = useState(false);     // modal gestor de etapas
+  const [predWarn,    setPredWarn]    = useState(null);      // aviso de predecesoras
+  const [addPick,     setAddPick]     = useState(false);     // picker de etapa al agregar tarea
+  const [railCollapsed, setRailCollapsed] = useState(false); // ocultar lista de obras (foco en una)
 
   const [showHome,      setShowHome]      = useState(true);   // landing screen
   const [mainView,      setMainView]      = useState("obras");
@@ -2171,20 +2103,6 @@ export default function ObrasScreen({ profile, signOut }) {
   }, [etapasDeObra, tareasDeEtapa]);
 
   // ── ACCIONES ─────────────────────────────────────────────────
-  const toggleObra  = id => {
-    const yaExpandida = expandedObras.has(id);
-    if (yaExpandida) {
-      // Cerrar: quitar foco y colapsar
-      setExpandedObras(s => { const n = new Set(s); n.delete(id); return n; });
-      setFocusedObra(null);
-    } else {
-      // Abrir: poner en foco y expandir solo esta
-      setExpandedObras(new Set([id]));
-      setFocusedObra(id);
-    }
-  };
-  const toggleEtapa = id => setExpandedEtapas(s => { const n = new Set(s); n.has(id) ? n.delete(id) : n.add(id); return n; });
-
   // Si la etapa es virtual (viene de plantilla), la persiste en obra_etapas antes de abrir el modal
   async function abrirNuevaTarea(etapa) {
     let etapaId = etapa.id;
@@ -2229,6 +2147,23 @@ export default function ObrasScreen({ profile, signOut }) {
   async function cambiarEstadoTarea(tareaId, estado) {
     const upd = { estado }; if (estado === "finalizada") upd.fecha_fin_real = today();
     await supabase.from("obra_tareas").update(upd).eq("id", tareaId); cargar();
+  }
+
+  // Iniciar una tarea chequeando predecesoras (tareas de la MISMA etapa con orden
+  // menor sin finalizar). Si hay, pide confirmación antes de arrancar.
+  function iniciarTareaConCheck(tarea) {
+    const bloqueantes = tareas.filter(t =>
+      t.etapa_id === tarea.etapa_id && t.id !== tarea.id &&
+      (t.orden ?? 0) < (tarea.orden ?? 0) &&
+      t.estado !== "finalizada" && t.estado !== "cancelada");
+    if (!bloqueantes.length) { cambiarEstadoTarea(tarea.id, "en_progreso"); return; }
+    setPredWarn({ tareaId: tarea.id, tareaActual: tarea.nombre, bloqueantes, nuevoEstado: "en_progreso" });
+  }
+
+  const toggleBulkSel = id => setBulkSel(s => { const n = new Set(s); n.has(id) ? n.delete(id) : n.add(id); return n; });
+  async function bulkAplicar(estado) {
+    for (const id of bulkSel) await cambiarEstadoTarea(id, estado);
+    setBulkSel(new Set()); setBulkMode(false);
   }
 
   function pedirBorrado(item, tipo) {
@@ -2304,6 +2239,22 @@ export default function ObrasScreen({ profile, signOut }) {
     return true;
   }), [obras, filtroEstado, filtroLinea]);
 
+  // Master-detail: mantener una obra seleccionada válida. En desktop autoselecciona
+  // la primera; en mobile deja la lista visible hasta que el usuario elija.
+  useEffect(() => {
+    if (loading) return;
+    if (focusedObra && obrasFilt.some(o => o.id === focusedObra)) return;
+    if (!isMobile && obrasFilt.length) setFocusedObra(obrasFilt[0].id);
+    else if (focusedObra) setFocusedObra(null);
+  }, [loading, obrasFilt, focusedObra, isMobile]);
+
+  // Al cambiar de obra, reseteo los filtros/estado del tablero.
+  useEffect(() => {
+    setEtapaFiltro(null); setTaskChip("todas");
+    setBulkMode(false); setBulkSel(new Set()); setShowFicha(false);
+    setEtapasMgr(false); setAddPick(false);
+  }, [focusedObra]);
+
   const stats = useMemo(() => ({
     activas:    obras.filter(o => o.estado === "activa").length,
     pausadas:   obras.filter(o => o.estado === "pausada").length,
@@ -2332,72 +2283,45 @@ export default function ObrasScreen({ profile, signOut }) {
   );
 
   // ═══════════════════════════════════════════════════════════════
-  //  ÁRBOL LATERAL
+  //  LISTA MAESTRA DE OBRAS (columna izquierda del master-detail)
   // ═══════════════════════════════════════════════════════════════
-  function TreePanel() {
+  function ObrasMasterList() {
     return (
-      <div style={{ width: 260, flexShrink: 0, borderRight: `1px solid ${C.b0}`, background: C.topbarSoft, overflow: "auto", display: "flex", flexDirection: "column" }}>
-        <div style={{ padding: "12px 14px 10px", borderBottom: `1px solid ${C.b0}`, display: "flex", justifyContent: "space-between", alignItems: "center", flexShrink: 0 }}>
-          <span style={{ fontSize: 10, letterSpacing: 3, color: C.t2, textTransform: "uppercase" }}>Proyectos</span>
-          {esGestion && <Btn variant="primary" sx={{ padding: "4px 11px", fontSize: 11 }} onClick={() => setShowObraModal(true)}>+ Obra</Btn>}
+      <div style={{ width: isMobile ? "100%" : 300, flexShrink: 0, borderRight: isMobile ? "none" : `1px solid ${C.b0}`, background: C.topbarSoft, display: "flex", flexDirection: "column", minWidth: 0 }}>
+        <div style={{ padding: "10px 13px", borderBottom: `1px solid ${C.b0}`, display: "flex", justifyContent: "space-between", alignItems: "center", gap: 8, flexShrink: 0 }}>
+          <span style={{ fontSize: 10, letterSpacing: 2, color: C.t2, textTransform: "uppercase", fontWeight: 800 }}>
+            Obras <span style={{ fontFamily: C.mono, color: C.t1 }}>{obrasFilt.length}</span>
+          </span>
+          <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
+            {esGestion && <Btn variant="primary" sx={{ padding: "4px 11px", fontSize: 11 }} onClick={() => setShowObraModal(true)}>+ Obra</Btn>}
+            {!isMobile && (
+              <button type="button" onClick={() => setRailCollapsed(true)} title="Ocultar lista y enfocar la obra" style={{ border: `1px solid ${C.b0}`, background: "transparent", color: C.t2, width: 26, height: 26, borderRadius: 7, cursor: "pointer", display: "grid", placeItems: "center", flexShrink: 0 }}>
+                <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M15 18l-6-6 6-6" /></svg>
+              </button>
+            )}
+          </div>
         </div>
-        <div style={{ flex: 1, overflowY: "auto", padding: "6px 0" }}>
+        <div style={{ flex: 1, overflowY: "auto" }}>
           {loading && <div style={{ textAlign: "center", padding: 40, color: C.t2, fontSize: 12 }}>Cargando…</div>}
           {!loading && obrasFilt.map(obra => {
-            const obraEtapas = etapasDeObra(obra.id);
-            const expanded   = expandedObras.has(obra.id);
-            const obrapct    = pctObra(obra.id);
-            const oC         = C.obra[obra.estado] ?? C.obra.activa;
+            const sel     = focusedObra === obra.id;
+            const obrapct = pctObra(obra.id);
+            const oC      = C.obra[obra.estado] ?? C.obra.activa;
+            const ac      = obraAccentColor(obra);
             return (
-              <div key={obra.id}>
-                <div onClick={() => toggleObra(obra.id)} style={{ display: "flex", alignItems: "center", gap: 7, padding: "7px 14px 7px 10px", cursor: "pointer", borderLeft: expandedObras.has(obra.id) ? `2px solid ${oC.dot}` : "2px solid transparent", transition: "background .13s" }}>
-                  <span style={{ fontSize: 10, color: C.t2, width: 10, flexShrink: 0, display: "inline-block", transform: expanded ? "rotate(90deg)" : "none", transition: "transform .18s" }}>▶</span>
-                  <Dot color={oC.dot} size={6} glow pulse={obra.estado === "activa"} />
-                  <div style={{ flex: 1, minWidth: 0 }}>
-                    <div style={{ fontFamily: C.mono, fontSize: 13, color: C.t1, letterSpacing: 0.5, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{obra.codigo}</div>
-                    <ProgressBar value={obrapct} color={oC.dot} height={2} />
-                  </div>
-                  <span style={{ fontSize: 10, color: C.t2, fontFamily: C.mono }}>{obrapct}%</span>
+              <div
+                key={obra.id}
+                onClick={() => setFocusedObra(obra.id)}
+                style={{ position: "relative", display: "flex", flexDirection: "column", gap: 4, padding: "11px 13px 11px 12px", cursor: "pointer", borderBottom: `1px solid ${C.b0}`, background: sel ? "var(--panel-2)" : "transparent", transition: "background .12s" }}
+              >
+                {sel && <span style={{ position: "absolute", left: 0, top: 11, bottom: 11, width: 2.5, borderRadius: 99, background: ac }} />}
+                <div style={{ display: "flex", alignItems: "center", gap: 8, minWidth: 0 }}>
+                  <Dot color={oC.dot} size={6} pulse={obra.estado === "activa"} />
+                  <span style={{ fontFamily: C.mono, fontSize: 13, fontWeight: 600, color: sel ? C.t0 : C.t1, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{obra.codigo}</span>
+                  <span style={{ marginLeft: "auto", fontFamily: C.mono, fontSize: 12, color: C.t2, fontWeight: 600, flexShrink: 0 }}>{obrapct}%</span>
                 </div>
-                {expanded && (
-                  <>
-                    {obraEtapas.map(etapa => {
-                      const etapaT = tareasDeEtapa(etapa.id);
-                      const etExp  = expandedEtapas.has(etapa.id);
-                      return (
-                        <div key={etapa.id}>
-                          <div onClick={() => toggleEtapa(etapa.id)} style={{ display: "flex", alignItems: "center", gap: 6, padding: "4px 14px 4px 26px", cursor: "pointer" }}>
-                            <span style={{ fontSize: 7, color: C.t2, width: 8, flexShrink: 0, transform: etExp ? "rotate(90deg)" : "none", display: "inline-block", transition: "transform .15s" }}>▶</span>
-                            <div style={{ width: 3, height: 16, borderRadius: 2, background: etapa.color ?? C.t1, flexShrink: 0 }} />
-                            <span style={{ flex: 1, fontSize: 11, color: C.t2, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{etapa.nombre}</span>
-                            <span style={{ fontSize: 10, color: C.t2, fontFamily: C.mono }}>{etapaT.length || ""}</span>
-                          </div>
-                          {etExp && etapaT.map(tarea => {
-                            const tc = C.tarea[tarea.estado] ?? C.tarea.pendiente;
-                            const pc = C.prioridad[tarea.prioridad ?? "media"];
-                            return (
-                              <div key={tarea.id} onClick={() => setTareaDetalle(tarea)} style={{ display: "flex", alignItems: "center", gap: 5, padding: "3px 14px 3px 44px", cursor: "pointer" }}>
-                                <div style={{ width: 2, height: 10, borderRadius: 1, background: pc.color, flexShrink: 0 }} />
-                                <Dot color={tc.text} size={4} glow={tarea.estado === "en_progreso"} />
-                                <span style={{ fontSize: 11, color: C.t2, flex: 1, minWidth: 0, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{tarea.nombre}</span>
-                              </div>
-                            );
-                          })}
-                          {etExp && esGestion && (
-                            <div onClick={() => abrirNuevaTarea(etapa)} style={{ padding: "3px 14px 3px 44px", cursor: "pointer" }}>
-                              <span style={{ fontSize: 10, color: C.t2 }}>+ tarea</span>
-                            </div>
-                          )}
-                        </div>
-                      );
-                    })}
-                    {esGestion && (
-                      <div onClick={() => setEtapaModal({ obraId: obra.id })} style={{ padding: "4px 14px 4px 26px", cursor: "pointer" }}>
-                        <span style={{ fontSize: 10, color: C.t2 }}>+ etapa</span>
-                      </div>
-                    )}
-                  </>
-                )}
+                {obra.cliente && <div style={{ fontSize: 11.5, color: C.t2, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{obra.cliente}</div>}
+                {obra.linea_nombre && <div style={{ fontSize: 9.5, color: ac, textTransform: "uppercase", letterSpacing: 0.8, fontWeight: 600, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{obra.linea_nombre}</div>}
               </div>
             );
           })}
@@ -2445,266 +2369,343 @@ export default function ObrasScreen({ profile, signOut }) {
     );
   }
 
-  function GanttMain() {
+  // ═══════════════════════════════════════════════════════════════
+  //  DETALLE DE OBRA (columna derecha del master-detail)
+  // ═══════════════════════════════════════════════════════════════
+  function ObraDetail() {
     if (loading) return <div style={{ flex: 1, display: "flex", alignItems: "center", justifyContent: "center", color: C.t2, fontSize: 12, letterSpacing: 3, fontFamily: C.mono }}>Cargando…</div>;
-    if (!obrasFilt.length) {
-      const hayFiltro = filtroEstado !== "todos" || filtroLinea !== "todas";
-      const filtrando = obras.length > 0 && hayFiltro;   // hay obras, pero el filtro las oculta
-      return (
-        <div style={{ flex: 1, display: "flex", alignItems: "center", justifyContent: "center" }}>
-          <div style={{ textAlign: "center", maxWidth: 320, padding: "0 20px" }}>
-            <div style={{ fontSize: 28, color: C.t2, marginBottom: 10, letterSpacing: 8 }}>◦</div>
-            <div style={{ color: C.t1, fontSize: 13, fontWeight: 700 }}>
-              {filtrando ? "Ninguna obra coincide con los filtros" : "Todavía no hay obras"}
-            </div>
-            <div style={{ color: C.t2, fontSize: 12, marginTop: 5, lineHeight: 1.5 }}>
-              {filtrando
-                ? "Probá quitar los filtros de estado o línea para ver el resto."
-                : esGestion ? "Creá la primera obra para empezar a planificar etapas y tareas."
-                            : "Cuando se cargue una obra vas a verla acá."}
-            </div>
-            <div style={{ marginTop: 16, display: "flex", gap: 8, justifyContent: "center", flexWrap: "wrap" }}>
-              {filtrando && <Btn variant="outline" onClick={() => { setFiltroEstado("todos"); setFiltroLinea("todas"); }}>Ver todas</Btn>}
-              {esGestion && <Btn variant="primary" onClick={() => setShowObraModal(true)}>+ Nueva obra</Btn>}
+
+    const obra = obrasFilt.find(o => o.id === focusedObra) || null;
+
+    // Sin obra seleccionable: vacío por filtros / sin obras, o placeholder de "elegí una".
+    if (!obra) {
+      if (!obrasFilt.length) {
+        const filtrando = obras.length > 0 && (filtroEstado !== "todos" || filtroLinea !== "todas");
+        return (
+          <div style={{ flex: 1, display: "flex", alignItems: "center", justifyContent: "center" }}>
+            <div style={{ textAlign: "center", maxWidth: 320, padding: "0 20px" }}>
+              <div style={{ fontSize: 26, color: C.t3, marginBottom: 10 }}>◦</div>
+              <div style={{ color: C.t1, fontSize: 13, fontWeight: 700 }}>
+                {filtrando ? "Ninguna obra coincide con los filtros" : "Todavía no hay obras"}
+              </div>
+              <div style={{ color: C.t2, fontSize: 12, marginTop: 5, lineHeight: 1.5 }}>
+                {filtrando
+                  ? "Probá quitar los filtros de estado o línea para ver el resto."
+                  : esGestion ? "Creá la primera obra para empezar a planificar etapas y tareas."
+                              : "Cuando se cargue una obra vas a verla acá."}
+              </div>
+              <div style={{ marginTop: 16, display: "flex", gap: 8, justifyContent: "center", flexWrap: "wrap" }}>
+                {filtrando && <Btn variant="outline" onClick={() => { setFiltroEstado("todos"); setFiltroLinea("todas"); }}>Ver todas</Btn>}
+                {esGestion && <Btn variant="primary" onClick={() => setShowObraModal(true)}>+ Nueva obra</Btn>}
+              </div>
             </div>
           </div>
+        );
+      }
+      return (
+        <div style={{ flex: 1, display: "flex", alignItems: "center", justifyContent: "center", color: C.t2, fontSize: 13 }}>
+          Elegí una obra de la lista.
         </div>
       );
     }
 
-    // Cuando hay foco, solo mostrar la obra en foco; las demás se ocultan
-    const obrasMostradas = focusedObra
-      ? obrasFilt.filter(o => o.id === focusedObra)
-      : obrasFilt;
+    const obraEtapas = etapasDeObra(obra.id);
+    const etapaById  = new Map(obraEtapas.map(e => [e.id, e]));
+    const diasR      = diasDesde(obra.fecha_inicio);
+    const oC         = C.obra[obra.estado] ?? C.obra.activa;
+    const obraTasks  = tareas.filter(t => t.obra_id === obra.id);
+    const sinTareas  = obraTasks.length === 0;
+    const tieneFicha = FICHA_FIELDS.some(([k]) => obra[k]) || !!obra.botada;
+    const activeEtapaObj = etapaFiltro ? obraEtapas.find(e => e.id === etapaFiltro) : null;
+
+    // Métricas (ignoran canceladas para el avance).
+    const noCancel  = obraTasks.filter(t => t.estado !== "cancelada");
+    const doneN     = noCancel.filter(t => t.estado === "finalizada").length;
+    const avance    = noCancel.length ? pct(doneN, noCancel.length) : 0;
+    const abiertas  = obraTasks.filter(t => !["finalizada", "cancelada"].includes(t.estado));
+    const atrasadasN = abiertas.filter(t => (diasHasta(t.fecha_fin_estimada) ?? 99) < 0).length;
+    const enCursoN  = obraTasks.filter(t => t.estado === "en_progreso").length;
+    const semanaN   = abiertas.filter(t => { const d = diasHasta(t.fecha_fin_estimada); return d !== null && d >= 0 && d <= 7; }).length;
+
+    // Tareas visibles según filtros (etapa + chip).
+    let vis = obraTasks;
+    if (etapaFiltro) vis = vis.filter(t => t.etapa_id === etapaFiltro);
+    const isOpen = t => !["finalizada", "cancelada"].includes(t.estado);
+    if (taskChip === "atrasadas") vis = vis.filter(t => isOpen(t) && (diasHasta(t.fecha_fin_estimada) ?? 99) < 0);
+    else if (taskChip === "semana") vis = vis.filter(t => { const d = diasHasta(t.fecha_fin_estimada); return isOpen(t) && d !== null && d >= 0 && d <= 7; });
+    else if (taskChip === "sinresp") vis = vis.filter(t => isOpen(t) && !t.responsable);
+    else if (taskChip === "criticas") vis = vis.filter(t => isOpen(t) && t.prioridad === "critica");
+
+    const COLS = [
+      { key: "pendiente",   label: "Pendiente",  color: C.tarea.pendiente.text,   match: t => t.estado === "pendiente" || t.estado === "bloqueada" },
+      { key: "en_progreso", label: "En curso",   color: C.tarea.en_progreso.text, match: t => t.estado === "en_progreso" },
+      { key: "finalizada",  label: "Finalizada", color: C.tarea.finalizada.text,  match: t => t.estado === "finalizada" },
+    ];
+
+    const chips = [
+      { k: "todas",     t: "Todas",           n: obraTasks.length },
+      { k: "atrasadas", t: "Atrasadas",       n: atrasadasN, c: C.red },
+      { k: "semana",    t: "Esta semana",     n: semanaN, c: C.amber },
+      { k: "sinresp",   t: "Sin responsable", n: abiertas.filter(t => !t.responsable).length },
+      { k: "criticas",  t: "Críticas",        n: abiertas.filter(t => t.prioridad === "critica").length, c: C.red },
+    ];
+
+    // Handlers de card
+    const cardHandlers = {
+      onDetalle: t => setTareaDetalle(t),
+      onIniciar: t => iniciarTareaConCheck(t),
+      onFinalizar: t => cambiarEstadoTarea(t.id, "finalizada"),
+      onReabrir: (t, est) => cambiarEstadoTarea(t.id, est),
+      onEditar: t => setTareaModal({ tarea: t, etapaId: t.etapa_id, obraId: t.obra_id }),
+      onEliminar: t => pedirBorrado(t, "tarea"),
+      onToggle: toggleBulkSel,
+    };
+    const renderCard = t => (
+      <TaskCard key={t.id} tarea={t} etapa={etapaById.get(t.etapa_id)} esGestion={esGestion}
+        archivosCount={archCounts[t.id] ?? 0} bulkMode={bulkMode} checked={bulkSel.has(t.id)} {...cardHandlers} />
+    );
+
+    function agregarTarea() {
+      if (activeEtapaObj) { abrirNuevaTarea(activeEtapaObj); return; }
+      if (obraEtapas.length === 1) { abrirNuevaTarea(obraEtapas[0]); return; }
+      setAddPick(true);
+    }
+
+    const chipStyle = on => ({ fontSize: 12, fontWeight: 600, padding: "5px 11px", borderRadius: 8, border: "1px solid transparent", background: on ? C.panel2 : "transparent", color: on ? C.t0 : C.t2, cursor: "pointer", fontFamily: C.sans, display: "inline-flex", alignItems: "center", gap: 6 });
 
     return (
-      <div style={{ flex: 1, overflowY: "auto", padding: "16px 18px" }}>
+      <div style={{ flex: 1, minWidth: 0, display: "flex", flexDirection: "column", overflow: "hidden" }}>
+        {/* ── CABECERA DE DETALLE (fija) ── */}
+        <div style={{ padding: isMobile ? "12px 14px" : "16px 22px", borderBottom: `1px solid ${C.b0}`, background: C.topbarSoft, flexShrink: 0 }}>
+          <div style={{ display: "flex", alignItems: "center", gap: 12, flexWrap: "wrap" }}>
+            {isMobile && (
+              <button type="button" onClick={() => setFocusedObra(null)} style={{ display: "flex", alignItems: "center", gap: 5, padding: "5px 10px", borderRadius: 8, border: `1px solid ${C.b1}`, background: "transparent", color: C.t1, cursor: "pointer", fontSize: 12, fontFamily: C.sans }}>
+                ← Obras
+              </button>
+            )}
+            {!isMobile && railCollapsed && (
+              <button type="button" onClick={() => setRailCollapsed(false)} title="Mostrar la lista de obras" style={{ display: "flex", alignItems: "center", gap: 6, padding: "5px 10px", borderRadius: 8, border: `1px solid ${C.b1}`, background: "transparent", color: C.t1, cursor: "pointer", fontSize: 12, fontFamily: C.sans, fontWeight: 600 }}>
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M3 6h18M3 12h18M3 18h18" /></svg>
+                Obras
+              </button>
+            )}
+            <EditableCode obra={obra} onSave={async (id, codigo) => {
+              await supabase.from("produccion_obras").update({ codigo }).eq("id", id); cargar();
+            }} />
+            <span style={{ display: "inline-flex", alignItems: "center", gap: 6, fontSize: 12.5, fontWeight: 600, color: oC.dot }}>
+              <span style={{ width: 6, height: 6, borderRadius: "50%", background: oC.dot }} />{oC.label}
+            </span>
+            <span style={{ width: 3, height: 3, borderRadius: "50%", background: C.b2 }} />
+            {obra.linea_nombre && <span style={{ fontSize: 12, color: C.t2 }}>{obra.linea_nombre}</span>}
+            {obra.cliente && <><span style={{ width: 3, height: 3, borderRadius: "50%", background: C.b2 }} /><span style={{ fontSize: 12, color: C.t2 }}>{obra.cliente}</span></>}
+            <span style={{ width: 3, height: 3, borderRadius: "50%", background: C.b2 }} />
+            <span style={{ fontSize: 12, color: C.t2, fontFamily: C.mono }}>{diasR} días en obra</span>
 
-        {/* Barra de "volver" cuando hay foco */}
-        {focusedObra && (
-          <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 14, animation: "slideUp 0.3s cubic-bezier(0.22,1,0.36,1)" }}>
-            <button type="button" onClick={() => { setFocusedObra(null); setExpandedObras(new Set()); }}
-              style={{ display: "flex", alignItems: "center", gap: 7, padding: "5px 14px", borderRadius: 8, border: `1px solid ${C.b0}`, background: C.s0, color: C.t1, cursor: "pointer", fontSize: 12, fontFamily: C.sans, transition: "all 0.15s" }}>
-              ← Volver a todas las obras
-            </button>
-            <div style={{ fontSize: 10, color: C.t2, letterSpacing: 1.3, textTransform: "uppercase", fontFamily: C.mono }}>
-              {obrasFilt.find(o => o.id === focusedObra)?.codigo}
-            </div>
-          </div>
-        )}
-
-        <div style={{ display: focusedObra ? "flex" : "grid", flexDirection: "column", gridTemplateColumns: "repeat(auto-fill, minmax(340px, 1fr))", gap: 12, alignContent: "start" }}>
-        {obrasMostradas.map((obra, obraIdx) => {
-          const obraEtapas = etapasDeObra(obra.id);
-          const totalDias  = obraEtapas.reduce((s, e) => s + num(e.dias_estimados), 0) || 1;
-          const diasR      = diasDesde(obra.fecha_inicio);
-          const obrapct    = pctObra(obra.id);
-          const oC         = C.obra[obra.estado] ?? C.obra.activa;
-          const expanded   = expandedObras.has(obra.id);
-
-          return (
-            <div key={obra.id} style={{
-                animation: `cardEnter 0.45s cubic-bezier(0.22,1,0.36,1) ${obraIdx * 0.07}s both`,
-                display: "flex", flexDirection: "column",
-              }}>
-              {/* ── OBRA CARD ── */}
-              <div className="obra-gantt-row" style={{ borderRadius: 12, background: expanded ? "var(--panel)" : C.s0, border: `1px solid ${expanded ? obraAccentColor(obra)+"40" : C.b0}`, overflow: "hidden", transition: "border-color 0.3s, background 0.3s, box-shadow 0.3s", boxShadow: expanded ? `0 0 0 1px ${obraAccentColor(obra)}20, 0 8px 32px rgba(0,0,0,0.3), inset 0 0 40px ${obraAccentColor(obra)}06` : obra.estado === "activa" ? `0 0 0 1px ${obraAccentColor(obra)}14, inset 0 0 20px ${obraAccentColor(obra)}06` : "none", position: "relative" }}>
-                {/* accent bar top — color de línea */}
-                {(() => {
-                  const ac = obraAccentColor(obra);
-                  return <div style={{ height: 2, background: `linear-gradient(90deg,${ac},${ac}55,transparent)`, boxShadow: `0 0 8px ${ac}70` }}/>;
-                })()}
-
-                {/* card header — clickeable */}
-                <div onClick={() => toggleObra(obra.id)} style={{ display: "flex", alignItems: "center", gap: 10, padding: "12px 14px 10px", cursor: "pointer" }}>
-                  {/* estado dot */}
-                  <div style={{ position: "relative", flexShrink: 0 }}>
-                    {obra.estado === "activa" && <div style={{ position: "absolute", inset: -3, borderRadius: "50%", border: `1px solid ${oC.dot}55`, animation: "beaconRing 2.2s ease-out infinite" }}/>}
-                    <Dot color={oC.dot} size={8} glow pulse={obra.estado === "activa"}/>
-                  </div>
-
-                  {/* código editable inline */}
-                  <EditableCode obra={obra} onSave={async (id, codigo) => {
-                    await supabase.from("produccion_obras").update({ codigo }).eq("id", id); cargar();
-                  }}/>
-
-                  <div style={{ flex: 1, minWidth: 0 }}>
-                    {obra.linea_nombre && (() => {
-                      const lc = obraAccentColor(obra);
-                      return <div style={{ fontSize: 10, color: lc, letterSpacing: 1.1, textTransform: "uppercase", marginBottom: 5, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", display: "flex", alignItems: "center", gap: 4 }}>
-                        <span style={{ display: "inline-block", width: 5, height: 5, borderRadius: "50%", background: lc, boxShadow: `0 0 5px ${lc}`, flexShrink: 0 }}/>
-                        {obra.linea_nombre}
-                      </div>;
-                    })()}
-                    {obra.cliente && <div style={{ fontSize: 11, color: C.t1, fontWeight: 600, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", marginBottom: 5 }}>{obra.cliente}</div>}
-                    <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
-                      <ProgressBar value={obrapct} color={oC.dot} height={5} shimmer={obra.estado === "activa"}/>
-                    </div>
-                  </div>
-
-                  <div style={{ display: "flex", flexDirection: "column", alignItems: "flex-end", gap: 2, flexShrink: 0 }}>
-                    <span style={{ fontFamily: C.mono, fontSize: 14, fontWeight: 700, color: oC.dot }}>{obrapct}%</span>
-                    <span style={{ fontFamily: C.mono, fontSize: 10, color: C.t2 }}>{diasR}d</span>
-                  </div>
-
-                  <span style={{ fontSize: 10, color: C.t2, transform: expanded ? "rotate(90deg)" : "none", transition: "transform .2s", flexShrink: 0 }}>▶</span>
-                </div>
-
-                {/* mini timeline de etapas — siempre visible */}
-                {obraEtapas.length > 0 && (
-                  <div style={{ padding: "0 14px 10px", display: "flex", gap: 3 }}>
-                    {obraEtapas.map((e, idx) => {
-                      const ec = C.etapa[e.estado] ?? C.etapa.pendiente;
-                      const ep = pctEtapa(e.id);
-                      return (
-                        <div key={e.id} title={`${e.nombre} · ${e.estado} · ${ep}%`}
-                          style={{ flex: num(e.dias_estimados) / totalDias, display: "flex", flexDirection: "column", gap: 2 }}>
-                          <div style={{ fontSize: 7, color: C.t2, letterSpacing: 0.5, overflow: "hidden", textOverflow: "clip", whiteSpace: "nowrap", textAlign: "center" }}>{e.nombre}</div>
-                          <div style={{ height: 6, borderRadius: 2, background: "var(--panel-2)", overflow: "hidden" }}>
-                            <div style={{ height: "100%", width: `${ep}%`, background: ec.dot, borderRadius: 2, transition: `width 1.1s cubic-bezier(0.22,1,0.36,1) ${idx * 0.08}s`, ...(e.estado === "en_curso" ? { animation: "gPulse 2.8s ease-in-out infinite" } : {}) }}/>
-                          </div>
-                        </div>
-                      );
-                    })}
-                  </div>
-                )}
-
-                {/* acciones — siempre visibles en footer */}
-                {esGestion && (
-                  <div style={{ display: "flex", gap: 4, padding: "6px 14px 10px", borderTop: `1px solid ${C.b0}` }} onClick={e => e.stopPropagation()}>
-                    <Btn variant="sm" onClick={() => cambiarEstadoObra(obra.id, obra.estado === "activa" ? "pausada" : "activa")}>{obra.estado === "activa" ? "Pausar" : "Activar"}</Btn>
-                    {obra.estado !== "terminada" && <Btn variant="sm" sx={{ color: C.green, borderColor: "rgba(16,185,129,0.3)" }} onClick={() => cambiarEstadoObra(obra.id, "terminada")}>Terminar</Btn>}
-                    <Btn variant="sm" onClick={() => setEtapaModal({ obraId: obra.id })}>+ Etapa</Btn>
-                    <button type="button" onClick={() => pedirBorrado(obra, "obra")} style={{ border: "none", background: "transparent", color: C.t2, cursor: "pointer", fontSize: 14, padding: "2px 6px", marginLeft: "auto" }}>×</button>
-                  </div>
-                )}
-              </div>
-
-              {expanded && (
-                <div style={{ marginTop: 6, paddingLeft: 8, animation: "expandDown 0.38s cubic-bezier(0.22,1,0.36,1)" }}>
-
-                  <FichaBarco obra={obra} esGestion={esGestion} onSave={async (id, patch) => {
-                    await supabase.from("produccion_obras").update(patch).eq("id", id); cargar();
-                  }} />
-
-                  {/* ── BOTÓN IMPORTAR TAREAS (obras sin tareas aún) ── */}
-                  {esGestion && !tareas.some(t => t.obra_id === obra.id) && (
-                    <button type="button" onClick={() => importarTareasAObraExistente(obra)}
-                      style={{ width: "100%", marginBottom: 10, padding: "10px 16px", borderRadius: 8, cursor: "pointer", border: "1px solid rgba(16,185,129,0.4)", background: "rgba(16,185,129,0.08)", color: "#34d399", fontSize: 13, fontFamily: C.sans, fontWeight: 600, display: "flex", alignItems: "center", justifyContent: "center", gap: 8 }}>
-                      ⬇ Importar tareas a esta obra desde plantilla de línea
-                    </button>
-                  )}
-
-                  {/* TIMELINE BAR */}
-                  {obraEtapas.length > 0 && (
-                    <div style={{ marginBottom: 10 }}>
-                      <div style={{ display: "flex", paddingLeft: 110, marginBottom: 2 }}>
-                        {obraEtapas.map(e => (
-                          <div key={e.id} style={{ flex: num(e.dias_estimados) / totalDias, fontSize: 7, color: C.t2, letterSpacing: 1, textTransform: "uppercase", overflow: "hidden", textOverflow: "clip", whiteSpace: "nowrap", textAlign: "center" }}>{e.nombre}</div>
-                        ))}
-                      </div>
-                      <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-                        <div style={{ width: 102, flexShrink: 0, fontSize: 10, color: C.t2 }}>Timeline</div>
-                        <div style={{ flex: 1, height: 14, display: "flex", borderRadius: 4, overflow: "hidden", border: `1px solid ${C.b0}`, background: "rgba(0,0,0,0.4)" }}>
-                          {obraEtapas.map((e, idx) => {
-                            const ec = C.etapa[e.estado] ?? C.etapa.pendiente;
-                            return <div key={e.id} title={`${e.nombre} · ${e.estado}`} style={{ flex: num(e.dias_estimados) / totalDias, height: "100%", background: e.estado === "completado" ? `linear-gradient(90deg,${ec.bar},rgba(16,185,129,0.28))` : e.estado === "en_curso" ? `linear-gradient(90deg,${ec.bar},rgba(59,130,246,0.28))` : ec.bar, borderRight: idx < obraEtapas.length - 1 ? "1px solid rgba(0,0,0,0.5)" : "none", ...(e.estado === "en_curso" ? { animation: "gPulse 2.5s ease infinite" } : {}) }} />;
-                          })}
-                        </div>
-                        <span style={{ fontFamily: C.mono, fontSize: 10, color: C.t2 }}>{diasR}d</span>
-                      </div>
-                    </div>
-                  )}
-
-                  {/* ── ETAPAS ── */}
-                  {obraEtapas.map(etapa => {
-                    const etapaT = tareasDeEtapa(etapa.id);
-                    const etExp  = expandedEtapas.has(etapa.id);
-                    const ec     = C.etapa[etapa.estado] ?? C.etapa.pendiente;
-                    const epct   = pctEtapa(etapa.id);
-
-                    return (
-                      <div key={etapa.id} style={{ marginBottom: 6, border: `1px solid ${etExp ? C.b1 : C.b0}`, borderRadius: 9, background: etExp ? "var(--panel)" : C.s0, transition: "border-color .15s, background .15s", overflow: "hidden" }}>
-
-                        {/* ── CABECERA DE ETAPA (clic = desplegar/plegar) ── */}
-                        <div
-                          onClick={() => toggleEtapa(etapa.id)}
-                          style={{ display: "flex", alignItems: "center", gap: 8, padding: "9px 12px", cursor: "pointer", borderLeft: `3px solid ${etapa.color ?? "#64748b"}` }}
-                        >
-                          <span style={{ fontSize: 7, color: C.t2, width: 9, flexShrink: 0, transform: etExp ? "rotate(90deg)" : "none", display: "inline-block", transition: "transform .15s" }}>▶</span>
-
-                          <div style={{ width: 110, flexShrink: 0 }}>
-                            <div style={{ fontSize: 13, color: C.t0, fontWeight: 600, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
-                              {etapa.nombre}{etapa.genera_orden_compra ? " ●" : ""}
-                            </div>
-                            <div style={{ fontSize: 10, color: C.t2, marginTop: 1 }}>
-                              {etapaT.length > 0 ? `${etapaT.filter(t => t.estado === "finalizada").length}/${etapaT.length} tareas` : "Sin tareas"}
-                            </div>
-                          </div>
-
-                          <div style={{ flex: 1 }}><ProgressBar value={epct} color={ec.dot} height={4} shimmer={etapa.estado === "en_curso"} /></div>
-
-                          <span style={{ fontFamily: C.mono, fontSize: 11, color: ec.text, flex: "0 0 32px", textAlign: "right" }}>{epct}%</span>
-                          <span style={{ fontFamily: C.mono, fontSize: 10, color: C.t2, flex: "0 0 28px", textAlign: "right" }}>{etapa.dias_estimados ?? 0}d</span>
-
-                          {/* Estado quick buttons */}
-                          {esGestion && !etapa.isVirtual && (
-                            <div style={{ display: "flex", gap: 2, flexShrink: 0 }} onClick={e => e.stopPropagation()}>
-                              {[["pendiente","—"],["en_curso","▶"],["completado","✓"]].map(([est, ico]) => (
-                                <button key={est} type="button" onClick={() => cambiarEstadoEtapa(etapa.id, est)}
-                                  style={{ width: 20, height: 20, borderRadius: 4, border: "none", cursor: "pointer", fontSize: 10, background: etapa.estado === est ? `${(C.etapa[est]).dot}28` : "var(--panel)", color: etapa.estado === est ? (C.etapa[est]).dot : C.t2 }}>
-                                  {ico}
-                                </button>
-                              ))}
-                              <button type="button" onClick={() => setEtapaModal({ etapa, obraId: etapa.obra_id })} style={{ width: 20, height: 20, borderRadius: 4, border: "none", cursor: "pointer", fontSize: 10, background: "transparent", color: C.t2 }}>editar</button>
-                              <button type="button" onClick={() => pedirBorrado(etapa, "etapa")} style={{ border: "none", background: "transparent", color: C.t2, cursor: "pointer", fontSize: 13, padding: "0 2px" }}>×</button>
-                            </div>
-                          )}
-                        </div>
-
-                        {/* ── TAREAS EXPANDIDAS ── */}
-                        {etExp && (
-                          <div style={{ padding: "8px 12px 4px", borderTop: `1px solid ${C.b0}` }}>
-                            {hasMatrixDetailContent(etapa) && (
-                              <div style={{ marginBottom: 8, padding: "8px 10px", borderRadius: 7, background: "var(--panel)", border: `1px solid ${C.b0}` }}>
-                                <div style={{ display: "flex", flexWrap: "wrap", gap: 7, marginBottom: etapa.descripcion || etapa.observaciones ? 5 : 0 }}>
-                                  {etapa.responsable && <span style={{ fontSize: 10, color: C.blue, fontWeight: 700 }}>Resp. {etapa.responsable}</span>}
-                                  {etapa.personas_necesarias && <span style={{ fontSize: 10, color: C.t2 }}>x{etapa.personas_necesarias} personas</span>}
-                                  {etapa.involucrados && <span style={{ fontSize: 10, color: C.green, fontWeight: 700 }}>{etapa.involucrados}</span>}
-                                </div>
-                                {etapa.descripcion && <div style={{ fontSize: 11, color: C.t1, lineHeight: 1.45, whiteSpace: "pre-wrap" }}>{etapa.descripcion}</div>}
-                                {etapa.observaciones && <div style={{ fontSize: 11, color: C.t2, lineHeight: 1.45, marginTop: etapa.descripcion ? 4 : 0, whiteSpace: "pre-wrap" }}>{etapa.observaciones}</div>}
-                              </div>
-                            )}
-                            <EtapaTareasSection
-                              etapa={etapa}
-                              tareas={etapaT}
-                              archivosCount={archCounts}
-                              esGestion={esGestion}
-                              onCambiarEstado={cambiarEstadoTarea}
-                              onEditar={t => setTareaModal({ tarea: t, etapaId: t.etapa_id, obraId: t.obra_id })}
-                              onDetalle={t => setTareaDetalle(t)}
-                              onEliminar={t => pedirBorrado(t, "tarea")}
-                              onNueva={() => abrirNuevaTarea(etapa)}
-                            />
-                          </div>
-                        )}
-                      </div>
-                    );
-                  })}
-
-                  {/* + nueva etapa */}
-                  {esGestion && (
-                    <button type="button" onClick={() => setEtapaModal({ obraId: obra.id })} style={{ width: "100%", marginTop: 4, padding: "7px 12px", borderRadius: 7, cursor: "pointer", border: `1px dashed ${C.b0}`, background: "transparent", color: C.t2, fontSize: 11, fontFamily: C.sans }}>
-                      + nueva etapa
-                    </button>
-                  )}
-                </div>
+            <div style={{ marginLeft: "auto", display: "flex", gap: 6, flexWrap: "wrap" }}>
+              {(esGestion || tieneFicha) && (
+                <button type="button" onClick={() => setShowFicha(v => !v)} style={{ border: `1px solid ${showFicha ? C.b1 : C.b0}`, background: showFicha ? C.panel2 : "transparent", color: showFicha ? C.t0 : C.t2, cursor: "pointer", fontSize: 12, padding: "5px 11px", borderRadius: 8, fontFamily: C.sans, fontWeight: 600 }}>Ficha</button>
+              )}
+              {esGestion && (
+                <>
+                  <button type="button" onClick={() => setEtapasMgr(true)} style={{ border: `1px solid ${C.b0}`, background: "transparent", color: C.t2, cursor: "pointer", fontSize: 12, padding: "5px 11px", borderRadius: 8, fontFamily: C.sans, fontWeight: 600 }}>Etapas</button>
+                  <button type="button" onClick={() => cambiarEstadoObra(obra.id, obra.estado === "activa" ? "pausada" : "activa")} style={{ border: `1px solid ${C.b0}`, background: "transparent", color: C.t2, cursor: "pointer", fontSize: 12, padding: "5px 11px", borderRadius: 8, fontFamily: C.sans, fontWeight: 600 }}>{obra.estado === "activa" ? "Pausar" : "Activar"}</button>
+                  {obra.estado !== "terminada" && <button type="button" onClick={() => cambiarEstadoObra(obra.id, "terminada")} style={{ border: `1px solid ${C.greenB}`, background: "transparent", color: C.green, cursor: "pointer", fontSize: 12, padding: "5px 11px", borderRadius: 8, fontFamily: C.sans, fontWeight: 600 }}>Terminar</button>}
+                </>
               )}
             </div>
-          );
-        })}
+          </div>
+
+          {showFicha && (
+            <div style={{ marginTop: 12 }}>
+              <FichaBarco obra={obra} esGestion={esGestion} onSave={async (id, patch) => {
+                await supabase.from("produccion_obras").update(patch).eq("id", id); cargar();
+              }} />
+            </div>
+          )}
         </div>
+
+        {/* ── CUERPO SCROLLEABLE ── */}
+        <div style={{ flex: 1, overflowY: "auto" }}>
+          {/* Franja de KPIs — sin gráficos, sólo tipografía */}
+          <div style={{ display: "flex", flexWrap: "wrap", padding: isMobile ? "16px 14px" : "20px 22px", borderBottom: `1px solid ${C.b0}` }}>
+            {[
+              { v: `${avance}%`, l: "Avance", c: C.t0 },
+              { v: atrasadasN, l: "Atrasadas", c: atrasadasN ? C.red : C.t0 },
+              { v: enCursoN, l: "En curso", c: enCursoN ? C.blue : C.t0 },
+              { v: semanaN, l: "Vencen esta semana", c: C.t0 },
+            ].map((s, i, arr) => (
+              <div key={s.l} style={{ paddingRight: 30, marginRight: 30, borderRight: i < arr.length - 1 ? `1px solid ${C.b0}` : "none" }}>
+                <div style={{ fontFamily: C.mono, fontSize: 24, fontWeight: 700, color: s.c, fontVariantNumeric: "tabular-nums", letterSpacing: -0.5 }}>{s.v}</div>
+                <div style={{ fontSize: 10, textTransform: "uppercase", letterSpacing: 1.2, color: C.t2, fontWeight: 600, marginTop: 3 }}>{s.l}</div>
+              </div>
+            ))}
+          </div>
+
+          {/* Importar tareas (obras sin tareas aún) */}
+          {esGestion && sinTareas && (
+            <div style={{ padding: isMobile ? "14px 14px 0" : "16px 22px 0" }}>
+              <button type="button" onClick={() => importarTareasAObraExistente(obra)}
+                style={{ width: "100%", padding: "10px 16px", borderRadius: 9, cursor: "pointer", border: `1px solid ${C.greenB}`, background: C.greenL, color: C.green, fontSize: 13, fontFamily: C.sans, fontWeight: 700, display: "flex", alignItems: "center", justifyContent: "center", gap: 8 }}>
+                ⬇ Importar tareas desde la plantilla de línea
+              </button>
+            </div>
+          )}
+
+          {/* Stepper de etapas — puntos + hairline, click filtra */}
+          {obraEtapas.length > 0 && (
+            <div style={{ display: "flex", padding: isMobile ? "16px 14px 6px" : "20px 22px 6px", overflowX: "auto" }}>
+              {obraEtapas.map((e, i) => {
+                const ep = pctEtapa(e.id);
+                const on = etapaFiltro === e.id;
+                const nodeCol = e.estado === "completado" ? C.green : e.estado === "en_curso" ? C.blue : C.b2;
+                const filled = e.estado === "completado" || e.estado === "en_curso";
+                return (
+                  <div key={e.id} onClick={() => setEtapaFiltro(on ? null : e.id)} style={{ display: "flex", flexDirection: "column", gap: 9, minWidth: 116, flex: 1, cursor: "pointer", paddingRight: 8 }}>
+                    <div style={{ display: "flex", alignItems: "center" }}>
+                      <span style={{ width: 11, height: 11, borderRadius: "50%", border: `2px solid ${on ? C.blue : nodeCol}`, background: filled ? nodeCol : C.bg, flexShrink: 0, boxShadow: on ? `0 0 0 4px ${C.blueL}` : "none" }} />
+                      {i < obraEtapas.length - 1 && <span style={{ flex: 1, height: 1.5, background: C.b0 }} />}
+                    </div>
+                    <div style={{ fontSize: 12, fontWeight: 600, color: on ? C.t0 : C.t1, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{e.nombre}</div>
+                    <div style={{ fontSize: 10.5, color: C.t3, fontFamily: C.mono }}>{ep}% · {tareasDeEtapa(e.id).length} tareas</div>
+                  </div>
+                );
+              })}
+            </div>
+          )}
+
+          {/* Detalle de la etapa filtrada (descripción/responsable) */}
+          {activeEtapaObj && hasMatrixDetailContent(activeEtapaObj) && (
+            <div style={{ margin: isMobile ? "10px 14px 0" : "12px 22px 0", padding: "9px 12px", borderRadius: 9, background: C.s0, border: `1px solid ${C.b0}` }}>
+              <div style={{ display: "flex", flexWrap: "wrap", gap: 8, marginBottom: activeEtapaObj.descripcion || activeEtapaObj.observaciones ? 5 : 0 }}>
+                {activeEtapaObj.responsable && <span style={{ fontSize: 10.5, color: C.blue, fontWeight: 700 }}>Resp. {activeEtapaObj.responsable}</span>}
+                {activeEtapaObj.personas_necesarias && <span style={{ fontSize: 10.5, color: C.t2 }}>×{activeEtapaObj.personas_necesarias} personas</span>}
+                {activeEtapaObj.involucrados && <span style={{ fontSize: 10.5, color: C.green, fontWeight: 700 }}>{activeEtapaObj.involucrados}</span>}
+              </div>
+              {activeEtapaObj.descripcion && <div style={{ fontSize: 11.5, color: C.t1, lineHeight: 1.45, whiteSpace: "pre-wrap" }}>{activeEtapaObj.descripcion}</div>}
+              {activeEtapaObj.observaciones && <div style={{ fontSize: 11.5, color: C.t2, lineHeight: 1.45, marginTop: activeEtapaObj.descripcion ? 4 : 0, whiteSpace: "pre-wrap" }}>{activeEtapaObj.observaciones}</div>}
+            </div>
+          )}
+
+          {/* Toolbar: chips + búsqueda + vista + selección */}
+          <div style={{ display: "flex", alignItems: "center", gap: 7, padding: isMobile ? "14px 14px" : "16px 22px", flexWrap: "wrap" }}>
+            {chips.map(c => (
+              <button key={c.k} type="button" onClick={() => setTaskChip(c.k)} style={chipStyle(taskChip === c.k)}>
+                {c.c && c.n ? <span style={{ width: 5, height: 5, borderRadius: "50%", background: c.c }} /> : null}
+                {c.t} <span style={{ fontFamily: C.mono, fontSize: 11, color: C.t3 }}>{c.n}</span>
+              </button>
+            ))}
+            {activeEtapaObj && (
+              <button type="button" onClick={() => setEtapaFiltro(null)} style={{ ...chipStyle(true), color: activeEtapaObj.color || C.blue }}>{activeEtapaObj.nombre} ✕</button>
+            )}
+            <span style={{ flex: 1 }} />
+            <div style={{ display: "flex", gap: 2 }}>
+              {[["tablero", "Tablero"], ["lista", "Lista"]].map(([k, l]) => (
+                <button key={k} type="button" onClick={() => setBoardView(k)} style={{ border: "none", background: boardView === k ? C.panel2 : "transparent", color: boardView === k ? C.t0 : C.t2, padding: "6px 12px", borderRadius: 8, fontSize: 12.5, fontWeight: 600, cursor: "pointer", fontFamily: C.sans }}>{l}</button>
+              ))}
+            </div>
+            {esGestion && (
+              <button type="button" onClick={() => { setBulkMode(b => !b); setBulkSel(new Set()); }} style={{ border: `1px solid ${bulkMode ? C.blueB : C.b0}`, background: bulkMode ? C.blueL : "transparent", color: bulkMode ? C.blue : C.t2, padding: "6px 11px", borderRadius: 8, fontSize: 12, fontWeight: 600, cursor: "pointer", fontFamily: C.sans }}>{bulkMode ? "Cancelar" : "Seleccionar"}</button>
+            )}
+          </div>
+
+          {/* Barra de acciones bulk */}
+          {bulkMode && bulkSel.size > 0 && (
+            <div style={{ display: "flex", alignItems: "center", gap: 6, margin: isMobile ? "0 14px 12px" : "0 22px 12px", padding: "8px 12px", borderRadius: 9, background: C.blueL, border: `1px solid ${C.blueB}` }}>
+              <span style={{ fontSize: 11.5, color: C.blue, fontFamily: C.mono, fontWeight: 800 }}>{bulkSel.size} sel.</span>
+              <CardAct color={C.blue} onClick={() => bulkAplicar("en_progreso")}>▶ Iniciar</CardAct>
+              <CardAct color={C.green} onClick={() => bulkAplicar("finalizada")}>✓ Finalizar</CardAct>
+              <CardAct color={C.t2} onClick={() => bulkAplicar("pendiente")}>↩ Reiniciar</CardAct>
+            </div>
+          )}
+
+          {/* Tablero Kanban */}
+          {boardView === "tablero" ? (
+            <div style={{ display: "grid", gridTemplateColumns: isMobile ? "1fr" : "repeat(3, 1fr)", gap: 18, padding: isMobile ? "0 14px 32px" : "0 22px 36px", alignItems: "start" }}>
+              {COLS.map(col => {
+                const list = vis.filter(col.match);
+                return (
+                  <div key={col.key}>
+                    <div style={{ display: "flex", alignItems: "center", gap: 8, padding: "6px 2px 12px", borderBottom: `1px solid ${C.b0}` }}>
+                      <span style={{ width: 7, height: 7, borderRadius: "50%", background: col.color }} />
+                      <span style={{ fontSize: 12, fontWeight: 700, color: C.t1 }}>{col.label}</span>
+                      <span style={{ marginLeft: "auto", fontFamily: C.mono, fontSize: 11, color: C.t3 }}>{list.length}</span>
+                    </div>
+                    <div style={{ display: "flex", flexDirection: "column", gap: 9, paddingTop: 12 }}>
+                      {list.map(renderCard)}
+                      {esGestion && col.key === "pendiente" && !bulkMode && (
+                        addPick ? (
+                          <div style={{ border: `1px solid ${C.b1}`, borderRadius: 9, padding: 8, background: C.s0, display: "flex", flexDirection: "column", gap: 4 }}>
+                            <div style={{ fontSize: 10.5, color: C.t2, padding: "2px 4px 4px", fontWeight: 600 }}>¿En qué etapa?</div>
+                            {obraEtapas.map(e => (
+                              <button key={e.id} type="button" onClick={() => { setAddPick(false); abrirNuevaTarea(e); }} style={{ textAlign: "left", border: `1px solid ${C.b0}`, background: "transparent", color: C.t1, borderRadius: 7, padding: "7px 9px", cursor: "pointer", fontSize: 12, fontFamily: C.sans, borderLeft: `3px solid ${e.color ?? "#64748b"}` }}>{e.nombre}</button>
+                            ))}
+                            <button type="button" onClick={() => setAddPick(false)} style={{ border: "none", background: "transparent", color: C.t3, fontSize: 11, cursor: "pointer", padding: "4px", fontFamily: C.sans }}>Cancelar</button>
+                          </div>
+                        ) : (
+                          <button type="button" onClick={agregarTarea} style={{ border: `1px dashed ${C.b1}`, background: "transparent", color: C.t2, borderRadius: 9, padding: 9, fontSize: 12, fontWeight: 600, display: "flex", alignItems: "center", justifyContent: "center", gap: 6, cursor: "pointer", fontFamily: C.sans }}>
+                            + Agregar tarea
+                          </button>
+                        )
+                      )}
+                      {!list.length && !(esGestion && col.key === "pendiente") && (
+                        <div style={{ fontSize: 11, color: C.t3, textAlign: "center", padding: "16px 0" }}>—</div>
+                      )}
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          ) : (
+            /* Vista Lista */
+            <div style={{ padding: isMobile ? "0 14px 32px" : "0 22px 36px" }}>
+              <div style={{ display: "flex", gap: 14, padding: "8px 6px", borderBottom: `1px solid ${C.b1}` }}>
+                {[["Tarea", 1], ["Etapa", 130], ["Resp.", 54], ["Vence", 74], ["Estado", 90]].map(([l, w]) => (
+                  <span key={l} style={{ flex: w === 1 ? 1 : "0 0 auto", width: w === 1 ? "auto" : w, fontSize: 10, textTransform: "uppercase", letterSpacing: 1, color: C.t2, fontWeight: 700 }}>{l}</span>
+                ))}
+              </div>
+              {vis.slice().sort((a, b) => (a.estado === "finalizada") - (b.estado === "finalizada") || (diasHasta(a.fecha_fin_estimada) ?? 999) - (diasHasta(b.fecha_fin_estimada) ?? 999)).map(t => {
+                const done = ["finalizada", "cancelada"].includes(t.estado);
+                const dv = diasHasta(t.fecha_fin_estimada);
+                const dueCol = done ? C.t3 : (dv ?? 99) < 0 ? C.red : (dv !== null && dv <= 3) ? C.amber : C.t2;
+                const et = etapaById.get(t.etapa_id);
+                const tc = C.tarea[t.estado] ?? C.tarea.pendiente;
+                const pcCol = C.prioridad[t.prioridad ?? "media"].color;
+                return (
+                  <div key={t.id} onClick={() => setTareaDetalle(t)} style={{ display: "flex", alignItems: "center", gap: 14, padding: "11px 6px", borderBottom: `1px solid ${C.b0}`, cursor: "pointer" }}>
+                    <span style={{ width: 3, height: 24, borderRadius: 99, background: pcCol, flexShrink: 0 }} />
+                    <span style={{ flex: 1, minWidth: 0, fontWeight: 600, fontSize: 13, color: done ? C.t2 : C.t0, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{t.nombre}</span>
+                    <span style={{ width: 130, flexShrink: 0, fontSize: 11, color: et?.color || C.t2, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{et?.nombre || "—"}</span>
+                    <span style={{ width: 54, flexShrink: 0 }}><AvatarResp name={t.responsable} size={20} /></span>
+                    <span style={{ width: 74, flexShrink: 0, fontFamily: C.mono, fontSize: 11.5, fontWeight: 700, color: dueCol }}>{done ? "✓" : dv === null ? "—" : dv < 0 ? `−${-dv} d` : dv === 0 ? "hoy" : `en ${dv} d`}</span>
+                    <span style={{ width: 90, flexShrink: 0, fontSize: 12, fontWeight: 600, color: tc.text }}>{tc.label}</span>
+                  </div>
+                );
+              })}
+              {!vis.length && <div style={{ padding: "26px 0", color: C.t3, fontSize: 12, textAlign: "center" }}>No hay tareas para estos filtros.</div>}
+            </div>
+          )}
+        </div>
+
+        {/* Modales locales del detalle */}
+        {predWarn && (
+          <PredecessorWarnModal
+            tareaActual={predWarn.tareaActual}
+            bloqueantes={predWarn.bloqueantes}
+            onConfirm={() => { cambiarEstadoTarea(predWarn.tareaId, predWarn.nuevoEstado); setPredWarn(null); }}
+            onCancel={() => setPredWarn(null)}
+          />
+        )}
+        {etapasMgr && (
+          <EtapaManagerModal
+            rows={obraEtapas.map(e => { const ts = tareasDeEtapa(e.id); return { etapa: e, total: ts.length, fin: ts.filter(t => t.estado === "finalizada").length, epct: pctEtapa(e.id) }; })}
+            esGestion={esGestion}
+            onEstado={(id, est) => cambiarEstadoEtapa(id, est)}
+            onEditar={e => { setEtapasMgr(false); setEtapaModal({ etapa: e, obraId: e.obra_id }); }}
+            onEliminar={e => { setEtapasMgr(false); pedirBorrado(e, "etapa"); }}
+            onNueva={() => { setEtapasMgr(false); setEtapaModal({ obraId: obra.id }); }}
+            onClose={() => setEtapasMgr(false)}
+          />
+        )}
       </div>
     );
   }
@@ -2849,8 +2850,10 @@ export default function ObrasScreen({ profile, signOut }) {
               </div>
 
               <div style={{ flex: 1, display: "flex", overflow: "hidden" }}>
-                <TreePanel />
-                <GanttMain />
+                {/* Master-detail: en desktop conviven (salvo que se colapse la
+                    lista para enfocar una obra); en mobile se alterna lista ↔ detalle. */}
+                {(isMobile ? !focusedObra : !railCollapsed) && <ObrasMasterList />}
+                {(!isMobile || focusedObra) && <ObraDetail />}
               </div>
             </>
           )}
@@ -2940,7 +2943,7 @@ export default function ObrasScreen({ profile, signOut }) {
       </div>
 
       {/* MODALES */}
-      {showObraModal && <ObraModal lineas={lineas} lProcs={lProcs} lTareas={lTareas} onSave={nueva => { setShowObraModal(false); cargar(); if (nueva?.id) setExpandedObras(s => new Set(s).add(nueva.id)); }} onClose={() => setShowObraModal(false)} />}
+      {showObraModal && <ObraModal lineas={lineas} lProcs={lProcs} lTareas={lTareas} onSave={nueva => { setShowObraModal(false); cargar(); if (nueva?.id) setFocusedObra(nueva.id); }} onClose={() => setShowObraModal(false)} />}
       {etapaModal    && <EtapaModal etapa={etapaModal.etapa} obraId={etapaModal.obraId} detailEnabled={matrixDetailsEnabled} onSave={() => { setEtapaModal(null); cargar(); }} onClose={() => setEtapaModal(null)} />}
       {tareaModal    && <TareaModal tarea={tareaModal.tarea} etapaId={tareaModal.etapaId} obraId={tareaModal.obraId} onSave={() => { setTareaModal(null); cargar(); }} onClose={() => setTareaModal(null)} />}
       {tareaDetalle  && <TareaDetalleModal tarea={tareaDetalle} esGestion={esGestion} onClose={() => setTareaDetalle(null)} onEditar={t => { setTareaDetalle(null); setTareaModal({ tarea: t, etapaId: t.etapa_id, obraId: t.obra_id }); }} />}

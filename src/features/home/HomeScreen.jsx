@@ -418,16 +418,16 @@ function Card({ mod, delay, onClick }) {
         display:"flex", flexDirection:"column", justifyContent:"flex-end",
         padding:"18px 18px 16px",
         background: hov
-          ? `var(--panel)`
-          : "var(--panel)",
+          ? `linear-gradient(145deg,var(--panel-solid) 0%,color-mix(in srgb, ${mod.color} 8%, var(--panel-solid-2)) 100%)`
+          : "linear-gradient(145deg,color-mix(in srgb, var(--panel-solid) 94%, transparent) 0%,color-mix(in srgb, var(--panel-solid-2) 86%, transparent) 100%)",
         border:`1px solid ${hov ? mod.color+"65" : "var(--panel-2)"}`,
-        borderRadius:14, cursor:"pointer", textAlign:"left",
+        borderRadius:18, cursor:"pointer", textAlign:"left",
         fontFamily:"'Outfit',system-ui,sans-serif",
         transition:"transform 0.18s cubic-bezier(0.22,1,0.36,1), box-shadow 0.22s, border-color 0.22s, background 0.2s",
         transform,
         boxShadow: hov
-          ? `0 28px 65px rgba(0,0,0,0.6), 0 0 0 1px ${mod.color}25, inset 0 0 60px ${mod.color}08`
-          : "0 2px 12px rgba(0,0,0,0.4)",
+          ? `0 24px 54px rgba(15,23,42,0.20), 0 0 0 1px ${mod.color}25, inset 0 0 70px ${mod.color}08`
+          : "0 12px 30px rgba(15,23,42,0.10)",
         animation:`cardIn 0.55s cubic-bezier(0.22,1,0.36,1) ${delay}ms both`,
         position:"relative", overflow:"hidden", height:"100%",
         willChange:"transform",
@@ -437,7 +437,7 @@ function Card({ mod, delay, onClick }) {
       <div style={{
         position:"absolute", inset:0, pointerEvents:"none",
         transition:"opacity 0.3s",
-        opacity: hov ? 1 : 0.65,
+        opacity: hov ? 0.9 : 0.46,
       }}>
         {Art && Art(mod.color)}
       </div>
@@ -514,7 +514,7 @@ function Card({ mod, delay, onClick }) {
             <div style={{
               width:9, height:9, borderRadius:"50%", background:mod.color,
               boxShadow: hov
-                ? `0 0 0 2px rgba(0,0,0,0.5), 0 0 18px ${mod.color}, 0 0 36px ${mod.color}55`
+                ? `0 0 0 2px var(--panel-solid), 0 0 18px ${mod.color}, 0 0 36px ${mod.color}55`
                 : `0 0 9px ${mod.color}80`,
               transition:"box-shadow 0.25s",
             }}/>
@@ -588,7 +588,11 @@ function useLiveData() {
       });
     } catch { setData(d=>({...d, loaded:true})); }
   }, []);
-  useEffect(()=>{ load(); const id=setInterval(load,30000); return()=>clearInterval(id); }, [load]);
+  useEffect(()=>{
+    const firstLoad = setTimeout(load, 0);
+    const id=setInterval(load,30000);
+    return()=>{ clearTimeout(firstLoad); clearInterval(id); };
+  }, [load]);
   return data;
 }
 
@@ -871,12 +875,12 @@ export default function HomeScreen({ profile, signOut }) {
           </div>
 
           {/* ── HERO ── */}
-          <div style={{ padding: isMobile ? "16px 14px 14px" : "28px 28px 22px", flexShrink:0,
+          <div style={{ padding: isMobile ? "16px 14px 14px" : "20px 28px 16px", flexShrink:0,
             borderBottom:`1px solid ${C.b0}`, position:"relative", zIndex:1 }}>
 
             {/* saludo typewriter */}
             <div style={{ fontSize:11, color:C.t2, letterSpacing:3, textTransform:"uppercase",
-              marginBottom:14, fontFamily:C.mono,
+              marginBottom:10, fontFamily:C.mono,
               animation:"fadeSlideUp 0.4s ease 0.05s both" }}>
               <Typewriter text={greeting} delay={300} speed={32}/>
             </div>
@@ -889,7 +893,7 @@ export default function HomeScreen({ profile, signOut }) {
               {/* LOGO */}
               <div style={{ animation:"logoReveal 0.7s cubic-bezier(0.22,1,0.36,1) 0.12s both" }}>
                 <img src={logoKlasea} loading="lazy" alt="Klase A"
-                  style={{ height: isMobile ? 54 : 80, objectFit:"contain", display:"block",
+                  style={{ height: isMobile ? 54 : 58, objectFit:"contain", display:"block",
                     animation:"glowPulse 4s ease-in-out 1.2s infinite" }}
                   onError={e=>{
                     e.currentTarget.src=logoK;
@@ -936,7 +940,7 @@ export default function HomeScreen({ profile, signOut }) {
           {/* ── CARDS ── */}
           <div style={{ flex:1, display:"flex", flexDirection:"column",
             padding: isMobile ? "14px 14px 18px" : "16px 28px 20px", position:"relative", zIndex:1,
-            overflow: isMobile ? "auto" : "hidden" }}>
+            overflow:"auto" }}>
 
             <div style={{ display:"flex", alignItems:"center", gap:12, marginBottom:12, flexShrink:0,
               animation:"fadeSlideUp 0.4s ease 0.26s both" }}>
@@ -949,12 +953,11 @@ export default function HomeScreen({ profile, signOut }) {
             </div>
 
             <div style={{
-              flex:1,
               display:"grid",
-              gridTemplateColumns: isMobile ? "repeat(2, 1fr)" : `repeat(${Math.min(modulos.length, 6)}, 1fr)`,
-              gridTemplateRows: isMobile ? "none" : `repeat(${Math.ceil(modulos.length / Math.min(modulos.length, 6))}, 1fr)`,
-              gridAutoRows: isMobile ? "minmax(92px, auto)" : undefined,
-              gap:10,
+              gridTemplateColumns: isMobile ? "repeat(2, 1fr)" : "repeat(auto-fit,minmax(180px,1fr))",
+              gridAutoRows: isMobile ? "minmax(104px, auto)" : "minmax(150px, 1fr)",
+              alignContent:"start",
+              gap:12,
             }}>
               {modulos.map((mod,i) => (
                 <Card key={mod.href} mod={mod} delay={i*42}

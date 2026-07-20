@@ -342,3 +342,50 @@ export function downloadCsv(filename, headers, rows) {
   document.body.removeChild(a);
   URL.revokeObjectURL(url);
 }
+
+/* ── Foto del empleado (validación visual en pañol) ───────────────────────── */
+
+const BUCKET_FOTOS = "rrhh-fotos";
+
+/**
+ * Sube la foto de un empleado y deja la URL en `foto_url`.
+ *
+ * La foto es lo que le da valor real a la tarjeta NFC: sin cara, una tarjeta
+ * prestada o clonada pasa desapercibida. Se guarda una sola foto vigente por
+ * empleado (el archivo viejo queda en el bucket como historial).
+ *
+ * `archivo` puede ser un Blob (cámara) o un File (subida manual).
+ */
+export async function subirFotoEmpleado(empleadoId, archivo) {
+  if (!empleadoId) throw new Error("Falta el empleado.");
+  if (!archivo) throw new Error("Falta la foto.");
+
+  const ext = archivo.type === "image/png" ? "png" : "jpg";
+  const path = `${empleadoId}/${Date.now()}.${ext}`;
+
+  const { error: upError } = await supabase.storage
+    .from(BUCKET_FOTOS)
+    .upload(path, archivo, { upsert: false, contentType: archivo.type || "image/jpeg" });
+  if (upError) {
+    if (String(upError.message || "").toLowerCase().includes("bucket")) {
+      throw new Error(`Falta crear el bucket "${BUCKET_FOTOS}" en Supabase (ver SQL de fotos de empleados).`);
+    }
+    throw upError;
+  }
+
+  const { data: { publicUrl } } = supabase.storage.from(BUCKET_FOTOS).getPublicUrl(path);
+
+  const { error: updError } = await supabase
+    .from("rrhh_empleados")
+    .update({ foto_url: publicUrl })
+    .eq("id", empleadoId);
+  if (updError) throw updError;
+
+  return publicUrl;
+}
+
+/** Saca la foto del empleado (no borra el archivo, solo desvincula). */
+export async function quitarFotoEmpleado(empleadoId) {
+  const { error } = await supabase.from("rrhh_empleados").update({ foto_url: null }).eq("id", empleadoId);
+  if (error) throw error;
+}

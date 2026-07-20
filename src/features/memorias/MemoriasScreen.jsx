@@ -8,7 +8,6 @@ import {
   LayoutGrid,
   Menu,
   Palette,
-  PencilLine,
   Printer,
   RefreshCw,
   Save,
@@ -54,7 +53,7 @@ import canvasGreyImg from "@/assets/textures/canvas-grey.jpg";
 import canvasWhiteImg from "@/assets/textures/canvas-white.jpg";
 import canvasBeigeImg from "@/assets/textures/canvas-beige.jpg";
 
-import { FadeIn, hoverable, Skeleton, SkeletonStyles, SkeletonCard, SkeletonRow } from "@/components/ui/motion";
+import { FadeIn, Skeleton, SkeletonStyles, SkeletonCard, SkeletonRow } from "@/components/ui/motion";
 import {
   loadMemoriasFromSupabase,
   saveMemoriaToSupabase,
@@ -78,16 +77,6 @@ const BOOL_KEYS = new Set([
   "faro",
   "flaps",
 ]);
-
-const FEATURE_FIELDS = [
-  "madera_muebles",
-  "piso",
-  "color_mesadas",
-  "tapiceria_mamparos",
-  "color_acolchados",
-  "color_cerramientos",
-  "teca_tipo",
-];
 
 const CLIENT_AREAS = [
   {
@@ -443,70 +432,6 @@ function ActionButton({ children, onClick, color = C.blue, disabled = false, pri
   );
 }
 
-function FieldCell({ field, value, obs, onValue, onObs, isMobile = false }) {
-  const isToggle = field.type === "toggle" || BOOL_KEYS.has(field.key);
-  if (isToggle) {
-    const active = !!value;
-    return (
-      <div style={{ display: "grid", gridTemplateColumns: isMobile ? "1fr" : "180px minmax(180px, 1fr)", gap: 10, alignItems: "center" }}>
-        <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 6 }}>
-          {[
-            { label: "Si", value: true, color: C.green },
-            { label: "No", value: false, color: C.dim },
-          ].map((opt) => {
-            const selected = active === opt.value;
-            return (
-              <button
-                key={opt.label}
-                type="button"
-                onClick={() => onValue(opt.value)}
-                style={{
-                  border: `1px solid ${selected ? `${opt.color}66` : C.border}`,
-                  background: selected ? `${opt.color}16` : C.panel,
-                  color: selected ? opt.color : C.dim,
-                  borderRadius: 12,
-                  minHeight: 42,
-                  padding: "8px 10px",
-                  cursor: "pointer",
-                  fontSize: 13,
-                  fontWeight: 900,
-                  fontFamily: C.sans,
-                }}
-              >
-                {opt.label}
-              </button>
-            );
-          })}
-        </div>
-        <input
-          value={obs || ""}
-          onChange={(e) => onObs(e.target.value)}
-          placeholder="Observacion"
-          style={cellInputStyle({ color: C.muted })}
-        />
-      </div>
-    );
-  }
-
-  return (
-    <div style={{ display: "grid", gridTemplateColumns: isMobile ? "1fr" : "minmax(220px, 1fr) minmax(160px, .75fr)", gap: 10 }}>
-      <textarea
-        value={value || ""}
-        onChange={(e) => onValue(e.target.value)}
-        rows={1}
-        placeholder="Definir..."
-        style={cellTextareaStyle()}
-      />
-      <input
-        value={obs || ""}
-        onChange={(e) => onObs(e.target.value)}
-        placeholder="Obs."
-        style={cellInputStyle({ color: C.muted })}
-      />
-    </div>
-  );
-}
-
 export default function MemoriasScreen({ profile, signOut }) {
   const { isMobile } = useResponsive(980);
   const toast = useToast();
@@ -519,7 +444,7 @@ export default function MemoriasScreen({ profile, signOut }) {
   const [loading, setLoading] = useState(true);
   const [dirty, setDirty] = useState(false);
   const [railOpen, setRailOpen] = useState(() => (typeof window !== "undefined" ? window.innerWidth >= 980 : true));
-  const [view, setView] = useState("studio");
+  const [view, setView] = useState("sheet");
   const [activeArea, setActiveArea] = useState("interior");
 
   const selected = useMemo(
@@ -643,21 +568,38 @@ export default function MemoriasScreen({ profile, signOut }) {
   const savedExists = !!(selected && (dbMemorias[selected.id] || dbMemorias[normalizeCode(selected.codigo)]));
 
   return (
-    <div style={{ position: "fixed", inset: 0, background: C.bg, color: C.text, fontFamily: C.sans, overflow: "hidden" }}>
+    <div className="mem-root" style={{ position: "fixed", inset: 0, background: C.bg, color: C.text, fontFamily: C.sans, overflow: "hidden" }}>
       <style>{`
         .mem-touch-button:active, .mem-material-card:active, .mem-area-card:active { transform: scale(.985); }
         .mem-material-card:hover { transform: translateY(-3px); }
         .mem-boat-card:hover { transform: translateX(2px); }
+        .mem-sheet-page input, .mem-sheet-page textarea, .mem-sheet-page select { box-sizing: border-box; }
+        .mem-sheet-page input:focus, .mem-sheet-page textarea:focus, .mem-sheet-page select:focus {
+          outline: 2px solid ${C.blue}44;
+          outline-offset: -2px;
+          background: #fff;
+        }
+        .mem-sheet-row:hover { background: #eff6ff; }
+        .mem-sheet-check:focus-visible { outline: 2px solid ${C.blue}88; outline-offset: 2px; }
         @keyframes memFadeUp { from { opacity: 0; transform: translateY(16px); } to { opacity: 1; transform: translateY(0); } }
         @keyframes memGlow { 0%, 100% { opacity: .55; transform: translate3d(0,0,0) scale(1); } 50% { opacity: .95; transform: translate3d(8px,-8px,0) scale(1.03); } }
         @keyframes memSheen { 0% { transform: translateX(-130%); } 100% { transform: translateX(130%); } }
         @media print {
+          html, body, #root { background: white !important; height: auto !important; overflow: visible !important; }
           aside, .mem-no-print { display: none !important; }
-          .mem-shell { display: block !important; }
-          .mem-main { overflow: visible !important; }
+          .mem-root { position: static !important; inset: auto !important; height: auto !important; overflow: visible !important; background: white !important; color: #000 !important; }
+          .mem-shell { display: block !important; height: auto !important; overflow: visible !important; }
+          .mem-main { display: block !important; overflow: visible !important; }
           .mem-content { overflow: visible !important; padding: 0 !important; }
-          .mem-sheet { display: block !important; }
+          .mem-sheet { display: block !important; max-width: none !important; margin: 0 !important; }
+          .mem-sheet-page { width: 190mm !important; max-width: 190mm !important; margin: 0 auto !important; border: 0 !important; border-radius: 0 !important; box-shadow: none !important; background: white !important; color: #000 !important; padding: 0 !important; }
+          .mem-sheet-table, .mem-sheet-table * { color: #000 !important; }
+          .mem-sheet-table { border-color: #000 !important; }
+          .mem-sheet-cell, .mem-sheet-section, .mem-sheet-row { border-color: #000 !important; }
+          .mem-sheet-input, .mem-sheet-textarea, .mem-sheet-select { color: #000 !important; background: transparent !important; border: 0 !important; box-shadow: none !important; outline: none !important; padding: 2px 4px !important; }
+          .mem-sheet-helper { display: none !important; }
           body { background: white !important; }
+          @page { size: A4; margin: 10mm; }
         }
       `}</style>
       <div className="mem-shell" style={{ display: "grid", gridTemplateColumns: isMobile ? "1fr" : "280px minmax(0, 1fr)", height: "100%" }}>
@@ -731,7 +673,6 @@ export default function MemoriasScreen({ profile, signOut }) {
                 <StudioView
                   selected={selected}
                   fields={fields}
-                  descriptors={descriptors}
                   areas={visibleAreas}
                   selectedArea={selectedArea}
                   activeArea={activeArea}
@@ -1079,8 +1020,7 @@ function BoatRail({ open, floating = false, loading, query, setQuery, obras, sel
   );
 }
 
-function StudioView({ selected, fields, descriptors, areas, selectedArea, activeArea, onArea, onPatch, isMobile }) {
-  const summaryFields = descriptors.filter((field) => FEATURE_FIELDS.includes(field.key));
+function StudioView({ selected, fields, areas, selectedArea, activeArea, onArea, onPatch, isMobile }) {
   return (
     <div style={{ display: "grid", gap: 20, maxWidth: 1480, margin: "0 auto", animation: "memFadeUp .36s ease both" }}>
       
@@ -1455,120 +1395,313 @@ function DetailEditor({ field, value, obs, onValue, onObs, index, isMobile = fal
   );
 }
 
+const SHEET_TOP_KEYS = new Set(["propietario", "nombre_barco"]);
+const SHEET = {
+  paper: "#ffffff",
+  ink: "#111827",
+  grid: "#111827",
+  muted: "#64748b",
+  section: "#e5e7eb",
+  helper: "#f8fafc",
+  amber: "#c2410c",
+  green: "#10b981",
+};
+
+function sheetBodyEntries(grouped) {
+  return Object.entries(grouped)
+    .map(([section, rows]) => [section, rows.filter((field) => !SHEET_TOP_KEYS.has(field.key))])
+    .filter(([, rows]) => rows.length);
+}
+
+function sheetIsToggle(field) {
+  return field.type === "toggle" || BOOL_KEYS.has(field.key);
+}
+
+function sheetIsLongText(field) {
+  return field.wide || ["adicionales", "audio", "electronica", "loneria_otros"].includes(field.key);
+}
+
+function sheetCellInputBase(multiline = false) {
+  return {
+    width: "100%",
+    border: 0,
+    background: "transparent",
+    color: SHEET.ink,
+    borderRadius: 0,
+    padding: multiline ? "6px 8px" : "3px 8px",
+    outline: "none",
+    fontSize: 13,
+    fontFamily: C.sans,
+    lineHeight: 1.35,
+    resize: multiline ? "vertical" : "none",
+    minHeight: multiline ? 54 : 28,
+  };
+}
+
 function SheetView({ selected, fields, grouped, onPatch, isMobile }) {
+  const bodyEntries = sheetBodyEntries(grouped);
+  const gridColumns = isMobile ? "minmax(128px, .8fr) 42px minmax(170px, 1fr)" : "280px 46px minmax(420px, 1fr)";
+
   return (
-    <div className="mem-sheet" style={{ display: "grid", gap: 14, maxWidth: 1320, margin: "0 auto", animation: "memFadeUp .32s ease both" }}>
-      <div style={{
+    <div className="mem-sheet" style={{ maxWidth: 980, margin: "0 auto", animation: "memFadeUp .32s ease both" }}>
+      <div className="mem-sheet-page" style={{
         border: `1px solid ${C.border}`,
-        borderRadius: 20,
-        background: C.panelSolid,
+        borderRadius: 16,
+        background: SHEET.paper,
+        color: SHEET.ink,
+        boxShadow: "0 24px 70px var(--shadow)",
         overflow: "hidden",
       }}>
-        <div style={{ padding: 18, display: "flex", alignItems: "flex-start", gap: 14, flexWrap: "wrap" }}>
-          <div style={{ minWidth: 0, flex: 1 }}>
-            <div style={{ color: C.dim, fontSize: 10, letterSpacing: 1.3, textTransform: "uppercase", fontWeight: 900 }}>Planilla tecnica</div>
-            <h2 style={{ margin: "4px 0 0", fontSize: 30, lineHeight: 1, fontWeight: 950, letterSpacing: 0 }}>{selected.codigo}</h2>
-          </div>
-          <div style={{ display: "grid", gridTemplateColumns: isMobile ? "1fr" : "repeat(4, minmax(130px, 1fr))", gap: 8, flex: "1 1 560px" }}>
-            <InfoBox label="Propietario" value={fields.propietario || "Pendiente"} />
-            <InfoBox label="Constructor" value={fields.constructor || "Pendiente"} />
-            <InfoBox label="Motorizacion" value={fields.motorizacion || "Pendiente"} />
-            <InfoBox label="Casco" value={fields.color_casco || "Pendiente"} />
-          </div>
-        </div>
-      </div>
-
-      <div style={{
-        border: `1px solid ${C.border}`,
-        borderRadius: 18,
-        background: C.panelSolid,
-        overflow: "hidden",
-      }}>
-        <div style={{
-          display: "grid",
-          gridTemplateColumns: isMobile ? "1fr" : "250px minmax(460px, 1fr)",
-          background: C.panel2,
+        <div className="mem-sheet-helper" style={{
+          display: "flex",
+          justifyContent: "space-between",
+          gap: 12,
+          alignItems: "center",
+          padding: "10px 14px",
           borderBottom: `1px solid ${C.border}`,
-          color: C.dim,
-          fontSize: 10,
-          letterSpacing: 1.2,
-          textTransform: "uppercase",
-          fontWeight: 950,
+          background: SHEET.helper,
+          color: SHEET.muted,
+          fontSize: 11,
+          fontWeight: 850,
         }}>
-          <div style={{ padding: "12px 14px" }}>{isMobile ? "Memoria tecnica" : "Rubro"}</div>
-          {!isMobile && <div style={{ padding: "12px 14px", borderLeft: `1px solid ${C.border}` }}>Definicion / observacion</div>}
+          <span>Formato planilla editable. Imprime limpio, sin controles del sistema.</span>
+          <span>{lineName(selected)}</span>
         </div>
 
-        {Object.entries(grouped).map(([section, rows]) => (
-          <div key={section}>
-            <div style={{
-              padding: "9px 14px",
-              background: C.bg,
-              borderTop: `1px solid ${C.border}`,
-              borderBottom: `1px solid ${C.border}`,
-              color: C.violet,
-              fontSize: 11,
-              letterSpacing: 1.3,
-              textTransform: "uppercase",
-              fontWeight: 950,
-            }}>
-              {section}
+        <div className="mem-sheet-table" style={{ border: `1px solid ${SHEET.grid}`, borderWidth: "0 0 1px 0" }}>
+          <SheetHeaderRow label="Propietario">
+            <input
+              className="mem-sheet-input"
+              value={fields.propietario || ""}
+              onChange={(e) => onPatch("propietario", e.target.value)}
+              placeholder="Propietario"
+              style={{ ...sheetCellInputBase(), textAlign: "center", fontWeight: 700 }}
+            />
+          </SheetHeaderRow>
+          <SheetHeaderRow label="Nombre de barco">
+            <input
+              className="mem-sheet-input"
+              value={fields.nombre_barco || ""}
+              onChange={(e) => onPatch("nombre_barco", e.target.value)}
+              placeholder="Nombre"
+              style={{ ...sheetCellInputBase(), textAlign: "center", fontWeight: 700 }}
+            />
+          </SheetHeaderRow>
+          <div className="mem-sheet-row" style={{
+            display: "grid",
+            gridTemplateColumns: "1fr",
+            borderTop: `1px solid ${SHEET.grid}`,
+            borderBottom: `1px solid ${SHEET.grid}`,
+            background: SHEET.section,
+          }}>
+            <div className="mem-sheet-cell" style={{ padding: "3px 8px", textAlign: "center", fontSize: 11, fontWeight: 900, color: SHEET.ink }}>
+              N de barco
             </div>
-            {rows.map((field) => (
-              <div
-                key={`${section}-${field.key}-${field.label}`}
-                style={{
-                  display: "grid",
-                  gridTemplateColumns: isMobile ? "1fr" : "250px minmax(460px, 1fr)",
-                  borderBottom: `1px solid ${C.border}`,
-                  alignItems: "stretch",
-                }}
-              >
-                <div style={{
-                  padding: isMobile ? "11px 12px 7px" : "12px 14px",
-                  display: "flex",
-                  gap: 9,
-                  alignItems: "center",
-                  color: C.text,
-                  fontSize: 14,
-                  fontWeight: 900,
-                  background: C.panel,
-                }}>
-                  <span style={{ color: isFilled(fields[field.key]) ? C.green : C.dim, display: "grid", placeItems: "center" }}>
-                    {field.icon || <PencilLine size={13} />}
-                  </span>
-                  <span>{field.label}</span>
-                </div>
-                <div style={{ padding: isMobile ? "0 12px 12px" : 9, borderLeft: isMobile ? "none" : `1px solid ${C.border}`, minWidth: 0 }}>
-                  <FieldCell
-                    field={field}
-                    value={fields[field.key]}
-                    obs={fields[`${field.key}_obs`]}
-                    onValue={(value) => onPatch(field.key, value)}
-                    onObs={(value) => onPatch(`${field.key}_obs`, value)}
-                    isMobile={isMobile}
-                  />
-                </div>
-              </div>
-            ))}
           </div>
-        ))}
+          <div style={{
+            padding: "8px 10px 10px",
+            textAlign: "center",
+            borderBottom: `1px solid ${SHEET.grid}`,
+            color: SHEET.ink,
+            background: SHEET.paper,
+          }}>
+            <div style={{ fontSize: isMobile ? 28 : 38, lineHeight: 1, fontWeight: 950, letterSpacing: 0 }}>
+              {selected.codigo}
+            </div>
+          </div>
+
+          {bodyEntries.map(([section, rows]) => (
+            <div key={section} style={{ breakInside: "avoid" }}>
+              <div className="mem-sheet-section" style={{
+                padding: "5px 8px",
+                borderTop: `1px solid ${SHEET.grid}`,
+                borderBottom: `1px solid ${SHEET.grid}`,
+                background: SHEET.section,
+                textAlign: "center",
+                color: SHEET.ink,
+                fontSize: 12,
+                fontWeight: 950,
+              }}>
+                {section}
+              </div>
+              {rows.map((field) => (
+                <div
+                  key={`${section}-${field.key}-${field.label}`}
+                  className="mem-sheet-row"
+                  style={{
+                    display: "grid",
+                    gridTemplateColumns: gridColumns,
+                    minHeight: sheetIsLongText(field) ? 54 : 30,
+                    borderBottom: `1px solid ${SHEET.grid}`,
+                    background: SHEET.paper,
+                    transition: "background .16s ease",
+                  }}
+                >
+                  <div className="mem-sheet-cell" style={{
+                    padding: "5px 7px",
+                    borderRight: `1px solid ${SHEET.grid}`,
+                    color: SHEET.ink,
+                    fontSize: 12,
+                    lineHeight: 1.25,
+                    fontWeight: 760,
+                    alignSelf: "stretch",
+                    display: "flex",
+                    alignItems: sheetIsLongText(field) ? "flex-start" : "center",
+                  }}>
+                    {field.label}
+                  </div>
+                  <div className="mem-sheet-cell" style={{
+                    borderRight: `1px solid ${SHEET.grid}`,
+                    display: "grid",
+                    placeItems: "center",
+                    minWidth: 0,
+                  }}>
+                    {sheetIsToggle(field) ? (
+                      <SheetCheck
+                        checked={!!fields[field.key]}
+                        onChange={(value) => onPatch(field.key, value)}
+                      />
+                    ) : (
+                      <span style={{ color: SHEET.muted, fontSize: 12 }}> </span>
+                    )}
+                  </div>
+                  <div className="mem-sheet-cell" style={{ minWidth: 0, display: "grid", alignItems: "stretch" }}>
+                    <SheetFieldCell
+                      field={field}
+                      value={fields[field.key]}
+                      obs={fields[`${field.key}_obs`]}
+                      onValue={(value) => onPatch(field.key, value)}
+                      onObs={(value) => onPatch(`${field.key}_obs`, value)}
+                    />
+                  </div>
+                </div>
+              ))}
+            </div>
+          ))}
+        </div>
       </div>
     </div>
   );
 }
 
-function InfoBox({ label, value }) {
+function SheetHeaderRow({ label, children }) {
   return (
-    <div style={{
-      border: `1px solid ${C.border}`,
-      borderRadius: 14,
-      background: C.panel,
-      padding: 12,
-      minWidth: 0,
+    <div className="mem-sheet-row" style={{
+      display: "grid",
+      gridTemplateColumns: "1fr",
+      borderBottom: `1px solid ${SHEET.grid}`,
+      background: SHEET.paper,
     }}>
-      <div style={{ color: C.dim, fontSize: 9, letterSpacing: 1.2, textTransform: "uppercase", fontWeight: 900 }}>{label}</div>
-      <div style={{ color: C.text, fontSize: 14, fontWeight: 900, marginTop: 4, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{value}</div>
+      <div className="mem-sheet-cell" style={{
+        padding: "3px 8px",
+        textAlign: "center",
+        fontSize: 11,
+        fontWeight: 850,
+        color: SHEET.ink,
+        background: SHEET.section,
+        borderBottom: `1px solid ${SHEET.grid}`,
+      }}>
+        {label}
+      </div>
+      <div className="mem-sheet-cell" style={{ minHeight: 28, display: "grid", alignItems: "center" }}>
+        {children}
+      </div>
+    </div>
+  );
+}
+
+function SheetCheck({ checked, onChange }) {
+  return (
+    <button
+      type="button"
+      className="mem-sheet-check"
+      onClick={() => onChange(!checked)}
+      style={{
+        width: 18,
+        height: 18,
+        border: `2px solid ${SHEET.green}`,
+        background: checked ? SHEET.green : "transparent",
+        color: checked ? "white" : SHEET.green,
+        borderRadius: 2,
+        display: "grid",
+        placeItems: "center",
+        padding: 0,
+        cursor: "pointer",
+        fontSize: 13,
+        lineHeight: 1,
+        fontWeight: 950,
+      }}
+      aria-label={checked ? "Marcado" : "Sin marcar"}
+    >
+      {checked ? "X" : ""}
+    </button>
+  );
+}
+
+function SheetFieldCell({ field, value, obs, onValue, onObs }) {
+  if (sheetIsToggle(field)) {
+    return (
+      <input
+        className="mem-sheet-input"
+        value={obs || ""}
+        onChange={(e) => onObs(e.target.value)}
+        placeholder="Detalle / modelo / observacion"
+        style={{ ...sheetCellInputBase(), color: obs ? SHEET.ink : SHEET.muted }}
+      />
+    );
+  }
+
+  if (field.type === "selector" && Array.isArray(field.opts)) {
+    return (
+      <div style={{ display: "grid", gridTemplateColumns: "minmax(150px, 1fr) minmax(150px, .85fr)", alignItems: "stretch" }}>
+        <select
+          className="mem-sheet-select"
+          value={value || ""}
+          onChange={(e) => onValue(e.target.value)}
+          style={{ ...sheetCellInputBase(), borderRight: `1px solid ${SHEET.grid}`, appearance: "auto" }}
+        >
+          {field.opts.map((opt) => (
+            <option key={opt.val ?? "empty"} value={opt.val || ""}>{opt.label}</option>
+          ))}
+        </select>
+        <input
+          className="mem-sheet-input"
+          value={obs || ""}
+          onChange={(e) => onObs(e.target.value)}
+          placeholder="Obs."
+          style={{ ...sheetCellInputBase(), color: obs ? SHEET.ink : SHEET.muted }}
+        />
+      </div>
+    );
+  }
+
+  const multiline = sheetIsLongText(field);
+  return (
+    <div style={{ display: "grid", gridTemplateRows: multiline ? "minmax(54px, auto) auto" : "1fr auto", minWidth: 0 }}>
+      <textarea
+        className="mem-sheet-textarea"
+        value={value || ""}
+        onChange={(e) => onValue(e.target.value)}
+        rows={multiline ? 3 : 1}
+        placeholder="Completar..."
+        style={sheetCellInputBase(multiline)}
+      />
+      {(obs || multiline) && (
+        <input
+          className="mem-sheet-input"
+          value={obs || ""}
+          onChange={(e) => onObs(e.target.value)}
+          placeholder="Observacion"
+          style={{
+            ...sheetCellInputBase(),
+            minHeight: 24,
+            padding: "1px 8px 4px",
+            color: obs ? SHEET.amber : SHEET.muted,
+            fontSize: 12,
+            borderTop: obs ? `1px solid ${SHEET.grid}` : 0,
+          }}
+        />
+      )}
     </div>
   );
 }
