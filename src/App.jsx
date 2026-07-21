@@ -40,6 +40,7 @@ import { ToastProvider } from "@/components/ui/Toast";
 import { ConfirmProvider } from "@/components/ui/ConfirmDialog";
 import ChangePasswordModal from "@/features/cuenta/ChangePasswordModal";
 import NotificacionesBell from "@/components/NotificacionesBell";
+import AppVersionGuard from "@/components/AppVersionGuard";
 import { C } from "@/theme";
 
 import logoK from "@/assets/logos/logo-k.png";
@@ -411,6 +412,7 @@ export default function App() {
   return (
     <BrowserRouter>
       <ToastProvider>
+        <AppVersionGuard />
         <ConfirmProvider>
       <Routes>
         <Route path="/login" element={<LoginScreen onLoggedIn={loadProfile} />} />

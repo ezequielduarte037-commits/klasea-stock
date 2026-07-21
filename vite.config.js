@@ -1,10 +1,28 @@
 import { defineConfig } from 'vite'
 import react from '@vitejs/plugin-react'
 import { fileURLToPath, URL } from 'node:url'
+import { writeFileSync } from 'node:fs'
+import process from 'node:process'
+
+function buildVersionPlugin() {
+  const buildId = process.env.VERCEL_GIT_COMMIT_SHA
+    || process.env.VERCEL_DEPLOYMENT_ID
+    || `${Date.now()}`
+
+  return {
+    name: 'klasea-build-version',
+    closeBundle() {
+      writeFileSync(
+        'dist/version.json',
+        JSON.stringify({ buildId, builtAt: new Date().toISOString() }),
+      )
+    },
+  }
+}
 
 // https://vite.dev/config/
 export default defineConfig({
-  plugins: [react()],
+  plugins: [react(), buildVersionPlugin()],
   resolve: {
     alias: {
       '@': fileURLToPath(new URL('./src', import.meta.url)),
