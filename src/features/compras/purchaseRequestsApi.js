@@ -42,6 +42,7 @@ const DETAIL_SELECT = `
   comments:request_comments(
     id,
     body,
+    attachments,
     created_at,
     updated_at,
     author_id,
@@ -52,6 +53,18 @@ const DETAIL_SELECT = `
     )
   )
 `;
+
+const LEGACY_DETAIL_SELECT = DETAIL_SELECT.replace(/\n\s+attachments,/, "");
+
+function isMissingCommentAttachments(error) {
+  const message = String(error?.message || "").toLowerCase();
+  return message.includes("attachments") && (
+    error?.code === "42703"
+    || error?.code === "PGRST204"
+    || message.includes("column")
+    || message.includes("schema cache")
+  );
+}
 
 const ADDITIONAL_BOARD_SELECT = `
   *,
@@ -113,6 +126,61 @@ export async function uploadPurchaseRequestPhoto(file, userId) {
 
   const { data } = supabase.storage.from(PURCHASE_PHOTOS_BUCKET).getPublicUrl(path);
   return { photoUrl: data.publicUrl, photoPath: path };
+}
+
+export function normalizeCommentAttachments(value) {
+  let entries = value;
+  if (typeof entries === "string") {
+    try { entries = JSON.parse(entries); }
+    catch { return []; }
+  }
+  if (!Array.isArray(entries)) return [];
+
+  return entries
+    .filter((item) => item && typeof item.url === "string" && /^https?:\/\//i.test(item.url))
+    .map((item) => ({
+      url: item.url,
+      path: String(item.path || ""),
+      name: String(item.name || "Imagen"),
+      type: String(item.type || "image/jpeg"),
+      size: Number(item.size) || 0,
+    }));
+}
+
+export async function uploadRequestCommentImages(requestId, files, userId) {
+  const imageFiles = Array.from(files || []);
+  if (!imageFiles.length) return [];
+  if (!requestId || !userId) throw new Error("No se pudo identificar el pedido o el usuario.");
+
+  return Promise.all(imageFiles.map(async (file) => {
+    if (!String(file.type || "").startsWith("image/")) {
+      throw new Error(`“${file.name}” no es una imagen.`);
+    }
+    if (file.size > 10 * 1024 * 1024) {
+      throw new Error(`“${file.name}” supera el límite de 10 MB.`);
+    }
+
+    const ext = safeFilePart(file.name.split(".").pop() || "jpg").toLowerCase();
+    const id = crypto.randomUUID?.() || `${Date.now()}-${Math.random().toString(36).slice(2)}`;
+    const path = `comments/${requestId}/${userId}/${Date.now()}-${id}.${ext}`;
+    const { error } = await supabase.storage
+      .from(PURCHASE_PHOTOS_BUCKET)
+      .upload(path, file, {
+        cacheControl: "3600",
+        contentType: file.type || "image/jpeg",
+        upsert: false,
+      });
+
+    if (error) throw error;
+    const { data } = supabase.storage.from(PURCHASE_PHOTOS_BUCKET).getPublicUrl(path);
+    return {
+      url: data.publicUrl,
+      path,
+      name: file.name,
+      type: file.type || "image/jpeg",
+      size: file.size,
+    };
+  }));
 }
 
 export async function createPurchaseRequest({ form, ccUserIds = [], photoFile }) {
@@ -214,11 +282,21 @@ export async function fetchPurchaseRequests() {
 }
 
 export async function fetchPurchaseRequestDetail(requestId) {
-  const { data, error } = await supabase
+  let { data, error } = await supabase
     .from("purchase_requests")
     .select(DETAIL_SELECT)
     .eq("id", requestId)
     .single();
+
+  if (error && isMissingCommentAttachments(error)) {
+    const legacy = await supabase
+      .from("purchase_requests")
+      .select(LEGACY_DETAIL_SELECT)
+      .eq("id", requestId)
+      .single();
+    data = legacy.data;
+    error = legacy.error;
+  }
 
   if (error) throw error;
   return {
@@ -319,9 +397,11 @@ export function extractMentionUserIds(text, users) {
   return [...found];
 }
 
-export async function addRequestComment(requestId, body, users = []) {
+export async function addRequestComment(requestId, body, users = [], attachments = []) {
   const clean = body.trim();
-  if (!clean) return null;
+  const cleanAttachments = normalizeCommentAttachments(attachments);
+  if (!clean && !cleanAttachments.length) return null;
+  const storedBody = clean || `${cleanAttachments.length} imagen${cleanAttachments.length === 1 ? "" : "es"} adjunta${cleanAttachments.length === 1 ? "" : "s"}`;
 
   // getSession lee localStorage (no dispara refresh ni cierra sesión si el
   // refresh token está vencido). Solo necesitamos el uid para llenar author_id;
@@ -331,11 +411,25 @@ export async function addRequestComment(requestId, body, users = []) {
   const userId = session?.user?.id;
   if (!userId) throw new Error("No hay usuario autenticado.");
 
-  const { data: comment, error } = await supabase
+  let { data: comment, error } = await supabase
     .from("request_comments")
-    .insert({ request_id: requestId, author_id: userId, body: clean })
+    .insert({ request_id: requestId, author_id: userId, body: storedBody, attachments: cleanAttachments })
     .select("id")
     .single();
+
+  if (error && isMissingCommentAttachments(error) && !cleanAttachments.length) {
+    const legacy = await supabase
+      .from("request_comments")
+      .insert({ request_id: requestId, author_id: userId, body: storedBody })
+      .select("id")
+      .single();
+    comment = legacy.data;
+    error = legacy.error;
+  }
+
+  if (error && isMissingCommentAttachments(error)) {
+    throw new Error("Falta aplicar la migración de imágenes del chat de Compras en Supabase.");
+  }
 
   if (error) throw error;
 
