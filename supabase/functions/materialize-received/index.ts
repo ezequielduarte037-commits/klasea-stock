@@ -1,5 +1,10 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts"
-import { createClient } from "https://esm.sh/@supabase/supabase-js@2"
+import {
+  assertPurchaseRequestAccess,
+  authenticateFunctionRequest,
+  createAdminClient,
+  ResponseError,
+} from "../_shared/functionAuth.ts"
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -62,7 +67,7 @@ function obraCandidates(obra: Record<string, unknown>) {
   return values
 }
 
-async function findObra(supabase: ReturnType<typeof createClient>, destino: string) {
+async function findObra(supabase: any, destino: string) {
   const wanted = normalize(destino.replace(/^Obra\s+/i, ""))
   const { data, error } = await supabase
     .from("laminacion_obras")
@@ -74,7 +79,7 @@ async function findObra(supabase: ReturnType<typeof createClient>, destino: stri
 }
 
 async function findLaminacionMaterialId(
-  supabase: ReturnType<typeof createClient>,
+  supabase: any,
   item: Record<string, unknown>,
 ) {
   if (item.material_id) return String(item.material_id)
@@ -92,7 +97,7 @@ async function findLaminacionMaterialId(
 }
 
 async function markItem(
-  supabase: ReturnType<typeof createClient>,
+  supabase: any,
   itemId: string,
   result: Record<string, unknown>,
 ) {
@@ -110,12 +115,11 @@ serve(async (req) => {
   if (req.method !== "POST") return json({ error: "Method not allowed" }, 405)
 
   try {
+    const supabase = createAdminClient()
+    const auth = await authenticateFunctionRequest(req, supabase)
     const { requestId } = await req.json()
     if (!requestId) return json({ error: "requestId es obligatorio" }, 400)
-
-    const supabaseUrl = Deno.env.get("SUPABASE_URL") ?? ""
-    const supabaseServiceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") ?? ""
-    const supabase = createClient(supabaseUrl, supabaseServiceKey)
+    await assertPurchaseRequestAccess(supabase, String(requestId), auth)
 
     const { data: request, error: reqError } = await supabase
       .from("purchase_requests")
@@ -230,6 +234,7 @@ serve(async (req) => {
   } catch (error) {
     console.error("materialize-received error:", error)
     const message = error instanceof Error ? error.message : "Error materializando pedido recibido"
-    return json({ error: message }, 400)
+    const status = error instanceof ResponseError ? error.status : 400
+    return json({ error: message }, status)
   }
 })

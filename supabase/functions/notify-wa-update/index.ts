@@ -33,6 +33,12 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient, SupabaseClient } from "https://esm.sh/@supabase/supabase-js@2";
 import { sendText } from "../_shared/whatsapp.ts";
+import {
+  assertComprasAvisoAccess,
+  assertPurchaseRequestAccess,
+  authenticateFunctionRequest,
+  ResponseError,
+} from "../_shared/functionAuth.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -41,6 +47,11 @@ const corsHeaders = {
 };
 
 const APP_URL_BASE = "https://klasea-stock.vercel.app/compras";
+const REQUEST_EVENTS = new Set([
+  "created", "status", "priority", "comment", "item_status",
+  "amount", "delivery_date", "received",
+]);
+const AVISO_EVENTS = new Set(["aviso_status", "aviso_comment"]);
 
 function linkTo(requestId: string): string {
   return `${APP_URL_BASE}?open=${requestId}`;
@@ -65,7 +76,7 @@ serve(async (req) => {
   let body: any;
   try { body = await req.json(); } catch { return new Response("Invalid JSON", { status: 400 }); }
 
-  const { requestId, avisoId, eventType, payload = {}, actorId } = body;
+  const { requestId, avisoId, eventType, payload = {} } = body;
   if ((!requestId && !avisoId) || !eventType) {
     return new Response(JSON.stringify({ error: "requestId/avisoId y eventType requeridos" }), {
       status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" },
@@ -73,16 +84,31 @@ serve(async (req) => {
   }
 
   try {
+    const admin = supa();
+    const auth = await authenticateFunctionRequest(req, admin, { allowServiceRole: true });
+    if (requestId) {
+      if (!REQUEST_EVENTS.has(String(eventType))) throw new ResponseError("Evento de pedido invalido", 400);
+      await assertPurchaseRequestAccess(admin, String(requestId), auth);
+    } else {
+      if (!AVISO_EVENTS.has(String(eventType))) throw new ResponseError("Evento de aviso invalido", 400);
+      await assertComprasAvisoAccess(admin, String(avisoId), auth);
+    }
+
+    const actorId = auth.isService ? (body.actorId || undefined) : (auth.userId || undefined);
+    const trustedPayload = auth.isService
+      ? payload
+      : { ...payload, actorName: auth.profile?.username || "Usuario" };
     const result = avisoId
-      ? await notifyAvisoParticipants({ avisoId, eventType, payload, actorId })
-      : await notifyParticipants({ requestId, eventType, payload, actorId });
+      ? await notifyAvisoParticipants({ avisoId, eventType, payload: trustedPayload, actorId })
+      : await notifyParticipants({ requestId, eventType, payload: trustedPayload, actorId });
     return new Response(JSON.stringify({ ok: true, ...result }), {
       status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" },
     });
   } catch (err) {
     console.error("[notify-wa-update] error:", err);
+    const status = err instanceof ResponseError ? err.status : 500;
     return new Response(JSON.stringify({ error: String(err).slice(0, 300) }), {
-      status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" },
+      status, headers: { ...corsHeaders, "Content-Type": "application/json" },
     });
   }
 });

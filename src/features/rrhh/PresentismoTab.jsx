@@ -1,5 +1,25 @@
 // Presentismo: vista por dia o rango, ausentes, anomalias y justificaciones.
 import { useEffect, useMemo, useState } from "react";
+import {
+  AlertTriangle,
+  CalendarOff,
+  CalendarDays,
+  CheckCircle2,
+  ChevronLeft,
+  ChevronRight,
+  Clock3,
+  Download,
+  FileSpreadsheet,
+  Info,
+  Save,
+  Search,
+  Stethoscope,
+  Timer,
+  Trash2,
+  UserCheck,
+  Users,
+  X,
+} from "lucide-react";
 import { supabase } from "@/supabaseClient";
 import { C } from "@/theme";
 import {
@@ -11,6 +31,8 @@ import {
   fetchMarcaciones,
   fmtFecha,
   fmtFechaCorta,
+  guardarAusenciasProgramadas,
+  guardarCorreccionMarcacion,
   guardarJustificacion,
   hhmm,
   hoyIso,
@@ -23,9 +45,46 @@ import { BTN, BTN_PRIMARY, Cargando, ErrorBox, GrupoBadge, INP, KpiCard, Td, Th 
 const keyJust = (empleadoId, fecha) => `${empleadoId}::${fecha}`;
 const XLSX_YELLOW = "FFFF00";
 const XLSX_RED = "FFC7CE";
+const XLSX_GREEN = "C6EFCE";
 const XLSX_GROUP = "D9EAF7";
 const XLSX_HEADER = "D9EAD3";
 const XLSX_SECTION = "E7E6E6";
+const AUSENCIA_TIPOS = ["Reposo", "Vacaciones", "Licencia", "Trámite", "Otro"];
+
+function initials(nombre) {
+  return safeText(nombre)
+    .split(/\s+/)
+    .filter(Boolean)
+    .slice(0, 2)
+    .map(part => part[0])
+    .join("")
+    .toUpperCase() || "?";
+}
+
+function EmpleadoAvatar({ emp, size = 30, justified = false }) {
+  const foto = String(emp?.foto_url ?? "").trim();
+  return (
+    <span
+      title={emp?.nombre || "Empleado"}
+      style={{
+        width: size,
+        height: size,
+        borderRadius: size >= 38 ? 11 : 8,
+        display: "grid",
+        placeItems: "center",
+        overflow: "hidden",
+        flexShrink: 0,
+        fontSize: size >= 38 ? 11 : 9,
+        fontWeight: 800,
+        color: justified ? C.green : C.blue,
+        background: justified ? C.greenL : C.blueL,
+        border: `1px solid ${justified ? C.greenB : C.blueB}`,
+      }}
+    >
+      {foto ? <img src={foto} alt={`Foto de ${emp?.nombre || "empleado"}`} loading="lazy" style={{ width: "100%", height: "100%", objectFit: "cover" }} /> : initials(emp?.nombre)}
+    </span>
+  );
+}
 
 function sameGrupo(row, filtroGrupo) {
   const emp = row.emp ?? row;
@@ -158,6 +217,7 @@ function styleId(kind) {
   if (kind === "header") return 4;
   if (kind === "group") return 5;
   if (kind === "tarde") return 6;
+  if (kind === "ausente_justificado") return 9;
   if (kind === "ausente") return 7;
   if (kind === "empty") return 8;
   return 0;
@@ -169,7 +229,7 @@ function sheetXml(sheet) {
     const r = ri + 1;
     const kind = sheet.kinds[ri] ?? "normal";
     const style = styleId(kind);
-    const effectiveRow = ["title", "meta", "section", "group", "header", "tarde", "ausente", "empty"].includes(kind)
+    const effectiveRow = ["title", "meta", "section", "group", "header", "tarde", "ausente", "ausente_justificado", "empty"].includes(kind)
       ? Array.from({ length: sheet.colCount }, (_, i) => row[i] ?? "")
       : row;
     const cells = effectiveRow.map((value, ci) => {
@@ -199,7 +259,7 @@ function stylesXml() {
     <font><b/><sz val="11"/><color rgb="FF000000"/><name val="Calibri"/></font>
     <font><sz val="11"/><color rgb="FF666666"/><name val="Calibri"/></font>
   </fonts>
-  <fills count="7">
+  <fills count="8">
     <fill><patternFill patternType="none"/></fill>
     <fill><patternFill patternType="gray125"/></fill>
     <fill><patternFill patternType="solid"><fgColor rgb="FF${XLSX_YELLOW}"/><bgColor indexed="64"/></patternFill></fill>
@@ -207,13 +267,14 @@ function stylesXml() {
     <fill><patternFill patternType="solid"><fgColor rgb="FF${XLSX_GROUP}"/><bgColor indexed="64"/></patternFill></fill>
     <fill><patternFill patternType="solid"><fgColor rgb="FF${XLSX_HEADER}"/><bgColor indexed="64"/></patternFill></fill>
     <fill><patternFill patternType="solid"><fgColor rgb="FF${XLSX_SECTION}"/><bgColor indexed="64"/></patternFill></fill>
+    <fill><patternFill patternType="solid"><fgColor rgb="FF${XLSX_GREEN}"/><bgColor indexed="64"/></patternFill></fill>
   </fills>
   <borders count="2">
     <border><left/><right/><top/><bottom/><diagonal/></border>
     <border><left style="thin"><color rgb="FFB7B7B7"/></left><right style="thin"><color rgb="FFB7B7B7"/></right><top style="thin"><color rgb="FFB7B7B7"/></top><bottom style="thin"><color rgb="FFB7B7B7"/></bottom><diagonal/></border>
   </borders>
   <cellStyleXfs count="1"><xf numFmtId="0" fontId="0" fillId="0" borderId="0"/></cellStyleXfs>
-  <cellXfs count="9">
+  <cellXfs count="10">
     <xf numFmtId="0" fontId="0" fillId="0" borderId="1" xfId="0" applyBorder="1"/>
     <xf numFmtId="0" fontId="1" fillId="6" borderId="1" xfId="0" applyFill="1" applyFont="1" applyBorder="1"><alignment horizontal="center" vertical="center" wrapText="1"/></xf>
     <xf numFmtId="0" fontId="2" fillId="0" borderId="1" xfId="0" applyFont="1" applyBorder="1"/>
@@ -223,6 +284,7 @@ function stylesXml() {
     <xf numFmtId="0" fontId="0" fillId="2" borderId="1" xfId="0" applyFill="1" applyBorder="1"/>
     <xf numFmtId="0" fontId="1" fillId="3" borderId="1" xfId="0" applyFill="1" applyFont="1" applyBorder="1"/>
     <xf numFmtId="0" fontId="2" fillId="0" borderId="1" xfId="0" applyFont="1" applyBorder="1"><alignment horizontal="center" vertical="center" wrapText="1"/></xf>
+    <xf numFmtId="0" fontId="1" fillId="7" borderId="1" xfId="0" applyFill="1" applyFont="1" applyBorder="1"/>
   </cellXfs>
   <cellStyles count="1"><cellStyle name="Normal" xfId="0" builtinId="0"/></cellStyles>
   <dxfs count="0"/>
@@ -411,7 +473,9 @@ export default function PresentismoTab({ empleados, contratistas, config, esAdmi
   const [filtroGrupo, setFiltroGrupo] = useState("todos");
   const [filtroSede, setFiltroSede] = useState("todas");
   const [soloAnomalias, setSoloAnomalias] = useState(false);
+  const [vistaRapida, setVistaRapida] = useState("marcaciones");
   const [justModal, setJustModal] = useState(null);
+  const [ausenciaModal, setAusenciaModal] = useState(false);
 
   const d1 = modo === "dia" ? fecha : desde;
   const d2 = modo === "dia" ? fecha : hasta;
@@ -446,6 +510,7 @@ export default function PresentismoTab({ empleados, contratistas, config, esAdmi
       const esDiaHabil = diaSemana(m.fecha) !== 0;
       out.push({
         key: m.id,
+        marcacion: m,
         emp,
         fecha: m.fecha,
         sede: m.sede,
@@ -475,6 +540,11 @@ export default function PresentismoTab({ empleados, contratistas, config, esAdmi
     return [...rows].sort((a, b) =>
       a.fecha !== b.fecha ? a.fecha.localeCompare(b.fecha) : safeText(a.emp.nombre).localeCompare(safeText(b.emp.nombre), "es"));
   }, [filas, filtroSede, filtroGrupo, q, soloAnomalias]);
+
+  const filasVista = useMemo(() => {
+    if (!filtradas) return null;
+    return vistaRapida === "tarde" ? filtradas.filter(row => row.tarde) : filtradas;
+  }, [filtradas, vistaRapida]);
 
   const ausentes = useMemo(() => {
     if (modo !== "dia" || !filas) return [];
@@ -507,14 +577,51 @@ export default function PresentismoTab({ empleados, contratistas, config, esAdmi
     };
   }, [filtradas, ausentes]);
 
-  async function guardarMotivo(empleadoId, fechaJust, motivo) {
-    const saved = await guardarJustificacion(empleadoId, fechaJust, motivo);
-    setJustificaciones(prev => {
-      const key = keyJust(empleadoId, fechaJust);
-      const clean = prev.filter(j => keyJust(j.empleado_id, j.fecha) !== key);
-      return saved ? [...clean, saved] : clean;
-    });
+  async function guardarRevision(data, values) {
+    const { empleadoId, fecha: fechaJust, motivo, entrada, salida, horariosCambiaron, motivoCambio } = values;
+
+    if (horariosCambiaron) {
+      const savedMark = await guardarCorreccionMarcacion({
+        id: data.marcacion?.id,
+        empleadoId,
+        fecha: fechaJust,
+        entrada,
+        salida,
+        sede: data.marcacion?.sede ?? data.emp.sede,
+      });
+      setMarcas(prev => {
+        const rows = prev ?? [];
+        let found = false;
+        const next = rows.map(row => {
+          const same = row.id === savedMark.id || (row.empleado_id === empleadoId && row.fecha === fechaJust);
+          if (!same) return row;
+          found = true;
+          return savedMark;
+        });
+        return found ? next : [...next, savedMark];
+      });
+    }
+
+    if (motivoCambio) {
+      const savedJustification = await guardarJustificacion(empleadoId, fechaJust, motivo);
+      setJustificaciones(prev => {
+        const key = keyJust(empleadoId, fechaJust);
+        const clean = prev.filter(j => keyJust(j.empleado_id, j.fecha) !== key);
+        return savedJustification ? [...clean, savedJustification] : clean;
+      });
+    }
     setJustModal(null);
+  }
+
+  async function guardarAusencia(values) {
+    const saved = await guardarAusenciasProgramadas(values);
+    setJustificaciones(prev => {
+      const next = new Map((prev ?? []).map(row => [keyJust(row.empleado_id, row.fecha), row]));
+      for (const row of saved) next.set(keyJust(row.empleado_id, row.fecha), row);
+      return [...next.values()];
+    });
+    setAusenciaModal(false);
+    setVistaRapida("ausentes");
   }
 
   async function borrarEmpleado(emp) {
@@ -614,7 +721,7 @@ export default function PresentismoTab({ empleados, contratistas, config, esAdmi
       const justificacion = justByKey.get(keyJust(emp.id, fechaIso));
       const names = splitNombreCompleto(emp.nombre);
       return {
-        kind: "ausente",
+        kind: justificacion ? "ausente_justificado" : "ausente",
         fecha: fechaIso,
         ...names,
         entrada: "AUSENTE",
@@ -672,36 +779,77 @@ export default function PresentismoTab({ empleados, contratistas, config, esAdmi
   const selSt = (on) => ({
     ...BTN,
     padding: "6px 13px",
-    background: on ? "rgba(59,130,246,0.13)" : C.s0,
-    border: `1px solid ${on ? "rgba(59,130,246,0.35)" : C.b0}`,
-    color: on ? "#60a5fa" : C.t2,
+    background: on ? C.blueL : C.s0,
+    border: `1px solid ${on ? C.blueB : C.b0}`,
+    color: on ? C.blue : C.t2,
   });
 
   return (
     <div>
-      <div style={{ display: "flex", gap: 8, flexWrap: "wrap", alignItems: "center", marginBottom: 14 }}>
-        <button style={selSt(modo === "dia")} onClick={() => setModo("dia")}>Por dia</button>
-        <button style={selSt(modo === "rango")} onClick={() => setModo("rango")}>Rango</button>
+      <style>{`
+        .presentismo-toolbar { background: var(--panel-solid); border: 1px solid var(--border); border-radius: 12px; padding: 12px; margin-bottom: 12px; box-shadow: 0 1px 2px rgba(0,0,0,.03); }
+        .presentismo-toolbar-row { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
+        .presentismo-toolbar-row + .presentismo-toolbar-row { border-top: 1px solid var(--border); margin-top: 10px; padding-top: 10px; }
+        .presentismo-date-nav { display: inline-flex; align-items: center; gap: 4px; padding: 3px; border: 1px solid var(--border); border-radius: 9px; background: var(--panel); }
+        .presentismo-search { position: relative; flex: 1 1 280px; min-width: 190px; }
+        .presentismo-search input { width: 100%; padding-left: 34px !important; }
+        .presentismo-search svg { position: absolute; left: 11px; top: 50%; transform: translateY(-50%); color: var(--dim); pointer-events: none; }
+        .presentismo-summary { display: grid; grid-template-columns: repeat(auto-fit, minmax(120px, 1fr)); border: 1px solid var(--border); border-radius: 12px; background: var(--panel-solid); margin-bottom: 12px; overflow: hidden; }
+        .presentismo-summary > * { border: 0 !important; border-radius: 0 !important; border-right: 1px solid var(--border) !important; }
+        .presentismo-summary > *:last-child { border-right: 0 !important; }
+        .presentismo-table-row { transition: background .15s ease; }
+        .presentismo-table-row:hover { background: var(--panel-2); }
+        .presentismo-action:hover { border-color: var(--border-2) !important; color: var(--text) !important; }
+        .presentismo-absence { transition: border-color .15s ease, background .15s ease; }
+        .presentismo-absence:hover { border-color: var(--border-2) !important; background: var(--panel-2) !important; }
+        @media (max-width: 900px) {
+          .presentismo-summary { grid-template-columns: repeat(3, minmax(110px, 1fr)); }
+          .presentismo-summary > * { border-bottom: 1px solid var(--border) !important; }
+        }
+        @media (max-width: 640px) {
+          .presentismo-toolbar { padding: 10px; }
+          .presentismo-toolbar-row { align-items: stretch; }
+          .presentismo-toolbar-row > select { flex: 1 1 145px; min-width: 0 !important; }
+          .presentismo-date-nav { flex: 1 1 100%; justify-content: space-between; }
+          .presentismo-date-nav input { flex: 1; min-width: 0; }
+          .presentismo-export { flex: 1; justify-content: center; }
+          .presentismo-summary { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+          .presentismo-summary > * { border-right: 1px solid var(--border) !important; }
+        }
+      `}</style>
+
+      <div className="presentismo-toolbar">
+        <div className="presentismo-toolbar-row">
+          <div style={{ display: "inline-flex", gap: 3, padding: 3, borderRadius: 9, background: C.s0, border: `1px solid ${C.b0}` }}>
+            <button style={selSt(modo === "dia")} onClick={() => setModo("dia")}>Por día</button>
+            <button style={selSt(modo === "rango")} onClick={() => { setModo("rango"); setVistaRapida("marcaciones"); }}>Rango</button>
+          </div>
         {modo === "dia" ? (
-          <>
-            <button style={BTN} onClick={() => setFecha(addDays(fecha, -1))}>‹</button>
-            <input type="date" style={INP} value={fecha} onChange={e => e.target.value && setFecha(e.target.value)} />
-            <button style={BTN} onClick={() => setFecha(addDays(fecha, 1))}>›</button>
-            {fecha !== hoy && <button style={BTN} onClick={() => setFecha(hoy)}>Hoy</button>}
-          </>
+          <div className="presentismo-date-nav">
+            <button aria-label="Día anterior" title="Día anterior" style={{ ...BTN, padding: 6, border: 0, background: "transparent", display: "grid", placeItems: "center" }} onClick={() => setFecha(addDays(fecha, -1))}><ChevronLeft size={16} /></button>
+            <CalendarDays size={15} color={C.t2} style={{ marginLeft: 2 }} />
+            <input type="date" style={{ ...INP, border: 0, background: "transparent", padding: "5px 4px" }} value={fecha} onChange={e => e.target.value && setFecha(e.target.value)} />
+            <button aria-label="Día siguiente" title="Día siguiente" style={{ ...BTN, padding: 6, border: 0, background: "transparent", display: "grid", placeItems: "center" }} onClick={() => setFecha(addDays(fecha, 1))}><ChevronRight size={16} /></button>
+            {fecha !== hoy && <button style={{ ...BTN, padding: "5px 9px" }} onClick={() => setFecha(hoy)}>Hoy</button>}
+          </div>
         ) : (
-          <>
-            <input type="date" style={INP} value={desde} onChange={e => e.target.value && setDesde(e.target.value)} />
-            <span style={{ color: C.t2, fontSize: 12 }}>→</span>
-            <input type="date" style={INP} value={hasta} onChange={e => e.target.value && setHasta(e.target.value)} />
-          </>
+          <div className="presentismo-date-nav">
+            <CalendarDays size={15} color={C.t2} style={{ marginLeft: 5 }} />
+            <input type="date" style={{ ...INP, border: 0, background: "transparent", padding: "5px 4px" }} value={desde} onChange={e => e.target.value && setDesde(e.target.value)} />
+            <span style={{ color: C.t2, fontSize: 12 }}>a</span>
+            <input type="date" style={{ ...INP, border: 0, background: "transparent", padding: "5px 4px" }} value={hasta} onChange={e => e.target.value && setHasta(e.target.value)} />
+          </div>
         )}
         <div style={{ flex: 1 }} />
-        <button style={BTN_PRIMARY} onClick={exportarXlsx}>⬇ Exportar XLSX</button>
-        <button style={BTN} onClick={exportar}>⬇ Exportar CSV</button>
-      </div>
+        <button className="presentismo-export" style={{ ...BTN_PRIMARY, display: "inline-flex", alignItems: "center", gap: 7 }} onClick={exportarXlsx}><FileSpreadsheet size={15} /> Excel</button>
+        <button className="presentismo-export" style={{ ...BTN, display: "inline-flex", alignItems: "center", gap: 7 }} onClick={exportar}><Download size={15} /> CSV</button>
+        </div>
 
-      <div style={{ display: "flex", gap: 8, flexWrap: "wrap", alignItems: "center", marginBottom: 16 }}>
+        <div className="presentismo-toolbar-row">
+        <div className="presentismo-search">
+          <Search size={15} />
+          <input style={INP} placeholder="Buscar por nombre o DNI" value={q} onChange={e => setQ(e.target.value)} />
+        </div>
         <select style={{ ...INP, minWidth: 170 }} value={filtroGrupo} onChange={e => setFiltroGrupo(e.target.value)}>
           <option value="todos">Todos los grupos</option>
           <option value="casa">Gente de la casa</option>
@@ -713,8 +861,8 @@ export default function PresentismoTab({ empleados, contratistas, config, esAdmi
           <option value="todas">Todas las sedes</option>
           {SEDES.map(s => <option key={s} value={s}>{s}</option>)}
         </select>
-        <input style={{ ...INP, flex: 1, minWidth: 150 }} placeholder="Buscar nombre o DNI..." value={q} onChange={e => setQ(e.target.value)} />
-        <button style={selSt(soloAnomalias)} onClick={() => setSoloAnomalias(v => !v)}>⚠ Solo anomalías</button>
+        <button style={{ ...selSt(soloAnomalias), display: "inline-flex", alignItems: "center", justifyContent: "center", gap: 6 }} onClick={() => setSoloAnomalias(v => !v)}><AlertTriangle size={14} /> Solo anomalías</button>
+        </div>
       </div>
 
       {error && <ErrorBox error={error} />}
@@ -722,18 +870,49 @@ export default function PresentismoTab({ empleados, contratistas, config, esAdmi
 
       {filtradas != null && (
         <>
-          <div style={{ display: "flex", gap: 10, flexWrap: "wrap", marginBottom: 16 }}>
-            <KpiCard label={modo === "dia" ? "Presentes" : "Personas"} value={stats.presentes} color={C.green} />
-            <KpiCard label="Casa" value={stats.casa} color="#60a5fa" />
-            <KpiCard label="Contratistas" value={stats.contr} color="#fbbf24" />
-            {modo === "dia" && <KpiCard label="Ausentes" value={ausentes.length} color={ausentes.length ? "#f87171" : C.green} sub={stats.ausentesJustificados ? `${stats.ausentesJustificados} just.` : ""} />}
-            <KpiCard label="Anomalias" value={stats.anomalias} color={stats.anomalias ? C.amber : C.green} sub="sin entrada / sin salida / tarde" />
+          <div className="presentismo-summary">
+            <KpiCard icon={UserCheck} label={modo === "dia" ? "Presentes" : "Personas"} value={stats.presentes} color={C.green} />
+            <KpiCard label="Casa" value={stats.casa} color={C.blue} />
+            <KpiCard label="Contratistas" value={stats.contr} color={C.amber} />
+            {modo === "dia" && <KpiCard label="Ausentes" value={ausentes.length} color={ausentes.length ? C.red : C.green} sub={stats.ausentesJustificados ? `${stats.ausentesJustificados} just.` : ""} />}
+            <KpiCard icon={AlertTriangle} label="Anomalías" value={stats.anomalias} color={stats.anomalias ? C.amber : C.green} sub="entrada, salida o demora" />
           </div>
 
-          {filtradas.length === 0 ? (
+          <div style={{ display: "flex", alignItems: "center", gap: 7, flexWrap: "wrap", marginBottom: 12 }}>
+            <button type="button" style={{ ...selSt(vistaRapida === "marcaciones"), display: "inline-flex", alignItems: "center", gap: 6 }} onClick={() => setVistaRapida("marcaciones")}>
+              <Users size={14} /> Marcaciones
+            </button>
+            {modo === "dia" && (
+              <button type="button" style={{ ...selSt(vistaRapida === "ausentes"), display: "inline-flex", alignItems: "center", gap: 6, color: vistaRapida === "ausentes" ? C.red : C.t2 }} onClick={() => setVistaRapida("ausentes")}>
+                <CalendarOff size={14} /> Ver ausentes ({ausentes.length})
+              </button>
+            )}
+            <button type="button" style={{ ...selSt(vistaRapida === "tarde"), display: "inline-flex", alignItems: "center", gap: 6, color: vistaRapida === "tarde" ? C.amber : C.t2 }} onClick={() => setVistaRapida("tarde")}>
+              <Timer size={14} /> Llegadas tarde ({filtradas.filter(row => row.tarde).length})
+            </button>
+            <div style={{ flex: 1 }} />
+            {esAdmin && (
+              <button type="button" style={{ ...BTN_PRIMARY, display: "inline-flex", alignItems: "center", gap: 7 }} onClick={() => setAusenciaModal(true)}>
+                <Stethoscope size={14} /> Cargar reposo / vacaciones
+              </button>
+            )}
+          </div>
+
+          {vistaRapida !== "ausentes" && (filasVista.length === 0 ? (
             <div style={{ color: C.t2, fontSize: 13, padding: "40px 0", textAlign: "center" }}>Sin marcaciones para este filtro.</div>
           ) : (
-            <div style={{ overflowX: "auto", border: `1px solid ${C.b0}`, borderRadius: 12 }}>
+            <div style={{ background: C.panelSolid, border: `1px solid ${C.b0}`, borderRadius: 12, overflow: "hidden", boxShadow: "0 1px 2px rgba(0,0,0,.03)" }}>
+              <div style={{ minHeight: 47, padding: "10px 13px", display: "flex", alignItems: "center", justifyContent: "space-between", gap: 12, borderBottom: `1px solid ${C.b0}` }}>
+                <div style={{ display: "flex", alignItems: "center", gap: 9 }}>
+                  <Users size={16} color={C.blue} />
+                  <div>
+                    <div style={{ fontSize: 13, fontWeight: 700, color: C.t0 }}>Marcaciones</div>
+                    <div style={{ fontSize: 10, color: C.t2, marginTop: 2 }}>{filasVista.length} registros visibles</div>
+                  </div>
+                </div>
+                {soloAnomalias && <span style={{ fontSize: 10, fontWeight: 700, color: C.amber, background: C.amberL, border: `1px solid ${C.amberB}`, borderRadius: 999, padding: "3px 8px" }}>Solo anomalías</span>}
+              </div>
+              <div style={{ overflowX: "auto" }}>
               <table style={{ width: "100%", borderCollapse: "collapse" }}>
                 <thead>
                   <tr>
@@ -749,12 +928,17 @@ export default function PresentismoTab({ empleados, contratistas, config, esAdmi
                   </tr>
                 </thead>
                 <tbody>
-                  {filtradas.map(r => (
-                    <tr key={r.key}>
+                  {filasVista.map(r => (
+                    <tr className="presentismo-table-row" key={r.key}>
                       {modo === "rango" && <Td mono color={C.t2}>{fmtFechaCorta(r.fecha)}</Td>}
                       <Td>
-                        {r.emp.nombre}
-                        <span style={{ fontSize: 11, color: C.t2, fontFamily: C.mono, marginLeft: 8 }}>{r.emp.dni}</span>
+                        <div style={{ display: "flex", alignItems: "center", gap: 9 }}>
+                          <EmpleadoAvatar emp={r.emp} size={30} justified={!!r.justificacion} />
+                          <span style={{ minWidth: 0 }}>
+                            <span style={{ display: "block", fontWeight: 650, color: C.t0 }}>{r.emp.nombre}</span>
+                            <span style={{ display: "block", fontSize: 10, color: C.t2, fontFamily: C.mono, marginTop: 1 }}>{r.emp.dni}</span>
+                          </span>
+                        </div>
                       </Td>
                       <Td color={r.sede ? C.t1 : C.t2}>{r.sede ?? "—"}</Td>
                       <Td><GrupoBadge grupo={r.emp.grupo} contratistaNombre={r.emp.contratista?.nombre} /></Td>
@@ -762,26 +946,32 @@ export default function PresentismoTab({ empleados, contratistas, config, esAdmi
                       <Td right mono>{r.salida ?? "—"}</Td>
                       <Td right mono color={r.min != null ? C.t0 : C.t2}>{r.min != null ? minToHM(r.min) : "—"}</Td>
                       <Td style={{ whiteSpace: "normal", minWidth: 190 }}>
-                        {r.tarde && <span style={{ fontSize: 11, color: C.amber, marginRight: 6 }}>tarde</span>}
-                        {r.sinEntrada && <span style={{ fontSize: 11, color: "#f87171", marginRight: 6 }}>sin entrada</span>}
-                        {r.sinSalida && <span style={{ fontSize: 11, color: "#f87171", marginRight: 6 }}>sin salida</span>}
-                        {r.justificacion && <span title={r.justificacion.motivo} style={{ fontSize: 11, color: C.green, marginRight: 6 }}>justificada</span>}
+                        {r.tarde && <span style={{ fontSize: 10, fontWeight: 700, color: C.amber, background: C.amberL, borderRadius: 5, padding: "2px 5px", marginRight: 5 }}>Tarde</span>}
+                        {r.sinEntrada && <span style={{ fontSize: 10, fontWeight: 700, color: C.red, background: C.redL, borderRadius: 5, padding: "2px 5px", marginRight: 5 }}>Sin entrada</span>}
+                        {r.sinSalida && <span style={{ fontSize: 10, fontWeight: 700, color: C.red, background: C.redL, borderRadius: 5, padding: "2px 5px", marginRight: 5 }}>Sin salida</span>}
+                        {r.marcacion?.editado_por && <span title="Horario corregido manualmente" style={{ fontSize: 10, fontWeight: 700, color: C.blue, background: C.blueL, borderRadius: 5, padding: "2px 5px", marginRight: 5 }}>Manual</span>}
+                        {r.justificacion && <span title={r.justificacion.motivo} style={{ fontSize: 10, fontWeight: 700, color: C.green, background: C.greenL, borderRadius: 5, padding: "2px 5px", marginRight: 5 }}>Justificada</span>}
                         <button
+                          className="presentismo-action"
                           type="button"
-                          style={{ ...BTN, padding: "3px 8px", fontSize: 11 }}
-                          onClick={() => setJustModal({ emp: r.emp, fecha: r.fecha, actual: r.justificacion })}
+                          style={{ ...BTN, padding: "3px 7px", fontSize: 10, background: "transparent" }}
+                          onClick={() => setJustModal({ emp: r.emp, fecha: r.fecha, actual: r.justificacion, marcacion: r.marcacion })}
                         >
-                          {r.justificacion ? "Editar" : "Justificar"}
+                          <Clock3 size={12} style={{ marginRight: 4, verticalAlign: "-2px" }} />
+                          {r.justificacion ? "Revisar" : "Corregir / justificar"}
                         </button>
                       </Td>
                       {esAdmin && (
                         <Td>
                           <button
+                            className="presentismo-action"
                             type="button"
-                            style={{ ...BTN, padding: "3px 8px", fontSize: 11, color: "#f87171", border: "1px solid rgba(248,113,113,0.35)" }}
+                            aria-label={`Borrar a ${r.emp.nombre}`}
+                            title="Borrar del presentismo"
+                            style={{ ...BTN, padding: 5, color: C.red, border: `1px solid ${C.redB}`, background: "transparent", display: "grid", placeItems: "center" }}
                             onClick={() => borrarEmpleado(r.emp)}
                           >
-                            Borrar
+                            <Trash2 size={13} />
                           </button>
                         </Td>
                       )}
@@ -789,42 +979,58 @@ export default function PresentismoTab({ empleados, contratistas, config, esAdmi
                   ))}
                 </tbody>
               </table>
-            </div>
-          )}
-
-          {modo === "dia" && ausentes.length > 0 && (
-            <div style={{ marginTop: 20 }}>
-              <div style={{ fontSize: 11, letterSpacing: 1.3, textTransform: "uppercase", color: "#f87171", fontWeight: 700, marginBottom: 8 }}>
-                Ausentes ({ausentes.length}) — {fmtFecha(fecha)}
               </div>
-              <div style={{ display: "flex", flexWrap: "wrap", gap: 6 }}>
+            </div>
+          ))}
+
+          {modo === "dia" && vistaRapida === "ausentes" && (
+            <div style={{ background: C.panelSolid, border: `1px solid ${C.b0}`, borderRadius: 12, padding: 12 }}>
+              <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 10 }}>
+                <AlertTriangle size={15} color={C.red} />
+                <div style={{ fontSize: 12, color: C.t0, fontWeight: 700 }}>Ausentes</div>
+                <span style={{ fontSize: 10, color: C.red, background: C.redL, border: `1px solid ${C.redB}`, borderRadius: 999, padding: "2px 7px" }}>{ausentes.length}</span>
+                <span style={{ fontSize: 10, color: C.t2 }}>{fmtFecha(fecha)}</span>
+              </div>
+              {ausentes.length === 0 ? (
+                <div style={{ padding: "38px 16px", textAlign: "center", color: C.t2, fontSize: 12 }}>No hay ausentes para estos filtros.</div>
+              ) : <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(340px, 1fr))", gap: 8 }}>
                 {ausentes.map(({ emp, justificacion }) => (
-                  <div key={emp.id} style={{ fontSize: 12, color: C.t1, background: C.s0, border: `1px solid ${justificacion ? "rgba(16,185,129,0.28)" : C.b0}`, padding: "5px 11px", borderRadius: 7, display: "flex", gap: 7, alignItems: "center", flexWrap: "wrap" }}>
-                    {emp.nombre}
-                    {emp.sede && <span style={{ fontSize: 11, color: C.t2 }}>{emp.sede}</span>}
-                    <GrupoBadge grupo={emp.grupo} contratistaNombre={emp.contratista?.nombre} />
-                    <span style={{ fontSize: 11, color: justificacion ? C.green : "#f87171" }}>
-                      ausente{justificacion ? " (justificada)" : ""}
-                    </span>
-                    <button
-                      type="button"
-                      style={{ ...BTN, padding: "2px 7px", fontSize: 11 }}
-                      onClick={() => setJustModal({ emp, fecha, actual: justificacion })}
-                    >
-                      {justificacion ? "Editar" : "Justificar"}
-                    </button>
-                    {esAdmin && (
+                  <div className="presentismo-absence" key={emp.id} style={{ minWidth: 0, minHeight: 64, color: C.t1, background: justificacion ? C.greenL : C.s0, border: `1px solid ${justificacion ? C.greenB : C.b0}`, padding: 10, borderRadius: 9, display: "flex", gap: 10, alignItems: "center" }}>
+                    <EmpleadoAvatar emp={emp} size={40} justified={!!justificacion} />
+                    <div style={{ minWidth: 0, flex: 1 }}>
+                      <div style={{ fontSize: 12, fontWeight: 650, color: C.t0, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{emp.nombre}</div>
+                      <div style={{ display: "flex", alignItems: "center", gap: 5, marginTop: 4, overflow: "hidden" }}>
+                        {emp.sede && <span style={{ fontSize: 10, color: C.t2 }}>{emp.sede}</span>}
+                        <GrupoBadge grupo={emp.grupo} contratistaNombre={emp.contratista?.nombre} />
+                      </div>
+                      {justificacion && <div title={justificacion.motivo} style={{ marginTop: 5, color: C.green, fontSize: 10, fontWeight: 700, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{justificacion.motivo}</div>}
+                    </div>
+                    <div style={{ display: "flex", gap: 5, flexShrink: 0 }}>
                       <button
+                        className="presentismo-action"
                         type="button"
-                        style={{ ...BTN, padding: "2px 7px", fontSize: 11, color: "#f87171", border: "1px solid rgba(248,113,113,0.35)" }}
-                        onClick={() => borrarEmpleado(emp)}
+                        title={justificacion ? "Revisar jornada" : "Cargar horario o justificar ausencia"}
+                        style={{ ...BTN, padding: "5px 7px", fontSize: 10, color: justificacion ? C.green : C.t1, background: "transparent" }}
+                        onClick={() => setJustModal({ emp, fecha, actual: justificacion, marcacion: null })}
                       >
-                        Borrar
+                        {justificacion ? <CheckCircle2 size={14} /> : "Justificar ausencia"}
                       </button>
-                    )}
+                      {esAdmin && (
+                        <button
+                          className="presentismo-action"
+                          type="button"
+                          aria-label={`Borrar a ${emp.nombre}`}
+                          title="Borrar del presentismo"
+                          style={{ ...BTN, padding: 5, color: C.red, border: `1px solid ${C.redB}`, background: "transparent", display: "grid", placeItems: "center" }}
+                          onClick={() => borrarEmpleado(emp)}
+                        >
+                          <Trash2 size={13} />
+                        </button>
+                      )}
+                    </div>
                   </div>
                 ))}
-              </div>
+              </div>}
             </div>
           )}
         </>
@@ -833,46 +1039,241 @@ export default function PresentismoTab({ empleados, contratistas, config, esAdmi
       {justModal && (
         <JustificacionModal
           data={justModal}
+          canEditTime={esAdmin}
           onClose={() => setJustModal(null)}
-          onSave={guardarMotivo}
+          onSave={guardarRevision}
+        />
+      )}
+      {ausenciaModal && (
+        <AusenciaPeriodoModal
+          empleados={empleados}
+          initialDate={modo === "dia" ? fecha : d1}
+          onClose={() => setAusenciaModal(false)}
+          onSave={guardarAusencia}
         />
       )}
     </div>
   );
 }
 
-function JustificacionModal({ data, onClose, onSave }) {
+function JustificacionModal({ data, canEditTime, onClose, onSave }) {
   const [motivo, setMotivo] = useState(data.actual?.motivo ?? "");
+  const [entrada, setEntrada] = useState(hhmm(data.marcacion?.entrada) ?? "");
+  const [salida, setSalida] = useState(hhmm(data.marcacion?.salida) ?? "");
   const [saving, setSaving] = useState(false);
-  const canSave = motivo.trim() || data.actual;
+  const [error, setError] = useState("");
+  const originalEntrada = hhmm(data.marcacion?.entrada) ?? "";
+  const originalSalida = hhmm(data.marcacion?.salida) ?? "";
+  const originalMotivo = String(data.actual?.motivo ?? "").trim();
+  const horariosCambiaron = entrada !== originalEntrada || salida !== originalSalida;
+  const motivoCambio = motivo.trim() !== originalMotivo;
+  const canSave = horariosCambiaron || motivoCambio;
 
   async function guardar() {
     if (!canSave) return;
+    if (entrada && salida && timeToMin(salida) <= timeToMin(entrada)) {
+      setError("La salida debe ser posterior al horario de entrada.");
+      return;
+    }
     setSaving(true);
+    setError("");
     try {
-      await onSave(data.emp.id, data.fecha, motivo);
+      await onSave(data, {
+        empleadoId: data.emp.id,
+        fecha: data.fecha,
+        motivo,
+        entrada,
+        salida,
+        horariosCambiaron,
+        motivoCambio,
+      });
+    } catch (e) {
+      setError(e?.message || "No se pudo guardar la revisión.");
     } finally {
       setSaving(false);
     }
   }
 
   return (
-    <div onClick={onClose} style={{ position: "fixed", inset: 0, zIndex: 2200, background: "var(--overlay-strong)", display: "flex", alignItems: "center", justifyContent: "center" }}>
-      <div onClick={e => e.stopPropagation()} style={{ background: C.panelSolid, border: `1px solid ${C.b1}`, borderRadius: 14, padding: 20, width: "min(430px,94vw)" }}>
-        <div style={{ fontSize: 15, fontWeight: 700, color: C.t0, marginBottom: 6 }}>Falta justificada</div>
-        <div style={{ fontSize: 12, color: C.t2, marginBottom: 14 }}>{data.emp.nombre} · {fmtFecha(data.fecha)}</div>
-        <textarea
-          value={motivo}
-          onChange={e => setMotivo(e.target.value)}
-          placeholder="Motivo..."
-          autoFocus
-          style={{ ...INP, width: "100%", minHeight: 86, resize: "vertical", marginBottom: 12 }}
-        />
-        <div style={{ display: "flex", gap: 8 }}>
-          <button disabled={saving || !canSave} onClick={guardar} style={{ ...BTN_PRIMARY, flex: 1, opacity: saving || !canSave ? 0.55 : 1 }}>
-            {saving ? "Guardando..." : motivo.trim() ? "Guardar" : "Quitar justificación"}
-          </button>
-          <button onClick={onClose} style={BTN}>Cancelar</button>
+    <div onClick={onClose} style={{ position: "fixed", inset: 0, zIndex: 2200, background: "var(--overlay-strong)", display: "flex", alignItems: "center", justifyContent: "center", padding: 16 }}>
+      <div onClick={e => e.stopPropagation()} style={{ background: C.panelSolid, border: `1px solid ${C.b1}`, borderRadius: 14, width: "min(520px,96vw)", overflow: "hidden", boxShadow: "0 24px 70px rgba(0,0,0,.28)" }}>
+        <div style={{ minHeight: 62, padding: "14px 16px", display: "flex", alignItems: "center", gap: 11, borderBottom: `1px solid ${C.b0}` }}>
+          <EmpleadoAvatar emp={data.emp} size={38} justified={!data.marcacion && !!data.actual} />
+          <div style={{ minWidth: 0, flex: 1 }}>
+            <div style={{ fontSize: 15, fontWeight: 750, color: C.t0 }}>{data.marcacion ? "Revisar jornada" : "Justificar ausencia o cargar horario"}</div>
+            <div style={{ fontSize: 11, color: C.t2, marginTop: 3 }}>{data.emp.nombre} · {fmtFecha(data.fecha)}</div>
+          </div>
+          <button type="button" aria-label="Cerrar" title="Cerrar" onClick={onClose} style={{ ...BTN, padding: 6, display: "grid", placeItems: "center", background: "transparent" }}><X size={15} /></button>
+        </div>
+
+        <div style={{ padding: 16 }}>
+          {canEditTime && (
+            <>
+              <div style={{ fontSize: 10, fontWeight: 750, color: C.t2, textTransform: "uppercase", letterSpacing: ".08em", marginBottom: 8 }}>Horarios del día</div>
+              <div style={{ display: "grid", gridTemplateColumns: "repeat(2, minmax(0, 1fr))", gap: 10 }}>
+                <label style={{ display: "grid", gap: 6, fontSize: 11, color: C.t1 }}>
+                  Entrada
+                  <input type="time" value={entrada} onChange={e => setEntrada(e.target.value)} style={{ ...INP, width: "100%", fontFamily: C.mono, fontSize: 14 }} />
+                </label>
+                <label style={{ display: "grid", gap: 6, fontSize: 11, color: C.t1 }}>
+                  Salida
+                  <input type="time" value={salida} onChange={e => setSalida(e.target.value)} style={{ ...INP, width: "100%", fontFamily: C.mono, fontSize: 14 }} />
+                </label>
+              </div>
+
+              <div style={{ margin: "12px 0", padding: "9px 10px", display: "flex", alignItems: "flex-start", gap: 8, borderRadius: 8, color: C.t2, background: C.blueL, border: `1px solid ${C.blueB}`, fontSize: 10, lineHeight: 1.45 }}>
+                <Info size={14} color={C.blue} style={{ flexShrink: 0, marginTop: 1 }} />
+                El horario corregido queda identificado como edición manual y no se reemplaza al volver a importar el fichero.
+              </div>
+            </>
+          )}
+
+          <label style={{ display: "grid", gap: 6, fontSize: 11, color: C.t1 }}>
+            Justificación o aclaración
+            {!data.marcacion && (
+              <span style={{ display: "flex", gap: 6, flexWrap: "wrap", marginBottom: 2 }}>
+                {AUSENCIA_TIPOS.map(tipo => (
+                  <button key={tipo} type="button" style={{ ...BTN, padding: "4px 8px", fontSize: 10, color: motivo.startsWith(tipo) ? C.green : C.t2, borderColor: motivo.startsWith(tipo) ? C.greenB : C.b0, background: motivo.startsWith(tipo) ? C.greenL : "transparent" }} onClick={() => setMotivo(tipo)}>{tipo}</button>
+                ))}
+              </span>
+            )}
+            <textarea
+              value={motivo}
+              onChange={e => setMotivo(e.target.value)}
+              placeholder="Ej.: olvidó fichar al ingresar; horario confirmado por encargado."
+              style={{ ...INP, width: "100%", minHeight: 88, resize: "vertical" }}
+            />
+          </label>
+
+          {error && <div style={{ marginTop: 10, padding: "8px 10px", borderRadius: 7, color: C.red, background: C.redL, border: `1px solid ${C.redB}`, fontSize: 11 }}>{error}</div>}
+
+          <div style={{ display: "flex", justifyContent: "flex-end", gap: 8, marginTop: 14, paddingTop: 12, borderTop: `1px solid ${C.b0}` }}>
+            <button type="button" onClick={onClose} style={BTN}>Cancelar</button>
+            <button type="button" disabled={saving || !canSave} onClick={guardar} style={{ ...BTN_PRIMARY, minWidth: 132, display: "inline-flex", alignItems: "center", justifyContent: "center", gap: 7, opacity: saving || !canSave ? 0.55 : 1 }}>
+              <Save size={14} /> {saving ? "Guardando..." : "Guardar cambios"}
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function AusenciaPeriodoModal({ empleados, initialDate, onClose, onSave }) {
+  const [tipo, setTipo] = useState("Reposo");
+  const [desde, setDesde] = useState(initialDate);
+  const [hasta, setHasta] = useState(initialDate);
+  const [detalle, setDetalle] = useState("");
+  const [query, setQuery] = useState("");
+  const [selected, setSelected] = useState(() => new Set());
+  const [saving, setSaving] = useState(false);
+  const [error, setError] = useState("");
+
+  const visibles = useMemo(() => {
+    const term = query.trim().toLowerCase();
+    return (empleados ?? [])
+      .filter(emp => emp.activo !== false && emp.ficha !== false)
+      .filter(emp => !term || `${emp.nombre} ${emp.dni} ${emp.sede}`.toLowerCase().includes(term))
+      .sort((a, b) => safeText(a.nombre).localeCompare(safeText(b.nombre), "es"));
+  }, [empleados, query]);
+
+  function toggle(id) {
+    setSelected(prev => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      return next;
+    });
+  }
+
+  function seleccionarVisibles() {
+    setSelected(prev => {
+      const next = new Set(prev);
+      const allSelected = visibles.length > 0 && visibles.every(emp => next.has(emp.id));
+      for (const emp of visibles) {
+        if (allSelected) next.delete(emp.id);
+        else next.add(emp.id);
+      }
+      return next;
+    });
+  }
+
+  async function guardar() {
+    if (!selected.size) {
+      setError("Selecciona al menos una persona.");
+      return;
+    }
+    if (!desde || !hasta || hasta < desde) {
+      setError("Revisa las fechas del periodo.");
+      return;
+    }
+    setSaving(true);
+    setError("");
+    try {
+      await onSave({ empleadoIds: [...selected], desde, hasta, tipo, detalle });
+    } catch (e) {
+      setError(e?.message || "No se pudo guardar la ausencia.");
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  return (
+    <div onClick={onClose} style={{ position: "fixed", inset: 0, zIndex: 2250, background: "var(--overlay-strong)", display: "flex", alignItems: "center", justifyContent: "center", padding: 16 }}>
+      <div onClick={event => event.stopPropagation()} style={{ width: "min(620px, 96vw)", maxHeight: "90vh", display: "flex", flexDirection: "column", overflow: "hidden", background: C.panelSolid, border: `1px solid ${C.b1}`, borderRadius: 14, boxShadow: "0 24px 70px rgba(0,0,0,.28)" }}>
+        <div style={{ minHeight: 62, padding: "14px 16px", display: "flex", alignItems: "center", gap: 11, borderBottom: `1px solid ${C.b0}` }}>
+          <span style={{ width: 34, height: 34, display: "grid", placeItems: "center", borderRadius: 9, color: C.green, background: C.greenL, border: `1px solid ${C.greenB}` }}><CalendarOff size={17} /></span>
+          <div style={{ flex: 1 }}>
+            <div style={{ fontSize: 15, fontWeight: 750, color: C.t0 }}>Cargar ausencia justificada</div>
+            <div style={{ marginTop: 3, color: C.t2, fontSize: 11 }}>Aplica reposo, vacaciones o licencia a una o varias personas.</div>
+          </div>
+          <button type="button" aria-label="Cerrar" onClick={onClose} style={{ ...BTN, padding: 6, display: "grid", placeItems: "center", background: "transparent" }}><X size={15} /></button>
+        </div>
+
+        <div style={{ padding: 16, overflowY: "auto" }}>
+          <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(140px, 1fr))", gap: 9 }}>
+            <label style={{ display: "grid", gap: 6, color: C.t1, fontSize: 11 }}>Tipo
+              <select value={tipo} onChange={event => setTipo(event.target.value)} style={{ ...INP, width: "100%" }}>{AUSENCIA_TIPOS.map(value => <option key={value}>{value}</option>)}</select>
+            </label>
+            <label style={{ display: "grid", gap: 6, color: C.t1, fontSize: 11 }}>Desde
+              <input type="date" value={desde} onChange={event => setDesde(event.target.value)} style={{ ...INP, width: "100%" }} />
+            </label>
+            <label style={{ display: "grid", gap: 6, color: C.t1, fontSize: 11 }}>Hasta
+              <input type="date" value={hasta} onChange={event => setHasta(event.target.value)} style={{ ...INP, width: "100%" }} />
+            </label>
+          </div>
+
+          <label style={{ display: "grid", gap: 6, marginTop: 10, color: C.t1, fontSize: 11 }}>Detalle opcional
+            <input value={detalle} onChange={event => setDetalle(event.target.value)} placeholder="Ej.: certificado médico entregado" style={{ ...INP, width: "100%" }} />
+          </label>
+
+          <div style={{ marginTop: 14, paddingTop: 12, borderTop: `1px solid ${C.b0}` }}>
+            <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 10, marginBottom: 8 }}>
+              <div>
+                <div style={{ color: C.t0, fontSize: 12, fontWeight: 700 }}>Personas</div>
+                <div style={{ color: C.t2, fontSize: 10, marginTop: 2 }}>{selected.size} seleccionadas</div>
+              </div>
+              <button type="button" onClick={seleccionarVisibles} style={{ ...BTN, padding: "5px 8px", fontSize: 10 }}>Seleccionar visibles</button>
+            </div>
+            <div className="presentismo-search" style={{ marginBottom: 8 }}><Search size={15} /><input value={query} onChange={event => setQuery(event.target.value)} placeholder="Buscar nombre o DNI" style={INP} /></div>
+            <div style={{ maxHeight: 250, overflowY: "auto", border: `1px solid ${C.b0}`, borderRadius: 9 }}>
+              {visibles.map(emp => (
+                <label key={emp.id} style={{ minHeight: 42, padding: "7px 10px", display: "flex", alignItems: "center", gap: 9, cursor: "pointer", borderBottom: `1px solid ${C.b0}`, background: selected.has(emp.id) ? C.greenL : "transparent" }}>
+                  <input type="checkbox" checked={selected.has(emp.id)} onChange={() => toggle(emp.id)} />
+                  <EmpleadoAvatar emp={emp} size={30} />
+                  <span style={{ minWidth: 0, flex: 1 }}><span style={{ display: "block", color: C.t0, fontSize: 11, fontWeight: 650 }}>{emp.nombre}</span><span style={{ display: "block", color: C.t2, fontSize: 9, marginTop: 2 }}>{emp.dni} · {emp.sede || "Sin sede"}</span></span>
+                </label>
+              ))}
+              {!visibles.length && <div style={{ padding: 24, textAlign: "center", color: C.t2, fontSize: 11 }}>No hay personas para esta búsqueda.</div>}
+            </div>
+          </div>
+
+          {error && <div style={{ marginTop: 10, padding: "8px 10px", borderRadius: 7, color: C.red, background: C.redL, border: `1px solid ${C.redB}`, fontSize: 11 }}>{error}</div>}
+        </div>
+
+        <div style={{ padding: "12px 16px", display: "flex", justifyContent: "flex-end", gap: 8, borderTop: `1px solid ${C.b0}` }}>
+          <button type="button" onClick={onClose} style={BTN}>Cancelar</button>
+          <button type="button" disabled={saving || !selected.size} onClick={guardar} style={{ ...BTN_PRIMARY, minWidth: 140, display: "inline-flex", alignItems: "center", justifyContent: "center", gap: 7, opacity: saving || !selected.size ? .55 : 1 }}><Save size={14} /> {saving ? "Guardando..." : "Guardar ausencia"}</button>
         </div>
       </div>
     </div>

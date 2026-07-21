@@ -14,7 +14,7 @@ export const BTN = {
 
 export const BTN_PRIMARY = {
   ...BTN,
-  background: "rgba(59,130,246,0.12)", border: "1px solid rgba(59,130,246,0.3)", color: "#60a5fa",
+  background: C.blueL, border: `1px solid ${C.blueB}`, color: C.blue,
 };
 
 export const BTN_GREEN = {
@@ -27,10 +27,12 @@ export const LBL = {
   marginBottom: 4, textTransform: "uppercase", fontWeight: 700,
 };
 
+// Colores por tokens de tema (adaptan a claro/oscuro). Antes eran hex del modo
+// oscuro hardcodeados y en claro se veían lavados (sobre todo el amarillo).
 export const GRUPO_META = {
-  casa:        { label: "Casa",        color: "#60a5fa" },
-  contratista: { label: "Contratista", color: "#fbbf24" },
-  sin_asignar: { label: "Sin asignar", color: "#f87171" },
+  casa:        { label: "Casa",        color: C.blue,  bg: C.blueL,  border: C.blueB },
+  contratista: { label: "Contratista", color: C.amber, bg: C.amberL, border: C.amberB },
+  sin_asignar: { label: "Sin asignar", color: C.red,   bg: C.redL,   border: C.redB },
 };
 
 export function GrupoBadge({ grupo, contratistaNombre }) {
@@ -38,19 +40,30 @@ export function GrupoBadge({ grupo, contratistaNombre }) {
   const label = grupo === "contratista" && contratistaNombre ? contratistaNombre : meta.label;
   return (
     <span style={{
-      fontSize: 11, color: meta.color, background: `${meta.color}14`,
-      border: `1px solid ${meta.color}33`, padding: "2px 8px", borderRadius: 5,
+      display: "inline-flex", alignItems: "center", gap: 5,
+      fontSize: 11, fontWeight: 600, color: meta.color, background: meta.bg,
+      border: `1px solid ${meta.border}`, padding: "2px 8px 2px 6px", borderRadius: 999,
       fontFamily: C.sans, whiteSpace: "nowrap",
-    }}>{label}</span>
+    }}>
+      <span style={{ width: 5, height: 5, borderRadius: "50%", background: meta.color, flexShrink: 0 }} />
+      {label}
+    </span>
   );
 }
 
-export function KpiCard({ label, value, sub, color }) {
+export function KpiCard({ icon: Icon, label, value, sub, color }) {
+  const accent = color ?? C.t2;
   return (
-    <div style={{ background: C.s0, border: `1px solid ${C.b0}`, borderRadius: 12, padding: "14px 18px", minWidth: 130, flex: "1 1 130px" }}>
-      <div style={{ fontSize: 10, letterSpacing: 1.3, textTransform: "uppercase", color: C.t2, fontWeight: 700, marginBottom: 6 }}>{label}</div>
-      <div style={{ fontFamily: C.mono, fontSize: 24, fontWeight: 700, color: color ?? C.t0, lineHeight: 1 }}>{value}</div>
-      {sub && <div style={{ fontSize: 11, color: C.t2, marginTop: 5 }}>{sub}</div>}
+    <div style={{ position: "relative", background: C.panelSolid, border: `1px solid ${C.b0}`, borderRadius: 10, padding: "11px 13px", minWidth: 110, overflow: "hidden" }}>
+      <span style={{ position: "absolute", left: 0, top: 10, bottom: 10, width: 2, borderRadius: 2, background: accent, opacity: 0.9 }} />
+      <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 8 }}>
+        <div style={{ fontSize: 9, letterSpacing: 1.05, textTransform: "uppercase", color: C.t2, fontWeight: 750 }}>{label}</div>
+        {Icon && <Icon size={13} color={accent} strokeWidth={1.9} />}
+      </div>
+      <div style={{ display: "flex", alignItems: "baseline", gap: 7, marginTop: 5 }}>
+        <div style={{ fontFamily: C.mono, fontSize: 20, fontWeight: 750, color: color ?? C.t0, lineHeight: 1, fontVariantNumeric: "tabular-nums" }}>{value}</div>
+        {sub && <div style={{ fontSize: 9, color: C.t2, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{sub}</div>}
+      </div>
     </div>
   );
 }

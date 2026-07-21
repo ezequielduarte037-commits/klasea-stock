@@ -105,13 +105,34 @@ export async function fetchMarcaciones(desde, hasta) {
 }
 
 export async function fetchJustificaciones(desde, hasta) {
-  const { data, error } = await supabase
+  const { data: legacy, error } = await supabase
     .from("rrhh_justificaciones")
     .select("empleado_id, fecha, motivo")
     .gte("fecha", desde)
     .lte("fecha", hasta);
   if (error) throw error;
-  return data ?? [];
+
+  const periodos = await supabase
+    .from("rrhh_ausencias")
+    .select("id, empleado_id, tipo, desde, hasta, detalle, estado, created_by, created_at")
+    .eq("estado", "activo")
+    .lte("desde", hasta)
+    .gte("hasta", desde);
+
+  // Compatibilidad mientras se aplica la migracion: las justificaciones
+  // historicas siguen funcionando aunque la tabla nueva aun no exista.
+  if (periodos.error) {
+    if (isMissingTable(periodos.error)) return legacy ?? [];
+    throw periodos.error;
+  }
+
+  const merged = new Map();
+  for (const row of expandirAusencias(periodos.data, desde, hasta)) {
+    merged.set(`${row.empleado_id}:${row.fecha}`, row);
+  }
+  // Una justificacion puntual tiene prioridad sobre un periodo general.
+  for (const row of legacy ?? []) merged.set(`${row.empleado_id}:${row.fecha}`, row);
+  return [...merged.values()];
 }
 
 export async function fetchConfig() {
@@ -175,6 +196,123 @@ export async function guardarJustificacion(empleadoId, fecha, motivo) {
     .from("rrhh_justificaciones")
     .insert(payload)
     .select("empleado_id, fecha, motivo")
+    .single();
+  if (error) throw error;
+  return data;
+}
+
+async function requireAttendanceManager() {
+  const { data: authData, error: authError } = await supabase.auth.getUser();
+  if (authError) throw authError;
+  if (!authData?.user?.id) throw new Error("No se pudo identificar al usuario.");
+
+  const { data: profile, error: profileError } = await supabase
+    .from("profiles")
+    .select("role, is_admin")
+    .eq("id", authData.user.id)
+    .maybeSingle();
+  if (profileError) throw profileError;
+  if (!profile?.is_admin && !["admin", "rrhh"].includes(profile?.role)) {
+    throw new Error("Solo RRHH o un administrador pueden modificar el presentismo.");
+  }
+  return authData.user.id;
+}
+
+export async function guardarAusenciasProgramadas({ empleadoIds, desde, hasta, tipo, detalle }) {
+  const ids = [...new Set((empleadoIds ?? []).filter(Boolean))];
+  if (!ids.length) throw new Error("Selecciona al menos una persona.");
+  if (!desde || !hasta || hasta < desde) throw new Error("El periodo seleccionado no es valido.");
+  await requireAttendanceManager();
+
+  const { data, error } = await supabase.rpc("rrhh_crear_ausencias", {
+    p_empleado_ids: ids,
+    p_desde: desde,
+    p_hasta: hasta,
+    p_tipo: tipo,
+    p_detalle: String(detalle ?? "").trim() || null,
+  });
+  if (error) {
+    const msg = String(error.message ?? "").toLowerCase();
+    if (error.code === "PGRST202" || msg.includes("rrhh_crear_ausencias")) {
+      throw new Error("Falta aplicar la migracion de periodos de ausencia en Supabase.");
+    }
+    throw error;
+  }
+  return expandirAusencias(data, desde, hasta);
+}
+
+const AUSENCIA_LABELS = {
+  reposo: "Reposo",
+  vacaciones: "Vacaciones",
+  licencia: "Licencia",
+  tramite: "Tramite",
+  otro: "Ausencia justificada",
+};
+
+function expandirAusencias(periodos, desdeFiltro, hastaFiltro) {
+  const rows = [];
+  for (const periodo of periodos ?? []) {
+    const desde = periodo.desde > desdeFiltro ? periodo.desde : desdeFiltro;
+    const hasta = periodo.hasta < hastaFiltro ? periodo.hasta : hastaFiltro;
+    const label = AUSENCIA_LABELS[periodo.tipo] ?? AUSENCIA_LABELS.otro;
+    const detalle = String(periodo.detalle ?? "").trim();
+    const motivo = detalle ? `${label}: ${detalle}` : label;
+    for (let fecha = desde; fecha <= hasta; fecha = addDays(fecha, 1)) {
+      rows.push({
+        empleado_id: periodo.empleado_id,
+        fecha,
+        motivo,
+        origen: "periodo",
+        ausencia_id: periodo.id,
+        ausencia_tipo: periodo.tipo,
+        ausencia_desde: periodo.desde,
+        ausencia_hasta: periodo.hasta,
+        created_by: periodo.created_by ?? null,
+        created_at: periodo.created_at ?? null,
+      });
+    }
+  }
+  return rows;
+}
+
+export async function guardarCorreccionMarcacion({ id, empleadoId, fecha, entrada, salida, sede }) {
+  if (!empleadoId || !fecha) throw new Error("Falta empleado o fecha.");
+
+  const normalizarHora = (value) => {
+    const clean = String(value ?? "").trim();
+    if (!clean) return null;
+    const normalized = hhmm(clean);
+    if (!normalized) throw new Error(`Horario invalido: ${clean}`);
+    return normalized;
+  };
+
+  const editorId = await requireAttendanceManager();
+
+  const payload = {
+    empleado_id: empleadoId,
+    fecha,
+    entrada: normalizarHora(entrada),
+    salida: normalizarHora(salida),
+    editado_por: editorId,
+    ...(sede ? { sede } : {}),
+  };
+  const select = "id, empleado_id, fecha, entrada, salida, fichadas, editado_por, sede";
+
+  if (id) {
+    const { data, error } = await supabase
+      .from("rrhh_marcaciones")
+      .update(payload)
+      .eq("id", id)
+      .select(select)
+      .single();
+    if (error) throw error;
+    return data;
+  }
+
+  const { data, error } = await supabase
+    .from("rrhh_marcaciones")
+    .upsert({ ...payload, fichadas: [] }, { onConflict: "empleado_id,fecha" })
+    .select(select)
     .single();
   if (error) throw error;
   return data;

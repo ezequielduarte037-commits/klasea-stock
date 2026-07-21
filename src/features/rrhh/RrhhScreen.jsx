@@ -1,9 +1,9 @@
 // Módulo RRHH — presentismo del astillero a partir del fichero Hikvision.
 // Pestañas: Presentismo · Horas extras · Empleados · Importar · Dashboard.
 import { useCallback, useEffect, useState } from "react";
+import { BarChart3, CalendarCheck2, Clock3, Upload, UsersRound } from "lucide-react";
 import Sidebar from "@/components/Sidebar";
 import { useResponsive } from "@/hooks/useResponsive";
-import { hasAdminAccess } from "@/lib/permissions";
 import { C } from "@/theme";
 import { fetchConfig, fetchContratistas, fetchEmpleados, isMissingTable } from "./api";
 import DashboardTab from "./DashboardTab";
@@ -14,11 +14,11 @@ import PresentismoTab from "./PresentismoTab";
 import { Cargando, ErrorBox, SetupPendiente } from "./ui";
 
 const TABS = [
-  { key: "presentismo", label: "Presentismo" },
-  { key: "extras",      label: "Horas extras" },
-  { key: "empleados",   label: "Empleados" },
-  { key: "importar",    label: "Importar" },
-  { key: "dashboard",   label: "Dashboard" },
+  { key: "presentismo", label: "Presentismo", icon: CalendarCheck2 },
+  { key: "extras",      label: "Horas extras", icon: Clock3 },
+  { key: "empleados",   label: "Empleados", icon: UsersRound },
+  { key: "importar",    label: "Importar", icon: Upload },
+  { key: "dashboard",   label: "Dashboard", icon: BarChart3 },
 ];
 
 export default function RrhhScreen({ profile, signOut }) {
@@ -56,17 +56,24 @@ export default function RrhhScreen({ profile, signOut }) {
         ::-webkit-scrollbar-thumb { background: var(--panel-2); border-radius: 99px; }
         input:focus, select:focus { border-color: rgba(59,130,246,0.35) !important; }
         select option { background: var(--panel-solid); color: var(--muted); }
+        .rrhh-tab:hover { background: var(--panel-2) !important; color: var(--text) !important; }
+        .rrhh-tab:focus-visible { outline: 2px solid var(--blue); outline-offset: 2px; }
       `}</style>
 
       <Sidebar profile={profile} signOut={signOut} />
 
       <div style={{ flex: 1, height: "100%", overflowY: "auto", minWidth: 0 }}>
-        <div style={{ padding: isMobile ? "16px 14px 50px 14px" : "26px 30px 60px" }}>
+        <div style={{ width: "100%", maxWidth: 1760, margin: "0 auto", padding: isMobile ? "14px 12px 50px 12px" : "20px 24px 60px" }}>
           {/* Header */}
-          <div style={{ marginBottom: 18, paddingLeft: isMobile ? 40 : 0 }}>
-            <div style={{ fontSize: 22, fontWeight: 700, color: C.t0 }}>RRHH · Presentismo</div>
-            <div style={{ fontSize: 12, color: C.t2, marginTop: 4 }}>
-              Asistencia, horas y grupos a partir del fichero Hikvision
+          <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 16, marginBottom: 14, paddingLeft: isMobile ? 38 : 0 }}>
+            <div style={{ display: "flex", alignItems: "center", gap: 11, minWidth: 0 }}>
+              <div style={{ width: 36, height: 36, borderRadius: 9, display: "grid", placeItems: "center", color: C.blue, background: C.blueL, border: `1px solid ${C.blueB}`, flexShrink: 0 }}>
+                <CalendarCheck2 size={18} strokeWidth={1.8} />
+              </div>
+              <div style={{ minWidth: 0 }}>
+                <div style={{ fontSize: isMobile ? 18 : 21, fontWeight: 750, color: C.t0, lineHeight: 1.1 }}>Recursos humanos</div>
+                <div style={{ fontSize: 11, color: C.t2, marginTop: 4 }}>Asistencia y control horario</div>
+              </div>
             </div>
           </div>
 
@@ -79,20 +86,22 @@ export default function RrhhScreen({ profile, signOut }) {
           ) : (
             <>
               {/* Tabs */}
-              <div style={{ display: "flex", gap: 4, marginBottom: 20, flexWrap: "wrap", borderBottom: `1px solid ${C.b0}`, paddingBottom: 0 }}>
+              <div style={{ display: "flex", gap: 3, marginBottom: 16, padding: 4, width: "fit-content", maxWidth: "100%", overflowX: "auto", background: C.s0, border: `1px solid ${C.b0}`, borderRadius: 10 }}>
                 {TABS.filter(t => esAdmin || ["presentismo", "extras", "dashboard"].includes(t.key)).map(t => {
                   const on = tab === t.key;
+                  const Icon = t.icon;
                   return (
-                    <button key={t.key} onClick={() => setTab(t.key)} style={{
-                      padding: "9px 16px", cursor: "pointer", fontSize: 13, fontFamily: C.sans,
+                    <button className="rrhh-tab" key={t.key} onClick={() => setTab(t.key)} style={{
+                      display: "inline-flex", alignItems: "center", gap: 7, padding: "7px 11px", cursor: "pointer", fontSize: 12, fontFamily: C.sans,
                       fontWeight: on ? 700 : 500, color: on ? C.t0 : C.t2,
-                      background: "transparent", border: "none",
-                      borderBottom: `2px solid ${on ? "#60a5fa" : "transparent"}`,
-                      marginBottom: -1, transition: "all .15s",
+                      background: on ? C.panelSolid : "transparent", border: `1px solid ${on ? C.b1 : "transparent"}`,
+                      borderRadius: 7, boxShadow: on ? "0 1px 3px rgba(0,0,0,.08)" : "none",
+                      transition: "background .16s ease, color .16s ease, border-color .16s ease", whiteSpace: "nowrap",
                     }}>
+                      <Icon size={14} strokeWidth={1.8} />
                       {t.label}
                       {t.key === "empleados" && empleados.some(e => e.grupo === "sin_asignar" && e.activo !== false) && (
-                        <span style={{ marginLeft: 6, fontSize: 10, color: "#f87171" }}>●</span>
+                        <span style={{ width: 6, height: 6, borderRadius: "50%", background: C.red }} />
                       )}
                     </button>
                   );

@@ -27,6 +27,31 @@ const corsHeaders = {
 };
 
 const MAX_HISTORY = 16; // últimos 16 turnos (8 user + 8 assistant)
+let warnedMissingAppSecret = false;
+
+function constantTimeEqual(left: string, right: string): boolean {
+  if (left.length !== right.length) return false;
+  let mismatch = 0;
+  for (let i = 0; i < left.length; i += 1) {
+    mismatch |= left.charCodeAt(i) ^ right.charCodeAt(i);
+  }
+  return mismatch === 0;
+}
+
+async function hasValidMetaSignature(rawBody: string, signature: string, appSecret: string): Promise<boolean> {
+  const supplied = signature.replace(/^sha256=/i, "").trim().toLowerCase();
+  if (!/^[a-f0-9]{64}$/.test(supplied)) return false;
+  const key = await crypto.subtle.importKey(
+    "raw",
+    new TextEncoder().encode(appSecret),
+    { name: "HMAC", hash: "SHA-256" },
+    false,
+    ["sign"],
+  );
+  const digest = await crypto.subtle.sign("HMAC", key, new TextEncoder().encode(rawBody));
+  const expected = [...new Uint8Array(digest)].map((byte) => byte.toString(16).padStart(2, "0")).join("");
+  return constantTimeEqual(expected, supplied);
+}
 
 function supa(): SupabaseClient {
   return createClient(
@@ -54,8 +79,30 @@ serve(async (req) => {
 
   if (req.method !== "POST") return new Response("Method not allowed", { status: 405 });
 
+  const rawBody = await req.text();
+  const appSecret = String(Deno.env.get("WHATSAPP_APP_SECRET") || "").trim();
+  if (appSecret) {
+    const signature = req.headers.get("X-Hub-Signature-256") || "";
+    if (!(await hasValidMetaSignature(rawBody, signature, appSecret))) {
+      console.warn("[wa-webhook] firma de Meta ausente o invalida");
+      return new Response("Invalid signature", { status: 401 });
+    }
+  } else if (!warnedMissingAppSecret) {
+    warnedMissingAppSecret = true;
+    console.warn("[wa-webhook] WHATSAPP_APP_SECRET no configurado; firma de Meta aun no exigida");
+  }
+
   let body: any;
-  try { body = await req.json(); } catch { return new Response("Invalid JSON", { status: 400 }); }
+  try { body = JSON.parse(rawBody); } catch { return new Response("Invalid JSON", { status: 400 }); }
+  if (body?.object !== "whatsapp_business_account") {
+    return new Response("Invalid webhook object", { status: 400 });
+  }
+  const expectedPhoneId = String(Deno.env.get("WHATSAPP_PHONE_NUMBER_ID") || "").trim();
+  const receivedPhoneId = String(body?.entry?.[0]?.changes?.[0]?.value?.metadata?.phone_number_id || "").trim();
+  if (expectedPhoneId && receivedPhoneId !== expectedPhoneId) {
+    console.warn("[wa-webhook] phone_number_id no coincide con la cuenta configurada");
+    return new Response("Invalid destination", { status: 403 });
+  }
 
   const processing = handleEvent(body).catch((err) => {
     console.error("[wa-webhook] error procesando evento:", err);
@@ -431,8 +478,8 @@ async function handleConversationTurn(
 
   const newHistory: HistoryTurn[] = [
     ...history,
-    { role: "user", content: userText || "(media)" },
-    { role: "assistant", content: resp.message },
+    { role: "user" as const, content: userText || "(media)" },
+    { role: "assistant" as const, content: resp.message },
   ].slice(-MAX_HISTORY);
 
   if (resp.kind === "question") {
@@ -485,8 +532,8 @@ async function handleConfirmation(
   if (incomingImages.added > 0 && !t) {
     const newHistory: HistoryTurn[] = [
       ...history,
-      { role: "user", content: "[imagen adjunta]" },
-      { role: "assistant", content: "Listo, adjunté la foto al pedido pendiente." },
+      { role: "user" as const, content: "[imagen adjunta]" },
+      { role: "assistant" as const, content: "Listo, adjunté la foto al pedido pendiente." },
     ].slice(-MAX_HISTORY);
     await db.from("bot_conversations").upsert({
       phone: from,

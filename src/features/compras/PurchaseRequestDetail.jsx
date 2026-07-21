@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from "react";
+import DOMPurify from "dompurify";
 import {
   Archive,
   ArrowLeft,
@@ -454,6 +455,10 @@ export default function PurchaseRequestDetail({ requestId, profile, users = [], 
       .trim();
     return text.length > 520 || (text.match(/\n/g) || []).length > 9;
   }, [request?.description]);
+  const safeDescriptionHtml = useMemo(
+    () => DOMPurify.sanitize(String(request?.description ?? ""), { USE_PROFILES: { html: true } }),
+    [request?.description],
+  );
 
   useEffect(() => {
     setDescriptionOpen(false);
@@ -1643,7 +1648,7 @@ export default function PurchaseRequestDetail({ requestId, profile, users = [], 
               }}>
                 {request.description ? (
                   /<[a-z!/][\s\S]*>/i.test(request.description) ? (
-                    <div dangerouslySetInnerHTML={{ __html: request.description }} />
+                    <div dangerouslySetInnerHTML={{ __html: safeDescriptionHtml }} />
                   ) : (
                     <div style={{ whiteSpace: "pre-wrap" }}>{request.description}</div>
                   )
