@@ -112,7 +112,7 @@ export default function RrhhScreen({ profile, signOut }) {
               {tab === "extras" && <ExtrasTab empleados={empleados} contratistas={contratistas} config={config} onConfigChange={cargar} esAdmin={esAdmin} />}
               {tab === "empleados" && <EmpleadosTab empleados={empleados} contratistas={contratistas} onChanged={cargar} esAdmin={esAdmin} />}
               {tab === "importar" && <ImportarTab empleados={empleados} onImported={cargar} />}
-              {tab === "dashboard" && <DashboardTab empleados={empleados} config={config} />}
+              {tab === "dashboard" && <DashboardTab empleados={empleados} config={config} onNavigate={setTab} />}
             </>
           )}
         </div>
