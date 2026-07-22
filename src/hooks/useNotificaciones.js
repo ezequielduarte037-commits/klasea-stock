@@ -131,7 +131,7 @@ export default function useNotificaciones(profile) {
     loading: loadingAlertas,
     resolverAlerta,
     recargar: recargarAlertas,
-  } = useAlertas();
+  } = useAlertas(null, { enabled: canProduccion(profile) });
 
   useEffect(() => {
     setLeidas(readLeidas(profile));

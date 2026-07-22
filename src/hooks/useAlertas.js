@@ -1,7 +1,7 @@
 import { useEffect, useState, useMemo } from "react";
 import { supabase } from "@/supabaseClient";
 
-export default function useAlertas(obraId = null) {
+export default function useAlertas(obraId = null, { enabled = true } = {}) {
   const [alertas,   setAlertas]   = useState([]);
   const [promedios, setPromedios] = useState([]);
   const [gaps,      setGaps]      = useState([]);
@@ -46,6 +46,15 @@ export default function useAlertas(obraId = null) {
   }
 
   useEffect(() => {
+    if (!enabled) {
+      setAlertas([]);
+      setPromedios([]);
+      setGaps([]);
+      setConfig({});
+      setLoading(false);
+      return undefined;
+    }
+
     cargar();
 
     // Disparar evaluación en servidor
@@ -66,7 +75,7 @@ export default function useAlertas(obraId = null) {
       supabase.removeChannel(ch);
       clearInterval(interval);
     };
-  }, [obraId]);
+  }, [obraId, enabled]);
 
   // Mapa proceso_id -> promedio
   const promediosPorProceso = useMemo(() => {

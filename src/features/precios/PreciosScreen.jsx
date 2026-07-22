@@ -43,6 +43,17 @@ import {
 import ProveedorTipoBadge from "@/features/materiales/ProveedorTipoBadge";
 import { proveedorMeta } from "@/features/materiales/proveedorMeta";
 
+/* ── Superficies ───────────────────────────────────────────────────────────
+   Regla del sistema: el FONDO de la página es gris y las cards son SÓLIDAS
+   (blancas en claro). Antes todo usaba C.panel (gris translúcido) sobre gris,
+   con items grises adentro → tres niveles de gris apilados y sensación de barro.
+   Ahora: página gris → panel sólido → filas transparentes separadas por hairline. */
+const surface = {
+  background: C.panelSolid,
+  border: `1px solid ${C.b0}`,
+  borderRadius: 12,
+  boxShadow: "0 1px 2px var(--shadow)",
+};
 const money = (value, currency = "ARS") => {
   // Ojo: Number(null) y Number("") dan 0, no NaN. Sin este chequeo previo, un
   // material sin precio se mostraba como "US$ 0" (parecía costar cero).
@@ -232,15 +243,15 @@ function ProviderCard({ provider, info, selected, onClick, providers }) {
         cursor: "pointer",
         fontFamily: C.sans,
         color: C.t0,
-        border: `1px solid ${selected ? C.blueB : hover ? C.b1 : C.b0}`,
-        borderRadius: 12,
-        padding: "12px",
-        background: selected ? C.blueL : hover ? C.panel2 : C.panel,
-        transition: "all .16s ease",
-        transform: hover && !selected ? "translateY(-1px)" : "none",
-        boxShadow: selected
-          ? "0 6px 20px color-mix(in srgb, var(--blue) 13%, transparent)"
-          : "none",
+        // Fila, no caja: sin borde propio ni fondo gris. El estado se comunica
+        // con una barra de acento a la izquierda y un tinte suave.
+        border: "none",
+        borderLeft: `3px solid ${selected ? C.blue : "transparent"}`,
+        borderBottom: `1px solid ${C.b0}`,
+        borderRadius: 0,
+        padding: "12px 12px 12px 13px",
+        background: selected ? C.blueL : hover ? C.panel : "transparent",
+        transition: "background .14s ease, border-color .14s ease",
       }}
     >
       <div
@@ -321,11 +332,14 @@ function MaterialItem({ material, provider, selected, onClick }) {
         cursor: "pointer",
         fontFamily: C.sans,
         color: C.t0,
-        border: `1px solid ${selected ? C.blueB : hover ? C.b1 : C.b0}`,
-        borderRadius: 12,
-        padding: "10px 11px",
-        background: selected ? C.blueL : hover ? C.panel2 : C.panel,
-        transition: "all .16s ease",
+        // Igual que ProviderCard: fila con acento, no caja gris suelta.
+        border: "none",
+        borderLeft: `3px solid ${selected ? C.blue : "transparent"}`,
+        borderBottom: `1px solid ${C.b0}`,
+        borderRadius: 0,
+        padding: "11px 12px 11px 12px",
+        background: selected ? C.blueL : hover ? C.panel : "transparent",
+        transition: "background .14s ease, border-color .14s ease",
       }}
     >
       <div
@@ -431,10 +445,16 @@ function QuoteEditor({ material, provider, providers, onSaved, toast }) {
     try {
       const supplier = await ensureProvider();
       if (mode === "link") {
-        await asociarProveedorMaterial(material, supplier);
-        toast.success(
-          `${supplier.nombre} quedó asociado a ${material.descripcion}.`,
-        );
+        // asociarProveedorMaterial no hace nada si ya es el proveedor principal:
+        // avisamos con precisión en vez de mostrar un "guardado" que no ocurrió.
+        if (material.proveedor_id === supplier.id) {
+          toast.info(`${supplier.nombre} ya es el proveedor vigente.`);
+        } else {
+          await asociarProveedorMaterial(material, supplier);
+          toast.success(
+            `${supplier.nombre} quedó asociado a ${material.descripcion}.`,
+          );
+        }
       } else {
         const numeric = asNumber(price);
         if (numeric == null || numeric < 0)
@@ -452,11 +472,28 @@ function QuoteEditor({ material, provider, providers, onSaved, toast }) {
           });
           toast.success(`Precio guardado para la variante ${variant}.`);
         } else {
-          await registrarOfertaMaterial(material, supplier, {
-            precio: numeric,
-            moneda: currency,
-          });
-          toast.success(`Cotización guardada con ${supplier.nombre}.`);
+          // Multi-proveedor: cotizar un proveedor distinto del principal NO debe
+          // robarle el puesto (si lo hacía, el material se iba de la lista del
+          // proveedor en el que estabas parado y parecía que no se guardaba).
+          //   - Sin principal, o es el mismo → pasa a ser el precio vigente.
+          //   - Otro proveedor → se guarda como oferta alternativa, sin tocar el vigente.
+          const esPrincipal =
+            !material.proveedor_id || material.proveedor_id === supplier.id;
+          if (esPrincipal) {
+            await registrarOfertaMaterial(material, supplier, {
+              precio: numeric,
+              moneda: currency,
+            });
+            toast.success(`Precio vigente actualizado con ${supplier.nombre}.`);
+          } else {
+            await asociarProveedorMaterial(material, supplier, {
+              precio: numeric,
+              moneda: currency,
+            });
+            toast.success(
+              `Cotización de ${supplier.nombre} guardada como alternativa.`,
+            );
+          }
         }
       }
       await onSaved?.();
@@ -944,14 +981,16 @@ function ReceiptQueueCard({ receipt, selected, onSelect }) {
         cursor: "pointer",
         color: C.t0,
         fontFamily: C.sans,
-        border: `1px solid ${selected ? C.violet : hover ? C.b1 : C.b0}`,
-        background: selected ? C.violet + "14" : hover ? C.panel2 : C.panel,
-        borderRadius: 12,
+        // Fila con acento, coherente con las otras listas de la pantalla.
+        border: "none",
+        borderLeft: `3px solid ${selected ? C.violet : "transparent"}`,
+        borderBottom: `1px solid ${C.b0}`,
+        background: selected
+          ? "color-mix(in srgb, var(--violet) 10%, transparent)"
+          : hover ? C.panel : "transparent",
+        borderRadius: 0,
         padding: "11px 12px",
-        transition: "all .16s ease",
-        boxShadow: selected
-          ? "0 7px 18px color-mix(in srgb, var(--violet) 12%, transparent)"
-          : "none",
+        transition: "background .14s ease, border-color .14s ease",
       }}
     >
       <div
@@ -1438,10 +1477,8 @@ function ReceiptReviewWorkspace({
     >
       <aside
         style={{
-          border: `1px solid ${C.b0}`,
-          borderRadius: 12,
+          ...surface,
           padding: 10,
-          background: C.panel,
           position: isMobile ? "static" : "sticky",
           top: 12,
         }}
@@ -1498,10 +1535,8 @@ function ReceiptReviewWorkspace({
 
       <section
         style={{
+          ...surface,
           minWidth: 0,
-          border: `1px solid ${C.b0}`,
-          borderRadius: 12,
-          background: C.panel,
           overflow: "hidden",
         }}
       >
@@ -1718,6 +1753,8 @@ export default function PreciosScreen({ profile, signOut }) {
   const [query, setQuery] = useState("");
   const [filter, setFilter] = useState("todos");
   const [selectedProviderId, setSelectedProviderId] = useState(null);
+  // Al entrar a un proveedor se oculta la bandeja para trabajar enfocado en él.
+  const [focusProvider, setFocusProvider] = useState(false);
   const [selectedMaterialId, setSelectedMaterialId] = useState(null);
   const [showFilters, setShowFilters] = useState(false);
   const [categoryId, setCategoryId] = useState("");
@@ -2040,6 +2077,10 @@ export default function PreciosScreen({ profile, signOut }) {
 
   const currentRows =
     view === "sin-asignar" ? unassigned : selectedProviderMaterials;
+  // La bandeja de proveedores se esconde al enfocar uno (y en la vista sin-asignar
+  // no aplica). Así el material y su detalle ganan todo el ancho.
+  const mostrarBandeja =
+    view === "proveedores" && !(focusProvider && selectedProvider);
   return (
     <div
       style={{
@@ -2151,14 +2192,10 @@ export default function PreciosScreen({ profile, signOut }) {
           </div>
           <div
             style={{
+              ...surface,
               display: "flex",
               overflowX: "auto",
               marginTop: 17,
-              border: `1px solid ${C.b0}`,
-              background:
-                "color-mix(in srgb, var(--panel-solid) 90%, transparent)",
-              borderRadius: 12,
-              backdropFilter: "blur(10px)",
             }}
           >
             <Metric
@@ -2235,7 +2272,10 @@ export default function PreciosScreen({ profile, signOut }) {
             <button
               type="button"
               key={item.id}
-              onClick={() => setView(item.id)}
+              onClick={() => {
+                setView(item.id);
+                setFocusProvider(false); // al cambiar de pestaña se sale del foco
+              }}
               style={{
                 border: "none",
                 background: "transparent",
@@ -2265,12 +2305,17 @@ export default function PreciosScreen({ profile, signOut }) {
             </button>
           ))}
         </nav>
+        {/* Un solo nivel de scroll: esta sección NO scrollea. El buscador queda
+            fijo arriba y cada columna scrollea por dentro. Antes scrolleaban las
+            dos cosas a la vez y el buscador terminaba flotando sobre las listas. */}
         <section
           style={{
             flex: 1,
             minHeight: 0,
-            overflowY: "auto",
-            padding: `16px ${padding}px 34px`,
+            display: "flex",
+            flexDirection: "column",
+            overflow: "hidden",
+            padding: `16px ${padding}px 16px`,
           }}
         >
           {error && (
@@ -2290,20 +2335,14 @@ export default function PreciosScreen({ profile, signOut }) {
           )}
           {view === "proveedores" || view === "sin-asignar" ? (
             <>
+              {/* Barra de filtros: fija arriba por layout (flexShrink), ya no
+                  necesita position:sticky ni sombra para despegarse del contenido. */}
               <div
                 style={{
-                  position: "sticky",
-                  zIndex: 5,
-                  top: 0,
-                  border: `1px solid ${C.b0}`,
-                  background:
-                    "color-mix(in srgb, var(--panel-solid) 93%, transparent)",
-                  backdropFilter: "blur(12px)",
+                  ...surface,
+                  flexShrink: 0,
                   padding: 10,
-                  borderRadius: 12,
                   marginBottom: 13,
-                  boxShadow:
-                    "0 8px 22px color-mix(in srgb, var(--text) 5%, transparent)",
                 }}
               >
                 <div
@@ -2393,24 +2432,29 @@ export default function PreciosScreen({ profile, signOut }) {
                   </div>
                 )}
               </div>
+              {/* La grilla toma el alto restante; cada columna scrollea por dentro.
+                  En mobile vuelve a una columna y scrollea la sección entera. */}
               <div
                 style={{
                   display: "grid",
                   gridTemplateColumns: isMobile
                     ? "1fr"
-                    : "minmax(250px,.65fr) minmax(330px,1fr) minmax(360px,.95fr)",
+                    : mostrarBandeja
+                      ? "minmax(250px,.65fr) minmax(330px,1fr) minmax(360px,.95fr)"
+                      : "minmax(360px,1fr) minmax(400px,.95fr)",
                   gap: 13,
-                  alignItems: "start",
+                  flex: 1,
+                  minHeight: 0,
+                  alignItems: "stretch",
+                  overflowY: isMobile ? "auto" : "hidden",
                 }}
               >
-                {view === "proveedores" && (
+                {mostrarBandeja && (
                   <div
                     style={{
-                      border: `1px solid ${C.b0}`,
-                      borderRadius: 12,
-                      background: C.panel,
-                      padding: 10,
-                      maxHeight: "calc(100vh - 285px)",
+                      ...surface,
+                      padding: 0,
+                      minHeight: 0,
                       overflowY: "auto",
                     }}
                   >
@@ -2419,7 +2463,12 @@ export default function PreciosScreen({ profile, signOut }) {
                         color: C.t0,
                         fontSize: 12.5,
                         fontWeight: 600,
-                        padding: "3px 3px 10px",
+                        padding: "12px 13px",
+                        borderBottom: `1px solid ${C.b0}`,
+                        position: "sticky",
+                        top: 0,
+                        background: C.panelSolid,
+                        zIndex: 1,
                       }}
                     >
                       Bandeja por proveedor{" "}
@@ -2433,7 +2482,7 @@ export default function PreciosScreen({ profile, signOut }) {
                         {providerInfo.length}
                       </span>
                     </div>
-                    <div style={{ display: "grid", gap: 7 }}>
+                    <div>
                       {providerInfo.map((info) => (
                         <ProviderCard
                           key={info.provider.id}
@@ -2443,6 +2492,7 @@ export default function PreciosScreen({ profile, signOut }) {
                           selected={info.provider.id === selectedProvider?.id}
                           onClick={() => {
                             setSelectedProviderId(info.provider.id);
+                            setFocusProvider(true);
                             setSelectedMaterialId(null);
                           }}
                         />
@@ -2452,11 +2502,12 @@ export default function PreciosScreen({ profile, signOut }) {
                 )}
                 <div
                   style={{
-                    border: `1px solid ${C.b0}`,
-                    borderRadius: 12,
-                    background: C.panel,
-                    padding: 10,
-                    minHeight: 400,
+                    ...surface,
+                    padding: 0,
+                    minHeight: 0,
+                    display: "flex",
+                    flexDirection: "column",
+                    overflow: "hidden",
                   }}
                 >
                   <div
@@ -2464,11 +2515,31 @@ export default function PreciosScreen({ profile, signOut }) {
                       display: "flex",
                       alignItems: "center",
                       gap: 8,
-                      padding: "3px 3px 10px",
+                      padding: "12px 13px",
+                      borderBottom: `1px solid ${C.b0}`,
+                      flexShrink: 0,
                     }}
                   >
+                    {/* Volver a la bandeja cuando estamos enfocados en un proveedor. */}
+                    {!mostrarBandeja && view === "proveedores" && (
+                      <button
+                        type="button"
+                        onClick={() => setFocusProvider(false)}
+                        title="Ver todos los proveedores"
+                        style={{
+                          ...button,
+                          padding: "6px 10px",
+                          flexShrink: 0,
+                          display: "inline-flex",
+                          alignItems: "center",
+                          gap: 6,
+                        }}
+                      >
+                        <Users size={14} /> Proveedores
+                      </button>
+                    )}
                     <div style={{ minWidth: 0, flex: 1 }}>
-                      <div style={{ fontSize: 12.5, fontWeight: 600 }}>
+                      <div style={{ fontSize: 13, fontWeight: 700 }}>
                         {view === "sin-asignar"
                           ? "Materiales sin proveedor"
                           : selectedProvider?.nombre || "Proveedor"}
@@ -2486,7 +2557,7 @@ export default function PreciosScreen({ profile, signOut }) {
                       />
                     )}
                   </div>
-                  <div style={{ display: "grid", gap: 7 }}>
+                  <div style={{ flex: 1, minHeight: 0, overflowY: "auto" }}>
                     {currentRows.map((material) => (
                       <MaterialItem
                         key={material.id}
@@ -2515,10 +2586,9 @@ export default function PreciosScreen({ profile, signOut }) {
                 </div>
                 <div
                   style={{
-                    border: `1px solid ${C.b0}`,
-                    borderRadius: 12,
-                    background: C.panel,
-                    minHeight: 480,
+                    ...surface,
+                    minHeight: 0,
+                    overflowY: "auto",
                   }}
                 >
                   <Detail
@@ -2567,9 +2637,7 @@ export default function PreciosScreen({ profile, signOut }) {
               </div>
               <div
                 style={{
-                  border: `1px solid ${C.b0}`,
-                  borderRadius: 12,
-                  background: C.panel,
+                  ...surface,
                   overflow: "hidden",
                 }}
               >

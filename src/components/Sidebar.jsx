@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from "react";
-import { Eye, KeyRound, LogOut, Menu, Moon, Phone, Sun, X } from "lucide-react";
+import { Eye, Gauge, KeyRound, LogOut, Menu, Moon, Phone, Sun, X } from "lucide-react";
 import { Link, useLocation } from "react-router-dom";
 import logoK from "@/assets/logos/logo-k.png";
 import { useResponsive } from "@/hooks/useResponsive";
@@ -220,6 +220,27 @@ export default function Sidebar({ profile, signOut }) {
   const comprasGroup = esCompras || realAdmin ? "Compras" : "Solicitudes";
   const initials  = username.split(" ").filter(Boolean).map(w => w[0]).slice(0, 2).join("").toUpperCase();
   const [comprasBadge, setComprasBadge] = useState(null);
+  const [modoLiviano, setModoLiviano] = useState(() => {
+    try {
+      return window.localStorage.getItem("klasea.panol.modo-liviano") === "true";
+    } catch {
+      return false;
+    }
+  });
+
+  useEffect(() => {
+    const root = document.documentElement;
+    const active = role === "panol" && modoLiviano;
+    root.dataset.lowPerformance = active ? "true" : "false";
+    try {
+      window.localStorage.setItem("klasea.panol.modo-liviano", String(modoLiviano));
+    } catch {
+      // El modo sigue funcionando durante esta sesion aunque el navegador bloquee storage.
+    }
+    return () => {
+      delete root.dataset.lowPerformance;
+    };
+  }, [modoLiviano, role]);
 
   useEffect(() => {
     if (!(esCompras || realAdmin)) {
@@ -646,6 +667,24 @@ export default function Sidebar({ profile, signOut }) {
               );
             })}
           </div>
+
+          {role === "panol" && (
+            <button
+              type="button"
+              onClick={() => setModoLiviano((current) => !current)}
+              title="Reduce efectos visuales para equipos o conexiones lentas"
+              style={{
+                width: "100%", marginTop: 6, minHeight: 28, borderRadius: 7,
+                border: `1px solid ${modoLiviano ? C.greenB : C.border}`,
+                background: modoLiviano ? C.greenL : C.panel,
+                color: modoLiviano ? C.green : C.dim,
+                display: "inline-flex", alignItems: "center", justifyContent: "center", gap: 6,
+                fontSize: 10, fontWeight: 800, letterSpacing: ".35px", cursor: "pointer",
+              }}
+            >
+              <Gauge size={13} /> Modo liviano {modoLiviano ? "activo" : "desactivado"}
+            </button>
+          )}
         </div>
       </aside>
       <VincularWhatsAppModal

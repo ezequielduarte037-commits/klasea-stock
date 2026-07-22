@@ -54,6 +54,22 @@ body {
   min-height: 100vh;
 }
 
+/* Modo por dispositivo para el panol: reduce trabajo de GPU, sin alterar datos ni flujos. */
+html[data-low-performance="true"] *,
+html[data-low-performance="true"] *::before,
+html[data-low-performance="true"] *::after {
+  animation: none !important;
+  transition: none !important;
+  scroll-behavior: auto !important;
+}
+
+html[data-low-performance="true"] [style*="backdrop-filter"],
+html[data-low-performance="true"] [style*="box-shadow"] {
+  -webkit-backdrop-filter: none !important;
+  backdrop-filter: none !important;
+  box-shadow: none !important;
+}
+
 @media (max-width: 900px) {
   html,
   body,
