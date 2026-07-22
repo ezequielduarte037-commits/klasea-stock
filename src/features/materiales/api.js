@@ -2559,6 +2559,34 @@ export async function registrarOfertaMaterial(
   await setProveedoresMaterial(material.id, [...alternatives.values()]);
 }
 
+/**
+ * Asigna el proveedor PRINCIPAL a varios materiales de una sola vez, sin exigir
+ * precio (aplicarPrecioMaterial sólo setea el proveedor cuando hay precio, así
+ * que no sirve para la asignación masiva de la bandeja "Sin proveedor").
+ *
+ * No toca precios ni proveedores alternativos: sólo completa quién provee.
+ * Devuelve la cantidad de materiales actualizados.
+ */
+export async function asignarProveedorPrincipalMasivo(materialIds, proveedor) {
+  const ids = [...new Set((materialIds || []).filter(Boolean))];
+  if (!ids.length) return 0;
+  if (!proveedor?.id) throw new Error("Elegí un proveedor.");
+
+  // En tandas: un .in() con miles de ids revienta el límite de la URL.
+  const LOTE = 200;
+  let total = 0;
+  for (let i = 0; i < ids.length; i += LOTE) {
+    const lote = ids.slice(i, i + LOTE);
+    const { error } = await supabase
+      .from("panol_materiales")
+      .update({ proveedor_id: proveedor.id, proveedor: proveedor.nombre ?? null })
+      .in("id", lote);
+    if (error) throw error;
+    total += lote.length;
+  }
+  return total;
+}
+
 export async function asociarProveedorMaterial(
   material,
   proveedor,

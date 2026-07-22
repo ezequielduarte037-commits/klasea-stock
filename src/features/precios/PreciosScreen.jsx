@@ -29,6 +29,7 @@ import { useResponsive } from "@/hooks/useResponsive";
 import { useToast } from "@/components/ui/Toast";
 import {
   aplicarPreciosComprobante,
+  asignarProveedorPrincipalMasivo,
   asociarProveedorMaterial,
   fetchCatalogo,
   guardarComprobante,
@@ -309,7 +310,15 @@ function ProviderCard({ provider, info, selected, onClick, providers }) {
   );
 }
 
-function MaterialItem({ material, provider, selected, onClick }) {
+function MaterialItem({
+  material,
+  provider,
+  selected,
+  onClick,
+  selectable = false,
+  checked = false,
+  onToggleCheck,
+}) {
   const [hover, setHover] = useState(false);
   const providerId = provider?.id;
   const alternative = (material.proveedores_lista || []).find(
@@ -345,11 +354,37 @@ function MaterialItem({ material, provider, selected, onClick }) {
       <div
         style={{
           display: "grid",
-          gridTemplateColumns: "minmax(0,1fr) auto",
+          gridTemplateColumns: selectable
+            ? "auto minmax(0,1fr) auto"
+            : "minmax(0,1fr) auto",
           gap: 9,
           alignItems: "center",
         }}
       >
+        {selectable && (
+          // Cuadrito de selección para la asignación masiva. Se detiene la
+          // propagación para poder tildar sin abrir el detalle del material.
+          <span
+            onClick={(e) => {
+              e.stopPropagation();
+              onToggleCheck?.();
+            }}
+            style={{
+              width: 17,
+              height: 17,
+              borderRadius: 5,
+              border: `1.5px solid ${checked ? C.blue : C.b1}`,
+              background: checked ? C.blue : "transparent",
+              color: "var(--inverse-text)",
+              display: "grid",
+              placeItems: "center",
+              flexShrink: 0,
+              cursor: "pointer",
+            }}
+          >
+            {checked && <Check size={12} strokeWidth={3} />}
+          </span>
+        )}
         <div style={{ minWidth: 0 }}>
           <div
             style={{
@@ -1755,6 +1790,10 @@ export default function PreciosScreen({ profile, signOut }) {
   const [selectedProviderId, setSelectedProviderId] = useState(null);
   // Al entrar a un proveedor se oculta la bandeja para trabajar enfocado en él.
   const [focusProvider, setFocusProvider] = useState(false);
+  // Selección múltiple de la bandeja "Sin proveedor" (asignación masiva).
+  const [bulkIds, setBulkIds] = useState(() => new Set());
+  const [bulkProviderId, setBulkProviderId] = useState("");
+  const [bulkSaving, setBulkSaving] = useState(false);
   const [selectedMaterialId, setSelectedMaterialId] = useState(null);
   const [showFilters, setShowFilters] = useState(false);
   const [categoryId, setCategoryId] = useState("");
@@ -2081,6 +2120,46 @@ export default function PreciosScreen({ profile, signOut }) {
   // no aplica). Así el material y su detalle ganan todo el ancho.
   const mostrarBandeja =
     view === "proveedores" && !(focusProvider && selectedProvider);
+
+  // ── Asignación masiva de proveedor (vista "Sin proveedor") ──
+  const modoMasivo = view === "sin-asignar";
+  const toggleBulk = (id) =>
+    setBulkIds((prev) => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      return next;
+    });
+  const seleccionarVisibles = () =>
+    setBulkIds(new Set(currentRows.map((m) => m.id)));
+  const limpiarSeleccion = () => setBulkIds(new Set());
+
+  async function aplicarProveedorMasivo() {
+    const proveedor = providers.find((p) => p.id === bulkProviderId);
+    if (!proveedor) {
+      toast.error("Elegí el proveedor que querés asignar.");
+      return;
+    }
+    if (!bulkIds.size) {
+      toast.error("No hay materiales seleccionados.");
+      return;
+    }
+    setBulkSaving(true);
+    try {
+      const n = await asignarProveedorPrincipalMasivo([...bulkIds], proveedor);
+      toast.success(
+        `${n} material${n === 1 ? "" : "es"} asignado${n === 1 ? "" : "s"} a ${proveedor.nombre}.`,
+      );
+      limpiarSeleccion();
+      setBulkProviderId("");
+      await load();
+    } catch (e) {
+      toast.error(e.message || "No se pudo asignar el proveedor.");
+    } finally {
+      setBulkSaving(false);
+    }
+  }
+
   return (
     <div
       style={{
@@ -2275,6 +2354,8 @@ export default function PreciosScreen({ profile, signOut }) {
               onClick={() => {
                 setView(item.id);
                 setFocusProvider(false); // al cambiar de pestaña se sale del foco
+                setBulkIds(new Set()); // y se descarta la selección masiva
+                setBulkProviderId("");
               }}
               style={{
                 border: "none",
@@ -2548,8 +2629,22 @@ export default function PreciosScreen({ profile, signOut }) {
                         style={{ color: C.t2, fontSize: 10.5, marginTop: 3 }}
                       >
                         {currentRows.length} materiales para trabajar
+                        {modoMasivo && bulkIds.size > 0
+                          ? ` · ${bulkIds.size} seleccionado${bulkIds.size === 1 ? "" : "s"}`
+                          : ""}
                       </div>
                     </div>
+                    {modoMasivo && currentRows.length > 0 && (
+                      <button
+                        type="button"
+                        onClick={
+                          bulkIds.size ? limpiarSeleccion : seleccionarVisibles
+                        }
+                        style={{ ...button, padding: "6px 10px", flexShrink: 0 }}
+                      >
+                        {bulkIds.size ? "Limpiar" : "Seleccionar todo"}
+                      </button>
+                    )}
                     {view === "proveedores" && selectedProvider && (
                       <ProveedorTipoBadge
                         meta={proveedorMeta(selectedProvider.nombre, providers)}
@@ -2557,6 +2652,67 @@ export default function PreciosScreen({ profile, signOut }) {
                       />
                     )}
                   </div>
+
+                  {/* Barra de asignación masiva: aparece al seleccionar. */}
+                  {modoMasivo && bulkIds.size > 0 && (
+                    <div
+                      style={{
+                        display: "flex",
+                        alignItems: "center",
+                        gap: 8,
+                        padding: "10px 13px",
+                        borderBottom: `1px solid ${C.b0}`,
+                        background: C.blueL,
+                        flexShrink: 0,
+                        flexWrap: "wrap",
+                      }}
+                    >
+                      <span
+                        style={{
+                          fontSize: 12,
+                          fontWeight: 700,
+                          color: C.blue,
+                          fontFamily: C.mono,
+                        }}
+                      >
+                        {bulkIds.size}
+                      </span>
+                      <span style={{ fontSize: 12, color: C.t1 }}>
+                        asignar a
+                      </span>
+                      <select
+                        value={bulkProviderId}
+                        onChange={(e) => setBulkProviderId(e.target.value)}
+                        style={{ ...input, flex: 1, minWidth: 150 }}
+                      >
+                        <option value="">Elegí proveedor…</option>
+                        {providers
+                          .filter((p) => p.activo !== false)
+                          .map((p) => (
+                            <option key={p.id} value={p.id}>
+                              {p.nombre}
+                            </option>
+                          ))}
+                      </select>
+                      <button
+                        type="button"
+                        onClick={aplicarProveedorMasivo}
+                        disabled={bulkSaving || !bulkProviderId}
+                        style={{
+                          ...primary,
+                          padding: "7px 13px",
+                          opacity: bulkSaving || !bulkProviderId ? 0.55 : 1,
+                        }}
+                      >
+                        {bulkSaving ? (
+                          <Loader2 size={14} className="precios-spin" />
+                        ) : (
+                          <Check size={14} />
+                        )}
+                        {bulkSaving ? "Asignando…" : "Asignar"}
+                      </button>
+                    </div>
+                  )}
                   <div style={{ flex: 1, minHeight: 0, overflowY: "auto" }}>
                     {currentRows.map((material) => (
                       <MaterialItem
@@ -2568,6 +2724,9 @@ export default function PreciosScreen({ profile, signOut }) {
                         providers={providers}
                         selected={material.id === selectedMaterial?.id}
                         onClick={() => setSelectedMaterialId(material.id)}
+                        selectable={modoMasivo}
+                        checked={bulkIds.has(material.id)}
+                        onToggleCheck={() => toggleBulk(material.id)}
                       />
                     ))}
                     {!currentRows.length && (
