@@ -85,11 +85,15 @@ import {
 //
 // ─────────────────────────────────────────────────────────────────────────────
 
-const ROLES = ["admin","tecnica","compras","cadete","panol","oficina","rrhh","laminacion","muebles","mecanica","electricidad"];
+// 'oficina' quedó DEPRECADO: se reemplaza por 'administracion' (alcance chico:
+// RRHH + Precios). No se ofrece para usuarios nuevos, pero se mantiene en
+// ROLE_META para que las cuentas que todavía lo tengan se sigan mostrando bien.
+const ROLES = ["admin","tecnica","administracion","compras","cadete","panol","rrhh","laminacion","muebles","mecanica","electricidad"];
 const ROLE_META = {
-  admin:        { color:"#8888a8", label:"Admin"        },
-  tecnica:      { color:"#60a5fa", label:"Técnica"      },
-  oficina:      { color:"#6878a0", label:"Oficina"      },
+  admin:         { color:"#8888a8", label:"Admin"          },
+  tecnica:       { color:"#60a5fa", label:"Técnica"        },
+  administracion:{ color:"#c084fc", label:"Administración" },
+  oficina:       { color:"#6878a0", label:"Oficina (obsoleto)" },
   compras:      { color:"#a07840", label:"Compras"      },
   cadete:       { color:"#c08040", label:"Cadete"       },
   rrhh:         { color:"#2dd4bf", label:"RRHH"         },

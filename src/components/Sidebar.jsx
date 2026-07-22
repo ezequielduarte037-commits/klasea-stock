@@ -208,11 +208,14 @@ export default function Sidebar({ profile, signOut }) {
   const esTecnica = role === "tecnica" || role === "oficina";
   const esGestion = broadAccess || esTecnica;
   const esAdmin   = realAdmin;
-  const esRrhh    = esAdmin || role === "rrhh" || esTecnica;
+  const esAdministracion = role === "administracion";
+  const esRrhh    = esAdmin || role === "rrhh" || esTecnica || esAdministracion;
   const esCompras = role === "compras";
   const puedeEditarPlantillas = broadAccess || role === "tecnica";
   const puedePedirCompras = esGestion || esPanol || esCompras;
   const puedeVerMateriales = esGestion || esCompras;
+  // Administración entra sólo a Precios (no al catálogo completo de Materiales).
+  const puedeVerPrecios = esGestion || esCompras || esAdministracion;
   const comprasLabel = esCompras || realAdmin ? "Gestión de Compras" : "Pedidos";
   const comprasGroup = esCompras || realAdmin ? "Compras" : "Solicitudes";
   const initials  = username.split(" ").filter(Boolean).map(w => w[0]).slice(0, 2).join("").toUpperCase();
@@ -461,6 +464,12 @@ export default function Sidebar({ profile, signOut }) {
             {divider("panol-cat")}
             {group("Pañol · Catálogo", SC.panol_catalogo, 218)}
             {item("/materiales", "Listas de compras", SC.panol_catalogo, true, 228, "Carga y curación del catálogo de materiales por sector y modelo.")}
+          </>}
+
+          {puedeVerPrecios && <>
+            {divider("precios")}
+            {group("Precios", SC.panol_catalogo, 230)}
+            {item("/precios", "Carga de precios", SC.panol_catalogo, true, 232, "Remitos y facturas leídos con IA, lista de precios editable e historial de cambios.")}
           </>}
 
           {esGestion && <>

@@ -23,7 +23,8 @@ const TABS = [
 
 export default function RrhhScreen({ profile, signOut }) {
   const { isMobile } = useResponsive();
-  const esAdmin = profile?.is_admin || profile?.role === "admin" || profile?.role === "rrhh";
+  // 'administracion' opera RRHH igual que 'rrhh' (ver y editar legajos, presentismo y extras).
+  const esAdmin = profile?.is_admin || ["admin", "rrhh", "administracion"].includes(profile?.role);
 
   const [tab, setTab] = useState("presentismo");
   const [empleados, setEmpleados] = useState(null);

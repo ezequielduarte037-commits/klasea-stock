@@ -533,6 +533,99 @@ function buildComprasInbox(requests = [], avisos = [], unreadIds = new Set()) {
   };
 }
 
+function ComprasCompanion({ requests, onOpenNew }) {
+  const openRequests = requests.filter((request) => !ARCHIVED_STATUSES.includes(request.status));
+  const nuevos = openRequests.filter((request) => request.status === "nuevo").length;
+  const urgentes = openRequests.filter((request) => request.priority === "urgente").length;
+  const vencidos = openRequests.filter((request) => {
+    const due = requestDueDate(request);
+    return due && (daysBetween(due) || 0) > 0;
+  }).length;
+
+  const estado = vencidos || urgentes
+    ? { mood: "alerta", label: vencidos ? `${vencidos} vencido${vencidos === 1 ? "" : "s"}` : `${urgentes} urgente${urgentes === 1 ? "" : "s"}`, color: C.red, face: "•︵•" }
+    : nuevos >= 8
+      ? { mood: "triste", label: `${nuevos} nuevos esperan`, color: C.amber, face: "•︵•" }
+      : nuevos > 0
+        ? { mood: "atento", label: `${nuevos} nuevo${nuevos === 1 ? "" : "s"}`, color: C.blue, face: "•ᴗ•" }
+        : { mood: "feliz", label: "Bandeja al día", color: C.green, face: "^‿^" };
+
+  return (
+    <button
+      type="button"
+      className="compras-companion"
+      onClick={onOpenNew}
+      title={estado.mood === "feliz" ? "La bandeja está al día" : "Ver pedidos nuevos"}
+      aria-label={`${estado.label}. ${estado.mood === "feliz" ? "La bandeja está al día" : "Abrir pedidos nuevos"}`}
+      style={{
+        display: "inline-flex",
+        alignItems: "center",
+        gap: 7,
+        border: `1px solid ${estado.color}38`,
+        background: `${estado.color}10`,
+        color: C.text,
+        borderRadius: 9,
+        padding: "4px 8px 4px 5px",
+        cursor: "pointer",
+        whiteSpace: "nowrap",
+      }}
+    >
+      <span style={{
+        width: 25,
+        height: 25,
+        display: "grid",
+        placeItems: "center",
+        borderRadius: 8,
+        background: `${estado.color}20`,
+        color: estado.color,
+        fontSize: 10,
+        fontWeight: 900,
+        fontFamily: C.mono,
+        lineHeight: 1,
+      }}>{estado.face}</span>
+      <span style={{ display: "grid", gap: 1, textAlign: "left" }}>
+        <span style={{ color: estado.color, fontSize: 9, letterSpacing: 0.8, fontWeight: 900, textTransform: "uppercase" }}>Comprín</span>
+        <span style={{ color: C.dim, fontSize: 10.5, fontWeight: 700 }}>{estado.label}</span>
+      </span>
+    </button>
+  );
+}
+
+// Compatibilidad con la primera versión del compañero; la versión visible es V2.
+void ComprasCompanion;
+
+function ComprasCompanionV2({ requests, onOpenNew }) {
+  const open = requests.filter((r) => !ARCHIVED_STATUSES.includes(r.status));
+  const count = (status) => open.filter((r) => r.status === status).length;
+  const nuevos = count("nuevo");
+  const revision = count("en_revision");
+  const cotizando = count("cotizando");
+  const comprados = count("comprado");
+  const urgentes = open.filter((r) => r.priority === "urgente").length;
+  const vencidos = open.filter((r) => requestDueDate(r) && (daysBetween(requestDueDate(r)) || 0) > 0).length;
+  const alert = vencidos > 0 || urgentes > 0;
+  const mood = alert ? "alerta" : nuevos >= 8 ? "triste" : nuevos > 0 ? "atento" : "feliz";
+  const color = alert ? C.red : mood === "triste" ? C.amber : mood === "atento" ? C.blue : C.green;
+  const label = vencidos > 0 ? `${vencidos} vencido${vencidos === 1 ? "" : "s"}` : urgentes > 0 ? `${urgentes} urgente${urgentes === 1 ? "" : "s"}` : nuevos > 0 ? `${nuevos} nuevo${nuevos === 1 ? "" : "s"}` : "Bandeja al día";
+
+  return (
+    <button type="button" className="compras-companion compras-companion-v2" onClick={() => onOpenNew("nuevo")} title="Abrir resumen de Compras" aria-label={`${label}. Abrir resumen de Compras`} style={{ borderColor: `${color}38`, background: `${color}10` }}>
+      <span className={`compras-bot compras-bot-${mood}`} style={{ "--bot-color": color }}>
+        <span className="compras-bot-antenna" />
+        <span className="compras-bot-face"><span className="compras-bot-eye" /><span className="compras-bot-eye" /><span className="compras-bot-mouth" /></span>
+      </span>
+      <span className="compras-companion-copy">
+        <span style={{ color, fontSize: 9, letterSpacing: 0.8, fontWeight: 900, textTransform: "uppercase" }}>Comprín</span>
+        <strong>{label}</strong>
+        <small>{nuevos} nuevos · {revision} revisión · {cotizando} cotizando</small>
+        <small>{comprados} por recibir{urgentes ? ` · ${urgentes} urgentes` : ""}</small>
+      </span>
+    </button>
+  );
+}
+
+void ComprasCompanionV2;
+
 function createDraftKey(userId) {
   return `${CREATE_DRAFT_PREFIX}:${userId || "anon"}`;
 }
@@ -1191,6 +1284,23 @@ export default function PurchaseRequestsScreen({ profile, signOut }) {
         .purchase-scroll::-webkit-scrollbar-thumb { background: var(--border-2); border-radius: 99px; }
         .stat-chip { transition: opacity .14s ease, background .14s ease, color .14s ease; }
         .stat-chip:hover { opacity: .85; }
+        .compras-companion { transition: transform .16s ease, box-shadow .16s ease, filter .16s ease; }
+        .compras-companion:hover { transform: translateY(-1px); box-shadow: 0 7px 18px var(--shadow); filter: saturate(1.08); }
+        .compras-companion:active { transform: translateY(0); }
+        .compras-companion-v2 { display: inline-flex; align-items: center; gap: 8px; border-width: 1px; border-style: solid; border-radius: 10px; padding: 4px 9px 4px 5px; cursor: pointer; color: var(--text); white-space: nowrap; }
+        .compras-companion-copy { display: grid; gap: 1px; text-align: left; }
+        .compras-companion-copy strong { color: var(--text); font-size: 10.5px; font-weight: 800; }
+        .compras-companion-copy small { color: var(--dim); font-size: 9.5px; font-weight: 650; }
+        .compras-bot { position: relative; width: 29px; height: 31px; display: grid; place-items: end center; flex: 0 0 auto; }
+        .compras-bot-antenna { position: absolute; top: 0; left: 13px; width: 3px; height: 7px; background: var(--bot-color); border-radius: 3px; }
+        .compras-bot-antenna::before { content: ""; position: absolute; top: -3px; left: -2px; width: 7px; height: 7px; border-radius: 50%; background: var(--bot-color); box-shadow: 0 0 7px var(--bot-color); }
+        .compras-bot-face { position: relative; width: 29px; height: 23px; border: 2px solid var(--bot-color); border-radius: 9px 9px 7px 7px; background: color-mix(in srgb, var(--bot-color) 12%, var(--panel)); box-shadow: inset 0 -3px 0 color-mix(in srgb, var(--bot-color) 12%, transparent); }
+        .compras-bot-eye { position: absolute; top: 7px; width: 4px; height: 4px; border-radius: 50%; background: var(--bot-color); }
+        .compras-bot-eye:first-child { left: 7px; }
+        .compras-bot-eye:nth-child(2) { right: 7px; }
+        .compras-bot-mouth { position: absolute; left: 10px; bottom: 4px; width: 7px; height: 3px; border-bottom: 2px solid var(--bot-color); border-radius: 50%; }
+        .compras-bot-alerta .compras-bot-mouth, .compras-bot-triste .compras-bot-mouth { transform: rotate(180deg); bottom: 3px; }
+        .compras-bot-alerta .compras-bot-eye { height: 3px; border-radius: 0; transform: rotate(35deg); }
         input[type="date"]::-webkit-calendar-picker-indicator { opacity: .75; }
         
         /* Ajustes para ReactQuill */

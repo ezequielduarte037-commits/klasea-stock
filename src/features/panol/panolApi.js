@@ -10,6 +10,18 @@ import { materialBarcodeText } from "@/features/materiales/materialBarcodes";
 
 export const SEDES_PANOL = ["Pampa", "Chubut"];
 
+// Normaliza sedes historicas como "Chubut 2120" o "Stock Pampa".
+export function canonicalPanolSede(value) {
+  const text = String(value || "")
+    .trim()
+    .toLowerCase()
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "");
+  if (text.includes("chubut")) return "Chubut";
+  if (text.includes("pampa")) return "Pampa";
+  return "";
+}
+
 export const ENVIO_ESTADOS = ["borrador", "enviado", "en_preparacion", "parcial", "recibido", "cerrado", "cancelado"];
 export const ITEM_ESTADOS = ["pendiente", "recibido", "parcial", "sin_info", "falta_stock", "rechazado"];
 
@@ -441,7 +453,10 @@ export async function fetchMaterialesEgreso({ sede = null, estados = ["en_panol"
       categoria_nombre: row.categoria_nombre || (categoriaId ? categoriaById.get(categoriaId) : "") || "",
     };
   });
-  return sede ? hydrated.filter((row) => (row.panol_envio?.sede || row.stock_sede) === sede) : hydrated;
+  const sedeCanonica = canonicalPanolSede(sede);
+  return sedeCanonica
+    ? hydrated.filter((row) => canonicalPanolSede(row.panol_envio?.sede || row.stock_sede) === sedeCanonica)
+    : hydrated;
 }
 
 export async function fetchPanolCatalogMini({ q = "", limit = 80 } = {}) {

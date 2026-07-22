@@ -29,6 +29,7 @@ import CalibrarPesosScreen   from "@/features/panol/CalibrarPesosScreen";
 import EtiquetasScreen       from "@/features/inventario/EtiquetasScreen";
 import RrhhScreen            from "@/features/rrhh/RrhhScreen";
 import MaterialesScreen      from "@/features/materiales/MaterialesScreen";
+import PreciosScreen         from "@/features/precios/PreciosScreen";
 import RecepcionPanolScreen  from "@/features/panol/RecepcionPanolScreen";
 import StockPanolScreen      from "@/features/panol/StockPanolScreen";
 import PortalProveedorScreen from "@/features/proveedores/PortalProveedorScreen";
@@ -40,8 +41,8 @@ import { ToastProvider } from "@/components/ui/Toast";
 import { ConfirmProvider } from "@/components/ui/ConfirmDialog";
 import ChangePasswordModal from "@/features/cuenta/ChangePasswordModal";
 import NotificacionesBell from "@/components/NotificacionesBell";
-import AppVersionGuard from "@/components/AppVersionGuard";
 import { C } from "@/theme";
+import ComprasBicho from "@/features/compras/ComprasBicho";
 
 import logoK from "@/assets/logos/logo-k.png";
 
@@ -412,7 +413,6 @@ export default function App() {
   return (
     <BrowserRouter>
       <ToastProvider>
-        <AppVersionGuard />
         <ConfirmProvider>
       <Routes>
         <Route path="/login" element={<LoginScreen onLoggedIn={loadProfile} />} />
@@ -439,6 +439,7 @@ export default function App() {
         <Route path="/recepcion-panol" element={<RequireAuth session={session}><RequireRole profile={profile} allow={["admin","oficina","tecnica","panol"]}><RecepcionPanolScreen {...A} /></RequireRole></RequireAuth>} />
         <Route path="/stock-panol" element={<RequireAuth session={session}><RequireRole profile={profile} allow={["admin","oficina","tecnica","panol"]}><StockPanolScreen {...A} /></RequireRole></RequireAuth>} />
         <Route path="/materiales" element={<RequireAuth session={session}><RequireRole profile={profile} allow={["admin","oficina","tecnica","compras"]}><MaterialesScreen {...A} /></RequireRole></RequireAuth>} />
+        <Route path="/precios"    element={<RequireAuth session={session}><RequireRole profile={profile} allow={["admin","oficina","tecnica","compras","administracion"]}><PreciosScreen {...A} /></RequireRole></RequireAuth>} />
         <Route path="/procedimientos" element={<RequireAuth session={session}><RequireRole profile={profile} allow={["admin","oficina","tecnica","laminacion","muebles","mecanica","electricidad"]}><ProcedimientosScreen {...A} /></RequireRole></RequireAuth>} />
 
         {/* Admin / Oficina */}
@@ -466,7 +467,7 @@ export default function App() {
         {/* Diagnóstico del puerto serie de la balanza (para descubrir su protocolo) */}
         <Route path="/balanza"   element={<RequireAuth session={session}><RequireRole profile={profile} allow={["admin","oficina","tecnica","panol"]}><BalanzaDebugScreen {...A} /></RequireRole></RequireAuth>} />
         <Route path="/balanza/calibrar" element={<RequireAuth session={session}><RequireRole profile={profile} allow={["admin","oficina","tecnica","panol"]}><CalibrarPesosScreen {...A} /></RequireRole></RequireAuth>} />
-        <Route path="/rrhh"      element={<RequireAuth session={session}><RequireRole profile={profile} allow={["admin","rrhh","tecnica","oficina"]}><RrhhScreen {...A} /></RequireRole></RequireAuth>} />
+        <Route path="/rrhh"      element={<RequireAuth session={session}><RequireRole profile={profile} allow={["admin","rrhh","tecnica","oficina","administracion"]}><RrhhScreen {...A} /></RequireRole></RequireAuth>} />
 
         <Route path="*" element={<Navigate to="/" replace />} />
       </Routes>
@@ -478,6 +479,7 @@ export default function App() {
         onChanged={() => setProfile((p) => p ? { ...p, must_change_password: false } : p)}
       />
       {session && profile && profile.role !== "cliente" && <CampanitaSalvoColector profile={profile} />}
+      {session && profile?.role === "compras" && <ComprasBicho profile={profile} />}
         </ConfirmProvider>
       </ToastProvider>
     </BrowserRouter>

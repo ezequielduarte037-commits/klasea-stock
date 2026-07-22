@@ -26,3 +26,31 @@ export function hasAdminAccess(profile) {
   const role = profile.role;
   return role === "admin" || role === "tecnica";
 }
+
+/**
+ * Rol 'administracion': personal administrativo del astillero.
+ *
+ * NO confundir con 'admin' (que es acceso total al sistema). Administración
+ * tiene un alcance chico y explícito:
+ *   - RRHH: ver y editar (legajos, presentismo, extras)
+ *   - Precios: cargar remitos y actualizar precios, con historial
+ *
+ * No entra a producción (obras, laminación, pañol, compras, etc.).
+ */
+export function isAdministracion(profile) {
+  return profile?.role === "administracion";
+}
+
+/** Quién puede ver/editar el módulo RRHH. */
+export function canAccessRrhh(profile) {
+  if (!profile) return false;
+  if (profile.is_admin) return true;
+  return ["admin", "rrhh", "tecnica", "administracion"].includes(profile.role);
+}
+
+/** Quién puede entrar a la pantalla de Precios (carga de remitos y actualización). */
+export function canAccessPrecios(profile) {
+  if (!profile) return false;
+  if (profile.is_admin) return true;
+  return ["admin", "tecnica", "compras", "administracion"].includes(profile.role);
+}

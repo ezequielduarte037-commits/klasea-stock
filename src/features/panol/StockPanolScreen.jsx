@@ -7,7 +7,7 @@ import { useToast } from "@/components/ui/Toast";
 import { C } from "@/theme";
 import StockWmsPanel from "@/features/panol/StockWmsPanel";
 import MapaPanolTab from "@/features/panol/MapaPanolTab";
-import { fetchMaterialesEgreso, fetchObrasEgreso, fetchPanolMaterialCreations } from "@/features/panol/panolApi";
+import { canonicalPanolSede, fetchMaterialesEgreso, fetchObrasEgreso, fetchPanolMaterialCreations } from "@/features/panol/panolApi";
 import { fmtDate, rowMovementAt, rowIsAnulado } from "@/features/panol/panolMovimientos";
 import { MODELOS, norm } from "@/features/materiales/materialesParser";
 import { hasAdminAccess } from "@/lib/permissions";
@@ -613,8 +613,8 @@ export default function StockPanolScreen({ profile, signOut, embedded = false, m
   const role = profile?.role;
   const isAdmin = hasAdminAccess(profile);
   const isManager = isAdmin || role === "compras";
-  const userSede = profile?.sede || null;
-  const sedeLocked = role === "panol" && (userSede === "Pampa" || userSede === "Chubut") ? userSede : null;
+  const userSede = canonicalPanolSede(profile?.sede);
+  const sedeLocked = role === "panol" && userSede ? userSede : null;
   const canReceive = isManager || role === "panol";
   const canSeePrices = role !== "panol"; // el pañol no ve precios ni costos
 
