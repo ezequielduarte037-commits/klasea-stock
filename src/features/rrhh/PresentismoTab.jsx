@@ -29,6 +29,7 @@ import {
   duracionMin,
   fetchJustificaciones,
   fetchMarcaciones,
+  fetchMarcacionesEmpleado,
   fmtFecha,
   fmtFechaCorta,
   guardarAusenciasProgramadas,
@@ -476,17 +477,17 @@ export default function PresentismoTab({ empleados, contratistas, config, esAdmi
   const [vistaRapida, setVistaRapida] = useState("marcaciones");
   const [justModal, setJustModal] = useState(null);
   const [ausenciaModal, setAusenciaModal] = useState(false);
+  const [seguimientoOpen, setSeguimientoOpen] = useState(false);
 
   const d1 = modo === "dia" ? fecha : desde;
   const d2 = modo === "dia" ? fecha : hasta;
 
   useEffect(() => {
     let alive = true;
-    setMarcas(null);
-    setError(null);
     Promise.all([fetchMarcaciones(d1, d2), fetchJustificaciones(d1, d2)])
       .then(([rows, justs]) => {
         if (!alive) return;
+        setError(null);
         setMarcas(rows);
         setJustificaciones(justs);
       })
@@ -891,6 +892,9 @@ export default function PresentismoTab({ empleados, contratistas, config, esAdmi
               <Timer size={14} /> Llegadas tarde ({filtradas.filter(row => row.tarde).length})
             </button>
             <div style={{ flex: 1 }} />
+            <button type="button" style={{ ...BTN, display: "inline-flex", alignItems: "center", gap: 7 }} onClick={() => setSeguimientoOpen(true)}>
+              <Search size={14} /> Seguimiento por persona
+            </button>
             {esAdmin && (
               <button type="button" style={{ ...BTN_PRIMARY, display: "inline-flex", alignItems: "center", gap: 7 }} onClick={() => setAusenciaModal(true)}>
                 <Stethoscope size={14} /> Cargar reposo / vacaciones
@@ -1052,6 +1056,213 @@ export default function PresentismoTab({ empleados, contratistas, config, esAdmi
           onSave={guardarAusencia}
         />
       )}
+      {seguimientoOpen && (
+        <SeguimientoPersonaModal
+          empleados={empleados}
+          config={config}
+          onClose={() => setSeguimientoOpen(false)}
+        />
+      )}
+    </div>
+  );
+}
+
+function SeguimientoPersonaModal({ empleados, config, onClose }) {
+  const [query, setQuery] = useState("");
+  const [empleadoId, setEmpleadoId] = useState("");
+  const [hasta, setHasta] = useState(() => hoyIso());
+  const [desde, setDesde] = useState(() => addDays(hoyIso(), -29));
+  const [marcaciones, setMarcaciones] = useState([]);
+  const [justificaciones, setJustificaciones] = useState([]);
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState("");
+
+  const empleado = useMemo(
+    () => (empleados ?? []).find((emp) => emp.id === empleadoId) ?? null,
+    [empleados, empleadoId],
+  );
+
+  const coincidencias = useMemo(() => {
+    const term = safeText(query).toLowerCase();
+    return [...(empleados ?? [])]
+      .filter((emp) => emp.activo !== false && emp.ficha !== false)
+      .filter((emp) => !term || `${emp.nombre} ${emp.dni} ${emp.sede}`.toLowerCase().includes(term))
+      .sort((a, b) => safeText(a.nombre).localeCompare(safeText(b.nombre), "es"))
+      .slice(0, 12);
+  }, [empleados, query]);
+
+  useEffect(() => {
+    let alive = true;
+    if (!empleadoId || !desde || !hasta || hasta < desde) {
+      return () => { alive = false; };
+    }
+
+    Promise.all([
+      fetchMarcacionesEmpleado(empleadoId, desde, hasta),
+      fetchJustificaciones(desde, hasta, { empleadoId }),
+    ])
+      .then(([marks, justs]) => {
+        if (!alive) return;
+        setMarcaciones(marks ?? []);
+        setJustificaciones(justs ?? []);
+      })
+      .catch((reason) => {
+        if (alive) setError(reason?.message || "No se pudo cargar el seguimiento.");
+      })
+      .finally(() => {
+        if (alive) setLoading(false);
+      });
+
+    return () => { alive = false; };
+  }, [empleadoId, desde, hasta]);
+
+  const historial = useMemo(() => {
+    if (!empleado) return [];
+    const marksByDate = new Map((marcaciones ?? []).map((mark) => [mark.fecha, mark]));
+    const justByDate = new Map((justificaciones ?? []).map((justificacion) => [justificacion.fecha, justificacion]));
+    const tardeMin = timeToMin(config?.tolerancia_tarde) ?? 430;
+
+    return rangoFechas(desde, hasta)
+      .filter((day) => diaSemana(day) !== 0)
+      .reverse()
+      .map((day) => {
+        const marcacion = marksByDate.get(day) ?? null;
+        const justificacion = justByDate.get(day) ?? null;
+        const entrada = hhmm(marcacion?.entrada);
+        const salida = hhmm(marcacion?.salida);
+        const tarde = entrada != null && timeToMin(entrada) > tardeMin;
+        const incompleta = !!marcacion && (!entrada || !salida);
+        const tipo = !marcacion ? (justificacion ? "justificada" : "ausente") : (incompleta ? "incompleta" : (tarde ? "tarde" : "presente"));
+
+        return {
+          fecha: day,
+          tipo,
+          marcacion,
+          justificacion,
+          entrada,
+          salida,
+          minutos: marcacion ? duracionMin(marcacion) : null,
+        };
+      });
+  }, [config?.tolerancia_tarde, desde, empleado, justificaciones, marcaciones, hasta]);
+
+  const resumen = useMemo(() => ({
+    presentes: historial.filter((row) => row.marcacion).length,
+    tardes: historial.filter((row) => row.tipo === "tarde").length,
+    ausentes: historial.filter((row) => row.tipo === "ausente").length,
+    justificadas: historial.filter((row) => row.tipo === "justificada").length,
+  }), [historial]);
+
+  const estadoUi = {
+    presente: { label: "Presente", color: C.green, background: C.greenL, border: C.greenB },
+    tarde: { label: "Llegada tarde", color: C.amber, background: C.amberL, border: C.amberB },
+    incompleta: { label: "Marcacion incompleta", color: C.blue, background: C.blueL, border: C.blueB },
+    justificada: { label: "Ausencia justificada", color: C.green, background: C.greenL, border: C.greenB },
+    ausente: { label: "Ausente", color: C.red, background: C.redL, border: C.redB },
+  };
+
+  function seleccionar(emp) {
+    setLoading(true);
+    setError("");
+    setEmpleadoId(emp.id);
+    setQuery("");
+  }
+
+  return (
+    <div onClick={onClose} style={{ position: "fixed", inset: 0, zIndex: 2250, background: "var(--overlay-strong)", display: "flex", alignItems: "center", justifyContent: "center", padding: 16 }}>
+      <div onClick={(event) => event.stopPropagation()} style={{ width: "min(760px, 96vw)", maxHeight: "90vh", overflow: "hidden", display: "flex", flexDirection: "column", borderRadius: 14, background: C.panelSolid, border: `1px solid ${C.b1}`, boxShadow: "0 24px 70px rgba(0,0,0,.28)" }}>
+        <div style={{ minHeight: 62, padding: "14px 16px", display: "flex", alignItems: "center", gap: 11, borderBottom: `1px solid ${C.b0}` }}>
+          <span style={{ width: 36, height: 36, display: "grid", placeItems: "center", borderRadius: 10, color: C.blue, background: C.blueL, border: `1px solid ${C.blueB}` }}><Search size={17} /></span>
+          <div style={{ minWidth: 0, flex: 1 }}>
+            <div style={{ fontSize: 15, fontWeight: 750, color: C.t0 }}>Seguimiento por persona</div>
+            <div style={{ marginTop: 3, color: C.t2, fontSize: 11 }}>Marcaciones, llegadas tarde, ausencias y justificaciones.</div>
+          </div>
+          <button type="button" aria-label="Cerrar seguimiento" title="Cerrar" onClick={onClose} style={{ ...BTN, padding: 6, display: "grid", placeItems: "center", background: "transparent" }}><X size={15} /></button>
+        </div>
+
+        <div style={{ padding: 16, overflowY: "auto" }}>
+          {!empleado ? (
+            <>
+              <div className="presentismo-search" style={{ marginBottom: 10 }}>
+                <Search size={15} />
+                <input autoFocus value={query} onChange={(event) => setQuery(event.target.value)} placeholder="Buscar persona por nombre o DNI" style={INP} />
+              </div>
+              <div style={{ border: `1px solid ${C.b0}`, borderRadius: 10, overflow: "hidden" }}>
+                {coincidencias.map((emp) => (
+                  <button key={emp.id} type="button" onClick={() => seleccionar(emp)} style={{ width: "100%", minHeight: 52, padding: "8px 10px", display: "flex", alignItems: "center", gap: 9, textAlign: "left", cursor: "pointer", background: "transparent", color: C.t0, border: 0, borderBottom: `1px solid ${C.b0}` }}>
+                    <EmpleadoAvatar emp={emp} size={32} />
+                    <span style={{ minWidth: 0, flex: 1 }}>
+                      <span style={{ display: "block", fontSize: 12, fontWeight: 700 }}>{emp.nombre}</span>
+                      <span style={{ display: "block", marginTop: 2, color: C.t2, fontSize: 10 }}>{emp.dni} {emp.sede ? `- ${emp.sede}` : ""}</span>
+                    </span>
+                    <ChevronRight size={15} color={C.t2} />
+                  </button>
+                ))}
+                {!coincidencias.length && <div style={{ padding: 28, color: C.t2, fontSize: 12, textAlign: "center" }}>No encontramos una persona con esa busqueda.</div>}
+              </div>
+            </>
+          ) : (
+            <>
+              <div style={{ display: "flex", alignItems: "center", gap: 11, paddingBottom: 14, borderBottom: `1px solid ${C.b0}` }}>
+                <EmpleadoAvatar emp={empleado} size={46} />
+                <div style={{ minWidth: 0, flex: 1 }}>
+                  <div style={{ color: C.t0, fontSize: 15, fontWeight: 750 }}>{empleado.nombre}</div>
+                  <div style={{ color: C.t2, fontSize: 11, marginTop: 3 }}>DNI {empleado.dni || "sin DNI"}{empleado.sede ? ` - ${empleado.sede}` : ""}</div>
+                </div>
+                <button type="button" onClick={() => { setEmpleadoId(""); setQuery(""); }} style={{ ...BTN, padding: "6px 9px", fontSize: 10 }}>Cambiar persona</button>
+              </div>
+
+              <div style={{ display: "flex", gap: 9, flexWrap: "wrap", alignItems: "center", padding: "12px 0" }}>
+                <label style={{ display: "grid", gap: 4, color: C.t2, fontSize: 10, fontWeight: 700 }}>DESDE
+                  <input type="date" value={desde} onChange={(event) => { const next = event.target.value; if (next && next <= hasta) { setLoading(true); setError(""); } setDesde(next); }} style={{ ...INP, fontSize: 12 }} />
+                </label>
+                <label style={{ display: "grid", gap: 4, color: C.t2, fontSize: 10, fontWeight: 700 }}>HASTA
+                  <input type="date" value={hasta} onChange={(event) => { const next = event.target.value; if (next && next >= desde) { setLoading(true); setError(""); } setHasta(next); }} style={{ ...INP, fontSize: 12 }} />
+                </label>
+                <span style={{ color: C.t2, fontSize: 10, alignSelf: "end", paddingBottom: 8 }}>No incluye domingos.</span>
+              </div>
+
+              {hasta < desde && <div style={{ marginBottom: 10, padding: "8px 10px", borderRadius: 8, color: C.red, background: C.redL, border: `1px solid ${C.redB}`, fontSize: 11 }}>La fecha final debe ser igual o posterior a la inicial.</div>}
+              {error && <div style={{ marginBottom: 10, padding: "8px 10px", borderRadius: 8, color: C.red, background: C.redL, border: `1px solid ${C.redB}`, fontSize: 11 }}>{error}</div>}
+
+              {loading ? <div style={{ padding: 34, textAlign: "center", color: C.t2, fontSize: 12 }}>Cargando seguimiento...</div> : (
+                <>
+                  <div style={{ display: "grid", gridTemplateColumns: "repeat(4, minmax(0, 1fr))", overflow: "hidden", border: `1px solid ${C.b0}`, borderRadius: 10, marginBottom: 12 }}>
+                    {[
+                      ["Presentes", resumen.presentes, C.green],
+                      ["Tardes", resumen.tardes, resumen.tardes ? C.amber : C.green],
+                      ["Ausentes", resumen.ausentes, resumen.ausentes ? C.red : C.green],
+                      ["Justificadas", resumen.justificadas, C.green],
+                    ].map(([label, value, color]) => (
+                      <div key={label} style={{ padding: "10px 11px", borderRight: `1px solid ${C.b0}` }}>
+                        <div style={{ color, fontSize: 17, fontFamily: C.mono, fontWeight: 800 }}>{value}</div>
+                        <div style={{ color: C.t2, fontSize: 9, fontWeight: 700, textTransform: "uppercase", marginTop: 3 }}>{label}</div>
+                      </div>
+                    ))}
+                  </div>
+
+                  <div style={{ border: `1px solid ${C.b0}`, borderRadius: 10, overflow: "hidden" }}>
+                    {historial.map((row) => {
+                      const ui = estadoUi[row.tipo];
+                      const detalle = row.marcacion
+                        ? `${row.entrada || "sin entrada"} - ${row.salida || "sin salida"}${row.minutos != null ? ` (${minToHM(row.minutos)})` : ""}`
+                        : row.justificacion?.motivo || "Sin marcacion registrada";
+                      return (
+                        <div key={row.fecha} style={{ minHeight: 48, padding: "8px 10px", display: "flex", alignItems: "center", gap: 10, borderBottom: `1px solid ${C.b0}` }}>
+                          <span style={{ width: 70, color: C.t2, fontSize: 10, fontFamily: C.mono, flexShrink: 0 }}>{fmtFechaCorta(row.fecha)}</span>
+                          <span style={{ color: ui.color, background: ui.background, border: `1px solid ${ui.border}`, borderRadius: 999, padding: "3px 7px", fontSize: 9, fontWeight: 800, flexShrink: 0 }}>{ui.label}</span>
+                          <span title={detalle} style={{ minWidth: 0, color: C.t1, fontSize: 11, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{detalle}</span>
+                        </div>
+                      );
+                    })}
+                    {!historial.length && <div style={{ padding: 28, textAlign: "center", color: C.t2, fontSize: 12 }}>Elegí un rango valido para ver el historial.</div>}
+                  </div>
+                </>
+              )}
+            </>
+          )}
+        </div>
+      </div>
     </div>
   );
 }

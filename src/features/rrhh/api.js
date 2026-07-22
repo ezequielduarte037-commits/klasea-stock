@@ -104,20 +104,37 @@ export async function fetchMarcaciones(desde, hasta) {
   return out.map((m) => (m.editado_por ? m : { ...m, ...resolverEntradaSalida(m) }));
 }
 
-export async function fetchJustificaciones(desde, hasta) {
-  const { data: legacy, error } = await supabase
+export async function fetchMarcacionesEmpleado(empleadoId, desde, hasta) {
+  if (!empleadoId) return [];
+  const { data, error } = await supabase
+    .from("rrhh_marcaciones")
+    .select("id, empleado_id, fecha, entrada, salida, fichadas, editado_por, sede")
+    .eq("empleado_id", empleadoId)
+    .gte("fecha", desde)
+    .lte("fecha", hasta)
+    .order("fecha", { ascending: false });
+  if (error) throw error;
+  return (data ?? []).map((m) => (m.editado_por ? m : { ...m, ...resolverEntradaSalida(m) }));
+}
+
+export async function fetchJustificaciones(desde, hasta, { empleadoId = null } = {}) {
+  let legacyQuery = supabase
     .from("rrhh_justificaciones")
     .select("empleado_id, fecha, motivo")
     .gte("fecha", desde)
     .lte("fecha", hasta);
+  if (empleadoId) legacyQuery = legacyQuery.eq("empleado_id", empleadoId);
+  const { data: legacy, error } = await legacyQuery;
   if (error) throw error;
 
-  const periodos = await supabase
+  let periodosQuery = supabase
     .from("rrhh_ausencias")
     .select("id, empleado_id, tipo, desde, hasta, detalle, estado, created_by, created_at")
     .eq("estado", "activo")
     .lte("desde", hasta)
     .gte("hasta", desde);
+  if (empleadoId) periodosQuery = periodosQuery.eq("empleado_id", empleadoId);
+  const periodos = await periodosQuery;
 
   // Compatibilidad mientras se aplica la migracion: las justificaciones
   // historicas siguen funcionando aunque la tabla nueva aun no exista.
@@ -212,7 +229,7 @@ async function requireAttendanceManager() {
     .eq("id", authData.user.id)
     .maybeSingle();
   if (profileError) throw profileError;
-  if (!profile?.is_admin && !["admin", "rrhh"].includes(profile?.role)) {
+  if (!profile?.is_admin && !["admin", "rrhh", "administracion"].includes(profile?.role)) {
     throw new Error("Solo RRHH o un administrador pueden modificar el presentismo.");
   }
   return authData.user.id;
