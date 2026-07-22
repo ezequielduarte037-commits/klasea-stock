@@ -1123,7 +1123,7 @@ function SeguimientoPersonaModal({ empleados, config, onClose }) {
     const tardeMin = timeToMin(config?.tolerancia_tarde) ?? 430;
 
     return rangoFechas(desde, hasta)
-      .filter((day) => diaSemana(day) !== 0)
+      .filter((day) => diaSemana(day) !== 0 && diaSemana(day) !== 6)
       .reverse()
       .map((day) => {
         const marcacion = marksByDate.get(day) ?? null;
@@ -1219,7 +1219,7 @@ function SeguimientoPersonaModal({ empleados, config, onClose }) {
                 <label style={{ display: "grid", gap: 4, color: C.t2, fontSize: 10, fontWeight: 700 }}>HASTA
                   <input type="date" value={hasta} onChange={(event) => { const next = event.target.value; if (next && next >= desde) { setLoading(true); setError(""); } setHasta(next); }} style={{ ...INP, fontSize: 12 }} />
                 </label>
-                <span style={{ color: C.t2, fontSize: 10, alignSelf: "end", paddingBottom: 8 }}>No incluye domingos.</span>
+                <span style={{ color: C.t2, fontSize: 10, alignSelf: "end", paddingBottom: 8 }}>No incluye sabados ni domingos.</span>
               </div>
 
               {hasta < desde && <div style={{ marginBottom: 10, padding: "8px 10px", borderRadius: 8, color: C.red, background: C.redL, border: `1px solid ${C.redB}`, fontSize: 11 }}>La fecha final debe ser igual o posterior a la inicial.</div>}
