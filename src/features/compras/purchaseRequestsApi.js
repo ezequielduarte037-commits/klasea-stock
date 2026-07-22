@@ -990,6 +990,9 @@ export const ITEM_STATUSES = [
   { value: "pendiente",  label: "Pendiente",  color: "#a1a1aa" },
   { value: "en_panol",   label: "Enviado a pañol", color: "#3b82f6" },
   { value: "pedido",     label: "Pedido",     color: "#f59e0b" },
+  // 'parcial': llegó parte de la mercadería y el pedido sigue abierto. Antes no
+  // existía y una recepción parcial se veía igual que una completa (o no se veía).
+  { value: "parcial",    label: "Recibido parcial", color: "#a78bfa" },
   { value: "recibido",   label: "Recibido",   color: "#10b981" },
   { value: "cancelado",  label: "Cancelado",  color: "#ef4444" },
 ];

@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from "react";
-import { Eye, Gauge, KeyRound, LogOut, Menu, Moon, Phone, Sun, X } from "lucide-react";
+import { Eye, Gauge, KeyRound, LogOut, Maximize, Menu, Moon, Phone, Sun, X } from "lucide-react";
 import { Link, useLocation } from "react-router-dom";
 import logoK from "@/assets/logos/logo-k.png";
 import { useResponsive } from "@/hooks/useResponsive";
@@ -574,6 +574,29 @@ export default function Sidebar({ profile, signOut }) {
             </div>
 
             <div style={{ display: "flex", alignItems: "center", gap: 4, flexShrink: 0 }}>
+              <button
+                type="button"
+                onClick={() => {
+                  if (!document.fullscreenElement) {
+                    document.documentElement.requestFullscreen().catch(() => {});
+                  } else {
+                    if (document.exitFullscreen) document.exitFullscreen();
+                  }
+                }}
+                title="Pantalla completa"
+                className="sb-out"
+                style={{
+                  background: C.panel,
+                  border: `1px solid ${C.border}`,
+                  borderRadius: 7,
+                  color: C.dim,
+                  width: 28, height: 28,
+                  display: "flex", alignItems: "center", justifyContent: "center",
+                  cursor: "pointer", flexShrink: 0,
+                }}
+              >
+                <Maximize size={13} />
+              </button>
               <button
                 type="button"
                 onClick={() => setPasswordOpen(true)}

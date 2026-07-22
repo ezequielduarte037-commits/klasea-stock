@@ -1868,6 +1868,17 @@ export default function PurchaseRequestDetail({ requestId, profile, users = [], 
                               {item.quantity} {item.unit}
                             </span>
                           )}
+                          {/* Lo que realmente llegó. Sin esto una entrega parcial se
+                              veía igual que una completa: solo cambiaba el estado. */}
+                          {item.received_quantity && (
+                            <span style={{
+                              color: st.color, fontSize: 10, fontWeight: 800, fontFamily: C.mono,
+                              border: `1px solid ${st.color}44`, background: `${st.color}12`,
+                              borderRadius: 999, padding: "1px 7px",
+                            }}>
+                              Recibido {item.received_quantity}
+                            </span>
+                          )}
                           {isHttpUrl(item.image_url) && (
                             <a href={item.image_url} target="_blank" rel="noreferrer" style={{
                               display: "inline-flex", alignItems: "center", gap: 3,

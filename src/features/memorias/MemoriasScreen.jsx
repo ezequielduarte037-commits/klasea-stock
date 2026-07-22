@@ -61,6 +61,8 @@ import {
 } from "@/features/obras/mapa/persistence";
 import { getLineaTipo, MEMORIA_FIELDS_BY_TIPO } from "@/features/obras/mapa/memoriaFields";
 import { MEMORIA_EXCEL_SEED } from "./memoriaExcelSeed";
+import MemoriaSelector from "./MemoriaSelector";
+import { texPiso } from "./memoriaAcabados";
 
 const BOOL_KEYS = new Set([
   "starlink",
@@ -464,6 +466,76 @@ export default function MemoriasScreen({ profile, signOut }) {
     [descriptorMap],
   );
   const selectedArea = visibleAreas.find((area) => area.id === activeArea) || visibleAreas[0] || CLIENT_AREAS[0];
+
+  // ── Familias para el Selector (showroom iPad) ──
+  // Se arman desde las MISMAS listas de opciones de la memoria: la foto real si
+  // existe, y una textura CSS de respaldo si no (pinturas y teca). Los
+  // "ambientes" de cada familia son los campos que aceptan esa paleta,
+  // filtrados por los descriptores de la línea del barco.
+  const familiasSelector = useMemo(() => {
+    const PAINT_TEX = {
+      "paint-white": "linear-gradient(155deg,#f4f4f2,#dfe0e2)",
+      "paint-navy": "linear-gradient(155deg,#1c2d4a,#0d1830)",
+      "paint-grey": "linear-gradient(155deg,#9aa0a8,#7c828a)",
+      "paint-black": "linear-gradient(155deg,#1a1b1e,#0c0d10)",
+      "paint-green": "linear-gradient(155deg,#1f4633,#12301f)",
+    };
+    const items = (options, fallback) => options.map((opt) => ({
+      nombre: opt.label,
+      tex: opt.imageUrl
+        ? `url(${opt.imageUrl}) center/cover`
+        : (PAINT_TEX[opt.texture] || fallback),
+    }));
+    const soloExistentes = (pares) => pares.filter(([key]) => descriptorMap.has(key)).map(([key, label]) => ({ key, label }));
+    const teca = texPiso("#b08d5f", "#a37d4f", "#6b4e37");
+    const familias = [
+      { id: "pintura", nombre: "Color de casco", hint: "Exterior", cover: 0,
+        ambientes: soloExistentes([["color_casco", "Casco"]]),
+        items: items(PAINT_OPTIONS, PAINT_TEX["paint-white"]) },
+      { id: "maderas", nombre: "Maderas", hint: "Interiores y mobiliario", cover: 1,
+        ambientes: soloExistentes([["madera_muebles", "Madera muebles"]]),
+        items: items(WOOD_OPTIONS, teca) },
+      { id: "pisos", nombre: "Pisos", hint: "Cubierta e interiores", cover: 0,
+        ambientes: soloExistentes([["piso", "Piso"], ["alfombra", "Alfombra"], ["teca_tipo", "Teca"]]),
+        items: items(FLOOR_OPTIONS, teca) },
+      { id: "piedras", nombre: "Mesadas", hint: "Piedras y superficies", cover: 2,
+        ambientes: soloExistentes([["color_mesadas", "Mesadas"]]),
+        items: items(STONE_OPTIONS, teca) },
+      { id: "telas", nombre: "Telas", hint: "Tapicería", cover: 0,
+        ambientes: soloExistentes([
+          ["tapiceria_mamparos", "Mamparos"],
+          ["tapiceria_dinette", "Dinette"],
+          ["tapiceria_respaldos", "Respaldos"],
+          ["tapiceria_exterior", "Tapicería exterior"],
+          ["color_acolchados", "Acolchados"],
+        ]),
+        items: items(FABRIC_OPTIONS, teca) },
+      { id: "lonas", nombre: "Lonas", hint: "Exterior y cerramientos", cover: 4,
+        ambientes: soloExistentes([
+          ["loneria_toldo_proa", "Toldo proa"],
+          ["loneria_cobertor", "Cobertor"],
+          ["loneria_otros", "Otros"],
+          ["color_cerramientos", "Cerramientos"],
+        ]),
+        items: items(CANVAS_OPTIONS, teca) },
+    ];
+    return familias.filter((f) => f.ambientes.length > 0);
+  }, [descriptorMap]);
+
+  // Estado inicial del selector desde la memoria cargada: matchea el valor de
+  // cada campo contra las opciones de su familia (case-insensitive).
+  const seleccionesIniciales = useMemo(() => {
+    const out = {};
+    for (const f of familiasSelector) {
+      for (const amb of f.ambientes) {
+        const valor = String(fields[amb.key] || "").trim().toLowerCase();
+        if (!valor) continue;
+        const item = f.items.find((i) => i.nombre.toLowerCase() === valor);
+        if (item) out[amb.key] = { fam: f.id, item: item.nombre };
+      }
+    }
+    return out;
+  }, [familiasSelector, fields]);
   const filteredObras = useMemo(() => {
     const q = query.trim().toLowerCase();
     if (!q) return obras;
@@ -669,6 +741,18 @@ export default function MemoriasScreen({ profile, signOut }) {
             <section className="mem-content" style={{ minHeight: 0, overflow: "auto", padding: isMobile ? "10px 10px 92px" : 18 }}>
               {!selected ? (
                 <EmptyState />
+              ) : view === "selector" ? (
+                /* key: al cambiar de barco (o entrar a la vista) se remonta y
+                   toma las selecciones iniciales de la memoria actual. */
+                <MemoriaSelector
+                  key={`${selected.id}-selector`}
+                  familias={familiasSelector}
+                  initialSelecciones={seleccionesIniciales}
+                  onToggle={(campo, nombre) => patchField(campo, nombre ?? "")}
+                  onConfirm={() => save()}
+                  titulo={`Acabados del ${selected.codigo}`}
+                  subtitulo="Tocá una familia para ver las muestras. Cada elección se aplica a los ambientes del barco y queda en la memoria descriptiva."
+                />
               ) : view === "studio" ? (
                 <StudioView
                   selected={selected}
@@ -808,15 +892,16 @@ function PremiumHeader({
       <div style={{ display: "flex", alignItems: "center", justifyContent: isMobile ? "space-between" : "flex-end", gap: 9, flexWrap: "wrap", position: "relative" }}>
         <div style={{
           display: "grid",
-          gridTemplateColumns: "1fr 1fr",
+          gridTemplateColumns: "1fr 1fr 1fr",
           gap: 4,
           border: `1px solid ${C.border}`,
           background: C.panel,
           borderRadius: 15,
           padding: 4,
-          flex: isMobile ? "1 1 210px" : "0 0 auto",
+          flex: isMobile ? "1 1 280px" : "0 0 auto",
         }}>
           {[
+            { id: "selector", label: "Showroom", icon: <Palette size={14} /> },
             { id: "studio", label: "Vista cliente", icon: <Sparkles size={14} /> },
             { id: "sheet", label: "Planilla", icon: <FileSpreadsheet size={14} /> },
           ].map((opt) => {

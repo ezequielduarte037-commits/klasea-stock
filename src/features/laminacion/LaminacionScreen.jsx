@@ -607,7 +607,12 @@ export default function LaminacionScreen({ profile, signOut }) {
 
   // Avisa por mail a compras cuando se reciben pedidos de laminación que
   // vinieron de "Pedir a compras" (tienen purchase_request_item_id). Best-effort.
-  async function avisarComprasRecibido(pedidoIds) {
+  /**
+   * Avisa a compras que llegó material. `parcial` cambia el mensaje: antes
+   * siempre decía "Pedido recibido" aunque hubiera llegado la mitad, así que
+   * compras no se enteraba de que faltaba mercadería.
+   */
+  async function avisarCompras(pedidoIds, { parcial = false, detalle = "" } = {}) {
     try {
       const ids = (pedidoIds ?? []).filter(Boolean);
       if (!ids.length) return;
@@ -619,12 +624,16 @@ export default function LaminacionScreen({ profile, signOut }) {
         .from("purchase_request_items").select("request_id").in("id", itemIds);
       const reqIds = [...new Set((items ?? []).map(i => i.request_id).filter(Boolean))];
       const hoy = new Date().toLocaleDateString("es-AR");
+      const message = parcial
+        ? `Recepción PARCIAL en laminación el ${hoy}${detalle ? ` (${detalle}). ` : ". "}El pedido sigue abierto: falta mercadería por entregar.`
+        : `Recibido completo en laminación el ${hoy}.`;
       for (const reqId of reqIds) {
         supabase.functions.invoke("notificar-email-compras", {
           body: {
             type: "pedido_recibido", requestId: reqId,
-            requestTitle: "Pedido de laminación", source: "laminacion",
-            message: `Recibido en laminación el ${hoy}.`,
+            requestTitle: parcial ? "Pedido de laminación (parcial)" : "Pedido de laminación",
+            source: "laminacion",
+            message,
           },
         }).catch(() => {});
       }
@@ -652,11 +661,13 @@ export default function LaminacionScreen({ profile, signOut }) {
       }));
       const { error } = await supabase.from("laminacion_movimientos").insert(movs);
       if (error) { setErr(error.message); return; }
-      // Marcar todos como entregado
-      await supabase.from("laminacion_pedidos")
-        .update({ estado: "entregado" })
-        .in("id", grupo.items.map(p => p.id));
-      avisarComprasRecibido(grupo.items.map(p => p.id));
+      // Marcar todos como entregado (recibido = lo pedido, cierra cualquier parcial previo)
+      for (const p of grupo.items) {
+        await supabase.from("laminacion_pedidos")
+          .update({ estado: "entregado", cantidad_recibida: num(p.cantidad) })
+          .eq("id", p.id);
+      }
+      avisarCompras(grupo.items.map(p => p.id), { parcial: false });
       flash(`Orden ${grupo.ref} recibida — stock actualizado`);
       setConfModal(null);
       cargar();
@@ -666,36 +677,47 @@ export default function LaminacionScreen({ profile, signOut }) {
     if (tipo === "orden_parcial") {
       const { grupo, cantsParciales } = confModal;
       const movs = [];
-      const idsCerrar = [];
-      const idsParciales = [];
+      const cerrar = [];    // [{ id, acumulado }] llegó todo
+      const parciales = []; // [{ id, acumulado, total }] sigue faltando
       for (const p of grupo.items) {
         const cant = num(cantsParciales[p.id]);
         if (cant <= 0) continue;
+        // Se acumula con lo ya recibido antes: comparar sólo esta entrega contra
+        // el total dejaba el ítem "parcial" para siempre aunque ya estuviera completo.
+        const total = num(p.cantidad);
+        const acumulado = num(p.cantidad_recibida) + cant;
         movs.push({
           material_id:  p.material_id,
           tipo:         "ingreso",
           cantidad:     cant,
           fecha:        hoyLocal(),
           obra:         obraMovimientoDesdeDestino(p.obra_destino, obrasLam),
-          observaciones: `Recepción parcial (${cant} de ${num(p.cantidad)}) — ${grupo.ref}`,
+          observaciones: `Recepción parcial (${cant} — acumulado ${acumulado} de ${total}) — ${grupo.ref}`,
           creado_por:   userId,
         });
-        if (cant >= num(p.cantidad)) idsCerrar.push(p.id);
-        else idsParciales.push({ id: p.id, obs: p.observaciones });
+        if (acumulado >= total) cerrar.push({ id: p.id, acumulado });
+        else parciales.push({ id: p.id, acumulado, total });
       }
       if (!movs.length) { setErr("Ingresá al menos una cantidad mayor a 0"); return; }
       const { error } = await supabase.from("laminacion_movimientos").insert(movs);
       if (error) { setErr(error.message); return; }
-      if (idsCerrar.length) {
-        await supabase.from("laminacion_pedidos").update({ estado: "entregado" }).in("id", idsCerrar);
-        avisarComprasRecibido(idsCerrar);
+      for (const { id, acumulado } of cerrar) {
+        await supabase.from("laminacion_pedidos")
+          .update({ estado: "entregado", cantidad_recibida: acumulado }).eq("id", id);
       }
-      for (const { id, obs } of idsParciales) {
-        const cant = num(cantsParciales[id]);
-        const obsAnterior = obs ? obs + " | " : "";
-        await supabase.from("laminacion_pedidos").update({
-          observaciones: `${obsAnterior}Parcial recibido: ${cant}`,
-        }).eq("id", id);
+      // La cantidad recibida ahora vive en su propia columna: el trigger de la DB
+      // la propaga a compras como ítem "parcial" (antes sólo era texto suelto en
+      // observaciones y compras nunca se enteraba).
+      for (const { id, acumulado } of parciales) {
+        await supabase.from("laminacion_pedidos")
+          .update({ cantidad_recibida: acumulado }).eq("id", id);
+      }
+      if (cerrar.length) avisarCompras(cerrar.map(c => c.id), { parcial: false });
+      if (parciales.length) {
+        avisarCompras(parciales.map(p => p.id), {
+          parcial: true,
+          detalle: parciales.map(p => `${p.acumulado} de ${p.total}`).join(" · "),
+        });
       }
       flash(`Recepción parcial — ${movs.length} material${movs.length !== 1 ? "es" : ""} ingresado${movs.length !== 1 ? "s" : ""}`);
       setConfModal(null);
@@ -705,11 +727,15 @@ export default function LaminacionScreen({ profile, signOut }) {
 
     // Pedido individual (legacy)
     const { pedido, cantParcial } = confModal;
-    const cantRecibida = tipo === "entero" ? num(pedido.cantidad) : num(cantParcial);
+    const total = num(pedido.cantidad);
+    const cantRecibida = tipo === "entero" ? total : num(cantParcial);
     if (cantRecibida <= 0) return setErr("Cantidad inválida");
+    const acumulado = tipo === "entero"
+      ? total
+      : num(pedido.cantidad_recibida) + cantRecibida;
     const obsBase = tipo === "entero"
       ? `Recepción completa — pedido #${pedido.id}`
-      : `Recepción parcial (${cantRecibida} de ${pedido.cantidad}) — pedido #${pedido.id}`;
+      : `Recepción parcial (${cantRecibida} — acumulado ${acumulado} de ${total}) — pedido #${pedido.id}`;
     const { error } = await supabase.from("laminacion_movimientos").insert({
       material_id: pedido.material_id,
       tipo: "ingreso",
@@ -720,16 +746,17 @@ export default function LaminacionScreen({ profile, signOut }) {
       creado_por: userId,
     });
     if (error) { setErr(error.message); return; }
-    if (tipo === "entero") {
-      await supabase.from("laminacion_pedidos").update({ estado: "entregado" }).eq("id", pedido.id);
-      avisarComprasRecibido([pedido.id]);
+    // Igual que en la orden: si lo acumulado ya cubre el pedido, se cierra.
+    if (tipo === "entero" || acumulado >= total) {
+      await supabase.from("laminacion_pedidos")
+        .update({ estado: "entregado", cantidad_recibida: acumulado }).eq("id", pedido.id);
+      avisarCompras([pedido.id], { parcial: false });
       flash("Recepción completa — stock actualizado");
     } else {
-      const obsAnterior = pedido.observaciones ? pedido.observaciones + " | " : "";
-      await supabase.from("laminacion_pedidos").update({
-        observaciones: `${obsAnterior}Parcial recibido: ${cantRecibida} de ${pedido.cantidad}`,
-      }).eq("id", pedido.id);
-      flash("Recepción parcial — pedido sigue pendiente");
+      await supabase.from("laminacion_pedidos")
+        .update({ cantidad_recibida: acumulado }).eq("id", pedido.id);
+      avisarCompras([pedido.id], { parcial: true, detalle: `${acumulado} de ${total}` });
+      flash(`Recepción parcial — faltan ${total - acumulado}`);
     }
     setConfModal(null);
     cargar();
@@ -1211,6 +1238,20 @@ export default function LaminacionScreen({ profile, signOut }) {
                                     Incluye extras
                                   </span>
                                 )}
+                                {/* Se ve sin desplegar que esta orden ya recibió algo. */}
+                                {grupo.items.some(p => num(p.cantidad_recibida) > 0) && (
+                                  <span style={{
+                                    fontSize: 11,
+                                    fontWeight: 850,
+                                    color: C.violet,
+                                    border: `1px solid ${tint(C.violet, 34)}`,
+                                    background: tint(C.violet, 12),
+                                    borderRadius: 999,
+                                    padding: "3px 8px",
+                                  }}>
+                                    Parcial · {grupo.items.filter(p => num(p.cantidad_recibida) > 0).length} de {grupo.items.length} con entregas
+                                  </span>
+                                )}
                                 <span style={{ color: C.dim, fontSize: 12 }}>{fmtTs(grupo.createdAt)}</span>
                               </div>
                               <div style={{
@@ -1301,6 +1342,11 @@ export default function LaminacionScreen({ profile, signOut }) {
                               const mat = materiales.find(m => String(m.id) === String(p.material_id));
                               const stockActual = num(stockPorMaterial[p.material_id]);
                               const esExtra = p.categoria === "extra";
+                              const recibido = num(p.cantidad_recibida);
+                              const falta = Math.max(0, num(p.cantidad) - recibido);
+                              const pctRecibido = num(p.cantidad) > 0
+                                ? Math.min(100, Math.round((recibido / num(p.cantidad)) * 100))
+                                : 0;
                               return (
                                 <div key={p.id} style={{
                                   display: "grid",
@@ -1335,8 +1381,20 @@ export default function LaminacionScreen({ profile, signOut }) {
                                     </div>
                                     <div style={{ display: "flex", gap: 12, flexWrap: "wrap", marginTop: 5, fontSize: 12, color: C.dim }}>
                                       <span>Pedido <b style={{ color: C.amber }}>{num(p.cantidad)} {mat?.unidad}</b></span>
+                                      {/* Antes no se veía qué había llegado: sólo decía "parcial". */}
+                                      {recibido > 0 && (
+                                        <>
+                                          <span>Recibido <b style={{ color: C.green }}>{recibido} {mat?.unidad}</b></span>
+                                          <span>Falta <b style={{ color: C.red }}>{falta} {mat?.unidad}</b></span>
+                                        </>
+                                      )}
                                       <span>Stock actual <b style={{ color: stockActual > 0 ? C.green : C.red }}>{stockActual}</b></span>
                                     </div>
+                                    {recibido > 0 && (
+                                      <div style={{ marginTop: 7, height: 4, borderRadius: 99, background: C.panel2, overflow: "hidden", maxWidth: 260 }}>
+                                        <div style={{ height: "100%", width: `${pctRecibido}%`, background: C.green, borderRadius: 99, transition: "width .4s ease" }} />
+                                      </div>
+                                    )}
                                   </div>
                                   <div style={{ display: "flex", gap: 8, justifyContent: isMobile ? "flex-start" : "flex-end" }}>
                                     <button
