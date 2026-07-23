@@ -18,9 +18,11 @@ import {
   Search,
   Sparkles,
   Tag,
+  Trash2,
   Upload,
   Users,
   Unlink,
+  Wand2,
   X,
 } from "lucide-react";
 import Sidebar from "@/components/Sidebar";
@@ -30,7 +32,9 @@ import { useToast } from "@/components/ui/Toast";
 import {
   aplicarPreciosComprobante,
   asignarProveedorPrincipalMasivo,
+  asociarProveedorAlternativoMasivo,
   asociarProveedorMaterial,
+  borrarComprobante,
   fetchCatalogo,
   guardarComprobante,
   guardarComprobanteItem,
@@ -40,7 +44,10 @@ import {
   leerPresupuestoConIA,
   precioDesactualizado,
   registrarOfertaMaterial,
+  revertirAltasAutomaticasComprobantes,
+  vincularComprobanteConIA,
 } from "@/features/materiales/api";
+import ProveedoresTab from "@/features/materiales/ProveedoresTab";
 import ProveedorTipoBadge from "@/features/materiales/ProveedorTipoBadge";
 import { proveedorMeta } from "@/features/materiales/proveedorMeta";
 
@@ -144,6 +151,16 @@ const input = {
   outline: "none",
   fontFamily: C.sans,
   fontSize: 12.5,
+};
+
+const label = {
+  display: "block",
+  marginBottom: 6,
+  color: C.t2,
+  fontSize: 10,
+  fontWeight: 700,
+  letterSpacing: 0.8,
+  textTransform: "uppercase",
 };
 
 function Pill({ kind = "neutral", children }) {
@@ -996,10 +1013,155 @@ function receiptPendingItems(receipt) {
   return (receipt?.items || []).filter((item) => !item.aplicado);
 }
 
-function ReceiptQueueCard({ receipt, selected, onSelect }) {
+// El vínculo de un comprobante no es binario. Un producto recién creado desde
+// este mismo remito sirve para preservar la carga, pero no debe mostrarse como
+// una coincidencia validada con el catálogo existente.
+function diceSimilarity(left, right) {
+  if (!left || !right) return 0;
+  if (left === right) return 1;
+  if (left.length < 2 || right.length < 2) return 0;
+  const pairs = new Map();
+  for (let index = 0; index < left.length - 1; index += 1) {
+    const pair = left.slice(index, index + 2);
+    pairs.set(pair, (pairs.get(pair) || 0) + 1);
+  }
+  let shared = 0;
+  for (let index = 0; index < right.length - 1; index += 1) {
+    const pair = right.slice(index, index + 2);
+    const available = pairs.get(pair) || 0;
+    if (!available) continue;
+    shared += 1;
+    pairs.set(pair, available - 1);
+  }
+  return (2 * shared) / (left.length + right.length - 2);
+}
+
+function receiptMatchScore(item, material) {
+  if (!material) return 0;
+  const source = normalize(item.descripcion_original || item.descripcion);
+  const target = normalize(material.descripcion);
+  const sourceCode = normalize(item.codigo || "");
+  const targetCode = normalize(material.codigo || "");
+  if (!source || !target) return 0;
+  if (
+    (sourceCode &&
+      (sourceCode === targetCode || target.includes(sourceCode))) ||
+    source === target
+  )
+    return 100;
+
+  const sourceWords = [
+    ...new Set(source.split(" ").filter((word) => word.length > 1)),
+  ];
+  const targetWords = [
+    ...new Set(target.split(" ").filter((word) => word.length > 1)),
+  ];
+  const shared = sourceWords.filter((word) => targetWords.includes(word));
+  const sourceCoverage = shared.length / Math.max(sourceWords.length, 1);
+  const targetCoverage = shared.length / Math.max(targetWords.length, 1);
+  const sourceNumbers =
+    String(item.descripcion_original || item.descripcion || "").match(
+      /\d+(?:[.,]\d+)?/g,
+    ) || [];
+  const targetNumbers =
+    String(material.descripcion || "").match(/\d+(?:[.,]\d+)?/g) || [];
+  const hasConflictingNumbers =
+    sourceNumbers.length &&
+    targetNumbers.length &&
+    !sourceNumbers.some((number) => targetNumbers.includes(number));
+  const tokenScore =
+    (2 * sourceCoverage * targetCoverage) /
+    Math.max(sourceCoverage + targetCoverage, 0.001);
+  const textScore = diceSimilarity(source, target);
+  let score = Math.round((tokenScore * 0.72 + textScore * 0.28) * 100);
+  if (source.includes(target) || target.includes(source)) {
+    score = Math.max(score, Math.min(94, 72 + shared.length * 4));
+  }
+  if (hasConflictingNumbers) score = Math.min(score, 42);
+  return Math.min(99, score);
+}
+
+function rankReceiptMatches(item, materials, providerName = "") {
+  const providerKey = normalize(providerName);
+  return materials
+    .map((material) => ({
+      material,
+      score: receiptMatchScore(item, material),
+      sameProvider:
+        !!providerKey &&
+        normalize(
+          `${material.proveedor || ""} ${(material.proveedores_lista || [])
+            .map((row) => row.proveedor?.nombre || row.nombre || "")
+            .join(" ")}`,
+        ).includes(providerKey),
+      established: material.revisado === true || material.origen !== "remito",
+    }))
+    .filter((row) => row.score > 0)
+    .sort(
+      (a, b) =>
+        b.score - a.score ||
+        Number(b.established) - Number(a.established) ||
+        Number(b.sameProvider) - Number(a.sameProvider) ||
+        String(a.material.created_at || "").localeCompare(
+          String(b.material.created_at || ""),
+        ),
+    );
+}
+
+function receiptMatchInfo(item, materials, providerName = "") {
+  const material = materials.find((row) => row.id === item.material_id) || null;
+  const ranked = rankReceiptMatches(item, materials, providerName);
+  const best = ranked[0] || null;
+  if (!material)
+    return {
+      kind: "unlinked",
+      material: null,
+      score: 0,
+      recommended: best,
+    };
+  const createdForThisReceipt = String(material.notas || "").includes(
+    `[comprobante:${item.comprobante_id}]`,
+  );
+  if (createdForThisReceipt) {
+    return {
+      kind: "created",
+      material,
+      score: null,
+      recommended: null,
+    };
+  }
+  const score = receiptMatchScore(item, material);
+  const manuallyConfirmed =
+    normalize(item.descripcion) === normalize(material.descripcion) &&
+    normalize(item.descripcion_original) !== normalize(item.descripcion);
+  const betterEstablished =
+    best &&
+    best.material.id !== material.id &&
+    best.established &&
+    best.score >= 82 &&
+    best.score >= score;
+  return {
+    kind:
+      (score >= 82 && !betterEstablished) || manuallyConfirmed
+        ? "matched"
+        : "suggestion",
+    material,
+    score,
+    recommended: betterEstablished ? best : null,
+  };
+}
+
+function ReceiptQueueCard({ receipt, materials, selected, onSelect }) {
   const [hover, setHover] = useState(false);
   const pending = receiptPendingItems(receipt);
-  const linked = pending.filter((item) => item.material_id).length;
+  const matchInfo = pending.map((item) =>
+    receiptMatchInfo(item, materials, receipt.proveedor),
+  );
+  const matched = matchInfo.filter((item) => item.kind === "matched").length;
+  const created = matchInfo.filter((item) => item.kind === "created").length;
+  const toResolve = matchInfo.filter(
+    (item) => item.kind === "unlinked" || item.kind === "suggestion",
+  ).length;
   const total = pending.reduce(
     (sum, item) => sum + (asNumber(item.total) || 0),
     0,
@@ -1064,9 +1226,11 @@ function ReceiptQueueCard({ receipt, selected, onSelect }) {
           flexWrap: "wrap",
         }}
       >
-        <Pill kind={linked === pending.length ? "ok" : "warn"}>
-          {linked}/{pending.length} vinculados
+        <Pill kind={matched === pending.length ? "ok" : "warn"}>
+          {matched}/{pending.length} coincidencias
         </Pill>
+        {created > 0 && <Pill kind="warn">{created} nuevos</Pill>}
+        {toResolve > 0 && <Pill kind="danger">{toResolve} a revisar</Pill>}
         {total > 0 && (
           <span
             style={{
@@ -1104,34 +1268,21 @@ function ReceiptItemReview({
   const selected = materials.find(
     (material) => material.id === item.material_id,
   );
+  const match = receiptMatchInfo(item, materials, receipt.proveedor);
   useEffect(() => {
     setQuantity(item.cantidad ?? "");
     setPrice(item.precio_unitario ?? "");
   }, [item.id, item.cantidad, item.precio_unitario]);
   const suggestions = useMemo(() => {
-    const words = normalize(query || source)
-      .split(" ")
-      .filter((word) => word.length > 1);
-    if (!words.length) return [];
-    return materials
-      .map((material) => {
-        const text = normalize(
-          `${material.descripcion} ${material.codigo || ""}`,
-        );
-        return {
-          material,
-          score:
-            words.filter((word) => text.includes(word)).length / words.length,
-        };
-      })
-      .filter((row) => row.score >= 0.45)
-      .sort(
-        (a, b) =>
-          b.score - a.score ||
-          a.material.descripcion.localeCompare(b.material.descripcion, "es"),
-      )
-      .slice(0, 6);
-  }, [materials, query, source]);
+    const searchItem = {
+      ...item,
+      descripcion_original: query || source,
+      descripcion: query || source,
+    };
+    return rankReceiptMatches(searchItem, materials, receipt.proveedor)
+      .filter((row) => row.score >= 45)
+      .slice(0, 8);
+  }, [item, materials, query, receipt.proveedor, source]);
 
   async function choose(material) {
     setSaving(true);
@@ -1212,8 +1363,11 @@ function ReceiptItemReview({
         {selected && !editing ? (
           <div
             style={{
-              border: `1px solid ${C.greenB}`,
-              background: C.greenL,
+              border: `1px solid ${match.kind === "created" || match.kind === "suggestion" ? C.amberB : C.greenB}`,
+              background:
+                match.kind === "created" || match.kind === "suggestion"
+                  ? C.amberL
+                  : C.greenL,
               borderRadius: 8,
               padding: "8px 9px",
               display: "flex",
@@ -1221,7 +1375,16 @@ function ReceiptItemReview({
               gap: 7,
             }}
           >
-            <CircleCheck size={14} style={{ color: C.green, flexShrink: 0 }} />
+            {match.kind === "created" ? (
+              <PackagePlus
+                size={14}
+                style={{ color: C.amber, flexShrink: 0 }}
+              />
+            ) : match.kind === "suggestion" ? (
+              <CircleAlert size={14} style={{ color: C.amber, flexShrink: 0 }} />
+            ) : (
+              <CircleCheck size={14} style={{ color: C.green, flexShrink: 0 }} />
+            )}
             <div style={{ minWidth: 0, flex: 1 }}>
               <div
                 style={{
@@ -1235,10 +1398,55 @@ function ReceiptItemReview({
               >
                 {selected.descripcion}
               </div>
-              <div style={{ color: C.t2, fontSize: 10, marginTop: 2 }}>
-                Catalogo completo
+              <div style={{ color: C.t2, fontSize: 10, marginTop: 2, display: "flex", gap: 5, alignItems: "center", flexWrap: "wrap" }}>
+                <span>
+                  {match.kind === "created"
+                    ? "Producto nuevo creado desde este comprobante"
+                    : match.kind === "suggestion"
+                    ? "Vínculo para revisar"
+                    : "Producto existente del catálogo"}
+                </span>
+                {match.score != null && (
+                  <span style={{ color: match.kind === "suggestion" ? C.amber : C.green, fontFamily: C.mono, fontWeight: 700 }}>
+                    {match.score}% coincidencia
+                  </span>
+                )}
+                <span>
+                  {selected.codigo || "Sin código"}
+                  {selected.proveedor ? ` · ${selected.proveedor}` : ""}
+                </span>
               </div>
+              {match.recommended && (
+                <button
+                  type="button"
+                  onClick={() => choose(match.recommended.material)}
+                  disabled={saving || item.aplicado}
+                  style={{
+                    ...button,
+                    marginTop: 7,
+                    padding: "5px 7px",
+                    color: C.blue,
+                    borderColor: C.blueB,
+                    background: C.blueL,
+                    fontSize: 10.5,
+                  }}
+                >
+                  Usar {match.recommended.material.descripcion} ·{" "}
+                  {match.recommended.score}%
+                </button>
+              )}
             </div>
+            {!item.aplicado && match.kind === "suggestion" && (
+              <button
+                type="button"
+                onClick={() => choose(selected)}
+                disabled={saving}
+                style={{ ...button, padding: "5px 7px", fontSize: 10.5, color: C.green, borderColor: C.greenB, background: C.greenL }}
+                title="Confirmar este vínculo como correcto"
+              >
+                Confirmar
+              </button>
+            )}
             {!item.aplicado && (
               <button
                 type="button"
@@ -1306,7 +1514,7 @@ function ReceiptItemReview({
                     "0 14px 28px color-mix(in srgb, var(--text) 14%, transparent)",
                 }}
               >
-                {suggestions.map(({ material }) => (
+                {suggestions.map(({ material, score }) => (
                   <button
                     key={material.id}
                     type="button"
@@ -1328,7 +1536,9 @@ function ReceiptItemReview({
                       {material.descripcion}
                     </div>
                     <div style={{ color: C.t3, fontSize: 10, marginTop: 2 }}>
-                      {material.codigo || "Sin codigo"}
+                      {material.codigo || "Sin código"}
+                      {material.proveedor ? ` · ${material.proveedor}` : ""} ·{" "}
+                      {score}% de coincidencia
                     </div>
                   </button>
                 ))}
@@ -1440,6 +1650,57 @@ function ReceiptItemReview({
   );
 }
 
+function ReceiptImportContextModal({ file, providers, isMobile, onConfirm, onClose }) {
+  const [providerId, setProviderId] = useState("");
+  const [currency, setCurrency] = useState("");
+  const provider = providers.find((item) => item.id === providerId);
+
+  return (
+    <div
+      role="dialog"
+      aria-modal="true"
+      aria-label="Contexto del comprobante"
+      style={{ position: "fixed", inset: 0, zIndex: 10020, padding: isMobile ? 14 : 24, display: "grid", placeItems: "center", background: "var(--overlay-strong)", backdropFilter: "blur(5px)" }}
+    >
+      <div style={{ ...surface, width: "min(100%, 560px)", padding: isMobile ? 16 : 20, boxShadow: "0 24px 64px rgba(15,23,42,.24)" }}>
+        <div style={{ display: "flex", gap: 10, alignItems: "flex-start" }}>
+          <div style={{ width: 38, height: 38, borderRadius: 11, display: "grid", placeItems: "center", color: C.violet, background: C.violet + "18", flexShrink: 0 }}><FileText size={18} /></div>
+          <div style={{ minWidth: 0 }}>
+            <div style={{ color: C.t0, fontSize: 16, fontWeight: 750 }}>Antes de leer el comprobante</div>
+            <div style={{ color: C.t2, fontSize: 12, marginTop: 4, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{file?.name}</div>
+          </div>
+        </div>
+        <div style={{ color: C.t2, fontSize: 12, lineHeight: 1.5, marginTop: 15 }}>Estos datos ayudan a la IA a reconocer productos del proveedor y diferenciar correctamente ARS de USD.</div>
+        <div style={{ display: "grid", gap: 13, marginTop: 16 }}>
+          <label>
+            <span style={label}>Proveedor</span>
+            <select value={providerId} onChange={(event) => setProviderId(event.target.value)} style={input}>
+              <option value="">Detectar en el documento</option>
+              {providers.map((item) => <option key={item.id} value={item.id}>{item.nombre}</option>)}
+            </select>
+          </label>
+          <div>
+            <span style={label}>Moneda</span>
+            <div style={{ display: "flex", gap: 7, flexWrap: "wrap" }}>
+              {[["", "Detectar"], ["ARS", "ARS"], ["USD", "USD"]].map(([value, name]) => {
+                const active = currency === value;
+                const color = value === "USD" ? C.blue : value === "ARS" ? C.green : C.t1;
+                const bg = value === "USD" ? C.blueL : value === "ARS" ? C.greenL : C.panel2;
+                const border = value === "USD" ? C.blueB : value === "ARS" ? C.greenB : C.b0;
+                return <button key={value || "auto"} type="button" onClick={() => setCurrency(value)} style={{ ...button, minWidth: name === "Detectar" ? 94 : 60, justifyContent: "center", borderColor: active ? border : C.b0, background: active ? bg : C.panel, color: active ? color : C.t2 }}>{name}</button>;
+              })}
+            </div>
+          </div>
+        </div>
+        <div style={{ display: "flex", justifyContent: "flex-end", gap: 8, marginTop: 20 }}>
+          <button type="button" onClick={onClose} style={button}>Cancelar</button>
+          <button type="button" onClick={() => onConfirm({ proveedor: provider?.nombre || "", proveedorId: provider?.id || null, moneda: currency })} style={primary}><Sparkles size={14} /> Leer documento</button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 function ReceiptReviewWorkspace({
   receipts,
   materials,
@@ -1450,6 +1711,10 @@ function ReceiptReviewWorkspace({
   onMatchChanged,
   onLineChanged,
   onUpload,
+  onDelete,
+  onReanalyze,
+  onAiLink,
+  onRevertAutomatic,
   isMobile,
 }) {
   const active =
@@ -1485,17 +1750,32 @@ function ReceiptReviewWorkspace({
     );
   }
   const pending = receiptPendingItems(active);
-  const ready = pending.filter(
-    (item) => item.material_id && asNumber(item.precio_unitario) != null,
+  const matchInfo = pending.map((item) =>
+    receiptMatchInfo(item, materials, active.proveedor),
+  );
+  const matched = matchInfo.filter((item) => item.kind === "matched").length;
+  const created = matchInfo.filter((item) => item.kind === "created").length;
+  const suggestions = matchInfo.filter(
+    (item) => item.kind === "suggestion",
   ).length;
-  const needsReview = pending.length - ready;
+  const needsReview = matchInfo.filter(
+    (item) => item.kind === "unlinked" || item.kind === "suggestion",
+  ).length;
+  const ready = pending.filter(
+    (item, index) =>
+      item.material_id &&
+      asNumber(item.precio_unitario) != null &&
+      ["matched", "created"].includes(matchInfo[index]?.kind),
+  ).length;
   const total = (active.items || []).reduce(
     (sum, item) => sum + (asNumber(item.total) || 0),
     0,
   );
   const summary = [
     ["Lineas", pending.length, C.t0],
-    ["Listas", ready, C.green],
+    ["Coincidencias", matched, C.green],
+    ["Nuevos", created, created ? C.amber : C.t2],
+    ["Sugerencias", suggestions, suggestions ? C.amber : C.t2],
     ["A resolver", needsReview, needsReview ? C.amber : C.t2],
     ["Total", money(total, active.moneda), C.violet],
   ];
@@ -1507,7 +1787,13 @@ function ReceiptReviewWorkspace({
           ? "1fr"
           : "minmax(230px, .62fr) minmax(0, 1.7fr)",
         gap: 13,
-        alignItems: "start",
+        // En escritorio el detalle toma todo el alto disponible: sólo la lista
+        // de líneas desplaza. Antes `alignItems: start` dejaba crecer la card
+        // sin límite y la ruedita no tenía dónde hacer scroll.
+        alignItems: isMobile ? "start" : "stretch",
+        flex: 1,
+        minHeight: 0,
+        overflow: isMobile ? "auto" : "hidden",
       }}
     >
       <aside
@@ -1515,6 +1801,7 @@ function ReceiptReviewWorkspace({
           ...surface,
           padding: 10,
           position: isMobile ? "static" : "sticky",
+          alignSelf: "start",
           top: 12,
         }}
       >
@@ -1524,6 +1811,29 @@ function ReceiptReviewWorkspace({
           style={{ ...primary, width: "100%" }}
         >
           <Upload size={14} /> Leer remito, factura o lista
+        </button>
+        <button
+          type="button"
+          onClick={() => onRevertAutomatic(receipts)}
+          disabled={applyingId === "revert:auto"}
+          title="Quita productos que el importador creó sin confirmación y conserva los comprobantes"
+          style={{
+            ...button,
+            width: "100%",
+            justifyContent: "center",
+            marginTop: 7,
+            color: C.red,
+            borderColor: C.redB,
+            background: C.redL,
+            opacity: applyingId === "revert:auto" ? 0.55 : 1,
+          }}
+        >
+          {applyingId === "revert:auto" ? (
+            <Loader2 size={14} className="precios-spin" />
+          ) : (
+            <Trash2 size={14} />
+          )}
+          Revertir altas automáticas
         </button>
         <div
           style={{
@@ -1561,6 +1871,7 @@ function ReceiptReviewWorkspace({
             <ReceiptQueueCard
               key={receipt.id}
               receipt={receipt}
+              materials={materials}
               selected={receipt.id === active.id}
               onSelect={() => onSelectReceipt(receipt.id)}
             />
@@ -1572,6 +1883,9 @@ function ReceiptReviewWorkspace({
         style={{
           ...surface,
           minWidth: 0,
+          minHeight: 0,
+          display: "flex",
+          flexDirection: "column",
           overflow: "hidden",
         }}
       >
@@ -1611,9 +1925,10 @@ function ReceiptReviewWorkspace({
                 <div style={{ color: C.t0, fontSize: 15, fontWeight: 700 }}>
                   {active.proveedor || "Proveedor por definir"}
                 </div>
-                <div style={{ color: C.t2, fontSize: 11, marginTop: 4 }}>
+                <div style={{ display: "flex", alignItems: "center", gap: 7, color: C.t2, fontSize: 11, marginTop: 4, flexWrap: "wrap" }}>
                   {active.numero ? `Comprobante ${active.numero} · ` : ""}
-                  {dateLabel(active.fecha)} - {active.moneda || "ARS"}
+                  {dateLabel(active.fecha)}
+                  <span style={{ border: `1px solid ${(active.moneda || "ARS") === "USD" ? C.blueB : C.greenB}`, background: (active.moneda || "ARS") === "USD" ? C.blueL : C.greenL, color: (active.moneda || "ARS") === "USD" ? C.blue : C.green, borderRadius: 999, padding: "2px 6px", fontFamily: C.mono, fontSize: 10, fontWeight: 800 }}>{active.moneda || "ARS"}</span>
                 </div>
               </div>
             </div>
@@ -1635,6 +1950,62 @@ function ReceiptReviewWorkspace({
                 ? "Aplicando..."
                 : `Aplicar ${ready} precios`}
             </button>
+            <button
+              type="button"
+              onClick={() => onReanalyze(active)}
+              disabled={applyingId === `reanalyze:${active.id}`}
+              style={{
+                ...button,
+                color: C.blue,
+                borderColor: C.blueB,
+                background: C.blueL,
+                opacity:
+                  applyingId === `reanalyze:${active.id}` ? 0.55 : 1,
+              }}
+              title="Volver a comparar todas las líneas con el catálogo"
+            >
+              {applyingId === `reanalyze:${active.id}` ? (
+                <Loader2 size={14} className="precios-spin" />
+              ) : (
+                <Sparkles size={14} />
+              )}
+              Reanalizar vínculos
+            </button>
+            <button
+              type="button"
+              onClick={() => onAiLink(active)}
+              disabled={applyingId === `ai-link:${active.id}`}
+              style={{
+                ...button,
+                color: C.violet,
+                borderColor: C.violetB,
+                background: C.violetL,
+                opacity: applyingId === `ai-link:${active.id}` ? 0.55 : 1,
+              }}
+              title="Vincular las líneas con el catálogo usando IA (entiende abreviaturas: MACHO=M, FUND=bronce…)"
+            >
+              {applyingId === `ai-link:${active.id}` ? (
+                <Loader2 size={14} className="precios-spin" />
+              ) : (
+                <Wand2 size={14} />
+              )}
+              Vincular con IA
+            </button>
+            <button
+              type="button"
+              onClick={() => onDelete(active)}
+              disabled={(active.items || []).some((item) => item.aplicado) || applyingId === `delete:${active.id}`}
+              title={(active.items || []).some((item) => item.aplicado) ? "No se puede eliminar: ya aplico precios" : "Eliminar comprobante de prueba"}
+              style={{
+                ...button,
+                color: C.red,
+                borderColor: C.redB,
+                background: C.redL,
+                opacity: (active.items || []).some((item) => item.aplicado) || applyingId === `delete:${active.id}` ? 0.45 : 1,
+              }}
+            >
+              <Trash2 size={14} /> {applyingId === `delete:${active.id}` ? "Eliminando..." : "Eliminar"}
+            </button>
             {active.archivo_url && (
               <a
                 href={active.archivo_url}
@@ -1649,7 +2020,9 @@ function ReceiptReviewWorkspace({
           <div
             style={{
               display: "grid",
-              gridTemplateColumns: "repeat(4, minmax(0,1fr))",
+              gridTemplateColumns: isMobile
+                ? "repeat(2, minmax(0,1fr))"
+                : "repeat(6, minmax(0,1fr))",
               gap: 7,
               marginTop: 15,
             }}
@@ -1708,8 +2081,8 @@ function ReceiptReviewWorkspace({
             }}
           >
             <CircleAlert size={15} />
-            Hay {needsReview} linea{needsReview === 1 ? "" : "s"} sin un vinculo
-            o precio valido. No se aplicaran hasta completarlas.
+            Hay {needsReview} linea{needsReview === 1 ? "" : "s"} para revisar:
+            vinculalas manualmente o confirmá una sugerencia antes de continuar.
           </div>
         )}
         {!isMobile && (
@@ -1734,7 +2107,7 @@ function ReceiptReviewWorkspace({
             <span style={{ textAlign: "right" }}>Precio unitario</span>
           </div>
         )}
-        <div>
+        <div style={{ flex: 1, minHeight: 0, overflowY: "auto" }}>
           {(active.items || []).map((item) => (
             <ReceiptItemReview
               key={item.id}
@@ -1746,6 +2119,11 @@ function ReceiptReviewWorkspace({
               onLineChanged={onLineChanged}
             />
           ))}
+          {!active.items?.length && (
+            <div style={{ padding: 28, textAlign: "center", color: C.t2, fontSize: 12 }}>
+              Este comprobante todavía no tiene líneas.
+            </div>
+          )}
         </div>
         <footer
           style={{
@@ -1793,6 +2171,7 @@ export default function PreciosScreen({ profile, signOut }) {
   // Selección múltiple de la bandeja "Sin proveedor" (asignación masiva).
   const [bulkIds, setBulkIds] = useState(() => new Set());
   const [bulkProviderId, setBulkProviderId] = useState("");
+  const [bulkNewProviderName, setBulkNewProviderName] = useState("");
   const [bulkSaving, setBulkSaving] = useState(false);
   const [selectedMaterialId, setSelectedMaterialId] = useState(null);
   const [showFilters, setShowFilters] = useState(false);
@@ -1800,6 +2179,7 @@ export default function PreciosScreen({ profile, signOut }) {
   const [loading, setLoading] = useState(false);
   const [applying, setApplying] = useState("");
   const [selectedReceiptId, setSelectedReceiptId] = useState(null);
+  const [receiptImportFile, setReceiptImportFile] = useState(null);
   const [error, setError] = useState("");
   const fileRef = useRef(null);
   const padding = isMobile ? 13 : 24;
@@ -1996,59 +2376,68 @@ export default function PreciosScreen({ profile, signOut }) {
     [prices, materials],
   );
 
-  async function uploadReceipt(file) {
+  function queueReceiptUpload(file) {
+    if (file) setReceiptImportFile(file);
+    if (fileRef.current) fileRef.current.value = "";
+  }
+
+  async function uploadReceipt(file, context = {}) {
     if (!file) return;
     setLoading(true);
     try {
-      const data = await leerPresupuestoConIA({ file });
+      const data = await leerPresupuestoConIA({
+        file,
+        proveedor: context.proveedor || "",
+        moneda: context.moneda || "",
+      });
       const items = Array.isArray(data?.items) ? data.items : [];
       if (!items.length)
         throw new Error("La IA no encontró ítems en el documento.");
       const provider = providers.find(
-        (item) => normalize(item.nombre) === normalize(data?.proveedor),
+        (item) => item.id === context.proveedorId || normalize(item.nombre) === normalize(context.proveedor || data?.proveedor),
       );
+      const proveedor = context.proveedor || data?.proveedor || null;
+      const moneda = context.moneda || data?.moneda || "ARS";
       const receipt = await guardarComprobante(
         {
-          proveedor: data?.proveedor || null,
+          proveedor,
           proveedor_id: provider?.id || null,
           numero: data?.numero || null,
           fecha: data?.fecha || new Date().toISOString().slice(0, 10),
-          moneda: data?.moneda || "ARS",
+          moneda,
           total: data?.total ?? null,
           estado: "borrador",
         },
         file,
       );
-      const rows = items.map((item) => {
+      const rows = [];
+      let matchedCount = 0;
+      let reviewCount = 0;
+      for (const item of items) {
         const description = item.descripcion || item.detalle || "";
-        const candidate = materials
-          .map((material) => ({
-            material,
-            score:
-              normalize(material.descripcion) === normalize(description)
-                ? 100
-                : normalize(material.descripcion).includes(
-                      normalize(description),
-                    ) ||
-                    normalize(description).includes(
-                      normalize(material.descripcion),
-                    )
-                  ? 60
-                  : 0,
-          }))
-          .sort((a, b) => b.score - a.score)[0];
-        return {
+        const candidate = rankReceiptMatches(
+          { ...item, descripcion_original: description, descripcion: description },
+          materials,
+          proveedor,
+        )[0];
+        // Sólo una coincidencia fuerte se vincula sola. El resto queda para
+        // revisión humana y nunca crea productos sin confirmación.
+        const materialId = candidate?.score >= 82 ? candidate.material.id : null;
+        if (materialId) matchedCount += 1;
+        else reviewCount += 1;
+        rows.push({
           comprobante_id: receipt.id,
-          material_id: candidate?.score >= 60 ? candidate.material.id : null,
+          material_id: materialId,
           descripcion: description,
           cantidad: item.cantidad ?? null,
           precio_unitario: item.precio_unitario ?? item.precio ?? null,
           total: item.total ?? null,
           aplicado: false,
-        };
-      });
+        });
+      }
       await guardarComprobanteItems(receipt.id, rows);
-      toast.success(`Comprobante leído: ${rows.length} ítems para revisar.`);
+      const percent = Math.round((matchedCount / rows.length) * 100);
+      toast.success(`Comprobante leído: ${rows.length} ítems; ${matchedCount}/${rows.length} coincidencias fuertes (${percent}%).${reviewCount ? ` ${reviewCount} quedaron para revisar; no se creó ningún producto.` : ""}`);
       await load();
       setSelectedReceiptId(receipt.id);
       setView("bandeja");
@@ -2063,9 +2452,14 @@ export default function PreciosScreen({ profile, signOut }) {
   async function applyReceipt(receipt) {
     setApplying(receipt.id);
     try {
+      const confirmedItems = (receipt.items || []).filter((item) =>
+        ["matched", "created"].includes(
+          receiptMatchInfo(item, materials, receipt.proveedor).kind,
+        ),
+      );
       const result = await aplicarPreciosComprobante(
         receipt,
-        receipt.items || [],
+        confirmedItems,
       );
       toast.success(
         result.pendientes
@@ -2080,12 +2474,216 @@ export default function PreciosScreen({ profile, signOut }) {
     }
   }
 
+  async function reanalyzeReceipt(receipt) {
+    if (!receipt?.id) return;
+    setApplying(`reanalyze:${receipt.id}`);
+    try {
+      let updated = 0;
+      let confirmed = 0;
+      let pending = 0;
+      for (const item of receiptPendingItems(receipt)) {
+        const best = rankReceiptMatches(
+          item,
+          materials,
+          receipt.proveedor,
+        )[0];
+        if (!best || best.score < 82) {
+          pending += 1;
+          continue;
+        }
+        confirmed += 1;
+        if (best.material.id === item.material_id) continue;
+        await guardarComprobanteItem({
+          ...item,
+          material_id: best.material.id,
+          descripcion: best.material.descripcion,
+        });
+        updated += 1;
+      }
+      await load();
+      toast.success(
+        `Reanálisis listo: ${confirmed} coincidencias fuertes${updated ? `, ${updated} vínculo${updated === 1 ? "" : "s"} corregido${updated === 1 ? "" : "s"}` : ""}${pending ? ` y ${pending} para revisar` : ""}.`,
+      );
+    } catch (reason) {
+      toast.error(reason.message || "No se pudieron reanalizar los vínculos.");
+    } finally {
+      setApplying("");
+    }
+  }
+
+  // Vinculación semántica con IA: para cada línea sin vínculo confirmado arma una
+  // lista corta de candidatos (ranking lexical) y deja que la IA elija el mismo
+  // producto. Alta confianza → match confirmado (verde); media → sugerencia (ámbar
+  // para revisar); baja/sin match → queda como nuevo, sin tocar.
+  async function aiLinkReceipt(receipt) {
+    if (!receipt?.id) return;
+    setApplying(`ai-link:${receipt.id}`);
+    try {
+      const activos = materials.filter((m) => m.activo !== false);
+      const targets = receiptPendingItems(receipt).filter((item) => {
+        const info = receiptMatchInfo(item, materials, receipt.proveedor);
+        return info.kind === "unlinked" || info.kind === "suggestion";
+      });
+      if (!targets.length) {
+        toast.info("No hay líneas pendientes para vincular.");
+        return;
+      }
+
+      const items = [];
+      const candidatos = {};
+      targets.forEach((item, index) => {
+        items.push({
+          index,
+          descripcion: item.descripcion_original || item.descripcion,
+          codigo: item.codigo || null,
+          cantidad: item.cantidad ?? null,
+        });
+        candidatos[String(index)] = rankReceiptMatches(
+          item,
+          activos,
+          receipt.proveedor,
+        )
+          .slice(0, 12)
+          .map((row) => ({
+            id: row.material.id,
+            descripcion: row.material.descripcion,
+            codigo: row.material.codigo || null,
+          }));
+      });
+
+      const matches = await vincularComprobanteConIA({
+        items,
+        candidatos,
+        proveedor: receipt.proveedor,
+      });
+      const byIndex = new Map(matches.map((m) => [m.index, m]));
+
+      let altas = 0;
+      let medias = 0;
+      let nuevos = 0;
+      for (let index = 0; index < targets.length; index += 1) {
+        const item = targets[index];
+        const match = byIndex.get(index);
+        const material = match?.material_id
+          ? materials.find((m) => m.id === match.material_id)
+          : null;
+        if (!material) {
+          nuevos += 1;
+          continue;
+        }
+        if (match.confianza === "alta") {
+          // Confirmado: descripcion = la del material → queda como coincidencia (verde).
+          await guardarComprobanteItem({
+            ...item,
+            material_id: material.id,
+            descripcion: material.descripcion,
+          });
+          altas += 1;
+        } else {
+          // Sugerencia: vinculado pero conservando la descripción original → ámbar para revisar.
+          await guardarComprobanteItem({
+            ...item,
+            material_id: material.id,
+            descripcion: item.descripcion_original || item.descripcion,
+          });
+          medias += 1;
+        }
+      }
+
+      await load();
+      const partes = [`${altas} vinculada${altas === 1 ? "" : "s"}`];
+      if (medias) partes.push(`${medias} sugerencia${medias === 1 ? "" : "s"} para revisar`);
+      if (nuevos) partes.push(`${nuevos} nueva${nuevos === 1 ? "" : "s"}`);
+      toast.success(`IA: ${partes.join(", ")}.`);
+    } catch (reason) {
+      toast.error(reason.message || "No se pudieron vincular los ítems con IA.");
+    } finally {
+      setApplying("");
+    }
+  }
+
+  async function revertAutomaticProducts(receipts) {
+    const targets = (receipts || []).filter(
+      (receipt) => !(receipt.items || []).some((item) => item.aplicado),
+    );
+    if (!targets.length) {
+      toast.error("No hay comprobantes sin aplicar para limpiar.");
+      return;
+    }
+    if (
+      !window.confirm(
+        "¿Revertir los productos que el importador creó sin preguntar? Se conservan los comprobantes y nunca se tocan materiales con stock, matrices, pedidos, adicionales o precios.",
+      )
+    )
+      return;
+
+    setApplying("revert:auto");
+    try {
+      const result =
+        await revertirAltasAutomaticasComprobantes(targets);
+      const removed = new Set(result.materialIds || []);
+      const remainingMaterials = materials.filter(
+        (material) => !removed.has(material.id),
+      );
+      const affectedItems = new Set(result.itemIds || []);
+      let relinked = 0;
+      for (const receipt of targets) {
+        for (const item of receipt.items || []) {
+          if (!affectedItems.has(item.id)) continue;
+          const best = rankReceiptMatches(
+            { ...item, material_id: null },
+            remainingMaterials,
+            receipt.proveedor,
+          )[0];
+          if (!best || best.score < 82) continue;
+          await guardarComprobanteItem({
+            ...item,
+            material_id: best.material.id,
+            descripcion: best.material.descripcion,
+          });
+          relinked += 1;
+        }
+      }
+      await load();
+      toast.success(
+        result.eliminados
+          ? `Limpieza terminada: ${result.eliminados} producto${result.eliminados === 1 ? "" : "s"} automático${result.eliminados === 1 ? "" : "s"} eliminado${result.eliminados === 1 ? "" : "s"} y ${relinked} línea${relinked === 1 ? "" : "s"} vinculada${relinked === 1 ? "" : "s"} al catálogo real.${result.omitidos ? ` ${result.omitidos} casos dudosos quedaron intactos.` : ""}`
+          : "No encontré altas automáticas que se pudieran borrar con seguridad. No se modificó el catálogo.",
+      );
+    } catch (reason) {
+      toast.error(
+        reason.message || "No se pudieron revertir las altas automáticas.",
+      );
+    } finally {
+      setApplying("");
+    }
+  }
+
+  async function deleteReceipt(receipt) {
+    if (!receipt?.id) return;
+    if (!window.confirm(`¿Eliminar ${receipt.numero ? `el comprobante ${receipt.numero}` : "este comprobante"}? Esta accion solo borra cargas sin precios aplicados.`)) return;
+    setApplying(`delete:${receipt.id}`);
+    try {
+      await borrarComprobante(receipt);
+      toast.success("Comprobante eliminado.");
+      if (selectedReceiptId === receipt.id) setSelectedReceiptId(null);
+      await load();
+    } catch (reason) {
+      toast.error(reason.message || "No se pudo eliminar el comprobante.");
+    } finally {
+      setApplying("");
+    }
+  }
+
   async function updateReceiptMatch(item, material) {
     try {
       await guardarComprobanteItem({
         ...item,
         material_id: material?.id || null,
-        descripcion: item.descripcion_original || item.descripcion,
+        descripcion:
+          material?.descripcion ||
+          item.descripcion_original ||
+          item.descripcion,
       });
       toast.success(
         material
@@ -2122,7 +2720,7 @@ export default function PreciosScreen({ profile, signOut }) {
     view === "proveedores" && !(focusProvider && selectedProvider);
 
   // ── Asignación masiva de proveedor (vista "Sin proveedor") ──
-  const modoMasivo = view === "sin-asignar";
+  const modoMasivo = view === "sin-asignar" || (view === "proveedores" && !!selectedProvider);
   const toggleBulk = (id) =>
     setBulkIds((prev) => {
       const next = new Set(prev);
@@ -2135,7 +2733,24 @@ export default function PreciosScreen({ profile, signOut }) {
   const limpiarSeleccion = () => setBulkIds(new Set());
 
   async function aplicarProveedorMasivo() {
-    const proveedor = providers.find((p) => p.id === bulkProviderId);
+    let proveedor = providers.find((p) => p.id === bulkProviderId);
+    if (bulkProviderId === "__nuevo") {
+      const nombre = bulkNewProviderName.trim();
+      if (!nombre) {
+        toast.error("Escribi el nombre del proveedor nuevo.");
+        return;
+      }
+      proveedor = providers.find((p) => normalize(p.nombre) === normalize(nombre));
+      if (!proveedor) {
+        try {
+          const id = await guardarProveedor({ nombre, activo: true });
+          proveedor = { id, nombre };
+        } catch (error) {
+          toast.error(error.message || "No se pudo crear el proveedor.");
+          return;
+        }
+      }
+    }
     if (!proveedor) {
       toast.error("Elegí el proveedor que querés asignar.");
       return;
@@ -2146,12 +2761,18 @@ export default function PreciosScreen({ profile, signOut }) {
     }
     setBulkSaving(true);
     try {
-      const n = await asignarProveedorPrincipalMasivo([...bulkIds], proveedor);
+      const seleccionados = currentRows.filter((material) => bulkIds.has(material.id));
+      const n = view === "sin-asignar"
+        ? await asignarProveedorPrincipalMasivo([...bulkIds], proveedor)
+        : await asociarProveedorAlternativoMasivo(seleccionados, proveedor);
       toast.success(
-        `${n} material${n === 1 ? "" : "es"} asignado${n === 1 ? "" : "s"} a ${proveedor.nombre}.`,
+        view === "sin-asignar"
+          ? `${n} material${n === 1 ? "" : "es"} asignado${n === 1 ? "" : "s"} a ${proveedor.nombre}.`
+          : `${n} material${n === 1 ? "" : "es"} ahora tambien puede${n === 1 ? "" : "n"} comprarse a ${proveedor.nombre}.`,
       );
       limpiarSeleccion();
       setBulkProviderId("");
+      setBulkNewProviderName("");
       await load();
     } catch (e) {
       toast.error(e.message || "No se pudo asignar el proveedor.");
@@ -2244,7 +2865,7 @@ export default function PreciosScreen({ profile, signOut }) {
                 ref={fileRef}
                 type="file"
                 accept="image/*,application/pdf"
-                onChange={(e) => uploadReceipt(e.target.files?.[0])}
+                onChange={(e) => queueReceiptUpload(e.target.files?.[0])}
                 style={{ display: "none" }}
               />
               <button
@@ -2346,6 +2967,7 @@ export default function PreciosScreen({ profile, signOut }) {
               label: "Remitos y facturas",
               count: pendingReceipts.length,
             },
+            { id: "administrar-proveedores", label: "Proveedores", count: providers.length },
             { id: "historial", label: "Historial" },
           ].map((item) => (
             <button
@@ -2356,6 +2978,7 @@ export default function PreciosScreen({ profile, signOut }) {
                 setFocusProvider(false); // al cambiar de pestaña se sale del foco
                 setBulkIds(new Set()); // y se descarta la selección masiva
                 setBulkProviderId("");
+                setBulkNewProviderName("");
               }}
               style={{
                 border: "none",
@@ -2678,7 +3301,7 @@ export default function PreciosScreen({ profile, signOut }) {
                         {bulkIds.size}
                       </span>
                       <span style={{ fontSize: 12, color: C.t1 }}>
-                        asignar a
+                        {view === "sin-asignar" ? "asignar como principal a" : "agregar como proveedor"}
                       </span>
                       <select
                         value={bulkProviderId}
@@ -2686,22 +3309,32 @@ export default function PreciosScreen({ profile, signOut }) {
                         style={{ ...input, flex: 1, minWidth: 150 }}
                       >
                         <option value="">Elegí proveedor…</option>
+                        <option value="__nuevo">+ Crear proveedor nuevo...</option>
                         {providers
                           .filter((p) => p.activo !== false)
+                          .filter((p) => view === "sin-asignar" || p.id !== selectedProvider?.id)
                           .map((p) => (
                             <option key={p.id} value={p.id}>
                               {p.nombre}
                             </option>
                           ))}
                       </select>
+                      {bulkProviderId === "__nuevo" && (
+                        <input
+                          value={bulkNewProviderName}
+                          onChange={(e) => setBulkNewProviderName(e.target.value)}
+                          placeholder="Nombre del proveedor nuevo"
+                          style={{ ...input, flex: 1, minWidth: 180 }}
+                        />
+                      )}
                       <button
                         type="button"
                         onClick={aplicarProveedorMasivo}
-                        disabled={bulkSaving || !bulkProviderId}
+                        disabled={bulkSaving || !bulkProviderId || (bulkProviderId === "__nuevo" && !bulkNewProviderName.trim())}
                         style={{
                           ...primary,
                           padding: "7px 13px",
-                          opacity: bulkSaving || !bulkProviderId ? 0.55 : 1,
+                          opacity: bulkSaving || !bulkProviderId || (bulkProviderId === "__nuevo" && !bulkNewProviderName.trim()) ? 0.55 : 1,
                         }}
                       >
                         {bulkSaving ? (
@@ -2773,8 +3406,17 @@ export default function PreciosScreen({ profile, signOut }) {
               onMatchChanged={updateReceiptMatch}
               onLineChanged={updateReceiptLine}
               onUpload={() => fileRef.current?.click()}
+              onDelete={deleteReceipt}
+              onReanalyze={reanalyzeReceipt}
+              onAiLink={aiLinkReceipt}
+              onRevertAutomatic={revertAutomaticProducts}
               isMobile={isMobile}
             />
+          )}
+          {view === "administrar-proveedores" && (
+            <div style={{ ...surface, flex: 1, minHeight: 0, overflowY: "auto", padding: isMobile ? 12 : 18 }}>
+              <ProveedoresTab proveedores={providers} onChanged={load} />
+            </div>
           )}
           {view === "historial" && (
             <div style={{ maxWidth: 1080 }}>
@@ -2877,6 +3519,19 @@ export default function PreciosScreen({ profile, signOut }) {
           )}
         </section>
       </main>
+      {receiptImportFile && (
+        <ReceiptImportContextModal
+          file={receiptImportFile}
+          providers={providers}
+          isMobile={isMobile}
+          onClose={() => setReceiptImportFile(null)}
+          onConfirm={(context) => {
+            const file = receiptImportFile;
+            setReceiptImportFile(null);
+            uploadReceipt(file, context);
+          }}
+        />
+      )}
       <style>{`@keyframes precios-spin{to{transform:rotate(360deg)}}.precios-spin{animation:precios-spin 1s linear infinite}`}</style>
     </div>
   );

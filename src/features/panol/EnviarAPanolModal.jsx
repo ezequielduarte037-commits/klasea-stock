@@ -798,6 +798,9 @@ export default function EnviarAPanolModal({ open, onClose, prefill, showPrices =
   const [selectedMatches, setSelectedMatches] = useState(() => new Set());
   const [dragMatch, setDragMatch] = useState(null);
   const [aiReading, setAiReading] = useState(false);
+  const [aiSummary, setAiSummary] = useState(null);
+  const [aiProveedorId, setAiProveedorId] = useState("");
+  const [aiMoneda, setAiMoneda] = useState("");
   const [creatingCatalogIndex, setCreatingCatalogIndex] = useState(null);
   const [scanCode, setScanCode] = useState("");
   const [scanFlashMat, setScanFlashMat] = useState(null);
@@ -810,6 +813,7 @@ export default function EnviarAPanolModal({ open, onClose, prefill, showPrices =
   const autoDraftIdRef = useRef(null);
   const lastAutosaveRef = useRef("");
   const scanInputRef = useRef(null);
+  const itemsSectionRef = useRef(null);
   const stockByMaterial = useMemo(() => buildStockByMaterial(stockRows), [stockRows]);
 
   useEffect(() => {
@@ -839,6 +843,9 @@ export default function EnviarAPanolModal({ open, onClose, prefill, showPrices =
     setMatches([]);
     setSelectedMatches(new Set());
     setDragMatch(null);
+    setAiSummary(null);
+    setAiProveedorId("");
+    setAiMoneda("");
     autoDraftIdRef.current = prefill?.draftId || null;
     lastAutosaveRef.current = "";
     supabase
@@ -1218,12 +1225,7 @@ export default function EnviarAPanolModal({ open, onClose, prefill, showPrices =
         prepared.push({ ...item, ...itemPatchFromMaterial(best, item) });
         continue;
       }
-      // En el INGRESO de pañol no se crean productos al vuelo: hay que crearlos antes en
-      // la pestaña "Crear producto". Queda sin vincular y el submit lo frena.
-      if (isRemito) {
-        prepared.push(item);
-        continue;
-      }
+      // Sin un match fuerte, el item se crea en catalogo y queda marcado para revisar.
       const created = await crearPanolCatalogMaterial({
         descripcion: item.descripcion,
         codigo: item.codigo,
@@ -1390,7 +1392,13 @@ export default function EnviarAPanolModal({ open, onClose, prefill, showPrices =
     if (!file) return;
     setAiReading(true);
     try {
-      const data = await leerPresupuestoConIA({ file });
+      const proveedorElegido = proveedores.find((proveedor) => proveedor.id === aiProveedorId);
+      const proveedorHint = proveedorElegido?.nombre || "";
+      const data = await leerPresupuestoConIA({
+        file,
+        proveedor: proveedorHint,
+        moneda: aiMoneda,
+      });
       const catalogRows = await getCatalogForMatching();
       const aiItems = (data?.items || data?.lineas || [])
         .map((it) => normalizeItem({
@@ -1399,9 +1407,9 @@ export default function EnviarAPanolModal({ open, onClose, prefill, showPrices =
           cantidad: it.cantidad ?? it.quantity ?? "",
           unidad: it.unidad || it.unit || "unidad",
           precio_unitario: it.precio_unitario ?? it.precio ?? "",
-          moneda: it.moneda || "ARS",
+          moneda: String(it.moneda || data?.moneda || aiMoneda || "ARS").toUpperCase() === "USD" ? "USD" : "ARS",
           obra_id: obraId || "",
-          proveedor: data?.proveedor || "",
+          proveedor: proveedorHint || data?.proveedor || "",
           recepcion_estado: isRemito ? "recibido" : null,
         }))
         .filter((it) => it.descripcion);
@@ -1414,9 +1422,17 @@ export default function EnviarAPanolModal({ open, onClose, prefill, showPrices =
         return;
       }
       setItems((prev) => [...prev, ...(showPrices ? hydratedItems : hydratedItems.map(stripItemPrice))]);
-      if (!titulo.trim() && data?.proveedor) setTitulo(`Remito ${data.proveedor}`);
+      if (!titulo.trim() && (proveedorHint || data?.proveedor)) setTitulo(`Remito ${proveedorHint || data.proveedor}`);
       const suggested = hydratedItems.filter((item) => item.material_id).length;
+      const linkedPercent = Math.round((suggested / hydratedItems.length) * 100);
+      const currencies = hydratedItems.reduce((counts, item) => {
+        const currency = item.moneda === "USD" ? "USD" : "ARS";
+        counts[currency] = (counts[currency] || 0) + 1;
+        return counts;
+      }, {});
+      setAiSummary({ detected: hydratedItems.length, linked: suggested, linkedPercent, currencies });
       toast.success(`IA leyo ${hydratedItems.length} item${hydratedItems.length === 1 ? "" : "s"} - ${suggested} vinculado${suggested === 1 ? "" : "s"} al catalogo.`);
+      window.setTimeout(() => itemsSectionRef.current?.scrollIntoView({ behavior: "smooth", block: "start" }), 80);
     } catch (err) {
       toast.error(err.message || "No se pudo leer el remito.");
     } finally {
@@ -1453,15 +1469,6 @@ export default function EnviarAPanolModal({ open, onClose, prefill, showPrices =
     try {
       const preparedItems = await ensureCatalogLinksForItems(items);
       setItems(preparedItems);
-      if (isRemito) {
-        const sinCatalogo = preparedItems.filter((it) => !it.material_id && !it.purchase_request_item_id && !it.panol_envio_item_id && !it.obra_snapshot_item_id && String(it.descripcion || "").trim());
-        if (sinCatalogo.length) {
-          const nombres = sinCatalogo.map((it) => `"${it.descripcion}"`).slice(0, 3).join(", ");
-          toast.warning(`No están en el catálogo: ${nombres}${sinCatalogo.length > 3 ? "…" : ""}. Creálos primero en la pestaña "Crear producto" y después ingresalos.`);
-          setSaving(false);
-          return;
-        }
-      }
       try {
         await rememberTouchedLocations(preparedItems);
       } catch (locationError) {
@@ -1615,6 +1622,35 @@ export default function EnviarAPanolModal({ open, onClose, prefill, showPrices =
             </div>
 
             {isRemito && (
+              <div style={{ display: "grid", gridTemplateColumns: isMobile ? "1fr" : "minmax(0,1fr) auto", gap: 10, padding: ingresoDesktop ? "11px 12px" : "9px 10px", border: `1px solid ${C.b0}`, borderRadius: 10, background: C.bg }}>
+                <div>
+                  <span style={{ ...lbl, marginBottom: 5 }}>Proveedor del remito</span>
+                  <select value={aiProveedorId} onChange={(e) => setAiProveedorId(e.target.value)} style={inp({ background: C.panelSolid, cursor: "pointer", height: ingresoDesktop ? 40 : 36 })}>
+                    <option value="">Detectar en el documento</option>
+                    {proveedores.map((proveedor) => <option key={proveedor.id} value={proveedor.id}>{proveedor.nombre}</option>)}
+                  </select>
+                </div>
+                <div>
+                  <span style={{ ...lbl, marginBottom: 5 }}>Moneda</span>
+                  <div style={{ display: "flex", gap: 5 }}>
+                    {[['', 'Detectar'], ['ARS', 'ARS'], ['USD', 'USD']].map(([value, label]) => {
+                      const active = aiMoneda === value;
+                      const isUsd = value === 'USD';
+                      return <button key={value || 'auto'} type="button" onClick={() => setAiMoneda(value)} style={{ border: `1px solid ${active ? (isUsd ? C.blueB : C.greenB) : C.b0}`, background: active ? (isUsd ? C.blueL : value === 'ARS' ? C.greenL : C.panelSolid) : C.panelSolid, color: active ? (isUsd ? C.blue : value === 'ARS' ? C.green : C.t1) : C.t2, borderRadius: 7, minWidth: label === 'Detectar' ? 76 : 52, height: ingresoDesktop ? 40 : 36, padding: "0 9px", cursor: "pointer", fontSize: 11.5, fontWeight: 850, fontFamily: C.sans }}>{label}</button>;
+                    })}
+                  </div>
+                </div>
+              </div>
+            )}
+
+            {aiSummary && (
+              <div style={{ display: "flex", alignItems: "center", gap: 8, padding: "9px 10px", border: `1px solid ${aiSummary.linkedPercent >= 70 ? C.greenB : C.amberB}`, background: aiSummary.linkedPercent >= 70 ? C.greenL : C.amberL, borderRadius: 9, color: C.t1, fontSize: 12, fontWeight: 750 }}>
+                <Bot size={14} style={{ color: aiSummary.linkedPercent >= 70 ? C.green : C.amber, flexShrink: 0 }} />
+                <span>IA detecto <strong>{aiSummary.detected}</strong> items. <strong>{aiSummary.linked}/{aiSummary.detected}</strong> vinculados al catalogo ({aiSummary.linkedPercent}% de deteccion). {aiSummary.currencies?.ARS ? <strong>ARS {aiSummary.currencies.ARS}</strong> : null}{aiSummary.currencies?.ARS && aiSummary.currencies?.USD ? " · " : null}{aiSummary.currencies?.USD ? <strong>USD {aiSummary.currencies.USD}</strong> : null}</span>
+              </div>
+            )}
+
+            {isRemito && (
               <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
                 <div style={{ position: "relative", flex: 1, minWidth: 0 }}>
                   <ScanLine size={16} style={{ position: "absolute", left: 11, top: "50%", transform: "translateY(-50%)", color: C.green }} />
@@ -1743,6 +1779,7 @@ export default function EnviarAPanolModal({ open, onClose, prefill, showPrices =
           </div>
 
           <div
+            ref={itemsSectionRef}
             style={isRemito ? { border: `1px solid ${C.b0}`, background: "rgba(96,165,250,0.035)", borderRadius: 14, padding: ingresoDesktop ? 16 : 10, display: "grid", gap: 10 } : undefined}
             onDragOver={(e) => { if (dragMatch) e.preventDefault(); }}
             onDrop={(e) => {

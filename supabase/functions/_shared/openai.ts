@@ -8,7 +8,12 @@
 
 // ─── Config ──────────────────────────────────────────────────────────────────
 const OR_BASE = "https://openrouter.ai/api/v1";
-const OR_MODEL = "openai/gpt-4o-mini";    // vision + chat, cheap, rápido
+// Extracción de remitos/facturas/presupuestos (visión + PDF + texto).
+// Gemini Pro lee mejor fotos con mala luz y respeta el prompt largo de reglas.
+// Si el costo se dispara, bajar a "google/gemini-2.5-flash" (misma familia, más barato).
+const OR_MODEL_EXTRACT = "google/gemini-2.5-pro";
+// Chat conversacional de WhatsApp: mini alcanza y es mucho más barato.
+const OR_MODEL_CHAT = "openai/gpt-4o-mini";
 const GROQ_BASE = "https://api.groq.com/openai/v1";
 const WHISPER_MODEL = "whisper-large-v3";
 
@@ -72,7 +77,9 @@ export interface ParsedComprobante {
   fecha?: string | null;
   items: Array<{
     descripcion: string;
+    codigo?: string | null;
     cantidad?: number | string | null;
+    unidad?: string | null;
     precio_unitario?: number | string | null;
     moneda?: "ARS" | "USD" | string | null;
     total?: number | string | null;
@@ -144,9 +151,10 @@ Formato:
       "X-Title": "Klase A Comprobantes",
     },
     body: JSON.stringify({
-      model: OR_MODEL,
+      model: OR_MODEL_EXTRACT,
       temperature: 0,
-      max_tokens: 1400,
+      max_tokens: 8000,
+      reasoning: { effort: "low" },
       response_format: { type: "json_object" },
       messages: [
         { role: "system", content: system + (input.contexto || "") },
@@ -246,9 +254,10 @@ Formato:
       "X-Title": "Klase A Presupuestos",
     },
     body: JSON.stringify({
-      model: OR_MODEL,
+      model: OR_MODEL_EXTRACT,
       temperature: 0,
-      max_tokens: 1600,
+      max_tokens: 8000,
+      reasoning: { effort: "low" },
       response_format: { type: "json_object" },
       messages: [
         { role: "system", content: system + (input.contexto || "") },
@@ -301,6 +310,14 @@ Formato:
 export async function extraerComprobantePDF(input: { base64: string; mimeType?: string; filename?: string; sectores?: string[]; contexto?: string }): Promise<ParsedComprobante> {
   const mimeType = input.mimeType || "application/pdf";
   const filename = input.filename || "comprobante.pdf";
+  const exhaustiveTableProtocol = `
+
+LECTURA EXHAUSTIVA DE TABLA:
+- Lee cada renglon de producto de la tabla, desde el primero hasta antes de subtotales, IVA o totales. Cada renglon debe resultar en un objeto de items; no agrupes ni descartes renglones repetidos.
+- Extrae codigo, descripcion completa, cantidad, unidad, precio_unitario, moneda y total. Codigo y unidad pueden ser null solo si realmente no aparecen.
+- Conserva medidas tecnicas como 1/4, 1 1/2, 50 mm o 2 x 2 dentro de descripcion. No las confundas con la cantidad.
+- Antes de responder revisa el conteo de renglones contra items. Si el PDF muestra 27 productos, devuelve exactamente 27 items.
+`;
   const system = `Sos un extractor de comprobantes del astillero Klase A.
 
 Lees PDFs de remitos, facturas o presupuestos. Devolves SOLO JSON estricto, sin markdown.
@@ -342,16 +359,17 @@ Formato:
       "X-Title": "Klase A Comprobantes",
     },
     body: JSON.stringify({
-      model: OR_MODEL,
+      model: OR_MODEL_EXTRACT,
       temperature: 0,
-      max_tokens: 3000,
+      max_tokens: 8000,
+      reasoning: { effort: "low" },
       response_format: { type: "json_object" },
       messages: [
-        { role: "system", content: system + (input.contexto || "") },
+        { role: "system", content: system + exhaustiveTableProtocol + (input.contexto || "") },
         {
           role: "user",
           content: [
-            { type: "text", text: "Extrae los datos de este PDF. Devolve JSON estricto." + clasificacionBloque(input.sectores) },
+            { type: "text", text: "Extrae TODOS los renglones de productos de este PDF, de punta a punta. Antes de devolver, conta los renglones fisicos de la tabla y verifica que items tenga esa misma cantidad. Devuelve un objeto por renglon: no agrupes, no resumas y no omitas renglones aunque repitan codigo o descripcion. Conserva los codigos, unidades y medidas tecnicas. Devolve JSON estricto." + clasificacionBloque(input.sectores) },
             {
               type: "file",
               file: {
@@ -390,8 +408,10 @@ Formato:
   const items = Array.isArray(parsed.items)
     ? parsed.items
         .map((it: any) => ({
+          codigo: it.codigo ? String(it.codigo).trim() : null,
           descripcion: String(it.descripcion ?? it.description ?? "").trim(),
           cantidad: it.cantidad ?? it.quantity ?? null,
+          unidad: it.unidad ? String(it.unidad).trim() : (it.unit ? String(it.unit).trim() : null),
           precio_unitario: it.precio_unitario ?? it.unit_price ?? null,
           moneda: normalizeComprobanteMoneda(it.moneda ?? it.currency ?? it.divisa, parsed.moneda ?? parsed.currency ?? parsed.divisa ?? parsed.moneda_documento),
           total: it.total ?? null,
@@ -406,6 +426,135 @@ Formato:
     fecha: parsed.fecha ? String(parsed.fecha).slice(0, 10) : null,
     items,
   };
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// vincularItemsCatalogo — matching semántico de líneas de remito contra el catálogo.
+// ─────────────────────────────────────────────────────────────────────────────
+// Recibe cada ítem del remito con una lista corta de candidatos (pre-filtrados por
+// similitud lexical en el frontend) y le pide a la IA que elija el mismo producto,
+// entendiendo las abreviaturas del rubro (MACHO=M, HEMBRA=H, FUND=bronce fundido…).
+export interface VinculoMatch {
+  index: number;
+  material_id: string | null;
+  confianza: "alta" | "media" | "baja";
+  motivo?: string;
+}
+
+export async function vincularItemsCatalogo(input: {
+  items: Array<{ index: number; descripcion: string; codigo?: string | null; cantidad?: number | string | null }>;
+  candidatos: Record<string, Array<{ id: string; descripcion: string; codigo?: string | null }>>;
+  proveedor?: string;
+}): Promise<VinculoMatch[]> {
+  const items = Array.isArray(input.items) ? input.items : [];
+  if (!items.length) return [];
+
+  const system = `Sos el vinculador de remitos del astillero Klase A. Tu trabajo es decir, para cada línea de un remito, cuál producto del CATÁLOGO existente es EXACTAMENTE el mismo, o si es un producto nuevo que todavía no está.
+
+Devolvés SOLO JSON estricto, sin markdown.
+
+Cómo pensar cada línea:
+- Compará la descripción de la línea del remito contra su lista de candidatos (cada candidato tiene un id y una descripción del catálogo).
+- Elegí el candidato que sea EL MISMO producto: mismo tipo + misma conexión + mismo material + MISMA MEDIDA.
+
+Abreviaturas del rubro (tratalas como equivalentes):
+- "MACHO" = "M" ; "HEMBRA" = "H" ; "M/H" o "MACHO HEMBRA" = macho-hembra.
+- "FUND" / "FUNDIDO" = bronce fundido (bronce). Si la línea dice FUND y el candidato dice "bronce", es el mismo material.
+- "PX" / "PLAST" = plástico.
+- "MANG" = manguera. "ESP" = espiga. "RR" o "ENTRERROSCA" = entrerrosca.
+- Tipos: RACOR, CODO, TEE, NIPLE, CUPLA, TAPA, BUJE, UNION, TUERCA, etc.
+
+Reglas duras:
+- LA MEDIDA MANDA. "1x3/4" NO es lo mismo que "1x1" ni "1/2x3/8". Si la medida difiere, NO es el mismo producto → material_id = null, confianza = "baja". Un racor de una medida jamás reemplaza al de otra.
+- Solo devolvé un material_id que esté EN la lista de candidatos de ESA línea. Nunca inventes un id.
+- Si ningún candidato es el mismo producto (por medida, tipo o material), devolvé material_id = null: es un producto NUEVO. Es correcto y esperado que muchas líneas sean nuevas.
+- confianza: "alta" = es el mismo producto sin dudas (tipo + medida + material coinciden). "media" = muy probablemente el mismo pero hay algo ambiguo (falta un dato, medida escrita raro). "baja" = no hay match confiable (dejá material_id null).
+
+Formato de salida:
+{ "matches": [ { "index": 0, "material_id": "id-del-candidato-o-null", "confianza": "alta|media|baja", "motivo": "una frase corta" } ] }
+Devolvé un objeto por cada línea recibida, con su mismo index.`;
+
+  const provLine = input.proveedor ? `\nProveedor del remito: ${input.proveedor}.` : "";
+  const payload = {
+    lineas: items.map((it) => ({
+      index: it.index,
+      descripcion: it.descripcion,
+      codigo: it.codigo || null,
+      cantidad: it.cantidad ?? null,
+      candidatos: (input.candidatos?.[String(it.index)] ?? []).map((c) => ({
+        id: c.id,
+        descripcion: c.descripcion,
+        codigo: c.codigo || null,
+      })),
+    })),
+  };
+
+  const res = await fetch(`${OR_BASE}/chat/completions`, {
+    method: "POST",
+    headers: {
+      "Authorization": orAuth(),
+      "Content-Type": "application/json",
+      "HTTP-Referer": "https://klasea-stock.vercel.app",
+      "X-Title": "Klase A Vinculador",
+    },
+    body: JSON.stringify({
+      model: OR_MODEL_EXTRACT,
+      temperature: 0,
+      max_tokens: 8000,
+      reasoning: { effort: "low" },
+      response_format: { type: "json_object" },
+      messages: [
+        { role: "system", content: system },
+        { role: "user", content: `Vinculá estas líneas con sus candidatos.${provLine}\n\n${JSON.stringify(payload)}` },
+      ],
+    }),
+  });
+
+  if (!res.ok) {
+    const errText = await res.text();
+    throw new Error(`OpenRouter vincularItems failed (${res.status}): ${errText.slice(0, 300)}`);
+  }
+
+  const data = await res.json();
+  const content = data?.choices?.[0]?.message?.content;
+  if (!content) throw new Error(`OpenRouter sin contenido. Resp: ${JSON.stringify(data).slice(0, 300)}`);
+
+  let parsed: any;
+  try {
+    parsed = JSON.parse(content);
+  } catch {
+    throw new Error(`OpenRouter devolvió JSON inválido: ${String(content).slice(0, 200)}`);
+  }
+
+  // Set de ids válidos por índice: la IA solo puede elegir candidatos que le pasamos.
+  const validByIndex = new Map<number, Set<string>>();
+  for (const it of items) {
+    validByIndex.set(
+      it.index,
+      new Set((input.candidatos?.[String(it.index)] ?? []).map((c) => String(c.id))),
+    );
+  }
+
+  const rawMatches = Array.isArray(parsed.matches) ? parsed.matches : [];
+  return rawMatches
+    .map((m: any) => {
+      const index = Number(m?.index);
+      if (!Number.isInteger(index)) return null;
+      const rawId = m?.material_id == null ? null : String(m.material_id).trim();
+      const valid = validByIndex.get(index);
+      const material_id = rawId && valid?.has(rawId) ? rawId : null;
+      const confRaw = String(m?.confianza || "").toLowerCase();
+      const confianza = ["alta", "media", "baja"].includes(confRaw)
+        ? (confRaw as "alta" | "media" | "baja")
+        : "baja";
+      return {
+        index,
+        material_id,
+        confianza: material_id ? confianza : "baja",
+        motivo: m?.motivo ? String(m.motivo).slice(0, 160) : "",
+      } as VinculoMatch;
+    })
+    .filter(Boolean) as VinculoMatch[];
 }
 
 // chatWithBot -- turno conversacional principal.
@@ -661,7 +810,7 @@ Hoy es ${today}.`;
       "X-Title": "Klase A Bot",
     },
     body: JSON.stringify({
-      model: OR_MODEL,
+      model: OR_MODEL_CHAT,
       temperature: 0.2,
       max_tokens: 800,
       response_format: { type: "json_object" },
@@ -680,7 +829,7 @@ Hoy es ${today}.`;
         "X-Title": "Klase A Bot",
       },
       body: JSON.stringify({
-        model: OR_MODEL,
+        model: OR_MODEL_CHAT,
         temperature: 0.2,
         max_tokens: 800,
         response_format: { type: "json_object" },
@@ -808,7 +957,7 @@ Hoy es ${today}.`;
       "X-Title": "Klase A Bot",
     },
     body: JSON.stringify({
-      model: OR_MODEL,
+      model: OR_MODEL_CHAT,
       temperature: 0.15,
       max_tokens: 800,
       response_format: { type: "json_object" },

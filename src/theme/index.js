@@ -168,6 +168,8 @@ export const C = {
   indigo: "var(--indigo)",
   blueL: "var(--blue-soft)",
   blueB: "var(--blue-border)",
+  violetL: "var(--violet-soft)",
+  violetB: "var(--violet-border)",
   amberL: "var(--amber-soft)",
   amberB: "var(--amber-border)",
   greenL: "var(--green-soft)",

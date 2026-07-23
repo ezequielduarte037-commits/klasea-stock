@@ -27,7 +27,7 @@ function json(body: unknown, status = 200) {
 // (derivados del catálogo). Cada remito cargado enriquece el contexto del
 // siguiente. Si algo falla, devuelve "" y la extracción sigue como siempre.
 // deno-lint-ignore no-explicit-any
-async function buildProveedorContext(supabase: any): Promise<string> {
+async function buildProveedorContext(supabase: any, proveedorFoco = ""): Promise<string> {
   try {
     const [provRes, matRes] = await Promise.all([
       supabase
@@ -43,13 +43,26 @@ async function buildProveedorContext(supabase: any): Promise<string> {
         .limit(2000),
     ]);
     const provs = provRes.data ?? [];
-    if (!provs.length) return "";
     const materiales = matRes.data ?? [];
 
     const norm = (s: unknown) =>
       String(s ?? "").toLowerCase().normalize("NFD").replace(/[̀-ͯ]/g, "");
 
     const lines: string[] = [];
+    const foco = String(proveedorFoco || "").trim();
+    if (foco) {
+      const focoNorm = norm(foco);
+      const ejemplosFoco = materiales
+        .filter((material: any) => {
+          const proveedorMaterial = norm(material.proveedor);
+          return proveedorMaterial && (proveedorMaterial.includes(focoNorm) || focoNorm.includes(proveedorMaterial));
+        })
+        .map((material: any) => String(material.descripcion || "").trim().slice(0, 72))
+        .filter(Boolean)
+        .filter((descripcion: string, index: number, list: string[]) => list.indexOf(descripcion) === index)
+        .slice(0, 18);
+      lines.push(`FOCO DEL REMITO: "${foco}". Productos ya presentes en catalogo: ${ejemplosFoco.length ? ejemplosFoco.join("; ") : "sin ejemplos aun"}.`);
+    }
     for (const p of provs) {
       const nombre = String(p.nombre || "").trim();
       if (!nombre) continue;
@@ -108,7 +121,20 @@ serve(async (req) => {
 
     const body = await req.json();
     const sectores = Array.isArray(body?.sectores) ? body.sectores.map((s: unknown) => String(s)).filter(Boolean) : [];
-    const contexto = await buildProveedorContext(supabase);
+    const proveedorIndicado = String(body?.proveedor || "").trim();
+    const monedaIndicada = ["ARS", "USD"].includes(String(body?.moneda || "").toUpperCase())
+      ? String(body.moneda).toUpperCase()
+      : "";
+    const proveedorContexto = await buildProveedorContext(supabase, proveedorIndicado);
+    const contexto = [
+      proveedorContexto,
+      proveedorIndicado
+        ? `\nPROVEEDOR INDICADO POR EL USUARIO: ${proveedorIndicado}. Priorizalo para interpretar nombres abreviados y buscar coincidencias con sus productos, pero no inventes datos que no esten en el comprobante.`
+        : "",
+      monedaIndicada
+        ? `\nMONEDA INDICADA POR EL USUARIO: ${monedaIndicada}. Usala como moneda por defecto de las lineas sin simbolo o moneda explicita; si el comprobante muestra otra moneda, prevalece el comprobante.`
+        : "",
+    ].join("\n");
 
     // Presupuesto/remito pegado como TEXTO (no requiere archivo).
     const texto = String(body?.text || body?.texto || "").trim();

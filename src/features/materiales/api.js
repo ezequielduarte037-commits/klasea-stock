@@ -2325,6 +2325,210 @@ export async function borrarComprobanteItem(id) {
   if (error) throw error;
 }
 
+async function materialTieneUsoFueraDeComprobantes(materialId, comprobanteIds) {
+  const targetIds = [...comprobanteIds];
+  let receiptQuery = supabase
+    .from("panol_comprobante_items")
+    .select("id")
+    .eq("material_id", materialId)
+    .limit(1);
+  if (targetIds.length) {
+    receiptQuery = receiptQuery.not(
+      "comprobante_id",
+      "in",
+      `(${targetIds.join(",")})`,
+    );
+  }
+  const receiptResult = await receiptQuery;
+  if (receiptResult.error) throw receiptResult.error;
+  if (receiptResult.data?.length) return true;
+
+  const references = [
+    "panol_material_modelo",
+    "panol_material_condicion",
+    "panol_obra_addons",
+    "panol_obra_materiales_snapshot",
+    "panol_precios",
+    "purchase_request_items",
+  ];
+  for (const table of references) {
+    const { data, error } = await supabase
+      .from(table)
+      .select("id")
+      .eq("material_id", materialId)
+      .limit(1);
+    if (error) {
+      if (isMissingTable(error) || isMissingColumn(error)) continue;
+      throw error;
+    }
+    if (data?.length) return true;
+  }
+  return false;
+}
+
+// Revierte solamente materiales que el importador dio de alta al leer
+// comprobantes. Conserva el comprobante y deja sus lineas listas para volver a
+// vincular con el catalogo real. Cualquier uso operativo impide el borrado.
+export async function revertirAltasAutomaticasComprobantes(
+  comprobantes = [],
+) {
+  const receipts = (comprobantes || []).filter((row) => row?.id);
+  const receiptIds = new Set(receipts.map((row) => row.id));
+  if (!receiptIds.size) {
+    return { eliminados: 0, omitidos: 0, materialIds: [], itemIds: [] };
+  }
+
+  const receiptById = new Map(receipts.map((row) => [row.id, row]));
+  const { data: lines, error: linesError } = await supabase
+    .from("panol_comprobante_items")
+    .select(
+      "id, comprobante_id, material_id, descripcion, descripcion_original, aplicado",
+    )
+    .in("comprobante_id", [...receiptIds]);
+  if (linesError) throw linesError;
+
+  const linkedIds = [
+    ...new Set((lines || []).map((row) => row.material_id).filter(Boolean)),
+  ];
+  if (!linkedIds.length) {
+    return { eliminados: 0, omitidos: 0, materialIds: [], itemIds: [] };
+  }
+
+  const { data: materials, error: materialsError } = await supabase
+    .from("panol_materiales")
+    .select(
+      "id, descripcion, proveedor, origen, revisado, notas, created_at",
+    )
+    .in("id", linkedIds);
+  if (materialsError) throw materialsError;
+
+  const linesByMaterial = new Map();
+  for (const line of lines || []) {
+    if (!line.material_id) continue;
+    const bucket = linesByMaterial.get(line.material_id) || [];
+    bucket.push(line);
+    linesByMaterial.set(line.material_id, bucket);
+  }
+
+  const removedMaterialIds = [];
+  const unlinkedItemIds = [];
+  let omitted = 0;
+  for (const material of materials || []) {
+    const linkedLines = linesByMaterial.get(material.id) || [];
+    if (!linkedLines.length || linkedLines.some((line) => line.aplicado)) {
+      omitted += 1;
+      continue;
+    }
+
+    const hasMarker = [...receiptIds].some((receiptId) =>
+      String(material.notas || "").includes(`[comprobante:${receiptId}]`),
+    );
+    const exactDescription = linkedLines.every(
+      (line) =>
+        norm(line.descripcion_original || line.descripcion) ===
+        norm(material.descripcion),
+    );
+    const closeToImport = linkedLines.some((line) => {
+      const receipt = receiptById.get(line.comprobante_id);
+      const receiptAt = new Date(receipt?.created_at || 0).getTime();
+      const materialAt = new Date(material.created_at || 0).getTime();
+      const delta = materialAt - receiptAt;
+      return (
+        receiptAt > 0 &&
+        materialAt > 0 &&
+        delta >= -60_000 &&
+        delta <= 3_600_000
+      );
+    });
+    const providerMatches = linkedLines.every((line) => {
+      const receiptProvider = receiptById.get(line.comprobante_id)?.proveedor;
+      return (
+        !receiptProvider ||
+        !material.proveedor ||
+        norm(receiptProvider) === norm(material.proveedor)
+      );
+    });
+    const looksAutomatic =
+      material.origen === "remito" &&
+      material.revisado !== true &&
+      exactDescription &&
+      providerMatches &&
+      (hasMarker || closeToImport);
+    if (!looksAutomatic) {
+      omitted += 1;
+      continue;
+    }
+    if (
+      await materialTieneUsoFueraDeComprobantes(material.id, receiptIds)
+    ) {
+      omitted += 1;
+      continue;
+    }
+
+    const itemIds = linkedLines.map((line) => line.id);
+    const { error: unlinkError } = await supabase
+      .from("panol_comprobante_items")
+      .update({ material_id: null })
+      .in("id", itemIds);
+    if (unlinkError) throw unlinkError;
+
+    const { error: deleteError } = await supabase
+      .from("panol_materiales")
+      .delete()
+      .eq("id", material.id);
+    if (deleteError) {
+      await supabase
+        .from("panol_comprobante_items")
+        .update({ material_id: material.id })
+        .in("id", itemIds);
+      omitted += 1;
+      continue;
+    }
+    removedMaterialIds.push(material.id);
+    unlinkedItemIds.push(...itemIds);
+  }
+
+  return {
+    eliminados: removedMaterialIds.length,
+    omitidos: omitted,
+    materialIds: removedMaterialIds,
+    itemIds: unlinkedItemIds,
+  };
+}
+
+// Solo se eliminan comprobantes de trabajo que todavia no impactaron precios.
+// Asi se pueden limpiar pruebas sin borrar el historial aplicado.
+export async function borrarComprobante(comprobante) {
+  const id = typeof comprobante === "string" ? comprobante : comprobante?.id;
+  if (!id) throw new Error("Falta el comprobante a eliminar.");
+  if ((comprobante?.items || []).some((item) => item.aplicado)) {
+    throw new Error("No se puede eliminar un comprobante que ya aplico precios.");
+  }
+
+  const { data: current, error: currentError } = await supabase
+    .from("panol_comprobantes")
+    .select("id,archivo_url")
+    .eq("id", id)
+    .maybeSingle();
+  if (currentError) throw currentError;
+
+  const { error: linesError } = await supabase
+    .from("panol_comprobante_items")
+    .delete()
+    .eq("comprobante_id", id);
+  if (linesError) throw linesError;
+
+  const { error } = await supabase
+    .from("panol_comprobantes")
+    .delete()
+    .eq("id", id);
+  if (error) throw error;
+
+  if (current?.archivo_url) {
+    await supabase.storage.from(BUCKET_COMPROBANTES).remove([current.archivo_url]);
+  }
+}
+
 export async function aplicarPreciosComprobante(comprobante, items) {
   if (!comprobante?.id) throw new Error("Falta comprobante.");
   const fecha = comprobante.fecha || new Date().toISOString().slice(0, 10);
@@ -2422,6 +2626,8 @@ export async function leerPresupuestoConIA({
   text = "",
   file = null,
   sectores = [],
+  proveedor = "",
+  moneda = "",
 } = {}) {
   let body;
   if (text && text.trim()) {
@@ -2446,6 +2652,10 @@ export async function leerPresupuestoConIA({
     throw new Error("Pegá el texto del presupuesto o subí un archivo.");
   }
   if (Array.isArray(sectores) && sectores.length) body.sectores = sectores;
+  if (String(proveedor || "").trim()) body.proveedor = String(proveedor).trim();
+  if (["ARS", "USD"].includes(String(moneda || "").toUpperCase())) {
+    body.moneda = String(moneda).toUpperCase();
+  }
   const { data, error } = await supabase.functions.invoke(
     "extraer-comprobante",
     { body },
@@ -2472,6 +2682,35 @@ export async function leerPresupuestoConIA({
   }
   if (data?.error) throw new Error(data.error);
   return data;
+}
+
+// Vincula líneas de un remito con el catálogo usando IA semántica.
+// El frontend manda cada ítem con una lista corta de candidatos (pre-filtrados por
+// similitud lexical). Devuelve [{ index, material_id, confianza, motivo }].
+export async function vincularComprobanteConIA({
+  items = [],
+  candidatos = {},
+  proveedor = "",
+} = {}) {
+  const limpios = (items || []).filter(
+    (it) => Number.isInteger(it?.index) && String(it?.descripcion || "").trim(),
+  );
+  if (!limpios.length) return [];
+  const { data, error } = await supabase.functions.invoke("vincular-comprobante", {
+    body: { items: limpios, candidatos, proveedor: String(proveedor || "").trim() },
+  });
+  if (error) {
+    let detalle = "";
+    try {
+      const r = await error.context?.json?.();
+      detalle = r?.error || "";
+    } catch {
+      /* ignore */
+    }
+    throw new Error(detalle || error.message || "No se pudieron vincular los ítems.");
+  }
+  if (data?.error) throw new Error(data.error);
+  return Array.isArray(data?.matches) ? data.matches : [];
 }
 
 // Actualiza el precio vigente de un material (historial tolerante) y, opcionalmente,
@@ -2610,6 +2849,19 @@ export async function asociarProveedorMaterial(
     moneda: moneda || null,
   });
   await setProveedoresMaterial(material.id, [...alternatives.values()]);
+}
+
+// Adds an alternate supplier without replacing the primary supplier or its price.
+export async function asociarProveedorAlternativoMasivo(materiales, proveedor) {
+  const rows = [...new Map((materiales || []).filter((item) => item?.id).map((item) => [item.id, item])).values()];
+  if (!rows.length) return 0;
+  if (!proveedor?.id) throw new Error("Elegi un proveedor.");
+
+  const lote = 12;
+  for (let i = 0; i < rows.length; i += lote) {
+    await Promise.all(rows.slice(i, i + lote).map((material) => asociarProveedorMaterial(material, proveedor)));
+  }
+  return rows.length;
 }
 
 // A variant quote belongs to the selected variant and must not overwrite the base price.

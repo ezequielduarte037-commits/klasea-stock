@@ -529,7 +529,10 @@ async function fetchDefaultPanolCategoriaId() {
       const key = normalizeSearch(row.nombre);
       return ["sin categoria", "varios", "otros", "general"].includes(key);
     });
-    return (preferred || rows[0])?.id || null;
+    // Nunca clasificar por posición: la primera categoría puede ser cualquier
+    // rubro real (por ejemplo "Cintas y film"). Sin una categoría genérica
+    // explícita, el producto queda sin clasificar para revisión humana.
+    return preferred?.id || null;
   } catch {
     return null;
   }
@@ -545,6 +548,7 @@ export async function crearPanolCatalogMaterial({
   categoria_id = null,
   ubicacion = null,
   ubicacion_obs = null,
+  notas = null,
 } = {}) {
   const cleanDesc = String(descripcion || "").trim();
   if (!cleanDesc) throw new Error("Cargá una descripción para crear el material.");
@@ -559,6 +563,7 @@ export async function crearPanolCatalogMaterial({
     moneda: moneda === "USD" ? "USD" : "ARS",
     ubicacion: ubicacion || null,
     ubicacion_obs: String(ubicacion_obs || "").trim() || null,
+    notas: String(notas || "").trim() || null,
     origen: "remito",
     revisado: false,
     activo: true,
@@ -574,6 +579,7 @@ export async function crearPanolCatalogMaterial({
     delete fallbackPatch.revisado;
     delete fallbackPatch.ubicacion;
     delete fallbackPatch.ubicacion_obs;
+    delete fallbackPatch.notas;
     const retry = await supabase
       .from("panol_materiales")
       .insert(fallbackPatch)
