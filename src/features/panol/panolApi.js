@@ -544,6 +544,30 @@ export async function fetchPanolCatalogMini({ q = "", limit = 80 } = {}) {
     }));
 }
 
+// Cache de sesión del catálogo completo. El ingreso manual (EnviarAPanolModal en modo
+// remito) necesita TODO el catálogo local para escanear códigos, detectar duplicados y
+// auto-vincular; y esa pantalla se remonta seguido (cada guardado/borrador). Sin cache
+// rebajaba ~todos los materiales cada vez → era la espera de ~30s que se repetía.
+let _panolCatalogFullCache = null;
+let _panolCatalogFullAt = 0;
+const PANOL_CATALOG_FULL_TTL_MS = 3 * 60 * 1000;
+
+export async function fetchPanolCatalogFull({ force = false } = {}) {
+  if (!force && _panolCatalogFullCache && Date.now() - _panolCatalogFullAt < PANOL_CATALOG_FULL_TTL_MS) {
+    return _panolCatalogFullCache;
+  }
+  const rows = await fetchPanolCatalogMini({ q: "", limit: 5000 });
+  _panolCatalogFullCache = rows;
+  _panolCatalogFullAt = Date.now();
+  return rows;
+}
+
+// Llamar tras crear/editar un material para que el próximo fetch traiga los cambios.
+export function invalidatePanolCatalogFullCache() {
+  _panolCatalogFullCache = null;
+  _panolCatalogFullAt = 0;
+}
+
 async function fetchDefaultPanolCategoriaId() {
   try {
     const { data, error } = await supabase

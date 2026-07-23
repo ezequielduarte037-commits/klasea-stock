@@ -4,7 +4,7 @@ import { Bot, Link2, MapPin, PackageSearch, ScanLine, Search } from "lucide-reac
 import { supabase } from "@/supabaseClient";
 import { useResponsive } from "@/hooks/useResponsive";
 import { useToast } from "@/components/ui/Toast";
-import { crearEnvio, crearPanolCatalogMaterial, fetchMaterialesEgreso, fetchPanolCatalogMini, fetchRecepcionAvisosAbiertos, fetchRecepcionPedidoMatches, guardarUbicacionMaterial, marcarItems, SEDES_PANOL } from "@/features/panol/panolApi";
+import { crearEnvio, crearPanolCatalogMaterial, fetchMaterialesEgreso, fetchPanolCatalogFull, fetchPanolCatalogMini, fetchRecepcionAvisosAbiertos, fetchRecepcionPedidoMatches, guardarUbicacionMaterial, invalidatePanolCatalogFullCache, marcarItems, SEDES_PANOL } from "@/features/panol/panolApi";
 import { fetchProveedores, leerPresupuestoConIA, variantePrecio, varianteCodigo } from "@/features/materiales/api";
 import ProveedorTipoBadge from "@/features/materiales/ProveedorTipoBadge";
 import { proveedorMeta } from "@/features/materiales/proveedorMeta";
@@ -867,7 +867,7 @@ export default function EnviarAPanolModal({ open, onClose, prefill, showPrices =
     if (!open) return undefined;
     let alive = true;
     Promise.allSettled([
-      fetchPanolCatalogMini({ q: "", limit: 5000 }),
+      fetchPanolCatalogFull(),
       fetchProveedores(),
     ])
       .then(([catalogResult, proveedoresResult]) => {
@@ -1088,7 +1088,7 @@ export default function EnviarAPanolModal({ open, onClose, prefill, showPrices =
 
   async function getCatalogForMatching() {
     if (fullCatalog.length) return fullCatalog;
-    const rows = await fetchPanolCatalogMini({ q: "", limit: 5000 });
+    const rows = await fetchPanolCatalogFull();
     setFullCatalog(rows);
     return rows;
   }
@@ -1199,6 +1199,7 @@ export default function EnviarAPanolModal({ open, onClose, prefill, showPrices =
         ubicacion_obs: item.ubicacion_obs || null,
       });
       setFullCatalog((prev) => [created, ...prev.filter((mat) => mat.id !== created.id)]);
+      invalidatePanolCatalogFullCache(); // el cache de sesión debe traer el nuevo la próxima
       linkCatalogMaterial(index, created);
       toast.success("Material creado en el catálogo para revisar.");
       return created;
@@ -1242,6 +1243,7 @@ export default function EnviarAPanolModal({ open, onClose, prefill, showPrices =
     }
     if (createdRows.length) {
       setFullCatalog(catalogRows);
+      invalidatePanolCatalogFullCache(); // el cache de sesión debe traer los nuevos la próxima
       toast.success(`${createdRows.length} material${createdRows.length === 1 ? "" : "es"} nuevo${createdRows.length === 1 ? "" : "s"} en catálogo para revisar.`);
     }
     return prepared;

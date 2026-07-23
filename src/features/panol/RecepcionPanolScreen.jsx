@@ -3,7 +3,6 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import {
   AlertTriangle,
   ArrowUpRight,
-  Check,
   CheckCircle2,
   ChevronRight,
   Clock3,
@@ -817,9 +816,8 @@ function EgresoMaterialRow({ row, selected, canSelect, onToggle, onEgresar, busy
 function StockGeneralModal({ open, onClose, onDone, sedeLocked, isMobile, toast, egresoRapido = false, obras = [] }) {
   const [q, setQ] = useState("");
   const [catalog, setCatalog] = useState([]);
-  const [selected, setSelected] = useState(null);     // egreso rápido: un solo material
-  const [cart, setCart] = useState([]);               // ingreso: varios [{ id, material, cantidad }]
-  const [cantidad, setCantidad] = useState("1");      // egreso rápido: cantidad del único material
+  const [selected, setSelected] = useState(null);
+  const [cantidad, setCantidad] = useState("1");
   const [sede, setSede] = useState(sedeLocked || "Pampa");
   const [nota, setNota] = useState("");
   const [retiradoPor, setRetiradoPor] = useState("");
@@ -858,7 +856,6 @@ function StockGeneralModal({ open, onClose, onDone, sedeLocked, isMobile, toast,
     setQ("");
     setCatalog([]);
     setSelected(null);
-    setCart([]);
     setCantidad("1");
     setSede(sedeLocked || "Pampa");
     setNota("");
@@ -870,63 +867,32 @@ function StockGeneralModal({ open, onClose, onDone, sedeLocked, isMobile, toast,
   if (!open) return null;
   const retiradoError = egresoRapido ? retiradoPorNombreCompletoError(retiradoPor) : "";
 
-  // Ingreso: el clic AGREGA/QUITA del carrito (multi-selección). Egreso rápido: un solo material.
-  const enCarrito = (id) => cart.some((x) => x.id === id);
-  function toggleCarrito(mat) {
-    setCart((list) =>
-      list.some((x) => x.id === mat.id)
-        ? list.filter((x) => x.id !== mat.id)
-        : [...list, { id: mat.id, material: mat, cantidad: "1" }],
-    );
-  }
-  function setCarritoCantidad(id, value) {
-    setCart((list) => list.map((x) => (x.id === id ? { ...x, cantidad: value } : x)));
-  }
-  const puedeGuardar = egresoRapido ? !!selected : cart.length > 0;
-
   async function submit() {
-    if (egresoRapido) {
-      if (!selected) { toast.warning("Elegí un material."); return; }
-      if (retiradoError) { toast.warning(retiradoError); return; }
-      setSaving(true);
-      try {
-        const snapshotId = await ingresarStockGeneral({ material: selected, cantidad, sede: sedeLocked || sede, nota });
-        await egresarMaterialesObra([snapshotId], {
-          nota, retiradoPor, sectorDestino, destinoObraId, cantidades: { [snapshotId]: cantidad },
-        });
-        toast.success("Egreso rapido registrado.");
-        onDone?.();
-        onClose();
-      } catch (error) {
-        toast.error(error.message || "No se pudo registrar el egreso.");
-      } finally {
-        setSaving(false);
-      }
+    if (!selected) {
+      toast.warning("Elegí un material.");
       return;
     }
-
-    // Ingreso: se guardan TODOS los del carrito, uno por uno.
-    const items = cart.filter((x) => Number(String(x.cantidad).replace(",", ".")) > 0);
-    if (!items.length) { toast.warning("Agregá al menos un material con cantidad."); return; }
+    if (egresoRapido && retiradoError) {
+      toast.warning(retiradoError);
+      return;
+    }
     setSaving(true);
-    let ok = 0;
-    const fallidos = [];
     try {
-      for (const it of items) {
-        try {
-          await ingresarStockGeneral({ material: it.material, cantidad: it.cantidad, sede: sedeLocked || sede, nota });
-          ok += 1;
-        } catch {
-          fallidos.push(it.material.descripcion);
-        }
+      const snapshotId = await ingresarStockGeneral({ material: selected, cantidad, sede: sedeLocked || sede, nota });
+      if (egresoRapido) {
+        await egresarMaterialesObra([snapshotId], {
+          nota,
+          retiradoPor,
+          sectorDestino,
+          destinoObraId,
+          cantidades: { [snapshotId]: cantidad },
+        });
       }
-      if (ok) {
-        toast.success(`${ok} material${ok === 1 ? "" : "es"} ingresado${ok === 1 ? "" : "s"} a stock${fallidos.length ? ` · ${fallidos.length} con error` : ""}.`);
-        onDone?.();
-        onClose();
-      } else {
-        toast.error("No se pudo ingresar el stock.");
-      }
+      toast.success(egresoRapido ? "Egreso rapido registrado." : "Stock general ingresado.");
+      onDone?.();
+      onClose();
+    } catch (error) {
+      toast.error(error.message || "No se pudo ingresar el stock.");
     } finally {
       setSaving(false);
     }
@@ -955,18 +921,11 @@ function StockGeneralModal({ open, onClose, onDone, sedeLocked, isMobile, toast,
                 {loading ? (
                   <div style={{ color: C.dim, padding: 22, textAlign: "center", fontSize: 12, fontWeight: 850 }}>Buscando...</div>
                 ) : catalog.length ? catalog.map((mat) => {
-                  const active = egresoRapido ? selected?.id === mat.id : enCarrito(mat.id);
+                  const active = selected?.id === mat.id;
                   return (
-                    <button key={mat.id} type="button" onClick={() => { if (egresoRapido) { setSelected(mat); setQ(mat.descripcion); } else { toggleCarrito(mat); } }} style={{ border: "none", borderBottom: `1px solid ${C.border}`, background: active ? C.blueL : "transparent", color: C.text, padding: "10px 12px", cursor: "pointer", textAlign: "left", fontFamily: C.sans, display: "flex", alignItems: "center", gap: 9 }}>
-                      {!egresoRapido && (
-                        <span style={{ flexShrink: 0, width: 17, height: 17, borderRadius: 5, border: `1.5px solid ${active ? C.blue : C.border2}`, background: active ? C.blue : "transparent", display: "grid", placeItems: "center", color: "#fff" }}>
-                          {active && <Check size={12} />}
-                        </span>
-                      )}
-                      <span style={{ minWidth: 0, flex: 1 }}>
-                        <span style={{ display: "block", fontSize: 13, fontWeight: 900, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{mat.descripcion}</span>
-                        <span style={{ display: "block", color: C.dim, fontSize: 11, marginTop: 3 }}>{mat.codigo || "sin codigo"}{mat.proveedor ? ` · ${mat.proveedor}` : ""}</span>
-                      </span>
+                    <button key={mat.id} type="button" onClick={() => { setSelected(mat); setQ(mat.descripcion); }} style={{ border: "none", borderBottom: `1px solid ${C.border}`, background: active ? C.blueL : "transparent", color: C.text, padding: "10px 12px", cursor: "pointer", textAlign: "left", fontFamily: C.sans }}>
+                      <div style={{ fontSize: 13, fontWeight: 900, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{mat.descripcion}</div>
+                      <div style={{ color: C.dim, fontSize: 11, marginTop: 3 }}>{mat.codigo || "sin codigo"}{mat.proveedor ? ` · ${mat.proveedor}` : ""}</div>
                     </button>
                   );
                 }) : (
@@ -976,12 +935,10 @@ function StockGeneralModal({ open, onClose, onDone, sedeLocked, isMobile, toast,
             </div>
 
             <div style={{ display: "grid", gap: 10, alignContent: "start" }}>
-              {egresoRapido && (
-                <label style={{ display: "grid", gap: 5 }}>
-                  <span style={{ color: C.dim, fontSize: 10, fontWeight: 850, letterSpacing: 1, textTransform: "uppercase" }}>Cantidad</span>
-                  <input type="number" step="any" min="0.01" value={cantidad} onChange={(e) => setCantidad(e.target.value)} style={{ background: C.panelSolid, border: `1px solid ${C.border}`, color: C.text, borderRadius: 10, padding: "10px 11px", fontSize: 13, fontFamily: C.mono, outline: "none" }} />
-                </label>
-              )}
+              <label style={{ display: "grid", gap: 5 }}>
+                <span style={{ color: C.dim, fontSize: 10, fontWeight: 850, letterSpacing: 1, textTransform: "uppercase" }}>Cantidad</span>
+                <input type="number" step="any" min="0.01" value={cantidad} onChange={(e) => setCantidad(e.target.value)} style={{ background: C.panelSolid, border: `1px solid ${C.border}`, color: C.text, borderRadius: 10, padding: "10px 11px", fontSize: 13, fontFamily: C.mono, outline: "none" }} />
+              </label>
               {!sedeLocked && (
                 <label style={{ display: "grid", gap: 5 }}>
                   <span style={{ color: C.dim, fontSize: 10, fontWeight: 850, letterSpacing: 1, textTransform: "uppercase" }}>Sede</span>
@@ -1016,33 +973,12 @@ function StockGeneralModal({ open, onClose, onDone, sedeLocked, isMobile, toast,
               )}
             </div>
           </div>
-
-          {/* Carrito de ingreso: todo lo seleccionado, con su cantidad, para ingresar de una. */}
-          {!egresoRapido && cart.length > 0 && (
-            <div style={{ border: `1px solid ${C.border}`, borderRadius: 12, overflow: "hidden", background: C.panel }}>
-              <div style={{ padding: "9px 12px", color: C.dim, fontSize: 10, fontWeight: 850, textTransform: "uppercase", letterSpacing: 1, borderBottom: `1px solid ${C.border}` }}>
-                Para ingresar ({cart.length})
-              </div>
-              <div style={{ maxHeight: 200, overflowY: "auto" }}>
-                {cart.map((it) => (
-                  <div key={it.id} style={{ display: "grid", gridTemplateColumns: "minmax(0,1fr) 84px auto", gap: 9, alignItems: "center", padding: "9px 12px", borderBottom: `1px solid ${C.border}` }}>
-                    <div style={{ minWidth: 0 }}>
-                      <div style={{ color: C.text, fontSize: 12.5, fontWeight: 900, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{it.material.descripcion}</div>
-                      <div style={{ color: C.dim, fontSize: 10.5, marginTop: 2 }}>{it.material.unidad || "unidad"}</div>
-                    </div>
-                    <input type="number" step="any" min="0.01" value={it.cantidad} onChange={(e) => setCarritoCantidad(it.id, e.target.value)} style={{ width: "100%", boxSizing: "border-box", background: C.panelSolid, border: `1px solid ${C.border}`, color: C.text, borderRadius: 9, padding: "7px 8px", fontSize: 12, fontFamily: C.mono, outline: "none" }} />
-                    <button type="button" onClick={() => toggleCarrito(it.material)} title="Quitar" style={{ border: "none", background: "transparent", color: C.dim, cursor: "pointer", display: "grid", placeItems: "center" }}><X size={16} /></button>
-                  </div>
-                ))}
-              </div>
-            </div>
-          )}
         </div>
 
         <div style={{ padding: "14px 18px", borderTop: `1px solid ${C.border}`, background: C.bg2, display: "flex", justifyContent: "flex-end", gap: 10 }}>
           <button type="button" onClick={onClose} disabled={saving} style={{ border: `1px solid ${C.border}`, background: C.bg1, color: C.text, borderRadius: 10, padding: "9px 13px", cursor: saving ? "default" : "pointer", opacity: saving ? 0.6 : 1, fontWeight: 850, fontFamily: C.sans }}>Cancelar</button>
-          <button type="button" onClick={submit} disabled={saving || !puedeGuardar} style={{ border: `1px solid ${C.blueB}`, background: puedeGuardar ? C.blueL : C.panel2, color: puedeGuardar ? C.blue : C.dim, borderRadius: 10, padding: "9px 13px", cursor: saving || !puedeGuardar ? "default" : "pointer", opacity: saving ? 0.7 : 1, fontWeight: 950, fontFamily: C.sans }}>
-            {saving ? "Guardando..." : egresoRapido ? "Registrar egreso" : `Ingresar${cart.length ? ` ${cart.length}` : ""} ${cart.length === 1 ? "material" : "materiales"}`}
+          <button type="button" onClick={submit} disabled={saving || !selected} style={{ border: `1px solid ${C.blueB}`, background: selected ? C.blueL : C.panel2, color: selected ? C.blue : C.dim, borderRadius: 10, padding: "9px 13px", cursor: saving || !selected ? "default" : "pointer", opacity: saving ? 0.7 : 1, fontWeight: 950, fontFamily: C.sans }}>
+            {saving ? "Guardando..." : egresoRapido ? "Registrar egreso" : "Ingresar stock"}
           </button>
         </div>
       </div>
