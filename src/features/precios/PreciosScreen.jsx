@@ -36,6 +36,7 @@ import {
   asociarProveedorMaterial,
   borrarComprobante,
   fetchCatalogo,
+  fetchMemoriaVinculos,
   guardarComprobante,
   guardarComprobanteItem,
   guardarComprobanteItems,
@@ -2520,12 +2521,66 @@ export default function PreciosScreen({ profile, signOut }) {
     setApplying(`ai-link:${receipt.id}`);
     try {
       const activos = materials.filter((m) => m.activo !== false);
-      const targets = receiptPendingItems(receipt).filter((item) => {
+      const materialById = new Map(materials.map((m) => [m.id, m]));
+      const pendientes = receiptPendingItems(receipt).filter((item) => {
         const info = receiptMatchInfo(item, materials, receipt.proveedor);
         return info.kind === "unlinked" || info.kind === "suggestion";
       });
-      if (!targets.length) {
+      if (!pendientes.length) {
         toast.info("No hay líneas pendientes para vincular.");
+        return;
+      }
+
+      // ── Capa 1: memoria de vínculos anteriores (gratis, instantánea) ──
+      // Solo si el remito tiene proveedor: la memoria es por "proveedor + texto".
+      const provKey = normalize(receipt.proveedor || "");
+      const memIndex = new Map();
+      if (provKey) {
+        let memoria = [];
+        try {
+          memoria = await fetchMemoriaVinculos({ excludeComprobanteId: receipt.id });
+        } catch {
+          memoria = [];
+        }
+        // Más reciente gana: ordeno desc y me quedo con el primero de cada clave.
+        [...memoria]
+          .sort((a, b) =>
+            String(b.created_at || "").localeCompare(String(a.created_at || "")),
+          )
+          .forEach((row) => {
+            if (normalize(row.proveedor || "") !== provKey) return;
+            if (!materialById.has(row.material_id)) return; // material borrado
+            const key = normalize(row.texto || "");
+            if (key && !memIndex.has(key)) memIndex.set(key, row.material_id);
+          });
+      }
+
+      let porMemoria = 0;
+      const targets = [];
+      for (const item of pendientes) {
+        const key = normalize(item.descripcion_original || item.descripcion || "");
+        const memMatId = key ? memIndex.get(key) : null;
+        const memMat = memMatId ? materialById.get(memMatId) : null;
+        if (memMat) {
+          // Ya lo vinculaste antes a este material → lo damos por bueno (verde).
+          await guardarComprobanteItem({
+            ...item,
+            material_id: memMat.id,
+            descripcion: memMat.descripcion,
+          });
+          porMemoria += 1;
+        } else {
+          targets.push(item);
+        }
+      }
+
+      // ── Capa 2: IA semántica para lo que la memoria no conocía ──
+      let altas = 0;
+      let medias = 0;
+      let nuevos = 0;
+      if (!targets.length) {
+        await load();
+        toast.success(`Memoria: ${porMemoria} vinculada${porMemoria === 1 ? "" : "s"} al instante.`);
         return;
       }
 
@@ -2558,9 +2613,6 @@ export default function PreciosScreen({ profile, signOut }) {
       });
       const byIndex = new Map(matches.map((m) => [m.index, m]));
 
-      let altas = 0;
-      let medias = 0;
-      let nuevos = 0;
       for (let index = 0; index < targets.length; index += 1) {
         const item = targets[index];
         const match = byIndex.get(index);
@@ -2591,10 +2643,12 @@ export default function PreciosScreen({ profile, signOut }) {
       }
 
       await load();
-      const partes = [`${altas} vinculada${altas === 1 ? "" : "s"}`];
+      const partes = [];
+      if (porMemoria) partes.push(`${porMemoria} por memoria`);
+      partes.push(`${altas} por IA`);
       if (medias) partes.push(`${medias} sugerencia${medias === 1 ? "" : "s"} para revisar`);
       if (nuevos) partes.push(`${nuevos} nueva${nuevos === 1 ? "" : "s"}`);
-      toast.success(`IA: ${partes.join(", ")}.`);
+      toast.success(`Vinculación: ${partes.join(", ")}.`);
     } catch (reason) {
       toast.error(reason.message || "No se pudieron vincular los ítems con IA.");
     } finally {

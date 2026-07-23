@@ -2713,6 +2713,46 @@ export async function vincularComprobanteConIA({
   return Array.isArray(data?.matches) ? data.matches : [];
 }
 
+// Memoria de vínculos: filas de comprobantes anteriores donde ya se asignó un
+// material. Es lo que permite que un remito repetido de un proveedor se resuelva
+// solo (sin IA): "este proveedor + este texto ya lo vinculé antes → ese material".
+// Devuelve [{ proveedor, material_id, texto, created_at }] (excluye el comprobante actual).
+export async function fetchMemoriaVinculos({ excludeComprobanteId = null } = {}) {
+  const items = await fetchPaged(
+    "panol_comprobante_items",
+    "id, comprobante_id, material_id, descripcion_original, descripcion, created_at",
+    "created_at",
+  );
+  const conMaterial = items.filter(
+    (it) =>
+      it.material_id &&
+      (!excludeComprobanteId || it.comprobante_id !== excludeComprobanteId),
+  );
+  if (!conMaterial.length) return [];
+
+  const compIds = [
+    ...new Set(conMaterial.map((it) => it.comprobante_id).filter(Boolean)),
+  ];
+  const provByComp = new Map();
+  // Traemos el proveedor de cada comprobante en tandas (evita URLs enormes).
+  for (let i = 0; i < compIds.length; i += 200) {
+    const chunk = compIds.slice(i, i + 200);
+    const { data, error } = await supabase
+      .from("panol_comprobantes")
+      .select("id, proveedor")
+      .in("id", chunk);
+    if (error) throw error;
+    for (const c of data ?? []) provByComp.set(c.id, c.proveedor || "");
+  }
+
+  return conMaterial.map((it) => ({
+    proveedor: provByComp.get(it.comprobante_id) || "",
+    material_id: it.material_id,
+    texto: it.descripcion_original || it.descripcion || "",
+    created_at: it.created_at,
+  }));
+}
+
 // Actualiza el precio vigente de un material (historial tolerante) y, opcionalmente,
 // corrige su sector (categoria_id) si venía mal clasificado.
 export async function aplicarPrecioMaterial(
