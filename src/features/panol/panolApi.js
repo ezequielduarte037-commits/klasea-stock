@@ -459,38 +459,67 @@ export async function fetchMaterialesEgreso({ sede = null, estados = ["en_panol"
     : hydrated;
 }
 
-export async function fetchPanolCatalogMini({ q = "", limit = 80 } = {}) {
-  let rows = [];
-  try {
-    rows = await fetchPaged(
-      "panol_materiales",
-      "id,categoria_id,codigo,codigo_barra,descripcion,proveedor,unidad_medida,precio_unitario,moneda,activo,ubicacion,ubicacion_obs,variantes,variantes_precios",
-      { order: "descripcion", limit: 1000 },
-    );
-  } catch (error) {
-    if (!isMissingColumn(error)) return [];
+const CATALOG_MINI_SELECT_FULL =
+  "id,categoria_id,codigo,codigo_barra,descripcion,proveedor,unidad_medida,precio_unitario,moneda,activo,ubicacion,ubicacion_obs,variantes,variantes_precios";
+const CATALOG_MINI_SELECT_NOVARPRE =
+  "id,categoria_id,codigo,codigo_barra,descripcion,proveedor,unidad_medida,precio_unitario,moneda,activo,ubicacion,ubicacion_obs,variantes";
+const CATALOG_MINI_SELECT_MIN =
+  "id,categoria_id,codigo,descripcion,proveedor,unidad_medida,precio_unitario,moneda,activo";
+
+// El catálogo entero (para pantallas que sí lo necesitan). Con fallback por columnas faltantes.
+async function fetchPanolCatalogAllRows() {
+  for (const select of [CATALOG_MINI_SELECT_FULL, CATALOG_MINI_SELECT_NOVARPRE, CATALOG_MINI_SELECT_MIN]) {
     try {
-      rows = await fetchPaged(
-        "panol_materiales",
-        "id,categoria_id,codigo,codigo_barra,descripcion,proveedor,unidad_medida,precio_unitario,moneda,activo,ubicacion,ubicacion_obs,variantes",
-        { order: "descripcion", limit: 1000 },
-      );
-    } catch (error2) {
-      if (!isMissingColumn(error2)) return [];
-      try {
-        rows = await fetchPaged(
-          "panol_materiales",
-          "id,categoria_id,codigo,descripcion,proveedor,unidad_medida,precio_unitario,moneda,activo",
-          { order: "descripcion", limit: 1000 },
-        );
-      } catch {
-        return [];
-      }
+      return await fetchPaged("panol_materiales", select, { order: "descripcion", limit: 1000 });
+    } catch (error) {
+      if (!isMissingColumn(error)) return [];
     }
   }
+  return [];
+}
+
+// Escapa el término para meterlo en un ILIKE dentro de un .or() (comas/paréntesis/comodines rompen el parseo).
+function escapeIlikeTerm(value = "") {
+  return String(value).replace(/[%_,()]/g, " ").replace(/\s+/g, " ").trim();
+}
+
+// Búsqueda SERVER-SIDE: la base filtra por el token más selectivo y devuelve solo candidatos.
+// Esto es lo que evita bajar todo el catálogo en cada búsqueda (clave con internet lenta de pañol).
+// Devuelve null si no se pudo (para caer al catálogo completo sin romper).
+async function fetchPanolCatalogSearchRows(term) {
+  const tokens = term.split(" ").filter((t) => t.length >= 2 && !SEARCH_STOPWORDS.has(t));
+  // El token más largo suele ser el más discriminante (evita traer medio catálogo).
+  const pick = escapeIlikeTerm([...tokens].sort((a, b) => b.length - a.length)[0] || term);
+  if (!pick) return null;
+  const attempts = [
+    { select: CATALOG_MINI_SELECT_FULL, or: `descripcion.ilike.%${pick}%,codigo.ilike.%${pick}%,codigo_barra.ilike.%${pick}%` },
+    { select: CATALOG_MINI_SELECT_MIN, or: `descripcion.ilike.%${pick}%,codigo.ilike.%${pick}%` },
+  ];
+  for (const attempt of attempts) {
+    try {
+      const { data, error } = await supabase
+        .from("panol_materiales")
+        .select(attempt.select)
+        .or(attempt.or)
+        .limit(400);
+      if (error) throw error;
+      return data ?? [];
+    } catch (error) {
+      if (!isMissingColumn(error)) return null;
+    }
+  }
+  return null;
+}
+
+export async function fetchPanolCatalogMini({ q = "", limit = 80 } = {}) {
+  const term = normalizeSearch(q);
+
+  let rows = null;
+  if (term) rows = await fetchPanolCatalogSearchRows(term);
+  if (rows == null) rows = await fetchPanolCatalogAllRows(); // sin término, o si la búsqueda server-side falló
+
   const codigosByMaterial = await fetchBarcodeRowsForMaterialIds(rows.map((row) => row.id));
   const withCodes = rows.map((row) => ({ ...row, codigos_barra: codigosByMaterial.get(row.id) ?? [] }));
-  const term = normalizeSearch(q);
   const active = withCodes.filter((row) => row.activo !== false);
   const filtered = term
     ? active.filter((row) => matchesSearchTokens(normalizeSearch([row.descripcion, row.codigo, row.codigo_barra, materialBarcodeText(row), row.proveedor].filter(Boolean).join(" ")), term))

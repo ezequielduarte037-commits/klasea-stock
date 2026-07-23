@@ -1,19 +1,16 @@
 import { C } from "@/theme";
 
-export const PROVEEDOR_TIPOS = ["principal", "secundario", "terciario", "servicio", "laminacion"];
+// El ranking principal/secundario/terciario se eliminó: un material con varios proveedores
+// simplemente tiene varios, sin jerarquía. Quedan solo las categorías FUNCIONALES
+// (servicio, laminación), que no son un ranking sino un tipo de proveedor distinto.
+export const PROVEEDOR_TIPOS = ["servicio", "laminacion"];
 
 export const PROVEEDOR_TIPO_PRIORITY = {
-  principal: 5,
-  terciario: 4,
-  secundario: 3,
   servicio: 2,
   laminacion: 1,
 };
 
 export const PROVEEDOR_TIPO_UI = {
-  principal: { label: "Principal", color: C.green, bg: C.greenL, border: C.greenB },
-  secundario: { label: "Secundario", color: C.t2, bg: C.panel2, border: C.b0 },
-  terciario: { label: "Terciario", color: C.amber, bg: C.amberL, border: C.amberB },
   servicio: { label: "Servicio", color: C.violet, bg: "var(--violet-soft)", border: "var(--violet-border)" },
   laminacion: { label: "Laminación", color: C.teal, bg: "var(--teal-soft)", border: "var(--teal-border)" },
 };
