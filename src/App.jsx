@@ -30,6 +30,7 @@ import EtiquetasScreen       from "@/features/inventario/EtiquetasScreen";
 import RrhhScreen            from "@/features/rrhh/RrhhScreen";
 import MaterialesScreen      from "@/features/materiales/MaterialesScreen";
 import PreciosScreen         from "@/features/precios/PreciosScreen";
+import ComprasEtapasScreen   from "@/features/produccion/ComprasEtapasScreen";
 import RecepcionPanolScreen  from "@/features/panol/RecepcionPanolScreen";
 import StockPanolScreen      from "@/features/panol/StockPanolScreen";
 import PortalProveedorScreen from "@/features/proveedores/PortalProveedorScreen";
@@ -445,6 +446,7 @@ export default function App() {
         {/* Admin / Oficina */}
         <Route path="/admin"      element={<RequireAuth session={session}><RequireRole profile={profile} allow={["admin","oficina","tecnica"]}><AdminDashboard       {...A} /></RequireRole></RequireAuth>} />
         <Route path="/obras"      element={<RequireAuth session={session}><RequireRole profile={profile} allow={["admin","oficina","tecnica"]}><ObrasScreen           {...A} /></RequireRole></RequireAuth>} />
+        <Route path="/compras-etapa" element={<RequireAuth session={session}><RequireRole profile={profile} allow={["admin","oficina","tecnica","compras"]}><ComprasEtapasScreen {...A} /></RequireRole></RequireAuth>} />
         <Route path="/semaforo"    element={<RequireAuth session={session}><RequireRole profile={profile} allow={["admin","compras"]}><SemaforoScreen         {...A} /></RequireRole></RequireAuth>} />
         <Route path="/memorias"   element={<RequireAuth session={session}><RequireRole profile={profile} allow={["admin","oficina","tecnica"]}><MemoriasScreen        {...A} /></RequireRole></RequireAuth>} />
         <Route path="/marmoleria" element={<RequireAuth session={session}><RequireRole profile={profile} allow={["admin","oficina","tecnica"]}><MarmoleriaScreen      {...A} /></RequireRole></RequireAuth>} />

@@ -76,6 +76,7 @@ import VariantesMarcasTab from "./VariantesMarcasTab";
 import LectorTab from "./LectorTab";
 import ProveedorTipoBadge from "./ProveedorTipoBadge";
 import { proveedorAlternativas, proveedorMeta, PROVEEDOR_TIPOS, proveedorTipoUi } from "./proveedorMeta";
+import { fetchEtapaPorMaterialDeModelo } from "@/features/produccion/comprasEtapasApi";
 import { barcodeKey, materialBarcodeList, materialBarcodeText } from "./materialBarcodes";
 import { addRequestItem, createPurchaseRequest } from "@/features/compras/purchaseRequestsApi";
 import EnviarAPanolModal from "@/features/panol/EnviarAPanolModal";
@@ -4789,6 +4790,18 @@ function ObraMatrizView({ obra, obras = [], linea, lineaNombre, categorias, mate
   }, [obra?.id]);
   useEffect(() => { cargarSnapshot(); }, [cargarSnapshot]);
 
+  // Mapa material_id -> etapa (de la receta del modelo), para mostrar a qué etapa
+  // pertenece cada material y poder agrupar/colorear por etapa. Vacío si el modelo
+  // no tiene receta cargada — no rompe nada, simplemente no aparecen los badges.
+  const [etapaPorMaterial, setEtapaPorMaterial] = useState(() => new Map());
+  useEffect(() => {
+    let alive = true;
+    fetchEtapaPorMaterialDeModelo(lineaNombre)
+      .then((m) => { if (alive) setEtapaPorMaterial(m); })
+      .catch(() => { if (alive) setEtapaPorMaterial(new Map()); });
+    return () => { alive = false; };
+  }, [lineaNombre]);
+
   const cargarStockLibre = useCallback(async () => {
     setStockLibreLoading(true);
     try {
@@ -5075,9 +5088,13 @@ function ObraMatrizView({ obra, obras = [], linea, lineaNombre, categorias, mate
   const groupedRows = useMemo(() => {
     const map = new Map();
     visibleRows.forEach((row) => {
-      const key = groupBy === "rubro" ? row.rubro : groupBy === "tipo" ? row.bucket.label : row.proveedor;
+      const etapaInfo = row.materialId ? etapaPorMaterial.get(row.materialId) : null;
+      const key = groupBy === "rubro" ? row.rubro
+        : groupBy === "tipo" ? row.bucket.label
+        : groupBy === "etapa" ? (etapaInfo?.etapa || "Sin etapa")
+        : row.proveedor;
       const label = key || "Sin clasificar";
-      if (!map.has(label)) map.set(label, { label, rows: [], usd: 0, ars: 0, sinPrecio: 0, revisar: 0, esAddon: false });
+      if (!map.has(label)) map.set(label, { label, rows: [], usd: 0, ars: 0, sinPrecio: 0, revisar: 0, esAddon: false, color: groupBy === "etapa" ? (etapaInfo?.color || null) : null });
       const group = map.get(label);
       group.rows.push(row);
       // Marcar si el grupo contiene adicionales
@@ -5097,7 +5114,7 @@ function ObraMatrizView({ obra, obras = [], linea, lineaNombre, categorias, mate
       if (!a.esAddon && b.esAddon) return -1;
       return b.rows.length - a.rows.length || a.label.localeCompare(b.label, "es");
     });
-  }, [visibleRows, groupBy]);
+  }, [visibleRows, groupBy, etapaPorMaterial]);
 
   const kpis = useMemo(() => rows.reduce((acc, row) => {
     const qty = toNum(row.cantidad) || 1;
@@ -5921,6 +5938,7 @@ function ObraMatrizView({ obra, obras = [], linea, lineaNombre, categorias, mate
               <option value="proveedor" style={OPT_ST}>Proveedor</option>
               <option value="rubro" style={OPT_ST}>Rubro</option>
               <option value="tipo" style={OPT_ST}>Tipo</option>
+              {etapaPorMaterial.size > 0 && <option value="etapa" style={OPT_ST}>Etapa</option>}
             </select>
             {[
               ["base", "Base", C.green],
@@ -6019,6 +6037,7 @@ function ObraMatrizView({ obra, obras = [], linea, lineaNombre, categorias, mate
             <option value="proveedor" style={OPT_ST}>Proveedor</option>
             <option value="rubro" style={OPT_ST}>Rubro</option>
             <option value="tipo" style={OPT_ST}>Tipo</option>
+            {etapaPorMaterial.size > 0 && <option value="etapa" style={OPT_ST}>Etapa</option>}
           </select>
           <div style={{ display: "inline-flex", gap: 6, border: `1px solid ${C.b0}`, borderRadius: 10, padding: 4, background: C.s0 }}>
             {[
@@ -6054,7 +6073,7 @@ function ObraMatrizView({ obra, obras = [], linea, lineaNombre, categorias, mate
             <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 12, padding: "10px 14px", borderBottom: `1px solid ${C.b0}`, background: "linear-gradient(90deg, color-mix(in srgb, var(--panel) 86%, #2563eb 4%), var(--panel))", flexWrap: "wrap" }}>
               <div style={{ minWidth: 0 }}>
                 <div style={{ display: "flex", alignItems: "center", gap: 9, minWidth: 0 }}>
-                  <span style={{ width: 7, height: 7, borderRadius: 999, background: C.blue, boxShadow: `0 0 0 3px ${C.blue}18`, flexShrink: 0 }} />
+                  <span style={{ width: 7, height: 7, borderRadius: 999, background: group.color || C.blue, boxShadow: `0 0 0 3px ${group.color || C.blue}18`, flexShrink: 0 }} />
                   <div style={{ fontSize: 14.5, fontWeight: 950, color: C.t0, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{group.label}</div>
                 </div>
                 <div style={{ fontSize: 11.5, color: C.t2, marginTop: 3, paddingLeft: 16 }}>
@@ -6071,6 +6090,7 @@ function ObraMatrizView({ obra, obras = [], linea, lineaNombre, categorias, mate
               {group.rows.map((row) => {
                 const qty = toNum(row.cantidad) || 1;
                 const total = row.precio.amount ? row.precio.amount * qty : null;
+                const etapaRow = row.materialId ? etapaPorMaterial.get(row.materialId) : null;
                 const materialForRow = row.material || materialById.get(row.materialId);
                 const variantOptions = materialVariants(materialForRow);
                 const rowImageUrl = materialVariantImageUrl(materialForRow, row.variante)
@@ -6120,6 +6140,12 @@ function ObraMatrizView({ obra, obras = [], linea, lineaNombre, categorias, mate
                             <span style={{ fontSize: 9.5, fontWeight: 900, color: row.bucket.color, background: `${row.bucket.color}14`, border: `1px solid ${row.bucket.color}3a`, borderRadius: 999, padding: "1px 6px", whiteSpace: "nowrap" }}>
                               {row.bucket.label}
                             </span>
+                            {etapaRow && (
+                              <span title={`Etapa de producción: ${etapaRow.etapa}`} style={{ display: "inline-flex", alignItems: "center", gap: 4, fontSize: 9.5, fontWeight: 900, color: etapaRow.color, background: `${etapaRow.color}1c`, border: `1px solid ${etapaRow.color}55`, borderRadius: 999, padding: "1px 7px 1px 5px", whiteSpace: "nowrap" }}>
+                                <span style={{ width: 6, height: 6, borderRadius: 999, background: etapaRow.color }} />
+                                {etapaRow.etapa}
+                              </span>
+                            )}
                             {row.review?.flag && <ReviewBadge reason={row.review.reason} />}
                             <StockLibreChip info={stockLibreInfo} loading={stockLibreLoading} />
                             {snapshotOnly ? (
@@ -6642,7 +6668,7 @@ function LineaMatrizView({ linea, lineas = [], obras = [], categorias, materiale
             <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 12, padding: "10px 14px", borderBottom: `1px solid ${C.b0}`, background: "linear-gradient(90deg, color-mix(in srgb, var(--panel) 86%, #2563eb 4%), var(--panel))", flexWrap: "wrap" }}>
               <div style={{ minWidth: 0 }}>
                 <div style={{ display: "flex", alignItems: "center", gap: 9, minWidth: 0 }}>
-                  <span style={{ width: 7, height: 7, borderRadius: 999, background: C.blue, boxShadow: `0 0 0 3px ${C.blue}18`, flexShrink: 0 }} />
+                  <span style={{ width: 7, height: 7, borderRadius: 999, background: group.color || C.blue, boxShadow: `0 0 0 3px ${group.color || C.blue}18`, flexShrink: 0 }} />
                   <div style={{ fontSize: 14.5, fontWeight: 950, color: C.t0, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{group.label}</div>
                 </div>
                 <div style={{ fontSize: 11.5, color: C.t2, marginTop: 3, paddingLeft: 16 }}>

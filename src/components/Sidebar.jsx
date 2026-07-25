@@ -461,6 +461,7 @@ export default function Sidebar({ profile, signOut }) {
             {divider("prod")}
             {group("Producción", SC.produccion, 120)}
             {item("/obras",       "Obras",       SC.produccion, true, 140, "Gestión de tareas y seguimiento de avance de cascos en producción.")}
+            {item("/compras-etapa", "Compras por etapa", SC.produccion, true, 145, "Recetas de materiales por etapa de cada modelo y pedidos de producción por casco.")}
             {item("/memorias",    "Memorias",    SC.produccion, true, 150, "Memorias descriptivas de barcos activos en formato planilla para reunión.")}
             {item("/marmoleria",  "Marmolería",  SC.produccion, true, 160, "Stock de materiales y cortes (ej. Dekton) para cubiertas y baños.")}
             {item("/muebles",     "Muebles",     SC.produccion, true, 180, "Producción, despiece y ensamblaje de mobiliario.")}
@@ -471,6 +472,8 @@ export default function Sidebar({ profile, signOut }) {
             {divider("compras")}
             {group(comprasGroup, SC.compras, 205)}
             {item("/compras", comprasLabel, SC.compras, true, 215, "Solicitudes internas a compras con seguimiento y usuarios en copia.", esCompras || realAdmin ? comprasBadge : null)}
+            {/* El rol compras ve acá los pedidos generados por etapa de producción (gestión ya lo ve en Producción). */}
+            {esCompras && item("/compras-etapa", "Pedidos de producción", SC.compras, true, 217, "Pedidos de materiales generados por etapa de producción, para gestionar su compra.")}
             {(esCompras || realAdmin) && item("/semaforo", "Semáforo", SC.semaforo, true, 220, "Semáforo de producción: estado visual de avance por obra.")}
           </>}
 

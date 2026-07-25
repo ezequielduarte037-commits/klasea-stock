@@ -794,6 +794,9 @@ export default function EnviarAPanolModal({ open, onClose, prefill, showPrices =
   const [stockRows, setStockRows] = useState([]);
   const [catalogLoading, setCatalogLoading] = useState(false);
   const [selectedMaterial, setSelectedMaterial] = useState(null);
+  // Multi-selección del catálogo: Map id→material. Acumula entre búsquedas para
+  // agregar varios de una (tildar y después "Agregar N" abajo).
+  const [checkedCatalog, setCheckedCatalog] = useState(() => new Map());
   const [matches, setMatches] = useState([]);
   const [selectedMatches, setSelectedMatches] = useState(() => new Set());
   const [dragMatch, setDragMatch] = useState(null);
@@ -840,6 +843,7 @@ export default function EnviarAPanolModal({ open, onClose, prefill, showPrices =
     setFullCatalog([]);
     setStockRows([]);
     setSelectedMaterial(null);
+    setCheckedCatalog(new Map());
     setMatches([]);
     setSelectedMatches(new Set());
     setDragMatch(null);
@@ -1249,45 +1253,53 @@ export default function EnviarAPanolModal({ open, onClose, prefill, showPrices =
     return prepared;
   }
 
+  function buildCatalogItem(material) {
+    const base = {
+      descripcion: material.descripcion,
+      codigo: material.codigo || "",
+      codigo_barra: material.codigo_barra || materialBarcodeList(material)[0]?.codigo || "",
+      cantidad: "1",
+      unidad: material.unidad || "unidad",
+      precio_unitario: showPrices ? (material.precio_unitario ?? "") : "",
+      moneda: showPrices ? (material.moneda || "ARS") : "ARS",
+      obra_id: obraId || "",
+      material_id: material.id,
+      proveedor: material.proveedor || "",
+      ubicacion: material.ubicacion || "",
+      ubicacion_obs: material.ubicacion_obs || "",
+      ubicacion_touched: false,
+      variante: "",
+      recepcion_estado: isRemito ? "recibido" : null,
+      purchase_request_item_id: null,
+      obra_snapshot_item_id: null,
+    };
+    return showPrices ? base : stripItemPrice(base);
+  }
+
   function addCatalogMaterial(material = selectedMaterial) {
     if (!material) return;
-    setItems((prev) => [...prev, showPrices ? {
-      descripcion: material.descripcion,
-      codigo: material.codigo || "",
-      codigo_barra: material.codigo_barra || materialBarcodeList(material)[0]?.codigo || "",
-      cantidad: "1",
-      unidad: material.unidad || "unidad",
-      precio_unitario: material.precio_unitario ?? "",
-      moneda: material.moneda || "ARS",
-      obra_id: obraId || "",
-      material_id: material.id,
-      proveedor: material.proveedor || "",
-      ubicacion: material.ubicacion || "",
-      ubicacion_obs: material.ubicacion_obs || "",
-      ubicacion_touched: false,
-      variante: "",
-      recepcion_estado: isRemito ? "recibido" : null,
-      purchase_request_item_id: null,
-      obra_snapshot_item_id: null,
-    } : stripItemPrice({
-      descripcion: material.descripcion,
-      codigo: material.codigo || "",
-      codigo_barra: material.codigo_barra || materialBarcodeList(material)[0]?.codigo || "",
-      cantidad: "1",
-      unidad: material.unidad || "unidad",
-      precio_unitario: "",
-      moneda: "ARS",
-      obra_id: obraId || "",
-      material_id: material.id,
-      proveedor: material.proveedor || "",
-      ubicacion: material.ubicacion || "",
-      ubicacion_obs: material.ubicacion_obs || "",
-      ubicacion_touched: false,
-      variante: "",
-      recepcion_estado: isRemito ? "recibido" : null,
-      purchase_request_item_id: null,
-      obra_snapshot_item_id: null,
-    })]);
+    setItems((prev) => [...prev, buildCatalogItem(material)]);
+  }
+
+  function toggleCheckedCatalog(material) {
+    setCheckedCatalog((prev) => {
+      const next = new Map(prev);
+      if (next.has(material.id)) next.delete(material.id);
+      else next.set(material.id, material);
+      return next;
+    });
+  }
+
+  // Agrega todos los tildados (o el seleccionado, si no hay tildados) a la lista de abajo.
+  function addCheckedCatalogMaterials() {
+    const chosen = [...checkedCatalog.values()];
+    if (!chosen.length) {
+      addCatalogMaterial();
+      return;
+    }
+    setItems((prev) => [...prev, ...chosen.map((m) => buildCatalogItem(m))]);
+    setCheckedCatalog(new Map());
+    setSelectedMaterial(null);
   }
 
   function bumpItemQty(idx, by = 1) {
@@ -1693,34 +1705,42 @@ export default function EnviarAPanolModal({ open, onClose, prefill, showPrices =
                   {catalogLoading ? (
                     <div style={{ color: C.t2, fontSize: 12, padding: 12, textAlign: "center" }}>Cargando...</div>
                   ) : catalog.length ? catalog.map((mat) => {
-                    const active = selectedMaterial?.id === mat.id;
+                    const checked = checkedCatalog.has(mat.id);
                     const meta = proveedorMeta(mat.proveedor, proveedores);
                     const barcode = materialBarcodeList(mat)[0]?.codigo || "";
                     return (
                       <button
                         key={mat.id}
                         type="button"
-                        onClick={() => { setSelectedMaterial(mat); setCatalogQ(mat.descripcion); }}
+                        onClick={() => { toggleCheckedCatalog(mat); setSelectedMaterial(mat); }}
                         style={{
-                          border: `1px solid ${active ? C.blueB : C.b0}`,
-                          background: active ? "var(--blue-soft)" : C.bg,
+                          border: `1px solid ${checked ? C.blueB : C.b0}`,
+                          background: checked ? "var(--blue-soft)" : C.bg,
                           color: C.t0,
                           borderRadius: 9,
                           padding: ingresoDesktop ? "10px 11px" : "8px 9px",
                           cursor: "pointer",
                           textAlign: "left",
                           fontFamily: C.sans,
+                          display: "flex",
+                          alignItems: "center",
+                          gap: 10,
                         }}
                       >
-                        <div style={{ fontSize: ingresoDesktop ? 13.3 : 12.5, fontWeight: 850, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{mat.descripcion}</div>
-                        <div style={{ display: "flex", alignItems: "center", gap: 6, minWidth: 0, color: C.t2, fontSize: ingresoDesktop ? 11.2 : 10.5, marginTop: 3 }}>
-                          <span style={{ minWidth: 0, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>
-                            {mat.codigo || "sin cod. item"}{barcode ? ` · CB ${barcode}` : ""}{mat.proveedor ? ` · ${mat.proveedor}` : ""}
+                        <span aria-hidden style={{ flexShrink: 0, width: 18, height: 18, borderRadius: 5, border: `1.5px solid ${checked ? C.blue : C.b1}`, background: checked ? C.blue : "transparent", color: "#fff", display: "grid", placeItems: "center", fontSize: 12, fontWeight: 900, lineHeight: 1 }}>
+                          {checked ? "✓" : ""}
+                        </span>
+                        <span style={{ minWidth: 0, flex: 1 }}>
+                          <span style={{ display: "block", fontSize: ingresoDesktop ? 13.3 : 12.5, fontWeight: 850, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{mat.descripcion}</span>
+                          <span style={{ display: "flex", alignItems: "center", gap: 6, minWidth: 0, color: C.t2, fontSize: ingresoDesktop ? 11.2 : 10.5, marginTop: 3 }}>
+                            <span style={{ minWidth: 0, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>
+                              {mat.codigo || "sin cod. item"}{barcode ? ` · CB ${barcode}` : ""}{mat.proveedor ? ` · ${mat.proveedor}` : ""}
+                            </span>
+                            <ProveedorTipoBadge meta={meta} compact />
+                            <UbicacionChip ubicacion={mat.ubicacion} obs={mat.ubicacion_obs} />
+                            <StockActualBadge material={mat} stockByMaterial={stockByMaterial} sede={sede} compact />
                           </span>
-                          <ProveedorTipoBadge meta={meta} compact />
-                          <UbicacionChip ubicacion={mat.ubicacion} obs={mat.ubicacion_obs} />
-                          <StockActualBadge material={mat} stockByMaterial={stockByMaterial} sede={sede} compact />
-                        </div>
+                        </span>
                       </button>
                     );
                   }) : (
@@ -1729,11 +1749,11 @@ export default function EnviarAPanolModal({ open, onClose, prefill, showPrices =
                 </div>
                 <button
                   type="button"
-                  onClick={() => addCatalogMaterial()}
-                  disabled={!selectedMaterial}
-                  style={{ border: `1px solid ${C.blueB}`, background: selectedMaterial ? "var(--blue-soft)" : C.bg, color: selectedMaterial ? C.blue : C.t2, borderRadius: 8, padding: ingresoDesktop ? "10px 12px" : "8px 10px", cursor: selectedMaterial ? "pointer" : "default", fontSize: ingresoDesktop ? 12.5 : 12, fontWeight: 850, fontFamily: C.sans }}
+                  onClick={addCheckedCatalogMaterials}
+                  disabled={checkedCatalog.size === 0 && !selectedMaterial}
+                  style={{ border: `1px solid ${C.blueB}`, background: (checkedCatalog.size || selectedMaterial) ? "var(--blue-soft)" : C.bg, color: (checkedCatalog.size || selectedMaterial) ? C.blue : C.t2, borderRadius: 8, padding: ingresoDesktop ? "10px 12px" : "8px 10px", cursor: (checkedCatalog.size || selectedMaterial) ? "pointer" : "default", fontSize: ingresoDesktop ? 12.5 : 12, fontWeight: 850, fontFamily: C.sans }}
                 >
-                  Agregar desde catalogo
+                  {checkedCatalog.size ? `Agregar ${checkedCatalog.size} tildado${checkedCatalog.size === 1 ? "" : "s"}` : "Agregar desde catalogo"}
                 </button>
               </div>
             ) : (
