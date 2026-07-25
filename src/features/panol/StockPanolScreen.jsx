@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, useSearchParams } from "react-router-dom";
 import { AlertTriangle, ChevronRight, DollarSign, Inbox, RefreshCw, Scale, ScanLine, Warehouse } from "lucide-react";
 import Sidebar from "@/components/Sidebar";
 import { useResponsive } from "@/hooks/useResponsive";
@@ -605,6 +605,8 @@ function MovimientosPanel({ rows = [], obras = [], materialCreations = [], isMob
 
 export default function StockPanolScreen({ profile, signOut, embedded = false, mode = "stock" }) {
   const nav = useNavigate();
+  const [searchParams, setSearchParams] = useSearchParams();
+  const requestedTab = embedded ? "" : (searchParams.get("tab") || "");
   // 1180px: en tablet (sidebar 280px + panel de 2 columnas ~830px) el layout de escritorio
   // desbordaba y "rompía" la pantalla. Por debajo de 1180 usamos el layout apilado.
   const { isMobile } = useResponsive(1180);
@@ -619,7 +621,7 @@ export default function StockPanolScreen({ profile, signOut, embedded = false, m
   const canSeePrices = role !== "panol"; // el pañol no ve precios ni costos
 
   // ── Navegación ──
-  const [tab, setTab] = useState("obra");
+  const [tab, setTab] = useState(() => TABS.some((entry) => entry.key === requestedTab) ? requestedTab : "obra");
   const [selLinea, setSelLinea] = useState(null); // e.g. "37"
   const [selObraId, setSelObraId] = useState(null);
   const [soloActivas, setSoloActivas] = useState(false); // filtro nivel 2 (obras de la línea)
@@ -650,6 +652,13 @@ export default function StockPanolScreen({ profile, signOut, embedded = false, m
   }, [sedeLocked, toast]);
 
   useEffect(() => { cargar(); }, [cargar]);
+
+  useEffect(() => {
+    if (embedded || !TABS.some((entry) => entry.key === requestedTab) || requestedTab === tab) return;
+    setTab(requestedTab);
+    setSelLinea(null);
+    setSelObraId(null);
+  }, [embedded, requestedTab, tab]);
 
   // ── Índice: filas agrupadas por obraId ──
   const rowsByObraId = useMemo(() => {
@@ -743,6 +752,11 @@ export default function StockPanolScreen({ profile, signOut, embedded = false, m
     setTab(key);
     setSelLinea(null);
     setSelObraId(null);
+    if (!embedded) {
+      const nextParams = new URLSearchParams(searchParams);
+      nextParams.set("tab", key);
+      setSearchParams(nextParams, { replace: true });
+    }
   }
 
   const wmsProps = { sedeLocked, isMobile, toast, mode, canReceive, canCreateCatalog: isManager, canSeePrices };

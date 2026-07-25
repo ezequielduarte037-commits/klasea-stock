@@ -17,6 +17,7 @@ import ProcedimientosScreen  from "@/features/procedimientos/ProcedimientosScree
 import PostVentaScreen       from "@/features/postventa/PostVentaScreen";
 import ClientePanelScreen    from "@/features/cliente/ClientePanelScreen";
 import HomeScreen            from "@/features/home/HomeScreen";
+import PanolOperativoHome    from "@/features/panol/PanolOperativoHome";
 import CalendarioScreen      from "@/features/calendario/CalendarioScreen";
 import PedidosMaderaScreen   from "@/features/inventario/PedidosMaderaScreen";
 import MaderasScreen         from "@/features/inventario/MaderasScreen";
@@ -409,7 +410,9 @@ export default function App() {
             // El colector arranca en una pantalla de elección, no directo al egreso
             // de maderas: desde el aparato también se piden reposiciones a compras.
             ? <Navigate to="/colector" replace />
-            : <HomeScreen profile={profile} signOut={signOut} />;
+            : profile.role === "panol"
+              ? <PanolOperativoHome profile={profile} signOut={signOut} />
+              : <HomeScreen profile={profile} signOut={signOut} />;
 
   return (
     <BrowserRouter>
@@ -436,6 +439,7 @@ export default function App() {
         <Route path="/muebles"    element={<RequireAuth session={session}><RequireRole profile={profile} allow={["admin","oficina","tecnica","muebles"]}><MueblesScreen    {...A} /></RequireRole></RequireAuth>} />
         <Route path="/pedidos"    element={<RequireAuth session={session}><RequireRole profile={profile} allow={["admin","oficina","tecnica"]}><PedidosScreen    {...A} /></RequireRole></RequireAuth>} />
         <Route path="/compras"    element={<RequireAuth session={session}><RequireRole profile={profile} allow={["admin","oficina","tecnica","panol","compras"]}><PurchaseRequestsScreen {...A} /></RequireRole></RequireAuth>} />
+        <Route path="/inicio-panol" element={<RequireAuth session={session}><RequireRole profile={profile} allow={["panol"]}><PanolOperativoHome {...A} /></RequireRole></RequireAuth>} />
         <Route path="/cadete"     element={<RequireAuth session={session}><RequireRole profile={profile} allow={["admin","oficina","tecnica","compras","cadete"]}><CadeteRutaScreen {...A} /></RequireRole></RequireAuth>} />
         <Route path="/recepcion-panol" element={<RequireAuth session={session}><RequireRole profile={profile} allow={["admin","oficina","tecnica","panol"]}><RecepcionPanolScreen {...A} /></RequireRole></RequireAuth>} />
         <Route path="/stock-panol" element={<RequireAuth session={session}><RequireRole profile={profile} allow={["admin","oficina","tecnica","panol"]}><StockPanolScreen {...A} /></RequireRole></RequireAuth>} />

@@ -101,6 +101,51 @@ function Icon({ id, color = "currentColor", size = 14 }) {
       <path d="M8 8v6" {...p}/>
       <path d="M4.5 6.2l6-3" {...p}/>
     </>,
+    "/inicio-panol": <>
+      <path d="M2 7.5L8 2l6 5.5V14H2z" {...p}/>
+      <path d="M5.5 14v-4h5v4M5 7h6" {...p}/>
+    </>,
+    "/recepcion-panol": <>
+      <path d="M2 5l6-3 6 3-6 3zM2 5v7l6 3 6-3V5M8 8v7" {...p}/>
+      <path d="M11 9h4M13 7l2 2-2 2" {...p}/>
+    </>,
+    "/scan-pedido": <>
+      <path d="M2 3h2l1.2 7h7L14 5H5" {...p}/>
+      <circle cx="6.5" cy="13" r="1" {...p}/>
+      <circle cx="11.5" cy="13" r="1" {...p}/>
+    </>,
+    // Las pestañas de pañol comparten ruta base y sin un icono propio por
+    // pestaña se veian todas con el mismo cajon. Cada accion tiene el suyo.
+    "/recepcion-panol?tab=recepcion": <>
+      <path d="M2 9h3l1 2h4l1-2h3" {...p}/>
+      <path d="M2 9v3.5a1.5 1.5 0 0 0 1.5 1.5h9a1.5 1.5 0 0 0 1.5-1.5V9" {...p}/>
+      <path d="M8 1.5v5M5.8 4.3L8 6.5l2.2-2.2" {...p}/>
+    </>,
+    "/recepcion-panol?tab=ingresar": <>
+      <rect x="2" y="7.5" width="12" height="6.5" rx="1.5" {...p}/>
+      <path d="M8 1v4.5M5.8 3.3L8 5.5l2.2-2.2" {...p}/>
+    </>,
+    "/recepcion-panol?tab=egresos": <>
+      <rect x="2" y="7.5" width="12" height="6.5" rx="1.5" {...p}/>
+      <path d="M8 5.5V1M5.8 3.2L8 1l2.2 2.2" {...p}/>
+    </>,
+    "/recepcion-panol?tab=consumibles": <>
+      <path d="M3.5 3.5c0-1.1 2-2 4.5-2s4.5.9 4.5 2" {...p}/>
+      <path d="M3.5 3.5v9c0 1.1 2 2 4.5 2s4.5-.9 4.5-2v-9" {...p}/>
+      <path d="M3.5 8c0 1.1 2 2 4.5 2s4.5-.9 4.5-2" {...p}/>
+    </>,
+    "/stock-panol?tab=maestro": <>
+      <rect x="1.5" y="2.5" width="13" height="11" rx="1.5" {...p}/>
+      <path d="M1.5 6h13M6 6v7.5" {...p}/>
+    </>,
+    "/stock-panol?tab=mapa": <>
+      <path d="M1.5 4L6 2l4 2 4.5-2v10L10 14l-4-2-4.5 2z" {...p}/>
+      <path d="M6 2v10M10 4v10" {...p}/>
+    </>,
+    "/stock-panol?tab=movimientos": <>
+      <path d="M2.5 5.5h9M9.5 3l2.5 2.5-2.5 2.5" {...p}/>
+      <path d="M13.5 10.5h-9M6.5 8L4 10.5 6.5 13" {...p}/>
+    </>,
     "/configuracion": <>
       <circle cx="8" cy="8" r="2" {...p}/>
       <path d="M8 1v2M8 13v2M1 8h2M13 8h2M3 3l1.5 1.5M11.5 11.5L13 13M3 13l1.5-1.5M11.5 4.5L13 3" {...p}/>
@@ -123,7 +168,8 @@ function Icon({ id, color = "currentColor", size = 14 }) {
   };
   return (
     <svg width={size} height={size} viewBox="0 0 16 16" style={{ display: "block", flexShrink: 0 }}>
-      {paths[id] ?? <circle cx="8" cy="8" r="4" stroke={color} fill="none" strokeWidth={1.5}/>}
+      {/* Busca primero el icono exacto (ruta + ?tab=...) y si no hay, el de la ruta base. */}
+      {paths[id] ?? paths[String(id).split("?")[0]] ?? <circle cx="8" cy="8" r="4" stroke={color} fill="none" strokeWidth={1.5}/>}
     </svg>
   );
 }
@@ -277,7 +323,11 @@ export default function Sidebar({ profile, signOut }) {
 
   // ── NAV ITEM ACTUALIZADO ──────────────────────────────────────────────────────
   const item = (href, label, c, exact = true, delay = 0, info = "", badge = null) => {
-    const on  = exact ? path === href : path.startsWith(href);
+    const [hrefPath, hrefQuery = ""] = href.split("?");
+    const expectedParams = new URLSearchParams(hrefQuery);
+    const currentParams = new URLSearchParams(search);
+    const matchesQuery = !hrefQuery || [...expectedParams.entries()].every(([key, value]) => currentParams.get(key) === value);
+    const on  = exact ? path === hrefPath && matchesQuery : path.startsWith(hrefPath);
     const isH = hov === href;
     const col = c ?? C.muted;
     return (
@@ -450,7 +500,29 @@ export default function Sidebar({ profile, signOut }) {
 
         {/* NAV ───────────────────────────────────────────────────────────── */}
         <nav style={{ flex: 1, overflowY: "auto", paddingBottom: 8, paddingTop: 4 }}>
-          {(esPanol || esGestion) && <>
+          {esPanol && <>
+            {group("Operación diaria", SC.panol_catalogo, 55)}
+            {item("/inicio-panol", "Panel de pañol", SC.panol_catalogo, true, 65, "Resumen de pendientes, equipos y próximas recepciones.")}
+            {item("/recepcion-panol?tab=recepcion", "Recepcionar", SC.panol_catalogo, true, 75, "Pedidos y avisos enviados por Compras para recibir en tu sede.")}
+            {item("/recepcion-panol?tab=ingresar", "Ingresar materiales", SC.panol_catalogo, true, 85, "Ingresos directos, remitos, borradores y ubicación en estantería.")}
+            {item("/recepcion-panol?tab=egresos", "Egresar materiales", SC.panol_catalogo, true, 95, "Preparar y registrar entregas de materiales a personas u obras.")}
+            {item("/recepcion-panol?tab=consumibles", "Consumibles", SC.panol_catalogo, true, 105, "Ingresos, egresos por cantidad o peso y movimientos de consumibles.")}
+
+            {divider("panol-consulta")}
+            {group("Consultar", SC.movimientos, 120)}
+            {item("/stock-panol?tab=maestro", "Stock maestro", SC.movimientos, true, 130, "Existencias reales, ubicaciones y detalle por producto.")}
+            {item("/stock-panol?tab=mapa", "Mapa del pañol", SC.movimientos, true, 140, "Plano de estanterías y productos ubicados.")}
+            {item("/stock-panol?tab=movimientos", "Movimientos", SC.movimientos, true, 150, "Kardex general de ingresos, asignaciones y egresos.")}
+            {item("/compras", "Pedidos a compras", SC.compras, true, 160, "Pedidos propios y actualizaciones enviadas por Compras.")}
+
+            {divider("panol-apoyo")}
+            {group("Áreas de apoyo", C.dim, 175)}
+            {item("/madera", "Maderas", C.dim, true, 185, "Stock y pedidos específicos de maderas.")}
+            {item("/laminacion", "Laminación", C.dim, true, 195, "Stock y pedidos específicos de laminación.")}
+            {item("/scan-pedido", "Pedir reposición", C.dim, true, 205, "Crear rápidamente un pedido interno a Compras.")}
+          </>}
+
+          {esGestion && <>
             {group("Inventario", SC.movimientos, 60)}
             {item("/madera", "Maderas", SC.movimientos, true, 70, "Stock, ingresos, egresos, movimientos y pedidos de maderas.")}
             {item("/laminacion", "Laminación", SC.movimientos, true, 80, "Stock, ingresos, egresos, movimientos y pedidos de laminación.")}
@@ -468,7 +540,7 @@ export default function Sidebar({ profile, signOut }) {
             {item("/calendario",  "Calendario",  SC.produccion, true, 200, "Cronograma general y planificación de fechas del astillero.")}
           </>}
 
-          {puedePedirCompras && <>
+          {puedePedirCompras && !esPanol && <>
             {divider("compras")}
             {group(comprasGroup, SC.compras, 205)}
             {item("/compras", comprasLabel, SC.compras, true, 215, "Solicitudes internas a compras con seguimiento y usuarios en copia.", esCompras || realAdmin ? comprasBadge : null)}
@@ -477,7 +549,7 @@ export default function Sidebar({ profile, signOut }) {
             {(esCompras || realAdmin) && item("/semaforo", "Semáforo", SC.semaforo, true, 220, "Semáforo de producción: estado visual de avance por obra.")}
           </>}
 
-          {(esPanol || esGestion) && <>
+          {esGestion && <>
             {divider("panol-rec")}
             {group("Pañol", SC.panol_catalogo, 216)}
             {item("/recepcion-panol", "Recepción y egresos", SC.panol_catalogo, true, 217, "Pedidos a pañol: recepción, faltantes, egresos y seguimiento por sede.")}
@@ -660,7 +732,7 @@ export default function Sidebar({ profile, signOut }) {
             </div>
           </div>
 
-          <div style={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: 3, border: `1px solid ${C.border}`, borderRadius: 8, padding: 2, background: C.panel, flexShrink: 0 }}>
+          <div style={{ display: "grid", gridTemplateColumns: "repeat(3,minmax(0,1fr))", gap: 3, border: `1px solid ${C.border}`, borderRadius: 8, padding: 2, background: C.panel, flexShrink: 0 }}>
             {[
               { value: "dark", title: "Oscuro", Icon: Moon },
               { value: "light", title: "Claro", Icon: Sun },

@@ -1,5 +1,6 @@
 import { C } from "@/theme";
 import { useCallback, useEffect, useMemo, useState } from "react";
+import { useSearchParams } from "react-router-dom";
 import {
   AlertTriangle,
   ArrowUpRight,
@@ -55,7 +56,9 @@ const PRIO_FILTERS = [
 const PANOL_TAB_STORAGE_KEY = "klasea.panol.recepcion.tab";
 const PANOL_TABS = new Set(["recepcion", "ingresar", "consumibles", "crear", "egresos"]);
 
-function readStoredPanolTab() {
+function readStoredPanolTab(urlTab = "") {
+  const requested = urlTab === "pendientes" ? "ingresar" : urlTab;
+  if (PANOL_TABS.has(requested)) return requested;
   if (typeof window === "undefined") return "recepcion";
   let value = window.localStorage.getItem(PANOL_TAB_STORAGE_KEY);
   if (value === "pendientes") value = "ingresar"; // migración del nombre viejo de la pestaña
@@ -2107,6 +2110,9 @@ export function StockTotalPanel({ sedeLocked, isMobile, toast }) {
 export default function RecepcionPanolScreen({ profile, signOut }) {
   const { isMobile } = useResponsive();
   const toast = useToast();
+  const [searchParams, setSearchParams] = useSearchParams();
+  const requestedTab = searchParams.get("tab") || "";
+  const requestedEnvio = searchParams.get("envio") || "";
 
 
   const role = profile?.role;
@@ -2124,14 +2130,18 @@ export default function RecepcionPanolScreen({ profile, signOut }) {
   const [fEstado, setFEstado] = useState("activos");
   const [fPrio, setFPrio] = useState("todas");
   const [q, setQ] = useState("");
-  const [tab, setTabState] = useState(() => readStoredPanolTab());
+  const [tab, setTabState] = useState(() => readStoredPanolTab(requestedTab));
   const [solicitudOpen, setSolicitudOpen] = useState(false);
   const setTab = useCallback((nextTab) => {
     const requested = nextTab === "pendientes" ? "ingresar" : nextTab;
     const value = PANOL_TABS.has(requested) ? requested : "recepcion";
     setTabState(value);
     if (typeof window !== "undefined") window.localStorage.setItem(PANOL_TAB_STORAGE_KEY, value);
-  }, []);
+    const nextParams = new URLSearchParams(searchParams);
+    nextParams.set("tab", value);
+    nextParams.delete("envio");
+    setSearchParams(nextParams, { replace: true });
+  }, [searchParams, setSearchParams]);
   const [modalPrefill, setModalPrefill] = useState(null);
   const [pendientes, setPendientes] = useState(() => leerIngresosPendientes());
   const refreshPendientes = useCallback(() => setPendientes(leerIngresosPendientes()), []);
@@ -2155,6 +2165,18 @@ export default function RecepcionPanolScreen({ profile, signOut }) {
   }, [sedeLocked, fSede, toast]);
 
   useEffect(() => { cargar(); }, [cargar]);
+
+  useEffect(() => {
+    const value = readStoredPanolTab(requestedTab);
+    if (value !== tab) {
+      setTabState(value);
+      if (typeof window !== "undefined") window.localStorage.setItem(PANOL_TAB_STORAGE_KEY, value);
+    }
+  }, [requestedTab, tab]);
+
+  useEffect(() => {
+    if (requestedTab === "recepcion" && requestedEnvio) setSel(requestedEnvio);
+  }, [requestedEnvio, requestedTab]);
 
   const filtrados = useMemo(() => {
     let rows = envios;
@@ -2202,7 +2224,13 @@ export default function RecepcionPanolScreen({ profile, signOut }) {
         profile={profile}
         canReceive={canReceive}
         isManager={isManager}
-        onBack={() => { setSel(null); cargar(); }}
+        onBack={() => {
+          setSel(null);
+          const nextParams = new URLSearchParams(searchParams);
+          nextParams.delete("envio");
+          setSearchParams(nextParams, { replace: true });
+          cargar();
+        }}
       />,
     );
   }
