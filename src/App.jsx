@@ -33,11 +33,13 @@ import MaterialesScreen      from "@/features/materiales/MaterialesScreen";
 import PreciosScreen         from "@/features/precios/PreciosScreen";
 import ComprasEtapasScreen   from "@/features/produccion/ComprasEtapasScreen";
 import RecepcionPanolScreen  from "@/features/panol/RecepcionPanolScreen";
+import SolicitudesPanolScreen from "@/features/panol/SolicitudesPanolScreen";
 import StockPanolScreen      from "@/features/panol/StockPanolScreen";
 import PortalProveedorScreen from "@/features/proveedores/PortalProveedorScreen";
 import MemoriasScreen        from "@/features/memorias/MemoriasScreen";
 import SemaforoScreen        from "@/features/semaforo/SemaforoScreen";
 import CadeteRutaScreen      from "@/features/cadete/CadeteRutaScreen";
+import TarjetasNfcScreen     from "@/features/panol/TarjetasNfcScreen";
 
 import { ToastProvider } from "@/components/ui/Toast";
 import { ConfirmProvider } from "@/components/ui/ConfirmDialog";
@@ -45,6 +47,7 @@ import ChangePasswordModal from "@/features/cuenta/ChangePasswordModal";
 import NotificacionesBell from "@/components/NotificacionesBell";
 import { C } from "@/theme";
 import ComprasBicho from "@/features/compras/ComprasBicho";
+import TourProvider from "@/features/ayuda/TourProvider";
 
 import logoK from "@/assets/logos/logo-k.png";
 
@@ -416,8 +419,9 @@ export default function App() {
 
   return (
     <BrowserRouter>
-      <ToastProvider>
-        <ConfirmProvider>
+      <TourProvider>
+        <ToastProvider>
+          <ConfirmProvider>
       <Routes>
         <Route path="/login" element={<LoginScreen onLoggedIn={loadProfile} />} />
         <Route path="/proveedor/:token" element={<PortalProveedorScreen />} />
@@ -440,9 +444,12 @@ export default function App() {
         <Route path="/pedidos"    element={<RequireAuth session={session}><RequireRole profile={profile} allow={["admin","oficina","tecnica"]}><PedidosScreen    {...A} /></RequireRole></RequireAuth>} />
         <Route path="/compras"    element={<RequireAuth session={session}><RequireRole profile={profile} allow={["admin","oficina","tecnica","panol","compras"]}><PurchaseRequestsScreen {...A} /></RequireRole></RequireAuth>} />
         <Route path="/inicio-panol" element={<RequireAuth session={session}><RequireRole profile={profile} allow={["panol"]}><PanolOperativoHome {...A} /></RequireRole></RequireAuth>} />
+        <Route path="/inicio-panol/tarjetas" element={<RequireAuth session={session}><RequireRole profile={profile} allow={["admin","oficina","tecnica","panol"]}><TarjetasNfcScreen {...A} /></RequireRole></RequireAuth>} />
         <Route path="/cadete"     element={<RequireAuth session={session}><RequireRole profile={profile} allow={["admin","oficina","tecnica","compras","cadete"]}><CadeteRutaScreen {...A} /></RequireRole></RequireAuth>} />
         <Route path="/recepcion-panol" element={<RequireAuth session={session}><RequireRole profile={profile} allow={["admin","oficina","tecnica","panol"]}><RecepcionPanolScreen {...A} /></RequireRole></RequireAuth>} />
         <Route path="/stock-panol" element={<RequireAuth session={session}><RequireRole profile={profile} allow={["admin","oficina","tecnica","panol"]}><StockPanolScreen {...A} /></RequireRole></RequireAuth>} />
+        {/* Digitalización del papel de solicitud: pañol lo carga, lo arma y lo firma con NFC. */}
+        <Route path="/solicitudes-panol" element={<RequireAuth session={session}><RequireRole profile={profile} allow={["admin","oficina","tecnica","panol"]}><SolicitudesPanolScreen {...A} /></RequireRole></RequireAuth>} />
         <Route path="/materiales" element={<RequireAuth session={session}><RequireRole profile={profile} allow={["admin","oficina","tecnica","compras"]}><MaterialesScreen {...A} /></RequireRole></RequireAuth>} />
         <Route path="/precios"    element={<RequireAuth session={session}><RequireRole profile={profile} allow={["admin","oficina","tecnica","compras","administracion"]}><PreciosScreen {...A} /></RequireRole></RequireAuth>} />
         <Route path="/procedimientos" element={<RequireAuth session={session}><RequireRole profile={profile} allow={["admin","oficina","tecnica","laminacion","muebles","mecanica","electricidad"]}><ProcedimientosScreen {...A} /></RequireRole></RequireAuth>} />
@@ -486,8 +493,9 @@ export default function App() {
       />
       {session && profile && profile.role !== "cliente" && <CampanitaSalvoColector profile={profile} />}
       {session && profile?.role === "compras" && <ComprasBicho profile={profile} />}
-        </ConfirmProvider>
-      </ToastProvider>
+          </ConfirmProvider>
+        </ToastProvider>
+      </TourProvider>
     </BrowserRouter>
   );
 }

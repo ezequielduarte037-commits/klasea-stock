@@ -1,4 +1,4 @@
-import { defineConfig } from 'vite'
+import { defineConfig, loadEnv } from 'vite'
 import react from '@vitejs/plugin-react'
 import { fileURLToPath, URL } from 'node:url'
 import { writeFileSync } from 'node:fs'
@@ -20,9 +20,37 @@ function buildVersionPlugin() {
   }
 }
 
+// Recarga la página entera ante cualquier cambio, en vez de parchear el módulo.
+//
+// Para qué: cuando un hot update falla (típico en medio de un refactor de varios
+// archivos, donde un módulo importa algo que todavía no existe), Vite abandona
+// ese módulo y la pantalla queda congelada en la versión vieja — y no se
+// descongela sola ni cuando el código ya quedó bien. Con esto, cada guardado
+// recarga y siempre ves el estado real: o el cambio aplicado, o el overlay de
+// error diciendo qué falta.
+//
+// Se activa poniendo KLASEA_RECARGA_TOTAL=1 en .env.local. Cuesta el estado de
+// React en cada guardado (modales abiertos, formularios a medio llenar), así que
+// conviene dejarlo prendido sólo mientras se mira trabajar, y apagarlo para
+// desarrollar a mano.
+function recargaTotalPlugin() {
+  return {
+    name: 'klasea-recarga-total',
+    apply: 'serve',
+    handleHotUpdate({ server }) {
+      server.ws.send({ type: 'full-reload' })
+      return []
+    },
+  }
+}
+
 // https://vite.dev/config/
-export default defineConfig({
-  plugins: [react(), buildVersionPlugin()],
+export default defineConfig(({ mode }) => {
+  const env = loadEnv(mode, process.cwd(), '')
+  const recargaTotal = env.KLASEA_RECARGA_TOTAL === '1'
+
+  return {
+  plugins: [react(), buildVersionPlugin(), ...(recargaTotal ? [recargaTotalPlugin()] : [])],
   resolve: {
     alias: {
       '@': fileURLToPath(new URL('./src', import.meta.url)),
@@ -52,4 +80,5 @@ export default defineConfig({
   esbuild: {
     target: 'es2019',
   },
+  }
 })

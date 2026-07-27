@@ -2,20 +2,38 @@
 //   - OpenRouter (paid) → chat conversacional + vision para fotos / URLs
 //   - Groq (free)       → Whisper para transcribir audios de WhatsApp
 //
-// Secrets:
-//   OPENROUTER_API_KEY  → sk-or-v1-... (https://openrouter.ai/keys)
-//   GROQ_API_KEY        → para Whisper (gratis en console.groq.com)
+// La API de OpenRouter es compatible con la de OpenAI: lo único propio es la
+// base URL y la key. Por eso todo pasa por `fetch(`${OR_BASE}/chat/completions`)`.
+//
+// ⚠ LA KEY VIVE SÓLO ACÁ, DEL LADO DEL SERVIDOR (Deno.env). Este archivo lo
+// importan únicamente edge functions; jamás entra al bundle de Vite. Si la
+// llamada saliera del navegador, la key quedaría a la vista de cualquiera que
+// abra las devtools.
+//
+// ─── Variables de entorno (supabase secrets set …) ───────────────────────────
+//   OPENROUTER_API_KEY            (obligatoria) sk-or-v1-… → https://openrouter.ai/keys
+//   GROQ_API_KEY                  (obligatoria sólo para transcribir audios)
+//   OPENROUTER_BASE_URL           (opcional) default https://openrouter.ai/api/v1
+//   OPENROUTER_MODEL_EXTRACT      (opcional) default google/gemini-2.5-pro
+//   OPENROUTER_MODEL_CHAT         (opcional) default openai/gpt-4o-mini
+//   OPENROUTER_MODEL_SOLICITUD    (opcional) modelo para leer la solicitud de
+//                                 pañol manuscrita; si no está, usa el de extract.
 
 // ─── Config ──────────────────────────────────────────────────────────────────
-const OR_BASE = "https://openrouter.ai/api/v1";
+// Todo configurable por env con el valor de hoy como default: cambiar de modelo
+// o apuntar a otro gateway compatible no tiene que requerir un deploy de código.
+const OR_BASE = Deno.env.get("OPENROUTER_BASE_URL") || "https://openrouter.ai/api/v1";
 // Extracción de remitos/facturas/presupuestos (visión + PDF + texto).
 // Gemini Pro lee mejor fotos con mala luz y respeta el prompt largo de reglas.
 // Si el costo se dispara, bajar a "google/gemini-2.5-flash" (misma familia, más barato).
-const OR_MODEL_EXTRACT = "google/gemini-2.5-pro";
+const OR_MODEL_EXTRACT = Deno.env.get("OPENROUTER_MODEL_EXTRACT") || "google/gemini-2.5-pro";
 // Chat conversacional de WhatsApp: mini alcanza y es mucho más barato.
-const OR_MODEL_CHAT = "openai/gpt-4o-mini";
-const GROQ_BASE = "https://api.groq.com/openai/v1";
-const WHISPER_MODEL = "whisper-large-v3";
+const OR_MODEL_CHAT = Deno.env.get("OPENROUTER_MODEL_CHAT") || "openai/gpt-4o-mini";
+// Letra manuscrita: por default el mismo que lee remitos, que es el que mejor
+// se banca fotos con mala luz y papel arrugado.
+const OR_MODEL_SOLICITUD = Deno.env.get("OPENROUTER_MODEL_SOLICITUD") || OR_MODEL_EXTRACT;
+const GROQ_BASE = Deno.env.get("GROQ_BASE_URL") || "https://api.groq.com/openai/v1";
+const WHISPER_MODEL = Deno.env.get("GROQ_WHISPER_MODEL") || "whisper-large-v3";
 
 function orAuth(): string {
   const key = Deno.env.get("OPENROUTER_API_KEY");
@@ -425,6 +443,221 @@ Formato:
     numero: parsed.numero ? String(parsed.numero).trim() : null,
     fecha: parsed.fecha ? String(parsed.fecha).slice(0, 10) : null,
     items,
+  };
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// extraerSolicitudPanolImagen — foto del papel de pedido a pañol, escrito A MANO.
+// ─────────────────────────────────────────────────────────────────────────────
+// Diferencia clave con los comprobantes: acá NO hay un documento impreso, hay
+// letra manuscrita de un tipo apurado en el taller. Se asume de entrada que va
+// a fallar seguido, así que lo importante no es acertar sino DECIR CUÁNTO SE
+// ESTÁ ARRIESGANDO en cada campo: el resultado va a una pantalla donde un humano
+// corrige antes de guardar, y un "alta" mentiroso es peor que un "baja" honesto.
+
+export type Confianza = "alta" | "media" | "baja";
+
+export interface CampoLeido {
+  valor: string | null;
+  confianza: Confianza;
+}
+
+export interface ParsedSolicitudPanol {
+  cabecera: {
+    obra: CampoLeido;
+    sector: CampoLeido;
+    prioridad: CampoLeido;
+    fecha_pedido: CampoLeido;
+    fecha_retiro: CampoLeido;
+    solicita: CampoLeido;
+    retira: CampoLeido;
+    tarea: CampoLeido;
+    numero: CampoLeido;
+  };
+  items: Array<{
+    descripcion: string;
+    cantidad: number | null;
+    unidad: string | null;
+    observacion: string | null;
+    confianza: Confianza;
+  }>;
+  /** Lo que el modelo no pudo leer en absoluto. Se muestra tal cual para que el humano decida. */
+  ilegible?: string | null;
+}
+
+const CONFIANZAS: Confianza[] = ["alta", "media", "baja"];
+
+function normalizeConfianza(value: unknown, fallback: Confianza = "baja"): Confianza {
+  const raw = String(value ?? "").trim().toLowerCase();
+  return (CONFIANZAS as string[]).includes(raw) ? (raw as Confianza) : fallback;
+}
+
+// Un campo vacío no puede venir con confianza "alta": si no hay valor, no hay
+// nada de qué estar seguro. Se fuerza acá y no en el prompt porque es una regla
+// dura y el modelo la puede desobedecer.
+function campo(raw: unknown): CampoLeido {
+  const obj = (raw && typeof raw === "object" ? raw : {}) as Record<string, unknown>;
+  const bruto = obj.valor ?? obj.value ?? (typeof raw === "string" ? raw : null);
+  const valor = bruto == null ? null : String(bruto).trim() || null;
+  return { valor, confianza: valor ? normalizeConfianza(obj.confianza) : "baja" };
+}
+
+function cantidadLeida(raw: unknown): number | null {
+  if (raw == null || raw === "") return null;
+  // "2,5" y "2.5" son lo mismo escritos a mano; "3 u" trae la unidad pegada.
+  const limpio = String(raw).replace(",", ".").replace(/[^0-9.]/g, "");
+  const n = Number(limpio);
+  return Number.isFinite(n) && n > 0 ? n : null;
+}
+
+export async function extraerSolicitudPanolImagen(input: {
+  base64: string;
+  mimeType?: string;
+  /** Sectores válidos del sistema, para que elija uno en vez de inventar el nombre. */
+  sectores?: string[];
+  /** Códigos de obra existentes, para normalizar "casco 50" → "K50". */
+  obras?: string[];
+}): Promise<ParsedSolicitudPanol> {
+  const mimeType = input.mimeType || "image/jpeg";
+  const hoy = new Date().toISOString().slice(0, 10);
+
+  const listaSectores = (input.sectores ?? []).filter(Boolean);
+  const listaObras = (input.obras ?? []).filter(Boolean).slice(0, 80);
+
+  const system = `Sos el lector de solicitudes de pañol del astillero Klase A.
+
+Recibís la FOTO de un formulario de pedido a pañol COMPLETADO A MANO. Devolvés SOLO JSON estricto, sin markdown.
+
+CONTEXTO QUE CAMBIA TODO: esto es letra manuscrita de alguien apurado en un taller, sobre un papel que puede estar arrugado, manchado o mal iluminado. Lo que devolvés NO se guarda: se le muestra a una persona de pañol que lo corrige antes de confirmar. Por eso tu trabajo real es doble:
+1. Leer lo que puedas.
+2. Ser BRUTALMENTE HONESTO con la confianza de cada cosa.
+
+REGLA MÁS IMPORTANTE — LA CONFIANZA ES EL PRODUCTO:
+- "alta"  = lo leés clarísimo, letra de imprenta legible, no hay ninguna otra lectura posible.
+- "media" = lo leés pero podría ser otra cosa parecida (un 1 que puede ser 7, una palabra a medio entender).
+- "baja"  = estás adivinando, o el campo está tachado, borroneado o cortado.
+- Ante la duda, BAJÁ la confianza. Un "media" de más no cuesta nada; un "alta" equivocado hace que la persona no lo revise y entre un error al sistema.
+- Si un campo está VACÍO en el papel, devolvé valor null (no lo rellenes con lo que "debería" decir).
+- NUNCA inventes ítems, cantidades ni nombres que no estén escritos. Es correcto y esperado devolver pocos ítems.
+
+CABECERA (campos del formulario):
+- obra: la obra/barco. Puede venir como código ("K55-1", "55-1") o como texto suelto ("taller", "casco 50", "stock").${listaObras.length ? ` Obras que existen en el sistema: ${listaObras.join(", ")}. Si lo escrito matchea una de esas (aunque esté abreviado o con otra grafía), devolvé el código de la lista.` : ""}
+- sector: quién pide.${listaSectores.length ? ` Elegí EXACTAMENTE uno de: ${listaSectores.map((s) => `"${s}"`).join(", ")}. Si no matchea ninguno, null.` : ""}
+- prioridad: "urgente" sólo si el papel lo dice o está marcado/subrayado/en rojo. Si no, "normal".
+- fecha_pedido / fecha_retiro: formato YYYY-MM-DD. Si el papel escribe "12/3" sin año, asumí el año en curso (hoy es ${hoy}). Si no hay fecha, null.
+- solicita: quién firma el pedido. retira: quién lo va a buscar, si es otra persona.
+- tarea: para qué es / observaciones generales escritas en la cabecera.
+- numero: el "N° pañol" preimpreso o escrito arriba, si se ve.
+
+ÍTEMS (las filas de la tabla):
+- Una fila del papel = un objeto. No agrupes, no resumas, no completes filas vacías.
+- descripcion: lo que pide, TAL CUAL está escrito. No "mejores" la redacción ni agregues specs que no están. Si dice "bulones 8x40", eso va.
+- cantidad: número. Si no se lee o está vacía, null (no pongas 1 "por las dudas").
+- unidad: u, m, kg, litro, rollo, caja, par… si está escrita. Si no, null.
+- observacion: la columna de marca/medida/observación, si tiene algo.
+- confianza: por ÍTEM, con el mismo criterio de arriba. Una fila garabateada va en "baja" aunque le pongas texto.
+- Si una fila es totalmente ilegible pero se ve que hay algo escrito, incluila con la mejor lectura que tengas y confianza "baja". Es mejor que la persona vea "algo ilegible acá" a que la fila desaparezca.
+
+Si hay partes del papel que no pudiste leer para nada, describilas en "ilegible" (ej: "las últimas 2 filas están tapadas por un doblez").
+
+Formato EXACTO de salida:
+{
+  "cabecera": {
+    "obra":         {"valor":"texto|null","confianza":"alta|media|baja"},
+    "sector":       {"valor":"texto|null","confianza":"alta|media|baja"},
+    "prioridad":    {"valor":"normal|urgente|null","confianza":"alta|media|baja"},
+    "fecha_pedido": {"valor":"YYYY-MM-DD|null","confianza":"alta|media|baja"},
+    "fecha_retiro": {"valor":"YYYY-MM-DD|null","confianza":"alta|media|baja"},
+    "solicita":     {"valor":"texto|null","confianza":"alta|media|baja"},
+    "retira":       {"valor":"texto|null","confianza":"alta|media|baja"},
+    "tarea":        {"valor":"texto|null","confianza":"alta|media|baja"},
+    "numero":       {"valor":"texto|null","confianza":"alta|media|baja"}
+  },
+  "items": [
+    {"descripcion":"...","cantidad":2,"unidad":"u","observacion":"texto|null","confianza":"alta|media|baja"}
+  ],
+  "ilegible": "texto|null"
+}`;
+
+  const res = await fetch(`${OR_BASE}/chat/completions`, {
+    method: "POST",
+    headers: {
+      "Authorization": orAuth(),
+      "Content-Type": "application/json",
+      "HTTP-Referer": "https://klasea-stock.vercel.app",
+      "X-Title": "Klase A Solicitudes Pañol",
+    },
+    body: JSON.stringify({
+      model: OR_MODEL_SOLICITUD,
+      temperature: 0,
+      max_tokens: 6000,
+      reasoning: { effort: "low" },
+      response_format: { type: "json_object" },
+      messages: [
+        { role: "system", content: system },
+        {
+          role: "user",
+          content: [
+            { type: "text", text: "Leé esta solicitud de pañol manuscrita. Devolvé JSON estricto y sé honesto con la confianza de cada campo." },
+            { type: "image_url", image_url: { url: `data:${mimeType};base64,${input.base64}` } },
+          ],
+        },
+      ],
+    }),
+  });
+
+  if (!res.ok) {
+    const errText = await res.text();
+    throw new Error(`OpenRouter extraerSolicitudPanol failed (${res.status}): ${errText.slice(0, 300)}`);
+  }
+
+  const data = await res.json();
+  const content = data?.choices?.[0]?.message?.content;
+  if (!content) throw new Error(`OpenRouter sin contenido. Resp: ${JSON.stringify(data).slice(0, 300)}`);
+
+  // deno-lint-ignore no-explicit-any
+  let parsed: any;
+  try {
+    parsed = JSON.parse(content);
+  } catch {
+    throw new Error(`OpenRouter devolvió JSON inválido: ${String(content).slice(0, 200)}`);
+  }
+
+  const cab = (parsed?.cabecera && typeof parsed.cabecera === "object" ? parsed.cabecera : {}) as Record<string, unknown>;
+
+  const prioridad = campo(cab.prioridad);
+  // El único valor que importa es "urgente": cualquier otra cosa es el default.
+  if (prioridad.valor && !/urgen/i.test(prioridad.valor)) prioridad.valor = "normal";
+  else if (prioridad.valor) prioridad.valor = "urgente";
+
+  const items = Array.isArray(parsed?.items)
+    ? parsed.items
+      // deno-lint-ignore no-explicit-any
+      .map((it: any) => ({
+        descripcion: String(it?.descripcion ?? it?.description ?? "").trim(),
+        cantidad: cantidadLeida(it?.cantidad ?? it?.quantity),
+        unidad: it?.unidad ? String(it.unidad).trim().slice(0, 20) : null,
+        observacion: it?.observacion ? String(it.observacion).trim().slice(0, 300) : null,
+        confianza: normalizeConfianza(it?.confianza),
+      }))
+      // deno-lint-ignore no-explicit-any
+      .filter((it: any) => it.descripcion)
+    : [];
+
+  return {
+    cabecera: {
+      obra: campo(cab.obra),
+      sector: campo(cab.sector),
+      prioridad,
+      fecha_pedido: campo(cab.fecha_pedido),
+      fecha_retiro: campo(cab.fecha_retiro),
+      solicita: campo(cab.solicita),
+      retira: campo(cab.retira),
+      tarea: campo(cab.tarea),
+      numero: campo(cab.numero),
+    },
+    items,
+    ilegible: parsed?.ilegible ? String(parsed.ilegible).slice(0, 500) : null,
   };
 }
 

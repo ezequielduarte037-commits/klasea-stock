@@ -5,10 +5,10 @@ import { supabase } from "@/supabaseClient";
 import { C } from "@/theme";
 import useNfcBridge from "@/features/panol/useNfcBridge";
 import useKeyboardWedge from "@/features/panol/useKeyboardWedge";
-import { isMissingColumn, normalizeNfcUid, SEDES, subirFotoEmpleado } from "./api";
+import { EMPLEADO_SELECT, isMissingColumn, normalizeNfcUid, SEDES, subirFotoEmpleado } from "./api";
 import { BTN, BTN_PRIMARY, GrupoBadge, INP, KpiCard, LBL, Td, Th } from "./ui";
 import CapturaFotoModal from "@/components/CapturaFotoModal";
-import { Camera, ImageUp } from "lucide-react";
+import { Archive, Camera, ImageUp, RotateCcw, UsersRound } from "lucide-react";
 
 const FORM_VACIO = { dni: "", nombre: "", grupo: "casa", sede: "", contratista_id: "", ficha: true, activo: true, notas: "", nfc_uid: "", foto_url: "" };
 
@@ -49,7 +49,7 @@ export default function EmpleadosTab({ empleados, contratistas, onChanged, esAdm
   const [q, setQ] = useState("");
   const [filtroGrupo, setFiltroGrupo] = useState("todos");
   const [filtroSede, setFiltroSede] = useState("todas");
-  const [verInactivos, setVerInactivos] = useState(false);
+  const [vista, setVista] = useState("activos");
   const [verNoFichan, setVerNoFichan] = useState(false);
   const [modal, setModal] = useState(null);     // null | {emp|null}
   const [showContratistas, setShowContratistas] = useState(false);
@@ -62,8 +62,8 @@ export default function EmpleadosTab({ empleados, contratistas, onChanged, esAdm
 
   const filtrados = useMemo(() => {
     let rows = empleados ?? [];
-    if (!verInactivos) rows = rows.filter(e => e.activo !== false);
-    if (!verNoFichan) rows = rows.filter(e => e.ficha !== false);
+    rows = rows.filter(e => vista === "ex" ? e.activo === false : e.activo !== false);
+    if (vista === "activos" && !verNoFichan) rows = rows.filter(e => e.ficha !== false);
     if (filtroSede !== "todas") rows = rows.filter(e => e.sede === filtroSede);
     if (filtroGrupo === "casa") rows = rows.filter(e => e.grupo === "casa");
     else if (filtroGrupo === "contratistas") rows = rows.filter(e => e.grupo === "contratista");
@@ -80,7 +80,7 @@ export default function EmpleadosTab({ empleados, contratistas, onChanged, esAdm
       );
     }
     return [...rows].sort((a, b) => searchText(a.nombre).localeCompare(searchText(b.nombre), "es"));
-  }, [empleados, q, filtroGrupo, filtroSede, verInactivos, verNoFichan]);
+  }, [empleados, q, filtroGrupo, filtroSede, vista, verNoFichan]);
 
   const stats = useMemo(() => {
     const act = (empleados ?? []).filter(e => e.activo !== false);
@@ -91,8 +91,14 @@ export default function EmpleadosTab({ empleados, contratistas, onChanged, esAdm
       sin: act.filter(e => e.grupo === "sin_asignar").length,
       noFichan: act.filter(e => e.ficha === false).length,
       conNfc: act.filter(e => normalizeNfcUid(e.nfc_uid)).length,
+      ex: (empleados ?? []).filter(e => e.activo === false).length,
     };
   }, [empleados]);
+
+  function cambiarVista(next) {
+    setVista(next);
+    setSelIds(new Set());
+  }
 
   function toggleSel(id) {
     setSelIds(prev => {
@@ -138,9 +144,9 @@ export default function EmpleadosTab({ empleados, contratistas, onChanged, esAdm
     });
   }
 
-  async function borrarEmpleado(emp) {
+  async function darDeBajaEmpleado(emp) {
     if (!esAdmin || !emp?.id) return;
-    const ok = window.confirm(`¿Borrar a ${emp.nombre} de la lista de empleados?\n\nSe marca como inactivo y deja de fichar, pero no se borra el historial.`);
+    const ok = window.confirm(`¿Dar de baja a ${emp.nombre}?\n\nPasará a Ex empleados y dejará de fichar. Su legajo, foto, NFC e historial quedarán guardados.`);
     if (!ok) return;
     setErr(null);
     const { error } = await supabase
@@ -159,11 +165,39 @@ export default function EmpleadosTab({ empleados, contratistas, onChanged, esAdm
     onChanged?.();
   }
 
-  async function borrarSeleccionados() {
+  async function darDeBajaSeleccionados() {
     if (!selIds.size) return;
-    const ok = window.confirm(`¿Borrar ${selIds.size} empleado${selIds.size !== 1 ? "s" : ""} de la lista?\n\nSe marcan como inactivos y dejan de fichar, sin borrar historial.`);
+    const ok = window.confirm(`¿Dar de baja ${selIds.size} empleado${selIds.size !== 1 ? "s" : ""}?\n\nPasarán a Ex empleados sin perder su historial.`);
     if (!ok) return;
     await bulkUpdate({ activo: false, ficha: false });
+  }
+
+  async function reactivarEmpleado(emp) {
+    if (!esAdmin || !emp?.id) return;
+    const ok = window.confirm(`¿Reactivar a ${emp.nombre}?\n\nVolverá al equipo activo y quedará habilitado para fichar.`);
+    if (!ok) return;
+    setErr(null);
+    const { error } = await supabase
+      .from("rrhh_empleados")
+      .update({ activo: true, ficha: true })
+      .eq("id", emp.id);
+    if (error) {
+      setErr(error);
+      return;
+    }
+    setSelIds(prev => {
+      const next = new Set(prev);
+      next.delete(emp.id);
+      return next;
+    });
+    onChanged?.();
+  }
+
+  async function reactivarSeleccionados() {
+    if (!selIds.size) return;
+    const ok = window.confirm(`¿Reactivar ${selIds.size} ex empleado${selIds.size !== 1 ? "s" : ""}?\n\nVolverán al equipo activo y quedarán habilitados para fichar.`);
+    if (!ok) return;
+    await bulkUpdate({ activo: true, ficha: true });
   }
 
   return (
@@ -175,6 +209,51 @@ export default function EmpleadosTab({ empleados, contratistas, onChanged, esAdm
         <KpiCard label="Sin asignar" value={stats.sin} color={stats.sin ? "#f87171" : C.green} sub={stats.sin ? "clasificar acá abajo" : "todo clasificado"} />
         <KpiCard label="No fichan" value={stats.noFichan} sub="ignorados en informes" />
         <KpiCard label="NFC" value={stats.conNfc} color={C.green} sub="tarjetas asignadas" />
+      </div>
+
+      <div style={{
+        display: "flex", alignItems: "center", justifyContent: "space-between", gap: 12, flexWrap: "wrap",
+        marginBottom: 12, padding: 5, border: `1px solid ${C.b0}`, borderRadius: 11, background: C.s0,
+      }}>
+        <div style={{ display: "flex", gap: 4, minWidth: 0 }}>
+          {[
+            { key: "activos", label: "Equipo activo", count: stats.total, icon: UsersRound },
+            { key: "ex", label: "Ex empleados", count: stats.ex, icon: Archive },
+          ].map(item => {
+            const active = vista === item.key;
+            const Icon = item.icon;
+            return (
+              <button
+                key={item.key}
+                type="button"
+                onClick={() => cambiarVista(item.key)}
+                style={{
+                  ...BTN,
+                  display: "inline-flex", alignItems: "center", gap: 7, minHeight: 36, padding: "7px 11px",
+                  color: active ? C.t0 : C.t2,
+                  background: active ? C.panelSolid : "transparent",
+                  borderColor: active ? C.b1 : "transparent",
+                  boxShadow: active ? "0 1px 4px rgba(0,0,0,.10)" : "none",
+                }}
+              >
+                <Icon size={14} strokeWidth={1.9} />
+                {item.label}
+                <span style={{
+                  minWidth: 22, padding: "2px 6px", borderRadius: 999, textAlign: "center",
+                  background: active ? C.blueL : "var(--panel-2)", color: active ? C.blue : C.t2,
+                  fontFamily: C.mono, fontSize: 10.5, fontWeight: 800,
+                }}>
+                  {item.count}
+                </span>
+              </button>
+            );
+          })}
+        </div>
+        <div style={{ color: C.t2, fontSize: 11.5, lineHeight: 1.35, padding: "0 7px" }}>
+          {vista === "ex"
+            ? "Las bajas conservan legajo, foto, NFC e historial."
+            : "Personal habilitado para operar y fichar."}
+        </div>
       </div>
 
       <div style={{ display: "flex", gap: 8, flexWrap: "wrap", alignItems: "center", marginBottom: 14 }}>
@@ -190,14 +269,13 @@ export default function EmpleadosTab({ empleados, contratistas, onChanged, esAdm
           {SEDES.map(s => <option key={s} value={s}>{s}</option>)}
         </select>
         <input style={{ ...INP, flex: 1, minWidth: 150 }} placeholder="Buscar nombre o DNI…" value={q} onChange={e => setQ(e.target.value)} />
-        <label style={{ fontSize: 12, color: C.t2, display: "flex", gap: 5, alignItems: "center", cursor: "pointer" }}>
-          <input type="checkbox" checked={verNoFichan} onChange={e => setVerNoFichan(e.target.checked)} /> ver no-fichan
-        </label>
-        <label style={{ fontSize: 12, color: C.t2, display: "flex", gap: 5, alignItems: "center", cursor: "pointer" }}>
-          <input type="checkbox" checked={verInactivos} onChange={e => setVerInactivos(e.target.checked)} /> ver inactivos
-        </label>
+        {vista === "activos" && (
+          <label style={{ fontSize: 12, color: C.t2, display: "flex", gap: 5, alignItems: "center", cursor: "pointer" }}>
+            <input type="checkbox" checked={verNoFichan} onChange={e => setVerNoFichan(e.target.checked)} /> ver no-fichan
+          </label>
+        )}
         {esAdmin && <button style={BTN} onClick={() => setShowContratistas(true)}>Contratistas</button>}
-        {esAdmin && <button style={BTN_PRIMARY} onClick={() => setModal({ emp: null })}>+ Empleado</button>}
+        {esAdmin && <button style={BTN_PRIMARY} onClick={() => { setErr(null); setModal({ emp: null }); }}>+ Empleado</button>}
       </div>
 
       {err && <div style={{ fontSize: 12, color: "#f87171", marginBottom: 10 }}>{String(err.message ?? err)}</div>}
@@ -219,33 +297,43 @@ export default function EmpleadosTab({ empleados, contratistas, onChanged, esAdm
           <button type="button" onClick={selNone} style={{ ...BTN, padding: "4px 10px" }}>Ninguno</button>
           <div style={{ width: 1, height: 26, background: C.b0, margin: "0 2px" }} />
 
-          <select style={{ ...INP, padding: "5px 8px" }} value={bulkGrupo} onChange={e => setBulkGrupo(e.target.value)}>
-            <option value="casa">Grupo: casa</option>
-            <option value="contratista">Grupo: contratista</option>
-          </select>
-          {bulkGrupo === "contratista" && (
-            <select style={{ ...INP, padding: "5px 8px", minWidth: 150 }} value={bulkContratistaId} onChange={e => setBulkContratistaId(e.target.value)}>
-              <option value="">Elegir contratista</option>
-              {(contratistas ?? []).map(c => <option key={c.id} value={c.id}>{c.nombre}</option>)}
-            </select>
-          )}
-          <button type="button" disabled={bulkLoading || !selIds.size || (bulkGrupo === "contratista" && !bulkContratistaId)} onClick={aplicarGrupo} style={{ ...BTN_PRIMARY, padding: "5px 10px", opacity: bulkLoading || !selIds.size ? 0.5 : 1 }}>
-            Aplicar grupo
-          </button>
+          {vista === "ex" ? (
+            <button type="button" disabled={bulkLoading || !selIds.size} onClick={reactivarSeleccionados} style={{ ...BTN_PRIMARY, display: "inline-flex", alignItems: "center", gap: 6, padding: "5px 10px", opacity: bulkLoading || !selIds.size ? 0.5 : 1 }}>
+              <RotateCcw size={13} /> Reactivar seleccionados
+            </button>
+          ) : (
+            <>
+              <select style={{ ...INP, padding: "5px 8px" }} value={bulkGrupo} onChange={e => setBulkGrupo(e.target.value)}>
+                <option value="casa">Grupo: casa</option>
+                <option value="contratista">Grupo: contratista</option>
+              </select>
+              {bulkGrupo === "contratista" && (
+                <select style={{ ...INP, padding: "5px 8px", minWidth: 150 }} value={bulkContratistaId} onChange={e => setBulkContratistaId(e.target.value)}>
+                  <option value="">Elegir contratista</option>
+                  {(contratistas ?? []).map(c => <option key={c.id} value={c.id}>{c.nombre}</option>)}
+                </select>
+              )}
+              <button type="button" disabled={bulkLoading || !selIds.size || (bulkGrupo === "contratista" && !bulkContratistaId)} onClick={aplicarGrupo} style={{ ...BTN_PRIMARY, padding: "5px 10px", opacity: bulkLoading || !selIds.size ? 0.5 : 1 }}>
+                Aplicar grupo
+              </button>
 
-          <select style={{ ...INP, padding: "5px 8px" }} value={bulkSede} onChange={e => setBulkSede(e.target.value)}>
-            {SEDES.map(s => <option key={s} value={s}>{s}</option>)}
-          </select>
-          <button type="button" disabled={bulkLoading || !selIds.size} onClick={() => bulkUpdate({ sede: bulkSede })} style={{ ...BTN, padding: "5px 10px", opacity: bulkLoading || !selIds.size ? 0.5 : 1 }}>Asignar sede</button>
-          <button type="button" disabled={bulkLoading || !selIds.size} onClick={() => bulkUpdate({ ficha: true })} style={{ ...BTN, padding: "5px 10px", opacity: bulkLoading || !selIds.size ? 0.5 : 1 }}>Ficha si</button>
-          <button type="button" disabled={bulkLoading || !selIds.size} onClick={() => bulkUpdate({ ficha: false })} style={{ ...BTN, padding: "5px 10px", opacity: bulkLoading || !selIds.size ? 0.5 : 1 }}>Ficha no</button>
-          <button type="button" disabled={bulkLoading || !selIds.size} onClick={() => bulkUpdate({ activo: true })} style={{ ...BTN, padding: "5px 10px", opacity: bulkLoading || !selIds.size ? 0.5 : 1 }}>Activo si</button>
-          <button type="button" disabled={bulkLoading || !selIds.size} onClick={() => bulkUpdate({ activo: false })} style={{ ...BTN, padding: "5px 10px", opacity: bulkLoading || !selIds.size ? 0.5 : 1 }}>Activo no</button>
-          <button type="button" disabled={bulkLoading || !selIds.size} onClick={borrarSeleccionados} style={{ ...BTN, padding: "5px 10px", opacity: bulkLoading || !selIds.size ? 0.5 : 1, color: "#f87171", border: "1px solid rgba(248,113,113,0.35)" }}>Borrar</button>
+              <select style={{ ...INP, padding: "5px 8px" }} value={bulkSede} onChange={e => setBulkSede(e.target.value)}>
+                {SEDES.map(s => <option key={s} value={s}>{s}</option>)}
+              </select>
+              <button type="button" disabled={bulkLoading || !selIds.size} onClick={() => bulkUpdate({ sede: bulkSede })} style={{ ...BTN, padding: "5px 10px", opacity: bulkLoading || !selIds.size ? 0.5 : 1 }}>Asignar sede</button>
+              <button type="button" disabled={bulkLoading || !selIds.size} onClick={() => bulkUpdate({ ficha: true })} style={{ ...BTN, padding: "5px 10px", opacity: bulkLoading || !selIds.size ? 0.5 : 1 }}>Ficha sí</button>
+              <button type="button" disabled={bulkLoading || !selIds.size} onClick={() => bulkUpdate({ ficha: false })} style={{ ...BTN, padding: "5px 10px", opacity: bulkLoading || !selIds.size ? 0.5 : 1 }}>Ficha no</button>
+              <button type="button" disabled={bulkLoading || !selIds.size} onClick={darDeBajaSeleccionados} style={{ ...BTN, display: "inline-flex", alignItems: "center", gap: 6, padding: "5px 10px", opacity: bulkLoading || !selIds.size ? 0.5 : 1, color: "#f87171", border: "1px solid rgba(248,113,113,0.35)" }}>
+                <Archive size={13} /> Dar de baja
+              </button>
+            </>
+          )}
         </div>
       )}
 
-      <div style={{ fontSize: 12, color: C.t2, marginBottom: 8 }}>{filtrados.length} empleado{filtrados.length !== 1 ? "s" : ""}</div>
+      <div style={{ fontSize: 12, color: C.t2, marginBottom: 8 }}>
+        {filtrados.length} {vista === "ex" ? "ex empleado" : "empleado"}{filtrados.length !== 1 ? "s" : ""}
+      </div>
 
       <div style={{ overflowX: "auto", border: `1px solid ${C.b0}`, borderRadius: 12 }}>
         <table style={{ width: "100%", borderCollapse: "collapse" }}>
@@ -256,8 +344,20 @@ export default function EmpleadosTab({ empleados, contratistas, onChanged, esAdm
             </tr>
           </thead>
           <tbody>
+            {filtrados.length === 0 && (
+              <tr>
+                <td colSpan={esAdmin ? 9 : 8} style={{ padding: "34px 18px", textAlign: "center", color: C.t2 }}>
+                  <div style={{ display: "grid", placeItems: "center", gap: 7 }}>
+                    {vista === "ex" ? <Archive size={22} strokeWidth={1.6} /> : <UsersRound size={22} strokeWidth={1.6} />}
+                    <span style={{ fontSize: 12.5 }}>
+                      {q.trim() ? "No hay resultados para esta búsqueda." : vista === "ex" ? "Todavía no hay ex empleados." : "No hay empleados en este filtro."}
+                    </span>
+                  </div>
+                </td>
+              </tr>
+            )}
             {filtrados.map(e => (
-              <tr key={e.id} style={{ opacity: e.activo === false ? 0.5 : 1 }}>
+              <tr key={e.id} style={{ opacity: e.activo === false && vista !== "ex" ? 0.5 : 1, background: vista === "ex" ? "rgba(148,163,184,0.025)" : "transparent" }}>
                 {esAdmin && <Td><input type="checkbox" checked={selIds.has(e.id)} onChange={() => toggleSel(e.id)} /></Td>}
                 <Td>
                   <div style={{ display: "flex", alignItems: "center", gap: 9, minWidth: 190 }}>
@@ -279,9 +379,15 @@ export default function EmpleadosTab({ empleados, contratistas, onChanged, esAdm
                 <Td>
                   {esAdmin && (
                     <div style={{ display: "flex", gap: 6, justifyContent: "flex-end", flexWrap: "wrap" }}>
-                      <button style={{ ...BTN, padding: "4px 11px", fontSize: 11 }} onClick={() => setModal({ emp: e })}>Editar</button>
-                      {e.activo !== false && (
-                        <button style={{ ...BTN, padding: "4px 11px", fontSize: 11, color: "#f87171", border: "1px solid rgba(248,113,113,0.35)" }} onClick={() => borrarEmpleado(e)}>Borrar</button>
+                      <button style={{ ...BTN, padding: "4px 11px", fontSize: 11 }} onClick={() => { setErr(null); setModal({ emp: e }); }}>Editar</button>
+                      {e.activo === false ? (
+                        <button style={{ ...BTN_PRIMARY, display: "inline-flex", alignItems: "center", gap: 5, padding: "4px 11px", fontSize: 11 }} onClick={() => reactivarEmpleado(e)}>
+                          <RotateCcw size={12} /> Reactivar
+                        </button>
+                      ) : (
+                        <button style={{ ...BTN, display: "inline-flex", alignItems: "center", gap: 5, padding: "4px 11px", fontSize: 11, color: "#f87171", border: "1px solid rgba(248,113,113,0.35)" }} onClick={() => darDeBajaEmpleado(e)}>
+                          <Archive size={12} /> Dar de baja
+                        </button>
                       )}
                     </div>
                   )}
@@ -295,9 +401,10 @@ export default function EmpleadosTab({ empleados, contratistas, onChanged, esAdm
       {modal && (
         <EmpleadoModal
           emp={modal.emp}
+          empleados={empleados}
           contratistas={contratistas}
           onClose={() => setModal(null)}
-          onSaved={() => { setModal(null); onChanged?.(); }}
+          onSaved={() => { setErr(null); setModal(null); onChanged?.(); }}
           onError={setErr}
         />
       )}
@@ -309,7 +416,7 @@ export default function EmpleadosTab({ empleados, contratistas, onChanged, esAdm
 }
 
 // ─── Modal alta/edición de empleado ─────────────────────────────────────────
-function EmpleadoModal({ emp, contratistas, onClose, onSaved, onError }) {
+function EmpleadoModal({ emp, empleados, contratistas, onClose, onSaved, onError }) {
   const [form, setForm] = useState(emp ? {
     dni: emp.dni, nombre: emp.nombre, grupo: emp.grupo,
     sede: emp.sede ?? "", contratista_id: emp.contratista_id ?? "", ficha: emp.ficha !== false,
@@ -318,10 +425,19 @@ function EmpleadoModal({ emp, contratistas, onClose, onSaved, onError }) {
   } : FORM_VACIO);
   const [saving, setSaving] = useState(false);
   const [scanMsg, setScanMsg] = useState("");
+  const [saveError, setSaveError] = useState("");
   const [camaraAbierta, setCamaraAbierta] = useState(false);
   const [subiendoFoto, setSubiendoFoto] = useState(false);
   const fotoInputRef = useRef(null);
   const set = (k, v) => setForm(f => ({ ...f, [k]: v }));
+  const empleadoMismoDni = useMemo(() => {
+    if (emp) return null;
+    const dni = digits(form.dni);
+    if (!dni) return null;
+    return (empleados ?? []).find(item => digits(item.dni) === dni) ?? null;
+  }, [emp, empleados, form.dni]);
+  const reactivacionDetectada = empleadoMismoDni?.activo === false;
+  const duplicadoActivoDetectado = empleadoMismoDni?.activo !== false && !!empleadoMismoDni;
 
   async function cargarFotoDesdeArchivo(event) {
     const archivo = event.target.files?.[0];
@@ -382,28 +498,57 @@ function EmpleadoModal({ emp, contratistas, onClose, onSaved, onError }) {
   async function guardar() {
     if (!form.nombre.trim() || !/^\d{5,10}$/.test(form.dni.trim())) return;
     setSaving(true);
-    const nfcUid = normalizeNfcUid(form.nfc_uid);
-    const currentNfc = normalizeNfcUid(emp?.nfc_uid);
-    const nfcChanged = nfcUid !== currentNfc;
-    const auth = nfcChanged ? await supabase.auth.getUser() : null;
-    const payload = {
-      dni: form.dni.trim(), nombre: form.nombre.trim(), grupo: form.grupo,
-      sede: form.sede || null,
-      contratista_id: form.grupo === "contratista" && form.contratista_id ? form.contratista_id : null,
-      ficha: form.ficha, activo: form.activo, notas: form.notas.trim() || null,
-      nfc_uid: nfcUid || null,
-      foto_url: form.foto_url.trim() || null,
-      ...(nfcChanged ? { nfc_asignado_at: nfcUid ? new Date().toISOString() : null, nfc_asignado_por: auth?.data?.user?.id ?? null } : {}),
-    };
-    const res = emp
-      ? await supabase.from("rrhh_empleados").update(payload).eq("id", emp.id)
-      : await supabase.from("rrhh_empleados").insert(payload);
-    setSaving(false);
-    if (res.error) {
-      onError?.(isMissingColumn(res.error) ? new Error("Falta correr la migracion NFC de RRHH antes de guardar tarjetas o fotos.") : res.error);
-      return;
+    setSaveError("");
+    try {
+      let registroExistente = emp ?? null;
+      if (!emp) {
+        const { data, error } = await supabase
+          .from("rrhh_empleados")
+          .select(EMPLEADO_SELECT)
+          .eq("dni", form.dni.trim())
+          .maybeSingle();
+        if (error) throw error;
+        registroExistente = data ?? null;
+
+        if (registroExistente?.activo !== false && registroExistente) {
+          throw new Error(`El DNI ${form.dni.trim()} ya pertenece a ${registroExistente.nombre}. Buscalo en Equipo activo para editar su legajo.`);
+        }
+      }
+
+      const esReactivacion = !emp && registroExistente?.activo === false;
+      const nfcUidIngresado = normalizeNfcUid(form.nfc_uid);
+      const nfcUid = nfcUidIngresado || (esReactivacion ? normalizeNfcUid(registroExistente.nfc_uid) : "");
+      const currentNfc = normalizeNfcUid(registroExistente?.nfc_uid);
+      const nfcChanged = nfcUid !== currentNfc;
+      const auth = nfcChanged ? await supabase.auth.getUser() : null;
+      const payload = {
+        dni: form.dni.trim(), nombre: form.nombre.trim(), grupo: form.grupo,
+        sede: form.sede || null,
+        contratista_id: form.grupo === "contratista" && form.contratista_id ? form.contratista_id : null,
+        ficha: form.ficha,
+        activo: esReactivacion ? true : form.activo,
+        notas: form.notas.trim() || (esReactivacion ? registroExistente.notas : null) || null,
+        nfc_uid: nfcUid || null,
+        foto_url: form.foto_url.trim() || (esReactivacion ? registroExistente.foto_url : null) || null,
+        ...(nfcChanged ? { nfc_asignado_at: nfcUid ? new Date().toISOString() : null, nfc_asignado_por: auth?.data?.user?.id ?? null } : {}),
+      };
+      const res = registroExistente
+        ? await supabase.from("rrhh_empleados").update(payload).eq("id", registroExistente.id)
+        : await supabase.from("rrhh_empleados").insert(payload);
+      if (res.error) throw res.error;
+      onSaved();
+    } catch (error) {
+      const message = String(error?.message ?? error);
+      if (error?.code === "23505" || message.includes("rrhh_empleados_dni_key")) {
+        setSaveError(`El DNI ${form.dni.trim()} ya está guardado. Revisá Equipo activo o Ex empleados antes de crear otro legajo.`);
+      } else if (isMissingColumn(error)) {
+        setSaveError("Falta correr la migración NFC de RRHH antes de guardar tarjetas o fotos.");
+      } else {
+        setSaveError(message);
+      }
+    } finally {
+      setSaving(false);
     }
-    onSaved();
   }
 
   return (
@@ -417,6 +562,30 @@ function EmpleadoModal({ emp, contratistas, onClose, onSaved, onError }) {
         <label style={LBL}>DNI * <span style={{ color: C.t2, textTransform: "none", letterSpacing: 0 }}>(es la llave con el fichero — solo números)</span></label>
         <input style={{ ...INP, width: "100%", marginBottom: 10, fontFamily: C.mono }} value={form.dni}
           onChange={e => set("dni", e.target.value.replace(/\D/g, ""))} disabled={!!emp} />
+
+        {!emp && empleadoMismoDni && (
+          <div style={{
+            display: "flex", gap: 10, alignItems: "flex-start", padding: "10px 11px", margin: "-2px 0 10px",
+            borderRadius: 10,
+            border: `1px solid ${reactivacionDetectada ? C.amberB : "rgba(248,113,113,0.35)"}`,
+            background: reactivacionDetectada ? C.amberL : "rgba(248,113,113,0.08)",
+          }}>
+            {reactivacionDetectada
+              ? <RotateCcw size={16} color={C.amber} style={{ flexShrink: 0, marginTop: 1 }} />
+              : <UsersRound size={16} color="#f87171" style={{ flexShrink: 0, marginTop: 1 }} />}
+            <div style={{ minWidth: 0 }}>
+              <div style={{ color: reactivacionDetectada ? C.amber : "#f87171", fontSize: 12, fontWeight: 850 }}>
+                {reactivacionDetectada ? "Este DNI está en Ex empleados" : "Este DNI ya está activo"}
+              </div>
+              <div style={{ color: C.t1, fontSize: 11.5, lineHeight: 1.4, marginTop: 2 }}>
+                Pertenece a <strong>{empleadoMismoDni.nombre}</strong>.{" "}
+                {reactivacionDetectada
+                  ? "Al guardar se reactivará el mismo legajo y conservará su historial, foto y NFC."
+                  : "No se puede crear un segundo legajo; buscalo en Equipo activo para editarlo."}
+              </div>
+            </div>
+          </div>
+        )}
 
         <div style={{ display: "grid", gridTemplateColumns: "auto 1fr", gap: 12, alignItems: "center", border: `1px solid ${C.b0}`, background: C.s0, borderRadius: 12, padding: 10, marginBottom: 10 }}>
           <EmpleadoAvatar emp={{ nombre: form.nombre, foto_url: form.foto_url }} size={56} />
@@ -538,9 +707,15 @@ function EmpleadoModal({ emp, contratistas, onClose, onSaved, onError }) {
         <label style={LBL}>Notas</label>
         <input style={{ ...INP, width: "100%", marginBottom: 16 }} value={form.notas} onChange={e => set("notas", e.target.value)} placeholder="Opcional" />
 
+        {saveError && (
+          <div role="alert" style={{ color: "#f87171", background: "rgba(248,113,113,0.08)", border: "1px solid rgba(248,113,113,0.28)", borderRadius: 9, padding: "8px 10px", marginBottom: 10, fontSize: 11.5, lineHeight: 1.4 }}>
+            {saveError}
+          </div>
+        )}
+
         <div style={{ display: "flex", gap: 8 }}>
-          <button onClick={guardar} disabled={saving || !form.nombre.trim() || !/^\d{5,10}$/.test(form.dni)} style={{ ...BTN_PRIMARY, flex: 1, padding: "10px", opacity: saving ? 0.6 : 1 }}>
-            {saving ? "Guardando…" : "Guardar"}
+          <button onClick={guardar} disabled={saving || duplicadoActivoDetectado || !form.nombre.trim() || !/^\d{5,10}$/.test(form.dni)} style={{ ...BTN_PRIMARY, flex: 1, padding: "10px", opacity: saving || duplicadoActivoDetectado ? 0.55 : 1 }}>
+            {saving ? "Guardando…" : reactivacionDetectada ? "Reactivar empleado" : "Guardar"}
           </button>
           <button onClick={onClose} style={BTN}>Cancelar</button>
         </div>

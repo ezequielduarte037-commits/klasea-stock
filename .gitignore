@@ -27,3 +27,12 @@ dist-ssr
 # Build del puente NFC (tools/nfc-bridge)
 tools/nfc-bridge/bin/
 tools/nfc-bridge/obj/
+
+# Estado local de las herramientas de IA (ruflo, codex, swarm). Es cache y base
+# de datos de la máquina, no del proyecto: si se commitea, cada PC pisa la del
+# resto y el repo engorda sin motivo.
+.swarm/
+.agents/
+.codex/
+ruvector.db
+*.ruvector.db

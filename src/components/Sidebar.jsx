@@ -14,9 +14,12 @@ import { supabase } from "@/supabaseClient";
 function Icon({ id, color = "currentColor", size = 14 }) {
   const p = { stroke: color, fill: "none", strokeWidth: 1.5, strokeLinecap: "round", strokeLinejoin: "round" };
   const paths = {
+   // Dos tablones con su veta. Antes era un rectángulo partido al medio, que
+   // podía ser cualquier cosa.
    "/madera": <>
-      <rect x="2" y="4" width="12" height="8" rx="2" {...p}/>
-      <path d="M2 8h12" {...p}/>
+      <rect x="1.5" y="4" width="13" height="3.4" rx="1.2" {...p}/>
+      <rect x="1.5" y="8.6" width="13" height="3.4" rx="1.2" {...p}/>
+      <path d="M4.5 5.7h4M4.5 10.3h6" {...p}/>
     </>,
     "/panol": <>
       <path d="M3 7V5a5 5 0 0 1 10 0v2" {...p}/>
@@ -33,9 +36,13 @@ function Icon({ id, color = "currentColor", size = 14 }) {
       <path d="M1 6l7-4 7 4-7 4z" {...p}/>
       <path d="M1 11l7 4 7-4" {...p}/>
     </>,
+    // Yate de motor de perfil: casco + superestructura con parabrisas inclinado
+    // + antena. Antes era una silueta de persona (cabeza + hombros), que no
+    // decía nada de una obra en producción.
     "/obras": <>
-      <path d="M1 15s3-4 7-4 7 4 7 4" {...p}/>
-      <circle cx="8" cy="7" r="3" {...p}/>
+      <path d="M1.5 9c1.1 2.7 3.3 4.1 6.5 4.1s5.4-1.4 6.5-4.1z" {...p}/>
+      <path d="M4 9V5.6h4L10.8 9" {...p}/>
+      <path d="M6.2 5.6V3.2" {...p}/>
     </>,
     "/semaforo": <>
       <rect x="4" y="1" width="8" height="14" rx="2" {...p}/>
@@ -60,13 +67,18 @@ function Icon({ id, color = "currentColor", size = 14 }) {
       <rect x="3" y="1" width="10" height="14" rx="1.5" {...p}/>
       <path d="M6 5h4M6 8h4M6 11h2.5" {...p}/>
     </>,
+    // Corte transversal de casco dentro del molde (dos "U" concéntricas).
+    // Antes era una casa con puerta, que en un astillero no venía a cuento.
     "/obras-laminacion": <>
-      <path d="M1 15V9L8 1l7 8v6H1z" {...p}/>
-      <path d="M6 15v-5h4v5" {...p}/>
+      <path d="M2 2.5v5.5a6 6 0 0 0 12 0V2.5" {...p}/>
+      <path d="M4.5 2.5v5.5a3.5 3.5 0 0 0 7 0V2.5" {...p}/>
     </>,
+    // Plantilla con líneas de corte punteadas. Antes era idéntico a Memorias
+    // (mismo recuadro con renglones), así que no se distinguían en la lista.
     "/laminacion/plantillas": <>
-      <rect x="2" y="2" width="12" height="12" rx="2" {...p}/>
-      <path d="M5 5h6M5 8h6M5 11h3" {...p}/>
+      <rect x="1.5" y="2.5" width="13" height="11" rx="1.8" {...p}/>
+      <path d="M1.5 6.8h13" {...p} strokeDasharray="2 1.6"/>
+      <path d="M6 2.5v11" {...p} strokeDasharray="2 1.6"/>
     </>,
     "/admin": <>
       <rect x="1" y="1" width="6" height="6" rx="1" {...p}/>
@@ -155,9 +167,11 @@ function Icon({ id, color = "currentColor", size = 14 }) {
       <path d="M5 1v3M11 1v3M1 7h14" {...p}/>
       <path d="M4 10h2M7 10h2M10 10h2M4 13h2M7 13h2" {...p}/>
     </>,
+    // Casco con tilde: "barco entregado". Antes era un tilde genérico en un
+    // cuadrado, igual a cualquier otro "hecho" del sistema.
     "/postventa": <>
-      <path d="M4 8.5L6.5 11l5.5-6" {...p}/>
-      <rect x="1" y="1" width="14" height="14" rx="3" {...p}/>
+      <path d="M2 10c1 2.4 2.9 3.6 6 3.6s5-1.2 6-3.6z" {...p}/>
+      <path d="M5 6.6l1.7 1.7L11 3" {...p}/>
     </>,
     "/rrhh": <>
       <circle cx="5.5" cy="5" r="2.5" {...p}/>
@@ -165,11 +179,42 @@ function Icon({ id, color = "currentColor", size = 14 }) {
       <path d="M11 5.5a2.5 2.5 0 1 0 0-0.01" {...p}/>
       <path d="M11.5 10c2 .3 3.5 1.8 3.5 4" {...p}/>
     </>,
+    // Billete con signo peso. Es la pantalla de carga de precios: nada de
+    // etiquetas con agujerito, que a 14px quedan hechas un borrón.
+    "/precios": <>
+      <rect x="1.5" y="3.5" width="13" height="9" rx="1.5" {...p}/>
+      <path d="M9.6 6.6c-.4-.5-1-.7-1.6-.7-1 0-1.7.5-1.7 1.2 0 1.7 3.4.8 3.4 2.4 0 .8-.8 1.3-1.8 1.3-.7 0-1.3-.2-1.7-.7" {...p}/>
+      <path d="M8 5.1v6" {...p}/>
+    </>,
+    // Hoja con la esquina doblada y dos renglones: el papel de solicitud que
+    // llega al mostrador. La esquina es lo que la separa de /procedimientos y
+    // /memorias, que son recuadros llenos.
+    "/solicitudes-panol": <>
+      <path d="M3 2.2h6.2L13 5.6v8.2a1.2 1.2 0 0 1-1.2 1.2H4.2A1.2 1.2 0 0 1 3 13.8z" {...p}/>
+      <path d="M9.2 2.2v3.4H13" {...p}/>
+      <path d="M5.5 9h5M5.5 11.6h3" {...p}/>
+    </>,
+    // Escalera ascendente: las tandas de compra de una obra, una tras otra.
+    // Se probaron tres cajas apiladas (leía como torta) y un carrito con flecha
+    // (a 14px quedaba hecho un borrón); la escalera es la única que se entiende
+    // en los dos tamaños y no se parece a ningún vecino del menú.
+    "/compras-etapa": <>
+      <path d="M1.5 13.6h4.3V9.4h4.3V5.2h4.4V2.4" {...p}/>
+    </>,
   };
+  // Busca primero el icono exacto (ruta + ?tab=...) y si no hay, el de la ruta base.
+  const dibujo = paths[id] ?? paths[String(id).split("?")[0]] ?? null;
+
+  // Sin icono propio caía un círculo pelado, indistinguible de un icono real:
+  // así fue como /precios y /compras-etapa quedaron con "circulitos" sin que
+  // nadie lo notara. En dev avisa por consola para que se vea al agregar la ruta.
+  if (!dibujo && import.meta.env.DEV) {
+    console.warn(`[Sidebar] La ruta "${id}" no tiene icono en el mapa \`paths\`; se dibuja el círculo genérico.`);
+  }
+
   return (
     <svg width={size} height={size} viewBox="0 0 16 16" style={{ display: "block", flexShrink: 0 }}>
-      {/* Busca primero el icono exacto (ruta + ?tab=...) y si no hay, el de la ruta base. */}
-      {paths[id] ?? paths[String(id).split("?")[0]] ?? <circle cx="8" cy="8" r="4" stroke={color} fill="none" strokeWidth={1.5}/>}
+      {dibujo ?? <circle cx="8" cy="8" r="4" stroke={color} fill="none" strokeWidth={1.5}/>}
     </svg>
   );
 }
@@ -506,6 +551,7 @@ export default function Sidebar({ profile, signOut }) {
             {item("/recepcion-panol?tab=recepcion", "Recepcionar", SC.panol_catalogo, true, 75, "Pedidos y avisos enviados por Compras para recibir en tu sede.")}
             {item("/recepcion-panol?tab=ingresar", "Ingresar materiales", SC.panol_catalogo, true, 85, "Ingresos directos, remitos, borradores y ubicación en estantería.")}
             {item("/recepcion-panol?tab=egresos", "Egresar materiales", SC.panol_catalogo, true, 95, "Preparar y registrar entregas de materiales a personas u obras.")}
+            {item("/solicitudes-panol", "Solicitudes", SC.panol_catalogo, true, 100, "El papel de pedido cargado en el sistema: armar los ítems, imprimir la hoja completa y firmar el retiro con NFC.")}
             {item("/recepcion-panol?tab=consumibles", "Consumibles", SC.panol_catalogo, true, 105, "Ingresos, egresos por cantidad o peso y movimientos de consumibles.")}
 
             {divider("panol-consulta")}
@@ -533,7 +579,7 @@ export default function Sidebar({ profile, signOut }) {
             {divider("prod")}
             {group("Producción", SC.produccion, 120)}
             {item("/obras",       "Obras",       SC.produccion, true, 140, "Gestión de tareas y seguimiento de avance de cascos en producción.")}
-            {item("/compras-etapa", "Compras por etapa", SC.produccion, true, 145, "Recetas de materiales por etapa de cada modelo y pedidos de producción por casco.")}
+            {item("/compras-etapa", "Compras por etapa", SC.produccion, true, 145, "Las tandas de compra de cada obra con sus materiales, y los pedidos que salen de ahí.")}
             {item("/memorias",    "Memorias",    SC.produccion, true, 150, "Memorias descriptivas de barcos activos en formato planilla para reunión.")}
             {item("/marmoleria",  "Marmolería",  SC.produccion, true, 160, "Stock de materiales y cortes (ej. Dekton) para cubiertas y baños.")}
             {item("/muebles",     "Muebles",     SC.produccion, true, 180, "Producción, despiece y ensamblaje de mobiliario.")}
@@ -545,7 +591,7 @@ export default function Sidebar({ profile, signOut }) {
             {group(comprasGroup, SC.compras, 205)}
             {item("/compras", comprasLabel, SC.compras, true, 215, "Solicitudes internas a compras con seguimiento y usuarios en copia.", esCompras || realAdmin ? comprasBadge : null)}
             {/* El rol compras ve acá los pedidos generados por etapa de producción (gestión ya lo ve en Producción). */}
-            {esCompras && item("/compras-etapa", "Pedidos de producción", SC.compras, true, 217, "Pedidos de materiales generados por etapa de producción, para gestionar su compra.")}
+            {esCompras && item("/compras-etapa", "Compras por etapa", SC.compras, true, 217, "Las tandas de compra de cada obra con sus materiales, y los pedidos que salen de ahí.")}
             {(esCompras || realAdmin) && item("/semaforo", "Semáforo", SC.semaforo, true, 220, "Semáforo de producción: estado visual de avance por obra.")}
           </>}
 
@@ -553,7 +599,8 @@ export default function Sidebar({ profile, signOut }) {
             {divider("panol-rec")}
             {group("Pañol", SC.panol_catalogo, 216)}
             {item("/recepcion-panol", "Recepción y egresos", SC.panol_catalogo, true, 217, "Pedidos a pañol: recepción, faltantes, egresos y seguimiento por sede.")}
-            {item("/stock-panol", "Stock", SC.panol_catalogo, true, 218, "Stock real del pañol por obra, proveedor, rubro y categoría.")}
+            {item("/solicitudes-panol", "Solicitudes", SC.panol_catalogo, true, 218, "Los papeles de pedido a pañol digitalizados, con estado por ítem y comprobante de retiro.")}
+            {item("/stock-panol", "Stock", SC.panol_catalogo, true, 219, "Stock real del pañol por obra, proveedor, rubro y categoría.")}
           </>}
 
           {puedeVerMateriales && <>
