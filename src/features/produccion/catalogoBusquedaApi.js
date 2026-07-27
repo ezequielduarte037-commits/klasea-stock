@@ -9,7 +9,7 @@ import { supabase } from "@/supabaseClient";
 // chicas, cambian poco y las necesitan todos los desplegables.
 // ─────────────────────────────────────────────────────────────────────────────
 
-const SELECT_COLS = "id,categoria_id,codigo,descripcion,proveedor,unidad_medida,precio_unitario,moneda,activo";
+const SELECT_COLS = "id,categoria_id,codigo,descripcion,proveedor,unidad_medida,precio_unitario,moneda,activo,es_consumible";
 
 const STOPWORDS = new Set(["de", "del", "la", "el", "los", "las", "y", "con", "para", "por", "un", "una"]);
 
@@ -121,6 +121,7 @@ export async function buscarMateriales({ q = "", proveedores = [], rubros = [], 
     unidad: row.unidad_medida || "unidad",
     precio_unitario: row.precio_unitario ?? null,
     moneda: row.moneda || "ARS",
+    es_consumible: !!row.es_consumible,
   }));
 }
 

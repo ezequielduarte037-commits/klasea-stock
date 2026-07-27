@@ -363,7 +363,8 @@ export default function MaderasScreen({ profile, signOut }) {
     const { data } = await supabase
       .from("movimientos")
       .select("*, materiales(nombre, unidad_medida)")
-      .order("created_at", { ascending: false });
+      .order("created_at", { ascending: false })
+      .limit(10000);
     setMovimientos(data ?? []);
   }, []);
 

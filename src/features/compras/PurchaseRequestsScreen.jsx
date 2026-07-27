@@ -14,6 +14,7 @@ import {
   LayoutGrid,
   LayoutList,
   Package,
+  PackageSearch,
   Plus,
   MessageSquare,
   Search,
@@ -50,6 +51,7 @@ import CajaChicaPanel from "@/features/compras/CajaChicaPanel";
 import CadeteRutaScreen from "@/features/cadete/CadeteRutaScreen";
 import PurchaseRequestDetail from "@/features/compras/PurchaseRequestDetail";
 import PurchaseLogPanel from "@/features/compras/PurchaseLogPanel";
+import FaltantesComprasPanel from "@/features/compras/FaltantesComprasPanel";
 import {
   addRequestItem,
   addComprasAvisoComentario,
@@ -472,7 +474,7 @@ const STOCK_DESTINOS = ["Stock Chubut 2120", "Stock Pampa 1050"];
 const CREATE_DRAFT_PREFIX = "purchase-request-create-draft";
 
 const URL_FILTER_KEYS = ["q", "status", "priority", "creator", "project", "dateFrom", "dateTo"];
-const MANAGER_TABS = ["pendientes", "lista", "dashboard", "avisos", "registro", "adicionales", "caja", "ruta"];
+const MANAGER_TABS = ["pendientes", "faltantes", "lista", "dashboard", "avisos", "registro", "adicionales", "caja", "ruta"];
 
 function dateOnly(value) {
   if (!value) return null;
@@ -1422,6 +1424,9 @@ export default function PurchaseRequestsScreen({ profile, signOut }) {
                       </span>
                     )}
                   </TabBtn>
+                  <TabBtn active={managerTab === "faltantes"} onClick={() => setManagerTab("faltantes")}>
+                    <PackageSearch size={12} /> Faltantes
+                  </TabBtn>
                   <TabBtn active={managerTab === "lista"} onClick={() => setManagerTab("lista")}>
                     <LayoutList size={12} /> Lista
                   </TabBtn>
@@ -2001,6 +2006,8 @@ export default function PurchaseRequestsScreen({ profile, signOut }) {
                       setManagerTab("lista");
                     }}
                   />
+                ) : manager && managerTab === "faltantes" ? (
+                  <FaltantesComprasPanel toast={toast} />
                 ) : manager && managerTab === "adicionales" ? (
                   <AdditionalPurchasesPanel
                     profile={profile}

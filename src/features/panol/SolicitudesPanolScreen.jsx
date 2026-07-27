@@ -1,7 +1,8 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { createPortal } from "react-dom";
+import { useSearchParams } from "react-router-dom";
 import {
-  AlertTriangle, CheckCheck, ClipboardList, FileText, Loader2, Package, Plus, Printer,
+  AlertTriangle, ArrowLeft, CheckCheck, ClipboardList, FileText, Loader2, Package, Plus, Printer,
   Search, Send, Ship, Trash2, X,
 } from "lucide-react";
 import Sidebar from "@/components/Sidebar";
@@ -52,11 +53,12 @@ const nombreObra = (s) => s?.obra?.codigo || s?.obra?.descripcion || s?.obra_tex
 /* ═══════════════════════════════════════════════════════════════════════════
    ALTA: la cabecera del papel, en el mismo orden en que está impresa
    ═══════════════════════════════════════════════════════════════════════════ */
-function NuevaSolicitudModal({ obras, onCrear, onClose }) {
+function NuevaSolicitudModal({ obras, sedeDefault = "", onCrear, onClose }) {
   const [f, setF] = useState({
     obra_id: "", obra_texto: "", sector: "", prioridad: "normal",
     fecha_pedido: hoy(), fecha_retiro: "", solicita: "", retira: "",
     tipo: [], tarea: "", preparado_por: "",
+    sede_origen: sedeDefault === "Chubut" ? "Chubut" : sedeDefault === "Pampa" ? "Pampa" : "",
   });
   const [busy, setBusy] = useState(false);
 
@@ -105,6 +107,19 @@ function NuevaSolicitudModal({ obras, onCrear, onClose }) {
 
         <div style={{ overflowY: "auto", padding: 14, display: "grid", gap: 11 }}>
           <div style={{ display: "grid", gap: 10, gridTemplateColumns: "repeat(auto-fit, minmax(170px, 1fr))" }}>
+            <label style={{ display: "grid", gap: 4, minWidth: 0 }}>
+              <span style={LBL}>Sale del pañol</span>
+              <select
+                required
+                value={f.sede_origen}
+                onChange={(e) => set("sede_origen", e.target.value)}
+                style={{ ...INPUT, padding: "7px 10px", fontSize: 12.5, cursor: "pointer" }}
+              >
+                <option value="">— elegí una sede —</option>
+                <option value="Pampa">Pampa</option>
+                <option value="Chubut">Chubut</option>
+              </select>
+            </label>
             <label style={{ display: "grid", gap: 4, minWidth: 0 }}>
               <span style={LBL}>Obra / barco</span>
               <select value={f.obra_id} onChange={(e) => set("obra_id", e.target.value)} style={{ ...INPUT, padding: "7px 10px", fontSize: 12.5, cursor: "pointer" }}>
@@ -194,6 +209,7 @@ function ItemLibreForm({ onAgregar }) {
   const [descripcion, setDescripcion] = useState("");
   const [cantidad, setCantidad] = useState("1");
   const [unidad, setUnidad] = useState("");
+  const [esConsumible, setEsConsumible] = useState(false);
   const [busy, setBusy] = useState(false);
 
   async function submit(e) {
@@ -201,10 +217,11 @@ function ItemLibreForm({ onAgregar }) {
     if (!descripcion.trim() || busy) return;
     setBusy(true);
     try {
-      await onAgregar({ descripcion, cantidad, unidad });
+      await onAgregar({ descripcion, cantidad, unidad, es_consumible: esConsumible });
       setDescripcion("");
       setCantidad("1");
       setUnidad("");
+      setEsConsumible(false);
     } finally { setBusy(false); }
   }
 
@@ -230,6 +247,15 @@ function ItemLibreForm({ onAgregar }) {
         aria-label="Unidad"
         style={{ ...INPUT, width: 66, padding: "7px 9px", fontSize: 12 }}
       />
+      <label style={{ display: "inline-flex", alignItems: "center", gap: 6, color: C.dim, fontSize: 11.5, fontWeight: 750, whiteSpace: "nowrap" }}>
+        <input
+          type="checkbox"
+          checked={esConsumible}
+          onChange={(e) => setEsConsumible(e.target.checked)}
+          style={{ accentColor: C.blue }}
+        />
+        Consumible
+      </label>
       <Cta type="submit" size="sm" icon={busy ? Loader2 : Plus} disabled={!descripcion.trim() || busy}>Agregar</Cta>
     </form>
   );
@@ -296,6 +322,12 @@ function FilaItem({ row, indice, puedeEditar, onCampo, onEstado, onQuitar }) {
             <div style={{ display: "flex", gap: 6, alignItems: "center", marginTop: 1 }}>
               {row.codigo && <span style={{ fontSize: 10.5, color: C.t3, fontFamily: C.mono }}>{row.codigo}</span>}
               {!row.material_id && <span style={{ fontSize: 10.5, color: C.dim }}>· fuera de catálogo</span>}
+              {row.es_consumible && <span style={{ fontSize: 10.5, color: C.violet, fontWeight: 800 }}>· consumible</span>}
+              {row.faltante_auto && (
+                <span style={{ fontSize: 10.5, color: C.red, fontWeight: 800 }}>
+                  · stock {num(row.stock_disponible_al_marcar)}
+                </span>
+              )}
             </div>
           </div>
         </div>
@@ -389,7 +421,7 @@ function SolicitudCard({ s, activa, onSelect }) {
 /* ═══════════════════════════════════════════════════════════════════════════
    DETALLE
    ═══════════════════════════════════════════════════════════════════════════ */
-function Detalle({ solicitudId, obras, puedeEditar, esPanol, toast, onCambio, onBorrada }) {
+function Detalle({ solicitudId, obras, puedeEditar, esPanol, isMobile, toast, onCambio, onBorrada, onVolver }) {
   const [s, setS] = useState(null);
   const [items, setItems] = useState([]);
   const [cargando, setCargando] = useState(true);
@@ -462,8 +494,11 @@ function Detalle({ solicitudId, obras, puedeEditar, esPanol, toast, onCambio, on
   }
 
   async function firmar({ empleado, metodo, nfcUid }) {
-    await registrarRetiro(solicitudId, { empleado, metodo, nfcUid });
-    toast?.success(`Retiro registrado a nombre de ${empleado.nombre}.`);
+    const resultado = await registrarRetiro(solicitudId, { empleado, metodo, nfcUid });
+    const partes = [];
+    if (resultado?.egresos) partes.push(`${resultado.egresos} egreso${resultado.egresos === 1 ? "" : "s"} de stock`);
+    if (resultado?.consumibles) partes.push(`${resultado.consumibles} consumible${resultado.consumibles === 1 ? "" : "s"} registrado${resultado.consumibles === 1 ? "" : "s"} sin descontar`);
+    toast?.success(`Retiro de ${empleado.nombre} confirmado${partes.length ? ` · ${partes.join(" y ")}` : ""}.`);
     await recargar();
   }
 
@@ -507,12 +542,24 @@ function Detalle({ solicitudId, obras, puedeEditar, esPanol, toast, onCambio, on
   const faltantes = items.filter((i) => i.estado === "faltante").length;
   const pendientes = items.filter((i) => i.estado === "pendiente").length;
   const yaCargados = new Set(items.map((i) => i.material_id).filter(Boolean));
+  const entregada = s.estado === "entregado";
+  const puedeEditarSolicitud = puedeEditar && !entregada;
+  const opcionesEstado = entregada
+    ? SOLICITUD_ESTADOS.filter((e) => e.value === "entregado")
+    : SOLICITUD_ESTADOS.filter((e) => e.value !== "entregado");
+  const bloqueoRetiro = s.estado !== "listo"
+    ? "Pasá la solicitud a “Listo para retirar” cuando termine la preparación."
+    : pendientes > 0
+      ? `Todavía quedan ${pendientes} ítems pendientes. Preparalos o marcalos como faltantes.`
+      : listos === 0
+        ? "No hay ítems preparados para entregar."
+        : "";
 
   const campo = (nombre, etiqueta, extra = {}) => (
     <CampoCabecera
       etiqueta={etiqueta}
       valor={s[nombre]}
-      disabled={!puedeEditar}
+      disabled={!puedeEditarSolicitud}
       onGuardar={(v) => guardarCabecera({ [nombre]: v })}
       {...extra}
     />
@@ -520,6 +567,19 @@ function Detalle({ solicitudId, obras, puedeEditar, esPanol, toast, onCambio, on
 
   return (
     <div style={{ display: "grid", gap: 12, alignContent: "start" }}>
+      {isMobile && (
+        <button
+          type="button"
+          onClick={onVolver}
+          style={{
+            justifySelf: "start", display: "inline-flex", alignItems: "center", gap: 6,
+            border: "none", background: "transparent", color: C.blue, padding: "2px 0",
+            fontFamily: C.sans, fontSize: 12.5, fontWeight: 850, cursor: "pointer",
+          }}
+        >
+          <ArrowLeft size={15} /> Volver a solicitudes
+        </button>
+      )}
       {/* identidad + estado */}
       <div className="sp-surface">
         <div style={{ display: "flex", alignItems: "center", gap: 11, padding: "12px 14px", flexWrap: "wrap" }}>
@@ -535,14 +595,14 @@ function Detalle({ solicitudId, obras, puedeEditar, esPanol, toast, onCambio, on
           {s.prioridad === "urgente" && (
             <Pill color={C.red} soft={C.redL} borde={C.redB}><AlertTriangle size={10} /> Urgente</Pill>
           )}
-          <EstadoSelect value={s.estado} options={SOLICITUD_ESTADOS} onChange={(v) => guardarCabecera({ estado: v })} disabled={!puedeEditar} />
+          <EstadoSelect value={s.estado} options={opcionesEstado} onChange={(v) => guardarCabecera({ estado: v })} disabled={!puedeEditarSolicitud} />
           {/* El solicitante manda el pedido cuando terminó de cargarlo. Sólo
               aparece mientras está en borrador: después lo maneja pañol. */}
           {!esPanol && s.estado === "borrador" && (
             <Cta icon={Send} size="sm" tono="azul" onClick={enviar}>Enviar a pañol</Cta>
           )}
           <Ghost icon={Printer} size="sm" onClick={() => setImprimir(true)}>Imprimir hoja</Ghost>
-          {puedeEditar && <IconBtn icon={Trash2} title="Borrar solicitud" tono="rojo" onClick={borrar} />}
+          {puedeEditarSolicitud && <IconBtn icon={Trash2} title="Borrar solicitud" tono="rojo" onClick={borrar} />}
         </div>
 
         {/* datos del papel */}
@@ -551,12 +611,25 @@ function Detalle({ solicitudId, obras, puedeEditar, esPanol, toast, onCambio, on
             <span style={LBL}>Obra</span>
             <select
               value={s.obra_id || ""}
-              disabled={!puedeEditar}
+              disabled={!puedeEditarSolicitud}
               onChange={(e) => guardarCabecera({ obra_id: e.target.value })}
-              style={{ ...INPUT, padding: "6px 9px", fontSize: 12.5, cursor: puedeEditar ? "pointer" : "default" }}
+              style={{ ...INPUT, padding: "6px 9px", fontSize: 12.5, cursor: puedeEditarSolicitud ? "pointer" : "default" }}
             >
               <option value="">— no está en el sistema —</option>
               {obras.map((o) => <option key={o.id} value={o.id}>{o.codigo || o.descripcion || o.id.slice(0, 8)}</option>)}
+            </select>
+          </label>
+          <label style={{ display: "grid", gap: 3, flex: "0 1 145px", minWidth: 130 }}>
+            <span style={LBL}>Sale del pañol</span>
+            <select
+              value={s.sede_origen || ""}
+              disabled={!puedeEditarSolicitud}
+              onChange={(e) => guardarCabecera({ sede_origen: e.target.value })}
+              style={{ ...INPUT, padding: "6px 9px", fontSize: 12.5, cursor: puedeEditarSolicitud ? "pointer" : "default" }}
+            >
+              <option value="">— elegí —</option>
+              <option value="Pampa">Pampa</option>
+              <option value="Chubut">Chubut</option>
             </select>
           </label>
           {campo("obra_texto", "…o texto del papel", { placeholder: "Ej: taller" })}
@@ -564,9 +637,9 @@ function Detalle({ solicitudId, obras, puedeEditar, esPanol, toast, onCambio, on
             <span style={LBL}>Sector</span>
             <select
               value={s.sector || ""}
-              disabled={!puedeEditar}
+              disabled={!puedeEditarSolicitud}
               onChange={(e) => guardarCabecera({ sector: e.target.value })}
-              style={{ ...INPUT, padding: "6px 9px", fontSize: 12.5, cursor: puedeEditar ? "pointer" : "default" }}
+              style={{ ...INPUT, padding: "6px 9px", fontSize: 12.5, cursor: puedeEditarSolicitud ? "pointer" : "default" }}
             >
               <option value="">— sin sector —</option>
               {SECTORES.map((x) => <option key={x} value={x}>{x}</option>)}
@@ -576,9 +649,9 @@ function Detalle({ solicitudId, obras, puedeEditar, esPanol, toast, onCambio, on
             <span style={LBL}>Prioridad</span>
             <select
               value={s.prioridad}
-              disabled={!puedeEditar}
+              disabled={!puedeEditarSolicitud}
               onChange={(e) => guardarCabecera({ prioridad: e.target.value })}
-              style={{ ...INPUT, padding: "6px 9px", fontSize: 12.5, cursor: puedeEditar ? "pointer" : "default" }}
+              style={{ ...INPUT, padding: "6px 9px", fontSize: 12.5, cursor: puedeEditarSolicitud ? "pointer" : "default" }}
             >
               {PRIORIDADES.map((p) => <option key={p.value} value={p.value}>{p.label}</option>)}
             </select>
@@ -601,12 +674,12 @@ function Detalle({ solicitudId, obras, puedeEditar, esPanol, toast, onCambio, on
                   <button
                     key={t}
                     type="button"
-                    disabled={!puedeEditar}
+                    disabled={!puedeEditarSolicitud}
                     onClick={() => guardarCabecera({ tipo: on ? s.tipo.filter((x) => x !== t) : [...(s.tipo ?? []), t] })}
                     className="sp-chip"
                     style={{
                       padding: "5px 11px", borderRadius: 9, fontSize: 11.5, fontWeight: 800,
-                      cursor: puedeEditar ? "pointer" : "default", fontFamily: C.sans,
+                      cursor: puedeEditarSolicitud ? "pointer" : "default", fontFamily: C.sans,
                       border: `1px solid ${on ? C.blueB : C.border}`, background: on ? C.blueL : C.panel,
                       color: on ? C.blue : C.dim,
                     }}
@@ -622,7 +695,7 @@ function Detalle({ solicitudId, obras, puedeEditar, esPanol, toast, onCambio, on
             <textarea
               defaultValue={s.tarea ?? ""}
               rows={2}
-              disabled={!puedeEditar}
+              disabled={!puedeEditarSolicitud}
               onBlur={(e) => { if (e.target.value !== (s.tarea ?? "")) guardarCabecera({ tarea: e.target.value }); }}
               style={{ ...INPUT, padding: "6px 9px", fontSize: 12.5, resize: "vertical", fontFamily: C.sans }}
             />
@@ -632,7 +705,7 @@ function Detalle({ solicitudId, obras, puedeEditar, esPanol, toast, onCambio, on
             <textarea
               defaultValue={s.notas_panol ?? ""}
               rows={2}
-              disabled={!puedeEditar}
+              disabled={!puedeEditarSolicitud}
               placeholder="Lo que pañol quiere dejar dicho (se imprime en la hoja)"
               onBlur={(e) => { if (e.target.value !== (s.notas_panol ?? "")) guardarCabecera({ notas_panol: e.target.value }); }}
               style={{ ...INPUT, padding: "6px 9px", fontSize: 12.5, resize: "vertical", fontFamily: C.sans }}
@@ -646,7 +719,7 @@ function Detalle({ solicitudId, obras, puedeEditar, esPanol, toast, onCambio, on
       <FotosSolicitud
         solicitudId={solicitudId}
         obras={obras}
-        puedeEditar={puedeEditar}
+        puedeEditar={puedeEditarSolicitud}
         toast={toast}
         onAplicado={async () => { await cargar(); onCambio?.(); }}
       />
@@ -660,7 +733,7 @@ function Detalle({ solicitudId, obras, puedeEditar, esPanol, toast, onCambio, on
           </Pill>
           {listos > 0 && <Pill color={C.green} soft={C.greenL} borde={C.greenB} mono>{listos} listos</Pill>}
           {faltantes > 0 && <Pill color={C.red} soft={C.redL} borde={C.redB} mono>{faltantes} sin stock</Pill>}
-          {puedeEditar && (
+          {puedeEditarSolicitud && (
             <div style={{ marginLeft: "auto", display: "flex", gap: 8, flexWrap: "wrap" }}>
               {pendientes > 0 && <Ghost icon={CheckCheck} size="sm" onClick={prepararTodo}>Marcar todo preparado</Ghost>}
               <Cta icon={Plus} tono="azul" size="sm" onClick={() => setPicker(true)}>Agregar del catálogo</Cta>
@@ -703,7 +776,7 @@ function Detalle({ solicitudId, obras, puedeEditar, esPanol, toast, onCambio, on
                     key={row.id}
                     row={row}
                     indice={i}
-                    puedeEditar={puedeEditar}
+                    puedeEditar={puedeEditarSolicitud}
                     onCampo={(patch) => cambiarItem(row, patch)}
                     onEstado={(v) => cambiarItem(row, { estado: v })}
                     onQuitar={() => sacarItem(row)}
@@ -714,7 +787,7 @@ function Detalle({ solicitudId, obras, puedeEditar, esPanol, toast, onCambio, on
           </div>
         )}
 
-        {puedeEditar && (
+        {puedeEditarSolicitud && (
           <div style={{ padding: "10px 14px", borderTop: `1px solid ${C.border}`, background: C.panel }}>
             <ItemLibreForm onAgregar={agregarSuelto} />
           </div>
@@ -726,6 +799,8 @@ function Detalle({ solicitudId, obras, puedeEditar, esPanol, toast, onCambio, on
         <FirmaRetiroPanol
           solicitud={s}
           puedeEditar={puedeEditar}
+          bloqueo={bloqueoRetiro}
+          aviso={faltantes > 0 ? `${faltantes} faltante${faltantes === 1 ? "" : "s"} seguirá${faltantes === 1 ? "" : "n"} abierto${faltantes === 1 ? "" : "s"} en Compras; sólo se entregan los ítems preparados.` : ""}
           toast={toast}
           onConfirmar={firmar}
           onAnular={deshacerFirma}
@@ -758,6 +833,8 @@ function Detalle({ solicitudId, obras, puedeEditar, esPanol, toast, onCambio, on
    ═══════════════════════════════════════════════════════════════════════════ */
 export default function SolicitudesPanolScreen({ profile, signOut }) {
   const { isMobile } = useResponsive();
+  const [searchParams, setSearchParams] = useSearchParams();
+  const openId = searchParams.get("open");
 
   // useToast() devuelve un objeto NUEVO cada vez que aparece un toast. Si ese
   // objeto entra como dependencia de los useCallback de carga, un error que
@@ -801,14 +878,18 @@ export default function SolicitudesPanolScreen({ profile, signOut }) {
     try {
       const filas = await fetchSolicitudes({ estado, q });
       setSolicitudes(filas);
-      setSelId((cur) => (filas.some((s) => s.id === cur) ? cur : filas[0]?.id ?? null));
+      setSelId((cur) => {
+        if (filas.some((s) => s.id === cur)) return cur;
+        if (openId && filas.some((s) => s.id === openId)) return openId;
+        return isMobile ? null : filas[0]?.id ?? null;
+      });
     } catch (err) {
       toast?.error(err.message || "No se pudieron cargar las solicitudes.");
       setSolicitudes([]);
     } finally {
       setCargando(false);
     }
-  }, [estado, q, toast]);
+  }, [estado, isMobile, openId, q, toast]);
 
   // Debounce sobre la búsqueda: la lista pega contra el server en cada tecla.
   useEffect(() => {
@@ -848,6 +929,18 @@ export default function SolicitudesPanolScreen({ profile, signOut }) {
   }
 
   const pad = isMobile ? 14 : 24;
+  const seleccionar = (id) => {
+    setSelId(id);
+    const next = new URLSearchParams(searchParams);
+    next.set("open", id);
+    setSearchParams(next, { replace: true });
+  };
+  const volverALista = () => {
+    setSelId(null);
+    const next = new URLSearchParams(searchParams);
+    next.delete("open");
+    setSearchParams(next, { replace: true });
+  };
 
   return (
     <div style={{ position: "fixed", inset: 0, display: "flex", overflow: "hidden", background: C.bg, color: C.t0, fontFamily: C.sans }}>
@@ -867,6 +960,7 @@ export default function SolicitudesPanolScreen({ profile, signOut }) {
         .ce-cta{transition:transform .16s ease,filter .16s ease}
         .ce-cta:hover:not(:disabled){transform:translateY(-1px);filter:brightness(1.08)}
         .ce-ghost:hover:not(:disabled){background:var(--panel-2);color:var(--text)}
+        .sp-list-scroll{scrollbar-width:thin}
         button:focus-visible,select:focus-visible,input:focus-visible,textarea:focus-visible{outline:2px solid var(--blue);outline-offset:2px}
       `}</style>
 
@@ -878,20 +972,28 @@ export default function SolicitudesPanolScreen({ profile, signOut }) {
         <div style={{ position: "absolute", inset: 0, pointerEvents: "none", background: `radial-gradient(1000px 300px at 18% -12%, ${tint("#3b82f6", 8)}, transparent 70%)` }} />
 
         <header style={{ position: "relative", padding: `${isMobile ? 13 : 16}px ${pad}px 0`, flexShrink: 0 }}>
-          <div style={{ display: "flex", alignItems: "center", gap: 11, flexWrap: "wrap" }}>
+          <div style={{ display: "flex", alignItems: "center", gap: 10, flexWrap: "wrap" }}>
             <div style={{ width: 38, height: 38, flexShrink: 0, borderRadius: 12, display: "grid", placeItems: "center", background: GRAD_BLUE, color: "#fff", boxShadow: GLOW_BLUE }}>
               <ClipboardList size={19} />
             </div>
-            <div style={{ minWidth: 0 }}>
+            <div style={{ minWidth: 0, flex: isMobile ? "1 1 calc(100% - 50px)" : "0 1 auto" }}>
               <h1 style={{ margin: 0, fontSize: 17, fontWeight: 950, color: C.text, letterSpacing: -0.2 }}>Solicitudes de pañol</h1>
-              <div style={{ fontSize: 12.5, color: C.dim, marginTop: 1 }}>
+              <div style={{
+                fontSize: isMobile ? 11.5 : 12.5, color: C.dim, marginTop: 1,
+                overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap",
+              }}>
                 {esPanol
                   ? "El papel que llega al mostrador, cargado, armado y firmado al retirar."
                   : "Armá tu pedido de materiales y mandalo a pañol, sin pasar por papel."}
               </div>
             </div>
 
-            <div style={{ marginLeft: "auto", display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
+            <div style={{
+              marginLeft: isMobile ? 48 : "auto",
+              width: isMobile ? "calc(100% - 48px)" : "auto",
+              display: "flex", alignItems: "center", justifyContent: isMobile ? "flex-end" : "initial",
+              gap: 7, flexWrap: "wrap",
+            }}>
               {!isMobile && (
                 <>
                   <Kpi icon={ClipboardList} valor={abiertas} label="En curso" color="var(--amber)" soft="var(--amber-soft)" borde="var(--amber-border)" />
@@ -901,15 +1003,24 @@ export default function SolicitudesPanolScreen({ profile, signOut }) {
                   )}
                 </>
               )}
-              <Ghost icon={Printer} onClick={() => setEnBlanco(true)} title="Imprimir la hoja vacía para completar a mano">Hoja en blanco</Ghost>
-              <Cta icon={Plus} tono="azul" onClick={() => setNueva(true)}>{textoAlta}</Cta>
+              <Ghost icon={Printer} size="sm" onClick={() => setEnBlanco(true)} title="Imprimir la hoja vacía para completar a mano">{isMobile ? "Hoja" : "Hoja en blanco"}</Ghost>
+              <Cta icon={Plus} size={isMobile ? "sm" : undefined} tono="azul" onClick={() => setNueva(true)}>{isMobile ? "Nuevo" : textoAlta}</Cta>
             </div>
           </div>
         </header>
 
         <div style={{ position: "relative", flex: 1, minHeight: 0, padding: `14px ${pad}px ${pad}px`, display: "flex", gap: 13, flexDirection: isMobile ? "column" : "row" }}>
           {/* lista */}
-          <div style={{ width: isMobile ? "auto" : 296, flexShrink: 0, display: "grid", gap: 8, alignContent: "start", minHeight: 0, maxHeight: isMobile ? 300 : "100%", overflowY: "auto", paddingRight: 2 }}>
+          <div
+            className="sp-list-scroll"
+            style={{
+              width: isMobile ? "100%" : 296,
+              flex: isMobile ? 1 : "0 0 auto",
+              display: isMobile && selId ? "none" : "grid",
+              gap: 8, alignContent: "start", minHeight: 0, maxHeight: "100%",
+              overflowY: "auto", paddingRight: 2,
+            }}
+          >
             <div style={{ position: "relative" }}>
               <Search size={14} color={C.dim} style={{ position: "absolute", left: 10, top: "50%", transform: "translateY(-50%)", pointerEvents: "none" }} />
               <input
@@ -970,12 +1081,15 @@ export default function SolicitudesPanolScreen({ profile, signOut }) {
             )}
 
             {solicitudes.map((s) => (
-              <SolicitudCard key={s.id} s={s} activa={s.id === selId} onSelect={() => setSelId(s.id)} />
+              <SolicitudCard key={s.id} s={s} activa={s.id === selId} onSelect={() => seleccionar(s.id)} />
             ))}
           </div>
 
           {/* detalle */}
-          <div style={{ flex: 1, minWidth: 0, overflowY: "auto", paddingRight: 2 }}>
+          <div style={{
+            flex: 1, minWidth: 0, minHeight: 0, overflowY: "auto", paddingRight: 2,
+            display: isMobile && !selId ? "none" : "block",
+          }}>
             {selId ? (
               <Detalle
                 key={selId}
@@ -983,9 +1097,11 @@ export default function SolicitudesPanolScreen({ profile, signOut }) {
                 obras={obras}
                 puedeEditar={puedeEditar}
                 esPanol={esPanol}
+                isMobile={isMobile}
                 toast={toast}
                 onCambio={cargar}
-                onBorrada={() => { setSelId(null); cargar(); }}
+                onVolver={volverALista}
+                onBorrada={() => { volverALista(); cargar(); }}
               />
             ) : (
               !cargando && (
@@ -1001,7 +1117,7 @@ export default function SolicitudesPanolScreen({ profile, signOut }) {
         </div>
       </main>
 
-      {nueva && <NuevaSolicitudModal obras={obras} onCrear={crear} onClose={() => setNueva(false)} />}
+      {nueva && <NuevaSolicitudModal obras={obras} sedeDefault={profile?.sede} onCrear={crear} onClose={() => setNueva(false)} />}
       {/* La hoja vacía es la misma de siempre: sin `solicitud` sale en blanco. */}
       <SolicitudPanolPrintable open={enBlanco} onClose={() => setEnBlanco(false)} />
     </div>

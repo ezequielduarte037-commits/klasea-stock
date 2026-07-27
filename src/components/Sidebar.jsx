@@ -340,7 +340,7 @@ export default function Sidebar({ profile, signOut }) {
     let alive = true;
     async function loadComprasBadge() {
       try {
-        const [requestsRes, avisosRes] = await Promise.allSettled([
+        const [requestsRes, avisosRes, faltantesRes] = await Promise.allSettled([
           supabase
             .from("purchase_requests")
             .select("id", { count: "exact", head: true })
@@ -350,10 +350,15 @@ export default function Sidebar({ profile, signOut }) {
             .from("compras_avisos")
             .select("id", { count: "exact", head: true })
             .in("estado", ["nuevo", "visto", "en_proceso"]),
+          supabase
+            .from("panol_faltantes_compras")
+            .select("id", { count: "exact", head: true })
+            .in("estado", ["nuevo", "en_revision", "pedido", "comprado"]),
         ]);
         const requestCount = requestsRes.status === "fulfilled" && !requestsRes.value.error ? requestsRes.value.count || 0 : 0;
         const avisoCount = avisosRes.status === "fulfilled" && !avisosRes.value.error ? avisosRes.value.count || 0 : 0;
-        if (alive) setComprasBadge(requestCount + avisoCount);
+        const faltanteCount = faltantesRes.status === "fulfilled" && !faltantesRes.value.error ? faltantesRes.value.count || 0 : 0;
+        if (alive) setComprasBadge(requestCount + avisoCount + faltanteCount);
       } catch {
         if (alive) setComprasBadge(null);
       }
@@ -590,6 +595,7 @@ export default function Sidebar({ profile, signOut }) {
             {divider("compras")}
             {group(comprasGroup, SC.compras, 205)}
             {item("/compras", comprasLabel, SC.compras, true, 215, "Solicitudes internas a compras con seguimiento y usuarios en copia.", esCompras || realAdmin ? comprasBadge : null)}
+            {esCompras && item("/solicitudes-panol", "Solicitudes de pañol", SC.panol_catalogo, true, 216, "Pedidos de pañol completos, editables y vinculados a los faltantes de compras.")}
             {/* El rol compras ve acá los pedidos generados por etapa de producción (gestión ya lo ve en Producción). */}
             {esCompras && item("/compras-etapa", "Compras por etapa", SC.compras, true, 217, "Las tandas de compra de cada obra con sus materiales, y los pedidos que salen de ahí.")}
             {(esCompras || realAdmin) && item("/semaforo", "Semáforo", SC.semaforo, true, 220, "Semáforo de producción: estado visual de avance por obra.")}

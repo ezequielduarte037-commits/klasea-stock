@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { BadgeCheck, Loader2, Nfc, RotateCcw, Search, UserCheck, X } from "lucide-react";
+import { AlertTriangle, BadgeCheck, Loader2, Nfc, RotateCcw, Search, UserCheck, X } from "lucide-react";
 import { C } from "@/theme";
 import useNfcBridge from "@/features/panol/useNfcBridge";
 import useKeyboardWedge from "@/features/panol/useKeyboardWedge";
@@ -60,7 +60,15 @@ function Comprobante({ solicitud, onAnular, puedeEditar }) {
 }
 
 /* ── caja de firma ────────────────────────────────────────────────────────── */
-export default function FirmaRetiroPanol({ solicitud, onConfirmar, onAnular, puedeEditar = true, toast }) {
+export default function FirmaRetiroPanol({
+  solicitud,
+  onConfirmar,
+  onAnular,
+  puedeEditar = true,
+  bloqueo = "",
+  aviso = "",
+  toast,
+}) {
   const yaRetirado = !!solicitud?.retirado_at;
 
   const [empleado, setEmpleado] = useState(null);
@@ -104,7 +112,7 @@ export default function FirmaRetiroPanol({ solicitud, onConfirmar, onAnular, pue
 
   // El lector sólo escucha mientras la solicitud está sin retirar: si no, una
   // tarjeta apoyada de casualidad sobrescribiría un retiro ya firmado.
-  const escuchando = !yaRetirado && puedeEditar;
+  const escuchando = !yaRetirado && puedeEditar && !bloqueo;
 
   useKeyboardWedge({ enabled: escuchando, onScan: resolver, minLength: 4, timeoutMs: 65 });
   const bridge = useNfcBridge({ enabled: escuchando, onUid: resolver });
@@ -152,6 +160,22 @@ export default function FirmaRetiroPanol({ solicitud, onConfirmar, onAnular, pue
     );
   }
 
+  if (bloqueo) {
+    return (
+      <div style={{
+        display: "flex", alignItems: "flex-start", gap: 10,
+        border: `1px solid ${C.amberB}`, background: C.amberL,
+        borderRadius: 12, padding: "11px 13px",
+      }}>
+        <AlertTriangle size={17} color={C.amber} style={{ flexShrink: 0, marginTop: 1 }} />
+        <div>
+          <div style={{ ...LBL, color: C.amber }}>Retiro todavía bloqueado</div>
+          <div style={{ color: C.text, fontSize: 12.5, lineHeight: 1.5, marginTop: 3 }}>{bloqueo}</div>
+        </div>
+      </div>
+    );
+  }
+
   const bridgeOk = bridge.status === "connected";
   const bridgeTexto = bridgeOk
     ? "Lector NFC conectado · apoyá la tarjeta"
@@ -184,6 +208,18 @@ export default function FirmaRetiroPanol({ solicitud, onConfirmar, onAnular, pue
           </button>
         )}
       </div>
+
+      {aviso && (
+        <div style={{
+          display: "flex", alignItems: "flex-start", gap: 7,
+          borderRadius: 9, padding: "7px 9px",
+          border: `1px solid ${C.amberB}`, background: C.amberL,
+          color: C.muted, fontSize: 11.5, lineHeight: 1.45,
+        }}>
+          <AlertTriangle size={13} color={C.amber} style={{ flexShrink: 0, marginTop: 1 }} />
+          {aviso}
+        </div>
+      )}
 
       {/* persona resuelta */}
       {elegido && (

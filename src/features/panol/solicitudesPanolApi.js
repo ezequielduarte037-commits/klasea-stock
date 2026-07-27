@@ -56,13 +56,14 @@ export const itemEstadoMeta = (value) =>
   ITEM_ESTADOS.find((e) => e.value === value) || ITEM_ESTADOS[0];
 
 const SOLICITUD_COLS =
-  "id, numero, obra_id, obra_texto, sector, prioridad, fecha_pedido, fecha_retiro, " +
+  "id, numero, obra_id, obra_texto, sede_origen, sector, prioridad, fecha_pedido, fecha_retiro, " +
   "solicita, retira, tipo, tarea, observaciones, notas_panol, preparado_por, estado, origen, " +
   "retirado_por_id, retirado_por_nombre, retirado_por_dni, retirado_metodo, " +
   "retirado_nfc_uid, retirado_at, created_by, created_at, updated_at";
 
 const ITEM_COLS =
-  "id, solicitud_id, material_id, descripcion, codigo, cantidad, unidad, observacion, estado, orden";
+  "id, solicitud_id, material_id, descripcion, codigo, cantidad, unidad, observacion, estado, orden, " +
+  "es_consumible, faltante_auto, stock_disponible_al_marcar";
 
 async function actorId() {
   const { data: { session } = {} } = await supabase.auth.getSession();
@@ -136,6 +137,7 @@ export async function crearSolicitud(datos = {}) {
   const fila = {
     obra_id: datos.obra_id || null,
     obra_texto: txt(datos.obra_texto),
+    sede_origen: datos.sede_origen === "Chubut" ? "Chubut" : datos.sede_origen === "Pampa" ? "Pampa" : null,
     sector: txt(datos.sector),
     prioridad: datos.prioridad === "urgente" ? "urgente" : "normal",
     fecha_pedido: datos.fecha_pedido || new Date().toISOString().slice(0, 10),
@@ -188,6 +190,9 @@ export async function actualizarSolicitud(id, patch = {}) {
   const clean = {};
   if (patch.obra_id !== undefined) clean.obra_id = patch.obra_id || null;
   if (patch.obra_texto !== undefined) clean.obra_texto = txt(patch.obra_texto);
+  if (patch.sede_origen !== undefined) {
+    clean.sede_origen = patch.sede_origen === "Chubut" ? "Chubut" : patch.sede_origen === "Pampa" ? "Pampa" : null;
+  }
   if (patch.sector !== undefined) clean.sector = txt(patch.sector);
   if (patch.prioridad !== undefined) clean.prioridad = patch.prioridad === "urgente" ? "urgente" : "normal";
   if (patch.fecha_pedido !== undefined) clean.fecha_pedido = patch.fecha_pedido || null;
@@ -259,6 +264,7 @@ export async function agregarItemsDesdeCatalogo(solicitudId, materiales = []) {
     codigo: m.codigo || null,
     cantidad: num(m.cantidad) || 1,
     unidad: m.unidad || m.unidad_medida || null,
+    es_consumible: !!m.es_consumible,
     estado: "pendiente",
     orden: base + i,
   }));
@@ -268,7 +274,10 @@ export async function agregarItemsDesdeCatalogo(solicitudId, materiales = []) {
 }
 
 // Alta a mano: lo que el papel pide y no está en el catálogo.
-export async function agregarItemLibre(solicitudId, { descripcion, cantidad = 1, unidad = null, observacion = null } = {}) {
+export async function agregarItemLibre(
+  solicitudId,
+  { descripcion, cantidad = 1, unidad = null, observacion = null, es_consumible = false } = {}
+) {
   if (!solicitudId) throw new Error("Falta la solicitud.");
   const desc = String(descripcion ?? "").trim();
   if (!desc) throw new Error("El ítem necesita una descripción.");
@@ -282,6 +291,7 @@ export async function agregarItemLibre(solicitudId, { descripcion, cantidad = 1,
       cantidad: num(cantidad) || 1,
       unidad: txt(unidad),
       observacion: txt(observacion),
+      es_consumible: !!es_consumible,
       estado: "pendiente",
       orden,
     })
@@ -337,37 +347,28 @@ export async function registrarRetiro(id, { empleado = null, nombre = "", metodo
   const nombreFinal = txt(empleado?.nombre ?? nombre);
   if (!nombreFinal) throw new Error("Falta identificar a la persona que retira.");
 
-  const { error } = await supabase
-    .from("panol_solicitudes")
-    .update({
-      retirado_por_id: empleado?.id || null,
-      retirado_por_nombre: nombreFinal,
-      retirado_por_dni: txt(empleado?.dni),
-      retirado_metodo: metodo === "nfc" ? "nfc" : "manual",
-      retirado_nfc_uid: txt(nfcUid),
-      retirado_at: new Date().toISOString(),
-      estado: "entregado",
-    })
-    .eq("id", id);
+  const { data, error } = await supabase.rpc("panol_confirmar_retiro_solicitud", {
+    p_solicitud_id: id,
+    p_empleado_id: empleado?.id || null,
+    p_nombre: nombreFinal,
+    p_dni: txt(empleado?.dni),
+    p_metodo: metodo === "nfc" ? "nfc" : "manual",
+    p_nfc_uid: txt(nfcUid),
+  });
   if (error) throw error;
+  if (data?.ok === false) throw new Error(data.message || "No se pudo confirmar el retiro.");
+  return data;
 }
 
-// Deshacer: sólo para corregir un retiro cargado por error.
+// Deshacer revierte también los movimientos de stock vinculados.
 export async function anularRetiro(id) {
   if (!id) return;
-  const { error } = await supabase
-    .from("panol_solicitudes")
-    .update({
-      retirado_por_id: null,
-      retirado_por_nombre: null,
-      retirado_por_dni: null,
-      retirado_metodo: null,
-      retirado_nfc_uid: null,
-      retirado_at: null,
-      estado: "listo",
-    })
-    .eq("id", id);
+  const { data, error } = await supabase.rpc("panol_anular_retiro_solicitud", {
+    p_solicitud_id: id,
+  });
   if (error) throw error;
+  if (data?.ok === false) throw new Error(data.message || "No se pudo deshacer el retiro.");
+  return data;
 }
 
 // Lista corta para el retiro manual (cuando no hay lector NFC a mano). Se pide

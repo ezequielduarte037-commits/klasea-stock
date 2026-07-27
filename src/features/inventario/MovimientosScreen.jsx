@@ -50,7 +50,7 @@ export default function MovimientosScreen({ profile, signOut }) {
       .from("movimientos_ui")
       .select("id,created_at,delta,obra,usuario,entregado_por,proveedor,recibe,obs_ui,material_nombre")
       .order("created_at", { ascending: false })
-      .limit(200);
+      .limit(10000);
 
     if (!r.error) { setRows(r.data ?? []); return; }
 
@@ -59,7 +59,7 @@ export default function MovimientosScreen({ profile, signOut }) {
       .from("movimientos")
       .select("id,created_at,delta,obra,usuario,entregado_por,proveedor,recibe,obs,material_id")
       .order("created_at", { ascending: false })
-      .limit(200);
+      .limit(10000);
 
     if (r2.error) return setErr(r2.error.message);
 
