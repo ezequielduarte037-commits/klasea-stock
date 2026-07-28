@@ -13,7 +13,7 @@ import {
   COMPRA_ETAPA_ESTADOS, colorSugerido, copiarMaterialesDeEtapa, copiarPlantillaAObra,
   crearEtapaCompraObra, fetchEtapasCompraObra, fetchMaterialesEtapa, fetchPlantillaCompra,
   fetchUltimosCambios, generarPedidoDesdeEtapaCompra, pedidosDeEtapaCompra, quitarMaterialEtapa,
-  reordenarEtapasCompraObra, semaforoMeta, setProcesosEtapaCompra, transferirMateriales,
+  reordenarEtapasCompraObra, semaforoMeta, transferirMateriales,
 } from "@/features/produccion/comprasObraApi";
 import { INPUT, LBL, tint } from "@/features/produccion/comprasTokens";
 import { Cta, EmptyState, EstadoSelect, Ghost, IconBtn, Pill } from "@/features/produccion/comprasUI";
@@ -403,12 +403,6 @@ function DetalleEtapa({ obra, etapa, etapas, plantilla, procesos, onReloadEtapas
     try { await actualizarEtapaCompraObra(etapa.id, { estado }); await recargarTodo(); }
     catch (err) { toast?.error(err.message); }
   }
-  async function toggleProceso(procId) {
-    const actuales = etapa.procesoIds ?? [];
-    const next = actuales.includes(procId) ? actuales.filter((id) => id !== procId) : [...actuales, procId];
-    try { await setProcesosEtapaCompra(etapa.id, next); await onReloadEtapas(); }
-    catch (err) { toast?.error(err.message); }
-  }
   async function borrar() {
     if (!window.confirm(`¿Borrar la etapa "${etapa.nombre}"?\n\nSe pierden sus ${materiales.length} materiales. Los pedidos ya generados quedan.`)) return;
     try { await borrarEtapaCompraObra(etapa.id); await onReloadEtapas(); }
@@ -429,7 +423,20 @@ function DetalleEtapa({ obra, etapa, etapas, plantilla, procesos, onReloadEtapas
   }
 
   const color = etapa.color || "#8b5cf6";
-  const asignados = etapa.procesoIds ?? [];
+  // Qué etapas de producción cubre esta tanda: se deduce de la etapa asignada a
+  // cada material, con cuántos aporta cada una.
+  const cubre = useMemo(() => {
+    const mapa = new Map();
+    for (const m of materiales) {
+      if (!m.linea_proceso_id) continue;
+      const p = procesosById.get(m.linea_proceso_id);
+      if (!p) continue;
+      const prev = mapa.get(p.id);
+      if (prev) prev.cantidad += 1;
+      else mapa.set(p.id, { id: p.id, nombre: p.nombre, color: p.color, cantidad: 1 });
+    }
+    return [...mapa.values()].sort((a, b) => (a.nombre || "").localeCompare(b.nombre || "", "es"));
+  }, [materiales, procesosById]);
 
   return (
     <div style={{ display: "grid", gap: 12, alignContent: "start" }}>
@@ -460,42 +467,31 @@ function DetalleEtapa({ obra, etapa, etapas, plantilla, procesos, onReloadEtapas
           {puedeEditar && <IconBtn icon={Trash2} title="Borrar etapa" tono="rojo" onClick={borrar} />}
         </div>
 
-        <div style={{ display: "flex", alignItems: "center", gap: 7, flexWrap: "wrap", padding: "10px 14px", borderTop: `1px solid ${C.border}` }}>
-          <span style={{ ...LBL }}>Cubre</span>
-          {!procesos.length && <span style={{ fontSize: 12, color: C.dim }}>el modelo de esta obra no tiene etapas de producción</span>}
-          {procesos.filter((p) => asignados.includes(p.id)).map((p) => {
-            const pc = p.color || "#64748b";
-            return (
-              <button
-                key={p.id}
-                type="button"
-                disabled={!puedeEditar}
-                onClick={() => toggleProceso(p.id)}
-                className="ce-chip"
-                title={puedeEditar ? "Quitar" : undefined}
-                style={{
-                  display: "inline-flex", alignItems: "center", gap: 6, padding: "4px 10px", borderRadius: 9,
-                  fontSize: 11.5, fontWeight: 750, cursor: puedeEditar ? "pointer" : "default",
-                  border: `1px solid ${tint(pc, 32)}`, background: tint(pc, 12), color: C.muted,
-                }}
-              >
-                <span style={{ width: 7, height: 7, borderRadius: 2, background: pc, flexShrink: 0 }} />
-                {p.nombre}
-              </button>
-            );
-          })}
-          {puedeEditar && procesos.some((p) => !asignados.includes(p.id)) && (
-            <select
-              value=""
-              onChange={(e) => { if (e.target.value) toggleProceso(e.target.value); }}
-              style={{ ...INPUT, width: "auto", padding: "4px 8px", fontSize: 11.5, borderRadius: 9, cursor: "pointer", color: C.dim, background: "transparent", borderStyle: "dashed" }}
-            >
-              <option value="">+ etapa de producción</option>
-              {procesos.filter((p) => !asignados.includes(p.id)).map((p) => <option key={p.id} value={p.id}>{p.nombre}</option>)}
-            </select>
-          )}
-          <span style={{ marginLeft: "auto", fontSize: 11, color: C.dim }}>opcional · sólo para saber para qué es</span>
-        </div>
+        {/* Derivado de los materiales, no editable. Tener el mismo dato en dos
+            controles independientes hacía que se contradijeran entre sí. */}
+        {cubre.length > 0 && (
+          <div style={{ display: "flex", alignItems: "center", gap: 7, flexWrap: "wrap", padding: "9px 14px", borderTop: `1px solid ${C.border}` }}>
+            <span style={{ ...LBL }}>Cubre</span>
+            {cubre.map((p) => {
+              const pc = p.color || "#64748b";
+              return (
+                <span
+                  key={p.id}
+                  style={{
+                    display: "inline-flex", alignItems: "center", gap: 6, padding: "3px 9px", borderRadius: 9,
+                    fontSize: 11, fontWeight: 750,
+                    border: `1px solid ${tint(pc, 30)}`, background: tint(pc, 11), color: C.muted,
+                  }}
+                >
+                  <span style={{ width: 7, height: 7, borderRadius: 2, background: pc, flexShrink: 0 }} />
+                  {p.nombre}
+                  <span style={{ fontFamily: C.mono, fontSize: 10, color: C.dim }}>{p.cantidad}</span>
+                </span>
+              );
+            })}
+            <span style={{ marginLeft: "auto", fontSize: 10.5, color: C.dim }}>según la etapa de cada material</span>
+          </div>
+        )}
 
         {/* Cuándo se compra. La fecha NO se escribe: se define la regla y sale
             del desmolde de la obra. Así cuando se corre el barco, se corre todo. */}
@@ -545,26 +541,35 @@ function DetalleEtapa({ obra, etapa, etapas, plantilla, procesos, onReloadEtapas
             <option value="botada">la botada</option>
           </select>
 
+          {/* Arranca APAGADO y hay que prenderlo a mano. Que el sistema compre
+              solo es una decisión de una persona, no un default. Por eso el
+              estado apagado se muestra explícito ("manual") en vez de dejar el
+              control mudo: mudo se lee como "no sé si está prendido". */}
           <label
-            title="Al vencer la tolerancia, el sistema crea un pedido por proveedor con los materiales que todavía no estén pedidos."
+            title={
+              etapa.auto_generar === true
+                ? "Al vencer la tolerancia, el sistema genera el pedido solo y le avisa a Compras."
+                : "Prendelo sólo si querés que el sistema compre por su cuenta al vencer la fecha. Apagado, el pedido lo generás vos."
+            }
             style={{
-              display: "inline-flex", alignItems: "center", gap: 6, padding: "4px 8px",
-              borderRadius: 9, border: `1px solid ${etapa.auto_generar !== false ? C.greenB : C.border}`,
-              background: etapa.auto_generar !== false ? C.greenL : C.panel,
-              color: etapa.auto_generar !== false ? C.green : C.dim, fontSize: 11.5, fontWeight: 800,
+              display: "inline-flex", alignItems: "center", gap: 6, padding: "4px 9px",
+              borderRadius: 9, border: `1px solid ${etapa.auto_generar === true ? C.greenB : C.border}`,
+              background: etapa.auto_generar === true ? C.greenL : C.panel,
+              color: etapa.auto_generar === true ? C.green : C.dim, fontSize: 11.5, fontWeight: 800,
+              cursor: puedeEditar ? "pointer" : "default",
             }}
           >
             <input
               type="checkbox"
-              checked={etapa.auto_generar !== false}
+              checked={etapa.auto_generar === true}
               disabled={!puedeEditar}
               onChange={(e) => guardar({ auto_generar: e.target.checked })}
               style={{ accentColor: "var(--green)", cursor: puedeEditar ? "pointer" : "default" }}
             />
-            Pedido automático
+            {etapa.auto_generar === true ? "Compra automática" : "Compra manual"}
           </label>
 
-          {etapa.auto_generar !== false && (
+          {etapa.auto_generar === true && (
             <label style={{ display: "inline-flex", alignItems: "center", gap: 6, color: C.dim, fontSize: 11.5 }}>
               tolerancia
               <input

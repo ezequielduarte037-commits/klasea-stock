@@ -5,6 +5,7 @@ import { supabase } from "./supabaseClient";
 import PedidosScreen         from "@/features/inventario/PedidosScreen";
 import MarmoleriaScreen      from "@/features/marmoleria/MarmoleriaScreen";
 import MueblesScreen         from "@/features/muebles/MueblesScreen";
+import TorneriaScreen        from "@/features/torneria/TorneriaScreen";
 import PanolScreen           from "@/features/inventario/PanolScreen";
 import AdminDashboard        from "@/features/admin/AdminDashboard";
 import MovimientosScreen     from "@/features/inventario/MovimientosScreen";
@@ -441,6 +442,7 @@ export default function App() {
         <Route path="/panol"      element={<Navigate to="/madera?tab=Stock" replace />} />
         <Route path="/laminacion" element={<RequireAuth session={session}><RequireRole profile={profile} allow={["admin","oficina","tecnica","panol","laminacion"]}><LaminacionScreen {...A} /></RequireRole></RequireAuth>} />
         <Route path="/muebles"    element={<RequireAuth session={session}><RequireRole profile={profile} allow={["admin","oficina","tecnica","muebles","compras"]}><MueblesScreen    {...A} /></RequireRole></RequireAuth>} />
+        <Route path="/torneria"   element={<RequireAuth session={session}><RequireRole profile={profile} allow={["admin","oficina","tecnica","mecanica","compras"]}><TorneriaScreen   {...A} /></RequireRole></RequireAuth>} />
         <Route path="/pedidos"    element={<RequireAuth session={session}><RequireRole profile={profile} allow={["admin","oficina","tecnica"]}><PedidosScreen    {...A} /></RequireRole></RequireAuth>} />
         <Route path="/compras"    element={<RequireAuth session={session}><RequireRole profile={profile} allow={["admin","oficina","tecnica","panol","compras"]}><PurchaseRequestsScreen {...A} /></RequireRole></RequireAuth>} />
         <Route path="/inicio-panol" element={<RequireAuth session={session}><RequireRole profile={profile} allow={["panol"]}><PanolOperativoHome {...A} /></RequireRole></RequireAuth>} />

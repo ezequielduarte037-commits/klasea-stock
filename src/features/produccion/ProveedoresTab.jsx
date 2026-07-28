@@ -6,7 +6,7 @@ import {
 import { C } from "@/theme";
 import {
   autogenerarPedidosVencidos,
-  crearPedidoMultiEtapa,
+  crearPedidoProveedor,
   fetchEtapasVencidasSinMateriales,
   fetchMaterialesPendientesPorProveedor,
 } from "@/features/produccion/comprasEtapasApi";
@@ -22,20 +22,26 @@ function fechaCorta(value) {
   });
 }
 
-function ObraProveedor({ grupo, proveedor, onCreado, toast }) {
-  const idsKey = grupo.items.map((item) => item.etapa_material_id).join(",");
-  const [seleccionados, setSeleccionados] = useState(() => new Set(grupo.items.map((item) => item.etapa_material_id)));
+// Un proveedor con todas sus obras. Es el que junta la selección y arma UN
+// pedido, aunque los materiales vengan de obras distintas. Las obras que entran
+// son sólo las que quedaron tildadas: nunca se agrega una de oficio, porque a
+// veces hay una obra que todavía no se debe pedir.
+function ProveedorBloque({ grupo, onCreado, toast }) {
+  const todosLosIds = useMemo(
+    () => grupo.obras.flatMap((obra) => obra.items.map((item) => item.etapa_material_id)),
+    [grupo.obras]
+  );
+  const idsKey = todosLosIds.join(",");
+  const [seleccionados, setSeleccionados] = useState(() => new Set(todosLosIds));
   const [creando, setCreando] = useState(false);
 
-  useEffect(() => {
-    setSeleccionados(new Set(grupo.items.map((item) => item.etapa_material_id)));
-  }, [grupo.items, idsKey]);
-
-  const todos = grupo.items.length > 0 && grupo.items.every((item) => seleccionados.has(item.etapa_material_id));
-  const etapas = [...new Map(grupo.items.map((item) => [
-    item.obra_compra_etapa_id,
-    { nombre: item.etapa_nombre, color: item.etapa_color },
-  ])).values()];
+  // Si la lista cambia (se generó un pedido, se recargó), se limpian las marcas
+  // que ya no existen para no mandar ids fantasma.
+  const [refIds, setRefIds] = useState(idsKey);
+  if (refIds !== idsKey) {
+    setRefIds(idsKey);
+    setSeleccionados(new Set(todosLosIds));
+  }
 
   function toggle(id) {
     setSeleccionados((prev) => {
@@ -46,23 +52,37 @@ function ObraProveedor({ grupo, proveedor, onCreado, toast }) {
     });
   }
 
+  function toggleObra(ids, marcar) {
+    setSeleccionados((prev) => {
+      const next = new Set(prev);
+      ids.forEach((id) => (marcar ? next.add(id) : next.delete(id)));
+      return next;
+    });
+  }
+
+  // Cuántas obras entran realmente en el pedido según lo tildado.
+  const obrasEnPedido = grupo.obras.filter((obra) =>
+    obra.items.some((item) => seleccionados.has(item.etapa_material_id))
+  );
+
   async function crear() {
     if (!seleccionados.size || creando) return;
+    if (obrasEnPedido.length > 1) {
+      const nombres = obrasEnPedido.map((o) => o.obraCodigo || "sin código").join(", ");
+      if (!window.confirm(
+        `Este pedido a ${grupo.proveedor} junta materiales de ${obrasEnPedido.length} obras:\n\n${nombres}\n\n¿Va así?`
+      )) return;
+    }
     setCreando(true);
     try {
-      const resultado = await crearPedidoMultiEtapa({
-        obraId: grupo.obraId,
+      const resultado = await crearPedidoProveedor({
         materialIds: [...seleccionados],
-        proveedor,
+        proveedor: grupo.proveedor,
       });
-      if (!resultado?.created) {
-        toast?.error("Esos materiales ya estaban incluidos en pedidos vigentes.");
-      } else {
-        toast?.success(
-          `Pedido creado para ${proveedor}: ${resultado.items} materiales de ${resultado.etapas} ${resultado.etapas === 1 ? "etapa" : "etapas"}.`
-        );
-        await onCreado();
-      }
+      toast?.success(
+        `Pedido a ${grupo.proveedor}: ${resultado.items} materiales de ${resultado.obras} ${resultado.obras === 1 ? "obra" : "obras"}. Compras ya fue avisado.`
+      );
+      await onCreado();
     } catch (error) {
       toast?.error(error.message || "No se pudo crear el pedido.");
     } finally {
@@ -71,21 +91,79 @@ function ObraProveedor({ grupo, proveedor, onCreado, toast }) {
   }
 
   return (
+    <div className="ce-surface" style={{ overflow: "hidden" }}>
+      <div style={{ display: "flex", alignItems: "center", gap: 10, padding: "11px 14px", flexWrap: "wrap" }}>
+        <span style={{ width: 31, height: 31, borderRadius: 10, display: "grid", placeItems: "center", background: C.violetL, border: `1px solid ${C.violetB}`, color: C.violet }}>
+          <Truck size={15} />
+        </span>
+        <div style={{ minWidth: 0 }}>
+          <div style={{ fontSize: 14, fontWeight: 900, color: C.text }}>{grupo.proveedor}</div>
+          <div style={{ fontSize: 11, color: C.dim }}>
+            {grupo.total} materiales · {grupo.obras.length} {grupo.obras.length === 1 ? "obra" : "obras"}
+          </div>
+        </div>
+
+        <div style={{ marginLeft: "auto", display: "flex", alignItems: "center", gap: 9, flexWrap: "wrap" }}>
+          {obrasEnPedido.length > 1 && (
+            <Pill color={C.blue} soft={C.blueL} borde={C.blueB}>
+              cruza {obrasEnPedido.length} obras
+            </Pill>
+          )}
+          <span style={{ fontSize: 11.5, color: C.dim }}>
+            {seleccionados.size} de {grupo.total} tildados
+          </span>
+          <Cta
+            icon={creando ? Loader2 : ClipboardPlus}
+            size="sm"
+            onClick={crear}
+            disabled={!seleccionados.size || creando}
+          >
+            Generar pedido · {seleccionados.size}
+          </Cta>
+        </div>
+      </div>
+
+      {grupo.obras.map((obra) => (
+        <ObraProveedor
+          key={obra.obraId}
+          grupo={obra}
+          seleccionados={seleccionados}
+          onToggle={toggle}
+          onToggleObra={toggleObra}
+        />
+      ))}
+    </div>
+  );
+}
+
+// La selección NO vive acá sino en el proveedor, que es el que arma el pedido.
+// Antes cada obra tenía su propio botón y por lo tanto no había forma de juntar
+// material de dos obras para el mismo proveedor, que es justo cuando más
+// conviene juntar (flete, mínimo de compra).
+function ObraProveedor({ grupo, seleccionados, onToggle, onToggleObra }) {
+  const todos = grupo.items.length > 0 && grupo.items.every((item) => seleccionados.has(item.etapa_material_id));
+  const marcadosAca = grupo.items.filter((item) => seleccionados.has(item.etapa_material_id)).length;
+  const etapas = [...new Map(grupo.items.map((item) => [
+    item.obra_compra_etapa_id,
+    { nombre: item.etapa_nombre, color: item.etapa_color },
+  ])).values()];
+
+  const toggle = onToggle;
+
+  return (
     <section style={{ borderTop: `1px solid ${C.border}` }}>
       <div style={{ display: "flex", alignItems: "center", gap: 10, padding: "10px 14px", flexWrap: "wrap" }}>
         <input
           type="checkbox"
           aria-label={`Seleccionar materiales de ${grupo.obraCodigo}`}
           checked={todos}
-          onChange={(event) => setSeleccionados(
-            event.target.checked ? new Set(grupo.items.map((item) => item.etapa_material_id)) : new Set()
-          )}
+          onChange={(event) => onToggleObra(grupo.items.map((item) => item.etapa_material_id), event.target.checked)}
           style={{ width: 15, height: 15, accentColor: "var(--violet)", cursor: "pointer" }}
         />
         <div style={{ minWidth: 0 }}>
           <div style={{ fontSize: 13.5, fontWeight: 900, color: C.text }}>{grupo.obraCodigo || "Obra sin código"}</div>
           <div style={{ fontSize: 11, color: C.dim }}>
-            {grupo.items.length} materiales · {etapas.length} {etapas.length === 1 ? "etapa" : "etapas"}
+            {marcadosAca}/{grupo.items.length} materiales · {etapas.length} {etapas.length === 1 ? "etapa" : "etapas"}
           </div>
         </div>
         <div style={{ display: "flex", gap: 5, flexWrap: "wrap" }}>
@@ -99,16 +177,6 @@ function ObraProveedor({ grupo, proveedor, onCreado, toast }) {
               {etapa.nombre}
             </Pill>
           ))}
-        </div>
-        <div style={{ marginLeft: "auto" }}>
-          <Cta
-            icon={creando ? Loader2 : ClipboardPlus}
-            size="sm"
-            onClick={crear}
-            disabled={!seleccionados.size || creando}
-          >
-            Crear pedido · {seleccionados.size}
-          </Cta>
         </div>
       </div>
 
@@ -262,11 +330,32 @@ export default function ProveedoresTab({ toast, onPedidoGenerado }) {
             icon={ejecutando ? Loader2 : RefreshCw}
             disabled={ejecutando}
             onClick={() => cargar({ autogenerar: true, avisar: true })}
+            title="Busca etapas cuya fecha ya venció y que tengan la generación automática prendida, y les arma el pedido. Las que no la tengan prendida no se tocan."
           >
-            Revisar vencidos
+            Generar los vencidos
           </Ghost>
         </div>
       </div>
+
+      {/* Cómo se usa la pantalla, en un renglón. Sin esto, un bloque de
+          proveedor con obras adentro y tildes por todos lados no dice por sí
+          solo qué se espera que hagas. */}
+      {materiales.length > 0 && (
+        <div style={{
+          display: "flex", alignItems: "center", gap: 9, flexWrap: "wrap",
+          padding: "8px 13px", borderRadius: 11,
+          background: C.panel, border: `1px solid ${C.border}`,
+          fontSize: 11.5, color: C.dim, lineHeight: 1.5,
+        }}>
+          <Truck size={13} color={C.violet} style={{ flexShrink: 0 }} />
+          <span>
+            Cada bloque es <b style={{ color: C.muted, fontWeight: 750 }}>un proveedor</b> con todo lo que le falta comprar.
+            Destildá lo que no va y tocá <b style={{ color: C.muted, fontWeight: 750 }}>Generar pedido</b>:
+            sale <b style={{ color: C.muted, fontWeight: 750 }}>un solo pedido</b>, aunque junte materiales de varias obras.
+            Compras recibe el aviso al instante.
+          </span>
+        </div>
+      )}
 
       {sinMateriales.length > 0 && (
         <div
@@ -311,29 +400,15 @@ export default function ProveedoresTab({ toast, onPedidoGenerado }) {
       )}
 
       {!cargando && proveedores.map((grupo) => (
-        <div key={grupo.proveedor} className="ce-surface" style={{ overflow: "hidden" }}>
-          <div style={{ display: "flex", alignItems: "center", gap: 10, padding: "11px 14px" }}>
-            <span style={{ width: 31, height: 31, borderRadius: 10, display: "grid", placeItems: "center", background: C.violetL, border: `1px solid ${C.violetB}`, color: C.violet }}>
-              <Truck size={15} />
-            </span>
-            <div>
-              <div style={{ fontSize: 14, fontWeight: 900, color: C.text }}>{grupo.proveedor}</div>
-              <div style={{ fontSize: 11, color: C.dim }}>{grupo.total} materiales · {grupo.obras.length} {grupo.obras.length === 1 ? "obra" : "obras"}</div>
-            </div>
-          </div>
-          {grupo.obras.map((obra) => (
-            <ObraProveedor
-              key={obra.obraId}
-              grupo={obra}
-              proveedor={grupo.proveedor}
-              toast={toast}
-              onCreado={async () => {
-                await cargar();
-                onPedidoGenerado?.();
-              }}
-            />
-          ))}
-        </div>
+        <ProveedorBloque
+          key={grupo.proveedor}
+          grupo={grupo}
+          toast={toast}
+          onCreado={async () => {
+            await cargar();
+            onPedidoGenerado?.();
+          }}
+        />
       ))}
     </div>
   );

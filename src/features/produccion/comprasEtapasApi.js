@@ -141,18 +141,31 @@ export async function fetchEtapasVencidasSinMateriales() {
   return data ?? [];
 }
 
-export async function crearPedidoMultiEtapa({ obraId, materialIds, proveedor }) {
+// Un pedido a un proveedor puede juntar materiales de VARIAS obras. Las obras
+// no se deducen ni se agregan de oficio: salen de los materiales que la persona
+// eligió. Si una obra no está en la selección, no entra al pedido — a veces una
+// obra puntual no se debe pedir todavía.
+export async function crearPedidoProveedor({ materialIds, proveedor }) {
   const ids = [...new Set((materialIds ?? []).filter(Boolean))];
-  if (!obraId) throw new Error("Falta la obra.");
   if (!ids.length) throw new Error("Seleccioná al menos un material.");
-  const { data, error } = await supabase.rpc("compras_crear_pedido_multi_etapa", {
-    p_obra_id: obraId,
+  const { data, error } = await supabase.rpc("compras_crear_pedido_proveedor", {
     p_material_ids: ids,
     p_proveedor: proveedor || null,
     p_auto: false,
   });
   if (error) throw error;
   return data;
+}
+
+// Cuántos pedidos están esperando que Compras los mire. Alimenta el badge del
+// sidebar: sin esto, un pedido generado solo no se anunciaba en ningún lado.
+export async function contarPedidosPendientes() {
+  const { count, error } = await supabase
+    .from("pedidos_produccion")
+    .select("id", { count: "exact", head: true })
+    .in("estado", ["pendiente", "en_compra"]);
+  if (error) return 0;
+  return count ?? 0;
 }
 
 export async function autogenerarPedidosVencidos() {

@@ -9,7 +9,7 @@ import { fetchEtapasModelo, fetchModelos } from "@/features/produccion/comprasEt
 import {
   actualizarEtapaPlantilla, actualizarMaterialPlantilla, agregarMaterialesPlantilla, transferirMaterialesPlantilla,
   borrarEtapaPlantilla, colorSugerido, crearEtapaPlantilla, fetchMaterialesPlantilla,
-  fetchPlantillaCompra, quitarMaterialPlantilla, reordenarPlantilla, setProcesosPlantilla,
+  fetchPlantillaCompra, quitarMaterialPlantilla, reordenarPlantilla,
 } from "@/features/produccion/comprasObraApi";
 import { INPUT, LBL, tint } from "@/features/produccion/comprasTokens";
 import { Cta, EmptyState, Ghost, IconBtn, Pill } from "@/features/produccion/comprasUI";
@@ -198,12 +198,6 @@ function DetalleEtapa({ etapa, procesos, otrasEtapas = [], onReload, toast }) {
     if (normalizado === Number(etapa.dias_gracia ?? 3)) return;
     await guardar({ dias_gracia: normalizado });
   }
-  async function toggleProceso(procId) {
-    const actuales = etapa.procesoIds ?? [];
-    const next = actuales.includes(procId) ? actuales.filter((id) => id !== procId) : [...actuales, procId];
-    try { await setProcesosPlantilla(etapa.id, next); await onReload(); }
-    catch (err) { toast?.error(err.message); }
-  }
   async function borrar() {
     if (!window.confirm(`¿Borrar "${etapa.nombre}" de la plantilla?\n\nLas obras que ya la copiaron no se tocan.`)) return;
     try { await borrarEtapaPlantilla(etapa.id); await onReload(); }
@@ -211,7 +205,22 @@ function DetalleEtapa({ etapa, procesos, otrasEtapas = [], onReload, toast }) {
   }
 
   const color = etapa.color || "#8b5cf6";
-  const asignados = etapa.procesoIds ?? [];
+
+  // Las etapas de producción que cubre esta tanda salen de los materiales que
+  // tiene adentro, con cuántos aporta cada una. Si nadie asignó etapa todavía,
+  // el bloque directamente no se muestra en vez de quedar vacío y confundir.
+  const cubre = useMemo(() => {
+    const mapa = new Map();
+    for (const m of materiales) {
+      if (!m.linea_proceso_id) continue;
+      const p = procesos.find((x) => x.id === m.linea_proceso_id);
+      if (!p) continue;
+      const prev = mapa.get(p.id);
+      if (prev) prev.cantidad += 1;
+      else mapa.set(p.id, { id: p.id, nombre: p.nombre, color: p.color, cantidad: 1 });
+    }
+    return [...mapa.values()].sort((a, b) => (a.nombre || "").localeCompare(b.nombre || "", "es"));
+  }, [materiales, procesos]);
 
   return (
     <div style={{ display: "grid", gap: 12, alignContent: "start" }}>
@@ -238,41 +247,34 @@ function DetalleEtapa({ etapa, procesos, otrasEtapas = [], onReload, toast }) {
           <IconBtn icon={Trash2} title="Borrar de la plantilla" tono="rojo" onClick={borrar} />
         </div>
 
-        <div style={{ display: "flex", alignItems: "center", gap: 7, flexWrap: "wrap", padding: "10px 14px", borderTop: `1px solid ${C.border}` }}>
-          <span style={{ ...LBL }}>Cubre</span>
-          {!procesos.length && <span style={{ fontSize: 12, color: C.dim }}>este modelo no tiene etapas de producción</span>}
-          {procesos.filter((p) => asignados.includes(p.id)).map((p) => {
-            const pc = p.color || "#64748b";
-            return (
-              <button
-                key={p.id}
-                type="button"
-                onClick={() => toggleProceso(p.id)}
-                className="ce-chip"
-                title="Quitar"
-                style={{
-                  display: "inline-flex", alignItems: "center", gap: 6, padding: "4px 10px", borderRadius: 9,
-                  fontSize: 11.5, fontWeight: 750, cursor: "pointer",
-                  border: `1px solid ${tint(pc, 32)}`, background: tint(pc, 12), color: C.muted,
-                }}
-              >
-                <span style={{ width: 7, height: 7, borderRadius: 2, background: pc, flexShrink: 0 }} />
-                {p.nombre}
-              </button>
-            );
-          })}
-          {procesos.some((p) => !asignados.includes(p.id)) && (
-            <select
-              value=""
-              onChange={(e) => { if (e.target.value) toggleProceso(e.target.value); }}
-              style={{ ...INPUT, width: "auto", padding: "4px 8px", fontSize: 11.5, borderRadius: 9, cursor: "pointer", color: C.dim, background: "transparent", borderStyle: "dashed" }}
-            >
-              <option value="">+ etapa de producción</option>
-              {procesos.filter((p) => !asignados.includes(p.id)).map((p) => <option key={p.id} value={p.id}>{p.nombre}</option>)}
-            </select>
-          )}
-          <span style={{ marginLeft: "auto", fontSize: 11, color: C.dim }}>opcional · sólo para saber para qué es</span>
-        </div>
+        {/* "Cubre" dejó de ser un control. Antes se elegían las etapas acá Y
+            además en cada material, y las dos cosas podían quedar en desacuerdo
+            (la etapa marcada arriba vacía y un material con etapa asignada, o al
+            revés). Ahora se DEDUCE de los materiales: una sola fuente de verdad
+            y nada que mantener sincronizado a mano. */}
+        {cubre.length > 0 && (
+          <div style={{ display: "flex", alignItems: "center", gap: 7, flexWrap: "wrap", padding: "9px 14px", borderTop: `1px solid ${C.border}` }}>
+            <span style={{ ...LBL }}>Cubre</span>
+            {cubre.map((p) => {
+              const pc = p.color || "#64748b";
+              return (
+                <span
+                  key={p.id}
+                  style={{
+                    display: "inline-flex", alignItems: "center", gap: 6, padding: "3px 9px", borderRadius: 9,
+                    fontSize: 11, fontWeight: 750,
+                    border: `1px solid ${tint(pc, 30)}`, background: tint(pc, 11), color: C.muted,
+                  }}
+                >
+                  <span style={{ width: 7, height: 7, borderRadius: 2, background: pc, flexShrink: 0 }} />
+                  {p.nombre}
+                  <span style={{ fontFamily: C.mono, fontSize: 10, color: C.dim }}>{p.cantidad}</span>
+                </span>
+              );
+            })}
+            <span style={{ marginLeft: "auto", fontSize: 10.5, color: C.dim }}>según la etapa de cada material</span>
+          </div>
+        )}
 
         <div style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap", padding: "10px 14px", borderTop: `1px solid ${C.border}` }}>
           <span style={{ ...LBL }}>Regla de compra</span>

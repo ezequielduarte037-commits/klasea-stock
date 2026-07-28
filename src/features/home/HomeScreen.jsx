@@ -25,6 +25,7 @@ import logoK      from "@/assets/logos/logo-k.png";
 // ─── PALETA ────────────────────────────────────────────────────
 // ─── MÓDULOS ───────────────────────────────────────────────────
 const MODULOS = [
+  { href:"/torneria",         label:"Tornería",          desc:"Materiales de Mecánica, talleres y regresos parciales", color:"#38bdf8", roles:["mecanica","tecnica","oficina","admin","compras"] },
   { href:"/panol",            label:"Maderas",           desc:"Ingresos, egresos y stock de madera",         color:"#818cf8", roles:["panol","oficina","admin"] },
   { href:"/laminacion",       label:"Laminación",        desc:"Stock y movimientos de materiales de laminación",           color:"#818cf8", roles:["panol","oficina","admin","laminacion"] },
   { href:"/obras",            label:"Obras",             desc:"Mapa de producción y estado de barcos",       color:"#60a5fa", roles:["oficina","admin"] },

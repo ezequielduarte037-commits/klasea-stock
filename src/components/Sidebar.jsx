@@ -63,6 +63,11 @@ function Icon({ id, color = "currentColor", size = 14 }) {
       <rect x="1" y="6" width="14" height="6" rx="1.5" {...p}/>
       <path d="M1 12v2M15 12v2M4 6V4M12 6V4" {...p}/>
     </>,
+    "/torneria": <>
+      <circle cx="8" cy="8" r="3.1" {...p}/>
+      <path d="M8 1.2v2M8 12.8v2M1.2 8h2M12.8 8h2M3.2 3.2l1.4 1.4M11.4 11.4l1.4 1.4M3.2 12.8l1.4-1.4M11.4 4.6l1.4-1.4" {...p}/>
+      <circle cx="8" cy="8" r="1" fill={color} stroke="none"/>
+    </>,
     "/procedimientos": <>
       <rect x="3" y="1" width="10" height="14" rx="1.5" {...p}/>
       <path d="M6 5h4M6 8h4M6 11h2.5" {...p}/>
@@ -302,6 +307,7 @@ export default function Sidebar({ profile, signOut }) {
   const esAdministracion = role === "administracion";
   const esRrhh    = esAdmin || role === "rrhh" || esTecnica || esAdministracion;
   const esCompras = role === "compras";
+  const esMecanica = role === "mecanica";
   const puedeEditarPlantillas = broadAccess || role === "tecnica";
   const puedePedirCompras = esGestion || esPanol || esCompras;
   const puedeVerMateriales = esGestion || esCompras;
@@ -340,7 +346,7 @@ export default function Sidebar({ profile, signOut }) {
     let alive = true;
     async function loadComprasBadge() {
       try {
-        const [requestsRes, avisosRes, faltantesRes] = await Promise.allSettled([
+        const [requestsRes, avisosRes, faltantesRes, etapaRes] = await Promise.allSettled([
           supabase
             .from("purchase_requests")
             .select("id", { count: "exact", head: true })
@@ -354,11 +360,18 @@ export default function Sidebar({ profile, signOut }) {
             .from("panol_faltantes_compras")
             .select("id", { count: "exact", head: true })
             .in("estado", ["nuevo", "en_revision", "pedido", "comprado"]),
+          // Los pedidos por etapa no avisaban a nadie: quedaban en su pestaña y
+          // si nadie entraba, no existían. Ahora suman al badge como el resto.
+          supabase
+            .from("pedidos_produccion")
+            .select("id", { count: "exact", head: true })
+            .in("estado", ["pendiente", "en_compra"]),
         ]);
         const requestCount = requestsRes.status === "fulfilled" && !requestsRes.value.error ? requestsRes.value.count || 0 : 0;
         const avisoCount = avisosRes.status === "fulfilled" && !avisosRes.value.error ? avisosRes.value.count || 0 : 0;
         const faltanteCount = faltantesRes.status === "fulfilled" && !faltantesRes.value.error ? faltantesRes.value.count || 0 : 0;
-        if (alive) setComprasBadge(requestCount + avisoCount + faltanteCount);
+        const etapaCount = etapaRes.status === "fulfilled" && !etapaRes.value.error ? etapaRes.value.count || 0 : 0;
+        if (alive) setComprasBadge(requestCount + avisoCount + faltanteCount + etapaCount);
       } catch {
         if (alive) setComprasBadge(null);
       }
@@ -588,7 +601,13 @@ export default function Sidebar({ profile, signOut }) {
             {item("/memorias",    "Memorias",    SC.produccion, true, 150, "Memorias descriptivas de barcos activos en formato planilla para reunión.")}
             {item("/marmoleria",  "Marmolería",  SC.produccion, true, 160, "Stock de materiales y cortes (ej. Dekton) para cubiertas y baños.")}
             {item("/muebles",     "Muebles",     SC.produccion, true, 180, "Producción, despiece y ensamblaje de mobiliario.")}
+            {item("/torneria",    "Tornería",    SC.produccion, true, 190, "Materiales de Mecánica: salidas a Tornería o Plegadora y regresos parciales.")}
             {item("/calendario",  "Calendario",  SC.produccion, true, 200, "Cronograma general y planificación de fechas del astillero.")}
+          </>}
+
+          {esMecanica && !esGestion && <>
+            {group("Mecánica", SC.produccion, 120)}
+            {item("/torneria", "Tornería", SC.produccion, true, 140, "Seguimiento desde el celular de materiales enviados a Tornería y Plegadora.")}
           </>}
 
           {puedePedirCompras && !esPanol && <>
@@ -601,6 +620,8 @@ export default function Sidebar({ profile, signOut }) {
             {esCompras && item("/muebles", "Muebles y herrajes", SC.produccion, true, 218, "Seguimiento de Oberti y Morph, OT de enchapado y kits de herrajes.")}
             {(esCompras || realAdmin) && item("/semaforo", "Semáforo", SC.semaforo, true, 220, "Semáforo de producción: estado visual de avance por obra.")}
           </>}
+
+          {esCompras && item("/torneria", "Tornería y mecanizados", SC.produccion, true, 219, "Seguimiento de materiales de Mecánica solicitados por Tornería.")}
 
           {esGestion && <>
             {divider("panol-rec")}

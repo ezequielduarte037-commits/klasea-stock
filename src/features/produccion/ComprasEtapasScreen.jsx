@@ -22,24 +22,27 @@ import BotonAyuda from "@/features/ayuda/BotonAyuda";
 // editarlas. Cada cambio queda registrado por trigger en compras_auditoria.
 // ─────────────────────────────────────────────────────────────────────────────
 
+// El orden es el del circuito real, y por eso Plantillas va primero: sin la
+// plantilla de un modelo cargada, todo lo demás arranca vacío.
+//   plantilla del modelo → se copia a la obra → se agrupa por proveedor → pedido
 const TABS = [
+  { id: "plantillas", label: "Plantillas", corto: "Plantillas", icon: LayoutTemplate },
   { id: "obra", label: "Compras por obra", corto: "Obra", icon: Ship },
   { id: "proveedores", label: "Por proveedor", corto: "Proveedores", icon: Truck },
-  { id: "plantillas", label: "Plantillas", corto: "Plantillas", icon: LayoutTemplate },
   { id: "pedidos", label: "Pedidos", corto: "Pedidos", icon: ClipboardList },
 ];
 
 const SUBTITULOS = {
+  plantillas: "Punto de partida: las tandas típicas de cada modelo. Se copian a cada obra nueva.",
   obra: "Las tandas de compra de cada obra, con sus materiales adentro.",
-  proveedores: "Agrupá materiales de varias etapas de una obra en un solo pedido por proveedor.",
-  plantillas: "Las tandas típicas de cada modelo, para copiarlas a las obras nuevas.",
-  pedidos: "Pedidos generados desde las etapas de compra.",
+  proveedores: "Juntá materiales de varias etapas —y de varias obras— en un pedido por proveedor.",
+  pedidos: "Seguimiento de lo ya pedido. Cada pedido avisa a Compras al generarse.",
 };
 
 export default function ComprasEtapasScreen({ profile, signOut }) {
   const { isMobile } = useResponsive();
   const toast = useToast();
-  const [tab, setTab] = useState("obra");
+  const [tab, setTab] = useState("plantillas");
   // Al generar un pedido desde una etapa, la pestaña de pedidos se refresca sola.
   const [pulsoPedidos, setPulsoPedidos] = useState(0);
 
@@ -88,13 +91,13 @@ export default function ComprasEtapasScreen({ profile, signOut }) {
             </div>
 
             <div style={{ marginLeft: "auto", display: "flex", alignItems: "center", gap: 8, minWidth: 0, maxWidth: "100%" }}>
-              <BotonAyuda tourId="compras-etapa" profile={profile} onBeforeStart={() => setTab("obra")} />
+              <BotonAyuda tourId="compras-etapa" profile={profile} onBeforeStart={() => setTab("plantillas")} />
               <div
                 role="tablist"
                 data-tour="compras-tabs"
                 style={{ display: "inline-flex", gap: 4, padding: 4, background: C.panel2, border: `1px solid ${C.border}`, borderRadius: 12, maxWidth: "100%", overflowX: "auto" }}
               >
-                {TABS.map((t) => {
+                {TABS.map((t, i) => {
                   const active = tab === t.id;
                   const Icon = t.icon;
                   return (
@@ -106,7 +109,7 @@ export default function ComprasEtapasScreen({ profile, signOut }) {
                       onClick={() => setTab(t.id)}
                       className="ce-seg"
                       style={{
-                        display: "inline-flex", alignItems: "center", gap: 7, padding: "7px 14px", borderRadius: 9,
+                        display: "inline-flex", alignItems: "center", gap: 7, padding: "7px 13px", borderRadius: 9,
                         border: "none", cursor: "pointer", fontSize: 12.5, fontWeight: 800, whiteSpace: "nowrap",
                         fontFamily: C.sans,
                         background: active ? C.panelSolid : "transparent",
@@ -114,6 +117,18 @@ export default function ComprasEtapasScreen({ profile, signOut }) {
                         boxShadow: active ? "0 2px 6px -2px var(--shadow)" : "none",
                       }}
                     >
+                      {/* El número no es decoración: las pestañas son las cuatro
+                          etapas del circuito, en orden. Sin él se leen como
+                          secciones sueltas y no se entiende por dónde empezar. */}
+                      <span style={{
+                        width: 16, height: 16, flexShrink: 0, borderRadius: 5, display: "grid", placeItems: "center",
+                        fontSize: 9.5, fontWeight: 900, fontFamily: C.mono,
+                        background: active ? C.violetL : C.panel,
+                        color: active ? C.violet : C.t3,
+                        border: `1px solid ${active ? C.violetB : "transparent"}`,
+                      }}>
+                        {i + 1}
+                      </span>
                       <Icon size={14} /> {isMobile ? t.corto : t.label}
                     </button>
                   );

@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { ChevronRight, ClipboardList, Inbox, Layers3, Loader2, Package, RefreshCw, Search, Trash2, Truck } from "lucide-react";
+import { BellRing, Bot, ChevronRight, ClipboardList, Inbox, Layers3, Loader2, Package, RefreshCw, Search, Trash2, Truck } from "lucide-react";
 import { C } from "@/theme";
 import {
   actualizarEstadoPedido, actualizarItemPedido, borrarPedido, fetchPedidosProduccion,
@@ -53,8 +53,24 @@ function PedidoCard({ pedido, onReload, toast }) {
             {pedido.obra?.codigo && <Pill color={C.blue} soft={C.blueL} borde={C.blueB}>{pedido.obra.codigo}</Pill>}
             {pedido.proveedor && <Pill color={C.violet} soft={C.violetL} borde={C.violetB}><Truck size={10} /> {pedido.proveedor}</Pill>}
             {(pedido.etapas ?? []).length > 0 && (
-              <Pill color={C.teal}>
+              <Pill color={C.teal} soft={C.tealL} borde={C.tealB}>
                 <Layers3 size={10} /> {pedido.etapas.length} {pedido.etapas.length === 1 ? "etapa" : "etapas"}
+              </Pill>
+            )}
+            {/* Un pedido que armó el sistema tiene que decirlo. Si alguien ve un
+                pedido que no recuerda haber hecho, esto explica de dónde salió. */}
+            {pedido.generado_auto && (
+              <Pill color={C.amber} soft={C.amberL} borde={C.amberB}>
+                <Bot size={10} /> automático
+              </Pill>
+            )}
+            {pedido.multi_obra && (
+              <Pill color={C.blue} soft={C.blueL} borde={C.blueB}>cruza obras</Pill>
+            )}
+            {/* Que se vea que el aviso salió: era justo lo que no se sabía. */}
+            {pedido.aviso_id && (
+              <Pill color={C.green} soft={C.greenL} borde={C.greenB}>
+                <BellRing size={10} /> Compras avisado
               </Pill>
             )}
           </div>
