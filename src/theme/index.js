@@ -176,6 +176,13 @@ export const C = {
   greenB: "var(--green-border)",
   redL: "var(--red-soft)",
   redB: "var(--red-border)",
+  // Las variables ya existían en palette.css (dark, light y alto contraste)
+  // pero no estaban expuestas acá, así que teal y cyan sólo se podían usar como
+  // color plano, sin fondo ni borde suaves.
+  tealL: "var(--teal-soft)",
+  tealB: "var(--teal-border)",
+  cyanL: "var(--cyan-soft)",
+  cyanB: "var(--cyan-border)",
   mono: "'JetBrains Mono', 'IBM Plex Mono', monospace",
   sans: "'Outfit', system-ui, sans-serif",
   ...status,

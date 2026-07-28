@@ -93,6 +93,29 @@ const VISTAS = [
     ),
   },
   {
+    view:"timeline", label:"Cronograma", color:"#a78bfa",
+    desc:"Etapas de cada obra ubicadas antes y después del desmolde",
+    art:(c)=>(
+      <svg viewBox="0 0 240 140" fill="none" style={{position:"absolute",inset:0,width:"100%",height:"100%",opacity:0.2}}>
+        <line x1="20" y1="28" x2="222" y2="28" stroke={c} strokeWidth="1" strokeOpacity="0.45"/>
+        <line x1="20" y1="70" x2="222" y2="70" stroke={c} strokeWidth="1" strokeOpacity="0.45"/>
+        <line x1="20" y1="112" x2="222" y2="112" stroke={c} strokeWidth="1" strokeOpacity="0.45"/>
+        {[30,70,110,150,190,220].map((x)=>(
+          <line key={x} x1={x} y1="16" x2={x} y2="126" stroke={c} strokeWidth="0.7" strokeOpacity="0.2" strokeDasharray="3 3"/>
+        ))}
+        <line x1="110" y1="10" x2="110" y2="130" stroke={c} strokeWidth="2" strokeOpacity="0.8"/>
+        <rect x="26" y="20" width="54" height="16" rx="4" fill={c} fillOpacity="0.22" stroke={c} strokeOpacity="0.55"/>
+        <rect x="87" y="20" width="48" height="16" rx="4" fill={c} fillOpacity="0.42" stroke={c} strokeOpacity="0.8"/>
+        <rect x="144" y="20" width="62" height="16" rx="4" fill={c} fillOpacity="0.16" stroke={c} strokeOpacity="0.45"/>
+        <rect x="54" y="62" width="71" height="16" rx="4" fill={c} fillOpacity="0.28" stroke={c} strokeOpacity="0.65"/>
+        <rect x="134" y="62" width="40" height="16" rx="4" fill={c} fillOpacity="0.18" stroke={c} strokeOpacity="0.48"/>
+        <rect x="94" y="104" width="56" height="16" rx="4" fill={c} fillOpacity="0.38" stroke={c} strokeOpacity="0.78"/>
+        <circle cx="110" cy="8" r="4" fill={c} fillOpacity="0.9"/>
+        <text x="103" y="137" fill={c} fillOpacity="0.85" fontSize="7" fontFamily="monospace">S0</text>
+      </svg>
+    ),
+  },
+  {
     view:"fechas", label:"Fechas", color:"#22d3ee",
     desc:"Cuándo pedir o hacer cada cosa según el desmolde de cada barco",
     art:(c)=>(
@@ -452,7 +475,7 @@ export default function ObrasHome({ obras: obrasProp, profile, onEnterMapa }) {
                 onError={e=>{e.currentTarget.src=logoK;e.currentTarget.style.height="56px";}}/>
               <div>
                 <h1 style={{margin:0,fontSize:26,lineHeight:1.05,fontWeight:800,letterSpacing:"0",color:C.t0}}>Obras de produccion</h1>
-                <div style={{fontSize:12,color:C.t2,marginTop:6}}>Mapa operativo, fechas y piezas por barco.</div>
+                <div style={{fontSize:12,color:C.t2,marginTop:6}}>Mapa operativo, cronograma, fechas y piezas por barco.</div>
               </div>
             </div>
             {live.loaded&&total>0&&(

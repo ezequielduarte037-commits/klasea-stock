@@ -18,10 +18,11 @@ export default function Tour({
   onAnterior,
   onSiguiente,
   onCerrar,
-  onTargetFaltante,
 }) {
   const paso = tour.pasos[pasoIndex];
   const [rect, setRect] = useState(null);
+  const [targetFaltante, setTargetFaltante] = useState(false);
+  const [retryToken, setRetryToken] = useState(0);
 
   useEffect(() => {
     let cancelado = false;
@@ -34,27 +35,49 @@ export default function Tour({
       const siguienteRect = elemento ? rectVisible(elemento) : null;
       if (!siguienteRect) {
         intentos += 1;
-        if (intentos < 6) {
-          timer = window.setTimeout(ubicar, 180);
+        if (intentos < 10) {
+          timer = window.setTimeout(ubicar, 160);
           return;
         }
         if (import.meta.env.DEV) console.warn(`[tour] Target ausente: ${paso.target}`);
-        onTargetFaltante();
+        setRect(null);
+        setTargetFaltante(true);
         return;
       }
 
+      setTargetFaltante(false);
       elemento.scrollIntoView({ block: "center", inline: "nearest", behavior: "auto" });
       window.requestAnimationFrame(() => {
         if (!cancelado) setRect(rectVisible(elemento));
       });
     }
 
-    timer = window.setTimeout(ubicar, 30);
+    function preparar(clickIndex = 0, clickIntento = 0) {
+      if (cancelado) return;
+      const clicks = paso.prepararClicks || [];
+      if (clickIndex >= clicks.length) {
+        timer = window.setTimeout(ubicar, 80);
+        return;
+      }
+      const elemento = document.querySelector(clicks[clickIndex]);
+      if (!elemento && clickIntento < 5) {
+        timer = window.setTimeout(() => preparar(clickIndex, clickIntento + 1), 120);
+        return;
+      }
+      elemento?.click();
+      timer = window.setTimeout(() => preparar(clickIndex + 1, 0), 140);
+    }
+
+    timer = window.setTimeout(() => {
+      setRect(null);
+      setTargetFaltante(false);
+      preparar();
+    }, 30);
     return () => {
       cancelado = true;
       if (timer) window.clearTimeout(timer);
     };
-  }, [onTargetFaltante, paso.target]);
+  }, [paso.prepararClicks, paso.target, retryToken]);
 
   useEffect(() => {
     function actualizar() {
@@ -82,43 +105,48 @@ export default function Tour({
     || window.matchMedia?.("(prefers-reduced-motion: reduce)").matches
   ), []);
 
-  if (!rect) return null;
+  if (!rect && !targetFaltante) return null;
 
   const ancho = window.innerWidth;
   const alto = window.innerHeight;
-  const foco = {
+  const foco = rect ? {
     left: Math.max(0, rect.left - PADDING_SPOT),
     top: Math.max(0, rect.top - PADDING_SPOT),
     right: Math.min(ancho, rect.right + PADDING_SPOT),
     bottom: Math.min(alto, rect.bottom + PADDING_SPOT),
-  };
-  foco.width = foco.right - foco.left;
-  foco.height = foco.bottom - foco.top;
+  } : null;
+  if (foco) {
+    foco.width = foco.right - foco.left;
+    foco.height = foco.bottom - foco.top;
+  }
 
-  const vaAbajo = alto - foco.bottom >= TOOLTIP_ALTO_ESTIMADO || foco.top < TOOLTIP_ALTO_ESTIMADO;
-  const tooltipTop = vaAbajo ? foco.bottom + MARGEN : foco.top - MARGEN;
-  const tooltipLeft = Math.max(12, Math.min(foco.left, ancho - Math.min(360, ancho - 24) - 12));
+  const vaAbajo = foco ? alto - foco.bottom >= TOOLTIP_ALTO_ESTIMADO || foco.top < TOOLTIP_ALTO_ESTIMADO : false;
+  const tooltipTop = foco ? (vaAbajo ? foco.bottom + MARGEN : foco.top - MARGEN) : "50%";
+  const tooltipLeft = foco ? Math.max(12, Math.min(foco.left, ancho - Math.min(360, ancho - 24) - 12)) : "50%";
   const ultimo = pasoIndex === tour.pasos.length - 1;
   const overlay = "rgba(6,10,20,.70)";
   const capa = { position: "fixed", zIndex: 9998, background: overlay };
 
   return createPortal(
     <>
-      <div style={{ ...capa, inset: `0 0 auto 0`, height: foco.top }} />
-      <div style={{ ...capa, left: 0, top: foco.top, width: foco.left, height: foco.height }} />
-      <div style={{ ...capa, left: foco.right, right: 0, top: foco.top, height: foco.height }} />
-      <div style={{ ...capa, inset: `${foco.bottom}px 0 0 0` }} />
-
-      <div
-        aria-hidden="true"
-        style={{
-          position: "fixed", zIndex: 9999, pointerEvents: "none",
-          left: foco.left, top: foco.top, width: foco.width, height: foco.height,
-          borderRadius: 12, border: `2px solid ${C.violet}`,
-          boxShadow: reducido ? `0 0 0 2px ${C.violetB}` : `0 0 0 3px ${C.violetB}, 0 0 28px ${C.violet}`,
-          transition: reducido ? "none" : "all .18s ease",
-        }}
-      />
+      {foco ? (
+        <>
+          <div style={{ ...capa, inset: `0 0 auto 0`, height: foco.top }} />
+          <div style={{ ...capa, left: 0, top: foco.top, width: foco.left, height: foco.height }} />
+          <div style={{ ...capa, left: foco.right, right: 0, top: foco.top, height: foco.height }} />
+          <div style={{ ...capa, inset: `${foco.bottom}px 0 0 0` }} />
+          <div
+            aria-hidden="true"
+            style={{
+              position: "fixed", zIndex: 9999, pointerEvents: "none",
+              left: foco.left, top: foco.top, width: foco.width, height: foco.height,
+              borderRadius: 12, border: `2px solid ${C.violet}`,
+              boxShadow: reducido ? `0 0 0 2px ${C.violetB}` : `0 0 0 3px ${C.violetB}, 0 0 28px ${C.violet}`,
+              transition: reducido ? "none" : "all .18s ease",
+            }}
+          />
+        </>
+      ) : <div style={{ ...capa, inset: 0 }} />}
 
       <section
         role="dialog"
@@ -126,11 +154,12 @@ export default function Tour({
         aria-label={`Ayuda: ${paso.titulo}`}
         style={{
           position: "fixed", zIndex: 10000, left: tooltipLeft, top: tooltipTop,
-          transform: vaAbajo ? "none" : "translateY(-100%)",
+          transform: foco ? (vaAbajo ? "none" : "translateY(-100%)") : "translate(-50%,-50%)",
           width: "min(360px, calc(100vw - 24px))", overflow: "hidden",
+          maxHeight: "calc(100vh - 24px)", overflowY: "auto",
           background: C.panelSolid, color: C.text, border: `1px solid ${C.border2}`,
           borderRadius: 16, boxShadow: "0 22px 60px -18px var(--shadow-strong)",
-          fontFamily: C.sans, animation: reducido ? "none" : "tour-aparece .18s ease both",
+          fontFamily: C.sans, animation: reducido || !foco ? "none" : "tour-aparece .18s ease both",
         }}
       >
         <style>{`
@@ -155,6 +184,12 @@ export default function Tour({
             </button>
           </div>
           <p style={{ margin: "10px 0 0", color: C.muted, fontSize: 13, lineHeight: 1.55 }}>{paso.cuerpo}</p>
+          {targetFaltante && (
+            <div style={{ marginTop: 10, padding: "9px 10px", borderRadius: 9, background: C.amberL, border: `1px solid ${C.amberB}`, color: C.amber, fontSize: 11.5, lineHeight: 1.45 }}>
+              Esta sección no está disponible con los datos o filtros actuales. Podés continuar sin perder el resto del recorrido.
+              <button type="button" onClick={() => setRetryToken(value => value + 1)} style={{ display: "block", marginTop: 6, padding: 0, border: "none", background: "transparent", color: C.amber, cursor: "pointer", fontSize: 11.5, fontWeight: 850 }}>Reintentar ubicación</button>
+            </div>
+          )}
           {paso.interactivo && (
             <div style={{ marginTop: 9, padding: "7px 9px", borderRadius: 9, background: C.violetL, border: `1px solid ${C.violetB}`, color: C.violet, fontSize: 11.5, fontWeight: 750 }}>
               Podés usar el elemento resaltado antes de continuar.

@@ -13,7 +13,7 @@ import {
   COMPRA_ETAPA_ESTADOS, colorSugerido, copiarMaterialesDeEtapa, copiarPlantillaAObra,
   crearEtapaCompraObra, fetchEtapasCompraObra, fetchMaterialesEtapa, fetchPlantillaCompra,
   fetchUltimosCambios, generarPedidoDesdeEtapaCompra, pedidosDeEtapaCompra, quitarMaterialEtapa,
-  reordenarEtapasCompraObra, setProcesosEtapaCompra,
+  reordenarEtapasCompraObra, semaforoMeta, setProcesosEtapaCompra, transferirMateriales,
 } from "@/features/produccion/comprasObraApi";
 import { INPUT, LBL, tint } from "@/features/produccion/comprasTokens";
 import { Cta, EmptyState, EstadoSelect, Ghost, IconBtn, Pill } from "@/features/produccion/comprasUI";
@@ -193,12 +193,33 @@ function EtapaItem({ etapa, activa, onSelect, onSubir, onBajar, primera, ultima,
         <div style={{ display: "flex", alignItems: "center", gap: 7, fontSize: 11, color: C.dim, flexWrap: "wrap" }}>
           <span style={{ fontFamily: C.mono }}>{etapa.totalMateriales} materiales</span>
           <span>· {est.label.toLowerCase()}</span>
-          {etapa.fecha_objetivo && (
-            <span style={{ display: "inline-flex", alignItems: "center", gap: 3 }}>
-              · <CalendarDays size={10} /> {new Date(`${etapa.fecha_objetivo}T00:00:00`).toLocaleDateString("es-AR", { day: "2-digit", month: "2-digit" })}
-            </span>
-          )}
         </div>
+        {/* Fecha calculada + semáforo. Es lo que hace que la lista se lea como un
+            cronograma y no como un menú: de un vistazo se ve qué toca comprar. */}
+        {(etapa.fecha_compra || etapa.semaforo) && (
+          <div style={{ display: "flex", alignItems: "center", gap: 6, marginTop: 5, flexWrap: "wrap" }}>
+            {etapa.fecha_compra && (
+              <span style={{ display: "inline-flex", alignItems: "center", gap: 3, fontSize: 10.5, color: C.dim, fontFamily: C.mono }}>
+                <CalendarDays size={10} />
+                {new Date(`${etapa.fecha_compra}T00:00:00`).toLocaleDateString("es-AR", { day: "2-digit", month: "2-digit", year: "2-digit" })}
+              </span>
+            )}
+            {etapa.semaforo && etapa.semaforo !== "sin_fecha" && (() => {
+              const sm = semaforoMeta(etapa.semaforo);
+              const d = etapa.dias_restantes;
+              return (
+                <Pill color={sm.color} soft={sm.soft} borde={sm.borde}>
+                  {sm.label}
+                  {typeof d === "number" && etapa.semaforo !== "hecha" && (
+                    <span style={{ fontFamily: C.mono, opacity: 0.85 }}>
+                      {d < 0 ? ` ${Math.abs(d)}d` : ` ${d}d`}
+                    </span>
+                  )}
+                </Pill>
+              );
+            })()}
+          </div>
+        )}
       </button>
       {puedeEditar && (
         <div style={{ display: "flex", flexDirection: "column", justifyContent: "center", flexShrink: 0, paddingRight: 3 }}>
@@ -222,6 +243,27 @@ function DetalleEtapa({ obra, etapa, etapas, plantilla, procesos, onReloadEtapas
   const [nombre, setNombre] = useState(etapa.nombre);
   const [ultimo, setUltimo] = useState(null);
 
+  // Se edita como texto para poder dejarlo vacío (= sin regla de fecha) sin que
+  // el input lo convierta en 0.
+  // En la base el signo codifica el sentido (positivo = antes del hito,
+  // negativo = después). En pantalla se separa en dos controles: un número sin
+  // signo y un "antes/después", que es como lo dice la gente.
+  const sinSigno = (v) => (v == null || v === "" ? "" : String(Math.abs(Number(v))));
+  const [semanas, setSemanas] = useState(sinSigno(etapa.semanas_antes));
+  const [refSemanas, setRefSemanas] = useState(etapa.semanas_antes);
+  if (refSemanas !== etapa.semanas_antes) {
+    setRefSemanas(etapa.semanas_antes);
+    setSemanas(sinSigno(etapa.semanas_antes));
+  }
+  const sentido = Number(etapa.semanas_antes) < 0 ? "despues" : "antes";
+  const [gracia, setGracia] = useState(String(etapa.dias_gracia ?? 3));
+  const [refGracia, setRefGracia] = useState(etapa.dias_gracia);
+  if (refGracia !== etapa.dias_gracia) {
+    setRefGracia(etapa.dias_gracia);
+    setGracia(String(etapa.dias_gracia ?? 3));
+  }
+
+  const sem = semaforoMeta(etapa.semaforo);
   const procesosById = useMemo(() => new Map(procesos.map((p) => [p.id, p])), [procesos]);
 
   const cargar = useCallback(async () => {
@@ -268,6 +310,39 @@ function DetalleEtapa({ obra, etapa, etapas, plantilla, procesos, onReloadEtapas
     try { await quitarMaterialEtapa(row.id); await recargarTodo(); }
     catch (err) { toast?.error(err.message); }
   }
+  // Asignar la etapa de producción a varios materiales de una. Antes había que
+  // hacerlo fila por fila con el desplegable de cada renglón.
+  async function asignarProcesoMasivo(ids, procesoId) {
+    try {
+      await Promise.all(ids.map((id) => actualizarMaterialEtapa(id, { linea_proceso_id: procesoId })));
+      const nombre = procesoId ? procesosById.get(procesoId)?.nombre : null;
+      toast?.success(
+        procesoId
+          ? `${ids.length} ${ids.length === 1 ? "material asignado" : "materiales asignados"} a "${nombre ?? "la etapa"}".`
+          : `${ids.length} ${ids.length === 1 ? "material quedó" : "materiales quedaron"} sin etapa asignada.`
+      );
+      await cargar();
+    } catch (err) { toast?.error(err.message || "No se pudieron asignar."); }
+  }
+
+  async function transferir(ids, destinoId) {
+    const destino = etapas.find((e) => e.id === destinoId);
+    try {
+      const { movidos, duplicados } = await transferirMateriales(ids, destinoId);
+      if (movidos) {
+        toast?.success(`${movidos} ${movidos === 1 ? "material movido" : "materiales movidos"} a "${destino?.nombre ?? "la otra etapa"}".`);
+      }
+      // Los que ya estaban en el destino no se mueven: la etapa no puede tener
+      // el mismo material dos veces. Se avisa en vez de fallar en silencio.
+      if (duplicados) {
+        const aviso = `${duplicados} ${duplicados === 1 ? "ya estaba" : "ya estaban"} en esa etapa y ${duplicados === 1 ? "quedó" : "quedaron"} acá.`;
+        if (typeof toast?.warning === "function") toast.warning(aviso);
+        else toast?.error(aviso);
+      }
+      await recargarTodo();
+    } catch (err) { toast?.error(err.message || "No se pudieron mover."); }
+  }
+
   async function copiarDe(opts) {
     try {
       const n = await copiarMaterialesDeEtapa(etapa.id, opts);
@@ -283,6 +358,46 @@ function DetalleEtapa({ obra, etapa, etapas, plantilla, procesos, onReloadEtapas
     if (!limpio || limpio === etapa.nombre) { setNombre(etapa.nombre); return; }
     try { await actualizarEtapaCompraObra(etapa.id, { nombre: limpio }); await recargarTodo(); }
     catch (err) { toast?.error(err.message); setNombre(etapa.nombre); }
+  }
+
+  // Guardar cualquier campo de la cabecera y refrescar: la fecha la recalcula la
+  // vista, así que hay que releer para verla.
+  async function guardar(patch) {
+    try { await actualizarEtapaCompraObra(etapa.id, patch); await onReloadEtapas(); }
+    catch (err) { toast?.error(err.message); }
+  }
+  // El input muestra el valor SIN signo y el select dice el sentido; al guardar
+  // se vuelve a componer. Si alguien escribe "-2" a mano se interpreta como
+  // "2 después" en vez de guardar un doble negativo que daría cualquier cosa.
+  async function guardarSemanas() {
+    const crudo = semanas.trim();
+    if (crudo === "") {
+      if (etapa.semanas_antes == null) return;
+      await guardar({ semanas_antes: null });
+      return;
+    }
+    const n = Number(crudo.replace(",", "."));
+    if (!Number.isFinite(n)) { setSemanas(String(Math.abs(etapa.semanas_antes ?? ""))); return; }
+    const magnitud = Math.abs(n);
+    // Un "-" tipeado a mano cambia el sentido del select.
+    const haciaDespues = n < 0 ? true : sentido === "despues";
+    const firmado = haciaDespues ? -magnitud : magnitud;
+    setSemanas(String(magnitud));
+    if (firmado === Number(etapa.semanas_antes)) return;
+    await guardar({ semanas_antes: firmado });
+  }
+
+  async function guardarSentido(nuevo) {
+    const magnitud = Math.abs(Number(semanas.replace(",", ".")) || 0);
+    if (!magnitud) return;
+    await guardar({ semanas_antes: nuevo === "despues" ? -magnitud : magnitud });
+  }
+  async function guardarGracia() {
+    const valor = gracia.trim();
+    const normalizado = valor === "" ? 0 : Math.max(0, Number(valor) || 0);
+    setGracia(String(normalizado));
+    if (normalizado === Number(etapa.dias_gracia ?? 3)) return;
+    await guardar({ dias_gracia: normalizado });
   }
   async function cambiarEstado(estado) {
     try { await actualizarEtapaCompraObra(etapa.id, { estado }); await recargarTodo(); }
@@ -303,8 +418,10 @@ function DetalleEtapa({ obra, etapa, etapas, plantilla, procesos, onReloadEtapas
     if (pedidos.length && !window.confirm(`"${etapa.nombre}" ya tiene ${pedidos.length} pedido(s).\n\n¿Generar otro?`)) return;
     setGenerando(true);
     try {
-      const { cantidad } = await generarPedidoDesdeEtapaCompra(obra, etapa, procesosById);
-      toast?.success(`Pedido generado: ${cantidad} ${cantidad === 1 ? "material" : "materiales"}.`);
+      const { cantidad, pedidos: nuevos } = await generarPedidoDesdeEtapaCompra(obra, etapa, procesosById);
+      toast?.success(
+        `${nuevos.length} ${nuevos.length === 1 ? "pedido generado" : "pedidos generados"} por proveedor · ${cantidad} ${cantidad === 1 ? "material" : "materiales"}.`
+      );
       await recargarTodo();
       onPedidoGenerado?.();
     } catch (err) { toast?.error(err.message || "No se pudo generar el pedido."); }
@@ -379,6 +496,128 @@ function DetalleEtapa({ obra, etapa, etapas, plantilla, procesos, onReloadEtapas
           )}
           <span style={{ marginLeft: "auto", fontSize: 11, color: C.dim }}>opcional · sólo para saber para qué es</span>
         </div>
+
+        {/* Cuándo se compra. La fecha NO se escribe: se define la regla y sale
+            del desmolde de la obra. Así cuando se corre el barco, se corre todo. */}
+        <div style={{ display: "flex", alignItems: "center", gap: 9, flexWrap: "wrap", padding: "10px 14px", borderTop: `1px solid ${C.border}` }}>
+          <span style={{ ...LBL }}>Cuándo se compra</span>
+
+          {/* Se escribe siempre en positivo y el sentido lo elige el select. La
+              columna sigue siendo `semanas_antes` y la fórmula de la vista es
+              `fecha_base - semanas*7`, así que "después" se guarda en negativo:
+              no hizo falta tocar la base, sólo dejar de obligar a la gente a
+              escribir "-3" para decir "tres semanas después". */}
+          <label style={{ display: "inline-flex", alignItems: "center", gap: 6, fontSize: 12, color: C.muted }}>
+            <input
+              value={semanas}
+              inputMode="decimal"
+              placeholder="—"
+              disabled={!puedeEditar}
+              onChange={(e) => setSemanas(e.target.value)}
+              onBlur={() => guardarSemanas()}
+              onKeyDown={(e) => { if (e.key === "Enter") e.currentTarget.blur(); }}
+              style={{ ...INPUT, width: 54, padding: "4px 7px", fontSize: 12, fontFamily: C.mono, textAlign: "right" }}
+            />
+            semanas
+          </label>
+
+          <select
+            value={sentido}
+            disabled={!puedeEditar || semanas.trim() === ""}
+            onChange={(e) => guardarSentido(e.target.value)}
+            style={{
+              ...INPUT, width: "auto", padding: "4px 8px", fontSize: 12, borderRadius: 9,
+              cursor: puedeEditar ? "pointer" : "default", fontWeight: 800,
+              color: sentido === "despues" ? C.amber : C.text,
+            }}
+          >
+            <option value="antes">antes de</option>
+            <option value="despues">después de</option>
+          </select>
+
+          <select
+            value={etapa.referencia || "desmolde"}
+            disabled={!puedeEditar}
+            onChange={(e) => guardar({ referencia: e.target.value })}
+            style={{ ...INPUT, width: "auto", padding: "4px 8px", fontSize: 12, borderRadius: 9, cursor: "pointer" }}
+          >
+            <option value="desmolde">el desmolde</option>
+            <option value="botada">la botada</option>
+          </select>
+
+          <label
+            title="Al vencer la tolerancia, el sistema crea un pedido por proveedor con los materiales que todavía no estén pedidos."
+            style={{
+              display: "inline-flex", alignItems: "center", gap: 6, padding: "4px 8px",
+              borderRadius: 9, border: `1px solid ${etapa.auto_generar !== false ? C.greenB : C.border}`,
+              background: etapa.auto_generar !== false ? C.greenL : C.panel,
+              color: etapa.auto_generar !== false ? C.green : C.dim, fontSize: 11.5, fontWeight: 800,
+            }}
+          >
+            <input
+              type="checkbox"
+              checked={etapa.auto_generar !== false}
+              disabled={!puedeEditar}
+              onChange={(e) => guardar({ auto_generar: e.target.checked })}
+              style={{ accentColor: "var(--green)", cursor: puedeEditar ? "pointer" : "default" }}
+            />
+            Pedido automático
+          </label>
+
+          {etapa.auto_generar !== false && (
+            <label style={{ display: "inline-flex", alignItems: "center", gap: 6, color: C.dim, fontSize: 11.5 }}>
+              tolerancia
+              <input
+                value={gracia}
+                inputMode="numeric"
+                disabled={!puedeEditar}
+                aria-label="Días de gracia antes de generar el pedido"
+                onChange={(e) => setGracia(e.target.value)}
+                onBlur={guardarGracia}
+                onKeyDown={(e) => { if (e.key === "Enter") e.currentTarget.blur(); }}
+                style={{ ...INPUT, width: 48, padding: "4px 7px", fontSize: 11.5, fontFamily: C.mono, textAlign: "right" }}
+              />
+              días
+            </label>
+          )}
+
+          {/* Resultado del cálculo, para que se vea el efecto de lo que se toca */}
+          {etapa.fecha_compra ? (
+            <>
+              <Pill color={sem.color} soft={sem.soft} borde={sem.borde}>
+                <CalendarDays size={10} />
+                {new Date(`${etapa.fecha_compra}T00:00:00`).toLocaleDateString("es-AR", { day: "2-digit", month: "2-digit", year: "numeric" })}
+                {etapa.fecha_objetivo ? " · manual" : ""}
+              </Pill>
+              {/* La regla en palabras: es la forma más rápida de detectar que
+                  quedó al revés de lo que se quería. */}
+              {!etapa.fecha_objetivo && etapa.semanas_antes != null && (
+                <span style={{ fontSize: 11, color: C.dim }}>
+                  {Math.abs(Number(etapa.semanas_antes))} {Math.abs(Number(etapa.semanas_antes)) === 1 ? "semana" : "semanas"}{" "}
+                  <b style={{ color: sentido === "despues" ? C.amber : C.muted, fontWeight: 800 }}>
+                    {sentido === "despues" ? "después" : "antes"}
+                  </b>{" "}
+                  {etapa.referencia === "botada" ? "de la botada" : "del desmolde"}
+                </span>
+              )}
+            </>
+          ) : (
+            <span style={{ fontSize: 11.5, color: C.dim }}>
+              {etapa.fecha_base
+                ? "poné las semanas para calcular la fecha"
+                : `la obra no tiene ${etapa.referencia === "botada" ? "botada" : "desmolde"} cargado`}
+            </span>
+          )}
+
+          {etapa.fecha_base && (
+            <span style={{ fontSize: 10.5, color: C.dim, fontFamily: C.mono }}>
+              {etapa.referencia === "botada" ? "botada" : "desmolde"}{" "}
+              {new Date(`${etapa.fecha_base}T00:00:00`).toLocaleDateString("es-AR", { day: "2-digit", month: "2-digit", year: "2-digit" })}
+              {etapa.fecha_base_es_real ? " (real)" : " (est.)"}
+              {Number(etapa.obra_atraso_dias) ? ` · atraso ${etapa.obra_atraso_dias}d` : ""}
+            </span>
+          )}
+        </div>
       </div>
 
       {/* materiales */}
@@ -397,6 +636,9 @@ function DetalleEtapa({ obra, etapa, etapas, plantilla, procesos, onReloadEtapas
           onProceso={cambiarProceso}
           onQuitar={quitar}
           onCopiarDeOtra={puedeEditar ? () => setCopiar(true) : null}
+          otrasEtapas={etapas.filter((e) => e.id !== etapa.id).map((e) => ({ id: e.id, nombre: e.nombre }))}
+          onTransferir={puedeEditar ? transferir : null}
+          onProcesoMasivo={puedeEditar ? asignarProcesoMasivo : null}
           footer={
             <>
               <span style={{ display: "flex", alignItems: "center", gap: 6, fontSize: 11.5, color: C.dim, minWidth: 0, flex: 1 }}>

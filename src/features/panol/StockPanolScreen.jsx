@@ -984,7 +984,7 @@ export default function StockPanolScreen({ profile, signOut, embedded = false, m
 
             {/* ── TAB: Stock maestro ── */}
             {tab === "maestro" && (
-              <StockWmsPanel key="maestro" {...wmsProps} />
+              <StockWmsPanel key="maestro" {...wmsProps} showCatalogInventory />
             )}
 
             {/* ── TAB: Movimientos (historial general de ingresos/egresos) ── */}

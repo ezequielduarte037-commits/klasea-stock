@@ -94,10 +94,71 @@ export async function fetchPedidosProduccion() {
     .select("*, items:pedidos_produccion_items(*), obra:produccion_obras(id, codigo, descripcion)")
     .order("created_at", { ascending: false });
   if (error) throw error;
-  return (data ?? []).map((p) => ({
+
+  const pedidos = data ?? [];
+  const ids = pedidos.map((pedido) => pedido.id);
+  let links = [];
+  if (ids.length) {
+    const { data: rows, error: linksError } = await supabase
+      .from("pedido_produccion_etapas")
+      .select("pedido_id, etapa:obra_compra_etapas(id, nombre, color, orden)")
+      .in("pedido_id", ids);
+    if (linksError) throw linksError;
+    links = rows ?? [];
+  }
+
+  const etapasPorPedido = new Map(ids.map((id) => [id, []]));
+  for (const link of links) {
+    if (link.etapa) etapasPorPedido.get(link.pedido_id)?.push(link.etapa);
+  }
+
+  return pedidos.map((p) => ({
     ...p,
     items: [...(p.items ?? [])].sort((a, b) => (a.orden ?? 0) - (b.orden ?? 0)),
+    etapas: [...(etapasPorPedido.get(p.id) ?? [])].sort((a, b) => (a.orden ?? 0) - (b.orden ?? 0)),
   }));
+}
+
+export async function fetchMaterialesPendientesPorProveedor() {
+  const { data, error } = await supabase
+    .from("v_compras_materiales_pendientes")
+    .select("*")
+    .order("proveedor")
+    .order("obra_codigo")
+    .order("etapa_orden")
+    .order("material_orden");
+  if (error) throw error;
+  return data ?? [];
+}
+
+export async function fetchEtapasVencidasSinMateriales() {
+  const { data, error } = await supabase
+    .from("v_obra_compra_etapas")
+    .select("id, obra_id, obra_codigo, nombre, fecha_compra, dias_restantes")
+    .eq("vencida_sin_materiales", true)
+    .order("fecha_compra");
+  if (error) throw error;
+  return data ?? [];
+}
+
+export async function crearPedidoMultiEtapa({ obraId, materialIds, proveedor }) {
+  const ids = [...new Set((materialIds ?? []).filter(Boolean))];
+  if (!obraId) throw new Error("Falta la obra.");
+  if (!ids.length) throw new Error("Seleccioná al menos un material.");
+  const { data, error } = await supabase.rpc("compras_crear_pedido_multi_etapa", {
+    p_obra_id: obraId,
+    p_material_ids: ids,
+    p_proveedor: proveedor || null,
+    p_auto: false,
+  });
+  if (error) throw error;
+  return data;
+}
+
+export async function autogenerarPedidosVencidos() {
+  const { data, error } = await supabase.rpc("compras_autogenerar_pedidos");
+  if (error) throw error;
+  return data ?? { pedidos_creados: 0, items_incluidos: 0, etapas_vencidas_sin_materiales: 0 };
 }
 
 export async function actualizarItemPedido(itemId, patch = {}) {

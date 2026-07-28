@@ -476,7 +476,10 @@ export default function PedirAComprasModal({
       let entriesMaderaExistentes = [];
       let entriesLam = [];
       let entriesLamExistentes = [];
-      if (origenEfectivo === "laminacion") {
+      if (origenEfectivo === "muebles") {
+        // Muebles ya queda representado de forma completa en purchase_requests.
+        // No duplicamos el kit de herrajes en pedidos de Laminación o Maderas.
+      } else if (origenEfectivo === "laminacion") {
         entriesLamExistentes = requestItemsByDraft.filter((entry) =>
           entry?.draft?.laminacionPedidoId || entry?.draft?.laminacion_pedido_id);
         entriesLam = requestItemsByDraft.filter((entry) =>

@@ -339,10 +339,16 @@ export async function fetchMaterialesEgreso({ sede = null, estados = ["en_panol"
   if (materialIds.length) {
     let materiales = [];
     try {
-      const res = await supabase
+      let res = await supabase
         .from("panol_materiales")
-        .select("id,proveedor,categoria_id,codigo_barra,ubicacion,ubicacion_obs,variantes")
+        .select("id,proveedor,categoria_id,codigo_barra,ubicacion,ubicacion_obs,variantes,stock_minimo")
         .in("id", materialIds);
+      if (res.error && isMissingColumn(res.error)) {
+        res = await supabase
+          .from("panol_materiales")
+          .select("id,proveedor,categoria_id,codigo_barra,ubicacion,ubicacion_obs,variantes")
+          .in("id", materialIds);
+      }
       if (res.error) throw res.error;
       materiales = res.data ?? [];
     } catch (metaError) {
@@ -449,6 +455,7 @@ export async function fetchMaterialesEgreso({ sede = null, estados = ["en_panol"
       variantes: Array.isArray(meta?.variantes) ? meta.variantes : [],
       ubicacion: meta?.ubicacion || null,
       ubicacion_obs: meta?.ubicacion_obs || null,
+      stock_minimo: meta?.stock_minimo ?? null,
       categoria_id: categoriaId,
       categoria_nombre: row.categoria_nombre || (categoriaId ? categoriaById.get(categoriaId) : "") || "",
     };
@@ -461,6 +468,8 @@ export async function fetchMaterialesEgreso({ sede = null, estados = ["en_panol"
 
 const CATALOG_MINI_SELECT_FULL =
   "id,categoria_id,codigo,codigo_barra,descripcion,proveedor,unidad_medida,precio_unitario,moneda,activo,ubicacion,ubicacion_obs,variantes,variantes_precios";
+const CATALOG_MINI_SELECT_STOCK =
+  `${CATALOG_MINI_SELECT_FULL},stock_minimo`;
 const CATALOG_MINI_SELECT_NOVARPRE =
   "id,categoria_id,codigo,codigo_barra,descripcion,proveedor,unidad_medida,precio_unitario,moneda,activo,ubicacion,ubicacion_obs,variantes";
 const CATALOG_MINI_SELECT_MIN =
@@ -468,7 +477,7 @@ const CATALOG_MINI_SELECT_MIN =
 
 // El catálogo entero (para pantallas que sí lo necesitan). Con fallback por columnas faltantes.
 async function fetchPanolCatalogAllRows() {
-  for (const select of [CATALOG_MINI_SELECT_FULL, CATALOG_MINI_SELECT_NOVARPRE, CATALOG_MINI_SELECT_MIN]) {
+  for (const select of [CATALOG_MINI_SELECT_STOCK, CATALOG_MINI_SELECT_FULL, CATALOG_MINI_SELECT_NOVARPRE, CATALOG_MINI_SELECT_MIN]) {
     try {
       return await fetchPaged("panol_materiales", select, { order: "descripcion", limit: 1000 });
     } catch (error) {
@@ -492,6 +501,7 @@ async function fetchPanolCatalogSearchRows(term) {
   const pick = escapeIlikeTerm([...tokens].sort((a, b) => b.length - a.length)[0] || term);
   if (!pick) return null;
   const attempts = [
+    { select: CATALOG_MINI_SELECT_STOCK, or: `descripcion.ilike.%${pick}%,codigo.ilike.%${pick}%,codigo_barra.ilike.%${pick}%` },
     { select: CATALOG_MINI_SELECT_FULL, or: `descripcion.ilike.%${pick}%,codigo.ilike.%${pick}%,codigo_barra.ilike.%${pick}%` },
     { select: CATALOG_MINI_SELECT_MIN, or: `descripcion.ilike.%${pick}%,codigo.ilike.%${pick}%` },
   ];
@@ -541,7 +551,25 @@ export async function fetchPanolCatalogMini({ q = "", limit = 80 } = {}) {
       ubicacion_obs: row.ubicacion_obs || null,
       variantes: Array.isArray(row.variantes) ? row.variantes : [],
       variantes_precios: row.variantes_precios ?? {},
+      stock_minimo: row.stock_minimo ?? null,
     }));
+}
+
+export async function actualizarStockMinimoPanol(materialId, stockMinimo) {
+  if (!materialId) throw new Error("El material no está vinculado al catálogo.");
+  const value = stockMinimo === null || stockMinimo === ""
+    ? null
+    : Number(String(stockMinimo).replace(",", "."));
+  if (value !== null && (!Number.isFinite(value) || value < 0)) {
+    throw new Error("El stock mínimo debe ser un número mayor o igual a cero.");
+  }
+  const { data, error } = await supabase.rpc("panol_set_stock_minimo", {
+    p_material_id: materialId,
+    p_stock_minimo: value,
+  });
+  if (error) throw error;
+  invalidatePanolCatalogFullCache();
+  return data;
 }
 
 // Cache de sesión del catálogo completo. El ingreso manual (EnviarAPanolModal en modo

@@ -14,7 +14,7 @@ function esc(str) {
 // Solo destacamos los estados "especiales"; "No enviado" es el faltante por
 // defecto y va sin badge para no ensuciar la lista.
 function estadoBadge(estado) {
-  if (estado === "Parcial")  return '<span class="badge badge-amber">Parcial</span>';
+  if (estado === "Parcial")  return '<span class="badge badge-blue">Parcial</span>';
   if (estado === "Rehacer")  return '<span class="badge badge-red">Rehacer</span>';
   return "";
 }
@@ -74,7 +74,7 @@ export function printFaltantes({ linea, unidad, chapa, faltantes = [], total = 0
 <title>Faltantes ${titulo}</title>
 <style>
   *,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
-  :root{--ink:#18181b;--muted:#71717a;--soft:#a1a1aa;--line:#e4e4e7;--amber:#b45309;--red:#b91c1c}
+  :root{--ink:#18181b;--muted:#71717a;--soft:#a1a1aa;--line:#e4e4e7;--blue:#1d4ed8;--red:#b91c1c}
   html,body{background:#f4f4f5}
   body{font-family:'Segoe UI',Arial,sans-serif;color:var(--ink);padding:24px 16px 80px}
   .sheet{max-width:820px;margin:0 auto;background:#fff;border:1px solid var(--line);border-radius:14px;padding:34px 38px 42px;box-shadow:0 10px 40px rgba(0,0,0,.08)}
@@ -117,7 +117,7 @@ export function printFaltantes({ linea, unidad, chapa, faltantes = [], total = 0
   .item-obs{font-size:12px;color:var(--muted);font-style:italic;margin-top:3px}
 
   .badge{font-size:10px;font-weight:800;letter-spacing:.04em;text-transform:uppercase;padding:2px 8px;border-radius:999px;border:1px solid}
-  .badge-amber{background:#fef3c7;border-color:#fcd34d;color:var(--amber)}
+  .badge-blue{background:#dbeafe;border-color:#93c5fd;color:var(--blue)}
   .badge-red{background:#fee2e2;border-color:#fca5a5;color:var(--red)}
 
   .empty{padding:48px 0;text-align:center;color:#16a34a;font-size:15px;font-weight:600}

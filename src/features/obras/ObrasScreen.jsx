@@ -20,6 +20,16 @@ import PanelDetallesObra      from "@/features/obras/PanelDetallesObra";
 import PiezasLaminacionView   from "@/features/obras/PiezasLaminacionView";
 import FechasView             from "@/features/obras/FechasView";
 import ObrasHome              from "@/features/obras/ObrasHome";
+import TimelineDesmoldeView   from "@/features/obras/TimelineDesmoldeView";
+import BotonAyuda             from "@/features/ayuda/BotonAyuda";
+import {
+  getProductionStageSchedule,
+  nonWorkingDaysCount,
+  PRODUCTION_STAGE_OFFSET_PREFIX,
+  productionStageOffsetKey,
+  productionStageOffsetsMap,
+  relativeWeekLabel,
+} from "@/features/obras/fechasEngine";
 
 // ─── UTILS ────────────────────────────────────────────────────────────────────
 const num        = v => { const x = Number(v); return Number.isFinite(x) ? x : 0; };
@@ -87,6 +97,15 @@ const NavIcon = {
     <svg width="12" height="12" viewBox="0 0 14 14" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round">
       <rect x="1" y="2.5" width="12" height="10.5" rx="1.5"/>
       <path d="M1 6h12M4.5 1v3M9.5 1v3"/>
+    </svg>
+  ),
+  Timeline: () => (
+    <svg width="12" height="12" viewBox="0 0 14 14" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round">
+      <path d="M1 3.2h12M1 7h12M1 10.8h12"/>
+      <path d="M5.5 1v12" strokeDasharray="2 2"/>
+      <rect x="2" y="2" width="2.4" height="2.4" rx=".6" fill="currentColor" stroke="none"/>
+      <rect x="6.7" y="5.8" width="3.6" height="2.4" rx=".6" fill="currentColor" stroke="none"/>
+      <rect x="4.4" y="9.6" width="4.7" height="2.4" rx=".6" fill="currentColor" stroke="none"/>
     </svg>
   ),
   Pieces: () => (
@@ -171,6 +190,93 @@ function InputSt({ label, children }) {
     <div style={{ marginBottom: 12 }}>
       {label && <label style={{ fontSize: 10, letterSpacing: 1.3, color: C.t1, display: "block", marginBottom: 5, textTransform: "uppercase", fontWeight: 700 }}>{label}</label>}
       {children}
+    </div>
+  );
+}
+
+function relativeWeekDescription(value) {
+  const raw = String(value ?? "").trim();
+  if (raw === "") return "Todavía no participa del cronograma por desmolde.";
+  const weeks = Number(raw);
+  if (!Number.isFinite(weeks)) return "Semana inválida.";
+  if (weeks === 0) return "Comienza en la misma semana del desmolde.";
+  return `Comienza ${Math.abs(weeks)} semana${Math.abs(weeks) === 1 ? "" : "s"} ${weeks < 0 ? "antes" : "después"} del desmolde.`;
+}
+
+function SemanaDesmoldeField({ value, onChange }) {
+  const raw = String(value ?? "").trim();
+  const numeric = raw === "" ? null : Number(raw);
+  const phase = numeric === null || !Number.isFinite(numeric) ? "unset" : numeric < 0 ? "before" : numeric > 0 ? "after" : "zero";
+  const amount = phase === "before" || phase === "after" ? Math.abs(numeric) : 1;
+  const choosePhase = next => {
+    if (next === "zero") onChange("0");
+    else if (next === "before") onChange(String(-Math.max(1, amount || 1)));
+    else if (next === "after") onChange(String(Math.max(1, amount || 1)));
+  };
+  const setAmount = next => {
+    const parsed = Number(next);
+    if (!Number.isFinite(parsed)) return;
+    onChange(String(phase === "before" ? -Math.abs(parsed) : Math.abs(parsed)));
+  };
+  const phaseButton = key => ({
+    type: "button",
+    onClick: () => choosePhase(key),
+    style: {
+      flex: 1, minWidth: 104, borderRadius: 8, padding: "8px 10px", cursor: "pointer",
+      border: `1px solid ${phase === key ? C.blueB : C.b0}`,
+      background: phase === key ? C.blueL : "transparent",
+      color: phase === key ? C.blue : C.t1,
+      fontFamily: C.sans, fontSize: 11.5, fontWeight: 800,
+    },
+  });
+  const previewColor = phase === "unset" ? C.amber : C.t0;
+  const previewBg = phase === "unset" ? C.amberL : C.s0;
+  const previewBorder = phase === "unset" ? C.amberB : C.b1;
+
+  return (
+    <div style={{ border: `1px solid ${C.b0}`, borderRadius: 10, padding: 12, background: "var(--panel)", marginBottom: 12 }}>
+      <div style={{ display: "flex", justifyContent: "space-between", gap: 12, alignItems: "flex-start", marginBottom: 10 }}>
+        <div>
+          <div style={{ fontSize: 11.5, color: C.t0, fontWeight: 800 }}>Ubicación respecto del desmolde</div>
+          <div style={{ fontSize: 10.5, color: C.t2, marginTop: 3 }}>Elegí primero si la etapa sucede antes, durante o después de S0.</div>
+        </div>
+        {phase !== "unset" && (
+          <button type="button" onClick={() => onChange("")} style={{ border: "none", background: "transparent", color: C.t2, cursor: "pointer", fontSize: 10.5, fontFamily: C.sans, padding: 0, whiteSpace: "nowrap" }}>
+            Quitar regla
+          </button>
+        )}
+      </div>
+      <div style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>
+        <button {...phaseButton("before")}>− Antes de S0</button>
+        <button {...phaseButton("zero")}>En S0</button>
+        <button {...phaseButton("after")}>+ Después de S0</button>
+      </div>
+      {(phase === "before" || phase === "after") && (
+        <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(148px, 1fr))", gap: 12, alignItems: "end", marginTop: 12 }}>
+          <InputSt label="Cantidad de semanas">
+            <div style={{ position: "relative" }}>
+              <span style={{ position: "absolute", left: 11, top: "50%", transform: "translateY(-50%)", color: C.t1, fontFamily: C.mono, fontWeight: 900 }}>
+                {phase === "before" ? "S−" : "S+"}
+              </span>
+              <input type="number" min="0.5" step="0.5" style={{ ...INP, paddingLeft: 36, fontFamily: C.mono, fontWeight: 800 }} value={amount} onChange={e => setAmount(e.target.value)} />
+            </div>
+          </InputSt>
+          <div style={{ marginBottom: 12 }}>
+            <div style={{ fontSize: 9.5, color: C.t2, textTransform: "uppercase", letterSpacing: 1, fontWeight: 750, marginBottom: 6 }}>Valores frecuentes</div>
+            <div style={{ display: "flex", gap: 5, flexWrap: "wrap" }}>
+              {[1, 2, 3, 4, 6, 8, 10, 12].map(week => (
+                <button key={week} type="button" onClick={() => setAmount(week)} style={{ border: `1px solid ${amount === week ? previewBorder : C.b0}`, background: amount === week ? previewBg : "transparent", color: amount === week ? previewColor : C.t2, borderRadius: 6, padding: "4px 7px", cursor: "pointer", fontFamily: C.mono, fontSize: 10.5, fontWeight: 750 }}>
+                  {week}
+                </button>
+              ))}
+            </div>
+          </div>
+        </div>
+      )}
+      <div style={{ display: "flex", alignItems: "center", gap: 9, marginTop: 10, padding: "8px 10px", borderRadius: 8, background: previewBg, border: `1px solid ${previewBorder}` }}>
+        <span style={{ color: previewColor, fontFamily: C.mono, fontSize: 12, fontWeight: 900, whiteSpace: "nowrap" }}>{phase === "unset" ? "Sin ubicar" : relativeWeekLabel(numeric)}</span>
+        <span style={{ color: C.t1, fontSize: 10.5, lineHeight: 1.4 }}>{relativeWeekDescription(raw)}</span>
+      </div>
     </div>
   );
 }
@@ -356,9 +462,125 @@ function ConfirmModal({ nombre, tipo, advertencia, onConfirm, onCancel }) {
   );
 }
 
+function VacacionesObraModal({ obra, periods = [], onClose, onSaved }) {
+  const [form, setForm] = useState({ tipo: "vacaciones", fecha_desde: "", fecha_hasta: "", descripcion: "" });
+  const [saving, setSaving] = useState(false);
+  const [err, setErr] = useState("");
+  const totalDays = nonWorkingDaysCount(periods);
+  const daysInPeriod = (period) => {
+    const start = new Date(`${period.fecha_desde}T00:00:00`);
+    const end = new Date(`${period.fecha_hasta}T00:00:00`);
+    return Math.max(1, Math.round((end - start) / 86_400_000) + 1);
+  };
+
+  async function agregar(e) {
+    e.preventDefault();
+    if (!form.fecha_desde || !form.fecha_hasta) return;
+    if (form.fecha_hasta < form.fecha_desde) {
+      setErr("La fecha hasta no puede ser anterior a la fecha desde.");
+      return;
+    }
+    setSaving(true);
+    setErr("");
+    const { error } = await supabase.from("produccion_obra_periodos_no_laborables").insert({
+      obra_id: obra.id,
+      tipo: form.tipo,
+      fecha_desde: form.fecha_desde,
+      fecha_hasta: form.fecha_hasta,
+      descripcion: form.descripcion.trim() || null,
+    });
+    if (error) {
+      setErr(error.message);
+      setSaving(false);
+      return;
+    }
+    setForm({ tipo: "vacaciones", fecha_desde: "", fecha_hasta: "", descripcion: "" });
+    setSaving(false);
+    await onSaved();
+  }
+
+  async function eliminar(period) {
+    if (!window.confirm(`¿Quitar el período ${fmtDateFull(period.fecha_desde)} → ${fmtDateFull(period.fecha_hasta)}?`)) return;
+    const { error } = await supabase.from("produccion_obra_periodos_no_laborables").delete().eq("id", period.id);
+    if (error) {
+      setErr(error.message);
+      return;
+    }
+    await onSaved();
+  }
+
+  return (
+    <Overlay onClose={onClose} maxWidth={620}>
+      <div style={{ padding: 22, overflowY: "auto" }}>
+        <div style={{ display: "flex", alignItems: "flex-start", gap: 12, paddingBottom: 14, borderBottom: `1px solid ${C.b0}` }}>
+          <div style={{ flex: 1 }}>
+            <div style={{ fontSize: 10, color: C.t2, textTransform: "uppercase", letterSpacing: 1.1, fontWeight: 800 }}>Calendario de la obra</div>
+            <div style={{ fontSize: 17, color: C.t0, fontWeight: 850, marginTop: 3 }}>{obra.codigo} · vacaciones y pausas</div>
+            <div style={{ fontSize: 11, color: C.t2, lineHeight: 1.45, marginTop: 4 }}>
+              Estos días se excluyen del cronograma productivo. El desmolde no cambia; se desplazan los inicios y finales afectados.
+            </div>
+          </div>
+          <button type="button" onClick={onClose} aria-label="Cerrar" style={{ width: 32, height: 32, borderRadius: 8, border: `1px solid ${C.b0}`, background: "transparent", color: C.t1, cursor: "pointer", fontSize: 18 }}>×</button>
+        </div>
+
+        <div style={{ display: "flex", gap: 18, padding: "11px 0", borderBottom: `1px solid ${C.b0}` }}>
+          <div><b style={{ color: C.t0, fontFamily: C.mono, fontSize: 15 }}>{periods.length}</b><span style={{ display: "block", color: C.t2, fontSize: 9.5, marginTop: 2 }}>PERÍODOS</span></div>
+          <div><b style={{ color: C.t0, fontFamily: C.mono, fontSize: 15 }}>{totalDays}d</b><span style={{ display: "block", color: C.t2, fontSize: 9.5, marginTop: 2 }}>DÍAS EXCLUIDOS</span></div>
+        </div>
+
+        <div style={{ marginTop: 12 }}>
+          {periods.map((period) => (
+            <div key={period.id} style={{ display: "grid", gridTemplateColumns: "minmax(0,1fr) auto", gap: 12, alignItems: "center", padding: "10px 0", borderBottom: `1px solid ${C.b0}` }}>
+              <div style={{ minWidth: 0 }}>
+                <div style={{ display: "flex", gap: 7, alignItems: "center", flexWrap: "wrap" }}>
+                  <span style={{ color: C.t0, fontSize: 12.5, fontWeight: 750, textTransform: "capitalize" }}>{period.tipo}</span>
+                  <span style={{ color: C.t2, fontFamily: C.mono, fontSize: 11 }}>{fmtDateFull(period.fecha_desde)} → {fmtDateFull(period.fecha_hasta)}</span>
+                  <span style={{ color: C.t1, fontFamily: C.mono, fontSize: 10.5 }}>{daysInPeriod(period)}d</span>
+                </div>
+                {period.descripcion && <div style={{ color: C.t2, fontSize: 10.5, marginTop: 3 }}>{period.descripcion}</div>}
+              </div>
+              <button type="button" onClick={() => eliminar(period)} style={{ border: "none", background: "transparent", color: C.red, cursor: "pointer", fontSize: 10.5, fontFamily: C.sans }}>Quitar</button>
+            </div>
+          ))}
+          {!periods.length && <div style={{ padding: "18px 0", color: C.t2, fontSize: 11.5 }}>No hay vacaciones ni pausas cargadas para esta obra.</div>}
+        </div>
+
+        <form onSubmit={agregar} style={{ marginTop: 14, padding: 13, borderRadius: 10, border: `1px solid ${C.b1}`, background: C.s0 }}>
+          <div style={{ color: C.t0, fontSize: 12.5, fontWeight: 800, marginBottom: 10 }}>Agregar período no laborable</div>
+          <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(130px, 1fr))", gap: 9 }}>
+            <InputSt label="Tipo">
+              <select style={INP} value={form.tipo} onChange={e => setForm(f => ({ ...f, tipo: e.target.value }))}>
+                <option value="vacaciones">Vacaciones</option>
+                <option value="pausa">Pausa</option>
+                <option value="feriado">Feriado</option>
+              </select>
+            </InputSt>
+            <InputSt label="Desde *"><input required type="date" style={INP} value={form.fecha_desde} onChange={e => setForm(f => ({ ...f, fecha_desde: e.target.value }))} /></InputSt>
+            <InputSt label="Hasta *"><input required type="date" min={form.fecha_desde || undefined} style={INP} value={form.fecha_hasta} onChange={e => setForm(f => ({ ...f, fecha_hasta: e.target.value }))} /></InputSt>
+          </div>
+          <InputSt label="Motivo o nota"><input style={INP} placeholder="Ej.: vacaciones de verano del astillero" value={form.descripcion} onChange={e => setForm(f => ({ ...f, descripcion: e.target.value }))} /></InputSt>
+          {err && <div style={{ color: C.red, fontSize: 11, marginBottom: 9 }}>{err}</div>}
+          <div style={{ display: "flex", gap: 7 }}>
+            <Btn type="submit" variant="primary" disabled={saving}>{saving ? "Guardando…" : "Agregar período"}</Btn>
+            <Btn variant="outline" onClick={onClose}>Cerrar</Btn>
+          </div>
+        </form>
+      </div>
+    </Overlay>
+  );
+}
+
 // ─── MODAL OBRA ───────────────────────────────────────────────────────────────
-function ObraModal({ lineas, lProcs, onSave, onClose }) {
-  const [form, setForm] = useState({ codigo: "", descripcion: "", linea_id: "", fecha_inicio: today(), fecha_fin_estimada: "", notas: "" });
+function ObraModal({ lineas, lProcs, stageOffsets = new Map(), onSave, onClose }) {
+  const [form, setForm] = useState({
+    codigo: "",
+    descripcion: "",
+    linea_id: "",
+    fecha_inicio: today(),
+    desmolde_estimado: "",
+    fecha_fin_estimada: "",
+    notas: "",
+  });
   const [saving, setSaving] = useState(false);
   const [err, setErr] = useState("");
   const set = (k, v) => setForm(f => ({ ...f, [k]: v }));
@@ -374,6 +596,7 @@ function ObraModal({ lineas, lProcs, onSave, onClose }) {
         codigo: form.codigo.trim().toUpperCase(), descripcion: form.descripcion.trim() || null,
         tipo: "barco", estado: "activa", linea_id: form.linea_id || null,
         linea_nombre: lineaSel?.nombre ?? null, fecha_inicio: form.fecha_inicio || null,
+        desmolde_estimado: form.desmolde_estimado || null,
         fecha_fin_estimada: form.fecha_fin_estimada || null, notas: form.notas.trim() || null,
         puesto_mapa: null, bahia_pampa: null, // siempre sin asignar al crear
       }).select().single();
@@ -431,7 +654,10 @@ function ObraModal({ lineas, lProcs, onSave, onClose }) {
     <Overlay onClose={onClose} maxWidth={520}>
       <div style={{ padding: 26, overflowY: "auto" }}>
         <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: 20 }}>
-          <div><div style={{ fontSize: 15, color: C.t0, fontWeight: 600 }}>Nueva obra</div><div style={{ fontSize: 12, color: C.t1, marginTop: 3 }}>Asigná una línea para pre-cargar las etapas</div></div>
+          <div>
+            <div style={{ fontSize: 15, color: C.t0, fontWeight: 600 }}>Nueva obra</div>
+            <div style={{ fontSize: 12, color: C.t1, marginTop: 3 }}>El desmolde será la semana cero del plan de producción.</div>
+          </div>
           <Btn variant="ghost" onClick={onClose} sx={{ fontSize: 18 }}>×</Btn>
         </div>
         {err && <div style={{ padding: "8px 12px", marginBottom: 12, background: "rgba(239,68,68,0.08)", border: "1px solid rgba(239,68,68,0.25)", borderRadius: 7, fontSize: 13, color: "#fca5a5" }}>{err}</div>}
@@ -442,14 +668,34 @@ function ObraModal({ lineas, lProcs, onSave, onClose }) {
           </div>
           <InputSt label="Descripción"><input style={INP} value={form.descripcion} onChange={e => set("descripcion", e.target.value)} /></InputSt>
           <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10, marginBottom: 12 }}>
-            <InputSt label="Fecha inicio"><input type="date" style={INP} value={form.fecha_inicio} onChange={e => set("fecha_inicio", e.target.value)} /></InputSt>
-            <InputSt label="Fin estimado"><input type="date" style={INP} value={form.fecha_fin_estimada} onChange={e => set("fecha_fin_estimada", e.target.value)} /></InputSt>
+            <InputSt label="Inicio de obra"><input type="date" style={INP} value={form.fecha_inicio} onChange={e => set("fecha_inicio", e.target.value)} /></InputSt>
+            <InputSt label="Desmolde estimado (S0) *">
+              <input type="date" style={INP} required value={form.desmolde_estimado} onChange={e => set("desmolde_estimado", e.target.value)} />
+            </InputSt>
           </div>
+          <InputSt label="Fin global manual (opcional)"><input type="date" style={INP} value={form.fecha_fin_estimada} onChange={e => set("fecha_fin_estimada", e.target.value)} /></InputSt>
           <InputSt label="Notas"><input style={INP} value={form.notas} onChange={e => set("notas", e.target.value)} /></InputSt>
           {procsLinea.length > 0 && (
-            <div style={{ marginBottom: 16, padding: "10px 14px", background: "rgba(16,185,129,0.05)", borderRadius: 8, border: "1px solid rgba(16,185,129,0.18)" }}>
-              <div style={{ fontSize: 12, color: "#10b981", marginBottom: 6 }}>Se crean {procsLinea.length} etapas desde {lineaSel?.nombre}</div>
-              <div style={{ display: "flex", gap: 4, flexWrap: "wrap" }}>{procsLinea.map(p => <span key={p.id} style={{ fontSize: 10, padding: "2px 7px", borderRadius: 4, background: C.s0, color: C.t1, border: `1px solid ${C.b0}` }}>{p.nombre}{p.genera_orden_compra ? " ●" : ""}</span>)}</div>
+            <div style={{ marginBottom: 16, padding: "11px 14px", background: C.s0, borderRadius: 8, border: `1px solid ${C.b0}` }}>
+              <div style={{ fontSize: 12, color: C.t1, marginBottom: 3, fontWeight: 750 }}>Se crean {procsLinea.length} etapas desde {lineaSel?.nombre}</div>
+              <div style={{ fontSize: 10.5, color: C.t2, marginBottom: 8 }}>
+                {lineaSel?.semanas_produccion_estimadas
+                  ? `Plazo general de la línea: ${lineaSel.semanas_produccion_estimadas} semanas.`
+                  : "La línea todavía no tiene un plazo general configurado."}
+              </div>
+              <div style={{ display: "flex", gap: 5, flexWrap: "wrap" }}>
+                {procsLinea.map(p => {
+                  const offset = stageOffsets.get(p.id);
+                  const configured = Number.isFinite(Number(offset));
+                  return (
+                    <span key={p.id} style={{ display: "inline-flex", alignItems: "center", gap: 5, fontSize: 10, padding: "3px 7px", borderRadius: 5, background: "var(--panel)", color: C.t1, border: `1px solid ${configured ? C.b1 : C.b0}` }}>
+                      {p.nombre}
+                      <b style={{ color: configured ? C.t1 : C.amber, fontFamily: C.mono }}>{configured ? relativeWeekLabel(offset) : "sin ubicar"}</b>
+                      {p.genera_orden_compra ? " ●" : ""}
+                    </span>
+                  );
+                })}
+              </div>
             </div>
           )}
           <div style={{ display: "flex", gap: 8 }}>
@@ -483,10 +729,15 @@ function EtapaModal({ etapa, obraId, detailEnabled = false, onSave, onClose }) {
   async function handleSubmit(e) {
     e.preventDefault();
     if (!form.nombre.trim()) return;
+    const durationDays = Number(form.dias_estimados);
+    if (!Number.isFinite(durationDays) || durationDays <= 0) {
+      setErr("Indicá la duración total prevista para esta etapa.");
+      return;
+    }
     setSaving(true); setErr("");
     const payload = {
       nombre: form.nombre.trim(), descripcion: form.descripcion.trim() || null, color: form.color,
-      dias_estimados: form.dias_estimados !== "" ? num(form.dias_estimados) : null,
+      dias_estimados: durationDays,
       fecha_inicio: form.fecha_inicio || null, fecha_fin_estimada: form.fecha_fin_estimada || null,
       genera_orden_compra: form.genera_orden_compra,
       orden_compra_tipo: form.genera_orden_compra ? form.orden_compra_tipo : null,
@@ -510,6 +761,30 @@ function EtapaModal({ etapa, obraId, detailEnabled = false, onSave, onClose }) {
           <Btn variant="ghost" onClick={onClose} sx={{ fontSize: 18 }}>×</Btn>
         </div>
         {err && <div style={{ padding: "8px 12px", marginBottom: 12, background: "rgba(239,68,68,0.08)", border: "1px solid rgba(239,68,68,0.25)", borderRadius: 7, fontSize: 13, color: "#fca5a5" }}>{err}</div>}
+        {isEdit && (
+          <div style={{
+            padding: "10px 12px", marginBottom: 14, borderRadius: 8,
+            background: etapa.cronograma?.configured ? C.s0 : C.amberL,
+            border: `1px solid ${etapa.cronograma?.configured ? C.b1 : C.amberB}`,
+          }}>
+            <div style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
+              <span style={{ color: etapa.cronograma?.configured ? C.t0 : C.amber, fontFamily: C.mono, fontSize: 12, fontWeight: 900 }}>
+                {etapa.cronograma?.relativeLabel || "Sin semana relativa"}
+              </span>
+              {etapa.cronograma?.plannedStartISO && (
+                <span style={{ color: etapa.cronograma.overdue ? C.red : C.t1, fontFamily: C.mono, fontSize: 11 }}>
+                  {fmtDateFull(etapa.cronograma.plannedStartISO)}
+                  {etapa.cronograma.plannedEndISO && etapa.cronograma.plannedEndISO !== etapa.cronograma.plannedStartISO
+                    ? ` → ${fmtDateFull(etapa.cronograma.plannedEndISO)}`
+                    : ""}
+                </span>
+              )}
+            </div>
+            <div style={{ color: C.t2, fontSize: 10.5, marginTop: 5, lineHeight: 1.4 }}>
+              La regla se configura en la plantilla de la línea. Las fechas manuales de abajo funcionan sólo como excepción para esta obra.
+            </div>
+          </div>
+        )}
         <form onSubmit={handleSubmit}>
           <InputSt label="Nombre *"><input style={INP} required autoFocus value={form.nombre} onChange={e => set("nombre", e.target.value)} /></InputSt>
           {canEditMatrixDetails && (
@@ -525,7 +800,7 @@ function EtapaModal({ etapa, obraId, detailEnabled = false, onSave, onClose }) {
           )}
           <InputSt label="Descripción"><input style={INP} value={form.descripcion} onChange={e => set("descripcion", e.target.value)} /></InputSt>
           <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10, marginBottom: 12 }}>
-            <InputSt label="Días estimados"><input type="number" min="0" step="0.5" style={INP} value={form.dias_estimados} onChange={e => set("dias_estimados", e.target.value)} /></InputSt>
+            <InputSt label="Duración total de etapa *"><input required type="number" min="0.5" step="0.5" style={INP} value={form.dias_estimados} onChange={e => set("dias_estimados", e.target.value)} /></InputSt>
             <InputSt label="Color">
               <div style={{ display: "flex", gap: 6, alignItems: "center" }}>
                 <input type="color" value={form.color} onChange={e => set("color", e.target.value)} style={{ width: 32, height: 30, border: "none", background: "none", cursor: "pointer", flexShrink: 0 }} />
@@ -534,8 +809,8 @@ function EtapaModal({ etapa, obraId, detailEnabled = false, onSave, onClose }) {
             </InputSt>
           </div>
           <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10, marginBottom: 16 }}>
-            <InputSt label="Inicio"><input type="date" style={INP} value={form.fecha_inicio} onChange={e => set("fecha_inicio", e.target.value)} /></InputSt>
-            <InputSt label="Fin estimado"><input type="date" style={INP} value={form.fecha_fin_estimada} onChange={e => set("fecha_fin_estimada", e.target.value)} /></InputSt>
+            <InputSt label="Inicio manual (excepción)"><input type="date" style={INP} value={form.fecha_inicio} onChange={e => set("fecha_inicio", e.target.value)} /></InputSt>
+            <InputSt label="Fin manual (excepción)"><input type="date" style={INP} value={form.fecha_fin_estimada} onChange={e => set("fecha_fin_estimada", e.target.value)} /></InputSt>
           </div>
           <OrdenCompraSection genera={form.genera_orden_compra} tipo={form.orden_compra_tipo} desc={form.orden_compra_descripcion} monto={form.orden_compra_monto_estimado} diasPrevio={form.orden_compra_dias_previo} onChange={set} />
           <div style={{ display: "flex", gap: 8, marginTop: 16 }}>
@@ -726,9 +1001,10 @@ function TareaModal({ tarea, etapaId, obraId, onSave, onClose }) {
 
             {/* TIEMPO */}
             <div style={secBorder}>
-              <div style={{ fontSize: 10, letterSpacing: 1.3, color: C.t2, marginBottom: 10, textTransform: "uppercase" }}>Tiempo estimado</div>
+              <div style={{ fontSize: 10, letterSpacing: 1.3, color: C.t2, marginBottom: 4, textTransform: "uppercase" }}>Estimación propia de la tarea</div>
+              <div style={{ fontSize: 10, color: C.t2, marginBottom: 10 }}>Sirve para organizar recursos. No extiende automáticamente la duración de la etapa.</div>
               <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 8 }}>
-                <InputSt label="Días estimados">
+                <InputSt label="Días de tarea">
                   <input type="number" min="0" step="0.5" style={INP} placeholder="0" value={form.dias_estimados} onChange={e => set("dias_estimados", e.target.value)} />
                 </InputSt>
                 <InputSt label="Horas estimadas">
@@ -852,9 +1128,31 @@ const LockIcon = () => (
   <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect x="5" y="11" width="14" height="9" rx="2" /><path d="M8 11V8a4 4 0 018 0v3" /></svg>
 );
 // Botón chico de acción dentro de una card (texto o ícono).
-function CardAct({ children, color = "var(--dim)", onClick }) {
+// Los colores del theme son variables CSS ("var(--blue)"), así que NO se les
+// puede pegar un alfa hexadecimal: `var(--blue)30` es CSS inválido y el
+// navegador lo tira. Por eso los botones se venían viendo sin fondo ni borde,
+// como texto suelto. Cada color se mapea a su par soft/border del theme.
+const CARD_ACT_TONOS = {
+  [C.blue]: { soft: C.blueL, borde: C.blueB },
+  [C.green]: { soft: C.greenL, borde: C.greenB },
+  [C.red]: { soft: C.redL, borde: C.redB },
+  [C.amber]: { soft: C.amberL, borde: C.amberB },
+};
+
+function CardAct({ children, color = "var(--dim)", onClick, title }) {
+  const tono = CARD_ACT_TONOS[color] ?? { soft: C.panel2, borde: C.b0 };
   return (
-    <button type="button" onClick={onClick} style={{ border: `1px solid ${color}30`, background: `${color}10`, color, borderRadius: 7, padding: "4px 9px", fontSize: 11, fontWeight: 700, cursor: "pointer", fontFamily: C.sans, whiteSpace: "nowrap", lineHeight: 1.2 }}>
+    <button
+      type="button"
+      onClick={onClick}
+      title={title}
+      className="obra-card-act"
+      style={{
+        border: `1px solid ${tono.borde}`, background: tono.soft, color,
+        borderRadius: 7, padding: "5px 11px", fontSize: 11, fontWeight: 800,
+        cursor: "pointer", fontFamily: C.sans, whiteSpace: "nowrap", lineHeight: 1.2,
+      }}
+    >
       {children}
     </button>
   );
@@ -863,11 +1161,13 @@ function CardAct({ children, color = "var(--dim)", onClick }) {
 // Card de tarea para el tablero Kanban. Minimal: nombre, responsable, etapa,
 // vencimiento y un punto de prioridad. Las acciones aparecen al pasar el mouse.
 // El detalle completo (descripción, fechas, archivos) sigue en TareaDetalleModal.
-function TaskCard({ tarea, etapa, bloqueantes = [], esGestion, archivosCount = 0, bulkMode = false, checked = false, onToggle, onDetalle, onIniciar, onFinalizar, onReabrir, onEditar, onEliminar }) {
+function TaskCard({ tarea, etapa, fechaFinPlan = null, bloqueantes = [], esGestion, archivosCount = 0, bulkMode = false, checked = false, onToggle, onDetalle, onIniciar, onFinalizar, onReabrir, onEditar, onEliminar }) {
   const [hover, setHover] = useState(false);
   const pc = C.prioridad[tarea.prioridad ?? "media"];
   const done = ["finalizada", "cancelada"].includes(tarea.estado);
-  const dv = diasHasta(tarea.fecha_fin_estimada);
+  const fechaVencimiento = tarea.fecha_fin_estimada || fechaFinPlan;
+  const usaPlanEtapa = !tarea.fecha_fin_estimada && !!fechaFinPlan;
+  const dv = diasHasta(fechaVencimiento);
   const atrasada = dv !== null && dv < 0 && !done;
   const urgente = dv !== null && dv >= 0 && dv <= 3 && !done;
   const dueColor = done ? C.t3 : atrasada ? C.red : urgente ? C.amber : C.t2;
@@ -914,7 +1214,7 @@ function TaskCard({ tarea, etapa, bloqueantes = [], esGestion, archivosCount = 0
         <span style={{ flex: 1 }} />
         {archivosCount > 0 && <span style={{ fontSize: 10.5, color: C.t3, fontFamily: C.mono }}>{archivosCount}·arch</span>}
         {bloqueada && <span title="Tiene predecesoras" style={{ color: C.t3, display: "inline-flex" }}><LockIcon /></span>}
-        {dueTxt && <span title={`Vence ${fmtDate(tarea.fecha_fin_estimada)}`} style={{ fontSize: 11.5, fontFamily: C.mono, fontWeight: 700, color: dueColor }}>{done ? "✓" : dueTxt}</span>}
+        {dueTxt && <span title={`${usaPlanEtapa ? "Plan de etapa" : "Vence"} ${fmtDate(fechaVencimiento)}`} style={{ fontSize: 11.5, fontFamily: C.mono, fontWeight: 700, color: dueColor }}>{done ? "✓" : dueTxt}{usaPlanEtapa ? " · etapa" : ""}</span>}
       </div>
 
       {/* Acciones: siempre en el DOM pero colapsadas; se despliegan suave al hover. */}
@@ -938,9 +1238,11 @@ function TaskCard({ tarea, etapa, bloqueantes = [], esGestion, archivosCount = 0
 }
 
 // ─── MODAL DETALLE TAREA (pantalla completa) ──────────────────────────────────
-function TaskListRow({ tarea, etapa, bloqueantes = [], esGestion, isMobile, bulkMode, checked, onToggle, onDetalle, onIniciar, onFinalizar, onReabrir }) {
+function TaskListRow({ tarea, etapa, fechaFinPlan = null, bloqueantes = [], esGestion, isMobile, bulkMode, checked, onToggle, onDetalle, onIniciar, onFinalizar, onReabrir }) {
   const done = ["finalizada", "cancelada"].includes(tarea.estado);
-  const due = diasHasta(tarea.fecha_fin_estimada);
+  const fechaVencimiento = tarea.fecha_fin_estimada || fechaFinPlan;
+  const usaPlanEtapa = !tarea.fecha_fin_estimada && !!fechaFinPlan;
+  const due = diasHasta(fechaVencimiento);
   const dueColor = done ? C.t3 : (due ?? 99) < 0 ? C.red : due !== null && due <= 3 ? C.amber : C.t2;
   const tc = C.tarea[tarea.estado] ?? C.tarea.pendiente;
   const priorityColor = C.prioridad[tarea.prioridad ?? "media"].color;
@@ -950,7 +1252,7 @@ function TaskListRow({ tarea, etapa, bloqueantes = [], esGestion, isMobile, bulk
     <div
       className="obra-task-row"
       onClick={() => bulkMode ? onToggle(tarea.id) : onDetalle(tarea)}
-      style={{ display: "grid", gridTemplateColumns: isMobile ? "minmax(0,1fr) auto" : bulkMode ? "22px 4px minmax(190px,1fr) 130px 130px 78px 96px 108px" : "4px minmax(190px,1fr) 130px 130px 78px 96px 108px", alignItems: "center", gap: isMobile ? 10 : 12, padding: isMobile ? "12px 10px" : "10px 7px", borderBottom: `1px solid ${C.b0}`, cursor: "pointer", color: C.t0 }}
+      style={{ display: "grid", gridTemplateColumns: isMobile ? "minmax(0,1fr) auto" : bulkMode ? "22px 4px minmax(190px,1fr) 130px 130px 96px 96px 108px" : "4px minmax(190px,1fr) 130px 130px 96px 96px 108px", alignItems: "center", gap: isMobile ? 10 : 12, padding: isMobile ? "12px 10px" : "10px 7px", borderBottom: `1px solid ${C.b0}`, cursor: "pointer", color: C.t0 }}
     >
       {bulkMode && (
         <span style={{ width: 16, height: 16, borderRadius: 4, border: `1.5px solid ${checked ? C.blue : C.b1}`, background: checked ? C.blueL : "transparent", display: "grid", placeItems: "center", fontSize: 10, color: C.blue }}>{checked ? "✓" : ""}</span>
@@ -963,8 +1265,29 @@ function TaskListRow({ tarea, etapa, bloqueantes = [], esGestion, isMobile, bulk
       </div>
       {!isMobile && <span style={{ fontSize: 11, color: etapa?.color || C.t2, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{etapa?.nombre || "Sin etapa"}</span>}
       {!isMobile && <span style={{ display: "flex", alignItems: "center", gap: 7, minWidth: 0 }}><AvatarResp name={tarea.responsable} size={20} /><span style={{ color: C.t2, fontSize: 11, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{tarea.responsable || "Sin asignar"}</span></span>}
-      <span style={{ fontFamily: C.mono, fontSize: 11, fontWeight: 700, color: dueColor, whiteSpace: "nowrap" }}>{dueText}</span>
-      {!isMobile && <span style={{ fontSize: 11.5, fontWeight: 700, color: tc.text }}>{tc.label}</span>}
+      {/* El "· etapa" iba pegado en la misma línea y con nowrap sin recorte: se
+          desbordaba de la celda y se montaba encima del estado ("97d tarde ·
+          etaPendiente"). Ahora va debajo, chico, y la celda recorta. */}
+      <span
+        title={usaPlanEtapa ? `Fecha heredada del plan de etapa · ${fmtDate(fechaVencimiento)}` : fmtDate(fechaVencimiento)}
+        style={{ minWidth: 0, overflow: "hidden", lineHeight: 1.15 }}
+      >
+        <span style={{ display: "block", fontFamily: C.mono, fontSize: 11, fontWeight: 700, color: dueColor, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+          {dueText}
+        </span>
+        {usaPlanEtapa && (
+          <span style={{ display: "block", fontSize: 9.5, color: C.t3, marginTop: 1, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+            plan etapa
+          </span>
+        )}
+      </span>
+      {!isMobile && (
+        <span style={{ display: "flex", alignItems: "center", gap: 6, minWidth: 0 }}>
+          {/* Un punto del color del estado: se distingue de un vistazo sin leer */}
+          <span style={{ width: 6, height: 6, borderRadius: 99, background: tc.dot ?? tc.text, flexShrink: 0 }} />
+          <span style={{ fontSize: 11.5, fontWeight: 700, color: tc.text, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{tc.label}</span>
+        </span>
+      )}
       {!bulkMode && (
         <div className="obra-task-actions" onClick={e => e.stopPropagation()} style={{ display: "flex", justifyContent: isMobile ? "flex-start" : "flex-end", gap: 5, gridColumn: isMobile ? "1 / -1" : "auto" }}>
           {esGestion && ["pendiente", "bloqueada"].includes(tarea.estado) && <CardAct color={C.blue} onClick={() => onIniciar(tarea)}>Iniciar</CardAct>}
@@ -1163,7 +1486,7 @@ function EtapaManagerModal({ rows, esGestion, onEstado, onEditar, onEliminar, on
       <div style={{ padding: "18px 20px", borderBottom: `1px solid ${C.b0}`, display: "flex", alignItems: "center", gap: 12 }}>
         <div style={{ flex: 1 }}>
           <div style={{ fontSize: 15, fontWeight: 700, color: C.t0 }}>Etapas de producción</div>
-          <div style={{ fontSize: 11.5, color: C.t2, marginTop: 2 }}>Estado de cada etapa, orden de compra al completar, y edición.</div>
+          <div style={{ fontSize: 11.5, color: C.t2, marginTop: 2 }}>Estado, semana relativa y fecha calculada desde el desmolde.</div>
         </div>
         <Btn variant="ghost" onClick={onClose} sx={{ fontSize: 18 }}>×</Btn>
       </div>
@@ -1178,7 +1501,21 @@ function EtapaManagerModal({ rows, esGestion, onEstado, onEditar, onEliminar, on
                   {etapa.genera_orden_compra && <span title="Genera orden de compra al completar" style={{ color: C.amber, marginLeft: 6 }}>●</span>}
                 </div>
                 <div style={{ fontSize: 10.5, color: C.t2, marginTop: 2, fontFamily: C.mono }}>
-                  {total > 0 ? `${fin}/${total} tareas · ${epct}%` : "Sin tareas"}{etapa.dias_estimados ? ` · ${etapa.dias_estimados}d` : ""}
+                  {total > 0 ? `${fin}/${total} tareas · ${epct}%` : "Sin tareas"}
+                  {etapa.dias_estimados ? ` · ${etapa.dias_estimados}d de etapa` : " · falta duración"}
+                </div>
+                <div style={{ display: "flex", alignItems: "center", gap: 7, marginTop: 4, fontSize: 10.5, fontFamily: C.mono }}>
+                  <span style={{ color: etapa.cronograma?.configured ? C.violet : C.amber, fontWeight: 850 }}>
+                    {etapa.cronograma?.relativeLabel || "sin ubicar"}
+                  </span>
+                  {etapa.cronograma?.plannedStartISO && (
+                    <span style={{ color: etapa.cronograma.overdue ? C.red : C.t2 }}>
+                      {fmtDate(etapa.cronograma.plannedStartISO)}
+                      {etapa.cronograma.plannedEndISO && etapa.cronograma.plannedEndISO !== etapa.cronograma.plannedStartISO
+                        ? ` → ${fmtDate(etapa.cronograma.plannedEndISO)}`
+                        : ""}
+                    </span>
+                  )}
                 </div>
               </div>
               {esGestion && !etapa.isVirtual ? (
@@ -1332,7 +1669,7 @@ function OrdenCompraModal({ oc, obras, onSave, onClose }) {
 
 // ─── NUEVA LÍNEA DE PRODUCCIÓN ───────────────────────────────────────────────
 function NuevaLineaModal({ onClose, onSaved }) {
-  const [form, setForm] = useState({ nombre: "", color: "#3b82f6", orden: "" });
+  const [form, setForm] = useState({ nombre: "", color: "#3b82f6", orden: "", semanas_produccion_estimadas: "" });
   const [saving, setSaving] = useState(false);
   const [err, setErr] = useState("");
   const set = (k, v) => setForm(f => ({ ...f, [k]: v }));
@@ -1348,6 +1685,7 @@ function NuevaLineaModal({ onClose, onSaved }) {
       nombre: form.nombre.trim(),
       color: form.color,
       orden: form.orden !== "" ? Number(form.orden) : maxOrden + 1,
+      semanas_produccion_estimadas: form.semanas_produccion_estimadas !== "" ? Number(form.semanas_produccion_estimadas) : null,
       activa: true,
     });
     if (error) { setErr(error.message); setSaving(false); return; }
@@ -1368,6 +1706,10 @@ function NuevaLineaModal({ onClose, onSaved }) {
         <form onSubmit={handleSubmit}>
           <InputSt label="Nombre *">
             <input style={INP} required autoFocus placeholder="Ej: Línea Barcos FRP" value={form.nombre} onChange={e => set("nombre", e.target.value)} />
+          </InputSt>
+          <InputSt label="Semanas estimadas de producción">
+            <input type="number" min="0.5" step="0.5" style={INP} placeholder="Ej.: 24" value={form.semanas_produccion_estimadas} onChange={e => set("semanas_produccion_estimadas", e.target.value)} />
+            <div style={{ color: C.t2, fontSize: 10, marginTop: 5 }}>Plazo general de referencia para una obra de esta línea.</div>
           </InputSt>
           <div style={{ display: "grid", gridTemplateColumns: "1fr 100px", gap: 10, marginBottom: 12 }}>
             <InputSt label="Color">
@@ -1393,16 +1735,26 @@ function NuevaLineaModal({ onClose, onSaved }) {
 }
 
 // ─── PLANTILLA LÍNEA ─────────────────────────────────────────────────────────
-function LineasEtapasModal({ linea, lProcs, detailEnabled = false, onClose, onSaved }) {
+function LineasEtapasModal({ linea, lProcs, stageOffsets = new Map(), detailEnabled = false, isMobile = false, onClose, onSaved }) {
   const [localLinea,  setLocalLinea]  = useState(linea);
   const [editingLinea, setEditingLinea] = useState(false);
-  const [lineaForm,   setLineaForm]   = useState({ nombre: linea.nombre, color: linea.color ?? "#3b82f6", orden: linea.orden ?? "" });
+  const [lineaForm,   setLineaForm]   = useState({
+    nombre: linea.nombre,
+    color: linea.color ?? "#3b82f6",
+    orden: linea.orden ?? "",
+    semanas_produccion_estimadas: linea.semanas_produccion_estimadas ?? "",
+  });
 
-  const [items,       setItems]       = useState(lProcs.filter(p => p.linea_id === linea.id).sort((a, b) => (a.orden ?? 0) - (b.orden ?? 0)));
+  const [items,       setItems]       = useState(
+    lProcs
+      .filter(p => p.linea_id === linea.id)
+      .sort((a, b) => (a.orden ?? 0) - (b.orden ?? 0))
+      .map(p => ({ ...p, semana_desmolde: stageOffsets.get(p.id) ?? "" }))
+  );
   const [loadingAll,  setLoadingAll]  = useState(true);
   const [editIdx,     setEditIdx]     = useState(null);
   const [adding,      setAdding]      = useState(false);
-  const [newForm,     setNewForm]     = useState({ nombre: "", descripcion: "", dias_estimados: "", color: "#64748b", responsable: "", personas_necesarias: "", involucrados: "", observaciones: "", genera_orden_compra: false, orden_compra_tipo: "aviso", orden_compra_descripcion: "", orden_compra_monto_estimado: "", orden_compra_dias_previo: 7 });
+  const [newForm,     setNewForm]     = useState({ nombre: "", descripcion: "", dias_estimados: "", semana_desmolde: "", color: "#64748b", responsable: "", personas_necesarias: "", involucrados: "", observaciones: "", genera_orden_compra: false, orden_compra_tipo: "aviso", orden_compra_descripcion: "", orden_compra_monto_estimado: "", orden_compra_dias_previo: 7 });
   const [saving,      setSaving]      = useState(false);
   const [toast,       setToast]       = useState(null);
   const [editBuf,     setEditBuf]     = useState({});
@@ -1437,7 +1789,7 @@ function LineasEtapasModal({ linea, lProcs, detailEnabled = false, onClose, onSa
         .eq("linea_id", localLinea.id)
         .order("orden");
       if (procs?.length) {
-        setItems(procs);
+        setItems(procs.map(proc => ({ ...proc, semana_desmolde: stageOffsets.get(proc.id) ?? "" })));
         setSelectedProc(current => procs.some(proc => proc.id === current) ? current : procs[0].id);
         setExpandedProc(current => procs.some(proc => proc.id === current) ? current : procs[0].id);
       }
@@ -1459,7 +1811,7 @@ function LineasEtapasModal({ linea, lProcs, detailEnabled = false, onClose, onSa
       setLoadingTareas(false);
     }
     fetchAll();
-  }, [detailEnabled, localLinea.id]);
+  }, [detailEnabled, localLinea.id, stageOffsets]);
 
   async function guardarLinea() {
     if (!lineaForm.nombre.trim()) return;
@@ -1467,7 +1819,8 @@ function LineasEtapasModal({ linea, lProcs, detailEnabled = false, onClose, onSa
     const { data, error } = await supabase.from("lineas_produccion").update({
       nombre: lineaForm.nombre.trim(),
       color: lineaForm.color,
-      orden: lineaForm.orden !== "" ? num(lineaForm.orden) : null
+      orden: lineaForm.orden !== "" ? num(lineaForm.orden) : null,
+      semanas_produccion_estimadas: lineaForm.semanas_produccion_estimadas !== "" ? num(lineaForm.semanas_produccion_estimadas) : null,
     }).eq("id", localLinea.id).select().single();
 
     if (error) { flash(false, error.message); setSaving(false); return; }
@@ -1546,11 +1899,42 @@ function LineasEtapasModal({ linea, lProcs, detailEnabled = false, onClose, onSa
   function cancelEdit() { setEditIdx(null); setEditBuf({}); }
   const eb = (k, v) => setEditBuf(f => ({ ...f, [k]: v }));
 
+  async function guardarSemanaDesmolde(procesoId, value) {
+    const raw = String(value ?? "").trim();
+    if (raw === "") {
+      const { error } = await supabase
+        .from("fechas_offsets")
+        .delete()
+        .eq("evento_key", productionStageOffsetKey(procesoId))
+        .eq("modelo", "*");
+      if (error) throw error;
+      return null;
+    }
+    const weeks = Number(raw);
+    if (!Number.isFinite(weeks)) throw new Error("La semana relativa al desmolde no es válida.");
+    const { error } = await supabase
+      .from("fechas_offsets")
+      .upsert({
+        evento_key: productionStageOffsetKey(procesoId),
+        modelo: "*",
+        semanas: weeks,
+        referencia: "desmolde",
+        updated_at: new Date().toISOString(),
+      }, { onConflict: "evento_key,modelo" });
+    if (error) throw error;
+    return weeks;
+  }
+
   async function saveEdit(idx) {
-    setSaving(true);
     const item = items[idx];
+    const durationDays = Number(editBuf.dias_estimados ?? item.dias_estimados);
+    if (!Number.isFinite(durationDays) || durationDays <= 0) {
+      flash(false, "Indicá cuántos días debería durar la etapa.");
+      return;
+    }
+    setSaving(true);
     const payload = {
-      nombre: editBuf.nombre?.trim() || item.nombre, dias_estimados: editBuf.dias_estimados !== "" ? num(editBuf.dias_estimados) : null,
+      nombre: editBuf.nombre?.trim() || item.nombre, dias_estimados: durationDays,
       color: editBuf.color ?? item.color, genera_orden_compra: editBuf.genera_orden_compra ?? false,
       orden_compra_tipo: editBuf.genera_orden_compra ? (editBuf.orden_compra_tipo ?? "aviso") : null,
       orden_compra_descripcion: editBuf.genera_orden_compra ? (editBuf.orden_compra_descripcion?.trim() || null) : null,
@@ -1563,15 +1947,27 @@ function LineasEtapasModal({ linea, lProcs, detailEnabled = false, onClose, onSa
     }
     const { error } = await supabase.from("linea_procesos").update(payload).eq("id", item.id);
     if (error) { flash(false, error.message); setSaving(false); return; }
-    setItems(prev => prev.map((it, i) => i === idx ? { ...it, ...payload } : it));
+    let semanaDesmolde;
+    try {
+      semanaDesmolde = await guardarSemanaDesmolde(item.id, editBuf.semana_desmolde);
+    } catch (offsetError) {
+      flash(false, offsetError.message); setSaving(false); return;
+    }
+    setItems(prev => prev.map((it, i) => i === idx ? { ...it, ...payload, semana_desmolde: semanaDesmolde ?? "" } : it));
     setEditIdx(null); flash(true, "Guardado."); setSaving(false); onSaved();
   }
 
   async function addEtapa() {
-    if (!newForm.nombre.trim()) return; setSaving(true);
+    if (!newForm.nombre.trim()) return;
+    const durationDays = Number(newForm.dias_estimados);
+    if (!Number.isFinite(durationDays) || durationDays <= 0) {
+      flash(false, "Indicá cuántos días debería durar la etapa.");
+      return;
+    }
+    setSaving(true);
     const maxOrden = Math.max(0, ...items.map(p => p.orden ?? 0));
     const { data, error } = await supabase.from("linea_procesos").insert({
-      linea_id: localLinea.id, nombre: newForm.nombre.trim(), dias_estimados: newForm.dias_estimados !== "" ? num(newForm.dias_estimados) : null,
+      linea_id: localLinea.id, nombre: newForm.nombre.trim(), dias_estimados: durationDays,
       color: newForm.color, orden: maxOrden + 1, activo: true,
       ...(procDetailsEnabled ? { descripcion: newForm.descripcion.trim() || null, ...matrixDetailPatch(newForm) } : {}),
       genera_orden_compra: newForm.genera_orden_compra,
@@ -1581,8 +1977,15 @@ function LineasEtapasModal({ linea, lProcs, detailEnabled = false, onClose, onSa
       orden_compra_dias_previo: newForm.genera_orden_compra ? num(newForm.orden_compra_dias_previo) : null,
     }).select().single();
     if (error) { flash(false, error.message); setSaving(false); return; }
-    setItems(prev => [...prev, data]); setAdding(false); setSelectedProc(data.id); setExpandedProc(data.id);
-    setNewForm({ nombre: "", descripcion: "", dias_estimados: "", color: "#64748b", responsable: "", personas_necesarias: "", involucrados: "", observaciones: "", genera_orden_compra: false, orden_compra_tipo: "aviso", orden_compra_descripcion: "", orden_compra_monto_estimado: "", orden_compra_dias_previo: 7 });
+    let semanaDesmolde;
+    try {
+      semanaDesmolde = await guardarSemanaDesmolde(data.id, newForm.semana_desmolde);
+    } catch (offsetError) {
+      await supabase.from("linea_procesos").delete().eq("id", data.id);
+      flash(false, offsetError.message); setSaving(false); return;
+    }
+    setItems(prev => [...prev, { ...data, semana_desmolde: semanaDesmolde ?? "" }]); setAdding(false); setSelectedProc(data.id); setExpandedProc(data.id);
+    setNewForm({ nombre: "", descripcion: "", dias_estimados: "", semana_desmolde: "", color: "#64748b", responsable: "", personas_necesarias: "", involucrados: "", observaciones: "", genera_orden_compra: false, orden_compra_tipo: "aviso", orden_compra_descripcion: "", orden_compra_monto_estimado: "", orden_compra_dias_previo: 7 });
     flash(true, "Etapa agregada."); setSaving(false); onSaved();
   }
 
@@ -1590,6 +1993,11 @@ function LineasEtapasModal({ linea, lProcs, detailEnabled = false, onClose, onSa
     if (!window.confirm(`¿Eliminar "${item.nombre}" de la plantilla?`)) return;
     const { error } = await supabase.from("linea_procesos").delete().eq("id", item.id);
     if (error) { flash(false, error.message); return; }
+    await supabase
+      .from("fechas_offsets")
+      .delete()
+      .eq("evento_key", productionStageOffsetKey(item.id))
+      .eq("modelo", "*");
     setItems(prev => {
       const next = prev.filter(it => it.id !== item.id);
       if (selectedProc === item.id) {
@@ -1644,96 +2052,147 @@ function LineasEtapasModal({ linea, lProcs, detailEnabled = false, onClose, onSa
   return (
     <Overlay onClose={onClose} maxWidth={1120}>
       {toast && <div style={{ position: "fixed", bottom: 24, right: 24, zIndex: 99999, padding: "10px 18px", borderRadius: 8, fontSize: 13, fontFamily: C.sans, background: toast.ok ? "#091510" : "#150909", border: `1px solid ${toast.ok ? "rgba(60,140,80,0.5)" : "rgba(180,60,60,0.5)"}`, color: toast.ok ? "#70c080" : "#c07070" }}>{toast.text}</div>}
-      <div style={{ padding: 26, overflowY: "auto" }}>
-        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: 20 }}>
-          {!editingLinea ? (
-            <div>
-              <div style={{ fontSize: 17, color: C.t0, fontWeight: 800 }}>Configuracion de produccion</div>
-              <div style={{ fontSize: 11.5, color: C.t2, marginTop: 3 }}>Define el recorrido y las tareas que se copiaran a cada obra de esta linea.</div>
-              <div style={{ fontSize: 12, color: C.t1, marginTop: 3, display: "flex", alignItems: "center", gap: 6 }}>
-                <div style={{ width: 8, height: 8, borderRadius: "50%", background: localLinea.color ?? C.t2 }} />
-                {localLinea.nombre}
-                <button type="button" onClick={() => setEditingLinea(true)} style={{ ...btnIcon, marginLeft: 8 }}>✏️ editar línea</button>
-                <button type="button" onClick={eliminarLinea} style={{ ...btnIcon, color: C.red }}>× borrar línea</button>
+      <div style={{ padding: isMobile ? 12 : 22, overflowY: "auto" }}>
+        <div style={{ borderBottom: `1px solid ${C.b0}`, padding: "2px 0 14px", marginBottom: 12 }}>
+          <div style={{ display: "flex", alignItems: "flex-start", gap: 12, flexWrap: isMobile ? "wrap" : "nowrap" }}>
+            <div style={{ width: 36, height: 36, borderRadius: 9, display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0, background: C.s1, border: `1px solid ${C.b1}`, color: C.t1, fontFamily: C.mono, fontSize: 14, fontWeight: 900 }}>
+              {String(localLinea.nombre || "L").trim().slice(0, 2).toUpperCase()}
+            </div>
+            <div style={{ flex: 1, minWidth: 0 }}>
+              <div style={{ fontSize: 9.5, color: C.t2, textTransform: "uppercase", letterSpacing: 1.25, fontWeight: 800 }}>Configurar línea</div>
+              <div style={{ display: "flex", gap: 8, alignItems: "center", flexWrap: "wrap", marginTop: 2 }}>
+                <h2 style={{ margin: 0, fontSize: 18, lineHeight: 1.25, color: C.t0, fontWeight: 850 }}>{localLinea.nombre}</h2>
+              </div>
+              <div style={{ fontSize: 11, color: C.t2, marginTop: 4, lineHeight: 1.45 }}>
+                Ordená las etapas y definí en qué semana suceden respecto del desmolde.
+                {localLinea.semanas_produccion_estimadas ? ` Plazo general: ${localLinea.semanas_produccion_estimadas} semanas.` : ""}
               </div>
             </div>
-          ) : (
-            <div style={{ flex: 1, marginRight: 20, background: "rgba(59,130,246,0.05)", padding: "12px 16px", borderRadius: 8, border: `1px solid rgba(59,130,246,0.3)` }}>
-               <div style={{ fontSize: 13, color: C.primary, marginBottom: 10, fontWeight: 600 }}>Editar configuración de línea</div>
-               <div style={{ display: "grid", gridTemplateColumns: "1fr 80px", gap: 10, marginBottom: 8 }}>
-                 <InputSt label="Nombre"><input style={INP} value={lineaForm.nombre} onChange={e=>setLineaForm(f=>({...f, nombre: e.target.value}))} /></InputSt>
-                 <InputSt label="Orden"><input type="number" style={INP} value={lineaForm.orden} onChange={e=>setLineaForm(f=>({...f, orden: e.target.value}))} /></InputSt>
-               </div>
-               <InputSt label="Color">
-                  <div style={{ display: "flex", gap: 5, alignItems: "center" }}>
-                    <input type="color" value={lineaForm.color} onChange={e => setLineaForm(f => ({ ...f, color: e.target.value }))} style={{ width: 30, height: 28, border: "none", background: "none", cursor: "pointer" }} />
-                    {COLOR_PRESETS.map(c => <div key={c} onClick={() => setLineaForm(f => ({ ...f, color: c }))} style={{ width: 14, height: 14, borderRadius: 3, background: c, cursor: "pointer", border: lineaForm.color === c ? "2px solid #fff" : "2px solid transparent" }} />)}
-                  </div>
-               </InputSt>
-               <div style={{ display: "flex", gap: 8, marginTop: 12 }}>
-                 <Btn variant="primary" onClick={guardarLinea} disabled={saving}>Guardar</Btn>
-                 <Btn variant="outline" onClick={() => setEditingLinea(false)}>Cancelar</Btn>
-               </div>
+            <div style={{ display: "flex", alignItems: "center", gap: 6, flexShrink: 0, marginLeft: isMobile ? 50 : 0 }}>
+              {!editingLinea && <span data-tour="obras-linea-datos"><Btn variant="outline" onClick={() => setEditingLinea(true)} sx={{ padding: "6px 11px", fontSize: 11.5 }}>Datos de la línea</Btn></span>}
+              <button data-tour="obras-linea-modal-cerrar" type="button" onClick={onClose} aria-label="Cerrar" style={{ width: 32, height: 32, borderRadius: 8, border: `1px solid ${C.b0}`, background: "transparent", color: C.t1, cursor: "pointer", fontSize: 18, lineHeight: 1 }}>×</button>
             </div>
-          )}
-          <Btn variant="ghost" onClick={onClose} sx={{ fontSize: 18 }}>×</Btn>
+          </div>
         </div>
-        <div style={{ display: "flex", alignItems: "center", gap: 18, padding: "10px 0 14px", borderBottom: `1px solid ${C.b0}`, marginBottom: 14, overflowX: "auto" }}>
+
+        {editingLinea && (
+          <div style={{ marginBottom: 12, padding: "13px 15px", borderRadius: 10, background: C.s0, border: `1px solid ${C.b1}` }}>
+            <div style={{ display: "flex", justifyContent: "space-between", gap: 12, marginBottom: 11 }}>
+              <div>
+                <div style={{ fontSize: 12.5, color: C.t0, fontWeight: 800 }}>Datos generales de la línea</div>
+                <div style={{ fontSize: 10.5, color: C.t2, marginTop: 2 }}>El plazo general es una referencia. Cada etapa conserva su propia ubicación y duración.</div>
+              </div>
+            </div>
+            <div style={{ display: "grid", gridTemplateColumns: isMobile ? "1fr" : "minmax(190px, 1fr) 90px 150px minmax(190px, .8fr)", gap: 12, alignItems: "end" }}>
+              <InputSt label="Nombre de la línea"><input style={INP} value={lineaForm.nombre} onChange={e => setLineaForm(f => ({ ...f, nombre: e.target.value }))} /></InputSt>
+              <InputSt label="Orden"><input type="number" style={INP} value={lineaForm.orden} onChange={e => setLineaForm(f => ({ ...f, orden: e.target.value }))} /></InputSt>
+              <div data-tour="obras-semanas-linea"><InputSt label="Semanas estimadas"><input type="number" min="0.5" step="0.5" style={INP} placeholder="Ej.: 24" value={lineaForm.semanas_produccion_estimadas} onChange={e => setLineaForm(f => ({ ...f, semanas_produccion_estimadas: e.target.value }))} /></InputSt></div>
+              <InputSt label="Color identificador">
+                <div style={{ minHeight: 35, display: "flex", gap: 6, alignItems: "center" }}>
+                  <input type="color" value={lineaForm.color} onChange={e => setLineaForm(f => ({ ...f, color: e.target.value }))} style={{ width: 32, height: 30, border: "none", background: "none", cursor: "pointer" }} />
+                  {COLOR_PRESETS.map(c => <button type="button" aria-label={`Color ${c}`} key={c} onClick={() => setLineaForm(f => ({ ...f, color: c }))} style={{ width: 17, height: 17, borderRadius: 5, padding: 0, background: c, cursor: "pointer", border: lineaForm.color === c ? `2px solid ${C.t0}` : "2px solid transparent" }} />)}
+                </div>
+              </InputSt>
+            </div>
+            <div style={{ display: "flex", gap: 7 }}>
+              <Btn variant="primary" onClick={guardarLinea} disabled={saving}>{saving ? "Guardando…" : "Guardar datos"}</Btn>
+              <Btn variant="outline" onClick={() => setEditingLinea(false)}>Cancelar</Btn>
+            </div>
+          </div>
+        )}
+
+        <div style={{ display: "flex", alignItems: isMobile ? "flex-start" : "center", flexDirection: isMobile ? "column" : "row", gap: isMobile ? 7 : 14, marginBottom: 12, padding: "10px 12px", border: `1px solid ${C.b0}`, borderRadius: 9, background: C.s0 }}>
+          <div style={{ fontSize: 10.5, color: C.t1, fontWeight: 750, whiteSpace: "nowrap" }}>Cómo leer las semanas</div>
+          <div style={{ display: "flex", alignItems: "center", gap: 7, fontFamily: C.mono, fontSize: 11, fontWeight: 800 }}>
+            <span>S− antes</span><span style={{ color: C.b2 }}>·</span><span>S0 desmolde</span><span style={{ color: C.b2 }}>·</span><span>S+ después</span>
+          </div>
+          <div style={{ marginLeft: isMobile ? 0 : "auto", fontSize: 10, color: C.t2 }}>La duración de la etapa manda; las tareas pueden hacerse en simultáneo y no se suman.</div>
+        </div>
+
+        <div style={{ display: "flex", alignItems: "center", gap: 0, marginBottom: 12, padding: "7px 0", borderTop: `1px solid ${C.b0}`, borderBottom: `1px solid ${C.b0}`, overflowX: "auto" }}>
           {[
-            ["Etapas", items.length, localLinea.color ?? C.blue],
-            ["Tareas", tareasState.length, C.blue],
-            ["Dependencias", tareasState.filter(t => Array.isArray(t.predecesoras) && t.predecesoras.length > 0).length, C.amber],
-            ["Duracion base", `${items.reduce((sum, item) => sum + num(item.dias_estimados), 0)}d`, C.green],
-          ].map(([label, value, color]) => (
-            <div key={label} style={{ display: "flex", alignItems: "baseline", gap: 7, whiteSpace: "nowrap" }}>
-              <span style={{ fontFamily: C.mono, fontSize: 15, fontWeight: 800, color }}>{value}</span>
-              <span style={{ fontSize: 10, color: C.t2, textTransform: "uppercase", letterSpacing: 1 }}>{label}</span>
+            ["Plazo de línea", localLinea.semanas_produccion_estimadas ? `${localLinea.semanas_produccion_estimadas} sem` : "Pendiente"],
+            ["Etapas", items.length],
+            ["Con semana definida", `${items.filter(item => item.semana_desmolde !== "").length}/${items.length}`],
+            ["Con duración definida", `${items.filter(item => num(item.dias_estimados) > 0).length}/${items.length}`],
+            ["Tareas", tareasState.length],
+          ].map(([label, value], index) => (
+            <div key={label} style={{ minWidth: 128, flex: 1, padding: "4px 12px", borderLeft: index ? `1px solid ${C.b0}` : "none", whiteSpace: "nowrap" }}>
+              <span style={{ display: "block", fontFamily: C.mono, fontSize: 14, fontWeight: 850, color: C.t0 }}>{value}</span>
+              <span style={{ display: "block", fontSize: 9, color: C.t2, textTransform: "uppercase", letterSpacing: .8, marginTop: 2 }}>{label}</span>
             </div>
           ))}
         </div>
-        <div style={{ display: "grid", gridTemplateColumns: "230px minmax(0, 1fr)", gap: 16, alignItems: "start", marginBottom: 12 }}>
-          <aside style={{ maxHeight: "68vh", overflowY: "auto", paddingRight: 4 }}>
-            <div style={{ fontSize: 9.5, color: C.t2, textTransform: "uppercase", letterSpacing: 1.2, fontWeight: 800, margin: "2px 4px 8px" }}>Recorrido de etapas</div>
+        <div style={{ display: "grid", gridTemplateColumns: isMobile ? "1fr" : "250px minmax(0, 1fr)", gap: 12, alignItems: "start", marginBottom: 12 }}>
+          <aside data-tour="obras-etapas-lista" style={{ maxHeight: isMobile ? 230 : "61vh", overflowY: "auto", padding: 10, borderRadius: 11, border: `1px solid ${C.b0}`, background: C.s0 }}>
+            <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 8, margin: "0 2px 9px" }}>
+              <div>
+                <div style={{ fontSize: 9.5, color: C.t2, textTransform: "uppercase", letterSpacing: 1.2, fontWeight: 850 }}>1 · Recorrido</div>
+                <div style={{ fontSize: 9.5, color: C.t3, marginTop: 2 }}>Elegí una etapa para configurarla.</div>
+              </div>
+              {!adding && <button type="button" onClick={() => setAdding(true)} style={{ border: `1px solid ${C.b1}`, background: "transparent", color: C.t1, borderRadius: 7, padding: "5px 8px", fontSize: 10.5, fontWeight: 800, cursor: "pointer", fontFamily: C.sans, whiteSpace: "nowrap" }}>+ Etapa</button>}
+            </div>
             {items.map((item, idx) => {
               const active = selectedProc === item.id;
               const total = tareasDeProc(item.id).length;
               const dependencies = tareasDeProc(item.id).filter(t => Array.isArray(t.predecesoras) && t.predecesoras.length > 0).length;
               return (
-                <button key={item.id} type="button" onClick={() => { setSelectedProc(item.id); setExpandedProc(item.id); setEditIdx(null); }} style={{ width: "100%", display: "grid", gridTemplateColumns: "4px minmax(0,1fr) auto", gap: 9, alignItems: "center", padding: "10px 9px", marginBottom: 5, borderRadius: 8, border: `1px solid ${active ? C.blueB : C.b0}`, background: active ? C.blueL : "transparent", color: active ? C.t0 : C.t1, cursor: "pointer", textAlign: "left", fontFamily: C.sans }}>
-                  <span style={{ width: 3, height: 28, borderRadius: 99, background: item.color ?? C.t2 }} />
+                <button data-tour="obras-etapa-item" key={item.id} type="button" onClick={() => { setSelectedProc(item.id); setExpandedProc(item.id); setEditIdx(null); }} style={{ width: "100%", display: "grid", gridTemplateColumns: "28px minmax(0,1fr)", gap: 9, alignItems: "center", padding: "9px", marginBottom: 5, borderRadius: 8, border: `1px solid ${active ? C.blueB : "transparent"}`, background: active ? C.blueL : "transparent", color: active ? C.t0 : C.t1, cursor: "pointer", textAlign: "left", fontFamily: C.sans }}>
+                  <span style={{ width: 27, height: 27, borderRadius: 8, display: "flex", alignItems: "center", justifyContent: "center", background: active ? C.s0 : "transparent", border: `1px solid ${active ? C.blueB : C.b0}`, color: active ? C.blue : C.t2, fontFamily: C.mono, fontSize: 10.5, fontWeight: 900 }}>{idx + 1}</span>
                   <span style={{ minWidth: 0 }}>
-                    <span style={{ display: "block", fontSize: 12.5, fontWeight: 750, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{idx + 1}. {item.nombre}</span>
-                    <span style={{ display: "block", fontSize: 10, color: C.t2, marginTop: 3 }}>{total} tareas{dependencies ? ` · ${dependencies} dependencias` : ""}</span>
+                    <span style={{ display: "block", fontSize: 12, fontWeight: 800, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{item.nombre}</span>
+                    <span style={{ display: "flex", alignItems: "center", gap: 5, fontSize: 9.5, color: C.t2, marginTop: 4, whiteSpace: "nowrap" }}>
+                      <span style={{ color: item.semana_desmolde === "" ? C.amber : C.t1, fontFamily: C.mono, fontWeight: 850 }}>
+                        {item.semana_desmolde === "" ? "Sin ubicar" : relativeWeekLabel(item.semana_desmolde)}
+                      </span>
+                      <span>·</span>
+                      <span>{total} tareas</span>
+                      {item.dias_estimados
+                        ? <><span>·</span><span>{item.dias_estimados}d de etapa</span></>
+                        : <><span>·</span><span style={{ color: C.amber, fontWeight: 800 }}>Falta duración</span></>}
+                      {dependencies > 0 && <span title={`${dependencies} dependencias`} style={{ color: C.amber }}>↳ {dependencies}</span>}
+                    </span>
                   </span>
-                  <span style={{ fontFamily: C.mono, fontSize: 10.5, color: C.t3 }}>{item.dias_estimados ? `${item.dias_estimados}d` : "-"}</span>
                 </button>
               );
             })}
             {!items.length && !loadingAll && <div style={{ padding: "18px 8px", color: C.t3, fontSize: 11.5 }}>Todavia no hay etapas.</div>}
-            {!adding && <button type="button" onClick={() => setAdding(true)} style={{ width: "100%", marginTop: 7, padding: "8px", borderRadius: 8, border: `1px dashed ${C.blueB}`, background: "transparent", color: C.blue, fontSize: 11.5, fontWeight: 700, cursor: "pointer", fontFamily: C.sans }}>+ Nueva etapa</button>}
           </aside>
-          <div style={{ maxHeight: "68vh", overflowY: "auto", paddingRight: 4 }}>
+          <div style={{ maxHeight: isMobile ? "none" : "61vh", overflowY: isMobile ? "visible" : "auto", paddingRight: isMobile ? 0 : 4 }}>
+          <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 10, marginBottom: 8, padding: "0 2px" }}>
+            <div>
+              <div style={{ fontSize: 9.5, color: C.t2, textTransform: "uppercase", letterSpacing: 1.2, fontWeight: 850 }}>{adding ? "2 · Nueva etapa" : "2 · Configuración de la etapa"}</div>
+              <div style={{ fontSize: 9.5, color: C.t3, marginTop: 2 }}>{adding ? "Primero cargá sus datos y ubicación en el cronograma." : "Definí cuándo ocurre y qué tareas contiene."}</div>
+            </div>
+            {selectedProc && !adding && <span style={{ fontSize: 10, color: C.t2 }}>{items.findIndex(item => item.id === selectedProc) + 1} de {items.length}</span>}
+          </div>
           {loadingAll && <div style={{ textAlign: "center", padding: "28px 0", color: C.t2, fontSize: 13 }}>Cargando plantilla...</div>}
           {!loadingAll && items.length === 0 && !adding && <div style={{ textAlign: "center", padding: "28px 0", color: C.t2, fontSize: 13 }}>Sin etapas en esta plantilla</div>}
-          {!loadingAll && items.map((item, idx) => ({ item, idx })).filter(({ item }) => !selectedProc || item.id === selectedProc).map(({ item, idx }) => {
+          {!adding && !loadingAll && items.map((item, idx) => ({ item, idx })).filter(({ item }) => !selectedProc || item.id === selectedProc).map(({ item, idx }) => {
             const isEditing = editIdx === idx;
             return (
               <div key={item.id}
                 onDragOver={e => { if (dragIdx !== null) { e.preventDefault(); setDragOverIdx(idx); } }}
                 onDrop={e => { if (dragIdx !== null) { e.preventDefault(); reorderEtapas(dragIdx, idx); } }}
-                style={{ border: `1px solid ${dragOverIdx === idx && dragIdx !== null && dragIdx !== idx ? C.primary : isEditing ? "rgba(59,130,246,0.3)" : C.b0}`, borderRadius: 9, marginBottom: 6, background: isEditing ? "rgba(59,130,246,0.04)" : C.s0, opacity: dragIdx === idx ? 0.4 : 1, transition: "border-color .12s, opacity .12s" }}>
-                <div style={{ display: "flex", alignItems: "center", gap: 8, padding: "9px 12px" }}>
+                style={{ border: `1px solid ${dragOverIdx === idx && dragIdx !== null && dragIdx !== idx ? C.primary : isEditing ? C.blueB : C.b0}`, borderRadius: 10, marginBottom: 6, background: C.s0, opacity: dragIdx === idx ? 0.4 : 1, transition: "border-color .12s, opacity .12s", overflow: "hidden" }}>
+                <div style={{ display: "flex", alignItems: "center", gap: 10, padding: "12px 13px" }}>
                   <span draggable onDragStart={() => setDragIdx(idx)} onDragEnd={() => { setDragIdx(null); setDragOverIdx(null); }}
                     title="Arrastrá para reordenar la etapa" style={{ cursor: "grab", color: C.t2, fontSize: 13, lineHeight: 1, userSelect: "none", flexShrink: 0, letterSpacing: -1 }}>⠿</span>
-                  <div style={{ width: 3, height: 22, borderRadius: 2, background: item.color ?? "#64748b", flexShrink: 0 }} />
-                  <span style={{ flex: 1, fontSize: 13, color: C.t0, fontWeight: 500 }}>{item.nombre}</span>
-                  {item.dias_estimados && <span style={{ fontSize: 11, color: C.t2, fontFamily: C.mono }}>{item.dias_estimados}d</span>}
-                  {item.genera_orden_compra && <span style={{ fontSize: 10, color: C.amber, background: "rgba(245,158,11,0.1)", border: "1px solid rgba(245,158,11,0.2)", padding: "1px 7px", borderRadius: 4 }}><span style={{fontFamily:"monospace",fontSize:10,opacity:.7}}>OC</span></span>}
+                  <div style={{ width: 34, height: 34, borderRadius: 9, display: "flex", alignItems: "center", justifyContent: "center", background: C.s1, border: `1px solid ${C.b1}`, color: C.t1, fontFamily: C.mono, fontSize: 11, fontWeight: 900 }}>{idx + 1}</div>
+                  <div style={{ flex: 1, minWidth: 0 }}>
+                    <div style={{ display: "flex", alignItems: "center", gap: 7, flexWrap: "wrap" }}>
+                      <span style={{ fontSize: 14, color: C.t0, fontWeight: 850 }}>{item.nombre}</span>
+                      {item.genera_orden_compra && <span style={{ fontSize: 9, color: C.amber, background: C.amberL, border: `1px solid ${C.amberB}`, padding: "2px 6px", borderRadius: 5, fontWeight: 850 }}>AVISA A COMPRAS</span>}
+                    </div>
+                    <div style={{ fontSize: 10.5, color: item.dias_estimados ? C.t2 : C.amber, marginTop: 3 }}>{relativeWeekDescription(item.semana_desmolde)}{item.dias_estimados ? ` Duración total: ${item.dias_estimados} días.` : " Falta definir la duración total de la etapa."}</div>
+                  </div>
+                  <span style={{ fontSize: 11, fontFamily: C.mono, fontWeight: 900, padding: "4px 8px", borderRadius: 7, color: item.semana_desmolde === "" ? C.amber : C.t1, background: item.semana_desmolde === "" ? C.amberL : C.s1, border: `1px solid ${item.semana_desmolde === "" ? C.amberB : C.b1}` }}>
+                    {item.semana_desmolde === "" ? "Sin ubicar" : relativeWeekLabel(item.semana_desmolde)}
+                  </span>
                   <div style={{ display: "flex", gap: 3 }}>
-                    <button type="button" onClick={() => moveItem(idx, -1)} disabled={idx === 0} style={{ ...btnIcon, opacity: idx === 0 ? 0.2 : 1 }}>↑</button>
-                    <button type="button" onClick={() => moveItem(idx, 1)} disabled={idx === items.length - 1} style={{ ...btnIcon, opacity: idx === items.length - 1 ? 0.2 : 1 }}>↓</button>
-                    <button type="button" onClick={() => isEditing ? cancelEdit() : startEdit(idx)} style={{ ...btnIcon, color: isEditing ? C.primary : C.t2 }}>{isEditing ? "✕" : "✏"}</button>
-                    <button type="button" onClick={() => deleteEtapa(item)} style={{ ...btnIcon, color: C.red }}>×</button>
+                    <button type="button" title="Mover hacia arriba" onClick={() => moveItem(idx, -1)} disabled={idx === 0} style={{ ...btnIcon, opacity: idx === 0 ? 0.2 : 1 }}>↑</button>
+                    <button type="button" title="Mover hacia abajo" onClick={() => moveItem(idx, 1)} disabled={idx === items.length - 1} style={{ ...btnIcon, opacity: idx === items.length - 1 ? 0.2 : 1 }}>↓</button>
+                    <button data-tour="obras-editar-etapa" type="button" onClick={() => isEditing ? cancelEdit() : startEdit(idx)} style={{ ...btnIcon, padding: "5px 9px", color: isEditing ? C.blue : C.t0, background: isEditing ? C.blueL : "transparent", borderColor: isEditing ? C.blueB : C.b0 }}>{isEditing ? "Cerrar edición" : "Editar etapa"}</button>
                   </div>
                 </div>
 
@@ -1751,7 +2210,7 @@ function LineasEtapasModal({ linea, lProcs, detailEnabled = false, onClose, onSa
                 )}
 
                 <div style={{ borderTop: `1px solid ${C.b0}`, margin: "0 0 0 0" }}>
-                  <button type="button" onClick={() => setExpandedProc(expandedProc === item.id ? null : item.id)}
+                  <button data-tour="obras-tareas-etapa" type="button" onClick={() => setExpandedProc(expandedProc === item.id ? null : item.id)}
                     style={{ width: "100%", background: "transparent", border: "none", color: C.t2, cursor: "pointer", fontSize: 11, padding: "6px 12px", display: "flex", alignItems: "center", gap: 6, fontFamily: C.sans }}>
                     <span style={{ transform: expandedProc === item.id ? "rotate(90deg)" : "none", transition: "transform .15s", display: "inline-block", fontSize: 10 }}>▶</span>
                     <span>
@@ -1790,7 +2249,7 @@ function LineasEtapasModal({ linea, lProcs, detailEnabled = false, onClose, onSa
                             <div>
                               <div style={{ display: "grid", gridTemplateColumns: "1fr 56px 56px 52px", gap: 6, marginBottom: 6 }}>
                                 <InputSt label="Nombre"><input style={INP} autoFocus value={tareaEditBuf.nombre} onChange={e => setTareaEditBuf(f => ({ ...f, nombre: e.target.value }))} /></InputSt>
-                                <InputSt label="Días"><input type="number" min="0" step="0.5" style={INP} value={tareaEditBuf.dias_estimados ?? ""} onChange={e => setTareaEditBuf(f => ({ ...f, dias_estimados: e.target.value }))} /></InputSt>
+                                <InputSt label="Días tarea"><input type="number" min="0" step="0.5" style={INP} value={tareaEditBuf.dias_estimados ?? ""} onChange={e => setTareaEditBuf(f => ({ ...f, dias_estimados: e.target.value }))} /></InputSt>
                                 <InputSt label="Horas"><input type="number" min="0" step="0.5" style={INP} value={tareaEditBuf.horas_estimadas} onChange={e => setTareaEditBuf(f => ({ ...f, horas_estimadas: e.target.value }))} /></InputSt>
                                 <InputSt label="Pers."><input type="number" min="1" style={INP} value={tareaEditBuf.personas_necesarias} onChange={e => setTareaEditBuf(f => ({ ...f, personas_necesarias: e.target.value }))} /></InputSt>
                               </div>
@@ -1829,7 +2288,7 @@ function LineasEtapasModal({ linea, lProcs, detailEnabled = false, onClose, onSa
                         <div style={{ background: "rgba(59,130,246,0.04)", border: "1px solid rgba(59,130,246,0.2)", borderRadius: 7, padding: 10, marginTop: 6 }}>
                           <div style={{ display: "grid", gridTemplateColumns: "1fr 56px 56px 52px", gap: 6, marginBottom: 6 }}>
                             <InputSt label="Nombre *"><input style={INP} autoFocus placeholder="Ej: Laminado de fondo" value={tareaForm.nombre} onChange={e => setTareaForm(f => ({ ...f, nombre: e.target.value }))} /></InputSt>
-                            <InputSt label="Días"><input type="number" min="0" step="0.5" style={INP} placeholder="0" value={tareaForm.dias_estimados} onChange={e => setTareaForm(f => ({ ...f, dias_estimados: e.target.value }))} /></InputSt>
+                            <InputSt label="Días tarea"><input type="number" min="0" step="0.5" style={INP} placeholder="0" value={tareaForm.dias_estimados} onChange={e => setTareaForm(f => ({ ...f, dias_estimados: e.target.value }))} /></InputSt>
                             <InputSt label="Horas"><input type="number" min="0" step="0.5" style={INP} placeholder="0" value={tareaForm.horas_estimadas} onChange={e => setTareaForm(f => ({ ...f, horas_estimadas: e.target.value }))} /></InputSt>
                             <InputSt label="Pers."><input type="number" min="1" style={INP} placeholder="1" value={tareaForm.personas_necesarias} onChange={e => setTareaForm(f => ({ ...f, personas_necesarias: e.target.value }))} /></InputSt>
                           </div>
@@ -1855,20 +2314,24 @@ function LineasEtapasModal({ linea, lProcs, detailEnabled = false, onClose, onSa
                 </div>
 
                 {isEditing && (
-                  <div style={{ padding: "0 12px 12px" }}>
-                    <div style={{ display: "grid", gridTemplateColumns: "1fr 100px", gap: 8, marginBottom: 8 }}>
-                      <InputSt label="Nombre"><input style={INP} value={editBuf.nombre ?? item.nombre} onChange={e => eb("nombre", e.target.value)} /></InputSt>
-                      <InputSt label="Días"><input type="number" min="0" step="0.5" style={INP} value={editBuf.dias_estimados ?? item.dias_estimados ?? ""} onChange={e => eb("dias_estimados", e.target.value)} /></InputSt>
-                    </div>
-                    <InputSt label="Color">
-                      <div style={{ display: "flex", gap: 5, alignItems: "center" }}>
-                        <input type="color" value={editBuf.color ?? item.color ?? "#64748b"} onChange={e => eb("color", e.target.value)} style={{ width: 30, height: 28, border: "none", background: "none", cursor: "pointer" }} />
-                        {COLOR_PRESETS.map(c => <div key={c} onClick={() => eb("color", c)} style={{ width: 14, height: 14, borderRadius: 3, background: c, cursor: "pointer", border: (editBuf.color ?? item.color) === c ? "2px solid #fff" : "2px solid transparent" }} />)}
+                  <div style={{ padding: "0 13px 13px" }}>
+                    <div style={{ padding: "11px 12px", borderRadius: 10, border: `1px solid ${C.b0}`, background: C.s0, marginBottom: 10 }}>
+                      <div style={{ fontSize: 10, color: C.t2, textTransform: "uppercase", letterSpacing: 1.1, fontWeight: 850, marginBottom: 9 }}>Datos básicos</div>
+                      <div style={{ display: "grid", gridTemplateColumns: isMobile ? "1fr" : "minmax(180px,1fr) 110px", gap: 10 }}>
+                        <InputSt label="Nombre de la etapa"><input style={INP} value={editBuf.nombre ?? item.nombre} onChange={e => eb("nombre", e.target.value)} /></InputSt>
+                        <div data-tour="obras-duracion-etapa"><InputSt label="Duración total de etapa *"><input type="number" min="0.5" step="0.5" style={{ ...INP, borderColor: num(editBuf.dias_estimados ?? item.dias_estimados) > 0 ? C.b0 : C.amberB }} value={editBuf.dias_estimados ?? item.dias_estimados ?? ""} onChange={e => eb("dias_estimados", e.target.value)} /></InputSt></div>
                       </div>
-                    </InputSt>
+                      <InputSt label="Color identificador">
+                        <div style={{ display: "flex", gap: 6, alignItems: "center" }}>
+                          <input type="color" value={editBuf.color ?? item.color ?? "#64748b"} onChange={e => eb("color", e.target.value)} style={{ width: 32, height: 30, border: "none", background: "none", cursor: "pointer" }} />
+                          {COLOR_PRESETS.map(c => <button type="button" aria-label={`Color ${c}`} key={c} onClick={() => eb("color", c)} style={{ width: 17, height: 17, padding: 0, borderRadius: 5, background: c, cursor: "pointer", border: (editBuf.color ?? item.color) === c ? `2px solid ${C.t0}` : "2px solid transparent" }} />)}
+                        </div>
+                      </InputSt>
+                    </div>
+                    <SemanaDesmoldeField value={editBuf.semana_desmolde ?? ""} onChange={value => eb("semana_desmolde", value)} />
                     {procDetailsEnabled && (
                       <div style={{ padding: "10px 12px", borderRadius: 7, background: "var(--panel)", border: `1px solid ${C.b0}`, marginBottom: 8 }}>
-                        <div style={{ fontSize: 10, letterSpacing: 1.2, color: C.t2, textTransform: "uppercase", marginBottom: 8, fontWeight: 700 }}>Detalle de tarea matriz</div>
+                        <div style={{ fontSize: 10, letterSpacing: 1.2, color: C.t2, textTransform: "uppercase", marginBottom: 8, fontWeight: 700 }}>Detalle operativo de la etapa</div>
                         <InputSt label="Descripcion"><textarea style={{ ...INP, resize: "vertical", minHeight: 48 }} value={editBuf.descripcion ?? item.descripcion ?? ""} onChange={e => eb("descripcion", e.target.value)} /></InputSt>
                         <div style={{ display: "grid", gridTemplateColumns: "1fr 80px", gap: 8 }}>
                           <InputSt label="Responsable"><input style={INP} value={editBuf.responsable ?? item.responsable ?? ""} onChange={e => eb("responsable", e.target.value)} /></InputSt>
@@ -1879,9 +2342,10 @@ function LineasEtapasModal({ linea, lProcs, detailEnabled = false, onClose, onSa
                       </div>
                     )}
                     <OrdenCompraSection genera={editBuf.genera_orden_compra ?? item.genera_orden_compra ?? false} tipo={editBuf.orden_compra_tipo ?? item.orden_compra_tipo ?? "aviso"} desc={editBuf.orden_compra_descripcion ?? item.orden_compra_descripcion ?? ""} monto={editBuf.orden_compra_monto_estimado ?? item.orden_compra_monto_estimado ?? ""} diasPrevio={editBuf.orden_compra_dias_previo ?? item.orden_compra_dias_previo ?? 7} onChange={eb} />
-                    <div style={{ display: "flex", gap: 7, marginTop: 4 }}>
-                      <Btn variant="primary" onClick={() => saveEdit(idx)} disabled={saving}>Guardar</Btn>
+                    <div style={{ display: "flex", gap: 7, marginTop: 8, alignItems: "center" }}>
+                      <Btn variant="primary" onClick={() => saveEdit(idx)} disabled={saving}>{saving ? "Guardando…" : "Guardar etapa"}</Btn>
                       <Btn variant="outline" onClick={cancelEdit}>Cancelar</Btn>
+                      <button type="button" onClick={() => deleteEtapa(item)} style={{ marginLeft: "auto", border: "none", background: "transparent", color: C.red, fontSize: 10.5, cursor: "pointer", fontFamily: C.sans }}>Eliminar etapa</button>
                     </div>
                   </div>
                 )}
@@ -1889,16 +2353,31 @@ function LineasEtapasModal({ linea, lProcs, detailEnabled = false, onClose, onSa
             );
           })}
           {adding && (
-            <div style={{ border: `1px solid rgba(59,130,246,0.3)`, borderRadius: 9, padding: "12px", background: "rgba(59,130,246,0.04)", marginBottom: 6 }}>
-              <div style={{ fontSize: 12, color: C.primary, marginBottom: 10, fontWeight: 700 }}>Nueva etapa en plantilla</div>
-              <div style={{ display: "grid", gridTemplateColumns: "1fr 100px", gap: 8, marginBottom: 8 }}>
-                <InputSt label="Nombre *"><input style={INP} autoFocus placeholder="Ej: Pintura" value={newForm.nombre} onChange={e => setNewForm(f => ({ ...f, nombre: e.target.value }))} /></InputSt>
-                <InputSt label="Días"><input type="number" min="0" step="0.5" style={INP} value={newForm.dias_estimados} onChange={e => setNewForm(f => ({ ...f, dias_estimados: e.target.value }))} /></InputSt>
+            <div style={{ border: `1px solid ${C.blueB}`, borderRadius: 11, padding: "13px", background: C.blueL, marginBottom: 6 }}>
+              <div style={{ display: "flex", justifyContent: "space-between", gap: 10, alignItems: "flex-start", marginBottom: 11 }}>
+                <div>
+                  <div style={{ fontSize: 13, color: C.t0, fontWeight: 850 }}>Agregar etapa al recorrido</div>
+                  <div style={{ fontSize: 10.5, color: C.t2, marginTop: 3 }}>Después vas a poder cargar las tareas que se copiarán a cada obra.</div>
+                </div>
+                <button type="button" onClick={() => setAdding(false)} aria-label="Cancelar nueva etapa" style={{ width: 28, height: 28, borderRadius: 7, border: `1px solid ${C.b0}`, background: "transparent", color: C.t1, cursor: "pointer", fontSize: 16 }}>×</button>
               </div>
-              <InputSt label="Color"><div style={{ display: "flex", gap: 5, alignItems: "center" }}><input type="color" value={newForm.color} onChange={e => setNewForm(f => ({ ...f, color: e.target.value }))} style={{ width: 30, height: 28, border: "none", background: "none", cursor: "pointer" }} />{COLOR_PRESETS.map(c => <div key={c} onClick={() => setNewForm(f => ({ ...f, color: c }))} style={{ width: 14, height: 14, borderRadius: 3, background: c, cursor: "pointer", border: newForm.color === c ? "2px solid #fff" : "2px solid transparent" }} />)}</div></InputSt>
+              <div style={{ padding: "11px 12px", borderRadius: 10, border: `1px solid ${C.b0}`, background: C.s0, marginBottom: 10 }}>
+                <div style={{ fontSize: 10, color: C.t2, textTransform: "uppercase", letterSpacing: 1.1, fontWeight: 850, marginBottom: 9 }}>Datos básicos</div>
+                <div style={{ display: "grid", gridTemplateColumns: isMobile ? "1fr" : "minmax(180px,1fr) 110px", gap: 10 }}>
+                  <InputSt label="Nombre de la etapa *"><input style={INP} autoFocus placeholder="Ej.: Pintores" value={newForm.nombre} onChange={e => setNewForm(f => ({ ...f, nombre: e.target.value }))} /></InputSt>
+                  <InputSt label="Duración total de etapa *"><input type="number" min="0.5" step="0.5" style={{ ...INP, borderColor: num(newForm.dias_estimados) > 0 ? C.b0 : C.amberB }} value={newForm.dias_estimados} onChange={e => setNewForm(f => ({ ...f, dias_estimados: e.target.value }))} /></InputSt>
+                </div>
+                <InputSt label="Color identificador">
+                  <div style={{ display: "flex", gap: 6, alignItems: "center" }}>
+                    <input type="color" value={newForm.color} onChange={e => setNewForm(f => ({ ...f, color: e.target.value }))} style={{ width: 32, height: 30, border: "none", background: "none", cursor: "pointer" }} />
+                    {COLOR_PRESETS.map(c => <button type="button" aria-label={`Color ${c}`} key={c} onClick={() => setNewForm(f => ({ ...f, color: c }))} style={{ width: 17, height: 17, padding: 0, borderRadius: 5, background: c, cursor: "pointer", border: newForm.color === c ? `2px solid ${C.t0}` : "2px solid transparent" }} />)}
+                  </div>
+                </InputSt>
+              </div>
+              <SemanaDesmoldeField value={newForm.semana_desmolde} onChange={value => setNewForm(f => ({ ...f, semana_desmolde: value }))} />
               {procDetailsEnabled && (
                 <div style={{ padding: "10px 12px", borderRadius: 7, background: "var(--panel)", border: `1px solid ${C.b0}`, marginBottom: 8 }}>
-                  <div style={{ fontSize: 10, letterSpacing: 1.2, color: C.t2, textTransform: "uppercase", marginBottom: 8, fontWeight: 700 }}>Detalle de tarea matriz</div>
+                  <div style={{ fontSize: 10, letterSpacing: 1.2, color: C.t2, textTransform: "uppercase", marginBottom: 8, fontWeight: 700 }}>Detalle operativo de la etapa</div>
                   <InputSt label="Descripcion"><textarea style={{ ...INP, resize: "vertical", minHeight: 48 }} value={newForm.descripcion} onChange={e => setNewForm(f => ({ ...f, descripcion: e.target.value }))} /></InputSt>
                   <div style={{ display: "grid", gridTemplateColumns: "1fr 80px", gap: 8 }}>
                     <InputSt label="Responsable"><input style={INP} value={newForm.responsable} onChange={e => setNewForm(f => ({ ...f, responsable: e.target.value }))} /></InputSt>
@@ -1910,15 +2389,16 @@ function LineasEtapasModal({ linea, lProcs, detailEnabled = false, onClose, onSa
               )}
               <OrdenCompraSection genera={newForm.genera_orden_compra} tipo={newForm.orden_compra_tipo} desc={newForm.orden_compra_descripcion} monto={newForm.orden_compra_monto_estimado} diasPrevio={newForm.orden_compra_dias_previo} onChange={(k, v) => setNewForm(f => ({ ...f, [k]: v }))} />
               <div style={{ display: "flex", gap: 7, marginTop: 8 }}>
-                <Btn variant="primary" onClick={addEtapa} disabled={saving || !newForm.nombre.trim()}>Agregar</Btn>
+                <Btn variant="primary" onClick={addEtapa} disabled={saving || !newForm.nombre.trim() || num(newForm.dias_estimados) <= 0}>{saving ? "Agregando…" : "Agregar etapa"}</Btn>
                 <Btn variant="outline" onClick={() => setAdding(false)}>Cancelar</Btn>
               </div>
             </div>
           )}
         </div>
         </div>
-        <div style={{ display: "flex", gap: 8, paddingTop: 12, borderTop: `1px solid ${C.b0}` }}>
+        <div style={{ display: "flex", gap: 8, alignItems: "center", paddingTop: 12, borderTop: `1px solid ${C.b0}` }}>
           <Btn variant="outline" onClick={onClose}>Cerrar</Btn>
+          <button type="button" onClick={eliminarLinea} style={{ marginLeft: "auto", border: "none", background: "transparent", color: C.red, fontSize: 10.5, cursor: "pointer", fontFamily: C.sans }}>Eliminar línea completa</button>
         </div>
       </div>
     </Overlay>
@@ -2066,6 +2546,8 @@ export default function ObrasScreen({ profile, signOut }) {
   const [lProcs,   setLProcs]   = useState([]);
   const [timeline, setTimeline] = useState([]);
   const [ordenes,  setOrdenes]  = useState([]);
+  const [stageOffsetRows, setStageOffsetRows] = useState([]);
+  const [nonWorkingPeriods, setNonWorkingPeriods] = useState([]);
   const [archCounts, setArchCounts] = useState({}); // { tarea_id: count }
   const [loading,  setLoading]  = useState(true);
 
@@ -2106,7 +2588,10 @@ export default function ObrasScreen({ profile, signOut }) {
   }
 
   const [filtroEstado,   setFiltroEstado]   = useState("activa");
-  const [filtroLinea,    setFiltroLinea]    = useState("todas");
+  const [filtroLinea,    setFiltroLinea]    = useState(() => {
+    try { return window.localStorage.getItem("obras_linea_foco") || "todas"; }
+    catch { return "todas"; }
+  });
   const [focusedObra,    setFocusedObra]    = useState(null); // obra seleccionada (master-detail)
 
   // ── Estado del tablero de tareas de la obra seleccionada ──
@@ -2131,12 +2616,18 @@ export default function ObrasScreen({ profile, signOut }) {
   const [confirmModal,  setConfirmModal]  = useState(null);
   const [lineasModal,         setLineasModal]         = useState(null);
   const [showNuevaLineaModal, setShowNuevaLineaModal] = useState(false);
+  const [vacacionesModal, setVacacionesModal] = useState(null);
+  const cambiarFocoLinea = useCallback((lineaId) => {
+    setFiltroLinea(lineaId);
+    setRailCollapsed(false);
+    try { window.localStorage.setItem("obras_linea_foco", lineaId); } catch { /* almacenamiento no disponible */ }
+  }, []);
   const [mapaPanel,     setMapaPanel]     = useState(null); // { puesto, obra } — vista mapa
 
   // ── CARGA ─────────────────────────────────────────────────────
   async function cargar() {
     setLoading(true);
-    const [r1, r2, r3, r4, r5, r6, r7] = await Promise.all([
+    const [r1, r2, r3, r4, r5, r6, r7, r8, r9] = await Promise.all([
       safeQuery(supabase.from("produccion_obras").select("*").order("created_at", { ascending: false })),
       safeQuery(supabase.from("obra_etapas").select("*").order("obra_id").order("orden").limit(5000)),
       safeQuery(supabase.from("obra_tareas").select("*").order("etapa_id").order("orden").limit(10000)),
@@ -2144,10 +2635,25 @@ export default function ObrasScreen({ profile, signOut }) {
       supabase.from("linea_procesos").select("*").eq("activo", true).order("linea_id").order("orden"),
       safeQuery(supabase.from("obra_timeline").select("*, linea_procesos(id,nombre,orden,dias_estimados,color), procesos(id,nombre,orden,dias_esperados,color)").order("created_at")),
       safeQuery(supabase.from("ordenes_compra").select("*").order("created_at", { ascending: false })),
+      safeQuery(
+        supabase
+          .from("fechas_offsets")
+          .select("evento_key, modelo, semanas, referencia, updated_at")
+          .eq("modelo", "*")
+          .like("evento_key", `${PRODUCTION_STAGE_OFFSET_PREFIX}%`)
+      ),
+      safeQuery(
+        supabase
+          .from("produccion_obra_periodos_no_laborables")
+          .select("*")
+          .order("fecha_desde")
+      ),
     ]);
     setObras(r1); setEtapas(r2); setTareas(r3);
     setLineas(r4.data ?? []); setLProcs(r5.data ?? []);
     setTimeline(r6); setOrdenes(r7);
+    setStageOffsetRows(r8);
+    setNonWorkingPeriods(r9);
 
     // Conteo de archivos por tarea
     const counts = await safeQuery(supabase.from("obra_tarea_archivos").select("tarea_id").not("tarea_id", "is", null));
@@ -2179,25 +2685,52 @@ export default function ObrasScreen({ profile, signOut }) {
       .on("postgres_changes", { event: "*", schema: "public", table: "produccion_obras"    }, cargarDebounced)
       .on("postgres_changes", { event: "*", schema: "public", table: "obra_etapas"         }, cargarDebounced)
       .on("postgres_changes", { event: "*", schema: "public", table: "obra_tareas"         }, cargarDebounced)
+      .on("postgres_changes", { event: "*", schema: "public", table: "fechas_offsets"      }, cargarDebounced)
       .on("postgres_changes", { event: "*", schema: "public", table: "ordenes_compra"      }, cargarDebounced)
       .on("postgres_changes", { event: "*", schema: "public", table: "obra_tarea_archivos" }, cargarDebounced)
+      .on("postgres_changes", { event: "*", schema: "public", table: "produccion_obra_periodos_no_laborables" }, cargarDebounced)
       .on("postgres_changes", { event: "*", schema: "public", table: "mapa_config"         }, cargarMapaDebounced)
       .subscribe();
     return () => { clearTimeout(debounceTimer); clearTimeout(mapaTimer); supabase.removeChannel(ch); };
   }, []);
 
   // ── HELPERS ───────────────────────────────────────────────────
+  const stageOffsets = useMemo(() => productionStageOffsetsMap(stageOffsetRows), [stageOffsetRows]);
+  const procesoById = useMemo(() => new Map(lProcs.map(p => [p.id, p])), [lProcs]);
+  const periodsByObra = useMemo(() => {
+    const map = new Map();
+    nonWorkingPeriods.forEach((period) => {
+      if (!map.has(period.obra_id)) map.set(period.obra_id, []);
+      map.get(period.obra_id).push(period);
+    });
+    return map;
+  }, [nonWorkingPeriods]);
+
+  const conCronogramaDesmolde = useCallback((obra, etapa) => {
+    const proceso = procesoById.get(etapa.linea_proceso_id) || null;
+    return {
+      ...etapa,
+      cronograma: getProductionStageSchedule({
+        obra,
+        etapa,
+        proceso,
+        offsetWeeks: etapa.linea_proceso_id ? stageOffsets.get(etapa.linea_proceso_id) : null,
+        nonWorkingPeriods: periodsByObra.get(obra?.id) || [],
+      }),
+    };
+  }, [procesoById, stageOffsets, periodsByObra]);
+
   const etapasDeObra = useCallback((obraId) => {
-    const fromNew = etapas.filter(e => e.obra_id === obraId).sort((a, b) => (a.orden ?? 0) - (b.orden ?? 0));
-    if (fromNew.length) return fromNew;
     const obra = obras.find(o => o.id === obraId);
+    const fromNew = etapas.filter(e => e.obra_id === obraId).sort((a, b) => (a.orden ?? 0) - (b.orden ?? 0));
+    if (fromNew.length) return fromNew.map(etapa => conCronogramaDesmolde(obra, etapa));
     if (!obra?.linea_id) return [];
     const procs = lProcs.filter(p => p.linea_id === obra.linea_id).sort((a, b) => (a.orden ?? 0) - (b.orden ?? 0));
     return procs.map(p => {
       const tl = timeline.find(t => t.obra_id === obraId && t.linea_proceso_id === p.id);
-      return { id: `virtual-${obraId}-${p.id}`, obra_id: obraId, isVirtual: true, linea_proceso_id: p.id, nombre: p.nombre, orden: p.orden, color: p.color, dias_estimados: p.dias_estimados, descripcion: p.descripcion, responsable: p.responsable, personas_necesarias: p.personas_necesarias, involucrados: p.involucrados, observaciones: p.observaciones, estado: tl?.estado === "completado" ? "completado" : tl?.estado === "en_curso" ? "en_curso" : "pendiente", fecha_inicio: tl?.fecha_inicio, fecha_fin_real: tl?.fecha_fin };
+      return conCronogramaDesmolde(obra, { id: `virtual-${obraId}-${p.id}`, obra_id: obraId, isVirtual: true, linea_proceso_id: p.id, nombre: p.nombre, orden: p.orden, color: p.color, dias_estimados: p.dias_estimados, descripcion: p.descripcion, responsable: p.responsable, personas_necesarias: p.personas_necesarias, involucrados: p.involucrados, observaciones: p.observaciones, estado: tl?.estado === "completado" ? "completado" : tl?.estado === "en_curso" ? "en_curso" : "pendiente", fecha_inicio: tl?.fecha_inicio, fecha_fin_real: tl?.fecha_fin });
     });
-  }, [etapas, timeline, obras, lProcs]);
+  }, [etapas, timeline, obras, lProcs, conCronogramaDesmolde]);
 
   const tareasDeEtapa = useCallback((etapaId) =>
     tareas.filter(t => t.etapa_id === etapaId).sort((a, b) => { const pOrd = { critica: 0, alta: 1, media: 2, baja: 3 }; if (a.prioridad !== b.prioridad) return (pOrd[a.prioridad] ?? 2) - (pOrd[b.prioridad] ?? 2); return (a.orden ?? 0) - (b.orden ?? 0); }),
@@ -2349,6 +2882,16 @@ export default function ObrasScreen({ profile, signOut }) {
   }
 
   // ── DERIVADOS ─────────────────────────────────────────────────
+  const lineaEnFoco = useMemo(
+    () => lineas.find(linea => linea.id === filtroLinea) || null,
+    [lineas, filtroLinea],
+  );
+
+  useEffect(() => {
+    if (!lineas.length || filtroLinea === "todas" || lineaEnFoco) return;
+    cambiarFocoLinea("todas");
+  }, [lineas, filtroLinea, lineaEnFoco, cambiarFocoLinea]);
+
   const obrasFilt = useMemo(() => obras.filter(o => {
     if (filtroEstado !== "todos" && o.estado !== filtroEstado) return false;
     if (filtroLinea  !== "todas" && o.linea_id !== filtroLinea) return false;
@@ -2376,6 +2919,15 @@ export default function ObrasScreen({ profile, signOut }) {
     pausadas:   obras.filter(o => o.estado === "pausada").length,
     terminadas: obras.filter(o => o.estado === "terminada").length,
   }), [obras]);
+  const statsFoco = useMemo(() => {
+    const scoped = filtroLinea === "todas" ? obras : obras.filter(obra => obra.linea_id === filtroLinea);
+    return {
+      total: scoped.length,
+      activas: scoped.filter(obra => obra.estado === "activa").length,
+      pausadas: scoped.filter(obra => obra.estado === "pausada").length,
+      terminadas: scoped.filter(obra => obra.estado === "terminada").length,
+    };
+  }, [obras, filtroLinea]);
 
   // Obras enriquecidas con _pct para el mapa interactivo
   const obrasConPct = useMemo(
@@ -2393,11 +2945,6 @@ export default function ObrasScreen({ profile, signOut }) {
   );
 
   // Helper: color de acento de una obra = color de línea si existe, sino color de estado
-  const obraAccentColor = useCallback(obra =>
-    (lineas.find(l => l.id === obra.linea_id)?.color) ?? (C.obra[obra.estado]?.dot ?? C.primary),
-    [lineas]
-  );
-
   // ═══════════════════════════════════════════════════════════════
   //  LISTA MAESTRA DE OBRAS (columna izquierda del master-detail)
   // ═══════════════════════════════════════════════════════════════
@@ -2423,17 +2970,16 @@ export default function ObrasScreen({ profile, signOut }) {
             const sel     = focusedObra === obra.id;
             const obrapct = pctObra(obra.id);
             const oC      = C.obra[obra.estado] ?? C.obra.activa;
-            const ac      = obraAccentColor(obra);
             const obraStages = etapasDeObra(obra.id);
             const activeStage = obraStages.find(e => e.estado === "en_curso") || obraStages.find(e => e.estado !== "completado");
-            const overdueCount = tareas.filter(t => t.obra_id === obra.id && !["finalizada", "cancelada"].includes(t.estado) && (diasHasta(t.fecha_fin_estimada) ?? 99) < 0).length;
+            const overdueCount = obraStages.filter(etapa => etapa.cronograma?.overdue).length;
             return (
               <div
                 key={obra.id}
                 onClick={() => setFocusedObra(obra.id)}
                 style={{ position: "relative", display: "flex", flexDirection: "column", gap: 4, padding: "11px 13px 11px 12px", cursor: "pointer", borderBottom: `1px solid ${C.b0}`, background: sel ? "var(--panel-2)" : "transparent", transition: "background .12s" }}
               >
-                {sel && <span style={{ position: "absolute", left: 0, top: 11, bottom: 11, width: 2.5, borderRadius: 99, background: ac }} />}
+                {sel && <span style={{ position: "absolute", left: 0, top: 11, bottom: 11, width: 2.5, borderRadius: 99, background: C.blue }} />}
                 <div style={{ display: "flex", alignItems: "center", gap: 8, minWidth: 0 }}>
                   <Dot color={oC.dot} size={6} pulse={obra.estado === "activa"} />
                   <span style={{ fontFamily: C.mono, fontSize: 13, fontWeight: 600, color: sel ? C.t0 : C.t1, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{obra.codigo}</span>
@@ -2441,9 +2987,10 @@ export default function ObrasScreen({ profile, signOut }) {
                 </div>
                 {obra.cliente && <div style={{ fontSize: 11.5, color: C.t2, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{obra.cliente}</div>}
                 <div style={{ display: "flex", alignItems: "center", gap: 7, minWidth: 0 }}>
-                  {obra.linea_nombre && <span style={{ fontSize: 9.5, color: ac, textTransform: "uppercase", letterSpacing: 0.8, fontWeight: 700, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{obra.linea_nombre}</span>}
+                  {obra.linea_nombre && <span style={{ fontSize: 9.5, color: C.t2, textTransform: "uppercase", letterSpacing: 0.8, fontWeight: 700, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{obra.linea_nombre}</span>}
                   {activeStage && <><span style={{ color: C.b2, fontSize: 9 }}>·</span><span style={{ fontSize: 10.5, color: C.t2, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{activeStage.nombre}</span></>}
-                  {overdueCount > 0 && <span style={{ marginLeft: "auto", fontFamily: C.mono, fontSize: 9.5, color: C.red, fontWeight: 800, whiteSpace: "nowrap" }}>{overdueCount} tarde</span>}
+                  {activeStage?.cronograma?.configured && <span style={{ fontSize: 9.5, color: C.t2, fontFamily: C.mono, fontWeight: 850 }}>{activeStage.cronograma.relativeLabel}</span>}
+                  {overdueCount > 0 && <span style={{ marginLeft: "auto", fontFamily: C.mono, fontSize: 9.5, color: C.red, fontWeight: 800, whiteSpace: "nowrap" }}>{overdueCount} etapas tarde</span>}
                 </div>
               </div>
             );
@@ -2533,7 +3080,16 @@ export default function ObrasScreen({ profile, signOut }) {
     }
 
     const obraEtapas = etapasDeObra(obra.id);
+    const lineaObra = lineas.find((linea) => linea.id === obra.linea_id) || null;
+    const obraPeriods = periodsByObra.get(obra.id) || [];
+    const obraNonWorkingDays = nonWorkingDaysCount(obraPeriods);
     const etapaById  = new Map(obraEtapas.map(e => [e.id, e]));
+    const fechaPlanEtapaParaTarea = tarea => {
+      const cronograma = etapaById.get(tarea.etapa_id)?.cronograma;
+      return cronograma?.plannedEndISO || cronograma?.plannedStartISO || null;
+    };
+    const fechaLimiteTarea = tarea => tarea.fecha_fin_estimada || fechaPlanEtapaParaTarea(tarea);
+    const diasHastaTarea = tarea => diasHasta(fechaLimiteTarea(tarea));
     const diasR      = diasDesde(obra.fecha_inicio);
     const oC         = C.obra[obra.estado] ?? C.obra.activa;
     const obraTasks  = tareas.filter(t => t.obra_id === obra.id);
@@ -2546,9 +3102,9 @@ export default function ObrasScreen({ profile, signOut }) {
     const doneN     = noCancel.filter(t => t.estado === "finalizada").length;
     const avance    = noCancel.length ? pct(doneN, noCancel.length) : 0;
     const abiertas  = obraTasks.filter(t => !["finalizada", "cancelada"].includes(t.estado));
-    const atrasadasN = abiertas.filter(t => (diasHasta(t.fecha_fin_estimada) ?? 99) < 0).length;
+    const atrasadasN = abiertas.filter(t => (diasHastaTarea(t) ?? 99) < 0).length;
     const enCursoN  = obraTasks.filter(t => t.estado === "en_progreso").length;
-    const semanaN   = abiertas.filter(t => { const d = diasHasta(t.fecha_fin_estimada); return d !== null && d >= 0 && d <= 7; }).length;
+    const semanaN   = abiertas.filter(t => { const d = diasHastaTarea(t); return d !== null && d >= 0 && d <= 7; }).length;
     const sinResponsableN = abiertas.filter(t => !t.responsable).length;
     const taskById = new Map(obraTasks.map(t => [t.id, t]));
     const pendingDependencies = tarea => (Array.isArray(tarea.predecesoras) ? tarea.predecesoras : [])
@@ -2559,6 +3115,11 @@ export default function ObrasScreen({ profile, signOut }) {
       || obraEtapas.find(e => e.estado !== "completado")
       || obraEtapas.at(-1)
       || null;
+    const etapasAtrasadas = obraEtapas.filter(e => e.cronograma?.overdue);
+    const desmoldePlan = obraEtapas.find(e => e.cronograma?.reference)?.cronograma?.reference || null;
+    const etapasPreDesmolde = obraEtapas.filter(e => e.cronograma?.phase === "pre").length;
+    const etapasPostDesmolde = obraEtapas.filter(e => e.cronograma?.phase === "post").length;
+    const etapasSinUbicar = obraEtapas.filter(e => !e.cronograma?.configured).length;
     const abrirTareas = (etapaId = currentStage?.id ?? null) => {
       setDetailView("tareas");
       setEtapaFiltro(etapaId);
@@ -2566,16 +3127,16 @@ export default function ObrasScreen({ profile, signOut }) {
     };
     const priorityRank = { critica: 0, alta: 1, media: 2, baja: 3 };
     const priorityTasks = abiertas.slice().sort((a, b) => {
-      const da = diasHasta(a.fecha_fin_estimada);
-      const db = diasHasta(b.fecha_fin_estimada);
+      const da = diasHastaTarea(a);
+      const db = diasHastaTarea(b);
       const dateA = da === null ? 9999 : da;
       const dateB = db === null ? 9999 : db;
       if (dateA !== dateB) return dateA - dateB;
       return (priorityRank[a.prioridad] ?? 2) - (priorityRank[b.prioridad] ?? 2);
     });
-    const health = atrasadasN > 0
+    const health = etapasAtrasadas.length > 0
       ? { label: "Requiere atencion", color: C.red }
-      : bloqueadas.length > 0
+      : atrasadasN > 0 || bloqueadas.length > 0
         ? { label: "Con bloqueos", color: C.amber }
         : { label: "En curso", color: C.green };
 
@@ -2583,8 +3144,8 @@ export default function ObrasScreen({ profile, signOut }) {
     let vis = obraTasks;
     if (etapaFiltro) vis = vis.filter(t => t.etapa_id === etapaFiltro);
     const isOpen = t => !["finalizada", "cancelada"].includes(t.estado);
-    if (taskChip === "atrasadas") vis = vis.filter(t => isOpen(t) && (diasHasta(t.fecha_fin_estimada) ?? 99) < 0);
-    else if (taskChip === "semana") vis = vis.filter(t => { const d = diasHasta(t.fecha_fin_estimada); return isOpen(t) && d !== null && d >= 0 && d <= 7; });
+    if (taskChip === "atrasadas") vis = vis.filter(t => isOpen(t) && (diasHastaTarea(t) ?? 99) < 0);
+    else if (taskChip === "semana") vis = vis.filter(t => { const d = diasHastaTarea(t); return isOpen(t) && d !== null && d >= 0 && d <= 7; });
     else if (taskChip === "sinresp") vis = vis.filter(t => isOpen(t) && !t.responsable);
     else if (taskChip === "bloqueadas") vis = vis.filter(t => isOpen(t) && (t.estado === "bloqueada" || pendingDependencies(t).length > 0));
     else if (taskChip === "criticas") vis = vis.filter(t => isOpen(t) && t.prioridad === "critica");
@@ -2616,6 +3177,7 @@ export default function ObrasScreen({ profile, signOut }) {
     };
     const renderCard = t => (
       <TaskCard key={t.id} tarea={t} etapa={etapaById.get(t.etapa_id)} esGestion={esGestion}
+        fechaFinPlan={fechaPlanEtapaParaTarea(t)}
         bloqueantes={pendingDependencies(t)} archivosCount={archCounts[t.id] ?? 0} bulkMode={bulkMode} checked={bulkSel.has(t.id)} {...cardHandlers} />
     );
 
@@ -2625,29 +3187,54 @@ export default function ObrasScreen({ profile, signOut }) {
       setAddPick(true);
     }
 
-    const chipStyle = on => ({ fontSize: 12, fontWeight: 600, padding: "5px 11px", borderRadius: 8, border: "1px solid transparent", background: on ? C.panel2 : "transparent", color: on ? C.t0 : C.t2, cursor: "pointer", fontFamily: C.sans, display: "inline-flex", alignItems: "center", gap: 6 });
+    // El chip activo antes sólo cambiaba de fondo y se perdía contra el panel.
+    // Ahora suma borde y peso: se ve cuál está aplicado sin tener que comparar.
+    const chipStyle = on => ({
+      fontSize: 12, fontWeight: on ? 800 : 600, padding: "5px 11px", borderRadius: 8,
+      border: `1px solid ${on ? C.b1 : "transparent"}`,
+      background: on ? C.panel2 : "transparent",
+      color: on ? C.t0 : C.t2,
+      cursor: "pointer", fontFamily: C.sans, display: "inline-flex", alignItems: "center", gap: 6,
+    });
 
     const renderStageRail = (compact = false) => obraEtapas.length > 0 && (
       <div style={{ display: "flex", overflowX: "auto", padding: compact ? "4px 0 2px" : isMobile ? "14px" : "16px 22px", gap: 0 }}>
         {obraEtapas.map((e, i) => {
           const ep = pctEtapa(e.id);
           const on = etapaFiltro === e.id;
-          const nodeColor = e.estado === "completado" ? C.green : e.estado === "en_curso" ? C.blue : C.b2;
+          const nodeColor = e.estado === "en_curso" ? C.blue : e.estado === "completado" ? C.t1 : C.b2;
           const filled = e.estado === "completado" || e.estado === "en_curso";
           return (
             <button
               key={e.id}
               type="button"
               onClick={() => { setEtapaFiltro(on ? null : e.id); if (detailView === "resumen") setDetailView("tareas"); }}
-              style={{ border: "none", background: "transparent", padding: 0, minWidth: compact ? 132 : 116, flex: compact ? "1 0 132px" : "1 0 116px", cursor: "pointer", textAlign: "left", fontFamily: C.sans }}
+              style={{ border: "none", background: "transparent", padding: 0, minWidth: compact ? 158 : 142, flex: compact ? "1 0 158px" : "1 0 142px", cursor: "pointer", textAlign: "left", fontFamily: C.sans }}
             >
               <div style={{ display: "flex", alignItems: "center" }}>
                 <span style={{ width: compact ? 9 : 11, height: compact ? 9 : 11, borderRadius: "50%", border: `2px solid ${on ? C.blue : nodeColor}`, background: filled ? nodeColor : C.bg, flexShrink: 0, boxShadow: on ? `0 0 0 4px ${C.blueL}` : "none" }} />
-                {i < obraEtapas.length - 1 && <span style={{ flex: 1, height: 1, background: e.estado === "completado" ? `${C.green}66` : C.b0 }} />}
+                {i < obraEtapas.length - 1 && <span style={{ flex: 1, height: 1, background: e.estado === "completado" ? C.b1 : C.b0 }} />}
               </div>
               <div style={{ paddingTop: compact ? 7 : 9, paddingRight: 10 }}>
                 <div style={{ fontSize: compact ? 11.5 : 12, fontWeight: 700, color: on ? C.t0 : C.t1, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{e.nombre}</div>
-                <div style={{ fontSize: 10, color: C.t3, fontFamily: C.mono, marginTop: 2 }}>{ep}% · {tareasDeEtapa(e.id).length}</div>
+                <div style={{ display: "flex", alignItems: "center", gap: 6, fontSize: 10, color: C.t3, fontFamily: C.mono, marginTop: 3 }}>
+                  <span>{ep}% · {tareasDeEtapa(e.id).length}</span>
+                  <span style={{ color: e.cronograma?.configured ? C.t1 : C.amber, fontWeight: 850 }}>
+                    {e.cronograma?.relativeLabel || "sin ubicar"}
+                  </span>
+                </div>
+                {e.cronograma?.plannedStartISO && (
+                  <div
+                    title={`${e.cronograma.relativeLabel} · ${e.cronograma.durationDays || 0} días`}
+                    style={{ fontSize: 10, color: e.cronograma.overdue ? C.red : C.t2, fontFamily: C.mono, marginTop: 3, fontWeight: e.cronograma.overdue ? 800 : 600 }}
+                  >
+                    {fmtDate(e.cronograma.plannedStartISO)}
+                    {e.cronograma.plannedEndISO && e.cronograma.plannedEndISO !== e.cronograma.plannedStartISO
+                      ? ` → ${fmtDate(e.cronograma.plannedEndISO)}`
+                      : ""}
+                    {e.cronograma.calendarAdjusted ? " · calendario ajustado" : ""}
+                  </div>
+                )}
               </div>
             </button>
           );
@@ -2656,7 +3243,7 @@ export default function ObrasScreen({ profile, signOut }) {
     );
 
     const renderPriorityRow = tarea => {
-      const due = diasHasta(tarea.fecha_fin_estimada);
+      const due = diasHastaTarea(tarea);
       const done = ["finalizada", "cancelada"].includes(tarea.estado);
       const dueColor = done ? C.t3 : (due ?? 999) < 0 ? C.red : due !== null && due <= 7 ? C.amber : C.t2;
       const etapa = etapaById.get(tarea.etapa_id);
@@ -2670,8 +3257,9 @@ export default function ObrasScreen({ profile, signOut }) {
           </div>
           {!isMobile && <span style={{ fontSize: 11, color: etapa?.color || C.t2, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{etapa?.nombre || "Sin etapa"}</span>}
           {!isMobile && <span style={{ display: "flex", alignItems: "center", gap: 7, minWidth: 0 }}><AvatarResp name={tarea.responsable} size={20} /><span style={{ fontSize: 11, color: C.t2, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{tarea.responsable || "Sin asignar"}</span></span>}
-          <span style={{ fontSize: 11, fontFamily: C.mono, fontWeight: 700, color: dueColor, whiteSpace: "nowrap" }}>
+          <span title={!tarea.fecha_fin_estimada && fechaPlanEtapaParaTarea(tarea) ? "Fecha heredada del plan de etapa" : undefined} style={{ fontSize: 11, fontFamily: C.mono, fontWeight: 700, color: dueColor, whiteSpace: "nowrap" }}>
             {deps.length ? `${deps.length} bloqueo${deps.length > 1 ? "s" : ""}` : due === null ? "Sin fecha" : due < 0 ? `${-due}d tarde` : due === 0 ? "Hoy" : `en ${due}d`}
+            {!deps.length && !tarea.fecha_fin_estimada && fechaPlanEtapaParaTarea(tarea) ? " · etapa" : ""}
           </span>
           {esGestion && <div className="obra-task-actions" onClick={e => e.stopPropagation()} style={{ display: "flex", justifyContent: isMobile ? "flex-start" : "flex-end", gridColumn: isMobile ? "1 / -1" : "auto" }}>
             {["pendiente", "bloqueada"].includes(tarea.estado)
@@ -2687,8 +3275,8 @@ export default function ObrasScreen({ profile, signOut }) {
     return (
       <div style={{ flex: 1, minWidth: 0, display: "flex", flexDirection: "column", overflow: "hidden" }}>
         {/* ── CABECERA DE DETALLE (fija) ── */}
-        <div style={{ padding: isMobile ? "12px 14px" : "16px 22px", borderBottom: `1px solid ${C.b0}`, background: C.topbarSoft, flexShrink: 0 }}>
-          <div style={{ display: "flex", alignItems: "center", gap: 12, flexWrap: "wrap" }}>
+        <div style={{ padding: isMobile ? "11px 14px" : "11px 18px 0", borderBottom: `1px solid ${C.b0}`, background: C.topbarSoft, flexShrink: 0 }}>
+          <div style={{ display: "flex", alignItems: "center", gap: 9, flexWrap: "wrap" }}>
             {isMobile && (
               <button type="button" onClick={() => setFocusedObra(null)} style={{ display: "flex", alignItems: "center", gap: 5, padding: "5px 10px", borderRadius: 8, border: `1px solid ${C.b1}`, background: "transparent", color: C.t1, cursor: "pointer", fontSize: 12, fontFamily: C.sans }}>
                 ← Obras
@@ -2711,6 +3299,17 @@ export default function ObrasScreen({ profile, signOut }) {
             {obra.cliente && <><span style={{ width: 3, height: 3, borderRadius: "50%", background: C.b2 }} /><span style={{ fontSize: 12, color: C.t2 }}>{obra.cliente}</span></>}
             <span style={{ width: 3, height: 3, borderRadius: "50%", background: C.b2 }} />
             <span style={{ fontSize: 12, color: C.t2, fontFamily: C.mono }}>{diasR} días en obra</span>
+            <span style={{
+              display: "inline-flex", alignItems: "center", gap: 5, paddingLeft: 8,
+              color: desmoldePlan?.projected ? C.t1 : C.amber,
+              borderLeft: `1px solid ${C.b0}`,
+              fontSize: 11, fontFamily: C.mono, fontWeight: 750,
+            }}>
+              Desmolde {desmoldePlan?.projected
+                ? desmoldePlan.projected.toLocaleDateString("es-AR", { day: "2-digit", month: "2-digit", year: "2-digit" })
+                : "sin desmolde"}
+              {desmoldePlan?.source ? ` (${desmoldePlan.source})` : ""}
+            </span>
 
             <div style={{ marginLeft: "auto", display: "flex", gap: 6, flexWrap: "wrap" }}>
               {(esGestion || tieneFicha) && (
@@ -2720,13 +3319,13 @@ export default function ObrasScreen({ profile, signOut }) {
                 <>
                   <button type="button" onClick={() => setEtapasMgr(true)} style={{ border: `1px solid ${C.b0}`, background: "transparent", color: C.t2, cursor: "pointer", fontSize: 12, padding: "5px 11px", borderRadius: 8, fontFamily: C.sans, fontWeight: 600 }}>Etapas</button>
                   <button type="button" onClick={() => cambiarEstadoObra(obra.id, obra.estado === "activa" ? "pausada" : "activa")} style={{ border: `1px solid ${C.b0}`, background: "transparent", color: C.t2, cursor: "pointer", fontSize: 12, padding: "5px 11px", borderRadius: 8, fontFamily: C.sans, fontWeight: 600 }}>{obra.estado === "activa" ? "Pausar" : "Activar"}</button>
-                  {obra.estado !== "terminada" && <button type="button" onClick={() => cambiarEstadoObra(obra.id, "terminada")} style={{ border: `1px solid ${C.greenB}`, background: "transparent", color: C.green, cursor: "pointer", fontSize: 12, padding: "5px 11px", borderRadius: 8, fontFamily: C.sans, fontWeight: 600 }}>Terminar</button>}
+                  {obra.estado !== "terminada" && <button type="button" onClick={() => cambiarEstadoObra(obra.id, "terminada")} style={{ border: `1px solid ${C.b0}`, background: "transparent", color: C.t2, cursor: "pointer", fontSize: 12, padding: "5px 11px", borderRadius: 8, fontFamily: C.sans, fontWeight: 600 }}>Terminar</button>}
                 </>
               )}
             </div>
           </div>
 
-          <div style={{ display: "grid", gridTemplateColumns: isMobile ? "1fr 1fr" : "minmax(180px,1.4fr) minmax(150px,1fr) repeat(3,minmax(86px,auto))", gap: isMobile ? 10 : 18, alignItems: "center", marginTop: 14, padding: isMobile ? "11px 0 2px" : "12px 0 3px", borderTop: `1px solid ${C.b0}` }}>
+          <div style={{ display: "grid", gridTemplateColumns: isMobile ? "1fr 1fr" : "minmax(220px,1.7fr) minmax(170px,1fr) repeat(3,minmax(88px,auto))", gap: isMobile ? 10 : 16, alignItems: "center", marginTop: 9, padding: "10px 0 2px", borderTop: `1px solid ${C.b0}` }}>
             <div style={{ minWidth: 0, gridColumn: isMobile ? "1 / -1" : "auto" }}>
               <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 10, marginBottom: 7 }}>
                 <span style={{ fontSize: 10, color: C.t2, textTransform: "uppercase", letterSpacing: 1.2, fontWeight: 700 }}>Avance general</span>
@@ -2739,29 +3338,37 @@ export default function ObrasScreen({ profile, signOut }) {
             <div style={{ minWidth: 0 }}>
               <div style={{ fontSize: 9.5, color: C.t2, textTransform: "uppercase", letterSpacing: 1.1, fontWeight: 700 }}>Etapa actual</div>
               <div style={{ fontSize: 12.5, color: C.t0, fontWeight: 700, marginTop: 4, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{currentStage?.nombre || "Sin etapas"}</div>
+              {currentStage?.cronograma?.configured && (
+                <div style={{ display: "flex", gap: 6, alignItems: "center", marginTop: 3, fontSize: 10.5, fontFamily: C.mono }}>
+                  <span style={{ color: C.t1, fontWeight: 850 }}>{currentStage.cronograma.relativeLabel}</span>
+                  <span style={{ color: currentStage.cronograma.overdue ? C.red : C.t2 }}>
+                    {currentStage.cronograma.plannedStartISO ? fmtDate(currentStage.cronograma.plannedStartISO) : "esperando desmolde"}
+                  </span>
+                </div>
+              )}
             </div>
             <div>
               <div style={{ fontSize: 9.5, color: C.t2, textTransform: "uppercase", letterSpacing: 1.1, fontWeight: 700 }}>Salud</div>
               <div style={{ display: "flex", alignItems: "center", gap: 6, color: health.color, fontSize: 11.5, fontWeight: 700, marginTop: 4 }}><span style={{ width: 6, height: 6, borderRadius: "50%", background: health.color }} />{health.label}</div>
             </div>
             <div>
-              <div style={{ fontSize: 9.5, color: C.t2, textTransform: "uppercase", letterSpacing: 1.1, fontWeight: 700 }}>Atrasadas</div>
-              <div style={{ fontFamily: C.mono, fontSize: 15, color: atrasadasN ? C.red : C.t0, fontWeight: 800, marginTop: 2 }}>{atrasadasN}</div>
+              <div style={{ fontSize: 9.5, color: C.t2, textTransform: "uppercase", letterSpacing: 1.1, fontWeight: 700 }}>Etapas fuera de plan</div>
+              <div style={{ fontFamily: C.mono, fontSize: 15, color: etapasAtrasadas.length ? C.red : C.t0, fontWeight: 800, marginTop: 2 }}>{etapasAtrasadas.length}</div>
             </div>
             <div>
               <div style={{ fontSize: 9.5, color: C.t2, textTransform: "uppercase", letterSpacing: 1.1, fontWeight: 700 }}>Sin responsable</div>
-              <div style={{ fontFamily: C.mono, fontSize: 15, color: sinResponsableN ? C.amber : C.t0, fontWeight: 800, marginTop: 2 }}>{sinResponsableN}</div>
+              <div style={{ fontFamily: C.mono, fontSize: 15, color: C.t0, fontWeight: 800, marginTop: 2 }}>{sinResponsableN}</div>
             </div>
           </div>
 
-          <div style={{ display: "flex", alignItems: "center", gap: 20, marginTop: 12, marginBottom: -16, overflowX: "auto" }}>
+          <div style={{ display: "flex", alignItems: "center", gap: 18, marginTop: 7, overflowX: "auto" }}>
             {[
               ["resumen", "Resumen", null],
               ["tareas", "Tareas", abiertas.length],
             ].map(([key, label, count]) => {
               const active = detailView === key;
               return (
-                <button key={key} type="button" onClick={() => key === "tareas" ? abrirTareas() : setDetailView(key)} style={{ position: "relative", border: "none", background: "transparent", padding: "8px 1px 12px", color: active ? C.t0 : C.t2, fontSize: 12.5, fontWeight: 700, cursor: "pointer", fontFamily: C.sans, whiteSpace: "nowrap" }}>
+                <button key={key} type="button" onClick={() => key === "tareas" ? abrirTareas() : setDetailView(key)} style={{ position: "relative", border: "none", background: "transparent", padding: "7px 1px 10px", color: active ? C.t0 : C.t2, fontSize: 12, fontWeight: 750, cursor: "pointer", fontFamily: C.sans, whiteSpace: "nowrap" }}>
                   {label}{count !== null && <span style={{ marginLeft: 6, color: active ? C.blue : C.t3, fontFamily: C.mono, fontSize: 10.5 }}>{count}</span>}
                   {active && <span style={{ position: "absolute", left: 0, right: 0, bottom: 0, height: 2, borderRadius: 99, background: C.blue }} />}
                 </button>
@@ -2782,19 +3389,42 @@ export default function ObrasScreen({ profile, signOut }) {
         <div style={{ flex: 1, overflowY: "auto" }}>
           {/* Franja de KPIs — sin gráficos, sólo tipografía */}
           {detailView === "resumen" && (
-            <div style={{ padding: isMobile ? "16px 14px 32px" : "20px 22px 40px", animation: "fadeIn .18s ease" }}>
-              <section style={{ paddingBottom: 18, borderBottom: `1px solid ${C.b0}` }}>
-                <div style={{ display: "flex", alignItems: "flex-end", justifyContent: "space-between", gap: 12, marginBottom: 12 }}>
+            <div style={{ padding: isMobile ? "14px 14px 32px" : "16px 18px 40px", animation: "fadeIn .18s ease" }}>
+              <section data-tour="obras-ruta-produccion" style={{ padding: isMobile ? 12 : "13px 14px 11px", border: `1px solid ${C.b0}`, borderRadius: 10, background: C.s0 }}>
+                <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 12, marginBottom: 9 }}>
                   <div>
-                    <div style={{ fontSize: 10, textTransform: "uppercase", letterSpacing: 1.3, color: C.t2, fontWeight: 800 }}>Ruta de produccion</div>
-                    <div style={{ fontSize: 12, color: C.t2, marginTop: 4 }}>Selecciona una etapa para abrir sus tareas.</div>
+                    <div style={{ fontSize: 12.5, color: C.t0, fontWeight: 800 }}>Ruta de producción</div>
+                    <div style={{ fontSize: 10.5, color: C.t2, marginTop: 2 }}>Plan relativo a la fecha de desmolde.</div>
                   </div>
-                  {esGestion && <button type="button" onClick={() => setEtapasMgr(true)} style={{ border: `1px solid ${C.b0}`, background: "transparent", color: C.t1, borderRadius: 8, padding: "6px 10px", fontSize: 11.5, fontWeight: 700, cursor: "pointer", fontFamily: C.sans }}>Gestionar etapas</button>}
+                  <div style={{ display: "flex", gap: 6, alignItems: "center", flexWrap: "wrap" }}>
+                    {esGestion && <button data-tour="obras-vacaciones" type="button" onClick={() => setVacacionesModal(obra)} style={{ border: `1px solid ${obraPeriods.length ? C.b1 : C.b0}`, background: obraPeriods.length ? C.s1 : "transparent", color: C.t1, borderRadius: 8, padding: "6px 10px", fontSize: 11.5, fontWeight: 700, cursor: "pointer", fontFamily: C.sans }}>Vacaciones{obraNonWorkingDays ? ` · ${obraNonWorkingDays}d` : ""}</button>}
+                    {esGestion && <button type="button" onClick={() => setEtapasMgr(true)} style={{ border: `1px solid ${C.b0}`, background: "transparent", color: C.t1, borderRadius: 8, padding: "6px 10px", fontSize: 11.5, fontWeight: 700, cursor: "pointer", fontFamily: C.sans }}>Gestionar etapas</button>}
+                  </div>
+                </div>
+                <div style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap", paddingBottom: 10, borderBottom: `1px solid ${C.b0}`, fontSize: 10.5, color: C.t2 }}>
+                  <span style={{ color: desmoldePlan?.projected ? C.t0 : C.amber, fontFamily: C.mono, fontWeight: 800 }}>
+                    S0 {desmoldePlan?.projected
+                      ? desmoldePlan.projected.toLocaleDateString("es-AR", { day: "2-digit", month: "2-digit", year: "numeric" })
+                      : "cargar desmolde en Fechas"}
+                  </span>
+                  <span style={{ color: C.b2 }}>·</span>
+                  <span>{etapasPreDesmolde} antes</span>
+                  <span style={{ color: C.b2 }}>·</span>
+                  <span>{etapasPostDesmolde} después</span>
+                  {lineaObra?.semanas_produccion_estimadas && (
+                    <><span style={{ color: C.b2 }}>·</span><span>{lineaObra.semanas_produccion_estimadas} semanas de línea</span></>
+                  )}
+                  {obraNonWorkingDays > 0 && (
+                    <><span style={{ color: C.b2 }}>·</span><span>{obraNonWorkingDays} días no laborables aplicados</span></>
+                  )}
+                  {etapasSinUbicar > 0 && (
+                    <><span style={{ color: C.b2 }}>·</span><span style={{ color: C.amber, fontWeight: 750 }}>{etapasSinUbicar} sin ubicar</span></>
+                  )}
                 </div>
                 {renderStageRail(true)}
               </section>
 
-              <div style={{ display: "grid", gridTemplateColumns: isMobile ? "1fr" : "minmax(0,1.7fr) minmax(250px,.8fr)", gap: isMobile ? 22 : 30, paddingTop: 22 }}>
+              <div style={{ display: "grid", gridTemplateColumns: isMobile ? "1fr" : "minmax(0,1.7fr) minmax(250px,.8fr)", gap: isMobile ? 22 : 30, paddingTop: 18 }}>
                 <section style={{ minWidth: 0 }}>
                   <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 8 }}>
                     <div>
@@ -2877,19 +3507,62 @@ export default function ObrasScreen({ profile, signOut }) {
 
           {/* Toolbar: chips + búsqueda + vista + selección */}
           <div style={{ display: "flex", alignItems: "center", gap: 7, padding: isMobile ? "14px 14px" : "16px 22px", flexWrap: "wrap" }}>
-            {chips.map(c => (
-              <button key={c.k} type="button" onClick={() => setTaskChip(c.k)} style={chipStyle(taskChip === c.k)}>
-                {c.c && c.n ? <span style={{ width: 5, height: 5, borderRadius: "50%", background: c.c }} /> : null}
-                {c.t} <span style={{ fontFamily: C.mono, fontSize: 11, color: C.t3 }}>{c.n}</span>
-              </button>
-            ))}
+            {chips.map(c => {
+              const on = taskChip === c.k;
+              // Un contador en cero no es información: se apaga. Y si el chip
+              // tiene color propio (atrasadas, críticas) el número lo toma,
+              // para que la urgencia se lea de un vistazo y no leyendo etiquetas.
+              const vacio = !c.n;
+              return (
+                <button key={c.k} type="button" onClick={() => setTaskChip(c.k)} style={chipStyle(on)}>
+                  {c.c && c.n ? <span style={{ width: 5, height: 5, borderRadius: "50%", background: c.c }} /> : null}
+                  {c.t}
+                  <span style={{
+                    fontFamily: C.mono, fontSize: 11, fontWeight: 700,
+                    color: vacio ? C.t3 : c.c || (on ? C.t0 : C.t2),
+                    opacity: vacio ? 0.55 : 1,
+                  }}>
+                    {c.n}
+                  </span>
+                </button>
+              );
+            })}
             {activeEtapaObj && (
-              <button type="button" onClick={() => setEtapaFiltro(null)} style={{ ...chipStyle(true), color: activeEtapaObj.color || C.blue }}>{activeEtapaObj.nombre} ✕</button>
+              <button
+                type="button"
+                onClick={() => setEtapaFiltro(null)}
+                title="Quitar el filtro de etapa"
+                style={{
+                  ...chipStyle(true),
+                  color: activeEtapaObj.color || C.blue,
+                  borderColor: activeEtapaObj.color || C.blue,
+                }}
+              >
+                {activeEtapaObj.nombre}
+                <span style={{ fontSize: 13, lineHeight: 1, opacity: 0.75 }}>✕</span>
+              </button>
             )}
             <span style={{ flex: 1 }} />
-            <div style={{ display: "flex", gap: 2 }}>
+            {/* Segmentado real: sin contenedor los dos textos se leían como
+                botones sueltos y no como "una cosa u otra". */}
+            <div style={{ display: "inline-flex", gap: 3, padding: 3, background: C.panel2, border: `1px solid ${C.b0}`, borderRadius: 10 }}>
               {[["tablero", "Tablero"], ["lista", "Lista"]].map(([k, l]) => (
-                <button key={k} type="button" onClick={() => setBoardView(k)} style={{ border: "none", background: boardView === k ? C.panel2 : "transparent", color: boardView === k ? C.t0 : C.t2, padding: "6px 12px", borderRadius: 8, fontSize: 12.5, fontWeight: 600, cursor: "pointer", fontFamily: C.sans }}>{l}</button>
+                <button
+                  key={k}
+                  type="button"
+                  onClick={() => setBoardView(k)}
+                  aria-pressed={boardView === k}
+                  style={{
+                    border: "none",
+                    background: boardView === k ? C.panelSolid : "transparent",
+                    color: boardView === k ? C.t0 : C.t2,
+                    padding: "5px 13px", borderRadius: 8, fontSize: 12.5,
+                    fontWeight: boardView === k ? 800 : 600, cursor: "pointer", fontFamily: C.sans,
+                    boxShadow: boardView === k ? "0 2px 6px -2px var(--shadow)" : "none",
+                  }}
+                >
+                  {l}
+                </button>
               ))}
             </div>
             {esGestion && (
@@ -2947,16 +3620,17 @@ export default function ObrasScreen({ profile, signOut }) {
           ) : (
             /* Vista Lista */
             <div style={{ padding: isMobile ? "0 14px 32px" : "0 22px 36px" }}>
-              {!isMobile && <div style={{ display: "grid", gridTemplateColumns: bulkMode ? "22px 4px minmax(190px,1fr) 130px 130px 78px 96px 108px" : "4px minmax(190px,1fr) 130px 130px 78px 96px 108px", gap: 12, padding: "8px 7px", borderBottom: `1px solid ${C.b1}` }}>
+              {!isMobile && <div style={{ display: "grid", gridTemplateColumns: bulkMode ? "22px 4px minmax(190px,1fr) 130px 130px 96px 96px 108px" : "4px minmax(190px,1fr) 130px 130px 96px 96px 108px", gap: 12, padding: "8px 7px", borderBottom: `1px solid ${C.b1}` }}>
                 {bulkMode && <span />}
                 <span />
                 {["Tarea", "Etapa", "Responsable", "Vence", "Estado", "Accion"].map(label => <span key={label} style={{ fontSize: 9.5, textTransform: "uppercase", letterSpacing: 1, color: C.t2, fontWeight: 800 }}>{label}</span>)}
               </div>}
-              {vis.slice().sort((a, b) => (a.estado === "finalizada") - (b.estado === "finalizada") || (diasHasta(a.fecha_fin_estimada) ?? 999) - (diasHasta(b.fecha_fin_estimada) ?? 999)).map(t => (
+              {vis.slice().sort((a, b) => (a.estado === "finalizada") - (b.estado === "finalizada") || (diasHastaTarea(a) ?? 999) - (diasHastaTarea(b) ?? 999)).map(t => (
                 <TaskListRow
                   key={t.id}
                   tarea={t}
                   etapa={etapaById.get(t.etapa_id)}
+                  fechaFinPlan={fechaPlanEtapaParaTarea(t)}
                   bloqueantes={pendingDependencies(t)}
                   esGestion={esGestion}
                   isMobile={isMobile}
@@ -3006,6 +3680,17 @@ export default function ObrasScreen({ profile, signOut }) {
   // ── Landing home de Obras ────────────────────────────────────────
   // Se muestra la primera vez que el usuario entra. El topbar queda
   // montado debajo pero invisible. onEnterMapa() lo desmonta.
+  const topNavButtonStyle = key => {
+    const active = mainView === key;
+    return {
+      display: "inline-flex", alignItems: "center", gap: 6, padding: "6px 11px",
+      borderRadius: 7, cursor: "pointer", fontSize: 11.5, fontFamily: C.sans,
+      fontWeight: active ? 800 : 650, border: `1px solid ${active ? C.b1 : "transparent"}`,
+      background: active ? C.s1 : "transparent", color: active ? C.t0 : C.t2,
+      whiteSpace: "nowrap", flexShrink: 0,
+    };
+  };
+
   if (showHome) return (
     <div style={{ position: "fixed", inset: 0, background: C.bg, color: C.t0, fontFamily: C.sans, zIndex: 0 }}>
       <div style={{ display: "flex", height: "100vh", overflow: "hidden" }}>
@@ -3036,6 +3721,9 @@ export default function ObrasScreen({ profile, signOut }) {
         ::-webkit-scrollbar-track { background: transparent; }
         ::-webkit-scrollbar-thumb { background: var(--panel-2); border-radius: 99px; }
         input:focus, select:focus, textarea:focus { border-color: rgba(59,130,246,0.35) !important; outline: none; }
+        .obra-card-act { transition: filter .14s ease, transform .1s ease; }
+        .obra-card-act:hover { filter: brightness(1.18); }
+        .obra-card-act:active { transform: scale(.97); }
         .obra-task-row { background: transparent; transition: background .18s ease, box-shadow .18s ease, transform .18s ease; }
         .obra-task-row:hover, .obra-task-row:focus-visible { background: var(--panel-2); box-shadow: inset 3px 0 0 rgba(59,130,246,.72); transform: translateX(2px); outline: none; }
         .obra-task-actions { opacity: .18; transform: translateX(4px); transition: opacity .18s ease, transform .18s ease; }
@@ -3071,9 +3759,14 @@ export default function ObrasScreen({ profile, signOut }) {
 
         <div style={{ flex: 1, display: "flex", flexDirection: "column", height: "100vh", overflow: "hidden", minWidth: 0 }}>
           {/* TOPBAR — sutil cuando el mapa/obras está abierto */}
-          <div style={{ height: 38, background: "var(--topbar)", ...GLASS, borderBottom: `1px solid var(--panel)`, padding: isMobile ? "0 12px 0 52px" : "0 16px", display: "flex", alignItems: "center", gap: 10, flexShrink: 0 }}>
+          <div style={{ minHeight: 48, background: "var(--topbar)", ...GLASS, borderBottom: `1px solid ${C.b0}`, padding: isMobile ? "7px 10px 7px 52px" : "7px 16px", display: "flex", alignItems: "center", gap: 12, flexShrink: 0 }}>
+            <button type="button" onClick={() => setShowHome(true)} title="Volver al inicio de Obras" style={{ display: "flex", alignItems: "center", gap: 7, border: "none", background: "transparent", color: C.t0, cursor: "pointer", padding: "4px 2px", fontFamily: C.sans, flexShrink: 0 }}>
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round"><polyline points="15 18 9 12 15 6"/></svg>
+              {!isMobile && <span style={{ fontSize: 13, fontWeight: 800 }}>Producción</span>}
+            </button>
+            <div style={{ width: 1, height: 22, background: C.b0, flexShrink: 0 }} />
             {/* Pills compactos: solo dot + número + label */}
-            <div style={{ display: "flex", gap: 5, flex: 1, alignItems: "center" }}>
+            <div style={{ display: "none" }}>
               {/* Botón volver a home */}
               <button type="button" onClick={() => setShowHome(true)}
                 title="Volver al inicio de Obras"
@@ -3108,23 +3801,84 @@ export default function ObrasScreen({ profile, signOut }) {
                 </div>
               ))}
             </div>
-            <div style={{ display: "flex", gap: 3 }}>
-              <button type="button" onClick={() => setMainView("obras")} style={{ padding: "5px 14px", borderRadius: 7, cursor: "pointer", fontSize: 12, fontFamily: C.sans, border: mainView === "obras" ? `1px solid ${C.b1}` : `1px solid ${C.b0}`, background: mainView === "obras" ? C.s1 : "transparent", color: mainView === "obras" ? C.t0 : C.t1, transition: "all 0.18s", boxShadow: mainView === "obras" ? "0 0 0 1px var(--panel-2) inset" : "none" }}><span style={{display:"flex",alignItems:"center",gap:5}}><NavIcon.Grid />Obras</span></button>
-              <button type="button" onClick={() => { setMainView("mapa"); setMapaPanel(null); }} style={{ padding: "5px 14px", borderRadius: 7, cursor: "pointer", fontSize: 12, fontFamily: C.sans, border: mainView === "mapa" ? "1px solid rgba(139,92,246,0.45)" : `1px solid ${C.b0}`, background: mainView === "mapa" ? "rgba(139,92,246,0.12)" : "transparent", color: mainView === "mapa" ? "#a78bfa" : C.t1, transition: "all 0.18s", boxShadow: mainView === "mapa" ? "0 0 16px rgba(139,92,246,0.15)" : "none" }}><span style={{display:"flex",alignItems:"center",gap:5}}><NavIcon.Map />Mapa</span></button>
-              <button type="button" onClick={() => setMainView("piezas_lam")} style={{ padding: "5px 14px", borderRadius: 7, cursor: "pointer", fontSize: 12, fontFamily: C.sans, border: mainView === "piezas_lam" ? `1px solid rgba(16,185,129,0.45)` : `1px solid ${C.b0}`, background: mainView === "piezas_lam" ? "rgba(16,185,129,0.10)" : "transparent", color: mainView === "piezas_lam" ? C.green : C.t1, transition: "all 0.18s", boxShadow: mainView === "piezas_lam" ? "0 0 16px rgba(16,185,129,0.12)" : "none" }}>
+            <div style={{ display: "flex", gap: 2, minWidth: 0, overflowX: "auto", scrollbarWidth: "none", flex: 1 }}>
+              <button type="button" onClick={() => setMainView("obras")} style={topNavButtonStyle("obras")}><span style={{display:"flex",alignItems:"center",gap:5}}><NavIcon.Grid />Obras</span></button>
+              <button type="button" onClick={() => { setMainView("mapa"); setMapaPanel(null); }} style={topNavButtonStyle("mapa")}><span style={{display:"flex",alignItems:"center",gap:5}}><NavIcon.Map />Mapa</span></button>
+              <button type="button" onClick={() => setMainView("piezas_lam")} style={topNavButtonStyle("piezas_lam")}>
                 <span style={{display:"flex",alignItems:"center",gap:5}}><NavIcon.Pieces />Piezas Laminación</span>
               </button>
-              <button type="button" onClick={() => setMainView("fechas")} style={{ padding: "5px 14px", borderRadius: 7, cursor: "pointer", fontSize: 12, fontFamily: C.sans, border: mainView === "fechas" ? `1px solid rgba(34,211,238,0.45)` : `1px solid ${C.b0}`, background: mainView === "fechas" ? "rgba(34,211,238,0.10)" : "transparent", color: mainView === "fechas" ? C.cyan : C.t1, transition: "all 0.18s", boxShadow: mainView === "fechas" ? "0 0 16px rgba(34,211,238,0.12)" : "none" }}>
+              <button type="button" onClick={() => setMainView("timeline")} style={topNavButtonStyle("timeline")}>
+                <span style={{display:"flex",alignItems:"center",gap:5}}><NavIcon.Timeline />Cronograma</span>
+              </button>
+              <button type="button" onClick={() => setMainView("fechas")} style={topNavButtonStyle("fechas")}>
                 <span style={{display:"flex",alignItems:"center",gap:5}}><NavIcon.Cal />Fechas</span>
               </button>
             </div>
-            {mainView === "obras" && esGestion && <Btn variant="primary" onClick={() => setShowObraModal(true)}>+ Nueva obra</Btn>}
+            {mainView === "obras" && (
+              <div style={{ display: "flex", alignItems: "center", gap: 7, flexShrink: 0 }}>
+                {esGestion && <Btn variant="primary" onClick={() => setShowObraModal(true)}>+ Nueva obra</Btn>}
+                <BotonAyuda
+                  tourId="obras-planificacion"
+                  profile={profile}
+                  onBeforeStart={() => {
+                    setMainView("obras");
+                    setDetailView("resumen");
+                    setRailCollapsed(false);
+                    setLineasModal(null);
+                    setVacacionesModal(null);
+                    const preferredLine = lineas.find(linea => linea.id === filtroLinea)
+                      || lineas.find(linea => obras.some(obra => obra.linea_id === linea.id && obra.estado === "activa"))
+                      || lineas[0];
+                    if (preferredLine) cambiarFocoLinea(preferredLine.id);
+                    const preferredObra = obras.find(obra => obra.linea_id === preferredLine?.id && obra.estado === "activa")
+                      || obras.find(obra => obra.linea_id === preferredLine?.id)
+                      || obras.find(obra => obra.estado === "activa")
+                      || obras[0];
+                    if (preferredObra) setFocusedObra(preferredObra.id);
+                  }}
+                />
+              </div>
+            )}
           </div>
 
           {mainView === "obras" && (
             <>
               {/* FILTERBAR */}
-              <div style={{ height: 36, background: C.topbarSoft, ...GLASS, borderBottom: `1px solid ${C.b0}`, padding: "0 18px", display: "flex", alignItems: "center", gap: 4, flexShrink: 0, overflowX: "auto" }}>
+              <div style={{ minHeight: 54, background: C.topbarSoft, ...GLASS, borderBottom: `1px solid ${C.b0}`, padding: isMobile ? "8px 12px" : "8px 18px", display: "flex", alignItems: "center", gap: 12, flexShrink: 0, flexWrap: "wrap" }}>
+                <div data-tour="obras-linea-foco" style={{ display: "flex", alignItems: "center", gap: 8, minWidth: isMobile ? "100%" : 270 }}>
+                  <div style={{ minWidth: 0 }}>
+                    <div style={{ fontSize: 9, color: C.t2, letterSpacing: 1.1, textTransform: "uppercase", fontWeight: 800, marginBottom: 3 }}>Línea enfocada</div>
+                    <select value={filtroLinea} onChange={e => cambiarFocoLinea(e.target.value)} style={{ ...INP, minWidth: isMobile ? 190 : 210, padding: "6px 30px 6px 10px", fontSize: 12, fontWeight: 750, background: C.s0 }}>
+                      <option value="todas">Todas las líneas</option>
+                      {lineas.map(linea => <option key={linea.id} value={linea.id}>{linea.nombre}</option>)}
+                    </select>
+                  </div>
+                  {esGestion && lineaEnFoco && (
+                    <button data-tour="obras-editar-linea" type="button" onClick={() => setLineasModal({ linea: lineaEnFoco })} style={{ border: `1px solid ${C.b1}`, background: C.s0, color: C.t1, borderRadius: 7, padding: "6px 9px", cursor: "pointer", fontSize: 11, fontWeight: 750, fontFamily: C.sans, whiteSpace: "nowrap" }}>Editar etapas</button>
+                  )}
+                  {esGestion && !lineaEnFoco && (
+                    <button type="button" onClick={() => setShowNuevaLineaModal(true)} style={{ border: `1px solid ${C.b0}`, background: "transparent", color: C.t2, borderRadius: 7, padding: "6px 9px", cursor: "pointer", fontSize: 11, fontWeight: 700, fontFamily: C.sans, whiteSpace: "nowrap" }}>+ Línea</button>
+                  )}
+                </div>
+                <div style={{ width: 1, height: 28, background: C.b0, display: isMobile ? "none" : "block" }} />
+                <div style={{ display: "flex", alignItems: "center", gap: 3, overflowX: "auto", scrollbarWidth: "none" }}>
+                  {[
+                    ["todos", "Todas", statsFoco.total],
+                    ["activa", "Activas", statsFoco.activas],
+                    ["pausada", "Pausadas", statsFoco.pausadas],
+                    ["terminada", "Terminadas", statsFoco.terminadas],
+                  ].map(([value, label, count]) => {
+                    const active = filtroEstado === value;
+                    return (
+                      <button key={value} type="button" onClick={() => setFiltroEstado(value)} style={{ border: `1px solid ${active ? C.b1 : "transparent"}`, background: active ? C.s1 : "transparent", color: active ? C.t0 : C.t2, padding: "6px 9px", borderRadius: 7, cursor: "pointer", fontSize: 11, fontFamily: C.sans, fontWeight: active ? 800 : 650, whiteSpace: "nowrap" }}>
+                        {label} <span style={{ marginLeft: 4, fontFamily: C.mono, color: active ? C.t1 : C.t3 }}>{count}</span>
+                      </button>
+                    );
+                  })}
+                </div>
+                <div style={{ marginLeft: isMobile ? 0 : "auto", fontSize: 10.5, color: C.t2, whiteSpace: "nowrap" }}>{obrasFilt.length} obra{obrasFilt.length === 1 ? "" : "s"} visibles</div>
+              </div>
+              <div style={{ display: "none" }}>
                 <span style={{ fontSize: 10, color: C.t2, letterSpacing: 1.3, textTransform: "uppercase", flexShrink: 0 }}>Estado</span>
                 {[["todos","Todos"],["activa","Activas"],["pausada","Pausadas"],["terminada","Terminadas"]].map(([v, l]) => (
                   <button key={v} type="button" onClick={() => setFiltroEstado(v)} style={{ border: filtroEstado === v ? `1px solid ${C.b1}` : `1px solid var(--panel)`, background: filtroEstado === v ? C.s1 : "transparent", color: filtroEstado === v ? C.t0 : C.t1, padding: "3px 11px", borderRadius: 5, cursor: "pointer", fontSize: 11, fontFamily: C.sans }}>{l}</button>
@@ -3222,6 +3976,18 @@ export default function ObrasScreen({ profile, signOut }) {
             <PiezasLaminacionView obras={obras} esGestion={esGestion} />
           )}
 
+          {mainView === "timeline" && (
+            <TimelineDesmoldeView
+              obras={obras}
+              lineas={lineas}
+              lProcs={lProcs}
+              etapas={etapas}
+              timeline={timeline}
+              nonWorkingPeriods={nonWorkingPeriods}
+              esGestion={esGestion}
+            />
+          )}
+
           {mainView === "fechas" && (
             <FechasView
               obras={obras}
@@ -3237,7 +4003,7 @@ export default function ObrasScreen({ profile, signOut }) {
       </div>
 
       {/* MODALES */}
-      {showObraModal && <ObraModal lineas={lineas} lProcs={lProcs} onSave={nueva => { setShowObraModal(false); cargar(); if (nueva?.id) setFocusedObra(nueva.id); }} onClose={() => setShowObraModal(false)} />}
+      {showObraModal && <ObraModal lineas={lineas} lProcs={lProcs} stageOffsets={stageOffsets} onSave={nueva => { setShowObraModal(false); cargar(); if (nueva?.id) setFocusedObra(nueva.id); }} onClose={() => setShowObraModal(false)} />}
       {etapaModal    && <EtapaModal etapa={etapaModal.etapa} obraId={etapaModal.obraId} detailEnabled={matrixDetailsEnabled} onSave={() => { setEtapaModal(null); cargar(); }} onClose={() => setEtapaModal(null)} />}
       {tareaModal    && <TareaModal tarea={tareaModal.tarea} etapaId={tareaModal.etapaId} obraId={tareaModal.obraId} onSave={() => { setTareaModal(null); cargar(); }} onClose={() => setTareaModal(null)} />}
       {tareaDetalle  && <TareaDetalleModal
@@ -3253,7 +4019,15 @@ export default function ObrasScreen({ profile, signOut }) {
         onReabrir={t => { setTareaDetalle(null); cambiarEstadoTarea(t.id, "en_progreso"); }}
       />}
       {confirmModal  && <ConfirmModal {...confirmModal} onCancel={() => setConfirmModal(null)} />}
-      {lineasModal   && <LineasEtapasModal linea={lineasModal.linea} lProcs={lProcs} detailEnabled={matrixDetailsEnabled} onClose={() => setLineasModal(null)} onSaved={cargar} />}
+      {vacacionesModal && (
+        <VacacionesObraModal
+          obra={vacacionesModal}
+          periods={periodsByObra.get(vacacionesModal.id) || []}
+          onClose={() => setVacacionesModal(null)}
+          onSaved={cargar}
+        />
+      )}
+      {lineasModal   && <LineasEtapasModal linea={lineasModal.linea} lProcs={lProcs} stageOffsets={stageOffsets} detailEnabled={matrixDetailsEnabled} isMobile={isMobile} onClose={() => setLineasModal(null)} onSaved={cargar} />}
       {showNuevaLineaModal && <NuevaLineaModal onClose={() => setShowNuevaLineaModal(false)} onSaved={() => { setShowNuevaLineaModal(false); cargar(); }} />}
     </div>
   );

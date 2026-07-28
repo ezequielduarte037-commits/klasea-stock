@@ -16,21 +16,22 @@ export default function BotonAyuda({ tourId, profile, onBeforeStart }) {
         role,
         userId: profile?.user_id || profile?.id || profile?.username || "anon",
       });
-    }, 80);
+    }, 160);
   }
 
+  const disabled = !!tourActivo;
   return (
     <button
       type="button"
       onClick={iniciar}
-      disabled={tourActivo === tourId}
+      disabled={disabled}
       aria-label={`Ver ayuda de ${tour.titulo}`}
       title={`Ver tour de ${tour.titulo}`}
       style={{
         width: 34, height: 34, flexShrink: 0, display: "grid", placeItems: "center",
         borderRadius: 10, border: `1px solid ${C.border}`, background: C.panelSolid,
-        color: C.violet, cursor: tourActivo === tourId ? "default" : "pointer",
-        boxShadow: "0 1px 2px var(--shadow)", opacity: tourActivo === tourId ? 0.55 : 1,
+        color: C.violet, cursor: disabled ? "default" : "pointer",
+        boxShadow: "0 1px 2px var(--shadow)", opacity: disabled ? 0.55 : 1,
       }}
     >
       <CircleHelp size={17} strokeWidth={2} />

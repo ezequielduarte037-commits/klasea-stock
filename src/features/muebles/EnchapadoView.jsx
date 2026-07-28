@@ -61,7 +61,7 @@ const INP = {
 const ESTADOS_OT = ["Pendiente", "Enviada", "Devuelta", "Rehacer"];
 const ESTADO_META = {
   "Pendiente": { color: C.t2,    bg: "transparent",              dot: "var(--border-3)" },
-  "Enviada":   { color: C.amber, bg: "rgba(245,158,11,0.1)",     dot: C.amber },
+  "Enviada":   { color: C.blue, bg: C.blueL,                      dot: C.blue },
   "Devuelta":  { color: C.green, bg: "rgba(16,185,129,0.1)",     dot: C.green },
   "Rehacer":   { color: C.red,   bg: "rgba(239,68,68,0.1)",      dot: C.red },
 };
@@ -283,8 +283,14 @@ function saveHerrajesTemplates(next) {
   window.localStorage.setItem(HERRAJES_STORAGE_KEY, JSON.stringify(next));
 }
 
-function herrajesForModelo(modelo) {
+// eslint-disable-next-line react-refresh/only-export-components
+export function herrajesForModelo(modelo) {
   return getHerrajesTemplates()[modelo] ?? null;
+}
+
+// eslint-disable-next-line react-refresh/only-export-components
+export function templateEnchapadoForModelo(modelo) {
+  return TEMPLATES[modelo] ?? null;
 }
 
 // ── Helpers ────────────────────────────────────────────────────────────────
@@ -294,15 +300,15 @@ function dispatchSteps(ot) {
   const estado = ot.estado || "Pendiente";
   const steps = [];
   if (hasTablones) {
-    steps.push({ key: "tablones_pedido", label: "Tablones pedidos", done: !!ot.tablones_pedido });
-    steps.push({ key: "tablones_enviado", label: "Tablones enviados", done: !!ot.tablones_enviado });
+    steps.push({ key: "tablones_pedido", label: "OT entregada a Banco", done: !!ot.tablones_pedido });
+    steps.push({ key: "tablones_enviado", label: "Aviso de tablones enviado a Oberti", done: !!ot.tablones_enviado });
   }
   if (hasHerrajes) {
     steps.push({ key: "herrajes_pedido", label: "Herrajes pedidos", done: !!ot.herrajes_pedido });
     steps.push({ key: "herrajes_enviado", label: "Herrajes enviados", done: !!ot.herrajes_enviado });
   }
-  steps.push({ key: "enviada", label: "OT enviada a Oberti", done: estado === "Enviada" || estado === "Devuelta" });
-  steps.push({ key: "devuelta", label: "Devuelta", done: estado === "Devuelta" });
+  steps.push({ key: "enviada", label: "OT de chapas y material enviados a enchapadora", done: estado === "Enviada" || estado === "Devuelta" });
+  steps.push({ key: "devuelta", label: "Enchapado terminado y material devuelto", done: estado === "Devuelta" });
   return steps;
 }
 
@@ -318,7 +324,7 @@ function DispatchProgress({ ot, compact = false }) {
   return (
     <div style={{ display: "flex", alignItems: "center", gap: 7, minWidth: compact ? 118 : 150 }}>
       <div style={{ flex: 1, height: compact ? 5 : 6, borderRadius: 999, background: C.s1, border: `1px solid ${C.b0}`, overflow: "hidden" }}>
-        <div style={{ width: `${p.pct}%`, height: "100%", background: p.done === p.total ? C.green : C.amber, borderRadius: 999 }} />
+        <div style={{ width: `${p.pct}%`, height: "100%", background: p.done === p.total ? C.green : C.blue, borderRadius: 999 }} />
       </div>
       <span style={{ fontSize: compact ? 10 : 11, color: C.t2, fontFamily: C.mono, fontWeight: 700, whiteSpace: "nowrap" }}>
         {p.done}/{p.total} despacho
@@ -344,7 +350,7 @@ function ProcessStepper({ ot }) {
       <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(130px, 1fr))", gap: 8 }}>
         {steps.map((s, idx) => {
           const done = !!s.done;
-          const color = done ? C.green : isRehacer ? C.red : C.amber;
+          const color = done ? C.green : isRehacer ? C.red : C.blue;
           return (
             <div key={s.key} style={{
               display: "flex",
@@ -545,7 +551,7 @@ function OTCard({ ot, onClick }) {
         {(tPendiente || hPendiente) && (
           <div style={{ display: "flex", gap: 5, marginTop: 5 }}>
             {tPendiente && (
-              <span style={{ fontSize: 10, color: C.amber, background: "rgba(245,158,11,0.08)", border: "1px solid rgba(245,158,11,0.2)", padding: "1px 6px", borderRadius: 4 }}>
+              <span style={{ fontSize: 10, color: C.blue, background: C.blueL, border: `1px solid ${C.blueB}`, padding: "1px 6px", borderRadius: 4 }}>
                 tablones pendientes
               </span>
             )}
@@ -663,7 +669,7 @@ function NuevaOTModal({ onClose, onCreate, onEnsureMueblesUnidad }) {
       <div onClick={e => e.stopPropagation()} style={{ background: C.panelSolid, border: `1px solid ${C.b1}`, borderRadius: 16, padding: 28, width: "min(520px,94vw)", position: "relative", maxHeight: "90vh", overflowY: "auto" }}>
         <button onClick={onClose} style={{ position: "absolute", top: 14, right: 14, background: C.s0, border: `1px solid ${C.b0}`, color: C.t0, width: 28, height: 28, borderRadius: "50%", cursor: "pointer", fontSize: 15, display: "flex", alignItems: "center", justifyContent: "center" }}>×</button>
 
-        <div style={{ fontSize: 16, fontWeight: 700, color: C.t0, marginBottom: 2 }}>Nueva OT — Enchapadora</div>
+        <div style={{ fontSize: 16, fontWeight: 700, color: C.t0, marginBottom: 2 }}>Nueva OT de preparación — Banco</div>
         <div style={{ fontSize: 12, color: C.t2, marginBottom: 4 }}>Klase A</div>
 
         {/* Modelo */}
@@ -778,7 +784,7 @@ function NuevaOTModal({ onClose, onCreate, onEnsureMueblesUnidad }) {
 }
 
 // ── Vista detalle de una OT ────────────────────────────────────────────────
-function OTDetail({ ot: otInit, onBack, onUpdated, onDeleted, esAdmin, onEnsureMueblesUnidad }) {
+export function OTDetail({ ot: otInit, onBack, onUpdated, onDeleted, esAdmin, onEnsureMueblesUnidad }) {
   const [ot,        setOt]        = useState(otInit);
   const [items,     setItems]     = useState([]);
   const [loading,   setLoading]   = useState(true);
@@ -802,6 +808,9 @@ function OTDetail({ ot: otInit, onBack, onUpdated, onDeleted, esAdmin, onEnsureM
   const chapa   = chapaColor(ot.tipo_chapa);
   const tablones = tablonesList(ot.modelo, ot.tipo_chapa);
   const herrajesKit = herrajesForModelo(ot.modelo) ?? null;
+  const chapasDigitalizadas = Boolean(tpl?.items?.length)
+    && tpl.items.every((templateItem) =>
+      items.find((item) => item.item_id === templateItem.id)?.chapas_descripcion?.trim());
 
   
 
@@ -906,7 +915,7 @@ function OTDetail({ ot: otInit, onBack, onUpdated, onDeleted, esAdmin, onEnsureM
     }
   }
 
-  function imprimir() {
+  function imprimir(destino) {
     const tablonesLineas = tablonesList(ot.modelo, ot.tipo_chapa) ?? [];
     const printTone = chapaColor(ot.tipo_chapa);
     const printChapa = (ot.tipo_chapa || "Sin especificar")
@@ -1049,6 +1058,16 @@ function OTDetail({ ot: otInit, onBack, onUpdated, onDeleted, esAdmin, onEnsureM
         </tr>`;
     }).join("");
 
+    const rowsBancoItems = (tpl?.items ?? []).map(it => `
+      <tr>
+        <td class="item-id">${it.id}</td>
+        <td class="chapas"><div style="min-height:34px"></div></td>
+        <td>${it.material}</td>
+        <td>${it.medidas}</td>
+        <td>${it.caras}</td>
+        <td>${it.veta}</td>
+      </tr>`).join("");
+
     const placasHTML = (tpl?.placas ?? []).map(p => `<span class="chip">${p}</span>`).join("");
 
     const fechasHTML = (ot.fecha_desmolde_est || ot.fecha_desmolde_real || ot.fecha_botada) ? `
@@ -1096,6 +1115,14 @@ ${chapaPrintBlock}
     </div>
   </div>`;
 
+    const pagPreparacionBancoHTML = pagEnchapadoHTML
+      .replace("Para: Enchapadora", "Para: Carpintero de banco")
+      .replace("Hojas de Chapa &amp; Trabajo a Realizar", "Preparación de hojas de chapa")
+      .replace(`<tbody>${rowsItems}</tbody>`, `<tbody>${rowsBancoItems}</tbody>`)
+      .replace("Recibió (Enchapadora)", "Supervisó (Oficina Técnica)")
+      .replace("Fecha entrega", "Fecha de devolución")
+      .replace("Hoja 1 / Enchapadora", "Preparación / Banco");
+
     // ── PÁGINA 2: CARPINTERÍA (sólo si hay tablones) ──────────────
     let pagCarpinteriaHTML = "";
     if (tablonesLineas.length) {
@@ -1104,7 +1131,7 @@ ${chapaPrintBlock}
         : null;
       pagCarpinteriaHTML = `
   <div class="page">
-    <div class="dest-banner carp">🪵 Para: Carpintería</div>
+    <div class="dest-banner carp">🪵 Para: Carpintero de banco</div>
     ${miniHeader}
 
 ${chapaPrintBlock}
@@ -1123,25 +1150,33 @@ ${chapaPrintBlock}
     </section>
     <div class="check-row">
       <div class="check-box">
-        <div class="check-label">Pedido confirmado</div>
+        <div class="check-label">OT entregada a Banco</div>
         <div class="check-val">${ot.tablones_pedido ? "✓  Sí" : "⬜  Pendiente"}</div>
       </div>
       <div class="check-box">
-        <div class="check-label">Enviado a Oberti</div>
+        <div class="check-label">Aviso enviado a Oberti</div>
         <div class="check-val">${ot.tablones_enviado ? "✓  Sí" : "⬜  Pendiente"}</div>
       </div>
     </div>
     <div class="sign-area" style="margin-top: 32px">
-      <div class="sign-line">Preparó (Carpintería)</div>
-      <div class="sign-line">Recibió (Oberti)</div>
-      <div class="sign-line">Fecha despacho</div>
+      <div class="sign-line">Preparó (Banco)</div>
+      <div class="sign-line">Controló</div>
+      <div class="sign-line">Fecha preparación</div>
     </div>
     <div class="footer">
-      <span>Klase A · Procedimiento Enchapadora — Hoja 2 / Carpintería</span>
+      <span>Klase A · Preparación de muebles — Tablones / Banco</span>
       <span>Impreso: ${new Date().toLocaleDateString("es-AR")}</span>
     </div>
   </div>`;
     }
+
+    const pagAvisoObertiHTML = pagCarpinteriaHTML
+      .replace("Para: Carpintero de banco", "Aviso para: Oberti")
+      .replace("Anexo B — Tablones Cepillados", "Aviso de tablones preparados")
+      .replace("Preparó (Banco)", "Informó (Oficina Técnica)")
+      .replace("Controló", "Recibió aviso (Oberti)")
+      .replace("Fecha preparación", "Fecha de aviso")
+      .replace("Tablones / Banco", "Aviso de tablones / Oberti");
 
     // ── PÁGINA 3: PAÑOL / OBERTI (sólo si hay herrajes) ──────────
     let pagHerrajesHTML = "";
@@ -1195,17 +1230,27 @@ ${chapaPrintBlock}
   </div>`;
     }
 
+    const paginas = destino === "banco"
+      ? `${pagPreparacionBancoHTML}${pagCarpinteriaHTML}`
+      : destino === "oberti"
+        ? pagAvisoObertiHTML
+        : pagEnchapadoHTML;
+    const tituloDocumento = destino === "banco"
+      ? "OT Banco"
+      : destino === "oberti"
+        ? "Aviso Tablones Oberti"
+        : "OT Enchapadora";
+
     const html = `<!DOCTYPE html>
 <html lang="es">
 <head>
 <meta charset="UTF-8">
-<title>OT Enchapadora — ${ot.modelo} ${ot.barco}</title>
+<title>${tituloDocumento} — ${ot.modelo} ${ot.barco}</title>
 <style>${CSS}</style>
 </head>
 <body>
-${pagEnchapadoHTML}
-${pagCarpinteriaHTML}
-${pagHerrajesHTML}
+${paginas}
+${destino === "completo" ? pagHerrajesHTML : ""}
 <script>window.onload = () => window.print();</script>
 </body>
 </html>`;
@@ -1297,9 +1342,22 @@ ${pagHerrajesHTML}
           <button onClick={sincronizarMuebles} disabled={syncingMuebles || !onEnsureMueblesUnidad} style={{ background: "rgba(16,185,129,0.12)", border: "1px solid rgba(16,185,129,0.28)", color: C.green, padding: "5px 12px", borderRadius: 7, cursor: syncingMuebles ? "not-allowed" : "pointer", fontSize: 12, fontFamily: C.sans, opacity: syncingMuebles ? 0.7 : 1 }}>
             {syncingMuebles ? "Sincronizando..." : "Sincronizar con Muebles"}
           </button>
-          <button onClick={imprimir} style={{ background: C.s0, border: `1px solid ${C.b0}`, color: C.t1, padding: "5px 12px", borderRadius: 7, cursor: "pointer", fontSize: 12, fontFamily: C.sans, display: "flex", alignItems: "center", gap: 5 }}>
-            Imprimir PDF
+          <button onClick={() => imprimir("banco")} style={{ background: C.s0, border: `1px solid ${C.b0}`, color: C.t1, padding: "5px 12px", borderRadius: 7, cursor: "pointer", fontSize: 12, fontFamily: C.sans }}>
+            Imprimir OT para Banco
           </button>
+          <button
+            onClick={() => imprimir("enchapadora")}
+            disabled={!chapasDigitalizadas}
+            title={chapasDigitalizadas ? "Imprimir la OT digitalizada para la enchapadora" : "Completá la descripción de chapas de todos los ítems"}
+            style={{ background: chapasDigitalizadas ? C.blueL : C.s0, border: `1px solid ${chapasDigitalizadas ? C.blueB : C.b0}`, color: chapasDigitalizadas ? C.blue : C.t3, padding: "5px 12px", borderRadius: 7, cursor: chapasDigitalizadas ? "pointer" : "not-allowed", fontSize: 12, fontFamily: C.sans }}
+          >
+            Imprimir para Enchapadora
+          </button>
+          {tablones && (
+            <button onClick={() => imprimir("oberti")} style={{ background: C.blueL, border: `1px solid ${C.blueB}`, color: C.blue, padding: "5px 12px", borderRadius: 7, cursor: "pointer", fontSize: 12, fontFamily: C.sans }}>
+              Aviso de tablones a Oberti
+            </button>
+          )}
           {esAdmin && (
             <button onClick={eliminarOT} style={{ background: "transparent", border: "1px solid rgba(239,68,68,0.2)", color: "#f87171", padding: "5px 12px", borderRadius: 7, cursor: "pointer", fontSize: 12, fontFamily: C.sans }}>Eliminar OT</button>
           )}
@@ -1307,6 +1365,22 @@ ${pagHerrajesHTML}
       </div>
 
       <ProcessStepper ot={ot} />
+
+      <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit,minmax(180px,1fr))", gap: 8, marginBottom: 16 }}>
+        {[
+          ["1", "Banco", "Recibe la OT completa y prepara chapas y tablones."],
+          ["2", "Enchapadora", "Recibe impresa únicamente la OT de chapas ya digitalizada."],
+          ["3", "Oberti", "Recibe el aviso de la OT de tablones para anticipar lo que llegará."],
+        ].map(([paso, destino, detalle]) => (
+          <div key={paso} style={{ padding: 11, borderRadius: 10, border: `1px solid ${C.b0}`, background: C.s0 }}>
+            <div style={{ display: "flex", alignItems: "center", gap: 7, marginBottom: 4 }}>
+              <span style={{ width: 19, height: 19, borderRadius: 6, display: "inline-flex", alignItems: "center", justifyContent: "center", background: C.blueL, color: C.blue, fontSize: 10, fontWeight: 900 }}>{paso}</span>
+              <span style={{ color: C.t0, fontSize: 12, fontWeight: 800 }}>{destino}</span>
+            </div>
+            <div style={{ color: C.t2, fontSize: 10, lineHeight: 1.45 }}>{detalle}</div>
+          </div>
+        ))}
+      </div>
 
       {/* ── SECCIÓN: FECHAS DE PRODUCCIÓN ───────────────────────────────── */}
       <Section
@@ -1344,7 +1418,7 @@ ${pagHerrajesHTML}
           <div style={{ display: "flex", gap: 24, flexWrap: "wrap" }}>
             {[
               { label: "Desmolde est.",  val: ot.fecha_desmolde_est,  color: C.t1 },
-              { label: "Desmolde real",  val: ot.fecha_desmolde_real, color: C.amber },
+              { label: "Desmolde real",  val: ot.fecha_desmolde_real, color: C.blue },
               { label: "Botada",         val: ot.fecha_botada,        color: C.green },
             ].map(({ label, val, color }) => (
               <div key={label}>
@@ -1475,8 +1549,8 @@ ${pagHerrajesHTML}
           </div>
           {/* Toggles pedido / enviado */}
           <div style={{ display: "flex", gap: 10, flexWrap: "wrap" }}>
-            <DespachoToggle campo="tablones_pedido"  label="Pedidos a carpintería" color={C.amber} />
-            <DespachoToggle campo="tablones_enviado" label="Enviados a Oberti"      color={C.green} />
+            <DespachoToggle campo="tablones_pedido" label="OT entregada al carpintero de banco" color={C.blue} />
+            <DespachoToggle campo="tablones_enviado" label="Aviso de la OT enviado a Oberti" color={C.green} />
           </div>
         </Section>
       )}
@@ -1486,7 +1560,15 @@ ${pagHerrajesHTML}
         <Section title="Herrajes — Anexo C" badge={`${herrajesKit.length} ítems · ${ot.modelo}`} badgeColor={C.purple}>
           {/* Toggles */}
           <div style={{ display: "flex", gap: 10, flexWrap: "wrap", marginBottom: 12 }}>
-            <DespachoToggle campo="herrajes_pedido"  label="Pedidos a Pañol"    color={C.amber} />
+            <div style={{
+              display: "flex", alignItems: "center", gap: 8, padding: "8px 14px",
+              borderRadius: 9, fontSize: 13,
+              background: ot.herrajes_pedido ? `${C.blue}15` : C.s0,
+              border: `1px solid ${ot.herrajes_pedido ? `${C.blue}44` : C.b0}`,
+              color: ot.herrajes_pedido ? C.blue : C.t2,
+            }}>
+              {ot.herrajes_pedido ? "✓ Pedido creado en Compras" : "Pedido pendiente · crear desde Seguimiento"}
+            </div>
             <DespachoToggle campo="herrajes_enviado" label="Enviados a Oberti"  color={C.green} />
           </div>
           {/* Kit expandible */}
@@ -1943,7 +2025,7 @@ export default function EnchapadoView({ esAdmin, onEnsureMueblesUnidad }) {
       {/* Header */}
       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: 22 }}>
         <div>
-          <div style={{ fontSize: 22, fontWeight: 700, color: C.t0 }}>Enchapadora</div>
+          <div style={{ fontSize: 22, fontWeight: 700, color: C.t0 }}>Preparación y enchapado</div>
           <div style={{ fontSize: 12, color: C.t2, marginTop: 4, fontFamily: C.mono }}>
             {stats.total} OT{stats.total !== 1 ? "s" : ""} · {stats.enviada} enviada{stats.enviada !== 1 ? "s" : ""} · {stats.devuelta} devuelta{stats.devuelta !== 1 ? "s" : ""}
           </div>
@@ -1966,7 +2048,7 @@ export default function EnchapadoView({ esAdmin, onEnsureMueblesUnidad }) {
       <div style={{ display: "flex", gap: 8, flexWrap: "wrap", marginBottom: 18 }}>
         {[
           { label: "Pendientes", val: stats.pendiente, color: C.t2,    est: "Pendiente" },
-          { label: "Enviadas",   val: stats.enviada,   color: C.amber, est: "Enviada" },
+          { label: "Enviadas",   val: stats.enviada,   color: C.blue, est: "Enviada" },
           { label: "Devueltas",  val: stats.devuelta,  color: C.green, est: "Devuelta" },
           { label: "Rehacer",    val: stats.rehacer,   color: C.red,   est: "Rehacer" },
         ].filter(s => s.val > 0).map(s => (
@@ -1992,7 +2074,7 @@ export default function EnchapadoView({ esAdmin, onEnsureMueblesUnidad }) {
           />
         </div>
         {filtroE !== "todos" && (
-          <button onClick={() => setFiltroE("todos")} style={{ ...filterBtnSt(true), color: C.amber }}>
+          <button onClick={() => setFiltroE("todos")} style={{ ...filterBtnSt(true), color: C.blue }}>
             × {filtroE}
           </button>
         )}

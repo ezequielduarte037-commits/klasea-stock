@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { ChevronRight, ClipboardList, Inbox, Loader2, Package, RefreshCw, Search, Trash2 } from "lucide-react";
+import { ChevronRight, ClipboardList, Inbox, Layers3, Loader2, Package, RefreshCw, Search, Trash2, Truck } from "lucide-react";
 import { C } from "@/theme";
 import {
   actualizarEstadoPedido, actualizarItemPedido, borrarPedido, fetchPedidosProduccion,
@@ -51,6 +51,12 @@ function PedidoCard({ pedido, onReload, toast }) {
               {recibidos}/{items.length} recibidos · {new Date(pedido.created_at).toLocaleDateString("es-AR")}
             </span>
             {pedido.obra?.codigo && <Pill color={C.blue} soft={C.blueL} borde={C.blueB}>{pedido.obra.codigo}</Pill>}
+            {pedido.proveedor && <Pill color={C.violet} soft={C.violetL} borde={C.violetB}><Truck size={10} /> {pedido.proveedor}</Pill>}
+            {(pedido.etapas ?? []).length > 0 && (
+              <Pill color={C.teal}>
+                <Layers3 size={10} /> {pedido.etapas.length} {pedido.etapas.length === 1 ? "etapa" : "etapas"}
+              </Pill>
+            )}
           </div>
         </div>
         <EstadoSelect value={pedido.estado} options={PEDIDO_ESTADOS} onChange={setPedidoEstado} />
@@ -73,7 +79,8 @@ function PedidoCard({ pedido, onReload, toast }) {
                 <div style={{ color: C.text, fontSize: 13, fontWeight: 680, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{it.descripcion}</div>
                 <div style={{ display: "flex", gap: 6, marginTop: 2, flexWrap: "wrap", alignItems: "center" }}>
                   {it.codigo && <span style={{ color: C.dim, fontSize: 10.5, fontFamily: C.mono }}>{it.codigo}</span>}
-                  {it.origen_etapa_nombre && <Pill color={C.violet} soft={C.violetL} borde={C.violetB}>{it.origen_etapa_nombre}</Pill>}
+                  {it.origen_compra_etapa_nombre && <Pill color={C.violet} soft={C.violetL} borde={C.violetB}>{it.origen_compra_etapa_nombre}</Pill>}
+                  {it.origen_etapa_nombre && <Pill color={C.blue} soft={C.blueL} borde={C.blueB}>Producción · {it.origen_etapa_nombre}</Pill>}
                   {it.origen_tarea_nombre && <Pill color={C.teal}>↳ {it.origen_tarea_nombre}</Pill>}
                 </div>
               </div>
@@ -107,7 +114,7 @@ export default function PedidosTab({ toast, recargaExterna = 0 }) {
     return pedidos.filter((p) => {
       if (estado && p.estado !== estado) return false;
       if (!term) return true;
-      const texto = `${p.titulo ?? ""} ${p.obra_codigo ?? ""} ${p.etapa_nombre ?? ""}`.toLowerCase();
+      const texto = `${p.titulo ?? ""} ${p.obra_codigo ?? ""} ${p.etapa_nombre ?? ""} ${p.proveedor ?? ""} ${(p.etapas ?? []).map((e) => e.nombre).join(" ")}`.toLowerCase();
       if (texto.includes(term)) return true;
       return (p.items ?? []).some((i) => `${i.descripcion ?? ""} ${i.codigo ?? ""}`.toLowerCase().includes(term));
     });

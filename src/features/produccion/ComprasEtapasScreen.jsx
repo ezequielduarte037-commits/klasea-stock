@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { ClipboardList, LayoutTemplate, Layers, Ship } from "lucide-react";
+import { ClipboardList, LayoutTemplate, Layers, Ship, Truck } from "lucide-react";
 import Sidebar from "@/components/Sidebar";
 import { C } from "@/theme";
 import { useResponsive } from "@/hooks/useResponsive";
@@ -7,6 +7,7 @@ import { useToast } from "@/components/ui/Toast";
 import ObraComprasTab from "@/features/produccion/ObraComprasTab";
 import PedidosTab from "@/features/produccion/PedidosTab";
 import PlantillaComprasTab from "@/features/produccion/PlantillaComprasTab";
+import ProveedoresTab from "@/features/produccion/ProveedoresTab";
 import { GLOW_VIOLET, GRAD_VIOLET, tint } from "@/features/produccion/comprasTokens";
 import BotonAyuda from "@/features/ayuda/BotonAyuda";
 
@@ -23,12 +24,14 @@ import BotonAyuda from "@/features/ayuda/BotonAyuda";
 
 const TABS = [
   { id: "obra", label: "Compras por obra", corto: "Obra", icon: Ship },
+  { id: "proveedores", label: "Por proveedor", corto: "Proveedores", icon: Truck },
   { id: "plantillas", label: "Plantillas", corto: "Plantillas", icon: LayoutTemplate },
   { id: "pedidos", label: "Pedidos", corto: "Pedidos", icon: ClipboardList },
 ];
 
 const SUBTITULOS = {
   obra: "Las tandas de compra de cada obra, con sus materiales adentro.",
+  proveedores: "Agrupá materiales de varias etapas de una obra en un solo pedido por proveedor.",
   plantillas: "Las tandas típicas de cada modelo, para copiarlas a las obras nuevas.",
   pedidos: "Pedidos generados desde las etapas de compra.",
 };
@@ -123,6 +126,9 @@ export default function ComprasEtapasScreen({ profile, signOut }) {
         <div style={{ position: "relative", flex: 1, minHeight: 0, padding: `14px ${pad}px ${pad}px` }}>
           {tab === "obra" && (
             <ObraComprasTab isMobile={isMobile} toast={toast} onPedidoGenerado={() => setPulsoPedidos((n) => n + 1)} />
+          )}
+          {tab === "proveedores" && (
+            <ProveedoresTab toast={toast} onPedidoGenerado={() => setPulsoPedidos((n) => n + 1)} />
           )}
           {tab === "plantillas" && <PlantillaComprasTab isMobile={isMobile} toast={toast} />}
           {tab === "pedidos" && <PedidosTab toast={toast} recargaExterna={pulsoPedidos} />}

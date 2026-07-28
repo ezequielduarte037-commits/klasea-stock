@@ -1,15 +1,18 @@
-import { useEffect, useMemo, useState, useRef, useCallback } from "react";
+import { createElement, useEffect, useMemo, useState, useRef, useCallback } from "react";
 import { supabase } from "@/supabaseClient";
 import { jsPDF } from "jspdf";
 import autoTable from "jspdf-autotable";
 import Sidebar from "@/components/Sidebar";
 import { useResponsive } from "@/hooks/useResponsive";
 import { hasAdminAccess } from "@/lib/permissions";
-import EnchapadoView from "@/features/muebles/EnchapadoView";
 import { ChapaSwatch, chapaColor } from "@/features/muebles/chapa";
 import { printFaltantes } from "@/features/muebles/printFaltantes";
 import logoKlasea from "@/assets/logos/logo-klasea.png";
 import { C } from "@/theme";
+import { ClipboardCheck, Factory, Layers3 } from "lucide-react";
+import BotonAyuda from "@/features/ayuda/BotonAyuda";
+import ProduccionTab from "./tabs/ProduccionTab";
+import StockTab from "./tabs/StockTab";
 
 // ─── Design tokens ─────────────────────────────────────────────────
 const GLASS = { backdropFilter: "blur(32px) saturate(130%)", WebkitBackdropFilter: "blur(32px) saturate(130%)" };
@@ -642,9 +645,9 @@ export default function MueblesScreen({ profile, signOut }) {
   const { isMobile } = useResponsive();
   const isAdmin = hasAdminAccess(profile);
   const role    = profile?.role ?? "invitado";
-  const esAdmin = isAdmin || role === "admin" || role === "oficina" || role === "tecnica";
+  const esAdmin = isAdmin || role === "admin" || role === "oficina" || role === "tecnica" || role === "compras";
 
-  const [mainView,  setMainView]  = useState("muebles"); // "muebles" | "enchapadora"
+  const [mainView,  setMainView]  = useState("produccion"); // "produccion" | "stock" | "muebles"
   const [lineas,    setLineas]    = useState([]);
   const [unidades,  setUnidades]  = useState([]);
   const [checklist, setChecklist] = useState([]);
@@ -655,6 +658,7 @@ export default function MueblesScreen({ profile, signOut }) {
   const [manualChapaSaving, setManualChapaSaving] = useState(false);
   const [lineaId,   setLineaId]   = useState(null);
   const [unidadId,  setUnidadId]  = useState(null);
+  const pendingUnidadIdRef = useRef(null);
   // Mobile master-detail: true = menú (líneas/unidades); false = detalle.
   const [mobileShowNav, setMobileShowNav] = useState(true);
   const [q,         setQ]         = useState("");
@@ -733,7 +737,12 @@ export default function MueblesScreen({ profile, signOut }) {
         .order("codigo");
       data = retry.data;
     }
-    setUnidades(data ?? []);
+    const rows = data ?? [];
+    setUnidades(rows);
+    if (pendingUnidadIdRef.current && rows.some((unidad) => unidad.id === pendingUnidadIdRef.current)) {
+      setUnidadId(pendingUnidadIdRef.current);
+      pendingUnidadIdRef.current = null;
+    }
   }
   async function cargarChecklist(uid){
     setLoading(true);
@@ -1137,39 +1146,66 @@ export default function MueblesScreen({ profile, signOut }) {
       <div style={{ display: "contents" }}>
         <Sidebar profile={profile} signOut={signOut} />
 
-        <div style={{ display: "grid", gridTemplateColumns: isMobile ? "1fr" : "240px 1fr", gridTemplateRows: "1fr", minHeight: 0, height: "100%", overflow: "hidden" }}>
+        <div style={{
+          display: "grid",
+          gridTemplateColumns: isMobile ? "1fr" : mainView === "muebles" ? "240px minmax(0,1fr)" : "minmax(0,1fr)",
+          gridTemplateRows: "auto minmax(0,1fr)",
+          minHeight: 0,
+          height: "100%",
+          overflow: "hidden",
+        }}>
+          <div data-tour="muebles-tabs" style={{ gridColumn: "1 / -1", padding: isMobile ? "10px 10px 10px 48px" : "10px 16px", borderBottom: `1px solid ${C.b0}`, background: C.bg, zIndex: 6, display: "flex", alignItems: "center", justifyContent: "space-between", gap: 10 }}>
+            <div style={{ display: "flex", gap: 5, padding: 4, borderRadius: 11, border: `1px solid ${C.b0}`, background: C.s0, width: "fit-content", maxWidth: "calc(100% - 44px)", overflowX: "auto" }}>
+              {[
+                ["produccion", "Seguimiento", Factory],
+                ["stock", "Stock", Layers3],
+                ["muebles", "Recepción", ClipboardCheck],
+              ].map(([key, label, TabIcon]) => (
+                <button
+                  key={key}
+                  onClick={() => {
+                    setMainView(key);
+                    if (isMobile) setMobileShowNav(key === "muebles");
+                  }}
+                  style={{
+                    display: "inline-flex", alignItems: "center", gap: 7, whiteSpace: "nowrap",
+                    padding: "7px 11px", borderRadius: 8, cursor: "pointer",
+                    border: `1px solid ${mainView === key ? C.b1 : "transparent"}`,
+                    background: mainView === key ? C.s2 : "transparent",
+                    color: mainView === key ? C.t0 : C.t2,
+                    fontSize: 11, fontWeight: mainView === key ? 800 : 650, fontFamily: C.sans,
+                  }}
+                >
+                  {createElement(TabIcon, { size: 14 })}
+                  {label}
+                </button>
+              ))}
+            </div>
+            <BotonAyuda
+              tourId="muebles"
+              profile={profile}
+              onBeforeStart={() => {
+                setMainView("produccion");
+                setMobileShowNav(false);
+              }}
+            />
+          </div>
 
           {/* ── LEFT NAV ── (en mobile = menú master-detail a pantalla completa) */}
-          <div style={{ height: isMobile ? "100%" : "100vh", overflowY: "auto", borderRight: isMobile ? "none" : `1px solid ${C.b0}`, background: C.bg, display: isMobile && !mobileShowNav ? "none" : "flex", flexDirection: "column" }}>
+          <div style={{
+            minHeight: 0,
+            overflowY: "auto",
+            borderRight: isMobile ? "none" : `1px solid ${C.b0}`,
+            background: C.bg,
+            display: mainView !== "muebles" || (isMobile && !mobileShowNav) ? "none" : "flex",
+            flexDirection: "column",
+          }}>
             <div style={{ padding: isMobile ? "14px 12px 10px 52px" : "14px 12px 10px", borderBottom: `1px solid ${C.b0}`, flexShrink: 0 }}>
-              {/* Switcher Muebles / Enchapadora */}
-              <div style={{ display: "flex", gap: 3, marginBottom: 8, background: "var(--panel)", borderRadius: 8, padding: 3, border: `1px solid ${C.b0}` }}>
-                {[["muebles","Muebles"],["enchapadora","Enchapado"]].map(([key, label]) => (
-                  <button
-                    key={key}
-                    onClick={() => { setMainView(key); setMobileShowNav(key !== "enchapadora"); }}
-                    style={{
-                      flex: 1, padding: "6px 4px", borderRadius: 6, cursor: "pointer",
-                      fontSize: 12, fontWeight: mainView === key ? 600 : 400,
-                      fontFamily: C.sans, transition: "all .15s",
-                      background: mainView === key ? "var(--panel-2)" : "transparent",
-                      border: `1px solid ${mainView === key ? C.b0 : "transparent"}`,
-                      color: mainView === key ? C.t0 : C.t2,
-                    }}
-                  >{label}</button>
-                ))}
-              </div>
-              {mainView === "muebles" && (
-                <div style={{ fontSize: 11, color: C.t2 }}>Líneas de producción</div>
-              )}
+              <div style={{ color: C.t0, fontSize: 13, fontWeight: 800 }}>Recepción por obra</div>
+              <div style={{ fontSize: 11, color: C.t2, marginTop: 4 }}>El checklist se usa cuando los muebles ya llegaron.</div>
             </div>
             <div style={{ flex: 1, overflowY: "auto" }}>
-              {mainView === "enchapadora" ? (
-                <div style={{ padding: "20px 16px", color: C.t2, fontSize: 12, textAlign: "center", lineHeight: 1.7 }}>
-                  Gestioná las listas<br />para enchapar en el<br />panel de la derecha.
-                </div>
-              ) : (
-                <>
+              <>
                   {lineas.map(l => {
                 const sel = lineaId === l.id;
                 return (
@@ -1196,8 +1232,7 @@ export default function MueblesScreen({ profile, signOut }) {
                   </div>
                 );
               })}
-                </>
-              )}
+              </>
             </div>
             {esAdmin && mainView === "muebles" && (
               <div style={{ padding: "10px 14px", borderTop: `1px solid ${C.b0}`, flexShrink: 0 }}>
@@ -1211,8 +1246,8 @@ export default function MueblesScreen({ profile, signOut }) {
           </div>
 
           {/* ── DETAIL ── */}
-          <div style={{ height: isMobile ? "100%" : "100vh", overflowY: "auto", display: isMobile && mobileShowNav ? "none" : "block" }}>
-            {isMobile && (
+          <div style={{ gridColumn: mainView === "muebles" && !isMobile ? "2" : "1", minHeight: 0, overflowY: "auto", display: isMobile && mainView === "muebles" && mobileShowNav ? "none" : "block" }}>
+            {isMobile && mainView === "muebles" && (
               <button onClick={() => setMobileShowNav(true)} style={{
                 position: "sticky", top: 0, zIndex: 5, width: "100%",
                 display: "flex", alignItems: "center", gap: 8,
@@ -1223,8 +1258,29 @@ export default function MueblesScreen({ profile, signOut }) {
                 ‹ Volver al menú
               </button>
             )}
-            {mainView === "enchapadora" ? (
-              <EnchapadoView esAdmin={esAdmin} onEnsureMueblesUnidad={ensureUnidadDesdeEnchapado} />
+            {mainView === "produccion" ? (
+              <ProduccionTab
+                esAdmin={esAdmin}
+                profile={profile}
+                onEnsureMueblesUnidad={ensureUnidadDesdeEnchapado}
+                onOpenChecklist={(lote) => {
+                  const linea = lote?.linea_id || lote?.prod_lineas?.id;
+                  if (linea) setLineaId(linea);
+                  if (lote?.unidad_id) pendingUnidadIdRef.current = lote.unidad_id;
+                  setMainView("muebles");
+                  setMobileShowNav(false);
+                }}
+              />
+            ) : mainView === "stock" ? (
+              <StockTab
+                esAdmin={esAdmin}
+                onOpenRecepcion={(lote) => {
+                  if (lote?.linea_id) setLineaId(lote.linea_id);
+                  if (lote?.unidad_id) pendingUnidadIdRef.current = lote.unidad_id;
+                  setMainView("muebles");
+                  setMobileShowNav(false);
+                }}
+              />
             ) : !lineaId ? (
               /* Sin línea seleccionada */
               <div style={{ display: "flex", alignItems: "center", justifyContent: "center", height: "100%" }}>
@@ -1257,7 +1313,7 @@ export default function MueblesScreen({ profile, signOut }) {
                         const tone = chapaColor(enchapadoOt.tipo_chapa);
                         const estadoMeta = {
                           Pendiente: { color: C.t2, bg: C.s1 },
-                          Enviada: { color: C.amber, bg: "rgba(245,158,11,0.10)" },
+                          Enviada: { color: C.blue, bg: C.blueL },
                           Devuelta: { color: C.green, bg: "rgba(16,185,129,0.10)" },
                           Rehacer: { color: C.red, bg: "rgba(239,68,68,0.10)" },
                         }[enchapadoOt.estado] ?? { color: C.t2, bg: C.s1 };
@@ -1271,8 +1327,8 @@ export default function MueblesScreen({ profile, signOut }) {
                             <span style={{ fontSize: 11, color: estadoMeta.color, background: estadoMeta.bg, border: `1px solid ${estadoMeta.color}44`, padding: "4px 8px", borderRadius: 7, fontWeight: 800 }}>
                               OT {enchapadoOt.estado || "Pendiente"}
                             </span>
-                            <button onClick={() => setMainView("enchapadora")} style={{ background: "transparent", border: `1px solid ${C.b0}`, color: C.t1, padding: "4px 8px", borderRadius: 7, cursor: "pointer", fontSize: 11, fontWeight: 700, fontFamily: C.sans }}>
-                              Ver Enchapado
+                            <button onClick={() => setMainView("produccion")} style={{ background: "transparent", border: `1px solid ${C.b0}`, color: C.t1, padding: "4px 8px", borderRadius: 7, cursor: "pointer", fontSize: 11, fontWeight: 700, fontFamily: C.sans }}>
+                              Ver seguimiento
                             </button>
                           </div>
                         );
@@ -1285,7 +1341,7 @@ export default function MueblesScreen({ profile, signOut }) {
                               <div style={{ fontSize: 10, letterSpacing: 1.2, color: C.t2, textTransform: "uppercase", fontWeight: 800 }}>Dato manual de muebles</div>
                               <div style={{ fontSize: 13, color: C.t0, fontWeight: 800, marginTop: 1 }}>{manualChapa}</div>
                             </div>
-                            <span style={{ fontSize: 11, color: C.amber, background: "rgba(245,158,11,0.10)", border: "1px solid rgba(245,158,11,0.28)", padding: "4px 8px", borderRadius: 7, fontWeight: 800 }}>
+                            <span style={{ fontSize: 11, color: C.blue, background: C.blueL, border: `1px solid ${C.blueB}`, padding: "4px 8px", borderRadius: 7, fontWeight: 800 }}>
                               Sin OT
                             </span>
                             {esAdmin && (
@@ -1346,9 +1402,9 @@ export default function MueblesScreen({ profile, signOut }) {
                           style={{
                             padding: "7px 14px", borderRadius: 8, cursor: checklist.length ? "pointer" : "not-allowed", fontSize: 12,
                             fontFamily: C.sans, fontWeight: 600, transition: "all .15s",
-                            background: "rgba(245,158,11,0.12)",
-                            border: "1px solid rgba(245,158,11,0.3)",
-                            color: "#f59e0b",
+                            background: C.redL,
+                            border: `1px solid ${C.redB}`,
+                            color: C.red,
                             opacity: checklist.length ? 1 : 0.5,
                           }}
                         >

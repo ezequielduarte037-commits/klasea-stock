@@ -420,7 +420,8 @@ export default function MaderasScreen({ profile, signOut }) {
     }
     for (const m of materiales) {
       const stockTabla = num(m.stock_actual);
-      map[m.id] = stockTabla !== 0 ? stockTabla : (tieneMovimiento[m.id] ? sumas[m.id] ?? 0 : stockTabla);
+      // Usar siempre el stock de la tabla. Si es nulo o NaN, usar 0.
+      map[m.id] = isNaN(stockTabla) ? 0 : stockTabla;
     }
     return map;
   }, [materiales, movimientos]);

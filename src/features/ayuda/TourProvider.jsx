@@ -55,7 +55,6 @@ export default function TourProvider({ children }) {
             onAnterior={anterior}
             onSiguiente={siguiente}
             onCerrar={() => cerrar(false)}
-            onTargetFaltante={siguiente}
           />
         )}
       </Suspense>

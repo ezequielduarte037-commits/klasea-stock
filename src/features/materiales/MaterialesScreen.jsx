@@ -76,7 +76,7 @@ import VariantesMarcasTab from "./VariantesMarcasTab";
 import LectorTab from "./LectorTab";
 import ProveedorTipoBadge from "./ProveedorTipoBadge";
 import { proveedorAlternativas, proveedorMeta, PROVEEDOR_TIPOS, proveedorTipoUi } from "./proveedorMeta";
-import { fetchEtapaPorMaterialDeModelo } from "@/features/produccion/comprasEtapasApi";
+import { asignarMaterialAEtapa, fetchEtapasDeObraConMateriales, moverMaterialEntreEtapas } from "./etapasDeObraApi";
 import { barcodeKey, materialBarcodeList, materialBarcodeText } from "./materialBarcodes";
 import { addRequestItem, createPurchaseRequest } from "@/features/compras/purchaseRequestsApi";
 import EnviarAPanolModal from "@/features/panol/EnviarAPanolModal";
@@ -4732,6 +4732,90 @@ function CostoObraTab({ categorias, materiales, opciones = [] }) {
   );
 }
 
+function EtapaCompraEditor({ row, etapas, asignaciones, busy, error, onSave }) {
+  const [origenId, setOrigenId] = useState(asignaciones[0]?.filaId || "");
+  const [destinoId, setDestinoId] = useState("");
+
+  const origenIdValido = asignaciones.some((item) => item.filaId === origenId)
+    ? origenId
+    : asignaciones[0]?.filaId || "";
+  const origen = asignaciones.find((item) => item.filaId === origenIdValido) || null;
+  const idsAsignados = new Set(asignaciones.map((item) => item.id));
+  const destinos = etapas.filter((etapa) => !idsAsignados.has(etapa.id));
+  const destinoIdValido = destinos.some((etapa) => etapa.id === destinoId) ? destinoId : "";
+
+  if (error) {
+    return (
+      <div style={{ flex: "1 1 100%", border: `1px solid ${C.redB}`, background: "rgba(239,68,68,0.08)", borderRadius: 10, padding: "8px 10px", color: C.red, fontSize: 11.5 }}>
+        No se pueden editar las etapas ahora: {error}
+      </div>
+    );
+  }
+
+  if (!row.materialId) {
+    return (
+      <div style={{ flex: "1 1 100%", border: `1px solid ${C.amberB}`, background: C.amberL, borderRadius: 10, padding: "8px 10px", color: C.amber, fontSize: 11.5 }}>
+        Este adicional no está vinculado al catálogo de pañol. Vinculalo antes de asignarlo a una etapa de compra.
+      </div>
+    );
+  }
+
+  return (
+    <div style={{ flex: "1 1 100%", display: "grid", gap: 8, border: `1px solid ${C.b0}`, background: C.bg, borderRadius: 10, padding: "9px 10px" }}>
+      <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 10, flexWrap: "wrap" }}>
+        <div>
+          <div style={{ fontSize: 11.5, fontWeight: 950, color: C.t0 }}>Etapas de compra</div>
+          <div style={{ fontSize: 10.5, color: C.t2, marginTop: 1 }}>
+            {asignaciones.length ? "Mover conserva la cantidad y las notas de la asignación." : "Este material todavía está sin asignar."}
+          </div>
+        </div>
+        <div style={{ display: "flex", gap: 5, flexWrap: "wrap" }}>
+          {asignaciones.length ? asignaciones.map((etapa) => (
+            <span key={etapa.filaId} title={`${qtyText(etapa.cantidad, etapa.unidad || row.unidad)} en ${etapa.nombre}`} style={{ display: "inline-flex", alignItems: "center", gap: 5, fontSize: 10, fontWeight: 900, color: etapa.color, background: `${etapa.color}16`, border: `1px solid ${etapa.color}48`, borderRadius: 999, padding: "3px 7px" }}>
+              <span style={{ width: 6, height: 6, borderRadius: 999, background: etapa.color }} />
+              {etapa.nombre}
+            </span>
+          )) : (
+            <span style={{ fontSize: 10, fontWeight: 900, color: C.red, border: `1px solid ${C.redB}`, background: "rgba(239,68,68,0.08)", borderRadius: 999, padding: "3px 7px" }}>
+              Sin asignar
+            </span>
+          )}
+        </div>
+      </div>
+
+      {etapas.length === 0 ? (
+        <div style={{ color: C.t2, fontSize: 11.5 }}>Esta obra todavía no tiene etapas de compra. Crealas desde el seguimiento de Compras.</div>
+      ) : destinos.length === 0 ? (
+        <div style={{ color: C.green, fontSize: 11.5, fontWeight: 800 }}>El material ya está contemplado en todas las etapas disponibles.</div>
+      ) : (
+        <div style={{ display: "flex", alignItems: "center", gap: 7, flexWrap: "wrap" }}>
+          {asignaciones.length > 1 ? (
+            <select value={origenIdValido} onChange={(e) => setOrigenId(e.target.value)} disabled={busy} style={{ ...INP, width: 190, height: 34, borderRadius: 9, fontSize: 11.5 }} title="Asignación que se va a mover">
+              {asignaciones.map((etapa) => (
+                <option key={etapa.filaId} value={etapa.filaId} style={OPT_ST}>Mover desde {etapa.nombre}</option>
+              ))}
+            </select>
+          ) : null}
+          <select value={destinoIdValido} onChange={(e) => setDestinoId(e.target.value)} disabled={busy} style={{ ...INP, width: 210, height: 34, borderRadius: 9, fontSize: 11.5 }} title="Etapa de compra de destino">
+            <option value="" style={OPT_ST}>{asignaciones.length ? "Elegir destino..." : "Asignar a etapa..."}</option>
+            {destinos.map((etapa) => (
+              <option key={etapa.id} value={etapa.id} style={OPT_ST}>{etapa.nombre}</option>
+            ))}
+          </select>
+          <button
+            type="button"
+            disabled={busy || !destinoIdValido}
+            onClick={() => onSave({ origen, destinoId: destinoIdValido })}
+            style={{ ...BTN, minHeight: 34, padding: "6px 10px", fontSize: 11, color: asignaciones.length ? C.blue : C.green, borderColor: asignaciones.length ? C.blueB : C.greenB, background: asignaciones.length ? C.blueL : C.greenL, opacity: busy || !destinoIdValido ? 0.55 : 1 }}
+          >
+            {busy ? "Guardando..." : asignaciones.length ? "Mover material" : "Asignar material"}
+          </button>
+        </div>
+      )}
+    </div>
+  );
+}
+
 function ObraMatrizView({ obra, obras = [], linea, lineaNombre, categorias, materiales, proveedores = [], opciones = [], ums = [], onChanged, onBack }) {
   const { isMobile } = useResponsive();
   const [q, setQ] = useState("");
@@ -4790,17 +4874,33 @@ function ObraMatrizView({ obra, obras = [], linea, lineaNombre, categorias, mate
   }, [obra?.id]);
   useEffect(() => { cargarSnapshot(); }, [cargarSnapshot]);
 
-  // Mapa material_id -> etapa (de la receta del modelo), para mostrar a qué etapa
-  // pertenece cada material y poder agrupar/colorear por etapa. Vacío si el modelo
-  // no tiene receta cargada — no rompe nada, simplemente no aparecen los badges.
+  // Etapas de COMPRA de ESTA obra + mapa material_id -> etapas donde está cargado.
+  // Antes esto leía la vieja receta por etapa de producción del modelo, que ya no
+  // se usa: ahora los materiales viven dentro de las etapas de compra de la obra.
+  // Un material puede estar en varias etapas, por eso el valor es un array.
+  const [etapasObra, setEtapasObra] = useState([]);
   const [etapaPorMaterial, setEtapaPorMaterial] = useState(() => new Map());
-  useEffect(() => {
-    let alive = true;
-    fetchEtapaPorMaterialDeModelo(lineaNombre)
-      .then((m) => { if (alive) setEtapaPorMaterial(m); })
-      .catch(() => { if (alive) setEtapaPorMaterial(new Map()); });
-    return () => { alive = false; };
-  }, [lineaNombre]);
+  const [etapasObraError, setEtapasObraError] = useState("");
+  // Filtro por etapa de compra: "todos" | "sin_asignar" | <id de etapa>.
+  const [etapaFilter, setEtapaFilter] = useState("todos");
+  const [asignarEtapaBusy, setAsignarEtapaBusy] = useState("");
+  const cargarEtapasObra = useCallback(async () => {
+    try {
+      const { etapas, porMaterial } = await fetchEtapasDeObraConMateriales(obra?.id);
+      setEtapasObra(etapas);
+      setEtapaPorMaterial(porMaterial);
+      setEtapasObraError("");
+    } catch (e) {
+      setEtapasObra([]);
+      setEtapaPorMaterial(new Map());
+      setEtapasObraError(e?.message || "No se pudieron cargar las etapas de compra.");
+      setEtapaFilter("todos");
+    }
+  }, [obra?.id]);
+  useEffect(() => { cargarEtapasObra(); }, [cargarEtapasObra]);
+
+  // Se resetea si cambia la obra: los ids de etapa no sobreviven al cambio.
+  useEffect(() => { setEtapaFilter("todos"); }, [obra?.id]);
 
   const cargarStockLibre = useCallback(async () => {
     setStockLibreLoading(true);
@@ -4861,6 +4961,7 @@ function ObraMatrizView({ obra, obras = [], linea, lineaNombre, categorias, mate
     setExclusionBusy("");
     setEstadoBusy("");
     setVarianteBusy("");
+    setAsignarEtapaBusy("");
     setEditingMaterialRowId("");
     setFiltersOpen(false);
   }, [obra?.id, linea]);
@@ -5067,11 +5168,40 @@ function ObraMatrizView({ obra, obras = [], linea, lineaNombre, categorias, mate
     };
   }, [rows]);
 
+  // Etapas de compra donde está cargado el material de esta fila. Los adicionales
+  // sin material_id nunca están en una etapa: cuentan como "sin asignar", que es
+  // justamente lo que hay que revisar.
+  const etapasDeRow = useCallback(
+    (row) => (row?.materialId ? etapaPorMaterial.get(row.materialId) ?? [] : []),
+    [etapaPorMaterial]
+  );
+
+  // Cuánto falta cargar. Se calcula sobre `rows` (todas), no sobre las visibles:
+  // es el checklist de la obra, no del filtro actual.
+  const sinAsignarCount = useMemo(
+    () => rows.reduce((acc, row) => acc + (etapasDeRow(row).length ? 0 : 1), 0),
+    [rows, etapasDeRow]
+  );
+  const asignadosCount = rows.length - sinAsignarCount;
+  const etapaStats = useMemo(() => {
+    const counts = new Map(etapasObra.map((etapa) => [etapa.id, 0]));
+    rows.forEach((row) => {
+      etapasDeRow(row).forEach((etapa) => counts.set(etapa.id, (counts.get(etapa.id) || 0) + 1));
+    });
+    return counts;
+  }, [etapasObra, rows, etapasDeRow]);
+
   const visibleRows = useMemo(() => {
     const terms = norm(q).split(/\s+/).filter(Boolean);
     return rows
       .filter((row) => !proveedorFilter || row.proveedor === proveedorFilter)
       .filter((row) => !rubroFilter || row.rubro === rubroFilter)
+      .filter((row) => {
+        if (etapaFilter === "todos") return true;
+        const etapas = etapasDeRow(row);
+        if (etapaFilter === "sin_asignar") return etapas.length === 0;
+        return etapas.some((e) => e.id === etapaFilter);
+      })
       .filter((row) => tipoFilter === "todos" || (tipoFilter === "sin_precio" ? !row.precio.amount : tipoFilter === "revisar" ? row.review?.flag : row.bucket.key === tipoFilter))
       .filter((row) => {
         if (estadoFilter === "todos") return true;
@@ -5082,16 +5212,35 @@ function ObraMatrizView({ obra, obras = [], linea, lineaNombre, categorias, mate
         if (!terms.length) return true;
         const hay = norm(`${row.descripcion} ${row.codigo} ${row.proveedor} ${row.rubro} ${row.variante || ""} ${row.obs} ${recepcionMetaForRow(row).label} ${row.recepcion_estado || ""} ${row.recepcion_nota || ""}`);
         return terms.every((t) => hay.includes(t));
+      })
+      .map((row) => {
+        if (etapaFilter === "todos" || etapaFilter === "sin_asignar") return row;
+        const asignacion = etapasDeRow(row).find((etapa) => etapa.id === etapaFilter);
+        if (!asignacion) return row;
+        return {
+          ...row,
+          cantidad: toNum(asignacion.cantidad) ?? row.cantidad,
+          unidad: asignacion.unidad || row.unidad,
+          cantidadOrigenEtapa: true,
+        };
       });
-  }, [rows, q, proveedorFilter, rubroFilter, tipoFilter, estadoFilter]);
+  }, [rows, q, proveedorFilter, rubroFilter, tipoFilter, estadoFilter, etapaFilter, etapasDeRow]);
 
   const groupedRows = useMemo(() => {
     const map = new Map();
     visibleRows.forEach((row) => {
-      const etapaInfo = row.materialId ? etapaPorMaterial.get(row.materialId) : null;
+      // Si está en varias etapas se agrupa por la primera (la más temprana del
+      // plan), salvo cuando el usuario filtró una etapa concreta. El grupo tiene
+      // que ser uno solo para que la orden de compra no repita el item.
+      const etapasRow = groupBy === "etapa" ? etapasDeRow(row) : [];
+      const etapaInfo = groupBy === "etapa"
+        ? (etapaFilter !== "todos" && etapaFilter !== "sin_asignar"
+          ? etapasRow.find((etapa) => etapa.id === etapaFilter)
+          : etapasRow[0])
+        : null;
       const key = groupBy === "rubro" ? row.rubro
         : groupBy === "tipo" ? row.bucket.label
-        : groupBy === "etapa" ? (etapaInfo?.etapa || "Sin etapa")
+        : groupBy === "etapa" ? (etapaInfo?.nombre || "Sin asignar")
         : row.proveedor;
       const label = key || "Sin clasificar";
       if (!map.has(label)) map.set(label, { label, rows: [], usd: 0, ars: 0, sinPrecio: 0, revisar: 0, esAddon: false, color: groupBy === "etapa" ? (etapaInfo?.color || null) : null });
@@ -5114,7 +5263,7 @@ function ObraMatrizView({ obra, obras = [], linea, lineaNombre, categorias, mate
       if (!a.esAddon && b.esAddon) return -1;
       return b.rows.length - a.rows.length || a.label.localeCompare(b.label, "es");
     });
-  }, [visibleRows, groupBy, etapaPorMaterial]);
+  }, [visibleRows, groupBy, etapaFilter, etapasDeRow]);
 
   const kpis = useMemo(() => rows.reduce((acc, row) => {
     const qty = toNum(row.cantidad) || 1;
@@ -5164,6 +5313,40 @@ function ObraMatrizView({ obra, obras = [], linea, lineaNombre, categorias, mate
       next.has(id) ? next.delete(id) : next.add(id);
       return next;
     });
+  }
+
+  async function guardarEtapaMaterial(row, { origen, destinoId }) {
+    if (!row?.materialId || !destinoId || asignarEtapaBusy) return;
+    const destino = etapasObra.find((etapa) => etapa.id === destinoId);
+    setAsignarEtapaBusy(row.id);
+    setFlowMsg(null);
+    try {
+      if (origen?.filaId) {
+        const result = await moverMaterialEntreEtapas(origen.filaId, destinoId);
+        if (result.status === "conflicto_destino") {
+          setFlowMsg({ type: "err", text: `${row.descripcion} ya está cargado en ${destino?.nombre || "la etapa de destino"}. No se modificó ninguna cantidad.` });
+          return;
+        }
+        setFlowMsg({ type: "ok", text: `${row.descripcion} movido de ${origen.nombre} a ${destino?.nombre || "la etapa elegida"}.` });
+      } else {
+        const result = await asignarMaterialAEtapa(destinoId, {
+          materialId: row.materialId,
+          cantidad: toNum(row.cantidad) || 1,
+          unidad: row.unidad || null,
+        });
+        setFlowMsg({
+          type: "ok",
+          text: result.status === "existente"
+            ? `${row.descripcion} ya estaba cargado en ${destino?.nombre || "esa etapa"}; se conservaron sus datos.`
+            : `${row.descripcion} asignado a ${destino?.nombre || "la etapa elegida"}.`,
+        });
+      }
+      await cargarEtapasObra();
+    } catch (e) {
+      setFlowMsg({ type: "err", text: e?.message || "No se pudo actualizar la etapa de compra del material." });
+    } finally {
+      setAsignarEtapaBusy("");
+    }
   }
 
   async function copiarOrden() {
@@ -5538,6 +5721,7 @@ function ObraMatrizView({ obra, obras = [], linea, lineaNombre, categorias, mate
     rubroFilter,
     estadoFilter !== "todos",
     tipoFilter !== "todos",
+    etapaFilter !== "todos",
     q.trim(),
   ].filter(Boolean).length;
   const totalObraLabel = kpis.usd ? fmtMoney(kpis.usd, "USD") : kpis.ars ? fmtMoney(kpis.ars, "ARS") : "Sin precios";
@@ -5585,6 +5769,18 @@ function ObraMatrizView({ obra, obras = [], linea, lineaNombre, categorias, mate
                 <span style={{ fontSize: 11, fontWeight: 950, color: C.amber, border: `1px solid ${C.amberB}`, background: C.amberL, borderRadius: 999, padding: "4px 8px" }}>
                   {kpis.sinPrecio} sin precio
                 </span>
+              ) : null}
+              {!etapasObraError ? (
+                <>
+                  <span style={{ fontSize: 11, fontWeight: 950, color: C.green, border: `1px solid ${C.greenB}`, background: C.greenL, borderRadius: 999, padding: "4px 8px" }}>
+                    {asignadosCount} en etapas
+                  </span>
+                  {sinAsignarCount ? (
+                    <button type="button" onClick={() => setEtapaFilter("sin_asignar")} style={{ border: `1px solid ${C.redB}`, background: "rgba(239,68,68,0.08)", color: C.red, borderRadius: 999, padding: "4px 8px", fontSize: 11, lineHeight: 1.2, fontWeight: 950, fontFamily: C.sans, cursor: "pointer" }}>
+                      {sinAsignarCount} sin asignar
+                    </button>
+                  ) : null}
+                </>
               ) : null}
             </div>
             <div style={{ color: C.t2, fontSize: 12.5, marginTop: 6 }}>
@@ -5919,6 +6115,50 @@ function ObraMatrizView({ obra, obras = [], linea, lineaNombre, categorias, mate
             <SlidersHorizontal size={14} /> Filtros{activeObraFilterCount ? ` (${activeObraFilterCount})` : ""}
           </button>
         </div>
+        <div style={{ display: "flex", alignItems: "center", gap: 7, borderTop: `1px solid ${C.b0}`, paddingTop: 10, overflowX: "auto", scrollbarWidth: "thin" }}>
+          <span style={{ flexShrink: 0, fontSize: 10.5, fontWeight: 950, color: C.t2, textTransform: "uppercase", letterSpacing: 0.65, marginRight: 2 }}>
+            Etapa de compra
+          </span>
+          {etapasObraError ? (
+            <>
+              <span style={{ flexShrink: 0, fontSize: 11, color: C.red }}>{etapasObraError}</span>
+              <button type="button" onClick={cargarEtapasObra} style={{ ...BTN, minHeight: 30, padding: "5px 9px", fontSize: 10.5, color: C.red, borderColor: C.redB }}>
+                <RefreshCw size={12} /> Reintentar
+              </button>
+            </>
+          ) : (
+            <>
+              <button type="button" onClick={() => setEtapaFilter("todos")} style={filterPillStyle(etapaFilter === "todos", C.blue)}>
+                Todas <span style={{ fontFamily: C.mono, opacity: 0.8 }}>{rows.length}</span>
+              </button>
+              <button type="button" onClick={() => setEtapaFilter("sin_asignar")} style={filterPillStyle(etapaFilter === "sin_asignar", sinAsignarCount ? C.red : C.green)}>
+                Sin asignar <span style={{ fontFamily: C.mono, opacity: 0.85 }}>{sinAsignarCount}</span>
+              </button>
+              {etapasObra.map((etapa) => {
+                const active = etapaFilter === etapa.id;
+                const count = etapaStats.get(etapa.id) || 0;
+                const fecha = String(etapa.fecha_compra || "");
+                const fechaCompra = fecha ? new Date(fecha.includes("T") ? fecha : `${fecha}T12:00:00`).toLocaleDateString("es-AR") : "";
+                return (
+                  <button
+                    key={etapa.id}
+                    type="button"
+                    onClick={() => setEtapaFilter(etapa.id)}
+                    title={fechaCompra ? `${etapa.nombre} · compra ${fechaCompra}` : etapa.nombre}
+                    style={{ ...filterPillStyle(active, etapa.color), display: "inline-flex", alignItems: "center", gap: 6 }}
+                  >
+                    <span style={{ width: 6, height: 6, borderRadius: 999, background: etapa.color, flexShrink: 0 }} />
+                    {etapa.nombre}
+                    <span style={{ fontFamily: C.mono, opacity: 0.8 }}>{count}</span>
+                  </button>
+                );
+              })}
+              {!etapasObra.length ? (
+                <span style={{ flexShrink: 0, fontSize: 11, color: C.amber }}>Esta obra todavía no tiene etapas cargadas.</span>
+              ) : null}
+            </>
+          )}
+        </div>
         {filtersOpen && (
           <div style={{ display: "flex", gap: 8, flexWrap: "wrap", alignItems: "center", borderTop: `1px solid ${C.b0}`, paddingTop: 10 }}>
             <select value={proveedorFilter} onChange={(e) => setProveedorFilter(e.target.value)} style={{ ...INP, width: 205, height: 38, borderRadius: 12 }} title="Filtrar proveedor">
@@ -5938,7 +6178,7 @@ function ObraMatrizView({ obra, obras = [], linea, lineaNombre, categorias, mate
               <option value="proveedor" style={OPT_ST}>Proveedor</option>
               <option value="rubro" style={OPT_ST}>Rubro</option>
               <option value="tipo" style={OPT_ST}>Tipo</option>
-              {etapaPorMaterial.size > 0 && <option value="etapa" style={OPT_ST}>Etapa</option>}
+              {(etapasObra.length > 0 || sinAsignarCount > 0) && <option value="etapa" style={OPT_ST}>Etapa de compra</option>}
             </select>
             {[
               ["base", "Base", C.green],
@@ -5957,7 +6197,7 @@ function ObraMatrizView({ obra, obras = [], linea, lineaNombre, categorias, mate
           <FileText size={15} style={{ color: C.blue }} />
           <div style={{ flex: "1 1 220px" }}>
             <div style={{ fontSize: 12.5, fontWeight: 950, color: C.t0 }}>Orden de compra</div>
-            <div style={{ fontSize: 11.5, color: C.t2 }}>{selected.size ? `${selected.size} seleccionados` : `${visibleRows.length} visibles`} - agrupado por {groupBy === "proveedor" ? "proveedor" : groupBy === "rubro" ? "rubro" : "tipo"}.</div>
+            <div style={{ fontSize: 11.5, color: C.t2 }}>{selected.size ? `${selected.size} seleccionados` : `${visibleRows.length} visibles`} - agrupado por {groupBy === "proveedor" ? "proveedor" : groupBy === "rubro" ? "rubro" : groupBy === "etapa" ? "etapa de compra" : "tipo"}.</div>
           </div>
           <div style={{ display: "inline-flex", gap: 6, border: `1px solid ${C.b0}`, borderRadius: 10, padding: 4, background: C.s0 }}>
             {[
@@ -6090,7 +6330,7 @@ function ObraMatrizView({ obra, obras = [], linea, lineaNombre, categorias, mate
               {group.rows.map((row) => {
                 const qty = toNum(row.cantidad) || 1;
                 const total = row.precio.amount ? row.precio.amount * qty : null;
-                const etapaRow = row.materialId ? etapaPorMaterial.get(row.materialId) : null;
+                const etapasRow = etapasDeRow(row);
                 const materialForRow = row.material || materialById.get(row.materialId);
                 const variantOptions = materialVariants(materialForRow);
                 const rowImageUrl = materialVariantImageUrl(materialForRow, row.variante)
@@ -6140,11 +6380,29 @@ function ObraMatrizView({ obra, obras = [], linea, lineaNombre, categorias, mate
                             <span style={{ fontSize: 9.5, fontWeight: 900, color: row.bucket.color, background: `${row.bucket.color}14`, border: `1px solid ${row.bucket.color}3a`, borderRadius: 999, padding: "1px 6px", whiteSpace: "nowrap" }}>
                               {row.bucket.label}
                             </span>
-                            {etapaRow && (
-                              <span title={`Etapa de producción: ${etapaRow.etapa}`} style={{ display: "inline-flex", alignItems: "center", gap: 4, fontSize: 9.5, fontWeight: 900, color: etapaRow.color, background: `${etapaRow.color}1c`, border: `1px solid ${etapaRow.color}55`, borderRadius: 999, padding: "1px 7px 1px 5px", whiteSpace: "nowrap" }}>
-                                <span style={{ width: 6, height: 6, borderRadius: 999, background: etapaRow.color }} />
-                                {etapaRow.etapa}
+                            {etapasObraError ? (
+                              <span title={etapasObraError} style={{ fontSize: 9.5, fontWeight: 900, color: C.t2, border: `1px solid ${C.b0}`, background: C.s0, borderRadius: 999, padding: "1px 6px", whiteSpace: "nowrap" }}>
+                                Etapas no disponibles
                               </span>
+                            ) : (
+                              <>
+                                {etapasRow.slice(0, 2).map((etapa) => (
+                                  <span key={etapa.filaId} title={`Etapa de compra: ${etapa.nombre} · ${qtyText(etapa.cantidad, etapa.unidad || row.unidad)}`} style={{ display: "inline-flex", alignItems: "center", gap: 4, fontSize: 9.5, fontWeight: 900, color: etapa.color, background: `${etapa.color}1c`, border: `1px solid ${etapa.color}55`, borderRadius: 999, padding: "1px 7px 1px 5px", whiteSpace: "nowrap" }}>
+                                    <span style={{ width: 6, height: 6, borderRadius: 999, background: etapa.color }} />
+                                    {etapa.nombre}
+                                  </span>
+                                ))}
+                                {etapasRow.length > 2 ? (
+                                  <span title={etapasRow.slice(2).map((etapa) => etapa.nombre).join(", ")} style={{ fontSize: 9.5, fontWeight: 900, color: C.t2, border: `1px solid ${C.b0}`, background: C.s0, borderRadius: 999, padding: "1px 6px", whiteSpace: "nowrap" }}>
+                                    +{etapasRow.length - 2}
+                                  </span>
+                                ) : null}
+                                {!etapasRow.length ? (
+                                  <span style={{ fontSize: 9.5, fontWeight: 900, color: C.red, border: `1px solid ${C.redB}`, background: "rgba(239,68,68,0.08)", borderRadius: 999, padding: "1px 6px", whiteSpace: "nowrap" }}>
+                                    Sin asignar
+                                  </span>
+                                ) : null}
+                              </>
                             )}
                             {row.review?.flag && <ReviewBadge reason={row.review.reason} />}
                             <StockLibreChip info={stockLibreInfo} loading={stockLibreLoading} />
@@ -6176,6 +6434,7 @@ function ObraMatrizView({ obra, obras = [], linea, lineaNombre, categorias, mate
                       </div>
                       <div style={{ minWidth: 0, gridColumn: isMobile ? "2 / -1" : undefined }} title="Cantidad">
                         <div style={{ fontFamily: C.mono, fontSize: 12.5, fontWeight: 900, color: C.t0, whiteSpace: "nowrap", marginTop: isMobile ? 0 : 2 }}>{qtyText(row.cantidad, row.unidad)}</div>
+                        {row.cantidadOrigenEtapa ? <div style={{ fontSize: 9.5, color: C.blue, marginTop: 2 }}>en esta etapa</div> : null}
                       </div>
                       <div style={{ minWidth: 0, gridColumn: isMobile ? "2 / -1" : undefined }} title="Proveedor · rubro">
                         <div style={{ fontSize: 11.5, fontWeight: 750, color: C.t1, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{row.proveedor}</div>
@@ -6199,6 +6458,14 @@ function ObraMatrizView({ obra, obras = [], linea, lineaNombre, categorias, mate
                     </div>
                     {actionsOpen ? (
                       <div style={{ display: "flex", flexWrap: "wrap", gap: 14, alignItems: "flex-start", padding: "10px 12px", border: `1px solid ${C.b0}`, borderRadius: 10, background: C.s0 }}>
+                        <EtapaCompraEditor
+                          row={row}
+                          etapas={etapasObra}
+                          asignaciones={etapasRow}
+                          busy={asignarEtapaBusy === row.id}
+                          error={etapasObraError}
+                          onSave={(payload) => guardarEtapaMaterial(row, payload)}
+                        />
                         <div style={{ flex: "1 1 300px", minWidth: 0, maxWidth: 460 }}>
                           <ObraEstadoControl
                             row={row}

@@ -50,6 +50,7 @@ export async function fetchPlantillaCompra(lineaId) {
     .from("linea_compra_etapas")
     .select(
       "id, linea_id, nombre, descripcion, orden, color, activa, " +
+        "semanas_antes, referencia, dias_gracia, " +
         "procesos:linea_compra_etapa_procesos(linea_proceso_id), " +
         "materiales:linea_compra_etapa_materiales(id)"
     )
@@ -90,6 +91,12 @@ export async function actualizarEtapaPlantilla(id, patch = {}) {
   if (patch.orden !== undefined) clean.orden = num(patch.orden);
   if (patch.color !== undefined) clean.color = patch.color || null;
   if (patch.activa !== undefined) clean.activa = !!patch.activa;
+  // La regla de fecha: "esta etapa va N semanas antes del desmolde".
+  if (patch.semanas_antes !== undefined) {
+    clean.semanas_antes = patch.semanas_antes === "" || patch.semanas_antes === null ? null : num(patch.semanas_antes);
+  }
+  if (patch.referencia !== undefined) clean.referencia = patch.referencia === "botada" ? "botada" : "desmolde";
+  if (patch.dias_gracia !== undefined) clean.dias_gracia = Math.max(0, num(patch.dias_gracia));
   if (!Object.keys(clean).length) return;
   const { error } = await supabase.from("linea_compra_etapas").update(clean).eq("id", id);
   if (error) throw error;
@@ -173,24 +180,64 @@ export async function quitarMaterialPlantilla(id) {
    OBRA
    ═══════════════════════════════════════════════════════════════════════════ */
 
+// Lee de la VISTA, no de la tabla: ahí vienen ya resueltos `fecha_compra` (la
+// regla de semanas aplicada sobre el desmolde de la obra) y el `semaforo`. El
+// cálculo no se replica en JS a propósito — si mañana un job automático usa la
+// misma fecha, tiene que salir del mismo lugar o van a discrepar.
+//
+// Los conteos van en consultas aparte porque PostgREST no sabe embeber
+// relaciones a través de una vista.
 export async function fetchEtapasCompraObra(obraId) {
   if (!obraId) return [];
-  const { data, error } = await supabase
-    .from("obra_compra_etapas")
-    .select(
-      "id, obra_id, origen_id, nombre, descripcion, orden, color, estado, fecha_objetivo, created_at, " +
-        "procesos:obra_compra_etapa_procesos(linea_proceso_id), " +
-        "materiales:obra_compra_etapa_materiales(id)"
-    )
+
+  let { data, error } = await supabase
+    .from("v_obra_compra_etapas")
+    .select("*")
     .eq("obra_id", obraId)
     .order("orden", { ascending: true });
-  if (error) throw error;
-  return (data ?? []).map((e) => ({
-    ...e,
-    procesoIds: (e.procesos ?? []).map((p) => p.linea_proceso_id),
-    totalMateriales: (e.materiales ?? []).length,
-  }));
+
+  // Si la migración de fechas todavía no corrió en este entorno, la vista no
+  // existe. Se cae a la tabla y la pantalla sigue funcionando sin fechas
+  // calculadas, en vez de quedar en blanco con un error críptico.
+  if (error) {
+    const alt = await supabase
+      .from("obra_compra_etapas")
+      .select("id, obra_id, origen_id, nombre, descripcion, orden, color, estado, fecha_objetivo, created_at")
+      .eq("obra_id", obraId)
+      .order("orden", { ascending: true });
+    if (alt.error) throw error;
+    data = (alt.data ?? []).map((e) => ({ ...e, fecha_compra: null, semaforo: "sin_fecha", dias_restantes: null }));
+  }
+
+  const etapas = data ?? [];
+  if (!etapas.length) return [];
+
+  const ids = etapas.map((e) => e.id);
+  const [{ data: procs }, { data: mats }] = await Promise.all([
+    supabase.from("obra_compra_etapa_procesos").select("obra_compra_etapa_id, linea_proceso_id").in("obra_compra_etapa_id", ids),
+    supabase.from("obra_compra_etapa_materiales").select("id, obra_compra_etapa_id").in("obra_compra_etapa_id", ids),
+  ]);
+
+  const porEtapa = new Map(ids.map((id) => [id, { procesoIds: [], totalMateriales: 0 }]));
+  for (const p of procs ?? []) porEtapa.get(p.obra_compra_etapa_id)?.procesoIds.push(p.linea_proceso_id);
+  for (const m of mats ?? []) {
+    const acc = porEtapa.get(m.obra_compra_etapa_id);
+    if (acc) acc.totalMateriales += 1;
+  }
+
+  return etapas.map((e) => ({ ...e, ...(porEtapa.get(e.id) ?? { procesoIds: [], totalMateriales: 0 }) }));
 }
+
+/* ── Semáforo: cómo se lee cada estado de tiempo ──────────────────────────── */
+export const SEMAFOROS = {
+  hecha:      { label: "Comprada",   color: "#10b981", soft: "var(--green-soft)",  borde: "var(--green-border)" },
+  a_tiempo:   { label: "A tiempo",   color: "#3b82f6", soft: "var(--blue-soft)",   borde: "var(--blue-border)" },
+  por_vencer: { label: "Toca ahora", color: "#f59e0b", soft: "var(--amber-soft)",  borde: "var(--amber-border)" },
+  atrasada:   { label: "Atrasada",   color: "#ef4444", soft: "var(--red-soft)",    borde: "var(--red-border)" },
+  sin_materiales: { label: "Vencida sin materiales", color: "#ef4444", soft: "var(--red-soft)", borde: "var(--red-border)" },
+  sin_fecha:  { label: "Sin fecha",  color: "#a1a1aa", soft: "var(--panel-2)",     borde: "transparent" },
+};
+export const semaforoMeta = (v) => SEMAFOROS[v] || SEMAFOROS.sin_fecha;
 
 export async function crearEtapaCompraObra(obraId, { nombre, descripcion = null, orden = 0, color = null, fecha_objetivo = null } = {}) {
   if (!obraId) throw new Error("Falta la obra.");
@@ -220,10 +267,93 @@ export async function actualizarEtapaCompraObra(id, patch = {}) {
   if (patch.orden !== undefined) clean.orden = num(patch.orden);
   if (patch.color !== undefined) clean.color = patch.color || null;
   if (patch.estado !== undefined) clean.estado = patch.estado;
+  // Override manual de la fecha: si tiene valor, gana sobre la regla de semanas.
   if (patch.fecha_objetivo !== undefined) clean.fecha_objetivo = patch.fecha_objetivo || null;
+  if (patch.semanas_antes !== undefined) {
+    clean.semanas_antes = patch.semanas_antes === "" || patch.semanas_antes === null ? null : num(patch.semanas_antes);
+  }
+  if (patch.referencia !== undefined) clean.referencia = patch.referencia === "botada" ? "botada" : "desmolde";
+  if (patch.dias_gracia !== undefined) clean.dias_gracia = Math.max(0, num(patch.dias_gracia));
+  if (patch.auto_generar !== undefined) clean.auto_generar = !!patch.auto_generar;
   if (!Object.keys(clean).length) return;
   const { error } = await supabase.from("obra_compra_etapas").update(clean).eq("id", id);
   if (error) throw error;
+}
+
+/* ── Transferir materiales entre etapas ───────────────────────────────────── */
+
+// Mover en vez de borrar y volver a agregar. Es la fricción que más molesta al
+// cargar: te das cuenta a mitad de camino de que un material va en otra tanda.
+// Se conserva cantidad, unidad, notas y la etiqueta de proceso.
+export async function transferirMateriales(materialRowIds = [], destinoEtapaId) {
+  const ids = [...new Set((materialRowIds || []).filter(Boolean))];
+  if (!ids.length) return 0;
+  if (!destinoEtapaId) throw new Error("Falta la etapa de destino.");
+
+  // El destino puede tener ya alguno de esos materiales: la unique
+  // (obra_compra_etapa_id, material_id) haría fallar el update entero. Se
+  // detectan antes para poder avisar en vez de romper.
+  const { data: aMover, error: errLeer } = await supabase
+    .from("obra_compra_etapa_materiales")
+    .select("id, material_id, cantidad")
+    .in("id", ids);
+  if (errLeer) throw errLeer;
+
+  const { data: enDestino } = await supabase
+    .from("obra_compra_etapa_materiales")
+    .select("material_id")
+    .eq("obra_compra_etapa_id", destinoEtapaId)
+    .in("material_id", (aMover ?? []).map((m) => m.material_id).filter(Boolean));
+
+  const yaEstan = new Set((enDestino ?? []).map((m) => m.material_id));
+  const movibles = (aMover ?? []).filter((m) => !m.material_id || !yaEstan.has(m.material_id));
+  const chocan = (aMover ?? []).length - movibles.length;
+
+  if (movibles.length) {
+    const { error } = await supabase
+      .from("obra_compra_etapa_materiales")
+      .update({ obra_compra_etapa_id: destinoEtapaId })
+      .in("id", movibles.map((m) => m.id));
+    if (error) throw error;
+  }
+
+  return { movidos: movibles.length, duplicados: chocan };
+}
+
+// Igual que transferirMateriales pero sobre la plantilla del modelo. Se repite
+// la lógica en vez de generalizarla porque las dos tablas tienen nombres de
+// columna distintos y una función con la tabla parametrizada se leería peor de
+// lo que ahorra.
+export async function transferirMaterialesPlantilla(materialRowIds = [], destinoEtapaId) {
+  const ids = [...new Set((materialRowIds || []).filter(Boolean))];
+  if (!ids.length) return { movidos: 0, duplicados: 0 };
+  if (!destinoEtapaId) throw new Error("Falta la etapa de destino.");
+
+  const { data: aMover, error: errLeer } = await supabase
+    .from("linea_compra_etapa_materiales")
+    .select("id, material_id")
+    .in("id", ids);
+  if (errLeer) throw errLeer;
+
+  const { data: enDestino } = await supabase
+    .from("linea_compra_etapa_materiales")
+    .select("material_id")
+    .eq("compra_etapa_id", destinoEtapaId)
+    .in("material_id", (aMover ?? []).map((m) => m.material_id).filter(Boolean));
+
+  const yaEstan = new Set((enDestino ?? []).map((m) => m.material_id));
+  const movibles = (aMover ?? []).filter((m) => !m.material_id || !yaEstan.has(m.material_id));
+  const chocan = (aMover ?? []).length - movibles.length;
+
+  if (movibles.length) {
+    const { error } = await supabase
+      .from("linea_compra_etapa_materiales")
+      .update({ compra_etapa_id: destinoEtapaId })
+      .in("id", movibles.map((m) => m.id));
+    if (error) throw error;
+  }
+
+  return { movidos: movibles.length, duplicados: chocan };
 }
 
 export async function borrarEtapaCompraObra(id) {
@@ -356,6 +486,11 @@ export async function copiarPlantillaAObra(obra) {
       orden: base + i,
       color: p.color,
       estado: "pendiente",
+      // La regla de fecha viaja con la etapa: la obra hereda "10 semanas antes
+      // del desmolde" y desde ahí calcula su fecha con SU propio desmolde.
+      semanas_antes: p.semanas_antes ?? null,
+      referencia: p.referencia === "botada" ? "botada" : "desmolde",
+      dias_gracia: p.dias_gracia ?? 3,
       created_by: uid,
     })))
     .select("id, origen_id");
@@ -448,16 +583,19 @@ export async function fetchUltimosCambios(etapaIds = []) {
 export async function pedidosDeEtapaCompra(obraCompraEtapaId) {
   if (!obraCompraEtapaId) return [];
   const { data, error } = await supabase
-    .from("pedidos_produccion")
-    .select("id, titulo, estado, created_at")
-    .eq("obra_compra_etapa_id", obraCompraEtapaId)
-    .neq("estado", "cancelado")
-    .order("created_at", { ascending: false });
+    .from("pedido_produccion_etapas")
+    .select("pedido:pedidos_produccion(id, titulo, estado, created_at)")
+    .eq("obra_compra_etapa_id", obraCompraEtapaId);
   if (error) throw error;
-  return data ?? [];
+  return (data ?? [])
+    .map((row) => row.pedido)
+    .filter((pedido) => pedido && pedido.estado !== "cancelado")
+    .sort((a, b) => String(b.created_at).localeCompare(String(a.created_at)));
 }
 
-// Arma el pedido itemizado con los materiales cargados en la etapa.
+// El botón de una etapa conserva el uso simple, pero genera un pedido real por
+// proveedor. La RPC es la misma que usa la vista multi-etapa y deja toda la
+// trazabilidad en la tabla puente y en cada ítem.
 export async function generarPedidoDesdeEtapaCompra(obra, etapaCompra, procesosById = new Map()) {
   if (!obra?.id) throw new Error("Falta la obra.");
   if (!etapaCompra?.id) throw new Error("Falta la etapa de compra.");
@@ -467,44 +605,32 @@ export async function generarPedidoDesdeEtapaCompra(obra, etapaCompra, procesosB
     throw new Error(`"${etapaCompra.nombre}" no tiene materiales cargados. Agregá los materiales antes de generar el pedido.`);
   }
 
-  const { data: pedido, error: errPed } = await supabase
-    .from("pedidos_produccion")
-    .insert({
-      obra_id: obra.id,
-      obra_compra_etapa_id: etapaCompra.id,
-      titulo: `${etapaCompra.nombre} — ${obra.codigo || obra.descripcion || "obra"}`,
-      obra_codigo: obra.codigo ?? null,
-      etapa_nombre: etapaCompra.nombre,
-      estado: "pendiente",
-      created_by: await actorId(),
-    })
-    .select("*")
-    .single();
-  if (errPed) throw errPed;
+  const grupos = new Map();
+  for (const material of materiales) {
+    const proveedor = String(material.material?.proveedor || "Sin proveedor").trim() || "Sin proveedor";
+    if (!grupos.has(proveedor)) grupos.set(proveedor, []);
+    grupos.get(proveedor).push(material.id);
+  }
 
-  const items = materiales.map((m, i) => {
-    const proc = m.linea_proceso_id ? procesosById.get(m.linea_proceso_id) : null;
-    return {
-      pedido_id: pedido.id,
-      material_id: m.material_id,
-      descripcion: m.material?.descripcion || "Material",
-      codigo: m.material?.codigo || null,
-      cantidad: num(m.cantidad),
-      unidad: m.unidad || m.material?.unidad_medida || null,
-      notas: m.notas || null,
-      orden: i,
-      estado: "pendiente",
-      origen_proceso_id: m.linea_proceso_id || null,
-      // El nombre se congela en el item: si mañana renombran la etapa, el pedido
-      // histórico sigue diciendo para qué se compró.
-      origen_etapa_nombre: proc?.nombre || null,
-    };
-  });
+  const pedidos = [];
+  let cantidad = 0;
+  for (const [proveedor, materialIds] of grupos) {
+    const { data, error } = await supabase.rpc("compras_crear_pedido_multi_etapa", {
+      p_obra_id: obra.id,
+      p_material_ids: materialIds,
+      p_proveedor: proveedor,
+      p_auto: false,
+    });
+    if (error) throw error;
+    if (data?.created) {
+      pedidos.push(data);
+      cantidad += Number(data.items) || 0;
+    }
+  }
 
-  const { error: errItems } = await supabase.from("pedidos_produccion_items").insert(items);
-  if (errItems) throw errItems;
-
-  await actualizarEtapaCompraObra(etapaCompra.id, { estado: "en_compra" });
-
-  return { pedido, cantidad: items.length };
+  // `procesosById` queda en la firma por compatibilidad con las llamadas
+  // existentes; la RPC obtiene los nombres directamente desde la base.
+  void procesosById;
+  if (!pedidos.length) throw new Error("Todos los materiales de esta etapa ya están incluidos en pedidos vigentes.");
+  return { pedido: pedidos[0], pedidos, cantidad };
 }

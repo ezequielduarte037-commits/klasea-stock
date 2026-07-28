@@ -3,6 +3,7 @@ import { AlertTriangle, Check, X } from "lucide-react";
 import { supabase } from "@/supabaseClient";
 import { C } from "@/theme";
 import { useResponsive } from "@/hooks/useResponsive";
+import { getDesmoldeReference } from "@/features/obras/fechasEngine";
 
 /**
  * FechasView — planificación de fechas de producción por barco.
@@ -360,21 +361,23 @@ export default function FechasView({ obras = [], lineas = [], esGestion = false,
 
   /**
    * Fechas efectivas de una obra.
-   * Baseline = fecha sin atraso; proyección = baseline + atraso_dias. El atraso
-   * (vacaciones/pausa) desplaza la proyección SIN tocar la fecha original.
+   * Baseline = fecha sin ajuste; proyección = baseline + atraso_dias. Este campo
+   * queda como ajuste manual; las vacaciones productivas se cargan por período
+   * desde el Project de cada obra.
    * La botada sale de: real > manual > calculada por regla de línea (__botada__).
    * Sin regla configurada NO se inventa botada.
    */
   const withFechas = useCallback((f) => {
     const ov = desmoldes[f.id] || {};
-    const est = "desmolde_estimado" in ov ? ov.desmolde_estimado : f.desmolde_estimado;
-    const real = "desmolde_real" in ov ? ov.desmolde_real : f.desmolde_real;
+    const desmolde = getDesmoldeReference(f, ov);
+    const est = desmolde.estimated;
+    const real = desmolde.real;
     const botada = "botada" in ov ? ov.botada : f.botada;
     const botadaReal = "botada_real" in ov ? ov.botada_real : f.botada_real;
-    const atrasoDias = Number("atraso_dias" in ov ? ov.atraso_dias : f.atraso_dias) || 0;
+    const atrasoDias = desmolde.delayDays;
     const atrasoMotivo = "atraso_motivo" in ov ? ov.atraso_motivo : f.atraso_motivo;
-    const efectivo = real || est || null;
-    const desmBase = parseISO(efectivo);
+    const efectivo = desmolde.effective;
+    const desmBase = desmolde.base;
     const botManual = parseISO(botada);
     const botReal = parseISO(botadaReal);
     const reglaBot = pickOffset(BOTADA_EVENT_KEY, f.token);
@@ -389,7 +392,7 @@ export default function FechasView({ obras = [], lineas = [], esGestion = false,
       atrasoDias,
       atrasoMotivo,
       desmBase,
-      desmRef: addDias(desmBase, atrasoDias),
+      desmRef: desmolde.projected,
       botBase,
       botRef: botBase ? addDias(botBase, atrasoDias) : null,
       botSource: botReal ? "real" : botManual ? "manual" : botCalc ? "calc" : null,
@@ -428,10 +431,10 @@ export default function FechasView({ obras = [], lineas = [], esGestion = false,
     const prev = currentField(obraId, "atraso_dias");
     await updateObra(obraId, {
       atraso_dias: atraso,
-      atraso_motivo: atraso > 0 ? "vacaciones" : null,
+      atraso_motivo: atraso > 0 ? "ajuste manual" : null,
       atraso_updated_at: new Date().toISOString(),
     });
-    auditarFecha({ obraId, campo: "atraso_dias", anterior: prev, nuevo: atraso, motivo: atraso > 0 ? "vacaciones/pausa" : "atraso quitado" });
+    auditarFecha({ obraId, campo: "atraso_dias", anterior: prev, nuevo: atraso, motivo: atraso > 0 ? "ajuste manual" : "ajuste quitado" });
   }
 
   /** Guardado desde el modal de fecha sensible (desmolde real / botada real / botada est). */
@@ -1047,7 +1050,7 @@ export default function FechasView({ obras = [], lineas = [], esGestion = false,
                       <th style={th}>Desmolde est.</th>
                       <th style={th}>Desmolde real</th>
                       <th style={th}>Botada</th>
-                      <th style={th}>Atraso</th>
+                      <th style={th}>Ajuste manual</th>
                       {eventosLinea.map((ev) => (
                         <th
                           key={ev.key}
@@ -1106,7 +1109,7 @@ export default function FechasView({ obras = [], lineas = [], esGestion = false,
                           <td style={td}>
                             {esGestion ? (
                               <select value={String(fechas.atrasoDias)} onChange={(e) => setAtrasoObra(f.id, e.target.value)} style={{ ...inputStyle, padding: "5px 7px", minWidth: 108, color: fechas.atrasoDias > 0 ? C.blue : C.t2, fontFamily: C.sans }}>
-                                <option value="0">Sin atraso</option>
+                                <option value="0">Sin ajuste</option>
                                 <option value="7">+1 sem vac.</option>
                                 <option value="14">+2 sem vac.</option>
                                 <option value="21">+3 sem vac.</option>
@@ -1218,7 +1221,7 @@ function HitoCell({ f, fechas, ev, fechaHito, estado, esGestion, onClick, td }) 
     <td
       className={esGestion ? "fv-cell" : undefined}
       onClick={esGestion ? onClick : undefined}
-      title={`${ev.label} · ${fmtFecha(fecha)}${fechas.atrasoDias > 0 ? ` · incluye atraso +${fechas.atrasoDias}d` : ""}${esGestion ? " · click para gestionar" : ""}`}
+      title={`${ev.label} · ${fmtFecha(fecha)}${fechas.atrasoDias > 0 ? ` · incluye ajuste manual +${fechas.atrasoDias}d` : ""}${esGestion ? " · click para gestionar" : ""}`}
       style={{ ...td, textAlign: "center", background: bg, padding: "5px 8px", cursor: esGestion ? "pointer" : "default" }}
     >
       <div style={{ color: fg, fontWeight: dias !== null && dias < 30 ? 900 : 650 }}>{fmtFecha(fecha)}</div>
@@ -1441,7 +1444,7 @@ function ObrasCardsMobile({ lista, eventosLinea, withFechas, fechaHito, getEstad
               <span style={{ width: 8, height: 8, borderRadius: "50%", background: f.color }} />
               <span style={{ fontFamily: C.mono, fontWeight: 900, fontSize: 14, color: C.t0 }}>{f.codigo}</span>
               {fechas.atrasoDias > 0 && (
-                <span style={{ marginLeft: "auto", fontSize: 10.5, color: C.blue, fontWeight: 850 }}>atraso +{fechas.atrasoDias}d</span>
+                <span style={{ marginLeft: "auto", fontSize: 10.5, color: C.blue, fontWeight: 850 }}>ajuste +{fechas.atrasoDias}d</span>
               )}
             </div>
             <div style={{ padding: 11, display: "grid", gap: 9 }}>
@@ -1466,10 +1469,10 @@ function ObrasCardsMobile({ lista, eventosLinea, withFechas, fechaHito, getEstad
                   />
                 </div>
                 <div>
-                  <div style={mLbl}>Atraso</div>
+                  <div style={mLbl}>Ajuste manual</div>
                   {esGestion ? (
                     <select value={String(fechas.atrasoDias)} onChange={(e) => setAtrasoObra(f.id, e.target.value)} style={{ ...inputStyle, width: "100%", padding: "6px 8px", color: fechas.atrasoDias > 0 ? C.blue : C.t2 }}>
-                      <option value="0">Sin atraso</option>
+                      <option value="0">Sin ajuste</option>
                       <option value="7">+1 sem</option>
                       <option value="14">+2 sem</option>
                       <option value="21">+3 sem</option>
@@ -1550,7 +1553,7 @@ function HitoMenuPopover({ menu, estado, onSet, onClose }) {
             )}
           </div>
           {menu.atrasoDias > 0 && (
-            <div style={{ fontSize: 10.5, color: C.blue, marginTop: 3 }}>Incluye atraso de +{menu.atrasoDias}d (la fecha original se conserva).</div>
+            <div style={{ fontSize: 10.5, color: C.blue, marginTop: 3 }}>Incluye ajuste manual de +{menu.atrasoDias}d (la fecha original se conserva).</div>
           )}
         </div>
         <div style={{ padding: 10, display: "grid", gap: 6 }}>
