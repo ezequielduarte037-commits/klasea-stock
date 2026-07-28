@@ -144,6 +144,7 @@ export default function TarjetasNfcScreen({ profile, signOut }) {
   const tarjetaLista = !!uidLimpio && !conflicto && !validandoUid;
   const cambiaTarjeta = !!uidActual && !!uidLimpio && uidActual !== uidLimpio;
   const tarjetaNueva = tarjetaLista && !uidActual;
+  const soloActualizaFoto = !!foto?.blob && !!uidActual && uidActual === uidLimpio;
   const hayCambio = tarjetaNueva || cambiaTarjeta || !!foto?.blob;
   const fotoPreview = foto?.url || "";
   const puedeGuardar = !!empleado && tarjetaLista && hayCambio && !guardando;
@@ -201,7 +202,13 @@ export default function TarjetasNfcScreen({ profile, signOut }) {
       setEmpleado(actualizado);
       setFoto(null);
       setCompletado(true);
-      toast.success(cambiaTarjeta ? "Tarjeta reemplazada correctamente." : "Tarjeta asignada correctamente.");
+      toast.success(
+        soloActualizaFoto
+          ? "Foto guardada sin modificar la tarjeta NFC."
+          : cambiaTarjeta
+            ? "Tarjeta reemplazada correctamente."
+            : "Tarjeta asignada correctamente.",
+      );
     } catch (error) {
       toast.error(error.message || "No se pudo asignar la tarjeta.");
     } finally {
