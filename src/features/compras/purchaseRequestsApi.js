@@ -172,7 +172,16 @@ export async function uploadPurchaseRequestAttachments(files, userId, folder = "
         contentType,
         upsert: false,
       });
-    if (error) throw error;
+    if (error) {
+      const message = String(error.message || "").toLowerCase();
+      if (message.includes("mime type") && message.includes("not supported")) {
+        throw new Error("Supabase todavía está configurado para aceptar solo imágenes. Aplicá la migración de archivos adjuntos de Compras.");
+      }
+      if (message.includes("maximum allowed size") || message.includes("exceeded")) {
+        throw new Error(`“${file.name}” supera el tamaño permitido por Supabase.`);
+      }
+      throw error;
+    }
 
     const { data } = supabase.storage.from(PURCHASE_PHOTOS_BUCKET).getPublicUrl(path);
     return {
