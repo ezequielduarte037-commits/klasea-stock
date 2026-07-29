@@ -9,7 +9,7 @@ import ComprasSugeridasPanel from "@/features/inventario/ComprasSugeridasPanel";
 import EncargadosTab from "@/features/inventario/EncargadosTab";
 import OrdenCompraGenerator from "@/features/inventario/OrdenCompraGenerator";
 import BarcoCalendarioPanel from "@/features/calendario/BarcoCalendarioPanel";
-import { Check, Package, Plus, Trash2, X, RotateCcw, Download, AlertTriangle, ChevronDown, ChevronRight, FileText, ClipboardList, Search, RefreshCw, Edit2, ShoppingCart } from "lucide-react";
+import { Archive, ArchiveRestore, Check, Package, Plus, Trash2, X, RotateCcw, Download, AlertTriangle, ChevronDown, ChevronRight, FileText, ClipboardList, Search, RefreshCw, Edit2, ShoppingCart } from "lucide-react";
 import PedirAComprasModal from "@/features/compras/PedirAComprasModal";
 import { createPurchaseRequest, addRequestItem, notifyComprasEmail } from "@/features/compras/purchaseRequestsApi";
 import { C } from "@/theme";
@@ -212,6 +212,9 @@ export default function LaminacionScreen({ profile, signOut }) {
   // Órdenes expandidas en la tab Pedidos
   const [expandedOrdenes, setExpandedOrdenes] = useState(new Set());
   const [expandedRecepcion, setExpandedRecepcion] = useState(new Set());
+  // Arranca cerrado: el archivo existe para no ver esto, pero tiene que estar
+  // a un clic de distancia o archivar se siente como borrar.
+  const [verArchivados, setVerArchivados] = useState(false);
 
   // ── Estado específico del tab Movimientos ────────────────────
   const [qMov,        setQMov]        = useState("");
@@ -406,8 +409,18 @@ export default function LaminacionScreen({ profile, signOut }) {
     [movFiltrados],
   );
 
+  // Archivado es una decisión de pantalla, no un estado del pedido: sigue
+  // "pendiente" en la base, pero deja de aparecer en la recepción y de contar
+  // como pendiente. Si el material aparece, se desarchiva y vuelve tal cual.
   const pedidosPendientesRecepcion = useMemo(
-    () => pedidos.filter(p => p.estado === "pendiente"),
+    () => pedidos.filter(p => p.estado === "pendiente" && !p.archivado_at),
+    [pedidos],
+  );
+
+  const pedidosArchivados = useMemo(
+    () => pedidos
+      .filter(p => p.archivado_at)
+      .sort((a, b) => new Date(b.archivado_at).getTime() - new Date(a.archivado_at).getTime()),
     [pedidos],
   );
 
@@ -473,7 +486,9 @@ export default function LaminacionScreen({ profile, signOut }) {
   const pedidosDelMaterialEgreso = useMemo(() => {
     if (!materialEgresoSeleccionado) return [];
     return pedidos.filter(
-      (p) => String(p.material_id) === String(materialEgresoSeleccionado.id) && p.estado === "pendiente",
+      (p) => String(p.material_id) === String(materialEgresoSeleccionado.id)
+        && p.estado === "pendiente"
+        && !p.archivado_at,
     );
   }, [pedidos, materialEgresoSeleccionado]);
   function toggleRecepcion(ref) {
@@ -788,6 +803,46 @@ export default function LaminacionScreen({ profile, signOut }) {
     else cargar();
   }
 
+  // Archivar no borra ni cancela: saca el pedido de la recepción dejándolo
+  // intacto. El motivo es opcional porque lo importante es que la pantalla
+  // quede limpia; si alguien quiere explicar por qué, tiene dónde.
+  async function archivarPedidos(items, motivo) {
+    const ids = items.map(p => p.id);
+    if (!ids.length) return;
+    const userId = await getUserId();
+    const { data, error } = await supabase
+      .from("laminacion_pedidos")
+      .update({
+        archivado_at: new Date().toISOString(),
+        archivado_por: userId,
+        archivado_motivo: motivo?.trim() || null,
+      })
+      .in("id", ids)
+      .select();
+    if (error) return setErr(error.message);
+    if (!data?.length) {
+      return setErr("No se pudo archivar. Verificá los permisos en Supabase (política UPDATE en laminacion_pedidos).");
+    }
+    flash(ids.length === 1 ? "Pedido archivado" : `${ids.length} pedidos archivados`);
+    cargarPedidos();
+  }
+
+  async function desarchivarPedidos(items) {
+    const ids = items.map(p => p.id);
+    if (!ids.length) return;
+    const { data, error } = await supabase
+      .from("laminacion_pedidos")
+      .update({ archivado_at: null, archivado_por: null, archivado_motivo: null })
+      .in("id", ids)
+      .select();
+    if (error) return setErr(error.message);
+    if (!data?.length) {
+      return setErr("No se pudo desarchivar. Verificá los permisos en Supabase (política UPDATE en laminacion_pedidos).");
+    }
+    flash(ids.length === 1 ? "Pedido restaurado" : `${ids.length} pedidos restaurados`);
+    cargarPedidos();
+  }
+
   async function eliminarPedido(id) {
     if (!window.confirm("¿Eliminar este ítem definitivamente? No se puede deshacer.")) return;
     const { data, error } = await supabase
@@ -993,9 +1048,9 @@ export default function LaminacionScreen({ profile, signOut }) {
                 {tabsDisponibles.map(t => (
                   <button key={t} style={S.tab(tab === t)} onClick={() => { setTab(t); setQ(""); }}>
                     {t}
-                    {t === "Pedidos" && pedidos.filter(p => p.estado === "pendiente").length > 0 && (
+                    {t === "Pedidos" && pedidosPendientesRecepcion.length > 0 && (
                       <span style={{ marginLeft: 6, background: "#ffe7a6", color: "#000", borderRadius: 999, padding: "1px 6px", fontSize: 11, fontWeight: 900 }}>
-                        {pedidos.filter(p => p.estado === "pendiente").length}
+                        {pedidosPendientesRecepcion.length}
                       </span>
                     )}
                   </button>
@@ -1313,6 +1368,34 @@ export default function LaminacionScreen({ profile, signOut }) {
                               >
                                 <Package size={14} /> Parcial
                               </button>
+                              {/* Gris a propósito: archivar no es una acción que
+                                  se quiera invitar a hacer, es una salida para
+                                  lo que ya no va a llegar. */}
+                              <button
+                                type="button"
+                                title="Sacar esta orden de la recepción sin borrarla"
+                                style={{
+                                  border: `1px solid ${C.border}`,
+                                  background: C.panel,
+                                  color: C.muted,
+                                  fontSize: 13,
+                                  padding: "9px 12px",
+                                  borderRadius: 10,
+                                  cursor: "pointer",
+                                  fontWeight: 850,
+                                  display: "inline-flex",
+                                  alignItems: "center",
+                                  gap: 7,
+                                }}
+                                onClick={() => setConfModal({
+                                  tipo: "archivar",
+                                  items: grupo.items,
+                                  titulo: `${grupo.ref === "__manual__" ? "Pedido manual" : grupo.ref} · ${grupo.items.length} ${grupo.items.length === 1 ? "material" : "materiales"}`,
+                                  motivo: "",
+                                })}
+                              >
+                                <Archive size={14} /> Archivar
+                              </button>
                               <button
                                 type="button"
                                 style={{
@@ -1435,6 +1518,35 @@ export default function LaminacionScreen({ profile, signOut }) {
                                     >
                                       <Package size={13} /> Parcial
                                     </button>
+                                    {/* Por ítem, no sólo por orden: muchas veces
+                                        la orden llegó casi entera y lo que quedó
+                                        colgado es un material suelto. */}
+                                    <button
+                                      type="button"
+                                      title="Archivar sólo este material"
+                                      aria-label="Archivar este material"
+                                      style={{
+                                        border: `1px solid ${C.border}`,
+                                        background: C.panel,
+                                        color: C.dim,
+                                        fontSize: 12,
+                                        padding: "7px 9px",
+                                        borderRadius: 9,
+                                        cursor: "pointer",
+                                        fontWeight: 850,
+                                        display: "inline-flex",
+                                        alignItems: "center",
+                                        gap: 6,
+                                      }}
+                                      onClick={() => setConfModal({
+                                        tipo: "archivar",
+                                        items: [p],
+                                        titulo: mat?.nombre ?? "Material desconocido",
+                                        motivo: "",
+                                      })}
+                                    >
+                                      <Archive size={13} />
+                                    </button>
                                   </div>
                                 </div>
                               );
@@ -1447,6 +1559,120 @@ export default function LaminacionScreen({ profile, signOut }) {
                     </div>
                   )}
                 </section>
+
+                {/* Archivados: sólo aparece si hay algo archivado, y cerrado.
+                    Una sección vacía permanente sería exactamente el ruido que
+                    esto viene a sacar. */}
+                {pedidosArchivados.length > 0 && (
+                  <section style={{ ...S.card, padding: 0, overflow: "hidden" }}>
+                    <button
+                      type="button"
+                      onClick={() => setVerArchivados(v => !v)}
+                      style={{
+                        width: "100%",
+                        display: "flex",
+                        alignItems: "center",
+                        gap: 12,
+                        padding: isMobile ? 14 : "14px 16px",
+                        background: "transparent",
+                        border: "none",
+                        borderBottom: verArchivados ? `1px solid ${C.border}` : "none",
+                        cursor: "pointer",
+                        textAlign: "left",
+                      }}
+                    >
+                      <div style={{
+                        width: 38,
+                        height: 38,
+                        borderRadius: 12,
+                        display: "grid",
+                        placeItems: "center",
+                        color: C.dim,
+                        background: C.panel,
+                        border: `1px solid ${C.border}`,
+                        flexShrink: 0,
+                      }}>
+                        <Archive size={17} />
+                      </div>
+                      <div style={{ minWidth: 0, flex: 1 }}>
+                        <div style={{ color: C.text, fontSize: 15, fontWeight: 850 }}>
+                          Archivados ({pedidosArchivados.length})
+                        </div>
+                        <div style={{ ...S.small, marginTop: 2 }}>
+                          Pedidos que se sacaron de la recepción. Si el material llega, restauralos desde acá.
+                        </div>
+                      </div>
+                      {verArchivados ? <ChevronDown size={16} color={C.muted} /> : <ChevronRight size={16} color={C.muted} />}
+                    </button>
+
+                    {verArchivados && (
+                      <div style={{ display: "grid" }}>
+                        {pedidosArchivados.map((p, i) => {
+                          const mat = materiales.find(m => String(m.id) === String(p.material_id));
+                          const obs = p.observaciones ?? "";
+                          const ref = obs.match(/^(OC-\d{8}-[A-Z0-9]+)/)?.[1];
+                          return (
+                            <div key={p.id} style={{
+                              display: "grid",
+                              gridTemplateColumns: isMobile ? "1fr" : "minmax(0, 1fr) auto",
+                              gap: 10,
+                              alignItems: "center",
+                              padding: "12px 14px",
+                              borderTop: i === 0 ? "none" : `1px solid ${C.border}`,
+                            }}>
+                              <div style={{ minWidth: 0 }}>
+                                <div style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
+                                  <span style={{ color: C.text, fontSize: 14, fontWeight: 800 }}>
+                                    {mat?.nombre ?? "Material desconocido"}
+                                  </span>
+                                  <span style={{ color: C.dim, fontSize: 12 }}>
+                                    {num(p.cantidad)} {mat?.unidad ?? ""}
+                                  </span>
+                                  {ref && (
+                                    <span style={{
+                                      color: C.dim,
+                                      fontSize: 11,
+                                      fontFamily: C.mono,
+                                      border: `1px solid ${C.border}`,
+                                      borderRadius: 999,
+                                      padding: "2px 7px",
+                                    }}>
+                                      {ref}
+                                    </span>
+                                  )}
+                                </div>
+                                <div style={{ ...S.small, marginTop: 3 }}>
+                                  Archivado el {fmtTs(p.archivado_at)}
+                                  {p.archivado_motivo ? ` · ${p.archivado_motivo}` : ""}
+                                </div>
+                              </div>
+                              <button
+                                type="button"
+                                style={{
+                                  border: `1px solid ${tint(C.blue, 34)}`,
+                                  background: tint(C.blue, 10),
+                                  color: C.blue,
+                                  fontSize: 12.5,
+                                  padding: "8px 11px",
+                                  borderRadius: 9,
+                                  cursor: "pointer",
+                                  fontWeight: 850,
+                                  display: "inline-flex",
+                                  alignItems: "center",
+                                  gap: 6,
+                                  justifySelf: isMobile ? "start" : "end",
+                                }}
+                                onClick={() => desarchivarPedidos([p])}
+                              >
+                                <ArchiveRestore size={13} /> Restaurar
+                              </button>
+                            </div>
+                          );
+                        })}
+                      </div>
+                    )}
+                  </section>
+                )}
 
                 {puedeCargar && (
                   <section style={{ ...S.card, padding: 0, overflow: "hidden" }}>
@@ -2540,6 +2766,59 @@ export default function LaminacionScreen({ profile, signOut }) {
       {/* ── Modal de confirmación de recepción ─────────────────── */}
       {confModal && (() => {
         const { tipo } = confModal;
+
+        // ── Archivar ────────────────────────────────────────────
+        // Se explica en el modal que no se pierde nada: la duda al apretar
+        // "Archivar" siempre es "¿esto se borra?", y si no queda contestada
+        // ahí nadie lo usa y las órdenes viejas se quedan para siempre.
+        if (tipo === "archivar") {
+          const { items, titulo, motivo = "" } = confModal;
+          return (
+            <div style={{ position: "fixed", inset: 0, background: "var(--overlay-strong)", zIndex: 9999, display: "flex", alignItems: "center", justifyContent: "center", backdropFilter: "blur(4px)" }}>
+              <div style={{ background: "var(--panel-solid)", border: "1px solid var(--border)", borderRadius: 16, padding: 28, width: "min(500px, 94vw)", boxShadow: "0 24px 64px rgba(0,0,0,0.6)", maxHeight: "85vh", overflow: "auto" }}>
+                <h3 style={{ margin: "0 0 4px", color: C.text, fontSize: 16 }}>Archivar {items.length === 1 ? "pedido" : `${items.length} pedidos`}</h3>
+                <p style={{ margin: "0 0 16px", color: C.dim, fontSize: 13, lineHeight: 1.5 }}>
+                  Sale de la recepción y deja de contar como pendiente. No se borra:
+                  si el material llega, lo restaurás desde <b>Archivados</b> y vuelve
+                  a la lista tal como estaba.
+                </p>
+                <div style={{ background: C.panel, border: `1px solid ${C.border}`, borderRadius: 10, padding: "11px 14px", marginBottom: 16, fontSize: 13, color: C.text, fontWeight: 700 }}>
+                  {titulo}
+                </div>
+                <label style={{ display: "grid", gap: 6, marginBottom: 20 }}>
+                  <span style={{ color: C.dim, fontSize: 11, fontWeight: 800, letterSpacing: "0.08em", textTransform: "uppercase" }}>
+                    Motivo (opcional)
+                  </span>
+                  <input
+                    value={motivo}
+                    onChange={(e) => setConfModal(prev => ({ ...prev, motivo: e.target.value }))}
+                    placeholder="Ej: el proveedor nunca lo entregó"
+                    style={{ ...S.input, width: "100%" }}
+                  />
+                </label>
+                <div style={{ display: "flex", gap: 10, justifyContent: "flex-end" }}>
+                  <button
+                    style={{ border: `1px solid ${C.border}`, background: C.panel, color: C.muted, padding: "9px 18px", borderRadius: 8, cursor: "pointer", fontWeight: 700, fontSize: 13 }}
+                    onClick={() => setConfModal(null)}
+                  >
+                    Cancelar
+                  </button>
+                  <button
+                    style={{ border: `1px solid ${C.border2}`, background: C.panel2, color: C.text, padding: "9px 22px", borderRadius: 8, cursor: "pointer", fontWeight: 800, fontSize: 13 }}
+                    onClick={async () => {
+                      const pendientes = items;
+                      const texto = motivo;
+                      setConfModal(null);
+                      await archivarPedidos(pendientes, texto);
+                    }}
+                  >
+                    Archivar
+                  </button>
+                </div>
+              </div>
+            </div>
+          );
+        }
 
         // ── Orden completa ──────────────────────────────────────
         if (tipo === "orden_completa") {

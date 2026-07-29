@@ -1,6 +1,6 @@
 import { createElement, useCallback, useEffect, useMemo, useState } from "react";
 import {
-  AlertTriangle, ArrowLeft, ArrowRight, Boxes, Check, ChevronRight, CircleHelp,
+  AlertTriangle, ArrowLeft, ArrowRight, Boxes, Check, ChevronDown, ChevronRight, ChevronUp, CircleHelp,
   Edit3, Factory, FileText, History, Link2, Loader2,
   MapPin, PackageCheck, PackageOpen, Plus, RefreshCw, Repeat, Search, Settings2,
   Trash2, Truck, Wrench,
@@ -769,10 +769,10 @@ function JourneyCard({ process, operation, index, current, onMove }) {
   );
 }
 
-function RecorridosPorItem({ process, onMove }) {
+function RecorridosPorItem({ process, onMove, query = "" }) {
   const operations = (process.operaciones || []).filter((row) => row.activa !== false);
   const items = (process.items || []).filter((row) => row.activo !== false);
-  const recorridos = items
+  const allRoutes = items
     .map((item) => {
       const tramos = operations
         .filter((op) => (op.componentes || []).some((c) => c.item_id === item.id))
@@ -780,8 +780,38 @@ function RecorridosPorItem({ process, onMove }) {
       return { ...item, item, tramos };
     })
     .filter((row) => row.tramos.length > 0);
+  const term = query.trim().toLowerCase();
+  const recorridos = term
+    ? allRoutes.filter((row) => {
+      const operationText = row.tramos
+        .map((operation) => `${operation.nombre || ""} ${operation.descripcion || ""} ${workshopName(operation)}`)
+        .join(" ");
+      return `${row.item.descripcion || ""} ${row.item.grupo || ""} ${row.item.proveedor_compra || ""} ${operationText}`
+        .toLowerCase()
+        .includes(term);
+    })
+    : allRoutes;
 
-  if (!recorridos.length) return null;
+  if (!allRoutes.length) return null;
+  if (!recorridos.length) {
+    return (
+      <div style={{
+        display: "grid",
+        placeItems: "center",
+        gap: 8,
+        padding: "34px 16px",
+        borderRadius: 14,
+        border: `1px dashed ${C.border}`,
+        background: C.panel,
+        color: C.dim,
+        textAlign: "center",
+      }}>
+        <Search size={20} />
+        <div style={{ color: C.muted, fontSize: 12.5, fontWeight: 850 }}>No encontramos ese material</div>
+        <div style={{ fontSize: 11 }}>Probá con el nombre, el grupo o el taller.</div>
+      </div>
+    );
+  }
 
   return (
     <section style={{ display: "grid", gap: 13 }}>
@@ -910,10 +940,75 @@ function RecorridosPorItem({ process, onMove }) {
 function CircuitTab({ process, onMove, onEditOperation, onNewOperation, onEditItem }) {
   const operations = (process.operaciones || []).filter((row) => row.activa !== false);
   const [showManagement, setShowManagement] = useState(false);
+  const [routeSearch, setRouteSearch] = useState("");
 
   return (
     <div style={{ display: "grid", gap: 16 }}>
-      <RecorridosPorItem process={process} onMove={onMove} />
+      <div className="tor-circuit-search" style={{
+        position: "sticky",
+        top: 0,
+        zIndex: 8,
+        paddingBottom: 2,
+        background: C.bg,
+      }}>
+        <div style={{ position: "relative" }}>
+          <Search size={15} style={{
+            position: "absolute",
+            left: 12,
+            top: "50%",
+            transform: "translateY(-50%)",
+            color: C.dim,
+            pointerEvents: "none",
+          }} />
+          <input
+            type="search"
+            value={routeSearch}
+            onChange={(event) => setRouteSearch(event.target.value)}
+            placeholder="Buscar material, conjunto o taller…"
+            aria-label="Buscar dentro del circuito"
+            style={{
+              width: "100%",
+              minHeight: 42,
+              borderRadius: 11,
+              border: `1px solid ${routeSearch ? C.blueB : C.border}`,
+              background: C.panelSolid,
+              color: C.text,
+              padding: routeSearch ? "8px 42px 8px 36px" : "8px 12px 8px 36px",
+              outline: "none",
+              fontSize: 12.5,
+              fontFamily: C.sans,
+              boxShadow: "0 8px 24px -24px var(--shadow-strong)",
+            }}
+          />
+          {routeSearch && (
+            <button
+              type="button"
+              onClick={() => setRouteSearch("")}
+              aria-label="Limpiar búsqueda"
+              style={{
+                position: "absolute",
+                right: 6,
+                top: 6,
+                width: 30,
+                height: 30,
+                display: "grid",
+                placeItems: "center",
+                borderRadius: 8,
+                border: 0,
+                background: C.panel2,
+                color: C.dim,
+                cursor: "pointer",
+                fontSize: 18,
+                fontFamily: C.sans,
+              }}
+            >
+              ×
+            </button>
+          )}
+        </div>
+      </div>
+
+      <RecorridosPorItem process={process} onMove={onMove} query={routeSearch} />
 
       <section style={{
         display: "grid",
@@ -1296,6 +1391,9 @@ export default function TorneriaScreen({ profile, signOut }) {
   const [templates, setTemplates] = useState([]);
   const [selectedId, setSelectedId] = useState(() => window.localStorage.getItem("torneria.proceso") || "");
   const [mobileList, setMobileList] = useState(true);
+  const [mobileTopbarOpen, setMobileTopbarOpen] = useState(
+    () => window.localStorage.getItem("torneria.mobileTopbar") !== "closed",
+  );
   const [tab, setTab] = useState("circuito");
   const [search, setSearch] = useState("");
   const [status, setStatus] = useState("todos");
@@ -1331,6 +1429,11 @@ export default function TorneriaScreen({ profile, signOut }) {
   useEffect(() => {
     load();
   }, [load]);
+
+  useEffect(() => {
+    if (!isMobile) return;
+    window.localStorage.setItem("torneria.mobileTopbar", mobileTopbarOpen ? "open" : "closed");
+  }, [isMobile, mobileTopbarOpen]);
 
   const filtered = useMemo(() => {
     const term = search.trim().toLowerCase();
@@ -1375,6 +1478,7 @@ export default function TorneriaScreen({ profile, signOut }) {
     setSelectedId(id);
     window.localStorage.setItem("torneria.proceso", id);
     setMobileList(false);
+    if (isMobile) setMobileTopbarOpen(false);
   }
 
   async function createProcess(payload) {
@@ -1383,6 +1487,7 @@ export default function TorneriaScreen({ profile, signOut }) {
       setModal(null);
       await load({ quiet: true, preferId: id });
       setMobileList(false);
+      if (isMobile) setMobileTopbarOpen(false);
       toast.success("Seguimiento creado con el circuito de su línea.");
     } catch (createError) {
       toast.error(createError.message);
@@ -1630,95 +1735,132 @@ export default function TorneriaScreen({ profile, signOut }) {
         <header style={{
           flexShrink: 0,
           display: "grid",
-          gap: 10,
-          padding: isMobile ? "12px 12px 10px 54px" : "12px 16px",
+          gap: isMobile && !mobileTopbarOpen ? 0 : 10,
+          padding: isMobile
+            ? mobileTopbarOpen ? "12px 12px 10px 54px" : "8px 10px 8px 54px"
+            : "12px 16px",
           borderBottom: `1px solid ${C.border}`,
           background: C.topbarSoft,
           backdropFilter: "blur(18px)",
           WebkitBackdropFilter: "blur(18px)",
         }}>
-          <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 12 }}>
-            <div style={{ display: "flex", alignItems: "center", gap: 10, minWidth: 0 }}>
-              <div style={{
-                width: 36,
-                height: 36,
-                flexShrink: 0,
-                display: "grid",
-                placeItems: "center",
-                borderRadius: 11,
-                border: `1px solid ${C.blueB}`,
-                background: C.blueL,
-                color: C.blue,
-              }}>
-                <Wrench size={18} />
+          {isMobile && !mobileTopbarOpen ? (
+            <div style={{ minHeight: 36, display: "flex", alignItems: "center", justifyContent: "space-between", gap: 10 }}>
+              <div style={{ display: "flex", alignItems: "center", gap: 8, minWidth: 0 }}>
+                <Wrench size={15} style={{ color: C.blue, flexShrink: 0 }} />
+                <span style={{ color: C.text, fontSize: 14, fontWeight: 900 }}>Tornería</span>
+                {!mobileList && selected?.obra?.codigo && (
+                  <span style={{
+                    overflow: "hidden",
+                    textOverflow: "ellipsis",
+                    whiteSpace: "nowrap",
+                    color: C.dim,
+                    fontSize: 11,
+                    fontWeight: 750,
+                  }}>
+                    · {selected.obra.codigo}
+                  </span>
+                )}
               </div>
-              <div style={{ minWidth: 0 }}>
-                <h1 style={{ margin: 0, color: C.text, fontSize: isMobile ? 17 : 19, lineHeight: 1.1, fontWeight: 900 }}>
-                  Tornería
-                </h1>
-                <div style={{ color: C.dim, fontSize: 10.5, marginTop: 3, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
-                  Materiales de Mecánica · salidas y regresos al astillero
+              <button
+                type="button"
+                onClick={() => setMobileTopbarOpen(true)}
+                aria-label="Mostrar resumen superior"
+                title="Mostrar resumen"
+                style={{ ...BUTTON, width: 36, minHeight: 36, padding: 0, flexShrink: 0 }}
+              >
+                <ChevronDown size={15} />
+              </button>
+            </div>
+          ) : (
+            <>
+              <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 12 }}>
+                <div style={{ display: "flex", alignItems: "center", gap: 10, minWidth: 0 }}>
+                  <div style={{
+                    width: 36,
+                    height: 36,
+                    flexShrink: 0,
+                    display: "grid",
+                    placeItems: "center",
+                    borderRadius: 11,
+                    border: `1px solid ${C.blueB}`,
+                    background: C.blueL,
+                    color: C.blue,
+                  }}>
+                    <Wrench size={18} />
+                  </div>
+                  <div style={{ minWidth: 0 }}>
+                    <h1 style={{ margin: 0, color: C.text, fontSize: isMobile ? 17 : 19, lineHeight: 1.1, fontWeight: 900 }}>
+                      Tornería
+                    </h1>
+                    <div style={{ color: C.dim, fontSize: 10.5, marginTop: 3, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+                      Materiales de Mecánica · salidas y regresos al astillero
+                    </div>
+                  </div>
+                </div>
+                <div style={{ display: "flex", gap: 6, flexShrink: 0 }}>
+                  <button type="button" onClick={() => setModal({ type: "help" })} aria-label="Ayuda" style={{ ...BUTTON, width: 39, padding: 0 }}>
+                    <CircleHelp size={16} />
+                  </button>
+                  <button type="button" onClick={() => load()} aria-label="Actualizar" style={{ ...BUTTON, width: 39, padding: 0 }}>
+                    <RefreshCw size={15} />
+                  </button>
+                  {isMobile ? (
+                    <button
+                      type="button"
+                      onClick={() => setMobileTopbarOpen(false)}
+                      aria-label="Ocultar resumen superior"
+                      title="Ocultar resumen"
+                      style={{ ...BUTTON, width: 39, padding: 0 }}
+                    >
+                      <ChevronUp size={15} />
+                    </button>
+                  ) : (
+                    <button type="button" onClick={() => setModal({ type: "create" })} style={PRIMARY_BUTTON}>
+                      <Plus size={15} /> Nuevo
+                    </button>
+                  )}
                 </div>
               </div>
-            </div>
-            <div style={{ display: "flex", gap: 6, flexShrink: 0 }}>
-              <button type="button" onClick={() => setModal({ type: "help" })} aria-label="Ayuda" style={{ ...BUTTON, width: 39, padding: 0 }}>
-                <CircleHelp size={16} />
-              </button>
-              <button type="button" onClick={() => load()} aria-label="Actualizar" style={{ ...BUTTON, width: 39, padding: 0 }}>
-                <RefreshCw size={15} />
-              </button>
-              {/* En el celular el "Nuevo" no se pierde: baja al botón flotante
-                  de abajo a la derecha, donde llega el pulgar. */}
-              {!isMobile && (
-                <button type="button" onClick={() => setModal({ type: "create" })} style={PRIMARY_BUTTON}>
-                  <Plus size={15} /> Nuevo
+
+              <div style={{ display: "flex", gap: isMobile ? 5 : 7, paddingBottom: 1, overflowX: isMobile ? "visible" : "auto" }}>
+                <Kpi
+                  icon={Factory} value={stats.active} label={isMobile ? "Activos" : "En seguimiento"} color={C.blue}
+                  compacto={isMobile} activo={vista === "activos"}
+                  onClick={() => setVista((v) => (v === "activos" ? null : "activos"))}
+                />
+                <Kpi
+                  icon={Truck} value={stats.workshop} label={isMobile ? "Afuera" : "Fuera del astillero"} color={C.violet}
+                  compacto={isMobile} activo={vista === "taller"}
+                  onClick={() => setVista((v) => (v === "taller" ? null : "taller"))}
+                />
+                <Kpi
+                  icon={AlertTriangle} value={stats.unresolved} label="Por confirmar"
+                  color={stats.unresolved ? C.red : C.green}
+                  compacto={isMobile} activo={vista === "confirmar"}
+                  onClick={() => setVista((v) => (v === "confirmar" ? null : "confirmar"))}
+                />
+                <Kpi
+                  icon={PackageCheck} value={stats.completed} label={isMobile ? "Listos" : "Completados"} color={C.green}
+                  compacto={isMobile} activo={vista === "completos"}
+                  onClick={() => setVista((v) => (v === "completos" ? null : "completos"))}
+                />
+              </div>
+
+              {vista && (
+                <button
+                  type="button"
+                  onClick={() => setVista(null)}
+                  style={{
+                    marginTop: 7, alignSelf: "flex-start", display: "inline-flex", alignItems: "center", gap: 6,
+                    padding: "5px 11px", borderRadius: 999, border: `1px solid ${C.blueB}`, background: C.blueL,
+                    color: C.blue, fontSize: 11.5, fontWeight: 800, cursor: "pointer", fontFamily: C.sans,
+                  }}
+                >
+                  Mostrando {filtered.length} de {processes.length} · quitar filtro ✕
                 </button>
               )}
-            </div>
-          </div>
-          {/* En el celular van los cuatro en fila, compactos y sin scroll: antes
-              había que arrastrar para ver el último y se perdía de vista. Y son
-              botones: tocás uno y filtra la lista, que es la forma más rápida de
-              llegar a "qué tengo afuera" sin abrir menús. */}
-          <div style={{ display: "flex", gap: isMobile ? 5 : 7, paddingBottom: 1, overflowX: isMobile ? "visible" : "auto" }}>
-            <Kpi
-              icon={Factory} value={stats.active} label={isMobile ? "Activos" : "En seguimiento"} color={C.blue}
-              compacto={isMobile} activo={vista === "activos"}
-              onClick={() => setVista((v) => (v === "activos" ? null : "activos"))}
-            />
-            <Kpi
-              icon={Truck} value={stats.workshop} label={isMobile ? "Afuera" : "Fuera del astillero"} color={C.violet}
-              compacto={isMobile} activo={vista === "taller"}
-              onClick={() => setVista((v) => (v === "taller" ? null : "taller"))}
-            />
-            <Kpi
-              icon={AlertTriangle} value={stats.unresolved} label="Por confirmar"
-              color={stats.unresolved ? C.red : C.green}
-              compacto={isMobile} activo={vista === "confirmar"}
-              onClick={() => setVista((v) => (v === "confirmar" ? null : "confirmar"))}
-            />
-            <Kpi
-              icon={PackageCheck} value={stats.completed} label={isMobile ? "Listos" : "Completados"} color={C.green}
-              compacto={isMobile} activo={vista === "completos"}
-              onClick={() => setVista((v) => (v === "completos" ? null : "completos"))}
-            />
-          </div>
-
-          {/* Si hay un filtro puesto tiene que verse y poder sacarse de un toque:
-              si no, la lista queda corta y parece que se perdieron datos. */}
-          {vista && (
-            <button
-              type="button"
-              onClick={() => setVista(null)}
-              style={{
-                marginTop: 7, alignSelf: "flex-start", display: "inline-flex", alignItems: "center", gap: 6,
-                padding: "5px 11px", borderRadius: 999, border: `1px solid ${C.blueB}`, background: C.blueL,
-                color: C.blue, fontSize: 11.5, fontWeight: 800, cursor: "pointer", fontFamily: C.sans,
-              }}
-            >
-              Mostrando {filtered.length} de {processes.length} · quitar filtro ✕
-            </button>
+            </>
           )}
         </header>
 
@@ -1801,36 +1943,54 @@ export default function TorneriaScreen({ profile, signOut }) {
                   <div style={{
                     flexShrink: 0,
                     display: "grid",
-                    gap: 10,
-                    padding: isMobile ? "10px 12px" : "12px 16px",
+                    gap: isMobile ? 7 : 10,
+                    padding: isMobile ? "8px 10px" : "12px 16px",
                     borderBottom: `1px solid ${C.border}`,
                     background: C.panel,
                   }}>
-                    <div style={{ display: "flex", alignItems: "flex-start", justifyContent: "space-between", gap: 10 }}>
-                      <div style={{ display: "flex", alignItems: "flex-start", gap: 9, minWidth: 0 }}>
+                    <div style={{ display: "flex", alignItems: isMobile ? "center" : "flex-start", justifyContent: "space-between", gap: 8 }}>
+                      <div style={{ display: "flex", alignItems: isMobile ? "center" : "flex-start", gap: 8, minWidth: 0 }}>
                         {isMobile && (
-                          <button type="button" onClick={() => setMobileList(true)} style={{ ...BUTTON, width: 37, padding: 0, flexShrink: 0 }}>
+                          <button
+                            type="button"
+                            onClick={() => setMobileList(true)}
+                            aria-label="Volver a las obras"
+                            style={{ ...BUTTON, width: 36, minHeight: 36, padding: 0, flexShrink: 0 }}
+                          >
                             <ArrowLeft size={15} />
                           </button>
                         )}
                         <div style={{ minWidth: 0 }}>
-                          <div style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
-                            <span style={{ color: C.text, fontSize: 17, fontWeight: 950 }}>{selected.obra?.codigo}</span>
+                          <div style={{ display: "flex", alignItems: "center", gap: isMobile ? 6 : 8, flexWrap: "wrap" }}>
+                            <span style={{ color: C.text, fontSize: isMobile ? 16 : 17, fontWeight: 950 }}>{selected.obra?.codigo}</span>
                             <span style={{ color: C.blue, fontSize: 10.5, fontWeight: 850 }}>
                               {selected.obra?.linea_nombre || "Sin línea"}
                             </span>
-                            <span style={{ color: C.dim, fontSize: 10.5 }}>
+                            <span style={{ color: C.dim, fontSize: 10.5, display: isMobile ? "none" : "inline" }}>
                               {PROCESS_STATE[selected.estado] || selected.estado}
                             </span>
                           </div>
-                          <div style={{ display: "flex", alignItems: "center", gap: 10, marginTop: 4, color: C.dim, fontSize: 10.5, flexWrap: "wrap" }}>
-                            <span style={{ display: "inline-flex", alignItems: "center", gap: 4 }}><MapPin size={11} /> {selected.taller_torneria}</span>
-                            {selected.responsable && <span>{selected.responsable}</span>}
-                          </div>
+                          {!isMobile && (
+                            <div style={{ display: "flex", alignItems: "center", gap: 10, marginTop: 4, color: C.dim, fontSize: 10.5, flexWrap: "wrap" }}>
+                              <span style={{ display: "inline-flex", alignItems: "center", gap: 4 }}><MapPin size={11} /> {selected.taller_torneria}</span>
+                              {selected.responsable && <span>{selected.responsable}</span>}
+                            </div>
+                          )}
                         </div>
                       </div>
                       <div style={{ display: "flex", gap: 6, flexShrink: 0 }}>
-                        <button type="button" onClick={() => setModal({ type: "process" })} style={{ ...BUTTON, flexShrink: 0 }}>
+                        <button
+                          type="button"
+                          onClick={() => setModal({ type: "process" })}
+                          aria-label="Editar seguimiento"
+                          style={{
+                            ...BUTTON,
+                            flexShrink: 0,
+                            width: isMobile ? 36 : undefined,
+                            minHeight: isMobile ? 36 : BUTTON.minHeight,
+                            padding: isMobile ? 0 : BUTTON.padding,
+                          }}
+                        >
                           <Settings2 size={14} /> {!isMobile && "Editar"}
                         </button>
                         <button
@@ -1839,7 +1999,11 @@ export default function TorneriaScreen({ profile, signOut }) {
                           title="Borrar todo el seguimiento de esta obra"
                           aria-label="Borrar seguimiento"
                           style={{
-                            ...BUTTON, flexShrink: 0, width: isMobile ? 39 : undefined, padding: isMobile ? 0 : undefined,
+                            ...BUTTON,
+                            flexShrink: 0,
+                            width: isMobile ? 36 : undefined,
+                            minHeight: isMobile ? 36 : BUTTON.minHeight,
+                            padding: isMobile ? 0 : BUTTON.padding,
                             borderColor: C.redB, background: C.redL, color: C.red,
                           }}
                         >
@@ -1847,11 +2011,47 @@ export default function TorneriaScreen({ profile, signOut }) {
                         </button>
                       </div>
                     </div>
-                    <div style={{ display: "grid", gridTemplateColumns: "minmax(0,1fr) auto", gap: 10, alignItems: "center" }}>
+                    <div style={{
+                      display: "grid",
+                      gridTemplateColumns: isMobile && selectedUnresolved.length > 0
+                        ? "minmax(0,1fr) auto auto"
+                        : "minmax(0,1fr) auto",
+                      gap: isMobile ? 7 : 10,
+                      alignItems: "center",
+                    }}>
                       <ProgressBar value={selectedProgress} color={selectedProgress === 100 ? C.green : C.blue} />
                       <span style={{ color: selectedProgress === 100 ? C.green : C.blue, fontSize: 11, fontWeight: 900 }}>{selectedProgress}%</span>
+                      {isMobile && selectedUnresolved.length > 0 && (
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setTab("materiales");
+                            setModal({ type: "item", item: selectedUnresolved[0] });
+                          }}
+                          aria-label={`${selectedUnresolved.length} datos por confirmar`}
+                          style={{
+                            minHeight: 30,
+                            display: "inline-flex",
+                            alignItems: "center",
+                            gap: 5,
+                            padding: "4px 8px",
+                            borderRadius: 8,
+                            border: `1px solid ${C.redB}`,
+                            background: C.redL,
+                            color: C.red,
+                            cursor: "pointer",
+                            fontSize: 9.5,
+                            fontWeight: 850,
+                            fontFamily: C.sans,
+                            whiteSpace: "nowrap",
+                          }}
+                        >
+                          <AlertTriangle size={12} />
+                          {selectedUnresolved.length} pendiente{selectedUnresolved.length === 1 ? "" : "s"}
+                        </button>
+                      )}
                     </div>
-                    {selectedUnresolved.length > 0 && (
+                    {!isMobile && selectedUnresolved.length > 0 && (
                       <button
                         type="button"
                         onClick={() => {
@@ -1883,7 +2083,7 @@ export default function TorneriaScreen({ profile, signOut }) {
                     flexShrink: 0,
                     display: "flex",
                     gap: 5,
-                    padding: "7px 10px",
+                    padding: isMobile ? "6px 8px" : "7px 10px",
                     borderBottom: `1px solid ${C.border}`,
                     overflowX: "auto",
                   }}>
@@ -1894,8 +2094,9 @@ export default function TorneriaScreen({ profile, signOut }) {
                         onClick={() => setTab(value)}
                         style={{
                           ...BUTTON,
-                          minHeight: 34,
-                          flexShrink: 0,
+                          minHeight: isMobile ? 38 : 34,
+                          flex: isMobile ? "1 1 0" : undefined,
+                          flexShrink: isMobile ? 1 : 0,
                           padding: "5px 10px",
                           color: tab === value ? C.blue : C.dim,
                           borderColor: tab === value ? C.blueB : "transparent",
@@ -1907,9 +2108,10 @@ export default function TorneriaScreen({ profile, signOut }) {
                     ))}
                   </div>
 
-                  <div style={{ flex: 1, minHeight: 0, overflowY: "auto", padding: isMobile ? 12 : 16 }}>
+                  <div style={{ flex: 1, minHeight: 0, overflowY: "auto", padding: isMobile ? 10 : 16 }}>
                     {tab === "circuito" && (
                       <CircuitTab
+                        key={selected.id}
                         process={selected}
                         onMove={openMovement}
                         onEditOperation={(operation) => setModal({ type: "operation", operation })}
