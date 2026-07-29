@@ -393,7 +393,9 @@ export default function LaminacionScreen({ profile, signOut }) {
   const [filtroPedidoEstado, setFiltroPedidoEstado] = useState("todos");
 
   const pedidosFiltrados = useMemo(() => {
-    let rows = pedidos;
+    // Los archivados sólo se ven en la sección "Archivados": si aparecieran
+    // acá seguirían siendo el ruido que el archivo viene a sacar.
+    let rows = pedidos.filter(p => !p.archivado_at);
     if (filtroPedidoEstado !== "todos") rows = rows.filter(p => p.estado === filtroPedidoEstado);
     const qq = q.trim().toLowerCase();
     if (qq) rows = rows.filter(p => {
@@ -423,6 +425,23 @@ export default function LaminacionScreen({ profile, signOut }) {
       .sort((a, b) => new Date(b.archivado_at).getTime() - new Date(a.archivado_at).getTime()),
     [pedidos],
   );
+
+  // Los archivados se muestran y restauran por pedido (orden), no por material:
+  // archivar es una decisión sobre la orden completa.
+  const gruposArchivados = useMemo(() => {
+    const grupos = {};
+    for (const p of pedidosArchivados) {
+      const obs   = p.observaciones ?? "";
+      const match = obs.match(/^(OC-\d{8}-[A-Z0-9]+)/);
+      const ref   = match ? match[1] : `__manual_${p.id}`;
+      const label = match ? obs.replace(match[1] + " | ", "") : (obs || "Pedido manual");
+      if (!grupos[ref]) grupos[ref] = { ref, label, items: [], archivadoAt: p.archivado_at };
+      grupos[ref].items.push(p);
+      if (p.archivado_at > grupos[ref].archivadoAt) grupos[ref].archivadoAt = p.archivado_at;
+    }
+    return Object.values(grupos).sort((a, b) =>
+      new Date(b.archivadoAt).getTime() - new Date(a.archivadoAt).getTime());
+  }, [pedidosArchivados]);
 
   const gruposRecepcion = useMemo(() => {
     const grupos = {};
@@ -823,7 +842,7 @@ export default function LaminacionScreen({ profile, signOut }) {
     if (!data?.length) {
       return setErr("No se pudo archivar. Verificá los permisos en Supabase (política UPDATE en laminacion_pedidos).");
     }
-    flash(ids.length === 1 ? "Pedido archivado" : `${ids.length} pedidos archivados`);
+    flash("Pedido archivado");
     cargarPedidos();
   }
 
@@ -839,7 +858,7 @@ export default function LaminacionScreen({ profile, signOut }) {
     if (!data?.length) {
       return setErr("No se pudo desarchivar. Verificá los permisos en Supabase (política UPDATE en laminacion_pedidos).");
     }
-    flash(ids.length === 1 ? "Pedido restaurado" : `${ids.length} pedidos restaurados`);
+    flash("Pedido restaurado");
     cargarPedidos();
   }
 
@@ -1070,7 +1089,7 @@ export default function LaminacionScreen({ profile, signOut }) {
                   <div className="lam-kpi" style={{ background: "var(--panel)", border: "1px solid var(--panel-2)", borderRadius: 12, padding: "14px 18px", display: "flex", alignItems: "center", gap: 10, borderLeft: "2px solid #3b82f6" }}>
                     <div>
                       <div style={{ fontSize: 10, letterSpacing: 1.3, textTransform: "uppercase", color: "var(--dim)", marginBottom: 5 }}>Pedidos pend.</div>
-                      <AnimatedNum value={pedidos.filter(p=>p.estado==="pendiente").length} color="#3b82f6" size={26} />
+                      <AnimatedNum value={pedidosPendientesRecepcion.length} color="#3b82f6" size={26} />
                       <div style={{ fontSize: 11, color: "var(--dim)", marginTop: 3 }}>en espera</div>
                     </div>
                   </div>
@@ -1518,35 +1537,9 @@ export default function LaminacionScreen({ profile, signOut }) {
                                     >
                                       <Package size={13} /> Parcial
                                     </button>
-                                    {/* Por ítem, no sólo por orden: muchas veces
-                                        la orden llegó casi entera y lo que quedó
-                                        colgado es un material suelto. */}
-                                    <button
-                                      type="button"
-                                      title="Archivar sólo este material"
-                                      aria-label="Archivar este material"
-                                      style={{
-                                        border: `1px solid ${C.border}`,
-                                        background: C.panel,
-                                        color: C.dim,
-                                        fontSize: 12,
-                                        padding: "7px 9px",
-                                        borderRadius: 9,
-                                        cursor: "pointer",
-                                        fontWeight: 850,
-                                        display: "inline-flex",
-                                        alignItems: "center",
-                                        gap: 6,
-                                      }}
-                                      onClick={() => setConfModal({
-                                        tipo: "archivar",
-                                        items: [p],
-                                        titulo: mat?.nombre ?? "Material desconocido",
-                                        motivo: "",
-                                      })}
-                                    >
-                                      <Archive size={13} />
-                                    </button>
+                                    {/* Archivar es por pedido (orden), nunca por
+                                        material suelto: si la orden no llega, se
+                                        archiva entera desde la cabecera del grupo. */}
                                   </div>
                                 </div>
                               );
@@ -1562,8 +1555,8 @@ export default function LaminacionScreen({ profile, signOut }) {
 
                 {/* Archivados: sólo aparece si hay algo archivado, y cerrado.
                     Una sección vacía permanente sería exactamente el ruido que
-                    esto viene a sacar. */}
-                {pedidosArchivados.length > 0 && (
+                    esto viene a sacar. Se agrupa y restaura por pedido. */}
+                {gruposArchivados.length > 0 && (
                   <section style={{ ...S.card, padding: 0, overflow: "hidden" }}>
                     <button
                       type="button"
@@ -1596,10 +1589,10 @@ export default function LaminacionScreen({ profile, signOut }) {
                       </div>
                       <div style={{ minWidth: 0, flex: 1 }}>
                         <div style={{ color: C.text, fontSize: 15, fontWeight: 850 }}>
-                          Archivados ({pedidosArchivados.length})
+                          Archivados ({gruposArchivados.length})
                         </div>
                         <div style={{ ...S.small, marginTop: 2 }}>
-                          Pedidos que se sacaron de la recepción. Si el material llega, restauralos desde acá.
+                          Pedidos que se sacaron de la recepción. Si el material llega, restaurás el pedido completo desde acá.
                         </div>
                       </div>
                       {verArchivados ? <ChevronDown size={16} color={C.muted} /> : <ChevronRight size={16} color={C.muted} />}
@@ -1607,12 +1600,15 @@ export default function LaminacionScreen({ profile, signOut }) {
 
                     {verArchivados && (
                       <div style={{ display: "grid" }}>
-                        {pedidosArchivados.map((p, i) => {
-                          const mat = materiales.find(m => String(m.id) === String(p.material_id));
-                          const obs = p.observaciones ?? "";
-                          const ref = obs.match(/^(OC-\d{8}-[A-Z0-9]+)/)?.[1];
+                        {gruposArchivados.map((grupo, i) => {
+                          const esManual = grupo.ref.startsWith("__manual_");
+                          const motivos = [...new Set(grupo.items.map(p => p.archivado_motivo).filter(Boolean))];
+                          const materialesTxt = grupo.items.map(p => {
+                            const mat = materiales.find(m => String(m.id) === String(p.material_id));
+                            return `${mat?.nombre ?? "Material desconocido"} (${num(p.cantidad)} ${mat?.unidad ?? ""})`;
+                          }).join(" · ");
                           return (
-                            <div key={p.id} style={{
+                            <div key={grupo.ref} style={{
                               display: "grid",
                               gridTemplateColumns: isMobile ? "1fr" : "minmax(0, 1fr) auto",
                               gap: 10,
@@ -1622,13 +1618,7 @@ export default function LaminacionScreen({ profile, signOut }) {
                             }}>
                               <div style={{ minWidth: 0 }}>
                                 <div style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
-                                  <span style={{ color: C.text, fontSize: 14, fontWeight: 800 }}>
-                                    {mat?.nombre ?? "Material desconocido"}
-                                  </span>
-                                  <span style={{ color: C.dim, fontSize: 12 }}>
-                                    {num(p.cantidad)} {mat?.unidad ?? ""}
-                                  </span>
-                                  {ref && (
+                                  {!esManual && (
                                     <span style={{
                                       color: C.dim,
                                       fontSize: 11,
@@ -1637,13 +1627,22 @@ export default function LaminacionScreen({ profile, signOut }) {
                                       borderRadius: 999,
                                       padding: "2px 7px",
                                     }}>
-                                      {ref}
+                                      {grupo.ref}
                                     </span>
                                   )}
+                                  <span style={{ color: C.text, fontSize: 14, fontWeight: 800 }}>
+                                    {esManual ? "Pedido manual" : (grupo.label || "Pedido")}
+                                  </span>
+                                  <span style={{ color: C.dim, fontSize: 12 }}>
+                                    {grupo.items.length} {grupo.items.length === 1 ? "material" : "materiales"}
+                                  </span>
+                                </div>
+                                <div style={{ ...S.small, marginTop: 3, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+                                  {materialesTxt}
                                 </div>
                                 <div style={{ ...S.small, marginTop: 3 }}>
-                                  Archivado el {fmtTs(p.archivado_at)}
-                                  {p.archivado_motivo ? ` · ${p.archivado_motivo}` : ""}
+                                  Archivado el {fmtTs(grupo.archivadoAt)}
+                                  {motivos.length ? ` · ${motivos.join(" · ")}` : ""}
                                 </div>
                               </div>
                               <button
@@ -1662,9 +1661,9 @@ export default function LaminacionScreen({ profile, signOut }) {
                                   gap: 6,
                                   justifySelf: isMobile ? "start" : "end",
                                 }}
-                                onClick={() => desarchivarPedidos([p])}
+                                onClick={() => desarchivarPedidos(grupo.items)}
                               >
-                                <ArchiveRestore size={13} /> Restaurar
+                                <ArchiveRestore size={13} /> Restaurar pedido
                               </button>
                             </div>
                           );
@@ -2547,9 +2546,9 @@ export default function LaminacionScreen({ profile, signOut }) {
                         onClick={() => setFiltroPedidoEstado(st)}
                       >
                         {st === "todos" ? "Todos" : st.charAt(0).toUpperCase() + st.slice(1)}
-                        {st === "pendiente" && pedidos.filter(p => p.estado === "pendiente").length > 0 && (
+                        {st === "pendiente" && pedidosPendientesRecepcion.length > 0 && (
                           <span style={{ marginLeft: 6, background: "#ffe7a6", color: "#000", borderRadius: 999, padding: "1px 6px", fontSize: 11, fontWeight: 900 }}>
-                            {pedidos.filter(p => p.estado === "pendiente").length}
+                            {pedidosPendientesRecepcion.length}
                           </span>
                         )}
                       </button>
@@ -2776,7 +2775,7 @@ export default function LaminacionScreen({ profile, signOut }) {
           return (
             <div style={{ position: "fixed", inset: 0, background: "var(--overlay-strong)", zIndex: 9999, display: "flex", alignItems: "center", justifyContent: "center", backdropFilter: "blur(4px)" }}>
               <div style={{ background: "var(--panel-solid)", border: "1px solid var(--border)", borderRadius: 16, padding: 28, width: "min(500px, 94vw)", boxShadow: "0 24px 64px rgba(0,0,0,0.6)", maxHeight: "85vh", overflow: "auto" }}>
-                <h3 style={{ margin: "0 0 4px", color: C.text, fontSize: 16 }}>Archivar {items.length === 1 ? "pedido" : `${items.length} pedidos`}</h3>
+                <h3 style={{ margin: "0 0 4px", color: C.text, fontSize: 16 }}>Archivar pedido</h3>
                 <p style={{ margin: "0 0 16px", color: C.dim, fontSize: 13, lineHeight: 1.5 }}>
                   Sale de la recepción y deja de contar como pendiente. No se borra:
                   si el material llega, lo restaurás desde <b>Archivados</b> y vuelve

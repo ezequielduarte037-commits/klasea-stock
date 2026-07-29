@@ -937,78 +937,86 @@ function RecorridosPorItem({ process, onMove, query = "" }) {
   );
 }
 
-function CircuitTab({ process, onMove, onEditOperation, onNewOperation, onEditItem }) {
+function CircuitSearch({ value, onChange, compact = false }) {
+  return (
+    <div style={{ position: "relative" }}>
+      <Search size={compact ? 14 : 15} style={{
+        position: "absolute",
+        left: compact ? 11 : 12,
+        top: "50%",
+        transform: "translateY(-50%)",
+        color: C.dim,
+        pointerEvents: "none",
+      }} />
+      <input
+        type="search"
+        value={value}
+        onChange={(event) => onChange(event.target.value)}
+        placeholder="Buscar material, conjunto o taller…"
+        aria-label="Buscar dentro del circuito"
+        style={{
+          width: "100%",
+          minHeight: compact ? 36 : 42,
+          borderRadius: compact ? 9 : 11,
+          border: `1px solid ${value ? C.blueB : C.border}`,
+          background: C.panelSolid,
+          color: C.text,
+          padding: value
+            ? compact ? "6px 38px 6px 34px" : "8px 42px 8px 36px"
+            : compact ? "6px 10px 6px 34px" : "8px 12px 8px 36px",
+          outline: "none",
+          fontSize: compact ? 11.5 : 12.5,
+          fontFamily: C.sans,
+          boxShadow: "0 8px 24px -24px var(--shadow-strong)",
+        }}
+      />
+      {value && (
+        <button
+          type="button"
+          onClick={() => onChange("")}
+          aria-label="Limpiar búsqueda"
+          style={{
+            position: "absolute",
+            right: 5,
+            top: compact ? 5 : 6,
+            width: compact ? 26 : 30,
+            height: compact ? 26 : 30,
+            display: "grid",
+            placeItems: "center",
+            borderRadius: 7,
+            border: 0,
+            background: C.panel2,
+            color: C.dim,
+            cursor: "pointer",
+            fontSize: compact ? 16 : 18,
+            fontFamily: C.sans,
+          }}
+        >
+          ×
+        </button>
+      )}
+    </div>
+  );
+}
+
+function CircuitTab({
+  process,
+  onMove,
+  onEditOperation,
+  onNewOperation,
+  onEditItem,
+  search,
+  onSearch,
+  showSearch = true,
+}) {
   const operations = (process.operaciones || []).filter((row) => row.activa !== false);
   const [showManagement, setShowManagement] = useState(false);
-  const [routeSearch, setRouteSearch] = useState("");
 
   return (
     <div style={{ display: "grid", gap: 16 }}>
-      <div className="tor-circuit-search" style={{
-        position: "sticky",
-        top: 0,
-        zIndex: 8,
-        paddingBottom: 2,
-        background: C.bg,
-      }}>
-        <div style={{ position: "relative" }}>
-          <Search size={15} style={{
-            position: "absolute",
-            left: 12,
-            top: "50%",
-            transform: "translateY(-50%)",
-            color: C.dim,
-            pointerEvents: "none",
-          }} />
-          <input
-            type="search"
-            value={routeSearch}
-            onChange={(event) => setRouteSearch(event.target.value)}
-            placeholder="Buscar material, conjunto o taller…"
-            aria-label="Buscar dentro del circuito"
-            style={{
-              width: "100%",
-              minHeight: 42,
-              borderRadius: 11,
-              border: `1px solid ${routeSearch ? C.blueB : C.border}`,
-              background: C.panelSolid,
-              color: C.text,
-              padding: routeSearch ? "8px 42px 8px 36px" : "8px 12px 8px 36px",
-              outline: "none",
-              fontSize: 12.5,
-              fontFamily: C.sans,
-              boxShadow: "0 8px 24px -24px var(--shadow-strong)",
-            }}
-          />
-          {routeSearch && (
-            <button
-              type="button"
-              onClick={() => setRouteSearch("")}
-              aria-label="Limpiar búsqueda"
-              style={{
-                position: "absolute",
-                right: 6,
-                top: 6,
-                width: 30,
-                height: 30,
-                display: "grid",
-                placeItems: "center",
-                borderRadius: 8,
-                border: 0,
-                background: C.panel2,
-                color: C.dim,
-                cursor: "pointer",
-                fontSize: 18,
-                fontFamily: C.sans,
-              }}
-            >
-              ×
-            </button>
-          )}
-        </div>
-      </div>
+      {showSearch && <CircuitSearch value={search} onChange={onSearch} />}
 
-      <RecorridosPorItem process={process} onMove={onMove} query={routeSearch} />
+      <RecorridosPorItem process={process} onMove={onMove} query={search} />
 
       <section style={{
         display: "grid",
@@ -1396,6 +1404,7 @@ export default function TorneriaScreen({ profile, signOut }) {
   );
   const [tab, setTab] = useState("circuito");
   const [search, setSearch] = useState("");
+  const [circuitSearch, setCircuitSearch] = useState("");
   const [status, setStatus] = useState("todos");
   // Filtro rápido que disparan los KPI. Es una dimensión aparte de `status`
   // porque los KPI no miden todos lo mismo: uno cuenta procesos, otro cuenta
@@ -1478,6 +1487,7 @@ export default function TorneriaScreen({ profile, signOut }) {
     setSelectedId(id);
     window.localStorage.setItem("torneria.proceso", id);
     setMobileList(false);
+    setCircuitSearch("");
     if (isMobile) setMobileTopbarOpen(false);
   }
 
@@ -1487,6 +1497,7 @@ export default function TorneriaScreen({ profile, signOut }) {
       setModal(null);
       await load({ quiet: true, preferId: id });
       setMobileList(false);
+      setCircuitSearch("");
       if (isMobile) setMobileTopbarOpen(false);
       toast.success("Seguimiento creado con el circuito de su línea.");
     } catch (createError) {
@@ -1746,31 +1757,85 @@ export default function TorneriaScreen({ profile, signOut }) {
         }}>
           {isMobile && !mobileTopbarOpen ? (
             <div style={{ minHeight: 36, display: "flex", alignItems: "center", justifyContent: "space-between", gap: 10 }}>
-              <div style={{ display: "flex", alignItems: "center", gap: 8, minWidth: 0 }}>
-                <Wrench size={15} style={{ color: C.blue, flexShrink: 0 }} />
-                <span style={{ color: C.text, fontSize: 14, fontWeight: 900 }}>Tornería</span>
-                {!mobileList && selected?.obra?.codigo && (
+              {!mobileList && selected ? (
+                <>
+                  <button
+                    type="button"
+                    onClick={() => setMobileList(true)}
+                    aria-label="Volver a las obras"
+                    style={{ ...BUTTON, width: 34, minHeight: 34, padding: 0, flexShrink: 0 }}
+                  >
+                    <ArrowLeft size={14} />
+                  </button>
+                  <div style={{ minWidth: 0, flex: 1, display: "flex", alignItems: "baseline", gap: 6 }}>
+                    <span style={{
+                      overflow: "hidden",
+                      textOverflow: "ellipsis",
+                      whiteSpace: "nowrap",
+                      color: C.text,
+                      fontSize: 14,
+                      fontWeight: 950,
+                    }}>
+                      {selected.obra?.codigo}
+                    </span>
+                    <span style={{ color: C.blue, fontSize: 9.5, fontWeight: 850, whiteSpace: "nowrap" }}>
+                      {selected.obra?.linea_nombre || "Sin línea"}
+                    </span>
+                  </div>
+                  {selectedUnresolved.length > 0 && (
+                    <span
+                      title={`${selectedUnresolved.length} datos por confirmar`}
+                      style={{
+                        minWidth: 23,
+                        height: 23,
+                        display: "grid",
+                        placeItems: "center",
+                        borderRadius: 7,
+                        border: `1px solid ${C.redB}`,
+                        background: C.redL,
+                        color: C.red,
+                        fontSize: 9.5,
+                        fontWeight: 900,
+                      }}
+                    >
+                      {selectedUnresolved.length}
+                    </span>
+                  )}
                   <span style={{
-                    overflow: "hidden",
-                    textOverflow: "ellipsis",
+                    color: selectedProgress === 100 ? C.green : C.blue,
+                    fontSize: 10.5,
+                    fontWeight: 900,
                     whiteSpace: "nowrap",
-                    color: C.dim,
-                    fontSize: 11,
-                    fontWeight: 750,
                   }}>
-                    · {selected.obra.codigo}
+                    {selectedProgress}%
                   </span>
-                )}
-              </div>
-              <button
-                type="button"
-                onClick={() => setMobileTopbarOpen(true)}
-                aria-label="Mostrar resumen superior"
-                title="Mostrar resumen"
-                style={{ ...BUTTON, width: 36, minHeight: 36, padding: 0, flexShrink: 0 }}
-              >
-                <ChevronDown size={15} />
-              </button>
+                  <button
+                    type="button"
+                    onClick={() => setMobileTopbarOpen(true)}
+                    aria-label="Mostrar resumen superior"
+                    title="Mostrar resumen"
+                    style={{ ...BUTTON, width: 34, minHeight: 34, padding: 0, flexShrink: 0 }}
+                  >
+                    <ChevronDown size={14} />
+                  </button>
+                </>
+              ) : (
+                <>
+                  <div style={{ display: "flex", alignItems: "center", gap: 8, minWidth: 0 }}>
+                    <Wrench size={15} style={{ color: C.blue, flexShrink: 0 }} />
+                    <span style={{ color: C.text, fontSize: 14, fontWeight: 900 }}>Tornería</span>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => setMobileTopbarOpen(true)}
+                    aria-label="Mostrar resumen superior"
+                    title="Mostrar resumen"
+                    style={{ ...BUTTON, width: 36, minHeight: 36, padding: 0, flexShrink: 0 }}
+                  >
+                    <ChevronDown size={15} />
+                  </button>
+                </>
+              )}
             </div>
           ) : (
             <>
@@ -1940,6 +2005,7 @@ export default function TorneriaScreen({ profile, signOut }) {
                 </div>
               ) : (
                 <>
+                  {(!isMobile || mobileTopbarOpen) && (
                   <div style={{
                     flexShrink: 0,
                     display: "grid",
@@ -2078,6 +2144,7 @@ export default function TorneriaScreen({ profile, signOut }) {
                       </button>
                     )}
                   </div>
+                  )}
 
                   <div style={{
                     flexShrink: 0,
@@ -2108,6 +2175,17 @@ export default function TorneriaScreen({ profile, signOut }) {
                     ))}
                   </div>
 
+                  {isMobile && tab === "circuito" && (
+                    <div style={{
+                      flexShrink: 0,
+                      padding: "6px 8px",
+                      borderBottom: `1px solid ${C.border}`,
+                      background: C.panel,
+                    }}>
+                      <CircuitSearch value={circuitSearch} onChange={setCircuitSearch} compact />
+                    </div>
+                  )}
+
                   <div style={{ flex: 1, minHeight: 0, overflowY: "auto", padding: isMobile ? 10 : 16 }}>
                     {tab === "circuito" && (
                       <CircuitTab
@@ -2117,6 +2195,9 @@ export default function TorneriaScreen({ profile, signOut }) {
                         onEditOperation={(operation) => setModal({ type: "operation", operation })}
                         onNewOperation={() => setModal({ type: "operation", operation: null })}
                         onEditItem={(item) => setModal({ type: "item", item })}
+                        search={circuitSearch}
+                        onSearch={setCircuitSearch}
+                        showSearch={!isMobile}
                       />
                     )}
                     {tab === "materiales" && (
