@@ -377,3 +377,44 @@ export async function eliminarArchivo(archivo) {
   if (error) throw error;
 }
 
+
+// Borra el seguimiento entero de una obra. Las tablas hijas (operaciones,
+// items, movimientos, historial) cuelgan con `on delete cascade`, así que se van
+// solas; lo único que hay que limpiar a mano son los archivos del storage,
+// porque un bucket no participa del cascade de Postgres y quedarían huérfanos
+// ocupando lugar para siempre.
+export async function borrarProcesoTorneria(procesoId) {
+  if (!procesoId) throw new Error("Falta el proceso.");
+
+  // Los archivos cuelgan del MOVIMIENTO, no del proceso: hay que bajar por
+  // operaciones → movimientos para juntar los paths antes de borrar.
+  const { data: operaciones } = await supabase
+    .from("torneria_operaciones")
+    .select("id")
+    .eq("proceso_id", procesoId);
+
+  const opIds = (operaciones ?? []).map((o) => o.id);
+  let paths = [];
+  if (opIds.length) {
+    const { data: movimientos } = await supabase
+      .from("torneria_movimientos")
+      .select("id")
+      .in("operacion_id", opIds);
+    const movIds = (movimientos ?? []).map((m) => m.id);
+    if (movIds.length) {
+      const { data: archivos } = await supabase
+        .from("torneria_archivos")
+        .select("storage_path")
+        .in("movimiento_id", movIds);
+      paths = (archivos ?? []).map((a) => a.storage_path).filter(Boolean);
+    }
+  }
+  if (paths.length) {
+    // Si falla el borrado de los archivos se sigue igual: es peor dejar el
+    // proceso a medio borrar que dejar un archivo suelto en el bucket.
+    try { await supabase.storage.from("documentos").remove(paths); } catch { /* huérfanos, no bloquean */ }
+  }
+
+  const { error } = await supabase.from("torneria_procesos").delete().eq("id", procesoId);
+  if (error) throw error;
+}

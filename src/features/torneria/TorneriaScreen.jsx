@@ -2,8 +2,8 @@ import { createElement, useCallback, useEffect, useMemo, useState } from "react"
 import {
   AlertTriangle, ArrowLeft, ArrowRight, Boxes, Check, ChevronRight, CircleHelp,
   Edit3, Factory, FileText, History, Link2, Loader2,
-  MapPin, PackageCheck, PackageOpen, Plus, RefreshCw, Search, Settings2,
-  Truck, Wrench,
+  MapPin, PackageCheck, PackageOpen, Plus, RefreshCw, Repeat, Search, Settings2,
+  Trash2, Truck, Wrench,
 } from "lucide-react";
 import Sidebar from "@/components/Sidebar";
 import { useResponsive } from "@/hooks/useResponsive";
@@ -16,6 +16,7 @@ import {
   archivarItem,
   archivarOperacion,
   crearItem,
+  borrarProcesoTorneria,
   crearProcesoTorneria,
   eliminarArchivo,
   eliminarMovimiento,
@@ -376,6 +377,13 @@ function OperationCard({ process, operation, onMove, onEdit, onEditItem }) {
     .map((row) => row.item)
     .filter((item) => item?.requiere_confirmacion && !item.confirmado_at);
   const ready = operation.estado === "pendiente" && dependencies.length === 0;
+  // Las piezas que viajan en esta operación. Es el título real de la tarjeta:
+  // el mecánico reconoce la pieza, no el nombre del proceso.
+  const piezas = (operation.componentes || [])
+    .map((row) => row.item?.descripcion)
+    .filter(Boolean)
+    .join(" + ");
+
   // Par completo del theme: el alfa hex sobre var(--…) no funciona.
   const accent = operation.tipo === "plegadora" ? C.violet : C.blue;
   const accentSoft = operation.tipo === "plegadora" ? C.violetL : C.blueL;
@@ -406,24 +414,50 @@ function OperationCard({ process, operation, onMove, onEdit, onEditItem }) {
         borderRadius: "0 3px 3px 0",
         background: operation.estado === "recibido" ? C.green : accent,
       }} />
+      {/* El ÍTEM manda; la acción ("plegar", "mecanizar") es un detalle que se
+          agrega después. Arrancar por el verbo confundía: al principio nadie
+          sabe todavía qué se le hace a cada pieza, pero sí sabe qué pieza es y
+          si va o vuelve. */}
       <div style={{ display: "flex", alignItems: "flex-start", justifyContent: "space-between", gap: 10 }}>
         <div style={{ minWidth: 0, paddingLeft: 3 }}>
           <div style={{ display: "flex", alignItems: "center", gap: 7, flexWrap: "wrap" }}>
-            <span style={{ color: C.text, fontSize: 13, fontWeight: 900 }}>{operation.nombre}</span>
+            <span style={{ color: C.text, fontSize: 13.5, fontWeight: 900 }}>
+              {piezas || operation.nombre}
+            </span>
+            {/* El viaje va en su propio chip y con número grande: es lo que
+                distingue "la primera salida" de "la segunda", que era justo lo
+                que no se entendía en las piezas que van y vuelven dos veces. */}
+            {operation.viaje ? (
+              <span style={{
+                display: "inline-flex", alignItems: "center", gap: 4,
+                padding: "2px 8px", borderRadius: 999,
+                border: `1px solid ${accentBorde}`, background: accentSoft, color: accent,
+                fontSize: 10, fontWeight: 900, whiteSpace: "nowrap",
+              }}>
+                <Repeat size={10} />
+                Viaje {operation.viaje}
+              </span>
+            ) : null}
             <span style={{
               padding: "2px 6px",
               borderRadius: 999,
-              border: `1px solid ${accentBorde}`,
-              background: accentSoft,
-              color: accent,
+              border: `1px solid ${C.border}`,
+              background: C.panel2,
+              color: C.dim,
               fontSize: 9.5,
               fontWeight: 850,
               textTransform: "uppercase",
             }}>
               {operation.tipo === "plegadora" ? "Plegadora" : operation.tipo === "torneria" ? "Tornería" : operation.tipo}
-              {operation.viaje ? ` · viaje ${operation.viaje}` : ""}
             </span>
           </div>
+          {/* La acción baja a segundo renglón, en gris: sigue estando para quien
+              la necesite, pero deja de ser el título. */}
+          {piezas && operation.nombre && (
+            <div style={{ color: C.muted, fontSize: 11, fontWeight: 700, marginTop: 3 }}>
+              {operation.nombre}
+            </div>
+          )}
           {operation.descripcion && (
             <div style={{ color: C.dim, fontSize: 11, lineHeight: 1.45, marginTop: 4 }}>
               {operation.descripcion}
@@ -559,196 +593,445 @@ function OperationCard({ process, operation, onMove, onEdit, onEditItem }) {
   );
 }
 
-// ─────────────────────────────────────────────────────────────────────────────
-// Modo mecánico: lo que hay para hacer AHORA, arriba de todo y en botones
-// grandes.
-//
-// El mecánico entra desde el celular, en el taller, con una mano y las manos
-// sucias. No viene a explorar el circuito: viene a marcar una cosa puntual
-// ("esto ya salió", "esto ya volvió"). El circuito completo sigue estando
-// abajo para cuando alguien necesita ver el panorama, pero deja de ser lo
-// primero que hay que atravesar.
-// ─────────────────────────────────────────────────────────────────────────────
-function AccionesAhora({ process, onMove, isMobile }) {
-  const operations = (process.operaciones || []).filter((row) => row.activa !== false);
+function workshopName(operation) {
+  if (operation.destino?.trim()) return operation.destino.trim();
+  if (operation.tipo === "plegadora") return "Plegadora";
+  if (operation.tipo === "torneria") return "Tornería";
+  return operation.tipo || "Taller";
+}
 
-  // Sólo lo accionable: lo que está afuera (se puede registrar el regreso) y lo
-  // que está listo para salir (sin dependencias pendientes). Lo demás no entra
-  // porque no hay nada que el mecánico pueda hacer con eso todavía.
-  const acciones = operations
-    .map((operation) => {
-      const afuera = ["enviado", "parcial"].includes(operation.estado);
-      const dependencias = dependencyRows(process, operation);
-      const listaParaSalir = operation.estado === "pendiente" && dependencias.length === 0;
-      if (!afuera && !listaParaSalir) return null;
+function JourneyCard({ process, operation, index, current, onMove }) {
+  const dependencies = dependencyRows(process, operation);
+  const outside = ["enviado", "parcial"].includes(operation.estado);
+  const received = operation.estado === "recibido";
+  const partial = operation.estado === "parcial";
+  const pending = operation.estado === "pendiente";
+  const destination = workshopName(operation);
+  const workshopColor = operation.tipo === "plegadora" ? C.violet : C.blue;
+  const workshopSoft = operation.tipo === "plegadora" ? C.violetL : C.blueL;
+  const workshopBorder = operation.tipo === "plegadora" ? C.violetB : C.blueB;
+  const latestDeparture = [...(operation.movimientos || [])]
+    .filter((movement) => movement.tipo === "salida")
+    .sort((a, b) => new Date(b.fecha) - new Date(a.fecha))[0];
+  const daysOutside = outside ? diasDesde(latestDeparture?.fecha) : null;
+  const actionLabel = pending ? "Registrar salida" : outside ? "Registrar regreso" : null;
 
-      // Días afuera: es el dato que dispara la pregunta "¿esto no tendría que
-      // haber vuelto ya?". Sale del último movimiento de salida.
-      const salida = [...(operation.movimientos || [])]
-        .filter((m) => m.tipo === "salida")
-        .sort((a, b) => new Date(b.fecha) - new Date(a.fecha))[0];
-      const dias = afuera ? diasDesde(salida?.fecha) : null;
+  let stateLabel = "Pendiente de salida";
+  let stateColor = C.dim;
+  let stateSoft = C.panel2;
+  let stateBorder = C.border;
+  if (received) {
+    stateLabel = "Recibido en astillero";
+    stateColor = C.green;
+    stateSoft = C.greenL;
+    stateBorder = C.greenB;
+  } else if (partial) {
+    stateLabel = "Regreso parcial";
+    stateColor = C.violet;
+    stateSoft = C.violetL;
+    stateBorder = C.violetB;
+  } else if (outside) {
+    stateLabel = `En ${destination}`;
+    stateColor = workshopColor;
+    stateSoft = workshopSoft;
+    stateBorder = workshopBorder;
+  } else if (dependencies.length) {
+    stateLabel = "Espera pasos anteriores";
+    stateColor = C.red;
+    stateSoft = C.redL;
+    stateBorder = C.redB;
+  } else if (pending) {
+    stateLabel = "Listo para salir";
+    stateColor = C.blue;
+    stateSoft = C.blueL;
+    stateBorder = C.blueB;
+  }
 
-      return {
-        operation,
-        afuera,
-        dias,
-        etiqueta: afuera ? "Registrar regreso" : "Registrar salida",
-        destino: operation.tipo === "plegadora" ? "Plegadora" : "Tornería",
-      };
-    })
-    .filter(Boolean)
-    // Primero lo que está afuera hace más tiempo: es lo que más urge reclamar.
-    .sort((a, b) => (b.dias ?? -1) - (a.dias ?? -1));
-
-  if (!acciones.length) return null;
+  const returnColor = received ? C.green : partial ? C.violet : C.dim;
+  const returnSoft = received ? C.greenL : partial ? C.violetL : C.panel2;
+  const returnBorder = received ? C.greenB : partial ? C.violetB : C.border;
 
   return (
-    <section style={{ display: "grid", gap: 9 }}>
-      <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-        <span style={{ color: C.muted, fontSize: 10.5, fontWeight: 900, letterSpacing: "0.1em", textTransform: "uppercase" }}>
-          Para hacer ahora
+    <div className="tor-journey-card" style={{
+      display: "grid",
+      alignContent: "start",
+      gap: 10,
+      minWidth: 0,
+      padding: 11,
+      borderRadius: 12,
+      border: `1px solid ${current ? stateBorder : C.border}`,
+      background: current ? stateSoft : C.panelSolid,
+    }}>
+      <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 8 }}>
+        <span style={{
+          color: current ? stateColor : C.dim,
+          fontSize: 9.5,
+          fontWeight: 900,
+          letterSpacing: "0.08em",
+          textTransform: "uppercase",
+        }}>
+          Viaje {index + 1}
         </span>
         <span style={{
-          minWidth: 18, padding: "1px 7px", borderRadius: 999, background: C.blueL,
-          border: `1px solid ${C.blueB}`, color: C.blue, fontSize: 10.5, fontWeight: 900,
+          display: "inline-flex",
+          alignItems: "center",
+          gap: 5,
+          minHeight: 23,
+          padding: "2px 7px",
+          borderRadius: 999,
+          border: `1px solid ${stateBorder}`,
+          background: stateSoft,
+          color: stateColor,
+          fontSize: 9.5,
+          fontWeight: 850,
+          whiteSpace: "nowrap",
         }}>
-          {acciones.length}
+          <span style={{ width: 5, height: 5, borderRadius: "50%", background: stateColor }} />
+          {stateLabel}
         </span>
       </div>
 
-      <div style={{ display: "grid", gap: 8 }}>
-        {acciones.map(({ operation, afuera, dias, etiqueta, destino }) => (
-          <button
-            key={operation.id}
-            type="button"
-            onClick={() => onMove(operation, null)}
-            className="tor-accion"
-            style={{
-              display: "grid",
-              gridTemplateColumns: "minmax(0,1fr) auto",
-              alignItems: "center",
-              gap: 10,
-              // Alto cómodo para el pulgar: no es una fila de tabla, es un botón.
-              minHeight: isMobile ? 66 : 58,
-              padding: isMobile ? "12px 13px" : "11px 14px",
-              borderRadius: 13,
-              textAlign: "left",
-              cursor: "pointer",
-              border: `1px solid ${afuera ? C.violetB : C.blueB}`,
-              background: afuera ? C.violetL : C.blueL,
-              fontFamily: C.sans,
-            }}
-          >
-            <div style={{ minWidth: 0 }}>
-              <div style={{ color: C.text, fontSize: isMobile ? 14 : 13.5, fontWeight: 900, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
-                {operation.nombre}
-              </div>
-              <div style={{ display: "flex", alignItems: "center", gap: 7, marginTop: 3, flexWrap: "wrap" }}>
-                <span style={{ color: afuera ? C.violet : C.blue, fontSize: 11.5, fontWeight: 800 }}>
-                  {afuera ? `En ${destino}` : `Listo para ir a ${destino}`}
-                </span>
-                {dias != null && (
-                  <span style={{
-                    color: dias >= 15 ? C.red : C.dim,
-                    fontSize: 11, fontWeight: dias >= 15 ? 900 : 700, fontFamily: C.mono,
-                  }}>
-                    · hace {dias} {dias === 1 ? "día" : "días"}
-                  </span>
-                )}
-              </div>
-            </div>
-            <span style={{
-              display: "inline-flex", alignItems: "center", gap: 6, flexShrink: 0,
-              padding: isMobile ? "10px 13px" : "8px 12px", borderRadius: 10,
-              background: afuera ? C.violet : C.blue, color: "#fff",
-              fontSize: isMobile ? 12.5 : 12, fontWeight: 900, whiteSpace: "nowrap",
-            }}>
-              {afuera ? <ArrowLeft size={15} /> : <ArrowRight size={15} />}
-              {isMobile ? (afuera ? "Volvió" : "Salió") : etiqueta}
-            </span>
-          </button>
-        ))}
+      <div className="tor-journey-path">
+        <span className="tor-route-node" style={{
+          borderColor: C.greenB,
+          background: C.greenL,
+          color: C.green,
+        }}>
+          <MapPin size={11} /> Astillero
+        </span>
+        <ArrowRight size={12} style={{ color: C.dim, flexShrink: 0 }} />
+        <span className="tor-route-node" style={{
+          borderColor: outside || received ? workshopBorder : C.border,
+          background: outside || received ? workshopSoft : C.panel2,
+          color: outside || received ? workshopColor : C.dim,
+        }}>
+          <Wrench size={11} /> {destination}
+        </span>
+        <ArrowRight size={12} style={{ color: C.dim, flexShrink: 0 }} />
+        <span className="tor-route-node" style={{
+          borderColor: returnBorder,
+          background: returnSoft,
+          color: returnColor,
+        }}>
+          {received ? <Check size={11} /> : <MapPin size={11} />}
+          Astillero
+        </span>
       </div>
-    </section>
+
+      <div style={{ minWidth: 0 }}>
+        <div style={{ color: C.text, fontSize: 12, fontWeight: 850, lineHeight: 1.35 }}>
+          {operation.nombre}
+        </div>
+        {operation.descripcion && (
+          <div style={{ color: C.dim, fontSize: 10.5, lineHeight: 1.4, marginTop: 3 }}>
+            {operation.descripcion}
+          </div>
+        )}
+        {daysOutside != null && (
+          <div style={{
+            color: daysOutside >= 15 ? C.red : C.dim,
+            fontSize: 10.5,
+            fontWeight: daysOutside >= 15 ? 850 : 700,
+            marginTop: 4,
+          }}>
+            Fuera del astillero hace {daysOutside} {daysOutside === 1 ? "día" : "días"}.
+          </div>
+        )}
+        {dependencies.length > 0 && pending && (
+          <div style={{ color: C.red, fontSize: 10.5, lineHeight: 1.4, marginTop: 4 }}>
+            Antes debería volver: {dependencies.map((row) => row.nombre).join(", ")}.
+          </div>
+        )}
+      </div>
+
+      {actionLabel && (
+        <button
+          type="button"
+          onClick={() => onMove(operation, null)}
+          className="tor-route-action"
+          style={{
+            ...PRIMARY_BUTTON,
+            width: "100%",
+            minHeight: 36,
+            marginTop: "auto",
+            ...(outside ? {
+              borderColor: C.violetB,
+              background: C.violetL,
+              color: C.violet,
+            } : {}),
+          }}
+        >
+          {outside ? <PackageOpen size={14} /> : <Truck size={14} />}
+          {actionLabel}
+        </button>
+      )}
+    </div>
   );
 }
 
-function CircuitTab({ process, onMove, onEditOperation, onNewOperation, onEditItem, isMobile }) {
+function RecorridosPorItem({ process, onMove }) {
   const operations = (process.operaciones || []).filter((row) => row.activa !== false);
-  // En el celular el circuito completo arranca plegado: primero las acciones,
-  // el panorama sólo si lo pide.
-  const [verCircuito, setVerCircuito] = useState(!isMobile);
+  const items = (process.items || []).filter((row) => row.activo !== false);
+  const recorridos = items
+    .map((item) => {
+      const tramos = operations
+        .filter((op) => (op.componentes || []).some((c) => c.item_id === item.id))
+        .sort((a, b) => (a.viaje ?? 99) - (b.viaje ?? 99) || (a.orden ?? 0) - (b.orden ?? 0));
+      return { ...item, item, tramos };
+    })
+    .filter((row) => row.tramos.length > 0);
+
+  if (!recorridos.length) return null;
 
   return (
-    <div style={{ display: "grid", gap: 18 }}>
-      <AccionesAhora process={process} onMove={onMove} isMobile={isMobile} />
-
-      {isMobile && (
-        <button
-          type="button"
-          onClick={() => setVerCircuito((v) => !v)}
-          style={{
-            display: "flex", alignItems: "center", justifyContent: "center", gap: 7,
-            padding: "10px 12px", borderRadius: 11, cursor: "pointer",
-            border: `1px solid ${C.border}`, background: C.panel, color: C.dim,
-            fontSize: 12.5, fontWeight: 800, fontFamily: C.sans,
-          }}
-        >
-          {verCircuito ? "Ocultar el circuito completo" : `Ver el circuito completo (${operations.length})`}
-        </button>
-      )}
-
-      {(!isMobile || verCircuito) && (
-      <>
+    <section style={{ display: "grid", gap: 13 }}>
       <div style={{
         display: "flex",
         alignItems: "flex-start",
         justifyContent: "space-between",
         gap: 12,
+        flexWrap: "wrap",
       }}>
         <div>
-          <div style={{ color: C.text, fontSize: 14, fontWeight: 900 }}>Ruta de taller</div>
+          <div style={{ color: C.text, fontSize: 14, fontWeight: 900 }}>Circuito por material</div>
           <div style={{ color: C.dim, fontSize: 11.5, lineHeight: 1.45, marginTop: 3 }}>
-            Las piezas pueden viajar separadas y reunirse en pasos posteriores.
+            Cada viaje sale del astillero y termina cuando el material vuelve.
           </div>
         </div>
-        <button type="button" onClick={onNewOperation} style={{ ...BUTTON, flexShrink: 0 }}>
-          <Plus size={14} /> Paso
-        </button>
-      </div>
-      {!operations.length ? (
-        <EmptyCatalogHint />
-      ) : groupRows(operations).map(([group, rows]) => (
-        <section key={group} style={{ display: "grid", gap: 8 }}>
-          <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-            <span style={{
-              width: 8,
-              height: 8,
-              borderRadius: "50%",
-              background: GROUP_COLORS[group] || C.dim,
-            }} />
-            <span style={{ color: C.muted, fontSize: 10.5, fontWeight: 900, letterSpacing: "0.1em", textTransform: "uppercase" }}>
-              {group}
+        <div style={{ display: "flex", alignItems: "center", gap: 9, flexWrap: "wrap" }}>
+          {[
+            [C.blue, "Tornería"],
+            [C.violet, "Plegadora"],
+            [C.green, "En astillero"],
+          ].map(([color, label]) => (
+            <span key={label} style={{
+              display: "inline-flex",
+              alignItems: "center",
+              gap: 5,
+              color: C.dim,
+              fontSize: 9.5,
+              fontWeight: 750,
+            }}>
+              <span style={{ width: 6, height: 6, borderRadius: "50%", background: color }} />
+              {label}
             </span>
-            <span style={{ color: C.dim, fontSize: 10 }}>{rows.filter((row) => row.estado === "recibido").length}/{rows.length}</span>
-          </div>
-          <div className="tor-operation-grid">
-            {rows.map((operation) => (
-              <OperationCard
-                key={operation.id}
-                process={process}
-                operation={operation}
-                onMove={onMove}
-                onEdit={onEditOperation}
-                onEditItem={onEditItem}
-              />
+          ))}
+        </div>
+      </div>
+
+      {groupRows(recorridos).map(([group, rows]) => {
+        const completed = rows.filter((row) => row.tramos.every((operation) => operation.estado === "recibido")).length;
+        return (
+          <section key={group} style={{ display: "grid", gap: 8 }}>
+            <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+              <span style={{
+                width: 8,
+                height: 8,
+                borderRadius: "50%",
+                background: GROUP_COLORS[group] || C.dim,
+              }} />
+              <span style={{
+                color: C.muted,
+                fontSize: 10.5,
+                fontWeight: 900,
+                letterSpacing: "0.09em",
+                textTransform: "uppercase",
+              }}>
+                {group}
+              </span>
+              <span style={{ color: completed === rows.length ? C.green : C.dim, fontSize: 10, fontWeight: 800 }}>
+                {completed}/{rows.length} completos
+              </span>
+            </div>
+
+            {rows.map(({ item, tramos }) => {
+              const currentId = tramos.find((operation) => operation.estado !== "recibido")?.id || null;
+              const complete = !currentId;
+              return (
+                <article key={item.id} className="tor-route-card" style={{
+                  display: "grid",
+                  gap: 11,
+                  padding: 12,
+                  borderRadius: 14,
+                  border: `1px solid ${complete ? C.greenB : C.border}`,
+                  background: complete ? C.greenL : C.panel,
+                }}>
+                  <div style={{
+                    display: "flex",
+                    alignItems: "flex-start",
+                    justifyContent: "space-between",
+                    gap: 10,
+                    flexWrap: "wrap",
+                  }}>
+                    <div style={{ minWidth: 0 }}>
+                      <div style={{ color: C.text, fontSize: 13.5, fontWeight: 900, lineHeight: 1.3 }}>
+                        {item.descripcion}
+                      </div>
+                      <div style={{ color: C.dim, fontSize: 10.5, marginTop: 3 }}>
+                        {qty(item.cantidad)} {item.unidad} · {tramos.length === 1 ? "1 viaje" : `${tramos.length} viajes`}
+                      </div>
+                    </div>
+                    {complete && (
+                      <span style={{
+                        display: "inline-flex",
+                        alignItems: "center",
+                        gap: 5,
+                        color: C.green,
+                        fontSize: 10.5,
+                        fontWeight: 850,
+                      }}>
+                        <Check size={13} /> Circuito completo
+                      </span>
+                    )}
+                  </div>
+
+                  <div className="tor-journey-grid">
+                    {tramos.map((operation, index) => (
+                      <JourneyCard
+                        key={operation.id}
+                        process={process}
+                        operation={operation}
+                        index={index}
+                        current={operation.id === currentId}
+                        onMove={onMove}
+                      />
+                    ))}
+                  </div>
+                </article>
+              );
+            })}
+          </section>
+        );
+      })}
+    </section>
+  );
+}
+
+function CircuitTab({ process, onMove, onEditOperation, onNewOperation, onEditItem }) {
+  const operations = (process.operaciones || []).filter((row) => row.activa !== false);
+  const [showManagement, setShowManagement] = useState(false);
+
+  return (
+    <div style={{ display: "grid", gap: 16 }}>
+      <RecorridosPorItem process={process} onMove={onMove} />
+
+      <section style={{
+        display: "grid",
+        overflow: "hidden",
+        borderRadius: 14,
+        border: `1px solid ${C.border}`,
+        background: C.panel,
+      }}>
+        <button
+          type="button"
+          onClick={() => setShowManagement((value) => !value)}
+          className="tor-management-toggle"
+          aria-expanded={showManagement}
+          style={{
+            width: "100%",
+            display: "grid",
+            gridTemplateColumns: "34px minmax(0,1fr) auto",
+            alignItems: "center",
+            gap: 10,
+            padding: "11px 12px",
+            border: 0,
+            background: "transparent",
+            color: C.text,
+            textAlign: "left",
+            cursor: "pointer",
+            fontFamily: C.sans,
+          }}
+        >
+          <span style={{
+            width: 34,
+            height: 34,
+            display: "grid",
+            placeItems: "center",
+            borderRadius: 10,
+            border: `1px solid ${C.border}`,
+            background: C.panel2,
+            color: C.dim,
+          }}>
+            <Settings2 size={15} />
+          </span>
+          <span style={{ minWidth: 0 }}>
+            <span style={{ display: "block", color: C.text, fontSize: 12.5, fontWeight: 850 }}>
+              Gestión de envíos y pasos
+            </span>
+            <span style={{ display: "block", color: C.dim, fontSize: 10.5, lineHeight: 1.4, marginTop: 2 }}>
+              Editar talleres, piezas, cantidades y movimientos anteriores.
+            </span>
+          </span>
+          <span style={{ display: "inline-flex", alignItems: "center", gap: 7, color: C.dim, fontSize: 10.5, fontWeight: 800 }}>
+            {operations.length}
+            <ChevronRight size={15} style={{
+              transform: showManagement ? "rotate(90deg)" : "none",
+              transition: "transform .16s ease",
+            }} />
+          </span>
+        </button>
+
+        {showManagement && (
+          <div style={{
+            display: "grid",
+            gap: 14,
+            padding: 12,
+            borderTop: `1px solid ${C.border}`,
+            background: C.panelSolid,
+          }}>
+            <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 10 }}>
+              <div>
+                <div style={{ color: C.text, fontSize: 13, fontWeight: 850 }}>Envíos configurados</div>
+                <div style={{ color: C.dim, fontSize: 10.5, lineHeight: 1.4, marginTop: 2 }}>
+                  Un envío puede reunir varias piezas en el mismo viaje.
+                </div>
+              </div>
+              <button type="button" onClick={onNewOperation} style={{ ...BUTTON, minHeight: 34, flexShrink: 0 }}>
+                <Plus size={14} /> Paso
+              </button>
+            </div>
+
+            {!operations.length ? (
+              <EmptyCatalogHint />
+            ) : groupRows(operations).map(([group, rows]) => (
+              <section key={group} style={{ display: "grid", gap: 8 }}>
+                <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                  <span style={{
+                    width: 8,
+                    height: 8,
+                    borderRadius: "50%",
+                    background: GROUP_COLORS[group] || C.dim,
+                  }} />
+                  <span style={{
+                    color: C.muted,
+                    fontSize: 10.5,
+                    fontWeight: 900,
+                    letterSpacing: "0.1em",
+                    textTransform: "uppercase",
+                  }}>
+                    {group}
+                  </span>
+                  <span style={{ color: C.dim, fontSize: 10 }}>
+                    {rows.filter((row) => row.estado === "recibido").length}/{rows.length}
+                  </span>
+                </div>
+                <div className="tor-operation-grid">
+                  {rows.map((operation) => (
+                    <OperationCard
+                      key={operation.id}
+                      process={process}
+                      operation={operation}
+                      onMove={onMove}
+                      onEdit={onEditOperation}
+                      onEditItem={onEditItem}
+                    />
+                  ))}
+                </div>
+              </section>
             ))}
           </div>
-        </section>
-      ))}
-      </>
-      )}
+        )}
+      </section>
     </div>
   );
 }
@@ -1106,6 +1389,34 @@ export default function TorneriaScreen({ profile, signOut }) {
     }
   }
 
+  // Borrar es irreversible y arrastra movimientos, fotos y remitos, así que
+  // pide escribir el código de la obra: un "¿estás seguro?" se acepta sin leer,
+  // y acá el costo de equivocarse es perder el historial entero.
+  async function deleteProcess(process) {
+    if (!process) return;
+    const codigo = process.obra?.codigo || "";
+    const escrito = window.prompt(
+      `Esto borra TODO el seguimiento de tornería de ${codigo}:\n` +
+      `· los pasos del circuito\n· las salidas y regresos\n· las fotos y remitos cargados\n\n` +
+      `No se puede deshacer.\n\nEscribí "${codigo}" para confirmar:`
+    );
+    if (escrito === null) return;
+    if (escrito.trim().toUpperCase() !== codigo.trim().toUpperCase()) {
+      toast.error("El código no coincide. No se borró nada.");
+      return;
+    }
+    try {
+      await borrarProcesoTorneria(process.id);
+      window.localStorage.removeItem("torneria.proceso");
+      setSelectedId(null);
+      setMobileList(true);
+      await load({ quiet: true });
+      toast.success(`Seguimiento de ${codigo} borrado.`);
+    } catch (deleteError) {
+      toast.error(deleteError.message);
+    }
+  }
+
   async function saveProcess(patch) {
     try {
       await actualizarProceso(selected.id, patch);
@@ -1291,9 +1602,14 @@ export default function TorneriaScreen({ profile, signOut }) {
         .tor-process-card:hover{transform:translateY(-1px);border-color:var(--border-2)!important}
         .tor-operation:hover{border-color:var(--border-2)!important;box-shadow:0 10px 26px -24px var(--shadow-strong)}
         .tor-form-grid{display:grid;grid-template-columns:1fr 1fr;gap:12px}
-        .tor-accion{transition:transform .12s ease,filter .12s ease}
-        .tor-accion:hover{filter:brightness(1.06)}
-        .tor-accion:active{transform:scale(.985)}
+        .tor-route-card,.tor-journey-card{transition:border-color .16s ease,box-shadow .16s ease}
+        .tor-route-card:hover{border-color:var(--border-2)!important;box-shadow:0 12px 30px -28px var(--shadow-strong)}
+        .tor-journey-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,240px),1fr));gap:8px}
+        .tor-journey-path{display:flex;align-items:center;gap:5px;min-width:0;overflow-x:auto;padding-bottom:2px}
+        .tor-route-node{min-height:28px;display:inline-flex;align-items:center;gap:5px;flex-shrink:0;padding:4px 7px;border:1px solid var(--border);border-radius:8px;font-size:9.5px;font-weight:850;white-space:nowrap}
+        .tor-route-action,.tor-management-toggle{transition:filter .14s ease,transform .1s ease,background .14s ease}
+        .tor-route-action:hover,.tor-management-toggle:hover{filter:brightness(1.05)}
+        .tor-route-action:active{transform:scale(.985)}
         .tor-kpi{transition:border-color .14s ease,background .14s ease,transform .1s ease}
         .tor-kpi:hover{border-color:var(--border-2)}
         .tor-kpi:active{transform:scale(.97)}
@@ -1513,9 +1829,23 @@ export default function TorneriaScreen({ profile, signOut }) {
                           </div>
                         </div>
                       </div>
-                      <button type="button" onClick={() => setModal({ type: "process" })} style={{ ...BUTTON, flexShrink: 0 }}>
-                        <Settings2 size={14} /> {!isMobile && "Editar"}
-                      </button>
+                      <div style={{ display: "flex", gap: 6, flexShrink: 0 }}>
+                        <button type="button" onClick={() => setModal({ type: "process" })} style={{ ...BUTTON, flexShrink: 0 }}>
+                          <Settings2 size={14} /> {!isMobile && "Editar"}
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => deleteProcess(selected)}
+                          title="Borrar todo el seguimiento de esta obra"
+                          aria-label="Borrar seguimiento"
+                          style={{
+                            ...BUTTON, flexShrink: 0, width: isMobile ? 39 : undefined, padding: isMobile ? 0 : undefined,
+                            borderColor: C.redB, background: C.redL, color: C.red,
+                          }}
+                        >
+                          <Trash2 size={14} /> {!isMobile && "Borrar"}
+                        </button>
+                      </div>
                     </div>
                     <div style={{ display: "grid", gridTemplateColumns: "minmax(0,1fr) auto", gap: 10, alignItems: "center" }}>
                       <ProgressBar value={selectedProgress} color={selectedProgress === 100 ? C.green : C.blue} />
@@ -1585,7 +1915,6 @@ export default function TorneriaScreen({ profile, signOut }) {
                         onEditOperation={(operation) => setModal({ type: "operation", operation })}
                         onNewOperation={() => setModal({ type: "operation", operation: null })}
                         onEditItem={(item) => setModal({ type: "item", item })}
-                        isMobile={isMobile}
                       />
                     )}
                     {tab === "materiales" && (
