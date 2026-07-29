@@ -99,36 +99,31 @@ function safeFilePart(value) {
     .slice(0, 80);
 }
 
-export function isPurchaseManager(profile) {
-  return !!profile?.is_admin || profile?.role === "admin" || profile?.role === "compras";
+export const PURCHASE_ATTACHMENT_MAX_BYTES = 50 * 1024 * 1024;
+export const PURCHASE_ATTACHMENT_MAX_COUNT = 10;
+export const COMMENT_ATTACHMENT_MAX_COUNT = 6;
+
+function fileExtension(fileName = "") {
+  const parts = String(fileName || "").toLowerCase().split(".");
+  return parts.length > 1 ? safeFilePart(parts.pop()) : "";
 }
 
-export function usernameOf(profile) {
-  return profile?.username || profile?.nombre_completo || "Sin nombre";
+function attachmentContentType(file) {
+  const ext = fileExtension(file?.name);
+  // Evita servir contenido activo inline desde el bucket publico.
+  if (["html", "htm", "svg", "js", "mjs"].includes(ext)) return "application/octet-stream";
+  return String(file?.type || "").trim() || "application/octet-stream";
 }
 
-export async function uploadPurchaseRequestPhoto(file, userId) {
-  if (!file) return { photoUrl: null, photoPath: null };
-
-  const ext = safeFilePart(file.name.split(".").pop() || "jpg").toLowerCase();
-  const id = crypto.randomUUID?.() || `${Date.now()}-${Math.random().toString(36).slice(2)}`;
-  const path = `${userId}/${Date.now()}-${id}.${ext}`;
-
-  const { error } = await supabase.storage
-    .from(PURCHASE_PHOTOS_BUCKET)
-    .upload(path, file, {
-      cacheControl: "3600",
-      contentType: file.type || "image/jpeg",
-      upsert: false,
-    });
-
-  if (error) throw error;
-
-  const { data } = supabase.storage.from(PURCHASE_PHOTOS_BUCKET).getPublicUrl(path);
-  return { photoUrl: data.publicUrl, photoPath: path };
+export function validatePurchaseAttachment(file) {
+  if (!file) throw new Error("Seleccioná un archivo.");
+  if (Number(file.size || 0) > PURCHASE_ATTACHMENT_MAX_BYTES) {
+    throw new Error(`“${file.name}” supera el límite de 50 MB.`);
+  }
+  return file;
 }
 
-export function normalizeCommentAttachments(value) {
+function normalizeAttachmentEntries(value) {
   let entries = value;
   if (typeof entries === "string") {
     try { entries = JSON.parse(entries); }
@@ -141,49 +136,110 @@ export function normalizeCommentAttachments(value) {
     .map((item) => ({
       url: item.url,
       path: String(item.path || ""),
-      name: String(item.name || "Imagen"),
-      type: String(item.type || "image/jpeg"),
+      name: String(item.name || "Archivo adjunto"),
+      type: String(item.type || "application/octet-stream"),
       size: Number(item.size) || 0,
     }));
 }
 
-export async function uploadRequestCommentImages(requestId, files, userId) {
-  const imageFiles = Array.from(files || []);
-  if (!imageFiles.length) return [];
-  if (!requestId || !userId) throw new Error("No se pudo identificar el pedido o el usuario.");
+export function isPurchaseManager(profile) {
+  return !!profile?.is_admin || profile?.role === "admin" || profile?.role === "compras";
+}
 
-  return Promise.all(imageFiles.map(async (file) => {
-    if (!String(file.type || "").startsWith("image/")) {
-      throw new Error(`“${file.name}” no es una imagen.`);
-    }
-    if (file.size > 10 * 1024 * 1024) {
-      throw new Error(`“${file.name}” supera el límite de 10 MB.`);
-    }
+export function usernameOf(profile) {
+  return profile?.username || profile?.nombre_completo || "Sin nombre";
+}
 
-    const ext = safeFilePart(file.name.split(".").pop() || "jpg").toLowerCase();
+export async function uploadPurchaseRequestAttachments(files, userId, folder = "requests") {
+  const selectedFiles = Array.from(files || []);
+  if (!selectedFiles.length) return [];
+  if (!userId) throw new Error("No se pudo identificar al usuario.");
+  if (selectedFiles.length > PURCHASE_ATTACHMENT_MAX_COUNT) {
+    throw new Error(`Podés adjuntar hasta ${PURCHASE_ATTACHMENT_MAX_COUNT} archivos por pedido.`);
+  }
+
+  return Promise.all(selectedFiles.map(async (file) => {
+    validatePurchaseAttachment(file);
+    const ext = fileExtension(file.name);
     const id = crypto.randomUUID?.() || `${Date.now()}-${Math.random().toString(36).slice(2)}`;
-    const path = `comments/${requestId}/${userId}/${Date.now()}-${id}.${ext}`;
+    const path = `${folder}/${userId}/${Date.now()}-${id}${ext ? `.${ext}` : ""}`;
+    const contentType = attachmentContentType(file);
+
     const { error } = await supabase.storage
       .from(PURCHASE_PHOTOS_BUCKET)
       .upload(path, file, {
         cacheControl: "3600",
-        contentType: file.type || "image/jpeg",
+        contentType,
         upsert: false,
       });
-
     if (error) throw error;
+
     const { data } = supabase.storage.from(PURCHASE_PHOTOS_BUCKET).getPublicUrl(path);
     return {
       url: data.publicUrl,
       path,
       name: file.name,
-      type: file.type || "image/jpeg",
+      type: contentType,
       size: file.size,
     };
   }));
 }
 
-export async function createPurchaseRequest({ form, ccUserIds = [], photoFile }) {
+export async function uploadPurchaseRequestPhoto(file, userId) {
+  if (!file) return { photoUrl: null, photoPath: null };
+  const [attachment] = await uploadPurchaseRequestAttachments([file], userId);
+  return {
+    photoUrl: attachment?.url || null,
+    photoPath: attachment?.path || null,
+  };
+}
+
+export function normalizeCommentAttachments(value) {
+  return normalizeAttachmentEntries(value);
+}
+
+export function normalizePurchaseRequestAttachments(request = {}) {
+  const stored = normalizeAttachmentEntries(request.attachments);
+  if (stored.length) return stored;
+
+  const urls = Array.isArray(request.photo_urls) && request.photo_urls.length
+    ? request.photo_urls
+    : request.photo_url ? [request.photo_url] : [];
+  return urls
+    .filter((url) => typeof url === "string" && /^https?:\/\//i.test(url))
+    .map((url, index) => ({
+      url,
+      path: index === 0 ? String(request.photo_path || "") : "",
+      name: urls.length > 1 ? `Adjunto ${index + 1}` : "Adjunto del pedido",
+      type: "application/octet-stream",
+      size: 0,
+    }));
+}
+
+export async function uploadRequestCommentAttachments(requestId, files, userId) {
+  const selectedFiles = Array.from(files || []);
+  if (!selectedFiles.length) return [];
+  if (!requestId || !userId) throw new Error("No se pudo identificar el pedido o el usuario.");
+  if (selectedFiles.length > COMMENT_ATTACHMENT_MAX_COUNT) {
+    throw new Error(`Podés adjuntar hasta ${COMMENT_ATTACHMENT_MAX_COUNT} archivos por mensaje.`);
+  }
+  return uploadPurchaseRequestAttachments(selectedFiles, userId, `comments/${requestId}`);
+}
+
+// Alias temporal para otros flujos que todavía importan el nombre anterior.
+export const uploadRequestCommentImages = uploadRequestCommentAttachments;
+
+function isMissingRequestAttachments(error) {
+  const message = String(error?.message || "").toLowerCase();
+  return message.includes("attachments") && (
+    error?.code === "42703"
+    || error?.code === "PGRST204"
+    || message.includes("column")
+    || message.includes("schema cache")
+  );
+}
+
+export async function createPurchaseRequest({ form, ccUserIds = [], photoFile = null, attachmentFiles = [] }) {
   // Usamos getSession (lee de localStorage) en vez de getUser (golpea servidor y
   // puede gatillar un refresh que invalide la sesión si el refresh token está roto).
   const { data: { session } = {}, error: authError } = await supabase.auth.getSession();
@@ -191,13 +247,18 @@ export async function createPurchaseRequest({ form, ccUserIds = [], photoFile })
   const userId = session?.user?.id;
   if (!userId) throw new Error("No hay usuario autenticado.");
 
-  const { photoUrl, photoPath } = await uploadPurchaseRequestPhoto(photoFile, userId);
+  const selectedFiles = attachmentFiles?.length
+    ? Array.from(attachmentFiles)
+    : photoFile ? [photoFile] : [];
+  const attachments = await uploadPurchaseRequestAttachments(selectedFiles, userId);
+  const legacyAttachment = attachments.find((item) => item.type.startsWith("image/")) || attachments[0] || null;
 
   const payload = {
     title: form.title.trim(),
     description: form.description.trim() || null,
-    photo_url: photoUrl,
-    photo_path: photoPath,
+    photo_url: legacyAttachment?.url || null,
+    photo_path: legacyAttachment?.path || null,
+    attachments,
     priority: form.priority || "media",
     status: "nuevo",
     project_id: form.project_id || null,
@@ -210,11 +271,21 @@ export async function createPurchaseRequest({ form, ccUserIds = [], photoFile })
     created_by: userId,
   };
 
-  const { data: request, error } = await supabase
+  let { data: request, error } = await supabase
     .from("purchase_requests")
     .insert(payload)
     .select(REQUEST_SELECT)
     .single();
+
+  if (error && isMissingRequestAttachments(error)) {
+    const legacyPayload = { ...payload };
+    delete legacyPayload.attachments;
+    ({ data: request, error } = await supabase
+      .from("purchase_requests")
+      .insert(legacyPayload)
+      .select(REQUEST_SELECT)
+      .single());
+  }
 
   if (error) throw error;
 
@@ -401,7 +472,7 @@ export async function addRequestComment(requestId, body, users = [], attachments
   const clean = body.trim();
   const cleanAttachments = normalizeCommentAttachments(attachments);
   if (!clean && !cleanAttachments.length) return null;
-  const storedBody = clean || `${cleanAttachments.length} imagen${cleanAttachments.length === 1 ? "" : "es"} adjunta${cleanAttachments.length === 1 ? "" : "s"}`;
+  const storedBody = clean || `${cleanAttachments.length} archivo${cleanAttachments.length === 1 ? "" : "s"} adjunto${cleanAttachments.length === 1 ? "" : "s"}`;
 
   // getSession lee localStorage (no dispara refresh ni cierra sesión si el
   // refresh token está vencido). Solo necesitamos el uid para llenar author_id;
@@ -428,7 +499,7 @@ export async function addRequestComment(requestId, body, users = [], attachments
   }
 
   if (error && isMissingCommentAttachments(error)) {
-    throw new Error("Falta aplicar la migración de imágenes del chat de Compras en Supabase.");
+    throw new Error("Falta aplicar la migración de archivos adjuntos de Compras en Supabase.");
   }
 
   if (error) throw error;

@@ -9,7 +9,6 @@ import {
   CheckCircle2,
   Clock,
   Filter,
-  ImagePlus,
   Inbox,
   LayoutGrid,
   LayoutList,
@@ -17,6 +16,7 @@ import {
   PackageSearch,
   Plus,
   MessageSquare,
+  Paperclip,
   Search,
   ShoppingCart,
   Table2,
@@ -68,9 +68,11 @@ import {
   isPurchaseManager,
   notifyComprasEmail,
   notifyWaUpdate,
+  PURCHASE_ATTACHMENT_MAX_COUNT,
   REQUEST_PRIORITIES,
   REQUEST_STATUSES,
   updateComprasAviso,
+  validatePurchaseAttachment,
   usernameOf,
 } from "@/features/compras/purchaseRequestsApi";
 
@@ -149,6 +151,13 @@ const labelStyle = {
 function fmtDate(value) {
   if (!value) return "-";
   return new Date(value).toLocaleDateString("es-AR", { day: "2-digit", month: "2-digit", year: "2-digit" });
+}
+
+function fmtFileSize(bytes) {
+  const value = Number(bytes || 0);
+  if (!value) return "0 KB";
+  if (value < 1024 * 1024) return `${Math.max(1, Math.round(value / 1024))} KB`;
+  return `${(value / (1024 * 1024)).toFixed(value >= 10 * 1024 * 1024 ? 0 : 1)} MB`;
 }
 
 function Chip({ children, color = C.blue, size = "sm" }) {
@@ -285,7 +294,7 @@ function RequestCard({ request, onClick, isUnread }) {
               <Users size={10} /> {request.followers.length}
             </span>
           )}
-          {request.photo_url && <ImagePlus size={10} color={C.dim} />}
+          {(request.attachments?.length || request.photo_url) && <Paperclip size={10} color={C.dim} />}
         </div>
       </div>
     </button>
@@ -373,7 +382,7 @@ function RequestRow({ request, onClick, isUnread }) {
         <span style={{ fontSize: 11, color: C.dim, fontFamily: C.mono, whiteSpace: "nowrap" }}>
           {fmtDate(request.created_at)}
         </span>
-        {request.photo_url && <ImagePlus size={11} color={C.dim} />}
+        {(request.attachments?.length || request.photo_url) && <Paperclip size={11} color={C.dim} />}
         {(request.followers?.length || 0) > 0 && (
           <span style={{ display: "inline-flex", alignItems: "center", gap: 2, color: C.dim, fontSize: 10, fontFamily: C.mono }}>
             <Users size={10} /> {request.followers.length}
@@ -731,7 +740,7 @@ export default function PurchaseRequestsScreen({ profile, signOut }) {
     return tab === "cc" || tab === "avisos" ? tab : "mine";
   });
   const [showNew, setShowNew] = useState(true);
-  const [photoFile, setPhotoFile] = useState(null);
+  const [attachmentFiles, setAttachmentFiles] = useState([]);
   const [ccUserIds, setCcUserIds] = useState([]);
   const [form, setForm] = useState(emptyForm);
   const [saving, setSaving] = useState(false);
@@ -1054,6 +1063,27 @@ export default function PurchaseRequestsScreen({ profile, signOut }) {
     [avisos],
   );
 
+  function addCreateAttachments(fileList) {
+    const incoming = Array.from(fileList || []);
+    if (!incoming.length) return;
+    try {
+      incoming.forEach(validatePurchaseAttachment);
+    } catch (err) {
+      toast.error(err.message || "No se pudo adjuntar el archivo.");
+      return;
+    }
+
+    setAttachmentFiles((current) => {
+      const keys = new Set(current.map((file) => `${file.name}:${file.size}:${file.lastModified}`));
+      const unique = incoming.filter((file) => !keys.has(`${file.name}:${file.size}:${file.lastModified}`));
+      const available = Math.max(0, PURCHASE_ATTACHMENT_MAX_COUNT - current.length);
+      if (unique.length > available) {
+        toast.warning(`Podés adjuntar hasta ${PURCHASE_ATTACHMENT_MAX_COUNT} archivos por pedido.`);
+      }
+      return [...current, ...unique.slice(0, available)];
+    });
+  }
+
   function resetCreateDraft(showToast = false) {
     try {
       if (profile?.id) localStorage.removeItem(createDraftKey(profile.id));
@@ -1062,7 +1092,7 @@ export default function PurchaseRequestsScreen({ profile, signOut }) {
     setDraftSavedAt(null);
     setForm(emptyForm);
     setCcUserIds([]);
-    setPhotoFile(null);
+    setAttachmentFiles([]);
     setCreateItems([]);
     setNewItemDesc("");
     setNewItemQty("");
@@ -1153,7 +1183,7 @@ export default function PurchaseRequestsScreen({ profile, signOut }) {
         project_id: obraMatch ? obraMatch.id : null,
         destino: obraMatch ? null : (destTxt || null),
       };
-      const request = await createPurchaseRequest({ form: formResuelto, ccUserIds, photoFile });
+      const request = await createPurchaseRequest({ form: formResuelto, ccUserIds, attachmentFiles });
       if (createItems.length) {
         await Promise.all(createItems.map((item) => addRequestItem(request.id, item)));
       }
@@ -1803,25 +1833,70 @@ export default function PurchaseRequestsScreen({ profile, signOut }) {
                   </div>
 
                   <div>
-                    <div style={labelStyle}>Foto adjunta</div>
+                    <div style={labelStyle}>Archivos adjuntos</div>
                     <label style={{
                       display: "flex",
                       alignItems: "center",
-                      gap: 8,
-                      border: `1px dashed ${photoFile ? C.blue + "55" : C.border2}`,
-                      borderRadius: 8,
-                      padding: 11,
-                      color: photoFile ? C.blue : C.dim,
-                      cursor: "pointer",
-                      background: photoFile ? "rgba(96,165,250,0.05)" : C.panel,
-                      transition: "all .13s",
+                      gap: 10,
+                      border: `1px dashed ${attachmentFiles.length ? C.blueB : C.border2}`,
+                      borderRadius: 9,
+                      padding: "10px 12px",
+                      color: attachmentFiles.length ? C.blue : C.dim,
+                      cursor: attachmentFiles.length >= PURCHASE_ATTACHMENT_MAX_COUNT ? "default" : "pointer",
+                      background: attachmentFiles.length ? C.blueL : C.panel,
+                      transition: "border-color .13s, background .13s",
+                      opacity: attachmentFiles.length >= PURCHASE_ATTACHMENT_MAX_COUNT ? 0.7 : 1,
                     }}>
-                      <ImagePlus size={15} />
-                      <span style={{ minWidth: 0, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", fontSize: 13 }}>
-                        {photoFile?.name || "Seleccionar imagen"}
+                      <Paperclip size={16} />
+                      <span style={{ minWidth: 0, flex: 1 }}>
+                        <span style={{ display: "block", color: attachmentFiles.length ? C.blue : C.text, fontSize: 13, fontWeight: 800 }}>
+                          {attachmentFiles.length ? "Agregar más archivos" : "Seleccionar archivos"}
+                        </span>
+                        <span style={{ display: "block", color: C.dim, fontSize: 10.5, marginTop: 2 }}>
+                          PDF, DXF, DWG, Office, ZIP, imágenes y otros · máximo 50 MB por archivo
+                        </span>
                       </span>
-                      <input type="file" accept="image/*" onChange={(e) => setPhotoFile(e.target.files?.[0] || null)} style={{ display: "none" }} />
+                      <input
+                        type="file"
+                        multiple
+                        disabled={attachmentFiles.length >= PURCHASE_ATTACHMENT_MAX_COUNT}
+                        onChange={(event) => {
+                          addCreateAttachments(event.target.files);
+                          event.target.value = "";
+                        }}
+                        style={{ display: "none" }}
+                      />
                     </label>
+                    {attachmentFiles.length > 0 && (
+                      <div style={{ display: "grid", gap: 5, marginTop: 7 }}>
+                        {attachmentFiles.map((file) => (
+                          <div key={`${file.name}-${file.size}-${file.lastModified}`} style={{
+                            display: "grid",
+                            gridTemplateColumns: "28px minmax(0, 1fr) auto 28px",
+                            gap: 8,
+                            alignItems: "center",
+                            border: `1px solid ${C.border}`,
+                            background: C.panelSolid,
+                            borderRadius: 8,
+                            padding: "7px 8px",
+                          }}>
+                            <span style={{ width: 28, height: 28, display: "grid", placeItems: "center", borderRadius: 7, background: C.blueL, color: C.blue }}>
+                              <Paperclip size={13} />
+                            </span>
+                            <span style={{ minWidth: 0, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", color: C.text, fontSize: 12, fontWeight: 750 }}>{file.name}</span>
+                            <span style={{ color: C.dim, fontFamily: C.mono, fontSize: 10.5 }}>{fmtFileSize(file.size)}</span>
+                            <button
+                              type="button"
+                              onClick={() => setAttachmentFiles((current) => current.filter((item) => item !== file))}
+                              title={`Quitar ${file.name}`}
+                              style={{ width: 28, height: 28, display: "grid", placeItems: "center", border: `1px solid ${C.border}`, background: C.panel, color: C.dim, borderRadius: 7, cursor: "pointer" }}
+                            >
+                              <X size={13} />
+                            </button>
+                          </div>
+                        ))}
+                      </div>
+                    )}
                   </div>
 
                   <div>

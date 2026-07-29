@@ -140,6 +140,18 @@ function ParadaAdminRow({ parada, idx, total, onMove, onDelete }) {
         {parada.direccion && <div style={{ fontSize: 11.5, color: C.dim, marginTop: 2, display: "flex", alignItems: "center", gap: 4 }}><MapPin size={11} /> {parada.direccion}</div>}
         {parada.estado === "hecho" && parada.importe != null && <div style={{ fontSize: 12, color: C.green, fontWeight: 850, marginTop: 3, fontFamily: C.mono }}>{fmtMoney(parada.importe, parada.moneda)}</div>}
         {parada.estado === "no_pude" && parada.motivo && <div style={{ fontSize: 11.5, color: C.red, marginTop: 3 }}>Motivo: {parada.motivo}</div>}
+        {/* Compras arma la ruta y después rinde la caja: acá es donde el remito
+            hace falta para cruzar el gasto contra el comprobante. */}
+        {parada.comprobante_url && (
+          <a
+            href={parada.comprobante_url}
+            target="_blank"
+            rel="noreferrer"
+            style={{ display: "inline-flex", alignItems: "center", gap: 5, marginTop: 4, color: C.blue, fontSize: 11.5, fontWeight: 800, textDecoration: "none" }}
+          >
+            <Camera size={12} /> Ver remito
+          </a>
+        )}
       </div>
       <button type="button" onClick={() => onDelete(parada)} title="Quitar" style={{ ...BTN_GHOST, padding: "6px 8px", color: C.red, borderColor: C.redB }}><Trash2 size={14} /></button>
     </div>
@@ -165,7 +177,12 @@ function ParadaCadeteCard({ parada, idx, onMarcar, onReset, rutaId }) {
       let comprobante_url = null;
       if (file) {
         try { comprobante_url = await uploadComprobanteParada(rutaId, file); }
-        catch { toast.warning("No se pudo subir la foto, se marca igual."); }
+        catch (e) {
+          // El motivo real importa: casi siempre es permiso del bucket, y
+          // tragárselo hacía imposible distinguir "no subió" de "subió pero no
+          // se ve". Se sigue marcando igual porque el cadete está en la calle.
+          toast.warning(`No se pudo subir la foto (${e?.message || "error desconocido"}). La parada se marca igual.`);
+        }
       }
       await onMarcar(parada, { estado: "hecho", importe, moneda, comprobante_url });
       setMode(null); setImporte(""); setFile(null);
@@ -201,6 +218,37 @@ function ParadaCadeteCard({ parada, idx, onMarcar, onReset, rutaId }) {
           {parada.direccion && <div style={{ fontSize: 12.5, color: C.blue, marginTop: 4, display: "flex", alignItems: "center", gap: 4 }}><MapPin size={13} /> {parada.direccion}</div>}
           {parada.estado === "hecho" && parada.importe != null && <div style={{ fontSize: 13.5, color: C.green, fontWeight: 900, marginTop: 5, fontFamily: C.mono }}>{fmtMoney(parada.importe, parada.moneda)}</div>}
           {parada.estado === "no_pude" && parada.motivo && <div style={{ fontSize: 12.5, color: C.red, marginTop: 5 }}>Motivo: {parada.motivo}</div>}
+          {/* El remito se subía y quedaba invisible: nadie podía verlo desde
+              ninguna pantalla, así que parecía que no se había guardado. */}
+          {parada.comprobante_url && (
+            <a
+              href={parada.comprobante_url}
+              target="_blank"
+              rel="noreferrer"
+              style={{
+                display: "inline-flex",
+                alignItems: "center",
+                gap: 8,
+                marginTop: 8,
+                padding: 5,
+                paddingRight: 11,
+                borderRadius: 10,
+                border: `1px solid ${C.border}`,
+                background: C.panel2,
+                color: C.blue,
+                fontSize: 12.5,
+                fontWeight: 850,
+                textDecoration: "none",
+              }}
+            >
+              <img
+                src={parada.comprobante_url}
+                alt="Remito"
+                style={{ width: 34, height: 34, borderRadius: 7, objectFit: "cover", display: "block" }}
+              />
+              Ver remito
+            </a>
+          )}
         </div>
       </div>
 

@@ -8,6 +8,11 @@ import {
   CheckCircle2,
   Clock,
   Copy,
+  ExternalLink,
+  File,
+  FileArchive,
+  FileSpreadsheet,
+  FileText,
   Image as ImageIcon,
   MessageSquare,
   Paperclip,
@@ -47,8 +52,11 @@ import {
   updatePurchaseRequest,
   uploadInvoice,
   uploadItemImage,
-  uploadRequestCommentImages,
+  COMMENT_ATTACHMENT_MAX_COUNT,
   normalizeCommentAttachments,
+  normalizePurchaseRequestAttachments,
+  uploadRequestCommentAttachments,
+  validatePurchaseAttachment,
   usernameOf,
 } from "@/features/compras/purchaseRequestsApi";
 import { printPurchaseRequest } from "@/features/compras/printPurchaseRequest";
@@ -311,6 +319,146 @@ function ArchivedBanner({ status }) {
   );
 }
 
+function attachmentExtension(attachment) {
+  const name = String(attachment?.name || attachment?.path || attachment?.url || "");
+  const cleanName = name.split("?")[0].split("#")[0];
+  const part = cleanName.includes(".") ? cleanName.split(".").pop() : "";
+  return String(part || "").toLowerCase().slice(0, 8);
+}
+
+function isImageAttachment(attachment) {
+  if (String(attachment?.type || "").toLowerCase().startsWith("image/")) return true;
+  return ["jpg", "jpeg", "png", "webp", "gif", "bmp", "avif"].includes(attachmentExtension(attachment));
+}
+
+function isImageFile(file) {
+  return isImageAttachment({ name: file?.name, type: file?.type });
+}
+
+function fmtFileSize(bytes) {
+  const value = Number(bytes || 0);
+  if (!value) return "";
+  if (value < 1024) return `${value} B`;
+  if (value < 1024 * 1024) return `${Math.round(value / 1024)} KB`;
+  return `${(value / (1024 * 1024)).toFixed(value >= 10 * 1024 * 1024 ? 0 : 1)} MB`;
+}
+
+function AttachmentTypeIcon({ attachment, size = 18 }) {
+  const ext = attachmentExtension(attachment);
+  if (isImageAttachment(attachment)) return <ImageIcon size={size} />;
+  if (["xls", "xlsx", "csv", "ods"].includes(ext)) return <FileSpreadsheet size={size} />;
+  if (["zip", "rar", "7z", "tar", "gz"].includes(ext)) return <FileArchive size={size} />;
+  if (["pdf", "doc", "docx", "txt", "rtf"].includes(ext)) return <FileText size={size} />;
+  return <File size={size} />;
+}
+
+function AttachmentCard({ attachment, onOpenImage, compact = false }) {
+  if (!isHttpUrl(attachment?.url)) return null;
+
+  const name = attachment.name || `Archivo.${attachmentExtension(attachment) || "adjunto"}`;
+  const ext = attachmentExtension(attachment);
+  const size = fmtFileSize(attachment.size);
+
+  if (isImageAttachment(attachment)) {
+    return (
+      <button
+        type="button"
+        onClick={() => onOpenImage?.(attachment)}
+        title={`Ampliar ${name}`}
+        style={{
+          position: "relative",
+          display: "block",
+          width: "100%",
+          minWidth: 0,
+          padding: 0,
+          border: `1px solid ${C.border}`,
+          borderRadius: 9,
+          overflow: "hidden",
+          background: C.panel2,
+          color: C.text,
+          cursor: "zoom-in",
+          textAlign: "left",
+        }}
+      >
+        <img
+          src={attachment.url}
+          alt={name}
+          loading="lazy"
+          style={{
+            width: "100%",
+            height: compact ? 92 : 132,
+            objectFit: "cover",
+            display: "block",
+          }}
+        />
+        <span style={{
+          display: "block",
+          padding: "7px 9px",
+          overflow: "hidden",
+          textOverflow: "ellipsis",
+          whiteSpace: "nowrap",
+          fontSize: 11,
+          fontWeight: 700,
+        }}>
+          {name}
+        </span>
+      </button>
+    );
+  }
+
+  return (
+    <a
+      href={attachment.url}
+      target="_blank"
+      rel="noreferrer"
+      download={name}
+      title={`Abrir o descargar ${name}`}
+      style={{
+        display: "flex",
+        alignItems: "center",
+        gap: 10,
+        minWidth: 0,
+        padding: compact ? "9px 10px" : "11px 12px",
+        border: `1px solid ${C.border}`,
+        borderRadius: 9,
+        background: C.panel2,
+        color: C.text,
+        textDecoration: "none",
+      }}
+    >
+      <span style={{
+        width: compact ? 32 : 38,
+        height: compact ? 32 : 38,
+        flexShrink: 0,
+        borderRadius: 8,
+        display: "grid",
+        placeItems: "center",
+        color: C.blue,
+        background: "rgba(96,165,250,0.1)",
+        border: "1px solid rgba(96,165,250,0.22)",
+      }}>
+        <AttachmentTypeIcon attachment={attachment} size={compact ? 16 : 18} />
+      </span>
+      <span style={{ minWidth: 0, flex: 1 }}>
+        <span style={{
+          display: "block",
+          overflow: "hidden",
+          textOverflow: "ellipsis",
+          whiteSpace: "nowrap",
+          fontSize: 12,
+          fontWeight: 750,
+        }}>
+          {name}
+        </span>
+        <span style={{ display: "block", marginTop: 2, color: C.dim, fontSize: 10, textTransform: "uppercase" }}>
+          {[ext || "archivo", size].filter(Boolean).join(" · ")}
+        </span>
+      </span>
+      <ExternalLink size={14} style={{ color: C.dim, flexShrink: 0 }} />
+    </a>
+  );
+}
+
 function ChatImageViewer({ attachment, onClose }) {
   useEffect(() => {
     if (!attachment) return undefined;
@@ -379,7 +527,7 @@ export default function PurchaseRequestDetail({ requestId, profile, users = [], 
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
   const [message, setMessage] = useState("");
-  const [commentImages, setCommentImages] = useState([]);
+  const [commentFiles, setCommentFiles] = useState([]);
   const [openChatImage, setOpenChatImage] = useState(null);
   // En mobile el panel lateral (involucrados / copia / detalles) arranca oculto
   // y se muestra con un botón, para priorizar título + descripción + chat.
@@ -406,20 +554,26 @@ export default function PurchaseRequestDetail({ requestId, profile, users = [], 
   const [savingFollowerWa, setSavingFollowerWa] = useState(false);
   const bottomRef = useRef(null);
   const commentFileRef = useRef(null);
-  const commentImagesRef = useRef([]);
+  const commentFilesRef = useRef([]);
   const reloadTimer = useRef(null);
   const toast = useToast();
   const confirm = useConfirm();
 
   useEffect(() => {
-    commentImagesRef.current = commentImages;
-  }, [commentImages]);
+    commentFilesRef.current = commentFiles;
+  }, [commentFiles]);
 
   useEffect(() => () => {
-    commentImagesRef.current.forEach((item) => URL.revokeObjectURL(item.preview));
+    commentFilesRef.current.forEach((item) => {
+      if (item.preview) URL.revokeObjectURL(item.preview);
+    });
   }, []);
 
   const manager = isPurchaseManager(profile);
+  const requestAttachments = useMemo(
+    () => normalizePurchaseRequestAttachments(request || {}),
+    [request],
+  );
   const itemsParaPanol = useMemo(
     () => items.filter((it) => !["en_panol", "recibido", "cancelado"].includes(it.status)),
     [items]
@@ -442,7 +596,7 @@ export default function PurchaseRequestDetail({ requestId, profile, users = [], 
         variante: it.variante || "",
       })),
     };
-  }, [request?.id, request?.project_id, request?.title, itemsParaPanol]);
+  }, [request, itemsParaPanol]);
   const myFollower = useMemo(
     () => (request?.followers || []).find((item) => item.user_id === profile?.id),
     [request?.followers, profile?.id],
@@ -820,18 +974,18 @@ export default function PurchaseRequestDetail({ requestId, profile, users = [], 
 
   async function sendComment(e) {
     e.preventDefault();
-    if (!message.trim() && !commentImages.length) return;
+    if (!message.trim() && !commentFiles.length) return;
     setSending(true);
     setError("");
     try {
       const body = message.trim();
-      const attachments = await uploadRequestCommentImages(
+      const attachments = await uploadRequestCommentAttachments(
         request.id,
-        commentImages.map((item) => item.file),
+        commentFiles.map((item) => item.file),
         profile?.id,
       );
       await addRequestComment(request.id, body, users, attachments);
-      const notificationBody = body || `${attachments.length} imagen${attachments.length === 1 ? "" : "es"} adjunta${attachments.length === 1 ? "" : "s"}`;
+      const notificationBody = body || `${attachments.length} archivo${attachments.length === 1 ? "" : "s"} adjunto${attachments.length === 1 ? "" : "s"}`;
       notifyComprasEmail({
         type: "new_message",
         requestId: request.id,
@@ -847,8 +1001,10 @@ export default function PurchaseRequestDetail({ requestId, profile, users = [], 
         payload: { body: notificationBody, attachmentCount: attachments.length, actorName: profile?.username || "Usuario" },
       });
       setMessage("");
-      commentImages.forEach((item) => URL.revokeObjectURL(item.preview));
-      setCommentImages([]);
+      commentFiles.forEach((item) => {
+        if (item.preview) URL.revokeObjectURL(item.preview);
+      });
+      setCommentFiles([]);
       await load();
     } catch (err) {
       setError(err.message);
@@ -858,35 +1014,42 @@ export default function PurchaseRequestDetail({ requestId, profile, users = [], 
     }
   }
 
-  function addCommentImages(fileList) {
-    const incoming = Array.from(fileList || []).filter((file) => String(file.type || "").startsWith("image/"));
+  function addCommentFiles(fileList) {
+    const incoming = Array.from(fileList || []);
     if (!incoming.length) {
-      toast.error("Seleccioná una imagen JPG, PNG, WEBP o GIF.");
+      toast.error("Seleccioná al menos un archivo.");
       return;
     }
-    const tooLarge = incoming.find((file) => file.size > 10 * 1024 * 1024);
-    if (tooLarge) {
-      toast.error(`“${tooLarge.name}” supera el límite de 10 MB.`);
+
+    try {
+      incoming.forEach(validatePurchaseAttachment);
+    } catch (validationError) {
+      toast.error(validationError.message);
       return;
     }
-    const available = Math.max(0, 6 - commentImages.length);
+
+    const existingKeys = new Set(commentFiles.map((item) => `${item.file.name}:${item.file.size}:${item.file.lastModified}`));
+    const uniqueIncoming = incoming.filter((file) => !existingKeys.has(`${file.name}:${file.size}:${file.lastModified}`));
+    const available = Math.max(0, COMMENT_ATTACHMENT_MAX_COUNT - commentFiles.length);
     if (!available) {
-      toast.error("Podés adjuntar hasta 6 imágenes por mensaje.");
+      toast.error(`Podés adjuntar hasta ${COMMENT_ATTACHMENT_MAX_COUNT} archivos por mensaje.`);
       return;
     }
-    if (incoming.length > available) toast.info(`Se agregaron ${available} imágenes; el máximo por mensaje es 6.`);
-    const selected = incoming.slice(0, available).map((file) => ({
+    if (uniqueIncoming.length > available) {
+      toast.info(`Se agregaron ${available} archivos; el máximo por mensaje es ${COMMENT_ATTACHMENT_MAX_COUNT}.`);
+    }
+    const selected = uniqueIncoming.slice(0, available).map((file) => ({
       id: crypto.randomUUID?.() || `${Date.now()}-${Math.random()}`,
       file,
-      preview: URL.createObjectURL(file),
+      preview: isImageFile(file) ? URL.createObjectURL(file) : "",
     }));
-    setCommentImages((current) => [...current, ...selected]);
+    setCommentFiles((current) => [...current, ...selected]);
   }
 
-  function removeCommentImage(id) {
-    setCommentImages((current) => {
+  function removeCommentFile(id) {
+    setCommentFiles((current) => {
       const removed = current.find((item) => item.id === id);
-      if (removed) URL.revokeObjectURL(removed.preview);
+      if (removed?.preview) URL.revokeObjectURL(removed.preview);
       return current.filter((item) => item.id !== id);
     });
   }
@@ -1620,7 +1783,9 @@ export default function PurchaseRequestDetail({ requestId, profile, users = [], 
             padding: isMobile ? 12 : 16,
             borderBottom: `1px solid ${C.border}`,
             display: "grid",
-            gridTemplateColumns: isMobile || !(request.photo_urls?.length || request.photo_url) ? "1fr" : "1fr 160px",
+            gridTemplateColumns: isMobile || !requestAttachments.length
+              ? "1fr"
+              : "minmax(0, 1fr) minmax(210px, 260px)",
             gap: 14,
           }}>
             <div>
@@ -1729,30 +1894,21 @@ export default function PurchaseRequestDetail({ requestId, profile, users = [], 
                 />
               )}
             </div>
-            {(() => {
-              const photos = (request.photo_urls?.length ? request.photo_urls
-                : request.photo_url ? [request.photo_url] : []).filter(isHttpUrl);
-              if (photos.length === 0) return null;
-              const multi = photos.length > 1;
-              return (
-                <div style={{ display: "flex", flexWrap: "wrap", gap: 6, alignContent: "flex-start" }}>
-                  {photos.map((u, i) => (
-                    <a key={i} href={u} target="_blank" rel="noreferrer" style={{
-                      display: "block",
-                      borderRadius: 8,
-                      border: `1px solid ${C.border}`,
-                      overflow: "hidden",
-                      background: C.panel,
-                      width: multi ? "calc(50% - 3px)" : "100%",
-                      height: multi ? 74 : undefined,
-                      minHeight: multi ? undefined : 110,
-                    }}>
-                      <img src={u} loading="lazy" alt={`${request.title} ${i + 1}`} style={{ width: "100%", height: "100%", objectFit: "cover", display: "block" }} />
-                    </a>
-                  ))}
+            {requestAttachments.length > 0 && (
+              <div style={{ display: "grid", gap: 7, alignContent: "flex-start", minWidth: 0 }}>
+                <div style={{ color: C.dim, fontSize: 10, letterSpacing: 1.2, textTransform: "uppercase", fontWeight: 750 }}>
+                  Archivos · {requestAttachments.length}
                 </div>
-              );
-            })()}
+                {requestAttachments.map((attachment, index) => (
+                  <AttachmentCard
+                    key={`${attachment.url}-${index}`}
+                    attachment={attachment}
+                    compact
+                    onOpenImage={setOpenChatImage}
+                  />
+                ))}
+              </div>
+            )}
           </div>
 
           <div className="pr-chat-scroll" style={{ minHeight: 0, overflowY: isMobile ? "visible" : "auto", padding: isMobile ? "12px" : "16px 18px" }}>
@@ -2143,33 +2299,16 @@ export default function PurchaseRequestDetail({ requestId, profile, users = [], 
                       {attachments.length > 0 && (
                         <div style={{
                           display: "grid",
-                          gridTemplateColumns: attachments.length === 1 ? "minmax(0, 360px)" : "repeat(2, minmax(0, 1fr))",
+                          gridTemplateColumns: attachments.length === 1 ? "minmax(0, 360px)" : "repeat(auto-fit, minmax(180px, 1fr))",
                           gap: 7,
                         }}>
                           {attachments.map((attachment, index) => (
-                            <button
+                            <AttachmentCard
                               key={`${attachment.url}-${index}`}
-                              type="button"
-                              onClick={() => setOpenChatImage(attachment)}
-                              title={`Abrir ${attachment.name}`}
-                              style={{
-                                border: `1px solid ${C.border}`,
-                                background: C.panel2,
-                                borderRadius: 8,
-                                padding: 0,
-                                overflow: "hidden",
-                                cursor: "zoom-in",
-                                minWidth: 0,
-                                aspectRatio: attachments.length === 1 ? "16 / 9" : "4 / 3",
-                              }}
-                            >
-                              <img
-                                src={attachment.url}
-                                alt={attachment.name || "Imagen adjunta"}
-                                loading="lazy"
-                                style={{ width: "100%", height: "100%", objectFit: "cover", display: "block" }}
-                              />
-                            </button>
+                              attachment={attachment}
+                              compact
+                              onOpenImage={setOpenChatImage}
+                            />
                           ))}
                         </div>
                       )}
@@ -2192,20 +2331,51 @@ export default function PurchaseRequestDetail({ requestId, profile, users = [], 
               background: C.topbarSoft,
             }}
           >
-            {commentImages.length > 0 && (
-              <div style={{ gridColumn: "1 / -1", display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(92px, 1fr))", gap: 8 }}>
-                {commentImages.map((item) => (
-                  <div key={item.id} style={{ position: "relative", minWidth: 0 }}>
-                    <img
-                      src={item.preview}
-                      alt={item.file.name}
-                      style={{ width: "100%", height: 76, objectFit: "cover", display: "block", borderRadius: 8, border: `1px solid ${C.border}` }}
-                    />
+            {commentFiles.length > 0 && (
+              <div style={{ gridColumn: "1 / -1", display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(180px, 1fr))", gap: 8 }}>
+                {commentFiles.map((item) => (
+                  <div
+                    key={item.id}
+                    style={{
+                      position: "relative",
+                      minWidth: 0,
+                      minHeight: 72,
+                      display: "flex",
+                      alignItems: "center",
+                      gap: 9,
+                      padding: item.preview ? 0 : "10px 38px 10px 10px",
+                      borderRadius: 8,
+                      border: `1px solid ${C.border}`,
+                      background: C.panel2,
+                      overflow: "hidden",
+                    }}
+                  >
+                    {item.preview ? (
+                      <img
+                        src={item.preview}
+                        alt={item.file.name}
+                        style={{ width: "100%", height: 76, objectFit: "cover", display: "block" }}
+                      />
+                    ) : (
+                      <>
+                        <span style={{ color: C.blue, flexShrink: 0 }}>
+                          <AttachmentTypeIcon attachment={item.file} size={18} />
+                        </span>
+                        <span style={{ minWidth: 0 }}>
+                          <span style={{ display: "block", color: C.text, fontSize: 11, fontWeight: 750, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+                            {item.file.name}
+                          </span>
+                          <span style={{ display: "block", marginTop: 3, color: C.dim, fontSize: 10, textTransform: "uppercase" }}>
+                            {[attachmentExtension(item.file) || "archivo", fmtFileSize(item.file.size)].filter(Boolean).join(" · ")}
+                          </span>
+                        </span>
+                      </>
+                    )}
                     <button
                       type="button"
-                      onClick={() => removeCommentImage(item.id)}
+                      onClick={() => removeCommentFile(item.id)}
                       aria-label={`Quitar ${item.file.name}`}
-                      title="Quitar imagen"
+                      title="Quitar archivo"
                       style={{
                         position: "absolute",
                         top: 5,
@@ -2230,28 +2400,27 @@ export default function PurchaseRequestDetail({ requestId, profile, users = [], 
             <input
               ref={commentFileRef}
               type="file"
-              accept="image/jpeg,image/png,image/webp,image/gif"
               multiple
               hidden
               onChange={(event) => {
-                addCommentImages(event.target.files);
+                addCommentFiles(event.target.files);
                 event.target.value = "";
               }}
             />
             <button
               type="button"
               onClick={() => commentFileRef.current?.click()}
-              disabled={sending || commentImages.length >= 6}
-              aria-label="Adjuntar imágenes"
-              title="Adjuntar imágenes"
+              disabled={sending || commentFiles.length >= COMMENT_ATTACHMENT_MAX_COUNT}
+              aria-label="Adjuntar archivos"
+              title="Adjuntar archivos"
               style={{
                 ...iconButtonStyle,
                 width: 44,
-                color: commentImages.length ? C.blue : C.muted,
-                opacity: sending || commentImages.length >= 6 ? 0.5 : 1,
+                color: commentFiles.length ? C.blue : C.muted,
+                opacity: sending || commentFiles.length >= COMMENT_ATTACHMENT_MAX_COUNT ? 0.5 : 1,
               }}
             >
-              <ImageIcon size={18} />
+              <Paperclip size={18} />
             </button>
             <textarea
               value={message}
@@ -2260,7 +2429,7 @@ export default function PurchaseRequestDetail({ requestId, profile, users = [], 
                 const pastedImages = Array.from(event.clipboardData?.files || []).filter((file) => String(file.type || "").startsWith("image/"));
                 if (pastedImages.length) {
                   event.preventDefault();
-                  addCommentImages(pastedImages);
+                  addCommentFiles(pastedImages);
                 }
               }}
               onKeyDown={(e) => {
@@ -2274,14 +2443,14 @@ export default function PurchaseRequestDetail({ requestId, profile, users = [], 
             />
             <button
               type="submit"
-              disabled={sending || (!message.trim() && !commentImages.length)}
-              title={sending ? "Subiendo imágenes..." : "Enviar"}
+              disabled={sending || (!message.trim() && !commentFiles.length)}
+              title={sending ? "Subiendo archivos..." : "Enviar"}
               style={{
                 ...iconButtonStyle,
                 width: 44,
                 height: "100%",
-                color: sending || (!message.trim() && !commentImages.length) ? C.dim : C.blue,
-                opacity: sending || (!message.trim() && !commentImages.length) ? 0.45 : 1,
+                color: sending || (!message.trim() && !commentFiles.length) ? C.dim : C.blue,
+                opacity: sending || (!message.trim() && !commentFiles.length) ? 0.45 : 1,
               }}
             >
               <Send size={17} />
@@ -2481,10 +2650,10 @@ export default function PurchaseRequestDetail({ requestId, profile, users = [], 
                 </span>
               </MetaRow>
             )}
-            <MetaRow icon={<ImageIcon size={12} />} label="Foto">
-              {(request.photo_urls?.length || request.photo_url)
-                ? <a href={(request.photo_urls?.[0]) || request.photo_url} target="_blank" rel="noreferrer" style={{ color: C.blue, fontSize: 12, textDecoration: "none" }}>
-                    {request.photo_urls?.length > 1 ? `Ver ${request.photo_urls.length} adjuntos` : "Ver adjunto"}
+            <MetaRow icon={<Paperclip size={12} />} label="Adjuntos">
+              {requestAttachments.length
+                ? <a href={requestAttachments[0].url} target="_blank" rel="noreferrer" style={{ color: C.blue, fontSize: 12, textDecoration: "none" }}>
+                    {requestAttachments.length === 1 ? "Ver archivo" : `${requestAttachments.length} archivos`}
                   </a>
                 : <span style={{ color: C.dim }}>Sin adjunto</span>
               }

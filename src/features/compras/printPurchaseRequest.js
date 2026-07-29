@@ -1,4 +1,7 @@
-import { usernameOf } from "@/features/compras/purchaseRequestsApi";
+import {
+  normalizePurchaseRequestAttachments,
+  usernameOf,
+} from "@/features/compras/purchaseRequestsApi";
 
 function esc(str) {
   return String(str ?? "")
@@ -61,6 +64,18 @@ export function printPurchaseRequest(request, logoUrl) {
         </table>
       </div>`
     : "";
+  const attachments = normalizePurchaseRequestAttachments(request);
+  const attachmentsHtml = attachments.length
+    ? `<div class="attachments">
+        <div class="items-title">Archivos adjuntos</div>
+        ${attachments.map((attachment) => `
+          <div class="attachment">
+            <span>${esc(attachment.name || "Archivo adjunto")}</span>
+            <a href="${esc(attachment.url)}">Abrir archivo</a>
+          </div>
+        `).join("")}
+      </div>`
+    : "";
 
   const absLogoUrl = logoUrl?.startsWith("/") ? window.location.origin + logoUrl : logoUrl;
 
@@ -96,6 +111,10 @@ export function printPurchaseRequest(request, logoUrl) {
   .item-notes{color:#666;font-style:italic;margin-top:3px}
   .item-link{font-size:11px;margin-top:3px;word-break:break-all}
   .item-qty{white-space:nowrap;color:#111;font-weight:700}
+  .attachments{margin-top:16px;padding-top:12px;border-top:1px solid #eee}
+  .attachment{display:flex;align-items:center;gap:12px;padding:7px 6px;border-bottom:1px solid #f0f0f0;font-size:12px}
+  .attachment span{min-width:0;flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-weight:600}
+  .attachment a{white-space:nowrap;text-decoration:none}
 </style>
 </head>
 <body>
@@ -118,6 +137,7 @@ export function printPurchaseRequest(request, logoUrl) {
 <div class="body">${request.description || '<span style="color:#999;font-style:italic">Sin descripción.</span>'}</div>
 
 ${itemsHtml}
+${attachmentsHtml}
 
 </body>
 </html>`;

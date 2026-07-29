@@ -7,6 +7,7 @@ import { useResponsive } from "@/hooks/useResponsive";
 import { hasAdminAccess } from "@/lib/permissions";
 import { ChapaSwatch, chapaColor } from "@/features/muebles/chapa";
 import { printFaltantes } from "@/features/muebles/printFaltantes";
+import { loadNavyLogo } from "@/lib/pdfLogo";
 import logoKlasea from "@/assets/logos/logo-klasea.png";
 import { C } from "@/theme";
 import { ClipboardCheck, Factory, Layers3 } from "lucide-react";
@@ -30,6 +31,43 @@ const ESTADO_META = {
 function progreso(rows) {
   if (!rows.length) return 0;
   return Math.round(rows.filter(r => r.estado === "Completo").length / rows.length * 100);
+}
+
+// Casillero del PDF. Cada estado tiene su marca en vez de un tilde para todo:
+// en papel "recibido", "vino incompleto" y "hay que rehacerlo" son tres cosas
+// muy distintas y confundirlas cuesta un mueble.
+function dibujarCasillero(doc, x, y, size, estado) {
+  const relleno = {
+    "Completo":   [16, 150, 105],
+    "Parcial":    [217, 160, 40],
+    "Rehacer":    [214, 60, 60],
+  }[estado];
+
+  doc.setLineWidth(0.8);
+  if (relleno) {
+    doc.setFillColor(...relleno);
+    doc.setDrawColor(...relleno);
+    doc.roundedRect(x, y, size, size, 1.5, 1.5, "FD");
+  } else {
+    doc.setDrawColor(120, 126, 138);
+    doc.roundedRect(x, y, size, size, 1.5, 1.5, "S");
+    return;
+  }
+
+  doc.setDrawColor(255, 255, 255);
+  doc.setLineWidth(1.2);
+  if (estado === "Completo") {
+    // Tilde.
+    doc.line(x + size * 0.24, y + size * 0.52, x + size * 0.43, y + size * 0.71);
+    doc.line(x + size * 0.43, y + size * 0.71, x + size * 0.77, y + size * 0.29);
+  } else if (estado === "Parcial") {
+    // Guion: llegó algo, no todo.
+    doc.line(x + size * 0.24, y + size * 0.5, x + size * 0.76, y + size * 0.5);
+  } else {
+    // Cruz.
+    doc.line(x + size * 0.28, y + size * 0.28, x + size * 0.72, y + size * 0.72);
+    doc.line(x + size * 0.72, y + size * 0.28, x + size * 0.28, y + size * 0.72);
+  }
 }
 
 function normalizeText(value = "") {
@@ -940,12 +978,14 @@ export default function MueblesScreen({ profile, signOut }) {
     return { linea, unidad, created };
   }
 
-  function descargarChecklistPdf() {
+  async function descargarChecklistPdf() {
     if (!unidadSel || !lineaSel) return;
 
     const doc = new jsPDF({ unit: "pt", format: "a4" });
     const pageWidth = doc.internal.pageSize.getWidth();
     const pageHeight = doc.internal.pageSize.getHeight();
+    const left = 36;
+    const navy = [15, 23, 42];
     const fecha = new Date().toLocaleDateString("es-AR");
     const chapaManualPdf = String(unidadSel.chapa_manual ?? "").trim();
     const chapaPdf = enchapadoOt
@@ -953,109 +993,161 @@ export default function MueblesScreen({ profile, signOut }) {
       : chapaManualPdf
         ? { tipo: chapaManualPdf, detalle: "Dato manual - muebles sin OT" }
         : null;
-    const filas = checklist.map((row, idx) => [
-      idx + 1,
+
+    // El PDF sale con el estado real de cada pieza. Antes salía todo en blanco
+    // y el taller volvía a marcar a mano lo que el sistema ya sabía: además de
+    // trabajo al pedo, invitaba a errores.
+    const estados = checklist.map(r => r.estado || "No enviado");
+    const recibidos = estados.filter(e => e === "Completo").length;
+    const filas = checklist.map((row) => [
+      nroPieza.get(row.id) ?? "",
       row.prod_muebles?.sector ?? "General",
       row.prod_muebles?.nombre ?? "-",
       "",
-      "",
+      row.recibido_at ? new Date(row.recibido_at).toLocaleDateString("es-AR") : "",
       row.obs ?? "",
     ]);
 
-    doc.setDrawColor(210, 214, 222);
-    doc.setLineWidth(0.8);
-    doc.roundedRect(36, 30, pageWidth - 72, 82, 6, 6, "S");
+    // ── Encabezado ────────────────────────────────────────────────
+    // Sin fondo: una barra sólida de ancho completo se come el cartucho y en
+    // una impresora de taller sale gris sucio. El peso lo dan el tamaño de la
+    // tipografía y una línea fina, no la tinta.
+    try {
+      const logoObj = await loadNavyLogo();
+      if (logoObj) {
+        const w = 28;
+        doc.addImage(logoObj.dataUrl, "PNG", pageWidth - left - w, 26, w, logoObj.aspect * w);
+      }
+    } catch { /* sin logo igual sale */ }
 
-    doc.setTextColor(24, 24, 27);
+    doc.setTextColor(...navy);
     doc.setFont("helvetica", "bold");
-    doc.setFontSize(18);
-    doc.text(`Recepcion de muebles`, 52, 57);
-    doc.setFontSize(15);
-    doc.text(`${lineaSel.nombre} - ${unidadSel.codigo}`, 52, 80);
-
+    doc.setFontSize(17);
+    doc.text("Recepcion de muebles", left, 42);
+    doc.setFontSize(13);
+    doc.text(`${lineaSel.nombre} - ${unidadSel.codigo}`, left, 62);
     doc.setFont("helvetica", "normal");
     doc.setFontSize(9);
-    doc.setTextColor(82, 82, 91);
-    doc.text(`Impreso: ${fecha}`, 52, 98);
-    doc.text(`Items: ${checklist.length}`, 138, 98);
+    doc.setTextColor(110, 118, 132);
+    doc.text(`Impreso ${fecha}  ·  ${checklist.length} piezas  ·  ${recibidos} ya recibidas`, left, 79);
 
-    doc.setDrawColor(180, 186, 196);
-    doc.line(325, 55, pageWidth - 52, 55);
-    doc.line(325, 85, pageWidth - 52, 85);
-    doc.setTextColor(63, 63, 70);
-    doc.setFont("helvetica", "bold");
-    doc.text("Recibio", 325, 48);
-    doc.text("Firma", 325, 78);
+    doc.setDrawColor(...navy);
+    doc.setLineWidth(1.1);
+    doc.line(left, 90, pageWidth - left, 90);
 
+    // ── Chapa y firma ─────────────────────────────────────────────
+    let y = 118;
     if (chapaPdf) {
       const tone = chapaColor(chapaPdf.tipo);
       const [r, g, b] = hexToRgb(tone.base);
       doc.setFillColor(r, g, b);
-      doc.roundedRect(52, 126, 18, 12, 2, 2, "F");
+      doc.roundedRect(left, y - 10, 18, 12, 2, 2, "F");
       doc.setDrawColor(145, 145, 150);
-      doc.roundedRect(52, 126, 18, 12, 2, 2, "S");
+      doc.roundedRect(left, y - 10, 18, 12, 2, 2, "S");
       doc.setTextColor(63, 63, 70);
       doc.setFontSize(9);
       doc.setFont("helvetica", "bold");
-      doc.text("Chapa / referencia:", 78, 136);
+      doc.text("Chapa / referencia:", left + 26, y);
       doc.setFont("helvetica", "normal");
-      doc.text(`${chapaPdf.tipo} - ${chapaPdf.detalle}`, 165, 136);
+      doc.text(`${chapaPdf.tipo} - ${chapaPdf.detalle}`, left + 113, y);
+      y += 22;
     }
 
-    doc.setFillColor(250, 250, 250);
-    doc.setDrawColor(225, 228, 235);
-    doc.roundedRect(36, chapaPdf ? 150 : 126, pageWidth - 72, 28, 4, 4, "FD");
-    doc.setTextColor(82, 82, 91);
+    doc.setDrawColor(180, 186, 196);
+    doc.setLineWidth(0.6);
+    doc.line(pageWidth - left - 200, y, pageWidth - left, y);
+    doc.setTextColor(120, 126, 138);
     doc.setFont("helvetica", "normal");
-    doc.setFontSize(8.5);
-    doc.text("Uso en taller: marcar si llego, anotar fecha y observaciones. Luego pasar los cambios al sistema.", 52, chapaPdf ? 168 : 144);
+    doc.setFontSize(8);
+    doc.text("Recibio / firma", pageWidth - left - 200, y + 11);
+
+    // ── Referencia de los casilleros ──────────────────────────────
+    // Sin esto, una cruz y un tilde en papel se confunden.
+    doc.setFillColor(248, 249, 251);
+    doc.setDrawColor(225, 228, 235);
+    doc.roundedRect(left, y + 20, pageWidth - left * 2, 30, 4, 4, "FD");
+    const refs = [
+      { estado: "Completo", label: "Recibido" },
+      { estado: "Parcial", label: "Parcial" },
+      { estado: "Rehacer", label: "Rehacer" },
+      { estado: "No enviado", label: "Pendiente" },
+    ];
+    let rx = left + 14;
+    refs.forEach(({ estado, label }) => {
+      dibujarCasillero(doc, rx, y + 31, 9, estado);
+      doc.setTextColor(90, 96, 108);
+      doc.setFontSize(8);
+      doc.setFont("helvetica", "normal");
+      doc.text(label, rx + 14, y + 39);
+      rx += 88;
+    });
+    doc.setTextColor(120, 126, 138);
+    doc.setFontSize(7.5);
+    doc.text("Marcar a mano solo lo que cambie y despues pasarlo al sistema.", rx + 6, y + 39);
 
     autoTable(doc, {
-      startY: chapaPdf ? 194 : 170,
-      margin: { left: 36, right: 36, bottom: 34 },
-      head: [["#", "Sector", "Mueble", "Llego", "Fecha", "Observaciones"]],
+      startY: y + 64,
+      margin: { left, right: left, bottom: 34 },
+      head: [["#", "Sector", "Mueble", "Estado", "Fecha", "Observaciones"]],
       body: filas,
       theme: "grid",
       styles: {
         fontSize: 8.5,
         cellPadding: 5,
-        lineColor: [205, 210, 218],
+        lineColor: [214, 219, 226],
         lineWidth: 0.45,
         textColor: [24, 24, 27],
-        minCellHeight: 30,
+        minCellHeight: 26,
         valign: "middle",
         overflow: "linebreak",
       },
       headStyles: {
-        fillColor: [241, 243, 247],
-        textColor: [24, 24, 27],
+        fillColor: navy,
+        textColor: [255, 255, 255],
         fontStyle: "bold",
-        lineColor: [190, 196, 206],
+        lineColor: navy,
         lineWidth: 0.6,
       },
-      alternateRowStyles: { fillColor: [253, 253, 253] },
       columnStyles: {
-        0: { cellWidth: 22, halign: "center" },
+        0: { cellWidth: 26, halign: "center", fontStyle: "bold" },
         1: { cellWidth: 78 },
-        2: { cellWidth: 210 },
-        3: { cellWidth: 42, halign: "center" },
-        4: { cellWidth: 62 },
+        2: { cellWidth: 204 },
+        3: { cellWidth: 44, halign: "center" },
+        4: { cellWidth: 58 },
         5: { cellWidth: "auto" },
+      },
+      // Lo recibido se ve distinto de un vistazo, sin tener que leer casillero
+      // por casillero.
+      didParseCell: data => {
+        if (data.section !== "body") return;
+        const estado = estados[data.row.index];
+        if (estado === "Completo") {
+          data.cell.styles.fillColor = [240, 250, 244];
+          data.cell.styles.textColor = [110, 118, 128];
+        } else if (estado === "Rehacer") {
+          data.cell.styles.fillColor = [254, 243, 243];
+        } else if (estado === "Parcial") {
+          data.cell.styles.fillColor = [255, 251, 240];
+        }
       },
       didDrawCell: data => {
         if (data.section !== "body" || data.column.index !== 3) return;
-        const size = 8;
+        const size = 10;
         const x = data.cell.x + data.cell.width / 2 - size / 2;
-        const y = data.cell.y + data.cell.height / 2 - size / 2;
-        doc.setDrawColor(90, 90, 98);
-        doc.setLineWidth(0.7);
-        doc.rect(x, y, size, size);
+        const cy = data.cell.y + data.cell.height / 2 - size / 2;
+        dibujarCasillero(doc, x, cy, size, estados[data.row.index]);
       },
       didDrawPage: data => {
-        doc.setFontSize(9);
-        doc.setTextColor(120, 120, 128);
+        doc.setFontSize(8);
+        doc.setTextColor(140, 146, 158);
+        doc.setFont("helvetica", "normal");
         doc.text(`Pagina ${data.pageNumber}`, data.settings.margin.left, pageHeight - 18);
-        doc.text("Klase A - Muebles", pageWidth - 118, pageHeight - 18);
+        doc.text(
+          `Klase A  ·  ${lineaSel.nombre} ${unidadSel.codigo}`,
+          pageWidth - left,
+          pageHeight - 18,
+          { align: "right" },
+        );
       },
     });
 
@@ -1118,6 +1210,11 @@ export default function MueblesScreen({ profile, signOut }) {
   }, [unidadSel?.id, manualChapa]);
   const filtrado  = useMemo(() => { let rows = checklist; if (filtro !== "todos") rows = rows.filter(r => r.estado === filtro); const qq = q.toLowerCase(); if (qq) rows = rows.filter(r => (r.prod_muebles?.nombre ?? "").toLowerCase().includes(qq) || (r.prod_muebles?.sector ?? "").toLowerCase().includes(qq)); return rows; }, [checklist, filtro, q]);
   const porSector = useMemo(() => { const map = {}; filtrado.forEach(r => { const s = r.prod_muebles?.sector || "General"; if (!map[s]) map[s] = []; map[s].push(r); }); return map; }, [filtrado]);
+  // El número de pieza sale del checklist COMPLETO y en el orden en que se
+  // carga (sector, después nombre), no del filtrado: con ese número el taller
+  // identifica cada mueble, así que buscar o filtrar no puede renumerarlos.
+  // Es el mismo número que sale impreso.
+  const nroPieza  = new Map(checklist.map((r, i) => [r.id, i + 1]));
   const pct       = useMemo(() => progreso(checklist), [checklist]);
   const pctColor  = pct === 100 ? C.green : pct >= 50 ? C.t1 : C.t2;
   const stats     = useMemo(() => ({ total: checklist.length, completo: checklist.filter(r => r.estado === "Completo").length, parcial: checklist.filter(r => r.estado === "Parcial").length, rehacer: checklist.filter(r => r.estado === "Rehacer").length }), [checklist]);
@@ -1381,7 +1478,7 @@ export default function MueblesScreen({ profile, signOut }) {
                   </div>
                   <div style={{ display: "flex", gap: 8, alignItems: "center", flexWrap: "wrap", justifyContent: "flex-end" }}>
                     <button
-                      onClick={descargarChecklistPdf}
+                      onClick={() => { descargarChecklistPdf().catch(e => setErr(e?.message || "No se pudo generar el PDF.")); }}
                       style={{
                         padding: "7px 14px", borderRadius: 8, cursor: "pointer", fontSize: 12,
                         fontFamily: C.sans, fontWeight: 600, transition: "all .15s",
@@ -1605,7 +1702,7 @@ export default function MueblesScreen({ profile, signOut }) {
                               onClick={() => selMode && toggleSel(r.id)}
                               style={{
                                 display: "grid",
-                                gridTemplateColumns: selMode ? "28px 50px 1fr minmax(150px, 190px) 28px" : "50px 1fr minmax(150px, 190px) 28px",
+                                gridTemplateColumns: selMode ? "28px 34px 50px 1fr minmax(150px, 190px) 28px" : "34px 50px 1fr minmax(150px, 190px) 28px",
                                 gap: 14, alignItems: "center",
                                 padding: "10px 8px",
                                 borderRadius: 9,
@@ -1628,6 +1725,19 @@ export default function MueblesScreen({ profile, signOut }) {
                                   {isSel && <span style={{ color: "#fff", fontSize: 12, fontWeight: 700, lineHeight: 1 }}>✓</span>}
                                 </div>
                               )}
+                              {/* Número de pieza: el mismo que sale impreso.
+                                  Mono y tabular para que la columna quede
+                                  alineada y se lea de un vistazo. */}
+                              <span style={{
+                                fontFamily: C.mono,
+                                fontSize: 13,
+                                fontWeight: 700,
+                                color: r.estado === "Completo" ? C.t2 : C.t1,
+                                textAlign: "right",
+                                fontVariantNumeric: "tabular-nums",
+                              }}>
+                                {nroPieza.get(r.id)}
+                              </span>
                               {/* Thumbnail */}
                               <MiniThumb
                                 muebleId={m?.id}
