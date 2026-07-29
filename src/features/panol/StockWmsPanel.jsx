@@ -6,6 +6,7 @@ import {
   LayoutGrid,
   List,
   MapPin,
+  MonitorUp,
   PackagePlus,
   RefreshCw,
   Save,
@@ -23,6 +24,7 @@ import useKeyboardWedge from "@/features/panol/useKeyboardWedge";
 import { materialBarcodeList, materialBarcodeText } from "@/features/materiales/materialBarcodes";
 import { buscarEmpleadoPorNfc, normalizeNfcUid } from "@/features/rrhh/api";
 import { fmtDate, rowIsAnulado, rowMovementAt } from "@/features/panol/panolMovimientos";
+import { openEgresoDisplayWindow, publishEgresoDisplay, resetEgresoDisplay } from "@/features/panol/egresoDisplay";
 import {
   crearEnvio,
   crearPanolCatalogMaterialParaEgreso,
@@ -1428,6 +1430,46 @@ function makeCartItem(group, location, { cantidad, sede, codigo, unidad, variant
   };
 }
 
+function egresoDisplayEmployee(empleado) {
+  if (!empleado) return null;
+  return {
+    name: String(empleado.nombre || "").trim(),
+    dni: String(empleado.dni || "").trim(),
+    photoUrl: String(empleado.foto_url || "").trim(),
+    sede: String(empleado.sede || "").trim(),
+  };
+}
+
+function egresoDisplayDestination(cart = [], obras = [], destinoObraId = "", sectorDestino = "") {
+  const selected = obras.find((obra) => obra.id === destinoObraId)?.codigo;
+  if (selected) return selected;
+  const assigned = [...new Set(
+    cart
+      .map((item) => obras.find((obra) => obra.id === item.obraId)?.codigo)
+      .filter(Boolean),
+  )];
+  if (assigned.length) return assigned.join(", ");
+  return String(sectorDestino || "").trim() || "Destino a confirmar";
+}
+
+function egresoDisplayItems(cart = [], obras = [], destinoObraId = "") {
+  const selectedDestination = obras.find((obra) => obra.id === destinoObraId)?.codigo || "";
+  return cart.map((item) => ({
+    key: item.key,
+    label: item.label,
+    quantity: qty(item.cantidad, 0),
+    unit: item.unidad || "u",
+    variant: item.variante || "",
+    origin: item.locationLabel || (item.sede ? `Stock ${item.sede}` : "Pañol"),
+    destination: selectedDestination || obras.find((obra) => obra.id === item.obraId)?.codigo || "",
+  }));
+}
+
+function openEgresoDisplay(toast) {
+  const popup = openEgresoDisplayWindow();
+  if (!popup) toast?.warning?.("El navegador bloqueó la pantalla. Habilitá las ventanas emergentes para KlaseA.");
+}
+
 function EgresoBatchPanel({ group, selectedLocation, obras, sedeLocked, canReceive, onDone, toast, cart, setCart }) {
   const [cantidad, setCantidad] = useState(defaultEgresoQty(selectedLocation));
   const [variante, setVariante] = useState("");
@@ -1468,6 +1510,23 @@ function EgresoBatchPanel({ group, selectedLocation, obras, sedeLocked, canRecei
   const totalUnidades = cart.reduce((sum, item) => sum + qty(item.cantidad, 0), 0);
   const retiradoError = movementKind === "transferir" ? "" : retiradoPorNombreCompletoError(retiradoPor);
   const retiroNfc = useRetiroNfc({ enabled: canReceive && movementKind !== "transferir", onEmpleado: setRetiradoPor, toast });
+
+  useEffect(() => {
+    if (!cart.length || movementKind === "transferir") return;
+    publishEgresoDisplay({
+      status: saving ? "processing" : retiroNfc.empleado ? "identified" : "draft",
+      items: egresoDisplayItems(cart, obras, destinoObraId),
+      employee: egresoDisplayEmployee(retiroNfc.empleado),
+      retiredBy: retiradoPor,
+      destination: egresoDisplayDestination(cart, obras, destinoObraId, sectorDestino),
+      sector: sectorDestino,
+      note: nota,
+      totalLines: cart.length,
+      totalUnits: cart.reduce((sum, item) => sum + qty(item.cantidad, 0), 0),
+      error: "",
+      completedAt: null,
+    });
+  }, [cart, destinoObraId, movementKind, nota, obras, retiradoPor, retiroNfc.empleado, saving, sectorDestino]);
 
   function addCurrentToCart() {
     if (!group || cantidadNum <= 0 || transitOnly) return;
@@ -1584,6 +1643,21 @@ function EgresoBatchPanel({ group, selectedLocation, obras, sedeLocked, canRecei
         });
       }
       toast.success(`${cart.length} producto${cart.length === 1 ? "" : "s"} ${movementKind === "transferir" ? "asignado" : "egresado"}${cart.length === 1 ? "" : "s"}.`);
+      if (movementKind !== "transferir") {
+        publishEgresoDisplay({
+          status: "complete",
+          items: egresoDisplayItems(cart, obras, destinoObraId),
+          employee: egresoDisplayEmployee(retiroNfc.empleado),
+          retiredBy: retiradoPor,
+          destination: egresoDisplayDestination(cart, obras, destinoObraId, sectorDestino),
+          sector: sectorDestino,
+          note: nota,
+          totalLines: cart.length,
+          totalUnits: cart.reduce((sum, item) => sum + qty(item.cantidad, 0), 0),
+          error: "",
+          completedAt: new Date().toISOString(),
+        });
+      }
       setCart([]);
       setDestinoObraId("");
       setRetiradoPor("");
@@ -1592,6 +1666,12 @@ function EgresoBatchPanel({ group, selectedLocation, obras, sedeLocked, canRecei
       setNota("");
       await onDone?.();
     } catch (error) {
+      if (movementKind !== "transferir") {
+        publishEgresoDisplay({
+          status: "error",
+          error: error.message || "No se pudo registrar el egreso.",
+        });
+      }
       toast.error(error.message || "No se pudo registrar el egreso.");
     } finally {
       setSaving(false);
@@ -1600,9 +1680,14 @@ function EgresoBatchPanel({ group, selectedLocation, obras, sedeLocked, canRecei
 
   return (
     <div style={{ border: `1px solid ${C.border}`, background: C.panelSolid, borderRadius: 12, padding: 12, display: "grid", gap: 10 }}>
-      <div>
-        <div style={{ color: C.text, fontSize: 13, fontWeight: 950 }}>Egreso multiple</div>
-        <div style={{ color: C.dim, fontSize: 11, marginTop: 2 }}>Agrega varios productos y confirma todo junto. Si no hay stock, queda negativo para reconciliar.</div>
+      <div style={{ display: "flex", alignItems: "flex-start", gap: 10 }}>
+        <div style={{ flex: 1, minWidth: 0 }}>
+          <div style={{ color: C.text, fontSize: 13, fontWeight: 950 }}>Egreso multiple</div>
+          <div style={{ color: C.dim, fontSize: 11, marginTop: 2 }}>Agrega varios productos y confirma todo junto. Si no hay stock, queda negativo para reconciliar.</div>
+        </div>
+        <button type="button" onClick={() => openEgresoDisplay(toast)} title="Abrir la pantalla que ve la persona que retira" style={{ border: `1px solid ${C.blueB}`, background: C.blueL, color: C.blue, borderRadius: 9, padding: "7px 9px", display: "inline-flex", alignItems: "center", gap: 6, cursor: "pointer", fontSize: 11, fontWeight: 900, fontFamily: C.sans, whiteSpace: "nowrap" }}>
+          <MonitorUp size={14} /> Pantalla
+        </button>
       </div>
 
       {group ? (
@@ -1746,7 +1831,7 @@ function EgresoBatchPanel({ group, selectedLocation, obras, sedeLocked, canRecei
 
       <div style={{ display: "flex", gap: 8 }}>
         {cart.length > 0 && (
-          <button type="button" onClick={() => setCart([])} disabled={saving} style={{ border: `1px solid ${C.border}`, background: C.panel, color: C.dim, borderRadius: 10, padding: "10px 12px", cursor: saving ? "default" : "pointer", fontSize: 12, fontWeight: 900, fontFamily: C.sans }}>
+          <button type="button" onClick={() => { setCart([]); resetEgresoDisplay(); }} disabled={saving} style={{ border: `1px solid ${C.border}`, background: C.panel, color: C.dim, borderRadius: 10, padding: "10px 12px", cursor: saving ? "default" : "pointer", fontSize: 12, fontWeight: 900, fontFamily: C.sans }}>
             Vaciar
           </button>
         )}
@@ -2485,6 +2570,27 @@ function CartDrawer({ cart, setCart, obras, canReceive, onDone, toast, isMobile,
   const retiradoError = movementKind === "consumir" ? retiradoPorNombreCompletoError(retiradoPor) : "";
   const retiroNfc = useRetiroNfc({ enabled: canReceive && movementKind === "consumir" && cart.length > 0, onEmpleado: setRetiradoPor, toast });
 
+  useEffect(() => {
+    if (!cart.length) return;
+    if (movementKind === "transferir") {
+      resetEgresoDisplay();
+      return;
+    }
+    publishEgresoDisplay({
+      status: saving ? "processing" : retiroNfc.empleado ? "identified" : "draft",
+      items: egresoDisplayItems(cart, obras, destinoObraId),
+      employee: egresoDisplayEmployee(retiroNfc.empleado),
+      retiredBy: retiradoPor,
+      destination: egresoDisplayDestination(cart, obras, destinoObraId, sectorDestino),
+      sector: sectorDestino,
+      note: nota,
+      totalLines: cart.length,
+      totalUnits: cart.reduce((sum, item) => sum + qty(item.cantidad, 0), 0),
+      error: "",
+      completedAt: null,
+    });
+  }, [cart, destinoObraId, movementKind, nota, obras, retiradoPor, retiroNfc.empleado, saving, sectorDestino]);
+
   // Grupos por origen: stock libre primero, después cada obra asignada.
   const grupos = useMemo(() => {
     const map = new Map();
@@ -2628,6 +2734,21 @@ function CartDrawer({ cart, setCart, obras, canReceive, onDone, toast, isMobile,
         });
       }
       toast.success(`${cart.length} producto${cart.length === 1 ? "" : "s"} ${movementKind === "transferir" ? "asignado" : "egresado"}${cart.length === 1 ? "" : "s"}.`);
+      if (movementKind === "consumir") {
+        publishEgresoDisplay({
+          status: "complete",
+          items: egresoDisplayItems(cart, obras, destinoObraId),
+          employee: egresoDisplayEmployee(retiroNfc.empleado),
+          retiredBy: retiradoPor,
+          destination: egresoDisplayDestination(cart, obras, destinoObraId, sectorDestino),
+          sector: sectorDestino,
+          note: nota,
+          totalLines: cart.length,
+          totalUnits: cart.reduce((sum, item) => sum + qty(item.cantidad, 0), 0),
+          error: "",
+          completedAt: new Date().toISOString(),
+        });
+      }
       setCart([]);
       setDestinoObraId("");
       setRetiradoPor("");
@@ -2636,6 +2757,12 @@ function CartDrawer({ cart, setCart, obras, canReceive, onDone, toast, isMobile,
       setNota("");
       await onDone?.();
     } catch (error) {
+      if (movementKind === "consumir") {
+        publishEgresoDisplay({
+          status: "error",
+          error: error.message || "No se pudo registrar el movimiento.",
+        });
+      }
       toast.error(error.message || "No se pudo registrar el movimiento.");
     } finally {
       setSaving(false);
@@ -2655,7 +2782,10 @@ function CartDrawer({ cart, setCart, obras, canReceive, onDone, toast, isMobile,
     const limpio = nombre.trim() || sugerido;
     setSavedCarts((prev) => [{ id: Date.now().toString(36), nombre: limpio, items: cart.map((it) => ({ ...it })), savedAt: ahora.toISOString() }, ...prev].slice(0, 20));
     toast?.success?.(`Carrito "${limpio}" guardado.`);
-    if (window.confirm("Guardado ✓. ¿Vaciar el carrito actual para empezar otro?")) setCart([]);
+    if (window.confirm("Guardado ✓. ¿Vaciar el carrito actual para empezar otro?")) {
+      setCart([]);
+      resetEgresoDisplay();
+    }
   }
   function cargarGuardado(saved) {
     if (cart.length && !window.confirm(`¿Reemplazar el carrito actual (${cart.length} ítems) por "${saved.nombre}" (${saved.items.length} ítems)?`)) return;
@@ -2678,6 +2808,9 @@ function CartDrawer({ cart, setCart, obras, canReceive, onDone, toast, isMobile,
           <div style={{ color: "#fff", fontSize: 15.5, fontWeight: 950, lineHeight: 1.1 }}>Carrito de pañol</div>
           <div style={{ color: "rgba(255,255,255,0.88)", fontSize: 11, marginTop: 2 }}>{cart.length} {cart.length === 1 ? "renglon" : "renglones"} · {fmtQty(totalUnidades)} unidades</div>
         </div>
+        <button type="button" onClick={() => openEgresoDisplay(toast)} title="Abrir la pantalla que ve la persona que retira" style={{ border: "none", background: "rgba(255,255,255,0.2)", color: "#fff", borderRadius: 9, height: 28, padding: "0 9px", display: "inline-flex", alignItems: "center", gap: 5, cursor: "pointer", fontSize: 11, fontWeight: 900, fontFamily: C.sans }}>
+          <MonitorUp size={13} /> Pantalla
+        </button>
         {cart.length > 0 && setSavedCarts && (
           <button type="button" onClick={guardarCarrito} title="Guardar este carrito con nombre para retomarlo después" style={{ border: "none", background: "rgba(255,255,255,0.2)", color: "#fff", borderRadius: 9, height: 28, padding: "0 10px", display: "inline-flex", alignItems: "center", gap: 5, cursor: "pointer", fontSize: 11, fontWeight: 900, fontFamily: C.sans }}>
             <Save size={13} /> Guardar
@@ -2835,7 +2968,7 @@ function CartDrawer({ cart, setCart, obras, canReceive, onDone, toast, isMobile,
 
       {/* Footer */}
       <div style={{ padding: 12, borderTop: `1px solid ${C.border}`, background: C.panelSolid, display: "flex", gap: 8, flexShrink: 0 }}>
-        <button type="button" onClick={() => setCart([])} disabled={saving} style={{ border: `1px solid ${C.border}`, background: C.panel, color: C.dim, borderRadius: 11, padding: "11px 14px", cursor: saving ? "default" : "pointer", fontSize: 12.5, fontWeight: 900, fontFamily: C.sans }}>
+        <button type="button" onClick={() => { setCart([]); resetEgresoDisplay(); }} disabled={saving} style={{ border: `1px solid ${C.border}`, background: C.panel, color: C.dim, borderRadius: 11, padding: "11px 14px", cursor: saving ? "default" : "pointer", fontSize: 12.5, fontWeight: 900, fontFamily: C.sans }}>
           Vaciar
         </button>
         <button type="button" onClick={submitBatch} disabled={disabled} style={{ flex: 1, display: "inline-flex", alignItems: "center", justifyContent: "center", gap: 8, border: "none", background: disabled ? C.panel2 : (movementKind === "transferir" ? "#2563eb" : "#059669"), color: disabled ? C.dim : "#fff", borderRadius: 11, padding: "12px 14px", fontSize: 13.5, fontWeight: 950, cursor: disabled ? "default" : "pointer", fontFamily: C.sans, boxShadow: disabled ? "none" : "0 8px 20px -9px rgba(5,150,105,0.5)" }}>
@@ -3250,6 +3383,11 @@ export default function StockWmsPanel({ sedeLocked = null, isMobile = false, toa
           <button type="button" onClick={() => setScannerOpen(true)} title="Escanear con la cámara" style={{ border: `1px solid ${C.blueB}`, background: C.blueL, color: C.blue, borderRadius: 10, padding: "9px 11px", cursor: "pointer", display: "flex", alignItems: "center", gap: 6, fontSize: 12.5, fontWeight: 850, fontFamily: C.sans, flexShrink: 0 }}>
             <ScanLine size={16} />{!isMobile && <span>Escanear</span>}
           </button>
+          {canReceive && (
+            <button type="button" onClick={() => openEgresoDisplay(toast)} title="Abrir la pantalla para la persona que retira" style={{ border: `1px solid ${C.greenB}`, background: C.greenL, color: C.green, borderRadius: 10, padding: "9px 11px", cursor: "pointer", display: "flex", alignItems: "center", gap: 6, fontSize: 12.5, fontWeight: 850, fontFamily: C.sans, flexShrink: 0 }}>
+              <MonitorUp size={16} />{!isMobile && <span>Pantalla de retiro</span>}
+            </button>
+          )}
           <BarcodeScanner open={scannerOpen} onClose={() => setScannerOpen(false)} onScan={(code) => { setScannerOpen(false); applyScanCode(code); }} />
           {canShowHistory && (
             <div style={{ display: "inline-flex", border: `1px solid ${C.border}`, background: C.panelSolid, borderRadius: 10, padding: 3, gap: 3, flexShrink: 0 }}>

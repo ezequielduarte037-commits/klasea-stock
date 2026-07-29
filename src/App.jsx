@@ -41,6 +41,7 @@ import MemoriasScreen        from "@/features/memorias/MemoriasScreen";
 import SemaforoScreen        from "@/features/semaforo/SemaforoScreen";
 import CadeteRutaScreen      from "@/features/cadete/CadeteRutaScreen";
 import TarjetasNfcScreen     from "@/features/panol/TarjetasNfcScreen";
+import PantallaEgresoScreen  from "@/features/panol/PantallaEgresoScreen";
 
 import { ToastProvider } from "@/components/ui/Toast";
 import { ConfirmProvider } from "@/components/ui/ConfirmDialog";
@@ -59,7 +60,7 @@ function toClientEmail(u) { return `${String(u||"").trim().toLowerCase()}@klasea
 
 // Rutas del colector: pantalla chica y uso con guantes. La campanita flotante se
 // superpone con los controles y rompe el layout, así que ahí no va.
-const RUTAS_COLECTOR = new Set(["/colector", "/scan", "/scan-pedido"]);
+const RUTAS_COLECTOR = new Set(["/colector", "/scan", "/scan-pedido", "/pantalla-egreso"]);
 
 function CampanitaSalvoColector({ profile }) {
   const { pathname } = useLocation();
@@ -450,6 +451,7 @@ export default function App() {
         <Route path="/cadete"     element={<RequireAuth session={session}><RequireRole profile={profile} allow={["admin","oficina","tecnica","compras","cadete"]}><CadeteRutaScreen {...A} /></RequireRole></RequireAuth>} />
         <Route path="/recepcion-panol" element={<RequireAuth session={session}><RequireRole profile={profile} allow={["admin","oficina","tecnica","panol"]}><RecepcionPanolScreen {...A} /></RequireRole></RequireAuth>} />
         <Route path="/stock-panol" element={<RequireAuth session={session}><RequireRole profile={profile} allow={["admin","oficina","tecnica","panol"]}><StockPanolScreen {...A} /></RequireRole></RequireAuth>} />
+        <Route path="/pantalla-egreso" element={<RequireAuth session={session}><RequireRole profile={profile} allow={["admin","oficina","tecnica","panol"]}><PantallaEgresoScreen /></RequireRole></RequireAuth>} />
         {/* Digitalización del papel de solicitud: pañol lo carga, lo arma y lo firma con NFC. */}
         <Route path="/solicitudes-panol" element={<RequireAuth session={session}><RequireRole profile={profile} allow={["admin","oficina","tecnica","panol","compras"]}><SolicitudesPanolScreen {...A} /></RequireRole></RequireAuth>} />
         <Route path="/materiales" element={<RequireAuth session={session}><RequireRole profile={profile} allow={["admin","oficina","tecnica","compras"]}><MaterialesScreen {...A} /></RequireRole></RequireAuth>} />
