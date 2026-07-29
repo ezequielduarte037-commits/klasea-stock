@@ -93,18 +93,23 @@ export function Modal({ title, subtitle, onClose, children, footer, width = 640 
   );
 }
 
+// Los colores del theme son variables CSS ("var(--blue)"): pegarles un alfa
+// hexadecimal (`${color}44`) produce CSS inválido que el navegador descarta, y
+// el borde queda invisible. Cada estado lleva su borde del theme.
 const STATUS_META = {
-  pendiente: { label: "Pendiente", color: C.dim, bg: C.panel },
-  enviado: { label: "En taller", color: C.blue, bg: C.blueL },
-  parcial: { label: "Parcial", color: C.violet, bg: C.violetL },
-  recibido: { label: "Recibido", color: C.green, bg: C.greenL },
-  cancelado: { label: "Cancelado", color: C.red, bg: C.redL },
-  pendiente_solicitud: { label: "Por solicitar", color: C.dim, bg: C.panel },
-  solicitado: { label: "Solicitado", color: C.blue, bg: C.blueL },
-  comprado: { label: "Comprado", color: C.violet, bg: C.violetL },
-  recibido_astillero: { label: "En astillero", color: C.green, bg: C.greenL },
-  no_aplica: { label: "No aplica", color: C.dim, bg: C.panel },
+  pendiente: { label: "Pendiente", color: C.dim, bg: C.panel, borde: C.border },
+  enviado: { label: "En taller", color: C.blue, bg: C.blueL, borde: C.blueB },
+  parcial: { label: "Parcial", color: C.violet, bg: C.violetL, borde: C.violetB },
+  recibido: { label: "Recibido", color: C.green, bg: C.greenL, borde: C.greenB },
+  cancelado: { label: "Cancelado", color: C.red, bg: C.redL, borde: C.redB },
+  pendiente_solicitud: { label: "Por solicitar", color: C.dim, bg: C.panel, borde: C.border },
+  solicitado: { label: "Solicitado", color: C.blue, bg: C.blueL, borde: C.blueB },
+  comprado: { label: "Comprado", color: C.violet, bg: C.violetL, borde: C.violetB },
+  recibido_astillero: { label: "En astillero", color: C.green, bg: C.greenL, borde: C.greenB },
+  no_aplica: { label: "No aplica", color: C.dim, bg: C.panel, borde: C.border },
 };
+
+export { STATUS_META };
 
 export function StatusBadge({ status, compact = false }) {
   const meta = STATUS_META[status] ?? STATUS_META.pendiente;
@@ -116,7 +121,7 @@ export function StatusBadge({ status, compact = false }) {
       minHeight: compact ? 24 : 28,
       padding: compact ? "3px 7px" : "4px 9px",
       borderRadius: 999,
-      border: `1px solid ${meta.color}44`,
+      border: `1px solid ${meta.borde}`,
       background: meta.bg,
       color: meta.color,
       fontSize: compact ? 10 : 11,
@@ -128,7 +133,6 @@ export function StatusBadge({ status, compact = false }) {
         height: 6,
         borderRadius: "50%",
         background: meta.color,
-        boxShadow: `0 0 8px ${meta.color}66`,
       }} />
       {meta.label}
     </span>

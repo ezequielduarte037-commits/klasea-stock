@@ -108,6 +108,20 @@ function currentOperation(process) {
     .find((row) => row.estado !== "recibido") || null;
 }
 
+// Días transcurridos desde una fecha. Vive a nivel de módulo, como los helpers
+// equivalentes del resto del proyecto: `Date.now()` llamado directo en el
+// cuerpo de un componente es impuro y da resultados inestables entre renders.
+const MS_DIA = 86400000;
+function diasDesde(fecha) {
+  if (!fecha) return null;
+  const desde = new Date(fecha);
+  if (Number.isNaN(desde.getTime())) return null;
+  const hoy = new Date();
+  hoy.setHours(0, 0, 0, 0);
+  desde.setHours(0, 0, 0, 0);
+  return Math.max(0, Math.round((hoy.getTime() - desde.getTime()) / MS_DIA));
+}
+
 function dependencyRows(process, operation) {
   const deps = new Set(operation.depende_de || []);
   return (process.operaciones || []).filter(
@@ -126,35 +140,71 @@ function groupRows(rows, key = "grupo") {
   return [...map.entries()];
 }
 
-function Kpi({ icon, value, label, color }) {
-  return (
-    <div style={{
-      minWidth: 118,
-      display: "grid",
-      gridTemplateColumns: "30px minmax(0,1fr)",
-      gap: 9,
-      alignItems: "center",
-      padding: "8px 10px",
-      borderRadius: 11,
-      border: `1px solid ${C.border}`,
-      background: C.panel,
-    }}>
-      <div style={{
-        width: 30,
-        height: 30,
+// Los colores del theme son variables CSS ("var(--blue)"), así que NO se les
+// puede concatenar un alfa hex: `var(--blue)18` es CSS inválido y el navegador
+// lo descarta — el ícono quedaba sin fondo. Cada color va con su par del theme.
+const KPI_TONOS = {
+  [C.blue]: { soft: C.blueL, borde: C.blueB },
+  [C.violet]: { soft: C.violetL, borde: C.violetB },
+  [C.green]: { soft: C.greenL, borde: C.greenB },
+  [C.red]: { soft: C.redL, borde: C.redB },
+};
+
+// El KPI es un botón: en el celular es la forma más rápida de filtrar sin
+// abrir menús, y en escritorio evita tener el número acá y el filtro en otro
+// lado. Si no filtra nada (onClick nulo) se renderiza como texto plano.
+function Kpi({ icon, value, label, color, activo = false, onClick, compacto = false }) {
+  const tono = KPI_TONOS[color] ?? { soft: C.panel2, borde: C.border };
+  const clickable = typeof onClick === "function";
+  return createElement(
+    clickable ? "button" : "div",
+    {
+      type: clickable ? "button" : undefined,
+      onClick,
+      "aria-pressed": clickable ? activo : undefined,
+      title: clickable ? `Ver sólo: ${label}` : undefined,
+      className: clickable ? "tor-kpi" : undefined,
+      style: {
+        minWidth: compacto ? 0 : 118,
+        flex: compacto ? "1 1 0" : "0 0 auto",
         display: "grid",
-        placeItems: "center",
-        borderRadius: 9,
-        background: `${color}18`,
-        color,
-      }}>
-        {createElement(icon, { size: 15 })}
-      </div>
-      <div>
-        <div style={{ color: C.text, fontSize: 15, fontWeight: 900, lineHeight: 1 }}>{value}</div>
-        <div style={{ color: C.dim, fontSize: 9.5, fontWeight: 750, marginTop: 4, textTransform: "uppercase", letterSpacing: "0.05em" }}>{label}</div>
-      </div>
-    </div>
+        gridTemplateColumns: compacto ? "minmax(0,1fr)" : "30px minmax(0,1fr)",
+        gap: compacto ? 2 : 9,
+        alignItems: "center",
+        justifyItems: compacto ? "center" : "stretch",
+        textAlign: compacto ? "center" : "left",
+        padding: compacto ? "7px 6px" : "8px 10px",
+        borderRadius: 11,
+        border: `1px solid ${activo ? tono.borde : C.border}`,
+        background: activo ? tono.soft : C.panel,
+        cursor: clickable ? "pointer" : "default",
+        fontFamily: C.sans,
+      },
+    },
+    // En el celular se cae el ícono y queda número + etiqueta: entran los
+    // cuatro sin scroll horizontal, que era lo que hacía perder información.
+    compacto ? null : createElement(
+      "div",
+      {
+        style: {
+          width: 30, height: 30, display: "grid", placeItems: "center",
+          borderRadius: 9, background: tono.soft, color,
+        },
+      },
+      createElement(icon, { size: 15 }),
+    ),
+    createElement(
+      "div",
+      { style: { minWidth: 0 } },
+      createElement("div", { style: { color: activo ? color : C.text, fontSize: compacto ? 16 : 15, fontWeight: 900, lineHeight: 1 } }, value),
+      createElement("div", {
+        style: {
+          color: activo ? color : C.dim, fontSize: 9.5, fontWeight: 750, marginTop: 4,
+          textTransform: "uppercase", letterSpacing: "0.05em",
+          overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap",
+        },
+      }, label),
+    ),
   );
 }
 
@@ -326,7 +376,10 @@ function OperationCard({ process, operation, onMove, onEdit, onEditItem }) {
     .map((row) => row.item)
     .filter((item) => item?.requiere_confirmacion && !item.confirmado_at);
   const ready = operation.estado === "pendiente" && dependencies.length === 0;
+  // Par completo del theme: el alfa hex sobre var(--…) no funciona.
   const accent = operation.tipo === "plegadora" ? C.violet : C.blue;
+  const accentSoft = operation.tipo === "plegadora" ? C.violetL : C.blueL;
+  const accentBorde = operation.tipo === "plegadora" ? C.violetB : C.blueB;
   const actionLabel = operation.estado === "pendiente"
     ? "Registrar salida"
     : operation.estado === "recibido"
@@ -360,8 +413,8 @@ function OperationCard({ process, operation, onMove, onEdit, onEditItem }) {
             <span style={{
               padding: "2px 6px",
               borderRadius: 999,
-              border: `1px solid ${accent}44`,
-              background: `${accent}12`,
+              border: `1px solid ${accentBorde}`,
+              background: accentSoft,
               color: accent,
               fontSize: 9.5,
               fontWeight: 850,
@@ -506,10 +559,148 @@ function OperationCard({ process, operation, onMove, onEdit, onEditItem }) {
   );
 }
 
-function CircuitTab({ process, onMove, onEditOperation, onNewOperation, onEditItem }) {
+// ─────────────────────────────────────────────────────────────────────────────
+// Modo mecánico: lo que hay para hacer AHORA, arriba de todo y en botones
+// grandes.
+//
+// El mecánico entra desde el celular, en el taller, con una mano y las manos
+// sucias. No viene a explorar el circuito: viene a marcar una cosa puntual
+// ("esto ya salió", "esto ya volvió"). El circuito completo sigue estando
+// abajo para cuando alguien necesita ver el panorama, pero deja de ser lo
+// primero que hay que atravesar.
+// ─────────────────────────────────────────────────────────────────────────────
+function AccionesAhora({ process, onMove, isMobile }) {
   const operations = (process.operaciones || []).filter((row) => row.activa !== false);
+
+  // Sólo lo accionable: lo que está afuera (se puede registrar el regreso) y lo
+  // que está listo para salir (sin dependencias pendientes). Lo demás no entra
+  // porque no hay nada que el mecánico pueda hacer con eso todavía.
+  const acciones = operations
+    .map((operation) => {
+      const afuera = ["enviado", "parcial"].includes(operation.estado);
+      const dependencias = dependencyRows(process, operation);
+      const listaParaSalir = operation.estado === "pendiente" && dependencias.length === 0;
+      if (!afuera && !listaParaSalir) return null;
+
+      // Días afuera: es el dato que dispara la pregunta "¿esto no tendría que
+      // haber vuelto ya?". Sale del último movimiento de salida.
+      const salida = [...(operation.movimientos || [])]
+        .filter((m) => m.tipo === "salida")
+        .sort((a, b) => new Date(b.fecha) - new Date(a.fecha))[0];
+      const dias = afuera ? diasDesde(salida?.fecha) : null;
+
+      return {
+        operation,
+        afuera,
+        dias,
+        etiqueta: afuera ? "Registrar regreso" : "Registrar salida",
+        destino: operation.tipo === "plegadora" ? "Plegadora" : "Tornería",
+      };
+    })
+    .filter(Boolean)
+    // Primero lo que está afuera hace más tiempo: es lo que más urge reclamar.
+    .sort((a, b) => (b.dias ?? -1) - (a.dias ?? -1));
+
+  if (!acciones.length) return null;
+
+  return (
+    <section style={{ display: "grid", gap: 9 }}>
+      <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+        <span style={{ color: C.muted, fontSize: 10.5, fontWeight: 900, letterSpacing: "0.1em", textTransform: "uppercase" }}>
+          Para hacer ahora
+        </span>
+        <span style={{
+          minWidth: 18, padding: "1px 7px", borderRadius: 999, background: C.blueL,
+          border: `1px solid ${C.blueB}`, color: C.blue, fontSize: 10.5, fontWeight: 900,
+        }}>
+          {acciones.length}
+        </span>
+      </div>
+
+      <div style={{ display: "grid", gap: 8 }}>
+        {acciones.map(({ operation, afuera, dias, etiqueta, destino }) => (
+          <button
+            key={operation.id}
+            type="button"
+            onClick={() => onMove(operation, null)}
+            className="tor-accion"
+            style={{
+              display: "grid",
+              gridTemplateColumns: "minmax(0,1fr) auto",
+              alignItems: "center",
+              gap: 10,
+              // Alto cómodo para el pulgar: no es una fila de tabla, es un botón.
+              minHeight: isMobile ? 66 : 58,
+              padding: isMobile ? "12px 13px" : "11px 14px",
+              borderRadius: 13,
+              textAlign: "left",
+              cursor: "pointer",
+              border: `1px solid ${afuera ? C.violetB : C.blueB}`,
+              background: afuera ? C.violetL : C.blueL,
+              fontFamily: C.sans,
+            }}
+          >
+            <div style={{ minWidth: 0 }}>
+              <div style={{ color: C.text, fontSize: isMobile ? 14 : 13.5, fontWeight: 900, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+                {operation.nombre}
+              </div>
+              <div style={{ display: "flex", alignItems: "center", gap: 7, marginTop: 3, flexWrap: "wrap" }}>
+                <span style={{ color: afuera ? C.violet : C.blue, fontSize: 11.5, fontWeight: 800 }}>
+                  {afuera ? `En ${destino}` : `Listo para ir a ${destino}`}
+                </span>
+                {dias != null && (
+                  <span style={{
+                    color: dias >= 15 ? C.red : C.dim,
+                    fontSize: 11, fontWeight: dias >= 15 ? 900 : 700, fontFamily: C.mono,
+                  }}>
+                    · hace {dias} {dias === 1 ? "día" : "días"}
+                  </span>
+                )}
+              </div>
+            </div>
+            <span style={{
+              display: "inline-flex", alignItems: "center", gap: 6, flexShrink: 0,
+              padding: isMobile ? "10px 13px" : "8px 12px", borderRadius: 10,
+              background: afuera ? C.violet : C.blue, color: "#fff",
+              fontSize: isMobile ? 12.5 : 12, fontWeight: 900, whiteSpace: "nowrap",
+            }}>
+              {afuera ? <ArrowLeft size={15} /> : <ArrowRight size={15} />}
+              {isMobile ? (afuera ? "Volvió" : "Salió") : etiqueta}
+            </span>
+          </button>
+        ))}
+      </div>
+    </section>
+  );
+}
+
+function CircuitTab({ process, onMove, onEditOperation, onNewOperation, onEditItem, isMobile }) {
+  const operations = (process.operaciones || []).filter((row) => row.activa !== false);
+  // En el celular el circuito completo arranca plegado: primero las acciones,
+  // el panorama sólo si lo pide.
+  const [verCircuito, setVerCircuito] = useState(!isMobile);
+
   return (
     <div style={{ display: "grid", gap: 18 }}>
+      <AccionesAhora process={process} onMove={onMove} isMobile={isMobile} />
+
+      {isMobile && (
+        <button
+          type="button"
+          onClick={() => setVerCircuito((v) => !v)}
+          style={{
+            display: "flex", alignItems: "center", justifyContent: "center", gap: 7,
+            padding: "10px 12px", borderRadius: 11, cursor: "pointer",
+            border: `1px solid ${C.border}`, background: C.panel, color: C.dim,
+            fontSize: 12.5, fontWeight: 800, fontFamily: C.sans,
+          }}
+        >
+          {verCircuito ? "Ocultar el circuito completo" : `Ver el circuito completo (${operations.length})`}
+        </button>
+      )}
+
+      {(!isMobile || verCircuito) && (
+      <>
       <div style={{
         display: "flex",
         alignItems: "flex-start",
@@ -536,7 +727,6 @@ function CircuitTab({ process, onMove, onEditOperation, onNewOperation, onEditIt
               height: 8,
               borderRadius: "50%",
               background: GROUP_COLORS[group] || C.dim,
-              boxShadow: `0 0 10px ${GROUP_COLORS[group] || C.dim}66`,
             }} />
             <span style={{ color: C.muted, fontSize: 10.5, fontWeight: 900, letterSpacing: "0.1em", textTransform: "uppercase" }}>
               {group}
@@ -557,6 +747,8 @@ function CircuitTab({ process, onMove, onEditOperation, onNewOperation, onEditIt
           </div>
         </section>
       ))}
+      </>
+      )}
     </div>
   );
 }
@@ -685,6 +877,9 @@ function HistoryTab({ process, onOpenMovement }) {
       description: operation.nombre,
       actor: movement.responsable || "Sin responsable",
       color: movement.tipo === "salida" ? C.blue : C.green,
+      // El fondo va aparte porque no se puede derivar del color: son variables
+      // CSS y no admiten alfa concatenado.
+      soft: movement.tipo === "salida" ? C.blueL : C.greenL,
       movement,
       operation,
     })),
@@ -704,6 +899,7 @@ function HistoryTab({ process, onOpenMovement }) {
         description: event.accion,
         actor: event.actor?.username || "Usuario",
         color: C.violet,
+        soft: C.violetL,
       };
     });
   const rows = [...movementEvents, ...auditEvents]
@@ -745,7 +941,7 @@ function HistoryTab({ process, onOpenMovement }) {
             display: "grid",
             placeItems: "center",
             borderRadius: 9,
-            background: `${event.color}18`,
+            background: event.soft ?? C.panel2,
             color: event.color,
           }}>
             {event.movement?.tipo === "salida" ? <ArrowRight size={14} /> : event.movement ? <ArrowLeft size={14} /> : <Edit3 size={14} />}
@@ -820,6 +1016,10 @@ export default function TorneriaScreen({ profile, signOut }) {
   const [tab, setTab] = useState("circuito");
   const [search, setSearch] = useState("");
   const [status, setStatus] = useState("todos");
+  // Filtro rápido que disparan los KPI. Es una dimensión aparte de `status`
+  // porque los KPI no miden todos lo mismo: uno cuenta procesos, otro cuenta
+  // operaciones fuera del astillero y otro ítems sin confirmar.
+  const [vista, setVista] = useState(null);
   const [modal, setModal] = useState(null);
 
   const load = useCallback(async ({ quiet = false, preferId = null } = {}) => {
@@ -853,12 +1053,23 @@ export default function TorneriaScreen({ profile, signOut }) {
     const term = search.trim().toLowerCase();
     return processes.filter((process) => {
       if (status !== "todos" && process.estado !== status) return false;
+
+      // El filtro del KPI se aplica sobre el proceso: "fuera del astillero" y
+      // "por confirmar" dejan pasar el proceso si TIENE al menos una operación
+      // o ítem en ese estado, que es lo que el mecánico está buscando.
+      if (vista === "activos" && !["activo", "borrador", "pausado"].includes(process.estado)) return false;
+      if (vista === "taller" && !process.operaciones.some((row) => ["enviado", "parcial"].includes(row.estado))) return false;
+      if (vista === "confirmar" && !process.items.some(
+        (item) => item.activo !== false && item.requiere_confirmacion && !item.confirmado_at,
+      )) return false;
+      if (vista === "completos" && processProgress(process) !== 100) return false;
+
       if (!term) return true;
       return `${process.obra?.codigo || ""} ${process.obra?.linea_nombre || ""} ${process.nombre || ""}`
         .toLowerCase()
         .includes(term);
     });
-  }, [processes, search, status]);
+  }, [processes, search, status, vista]);
 
   const selected = processes.find((row) => row.id === selectedId) || null;
   const stats = useMemo(() => {
@@ -1080,6 +1291,12 @@ export default function TorneriaScreen({ profile, signOut }) {
         .tor-process-card:hover{transform:translateY(-1px);border-color:var(--border-2)!important}
         .tor-operation:hover{border-color:var(--border-2)!important;box-shadow:0 10px 26px -24px var(--shadow-strong)}
         .tor-form-grid{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+        .tor-accion{transition:transform .12s ease,filter .12s ease}
+        .tor-accion:hover{filter:brightness(1.06)}
+        .tor-accion:active{transform:scale(.985)}
+        .tor-kpi{transition:border-color .14s ease,background .14s ease,transform .1s ease}
+        .tor-kpi:hover{border-color:var(--border-2)}
+        .tor-kpi:active{transform:scale(.97)}
         .tor-operation-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px}
         input:focus,select:focus,textarea:focus{border-color:var(--blue-border)!important}
         select option{background:var(--panel-solid);color:var(--text)}
@@ -1135,6 +1352,8 @@ export default function TorneriaScreen({ profile, signOut }) {
               <button type="button" onClick={() => load()} aria-label="Actualizar" style={{ ...BUTTON, width: 39, padding: 0 }}>
                 <RefreshCw size={15} />
               </button>
+              {/* En el celular el "Nuevo" no se pierde: baja al botón flotante
+                  de abajo a la derecha, donde llega el pulgar. */}
               {!isMobile && (
                 <button type="button" onClick={() => setModal({ type: "create" })} style={PRIMARY_BUTTON}>
                   <Plus size={15} /> Nuevo
@@ -1142,12 +1361,49 @@ export default function TorneriaScreen({ profile, signOut }) {
               )}
             </div>
           </div>
-          <div style={{ display: "flex", gap: 7, overflowX: "auto", paddingBottom: 1 }}>
-            <Kpi icon={Factory} value={stats.active} label="En seguimiento" color={C.blue} />
-            <Kpi icon={Truck} value={stats.workshop} label="Fuera del astillero" color={C.violet} />
-            <Kpi icon={AlertTriangle} value={stats.unresolved} label="Por confirmar" color={stats.unresolved ? C.red : C.green} />
-            <Kpi icon={PackageCheck} value={stats.completed} label="Completados" color={C.green} />
+          {/* En el celular van los cuatro en fila, compactos y sin scroll: antes
+              había que arrastrar para ver el último y se perdía de vista. Y son
+              botones: tocás uno y filtra la lista, que es la forma más rápida de
+              llegar a "qué tengo afuera" sin abrir menús. */}
+          <div style={{ display: "flex", gap: isMobile ? 5 : 7, paddingBottom: 1, overflowX: isMobile ? "visible" : "auto" }}>
+            <Kpi
+              icon={Factory} value={stats.active} label={isMobile ? "Activos" : "En seguimiento"} color={C.blue}
+              compacto={isMobile} activo={vista === "activos"}
+              onClick={() => setVista((v) => (v === "activos" ? null : "activos"))}
+            />
+            <Kpi
+              icon={Truck} value={stats.workshop} label={isMobile ? "Afuera" : "Fuera del astillero"} color={C.violet}
+              compacto={isMobile} activo={vista === "taller"}
+              onClick={() => setVista((v) => (v === "taller" ? null : "taller"))}
+            />
+            <Kpi
+              icon={AlertTriangle} value={stats.unresolved} label="Por confirmar"
+              color={stats.unresolved ? C.red : C.green}
+              compacto={isMobile} activo={vista === "confirmar"}
+              onClick={() => setVista((v) => (v === "confirmar" ? null : "confirmar"))}
+            />
+            <Kpi
+              icon={PackageCheck} value={stats.completed} label={isMobile ? "Listos" : "Completados"} color={C.green}
+              compacto={isMobile} activo={vista === "completos"}
+              onClick={() => setVista((v) => (v === "completos" ? null : "completos"))}
+            />
           </div>
+
+          {/* Si hay un filtro puesto tiene que verse y poder sacarse de un toque:
+              si no, la lista queda corta y parece que se perdieron datos. */}
+          {vista && (
+            <button
+              type="button"
+              onClick={() => setVista(null)}
+              style={{
+                marginTop: 7, alignSelf: "flex-start", display: "inline-flex", alignItems: "center", gap: 6,
+                padding: "5px 11px", borderRadius: 999, border: `1px solid ${C.blueB}`, background: C.blueL,
+                color: C.blue, fontSize: 11.5, fontWeight: 800, cursor: "pointer", fontFamily: C.sans,
+              }}
+            >
+              Mostrando {filtered.length} de {processes.length} · quitar filtro ✕
+            </button>
+          )}
         </header>
 
         {loading ? (
@@ -1329,6 +1585,7 @@ export default function TorneriaScreen({ profile, signOut }) {
                         onEditOperation={(operation) => setModal({ type: "operation", operation })}
                         onNewOperation={() => setModal({ type: "operation", operation: null })}
                         onEditItem={(item) => setModal({ type: "item", item })}
+                        isMobile={isMobile}
                       />
                     )}
                     {tab === "materiales" && (
@@ -1393,6 +1650,25 @@ export default function TorneriaScreen({ profile, signOut }) {
         />
       )}
       {modal?.type === "help" && <HelpModal onClose={() => setModal(null)} />}
+
+      {/* Acción principal al alcance del pulgar. Los mecánicos entran desde el
+          celular y con una mano; un botón arriba a la derecha queda lejos. */}
+      {isMobile && !modal && (
+        <button
+          type="button"
+          onClick={() => setModal({ type: "create" })}
+          aria-label="Nuevo seguimiento"
+          style={{
+            position: "fixed", right: 18, bottom: 22, zIndex: 60,
+            width: 54, height: 54, borderRadius: 999, border: "none",
+            display: "grid", placeItems: "center", cursor: "pointer",
+            background: "linear-gradient(135deg,#3b82f6,#2563eb)", color: "#fff",
+            boxShadow: "0 10px 26px -8px rgba(37,99,235,.6)",
+          }}
+        >
+          <Plus size={24} />
+        </button>
+      )}
     </div>
   );
 }
