@@ -1,7 +1,8 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { AlertTriangle, ArrowDownLeft, ArrowUpRight, Ban, ChevronRight, Layers, MapPin, Move, Package, PackageOpen, Search, Warehouse, X } from "lucide-react";
+import { AlertTriangle, ArrowDownLeft, ArrowUpRight, Ban, Check, ChevronRight, Layers, MapPin, Move, Package, PackageOpen, Pencil, Search, Warehouse, X } from "lucide-react";
 import { C } from "@/theme";
 import { supabase } from "@/supabaseClient";
+import { guardarUbicacionMaterial, registrarCambioUbicacionMaterial } from "./panolApi";
 import { parseUbicacion } from "./ubicacionUtils";
 import { fmtDate, rowIsAnulado, rowMovementAt } from "@/features/panol/panolMovimientos";
 
@@ -222,6 +223,32 @@ export default function MapaPanolTab({ isMobile = false, toast, canEdit = false 
 
   const afuera = useMemo(() => materiales.filter((m) => parseUbicacion(m.ubicacion).afuera), [materiales]);
 
+  // "Afuera" era una bolsa: sabías que 30 cosas no estaban en el pañol, no
+  // dónde. Se agrupan por el lugar escrito en ubicacion_obs, y lo que no tiene
+  // lugar queda arriba y marcado, porque eso es lo que hay que resolver.
+  const afueraPorLugar = useMemo(() => {
+    const map = new Map();
+    for (const m of afuera) {
+      const lugar = String(m.ubicacion_obs || "").trim();
+      const key = lugar || "__sin__";
+      if (!map.has(key)) map.set(key, { lugar, items: [] });
+      map.get(key).items.push(m);
+    }
+    const grupos = [...map.values()];
+    return grupos.sort((a, b) => {
+      if (!a.lugar) return -1;
+      if (!b.lugar) return 1;
+      return b.items.length - a.items.length || a.lugar.localeCompare(b.lugar);
+    });
+  }, [afuera]);
+
+  // Los lugares ya usados se ofrecen como sugerencia: si cada uno escribe su
+  // propia variante ("galpon", "Galpón", "en el galpon") el agrupado no sirve.
+  const lugaresConocidos = useMemo(
+    () => [...new Set(afuera.map((m) => String(m.ubicacion_obs || "").trim()).filter(Boolean))].sort(),
+    [afuera],
+  );
+
   // En 3D los bloques se pintan de fondo hacia frente (norte→sur) para que la
   // extrusión del de adelante tape al de atrás (painter's algorithm).
   const shelvesToRender = useMemo(
@@ -376,6 +403,21 @@ export default function MapaPanolTab({ isMobile = false, toast, canEdit = false 
         .mapa-hit rect:first-of-type { animation: mapaPulse 1.2s ease-in-out infinite; }
         .mapa-est { transition: opacity .18s ease; }
         .mapa-est:hover rect:first-of-type { filter: brightness(1.25); }
+
+        /* El lugar donde está algo afuera del pañol es lo que nadie sabe: la
+           animación existe para llevar el ojo ahí, no para decorar. */
+        @keyframes afueraLatido { 0%,100% { opacity: 1; } 50% { opacity: 0.45; } }
+        @keyframes afueraEntra { from { opacity: 0; transform: translateY(-4px); } to { opacity: 1; transform: none; } }
+        .afuera-alerta { animation: afueraLatido 1.9s ease-in-out infinite; }
+        .afuera-grupo { transition: background .16s ease, border-color .16s ease; }
+        .afuera-grupo:hover { background: var(--panel-2); }
+        .afuera-chevron { transition: transform .22s cubic-bezier(.16,1,.3,1); }
+        .afuera-chevron[data-abierto="1"] { transform: rotate(90deg); }
+        .afuera-item { animation: afueraEntra .22s ease backwards; }
+        @media (prefers-reduced-motion: reduce) {
+          .afuera-alerta, .afuera-item { animation: none; }
+          .afuera-chevron { transition: none; }
+        }
       `}</style>
       <div style={{ padding: "14px 18px 34px", maxWidth: 1680, margin: "0 auto", display: "grid", gap: 12 }}>
 
@@ -641,21 +683,13 @@ export default function MapaPanolTab({ isMobile = false, toast, canEdit = false 
 
             {/* Afuera del pañol */}
             {afuera.length > 0 && (
-              <div style={{ border: `1px solid ${C.amberB}`, background: C.amberL, borderRadius: 14, padding: "11px 14px" }}>
-                <div style={{ display: "flex", alignItems: "center", gap: 7, marginBottom: 7 }}>
-                  <PackageOpen size={15} style={{ color: C.amber }} />
-                  <span style={{ fontSize: 12.5, fontWeight: 900, color: C.text }}>Afuera del pañol ({afuera.length})</span>
-                  <span style={{ fontSize: 11, color: C.dim }}>— material que vive fuera del depósito (galpón, exterior, barco)</span>
-                </div>
-                <div style={{ display: "grid", gap: 4, maxHeight: 180, overflowY: "auto" }}>
-                  {afuera.map((m) => (
-                    <div key={m.id} style={{ display: "flex", gap: 8, alignItems: "baseline", fontSize: 12.5, padding: "4px 8px", background: "rgba(255,255,255,0.35)", borderRadius: 8 }}>
-                      <span style={{ color: C.text, minWidth: 0 }}>{m.descripcion}</span>
-                      {m.ubicacion_obs && <span style={{ color: C.dim, fontSize: 11.5 }}>· {m.ubicacion_obs}</span>}
-                    </div>
-                  ))}
-                </div>
-              </div>
+              <AfueraPanel
+                grupos={afueraPorLugar}
+                total={afuera.length}
+                lugares={lugaresConocidos}
+                onSaved={cargar}
+                toast={toast}
+              />
             )}
           </div>
 
@@ -663,6 +697,198 @@ export default function MapaPanolTab({ isMobile = false, toast, canEdit = false 
         </div>
       </div>
       {detalleMat && <MaterialDetalleModal material={detalleMat} onClose={() => setDetalleMat(null)} />}
+    </div>
+  );
+}
+
+// ── Afuera del pañol: agrupado por lugar, con el lugar editable ──
+// El mapa muestra dónde vive cada cosa DENTRO del pañol. Lo que está afuera no
+// tiene coordenada, así que la única forma de saber dónde está es que alguien
+// lo escriba. Se edita acá mismo: mandarlo a otra pantalla garantizaba que
+// nadie lo cargue.
+function AfueraPanel({ grupos, total, lugares, onSaved, toast }) {
+  const [abiertos, setAbiertos] = useState(() => new Set(["__sin__"]));
+  const [editando, setEditando] = useState(null); // material.id
+  const [borrador, setBorrador] = useState("");
+  const [guardando, setGuardando] = useState(false);
+
+  const sinLugar = grupos.find((g) => !g.lugar)?.items.length || 0;
+
+  function toggle(key) {
+    setAbiertos((prev) => {
+      const next = new Set(prev);
+      if (next.has(key)) next.delete(key); else next.add(key);
+      return next;
+    });
+  }
+
+  async function guardar(material) {
+    const lugar = borrador.trim();
+    if (guardando) return;
+    setGuardando(true);
+    try {
+      await guardarUbicacionMaterial(material.id, { ubicacion: "AFUERA", ubicacionObs: lugar });
+      // Queda registro de quién movió qué: un material que cambia de lugar sin
+      // rastro es exactamente cómo se pierde.
+      try {
+        await registrarCambioUbicacionMaterial(material, {
+          ubicacionAnterior: `AFUERA${material.ubicacion_obs ? ` (${material.ubicacion_obs})` : ""}`,
+          ubicacionNueva: "AFUERA",
+          ubicacionObs: lugar,
+        });
+      } catch { /* el lugar ya se guardó; el historial es secundario */ }
+      setEditando(null);
+      setBorrador("");
+      toast?.success?.(lugar ? `Ubicado en ${lugar}` : "Lugar borrado");
+      await onSaved?.();
+    } catch (e) {
+      toast?.error?.(e?.message || "No se pudo guardar el lugar.");
+    } finally {
+      setGuardando(false);
+    }
+  }
+
+  return (
+    <div style={{ border: `1px solid ${C.amberB}`, background: C.amberL, borderRadius: 14, padding: "11px 13px" }}>
+      <div style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap", marginBottom: 9 }}>
+        <PackageOpen size={15} style={{ color: C.amber }} />
+        <span style={{ fontSize: 12.5, fontWeight: 900, color: C.text }}>Afuera del pañol ({total})</span>
+        {sinLugar > 0 && (
+          <span className="afuera-alerta" style={{
+            display: "inline-flex", alignItems: "center", gap: 5,
+            padding: "2px 9px", borderRadius: 999,
+            border: `1px solid ${C.redB}`, background: C.redL, color: C.red,
+            fontSize: 11, fontWeight: 900,
+          }}>
+            <AlertTriangle size={11} />
+            {sinLugar} sin lugar
+          </span>
+        )}
+        <span style={{ fontSize: 11, color: C.dim }}>— tocá un lugar para ver qué hay ahí</span>
+      </div>
+
+      <div style={{ display: "grid", gap: 6, maxHeight: 320, overflowY: "auto" }}>
+        {grupos.map((g) => {
+          const key = g.lugar || "__sin__";
+          const abierto = abiertos.has(key);
+          const tono = g.lugar
+            ? { color: C.amber, borde: C.amberB }
+            : { color: C.red, borde: C.redB };
+          return (
+            <div key={key} style={{ borderRadius: 10, overflow: "hidden", border: `1px solid ${tono.borde}`, background: "var(--panel)" }}>
+              <button
+                type="button"
+                className="afuera-grupo"
+                onClick={() => toggle(key)}
+                style={{
+                  width: "100%", display: "flex", alignItems: "center", gap: 8,
+                  padding: "8px 10px", border: "none", background: "transparent",
+                  cursor: "pointer", textAlign: "left",
+                }}
+              >
+                <ChevronRight size={14} className="afuera-chevron" data-abierto={abierto ? "1" : "0"} style={{ color: C.dim, flexShrink: 0 }} />
+                {g.lugar
+                  ? <MapPin size={13} style={{ color: tono.color, flexShrink: 0 }} />
+                  : <AlertTriangle size={13} style={{ color: tono.color, flexShrink: 0 }} />}
+                <span style={{ fontSize: 12.5, fontWeight: 850, color: g.lugar ? C.text : C.red, minWidth: 0, flex: 1 }}>
+                  {g.lugar || "Sin lugar anotado"}
+                </span>
+                <span style={{
+                  fontSize: 11, fontWeight: 900, color: tono.color,
+                  border: `1px solid ${tono.borde}`, borderRadius: 999, padding: "1px 8px",
+                }}>
+                  {g.items.length}
+                </span>
+              </button>
+
+              {abierto && (
+                <div style={{ display: "grid", gap: 3, padding: "0 8px 8px" }}>
+                  {g.items.map((m, i) => (
+                    <div
+                      key={m.id}
+                      className="afuera-item"
+                      style={{ animationDelay: `${Math.min(i, 8) * 24}ms` }}
+                    >
+                      {editando === m.id ? (
+                        <div style={{ display: "grid", gap: 6, padding: "7px 8px", borderRadius: 8, background: "var(--panel-2)" }}>
+                          <span style={{ fontSize: 12, color: C.text, fontWeight: 700 }}>{m.descripcion}</span>
+                          <input
+                            autoFocus
+                            list="afuera-lugares"
+                            value={borrador}
+                            onChange={(e) => setBorrador(e.target.value)}
+                            onKeyDown={(e) => {
+                              if (e.key === "Enter") guardar(m);
+                              if (e.key === "Escape") { setEditando(null); setBorrador(""); }
+                            }}
+                            placeholder="¿Dónde está? Ej: Galpón fondo, K52 a bordo"
+                            style={{
+                              width: "100%", padding: "7px 9px", borderRadius: 8,
+                              border: `1px solid ${C.border2}`, background: C.panelSolid,
+                              color: C.text, fontSize: 12.5, outline: "none",
+                            }}
+                          />
+                          <div style={{ display: "flex", gap: 6 }}>
+                            <button
+                              type="button"
+                              onClick={() => guardar(m)}
+                              disabled={guardando}
+                              style={{
+                                display: "inline-flex", alignItems: "center", gap: 5,
+                                padding: "6px 12px", borderRadius: 8, cursor: "pointer",
+                                border: `1px solid ${C.greenB}`, background: C.greenL, color: C.green,
+                                fontSize: 12, fontWeight: 850, opacity: guardando ? 0.6 : 1,
+                              }}
+                            >
+                              <Check size={12} /> {guardando ? "Guardando…" : "Guardar"}
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => { setEditando(null); setBorrador(""); }}
+                              style={{
+                                padding: "6px 12px", borderRadius: 8, cursor: "pointer",
+                                border: `1px solid ${C.border}`, background: "transparent", color: C.dim,
+                                fontSize: 12, fontWeight: 800,
+                              }}
+                            >
+                              Cancelar
+                            </button>
+                          </div>
+                        </div>
+                      ) : (
+                        <button
+                          type="button"
+                          onClick={() => { setEditando(m.id); setBorrador(m.ubicacion_obs || ""); }}
+                          title="Anotar dónde está"
+                          style={{
+                            width: "100%", display: "flex", alignItems: "center", gap: 8,
+                            padding: "6px 9px", borderRadius: 8, cursor: "pointer",
+                            border: "1px solid transparent", background: "var(--panel-2)",
+                            color: C.text, fontSize: 12.5, textAlign: "left",
+                          }}
+                        >
+                          <span style={{ flex: 1, minWidth: 0, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+                            {m.descripcion}
+                          </span>
+                          <span style={{ display: "inline-flex", alignItems: "center", gap: 4, color: C.dim, fontSize: 11, fontWeight: 800, flexShrink: 0 }}>
+                            <Pencil size={11} /> {m.ubicacion_obs ? "Cambiar" : "Anotar"}
+                          </span>
+                        </button>
+                      )}
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+          );
+        })}
+      </div>
+
+      {/* Sugerencias con los lugares que ya se usan, para que no convivan
+          "Galpón", "galpon" y "en el galpón" como tres lugares distintos. */}
+      <datalist id="afuera-lugares">
+        {lugares.map((l) => <option key={l} value={l} />)}
+      </datalist>
     </div>
   );
 }

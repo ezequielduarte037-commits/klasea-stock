@@ -317,6 +317,8 @@ export function ItemModal({ item, proceso, onClose, onSave, onArchive }) {
     requiere_confirmacion: !!item?.requiere_confirmacion,
     alerta: item?.alerta || "",
     notas: item?.notas || "",
+    es_resultado: !!item?.es_resultado,
+    resultado_de: Array.isArray(item?.resultado_de) ? item.resultado_de : [],
   });
   const [saving, setSaving] = useState(false);
   const set = (key, value) => setForm((prev) => ({ ...prev, [key]: value }));
@@ -338,9 +340,11 @@ export function ItemModal({ item, proceso, onClose, onSave, onArchive }) {
     try {
       await onSave({
         ...form,
-        material_id: form.material_id || null,
+        material_id: form.es_resultado ? null : form.material_id || null,
         cantidad: Number(form.cantidad),
-        proveedor_compra: form.proveedor_compra.trim() || null,
+        proveedor_compra: form.es_resultado ? null : form.proveedor_compra.trim() || null,
+        solicitado_por_torneria: form.es_resultado ? false : form.solicitado_por_torneria,
+        compra_estado: form.es_resultado ? "no_aplica" : form.compra_estado,
         alerta: form.alerta.trim() || null,
         notas: form.notas.trim() || null,
       });
@@ -376,7 +380,104 @@ export function ItemModal({ item, proceso, onClose, onSave, onArchive }) {
       )}
     >
       <div style={{ display: "grid", gap: 16 }}>
-        <CatalogSearch selected={catalog} onSelect={pickMaterial} />
+        <div style={{
+          display: "grid",
+          gridTemplateColumns: "repeat(2, minmax(0, 1fr))",
+          gap: 6,
+          padding: 5,
+          borderRadius: 12,
+          border: `1px solid ${C.border}`,
+          background: C.panel,
+        }}>
+          {[
+            [false, "Material comprado", "Se compra y después recorre talleres."],
+            [true, "Conjunto resultante", "Se arma con otros materiales del proceso."],
+          ].map(([value, title, hint]) => {
+            const active = form.es_resultado === value;
+            return (
+              <button
+                key={title}
+                type="button"
+                onClick={() => setForm((prev) => ({
+                  ...prev,
+                  es_resultado: value,
+                  compra_estado: value ? "no_aplica" : prev.compra_estado === "no_aplica" ? "pendiente_solicitud" : prev.compra_estado,
+                  solicitado_por_torneria: value ? false : prev.solicitado_por_torneria,
+                  requiere_confirmacion: value ? true : prev.requiere_confirmacion,
+                  alerta: value && !prev.alerta ? "Definí y confirmá la cantidad del conjunto resultante." : prev.alerta,
+                }))}
+                style={{
+                  display: "grid",
+                  gap: 2,
+                  minWidth: 0,
+                  padding: "9px 10px",
+                  borderRadius: 9,
+                  border: `1px solid ${active ? C.blueB : "transparent"}`,
+                  background: active ? C.blueL : "transparent",
+                  color: active ? C.blue : C.dim,
+                  cursor: "pointer",
+                  textAlign: "left",
+                  fontFamily: C.sans,
+                }}
+              >
+                <span style={{ fontSize: 11.5, fontWeight: 850 }}>{title}</span>
+                <span style={{ fontSize: 9.5, lineHeight: 1.35 }}>{hint}</span>
+              </button>
+            );
+          })}
+        </div>
+
+        {!form.es_resultado && <CatalogSearch selected={catalog} onSelect={pickMaterial} />}
+
+        {form.es_resultado && (
+          <div style={{
+            display: "grid",
+            gap: 9,
+            padding: 12,
+            borderRadius: 12,
+            border: `1px solid ${C.blueB}`,
+            background: C.blueL,
+          }}>
+            <div>
+              <div style={{ color: C.blue, fontSize: 12, fontWeight: 850 }}>Materiales que forman el conjunto</div>
+              <div style={{ color: C.muted, fontSize: 10.5, lineHeight: 1.4, marginTop: 2 }}>
+                Al completar esos recorridos, este será el ítem que viaje en la etapa siguiente.
+              </div>
+            </div>
+            <div style={{ display: "grid", gap: 5, maxHeight: 190, overflowY: "auto" }}>
+              {(proceso.items || [])
+                .filter((row) => row.id !== item?.id && row.activo !== false && !row.es_resultado)
+                .map((row) => {
+                  const checked = form.resultado_de.includes(row.clave);
+                  return (
+                    <label key={row.id} style={{
+                      display: "flex",
+                      alignItems: "center",
+                      gap: 8,
+                      padding: "7px 9px",
+                      borderRadius: 8,
+                      border: `1px solid ${checked ? C.blueB : C.border}`,
+                      background: checked ? C.panel : C.panelSolid,
+                      color: checked ? C.text : C.muted,
+                      cursor: "pointer",
+                      fontSize: 11.5,
+                      fontWeight: 750,
+                    }}>
+                      <input
+                        type="checkbox"
+                        checked={checked}
+                        onChange={() => set("resultado_de", checked
+                          ? form.resultado_de.filter((key) => key !== row.clave)
+                          : [...form.resultado_de, row.clave])}
+                      />
+                      {row.descripcion}
+                    </label>
+                  );
+                })}
+            </div>
+          </div>
+        )}
+
         <div className="tor-form-grid">
           <Field label="Descripción" full>
             <input value={form.descripcion} onChange={(event) => set("descripcion", event.target.value)} style={INPUT} />
@@ -384,30 +485,36 @@ export function ItemModal({ item, proceso, onClose, onSave, onArchive }) {
           <Field label="Grupo">
             <input value={form.grupo} onChange={(event) => set("grupo", event.target.value)} style={INPUT} />
           </Field>
-          <Field label="Proveedor de compra">
-            <input value={form.proveedor_compra} onChange={(event) => set("proveedor_compra", event.target.value)} style={INPUT} />
-          </Field>
+          {!form.es_resultado && (
+            <Field label="Proveedor de compra">
+              <input value={form.proveedor_compra} onChange={(event) => set("proveedor_compra", event.target.value)} style={INPUT} />
+            </Field>
+          )}
           <Field label="Cantidad">
             <input type="number" min="0.01" step="0.01" value={form.cantidad} onChange={(event) => set("cantidad", event.target.value)} style={INPUT} />
           </Field>
           <Field label="Unidad">
             <input value={form.unidad} onChange={(event) => set("unidad", event.target.value)} style={INPUT} />
           </Field>
-          <Field label="Seguimiento de compra">
-            <select value={form.compra_estado} onChange={(event) => set("compra_estado", event.target.value)} style={INPUT}>
-              {PURCHASE_STATES.map(([value, label]) => <option key={value} value={value}>{label}</option>)}
-            </select>
-          </Field>
-          <Field label="Solicitado por">
-            <select
-              value={form.solicitado_por_torneria ? "torneria" : "astillero"}
-              onChange={(event) => set("solicitado_por_torneria", event.target.value === "torneria")}
-              style={INPUT}
-            >
-              <option value="torneria">Tornería</option>
-              <option value="astillero">Astillero</option>
-            </select>
-          </Field>
+          {!form.es_resultado && (
+            <>
+              <Field label="Seguimiento de compra">
+                <select value={form.compra_estado} onChange={(event) => set("compra_estado", event.target.value)} style={INPUT}>
+                  {PURCHASE_STATES.map(([value, label]) => <option key={value} value={value}>{label}</option>)}
+                </select>
+              </Field>
+              <Field label="Solicitado por">
+                <select
+                  value={form.solicitado_por_torneria ? "torneria" : "astillero"}
+                  onChange={(event) => set("solicitado_por_torneria", event.target.value === "torneria")}
+                  style={INPUT}
+                >
+                  <option value="torneria">Tornería</option>
+                  <option value="astillero">Astillero</option>
+                </select>
+              </Field>
+            </>
+          )}
           <Field label="Alerta de confirmación" full>
             <label style={{
               display: "flex",
@@ -447,6 +554,7 @@ export function OperacionModal({ operacion, proceso, onClose, onSave, onArchive 
     nombre: operacion?.nombre || "",
     tipo: operacion?.tipo || "torneria",
     viaje: operacion?.viaje ?? 1,
+    origen: operacion?.origen || "Astillero",
     destino: operacion?.destino || "",
     descripcion: operacion?.descripcion || "",
     depende_de: operacion?.depende_de || [],
@@ -515,7 +623,15 @@ export function OperacionModal({ operacion, proceso, onClose, onSave, onArchive 
           <Field label="Grupo">
             <input value={form.grupo} onChange={(event) => set("grupo", event.target.value)} style={INPUT} />
           </Field>
-          <Field label="Destino">
+          <Field label="Origen">
+            <input
+              value={form.origen}
+              onChange={(event) => set("origen", event.target.value)}
+              placeholder="Astillero o Proveedor"
+              style={INPUT}
+            />
+          </Field>
+          <Field label="Taller / destino">
             <input value={form.destino} onChange={(event) => set("destino", event.target.value)} style={INPUT} />
           </Field>
           <Field label="Tipo">
@@ -720,8 +836,8 @@ export function MovimientoModal({
 
         <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 6 }}>
           {[
-            ["salida", "Salida al taller"],
-            ["recepcion", "Vuelta al astillero"],
+            ["salida", `${operacion.origen || "Astillero"} → taller`],
+            ["recepcion", "Taller → Astillero"],
           ].map(([value, label]) => (
             <button
               key={value}
@@ -746,7 +862,7 @@ export function MovimientoModal({
           <Field label="Responsable">
             <input value={form.responsable} onChange={(event) => set("responsable", event.target.value)} style={INPUT} />
           </Field>
-          <Field label="Destino / origen">
+          <Field label={form.tipo === "salida" ? "Destino del envío" : "Origen del regreso"}>
             <input value={form.destino} onChange={(event) => set("destino", event.target.value)} style={INPUT} />
           </Field>
           <Field label="Remito">

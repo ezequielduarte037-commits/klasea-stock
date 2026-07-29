@@ -1,7 +1,7 @@
 import { createElement, useCallback, useEffect, useMemo, useState } from "react";
 import {
   AlertTriangle, ArrowLeft, ArrowRight, Boxes, Check, ChevronDown, ChevronRight, ChevronUp, CircleHelp,
-  Edit3, Factory, FileText, History, Link2, Loader2,
+  Edit3, Factory, FileText, GitMerge, History, Link2, Loader2,
   MapPin, PackageCheck, PackageOpen, Plus, RefreshCw, Repeat, Search, Settings2,
   Trash2, Truck, Wrench,
 } from "lucide-react";
@@ -48,6 +48,12 @@ const GROUP_COLORS = {
   Bocina: C.green,
   Manchon: C.indigo,
   Otros: C.dim,
+};
+
+const RESULT_OPERATION_META = {
+  pata_conjunto_t2: { clave: "pata_gallo", descripcion: "Pata de gallo", grupo: "Pata de gallo" },
+  timon_conjunto_t2: { clave: "timon", descripcion: "Timon", grupo: "Timon" },
+  limera_conjunto_t2: { clave: "limera_timon", descripcion: "Limera de timon", grupo: "Limera" },
 };
 
 const PROCESS_STATE = {
@@ -463,6 +469,18 @@ function OperationCard({ process, operation, onMove, onEdit, onEditItem }) {
               {operation.descripcion}
             </div>
           )}
+          <div style={{
+            display: "flex",
+            alignItems: "center",
+            gap: 5,
+            color: C.dim,
+            fontSize: 9.5,
+            fontWeight: 750,
+            marginTop: 5,
+          }}>
+            <MapPin size={10} />
+            {operation.origen || "Astillero"} → {workshopName(operation)} → Astillero
+          </div>
         </div>
         <StatusBadge status={operation.estado} compact />
       </div>
@@ -486,7 +504,7 @@ function OperationCard({ process, operation, onMove, onEdit, onEditItem }) {
       )}
       {ready && (
         <div style={{ display: "flex", alignItems: "center", gap: 6, color: C.green, fontSize: 10.5, fontWeight: 800 }}>
-          <Check size={13} /> Listo para salir
+          <Check size={13} /> Listo para enviar
         </div>
       )}
       {alerts.map((item) => (
@@ -607,6 +625,11 @@ function JourneyCard({ process, operation, index, current, onMove }) {
   const partial = operation.estado === "parcial";
   const pending = operation.estado === "pendiente";
   const destination = workshopName(operation);
+  const origin = operation.origen?.trim() || "Astillero";
+  const supplierOrigin = origin.toLowerCase() !== "astillero";
+  const originColor = supplierOrigin ? C.teal : C.green;
+  const originSoft = supplierOrigin ? C.tealL : C.greenL;
+  const originBorder = supplierOrigin ? C.tealB : C.greenB;
   const workshopColor = operation.tipo === "plegadora" ? C.violet : C.blue;
   const workshopSoft = operation.tipo === "plegadora" ? C.violetL : C.blueL;
   const workshopBorder = operation.tipo === "plegadora" ? C.violetB : C.blueB;
@@ -641,7 +664,7 @@ function JourneyCard({ process, operation, index, current, onMove }) {
     stateSoft = C.redL;
     stateBorder = C.redB;
   } else if (pending) {
-    stateLabel = "Listo para salir";
+    stateLabel = "Listo para enviar";
     stateColor = C.blue;
     stateSoft = C.blueL;
     stateBorder = C.blueB;
@@ -670,7 +693,7 @@ function JourneyCard({ process, operation, index, current, onMove }) {
           letterSpacing: "0.08em",
           textTransform: "uppercase",
         }}>
-          Viaje {index + 1}
+          Viaje {operation.viaje || index + 1}
         </span>
         <span style={{
           display: "inline-flex",
@@ -693,11 +716,11 @@ function JourneyCard({ process, operation, index, current, onMove }) {
 
       <div className="tor-journey-path">
         <span className="tor-route-node" style={{
-          borderColor: C.greenB,
-          background: C.greenL,
-          color: C.green,
+          borderColor: originBorder,
+          background: originSoft,
+          color: originColor,
         }}>
-          <MapPin size={11} /> Astillero
+          <MapPin size={11} /> {origin}
         </span>
         <ArrowRight size={12} style={{ color: C.dim, flexShrink: 0 }} />
         <span className="tor-route-node" style={{
@@ -769,31 +792,337 @@ function JourneyCard({ process, operation, index, current, onMove }) {
   );
 }
 
+function routeCurrentId(tramos) {
+  return tramos.find((operation) => operation.estado !== "recibido")?.id || null;
+}
+
+function routeIsComplete(row) {
+  return row.tramos.every((operation) => operation.estado === "recibido");
+}
+
+function RouteJourneyCards({ process, tramos, onMove }) {
+  const currentId = routeCurrentId(tramos);
+  return (
+    <div className="tor-journey-grid">
+      {tramos.map((operation, index) => (
+        <JourneyCard
+          key={operation.id}
+          process={process}
+          operation={operation}
+          index={index}
+          current={operation.id === currentId}
+          onMove={onMove}
+        />
+      ))}
+    </div>
+  );
+}
+
+function StandaloneRouteCard({ process, row, onMove }) {
+  const { item, tramos } = row;
+  const complete = routeIsComplete(row);
+  return (
+    <article className="tor-route-card" style={{
+      display: "grid",
+      gap: 11,
+      padding: 12,
+      borderRadius: 14,
+      border: `1px solid ${complete ? C.greenB : C.border}`,
+      background: complete ? C.greenL : C.panel,
+    }}>
+      <div style={{
+        display: "flex",
+        alignItems: "flex-start",
+        justifyContent: "space-between",
+        gap: 10,
+        flexWrap: "wrap",
+      }}>
+        <div style={{ minWidth: 0 }}>
+          <div style={{ color: C.text, fontSize: 13.5, fontWeight: 900, lineHeight: 1.3 }}>
+            {item.descripcion}
+          </div>
+          <div style={{ color: C.dim, fontSize: 10.5, marginTop: 3 }}>
+            {qty(item.cantidad)} {item.unidad} · {tramos.length === 1 ? "1 viaje" : `${tramos.length} viajes`}
+          </div>
+        </div>
+        {complete && (
+          <span style={{ display: "inline-flex", alignItems: "center", gap: 5, color: C.green, fontSize: 10.5, fontWeight: 850 }}>
+            <Check size={13} /> Circuito completo
+          </span>
+        )}
+      </div>
+      <RouteJourneyCards process={process} tramos={tramos} onMove={onMove} />
+    </article>
+  );
+}
+
+function TransformationSource({ process, row, onMove }) {
+  const complete = routeIsComplete(row);
+  return (
+    <div className="tor-transform-source" style={{
+      display: "grid",
+      gap: 9,
+      minWidth: 0,
+      padding: 10,
+      borderRadius: 12,
+      border: `1px solid ${complete ? C.greenB : C.border}`,
+      background: complete ? C.greenL : C.panelSolid,
+    }}>
+      <div style={{ display: "flex", alignItems: "flex-start", justifyContent: "space-between", gap: 8 }}>
+        <div style={{ minWidth: 0 }}>
+          <div style={{ color: C.text, fontSize: 12.5, fontWeight: 900, lineHeight: 1.3 }}>
+            {row.item.descripcion}
+          </div>
+          <div style={{ color: C.dim, fontSize: 10, marginTop: 2 }}>
+            {qty(row.item.cantidad)} {row.item.unidad}
+          </div>
+        </div>
+        <span style={{
+          display: "inline-flex",
+          alignItems: "center",
+          gap: 4,
+          flexShrink: 0,
+          color: complete ? C.green : C.dim,
+          fontSize: 9.5,
+          fontWeight: 850,
+        }}>
+          {complete ? <Check size={11} /> : <Repeat size={11} />}
+          {complete ? "Listo" : "En proceso"}
+        </span>
+      </div>
+      <RouteJourneyCards process={process} tramos={row.tramos} onMove={onMove} />
+    </div>
+  );
+}
+
+function TransformationFlow({ process, result, sources, onMove }) {
+  const sourcesReady = sources.length > 0 && sources.every(routeIsComplete);
+  const resultReady = routeIsComplete(result);
+  const complete = sourcesReady && resultReady;
+  const pendingSources = sources.filter((row) => !routeIsComplete(row)).length;
+  const resultItem = result.item;
+
+  return (
+    <article className="tor-transform-card" style={{
+      display: "grid",
+      gap: 11,
+      padding: 12,
+      borderRadius: 15,
+      border: `1px solid ${complete ? C.greenB : C.blueB}`,
+      background: complete ? C.greenL : C.panel,
+      overflow: "hidden",
+    }}>
+      <div style={{
+        display: "flex",
+        alignItems: "flex-start",
+        justifyContent: "space-between",
+        gap: 12,
+        flexWrap: "wrap",
+      }}>
+        <div style={{ minWidth: 0 }}>
+          <div style={{ display: "flex", alignItems: "center", gap: 7, flexWrap: "wrap" }}>
+            <span style={{ color: C.text, fontSize: 14, fontWeight: 950 }}>
+              Formación de {resultItem.descripcion}
+            </span>
+            <span style={{
+              display: "inline-flex",
+              alignItems: "center",
+              gap: 4,
+              padding: "2px 7px",
+              borderRadius: 999,
+              border: `1px solid ${C.blueB}`,
+              background: C.blueL,
+              color: C.blue,
+              fontSize: 9,
+              fontWeight: 900,
+              textTransform: "uppercase",
+            }}>
+              <GitMerge size={10} /> {sources.length} componentes
+            </span>
+          </div>
+          <div style={{ color: C.dim, fontSize: 10.5, lineHeight: 1.4, marginTop: 3 }}>
+            Los componentes completan su primer recorrido y convergen en un único ítem para el viaje siguiente.
+          </div>
+        </div>
+        <span style={{
+          display: "inline-flex",
+          alignItems: "center",
+          gap: 5,
+          color: complete ? C.green : sourcesReady ? C.blue : C.dim,
+          fontSize: 10.5,
+          fontWeight: 850,
+        }}>
+          {complete ? <Check size={13} /> : <GitMerge size={13} />}
+          {complete ? "Circuito completo" : sourcesReady ? "Conjunto listo" : `${pendingSources} componente${pendingSources === 1 ? "" : "s"} pendiente${pendingSources === 1 ? "" : "s"}`}
+        </span>
+      </div>
+
+      <div className="tor-transform-flow">
+        <div style={{ display: "grid", alignContent: "start", gap: 7, minWidth: 0 }}>
+          <div style={{ color: C.dim, fontSize: 9.5, fontWeight: 900, letterSpacing: "0.08em", textTransform: "uppercase" }}>
+            Preparación de componentes
+          </div>
+          <div style={{ display: "grid", gap: 7 }}>
+            {sources.map((source) => (
+              <TransformationSource
+                key={source.item.id}
+                process={process}
+                row={source}
+                onMove={onMove}
+              />
+            ))}
+          </div>
+        </div>
+
+        <div className="tor-transform-connector" style={{ color: sourcesReady ? C.green : C.dim }}>
+          <span className="tor-transform-line" style={{ background: sourcesReady ? C.green : C.border2 }} />
+          <span style={{
+            width: 34,
+            height: 34,
+            display: "grid",
+            placeItems: "center",
+            flexShrink: 0,
+            borderRadius: 10,
+            border: `1px solid ${sourcesReady ? C.greenB : C.border}`,
+            background: sourcesReady ? C.greenL : C.panelSolid,
+          }}>
+            <GitMerge size={16} />
+          </span>
+          <span style={{ fontSize: 9, fontWeight: 900, textAlign: "center", lineHeight: 1.25, textTransform: "uppercase" }}>
+            Se convierte en
+          </span>
+          <ArrowRight className="tor-transform-arrow" size={15} />
+        </div>
+
+        <div style={{
+          display: "grid",
+          alignContent: "start",
+          gap: 9,
+          minWidth: 0,
+          padding: 10,
+          borderRadius: 13,
+          border: `1px solid ${resultReady ? C.greenB : C.blueB}`,
+          background: resultReady ? C.greenL : C.blueL,
+        }}>
+          <div style={{ display: "flex", alignItems: "flex-start", justifyContent: "space-between", gap: 8 }}>
+            <div style={{ minWidth: 0 }}>
+              <div style={{ color: C.blue, fontSize: 9.5, fontWeight: 900, letterSpacing: "0.08em", textTransform: "uppercase" }}>
+                Conjunto resultante
+              </div>
+              <div style={{ color: C.text, fontSize: 13.5, fontWeight: 950, marginTop: 3 }}>
+                {resultItem.descripcion}
+              </div>
+              <div style={{ color: C.muted, fontSize: 10, marginTop: 2 }}>
+                {qty(resultItem.cantidad)} {resultItem.unidad} · cantidad manual
+              </div>
+            </div>
+            <Boxes size={17} style={{ color: resultReady ? C.green : C.blue, flexShrink: 0 }} />
+          </div>
+          {resultItem.requiere_confirmacion && !resultItem.confirmado_at && (
+            <div style={{
+              display: "flex",
+              alignItems: "flex-start",
+              gap: 6,
+              padding: "7px 8px",
+              borderRadius: 8,
+              border: `1px solid ${C.redB}`,
+              background: C.redL,
+              color: C.red,
+              fontSize: 9.5,
+              lineHeight: 1.35,
+            }}>
+              <AlertTriangle size={12} style={{ flexShrink: 0 }} />
+              Falta confirmar la cantidad resultante.
+            </div>
+          )}
+          <RouteJourneyCards process={process} tramos={result.tramos} onMove={onMove} />
+        </div>
+      </div>
+    </article>
+  );
+}
+
 function RecorridosPorItem({ process, onMove, query = "" }) {
   const operations = (process.operaciones || []).filter((row) => row.activa !== false);
   const items = (process.items || []).filter((row) => row.activo !== false);
-  const allRoutes = items
+  const itemRoutes = items
     .map((item) => {
       const tramos = operations
-        .filter((op) => (op.componentes || []).some((c) => c.item_id === item.id))
+        .filter((op) => {
+          const includesItem = (op.componentes || []).some((c) => c.item_id === item.id);
+          if (!includesItem) return false;
+          // En procesos anteriores, el viaje 2 todavia apunta a sus piezas de
+          // origen. Lo ocultamos de esas rutas y lo mostramos como un conjunto
+          // virtual para conservar el historial sin duplicar el viaje.
+          return !RESULT_OPERATION_META[op.clave] || item.es_resultado;
+        })
         .sort((a, b) => (a.viaje ?? 99) - (b.viaje ?? 99) || (a.orden ?? 0) - (b.orden ?? 0));
       return { ...item, item, tramos };
     })
     .filter((row) => row.tramos.length > 0);
-  const term = query.trim().toLowerCase();
-  const recorridos = term
-    ? allRoutes.filter((row) => {
-      const operationText = row.tramos
-        .map((operation) => `${operation.nombre || ""} ${operation.descripcion || ""} ${workshopName(operation)}`)
-        .join(" ");
-      return `${row.item.descripcion || ""} ${row.item.grupo || ""} ${row.item.proveedor_compra || ""} ${operationText}`
-        .toLowerCase()
-        .includes(term);
+  const legacyResultRoutes = operations
+    .filter((operation) => {
+      const meta = RESULT_OPERATION_META[operation.clave];
+      return meta && !(operation.componentes || []).some((row) => row.item?.es_resultado);
     })
-    : allRoutes;
+    .map((operation) => {
+      const meta = RESULT_OPERATION_META[operation.clave];
+      const sourceItems = (operation.componentes || []).map((row) => row.item).filter(Boolean);
+      const virtualItem = {
+        id: `resultado-${operation.id}`,
+        clave: meta.clave,
+        descripcion: meta.descripcion,
+        grupo: meta.grupo,
+        cantidad: Math.max(1, ...(operation.componentes || []).map((row) => Number(row.cantidad_requerida) || 0)),
+        unidad: "conjunto",
+        es_resultado: true,
+        resultado_de: sourceItems.map((item) => item.clave),
+        virtual: true,
+      };
+      return { ...virtualItem, item: virtualItem, tramos: [operation] };
+    });
+  const allRoutes = [...itemRoutes, ...legacyResultRoutes];
+  const term = query.trim().toLowerCase();
+  const matchesRoute = (row) => {
+    const operationText = row.tramos
+      .map((operation) => `${operation.nombre || ""} ${operation.descripcion || ""} ${workshopName(operation)}`)
+      .join(" ");
+    return `${row.item.descripcion || ""} ${row.item.grupo || ""} ${row.item.proveedor_compra || ""} ${operationText}`
+      .toLowerCase()
+      .includes(term);
+  };
+  const visibleGroups = groupRows(allRoutes)
+    .map(([group, rows]) => {
+      const results = rows.filter((row) => row.item.es_resultado && row.item.resultado_de?.length > 0);
+      const claimedSourceKeys = new Set(results.flatMap((row) => row.item.resultado_de || []));
+      const transformations = results.map((result) => ({
+        type: "transformation",
+        key: `transform-${result.item.id}`,
+        result,
+        sources: (result.item.resultado_de || [])
+          .map((key) => rows.find((row) => row.item.clave === key))
+          .filter(Boolean),
+      }));
+      const standalone = rows
+        .filter((row) => !row.item.es_resultado && !claimedSourceKeys.has(row.item.clave))
+        .map((row) => ({
+          type: "standalone",
+          key: `route-${row.item.id}`,
+          row,
+        }));
+      const blocks = [...transformations, ...standalone];
+      const visibleBlocks = term
+        ? blocks.filter((block) => {
+          if (block.type === "standalone") return matchesRoute(block.row);
+          return matchesRoute(block.result) || block.sources.some(matchesRoute);
+        })
+        : blocks;
+      return [group, visibleBlocks];
+    })
+    .filter(([, blocks]) => blocks.length > 0);
 
   if (!allRoutes.length) return null;
-  if (!recorridos.length) {
+  if (!visibleGroups.length) {
     return (
       <div style={{
         display: "grid",
@@ -825,7 +1154,7 @@ function RecorridosPorItem({ process, onMove, query = "" }) {
         <div>
           <div style={{ color: C.text, fontSize: 14, fontWeight: 900 }}>Circuito por material</div>
           <div style={{ color: C.dim, fontSize: 11.5, lineHeight: 1.45, marginTop: 3 }}>
-            Cada viaje sale del astillero y termina cuando el material vuelve.
+            Cada viaje muestra su origen real y termina cuando el material vuelve al astillero.
           </div>
         </div>
         <div style={{ display: "flex", alignItems: "center", gap: 9, flexWrap: "wrap" }}>
@@ -833,6 +1162,7 @@ function RecorridosPorItem({ process, onMove, query = "" }) {
             [C.blue, "Tornería"],
             [C.violet, "Plegadora"],
             [C.green, "En astillero"],
+            [C.teal, "Origen proveedor"],
           ].map(([color, label]) => (
             <span key={label} style={{
               display: "inline-flex",
@@ -849,8 +1179,11 @@ function RecorridosPorItem({ process, onMove, query = "" }) {
         </div>
       </div>
 
-      {groupRows(recorridos).map(([group, rows]) => {
-        const completed = rows.filter((row) => row.tramos.every((operation) => operation.estado === "recibido")).length;
+      {visibleGroups.map(([group, blocks]) => {
+        const completed = blocks.filter((block) => {
+          if (block.type === "standalone") return routeIsComplete(block.row);
+          return routeIsComplete(block.result) && block.sources.every(routeIsComplete);
+        }).length;
         return (
           <section key={group} style={{ display: "grid", gap: 8 }}>
             <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
@@ -869,67 +1202,29 @@ function RecorridosPorItem({ process, onMove, query = "" }) {
               }}>
                 {group}
               </span>
-              <span style={{ color: completed === rows.length ? C.green : C.dim, fontSize: 10, fontWeight: 800 }}>
-                {completed}/{rows.length} completos
+              <span style={{ color: completed === blocks.length ? C.green : C.dim, fontSize: 10, fontWeight: 800 }}>
+                {completed}/{blocks.length} circuitos completos
               </span>
             </div>
 
-            {rows.map(({ item, tramos }) => {
-              const currentId = tramos.find((operation) => operation.estado !== "recibido")?.id || null;
-              const complete = !currentId;
-              return (
-                <article key={item.id} className="tor-route-card" style={{
-                  display: "grid",
-                  gap: 11,
-                  padding: 12,
-                  borderRadius: 14,
-                  border: `1px solid ${complete ? C.greenB : C.border}`,
-                  background: complete ? C.greenL : C.panel,
-                }}>
-                  <div style={{
-                    display: "flex",
-                    alignItems: "flex-start",
-                    justifyContent: "space-between",
-                    gap: 10,
-                    flexWrap: "wrap",
-                  }}>
-                    <div style={{ minWidth: 0 }}>
-                      <div style={{ color: C.text, fontSize: 13.5, fontWeight: 900, lineHeight: 1.3 }}>
-                        {item.descripcion}
-                      </div>
-                      <div style={{ color: C.dim, fontSize: 10.5, marginTop: 3 }}>
-                        {qty(item.cantidad)} {item.unidad} · {tramos.length === 1 ? "1 viaje" : `${tramos.length} viajes`}
-                      </div>
-                    </div>
-                    {complete && (
-                      <span style={{
-                        display: "inline-flex",
-                        alignItems: "center",
-                        gap: 5,
-                        color: C.green,
-                        fontSize: 10.5,
-                        fontWeight: 850,
-                      }}>
-                        <Check size={13} /> Circuito completo
-                      </span>
-                    )}
-                  </div>
-
-                  <div className="tor-journey-grid">
-                    {tramos.map((operation, index) => (
-                      <JourneyCard
-                        key={operation.id}
-                        process={process}
-                        operation={operation}
-                        index={index}
-                        current={operation.id === currentId}
-                        onMove={onMove}
-                      />
-                    ))}
-                  </div>
-                </article>
-              );
-            })}
+            {blocks.map((block) => (
+              block.type === "transformation" ? (
+                <TransformationFlow
+                  key={block.key}
+                  process={process}
+                  result={block.result}
+                  sources={block.sources}
+                  onMove={onMove}
+                />
+              ) : (
+                <StandaloneRouteCard
+                  key={block.key}
+                  process={process}
+                  row={block.row}
+                  onMove={onMove}
+                />
+              )
+            ))}
           </section>
         );
       })}
@@ -1141,13 +1436,14 @@ function CircuitTab({
 
 function MaterialTab({ process, onEdit, onNew, onStatus, onConfirm }) {
   const items = (process.items || []).filter((row) => row.activo !== false);
+  const itemsByKey = new Map(items.map((row) => [row.clave, row]));
   return (
     <div style={{ display: "grid", gap: 16 }}>
       <div style={{ display: "flex", alignItems: "flex-start", justifyContent: "space-between", gap: 12 }}>
         <div>
           <div style={{ color: C.text, fontSize: 14, fontWeight: 900 }}>Materiales del proceso</div>
           <div style={{ color: C.dim, fontSize: 11.5, lineHeight: 1.45, marginTop: 3 }}>
-            Seguimiento manual de Compras y vínculo con el catálogo maestro.
+            Materiales comprados y conjuntos que se forman durante el circuito.
           </div>
         </div>
         <button type="button" onClick={onNew} style={{ ...BUTTON, flexShrink: 0 }}>
@@ -1182,7 +1478,18 @@ function MaterialTab({ process, onEdit, onNew, onStatus, onConfirm }) {
                 <div style={{ minWidth: 0 }}>
                   <div style={{ display: "flex", alignItems: "center", gap: 7, flexWrap: "wrap" }}>
                     <span style={{ color: C.text, fontSize: 12.5, fontWeight: 850 }}>{item.descripcion}</span>
-                    {item.material_id ? (
+                    {item.es_resultado ? (
+                      <span style={{
+                        display: "inline-flex",
+                        alignItems: "center",
+                        gap: 4,
+                        color: C.blue,
+                        fontSize: 9.5,
+                        fontWeight: 850,
+                      }}>
+                        <Boxes size={12} /> Conjunto resultante
+                      </span>
+                    ) : item.material_id ? (
                       <span title="Vinculado al catálogo" style={{ display: "inline-flex", color: C.green }}>
                         <Link2 size={12} />
                       </span>
@@ -1195,6 +1502,13 @@ function MaterialTab({ process, onEdit, onNew, onStatus, onConfirm }) {
                     {item.proveedor_compra ? ` · ${item.proveedor_compra}` : ""}
                     {item.solicitado_por_torneria ? " · solicitado por Tornería" : ""}
                   </div>
+                  {item.es_resultado && item.resultado_de?.length > 0 && (
+                    <div style={{ color: C.muted, fontSize: 10.5, lineHeight: 1.4, marginTop: 5 }}>
+                      Se arma con: {item.resultado_de
+                        .map((key) => itemsByKey.get(key)?.descripcion || key)
+                        .join(" + ")}
+                    </div>
+                  )}
                   {unresolved && (
                     <div style={{ color: C.red, fontSize: 10.5, lineHeight: 1.4, marginTop: 5 }}>
                       <b>Confirmar:</b> {item.alerta || "dato pendiente antes del envío."}
@@ -1207,23 +1521,41 @@ function MaterialTab({ process, onEdit, onNew, onStatus, onConfirm }) {
                   )}
                 </div>
                 <div style={{ display: "grid", justifyItems: "end", gap: 7 }}>
-                  <select
-                    value={item.compra_estado}
-                    onChange={(event) => onStatus(item, event.target.value)}
-                    style={{
+                  {item.es_resultado ? (
+                    <span style={{
                       minHeight: 30,
-                      maxWidth: 128,
+                      display: "inline-flex",
+                      alignItems: "center",
+                      padding: "4px 8px",
                       borderRadius: 8,
-                      border: `1px solid ${C.border}`,
-                      background: C.panelSolid,
-                      color: C.muted,
-                      padding: "4px 7px",
-                      fontSize: 10.5,
-                      fontFamily: C.sans,
-                    }}
-                  >
-                    {PURCHASE_STATES.map(([value, label]) => <option key={value} value={value}>{label}</option>)}
-                  </select>
+                      border: `1px solid ${C.blueB}`,
+                      background: C.blueL,
+                      color: C.blue,
+                      fontSize: 9.5,
+                      fontWeight: 850,
+                      whiteSpace: "nowrap",
+                    }}>
+                      Cantidad manual
+                    </span>
+                  ) : (
+                    <select
+                      value={item.compra_estado}
+                      onChange={(event) => onStatus(item, event.target.value)}
+                      style={{
+                        minHeight: 30,
+                        maxWidth: 128,
+                        borderRadius: 8,
+                        border: `1px solid ${C.border}`,
+                        background: C.panelSolid,
+                        color: C.muted,
+                        padding: "4px 7px",
+                        fontSize: 10.5,
+                        fontFamily: C.sans,
+                      }}
+                    >
+                      {PURCHASE_STATES.map(([value, label]) => <option key={value} value={value}>{label}</option>)}
+                    </select>
+                  )}
                   <div style={{ display: "flex", gap: 5 }}>
                     {item.requiere_confirmacion && (
                       <button
@@ -1259,7 +1591,7 @@ function HistoryTab({ process, onOpenMovement }) {
     (operation.movimientos || []).map((movement) => ({
       id: `movement-${movement.id}`,
       date: movement.fecha,
-      title: movement.tipo === "salida" ? "Salida al taller" : "Regreso al astillero",
+      title: movement.tipo === "salida" ? "Envío al taller" : "Regreso al astillero",
       description: operation.nombre,
       actor: movement.responsable || "Sin responsable",
       color: movement.tipo === "salida" ? C.blue : C.green,
@@ -1350,8 +1682,10 @@ function HelpModal({ onClose }) {
     ["1", "Compra y llegada", "Actualizá cada material hasta “En astillero”. Por ahora es seguimiento manual."],
     ["2", "Salida parcial", "Entrá al paso, elegí Salida y cargá solamente las cantidades que realmente viajan."],
     ["3", "Regreso parcial", "Registrá lo que vuelve. El paso termina únicamente cuando regresaron todas las piezas."],
-    ["4", "Uniones", "Los pasos de segundo viaje reúnen automáticamente núcleo+cachas, pala+mecha o brida+caño."],
-    ["5", "Excepciones", "Se puede avanzar con pasos pendientes; aparece una advertencia y queda registro del usuario."],
+    ["4", "Conjuntos resultantes", "Núcleo+cachas forman Pata de gallo; pala+mecha forman Timón; bridas+caño forman Limera de timón. La cantidad final se carga manualmente."],
+    ["5", "Origen proveedor", "Bulones y el lote de broncería/bujes se registran como Proveedor → Tornería → Astillero."],
+    ["6", "Caso K55", "La Palma de pata de gallo vuelve de Tornería y después realiza otro viaje a Plegadora."],
+    ["7", "Excepciones", "Se puede avanzar con pasos pendientes; aparece una advertencia y queda registro del usuario."],
   ];
   return (
     <Modal title="Cómo usar Tornería" subtitle="Guía breve para operar desde el celular." onClose={onClose}>
@@ -1694,6 +2028,7 @@ export default function TorneriaScreen({ profile, signOut }) {
   }
 
   const setupMissing = /torneria_|schema cache|does not exist|relation/i.test(error);
+  const upgradeMissing = /es_resultado|resultado_de|origen/i.test(error);
   const selectedProgress = selected ? processProgress(selected) : 0;
   const selectedUnresolved = selected?.items.filter(
     (item) => item.activo !== false && item.requiere_confirmacion && !item.confirmado_at,
@@ -1721,6 +2056,11 @@ export default function TorneriaScreen({ profile, signOut }) {
         .tor-route-card,.tor-journey-card{transition:border-color .16s ease,box-shadow .16s ease}
         .tor-route-card:hover{border-color:var(--border-2)!important;box-shadow:0 12px 30px -28px var(--shadow-strong)}
         .tor-journey-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,240px),1fr));gap:8px}
+        .tor-transform-card{transition:border-color .16s ease,box-shadow .16s ease}
+        .tor-transform-card:hover{box-shadow:0 14px 34px -30px var(--shadow-strong)}
+        .tor-transform-flow{display:grid;grid-template-columns:minmax(0,1.12fr) 76px minmax(280px,.88fr);gap:8px;align-items:stretch;min-width:0}
+        .tor-transform-connector{display:flex;flex-direction:column;align-items:center;justify-content:center;gap:6px;min-width:0;padding:4px 0}
+        .tor-transform-line{width:100%;height:1px;flex-shrink:0}
         .tor-journey-path{display:flex;align-items:center;gap:5px;min-width:0;overflow-x:auto;padding-bottom:2px}
         .tor-route-node{min-height:28px;display:inline-flex;align-items:center;gap:5px;flex-shrink:0;padding:4px 7px;border:1px solid var(--border);border-radius:8px;font-size:9.5px;font-weight:850;white-space:nowrap}
         .tor-route-action,.tor-management-toggle{transition:filter .14s ease,transform .1s ease,background .14s ease}
@@ -1733,6 +2073,12 @@ export default function TorneriaScreen({ profile, signOut }) {
         input:focus,select:focus,textarea:focus{border-color:var(--blue-border)!important}
         select option{background:var(--panel-solid);color:var(--text)}
         @media(max-width:1120px){.tor-operation-grid{grid-template-columns:1fr}}
+        @media(max-width:980px){
+          .tor-transform-flow{grid-template-columns:1fr}
+          .tor-transform-connector{flex-direction:row;padding:3px 10px}
+          .tor-transform-line{width:auto;flex:1}
+          .tor-transform-arrow{transform:rotate(90deg)}
+        }
         @media(max-width:620px){
           .tor-form-grid{grid-template-columns:1fr}
           .tor-form-grid>*{grid-column:1!important}
@@ -1953,7 +2299,9 @@ export default function TorneriaScreen({ profile, signOut }) {
               <div style={{ color: C.muted, fontSize: 12, lineHeight: 1.5 }}>{error}</div>
               {setupMissing && (
                 <code style={{ color: C.text, fontSize: 11, padding: 10, borderRadius: 9, background: C.panelSolid, overflowWrap: "anywhere" }}>
-                  supabase/migrations/20260728230000_torneria_seguimiento.sql
+                  {upgradeMissing
+                    ? "supabase/migrations/20260729150000_torneria_conjuntos_y_origenes.sql"
+                    : "supabase/migrations/20260728230000_torneria_seguimiento.sql"}
                 </code>
               )}
               <button type="button" onClick={() => load()} style={{ ...PRIMARY_BUTTON, width: "fit-content" }}>

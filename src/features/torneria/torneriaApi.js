@@ -197,6 +197,7 @@ function makeKey(description = "") {
 }
 
 export async function crearItem(procesoId, fields) {
+  const esResultado = !!fields.es_resultado;
   const payload = {
     proceso_id: procesoId,
     clave: makeKey(fields.descripcion),
@@ -206,12 +207,14 @@ export async function crearItem(procesoId, fields) {
     unidad: fields.unidad || "unidad",
     proveedor_compra: fields.proveedor_compra || null,
     material_id: fields.material_id || null,
-    solicitado_por_torneria: fields.solicitado_por_torneria !== false,
-    compra_estado: fields.compra_estado || "pendiente_solicitud",
+    solicitado_por_torneria: esResultado ? false : fields.solicitado_por_torneria !== false,
+    compra_estado: esResultado ? "no_aplica" : fields.compra_estado || "pendiente_solicitud",
     requiere_confirmacion: !!fields.requiere_confirmacion,
     alerta: fields.alerta || null,
     notas: fields.notas || null,
     orden: fields.orden || 999,
+    es_resultado: esResultado,
+    resultado_de: esResultado ? fields.resultado_de || [] : [],
   };
   return ok(await supabase.from("torneria_items").insert(payload).select().single());
 }
@@ -234,6 +237,7 @@ export async function guardarOperacion({
     nombre: fields.nombre,
     tipo: fields.tipo || "torneria",
     viaje: fields.viaje ? Number(fields.viaje) : null,
+    origen: fields.origen || "Astillero",
     destino: fields.destino || null,
     descripcion: fields.descripcion || null,
     depende_de: fields.depende_de || [],

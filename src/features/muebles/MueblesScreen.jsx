@@ -428,11 +428,14 @@ function CatalogoLinea({ lineaId, lineaNombre, esAdmin, onOpenMueble }) {
     setLoading(true);
     const { data } = await supabase
       .from("prod_linea_muebles")
-      .select("mueble_id, prod_muebles(id,nombre,sector,descripcion,medidas,material)")
+      .select("mueble_id, nro_pieza, prod_muebles(id,nombre,sector,descripcion,medidas,material)")
       .eq("linea_id", lineaId)
-      .order("prod_muebles(sector)")
-      .order("prod_muebles(nombre)");
-    setMuebles((data ?? []).map(r => r.prod_muebles).filter(Boolean));
+      .order("nro_pieza");
+    // El número viaja pegado al mueble para que el catálogo muestre el mismo
+    // que el checklist y que el PDF.
+    setMuebles((data ?? [])
+      .filter(r => r.prod_muebles)
+      .map(r => ({ ...r.prod_muebles, nro_pieza: r.nro_pieza })));
     setLoading(false);
   }
 
@@ -634,6 +637,18 @@ function CatalogoLinea({ lineaId, lineaNombre, esAdmin, onOpenMueble }) {
                     }}
                     onClick={() => onOpenMueble({ ...m, imageScopeType: "linea", imageScopeId: lineaId })}
                   >
+                    <span style={{
+                      minWidth: 26,
+                      textAlign: "right",
+                      fontFamily: C.mono,
+                      fontSize: 13,
+                      fontWeight: 700,
+                      color: C.t1,
+                      fontVariantNumeric: "tabular-nums",
+                      flexShrink: 0,
+                    }}>
+                      {m.nro_pieza ?? "—"}
+                    </span>
                     <MiniThumb muebleId={m.id} scopeType="linea" scopeId={lineaId} size={50} />
                     <div style={{ flex: 1, minWidth: 0 }}>
                       <div style={{ fontSize: 14, color: C.t0, fontWeight: 500, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{m.nombre}</div>
@@ -712,6 +727,7 @@ export default function MueblesScreen({ profile, signOut }) {
   const [showAddItem, setShowAddItem] = useState(false);
   const [addItemQ,    setAddItemQ]    = useState("");
   const [catalogoLinea, setCatalogoLinea] = useState([]);
+  const [nroPorMueble, setNroPorMueble] = useState(new Map());
   const [newItemForm,   setNewItemForm]   = useState({ nombre: "", sector: "", descripcion: "", medidas: "", material: "" });
 
   function toggleSel(id) {
@@ -855,11 +871,14 @@ export default function MueblesScreen({ profile, signOut }) {
   async function cargarCatalogoLinea(lid) {
     const { data } = await supabase
       .from("prod_linea_muebles")
-      .select("mueble_id, prod_muebles(id,nombre,sector,descripcion,medidas,material)")
+      .select("mueble_id, nro_pieza, prod_muebles(id,nombre,sector,descripcion,medidas,material)")
       .eq("linea_id", lid)
       .order("prod_muebles(sector)")
       .order("prod_muebles(nombre)");
     setCatalogoLinea((data ?? []).map(r => r.prod_muebles).filter(Boolean));
+    // La numeración es de la línea, no de la unidad: la misma pieza lleva el
+    // mismo número en todos los barcos del modelo.
+    setNroPorMueble(new Map((data ?? []).map(r => [r.mueble_id, r.nro_pieza])));
   }
 
   async function agregarItemAlChecklist(mueble) {
@@ -872,10 +891,8 @@ export default function MueblesScreen({ profile, signOut }) {
       .select("id,estado,obs,mueble_id, prod_muebles(id,nombre,sector,descripcion,medidas,material)")
       .single();
     if (error) { setErr(error.message); return; }
-    setChecklist(p => [...p, data].sort((a, b) => {
-      const sa = a.prod_muebles?.sector ?? ""; const sb = b.prod_muebles?.sector ?? "";
-      return sa !== sb ? sa.localeCompare(sb) : (a.prod_muebles?.nombre ?? "").localeCompare(b.prod_muebles?.nombre ?? "");
-    }));
+    // Sin ordenar acá: el orden lo da el número de pieza en `ordenado`.
+    setChecklist(p => [...p, data]);
   }
 
   async function crearYAgregarItem() {
@@ -997,10 +1014,11 @@ export default function MueblesScreen({ profile, signOut }) {
     // El PDF sale con el estado real de cada pieza. Antes salía todo en blanco
     // y el taller volvía a marcar a mano lo que el sistema ya sabía: además de
     // trabajo al pedo, invitaba a errores.
-    const estados = checklist.map(r => r.estado || "No enviado");
+    // Se imprime en el mismo orden que se ve en pantalla.
+    const estados = ordenado.map(r => r.estado || "No enviado");
     const recibidos = estados.filter(e => e === "Completo").length;
-    const filas = checklist.map((row) => [
-      nroPieza.get(row.id) ?? "",
+    const filas = ordenado.map((row) => [
+      nroPieza(row) ?? "",
       row.prod_muebles?.sector ?? "General",
       row.prod_muebles?.nombre ?? "-",
       "",
@@ -1208,13 +1226,19 @@ export default function MueblesScreen({ profile, signOut }) {
     setManualChapaDraft(manualChapa);
     setShowManualChapa(false);
   }, [unidadSel?.id, manualChapa]);
-  const filtrado  = useMemo(() => { let rows = checklist; if (filtro !== "todos") rows = rows.filter(r => r.estado === filtro); const qq = q.toLowerCase(); if (qq) rows = rows.filter(r => (r.prod_muebles?.nombre ?? "").toLowerCase().includes(qq) || (r.prod_muebles?.sector ?? "").toLowerCase().includes(qq)); return rows; }, [checklist, filtro, q]);
-  const porSector = useMemo(() => { const map = {}; filtrado.forEach(r => { const s = r.prod_muebles?.sector || "General"; if (!map[s]) map[s] = []; map[s].push(r); }); return map; }, [filtrado]);
-  // El número de pieza sale del checklist COMPLETO y en el orden en que se
-  // carga (sector, después nombre), no del filtrado: con ese número el taller
-  // identifica cada mueble, así que buscar o filtrar no puede renumerarlos.
-  // Es el mismo número que sale impreso.
-  const nroPieza  = new Map(checklist.map((r, i) => [r.id, i + 1]));
+  // El número de pieza es el que está guardado en la línea, no la posición en
+  // la lista: es con lo que el taller identifica cada mueble, así que agregar
+  // una pieza nueva no puede correr a las demás. Es el mismo número que sale
+  // impreso.
+  const nroPieza  = (r) => nroPorMueble.get(r.mueble_id) ?? null;
+  // Ordenar por número y no por (sector, nombre) mantiene los números en orden
+  // dentro de cada sector cuando se agregan piezas nuevas. Para lo que ya está
+  // cargado da exactamente el mismo orden, porque así se numeró.
+  const ordenado  = [...checklist].sort(
+    (a, b) => (nroPieza(a) ?? Number.MAX_SAFE_INTEGER) - (nroPieza(b) ?? Number.MAX_SAFE_INTEGER),
+  );
+  const filtrado  = (() => { let rows = ordenado; if (filtro !== "todos") rows = rows.filter(r => r.estado === filtro); const qq = q.toLowerCase(); if (qq) rows = rows.filter(r => (r.prod_muebles?.nombre ?? "").toLowerCase().includes(qq) || (r.prod_muebles?.sector ?? "").toLowerCase().includes(qq)); return rows; })();
+  const porSector = (() => { const map = {}; filtrado.forEach(r => { const s = r.prod_muebles?.sector || "General"; if (!map[s]) map[s] = []; map[s].push(r); }); return map; })();
   const pct       = useMemo(() => progreso(checklist), [checklist]);
   const pctColor  = pct === 100 ? C.green : pct >= 50 ? C.t1 : C.t2;
   const stats     = useMemo(() => ({ total: checklist.length, completo: checklist.filter(r => r.estado === "Completo").length, parcial: checklist.filter(r => r.estado === "Parcial").length, rehacer: checklist.filter(r => r.estado === "Rehacer").length }), [checklist]);
@@ -1736,7 +1760,7 @@ export default function MueblesScreen({ profile, signOut }) {
                                 textAlign: "right",
                                 fontVariantNumeric: "tabular-nums",
                               }}>
-                                {nroPieza.get(r.id)}
+                                {nroPieza(r) ?? "—"}
                               </span>
                               {/* Thumbnail */}
                               <MiniThumb
