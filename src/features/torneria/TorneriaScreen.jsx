@@ -1,9 +1,9 @@
 import { createElement, useCallback, useEffect, useMemo, useState } from "react";
 import {
-  AlertTriangle, ArrowLeft, ArrowRight, Boxes, Check, ChevronDown, ChevronRight, ChevronUp, CircleHelp,
+  AlertTriangle, ArrowLeft, ArrowRight, Boxes, Check, ChevronDown, ChevronRight, ChevronUp, CircleHelp, Clock3,
   Edit3, Factory, FileText, GitMerge, History, Link2, Loader2,
-  MapPin, PackageCheck, PackageOpen, Plus, RefreshCw, Repeat, Search, Settings2,
-  Trash2, Truck, Wrench,
+  MapPin, PackageCheck, PackageOpen, PanelLeftClose, PanelLeftOpen, Plus, RefreshCw, Repeat, Search,
+  Settings2, Trash2, Truck, Wrench,
 } from "lucide-react";
 import Sidebar from "@/components/Sidebar";
 import { useResponsive } from "@/hooks/useResponsive";
@@ -829,6 +829,7 @@ function StandaloneRouteCard({ process, row, onMove }) {
       borderRadius: 14,
       border: `1px solid ${complete ? C.greenB : C.border}`,
       background: complete ? C.greenL : C.panel,
+      minWidth: 0,
     }}>
       <div style={{
         display: "flex",
@@ -962,7 +963,7 @@ function TransformationFlow({ process, result, sources, onMove }) {
           <div style={{ color: C.dim, fontSize: 9.5, fontWeight: 900, letterSpacing: "0.08em", textTransform: "uppercase" }}>
             Preparación de componentes
           </div>
-          <div style={{ display: "grid", gap: 7 }}>
+          <div className="tor-transform-sources">
             {sources.map((source) => (
               <TransformationSource
                 key={source.item.id}
@@ -974,24 +975,9 @@ function TransformationFlow({ process, result, sources, onMove }) {
           </div>
         </div>
 
+        {/* Solo la flecha: verde cuando los componentes ya completaron su recorrido. */}
         <div className="tor-transform-connector" style={{ color: sourcesReady ? C.green : C.dim }}>
-          <span className="tor-transform-line" style={{ background: sourcesReady ? C.green : C.border2 }} />
-          <span style={{
-            width: 34,
-            height: 34,
-            display: "grid",
-            placeItems: "center",
-            flexShrink: 0,
-            borderRadius: 10,
-            border: `1px solid ${sourcesReady ? C.greenB : C.border}`,
-            background: sourcesReady ? C.greenL : C.panelSolid,
-          }}>
-            <GitMerge size={16} />
-          </span>
-          <span style={{ fontSize: 9, fontWeight: 900, textAlign: "center", lineHeight: 1.25, textTransform: "uppercase" }}>
-            Se convierte en
-          </span>
-          <ArrowRight className="tor-transform-arrow" size={15} />
+          <ArrowRight className="tor-transform-arrow" size={18} />
         </div>
 
         <div style={{
@@ -1002,7 +988,7 @@ function TransformationFlow({ process, result, sources, onMove }) {
           padding: 10,
           borderRadius: 13,
           border: `1px solid ${resultReady ? C.greenB : C.blueB}`,
-          background: resultReady ? C.greenL : C.blueL,
+          background: resultReady ? C.greenL : C.panelSolid,
         }}>
           <div style={{ display: "flex", alignItems: "flex-start", justifyContent: "space-between", gap: 8 }}>
             <div style={{ minWidth: 0 }}>
@@ -1207,24 +1193,38 @@ function RecorridosPorItem({ process, onMove, query = "" }) {
               </span>
             </div>
 
-            {blocks.map((block) => (
-              block.type === "transformation" ? (
-                <TransformationFlow
-                  key={block.key}
-                  process={process}
-                  result={block.result}
-                  sources={block.sources}
-                  onMove={onMove}
-                />
-              ) : (
-                <StandaloneRouteCard
-                  key={block.key}
-                  process={process}
-                  row={block.row}
-                  onMove={onMove}
-                />
-              )
-            ))}
+            {/* Las transformaciones van en su propia pila y las cards sueltas en
+                su propio mosaico. Mezclarlas obligaba a la transformación a
+                ocupar todos los tracks con grid-column: 1/-1, y eso impedía que
+                auto-fit los colapsara: con 2 piezas sueltas en 3 tracks quedaban
+                510px de aire al final de la fila. Separadas, el track sobrante
+                colapsa y las cards se estiran a lo que hay. */}
+            {blocks.some((block) => block.type === "transformation") && (
+              <div style={{ display: "grid", gap: 10 }}>
+                {blocks.filter((block) => block.type === "transformation").map((block) => (
+                  <TransformationFlow
+                    key={block.key}
+                    process={process}
+                    result={block.result}
+                    sources={block.sources}
+                    onMove={onMove}
+                  />
+                ))}
+              </div>
+            )}
+
+            {blocks.some((block) => block.type === "standalone") && (
+              <div className="tor-circuit-blocks">
+                {blocks.filter((block) => block.type === "standalone").map((block) => (
+                  <StandaloneRouteCard
+                    key={block.key}
+                    process={process}
+                    row={block.row}
+                    onMove={onMove}
+                  />
+                ))}
+              </div>
+            )}
           </section>
         );
       })}
@@ -1722,6 +1722,209 @@ function HelpModal({ onClose }) {
   );
 }
 
+// Versión chip de los KPI para el header de escritorio: número + etiqueta en
+// una sola pastilla clickeable, en vez de la fila de tarjetas de antes.
+function KpiChip({ icon, value, label, color, activo = false, onClick }) {
+  const tono = KPI_TONOS[color] ?? { soft: C.panel2, borde: C.border };
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      aria-pressed={activo}
+      title={`Ver sólo: ${label}`}
+      className="tor-kpi"
+      style={{
+        display: "inline-flex",
+        alignItems: "center",
+        gap: 7,
+        minHeight: 32,
+        padding: "4px 11px",
+        borderRadius: 999,
+        border: `1px solid ${activo ? tono.borde : C.border}`,
+        background: activo ? tono.soft : C.panel,
+        cursor: "pointer",
+        fontFamily: C.sans,
+        flexShrink: 0,
+      }}
+    >
+      {createElement(icon, { size: 13, style: { color, flexShrink: 0 } })}
+      <span style={{ color: activo ? color : C.text, fontSize: 13, fontWeight: 900, fontFamily: C.mono }}>{value}</span>
+      <span style={{ color: activo ? color : C.dim, fontSize: 10, fontWeight: 850, textTransform: "uppercase", letterSpacing: "0.05em", whiteSpace: "nowrap" }}>{label}</span>
+    </button>
+  );
+}
+
+// Tablero transversal de escritorio: TODAS las piezas que están fuera del
+// astillero (de todas las obras filtradas), agrupadas por taller y ordenadas
+// por días afuera. Es la vista de destino del KPI "Fuera del astillero".
+function TallerBoard({ processes, onSelectProcess, onMove }) {
+  const rows = processes.flatMap((process) =>
+    (process.operaciones || [])
+      .filter((op) => op.activa !== false && ["enviado", "parcial"].includes(op.estado))
+      .map((op) => {
+        const lastOut = [...(op.movimientos || [])]
+          .filter((movement) => movement.tipo === "salida")
+          .sort((a, b) => new Date(b.fecha) - new Date(a.fecha))[0];
+        return { process, op, dias: diasDesde(lastOut?.fecha) };
+      }),
+  ).sort((a, b) => (b.dias ?? -1) - (a.dias ?? -1));
+
+  if (!rows.length) {
+    return (
+      <div style={{
+        display: "grid",
+        placeItems: "center",
+        gap: 9,
+        padding: "48px 20px",
+        borderRadius: 14,
+        border: `1px dashed ${C.border}`,
+        background: C.panel,
+        color: C.dim,
+        textAlign: "center",
+      }}>
+        <PackageCheck size={26} style={{ color: C.green }} />
+        <div style={{ color: C.text, fontSize: 14, fontWeight: 900 }}>No hay piezas fuera del astillero</div>
+        <div style={{ fontSize: 11.5 }}>Cuando algo salga a Tornería o Plegadora, aparece acá con sus días afuera.</div>
+      </div>
+    );
+  }
+
+  const talleres = new Map();
+  rows.forEach((row) => {
+    const taller = workshopName(row.op);
+    const list = talleres.get(taller) ?? [];
+    list.push(row);
+    talleres.set(taller, list);
+  });
+
+  return (
+    <div style={{ display: "grid", gap: 14, alignContent: "start" }}>
+      <div style={{ display: "flex", alignItems: "center", gap: 10, flexWrap: "wrap" }}>
+        <span style={{
+          width: 34,
+          height: 34,
+          display: "grid",
+          placeItems: "center",
+          borderRadius: 10,
+          border: `1px solid ${C.violetB}`,
+          background: C.violetL,
+          color: C.violet,
+          flexShrink: 0,
+        }}>
+          <Truck size={16} />
+        </span>
+        <div style={{ minWidth: 0, flex: 1 }}>
+          <div style={{ color: C.text, fontSize: 14, fontWeight: 900 }}>Fuera del astillero ahora</div>
+          <div style={{ color: C.dim, fontSize: 11, marginTop: 2 }}>
+            Todas las piezas en taller, ordenadas por días afuera. Las de 15 días o más piden reclamo.
+          </div>
+        </div>
+        <span style={{
+          padding: "3px 10px",
+          borderRadius: 999,
+          border: `1px solid ${C.violetB}`,
+          background: C.violetL,
+          color: C.violet,
+          fontSize: 11,
+          fontWeight: 900,
+          whiteSpace: "nowrap",
+        }}>
+          {rows.length} afuera
+        </span>
+      </div>
+
+      {[...talleres.entries()].map(([taller, list]) => (
+        <section key={taller} style={{ display: "grid", gap: 7 }}>
+          <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+            <Wrench size={12} style={{ color: C.dim }} />
+            <span style={{ color: C.muted, fontSize: 10.5, fontWeight: 900, letterSpacing: "0.09em", textTransform: "uppercase" }}>
+              {taller}
+            </span>
+            <span style={{ color: C.dim, fontSize: 10 }}>{list.length}</span>
+          </div>
+          {list.map(({ process, op, dias }) => {
+            const piezas = (op.componentes || [])
+              .map((row) => row.item?.descripcion)
+              .filter(Boolean)
+              .join(" + ");
+            const demorada = dias != null && dias >= 15;
+            return (
+              <div
+                key={op.id}
+                style={{
+                  display: "grid",
+                  gridTemplateColumns: "minmax(90px,130px) minmax(0,1fr) auto auto",
+                  gap: 12,
+                  alignItems: "center",
+                  padding: "10px 12px",
+                  borderRadius: 12,
+                  border: `1px solid ${demorada ? C.redB : C.border}`,
+                  background: demorada ? C.redL : C.panel,
+                }}
+              >
+                <div style={{ minWidth: 0 }}>
+                  <div style={{ color: C.text, fontSize: 12.5, fontWeight: 900, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+                    {process.obra?.codigo || process.nombre}
+                  </div>
+                  <div style={{ color: C.dim, fontSize: 9.5, marginTop: 2, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+                    {process.obra?.linea_nombre || "Sin línea"}
+                  </div>
+                </div>
+                <div style={{ minWidth: 0 }}>
+                  <div style={{ display: "flex", alignItems: "center", gap: 7, flexWrap: "wrap" }}>
+                    <span style={{ color: C.text, fontSize: 12, fontWeight: 850, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+                      {piezas || op.nombre}
+                    </span>
+                    <StatusBadge status={op.estado} compact />
+                  </div>
+                  <div style={{ display: "flex", alignItems: "center", gap: 6, marginTop: 3, fontSize: 10, flexWrap: "wrap" }}>
+                    {dias != null && (
+                      <span style={{
+                        display: "inline-flex",
+                        alignItems: "center",
+                        gap: 4,
+                        color: demorada ? C.red : C.dim,
+                        fontWeight: demorada ? 900 : 700,
+                      }}>
+                        <Clock3 size={10} />
+                        Fuera hace {dias} {dias === 1 ? "día" : "días"}
+                      </span>
+                    )}
+                    <span style={{ color: C.dim, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{op.nombre}</span>
+                  </div>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => onSelectProcess(process.id)}
+                  title="Abrir esta obra"
+                  style={{ ...BUTTON, minHeight: 32, padding: "4px 10px", flexShrink: 0 }}
+                >
+                  Ver obra <ArrowRight size={12} />
+                </button>
+                <button
+                  type="button"
+                  onClick={() => onMove(process, op)}
+                  style={{
+                    ...PRIMARY_BUTTON,
+                    minHeight: 32,
+                    padding: "4px 10px",
+                    flexShrink: 0,
+                    borderColor: C.violetB,
+                    background: C.violetL,
+                    color: C.violet,
+                  }}
+                >
+                  <PackageOpen size={13} /> Registrar regreso
+                </button>
+              </div>
+            );
+          })}
+        </section>
+      ))}
+    </div>
+  );
+}
+
 export default function TorneriaScreen({ profile, signOut }) {
   const { isMobile } = useResponsive(860);
   const toast = useToast();
@@ -1735,6 +1938,9 @@ export default function TorneriaScreen({ profile, signOut }) {
   const [mobileList, setMobileList] = useState(true);
   const [mobileTopbarOpen, setMobileTopbarOpen] = useState(
     () => window.localStorage.getItem("torneria.mobileTopbar") !== "closed",
+  );
+  const [desktopCircuitFocus, setDesktopCircuitFocus] = useState(
+    () => window.localStorage.getItem("torneria.desktopCircuitFocus") === "true",
   );
   const [tab, setTab] = useState("circuito");
   const [search, setSearch] = useState("");
@@ -1777,6 +1983,11 @@ export default function TorneriaScreen({ profile, signOut }) {
     if (!isMobile) return;
     window.localStorage.setItem("torneria.mobileTopbar", mobileTopbarOpen ? "open" : "closed");
   }, [isMobile, mobileTopbarOpen]);
+
+  useEffect(() => {
+    if (isMobile) return;
+    window.localStorage.setItem("torneria.desktopCircuitFocus", desktopCircuitFocus ? "true" : "false");
+  }, [desktopCircuitFocus, isMobile]);
 
   const filtered = useMemo(() => {
     const term = search.trim().toLowerCase();
@@ -2039,7 +2250,11 @@ export default function TorneriaScreen({ profile, signOut }) {
       position: "fixed",
       inset: 0,
       display: "grid",
-      gridTemplateColumns: isMobile ? "1fr" : "280px minmax(0,1fr)",
+      gridTemplateColumns: isMobile
+        ? "1fr"
+        : desktopCircuitFocus
+          ? "minmax(0,1fr)"
+          : "280px minmax(0,1fr)",
       overflow: "hidden",
       background: C.bg,
       color: C.text,
@@ -2055,12 +2270,33 @@ export default function TorneriaScreen({ profile, signOut }) {
         .tor-form-grid{display:grid;grid-template-columns:1fr 1fr;gap:12px}
         .tor-route-card,.tor-journey-card{transition:border-color .16s ease,box-shadow .16s ease}
         .tor-route-card:hover{border-color:var(--border-2)!important;box-shadow:0 12px 30px -28px var(--shadow-strong)}
+        /* auto-FIT y no auto-fill: auto-fill deja los tracks vacíos ocupando
+           lugar, y con 2 viajes en una card ancha quedaba media card en blanco.
+           auto-fit los colapsa y lo que hay se estira. */
         .tor-journey-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,240px),1fr));gap:8px}
-        .tor-transform-card{transition:border-color .16s ease,box-shadow .16s ease}
+        /* container-type para poder preguntar por el ancho REAL de la card. El
+           media query de viewport se equivocaba: con el sidebar y la lista de
+           obras abiertos, a 1400px de pantalla al circuito le quedan ~830px, el
+           query no se activaba y el grid de 3 columnas se desbordaba. */
+        .tor-transform-card{container-type:inline-size;transition:border-color .16s ease,box-shadow .16s ease}
         .tor-transform-card:hover{box-shadow:0 14px 34px -30px var(--shadow-strong)}
-        .tor-transform-flow{display:grid;grid-template-columns:minmax(0,1.12fr) 76px minmax(280px,.88fr);gap:8px;align-items:stretch;min-width:0}
-        .tor-transform-connector{display:flex;flex-direction:column;align-items:center;justify-content:center;gap:6px;min-width:0;padding:4px 0}
-        .tor-transform-line{width:100%;height:1px;flex-shrink:0}
+        /* Grid y no flex: el panel del conjunto es un track con ancho propio, así
+           los componentes se quedan con TODO el resto en vez de cortarse a 380px
+           y dejar el hueco a la derecha. */
+        .tor-transform-flow{display:grid;grid-template-columns:minmax(0,1fr) auto minmax(300px,420px);align-items:center;gap:12px;min-width:0}
+        .tor-transform-connector{display:grid;place-items:center;align-self:center;padding:0 2px}
+        /* Por debajo de esto no entran dos componentes al lado del conjunto: se
+           apila y la flecha gira. */
+        @container (max-width:960px){
+          .tor-transform-flow{grid-template-columns:minmax(0,1fr);align-items:stretch}
+          .tor-transform-connector{padding:3px 10px}
+          .tor-transform-arrow{transform:rotate(90deg)}
+        }
+        /* Mosaico del circuito: las cards simples entran de a 2-4 por fila según
+           el ancho disponible, para no dejar el slab gris a la derecha. */
+        .tor-circuit-blocks{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,400px),1fr));gap:10px;align-items:start}
+        /* Los componentes del conjunto se reparten el ancho en partes iguales. */
+        .tor-transform-sources{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,290px),1fr));gap:8px;align-items:start}
         .tor-journey-path{display:flex;align-items:center;gap:5px;min-width:0;overflow-x:auto;padding-bottom:2px}
         .tor-route-node{min-height:28px;display:inline-flex;align-items:center;gap:5px;flex-shrink:0;padding:4px 7px;border:1px solid var(--border);border-radius:8px;font-size:9.5px;font-weight:850;white-space:nowrap}
         .tor-route-action,.tor-management-toggle{transition:filter .14s ease,transform .1s ease,background .14s ease}
@@ -2073,12 +2309,6 @@ export default function TorneriaScreen({ profile, signOut }) {
         input:focus,select:focus,textarea:focus{border-color:var(--blue-border)!important}
         select option{background:var(--panel-solid);color:var(--text)}
         @media(max-width:1120px){.tor-operation-grid{grid-template-columns:1fr}}
-        @media(max-width:980px){
-          .tor-transform-flow{grid-template-columns:1fr}
-          .tor-transform-connector{flex-direction:row;padding:3px 10px}
-          .tor-transform-line{width:auto;flex:1}
-          .tor-transform-arrow{transform:rotate(90deg)}
-        }
         @media(max-width:620px){
           .tor-form-grid{grid-template-columns:1fr}
           .tor-form-grid>*{grid-column:1!important}
@@ -2086,7 +2316,7 @@ export default function TorneriaScreen({ profile, signOut }) {
         }
       `}</style>
 
-      <Sidebar profile={profile} signOut={signOut} />
+      {(isMobile || !desktopCircuitFocus) && <Sidebar profile={profile} signOut={signOut} />}
 
       <main style={{ minWidth: 0, minHeight: 0, display: "flex", flexDirection: "column", overflow: "hidden" }}>
         <header style={{
@@ -2183,6 +2413,98 @@ export default function TorneriaScreen({ profile, signOut }) {
                 </>
               )}
             </div>
+          ) : !isMobile ? (
+            /* Escritorio: una sola fila. Título, KPI como chips clickeables y
+               acciones. Antes eran dos filas (título + tarjetas KPI grandes). */
+            <div style={{ display: "flex", alignItems: "center", gap: 10, flexWrap: "wrap" }}>
+              <div style={{ display: "flex", alignItems: "center", gap: 10, minWidth: 0 }}>
+                <div style={{
+                  width: 36,
+                  height: 36,
+                  flexShrink: 0,
+                  display: "grid",
+                  placeItems: "center",
+                  borderRadius: 11,
+                  border: `1px solid ${C.blueB}`,
+                  background: C.blueL,
+                  color: C.blue,
+                }}>
+                  <Wrench size={18} />
+                </div>
+                <div style={{ minWidth: 0 }}>
+                  <h1 style={{ margin: 0, color: C.text, fontSize: 18, lineHeight: 1.1, fontWeight: 900 }}>
+                    Tornería
+                  </h1>
+                  <div style={{ color: C.dim, fontSize: 10, marginTop: 2, whiteSpace: "nowrap" }}>
+                    Materiales de Mecánica · salidas y regresos
+                  </div>
+                </div>
+              </div>
+              <div style={{ display: "flex", gap: 6, flexWrap: "wrap", alignItems: "center" }}>
+                <KpiChip
+                  icon={Factory} value={stats.active} label="En seguimiento" color={C.blue}
+                  activo={vista === "activos"}
+                  onClick={() => setVista((v) => (v === "activos" ? null : "activos"))}
+                />
+                <KpiChip
+                  icon={Truck} value={stats.workshop} label="Fuera del astillero" color={C.violet}
+                  activo={vista === "taller"}
+                  onClick={() => setVista((v) => (v === "taller" ? null : "taller"))}
+                />
+                <KpiChip
+                  icon={AlertTriangle} value={stats.unresolved} label="Por confirmar"
+                  color={stats.unresolved ? C.red : C.green}
+                  activo={vista === "confirmar"}
+                  onClick={() => setVista((v) => (v === "confirmar" ? null : "confirmar"))}
+                />
+                <KpiChip
+                  icon={PackageCheck} value={stats.completed} label="Completados" color={C.green}
+                  activo={vista === "completos"}
+                  onClick={() => setVista((v) => (v === "completos" ? null : "completos"))}
+                />
+                {vista && (
+                  <button
+                    type="button"
+                    onClick={() => setVista(null)}
+                    style={{
+                      display: "inline-flex", alignItems: "center", gap: 6,
+                      minHeight: 32, padding: "4px 11px", borderRadius: 999,
+                      border: `1px solid ${C.blueB}`, background: C.blueL,
+                      color: C.blue, fontSize: 11, fontWeight: 800, cursor: "pointer", fontFamily: C.sans,
+                    }}
+                  >
+                    {filtered.length} de {processes.length} ✕
+                  </button>
+                )}
+              </div>
+              <div style={{ flex: 1 }} />
+              <div style={{ display: "flex", gap: 6, flexShrink: 0 }}>
+                <button
+                  type="button"
+                  onClick={() => setDesktopCircuitFocus((focused) => !focused)}
+                  title={desktopCircuitFocus ? "Volver a mostrar la navegación y las obras" : "Ocultar paneles y darle todo el ancho al circuito"}
+                  style={{
+                    ...BUTTON,
+                    minHeight: 39,
+                    color: desktopCircuitFocus ? C.blue : C.muted,
+                    borderColor: desktopCircuitFocus ? C.blueB : C.border,
+                    background: desktopCircuitFocus ? C.blueL : C.panel,
+                  }}
+                >
+                  {desktopCircuitFocus ? <PanelLeftOpen size={15} /> : <PanelLeftClose size={15} />}
+                  {desktopCircuitFocus ? "Mostrar paneles" : "Enfocar circuito"}
+                </button>
+                <button type="button" onClick={() => setModal({ type: "help" })} aria-label="Ayuda" style={{ ...BUTTON, width: 39, padding: 0 }}>
+                  <CircleHelp size={16} />
+                </button>
+                <button type="button" onClick={() => load()} aria-label="Actualizar" style={{ ...BUTTON, width: 39, padding: 0 }}>
+                  <RefreshCw size={15} />
+                </button>
+                <button type="button" onClick={() => setModal({ type: "create" })} style={PRIMARY_BUTTON}>
+                  <Plus size={15} /> Nuevo
+                </button>
+              </div>
+            </div>
           ) : (
             <>
               <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 12 }}>
@@ -2210,6 +2532,23 @@ export default function TorneriaScreen({ profile, signOut }) {
                   </div>
                 </div>
                 <div style={{ display: "flex", gap: 6, flexShrink: 0 }}>
+                  {!isMobile && (
+                    <button
+                      type="button"
+                      onClick={() => setDesktopCircuitFocus((focused) => !focused)}
+                      title={desktopCircuitFocus ? "Volver a mostrar la navegación y las obras" : "Ocultar paneles y darle todo el ancho al circuito"}
+                      style={{
+                        ...BUTTON,
+                        minHeight: 39,
+                        color: desktopCircuitFocus ? C.blue : C.muted,
+                        borderColor: desktopCircuitFocus ? C.blueB : C.border,
+                        background: desktopCircuitFocus ? C.blueL : C.panel,
+                      }}
+                    >
+                      {desktopCircuitFocus ? <PanelLeftOpen size={15} /> : <PanelLeftClose size={15} />}
+                      {desktopCircuitFocus ? "Mostrar paneles" : "Enfocar circuito"}
+                    </button>
+                  )}
                   <button type="button" onClick={() => setModal({ type: "help" })} aria-label="Ayuda" style={{ ...BUTTON, width: 39, padding: 0 }}>
                     <CircleHelp size={16} />
                   </button>
@@ -2314,13 +2653,19 @@ export default function TorneriaScreen({ profile, signOut }) {
             flex: 1,
             minHeight: 0,
             display: "grid",
-            gridTemplateColumns: isMobile ? "1fr" : "310px minmax(0,1fr)",
+            gridTemplateColumns: isMobile
+              ? "1fr"
+              : desktopCircuitFocus
+                ? "minmax(0,1fr)"
+                : "260px minmax(0,1fr)",
           }}>
             <aside style={{
               minHeight: 0,
               overflow: "hidden",
               borderRight: isMobile ? "none" : `1px solid ${C.border}`,
-              display: isMobile && !mobileList ? "none" : "block",
+              display: isMobile
+                ? mobileList ? "block" : "none"
+                : desktopCircuitFocus ? "none" : "block",
             }}>
               <ProcessList
                 processes={filtered}
@@ -2341,7 +2686,18 @@ export default function TorneriaScreen({ profile, signOut }) {
               flexDirection: "column",
               overflow: "hidden",
             }}>
-              {!selected ? (
+              {!isMobile && vista === "taller" ? (
+                <div style={{ flex: 1, minHeight: 0, overflowY: "auto", padding: 16 }}>
+                  <TallerBoard
+                    processes={filtered}
+                    onSelectProcess={selectProcess}
+                    onMove={(process, operation) => {
+                      selectProcess(process.id);
+                      openMovement(operation, null);
+                    }}
+                  />
+                </div>
+              ) : !selected ? (
                 <div style={{ flex: 1, display: "grid", placeItems: "center", padding: 20, color: C.dim, textAlign: "center" }}>
                   <div style={{ display: "grid", gap: 10, justifyItems: "center" }}>
                     <Factory size={30} />
@@ -2353,7 +2709,7 @@ export default function TorneriaScreen({ profile, signOut }) {
                 </div>
               ) : (
                 <>
-                  {(!isMobile || mobileTopbarOpen) && (
+                  {(isMobile && mobileTopbarOpen) && (
                   <div style={{
                     flexShrink: 0,
                     display: "grid",
@@ -2492,6 +2848,72 @@ export default function TorneriaScreen({ profile, signOut }) {
                       </button>
                     )}
                   </div>
+                  )}
+
+                  {/* Barra de obra slim (escritorio): toda la info del proceso en
+                      una sola línea, en vez del panel grande de antes. */}
+                  {!isMobile && (
+                    <div style={{
+                      flexShrink: 0,
+                      display: "flex",
+                      alignItems: "center",
+                      gap: 12,
+                      padding: "8px 16px",
+                      borderBottom: `1px solid ${C.border}`,
+                      background: C.panel,
+                      flexWrap: "wrap",
+                    }}>
+                      <span style={{ color: C.text, fontSize: 15, fontWeight: 950, whiteSpace: "nowrap" }}>{selected.obra?.codigo}</span>
+                      <span style={{ color: C.blue, fontSize: 10.5, fontWeight: 850, whiteSpace: "nowrap" }}>
+                        {selected.obra?.linea_nombre || "Sin línea"}
+                      </span>
+                      <span style={{ color: C.dim, fontSize: 10.5, whiteSpace: "nowrap" }}>
+                        {PROCESS_STATE[selected.estado] || selected.estado}
+                      </span>
+                      <span style={{ display: "inline-flex", alignItems: "center", gap: 4, color: C.dim, fontSize: 10.5, whiteSpace: "nowrap" }}>
+                        <MapPin size={11} /> {selected.taller_torneria}
+                      </span>
+                      {selected.responsable && (
+                        <span style={{ color: C.dim, fontSize: 10.5, whiteSpace: "nowrap" }}>{selected.responsable}</span>
+                      )}
+                      <div style={{ flex: 1, minWidth: 160, display: "flex", alignItems: "center", gap: 8 }}>
+                        <div style={{ flex: 1 }}>
+                          <ProgressBar value={selectedProgress} color={selectedProgress === 100 ? C.green : C.blue} />
+                        </div>
+                        <span style={{ color: selectedProgress === 100 ? C.green : C.blue, fontSize: 11, fontWeight: 900 }}>
+                          {selectedProgress}%
+                        </span>
+                      </div>
+                      {selectedUnresolved.length > 0 && (
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setTab("materiales");
+                            setModal({ type: "item", item: selectedUnresolved[0] });
+                          }}
+                          style={{ ...BUTTON, minHeight: 30, padding: "4px 9px", borderColor: C.redB, background: C.redL, color: C.red, fontSize: 10.5 }}
+                        >
+                          <AlertTriangle size={12} /> {selectedUnresolved.length} por confirmar
+                        </button>
+                      )}
+                      <button
+                        type="button"
+                        onClick={() => setModal({ type: "process" })}
+                        aria-label="Editar seguimiento"
+                        style={{ ...BUTTON, minHeight: 32, width: 34, padding: 0 }}
+                      >
+                        <Settings2 size={14} />
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => deleteProcess(selected)}
+                        title="Borrar todo el seguimiento de esta obra"
+                        aria-label="Borrar seguimiento"
+                        style={{ ...BUTTON, minHeight: 32, width: 34, padding: 0, borderColor: C.redB, background: C.redL, color: C.red }}
+                      >
+                        <Trash2 size={14} />
+                      </button>
+                    </div>
                   )}
 
                   <div style={{
