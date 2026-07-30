@@ -185,6 +185,34 @@ export async function actualizarItem(id, patch) {
     .single());
 }
 
+// Vincula los items pedidos con el pedido a compras. A partir de acá compras
+// trabaja en SU pantalla y el avance vuelve solo: el trigger
+// trg_purchase_request_sync_torneria mueve compra_estado cuando el pedido cambia
+// de status. Nadie carga el estado dos veces.
+export async function vincularItemsAPedidoCompra(itemIds = [], purchaseRequestId) {
+  const ids = itemIds.filter(Boolean);
+  if (!ids.length || !purchaseRequestId) return [];
+  return ok(await supabase
+    .from("torneria_items")
+    .update({ purchase_request_id: purchaseRequestId, compra_estado: "solicitado" })
+    .in("id", ids)
+    .select("id,compra_estado,solicitado_at,purchase_request_id"));
+}
+
+// "No lleva": este barco no usa esta pieza. El trigger de la base se encarga de
+// apagar los viajes que existían sólo por ella y de sacarla de las compras.
+export async function marcarNoLleva(itemId, noLleva, motivo = null) {
+  return ok(await supabase
+    .from("torneria_items")
+    .update({
+      no_lleva: !!noLleva,
+      no_lleva_motivo: noLleva ? (String(motivo || "").trim() || null) : null,
+    })
+    .eq("id", itemId)
+    .select()
+    .single());
+}
+
 function makeKey(description = "") {
   const base = String(description)
     .normalize("NFD")

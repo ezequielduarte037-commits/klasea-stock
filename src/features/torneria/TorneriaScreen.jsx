@@ -1,9 +1,9 @@
-import { createElement, useCallback, useEffect, useMemo, useState } from "react";
+import { Fragment, createElement, useCallback, useEffect, useMemo, useState } from "react";
 import {
   AlertTriangle, ArrowLeft, ArrowRight, Boxes, Check, ChevronDown, ChevronRight, ChevronUp, CircleHelp, Clock3,
   Edit3, Factory, FileText, GitMerge, History, Link2, Loader2,
   MapPin, PackageCheck, PackageOpen, PanelLeftClose, PanelLeftOpen, Plus, RefreshCw, Repeat, Search,
-  Settings2, Trash2, Truck, Wrench,
+  Settings2, ShoppingCart, Trash2, Truck, Wrench,
 } from "lucide-react";
 import Sidebar from "@/components/Sidebar";
 import { useResponsive } from "@/hooks/useResponsive";
@@ -24,8 +24,11 @@ import {
   fetchTorneriaProcesos,
   guardarMovimiento,
   guardarOperacion,
+  marcarNoLleva,
   subirArchivosMovimiento,
+  vincularItemsAPedidoCompra,
 } from "./torneriaApi";
+import PedirAComprasModal from "@/features/compras/PedirAComprasModal";
 import {
   CrearProcesoModal, EmptyCatalogHint, ItemModal, MovimientoModal, OperacionModal, ProcesoModal,
 } from "./TorneriaModals";
@@ -129,6 +132,35 @@ function diasDesde(fecha) {
   return Math.max(0, Math.round((hoy.getTime() - desde.getTime()) / MS_DIA));
 }
 
+function diasEntre(desde, hasta) {
+  if (!desde || !hasta) return null;
+  const a = new Date(desde);
+  const b = new Date(hasta);
+  if (Number.isNaN(a.getTime()) || Number.isNaN(b.getTime())) return null;
+  return Math.max(0, Math.round((b.getTime() - a.getTime()) / MS_DIA));
+}
+
+// El tramo de compra no aplica en dos casos, y son los dos que pidió el usuario:
+// los conjuntos (no se compran, se forman de sus componentes) y los materiales
+// que arrancan en un proveedor, que van del proveedor derecho al taller y nunca
+// paran en el astillero.
+function compraAplica(item, tramos = []) {
+  if (!item || item.es_resultado || item.no_lleva) return false;
+  if (item.compra_estado === "no_aplica") return false;
+  const origen = String(tramos[0]?.origen || "Astillero").trim().toLowerCase();
+  return origen === "astillero";
+}
+
+// Cuándo el material dejó de esperar en el astillero: su primera salida real.
+function primeraSalida(tramos = []) {
+  return tramos
+    .flatMap((operation) => (operation.movimientos || [])
+      .filter((movement) => movement.tipo === "salida")
+      .map((movement) => movement.fecha))
+    .filter(Boolean)
+    .sort()[0] || null;
+}
+
 function dependencyRows(process, operation) {
   const deps = new Set(operation.depende_de || []);
   return (process.operaciones || []).filter(
@@ -219,7 +251,7 @@ function ProcessCard({ process, selected, onClick }) {
   const progress = processProgress(process);
   const current = currentOperation(process);
   const unresolved = (process.items || []).filter(
-    (item) => item.activo !== false && item.requiere_confirmacion && !item.confirmado_at,
+    (item) => item.activo !== false && !item.no_lleva && item.requiere_confirmacion && !item.confirmado_at,
   ).length;
   return (
     <button
@@ -618,219 +650,363 @@ function workshopName(operation) {
   return operation.tipo || "Taller";
 }
 
-function JourneyCard({ process, operation, index, current, onMove }) {
-  const dependencies = dependencyRows(process, operation);
-  const outside = ["enviado", "parcial"].includes(operation.estado);
-  const received = operation.estado === "recibido";
-  const partial = operation.estado === "parcial";
-  const pending = operation.estado === "pendiente";
-  const destination = workshopName(operation);
-  const origin = operation.origen?.trim() || "Astillero";
-  const supplierOrigin = origin.toLowerCase() !== "astillero";
-  const originColor = supplierOrigin ? C.teal : C.green;
-  const originSoft = supplierOrigin ? C.tealL : C.greenL;
-  const originBorder = supplierOrigin ? C.tealB : C.greenB;
-  const workshopColor = operation.tipo === "plegadora" ? C.violet : C.blue;
-  const workshopSoft = operation.tipo === "plegadora" ? C.violetL : C.blueL;
-  const workshopBorder = operation.tipo === "plegadora" ? C.violetB : C.blueB;
-  const latestDeparture = [...(operation.movimientos || [])]
-    .filter((movement) => movement.tipo === "salida")
-    .sort((a, b) => new Date(b.fecha) - new Date(a.fecha))[0];
-  const daysOutside = outside ? diasDesde(latestDeparture?.fecha) : null;
-  const actionLabel = pending ? "Registrar salida" : outside ? "Registrar regreso" : null;
-
-  let stateLabel = "Pendiente de salida";
-  let stateColor = C.dim;
-  let stateSoft = C.panel2;
-  let stateBorder = C.border;
-  if (received) {
-    stateLabel = "Recibido en astillero";
-    stateColor = C.green;
-    stateSoft = C.greenL;
-    stateBorder = C.greenB;
-  } else if (partial) {
-    stateLabel = "Regreso parcial";
-    stateColor = C.violet;
-    stateSoft = C.violetL;
-    stateBorder = C.violetB;
-  } else if (outside) {
-    stateLabel = `En ${destination}`;
-    stateColor = workshopColor;
-    stateSoft = workshopSoft;
-    stateBorder = workshopBorder;
-  } else if (dependencies.length) {
-    stateLabel = "Espera pasos anteriores";
-    stateColor = C.red;
-    stateSoft = C.redL;
-    stateBorder = C.redB;
-  } else if (pending) {
-    stateLabel = "Listo para enviar";
-    stateColor = C.blue;
-    stateSoft = C.blueL;
-    stateBorder = C.blueB;
-  }
-
-  const returnColor = received ? C.green : partial ? C.violet : C.dim;
-  const returnSoft = received ? C.greenL : partial ? C.violetL : C.panel2;
-  const returnBorder = received ? C.greenB : partial ? C.violetB : C.border;
-
-  return (
-    <div className="tor-journey-card" style={{
-      display: "grid",
-      alignContent: "start",
-      gap: 10,
-      minWidth: 0,
-      padding: 11,
-      borderRadius: 12,
-      border: `1px solid ${current ? stateBorder : C.border}`,
-      background: current ? stateSoft : C.panelSolid,
-    }}>
-      <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 8 }}>
-        <span style={{
-          color: current ? stateColor : C.dim,
-          fontSize: 9.5,
-          fontWeight: 900,
-          letterSpacing: "0.08em",
-          textTransform: "uppercase",
-        }}>
-          Viaje {operation.viaje || index + 1}
-        </span>
-        <span style={{
-          display: "inline-flex",
-          alignItems: "center",
-          gap: 5,
-          minHeight: 23,
-          padding: "2px 7px",
-          borderRadius: 999,
-          border: `1px solid ${stateBorder}`,
-          background: stateSoft,
-          color: stateColor,
-          fontSize: 9.5,
-          fontWeight: 850,
-          whiteSpace: "nowrap",
-        }}>
-          <span style={{ width: 5, height: 5, borderRadius: "50%", background: stateColor }} />
-          {stateLabel}
-        </span>
-      </div>
-
-      <div className="tor-journey-path">
-        <span className="tor-route-node" style={{
-          borderColor: originBorder,
-          background: originSoft,
-          color: originColor,
-        }}>
-          <MapPin size={11} /> {origin}
-        </span>
-        <ArrowRight size={12} style={{ color: C.dim, flexShrink: 0 }} />
-        <span className="tor-route-node" style={{
-          borderColor: outside || received ? workshopBorder : C.border,
-          background: outside || received ? workshopSoft : C.panel2,
-          color: outside || received ? workshopColor : C.dim,
-        }}>
-          <Wrench size={11} /> {destination}
-        </span>
-        <ArrowRight size={12} style={{ color: C.dim, flexShrink: 0 }} />
-        <span className="tor-route-node" style={{
-          borderColor: returnBorder,
-          background: returnSoft,
-          color: returnColor,
-        }}>
-          {received ? <Check size={11} /> : <MapPin size={11} />}
-          Astillero
-        </span>
-      </div>
-
-      <div style={{ minWidth: 0 }}>
-        <div style={{ color: C.text, fontSize: 12, fontWeight: 850, lineHeight: 1.35 }}>
-          {operation.nombre}
-        </div>
-        {operation.descripcion && (
-          <div style={{ color: C.dim, fontSize: 10.5, lineHeight: 1.4, marginTop: 3 }}>
-            {operation.descripcion}
-          </div>
-        )}
-        {daysOutside != null && (
-          <div style={{
-            color: daysOutside >= 15 ? C.red : C.dim,
-            fontSize: 10.5,
-            fontWeight: daysOutside >= 15 ? 850 : 700,
-            marginTop: 4,
-          }}>
-            Fuera del astillero hace {daysOutside} {daysOutside === 1 ? "día" : "días"}.
-          </div>
-        )}
-        {dependencies.length > 0 && pending && (
-          <div style={{ color: C.red, fontSize: 10.5, lineHeight: 1.4, marginTop: 4 }}>
-            Antes debería volver: {dependencies.map((row) => row.nombre).join(", ")}.
-          </div>
-        )}
-      </div>
-
-      {actionLabel && (
-        <button
-          type="button"
-          onClick={() => onMove(operation, null)}
-          className="tor-route-action"
-          style={{
-            ...PRIMARY_BUTTON,
-            width: "100%",
-            minHeight: 36,
-            marginTop: "auto",
-            ...(outside ? {
-              borderColor: C.violetB,
-              background: C.violetL,
-              color: C.violet,
-            } : {}),
-          }}
-        >
-          {outside ? <PackageOpen size={14} /> : <Truck size={14} />}
-          {actionLabel}
-        </button>
-      )}
-    </div>
-  );
-}
-
-function routeCurrentId(tramos) {
-  return tramos.find((operation) => operation.estado !== "recibido")?.id || null;
-}
+//
+// Los colores siguen la semántica del resto de la app: cyan es "falta hacer",
+// azul es "en curso", violeta es "casi", verde es "listo". El rojo queda para lo
+// que está bloqueado — "sin pedir" no es un error, es una tarea.
+const COMPRA_META = {
+  pendiente_solicitud: { label: "Sin pedir", color: C.cyan, soft: C.cyanL, borde: C.cyanB, paso: 0 },
+  solicitado: { label: "Pedido", color: C.blue, soft: C.blueL, borde: C.blueB, paso: 1 },
+  comprado: { label: "Comprado", color: C.violet, soft: C.violetL, borde: C.violetB, paso: 2 },
+  recibido_astillero: { label: "En astillero", color: C.green, soft: C.greenL, borde: C.greenB, paso: 3 },
+};
 
 function routeIsComplete(row) {
   return row.tramos.every((operation) => operation.estado === "recibido");
 }
 
-function RouteJourneyCards({ process, tramos, onMove }) {
-  const currentId = routeCurrentId(tramos);
+// Cadena completa del circuito de un material, en un solo riel:
+//
+//   Compras → Comprado → Astillero → Tornería → ⌂ → Tornería → ⌂
+//
+// Antes cada tramo era una card aparte y una pieza con dos viajes ocupaba tres
+// cards para contar un solo recorrido. El astillero al que vuelve después de
+// cada viaje va como nodo compacto: se repite en cada vuelta y escribirlo entero
+// tres veces empujaba el riel fuera de la card.
+function circuitoNodos({ item, tramos, conCompra }) {
+  const nodos = [];
+  const compraPaso = conCompra
+    ? (COMPRA_META[item.compra_estado] ?? COMPRA_META.pendiente_solicitud).paso
+    : 3; // sin tramo de compra, el material ya está donde tiene que estar
+
+  if (conCompra) {
+    nodos.push({
+      key: "compras",
+      label: "Compras",
+      Icon: ShoppingCart,
+      activo: compraPaso >= 1,
+      color: C.cyan, soft: C.cyanL, borde: C.cyanB,
+    });
+    nodos.push({
+      key: "comprado",
+      label: "Comprado",
+      Icon: PackageCheck,
+      activo: compraPaso >= 2,
+      color: C.violet, soft: C.violetL, borde: C.violetB,
+      railHecho: compraPaso >= 2,
+      railCurso: compraPaso === 1,
+      railColor: C.cyan,
+    });
+  }
+
+  // Base del circuito: el astillero, o el proveedor cuando la pieza arranca ahí.
+  const origen = String(tramos[0]?.origen || "Astillero").trim();
+  const desdeProveedor = origen.toLowerCase() !== "astillero";
+  nodos.push({
+    key: "base",
+    label: origen,
+    Icon: desdeProveedor ? Factory : MapPin,
+    activo: compraPaso >= 3,
+    color: desdeProveedor ? C.teal : C.green,
+    soft: desdeProveedor ? C.tealL : C.greenL,
+    borde: desdeProveedor ? C.tealB : C.greenB,
+    railHecho: compraPaso >= 3,
+    railCurso: conCompra && compraPaso === 2,
+    railColor: C.violet,
+  });
+
+  tramos.forEach((operation, i) => {
+    const afuera = ["enviado", "parcial"].includes(operation.estado);
+    const recibido = operation.estado === "recibido";
+    const taller = operation.tipo === "plegadora" ? C.violet : C.blue;
+    const tallerSoft = operation.tipo === "plegadora" ? C.violetL : C.blueL;
+    const tallerBorde = operation.tipo === "plegadora" ? C.violetB : C.blueB;
+    const salioAlguna = afuera || recibido;
+
+    nodos.push({
+      key: `taller-${operation.id}`,
+      label: workshopName(operation),
+      viaje: operation.viaje || i + 1,
+      Icon: Wrench,
+      activo: salioAlguna,
+      color: taller, soft: tallerSoft, borde: tallerBorde,
+      railHecho: salioAlguna,
+      // El riel barre sólo si la pieza puede salir ahora: con el material sin
+      // llegar no hay nada en movimiento.
+      railCurso: operation.estado === "pendiente" && compraPaso >= 3,
+      railColor: taller,
+    });
+
+    nodos.push({
+      key: `vuelta-${operation.id}`,
+      label: "Astillero",
+      Icon: recibido ? Check : MapPin,
+      compacto: true,
+      activo: recibido,
+      color: recibido ? C.green : operation.estado === "parcial" ? C.violet : C.dim,
+      soft: recibido ? C.greenL : operation.estado === "parcial" ? C.violetL : C.panel2,
+      borde: recibido ? C.greenB : operation.estado === "parcial" ? C.violetB : C.border,
+      railHecho: recibido,
+      railCurso: afuera,
+      railColor: recibido ? C.green : taller,
+    });
+  });
+
+  return nodos;
+}
+
+function CircuitoRail({ nodos }) {
   return (
-    <div className="tor-journey-grid">
-      {tramos.map((operation, index) => (
-        <JourneyCard
-          key={operation.id}
-          process={process}
-          operation={operation}
-          index={index}
-          current={operation.id === currentId}
-          onMove={onMove}
-        />
-      ))}
+    <div className="tor-journey-path">
+      {nodos.map((nodo) => {
+        const Icon = nodo.Icon;
+        return (
+          <Fragment key={nodo.key}>
+            {nodo.railColor !== undefined && (
+              <span
+                className="tor-rail"
+                data-hecho={nodo.railHecho ? "1" : "0"}
+                data-curso={nodo.railCurso ? "1" : "0"}
+                style={{ color: nodo.railColor }}
+              />
+            )}
+            <span
+              className="tor-route-node"
+              title={nodo.compacto ? nodo.label : undefined}
+              style={{
+                borderColor: nodo.activo ? nodo.borde : C.border,
+                background: nodo.activo ? nodo.soft : C.panel2,
+                color: nodo.activo ? nodo.color : C.dim,
+                padding: nodo.compacto ? "4px 6px" : "4px 8px",
+              }}
+            >
+              <Icon size={11} />
+              {!nodo.compacto && nodo.label}
+              {nodo.viaje ? <span style={{ opacity: 0.7 }}>{nodo.viaje}</span> : null}
+            </span>
+          </Fragment>
+        );
+      })}
     </div>
   );
 }
 
-function StandaloneRouteCard({ process, row, onMove }) {
+// Dónde está parado el circuito ahora. Es lo único accionable, así que la card
+// muestra un solo detalle y un solo botón en vez de uno por tramo.
+function tramoActual({ process, item, tramos, conCompra }) {
+  const compraPaso = conCompra
+    ? (COMPRA_META[item.compra_estado] ?? COMPRA_META.pendiente_solicitud).paso
+    : 3;
+  if (conCompra && compraPaso < 3) return { tipo: "compra", compraPaso };
+  const operation = tramos.find((row) => row.estado !== "recibido");
+  if (!operation) return { tipo: "listo" };
+  return { tipo: "viaje", operation, dependencias: dependencyRows(process, operation) };
+}
+
+function TramoActual({ process, item, tramos, conCompra, onMove, onPedirCompra }) {
+  const actual = tramoActual({ process, item, tramos, conCompra });
+  const salida = primeraSalida(tramos);
+  const diasCompra = diasEntre(item.solicitado_at, item.recibido_astillero_at);
+  const diasEspera = diasEntre(item.recibido_astillero_at, salida);
+
+  // Los tiempos de compra se muestran siempre que existan, incluso con el
+  // circuito terminado: es el dato que sirve para presupuestar la próxima obra.
+  const tiempos = (
+    <div style={{ display: "flex", gap: 9, flexWrap: "wrap" }}>
+      {diasCompra != null && (
+        <span style={{ color: C.muted, fontSize: 10.5, fontWeight: 700 }}>
+          Compra: {diasCompra} {diasCompra === 1 ? "día" : "días"}
+        </span>
+      )}
+      {diasEspera != null && (
+        <span style={{ color: C.dim, fontSize: 10.5 }}>
+          Esperó {diasEspera} {diasEspera === 1 ? "día" : "días"} antes de salir
+        </span>
+      )}
+    </div>
+  );
+
+  if (actual.tipo === "listo") {
+    return (
+      <div style={{ display: "grid", gap: 6 }}>
+        <span style={{ display: "inline-flex", alignItems: "center", gap: 6, color: C.green, fontSize: 11.5, fontWeight: 850 }}>
+          <Check size={13} /> Circuito completo
+        </span>
+        {tiempos}
+      </div>
+    );
+  }
+
+  if (actual.tipo === "compra") {
+    const meta = COMPRA_META[item.compra_estado] ?? COMPRA_META.pendiente_solicitud;
+    const diasPidiendo = diasDesde(item.solicitado_at);
+    return (
+      <div style={{ display: "grid", gap: 8 }}>
+        <div style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
+          <span style={{
+            display: "inline-flex", alignItems: "center", gap: 5, minHeight: 23,
+            padding: "2px 8px", borderRadius: 999,
+            border: `1px solid ${meta.borde}`, background: meta.soft, color: meta.color,
+            fontSize: 9.5, fontWeight: 850, whiteSpace: "nowrap",
+          }}>
+            <span style={{ width: 5, height: 5, borderRadius: "50%", background: meta.color }} />
+            {meta.label}
+          </span>
+          {item.proveedor_compra && (
+            <span style={{ color: C.muted, fontSize: 11, fontWeight: 800 }}>{item.proveedor_compra}</span>
+          )}
+          {/* Un pedido que lleva mucho sin llegar es el dato que dispara el reclamo. */}
+          {diasPidiendo != null && (
+            <span style={{
+              color: diasPidiendo >= 15 ? C.red : C.dim,
+              fontSize: 10.5,
+              fontWeight: diasPidiendo >= 15 ? 850 : 700,
+            }}>
+              Pedido hace {diasPidiendo} {diasPidiendo === 1 ? "día" : "días"}
+            </span>
+          )}
+        </div>
+        {item.compra_estado === "pendiente_solicitud" && onPedirCompra && (
+          <button
+            type="button"
+            onClick={() => onPedirCompra([item])}
+            className="tor-route-action"
+            style={{ ...PRIMARY_BUTTON, width: "100%", minHeight: 36 }}
+          >
+            <ShoppingCart size={14} /> Pedir a compras
+          </button>
+        )}
+      </div>
+    );
+  }
+
+  const { operation, dependencias } = actual;
+  const afuera = ["enviado", "parcial"].includes(operation.estado);
+  const parcial = operation.estado === "parcial";
+  const destino = workshopName(operation);
+  const tallerColor = operation.tipo === "plegadora" ? C.violet : C.blue;
+  const ultimaSalida = [...(operation.movimientos || [])]
+    .filter((movement) => movement.tipo === "salida")
+    .sort((a, b) => new Date(b.fecha) - new Date(a.fecha))[0];
+  const diasAfuera = afuera ? diasDesde(ultimaSalida?.fecha) : null;
+
+  let label = "Listo para enviar";
+  let color = C.blue;
+  let soft = C.blueL;
+  let borde = C.blueB;
+  if (parcial) {
+    label = "Regreso parcial"; color = C.violet; soft = C.violetL; borde = C.violetB;
+  } else if (afuera) {
+    label = `En ${destino}`; color = tallerColor;
+    soft = operation.tipo === "plegadora" ? C.violetL : C.blueL;
+    borde = operation.tipo === "plegadora" ? C.violetB : C.blueB;
+  } else if (dependencias.length) {
+    label = "Espera pasos anteriores"; color = C.red; soft = C.redL; borde = C.redB;
+  }
+
+  return (
+    <div style={{ display: "grid", gap: 8 }}>
+      <div style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
+        <span style={{
+          display: "inline-flex", alignItems: "center", gap: 5, minHeight: 23,
+          padding: "2px 8px", borderRadius: 999,
+          border: `1px solid ${borde}`, background: soft, color,
+          fontSize: 9.5, fontWeight: 850, whiteSpace: "nowrap",
+        }}>
+          <span style={{ width: 5, height: 5, borderRadius: "50%", background: color }} />
+          Viaje {operation.viaje || 1} · {label}
+        </span>
+        {operation.nombre && (
+          <span style={{ color: C.muted, fontSize: 11, fontWeight: 750 }}>{operation.nombre}</span>
+        )}
+        {diasAfuera != null && (
+          <span style={{
+            color: diasAfuera >= 15 ? C.red : C.dim,
+            fontSize: 10.5,
+            fontWeight: diasAfuera >= 15 ? 850 : 700,
+          }}>
+            Afuera hace {diasAfuera} {diasAfuera === 1 ? "día" : "días"}
+          </span>
+        )}
+      </div>
+
+      {dependencias.length > 0 && (
+        <div style={{ color: C.red, fontSize: 10.5, lineHeight: 1.4 }}>
+          Antes debería volver: {dependencias.map((row) => row.nombre).join(", ")}.
+        </div>
+      )}
+
+      {tiempos}
+
+      <button
+        type="button"
+        onClick={() => onMove(operation, null)}
+        className="tor-route-action"
+        style={{
+          ...PRIMARY_BUTTON,
+          width: "100%",
+          minHeight: 36,
+          ...(afuera ? { borderColor: C.violetB, background: C.violetL, color: C.violet } : {}),
+        }}
+      >
+        {afuera ? <PackageOpen size={14} /> : <Truck size={14} />}
+        {afuera ? "Registrar regreso" : "Registrar salida"}
+      </button>
+    </div>
+  );
+}
+
+// Un material = una card = un circuito. Rail arriba, el tramo donde está parado
+// abajo, un solo botón.
+function CircuitoMaterial({ process, item, tramos, onMove, onPedirCompra, tono = null }) {
+  const conCompra = compraAplica(item, tramos);
+  const nodos = circuitoNodos({ item, tramos, conCompra });
+  return (
+    <div style={{ display: "grid", gap: 10, minWidth: 0 }}>
+      <CircuitoRail nodos={nodos} />
+      <TramoActual
+        process={process}
+        item={item}
+        tramos={tramos}
+        conCompra={conCompra}
+        onMove={onMove}
+        onPedirCompra={onPedirCompra}
+      />
+      {tono}
+    </div>
+  );
+}
+function StandaloneRouteCard({ process, row, onMove, index = 0, onPedirCompra = null }) {
   const { item, tramos } = row;
   const complete = routeIsComplete(row);
+  // La pieza está afuera si alguno de sus tramos está en el taller. Da el color
+  // de la espina, que es lo único que se lee sin acercarse a la pantalla.
+  const outside = tramos.some((op) => ["enviado", "parcial"].includes(op.estado));
+  const spine = complete ? C.green : outside ? C.violet : C.blue;
   return (
     <article className="tor-route-card" style={{
+      position: "relative",
       display: "grid",
       gap: 11,
       padding: 12,
+      paddingLeft: 15,
       borderRadius: 14,
       border: `1px solid ${complete ? C.greenB : C.border}`,
       background: complete ? C.greenL : C.panel,
       minWidth: 0,
+      overflow: "hidden",
+      // Escalonado corto: da sensación de armado sin hacer esperar a nadie.
+      animationDelay: `${Math.min(index, 6) * 35}ms`,
     }}>
+      <span style={{
+        position: "absolute",
+        left: 0,
+        top: 11,
+        bottom: 11,
+        width: 3,
+        borderRadius: "0 3px 3px 0",
+        background: spine,
+      }} />
       <div style={{
         display: "flex",
         alignItems: "flex-start",
@@ -846,18 +1022,19 @@ function StandaloneRouteCard({ process, row, onMove }) {
             {qty(item.cantidad)} {item.unidad} · {tramos.length === 1 ? "1 viaje" : `${tramos.length} viajes`}
           </div>
         </div>
-        {complete && (
-          <span style={{ display: "inline-flex", alignItems: "center", gap: 5, color: C.green, fontSize: 10.5, fontWeight: 850 }}>
-            <Check size={13} /> Circuito completo
-          </span>
-        )}
       </div>
-      <RouteJourneyCards process={process} tramos={tramos} onMove={onMove} />
+      <CircuitoMaterial
+        process={process}
+        item={item}
+        tramos={tramos}
+        onMove={onMove}
+        onPedirCompra={onPedirCompra}
+      />
     </article>
   );
 }
 
-function TransformationSource({ process, row, onMove }) {
+function TransformationSource({ process, row, onMove, onPedirCompra = null }) {
   const complete = routeIsComplete(row);
   return (
     <div className="tor-transform-source" style={{
@@ -891,12 +1068,18 @@ function TransformationSource({ process, row, onMove }) {
           {complete ? "Listo" : "En proceso"}
         </span>
       </div>
-      <RouteJourneyCards process={process} tramos={row.tramos} onMove={onMove} />
+      <CircuitoMaterial
+        process={process}
+        item={row.item}
+        tramos={row.tramos}
+        onMove={onMove}
+        onPedirCompra={onPedirCompra}
+      />
     </div>
   );
 }
 
-function TransformationFlow({ process, result, sources, onMove }) {
+function TransformationFlow({ process, result, sources, onMove, onPedirCompra = null }) {
   const sourcesReady = sources.length > 0 && sources.every(routeIsComplete);
   const resultReady = routeIsComplete(result);
   const complete = sourcesReady && resultReady;
@@ -970,6 +1153,7 @@ function TransformationFlow({ process, result, sources, onMove }) {
                 process={process}
                 row={source}
                 onMove={onMove}
+                onPedirCompra={onPedirCompra}
               />
             ))}
           </div>
@@ -1021,16 +1205,25 @@ function TransformationFlow({ process, result, sources, onMove }) {
               Falta confirmar la cantidad resultante.
             </div>
           )}
-          <RouteJourneyCards process={process} tramos={result.tramos} onMove={onMove} />
+          {/* El conjunto no se compra, así que su circuito no lleva tramo de
+              compra: compraAplica lo descarta por es_resultado. */}
+          <CircuitoMaterial
+            process={process}
+            item={resultItem}
+            tramos={result.tramos}
+            onMove={onMove}
+          />
         </div>
       </div>
     </article>
   );
 }
 
-function RecorridosPorItem({ process, onMove, query = "" }) {
+function RecorridosPorItem({ process, onMove, query = "", onPedirCompra = null }) {
   const operations = (process.operaciones || []).filter((row) => row.activa !== false);
-  const items = (process.items || []).filter((row) => row.activo !== false);
+  // Lo que esta obra no lleva no entra al circuito: queda a la vista en
+  // Materiales, tachado, para que se sepa que fue una decisión.
+  const items = (process.items || []).filter((row) => row.activo !== false && !row.no_lleva);
   const itemRoutes = items
     .map((item) => {
       const tramos = operations
@@ -1130,35 +1323,50 @@ function RecorridosPorItem({ process, onMove, query = "" }) {
 
   return (
     <section style={{ display: "grid", gap: 13 }}>
+      {/* La leyenda se agrupa en una pastilla propia en vez de flotar como
+          cuatro puntos sueltos: deja de competir con el título. */}
       <div style={{
         display: "flex",
-        alignItems: "flex-start",
+        alignItems: "center",
         justifyContent: "space-between",
         gap: 12,
         flexWrap: "wrap",
       }}>
-        <div>
-          <div style={{ color: C.text, fontSize: 14, fontWeight: 900 }}>Circuito por material</div>
+        <div style={{ minWidth: 0 }}>
+          <div style={{ display: "flex", alignItems: "center", gap: 7 }}>
+            <Factory size={14} style={{ color: C.blue, flexShrink: 0 }} />
+            <span style={{ color: C.text, fontSize: 14, fontWeight: 900 }}>Circuito por material</span>
+          </div>
           <div style={{ color: C.dim, fontSize: 11.5, lineHeight: 1.45, marginTop: 3 }}>
             Cada viaje muestra su origen real y termina cuando el material vuelve al astillero.
           </div>
         </div>
-        <div style={{ display: "flex", alignItems: "center", gap: 9, flexWrap: "wrap" }}>
+        <div style={{
+          display: "flex",
+          alignItems: "center",
+          gap: 11,
+          flexWrap: "wrap",
+          padding: "5px 11px",
+          borderRadius: 999,
+          border: `1px solid ${C.border}`,
+          background: C.panel,
+        }}>
           {[
             [C.blue, "Tornería"],
             [C.violet, "Plegadora"],
             [C.green, "En astillero"],
-            [C.teal, "Origen proveedor"],
+            [C.teal, "Proveedor"],
           ].map(([color, label]) => (
             <span key={label} style={{
               display: "inline-flex",
               alignItems: "center",
               gap: 5,
-              color: C.dim,
+              color: C.muted,
               fontSize: 9.5,
-              fontWeight: 750,
+              fontWeight: 800,
+              whiteSpace: "nowrap",
             }}>
-              <span style={{ width: 6, height: 6, borderRadius: "50%", background: color }} />
+              <span style={{ width: 6, height: 6, borderRadius: "50%", background: color, flexShrink: 0 }} />
               {label}
             </span>
           ))}
@@ -1171,26 +1379,40 @@ function RecorridosPorItem({ process, onMove, query = "" }) {
           return routeIsComplete(block.result) && block.sources.every(routeIsComplete);
         }).length;
         return (
-          <section key={group} style={{ display: "grid", gap: 8 }}>
-            <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+          <section key={group} style={{ display: "grid", gap: 9 }}>
+            <div className="tor-group-head">
               <span style={{
                 width: 8,
                 height: 8,
                 borderRadius: "50%",
                 background: GROUP_COLORS[group] || C.dim,
+                boxShadow: `0 0 0 3px ${C.panel}`,
+                flexShrink: 0,
               }} />
               <span style={{
-                color: C.muted,
+                color: C.text,
                 fontSize: 10.5,
                 fontWeight: 900,
                 letterSpacing: "0.09em",
                 textTransform: "uppercase",
+                whiteSpace: "nowrap",
               }}>
                 {group}
               </span>
-              <span style={{ color: completed === blocks.length ? C.green : C.dim, fontSize: 10, fontWeight: 800 }}>
-                {completed}/{blocks.length} circuitos completos
+              <span style={{
+                flexShrink: 0,
+                padding: "1px 8px",
+                borderRadius: 999,
+                border: `1px solid ${completed === blocks.length ? C.greenB : C.border}`,
+                background: completed === blocks.length ? C.greenL : C.panel,
+                color: completed === blocks.length ? C.green : C.dim,
+                fontSize: 9.5,
+                fontWeight: 900,
+                fontVariantNumeric: "tabular-nums",
+              }}>
+                {completed}/{blocks.length} completos
               </span>
+              <span className="tor-group-rule" />
             </div>
 
             {/* Las transformaciones van en su propia pila y las cards sueltas en
@@ -1208,6 +1430,7 @@ function RecorridosPorItem({ process, onMove, query = "" }) {
                     result={block.result}
                     sources={block.sources}
                     onMove={onMove}
+                    onPedirCompra={onPedirCompra}
                   />
                 ))}
               </div>
@@ -1215,12 +1438,14 @@ function RecorridosPorItem({ process, onMove, query = "" }) {
 
             {blocks.some((block) => block.type === "standalone") && (
               <div className="tor-circuit-blocks">
-                {blocks.filter((block) => block.type === "standalone").map((block) => (
+                {blocks.filter((block) => block.type === "standalone").map((block, i) => (
                   <StandaloneRouteCard
                     key={block.key}
                     process={process}
                     row={block.row}
                     onMove={onMove}
+                    index={i}
+                    onPedirCompra={onPedirCompra}
                   />
                 ))}
               </div>
@@ -1294,6 +1519,122 @@ function CircuitSearch({ value, onChange, compact = false }) {
   );
 }
 
+// Los materiales que todavía nadie pidió, juntos y en un solo pedido. Pedirlos
+// de a uno era el camino seguro a diez pedidos sueltos para la misma obra, que es
+// exactamente lo que compras no quiere.
+function CompraResumen({ process, onPedirCompra }) {
+  const items = (process.items || []).filter((row) => row.activo !== false && !row.no_lleva);
+  const operations = (process.operaciones || []).filter((row) => row.activa !== false);
+  const tramosDe = (item) => operations.filter(
+    (op) => (op.componentes || []).some((c) => c.item_id === item.id),
+  );
+
+  const conCompra = items.filter((item) => compraAplica(item, tramosDe(item)));
+  const sinPedir = conCompra.filter((item) => item.compra_estado === "pendiente_solicitud");
+  const enCamino = conCompra.filter(
+    (item) => ["solicitado", "comprado"].includes(item.compra_estado),
+  );
+  const llegados = conCompra.filter((item) => item.compra_estado === "recibido_astillero");
+
+  if (!conCompra.length) return null;
+
+  // Promedio real de lo que ya llegó: sirve para prometer fechas con algo más
+  // que una intuición.
+  const cerrados = llegados
+    .map((item) => diasEntre(item.solicitado_at, item.recibido_astillero_at))
+    .filter((dias) => dias != null);
+  const promedio = cerrados.length
+    ? Math.round(cerrados.reduce((total, dias) => total + dias, 0) / cerrados.length)
+    : null;
+
+  // El pedido más viejo sin llegar: el que hay que reclamar.
+  const masViejo = enCamino
+    .map((item) => diasDesde(item.solicitado_at))
+    .filter((dias) => dias != null)
+    .sort((a, b) => b - a)[0] ?? null;
+
+  return (
+    <section style={{
+      display: "grid",
+      gap: 10,
+      padding: 12,
+      borderRadius: 14,
+      border: `1px solid ${sinPedir.length ? C.cyanB : C.border}`,
+      background: sinPedir.length ? C.cyanL : C.panel,
+    }}>
+      <div style={{
+        display: "flex",
+        alignItems: "center",
+        justifyContent: "space-between",
+        gap: 12,
+        flexWrap: "wrap",
+      }}>
+        <div style={{ minWidth: 0 }}>
+          <div style={{ display: "flex", alignItems: "center", gap: 7 }}>
+            <ShoppingCart size={14} style={{ color: sinPedir.length ? C.cyan : C.dim, flexShrink: 0 }} />
+            <span style={{ color: C.text, fontSize: 13.5, fontWeight: 900 }}>Compra del material</span>
+          </div>
+          <div style={{ color: C.dim, fontSize: 11.5, lineHeight: 1.45, marginTop: 3 }}>
+            {promedio != null
+              ? `Hasta ahora el material tardó ${promedio} ${promedio === 1 ? "día" : "días"} promedio en llegar.`
+              : "Todavía no hay material recibido para calcular un promedio."}
+          </div>
+        </div>
+        {sinPedir.length > 0 && onPedirCompra && (
+          <button
+            type="button"
+            onClick={() => onPedirCompra(sinPedir)}
+            style={{ ...PRIMARY_BUTTON, flexShrink: 0, minHeight: 36, fontWeight: 900 }}
+          >
+            <ShoppingCart size={14} />
+            Pedir {sinPedir.length} {sinPedir.length === 1 ? "material" : "materiales"}
+          </button>
+        )}
+      </div>
+
+      <div style={{ display: "flex", gap: 7, flexWrap: "wrap" }}>
+        {[
+          [sinPedir.length, "sin pedir", C.red, C.redL, C.redB],
+          [enCamino.length, "en camino", C.cyan, C.cyanL, C.cyanB],
+          [llegados.length, "en astillero", C.green, C.greenL, C.greenB],
+        ].filter(([count]) => count > 0).map(([count, label, color, soft, borde]) => (
+          <span key={label} style={{
+            display: "inline-flex",
+            alignItems: "center",
+            gap: 5,
+            padding: "3px 10px",
+            borderRadius: 999,
+            border: `1px solid ${borde}`,
+            background: soft,
+            color,
+            fontSize: 10.5,
+            fontWeight: 900,
+            fontVariantNumeric: "tabular-nums",
+          }}>
+            {count} {label}
+          </span>
+        ))}
+        {masViejo != null && masViejo >= 15 && (
+          <span style={{
+            display: "inline-flex",
+            alignItems: "center",
+            gap: 5,
+            padding: "3px 10px",
+            borderRadius: 999,
+            border: `1px solid ${C.redB}`,
+            background: C.redL,
+            color: C.red,
+            fontSize: 10.5,
+            fontWeight: 900,
+          }}>
+            <AlertTriangle size={11} /> Hay un pedido de hace {masViejo} días
+          </span>
+        )}
+      </div>
+    </section>
+  );
+}
+
 function CircuitTab({
   process,
   onMove,
@@ -1303,6 +1644,7 @@ function CircuitTab({
   search,
   onSearch,
   showSearch = true,
+  onPedirCompra,
 }) {
   const operations = (process.operaciones || []).filter((row) => row.activa !== false);
   const [showManagement, setShowManagement] = useState(false);
@@ -1311,7 +1653,14 @@ function CircuitTab({
     <div style={{ display: "grid", gap: 16 }}>
       {showSearch && <CircuitSearch value={search} onChange={onSearch} />}
 
-      <RecorridosPorItem process={process} onMove={onMove} query={search} />
+      <CompraResumen process={process} onPedirCompra={onPedirCompra} />
+
+      <RecorridosPorItem
+        process={process}
+        onMove={onMove}
+        query={search}
+        onPedirCompra={onPedirCompra}
+      />
 
       <section style={{
         display: "grid",
@@ -1434,9 +1783,12 @@ function CircuitTab({
   );
 }
 
-function MaterialTab({ process, onEdit, onNew, onStatus, onConfirm }) {
+function MaterialTab({ process, onEdit, onNew, onStatus, onConfirm, onPedirCompra, onNoLleva }) {
   const items = (process.items || []).filter((row) => row.activo !== false);
   const itemsByKey = new Map(items.map((row) => [row.clave, row]));
+  const sinPedir = items.filter(
+    (row) => !row.es_resultado && !row.no_lleva && row.compra_estado === "pendiente_solicitud",
+  );
   return (
     <div style={{ display: "grid", gap: 16 }}>
       <div style={{ display: "flex", alignItems: "flex-start", justifyContent: "space-between", gap: 12 }}>
@@ -1446,9 +1798,20 @@ function MaterialTab({ process, onEdit, onNew, onStatus, onConfirm }) {
             Materiales comprados y conjuntos que se forman durante el circuito.
           </div>
         </div>
-        <button type="button" onClick={onNew} style={{ ...BUTTON, flexShrink: 0 }}>
-          <Plus size={14} /> Material
-        </button>
+        <div style={{ display: "flex", gap: 8, flexShrink: 0, flexWrap: "wrap" }}>
+          {sinPedir.length > 0 && onPedirCompra && (
+            <button
+              type="button"
+              onClick={() => onPedirCompra(sinPedir)}
+              style={{ ...PRIMARY_BUTTON, fontWeight: 900 }}
+            >
+              <ShoppingCart size={14} /> Pedir {sinPedir.length}
+            </button>
+          )}
+          <button type="button" onClick={onNew} style={{ ...BUTTON }}>
+            <Plus size={14} /> Material
+          </button>
+        </div>
       </div>
       {!items.length ? <EmptyCatalogHint /> : groupRows(items).map(([group, rows]) => (
         <section key={group} style={{ display: "grid", gap: 6 }}>
@@ -1464,7 +1827,7 @@ function MaterialTab({ process, onEdit, onNew, onStatus, onConfirm }) {
             </span>
           </div>
           {rows.map((item) => {
-            const unresolved = item.requiere_confirmacion && !item.confirmado_at;
+            const unresolved = item.requiere_confirmacion && !item.confirmado_at && !item.no_lleva;
             return (
               <div key={item.id} style={{
                 display: "grid",
@@ -1474,10 +1837,34 @@ function MaterialTab({ process, onEdit, onNew, onStatus, onConfirm }) {
                 borderRadius: 12,
                 border: `1px solid ${unresolved ? C.redB : C.border}`,
                 background: unresolved ? C.redL : C.panel,
+                // No lleva: sigue a la vista pero apagado. Esconderlo haría
+                // dudar de si se decidió o si alguien lo borró.
+                opacity: item.no_lleva ? 0.55 : 1,
               }}>
                 <div style={{ minWidth: 0 }}>
                   <div style={{ display: "flex", alignItems: "center", gap: 7, flexWrap: "wrap" }}>
-                    <span style={{ color: C.text, fontSize: 12.5, fontWeight: 850 }}>{item.descripcion}</span>
+                    <span style={{
+                      color: C.text,
+                      fontSize: 12.5,
+                      fontWeight: 850,
+                      textDecoration: item.no_lleva ? "line-through" : "none",
+                    }}>
+                      {item.descripcion}
+                    </span>
+                    {item.no_lleva && (
+                      <span style={{
+                        padding: "2px 8px",
+                        borderRadius: 999,
+                        border: `1px solid ${C.border2}`,
+                        background: C.panel2,
+                        color: C.muted,
+                        fontSize: 9.5,
+                        fontWeight: 900,
+                        textTransform: "uppercase",
+                      }}>
+                        No lleva
+                      </span>
+                    )}
                     {item.es_resultado ? (
                       <span style={{
                         display: "inline-flex",
@@ -1502,6 +1889,24 @@ function MaterialTab({ process, onEdit, onNew, onStatus, onConfirm }) {
                     {item.proveedor_compra ? ` · ${item.proveedor_compra}` : ""}
                     {item.solicitado_por_torneria ? " · solicitado por Tornería" : ""}
                   </div>
+                  {/* El reloj de la compra, en una línea: hasta ahora no quedaba
+                      registro de cuánto tardó nada. */}
+                  {(item.solicitado_at || item.recibido_astillero_at) && (
+                    <div style={{ color: C.muted, fontSize: 10, marginTop: 4, display: "flex", gap: 8, flexWrap: "wrap" }}>
+                      {item.solicitado_at && <span>Pedido {fmtDate(item.solicitado_at, false)}</span>}
+                      {item.recibido_astillero_at && <span>· Llegó {fmtDate(item.recibido_astillero_at, false)}</span>}
+                      {diasEntre(item.solicitado_at, item.recibido_astillero_at) != null && (
+                        <span style={{ color: C.green, fontWeight: 850 }}>
+                          · {diasEntre(item.solicitado_at, item.recibido_astillero_at)} días
+                        </span>
+                      )}
+                      {item.purchase_request_id && (
+                        <span style={{ display: "inline-flex", alignItems: "center", gap: 3, color: C.blue, fontWeight: 800 }}>
+                          <ShoppingCart size={10} /> vinculado a compras
+                        </span>
+                      )}
+                    </div>
+                  )}
                   {item.es_resultado && item.resultado_de?.length > 0 && (
                     <div style={{ color: C.muted, fontSize: 10.5, lineHeight: 1.4, marginTop: 5 }}>
                       Se arma con: {item.resultado_de
@@ -1521,7 +1926,23 @@ function MaterialTab({ process, onEdit, onNew, onStatus, onConfirm }) {
                   )}
                 </div>
                 <div style={{ display: "grid", justifyItems: "end", gap: 7 }}>
-                  {item.es_resultado ? (
+                  {item.no_lleva ? (
+                    <span style={{
+                      minHeight: 30,
+                      display: "inline-flex",
+                      alignItems: "center",
+                      padding: "4px 8px",
+                      borderRadius: 8,
+                      border: `1px solid ${C.border}`,
+                      background: C.panel2,
+                      color: C.dim,
+                      fontSize: 9.5,
+                      fontWeight: 850,
+                      whiteSpace: "nowrap",
+                    }}>
+                      Fuera de esta obra
+                    </span>
+                  ) : item.es_resultado ? (
                     <span style={{
                       minHeight: 30,
                       display: "inline-flex",
@@ -1557,7 +1978,26 @@ function MaterialTab({ process, onEdit, onNew, onStatus, onConfirm }) {
                     </select>
                   )}
                   <div style={{ display: "flex", gap: 5 }}>
-                    {item.requiere_confirmacion && (
+                    {/* No para los conjuntos: un conjunto no "no se lleva", se
+                        deja de armar solo si sus componentes no van. */}
+                    {!item.es_resultado && onNoLleva && (
+                      <button
+                        type="button"
+                        onClick={() => onNoLleva(item)}
+                        title={item.no_lleva ? "Volver a incluirla en esta obra" : "Esta obra no lleva esta pieza"}
+                        style={{
+                          ...BUTTON,
+                          minHeight: 31,
+                          padding: "4px 9px",
+                          fontSize: 10.5,
+                          color: item.no_lleva ? C.blue : C.dim,
+                          borderColor: item.no_lleva ? C.blueB : C.border,
+                        }}
+                      >
+                        {item.no_lleva ? "Sí lleva" : "No lleva"}
+                      </button>
+                    )}
+                    {item.requiere_confirmacion && !item.no_lleva && (
                       <button
                         type="button"
                         onClick={() => onConfirm(item, !item.confirmado_at)}
@@ -1951,6 +2391,7 @@ export default function TorneriaScreen({ profile, signOut }) {
   // operaciones fuera del astillero y otro ítems sin confirmar.
   const [vista, setVista] = useState(null);
   const [modal, setModal] = useState(null);
+  const [pedidoCompra, setPedidoCompra] = useState(null);
 
   const load = useCallback(async ({ quiet = false, preferId = null } = {}) => {
     if (!quiet) setLoading(true);
@@ -2000,7 +2441,7 @@ export default function TorneriaScreen({ profile, signOut }) {
       if (vista === "activos" && !["activo", "borrador", "pausado"].includes(process.estado)) return false;
       if (vista === "taller" && !process.operaciones.some((row) => ["enviado", "parcial"].includes(row.estado))) return false;
       if (vista === "confirmar" && !process.items.some(
-        (item) => item.activo !== false && item.requiere_confirmacion && !item.confirmado_at,
+        (item) => item.activo !== false && !item.no_lleva && item.requiere_confirmacion && !item.confirmado_at,
       )) return false;
       if (vista === "completos" && processProgress(process) !== 100) return false;
 
@@ -2020,7 +2461,7 @@ export default function TorneriaScreen({ profile, signOut }) {
     );
     const unresolved = processes.reduce(
       (sum, process) => sum + process.items.filter(
-        (item) => item.activo !== false && item.requiere_confirmacion && !item.confirmado_at,
+        (item) => item.activo !== false && !item.no_lleva && item.requiere_confirmacion && !item.confirmado_at,
       ).length,
       0,
     );
@@ -2221,6 +2662,33 @@ export default function TorneriaScreen({ profile, signOut }) {
     }
   }
 
+  // Abre el mismo modal que usan inventario, laminación y muebles. Tornería era
+  // el único módulo que no pedía a compras desde el sistema.
+  function pedirACompras(items) {
+    const lista = (items || []).filter(Boolean);
+    if (!lista.length || !selected) return;
+    setPedidoCompra({ items: lista, proceso: selected });
+  }
+
+  async function toggleNoLleva(item) {
+    const marcando = !item.no_lleva;
+    if (marcando) {
+      const accepted = await confirm({
+        title: `¿${item.descripcion} no va en esta obra?`,
+        message: "Sale de los pendientes y de las compras, y se apagan los viajes que existían sólo por esta pieza. Se puede volver atrás cuando quieras.",
+        confirmLabel: "No lleva",
+      });
+      if (!accepted) return;
+    }
+    try {
+      await marcarNoLleva(item.id, marcando);
+      await load({ quiet: true, preferId: selected.id });
+      toast.success(marcando ? "Marcado como no lleva." : "Vuelve al circuito.");
+    } catch (noLlevaError) {
+      toast.error(noLlevaError.message);
+    }
+  }
+
   async function confirmItem(item, value) {
     try {
       await actualizarItem(item.id, {
@@ -2242,7 +2710,7 @@ export default function TorneriaScreen({ profile, signOut }) {
   const upgradeMissing = /es_resultado|resultado_de|origen/i.test(error);
   const selectedProgress = selected ? processProgress(selected) : 0;
   const selectedUnresolved = selected?.items.filter(
-    (item) => item.activo !== false && item.requiere_confirmacion && !item.confirmado_at,
+    (item) => item.activo !== false && !item.no_lleva && item.requiere_confirmacion && !item.confirmado_at,
   ) || [];
 
   return (
@@ -2257,23 +2725,38 @@ export default function TorneriaScreen({ profile, signOut }) {
           : "280px minmax(0,1fr)",
       overflow: "hidden",
       background: C.bg,
+      // Halo ambiental, igual que Obras: da profundidad sin agregar un div ni
+      // pelear con el grid de columnas. Los alfas son bajos a propósito para
+      // que en modo claro no se vea sucio.
+      backgroundImage: `
+        radial-gradient(ellipse 70% 38% at 50% -6%, rgba(59,130,246,0.07) 0%, transparent 65%),
+        radial-gradient(ellipse 40% 28% at 92% 88%, rgba(139,92,246,0.03) 0%, transparent 55%)
+      `,
       color: C.text,
       fontFamily: C.sans,
     }}>
       <style>{`
         *,*::before,*::after{box-sizing:border-box}
+        /* Scrollbars finas, como en Obras y Muebles. */
+        ::-webkit-scrollbar{width:3px;height:3px}
+        ::-webkit-scrollbar-track{background:transparent}
+        ::-webkit-scrollbar-thumb{background:var(--panel-2);border-radius:99px}
         .spin{animation:tor-spin .8s linear infinite}
         @keyframes tor-spin{to{transform:rotate(360deg)}}
+        /* Entradas: las mismas curvas que el resto de la app. */
+        @keyframes torCardEnter{0%{opacity:0;transform:translateY(10px) scale(.985)}60%{opacity:1}100%{opacity:1;transform:none}}
+        @keyframes torSlideUp{0%{opacity:0;transform:translateY(8px)}100%{opacity:1;transform:none}}
         .tor-process-card,.tor-operation{transition:border-color .16s ease,transform .16s ease,box-shadow .16s ease}
         .tor-process-card:hover{transform:translateY(-1px);border-color:var(--border-2)!important}
         .tor-operation:hover{border-color:var(--border-2)!important;box-shadow:0 10px 26px -24px var(--shadow-strong)}
         .tor-form-grid{display:grid;grid-template-columns:1fr 1fr;gap:12px}
-        .tor-route-card,.tor-journey-card{transition:border-color .16s ease,box-shadow .16s ease}
-        .tor-route-card:hover{border-color:var(--border-2)!important;box-shadow:0 12px 30px -28px var(--shadow-strong)}
-        /* auto-FIT y no auto-fill: auto-fill deja los tracks vacíos ocupando
-           lugar, y con 2 viajes en una card ancha quedaba media card en blanco.
-           auto-fit los colapsa y lo que hay se estira. */
-        .tor-journey-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,240px),1fr));gap:8px}
+        .tor-route-card{transition:border-color .16s ease,box-shadow .16s ease,transform .16s ease}
+        .tor-route-card{animation:torCardEnter .28s cubic-bezier(.16,1,.3,1) backwards}
+        .tor-route-card:hover{border-color:var(--border-2)!important;transform:translateY(-1px);box-shadow:0 14px 34px -28px var(--shadow-strong)}
+        /* Encabezado de grupo: filete que ocupa el resto de la fila, para que el
+           título no quede flotando en el aire. */
+        .tor-group-head{display:flex;align-items:center;gap:8px}
+        .tor-group-rule{flex:1;height:1px;min-width:12px;background:linear-gradient(90deg,var(--border),transparent)}
         /* container-type para poder preguntar por el ancho REAL de la card. El
            media query de viewport se equivocaba: con el sidebar y la lista de
            obras abiertos, a 1400px de pantalla al circuito le quedan ~830px, el
@@ -2292,13 +2775,40 @@ export default function TorneriaScreen({ profile, signOut }) {
           .tor-transform-connector{padding:3px 10px}
           .tor-transform-arrow{transform:rotate(90deg)}
         }
+        /* Dos componentes al lado necesitan ~860px para que sus rieles no
+           scrolleen. Por debajo va uno por fila: mejor una columna ancha que dos
+           angostas con el recorrido cortado. */
+        @container (max-width:900px){
+          .tor-transform-sources{grid-template-columns:minmax(0,1fr)}
+        }
         /* Mosaico del circuito: las cards simples entran de a 2-4 por fila según
            el ancho disponible, para no dejar el slab gris a la derecha. */
-        .tor-circuit-blocks{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,400px),1fr));gap:10px;align-items:start}
-        /* Los componentes del conjunto se reparten el ancho en partes iguales. */
-        .tor-transform-sources{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,290px),1fr));gap:8px;align-items:start}
-        .tor-journey-path{display:flex;align-items:center;gap:5px;min-width:0;overflow-x:auto;padding-bottom:2px}
-        .tor-route-node{min-height:28px;display:inline-flex;align-items:center;gap:5px;flex-shrink:0;padding:4px 7px;border:1px solid var(--border);border-radius:8px;font-size:9.5px;font-weight:850;white-space:nowrap}
+        /* 560px medido: es lo que ocupa la cadena más larga (compra + 2 viajes =
+           7 nodos) sin scrollear. Con columnas más angostas el riel scrolleaba
+           siempre, que es justo lo que la card unificada viene a evitar. */
+        .tor-circuit-blocks{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,560px),1fr));gap:10px;align-items:start}
+        /* Los componentes del conjunto se reparten el ancho en partes iguales.
+           Su cadena es más corta (compra + 1 viaje = 5 nodos), de ahí los 420px. */
+        .tor-transform-sources{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,420px),1fr));gap:8px;align-items:start}
+        /* El recorrido es LA imagen de esta pantalla. Flechas repetidas entre
+           pastillas grises no dicen nada; un riel que se llena hasta donde
+           llegó la pieza se lee de un vistazo y sin leer texto. */
+        /* overflow-x como válvula: con espacio los rieles se estiran igual, y si
+           el taller tiene un nombre largo scrollea en vez de recortarse. */
+        .tor-journey-path{display:flex;align-items:center;gap:0;min-width:0;overflow-x:auto;padding-bottom:2px}
+        .tor-route-node{min-height:26px;display:inline-flex;align-items:center;gap:5px;flex-shrink:0;padding:4px 8px;border:1px solid var(--border);border-radius:999px;font-size:9.5px;font-weight:850;white-space:nowrap}
+        .tor-rail{flex:1 1 10px;min-width:10px;height:3px;border-radius:99px;margin:0 4px;background:var(--panel-2);position:relative;overflow:hidden}
+        .tor-rail[data-hecho="1"]{background:currentColor}
+        /* Tramo en curso: el barrido corre hacia adelante, en el sentido del
+           viaje. Sin loop infinito en lo que ya está cerrado. */
+        .tor-rail[data-curso="1"]::after{content:"";position:absolute;inset:0;border-radius:99px;
+          background:linear-gradient(90deg,transparent,currentColor,transparent);
+          animation:torRail 1.5s linear infinite}
+        @keyframes torRail{0%{transform:translateX(-100%)}100%{transform:translateX(100%)}}
+        @media (prefers-reduced-motion: reduce){
+          .tor-route-card{animation:none}
+          .tor-rail[data-curso="1"]::after{animation:none;background:currentColor;opacity:.45}
+        }
         .tor-route-action,.tor-management-toggle{transition:filter .14s ease,transform .1s ease,background .14s ease}
         .tor-route-action:hover,.tor-management-toggle:hover{filter:brightness(1.05)}
         .tor-route-action:active{transform:scale(.985)}
@@ -2968,6 +3478,7 @@ export default function TorneriaScreen({ profile, signOut }) {
                         search={circuitSearch}
                         onSearch={setCircuitSearch}
                         showSearch={!isMobile}
+                        onPedirCompra={pedirACompras}
                       />
                     )}
                     {tab === "materiales" && (
@@ -2977,6 +3488,8 @@ export default function TorneriaScreen({ profile, signOut }) {
                         onNew={() => setModal({ type: "item", item: null })}
                         onStatus={quickItemStatus}
                         onConfirm={confirmItem}
+                        onPedirCompra={pedirACompras}
+                        onNoLleva={toggleNoLleva}
                       />
                     )}
                     {tab === "historial" && (
@@ -3032,6 +3545,52 @@ export default function TorneriaScreen({ profile, signOut }) {
         />
       )}
       {modal?.type === "help" && <HelpModal onClose={() => setModal(null)} />}
+
+      {/* Pedido a compras: el mismo modal de siempre. Al volver con el pedido
+          creado se vinculan los items, y de ahí en adelante el avance de compras
+          sincroniza solo — nadie carga el estado dos veces. */}
+      <PedirAComprasModal
+        open={Boolean(pedidoCompra)}
+        profile={profile}
+        origen="torneria"
+        onClose={async (created) => {
+          const actual = pedidoCompra;
+          setPedidoCompra(null);
+          if (!created || !actual) return;
+          try {
+            if (created?.id) {
+              await vincularItemsAPedidoCompra(actual.items.map((item) => item.id), created.id);
+            }
+            await load({ quiet: true, preferId: actual.proceso.id });
+          } catch (linkError) {
+            // El pedido ya viajó a compras: lo único que falló es el vínculo, así
+            // que se avisa sin hacer creer que no se pidió nada.
+            toast.error(`El pedido se envió, pero no se pudo vincular: ${linkError.message}`);
+          }
+        }}
+        prefilled={pedidoCompra ? {
+          title: `Tornería · ${pedidoCompra.proceso.obra?.codigo || "Obra"}`,
+          description: `Material para el circuito de tornería de ${pedidoCompra.proceso.obra?.codigo || "la obra"}`
+            + `${pedidoCompra.proceso.obra?.linea_nombre ? ` (${pedidoCompra.proceso.obra.linea_nombre})` : ""}.`
+            + " Avisar a Tornería cuando llegue al astillero.",
+          priority: "alta",
+          tipo_pedido: "estandar",
+          source: "torneria",
+          source_ref: pedidoCompra.proceso.id,
+          source_url: "/torneria",
+          defaultDestination: `Obra ${pedidoCompra.proceso.obra?.codigo || ""}`.trim(),
+          items: pedidoCompra.items.map((item) => ({
+            description: item.descripcion,
+            quantity: String(item.cantidad ?? ""),
+            unit: item.unidad || "unidad",
+            notes: [
+              item.grupo ? `Grupo: ${item.grupo}` : "",
+              item.proveedor_compra ? `Proveedor sugerido: ${item.proveedor_compra}` : "",
+              item.alerta || "",
+            ].filter(Boolean).join(" · ") || undefined,
+          })),
+        } : null}
+      />
 
       {/* Acción principal al alcance del pulgar. Los mecánicos entran desde el
           celular y con una mano; un botón arriba a la derecha queda lejos. */}

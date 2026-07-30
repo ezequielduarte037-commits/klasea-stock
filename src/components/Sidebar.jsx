@@ -63,10 +63,10 @@ function Icon({ id, color = "currentColor", size = 14 }) {
       <rect x="1" y="6" width="14" height="6" rx="1.5" {...p}/>
       <path d="M1 12v2M15 12v2M4 6V4M12 6V4" {...p}/>
     </>,
+    // Llave fija en diagonal: representa el taller de Tornería. Antes era una
+    // rueda dentada genérica que se confundía con "configuración".
     "/torneria": <>
-      <circle cx="8" cy="8" r="3.1" {...p}/>
-      <path d="M8 1.2v2M8 12.8v2M1.2 8h2M12.8 8h2M3.2 3.2l1.4 1.4M11.4 11.4l1.4 1.4M3.2 12.8l1.4-1.4M11.4 4.6l1.4-1.4" {...p}/>
-      <circle cx="8" cy="8" r="1" fill={color} stroke="none"/>
+      <path d="M9.8 4.2a0.7 0.7 0 0 0 0 0.9l1.1 1.1a0.7 0.7 0 0 0 0.9 0l2.5-2.5a4 4 0 0 1-5.3 5.3l-4.6 4.6a1.4 1.4 0 0 1-2-2l4.6-4.6a4 4 0 0 1 5.3-5.3l-2.5 2.5z" {...p}/>
     </>,
     "/procedimientos": <>
       <rect x="3" y="1" width="10" height="14" rx="1.5" {...p}/>

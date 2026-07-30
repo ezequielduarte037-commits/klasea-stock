@@ -554,7 +554,11 @@ export default function PedirAComprasModal({
       });
 
       toast.success(`Pedido a compras enviado · ${items.length} ítem${items.length > 1 ? "s" : ""}`);
-      onClose(true);
+      // Se devuelve el pedido creado y no `true`: quien llama puede necesitar el
+      // id para vincularlo (tornería lo guarda en sus items para que el avance de
+      // compras sincronice solo). Los llamadores viejos sólo miran si es truthy,
+      // y un objeto lo sigue siendo.
+      onClose(created ?? true);
     } catch (err) {
       toast.error(err.message || "No se pudo enviar el pedido.");
     } finally {
