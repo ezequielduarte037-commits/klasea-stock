@@ -4833,6 +4833,7 @@ function ObraMatrizView({ obra, obras = [], linea, lineaNombre, categorias, mate
   const [reassignAddon, setReassignAddon] = useState(null);
   const [reassignObraId, setReassignObraId] = useState("");
   const [reassignBusy, setReassignBusy] = useState(false);
+  const [addonPromoteBusy, setAddonPromoteBusy] = useState("");
   const [addonDeleteBusy, setAddonDeleteBusy] = useState("");
   const [snapshotDeleteBusy, setSnapshotDeleteBusy] = useState("");
   const [obraPanel, setObraPanel] = useState("");
@@ -4956,6 +4957,7 @@ function ObraMatrizView({ obra, obras = [], linea, lineaNombre, categorias, mate
     setReassignAddon(null);
     setReassignObraId("");
     setReassignBusy(false);
+    setAddonPromoteBusy("");
     setAddonDeleteBusy("");
     setSnapshotDeleteBusy("");
     setExclusionBusy("");
@@ -5591,6 +5593,97 @@ function ObraMatrizView({ obra, obras = [], linea, lineaNombre, categorias, mate
     setReassignObraId(addon.obra_id || obra?.id || "");
   }
 
+  function addonPromotionMeta(addon) {
+    const material = addon?.material_id ? materialById.get(addon.material_id) : null;
+    const currentQty = material ? materialQty(material, linea) : 0;
+    if (addonPromoteBusy === addon?.id) {
+      return { disabled: true, label: "Pasando...", title: "Actualizando la lista matriz" };
+    }
+    if (!material) {
+      return {
+        disabled: true,
+        label: "Vincular catálogo",
+        title: "Este adicional todavía no está vinculado a un material del catálogo.",
+      };
+    }
+    if (currentQty > 0) {
+      return {
+        disabled: true,
+        label: "Ya es estándar",
+        title: `Este material ya integra la matriz K${linea} con ${qtyText(currentQty, material.unidad_medida || addon.unidad || "unidad")}.`,
+      };
+    }
+    if (addon?.__snapshotLocked) {
+      return {
+        disabled: true,
+        label: "Con historial",
+        title: "Ya tiene movimientos de compras o pañol. No se puede convertir sin alterar el historial de la obra.",
+      };
+    }
+    return {
+      disabled: false,
+      label: "Pasar a estándar",
+      title: `Agregar a la lista matriz K${linea} y quitarlo como adicional de ${obra?.codigo || "esta obra"}.`,
+    };
+  }
+
+  async function promoteAddonToMatrix(addon) {
+    if (!addon?.id || addonPromoteBusy) return;
+    const material = addon.material_id ? materialById.get(addon.material_id) : null;
+    const cantidad = toNum(addon.cantidad) || 1;
+    const meta = addonPromotionMeta(addon);
+    if (meta.disabled) {
+      setFlowMsg({ type: "err", text: meta.title });
+      return;
+    }
+    const accepted = window.confirm(
+      `¿Pasar "${material.descripcion}" a la lista estándar K${linea}?\n\n` +
+      `Se guardarán ${qtyText(cantidad, material.unidad_medida || addon.unidad || "unidad")} en la matriz y dejará de figurar como adicional de ${obra.codigo}. ` +
+      `A partir de ahora aplicará a todas las obras de esta línea.`,
+    );
+    if (!accepted) return;
+
+    setAddonPromoteBusy(addon.id);
+    setFlowMsg(null);
+    try {
+      // El snapshot se quita primero porque todavía no tiene movimientos. Si
+      // algo falla después, el adicional sigue vivo y la lista se puede fijar
+      // nuevamente sin perder información.
+      if (addon.__snapshotId) await borrarObraSnapshotRows([addon.__snapshotId]);
+      await setCantidadModelo(material.id, linea, cantidad);
+      try {
+        await borrarAddon(addon.id);
+      } catch (deleteError) {
+        try {
+          await quitarCantidadModelo(material.id, linea);
+        } catch {
+          throw new Error("El material se agregó a la matriz, pero no se pudo quitar el adicional ni revertir el cambio. Actualizá la pantalla y revisalo para evitar un duplicado.");
+        }
+        throw deleteError;
+      }
+
+      await Promise.allSettled([
+        cargarAddons(),
+        cargarSnapshot(),
+        onChanged?.(),
+      ]);
+      setSelected((prev) => {
+        const next = new Set(prev);
+        next.delete(`addon:${addon.id}`);
+        return next;
+      });
+      setOpenActionsRowId("");
+      setFlowMsg({
+        type: "ok",
+        text: `${material.descripcion} ahora es estándar de K${linea} (${qtyText(cantidad, material.unidad_medida || addon.unidad || "unidad")}). Se quitó el adicional de ${obra.codigo}.`,
+      });
+    } catch (e) {
+      setFlowMsg({ type: "err", text: e?.message || "No se pudo pasar el material a la lista estándar." });
+    } finally {
+      setAddonPromoteBusy("");
+    }
+  }
+
   async function submitReassignAddon() {
     if (!reassignAddon?.id || !reassignObraId || reassignBusy) return;
     if (reassignAddon.__snapshotLocked) {
@@ -5968,7 +6061,9 @@ function ObraMatrizView({ obra, obras = [], linea, lineaNombre, categorias, mate
             </div>
           </div>
           <div style={{ display: "grid", gap: 7 }}>
-            {addonPanelRows.map(({ addon, row }) => (
+            {addonPanelRows.map(({ addon, row }) => {
+              const promotion = addonPromotionMeta(addon);
+              return (
               <div key={addon.id} style={{ display: "grid", gridTemplateColumns: "minmax(220px, 1fr) auto", gap: 10, alignItems: "center", border: `1px solid ${C.b0}`, background: C.bg, borderRadius: 11, padding: 10 }}>
                 <div style={{ minWidth: 0 }}>
                   <div style={{ display: "flex", gap: 7, alignItems: "center", flexWrap: "wrap" }}>
@@ -5983,6 +6078,23 @@ function ObraMatrizView({ obra, obras = [], linea, lineaNombre, categorias, mate
                   </div>
                 </div>
                 <div style={{ display: "flex", gap: 6, flexWrap: "wrap", justifyContent: "flex-end" }}>
+                  <button
+                    type="button"
+                    disabled={promotion.disabled}
+                    onClick={() => promoteAddonToMatrix(addon)}
+                    style={{
+                      ...BTN,
+                      padding: "6px 8px",
+                      color: promotion.disabled ? C.t3 : C.blue,
+                      borderColor: promotion.disabled ? C.b0 : C.blueB,
+                      background: promotion.disabled ? C.s0 : C.blueL,
+                      fontSize: 11,
+                      opacity: promotion.disabled ? 0.68 : 1,
+                    }}
+                    title={promotion.title}
+                  >
+                    <PackagePlus size={12} /> {promotion.label}
+                  </button>
                   <button type="button" onClick={() => { setEditingAddon(addon); setAddonModalOpen(true); }} style={{ ...BTN, padding: "6px 8px", color: C.blue, fontSize: 11 }}>
                     <Pencil size={12} /> Editar
                   </button>
@@ -6005,7 +6117,8 @@ function ObraMatrizView({ obra, obras = [], linea, lineaNombre, categorias, mate
                   </button>
                 </div>
               </div>
-            ))}
+              );
+            })}
             {!addonPanelRows.length && (
               <div style={{ padding: 16, textAlign: "center", border: `1px dashed ${C.b0}`, borderRadius: 11, color: C.t2, fontSize: 12 }}>
                 No hay items propios con ese filtro.
@@ -6336,6 +6449,7 @@ function ObraMatrizView({ obra, obras = [], linea, lineaNombre, categorias, mate
                 const rowImageUrl = materialVariantImageUrl(materialForRow, row.variante)
                   || String(row.imagen_url || materialForRow?.imagen_url || materialForRow?.imagenes?.[0]?.url || "").trim();
                 const editableAddon = addonForVisibleRow(row);
+                const addonPromotion = editableAddon ? addonPromotionMeta(editableAddon) : null;
                 const snapshotOnly = snapshotOnlyForRow(row);
                 const editingMaterial = editingMaterialRowId === row.id;
                 const actionsOpen = openActionsRowId === row.id;
@@ -6486,6 +6600,21 @@ function ObraMatrizView({ obra, obras = [], linea, lineaNombre, categorias, mate
                           ) : null}
                           {editableAddon ? (
                             <>
+                              <button
+                                type="button"
+                                disabled={addonPromotion.disabled}
+                                onClick={() => promoteAddonToMatrix(editableAddon)}
+                                style={{
+                                  ...miniBtn,
+                                  color: addonPromotion.disabled ? C.t3 : C.blue,
+                                  borderColor: addonPromotion.disabled ? C.b0 : C.blueB,
+                                  background: addonPromotion.disabled ? C.s0 : C.blueL,
+                                  opacity: addonPromotion.disabled ? 0.68 : 1,
+                                }}
+                                title={addonPromotion.title}
+                              >
+                                <PackagePlus size={12} /> {addonPromotion.label}
+                              </button>
                               <button
                                 type="button"
                                 onClick={() => {
