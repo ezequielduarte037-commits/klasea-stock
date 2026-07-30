@@ -185,18 +185,30 @@ export async function actualizarItem(id, patch) {
     .single());
 }
 
-// Vincula los items pedidos con el pedido a compras. A partir de acá compras
-// trabaja en SU pantalla y el avance vuelve solo: el trigger
-// trg_purchase_request_sync_torneria mueve compra_estado cuando el pedido cambia
-// de status. Nadie carga el estado dos veces.
-export async function vincularItemsAPedidoCompra(itemIds = [], purchaseRequestId) {
-  const ids = itemIds.filter(Boolean);
-  if (!ids.length || !purchaseRequestId) return [];
-  return ok(await supabase
+// Vincula los items con el pedido a compras. A partir de acá compras trabaja en
+// SU pantalla y el avance vuelve solo por trigger: nadie carga el estado dos
+// veces.
+//
+// `vinculos` = [{ itemId, requestItemId }]. El id del ítem del pedido es lo que
+// permite que la recepción en pañol —que es por ítem— mueva el estado y las
+// fechas de ESE material. Si un ítem no se pudo emparejar queda con el vínculo a
+// nivel pedido, que sigue funcionando aunque sea más grueso.
+export async function vincularItemsAPedidoCompra(vinculos = [], purchaseRequestId) {
+  const lista = vinculos.filter((row) => row?.itemId);
+  if (!lista.length || !purchaseRequestId) return [];
+  const results = await Promise.all(lista.map((row) => supabase
     .from("torneria_items")
-    .update({ purchase_request_id: purchaseRequestId, compra_estado: "solicitado" })
-    .in("id", ids)
-    .select("id,compra_estado,solicitado_at,purchase_request_id"));
+    .update({
+      purchase_request_id: purchaseRequestId,
+      purchase_request_item_id: row.requestItemId || null,
+      compra_estado: "solicitado",
+    })
+    .eq("id", row.itemId)
+    .select("id,compra_estado,solicitado_at,purchase_request_id,purchase_request_item_id")
+    .single()));
+  const failed = results.find((result) => result.error);
+  if (failed) throw failed.error;
+  return results.map((result) => result.data);
 }
 
 // "No lleva": este barco no usa esta pieza. El trigger de la base se encarga de

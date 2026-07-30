@@ -1,7 +1,7 @@
 import { Fragment, createElement, useCallback, useEffect, useMemo, useState } from "react";
 import {
   AlertTriangle, ArrowLeft, ArrowRight, Boxes, Check, ChevronDown, ChevronRight, ChevronUp, CircleHelp, Clock3,
-  Edit3, Factory, FileText, GitMerge, History, Link2, Loader2,
+  Edit3, Factory, FileText, GitMerge, History, LayoutDashboard, Link2, Loader2,
   MapPin, PackageCheck, PackageOpen, PanelLeftClose, PanelLeftOpen, Plus, RefreshCw, Repeat, Search,
   Settings2, ShoppingCart, Trash2, Truck, Wrench,
 } from "lucide-react";
@@ -159,6 +159,51 @@ function primeraSalida(tramos = []) {
       .map((movement) => movement.fecha))
     .filter(Boolean)
     .sort()[0] || null;
+}
+
+// La descripción con la que el material sale al pedido. Si está vinculado al
+// catálogo va el nombre del catálogo con su código: "Nucleo de pata de gallo" es
+// cómo lo llamamos acá adentro, al proveedor hay que pedirle el material como
+// figura en el catálogo.
+//
+// Vive en una sola función porque se usa dos veces: para armar el pedido y
+// después para reconocer cada ítem creado y vincularlo. Si los dos lados armaran
+// el texto por separado, cualquier cambio los desincroniza y el vínculo por ítem
+// se pierde en silencio.
+function descripcionParaCompras(item) {
+  const cat = item.material || null;
+  return cat
+    ? [cat.codigo, cat.descripcion].filter(Boolean).join(" — ")
+    : item.descripcion;
+}
+
+// Nombre real del insumo en el catálogo. El nombre grande sigue siendo el que
+// usa Mecánica dentro del circuito ("Núcleo para pata de gallo", por ejemplo);
+// este segundo renglón aclara sutilmente qué producto físico hay que comprar.
+function CatalogTechnicalName({ item, compact = false }) {
+  const material = item?.material || null;
+  if (!material?.descripcion && !material?.codigo) return null;
+  return (
+    <div
+      title="Nombre técnico vinculado desde el catálogo de pañol"
+      style={{
+        display: "flex",
+        alignItems: "center",
+        gap: 4,
+        minWidth: 0,
+        marginTop: compact ? 2 : 4,
+        color: C.dim,
+        fontSize: compact ? 9 : 9.5,
+        lineHeight: 1.25,
+      }}
+    >
+      <Link2 size={compact ? 9 : 10} style={{ flexShrink: 0, color: C.green }} />
+      <span style={{ flexShrink: 0, fontWeight: 800 }}>Catálogo</span>
+      <span style={{ overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+        {[material.codigo, material.descripcion].filter(Boolean).join(" · ")}
+      </span>
+    </div>
+  );
 }
 
 function dependencyRows(process, operation) {
@@ -592,6 +637,7 @@ function OperationCard({ process, operation, onMove, onEdit, onEditItem }) {
                 }}>
                   {row.item?.descripcion || "Pieza"}
                 </div>
+                <CatalogTechnicalName item={row.item} compact />
                 <div style={{ color: C.dim, fontSize: 9.5, marginTop: 2 }}>
                   Sale {qty(row.cantidad_enviada)} · volvió {qty(row.cantidad_recibida)}
                 </div>
@@ -1018,6 +1064,7 @@ function StandaloneRouteCard({ process, row, onMove, index = 0, onPedirCompra = 
           <div style={{ color: C.text, fontSize: 13.5, fontWeight: 900, lineHeight: 1.3 }}>
             {item.descripcion}
           </div>
+          <CatalogTechnicalName item={item} />
           <div style={{ color: C.dim, fontSize: 10.5, marginTop: 3 }}>
             {qty(item.cantidad)} {item.unidad} · {tramos.length === 1 ? "1 viaje" : `${tramos.length} viajes`}
           </div>
@@ -1051,6 +1098,7 @@ function TransformationSource({ process, row, onMove, onPedirCompra = null }) {
           <div style={{ color: C.text, fontSize: 12.5, fontWeight: 900, lineHeight: 1.3 }}>
             {row.item.descripcion}
           </div>
+          <CatalogTechnicalName item={row.item} compact />
           <div style={{ color: C.dim, fontSize: 10, marginTop: 2 }}>
             {qty(row.item.cantidad)} {row.item.unidad}
           </div>
@@ -1081,7 +1129,8 @@ function TransformationSource({ process, row, onMove, onPedirCompra = null }) {
 
 function TransformationFlow({ process, result, sources, onMove, onPedirCompra = null }) {
   const sourcesReady = sources.length > 0 && sources.every(routeIsComplete);
-  const resultReady = routeIsComplete(result);
+  const resultHasJourney = result.tramos.length > 0;
+  const resultReady = resultHasJourney ? routeIsComplete(result) : sourcesReady;
   const complete = sourcesReady && resultReady;
   const pendingSources = sources.filter((row) => !routeIsComplete(row)).length;
   const resultItem = result.item;
@@ -1182,8 +1231,9 @@ function TransformationFlow({ process, result, sources, onMove, onPedirCompra = 
               <div style={{ color: C.text, fontSize: 13.5, fontWeight: 950, marginTop: 3 }}>
                 {resultItem.descripcion}
               </div>
+              <CatalogTechnicalName item={resultItem} compact />
               <div style={{ color: C.muted, fontSize: 10, marginTop: 2 }}>
-                {qty(resultItem.cantidad)} {resultItem.unidad} · cantidad manual
+                {qty(resultItem.cantidad)} {resultItem.unidad} · {resultItem.requiere_confirmacion ? "cantidad manual" : "cantidad definida"}
               </div>
             </div>
             <Boxes size={17} style={{ color: resultReady ? C.green : C.blue, flexShrink: 0 }} />
@@ -1207,12 +1257,26 @@ function TransformationFlow({ process, result, sources, onMove, onPedirCompra = 
           )}
           {/* El conjunto no se compra, así que su circuito no lleva tramo de
               compra: compraAplica lo descarta por es_resultado. */}
-          <CircuitoMaterial
-            process={process}
-            item={resultItem}
-            tramos={result.tramos}
-            onMove={onMove}
-          />
+          {resultHasJourney ? (
+            <CircuitoMaterial
+              process={process}
+              item={resultItem}
+              tramos={result.tramos}
+              onMove={onMove}
+            />
+          ) : (
+            <div style={{
+              display: "flex", alignItems: "center", gap: 7, padding: "8px 9px",
+              borderRadius: 9,
+              border: `1px solid ${sourcesReady ? C.greenB : C.border}`,
+              background: sourcesReady ? C.greenL : C.panel2,
+              color: sourcesReady ? C.green : C.dim,
+              fontSize: 10.5, fontWeight: 800,
+            }}>
+              {sourcesReady ? <Check size={13} /> : <GitMerge size={13} />}
+              {sourcesReady ? "Resultado terminado en el astillero" : "Se forma cuando regresan todos los componentes"}
+            </div>
+          )}
         </div>
       </div>
     </article>
@@ -1238,7 +1302,7 @@ function RecorridosPorItem({ process, onMove, query = "", onPedirCompra = null }
         .sort((a, b) => (a.viaje ?? 99) - (b.viaje ?? 99) || (a.orden ?? 0) - (b.orden ?? 0));
       return { ...item, item, tramos };
     })
-    .filter((row) => row.tramos.length > 0);
+    .filter((row) => row.tramos.length > 0 || (row.item.es_resultado && row.item.resultado_de?.length > 0));
   const legacyResultRoutes = operations
     .filter((operation) => {
       const meta = RESULT_OPERATION_META[operation.clave];
@@ -1266,7 +1330,7 @@ function RecorridosPorItem({ process, onMove, query = "", onPedirCompra = null }
     const operationText = row.tramos
       .map((operation) => `${operation.nombre || ""} ${operation.descripcion || ""} ${workshopName(operation)}`)
       .join(" ");
-    return `${row.item.descripcion || ""} ${row.item.grupo || ""} ${row.item.proveedor_compra || ""} ${operationText}`
+    return `${row.item.descripcion || ""} ${row.item.grupo || ""} ${row.item.proveedor_compra || ""} ${row.item.material?.codigo || ""} ${row.item.material?.descripcion || ""} ${operationText}`
       .toLowerCase()
       .includes(term);
   };
@@ -1884,6 +1948,7 @@ function MaterialTab({ process, onEdit, onNew, onStatus, onConfirm, onPedirCompr
                       <span style={{ color: C.red, fontSize: 9.5, fontWeight: 800 }}>Sin catálogo</span>
                     )}
                   </div>
+                  <CatalogTechnicalName item={item} compact />
                   <div style={{ color: C.dim, fontSize: 10.5, marginTop: 3 }}>
                     {qty(item.cantidad)} {item.unidad}
                     {item.proveedor_compra ? ` · ${item.proveedor_compra}` : ""}
@@ -2197,7 +2262,7 @@ function KpiChip({ icon, value, label, color, activo = false, onClick }) {
 // Tablero transversal de escritorio: TODAS las piezas que están fuera del
 // astillero (de todas las obras filtradas), agrupadas por taller y ordenadas
 // por días afuera. Es la vista de destino del KPI "Fuera del astillero".
-function TallerBoard({ processes, onSelectProcess, onMove }) {
+function TallerBoard({ processes, onSelectProcess, onMove, isMobile = false }) {
   const rows = processes.flatMap((process) =>
     (process.operaciones || [])
       .filter((op) => op.activa !== false && ["enviado", "parcial"].includes(op.estado))
@@ -2287,13 +2352,16 @@ function TallerBoard({ processes, onSelectProcess, onMove }) {
               .map((row) => row.item?.descripcion)
               .filter(Boolean)
               .join(" + ");
+            const nombresTecnicos = [...new Set((op.componentes || [])
+              .map((row) => [row.item?.material?.codigo, row.item?.material?.descripcion].filter(Boolean).join(" · "))
+              .filter(Boolean))].join(" · ");
             const demorada = dias != null && dias >= 15;
             return (
               <div
                 key={op.id}
                 style={{
                   display: "grid",
-                  gridTemplateColumns: "minmax(90px,130px) minmax(0,1fr) auto auto",
+                  gridTemplateColumns: isMobile ? "minmax(0,1fr)" : "minmax(90px,130px) minmax(0,1fr) auto auto",
                   gap: 12,
                   alignItems: "center",
                   padding: "10px 12px",
@@ -2317,6 +2385,11 @@ function TallerBoard({ processes, onSelectProcess, onMove }) {
                     </span>
                     <StatusBadge status={op.estado} compact />
                   </div>
+                  {nombresTecnicos && (
+                    <div style={{ color: C.dim, fontSize: 9, marginTop: 2, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+                      Catálogo · {nombresTecnicos}
+                    </div>
+                  )}
                   <div style={{ display: "flex", alignItems: "center", gap: 6, marginTop: 3, fontSize: 10, flexWrap: "wrap" }}>
                     {dias != null && (
                       <span style={{
@@ -2337,7 +2410,7 @@ function TallerBoard({ processes, onSelectProcess, onMove }) {
                   type="button"
                   onClick={() => onSelectProcess(process.id)}
                   title="Abrir esta obra"
-                  style={{ ...BUTTON, minHeight: 32, padding: "4px 10px", flexShrink: 0 }}
+                  style={{ ...BUTTON, minHeight: 32, padding: "4px 10px", flexShrink: 0, display: isMobile ? "none" : BUTTON.display }}
                 >
                   Ver obra <ArrowRight size={12} />
                 </button>
@@ -2349,6 +2422,7 @@ function TallerBoard({ processes, onSelectProcess, onMove }) {
                     minHeight: 32,
                     padding: "4px 10px",
                     flexShrink: 0,
+                    width: isMobile ? "100%" : undefined,
                     borderColor: C.violetB,
                     background: C.violetL,
                     color: C.violet,
@@ -2361,6 +2435,226 @@ function TallerBoard({ processes, onSelectProcess, onMove }) {
           })}
         </section>
       ))}
+    </div>
+  );
+}
+
+function OperationalDashboard({ processes, onSelectProcess, onMove, isMobile = false }) {
+  const [workshop, setWorkshop] = useState("todos");
+  const [query, setQuery] = useState("");
+
+  const allRows = useMemo(() => processes
+    .filter((process) => process.estado !== "cancelado")
+    .flatMap((process) => (process.operaciones || [])
+      .filter((op) => op.activa !== false && op.estado !== "recibido")
+      .map((op) => {
+        const lastOut = [...(op.movimientos || [])]
+          .filter((movement) => movement.tipo === "salida")
+          .sort((a, b) => new Date(b.fecha) - new Date(a.fecha))[0];
+        const dependencias = dependencyRows(process, op);
+        const componentes = (op.componentes || [])
+          .filter((row) => row.item?.activo !== false && !row.item?.no_lleva);
+        const materialesPendientes = componentes.filter(({ item }) => (
+          compraAplica(item, [op])
+          && !["recibido_astillero", "no_aplica"].includes(item?.compra_estado)
+        ));
+        return {
+          process,
+          op,
+          dependencias,
+          materialesPendientes,
+          dias: diasDesde(lastOut?.fecha),
+          afuera: ["enviado", "parcial"].includes(op.estado),
+          listo: op.estado === "pendiente" && dependencias.length === 0 && materialesPendientes.length === 0,
+        };
+      })), [processes]);
+
+  const matches = useCallback((row) => {
+    if (workshop !== "todos" && row.op.tipo !== workshop) return false;
+    const term = query.trim().toLowerCase();
+    if (!term) return true;
+    const items = (row.op.componentes || []).map(({ item }) => (
+      `${item?.descripcion || ""} ${item?.material?.codigo || ""} ${item?.material?.descripcion || ""}`
+    )).join(" ");
+    return `${row.process.obra?.codigo || ""} ${row.process.obra?.linea_nombre || ""} ${row.op.nombre || ""} ${workshopName(row.op)} ${items}`
+      .toLowerCase()
+      .includes(term);
+  }, [query, workshop]);
+
+  const visibleRows = allRows.filter(matches);
+  const filteredProcesses = processes
+    .map((process) => ({
+      ...process,
+      operaciones: (process.operaciones || []).filter((op) => {
+        const row = visibleRows.find((entry) => entry.op.id === op.id);
+        return Boolean(row);
+      }),
+    }))
+    .filter((process) => process.operaciones.length > 0);
+  const ready = visibleRows.filter((row) => row.listo);
+  const blocked = visibleRows.filter((row) => row.op.estado === "pendiente" && !row.listo);
+  const outside = allRows.filter((row) => row.afuera);
+  const stats = {
+    torneria: outside.filter((row) => row.op.tipo === "torneria").length,
+    plegadora: outside.filter((row) => row.op.tipo === "plegadora").length,
+    parciales: outside.filter((row) => row.op.estado === "parcial").length,
+    demorados: outside.filter((row) => row.dias != null && row.dias >= 15).length,
+    listos: allRows.filter((row) => row.listo).length,
+  };
+
+  const pieces = (op) => (op.componentes || [])
+    .map((row) => row.item?.descripcion)
+    .filter(Boolean)
+    .join(" + ") || op.nombre;
+
+  const cards = [
+    { key: "torneria", label: "En Tornería", value: stats.torneria, Icon: Wrench, color: C.blue, soft: C.blueL, border: C.blueB },
+    { key: "plegadora", label: "En Plegadora", value: stats.plegadora, Icon: Factory, color: C.violet, soft: C.violetL, border: C.violetB },
+    { key: "parciales", label: "Regresos parciales", value: stats.parciales, Icon: Repeat, color: C.teal, soft: C.tealL, border: C.tealB },
+    {
+      key: "demorados", label: "Demorados +15d", value: stats.demorados, Icon: Clock3,
+      color: stats.demorados ? C.red : C.green,
+      soft: stats.demorados ? C.redL : C.greenL,
+      border: stats.demorados ? C.redB : C.greenB,
+    },
+    { key: "listos", label: "Listos para salir", value: stats.listos, Icon: Truck, color: C.green, soft: C.greenL, border: C.greenB },
+  ];
+
+  return (
+    <div style={{ width: "100%", maxWidth: 1540, margin: "0 auto", display: "grid", gap: 14, alignContent: "start" }}>
+      <div style={{ display: "flex", alignItems: "flex-start", gap: 10, flexWrap: "wrap" }}>
+        <span style={{
+          width: 36, height: 36, display: "grid", placeItems: "center", borderRadius: 11,
+          border: `1px solid ${C.blueB}`, background: C.blueL, color: C.blue, flexShrink: 0,
+        }}>
+          <LayoutDashboard size={17} />
+        </span>
+        <div style={{ minWidth: 180, flex: 1 }}>
+          <div style={{ color: C.text, fontSize: 15, fontWeight: 950 }}>Panel operativo de talleres</div>
+          <div style={{ color: C.dim, fontSize: 10.5, lineHeight: 1.45, marginTop: 2 }}>
+            Tornería y plegadora en una sola vista. Las demoras se cuentan desde la última salida.
+          </div>
+        </div>
+        <label style={{
+          width: isMobile ? "100%" : 310, minHeight: 36, display: "flex", alignItems: "center", gap: 7,
+          padding: "0 10px", borderRadius: 10, border: `1px solid ${C.border}`, background: C.panel,
+        }}>
+          <Search size={13} style={{ color: C.dim, flexShrink: 0 }} />
+          <input
+            value={query}
+            onChange={(event) => setQuery(event.target.value)}
+            placeholder="Buscar obra, pieza o nombre técnico..."
+            style={{
+              minWidth: 0, width: "100%", border: 0, outline: 0, background: "transparent",
+              color: C.text, fontSize: 11, fontFamily: C.sans,
+            }}
+          />
+        </label>
+      </div>
+
+      <div className="tor-dashboard-kpis">
+        {cards.map(({ key, label, value, Icon, color, soft, border }) => {
+          const selectable = key === "torneria" || key === "plegadora";
+          const active = workshop === key;
+          return (
+            <button
+              key={key}
+              type="button"
+              onClick={selectable ? () => setWorkshop((current) => current === key ? "todos" : key) : undefined}
+              aria-pressed={selectable ? active : undefined}
+              style={{
+                display: "grid", gridTemplateColumns: "30px minmax(0,1fr) auto", alignItems: "center", gap: 8,
+                minHeight: 52, padding: "8px 10px", textAlign: "left", borderRadius: 12,
+                border: `1px solid ${active ? border : C.border}`, background: active ? soft : C.panel,
+                cursor: selectable ? "pointer" : "default", fontFamily: C.sans,
+              }}
+            >
+              <span style={{ width: 30, height: 30, display: "grid", placeItems: "center", borderRadius: 9, background: soft, color }}>
+                {createElement(Icon, { size: 14 })}
+              </span>
+              <span style={{ minWidth: 0, color: active ? color : C.muted, fontSize: 9.5, fontWeight: 850, lineHeight: 1.25 }}>
+                {label}
+              </span>
+              <span style={{ color, fontSize: 17, fontWeight: 950, fontFamily: C.mono }}>{value}</span>
+            </button>
+          );
+        })}
+      </div>
+
+      {(workshop !== "todos" || query) && (
+        <div style={{ display: "flex", alignItems: "center", gap: 7, flexWrap: "wrap", color: C.dim, fontSize: 10.5 }}>
+          <span>
+            Mostrando {workshop === "todos" ? "todos los talleres" : workshop === "torneria" ? "Tornería" : "Plegadora"}
+          </span>
+          <button type="button" onClick={() => { setWorkshop("todos"); setQuery(""); }} style={{ ...BUTTON, minHeight: 27, padding: "3px 8px", fontSize: 9.5 }}>
+            Quitar filtros
+          </button>
+        </div>
+      )}
+
+      <div className="tor-dashboard-grid">
+        <section style={{ minWidth: 0 }}>
+          <TallerBoard
+            processes={filteredProcesses}
+            onSelectProcess={onSelectProcess}
+            onMove={onMove}
+            isMobile={isMobile}
+          />
+        </section>
+
+        <aside style={{ minWidth: 0, display: "grid", gap: 12, alignContent: "start" }}>
+          <section style={{ display: "grid", gap: 7, padding: 11, borderRadius: 13, border: `1px solid ${C.greenB}`, background: C.greenL }}>
+            <div style={{ display: "flex", alignItems: "center", gap: 7 }}>
+              <Truck size={12} style={{ color: C.green }} />
+              <span style={{ color: C.text, fontSize: 11.5, fontWeight: 900 }}>Listos para salir</span>
+              <span style={{ marginLeft: "auto", color: C.green, fontSize: 11, fontWeight: 950 }}>{ready.length}</span>
+            </div>
+            {!ready.length ? (
+              <div style={{ color: C.dim, fontSize: 10, lineHeight: 1.4 }}>No hay una salida habilitada con estos filtros.</div>
+            ) : ready.slice(0, 8).map(({ process, op }) => (
+              <div key={op.id} style={{ display: "grid", gridTemplateColumns: "minmax(0,1fr) auto", alignItems: "center", gap: 8, paddingTop: 7, borderTop: `1px solid ${C.greenB}` }}>
+                <div style={{ minWidth: 0 }}>
+                  <div style={{ color: C.text, fontSize: 10.5, fontWeight: 850, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+                    {process.obra?.codigo} · {pieces(op)}
+                  </div>
+                  <div style={{ color: C.dim, fontSize: 9, marginTop: 2 }}>Viaje {op.viaje || 1} · {workshopName(op)}</div>
+                </div>
+                <button type="button" onClick={() => onMove(process, op)} style={{ ...BUTTON, minHeight: 29, padding: "3px 7px", color: C.green, borderColor: C.greenB }}>
+                  Salida <ArrowRight size={11} />
+                </button>
+              </div>
+            ))}
+          </section>
+
+          <section style={{ display: "grid", gap: 7, padding: 11, borderRadius: 13, border: `1px solid ${C.border}`, background: C.panel }}>
+            <div style={{ display: "flex", alignItems: "center", gap: 7 }}>
+              <AlertTriangle size={12} style={{ color: blocked.length ? C.red : C.dim }} />
+              <span style={{ color: C.text, fontSize: 11.5, fontWeight: 900 }}>Esperando antes de salir</span>
+              <span style={{ marginLeft: "auto", color: blocked.length ? C.red : C.dim, fontSize: 11, fontWeight: 950 }}>{blocked.length}</span>
+            </div>
+            {!blocked.length ? (
+              <div style={{ color: C.dim, fontSize: 10 }}>No hay pasos bloqueados con estos filtros.</div>
+            ) : blocked.slice(0, 8).map(({ process, op, dependencias, materialesPendientes }) => (
+              <button
+                key={op.id}
+                type="button"
+                onClick={() => onSelectProcess(process.id)}
+                style={{
+                  display: "grid", gap: 3, width: "100%", padding: "7px 0 0", textAlign: "left",
+                  border: 0, borderTop: `1px solid ${C.border}`, background: "transparent", cursor: "pointer", fontFamily: C.sans,
+                }}
+              >
+                <span style={{ color: C.text, fontSize: 10.5, fontWeight: 850 }}>{process.obra?.codigo} · {pieces(op)}</span>
+                <span style={{ color: C.dim, fontSize: 9.5, lineHeight: 1.35 }}>
+                  {dependencias.length
+                    ? `Espera ${dependencias.map((row) => row.nombre).join(", ")}`
+                    : `Falta recibir ${materialesPendientes.map((row) => row.item?.descripcion).filter(Boolean).join(", ")}`}
+                </span>
+              </button>
+            ))}
+          </section>
+        </aside>
+      </div>
     </div>
   );
 }
@@ -2390,6 +2684,9 @@ export default function TorneriaScreen({ profile, signOut }) {
   // porque los KPI no miden todos lo mismo: uno cuenta procesos, otro cuenta
   // operaciones fuera del astillero y otro ítems sin confirmar.
   const [vista, setVista] = useState(null);
+  const [dashboardOpen, setDashboardOpen] = useState(
+    () => window.localStorage.getItem("torneria.dashboard") !== "closed",
+  );
   const [modal, setModal] = useState(null);
   const [pedidoCompra, setPedidoCompra] = useState(null);
 
@@ -2429,6 +2726,10 @@ export default function TorneriaScreen({ profile, signOut }) {
     if (isMobile) return;
     window.localStorage.setItem("torneria.desktopCircuitFocus", desktopCircuitFocus ? "true" : "false");
   }, [desktopCircuitFocus, isMobile]);
+
+  useEffect(() => {
+    window.localStorage.setItem("torneria.dashboard", dashboardOpen ? "open" : "closed");
+  }, [dashboardOpen]);
 
   const filtered = useMemo(() => {
     const term = search.trim().toLowerCase();
@@ -2472,9 +2773,22 @@ export default function TorneriaScreen({ profile, signOut }) {
   function selectProcess(id) {
     setSelectedId(id);
     window.localStorage.setItem("torneria.proceso", id);
+    setDashboardOpen(false);
     setMobileList(false);
     setCircuitSearch("");
     if (isMobile) setMobileTopbarOpen(false);
+  }
+
+  function openDashboard() {
+    setDashboardOpen(true);
+    setMobileList(false);
+    if (isMobile) setMobileTopbarOpen(false);
+  }
+
+  function toggleProcessFilter(next) {
+    setVista((current) => current === next ? null : next);
+    setDashboardOpen(false);
+    if (isMobile) setMobileList(true);
   }
 
   async function createProcess(payload) {
@@ -2482,6 +2796,7 @@ export default function TorneriaScreen({ profile, signOut }) {
       const id = await crearProcesoTorneria(payload);
       setModal(null);
       await load({ quiet: true, preferId: id });
+      setDashboardOpen(false);
       setMobileList(false);
       setCircuitSearch("");
       if (isMobile) setMobileTopbarOpen(false);
@@ -2816,13 +3131,23 @@ export default function TorneriaScreen({ profile, signOut }) {
         .tor-kpi:hover{border-color:var(--border-2)}
         .tor-kpi:active{transform:scale(.97)}
         .tor-operation-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px}
+        .tor-dashboard-kpis{display:grid;grid-template-columns:repeat(5,minmax(130px,1fr));gap:7px}
+        .tor-dashboard-grid{display:grid;grid-template-columns:minmax(0,1fr) minmax(250px,330px);gap:14px;align-items:start}
         input:focus,select:focus,textarea:focus{border-color:var(--blue-border)!important}
         select option{background:var(--panel-solid);color:var(--text)}
-        @media(max-width:1120px){.tor-operation-grid{grid-template-columns:1fr}}
+        @media(max-width:1120px){
+          .tor-operation-grid{grid-template-columns:1fr}
+          .tor-dashboard-kpis{grid-template-columns:repeat(3,minmax(130px,1fr))}
+        }
+        @media(max-width:860px){
+          .tor-dashboard-grid{grid-template-columns:minmax(0,1fr)}
+          .tor-dashboard-kpis{grid-template-columns:repeat(2,minmax(0,1fr))}
+        }
         @media(max-width:620px){
           .tor-form-grid{grid-template-columns:1fr}
           .tor-form-grid>*{grid-column:1!important}
           .tor-operation-grid{grid-template-columns:1fr}
+          .tor-dashboard-kpis{grid-template-columns:repeat(2,minmax(0,1fr))}
         }
       `}</style>
 
@@ -2954,23 +3279,26 @@ export default function TorneriaScreen({ profile, signOut }) {
                 <KpiChip
                   icon={Factory} value={stats.active} label="En seguimiento" color={C.blue}
                   activo={vista === "activos"}
-                  onClick={() => setVista((v) => (v === "activos" ? null : "activos"))}
+                  onClick={() => toggleProcessFilter("activos")}
                 />
                 <KpiChip
                   icon={Truck} value={stats.workshop} label="Fuera del astillero" color={C.violet}
                   activo={vista === "taller"}
-                  onClick={() => setVista((v) => (v === "taller" ? null : "taller"))}
+                  onClick={() => {
+                    setVista("taller");
+                    openDashboard();
+                  }}
                 />
                 <KpiChip
                   icon={AlertTriangle} value={stats.unresolved} label="Por confirmar"
                   color={stats.unresolved ? C.red : C.green}
                   activo={vista === "confirmar"}
-                  onClick={() => setVista((v) => (v === "confirmar" ? null : "confirmar"))}
+                  onClick={() => toggleProcessFilter("confirmar")}
                 />
                 <KpiChip
                   icon={PackageCheck} value={stats.completed} label="Completados" color={C.green}
                   activo={vista === "completos"}
-                  onClick={() => setVista((v) => (v === "completos" ? null : "completos"))}
+                  onClick={() => toggleProcessFilter("completos")}
                 />
                 {vista && (
                   <button
@@ -2989,6 +3317,20 @@ export default function TorneriaScreen({ profile, signOut }) {
               </div>
               <div style={{ flex: 1 }} />
               <div style={{ display: "flex", gap: 6, flexShrink: 0 }}>
+                <button
+                  type="button"
+                  onClick={dashboardOpen ? () => setDashboardOpen(false) : openDashboard}
+                  aria-pressed={dashboardOpen}
+                  style={{
+                    ...BUTTON,
+                    minHeight: 39,
+                    color: dashboardOpen ? C.blue : C.muted,
+                    borderColor: dashboardOpen ? C.blueB : C.border,
+                    background: dashboardOpen ? C.blueL : C.panel,
+                  }}
+                >
+                  <LayoutDashboard size={15} /> Panel general
+                </button>
                 <button
                   type="button"
                   onClick={() => setDesktopCircuitFocus((focused) => !focused)}
@@ -3042,6 +3384,20 @@ export default function TorneriaScreen({ profile, signOut }) {
                   </div>
                 </div>
                 <div style={{ display: "flex", gap: 6, flexShrink: 0 }}>
+                  <button
+                    type="button"
+                    onClick={dashboardOpen ? () => setDashboardOpen(false) : openDashboard}
+                    aria-label={dashboardOpen ? "Cerrar panel general" : "Abrir panel general"}
+                    aria-pressed={dashboardOpen}
+                    style={{
+                      ...BUTTON, width: 39, padding: 0,
+                      color: dashboardOpen ? C.blue : C.muted,
+                      borderColor: dashboardOpen ? C.blueB : C.border,
+                      background: dashboardOpen ? C.blueL : C.panel,
+                    }}
+                  >
+                    <LayoutDashboard size={15} />
+                  </button>
                   {!isMobile && (
                     <button
                       type="button"
@@ -3087,23 +3443,26 @@ export default function TorneriaScreen({ profile, signOut }) {
                 <Kpi
                   icon={Factory} value={stats.active} label={isMobile ? "Activos" : "En seguimiento"} color={C.blue}
                   compacto={isMobile} activo={vista === "activos"}
-                  onClick={() => setVista((v) => (v === "activos" ? null : "activos"))}
+                  onClick={() => toggleProcessFilter("activos")}
                 />
                 <Kpi
                   icon={Truck} value={stats.workshop} label={isMobile ? "Afuera" : "Fuera del astillero"} color={C.violet}
                   compacto={isMobile} activo={vista === "taller"}
-                  onClick={() => setVista((v) => (v === "taller" ? null : "taller"))}
+                  onClick={() => {
+                    setVista("taller");
+                    openDashboard();
+                  }}
                 />
                 <Kpi
                   icon={AlertTriangle} value={stats.unresolved} label="Por confirmar"
                   color={stats.unresolved ? C.red : C.green}
                   compacto={isMobile} activo={vista === "confirmar"}
-                  onClick={() => setVista((v) => (v === "confirmar" ? null : "confirmar"))}
+                  onClick={() => toggleProcessFilter("confirmar")}
                 />
                 <Kpi
                   icon={PackageCheck} value={stats.completed} label={isMobile ? "Listos" : "Completados"} color={C.green}
                   compacto={isMobile} activo={vista === "completos"}
-                  onClick={() => setVista((v) => (v === "completos" ? null : "completos"))}
+                  onClick={() => toggleProcessFilter("completos")}
                 />
               </div>
 
@@ -3196,15 +3555,16 @@ export default function TorneriaScreen({ profile, signOut }) {
               flexDirection: "column",
               overflow: "hidden",
             }}>
-              {!isMobile && vista === "taller" ? (
-                <div style={{ flex: 1, minHeight: 0, overflowY: "auto", padding: 16 }}>
-                  <TallerBoard
-                    processes={filtered}
+              {dashboardOpen ? (
+                <div style={{ flex: 1, minHeight: 0, overflowY: "auto", padding: isMobile ? 10 : 16 }}>
+                  <OperationalDashboard
+                    processes={processes}
                     onSelectProcess={selectProcess}
                     onMove={(process, operation) => {
                       selectProcess(process.id);
                       openMovement(operation, null);
                     }}
+                    isMobile={isMobile}
                   />
                 </div>
               ) : !selected ? (
@@ -3553,13 +3913,25 @@ export default function TorneriaScreen({ profile, signOut }) {
         open={Boolean(pedidoCompra)}
         profile={profile}
         origen="torneria"
-        onClose={async (created) => {
+        onClose={async (created, itemsCreados) => {
           const actual = pedidoCompra;
           setPedidoCompra(null);
           if (!created || !actual) return;
           try {
             if (created?.id) {
-              await vincularItemsAPedidoCompra(actual.items.map((item) => item.id), created.id);
+              // Se empareja por la descripción con la que salió cada material,
+              // que es lo único que sobrevive el paso por el modal (ahí se pueden
+              // agregar o quitar ítems a mano).
+              const porDescripcion = new Map(
+                (itemsCreados || []).map((entry) => [entry?.draft?.description, entry?.requestItem?.id]),
+              );
+              await vincularItemsAPedidoCompra(
+                actual.items.map((item) => ({
+                  itemId: item.id,
+                  requestItemId: porDescripcion.get(descripcionParaCompras(item)) || null,
+                })),
+                created.id,
+              );
             }
             await load({ quiet: true, preferId: actual.proceso.id });
           } catch (linkError) {
@@ -3579,16 +3951,34 @@ export default function TorneriaScreen({ profile, signOut }) {
           source_ref: pedidoCompra.proceso.id,
           source_url: "/torneria",
           defaultDestination: `Obra ${pedidoCompra.proceso.obra?.codigo || ""}`.trim(),
-          items: pedidoCompra.items.map((item) => ({
-            description: item.descripcion,
-            quantity: String(item.cantidad ?? ""),
-            unit: item.unidad || "unidad",
-            notes: [
-              item.grupo ? `Grupo: ${item.grupo}` : "",
-              item.proveedor_compra ? `Proveedor sugerido: ${item.proveedor_compra}` : "",
-              item.alerta || "",
-            ].filter(Boolean).join(" · ") || undefined,
-          })),
+          items: pedidoCompra.items.map((item) => {
+            // Si está vinculado al catálogo, el pedido va con el nombre del
+            // catálogo y no con el de tornería. "Nucleo de pata de gallo" es
+            // cómo lo llamamos acá adentro; al proveedor hay que pedirle el
+            // material como figura en el catálogo, con su código y su unidad.
+            const cat = item.material || null;
+            return {
+              description: descripcionParaCompras(item),
+              quantity: String(item.cantidad ?? ""),
+              unit: cat?.unidad_medida || item.unidad || "unidad",
+              // Con el id del catálogo, la recepción en pañol lo empareja exacto
+              // (scorePedidoMaterial le da el puntaje máximo) en vez de adivinar
+              // por parecido de texto.
+              material_id: cat?.id || null,
+              catalogSource: cat ? "panol" : null,
+              notes: [
+                // El nombre interno queda de referencia: es con el que el taller
+                // reconoce la pieza cuando llega.
+                cat ? `En Tornería: ${item.descripcion}` : "",
+                item.grupo ? `Grupo: ${item.grupo}` : "",
+                (cat?.proveedor || item.proveedor_compra)
+                  ? `Proveedor: ${cat?.proveedor || item.proveedor_compra}`
+                  : "",
+                !cat ? "Sin vincular al catálogo del pañol." : "",
+                item.alerta || "",
+              ].filter(Boolean).join(" · ") || undefined,
+            };
+          }),
         } : null}
       />
 

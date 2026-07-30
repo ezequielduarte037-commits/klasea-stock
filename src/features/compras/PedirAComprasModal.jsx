@@ -476,9 +476,11 @@ export default function PedirAComprasModal({
       let entriesMaderaExistentes = [];
       let entriesLam = [];
       let entriesLamExistentes = [];
-      if (origenEfectivo === "muebles") {
-        // Muebles ya queda representado de forma completa en purchase_requests.
-        // No duplicamos el kit de herrajes en pedidos de Laminación o Maderas.
+      if (origenEfectivo === "muebles" || origenEfectivo === "torneria") {
+        // Muebles y Tornería ya quedan representados de forma completa en
+        // purchase_requests (Tornería además guarda el purchase_request_id en sus
+        // items). Sin esta rama caían en la heurística de abajo y, como su destino
+        // empieza con "Obra ", terminaban duplicados en laminacion_pedidos.
       } else if (origenEfectivo === "laminacion") {
         entriesLamExistentes = requestItemsByDraft.filter((entry) =>
           entry?.draft?.laminacionPedidoId || entry?.draft?.laminacion_pedido_id);
@@ -558,7 +560,13 @@ export default function PedirAComprasModal({
       // id para vincularlo (tornería lo guarda en sus items para que el avance de
       // compras sincronice solo). Los llamadores viejos sólo miran si es truthy,
       // y un objeto lo sigue siendo.
-      onClose(created ?? true);
+      //
+      // El segundo argumento son los ítems creados con su id. Tornería los usa
+      // para vincular material por material: la recepción en pañol es por ítem,
+      // y con un pedido de cuatro materiales que llegan en fechas distintas el
+      // estado del pedido entero no alcanza. Los llamadores viejos reciben un
+      // argumento y este lo ignoran.
+      onClose(created ?? true, requestItemsByDraft);
     } catch (err) {
       toast.error(err.message || "No se pudo enviar el pedido.");
     } finally {
