@@ -22,19 +22,22 @@ import {
   eliminarMovimiento,
   fetchTorneriaContexto,
   fetchTorneriaProcesos,
+  guardarFlete,
   guardarMovimiento,
   guardarOperacion,
+  marcarPreparacion,
   marcarNoLleva,
   subirArchivosMovimiento,
   vincularItemsAPedidoCompra,
 } from "./torneriaApi";
 import PedirAComprasModal from "@/features/compras/PedirAComprasModal";
 import {
-  CrearProcesoModal, EmptyCatalogHint, ItemModal, MovimientoModal, OperacionModal, ProcesoModal,
+  CrearProcesoModal, EmptyCatalogHint, FleteModal, ItemModal, MovimientoModal, OperacionModal, ProcesoModal,
 } from "./TorneriaModals";
 import {
   Modal, ProgressBar, StatusBadge,
 } from "./torneriaUi";
+import { operationDestinationLabel } from "./torneriaLabels";
 import { BUTTON, PRIMARY_BUTTON } from "./torneriaStyles";
 
 const TABS = [
@@ -170,6 +173,25 @@ function primeraSalida(tramos = []) {
 // después para reconocer cada ítem creado y vincularlo. Si los dos lados armaran
 // el texto por separado, cualquier cambio los desincroniza y el vínculo por ítem
 // se pierde en silencio.
+function fechasMovimientoComponente(operation, componentId, tipo) {
+  return (operation?.movimientos || [])
+    .filter((movement) => (
+      movement.tipo === tipo
+      && (movement.items || []).some((row) => row.operacion_item_id === componentId)
+    ))
+    .map((movement) => movement.fecha)
+    .filter(Boolean)
+    .sort();
+}
+
+function preparacionVigente(component, operation, etapa) {
+  const listoAt = etapa === "envio" ? component?.listo_envio_at : component?.listo_retiro_at;
+  if (!listoAt) return false;
+  const tipo = etapa === "envio" ? "salida" : "recepcion";
+  const ultimoMovimiento = fechasMovimientoComponente(operation, component.id, tipo).at(-1);
+  return !ultimoMovimiento || new Date(listoAt) > new Date(ultimoMovimiento);
+}
+
 function descripcionParaCompras(item) {
   const cat = item.material || null;
   return cat
@@ -559,7 +581,7 @@ function OperationCard({ process, operation, onMove, onEdit, onEditItem }) {
             {operation.origen || "Astillero"} → {workshopName(operation)} → Astillero
           </div>
         </div>
-        <StatusBadge status={operation.estado} compact />
+        <StatusBadge status={operation.estado} compact label={operationStatusLabel(operation)} />
       </div>
 
       {dependencies.length > 0 && (
@@ -690,10 +712,13 @@ function OperationCard({ process, operation, onMove, onEdit, onEditItem }) {
 }
 
 function workshopName(operation) {
-  if (operation.destino?.trim()) return operation.destino.trim();
-  if (operation.tipo === "plegadora") return "Plegadora";
-  if (operation.tipo === "torneria") return "Tornería";
-  return operation.tipo || "Taller";
+  return operationDestinationLabel(operation);
+}
+
+function operationStatusLabel(operation) {
+  if (operation.estado === "enviado") return `En ${workshopName(operation)}`;
+  if (operation.estado === "parcial") return `Regreso parcial · ${workshopName(operation)}`;
+  return null;
 }
 
 //
@@ -713,7 +738,7 @@ function routeIsComplete(row) {
 
 // Cadena completa del circuito de un material, en un solo riel:
 //
-//   Compras → Comprado → Astillero → Tornería → ⌂ → Tornería → ⌂
+//   Compras → Comprado → Astillero → Listo → Tornería → Retiro → ⌂
 //
 // Antes cada tramo era una card aparte y una pieza con dos viajes ocupaba tres
 // cards para contar un solo recorrido. El astillero al que vuelve después de
@@ -768,6 +793,36 @@ function circuitoNodos({ item, tramos, conCompra }) {
     const tallerSoft = operation.tipo === "plegadora" ? C.violetL : C.blueL;
     const tallerBorde = operation.tipo === "plegadora" ? C.violetB : C.blueB;
     const salioAlguna = afuera || recibido;
+    const directComponents = (operation.componentes || []).filter(
+      (component) => component.item_id === item.id,
+    );
+    const components = directComponents.length
+      ? directComponents
+      : item.virtual
+        ? (operation.componentes || []).filter((component) => component.item?.activo !== false)
+        : [];
+    const listoEnvio = components.length > 0 && components.every((component) => (
+      Number(component.cantidad_enviada) >= Number(component.cantidad_requerida)
+      || preparacionVigente(component, operation, "envio")
+    ));
+    const listoRetiro = components.length > 0 && components.every((component) => (
+      (
+        Number(component.cantidad_enviada) > 0
+        && Number(component.cantidad_recibida) >= Number(component.cantidad_enviada)
+      )
+      || preparacionVigente(component, operation, "retiro")
+    ));
+
+    nodos.push({
+      key: `listo-envio-${operation.id}`,
+      label: "Listo",
+      Icon: Check,
+      activo: listoEnvio || salioAlguna,
+      color: C.green, soft: C.greenL, borde: C.greenB,
+      railHecho: listoEnvio || salioAlguna,
+      railCurso: operation.estado === "pendiente" && compraPaso >= 3 && !listoEnvio,
+      railColor: C.green,
+    });
 
     nodos.push({
       key: `taller-${operation.id}`,
@@ -777,10 +832,19 @@ function circuitoNodos({ item, tramos, conCompra }) {
       activo: salioAlguna,
       color: taller, soft: tallerSoft, borde: tallerBorde,
       railHecho: salioAlguna,
-      // El riel barre sólo si la pieza puede salir ahora: con el material sin
-      // llegar no hay nada en movimiento.
-      railCurso: operation.estado === "pendiente" && compraPaso >= 3,
+      railCurso: listoEnvio && !salioAlguna,
       railColor: taller,
+    });
+
+    nodos.push({
+      key: `listo-retiro-${operation.id}`,
+      label: "Retiro",
+      Icon: PackageOpen,
+      activo: listoRetiro || recibido,
+      color: C.violet, soft: C.violetL, borde: C.violetB,
+      railHecho: listoRetiro || recibido,
+      railCurso: afuera && !listoRetiro,
+      railColor: C.violet,
     });
 
     nodos.push({
@@ -793,7 +857,7 @@ function circuitoNodos({ item, tramos, conCompra }) {
       soft: recibido ? C.greenL : operation.estado === "parcial" ? C.violetL : C.panel2,
       borde: recibido ? C.greenB : operation.estado === "parcial" ? C.violetB : C.border,
       railHecho: recibido,
-      railCurso: afuera,
+      railCurso: listoRetiro && !recibido,
       railColor: recibido ? C.green : taller,
     });
   });
@@ -844,16 +908,21 @@ function tramoActual({ process, item, tramos, conCompra }) {
     ? (COMPRA_META[item.compra_estado] ?? COMPRA_META.pendiente_solicitud).paso
     : 3;
   if (conCompra && compraPaso < 3) return { tipo: "compra", compraPaso };
-  const operation = tramos.find((row) => row.estado !== "recibido");
+  const operation = tramos.find((row) => {
+    const componentes = (row.componentes || []).filter((component) => component.item_id === item.id);
+    if (!componentes.length) return row.estado !== "recibido";
+    return componentes.some(
+      (component) => Number(component.cantidad_recibida) < Number(component.cantidad_requerida),
+    );
+  });
   if (!operation) return { tipo: "listo" };
   return { tipo: "viaje", operation, dependencias: dependencyRows(process, operation) };
 }
 
-function TramoActual({ process, item, tramos, conCompra, onMove, onPedirCompra }) {
+function TramoActual({ process, item, tramos, conCompra, onMove, onReady, onPedirCompra }) {
   const actual = tramoActual({ process, item, tramos, conCompra });
-  const salida = primeraSalida(tramos);
   const diasCompra = diasEntre(item.solicitado_at, item.recibido_astillero_at);
-  const diasEspera = diasEntre(item.recibido_astillero_at, salida);
+  const diasEspera = diasEntre(item.recibido_astillero_at, primeraSalida(tramos));
 
   // Los tiempos de compra se muestran siempre que existan, incluso con el
   // circuito terminado: es el dato que sirve para presupuestar la próxima obra.
@@ -927,21 +996,53 @@ function TramoActual({ process, item, tramos, conCompra, onMove, onPedirCompra }
   }
 
   const { operation, dependencias } = actual;
-  const afuera = ["enviado", "parcial"].includes(operation.estado);
-  const parcial = operation.estado === "parcial";
+  const directComponents = (operation.componentes || []).filter(
+    (component) => component.item_id === item.id,
+  );
+  const components = directComponents.length
+    ? directComponents
+    : item.virtual
+      ? (operation.componentes || []).filter((component) => component.item?.activo !== false)
+      : [];
+  const pendientesEnvio = components.filter(
+    (component) => Number(component.cantidad_enviada) < Number(component.cantidad_requerida),
+  );
+  const pendientesRetiro = components.filter(
+    (component) => Number(component.cantidad_enviada) > Number(component.cantidad_recibida),
+  );
+  const afuera = pendientesRetiro.length > 0;
+  const listoEnvio = pendientesEnvio.length > 0
+    && pendientesEnvio.every((component) => preparacionVigente(component, operation, "envio"));
+  const listoRetiro = pendientesRetiro.length > 0
+    && pendientesRetiro.every((component) => preparacionVigente(component, operation, "retiro"));
   const destino = workshopName(operation);
   const tallerColor = operation.tipo === "plegadora" ? C.violet : C.blue;
-  const ultimaSalida = [...(operation.movimientos || [])]
-    .filter((movement) => movement.tipo === "salida")
-    .sort((a, b) => new Date(b.fecha) - new Date(a.fecha))[0];
-  const diasAfuera = afuera ? diasDesde(ultimaSalida?.fecha) : null;
+  const fechasSalida = components.flatMap(
+    (component) => fechasMovimientoComponente(operation, component.id, "salida"),
+  ).sort();
+  const ultimaSalida = fechasSalida.at(-1);
+  const diasAfuera = afuera ? diasDesde(ultimaSalida) : null;
+  const listoEnvioAt = pendientesEnvio
+    .map((component) => component.listo_envio_at)
+    .filter(Boolean)
+    .sort()
+    .at(-1);
+  const listoRetiroAt = pendientesRetiro
+    .map((component) => component.listo_retiro_at)
+    .filter(Boolean)
+    .sort()
+    .at(-1);
+  const diasEsperandoFlete = listoEnvio ? diasDesde(listoEnvioAt) : null;
+  const diasEsperandoRetiro = listoRetiro ? diasDesde(listoRetiroAt) : null;
 
-  let label = "Listo para enviar";
-  let color = C.blue;
-  let soft = C.blueL;
-  let borde = C.blueB;
-  if (parcial) {
-    label = "Regreso parcial"; color = C.violet; soft = C.violetL; borde = C.violetB;
+  let label = listoEnvio
+    ? "Listo para enviar"
+    : `${operation.origen || "Astillero"} · preparar salida`;
+  let color = listoEnvio ? C.green : C.blue;
+  let soft = listoEnvio ? C.greenL : C.blueL;
+  let borde = listoEnvio ? C.greenB : C.blueB;
+  if (afuera && listoRetiro) {
+    label = "Listo para retirar"; color = C.green; soft = C.greenL; borde = C.greenB;
   } else if (afuera) {
     label = `En ${destino}`; color = tallerColor;
     soft = operation.tipo === "plegadora" ? C.violetL : C.blueL;
@@ -974,6 +1075,16 @@ function TramoActual({ process, item, tramos, conCompra, onMove, onPedirCompra }
             Afuera hace {diasAfuera} {diasAfuera === 1 ? "día" : "días"}
           </span>
         )}
+        {diasEsperandoFlete != null && (
+          <span style={{ color: diasEsperandoFlete >= 3 ? C.red : C.dim, fontSize: 10.5, fontWeight: 750 }}>
+            Flete pendiente {diasEsperandoFlete}d
+          </span>
+        )}
+        {diasEsperandoRetiro != null && (
+          <span style={{ color: diasEsperandoRetiro >= 3 ? C.red : C.dim, fontSize: 10.5, fontWeight: 750 }}>
+            Retiro pendiente {diasEsperandoRetiro}d
+          </span>
+        )}
       </div>
 
       {dependencias.length > 0 && (
@@ -984,27 +1095,56 @@ function TramoActual({ process, item, tramos, conCompra, onMove, onPedirCompra }
 
       {tiempos}
 
-      <button
-        type="button"
-        onClick={() => onMove(operation, null)}
-        className="tor-route-action"
-        style={{
-          ...PRIMARY_BUTTON,
-          width: "100%",
-          minHeight: 36,
-          ...(afuera ? { borderColor: C.violetB, background: C.violetL, color: C.violet } : {}),
-        }}
-      >
-        {afuera ? <PackageOpen size={14} /> : <Truck size={14} />}
-        {afuera ? "Registrar regreso" : "Registrar salida"}
-      </button>
+      <div style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>
+        <button
+          type="button"
+          onClick={() => {
+            if (afuera && !listoRetiro) onReady(pendientesRetiro, "retiro", true);
+            else if (afuera) onMove(operation, null, "recepcion");
+            else if (!listoEnvio) onReady(pendientesEnvio, "envio", true);
+            else onMove(operation, null, "salida");
+          }}
+          className="tor-route-action"
+          style={{
+            ...PRIMARY_BUTTON,
+            flex: "1 1 190px",
+            minHeight: 36,
+            ...(afuera ? { borderColor: C.violetB, background: C.violetL, color: C.violet } : {}),
+            ...((listoEnvio || listoRetiro) ? {
+              borderColor: C.greenB,
+              background: C.greenL,
+              color: C.green,
+            } : {}),
+          }}
+        >
+          {afuera
+            ? listoRetiro ? <PackageOpen size={14} /> : <Check size={14} />
+            : listoEnvio ? <Truck size={14} /> : <Check size={14} />}
+          {afuera
+            ? listoRetiro ? "Registrar regreso" : "Marcar listo para retirar"
+            : listoEnvio ? "Registrar salida" : "Marcar listo para enviar"}
+        </button>
+        {(listoEnvio || listoRetiro) && (
+          <button
+            type="button"
+            onClick={() => onReady(
+              afuera ? pendientesRetiro : pendientesEnvio,
+              afuera ? "retiro" : "envio",
+              false,
+            )}
+            style={{ ...BUTTON, minHeight: 36, padding: "6px 9px", fontSize: 10 }}
+          >
+            Quitar listo
+          </button>
+        )}
+      </div>
     </div>
   );
 }
 
 // Un material = una card = un circuito. Rail arriba, el tramo donde está parado
 // abajo, un solo botón.
-function CircuitoMaterial({ process, item, tramos, onMove, onPedirCompra, tono = null }) {
+function CircuitoMaterial({ process, item, tramos, onMove, onReady, onPedirCompra, tono = null }) {
   const conCompra = compraAplica(item, tramos);
   const nodos = circuitoNodos({ item, tramos, conCompra });
   return (
@@ -1016,13 +1156,21 @@ function CircuitoMaterial({ process, item, tramos, onMove, onPedirCompra, tono =
         tramos={tramos}
         conCompra={conCompra}
         onMove={onMove}
+        onReady={onReady}
         onPedirCompra={onPedirCompra}
       />
       {tono}
     </div>
   );
 }
-function StandaloneRouteCard({ process, row, onMove, index = 0, onPedirCompra = null }) {
+function StandaloneRouteCard({
+  process,
+  row,
+  onMove,
+  onReady,
+  index = 0,
+  onPedirCompra = null,
+}) {
   const { item, tramos } = row;
   const complete = routeIsComplete(row);
   // La pieza está afuera si alguno de sus tramos está en el taller. Da el color
@@ -1075,13 +1223,14 @@ function StandaloneRouteCard({ process, row, onMove, index = 0, onPedirCompra = 
         item={item}
         tramos={tramos}
         onMove={onMove}
+        onReady={onReady}
         onPedirCompra={onPedirCompra}
       />
     </article>
   );
 }
 
-function TransformationSource({ process, row, onMove, onPedirCompra = null }) {
+function TransformationSource({ process, row, onMove, onReady, onPedirCompra = null }) {
   const complete = routeIsComplete(row);
   return (
     <div className="tor-transform-source" style={{
@@ -1121,13 +1270,21 @@ function TransformationSource({ process, row, onMove, onPedirCompra = null }) {
         item={row.item}
         tramos={row.tramos}
         onMove={onMove}
+        onReady={onReady}
         onPedirCompra={onPedirCompra}
       />
     </div>
   );
 }
 
-function TransformationFlow({ process, result, sources, onMove, onPedirCompra = null }) {
+function TransformationFlow({
+  process,
+  result,
+  sources,
+  onMove,
+  onReady,
+  onPedirCompra = null,
+}) {
   const sourcesReady = sources.length > 0 && sources.every(routeIsComplete);
   const resultHasJourney = result.tramos.length > 0;
   const resultReady = resultHasJourney ? routeIsComplete(result) : sourcesReady;
@@ -1202,6 +1359,7 @@ function TransformationFlow({ process, result, sources, onMove, onPedirCompra = 
                 process={process}
                 row={source}
                 onMove={onMove}
+                onReady={onReady}
                 onPedirCompra={onPedirCompra}
               />
             ))}
@@ -1263,6 +1421,7 @@ function TransformationFlow({ process, result, sources, onMove, onPedirCompra = 
               item={resultItem}
               tramos={result.tramos}
               onMove={onMove}
+              onReady={onReady}
             />
           ) : (
             <div style={{
@@ -1283,7 +1442,7 @@ function TransformationFlow({ process, result, sources, onMove, onPedirCompra = 
   );
 }
 
-function RecorridosPorItem({ process, onMove, query = "", onPedirCompra = null }) {
+function RecorridosPorItem({ process, onMove, onReady, query = "", onPedirCompra = null }) {
   const operations = (process.operaciones || []).filter((row) => row.activa !== false);
   // Lo que esta obra no lleva no entra al circuito: queda a la vista en
   // Materiales, tachado, para que se sepa que fue una decisión.
@@ -1380,7 +1539,7 @@ function RecorridosPorItem({ process, onMove, query = "", onPedirCompra = null }
       }}>
         <Search size={20} />
         <div style={{ color: C.muted, fontSize: 12.5, fontWeight: 850 }}>No encontramos ese material</div>
-        <div style={{ fontSize: 11 }}>Probá con el nombre, el grupo o el taller.</div>
+        <div style={{ fontSize: 11 }}>Probá con el nombre, el grupo, Tornería o Plegadora.</div>
       </div>
     );
   }
@@ -1494,6 +1653,7 @@ function RecorridosPorItem({ process, onMove, query = "", onPedirCompra = null }
                     result={block.result}
                     sources={block.sources}
                     onMove={onMove}
+                    onReady={onReady}
                     onPedirCompra={onPedirCompra}
                   />
                 ))}
@@ -1508,6 +1668,7 @@ function RecorridosPorItem({ process, onMove, query = "", onPedirCompra = null }
                     process={process}
                     row={block.row}
                     onMove={onMove}
+                    onReady={onReady}
                     index={i}
                     onPedirCompra={onPedirCompra}
                   />
@@ -1536,7 +1697,7 @@ function CircuitSearch({ value, onChange, compact = false }) {
         type="search"
         value={value}
         onChange={(event) => onChange(event.target.value)}
-        placeholder="Buscar material, conjunto o taller…"
+        placeholder="Buscar material, conjunto o destino…"
         aria-label="Buscar dentro del circuito"
         style={{
           width: "100%",
@@ -1702,6 +1863,7 @@ function CompraResumen({ process, onPedirCompra }) {
 function CircuitTab({
   process,
   onMove,
+  onReady,
   onEditOperation,
   onNewOperation,
   onEditItem,
@@ -1722,6 +1884,7 @@ function CircuitTab({
       <RecorridosPorItem
         process={process}
         onMove={onMove}
+        onReady={onReady}
         query={search}
         onPedirCompra={onPedirCompra}
       />
@@ -1770,7 +1933,7 @@ function CircuitTab({
               Gestión de envíos y pasos
             </span>
             <span style={{ display: "block", color: C.dim, fontSize: 10.5, lineHeight: 1.4, marginTop: 2 }}>
-              Editar talleres, piezas, cantidades y movimientos anteriores.
+              Editar destinos externos, piezas, cantidades y movimientos anteriores.
             </span>
           </span>
           <span style={{ display: "inline-flex", alignItems: "center", gap: 7, color: C.dim, fontSize: 10.5, fontWeight: 800 }}>
@@ -2096,8 +2259,10 @@ function HistoryTab({ process, onOpenMovement }) {
     (operation.movimientos || []).map((movement) => ({
       id: `movement-${movement.id}`,
       date: movement.fecha,
-      title: movement.tipo === "salida" ? "Envío al taller" : "Regreso al astillero",
-      description: operation.nombre,
+      title: movement.tipo === "salida" ? `Envío a ${workshopName(operation)}` : "Regreso al astillero",
+      description: movement.flete
+        ? `${operation.nombre} · Flete conjunto${movement.flete.remito ? ` · Remito ${movement.flete.remito}` : ""}`
+        : operation.nombre,
       actor: movement.responsable || "Sin responsable",
       color: movement.tipo === "salida" ? C.blue : C.green,
       // El fondo va aparte porque no se puede derivar del color: son variables
@@ -2114,6 +2279,12 @@ function HistoryTab({ process, onOpenMovement }) {
         items: "Material actualizado",
         operaciones: "Circuito actualizado",
         proceso: "Seguimiento actualizado",
+        preparacion: event.accion === "listo_para_retirar"
+          ? "Listo para retirar"
+          : event.accion === "listo_para_enviar"
+            ? "Listo para enviar"
+            : "Preparación reabierta",
+        flete: event.accion === "flete_salida" ? "Flete de salida" : "Flete de retiro",
       };
       return {
         id: `audit-${event.id}`,
@@ -2259,189 +2430,366 @@ function KpiChip({ icon, value, label, color, activo = false, onClick }) {
   );
 }
 
-// Tablero transversal de escritorio: TODAS las piezas que están fuera del
-// astillero (de todas las obras filtradas), agrupadas por taller y ordenadas
-// por días afuera. Es la vista de destino del KPI "Fuera del astillero".
-function TallerBoard({ processes, onSelectProcess, onMove, isMobile = false }) {
-  const rows = processes.flatMap((process) =>
-    (process.operaciones || [])
-      .filter((op) => op.activa !== false && ["enviado", "parcial"].includes(op.estado))
-      .map((op) => {
-        const lastOut = [...(op.movimientos || [])]
-          .filter((movement) => movement.tipo === "salida")
-          .sort((a, b) => new Date(b.fecha) - new Date(a.fecha))[0];
-        return { process, op, dias: diasDesde(lastOut?.fecha) };
-      }),
-  ).sort((a, b) => (b.dias ?? -1) - (a.dias ?? -1));
+// Nombre de las piezas de una operación. Lo usan el carril del taller, la
+// lista de listos y la de bloqueados: una sola función para que las tres
+// columnas del panel hablen igual.
+function dashboardPieces(op) {
+  return (op.componentes || [])
+    .map((row) => row.item?.descripcion)
+    .filter(Boolean)
+    .join(" + ") || op.nombre;
+}
 
-  if (!rows.length) {
-    return (
-      <div style={{
-        display: "grid",
-        placeItems: "center",
-        gap: 9,
-        padding: "48px 20px",
-        borderRadius: 14,
-        border: `1px dashed ${C.border}`,
-        background: C.panel,
-        color: C.dim,
-        textAlign: "center",
-      }}>
-        <PackageCheck size={26} style={{ color: C.green }} />
-        <div style={{ color: C.text, fontSize: 14, fontWeight: 900 }}>No hay piezas fuera del astillero</div>
-        <div style={{ fontSize: 11.5 }}>Cuando algo salga a Tornería o Plegadora, aparece acá con sus días afuera.</div>
-      </div>
-    );
-  }
-
-  const talleres = new Map();
-  rows.forEach((row) => {
-    const taller = workshopName(row.op);
-    const list = talleres.get(taller) ?? [];
-    list.push(row);
-    talleres.set(taller, list);
-  });
-
+// Carril de un taller dentro del panel general: las piezas que tiene afuera,
+// ordenadas por días de espera, con el regreso a un toque. El ícono y el
+// color del taller se repiten en el chip, el carril y el botón, así cada
+// unidad operativa se reconoce sin leer.
+function WorkshopLane({
+  titulo,
+  Icon,
+  color,
+  soft,
+  border,
+  rows,
+  onSelectProcess,
+  onMove,
+  onReady,
+  isMobile,
+}) {
+  const maxDias = rows.reduce((max, row) => Math.max(max, row.dias ?? -1), -1);
   return (
-    <div style={{ display: "grid", gap: 14, alignContent: "start" }}>
-      <div style={{ display: "flex", alignItems: "center", gap: 10, flexWrap: "wrap" }}>
+    <section style={{
+      minWidth: 0,
+      display: "grid",
+      gap: 8,
+      alignContent: "start",
+      padding: 12,
+      borderRadius: 14,
+      border: `1px solid ${C.border}`,
+      borderTop: `3px solid ${color}`,
+      background: C.panel,
+    }}>
+      <header style={{ display: "flex", alignItems: "center", gap: 9 }}>
         <span style={{
-          width: 34,
-          height: 34,
-          display: "grid",
-          placeItems: "center",
-          borderRadius: 10,
-          border: `1px solid ${C.violetB}`,
-          background: C.violetL,
-          color: C.violet,
-          flexShrink: 0,
+          width: 32, height: 32, display: "grid", placeItems: "center", borderRadius: 10,
+          border: `1px solid ${border}`, background: soft, color, flexShrink: 0,
         }}>
-          <Truck size={16} />
+          {createElement(Icon, { size: 15 })}
         </span>
         <div style={{ minWidth: 0, flex: 1 }}>
-          <div style={{ color: C.text, fontSize: 14, fontWeight: 900 }}>Fuera del astillero ahora</div>
-          <div style={{ color: C.dim, fontSize: 11, marginTop: 2 }}>
-            Todas las piezas en taller, ordenadas por días afuera. Las de 15 días o más piden reclamo.
+          <div style={{ color: C.text, fontSize: 13, fontWeight: 950 }}>{titulo}</div>
+          <div style={{ color: C.dim, fontSize: 9.5, marginTop: 1 }}>
+            {!rows.length
+              ? "Nada afuera ahora"
+              : maxDias >= 0
+                ? `${rows.length} afuera · espera máx. ${maxDias} ${maxDias === 1 ? "día" : "días"}`
+                : `${rows.length} afuera`}
           </div>
         </div>
         <span style={{
-          padding: "3px 10px",
-          borderRadius: 999,
-          border: `1px solid ${C.violetB}`,
-          background: C.violetL,
-          color: C.violet,
-          fontSize: 11,
-          fontWeight: 900,
-          whiteSpace: "nowrap",
+          padding: "3px 10px", borderRadius: 999,
+          border: `1px solid ${rows.length ? border : C.border}`,
+          background: rows.length ? soft : C.panel2,
+          color: rows.length ? color : C.dim,
+          fontSize: 12, fontWeight: 950, fontFamily: C.mono,
         }}>
-          {rows.length} afuera
+          {rows.length}
         </span>
-      </div>
+      </header>
 
-      {[...talleres.entries()].map(([taller, list]) => (
-        <section key={taller} style={{ display: "grid", gap: 7 }}>
-          <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-            <Wrench size={12} style={{ color: C.dim }} />
-            <span style={{ color: C.muted, fontSize: 10.5, fontWeight: 900, letterSpacing: "0.09em", textTransform: "uppercase" }}>
-              {taller}
-            </span>
-            <span style={{ color: C.dim, fontSize: 10 }}>{list.length}</span>
-          </div>
-          {list.map(({ process, op, dias }) => {
-            const piezas = (op.componentes || [])
-              .map((row) => row.item?.descripcion)
-              .filter(Boolean)
-              .join(" + ");
-            const nombresTecnicos = [...new Set((op.componentes || [])
-              .map((row) => [row.item?.material?.codigo, row.item?.material?.descripcion].filter(Boolean).join(" · "))
-              .filter(Boolean))].join(" · ");
-            const demorada = dias != null && dias >= 15;
-            return (
-              <div
-                key={op.id}
-                style={{
-                  display: "grid",
-                  gridTemplateColumns: isMobile ? "minmax(0,1fr)" : "minmax(90px,130px) minmax(0,1fr) auto auto",
-                  gap: 12,
-                  alignItems: "center",
-                  padding: "10px 12px",
-                  borderRadius: 12,
+      {!rows.length ? (
+        <div style={{
+          display: "grid", placeItems: "center", gap: 5, padding: "20px 10px",
+          borderRadius: 11, border: `1px dashed ${C.border}`, color: C.dim, textAlign: "center",
+        }}>
+          <PackageCheck size={18} style={{ color: C.green }} />
+          <span style={{ fontSize: 10.5 }}>Sin piezas en {titulo} con estos filtros.</span>
+        </div>
+      ) : rows.map(({ process, op, dias }) => {
+        const demorada = dias != null && dias >= 15;
+        const pendientesRetiro = (op.componentes || []).filter(
+          (component) => (
+            component.item?.activo !== false
+            && !component.item?.no_lleva
+            && Number(component.cantidad_enviada) > Number(component.cantidad_recibida)
+          ),
+        );
+        const listosRetiro = pendientesRetiro.length > 0 && pendientesRetiro.every(
+          (component) => preparacionVigente(component, op, "retiro"),
+        );
+        const nombresTecnicos = [...new Set((op.componentes || [])
+          .map((row) => [row.item?.material?.codigo, row.item?.material?.descripcion].filter(Boolean).join(" · "))
+          .filter(Boolean))].join(" · ");
+        return (
+          <article key={op.id} style={{
+            display: "grid", gap: 4, padding: "9px 11px", borderRadius: 11,
+            border: `1px solid ${demorada ? C.redB : C.border}`,
+            borderLeft: `3px solid ${demorada ? C.red : color}`,
+            background: demorada ? C.redL : C.bg,
+          }}>
+            <div style={{ display: "flex", alignItems: "center", gap: 8, minWidth: 0 }}>
+              <span style={{ color: C.text, fontSize: 12.5, fontWeight: 950, whiteSpace: "nowrap" }}>
+                {process.obra?.codigo || process.nombre}
+              </span>
+              <span style={{ color: C.dim, fontSize: 9.5, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+                {process.obra?.linea_nombre || "Sin línea"}
+              </span>
+              {dias != null && (
+                <span style={{
+                  marginLeft: "auto", display: "inline-flex", alignItems: "center", gap: 4, flexShrink: 0,
+                  padding: "2px 8px", borderRadius: 999,
                   border: `1px solid ${demorada ? C.redB : C.border}`,
                   background: demorada ? C.redL : C.panel,
-                }}
-              >
-                <div style={{ minWidth: 0 }}>
-                  <div style={{ color: C.text, fontSize: 12.5, fontWeight: 900, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
-                    {process.obra?.codigo || process.nombre}
-                  </div>
-                  <div style={{ color: C.dim, fontSize: 9.5, marginTop: 2, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
-                    {process.obra?.linea_nombre || "Sin línea"}
-                  </div>
-                </div>
-                <div style={{ minWidth: 0 }}>
-                  <div style={{ display: "flex", alignItems: "center", gap: 7, flexWrap: "wrap" }}>
-                    <span style={{ color: C.text, fontSize: 12, fontWeight: 850, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
-                      {piezas || op.nombre}
-                    </span>
-                    <StatusBadge status={op.estado} compact />
-                  </div>
-                  {nombresTecnicos && (
-                    <div style={{ color: C.dim, fontSize: 9, marginTop: 2, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
-                      Catálogo · {nombresTecnicos}
-                    </div>
-                  )}
-                  <div style={{ display: "flex", alignItems: "center", gap: 6, marginTop: 3, fontSize: 10, flexWrap: "wrap" }}>
-                    {dias != null && (
-                      <span style={{
-                        display: "inline-flex",
-                        alignItems: "center",
-                        gap: 4,
-                        color: demorada ? C.red : C.dim,
-                        fontWeight: demorada ? 900 : 700,
-                      }}>
-                        <Clock3 size={10} />
-                        Fuera hace {dias} {dias === 1 ? "día" : "días"}
-                      </span>
-                    )}
-                    <span style={{ color: C.dim, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{op.nombre}</span>
-                  </div>
-                </div>
+                  color: demorada ? C.red : C.dim,
+                  fontSize: 10, fontWeight: 900, fontFamily: C.mono,
+                }}>
+                  <Clock3 size={10} /> {dias}d
+                </span>
+              )}
+            </div>
+            <div style={{ display: "flex", alignItems: "center", gap: 7, minWidth: 0, flexWrap: "wrap" }}>
+              <span style={{ color: C.text, fontSize: 11.5, fontWeight: 850 }}>
+                {dashboardPieces(op)}
+              </span>
+              <StatusBadge status={op.estado} compact label={operationStatusLabel(op)} />
+            </div>
+            {nombresTecnicos && (
+              <div style={{ color: C.dim, fontSize: 9, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+                Catálogo · {nombresTecnicos}
+              </div>
+            )}
+            <div style={{ display: "flex", alignItems: "center", gap: 6, marginTop: 3, flexWrap: "wrap" }}>
+              <span style={{ color: C.dim, fontSize: 9.5, flex: 1, minWidth: 0, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+                {workshopName(op)} · {op.nombre} · Viaje {op.viaje || 1}
+              </span>
+              {!isMobile && (
                 <button
                   type="button"
                   onClick={() => onSelectProcess(process.id)}
                   title="Abrir esta obra"
-                  style={{ ...BUTTON, minHeight: 32, padding: "4px 10px", flexShrink: 0, display: isMobile ? "none" : BUTTON.display }}
+                  style={{ ...BUTTON, minHeight: 29, padding: "3px 8px", fontSize: 9.5 }}
                 >
-                  Ver obra <ArrowRight size={12} />
+                  Ver obra
                 </button>
-                <button
-                  type="button"
-                  onClick={() => onMove(process, op)}
-                  style={{
-                    ...PRIMARY_BUTTON,
-                    minHeight: 32,
-                    padding: "4px 10px",
-                    flexShrink: 0,
-                    width: isMobile ? "100%" : undefined,
-                    borderColor: C.violetB,
-                    background: C.violetL,
-                    color: C.violet,
-                  }}
-                >
-                  <PackageOpen size={13} /> Registrar regreso
-                </button>
-              </div>
-            );
-          })}
-        </section>
-      ))}
-    </div>
+              )}
+              <button
+                type="button"
+                onClick={() => {
+                  if (listosRetiro) onMove(process, op, "recepcion");
+                  else onReady(pendientesRetiro, "retiro", true);
+                }}
+                style={{
+                  ...BUTTON, minHeight: 29, padding: "3px 9px", fontSize: 9.5, fontWeight: 900,
+                  borderColor: border, background: soft, color,
+                  width: isMobile ? "100%" : undefined,
+                }}
+              >
+                {listosRetiro ? <PackageOpen size={12} /> : <Check size={12} />}
+                {listosRetiro ? "Registrar regreso" : "Listo para retirar"}
+              </button>
+            </div>
+          </article>
+        );
+      })}
+    </section>
   );
 }
 
-function OperationalDashboard({ processes, onSelectProcess, onMove, isMobile = false }) {
+function ReadyBatchQueue({
+  tipo,
+  rows,
+  selected,
+  onSelected,
+  onOpen,
+}) {
+  const outbound = tipo === "salida";
+  const availableIds = new Set(rows.map((row) => row.component.id));
+  const selectedRows = rows.filter((row) => selected.has(row.component.id));
+  const allSelected = rows.length > 0 && rows.every((row) => selected.has(row.component.id));
+
+  function toggle(id) {
+    onSelected((current) => {
+      const next = new Set([...current].filter((value) => availableIds.has(value)));
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      return next;
+    });
+  }
+
+  function toggleAll() {
+    onSelected((current) => {
+      const next = new Set([...current].filter((value) => availableIds.has(value)));
+      if (allSelected) rows.forEach((row) => next.delete(row.component.id));
+      else rows.forEach((row) => next.add(row.component.id));
+      return next;
+    });
+  }
+
+  const color = outbound ? C.green : C.violet;
+  const soft = outbound ? C.greenL : C.violetL;
+  const border = outbound ? C.greenB : C.violetB;
+
+  return (
+    <section style={{
+      display: "grid",
+      gap: 8,
+      padding: 11,
+      borderRadius: 13,
+      border: `1px solid ${rows.length ? border : C.border}`,
+      background: rows.length ? soft : C.panel,
+    }}>
+      <div style={{ display: "flex", alignItems: "center", gap: 7 }}>
+        {outbound
+          ? <Truck size={13} style={{ color }} />
+          : <PackageOpen size={13} style={{ color }} />}
+        <span style={{ color: C.text, fontSize: 11.5, fontWeight: 900 }}>
+          {outbound ? "Listos para enviar" : "Listos para retirar"}
+        </span>
+        <span style={{ marginLeft: "auto", color, fontSize: 11, fontWeight: 950 }}>
+          {rows.length}
+        </span>
+      </div>
+
+      {!rows.length ? (
+        <div style={{ color: C.dim, fontSize: 10, lineHeight: 1.4 }}>
+          {outbound
+            ? "Todavía no hay materiales preparados para un flete."
+            : "El taller todavía no marcó materiales para retirar."}
+        </div>
+      ) : (
+        <>
+          <button
+            type="button"
+            onClick={toggleAll}
+            style={{
+              display: "flex",
+              alignItems: "center",
+              gap: 7,
+              padding: "6px 0",
+              border: 0,
+              borderBottom: `1px solid ${border}`,
+              background: "transparent",
+              color,
+              fontSize: 10,
+              fontWeight: 900,
+              cursor: "pointer",
+              fontFamily: C.sans,
+            }}
+          >
+            <span style={{
+              width: 17,
+              height: 17,
+              display: "grid",
+              placeItems: "center",
+              borderRadius: 5,
+              border: `1px solid ${allSelected ? color : C.border2}`,
+              background: allSelected ? color : C.panel,
+              color: "#fff",
+            }}>
+              {allSelected && <Check size={11} />}
+            </span>
+            {allSelected ? "Quitar todos" : "Seleccionar todos"}
+          </button>
+
+          <div style={{ display: "grid", gap: 3, maxHeight: 280, overflowY: "auto" }}>
+            {rows.map((row) => {
+              const checked = selected.has(row.component.id);
+              const item = row.component.item;
+              return (
+                <button
+                  key={row.component.id}
+                  type="button"
+                  onClick={() => toggle(row.component.id)}
+                  style={{
+                    display: "grid",
+                    gridTemplateColumns: "18px minmax(0,1fr) auto",
+                    alignItems: "center",
+                    gap: 8,
+                    width: "100%",
+                    padding: "7px 0",
+                    border: 0,
+                    borderBottom: `1px solid ${C.border}`,
+                    background: "transparent",
+                    textAlign: "left",
+                    cursor: "pointer",
+                    fontFamily: C.sans,
+                  }}
+                >
+                  <span style={{
+                    width: 17,
+                    height: 17,
+                    display: "grid",
+                    placeItems: "center",
+                    borderRadius: 5,
+                    border: `1px solid ${checked ? color : C.border2}`,
+                    background: checked ? color : C.panel,
+                    color: "#fff",
+                  }}>
+                    {checked && <Check size={11} />}
+                  </span>
+                  <span style={{ minWidth: 0 }}>
+                    <span style={{
+                      display: "block",
+                      color: C.text,
+                      fontSize: 10.5,
+                      fontWeight: 850,
+                      overflow: "hidden",
+                      textOverflow: "ellipsis",
+                      whiteSpace: "nowrap",
+                    }}>
+                      {row.process.obra?.codigo} · {item?.descripcion || "Material"}
+                    </span>
+                    <span style={{ display: "block", color: C.dim, fontSize: 9, marginTop: 2 }}>
+                      {workshopName(row.operation)} · Viaje {row.operation.viaje || 1}
+                    </span>
+                  </span>
+                  <span style={{ color, fontSize: 9.5, fontWeight: 900, whiteSpace: "nowrap" }}>
+                    {qty(row.cantidad)} {item?.unidad || ""}
+                  </span>
+                </button>
+              );
+            })}
+          </div>
+
+          <button
+            type="button"
+            disabled={!selectedRows.length}
+            onClick={() => onOpen(tipo, selectedRows)}
+            style={{
+              ...PRIMARY_BUTTON,
+              minHeight: 36,
+              width: "100%",
+              borderColor: border,
+              background: selectedRows.length ? color : C.panel2,
+              color: selectedRows.length ? "#fff" : C.dim,
+              opacity: selectedRows.length ? 1 : 0.55,
+            }}
+          >
+            {outbound ? <Truck size={13} /> : <PackageOpen size={13} />}
+            {outbound ? "Registrar salida" : "Registrar regreso"}
+            {selectedRows.length ? ` (${selectedRows.length})` : ""}
+          </button>
+        </>
+      )}
+    </section>
+  );
+}
+
+function OperationalDashboard({
+  processes,
+  onSelectProcess,
+  onMove,
+  onReady,
+  onBatch,
+  isMobile = false,
+}) {
   const [workshop, setWorkshop] = useState("todos");
+  // Filtro rápido transversal: parciales, demorados o listos para salir.
+  // Se combina con el taller y el texto, no los reemplaza.
+  const [quick, setQuick] = useState("none");
   const [query, setQuery] = useState("");
+  const [selectedSend, setSelectedSend] = useState(() => new Set());
+  const [selectedPickup, setSelectedPickup] = useState(() => new Set());
 
   const allRows = useMemo(() => processes
     .filter((process) => process.estado !== "cancelado")
@@ -2458,11 +2806,21 @@ function OperationalDashboard({ processes, onSelectProcess, onMove, isMobile = f
           compraAplica(item, [op])
           && !["recibido_astillero", "no_aplica"].includes(item?.compra_estado)
         ));
+        const listosEnvio = componentes.filter((component) => (
+          Number(component.cantidad_requerida) > Number(component.cantidad_enviada)
+          && preparacionVigente(component, op, "envio")
+        ));
+        const listosRetiro = componentes.filter((component) => (
+          Number(component.cantidad_enviada) > Number(component.cantidad_recibida)
+          && preparacionVigente(component, op, "retiro")
+        ));
         return {
           process,
           op,
           dependencias,
           materialesPendientes,
+          listosEnvio,
+          listosRetiro,
           dias: diasDesde(lastOut?.fecha),
           afuera: ["enviado", "parcial"].includes(op.estado),
           listo: op.estado === "pendiente" && dependencias.length === 0 && materialesPendientes.length === 0,
@@ -2471,6 +2829,10 @@ function OperationalDashboard({ processes, onSelectProcess, onMove, isMobile = f
 
   const matches = useCallback((row) => {
     if (workshop !== "todos" && row.op.tipo !== workshop) return false;
+    if (quick === "parciales" && row.op.estado !== "parcial") return false;
+    if (quick === "demorados" && !(row.afuera && row.dias != null && row.dias >= 15)) return false;
+    if (quick === "listos" && !row.listosEnvio.length) return false;
+    if (quick === "retiros" && !row.listosRetiro.length) return false;
     const term = query.trim().toLowerCase();
     if (!term) return true;
     const items = (row.op.componentes || []).map(({ item }) => (
@@ -2479,50 +2841,82 @@ function OperationalDashboard({ processes, onSelectProcess, onMove, isMobile = f
     return `${row.process.obra?.codigo || ""} ${row.process.obra?.linea_nombre || ""} ${row.op.nombre || ""} ${workshopName(row.op)} ${items}`
       .toLowerCase()
       .includes(term);
-  }, [query, workshop]);
+  }, [query, workshop, quick]);
 
   const visibleRows = allRows.filter(matches);
-  const filteredProcesses = processes
-    .map((process) => ({
-      ...process,
-      operaciones: (process.operaciones || []).filter((op) => {
-        const row = visibleRows.find((entry) => entry.op.id === op.id);
-        return Boolean(row);
-      }),
-    }))
-    .filter((process) => process.operaciones.length > 0);
-  const ready = visibleRows.filter((row) => row.listo);
+  const byDiasDesc = (a, b) => (b.dias ?? -1) - (a.dias ?? -1);
+  const fuera = visibleRows.filter((row) => row.afuera);
+  const rowsTorneria = fuera.filter((row) => row.op.tipo === "torneria").sort(byDiasDesc);
+  const rowsPlegadora = fuera.filter((row) => row.op.tipo === "plegadora").sort(byDiasDesc);
+  const readySend = visibleRows.flatMap((row) => row.listosEnvio.map((component) => ({
+    process: row.process,
+    operation: row.op,
+    component,
+    cantidad: Math.max(
+      0,
+      Number(component.cantidad_requerida) - Number(component.cantidad_enviada),
+    ),
+  })));
+  const readyPickup = visibleRows.flatMap((row) => row.listosRetiro.map((component) => ({
+    process: row.process,
+    operation: row.op,
+    component,
+    cantidad: Math.max(
+      0,
+      Number(component.cantidad_enviada) - Number(component.cantidad_recibida),
+    ),
+  })));
+  const toPrepare = visibleRows.filter((row) => (
+    row.listo
+    && row.op.componentes.some(
+      (component) => (
+        Number(component.cantidad_requerida) > Number(component.cantidad_enviada)
+        && !preparacionVigente(component, row.op, "envio")
+      ),
+    )
+  ));
   const blocked = visibleRows.filter((row) => row.op.estado === "pendiente" && !row.listo);
+
+  // Los números de los chips son globales: filtrar cambia qué se ve, no
+  // cuánto hay.
   const outside = allRows.filter((row) => row.afuera);
   const stats = {
     torneria: outside.filter((row) => row.op.tipo === "torneria").length,
     plegadora: outside.filter((row) => row.op.tipo === "plegadora").length,
     parciales: outside.filter((row) => row.op.estado === "parcial").length,
     demorados: outside.filter((row) => row.dias != null && row.dias >= 15).length,
-    listos: allRows.filter((row) => row.listo).length,
+    listos: allRows.reduce((sum, row) => sum + row.listosEnvio.length, 0),
+    retiros: allRows.reduce((sum, row) => sum + row.listosRetiro.length, 0),
   };
 
-  const pieces = (op) => (op.componentes || [])
-    .map((row) => row.item?.descripcion)
-    .filter(Boolean)
-    .join(" + ") || op.nombre;
+  const hayFiltros = workshop !== "todos" || quick !== "none" || Boolean(query.trim());
+  const limpiarFiltros = () => {
+    setWorkshop("todos");
+    setQuick("none");
+    setQuery("");
+  };
 
-  const cards = [
-    { key: "torneria", label: "En Tornería", value: stats.torneria, Icon: Wrench, color: C.blue, soft: C.blueL, border: C.blueB },
-    { key: "plegadora", label: "En Plegadora", value: stats.plegadora, Icon: Factory, color: C.violet, soft: C.violetL, border: C.violetB },
-    { key: "parciales", label: "Regresos parciales", value: stats.parciales, Icon: Repeat, color: C.teal, soft: C.tealL, border: C.tealB },
-    {
-      key: "demorados", label: "Demorados +15d", value: stats.demorados, Icon: Clock3,
-      color: stats.demorados ? C.red : C.green,
-      soft: stats.demorados ? C.redL : C.greenL,
-      border: stats.demorados ? C.redB : C.greenB,
-    },
-    { key: "listos", label: "Listos para salir", value: stats.listos, Icon: Truck, color: C.green, soft: C.greenL, border: C.greenB },
-  ];
+  if (!allRows.length) {
+    return (
+      <div style={{ width: "100%", maxWidth: 1540, margin: "0 auto" }}>
+        <div style={{
+          display: "grid", placeItems: "center", gap: 9, padding: "48px 20px",
+          borderRadius: 14, border: `1px dashed ${C.border}`, background: C.panel,
+          color: C.dim, textAlign: "center",
+        }}>
+          <PackageCheck size={26} style={{ color: C.green }} />
+          <div style={{ color: C.text, fontSize: 14, fontWeight: 900 }}>Sin movimientos externos</div>
+          <div style={{ fontSize: 11.5 }}>
+            No hay operaciones pendientes ni piezas afuera. Cuando algo salga a Tornería o Plegadora, aparece acá.
+          </div>
+        </div>
+      </div>
+    );
+  }
 
   return (
-    <div style={{ width: "100%", maxWidth: 1540, margin: "0 auto", display: "grid", gap: 14, alignContent: "start" }}>
-      <div style={{ display: "flex", alignItems: "flex-start", gap: 10, flexWrap: "wrap" }}>
+    <div style={{ width: "100%", maxWidth: 1540, margin: "0 auto", display: "grid", gap: 12, alignContent: "start" }}>
+      <div style={{ display: "flex", alignItems: "center", gap: 10, flexWrap: "wrap" }}>
         <span style={{
           width: 36, height: 36, display: "grid", placeItems: "center", borderRadius: 11,
           border: `1px solid ${C.blueB}`, background: C.blueL, color: C.blue, flexShrink: 0,
@@ -2530,13 +2924,13 @@ function OperationalDashboard({ processes, onSelectProcess, onMove, isMobile = f
           <LayoutDashboard size={17} />
         </span>
         <div style={{ minWidth: 180, flex: 1 }}>
-          <div style={{ color: C.text, fontSize: 15, fontWeight: 950 }}>Panel operativo de talleres</div>
+          <div style={{ color: C.text, fontSize: 15, fontWeight: 950 }}>Panel general de Tornería y Plegadora</div>
           <div style={{ color: C.dim, fontSize: 10.5, lineHeight: 1.45, marginTop: 2 }}>
-            Tornería y plegadora en una sola vista. Las demoras se cuentan desde la última salida.
+            Qué hay afuera, qué puede salir y qué está trabado. Las demoras cuentan desde la última salida.
           </div>
         </div>
         <label style={{
-          width: isMobile ? "100%" : 310, minHeight: 36, display: "flex", alignItems: "center", gap: 7,
+          width: isMobile ? "100%" : 300, minHeight: 36, display: "flex", alignItems: "center", gap: 7,
           padding: "0 10px", borderRadius: 10, border: `1px solid ${C.border}`, background: C.panel,
         }}>
           <Search size={13} style={{ color: C.dim, flexShrink: 0 }} />
@@ -2552,109 +2946,185 @@ function OperationalDashboard({ processes, onSelectProcess, onMove, isMobile = f
         </label>
       </div>
 
-      <div className="tor-dashboard-kpis">
-        {cards.map(({ key, label, value, Icon, color, soft, border }) => {
-          const selectable = key === "torneria" || key === "plegadora";
-          const active = workshop === key;
-          return (
-            <button
-              key={key}
-              type="button"
-              onClick={selectable ? () => setWorkshop((current) => current === key ? "todos" : key) : undefined}
-              aria-pressed={selectable ? active : undefined}
-              style={{
-                display: "grid", gridTemplateColumns: "30px minmax(0,1fr) auto", alignItems: "center", gap: 8,
-                minHeight: 52, padding: "8px 10px", textAlign: "left", borderRadius: 12,
-                border: `1px solid ${active ? border : C.border}`, background: active ? soft : C.panel,
-                cursor: selectable ? "pointer" : "default", fontFamily: C.sans,
-              }}
-            >
-              <span style={{ width: 30, height: 30, display: "grid", placeItems: "center", borderRadius: 9, background: soft, color }}>
-                {createElement(Icon, { size: 14 })}
-              </span>
-              <span style={{ minWidth: 0, color: active ? color : C.muted, fontSize: 9.5, fontWeight: 850, lineHeight: 1.25 }}>
-                {label}
-              </span>
-              <span style={{ color, fontSize: 17, fontWeight: 950, fontFamily: C.mono }}>{value}</span>
-            </button>
-          );
-        })}
+      {/* Los KPI son los filtros: cada chip acota carriles y rail a la vez. */}
+      <div style={{ display: "flex", gap: 6, flexWrap: "wrap", alignItems: "center" }}>
+        <KpiChip
+          icon={Wrench} value={stats.torneria} label="En Tornería" color={C.blue}
+          activo={workshop === "torneria"}
+          onClick={() => setWorkshop((current) => current === "torneria" ? "todos" : "torneria")}
+        />
+        <KpiChip
+          icon={Factory} value={stats.plegadora} label="En Plegadora" color={C.violet}
+          activo={workshop === "plegadora"}
+          onClick={() => setWorkshop((current) => current === "plegadora" ? "todos" : "plegadora")}
+        />
+        <KpiChip
+          icon={Repeat} value={stats.parciales} label="Parciales" color={C.teal}
+          activo={quick === "parciales"}
+          onClick={() => setQuick((current) => current === "parciales" ? "none" : "parciales")}
+        />
+        <KpiChip
+          icon={Clock3} value={stats.demorados} label="Demorados +15d"
+          color={stats.demorados ? C.red : C.green}
+          activo={quick === "demorados"}
+          onClick={() => setQuick((current) => current === "demorados" ? "none" : "demorados")}
+        />
+        <KpiChip
+          icon={Truck} value={stats.listos} label="Listos para salir" color={C.green}
+          activo={quick === "listos"}
+          onClick={() => setQuick((current) => current === "listos" ? "none" : "listos")}
+        />
+        <KpiChip
+          icon={PackageOpen} value={stats.retiros} label="Listos para retirar" color={C.violet}
+          activo={quick === "retiros"}
+          onClick={() => setQuick((current) => current === "retiros" ? "none" : "retiros")}
+        />
+        {hayFiltros && (
+          <button
+            type="button"
+            onClick={limpiarFiltros}
+            style={{ ...BUTTON, minHeight: 30, padding: "4px 10px", fontSize: 10 }}
+          >
+            Quitar filtros
+          </button>
+        )}
       </div>
 
-      {(workshop !== "todos" || query) && (
-        <div style={{ display: "flex", alignItems: "center", gap: 7, flexWrap: "wrap", color: C.dim, fontSize: 10.5 }}>
-          <span>
-            Mostrando {workshop === "todos" ? "todos los talleres" : workshop === "torneria" ? "Tornería" : "Plegadora"}
-          </span>
-          <button type="button" onClick={() => { setWorkshop("todos"); setQuery(""); }} style={{ ...BUTTON, minHeight: 27, padding: "3px 8px", fontSize: 9.5 }}>
+      {!visibleRows.length ? (
+        <div style={{
+          display: "grid", placeItems: "center", gap: 8, padding: "36px 20px",
+          borderRadius: 14, border: `1px dashed ${C.border}`, background: C.panel,
+          color: C.dim, textAlign: "center",
+        }}>
+          <Search size={20} />
+          <div style={{ color: C.text, fontSize: 13, fontWeight: 900 }}>Nada coincide con estos filtros</div>
+          <button type="button" onClick={limpiarFiltros} style={{ ...BUTTON, minHeight: 30, padding: "4px 10px", fontSize: 10 }}>
             Quitar filtros
           </button>
         </div>
-      )}
+      ) : (
+        <div className="tor-dashboard-grid">
+          {/* Cada taller es una unidad operativa: su carril muestra qué tiene
+              afuera, hace cuánto, y el regreso se registra desde la card. */}
+          <div className="tor-dashboard-lanes">
+            <WorkshopLane
+              titulo="Taller de Tornería" Icon={Wrench}
+              color={C.blue} soft={C.blueL} border={C.blueB}
+              rows={rowsTorneria}
+              onSelectProcess={onSelectProcess} onMove={onMove} onReady={onReady} isMobile={isMobile}
+            />
+            <WorkshopLane
+              titulo="Plegadora" Icon={Factory}
+              color={C.violet} soft={C.violetL} border={C.violetB}
+              rows={rowsPlegadora}
+              onSelectProcess={onSelectProcess} onMove={onMove} onReady={onReady} isMobile={isMobile}
+            />
+          </div>
 
-      <div className="tor-dashboard-grid">
-        <section style={{ minWidth: 0 }}>
-          <TallerBoard
-            processes={filteredProcesses}
-            onSelectProcess={onSelectProcess}
-            onMove={onMove}
-            isMobile={isMobile}
-          />
-        </section>
+          <aside style={{ minWidth: 0, display: "grid", gap: 12, alignContent: "start" }}>
+            <ReadyBatchQueue
+              tipo="salida"
+              rows={readySend}
+              selected={selectedSend}
+              onSelected={setSelectedSend}
+              onOpen={onBatch}
+            />
+            <ReadyBatchQueue
+              tipo="recepcion"
+              rows={readyPickup}
+              selected={selectedPickup}
+              onSelected={setSelectedPickup}
+              onOpen={onBatch}
+            />
 
-        <aside style={{ minWidth: 0, display: "grid", gap: 12, alignContent: "start" }}>
-          <section style={{ display: "grid", gap: 7, padding: 11, borderRadius: 13, border: `1px solid ${C.greenB}`, background: C.greenL }}>
-            <div style={{ display: "flex", alignItems: "center", gap: 7 }}>
-              <Truck size={12} style={{ color: C.green }} />
-              <span style={{ color: C.text, fontSize: 11.5, fontWeight: 900 }}>Listos para salir</span>
-              <span style={{ marginLeft: "auto", color: C.green, fontSize: 11, fontWeight: 950 }}>{ready.length}</span>
-            </div>
-            {!ready.length ? (
-              <div style={{ color: C.dim, fontSize: 10, lineHeight: 1.4 }}>No hay una salida habilitada con estos filtros.</div>
-            ) : ready.slice(0, 8).map(({ process, op }) => (
-              <div key={op.id} style={{ display: "grid", gridTemplateColumns: "minmax(0,1fr) auto", alignItems: "center", gap: 8, paddingTop: 7, borderTop: `1px solid ${C.greenB}` }}>
-                <div style={{ minWidth: 0 }}>
-                  <div style={{ color: C.text, fontSize: 10.5, fontWeight: 850, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
-                    {process.obra?.codigo} · {pieces(op)}
-                  </div>
-                  <div style={{ color: C.dim, fontSize: 9, marginTop: 2 }}>Viaje {op.viaje || 1} · {workshopName(op)}</div>
+            {toPrepare.length > 0 && (
+              <section style={{
+                display: "grid",
+                gap: 7,
+                padding: 11,
+                borderRadius: 13,
+                border: `1px solid ${C.blueB}`,
+                background: C.blueL,
+              }}>
+                <div style={{ display: "flex", alignItems: "center", gap: 7 }}>
+                  <Check size={12} style={{ color: C.blue }} />
+                  <span style={{ color: C.text, fontSize: 11.5, fontWeight: 900 }}>Para preparar salida</span>
+                  <span style={{ marginLeft: "auto", color: C.blue, fontSize: 11, fontWeight: 950 }}>{toPrepare.length}</span>
                 </div>
-                <button type="button" onClick={() => onMove(process, op)} style={{ ...BUTTON, minHeight: 29, padding: "3px 7px", color: C.green, borderColor: C.greenB }}>
-                  Salida <ArrowRight size={11} />
-                </button>
-              </div>
-            ))}
-          </section>
+                {toPrepare.slice(0, 8).map(({ process, op }) => {
+                  const components = (op.componentes || []).filter(
+                    (component) => (
+                      component.item?.activo !== false
+                      && !component.item?.no_lleva
+                      && Number(component.cantidad_requerida) > Number(component.cantidad_enviada)
+                      && !preparacionVigente(component, op, "envio")
+                    ),
+                  );
+                  return (
+                    <div key={op.id} style={{
+                      display: "grid",
+                      gridTemplateColumns: "minmax(0,1fr) auto",
+                      alignItems: "center",
+                      gap: 8,
+                      paddingTop: 7,
+                      borderTop: `1px solid ${C.blueB}`,
+                    }}>
+                      <div style={{ minWidth: 0 }}>
+                        <div style={{ color: C.text, fontSize: 10.5, fontWeight: 850, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+                          {process.obra?.codigo} · {dashboardPieces(op)}
+                        </div>
+                        <div style={{ color: C.dim, fontSize: 9, marginTop: 2 }}>
+                          En astillero · Viaje {op.viaje || 1}
+                        </div>
+                      </div>
+                      <button
+                        type="button"
+                        onClick={() => onReady(components, "envio", true)}
+                        style={{ ...BUTTON, minHeight: 29, padding: "3px 8px", borderColor: C.blueB, background: C.panel, color: C.blue, fontSize: 9.5 }}
+                      >
+                        Dar listo
+                      </button>
+                    </div>
+                  );
+                })}
+              </section>
+            )}
 
-          <section style={{ display: "grid", gap: 7, padding: 11, borderRadius: 13, border: `1px solid ${C.border}`, background: C.panel }}>
-            <div style={{ display: "flex", alignItems: "center", gap: 7 }}>
-              <AlertTriangle size={12} style={{ color: blocked.length ? C.red : C.dim }} />
-              <span style={{ color: C.text, fontSize: 11.5, fontWeight: 900 }}>Esperando antes de salir</span>
-              <span style={{ marginLeft: "auto", color: blocked.length ? C.red : C.dim, fontSize: 11, fontWeight: 950 }}>{blocked.length}</span>
-            </div>
-            {!blocked.length ? (
-              <div style={{ color: C.dim, fontSize: 10 }}>No hay pasos bloqueados con estos filtros.</div>
-            ) : blocked.slice(0, 8).map(({ process, op, dependencias, materialesPendientes }) => (
-              <button
-                key={op.id}
-                type="button"
-                onClick={() => onSelectProcess(process.id)}
-                style={{
-                  display: "grid", gap: 3, width: "100%", padding: "7px 0 0", textAlign: "left",
-                  border: 0, borderTop: `1px solid ${C.border}`, background: "transparent", cursor: "pointer", fontFamily: C.sans,
-                }}
-              >
-                <span style={{ color: C.text, fontSize: 10.5, fontWeight: 850 }}>{process.obra?.codigo} · {pieces(op)}</span>
-                <span style={{ color: C.dim, fontSize: 9.5, lineHeight: 1.35 }}>
-                  {dependencias.length
-                    ? `Espera ${dependencias.map((row) => row.nombre).join(", ")}`
-                    : `Falta recibir ${materialesPendientes.map((row) => row.item?.descripcion).filter(Boolean).join(", ")}`}
-                </span>
-              </button>
-            ))}
-          </section>
-        </aside>
-      </div>
+            <section style={{ display: "grid", gap: 7, padding: 11, borderRadius: 13, border: `1px solid ${C.border}`, background: C.panel }}>
+              <div style={{ display: "flex", alignItems: "center", gap: 7 }}>
+                <AlertTriangle size={12} style={{ color: blocked.length ? C.red : C.dim }} />
+                <span style={{ color: C.text, fontSize: 11.5, fontWeight: 900 }}>Esperando antes de salir</span>
+                <span style={{ marginLeft: "auto", color: blocked.length ? C.red : C.dim, fontSize: 11, fontWeight: 950 }}>{blocked.length}</span>
+              </div>
+              {!blocked.length ? (
+                <div style={{ color: C.dim, fontSize: 10 }}>No hay pasos bloqueados con estos filtros.</div>
+              ) : blocked.slice(0, 8).map(({ process, op, dependencias, materialesPendientes }) => (
+                <button
+                  key={op.id}
+                  type="button"
+                  onClick={() => onSelectProcess(process.id)}
+                  style={{
+                    display: "grid", gap: 3, width: "100%", padding: "7px 0 0", textAlign: "left",
+                    border: 0, borderTop: `1px solid ${C.border}`, background: "transparent", cursor: "pointer", fontFamily: C.sans,
+                  }}
+                >
+                  <span style={{ color: C.text, fontSize: 10.5, fontWeight: 850 }}>{process.obra?.codigo} · {dashboardPieces(op)}</span>
+                  <span style={{ color: C.dim, fontSize: 9.5, lineHeight: 1.35 }}>
+                    {dependencias.length
+                      ? `Espera ${dependencias.map((row) => row.nombre).join(", ")}`
+                      : `Falta recibir ${materialesPendientes.map((row) => row.item?.descripcion).filter(Boolean).join(", ")}`}
+                  </span>
+                </button>
+              ))}
+              {blocked.length > 8 && (
+                <div style={{ color: C.dim, fontSize: 9.5, paddingTop: 6, borderTop: `1px solid ${C.border}` }}>
+                  y {blocked.length - 8} más…
+                </div>
+              )}
+            </section>
+          </aside>
+        </div>
+      )}
     </div>
   );
 }
@@ -2931,6 +3401,41 @@ export default function TorneriaScreen({ profile, signOut }) {
     }
   }
 
+  async function updatePreparation(components, etapa, listo = true) {
+    const ids = (components || []).map((row) => row?.id).filter(Boolean);
+    if (!ids.length) return;
+    try {
+      await marcarPreparacion({
+        operacionItemIds: ids,
+        etapa,
+        listo,
+      });
+      await load({ quiet: true, preferId: selectedId || null });
+      const label = etapa === "envio" ? "enviar" : "retirar";
+      toast.success(listo
+        ? `${ids.length === 1 ? "Material listo" : "Materiales listos"} para ${label}.`
+        : "Preparación reabierta.");
+    } catch (preparationError) {
+      toast.error(preparationError.message);
+    }
+  }
+
+  async function saveFreight(payload) {
+    try {
+      await guardarFlete({
+        ...payload,
+        fecha: payload.fecha ? new Date(payload.fecha).toISOString() : new Date().toISOString(),
+      });
+      setModal(null);
+      await load({ quiet: true, preferId: selectedId || null });
+      toast.success(payload.tipo === "salida"
+        ? "Flete de salida registrado."
+        : "Retiro conjunto registrado.");
+    } catch (freightError) {
+      toast.error(freightError.message);
+    }
+  }
+
   async function deleteMovement(movement) {
     const accepted = await confirm({
       title: "¿Eliminar movimiento?",
@@ -3017,8 +3522,8 @@ export default function TorneriaScreen({ profile, signOut }) {
     }
   }
 
-  function openMovement(operation, movement = null) {
-    setModal({ type: "movement", operation, movement });
+  function openMovement(operation, movement = null, tipo = null) {
+    setModal({ type: "movement", operation, movement, tipo });
   }
 
   const setupMissing = /torneria_|schema cache|does not exist|relation/i.test(error);
@@ -3131,23 +3636,25 @@ export default function TorneriaScreen({ profile, signOut }) {
         .tor-kpi:hover{border-color:var(--border-2)}
         .tor-kpi:active{transform:scale(.97)}
         .tor-operation-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px}
-        .tor-dashboard-kpis{display:grid;grid-template-columns:repeat(5,minmax(130px,1fr));gap:7px}
-        .tor-dashboard-grid{display:grid;grid-template-columns:minmax(0,1fr) minmax(250px,330px);gap:14px;align-items:start}
+        .tor-dashboard-grid{display:grid;grid-template-columns:minmax(0,1fr) minmax(280px,340px);gap:12px;align-items:start}
+        /* Carriles de taller: uno al lado del otro mientras haya ~320px por
+           carril; si no, se apilan solos. */
+        .tor-dashboard-lanes{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,320px),1fr));gap:12px;align-items:start}
         input:focus,select:focus,textarea:focus{border-color:var(--blue-border)!important}
         select option{background:var(--panel-solid);color:var(--text)}
         @media(max-width:1120px){
           .tor-operation-grid{grid-template-columns:1fr}
-          .tor-dashboard-kpis{grid-template-columns:repeat(3,minmax(130px,1fr))}
+          /* Con el sidebar y la lista de obras abiertos el panel queda angosto:
+             el rail de acciones baja antes de que los carriles se compriman. */
+          .tor-dashboard-grid{grid-template-columns:minmax(0,1fr)}
         }
         @media(max-width:860px){
           .tor-dashboard-grid{grid-template-columns:minmax(0,1fr)}
-          .tor-dashboard-kpis{grid-template-columns:repeat(2,minmax(0,1fr))}
         }
         @media(max-width:620px){
           .tor-form-grid{grid-template-columns:1fr}
           .tor-form-grid>*{grid-column:1!important}
           .tor-operation-grid{grid-template-columns:1fr}
-          .tor-dashboard-kpis{grid-template-columns:repeat(2,minmax(0,1fr))}
         }
       `}</style>
 
@@ -3560,10 +4067,12 @@ export default function TorneriaScreen({ profile, signOut }) {
                   <OperationalDashboard
                     processes={processes}
                     onSelectProcess={selectProcess}
-                    onMove={(process, operation) => {
+                    onMove={(process, operation, tipo = null) => {
                       selectProcess(process.id);
-                      openMovement(operation, null);
+                      openMovement(operation, null, tipo);
                     }}
+                    onReady={updatePreparation}
+                    onBatch={(tipo, selecciones) => setModal({ type: "flete", tipo, selecciones })}
                     isMobile={isMobile}
                   />
                 </div>
@@ -3612,7 +4121,9 @@ export default function TorneriaScreen({ profile, signOut }) {
                           </div>
                           {!isMobile && (
                             <div style={{ display: "flex", alignItems: "center", gap: 10, marginTop: 4, color: C.dim, fontSize: 10.5, flexWrap: "wrap" }}>
-                              <span style={{ display: "inline-flex", alignItems: "center", gap: 4 }}><MapPin size={11} /> {selected.taller_torneria}</span>
+                              <span style={{ display: "inline-flex", alignItems: "center", gap: 4 }}>
+                                <MapPin size={11} /> {operationDestinationLabel({ tipo: "torneria", destino: selected.taller_torneria })}
+                              </span>
                               {selected.responsable && <span>{selected.responsable}</span>}
                             </div>
                           )}
@@ -3741,7 +4252,7 @@ export default function TorneriaScreen({ profile, signOut }) {
                         {PROCESS_STATE[selected.estado] || selected.estado}
                       </span>
                       <span style={{ display: "inline-flex", alignItems: "center", gap: 4, color: C.dim, fontSize: 10.5, whiteSpace: "nowrap" }}>
-                        <MapPin size={11} /> {selected.taller_torneria}
+                        <MapPin size={11} /> {operationDestinationLabel({ tipo: "torneria", destino: selected.taller_torneria })}
                       </span>
                       {selected.responsable && (
                         <span style={{ color: C.dim, fontSize: 10.5, whiteSpace: "nowrap" }}>{selected.responsable}</span>
@@ -3832,6 +4343,7 @@ export default function TorneriaScreen({ profile, signOut }) {
                         key={selected.id}
                         process={selected}
                         onMove={openMovement}
+                        onReady={updatePreparation}
                         onEditOperation={(operation) => setModal({ type: "operation", operation })}
                         onNewOperation={() => setModal({ type: "operation", operation: null })}
                         onEditItem={(item) => setModal({ type: "item", item })}
@@ -3897,11 +4409,20 @@ export default function TorneriaScreen({ profile, signOut }) {
         <MovimientoModal
           operacion={modal.operation}
           movimiento={modal.movement}
+          tipoInicial={modal.tipo}
           dependenciasPendientes={dependencyRows(selected, modal.operation)}
           onClose={() => setModal(null)}
           onSave={(payload) => saveMovement(modal.operation, modal.movement, payload)}
           onDelete={() => deleteMovement(modal.movement)}
           onDeleteFile={deleteFile}
+        />
+      )}
+      {modal?.type === "flete" && (
+        <FleteModal
+          tipo={modal.tipo}
+          selecciones={modal.selecciones}
+          onClose={() => setModal(null)}
+          onSave={saveFreight}
         />
       )}
       {modal?.type === "help" && <HelpModal onClose={() => setModal(null)} />}

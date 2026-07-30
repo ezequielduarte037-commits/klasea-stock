@@ -98,8 +98,8 @@ export function Modal({ title, subtitle, onClose, children, footer, width = 640 
 // el borde queda invisible. Cada estado lleva su borde del theme.
 const STATUS_META = {
   pendiente: { label: "Pendiente", color: C.dim, bg: C.panel, borde: C.border },
-  enviado: { label: "En taller", color: C.blue, bg: C.blueL, borde: C.blueB },
-  parcial: { label: "Parcial", color: C.violet, bg: C.violetL, borde: C.violetB },
+  enviado: { label: "Fuera del astillero", color: C.blue, bg: C.blueL, borde: C.blueB },
+  parcial: { label: "Regreso parcial", color: C.violet, bg: C.violetL, borde: C.violetB },
   recibido: { label: "Recibido", color: C.green, bg: C.greenL, borde: C.greenB },
   cancelado: { label: "Cancelado", color: C.red, bg: C.redL, borde: C.redB },
   pendiente_solicitud: { label: "Por solicitar", color: C.dim, bg: C.panel, borde: C.border },
@@ -111,7 +111,7 @@ const STATUS_META = {
 
 export { STATUS_META };
 
-export function StatusBadge({ status, compact = false }) {
+export function StatusBadge({ status, compact = false, label = null }) {
   const meta = STATUS_META[status] ?? STATUS_META.pendiente;
   return (
     <span style={{
@@ -134,7 +134,7 @@ export function StatusBadge({ status, compact = false }) {
         borderRadius: "50%",
         background: meta.color,
       }} />
-      {meta.label}
+      {label || meta.label}
     </span>
   );
 }

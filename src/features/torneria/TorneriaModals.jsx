@@ -1,12 +1,14 @@
 import { useEffect, useMemo, useState } from "react";
 import {
-  AlertTriangle, Archive, Check, FileUp, Link2, Loader2, PackageSearch, Plus, Search, Trash2,
+  AlertTriangle, Archive, Check, FileUp, Link2, Loader2, PackageOpen, PackageSearch, Plus, Search,
+  Trash2, Truck,
 } from "lucide-react";
 import { C } from "@/theme";
 import { buscarMateriales } from "@/features/produccion/catalogoBusquedaApi";
 import {
   Field, Modal,
 } from "./torneriaUi";
+import { operationDestinationLabel } from "./torneriaLabels";
 import {
   BUTTON, DANGER_BUTTON, INPUT, PRIMARY_BUTTON,
 } from "./torneriaStyles";
@@ -390,7 +392,7 @@ export function ItemModal({ item, proceso, onClose, onSave, onArchive }) {
           background: C.panel,
         }}>
           {[
-            [false, "Material comprado", "Se compra y después recorre talleres."],
+            [false, "Material comprado", "Se compra y después se envía a Tornería o Plegadora."],
             [true, "Conjunto resultante", "Se arma con otros materiales del proceso."],
           ].map(([value, title, hint]) => {
             const active = form.es_resultado === value;
@@ -631,7 +633,7 @@ export function OperacionModal({ operacion, proceso, onClose, onSave, onArchive 
               style={INPUT}
             />
           </Field>
-          <Field label="Taller / destino">
+          <Field label="Destino externo">
             <input value={form.destino} onChange={(event) => set("destino", event.target.value)} style={INPUT} />
           </Field>
           <Field label="Tipo">
@@ -732,6 +734,7 @@ export function OperacionModal({ operacion, proceso, onClose, onSave, onArchive 
 export function MovimientoModal({
   operacion,
   movimiento,
+  tipoInicial = null,
   dependenciasPendientes,
   onClose,
   onSave,
@@ -739,7 +742,7 @@ export function MovimientoModal({
   onDeleteFile,
 }) {
   const isEdit = !!movimiento?.id;
-  const initialType = movimiento?.tipo || (operacion.estado === "pendiente" ? "salida" : "recepcion");
+  const initialType = movimiento?.tipo || tipoInicial || (operacion.estado === "pendiente" ? "salida" : "recepcion");
   const existingQty = new Map((movimiento?.items || []).map((row) => [
     row.operacion_item_id,
     Number(row.cantidad),
@@ -836,8 +839,8 @@ export function MovimientoModal({
 
         <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 6 }}>
           {[
-            ["salida", `${operacion.origen || "Astillero"} → taller`],
-            ["recepcion", "Taller → Astillero"],
+            ["salida", `${operacion.origen || "Astillero"} → ${operationDestinationLabel(operacion)}`],
+            ["recepcion", `${operationDestinationLabel(operacion)} → Astillero`],
           ].map(([value, label]) => (
             <button
               key={value}
@@ -967,6 +970,167 @@ export function MovimientoModal({
               ))}
             </div>
           )}
+        </div>
+      </div>
+    </Modal>
+  );
+}
+
+export function FleteModal({
+  tipo,
+  selecciones,
+  onClose,
+  onSave,
+}) {
+  const isOutbound = tipo === "salida";
+  const destinos = useMemo(() => [...new Set(
+    (selecciones || [])
+      .map((row) => operationDestinationLabel(row.operation))
+      .filter(Boolean),
+  )], [selecciones]);
+  const [form, setForm] = useState({
+    fecha: nowLocal(),
+    responsable: "",
+    destino: destinos.length === 1 ? destinos[0] : "Varios destinos",
+    remito: "",
+    notas: "",
+  });
+  const [quantities, setQuantities] = useState(() => new Map(
+    (selecciones || []).map((row) => [row.component.id, Number(row.cantidad) || 0]),
+  ));
+  const [saving, setSaving] = useState(false);
+  const set = (key, value) => setForm((prev) => ({ ...prev, [key]: value }));
+  const finalSelections = (selecciones || [])
+    .map((row) => ({ ...row, cantidad: Number(quantities.get(row.component.id)) || 0 }))
+    .filter((row) => row.cantidad > 0);
+
+  async function submit() {
+    if (!finalSelections.length) return;
+    setSaving(true);
+    try {
+      await onSave({ ...form, tipo, selecciones: finalSelections });
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  return (
+    <Modal
+      title={isOutbound ? "Registrar flete de salida" : "Registrar retiro conjunto"}
+      subtitle={`${finalSelections.length} ${finalSelections.length === 1 ? "material seleccionado" : "materiales seleccionados"} · un solo viaje logístico.`}
+      onClose={onClose}
+      width={760}
+      footer={(
+        <>
+          <button type="button" onClick={onClose} style={BUTTON}>Cancelar</button>
+          <button
+            type="button"
+            onClick={submit}
+            disabled={saving || !finalSelections.length}
+            style={{ ...PRIMARY_BUTTON, opacity: saving || !finalSelections.length ? 0.55 : 1 }}
+          >
+            {saving
+              ? <Loader2 className="spin" size={15} />
+              : isOutbound ? <Truck size={15} /> : <PackageOpen size={15} />}
+            {isOutbound ? "Confirmar salida" : "Confirmar recepción"}
+          </button>
+        </>
+      )}
+    >
+      <div style={{ display: "grid", gap: 16 }}>
+        {destinos.length > 1 && (
+          <div style={{
+            display: "flex",
+            alignItems: "flex-start",
+            gap: 9,
+            padding: 11,
+            borderRadius: 11,
+            border: `1px solid ${C.violetB}`,
+            background: C.violetL,
+            color: C.violet,
+            fontSize: 11.5,
+            lineHeight: 1.45,
+          }}>
+            <AlertTriangle size={16} style={{ flexShrink: 0 }} />
+            <div>
+              Este recorrido incluye {destinos.join(" y ")}. Podés registrarlo como un mismo flete con varias paradas.
+            </div>
+          </div>
+        )}
+
+        <div className="tor-form-grid">
+          <Field label="Fecha y hora">
+            <input type="datetime-local" value={form.fecha} onChange={(event) => set("fecha", event.target.value)} style={INPUT} />
+          </Field>
+          <Field label="Responsable / transportista">
+            <input value={form.responsable} onChange={(event) => set("responsable", event.target.value)} style={INPUT} />
+          </Field>
+          <Field label={isOutbound ? "Destino del recorrido" : "Origen del retiro"}>
+            <input value={form.destino} onChange={(event) => set("destino", event.target.value)} style={INPUT} />
+          </Field>
+          <Field label="Remito">
+            <input value={form.remito} onChange={(event) => set("remito", event.target.value)} style={INPUT} />
+          </Field>
+          <Field label="Observaciones" full>
+            <textarea value={form.notas} onChange={(event) => set("notas", event.target.value)} rows={2} style={{ ...INPUT, resize: "vertical" }} />
+          </Field>
+        </div>
+
+        <div style={{ display: "grid", gap: 7 }}>
+          <div>
+            <div style={{ color: C.text, fontSize: 12, fontWeight: 900 }}>Carga del flete</div>
+            <div style={{ color: C.dim, fontSize: 10.5, marginTop: 2 }}>
+              Revisá las cantidades. Cada obra conservará su movimiento y su historial por separado.
+            </div>
+          </div>
+          {(selecciones || []).map((row) => {
+            const item = row.component.item;
+            return (
+              <div key={row.component.id} style={{
+                display: "grid",
+                gridTemplateColumns: "minmax(0,1fr) 96px",
+                alignItems: "center",
+                gap: 10,
+                padding: 10,
+                borderRadius: 11,
+                border: `1px solid ${C.border}`,
+                background: C.panel,
+              }}>
+                <div style={{ minWidth: 0 }}>
+                  <div style={{ display: "flex", alignItems: "center", gap: 7, flexWrap: "wrap" }}>
+                    <span style={{ color: C.text, fontSize: 12, fontWeight: 900 }}>
+                      {row.process?.obra?.codigo || row.process?.nombre}
+                    </span>
+                    <span style={{ color: C.dim, fontSize: 10 }}>
+                      {operationDestinationLabel(row.operation)}
+                    </span>
+                  </div>
+                  <div style={{ color: C.muted, fontSize: 11, marginTop: 3, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+                    {item?.descripcion || "Material"} · {row.operation?.nombre}
+                  </div>
+                </div>
+                <div>
+                  <input
+                    type="number"
+                    min="0"
+                    max={row.cantidad}
+                    step="0.01"
+                    value={quantities.get(row.component.id) ?? ""}
+                    onChange={(event) => setQuantities((current) => {
+                      const next = new Map(current);
+                      next.set(row.component.id, event.target.value);
+                      return next;
+                    })}
+                    aria-label={`Cantidad de ${item?.descripcion || "material"}`}
+                    style={{ ...INPUT, minHeight: 36, padding: "6px 8px" }}
+                  />
+                  <div style={{ color: C.dim, fontSize: 9, marginTop: 3, textAlign: "right" }}>
+                    máx. {row.cantidad} {item?.unidad || ""}
+                  </div>
+                </div>
+              </div>
+            );
+          })}
         </div>
       </div>
     </Modal>

@@ -82,7 +82,8 @@ export async function fetchTorneriaProcesos() {
   ]);
 
   const movimientoIds = movimientos.map((row) => row.id);
-  const [movimientoItems, archivos] = await Promise.all([
+  const fleteIds = [...new Set(movimientos.map((row) => row.flete_id).filter(Boolean))];
+  const [movimientoItems, archivos, fletes] = await Promise.all([
     inQuery("torneria_movimiento_items", "movimiento_id", movimientoIds),
     inQuery(
       "torneria_archivos",
@@ -91,6 +92,7 @@ export async function fetchTorneriaProcesos() {
       "*",
       { column: "created_at", options: { ascending: false } },
     ),
+    inQuery("torneria_fletes", "id", fleteIds),
   ]);
 
   const itemById = new Map(items.map((item) => [item.id, item]));
@@ -106,6 +108,7 @@ export async function fetchTorneriaProcesos() {
     list.push(row);
     filesByMov.set(row.movimiento_id, list);
   });
+  const fleteById = new Map(fletes.map((row) => [row.id, row]));
 
   const movimientosByOp = new Map();
   movimientos.forEach((mov) => {
@@ -114,6 +117,7 @@ export async function fetchTorneriaProcesos() {
       ...mov,
       items: movItemsByMov.get(mov.id) ?? [],
       archivos: filesByMov.get(mov.id) ?? [],
+      flete: mov.flete_id ? fleteById.get(mov.flete_id) ?? null : null,
     });
     movimientosByOp.set(mov.operacion_id, list);
   });
@@ -364,6 +368,60 @@ export async function guardarMovimiento({
     p_remito: remito || "",
     p_notas: notas || "",
     p_items: items,
+  });
+  if (error) throw error;
+  return data;
+}
+
+export async function marcarPreparacion({
+  operacionItemIds,
+  etapa,
+  listo = true,
+}) {
+  const ids = [...new Set((operacionItemIds || []).filter(Boolean))];
+  if (!ids.length) throw new Error("Seleccioná al menos un material.");
+  const { data, error } = await supabase.rpc("torneria_marcar_listo", {
+    p_operacion_item_ids: ids,
+    p_etapa: etapa,
+    p_listo: listo,
+  });
+  if (error) throw error;
+  return data ?? [];
+}
+
+export async function guardarFlete({
+  tipo,
+  fecha,
+  responsable,
+  destino,
+  remito,
+  notas,
+  selecciones,
+}) {
+  const agrupadas = new Map();
+  (selecciones || []).forEach((row) => {
+    if (!row?.operation?.id || !row?.component?.id || Number(row.cantidad) <= 0) return;
+    const current = agrupadas.get(row.operation.id) ?? {
+      operacion_id: row.operation.id,
+      items: [],
+    };
+    current.items.push({
+      operacion_item_id: row.component.id,
+      cantidad: Number(row.cantidad),
+    });
+    agrupadas.set(row.operation.id, current);
+  });
+  const operaciones = [...agrupadas.values()].filter((row) => row.items.length);
+  if (!operaciones.length) throw new Error("Seleccioná al menos un material.");
+
+  const { data, error } = await supabase.rpc("torneria_guardar_flete", {
+    p_tipo: tipo,
+    p_fecha: fecha,
+    p_responsable: responsable || "",
+    p_destino: destino || "",
+    p_remito: remito || "",
+    p_notas: notas || "",
+    p_operaciones: operaciones,
   });
   if (error) throw error;
   return data;
