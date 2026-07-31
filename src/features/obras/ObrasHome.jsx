@@ -302,12 +302,12 @@ function Card({ vista, delay, onClick }) {
         animation:"oh-shimmer 0.7s cubic-bezier(0.22,1,0.36,1) forwards",pointerEvents:"none",zIndex:8}}/>}
       {/* Corner brackets */}
       {hov&&(
-        <svg style={{position:"absolute",inset:0,width:"100%",height:"100%",pointerEvents:"none",zIndex:9,overflow:"visible"}}>
-          {[`M ${BL},4 L 4,4 L 4,${BL}`,`M calc(100% - ${BL}),4 L calc(100% - 4),4 L calc(100% - 4),${BL}`,
-            `M 4,calc(100% - ${BL}) L 4,calc(100% - 4) L ${BL},calc(100% - 4)`,
-            `M calc(100% - ${BL}),calc(100% - 4) L calc(100% - 4),calc(100% - 4) L calc(100% - 4),calc(100% - ${BL})`
+        <svg viewBox="0 0 100 100" preserveAspectRatio="none" style={{position:"absolute",inset:0,width:"100%",height:"100%",pointerEvents:"none",zIndex:9,overflow:"visible"}}>
+          {[`M ${BL},4 L 4,4 L 4,${BL}`,`M ${100-BL},4 L 96,4 L 96,${BL}`,
+            `M 4,${100-BL} L 4,96 L ${BL},96`,
+            `M ${100-BL},96 L 96,96 L 96,${100-BL}`
           ].map((d,i)=>(
-            <path key={i} d={d} fill="none" stroke={vista.color} strokeWidth="1.8" strokeLinecap="round"
+            <path key={i} d={d} fill="none" stroke={vista.color} strokeWidth="1.8" strokeLinecap="round" vectorEffect="non-scaling-stroke"
               style={{filter:`drop-shadow(0 0 5px ${vista.color})`,strokeDasharray:BL*2+4,strokeDashoffset:BL*2+4,
                 animation:`oh-bracketDraw 0.22s ease ${i*0.04}s forwards`}}/>
           ))}

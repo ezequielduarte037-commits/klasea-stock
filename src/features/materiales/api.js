@@ -774,15 +774,6 @@ function normalizeObraAvance(row) {
   return { ...row, modelo };
 }
 
-function isMissingModeloColumn(error) {
-  const msg = String(error?.message ?? "").toLowerCase();
-  return (
-    error?.code === "42703" ||
-    msg.includes("modelo") ||
-    (msg.includes("column") && msg.includes("produccion_obras"))
-  );
-}
-
 async function fetchProduccionObras(select, onlyActive = true) {
   let query = supabase
     .from("produccion_obras")
@@ -1481,33 +1472,18 @@ export async function fetchObraSnapshotAudit(snapshotId, limit = 50) {
 
 export async function fetchObrasAvance() {
   try {
-    let rows;
-    try {
-      rows = await fetchProduccionObras(
-        "id, codigo, estado, linea_nombre, modelo",
-        true,
-      );
-    } catch (error) {
-      if (!isMissingModeloColumn(error)) throw error;
-      rows = await fetchProduccionObras(
-        "id, codigo, estado, linea_nombre",
-        true,
-      );
-    }
+    // `modelo` no existe en todas las bases ya migradas. Se deriva del código
+    // de obra (K55-1 → K55), evitando una petición 400 cada vez que se abre Materiales.
+    let rows = await fetchProduccionObras(
+      "id, codigo, estado, linea_nombre",
+      true,
+    );
 
     if (!rows.length) {
-      try {
-        rows = await fetchProduccionObras(
-          "id, codigo, estado, linea_nombre, modelo",
-          false,
-        );
-      } catch (error) {
-        if (!isMissingModeloColumn(error)) throw error;
-        rows = await fetchProduccionObras(
-          "id, codigo, estado, linea_nombre",
-          false,
-        );
-      }
+      rows = await fetchProduccionObras(
+        "id, codigo, estado, linea_nombre",
+        false,
+      );
     }
 
     return await withObrasRecepcion(rows.map(normalizeObraAvance));

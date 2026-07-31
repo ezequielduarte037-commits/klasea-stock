@@ -1,4 +1,5 @@
 import { useCallback, useDeferredValue, useEffect, useMemo, useRef, useState, useTransition } from "react";
+import { createPortal } from "react-dom";
 import { AlertTriangle, Barcode, Copy, Download, ExternalLink, FileText, ImagePlus, Link as LinkIcon, MoreHorizontal, PackagePlus, Pencil, Plus, RefreshCw, Save, Search, ShoppingCart, SkipForward, SlidersHorizontal, StickyNote, Trash2, Upload, X } from "lucide-react";
 import Sidebar from "@/components/Sidebar";
 import { useResponsive } from "@/hooks/useResponsive";
@@ -170,16 +171,19 @@ function matchesFlexibleSearch(query, ...fields) {
 }
 
 function materialSearchFields(material = {}) {
+  // Algunas filas históricas/adicionales todavía no tienen material de catálogo.
+  // El buscador debe poder seguir funcionando con esos datos incompletos.
+  const source = material || {};
   return [
-    material.descripcion,
-    material.codigo,
-    material.alias,
-    material.notas,
-    material.proveedor,
-    material.variantes,
-    material.variantes_precios,
-    materialBarcodeText(material),
-    (material.links || []).map((link) => `${link?.label || ""} ${link?.nota || ""}`),
+    source.descripcion,
+    source.codigo,
+    source.alias,
+    source.notas,
+    source.proveedor,
+    source.variantes,
+    source.variantes_precios,
+    materialBarcodeText(source),
+    (source.links || []).map((link) => `${link?.label || ""} ${link?.nota || ""}`),
   ];
 }
 
@@ -8358,9 +8362,31 @@ function ResolverFueraDeMatrizModal({
   const targetMaterial = selectedMaterial || linkedMaterial;
   const quantityValid = (toNum(cantidad) || 0) > 0;
 
-  return (
-    <div style={{ position: "fixed", inset: 0, zIndex: 5600, display: "grid", placeItems: "center", padding: 12, background: "color-mix(in srgb, var(--bg) 68%, transparent)", backdropFilter: "blur(5px)", WebkitBackdropFilter: "blur(5px)" }}>
-      <div style={{ width: "min(680px, calc(100vw - 24px))", maxHeight: "min(760px, calc(100vh - 24px))", overflowY: "auto", border: `1px solid ${C.b1}`, borderRadius: 16, background: C.panelSolid, boxShadow: "0 28px 80px rgba(15,23,42,.28)", padding: 14, display: "grid", gap: 12 }}>
+  useEffect(() => {
+    const closeWithEscape = (event) => {
+      if (event.key === "Escape" && !busy) onClose?.();
+    };
+    window.addEventListener("keydown", closeWithEscape);
+    return () => window.removeEventListener("keydown", closeWithEscape);
+  }, [busy, onClose]);
+
+  if (typeof document === "undefined") return null;
+
+  return createPortal(
+    <div
+      role="presentation"
+      onMouseDown={(event) => {
+        if (event.target === event.currentTarget && !busy) onClose?.();
+      }}
+      style={{ position: "fixed", inset: 0, zIndex: 10020, display: "grid", placeItems: "center", padding: 12, background: "var(--overlay-strong)", backdropFilter: "blur(5px)", WebkitBackdropFilter: "blur(5px)" }}
+    >
+      <div
+        role="dialog"
+        aria-modal="true"
+        aria-label="Resolver material fuera de matriz"
+        onMouseDown={(event) => event.stopPropagation()}
+        style={{ position: "relative", zIndex: 1, width: "min(680px, calc(100vw - 24px))", maxHeight: "min(760px, calc(100vh - 24px))", overflowY: "auto", border: `1px solid ${C.b1}`, borderRadius: 16, background: "var(--panel-solid)", color: C.t0, boxShadow: "0 28px 80px rgba(15,23,42,.28)", padding: 14, display: "grid", gap: 12 }}
+      >
         <div style={{ display: "flex", alignItems: "flex-start", justifyContent: "space-between", gap: 12 }}>
           <div style={{ minWidth: 0 }}>
             <div style={{ display: "flex", alignItems: "center", gap: 7, flexWrap: "wrap" }}>
@@ -8450,7 +8476,8 @@ function ResolverFueraDeMatrizModal({
           )}
         </div>
       </div>
-    </div>
+    </div>,
+    document.body,
   );
 }
 

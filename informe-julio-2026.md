@@ -14,7 +14,7 @@ El grueso del trabajo se concentró en cuatro frentes:
 3. **Abrir tornería como unidad de seguimiento**, pieza por pieza, con tiempos de ida y vuelta.
 4. **Empezar a cargar documentos sin tipear**, leyendo comprobantes, remitos y las propias solicitudes en papel con inteligencia artificial.
 
-Además se sumaron el control de consumibles por balanza, la identificación de quien retira material con tarjeta y firma, el archivado de pedidos viejos de laminación, el orden del catálogo de materiales y la reorganización completa de marmolería como centro de control.
+Además se sumaron el control de consumibles por balanza, las **tarjetas NFC de los empleados** para identificar a quién retira material, una **pantalla de egresos del pañol** que muestra en el momento qué se está llevando cada persona, el orden del catálogo de materiales y la reorganización completa de marmolería como centro de control.
 
 Los módulos de pañol (balanza, egresos, tarjetas) y laminación ya están en uso. Los más nuevos —tornería, el calendario con coordinación y la lectura de solicitudes por foto— están en puesta en marcha.
 
@@ -24,13 +24,13 @@ Los módulos de pañol (balanza, egresos, tarjetas) y laminación ya están en u
 
 | Área | Qué se hizo |
 |---|---|
-| **Pañol** | Solicitudes digitalizadas, egreso con tarjeta y firma, balanza para consumibles, conteo físico, registro de quién cambió qué |
+| **Pañol** | Solicitudes digitalizadas, tarjetas NFC con foto y firma, pantalla de egresos en vivo, balanza para consumibles, conteo físico, registro de quién cambió qué |
 | **Compras** | Pedidos por etapas con fechas calculadas desde el desmolde, avisos automáticos, pedidos multi-obra |
 | **Tornería** | Módulo nuevo: seguimiento pieza por pieza con demoras y estado de cada taller |
 | **Producción y fechas** | Grilla con alcance por línea, botadura estimada, calendario con coordinación de grúa/camión/cuadrilla |
 | **Materiales** | Catálogo ordenado: variantes por modelo, marcas, duplicados resueltos, adicionales |
 | **Muebles** | Lotes de producción con recepción parcial, separados del checklist histórico |
-| **Laminación y maderas** | Archivo de pedidos viejos nunca recibidos, recepción parcial |
+| **Laminación y maderas** | Recepción parcial de pedidos de maderas que venían de antes |
 | **Marmolería** | Reorganización completa: bandeja de acciones, línea de tiempo, vista por barcos |
 | **Personal** | Ausencias programadas (vacaciones, reposos, licencias) combinadas con presentismo |
 
@@ -42,7 +42,7 @@ Los módulos de pañol (balanza, egresos, tarjetas) y laminación ya están en u
 
 **El problema:** el circuito real de pedidos al pañol sigue siendo una hoja A4 que se llena a mano, se pierde, no deja rastro de quién pidió qué, y cuando falta material nadie se entera hasta que se lo va a buscar.
 
-**Qué se hizo:** el pañol carga la solicitud en el sistema, arma los ítems e imprime la hoja completa para quien quiera seguir usando el papel. El retiro se confirma con la tarjeta del empleado y su firma, y genera el egreso real de stock en el momento. Lo que falta cae **automáticamente en la bandeja de Compras**, sin que nadie tenga que avisar. Hay tres formas de cargar una solicitud: transcribir el papel, cargarla directamente quien la pide, o **sacarle una foto al papel y que el sistema la lea y deje un borrador para revisar**.
+**Qué se hizo:** el pañol carga la solicitud en el sistema, arma los ítems e imprime la hoja completa para quien quiera seguir usando el papel. El retiro se confirma pasando la **tarjeta NFC del empleado** y queda firmado, y genera el egreso real de stock en el momento. Lo que falta cae **automáticamente en la bandeja de Compras**, sin que nadie tenga que avisar. Hay tres formas de cargar una solicitud: transcribir el papel, cargarla directamente quien la pide, o **sacarle una foto al papel y que el sistema la lea y deje un borrador para revisar**.
 
 **Qué cambia:** cada retiro queda registrado con nombre, foto y firma; los faltantes se convierten solos en trabajo para Compras; y el papel deja de ser la única fuente de verdad. El circuito en papel sigue vigente mientras se adopta la herramienta — la transición no obliga a nadie a cambiar de un día para el otro.
 
@@ -74,7 +74,7 @@ Los módulos de pañol (balanza, egresos, tarjetas) y laminación ya están en u
 
 ## El resto, por área
 
-**Pañol.** Además de las solicitudes: egreso de consumibles por **balanza** con calibración de pesos (ya en uso), recepción por escaneo con varios códigos de barra por material, transferencias reales entre obras y stock con posibilidad de anular movimientos, conteo físico desde el lector, mapa de ubicaciones, y registro completo de quién cambió qué — se terminó el "Usuario: sin registrar".
+**Pañol.** Además de las solicitudes: egreso de consumibles por **balanza** con calibración de pesos (ya en uso); **tarjetas NFC para los empleados**, vinculadas al legajo — al pasar la tarjeta, la pantalla muestra nombre y foto de quien retira y el retiro queda firmado; una **pantalla de egresos del pañol** que muestra en vivo lo que se va llevando cada persona, pensada para tenerla abierta en el mostrador; recepción por escaneo con varios códigos de barra por material; transferencias reales entre obras y stock con posibilidad de anular movimientos; conteo físico desde el lector; mapa de ubicaciones; y registro completo de quién cambió qué — se terminó el "Usuario: sin registrar".
 
 **Compras.** Además de las etapas: pedidos con archivos adjuntos, semáforo por cobertura real de ítems, y un portal para que el proveedor responda sin intermediarios (en validación).
 
@@ -84,11 +84,11 @@ Los módulos de pañol (balanza, egresos, tarjetas) y laminación ya están en u
 
 **Muebles.** Lotes de producción por juego completo con recepción parcial, separados del checklist histórico para no mezclar lo operativo con lo administrativo.
 
-**Laminación y maderas.** Los pedidos viejos que nunca se recibieron —y probablemente no se reciban— se pueden **archivar** con un motivo, dejan de ensuciar los pendientes y los contadores, y se pueden restaurar si el material llega. Además, recepción parcial para los pedidos de maderas cargados antes del sistema nuevo.
+**Laminación y maderas.** Recepción parcial de los pedidos de maderas que venían de antes del sistema nuevo, para ir recibiendo lo que llega sin tener que darlos de baja ni cargarlos de nuevo.
 
 **Marmolería.** La pantalla se reconstruyó como centro de control: bandeja de acciones prioritarias (qué plantillas pedir ahora, qué barcos tienen piezas demoradas, qué volvió incompleto), línea de tiempo desmolde → plantilla → envío → recepción, y vista de barcos como unidades operativas.
 
-**Personal.** Ausencias programadas (vacaciones, reposos, licencias) combinadas con el presentismo, para no cruzar planillas a mano. Tarjetas de empleados vinculadas al legajo, que además usan los egresos de pañol.
+**Personal.** Ausencias programadas (vacaciones, reposos, licencias) combinadas con el presentismo, para no cruzar planillas a mano.
 
 **Cadete.** Hoja de ruta imprimible con los pedidos del día.
 
@@ -106,6 +106,6 @@ Los módulos de pañol (balanza, egresos, tarjetas) y laminación ya están en u
 
 ## Una aclaración honesta
 
-Que algo esté construido no significa que ya se use todos los días. Está **en uso**: balanza y egresos de pañol, archivo de pedidos de laminación, lectura de comprobantes, presentismo con ausencias. Está **en puesta en marcha o pruebas**: tornería, solicitudes de pañol digitalizadas, calendario con coordinación, lectura por foto, portal de proveedores. El próximo paso natural es acompañar la adopción de lo que está en puesta en marcha antes de seguir construyendo.
+Que algo esté construido no significa que ya se use todos los días. Está **en uso**: balanza, tarjetas y egresos de pañol; recepciones de laminación; lectura de comprobantes; presentismo con ausencias. Está **en puesta en marcha o pruebas**: tornería, solicitudes de pañol digitalizadas, calendario con coordinación, lectura por foto, portal de proveedores. El próximo paso natural es acompañar la adopción de lo que está en puesta en marcha antes de seguir construyendo.
 
 *Informe elaborado a partir del registro completo de trabajo del 2 al 30 de julio de 2026 (86 publicaciones verificadas).*
