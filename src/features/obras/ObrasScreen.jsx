@@ -21,6 +21,8 @@ import PiezasLaminacionView   from "@/features/obras/PiezasLaminacionView";
 import FechasView             from "@/features/obras/FechasView";
 import ObrasHome              from "@/features/obras/ObrasHome";
 import TimelineDesmoldeView   from "@/features/obras/TimelineDesmoldeView";
+import MaterialesProduccionPanel from "@/features/obras/MaterialesProduccionPanel";
+import TareaArchivosPanel     from "@/features/obras/TareaArchivosPanel";
 import BotonAyuda             from "@/features/ayuda/BotonAyuda";
 import {
   getProductionStageSchedule,
@@ -299,90 +301,6 @@ function PrioridadPicker({ value, onChange }) {
   );
 }
 
-// ── Ficha del barco (datos descriptivos de la obra: cliente, motores, madera, etc.) ──
-const FICHA_FIELDS = [
-  ["cliente", "Cliente"], ["constructor", "Constructor"], ["motores", "Motores"],
-  ["madera", "Madera"], ["grupo_electrogeno", "Grupo electrógeno"],
-  ["desplazamiento", "Desplazamiento"], ["ubicacion_entrega", "Entrega / ubicación"],
-  ["valores_pruebas", "Valores de pruebas"], ["semanas_const", "Semanas de constr."],
-];
-
-function FichaItem({ label, value }) {
-  return (
-    <div style={{ minWidth: 0 }}>
-      <div style={{ fontSize: 9.5, letterSpacing: 0.8, color: C.t3, textTransform: "uppercase", fontWeight: 700, marginBottom: 1 }}>{label}</div>
-      <div style={{ fontSize: 12.5, color: C.t1, fontWeight: 600, whiteSpace: "pre-wrap", lineHeight: 1.35 }}>{value}</div>
-    </div>
-  );
-}
-
-function FichaBarco({ obra, esGestion, onSave }) {
-  const [editing, setEditing] = useState(false);
-  const [buf, setBuf] = useState({});
-  const [saving, setSaving] = useState(false);
-  const botadaStr = obra.botada ? String(obra.botada).slice(0, 10) : "";
-  const presentes = FICHA_FIELDS.filter(([k]) => obra[k]);
-  const tieneAlgo = presentes.length > 0 || !!botadaStr;
-
-  function start() {
-    const b = {};
-    FICHA_FIELDS.forEach(([k]) => { b[k] = obra[k] ?? ""; });
-    b.botada = botadaStr;
-    setBuf(b); setEditing(true);
-  }
-  async function guardar() {
-    setSaving(true);
-    const patch = {};
-    FICHA_FIELDS.forEach(([k]) => { patch[k] = String(buf[k] ?? "").trim() || null; });
-    patch.botada = buf.botada || null;
-    try { await onSave(obra.id, patch); setEditing(false); }
-    finally { setSaving(false); }
-  }
-
-  if (!esGestion && !tieneAlgo) return null;
-
-  return (
-    <div style={{ marginBottom: 10, border: `1px solid ${C.b0}`, borderRadius: 10, background: C.s0, padding: "10px 12px" }}>
-      <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: tieneAlgo || editing ? 9 : 0 }}>
-        <span style={{ fontSize: 10, letterSpacing: 1.3, color: C.t2, textTransform: "uppercase", fontWeight: 700 }}>Ficha del barco</span>
-        {esGestion && !editing && (
-          <button type="button" onClick={start} style={{ border: `1px solid ${C.b1}`, background: "transparent", color: C.t1, borderRadius: 6, padding: "3px 10px", cursor: "pointer", fontSize: 11, fontWeight: 700 }}>
-            {tieneAlgo ? "Editar" : "+ Cargar ficha"}
-          </button>
-        )}
-      </div>
-
-      {editing ? (
-        <>
-          <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(180px, 1fr))", gap: "0 12px" }}>
-            {FICHA_FIELDS.map(([k, label]) => (
-              <InputSt key={k} label={label}>
-                {k === "valores_pruebas"
-                  ? <textarea style={{ ...INP, resize: "vertical", minHeight: 44 }} value={buf[k] ?? ""} onChange={e => setBuf(b => ({ ...b, [k]: e.target.value }))} />
-                  : <input style={INP} value={buf[k] ?? ""} onChange={e => setBuf(b => ({ ...b, [k]: e.target.value }))} />}
-              </InputSt>
-            ))}
-            <InputSt label="Botadura (estimada)">
-              <input type="date" style={INP} value={buf.botada ?? ""} onChange={e => setBuf(b => ({ ...b, botada: e.target.value }))} />
-            </InputSt>
-          </div>
-          <div style={{ display: "flex", gap: 6 }}>
-            <button type="button" disabled={saving} onClick={guardar} style={{ border: "1px solid rgba(16,185,129,0.4)", background: "rgba(16,185,129,0.10)", color: C.green, borderRadius: 7, padding: "6px 14px", cursor: saving ? "default" : "pointer", fontSize: 12, fontWeight: 800 }}>{saving ? "Guardando…" : "Guardar"}</button>
-            <button type="button" onClick={() => setEditing(false)} style={{ border: `1px solid ${C.b1}`, background: "transparent", color: C.t2, borderRadius: 7, padding: "6px 12px", cursor: "pointer", fontSize: 12, fontWeight: 700 }}>Cancelar</button>
-          </div>
-        </>
-      ) : tieneAlgo ? (
-        <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(150px, 1fr))", gap: "7px 14px" }}>
-          {botadaStr && <FichaItem label="Botadura" value={botadaStr.split("-").reverse().join("/")} />}
-          {presentes.map(([k, label]) => <FichaItem key={k} label={label} value={obra[k]} />)}
-        </div>
-      ) : (
-        <div style={{ fontSize: 11, color: C.t3 }}>Sin datos cargados.</div>
-      )}
-    </div>
-  );
-}
-
 // Propaga las predecesoras (dependencias) de la plantilla de línea a las tareas reales de la obra.
 // La plantilla guarda ids de linea_proceso_tareas; al copiarse a la obra cada tarea recibe un id
 // nuevo, así que remapeamos por NOMBRE (único dentro de una obra en la práctica).
@@ -608,10 +526,6 @@ function ObraModal({ lineas, lProcs, stageOffsets = new Map(), onSave, onClose }
             obra_id: nueva.id, linea_proceso_id: p.id, nombre: p.nombre, orden: p.orden ?? i + 1,
             color: p.color ?? "#64748b", dias_estimados: p.dias_estimados, estado: "pendiente",
             ...(hasMatrixDetailColumns(p) ? { descripcion: p.descripcion ?? null, ...matrixDetailPatch(p) } : {}),
-            genera_orden_compra: p.genera_orden_compra ?? false, orden_compra_tipo: p.orden_compra_tipo ?? "aviso",
-            orden_compra_descripcion: p.orden_compra_descripcion ?? null,
-            orden_compra_monto_estimado: p.orden_compra_monto_estimado ?? null,
-            orden_compra_dias_previo: p.orden_compra_dias_previo ?? 7,
           })));
           await supabase.from("obra_timeline").insert(procsLinea.map(p => ({ obra_id: nueva.id, linea_proceso_id: p.id, estado: "pendiente" })));
           // Copiar tareas desde linea_proceso_tareas — igual que K43
@@ -625,7 +539,7 @@ function ObraModal({ lineas, lProcs, stageOffsets = new Map(), onSave, onClose }
                 const tareasAInsertar = [];
                 for (const etapa of etapasIns.data) {
                   for (const tp of tPlantilla.filter(t => t.linea_proceso_id === etapa.linea_proceso_id)) {
-                    tareasAInsertar.push({ obra_id: nueva.id, etapa_id: etapa.id, nombre: tp.nombre, orden: tp.orden ?? 999, estado: "pendiente", prioridad: tp.prioridad ?? "media", descripcion: tp.descripcion ?? null, responsable: tp.responsable ?? null, dias_estimados: tp.dias_estimados ?? null, horas_estimadas: tp.horas_estimadas ?? null, personas_necesarias: tp.personas_necesarias ?? null, observaciones: tp.observaciones ?? null });
+                    tareasAInsertar.push({ obra_id: nueva.id, etapa_id: etapa.id, linea_proceso_tarea_id: tp.id, nombre: tp.nombre, orden: tp.orden ?? 999, estado: "pendiente", prioridad: tp.prioridad ?? "media", descripcion: tp.descripcion ?? null, responsable: tp.responsable ?? null, dias_estimados: tp.dias_estimados ?? null, horas_estimadas: tp.horas_estimadas ?? null, personas_necesarias: tp.personas_necesarias ?? null, observaciones: tp.observaciones ?? null });
                   }
                 }
                 if (tareasAInsertar.length) {
@@ -691,7 +605,6 @@ function ObraModal({ lineas, lProcs, stageOffsets = new Map(), onSave, onClose }
                     <span key={p.id} style={{ display: "inline-flex", alignItems: "center", gap: 5, fontSize: 10, padding: "3px 7px", borderRadius: 5, background: "var(--panel)", color: C.t1, border: `1px solid ${configured ? C.b1 : C.b0}` }}>
                       {p.nombre}
                       <b style={{ color: configured ? C.t1 : C.amber, fontFamily: C.mono }}>{configured ? relativeWeekLabel(offset) : "sin ubicar"}</b>
-                      {p.genera_orden_compra ? " ●" : ""}
                     </span>
                   );
                 })}
@@ -718,9 +631,6 @@ function EtapaModal({ etapa, obraId, detailEnabled = false, onSave, onClose }) {
     fecha_fin_estimada: etapa?.fecha_fin_estimada ?? "",
     responsable: etapa?.responsable ?? "", personas_necesarias: etapa?.personas_necesarias ?? "",
     involucrados: etapa?.involucrados ?? "", observaciones: etapa?.observaciones ?? "",
-    genera_orden_compra: etapa?.genera_orden_compra ?? false,
-    orden_compra_tipo: etapa?.orden_compra_tipo ?? "aviso", orden_compra_descripcion: etapa?.orden_compra_descripcion ?? "",
-    orden_compra_monto_estimado: etapa?.orden_compra_monto_estimado ?? "", orden_compra_dias_previo: etapa?.orden_compra_dias_previo ?? 7,
   });
   const [saving, setSaving] = useState(false);
   const [err, setErr] = useState("");
@@ -739,11 +649,6 @@ function EtapaModal({ etapa, obraId, detailEnabled = false, onSave, onClose }) {
       nombre: form.nombre.trim(), descripcion: form.descripcion.trim() || null, color: form.color,
       dias_estimados: durationDays,
       fecha_inicio: form.fecha_inicio || null, fecha_fin_estimada: form.fecha_fin_estimada || null,
-      genera_orden_compra: form.genera_orden_compra,
-      orden_compra_tipo: form.genera_orden_compra ? form.orden_compra_tipo : null,
-      orden_compra_descripcion: form.genera_orden_compra ? (form.orden_compra_descripcion.trim() || null) : null,
-      orden_compra_monto_estimado: form.genera_orden_compra && form.orden_compra_monto_estimado !== "" ? num(form.orden_compra_monto_estimado) : null,
-      orden_compra_dias_previo: form.genera_orden_compra ? num(form.orden_compra_dias_previo) : null,
     };
     if (canEditMatrixDetails) Object.assign(payload, matrixDetailPatch(form));
     const { error } = isEdit
@@ -800,7 +705,7 @@ function EtapaModal({ etapa, obraId, detailEnabled = false, onSave, onClose }) {
           )}
           <InputSt label="Descripción"><input style={INP} value={form.descripcion} onChange={e => set("descripcion", e.target.value)} /></InputSt>
           <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10, marginBottom: 12 }}>
-            <InputSt label="Duración total de etapa *"><input required type="number" min="0.5" step="0.5" style={INP} value={form.dias_estimados} onChange={e => set("dias_estimados", e.target.value)} /></InputSt>
+            <InputSt label="Duración total de etapa (días) *"><input required type="number" min="0.5" step="0.5" style={INP} value={form.dias_estimados} onChange={e => set("dias_estimados", e.target.value)} /></InputSt>
             <InputSt label="Color">
               <div style={{ display: "flex", gap: 6, alignItems: "center" }}>
                 <input type="color" value={form.color} onChange={e => set("color", e.target.value)} style={{ width: 32, height: 30, border: "none", background: "none", cursor: "pointer", flexShrink: 0 }} />
@@ -812,7 +717,6 @@ function EtapaModal({ etapa, obraId, detailEnabled = false, onSave, onClose }) {
             <InputSt label="Inicio manual (excepción)"><input type="date" style={INP} value={form.fecha_inicio} onChange={e => set("fecha_inicio", e.target.value)} /></InputSt>
             <InputSt label="Fin manual (excepción)"><input type="date" style={INP} value={form.fecha_fin_estimada} onChange={e => set("fecha_fin_estimada", e.target.value)} /></InputSt>
           </div>
-          <OrdenCompraSection genera={form.genera_orden_compra} tipo={form.orden_compra_tipo} desc={form.orden_compra_descripcion} monto={form.orden_compra_monto_estimado} diasPrevio={form.orden_compra_dias_previo} onChange={set} />
           <div style={{ display: "flex", gap: 8, marginTop: 16 }}>
             <Btn type="submit" variant="primary" disabled={saving}>{saving ? "Guardando…" : isEdit ? "Guardar" : "Crear etapa"}</Btn>
             <Btn variant="outline" onClick={onClose}>Cancelar</Btn>
@@ -845,6 +749,7 @@ function TareaModal({ tarea, etapaId, obraId, onSave, onClose }) {
   const [saving, setSaving]     = useState(false);
   const [err, setErr]           = useState("");
   const [archivos, setArchivos] = useState([]);
+  const [archivosPlantilla, setArchivosPlantilla] = useState([]);
   const [loadingArch, setLoadingArch] = useState(isEdit);
   const [uploading, setUploading] = useState(false);
   const [uploadErr, setUploadErr] = useState("");
@@ -856,8 +761,14 @@ function TareaModal({ tarea, etapaId, obraId, onSave, onClose }) {
   async function cargarArchivos() {
     if (!tareaId) return;
     setLoadingArch(true);
-    const data = await safeQuery(supabase.from("obra_tarea_archivos").select("*").eq("tarea_id", tareaId).order("created_at"));
+    const [data, inherited] = await Promise.all([
+      safeQuery(supabase.from("obra_tarea_archivos").select("*").eq("tarea_id", tareaId).order("created_at")),
+      tarea?.linea_proceso_tarea_id
+        ? safeQuery(supabase.from("linea_proceso_tarea_archivos").select("*").eq("linea_proceso_tarea_id", tarea.linea_proceso_tarea_id).order("created_at"))
+        : Promise.resolve([]),
+    ]);
     setArchivos(data);
+    setArchivosPlantilla(inherited);
     setLoadingArch(false);
   }
 
@@ -865,14 +776,20 @@ function TareaModal({ tarea, etapaId, obraId, onSave, onClose }) {
   useEffect(() => {
     if (!isEdit || !tareaId) return undefined;
     let active = true;
-    safeQuery(supabase.from("obra_tarea_archivos").select("*").eq("tarea_id", tareaId).order("created_at"))
-      .then(data => {
+    Promise.all([
+      safeQuery(supabase.from("obra_tarea_archivos").select("*").eq("tarea_id", tareaId).order("created_at")),
+      tarea?.linea_proceso_tarea_id
+        ? safeQuery(supabase.from("linea_proceso_tarea_archivos").select("*").eq("linea_proceso_tarea_id", tarea.linea_proceso_tarea_id).order("created_at"))
+        : Promise.resolve([]),
+    ])
+      .then(([data, inherited]) => {
         if (!active) return;
         setArchivos(data);
+        setArchivosPlantilla(inherited);
         setLoadingArch(false);
       });
     return () => { active = false; };
-  }, [isEdit, tareaId]);
+  }, [isEdit, tareaId, tarea?.linea_proceso_tarea_id]);
 
   async function handleSubmit(e) {
     e.preventDefault();
@@ -924,6 +841,7 @@ function TareaModal({ tarea, etapaId, obraId, onSave, onClose }) {
   }
 
   const secBorder = { padding: "12px 14px", background: C.s0, border: `1px solid ${C.b0}`, borderRadius: 8, marginBottom: 12 };
+  const totalArchivos = archivos.length + archivosPlantilla.length;
 
   return (
     <Overlay onClose={onClose} maxWidth={600}>
@@ -938,7 +856,7 @@ function TareaModal({ tarea, etapaId, obraId, onSave, onClose }) {
         </div>
         {/* Tabs */}
         <div style={{ display: "flex", gap: 0, marginBottom: -1 }}>
-          {[["general","General"],["archivos",`Archivos${archivos.length ? ` (${archivos.length})` : ""}`]].map(([k, l]) => (
+          {[["general","General"],["archivos",`Archivos${totalArchivos ? ` (${totalArchivos})` : ""}`]].map(([k, l]) => (
             <button key={k} type="button" onClick={() => setTab(k)} style={{ padding: "7px 18px", border: "none", borderBottom: tab === k ? `2px solid ${C.primary}` : "2px solid transparent", background: "transparent", color: tab === k ? C.t0 : C.t1, fontSize: 13, cursor: "pointer", fontFamily: C.sans, fontWeight: tab === k ? 600 : 400 }}>{l}</button>
           ))}
         </div>
@@ -1052,10 +970,25 @@ function TareaModal({ tarea, etapaId, obraId, onSave, onClose }) {
 
             {/* Lista de archivos */}
             {loadingArch && <div style={{ textAlign: "center", padding: "24px 0", color: C.t2, fontSize: 12 }}>Cargando archivos…</div>}
-            {!loadingArch && archivos.length === 0 && isEdit && (
+            {!loadingArch && totalArchivos === 0 && isEdit && (
               <div style={{ textAlign: "center", padding: "24px 0", color: C.t2, fontSize: 12 }}>Sin archivos adjuntos todavía</div>
             )}
             <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
+              {archivosPlantilla.length > 0 && (
+                <div style={{ padding: "8px 10px", borderRadius: 8, background: C.blueL, border: `1px solid ${C.blueB}`, color: C.blue, fontSize: 10.5, fontWeight: 750 }}>
+                  Planos base heredados de la línea de producción
+                </div>
+              )}
+              {archivosPlantilla.map(arch => (
+                <div key={`plantilla-${arch.id}`} style={{ display: "flex", alignItems: "center", gap: 10, padding: "10px 12px", borderRadius: 8, background: C.s0, border: `1px solid ${C.blueB}` }}>
+                  <span style={{ fontSize: 22, flexShrink: 0 }}>{extIcon(arch.nombre_archivo)}</span>
+                  <div style={{ flex: 1, minWidth: 0 }}>
+                    <div style={{ fontSize: 13, color: C.t0, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{arch.nombre_archivo}</div>
+                    <div style={{ fontSize: 11, color: C.t2, marginTop: 2 }}>{fmtBytes(arch.tamano_bytes)} · archivo base de la tarea</div>
+                  </div>
+                  <a href={arch.url_publica} target="_blank" rel="noreferrer" style={{ fontSize: 11, padding: "3px 10px", borderRadius: 5, border: `1px solid ${C.blueB}`, background: C.blueL, color: C.blue, textDecoration: "none", cursor: "pointer", fontFamily: C.sans }}>Ver</a>
+                </div>
+              ))}
               {archivos.map(arch => (
                 <div key={arch.id} style={{ display: "flex", alignItems: "center", gap: 10, padding: "10px 12px", borderRadius: 8, background: C.s0, border: `1px solid ${C.b0}` }}>
                   <span style={{ fontSize: 22, flexShrink: 0 }}>{extIcon(arch.nombre_archivo)}</span>
@@ -1079,7 +1012,7 @@ function TareaModal({ tarea, etapaId, obraId, onSave, onClose }) {
       <div style={{ padding: "14px 24px", borderTop: `1px solid ${C.b0}`, display: "flex", gap: 8, flexShrink: 0 }}>
         {tab === "general" && <Btn type="submit" form="tarea-form" variant="primary" disabled={saving}>{saving ? "Guardando…" : isEdit ? "Guardar cambios" : "Crear tarea"}</Btn>}
         <Btn variant="outline" onClick={onClose}>Cancelar</Btn>
-        {isEdit && tab === "general" && <Btn variant="outline" sx={{ marginLeft: "auto" }} onClick={() => setTab("archivos")}>Archivos ({archivos.length})</Btn>}
+        {isEdit && tab === "general" && <Btn variant="outline" sx={{ marginLeft: "auto" }} onClick={() => setTab("archivos")}>Archivos ({totalArchivos})</Btn>}
       </div>
     </Overlay>
   );
@@ -1302,20 +1235,32 @@ function TaskListRow({ tarea, etapa, fechaFinPlan = null, bloqueantes = [], esGe
 
 function TareaDetalleModal({ tarea, bloqueantes = [], onClose, onEditar, onIniciar, onFinalizar, onReabrir, esGestion }) {
   const [archivos, setArchivos] = useState([]);
+  const [archivosPlantilla, setArchivosPlantilla] = useState([]);
   const [loading, setLoading]   = useState(true);
   const tc = C.tarea[tarea.estado] ?? C.tarea.pendiente;
   const pc = C.prioridad[tarea.prioridad ?? "media"];
 
   useEffect(() => {
     let active = true;
-    safeQuery(supabase.from("obra_tarea_archivos").select("*").eq("tarea_id", tarea.id).order("created_at"))
-      .then(data => {
+    Promise.all([
+      safeQuery(supabase.from("obra_tarea_archivos").select("*").eq("tarea_id", tarea.id).order("created_at")),
+      tarea.linea_proceso_tarea_id
+        ? safeQuery(supabase.from("linea_proceso_tarea_archivos").select("*").eq("linea_proceso_tarea_id", tarea.linea_proceso_tarea_id).order("created_at"))
+        : Promise.resolve([]),
+    ])
+      .then(([data, inherited]) => {
         if (!active) return;
         setArchivos(data);
+        setArchivosPlantilla(inherited);
         setLoading(false);
       });
     return () => { active = false; };
-  }, [tarea.id]);
+  }, [tarea.id, tarea.linea_proceso_tarea_id]);
+
+  const todosLosArchivos = [
+    ...archivosPlantilla.map(archivo => ({ ...archivo, heredado: true })),
+    ...archivos.map(archivo => ({ ...archivo, heredado: false })),
+  ];
 
   return (
     <Overlay onClose={onClose} maxWidth={700}>
@@ -1407,22 +1352,22 @@ function TareaDetalleModal({ tarea, bloqueantes = [], onClose, onEditar, onInici
         {/* ARCHIVOS */}
         <div>
           <div style={{ fontSize: 10, letterSpacing: 1.3, color: C.t2, marginBottom: 10, textTransform: "uppercase" }}>
-            Archivos adjuntos {archivos.length > 0 && `(${archivos.length})`}
+            Archivos adjuntos {todosLosArchivos.length > 0 && `(${todosLosArchivos.length})`}
           </div>
           {loading && <div style={{ color: C.t2, fontSize: 12 }}>Cargando…</div>}
-          {!loading && archivos.length === 0 && (
+          {!loading && todosLosArchivos.length === 0 && (
             <div style={{ textAlign: "center", padding: "20px 0", color: C.t2, fontSize: 12, border: `1px dashed ${C.b0}`, borderRadius: 8 }}>
               Sin archivos · Editá la tarea para subir planos y documentos
             </div>
           )}
           <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8 }}>
-            {archivos.map(arch => (
-              <a key={arch.id} href={arch.url_publica} target="_blank" rel="noreferrer"
-                style={{ display: "flex", alignItems: "center", gap: 10, padding: "10px 12px", borderRadius: 8, background: C.s0, border: `1px solid ${C.b0}`, textDecoration: "none", transition: "border-color .15s" }}>
+            {todosLosArchivos.map(arch => (
+              <a key={`${arch.heredado ? "plantilla" : "tarea"}-${arch.id}`} href={arch.url_publica} target="_blank" rel="noreferrer"
+                style={{ display: "flex", alignItems: "center", gap: 10, padding: "10px 12px", borderRadius: 8, background: C.s0, border: `1px solid ${arch.heredado ? C.blueB : C.b0}`, textDecoration: "none", transition: "border-color .15s" }}>
                 <span style={{ fontSize: 24, flexShrink: 0 }}>{extIcon(arch.nombre_archivo)}</span>
                 <div style={{ flex: 1, minWidth: 0 }}>
                   <div style={{ fontSize: 12, color: C.t0, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{arch.nombre_archivo}</div>
-                  <div style={{ fontSize: 10, color: C.t2 }}>{fmtBytes(arch.tamano_bytes)}</div>
+                  <div style={{ fontSize: 10, color: arch.heredado ? C.blue : C.t2 }}>{fmtBytes(arch.tamano_bytes)}{arch.heredado ? " · plano base" : ""}</div>
                 </div>
                 <span style={{ fontSize: 11, color: C.t2, flexShrink: 0 }}>→</span>
               </a>
@@ -1498,7 +1443,6 @@ function EtapaManagerModal({ rows, esGestion, onEstado, onEditar, onEliminar, on
               <div style={{ minWidth: 0, flex: 1 }}>
                 <div style={{ fontSize: 13, fontWeight: 600, color: C.t0, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
                   {etapa.nombre}
-                  {etapa.genera_orden_compra && <span title="Genera orden de compra al completar" style={{ color: C.amber, marginLeft: 6 }}>●</span>}
                 </div>
                 <div style={{ fontSize: 10.5, color: C.t2, marginTop: 2, fontFamily: C.mono }}>
                   {total > 0 ? `${fin}/${total} tareas · ${epct}%` : "Sin tareas"}
@@ -1551,40 +1495,6 @@ function EtapaManagerModal({ rows, esGestion, onEstado, onEditar, onEliminar, on
         </div>
       )}
     </Overlay>
-  );
-}
-
-// ─── SECCIÓN OC ──────────────────────────────────────────────────────────────
-function OrdenCompraSection({ genera, tipo, desc, monto, diasPrevio = 7, onChange }) {
-  return (
-    <div style={{ padding: "10px 12px", background: genera ? "rgba(245,158,11,0.05)" : C.s0, border: `1px solid ${genera ? "rgba(245,158,11,0.2)" : C.b0}`, borderRadius: 8, marginTop: 8, transition: "all .2s" }}>
-      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: genera ? 10 : 0 }}>
-        <span style={{ fontSize: 12, color: genera ? C.amber : C.t2 }}>Orden de compra al completar</span>
-        <button type="button" onClick={() => onChange("genera_orden_compra", !genera)} style={{ width: 34, height: 18, borderRadius: 99, border: "none", flexShrink: 0, cursor: "pointer", background: genera ? "rgba(245,158,11,0.5)" : "var(--panel-2)", position: "relative", transition: "background .2s" }}>
-          <div style={{ position: "absolute", top: 3, left: genera ? 15 : 3, width: 12, height: 12, borderRadius: "50%", background: genera ? "#fbbf24" : "#383838", transition: "left .18s" }} />
-        </button>
-      </div>
-      {genera && (
-        <>
-          <div style={{ display: "flex", gap: 5, marginBottom: 8 }}>
-            {[["aviso","Aviso"],["compra","Orden"]].map(([v, l]) => (
-              <button key={v} type="button" onClick={() => onChange("orden_compra_tipo", v)} style={{ flex: 1, padding: "5px", borderRadius: 6, cursor: "pointer", fontSize: 11, border: tipo === v ? "1px solid rgba(245,158,11,0.4)" : `1px solid ${C.b0}`, background: tipo === v ? "rgba(245,158,11,0.12)" : C.s0, color: tipo === v ? C.amber : C.t1, fontFamily: C.sans }}>{l}</button>
-            ))}
-          </div>
-          <InputSt label="Descripción / Materiales">
-            <textarea style={{ ...INP, resize: "vertical", minHeight: 48 }} placeholder="Materiales, proveedor sugerido…" value={desc} onChange={e => onChange("orden_compra_descripcion", e.target.value)} />
-          </InputSt>
-          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8 }}>
-            <InputSt label="Monto estimado ($)">
-              <input type="number" min="0" step="0.01" style={INP} value={monto} onChange={e => onChange("orden_compra_monto_estimado", e.target.value)} />
-            </InputSt>
-            <InputSt label="Días de anticipación">
-              <input type="number" min="0" step="1" style={INP} placeholder="7" value={diasPrevio} onChange={e => onChange("orden_compra_dias_previo", e.target.value)} />
-            </InputSt>
-          </div>
-        </>
-      )}
-    </div>
   );
 }
 
@@ -1754,7 +1664,7 @@ function LineasEtapasModal({ linea, lProcs, stageOffsets = new Map(), detailEnab
   const [loadingAll,  setLoadingAll]  = useState(true);
   const [editIdx,     setEditIdx]     = useState(null);
   const [adding,      setAdding]      = useState(false);
-  const [newForm,     setNewForm]     = useState({ nombre: "", descripcion: "", dias_estimados: "", semana_desmolde: "", color: "#64748b", responsable: "", personas_necesarias: "", involucrados: "", observaciones: "", genera_orden_compra: false, orden_compra_tipo: "aviso", orden_compra_descripcion: "", orden_compra_monto_estimado: "", orden_compra_dias_previo: 7 });
+  const [newForm,     setNewForm]     = useState({ nombre: "", descripcion: "", dias_estimados: "", semana_desmolde: "", color: "#64748b", responsable: "", personas_necesarias: "", involucrados: "", observaciones: "" });
   const [saving,      setSaving]      = useState(false);
   const [toast,       setToast]       = useState(null);
   const [editBuf,     setEditBuf]     = useState({});
@@ -1769,6 +1679,7 @@ function LineasEtapasModal({ linea, lProcs, stageOffsets = new Map(), detailEnab
   const [editingTarea,  setEditingTarea]  = useState(null);
   const [tareaForm,     setTareaForm]     = useState({ nombre: "", descripcion: "", responsable: "", horas_estimadas: "", dias_estimados: "", personas_necesarias: "", observaciones: "", prioridad: "media" });
   const [tareaEditBuf,  setTareaEditBuf]  = useState({});
+  const [archivosTareaOpen, setArchivosTareaOpen] = useState(null);
 
   // ── Drag & drop (reordenar) ──────────────────────────────────
   const [dragIdx,       setDragIdx]       = useState(null);   // etapa que se arrastra
@@ -1891,6 +1802,7 @@ function LineasEtapasModal({ linea, lProcs, stageOffsets = new Map(), detailEnab
     const { error } = await supabase.from("linea_proceso_tareas").delete().eq("id", tarea.id);
     if (error) { flash(false, error.message); return; }
     setTareasState(prev => prev.filter(t => t.id !== tarea.id));
+    setArchivosTareaOpen(current => current === tarea.id ? null : current);
     flash(true, "Tarea eliminada."); onSaved();
   }
 
@@ -1935,11 +1847,7 @@ function LineasEtapasModal({ linea, lProcs, stageOffsets = new Map(), detailEnab
     setSaving(true);
     const payload = {
       nombre: editBuf.nombre?.trim() || item.nombre, dias_estimados: durationDays,
-      color: editBuf.color ?? item.color, genera_orden_compra: editBuf.genera_orden_compra ?? false,
-      orden_compra_tipo: editBuf.genera_orden_compra ? (editBuf.orden_compra_tipo ?? "aviso") : null,
-      orden_compra_descripcion: editBuf.genera_orden_compra ? (editBuf.orden_compra_descripcion?.trim() || null) : null,
-      orden_compra_monto_estimado: editBuf.genera_orden_compra && editBuf.orden_compra_monto_estimado !== "" ? num(editBuf.orden_compra_monto_estimado) : null,
-      orden_compra_dias_previo: editBuf.genera_orden_compra ? num(editBuf.orden_compra_dias_previo ?? 7) : null,
+      color: editBuf.color ?? item.color,
     };
     if (procDetailsEnabled) {
       payload.descripcion = editBuf.descripcion?.trim() || null;
@@ -1970,11 +1878,6 @@ function LineasEtapasModal({ linea, lProcs, stageOffsets = new Map(), detailEnab
       linea_id: localLinea.id, nombre: newForm.nombre.trim(), dias_estimados: durationDays,
       color: newForm.color, orden: maxOrden + 1, activo: true,
       ...(procDetailsEnabled ? { descripcion: newForm.descripcion.trim() || null, ...matrixDetailPatch(newForm) } : {}),
-      genera_orden_compra: newForm.genera_orden_compra,
-      orden_compra_tipo: newForm.genera_orden_compra ? newForm.orden_compra_tipo : null,
-      orden_compra_descripcion: newForm.genera_orden_compra ? (newForm.orden_compra_descripcion.trim() || null) : null,
-      orden_compra_monto_estimado: newForm.genera_orden_compra && newForm.orden_compra_monto_estimado !== "" ? num(newForm.orden_compra_monto_estimado) : null,
-      orden_compra_dias_previo: newForm.genera_orden_compra ? num(newForm.orden_compra_dias_previo) : null,
     }).select().single();
     if (error) { flash(false, error.message); setSaving(false); return; }
     let semanaDesmolde;
@@ -1985,7 +1888,7 @@ function LineasEtapasModal({ linea, lProcs, stageOffsets = new Map(), detailEnab
       flash(false, offsetError.message); setSaving(false); return;
     }
     setItems(prev => [...prev, { ...data, semana_desmolde: semanaDesmolde ?? "" }]); setAdding(false); setSelectedProc(data.id); setExpandedProc(data.id);
-    setNewForm({ nombre: "", descripcion: "", dias_estimados: "", semana_desmolde: "", color: "#64748b", responsable: "", personas_necesarias: "", involucrados: "", observaciones: "", genera_orden_compra: false, orden_compra_tipo: "aviso", orden_compra_descripcion: "", orden_compra_monto_estimado: "", orden_compra_dias_previo: 7 });
+    setNewForm({ nombre: "", descripcion: "", dias_estimados: "", semana_desmolde: "", color: "#64748b", responsable: "", personas_necesarias: "", involucrados: "", observaciones: "" });
     flash(true, "Etapa agregada."); setSaving(false); onSaved();
   }
 
@@ -2009,27 +1912,80 @@ function LineasEtapasModal({ linea, lProcs, stageOffsets = new Map(), detailEnab
   }
 
   async function moveItem(idx, dir) {
+    if (saving) return;
+    const previous = items;
     const next = [...items]; const swapIdx = idx + dir;
     if (swapIdx < 0 || swapIdx >= next.length) return;
-    [next[idx], next[swapIdx]] = [next[swapIdx], next[idx]]; setItems(next);
-    await Promise.all(next.map((it, i) => supabase.from("linea_procesos").update({ orden: i + 1 }).eq("id", it.id)));
-    onSaved();
+    [next[idx], next[swapIdx]] = [next[swapIdx], next[idx]];
+    await persistStageOrder(next, previous);
+  }
+
+  async function persistStageOrder(next, previous) {
+    const normalized = next.map((item, index) => ({ ...item, orden: index + 1 }));
+    setItems(normalized);
+    setSaving(true);
+    try {
+      const { error: rpcError } = await supabase.rpc("produccion_reordenar_etapas", {
+        p_linea_id: localLinea.id,
+        p_proceso_ids: normalized.map(item => item.id),
+      });
+
+      if (rpcError) {
+        const rpcMissing = ["PGRST202", "42883"].includes(rpcError.code)
+          || /could not find the function|does not exist/i.test(rpcError.message || "");
+        if (!rpcMissing) throw rpcError;
+
+        // Compatibilidad mientras se aplica la migración: primero se mueve todo
+        // a un rango temporal libre para no chocar con UNIQUE(linea_id, orden).
+        const temporaryBase = Math.max(0, ...items.map(item => num(item.orden)))
+          + normalized.length + 1000;
+        const temporaryResults = await Promise.all(
+          normalized.map((item, index) => supabase
+            .from("linea_procesos")
+            .update({ orden: temporaryBase + index + 1 })
+            .eq("id", item.id)
+            .eq("linea_id", localLinea.id)),
+        );
+        const temporaryFailure = temporaryResults.find(result => result.error);
+        if (temporaryFailure?.error) throw temporaryFailure.error;
+
+        const finalResults = await Promise.all(
+          normalized.map((item, index) => supabase
+            .from("linea_procesos")
+            .update({ orden: index + 1 })
+            .eq("id", item.id)
+            .eq("linea_id", localLinea.id)),
+        );
+        const finalFailure = finalResults.find(result => result.error);
+        if (finalFailure?.error) throw finalFailure.error;
+      }
+
+      flash(true, "Orden de etapas actualizado.");
+      onSaved();
+    } catch (orderError) {
+      setItems(previous);
+      flash(false, `No se pudo guardar el orden: ${orderError.message}`);
+    } finally {
+      setSaving(false);
+    }
   }
 
   async function reorderEtapas(from, to) {
     setDragIdx(null); setDragOverIdx(null);
-    if (from == null || to == null || from === to) return;
+    if (saving || from == null || to == null || from === to) return;
+    if (!Number.isInteger(Number(from)) || !Number.isInteger(Number(to))) return;
+    const previous = items;
     const next = [...items];
-    const [moved] = next.splice(from, 1);
-    next.splice(to, 0, moved);
-    setItems(next);
-    await Promise.all(next.map((it, i) => supabase.from("linea_procesos").update({ orden: i + 1 }).eq("id", it.id)));
-    onSaved();
+    const [moved] = next.splice(Number(from), 1);
+    if (!moved) return;
+    next.splice(Number(to), 0, moved);
+    await persistStageOrder(next, previous);
   }
 
   async function reorderTareas(procId, fromId, toId) {
     setTareaDragId(null); setTareaDragOver(null);
-    if (!fromId || !toId || fromId === toId) return;
+    if (saving || !fromId || !toId || fromId === toId) return;
+    const previous = tareasState;
     const list = tareasDeProc(procId);
     const from = list.findIndex(t => t.id === fromId);
     const to   = list.findIndex(t => t.id === toId);
@@ -2039,8 +1995,24 @@ function LineasEtapasModal({ linea, lProcs, stageOffsets = new Map(), detailEnab
     next.splice(to, 0, moved);
     const ordenById = {}; next.forEach((t, i) => { ordenById[t.id] = i + 1; });
     setTareasState(prev => prev.map(t => t.linea_proceso_id === procId ? { ...t, orden: ordenById[t.id] ?? t.orden } : t));
-    await Promise.all(next.map((t, i) => supabase.from("linea_proceso_tareas").update({ orden: i + 1 }).eq("id", t.id)));
-    onSaved();
+    setSaving(true);
+    try {
+      const results = await Promise.all(
+        next.map((task, index) => supabase
+          .from("linea_proceso_tareas")
+          .update({ orden: index + 1 })
+          .eq("id", task.id)),
+      );
+      const failed = results.find((result) => result.error);
+      if (failed?.error) throw failed.error;
+      flash(true, "Orden de tareas actualizado.");
+      onSaved();
+    } catch (orderError) {
+      setTareasState(previous);
+      flash(false, `No se pudo guardar el orden: ${orderError.message}`);
+    } finally {
+      setSaving(false);
+    }
   }
 
   // Predecesoras (dependencias) de una tarea: resuelve ids → nombres
@@ -2137,23 +2109,126 @@ function LineasEtapasModal({ linea, lProcs, stageOffsets = new Map(), detailEnab
               const total = tareasDeProc(item.id).length;
               const dependencies = tareasDeProc(item.id).filter(t => Array.isArray(t.predecesoras) && t.predecesoras.length > 0).length;
               return (
-                <button data-tour="obras-etapa-item" key={item.id} type="button" onClick={() => { setSelectedProc(item.id); setExpandedProc(item.id); setEditIdx(null); }} style={{ width: "100%", display: "grid", gridTemplateColumns: "28px minmax(0,1fr)", gap: 9, alignItems: "center", padding: "9px", marginBottom: 5, borderRadius: 8, border: `1px solid ${active ? C.blueB : "transparent"}`, background: active ? C.blueL : "transparent", color: active ? C.t0 : C.t1, cursor: "pointer", textAlign: "left", fontFamily: C.sans }}>
-                  <span style={{ width: 27, height: 27, borderRadius: 8, display: "flex", alignItems: "center", justifyContent: "center", background: active ? C.s0 : "transparent", border: `1px solid ${active ? C.blueB : C.b0}`, color: active ? C.blue : C.t2, fontFamily: C.mono, fontSize: 10.5, fontWeight: 900 }}>{idx + 1}</span>
-                  <span style={{ minWidth: 0 }}>
-                    <span style={{ display: "block", fontSize: 12, fontWeight: 800, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{item.nombre}</span>
-                    <span style={{ display: "flex", alignItems: "center", gap: 5, fontSize: 9.5, color: C.t2, marginTop: 4, whiteSpace: "nowrap" }}>
-                      <span style={{ color: item.semana_desmolde === "" ? C.amber : C.t1, fontFamily: C.mono, fontWeight: 850 }}>
-                        {item.semana_desmolde === "" ? "Sin ubicar" : relativeWeekLabel(item.semana_desmolde)}
-                      </span>
-                      <span>·</span>
-                      <span>{total} tareas</span>
-                      {item.dias_estimados
-                        ? <><span>·</span><span>{item.dias_estimados}d de etapa</span></>
-                        : <><span>·</span><span style={{ color: C.amber, fontWeight: 800 }}>Falta duración</span></>}
-                      {dependencies > 0 && <span title={`${dependencies} dependencias`} style={{ color: C.amber }}>↳ {dependencies}</span>}
+                <div
+                  key={item.id}
+                  onDragEnter={() => {
+                    if (dragIdx !== null && dragIdx !== idx) setDragOverIdx(idx);
+                  }}
+                  onDragOver={(event) => {
+                    if (dragIdx === null) return;
+                    event.preventDefault();
+                    event.dataTransfer.dropEffect = "move";
+                    setDragOverIdx(idx);
+                  }}
+                  onDrop={(event) => {
+                    event.preventDefault();
+                    const raw = event.dataTransfer.getData("application/x-klasea-stage-index")
+                      || event.dataTransfer.getData("text/plain");
+                    const from = raw === "" ? dragIdx : Number(raw);
+                    reorderEtapas(from, idx);
+                  }}
+                  style={{
+                    marginBottom: 5,
+                    display: "grid",
+                    gridTemplateColumns: isMobile ? "minmax(0,1fr) 54px" : "28px minmax(0,1fr) 54px",
+                    alignItems: "stretch",
+                    overflow: "hidden",
+                    borderRadius: 9,
+                    border: `1px solid ${dragOverIdx === idx && dragIdx !== idx ? C.blue : active ? C.blueB : "transparent"}`,
+                    background: active ? C.blueL : dragOverIdx === idx ? C.s1 : "transparent",
+                    opacity: dragIdx === idx ? 0.46 : 1,
+                    transform: dragOverIdx === idx && dragIdx !== idx ? "translateY(2px)" : "none",
+                    transition: "opacity .12s ease, transform .12s ease, border-color .12s ease, background .12s ease",
+                  }}
+                >
+                  {!isMobile && (
+                    <span
+                      role="button"
+                      tabIndex={0}
+                      draggable={!saving}
+                      title="Arrastrá desde acá para cambiar el orden"
+                      aria-label={`Mover ${item.nombre}. Arrastrá para cambiar el orden.`}
+                      onDragStart={(event) => {
+                        event.stopPropagation();
+                        event.dataTransfer.effectAllowed = "move";
+                        event.dataTransfer.setData("application/x-klasea-stage-index", String(idx));
+                        event.dataTransfer.setData("text/plain", String(idx));
+                        setDragIdx(idx);
+                      }}
+                      onDragEnd={() => { setDragIdx(null); setDragOverIdx(null); }}
+                      style={{
+                        display: "grid",
+                        placeItems: "center",
+                        color: active ? C.blue : C.t3,
+                        cursor: saving ? "wait" : "grab",
+                        fontSize: 13,
+                        userSelect: "none",
+                        letterSpacing: -1,
+                        borderRight: `1px solid ${active ? C.blueB : C.b0}`,
+                      }}
+                    >
+                      ⠿
                     </span>
-                  </span>
-                </button>
+                  )}
+                  <button
+                    data-tour="obras-etapa-item"
+                    type="button"
+                    onClick={() => { setSelectedProc(item.id); setExpandedProc(item.id); setEditIdx(null); }}
+                    aria-label={`${item.nombre}. Seleccionar etapa.`}
+                    style={{
+                      width: "100%",
+                      display: "grid",
+                      gridTemplateColumns: "28px minmax(0,1fr)",
+                      gap: 8,
+                      alignItems: "center",
+                      padding: "9px 8px",
+                      border: 0,
+                      background: "transparent",
+                      color: active ? C.t0 : C.t1,
+                      cursor: "pointer",
+                      textAlign: "left",
+                      fontFamily: C.sans,
+                    }}
+                  >
+                    <span style={{ width: 27, height: 27, borderRadius: 8, display: "flex", alignItems: "center", justifyContent: "center", background: active ? C.s0 : "transparent", border: `1px solid ${active ? C.blueB : C.b0}`, color: active ? C.blue : C.t2, fontFamily: C.mono, fontSize: 10.5, fontWeight: 900 }}>{idx + 1}</span>
+                    <span style={{ minWidth: 0 }}>
+                      <span style={{ display: "block", fontSize: 12, fontWeight: 800, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{item.nombre}</span>
+                      <span style={{ display: "flex", alignItems: "center", gap: 5, overflow: "hidden", fontSize: 9.5, color: C.t2, marginTop: 4, whiteSpace: "nowrap" }}>
+                        <span style={{ color: item.semana_desmolde === "" ? C.amber : C.t1, fontFamily: C.mono, fontWeight: 850 }}>
+                          {item.semana_desmolde === "" ? "Sin ubicar" : relativeWeekLabel(item.semana_desmolde)}
+                        </span>
+                        <span>·</span>
+                        <span>{total} tareas</span>
+                        {item.dias_estimados
+                          ? <><span>·</span><span>{item.dias_estimados} días</span></>
+                          : <><span>·</span><span style={{ color: C.amber, fontWeight: 800 }}>Falta duración</span></>}
+                        {dependencies > 0 && <span title={`${dependencies} dependencias`} style={{ color: C.amber }}>↳ {dependencies}</span>}
+                      </span>
+                    </span>
+                  </button>
+                  <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", alignItems: "stretch", borderLeft: `1px solid ${active ? C.blueB : C.b0}` }}>
+                    <button
+                      type="button"
+                      title="Subir una posición"
+                      aria-label={`Subir ${item.nombre} una posición`}
+                      onClick={() => moveItem(idx, -1)}
+                      disabled={saving || idx === 0}
+                      style={{ border: 0, borderRight: `1px solid ${active ? C.blueB : C.b0}`, background: "transparent", color: idx === 0 ? C.t3 : C.t1, cursor: saving || idx === 0 ? "default" : "pointer", fontFamily: C.sans, fontSize: 13, fontWeight: 900 }}
+                    >
+                      ↑
+                    </button>
+                    <button
+                      type="button"
+                      title="Bajar una posición"
+                      aria-label={`Bajar ${item.nombre} una posición`}
+                      onClick={() => moveItem(idx, 1)}
+                      disabled={saving || idx === items.length - 1}
+                      style={{ border: 0, background: "transparent", color: idx === items.length - 1 ? C.t3 : C.t1, cursor: saving || idx === items.length - 1 ? "default" : "pointer", fontFamily: C.sans, fontSize: 13, fontWeight: 900 }}
+                    >
+                      ↓
+                    </button>
+                  </div>
+                </div>
               );
             })}
             {!items.length && !loadingAll && <div style={{ padding: "18px 8px", color: C.t3, fontSize: 11.5 }}>Todavia no hay etapas.</div>}
@@ -2176,13 +2251,12 @@ function LineasEtapasModal({ linea, lProcs, stageOffsets = new Map(), detailEnab
                 onDrop={e => { if (dragIdx !== null) { e.preventDefault(); reorderEtapas(dragIdx, idx); } }}
                 style={{ border: `1px solid ${dragOverIdx === idx && dragIdx !== null && dragIdx !== idx ? C.primary : isEditing ? C.blueB : C.b0}`, borderRadius: 10, marginBottom: 6, background: C.s0, opacity: dragIdx === idx ? 0.4 : 1, transition: "border-color .12s, opacity .12s", overflow: "hidden" }}>
                 <div style={{ display: "flex", alignItems: "center", gap: 10, padding: "12px 13px" }}>
-                  <span draggable onDragStart={() => setDragIdx(idx)} onDragEnd={() => { setDragIdx(null); setDragOverIdx(null); }}
+                  <span draggable onDragStart={(event) => { event.dataTransfer.effectAllowed = "move"; event.dataTransfer.setData("text/plain", String(idx)); setDragIdx(idx); }} onDragEnd={() => { setDragIdx(null); setDragOverIdx(null); }}
                     title="Arrastrá para reordenar la etapa" style={{ cursor: "grab", color: C.t2, fontSize: 13, lineHeight: 1, userSelect: "none", flexShrink: 0, letterSpacing: -1 }}>⠿</span>
                   <div style={{ width: 34, height: 34, borderRadius: 9, display: "flex", alignItems: "center", justifyContent: "center", background: C.s1, border: `1px solid ${C.b1}`, color: C.t1, fontFamily: C.mono, fontSize: 11, fontWeight: 900 }}>{idx + 1}</div>
                   <div style={{ flex: 1, minWidth: 0 }}>
                     <div style={{ display: "flex", alignItems: "center", gap: 7, flexWrap: "wrap" }}>
                       <span style={{ fontSize: 14, color: C.t0, fontWeight: 850 }}>{item.nombre}</span>
-                      {item.genera_orden_compra && <span style={{ fontSize: 9, color: C.amber, background: C.amberL, border: `1px solid ${C.amberB}`, padding: "2px 6px", borderRadius: 5, fontWeight: 850 }}>AVISA A COMPRAS</span>}
                     </div>
                     <div style={{ fontSize: 10.5, color: item.dias_estimados ? C.t2 : C.amber, marginTop: 3 }}>{relativeWeekDescription(item.semana_desmolde)}{item.dias_estimados ? ` Duración total: ${item.dias_estimados} días.` : " Falta definir la duración total de la etapa."}</div>
                   </div>
@@ -2222,12 +2296,17 @@ function LineasEtapasModal({ linea, lProcs, stageOffsets = new Map(), detailEnab
                     <div style={{ padding: "0 10px 10px" }}>
                       {tareasDeProc(item.id).map((tarea, ti) => (
                         <div key={tarea.id}
+                          onDragEnter={() => { if (tareaDragId && tareaDragId !== tarea.id) setTareaDragOver(tarea.id); }}
                           onDragOver={e => { if (tareaDragId) { e.preventDefault(); setTareaDragOver(tarea.id); } }}
-                          onDrop={e => { if (tareaDragId) { e.preventDefault(); reorderTareas(item.id, tareaDragId, tarea.id); } }}
+                          onDrop={e => {
+                            e.preventDefault();
+                            const fromId = e.dataTransfer.getData("text/plain") || tareaDragId;
+                            if (fromId) reorderTareas(item.id, fromId, tarea.id);
+                          }}
                           style={{ borderRadius: 6, background: editingTarea === tarea.id ? "rgba(59,130,246,0.05)" : "var(--panel)", border: "1px solid " + (tareaDragOver === tarea.id && tareaDragId && tareaDragId !== tarea.id ? C.primary : editingTarea === tarea.id ? "rgba(59,130,246,0.25)" : C.b0), marginBottom: 3, padding: "6px 10px", opacity: tareaDragId === tarea.id ? 0.4 : 1 }}>
                           {editingTarea !== tarea.id ? (
                             <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-                              <span draggable onDragStart={() => setTareaDragId(tarea.id)} onDragEnd={() => { setTareaDragId(null); setTareaDragOver(null); }}
+                              <span draggable onDragStart={(event) => { event.dataTransfer.effectAllowed = "move"; event.dataTransfer.setData("text/plain", tarea.id); setTareaDragId(tarea.id); }} onDragEnd={() => { setTareaDragId(null); setTareaDragOver(null); }}
                                 title="Arrastrá para reordenar la tarea" style={{ cursor: "grab", color: C.t2, fontSize: 11, userSelect: "none", letterSpacing: -1, flexShrink: 0 }}>⠿</span>
                               <span style={{ fontSize: 10, color: C.t2, fontFamily: C.mono, minWidth: 16 }}>{ti + 1}.</span>
                               <span style={{ flex: 1, fontSize: 12, color: C.t0 }}>
@@ -2242,6 +2321,19 @@ function LineasEtapasModal({ linea, lProcs, stageOffsets = new Map(), detailEnab
                               </span>
                               {tarea.horas_estimadas && <span style={{ fontSize: 10, color: C.t2, fontFamily: C.mono }}>{tarea.horas_estimadas}h</span>}
                               {tarea.personas_necesarias && <span style={{ fontSize: 10, color: C.t2 }}>x{tarea.personas_necesarias}</span>}
+                              <button
+                                type="button"
+                                onClick={() => setArchivosTareaOpen(current => current === tarea.id ? null : tarea.id)}
+                                style={{
+                                  ...btnIcon,
+                                  padding: "5px 8px",
+                                  color: archivosTareaOpen === tarea.id ? C.blue : C.t1,
+                                  background: archivosTareaOpen === tarea.id ? C.blueL : "transparent",
+                                  borderColor: archivosTareaOpen === tarea.id ? C.blueB : C.b0,
+                                }}
+                              >
+                                planos / archivos
+                              </button>
                               <button type="button" onClick={() => { setEditingTarea(tarea.id); setTareaEditBuf({ nombre: tarea.nombre, descripcion: tarea.descripcion ?? "", responsable: tarea.responsable ?? "", dias_estimados: tarea.dias_estimados ?? "", horas_estimadas: tarea.horas_estimadas ?? "", personas_necesarias: tarea.personas_necesarias ?? "", observaciones: tarea.observaciones ?? "", prioridad: tarea.prioridad ?? "media", predecesoras: Array.isArray(tarea.predecesoras) ? tarea.predecesoras : [] }); }} style={{ ...btnIcon }}>editar</button>
                               <button type="button" onClick={() => eliminarTarea(tarea)} style={{ ...btnIcon, color: C.red }}>x</button>
                             </div>
@@ -2282,6 +2374,9 @@ function LineasEtapasModal({ linea, lProcs, stageOffsets = new Map(), detailEnab
                               </div>
                             </div>
                           )}
+                          {archivosTareaOpen === tarea.id && (
+                            <TareaArchivosPanel tarea={tarea} onChanged={onSaved} />
+                          )}
                         </div>
                       ))}
                       {addingTarea === item.id ? (
@@ -2313,13 +2408,23 @@ function LineasEtapasModal({ linea, lProcs, stageOffsets = new Map(), detailEnab
                   )}
                 </div>
 
+                {!isEditing && (
+                  <MaterialesProduccionPanel
+                    linea={localLinea}
+                    processes={items}
+                    tasks={tareasState}
+                    selectedProcessId={item.id}
+                    isMobile={isMobile}
+                  />
+                )}
+
                 {isEditing && (
                   <div style={{ padding: "0 13px 13px" }}>
                     <div style={{ padding: "11px 12px", borderRadius: 10, border: `1px solid ${C.b0}`, background: C.s0, marginBottom: 10 }}>
                       <div style={{ fontSize: 10, color: C.t2, textTransform: "uppercase", letterSpacing: 1.1, fontWeight: 850, marginBottom: 9 }}>Datos básicos</div>
                       <div style={{ display: "grid", gridTemplateColumns: isMobile ? "1fr" : "minmax(180px,1fr) 110px", gap: 10 }}>
                         <InputSt label="Nombre de la etapa"><input style={INP} value={editBuf.nombre ?? item.nombre} onChange={e => eb("nombre", e.target.value)} /></InputSt>
-                        <div data-tour="obras-duracion-etapa"><InputSt label="Duración total de etapa *"><input type="number" min="0.5" step="0.5" style={{ ...INP, borderColor: num(editBuf.dias_estimados ?? item.dias_estimados) > 0 ? C.b0 : C.amberB }} value={editBuf.dias_estimados ?? item.dias_estimados ?? ""} onChange={e => eb("dias_estimados", e.target.value)} /></InputSt></div>
+                        <div data-tour="obras-duracion-etapa"><InputSt label="Duración total (días) *"><input type="number" min="0.5" step="0.5" style={{ ...INP, borderColor: num(editBuf.dias_estimados ?? item.dias_estimados) > 0 ? C.b0 : C.amberB }} value={editBuf.dias_estimados ?? item.dias_estimados ?? ""} onChange={e => eb("dias_estimados", e.target.value)} /></InputSt></div>
                       </div>
                       <InputSt label="Color identificador">
                         <div style={{ display: "flex", gap: 6, alignItems: "center" }}>
@@ -2341,7 +2446,6 @@ function LineasEtapasModal({ linea, lProcs, stageOffsets = new Map(), detailEnab
                         <InputSt label="Observaciones"><textarea style={{ ...INP, resize: "vertical", minHeight: 44 }} value={editBuf.observaciones ?? item.observaciones ?? ""} onChange={e => eb("observaciones", e.target.value)} /></InputSt>
                       </div>
                     )}
-                    <OrdenCompraSection genera={editBuf.genera_orden_compra ?? item.genera_orden_compra ?? false} tipo={editBuf.orden_compra_tipo ?? item.orden_compra_tipo ?? "aviso"} desc={editBuf.orden_compra_descripcion ?? item.orden_compra_descripcion ?? ""} monto={editBuf.orden_compra_monto_estimado ?? item.orden_compra_monto_estimado ?? ""} diasPrevio={editBuf.orden_compra_dias_previo ?? item.orden_compra_dias_previo ?? 7} onChange={eb} />
                     <div style={{ display: "flex", gap: 7, marginTop: 8, alignItems: "center" }}>
                       <Btn variant="primary" onClick={() => saveEdit(idx)} disabled={saving}>{saving ? "Guardando…" : "Guardar etapa"}</Btn>
                       <Btn variant="outline" onClick={cancelEdit}>Cancelar</Btn>
@@ -2365,7 +2469,7 @@ function LineasEtapasModal({ linea, lProcs, stageOffsets = new Map(), detailEnab
                 <div style={{ fontSize: 10, color: C.t2, textTransform: "uppercase", letterSpacing: 1.1, fontWeight: 850, marginBottom: 9 }}>Datos básicos</div>
                 <div style={{ display: "grid", gridTemplateColumns: isMobile ? "1fr" : "minmax(180px,1fr) 110px", gap: 10 }}>
                   <InputSt label="Nombre de la etapa *"><input style={INP} autoFocus placeholder="Ej.: Pintores" value={newForm.nombre} onChange={e => setNewForm(f => ({ ...f, nombre: e.target.value }))} /></InputSt>
-                  <InputSt label="Duración total de etapa *"><input type="number" min="0.5" step="0.5" style={{ ...INP, borderColor: num(newForm.dias_estimados) > 0 ? C.b0 : C.amberB }} value={newForm.dias_estimados} onChange={e => setNewForm(f => ({ ...f, dias_estimados: e.target.value }))} /></InputSt>
+                  <InputSt label="Duración total (días) *"><input type="number" min="0.5" step="0.5" style={{ ...INP, borderColor: num(newForm.dias_estimados) > 0 ? C.b0 : C.amberB }} value={newForm.dias_estimados} onChange={e => setNewForm(f => ({ ...f, dias_estimados: e.target.value }))} /></InputSt>
                 </div>
                 <InputSt label="Color identificador">
                   <div style={{ display: "flex", gap: 6, alignItems: "center" }}>
@@ -2387,7 +2491,6 @@ function LineasEtapasModal({ linea, lProcs, stageOffsets = new Map(), detailEnab
                   <InputSt label="Observaciones"><textarea style={{ ...INP, resize: "vertical", minHeight: 44 }} value={newForm.observaciones} onChange={e => setNewForm(f => ({ ...f, observaciones: e.target.value }))} /></InputSt>
                 </div>
               )}
-              <OrdenCompraSection genera={newForm.genera_orden_compra} tipo={newForm.orden_compra_tipo} desc={newForm.orden_compra_descripcion} monto={newForm.orden_compra_monto_estimado} diasPrevio={newForm.orden_compra_dias_previo} onChange={(k, v) => setNewForm(f => ({ ...f, [k]: v }))} />
               <div style={{ display: "flex", gap: 7, marginTop: 8 }}>
                 <Btn variant="primary" onClick={addEtapa} disabled={saving || !newForm.nombre.trim() || num(newForm.dias_estimados) <= 0}>{saving ? "Agregando…" : "Agregar etapa"}</Btn>
                 <Btn variant="outline" onClick={() => setAdding(false)}>Cancelar</Btn>
@@ -2601,7 +2704,6 @@ export default function ObrasScreen({ profile, signOut }) {
   const [taskChip,    setTaskChip]    = useState("todas");   // filtro rápido
   const [bulkMode,    setBulkMode]    = useState(false);
   const [bulkSel,     setBulkSel]     = useState(new Set());
-  const [showFicha,   setShowFicha]   = useState(false);
   const [etapasMgr,   setEtapasMgr]   = useState(false);     // modal gestor de etapas
   const [predWarn,    setPredWarn]    = useState(null);      // aviso de predecesoras
   const [addPick,     setAddPick]     = useState(false);     // picker de etapa al agregar tarea
@@ -2655,10 +2757,21 @@ export default function ObrasScreen({ profile, signOut }) {
     setStageOffsetRows(r8);
     setNonWorkingPeriods(r9);
 
-    // Conteo de archivos por tarea
-    const counts = await safeQuery(supabase.from("obra_tarea_archivos").select("tarea_id").not("tarea_id", "is", null));
+    // Conteo de archivos propios + planos heredados desde la tarea de plantilla.
+    const [counts, templateCounts] = await Promise.all([
+      safeQuery(supabase.from("obra_tarea_archivos").select("tarea_id").not("tarea_id", "is", null)),
+      safeQuery(supabase.from("linea_proceso_tarea_archivos").select("linea_proceso_tarea_id").not("linea_proceso_tarea_id", "is", null)),
+    ]);
     const map = {};
     counts.forEach(row => { map[row.tarea_id] = (map[row.tarea_id] ?? 0) + 1; });
+    const templateMap = {};
+    templateCounts.forEach(row => {
+      templateMap[row.linea_proceso_tarea_id] = (templateMap[row.linea_proceso_tarea_id] ?? 0) + 1;
+    });
+    r3.forEach(tarea => {
+      if (!tarea.linea_proceso_tarea_id) return;
+      map[tarea.id] = (map[tarea.id] ?? 0) + (templateMap[tarea.linea_proceso_tarea_id] ?? 0);
+    });
     setArchCounts(map);
 
     setLoading(false);
@@ -2783,13 +2896,6 @@ export default function ObrasScreen({ profile, signOut }) {
     if (String(etapaId).startsWith("virtual")) return;
     const upd = { estado }; if (estado === "completado") upd.fecha_fin_real = today();
     await supabase.from("obra_etapas").update(upd).eq("id", etapaId);
-    if (estado === "completado") {
-      const etapa = etapas.find(e => e.id === etapaId);
-      if (etapa?.genera_orden_compra) {
-        const obra = obras.find(o => o.id === etapa.obra_id);
-        supabase.from("ordenes_compra").insert({ obra_id: etapa.obra_id, etapa_id: etapa.id, etapa_nombre: etapa.nombre, tipo: etapa.orden_compra_tipo ?? "aviso", descripcion: etapa.orden_compra_descripcion ?? null, monto_estimado: etapa.orden_compra_monto_estimado ?? null, dias_previo_aviso: etapa.orden_compra_dias_previo ?? 7, obra_codigo: obra?.codigo ?? null, linea_nombre: obra?.linea_nombre ?? null, estado: "pendiente", fecha_creacion: today() }).then(({ error }) => { if (error) console.warn("ordenes_compra:", error.message); });
-      }
-    }
     cargar();
   }
 
@@ -2848,10 +2954,6 @@ export default function ObrasScreen({ profile, signOut }) {
         obra_id: obra.id, linea_proceso_id: p.id, nombre: p.nombre, orden: p.orden ?? i + 1,
         color: p.color ?? "#64748b", dias_estimados: p.dias_estimados, estado: "pendiente",
         ...(hasMatrixDetailColumns(p) ? { descripcion: p.descripcion ?? null, ...matrixDetailPatch(p) } : {}),
-        genera_orden_compra: p.genera_orden_compra ?? false, orden_compra_tipo: p.orden_compra_tipo ?? "aviso",
-        orden_compra_descripcion: p.orden_compra_descripcion ?? null,
-        orden_compra_monto_estimado: p.orden_compra_monto_estimado ?? null,
-        orden_compra_dias_previo: p.orden_compra_dias_previo ?? 7,
       })));
       if (eIns) { alert("No se pudieron crear las etapas de esta obra: " + eIns.message); return; }
       ({ data: etapasObra } = await supabase.from("obra_etapas").select("id, linea_proceso_id").eq("obra_id", obra.id));
@@ -2871,7 +2973,7 @@ export default function ObrasScreen({ profile, signOut }) {
     const tareasAInsertar = [];
     for (const etapa of etapasObra) {
       for (const tp of tPlantilla.filter(t => t.linea_proceso_id === etapa.linea_proceso_id)) {
-        tareasAInsertar.push({ obra_id: obra.id, etapa_id: etapa.id, nombre: tp.nombre, orden: tp.orden ?? 999, estado: "pendiente", prioridad: tp.prioridad ?? "media", descripcion: tp.descripcion ?? null, responsable: tp.responsable ?? null, dias_estimados: tp.dias_estimados ?? null, horas_estimadas: tp.horas_estimadas ?? null, personas_necesarias: tp.personas_necesarias ?? null, observaciones: tp.observaciones ?? null });
+        tareasAInsertar.push({ obra_id: obra.id, etapa_id: etapa.id, linea_proceso_tarea_id: tp.id, nombre: tp.nombre, orden: tp.orden ?? 999, estado: "pendiente", prioridad: tp.prioridad ?? "media", descripcion: tp.descripcion ?? null, responsable: tp.responsable ?? null, dias_estimados: tp.dias_estimados ?? null, horas_estimadas: tp.horas_estimadas ?? null, personas_necesarias: tp.personas_necesarias ?? null, observaciones: tp.observaciones ?? null });
       }
     }
     if (!tareasAInsertar.length) { alert("No se encontraron tareas para importar. Verificá que la plantilla de línea tenga tareas cargadas."); return; }
@@ -2910,7 +3012,7 @@ export default function ObrasScreen({ profile, signOut }) {
   // Al cambiar de obra, reseteo los filtros/estado del tablero.
   useEffect(() => {
     setDetailView("resumen"); setEtapaFiltro(null); setTaskChip("todas");
-    setBulkMode(false); setBulkSel(new Set()); setShowFicha(false);
+    setBulkMode(false); setBulkSel(new Set());
     setEtapasMgr(false); setAddPick(false);
   }, [focusedObra]);
 
@@ -3094,7 +3196,6 @@ export default function ObrasScreen({ profile, signOut }) {
     const oC         = C.obra[obra.estado] ?? C.obra.activa;
     const obraTasks  = tareas.filter(t => t.obra_id === obra.id);
     const sinTareas  = obraTasks.length === 0;
-    const tieneFicha = FICHA_FIELDS.some(([k]) => obra[k]) || !!obra.botada;
     const activeEtapaObj = etapaFiltro ? obraEtapas.find(e => e.id === etapaFiltro) : null;
 
     // Métricas (ignoran canceladas para el avance).
@@ -3312,9 +3413,6 @@ export default function ObrasScreen({ profile, signOut }) {
             </span>
 
             <div style={{ marginLeft: "auto", display: "flex", gap: 6, flexWrap: "wrap" }}>
-              {(esGestion || tieneFicha) && (
-                <button type="button" onClick={() => setShowFicha(v => !v)} style={{ border: `1px solid ${showFicha ? C.b1 : C.b0}`, background: showFicha ? C.panel2 : "transparent", color: showFicha ? C.t0 : C.t2, cursor: "pointer", fontSize: 12, padding: "5px 11px", borderRadius: 8, fontFamily: C.sans, fontWeight: 600 }}>Ficha</button>
-              )}
               {esGestion && (
                 <>
                   <button type="button" onClick={() => setEtapasMgr(true)} style={{ border: `1px solid ${C.b0}`, background: "transparent", color: C.t2, cursor: "pointer", fontSize: 12, padding: "5px 11px", borderRadius: 8, fontFamily: C.sans, fontWeight: 600 }}>Etapas</button>
@@ -3375,14 +3473,6 @@ export default function ObrasScreen({ profile, signOut }) {
               );
             })}
           </div>
-
-          {showFicha && (
-            <div style={{ marginTop: 12 }}>
-              <FichaBarco obra={obra} esGestion={esGestion} onSave={async (id, patch) => {
-                await supabase.from("produccion_obras").update(patch).eq("id", id); cargar();
-              }} />
-            </div>
-          )}
         </div>
 
         {/* ── CUERPO SCROLLEABLE ── */}
@@ -3845,20 +3935,23 @@ export default function ObrasScreen({ profile, signOut }) {
             <>
               {/* FILTERBAR */}
               <div style={{ minHeight: 54, background: C.topbarSoft, ...GLASS, borderBottom: `1px solid ${C.b0}`, padding: isMobile ? "8px 12px" : "8px 18px", display: "flex", alignItems: "center", gap: 12, flexShrink: 0, flexWrap: "wrap" }}>
-                <div data-tour="obras-linea-foco" style={{ display: "flex", alignItems: "center", gap: 8, minWidth: isMobile ? "100%" : 270 }}>
-                  <div style={{ minWidth: 0 }}>
-                    <div style={{ fontSize: 9, color: C.t2, letterSpacing: 1.1, textTransform: "uppercase", fontWeight: 800, marginBottom: 3 }}>Línea enfocada</div>
-                    <select value={filtroLinea} onChange={e => cambiarFocoLinea(e.target.value)} style={{ ...INP, minWidth: isMobile ? 190 : 210, padding: "6px 30px 6px 10px", fontSize: 12, fontWeight: 750, background: C.s0 }}>
+                <div data-tour="obras-linea-foco" style={{ display: "grid", gap: 5, minWidth: isMobile ? "100%" : 330 }}>
+                  <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 10, minHeight: 18 }}>
+                    <div style={{ fontSize: 9, color: C.t2, letterSpacing: 1.1, textTransform: "uppercase", fontWeight: 800 }}>Línea enfocada</div>
+                    <span style={{ color: C.t3, fontSize: 9.5 }}>Filtra obras y edita su plantilla</span>
+                  </div>
+                  <div style={{ display: "grid", gridTemplateColumns: "minmax(150px,1fr) auto", alignItems: "stretch", gap: 7 }}>
+                    <select value={filtroLinea} onChange={e => cambiarFocoLinea(e.target.value)} style={{ ...INP, minWidth: 0, minHeight: 34, padding: "6px 30px 6px 10px", fontSize: 12, fontWeight: 750, background: C.s0 }}>
                       <option value="todas">Todas las líneas</option>
                       {lineas.map(linea => <option key={linea.id} value={linea.id}>{linea.nombre}</option>)}
                     </select>
+                    {esGestion && lineaEnFoco && (
+                      <button data-tour="obras-editar-linea" type="button" onClick={() => setLineasModal({ linea: lineaEnFoco })} title="Ordenar etapas, editar tareas y asignar materiales" style={{ minHeight: 34, border: `1px solid ${C.b1}`, background: C.s0, color: C.t0, borderRadius: 8, padding: "6px 11px", cursor: "pointer", fontSize: 11, fontWeight: 800, fontFamily: C.sans, whiteSpace: "nowrap" }}>Configurar línea</button>
+                    )}
+                    {esGestion && !lineaEnFoco && (
+                      <button type="button" onClick={() => setShowNuevaLineaModal(true)} style={{ minHeight: 34, border: `1px solid ${C.b0}`, background: "transparent", color: C.t2, borderRadius: 8, padding: "6px 10px", cursor: "pointer", fontSize: 11, fontWeight: 750, fontFamily: C.sans, whiteSpace: "nowrap" }}>+ Nueva línea</button>
+                    )}
                   </div>
-                  {esGestion && lineaEnFoco && (
-                    <button data-tour="obras-editar-linea" type="button" onClick={() => setLineasModal({ linea: lineaEnFoco })} style={{ border: `1px solid ${C.b1}`, background: C.s0, color: C.t1, borderRadius: 7, padding: "6px 9px", cursor: "pointer", fontSize: 11, fontWeight: 750, fontFamily: C.sans, whiteSpace: "nowrap" }}>Editar etapas</button>
-                  )}
-                  {esGestion && !lineaEnFoco && (
-                    <button type="button" onClick={() => setShowNuevaLineaModal(true)} style={{ border: `1px solid ${C.b0}`, background: "transparent", color: C.t2, borderRadius: 7, padding: "6px 9px", cursor: "pointer", fontSize: 11, fontWeight: 700, fontFamily: C.sans, whiteSpace: "nowrap" }}>+ Línea</button>
-                  )}
                 </div>
                 <div style={{ width: 1, height: 28, background: C.b0, display: isMobile ? "none" : "block" }} />
                 <div style={{ display: "flex", alignItems: "center", gap: 3, overflowX: "auto", scrollbarWidth: "none" }}>

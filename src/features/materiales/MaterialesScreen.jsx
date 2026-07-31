@@ -1,5 +1,5 @@
 import { useCallback, useDeferredValue, useEffect, useMemo, useRef, useState, useTransition } from "react";
-import { Barcode, Copy, Download, ExternalLink, FileText, ImagePlus, Link as LinkIcon, MoreHorizontal, PackagePlus, Pencil, Plus, RefreshCw, Save, Search, ShoppingCart, SkipForward, SlidersHorizontal, StickyNote, Trash2, Upload, X } from "lucide-react";
+import { AlertTriangle, Barcode, Copy, Download, ExternalLink, FileText, ImagePlus, Link as LinkIcon, MoreHorizontal, PackagePlus, Pencil, Plus, RefreshCw, Save, Search, ShoppingCart, SkipForward, SlidersHorizontal, StickyNote, Trash2, Upload, X } from "lucide-react";
 import Sidebar from "@/components/Sidebar";
 import { useResponsive } from "@/hooks/useResponsive";
 import { C } from "@/theme";
@@ -44,6 +44,7 @@ import {
   cambiarEstadoObraSnapshot,
   fetchObraSnapshotAudit,
   fetchObraMaterialSnapshot,
+  fetchObrasMaterialSnapshots,
   fetchStockLibrePanolMateriales,
   ensureObraMaterialSnapshot,
   ensureObraMaterialSnapshotRow,
@@ -131,16 +132,67 @@ function subdivisionesSugeridas(nombre) {
   return [];
 }
 
+// BÃºsqueda libre para catÃ¡logo, obras y matrices. Los hashtags son etiquetas
+// de texto: #agua y agua se comportan igual y se pueden combinar con palabras
+// que estÃ©n en otro campo (ej. "bomba agua" = nombre + observaciÃ³n).
+function searchText(...values) {
+  const flatten = (value) => {
+    if (Array.isArray(value)) return value.map(flatten).join(" ");
+    if (value && typeof value === "object") return Object.values(value).map(flatten).join(" ");
+    return String(value ?? "");
+  };
+  return norm(values.map(flatten).join(" "))
+    .replace(/[#@]+/g, " ")
+    .replace(/[^a-z0-9]+/g, " ")
+    .replace(/\s+/g, " ")
+    .trim();
+}
+
+function searchTerms(value) {
+  return searchText(value).split(" ").filter(Boolean);
+}
+
+function matchesFlexibleSearch(query, ...fields) {
+  const terms = searchTerms(query);
+  if (!terms.length) return true;
+
+  const haystack = searchText(...fields);
+  if (!haystack) return false;
+  const words = haystack.split(" ");
+  return terms.every((term) => {
+    if (haystack.includes(term)) return true;
+    // Permite una bÃºsqueda por comienzo de palabra sin volverla demasiado laxa:
+    // "presuriz" encuentra "presurizadora", pero "a" no matchea todo.
+    if (term.length < 4) return false;
+    const stem = term.slice(0, Math.max(4, term.length - 2));
+    return words.some((word) => word.startsWith(stem));
+  });
+}
+
+function materialSearchFields(material = {}) {
+  return [
+    material.descripcion,
+    material.codigo,
+    material.alias,
+    material.notas,
+    material.proveedor,
+    material.variantes,
+    material.variantes_precios,
+    materialBarcodeText(material),
+    (material.links || []).map((link) => `${link?.label || ""} ${link?.nota || ""}`),
+  ];
+}
+
 // Matcheo difuso contra la lista matriz (mismo criterio que Comprobantes)
 function scoreMaterial(material, query) {
-  const q = norm(query);
+  const q = searchText(query);
   if (!q) return 0;
   const codeText = norm(`${material.codigo ?? ""} ${materialBarcodeText(material)}`);
   if (codeText && codeText.includes(q)) return 95;
-  const d = norm(`${material.descripcion ?? ""} ${codeText}`);
+  const d = searchText(...materialSearchFields(material));
   if (d === q) return 100;
   if (d.includes(q) || q.includes(d)) return 70;
-  const words = q.split(" ").filter((w) => w.length > 2);
+  const words = searchTerms(q).filter((w) => w.length > 2);
   return words.reduce((acc, word) => acc + (d.includes(word) ? 6 : 0), 0);
 }
 function topMateriales(materiales, query) {
@@ -3612,7 +3664,6 @@ function ListaMateriales({ categorias, materiales, selectedId, ums, proveedores,
 
   const visibles = useMemo(() => {
     // Buscador: ignora acentos y exige TODAS las palabras (AND), en descripción/proveedor/código.
-    const terms = norm(searchValue).split(/\s+/).filter(Boolean);
     const scope = selectedId ? idsScope(categorias, selectedId) : null;
     const rubroScope = rubro ? idsScope(categorias, rubro) : null;
     // Proveedor: matchea por id; si el material sólo tiene el texto, cae al nombre.
@@ -3626,11 +3677,7 @@ function ListaMateriales({ categorias, materiales, selectedId, ums, proveedores,
       .filter((m) => proveedorTipo === "todos" || proveedorMeta(m.proveedor, proveedores)?.tipo === proveedorTipo)
       .filter((m) => consumFiltro === "todos" || (consumFiltro === "solo" ? m.es_consumible : !m.es_consumible))
       .filter((m) => !soloPendientes || !priceInfo(m).amount)
-      .filter((m) => {
-        if (!terms.length) return true;
-        const hay = norm(`${m.descripcion ?? ""} ${m.proveedor ?? ""} ${m.codigo ?? ""} ${materialBarcodeText(m)}`);
-        return terms.every((t) => hay.includes(t));
-      })
+      .filter((m) => matchesFlexibleSearch(searchValue, ...materialSearchFields(m)))
       // Consumibles al fondo (no molestan entre los ítems del barco). Sort estable: mantiene el orden por descripción dentro de cada grupo.
       .sort((a, b) => (a.es_consumible ? 1 : 0) - (b.es_consumible ? 1 : 0));
   }, [materiales, categorias, searchValue, selectedId, soloPendientes, lineaLista, prov, proveedores, rubro, proveedorTipo, consumFiltro]);
@@ -3709,7 +3756,7 @@ function ListaMateriales({ categorias, materiales, selectedId, ums, proveedores,
       <div style={{ display: "flex", gap: 10, flexWrap: "wrap", alignItems: "center", marginBottom: hideSearch && advancedOpen ? 8 : 16, padding: hideSearch ? 10 : "11px 13px", background: hideSearch ? "color-mix(in srgb, var(--panel) 84%, transparent)" : "var(--panel)", border: `1px solid ${C.b0}`, borderRadius: 14, boxShadow: hideSearch ? "0 10px 28px -26px rgba(15,23,42,0.75)" : "0 1px 3px rgba(0,0,0,0.05)", backdropFilter: hideSearch ? "blur(10px)" : undefined }}>
         {!hideSearch && <div style={{ position: "relative", minWidth: 220, flex: "1 1 280px" }}>
           <Search size={15} style={{ position: "absolute", left: 12, top: "50%", transform: "translateY(-50%)", color: C.t2 }} />
-          <input value={searchValue} onChange={(e) => setSearchValue(e.target.value)} placeholder="Buscar por descripción, proveedor o código…" style={{ ...INP, width: "100%", height: 40, paddingLeft: 36, borderRadius: 10 }} />
+          <input value={searchValue} onChange={(e) => setSearchValue(e.target.value)} placeholder="Buscar nombre, código, observaciones o #tag…" style={{ ...INP, width: "100%", height: 40, paddingLeft: 36, borderRadius: 10 }} />
           {searchValue && <button type="button" onClick={() => setSearchValue("")} title="Limpiar" style={{ position: "absolute", right: 10, top: "50%", transform: "translateY(-50%)", background: "transparent", border: "none", color: C.t2, cursor: "pointer", fontSize: 14, lineHeight: 1, padding: 3 }}>✕</button>}
         </div>}
         {!lineaFija && <div style={{ display: "inline-flex", gap: 3, background: C.bg, border: `1px solid ${C.b0}`, borderRadius: 12, padding: 4, boxShadow: "inset 0 1px 0 rgba(255,255,255,0.025)" }}>
@@ -4816,6 +4863,23 @@ function EtapaCompraEditor({ row, etapas, asignaciones, busy, error, onSave }) {
   );
 }
 
+function snapshotLockReason(row = {}) {
+  if (row.purchase_request_id) return "Tiene un pedido de compras asociado.";
+  if (row.panol_envio_id || row.panol_envio_item_id) return "Tiene un envío o movimiento de pañol asociado.";
+  if (Array.isArray(row.recepcion_items) && row.recepcion_items.length) return "Tiene una recepción de pañol asociada.";
+
+  const recepcionEstado = String(row.recepcion_estado || "").toLowerCase();
+  if (["recibido", "parcial", "sin_info", "falta_stock", "rechazado"].includes(recepcionEstado)) {
+    return "Tiene una recepción de pañol registrada.";
+  }
+
+  const estado = String(row.snapshot_estado || row.estadoObra || "").toLowerCase();
+  if (["pedido", "comprado"].includes(estado)) return "Ya fue enviado a compras.";
+  if (["en_panol", "parcial", "recibido"].includes(estado)) return "Ya fue recibido o ingresó a pañol.";
+  if (estado === "egresado") return "Ya fue egresado de pañol.";
+  return "";
+}
+
 function ObraMatrizView({ obra, obras = [], linea, lineaNombre, categorias, materiales, proveedores = [], opciones = [], ums = [], onChanged, onBack }) {
   const { isMobile } = useResponsive();
   const [q, setQ] = useState("");
@@ -4836,6 +4900,8 @@ function ObraMatrizView({ obra, obras = [], linea, lineaNombre, categorias, mate
   const [addonPromoteBusy, setAddonPromoteBusy] = useState("");
   const [addonDeleteBusy, setAddonDeleteBusy] = useState("");
   const [snapshotDeleteBusy, setSnapshotDeleteBusy] = useState("");
+  const [snapshotPromoteBusy, setSnapshotPromoteBusy] = useState("");
+  const [snapshotLinkBusy, setSnapshotLinkBusy] = useState("");
   const [obraPanel, setObraPanel] = useState("");
   const [filtersOpen, setFiltersOpen] = useState(false);
   const [snapshot, setSnapshot] = useState([]);
@@ -4960,6 +5026,8 @@ function ObraMatrizView({ obra, obras = [], linea, lineaNombre, categorias, mate
     setAddonPromoteBusy("");
     setAddonDeleteBusy("");
     setSnapshotDeleteBusy("");
+    setSnapshotPromoteBusy("");
+    setSnapshotLinkBusy("");
     setExclusionBusy("");
     setEstadoBusy("");
     setVarianteBusy("");
@@ -5142,7 +5210,6 @@ function ObraMatrizView({ obra, obras = [], linea, lineaNombre, categorias, mate
     : { label: "Matriz viva", color: C.t2, border: C.b0, bg: C.s0 };
 
   const addonPanelRows = useMemo(() => {
-    const terms = norm(addonQ).split(/\s+/).filter(Boolean);
     return (addons ?? [])
       .map((addon) => {
         const row = addonRowToView(addon, materialById, categorias);
@@ -5150,11 +5217,16 @@ function ObraMatrizView({ obra, obras = [], linea, lineaNombre, categorias, mate
         const editable = { ...addon, __snapshotId: snap?.snapshotId || null, __snapshotLocked: snap ? snapshotLockedForAddon(snap) : false };
         return { addon: editable, row };
       })
-      .filter(({ row, addon }) => {
-        if (!terms.length) return true;
-        const hay = norm(`${row.descripcion} ${row.codigo} ${row.proveedor} ${row.rubro} ${row.obs} ${addon.observaciones || ""}`);
-        return terms.every((term) => hay.includes(term));
-      });
+      .filter(({ row, addon }) => matchesFlexibleSearch(
+        addonQ,
+        row.descripcion,
+        row.codigo,
+        row.proveedor,
+        row.rubro,
+        row.obs,
+        addon.observaciones || "",
+        ...materialSearchFields(row.material),
+      ));
   }, [addonQ, addons, categorias, materialById, snapshotRows]);
 
   const facets = useMemo(() => {
@@ -5194,7 +5266,6 @@ function ObraMatrizView({ obra, obras = [], linea, lineaNombre, categorias, mate
   }, [etapasObra, rows, etapasDeRow]);
 
   const visibleRows = useMemo(() => {
-    const terms = norm(q).split(/\s+/).filter(Boolean);
     return rows
       .filter((row) => !proveedorFilter || row.proveedor === proveedorFilter)
       .filter((row) => !rubroFilter || row.rubro === rubroFilter)
@@ -5210,11 +5281,19 @@ function ObraMatrizView({ obra, obras = [], linea, lineaNombre, categorias, mate
         const estado = estadoObraForRow(row);
         return estado === estadoFilter;
       })
-      .filter((row) => {
-        if (!terms.length) return true;
-        const hay = norm(`${row.descripcion} ${row.codigo} ${row.proveedor} ${row.rubro} ${row.variante || ""} ${row.obs} ${recepcionMetaForRow(row).label} ${row.recepcion_estado || ""} ${row.recepcion_nota || ""}`);
-        return terms.every((t) => hay.includes(t));
-      })
+      .filter((row) => matchesFlexibleSearch(
+        q,
+        row.descripcion,
+        row.codigo,
+        row.proveedor,
+        row.rubro,
+        row.variante || "",
+        row.obs,
+        recepcionMetaForRow(row).label,
+        row.recepcion_estado || "",
+        row.recepcion_nota || "",
+        ...materialSearchFields(row.material),
+      ))
       .map((row) => {
         if (etapaFilter === "todos" || etapaFilter === "sin_asignar") return row;
         const asignacion = etapasDeRow(row).find((etapa) => etapa.id === etapaFilter);
@@ -5571,12 +5650,7 @@ function ObraMatrizView({ obra, obras = [], linea, lineaNombre, categorias, mate
   }
 
   function snapshotLockedForAddon(row) {
-    const recepcionEstado = String(row?.recepcion_estado || "").toLowerCase();
-    if (["recibido", "parcial", "sin_info", "falta_stock", "rechazado"].includes(recepcionEstado)) return true;
-    const estado = String(row?.snapshot_estado || row?.estadoObra || "").toLowerCase();
-    if (estado === "egresado") return true;
-    if (!recepcionEstado && ["en_panol", "recibido"].includes(estado)) return true;
-    return false;
+    return !!snapshotLockReason(row);
   }
 
   function addonForVisibleRow(row) {
@@ -5716,6 +5790,138 @@ function ObraMatrizView({ obra, obras = [], linea, lineaNombre, categorias, mate
     if (row.bucket?.key === "addon" && addonForVisibleRow(row)) return false;
     const key = snapshotMergeKey(row);
     return !!key && !liveMergeKeys.has(key);
+  }
+
+  function snapshotPromotionMeta(row, material) {
+    if (snapshotPromoteBusy === row?.snapshotId) {
+      return { disabled: true, label: "Restituyendo...", title: "Actualizando la matriz K" + linea + "." };
+    }
+    if (!row?.snapshotId) {
+      return { disabled: true, label: "Sin registro", title: "No hay una fila histórica para restituir." };
+    }
+    if (!material?.id) {
+      return {
+        disabled: true,
+        label: "Vincular catálogo",
+        title: "Esta fila histórica no está vinculada a un material activo del catálogo. Primero hay que vincularlo o reactivarlo.",
+      };
+    }
+    if (exclusionMaterialIds.has(material.id)) {
+      return {
+        disabled: true,
+        label: "Restaurar en obra",
+        title: "El material está excluido para esta obra. Restauralo primero desde la matriz viva.",
+      };
+    }
+    const lockReason = snapshotLockReason(row);
+    if (lockReason) {
+      return {
+        disabled: true,
+        label: "Con historial",
+        title: lockReason + " Se conserva como registro histórico.",
+      };
+    }
+    return {
+      disabled: false,
+      label: "Pasar a estándar",
+      title: "Agregarlo a la matriz K" + linea + " y reemplazar esta fila histórica sin movimientos.",
+    };
+  }
+
+  async function promoteSnapshotToMatrix(row, material) {
+    const meta = snapshotPromotionMeta(row, material);
+    if (meta.disabled) {
+      setFlowMsg({ type: "err", text: meta.title });
+      return;
+    }
+
+    const cantidad = toNum(row.cantidad) || 1;
+    const accepted = window.confirm(
+      `¿Pasar "${row.descripcion}" a la lista estándar K${linea}? Se guardarán ${qtyText(cantidad, material.unidad_medida || row.unidad || "unidad")} en la matriz y se reemplazará el registro histórico de ${obra.codigo}.`,
+    );
+    if (!accepted) return;
+
+    setSnapshotPromoteBusy(row.snapshotId);
+    setFlowMsg(null);
+    try {
+      await setCantidadModelo(material.id, linea, cantidad);
+      try {
+        await borrarObraSnapshotRows([row.snapshotId]);
+      } catch (deleteError) {
+        try {
+          await quitarCantidadModelo(material.id, linea);
+        } catch {
+          throw new Error("El material se agregó a la matriz, pero no se pudo retirar la fila histórica ni revertir el cambio. Actualizá la pantalla y revisalo antes de continuar.");
+        }
+        throw deleteError;
+      }
+      await Promise.allSettled([cargarSnapshot(), onChanged?.()]);
+      setOpenActionsRowId("");
+      setFlowMsg({
+        type: "ok",
+        text: `${material.descripcion} ahora es estándar de K${linea} (${qtyText(cantidad, material.unidad_medida || row.unidad || "unidad")}).`,
+      });
+    } catch (e) {
+      setFlowMsg({ type: "err", text: e?.message || "No se pudo pasar el item histórico a la lista estándar." });
+    } finally {
+      setSnapshotPromoteBusy("");
+    }
+  }
+
+  async function linkSnapshotToCatalog(row, material) {
+    if (!row?.snapshotId || !material?.id || snapshotLinkBusy) return;
+    setSnapshotLinkBusy(row.snapshotId);
+    setFlowMsg(null);
+    try {
+      await updateObraSnapshotRows([row.snapshotId], { material_id: material.id });
+      await Promise.all([onChanged?.(), cargarSnapshot()]);
+      setFlowMsg({
+        type: "ok",
+        text: `${row.descripcion} quedó vinculado a ${material.descripcion}. Ya podés pasarlo a estándar K${linea}.`,
+      });
+    } catch (e) {
+      setFlowMsg({ type: "err", text: e?.message || "No se pudo vincular la fila histórica al catálogo." });
+    } finally {
+      setSnapshotLinkBusy("");
+    }
+  }
+
+  async function createCatalogAndLinkSnapshot(row, draft) {
+    const descripcion = String(draft?.descripcion || row?.descripcion || "").trim();
+    const categoriaId = draft?.categoria_id || null;
+    if (!descripcion) {
+      setFlowMsg({ type: "err", text: "Indicá el nombre del material antes de crearlo." });
+      return;
+    }
+    if (!categoriaId) {
+      setFlowMsg({ type: "err", text: "Elegí el rubro del material antes de crearlo." });
+      return;
+    }
+    if (!row?.snapshotId || snapshotLinkBusy) return;
+
+    setSnapshotLinkBusy(row.snapshotId);
+    setFlowMsg(null);
+    try {
+      const materialId = await crearMaterial({
+        descripcion,
+        categoria_id: categoriaId,
+        codigo: row.codigo || null,
+        unidad_medida: row.unidad || "unidad",
+        notas: `Creado al recuperar la fila histórica de ${obra.codigo}.`,
+        origen: "snapshot_historico",
+        revisado: false,
+      }, {});
+      await updateObraSnapshotRows([row.snapshotId], { material_id: materialId });
+      await Promise.all([onChanged?.(), cargarSnapshot()]);
+      setFlowMsg({
+        type: "ok",
+        text: `${descripcion} fue creado en catálogo y vinculado. Ya podés pasarlo a estándar K${linea}.`,
+      });
+    } catch (e) {
+      setFlowMsg({ type: "err", text: e?.message || "No se pudo crear y vincular el material al catálogo." });
+    } finally {
+      setSnapshotLinkBusy("");
+    }
   }
 
   async function deleteAddonRow(addon) {
@@ -6213,7 +6419,7 @@ function ObraMatrizView({ obra, obras = [], linea, lineaNombre, categorias, mate
         <div style={{ display: "flex", gap: 8, flexWrap: "wrap", alignItems: "center" }}>
           <div style={{ position: "relative", flex: "1 1 320px", minWidth: isMobile ? "100%" : 260 }}>
             <Search size={15} style={{ position: "absolute", left: 12, top: "50%", transform: "translateY(-50%)", color: C.t2 }} />
-            <input value={q} onChange={(e) => setQ(e.target.value)} placeholder="Buscar item, proveedor, rubro, codigo..." style={{ ...INP, width: "100%", paddingLeft: 36, height: 40, borderRadius: 12 }} />
+            <input value={q} onChange={(e) => setQ(e.target.value)} placeholder="Buscar nombre, código, observaciones o #tag..." style={{ ...INP, width: "100%", paddingLeft: 36, height: 40, borderRadius: 12 }} />
           </div>
           {[
             ["todos", `Todo (${kpis.items})`, C.blue],
@@ -6451,6 +6657,7 @@ function ObraMatrizView({ obra, obras = [], linea, lineaNombre, categorias, mate
                 const editableAddon = addonForVisibleRow(row);
                 const addonPromotion = editableAddon ? addonPromotionMeta(editableAddon) : null;
                 const snapshotOnly = snapshotOnlyForRow(row);
+                const snapshotPromotion = snapshotOnly ? snapshotPromotionMeta(row, materialForRow) : null;
                 const editingMaterial = editingMaterialRowId === row.id;
                 const actionsOpen = openActionsRowId === row.id;
                 const rowSelected = selected.has(row.id);
@@ -6521,7 +6728,7 @@ function ObraMatrizView({ obra, obras = [], linea, lineaNombre, categorias, mate
                             {row.review?.flag && <ReviewBadge reason={row.review.reason} />}
                             <StockLibreChip info={stockLibreInfo} loading={stockLibreLoading} />
                             {snapshotOnly ? (
-                              <span style={{ fontSize: 9.5, fontWeight: 900, color: C.amber, border: `1px solid ${C.amberB}`, background: C.amberL, borderRadius: 999, padding: "1px 6px", whiteSpace: "nowrap" }}>
+                              <span title="Fila histórica: abrí ⋯ para ver el tracking y la forma segura de corregirla." style={{ fontSize: 9.5, fontWeight: 900, color: C.amber, border: `1px solid ${C.amberB}`, background: C.amberL, borderRadius: 999, padding: "1px 6px", whiteSpace: "nowrap", cursor: "help" }}>
                                 Fuera de matriz
                               </span>
                             ) : null}
@@ -6587,6 +6794,21 @@ function ObraMatrizView({ obra, obras = [], linea, lineaNombre, categorias, mate
                             onChange={regularizarEstadoRow}
                           />
                         </div>
+                        {snapshotOnly ? (
+                          <SnapshotTraceCard
+                            key={row.snapshotId}
+                            row={row}
+                            linea={linea}
+                            material={materialForRow}
+                            materiales={materiales}
+                            categorias={categorias}
+                            promotion={snapshotPromotion}
+                            linkBusy={snapshotLinkBusy === row.snapshotId}
+                            onPromote={() => promoteSnapshotToMatrix(row, materialForRow)}
+                            onLinkExisting={(catalogMaterial) => linkSnapshotToCatalog(row, catalogMaterial)}
+                            onCreateAndLink={(draft) => createCatalogAndLinkSnapshot(row, draft)}
+                          />
+                        ) : null}
                         <div style={{ flex: "1 1 220px", display: "flex", flexWrap: "wrap", gap: 6, alignContent: "flex-start" }}>
                           {materialForRow && !editableAddon ? (
                             <button
@@ -6728,13 +6950,40 @@ function LineaMatrizView({ linea, lineas = [], obras = [], categorias, materiale
   const [filtersOpen, setFiltersOpen] = useState(false);
   const [obrasOpen, setObrasOpen] = useState(false);
   const [showAddItem, setShowAddItem] = useState(false);
+  const [lineSnapshots, setLineSnapshots] = useState([]);
+  const [lineSnapshotsLoading, setLineSnapshotsLoading] = useState(false);
+  const [lineSnapshotsError, setLineSnapshotsError] = useState("");
+  const [outOfMatrixOpen, setOutOfMatrixOpen] = useState(false);
+  const [outOfMatrixResolver, setOutOfMatrixResolver] = useState(null);
+  const [outOfMatrixResolveBusy, setOutOfMatrixResolveBusy] = useState(false);
+  const [outOfMatrixResolveError, setOutOfMatrixResolveError] = useState("");
   const code = String(linea?.codigo || "").replace(/^K/i, "");
   const title = linea?.nombre || `K${code}`;
+  const lineObras = useMemo(() => (obras ?? []).filter((obra) => obra?.id), [obras]);
+  const lineObraIds = useMemo(() => lineObras.map((obra) => obra.id), [lineObras]);
+
+  const cargarLineSnapshots = useCallback(async () => {
+    setLineSnapshotsLoading(true);
+    setLineSnapshotsError("");
+    try {
+      setLineSnapshots(await fetchObrasMaterialSnapshots(lineObraIds));
+    } catch (error) {
+      setLineSnapshots([]);
+      setLineSnapshotsError(error?.message || "No se pudieron revisar las listas de las obras.");
+    } finally {
+      setLineSnapshotsLoading(false);
+    }
+  }, [lineObraIds]);
+
+  useEffect(() => { cargarLineSnapshots(); }, [cargarLineSnapshots]);
 
   useEffect(() => {
     setSelected(new Set());
     setEditingId("");
     setRemovingId("");
+    setOutOfMatrixOpen(false);
+    setOutOfMatrixResolver(null);
+    setOutOfMatrixResolveError("");
   }, [code]);
 
   const rows = useMemo(() => (materiales ?? [])
@@ -6746,6 +6995,7 @@ function LineaMatrizView({ linea, lineas = [], obras = [], categorias, materiale
       const proveedor = precio.proveedor || m.proveedor || "Sin proveedor";
       return {
         id: m.id,
+        materialId: m.id,
         material: m,
         descripcion: m.descripcion,
         codigo: m.codigo,
@@ -6768,6 +7018,68 @@ function LineaMatrizView({ linea, lineas = [], obras = [], categorias, materiale
         || a.descripcion.localeCompare(b.descripcion, "es");
     }), [materiales, code, categorias, opciones, proveedores]);
 
+  const materialById = useMemo(
+    () => new Map((materiales ?? []).map((material) => [material.id, material])),
+    [materiales],
+  );
+
+  const matrizLiveKeys = useMemo(
+    () => new Set(rows.map((row, index) => snapshotMergeKey(row, index)).filter(Boolean)),
+    [rows],
+  );
+  const outOfMatrixItems = useMemo(() => {
+    const obrasById = new Map(lineObras.map((obra) => [obra.id, obra]));
+    const grouped = new Map();
+
+    lineSnapshots.forEach((snapshot, index) => {
+      const tipo = String(snapshot.tipo || "base").toLowerCase();
+      const source = String(snapshot.source || "matriz").toLowerCase();
+      if (tipo === "addon" || source === "addon" || isLedgerOnlySnapshot(snapshot)) return;
+
+      const mergeKey = snapshotMergeKey(snapshot, index);
+      if (!mergeKey || matrizLiveKeys.has(mergeKey)) return;
+
+      if (!grouped.has(mergeKey)) {
+        grouped.set(mergeKey, {
+          key: mergeKey,
+          descripcion: snapshot.descripcion || "Material sin nombre",
+          codigo: snapshot.codigo || "",
+          unidad: snapshot.unidad || "unidad",
+          rubro: snapshot.rubro || "",
+          tipo,
+          materialId: snapshot.material_id || null,
+          obras: new Map(),
+          snapshotIds: [],
+          cantidadVotes: new Map(),
+        });
+      }
+      const issue = grouped.get(mergeKey);
+      const obra = obrasById.get(snapshot.obra_id);
+      if (obra?.id) issue.obras.set(obra.id, obra);
+      if (snapshot.id) issue.snapshotIds.push(snapshot.id);
+      const cantidad = toNum(snapshot.cantidad) || 1;
+      issue.cantidadVotes.set(cantidad, (issue.cantidadVotes.get(cantidad) || 0) + 1);
+    });
+
+    return [...grouped.values()]
+      .map(({ obras: obrasAfectadas, cantidadVotes, ...issue }) => {
+        const [cantidadSugerida = 1] = [...cantidadVotes.entries()]
+          .sort((a, b) => b[1] - a[1] || Number(a[0]) - Number(b[0]))[0] || [];
+        return {
+          ...issue,
+          obras: [...obrasAfectadas.values()],
+          snapshotIds: [...new Set(issue.snapshotIds)],
+          cantidadSugerida: Number(cantidadSugerida) || 1,
+          cantidadesDistintas: cantidadVotes.size > 1,
+        };
+      })
+      .sort((a, b) => b.obras.length - a.obras.length || a.descripcion.localeCompare(b.descripcion, "es", { numeric: true }));
+  }, [lineSnapshots, lineObras, matrizLiveKeys]);
+  const outOfMatrixObrasCount = useMemo(
+    () => new Set(outOfMatrixItems.flatMap((item) => item.obras.map((obra) => obra.id))).size,
+    [outOfMatrixItems],
+  );
+
   const facets = useMemo(() => {
     const proveedoresSet = new Set();
     const rubrosSet = new Set();
@@ -6782,17 +7094,20 @@ function LineaMatrizView({ linea, lineas = [], obras = [], categorias, materiale
   }, [rows]);
 
   const visibleRows = useMemo(() => {
-    const terms = norm(q).split(/\s+/).filter(Boolean);
     return rows
       .filter((row) => !proveedorFilter || row.proveedor === proveedorFilter)
       .filter((row) => proveedorTipoFilter === "todos" || row.proveedorMeta?.tipo === proveedorTipoFilter)
       .filter((row) => !rubroFilter || row.rubro === rubroFilter)
       .filter((row) => tipoFilter === "todos" || (tipoFilter === "sin_precio" ? !row.precio.amount : tipoFilter === "revisar" ? row.review?.flag : row.bucket.key === tipoFilter))
-      .filter((row) => {
-        if (!terms.length) return true;
-        const hay = norm(`${row.descripcion} ${row.codigo} ${row.proveedor} ${row.rubro} ${row.obs}`);
-        return terms.every((t) => hay.includes(t));
-      });
+      .filter((row) => matchesFlexibleSearch(
+        q,
+        row.descripcion,
+        row.codigo,
+        row.proveedor,
+        row.rubro,
+        row.obs,
+        ...materialSearchFields(row.material),
+      ));
   }, [rows, q, proveedorFilter, proveedorTipoFilter, rubroFilter, tipoFilter]);
 
   const groupedRows = useMemo(() => {
@@ -6860,6 +7175,86 @@ function LineaMatrizView({ linea, lineas = [], obras = [], categorias, materiale
     setTimeout(() => setCopied(false), 1600);
   }
 
+  async function guardarIssueFueraDeMatriz(issue, material, cantidad) {
+    const qty = toNum(cantidad);
+    if (!issue?.snapshotIds?.length) throw new Error("No encontré las filas históricas a corregir.");
+    if (!material?.id) throw new Error("Elegí un material de catálogo antes de agregarlo a la matriz.");
+    if (!Number.isFinite(qty) || qty <= 0) throw new Error("Indicá una cantidad estándar mayor a cero.");
+
+    // Se preserva la historia de cada obra. Sólo se vinculan las filas que
+    // todavía no apuntan al material correcto y se agrega el material a Kxx.
+    if (String(issue.materialId || "") !== String(material.id)) {
+      await updateObraSnapshotRows(issue.snapshotIds, { material_id: material.id });
+    }
+    await setCantidadModelo(material.id, code, qty);
+    await Promise.all([onChanged?.(), cargarLineSnapshots()]);
+  }
+
+  async function resolverIssueFueraDeMatriz(issue, material, cantidad) {
+    if (outOfMatrixResolveBusy) return;
+    if (!material?.id) {
+      setOutOfMatrixResolveError("Elegí un material existente o crealo desde este panel.");
+      return;
+    }
+    const qty = toNum(cantidad);
+    const vinculaFilas = String(issue.materialId || "") !== String(material.id);
+    const accepted = window.confirm(
+      `${vinculaFilas ? "Vinculará" : "Conservará"} ${issue.snapshotIds.length} fila(s) histórica(s) de ${issue.obras.length} obra(s) y agregará "${material.descripcion}" a la matriz K${code} con ${qtyText(qty || issue.cantidadSugerida, issue.unidad)}.`,
+    );
+    if (!accepted) return;
+
+    setOutOfMatrixResolveBusy(true);
+    setOutOfMatrixResolveError("");
+    try {
+      await guardarIssueFueraDeMatriz(issue, material, qty || issue.cantidadSugerida);
+      setOutOfMatrixResolver(null);
+    } catch (error) {
+      setOutOfMatrixResolveError(error?.message || "No se pudo corregir este item en la matriz.");
+    } finally {
+      setOutOfMatrixResolveBusy(false);
+    }
+  }
+
+  async function crearYResolverIssueFueraDeMatriz(issue, draft, cantidad) {
+    if (outOfMatrixResolveBusy) return;
+    const descripcion = String(draft?.descripcion || issue?.descripcion || "").trim();
+    const categoriaId = draft?.categoria_id || null;
+    if (!descripcion || !categoriaId) {
+      setOutOfMatrixResolveError("Indicá el nombre y rubro antes de crear el material.");
+      return;
+    }
+    const qty = toNum(cantidad) || issue.cantidadSugerida;
+    const accepted = window.confirm(
+      `Se creará "${descripcion}" en catálogo, se vincularán ${issue.snapshotIds.length} fila(s) histórica(s) y se agregará a la matriz K${code} con ${qtyText(qty, issue.unidad)}. ¿Continuar?`,
+    );
+    if (!accepted) return;
+
+    setOutOfMatrixResolveBusy(true);
+    setOutOfMatrixResolveError("");
+    try {
+      const materialId = await crearMaterial({
+        descripcion,
+        categoria_id: categoriaId,
+        codigo: issue.codigo || null,
+        unidad_medida: issue.unidad || "unidad",
+        notas: `Creado al corregir una fila fuera de matriz K${code}.`,
+        origen: "snapshot_historico",
+        revisado: false,
+      });
+      await guardarIssueFueraDeMatriz(issue, {
+        id: materialId,
+        descripcion,
+        unidad_medida: issue.unidad || "unidad",
+        activo: true,
+      }, qty);
+      setOutOfMatrixResolver(null);
+    } catch (error) {
+      setOutOfMatrixResolveError(error?.message || "No se pudo crear y agregar el material a la matriz.");
+    } finally {
+      setOutOfMatrixResolveBusy(false);
+    }
+  }
+
   async function removeFromLine(row) {
     if (!window.confirm(`¿Sacar "${row.descripcion}" de ${title}? No se borra del catálogo.`)) return;
     setRemovingId(row.id);
@@ -6898,7 +7293,7 @@ function LineaMatrizView({ linea, lineas = [], obras = [], categorias, materiale
     q.trim(),
   ].filter(Boolean).length;
   const lineOptions = lineas.length ? lineas : [linea].filter(Boolean);
-  const visibleObras = obras.filter(Boolean);
+  const visibleObras = lineObras;
   const totalLabel = kpis.usd ? fmtMoney(kpis.usd, "USD") : kpis.ars ? fmtMoney(kpis.ars, "ARS") : "Sin precios";
 
   return (
@@ -6935,6 +7330,22 @@ function LineaMatrizView({ linea, lineas = [], obras = [], categorias, materiale
               <div style={{ fontSize: 10.5, color: C.t2, fontWeight: 900, textTransform: "uppercase", letterSpacing: 0.7 }}>Presupuesto total</div>
               <div style={{ fontFamily: C.mono, fontSize: 18, fontWeight: 950, color: kpis.usd || kpis.ars ? C.green : C.t2 }}>{totalLabel}</div>
             </div>
+            {lineSnapshotsLoading ? (
+              <span style={{ fontSize: 10.5, color: C.t2, fontWeight: 850 }}>Revisando listas de obras...</span>
+            ) : lineSnapshotsError ? (
+              <button type="button" onClick={cargarLineSnapshots} style={{ ...BTN, height: 38, padding: "0 11px", color: C.red, borderColor: C.redB, background: "rgba(239,68,68,0.08)" }} title={lineSnapshotsError}>
+                <AlertTriangle size={14} /> Reintentar control
+              </button>
+            ) : outOfMatrixItems.length ? (
+              <button
+                type="button"
+                onClick={() => setOutOfMatrixOpen((open) => !open)}
+                style={{ ...BTN, height: 38, padding: "0 11px", color: outOfMatrixOpen ? C.red : C.amber, borderColor: outOfMatrixOpen ? C.redB : C.amberB, background: outOfMatrixOpen ? "rgba(239,68,68,0.09)" : C.amberL }}
+                title="Ver items de las obras que no existen en la matriz de esta linea"
+              >
+                <AlertTriangle size={14} /> Fuera de matriz ({outOfMatrixItems.length})
+              </button>
+            ) : null}
             <button type="button" onClick={() => setStatsOpen((v) => !v)} style={{ ...BTN, height: 38, padding: "0 11px" }} title="Ver estadisticas">
               {statsOpen ? "Ocultar stats" : "Stats"}
             </button>
@@ -6990,7 +7401,86 @@ function LineaMatrizView({ linea, lineas = [], obras = [], categorias, materiale
             </div>
           </div>
         )}
+        {outOfMatrixOpen && outOfMatrixItems.length ? (
+          <div style={{ marginTop: 14, borderTop: `1px solid ${C.b0}`, paddingTop: 12, display: "grid", gap: 9 }}>
+            <div style={{ display: "flex", alignItems: "flex-start", justifyContent: "space-between", gap: 10, flexWrap: "wrap" }}>
+              <div>
+                <div style={{ display: "flex", alignItems: "center", gap: 7, color: C.red, fontSize: 12.5, fontWeight: 950 }}>
+                  <AlertTriangle size={15} /> Control de matriz K{code}
+                </div>
+                <div style={{ marginTop: 3, color: C.t2, fontSize: 11.5, lineHeight: 1.4 }}>
+                  {outOfMatrixItems.length} items detectados en {outOfMatrixObrasCount} obras. Son filas históricas no adicionales que ya no están en la matriz viva.
+                </div>
+              </div>
+              <button type="button" onClick={cargarLineSnapshots} disabled={lineSnapshotsLoading} style={{ ...BTN, minHeight: 29, padding: "5px 9px", fontSize: 10.5, color: C.t2 }}>
+                <RefreshCw size={12} /> {lineSnapshotsLoading ? "Revisando..." : "Actualizar"}
+              </button>
+            </div>
+            <div style={{ display: "grid", gap: 6, maxHeight: 300, overflowY: "auto", paddingRight: 2 }}>
+              {outOfMatrixItems.map((issue) => {
+                const tipoLabel = issue.tipo === "base" ? "Base" : issue.tipo.replaceAll("_", " ");
+                const obraCodes = issue.obras.map((obra) => obra.codigo || "Obra");
+                const linkedMaterial = issue.materialId ? materialById.get(issue.materialId) || null : null;
+                const readyToAdd = !!(linkedMaterial && materialActivo(linkedMaterial));
+                const actionLabel = readyToAdd ? `Agregar a K${code}` : issue.materialId ? "Revisar catálogo" : "Vincular y agregar";
+                return (
+                  <div key={issue.key} style={{ display: "grid", gridTemplateColumns: "minmax(220px, 1fr) auto", gap: 10, alignItems: "center", border: `1px solid ${C.amberB}`, background: "color-mix(in srgb, var(--panel) 88%, #f59e0b 6%)", borderRadius: 11, padding: "8px 9px" }}>
+                    <div style={{ minWidth: 0 }}>
+                      <div style={{ display: "flex", alignItems: "center", gap: 6, flexWrap: "wrap" }}>
+                        <span style={{ minWidth: 0, fontSize: 12.5, color: C.t0, fontWeight: 950, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{issue.descripcion}</span>
+                        <span style={{ fontSize: 9.5, color: C.amber, border: `1px solid ${C.amberB}`, background: C.amberL, borderRadius: 999, padding: "2px 6px", fontWeight: 900, textTransform: "capitalize" }}>{tipoLabel}</span>
+                        {!issue.materialId ? <span style={{ fontSize: 9.5, color: C.red, border: `1px solid ${C.redB}`, background: "rgba(239,68,68,0.08)", borderRadius: 999, padding: "2px 6px", fontWeight: 900 }}>Sin vínculo catálogo</span> : null}
+                        {issue.cantidadesDistintas ? <span style={{ fontSize: 9.5, color: C.red, border: `1px solid ${C.redB}`, background: "rgba(239,68,68,0.08)", borderRadius: 999, padding: "2px 6px", fontWeight: 900 }}>Cantidades distintas</span> : null}
+                      </div>
+                      <div title={obraCodes.join(", ")} style={{ marginTop: 4, color: C.t2, fontSize: 10.5, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+                        {issue.codigo || "sin código"} · {issue.obras.length} obras: {obraCodes.join(", ")}
+                      </div>
+                    </div>
+                    <div style={{ display: "flex", alignItems: "center", gap: 5, flexWrap: "wrap", justifyContent: "flex-end" }}>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setOutOfMatrixResolveError("");
+                          setOutOfMatrixResolver(issue);
+                        }}
+                        style={{ ...BTN, minHeight: 27, padding: "4px 8px", fontSize: 10, color: readyToAdd ? C.green : C.blue, borderColor: readyToAdd ? C.greenB : C.blueB, background: readyToAdd ? C.greenL : C.blueL }}
+                        title={readyToAdd ? `Agregar ${issue.descripcion} como estándar de K${code}` : "Elegir o crear un material de catálogo y agregarlo a la matriz"}
+                      >
+                        <PackagePlus size={12} /> {actionLabel}
+                      </button>
+                      {issue.obras.slice(0, 3).map((obra) => (
+                        <button key={obra.id} type="button" onClick={() => onSelectObra?.(obra)} style={{ ...BTN, minHeight: 27, padding: "4px 7px", fontSize: 10, color: C.blue, borderColor: C.blueB, background: C.blueL }} title={`Abrir ${obra.codigo || "obra"}`}>
+                          {obra.codigo || "Abrir"}
+                        </button>
+                      ))}
+                      {issue.obras.length > 3 ? <span style={{ color: C.t2, fontFamily: C.mono, fontSize: 10.5 }}>+{issue.obras.length - 3}</span> : null}
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+        ) : null}
       </div>
+
+      {outOfMatrixResolver ? (
+        <ResolverFueraDeMatrizModal
+          key={outOfMatrixResolver.key}
+          issue={outOfMatrixResolver}
+          linea={code}
+          materiales={materiales}
+          categorias={categorias}
+          busy={outOfMatrixResolveBusy}
+          error={outOfMatrixResolveError}
+          onClose={() => {
+            if (outOfMatrixResolveBusy) return;
+            setOutOfMatrixResolver(null);
+            setOutOfMatrixResolveError("");
+          }}
+          onResolve={(material, cantidad) => resolverIssueFueraDeMatriz(outOfMatrixResolver, material, cantidad)}
+          onCreate={(draft, cantidad) => crearYResolverIssueFueraDeMatriz(outOfMatrixResolver, draft, cantidad)}
+        />
+      ) : null}
 
       {showAddItem && (
         <div style={{ marginBottom: 12 }}>
@@ -7010,7 +7500,7 @@ function LineaMatrizView({ linea, lineas = [], obras = [], categorias, materiale
         <div style={{ display: "flex", gap: 8, flexWrap: "wrap", alignItems: "center" }}>
           <div style={{ position: "relative", flex: "1 1 320px" }}>
             <Search size={15} style={{ position: "absolute", left: 12, top: "50%", transform: "translateY(-50%)", color: C.t2 }} />
-            <input value={q} onChange={(e) => setQ(e.target.value)} placeholder="Buscar item, proveedor, rubro, codigo..." style={{ ...INP, width: "100%", paddingLeft: 36, height: 40, borderRadius: 12 }} />
+            <input value={q} onChange={(e) => setQ(e.target.value)} placeholder="Buscar nombre, código, observaciones o #tag..." style={{ ...INP, width: "100%", paddingLeft: 36, height: 40, borderRadius: 12 }} />
           </div>
           {[
             ["todos", "Todo", C.blue],
@@ -7385,6 +7875,190 @@ function ObraSnapshotHistory({ snapshotId }) {
   );
 }
 
+function SnapshotTraceCard({
+  row,
+  linea,
+  material,
+  materiales = [],
+  categorias = [],
+  promotion,
+  linkBusy = false,
+  onPromote,
+  onLinkExisting,
+  onCreateAndLink,
+}) {
+  const [catalogQuery, setCatalogQuery] = useState(() => row.descripcion || "");
+  const [selectedMaterialId, setSelectedMaterialId] = useState("");
+  const [createOpen, setCreateOpen] = useState(false);
+  const [createDescription, setCreateDescription] = useState(() => row.descripcion || "");
+  const suggestedCategoryId = useMemo(() => {
+    const rubro = norm(row.rubro || "");
+    return categorias.find((categoria) => norm(categoria.nombre || "") === rubro)?.id
+      || categorias.find((categoria) => rubro && norm(categoria.nombre || "").includes(rubro))?.id
+      || "";
+  }, [categorias, row.rubro]);
+  const [createCategoryId, setCreateCategoryId] = useState(() => suggestedCategoryId);
+  const catalogCandidates = useMemo(() => (materiales ?? [])
+    .filter(materialActivo)
+    .filter((item) => matchesFlexibleSearch(catalogQuery, ...materialSearchFields(item)))
+    .sort((a, b) => String(a.descripcion || "").localeCompare(String(b.descripcion || ""), "es", { numeric: true }))
+    .slice(0, 12), [catalogQuery, materiales]);
+  const selectedCatalogMaterial = catalogCandidates.find((item) => item.id === selectedMaterialId)
+    || materiales.find((item) => item.id === selectedMaterialId)
+    || null;
+  const lockReason = snapshotLockReason(row);
+  const estadoMeta = SNAPSHOT_ESTADO_META[estadoObraForRow(row)] || SNAPSHOT_ESTADO_META.pendiente;
+  const catalogStatus = !row.materialId
+    ? "No tiene un vínculo de catálogo guardado."
+    : !material
+      ? "Conserva un vínculo de catálogo, pero ese material ya no aparece como activo en el catálogo."
+      : `Está vinculado al catálogo, pero ya no integra la matriz viva K${linea}.`;
+  const origen = String(row.source || "matriz").replaceAll("_", " ");
+
+  return (
+    <div style={{ flex: "1 1 360px", minWidth: 0, display: "grid", gap: 8, padding: "10px 11px", border: `1px solid ${C.amberB}`, borderRadius: 10, background: "linear-gradient(135deg, color-mix(in srgb, var(--panel) 88%, #f59e0b 7%), var(--panel))" }}>
+      <div style={{ display: "flex", alignItems: "flex-start", gap: 8, justifyContent: "space-between", flexWrap: "wrap" }}>
+        <div>
+          <div style={{ fontSize: 11.5, color: C.t0, fontWeight: 950 }}>Tracking de fila histórica</div>
+          <div style={{ marginTop: 2, fontSize: 10.5, color: C.t2, lineHeight: 1.35 }}>
+            Está visible porque la obra la conserva, pero no encontró equivalente en la matriz viva.
+          </div>
+        </div>
+        <span style={{ fontSize: 10, color: estadoMeta.color, border: `1px solid ${estadoMeta.border}`, background: estadoMeta.bg, borderRadius: 999, padding: "3px 7px", fontWeight: 900 }}>
+          {estadoMeta.label}
+        </span>
+      </div>
+
+      <div style={{ display: "flex", flexWrap: "wrap", gap: 5 }}>
+        {[
+          ["Origen", origen],
+          ["Tipo", row.snapshot_tipo || row.bucket?.label || "base"],
+          ["Creado", auditDateLabel(row.created_at) || "sin fecha"],
+          ["Último cambio", auditDateLabel(row.updated_at) || "sin cambios"],
+        ].map(([label, value]) => (
+          <span key={label} style={{ fontSize: 10, color: C.t2, border: `1px solid ${C.b0}`, background: C.s0, borderRadius: 999, padding: "3px 7px" }}>
+            <strong style={{ color: C.t1 }}>{label}:</strong> {value}
+          </span>
+        ))}
+      </div>
+
+      <div style={{ padding: "7px 8px", borderRadius: 8, background: C.s0, border: `1px solid ${C.b0}`, color: C.t1, fontSize: 11, lineHeight: 1.45 }}>
+        {catalogStatus}
+        {lockReason ? <span style={{ color: C.amber }}> {lockReason}</span> : <span style={{ color: C.green }}> No tiene movimientos bloqueantes.</span>}
+      </div>
+
+      {!material?.id ? (
+        <div style={{ display: "grid", gap: 7, padding: "9px", border: `1px solid ${C.blueB}`, borderRadius: 9, background: C.blueL }}>
+          <div>
+            <div style={{ fontSize: 10.5, color: C.blue, fontWeight: 950 }}>Vincular al catálogo</div>
+            <div style={{ marginTop: 2, fontSize: 10.5, color: C.t2, lineHeight: 1.35 }}>
+              Elegí un material ya existente o crealo acá. Después se habilita Pasar a estándar para K{linea}.
+            </div>
+          </div>
+
+          <div style={{ display: "flex", alignItems: "center", flexWrap: "wrap", gap: 6 }}>
+            <input
+              value={catalogQuery}
+              onChange={(event) => {
+                setCatalogQuery(event.target.value);
+                setSelectedMaterialId("");
+              }}
+              placeholder="Buscar en catálogo..."
+              style={{ ...INP, height: 31, minWidth: 150, flex: "1 1 170px", fontSize: 11 }}
+            />
+            <select
+              value={selectedMaterialId}
+              onChange={(event) => setSelectedMaterialId(event.target.value)}
+              style={{ ...INP, height: 31, minWidth: 190, flex: "2 1 235px", fontSize: 11 }}
+            >
+              <option value="" style={OPT_ST}>Elegir material existente...</option>
+              {catalogCandidates.map((item) => (
+                <option key={item.id} value={item.id} style={OPT_ST}>
+                  {item.descripcion}{item.codigo ? ` · ${item.codigo}` : ""}{item.categoria_id ? ` · ${categoriaNombre(categorias, item.categoria_id)}` : ""}
+                </option>
+              ))}
+            </select>
+            <button
+              type="button"
+              disabled={!selectedCatalogMaterial || linkBusy}
+              onClick={() => onLinkExisting?.(selectedCatalogMaterial)}
+              style={{ ...BTN, minHeight: 31, padding: "5px 9px", fontSize: 10.5, color: selectedCatalogMaterial && !linkBusy ? C.blue : C.t3, borderColor: selectedCatalogMaterial && !linkBusy ? C.blueB : C.b0, background: selectedCatalogMaterial && !linkBusy ? C.s0 : C.bg, opacity: selectedCatalogMaterial && !linkBusy ? 1 : .65 }}
+            >
+              <LinkIcon size={12} /> {linkBusy ? "Vinculando..." : "Vincular"}
+            </button>
+          </div>
+
+          <div style={{ display: "flex", alignItems: "center", gap: 7, flexWrap: "wrap" }}>
+            <button
+              type="button"
+              onClick={() => setCreateOpen((open) => !open)}
+              disabled={linkBusy}
+              style={{ ...BTN, minHeight: 27, padding: "4px 8px", fontSize: 10, color: C.t1 }}
+            >
+              <Plus size={12} /> {createOpen ? "Cancelar alta" : "No existe: crear en catálogo"}
+            </button>
+            <span style={{ fontSize: 10, color: C.t2 }}>Se crea activo, en el rubro que elijas y sin precio/proveedor.</span>
+          </div>
+
+          {createOpen ? (
+            <div style={{ display: "flex", alignItems: "center", flexWrap: "wrap", gap: 6, paddingTop: 1 }}>
+              <input
+                value={createDescription}
+                onChange={(event) => setCreateDescription(event.target.value)}
+                placeholder="Nombre del material"
+                style={{ ...INP, height: 31, minWidth: 170, flex: "2 1 230px", fontSize: 11 }}
+              />
+              <select
+                value={createCategoryId || suggestedCategoryId}
+                onChange={(event) => setCreateCategoryId(event.target.value)}
+                style={{ ...INP, height: 31, minWidth: 150, flex: "1 1 170px", fontSize: 11 }}
+              >
+                <option value="" style={OPT_ST}>Elegir rubro...</option>
+                {categorias.map((categoria) => (
+                  <option key={categoria.id} value={categoria.id} style={OPT_ST}>{categoria.nombre}</option>
+                ))}
+              </select>
+              <button
+                type="button"
+                disabled={linkBusy || !createDescription.trim() || !(createCategoryId || suggestedCategoryId)}
+                onClick={() => onCreateAndLink?.({
+                  descripcion: createDescription,
+                  categoria_id: createCategoryId || suggestedCategoryId,
+                })}
+                style={{ ...BTN, minHeight: 31, padding: "5px 9px", fontSize: 10.5, color: !linkBusy && createDescription.trim() && (createCategoryId || suggestedCategoryId) ? C.green : C.t3, borderColor: !linkBusy && createDescription.trim() && (createCategoryId || suggestedCategoryId) ? C.greenB : C.b0, background: !linkBusy && createDescription.trim() && (createCategoryId || suggestedCategoryId) ? C.greenL : C.bg, opacity: !linkBusy && createDescription.trim() && (createCategoryId || suggestedCategoryId) ? 1 : .65 }}
+              >
+                <Plus size={12} /> {linkBusy ? "Creando..." : "Crear y vincular"}
+              </button>
+            </div>
+          ) : null}
+        </div>
+      ) : null}
+
+      <div style={{ display: "flex", alignItems: "center", gap: 7, flexWrap: "wrap" }}>
+        <button
+          type="button"
+          disabled={promotion?.disabled}
+          onClick={onPromote}
+          title={promotion?.title}
+          style={{ ...BTN, minHeight: 29, padding: "5px 9px", fontSize: 10.5, color: promotion?.disabled ? C.t3 : C.blue, borderColor: promotion?.disabled ? C.b0 : C.blueB, background: promotion?.disabled ? C.s0 : C.blueL, opacity: promotion?.disabled ? 0.7 : 1 }}
+        >
+          <PackagePlus size={12} /> {promotion?.label || "Pasar a estándar"}
+        </button>
+        {row.snapshotId ? (
+          <span style={{ fontSize: 10.5, color: C.t2 }}>Registro #{String(row.snapshotId).slice(0, 8)}</span>
+        ) : null}
+      </div>
+
+      {row.snapshotId ? (
+        <div style={{ display: "grid", gap: 5, paddingTop: 2 }}>
+          <div style={{ fontSize: 10, color: C.t3, textTransform: "uppercase", letterSpacing: .8, fontWeight: 850 }}>Historial registrado</div>
+          <ObraSnapshotHistory snapshotId={row.snapshotId} />
+        </div>
+      ) : null}
+    </div>
+  );
+}
+
 function obraRecepcionResumenLabel(resumen) {
   if (!resumen?.total) return "sin lista";
   if (resumen.egresado) return `${resumen.egresado}/${resumen.total} egr.`;
@@ -7648,6 +8322,135 @@ function LineaMetricDot({ label, value, color }) {
       <span>{label}</span>
       <span style={{ color: C.t0, fontFamily: C.mono, fontWeight: 950 }}>{value}</span>
     </span>
+  );
+}
+
+function ResolverFueraDeMatrizModal({
+  issue,
+  linea,
+  materiales = [],
+  categorias = [],
+  busy = false,
+  error = "",
+  onClose,
+  onResolve,
+  onCreate,
+}) {
+  const linkedMaterial = materiales.find((material) => material.id === issue.materialId && materialActivo(material)) || null;
+  const [catalogQuery, setCatalogQuery] = useState(() => issue.descripcion || "");
+  const [selectedMaterialId, setSelectedMaterialId] = useState(() => linkedMaterial?.id || "");
+  const [cantidad, setCantidad] = useState(() => String(issue.cantidadSugerida || 1));
+  const [createOpen, setCreateOpen] = useState(false);
+  const [createDescription, setCreateDescription] = useState(() => issue.descripcion || "");
+  const suggestedCategoryId = useMemo(() => {
+    const rubro = norm(issue.rubro || "");
+    return categorias.find((categoria) => norm(categoria.nombre || "") === rubro)?.id
+      || categorias.find((categoria) => rubro && norm(categoria.nombre || "").includes(rubro))?.id
+      || "";
+  }, [categorias, issue.rubro]);
+  const [createCategoryId, setCreateCategoryId] = useState(() => suggestedCategoryId);
+  const catalogCandidates = useMemo(() => (materiales ?? [])
+    .filter(materialActivo)
+    .filter((material) => matchesFlexibleSearch(catalogQuery, ...materialSearchFields(material)))
+    .sort((a, b) => String(a.descripcion || "").localeCompare(String(b.descripcion || ""), "es", { numeric: true }))
+    .slice(0, 16), [catalogQuery, materiales]);
+  const selectedMaterial = materiales.find((material) => material.id === selectedMaterialId && materialActivo(material)) || null;
+  const targetMaterial = selectedMaterial || linkedMaterial;
+  const quantityValid = (toNum(cantidad) || 0) > 0;
+
+  return (
+    <div style={{ position: "fixed", inset: 0, zIndex: 5600, display: "grid", placeItems: "center", padding: 12, background: "color-mix(in srgb, var(--bg) 68%, transparent)", backdropFilter: "blur(5px)", WebkitBackdropFilter: "blur(5px)" }}>
+      <div style={{ width: "min(680px, calc(100vw - 24px))", maxHeight: "min(760px, calc(100vh - 24px))", overflowY: "auto", border: `1px solid ${C.b1}`, borderRadius: 16, background: C.panelSolid, boxShadow: "0 28px 80px rgba(15,23,42,.28)", padding: 14, display: "grid", gap: 12 }}>
+        <div style={{ display: "flex", alignItems: "flex-start", justifyContent: "space-between", gap: 12 }}>
+          <div style={{ minWidth: 0 }}>
+            <div style={{ display: "flex", alignItems: "center", gap: 7, flexWrap: "wrap" }}>
+              <AlertTriangle size={17} style={{ color: C.amber }} />
+              <span style={{ color: C.t0, fontSize: 15, fontWeight: 950 }}>Resolver fuera de matriz</span>
+            </div>
+            <div style={{ marginTop: 5, color: C.t2, fontSize: 11.5, lineHeight: 1.4 }}>
+              Se conserva el historial de {issue.obras.length} obra(s), se vincula al catálogo si hace falta y se agrega como estándar de K{linea}.
+            </div>
+          </div>
+          <button type="button" onClick={onClose} disabled={busy} style={{ ...BTN, minHeight: 31, padding: "5px 7px", color: C.t2 }} title="Cerrar">
+            <X size={15} />
+          </button>
+        </div>
+
+        <div style={{ border: `1px solid ${C.amberB}`, borderRadius: 11, background: "color-mix(in srgb, var(--panel) 88%, #f59e0b 6%)", padding: "9px 10px" }}>
+          <div style={{ color: C.t0, fontSize: 13.5, fontWeight: 950 }}>{issue.descripcion}</div>
+          <div style={{ marginTop: 5, display: "flex", gap: 5, flexWrap: "wrap" }}>
+            <span style={{ fontSize: 10, color: C.t2, border: `1px solid ${C.b0}`, background: C.s0, borderRadius: 999, padding: "3px 7px" }}>{issue.obras.length} obras afectadas</span>
+            <span style={{ fontSize: 10, color: C.t2, border: `1px solid ${C.b0}`, background: C.s0, borderRadius: 999, padding: "3px 7px" }}>{issue.snapshotIds.length} filas históricas</span>
+            {!issue.materialId ? <span style={{ fontSize: 10, color: C.red, border: `1px solid ${C.redB}`, background: "rgba(239,68,68,0.08)", borderRadius: 999, padding: "3px 7px", fontWeight: 900 }}>Sin vínculo catálogo</span> : null}
+          </div>
+        </div>
+
+        <label style={{ display: "grid", gap: 5 }}>
+          <span style={{ fontSize: 10, color: C.t2, textTransform: "uppercase", letterSpacing: .7, fontWeight: 900 }}>Cantidad estándar para K{linea}</span>
+          <div style={{ display: "flex", alignItems: "center", gap: 7, flexWrap: "wrap" }}>
+            <input type="number" min="0.001" step="any" value={cantidad} onChange={(event) => setCantidad(event.target.value)} disabled={busy} style={{ ...INP, width: 150, height: 36 }} />
+            <span style={{ color: C.t2, fontSize: 12 }}>{issue.unidad || "unidad"}</span>
+            {issue.cantidadesDistintas ? <span style={{ color: C.red, fontSize: 10.5, fontWeight: 850 }}>Las obras tenían cantidades distintas: revisá este valor antes de confirmar.</span> : null}
+          </div>
+        </label>
+
+        <div style={{ display: "grid", gap: 7, borderTop: `1px solid ${C.b0}`, paddingTop: 11 }}>
+          <div>
+            <div style={{ fontSize: 11, color: C.blue, fontWeight: 950 }}>Material de catálogo</div>
+            <div style={{ marginTop: 2, color: C.t2, fontSize: 10.5 }}>Buscá por nombre, observación o #tag. Podés cambiar el vínculo existente si estaba mal.</div>
+          </div>
+          <div style={{ display: "flex", gap: 6, alignItems: "center", flexWrap: "wrap" }}>
+            <input value={catalogQuery} onChange={(event) => setCatalogQuery(event.target.value)} placeholder="Buscar nombre, observación o #tag..." disabled={busy} style={{ ...INP, minWidth: 175, flex: "1 1 210px", height: 34, fontSize: 11 }} />
+            <select value={selectedMaterialId} onChange={(event) => setSelectedMaterialId(event.target.value)} disabled={busy} style={{ ...INP, minWidth: 210, flex: "2 1 260px", height: 34, fontSize: 11 }}>
+              <option value="" style={OPT_ST}>{linkedMaterial ? "Mantener material vinculado" : "Elegir material existente..."}</option>
+              {catalogCandidates.map((material) => (
+                <option key={material.id} value={material.id} style={OPT_ST}>
+                  {material.descripcion}{material.codigo ? ` · ${material.codigo}` : ""}{material.categoria_id ? ` · ${categoriaNombre(categorias, material.categoria_id)}` : ""}
+                </option>
+              ))}
+            </select>
+          </div>
+          {targetMaterial ? (
+            <div style={{ color: C.green, fontSize: 10.5, border: `1px solid ${C.greenB}`, background: C.greenL, borderRadius: 8, padding: "6px 8px" }}>
+              Se agregará: <strong>{targetMaterial.descripcion}</strong>{targetMaterial.codigo ? ` · ${targetMaterial.codigo}` : ""}.
+            </div>
+          ) : null}
+        </div>
+
+        <div style={{ display: "grid", gap: 7, borderTop: `1px solid ${C.b0}`, paddingTop: 10 }}>
+          <div style={{ display: "flex", alignItems: "center", gap: 7, flexWrap: "wrap" }}>
+            <button type="button" onClick={() => setCreateOpen((open) => !open)} disabled={busy} style={{ ...BTN, minHeight: 28, padding: "4px 8px", fontSize: 10.5, color: C.t1 }}>
+              <Plus size={12} /> {createOpen ? "Cancelar alta" : "No existe: crear en catálogo"}
+            </button>
+            <span style={{ fontSize: 10, color: C.t2 }}>Usalo sólo si verificaste que no existe un equivalente.</span>
+          </div>
+          {createOpen ? (
+            <div style={{ display: "grid", gridTemplateColumns: "minmax(180px, 1fr) minmax(150px, .7fr)", gap: 7 }}>
+              <input value={createDescription} onChange={(event) => setCreateDescription(event.target.value)} placeholder="Nombre del material" disabled={busy} style={{ ...INP, height: 34, fontSize: 11 }} />
+              <select value={createCategoryId || suggestedCategoryId} onChange={(event) => setCreateCategoryId(event.target.value)} disabled={busy} style={{ ...INP, height: 34, fontSize: 11 }}>
+                <option value="" style={OPT_ST}>Elegir rubro...</option>
+                {categorias.map((categoria) => <option key={categoria.id} value={categoria.id} style={OPT_ST}>{categoria.nombre}</option>)}
+              </select>
+            </div>
+          ) : null}
+        </div>
+
+        {error ? <div style={{ color: C.red, fontSize: 11.5, border: `1px solid ${C.redB}`, background: "rgba(239,68,68,0.08)", borderRadius: 9, padding: "8px 9px" }}>{error}</div> : null}
+
+        <div style={{ display: "flex", justifyContent: "flex-end", gap: 7, flexWrap: "wrap", borderTop: `1px solid ${C.b0}`, paddingTop: 11 }}>
+          <button type="button" onClick={onClose} disabled={busy} style={{ ...BTN, padding: "7px 10px" }}>Cancelar</button>
+          {createOpen ? (
+            <button type="button" disabled={busy || !quantityValid || !createDescription.trim() || !(createCategoryId || suggestedCategoryId)} onClick={() => onCreate?.({ descripcion: createDescription, categoria_id: createCategoryId || suggestedCategoryId }, cantidad)} style={{ ...BTN_GREEN, padding: "7px 10px", opacity: busy || !quantityValid || !createDescription.trim() || !(createCategoryId || suggestedCategoryId) ? .58 : 1 }}>
+              <Plus size={13} /> {busy ? "Creando..." : `Crear y agregar a K${linea}`}
+            </button>
+          ) : (
+            <button type="button" disabled={busy || !quantityValid || !targetMaterial} onClick={() => onResolve?.(targetMaterial, cantidad)} style={{ ...BTN_GREEN, padding: "7px 10px", opacity: busy || !quantityValid || !targetMaterial ? .58 : 1 }}>
+              <PackagePlus size={13} /> {busy ? "Guardando..." : `Agregar a K${linea}`}
+            </button>
+          )}
+        </div>
+      </div>
+    </div>
   );
 }
 

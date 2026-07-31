@@ -248,7 +248,13 @@ function isMissingRequestAttachments(error) {
   );
 }
 
-export async function createPurchaseRequest({ form, ccUserIds = [], photoFile = null, attachmentFiles = [] }) {
+export async function createPurchaseRequest({
+  form,
+  ccUserIds = [],
+  photoFile = null,
+  attachmentFiles = [],
+  existingAttachments = [],
+}) {
   // Usamos getSession (lee de localStorage) en vez de getUser (golpea servidor y
   // puede gatillar un refresh que invalide la sesión si el refresh token está roto).
   const { data: { session } = {}, error: authError } = await supabase.auth.getSession();
@@ -259,7 +265,15 @@ export async function createPurchaseRequest({ form, ccUserIds = [], photoFile = 
   const selectedFiles = attachmentFiles?.length
     ? Array.from(attachmentFiles)
     : photoFile ? [photoFile] : [];
-  const attachments = await uploadPurchaseRequestAttachments(selectedFiles, userId);
+  const uploadedAttachments = await uploadPurchaseRequestAttachments(selectedFiles, userId);
+  const attachmentMap = new Map();
+  [
+    ...normalizeAttachmentEntries(existingAttachments),
+    ...uploadedAttachments,
+  ].forEach((attachment) => {
+    attachmentMap.set(attachment.path || attachment.url, attachment);
+  });
+  const attachments = [...attachmentMap.values()];
   const legacyAttachment = attachments.find((item) => item.type.startsWith("image/")) || attachments[0] || null;
 
   const payload = {

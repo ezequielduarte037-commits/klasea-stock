@@ -64,21 +64,40 @@ function Fila({ row, procesos, puedeEditar, onCantidad, onProceso, onQuitar, sel
         {procesos.length === 0 ? (
           <span style={{ fontSize: 12, color: C.dim }}>—</span>
         ) : (
-          <select
-            value={row.linea_proceso_id || SIN_PROCESO}
-            disabled={!puedeEditar}
-            onChange={(e) => onProceso(e.target.value === SIN_PROCESO ? null : e.target.value)}
-            style={{
-              ...INPUT, width: "auto", minWidth: 132, padding: "5px 9px", fontSize: 11.5, borderRadius: 9,
-              cursor: puedeEditar ? "pointer" : "default",
-              color: proc ? C.text : C.dim,
-              background: proc ? tint(pc, 12) : C.panel,
-              borderColor: proc ? tint(pc, 30) : C.border,
-            }}
-          >
-            <option value={SIN_PROCESO}>— sin asignar —</option>
-            {procesos.map((p) => <option key={p.id} value={p.id}>{p.nombre}</option>)}
-          </select>
+          <div style={{ display: "flex", alignItems: "flex-start", flexDirection: "column", gap: 4 }}>
+            <select
+              value={row.linea_proceso_id || SIN_PROCESO}
+              disabled={!puedeEditar}
+              onChange={(e) => onProceso(e.target.value === SIN_PROCESO ? null : e.target.value)}
+              style={{
+                ...INPUT, width: "auto", minWidth: 132, padding: "5px 9px", fontSize: 11.5, borderRadius: 9,
+                cursor: puedeEditar ? "pointer" : "default",
+                color: proc ? C.text : C.dim,
+                background: proc ? tint(pc, 12) : C.panel,
+                borderColor: proc ? tint(pc, 30) : C.border,
+              }}
+            >
+              <option value={SIN_PROCESO}>— sin asignar —</option>
+              {procesos.map((p) => <option key={p.id} value={p.id}>{p.nombre}</option>)}
+            </select>
+            {row.tarea?.nombre && (
+              <span
+                title="Tarea de producción definida desde Obras"
+                style={{
+                  maxWidth: 220,
+                  overflow: "hidden",
+                  color: C.teal,
+                  fontSize: 10,
+                  fontWeight: 800,
+                  lineHeight: 1.25,
+                  textOverflow: "ellipsis",
+                  whiteSpace: "nowrap",
+                }}
+              >
+                ↳ {row.tarea.nombre}
+              </span>
+            )}
+          </div>
         )}
       </td>
 

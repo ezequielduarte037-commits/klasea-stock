@@ -13,9 +13,8 @@ import { C } from "@/theme";
 import {
   actualizarItem,
   actualizarProceso,
-  archivarItem,
+  archivarItemConAlcance,
   archivarOperacion,
-  crearItem,
   borrarProcesoTorneria,
   crearProcesoTorneria,
   eliminarArchivo,
@@ -23,6 +22,7 @@ import {
   fetchTorneriaContexto,
   fetchTorneriaProcesos,
   guardarFlete,
+  guardarItemDefinicion,
   guardarMovimiento,
   guardarOperacion,
   marcarPreparacion,
@@ -197,6 +197,60 @@ function descripcionParaCompras(item) {
   return cat
     ? [cat.codigo, cat.descripcion].filter(Boolean).join(" — ")
     : item.descripcion;
+}
+
+function planosParaCompras(items = []) {
+  const unique = new Map();
+  items.forEach((item) => {
+    (Array.isArray(item?.planos) ? item.planos : []).forEach((plano) => {
+      if (!plano?.url) return;
+      const key = plano.path || plano.url;
+      if (unique.has(key)) return;
+      unique.set(key, {
+        ...plano,
+        name: `${item.descripcion} · ${plano.name || "Plano"}`,
+      });
+    });
+  });
+  return [...unique.values()];
+}
+
+function entregaDirectaParaCompras(process, item) {
+  const operation = (process?.operaciones || [])
+    .filter((row) => row.activa !== false)
+    .find((row) => (
+      String(row.origen || "").trim().toLowerCase().startsWith("proveedor")
+      && (row.componentes || []).some((component) => component.item_id === item.id)
+    ));
+
+  if (!operation) return null;
+
+  const destino = operationDestinationLabel(operation);
+  return {
+    destino,
+    nota: `IMPORTANTE — ENTREGA DIRECTA: el proveedor debe enviar este material a ${destino}; no debe pasar primero por el astillero.`,
+  };
+}
+
+function descripcionPedidoCompras(process, items = []) {
+  const obra = process?.obra?.codigo || "la obra";
+  const linea = process?.obra?.linea_nombre ? ` (${process.obra.linea_nombre})` : "";
+  const entregasDirectas = items
+    .map((item) => entregaDirectaParaCompras(process, item))
+    .filter(Boolean);
+  const destinos = [...new Set(entregasDirectas.map((row) => row.destino))];
+  const partes = [`Material para el circuito de tornería de ${obra}${linea}.`];
+
+  if (entregasDirectas.length < items.length) {
+    partes.push("Avisar a Tornería cuando los materiales destinados al astillero sean recibidos.");
+  }
+  if (destinos.length) {
+    partes.push(
+      `IMPORTANTE: los ítems marcados como entrega directa deben enviarse desde el proveedor a ${destinos.join(" / ")}; revisar la observación de cada ítem.`,
+    );
+  }
+
+  return partes.join(" ");
 }
 
 // Nombre real del insumo en el catálogo. El nombre grande sigue siendo el que
@@ -2112,6 +2166,54 @@ function MaterialTab({ process, onEdit, onNew, onStatus, onConfirm, onPedirCompr
                     )}
                   </div>
                   <CatalogTechnicalName item={item} compact />
+                  {!!item.planos?.length && (
+                    <div style={{
+                      display: "flex",
+                      alignItems: "center",
+                      gap: 5,
+                      flexWrap: "wrap",
+                      marginTop: 6,
+                    }}>
+                      <span style={{
+                        display: "inline-flex",
+                        alignItems: "center",
+                        gap: 4,
+                        color: C.blue,
+                        fontSize: 9.5,
+                        fontWeight: 900,
+                      }}>
+                        <FileText size={11} /> {item.planos.length} {item.planos.length === 1 ? "plano" : "planos"}
+                      </span>
+                      {item.planos.slice(0, 3).map((plano, index) => (
+                        <a
+                          key={plano.path || plano.url || index}
+                          href={plano.url}
+                          target="_blank"
+                          rel="noreferrer"
+                          title={plano.name}
+                          style={{
+                            maxWidth: 150,
+                            padding: "2px 7px",
+                            borderRadius: 999,
+                            border: `1px solid ${C.blueB}`,
+                            background: C.blueL,
+                            color: C.blue,
+                            fontSize: 9,
+                            fontWeight: 750,
+                            overflow: "hidden",
+                            textOverflow: "ellipsis",
+                            whiteSpace: "nowrap",
+                            textDecoration: "none",
+                          }}
+                        >
+                          {plano.name || `Plano ${index + 1}`}
+                        </a>
+                      ))}
+                      {item.planos.length > 3 && (
+                        <span style={{ color: C.dim, fontSize: 9 }}>+{item.planos.length - 3}</span>
+                      )}
+                    </div>
+                  )}
                   <div style={{ color: C.dim, fontSize: 10.5, marginTop: 3 }}>
                     {qty(item.cantidad)} {item.unidad}
                     {item.proveedor_compra ? ` · ${item.proveedor_compra}` : ""}
@@ -3315,31 +3417,40 @@ export default function TorneriaScreen({ profile, signOut }) {
     }
   }
 
-  async function saveItem(item, patch) {
+  async function saveItem(item, payload) {
     try {
-      if (item?.id) await actualizarItem(item.id, patch);
-      else await crearItem(selected.id, patch);
+      await guardarItemDefinicion({
+        item,
+        proceso: selected,
+        ...payload,
+      });
       setModal(null);
       await load({ quiet: true, preferId: selected.id });
-      toast.success(item?.id ? "Material actualizado." : "Material agregado.");
+      toast.success(payload.alcance === "linea"
+        ? `Material actualizado para toda la línea ${selected.obra?.linea_nombre || ""}.`.trim()
+        : item?.id ? "Material actualizado para esta obra." : "Material agregado a esta obra.");
     } catch (saveError) {
       toast.error(saveError.message);
     }
   }
 
-  async function archiveCurrentItem(item) {
+  async function archiveCurrentItem(item, alcance = "obra") {
     const accepted = await confirm({
       title: "¿Archivar material?",
-      message: "Dejará de aparecer en este proceso. El historial conservará el cambio.",
+      message: alcance === "linea"
+        ? `Dejará de aparecer en las obras activas y futuras de la línea ${selected.obra?.linea_nombre || ""}. El historial conservará el cambio.`
+        : "Dejará de aparecer sólo en este proceso. El historial conservará el cambio.",
       confirmLabel: "Archivar",
       tone: "danger",
     });
     if (!accepted) return;
     try {
-      await archivarItem(item.id);
+      await archivarItemConAlcance({ item, proceso: selected, alcance });
       setModal(null);
       await load({ quiet: true, preferId: selected.id });
-      toast.success("Material archivado.");
+      toast.success(alcance === "linea"
+        ? "Material archivado para toda la línea."
+        : "Material archivado en esta obra.");
     } catch (archiveError) {
       toast.error(archiveError.message);
     }
@@ -4392,8 +4503,8 @@ export default function TorneriaScreen({ profile, signOut }) {
           item={modal.item}
           proceso={selected}
           onClose={() => setModal(null)}
-          onSave={(patch) => saveItem(modal.item, patch)}
-          onArchive={() => archiveCurrentItem(modal.item)}
+          onSave={(payload) => saveItem(modal.item, payload)}
+          onArchive={(alcance) => archiveCurrentItem(modal.item, alcance)}
         />
       )}
       {modal?.type === "operation" && selected && (
@@ -4463,14 +4574,13 @@ export default function TorneriaScreen({ profile, signOut }) {
         }}
         prefilled={pedidoCompra ? {
           title: `Tornería · ${pedidoCompra.proceso.obra?.codigo || "Obra"}`,
-          description: `Material para el circuito de tornería de ${pedidoCompra.proceso.obra?.codigo || "la obra"}`
-            + `${pedidoCompra.proceso.obra?.linea_nombre ? ` (${pedidoCompra.proceso.obra.linea_nombre})` : ""}.`
-            + " Avisar a Tornería cuando llegue al astillero.",
+          description: descripcionPedidoCompras(pedidoCompra.proceso, pedidoCompra.items),
           priority: "alta",
           tipo_pedido: "estandar",
           source: "torneria",
           source_ref: pedidoCompra.proceso.id,
           source_url: "/torneria",
+          attachments: planosParaCompras(pedidoCompra.items),
           defaultDestination: `Obra ${pedidoCompra.proceso.obra?.codigo || ""}`.trim(),
           items: pedidoCompra.items.map((item) => {
             // Si está vinculado al catálogo, el pedido va con el nombre del
@@ -4478,16 +4588,20 @@ export default function TorneriaScreen({ profile, signOut }) {
             // cómo lo llamamos acá adentro; al proveedor hay que pedirle el
             // material como figura en el catálogo, con su código y su unidad.
             const cat = item.material || null;
+            const entregaDirecta = entregaDirectaParaCompras(pedidoCompra.proceso, item);
             return {
               description: descripcionParaCompras(item),
               quantity: String(item.cantidad ?? ""),
               unit: cat?.unidad_medida || item.unidad || "unidad",
+              destination: entregaDirecta?.destino || undefined,
               // Con el id del catálogo, la recepción en pañol lo empareja exacto
               // (scorePedidoMaterial le da el puntaje máximo) en vez de adivinar
               // por parecido de texto.
               material_id: cat?.id || null,
               catalogSource: cat ? "panol" : null,
+              link_url: item.planos?.[0]?.url || null,
               notes: [
+                entregaDirecta?.nota || "",
                 // El nombre interno queda de referencia: es con el que el taller
                 // reconoce la pieza cuando llega.
                 cat ? `En Tornería: ${item.descripcion}` : "",
@@ -4496,6 +4610,9 @@ export default function TorneriaScreen({ profile, signOut }) {
                   ? `Proveedor: ${cat?.proveedor || item.proveedor_compra}`
                   : "",
                 !cat ? "Sin vincular al catálogo del pañol." : "",
+                item.planos?.length
+                  ? `${item.planos.length} ${item.planos.length === 1 ? "plano adjunto" : "planos adjuntos"} al pedido.`
+                  : "",
                 item.alerta || "",
               ].filter(Boolean).join(" · ") || undefined,
             };

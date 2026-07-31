@@ -9,9 +9,11 @@ import { supabase } from "@/supabaseClient";
 //     └ _materiales                └ _materiales
 //     └ _procesos (etiqueta)       └ _procesos (etiqueta)
 //
-// Los materiales viven DENTRO de la etapa de compra: se cargan ahí y se editan
-// ahí. Las etapas de producción son una etiqueta opcional para saber para qué
-// es cada compra — no definen qué se compra.
+// Los materiales operativos viven DENTRO de la etapa de compra. La definición
+// base nace en Obras (producto → etapa/tarea de producción) y se sincroniza a
+// la tanda de compra que cubre esa etapa. Compras conserva la posibilidad de
+// hacer ajustes manuales puntuales para una obra sin que la sincronización los
+// pise.
 //
 // Cada cambio queda auditado por trigger en compras_auditoria.
 // ─────────────────────────────────────────────────────────────────────────────
@@ -23,6 +25,8 @@ const num = (v) => {
 
 const MATERIAL_SELECT =
   "material:panol_materiales(id, descripcion, codigo, unidad_medida, proveedor, categoria_id)";
+const TASK_SELECT =
+  "tarea:linea_proceso_tareas(id, nombre, linea_proceso_id)";
 
 export const COMPRA_ETAPA_ESTADOS = [
   { value: "pendiente", label: "Pendiente", color: "#a1a1aa" },
@@ -133,14 +137,14 @@ export async function fetchMaterialesPlantilla(compraEtapaId) {
   if (!compraEtapaId) return [];
   const { data, error } = await supabase
     .from("linea_compra_etapa_materiales")
-    .select(`id, compra_etapa_id, material_id, cantidad, unidad, notas, linea_proceso_id, orden, ${MATERIAL_SELECT}`)
+    .select(`id, compra_etapa_id, material_id, cantidad, unidad, notas, linea_proceso_id, linea_proceso_tarea_id, orden, ${MATERIAL_SELECT}, ${TASK_SELECT}`)
     .eq("compra_etapa_id", compraEtapaId)
     .order("orden", { ascending: true });
   if (error) throw error;
   return data ?? [];
 }
 
-export async function agregarMaterialesPlantilla(compraEtapaId, materiales = [], { lineaProcesoId = null } = {}) {
+export async function agregarMaterialesPlantilla(compraEtapaId, materiales = [], { lineaProcesoId = null, lineaProcesoTareaId = null } = {}) {
   if (!compraEtapaId) throw new Error("Falta la etapa.");
   const filas = (materiales || []).filter((m) => m?.id).map((m, i) => ({
     compra_etapa_id: compraEtapaId,
@@ -148,6 +152,7 @@ export async function agregarMaterialesPlantilla(compraEtapaId, materiales = [],
     cantidad: num(m.cantidad) || 1,
     unidad: m.unidad || m.unidad_medida || null,
     linea_proceso_id: lineaProcesoId || null,
+    linea_proceso_tarea_id: lineaProcesoTareaId || null,
     orden: i,
   }));
   if (!filas.length) return 0;
@@ -164,7 +169,11 @@ export async function actualizarMaterialPlantilla(id, patch = {}) {
   if (patch.cantidad !== undefined) clean.cantidad = num(patch.cantidad);
   if (patch.unidad !== undefined) clean.unidad = patch.unidad || null;
   if (patch.notas !== undefined) clean.notas = patch.notas || null;
-  if (patch.linea_proceso_id !== undefined) clean.linea_proceso_id = patch.linea_proceso_id || null;
+  if (patch.linea_proceso_id !== undefined) {
+    clean.linea_proceso_id = patch.linea_proceso_id || null;
+    if (patch.linea_proceso_tarea_id === undefined) clean.linea_proceso_tarea_id = null;
+  }
+  if (patch.linea_proceso_tarea_id !== undefined) clean.linea_proceso_tarea_id = patch.linea_proceso_tarea_id || null;
   if (!Object.keys(clean).length) return;
   const { error } = await supabase.from("linea_compra_etapa_materiales").update(clean).eq("id", id);
   if (error) throw error;
@@ -387,14 +396,14 @@ export async function fetchMaterialesEtapa(obraCompraEtapaId) {
   if (!obraCompraEtapaId) return [];
   const { data, error } = await supabase
     .from("obra_compra_etapa_materiales")
-    .select(`id, obra_compra_etapa_id, material_id, cantidad, unidad, notas, linea_proceso_id, orden, origen, ${MATERIAL_SELECT}`)
+    .select(`id, obra_compra_etapa_id, material_id, cantidad, unidad, notas, linea_proceso_id, linea_proceso_tarea_id, orden, origen, ${MATERIAL_SELECT}, ${TASK_SELECT}`)
     .eq("obra_compra_etapa_id", obraCompraEtapaId)
     .order("orden", { ascending: true });
   if (error) throw error;
   return data ?? [];
 }
 
-export async function agregarMaterialesEtapa(obraCompraEtapaId, materiales = [], { lineaProcesoId = null, origen = "manual" } = {}) {
+export async function agregarMaterialesEtapa(obraCompraEtapaId, materiales = [], { lineaProcesoId = null, lineaProcesoTareaId = null, origen = "manual" } = {}) {
   if (!obraCompraEtapaId) throw new Error("Falta la etapa.");
   const filas = (materiales || []).filter((m) => m?.id).map((m, i) => ({
     obra_compra_etapa_id: obraCompraEtapaId,
@@ -402,6 +411,7 @@ export async function agregarMaterialesEtapa(obraCompraEtapaId, materiales = [],
     cantidad: num(m.cantidad) || 1,
     unidad: m.unidad || m.unidad_medida || null,
     linea_proceso_id: lineaProcesoId || null,
+    linea_proceso_tarea_id: lineaProcesoTareaId || null,
     orden: i,
     origen,
   }));
@@ -419,7 +429,11 @@ export async function actualizarMaterialEtapa(id, patch = {}) {
   if (patch.cantidad !== undefined) clean.cantidad = num(patch.cantidad);
   if (patch.unidad !== undefined) clean.unidad = patch.unidad || null;
   if (patch.notas !== undefined) clean.notas = patch.notas || null;
-  if (patch.linea_proceso_id !== undefined) clean.linea_proceso_id = patch.linea_proceso_id || null;
+  if (patch.linea_proceso_id !== undefined) {
+    clean.linea_proceso_id = patch.linea_proceso_id || null;
+    if (patch.linea_proceso_tarea_id === undefined) clean.linea_proceso_tarea_id = null;
+  }
+  if (patch.linea_proceso_tarea_id !== undefined) clean.linea_proceso_tarea_id = patch.linea_proceso_tarea_id || null;
   if (!Object.keys(clean).length) return;
   const { error } = await supabase.from("obra_compra_etapa_materiales").update(clean).eq("id", id);
   if (error) throw error;
@@ -450,6 +464,7 @@ export async function copiarMaterialesDeEtapa(destinoId, { desdeEtapaObraId = nu
     unidad: m.unidad || null,
     notas: m.notas || null,
     linea_proceso_id: m.linea_proceso_id || null,
+    linea_proceso_tarea_id: m.linea_proceso_tarea_id || null,
     orden: i,
     origen: "copia",
   }));
@@ -511,7 +526,7 @@ export async function copiarPlantillaAObra(obra) {
   // Los materiales de cada etapa de la plantilla, en un solo viaje.
   const { data: matsPlantilla } = await supabase
     .from("linea_compra_etapa_materiales")
-    .select("compra_etapa_id, material_id, cantidad, unidad, notas, linea_proceso_id, orden")
+    .select("compra_etapa_id, material_id, cantidad, unidad, notas, linea_proceso_id, linea_proceso_tarea_id, orden")
     .in("compra_etapa_id", plantilla.map((p) => p.id));
 
   const filas = [];
@@ -524,13 +539,16 @@ export async function copiarPlantillaAObra(obra) {
         unidad: m.unidad,
         notas: m.notas,
         linea_proceso_id: m.linea_proceso_id,
+        linea_proceso_tarea_id: m.linea_proceso_tarea_id,
         orden: m.orden ?? 0,
         origen: "plantilla",
       });
     }
   }
   if (filas.length) {
-    const { error: errMats } = await supabase.from("obra_compra_etapa_materiales").insert(filas);
+    const { error: errMats } = await supabase
+      .from("obra_compra_etapa_materiales")
+      .upsert(filas, { onConflict: "obra_compra_etapa_id,material_id" });
     if (errMats) throw errMats;
   }
 

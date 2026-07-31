@@ -240,6 +240,220 @@ function makeKey(description = "") {
   return `${base}_${Date.now().toString(36)}`;
 }
 
+function normalizePlanos(value) {
+  if (!Array.isArray(value)) return [];
+  const unique = new Map();
+  value.forEach((entry) => {
+    if (!entry?.url) return;
+    const normalized = {
+      url: String(entry.url),
+      path: String(entry.path || ""),
+      name: String(entry.name || "Plano"),
+      type: String(entry.type || "application/octet-stream"),
+      size: Number(entry.size) || 0,
+    };
+    unique.set(normalized.path || normalized.url, normalized);
+  });
+  return [...unique.values()];
+}
+
+function safeFilePart(value) {
+  return String(value || "archivo")
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .replace(/[^a-zA-Z0-9._-]+/g, "-")
+    .replace(/-+/g, "-")
+    .slice(0, 90);
+}
+
+async function subirPlanosMaterial(files, procesoId, clave) {
+  const selected = Array.from(files || []);
+  if (!selected.length) return [];
+  if (selected.length > 20) throw new Error("Podés subir hasta 20 planos por vez.");
+
+  const { data: { session } = {}, error: authError } = await supabase.auth.getSession();
+  if (authError) throw authError;
+  if (!session?.user?.id) throw new Error("No hay usuario autenticado.");
+
+  const uploaded = [];
+  for (const file of selected) {
+    if (Number(file.size || 0) > 50 * 1024 * 1024) {
+      throw new Error(`“${file.name}” supera el límite de 50 MB.`);
+    }
+    const safeName = safeFilePart(file.name);
+    const path = `torneria/planos/${procesoId}/${safeFilePart(clave)}/${Date.now()}-${crypto.randomUUID?.() || Math.random().toString(36).slice(2)}-${safeName}`;
+    const contentType = String(file.type || "").trim() || "application/octet-stream";
+    const { error } = await supabase.storage
+      .from("documentos")
+      .upload(path, file, {
+        cacheControl: "3600",
+        contentType,
+        upsert: false,
+      });
+    if (error) throw error;
+    const { data } = supabase.storage.from("documentos").getPublicUrl(path);
+    uploaded.push({
+      url: data.publicUrl,
+      path,
+      name: file.name,
+      type: contentType,
+      size: file.size,
+    });
+  }
+  return uploaded;
+}
+
+function definitionPayload(fields, planos) {
+  const esResultado = !!fields.es_resultado;
+  return {
+    grupo: fields.grupo || "Otros",
+    descripcion: String(fields.descripcion || "").trim(),
+    cantidad: Number(fields.cantidad) || 1,
+    unidad: String(fields.unidad || "unidad").trim() || "unidad",
+    proveedor_compra: esResultado
+      ? null
+      : String(fields.proveedor_compra || "").trim() || null,
+    material_id: esResultado ? null : fields.material_id || null,
+    solicitado_por_torneria: esResultado ? false : fields.solicitado_por_torneria !== false,
+    requiere_confirmacion: !!fields.requiere_confirmacion,
+    alerta: String(fields.alerta || "").trim() || null,
+    notas: String(fields.notas || "").trim() || null,
+    orden: Number(fields.orden) || 999,
+    es_resultado: esResultado,
+    resultado_de: esResultado && Array.isArray(fields.resultado_de) ? fields.resultado_de : [],
+    planos: normalizePlanos(planos),
+  };
+}
+
+export async function guardarItemDefinicion({
+  item = null,
+  proceso,
+  fields,
+  alcance = "obra",
+  planosExistentes = [],
+  archivosNuevos = [],
+}) {
+  if (!proceso?.id) throw new Error("Falta el proceso de Tornería.");
+  if (!String(fields?.descripcion || "").trim()) throw new Error("Cargá la descripción.");
+
+  const clave = item?.clave || makeKey(fields.descripcion);
+  const nuevos = await subirPlanosMaterial(archivosNuevos, proceso.id, clave);
+  const planos = normalizePlanos([...planosExistentes, ...nuevos]);
+  const definition = definitionPayload(
+    { ...fields, orden: item?.orden ?? fields.orden },
+    planos,
+  );
+  const currentPayload = {
+    ...definition,
+    compra_estado: definition.es_resultado
+      ? "no_aplica"
+      : fields.compra_estado || item?.compra_estado || "pendiente_solicitud",
+  };
+
+  if (alcance !== "linea") {
+    if (item?.id) {
+      return ok(await supabase
+        .from("torneria_items")
+        .update(currentPayload)
+        .eq("id", item.id)
+        .select()
+        .single());
+    }
+    return ok(await supabase
+      .from("torneria_items")
+      .insert({
+        proceso_id: proceso.id,
+        plantilla_item_id: null,
+        clave,
+        activo: true,
+        ...currentPayload,
+      })
+      .select()
+      .single());
+  }
+
+  if (!proceso.plantilla_id) {
+    throw new Error("Esta obra no tiene una línea de Tornería vinculada.");
+  }
+
+  const templatePayload = {
+    plantilla_id: proceso.plantilla_id,
+    clave,
+    activa: true,
+    ...definition,
+  };
+  const { data: templateItem, error: templateError } = await supabase
+    .from("torneria_plantilla_items")
+    .upsert(templatePayload, { onConflict: "plantilla_id,clave" })
+    .select()
+    .single();
+  if (templateError) throw templateError;
+
+  const { data: processRows, error: processError } = await supabase
+    .from("torneria_procesos")
+    .select("id")
+    .eq("plantilla_id", proceso.plantilla_id)
+    .in("estado", ["borrador", "activo", "pausado"]);
+  if (processError) throw processError;
+  const processIds = [...new Set([
+    proceso.id,
+    ...(processRows || []).map((row) => row.id),
+  ])];
+
+  const { data: existingRows, error: existingError } = await supabase
+    .from("torneria_items")
+    .select("id,proceso_id")
+    .in("proceso_id", processIds)
+    .eq("clave", clave);
+  if (existingError) throw existingError;
+
+  const existingIds = (existingRows || []).map((row) => row.id);
+  if (existingIds.length) {
+    const { error } = await supabase
+      .from("torneria_items")
+      .update({
+        plantilla_item_id: templateItem.id,
+        ...definition,
+        ...(definition.es_resultado
+          ? { compra_estado: "no_aplica" }
+          : item?.es_resultado
+            ? { compra_estado: "pendiente_solicitud" }
+            : {}),
+      })
+      .in("id", existingIds);
+    if (error) throw error;
+  }
+
+  const existingProcessIds = new Set((existingRows || []).map((row) => row.proceso_id));
+  const missingRows = processIds
+    .filter((processId) => !existingProcessIds.has(processId))
+    .map((processId) => ({
+      proceso_id: processId,
+      plantilla_item_id: templateItem.id,
+      clave,
+      activo: true,
+      ...definition,
+      compra_estado: definition.es_resultado ? "no_aplica" : "pendiente_solicitud",
+    }));
+  let insertedRows = [];
+  if (missingRows.length) {
+    const { data, error } = await supabase.from("torneria_items").insert(missingRows).select();
+    if (error) throw error;
+    insertedRows = data || [];
+  }
+
+  const currentRow = [...(existingRows || []), ...insertedRows]
+    .find((row) => row.proceso_id === proceso.id);
+  if (!currentRow?.id) throw new Error("No se pudo actualizar el material de esta obra.");
+
+  return ok(await supabase
+    .from("torneria_items")
+    .update(currentPayload)
+    .eq("id", currentRow.id)
+    .select()
+    .single());
+}
+
 export async function crearItem(procesoId, fields) {
   const esResultado = !!fields.es_resultado;
   const payload = {
@@ -265,6 +479,44 @@ export async function crearItem(procesoId, fields) {
 
 export async function archivarItem(id) {
   return actualizarItem(id, { activo: false });
+}
+
+export async function archivarItemConAlcance({
+  item,
+  proceso,
+  alcance = "obra",
+}) {
+  if (!item?.id) throw new Error("Falta el material.");
+  if (alcance !== "linea") return archivarItem(item.id);
+  if (!proceso?.plantilla_id) {
+    throw new Error("Esta obra no tiene una línea de Tornería vinculada.");
+  }
+
+  let templateQuery = supabase
+    .from("torneria_plantilla_items")
+    .update({ activa: false });
+  templateQuery = item.plantilla_item_id
+    ? templateQuery.eq("id", item.plantilla_item_id)
+    : templateQuery.eq("plantilla_id", proceso.plantilla_id).eq("clave", item.clave);
+  const { error: templateError } = await templateQuery;
+  if (templateError) throw templateError;
+
+  const { data: processRows, error: processError } = await supabase
+    .from("torneria_procesos")
+    .select("id")
+    .eq("plantilla_id", proceso.plantilla_id)
+    .in("estado", ["borrador", "activo", "pausado"]);
+  if (processError) throw processError;
+  const processIds = [...new Set([
+    proceso.id,
+    ...(processRows || []).map((row) => row.id),
+  ])];
+  const { error } = await supabase
+    .from("torneria_items")
+    .update({ activo: false })
+    .in("proceso_id", processIds)
+    .eq("clave", item.clave);
+  if (error) throw error;
 }
 
 export async function guardarOperacion({

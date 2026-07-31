@@ -67,15 +67,18 @@ const S = {
     borderRadius: 5,
     fontSize: 11,
     fontWeight: 700,
-    background: color + "22",
+    // Los tokens del theme son variables CSS: color + "22" produce
+    // "var(--red)22", CSS inválido que el navegador descarta en silencio.
+    // color-mix mezcla la variable sin romperla.
+    background: `color-mix(in srgb, ${color} 14%, transparent)`,
     color,
-    border: `1px solid ${color}44`,
+    border: `1px solid color-mix(in srgb, ${color} 30%, transparent)`,
     fontFamily: C.sans,
     whiteSpace: "nowrap",
   }),
   btnSm: (color, fill = false) => ({
-    border: `1px solid ${color}44`,
-    background: fill ? color : `${color}18`,
+    border: `1px solid color-mix(in srgb, ${color} 30%, transparent)`,
+    background: fill ? color : `color-mix(in srgb, ${color} 10%, transparent)`,
     color: fill ? "#fff" : color,
     padding: "4px 11px",
     borderRadius: 6,
@@ -87,8 +90,8 @@ const S = {
     transition: "opacity .15s",
   }),
   modeBtn: (active) => ({
-    border: `1px solid ${active ? C.blue + "88" : "transparent"}`,
-    background: active ? `${C.blue}22` : "transparent",
+    border: `1px solid ${active ? `color-mix(in srgb, ${C.blue} 55%, transparent)` : "transparent"}`,
+    background: active ? `color-mix(in srgb, ${C.blue} 14%, transparent)` : "transparent",
     color: active ? C.blue : C.t2,
     padding: "5px 14px",
     borderRadius: 7,
@@ -137,7 +140,7 @@ function urgenciaColor(dias) {
   if (dias < 0)   return C.t2;      // ya pasó
   if (dias < 14)  return C.red;     // menos de 2 semanas
   if (dias < 30)  return C.orange;  // menos de 1 mes
-  if (dias < 60)  return C.amber;   // menos de 2 meses
+  if (dias < 60)  return C.cyan;    // menos de 2 meses
   return C.t1;
 }
 
@@ -166,7 +169,7 @@ function estadoConfig(key) {
 const MODELO_COLORS = {
   K34: "#3b82f6",
   K37: "#a78bfa",
-  K42: "#f59e0b",
+  K42: "#14b8a6",
   K43: "#10b981",
   K52: "#f43f5e",
 };
@@ -183,10 +186,14 @@ function FilaBarco({ barco, onCambiarEstado, guardando }) {
   const btnRef                        = useRef(null);
   const menuRef                       = useRef(null);
 
-  // Sincroniza la nota local cuando cambia desde afuera (ej. realtime de Supabase)
-  useEffect(() => {
+  // Sincroniza la nota local cuando cambia desde afuera (ej. realtime de
+  // Supabase) con el patrón de "estado derivado durante el render": un
+  // useEffect con setState sincrónico rompe react-hooks/set-state-in-effect.
+  const [prevNotas, setPrevNotas] = useState(barco.notas);
+  if (barco.notas !== prevNotas) {
+    setPrevNotas(barco.notas);
     if (!notaEdit) setNota(barco.notas ?? "");
-  }, [barco.notas, notaEdit]);
+  }
 
   // Cierra el dropdown al hacer click fuera de él
   useEffect(() => {
@@ -237,7 +244,7 @@ function FilaBarco({ barco, onCambiarEstado, guardando }) {
           borderRadius: 5,
           fontSize: 11,
           fontWeight: 800,
-          background: modeloColor(barco.modelo) + "22",
+          background: `color-mix(in srgb, ${modeloColor(barco.modelo)} 14%, transparent)`,
           color: modeloColor(barco.modelo),
           border: `1px solid ${modeloColor(barco.modelo)}44`,
           fontFamily: C.mono,
@@ -282,8 +289,8 @@ function FilaBarco({ barco, onCambiarEstado, guardando }) {
           ref={btnRef}
           onClick={abrirMenu}
           style={{
-            border: `1px solid ${est.color}44`,
-            background: `${est.color}18`,
+            border: `1px solid color-mix(in srgb, ${est.color} 30%, transparent)`,
+            background: `color-mix(in srgb, ${est.color} 10%, transparent)`,
             color: est.color,
             padding: "4px 10px",
             borderRadius: 6,
@@ -334,7 +341,7 @@ function FilaBarco({ barco, onCambiarEstado, guardando }) {
                   padding: "7px 12px",
                   borderRadius: 6,
                   border: "none",
-                  background: barco.estado_pedido === e.key ? `${e.color}22` : "transparent",
+                  background: barco.estado_pedido === e.key ? `color-mix(in srgb, ${e.color} 14%, transparent)` : "transparent",
                   color: barco.estado_pedido === e.key ? e.color : C.t1,
                   cursor: "pointer",
                   fontSize: 13,
@@ -466,13 +473,9 @@ export default function BarcoCalendarioPanel() {
     let rows = [...barcos];
 
     if (soloActivos) {
-      // Ocultar los que ya pasaron su desmolde Y están finalizados
-      rows = rows.filter(b => {
-        const dias = diasHasta(fechaDesmolde(b));
-        if (b.estado_pedido === "finalizado") return false;
-        // Mostrar igual los pasados si no están finalizados (puede que aún falte gestión)
-        return true;
-      });
+      // Ocultar los finalizados. Los pasados se muestran igual si no están
+      // finalizados: puede que aún falte gestión sobre ellos.
+      rows = rows.filter(b => b.estado_pedido !== "finalizado");
     }
 
     if (filtroModelo !== "todos") {
@@ -534,8 +537,8 @@ export default function BarcoCalendarioPanel() {
           {/* Dot de alerta */}
           <div style={{
             width: 8, height: 8, borderRadius: "50%",
-            background: kpis.urgentes > 0 ? C.red : kpis.sinPedir > 0 ? C.amber : C.green,
-            boxShadow: `0 0 8px ${kpis.urgentes > 0 ? C.red : kpis.sinPedir > 0 ? C.amber : C.green}`,
+            background: kpis.urgentes > 0 ? C.red : kpis.sinPedir > 0 ? C.cyan : C.green,
+            boxShadow: `0 0 8px ${kpis.urgentes > 0 ? C.red : kpis.sinPedir > 0 ? C.cyan : C.green}`,
           }} />
           <span style={{ fontWeight: 700, fontSize: 14, color: C.t0, fontFamily: C.sans }}>
             Barcos 2026
@@ -546,7 +549,7 @@ export default function BarcoCalendarioPanel() {
             </span>
           )}
           {kpis.sinPedir > 0 && kpis.urgentes === 0 && (
-            <span style={S.badge(C.amber)}>
+            <span style={S.badge(C.cyan)}>
               {kpis.sinPedir} sin pedir
             </span>
           )}
@@ -575,7 +578,7 @@ export default function BarcoCalendarioPanel() {
             borderBottom: `1px solid ${C.b0}`,
           }}>
             {[
-              { label: "Sin pedir",  val: kpis.sinPedir,  color: C.amber },
+              { label: "Sin pedir",  val: kpis.sinPedir,  color: C.cyan  },
               { label: "Pedidos",    val: kpis.pedidos,   color: C.blue  },
               { label: "Recibidos",  val: kpis.recibidos, color: C.green },
               { label: "Urgentes",   val: kpis.urgentes,  color: C.red   },
@@ -609,8 +612,8 @@ export default function BarcoCalendarioPanel() {
                 <button
                   key={m}
                   style={{
-                    border: `1px solid ${filtroModelo === m ? (modeloColor(m) || C.blue) + "88" : "transparent"}`,
-                    background: filtroModelo === m ? (modeloColor(m) || C.blue) + "22" : "transparent",
+                    border: `1px solid ${filtroModelo === m ? `color-mix(in srgb, ${modeloColor(m) || C.blue} 55%, transparent)` : "transparent"}`,
+                    background: filtroModelo === m ? `color-mix(in srgb, ${modeloColor(m) || C.blue} 14%, transparent)` : "transparent",
                     color: filtroModelo === m ? (modeloColor(m) || C.blue) : C.t2,
                     padding: "4px 12px",
                     borderRadius: 6,
@@ -753,7 +756,7 @@ export default function BarcoCalendarioPanel() {
                           borderRadius: 6,
                           fontSize: 12,
                           fontWeight: 800,
-                          background: modeloColor(modelo) + "22",
+                          background: `color-mix(in srgb, ${modeloColor(modelo)} 14%, transparent)`,
                           color: modeloColor(modelo),
                           border: `1px solid ${modeloColor(modelo)}44`,
                           fontFamily: C.mono,
@@ -773,7 +776,7 @@ export default function BarcoCalendarioPanel() {
                           return urgentes > 0 ? (
                             <span style={S.badge(C.red)}>{urgentes} urgente{urgentes !== 1 ? "s" : ""}</span>
                           ) : sinPedir > 0 ? (
-                            <span style={S.badge(C.amber)}>{sinPedir} sin pedir</span>
+                            <span style={S.badge(C.cyan)}>{sinPedir} sin pedir</span>
                           ) : (
                             <span style={S.badge(C.green)}>Al día</span>
                           );
@@ -822,7 +825,8 @@ export default function BarcoCalendarioPanel() {
           }}>
             <span>EST = fecha estimada · REAL = desmolde confirmado</span>
             <span style={{ color: C.red }}>Rojo &lt;14 días</span>
-            <span style={{ color: C.amber }}>Ámbar &lt;30 días</span>
+            <span style={{ color: C.orange }}>Naranja &lt;30 días</span>
+            <span style={{ color: C.cyan }}>Cian &lt;60 días</span>
             <span>Clic en el estado para cambiar · Clic en la nota para editar</span>
           </div>
         </div>

@@ -1000,6 +1000,31 @@ export async function fetchObraMaterialSnapshot(obraId) {
   }
 }
 
+// Lectura liviana para los controles de consistencia de una línea completa.
+// No agrega el detalle de recepción: sólo necesita saber qué material quedó
+// fijado en cada obra para compararlo contra la matriz viva.
+export async function fetchObrasMaterialSnapshots(obraIds = []) {
+  const ids = [...new Set((obraIds ?? []).filter(Boolean))];
+  if (!ids.length) return [];
+
+  const allRows = [];
+  const pageSize = 1000;
+  for (let from = 0; ; from += pageSize) {
+    const { data, error } = await supabase
+      .from("panol_obra_materiales_snapshot")
+      .select("id, obra_id, material_id, descripcion, codigo, cantidad, unidad, rubro, tipo, source, estado, created_at, updated_at")
+      .in("obra_id", ids)
+      .order("obra_id", { ascending: true })
+      .order("created_at", { ascending: true })
+      .range(from, from + pageSize - 1);
+    if (error) throw error;
+    const page = data ?? [];
+    allRows.push(...page);
+    if (page.length < pageSize) break;
+  }
+  return allRows;
+}
+
 const STOCK_LIBRE_ESTADOS = new Set(["en_panol", "recibido", "parcial"]);
 
 function stockLibreSnapshotKey(row) {

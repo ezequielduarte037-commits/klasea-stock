@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
-import { ExternalLink, Package, Plus, Send, Trash2, X } from "lucide-react";
+import { ExternalLink, Package, Paperclip, Plus, Send, Trash2, X } from "lucide-react";
 import {
   addRequestItem,
   createPurchaseRequest,
@@ -271,6 +271,7 @@ async function linkExistingMaderaPedido({ purchaseRequest, entries }) {
  *     source_ref?: string,
  *     source_url?: string,
  *     sourceLabel?: string,
+ *     attachments?: [{ url, path?, name?, type?, size? }],
  *     items?: [{ material_id?, description, quantity, unit, destination?, notes? }],
  *   }
  */
@@ -447,6 +448,7 @@ export default function PedirAComprasModal({
           source_ref: prefilled?.source_ref || null,
           source_url: prefilled?.source_url || null,
         },
+        existingAttachments: prefilled?.attachments || [],
       });
 
       // Insertar los ítems del purchase_request y guardar la respuesta para
@@ -673,6 +675,57 @@ export default function PedirAComprasModal({
             </div>
           </div>
 
+          {!!prefilled?.attachments?.length && (
+            <div style={{
+              display: "grid",
+              gap: 8,
+              padding: 11,
+              borderRadius: 9,
+              border: `1px solid ${C.blueB}`,
+              background: C.blueL,
+            }}>
+              <div style={{ display: "flex", alignItems: "center", gap: 7 }}>
+                <Paperclip size={13} style={{ color: C.blue }} />
+                <span style={{ color: C.text, fontSize: 11.5, fontWeight: 850 }}>
+                  Planos adjuntos automáticamente
+                </span>
+                <span style={{ marginLeft: "auto", color: C.blue, fontSize: 10.5, fontWeight: 900 }}>
+                  {prefilled.attachments.length}
+                </span>
+              </div>
+              <div style={{ display: "flex", gap: 5, flexWrap: "wrap" }}>
+                {prefilled.attachments.map((attachment, index) => (
+                  <a
+                    key={attachment.path || attachment.url || index}
+                    href={attachment.url}
+                    target="_blank"
+                    rel="noreferrer"
+                    title={attachment.name}
+                    style={{
+                      maxWidth: 230,
+                      padding: "3px 8px",
+                      borderRadius: 999,
+                      border: `1px solid ${C.blueB}`,
+                      background: C.panel,
+                      color: C.blue,
+                      fontSize: 9.5,
+                      fontWeight: 750,
+                      overflow: "hidden",
+                      textOverflow: "ellipsis",
+                      whiteSpace: "nowrap",
+                      textDecoration: "none",
+                    }}
+                  >
+                    {attachment.name || `Plano ${index + 1}`}
+                  </a>
+                ))}
+              </div>
+              <div style={{ color: C.muted, fontSize: 10, lineHeight: 1.4 }}>
+                Compras los recibirá junto con el pedido. No hace falta volver a cargarlos.
+              </div>
+            </div>
+          )}
+
           {/* Cargar plantilla de obra (reemplaza el modal-selector previo) */}
           {onLoadObraPlantilla && obrasPlantilla.length > 0 && (
             <div style={{
@@ -788,13 +841,23 @@ export default function PedirAComprasModal({
                           />
                           {it.material_id && (() => {
                             // catalogSource viene del caller que precargó el ítem
-                            // ("laminacion" / "madera"). Si no llegó, lo inferimos del
-                            // destino del ítem.
+                            // ("laminacion" / "madera" / "panol"). Si no llegó, lo
+                            // inferimos del origen del pedido y, por compatibilidad
+                            // con pedidos anteriores, del destino del ítem.
                             const src = (it.catalogSource || "").toLowerCase();
-                            const isMadera = src
-                              ? src === "madera"
-                              : /^Stock\s+(Chubut|Pampa)/i.test(it.destination || "");
-                            const label = isMadera ? "Catálogo maderas" : "Catálogo laminación";
+                            const inferredSource = src
+                              || (origen === "torneria" ? "panol" : "")
+                              || (origen === "maderas" ? "madera" : "")
+                              || (origen === "laminacion" ? "laminacion" : "")
+                              || (/^Stock\s+(Chubut|Pampa)/i.test(it.destination || "")
+                                ? "madera"
+                                : "laminacion");
+                            const label = {
+                              panol: "Catálogo pañol",
+                              madera: "Catálogo maderas",
+                              maderas: "Catálogo maderas",
+                              laminacion: "Catálogo laminación",
+                            }[inferredSource] || "Catálogo";
                             return (
                               <span style={{
                                 display: "inline-flex",

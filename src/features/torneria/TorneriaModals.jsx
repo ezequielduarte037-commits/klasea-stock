@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState } from "react";
 import {
-  AlertTriangle, Archive, Check, FileUp, Link2, Loader2, PackageOpen, PackageSearch, Plus, Search,
-  Trash2, Truck,
+  AlertTriangle, Archive, Check, FileText, FileUp, Link2, Loader2, PackageOpen, PackageSearch, Plus,
+  Search, Trash2, Truck,
 } from "lucide-react";
 import { C } from "@/theme";
 import { buscarMateriales } from "@/features/produccion/catalogoBusquedaApi";
@@ -307,6 +307,9 @@ function CatalogSearch({ selected, onSelect }) {
 export function ItemModal({ item, proceso, onClose, onSave, onArchive }) {
   const isNew = !item?.id;
   const [catalog, setCatalog] = useState(item?.material ?? null);
+  const [alcance, setAlcance] = useState("obra");
+  const [planos, setPlanos] = useState(() => Array.isArray(item?.planos) ? item.planos : []);
+  const [archivosNuevos, setArchivosNuevos] = useState([]);
   const [form, setForm] = useState({
     grupo: item?.grupo || "Otros",
     descripcion: item?.descripcion || "",
@@ -341,14 +344,19 @@ export function ItemModal({ item, proceso, onClose, onSave, onArchive }) {
     setSaving(true);
     try {
       await onSave({
-        ...form,
-        material_id: form.es_resultado ? null : form.material_id || null,
-        cantidad: Number(form.cantidad),
-        proveedor_compra: form.es_resultado ? null : form.proveedor_compra.trim() || null,
-        solicitado_por_torneria: form.es_resultado ? false : form.solicitado_por_torneria,
-        compra_estado: form.es_resultado ? "no_aplica" : form.compra_estado,
-        alerta: form.alerta.trim() || null,
-        notas: form.notas.trim() || null,
+        alcance,
+        planosExistentes: planos,
+        archivosNuevos,
+        fields: {
+          ...form,
+          material_id: form.es_resultado ? null : form.material_id || null,
+          cantidad: Number(form.cantidad),
+          proveedor_compra: form.es_resultado ? null : form.proveedor_compra.trim() || null,
+          solicitado_por_torneria: form.es_resultado ? false : form.solicitado_por_torneria,
+          compra_estado: form.es_resultado ? "no_aplica" : form.compra_estado,
+          alerta: form.alerta.trim() || null,
+          notas: form.notas.trim() || null,
+        },
       });
     } finally {
       setSaving(false);
@@ -364,7 +372,7 @@ export function ItemModal({ item, proceso, onClose, onSave, onArchive }) {
       footer={(
         <>
           {!isNew && (
-            <button type="button" onClick={onArchive} style={{ ...DANGER_BUTTON, marginRight: "auto" }}>
+            <button type="button" onClick={() => onArchive(alcance)} style={{ ...DANGER_BUTTON, marginRight: "auto" }}>
               <Archive size={14} /> Archivar
             </button>
           )}
@@ -428,6 +436,69 @@ export function ItemModal({ item, proceso, onClose, onSave, onArchive }) {
             );
           })}
         </div>
+
+        <section style={{
+          display: "grid",
+          gap: 9,
+          padding: 12,
+          borderRadius: 12,
+          border: `1px solid ${alcance === "linea" ? C.violetB : C.border}`,
+          background: alcance === "linea" ? C.violetL : C.panel,
+        }}>
+          <div>
+            <div style={{ color: C.text, fontSize: 12, fontWeight: 900 }}>Aplicar este cambio en</div>
+            <div style={{ color: C.dim, fontSize: 10.5, lineHeight: 1.45, marginTop: 2 }}>
+              Los estados de compra y recepción siempre siguen siendo propios de cada obra.
+            </div>
+          </div>
+          <div style={{ display: "grid", gridTemplateColumns: "repeat(2, minmax(0,1fr))", gap: 6 }}>
+            {[
+              ["obra", "Sólo esta obra", proceso.obra?.codigo || "Obra actual"],
+              ["linea", "Toda la línea", proceso.obra?.linea_nombre || "Línea de producción"],
+            ].map(([value, title, detail]) => {
+              const active = alcance === value;
+              const disabled = value === "linea" && !proceso.plantilla_id;
+              return (
+                <button
+                  key={value}
+                  type="button"
+                  disabled={disabled}
+                  onClick={() => !disabled && setAlcance(value)}
+                  style={{
+                    display: "grid",
+                    gap: 3,
+                    minWidth: 0,
+                    padding: "9px 10px",
+                    borderRadius: 9,
+                    border: `1px solid ${active ? (value === "linea" ? C.violetB : C.blueB) : C.border}`,
+                    background: active ? (value === "linea" ? C.panel : C.blueL) : C.panelSolid,
+                    color: active ? (value === "linea" ? C.violet : C.blue) : C.dim,
+                    opacity: disabled ? 0.45 : 1,
+                    cursor: disabled ? "not-allowed" : "pointer",
+                    textAlign: "left",
+                    fontFamily: C.sans,
+                  }}
+                >
+                  <span style={{ fontSize: 11.5, fontWeight: 900 }}>{title}</span>
+                  <span style={{ fontSize: 9.5, lineHeight: 1.35 }}>{detail}</span>
+                </button>
+              );
+            })}
+          </div>
+          {alcance === "linea" && (
+            <div style={{
+              display: "flex",
+              gap: 7,
+              alignItems: "flex-start",
+              color: C.violet,
+              fontSize: 10.5,
+              lineHeight: 1.4,
+            }}>
+              <AlertTriangle size={13} style={{ flexShrink: 0, marginTop: 1 }} />
+              Actualiza la plantilla para obras futuras y las obras activas de esta línea.
+            </div>
+          )}
+        </section>
 
         {!form.es_resultado && <CatalogSearch selected={catalog} onSelect={pickMaterial} />}
 
@@ -543,6 +614,103 @@ export function ItemModal({ item, proceso, onClose, onSave, onArchive }) {
             <textarea value={form.notas} onChange={(event) => set("notas", event.target.value)} rows={3} style={{ ...INPUT, resize: "vertical" }} />
           </Field>
         </div>
+
+        <section style={{
+          display: "grid",
+          gap: 9,
+          padding: 12,
+          borderRadius: 12,
+          border: `1px solid ${(planos.length || archivosNuevos.length) ? C.blueB : C.border}`,
+          background: C.panel,
+        }}>
+          <div style={{ display: "flex", alignItems: "flex-start", gap: 9 }}>
+            <span style={{
+              width: 32,
+              height: 32,
+              display: "grid",
+              placeItems: "center",
+              borderRadius: 9,
+              border: `1px solid ${C.blueB}`,
+              background: C.blueL,
+              color: C.blue,
+              flexShrink: 0,
+            }}>
+              <FileText size={15} />
+            </span>
+            <div style={{ minWidth: 0 }}>
+              <div style={{ color: C.text, fontSize: 12, fontWeight: 900 }}>Planos del material</div>
+              <div style={{ color: C.dim, fontSize: 10.5, lineHeight: 1.45, marginTop: 2 }}>
+                PDF, DXF, DWG, STEP, imágenes o cualquier archivo técnico. Se adjuntan automáticamente al pedido de Compras.
+              </div>
+            </div>
+          </div>
+
+          {!!planos.length && (
+            <div style={{ display: "grid", gap: 5 }}>
+              {planos.map((plano, index) => (
+                <div key={plano.path || plano.url || index} style={{
+                  display: "grid",
+                  gridTemplateColumns: "minmax(0,1fr) auto",
+                  alignItems: "center",
+                  gap: 8,
+                  padding: "7px 9px",
+                  borderRadius: 9,
+                  border: `1px solid ${C.border}`,
+                  background: C.panelSolid,
+                }}>
+                  <a
+                    href={plano.url}
+                    target="_blank"
+                    rel="noreferrer"
+                    style={{
+                      minWidth: 0,
+                      color: C.blue,
+                      fontSize: 11,
+                      fontWeight: 800,
+                      overflow: "hidden",
+                      textOverflow: "ellipsis",
+                      whiteSpace: "nowrap",
+                    }}
+                  >
+                    {plano.name || `Plano ${index + 1}`}
+                  </a>
+                  <button
+                    type="button"
+                    onClick={() => setPlanos((current) => current.filter((_, currentIndex) => currentIndex !== index))}
+                    aria-label={`Quitar ${plano.name || "plano"}`}
+                    style={{ ...DANGER_BUTTON, minHeight: 29, padding: "3px 7px" }}
+                  >
+                    <Trash2 size={12} />
+                  </button>
+                </div>
+              ))}
+            </div>
+          )}
+
+          {!!archivosNuevos.length && (
+            <div style={{ color: C.green, fontSize: 10.5, fontWeight: 800 }}>
+              {archivosNuevos.length} archivo{archivosNuevos.length === 1 ? "" : "s"} nuevo{archivosNuevos.length === 1 ? "" : "s"} listo{archivosNuevos.length === 1 ? "" : "s"} para subir.
+            </div>
+          )}
+
+          <label style={{
+            ...BUTTON,
+            justifyContent: "flex-start",
+            minHeight: 42,
+            borderStyle: "dashed",
+            color: C.blue,
+          }}>
+            <FileUp size={15} />
+            Agregar planos
+            <input
+              type="file"
+              multiple
+              accept="image/*,.pdf,.dxf,.dwg,.step,.stp,.iges,.igs,.zip,.rar"
+              onChange={(event) => setArchivosNuevos(Array.from(event.target.files || []))}
+              style={{ display: "none" }}
+            />
+          </label>
+        </section>
       </div>
     </Modal>
   );
