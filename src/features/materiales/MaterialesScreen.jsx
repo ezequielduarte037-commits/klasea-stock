@@ -8178,6 +8178,37 @@ function snapshotMergeKey(row, index = 0) {
   return row?.snapshotId || row?.id ? `id:${row.snapshotId || row.id}` : `row:${index}`;
 }
 
+function isAddonRow(row) {
+  return row?.source === "addon" || row?.bucket?.key === "addon" || row?.snapshot_tipo === "addon";
+}
+
+function isRemitoSnapshot(row) {
+  return row?.source === "remito" || row?.snapshot_tipo === "remito";
+}
+
+function addonRemitoMatch(liveRows = [], snapshot) {
+  if (!isRemitoSnapshot(snapshot)) return null;
+  const snapshotMaterialId = snapshot?.materialId || snapshot?.material_id || null;
+  const snapshotDescription = norm(snapshot?.descripcion || "");
+  const snapshotUnit = norm(snapshot?.unidad || snapshot?.unidad_medida || "unidad");
+  if (!snapshotMaterialId && snapshotDescription.length < 8) return null;
+
+  const candidates = liveRows.filter((row) => {
+    if (!isAddonRow(row)) return false;
+    const rowMaterialId = row?.materialId || row?.material_id || null;
+    const sameMaterial = !!snapshotMaterialId && snapshotMaterialId === rowMaterialId;
+    const sameDescription = snapshotDescription.length >= 8
+      && snapshotDescription === norm(row?.descripcion || "")
+      && snapshotUnit === norm(row?.unidad || row?.unidad_medida || "unidad");
+    return sameMaterial || sameDescription;
+  });
+
+  // Sólo se reconcilia en pantalla cuando hay una coincidencia inequívoca.
+  // Si hay dos adicionales posibles, se conservan separados para no esconder
+  // una necesidad real de la obra.
+  return candidates.length === 1 ? candidates[0] : null;
+}
+
 function mergeNotes(a, b) {
   const parts = [a, b].map((part) => String(part || "").trim()).filter(Boolean);
   return [...new Set(parts)].join(" - ");
@@ -8191,6 +8222,12 @@ function preferSnapshotText(snapshotValue, liveValue, emptyLabel) {
 
 function mergeSnapshotIntoLive(live, snapshot) {
   const linkedToCatalog = !!(live.materialId || live.material);
+  const remitoDeAddon = isAddonRow(live) && isRemitoSnapshot(snapshot);
+  const cantidadPlanificada = toNum(live.cantidad);
+  const cantidadRecibida = toNum(snapshot.recepcion_cantidad_recibida);
+  const notaRecepcion = remitoDeAddon && cantidadRecibida != null
+    ? `RecepciÃ³n por remito: ${qtyText(cantidadRecibida, snapshot.unidad || live.unidad)}`
+    : "";
   return {
     ...live,
     ...snapshot,
@@ -8199,17 +8236,27 @@ function mergeSnapshotIntoLive(live, snapshot) {
     materialId: live.materialId || snapshot.materialId,
     material: live.material || snapshot.material || null,
     source: live.source || snapshot.source,
-    descripcion: linkedToCatalog ? live.descripcion || snapshot.descripcion : snapshot.descripcion || live.descripcion,
+    snapshot_tipo: remitoDeAddon ? (live.snapshot_tipo || live.bucket?.key || "addon") : (snapshot.snapshot_tipo || live.snapshot_tipo || null),
+    descripcion: remitoDeAddon
+      ? live.descripcion || snapshot.descripcion
+      : linkedToCatalog ? live.descripcion || snapshot.descripcion : snapshot.descripcion || live.descripcion,
     snapshotDescripcion: snapshot.snapshotDescripcion || snapshot.descripcion,
     descripcionOriginal: snapshot.descripcionOriginal || "",
-    codigo: linkedToCatalog ? live.codigo || snapshot.codigo : snapshot.codigo || live.codigo,
-    cantidad: toNum(snapshot.cantidad) || toNum(live.cantidad) || 0,
-    unidad: snapshot.unidad || live.unidad,
+    codigo: remitoDeAddon
+      ? live.codigo || snapshot.codigo
+      : linkedToCatalog ? live.codigo || snapshot.codigo : snapshot.codigo || live.codigo,
+    // El adicional conserva la cantidad planificada; el detalle recibido queda
+    // en recepcion_cantidad_recibida. Antes la cantidad de un remito parcial
+    // reemplazaba la necesidad original y daba la impresiÃ³n de dos Ã­tems.
+    cantidad: remitoDeAddon && cantidadPlanificada != null
+      ? cantidadPlanificada
+      : toNum(snapshot.cantidad) || toNum(live.cantidad) || 0,
+    unidad: remitoDeAddon ? live.unidad || snapshot.unidad : snapshot.unidad || live.unidad,
     proveedor: linkedToCatalog ? live.proveedor || snapshot.proveedor : preferSnapshotText(snapshot.proveedor, live.proveedor, "Sin proveedor"),
     rubro: linkedToCatalog ? live.rubro || snapshot.rubro : preferSnapshotText(snapshot.rubro, live.rubro, "Sin rubro"),
     precio: linkedToCatalog ? live.precio || snapshot.precio : snapshot.precio?.amount ? snapshot.precio : live.precio,
     bucket: live.bucket || snapshot.bucket,
-    obs: mergeNotes(live.obs, snapshot.obs),
+    obs: mergeNotes(mergeNotes(live.obs, snapshot.obs), notaRecepcion),
     variante: snapshot.variante || live.variante || "",
     revisado: live.revisado ?? snapshot.revisado,
     review: live.review?.flag ? live.review : snapshot.review,
@@ -8270,7 +8317,8 @@ function mergeMatrixAndSnapshotRows(liveRows = [], snapshotRows = []) {
   });
 
   snapshotRows.forEach((row, index) => {
-    const key = snapshotMergeKey(row, index);
+    const addon = addonRemitoMatch(liveRows, row);
+    const key = addon ? snapshotMergeKey(addon) : snapshotMergeKey(row, index);
     if (!key || isLedgerOnlySnapshot(row)) return;
     snapshotsByKey.set(key, pickSnapshotForMerge(snapshotsByKey.get(key), row));
   });
