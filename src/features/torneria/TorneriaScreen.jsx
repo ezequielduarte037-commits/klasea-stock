@@ -3,7 +3,7 @@ import {
   AlertTriangle, ArrowLeft, ArrowRight, Boxes, Check, ChevronDown, ChevronRight, ChevronUp, CircleHelp, Clock3,
   Edit3, Factory, FileText, GitMerge, History, LayoutDashboard, Link2, Loader2,
   MapPin, PackageCheck, PackageOpen, PanelLeftClose, PanelLeftOpen, Plus, RefreshCw, Repeat, Search,
-  Settings2, ShoppingCart, Trash2, Truck, Wrench,
+  Settings2, ShoppingCart, SkipForward, Trash2, Truck, Wrench,
 } from "lucide-react";
 import Sidebar from "@/components/Sidebar";
 import { useResponsive } from "@/hooks/useResponsive";
@@ -27,6 +27,7 @@ import {
   guardarOperacion,
   marcarPreparacion,
   marcarNoLleva,
+  saltearCompraTorneria,
   subirArchivosMovimiento,
   vincularItemsAPedidoCompra,
 } from "./torneriaApi";
@@ -973,7 +974,7 @@ function tramoActual({ process, item, tramos, conCompra }) {
   return { tipo: "viaje", operation, dependencias: dependencyRows(process, operation) };
 }
 
-function TramoActual({ process, item, tramos, conCompra, onMove, onReady, onPedirCompra }) {
+function TramoActual({ process, item, tramos, conCompra, onMove, onReady, onPedirCompra, onSkipPurchase }) {
   const actual = tramoActual({ process, item, tramos, conCompra });
   const diasCompra = diasEntre(item.solicitado_at, item.recibido_astillero_at);
   const diasEspera = diasEntre(item.recibido_astillero_at, primeraSalida(tramos));
@@ -1035,15 +1036,37 @@ function TramoActual({ process, item, tramos, conCompra, onMove, onReady, onPedi
             </span>
           )}
         </div>
-        {item.compra_estado === "pendiente_solicitud" && onPedirCompra && (
-          <button
-            type="button"
-            onClick={() => onPedirCompra([item])}
-            className="tor-route-action"
-            style={{ ...PRIMARY_BUTTON, width: "100%", minHeight: 36 }}
-          >
-            <ShoppingCart size={14} /> Pedir a compras
-          </button>
+        {item.compra_estado === "pendiente_solicitud" && (
+          <div style={{ display: "grid", gridTemplateColumns: onPedirCompra ? "minmax(0,1fr) auto" : "1fr", gap: 6 }}>
+            {onPedirCompra && (
+              <button
+                type="button"
+                onClick={() => onPedirCompra([item])}
+                className="tor-route-action"
+                style={{ ...PRIMARY_BUTTON, width: "100%", minHeight: 36 }}
+              >
+                <ShoppingCart size={14} /> Pedir a compras
+              </button>
+            )}
+            {onSkipPurchase && (
+              <button
+                type="button"
+                onClick={() => onSkipPurchase(item)}
+                title="Continuar sin crear un pedido a Compras"
+                style={{
+                  ...BUTTON,
+                  minHeight: 36,
+                  padding: "6px 10px",
+                  borderColor: C.border2,
+                  color: C.muted,
+                  background: C.panelSolid,
+                  whiteSpace: "nowrap",
+                }}
+              >
+                <SkipForward size={14} /> Saltear paso
+              </button>
+            )}
+          </div>
         )}
       </div>
     );
@@ -1198,7 +1221,7 @@ function TramoActual({ process, item, tramos, conCompra, onMove, onReady, onPedi
 
 // Un material = una card = un circuito. Rail arriba, el tramo donde está parado
 // abajo, un solo botón.
-function CircuitoMaterial({ process, item, tramos, onMove, onReady, onPedirCompra, tono = null }) {
+function CircuitoMaterial({ process, item, tramos, onMove, onReady, onPedirCompra, onSkipPurchase, tono = null }) {
   const conCompra = compraAplica(item, tramos);
   const nodos = circuitoNodos({ item, tramos, conCompra });
   return (
@@ -1212,6 +1235,7 @@ function CircuitoMaterial({ process, item, tramos, onMove, onReady, onPedirCompr
         onMove={onMove}
         onReady={onReady}
         onPedirCompra={onPedirCompra}
+        onSkipPurchase={onSkipPurchase}
       />
       {tono}
     </div>
@@ -1224,6 +1248,7 @@ function StandaloneRouteCard({
   onReady,
   index = 0,
   onPedirCompra = null,
+  onSkipPurchase = null,
 }) {
   const { item, tramos } = row;
   const complete = routeIsComplete(row);
@@ -1279,12 +1304,13 @@ function StandaloneRouteCard({
         onMove={onMove}
         onReady={onReady}
         onPedirCompra={onPedirCompra}
+        onSkipPurchase={onSkipPurchase}
       />
     </article>
   );
 }
 
-function TransformationSource({ process, row, onMove, onReady, onPedirCompra = null }) {
+function TransformationSource({ process, row, onMove, onReady, onPedirCompra = null, onSkipPurchase = null }) {
   const complete = routeIsComplete(row);
   return (
     <div className="tor-transform-source" style={{
@@ -1326,6 +1352,7 @@ function TransformationSource({ process, row, onMove, onReady, onPedirCompra = n
         onMove={onMove}
         onReady={onReady}
         onPedirCompra={onPedirCompra}
+        onSkipPurchase={onSkipPurchase}
       />
     </div>
   );
@@ -1338,6 +1365,7 @@ function TransformationFlow({
   onMove,
   onReady,
   onPedirCompra = null,
+  onSkipPurchase = null,
 }) {
   const sourcesReady = sources.length > 0 && sources.every(routeIsComplete);
   const resultHasJourney = result.tramos.length > 0;
@@ -1415,6 +1443,7 @@ function TransformationFlow({
                 onMove={onMove}
                 onReady={onReady}
                 onPedirCompra={onPedirCompra}
+                onSkipPurchase={onSkipPurchase}
               />
             ))}
           </div>
@@ -1496,7 +1525,7 @@ function TransformationFlow({
   );
 }
 
-function RecorridosPorItem({ process, onMove, onReady, query = "", onPedirCompra = null }) {
+function RecorridosPorItem({ process, onMove, onReady, query = "", onPedirCompra = null, onSkipPurchase = null }) {
   const operations = (process.operaciones || []).filter((row) => row.activa !== false);
   // Lo que esta obra no lleva no entra al circuito: queda a la vista en
   // Materiales, tachado, para que se sepa que fue una decisión.
@@ -1709,6 +1738,7 @@ function RecorridosPorItem({ process, onMove, onReady, query = "", onPedirCompra
                     onMove={onMove}
                     onReady={onReady}
                     onPedirCompra={onPedirCompra}
+                    onSkipPurchase={onSkipPurchase}
                   />
                 ))}
               </div>
@@ -1725,6 +1755,7 @@ function RecorridosPorItem({ process, onMove, onReady, query = "", onPedirCompra
                     onReady={onReady}
                     index={i}
                     onPedirCompra={onPedirCompra}
+                    onSkipPurchase={onSkipPurchase}
                   />
                 ))}
               </div>
@@ -1925,6 +1956,7 @@ function CircuitTab({
   onSearch,
   showSearch = true,
   onPedirCompra,
+  onSkipPurchase,
 }) {
   const operations = (process.operaciones || []).filter((row) => row.activa !== false);
   const [showManagement, setShowManagement] = useState(false);
@@ -1941,6 +1973,7 @@ function CircuitTab({
         onReady={onReady}
         query={search}
         onPedirCompra={onPedirCompra}
+        onSkipPurchase={onSkipPurchase}
       />
 
       <section style={{
@@ -3593,6 +3626,24 @@ export default function TorneriaScreen({ profile, signOut }) {
     }
   }
 
+  async function skipPurchase(item) {
+    if (!selected || !item) return;
+    const accepted = await confirm({
+      title: "¿Saltear el paso de compra?",
+      message: "Usalo si el material ya está disponible o llegó por otra vía. Se marcará En astillero, no se creará ningún pedido ni aviso a Compras y la excepción quedará registrada en el historial.",
+      confirmLabel: "Saltear compra",
+    });
+    if (!accepted) return;
+    try {
+      await saltearCompraTorneria({ procesoId: selected.id, item });
+      await load({ quiet: true, preferId: selected.id });
+      toast.success("Compra salteada. El material quedó En astillero.");
+    } catch (skipError) {
+      await load({ quiet: true, preferId: selected.id });
+      toast.error(skipError.message);
+    }
+  }
+
   // Abre el mismo modal que usan inventario, laminación y muebles. Tornería era
   // el único módulo que no pedía a compras desde el sistema.
   function pedirACompras(items) {
@@ -4462,6 +4513,7 @@ export default function TorneriaScreen({ profile, signOut }) {
                         onSearch={setCircuitSearch}
                         showSearch={!isMobile}
                         onPedirCompra={pedirACompras}
+                        onSkipPurchase={skipPurchase}
                       />
                     )}
                     {tab === "materiales" && (

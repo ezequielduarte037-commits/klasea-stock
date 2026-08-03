@@ -1,5 +1,5 @@
 import { supabase } from "@/supabaseClient";
-import { materialBarcodeText } from "@/features/materiales/materialBarcodes";
+import { materialMatchScore } from "@/features/panol/materialMatch";
 
 // ─────────────────────────────────────────────────────────────────────────────
 // API del módulo Pedidos / Recepción a Pañol.
@@ -133,12 +133,6 @@ const SEARCH_STOPWORDS = new Set(["de", "del", "la", "el", "los", "las", "con", 
 // Match por palabras: cada palabra "\u00fatil" del t\u00e9rmino debe estar en el texto (en
 // cualquier orden). As\u00ed "caja de" encuentra "caja ducha 800 gph". T\u00e9rminos muy cortos
 // (ej. un c\u00f3digo) caen a substring simple.
-function matchesSearchTokens(text = "", term = "") {
-  const tokens = term.split(" ").filter((t) => t.length >= 2 && !SEARCH_STOPWORDS.has(t));
-  if (!tokens.length) return text.includes(term);
-  return tokens.every((t) => text.includes(t));
-}
-
 function modeloFromObraCodigo(codigo = "") {
   return String(codigo || "").trim().toUpperCase().match(/^([A-Z]*\d+)/)?.[1] || "";
 }
@@ -467,11 +461,11 @@ export async function fetchMaterialesEgreso({ sede = null, estados = ["en_panol"
 }
 
 const CATALOG_MINI_SELECT_FULL =
-  "id,categoria_id,codigo,codigo_barra,descripcion,proveedor,unidad_medida,precio_unitario,moneda,activo,ubicacion,ubicacion_obs,variantes,variantes_precios";
+  "id,categoria_id,codigo,codigo_barra,descripcion,alias,proveedor,notas,unidad_medida,precio_unitario,moneda,activo,ubicacion,ubicacion_obs,variantes,variantes_precios";
 const CATALOG_MINI_SELECT_STOCK =
   `${CATALOG_MINI_SELECT_FULL},stock_minimo`;
 const CATALOG_MINI_SELECT_NOVARPRE =
-  "id,categoria_id,codigo,codigo_barra,descripcion,proveedor,unidad_medida,precio_unitario,moneda,activo,ubicacion,ubicacion_obs,variantes";
+  "id,categoria_id,codigo,codigo_barra,descripcion,alias,proveedor,notas,unidad_medida,precio_unitario,moneda,activo,ubicacion,ubicacion_obs,variantes";
 const CATALOG_MINI_SELECT_MIN =
   "id,categoria_id,codigo,descripcion,proveedor,unidad_medida,precio_unitario,moneda,activo";
 
@@ -498,12 +492,20 @@ function escapeIlikeTerm(value = "") {
 async function fetchPanolCatalogSearchRows(term) {
   const tokens = term.split(" ").filter((t) => t.length >= 2 && !SEARCH_STOPWORDS.has(t));
   // El token más largo suele ser el más discriminante (evita traer medio catálogo).
-  const pick = escapeIlikeTerm([...tokens].sort((a, b) => b.length - a.length)[0] || term);
-  if (!pick) return null;
+  const picks = [...tokens]
+    .sort((a, b) => b.length - a.length)
+    .slice(0, 4)
+    .map(escapeIlikeTerm)
+    .filter(Boolean);
+  const fields = ["descripcion", "alias", "notas", "codigo", "codigo_barra"];
+  const clauses = fields.flatMap((field) => picks.map((pick) => `${field}.ilike.%${pick}%`));
+  const searchOr = clauses.join(",");
+  if (!picks.length) return null;
   const attempts = [
-    { select: CATALOG_MINI_SELECT_STOCK, or: `descripcion.ilike.%${pick}%,codigo.ilike.%${pick}%,codigo_barra.ilike.%${pick}%` },
-    { select: CATALOG_MINI_SELECT_FULL, or: `descripcion.ilike.%${pick}%,codigo.ilike.%${pick}%,codigo_barra.ilike.%${pick}%` },
-    { select: CATALOG_MINI_SELECT_MIN, or: `descripcion.ilike.%${pick}%,codigo.ilike.%${pick}%` },
+    { select: CATALOG_MINI_SELECT_STOCK, or: searchOr },
+    { select: CATALOG_MINI_SELECT_FULL, or: searchOr },
+    { select: CATALOG_MINI_SELECT_NOVARPRE, or: searchOr },
+    { select: CATALOG_MINI_SELECT_MIN, or: clauses.filter((clause) => !clause.startsWith("notas.") && !clause.startsWith("alias.")).join(",") },
   ];
   for (const attempt of attempts) {
     try {
@@ -531,12 +533,29 @@ export async function fetchPanolCatalogMini({ q = "", limit = 80 } = {}) {
   const codigosByMaterial = await fetchBarcodeRowsForMaterialIds(rows.map((row) => row.id));
   const withCodes = rows.map((row) => ({ ...row, codigos_barra: codigosByMaterial.get(row.id) ?? [] }));
   const active = withCodes.filter((row) => row.activo !== false);
-  const filtered = term
-    ? active.filter((row) => matchesSearchTokens(normalizeSearch([row.descripcion, row.codigo, row.codigo_barra, materialBarcodeText(row), row.proveedor].filter(Boolean).join(" ")), term))
+  let filtered = term
+    ? active.filter((row) => materialMatchScore(row, term) >= 42)
     : active;
-  return filtered
+
+  // Si la base no encuentra "flaps" porque existe "flap", o "parabrisas"
+  // porque quedo escrito "para brisas", hacemos una segunda pasada completa.
+  if (term && !filtered.length && rows.length < 5000) {
+    const allRows = await fetchPanolCatalogAllRows();
+    const allCodes = await fetchBarcodeRowsForMaterialIds(allRows.map((row) => row.id));
+    const allWithCodes = allRows.map((row) => ({ ...row, codigos_barra: allCodes.get(row.id) ?? [] }));
+    filtered = allWithCodes
+      .filter((row) => row.activo !== false)
+      .filter((row) => materialMatchScore(row, term) >= 42);
+  }
+  const ranked = term
+    ? filtered
+      .map((row) => ({ row, score: materialMatchScore(row, term) }))
+      .sort((a, b) => b.score - a.score || String(a.row.descripcion || "").localeCompare(String(b.row.descripcion || ""), "es", { numeric: true }))
+    : filtered.map((row) => ({ row, score: 0 }));
+
+  return ranked
     .slice(0, limit)
-    .map((row) => ({
+    .map(({ row, score }) => ({
       id: row.id,
       categoria_id: row.categoria_id || null,
       codigo: row.codigo || "",
@@ -544,6 +563,9 @@ export async function fetchPanolCatalogMini({ q = "", limit = 80 } = {}) {
       codigos_barra: row.codigos_barra || [],
       descripcion: row.descripcion || "",
       proveedor: row.proveedor || "",
+      alias: row.alias || "",
+      notas: row.notas || "",
+      observaciones: row.observaciones || "",
       unidad: row.unidad_medida || "unidad",
       precio_unitario: row.precio_unitario ?? "",
       moneda: row.moneda || "ARS",
@@ -552,6 +574,7 @@ export async function fetchPanolCatalogMini({ q = "", limit = 80 } = {}) {
       variantes: Array.isArray(row.variantes) ? row.variantes : [],
       variantes_precios: row.variantes_precios ?? {},
       stock_minimo: row.stock_minimo ?? null,
+      _score: score,
     }));
 }
 
@@ -824,18 +847,25 @@ export async function crearPanolCatalogMaterialParaEgreso({
 }
 
 function scorePedidoMaterial(item, material, query) {
-  const itemText = normalizeSearch([item.description, item.destination, item.request?.title].filter(Boolean).join(" "));
-  const materialText = normalizeSearch([material?.descripcion, material?.codigo].filter(Boolean).join(" "));
-  const q = normalizeSearch(query);
   if (material?.id && item.material_id === material.id) return 100;
-  if (material?.codigo && normalizeSearch(item.description).includes(normalizeSearch(material.codigo))) return 92;
-  if (q && itemText.includes(q)) return 88;
-  if (!materialText) return 0;
-  const tokens = materialText.split(" ").filter((token) => token.length > 2);
-  const shared = tokens.filter((token) => itemText.includes(token)).length;
-  if (shared >= Math.min(3, tokens.length)) return 78;
-  if (shared >= 2) return 66;
-  return 0;
+  // Usar el mismo matcher que el catálogo. Antes esta pantalla sólo
+  // comparaba substrings exactos y no encontraba "flap" vs. "flaps" ni
+  // "parabrisas" vs. "para brisas".
+  return materialMatchScore(
+    {
+      descripcion: item.description,
+      codigo: item.codigo,
+      notas: item.notes,
+      observaciones: item.notes,
+    },
+    {
+      descripcion: [material?.descripcion, query].filter(Boolean).join(" "),
+      alias: material?.alias,
+      notas: material?.notas,
+      codigo: material?.codigo,
+      codigo_barra: material?.codigo_barra,
+    },
+  );
 }
 
 async function fetchPedidoItemsForRecepcion() {

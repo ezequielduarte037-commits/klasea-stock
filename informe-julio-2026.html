@@ -1,0 +1,169 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<title>Informe de trabajo — Julio 2026</title>
+<style>
+  @page { size: A4; margin: 16mm 15mm; }
+  * { box-sizing: border-box; }
+  html, body { margin: 0; padding: 0; }
+  body {
+    font-family: "Segoe UI", system-ui, -apple-system, Arial, sans-serif;
+    color: #1c2430; font-size: 10.5pt; line-height: 1.55;
+    -webkit-print-color-adjust: exact; print-color-adjust: exact;
+  }
+  h1 {
+    font-size: 21pt; margin: 0 0 2px; letter-spacing: -0.3px; color: #101823;
+  }
+  h1 + h2 {
+    font-size: 13pt; font-weight: 600; color: #5a6b80; margin: 0 0 6px;
+    border: none; padding: 0;
+  }
+  h2 {
+    font-size: 13.5pt; margin: 20px 0 8px; padding-bottom: 4px;
+    color: #101823; border-bottom: 2px solid #d8e0ea; letter-spacing: -0.1px;
+    break-after: avoid;
+  }
+  h3 {
+    font-size: 11.5pt; margin: 14px 0 5px; color: #173a6b;
+    break-after: avoid;
+  }
+  p { margin: 6px 0; }
+  ol, ul { margin: 6px 0 6px 20px; padding: 0; }
+  li { margin: 3px 0; }
+  strong { color: #101823; }
+  hr { border: none; border-top: 1px solid #e2e8f0; margin: 14px 0; }
+  table {
+    width: 100%; border-collapse: collapse; margin: 8px 0 10px;
+    font-size: 9.5pt; break-inside: avoid;
+  }
+  th, td { border: 1px solid #d8e0ea; padding: 5px 8px; vertical-align: top; text-align: left; }
+  th { background: #eef2f7; font-weight: 700; color: #101823; }
+  tr:nth-child(even) td { background: #f7f9fc; }
+  p > img:only-child {
+    display: block; max-width: 100%; max-height: 115mm; object-fit: contain;
+    margin: 10px auto 4px; border: 1px solid #d8e0ea; border-radius: 8px;
+    box-shadow: 0 2px 8px rgba(16,24,35,.10);
+  }
+  p:has(> img:only-child) { break-inside: avoid; margin: 0; }
+  p:has(> img:only-child) + p:has(> em:only-child) {
+    text-align: center; color: #5a6b80; font-size: 9pt;
+    margin: 0 0 12px; break-before: avoid;
+  }
+  em { color: #44536a; }
+</style>
+</head>
+<body>
+<h1>Informe de trabajo — Sistema de gestión del astillero</h1>
+<h2>Julio 2026</h2>
+<hr>
+<h2>En pocas palabras</h2>
+<p>Julio fue el mes en que el sistema dejó de ser un registro de lo que ya pasó y empezó a ser una herramienta de trabajo diario. Se trabajó <strong>23 de los 31 días</strong>, con <strong>14 pantallas nuevas</strong> y <strong>67 cambios en la base de datos</strong>.</p>
+<p>El eje del mes fue el <strong>pañol</strong>: se digitalizó el circuito de solicitudes, se cerró el control de quién retira qué con tarjetas por empleado, y se sumó el conteo de consumibles por balanza. Es, de lejos, el área donde más se avanzó.</p>
+<p>En paralelo se reordenaron las compras para que se planifiquen desde la fecha de desmolde en vez de a mano, se abrió <strong>tornería</strong> como módulo de seguimiento pieza por pieza, y se empezó a cargar documentación sacándole una foto en lugar de tipearla.</p>
+<hr>
+<h2>Los números del mes</h2>
+<table>
+<thead>
+<tr>
+<th></th>
+<th></th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Días trabajados</td>
+<td>23 de 31</td>
+</tr>
+<tr>
+<td>Entregas de trabajo</td>
+<td>88</td>
+</tr>
+<tr>
+<td>Pantallas nuevas o rehechas</td>
+<td>14</td>
+</tr>
+<tr>
+<td>Cambios en la base de datos</td>
+<td>67</td>
+</tr>
+<tr>
+<td>Procesos automáticos nuevos</td>
+<td>5 (12 en total)</td>
+</tr>
+</tbody>
+</table>
+<hr>
+<h2>Lo más importante</h2>
+<h3>1. El pañol dejó de funcionar a ciegas</h3>
+<p><strong>El problema.</strong> El pañol movía material todos los días sin dejar rastro utilizable. Las solicitudes eran una hoja A4 que se llenaba a mano y se perdía. Los movimientos de stock quedaban registrados como <em>"Usuario: sin registrar"</em>. Y cuando faltaba algo, no había forma de reconstruir quién se lo había llevado.</p>
+<p><strong>Qué se hizo.</strong> Se atacó el circuito completo, no una parte:</p>
+<ul>
+<li><strong>Las solicitudes se cargan en el sistema</strong> y se imprimen igual, para que quien prefiera el papel lo siga usando. Hay tres formas de que entre una solicitud: la carga el pañol, la carga directamente quien la pide, o <strong>se le saca una foto al papel</strong> y el sistema arma el borrador.</li>
+<li><strong>Lo que falta cae solo en la bandeja de Compras.</strong> Nadie tiene que avisar.</li>
+<li><strong>Todo movimiento queda con nombre y apellido.</strong> Se corrigieron los circuitos que dejaban movimientos sin autor: se terminó el "sin registrar".</li>
+<li><strong>Transferencias reales entre obras y stock</strong>, con posibilidad de anular un movimiento mal cargado en lugar de dejarlo o borrarlo.</li>
+<li><strong>Conteo físico desde el lector de códigos</strong>, para hacer el relevamiento inicial sin cargar planilla.</li>
+<li><strong>Varios códigos de barra por material</strong>, porque el mismo producto llega con etiquetas distintas según proveedor o empaque.</li>
+</ul>
+<p><strong>Qué cambia.</strong> El pañol pasa de ser una caja negra a ser el área con mejor trazabilidad del sistema. Cada movimiento tiene autor, fecha y motivo.</p>
+<p><img src="capturas-informe/solicitudes-panol.png" alt="La pantalla de solicitudes de pañol, con el circuito digitalizado y la hoja imprimible."></p>
+<p><em>La pantalla de solicitudes de pañol: el circuito digitalizado, sin perder la hoja imprimible para quien la necesite.</em></p>
+<h3>2. Quién se lleva qué: tarjetas y la pantalla del mostrador</h3>
+<p><strong>El problema.</strong> El retiro de material era el punto ciego. Salía el material y quedaba, en el mejor de los casos, un nombre escrito a mano. No había forma de saber después quién se llevó qué, ni de descontar el stock en el momento.</p>
+<p><strong>Qué se hizo.</strong> Dos piezas que funcionan juntas.</p>
+<p>Cada empleado tiene su <strong>tarjeta vinculada a su legajo de RRHH</strong>. Al apoyarla, el sistema lo identifica solo: no hay que buscarlo en una lista ni escribir el nombre. El pañol puede vincular tarjetas pero <strong>no puede crear empleados</strong> — el legajo sigue siendo la única fuente de quién está habilitado.</p>
+<p>Y el pañolero trabaja sobre una <strong>pantalla de egresos pensada para el mostrador</strong>, abierta todo el día. Va cargando lo que la persona se lleva y, al confirmar, aparecen en pantalla el <strong>nombre y la foto</strong> de quien retira, queda registrada su <strong>firma</strong>, y el <strong>stock se descuenta en ese mismo momento</strong>.</p>
+<p><strong>Qué cambia.</strong> El retiro pasa de ser un papel a ser un registro con nombre, foto y firma. El stock refleja la realidad al instante en vez de al cierre del día. Y la foto en pantalla evita el error más común del mostrador: que alguien retire a nombre de otro.</p>
+<p><img src="capturas-informe/panol-pantalla-egreso.png" alt="La pantalla de egresos del pañol, en vivo: un retiro con tres materiales cargados, esperando la tarjeta del empleado."></p>
+<p><em>La pantalla de egresos, tomada en vivo: un retiro real esperando que el empleado apoye su tarjeta para confirmar.</em></p>
+<h3>3. Las compras se planifican desde el desmolde</h3>
+<p><strong>El problema.</strong> Los pedidos se armaban a mano. No había una regla que dijera cuándo hay que pedir cada cosa, así que los atrasos se descubrían tarde, cuando el material ya hacía falta.</p>
+<p><strong>Qué se hizo.</strong> Las compras se separaron de las etapas de producción y pasaron a tener <strong>etapas propias</strong>, que arma el encargado. Cada etapa lleva sus materiales adentro, y su fecha <strong>no se escribe: se calcula</strong> hacia atrás desde el desmolde ("diez semanas antes"). Si el desmolde se corre, todas las fechas se recalculan solas y los atrasos aparecen sin que nadie los busque.</p>
+<p>Además: un pedido puede juntar varias etapas, varios proveedores y <strong>varias obras elegidas a mano</strong> — se pide de las obras que uno decide, no de todas. La generación automática de pedidos viene <strong>apagada</strong> y se prende etapa por etapa, para que nada se dispare sin que alguien lo haya decidido. Cada pedido nuevo deja un aviso en la bandeja que Compras ya mira.</p>
+<p><strong>Qué cambia.</strong> En vez de revisar planillas para adivinar qué falta, la pantalla dice qué etapa está atrasada y qué hay que pedir hoy. Cada modificación queda registrada en lenguaje llano: <em>"Ezequiel cambió Resina epoxi de 100 a 120"</em>.</p>
+<p><img src="capturas-informe/compras-bandeja.png" alt="La bandeja de Compras: pedidos pendientes, urgentes, vencidos y avisos generados por el sistema."></p>
+<p><em>La bandeja que Compras mira todos los días, con los avisos que genera el sistema solo.</em></p>
+<h3>4. Tornería: dónde está cada pieza y cuánto tardó</h3>
+<p><strong>El problema.</strong> De lo que sale a tornear o plegar no se sabía nada hasta que volvía. Ni dónde estaba, ni cuánto llevaba afuera, ni si había vuelto completo.</p>
+<p><strong>Qué se hizo.</strong> Un módulo nuevo que sigue <strong>cada pieza por separado</strong>: qué salió, a qué taller, en qué viaje, cuándo volvió y qué volvió incompleto. Contempla los casos reales del astillero: piezas que hacen <strong>dos viajes</strong> (salen, vuelven y salen de nuevo), piezas que <strong>se combinan en un conjunto</strong> a mitad del recorrido, y piezas que <strong>arrancan en el proveedor</strong> en vez de en el astillero.</p>
+<p>Se le sumó el tramo que más tiempo consume y que antes ni figuraba: <strong>la compra previa del material</strong>. Hoy el recorrido completo va de <em>Compras → Comprado → Astillero → Taller → Astillero</em>, y el sistema mide cuánto tardó cada tramo. Cuando Compras o el pañol mueven el pedido, tornería se entera sola: nadie carga el estado dos veces.</p>
+<p><strong>Qué cambia.</strong> El panel muestra la próxima acción concreta: qué retirar, qué reclamar, y qué está trabando a cada barco. Las piezas con <strong>15 días o más afuera</strong> aparecen marcadas.</p>
+<p><img src="capturas-informe/torneria-panel.png" alt="El panel de tornería: piezas por taller, demoras y próximas acciones."></p>
+<p><em>El panel de tornería: cada pieza con su recorrido, su taller y sus días afuera.</em></p>
+<h3>5. Cargar documentos sin tipear</h3>
+<p><strong>El problema.</strong> Cargar comprobantes, remitos y solicitudes a mano se lleva horas y es de donde salen la mayoría de los errores.</p>
+<p><strong>Qué se hizo.</strong> El sistema lee comprobantes y remitos (foto o PDF) y reconoce los materiales aunque el proveedor use abreviaturas distintas a las nuestras. <strong>Recuerda los vínculos ya confirmados</strong>, así no vuelve a preguntar lo mismo. Lo mismo con las solicitudes de pañol en papel: una foto alcanza para dejar un borrador armado, listo para revisar. Las fotos originales quedan siempre guardadas como respaldo.</p>
+<p><strong>Qué cambia.</strong> La carga pasa de <em>tipear</em> a <em>revisar</em>. La persona confirma lo que el sistema propone en vez de escribirlo desde cero.</p>
+<hr>
+<h2>El resto, por área</h2>
+<p><strong>Producción y fechas.</strong> Se cargaron los plazos productivos por línea y los períodos no laborables por obra, así el sistema sabe cuánto dura realmente cada etapa contando vacaciones y feriados. La grilla de fechas muestra alcance por línea, botadura estimada y atrasos, y permite marcar por barco si un evento ya fue pedido o gestionado.</p>
+<p><strong>Calendario de producción.</strong> Vista de mes con feriados argentinos automáticos. Se preparó además el registro de la <strong>coordinación</strong> de cada evento: un desmolde no es una fecha, es grúa + camión + cuadrilla acordados, y ahora eso deja de vivir suelto en una nota.</p>
+<p><img src="capturas-informe/calendario-mes.png" alt="El calendario de producción del mes, con los movimientos y el clima del día."></p>
+<p><em>El calendario de producción con los movimientos del mes.</em></p>
+<p><strong>Catálogo de materiales.</strong> Es el trabajo menos vistoso del mes y uno de los más necesarios. Se sumó la <strong>matriz de condicionantes</strong> por modelo — un K55 con camarote marinero pide cosas distintas a uno sin él, y ahora eso está modelado en vez de resolverse de memoria. Se agregaron variantes y marcas por ítem, un asistente para resolver duplicados que <strong>recuerda las decisiones tomadas</strong> (si dos materiales no son duplicados, no vuelve a preguntar), exclusiones puntuales por obra, y adicionales vinculados al catálogo real en vez de texto suelto.</p>
+<p><strong>Obras.</strong> Sobre el final del mes se empezó a mover la lista de materiales para que las obras sean la fuente de verdad, con materiales asignados por etapa y por tarea. Es un cambio de fondo, recién arrancado.</p>
+<p><strong>Muebles.</strong> Lotes de producción por juego completo, separados del checklist histórico para no mezclar lo operativo con lo administrativo. La etapa final puede quedar abierta mientras los muebles llegan en entregas parciales. Y cada mueble tiene ahora un <strong>número de pieza fijo</strong> por línea: antes el número era la posición en la lista, así que agregar un mueble corría a todos los demás y el número dejaba de servir para identificarlos en el taller.</p>
+<p><strong>Marmolería.</strong> La pantalla se rehizo como centro de control: bandeja de acciones prioritarias (qué plantillas pedir, qué barcos tienen piezas demoradas, qué volvió incompleto), línea de tiempo desmolde → plantilla → envío → recepción, y vista por barco.</p>
+<p><strong>Personal.</strong> Ausencias programadas — vacaciones, reposos y licencias — combinadas con el presentismo diario, para dejar de cruzar dos planillas a mano. Administración pasó a poder gestionar legajos y presentismo.</p>
+<p><strong>Permisos.</strong> Se afinó quién puede hacer qué, que es lo que permite que el sistema se use sin que todos tengan acceso a todo. Oficina Técnica puede operar stock, recepción y egresos del pañol <strong>sin</strong> volverse gestora de compras; puede crear avisos de envío al pañol sin permiso de recepción; y el rol pañol puede consultar el plano de ubicaciones sin poder editar estanterías.</p>
+<p><strong>Cadete.</strong> Hoja de ruta imprimible con los pedidos del día y registro del gasto contra la caja chica.</p>
+<hr>
+<h2>Lo que quedó abierto</h2>
+<ul>
+<li><strong>Tornería.</strong> El módulo está terminado y en ajuste fino. Faltan pruebas con obras reales de punta a punta.</li>
+<li><strong>Coordinación del calendario.</strong> El registro de grúa, camión y cuadrilla está construido y pendiente de habilitar.</li>
+<li><strong>Lectura de solicitudes por foto.</strong> Funciona y deja un borrador para revisar; está en prueba con solicitudes reales.</li>
+<li><strong>Portal de proveedores.</strong> Permite que el proveedor responda sin intermediarios. Construido, en validación.</li>
+<li><strong>Semáforo de producción.</strong> El automatismo está armado y en validación.</li>
+<li><strong>Obras como fuente de materiales.</strong> Recién empezado sobre el cierre del mes.</li>
+</ul>
+<hr>
+<h2>Una aclaración necesaria</h2>
+<p><strong>Que algo esté construido no significa que se esté usando todos los días.</strong> Este informe sale del registro de trabajo del mes, que muestra con precisión qué se construyó — pero la adopción real en el taller sólo la conoce quien está ahí.</p>
+<p>Lo que el registro sí permite afirmar es que el trabajo de julio se concentró en <strong>cerrar circuitos</strong>, no en abrir funciones sueltas: el pañol quedó conectado con compras, compras con producción, y tornería con las dos. Varias de las mejoras del mes salieron de usar los módulos con obras reales y encontrar lo que faltaba.</p>
+<p>El próximo paso natural es acompañar la puesta en marcha de lo que ya está construido antes de seguir sumando.</p>
+<hr>
+<p><em>Elaborado a partir del registro completo de trabajo del 1 al 31 de julio de 2026: 88 entregas verificadas en 23 días de trabajo.</em></p>
+</body>
+</html>

@@ -3,109 +3,148 @@
 
 ---
 
-## Resumen en una carilla
+## En pocas palabras
 
-Durante julio se publicaron **86 mejoras** del sistema, con **14 pantallas nuevas o reconstruidas por completo** y **10 procesos automáticos** creados o mejorados (lectura de comprobantes y remitos, avisos por correo y WhatsApp, portal para proveedores, entre otros).
+Julio fue el mes en que el sistema dejó de ser un registro de lo que ya pasó y empezó a ser una herramienta de trabajo diario. Se trabajó **23 de los 31 días**, con **14 pantallas nuevas** y **67 cambios en la base de datos**.
 
-El grueso del trabajo se concentró en cuatro frentes:
+El eje del mes fue el **pañol**: se digitalizó el circuito de solicitudes, se cerró el control de quién retira qué con tarjetas por empleado, y se sumó el conteo de consumibles por balanza. Es, de lejos, el área donde más se avanzó.
 
-1. **Digitalizar el circuito de solicitudes de pañol**, que hoy funciona en hojas de papel.
-2. **Ordenar las compras por etapas**, con fechas que se calculan solas a partir del desmolde.
-3. **Abrir tornería como unidad de seguimiento**, pieza por pieza, con tiempos de ida y vuelta.
-4. **Empezar a cargar documentos sin tipear**, leyendo comprobantes, remitos y las propias solicitudes en papel con inteligencia artificial.
-
-Además se sumaron el control de consumibles por balanza, las **tarjetas NFC de los empleados** para identificar a quién retira material, una **pantalla de egresos del pañol** que muestra en el momento qué se está llevando cada persona, el orden del catálogo de materiales y la reorganización completa de marmolería como centro de control.
-
-Los módulos de pañol (balanza, egresos, tarjetas) y laminación ya están en uso. Los más nuevos —tornería, el calendario con coordinación y la lectura de solicitudes por foto— están en puesta en marcha.
+En paralelo se reordenaron las compras para que se planifiquen desde la fecha de desmolde en vez de a mano, se abrió **tornería** como módulo de seguimiento pieza por pieza, y se empezó a cargar documentación sacándole una foto en lugar de tipearla.
 
 ---
 
-## Panorama del mes
+## Los números del mes
 
-| Área | Qué se hizo |
+| | |
 |---|---|
-| **Pañol** | Solicitudes digitalizadas, tarjetas NFC con foto y firma, pantalla de egresos en vivo, balanza para consumibles, conteo físico, registro de quién cambió qué |
-| **Compras** | Pedidos por etapas con fechas calculadas desde el desmolde, avisos automáticos, pedidos multi-obra |
-| **Tornería** | Módulo nuevo: seguimiento pieza por pieza con demoras y estado de cada taller |
-| **Producción y fechas** | Grilla con alcance por línea, botadura estimada, calendario con coordinación de grúa/camión/cuadrilla |
-| **Materiales** | Catálogo ordenado: variantes por modelo, marcas, duplicados resueltos, adicionales |
-| **Muebles** | Lotes de producción con recepción parcial, separados del checklist histórico |
-| **Laminación y maderas** | Recepción parcial de pedidos de maderas que venían de antes |
-| **Marmolería** | Reorganización completa: bandeja de acciones, línea de tiempo, vista por barcos |
-| **Personal** | Ausencias programadas (vacaciones, reposos, licencias) combinadas con presentismo |
+| Días trabajados | 23 de 31 |
+| Entregas de trabajo | 88 |
+| Pantallas nuevas o rehechas | 14 |
+| Cambios en la base de datos | 67 |
+| Procesos automáticos nuevos | 5 (12 en total) |
 
 ---
 
 ## Lo más importante
 
-### 1. Las solicitudes de pañol dejan de ser un papel suelto
+### 1. El pañol dejó de funcionar a ciegas
 
-**El problema:** el circuito real de pedidos al pañol sigue siendo una hoja A4 que se llena a mano, se pierde, no deja rastro de quién pidió qué, y cuando falta material nadie se entera hasta que se lo va a buscar.
+**El problema.** El pañol movía material todos los días sin dejar rastro utilizable. Las solicitudes eran una hoja A4 que se llenaba a mano y se perdía. Los movimientos de stock quedaban registrados como *"Usuario: sin registrar"*. Y cuando faltaba algo, no había forma de reconstruir quién se lo había llevado.
 
-**Qué se hizo:** el pañol carga la solicitud en el sistema, arma los ítems e imprime la hoja completa para quien quiera seguir usando el papel. El retiro se confirma pasando la **tarjeta NFC del empleado** y queda firmado, y genera el egreso real de stock en el momento. Lo que falta cae **automáticamente en la bandeja de Compras**, sin que nadie tenga que avisar. Hay tres formas de cargar una solicitud: transcribir el papel, cargarla directamente quien la pide, o **sacarle una foto al papel y que el sistema la lea y deje un borrador para revisar**.
+**Qué se hizo.** Se atacó el circuito completo, no una parte:
 
-**Qué cambia:** cada retiro queda registrado con nombre, foto y firma; los faltantes se convierten solos en trabajo para Compras; y el papel deja de ser la única fuente de verdad. El circuito en papel sigue vigente mientras se adopta la herramienta — la transición no obliga a nadie a cambiar de un día para el otro.
+- **Las solicitudes se cargan en el sistema** y se imprimen igual, para que quien prefiera el papel lo siga usando. Hay tres formas de que entre una solicitud: la carga el pañol, la carga directamente quien la pide, o **se le saca una foto al papel** y el sistema arma el borrador.
+- **Lo que falta cae solo en la bandeja de Compras.** Nadie tiene que avisar.
+- **Todo movimiento queda con nombre y apellido.** Se corrigieron los circuitos que dejaban movimientos sin autor: se terminó el "sin registrar".
+- **Transferencias reales entre obras y stock**, con posibilidad de anular un movimiento mal cargado en lugar de dejarlo o borrarlo.
+- **Conteo físico desde el lector de códigos**, para hacer el relevamiento inicial sin cargar planilla.
+- **Varios códigos de barra por material**, porque el mismo producto llega con etiquetas distintas según proveedor o empaque.
 
-### 2. Las compras se ordenan solas desde la fecha de desmolde
+**Qué cambia.** El pañol pasa de ser una caja negra a ser el área con mejor trazabilidad del sistema. Cada movimiento tiene autor, fecha y motivo.
 
-**El problema:** los pedidos de materiales se armaban a mano, sin una lógica clara de cuándo hace falta cada cosa, y los atrasos se descubrían tarde.
+![La pantalla de solicitudes de pañol, con el circuito digitalizado y la hoja imprimible.](capturas-informe/solicitudes-panol.png)
 
-**Qué se hizo:** las compras ahora nacen de **etapas de compra** (tandas que arma el encargado), con una plantilla por modelo que se copia a cada obra y se puede editar libremente. Cada etapa tiene su fecha calculada hacia atrás desde el desmolde (por ejemplo, "10 semanas antes"), y si el desmolde se corre, **la fecha se recalcula sola y los atrasos aparecen solos**. Los pedidos pueden juntar varias etapas, varios proveedores y hasta varias obras. La generación automática de pedidos está apagada por defecto y se prende por etapa; cada pedido nuevo deja un aviso en la bandeja que Compras ya mira.
+*La pantalla de solicitudes de pañol: el circuito digitalizado, sin perder la hoja imprimible para quien la necesite.*
 
-**Qué cambia:** en vez de revisar planillas para adivinar qué falta pedir, el sistema muestra qué etapa está atrasada y qué pedido hay que hacer ahora. Cada cambio queda registrado en lenguaje llano ("Ezequiel cambió Resina epoxi de 100 a 120").
+### 2. Quién se lleva qué: tarjetas y la pantalla del mostrador
 
-### 3. Tornería: cada pieza, dónde está y cuánto tardó
+**El problema.** El retiro de material era el punto ciego. Salía el material y quedaba, en el mejor de los casos, un nombre escrito a mano. No había forma de saber después quién se llevó qué, ni de descontar el stock en el momento.
 
-**El problema:** de lo que sale a tornería o plegadora no se sabía dónde estaba cada pieza ni cuánto tardaba en volver. El tramo donde más se pierde tiempo es la compra previa del material.
+**Qué se hizo.** Dos piezas que funcionan juntas.
 
-**Qué se hizo:** un módulo completo que sigue **pieza por pieza**: qué salió, a qué taller, cuándo volvió, qué volvió incompleto. Incluye las plantillas por línea (armadas a partir de la planilla de procesos que ya se usaba), salidas y recepciones parciales, y el tramo de compra integrado (pedido → comprado → en el astillero) con recepción por ítem. El panel muestra los carriles por taller, las piezas listas, las bloqueadas y las que llevan **15 días o más demoradas**.
+Cada empleado tiene su **tarjeta vinculada a su legajo de RRHH**. Al apoyarla, el sistema lo identifica solo: no hay que buscarlo en una lista ni escribir el nombre. El pañol puede vincular tarjetas pero **no puede crear empleados** — el legajo sigue siendo la única fuente de quién está habilitado.
 
-**Qué cambia:** la próxima acción concreta está a la vista: qué hay que retirar, qué hay que reclamar y qué está trabando a cada barco. El módulo está terminado y en puesta en marcha, con ajustes finos de presentación.
+Y el pañolero trabaja sobre una **pantalla de egresos pensada para el mostrador**, abierta todo el día. Va cargando lo que la persona se lleva y, al confirmar, aparecen en pantalla el **nombre y la foto** de quien retira, queda registrada su **firma**, y el **stock se descuenta en ese mismo momento**.
 
-### 4. La lectura automática de documentos entró al taller
+**Qué cambia.** El retiro pasa de ser un papel a ser un registro con nombre, foto y firma. El stock refleja la realidad al instante en vez de al cierre del día. Y la foto en pantalla evita el error más común del mostrador: que alguien retire a nombre de otro.
 
-**El problema:** cargar comprobantes, remitos y solicitudes a mano consume horas y es la fuente de la mayoría de los errores de carga.
+![La pantalla de egresos del pañol, en vivo: un retiro con tres materiales cargados, esperando la tarjeta del empleado.](capturas-informe/panol-pantalla-egreso.png)
 
-**Qué se hizo:** el sistema ahora lee comprobantes y remitos (foto o PDF), reconoce los materiales aunque el proveedor use abreviaturas distintas, y **recuerda los vínculos ya confirmados** para no volver a preguntar. Lo mismo con las solicitudes de pañol en papel: una foto alcanza para que quede un borrador armado, listo para revisar y confirmar. Las fotos originales quedan siempre guardadas como respaldo.
+*La pantalla de egresos, tomada en vivo: un retiro real esperando que el empleado apoye su tarjeta para confirmar.*
 
-**Qué cambia:** la carga pasa de tipear a revisar. La persona confirma lo que el sistema propone en vez de cargarlo desde cero. La lectura de comprobantes ya está operativa; la de solicitudes por foto está en pruebas.
+### 3. Las compras se planifican desde el desmolde
+
+**El problema.** Los pedidos se armaban a mano. No había una regla que dijera cuándo hay que pedir cada cosa, así que los atrasos se descubrían tarde, cuando el material ya hacía falta.
+
+**Qué se hizo.** Las compras se separaron de las etapas de producción y pasaron a tener **etapas propias**, que arma el encargado. Cada etapa lleva sus materiales adentro, y su fecha **no se escribe: se calcula** hacia atrás desde el desmolde ("diez semanas antes"). Si el desmolde se corre, todas las fechas se recalculan solas y los atrasos aparecen sin que nadie los busque.
+
+Además: un pedido puede juntar varias etapas, varios proveedores y **varias obras elegidas a mano** — se pide de las obras que uno decide, no de todas. La generación automática de pedidos viene **apagada** y se prende etapa por etapa, para que nada se dispare sin que alguien lo haya decidido. Cada pedido nuevo deja un aviso en la bandeja que Compras ya mira.
+
+**Qué cambia.** En vez de revisar planillas para adivinar qué falta, la pantalla dice qué etapa está atrasada y qué hay que pedir hoy. Cada modificación queda registrada en lenguaje llano: *"Ezequiel cambió Resina epoxi de 100 a 120"*.
+
+![La bandeja de Compras: pedidos pendientes, urgentes, vencidos y avisos generados por el sistema.](capturas-informe/compras-bandeja.png)
+
+*La bandeja que Compras mira todos los días, con los avisos que genera el sistema solo.*
+
+### 4. Tornería: dónde está cada pieza y cuánto tardó
+
+**El problema.** De lo que sale a tornear o plegar no se sabía nada hasta que volvía. Ni dónde estaba, ni cuánto llevaba afuera, ni si había vuelto completo.
+
+**Qué se hizo.** Un módulo nuevo que sigue **cada pieza por separado**: qué salió, a qué taller, en qué viaje, cuándo volvió y qué volvió incompleto. Contempla los casos reales del astillero: piezas que hacen **dos viajes** (salen, vuelven y salen de nuevo), piezas que **se combinan en un conjunto** a mitad del recorrido, y piezas que **arrancan en el proveedor** en vez de en el astillero.
+
+Se le sumó el tramo que más tiempo consume y que antes ni figuraba: **la compra previa del material**. Hoy el recorrido completo va de *Compras → Comprado → Astillero → Taller → Astillero*, y el sistema mide cuánto tardó cada tramo. Cuando Compras o el pañol mueven el pedido, tornería se entera sola: nadie carga el estado dos veces.
+
+**Qué cambia.** El panel muestra la próxima acción concreta: qué retirar, qué reclamar, y qué está trabando a cada barco. Las piezas con **15 días o más afuera** aparecen marcadas.
+
+![El panel de tornería: piezas por taller, demoras y próximas acciones.](capturas-informe/torneria-panel.png)
+
+*El panel de tornería: cada pieza con su recorrido, su taller y sus días afuera.*
+
+### 5. Cargar documentos sin tipear
+
+**El problema.** Cargar comprobantes, remitos y solicitudes a mano se lleva horas y es de donde salen la mayoría de los errores.
+
+**Qué se hizo.** El sistema lee comprobantes y remitos (foto o PDF) y reconoce los materiales aunque el proveedor use abreviaturas distintas a las nuestras. **Recuerda los vínculos ya confirmados**, así no vuelve a preguntar lo mismo. Lo mismo con las solicitudes de pañol en papel: una foto alcanza para dejar un borrador armado, listo para revisar. Las fotos originales quedan siempre guardadas como respaldo.
+
+**Qué cambia.** La carga pasa de *tipear* a *revisar*. La persona confirma lo que el sistema propone en vez de escribirlo desde cero.
 
 ---
 
 ## El resto, por área
 
-**Pañol.** Además de las solicitudes: egreso de consumibles por **balanza** con calibración de pesos (ya en uso); **tarjetas NFC para los empleados**, vinculadas al legajo — al pasar la tarjeta, la pantalla muestra nombre y foto de quien retira y el retiro queda firmado; una **pantalla de egresos del pañol** que muestra en vivo lo que se va llevando cada persona, pensada para tenerla abierta en el mostrador; recepción por escaneo con varios códigos de barra por material; transferencias reales entre obras y stock con posibilidad de anular movimientos; conteo físico desde el lector; mapa de ubicaciones; y registro completo de quién cambió qué — se terminó el "Usuario: sin registrar".
+**Producción y fechas.** Se cargaron los plazos productivos por línea y los períodos no laborables por obra, así el sistema sabe cuánto dura realmente cada etapa contando vacaciones y feriados. La grilla de fechas muestra alcance por línea, botadura estimada y atrasos, y permite marcar por barco si un evento ya fue pedido o gestionado.
 
-**Compras.** Además de las etapas: pedidos con archivos adjuntos, semáforo por cobertura real de ítems, y un portal para que el proveedor responda sin intermediarios (en validación).
+**Calendario de producción.** Vista de mes con feriados argentinos automáticos. Se preparó además el registro de la **coordinación** de cada evento: un desmolde no es una fecha, es grúa + camión + cuadrilla acordados, y ahora eso deja de vivir suelto en una nota.
 
-**Producción y fechas.** Grilla con alcance por línea, botadura estimada, atrasos a la vista y estados por barco y evento (pedido / gestionado). Se sumó un **calendario de producción** con vista de mes, feriados argentinos automáticos y avisos de conflicto: grúa doble un mismo día, cuadrilla en días corridos, viento fuerte. Cada evento puede llevar su checklist de coordinación (grúa, camión, cuadrilla). La parte de coordinación está construida y pendiente de habilitar.
+![El calendario de producción del mes, con los movimientos y el clima del día.](capturas-informe/calendario-mes.png)
 
-**Materiales y catálogo.** Matriz de condicionantes por modelo (un K55 con o sin camarote marinero pide cosas distintas), variantes y marcas por ítem, asistente para resolver duplicados con decisiones que quedan guardadas, y adicionales vinculados al catálogo.
+*El calendario de producción con los movimientos del mes.*
 
-**Muebles.** Lotes de producción por juego completo con recepción parcial, separados del checklist histórico para no mezclar lo operativo con lo administrativo.
+**Catálogo de materiales.** Es el trabajo menos vistoso del mes y uno de los más necesarios. Se sumó la **matriz de condicionantes** por modelo — un K55 con camarote marinero pide cosas distintas a uno sin él, y ahora eso está modelado en vez de resolverse de memoria. Se agregaron variantes y marcas por ítem, un asistente para resolver duplicados que **recuerda las decisiones tomadas** (si dos materiales no son duplicados, no vuelve a preguntar), exclusiones puntuales por obra, y adicionales vinculados al catálogo real en vez de texto suelto.
 
-**Laminación y maderas.** Recepción parcial de los pedidos de maderas que venían de antes del sistema nuevo, para ir recibiendo lo que llega sin tener que darlos de baja ni cargarlos de nuevo.
+**Obras.** Sobre el final del mes se empezó a mover la lista de materiales para que las obras sean la fuente de verdad, con materiales asignados por etapa y por tarea. Es un cambio de fondo, recién arrancado.
 
-**Marmolería.** La pantalla se reconstruyó como centro de control: bandeja de acciones prioritarias (qué plantillas pedir ahora, qué barcos tienen piezas demoradas, qué volvió incompleto), línea de tiempo desmolde → plantilla → envío → recepción, y vista de barcos como unidades operativas.
+**Muebles.** Lotes de producción por juego completo, separados del checklist histórico para no mezclar lo operativo con lo administrativo. La etapa final puede quedar abierta mientras los muebles llegan en entregas parciales. Y cada mueble tiene ahora un **número de pieza fijo** por línea: antes el número era la posición en la lista, así que agregar un mueble corría a todos los demás y el número dejaba de servir para identificarlos en el taller.
 
-**Personal.** Ausencias programadas (vacaciones, reposos, licencias) combinadas con el presentismo, para no cruzar planillas a mano.
+**Marmolería.** La pantalla se rehizo como centro de control: bandeja de acciones prioritarias (qué plantillas pedir, qué barcos tienen piezas demoradas, qué volvió incompleto), línea de tiempo desmolde → plantilla → envío → recepción, y vista por barco.
 
-**Cadete.** Hoja de ruta imprimible con los pedidos del día.
+**Personal.** Ausencias programadas — vacaciones, reposos y licencias — combinadas con el presentismo diario, para dejar de cruzar dos planillas a mano. Administración pasó a poder gestionar legajos y presentismo.
 
----
+**Permisos.** Se afinó quién puede hacer qué, que es lo que permite que el sistema se use sin que todos tengan acceso a todo. Oficina Técnica puede operar stock, recepción y egresos del pañol **sin** volverse gestora de compras; puede crear avisos de envío al pañol sin permiso de recepción; y el rol pañol puede consultar el plano de ubicaciones sin poder editar estanterías.
 
-## En qué se está trabajando
-
-- **Tornería:** módulo terminado, en puesta en marcha y ajuste fino del panel general.
-- **Calendario con coordinación:** la vista de mes ya funciona; falta habilitar el checklist de coordinación (grúa/camión/cuadrilla) y los avisos de conflicto en el sistema.
-- **Lectura de solicitudes por foto:** funciona como borrador a revisar; en pruebas con solicitudes reales.
-- **Portal de proveedores y avisos automáticos:** listos, en validación con casos reales.
-- **Semáforo de producción:** automatismo armado, en validación.
+**Cadete.** Hoja de ruta imprimible con los pedidos del día y registro del gasto contra la caja chica.
 
 ---
 
-## Una aclaración honesta
+## Lo que quedó abierto
 
-Que algo esté construido no significa que ya se use todos los días. Está **en uso**: balanza, tarjetas y egresos de pañol; recepciones de laminación; lectura de comprobantes; presentismo con ausencias. Está **en puesta en marcha o pruebas**: tornería, solicitudes de pañol digitalizadas, calendario con coordinación, lectura por foto, portal de proveedores. El próximo paso natural es acompañar la adopción de lo que está en puesta en marcha antes de seguir construyendo.
+- **Tornería.** El módulo está terminado y en ajuste fino. Faltan pruebas con obras reales de punta a punta.
+- **Coordinación del calendario.** El registro de grúa, camión y cuadrilla está construido y pendiente de habilitar.
+- **Lectura de solicitudes por foto.** Funciona y deja un borrador para revisar; está en prueba con solicitudes reales.
+- **Portal de proveedores.** Permite que el proveedor responda sin intermediarios. Construido, en validación.
+- **Semáforo de producción.** El automatismo está armado y en validación.
+- **Obras como fuente de materiales.** Recién empezado sobre el cierre del mes.
 
-*Informe elaborado a partir del registro completo de trabajo del 2 al 30 de julio de 2026 (86 publicaciones verificadas).*
+---
+
+## Una aclaración necesaria
+
+**Que algo esté construido no significa que se esté usando todos los días.** Este informe sale del registro de trabajo del mes, que muestra con precisión qué se construyó — pero la adopción real en el taller sólo la conoce quien está ahí.
+
+Lo que el registro sí permite afirmar es que el trabajo de julio se concentró en **cerrar circuitos**, no en abrir funciones sueltas: el pañol quedó conectado con compras, compras con producción, y tornería con las dos. Varias de las mejoras del mes salieron de usar los módulos con obras reales y encontrar lo que faltaba.
+
+El próximo paso natural es acompañar la puesta en marcha de lo que ya está construido antes de seguir sumando.
+
+---
+
+*Elaborado a partir del registro completo de trabajo del 1 al 31 de julio de 2026: 88 entregas verificadas en 23 días de trabajo.*

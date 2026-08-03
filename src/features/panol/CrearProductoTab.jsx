@@ -3,6 +3,7 @@ import { AlertTriangle, ImagePlus, PackagePlus } from "lucide-react";
 import { C } from "@/theme";
 import { crearMaterialRapido, fetchCategorias, fetchProveedores, normalizeUnidadMedida, uploadMaterialImage } from "@/features/materiales/api";
 import { fetchPanolCatalogMini } from "@/features/panol/panolApi";
+import { materialMatchIsStrong, materialMatchScore, topMaterialMatches } from "@/features/panol/materialMatch";
 
 // Pestaña de creación de producto para el pañol. El producto va al CATÁLOGO COMPLETO
 // (panol_materiales, sin revisar) — NO entra en la lista matriz de ningún barco.
@@ -15,57 +16,18 @@ function norm(s) {
   return String(s || "").toLowerCase().normalize("NFD").replace(/[̀-ͯ]/g, "").replace(/\s+/g, " ").trim();
 }
 
-const STOP = new Set(["de", "del", "con", "para", "por", "los", "las", "una", "que", "la", "el", "y", "o", "a", "en", "un", "sin"]);
-function tokensOf(s) {
-  return norm(s).split(" ").filter((t) => t.length > 2 && !STOP.has(t));
-}
-
 // Similitud entre lo que se está por crear y un material del catálogo (0-100).
 // Detecta duplicados aunque no sean idénticos (palabras compartidas + código/barcode).
 function simScore(desc, codigo, material) {
-  const a = norm(desc);
-  const bDesc = norm(material.descripcion);
-  if (!a || !bDesc) return 0;
-  const codA = norm(codigo);
-  const codB = norm(material.codigo);
-  const barcode = norm([material.codigo_barra, ...(material.codigos_barra || []).map((x) => x.codigo)].filter(Boolean).join(" "));
-  if (codA && codB && codA === codB) return 100;
-  if (codA && barcode && barcode.includes(codA)) return 100;
-  if (a === bDesc) return 100;
-  if (bDesc.includes(a) || a.includes(bDesc)) return 88;
-  const at = tokensOf(desc);
-  if (!at.length) return 0;
-  const bText = norm([material.descripcion, material.proveedor].filter(Boolean).join(" "));
-  const shared = at.filter((t) => bText.includes(t)).length;
-  if (shared === at.length) return 80;
-  if (shared >= 3) return 70;
-  if (shared >= 2) return 60;
-  if (shared >= 1 && at.length <= 2) return 52;
-  return 0;
+  if (!norm(desc) && !norm(codigo)) return 0;
+  return materialMatchScore(material, { descripcion: desc, codigo });
 }
 
 // Coincidencias EN VIVO mientras se escribe: por descripción (simScore) y además por
 // código / código de barra, aunque todavía no haya descripción cargada.
 function matchDuplicados(desc, cod, catalog) {
-  const d = norm(desc);
-  const c = norm(cod);
-  if (d.length < 3 && c.length < 2) return [];
-  const out = [];
-  for (const m of catalog) {
-    let s = d ? simScore(desc, cod, m) : 0;
-    if (c.length >= 2) {
-      const codB = norm(m.codigo);
-      const barcode = norm([m.codigo_barra, ...(m.codigos_barra || []).map((x) => x.codigo)].filter(Boolean).join(" "));
-      if (codB) {
-        if (codB === c) s = 100;
-        else if (codB.includes(c) || c.includes(codB)) s = Math.max(s, 84);
-      }
-      if (barcode && (barcode === c || barcode.split(" ").includes(c))) s = Math.max(s, 100);
-      else if (barcode && barcode.includes(c)) s = Math.max(s, 92);
-    }
-    if (s >= 55) out.push({ m, s });
-  }
-  return out.sort((a, b) => b.s - a.s).slice(0, 6);
+  return topMaterialMatches(catalog, { descripcion: desc, codigo: cod }, 6, 42)
+    .map((material) => ({ m: material, s: material._score }));
 }
 
 export default function CrearProductoTab({ isMobile = false, toast }) {
@@ -142,10 +104,10 @@ export default function CrearProductoTab({ isMobile = false, toast }) {
       }
       const candidatos = cat
         .map((m) => ({ m, s: simScore(desc, cod, m) }))
-        .filter((x) => x.s >= 55)
+        .filter((x) => x.s >= 42)
         .sort((a, b) => b.s - a.s)
         .slice(0, 4);
-      const exacto = candidatos.find((c) => c.s >= 100);
+      const exacto = candidatos.find((c) => materialMatchIsStrong(c.s));
       if (exacto) {
         toast?.warning(`Ya existe: "${exacto.m.descripcion}"${exacto.m.codigo ? ` · ${exacto.m.codigo}` : ""}. No se creó de nuevo — usalo al ingresar.`);
         return;
@@ -214,9 +176,9 @@ export default function CrearProductoTab({ isMobile = false, toast }) {
               </div>
               <div style={{ display: "grid", gap: 5 }}>
                 {duplicados.map(({ m, s }) => {
-                  const tag = s >= 100
+                  const tag = s >= 105
                     ? { t: "IGUAL", c: C.red, bg: C.redL, br: C.redB }
-                    : s >= 80
+                    : s >= 88
                       ? { t: "MUY PARECIDO", c: C.amber, bg: C.amberL, br: C.amberB }
                       : { t: "PARECIDO", c: C.dim, bg: C.panel, br: C.border };
                   return (

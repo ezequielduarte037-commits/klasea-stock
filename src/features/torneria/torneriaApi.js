@@ -189,6 +189,43 @@ export async function actualizarItem(id, patch) {
     .single());
 }
 
+// Excepción operativa temporal para materiales que ya están disponibles y no
+// deben generar un pedido a Compras. El update dispara la auditoría general y
+// la entrada adicional deja el motivo visible en el historial de Tornería.
+export async function saltearCompraTorneria({ procesoId, item }) {
+  if (!procesoId || !item?.id) throw new Error("Falta el material a actualizar.");
+  if (item.compra_estado !== "pendiente_solicitud") {
+    throw new Error("Solo se puede saltear una compra que todavía no fue solicitada.");
+  }
+
+  const updated = ok(await supabase
+    .from("torneria_items")
+    .update({
+      compra_estado: "recibido_astillero",
+      purchase_request_id: null,
+      purchase_request_item_id: null,
+    })
+    .eq("id", item.id)
+    .eq("compra_estado", "pendiente_solicitud")
+    .select()
+    .single());
+
+  const { error: historyError } = await supabase.from("torneria_historial").insert({
+    proceso_id: procesoId,
+    entidad: "items",
+    entidad_id: item.id,
+    accion: "paso_salteado",
+    detalle: {
+      paso: "compra",
+      estado_anterior: item.compra_estado,
+      estado_nuevo: "recibido_astillero",
+      motivo: "Material disponible por otra vía; no se generó aviso ni pedido a Compras.",
+    },
+  });
+  if (historyError) throw historyError;
+  return updated;
+}
+
 // Vincula los items con el pedido a compras. A partir de acá compras trabaja en
 // SU pantalla y el avance vuelve solo por trigger: nadie carga el estado dos
 // veces.

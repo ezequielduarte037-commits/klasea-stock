@@ -23,10 +23,37 @@ const num = (v) => {
   return Number.isFinite(n) ? n : 0;
 };
 
-const MATERIAL_SELECT =
-  "material:panol_materiales(id, descripcion, codigo, unidad_medida, proveedor, categoria_id)";
-const TASK_SELECT =
-  "tarea:linea_proceso_tareas(id, nombre, linea_proceso_id)";
+const MATERIAL_FIELDS = "id, descripcion, codigo, unidad_medida, proveedor, categoria_id";
+const TASK_FIELDS = "id, nombre, linea_proceso_id";
+
+// No depender de relaciones anidadas para estas dos tablas. En algunos
+// proyectos el FK existe pero PostgREST todavía no lo tiene en su schema
+// cache, y la pantalla completa queda en blanco con un error 400.
+async function hidratarMateriales(rows = []) {
+  const materialIds = [...new Set(rows.map((row) => row.material_id).filter(Boolean))];
+  const taskIds = [...new Set(rows.map((row) => row.linea_proceso_tarea_id).filter(Boolean))];
+
+  const [materialesResult, tareasResult] = await Promise.all([
+    materialIds.length
+      ? supabase.from("panol_materiales").select(MATERIAL_FIELDS).in("id", materialIds)
+      : Promise.resolve({ data: [], error: null }),
+    taskIds.length
+      ? supabase.from("linea_proceso_tareas").select(TASK_FIELDS).in("id", taskIds)
+      : Promise.resolve({ data: [], error: null }),
+  ]);
+
+  if (materialesResult.error) throw materialesResult.error;
+  if (tareasResult.error) throw tareasResult.error;
+
+  const materialById = new Map((materialesResult.data ?? []).map((material) => [material.id, material]));
+  const taskById = new Map((tareasResult.data ?? []).map((task) => [task.id, task]));
+
+  return rows.map((row) => ({
+    ...row,
+    material: materialById.get(row.material_id) ?? null,
+    tarea: taskById.get(row.linea_proceso_tarea_id) ?? null,
+  }));
+}
 
 export const COMPRA_ETAPA_ESTADOS = [
   { value: "pendiente", label: "Pendiente", color: "#a1a1aa" },
@@ -44,6 +71,48 @@ async function actorId() {
   return session?.user?.id ?? null;
 }
 
+function isMissingTaskColumn(error) {
+  const message = String(error?.message || error?.details || "").toLowerCase();
+  return (error?.code === "42703" || error?.code === "PGRST204" || message.includes("does not exist"))
+    && message.includes("linea_proceso_tarea_id");
+}
+
+let taskColumnAvailable = null;
+
+function withoutTaskColumn(row = {}) {
+  const rest = { ...row };
+  delete rest.linea_proceso_tarea_id;
+  return rest;
+}
+
+async function upsertMaterialRows(table, rows, onConflict) {
+  let result = await supabase
+    .from(table)
+    .upsert(taskColumnAvailable === false ? rows.map(withoutTaskColumn) : rows, { onConflict });
+  if (result.error && isMissingTaskColumn(result.error)) {
+    taskColumnAvailable = false;
+    result = await supabase.from(table).upsert(rows.map(withoutTaskColumn), { onConflict });
+  } else if (!result.error && taskColumnAvailable === null) {
+    taskColumnAvailable = true;
+  }
+  if (result.error) throw result.error;
+}
+
+async function updateMaterialRow(table, id, patch) {
+  const initialPatch = taskColumnAvailable === false ? withoutTaskColumn(patch) : patch;
+  if (!Object.keys(initialPatch).length) return;
+  let result = await supabase.from(table).update(initialPatch).eq("id", id);
+  if (result.error && isMissingTaskColumn(result.error)) {
+    taskColumnAvailable = false;
+    const fallback = withoutTaskColumn(patch);
+    if (!Object.keys(fallback).length) return;
+    result = await supabase.from(table).update(fallback).eq("id", id);
+  } else if (!result.error && taskColumnAvailable === null) {
+    taskColumnAvailable = true;
+  }
+  if (result.error) throw result.error;
+}
+
 /* ═══════════════════════════════════════════════════════════════════════════
    PLANTILLA (por modelo)
    ═══════════════════════════════════════════════════════════════════════════ */
@@ -52,20 +121,40 @@ export async function fetchPlantillaCompra(lineaId) {
   if (!lineaId) return [];
   const { data, error } = await supabase
     .from("linea_compra_etapas")
-    .select(
-      "id, linea_id, nombre, descripcion, orden, color, activa, " +
-        "semanas_antes, referencia, dias_gracia, " +
-        "procesos:linea_compra_etapa_procesos(linea_proceso_id), " +
-        "materiales:linea_compra_etapa_materiales(id)"
-    )
+    .select("id, linea_id, nombre, descripcion, orden, color, activa, semanas_antes, referencia, dias_gracia")
     .eq("linea_id", lineaId)
     .eq("activa", true)
     .order("orden", { ascending: true });
   if (error) throw error;
-  return (data ?? []).map((e) => ({
+
+  const etapas = data ?? [];
+  if (!etapas.length) return [];
+  const etapaIds = etapas.map((etapa) => etapa.id);
+  const [procesosResult, materialesResult] = await Promise.all([
+    supabase
+      .from("linea_compra_etapa_procesos")
+      .select("compra_etapa_id, linea_proceso_id")
+      .in("compra_etapa_id", etapaIds),
+    supabase
+      .from("linea_compra_etapa_materiales")
+      .select("id, compra_etapa_id")
+      .in("compra_etapa_id", etapaIds),
+  ]);
+  if (procesosResult.error) throw procesosResult.error;
+  if (materialesResult.error) throw materialesResult.error;
+
+  const porEtapa = new Map(etapaIds.map((id) => [id, { procesoIds: [], totalMateriales: 0 }]));
+  for (const proceso of procesosResult.data ?? []) {
+    porEtapa.get(proceso.compra_etapa_id)?.procesoIds.push(proceso.linea_proceso_id);
+  }
+  for (const material of materialesResult.data ?? []) {
+    const resumen = porEtapa.get(material.compra_etapa_id);
+    if (resumen) resumen.totalMateriales += 1;
+  }
+
+  return etapas.map((e) => ({
     ...e,
-    procesoIds: (e.procesos ?? []).map((p) => p.linea_proceso_id),
-    totalMateriales: (e.materiales ?? []).length,
+    ...(porEtapa.get(e.id) ?? { procesoIds: [], totalMateriales: 0 }),
   }));
 }
 
@@ -135,13 +224,22 @@ export async function setProcesosPlantilla(compraEtapaId, procesoIds = []) {
 
 export async function fetchMaterialesPlantilla(compraEtapaId) {
   if (!compraEtapaId) return [];
-  const { data, error } = await supabase
-    .from("linea_compra_etapa_materiales")
-    .select(`id, compra_etapa_id, material_id, cantidad, unidad, notas, linea_proceso_id, linea_proceso_tarea_id, orden, ${MATERIAL_SELECT}, ${TASK_SELECT}`)
-    .eq("compra_etapa_id", compraEtapaId)
-    .order("orden", { ascending: true });
-  if (error) throw error;
-  return data ?? [];
+  const query = (withTask) => supabase
+      .from("linea_compra_etapa_materiales")
+      .select(withTask
+        ? "id, compra_etapa_id, material_id, cantidad, unidad, notas, linea_proceso_id, linea_proceso_tarea_id, orden"
+        : "id, compra_etapa_id, material_id, cantidad, unidad, notas, linea_proceso_id, orden")
+      .eq("compra_etapa_id", compraEtapaId)
+      .order("orden", { ascending: true });
+  let result = await query(taskColumnAvailable !== false);
+  if (result.error && isMissingTaskColumn(result.error)) {
+    taskColumnAvailable = false;
+    result = await query(false);
+  } else if (!result.error && taskColumnAvailable === null) {
+    taskColumnAvailable = true;
+  }
+  if (result.error) throw result.error;
+  return hidratarMateriales((result.data ?? []).map((row) => ({ ...row, linea_proceso_tarea_id: row.linea_proceso_tarea_id ?? null })));
 }
 
 export async function agregarMaterialesPlantilla(compraEtapaId, materiales = [], { lineaProcesoId = null, lineaProcesoTareaId = null } = {}) {
@@ -156,10 +254,7 @@ export async function agregarMaterialesPlantilla(compraEtapaId, materiales = [],
     orden: i,
   }));
   if (!filas.length) return 0;
-  const { error } = await supabase
-    .from("linea_compra_etapa_materiales")
-    .upsert(filas, { onConflict: "compra_etapa_id,material_id" });
-  if (error) throw error;
+  await upsertMaterialRows("linea_compra_etapa_materiales", filas, "compra_etapa_id,material_id");
   return filas.length;
 }
 
@@ -175,8 +270,7 @@ export async function actualizarMaterialPlantilla(id, patch = {}) {
   }
   if (patch.linea_proceso_tarea_id !== undefined) clean.linea_proceso_tarea_id = patch.linea_proceso_tarea_id || null;
   if (!Object.keys(clean).length) return;
-  const { error } = await supabase.from("linea_compra_etapa_materiales").update(clean).eq("id", id);
-  if (error) throw error;
+  await updateMaterialRow("linea_compra_etapa_materiales", id, clean);
 }
 
 export async function quitarMaterialPlantilla(id) {
@@ -394,13 +488,22 @@ export async function setProcesosEtapaCompra(obraCompraEtapaId, procesoIds = [])
 
 export async function fetchMaterialesEtapa(obraCompraEtapaId) {
   if (!obraCompraEtapaId) return [];
-  const { data, error } = await supabase
-    .from("obra_compra_etapa_materiales")
-    .select(`id, obra_compra_etapa_id, material_id, cantidad, unidad, notas, linea_proceso_id, linea_proceso_tarea_id, orden, origen, ${MATERIAL_SELECT}, ${TASK_SELECT}`)
-    .eq("obra_compra_etapa_id", obraCompraEtapaId)
-    .order("orden", { ascending: true });
-  if (error) throw error;
-  return data ?? [];
+  const query = (withTask) => supabase
+      .from("obra_compra_etapa_materiales")
+      .select(withTask
+        ? "id, obra_compra_etapa_id, material_id, cantidad, unidad, notas, linea_proceso_id, linea_proceso_tarea_id, orden, origen"
+        : "id, obra_compra_etapa_id, material_id, cantidad, unidad, notas, linea_proceso_id, orden, origen")
+      .eq("obra_compra_etapa_id", obraCompraEtapaId)
+      .order("orden", { ascending: true });
+  let result = await query(taskColumnAvailable !== false);
+  if (result.error && isMissingTaskColumn(result.error)) {
+    taskColumnAvailable = false;
+    result = await query(false);
+  } else if (!result.error && taskColumnAvailable === null) {
+    taskColumnAvailable = true;
+  }
+  if (result.error) throw result.error;
+  return hidratarMateriales((result.data ?? []).map((row) => ({ ...row, linea_proceso_tarea_id: row.linea_proceso_tarea_id ?? null })));
 }
 
 export async function agregarMaterialesEtapa(obraCompraEtapaId, materiales = [], { lineaProcesoId = null, lineaProcesoTareaId = null, origen = "manual" } = {}) {
@@ -416,10 +519,7 @@ export async function agregarMaterialesEtapa(obraCompraEtapaId, materiales = [],
     origen,
   }));
   if (!filas.length) return 0;
-  const { error } = await supabase
-    .from("obra_compra_etapa_materiales")
-    .upsert(filas, { onConflict: "obra_compra_etapa_id,material_id" });
-  if (error) throw error;
+  await upsertMaterialRows("obra_compra_etapa_materiales", filas, "obra_compra_etapa_id,material_id");
   return filas.length;
 }
 
@@ -435,8 +535,7 @@ export async function actualizarMaterialEtapa(id, patch = {}) {
   }
   if (patch.linea_proceso_tarea_id !== undefined) clean.linea_proceso_tarea_id = patch.linea_proceso_tarea_id || null;
   if (!Object.keys(clean).length) return;
-  const { error } = await supabase.from("obra_compra_etapa_materiales").update(clean).eq("id", id);
-  if (error) throw error;
+  await updateMaterialRow("obra_compra_etapa_materiales", id, clean);
 }
 
 export async function quitarMaterialEtapa(id) {
@@ -469,10 +568,7 @@ export async function copiarMaterialesDeEtapa(destinoId, { desdeEtapaObraId = nu
     origen: "copia",
   }));
 
-  const { error } = await supabase
-    .from("obra_compra_etapa_materiales")
-    .upsert(filas, { onConflict: "obra_compra_etapa_id,material_id" });
-  if (error) throw error;
+  await upsertMaterialRows("obra_compra_etapa_materiales", filas, "obra_compra_etapa_id,material_id");
   return filas.length;
 }
 
@@ -524,10 +620,21 @@ export async function copiarPlantillaAObra(obra) {
   }
 
   // Los materiales de cada etapa de la plantilla, en un solo viaje.
-  const { data: matsPlantilla } = await supabase
-    .from("linea_compra_etapa_materiales")
-    .select("compra_etapa_id, material_id, cantidad, unidad, notas, linea_proceso_id, linea_proceso_tarea_id, orden")
-    .in("compra_etapa_id", plantilla.map((p) => p.id));
+  const fetchPlantillaMateriales = (withTask) => supabase
+      .from("linea_compra_etapa_materiales")
+      .select(withTask
+        ? "compra_etapa_id, material_id, cantidad, unidad, notas, linea_proceso_id, linea_proceso_tarea_id, orden"
+        : "compra_etapa_id, material_id, cantidad, unidad, notas, linea_proceso_id, orden")
+      .in("compra_etapa_id", plantilla.map((p) => p.id));
+  let matsResult = await fetchPlantillaMateriales(taskColumnAvailable !== false);
+  if (matsResult.error && isMissingTaskColumn(matsResult.error)) {
+    taskColumnAvailable = false;
+    matsResult = await fetchPlantillaMateriales(false);
+  } else if (!matsResult.error && taskColumnAvailable === null) {
+    taskColumnAvailable = true;
+  }
+  if (matsResult.error) throw matsResult.error;
+  const matsPlantilla = (matsResult.data ?? []).map((row) => ({ ...row, linea_proceso_tarea_id: row.linea_proceso_tarea_id ?? null }));
 
   const filas = [];
   for (const fila of creadas ?? []) {
@@ -546,10 +653,7 @@ export async function copiarPlantillaAObra(obra) {
     }
   }
   if (filas.length) {
-    const { error: errMats } = await supabase
-      .from("obra_compra_etapa_materiales")
-      .upsert(filas, { onConflict: "obra_compra_etapa_id,material_id" });
-    if (errMats) throw errMats;
+    await upsertMaterialRows("obra_compra_etapa_materiales", filas, "obra_compra_etapa_id,material_id");
   }
 
   return { etapas: creadas?.length ?? 0, materiales: filas.length };

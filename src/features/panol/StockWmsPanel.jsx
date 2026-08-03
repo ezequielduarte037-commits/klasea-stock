@@ -22,6 +22,7 @@ import UbicacionPicker, { UbicacionChip } from "@/features/panol/UbicacionPicker
 import useNfcBridge from "@/features/panol/useNfcBridge";
 import useKeyboardWedge from "@/features/panol/useKeyboardWedge";
 import { materialBarcodeList, materialBarcodeText } from "@/features/materiales/materialBarcodes";
+import { materialMatchIsStrong, materialMatchScore, topMaterialMatches } from "@/features/panol/materialMatch";
 import { buscarEmpleadoPorNfc, normalizeNfcUid } from "@/features/rrhh/api";
 import { fmtDate, rowIsAnulado, rowMovementAt } from "@/features/panol/panolMovimientos";
 import { openEgresoDisplayWindow, publishEgresoDisplay, resetEgresoDisplay } from "@/features/panol/egresoDisplay";
@@ -3114,7 +3115,12 @@ export default function StockWmsPanel({ sedeLocked = null, isMobile = false, toa
   const baseFilteredRows = useMemo(() => {
     const term = norm(q);
     let filtered = rows;
-    if (term) filtered = filtered.filter((row) => rowSearchText(row).includes(term));
+    if (term) {
+      filtered = filtered.filter((row) => materialMatchScore({
+        ...row,
+        notas: [row.notas, row.stock_nota, row.egreso_nota, row.sector_destino].filter(Boolean).join(" "),
+      }, q) >= 42 || rowSearchText(row).includes(term));
+    }
     if (fObra !== "todas") filtered = filtered.filter((row) => rowMatchesObraFilter(row, fObra));
     if (fCategoria !== "todos") filtered = filtered.filter((row) => categoryLabel(row) === fCategoria);
     return filtered;
@@ -3174,7 +3180,7 @@ export default function StockWmsPanel({ sedeLocked = null, isMobile = false, toa
     });
     const catalogOnly = catalogRows
       .filter((material) => !stockedIds.has(material.id))
-      .filter((material) => !term || norm([material.descripcion, material.codigo, material.proveedor].filter(Boolean).join(" ")).includes(term))
+      .filter((material) => !term || materialMatchScore(material, q) >= 42)
       .map((material) => {
         const group = emptyCatalogGroup(material, sedeLocked || (fSede !== "todas" ? fSede : "Pampa"));
         const category = categoryById.get(material.categoria_id) || "";
@@ -3282,6 +3288,19 @@ export default function StockWmsPanel({ sedeLocked = null, isMobile = false, toa
     if (!canCreateCatalog) {
       toast.warning("Solo un administrador puede crear materiales nuevos desde egresos.");
       return;
+    }
+    const catalog = catalogRows.length ? catalogRows : await fetchPanolCatalogFull();
+    const candidates = topMaterialMatches(catalog, desc, 6, 42);
+    const strong = candidates.find((material) => materialMatchIsStrong(material._score));
+    if (strong) {
+      selectCatalogMaterial(strong);
+      toast.warning(`Ya existe un producto compatible: "${strong.descripcion}". Lo seleccione para evitar un duplicado.`);
+      return;
+    }
+    if (candidates.length) {
+      const list = candidates.slice(0, 4).map((material) => `- ${material.descripcion}`).join("\n");
+      const shouldCreate = window.confirm(`Hay productos parecidos en el catalogo:\n\n${list}\n\n¿Crear igualmente "${desc}"?`);
+      if (!shouldCreate) return;
     }
     setCreating(true);
     try {

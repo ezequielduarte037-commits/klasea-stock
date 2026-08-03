@@ -8,7 +8,8 @@ import { crearEnvio, crearPanolCatalogMaterial, fetchMaterialesEgreso, fetchPano
 import { fetchProveedores, leerPresupuestoConIA, variantePrecio, varianteCodigo } from "@/features/materiales/api";
 import ProveedorTipoBadge from "@/features/materiales/ProveedorTipoBadge";
 import { proveedorMeta } from "@/features/materiales/proveedorMeta";
-import { materialBarcodeList, materialBarcodeText, normalizeBarcode } from "@/features/materiales/materialBarcodes";
+import { materialBarcodeList, normalizeBarcode } from "@/features/materiales/materialBarcodes";
+import { materialMatchIsStrong, materialMatchScore } from "@/features/panol/materialMatch";
 import { guardarIngresoPendiente, borrarIngresoPendiente } from "@/features/panol/ingresosPendientes";
 import useKeyboardWedge from "@/features/panol/useKeyboardWedge";
 import BarcodeScanner from "@/features/panol/BarcodeScanner";
@@ -223,24 +224,7 @@ function cleanNumber(value = "") {
 }
 
 function catalogScore(material, queryItem = {}) {
-  const q = normSearch(queryItem.descripcion || queryItem.description || queryItem);
-  if (!q) return 0;
-  const desc = normSearch(material.descripcion);
-  const code = normSearch(material.codigo);
-  const barcode = normSearch(materialBarcodeText(material));
-  const proveedor = normSearch(material.proveedor);
-  const text = [desc, code, barcode, proveedor].filter(Boolean).join(" ");
-  const queryCode = normSearch(queryItem.codigo || queryItem.code || "");
-  if (queryCode && code && queryCode === code) return 110;
-  if (queryCode && barcode && barcode.includes(queryCode)) return 108;
-  if (desc === q) return 100;
-  if (desc && (desc.includes(q) || q.includes(desc))) return 82;
-  const words = q.split(" ").filter((word) => word.length > 2);
-  const shared = words.filter((word) => text.includes(word)).length;
-  if (words.length && shared === words.length) return 76;
-  if (shared >= 3) return 68;
-  if (shared >= 2) return 58;
-  return 0;
+  return materialMatchScore(material, queryItem);
 }
 
 function topCatalogMatches(catalog = [], queryItem = {}, limit = 8) {
@@ -1177,7 +1161,7 @@ export default function EnviarAPanolModal({ open, onClose, prefill, showPrices =
     }
     // ¿Ya existe uno parecido? → ofrecer usar ese en vez de duplicar (evita "Caja de ducha" vs "Caja ducha 800 gph").
     const [best] = topCatalogMatches(fullCatalog, item, 1);
-    if (best && (best._score || 0) >= 58) {
+    if (best && (best._score || 0) >= 42) {
       const usar = window.confirm(
         `⚠ Puede que este material YA EXISTA en el catálogo:\n\n"${best.descripcion}"${best.codigo ? ` · ${best.codigo}` : ""}\n\n• Aceptar = usar ESE (recomendado, evita duplicados)\n• Cancelar = crear "${desc}" igual`,
       );
@@ -1226,7 +1210,7 @@ export default function EnviarAPanolModal({ open, onClose, prefill, showPrices =
       }
       // Si hay un match FUERTE con el catálogo, se vincula solo (evita duplicado) sin bloquear.
       const [best] = topCatalogMatches(catalogRows, item, 1);
-      if (best && (best._score || 0) >= 70) {
+      if (best && materialMatchIsStrong(best._score)) {
         prepared.push({ ...item, ...itemPatchFromMaterial(best, item) });
         continue;
       }
@@ -1429,7 +1413,7 @@ export default function EnviarAPanolModal({ open, onClose, prefill, showPrices =
         .filter((it) => it.descripcion);
       const hydratedItems = aiItems.map((item) => {
         const [best] = topCatalogMatches(catalogRows, item, 1);
-        return best && (best._score || 0) >= 70 ? { ...item, ...itemPatchFromMaterial(best, item) } : item;
+        return best && materialMatchIsStrong(best._score) ? { ...item, ...itemPatchFromMaterial(best, item) } : item;
       });
       if (!hydratedItems.length) {
         toast.warning("La IA no detecto items.");
@@ -1739,6 +1723,11 @@ export default function EnviarAPanolModal({ open, onClose, prefill, showPrices =
                             <ProveedorTipoBadge meta={meta} compact />
                             <UbicacionChip ubicacion={mat.ubicacion} obs={mat.ubicacion_obs} />
                             <StockActualBadge material={mat} stockByMaterial={stockByMaterial} sede={sede} compact />
+                            {catalogQ.trim() && mat._score >= 88 && (
+                              <span style={{ border: `1px solid ${C.greenB}`, background: C.greenL, color: C.green, borderRadius: 999, padding: "3px 7px", fontSize: 10, fontWeight: 900, whiteSpace: "nowrap" }}>
+                                Coincidencia
+                              </span>
+                            )}
                           </span>
                         </span>
                       </button>
