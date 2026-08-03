@@ -10,6 +10,7 @@ const POLL_MS = 4 * 60 * 1000;
 const RECEPCION_ROLES = new Set(["panol", "admin"]);
 const PRODUCCION_ROLES = new Set(["admin", "oficina"]);
 const COMPRAS_ROLES = new Set(["compras", "admin", "tecnica", "oficina", "panol"]);
+const LOGISTICA_ROLES = new Set(["compras", "admin", "tecnica", "administracion"]);
 
 function storageKey(profile) {
   return `klasea.notificaciones.leidas.${profile?.id || profile?.username || "anon"}`;
@@ -50,6 +51,10 @@ function canProduccion(profile) {
 
 function canCompras(profile) {
   return COMPRAS_ROLES.has(roleOf(profile));
+}
+
+function canLogistica(profile) {
+  return LOGISTICA_ROLES.has(roleOf(profile));
 }
 
 function isComprasManager(profile) {
@@ -125,6 +130,8 @@ export default function useNotificaciones(profile) {
   const [loadingRecepcion, setLoadingRecepcion] = useState(false);
   const [loadingCompras, setLoadingCompras] = useState(false);
   const [loadingAvisos, setLoadingAvisos] = useState(false);
+  const [logistica, setLogistica] = useState([]);
+  const [loadingLogistica, setLoadingLogistica] = useState(false);
   const [leidas, setLeidas] = useState(() => readLeidas(profile));
   const {
     alertas,
@@ -239,15 +246,44 @@ export default function useNotificaciones(profile) {
     }
   }, [enabled, profile]);
 
+  const cargarLogistica = useCallback(async () => {
+    if (!enabled || !canLogistica(profile)) {
+      setLogistica([]);
+      return;
+    }
+    setLoadingLogistica(true);
+    try {
+      const manager = isComprasManager(profile);
+      let query = supabase
+        .from("calendario_eventos")
+        .select("id,carga,titulo,obra,estado,fecha,fecha_solicitada,fecha_propuesta,fecha_confirmada,hora_propuesta,hora_confirmada,tipo_transporte,proveedor_logistico,created_by,updated_at,created_at")
+        .eq("clase", "solicitud_logistica")
+        .in("estado", manager ? ["solicitado"] : ["fecha_propuesta", "confirmado"])
+        .order("updated_at", { ascending: false })
+        .limit(30);
+      if (!manager) query = query.eq("created_by", profile?.id);
+      const { data, error } = await query;
+      if (error) throw error;
+      setLogistica(data || []);
+    } catch {
+      // La migración logística puede no estar aplicada todavía.
+      setLogistica([]);
+    } finally {
+      setLoadingLogistica(false);
+    }
+  }, [enabled, profile]);
+
   useEffect(() => {
     cargarRecepcion();
     cargarCompras();
     cargarAvisos();
+    cargarLogistica();
 
     const interval = window.setInterval(() => {
       cargarRecepcion();
       cargarCompras();
       cargarAvisos();
+      cargarLogistica();
     }, POLL_MS);
 
     const channels = [];
@@ -269,12 +305,20 @@ export default function useNotificaciones(profile) {
           .subscribe(),
       );
     }
+    if (enabled && canLogistica(profile)) {
+      channels.push(
+        supabase
+          .channel(`rt-notif-logistica-${profile?.id || "anon"}`)
+          .on("postgres_changes", { event: "*", schema: "public", table: "calendario_eventos" }, cargarLogistica)
+          .subscribe(),
+      );
+    }
 
     return () => {
       window.clearInterval(interval);
       channels.forEach((channel) => supabase.removeChannel(channel));
     };
-  }, [cargarAvisos, cargarCompras, cargarRecepcion, enabled, profile]);
+  }, [cargarAvisos, cargarCompras, cargarLogistica, cargarRecepcion, enabled, profile]);
 
   const notificaciones = useMemo(() => {
     if (!enabled) return [];
@@ -375,8 +419,25 @@ export default function useNotificaciones(profile) {
       }
     }
 
+    if (canLogistica(profile)) {
+      for (const movement of logistica) {
+        const manager = isComprasManager(profile);
+        const proposed = movement.estado === "fecha_propuesta";
+        out.push({
+          id: `logistica:${movement.id}:${movement.updated_at || movement.created_at || ""}:${movement.estado}`,
+          tipo: "logistica",
+          gravedad: movement.estado === "solicitado" ? "warning" : proposed ? "info" : "success",
+          titulo: manager ? "Nueva solicitud logística" : proposed ? "Compras propuso otra fecha" : "Movimiento confirmado",
+          detalle: `${movement.carga || movement.titulo || "Movimiento"}${movement.obra ? ` · ${movement.obra}` : ""}`,
+          fecha: movement.updated_at || movement.created_at,
+          ruta: `/calendario?open=${movement.id}`,
+          meta: { movement },
+        });
+      }
+    }
+
     return out.sort((a, b) => new Date(b.fecha || 0) - new Date(a.fecha || 0));
-  }, [alertas, avisos, compras, enabled, envios, profile]);
+  }, [alertas, avisos, compras, enabled, envios, logistica, profile]);
 
   const markLeido = useCallback((id) => {
     if (!id) return;
@@ -405,7 +466,7 @@ export default function useNotificaciones(profile) {
   const unreadCount = lista.length;
 
   return {
-    loading: loadingRecepcion || loadingCompras || loadingAvisos || (canProduccion(profile) && loadingAlertas),
+    loading: loadingRecepcion || loadingCompras || loadingAvisos || loadingLogistica || (canProduccion(profile) && loadingAlertas),
     lista,
     unreadCount,
     markLeido,
@@ -415,6 +476,7 @@ export default function useNotificaciones(profile) {
       cargarRecepcion();
       cargarCompras();
       cargarAvisos();
+      cargarLogistica();
       if (canProduccion(profile)) recargarAlertas?.();
     },
   };

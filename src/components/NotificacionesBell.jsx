@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { AlertTriangle, Bell, CheckCheck, CheckCircle2, PackageOpen, ShoppingCart } from "lucide-react";
+import { AlertTriangle, Bell, CheckCheck, CheckCircle2, PackageOpen, ShoppingCart, Truck } from "lucide-react";
 import useNotificaciones from "@/hooks/useNotificaciones";
 import { hasAdminAccess } from "@/lib/permissions";
 import { C } from "@/theme";
@@ -9,6 +9,7 @@ const TYPE_UI = {
   recepcion: { label: "Recepcion", color: C.blue, icon: PackageOpen },
   produccion: { label: "Produccion", color: C.amber, icon: AlertTriangle },
   compras: { label: "Compras", color: C.green, icon: ShoppingCart },
+  logistica: { label: "Logística", color: C.blue, icon: Truck },
 };
 
 const GRAVITY_COLOR = {
@@ -24,7 +25,7 @@ function fmtFecha(ts) {
 }
 
 function counterByType(lista) {
-  const out = { todos: lista.length, recepcion: 0, produccion: 0, compras: 0 };
+  const out = { todos: lista.length, recepcion: 0, produccion: 0, compras: 0, logistica: 0 };
   for (const item of lista) out[item.tipo] = (out[item.tipo] || 0) + 1;
   return out;
 }

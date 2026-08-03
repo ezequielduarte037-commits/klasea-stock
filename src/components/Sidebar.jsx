@@ -308,6 +308,7 @@ export default function Sidebar({ profile, signOut }) {
   const esRrhh    = esAdmin || role === "rrhh" || esTecnica || esAdministracion;
   const esCompras = role === "compras";
   const esMecanica = role === "mecanica";
+  const puedeVerLogistica = realAdmin || ["tecnica", "administracion", "compras"].includes(role);
   const puedeEditarPlantillas = broadAccess || role === "tecnica";
   const puedePedirCompras = esGestion || esPanol || esCompras;
   const puedeVerMateriales = esGestion || esCompras;
@@ -602,7 +603,7 @@ export default function Sidebar({ profile, signOut }) {
             {item("/marmoleria",  "Marmolería",  SC.produccion, true, 160, "Stock de materiales y cortes (ej. Dekton) para cubiertas y baños.")}
             {item("/muebles",     "Muebles",     SC.produccion, true, 180, "Producción, despiece y ensamblaje de mobiliario.")}
             {item("/torneria",    "Tornería",    SC.produccion, true, 190, "Materiales de Mecánica: salidas a Tornería o Plegadora y regresos parciales.")}
-            {item("/calendario",  "Calendario",  SC.produccion, true, 200, "Cronograma general y planificación de fechas del astillero.")}
+            {item("/calendario", "Logística", SC.produccion, true, 200, "Solicitudes, coordinación, agenda y costos de transportes del astillero.")}
           </>}
 
           {esMecanica && !esGestion && <>
@@ -618,6 +619,7 @@ export default function Sidebar({ profile, signOut }) {
             {/* El rol compras ve acá los pedidos generados por etapa de producción (gestión ya lo ve en Producción). */}
             {esCompras && item("/compras-etapa", "Compras por etapa", SC.compras, true, 217, "Las tandas de compra de cada obra con sus materiales, y los pedidos que salen de ahí.")}
             {esCompras && item("/muebles", "Muebles y herrajes", SC.produccion, true, 218, "Seguimiento de Oberti y Morph, OT de enchapado y kits de herrajes.")}
+            {esCompras && item("/calendario", "Logística", SC.produccion, true, 219, "Aprobar solicitudes, coordinar proveedores y registrar costos de transportes.")}
             {(esCompras || realAdmin) && item("/semaforo", "Semáforo", SC.semaforo, true, 220, "Semáforo de producción: estado visual de avance por obra.")}
           </>}
 
@@ -641,6 +643,12 @@ export default function Sidebar({ profile, signOut }) {
             {divider("precios")}
             {group("Precios", SC.panol_catalogo, 230)}
             {item("/precios", "Carga de precios", SC.panol_catalogo, true, 232, "Remitos y facturas leídos con IA, lista de precios editable e historial de cambios.")}
+          </>}
+
+          {esAdministracion && puedeVerLogistica && <>
+            {divider("logistica-admin")}
+            {group("Logística", SC.produccion, 235)}
+            {item("/calendario", "Solicitar movimientos", SC.produccion, true, 237, "Solicitudes de fletes, camiones, hidrogrúas y grúas.")}
           </>}
 
           {esGestion && <>

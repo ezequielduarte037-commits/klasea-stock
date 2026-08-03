@@ -91,7 +91,7 @@ function RadialMenu({x,y,puesto,obra,editMode,onClose,onAssign,onFocus,onDetail,
     if(obra){
       base.push({id:"memoria", icon:"□",label:"Memoria",  color:"#a78bfa"});
       base.push({id:"detail",  icon:"≡",label:"Etapas",   color:"#60a5fa"});
-      if(obra.estado==="activa")   base.push({id:"pausar",   icon:"⏸",label:"Pausar",   color:"#fbbf24"});
+      if(obra.estado==="activa")   base.push({id:"pausar",   icon:"⏸",label:"Pausar",   color:"#a78bfa"});
       if(obra.estado==="pausada")  base.push({id:"reanudar", icon:"▶",label:"Reanudar", color:"#34d399"});
       if(!["terminada","cancelada"].includes(obra.estado)) base.push({id:"terminar",icon:"✓",label:"Terminar",color:"#10b981"});
       base.push({id:"desasignar",icon:"⇌",label:"Desvinc.",color:"#f87171"});
@@ -150,7 +150,7 @@ function CommandPalette({obras,puestos,obraByPuesto,onClose,onAction}){
     const ql=q.toLowerCase(), result=[];
     const quickActions=[
       {type:"action",id:"reset-view", icon:"⌂",label:"Resetear Vista",       sub:"R",    color:"var(--muted)"},
-      {type:"action",id:"toggle-edit",icon:"◩",label:"Activar Modo Edición", sub:"E",    color:"#fbbf24"},
+      {type:"action",id:"toggle-edit",icon:"◩",label:"Activar Modo Edición", sub:"E",    color:"#60a5fa"},
       {type:"action",id:"zoom-in",    icon:"+",label:"Acercar Zoom",          sub:"+ / =",color:"var(--muted)"},
       {type:"action",id:"zoom-out",   icon:"−",label:"Alejar Zoom",           sub:"−",    color:"var(--muted)"},
     ].filter(a=>!q||a.label.toLowerCase().includes(ql));
@@ -1070,15 +1070,19 @@ function MemoriaHUD({ obra, puesto, oC, memoriaOverride, onSaveMemoria, notas=[]
 }
 
 
-function RadarHUD({puestos,obraByPuesto,vp,containerW,containerH}){
+function RadarHUD({puestos,obraByPuesto,vp,containerW,containerH,panelW=KPI_W}){
   const W=192,H=132,PAD=10;
   const scX=(W-PAD*2)/VB_W, scY=(H-PAD*2)/VB_H;
   const visLeft=Math.max(PAD,(-vp.x/vp.scale)*scX+PAD);
   const visTop=Math.max(PAD,(-vp.y/vp.scale)*scY+PAD);
   const visW=Math.min((containerW/vp.scale)*scX,W-PAD*2);
   const visH=Math.min((containerH/vp.scale)*scY,H-PAD*2);
+  // En anchos chicos el radar estorba más de lo que informa → se oculta.
+  if(containerW>0&&containerW<1250) return null;
+  // A la izquierda de los botones de zoom (que van pegados al panel KPI):
+  // zoom ocupa ~48px desde panelW+14 → el radar arranca 10px más a la izquierda.
   return(
-    <div style={{position:"absolute",bottom:88,right:268,width:W,height:H,...GLASS,borderRadius:10,overflow:"hidden",zIndex:10,display:"none"}}>
+    <div style={{position:"absolute",bottom:16,right:panelW+72,width:W,height:H,...GLASS,borderRadius:10,overflow:"hidden",zIndex:10}}>
       <svg width={W} height={H} style={{display:"block",overflow:"visible"}}>
         <rect width={W} height={H} fill="rgba(0,12,6,0.7)"/>
         {[0.25,0.5,0.75,1].map(r=><circle key={r} cx={W/2} cy={H/2} r={(Math.min(W,H)/2-6)*r} fill="none" stroke="rgba(0,255,100,0.07)" strokeWidth="0.4"/>)}
@@ -1155,14 +1159,17 @@ function KPIPanel({ obras, puestos, obraByPuesto, collapsed, onCollapse, onFocus
     });
     if(!faltantes.length) return [];
     const esVacia = faltantes.length===CAMPOS_CRITICOS.length;
+    // "Sin ficha" NO es un problema: simplemente no cargamos los datos todavía.
+    // Gris neutro y al fondo de la lista — el rojo queda reservado para
+    // problemas reales (obras fantasma). "Incompleta" es atención → cyan.
     return [{tipo:"memoria",codigo:o.codigo,estado:o.estado,
-      etiqueta:esVacia?"Sin info":"Incompleta",
+      etiqueta:esVacia?"Sin ficha":"Incompleta",
       detalle:esVacia?null:faltantes.map(f=>f.label).join(", "),
-      color:esVacia?"#ef4444":"#f59e0b",severity:faltantes.length}];
+      color:esVacia?"#64748b":"#38bdf8",severity:esVacia?0.5:faltantes.length}];
   }).sort((a,b)=>b.severity-a.severity);
 
   const alertasPausadas = obrasPausadas.filter(o=>o.puesto_mapa).map(o=>({
-    tipo:"pausada",codigo:o.codigo,etiqueta:"Pausada",detalle:null,color:"#f59e0b",severity:0,
+    tipo:"pausada",codigo:o.codigo,etiqueta:"Pausada",detalle:null,color:"#a78bfa",severity:0,
   }));
   const alertas = [...alertasPausadas,...alertasMemoria];
   const hasCrit = alertas.some(a=>a.color==="#ef4444");
@@ -1170,7 +1177,7 @@ function KPIPanel({ obras, puestos, obraByPuesto, collapsed, onCollapse, onFocus
   /* ── ring ── */
   const OcupRing = () => {
     const r=28,sw=3.5,circ=2*Math.PI*r;
-    const col=ocupPct>80?"#f59e0b":"#6366f1";
+    const col=ocupPct>80?"#38bdf8":"#6366f1";
     return(
       <svg width={r*2+sw*2} height={r*2+sw*2} style={{flexShrink:0}}>
         <circle cx={r+sw} cy={r+sw} r={r} fill="none" stroke="var(--panel)" strokeWidth={sw}/>
@@ -1197,8 +1204,8 @@ function KPIPanel({ obras, puestos, obraByPuesto, collapsed, onCollapse, onFocus
     }}>
       {alertas.length>0&&(
         <div style={{width:7,height:7,borderRadius:"50%",
-          background:hasCrit?"#ef4444":"#f59e0b",
-          boxShadow:`0 0 8px ${hasCrit?"#ef4444":"#f59e0b"}`,
+          background:hasCrit?"#ef4444":"#a78bfa",
+          boxShadow:`0 0 8px ${hasCrit?"#ef4444":"#a78bfa"}`,
           animation:"beacon 1.8s ease-in-out infinite"}}/>
       )}
       <svg width="11" height="11" viewBox="0 0 24 24" fill="none"
@@ -1243,9 +1250,9 @@ function KPIPanel({ obras, puestos, obraByPuesto, collapsed, onCollapse, onFocus
               <div onClick={()=>setActiveTab("alertas")} style={{
                 display:"flex",alignItems:"center",gap:4,
                 padding:"3px 9px",borderRadius:20,cursor:"pointer",
-                background:hasCrit?"rgba(239,68,68,0.15)":"rgba(245,158,11,0.12)",
-                border:`1px solid ${hasCrit?"rgba(239,68,68,0.4)":"rgba(245,158,11,0.3)"}`,
-                color:hasCrit?"#fca5a5":"#fcd34d",
+                background:hasCrit?"rgba(239,68,68,0.15)":"rgba(167,139,250,0.12)",
+                border:`1px solid ${hasCrit?"rgba(239,68,68,0.4)":"rgba(167,139,250,0.3)"}`,
+                color:hasCrit?"#fca5a5":"#c4b5fd",
                 fontSize:10,fontWeight:700,fontFamily:"'JetBrains Mono',monospace",
                 boxShadow:hasCrit?"0 0 12px rgba(239,68,68,0.25)":"none",
                 animation:"beacon 2s ease-in-out infinite",
@@ -1309,7 +1316,7 @@ function KPIPanel({ obras, puestos, obraByPuesto, collapsed, onCollapse, onFocus
         {[
           ["stats","Stats","#6366f1"],
           ["alertas",alertas.length>0?`Alertas · ${alertas.length}`:"Alertas",
-            hasCrit?"#ef4444":alertas.length>0?"#f59e0b":"var(--subtle)"]
+            hasCrit?"#ef4444":alertas.length>0?"#a78bfa":"var(--subtle)"]
         ].map(([key,label,ac])=>(
           <button key={key} className="kpi-tab" onClick={()=>setActiveTab(key)} style={{
             color:activeTab===key?"#fff":"rgba(255,255,255,0.3)",
@@ -1342,7 +1349,7 @@ function KPIPanel({ obras, puestos, obraByPuesto, collapsed, onCollapse, onFocus
           <div style={{display:"flex",flexDirection:"column",gap:3}}>
             {[
               {label:"Activas",   n:obrasActivas.length,    c:"#3b82f6",pct:obrasActivas.length/Math.max(1,total)*100},
-              {label:"Pausadas",  n:obrasPausadas.length,   c:"#f59e0b",pct:obrasPausadas.length/Math.max(1,total)*100},
+              {label:"Pausadas",  n:obrasPausadas.length,   c:"#a78bfa",pct:obrasPausadas.length/Math.max(1,total)*100},
               {label:"Terminadas",n:obrasTerminadas.length, c:"#10b981",pct:obrasTerminadas.length/Math.max(1,total)*100},
               {label:"Libres",    n:libres,                 c:"var(--subtle)",pct:libres/Math.max(1,total)*100,muted:true},
             ].map(({label,n,c,pct,muted})=>(

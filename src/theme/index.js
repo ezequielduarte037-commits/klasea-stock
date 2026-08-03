@@ -9,11 +9,11 @@ const status = {
       label: "Activa",
     },
     pausada: {
-      dot: "var(--amber)",
-      glow: "var(--amber)",
-      top: "var(--amber-deep)",
-      bg: "var(--amber-soft)",
-      border: "var(--amber-border)",
+      dot: "var(--violet)",
+      glow: "var(--violet)",
+      top: "var(--violet-deep)",
+      bg: "var(--violet-soft)",
+      border: "var(--violet-border)",
       label: "Pausada",
     },
     terminada: {

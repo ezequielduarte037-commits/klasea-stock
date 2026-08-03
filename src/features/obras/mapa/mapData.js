@@ -96,7 +96,7 @@ const PUESTOS_INITIAL=[
 
 const LEGEND=[
   {key:"activa",   color:"#3b82f6"},
-  {key:"pausada",  color:"#f59e0b"},
+  {key:"pausada",  color:"#a78bfa"},
   {key:"terminada",color:"#10b981"},
   {key:"cancelada",color:"#ef4444"},
   {key:"vacio",    color:"#6366f1",isWire:true},
