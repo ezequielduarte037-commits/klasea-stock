@@ -25,19 +25,19 @@ import { useState, useMemo, useRef, useCallback, useEffect, useLayoutEffect } fr
 import { useResponsive } from "@/hooks/useResponsive";
 import { createPortal } from "react-dom";
 import GalponPampa from "@/features/obras/GalponPampa";
-import { GLASS, VB_W, VB_H, KPI_W, KPI_W_COLLAPSED, ZONAS, WALLS, BOAT_IMGS, genId, PUESTOS_INITIAL, LEGEND, dedupPuestos, syncNextNMapa, resetNextN, LS_KEY } from "@/features/obras/mapa/mapData";
+import { GLASS, VB_W, VB_H, RAIL_W, RAIL_W_COLLAPSED, ZONAS, WALLS, BOAT_IMGS, genId, PUESTOS_INITIAL, LEGEND, dedupPuestos, syncNextNMapa, resetNextN, LS_KEY } from "@/features/obras/mapa/mapData";
 import { loadMemoriasFromSupabase, saveMemoriaToSupabase, subscribeMemorias } from "@/features/obras/mapa/persistence";
-import { AddObraModal, RadialMenu, CommandPalette, CinematicCallouts, CinematicCards, FieldBox, MemoriaHUD, RadarHUD, KPIPanel } from "@/features/obras/mapa/components";
+import { AddObraModal, RadialMenu, CommandPalette, CinematicCallouts, CinematicCards, MemoriaHUD, RadarHUD, OpsRail } from "@/features/obras/mapa/components";
 
-/* Fit único del plano al viewport: descuenta el panel KPI a la derecha y reserva
-   aire para la topbar (arriba) y la barra de estado (abajo), de modo que el plano
-   quede centrado en el espacio útil real y ninguna capa UI lo pise. */
+/* Fit único del plano al viewport: descuenta el rail de operación a la IZQUIERDA
+   y reserva aire para la topbar (arriba) y la barra de estado (abajo), de modo
+   que el plano quede centrado en el espacio útil real. */
 const FIT_PAD_TOP=78, FIT_PAD_BOTTOM=58, FIT_MARGIN=0.985;
-function computeFit(width,height,panelW){
-  const usableW=Math.max(120,width-panelW);
+function computeFit(width,height,railW){
+  const usableW=Math.max(120,width-railW);
   const usableH=Math.max(120,height-FIT_PAD_TOP-FIT_PAD_BOTTOM);
   const scale=Math.min(usableW*FIT_MARGIN/VB_W,usableH*FIT_MARGIN/VB_H);
-  return { x:(usableW-VB_W*scale)/2, y:FIT_PAD_TOP+(usableH-VB_H*scale)/2, scale };
+  return { x:railW+(usableW-VB_W*scale)/2, y:FIT_PAD_TOP+(usableH-VB_H*scale)/2, scale };
 }
 
 
@@ -78,7 +78,7 @@ export default function MapaProduccion({obras=[],onPuestoClick,onAsignarObra,onC
   const [confirmDel,setConfirmDel]=useState(null);
   const [isDragging,setIsDragging]=useState(false);
   const [clickMenu,setClickMenu]=useState(null); // {puestoId, x, y}
-  const [kpiCollapsed,setKpiCollapsed]=useState(false);
+  const [railCollapsed,setRailCollapsed]=useState(false);
   const [obraDragPos,setObraDragPos]=useState(null);
   const [obraDragOver,setObraDragOver]=useState(null);
   const [newPuestoSize,setNewPuestoSize]=useState("mediano");
@@ -143,7 +143,7 @@ export default function MapaProduccion({obras=[],onPuestoClick,onAsignarObra,onC
       const el=svgRef.current; if(!el) return;
       const {width,height}=el.getBoundingClientRect();
       if(!width||!height) return;
-      const panelW = kpiCollapsed ? KPI_W_COLLAPSED : KPI_W;
+      const panelW = railCollapsed ? RAIL_W_COLLAPSED : RAIL_W;
       const next=computeFit(width,height,panelW);
       const cur=vpRef.current;
       // Guarda: no tocar state si el cambio es imperceptible — evita loops
@@ -152,7 +152,7 @@ export default function MapaProduccion({obras=[],onPuestoClick,onAsignarObra,onC
       vpRef.current=next; setVp(next);
     };
     fit(); const t=setTimeout(fit,150); return()=>clearTimeout(t);
-  },[containerSize,kpiCollapsed,activeView]);
+  },[containerSize,railCollapsed,activeView]);
 
   const obraByPuesto=useMemo(()=>{
     const m={};
@@ -182,7 +182,7 @@ export default function MapaProduccion({obras=[],onPuestoClick,onAsignarObra,onC
     });
     return m;
   },[obras,pendingAssignments]);
-  const stats=useMemo(()=>({total:puestos.length,ocupados:puestos.filter(p=>obraByPuesto[p.id]).length,libres:puestos.filter(p=>!obraByPuesto[p.id]).length}),[obraByPuesto,puestos]);
+  /* Los contadores de conjunto (total/ocupados/libres) los muestra el OpsRail. */
 
   const onWheel=useCallback(e=>{
     e.preventDefault();
@@ -235,7 +235,7 @@ export default function MapaProduccion({obras=[],onPuestoClick,onAsignarObra,onC
   },[]);
 
   // En pantallas chicas el panel KPI (240px) tapa el mapa → arrancar colapsado.
-  useEffect(()=>{ if(isMobile) setKpiCollapsed(true); },[isMobile]);
+  useEffect(()=>{ if(isMobile) setRailCollapsed(true); },[isMobile]);
 
   const zoomBtn=useCallback((f)=>{
     const rect=svgRef.current?.getBoundingClientRect();if(!rect)return;
@@ -247,10 +247,10 @@ export default function MapaProduccion({obras=[],onPuestoClick,onAsignarObra,onC
     const el=svgRef.current;if(!el)return;
     const {width,height}=el.getBoundingClientRect();
     if(!width||!height) return;
-    const panelW = kpiCollapsed ? KPI_W_COLLAPSED : KPI_W;
+    const panelW = railCollapsed ? RAIL_W_COLLAPSED : RAIL_W;
     const next=computeFit(width,height,panelW);
     vpRef.current=next;setVp(next);
-  },[kpiCollapsed]);
+  },[railCollapsed]);
 
   const centerOnPuesto=useCallback((p)=>{
     const el=svgRef.current;if(!el)return;
@@ -800,15 +800,7 @@ export default function MapaProduccion({obras=[],onPuestoClick,onAsignarObra,onC
       )}
 
       {/* TOP BAR */}
-      <div style={{position:"absolute",top:10,left:10,right:isMobile?46:250,zIndex:10,display:"flex",alignItems:"center",gap:6,rowGap:6,pointerEvents:"none",flexWrap:"wrap"}}>
-        <div style={{display:"flex",gap:5,pointerEvents:"auto"}}>
-          {[{v:stats.total,l:"Total",c:C.t0},{v:stats.ocupados,l:"Ocupados",c:"#60a5fa"},{v:stats.libres,l:"Libres",c:"#34d399"}].map(({v,l,c})=>(
-            <div key={l} style={{display:"flex",flexDirection:"column",alignItems:"center",padding:"4px 16px",borderRadius:8,...GLASS}}>
-              <span style={{fontFamily:C.mono,fontSize:18,fontWeight:800,color:c,textShadow:`0 0 12px ${c}40`}}>{v}</span>
-              <span style={{fontSize:10,letterSpacing:1.3,textTransform:"uppercase",color:C.t2,fontWeight: 700}}>{l}</span>
-            </div>
-          ))}
-        </div>
+      <div style={{position:"absolute",top:10,left:(railCollapsed?RAIL_W_COLLAPSED:RAIL_W)+12,right:10,zIndex:10,display:"flex",alignItems:"center",gap:6,rowGap:6,pointerEvents:"none",flexWrap:"wrap"}}>
         <div style={{flex:1}}/>
         <div style={{display:"flex",gap:isMobile?8:16,alignItems:"center",pointerEvents:"auto",...GLASS,borderRadius:12,padding:isMobile?"6px 8px":"8px 12px",flexWrap:"wrap",rowGap:6}}>
           <div style={{display:isMobile?"none":"flex",gap:12,paddingRight:16,borderRight:`1px solid ${C.b0}`}}>
@@ -861,8 +853,8 @@ export default function MapaProduccion({obras=[],onPuestoClick,onAsignarObra,onC
         </div>
       </div>
 
-      {/* ZOOM — siempre a la izquierda del panel KPI, nunca debajo */}
-      <div style={{position:"absolute",bottom:24,right:(kpiCollapsed?KPI_W_COLLAPSED:KPI_W)+14,zIndex:10,display:"flex",gap:16,alignItems:"flex-end"}}>
+      {/* ZOOM — esquina inferior derecha, sin panel que lo tape */}
+      <div style={{position:"absolute",bottom:24,right:24,zIndex:10,display:"flex",gap:16,alignItems:"flex-end"}}>
         <div style={{display:"flex",flexDirection:"column",gap:6,...GLASS,padding:"6px",borderRadius:12}}>
           {[{i:"+",f:()=>zoomBtn(1.3)},{i:"−",f:()=>zoomBtn(0.77)},{i:"⌂",f:resetVp}].map(({i,f})=>(
             <button key={i} className="glass-btn" onClick={f} style={{width:36,height:36,borderRadius:8,fontSize:i==="⌂"?16:22,display:"flex",alignItems:"center",justifyContent:"center",cursor:"pointer",paddingBottom:i==="+"?2:0}}>{i}</button>
@@ -871,16 +863,16 @@ export default function MapaProduccion({obras=[],onPuestoClick,onAsignarObra,onC
         </div>
       </div>
 
-      <RadarHUD puestos={puestos} obraByPuesto={obraByPuesto} vp={vp} containerW={containerSize.w} containerH={containerSize.h} panelW={kpiCollapsed?KPI_W_COLLAPSED:KPI_W}/>
-      <KPIPanel obras={obras} puestos={puestos} obraByPuesto={obraByPuesto} memoriasEdit={memoriasEdit}
-        collapsed={kpiCollapsed} onCollapse={setKpiCollapsed}
-        onDesasignar={(obraId)=>onChangeEstado?.(obraId,"desasignar")}
-        onFocusPuesto={(codigo)=>{
+      <RadarHUD puestos={puestos} obraByPuesto={obraByPuesto} vp={vp} containerW={containerSize.w} containerH={containerSize.h} right={82}/>
+      <OpsRail obras={obras} puestos={puestos} obraByPuesto={obraByPuesto} memoriasEdit={memoriasEdit}
+        collapsed={railCollapsed} onCollapse={setRailCollapsed}
+        onFocusObra={(codigo)=>{
           const obra=obras.find(o=>o.codigo===codigo);
           if(!obra?.puesto_mapa) return;
           const p=puestos.find(x=>x.id===obra.puesto_mapa);
           if(p){centerOnPuesto(p);setFocusedPuesto(p.id);}
-        }}/>
+        }}
+        onAssignPuesto={(p)=>{centerOnPuesto(p);setAddObraFor(p.id);}}/>
 
       {/* TOOLTIP */}
       {tooltip&&!obraDragPos&&!focusedPuesto&&(()=>{
@@ -954,8 +946,8 @@ export default function MapaProduccion({obras=[],onPuestoClick,onAsignarObra,onC
         </div>);
       })()}
 
-      {/* STATUS BAR — anclada a la izquierda: no pisa el plano, el zoom ni el panel */}
-      <div style={{position:"absolute",bottom:16,left:16,zIndex:5,pointerEvents:"none",userSelect:"none",maxWidth:"62%"}}>
+      {/* STATUS BAR — a la derecha del rail: no pisa el plano ni el zoom */}
+      <div style={{position:"absolute",bottom:16,left:(railCollapsed?RAIL_W_COLLAPSED:RAIL_W)+16,zIndex:5,pointerEvents:"none",userSelect:"none",maxWidth:"62%"}}>
         {focusedPuesto?(
           <div style={{padding:"8px 24px",borderRadius:30,background:"rgba(59,130,246,0.12)",border:"1px solid rgba(59,130,246,0.35)",fontSize:12,color:"#60a5fa",letterSpacing:1.2,fontWeight: 700,backdropFilter:"blur(8px)"}}>
             ◎ MODO FOCO — Click en área oscura o <span style={{fontFamily:C.mono,background:"rgba(96,165,250,0.15)",padding:"1px 6px",borderRadius:4}}>Esc</span> para salir

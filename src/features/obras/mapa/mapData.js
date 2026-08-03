@@ -19,6 +19,8 @@ const GLASS={
 const VB_W=1900, VB_H=840;
 const KPI_W=240;  // width of KPI panel (also used for fit calc)
 const KPI_W_COLLAPSED=32;
+const RAIL_W=236;  // width of the left ops rail (Torre de Control)
+const RAIL_W_COLLAPSED=32;
 
 /* ─── MEMORIAS DESCRIPTIVAS ────────────────────────────────────────────────
    Datos cargados desde SQL vía el prop `memoriaOverride` o inyectados en
@@ -116,7 +118,7 @@ function syncNextNMapa(arr){
 export function resetNextN(){ _nextN = 23; }
 
 export {
-  GLASS, VB_W, VB_H, KPI_W, KPI_W_COLLAPSED, MEMORIAS_DB,
+  GLASS, VB_W, VB_H, KPI_W, KPI_W_COLLAPSED, RAIL_W, RAIL_W_COLLAPSED, MEMORIAS_DB,
   ZONAS, WALLS, BOAT_IMGS, genId, PUESTOS_INITIAL, LEGEND,
   dedupPuestos, syncNextNMapa,
 };

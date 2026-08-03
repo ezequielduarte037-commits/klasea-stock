@@ -232,13 +232,14 @@ with check (
 );
 
 drop policy if exists "calendario baja admin" on public.calendario_eventos;
-create policy "calendario baja admin"
+drop policy if exists "calendario baja operativa" on public.calendario_eventos;
+create policy "calendario baja operativa"
 on public.calendario_eventos for delete to authenticated
 using (
   exists (
     select 1 from public.profiles p
     where p.id = auth.uid()
-      and (coalesce(p.is_admin, false) or p.role::text = 'admin')
+      and (coalesce(p.is_admin, false) or p.role::text in ('admin', 'compras'))
   )
 );
 

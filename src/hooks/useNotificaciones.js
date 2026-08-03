@@ -258,7 +258,7 @@ export default function useNotificaciones(profile) {
         .from("calendario_eventos")
         .select("id,carga,titulo,obra,estado,fecha,fecha_solicitada,fecha_propuesta,fecha_confirmada,hora_propuesta,hora_confirmada,tipo_transporte,proveedor_logistico,created_by,updated_at,created_at")
         .eq("clase", "solicitud_logistica")
-        .in("estado", manager ? ["solicitado"] : ["fecha_propuesta", "confirmado"])
+        .in("estado", manager ? ["solicitado", "fecha_aceptada"] : ["fecha_propuesta", "confirmado"])
         .order("updated_at", { ascending: false })
         .limit(30);
       if (!manager) query = query.eq("created_by", profile?.id);
@@ -423,11 +423,12 @@ export default function useNotificaciones(profile) {
       for (const movement of logistica) {
         const manager = isComprasManager(profile);
         const proposed = movement.estado === "fecha_propuesta";
+        const accepted = movement.estado === "fecha_aceptada";
         out.push({
           id: `logistica:${movement.id}:${movement.updated_at || movement.created_at || ""}:${movement.estado}`,
           tipo: "logistica",
-          gravedad: movement.estado === "solicitado" ? "warning" : proposed ? "info" : "success",
-          titulo: manager ? "Nueva solicitud logística" : proposed ? "Compras propuso otra fecha" : "Movimiento confirmado",
+          gravedad: movement.estado === "solicitado" ? "warning" : proposed ? "info" : accepted ? "warning" : "success",
+          titulo: manager ? accepted ? "Técnica aceptó la fecha" : "Nueva solicitud logística" : proposed ? "Compras propuso otra fecha" : "Movimiento confirmado",
           detalle: `${movement.carga || movement.titulo || "Movimiento"}${movement.obra ? ` · ${movement.obra}` : ""}`,
           fecha: movement.updated_at || movement.created_at,
           ruta: `/calendario?open=${movement.id}`,
