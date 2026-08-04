@@ -256,6 +256,12 @@ function movementHeadline(row) {
   return `${transport} · ${row.carga || row.titulo || "Movimiento"}`;
 }
 
+function workLabel(row) {
+  const value = String(row?.obra || "").trim();
+  if (!value) return "General · sin obra";
+  return /^obra\b/i.test(value) ? value : `Obra ${value}`;
+}
+
 function pairWasRejected(first, second) {
   return (first?.union_estado === "rechazada" && first?.viaje_sugerido_id === second?.id)
     || (second?.union_estado === "rechazada" && second?.viaje_sugerido_id === first?.id);
@@ -324,13 +330,34 @@ function MiniMetric({ label, value, tone = "blue", icon: Icon }) {
   );
 }
 
+function RainVeil({ probability = 0, compact = false }) {
+  const drops = Number(probability) >= 70 ? 8 : 5;
+  return (
+    <span className={`log-rain-veil${compact ? " is-compact" : ""}`} aria-hidden="true">
+      {Array.from({ length: drops }, (_, index) => (
+        <i
+          className="log-rain-drop"
+          key={index}
+          style={{
+            left: `${8 + ((index * 23) % 88)}%`,
+            animationDelay: `-${(index * .29).toFixed(2)}s`,
+            animationDuration: `${1.25 + (index % 3) * .24}s`,
+          }}
+        />
+      ))}
+    </span>
+  );
+}
+
 function WeatherStrip({ weather }) {
   const today = weather[TODAY];
   if (!today) return null;
   const risky = Number(today.wind) >= 30;
+  const raining = Number(today.rain) >= 40;
   return (
-    <span className="log-weather" title={`${weatherLabel(today.code)} · lluvia ${today.rain ?? 0}%`} style={{ display: "inline-flex", alignItems: "center", gap: 7, height: 31, padding: "0 10px", borderRadius: 9, border: `1px solid ${risky ? C.redB : C.cyanB}`, background: risky ? C.redL : C.cyanL, color: risky ? C.red : C.cyan, whiteSpace: "nowrap" }}>
-      {Number(today.rain) >= 40 ? <CloudRain size={14} /> : <CloudSun size={14} />}
+    <span className={`log-weather${raining ? " is-raining" : ""}`} title={`${weatherLabel(today.code)} · lluvia ${today.rain ?? 0}%`} style={{ position: "relative", overflow: "hidden", display: "inline-flex", alignItems: "center", gap: 7, height: 31, padding: "0 10px", borderRadius: 9, border: `1px solid ${risky ? C.redB : C.cyanB}`, background: risky ? C.redL : C.cyanL, color: risky ? C.red : C.cyan, whiteSpace: "nowrap" }}>
+      {raining && <RainVeil compact probability={today.rain} />}
+      {raining ? <CloudRain size={14} /> : <CloudSun size={14} />}
       <b style={{ fontFamily: C.mono, fontSize: 11.5 }}>{Math.round(today.max)}° / {Math.round(today.min)}°</b>
       <span style={{ display: "inline-flex", alignItems: "center", gap: 4, fontSize: 10.5, fontWeight: 850 }}><Wind size={12} /> {Math.round(today.wind)} km/h</span>
       <span style={{ color: C.dim, fontSize: 9.5 }}>San Fernando</span>
@@ -368,7 +395,7 @@ function MovementCard({ row, onOpen, compact = false, index = 0, mergeHint = fal
           {row.origen_manual && <span style={{ padding: "3px 6px", borderRadius: 6, color: C.orange, background: "var(--orange-soft)", border: "1px solid var(--orange-border)", fontSize: 8.8, fontWeight: 950, textTransform: "uppercase" }}>Manual</span>}
         </span>
         <span style={{ display: "flex", alignItems: "center", gap: 10, marginTop: 9, minWidth: 0, flexWrap: "wrap" }}>
-          {row.obra && <span style={{ padding: "3px 7px", borderRadius: 6, color: C.blue, background: C.blueL, border: `1px solid ${C.blueB}`, fontFamily: C.mono, fontSize: 10.2, fontWeight: 900 }}>{row.obra}</span>}
+          <span style={{ padding: "4px 8px", borderRadius: 7, color: row.obra ? C.blue : C.dim, background: row.obra ? C.blueL : C.panel2, border: `1px solid ${row.obra ? C.blueB : C.border}`, fontFamily: C.mono, fontSize: 10.2, fontWeight: 950, letterSpacing: ".015em" }}>{workLabel(row)}</span>
           <span style={{ color: C.muted, fontSize: 10.5, display: "inline-flex", alignItems: "center", gap: 4 }}><UserRound size={11} /> {actorName(row.solicitante)}</span>
           <span style={{ color: C.muted, fontSize: 10.5, display: "inline-flex", alignItems: "center", gap: 4 }}><Truck size={11} /> {providerSummary(row)}</span>
           <span style={{ color: C.dim, fontSize: 10.5, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", display: "inline-flex", alignItems: "center", gap: 4 }}><Route size={11} /> {routeLabel(row)}</span>
@@ -1065,7 +1092,7 @@ function DetailPanel({ row, rows, profile, isManager, onClose, onReload, onEdit,
   );
 }
 
-function MonthView({ month, rows, milestones, weather, mergeableIds, onOpen, onMonth }) {
+function MonthView({ month, rows, milestones, weather, holidays, mergeableIds, onOpen, onMonth }) {
   const year = month.getFullYear();
   const monthIndex = month.getMonth();
   const first = new Date(year, monthIndex, 1);
@@ -1083,12 +1110,14 @@ function MonthView({ month, rows, milestones, weather, mergeableIds, onOpen, onM
     byDate.get(key).push(row);
   });
   const milestoneMap = new Map();
-  milestones.forEach((row) => {
+  milestones.filter((row) => row.tipo !== "feriado").forEach((row) => {
     if (!milestoneMap.has(row.fecha)) milestoneMap.set(row.fecha, []);
     milestoneMap.get(row.fecha).push(row);
   });
   const visibleMovements = rows.filter((row) => displayDate(row)?.startsWith(`${year}-${String(monthIndex + 1).padStart(2, "0")}`)).length;
-  const visibleMilestones = milestones.filter((row) => row.fecha?.startsWith(`${year}-${String(monthIndex + 1).padStart(2, "0")}`)).length;
+  const monthKey = `${year}-${String(monthIndex + 1).padStart(2, "0")}`;
+  const visibleMilestones = milestones.filter((row) => row.tipo !== "feriado" && row.fecha?.startsWith(monthKey)).length;
+  const visibleHolidays = [...holidays.keys()].filter((date) => date.startsWith(monthKey)).length;
 
   return (
     <section className="log-calendar-shell log-view-enter" style={{ background: C.panelSolid, border: `1px solid ${C.border}`, borderRadius: 18, overflow: "hidden", boxShadow: "0 18px 55px var(--shadow)" }}>
@@ -1096,7 +1125,7 @@ function MonthView({ month, rows, milestones, weather, mergeableIds, onOpen, onM
         <div style={{ display: "flex", alignItems: "center", gap: 11, minWidth: 0 }}>
           <span className="log-month-icon" style={{ width: 38, height: 38, borderRadius: 11, display: "grid", placeItems: "center", color: C.blue, background: C.blueL, border: `1px solid ${C.blueB}` }}><CalendarDays size={18} /></span>
           <span style={{ minWidth: 0 }}><small style={{ display: "block", color: C.dim, fontSize: 9, fontWeight: 900, textTransform: "uppercase", letterSpacing: ".13em" }}>Agenda logística</small><strong style={{ display: "block", color: C.text, fontSize: 17, lineHeight: 1.2, textTransform: "capitalize", marginTop: 2 }}>{MESES[monthIndex]} <span style={{ color: C.dim, fontFamily: C.mono, fontWeight: 700 }}>{year}</span></strong></span>
-          <span className="log-month-summary" style={{ color: C.dim, fontSize: 10.5, marginLeft: 5 }}>{visibleMovements} movimiento{visibleMovements === 1 ? "" : "s"}{visibleMilestones ? ` · ${visibleMilestones} anteriores` : ""}</span>
+          <span className="log-month-summary" style={{ color: C.dim, fontSize: 10.5, marginLeft: 5 }}>{visibleMovements} movimiento{visibleMovements === 1 ? "" : "s"}{visibleMilestones ? ` · ${visibleMilestones} anteriores` : ""}{visibleHolidays ? ` · ${visibleHolidays} feriado${visibleHolidays === 1 ? "" : "s"}` : ""}</span>
         </div>
         <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
           <button className="log-soft-button" onClick={() => onMonth(parseDate(TODAY))} style={{ height: 31, padding: "0 10px", borderRadius: 8, border: `1px solid ${C.border}`, background: C.panel, color: C.muted, cursor: "pointer", fontSize: 10.5, fontWeight: 850 }}>Hoy</button>
@@ -1113,13 +1142,18 @@ function MonthView({ month, rows, milestones, weather, mergeableIds, onOpen, onM
             const events = date ? byDate.get(date) || [] : [];
             const marks = date ? milestoneMap.get(date) || [] : [];
             const dayWeather = date ? weather[date] : null;
+            const holiday = date ? holidays.get(date) : null;
+            const raining = Number(dayWeather?.rain) >= 40;
             const weekend = index % 7 > 4;
-            const visibleMarks = Math.max(0, 4 - events.length);
+            const eventLimit = holiday ? 3 : 4;
+            const visibleMarks = Math.max(0, eventLimit - events.length);
             return (
-              <div className={`log-calendar-cell${date === TODAY ? " is-today" : ""}${weekend ? " is-weekend" : ""}${!date ? " is-empty" : ""}`} key={index} style={{ minHeight: 126, padding: 8, borderRight: index % 7 !== 6 ? `1px solid ${C.border}` : 0, borderBottom: index < 35 ? `1px solid ${C.border}` : 0, background: !date ? C.panel : date === TODAY ? C.blueL : weekend ? C.panel : "transparent" }}>
-                {date && <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", color: date === TODAY ? C.blue : C.dim, fontFamily: C.mono, fontSize: 10.5, fontWeight: 900, marginBottom: 7 }}><span className="log-day-number" style={{ width: 24, height: 24, borderRadius: 8, display: "grid", placeItems: "center", background: date === TODAY ? C.blue : "transparent", color: date === TODAY ? "white" : weekend ? C.muted : C.dim }}>{parseDate(date).getDate()}</span>{dayWeather && <span title={`${weatherLabel(dayWeather.code)} · viento ${Math.round(dayWeather.wind)} km/h · lluvia ${dayWeather.rain ?? 0}%`} style={{ display: "inline-flex", alignItems: "center", gap: 3, color: Number(dayWeather.wind) >= 30 ? C.red : C.dim, fontSize: 8.5 }}>{Number(dayWeather.rain) >= 40 ? <CloudRain size={10} /> : <CloudSun size={10} />}{Math.round(dayWeather.max)}°</span>}</div>}
-                {events.slice(0, 4).map((row) => { const ui = transportUi(transportsOf(row)[0]?.tipo); const state = statusUi(row.estado); const risky = hasCrane(row) && Number(dayWeather?.wind) >= 30; const canMerge = mergeableIds?.has(row.id); return <button className="log-event-pill" key={row.id} onClick={() => onOpen(row)} title={`${movementHeadline(row)} · ${routeLabel(row)}${canMerge ? " · Posible unión" : ""}${risky ? " · Revisar viento" : ""}`} style={{ width: "100%", display: "grid", gridTemplateColumns: "auto minmax(0,1fr) auto", alignItems: "center", gap: 5, textAlign: "left", overflow: "hidden", marginBottom: 4, padding: "5px 6px", borderRadius: 7, border: `1px solid ${risky ? C.redB : ui.border}`, borderLeft: `2px solid ${risky ? C.red : state.color}`, background: risky ? C.redL : ui.soft, color: risky ? C.red : C.text, cursor: "pointer", fontSize: 9.2, fontWeight: 850 }}><span style={{ color: risky ? C.red : ui.color, fontFamily: C.mono, fontSize: 8.7 }}>{displayTime(row) || "—"}</span><span style={{ overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{movementHeadline(row)}</span>{canMerge && <Merge size={9} color={C.violet} />}</button>; })}
-                {events.length > 4 && <div style={{ color: C.blue, fontSize: 8.8, fontWeight: 850, padding: "1px 4px" }}>+{events.length - 4} movimientos</div>}
+              <div className={`log-calendar-cell${date === TODAY ? " is-today" : ""}${weekend ? " is-weekend" : ""}${holiday ? " is-holiday" : ""}${raining ? " is-raining" : ""}${!date ? " is-empty" : ""}`} key={index} title={holiday || undefined} style={{ minHeight: 132, padding: 8, overflow: "hidden", borderRight: index % 7 !== 6 ? `1px solid ${C.border}` : 0, borderBottom: index < 35 ? `1px solid ${C.border}` : 0, background: !date ? C.panel : date === TODAY ? C.blueL : holiday ? `linear-gradient(145deg, ${C.redL}, transparent 62%)` : weekend ? C.panel : "transparent" }}>
+                {raining && <RainVeil probability={dayWeather.rain} />}
+                {date && <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", color: date === TODAY ? C.blue : holiday ? C.red : C.dim, fontFamily: C.mono, fontSize: 10.5, fontWeight: 900, marginBottom: 7 }}><span className="log-day-number" style={{ width: 24, height: 24, borderRadius: 8, display: "grid", placeItems: "center", background: date === TODAY ? C.blue : holiday ? C.redL : "transparent", border: holiday && date !== TODAY ? `1px solid ${C.redB}` : "1px solid transparent", color: date === TODAY ? "white" : holiday ? C.red : weekend ? C.muted : C.dim }}>{parseDate(date).getDate()}</span>{dayWeather && <span title={`${weatherLabel(dayWeather.code)} · viento ${Math.round(dayWeather.wind)} km/h · lluvia ${dayWeather.rain ?? 0}%`} style={{ display: "inline-flex", alignItems: "center", gap: 3, color: Number(dayWeather.wind) >= 30 ? C.red : raining ? C.cyan : C.dim, fontSize: 8.5 }}>{raining ? <CloudRain size={10} /> : <CloudSun size={10} />}{Math.round(dayWeather.max)}°</span>}</div>}
+                {holiday && <div className="log-holiday-label" title={holiday} style={{ margin: "-2px 0 5px", color: C.red, fontSize: 8.5, fontWeight: 950, lineHeight: 1.25, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}><span style={{ display: "inline-block", width: 5, height: 5, marginRight: 4, borderRadius: 99, background: C.red }} />Feriado · {holiday}</div>}
+                {events.slice(0, eventLimit).map((row) => { const ui = transportUi(transportsOf(row)[0]?.tipo); const state = statusUi(row.estado); const risky = hasCrane(row) && Number(dayWeather?.wind) >= 30; const canMerge = mergeableIds?.has(row.id); return <button className="log-event-pill" key={row.id} onClick={() => onOpen(row)} title={`${movementHeadline(row)} · ${workLabel(row)} · ${routeLabel(row)}${canMerge ? " · Posible unión" : ""}${risky ? " · Revisar viento" : ""}`} style={{ width: "100%", display: "grid", gridTemplateColumns: "auto minmax(0,1fr) auto", alignItems: "center", gap: 5, textAlign: "left", overflow: "hidden", marginBottom: 4, padding: "5px 6px", borderRadius: 7, border: `1px solid ${risky ? C.redB : ui.border}`, borderLeft: `2px solid ${risky ? C.red : state.color}`, background: risky ? C.redL : ui.soft, color: risky ? C.red : C.text, cursor: "pointer", fontSize: 9.2, fontWeight: 850 }}><span style={{ color: risky ? C.red : ui.color, fontFamily: C.mono, fontSize: 8.7 }}>{displayTime(row) || "—"}</span><span style={{ overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}><b style={{ color: row.obra ? C.blue : C.dim, fontFamily: C.mono, fontSize: 8.5 }}>{workLabel(row)}</b> · {movementHeadline(row)}</span>{canMerge && <Merge size={9} color={C.violet} />}</button>; })}
+                {events.length > eventLimit && <div style={{ color: C.blue, fontSize: 8.8, fontWeight: 850, padding: "1px 4px" }}>+{events.length - eventLimit} movimientos</div>}
                 {marks.slice(0, visibleMarks).map((mark) => <div className="log-legacy-pill" key={mark.id} title={mark.notas || "Registro del calendario anterior"} style={{ marginTop: 4, padding: "4px 6px", borderRadius: 6, border: `1px dashed ${C.border2}`, background: C.panel2, color: C.muted, fontSize: 8.6, fontWeight: 800, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>◇ {cleanTime(mark.hora) ? `${cleanTime(mark.hora)} · ` : ""}{mark.titulo}{mark.obra ? ` · ${mark.obra}` : ""}</div>)}
                 {marks.length > visibleMarks && <div style={{ color: C.dim, fontSize: 8.5, marginTop: 3 }}>+{marks.length - visibleMarks} anteriores</div>}
               </div>
@@ -1203,6 +1237,7 @@ export default function LogisticaCalendarioScreen({ profile, signOut }) {
   const [rows, setRows] = useState([]);
   const [milestones, setMilestones] = useState([]);
   const [weather, setWeather] = useState({});
+  const [nationalHolidays, setNationalHolidays] = useState(() => new Map());
   const [obras, setObras] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
@@ -1221,6 +1256,7 @@ export default function LogisticaCalendarioScreen({ profile, signOut }) {
   const [requestModal, setRequestModal] = useState(null);
   const [manualModal, setManualModal] = useState(false);
   const [coordination, setCoordination] = useState(null);
+  const visibleYear = month.getFullYear();
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -1268,6 +1304,29 @@ export default function LogisticaCalendarioScreen({ profile, signOut }) {
   }, []);
 
   useEffect(() => {
+    let alive = true;
+    fetch(`https://nolaborables.com.ar/api/v2/feriados/${visibleYear}`)
+      .then((response) => {
+        if (!response.ok) throw new Error("No se pudieron consultar los feriados.");
+        return response.json();
+      })
+      .then((list) => {
+        if (!alive || !Array.isArray(list)) return;
+        setNationalHolidays((current) => {
+          const next = new Map(current);
+          list.forEach((holiday) => {
+            if (typeof holiday?.dia !== "number" || typeof holiday?.mes !== "number") return;
+            const date = `${visibleYear}-${String(holiday.mes).padStart(2, "0")}-${String(holiday.dia).padStart(2, "0")}`;
+            next.set(date, holiday.motivo || "Feriado nacional");
+          });
+          return next;
+        });
+      })
+      .catch(() => {});
+    return () => { alive = false; };
+  }, [visibleYear]);
+
+  useEffect(() => {
     const channel = supabase.channel("calendario-logistica-ui")
       .on("postgres_changes", { event: "*", schema: "public", table: "calendario_eventos" }, load)
       .subscribe();
@@ -1296,6 +1355,13 @@ export default function LogisticaCalendarioScreen({ profile, signOut }) {
   }), [rows]);
   const advancedFilterCount = [dateFrom, dateTo, obraFilter !== "todos", providerFilter !== "todos"].filter(Boolean).length;
   const hasAnyFilters = !!query || status !== "todos" || transport !== "todos" || advancedFilterCount > 0;
+  const holidays = useMemo(() => {
+    const combined = new Map(nationalHolidays);
+    milestones
+      .filter((row) => row.tipo === "feriado" && row.fecha)
+      .forEach((row) => combined.set(row.fecha, row.titulo || "Feriado"));
+    return combined;
+  }, [milestones, nationalHolidays]);
 
   const agendaRows = useMemo(() => filtered
     .filter((row) => row.estado !== "cancelado" && (dateFrom ? displayDate(row) >= dateFrom : displayDate(row) >= TODAY))
@@ -1308,7 +1374,7 @@ export default function LogisticaCalendarioScreen({ profile, signOut }) {
     });
     if (status === "todos" && transport === "todos" && obraFilter === "todos" && providerFilter === "todos") {
       const words = query.trim().toLowerCase().split(/\s+/).filter(Boolean);
-      milestones.filter((row) => row.fecha >= (dateFrom || TODAY) && (!dateTo || row.fecha <= dateTo)).forEach((row) => {
+      milestones.filter((row) => row.tipo !== "feriado" && row.fecha >= (dateFrom || TODAY) && (!dateTo || row.fecha <= dateTo)).forEach((row) => {
         const haystack = [row.titulo, row.obra, row.notas, row.tipo].join(" ").toLowerCase();
         if (words.length && !words.every((word) => haystack.includes(word))) return;
         (acc[row.fecha] ||= { movements: [], legacy: [] }).legacy.push(row);
@@ -1363,6 +1429,7 @@ export default function LogisticaCalendarioScreen({ profile, signOut }) {
         @keyframes logBackdrop{from{opacity:0}to{opacity:1}}
         @keyframes logPulse{0%,100%{box-shadow:0 0 0 0 currentColor}50%{box-shadow:0 0 0 4px transparent}}
         @keyframes logSpin{to{transform:rotate(360deg)}}
+        @keyframes logRainFall{0%{transform:translate3d(0,-20px,0) rotate(11deg);opacity:0}16%{opacity:.46}82%{opacity:.28}100%{transform:translate3d(-18px,150px,0) rotate(11deg);opacity:0}}
         .log-main{background:radial-gradient(circle at 92% 4%,var(--blue-soft),transparent 24%),radial-gradient(circle at 12% 88%,var(--violet-soft),transparent 26%)}
         .log-view-enter,.log-enter{animation:logFadeUp .34s cubic-bezier(.2,.8,.2,1) both}
         .log-card{position:relative;overflow:hidden;transition:transform .18s cubic-bezier(.2,.8,.2,1),border-color .18s ease,box-shadow .18s ease,background .18s ease}
@@ -1372,6 +1439,10 @@ export default function LogisticaCalendarioScreen({ profile, signOut }) {
         .log-card:active{transform:translateY(0) scale(.997)}
         .log-metric,.log-weather{transition:transform .16s ease,border-color .16s ease,background .16s ease}
         .log-metric:hover,.log-weather:hover{transform:translateY(-1px);border-color:var(--border-2)!important}
+        .log-weather>*:not(.log-rain-veil),.log-calendar-cell>*:not(.log-rain-veil){position:relative;z-index:1}
+        .log-rain-veil{position:absolute!important;z-index:0!important;inset:0;overflow:hidden;pointer-events:none;border-radius:inherit;opacity:.58}
+        .log-rain-veil.is-compact{opacity:.34}
+        .log-rain-drop{position:absolute;top:-18px;width:1px;height:13px;border-radius:99px;background:linear-gradient(to bottom,transparent,var(--cyan));transform:rotate(11deg);animation:logRainFall 1.5s linear infinite;filter:drop-shadow(0 0 2px var(--cyan))}
         .log-status-dot.is-live{animation:logPulse 2.2s ease-in-out infinite}
         .log-icon-button,.log-soft-button,.log-tab,.log-primary-action{transition:transform .15s ease,background .15s ease,color .15s ease,border-color .15s ease,box-shadow .15s ease}
         .log-icon-button:hover,.log-soft-button:hover{color:var(--text)!important;background:var(--panel-2)!important;transform:translateY(-1px)}
@@ -1383,6 +1454,7 @@ export default function LogisticaCalendarioScreen({ profile, signOut }) {
         .log-event-pill:hover{transform:translateX(2px);filter:saturate(1.12);box-shadow:0 5px 14px var(--shadow)}
         .log-calendar-cell{position:relative;transition:background .16s ease,box-shadow .16s ease}
         .log-calendar-cell:not(.is-empty):hover{z-index:1;box-shadow:inset 0 0 0 1px var(--border-2);background:var(--panel-2)!important}
+        .log-calendar-cell.is-holiday:not(.is-empty):hover{background:linear-gradient(145deg,var(--red-soft),var(--panel-2) 68%)!important}
         .log-calendar-cell.is-today::before{content:"";position:absolute;inset:0 auto 0 0;width:2px;background:var(--blue);box-shadow:0 0 16px var(--blue)}
         .log-day-number{transition:transform .16s ease}
         .log-calendar-cell:hover .log-day-number{transform:scale(1.08)}
@@ -1480,17 +1552,19 @@ export default function LogisticaCalendarioScreen({ profile, signOut }) {
             {error && <div style={{ padding: 13, borderRadius: 11, background: C.redL, border: `1px solid ${C.redB}`, color: C.red, fontSize: 12 }}><b>No se pudo abrir el nuevo calendario.</b><div style={{ marginTop: 4 }}>{error}</div><div style={{ marginTop: 5, color: C.muted }}>Aplicá la migración 20260803180000_calendario_logistica_operativa.sql en Supabase y reintentá.</div></div>}
 
             {loading ? <div className="log-view-enter" style={{ padding: 64, textAlign: "center", color: C.dim, border: `1px solid ${C.border}`, borderRadius: 16, background: C.panelSolid }}><span style={{ width: 42, height: 42, display: "grid", placeItems: "center", margin: "0 auto", borderRadius: 13, color: C.blue, background: C.blueL, border: `1px solid ${C.blueB}` }}><RefreshCw size={19} className="spin" /></span><div style={{ marginTop: 11, color: C.muted, fontSize: 12, fontWeight: 850 }}>Preparando la agenda logística</div><div style={{ marginTop: 3, fontSize: 10.5 }}>Movimientos, clima y documentación.</div></div> : view === "calendario" ? (
-              <div style={{ overflowX: "auto" }}><MonthView month={month} rows={filtered} milestones={milestones} weather={weather} mergeableIds={mergeableIds} onOpen={setSelected} onMonth={setMonth} /></div>
+              <div style={{ overflowX: "auto" }}><MonthView month={month} rows={filtered} milestones={milestones} weather={weather} holidays={holidays} mergeableIds={mergeableIds} onOpen={setSelected} onMonth={setMonth} /></div>
             ) : view === "costos" ? (
               <CostsView rows={filtered} />
             ) : view === "solicitudes" ? (
               <div className="log-view-enter" style={{ display: "grid", gap: 10 }}>{filtered.sort((a, b) => String(b.updated_at).localeCompare(String(a.updated_at))).map((row, index) => <MovementCard key={row.id} row={row} onOpen={setSelected} compact={isMobile} index={index} mergeHint={mergeableIds.has(row.id)} />)}{!filtered.length && <div style={{ padding: 48, textAlign: "center", color: C.dim, border: `1px dashed ${C.border2}`, borderRadius: 15, background: C.panel }}>No hay solicitudes con estos filtros.</div>}</div>
             ) : (
               <div className="log-view-enter" style={{ display: "grid", gap: 20 }}>
-                {Object.entries(groups).sort(([a], [b]) => a.localeCompare(b)).map(([date, dateRows], groupIndex) => (
-                  <section className="log-day-group" key={date} style={{ animationDelay: `${Math.min(groupIndex, 8) * 40}ms` }}>
+                {Object.entries(groups).sort(([a], [b]) => a.localeCompare(b)).map(([date, dateRows], groupIndex) => {
+                  const holiday = holidays.get(date);
+                  return <section className="log-day-group" key={date} style={{ animationDelay: `${Math.min(groupIndex, 8) * 40}ms` }}>
                     <div style={{ display: "flex", alignItems: "center", gap: 9, marginBottom: 9 }}>
                       <span style={{ minWidth: date === TODAY ? 48 : 0, padding: date === TODAY ? "5px 9px" : 0, borderRadius: 8, border: date === TODAY ? `1px solid ${C.blueB}` : 0, background: date === TODAY ? C.blueL : "transparent", color: date === TODAY ? C.blue : C.text, fontSize: 12, fontWeight: 950, textTransform: "capitalize" }}>{date === TODAY ? "Hoy" : fmtDate(date, true)}</span>
+                      {holiday && <span title={holiday} style={{ maxWidth: 280, padding: "4px 8px", borderRadius: 7, border: `1px solid ${C.redB}`, background: C.redL, color: C.red, fontSize: 9.5, fontWeight: 900, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>Feriado · {holiday}</span>}
                       <span style={{ flex: 1, height: 1, background: C.border }} />
                       <span style={{ height: 23, minWidth: 23, padding: "0 7px", borderRadius: 99, border: `1px solid ${C.border}`, background: C.panel, color: C.dim, display: "grid", placeItems: "center", fontFamily: C.mono, fontSize: 9.5 }}>{dateRows.movements.length + dateRows.legacy.length}</span>
                     </div>
@@ -1498,8 +1572,8 @@ export default function LogisticaCalendarioScreen({ profile, signOut }) {
                       {dateRows.movements.map((row, index) => <MovementCard key={row.id} row={row} onOpen={setSelected} compact={isMobile} index={index} mergeHint={mergeableIds.has(row.id)} />)}
                       {dateRows.legacy.map((row) => <LegacyEventCard key={`legacy-${row.id}`} row={row} compact={isMobile} />)}
                     </div>
-                  </section>
-                ))}
+                  </section>;
+                })}
                 {!Object.keys(groups).length && <div style={{ padding: 56, textAlign: "center", color: C.dim, border: `1px dashed ${C.border2}`, borderRadius: 13 }}><Truck size={26} style={{ marginBottom: 9 }} /><div style={{ color: C.text, fontWeight: 900 }}>No hay movimientos próximos</div><div style={{ fontSize: 11.5, marginTop: 4 }}>Probá cambiar los filtros o creá una solicitud.</div></div>}
               </div>
             )}
