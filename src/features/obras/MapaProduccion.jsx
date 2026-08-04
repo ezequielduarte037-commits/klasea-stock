@@ -951,6 +951,7 @@ export default function MapaProduccion({obras=[],onPuestoClick,onAsignarObra,onC
           <div style={{marginTop:4,textAlign:"center",fontFamily:C.mono,fontSize:11,color:C.t1,fontWeight: 700}}>{Math.round(vp.scale*100)}%</div>
         </div>
       </div>
+      )}
 
       <RadarHUD puestos={puestos} obraByPuesto={obraByPuesto} vp={vp} containerW={containerSize.w} containerH={containerSize.h} right={82}/>
       <OpsRail obras={obras} puestos={puestos} obraByPuesto={obraByPuesto} memoriasEdit={memoriasEdit}
