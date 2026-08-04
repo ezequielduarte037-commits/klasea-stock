@@ -28,6 +28,15 @@ import GalponPampa from "@/features/obras/GalponPampa";
 import { GLASS, VB_W, VB_H, RAIL_W, RAIL_W_COLLAPSED, ZONAS, WALLS, BOAT_IMGS, genId, PUESTOS_INITIAL, LEGEND, dedupPuestos, syncNextNMapa, resetNextN, LS_KEY } from "@/features/obras/mapa/mapData";
 import { loadMemoriasFromSupabase, saveMemoriaToSupabase, subscribeMemorias } from "@/features/obras/mapa/persistence";
 import { AddObraModal, RadialMenu, CommandPalette, CinematicCallouts, CinematicCards, MemoriaHUD, RadarHUD, OpsRail } from "@/features/obras/mapa/components";
+import Maqueta3D from "@/features/obras/mapa/Maqueta3D";
+
+/* ── Simulación temporal ─────────────────────────────────────────────────────
+   "Hoy" se congela al cargar el módulo (una sola vez, fuera del render: la
+   regla react-hooks/purity prohíbe new Date() durante el render). */
+const HOY=new Date(); HOY.setHours(0,0,0,0);
+const parseDay=(s)=>{ if(!s) return null; const d=new Date(String(s).slice(0,10)+"T00:00:00"); return isNaN(d)?null:d; };
+const addDias=(d,n)=>{ const x=new Date(d); x.setDate(x.getDate()+n); return x; };
+const fmtD=(d)=>d?`${String(d.getDate()).padStart(2,"0")}/${String(d.getMonth()+1).padStart(2,"0")}`:null;
 
 /* Fit único del plano al viewport: descuenta el rail de operación a la IZQUIERDA
    y reserva aire para la topbar (arriba) y la barra de estado (abajo), de modo
@@ -86,6 +95,8 @@ export default function MapaProduccion({obras=[],onPuestoClick,onAsignarObra,onC
   const [contextMenu,setContextMenu]=useState(null);
   const [cmdPaletteOpen,setCmdPaletteOpen]=useState(false);
   const [focusedPuesto,setFocusedPuesto]=useState(null);
+  const [vista3d,setVista3d]=useState(true);   // maqueta 3D (vista principal) / plano 2D (edición)
+  const [diasSim,setDiasSim]=useState(0);      // deslizador temporal: 0 = hoy
   const dragRef=useRef(null);
   const obraDragOverRef=useRef(null);
   const stateRef=useRef({});
@@ -183,6 +194,32 @@ export default function MapaProduccion({obras=[],onPuestoClick,onAsignarObra,onC
     return m;
   },[obras,pendingAssignments]);
   /* Los contadores de conjunto (total/ocupados/libres) los muestra el OpsRail. */
+
+  /* ── Simulación temporal ───────────────────────────────────────────────────
+     salioSet:  puestos cuya obra (activa, con fecha_fin_estimada) ya habría
+                salido a la fecha simulada → se hunden en la maqueta y el
+                puesto se muestra libre.
+     pasadoSet: puestos con obra activa PASADA DE PLAZO hoy (venció su fecha
+                fin estimada) → se marcan en rojo. */
+  const sim=useMemo(()=>{
+    const salioSet=new Set(), pasadoSet=new Set();
+    const simDate=diasSim>0?addDias(HOY,diasSim):null;
+    obras.forEach(o=>{
+      if(o.estado!=="activa"||!o.puesto_mapa) return;
+      const fin=parseDay(o.fecha_fin_estimada);
+      if(!fin) return;
+      if(fin<HOY) pasadoSet.add(o.puesto_mapa);
+      if(simDate&&fin<simDate) salioSet.add(o.puesto_mapa);
+    });
+    /* Techo del deslizador: última fecha fin estimada activa + 21 días */
+    let maxDias=120;
+    obras.forEach(o=>{
+      if(o.estado!=="activa") return;
+      const fin=parseDay(o.fecha_fin_estimada);
+      if(fin){ const d=Math.ceil((fin-HOY)/86400000)+21; if(d>maxDias) maxDias=d; }
+    });
+    return {salioSet,pasadoSet,simDate,maxDias:Math.min(maxDias,540)};
+  },[obras,diasSim]);
 
   const onWheel=useCallback(e=>{
     e.preventDefault();
@@ -419,6 +456,11 @@ export default function MapaProduccion({obras=[],onPuestoClick,onAsignarObra,onC
     // Mini selector: Etapas | Memoria
     setClickMenu({puestoId:p.id,x:screenX??window.innerWidth/2,y:screenY??window.innerHeight/2});
   }
+  /* Handlers desde la maqueta 3D (eventos R3F: traen clientX/clientY) */
+  function handle3dHover(p,e){ setHovered(p.id); setTooltip({cx:e.clientX,cy:e.clientY,puesto:p}); }
+  function handle3dOut(){ setHovered(null); setTooltip(null); }
+  function handle3dClick(p,e){ handlePuestoClick(p,e.clientX,e.clientY); }
+  function handle3dContext(p,e){ setContextMenu({x:e.clientX,y:e.clientY,puestoId:p.id}); setTooltip(null); }
   const handleContextMenu=useCallback((e,p)=>{e.preventDefault();e.stopPropagation();setContextMenu({x:e.clientX,y:e.clientY,puestoId:p.id});setTooltip(null);},[]);
   const handlePaletteAction=useCallback((item)=>{
     if(item.type==="action"){if(item.id==="reset-view")resetVp();else if(item.id==="toggle-edit")setEditMode(v=>!v);else if(item.id==="zoom-in")zoomBtn(1.3);else if(item.id==="zoom-out")zoomBtn(0.77);}
@@ -458,13 +500,18 @@ export default function MapaProduccion({obras=[],onPuestoClick,onAsignarObra,onC
   const focusedOC=C.obra[focusedObra?.estado??"vacio"];
   const ctxPuesto=contextMenu?puestos.find(p=>p.id===contextMenu.puestoId):null;
   const ctxObra=ctxPuesto?obraByPuesto[ctxPuesto.id]:null;
+  /* La maqueta 3D es la vista principal; el plano 2D queda para edición de
+     layout, pantallas chicas y quien prefiera el plano técnico. */
+  const show3d=vista3d&&!editMode&&!isMobile;
   const nonFocusedPuestos=focusedPuesto?puestos.filter(p=>p.id!==focusedPuesto):puestos;
 
   const renderBoat=(p)=>{
     /* FIX: si este barco está siendo arrastrado, usamos la posición en vivo
        del ref en lugar de la del array (que no cambia durante el drag) */
     if(puestoDragLive?.id===p.id) p={...p,cx:puestoDragLive.cx,cy:puestoDragLive.cy};
-    const obra=obraByPuesto[p.id],oC=C.obra[obra?.estado??"vacio"];
+    const obraRaw=obraByPuesto[p.id];
+    const obra=sim.salioSet.has(p.id)?null:obraRaw;
+    const oC=C.obra[obra?.estado??"vacio"];
     const isHov=hovered===p.id,isEmpty=!obra,isAct=obra?.estado==="activa",isPaused=obra?.estado==="pausada";
     const canDrop=!!obraDragPos&&isEmpty&&p.id!==dragRef.current?.fromId;
     const isDrop=obraDragOver===p.id;
@@ -720,6 +767,22 @@ export default function MapaProduccion({obras=[],onPuestoClick,onAsignarObra,onC
         .glass-btn:hover{background:var(--panel-2);color:${C.t0};border-color:var(--border-2);}
       `}</style>
 
+      {show3d ? (
+        /* ── LA MAQUETA (vista principal) ── */
+        <Maqueta3D
+          puestos={puestos}
+          obraByPuesto={obraByPuesto}
+          salioSet={sim.salioSet}
+          pasadoSet={sim.pasadoSet}
+          focusedPuesto={focusedP}
+          onHover={handle3dHover}
+          onOut={handle3dOut}
+          onClickPuesto={handle3dClick}
+          onContextPuesto={handle3dContext}
+          onPointerMissed={()=>setTooltip(null)}
+        />
+      ) : (
+      /* ── PLANO 2D (edición de layout, pantallas chicas, preferencia) ── */
       <svg ref={svgRef} style={{position:"absolute",inset:0,width:"100%",height:"100%",display:"block",cursor:isDragging?"grabbing":"grab"}} onMouseDown={startPan} onContextMenu={e=>e.preventDefault()}>
         <defs>
           {["activa","pausada","terminada","cancelada"].map(k=>(
@@ -775,6 +838,31 @@ export default function MapaProduccion({obras=[],onPuestoClick,onAsignarObra,onC
           </>)}
         </g>
       </svg>
+      )}
+
+      {/* Dim de modo foco sobre la maqueta 3D (el 2D lo lleva dentro del SVG) */}
+      {show3d&&activeFocusId&&(
+        <div style={{position:"absolute",inset:0,zIndex:5,background:"rgba(2,3,6,0.55)",animation:"dimIn 0.35s ease both"}} onClick={()=>setFocusedPuesto(null)}/>
+      )}
+
+      {/* ── CONSOLA TEMPORAL — deslizador hacia el futuro del galpón ──
+          Arrastrás y los barcos cuya fecha fin estimada ya pasó se hunden
+          en la maqueta / se muestran como puesto libre en el plano. */}
+      {!isMobile&&!editMode&&(
+        <div style={{position:"absolute",bottom:16,left:(railCollapsed?RAIL_W_COLLAPSED:RAIL_W)+16,right:show3d?16:286,zIndex:10,...GLASS,borderRadius:12,padding:"8px 14px",display:"flex",alignItems:"center",gap:12,pointerEvents:"auto"}}>
+          <span style={{fontSize:10,color:C.t2,letterSpacing:1.2,fontWeight:700,whiteSpace:"nowrap"}}>HOY</span>
+          <input type="range" min={0} max={sim.maxDias} value={diasSim}
+            onChange={e=>setDiasSim(Number(e.target.value))}
+            style={{flex:1,accentColor:"#38bdf8",cursor:"pointer",height:14}}
+            title="Arrastrá para ver cómo va a estar el galpón"/>
+          <span style={{fontFamily:C.mono,fontSize:11,color:diasSim>0?"#38bdf8":C.t1,fontWeight:700,whiteSpace:"nowrap",minWidth:86,textAlign:"right"}}>
+            {diasSim>0?`+${diasSim}d · ${fmtD(sim.simDate)}`:"Tiempo real"}
+          </span>
+          {diasSim>0&&(
+            <button onClick={()=>setDiasSim(0)} className="glass-btn" style={{padding:"3px 10px",borderRadius:6,cursor:"pointer",fontSize:11,fontWeight:700}}>↺ Hoy</button>
+          )}
+        </div>
+      )}
 
       {/* MEMORIA DESCRIPTIVA HUD — portal a document.body para escapar overflow:hidden */}
       {activeFocusId&&focusedP&&createPortal(
@@ -853,7 +941,8 @@ export default function MapaProduccion({obras=[],onPuestoClick,onAsignarObra,onC
         </div>
       </div>
 
-      {/* ZOOM — esquina inferior derecha, sin panel que lo tape */}
+      {/* ZOOM — solo plano 2D (la maqueta usa rueda/pinch de cámara) */}
+      {!show3d&&(
       <div style={{position:"absolute",bottom:24,right:24,zIndex:10,display:"flex",gap:16,alignItems:"flex-end"}}>
         <div style={{display:"flex",flexDirection:"column",gap:6,...GLASS,padding:"6px",borderRadius:12}}>
           {[{i:"+",f:()=>zoomBtn(1.3)},{i:"−",f:()=>zoomBtn(0.77)},{i:"⌂",f:resetVp}].map(({i,f})=>(

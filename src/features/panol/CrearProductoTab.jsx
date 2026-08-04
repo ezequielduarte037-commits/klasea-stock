@@ -3,7 +3,7 @@ import { AlertTriangle, ImagePlus, PackagePlus } from "lucide-react";
 import { C } from "@/theme";
 import { crearMaterialRapido, fetchCategorias, fetchProveedores, normalizeUnidadMedida, uploadMaterialImage } from "@/features/materiales/api";
 import { fetchPanolCatalogMini } from "@/features/panol/panolApi";
-import { materialMatchIsStrong, materialMatchScore, topMaterialMatches } from "@/features/panol/materialMatch";
+import { materialMatchScore, topMaterialMatches } from "@/features/panol/materialMatch";
 
 // Pestaña de creación de producto para el pañol. El producto va al CATÁLOGO COMPLETO
 // (panol_materiales, sin revisar) — NO entra en la lista matriz de ningún barco.
@@ -14,6 +14,18 @@ const LBL = { fontSize: 10, color: C.dim, fontWeight: 850, letterSpacing: 0.6, t
 
 function norm(s) {
   return String(s || "").toLowerCase().normalize("NFD").replace(/[̀-ͯ]/g, "").replace(/\s+/g, " ").trim();
+}
+
+function codeKey(value) {
+  return String(value || "").toUpperCase().replace(/[^A-Z0-9]/g, "");
+}
+
+function materialCodeKeys(material = {}) {
+  return [
+    material.codigo,
+    material.codigo_barra,
+    ...(Array.isArray(material.codigos_barra) ? material.codigos_barra.map((row) => row?.codigo || row) : []),
+  ].map(codeKey).filter(Boolean);
 }
 
 // Similitud entre lo que se está por crear y un material del catálogo (0-100).
@@ -51,6 +63,7 @@ export default function CrearProductoTab({ isMobile = false, toast }) {
   const imgRef = useRef(null);
   const [catalogo, setCatalogo] = useState([]); // catálogo completo para detectar duplicados (en vivo + al crear)
   const [ultimos, setUltimos] = useState([]);
+  const [duplicateReview, setDuplicateReview] = useState(null);
 
   // Detección de duplicados EN VIVO: debounce para no recalcular sobre todo el catálogo en cada tecla.
   const [dupQuery, setDupQuery] = useState({ desc: "", cod: "" });
@@ -58,6 +71,7 @@ export default function CrearProductoTab({ isMobile = false, toast }) {
     const t = setTimeout(() => setDupQuery({ desc: descripcion, cod: codigo }), 200);
     return () => clearTimeout(t);
   }, [descripcion, codigo]);
+  useEffect(() => { setDuplicateReview(null); }, [descripcion, codigo]);
   const duplicados = useMemo(() => matchDuplicados(dupQuery.desc, dupQuery.cod, catalogo), [dupQuery, catalogo]);
 
   const imgPreview = useMemo(() => (imageFile ? URL.createObjectURL(imageFile) : ""), [imageFile]);
@@ -84,17 +98,18 @@ export default function CrearProductoTab({ isMobile = false, toast }) {
   function limpiar() {
     setDescripcion(""); setCategoriaId(""); setUnidad("unidad"); setProveedor(""); setCodigo("");
     setPrecio(""); setMoneda("ARS"); setNotas(""); setVariantes([]); setVariantesPrecios({}); setVarDraft(""); setEsConsumible(false); setImageFile(null);
+    setDuplicateReview(null);
   }
 
-  async function crear() {
+  async function crear(forceDuplicate = false) {
     const desc = descripcion.trim();
     if (!desc) { toast?.warning("Poné una descripción."); return; }
     if (desc.length < 4) { toast?.warning("Descripción muy corta. Agregá marca, medida o modelo."); return; }
     if (!categoriaId) { toast?.warning("Elegí un rubro."); return; }
     if (saving) return;
 
-    // Anti-duplicado: comparar por SIMILITUD contra el catálogo (no solo coincidencia exacta),
-    // así detecta duplicados aunque la descripción no sea idéntica o compartan el código.
+    // Un código COMPLETO idéntico sí bloquea. Prefijos, descripciones y similitudes
+    // únicamente advierten: pueden ser productos legítimamente diferentes.
     const cod = codigo.trim();
     try {
       let cat = catalogo;
@@ -107,20 +122,26 @@ export default function CrearProductoTab({ isMobile = false, toast }) {
         .filter((x) => x.s >= 42)
         .sort((a, b) => b.s - a.s)
         .slice(0, 4);
-      const exacto = candidatos.find((c) => materialMatchIsStrong(c.s));
-      if (exacto) {
-        toast?.warning(`Ya existe: "${exacto.m.descripcion}"${exacto.m.codigo ? ` · ${exacto.m.codigo}` : ""}. No se creó de nuevo — usalo al ingresar.`);
+      const wantedCode = codeKey(cod);
+      const exactCode = wantedCode
+        ? cat.find((material) => materialCodeKeys(material).includes(wantedCode))
+        : null;
+      if (exactCode) {
+        toast?.warning(`El código completo ${cod} ya pertenece a "${exactCode.descripcion}". Cambiá el código o usá ese producto.`);
         return;
       }
-      if (candidatos.length) {
-        const lista = candidatos.map((c) => `• ${c.m.descripcion}${c.m.codigo ? ` (${c.m.codigo})` : ""}`).join("\n");
-        const ok = window.confirm(
-          `⚠ Puede que este producto YA EXISTA en el catálogo:\n\n${lista}\n\n¿Igual querés crear "${desc}"?\n\n• Cancelar = NO crear (usá el que ya está al ingresar)\n• Aceptar = crear igual`,
-        );
-        if (!ok) return;
+      if (candidatos.length && !forceDuplicate) {
+        setDuplicateReview({
+          description: desc,
+          code: cod,
+          candidates: candidatos,
+        });
+        toast?.warning("Encontramos productos parecidos. Revisalos y confirmá una segunda vez si realmente es uno nuevo.");
+        return;
       }
     } catch { /* si falla la comparación, seguimos y creamos */ }
 
+    setDuplicateReview(null);
     setSaving(true);
     try {
       let mat = await crearMaterialRapido({
@@ -286,12 +307,38 @@ export default function CrearProductoTab({ isMobile = false, toast }) {
             <textarea value={notas} onChange={(e) => setNotas(e.target.value)} rows={2} placeholder="Notas sobre el producto..." style={{ ...INP, resize: "vertical" }} />
           </div>
 
-          <div style={{ display: "flex", gap: 8, justifyContent: "flex-end", flexWrap: "wrap" }}>
-            <button type="button" onClick={limpiar} style={{ border: `1px solid ${C.border}`, background: "transparent", color: C.dim, borderRadius: 9, padding: "10px 16px", cursor: "pointer", fontSize: 13, fontWeight: 800 }}>Limpiar</button>
-            <button type="button" onClick={crear} disabled={saving || !descripcion.trim() || !categoriaId} style={{ border: "none", background: saving || !descripcion.trim() || !categoriaId ? C.panel2 : C.green, color: saving || !descripcion.trim() || !categoriaId ? C.dim : "#fff", borderRadius: 9, padding: "10px 18px", cursor: saving ? "default" : "pointer", fontSize: 13.5, fontWeight: 950, display: "flex", alignItems: "center", gap: 7 }}>
-              <PackagePlus size={16} /> {saving ? "Creando..." : "Crear producto"}
-            </button>
-          </div>
+          {duplicateReview ? (
+            <div style={{ border: `1px solid ${C.amberB}`, background: C.amberL, borderRadius: 12, padding: 12, display: "grid", gap: 10 }}>
+              <div style={{ display: "flex", alignItems: "flex-start", gap: 9 }}>
+                <span style={{ width: 28, height: 28, flexShrink: 0, borderRadius: 8, display: "grid", placeItems: "center", color: C.amber, background: C.panelSolid, border: `1px solid ${C.amberB}` }}><AlertTriangle size={15} /></span>
+                <span>
+                  <b style={{ display: "block", color: C.text, fontSize: 12.5 }}>Advertencia final · 2 de 2</b>
+                  <span style={{ display: "block", color: C.muted, fontSize: 11, lineHeight: 1.45, marginTop: 3 }}>Antes de crear “{duplicateReview.description}”, confirmá que no sea ninguno de estos productos. Un prefijo parecido ya no bloquea la creación.</span>
+                </span>
+              </div>
+              <div style={{ display: "grid", gap: 5 }}>
+                {duplicateReview.candidates.map(({ m, s }) => (
+                  <div key={m.id} style={{ minWidth: 0, display: "flex", alignItems: "center", gap: 8, padding: "7px 9px", borderRadius: 8, border: `1px solid ${C.border}`, background: C.panelSolid }}>
+                    <span style={{ minWidth: 0, flex: 1, color: C.text, fontSize: 11.5, fontWeight: 800, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{m.descripcion}</span>
+                    {m.codigo && <span style={{ color: C.dim, fontFamily: C.mono, fontSize: 10.5, whiteSpace: "nowrap" }}>{m.codigo}</span>}
+                    <span style={{ color: C.amber, fontSize: 9, fontWeight: 950, textTransform: "uppercase", whiteSpace: "nowrap" }}>{s >= 105 ? "Mismo nombre" : s >= 88 ? "Muy parecido" : "Parecido"}</span>
+                  </div>
+                ))}
+              </div>
+              <div style={{ color: C.dim, fontSize: 10.5 }}>El único bloqueo definitivo es un código completo o código de barras idéntico.</div>
+              <div style={{ display: "flex", gap: 8, justifyContent: "flex-end", flexWrap: "wrap" }}>
+                <button type="button" onClick={() => setDuplicateReview(null)} disabled={saving} style={{ border: `1px solid ${C.border}`, background: C.panelSolid, color: C.muted, borderRadius: 9, padding: "9px 13px", cursor: "pointer", fontSize: 12.5, fontWeight: 850 }}>Volver a revisar</button>
+                <button type="button" onClick={() => crear(true)} disabled={saving} style={{ border: `1px solid ${C.amberB}`, background: C.amber, color: "#fff", borderRadius: 9, padding: "9px 14px", cursor: saving ? "default" : "pointer", fontSize: 12.5, fontWeight: 950, display: "inline-flex", alignItems: "center", gap: 7, opacity: saving ? .6 : 1 }}><PackagePlus size={15} /> {saving ? "Creando..." : "Crear igualmente"}</button>
+              </div>
+            </div>
+          ) : (
+            <div style={{ display: "flex", gap: 8, justifyContent: "flex-end", flexWrap: "wrap" }}>
+              <button type="button" onClick={limpiar} style={{ border: `1px solid ${C.border}`, background: "transparent", color: C.dim, borderRadius: 9, padding: "10px 16px", cursor: "pointer", fontSize: 13, fontWeight: 800 }}>Limpiar</button>
+              <button type="button" onClick={() => crear(false)} disabled={saving || !descripcion.trim() || !categoriaId} style={{ border: "none", background: saving || !descripcion.trim() || !categoriaId ? C.panel2 : C.green, color: saving || !descripcion.trim() || !categoriaId ? C.dim : "#fff", borderRadius: 9, padding: "10px 18px", cursor: saving ? "default" : "pointer", fontSize: 13.5, fontWeight: 950, display: "flex", alignItems: "center", gap: 7 }}>
+                <PackagePlus size={16} /> {saving ? "Creando..." : "Crear producto"}
+              </button>
+            </div>
+          )}
         </div>
 
         {ultimos.length > 0 && (
