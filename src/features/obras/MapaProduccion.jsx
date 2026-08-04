@@ -671,10 +671,9 @@ export default function MapaProduccion({obras=[],onPuestoClick,onAsignarObra,onC
                 <g clipPath={`url(#${clipId})`} style={{pointerEvents:"none"}}>
                   <rect
                     x={ix} y={iy} width={p.w} height={p.h}
+                    className="mapa-shimmer"
                     style={{
                       fill:"rgba(255,255,255,0)",
-                      mixBlendMode:"screen",
-                      animation:`shimmerScan 6s ease-in-out infinite`,
                       animationDelay:`${((p.id.charCodeAt(p.id.length-1)||0)*0.55)%5}s`,
                     }}
                   />
@@ -683,7 +682,8 @@ export default function MapaProduccion({obras=[],onPuestoClick,onAsignarObra,onC
               {/* Tint de color de estado */}
               <rect x={ix} y={iy} width={p.w} height={p.h} rx={Math.min(p.w,p.h)*0.05}
                 fill={oC.glow} fillOpacity={isHov?0.15:0.07}
-                style={{mixBlendMode:"screen",transition:"fill-opacity 0.2s"}}/>
+                className="mapa-tinte"
+                style={{transition:"fill-opacity 0.2s"}}/>
               {isHov&&<rect x={ix-1} y={iy-1} width={p.w+2} height={p.h+2} rx={Math.min(p.w,p.h)*0.06}
                 fill="none" stroke="rgba(255,255,255,0.55)" strokeWidth="0.8"/>}
               {isHov&&<rect x={ix-6} y={iy-6} width={p.w+12} height={p.h+12} rx={Math.min(p.w,p.h)*0.08}
@@ -749,10 +749,10 @@ export default function MapaProduccion({obras=[],onPuestoClick,onAsignarObra,onC
 
 
   return(
-    // El mapa es un "blueprint": las PNG de los barcos usan mixBlendMode:"screen"
-    // (negro = transparente), por lo que SIEMPRE necesita fondo oscuro. Si dejáramos
-    // C.bg, en modo claro el fondo se vuelve #f4f5f7 y el blend lava todo a blanco.
-    <div ref={rootRef} style={{width:"100%",height:"100%",position:"relative",overflow:"hidden",fontFamily:C.sans,background:"#09090b"}}>
+    // El mapa sigue el tema. Antes forzaba fondo oscuro porque el blend de los
+    // planos sólo funcionaba sobre negro; ahora los PNG se invierten en claro
+    // (ver .mapa-boat más abajo), así que el fondo puede ser el del theme.
+    <div ref={rootRef} style={{width:"100%",height:"100%",position:"relative",overflow:"hidden",fontFamily:C.sans,background:C.bg}}>
       {activeView === "pampa" ? (
         <GalponPampa
           obras={obras}
@@ -782,6 +782,14 @@ export default function MapaProduccion({obras=[],onPuestoClick,onAsignarObra,onC
         .mapa-boat-blur { filter: blur(4px); }
         [data-theme="light"] .mapa-boat { mix-blend-mode: multiply; filter: invert(1); }
         [data-theme="light"] .mapa-boat-blur { filter: invert(1) blur(4px); }
+        /* Mismo espejado para el tinte de estado y el destello: sobre blanco,
+           "screen" con un color lo lava hasta hacerlo desaparecer. "multiply" lo
+           oscurece, que es el efecto equivalente en claro. */
+        .mapa-tinte { mix-blend-mode: screen; }
+        [data-theme="light"] .mapa-tinte { mix-blend-mode: multiply; }
+        .mapa-shimmer { mix-blend-mode: screen; animation: shimmerScan 6s ease-in-out infinite; }
+        [data-theme="light"] .mapa-shimmer { mix-blend-mode: multiply; animation-name: shimmerScanClaro; }
+        @media (prefers-reduced-motion: reduce) { .mapa-shimmer { animation: none; } }
         @keyframes pulse-r  {0%{r:0;opacity:0.8;stroke-width:2}70%{r:36;opacity:0;stroke-width:0}100%{r:40;opacity:0}}
         @keyframes beacon   {0%,100%{opacity:1;transform:scale(1)}50%{opacity:0.5;transform:scale(0.85)}}
         @keyframes dash-run {to{stroke-dashoffset:-32}}
@@ -798,6 +806,8 @@ export default function MapaProduccion({obras=[],onPuestoClick,onAsignarObra,onC
         @keyframes line-breathe {0%,100%{stroke-opacity:0.25} 50%{stroke-opacity:0.55}}
         @keyframes kpi-slideIn  {from{opacity:0;transform:translateY(12px) scale(0.97)}to{opacity:1;transform:translateY(0) scale(1)}}
         @keyframes shimmerScan  {0%,100%{fill:rgba(255,255,255,0)}48%,52%{fill:rgba(255,255,255,0.13)}}
+        /* En claro el destello va oscuro: con multiply, el blanco es el neutro. */
+        @keyframes shimmerScanClaro {0%,100%{fill:rgba(255,255,255,1)}48%,52%{fill:rgba(120,130,150,0.88)}}
         .glass-btn{background:var(--panel);border:1px solid var(--panel-2);color:${C.t1};transition:all 0.2s;}
         .glass-btn:hover{background:var(--panel-2);color:${C.t0};border-color:var(--border-2);}
       `}</style>
@@ -883,8 +893,11 @@ export default function MapaProduccion({obras=[],onPuestoClick,onAsignarObra,onC
       {/* ── CONSOLA TEMPORAL — deslizador hacia el futuro del galpón ──
           Arrastrás y los barcos cuya fecha fin estimada ya pasó se hunden
           en la maqueta / se muestran como puesto libre en el plano. */}
+      {/* right:76 deja pasar la campanita global, que es fija y vive en
+          right:20/bottom:18. Es lo único que queda en esa esquina: el radar se
+          borró y el zoom se mudó a la barra de arriba. */}
       {!isMobile&&!editMode&&(
-        <div style={{position:"absolute",bottom:16,left:(railCollapsed?RAIL_W_COLLAPSED:RAIL_W)+16,right:show3d?16:286,zIndex:10,...GLASS,borderRadius:12,padding:"8px 14px",display:"flex",alignItems:"center",gap:12,pointerEvents:"auto"}}>
+        <div style={{position:"absolute",bottom:16,left:(railCollapsed?RAIL_W_COLLAPSED:RAIL_W)+16,right:76,zIndex:10,...GLASS,borderRadius:12,padding:"8px 14px",display:"flex",alignItems:"center",gap:12,pointerEvents:"auto"}}>
           <span style={{fontSize:10,color:C.t2,letterSpacing:1.2,fontWeight:700,whiteSpace:"nowrap"}}>HOY</span>
           <input type="range" min={0} max={sim.maxDias} value={diasSim}
             onChange={e=>setDiasSim(Number(e.target.value))}
@@ -924,6 +937,19 @@ export default function MapaProduccion({obras=[],onPuestoClick,onAsignarObra,onC
 
       {/* TOP BAR */}
       <div style={{position:"absolute",top:10,left:(railCollapsed?RAIL_W_COLLAPSED:RAIL_W)+12,right:10,zIndex:10,display:"flex",alignItems:"center",gap:6,rowGap:6,pointerEvents:"none",flexWrap:"wrap"}}>
+        {/* ZOOM — solo plano 2D (la maqueta usa rueda/pinch de cámara).
+            Vive DENTRO de esta barra en vez de flotar suelto: abajo a la derecha
+            chocaba contra la campanita global (fija en right:20/bottom:18) y se
+            montaba sobre los barcos del borde. Acá el flex garantiza que nunca
+            se pise con nada y que envuelva junto al resto en pantallas chicas. */}
+        {!show3d&&(
+          <div style={{display:"flex",alignItems:"center",gap:6,pointerEvents:"auto",...GLASS,borderRadius:12,padding:"6px"}}>
+            {[{i:"+",f:()=>zoomBtn(1.3),t:"Acercar"},{i:"−",f:()=>zoomBtn(0.77),t:"Alejar"},{i:"⌂",f:resetVp,t:"Encuadrar el galpón"}].map(({i,f,t})=>(
+              <button key={i} className="glass-btn" onClick={f} title={t} style={{width:32,height:32,borderRadius:8,fontSize:i==="⌂"?15:20,display:"flex",alignItems:"center",justifyContent:"center",cursor:"pointer",paddingBottom:i==="+"?2:0}}>{i}</button>
+            ))}
+            <div style={{padding:"0 6px 0 2px",fontFamily:C.mono,fontSize:11,color:C.t1,fontWeight:700,minWidth:38,textAlign:"right"}}>{Math.round(vp.scale*100)}%</div>
+          </div>
+        )}
         <div style={{flex:1}}/>
         <div style={{display:"flex",gap:isMobile?8:16,alignItems:"center",pointerEvents:"auto",...GLASS,borderRadius:12,padding:isMobile?"6px 8px":"8px 12px",flexWrap:"wrap",rowGap:6}}>
           <div style={{display:isMobile?"none":"flex",gap:12,paddingRight:16,borderRight:`1px solid ${C.b0}`}}>
@@ -983,18 +1009,6 @@ export default function MapaProduccion({obras=[],onPuestoClick,onAsignarObra,onC
           </div>
         </div>
       </div>
-
-      {/* ZOOM — solo plano 2D (la maqueta usa rueda/pinch de cámara) */}
-      {!show3d&&(
-      <div style={{position:"absolute",bottom:24,right:24,zIndex:10,display:"flex",gap:16,alignItems:"flex-end"}}>
-        <div style={{display:"flex",flexDirection:"column",gap:6,...GLASS,padding:"6px",borderRadius:12}}>
-          {[{i:"+",f:()=>zoomBtn(1.3)},{i:"−",f:()=>zoomBtn(0.77)},{i:"⌂",f:resetVp}].map(({i,f})=>(
-            <button key={i} className="glass-btn" onClick={f} style={{width:36,height:36,borderRadius:8,fontSize:i==="⌂"?16:22,display:"flex",alignItems:"center",justifyContent:"center",cursor:"pointer",paddingBottom:i==="+"?2:0}}>{i}</button>
-          ))}
-          <div style={{marginTop:4,textAlign:"center",fontFamily:C.mono,fontSize:11,color:C.t1,fontWeight: 700}}>{Math.round(vp.scale*100)}%</div>
-        </div>
-      </div>
-      )}
 
       <OpsRail obras={obras} puestos={puestos} obraByPuesto={obraByPuesto} memoriasEdit={memoriasEdit}
         pasadasPlazo={railTemporal.pasadas} salidasSim={diasSim>0?railTemporal.salidas:[]} simDate={sim.simDate}

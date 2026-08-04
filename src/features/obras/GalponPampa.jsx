@@ -367,34 +367,6 @@ function CinematicCards({p,obra,oC,memoriaOverride,vp,svgRef}){
 /* ═══════════════════════════════════════════════════════════════════
    RADAR HUD 
 ═══════════════════════════════════════════════════════════════════ */
-function RadarHUD({puestos,obraByPuesto,vp,containerW,containerH}){
-  const W=192,H=132,PAD=10;
-  const scX=(W-PAD*2)/VB_W, scY=(H-PAD*2)/VB_H;
-  const visLeft=Math.max(PAD,(-vp.x/vp.scale)*scX+PAD);
-  const visTop=Math.max(PAD,(-vp.y/vp.scale)*scY+PAD);
-  const visW=Math.min((containerW/vp.scale)*scX,W-PAD*2);
-  const visH=Math.min((containerH/vp.scale)*scY,H-PAD*2);
-  return(
-    <div style={{position:"absolute",bottom:88,right:24,width:W,height:H,...GLASS,borderRadius:10,overflow:"hidden",zIndex:10}}>
-      <svg width={W} height={H} style={{display:"block",overflow:"visible"}}>
-        <rect width={W} height={H} fill="rgba(0,12,6,0.7)"/>
-        <g>
-          <path d={`M ${W/2} ${H/2} L ${W/2} ${PAD}`} stroke="rgba(0,255,100,0.7)" strokeWidth="1.2" style={{transformOrigin:`${W/2}px ${H/2}px`}}>
-            <animateTransform attributeName="transform" type="rotate" from={`0 ${W/2} ${H/2}`} to={`360 ${W/2} ${H/2}`} dur="4s" repeatCount="indefinite"/>
-          </path>
-          <path d={`M ${W/2} ${H/2} L ${W/2} ${PAD}`} stroke="rgba(0,255,100,0.12)" strokeWidth="5" style={{transformOrigin:`${W/2}px ${H/2}px`}}>
-            <animateTransform attributeName="transform" type="rotate" from={`0 ${W/2} ${H/2}`} to={`360 ${W/2} ${H/2}`} dur="4s" repeatCount="indefinite"/>
-          </path>
-        </g>
-        {puestos.map(p=>{const obra=obraByPuesto[p.id];const color=obra?C.obra[obra.estado]?.glow:"#374151";const r=Math.max(1.8,(Math.min(p.w,p.h)*scX)/2.8);return<circle key={p.id} cx={p.cx*scX+PAD} cy={p.cy*scY+PAD} r={r} fill={color} fillOpacity={obra?0.85:0.22} stroke={obra?color:"none"} strokeWidth="0.4" strokeOpacity="0.5"/>;
-        })}
-        <rect x={visLeft} y={visTop} width={Math.max(4,visW)} height={Math.max(4,visH)} fill="var(--panel)" stroke="rgba(255,255,255,0.45)" strokeWidth="0.6" strokeDasharray="2 2"/>
-        <rect x="0.5" y="0.5" width={W-1} height={H-1} rx="9" fill="none" stroke="rgba(0,255,100,0.18)" strokeWidth="0.5"/>
-        <text x="8" y={H-6} fill="rgba(0,255,100,0.45)" fontSize="7" fontFamily="monospace" letterSpacing="1">RADAR · PAMPA</text>
-      </svg>
-    </div>
-  );
-}
 
 /* ═══════════════════════════════════════════════════════════════════
    COMPONENTE PRINCIPAL
@@ -908,9 +880,6 @@ export default function GalponPampa({
           <div style={{marginTop:4,textAlign:"center",fontFamily:C.mono,fontSize:11,color:C.t1,fontWeight: 700}}>{Math.round(vp.scale*100)}%</div>
         </div>
       </div>
-
-      {/* RADAR */}
-      <RadarHUD puestos={puestos} obraByPuesto={obraByPuesto} vp={vp} containerW={containerSize.w} containerH={containerSize.h}/>
 
       {/* TOOLTIP */}
       {tooltip&&!obraDragPos&&!focusedPuesto&&(()=>{
