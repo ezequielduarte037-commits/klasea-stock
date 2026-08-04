@@ -5,6 +5,7 @@ import {
   Banknote,
   Bike,
   CalendarDays,
+  CalendarRange,
   Check,
   CheckCircle2,
   ChevronLeft,
@@ -118,7 +119,8 @@ const ESTADOS = {
 
 const VISTAS = [
   { id: "agenda", label: "Agenda", icon: FileClock },
-  { id: "calendario", label: "Calendario", icon: CalendarDays },
+  { id: "semana", label: "Semana", icon: CalendarRange },
+  { id: "calendario", label: "Mes", icon: CalendarDays },
   { id: "solicitudes", label: "Solicitudes", icon: PackageOpen },
   { id: "costos", label: "Costos", icon: CircleDollarSign, managerOnly: true },
 ];
@@ -152,6 +154,13 @@ function parseDate(value) {
 function dateAdd(value, days) {
   const date = parseDate(value) || parseDate(TODAY);
   date.setDate(date.getDate() + days);
+  return localDate(date);
+}
+
+function startOfWeek(value) {
+  const date = parseDate(value) || parseDate(TODAY);
+  const offset = (date.getDay() + 6) % 7;
+  date.setDate(date.getDate() - offset);
   return localDate(date);
 }
 
@@ -1159,11 +1168,11 @@ function MonthView({ month, rows, milestones, weather, holidays, mergeableIds, o
                   const canMerge = mergeableIds?.has(row.id);
                   const title = row.carga || row.titulo || "Movimiento";
                   return (
-                    <button className="log-event-pill" key={row.id} onClick={() => onOpen(row)} title={`${movementHeadline(row)} · ${workLabel(row)} · ${routeLabel(row)}${canMerge ? " · Posible unión" : ""}${risky ? " · Revisar viento" : ""}`} style={{ minHeight: 38, width: "100%", display: "grid", gridTemplateColumns: "auto minmax(0,1fr) auto", alignItems: "start", gap: 6, textAlign: "left", overflow: "hidden", marginBottom: 4, padding: "5px 7px", borderRadius: 8, border: `1px solid ${risky ? C.redB : ui.border}`, borderLeft: `2px solid ${risky ? C.red : state.color}`, background: risky ? C.redL : ui.soft, color: risky ? C.red : C.text, cursor: "pointer" }}>
-                      <span style={{ paddingTop: 1, color: risky ? C.red : ui.color, fontFamily: C.mono, fontSize: 8.7, fontWeight: 950 }}>{displayTime(row) || "—"}</span>
+                    <button className="log-event-pill" key={row.id} onClick={() => onOpen(row)} title={`${movementHeadline(row)} · ${workLabel(row)} · ${routeLabel(row)}${canMerge ? " · Posible unión" : ""}${risky ? " · Revisar viento" : ""}`} style={{ minHeight: 43, width: "100%", display: "grid", gridTemplateColumns: "auto minmax(0,1fr) auto", alignItems: "start", gap: 7, textAlign: "left", overflow: "hidden", marginBottom: 5, padding: "6px 8px", borderRadius: 9, border: `1px solid ${risky ? C.redB : ui.border}`, borderLeft: `3px solid ${risky ? C.red : state.color}`, background: risky ? C.redL : ui.soft, color: risky ? C.red : C.text, cursor: "pointer" }}>
+                      <span style={{ paddingTop: 1, color: risky ? C.red : ui.color, fontFamily: C.mono, fontSize: 9.5, fontWeight: 950 }}>{displayTime(row) || "—"}</span>
                       <span style={{ minWidth: 0, display: "grid", gap: 2 }}>
-                        <strong style={{ color: C.text, fontSize: 9.5, lineHeight: 1.15, fontWeight: 950, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{title}</strong>
-                        <small style={{ minWidth: 0, display: "flex", alignItems: "center", gap: 4, color: C.dim, fontSize: 8.2, lineHeight: 1.1, overflow: "hidden", whiteSpace: "nowrap" }}>
+                        <strong style={{ color: C.text, fontSize: 10.7, lineHeight: 1.15, fontWeight: 950, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{title}</strong>
+                        <small style={{ minWidth: 0, display: "flex", alignItems: "center", gap: 4, color: C.dim, fontSize: 9.1, lineHeight: 1.1, overflow: "hidden", whiteSpace: "nowrap" }}>
                           <b style={{ flexShrink: 0, color: row.obra ? C.blue : C.dim, fontFamily: C.mono, fontWeight: 950 }}>{workLabel(row)}</b>
                           <span style={{ color: C.border2 }}>·</span>
                           <span style={{ overflow: "hidden", textOverflow: "ellipsis" }}>{transportSummary(row)}</span>
@@ -1177,6 +1186,89 @@ function MonthView({ month, rows, milestones, weather, holidays, mergeableIds, o
                 {marks.slice(0, visibleMarks).map((mark) => <div className="log-legacy-pill" key={mark.id} title={mark.notas || "Registro del calendario anterior"} style={{ marginTop: 4, padding: "4px 6px", borderRadius: 6, border: `1px dashed ${C.border2}`, background: C.panel2, color: C.muted, fontSize: 8.6, fontWeight: 800, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>◇ {cleanTime(mark.hora) ? `${cleanTime(mark.hora)} · ` : ""}{mark.titulo}{mark.obra ? ` · ${mark.obra}` : ""}</div>)}
                 {marks.length > visibleMarks && <div style={{ color: C.dim, fontSize: 8.5, marginTop: 3 }}>+{marks.length - visibleMarks} anteriores</div>}
               </div>
+            );
+          })}
+        </div>
+      </div>
+    </section>
+  );
+}
+
+function WeekView({ weekStart, rows, milestones, weather, holidays, mergeableIds, onOpen, onWeek }) {
+  const dates = Array.from({ length: 7 }, (_, index) => dateAdd(weekStart, index));
+  const weekEnd = dates[6];
+  const byDate = new Map(dates.map((date) => [date, []]));
+  rows.forEach((row) => {
+    const date = displayDate(row);
+    if (byDate.has(date)) byDate.get(date).push(row);
+  });
+  byDate.forEach((items) => items.sort((a, b) => displayTime(a).localeCompare(displayTime(b))));
+  const legacyByDate = new Map(dates.map((date) => [date, []]));
+  milestones.filter((row) => row.tipo !== "feriado").forEach((row) => {
+    if (legacyByDate.has(row.fecha)) legacyByDate.get(row.fecha).push(row);
+  });
+  const total = [...byDate.values()].reduce((sum, items) => sum + items.length, 0);
+
+  return (
+    <section className="log-week-shell log-view-enter" style={{ background: C.panelSolid, border: `1px solid ${C.border}`, borderRadius: 18, overflow: "hidden", boxShadow: "0 18px 55px var(--shadow)" }}>
+      <div className="log-calendar-top" style={{ minHeight: 68, padding: "10px 14px", display: "flex", alignItems: "center", justifyContent: "space-between", gap: 12, borderBottom: `1px solid ${C.border}`, background: `linear-gradient(115deg, ${C.panelSolid}, ${C.topbarSoft})` }}>
+        <div style={{ display: "flex", alignItems: "center", gap: 11, minWidth: 0 }}>
+          <span className="log-month-icon" style={{ width: 38, height: 38, borderRadius: 11, display: "grid", placeItems: "center", color: C.violet, background: C.violetL, border: `1px solid ${C.violetB}` }}><CalendarRange size={18} /></span>
+          <span style={{ minWidth: 0 }}>
+            <small style={{ display: "block", color: C.dim, fontSize: 9, fontWeight: 900, textTransform: "uppercase", letterSpacing: ".13em" }}>Vista operativa semanal</small>
+            <strong style={{ display: "block", color: C.text, fontSize: 15.5, lineHeight: 1.2, textTransform: "capitalize", marginTop: 2 }}>{fmtDate(weekStart, true)} — {fmtDate(weekEnd, true)}</strong>
+          </span>
+          <span className="log-month-summary" style={{ color: C.dim, fontSize: 10.5, marginLeft: 5 }}>{total} movimiento{total === 1 ? "" : "s"}</span>
+        </div>
+        <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
+          <button className="log-soft-button" onClick={() => onWeek(startOfWeek(TODAY))} style={{ height: 31, padding: "0 10px", borderRadius: 8, border: `1px solid ${C.border}`, background: C.panel, color: C.muted, cursor: "pointer", fontSize: 10.5, fontWeight: 850 }}>Esta semana</button>
+          <span style={{ display: "flex", padding: 3, borderRadius: 10, border: `1px solid ${C.border}`, background: C.panel }}>
+            <button className="log-icon-button" aria-label="Semana anterior" onClick={() => onWeek(dateAdd(weekStart, -7))} style={{ width: 29, height: 27, display: "grid", placeItems: "center", borderRadius: 7, border: 0, background: "transparent", color: C.muted, cursor: "pointer" }}><ChevronLeft size={15} /></button>
+            <button className="log-icon-button" aria-label="Semana siguiente" onClick={() => onWeek(dateAdd(weekStart, 7))} style={{ width: 29, height: 27, display: "grid", placeItems: "center", borderRadius: 7, border: 0, background: "transparent", color: C.muted, cursor: "pointer" }}><ChevronRight size={15} /></button>
+          </span>
+        </div>
+      </div>
+
+      <div style={{ overflowX: "auto" }}>
+        <div className="log-week-grid" style={{ minWidth: 1180, display: "grid", gridTemplateColumns: "repeat(5,minmax(170px,1fr)) repeat(2,minmax(145px,.82fr))" }}>
+          {dates.map((date, index) => {
+            const events = byDate.get(date) || [];
+            const oldEvents = legacyByDate.get(date) || [];
+            const dayWeather = weather[date];
+            const holiday = holidays.get(date);
+            const raining = Number(dayWeather?.rain) >= 40;
+            const weekend = index > 4;
+            const today = date === TODAY;
+            return (
+              <section className={`log-week-day${today ? " is-today" : ""}${holiday ? " is-holiday" : ""}`} key={date} style={{ position: "relative", minHeight: 440, padding: 10, overflow: "hidden", borderRight: index < 6 ? `1px solid ${C.border}` : 0, background: today ? C.blueL : holiday ? `linear-gradient(155deg, ${C.redL}, transparent 42%)` : weekend ? C.panel : "transparent" }}>
+                {raining && <RainVeil probability={dayWeather.rain} />}
+                <header style={{ position: "relative", zIndex: 1, display: "flex", justifyContent: "space-between", alignItems: "flex-start", gap: 7, paddingBottom: 9, marginBottom: 9, borderBottom: `1px solid ${holiday ? C.redB : C.border}` }}>
+                  <span style={{ display: "flex", alignItems: "center", gap: 8, minWidth: 0 }}>
+                    <b style={{ width: 32, height: 32, flexShrink: 0, display: "grid", placeItems: "center", borderRadius: 10, color: today ? "white" : holiday ? C.red : weekend ? C.violet : C.text, background: today ? C.blue : holiday ? C.redL : weekend ? C.violetL : C.panel2, border: `1px solid ${today ? C.blueB : holiday ? C.redB : weekend ? C.violetB : C.border}`, fontFamily: C.mono, fontSize: 14 }}>{parseDate(date).getDate()}</b>
+                    <span style={{ minWidth: 0 }}><strong style={{ display: "block", color: holiday ? C.red : C.text, fontSize: 11.5, textTransform: "capitalize" }}>{parseDate(date).toLocaleDateString("es-AR", { weekday: "long" })}</strong><small style={{ display: "block", color: C.dim, marginTop: 2, fontSize: 9.5, textTransform: "capitalize" }}>{parseDate(date).toLocaleDateString("es-AR", { month: "long" })}</small></span>
+                  </span>
+                  {dayWeather && <span title={`${weatherLabel(dayWeather.code)} · lluvia ${dayWeather.rain ?? 0}% · viento ${Math.round(dayWeather.wind)} km/h`} style={{ display: "inline-flex", alignItems: "center", gap: 3, color: Number(dayWeather.wind) >= 30 ? C.red : raining ? C.cyan : C.dim, fontFamily: C.mono, fontSize: 9, whiteSpace: "nowrap" }}>{raining ? <CloudRain size={11} /> : <CloudSun size={11} />}{Math.round(dayWeather.max)}°</span>}
+                </header>
+                {holiday && <div title={holiday} style={{ position: "relative", zIndex: 1, marginBottom: 8, padding: "5px 7px", borderRadius: 7, border: `1px solid ${C.redB}`, background: C.redL, color: C.red, fontSize: 9, fontWeight: 900, lineHeight: 1.25, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>Feriado · {holiday}</div>}
+                <div style={{ position: "relative", zIndex: 1, display: "grid", gap: 7 }}>
+                  {events.map((row) => {
+                    const ui = transportUi(transportsOf(row)[0]?.tipo);
+                    const state = statusUi(row.estado);
+                    const risky = hasCrane(row) && Number(dayWeather?.wind) >= 30;
+                    const canMerge = mergeableIds?.has(row.id);
+                    return (
+                      <button className="log-week-event" key={row.id} onClick={() => onOpen(row)} title={`${movementHeadline(row)} · ${workLabel(row)} · ${routeLabel(row)}`} style={{ width: "100%", minHeight: 82, padding: "9px 10px", display: "grid", gap: 6, textAlign: "left", borderRadius: 11, border: `1px solid ${risky ? C.redB : ui.border}`, borderLeft: `3px solid ${risky ? C.red : state.color}`, background: risky ? C.redL : `linear-gradient(145deg, ${ui.soft}, ${C.panelSolid} 78%)`, color: C.text, cursor: "pointer", fontFamily: C.sans, overflow: "hidden" }}>
+                        <span style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 6 }}><b style={{ color: risky ? C.red : ui.color, fontFamily: C.mono, fontSize: 11.5 }}>{displayTime(row) || "Sin hora"}</b><span style={{ color: state.color, fontSize: 8.5, fontWeight: 950, textTransform: "uppercase", whiteSpace: "nowrap" }}>{state.short}</span></span>
+                        <strong style={{ color: C.text, fontSize: 12.5, lineHeight: 1.25, fontWeight: 950, display: "-webkit-box", WebkitLineClamp: 2, WebkitBoxOrient: "vertical", overflow: "hidden" }}>{row.carga || row.titulo || "Movimiento"}</strong>
+                        <span style={{ display: "flex", alignItems: "center", gap: 5, minWidth: 0, color: C.dim, fontSize: 9.5, whiteSpace: "nowrap" }}><b style={{ flexShrink: 0, color: row.obra ? C.blue : C.dim, fontFamily: C.mono }}>{workLabel(row)}</b><span>·</span><span style={{ overflow: "hidden", textOverflow: "ellipsis" }}>{transportSummary(row)}</span>{canMerge && <Merge size={10} color={C.violet} style={{ flexShrink: 0 }} />}</span>
+                        <span style={{ color: C.dim, fontSize: 9.5, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}><Route size={10} /> {routeLabel(row)}</span>
+                      </button>
+                    );
+                  })}
+                  {oldEvents.map((row) => <div key={row.id} style={{ padding: "7px 8px", borderRadius: 8, border: `1px dashed ${C.border2}`, background: C.panel2, color: C.muted, fontSize: 9.5, lineHeight: 1.3 }}><b style={{ display: "block", color: C.text }}>{row.titulo}</b>{row.obra ? `Obra ${row.obra}` : "Registro anterior"}</div>)}
+                  {!events.length && !oldEvents.length && <div style={{ minHeight: 76, display: "grid", placeItems: "center", border: `1px dashed ${C.border}`, borderRadius: 10, color: C.dim, fontSize: 10.5, textAlign: "center" }}>Sin movimientos</div>}
+                </div>
+              </section>
             );
           })}
         </div>
@@ -1272,11 +1364,12 @@ export default function LogisticaCalendarioScreen({ profile, signOut }) {
   const [showAdvancedFilters, setShowAdvancedFilters] = useState(false);
   const [exportOpen, setExportOpen] = useState(false);
   const [month, setMonth] = useState(() => parseDate(TODAY));
+  const [weekStartDate, setWeekStartDate] = useState(() => startOfWeek(TODAY));
   const [selected, setSelected] = useState(null);
   const [requestModal, setRequestModal] = useState(null);
   const [manualModal, setManualModal] = useState(false);
   const [coordination, setCoordination] = useState(null);
-  const visibleYear = month.getFullYear();
+  const visibleYear = view === "semana" ? parseDate(weekStartDate).getFullYear() : month.getFullYear();
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -1472,6 +1565,10 @@ export default function LogisticaCalendarioScreen({ profile, signOut }) {
         .log-primary-action:active{transform:translateY(0) scale(.98)}
         .log-event-pill{transition:transform .14s ease,filter .14s ease,box-shadow .14s ease}
         .log-event-pill:hover{transform:translateX(2px);filter:saturate(1.12);box-shadow:0 5px 14px var(--shadow)}
+        .log-week-event{transition:transform .16s cubic-bezier(.2,.8,.2,1),filter .16s ease,box-shadow .16s ease,border-color .16s ease}
+        .log-week-event:hover{transform:translateY(-2px);filter:saturate(1.08);border-color:var(--border-2)!important;box-shadow:0 10px 24px var(--shadow)}
+        .log-week-day{transition:background .16s ease,box-shadow .16s ease}
+        .log-week-day:hover{z-index:1;box-shadow:inset 0 0 0 1px var(--border-2)}
         .log-calendar-cell{position:relative;transition:background .16s ease,box-shadow .16s ease}
         .log-calendar-cell:not(.is-empty):hover{z-index:1;box-shadow:inset 0 0 0 1px var(--border-2);background:var(--panel-2)!important}
         .log-calendar-cell.is-holiday:not(.is-empty):hover{background:linear-gradient(145deg,var(--red-soft),var(--panel-2) 68%)!important}
@@ -1573,6 +1670,8 @@ export default function LogisticaCalendarioScreen({ profile, signOut }) {
 
             {loading ? <div className="log-view-enter" style={{ padding: 64, textAlign: "center", color: C.dim, border: `1px solid ${C.border}`, borderRadius: 16, background: C.panelSolid }}><span style={{ width: 42, height: 42, display: "grid", placeItems: "center", margin: "0 auto", borderRadius: 13, color: C.blue, background: C.blueL, border: `1px solid ${C.blueB}` }}><RefreshCw size={19} className="spin" /></span><div style={{ marginTop: 11, color: C.muted, fontSize: 12, fontWeight: 850 }}>Preparando la agenda logística</div><div style={{ marginTop: 3, fontSize: 10.5 }}>Movimientos, clima y documentación.</div></div> : view === "calendario" ? (
               <div style={{ overflowX: "auto" }}><MonthView month={month} rows={filtered} milestones={milestones} weather={weather} holidays={holidays} mergeableIds={mergeableIds} onOpen={setSelected} onMonth={setMonth} /></div>
+            ) : view === "semana" ? (
+              <WeekView weekStart={weekStartDate} rows={filtered} milestones={milestones} weather={weather} holidays={holidays} mergeableIds={mergeableIds} onOpen={setSelected} onWeek={setWeekStartDate} />
             ) : view === "costos" ? (
               <CostsView rows={filtered} />
             ) : view === "solicitudes" ? (

@@ -1070,56 +1070,6 @@ function MemoriaHUD({ obra, puesto, oC, memoriaOverride, onSaveMemoria, notas=[]
 }
 
 
-function RadarHUD({puestos,obraByPuesto,vp,containerW,containerH,panelW=KPI_W,right,toPlano}){
-  const W=192,H=132,PAD=10;
-  const scX=(W-PAD*2)/VB_W, scY=(H-PAD*2)/VB_H;
-  /* Viewport: si la escena no es top-down (iso), las 4 esquinas de la pantalla
-     se convierten a coords de contenido y luego al plano con toPlano → polígono. */
-  let viewportEl;
-  if(toPlano){
-    const pts=[[0,0],[containerW,0],[containerW,containerH],[0,containerH]].map(([px,py])=>{
-      const [wx,wy]=toPlano((px-vp.x)/vp.scale,(py-vp.y)/vp.scale);
-      return `${(wx*scX+PAD).toFixed(1)},${(wy*scY+PAD).toFixed(1)}`;
-    });
-    viewportEl=<polygon points={pts.join(" ")} fill="var(--panel)" fillOpacity={0.4} stroke="rgba(255,255,255,0.45)" strokeWidth="0.6" strokeDasharray="2 2"/>;
-  } else {
-    const visLeft=Math.max(PAD,(-vp.x/vp.scale)*scX+PAD);
-    const visTop=Math.max(PAD,(-vp.y/vp.scale)*scY+PAD);
-    const visW=Math.min((containerW/vp.scale)*scX,W-PAD*2);
-    const visH=Math.min((containerH/vp.scale)*scY,H-PAD*2);
-    viewportEl=<rect x={visLeft} y={visTop} width={Math.max(4,visW)} height={Math.max(4,visH)} fill="var(--panel)" stroke="rgba(255,255,255,0.45)" strokeWidth="0.6" strokeDasharray="2 2"/>;
-  }
-  // En anchos chicos el radar estorba más de lo que informa → se oculta.
-  if(containerW>0&&containerW<1250) return null;
-  // A la izquierda de los botones de zoom (que van pegados al panel KPI):
-  // zoom ocupa ~48px desde panelW+14 → el radar arranca 10px más a la izquierda.
-  return(
-    <div style={{position:"absolute",bottom:16,right:right??panelW+72,width:W,height:H,...GLASS,borderRadius:10,overflow:"hidden",zIndex:10}}>
-      <svg width={W} height={H} style={{display:"block",overflow:"visible"}}>
-        <rect width={W} height={H} fill="rgba(0,12,6,0.7)"/>
-        {[0.25,0.5,0.75,1].map(r=><circle key={r} cx={W/2} cy={H/2} r={(Math.min(W,H)/2-6)*r} fill="none" stroke="rgba(0,255,100,0.07)" strokeWidth="0.4"/>)}
-        {ZONAS.map(z=><rect key={z.id} x={z.x*scX+PAD} y={z.y*scY+PAD} width={z.w*scX} height={z.h*scY} fill={z.bc?`${z.bc}08`:"rgba(255,255,255,0.015)"} stroke={z.bc?`${z.bc}30`:"var(--panel-2)"} strokeWidth="0.3"/>)}
-        <g>
-          <path d={`M ${W/2} ${H/2} L ${W/2} ${PAD}`} stroke="rgba(0,255,100,0.7)" strokeWidth="1.2" style={{transformOrigin:`${W/2}px ${H/2}px`}}>
-            <animateTransform attributeName="transform" type="rotate" from={`0 ${W/2} ${H/2}`} to={`360 ${W/2} ${H/2}`} dur="4s" repeatCount="indefinite"/>
-          </path>
-          <path d={`M ${W/2} ${H/2} L ${W/2} ${PAD}`} stroke="rgba(0,255,100,0.12)" strokeWidth="5" style={{transformOrigin:`${W/2}px ${H/2}px`}}>
-            <animateTransform attributeName="transform" type="rotate" from={`0 ${W/2} ${H/2}`} to={`360 ${W/2} ${H/2}`} dur="4s" repeatCount="indefinite"/>
-          </path>
-        </g>
-        {puestos.map(p=>{
-          const obra=obraByPuesto[p.id];
-          const color=obra?C.obra[obra.estado]?.glow:"#374151";
-          const r=Math.max(1.8,(p.w*scX)/2.8);
-          return<circle key={p.id} cx={p.cx*scX+PAD} cy={p.cy*scY+PAD} r={r} fill={color} fillOpacity={obra?0.85:0.22} stroke={obra?color:"none"} strokeWidth="0.4" strokeOpacity="0.5"/>;
-        })}
-        {viewportEl}
-        <rect x="0.5" y="0.5" width={W-1} height={H-1} rx="9" fill="none" stroke="rgba(0,255,100,0.18)" strokeWidth="0.5"/>
-        <text x="8" y={H-6} fill="rgba(0,255,100,0.45)" fontSize="7" fontFamily="monospace" letterSpacing="1">RADAR · {puestos.length} PUESTOS</text>
-      </svg>
-    </div>
-  );
-}
 
 
 
@@ -1547,16 +1497,25 @@ function OpsRailSection({icon,title,count,color,children}){
   );
 }
 
-function OpsRail({obras,puestos,obraByPuesto,memoriasEdit,collapsed,onCollapse,onFocusObra,onAssignPuesto}){
+function OpsRail({obras,puestos,obraByPuesto,memoriasEdit,collapsed,onCollapse,onFocusObra,onAssignPuesto,pasadasPlazo=[],salidasSim=[],simDate=null}){
+  /* Helpers de fecha puros (costo nulo por render) */
+  const parseD=(v)=>{ if(!v) return null; const d=new Date(typeof v==="string"&&v.length===10?`${v}T00:00:00`:v); return Number.isNaN(d.getTime())?null:d; };
+  const fmtD=(d)=>d?`${String(d.getDate()).padStart(2,"0")}/${String(d.getMonth()+1).padStart(2,"0")}`:"—";
+
+  const simActiva=!!simDate;
+  const salidaIds=new Set(salidasSim.map(o=>o.id));
   const total=puestos.length;
-  const ocupados=puestos.filter(p=>obraByPuesto[p.id]).length;
+  const ocupadosReal=puestos.filter(p=>obraByPuesto[p.id]).length;
+  const ocupados=Math.max(0,ocupadosReal-(simActiva?salidasSim.length:0));
   const ocupPct=total>0?Math.round(ocupados/total*100):0;
 
   const puestoIds=new Set(puestos.map(p=>p.id));
   const fantasma=obras.filter(o=>o.puesto_mapa&&!puestoIds.has(o.puesto_mapa)&&["activa","pausada"].includes(o.estado));
   const pausadas=obras.filter(o=>o.estado==="pausada"&&o.puesto_mapa&&puestoIds.has(o.puesto_mapa));
+  /* Pasadas de plazo HOY (rojo). Se excluyen fantasmas para no duplicar filas. */
+  const pasadas=pasadasPlazo.filter(o=>puestoIds.has(o.puesto_mapa));
   const libera=obras
-    .filter(o=>o.estado==="activa"&&o.puesto_mapa&&puestoIds.has(o.puesto_mapa))
+    .filter(o=>o.estado==="activa"&&o.puesto_mapa&&puestoIds.has(o.puesto_mapa)&&!salidaIds.has(o.id))
     .sort((a,b)=>(b._pct??0)-(a._pct??0))
     .slice(0,6);
   const libres=puestos.filter(p=>!obraByPuesto[p.id]);
@@ -1568,7 +1527,7 @@ function OpsRail({obras,puestos,obraByPuesto,memoriasEdit,collapsed,onCollapse,o
     return CAMPOS_FICHA.every(k=>!(o[k]??db[k.replace("motores","motorizacion")]??db[k]));
   }).length;
 
-  const nTrabados=pausadas.length+fantasma.length;
+  const nTrabados=pausadas.length+fantasma.length+pasadas.length;
 
   /* ── collapsed strip ── */
   if(collapsed) return(
@@ -1609,7 +1568,7 @@ function OpsRail({obras,puestos,obraByPuesto,memoriasEdit,collapsed,onCollapse,o
         <div style={{display:"flex",alignItems:"center",gap:8,marginBottom:10}}>
           <div style={{flex:1}}>
             <div style={{fontSize:13,fontWeight:800,color:"rgba(255,255,255,0.92)",letterSpacing:1.6,textTransform:"uppercase"}}>Galpón</div>
-            <div style={{fontSize:10,color:"rgba(255,255,255,0.35)",marginTop:1}}>{ocupados} de {total} puestos ocupados</div>
+            <div style={{fontSize:10,color:"rgba(255,255,255,0.35)",marginTop:1}}>{ocupados} de {total} puestos{simActiva?" · proyección":" ocupados"}</div>
           </div>
           <div onClick={()=>onCollapse(true)} style={{cursor:"pointer",padding:4,borderRadius:6,display:"flex",alignItems:"center"}}
             onMouseEnter={e=>e.currentTarget.style.background="rgba(255,255,255,0.06)"}
@@ -1625,7 +1584,7 @@ function OpsRail({obras,puestos,obraByPuesto,memoriasEdit,collapsed,onCollapse,o
         </div>
         <div style={{display:"flex",justifyContent:"space-between",marginTop:6,fontFamily:"'JetBrains Mono',monospace",fontSize:10}}>
           <span style={{color:"rgba(255,255,255,0.4)"}}>{ocupPct}% ocupación</span>
-          <span style={{color:libres.length>0?"#34d399":"rgba(255,255,255,0.4)"}}>{libres.length} libres</span>
+          <span style={{color:(libres.length+salidasSim.length)>0?"#34d399":"rgba(255,255,255,0.4)"}}>{libres.length+salidasSim.length} libres{simActiva&&salidasSim.length>0?" (proy.)":""}</span>
         </div>
       </div>
 
@@ -1641,24 +1600,38 @@ function OpsRail({obras,puestos,obraByPuesto,memoriasEdit,collapsed,onCollapse,o
             <OpsRow key={`pau-${o.id}`} color="#a78bfa" title={o.codigo} right={`${o._pct??0}%`}
               sub={`Pausada${o.propietario?` · ${o.propietario}`:""}`} onClick={()=>onFocusObra?.(o.codigo)}/>
           ))}
+          {pasadas.map(o=>(
+            <OpsRow key={`pas-${o.id}`} color="#ef4444" title={o.codigo} right="PASADA"
+              sub={`Venció ${fmtD(parseD(o.fecha_fin_estimada))} · sigue ocupando`} onClick={()=>onFocusObra?.(o.codigo)}/>
+          ))}
         </OpsRailSection>
 
         <OpsRailSection icon="↑" title="Libera pronto" count={libera.length} color="#38bdf8">
           {libera.length===0&&<div style={{fontSize:11,color:"rgba(255,255,255,0.28)",padding:"4px 2px"}}>Sin obras activas en el plano.</div>}
           {libera.map(o=>(
             <OpsRow key={`lib-${o.id}`} color="#38bdf8" title={o.codigo} right={`${o._pct??0}%`}
-              bar={o._pct??0} sub={o.propietario??null} onClick={()=>onFocusObra?.(o.codigo)}/>
+              bar={o._pct??0} sub={o.fecha_fin_estimada?`Sale est. ${fmtD(parseD(o.fecha_fin_estimada))}`:(o.propietario??null)} onClick={()=>onFocusObra?.(o.codigo)}/>
           ))}
         </OpsRailSection>
 
-        <OpsRailSection icon="▣" title="Puestos libres" count={libres.length} color="#34d399">
-          {libres.length===0&&<div style={{fontSize:11,color:"rgba(255,255,255,0.28)",padding:"4px 2px"}}>Galpón completo.</div>}
+        <OpsRailSection icon="▣" title="Puestos libres" count={libres.length+salidasSim.length} color="#34d399">
+          {libres.length===0&&salidasSim.length===0&&<div style={{fontSize:11,color:"rgba(255,255,255,0.28)",padding:"4px 2px"}}>Galpón completo.</div>}
           <div style={{display:"flex",flexDirection:"column",gap:5}}>
             {libres.map(p=>(
               <OpsRow key={`free-${p.id}`} color="#34d399" title={`P·${p.label}`}
                 right={(p.tipo||"").toUpperCase()} sub="Click para asignar obra"
                 onClick={()=>onAssignPuesto?.(p)}/>
             ))}
+            {salidasSim.map(o=>{
+              const p=puestos.find(x=>x.id===o.puesto_mapa);
+              if(!p) return null;
+              return(
+                <OpsRow key={`fut-${o.id}`} color="#34d399" title={`P·${p.label}`}
+                  right={(p.tipo||"").toUpperCase()}
+                  sub={`${o.codigo} sale est. ${fmtD(parseD(o.fecha_fin_estimada))}`}
+                  onClick={()=>onFocusObra?.(o.codigo)}/>
+              );
+            })}
           </div>
         </OpsRailSection>
 
@@ -1672,4 +1645,4 @@ function OpsRail({obras,puestos,obraByPuesto,memoriasEdit,collapsed,onCollapse,o
   );
 }
 
-export { AddObraModal, RadialMenu, CommandPalette, CinematicCallouts, CinematicCards, FieldBox, MemoriaHUD, RadarHUD, KPIPanel, OpsRail };
+export { AddObraModal, RadialMenu, CommandPalette, CinematicCallouts, CinematicCards, FieldBox, MemoriaHUD, KPIPanel, OpsRail };

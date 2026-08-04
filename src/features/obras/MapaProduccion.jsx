@@ -27,7 +27,7 @@ import { createPortal } from "react-dom";
 import GalponPampa from "@/features/obras/GalponPampa";
 import { GLASS, VB_W, VB_H, RAIL_W, RAIL_W_COLLAPSED, ZONAS, WALLS, BOAT_IMGS, genId, PUESTOS_INITIAL, LEGEND, dedupPuestos, syncNextNMapa, resetNextN, LS_KEY } from "@/features/obras/mapa/mapData";
 import { loadMemoriasFromSupabase, saveMemoriaToSupabase, subscribeMemorias } from "@/features/obras/mapa/persistence";
-import { AddObraModal, RadialMenu, CommandPalette, CinematicCallouts, CinematicCards, MemoriaHUD, RadarHUD, OpsRail } from "@/features/obras/mapa/components";
+import { AddObraModal, RadialMenu, CommandPalette, CinematicCallouts, CinematicCards, MemoriaHUD, OpsRail } from "@/features/obras/mapa/components";
 import Maqueta3D from "@/features/obras/mapa/Maqueta3D";
 
 /* ── Simulación temporal ─────────────────────────────────────────────────────
@@ -53,6 +53,7 @@ function computeFit(width,height,railW){
 export default function MapaProduccion({obras=[],onPuestoClick,onAsignarObra,onChangeEstado,esGestion=false,sharedPuestos,onSaveLayout,sharedNotas,onSaveNotas,sharedMemorias,onSaveMemorias,onAsignarObraPampa,onDesasignarObraPampa}){
   const { isMobile } = useResponsive();
   const svgRef=useRef(null);
+  const rootRef=useRef(null);
   const vpRef=useRef({x:0,y:0,scale:1});
   const [vp,setVp]=useState({x:0,y:0,scale:1});
   // FUENTE ÚNICA DE VERDAD: la DB (mapa_config.puestos vía sharedPuestos).
@@ -95,7 +96,13 @@ export default function MapaProduccion({obras=[],onPuestoClick,onAsignarObra,onC
   const [contextMenu,setContextMenu]=useState(null);
   const [cmdPaletteOpen,setCmdPaletteOpen]=useState(false);
   const [focusedPuesto,setFocusedPuesto]=useState(null);
-  const [vista3d,setVista3d]=useState(true);   // maqueta 3D (vista principal) / plano 2D (edición)
+  // El plano 2D es la vista por defecto: es el que se lee rápido para saber qué
+  // hay en cada puesto. La maqueta 3D queda a un clic para quien la quiera.
+  const [vista3d,setVista3d]=useState(false);
+  // Se declara acá y no más abajo porque varios efectos de este componente lo
+  // usan en sus dependencias. Declararlo después los dejaba leyendo una `const`
+  // en zona muerta temporal: "Cannot access 'show3d' before initialization".
+  const show3d=vista3d&&!editMode&&!isMobile;
   const [diasSim,setDiasSim]=useState(0);      // deslizador temporal: 0 = hoy
   const dragRef=useRef(null);
   const obraDragOverRef=useRef(null);
@@ -147,7 +154,9 @@ export default function MapaProduccion({obras=[],onPuestoClick,onAsignarObra,onC
     const update=()=>setContainerSize({w:el.clientWidth,h:el.clientHeight});
     update(); window.addEventListener("resize",update);
     return()=>window.removeEventListener("resize",update);
-  },[]);
+    /* show3d en deps: el <svg> se desmonta en la maqueta; al volver al 2D hay que
+       re-medir y re-enganchar listeners sobre el elemento nuevo. */
+  },[show3d]);
 
   useLayoutEffect(()=>{
     const fit=()=>{
@@ -163,7 +172,7 @@ export default function MapaProduccion({obras=[],onPuestoClick,onAsignarObra,onC
       vpRef.current=next; setVp(next);
     };
     fit(); const t=setTimeout(fit,150); return()=>clearTimeout(t);
-  },[containerSize,railCollapsed,activeView]);
+  },[containerSize,railCollapsed,activeView,show3d]);
 
   const obraByPuesto=useMemo(()=>{
     const m={};
@@ -221,13 +230,30 @@ export default function MapaProduccion({obras=[],onPuestoClick,onAsignarObra,onC
     return {salioSet,pasadoSet,simDate,maxDias:Math.min(maxDias,540)};
   },[obras,diasSim]);
 
+  /* ── Datos temporales para el OpsRail ──
+     pasadas: obras activas con fecha fin estimada ya vencida HOY.
+     salidas: obras que saldrían entre HOY y la fecha simulada (liberan puesto). */
+  const railTemporal=useMemo(()=>{
+    const pasadas=[], salidas=[];
+    obras.forEach(o=>{
+      if(o.estado!=="activa"||!o.puesto_mapa) return;
+      const fin=parseDay(o.fecha_fin_estimada);
+      if(!fin) return;
+      if(fin<HOY) pasadas.push(o);
+      else if(sim.simDate&&fin<sim.simDate) salidas.push(o);
+    });
+    const byFin=(a,b)=>parseDay(a.fecha_fin_estimada)-parseDay(b.fecha_fin_estimada);
+    pasadas.sort(byFin); salidas.sort(byFin);
+    return {pasadas,salidas};
+  },[obras,sim.simDate]);
+
   const onWheel=useCallback(e=>{
     e.preventDefault();
     const rect=svgRef.current?.getBoundingClientRect(); if(!rect) return;
     const mx=e.clientX-rect.left, my=e.clientY-rect.top, f=e.deltaY<0?1.15:0.85;
     setVp(v=>{const ns=Math.min(8,Math.max(0.15,v.scale*f));const next={x:mx-(mx-v.x)*(ns/v.scale),y:my-(my-v.y)*(ns/v.scale),scale:ns};vpRef.current=next;return next;});
   },[]);
-  useEffect(()=>{const el=svgRef.current;if(!el)return;el.addEventListener("wheel",onWheel,{passive:false});return()=>el.removeEventListener("wheel",onWheel);},[onWheel]);
+  useEffect(()=>{const el=svgRef.current;if(!el)return;el.addEventListener("wheel",onWheel,{passive:false});return()=>el.removeEventListener("wheel",onWheel);},[onWheel,show3d]);
 
   /* ── Soporte táctil: pan (1 dedo) + pinch-zoom (2 dedos) ──────────────────
      Mirror de la lógica de wheel/pan pero con touch events. No hace
@@ -269,7 +295,7 @@ export default function MapaProduccion({obras=[],onPuestoClick,onAsignarObra,onC
     el.addEventListener("touchmove",onMove,{passive:false});
     el.addEventListener("touchend",onEnd,{passive:true});
     return()=>{ el.removeEventListener("touchstart",onStart); el.removeEventListener("touchmove",onMove); el.removeEventListener("touchend",onEnd); };
-  },[]);
+  },[show3d]);
 
   // En pantallas chicas el panel KPI (240px) tapa el mapa → arrancar colapsado.
   useEffect(()=>{ if(isMobile) setRailCollapsed(true); },[isMobile]);
@@ -500,9 +526,8 @@ export default function MapaProduccion({obras=[],onPuestoClick,onAsignarObra,onC
   const focusedOC=C.obra[focusedObra?.estado??"vacio"];
   const ctxPuesto=contextMenu?puestos.find(p=>p.id===contextMenu.puestoId):null;
   const ctxObra=ctxPuesto?obraByPuesto[ctxPuesto.id]:null;
-  /* La maqueta 3D es la vista principal; el plano 2D queda para edición de
-     layout, pantallas chicas y quien prefiera el plano técnico. */
-  const show3d=vista3d&&!editMode&&!isMobile;
+  /* show3d se declara arriba, junto a vista3d. Además de la preferencia del
+     usuario, la maqueta 3D se apaga en edición de layout y en pantallas chicas. */
   const nonFocusedPuestos=focusedPuesto?puestos.filter(p=>p.id!==focusedPuesto):puestos;
 
   const renderBoat=(p)=>{
@@ -554,8 +579,8 @@ export default function MapaProduccion({obras=[],onPuestoClick,onAsignarObra,onC
           preserveAspectRatio="none"
           opacity={opacity}
           draggable={false}
-          style={{pointerEvents:"none", userSelect:"none", mixBlendMode:"screen",
-                  ...(blur?{filter:"blur(4px)"}:{})}}
+          className={blur?"mapa-boat mapa-boat-blur":"mapa-boat"}
+          style={{pointerEvents:"none", userSelect:"none"}}
         />
       );
       /* Para puestos verticales envolvemos en un <g> que rota 90°.
@@ -727,7 +752,7 @@ export default function MapaProduccion({obras=[],onPuestoClick,onAsignarObra,onC
     // El mapa es un "blueprint": las PNG de los barcos usan mixBlendMode:"screen"
     // (negro = transparente), por lo que SIEMPRE necesita fondo oscuro. Si dejáramos
     // C.bg, en modo claro el fondo se vuelve #f4f5f7 y el blend lava todo a blanco.
-    <div style={{width:"100%",height:"100%",position:"relative",overflow:"hidden",fontFamily:C.sans,background:"#09090b"}}>
+    <div ref={rootRef} style={{width:"100%",height:"100%",position:"relative",overflow:"hidden",fontFamily:C.sans,background:"#09090b"}}>
       {activeView === "pampa" ? (
         <GalponPampa
           obras={obras}
@@ -747,6 +772,16 @@ export default function MapaProduccion({obras=[],onPuestoClick,onAsignarObra,onC
       ) : (
       <>
       <style>{`
+        /* Los PNG de los barcos son líneas claras sobre fondo NEGRO.
+           · Fondo oscuro → "screen" borra el negro y quedan las líneas.
+           · Fondo claro  → "screen" también lava las líneas contra el blanco y
+             el plano casi desaparece. Ahí hay que invertir el PNG (el negro se
+             vuelve blanco, las líneas oscuras) y usar "multiply", que borra el
+             blanco. Es el mismo truco, espejado. */
+        .mapa-boat { mix-blend-mode: screen; }
+        .mapa-boat-blur { filter: blur(4px); }
+        [data-theme="light"] .mapa-boat { mix-blend-mode: multiply; filter: invert(1); }
+        [data-theme="light"] .mapa-boat-blur { filter: invert(1) blur(4px); }
         @keyframes pulse-r  {0%{r:0;opacity:0.8;stroke-width:2}70%{r:36;opacity:0;stroke-width:0}100%{r:40;opacity:0}}
         @keyframes beacon   {0%,100%{opacity:1;transform:scale(1)}50%{opacity:0.5;transform:scale(0.85)}}
         @keyframes dash-run {to{stroke-dashoffset:-32}}
@@ -913,6 +948,14 @@ export default function MapaProduccion({obras=[],onPuestoClick,onAsignarObra,onC
               </svg>
               <span style={{color:activeView==="pampa"?"#67e8f9":""}}>Pampa</span>
             </button>
+            {!isMobile&&(
+              <button className="glass-btn" onClick={()=>setVista3d(v=>!v)}
+                title={vista3d?"Cambiar al plano técnico 2D (edición de layout)":"Volver a la maqueta 3D"}
+                style={{padding:"8px 14px",borderRadius:8,cursor:"pointer",fontSize:12,fontFamily:C.sans,fontWeight:700,display:"flex",alignItems:"center",gap:6,
+                  background:vista3d?"rgba(56,189,248,0.14)":"",borderColor:vista3d?"rgba(56,189,248,0.5)":""}}>
+                <span style={{color:vista3d?"#38bdf8":""}}>{vista3d?"▦ Plano 2D":"◆ Maqueta 3D"}</span>
+              </button>
+            )}
             <button className="glass-btn" onClick={()=>setEditMode(v=>!v)} style={{padding:"8px 16px",borderRadius:8,cursor:"pointer",fontSize:12,fontFamily:C.sans,fontWeight: 700,display:"flex",alignItems:"center",gap:6,background:editMode?"rgba(96,165,250,0.15)":"",borderColor:editMode?"rgba(96,165,250,0.4)":""}}>
               <span style={{color:editMode?"#60a5fa":""}}>{editMode?"● Editando Layout":"◩ Editar Layout"}</span>
             </button>
@@ -953,8 +996,8 @@ export default function MapaProduccion({obras=[],onPuestoClick,onAsignarObra,onC
       </div>
       )}
 
-      <RadarHUD puestos={puestos} obraByPuesto={obraByPuesto} vp={vp} containerW={containerSize.w} containerH={containerSize.h} right={82}/>
       <OpsRail obras={obras} puestos={puestos} obraByPuesto={obraByPuesto} memoriasEdit={memoriasEdit}
+        pasadasPlazo={railTemporal.pasadas} salidasSim={diasSim>0?railTemporal.salidas:[]} simDate={sim.simDate}
         collapsed={railCollapsed} onCollapse={setRailCollapsed}
         onFocusObra={(codigo)=>{
           const obra=obras.find(o=>o.codigo===codigo);
@@ -967,7 +1010,7 @@ export default function MapaProduccion({obras=[],onPuestoClick,onAsignarObra,onC
       {/* TOOLTIP */}
       {tooltip&&!obraDragPos&&!focusedPuesto&&(()=>{
         const obra=obraByPuesto[tooltip.puesto.id],oC=C.obra[obra?.estado??"vacio"];
-        const rect=svgRef.current?.getBoundingClientRect();if(!rect)return null;
+        const rect=rootRef.current?.getBoundingClientRect();if(!rect)return null;
         const tx=Math.min(tooltip.cx-rect.left+24,rect.width-310),ty=Math.max(24,Math.min(tooltip.cy-rect.top-24,rect.height-220));
         const hasFicha=obra&&(obra.propietario||obra.motores||obra.grupo_electrogeno||obra.teca_cockpit||obra.madera_muebles||obra.color_casco);
         const SpecRow=({label,val})=>val?(<div style={{display:"flex",gap:6,alignItems:"baseline"}}><span style={{fontSize:10,color:"rgba(255,255,255,0.3)",letterSpacing:1,textTransform:"uppercase",fontFamily:C.mono,minWidth:46,flexShrink:0}}>{label}</span><span style={{fontSize:12,color:"rgba(255,255,255,0.7)",lineHeight:1.3}}>{val}</span></div>):null;
@@ -1028,7 +1071,7 @@ export default function MapaProduccion({obras=[],onPuestoClick,onAsignarObra,onC
       {/* DRAG GHOST */}
       {obraDragPos&&dragRef.current?.obra&&(()=>{
         const {obra}=dragRef.current,oC=C.obra[obra.estado]??C.obra.vacio;
-        const rect=svgRef.current?.getBoundingClientRect();if(!rect)return null;
+        const rect=rootRef.current?.getBoundingClientRect();if(!rect)return null;
         return(<div style={{position:"absolute",left:obraDragPos.x-rect.left-80,top:obraDragPos.y-rect.top-30,zIndex:50,pointerEvents:"none",...GLASS,borderColor:oC.glow,borderRadius:12,padding:"12px 20px",boxShadow:`0 16px 32px rgba(0,0,0,0.6),0 0 0 1px ${oC.glow} inset,0 0 20px ${oC.glow}40`}}>
           <div style={{fontSize:10,color:oC.glow,letterSpacing:1.3,textTransform:"uppercase",marginBottom:4,fontWeight: 700}}>Reubicando</div>
           <div style={{fontFamily:C.mono,fontSize:16,color:C.t0,fontWeight:800}}>{obra.codigo}</div>
@@ -1037,7 +1080,7 @@ export default function MapaProduccion({obras=[],onPuestoClick,onAsignarObra,onC
       })()}
 
       {/* STATUS BAR — a la derecha del rail: no pisa el plano ni el zoom */}
-      <div style={{position:"absolute",bottom:16,left:(railCollapsed?RAIL_W_COLLAPSED:RAIL_W)+16,zIndex:5,pointerEvents:"none",userSelect:"none",maxWidth:"62%"}}>
+      <div style={{position:"absolute",bottom:(!isMobile&&!editMode)?72:16,left:(railCollapsed?RAIL_W_COLLAPSED:RAIL_W)+16,zIndex:5,pointerEvents:"none",userSelect:"none",maxWidth:"62%"}}>
         {focusedPuesto?(
           <div style={{padding:"8px 24px",borderRadius:30,background:"rgba(59,130,246,0.12)",border:"1px solid rgba(59,130,246,0.35)",fontSize:12,color:"#60a5fa",letterSpacing:1.2,fontWeight: 700,backdropFilter:"blur(8px)"}}>
             ◎ MODO FOCO — Click en área oscura o <span style={{fontFamily:C.mono,background:"rgba(96,165,250,0.15)",padding:"1px 6px",borderRadius:4}}>Esc</span> para salir
@@ -1048,7 +1091,7 @@ export default function MapaProduccion({obras=[],onPuestoClick,onAsignarObra,onC
           </div>
         ):(
           <div style={{display:"flex",gap:12,alignItems:"center",padding:"6px 18px",borderRadius:30,background:"rgba(0,0,0,0.4)",border:`1px solid ${C.b0}`,backdropFilter:"blur(8px)"}}>
-            {[["RUEDA","Zoom"],["DRAG","Pan"],["CLICK","Gestionar"],["CLICK-DER","Menú Radial"],["F","Enfocar"],["⌘K","Buscar"]].map(([key,label])=>(
+            {(show3d?[["DRAG","Orbitar"],["RUEDA","Zoom"],["CLICK","Gestionar"],["CLICK-DER","Menú Radial"],["F","Enfocar"],["⌘K","Buscar"]]:[["RUEDA","Zoom"],["DRAG","Pan"],["CLICK","Gestionar"],["CLICK-DER","Menú Radial"],["F","Enfocar"],["⌘K","Buscar"]]).map(([key,label])=>(
               <span key={key} style={{fontSize:10,color:C.t2,letterSpacing:1.1}}>
                 <span style={{fontFamily:C.mono,color:C.t1,background:"var(--panel)",padding:"1px 5px",borderRadius:4,fontSize:10}}>{key}</span>{" "}{label}
               </span>

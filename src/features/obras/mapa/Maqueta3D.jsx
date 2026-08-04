@@ -17,7 +17,7 @@
  * vive acá: vive en la vista 2D (el padre la conmuta).
  * ─────────────────────────────────────────────────────────────────────────────
  */
-import { useMemo, useRef } from "react";
+import { useEffect, useMemo, useRef } from "react";
 import { Canvas, useFrame, useThree } from "@react-three/fiber";
 import { MapControls, Html, Edges, useTexture } from "@react-three/drei";
 import * as THREE from "three";
@@ -201,7 +201,8 @@ function Puesto3D({p,obra,salio,pasadoPlazo,onHover,onOut,onClickPuesto,onContex
 /* ── PNG del plano técnico acostado en el piso del puesto ─────────────── */
 function PlanoPNG({src,w,h,vertical}){
   const tex=useTexture(src);
-  tex.colorSpace=THREE.SRGBColorSpace;
+  /* El colorSpace se setea en effect: la textura es valor de hook (inmutable en render) */
+  useEffect(()=>{ tex.colorSpace=THREE.SRGBColorSpace; tex.needsUpdate=true; },[tex]);
   return(
     <mesh position={[0,0.8,0]} rotation={[-Math.PI/2,0,vertical?Math.PI/2:0]}>
       <planeGeometry args={[w,h]}/>
@@ -214,15 +215,19 @@ function PlanoPNG({src,w,h,vertical}){
 /* ── Rig de cámara: vuela el target al puesto enfocado (sin tocar zoom) ── */
 function CameraRig({focus}){
   const controls=useThree(s=>s.controls);
+  /* controls es valor de hook → va por ref; useFrame muta el ref (permitido) */
+  const controlsRef=useRef(null);
   const target=useRef(new THREE.Vector3(0,0,0));
+  useEffect(()=>{ controlsRef.current=controls??null; },[controls]);
   useFrame((_,dt)=>{
-    if(!controls) return;
+    const c=controlsRef.current;
+    if(!c) return;
     if(focus) target.current.set(focus[0],0,focus[1]);
     else target.current.set(0,0,0);
-    controls.target.x=THREE.MathUtils.damp(controls.target.x,target.current.x,5,dt);
-    controls.target.y=THREE.MathUtils.damp(controls.target.y,target.current.y,5,dt);
-    controls.target.z=THREE.MathUtils.damp(controls.target.z,target.current.z,5,dt);
-    controls.update();
+    c.target.x=THREE.MathUtils.damp(c.target.x,target.current.x,5,dt);
+    c.target.y=THREE.MathUtils.damp(c.target.y,target.current.y,5,dt);
+    c.target.z=THREE.MathUtils.damp(c.target.z,target.current.z,5,dt);
+    c.update();
   });
   return null;
 }
