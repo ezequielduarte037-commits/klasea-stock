@@ -64,6 +64,13 @@ function fmtDate(ts) {
   return new Date(ts).toLocaleDateString("es-AR");
 }
 
+function obraOptionLabel(obra = {}) {
+  const codigo = String(obra.codigo || "").trim();
+  const linea = String(obra.linea_nombre || "").trim();
+  const estado = String(obra.estado || "").trim();
+  return [codigo, linea && `· ${linea}`, estado === "terminada" && "· terminada"].filter(Boolean).join(" ");
+}
+
 function urgenciaColor(semanas) {
   if (semanas == null || semanas === Infinity) return C.t2;
   if (semanas <= 0) return C.red;
@@ -176,6 +183,7 @@ export default function PedidosMaderaScreen({ profile, signOut, embedded = false
   const [materiales,   setMateriales]   = useState([]);
   const [movimientos,  setMovimientos]  = useState([]);
   const [pedidos,      setPedidos]      = useState([]);
+  const [obrasProduccion, setObrasProduccion] = useState([]);
 
 
   // ── Tab 1: Sugeridas ──────────────────────────────────────────
@@ -187,7 +195,7 @@ export default function PedidosMaderaScreen({ profile, signOut, embedded = false
   // ── Tab 2: Nuevo pedido ───────────────────────────────────────
   // obras: array de { id, nombre, destino, items: [{id, descripcion, cantidad, unidad}] }
   const nuevoId = () => Math.random().toString(36).slice(2);
-  const [obras,        setObras]        = useState([{ id: nuevoId(), nombre: "", destino: "", items: [] }]);
+  const [obras,        setObras]        = useState([{ id: nuevoId(), nombre: "", destino: "", nombreManual: false, items: [] }]);
   const [stockItems,   setStockItems]   = useState([]);
   const [destinatario, setDestinatario] = useState("");
   const [copiado,      setCopiado]      = useState(false);
@@ -206,6 +214,7 @@ export default function PedidosMaderaScreen({ profile, signOut, embedded = false
       { data: mats,  error: e1 },
       { data: movs,  error: e2 },
       { data: peds,  error: e3 },
+      { data: obrasRows, error: e4 },
     ] = await Promise.all([
       supabase.from("materiales").select("id, nombre, unidad_medida, stock_actual"),
       supabase.from("movimientos").select("id, material_id, delta, created_at, obra"),
@@ -213,15 +222,21 @@ export default function PedidosMaderaScreen({ profile, signOut, embedded = false
         .select("*")
         .order("fecha_pedido", { ascending: false })
         .order("creado_en", { ascending: false }),
+      supabase.from("produccion_obras")
+        .select("id,codigo,descripcion,estado,linea_nombre")
+        .neq("estado", "archivada")
+        .order("codigo", { ascending: true }),
     ]);
 
     if (e1) { setError(e1.message); setLoading(false); return; }
     if (e2) { setError(e2.message); setLoading(false); return; }
     if (e3) { setError(e3.message); setLoading(false); return; }
+    if (e4) { setError(e4.message); setLoading(false); return; }
 
     setMateriales(mats  ?? []);
     setMovimientos(movs ?? []);
     setPedidos(peds     ?? []);
+    setObrasProduccion(obrasRows ?? []);
     setLoading(false);
   }, []);
 
@@ -231,12 +246,20 @@ export default function PedidosMaderaScreen({ profile, signOut, embedded = false
       .on("postgres_changes", { event: "*", schema: "public", table: "materiales" },  cargar)
       .on("postgres_changes", { event: "*", schema: "public", table: "movimientos" }, cargar)
       .on("postgres_changes", { event: "*", schema: "public", table: "pedidos" },     cargar)
+      .on("postgres_changes", { event: "*", schema: "public", table: "produccion_obras" }, cargar)
       .subscribe();
     return () => supabase.removeChannel(ch);
   }, [cargar]);
 
   // ── Stats calculadas ──────────────────────────────────────────
   const stats = useMemo(() => calcularStats(movimientos, materiales), [movimientos, materiales]);
+  const obrasOptions = useMemo(() => (
+    [...obrasProduccion]
+      .sort((a, b) => String(a.codigo || "").localeCompare(String(b.codigo || ""), "es", { numeric: true, sensitivity: "base" }))
+      .map((obra) => (
+        <option key={obra.id} value={obra.codigo}>{obraOptionLabel(obra)}</option>
+      ))
+  ), [obrasProduccion]);
 
   const statsOrdenadas = useMemo(() => {
     let rows = soloUrgentes
@@ -263,7 +286,7 @@ export default function PedidosMaderaScreen({ profile, signOut, embedded = false
 
   // ── Pedido: helpers de edición ────────────────────────────────
   function addObra() {
-    setObras(prev => [...prev, { id: nuevoId(), nombre: "", destino: "", items: [] }]);
+    setObras(prev => [...prev, { id: nuevoId(), nombre: "", destino: "", nombreManual: false, items: [] }]);
   }
 
   function removeObra(obraId) {
@@ -436,7 +459,7 @@ export default function PedidosMaderaScreen({ profile, signOut, embedded = false
       }
 
       // Reset form
-      setObras([{ id: nuevoId(), nombre: "", destino: "", items: [] }]);
+      setObras([{ id: nuevoId(), nombre: "", destino: "", nombreManual: false, items: [] }]);
       setStockItems([]);
       setDestinatario("");
       await cargar();
@@ -762,7 +785,28 @@ export default function PedidosMaderaScreen({ profile, signOut, embedded = false
                         </div>
 
                         <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8, marginBottom: 12 }}>
-                          <input style={INP} placeholder="Nombre de obra (ej: K52-24)" value={obra.nombre} onChange={e => updateObra(obra.id, "nombre", e.target.value)} />
+                          <div>
+                            <select style={INP}
+                              value={obra.nombreManual ? "__manual__" : obra.nombre}
+                              onChange={e => {
+                                if (e.target.value === "__manual__") {
+                                  updateObra(obra.id, "nombreManual", true);
+                                  updateObra(obra.id, "nombre", "");
+                                  return;
+                                }
+                                updateObra(obra.id, "nombreManual", false);
+                                updateObra(obra.id, "nombre", e.target.value);
+                              }}>
+                              <option value="">Seleccionar obra...</option>
+                              {obrasOptions}
+                              <option value="__manual__">Obra manual...</option>
+                            </select>
+                            {obra.nombreManual && (
+                              <input style={{ ...INP, marginTop: 8 }} placeholder="Nombre de obra..."
+                                value={obra.nombre}
+                                onChange={e => updateObra(obra.id, "nombre", e.target.value)} />
+                            )}
+                          </div>
                           <input style={INP} placeholder="Destino (ej: Chubut 2120)" value={obra.destino} onChange={e => updateObra(obra.id, "destino", e.target.value)} />
                         </div>
 

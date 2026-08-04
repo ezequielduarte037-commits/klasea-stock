@@ -1297,7 +1297,48 @@ function CostsView({ rows }) {
       <div style={{ display: "grid", gridTemplateColumns: "repeat(3,minmax(0,1fr))", gap: 10 }}><Kpi label="Total ARS" value={fmtMoney(ars)} hint={`${monthRows.length} movimientos con costo`} tone="blue" icon={Banknote} /><Kpi label="Total USD" value={fmtMoney(usd, "USD")} hint="Registrado sin conversión" tone="green" icon={CircleDollarSign} /><Kpi label="Sin costo" value={rows.filter((row) => displayDate(row)?.startsWith(month) && row.costo == null && row.estado !== "cancelado").length} hint="Pendientes de completar" tone="violet" icon={AlertTriangle} /></div>
       <div className="log-cost-grid" style={{ display: "grid", gridTemplateColumns: "minmax(260px,.7fr) minmax(0,1.3fr)", gap: 12 }}>
         <section style={{ padding: 14, borderRadius: 13, background: C.panelSolid, border: `1px solid ${C.border}` }}><span style={LABEL}>Por proveedor</span><div style={{ display: "grid", gap: 7 }}>{byProvider.length ? byProvider.map(([name, data]) => <div key={name} style={{ display: "flex", justifyContent: "space-between", gap: 12, padding: "9px 0", borderBottom: `1px solid ${C.border}` }}><span><b style={{ color: C.text, fontSize: 12.5 }}>{name}</b><small style={{ display: "block", color: C.dim, marginTop: 2 }}>{data.count} movimientos</small></span><span style={{ textAlign: "right", fontFamily: C.mono, color: C.muted, fontSize: 11 }}>{data.ars ? fmtMoney(data.ars) : ""}{data.usd ? <small style={{ display: "block", color: C.green }}>{fmtMoney(data.usd, "USD")}</small> : null}</span></div>) : <div style={{ color: C.dim, fontSize: 12, padding: 20, textAlign: "center" }}>Sin costos cargados para este mes.</div>}</div></section>
-        <section style={{ borderRadius: 13, background: C.panelSolid, border: `1px solid ${C.border}`, overflow: "hidden" }}><div style={{ padding: "12px 14px", borderBottom: `1px solid ${C.border}`, color: C.text, fontSize: 12.5, fontWeight: 900 }}>Detalle mensual</div><div style={{ overflowX: "auto" }}><table style={{ width: "100%", borderCollapse: "collapse", minWidth: 620 }}><thead><tr>{["Fecha", "Movimiento", "Proveedor", "Solicitado por", "Costo"].map((head) => <th key={head} style={{ padding: "9px 11px", textAlign: "left", color: C.dim, fontSize: 9.5, textTransform: "uppercase", letterSpacing: ".08em", borderBottom: `1px solid ${C.border}` }}>{head}</th>)}</tr></thead><tbody>{monthRows.map((row) => <tr key={row.id}><td style={{ padding: 11, color: C.dim, fontFamily: C.mono, fontSize: 10.5, borderBottom: `1px solid ${C.border}` }}>{fmtDate(displayDate(row))}</td><td style={{ padding: 11, color: C.text, fontSize: 11.5, fontWeight: 800, borderBottom: `1px solid ${C.border}` }}>{row.carga}</td><td style={{ padding: 11, color: C.muted, fontSize: 11, borderBottom: `1px solid ${C.border}` }}>{providerSummary(row)}</td><td style={{ padding: 11, color: C.muted, fontSize: 11, borderBottom: `1px solid ${C.border}` }}>{actorName(row.solicitante)}</td><td style={{ padding: 11, color: C.green, fontFamily: C.mono, fontSize: 11, fontWeight: 900, borderBottom: `1px solid ${C.border}` }}>{fmtMoney(row.costo, row.moneda)}</td></tr>)}</tbody></table></div></section>
+        <section style={{ borderRadius: 13, background: C.panelSolid, border: `1px solid ${C.border}`, overflow: "hidden" }}>
+          <div style={{ padding: "12px 14px", borderBottom: `1px solid ${C.border}`, color: C.text, fontSize: 12.5, fontWeight: 900 }}>Detalle mensual</div>
+          <div style={{ overflowX: "auto" }}>
+            <table style={{ width: "100%", borderCollapse: "collapse", minWidth: 760 }}>
+              <thead>
+                <tr>
+                  {["Fecha", "Movimiento", "Para qué / obra", "Proveedor", "Solicitado por", "Costo"].map((head) => (
+                    <th key={head} style={{ padding: "9px 11px", textAlign: "left", color: C.dim, fontSize: 9.5, textTransform: "uppercase", letterSpacing: ".08em", borderBottom: `1px solid ${C.border}` }}>{head}</th>
+                  ))}
+                </tr>
+              </thead>
+              <tbody>
+                {monthRows.map((row) => {
+                  // Un costo sin destino no se puede imputar. Si el flete tiene
+                  // obra asignada se muestra esa; si no, la anotación, que es
+                  // donde queda escrito para qué se usó. Cuando no hay ninguna
+                  // de las dos, se dice — es un dato a completar, no un vacío.
+                  const obra = String(row.obra || "").trim();
+                  const nota = String(row.notas || row.costo_detalle || "").trim();
+                  return (
+                    <tr key={row.id}>
+                      <td style={{ padding: 11, color: C.dim, fontFamily: C.mono, fontSize: 10.5, borderBottom: `1px solid ${C.border}` }}>{fmtDate(displayDate(row))}</td>
+                      <td style={{ padding: 11, color: C.text, fontSize: 11.5, fontWeight: 800, borderBottom: `1px solid ${C.border}` }}>{row.carga}</td>
+                      <td style={{ padding: 11, borderBottom: `1px solid ${C.border}`, maxWidth: 220 }}>
+                        {obra ? (
+                          <span style={{ display: "inline-flex", alignItems: "center", padding: "2px 8px", borderRadius: 999, border: `1px solid ${C.blueB}`, background: C.blueL, color: C.blue, fontSize: 10.5, fontWeight: 900, whiteSpace: "nowrap" }}>{obra}</span>
+                        ) : nota ? (
+                          <span title={nota} style={{ display: "block", color: C.muted, fontSize: 11, lineHeight: 1.35, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{nota}</span>
+                        ) : (
+                          <span style={{ color: C.dim, fontSize: 10.5, fontStyle: "italic" }}>Sin asignar</span>
+                        )}
+                      </td>
+                      <td style={{ padding: 11, color: C.muted, fontSize: 11, borderBottom: `1px solid ${C.border}` }}>{providerSummary(row)}</td>
+                      <td style={{ padding: 11, color: C.muted, fontSize: 11, borderBottom: `1px solid ${C.border}` }}>{actorName(row.solicitante)}</td>
+                      <td style={{ padding: 11, color: C.green, fontFamily: C.mono, fontSize: 11, fontWeight: 900, borderBottom: `1px solid ${C.border}` }}>{fmtMoney(row.costo, row.moneda)}</td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
+          </div>
+        </section>
       </div>
     </div>
   );

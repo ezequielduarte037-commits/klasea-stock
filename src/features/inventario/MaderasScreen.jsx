@@ -58,6 +58,13 @@ function fmtQty(value) {
   return Number.isInteger(n) ? String(n) : n.toFixed(2).replace(/\.?0+$/, "");
 }
 
+function obraLabel(obra = {}) {
+  const codigo = String(obra.codigo || "").trim();
+  const linea = String(obra.linea_nombre || "").trim();
+  const estado = String(obra.estado || "").trim();
+  return [codigo, linea && `· ${linea}`, estado === "terminada" && "· terminada"].filter(Boolean).join(" ");
+}
+
 function pedidoItemCantidadTotal(item) {
   return num(item?.cantidad);
 }
@@ -332,11 +339,13 @@ export default function MaderasScreen({ profile, signOut }) {
   const [movimientos, setMovimientos] = useState([]);
   const [pedidos, setPedidos] = useState([]);
   const [pedidoItems, setPedidoItems] = useState([]);
+  const [obrasProduccion, setObrasProduccion] = useState([]);
   const [err, setErr] = useState("");
   const [msg, setMsg] = useState("");
   const [q, setQ] = useState("");
   const [showAjuste, setShowAjuste] = useState(false);
   const [recepcionParcial, setRecepcionParcial] = useState({});
+  const [destinoManual, setDestinoManual] = useState(false);
 
   const [formIngreso, setFormIngreso] = useState({
     material_id: "", cantidad: "",
@@ -389,10 +398,19 @@ export default function MaderasScreen({ profile, signOut }) {
     setPedidoItems(items ?? []);
   }, []);
 
+  const cargarObrasProduccion = useCallback(async () => {
+    const { data } = await supabase
+      .from("produccion_obras")
+      .select("id,codigo,descripcion,estado,linea_nombre")
+      .neq("estado", "archivada")
+      .order("codigo", { ascending: true });
+    setObrasProduccion(data ?? []);
+  }, []);
+
   const cargar = useCallback(async () => {
     setErr("");
-    await Promise.all([cargarMateriales(), cargarMovimientos(), cargarPedidos()]);
-  }, [cargarMateriales, cargarMovimientos, cargarPedidos]);
+    await Promise.all([cargarMateriales(), cargarMovimientos(), cargarPedidos(), cargarObrasProduccion()]);
+  }, [cargarMateriales, cargarMovimientos, cargarPedidos, cargarObrasProduccion]);
 
   useEffect(() => {
     const timer = window.setTimeout(() => { void cargar(); }, 0);
@@ -402,6 +420,7 @@ export default function MaderasScreen({ profile, signOut }) {
       .on("postgres_changes", { event: "*", schema: "public", table: "materiales" }, () => { void cargar(); })
       .on("postgres_changes", { event: "*", schema: "public", table: "pedidos" }, () => { void cargar(); })
       .on("postgres_changes", { event: "*", schema: "public", table: "pedido_items" }, () => { void cargar(); })
+      .on("postgres_changes", { event: "*", schema: "public", table: "produccion_obras" }, () => { void cargar(); })
       .subscribe();
     return () => {
       window.clearTimeout(timer);
@@ -552,6 +571,7 @@ export default function MaderasScreen({ profile, signOut }) {
     }
     setMsg("Egreso registrado");
     setFormEgreso({ material_id: "", cantidad: "", fecha: hoyLocal(), destino: "", nombre_persona: "", observaciones: "" });
+    setDestinoManual(false);
     setTimeout(() => setMsg(""), 3000);
     await cargar();
   }
@@ -681,6 +701,13 @@ export default function MaderasScreen({ profile, signOut }) {
   const matOptions = materiales.map(m => (
     <option key={m.id} value={m.id}>{m.nombre} ({m.unidad_medida})</option>
   ));
+  const obrasOptions = useMemo(() => (
+    [...obrasProduccion]
+      .sort((a, b) => String(a.codigo || "").localeCompare(String(b.codigo || ""), "es", { numeric: true, sensitivity: "base" }))
+      .map((obra) => (
+        <option key={obra.id} value={obra.codigo}>{obraLabel(obra)}</option>
+      ))
+  ), [obrasProduccion]);
 
   const materialEgresoSeleccionado = materiales.find(m => String(m.id) === String(formEgreso.material_id));
   const egresoStockActual = materialEgresoSeleccionado ? (stockPorMaterial[materialEgresoSeleccionado.id] ?? 0) : 0;
@@ -1258,9 +1285,13 @@ export default function MaderasScreen({ profile, signOut }) {
                         </div>
                         <div>
                           <label style={S.label}>Obra (opcional)</label>
-                          <input style={S.input} placeholder="H167 / 37-26..."
+                          <select style={S.select}
                             value={formIngreso.obra}
-                            onChange={e => setFormIngreso(f => ({ ...f, obra: e.target.value }))} />
+                            onChange={e => setFormIngreso(f => ({ ...f, obra: e.target.value }))}>
+                            <option value="">Sin obra asignada</option>
+                            {obrasOptions}
+                          </select>
+                          <div style={{ ...S.small, marginTop: 5 }}>Se guarda con el movimiento para poder filtrarlo despues.</div>
                         </div>
                       </div>
                       <div>
@@ -1428,10 +1459,27 @@ export default function MaderasScreen({ profile, signOut }) {
                       </div>
                       <div style={{ display: "grid", gridTemplateColumns: isMobile ? "1fr" : "1fr 1fr", gap: 10 }}>
                         <div>
-                          <label style={S.label}>Destino / Barco</label>
-                          <input style={S.input} placeholder="H167 / 37-26 / Chubut..."
-                            value={formEgreso.destino}
-                            onChange={e => setFormEgreso(f => ({ ...f, destino: e.target.value }))} />
+                          <label style={S.label}>Destino / obra</label>
+                          <select style={S.select}
+                            value={destinoManual ? "__manual__" : formEgreso.destino}
+                            onChange={e => {
+                              if (e.target.value === "__manual__") {
+                                setDestinoManual(true);
+                                setFormEgreso(f => ({ ...f, destino: "" }));
+                                return;
+                              }
+                              setDestinoManual(false);
+                              setFormEgreso(f => ({ ...f, destino: e.target.value }));
+                            }}>
+                            <option value="">Seleccionar obra o destino</option>
+                            {obrasOptions}
+                            <option value="__manual__">Destino manual...</option>
+                          </select>
+                          {destinoManual && (
+                            <input style={{ ...S.input, marginTop: 8 }} placeholder="Chubut / Pampa / Galpon..."
+                              value={formEgreso.destino}
+                              onChange={e => setFormEgreso(f => ({ ...f, destino: e.target.value }))} />
+                          )}
                         </div>
                         <div>
                           <label style={S.label}>Persona que retira</label>
