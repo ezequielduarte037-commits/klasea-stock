@@ -1145,14 +1145,34 @@ function MonthView({ month, rows, milestones, weather, holidays, mergeableIds, o
             const holiday = date ? holidays.get(date) : null;
             const raining = Number(dayWeather?.rain) >= 40;
             const weekend = index % 7 > 4;
-            const eventLimit = holiday ? 3 : 4;
+            const eventLimit = holiday ? 2 : 3;
             const visibleMarks = Math.max(0, eventLimit - events.length);
             return (
               <div className={`log-calendar-cell${date === TODAY ? " is-today" : ""}${weekend ? " is-weekend" : ""}${holiday ? " is-holiday" : ""}${raining ? " is-raining" : ""}${!date ? " is-empty" : ""}`} key={index} title={holiday || undefined} style={{ minHeight: 132, padding: 8, overflow: "hidden", borderRight: index % 7 !== 6 ? `1px solid ${C.border}` : 0, borderBottom: index < 35 ? `1px solid ${C.border}` : 0, background: !date ? C.panel : date === TODAY ? C.blueL : holiday ? `linear-gradient(145deg, ${C.redL}, transparent 62%)` : weekend ? C.panel : "transparent" }}>
                 {raining && <RainVeil probability={dayWeather.rain} />}
                 {date && <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", color: date === TODAY ? C.blue : holiday ? C.red : C.dim, fontFamily: C.mono, fontSize: 10.5, fontWeight: 900, marginBottom: 7 }}><span className="log-day-number" style={{ width: 24, height: 24, borderRadius: 8, display: "grid", placeItems: "center", background: date === TODAY ? C.blue : holiday ? C.redL : "transparent", border: holiday && date !== TODAY ? `1px solid ${C.redB}` : "1px solid transparent", color: date === TODAY ? "white" : holiday ? C.red : weekend ? C.muted : C.dim }}>{parseDate(date).getDate()}</span>{dayWeather && <span title={`${weatherLabel(dayWeather.code)} · viento ${Math.round(dayWeather.wind)} km/h · lluvia ${dayWeather.rain ?? 0}%`} style={{ display: "inline-flex", alignItems: "center", gap: 3, color: Number(dayWeather.wind) >= 30 ? C.red : raining ? C.cyan : C.dim, fontSize: 8.5 }}>{raining ? <CloudRain size={10} /> : <CloudSun size={10} />}{Math.round(dayWeather.max)}°</span>}</div>}
                 {holiday && <div className="log-holiday-label" title={holiday} style={{ margin: "-2px 0 5px", color: C.red, fontSize: 8.5, fontWeight: 950, lineHeight: 1.25, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}><span style={{ display: "inline-block", width: 5, height: 5, marginRight: 4, borderRadius: 99, background: C.red }} />Feriado · {holiday}</div>}
-                {events.slice(0, eventLimit).map((row) => { const ui = transportUi(transportsOf(row)[0]?.tipo); const state = statusUi(row.estado); const risky = hasCrane(row) && Number(dayWeather?.wind) >= 30; const canMerge = mergeableIds?.has(row.id); return <button className="log-event-pill" key={row.id} onClick={() => onOpen(row)} title={`${movementHeadline(row)} · ${workLabel(row)} · ${routeLabel(row)}${canMerge ? " · Posible unión" : ""}${risky ? " · Revisar viento" : ""}`} style={{ width: "100%", display: "grid", gridTemplateColumns: "auto minmax(0,1fr) auto", alignItems: "center", gap: 5, textAlign: "left", overflow: "hidden", marginBottom: 4, padding: "5px 6px", borderRadius: 7, border: `1px solid ${risky ? C.redB : ui.border}`, borderLeft: `2px solid ${risky ? C.red : state.color}`, background: risky ? C.redL : ui.soft, color: risky ? C.red : C.text, cursor: "pointer", fontSize: 9.2, fontWeight: 850 }}><span style={{ color: risky ? C.red : ui.color, fontFamily: C.mono, fontSize: 8.7 }}>{displayTime(row) || "—"}</span><span style={{ overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}><b style={{ color: row.obra ? C.blue : C.dim, fontFamily: C.mono, fontSize: 8.5 }}>{workLabel(row)}</b> · {movementHeadline(row)}</span>{canMerge && <Merge size={9} color={C.violet} />}</button>; })}
+                {events.slice(0, eventLimit).map((row) => {
+                  const ui = transportUi(transportsOf(row)[0]?.tipo);
+                  const state = statusUi(row.estado);
+                  const risky = hasCrane(row) && Number(dayWeather?.wind) >= 30;
+                  const canMerge = mergeableIds?.has(row.id);
+                  const title = row.carga || row.titulo || "Movimiento";
+                  return (
+                    <button className="log-event-pill" key={row.id} onClick={() => onOpen(row)} title={`${movementHeadline(row)} · ${workLabel(row)} · ${routeLabel(row)}${canMerge ? " · Posible unión" : ""}${risky ? " · Revisar viento" : ""}`} style={{ minHeight: 38, width: "100%", display: "grid", gridTemplateColumns: "auto minmax(0,1fr) auto", alignItems: "start", gap: 6, textAlign: "left", overflow: "hidden", marginBottom: 4, padding: "5px 7px", borderRadius: 8, border: `1px solid ${risky ? C.redB : ui.border}`, borderLeft: `2px solid ${risky ? C.red : state.color}`, background: risky ? C.redL : ui.soft, color: risky ? C.red : C.text, cursor: "pointer" }}>
+                      <span style={{ paddingTop: 1, color: risky ? C.red : ui.color, fontFamily: C.mono, fontSize: 8.7, fontWeight: 950 }}>{displayTime(row) || "—"}</span>
+                      <span style={{ minWidth: 0, display: "grid", gap: 2 }}>
+                        <strong style={{ color: C.text, fontSize: 9.5, lineHeight: 1.15, fontWeight: 950, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{title}</strong>
+                        <small style={{ minWidth: 0, display: "flex", alignItems: "center", gap: 4, color: C.dim, fontSize: 8.2, lineHeight: 1.1, overflow: "hidden", whiteSpace: "nowrap" }}>
+                          <b style={{ flexShrink: 0, color: row.obra ? C.blue : C.dim, fontFamily: C.mono, fontWeight: 950 }}>{workLabel(row)}</b>
+                          <span style={{ color: C.border2 }}>·</span>
+                          <span style={{ overflow: "hidden", textOverflow: "ellipsis" }}>{transportSummary(row)}</span>
+                        </small>
+                      </span>
+                      {canMerge && <Merge size={9} color={C.violet} style={{ marginTop: 3 }} />}
+                    </button>
+                  );
+                })}
                 {events.length > eventLimit && <div style={{ color: C.blue, fontSize: 8.8, fontWeight: 850, padding: "1px 4px" }}>+{events.length - eventLimit} movimientos</div>}
                 {marks.slice(0, visibleMarks).map((mark) => <div className="log-legacy-pill" key={mark.id} title={mark.notas || "Registro del calendario anterior"} style={{ marginTop: 4, padding: "4px 6px", borderRadius: 6, border: `1px dashed ${C.border2}`, background: C.panel2, color: C.muted, fontSize: 8.6, fontWeight: 800, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>◇ {cleanTime(mark.hora) ? `${cleanTime(mark.hora)} · ` : ""}{mark.titulo}{mark.obra ? ` · ${mark.obra}` : ""}</div>)}
                 {marks.length > visibleMarks && <div style={{ color: C.dim, fontSize: 8.5, marginTop: 3 }}>+{marks.length - visibleMarks} anteriores</div>}
