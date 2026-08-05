@@ -129,6 +129,7 @@ const MESES = ["Enero", "Febrero", "Marzo", "Abril", "Mayo", "Junio", "Julio", "
 const DIAS = ["Lun", "Mar", "Mié", "Jue", "Vie", "Sáb", "Dom"];
 const CALENDAR_COLUMNS = "repeat(5,minmax(132px,1fr)) repeat(2,minmax(96px,.62fr))";
 const ARCHIVO_CATEGORIAS = {
+  ot: { label: "OT / plano", color: C.orange },
   remito: { label: "Remito", color: C.teal },
   factura: { label: "Factura", color: C.violet },
   foto: { label: "Foto", color: C.blue },
@@ -267,8 +268,22 @@ function movementHeadline(row) {
 
 function workLabel(row) {
   const value = String(row?.obra || "").trim();
-  if (!value) return "General · sin obra";
+  if (!value) return "General ? sin obra";
+  const obras = splitObrasValue(value);
+  if (obras.length > 1) return `Obras ${obras.join(" + ")}`;
   return /^obra\b/i.test(value) ? value : `Obra ${value}`;
+}
+
+function splitObrasValue(value) {
+  return String(value || "")
+    .split(/\s*(?:\+|,|;|\n)\s*/)
+    .map((item) => item.trim())
+    .filter(Boolean);
+}
+
+function rowMatchesObra(row, obra) {
+  if (obra === "todos") return true;
+  return splitObrasValue(row?.obra).some((item) => item === obra);
 }
 
 function pairWasRejected(first, second) {
@@ -663,12 +678,15 @@ function RequestModal({ row, rows, obras, profile, onClose, onSaved }) {
 
 function ManualMovementModal({ obras, profile, onClose, onSaved }) {
   const toast = useToast();
+  const manualFilesRef = useRef(null);
   const [saving, setSaving] = useState(false);
+  const [manualFiles, setManualFiles] = useState([]);
+  const [manualFileCategory, setManualFileCategory] = useState("ot");
   const [form, setForm] = useState({
     tipoTransporte: "motomensajeria",
     proveedor: "",
     carga: "",
-    obra: "",
+    obras: [],
     fecha: TODAY,
     hora: "09:00",
     modalidad: "traslado",
@@ -679,6 +697,7 @@ function ManualMovementModal({ obras, profile, onClose, onSaved }) {
     observaciones: "",
   });
   const set = (key, value) => setForm((current) => ({ ...current, [key]: value }));
+  const [obraDraft, setObraDraft] = useState("");
   const requiredStops = form.modalidad === "trabajo_en_sitio" ? 1 : 2;
   const validStops = form.paradas.filter((stop) => String(stop.lugar || "").trim() || String(stop.direccion || "").trim());
   const valid = form.carga.trim() && form.fecha && validStops.length >= requiredStops;
@@ -712,12 +731,36 @@ function ManualMovementModal({ obras, profile, onClose, onSaved }) {
     return form.paradas.length > 2 ? `Destino ${index} *` : "Destino *";
   }
 
+  function addObra(value = obraDraft) {
+    const obra = String(value || "").trim();
+    if (!obra) return;
+    setForm((current) => current.obras.some((item) => item.toLowerCase() === obra.toLowerCase())
+      ? current
+      : { ...current, obras: [...current.obras, obra] });
+    setObraDraft("");
+  }
+
+  function removeObra(obra) {
+    setForm((current) => ({ ...current, obras: current.obras.filter((item) => item !== obra) }));
+  }
+
+  function obraValueForSave() {
+    return form.obras.length ? form.obras.join(" + ") : obraDraft.trim();
+  }
+
+  function setSelectedFiles(files) {
+    setManualFiles(Array.from(files || []));
+  }
+
   async function save() {
     if (!valid || saving) return;
     setSaving(true);
     try {
-      await crearMovimientoManualLogistica({ ...form, paradas: validStops }, profile);
-      toast.success("Movimiento manual agregado al calendario.");
+      const created = await crearMovimientoManualLogistica({ ...form, obra: obraValueForSave(), paradas: validStops }, profile);
+      if (manualFiles.length) {
+        await subirArchivosMovimiento(created.id, manualFiles, manualFileCategory, profile);
+      }
+      toast.success(manualFiles.length ? "Movimiento manual agregado con archivos." : "Movimiento manual agregado al calendario.");
       onSaved();
     } catch (error) {
       toast.error(error.message || "No se pudo agregar el movimiento.");
@@ -735,7 +778,38 @@ function ManualMovementModal({ obras, profile, onClose, onSaved }) {
         </section>
         <section className="log-two" style={{ display: "grid", gridTemplateColumns: "1.3fr .7fr", gap: 10 }}>
           <div><label style={LABEL}>Título / qué se realiza *</label><input autoFocus value={form.carga} onChange={(event) => set("carga", event.target.value)} style={FIELD} placeholder="Retirar documentación, llevar repuestos..." /></div>
-          <div><label style={LABEL}>Obra / sector</label><input value={form.obra} onChange={(event) => set("obra", event.target.value)} list="manual-obras-logistica" style={FIELD} placeholder="K85-3, Compras..." /><datalist id="manual-obras-logistica">{obras.map((obra) => <option key={obra.id} value={obra.codigo} />)}</datalist></div>
+          <div>
+            <label style={LABEL}>Obras / sector</label>
+            <div style={{ display: "grid", gridTemplateColumns: "minmax(0,1fr) auto", gap: 6 }}>
+              <input
+                value={obraDraft}
+                onChange={(event) => setObraDraft(event.target.value)}
+                onKeyDown={(event) => {
+                  if (event.key === "Enter") {
+                    event.preventDefault();
+                    addObra();
+                  }
+                }}
+                list="manual-obras-logistica"
+                style={FIELD}
+                placeholder={form.obras.length ? "Agregar otra obra..." : "K85-3, Compras..."}
+              />
+              <button type="button" onClick={() => addObra()} style={{ minWidth: 38, borderRadius: 9, border: `1px solid ${C.blueB}`, background: C.blueL, color: C.blue, cursor: "pointer", display: "grid", placeItems: "center" }} title="Agregar obra">
+                <Plus size={14} />
+              </button>
+            </div>
+            <datalist id="manual-obras-logistica">{obras.map((obra) => <option key={obra.id} value={obra.codigo} />)}</datalist>
+            {form.obras.length > 0 && (
+              <div style={{ display: "flex", flexWrap: "wrap", gap: 5, marginTop: 7 }}>
+                {form.obras.map((obra) => (
+                  <span key={obra} style={{ display: "inline-flex", alignItems: "center", gap: 5, maxWidth: "100%", padding: "4px 7px", borderRadius: 999, border: `1px solid ${C.blueB}`, background: C.blueL, color: C.blue, fontFamily: C.mono, fontSize: 10.5, fontWeight: 900 }}>
+                    <span style={{ overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{obra}</span>
+                    <button type="button" onClick={() => removeObra(obra)} aria-label={`Quitar ${obra}`} style={{ border: 0, background: "transparent", color: C.blue, padding: 0, cursor: "pointer", display: "inline-flex" }}><X size={11} /></button>
+                  </span>
+                ))}
+              </div>
+            )}
+          </div>
         </section>
         <section className="log-two" style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10 }}>
           <div><label style={LABEL}>Fecha *</label><input type="date" value={form.fecha} onChange={(event) => set("fecha", event.target.value)} style={FIELD} /></div>
@@ -772,6 +846,29 @@ function ManualMovementModal({ obras, profile, onClose, onSaved }) {
         <section className="log-two" style={{ display: "grid", gridTemplateColumns: "1fr 90px", gap: 10 }}>
           <div><label style={LABEL}>Costo</label><input type="number" min="0" step="0.01" value={form.costo} onChange={(event) => set("costo", event.target.value)} style={FIELD} placeholder="Importe opcional" /></div>
           <div><label style={LABEL}>Moneda</label><select value={form.moneda} onChange={(event) => set("moneda", event.target.value)} style={FIELD}><option>ARS</option><option>USD</option></select></div>
+        </section>
+        <section style={{ padding: 11, borderRadius: 11, border: `1px solid ${C.border}`, background: C.panel }}>
+          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 10, marginBottom: 8 }}>
+            <label style={{ ...LABEL, marginBottom: 0 }}>Archivos adjuntos</label>
+            <span style={{ color: C.dim, fontSize: 9.5 }}>PDF, DXF, fotos, OT ? hasta 50 MB</span>
+          </div>
+          <div style={{ display: "grid", gridTemplateColumns: "120px minmax(0,1fr)", gap: 7 }}>
+            <select value={manualFileCategory} onChange={(event) => setManualFileCategory(event.target.value)} style={{ ...FIELD, height: 35 }}>{Object.entries(ARCHIVO_CATEGORIAS).map(([key, item]) => <option key={key} value={key}>{item.label}</option>)}</select>
+            <button type="button" onClick={() => manualFilesRef.current?.click()} style={{ minHeight: 35, borderRadius: 9, border: `1px dashed ${C.blueB}`, background: C.blueL, color: C.blue, cursor: "pointer", fontWeight: 900, display: "inline-flex", alignItems: "center", justifyContent: "center", gap: 7 }}>
+              <Paperclip size={14} /> {manualFiles.length ? `${manualFiles.length} archivo${manualFiles.length === 1 ? "" : "s"} seleccionado${manualFiles.length === 1 ? "" : "s"}` : "Adjuntar archivos"}
+            </button>
+            <input ref={manualFilesRef} type="file" multiple onChange={(event) => { setSelectedFiles(event.target.files); event.target.value = ""; }} style={{ display: "none" }} />
+          </div>
+          {manualFiles.length > 0 && (
+            <div style={{ display: "grid", gap: 5, marginTop: 8 }}>
+              {manualFiles.map((file, index) => (
+                <div key={`${file.name}-${file.size}-${index}`} style={{ display: "grid", gridTemplateColumns: "minmax(0,1fr) auto", alignItems: "center", gap: 8, padding: "6px 8px", borderRadius: 8, border: `1px solid ${C.border}`, background: C.panelSolid }}>
+                  <span style={{ minWidth: 0, color: C.text, fontSize: 11.5, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{file.name} <small style={{ color: C.dim }}>{fmtFileSize(file.size)}</small></span>
+                  <button type="button" onClick={() => setManualFiles((current) => current.filter((_, itemIndex) => itemIndex !== index))} style={{ border: 0, background: "transparent", color: C.red, cursor: "pointer", display: "inline-flex" }} title="Quitar archivo"><X size={13} /></button>
+                </div>
+              ))}
+            </div>
+          )}
         </section>
         <div><label style={LABEL}>Detalle de costo / comprobante</label><input value={form.costoDetalle} onChange={(event) => set("costoDetalle", event.target.value)} style={FIELD} placeholder="Factura, referencia, forma de pago..." /></div>
         <div><label style={LABEL}>Observaciones</label><textarea value={form.observaciones} onChange={(event) => set("observaciones", event.target.value)} style={{ ...FIELD, minHeight: 68, resize: "vertical" }} placeholder="Indicaciones, contacto, documentación a retirar..." /></div>
@@ -1532,7 +1629,7 @@ export default function LogisticaCalendarioScreen({ profile, signOut }) {
       if (transport !== "todos" && !transportsOf(row).some((item) => item.tipo === transport)) return false;
       if (dateFrom && date < dateFrom) return false;
       if (dateTo && date > dateTo) return false;
-      if (obraFilter !== "todos" && row.obra !== obraFilter) return false;
+      if (obraFilter !== "todos" && !rowMatchesObra(row, obraFilter)) return false;
       if (providerFilter !== "todos" && !transportsOf(row).some((item) => item.proveedor === providerFilter) && row.proveedor_logistico !== providerFilter) return false;
       if (!term) return true;
       const haystack = [row.carga, row.titulo, row.obra, transportSummary(row, true), row.notas, actorName(row.solicitante), routeLabel(row)].join(" ").toLowerCase();
@@ -1541,7 +1638,7 @@ export default function LogisticaCalendarioScreen({ profile, signOut }) {
   }, [dateFrom, dateTo, obraFilter, providerFilter, query, rows, status, transport]);
 
   const filterOptions = useMemo(() => ({
-    obras: [...new Set(rows.map((row) => row.obra).filter(Boolean))].sort((a, b) => a.localeCompare(b, "es")),
+    obras: [...new Set(rows.flatMap((row) => splitObrasValue(row.obra)))].sort((a, b) => a.localeCompare(b, "es")),
     providers: [...new Set(rows.flatMap((row) => transportsOf(row).map((item) => item.proveedor)).filter(Boolean))].sort((a, b) => a.localeCompare(b, "es")),
   }), [rows]);
   const advancedFilterCount = [dateFrom, dateTo, obraFilter !== "todos", providerFilter !== "todos"].filter(Boolean).length;

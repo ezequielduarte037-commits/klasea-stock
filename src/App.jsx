@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from "react";
+import React, { Suspense, lazy, useEffect, useState } from "react";
 import { BrowserRouter, Navigate, Route, Routes, useLocation, useNavigate } from "react-router-dom";
 import { supabase } from "./supabaseClient";
 
@@ -31,7 +31,6 @@ import ColectorHomeScreen    from "@/features/inventario/ColectorHomeScreen";
 import CalibrarPesosScreen   from "@/features/panol/CalibrarPesosScreen";
 import EtiquetasScreen       from "@/features/inventario/EtiquetasScreen";
 import RrhhScreen            from "@/features/rrhh/RrhhScreen";
-import MaterialesScreen      from "@/features/materiales/MaterialesScreen";
 import PreciosScreen         from "@/features/precios/PreciosScreen";
 import ComprasEtapasScreen   from "@/features/produccion/ComprasEtapasScreen";
 import RecepcionPanolScreen  from "@/features/panol/RecepcionPanolScreen";
@@ -53,6 +52,8 @@ import ComprasBicho from "@/features/compras/ComprasBicho";
 import TourProvider from "@/features/ayuda/TourProvider";
 
 import logoK from "@/assets/logos/logo-k.png";
+
+const MaterialesScreen = lazy(() => import("@/features/materiales/MaterialesScreen"));
 
 // Internos:  usuario  → usuario@klasea.local
 // Clientes:  usuario  → usuario@klasea.client
@@ -81,6 +82,17 @@ function RequireRole({ profile, allow, children }) {
   if (profile.role === "rrhh")    return <Navigate to="/rrhh" replace />;
   if (profile.role === "cliente") return <Navigate to="/mi-panel" replace />;
   return <Navigate to="/" replace />;
+}
+
+function RouteLoader({ label = "Cargando módulo..." }) {
+  return (
+    <div style={{ minHeight: "100vh", display: "grid", placeItems: "center", background: C.bg, color: C.t1, fontFamily: C.sans }}>
+      <div style={{ display: "grid", gap: 10, justifyItems: "center" }}>
+        <div style={{ width: 28, height: 28, borderRadius: 999, border: `3px solid ${C.b1}`, borderTopColor: C.blue, animation: "spin .8s linear infinite" }} />
+        <div style={{ fontSize: 13, fontWeight: 850 }}>{label}</div>
+      </div>
+    </div>
+  );
 }
 
 // ─── LOGIN ─────────────────────────────────────────────────────────────────
@@ -455,7 +467,7 @@ export default function App() {
         <Route path="/pantalla-egreso" element={<RequireAuth session={session}><RequireRole profile={profile} allow={["admin","oficina","tecnica","panol"]}><PantallaEgresoScreen /></RequireRole></RequireAuth>} />
         {/* Digitalización del papel de solicitud: pañol lo carga, lo arma y lo firma con NFC. */}
         <Route path="/solicitudes-panol" element={<RequireAuth session={session}><RequireRole profile={profile} allow={["admin","oficina","tecnica","panol","compras"]}><SolicitudesPanolScreen {...A} /></RequireRole></RequireAuth>} />
-        <Route path="/materiales" element={<RequireAuth session={session}><RequireRole profile={profile} allow={["admin","oficina","tecnica","compras"]}><MaterialesScreen {...A} /></RequireRole></RequireAuth>} />
+        <Route path="/materiales" element={<RequireAuth session={session}><RequireRole profile={profile} allow={["admin","oficina","tecnica","compras"]}><Suspense fallback={<RouteLoader label="Cargando materiales..." />}><MaterialesScreen {...A} /></Suspense></RequireRole></RequireAuth>} />
         <Route path="/precios"    element={<RequireAuth session={session}><RequireRole profile={profile} allow={["admin","oficina","tecnica","compras","administracion"]}><PreciosScreen {...A} /></RequireRole></RequireAuth>} />
         <Route path="/procedimientos" element={<RequireAuth session={session}><RequireRole profile={profile} allow={["admin","oficina","tecnica","laminacion","muebles","mecanica","electricidad"]}><ProcedimientosScreen {...A} /></RequireRole></RequireAuth>} />
 

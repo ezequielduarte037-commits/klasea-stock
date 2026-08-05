@@ -1229,13 +1229,21 @@ async function withRecepcionDetalle(rows = []) {
 function snapshotPayloadFromRows(obraId, rows = []) {
   return rows
     .filter((row) => String(row?.descripcion || "").trim())
-    .map((row, index) => ({
+    .map((row, index) => {
+      // En filas de matriz, el snapshot conserva la cantidad BASE de la obra.
+      // Los condicionantes se aplican al leer la lista; guardar el total acá
+      // haría que un +8 se vuelva a sumar en cada carga.
+      const hasConditionalAdjustment = row?.source !== "condicionante"
+        && Array.isArray(row?.condicionantes)
+        && row.condicionantes.length > 0
+        && row.baseCantidad != null;
+      return ({
       obra_id: obraId,
       material_id:
         row.materialId ?? row.material_id ?? row.material?.id ?? null,
       descripcion: String(row.descripcion || "").trim(),
       codigo: row.codigo || null,
-      cantidad: toNullableNumber(row.cantidad),
+      cantidad: toNullableNumber(hasConditionalAdjustment ? row.baseCantidad : row.cantidad),
       unidad: row.unidad || row.unidad_medida || "unidad",
       proveedor:
         row.proveedor && row.proveedor !== "Sin proveedor"
@@ -1252,7 +1260,8 @@ function snapshotPayloadFromRows(obraId, rows = []) {
       orden: index,
       estado: row.estadoObra || row.estado || "pendiente",
       variante: row.variante || row.variante_obra || null,
-    }));
+      });
+    });
 }
 
 function snapshotPayloadWithoutVariant(rows = []) {

@@ -8,6 +8,7 @@ import {
   ChevronRight,
   ClipboardCheck,
   Factory,
+  FilePenLine,
   Layers3,
   PackageCheck,
   Plus,
@@ -21,6 +22,7 @@ import { supabase } from "@/supabaseClient";
 import { C } from "@/theme";
 import PedirAComprasModal from "@/features/compras/PedirAComprasModal";
 import { ChapaSwatch } from "@/features/muebles/chapa";
+import MueblesOrdenesTrabajoPanel from "@/features/muebles/MueblesOrdenesTrabajoPanel";
 import {
   herrajesForModelo,
   OTDetail,
@@ -149,6 +151,8 @@ export default function ProduccionTab({ esAdmin, profile, onOpenChecklist, onEns
   const [gestionOt, setGestionOt] = useState(null);
   const [creandoOt, setCreandoOt] = useState(false);
   const [pedidoHerrajes, setPedidoHerrajes] = useState(null);
+  const [showTemplates, setShowTemplates] = useState(false);
+  const [templateLineaId, setTemplateLineaId] = useState("");
   const [form, setForm] = useState({
     tipo_destino: "obra",
     proveedor: "Oberti",
@@ -546,6 +550,7 @@ export default function ProduccionTab({ esAdmin, profile, onOpenChecklist, onEns
 
   const obraOptions = form.linea_id ? unidades.filter((u) => u.linea_id === form.linea_id) : unidades;
   const recibidos = lotes.filter((lote) => etapaMeta(lote).etapa.key === "recibido").length;
+  const templateLinea = lineas.find((linea) => linea.id === templateLineaId) ?? lineas[0] ?? null;
 
   return (
     <div className="muebles-flow" style={{ maxWidth: 1520, margin: "0 auto", padding: "20px 22px 44px" }}>
@@ -572,9 +577,14 @@ export default function ProduccionTab({ esAdmin, profile, onOpenChecklist, onEns
           <div style={{ marginTop: 4, color: C.t2, fontSize: 12 }}>Una vista operativa desde la definición de la chapa hasta la recepción.</div>
         </div>
         {esAdmin && (
-          <button data-tour="muebles-nuevo" onClick={() => setShowAdd(true)} style={{ display: "inline-flex", alignItems: "center", gap: 7, padding: "9px 13px", borderRadius: 9, border: `1px solid ${C.blue}`, background: C.blue, color: "white", cursor: "pointer", fontSize: 12, fontWeight: 800, flexShrink: 0, boxShadow: "0 6px 18px color-mix(in srgb, var(--blue) 22%, transparent)" }}>
-            <Plus size={15} /> Nuevos muebles
-          </button>
+          <div style={{ display: "flex", alignItems: "center", gap: 7, flexWrap: "wrap", justifyContent: "flex-end" }}>
+            <button type="button" onClick={() => { setTemplateLineaId(seleccionado?.linea_id || lineas[0]?.id || ""); setShowTemplates(true); }} style={{ display: "inline-flex", alignItems: "center", gap: 7, padding: "9px 12px", borderRadius: 9, border: `1px solid ${C.tealB}`, background: C.tealL, color: C.teal, cursor: "pointer", fontSize: 11.5, fontWeight: 850, flexShrink: 0 }}>
+              <FilePenLine size={15} /> Plantillas OT y herrajes
+            </button>
+            <button data-tour="muebles-nuevo" onClick={() => setShowAdd(true)} style={{ display: "inline-flex", alignItems: "center", gap: 7, padding: "9px 13px", borderRadius: 9, border: `1px solid ${C.blue}`, background: C.blue, color: "white", cursor: "pointer", fontSize: 12, fontWeight: 800, flexShrink: 0, boxShadow: "0 6px 18px color-mix(in srgb, var(--blue) 22%, transparent)" }}>
+              <Plus size={15} /> Nuevos muebles
+            </button>
+          </div>
         )}
       </div>
 
@@ -681,6 +691,17 @@ export default function ProduccionTab({ esAdmin, profile, onOpenChecklist, onEns
               </div>
 
               <div style={{ padding: 18 }}>
+                {seleccionado.proveedor === "Oberti" && (
+                  <MueblesOrdenesTrabajoPanel
+                    key={seleccionado.id}
+                    loteId={seleccionado.id}
+                    lineaId={seleccionado.linea_id}
+                    obraCodigo={nombreObra(seleccionado)}
+                    modelo={nombreLinea(seleccionado)}
+                    canEdit={esAdmin}
+                  />
+                )}
+
                 <div style={{ display: "flex", justifyContent: "space-between", gap: 12, alignItems: "flex-end", marginBottom: 10 }}>
                   <div>
                     <div style={{ ...label, marginBottom: 3 }}>Proceso {seleccionado.proveedor}</div>
@@ -893,6 +914,7 @@ export default function ProduccionTab({ esAdmin, profile, onOpenChecklist, onEns
                             </div>
                           )}
                         </div>
+
                     </div>
                   </div>
                 )}
@@ -1022,6 +1044,17 @@ export default function ProduccionTab({ esAdmin, profile, onOpenChecklist, onEns
           />
         </div>
       )}
+
+      <MueblesOrdenesTrabajoPanel
+        templateOnly
+        externalOpen={showTemplates}
+        onExternalClose={() => setShowTemplates(false)}
+        lineaId={templateLinea?.id || ""}
+        modelo={templateLinea?.nombre || ""}
+        canEdit={esAdmin}
+        lineOptions={lineas}
+        onLineChange={setTemplateLineaId}
+      />
 
       <PedirAComprasModal
         open={Boolean(pedidoHerrajes)}
