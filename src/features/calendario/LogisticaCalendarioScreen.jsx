@@ -680,7 +680,7 @@ function ManualMovementModal({ obras, profile, onClose, onSaved }) {
   });
   const set = (key, value) => setForm((current) => ({ ...current, [key]: value }));
   const requiredStops = form.modalidad === "trabajo_en_sitio" ? 1 : 2;
-  const validStops = form.paradas.filter((stop) => String(stop.lugar || "").trim());
+  const validStops = form.paradas.filter((stop) => String(stop.lugar || "").trim() || String(stop.direccion || "").trim());
   const valid = form.carga.trim() && form.fecha && validStops.length >= requiredStops;
   const type = transportUi(form.tipoTransporte);
 
@@ -692,15 +692,31 @@ function ManualMovementModal({ obras, profile, onClose, onSaved }) {
     }));
   }
 
-  function setStop(index, lugar) {
-    setForm((current) => ({ ...current, paradas: current.paradas.map((stop, stopIndex) => stopIndex === index ? { ...stop, lugar } : stop) }));
+  function setStop(index, key, value) {
+    setForm((current) => ({ ...current, paradas: current.paradas.map((stop, stopIndex) => stopIndex === index ? { ...stop, [key]: value } : stop) }));
+  }
+
+  function addDestination() {
+    if (form.modalidad === "trabajo_en_sitio") return;
+    setForm((current) => ({ ...current, paradas: [...current.paradas, emptyStop("destino")] }));
+  }
+
+  function removeStop(index) {
+    if (form.paradas.length <= requiredStops) return;
+    setForm((current) => ({ ...current, paradas: current.paradas.filter((_, stopIndex) => stopIndex !== index) }));
+  }
+
+  function stopLabel(index) {
+    if (form.modalidad === "trabajo_en_sitio") return "Lugar del trabajo *";
+    if (index === 0) return "Origen *";
+    return form.paradas.length > 2 ? `Destino ${index} *` : "Destino *";
   }
 
   async function save() {
     if (!valid || saving) return;
     setSaving(true);
     try {
-      await crearMovimientoManualLogistica(form, profile);
+      await crearMovimientoManualLogistica({ ...form, paradas: validStops }, profile);
       toast.success("Movimiento manual agregado al calendario.");
       onSaved();
     } catch (error) {
@@ -711,7 +727,7 @@ function ManualMovementModal({ obras, profile, onClose, onSaved }) {
   }
 
   return (
-    <ModalShell title="Agregar movimiento manual" subtitle="Para movimientos coordinados directamente por Compras: motomensajería, retiros, trámites o fletes." onClose={onClose} width={650}>
+    <ModalShell title="Agregar movimiento manual" subtitle="Para movimientos coordinados directamente por Compras: motomensajería, retiros, trámites o fletes." onClose={onClose} width={760}>
       <div style={{ padding: 18, display: "grid", gap: 14, overflowY: "auto" }}>
         <section className="log-two" style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10 }}>
           <div><label style={LABEL}>Tipo de transporte</label><select value={form.tipoTransporte} onChange={(event) => set("tipoTransporte", event.target.value)} style={{ ...FIELD, color: type.color }}>{Object.entries(TRANSPORTES).map(([key, item]) => <option key={key} value={key}>{item.label}</option>)}</select></div>
@@ -729,8 +745,29 @@ function ManualMovementModal({ obras, profile, onClose, onSaved }) {
           <label style={LABEL}>Modalidad</label>
           <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 7 }}><button onClick={() => setMode("traslado")} style={{ padding: 9, borderRadius: 9, border: `1px solid ${form.modalidad === "traslado" ? C.blueB : C.border}`, background: form.modalidad === "traslado" ? C.blueL : C.panel, color: form.modalidad === "traslado" ? C.blue : C.dim, cursor: "pointer", fontWeight: 900 }}><Route size={14} /> Traslado</button><button onClick={() => setMode("trabajo_en_sitio")} style={{ padding: 9, borderRadius: 9, border: `1px solid ${form.modalidad === "trabajo_en_sitio" ? C.violetB : C.border}`, background: form.modalidad === "trabajo_en_sitio" ? C.violetL : C.panel, color: form.modalidad === "trabajo_en_sitio" ? C.violet : C.dim, cursor: "pointer", fontWeight: 900 }}><MapPin size={14} /> Un solo lugar</button></div>
         </section>
-        <section className="log-two" style={{ display: "grid", gridTemplateColumns: form.modalidad === "traslado" ? "1fr 1fr" : "1fr", gap: 10 }}>
-          {form.paradas.map((stop, index) => <div key={`${stop.tipo}-${index}`}><label style={LABEL}>{form.modalidad === "trabajo_en_sitio" ? "Lugar del trabajo *" : index === 0 ? "Origen *" : "Destino *"}</label><input value={stop.lugar} onChange={(event) => setStop(index, event.target.value)} style={FIELD} placeholder={form.modalidad === "trabajo_en_sitio" ? "Galpón / dirección" : index === 0 ? "Desde dónde" : "Hacia dónde"} /></div>)}
+        <section>
+          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 10, marginBottom: 8 }}>
+            <label style={{ ...LABEL, marginBottom: 0 }}>{form.modalidad === "trabajo_en_sitio" ? "Lugar" : "Recorrido"}</label>
+            {form.modalidad === "traslado" && (
+              <button type="button" onClick={addDestination} style={{ display: "inline-flex", alignItems: "center", gap: 6, border: `1px solid ${C.blueB}`, background: C.blueL, color: C.blue, borderRadius: 8, padding: "6px 9px", cursor: "pointer", fontSize: 11.5, fontWeight: 900 }}>
+                <Plus size={13} /> Agregar destino
+              </button>
+            )}
+          </div>
+          <div style={{ display: "grid", gap: 8 }}>
+            {form.paradas.map((stop, index) => (
+              <div key={`${stop.tipo}-${index}`} className="log-stop log-manual-stop" style={{ display: "grid", gridTemplateColumns: form.modalidad === "trabajo_en_sitio" ? "112px minmax(0,1fr) minmax(0,1.1fr)" : "92px minmax(0,1fr) minmax(0,1.1fr) 34px", gap: 7, alignItems: "center", padding: 9, border: `1px solid ${C.border}`, borderRadius: 11, background: C.panel }}>
+                <span style={{ color: form.modalidad === "trabajo_en_sitio" ? C.violet : index === 0 ? C.green : C.blue, fontSize: 10, fontWeight: 950, textTransform: "uppercase", lineHeight: 1.2 }}>{stopLabel(index)}</span>
+                <input value={stop.lugar} onChange={(event) => setStop(index, "lugar", event.target.value)} style={{ ...FIELD, minHeight: 35 }} placeholder={form.modalidad === "trabajo_en_sitio" ? "Galpón / lugar" : index === 0 ? "Desde dónde" : "Hacia dónde"} />
+                <input value={stop.direccion} onChange={(event) => setStop(index, "direccion", event.target.value)} style={{ ...FIELD, minHeight: 35 }} placeholder="Dirección / referencia" />
+                {form.modalidad === "traslado" && (
+                  <button type="button" disabled={form.paradas.length <= requiredStops} onClick={() => removeStop(index)} title="Quitar parada" style={{ width: 32, height: 32, borderRadius: 8, display: "grid", placeItems: "center", border: `1px solid ${C.border}`, background: "transparent", color: form.paradas.length <= requiredStops ? C.dim : C.red, cursor: form.paradas.length <= requiredStops ? "default" : "pointer", opacity: form.paradas.length <= requiredStops ? .35 : 1 }}>
+                    <X size={14} />
+                  </button>
+                )}
+              </div>
+            ))}
+          </div>
         </section>
         <section className="log-two" style={{ display: "grid", gridTemplateColumns: "1fr 90px", gap: 10 }}>
           <div><label style={LABEL}>Costo</label><input type="number" min="0" step="0.01" value={form.costo} onChange={(event) => set("costo", event.target.value)} style={FIELD} placeholder="Importe opcional" /></div>
@@ -1647,6 +1684,9 @@ export default function LogisticaCalendarioScreen({ profile, signOut }) {
           .log-transport-grid{grid-template-columns:repeat(3,1fr)!important}
           .log-stop{grid-template-columns:70px 1fr 34px!important}
           .log-stop input:nth-of-type(2),.log-stop input:nth-of-type(3){grid-column:2/3}
+          .log-manual-stop{grid-template-columns:82px minmax(0,1fr) 34px!important}
+          .log-manual-stop input:nth-of-type(1),.log-manual-stop input:nth-of-type(2){grid-column:2/3}
+          .log-manual-stop button{grid-column:3/4;grid-row:1/3}
           .log-cost-grid{grid-template-columns:1fr!important}
         }
         @media(max-width:620px){

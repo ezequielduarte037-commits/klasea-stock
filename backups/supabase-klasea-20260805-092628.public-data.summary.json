@@ -1,0 +1,749 @@
+{
+  "generatedAt": "2026-08-05T12:30:21.034Z",
+  "project": "fiwugzjeegzlgclfayfd",
+  "schema": "public",
+  "tableCount": 185,
+  "totalRows": 43210,
+  "tables": [
+    {
+      "table": "public.cadete_rutas",
+      "rows": 6
+    },
+    {
+      "table": "public.compras_auditoria",
+      "rows": 67
+    },
+    {
+      "table": "public.enchapado_fichas",
+      "rows": 1
+    },
+    {
+      "table": "public.enchapado_hojas",
+      "rows": 0
+    },
+    {
+      "table": "public.enchapado_ots",
+      "rows": 5
+    },
+    {
+      "table": "public.enchapado_ot_items",
+      "rows": 28
+    },
+    {
+      "table": "public.enchapado_placas",
+      "rows": 0
+    },
+    {
+      "table": "public.enchapado_trabajos",
+      "rows": 0
+    },
+    {
+      "table": "public.fechas_dependencias",
+      "rows": 0
+    },
+    {
+      "table": "public.fechas_eventos",
+      "rows": 14
+    },
+    {
+      "table": "public.fechas_offsets",
+      "rows": 24
+    },
+    {
+      "table": "public.laminacion_barcos",
+      "rows": 29
+    },
+    {
+      "table": "public.laminacion_materiales",
+      "rows": 28
+    },
+    {
+      "table": "public.laminacion_movimientos",
+      "rows": 1131
+    },
+    {
+      "table": "public.laminacion_obras",
+      "rows": 33
+    },
+    {
+      "table": "public.laminacion_obra_materiales",
+      "rows": 868
+    },
+    {
+      "table": "public.laminacion_piezas",
+      "rows": 69
+    },
+    {
+      "table": "public.laminacion_plantillas",
+      "rows": 7
+    },
+    {
+      "table": "public.laminacion_plantilla_items",
+      "rows": 104
+    },
+    {
+      "table": "public.linea_plantillas",
+      "rows": 8
+    },
+    {
+      "table": "public.linea_plantilla_items",
+      "rows": 122
+    },
+    {
+      "table": "public.lineas_produccion",
+      "rows": 8
+    },
+    {
+      "table": "public.linea_compra_etapas",
+      "rows": 2
+    },
+    {
+      "table": "public.linea_procesos",
+      "rows": 52
+    },
+    {
+      "table": "public.linea_compra_etapa_procesos",
+      "rows": 0
+    },
+    {
+      "table": "public.linea_proceso_tareas",
+      "rows": 957
+    },
+    {
+      "table": "public.mapa_config",
+      "rows": 1
+    },
+    {
+      "table": "public.marm_lineas",
+      "rows": 8
+    },
+    {
+      "table": "public.marm_linea_piezas",
+      "rows": 59
+    },
+    {
+      "table": "public.marm_unidades",
+      "rows": 20
+    },
+    {
+      "table": "public.marm_unidad_piezas",
+      "rows": 184
+    },
+    {
+      "table": "public.marmoleria_envios",
+      "rows": 1
+    },
+    {
+      "table": "public.materiales",
+      "rows": 28
+    },
+    {
+      "table": "public.memorias_db",
+      "rows": 19
+    },
+    {
+      "table": "public.memorias_descriptivas",
+      "rows": 19
+    },
+    {
+      "table": "public.modelo_configuracion",
+      "rows": 8
+    },
+    {
+      "table": "public.movimientos",
+      "rows": 1438
+    },
+    {
+      "table": "public.muebles_catalogo",
+      "rows": 0
+    },
+    {
+      "table": "public.muebles_plan_unidad",
+      "rows": 0
+    },
+    {
+      "table": "public.muebles_recepciones",
+      "rows": 0
+    },
+    {
+      "table": "public.obras",
+      "rows": 3
+    },
+    {
+      "table": "public.clientes",
+      "rows": 5
+    },
+    {
+      "table": "public.panol_categorias",
+      "rows": 26
+    },
+    {
+      "table": "public.panol_categorias_backup_20260713",
+      "rows": 29
+    },
+    {
+      "table": "public.panol_estanterias",
+      "rows": 47
+    },
+    {
+      "table": "public.panol_import_batches",
+      "rows": 1
+    },
+    {
+      "table": "public.panol_lineas",
+      "rows": 3
+    },
+    {
+      "table": "public.panol_materiales_backup_fracciones_20260702",
+      "rows": 35
+    },
+    {
+      "table": "public.panol_materiales_categoria_backup_20260713",
+      "rows": 769
+    },
+    {
+      "table": "public.panol_materiales_proveedor_backup_20260713",
+      "rows": 846
+    },
+    {
+      "table": "public.panol_matriz_condicionantes",
+      "rows": 5
+    },
+    {
+      "table": "public.panol_obra_addons_catalog_backfill_backup_20260714",
+      "rows": 66
+    },
+    {
+      "table": "public.panol_obra_addons_categoria_backup_20260713",
+      "rows": 67
+    },
+    {
+      "table": "public.panol_obra_addons_proveedor_backup_20260713",
+      "rows": 67
+    },
+    {
+      "table": "public.panol_opciones",
+      "rows": 6
+    },
+    {
+      "table": "public.panol_opcion_valores",
+      "rows": 17
+    },
+    {
+      "table": "public.panol_proveedores",
+      "rows": 108
+    },
+    {
+      "table": "public.panol_comprobantes",
+      "rows": 3
+    },
+    {
+      "table": "public.panol_proveedores_backup_20260713",
+      "rows": 96
+    },
+    {
+      "table": "public.panol_snapshot_proveedor_backup_20260713",
+      "rows": 2914
+    },
+    {
+      "table": "public.panol_snapshot_rubro_backup_20260713",
+      "rows": 2662
+    },
+    {
+      "table": "public.personas",
+      "rows": 8
+    },
+    {
+      "table": "public.piezas_catalogo",
+      "rows": 128
+    },
+    {
+      "table": "public.portal_proveedor_tokens",
+      "rows": 4
+    },
+    {
+      "table": "public.procesos",
+      "rows": 26
+    },
+    {
+      "table": "public.procedimientos",
+      "rows": 10
+    },
+    {
+      "table": "public.proceso_steps_template",
+      "rows": 0
+    },
+    {
+      "table": "public.prod_laminacion_piezas",
+      "rows": 0
+    },
+    {
+      "table": "public.prod_lineas",
+      "rows": 5
+    },
+    {
+      "table": "public.prod_laminacion_plantilla",
+      "rows": 0
+    },
+    {
+      "table": "public.prod_muebles",
+      "rows": 169
+    },
+    {
+      "table": "public.prod_linea_muebles",
+      "rows": 166
+    },
+    {
+      "table": "public.prod_mueble_imagenes",
+      "rows": 45
+    },
+    {
+      "table": "public.prod_unidades",
+      "rows": 24
+    },
+    {
+      "table": "public.prod_laminacion_checklist",
+      "rows": 0
+    },
+    {
+      "table": "public.prod_laminacion_material_barco",
+      "rows": 0
+    },
+    {
+      "table": "public.prod_laminacion_matrix",
+      "rows": 0
+    },
+    {
+      "table": "public.prod_muebles_lotes",
+      "rows": 5
+    },
+    {
+      "table": "public.prod_muebles_lotes_historial",
+      "rows": 22
+    },
+    {
+      "table": "public.prod_muebles_ordenes",
+      "rows": 750
+    },
+    {
+      "table": "public.prod_unidad_checklist",
+      "rows": 749
+    },
+    {
+      "table": "public.produccion_materiales_auditoria",
+      "rows": 3
+    },
+    {
+      "table": "public.produccion_obras",
+      "rows": 29
+    },
+    {
+      "table": "public.alertas",
+      "rows": 0
+    },
+    {
+      "table": "public.fechas_auditoria",
+      "rows": 0
+    },
+    {
+      "table": "public.fechas_evento_estados",
+      "rows": 9
+    },
+    {
+      "table": "public.fechas_pausas",
+      "rows": 0
+    },
+    {
+      "table": "public.obra_compra_etapas",
+      "rows": 7
+    },
+    {
+      "table": "public.obra_compra_etapa_procesos",
+      "rows": 11
+    },
+    {
+      "table": "public.obra_gaps",
+      "rows": 0
+    },
+    {
+      "table": "public.obra_memorias",
+      "rows": 22
+    },
+    {
+      "table": "public.obra_proceso_checks",
+      "rows": 0
+    },
+    {
+      "table": "public.obra_reglas",
+      "rows": 0
+    },
+    {
+      "table": "public.obra_timeline",
+      "rows": 0
+    },
+    {
+      "table": "public.panol_obra_configuracion",
+      "rows": 2
+    },
+    {
+      "table": "public.panol_obra_matriz_condicionantes",
+      "rows": 7
+    },
+    {
+      "table": "public.piezas_laminacion_imagenes",
+      "rows": 1
+    },
+    {
+      "table": "public.piezas_laminacion_seguimiento",
+      "rows": 534
+    },
+    {
+      "table": "public.postventa_flota",
+      "rows": 18
+    },
+    {
+      "table": "public.produccion_avisos",
+      "rows": 0
+    },
+    {
+      "table": "public.produccion_obra_periodos_no_laborables",
+      "rows": 0
+    },
+    {
+      "table": "public.produccion_tarea_archivos_auditoria",
+      "rows": 0
+    },
+    {
+      "table": "public.profiles",
+      "rows": 26
+    },
+    {
+      "table": "public.bot_conversations",
+      "rows": 10
+    },
+    {
+      "table": "public.calendario_eventos",
+      "rows": 50
+    },
+    {
+      "table": "public.calendario_eventos_archivos",
+      "rows": 0
+    },
+    {
+      "table": "public.calendario_eventos_historial",
+      "rows": 7
+    },
+    {
+      "table": "public.compras_avisos",
+      "rows": 33
+    },
+    {
+      "table": "public.compras_aviso_comentarios",
+      "rows": 13
+    },
+    {
+      "table": "public.linea_proceso_tarea_archivos",
+      "rows": 0
+    },
+    {
+      "table": "public.panol_materiales",
+      "rows": 1305
+    },
+    {
+      "table": "public.linea_compra_etapa_materiales",
+      "rows": 6
+    },
+    {
+      "table": "public.linea_proceso_materiales",
+      "rows": 1
+    },
+    {
+      "table": "public.obra_compra_etapa_materiales",
+      "rows": 19
+    },
+    {
+      "table": "public.panol_comprobante_items",
+      "rows": 0
+    },
+    {
+      "table": "public.panol_material_candidatos",
+      "rows": 231
+    },
+    {
+      "table": "public.panol_material_categorias",
+      "rows": 9
+    },
+    {
+      "table": "public.panol_material_codigos_barra",
+      "rows": 251
+    },
+    {
+      "table": "public.panol_material_condicion",
+      "rows": 0
+    },
+    {
+      "table": "public.panol_material_duplicate_decisions",
+      "rows": 48
+    },
+    {
+      "table": "public.panol_material_imagenes",
+      "rows": 6
+    },
+    {
+      "table": "public.panol_material_modelo",
+      "rows": 904
+    },
+    {
+      "table": "public.panol_material_proveedores",
+      "rows": 523
+    },
+    {
+      "table": "public.panol_materiales_audit",
+      "rows": 3463
+    },
+    {
+      "table": "public.panol_matriz_condicionante_items",
+      "rows": 23
+    },
+    {
+      "table": "public.panol_obra_addons",
+      "rows": 49
+    },
+    {
+      "table": "public.panol_obra_material_exclusiones",
+      "rows": 15
+    },
+    {
+      "table": "public.panol_precios",
+      "rows": 0
+    },
+    {
+      "table": "public.purchase_additional_boards",
+      "rows": 11
+    },
+    {
+      "table": "public.purchase_cashbox_closures",
+      "rows": 10
+    },
+    {
+      "table": "public.purchase_cashbox_entries",
+      "rows": 249
+    },
+    {
+      "table": "public.cadete_ruta_paradas",
+      "rows": 16
+    },
+    {
+      "table": "public.purchase_log",
+      "rows": 0
+    },
+    {
+      "table": "public.purchase_log_items",
+      "rows": 0
+    },
+    {
+      "table": "public.purchase_requests",
+      "rows": 225
+    },
+    {
+      "table": "public.panol_envios",
+      "rows": 338
+    },
+    {
+      "table": "public.pedidos",
+      "rows": 20
+    },
+    {
+      "table": "public.portal_proveedor_eventos",
+      "rows": 0
+    },
+    {
+      "table": "public.purchase_request_items",
+      "rows": 499
+    },
+    {
+      "table": "public.laminacion_pedidos",
+      "rows": 109
+    },
+    {
+      "table": "public.pedido_items",
+      "rows": 55
+    },
+    {
+      "table": "public.purchase_additional_items",
+      "rows": 65
+    },
+    {
+      "table": "public.request_comments",
+      "rows": 137
+    },
+    {
+      "table": "public.request_comment_mentions",
+      "rows": 0
+    },
+    {
+      "table": "public.request_followers",
+      "rows": 131
+    },
+    {
+      "table": "public.rrhh_config",
+      "rows": 5
+    },
+    {
+      "table": "public.rrhh_contratistas",
+      "rows": 23
+    },
+    {
+      "table": "public.rrhh_empleados",
+      "rows": 276
+    },
+    {
+      "table": "public.panol_solicitudes",
+      "rows": 1
+    },
+    {
+      "table": "public.panol_solicitud_fotos",
+      "rows": 0
+    },
+    {
+      "table": "public.panol_solicitud_items",
+      "rows": 5
+    },
+    {
+      "table": "public.panol_faltantes_compras",
+      "rows": 0
+    },
+    {
+      "table": "public.panol_faltantes_compras_historial",
+      "rows": 0
+    },
+    {
+      "table": "public.rrhh_ausencias",
+      "rows": 0
+    },
+    {
+      "table": "public.rrhh_empleados_nfc_historial",
+      "rows": 0
+    },
+    {
+      "table": "public.rrhh_import_batches",
+      "rows": 70
+    },
+    {
+      "table": "public.rrhh_justificaciones",
+      "rows": 72
+    },
+    {
+      "table": "public.rrhh_marcaciones",
+      "rows": 6284
+    },
+    {
+      "table": "public.sistema_config",
+      "rows": 10
+    },
+    {
+      "table": "public.tickets",
+      "rows": 7
+    },
+    {
+      "table": "public.torneria_fletes",
+      "rows": 0
+    },
+    {
+      "table": "public.torneria_plantillas",
+      "rows": 6
+    },
+    {
+      "table": "public.torneria_plantilla_items",
+      "rows": 92
+    },
+    {
+      "table": "public.torneria_plantilla_operaciones",
+      "rows": 86
+    },
+    {
+      "table": "public.torneria_plantilla_operacion_items",
+      "rows": 94
+    },
+    {
+      "table": "public.torneria_procesos",
+      "rows": 2
+    },
+    {
+      "table": "public.torneria_historial",
+      "rows": 67
+    },
+    {
+      "table": "public.torneria_items",
+      "rows": 32
+    },
+    {
+      "table": "public.torneria_operaciones",
+      "rows": 29
+    },
+    {
+      "table": "public.torneria_movimientos",
+      "rows": 0
+    },
+    {
+      "table": "public.torneria_archivos",
+      "rows": 0
+    },
+    {
+      "table": "public.torneria_operacion_items",
+      "rows": 32
+    },
+    {
+      "table": "public.torneria_movimiento_items",
+      "rows": 0
+    },
+    {
+      "table": "public.user_phones",
+      "rows": 12
+    },
+    {
+      "table": "public.obra_etapas",
+      "rows": 268
+    },
+    {
+      "table": "public.obra_tarea_archivos",
+      "rows": 0
+    },
+    {
+      "table": "public.obra_tareas",
+      "rows": 3325
+    },
+    {
+      "table": "public.ordenes_compra",
+      "rows": 0
+    },
+    {
+      "table": "public.panol_envio_eventos",
+      "rows": 450
+    },
+    {
+      "table": "public.panol_envio_items",
+      "rows": 708
+    },
+    {
+      "table": "public.panol_obra_materiales_snapshot",
+      "rows": 4751
+    },
+    {
+      "table": "public.panol_obra_materiales_snapshot_audit",
+      "rows": 1759
+    },
+    {
+      "table": "public.pedido_produccion_etapas",
+      "rows": 2
+    },
+    {
+      "table": "public.pedidos_produccion",
+      "rows": 2
+    },
+    {
+      "table": "public.pedidos_produccion_items",
+      "rows": 6
+    }
+  ]
+}

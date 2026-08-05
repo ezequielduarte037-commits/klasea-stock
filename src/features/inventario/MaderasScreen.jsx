@@ -5,8 +5,11 @@ import Sidebar from "@/components/Sidebar";
 import { useResponsive } from "@/hooks/useResponsive";
 import { hasAdminAccess } from "@/lib/permissions";
 import AjusteMaderasModal from "@/features/inventario/AjusteMaderasModal";
-import { Check, Package, Plus, Trash2, X, RotateCcw, Download, AlertTriangle, ChevronDown, ChevronRight, FileText, ClipboardList, Search, RefreshCw, Edit2, ShoppingCart } from "lucide-react";
+import { Check, Package, Plus, Trash2, X, RotateCcw, Download, AlertTriangle, ChevronDown, ChevronRight, FileText, ClipboardList, Search, RefreshCw, Edit2, ShoppingCart, CreditCard } from "lucide-react";
 import PedidosMaderaScreen from "@/features/inventario/PedidosMaderaScreen";
+import useNfcBridge from "@/features/panol/useNfcBridge";
+import useKeyboardWedge from "@/features/panol/useKeyboardWedge";
+import { buscarEmpleadoPorNfc, normalizeNfcUid } from "@/features/rrhh/api";
 import { C } from "@/theme";
 
 const TABS = ["Stock", "Ingresos", "Egresos", "Movimientos", "Pedidos"];
@@ -63,6 +66,158 @@ function obraLabel(obra = {}) {
   const linea = String(obra.linea_nombre || "").trim();
   const estado = String(obra.estado || "").trim();
   return [codigo, linea && `· ${linea}`, estado === "terminada" && "· terminada"].filter(Boolean).join(" ");
+}
+
+function empleadoRetiroLabel(emp) {
+  const nombre = String(emp?.nombre ?? "").trim();
+  const dni = String(emp?.dni ?? "").trim();
+  return [nombre, dni ? `(DNI ${dni})` : ""].filter(Boolean).join(" ");
+}
+
+function empleadoInitials(nombre) {
+  const parts = String(nombre ?? "").trim().split(/\s+/).filter(Boolean).slice(0, 2);
+  return parts.map((part) => part[0]).join("").toUpperCase() || "?";
+}
+
+function EmpleadoNfcAvatar({ empleado }) {
+  const foto = String(empleado?.foto_url ?? "").trim();
+  return (
+    <div style={{ width: 46, height: 46, borderRadius: 14, overflow: "hidden", border: `1px solid ${C.greenB}`, background: C.greenL, color: C.green, display: "grid", placeItems: "center", flexShrink: 0, fontSize: 15, fontWeight: 950 }}>
+      {foto ? <img src={foto} alt="" loading="lazy" style={{ width: "100%", height: "100%", objectFit: "cover" }} /> : empleadoInitials(empleado?.nombre)}
+    </div>
+  );
+}
+
+function useMaderasRetiroNfc({ enabled, onEmpleado, onInfo, onError }) {
+  const [empleado, setEmpleado] = useState(null);
+  const [code, setCode] = useState("");
+  const [status, setStatus] = useState("idle");
+  const [error, setError] = useState("");
+
+  const resolver = useCallback(async (rawCode) => {
+    const uid = normalizeNfcUid(rawCode);
+    if (!uid) return;
+    setCode(uid);
+    setStatus("buscando");
+    setError("");
+    try {
+      const emp = await buscarEmpleadoPorNfc(uid);
+      if (!emp) {
+        setEmpleado(null);
+        setStatus("error");
+        setError("Tarjeta sin empleado asignado.");
+        onError?.("Tarjeta NFC sin empleado asignado en RRHH.");
+        return;
+      }
+      if (emp.activo === false) {
+        setEmpleado(null);
+        setStatus("error");
+        setError("Empleado inactivo.");
+        onError?.("La tarjeta pertenece a un empleado inactivo.");
+        return;
+      }
+      setEmpleado(emp);
+      setStatus("ok");
+      onEmpleado?.(empleadoRetiroLabel(emp));
+      onInfo?.(`Retira: ${emp.nombre}`);
+    } catch (err) {
+      setEmpleado(null);
+      setStatus("error");
+      setError(err.message || "No se pudo leer la tarjeta.");
+      onError?.(err.message || "No se pudo leer la tarjeta NFC.");
+    }
+  }, [onEmpleado, onError, onInfo]);
+
+  useKeyboardWedge({
+    enabled,
+    ignoreEditable: false,
+    minLength: 4,
+    timeoutMs: 65,
+    onScan: resolver,
+  });
+
+  const bridge = useNfcBridge({ enabled, onUid: resolver });
+
+  const clear = useCallback(() => {
+    setEmpleado(null);
+    setCode("");
+    setStatus("idle");
+    setError("");
+  }, []);
+
+  return { empleado, code, setCode, status, error, resolver, clear, bridge };
+}
+
+function MaderasRetiroNfcBox({ nfc, onClear }) {
+  const bridge = nfc.bridge;
+  const bridgeOk = bridge?.status === "connected";
+  const border = nfc.empleado ? C.greenB : nfc.status === "error" ? C.redB : C.blueB;
+  const bg = nfc.empleado ? C.greenL : nfc.status === "error" ? C.redL : C.blueL;
+  const accent = nfc.empleado ? C.green : nfc.status === "error" ? C.red : C.blue;
+  const bridgeColor = bridgeOk ? C.green : bridge?.status === "connecting" ? C.blue : C.amber;
+  const bridgeLabel = bridgeOk ? "Lector NFC conectado" : bridge?.status === "connecting" ? "Conectando lector NFC" : "Lector NFC desconectado";
+
+  return (
+    <div style={{ border: `1px solid ${border}`, background: bg, borderRadius: 12, padding: 10, display: "grid", gap: 8 }}>
+      {nfc.empleado ? (
+        <div style={{ display: "flex", alignItems: "center", gap: 10, minWidth: 0 }}>
+          <EmpleadoNfcAvatar empleado={nfc.empleado} />
+          <div style={{ minWidth: 0, flex: 1 }}>
+            <div style={{ color: C.green, fontSize: 9.5, fontWeight: 950, textTransform: "uppercase", letterSpacing: 0.8 }}>Persona validada por NFC</div>
+            <div style={{ color: C.text, fontSize: 14, fontWeight: 950, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", marginTop: 2 }}>{nfc.empleado.nombre}</div>
+            <div style={{ color: C.dim, fontSize: 11, marginTop: 2 }}>DNI {nfc.empleado.dni || "-"}{nfc.empleado.sede ? ` · ${nfc.empleado.sede}` : ""}</div>
+          </div>
+          <button type="button" onClick={onClear} style={{ border: `1px solid ${C.greenB}`, background: C.panelSolid, color: C.green, borderRadius: 9, padding: "7px 9px", cursor: "pointer", fontSize: 11, fontWeight: 900, fontFamily: C.sans }}>
+            Cambiar
+          </button>
+        </div>
+      ) : (
+        <>
+          <div style={{ display: "flex", alignItems: "center", gap: 9 }}>
+            <div style={{ width: 34, height: 34, borderRadius: 11, background: C.panelSolid, border: `1px solid ${border}`, color: accent, display: "grid", placeItems: "center", flexShrink: 0 }}>
+              <CreditCard size={17} />
+            </div>
+            <div style={{ minWidth: 0 }}>
+              <div style={{ color: C.text, fontSize: 12.5, fontWeight: 950 }}>Tarjeta NFC de quien retira</div>
+              <div style={{ color: C.dim, fontSize: 10.5, marginTop: 1 }}>Apoya la tarjeta o carga el UID manualmente.</div>
+            </div>
+          </div>
+          <div style={{ display: "grid", gridTemplateColumns: "1fr auto auto", gap: 7 }}>
+            <input
+              value={nfc.code}
+              onChange={(event) => nfc.setCode(normalizeNfcUid(event.target.value))}
+              onKeyDown={(event) => {
+                if (event.key === "Enter" || event.key === "Tab") {
+                  event.preventDefault();
+                  nfc.resolver(nfc.code);
+                }
+              }}
+              placeholder="UID de tarjeta"
+              style={{ background: C.panelSolid, border: `1px solid ${border}`, color: C.text, borderRadius: 9, padding: "8px 9px", fontSize: 12, fontFamily: C.mono, outline: "none", minWidth: 0 }}
+            />
+            <button type="button" onClick={() => nfc.resolver(nfc.code)} style={{ border: `1px solid ${border}`, background: C.panelSolid, color: accent, borderRadius: 9, padding: "8px 10px", cursor: "pointer", fontSize: 12, fontWeight: 900, fontFamily: C.sans }}>
+              Validar
+            </button>
+            <button type="button" onClick={onClear} aria-label="Limpiar tarjeta" title="Limpiar" style={{ border: `1px solid ${C.border}`, background: C.panelSolid, color: C.dim, borderRadius: 9, width: 34, minHeight: 34, display: "grid", placeItems: "center", cursor: "pointer" }}>
+              <X size={14} />
+            </button>
+          </div>
+        </>
+      )}
+
+      <div style={{ display: "flex", alignItems: "center", gap: 7, minHeight: 20 }}>
+        <span style={{ width: 7, height: 7, borderRadius: 999, background: bridgeColor, boxShadow: bridgeOk ? `0 0 0 3px ${C.greenL}` : "none", flexShrink: 0 }} />
+        <span style={{ color: bridgeColor, fontSize: 10.5, fontWeight: 900 }}>{bridgeLabel}</span>
+        {!bridgeOk && (
+          <button type="button" onClick={bridge?.reconnect} style={{ marginLeft: "auto", border: "none", background: "transparent", color: bridgeColor, padding: "3px 0", cursor: "pointer", fontSize: 10.5, fontWeight: 900, fontFamily: C.sans }}>
+            Reintentar
+          </button>
+        )}
+      </div>
+      {nfc.status === "buscando" && <div style={{ color: C.blue, fontSize: 11 }}>Buscando empleado...</div>}
+      {nfc.error && <div style={{ color: C.red, fontSize: 11 }}>{nfc.error}</div>}
+    </div>
+  );
 }
 
 function pedidoItemCantidadTotal(item) {
@@ -357,6 +512,12 @@ export default function MaderasScreen({ profile, signOut }) {
     fecha: hoyLocal(),
     destino: "", nombre_persona: "", observaciones: "",
   });
+  const retiroNfc = useMaderasRetiroNfc({
+    enabled: puedeCargar && tab === "Egresos",
+    onEmpleado: (nombre) => setFormEgreso((f) => ({ ...f, nombre_persona: nombre })),
+    onInfo: (text) => { setErr(""); setMsg(text); setTimeout(() => setMsg(""), 3000); },
+    onError: (text) => { setErr(text); },
+  });
 
   const [qMov, setQMov] = useState("");
   const [filtroTipo, setFiltroTipo] = useState("todos");
@@ -557,13 +718,16 @@ export default function MaderasScreen({ profile, signOut }) {
     }
     setErr("");
     try {
+      const nfcObs = retiroNfc.empleado
+        ? `Retiro NFC: ${retiroNfc.empleado.nombre}${retiroNfc.empleado.dni ? ` DNI ${retiroNfc.empleado.dni}` : ""}${retiroNfc.code ? ` tarjeta ${retiroNfc.code}` : ""}`
+        : "";
       await insertarMovimientoMadera({
         materialId: formEgreso.material_id,
         delta: -num(formEgreso.cantidad),
         fecha: formEgreso.fecha,
         destino: formEgreso.destino,
         persona: formEgreso.nombre_persona,
-        observaciones: formEgreso.observaciones,
+        observaciones: [formEgreso.observaciones, nfcObs].filter(Boolean).join(" · "),
       });
     } catch (error) {
       setErr(error.message || "No se pudo registrar el egreso");
@@ -571,6 +735,7 @@ export default function MaderasScreen({ profile, signOut }) {
     }
     setMsg("Egreso registrado");
     setFormEgreso({ material_id: "", cantidad: "", fecha: hoyLocal(), destino: "", nombre_persona: "", observaciones: "" });
+    retiroNfc.clear();
     setDestinoManual(false);
     setTimeout(() => setMsg(""), 3000);
     await cargar();
@@ -1485,9 +1650,13 @@ export default function MaderasScreen({ profile, signOut }) {
                           <label style={S.label}>Persona que retira</label>
                           <input style={S.input} placeholder="Nombre del operario..."
                             value={formEgreso.nombre_persona}
-                            onChange={e => setFormEgreso(f => ({ ...f, nombre_persona: e.target.value }))} />
+                            onChange={e => {
+                              if (retiroNfc.empleado && e.target.value !== empleadoRetiroLabel(retiroNfc.empleado)) retiroNfc.clear();
+                              setFormEgreso(f => ({ ...f, nombre_persona: e.target.value }));
+                            }} />
                         </div>
                       </div>
+                      <MaderasRetiroNfcBox nfc={retiroNfc} onClear={() => { retiroNfc.clear(); setFormEgreso(f => ({ ...f, nombre_persona: "" })); }} />
                       <div>
                         <label style={S.label}>Observaciones</label>
                         <input style={S.input} placeholder="Se tomó de stock, reemplazo, aclaración..."
