@@ -58,7 +58,7 @@ import AvanceTab from "./AvanceTab";
 import ComprobantesTab from "./ComprobantesTab";
 import BandejaTab from "./BandejaTab";
 import { MaterialImageUploader, MaterialThumb, PriceBadge, PriceHistory } from "./MaterialExtras";
-import { fmtMoney } from "./format";
+import { fmtMoney, textoTooltip } from "./format";
 import ProveedoresTab from "./ProveedoresTab";
 import { csvCell, MODELOS, norm, parseMaterialesWorkbook, toBomMap } from "./materialesParser";
 import {
@@ -2364,12 +2364,52 @@ function MaterialBarcodeEditor({ material, onChanged }) {
 
 // Botón chico para ver/editar la observación de un material sin abrir el editor
 // completo — pensado para uso rápido durante un conteo o una revisión al vuelo.
+// La nota se edita en un panel que se dibuja FUERA de la fila, con portal.
+//
+// La fila del catálogo tiene `overflow: hidden` (lo necesita para el borde
+// redondeado y la barrita de color de la izquierda), así que un desplegable
+// posicionado en absoluto adentro quedaba cortado por la mitad. Y `position:
+// fixed` tampoco alcanza: la fila aplica un `transform` al pasar el mouse por
+// encima —justo cuando vas a hacer clic— y eso crea un bloque contenedor que
+// también atrapa a los elementos fijos. El portal es la única salida limpia.
+const NOTA_ANCHO = 300;
+
 function NotasQuickButton({ material, onChanged }) {
   const [open, setOpen] = useState(false);
   const [value, setValue] = useState(material.notas || "");
   const [saving, setSaving] = useState(false);
+  const [pos, setPos] = useState(null);
+  const btnRef = useRef(null);
 
   useEffect(() => { setValue(material.notas || ""); }, [material.notas]);
+
+  // Se ancla al botón. Si no entra abajo, se abre hacia arriba; y nunca se sale
+  // por el costado derecho de la ventana.
+  const ubicar = useCallback(() => {
+    const el = btnRef.current;
+    if (!el) return;
+    const r = el.getBoundingClientRect();
+    const alto = 190;
+    const abajo = window.innerHeight - r.bottom > alto + 12;
+    setPos({
+      top: abajo ? r.bottom + 6 : Math.max(8, r.top - alto - 6),
+      left: Math.min(Math.max(8, r.right - NOTA_ANCHO), window.innerWidth - NOTA_ANCHO - 8),
+    });
+  }, []);
+
+  useEffect(() => {
+    if (!open) return undefined;
+    ubicar();
+    const cerrar = () => setOpen(false);
+    // Al scrollear o redimensionar el panel quedaría flotando lejos del botón:
+    // se cierra, que es menos molesto que perseguirlo.
+    window.addEventListener("scroll", cerrar, true);
+    window.addEventListener("resize", cerrar);
+    return () => {
+      window.removeEventListener("scroll", cerrar, true);
+      window.removeEventListener("resize", cerrar);
+    };
+  }, [open, ubicar]);
 
   async function save() {
     if (saving) return;
@@ -2384,38 +2424,53 @@ function NotasQuickButton({ material, onChanged }) {
   }
 
   return (
-    <div style={{ position: "relative", flexShrink: 0 }}>
+    <div style={{ flexShrink: 0 }}>
       <button
+        ref={btnRef}
         type="button"
         onClick={(e) => { e.stopPropagation(); setOpen((v) => !v); }}
-        title={material.notas ? `Observación: ${material.notas}` : "Agregar observación"}
+        title={material.notas ? `Observación: ${textoTooltip(material.notas)}` : "Agregar observación"}
         style={{ ...BTN, padding: "5px 9px", color: material.notas ? C.amber : C.t2 }}
       >
         <StickyNote size={13} />
       </button>
-      {open && (
-        <div
-          onClick={(e) => e.stopPropagation()}
-          style={{
-            position: "absolute", top: "calc(100% + 4px)", right: 0, zIndex: 40,
-            width: 260, background: C.s0, border: `1px solid ${C.b1}`, borderRadius: 10,
-            padding: 10, boxShadow: "0 12px 28px rgba(0,0,0,0.35)", display: "grid", gap: 8,
-          }}
-        >
-          <span style={{ fontSize: 10, letterSpacing: 0.6, color: C.t2, textTransform: "uppercase", fontWeight: 700 }}>Observaciones</span>
-          <textarea
-            value={value}
-            onChange={(e) => setValue(e.target.value)}
-            rows={3}
-            autoFocus
-            placeholder="Notas sobre este material…"
-            style={{ ...INP, width: "100%", resize: "vertical" }}
+      {open && pos && createPortal(
+        <>
+          {/* Capa para cerrar al hacer clic afuera. Antes sólo se cerraba con el
+              botón "Cerrar", y quedaban paneles abiertos por toda la lista. */}
+          <div
+            onClick={() => setOpen(false)}
+            style={{ position: "fixed", inset: 0, zIndex: 3000 }}
           />
-          <div style={{ display: "flex", gap: 6, justifyContent: "flex-end" }}>
-            <button type="button" onClick={() => setOpen(false)} style={{ ...BTN, padding: "5px 10px" }}>Cerrar</button>
-            <button type="button" onClick={save} disabled={saving} style={{ ...BTN_GREEN, padding: "5px 10px" }}>{saving ? "Guardando…" : "Guardar"}</button>
+          <div
+            onClick={(e) => e.stopPropagation()}
+            style={{
+              position: "fixed", top: pos.top, left: pos.left, zIndex: 3001,
+              width: NOTA_ANCHO, background: C.panelSolid, border: `1px solid ${C.b1}`, borderRadius: 10,
+              padding: 10, boxShadow: "0 18px 40px rgba(0,0,0,0.45)", display: "grid", gap: 8,
+            }}
+          >
+            <span style={{ fontSize: 10, letterSpacing: 0.6, color: C.t2, textTransform: "uppercase", fontWeight: 700 }}>
+              Observaciones
+            </span>
+            <textarea
+              value={value}
+              onChange={(e) => setValue(e.target.value)}
+              onKeyDown={(e) => { if (e.key === "Escape") setOpen(false); }}
+              rows={3}
+              autoFocus
+              placeholder="Notas sobre este material…"
+              // overflowWrap: una URL pegada no tiene espacios y el textarea la
+              // manda a scroll horizontal; así se corta y se lee entera.
+              style={{ ...INP, width: "100%", resize: "vertical", overflowWrap: "anywhere" }}
+            />
+            <div style={{ display: "flex", gap: 6, justifyContent: "flex-end" }}>
+              <button type="button" onClick={() => setOpen(false)} style={{ ...BTN, padding: "5px 10px" }}>Cerrar</button>
+              <button type="button" onClick={save} disabled={saving} style={{ ...BTN_GREEN, padding: "5px 10px" }}>{saving ? "Guardando…" : "Guardar"}</button>
+            </div>
           </div>
-        </div>
+        </>,
+        document.body,
       )}
     </div>
   );
