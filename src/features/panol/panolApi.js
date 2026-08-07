@@ -1467,3 +1467,83 @@ export async function comentarEnvio(envioId, texto) {
   const { error } = await supabase.rpc("panol_comentar_envio", { p_envio: envioId, p_texto: t });
   if (error) throw error;
 }
+
+// ─── Devoluciones ────────────────────────────────────────────────────────────
+// Material que salió del pañol, se probó y volvió fallado. Queda apartado —no
+// vuelve a stock— y Compras decide si se manda a reparar o se reclama la
+// reposición. La obra queda con la cantidad en reclamo hasta que vuelva sano.
+
+export const DEVOLUCION_MOTIVOS = [
+  ["defectuoso", "Vino defectuoso"],
+  ["roto", "Llegó roto"],
+  ["no_corresponde", "No es lo que se pidió"],
+  ["sobrante", "Sobró / no se usó"],
+  ["otro", "Otro"],
+];
+
+export const DEVOLUCION_ESTADOS = {
+  devuelto: { label: "Para decidir", abierto: true },
+  en_reparacion: { label: "En reparación", abierto: true },
+  esperando_reposicion: { label: "Esperando reposición", abierto: true },
+  reparado: { label: "Reparado", abierto: false },
+  repuesto: { label: "Repuesto", abierto: false },
+  nota_credito: { label: "Nota de crédito", abierto: false },
+  rechazado: { label: "Rechazado", abierto: false },
+  descartado: { label: "Descartado", abierto: false },
+};
+
+// Qué hace falta con lo devuelto. Lo elige quien la recibe: el pañolero sabe si
+// tiene arreglo o si hay que reclamar el reemplazo. Compras igual recibe el
+// aviso y es quien gestiona.
+export const DEVOLUCION_NECESITA = [
+  ["esperando_reposicion", "Necesita reposición"],
+  ["en_reparacion", "Se manda a arreglar"],
+  ["devuelto", "A definir con Compras"],
+];
+
+/** Registra una devolución: la abre en el estado que corresponda, deja la
+ *  cantidad en reclamo en la obra y avisa a Compras, todo en una transacción. */
+export async function registrarDevolucion({ snapshotId, cantidad, motivo = "defectuoso", detalle = null, necesita = "devuelto" }) {
+  if (!snapshotId) throw new Error("Falta el egreso de origen.");
+  const cant = Number(cantidad);
+  if (!Number.isFinite(cant) || cant <= 0) throw new Error("La cantidad devuelta tiene que ser mayor a cero.");
+  const { data, error } = await supabase.rpc("panol_registrar_devolucion", {
+    p_snapshot_id: snapshotId,
+    p_cantidad: cant,
+    p_motivo: motivo,
+    p_detalle: detalle,
+    p_necesita: necesita,
+  });
+  if (error) throw error;
+  return data;
+}
+
+export async function resolverDevolucion(id, estado, { proveedorId = null, destino = null, notas = null } = {}) {
+  if (!id || !estado) throw new Error("Faltan datos para resolver la devolución.");
+  const { error } = await supabase.rpc("panol_resolver_devolucion", {
+    p_devolucion_id: id,
+    p_estado: estado,
+    p_proveedor_id: proveedorId,
+    p_destino: destino,
+    p_notas: notas,
+  });
+  if (error) throw error;
+}
+
+/** Panel de devoluciones. Trae días y valor ya calculados desde la vista. */
+export async function fetchDevoluciones({ soloAbiertas = true } = {}) {
+  let query = supabase
+    .from("panol_devoluciones_panel")
+    .select("*")
+    .order("devuelto_at", { ascending: false });
+  if (soloAbiertas) {
+    query = query.in("estado", ["devuelto", "en_reparacion", "esperando_reposicion"]);
+  }
+  const { data, error } = await query;
+  if (error) {
+    // Si la migración todavía no corrió, la pantalla muestra vacío en vez de romper.
+    if (isMissingTable(error)) return [];
+    throw error;
+  }
+  return data ?? [];
+}

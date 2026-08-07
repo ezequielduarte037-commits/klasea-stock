@@ -8,7 +8,8 @@ import { C } from "@/theme";
 import StockWmsPanel from "@/features/panol/StockWmsPanel";
 import MapaPanolTab from "@/features/panol/MapaPanolTab";
 import PanolRetirosDashboard from "@/features/panol/PanolRetirosDashboard";
-import { canonicalPanolSede, fetchMaterialesEgreso, fetchObrasEgreso, fetchPanolMaterialCreations } from "@/features/panol/panolApi";
+import DevolucionesPanel from "@/features/panol/DevolucionesPanel";
+import { canonicalPanolSede, DEVOLUCION_MOTIVOS, DEVOLUCION_NECESITA, fetchMaterialesEgreso, fetchObrasEgreso, fetchPanolMaterialCreations, registrarDevolucion } from "@/features/panol/panolApi";
 import { fmtDate, rowMovementAt, rowIsAnulado } from "@/features/panol/panolMovimientos";
 import { MODELOS, norm } from "@/features/materiales/materialesParser";
 import { hasAdminAccess } from "@/lib/permissions";
@@ -379,6 +380,7 @@ const TABS = [
   { key: "obra", label: "Por obra" },
   { key: "maestro", label: "Stock maestro" },
   { key: "movimientos", label: "Movimientos" },
+  { key: "devoluciones", label: "Devoluciones" },
   { key: "reconciliar", label: "A reconciliar" },
   { key: "mapa", label: "Mapa" },
 ];
@@ -413,6 +415,9 @@ const MOV_KIND = {
   creacion:     { label: "Producto creado", color: C.blue, sign: "" },
 };
 const MOV_INTERNAL = new Set(["asignacion", "reasignacion", "asignacion_egreso", "reasignacion_egreso", "liberacion"]);
+// Movimientos donde el material efectivamente salió del pañol hacia una persona.
+// Sólo estos pueden volver fallados: un ingreso o una asignación interna, no.
+const MOV_SALIDA = new Set(["egreso", "solicitud", "asignacion_egreso", "reasignacion_egreso", "consumible"]);
 
 function rowMovementKind(row) {
   const src = rowSource(row);
@@ -474,11 +479,12 @@ function MovKpi({ label, value, detail, color }) {
   );
 }
 
-function MovRow({ m, obraById }) {
+function MovRow({ m, obraById, onDevolucion }) {
   const meta = MOV_KIND[m.kind] || MOV_KIND.ingreso;
   const col = m.anulado ? C.dim : meta.color;
   const detalle = String(m.row.egreso_nota || m.row.stock_nota || m.row.notas || "").replace(/\[anulado\]/gi, "").trim();
   const isCreation = m.kind === "creacion";
+  const esSalida = MOV_SALIDA.has(m.kind);
   const desc = m.row.descripcion || "(sin descripción)";
   const code = m.row.codigo ? ` · ${m.row.codigo}` : "";
   const variant = String(m.row.variante || "").trim();
@@ -500,7 +506,21 @@ function MovRow({ m, obraById }) {
           {isCreation ? creationDetail : `${fmtDate(m.fecha)} · ${movDetalleDestino(m.row, m.kind, obraById)}${variant ? ` · Variante: ${variant}` : ""}${retira ? ` · Retira: ${retira}` : ""}${usuario ? ` · Usuario: ${usuario}` : ""}${detalle ? ` · ${detalle}` : ""}`}
         </div>
       </div>
-      <span style={{ fontFamily: C.mono, fontSize: 15, fontWeight: 950, color: col, whiteSpace: "nowrap" }}>{isCreation ? "Nuevo" : `${meta.sign}${fmtQty(m.cant)} ${m.row.unidad || ""}`}</span>
+      <span style={{ display: "flex", alignItems: "center", gap: 10, whiteSpace: "nowrap" }}>
+        <span style={{ fontFamily: C.mono, fontSize: 15, fontWeight: 950, color: col }}>{isCreation ? "Nuevo" : `${meta.sign}${fmtQty(m.cant)} ${m.row.unidad || ""}`}</span>
+        {/* Distinto de revertir: revertir deshace un movimiento que no debió
+            existir; esto registra que salió bien y volvió fallado. */}
+        {esSalida && !m.anulado && onDevolucion && (
+          <button
+            type="button"
+            onClick={() => onDevolucion(m.row)}
+            title="Salió bien pero el operario lo devolvió fallado"
+            style={{ border: `1px solid ${C.redB}`, background: C.redL, color: C.red, borderRadius: 8, padding: "5px 9px", cursor: "pointer", fontSize: 10.5, fontWeight: 900, fontFamily: C.sans }}
+          >
+            Generar devolución
+          </button>
+        )}
+      </span>
     </div>
   );
 }
@@ -512,6 +532,9 @@ function MovimientosPanel({ rows = [], obras = [], materialCreations = [], isMob
   const [hasta, setHasta] = useState("");
   const [sedeF, setSedeF] = useState("todas");
   const [incluirAnulados, setIncluirAnulados] = useState(false);
+  const [devolucion, setDevolucion] = useState(null);
+  const [devolucionBusy, setDevolucionBusy] = useState(false);
+  const toastMov = useToast();
 
   const obraById = useMemo(() => new Map((obras || []).map((o) => [o.id, o])), [obras]);
 
@@ -631,8 +654,108 @@ function MovimientosPanel({ rows = [], obras = [], materialCreations = [], isMob
         <div style={{ padding: 40, textAlign: "center", color: C.dim, fontSize: 13, border: `1px dashed ${C.border}`, borderRadius: 12 }}>Sin movimientos con esos filtros.</div>
       ) : (
         <div style={{ display: "grid", gap: 6 }}>
-          {movimientos.slice(0, 500).map((m) => <MovRow key={m.key} m={m} obraById={obraById} />)}
+          {movimientos.slice(0, 500).map((m) => (
+            <MovRow key={m.key} m={m} obraById={obraById}
+              onDevolucion={(row) => setDevolucion({ row, cantidad: String(Math.abs(Number(row.cantidad) || 0) || ""), motivo: "defectuoso", detalle: "", necesita: "esperando_reposicion" })} />
+          ))}
           {movimientos.length > 500 && <div style={{ textAlign: "center", color: C.dim, fontSize: 12, padding: 10 }}>Mostrando 500 de {movimientos.length}. Afiná los filtros (fecha/producto) para ver el resto.</div>}
+        </div>
+      )}
+
+      {devolucion && (
+        <div style={{ position: "fixed", inset: 0, zIndex: 90, background: "rgba(15,23,42,0.42)", display: "grid", placeItems: "center", padding: 16 }}>
+          <div style={{ width: "min(500px, 100%)", border: `1px solid ${C.border}`, background: C.panelSolid, borderRadius: 14, boxShadow: "0 24px 70px rgba(15,23,42,0.25)", overflow: "hidden" }}>
+            <div style={{ padding: "14px 16px", borderBottom: `1px solid ${C.border}` }}>
+              <div style={{ color: C.text, fontSize: 16, fontWeight: 950 }}>Generar devolución</div>
+              <div style={{ color: C.dim, fontSize: 12, marginTop: 3 }}>
+                {devolucion.row.descripcion}
+                {devolucion.row.retirado_por ? ` · lo retiró ${devolucion.row.retirado_por}` : ""}
+              </div>
+            </div>
+
+            <div style={{ padding: 16, display: "grid", gap: 12 }}>
+              <div style={{ display: "grid", gridTemplateColumns: "120px minmax(0,1fr)", gap: 10 }}>
+                <label style={{ display: "grid", gap: 5, minWidth: 0 }}>
+                  <span style={{ color: C.dim, fontSize: 10, fontWeight: 900, textTransform: "uppercase", letterSpacing: 0.8 }}>Cantidad</span>
+                  <input value={devolucion.cantidad} inputMode="decimal" size={1}
+                    onChange={(e) => setDevolucion((p) => ({ ...p, cantidad: e.target.value }))}
+                    style={{ width: "100%", minWidth: 0, boxSizing: "border-box", background: C.panel, border: `1px solid ${C.border}`, color: C.text, borderRadius: 9, padding: "9px 10px", fontSize: 13, fontFamily: C.mono, outline: "none" }} />
+                </label>
+                <label style={{ display: "grid", gap: 5, minWidth: 0 }}>
+                  <span style={{ color: C.dim, fontSize: 10, fontWeight: 900, textTransform: "uppercase", letterSpacing: 0.8 }}>Motivo</span>
+                  <select value={devolucion.motivo}
+                    onChange={(e) => setDevolucion((p) => ({ ...p, motivo: e.target.value }))}
+                    style={{ width: "100%", minWidth: 0, boxSizing: "border-box", background: C.panel, border: `1px solid ${C.border}`, color: C.text, borderRadius: 9, padding: "9px 10px", fontSize: 13, fontFamily: C.sans, outline: "none" }}>
+                    {DEVOLUCION_MOTIVOS.map(([valor, label]) => <option key={valor} value={valor}>{label}</option>)}
+                  </select>
+                </label>
+              </div>
+
+              <label style={{ display: "grid", gap: 5, minWidth: 0 }}>
+                <span style={{ color: C.dim, fontSize: 10, fontWeight: 900, textTransform: "uppercase", letterSpacing: 0.8 }}>Qué le pasa</span>
+                <input value={devolucion.detalle} placeholder="Ej: vino con la rosca pasada" size={1}
+                  onChange={(e) => setDevolucion((p) => ({ ...p, detalle: e.target.value }))}
+                  style={{ width: "100%", minWidth: 0, boxSizing: "border-box", background: C.panel, border: `1px solid ${C.border}`, color: C.text, borderRadius: 9, padding: "9px 10px", fontSize: 13, fontFamily: C.sans, outline: "none" }} />
+              </label>
+
+              <div style={{ display: "grid", gap: 6 }}>
+                <span style={{ color: C.dim, fontSize: 10, fontWeight: 900, textTransform: "uppercase", letterSpacing: 0.8 }}>Qué necesita</span>
+                <div style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>
+                  {DEVOLUCION_NECESITA.map(([valor, label]) => {
+                    const on = devolucion.necesita === valor;
+                    return (
+                      <button key={valor} type="button"
+                        onClick={() => setDevolucion((p) => ({ ...p, necesita: valor }))}
+                        style={{
+                          padding: "7px 12px", borderRadius: 9, cursor: "pointer",
+                          border: `1px solid ${on ? C.blueB : C.border}`,
+                          background: on ? C.blueL : C.panel,
+                          color: on ? C.blue : C.muted,
+                          fontSize: 12, fontWeight: on ? 900 : 750, fontFamily: C.sans,
+                        }}>
+                        {label}
+                      </button>
+                    );
+                  })}
+                </div>
+              </div>
+
+              <div style={{ border: `1px solid ${C.cyanB}`, background: C.cyanL, borderRadius: 10, padding: "9px 11px", color: C.muted, fontSize: 11.5, lineHeight: 1.45 }}>
+                Esto <b>no deshace el egreso</b>: el material salió de verdad. Queda apartado sin volver al
+                stock, se avisa a Compras para que definan reparación o reposición, y la obra queda con esa
+                cantidad pendiente.
+              </div>
+            </div>
+
+            <div style={{ padding: "12px 16px", borderTop: `1px solid ${C.border}`, display: "flex", gap: 8, justifyContent: "flex-end" }}>
+              <button type="button" onClick={() => setDevolucion(null)}
+                style={{ border: `1px solid ${C.border}`, background: C.panel, color: C.muted, borderRadius: 9, padding: "8px 14px", cursor: "pointer", fontSize: 12, fontWeight: 800, fontFamily: C.sans }}>
+                Cancelar
+              </button>
+              <button type="button" disabled={devolucionBusy}
+                onClick={async () => {
+                  setDevolucionBusy(true);
+                  try {
+                    await registrarDevolucion({
+                      snapshotId: devolucion.row.id,
+                      cantidad: devolucion.cantidad,
+                      motivo: devolucion.motivo,
+                      detalle: devolucion.detalle || null,
+                      necesita: devolucion.necesita,
+                    });
+                    setDevolucion(null);
+                    toastMov?.success?.("Devolución registrada. Compras fue avisado.");
+                  } catch (error) {
+                    toastMov?.error?.(error.message || "No se pudo registrar la devolución.");
+                  } finally {
+                    setDevolucionBusy(false);
+                  }
+                }}
+                style={{ border: `1px solid ${C.redB}`, background: C.redL, color: C.red, borderRadius: 9, padding: "8px 16px", cursor: devolucionBusy ? "default" : "pointer", fontSize: 12, fontWeight: 900, fontFamily: C.sans, opacity: devolucionBusy ? 0.6 : 1 }}>
+                {devolucionBusy ? "Registrando…" : "Registrar devolución"}
+              </button>
+            </div>
+          </div>
         </div>
       )}
     </div>
@@ -1028,6 +1151,10 @@ export default function StockPanolScreen({ profile, signOut, embedded = false, m
             {/* ── TAB: Movimientos (historial general de ingresos/egresos) ── */}
             {tab === "movimientos" && (
               <MovimientosPanel rows={rows} obras={obras} materialCreations={materialCreations} isMobile={isMobile} />
+            )}
+
+            {tab === "devoluciones" && (
+              <DevolucionesPanel isMobile={isMobile} />
             )}
 
             {/* ── TAB: A reconciliar ── */}

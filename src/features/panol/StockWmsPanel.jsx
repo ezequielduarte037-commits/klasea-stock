@@ -40,6 +40,9 @@ import {
   marcarMovimientoAnulado,
   registrarCambioUbicacionMaterial,
   retiradoPorNombreCompletoError,
+  DEVOLUCION_MOTIVOS,
+  DEVOLUCION_NECESITA,
+  registrarDevolucion,
   SEDES_PANOL,
   transferirProducto,
   vincularMovimientosAMaterial,
@@ -1224,7 +1227,7 @@ function LocationButton({ location, active, onClick }) {
   );
 }
 
-function KardexRow({ row, onRevert, busy, obraById }) {
+function KardexRow({ row, onRevert, busy, obraById, onDevolucion }) {
   const delta = rowDelta(row);
   const isLocation = rowIsLocationChange(row);
   const isOut = row.estado === "egresado";
@@ -1247,7 +1250,7 @@ function KardexRow({ row, onRevert, busy, obraById }) {
   // Guard B: deshabilitar Revertir si ya contiene "[anulado]" en notas
   const yaAnulado = rowIsAnulado(row);
   return (
-    <div style={{ display: "grid", gridTemplateColumns: "74px minmax(0, 1fr) 86px 68px", gap: 10, alignItems: "center", padding: "9px 0", borderBottom: `1px solid ${C.border}` }}>
+    <div style={{ display: "grid", gridTemplateColumns: "74px minmax(0, 1fr) 86px 150px", gap: 10, alignItems: "center", padding: "9px 0", borderBottom: `1px solid ${C.border}` }}>
       <span style={{ color: labelColor, fontSize: 11, fontWeight: 950 }}>{label}</span>
       <span style={{ minWidth: 0 }}>
         <span style={{ display: "block", color: C.text, fontSize: 12.5, fontWeight: 850, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{descripcion}{codigo}</span>
@@ -1258,17 +1261,34 @@ function KardexRow({ row, onRevert, busy, obraById }) {
       <span style={{ color: delta < 0 ? C.red : delta > 0 ? C.green : C.dim, fontFamily: C.mono, fontSize: 12.5, fontWeight: 950, textAlign: "right" }}>
         {delta > 0 ? "+" : ""}{fmtQty(delta)}
       </span>
-      {delta !== 0 ? (
-        <button
-          type="button"
-          onClick={() => onRevert?.(row)}
-          disabled={busy || yaAnulado}
-          title={yaAnulado ? "Este movimiento ya fue anulado" : "Revertir movimiento"}
-          style={{ border: `1px solid ${C.border}`, background: C.panelSolid, color: C.dim, borderRadius: 8, padding: "6px 7px", cursor: (busy || yaAnulado) ? "default" : "pointer", fontSize: 10.5, fontWeight: 850, fontFamily: C.sans, opacity: (busy || yaAnulado) ? 0.45 : 1 }}
-        >
-          {yaAnulado ? "Anulado" : "Revertir"}
-        </button>
-      ) : <span />}
+      {/* Revertir y devolver son cosas distintas y conviven:
+            · Revertir  — el movimiento no debió existir. Se deshace.
+            · Devolución — el movimiento estuvo bien, el material salió de
+              verdad, pero volvió fallado. Es un evento nuevo, no un deshacer. */}
+      <span style={{ display: "flex", gap: 4, justifyContent: "flex-end" }}>
+        {delta !== 0 && (
+          <button
+            type="button"
+            onClick={() => onRevert?.(row)}
+            disabled={busy || yaAnulado}
+            title={yaAnulado ? "Este movimiento ya fue anulado" : "El movimiento fue un error: deshacerlo"}
+            style={{ border: `1px solid ${C.border}`, background: C.panelSolid, color: C.dim, borderRadius: 8, padding: "6px 7px", cursor: (busy || yaAnulado) ? "default" : "pointer", fontSize: 10.5, fontWeight: 850, fontFamily: C.sans, opacity: (busy || yaAnulado) ? 0.45 : 1 }}
+          >
+            {yaAnulado ? "Anulado" : "Revertir"}
+          </button>
+        )}
+        {isOut && !yaAnulado && onDevolucion && (
+          <button
+            type="button"
+            onClick={() => onDevolucion(row)}
+            disabled={busy}
+            title="Salió bien pero el operario lo devolvió fallado"
+            style={{ border: `1px solid ${C.redB}`, background: C.redL, color: C.red, borderRadius: 8, padding: "6px 7px", cursor: busy ? "default" : "pointer", fontSize: 10.5, fontWeight: 900, fontFamily: C.sans, opacity: busy ? 0.45 : 1 }}
+          >
+            Generar devolución
+          </button>
+        )}
+      </span>
     </div>
   );
 }
@@ -2171,6 +2191,8 @@ function ProductDetail({ group, isMobile, obras, sedeLocked, canReceive, mode, o
   const [reconcilingKey, setReconcilingKey] = useState(null);
   const [revertingId, setRevertingId] = useState(null);
   const [reversalTarget, setReversalTarget] = useState(null);
+  const [devolucionTarget, setDevolucionTarget] = useState(null);
+  const [devolucionBusy, setDevolucionBusy] = useState(false);
   const [reversalReason, setReversalReason] = useState("");
   const [creatingLocationMaterial, setCreatingLocationMaterial] = useState(false);
   // Toggle C: ocultar filas ya anuladas en el kardex
@@ -2538,6 +2560,7 @@ function ProductDetail({ group, isMobile, obras, sedeLocked, canReceive, mode, o
               onRevert={(movimiento) => { setReversalTarget(movimiento); setReversalReason(""); }}
               busy={revertingId === row.id}
               obraById={obraById}
+              onDevolucion={(movimiento) => setDevolucionTarget({ row: movimiento, cantidad: String(Math.abs(rowDelta(movimiento)) || ""), motivo: "defectuoso", detalle: "", necesita: "esperando_reposicion" })}
             />
           )) : (
             <div style={{ color: C.dim, fontSize: 12, padding: "12px 0" }}>
@@ -2546,6 +2569,118 @@ function ProductDetail({ group, isMobile, obras, sedeLocked, canReceive, mode, o
           )}
         </div>
       </div>
+      {/* Devolución: el operario probó el material y volvió fallado. No vuelve a
+          stock — queda apartado y Compras decide si se repara o se reclama. */}
+      {devolucionTarget && (
+        <div style={{ position: "fixed", inset: 0, zIndex: 80, background: "rgba(15,23,42,0.38)", display: "grid", placeItems: "center", padding: 16 }}>
+          <div style={{ width: "min(500px, 100%)", border: `1px solid ${C.border}`, background: C.panelSolid, borderRadius: 14, boxShadow: "0 24px 70px rgba(15,23,42,0.22)", overflow: "hidden" }}>
+            <div style={{ padding: "14px 16px", borderBottom: `1px solid ${C.border}` }}>
+              <div style={{ color: C.text, fontSize: 16, fontWeight: 950 }}>Generar devolución</div>
+              <div style={{ color: C.dim, fontSize: 12, marginTop: 3 }}>
+                {devolucionTarget.row.descripcion || group.label}
+                {devolucionTarget.row.retirado_por ? ` · lo retiró ${devolucionTarget.row.retirado_por}` : ""}
+              </div>
+            </div>
+
+            <div style={{ padding: 16, display: "grid", gap: 12 }}>
+              <div style={{ display: "grid", gridTemplateColumns: "120px minmax(0,1fr)", gap: 10 }}>
+                <label style={{ display: "grid", gap: 5, minWidth: 0 }}>
+                  <span style={{ color: C.dim, fontSize: 10, fontWeight: 900, textTransform: "uppercase", letterSpacing: 0.8 }}>Cantidad</span>
+                  <input
+                    value={devolucionTarget.cantidad}
+                    onChange={(e) => setDevolucionTarget((p) => ({ ...p, cantidad: e.target.value }))}
+                    inputMode="decimal"
+                    size={1}
+                    style={{ width: "100%", minWidth: 0, boxSizing: "border-box", background: C.panel, border: `1px solid ${C.border}`, color: C.text, borderRadius: 9, padding: "9px 10px", fontSize: 13, fontFamily: C.mono, outline: "none" }}
+                  />
+                </label>
+                <label style={{ display: "grid", gap: 5, minWidth: 0 }}>
+                  <span style={{ color: C.dim, fontSize: 10, fontWeight: 900, textTransform: "uppercase", letterSpacing: 0.8 }}>Motivo</span>
+                  <select
+                    value={devolucionTarget.motivo}
+                    onChange={(e) => setDevolucionTarget((p) => ({ ...p, motivo: e.target.value }))}
+                    style={{ width: "100%", minWidth: 0, boxSizing: "border-box", background: C.panel, border: `1px solid ${C.border}`, color: C.text, borderRadius: 9, padding: "9px 10px", fontSize: 13, fontFamily: C.sans, outline: "none" }}
+                  >
+                    {DEVOLUCION_MOTIVOS.map(([valor, label]) => <option key={valor} value={valor}>{label}</option>)}
+                  </select>
+                </label>
+              </div>
+
+              <label style={{ display: "grid", gap: 5, minWidth: 0 }}>
+                <span style={{ color: C.dim, fontSize: 10, fontWeight: 900, textTransform: "uppercase", letterSpacing: 0.8 }}>Qué le pasa</span>
+                <input
+                  value={devolucionTarget.detalle}
+                  onChange={(e) => setDevolucionTarget((p) => ({ ...p, detalle: e.target.value }))}
+                  placeholder="Ej: vino con la rosca pasada"
+                  size={1}
+                  style={{ width: "100%", minWidth: 0, boxSizing: "border-box", background: C.panel, border: `1px solid ${C.border}`, color: C.text, borderRadius: 9, padding: "9px 10px", fontSize: 13, fontFamily: C.sans, outline: "none" }}
+                />
+              </label>
+
+              <div style={{ display: "grid", gap: 6 }}>
+                <span style={{ color: C.dim, fontSize: 10, fontWeight: 900, textTransform: "uppercase", letterSpacing: 0.8 }}>Qué necesita</span>
+                <div style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>
+                  {DEVOLUCION_NECESITA.map(([valor, label]) => {
+                    const on = devolucionTarget.necesita === valor;
+                    return (
+                      <button key={valor} type="button"
+                        onClick={() => setDevolucionTarget((p) => ({ ...p, necesita: valor }))}
+                        style={{
+                          padding: "7px 12px", borderRadius: 9, cursor: "pointer",
+                          border: `1px solid ${on ? C.blueB : C.border}`,
+                          background: on ? C.blueL : C.panel,
+                          color: on ? C.blue : C.muted,
+                          fontSize: 12, fontWeight: on ? 900 : 750, fontFamily: C.sans,
+                        }}>
+                        {label}
+                      </button>
+                    );
+                  })}
+                </div>
+              </div>
+
+              <div style={{ border: `1px solid ${C.cyanB}`, background: C.cyanL, borderRadius: 10, padding: "9px 11px", color: C.muted, fontSize: 11.5, lineHeight: 1.45 }}>
+                Queda apartado, <b>no vuelve al stock</b>. Se avisa a Compras para que definan si
+                se manda a reparar o se reclama la reposición, y la obra queda con esa cantidad pendiente.
+              </div>
+            </div>
+
+            <div style={{ padding: "12px 16px", borderTop: `1px solid ${C.border}`, display: "flex", gap: 8, justifyContent: "flex-end" }}>
+              <button type="button" onClick={() => setDevolucionTarget(null)}
+                style={{ border: `1px solid ${C.border}`, background: C.panel, color: C.muted, borderRadius: 9, padding: "8px 14px", cursor: "pointer", fontSize: 12, fontWeight: 800, fontFamily: C.sans }}>
+                Cancelar
+              </button>
+              <button
+                type="button"
+                disabled={devolucionBusy}
+                onClick={async () => {
+                  setDevolucionBusy(true);
+                  try {
+                    await registrarDevolucion({
+                      snapshotId: devolucionTarget.row.id,
+                      cantidad: devolucionTarget.cantidad,
+                      motivo: devolucionTarget.motivo,
+                      detalle: devolucionTarget.detalle || null,
+                      necesita: devolucionTarget.necesita,
+                    });
+                    setDevolucionTarget(null);
+                    toast?.success?.("Devolución registrada. Compras fue avisado.");
+                    onDone?.();
+                  } catch (error) {
+                    toast?.error?.(error.message || "No se pudo registrar la devolución.");
+                  } finally {
+                    setDevolucionBusy(false);
+                  }
+                }}
+                style={{ border: `1px solid ${C.redB}`, background: C.redL, color: C.red, borderRadius: 9, padding: "8px 16px", cursor: devolucionBusy ? "default" : "pointer", fontSize: 12, fontWeight: 900, fontFamily: C.sans, opacity: devolucionBusy ? 0.6 : 1 }}
+              >
+                {devolucionBusy ? "Registrando…" : "Registrar devolución"}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
       {reversalTarget && (
         <div style={{ position: "fixed", inset: 0, zIndex: 80, background: "rgba(15,23,42,0.38)", display: "grid", placeItems: "center", padding: 16 }}>
           <div style={{ width: "min(520px, 100%)", border: `1px solid ${C.border}`, background: C.panelSolid, borderRadius: 14, boxShadow: "0 24px 70px rgba(15,23,42,0.22)", overflow: "hidden" }}>
