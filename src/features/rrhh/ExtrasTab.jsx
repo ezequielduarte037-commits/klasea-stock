@@ -11,15 +11,25 @@ import { BTN, Cargando, ErrorBox, GrupoBadge, INP, KpiCard, Td, Th } from "./ui"
 const EXTRA_DESDE = "16:00";
 const INICIO_CONTEO = "07:00";
 const EXTRA_MINIMA_MIN = 30;
-const EXTRA_BLOQUE_MIN = 30; // las extras se cuentan POR DÍA en bloques de media hora (floor); < 30 min = 0
+const EXTRA_BLOQUE_MIN = 30; // las extras se cuentan POR DÍA en bloques de media hora
+// Tolerancia para completar el bloque. Sin esto, fichar 17:59 en vez de 18:00
+// hacía perder media hora entera: 119 minutos caían al bloque de 90. Nadie
+// trabaja media hora menos por irse un minuto antes.
+const EXTRA_TOLERANCIA_MIN = 15;
 
 function safeText(value) {
   return String(value ?? "").toLowerCase();
 }
 
-// Redondea las extras de un día hacia abajo a media hora: 2 min = 0, 35 = 30, 65 = 60.
+// Redondea las extras de un día a media hora, con 15 minutos de tolerancia para
+// completar el bloque: 105 min (17:45) y 119 (17:59) cuentan 120; 100 cuenta 90.
+// Antes era floor puro y salir 17:59 pagaba lo mismo que salir 17:30.
 function redondearExtra(min) {
-  return Math.floor(Math.max(0, min) / EXTRA_BLOQUE_MIN) * EXTRA_BLOQUE_MIN;
+  const limpio = Math.max(0, min);
+  const bloques = Math.floor(limpio / EXTRA_BLOQUE_MIN);
+  const resto = limpio - bloques * EXTRA_BLOQUE_MIN;
+  const completa = resto >= EXTRA_BLOQUE_MIN - EXTRA_TOLERANCIA_MIN;
+  return (bloques + (completa ? 1 : 0)) * EXTRA_BLOQUE_MIN;
 }
 
 function extraOperativaMin(m) {
@@ -535,7 +545,7 @@ export default function ExtrasTab({ empleados, contratistas }) {
       </div>
 
       <div style={{ fontSize: 12, color: C.t2, margin: "-4px 0 14px", lineHeight: 1.6 }}>
-        Regla: lunes a viernes suma extra desde {EXTRA_DESDE}, sin importar si entro tarde. Antes de {INICIO_CONTEO} no cuenta para sabados. <strong>Las extras se cuentan por día en bloques de media hora</strong> (menos de 30 min no cuenta; 35 → 30; 65 → 60). Se muestran personas con al menos {EXTRA_MINIMA_MIN} minutos extra.
+        Regla: lunes a viernes suma extra desde {EXTRA_DESDE}, sin importar si entro tarde. Antes de {INICIO_CONTEO} no cuenta para sabados. <strong>Las extras se cuentan por día en bloques de media hora</strong>, con {EXTRA_TOLERANCIA_MIN} minutos de tolerancia para completar el bloque: 1h45 y 1h59 cuentan 2h; 1h40 cuenta 1h30. Se muestran personas con al menos {EXTRA_MINIMA_MIN} minutos extra.
       </div>
 
       {error && <ErrorBox error={error} />}

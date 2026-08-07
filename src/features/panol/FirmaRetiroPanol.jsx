@@ -138,20 +138,30 @@ export default function FirmaRetiroPanol({
   // Reglas de retiro: se consulta recién cuando ya se sabe quién retira, porque
   // el veredicto depende de sus obras y su oficio. Si la migración todavía no
   // está aplicada, la API devuelve vacío y acá no se muestra nada.
-  const [reparos, setReparos] = useState([]);
+  //
+  // El resultado se guarda junto con la consulta que lo produjo: así no hay que
+  // limpiar el estado al cambiar de persona —cosa que el compilador de React no
+  // deja hacer dentro del efecto— y nunca se muestra un veredicto viejo.
+  const [resultadoReglas, setResultadoReglas] = useState({ clave: "", filas: [] });
+  const claveReglas = elegido?.id
+    ? `${elegido.id}|${materialIds.filter(Boolean).slice().sort().join(",")}`
+    : "";
+
   useEffect(() => {
+    if (!claveReglas) return undefined;
+    const ids = claveReglas.split("|")[1];
+    if (!ids) return undefined;
     let vigente = true;
-    if (!elegido?.id || !materialIds.length) {
-      setReparos([]);
-      return () => { vigente = false; };
-    }
-    evaluarRetiro(elegido.id, materialIds)
+    evaluarRetiro(claveReglas.split("|")[0], ids.split(","))
       .then((filas) => {
-        if (vigente) setReparos(filas.filter((f) => f.estado !== "ok" && f.estado !== "sin_datos"));
+        if (!vigente) return;
+        setResultadoReglas({ clave: claveReglas, filas: filas.filter((f) => f.estado !== "ok" && f.estado !== "sin_datos") });
       })
-      .catch(() => { if (vigente) setReparos([]); });
+      .catch(() => { if (vigente) setResultadoReglas({ clave: claveReglas, filas: [] }); });
     return () => { vigente = false; };
-  }, [elegido?.id, materialIds]);
+  }, [claveReglas]);
+
+  const reparos = resultadoReglas.clave === claveReglas ? resultadoReglas.filas : [];
 
   async function confirmar() {
     if (!elegido || guardando) return;

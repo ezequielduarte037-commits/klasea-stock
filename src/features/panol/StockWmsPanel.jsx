@@ -23,7 +23,7 @@ import useNfcBridge from "@/features/panol/useNfcBridge";
 import useKeyboardWedge from "@/features/panol/useKeyboardWedge";
 import { materialBarcodeList, materialBarcodeText } from "@/features/materiales/materialBarcodes";
 import { materialMatchIsStrong, materialMatchScore, topMaterialMatches } from "@/features/panol/materialMatch";
-import { buscarEmpleadoPorNfc, normalizeNfcUid } from "@/features/rrhh/api";
+import { buscarEmpleadoPorNfc, evaluarRetiro, normalizeNfcUid } from "@/features/rrhh/api";
 import { fmtDate, rowIsAnulado, rowMovementAt } from "@/features/panol/panolMovimientos";
 import { openEgresoDisplayWindow, publishEgresoDisplay, resetEgresoDisplay } from "@/features/panol/egresoDisplay";
 import {
@@ -191,7 +191,59 @@ function useRetiroNfc({ enabled, onEmpleado, toast }) {
   return { empleado, code, setCode, status, error, resolver, clear, bridge };
 }
 
-function RetiroNfcBox({ nfc, onClear, compact = false }) {
+// Reglas de retiro: se consulta recién cuando ya se sabe quién retira, porque el
+// veredicto depende de sus obras y su oficio. Si la migración todavía no está
+// aplicada la API devuelve vacío y acá no se muestra nada.
+function useReparosRetiro(empleadoId, materialIds) {
+  // Se guarda junto con la consulta que lo produjo. Así no hace falta limpiar el
+  // estado al cambiar de empleado o de carrito —cosa que el compilador de React
+  // no deja hacer dentro del efecto— y nunca se muestra el veredicto de una
+  // consulta que ya no corresponde.
+  const [resultado, setResultado] = useState({ clave: "", filas: [] });
+  const clave = empleadoId
+    ? `${empleadoId}|${(materialIds || []).filter(Boolean).slice().sort().join(",")}`
+    : "";
+
+  useEffect(() => {
+    if (!clave) return undefined;
+    const ids = clave.split("|")[1];
+    if (!ids) return undefined;
+    let vigente = true;
+    evaluarRetiro(empleadoId, ids.split(","))
+      .then((filas) => {
+        if (!vigente) return;
+        setResultado({ clave, filas: filas.filter((f) => f.estado !== "ok" && f.estado !== "sin_datos") });
+      })
+      .catch(() => {
+        if (vigente) setResultado({ clave, filas: [] });
+      });
+    return () => { vigente = false; };
+  }, [clave, empleadoId]);
+
+  return resultado.clave === clave ? resultado.filas : [];
+}
+
+function AvisoReparosRetiro({ empleado, reparos }) {
+  if (!empleado || !reparos.length) return null;
+  const motivos = [...new Set(reparos.map((r) => r.motivo).filter(Boolean))];
+  return (
+    <div style={{ borderRadius: 10, border: `1px solid ${C.cyanB}`, background: C.cyanL, padding: "8px 10px", display: "grid", gap: 4 }}>
+      <div style={{ display: "flex", alignItems: "center", gap: 6, color: C.cyan, fontSize: 11.5, fontWeight: 900 }}>
+        <AlertTriangle size={13} style={{ flexShrink: 0 }} />
+        {empleado.nombre} retira {reparos.length} {reparos.length === 1 ? "material que no le corresponde" : "materiales que no le corresponden"}
+      </div>
+      {motivos.map((motivo) => (
+        <div key={motivo} style={{ color: C.muted, fontSize: 11, lineHeight: 1.4 }}>· {motivo}</div>
+      ))}
+      <div style={{ color: C.dim, fontSize: 10.5, lineHeight: 1.4 }}>
+        Se puede confirmar igual. Queda registrado quién retiró y qué se llevó.
+      </div>
+    </div>
+  );
+}
+
+function RetiroNfcBox({ nfc, onClear, compact = false, materialIds = [] }) {
+  const reparos = useReparosRetiro(nfc.empleado?.id, materialIds);
   const border = nfc.empleado ? C.greenB : nfc.status === "error" ? C.redB : C.blueB;
   const bg = nfc.empleado ? C.greenL : nfc.status === "error" ? C.redL : C.blueL;
   const accent = nfc.empleado ? C.green : nfc.status === "error" ? C.red : C.blue;
@@ -205,6 +257,7 @@ function RetiroNfcBox({ nfc, onClear, compact = false }) {
   const bridgeColor = bridgeOk ? C.green : bridge?.status === "connecting" ? C.blue : C.amber;
   return (
     <div style={{ border: `1px solid ${border}`, background: bg, borderRadius: 12, padding: compact ? 10 : 12, display: "grid", gap: compact ? 8 : 10 }}>
+      <AvisoReparosRetiro empleado={nfc.empleado} reparos={reparos} />
       {nfc.empleado ? (
         <div style={{ display: "flex", alignItems: "center", gap: 12, minWidth: 0 }}>
           <EmpleadoRetiroAvatar empleado={nfc.empleado} size={compact ? 60 : 68} />
@@ -1820,7 +1873,7 @@ function EgresoBatchPanel({ group, selectedLocation, obras, sedeLocked, canRecei
         </select>
       </label>
       {movementKind !== "transferir" && (
-        <RetiroNfcBox nfc={retiroNfc} onClear={() => { retiroNfc.clear(); setRetiradoPor(""); }} compact />
+        <RetiroNfcBox nfc={retiroNfc} onClear={() => { retiroNfc.clear(); setRetiradoPor(""); }} compact materialIds={group?.material?.id ? [group.material.id] : []} />
       )}
       <label style={{ display: "grid", gap: 4 }}>
         <input value={retiradoPor} onChange={(event) => setRetiradoPor(event.target.value)} placeholder="Nombre y apellido de quien retira" style={{ background: C.bg, border: `1px solid ${retiradoError && retiradoPor.trim() ? C.redB : C.border}`, color: C.text, borderRadius: 9, padding: "9px 10px", fontSize: 12, fontFamily: C.sans, outline: "none" }} />
@@ -2083,7 +2136,7 @@ function ProductActionPanel({ group, selectedLocation, setSelectedLocationKey, o
               <span style={{ color: C.amber, fontSize: 10.5 }}>Sin obra: es obligatorio detallar abajo a dónde va.</span>
             )}
           </label>
-          <RetiroNfcBox nfc={retiroNfc} onClear={() => { retiroNfc.clear(); setRetiradoPor(""); }} compact />
+          <RetiroNfcBox nfc={retiroNfc} onClear={() => { retiroNfc.clear(); setRetiradoPor(""); }} compact materialIds={group?.material?.id ? [group.material.id] : []} />
           <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8 }}>
             <label style={{ display: "grid", gap: 4, minWidth: 0 }}>
               <input value={retiradoPor} onChange={(event) => setRetiradoPor(event.target.value)} placeholder="Nombre y apellido de quien retira" style={{ background: C.bg, border: `1px solid ${retiradoError && retiradoPor.trim() ? C.redB : C.border}`, color: C.text, borderRadius: 9, padding: "9px 10px", fontSize: 12, fontFamily: C.sans, outline: "none", minWidth: 0 }} />
@@ -2953,7 +3006,7 @@ function CartDrawer({ cart, setCart, obras, canReceive, onDone, toast, isMobile,
 
         {/* Datos del retiro */}
         {movementKind === "consumir" && (
-          <RetiroNfcBox nfc={retiroNfc} onClear={() => { retiroNfc.clear(); setRetiradoPor(""); }} />
+          <RetiroNfcBox nfc={retiroNfc} onClear={() => { retiroNfc.clear(); setRetiradoPor(""); }} materialIds={cart.map((item) => item.material_id || item.materialId).filter(Boolean)} />
         )}
         <div style={{ display: "grid", gridTemplateColumns: movementKind === "consumir" ? "1fr 1fr" : "1fr", gap: 8 }}>
           <label style={{ display: "grid", gap: 4, minWidth: 0 }}>
