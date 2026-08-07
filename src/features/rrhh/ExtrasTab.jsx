@@ -22,11 +22,15 @@ function safeText(value) {
 }
 
 // Redondea las extras de un día a media hora, con 15 minutos de tolerancia para
-// completar el bloque: 105 min (17:45) y 119 (17:59) cuentan 120; 100 cuenta 90.
-// Antes era floor puro y salir 17:59 pagaba lo mismo que salir 17:30.
+// COMPLETAR un bloque ya empezado: 105 min (17:45) y 119 (17:59) cuentan 120.
+//
+// La tolerancia no sirve para arrancar. Para la primera media hora hay que
+// hacerla entera: quedarse 15 minutos no es una hora extra. Recién con un bloque
+// cumplido empieza a valer el redondeo hacia arriba.
 function redondearExtra(min) {
   const limpio = Math.max(0, min);
   const bloques = Math.floor(limpio / EXTRA_BLOQUE_MIN);
+  if (bloques < 1) return 0;
   const resto = limpio - bloques * EXTRA_BLOQUE_MIN;
   const completa = resto >= EXTRA_BLOQUE_MIN - EXTRA_TOLERANCIA_MIN;
   return (bloques + (completa ? 1 : 0)) * EXTRA_BLOQUE_MIN;
@@ -545,7 +549,7 @@ export default function ExtrasTab({ empleados, contratistas }) {
       </div>
 
       <div style={{ fontSize: 12, color: C.t2, margin: "-4px 0 14px", lineHeight: 1.6 }}>
-        Regla: lunes a viernes suma extra desde {EXTRA_DESDE}, sin importar si entro tarde. Antes de {INICIO_CONTEO} no cuenta para sabados. <strong>Las extras se cuentan por día en bloques de media hora</strong>, con {EXTRA_TOLERANCIA_MIN} minutos de tolerancia para completar el bloque: 1h45 y 1h59 cuentan 2h; 1h40 cuenta 1h30. Se muestran personas con al menos {EXTRA_MINIMA_MIN} minutos extra.
+        Regla: lunes a viernes suma extra desde {EXTRA_DESDE}, sin importar si entro tarde. Antes de {INICIO_CONTEO} no cuenta para sabados. <strong>Las extras se cuentan por día en bloques de media hora.</strong> La primera media hora hay que hacerla completa (menos de 30 min no cuenta). A partir de ahí hay {EXTRA_TOLERANCIA_MIN} minutos de tolerancia para completar el bloque siguiente: 1h45 y 1h59 cuentan 2h, 1h40 cuenta 1h30. Se muestran personas con al menos {EXTRA_MINIMA_MIN} minutos extra.
       </div>
 
       {error && <ErrorBox error={error} />}
