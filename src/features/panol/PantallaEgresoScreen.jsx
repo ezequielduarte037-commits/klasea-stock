@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
 import {
+  ArrowLeftRight,
   Check,
   CheckCircle2,
   Clock3,
@@ -7,6 +8,7 @@ import {
   Maximize2,
   PackageCheck,
   Radio,
+  Ship,
   ShieldCheck,
   ShoppingBasket,
   TriangleAlert,
@@ -69,13 +71,24 @@ function EmployeeAvatar({ employee, size = 76 }) {
   );
 }
 
-function ProgressSteps({ status }) {
-  const active = status === "complete" ? 3 : status === "identified" || status === "processing" ? 2 : status === "draft" ? 1 : 0;
-  const steps = [
-    ["Preparación", <ShoppingBasket key="preparacion" size={15} />],
-    ["Tarjeta NFC", <CreditCard key="tarjeta" size={15} />],
-    ["Confirmado", <Check key="confirmado" size={15} />],
-  ];
+function ProgressSteps({ status, reasignando, destinoDefinido }) {
+  // La re-asignación no pasa por la tarjeta: nadie se lleva nada, el material
+  // sólo cambia de obra. Mostrar el paso "Tarjeta NFC" haría que el que está
+  // enfrente busque su tarjeta al pedo.
+  const active = reasignando
+    ? (status === "complete" ? 3 : status === "processing" ? 2 : destinoDefinido ? 2 : 1)
+    : (status === "complete" ? 3 : status === "identified" || status === "processing" ? 2 : status === "draft" ? 1 : 0);
+  const steps = reasignando
+    ? [
+        ["Preparación", <ShoppingBasket key="preparacion" size={15} />],
+        ["Obra destino", <Ship key="obra" size={15} />],
+        ["Asignado", <Check key="asignado" size={15} />],
+      ]
+    : [
+        ["Preparación", <ShoppingBasket key="preparacion" size={15} />],
+        ["Tarjeta NFC", <CreditCard key="tarjeta" size={15} />],
+        ["Confirmado", <Check key="confirmado" size={15} />],
+      ];
 
   return (
     <div className="egreso-display-progress">
@@ -128,14 +141,25 @@ function EmptyState() {
   );
 }
 
+// Origen y destino se muestran como un recorrido, no como dos etiquetas
+// sueltas: "52-26 → 43-30" se entiende de una. Y cuando son la misma obra —el
+// caso normal— se escribe una sola vez, porque "52-26 · 52-26" parece un error.
+function recorrido(item) {
+  const origen = String(item.origin || "").trim();
+  const destino = String(item.destination || "").trim();
+  if (origen && destino && origen !== destino) return `${origen} → ${destino}`;
+  return origen || destino;
+}
+
 function ItemRow({ item, index }) {
+  const detalle = [item.variant, recorrido(item)].filter(Boolean).join(" · ");
   return (
     <div className="egreso-display-item">
       <div className="egreso-display-item-index">{String(index + 1).padStart(2, "0")}</div>
       <div style={{ minWidth: 0 }}>
         <div className="egreso-display-item-name">{item.label || "Material"}</div>
         <div className="egreso-display-item-detail">
-          {[item.variant, item.origin, item.destination].filter(Boolean).join(" · ") || "Egreso desde pañol"}
+          {detalle || "Egreso desde pañol"}
         </div>
       </div>
       <div className="egreso-display-item-qty">
@@ -146,7 +170,32 @@ function ItemRow({ item, index }) {
   );
 }
 
-function StatusHero({ state }) {
+function StatusHero({ state, reasignando }) {
+  // La re-asignación no tiene firma ni tarjeta: lo único que importa mostrar es
+  // que el material cambia de obra y que nadie se lo está llevando. Si no se
+  // dice con todas las letras, el que mira la pantalla cree que le están
+  // cargando un retiro a su nombre.
+  if (reasignando && state.status !== "error") {
+    const enCurso = state.status === "processing";
+    return (
+      <div className="egreso-display-status" style={{ borderColor: C.blueB, background: C.blueL }}>
+        <div className={`egreso-display-status-icon${enCurso ? " egreso-display-processing" : ""}`} style={{ color: C.blue, borderColor: C.blueB, background: C.panelSolid }}>
+          <ArrowLeftRight size={28} />
+        </div>
+        <div style={{ minWidth: 0 }}>
+          <div className="egreso-display-eyebrow" style={{ color: C.blue }}>Re-asignación entre obras</div>
+          <div className="egreso-display-status-title">
+            {enCurso ? "Cambiando de obra…" : "Esto no es un retiro"}
+          </div>
+          <div className="egreso-display-status-copy">
+            El material no sale del pañol: sólo pasa a estar reservado para otra obra.
+            No hace falta tarjeta ni firma.
+          </div>
+        </div>
+      </div>
+    );
+  }
+
   if (state.status === "complete") {
     return (
       <div className="egreso-display-status" style={{ borderColor: C.greenB, background: C.greenL }}>
@@ -235,6 +284,9 @@ export default function PantallaEgresoScreen() {
     return () => window.clearInterval(timer);
   }, []);
 
+  // Red de contención. Pañol ya limpia la pantalla apenas confirma, así que
+  // "complete" no debería llegar más; pero si quedó uno guardado de antes en
+  // localStorage, esto lo saca solo en vez de dejarlo clavado para siempre.
   useEffect(() => {
     if (state.status !== "complete" || !state.completedAt) return undefined;
     const elapsed = Date.now() - new Date(state.completedAt).getTime();
@@ -258,7 +310,9 @@ export default function PantallaEgresoScreen() {
   }, [state.completedAt, state.status]);
 
   const isIdle = state.status === "idle" || !state.items?.length;
+  const reasignando = state.mode === "reasignacion";
   const destination = state.destination || state.sector || "Destino a confirmar";
+  const destinoDefinido = !!(state.destination || state.sector);
   const totalUnits = useMemo(
     () => state.items?.reduce((sum, item) => sum + Number(item.quantity || 0), 0) || 0,
     [state.items],
@@ -288,8 +342,8 @@ export default function PantallaEgresoScreen() {
         .egreso-display-topbar{display:flex;align-items:center;gap:14px;max-width:1500px;margin:0 auto 24px}
         .egreso-display-brand{display:flex;align-items:center;gap:12px;min-width:0}
         .egreso-display-brand img{width:42px;height:42px;border-radius:13px;object-fit:cover;box-shadow:0 10px 24px -14px rgba(0,0,0,.55)}
-        .egreso-display-brand strong{display:block;font-size:17px;letter-spacing:-.2px}
-        .egreso-display-brand span{display:block;color:var(--dim);font-size:12px;margin-top:2px}
+        .egreso-display-brand strong{display:block;font-size:19px;letter-spacing:-.2px}
+        .egreso-display-brand span{display:block;color:var(--dim);font-size:13.5px;margin-top:2px}
         .egreso-display-live{margin-left:auto;display:flex;align-items:center;gap:8px;border:1px solid var(--green-border);background:var(--green-soft);color:var(--green);border-radius:999px;padding:8px 12px;font-size:11px;font-weight:900}
         .egreso-display-live i{width:7px;height:7px;background:var(--green);border-radius:999px;box-shadow:0 0 0 4px var(--green-soft)}
         .egreso-display-fullscreen{border:1px solid var(--border);background:var(--panel-solid);color:var(--text);width:38px;height:38px;border-radius:11px;display:grid;place-items:center;cursor:pointer}
@@ -302,33 +356,37 @@ export default function PantallaEgresoScreen() {
         .egreso-display-empty h1{font-size:clamp(31px,4.4vw,58px);letter-spacing:-1.6px;line-height:1.02;margin:8px 0 12px}
         .egreso-display-empty p{color:var(--dim);font-size:clamp(15px,1.5vw,20px);margin:0}
         .egreso-display-hint{display:inline-flex;align-items:center;gap:8px;color:var(--muted);font-size:12px;font-weight:800;border:1px solid var(--border);background:var(--panel-solid);border-radius:999px;padding:9px 13px}
-        .egreso-display-eyebrow{display:flex;align-items:center;gap:6px;font-size:11px;font-weight:950;letter-spacing:1.1px;text-transform:uppercase;color:var(--dim)}
+        .egreso-display-eyebrow{display:flex;align-items:center;gap:6px;font-size:12.5px;font-weight:950;letter-spacing:1.1px;text-transform:uppercase;color:var(--dim)}
         .egreso-display-layout{max-width:1500px;margin:0 auto;display:grid;grid-template-columns:minmax(0,1.55fr) minmax(330px,.65fr);gap:18px;align-items:start}
         .egreso-display-panel{border:1px solid var(--border);background:var(--panel-solid);border-radius:20px;overflow:hidden;box-shadow:0 28px 70px -48px rgba(0,0,0,.7)}
         .egreso-display-panel-head{padding:18px 20px;border-bottom:1px solid var(--border);display:flex;align-items:center;gap:12px}
-        .egreso-display-panel-head h1{font-size:clamp(20px,2.1vw,29px);letter-spacing:-.6px;margin:3px 0 0}
-        .egreso-display-count{margin-left:auto;color:var(--dim);font-size:12px;font-weight:850;border:1px solid var(--border);background:var(--panel);border-radius:999px;padding:7px 10px;white-space:nowrap}
+        .egreso-display-panel-head h1{font-size:clamp(23px,2.4vw,33px);letter-spacing:-.6px;margin:3px 0 0}
+        .egreso-display-count{margin-left:auto;color:var(--dim);font-size:14px;font-weight:850;border:1px solid var(--border);background:var(--panel);border-radius:999px;padding:8px 12px;white-space:nowrap}
         .egreso-display-items{padding:10px;display:grid;gap:7px;max-height:calc(100vh - 300px);overflow:auto}
         .egreso-display-item{display:grid;grid-template-columns:42px minmax(0,1fr) auto;align-items:center;gap:13px;padding:14px;border:1px solid var(--border);background:var(--panel);border-radius:13px}
-        .egreso-display-item-index{width:38px;height:38px;border-radius:11px;display:grid;place-items:center;border:1px solid var(--border);background:var(--panel-solid);color:var(--dim);font-family:${C.mono};font-size:11px;font-weight:900}
-        .egreso-display-item-name{font-size:clamp(14px,1.3vw,18px);font-weight:900;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
-        .egreso-display-item-detail{color:var(--dim);font-size:11px;margin-top:4px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+        .egreso-display-item-index{width:38px;height:38px;border-radius:11px;display:grid;place-items:center;border:1px solid var(--border);background:var(--panel-solid);color:var(--dim);font-family:${C.mono};font-size:12.5px;font-weight:900}
+        .egreso-display-item-name{font-size:clamp(16px,1.55vw,22px);font-weight:900;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+        /* Acá es donde se lee la obra de cada renglón: era el texto más chico de
+           toda la pantalla y es de los pocos que hay que poder leer de lejos. */
+        .egreso-display-item-detail{color:var(--muted);font-size:clamp(13px,1.15vw,16px);font-weight:750;margin-top:4px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
         .egreso-display-item-qty{text-align:right;display:flex;align-items:baseline;gap:6px;white-space:nowrap}
-        .egreso-display-item-qty strong{font-family:${C.mono};font-size:clamp(20px,2.2vw,30px);letter-spacing:-1px}
-        .egreso-display-item-qty span{color:var(--dim);font-size:12px;font-weight:850}
+        .egreso-display-item-qty strong{font-family:${C.mono};font-size:clamp(22px,2.4vw,33px);letter-spacing:-1px}
+        .egreso-display-item-qty span{color:var(--dim);font-size:14px;font-weight:850}
         .egreso-display-side{display:grid;gap:12px}
         .egreso-display-status{border:1px solid;min-height:104px;border-radius:18px;padding:18px;display:flex;align-items:center;gap:15px}
         .egreso-display-status-icon{width:62px;height:62px;border:1px solid;border-radius:18px;display:grid;place-items:center;flex-shrink:0}
-        .egreso-display-status-title{font-size:clamp(20px,2vw,28px);font-weight:950;letter-spacing:-.6px;line-height:1.08;margin-top:5px}
-        .egreso-display-status-copy{color:var(--muted);font-size:13px;line-height:1.45;margin-top:6px}
+        .egreso-display-status-title{font-size:clamp(22px,2.2vw,31px);font-weight:950;letter-spacing:-.6px;line-height:1.08;margin-top:5px}
+        .egreso-display-status-copy{color:var(--muted);font-size:15px;line-height:1.45;margin-top:6px}
         .egreso-display-summary{padding:18px;display:grid;gap:16px}
         .egreso-display-summary-grid{display:grid;grid-template-columns:1fr 1fr;gap:9px}
         .egreso-display-summary-card{border:1px solid var(--border);background:var(--panel);border-radius:13px;padding:13px}
-        .egreso-display-summary-card span{display:block;color:var(--dim);font-size:10px;font-weight:900;text-transform:uppercase;letter-spacing:.8px}
-        .egreso-display-summary-card strong{display:block;font-family:${C.mono};font-size:22px;margin-top:6px}
+        .egreso-display-summary-card span{display:block;color:var(--dim);font-size:12px;font-weight:900;text-transform:uppercase;letter-spacing:.8px}
+        .egreso-display-summary-card strong{display:block;font-family:${C.mono};font-size:clamp(26px,2.5vw,34px);margin-top:6px}
         .egreso-display-destination{border-top:1px solid var(--border);padding-top:15px}
-        .egreso-display-destination strong{display:block;font-size:17px;margin-top:6px}
-        .egreso-display-destination p{color:var(--dim);font-size:12px;line-height:1.45;margin:5px 0 0}
+        /* La obra destino es EL dato de la pantalla: el que mira quiere saber
+           para qué barco es lo que está sobre el mostrador. Va grande. */
+        .egreso-display-destination strong{display:block;font-size:clamp(22px,2.2vw,32px);font-weight:950;letter-spacing:-.5px;line-height:1.15;margin-top:7px}
+        .egreso-display-destination p{color:var(--muted);font-size:14px;line-height:1.45;margin:7px 0 0}
         .egreso-display-processing svg{animation:egreso-tick 1.2s ease-in-out infinite}
         @keyframes egreso-tick{50%{transform:rotate(12deg) scale(1.06)}}
         @media(max-width:900px){
@@ -353,8 +411,8 @@ export default function PantallaEgresoScreen() {
         <div className="egreso-display-brand">
           <img src={logoK} alt="KlaseA" />
           <div>
-            <strong>Pañol · Control de egreso</strong>
-            <span>Constancia visual del material retirado</span>
+            <strong>{reasignando ? "Pañol · Re-asignación" : "Pañol · Control de egreso"}</strong>
+            <span>{reasignando ? "El material cambia de obra, no sale del pañol" : "Constancia visual del material retirado"}</span>
           </div>
         </div>
         <div className="egreso-display-live"><i /> Actualización en vivo</div>
@@ -366,18 +424,18 @@ export default function PantallaEgresoScreen() {
         </button>
       </header>
 
-      <ProgressSteps status={state.status} />
+      <ProgressSteps status={state.status} reasignando={reasignando} destinoDefinido={destinoDefinido} />
 
       {isIdle ? <EmptyState /> : (
         <div className="egreso-display-layout">
           <section className="egreso-display-panel">
             <div className="egreso-display-panel-head">
               <div style={{ width: 40, height: 40, borderRadius: 12, display: "grid", placeItems: "center", color: C.blue, background: C.blueL, border: `1px solid ${C.blueB}` }}>
-                <PackageCheck size={20} />
+                {reasignando ? <ArrowLeftRight size={20} /> : <PackageCheck size={20} />}
               </div>
               <div>
-                <div className="egreso-display-eyebrow">Detalle del retiro</div>
-                <h1>Materiales cargados</h1>
+                <div className="egreso-display-eyebrow">{reasignando ? "Detalle de la re-asignación" : "Detalle del retiro"}</div>
+                <h1>{reasignando ? "Material que cambia de obra" : "Materiales cargados"}</h1>
               </div>
               <div className="egreso-display-count">{state.items.length} {state.items.length === 1 ? "material" : "materiales"}</div>
             </div>
@@ -387,7 +445,7 @@ export default function PantallaEgresoScreen() {
           </section>
 
           <aside className="egreso-display-side">
-            <StatusHero state={state} />
+            <StatusHero state={state} reasignando={reasignando} />
             <section className="egreso-display-panel egreso-display-summary">
               <div className="egreso-display-eyebrow">Resumen</div>
               <div className="egreso-display-summary-grid">
@@ -401,13 +459,13 @@ export default function PantallaEgresoScreen() {
                 </div>
               </div>
               <div className="egreso-display-destination">
-                <span className="egreso-display-eyebrow">Destino</span>
+                <span className="egreso-display-eyebrow">{reasignando ? "Pasa a la obra" : "Destino"}</span>
                 <strong>{destination}</strong>
                 {state.note && <p>{state.note}</p>}
               </div>
               {(state.updatedAt || state.completedAt) && (
-                <div style={{ display: "flex", alignItems: "center", gap: 7, color: C.dim, fontSize: 11, borderTop: `1px solid ${C.border}`, paddingTop: 14 }}>
-                  <Clock3 size={13} />
+                <div style={{ display: "flex", alignItems: "center", gap: 7, color: C.dim, fontSize: 13, borderTop: `1px solid ${C.border}`, paddingTop: 14 }}>
+                  <Clock3 size={14} />
                   {state.status === "complete" ? "Confirmado" : "Actualizado"} a las {timeLabel(state.completedAt || state.updatedAt)}
                 </div>
               )}

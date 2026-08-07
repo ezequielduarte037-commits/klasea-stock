@@ -1586,9 +1586,14 @@ function EgresoBatchPanel({ group, selectedLocation, obras, sedeLocked, canRecei
   const retiroNfc = useRetiroNfc({ enabled: canReceive && movementKind !== "transferir", onEmpleado: setRetiradoPor, toast });
 
   useEffect(() => {
-    if (!cart.length || movementKind === "transferir") return;
+    if (!cart.length) return;
+    // La re-asignación también se muestra: el material se está moviendo y el
+    // que mira la pantalla tiene que poder ver a qué obra va. Lo que cambia es
+    // que no hay tarjeta ni firma, y la pantalla lo dice con todas las letras.
+    const reasignando = movementKind === "transferir";
     publishEgresoDisplay({
-      status: saving ? "processing" : retiroNfc.empleado ? "identified" : "draft",
+      mode: reasignando ? "reasignacion" : "retiro",
+      status: saving ? "processing" : !reasignando && retiroNfc.empleado ? "identified" : "draft",
       items: egresoDisplayItems(cart, obras, destinoObraId),
       employee: egresoDisplayEmployee(retiroNfc.empleado),
       retiredBy: retiradoPor,
@@ -1717,21 +1722,13 @@ function EgresoBatchPanel({ group, selectedLocation, obras, sedeLocked, canRecei
         });
       }
       toast.success(`${cart.length} producto${cart.length === 1 ? "" : "s"} ${movementKind === "transferir" ? "asignado" : "egresado"}${cart.length === 1 ? "" : "s"}.`);
-      if (movementKind !== "transferir") {
-        publishEgresoDisplay({
-          status: "complete",
-          items: egresoDisplayItems(cart, obras, destinoObraId),
-          employee: egresoDisplayEmployee(retiroNfc.empleado),
-          retiredBy: retiradoPor,
-          destination: egresoDisplayDestination(cart, obras, destinoObraId, sectorDestino),
-          sector: sectorDestino,
-          note: nota,
-          totalLines: cart.length,
-          totalUnits: cart.reduce((sum, item) => sum + qty(item.cantidad, 0), 0),
-          error: "",
-          completedAt: new Date().toISOString(),
-        });
-      }
+      // Confirmado el movimiento, la pantalla vuelve enseguida a "esperando el
+      // próximo retiro". Dejarla mostrando lo que se acaba de cerrar confunde
+      // al que llega después: ve materiales en pantalla y cree que son los
+      // suyos. Se limpia en el origen y no con un timer de la pantalla, así
+      // tampoco queda un movimiento viejo guardado si la pantalla estaba
+      // cerrada.
+      resetEgresoDisplay();
       setCart([]);
       setDestinoObraId("");
       setRetiradoPor("");
@@ -2761,12 +2758,10 @@ function CartDrawer({ cart, setCart, obras, canReceive, onDone, toast, isMobile,
 
   useEffect(() => {
     if (!cart.length) return;
-    if (movementKind === "transferir") {
-      resetEgresoDisplay();
-      return;
-    }
+    const reasignando = movementKind === "transferir";
     publishEgresoDisplay({
-      status: saving ? "processing" : retiroNfc.empleado ? "identified" : "draft",
+      mode: reasignando ? "reasignacion" : "retiro",
+      status: saving ? "processing" : !reasignando && retiroNfc.empleado ? "identified" : "draft",
       items: egresoDisplayItems(cart, obras, destinoObraId),
       employee: egresoDisplayEmployee(retiroNfc.empleado),
       retiredBy: retiradoPor,
@@ -2923,21 +2918,9 @@ function CartDrawer({ cart, setCart, obras, canReceive, onDone, toast, isMobile,
         });
       }
       toast.success(`${cart.length} producto${cart.length === 1 ? "" : "s"} ${movementKind === "transferir" ? "asignado" : "egresado"}${cart.length === 1 ? "" : "s"}.`);
-      if (movementKind === "consumir") {
-        publishEgresoDisplay({
-          status: "complete",
-          items: egresoDisplayItems(cart, obras, destinoObraId),
-          employee: egresoDisplayEmployee(retiroNfc.empleado),
-          retiredBy: retiradoPor,
-          destination: egresoDisplayDestination(cart, obras, destinoObraId, sectorDestino),
-          sector: sectorDestino,
-          note: nota,
-          totalLines: cart.length,
-          totalUnits: cart.reduce((sum, item) => sum + qty(item.cantidad, 0), 0),
-          error: "",
-          completedAt: new Date().toISOString(),
-        });
-      }
+      // Ver la nota del otro confirmar: la pantalla se limpia en el origen,
+      // apenas se cierra el movimiento, sea retiro o re-asignación.
+      resetEgresoDisplay();
       setCart([]);
       setDestinoObraId("");
       setRetiradoPor("");

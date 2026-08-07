@@ -6,6 +6,11 @@ export const EGRESO_DISPLAY_IDLE = {
   version: 1,
   revision: 0,
   status: "idle",
+  // "retiro"       → sale del pañol y lo firma una persona con su tarjeta
+  // "reasignacion" → el material sólo cambia de obra, no lo retira nadie
+  // Son dos cosas distintas y la pantalla tiene que decirlo, si no el que está
+  // parado enfrente cree que le están cargando un retiro a su nombre.
+  mode: "retiro",
   items: [],
   employee: null,
   retiredBy: "",
