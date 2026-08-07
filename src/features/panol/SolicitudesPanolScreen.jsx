@@ -798,6 +798,7 @@ function Detalle({ solicitudId, obras, puedeEditar, esPanol, isMobile, toast, on
       <div className="sp-surface" style={{ padding: 12 }}>
         <FirmaRetiroPanol
           solicitud={s}
+          materialIds={items.map((row) => row.material_id).filter(Boolean)}
           puedeEditar={puedeEditar}
           bloqueo={bloqueoRetiro}
           aviso={faltantes > 0 ? `${faltantes} faltante${faltantes === 1 ? "" : "s"} seguirá${faltantes === 1 ? "" : "n"} abierto${faltantes === 1 ? "" : "s"} en Compras; sólo se entregan los ítems preparados.` : ""}

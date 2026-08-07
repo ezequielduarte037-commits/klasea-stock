@@ -9,6 +9,9 @@ const EMPLEADO_BASE_SELECT =
 export const EMPLEADO_SELECT =
   `${EMPLEADO_BASE_SELECT}, nfc_uid, foto_url, nfc_asignado_at, nfc_asignado_por`;
 
+const EMPLEADO_OFICIO_SELECT =
+  `${EMPLEADO_SELECT}, oficio_id, oficio:rrhh_oficios(id, nombre)`;
+
 export const SEDES = ["Pampa", "Chubut"];
 
 // Error típico cuando todavía no se corrió el SQL en el dashboard.
@@ -38,16 +41,25 @@ function withNfcDefaults(rows) {
     foto_url: row.foto_url ?? null,
     nfc_asignado_at: row.nfc_asignado_at ?? null,
     nfc_asignado_por: row.nfc_asignado_por ?? null,
+    oficio_id: row.oficio_id ?? null,
+    oficio: row.oficio ?? null,
   }));
 }
 
 export async function fetchEmpleados() {
   const rich = await supabase
     .from("rrhh_empleados")
-    .select(EMPLEADO_SELECT)
+    .select(EMPLEADO_OFICIO_SELECT)
     .order("nombre");
   if (!rich.error) return rich.data ?? [];
   if (!isMissingColumn(rich.error)) throw rich.error;
+
+  const withNfc = await supabase
+    .from("rrhh_empleados")
+    .select(EMPLEADO_SELECT)
+    .order("nombre");
+  if (!withNfc.error) return withNfcDefaults(withNfc.data);
+  if (!isMissingColumn(withNfc.error)) throw withNfc.error;
 
   const { data, error } = await supabase
     .from("rrhh_empleados")
@@ -60,11 +72,18 @@ export async function fetchEmpleados() {
 export async function buscarEmpleadoPorNfc(uid) {
   const clean = normalizeNfcUid(uid);
   if (!clean) return null;
-  const { data, error } = await supabase
+  let { data, error } = await supabase
     .from("rrhh_empleados")
-    .select(EMPLEADO_SELECT)
+    .select(EMPLEADO_OFICIO_SELECT)
     .eq("nfc_uid", clean)
     .maybeSingle();
+  if (error && isMissingColumn(error)) {
+    ({ data, error } = await supabase
+      .from("rrhh_empleados")
+      .select(EMPLEADO_SELECT)
+      .eq("nfc_uid", clean)
+      .maybeSingle());
+  }
   if (error) {
     if (isMissingColumn(error)) {
       throw new Error("Falta correr la migracion NFC de RRHH para poder leer tarjetas.");
@@ -543,4 +562,230 @@ export async function subirFotoEmpleado(empleadoId, archivo) {
 export async function quitarFotoEmpleado(empleadoId) {
   const { error } = await supabase.from("rrhh_empleados").update({ foto_url: null }).eq("id", empleadoId);
   if (error) throw error;
+}
+
+// ─── Oficios, asignación a obra y reglas de retiro ───────────────────────────
+// El vínculo material↔oficio NO es por material: cada material ya tiene su
+// categoría (Mecánica, Electricidad, Herrería…), así que el oficio habilita
+// categorías. Son decenas de filas en vez de miles.
+
+export async function fetchOficios() {
+  const { data, error } = await supabase
+    .from("rrhh_oficios")
+    .select("id, nombre, descripcion, activo, orden")
+    .order("orden")
+    .order("nombre");
+  if (error) throw error;
+  return data ?? [];
+}
+
+export async function crearOficio({ nombre, descripcion = null }) {
+  const limpio = String(nombre || "").trim();
+  if (!limpio) throw new Error("El oficio necesita un nombre.");
+  const { data, error } = await supabase
+    .from("rrhh_oficios")
+    .insert({ nombre: limpio, descripcion })
+    .select()
+    .single();
+  if (error) throw error;
+  return data;
+}
+
+export async function fetchOficioCategorias() {
+  const { data, error } = await supabase
+    .from("rrhh_oficio_categorias")
+    .select("oficio_id, categoria_id");
+  if (error) throw error;
+  return data ?? [];
+}
+
+/** Reemplaza de una las categorías habilitadas para un oficio. */
+export async function guardarCategoriasDeOficio(oficioId, categoriaIds = []) {
+  if (!oficioId) throw new Error("Falta el oficio.");
+  const { error: delError } = await supabase
+    .from("rrhh_oficio_categorias")
+    .delete()
+    .eq("oficio_id", oficioId);
+  if (delError) throw delError;
+  const filas = [...new Set(categoriaIds.filter(Boolean))].map((categoria_id) => ({
+    oficio_id: oficioId,
+    categoria_id,
+  }));
+  if (!filas.length) return [];
+  const { data, error } = await supabase
+    .from("rrhh_oficio_categorias")
+    .insert(filas)
+    .select();
+  if (error) throw error;
+  return data ?? [];
+}
+
+/** Asignaciones vigentes (hasta = null). Con nombre de obra y de oficio. */
+export async function fetchAsignacionesVigentes() {
+  const { data, error } = await supabase
+    .from("rrhh_empleado_obras")
+    .select("id, empleado_id, obra_id, desde, hasta, notas, obra:produccion_obras(id, codigo, estado, linea_nombre)")
+    .is("hasta", null)
+    .order("desde", { ascending: false });
+  if (error) throw error;
+  return data ?? [];
+}
+
+/** Guarda en una sola operación el oficio de la persona y todas sus obras
+ * vigentes. La RPC es transaccional; el fallback permite usar la pantalla si
+ * todavía no se refrescó el schema cache después de aplicar la migración. */
+export async function guardarFichaOperativaEmpleado({ empleadoId, oficioId = null, obraIds = [] } = {}) {
+  if (!empleadoId) throw new Error("Falta el empleado.");
+  const obras = [...new Set((obraIds || []).filter(Boolean))];
+  const { data, error } = await supabase.rpc("rrhh_guardar_ficha_operativa", {
+    p_empleado_id: empleadoId,
+    p_oficio_id: oficioId || null,
+    p_obra_ids: obras,
+  });
+  if (!error) return data;
+
+  const message = String(error.message || "").toLowerCase();
+  const missingRpc = error.code === "PGRST202" || message.includes("rrhh_guardar_ficha_operativa");
+  if (!missingRpc) throw error;
+
+  const oficioUpdate = await supabase
+    .from("rrhh_empleados")
+    .update({ oficio_id: oficioId || null })
+    .eq("id", empleadoId);
+  if (oficioUpdate.error) throw oficioUpdate.error;
+
+  const current = await supabase
+    .from("rrhh_empleado_obras")
+    .select("id, obra_id")
+    .eq("empleado_id", empleadoId)
+    .is("hasta", null);
+  if (current.error) throw current.error;
+
+  const wanted = new Set(obras);
+  const existing = new Set((current.data || []).map((row) => row.obra_id));
+  const closeIds = (current.data || []).filter((row) => !wanted.has(row.obra_id)).map((row) => row.id);
+  const addIds = obras.filter((obraId) => !existing.has(obraId));
+
+  if (closeIds.length) {
+    const closed = await supabase
+      .from("rrhh_empleado_obras")
+      .update({ hasta: new Date().toISOString().slice(0, 10) })
+      .in("id", closeIds);
+    if (closed.error) throw closed.error;
+  }
+  if (addIds.length) {
+    const inserted = await supabase
+      .from("rrhh_empleado_obras")
+      .insert(addIds.map((obra_id) => ({ empleado_id: empleadoId, obra_id })));
+    if (inserted.error) throw inserted.error;
+  }
+  return { ok: true, fallback: true };
+}
+
+/** Aplica un oficio y/o un conjunto de obras a varias personas. La RPC nueva
+ * mantiene la operacion atomica. El fallback reutiliza la RPC individual para
+ * que la pantalla siga funcionando mientras Supabase refresca el schema. */
+export async function guardarFichasOperativasEmpleados({
+  empleadoIds = [],
+  aplicarOficio = false,
+  oficioId = null,
+  obraIds = [],
+  modoObras = "conservar",
+} = {}) {
+  const empleados = [...new Set((empleadoIds || []).filter(Boolean))];
+  const obras = [...new Set((obraIds || []).filter(Boolean))];
+  if (!empleados.length) throw new Error("Selecciona al menos una persona.");
+  if (!aplicarOficio && modoObras === "conservar") throw new Error("No hay cambios para aplicar.");
+
+  const { data, error } = await supabase.rpc("rrhh_guardar_fichas_operativas", {
+    p_empleado_ids: empleados,
+    p_aplicar_oficio: !!aplicarOficio,
+    p_oficio_id: aplicarOficio ? oficioId || null : null,
+    p_obra_ids: obras,
+    p_modo_obras: modoObras,
+  });
+  if (!error) return data;
+
+  const message = String(error.message || "").toLowerCase();
+  const missingRpc = error.code === "PGRST202" || message.includes("rrhh_guardar_fichas_operativas");
+  if (!missingRpc) throw error;
+
+  const [employeeResult, assignmentResult] = await Promise.all([
+    supabase.from("rrhh_empleados").select("id, oficio_id").in("id", empleados),
+    supabase.from("rrhh_empleado_obras").select("empleado_id, obra_id").in("empleado_id", empleados).is("hasta", null),
+  ]);
+  if (employeeResult.error) throw employeeResult.error;
+  if (assignmentResult.error) throw assignmentResult.error;
+
+  const employeeById = new Map((employeeResult.data || []).map((row) => [row.id, row]));
+  const worksByEmployee = new Map();
+  (assignmentResult.data || []).forEach((row) => {
+    if (!worksByEmployee.has(row.empleado_id)) worksByEmployee.set(row.empleado_id, new Set());
+    worksByEmployee.get(row.empleado_id).add(row.obra_id);
+  });
+
+  const jobs = empleados.map((empleadoId) => {
+    const actuales = worksByEmployee.get(empleadoId) || new Set();
+    const siguientes = modoObras === "reemplazar"
+      ? obras
+      : modoObras === "agregar"
+        ? [...new Set([...actuales, ...obras])]
+        : [...actuales];
+    return () => guardarFichaOperativaEmpleado({
+      empleadoId,
+      oficioId: aplicarOficio ? oficioId || null : employeeById.get(empleadoId)?.oficio_id || null,
+      obraIds: siguientes,
+    });
+  });
+
+  for (let index = 0; index < jobs.length; index += 12) {
+    await Promise.all(jobs.slice(index, index + 12).map((job) => job()));
+  }
+  return { ok: true, empleados: empleados.length, fallback: true };
+}
+
+export async function asignarEmpleadoAObra({ empleadoId, obraId, oficioId = null, notas = null }) {
+  if (!empleadoId || !obraId) throw new Error("Faltan el empleado o la obra.");
+  const { data, error } = await supabase
+    .from("rrhh_empleado_obras")
+    .insert({ empleado_id: empleadoId, obra_id: obraId, oficio_id: oficioId, notas })
+    .select("id, empleado_id, obra_id, oficio_id, desde, hasta")
+    .single();
+  if (error) {
+    // El índice único deja una sola asignación vigente por empleado y obra.
+    if (String(error.code) === "23505") {
+      throw new Error("Ese empleado ya está asignado a esa obra.");
+    }
+    throw error;
+  }
+  return data;
+}
+
+/** Cierra la asignación en vez de borrarla: el historial es el que después
+ *  permite saber quién estaba en qué obra el mes pasado. */
+export async function cerrarAsignacion(id, hasta = null) {
+  if (!id) return;
+  const fecha = hasta || new Date().toISOString().slice(0, 10);
+  const { error } = await supabase
+    .from("rrhh_empleado_obras")
+    .update({ hasta: fecha })
+    .eq("id", id);
+  if (error) throw error;
+}
+
+/** Veredicto del retiro. Devuelve [{ material_id, estado, motivo }].
+ *  estado: ok | otra_obra | otro_oficio | sin_datos. No bloquea nada. */
+export async function evaluarRetiro(empleadoId, materialIds = []) {
+  const ids = [...new Set(materialIds.filter(Boolean))];
+  if (!empleadoId || !ids.length) return [];
+  const { data, error } = await supabase.rpc("panol_evaluar_retiro", {
+    p_empleado_id: empleadoId,
+    p_material_ids: ids,
+  });
+  if (error) {
+    // Si la migración todavía no se aplicó, no romper el egreso.
+    if (String(error.message || "").includes("panol_evaluar_retiro")) return [];
+    throw error;
+  }
+  return data ?? [];
 }

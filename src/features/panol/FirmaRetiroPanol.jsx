@@ -3,7 +3,7 @@ import { AlertTriangle, BadgeCheck, Loader2, Nfc, RotateCcw, Search, UserCheck, 
 import { C } from "@/theme";
 import useNfcBridge from "@/features/panol/useNfcBridge";
 import useKeyboardWedge from "@/features/panol/useKeyboardWedge";
-import { buscarEmpleadoPorNfc, normalizeNfcUid } from "@/features/rrhh/api";
+import { buscarEmpleadoPorNfc, evaluarRetiro, normalizeNfcUid } from "@/features/rrhh/api";
 import { fetchPersonasRetiro } from "@/features/panol/solicitudesPanolApi";
 import { INPUT, LBL } from "@/features/produccion/comprasTokens";
 import { Cta, Ghost, Pill } from "@/features/produccion/comprasUI";
@@ -68,6 +68,9 @@ export default function FirmaRetiroPanol({
   bloqueo = "",
   aviso = "",
   toast,
+  // Materiales que se están retirando. Si vienen, al identificar a la persona se
+  // consulta si le corresponden (su obra, su oficio) y se avisa. No bloquea.
+  materialIds = [],
 }) {
   const yaRetirado = !!solicitud?.retirado_at;
 
@@ -131,6 +134,24 @@ export default function FirmaRetiroPanol({
   const manual = personas.find((p) => p.id === manualId) || null;
   const elegido = empleado || manual;
   const metodo = empleado ? "nfc" : "manual";
+
+  // Reglas de retiro: se consulta recién cuando ya se sabe quién retira, porque
+  // el veredicto depende de sus obras y su oficio. Si la migración todavía no
+  // está aplicada, la API devuelve vacío y acá no se muestra nada.
+  const [reparos, setReparos] = useState([]);
+  useEffect(() => {
+    let vigente = true;
+    if (!elegido?.id || !materialIds.length) {
+      setReparos([]);
+      return () => { vigente = false; };
+    }
+    evaluarRetiro(elegido.id, materialIds)
+      .then((filas) => {
+        if (vigente) setReparos(filas.filter((f) => f.estado !== "ok" && f.estado !== "sin_datos"));
+      })
+      .catch(() => { if (vigente) setReparos([]); });
+    return () => { vigente = false; };
+  }, [elegido?.id, materialIds]);
 
   async function confirmar() {
     if (!elegido || guardando) return;
@@ -218,6 +239,30 @@ export default function FirmaRetiroPanol({
         }}>
           <AlertTriangle size={13} color={C.amber} style={{ flexShrink: 0, marginTop: 1 }} />
           {aviso}
+        </div>
+      )}
+
+      {/* Reparos de la regla de retiro. Se avisa y se deja seguir: bloquear haría
+          que el pañol busque la vuelta —"que lo retire otro"— y ahí se pierde
+          justo el registro que esto viene a ganar. */}
+      {reparos.length > 0 && elegido && (
+        <div style={{
+          display: "grid", gap: 5,
+          borderRadius: 9, padding: "8px 10px",
+          border: `1px solid ${C.cyanB}`, background: C.cyanL,
+        }}>
+          <div style={{ display: "flex", alignItems: "center", gap: 7, color: C.cyan, fontSize: 11.5, fontWeight: 900 }}>
+            <AlertTriangle size={13} style={{ flexShrink: 0 }} />
+            {elegido.nombre} está retirando {reparos.length} {reparos.length === 1 ? "material que no le corresponde" : "materiales que no le corresponden"}
+          </div>
+          <div style={{ display: "grid", gap: 2 }}>
+            {[...new Set(reparos.map((r) => r.motivo).filter(Boolean))].map((motivo) => (
+              <div key={motivo} style={{ color: C.muted, fontSize: 11, lineHeight: 1.4 }}>· {motivo}</div>
+            ))}
+          </div>
+          <div style={{ color: C.dim, fontSize: 10.5, lineHeight: 1.4 }}>
+            Se puede confirmar igual. Queda registrado quién retiró y qué se llevó.
+          </div>
         </div>
       )}
 

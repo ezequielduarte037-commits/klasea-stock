@@ -1,7 +1,7 @@
 // Módulo RRHH — presentismo del astillero a partir del fichero Hikvision.
 // Pestañas: Presentismo · Horas extras · Empleados · Importar · Dashboard.
 import { useCallback, useEffect, useState } from "react";
-import { BarChart3, CalendarCheck2, Clock3, Upload, UsersRound } from "lucide-react";
+import { BarChart3, Briefcase, CalendarCheck2, Clock3, Upload, UsersRound } from "lucide-react";
 import Sidebar from "@/components/Sidebar";
 import { useResponsive } from "@/hooks/useResponsive";
 import { C } from "@/theme";
@@ -10,6 +10,7 @@ import DashboardTab from "./DashboardTab";
 import EmpleadosTab from "./EmpleadosTab";
 import ExtrasTab from "./ExtrasTab";
 import ImportarTab from "./ImportarTab";
+import OficiosObrasTab from "./OficiosObrasTab";
 import PresentismoTab from "./PresentismoTab";
 import { Cargando, ErrorBox, SetupPendiente } from "./ui";
 
@@ -17,6 +18,7 @@ const TABS = [
   { key: "presentismo", label: "Presentismo", icon: CalendarCheck2 },
   { key: "extras",      label: "Horas extras", icon: Clock3 },
   { key: "empleados",   label: "Empleados", icon: UsersRound },
+  { key: "oficios",     label: "Oficios y obras", icon: Briefcase },
   { key: "importar",    label: "Importar", icon: Upload },
   { key: "dashboard",   label: "Dashboard", icon: BarChart3 },
 ];
@@ -45,7 +47,10 @@ export default function RrhhScreen({ profile, signOut }) {
     }
   }, []);
 
-  useEffect(() => { cargar(); }, [cargar]);
+  useEffect(() => {
+    const timer = window.setTimeout(cargar, 0);
+    return () => window.clearTimeout(timer);
+  }, [cargar]);
 
   const listo = empleados != null && contratistas != null && config != null;
 
@@ -112,6 +117,7 @@ export default function RrhhScreen({ profile, signOut }) {
               {tab === "presentismo" && <PresentismoTab empleados={empleados} contratistas={contratistas} config={config} esAdmin={esAdmin} onChanged={cargar} />}
               {tab === "extras" && <ExtrasTab empleados={empleados} contratistas={contratistas} config={config} onConfigChange={cargar} esAdmin={esAdmin} />}
               {tab === "empleados" && <EmpleadosTab empleados={empleados} contratistas={contratistas} onChanged={cargar} esAdmin={esAdmin} />}
+              {tab === "oficios" && <OficiosObrasTab empleados={empleados} esAdmin={esAdmin} isMobile={isMobile} onChanged={cargar} />}
               {tab === "importar" && <ImportarTab empleados={empleados} onImported={cargar} />}
               {tab === "dashboard" && <DashboardTab empleados={empleados} config={config} onNavigate={setTab} />}
             </>

@@ -7,6 +7,7 @@ import { useToast } from "@/components/ui/Toast";
 import { C } from "@/theme";
 import StockWmsPanel from "@/features/panol/StockWmsPanel";
 import MapaPanolTab from "@/features/panol/MapaPanolTab";
+import PanolRetirosDashboard from "@/features/panol/PanolRetirosDashboard";
 import { canonicalPanolSede, fetchMaterialesEgreso, fetchObrasEgreso, fetchPanolMaterialCreations } from "@/features/panol/panolApi";
 import { fmtDate, rowMovementAt, rowIsAnulado } from "@/features/panol/panolMovimientos";
 import { MODELOS, norm } from "@/features/materiales/materialesParser";
@@ -402,11 +403,13 @@ function rowIsAsignacionMirrorOut(row) {
 const MOV_KIND = {
   ingreso:      { label: "Ingreso",      color: C.green,  sign: "+" },
   egreso:       { label: "Egreso",       color: C.red,    sign: "−" },
+  solicitud:    { label: "Retiro solicitud", color: C.red, sign: "−" },
   asignacion:   { label: "Asignación",   color: C.blue,   sign: "→" },
   reasignacion: { label: "Reasignación", color: C.violet, sign: "→" },
   asignacion_egreso:   { label: "Asign. -> egreso", color: C.red,    sign: "−" },
   reasignacion_egreso: { label: "Reasig. -> egreso", color: C.violet, sign: "−" },
   liberacion:   { label: "A stock",      color: C.amber,  sign: "←" },
+  consumible:   { label: "Consumible",   color: C.violet, sign: "−" },
   creacion:     { label: "Producto creado", color: C.blue, sign: "" },
 };
 const MOV_INTERNAL = new Set(["asignacion", "reasignacion", "asignacion_egreso", "reasignacion_egreso", "liberacion"]);
@@ -414,6 +417,8 @@ const MOV_INTERNAL = new Set(["asignacion", "reasignacion", "asignacion_egreso",
 function rowMovementKind(row) {
   const src = rowSource(row);
   const label = String(row.tipo_label || "").toLowerCase();
+  if (src === "solicitud_consumible_retiro") return "consumible";
+  if (src === "egreso_solicitud") return "solicitud";
   if (rowIsAsignacionStock(row)) return row.obra_origen_id ? "reasignacion" : "asignacion";
   if (row.egreso_destino_obra_id) return row.obra_id ? "reasignacion_egreso" : "asignacion_egreso";
   if (src === "transferencia_egreso") {
@@ -438,6 +443,11 @@ function rowMovimientoUsuario(row) {
 
 function movDetalleDestino(row, kind, obraById) {
   const codigo = (id) => (id ? (obraById?.get?.(id)?.codigo || null) : null);
+  if (kind === "solicitud") {
+    const origen = row.stock_sede ? `Stock ${row.stock_sede}` : "Stock";
+    const destino = codigo(row.egreso_destino_obra_id) || row.sector_destino || "Sin obra";
+    return `${origen} → ${destino}`;
+  }
   if (kind === "asignacion" || kind === "reasignacion") {
     const origen = row.obra_origen_id ? (codigo(row.obra_origen_id) || "obra") : (row.stock_sede ? `Stock ${row.stock_sede}` : "Stock");
     const destino = codigo(row.obra_id) || row.obra?.codigo || "obra";
@@ -511,12 +521,12 @@ function MovimientosPanel({ rows = [], obras = [], materialCreations = [], isMob
       const kind = rowMovementKind(r);
       const outgoing = Math.abs(qty(r.cantidad_egresada, 0)) || Math.abs(qty(r.cantidad, 1));
       const incoming = Math.abs(qty(r.cantidad, 1));
-      const cant = ["egreso", "asignacion_egreso", "reasignacion_egreso", "liberacion"].includes(kind) ? outgoing : incoming;
+      const cant = ["egreso", "solicitud", "asignacion_egreso", "reasignacion_egreso", "liberacion", "consumible"].includes(kind) ? outgoing : incoming;
       return { key: `stock:${r.id}`, row: r, kind, cant, delta: rowDelta(r), fecha: rowMovementAt(r), anulado: rowIsAnulado(r) };
     })
     // Ocultar el espejo negativo de las asignaciones: la acción se ve como asignación azul.
     .filter((m) => !rowIsAsignacionMirrorOut(m.row))
-    .filter((m) => m.delta !== 0 || m.row.estado === "egresado" || MOV_INTERNAL.has(m.kind));
+    .filter((m) => m.delta !== 0 || m.row.estado === "egresado" || m.kind === "consumible" || MOV_INTERNAL.has(m.kind));
     const creations = (materialCreations || []).map((row) => ({
       key: `creacion:${row.id}`,
       row,
@@ -546,21 +556,46 @@ function MovimientosPanel({ rows = [], obras = [], materialCreations = [], isMob
   }, [rows, materialCreations, q, tipo, sedeF, desde, hasta, incluirAnulados, obraById]);
 
   const kpis = useMemo(() => {
-    let ing = 0, egr = 0, tras = 0, cre = 0, uIn = 0, uOut = 0;
+    let ing = 0, egr = 0, tras = 0, cre = 0, consumibles = 0, uIn = 0, uOut = 0;
     for (const m of movimientos) {
-      if (m.kind === "egreso") { egr += 1; uOut += m.cant; }
+      if (m.kind === "egreso" || m.kind === "solicitud") { egr += 1; uOut += m.cant; }
+      else if (m.kind === "consumible") { consumibles += 1; }
       else if (m.kind === "ingreso") { ing += 1; uIn += m.cant; }
       else if (m.kind === "creacion") { cre += 1; }
       else { tras += 1; }
     }
-    return { ing, egr, tras, cre, uIn, uOut };
+    return { ing, egr, tras, cre, consumibles, uIn, uOut };
   }, [movimientos]);
+
+  const retirosDashboard = useMemo(() => {
+    const physicalKinds = new Set(["egreso", "solicitud", "asignacion_egreso", "reasignacion_egreso", "consumible"]);
+    return movimientos
+      .filter((movement) => physicalKinds.has(movement.kind) && !movement.anulado)
+      .map((movement) => {
+        const row = movement.row;
+        const destinationId = row.egreso_destino_obra_id || row.obra_id || "";
+        const obra = destinationId
+          ? (obraById.get(destinationId)?.codigo || row.obra?.codigo || "Sin obra")
+          : (row.sector_destino || "Sin obra");
+        return {
+          id: movement.key,
+          fecha: movement.fecha,
+          cantidad: movement.cant,
+          unidad: row.unidad || "unidad",
+          material: row.descripcion || "Sin descripción",
+          persona: rowMovimientoRetira(row) || "Sin identificar",
+          obra,
+          tipo: movement.kind,
+        };
+      });
+  }, [movimientos, obraById]);
 
   return (
     <div style={{ flex: 1, overflowY: "auto", padding: isMobile ? 12 : "16px 18px 28px" }}>
       <div style={{ display: "flex", flexWrap: "wrap", gap: 8, marginBottom: 12 }}>
         <MovKpi label="Ingresos" value={kpis.ing} detail={`${fmtQty(kpis.uIn)} u`} color={C.green} />
         <MovKpi label="Egresos" value={kpis.egr} detail={`${fmtQty(kpis.uOut)} u`} color={C.red} />
+        <MovKpi label="Consumibles" value={kpis.consumibles} detail="sin impacto stock" color={C.violet} />
         <MovKpi label="Traspasos" value={kpis.tras} detail="asig/reasig/stock" color={C.blue} />
         <MovKpi label="Productos" value={kpis.cre} detail="creados" color={C.blue} />
         <MovKpi label="Movimientos" value={movimientos.length} detail="filtrados" color={C.violet} />
@@ -571,6 +606,8 @@ function MovimientosPanel({ rows = [], obras = [], materialCreations = [], isMob
           <option value="todos">Todos</option>
           <option value="ingreso">Ingresos</option>
           <option value="egreso">Egresos</option>
+          <option value="solicitud">Retiros por solicitud</option>
+          <option value="consumible">Consumibles retirados</option>
           <option value="traspasos">Traspasos (todos)</option>
           <option value="asignacion">Asignaciones</option>
           <option value="reasignacion">Reasignaciones</option>
@@ -589,6 +626,7 @@ function MovimientosPanel({ rows = [], obras = [], materialCreations = [], isMob
           <button type="button" onClick={() => { setQ(""); setTipo("todos"); setSedeF("todas"); setDesde(""); setHasta(""); }} style={{ border: "none", background: "transparent", color: C.dim, cursor: "pointer", fontSize: 11.5, fontWeight: 750, textDecoration: "underline" }}>Limpiar</button>
         )}
       </div>
+      <PanolRetirosDashboard rows={retirosDashboard} isMobile={isMobile} />
       {movimientos.length === 0 ? (
         <div style={{ padding: 40, textAlign: "center", color: C.dim, fontSize: 13, border: `1px dashed ${C.border}`, borderRadius: 12 }}>Sin movimientos con esos filtros.</div>
       ) : (
