@@ -3856,6 +3856,18 @@ export default function TorneriaScreen({ profile, signOut }) {
     }}>
       <style>{`
         *,*::before,*::after{box-sizing:border-box}
+        /* iOS le da apariencia de control nativo a todo <button> y ahí deja de
+           respetar el layout: centra el contenido, no crece con los hijos y lo
+           que sobra se derrama encima de la tarjeta de al lado. Es lo que hacía
+           que la lista de obras se viera pisada en el celular y perfecta en el
+           escritorio, donde Chrome no aplica esa apariencia. */
+        /* Sólo la apariencia: no se toca font ni color acá, porque cada botón
+           de la pantalla ya define los suyos y un reset más ancho movería
+           tamaños en escritorio sin necesidad. */
+        button{-webkit-appearance:none;appearance:none}
+        /* La lista de obras es la que se veía pisada: se le fija el alto
+           automático por las dudas de que algún motor viejo lo colapse igual. */
+        .tor-process-card{width:100%;height:auto;text-align:left}
         /* Scrollbars finas, como en Obras y Muebles. */
         ::-webkit-scrollbar{width:3px;height:3px}
         ::-webkit-scrollbar-track{background:transparent}
