@@ -100,6 +100,10 @@ export default function ScanEgresoScreen({ profile }) {
   async function confirmar() {
     if (busy || cart.length === 0) return;
     if (!obra.trim()) { setMsg({ ok: false, text: "Indicá para qué obra." }); return; }
+    // Sin esto el egreso quedaba sin persona y en el historial aparecía la
+    // cuenta del pañol como si hubiera retirado ella el material. El punto del
+    // registro es saber quién se lo llevó, así que no se puede confirmar sin eso.
+    if (!retira.trim()) { setMsg({ ok: false, text: "Indicá quién retira." }); return; }
     setBusy(true); setMsg(null);
     let okN = 0;
     try {
@@ -225,7 +229,8 @@ export default function ScanEgresoScreen({ profile }) {
         </div>
         <div style={{ marginBottom: 6 }}>
           <p style={lbl}>¿Quién retira?</p>
-          <input value={retira} onChange={e => setRetira(e.target.value)} list="scan-personas" placeholder="Nombre" style={field} autoComplete="off" />
+          <input value={retira} onChange={e => setRetira(e.target.value)} list="scan-personas" placeholder="Nombre y apellido" autoComplete="off"
+            style={{ ...field, borderColor: cart.length > 0 && !retira.trim() ? C.red : undefined }} />
           <datalist id="scan-personas">{recientes.map(r => <option key={r} value={r} />)}</datalist>
           {recientes.length > 0 && (
             <div style={{ display: "flex", flexWrap: "wrap", gap: 5, marginTop: 6 }}>
@@ -245,10 +250,17 @@ export default function ScanEgresoScreen({ profile }) {
         {cart.length > 0 && (
           <button onClick={() => setCart([])} style={{ width: 90, borderRadius: 12, border: `1px solid ${C.border}`, background: C.panel, color: C.dim, fontSize: 13, fontWeight: 700 }}>Vaciar</button>
         )}
-        <button onClick={confirmar} disabled={busy || cart.length === 0}
+        {/* El botón dice qué falta en vez de rebotar recién al apretarlo: en el
+            colector se trabaja parado y con guantes, y un error después del
+            toque obliga a volver a buscar el campo. */}
+        <button onClick={confirmar} disabled={busy || cart.length === 0 || !obra.trim() || !retira.trim()}
           style={{ flex: 1, borderRadius: 12, border: "none", fontSize: 17, fontWeight: 800, color: "#fff",
-            background: cart.length === 0 ? "#3a3a3f" : C.green, opacity: busy ? 0.6 : 1 }}>
-          {busy ? "Registrando…" : cart.length === 0 ? "Escaneá para empezar" : `Confirmar egreso · ${totalItems}`}
+            background: cart.length === 0 || !obra.trim() || !retira.trim() ? "#3a3a3f" : C.green, opacity: busy ? 0.6 : 1 }}>
+          {busy ? "Registrando…"
+            : cart.length === 0 ? "Escaneá para empezar"
+            : !obra.trim() ? "Falta la obra"
+            : !retira.trim() ? "Falta quién retira"
+            : `Confirmar egreso · ${totalItems}`}
         </button>
       </div>
     </>

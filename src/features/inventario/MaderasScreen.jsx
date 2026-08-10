@@ -239,8 +239,18 @@ function pedidoItemPendiente(item) {
   return !item?.nota_recepcion && pedidoItemCantidadPendiente(item) > 0;
 }
 
+// Quién se llevó el material. NO cae en entregado_por: ése es el usuario del
+// sistema que registró la salida —la cuenta del pañol— y ponerlo acá hacía que
+// el historial dijera que "PANOL1" retiró las maderas. Si no se cargó quién
+// retira, corresponde un guión: el dato no está, y aparentar que sí es peor que
+// el hueco.
 function movPersona(m = {}) {
-  return m.nombre_persona || m.usuario || m.recibe || m.entregado_por || "";
+  return m.nombre_persona || m.usuario || m.recibe || "";
+}
+
+// Quién lo entregó desde el pañol. Es otra cosa y va aparte.
+function movEntregadoPor(m = {}) {
+  return m.entregado_por || "";
 }
 
 function movObs(m = {}) {
@@ -1754,7 +1764,14 @@ export default function MaderasScreen({ profile, signOut }) {
                         <td style={S.td}>{m.materiales?.nombre ?? "—"}</td>
                         <td style={S.td}><b style={{ color: "#ef4444" }}>-{fmtQty(movCantidad(m))}</b></td>
                         <td style={S.td}>{m.destino ?? m.obra ?? "—"}</td>
-                        <td style={S.td}>{movPersona(m) || "—"}</td>
+                        <td style={S.td}>
+                          {movPersona(m) || <span style={{ color: C.dim }}>Sin registrar</span>}
+                          {movEntregadoPor(m) && (
+                            <div style={{ color: C.dim, fontSize: 11, marginTop: 2 }}>
+                              entregó {movEntregadoPor(m)}
+                            </div>
+                          )}
+                        </td>
                       </tr>
                     ))}
                   </tbody>
@@ -1781,6 +1798,7 @@ export default function MaderasScreen({ profile, signOut }) {
                     Proveedor: movTipo(m) === "ingreso" ? (m.proveedor ?? m.obra ?? "—") : "—",
                     Destino: movTipo(m) === "egreso" ? (m.destino ?? m.obra ?? "—") : "—",
                     Persona: movPersona(m) || "—",
+                    "Entregado por": movEntregadoPor(m) || "—",
                     Obra: m.obra ?? "—",
                     Observaciones: movObs(m) || "—",
                   }));
@@ -1846,7 +1864,14 @@ export default function MaderasScreen({ profile, signOut }) {
                         </b>
                       </td>
                       <td style={S.td}>{movTipo(m) === "ingreso" ? (m.proveedor ?? m.obra ?? "—") : (m.destino ?? m.obra ?? "—")}</td>
-                      <td style={S.td}>{movPersona(m) || "—"}</td>
+                      <td style={S.td}>
+                        {movPersona(m) || <span style={{ color: C.dim }}>Sin registrar</span>}
+                        {movEntregadoPor(m) && (
+                          <div style={{ color: C.dim, fontSize: 11, marginTop: 2 }}>
+                            entregó {movEntregadoPor(m)}
+                          </div>
+                        )}
+                      </td>
                       <td style={S.td}>{m.obra ?? "—"}</td>
                     </tr>
                   ))}
