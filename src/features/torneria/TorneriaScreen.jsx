@@ -3380,7 +3380,11 @@ export default function TorneriaScreen({ profile, signOut }) {
   const [obras, setObras] = useState([]);
   const [templates, setTemplates] = useState([]);
   const [selectedId, setSelectedId] = useState(() => window.localStorage.getItem("torneria.proceso") || "");
-  const [mobileList, setMobileList] = useState(true);
+  // Desde el celular se entra a MIRAR: qué hay afuera, qué puede salir, qué está
+  // trabado. Eso es el Panel general. Editar el circuito de una obra puntual es
+  // trabajo de escritorio, así que abrir en la lista de obras obligaba a dos
+  // toques antes de ver algo útil. En escritorio no cambia nada.
+  const [mobileList, setMobileList] = useState(() => !isMobile);
   const [mobileTopbarOpen, setMobileTopbarOpen] = useState(
     () => window.localStorage.getItem("torneria.mobileTopbar") !== "closed",
   );
@@ -3395,8 +3399,10 @@ export default function TorneriaScreen({ profile, signOut }) {
   // porque los KPI no miden todos lo mismo: uno cuenta procesos, otro cuenta
   // operaciones fuera del astillero y otro ítems sin confirmar.
   const [vista, setVista] = useState(null);
+  // El "cerrado" guardado es una preferencia de escritorio: en el celular la
+  // pantalla que sirve es ésta, así que no se hereda.
   const [dashboardOpen, setDashboardOpen] = useState(
-    () => window.localStorage.getItem("torneria.dashboard") !== "closed",
+    () => isMobile || window.localStorage.getItem("torneria.dashboard") !== "closed",
   );
   const [modal, setModal] = useState(null);
   const [pedidoCompra, setPedidoCompra] = useState(null);
@@ -3439,8 +3445,11 @@ export default function TorneriaScreen({ profile, signOut }) {
   }, [desktopCircuitFocus, isMobile]);
 
   useEffect(() => {
+    // No se persiste desde el celular: si no, entrar una vez desde el teléfono
+    // le dejaría el panel abierto en la máquina de la oficina.
+    if (isMobile) return;
     window.localStorage.setItem("torneria.dashboard", dashboardOpen ? "open" : "closed");
-  }, [dashboardOpen]);
+  }, [dashboardOpen, isMobile]);
 
   const filtered = useMemo(() => {
     const term = search.trim().toLowerCase();
@@ -3965,7 +3974,10 @@ export default function TorneriaScreen({ profile, signOut }) {
         }}>
           {isMobile && !mobileTopbarOpen ? (
             <div style={{ minHeight: 36, display: "flex", alignItems: "center", justifyContent: "space-between", gap: 10 }}>
-              {!mobileList && selected ? (
+              {/* Con el panel general abierto la barra NO puede mostrar el
+                  código de una obra: en pantalla no hay una obra, hay el
+                  tablero de todas. Antes decía K52 mientras mirabas otra cosa. */}
+              {!mobileList && selected && !dashboardOpen ? (
                 <>
                   <button
                     type="button"
@@ -4031,17 +4043,41 @@ export default function TorneriaScreen({ profile, signOut }) {
                 <>
                   <div style={{ display: "flex", alignItems: "center", gap: 8, minWidth: 0 }}>
                     <Wrench size={15} style={{ color: C.blue, flexShrink: 0 }} />
-                    <span style={{ color: C.text, fontSize: 14, fontWeight: 900 }}>Tornería</span>
+                    <span style={{ color: C.text, fontSize: 14, fontWeight: 900, whiteSpace: "nowrap" }}>
+                      {dashboardOpen ? "Panel general" : "Tornería"}
+                    </span>
                   </div>
-                  <button
-                    type="button"
-                    onClick={() => setMobileTopbarOpen(true)}
-                    aria-label="Mostrar resumen superior"
-                    title="Mostrar resumen"
-                    style={{ ...BUTTON, width: 36, minHeight: 36, padding: 0, flexShrink: 0 }}
-                  >
-                    <ChevronDown size={15} />
-                  </button>
+                  <div style={{ display: "flex", alignItems: "center", gap: 6, flexShrink: 0 }}>
+                    {/* Ida y vuelta entre el tablero y la lista de obras sin
+                        tener que desplegar el resumen. Es el único salto que se
+                        hace seguido desde el teléfono. */}
+                    <button
+                      type="button"
+                      onClick={() => {
+                        if (dashboardOpen) { setDashboardOpen(false); setMobileList(true); }
+                        else openDashboard();
+                      }}
+                      style={{
+                        ...BUTTON,
+                        minHeight: 36,
+                        padding: "0 10px",
+                        fontSize: 11,
+                        color: dashboardOpen ? C.muted : C.blue,
+                        borderColor: dashboardOpen ? C.border : C.blueB,
+                      }}
+                    >
+                      {dashboardOpen ? <><Factory size={13} /> Obras</> : <><LayoutDashboard size={13} /> Panel</>}
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setMobileTopbarOpen(true)}
+                      aria-label="Mostrar resumen superior"
+                      title="Mostrar resumen"
+                      style={{ ...BUTTON, width: 36, minHeight: 36, padding: 0, flexShrink: 0 }}
+                    >
+                      <ChevronDown size={15} />
+                    </button>
+                  </div>
                 </>
               )}
             </div>
