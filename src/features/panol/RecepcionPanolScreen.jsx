@@ -68,7 +68,7 @@ function readStoredPanolTab(urlTab = "") {
 const PRIO_META = {
   baja: { label: "Baja", color: C.dim },
   media: { label: "Media", color: C.blue },
-  alta: { label: "Alta", color: C.amber },
+  alta: { label: "Alta", color: C.violet },
   urgente: { label: "Urgente", color: C.red },
 };
 
@@ -103,7 +103,7 @@ function rowSearchText(envio) {
 
 function softBgFor(color) {
   if (color === C.blue) return C.blueL;
-  if (color === C.amber) return C.amberL;
+  if (color === C.violet) return C.violetL;
   if (color === C.green) return C.greenL;
   if (color === C.red) return C.redL;
   if (color === C.violet) return "var(--violet-soft)";
@@ -112,7 +112,7 @@ function softBgFor(color) {
 
 function softBorderFor(color) {
   if (color === C.blue) return C.blueB;
-  if (color === C.amber) return C.amberB;
+  if (color === C.violet) return C.violetB;
   if (color === C.green) return C.greenB;
   if (color === C.red) return C.redB;
   if (color === C.violet) return "var(--violet-border)";
@@ -451,7 +451,7 @@ function MobileCard({ envio, onOpen }) {
         <span><strong style={{ color: C.green }}>{resumen.recibidos}/{resumen.total}</strong> recibidos</span>
         {problemas > 0
           ? <span style={{ color: C.red, fontWeight: 850 }}>{problemas} problemas</span>
-          : accion > 0 ? <span style={{ color: C.amber, fontWeight: 850 }}>{accion} por revisar</span> : <PriorityPill prioridad={envio.prioridad} />}
+          : accion > 0 ? <span style={{ color: C.violet, fontWeight: 850 }}>{accion} por revisar</span> : <PriorityPill prioridad={envio.prioridad} />}
       </div>
     </button>
   );
@@ -496,7 +496,7 @@ function materialEstadoMeta(estado) {
   if (estado === "parcial") return { label: "Parcial", color: C.violet, bg: "var(--violet-soft)", border: "var(--violet-border)" };
   if (estado === "egresado") return { label: "Egresado", color: C.dim, bg: C.panel2, border: C.border };
   if (estado === "problema" || estado === "falta_stock" || estado === "sin_info" || estado === "rechazado") return { label: "Problema", color: C.red, bg: C.redL, border: C.redB };
-  if (estado === "comprado" || estado === "pedido") return { label: "Comprado", color: C.amber, bg: C.amberL, border: C.amberB };
+  if (estado === "comprado" || estado === "pedido") return { label: "Comprado", color: C.violet, bg: C.violetL, border: C.violetB };
   return { label: "Pendiente", color: C.dim, bg: C.panel2, border: C.border };
 }
 
@@ -577,7 +577,7 @@ function materialLineaKey(row) {
 }
 
 function lineColor(index) {
-  return [C.blue, C.violet, C.green, C.amber, C.teal, C.indigo][index % 6] || C.blue;
+  return [C.blue, C.violet, C.green, C.violet, C.teal, C.indigo][index % 6] || C.blue;
 }
 
 function materialObraKey(row) {
@@ -959,7 +959,7 @@ function StockGeneralModal({ open, onClose, onDone, sedeLocked, isMobile, toast,
                   <label style={{ display: "grid", gap: 5 }}>
                     <span style={{ color: C.dim, fontSize: 10, fontWeight: 850, letterSpacing: 1, textTransform: "uppercase" }}>Retirado por</span>
                     <input value={retiradoPor} onChange={(e) => setRetiradoPor(e.target.value)} placeholder="Nombre y apellido de quien retira" style={{ background: C.panelSolid, border: `1px solid ${retiradoError && retiradoPor.trim() ? C.redB : C.border}`, color: C.text, borderRadius: 10, padding: "10px 11px", fontSize: 13, fontFamily: C.sans, outline: "none" }} />
-                    {retiradoError && <span style={{ color: C.amber, fontSize: 10.5, lineHeight: 1.3 }}>Obligatorio: nombre y apellido.</span>}
+                    {retiradoError && <span style={{ color: C.violet, fontSize: 10.5, lineHeight: 1.3 }}>Obligatorio: nombre y apellido.</span>}
                   </label>
                   <label style={{ display: "grid", gap: 5 }}>
                     <span style={{ color: C.dim, fontSize: 10, fontWeight: 850, letterSpacing: 1, textTransform: "uppercase" }}>Destino</span>
@@ -1067,7 +1067,7 @@ function EgresoModalV2({
           <label style={{ display: "grid", gap: 6 }}>
             <span style={{ fontSize: 12, fontWeight: 800, color: C.muted, textTransform: "uppercase", letterSpacing: 1, fontFamily: C.sans }}>Retirado por</span>
             <input value={retiradoPor} onChange={(e) => setRetiradoPor(e.target.value)} placeholder="Nombre y apellido de quien retira" style={{ background: C.bg, border: `1px solid ${retiradoError && retiradoPor.trim() ? C.redB : C.border2}`, color: C.text, padding: "10px 14px", borderRadius: 10, fontSize: 14, outline: "none", fontFamily: C.sans }} />
-            {retiradoError && <span style={{ color: C.amber, fontSize: 11, lineHeight: 1.3 }}>Obligatorio: nombre y apellido, no solo DNI ni un apellido.</span>}
+            {retiradoError && <span style={{ color: C.violet, fontSize: 11, lineHeight: 1.3 }}>Obligatorio: nombre y apellido, no solo DNI ni un apellido.</span>}
           </label>
 
           <label style={{ display: "grid", gap: 6 }}>
@@ -2300,7 +2300,7 @@ export default function RecepcionPanolScreen({ profile, signOut }) {
             gridTemplateColumns: isMobile ? "1fr 1fr" : "repeat(5, minmax(130px, 1fr))",
             gap: 10,
           }}>
-            <KpiCard icon={Clock3} label="Por revisar" value={kpis.activos} color={C.amber} detail={`${kpis.accionItems} items abiertos`} />
+            <KpiCard icon={Clock3} label="Por revisar" value={kpis.activos} color={C.violet} detail={`${kpis.accionItems} items abiertos`} />
             <KpiCard icon={PackageOpen} label="Pendientes" value={kpis.pendientes} color={C.violet} detail="sin recibir" />
             <KpiCard icon={AlertTriangle} label="Novedades" value={kpis.problemas} color={C.red} detail="faltantes / sin info" />
             <KpiCard icon={Inbox} label="Pedidos" value={kpis.total} color={C.blue} detail={`${filtrados.length} visibles`} />
@@ -2378,8 +2378,8 @@ export default function RecepcionPanolScreen({ profile, signOut }) {
             onClick={() => setFEstado("activos")}
             style={{
               width: "100%",
-              border: `1px solid ${C.amberB}`,
-              background: "var(--amber-soft)",
+              border: `1px solid ${C.violetB}`,
+              background: "var(--violet-soft)",
               color: C.text,
               borderRadius: 12,
               padding: isMobile ? "10px 12px" : "9px 12px",
@@ -2391,12 +2391,12 @@ export default function RecepcionPanolScreen({ profile, signOut }) {
               fontFamily: C.sans,
             }}
           >
-            <AlertTriangle size={16} style={{ color: C.amber, flexShrink: 0 }} />
+            <AlertTriangle size={16} style={{ color: C.violet, flexShrink: 0 }} />
             <span style={{ flex: 1, minWidth: 0, fontSize: 13, color: C.muted }}>
               Hay <strong style={{ color: C.text }}>{kpis.activos}</strong> pedido{kpis.activos === 1 ? "" : "s"} pendiente{kpis.activos === 1 ? "" : "s"} de recepción para revisar
               {kpis.problemas > 0 && <span style={{ color: C.red, fontWeight: 850 }}> · {kpis.problemas} novedad{kpis.problemas === 1 ? "" : "es"}</span>}.
             </span>
-            {fEstado !== "activos" && <span style={{ color: C.amber, fontSize: 11, fontWeight: 850, textTransform: "uppercase", letterSpacing: 0.7 }}>Ver pendientes</span>}
+            {fEstado !== "activos" && <span style={{ color: C.violet, fontSize: 11, fontWeight: 850, textTransform: "uppercase", letterSpacing: 0.7 }}>Ver pendientes</span>}
           </button>
         )}
       </div>

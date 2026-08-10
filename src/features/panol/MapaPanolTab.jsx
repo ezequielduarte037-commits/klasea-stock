@@ -425,7 +425,7 @@ export default function MapaPanolTab({ isMobile = false, toast, canEdit = false 
         <div style={{ display: "grid", gridTemplateColumns: isMobile ? "1fr 1fr" : "repeat(4, minmax(0,1fr))", gap: 10 }}>
           <KpiChip icon={<Warehouse size={15} />} label="Estanterías" value={estanterias.length} color={C.blue} />
           <KpiChip icon={<MapPin size={15} />} label="Productos ubicados" value={materiales.length - afuera.length} color={C.green} />
-          <KpiChip icon={<PackageOpen size={15} />} label="Afuera del pañol" value={afuera.length} color={C.amber} />
+          <KpiChip icon={<PackageOpen size={15} />} label="Afuera del pañol" value={afuera.length} color={C.violet} />
           <KpiChip icon={<Layers size={15} />} label="Sin ubicar" value={Math.max(0, totalCatalogo - materiales.length)} color={C.dim} />
         </div>
 
@@ -533,8 +533,8 @@ export default function MapaPanolTab({ isMobile = false, toast, canEdit = false 
                       las puertas y ventanas del lateral derecho caen en el BORDE INFERIOR */}
                   <g style={{ pointerEvents: "none" }}>
                     {/* PUERTA izquierda — umbral que ocupa el hueco del muro + jambas */}
-                    <rect x={105} y={ROOM_H - WALL} width={285} height={WALL} fill={C.amber} fillOpacity={0.2} />
-                    <rect x={105} y={ROOM_H - WALL} width={285} height={3.5} fill={C.amber} />
+                    <rect x={105} y={ROOM_H - WALL} width={285} height={WALL} fill={C.violet} fillOpacity={0.2} />
+                    <rect x={105} y={ROOM_H - WALL} width={285} height={3.5} fill={C.violet} />
                     <rect x={102} y={ROOM_H - WALL} width={6} height={WALL} fill="#cbd5e1" />
                     <rect x={387} y={ROOM_H - WALL} width={6} height={WALL} fill="#cbd5e1" />
                     <text x={247.5} y={ROOM_H + 34} textAnchor="middle" fontSize={22} fill={C.dim} fontFamily={C.sans} fontWeight={700}>PUERTA</text>
@@ -546,11 +546,11 @@ export default function MapaPanolTab({ isMobile = false, toast, canEdit = false 
                     <rect x={677} y={ROOM_H - WALL} width={6} height={WALL} fill="#cbd5e1" />
                     <text x={582.5} y={ROOM_H + 34} textAnchor="middle" fontSize={22} fill={C.dim} fontFamily={C.sans} fontWeight={700}>VENTANA</text>
                     {/* PUERTA derecha — umbral + jambas + arco de barrido */}
-                    <rect x={1542} y={ROOM_H - WALL} width={275} height={WALL} fill={C.amber} fillOpacity={0.2} />
-                    <rect x={1542} y={ROOM_H - WALL} width={275} height={3.5} fill={C.amber} />
+                    <rect x={1542} y={ROOM_H - WALL} width={275} height={WALL} fill={C.violet} fillOpacity={0.2} />
+                    <rect x={1542} y={ROOM_H - WALL} width={275} height={3.5} fill={C.violet} />
                     <rect x={1539} y={ROOM_H - WALL} width={6} height={WALL} fill="#cbd5e1" />
                     <rect x={1814} y={ROOM_H - WALL} width={6} height={WALL} fill="#cbd5e1" />
-                    <path d={`M 1542 ${ROOM_H - WALL} A 205 205 0 0 1 1747 ${ROOM_H - WALL - 205}`} fill="none" stroke={C.amber} strokeWidth={2.5} strokeDasharray="12 10" opacity={0.4} />
+                    <path d={`M 1542 ${ROOM_H - WALL} A 205 205 0 0 1 1747 ${ROOM_H - WALL - 205}`} fill="none" stroke={C.violet} strokeWidth={2.5} strokeDasharray="12 10" opacity={0.4} />
                     <text x={1679.5} y={ROOM_H + 34} textAnchor="middle" fontSize={22} fill={C.dim} fontFamily={C.sans} fontWeight={700}>PUERTA</text>
                   </g>
 
@@ -676,7 +676,7 @@ export default function MapaPanolTab({ isMobile = false, toast, canEdit = false 
 
                 <div style={{ display: "flex", justifyContent: "space-between", gap: 8, padding: "8px 6px 2px", flexWrap: "wrap" }}>
                   <span style={{ fontSize: 11, color: C.dim }}>{editMode ? "Arrastrá una estantería y la posición se guarda sola." : "Tocá una estantería · rueda para zoom · arrastrá el fondo para moverte."}</span>
-                  {highlighted && <span style={{ fontSize: 11, color: C.amber, fontWeight: 800 }}>{highlighted.size} estantería{highlighted.size === 1 ? "" : "s"} resaltada{highlighted.size === 1 ? "" : "s"}</span>}
+                  {highlighted && <span style={{ fontSize: 11, color: C.violet, fontWeight: 800 }}>{highlighted.size} estantería{highlighted.size === 1 ? "" : "s"} resaltada{highlighted.size === 1 ? "" : "s"}</span>}
                 </div>
               </div>
             )}
@@ -749,9 +749,9 @@ function AfueraPanel({ grupos, total, lugares, onSaved, toast }) {
   }
 
   return (
-    <div style={{ border: `1px solid ${C.amberB}`, background: C.amberL, borderRadius: 14, padding: "11px 13px" }}>
+    <div style={{ border: `1px solid ${C.violetB}`, background: C.violetL, borderRadius: 14, padding: "11px 13px" }}>
       <div style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap", marginBottom: 9 }}>
-        <PackageOpen size={15} style={{ color: C.amber }} />
+        <PackageOpen size={15} style={{ color: C.violet }} />
         <span style={{ fontSize: 12.5, fontWeight: 900, color: C.text }}>Afuera del pañol ({total})</span>
         {sinLugar > 0 && (
           <span className="afuera-alerta" style={{
@@ -772,7 +772,7 @@ function AfueraPanel({ grupos, total, lugares, onSaved, toast }) {
           const key = g.lugar || "__sin__";
           const abierto = abiertos.has(key);
           const tono = g.lugar
-            ? { color: C.amber, borde: C.amberB }
+            ? { color: C.violet, borde: C.violetB }
             : { color: C.red, borde: C.redB };
           return (
             <div key={key} style={{ borderRadius: 10, overflow: "hidden", border: `1px solid ${tono.borde}`, background: "var(--panel)" }}>
@@ -1084,7 +1084,7 @@ function movimientoMeta(row) {
   if (anulado) return { label: "Anulado", color: C.dim, bg: C.panel, border: C.border, icon: Ban, sign: isOut ? "-" : "+" };
   if (isTransfer) return { label: "Transferencia", color: C.violet, bg: "rgba(124,58,237,0.10)", border: "rgba(124,58,237,0.26)", icon: Move, sign: isOut ? "-" : "+" };
   if (isOut) return { label: "Egreso", color: C.red, bg: C.redL, border: C.redB, icon: ArrowUpRight, sign: "-" };
-  if (row.estado === "problema") return { label: "Problema", color: C.amber, bg: C.amberL, border: C.amberB, icon: AlertTriangle, sign: "" };
+  if (row.estado === "problema") return { label: "Problema", color: C.violet, bg: C.violetL, border: C.violetB, icon: AlertTriangle, sign: "" };
   return { label: "Ingreso / recepción", color: C.green, bg: C.greenL, border: C.greenB, icon: ArrowDownLeft, sign: "+" };
 }
 

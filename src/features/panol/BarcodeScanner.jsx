@@ -105,7 +105,7 @@ export default function BarcodeScanner({ open, onClose, onScan }) {
               <div style={{ position: "absolute", inset: "18% 12%", border: `2px solid ${C.blue}`, borderRadius: 10, boxShadow: "0 0 0 9999px rgba(0,0,0,0.25)" }} />
             </div>
           ) : (
-            <div style={{ display: "flex", gap: 9, alignItems: "flex-start", border: `1px solid ${C.amberB}`, background: C.amberL, color: C.amber, borderRadius: 10, padding: "10px 11px", fontSize: 12.5, lineHeight: 1.4 }}>
+            <div style={{ display: "flex", gap: 9, alignItems: "flex-start", border: `1px solid ${C.violetB}`, background: C.violetL, color: C.violet, borderRadius: 10, padding: "10px 11px", fontSize: 12.5, lineHeight: 1.4 }}>
               <Camera size={16} style={{ marginTop: 1, flexShrink: 0 }} />
               <span>Este navegador no soporta escaneo con cámara. Escribí el código a mano abajo. (Funciona en Chrome / Android.)</span>
             </div>

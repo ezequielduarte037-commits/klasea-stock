@@ -6607,16 +6607,33 @@ const SNAPSHOT_ESTADO_META = {
 };
 
 function estadoFromRecepcion(estado) {
-  if (["pendiente", "recibido", "parcial", "sin_info", "falta_stock", "rechazado"].includes(estado)) return "en_panol";
+  // Avisado a Pañol todavía no significa recibido. Solo una confirmación total
+  // o parcial acredita que el material entró físicamente.
+  if (["recibido", "parcial"].includes(String(estado || "").toLowerCase())) return "en_panol";
   return null;
 }
 
-function estadoObraForRow(row) {
-  const estado = row?.estadoObra || estadoFromRecepcion(row?.recepcion_estado) || "pendiente";
+// El recorrido de un material en la obra sólo avanza: se pide, se compra, entra
+// a pañol, sale. El estado de recepción cuenta una parte de esa historia y se
+// queda congelado en "recibido" para siempre —porque efectivamente se recibió—,
+// así que no puede mandar sobre el estado real: si lo hace, un material ya
+// entregado sigue figurando "En pañol" el resto de su vida.
+const ORDEN_ESTADO_OBRA = { pendiente: 0, comprado: 1, en_panol: 2, egresado: 3 };
+
+function normalizarEstadoObra(estado) {
   if (estado === "egresado") return "egresado";
   if (estado === "pedido" || estado === "comprado") return "comprado";
   if (["en_panol", "recibido", "parcial", "problema", "sin_info", "falta_stock", "rechazado"].includes(estado)) return "en_panol";
   return "pendiente";
+}
+
+function estadoObraForRow(row) {
+  // Una fecha de egreso es un hecho: alguien se lo llevó y quedó registrado.
+  // Vale más que cualquier estado, que puede haber quedado sin actualizar.
+  if (row?.egreso_at) return "egresado";
+  const propio = normalizarEstadoObra(row?.estadoObra);
+  const porRecepcion = normalizarEstadoObra(estadoFromRecepcion(row?.recepcion_estado));
+  return ORDEN_ESTADO_OBRA[propio] >= ORDEN_ESTADO_OBRA[porRecepcion] ? propio : porRecepcion;
 }
 
 function recepcionMetaForRow(row) {
@@ -7099,7 +7116,11 @@ function snapshotRowToView(row, materialById = new Map(), categorias = []) {
     revisado: material?.revisado ?? true,
     review: { flag: !!reason, reason },
     snapshot_estado: row.estado || null,
-    estadoObra: estadoFromRecepcion(row.recepcion_estado) || row.estado || "pendiente",
+    // Va el estado crudo del snapshot. Antes acá se pisaba con el que deducía
+    // la recepción, y como esa deducción da "en_panol" para casi cualquier
+    // valor, el "egresado" real nunca llegaba a la pantalla. La combinación de
+    // ambos la hace estadoObraForRow, que sabe cuál de los dos va más adelante.
+    estadoObra: row.estado || "pendiente",
     purchase_request_id: row.purchase_request_id || null,
     panol_envio_id: row.panol_envio_id || null,
     panol_envio_item_id: row.panol_envio_item_id || null,

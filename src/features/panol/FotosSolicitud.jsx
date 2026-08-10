@@ -24,7 +24,7 @@ import {
 
 const CONF = {
   alta: { label: "Alta", color: "var(--green)", soft: "var(--green-soft)", borde: "var(--green-border)" },
-  media: { label: "Media", color: "var(--amber)", soft: "var(--amber-soft)", borde: "var(--amber-border)" },
+  media: { label: "Media", color: "var(--violet)", soft: "var(--violet-soft)", borde: "var(--violet-border)" },
   baja: { label: "Baja", color: "var(--red)", soft: "var(--red-soft)", borde: "var(--red-border)" },
 };
 const confMeta = (c) => CONF[c] || CONF.baja;
@@ -158,7 +158,7 @@ function RevisionModal({ foto, solicitudId, onAplicado, onClose, toast }) {
         </div>
 
         {extraccion?.ilegible && (
-          <div style={{ display: "flex", alignItems: "center", gap: 8, padding: "9px 16px", background: C.amberL, borderBottom: `1px solid ${C.amberB}`, color: C.amber, fontSize: 12.5, fontWeight: 700 }}>
+          <div style={{ display: "flex", alignItems: "center", gap: 8, padding: "9px 16px", background: C.violetL, borderBottom: `1px solid ${C.violetB}`, color: C.violet, fontSize: 12.5, fontWeight: 700 }}>
             <AlertTriangle size={14} style={{ flexShrink: 0 }} />
             <span>La IA avisa: {extraccion.ilegible}</span>
           </div>

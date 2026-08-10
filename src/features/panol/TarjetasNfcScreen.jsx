@@ -85,7 +85,7 @@ function Paso({ numero, titulo, listo, activo }) {
 function estadoBridge(nfc) {
   if (nfc.connected) return { color: C.green, bg: C.greenL, border: C.greenB, label: "Lector conectado", Icon: Wifi };
   if (nfc.status === "connecting") return { color: C.blue, bg: C.blueL, border: C.blueB, label: "Buscando lector…", Icon: RefreshCw };
-  return { color: C.amber, bg: C.amberL, border: C.amberB, label: "Lector no detectado", Icon: WifiOff };
+  return { color: C.violet, bg: C.violetL, border: C.violetB, label: "Lector no detectado", Icon: WifiOff };
 }
 
 export default function TarjetasNfcScreen({ profile, signOut }) {
@@ -397,7 +397,7 @@ export default function TarjetasNfcScreen({ profile, signOut }) {
                       </div>
                     )}
                     {!conflicto && cambiaTarjeta && (
-                      <div style={{ marginTop: 9, padding: "9px 11px", border: `1px solid ${C.amberB}`, background: C.amberL, color: C.amber, borderRadius: 10, fontSize: 12 }}>
+                      <div style={{ marginTop: 9, padding: "9px 11px", border: `1px solid ${C.violetB}`, background: C.violetL, color: C.violet, borderRadius: 10, fontSize: 12 }}>
                         Vas a reemplazar la tarjeta actual terminada en {uidActual.slice(-6)}.
                       </div>
                     )}

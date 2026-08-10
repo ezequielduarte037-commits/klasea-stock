@@ -113,7 +113,7 @@ function WorkRow({ icon, color, value, label, detail, to }) {
 }
 
 function DeviceState({ label, connected, available = true }) {
-  const color = connected ? C.green : available ? C.dim : C.amber;
+  const color = connected ? C.green : available ? C.dim : C.violet;
   const text = connected ? "Conectado" : available ? "Disponible" : "No compatible";
   return (
     <span style={{ display: "inline-flex", alignItems: "center", gap: 7, minHeight: 28, padding: "0 9px", border: `1px solid ${C.border}`, borderRadius: 999, background: C.panel, whiteSpace: "nowrap" }}>
@@ -276,15 +276,15 @@ export default function PanolOperativoHome({ profile, signOut }) {
               <ActionLink to="/recepcion-panol?tab=ingresar" icon={PackagePlus} label="Ingresar" detail={drafts.length ? `${drafts.length} borradores para retomar` : "Remito, escáner o ingreso manual"} color={C.blue} />
               <ActionLink to="/recepcion-panol?tab=egresos" icon={ScanLine} label="Egresar" detail="Buscar, escanear o abrir carrito" color={C.red} />
               <ActionLink to="/recepcion-panol?tab=consumibles" icon={Scale} label="Consumibles" detail="Ingreso, egreso y registro por peso" color={C.violet} />
-              <ActionLink to="/inicio-panol/tarjetas" icon={Nfc} label="Asignar tarjeta NFC" detail="Vincular una tarjeta a un empleado de RRHH" color={C.amber} />
+              <ActionLink to="/inicio-panol/tarjetas" icon={Nfc} label="Asignar tarjeta NFC" detail="Vincular una tarjeta a un empleado de RRHH" color={C.violet} />
             </div>
 
             <div style={{ display: "grid", gridTemplateColumns: isMobile ? "1fr" : "minmax(0, .9fr) minmax(380px, 1.25fr)", gap: 12, marginTop: 18 }}>
               <Section title="Trabajo pendiente" subtitle="Lo que conviene resolver primero">
-                <WorkRow icon={Inbox} color={C.amber} value={summary.openItems} label="Ítems por recibir" detail={`${summary.activos.length} pedidos abiertos${summary.problemas ? ` · ${summary.problemas} con novedad` : ""}`} to="/recepcion-panol?tab=recepcion" />
+                <WorkRow icon={Inbox} color={C.violet} value={summary.openItems} label="Ítems por recibir" detail={`${summary.activos.length} pedidos abiertos${summary.problemas ? ` · ${summary.problemas} con novedad` : ""}`} to="/recepcion-panol?tab=recepcion" />
                 <WorkRow icon={ClipboardList} color={C.blue} value={drafts.length} label="Ingresos en borrador" detail={drafts.length ? "Podés retomarlos sin volver a cargar los productos" : "No hay ingresos pendientes"} to="/recepcion-panol?tab=ingresar" />
                 <WorkRow icon={ShoppingCart} color={requestUrgent ? C.red : C.violet} value={requests.length} label="Pedidos a compras abiertos" detail={requestUrgent ? `${requestUrgent} urgentes requieren seguimiento` : "Solicitudes realizadas por tu cuenta"} to="/compras" />
-                <WorkRow icon={MapPin} color={sinUbicacion ? C.amber : C.green} value={sinUbicacion} label="Productos sin ubicación" detail="Revisalos desde el mapa o el stock maestro" to="/stock-panol?tab=mapa" />
+                <WorkRow icon={MapPin} color={sinUbicacion ? C.violet : C.green} value={sinUbicacion} label="Productos sin ubicación" detail="Revisalos desde el mapa o el stock maestro" to="/stock-panol?tab=mapa" />
               </Section>
 
               <Section
@@ -335,7 +335,7 @@ export default function PanolOperativoHome({ profile, signOut }) {
                             </span>
                           </span>
                           <span style={{ textAlign: "right" }}>
-                            <span style={{ display: "block", fontFamily: C.mono, fontSize: 14, fontWeight: 950, color: open ? C.amber : C.green }}>{open}</span>
+                            <span style={{ display: "block", fontFamily: C.mono, fontSize: 14, fontWeight: 950, color: open ? C.violet : C.green }}>{open}</span>
                             <span style={{ display: "block", color: C.dim, fontSize: 9.5, marginTop: 2 }}>abiertos</span>
                           </span>
                           <ArrowRight size={14} style={{ color: C.dim }} />

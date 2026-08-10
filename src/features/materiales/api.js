@@ -1091,16 +1091,10 @@ export async function fetchStockLibrePanolMateriales() {
 }
 
 function snapshotEstadoFromRecepcion(estado) {
-  if (
-    [
-      "pendiente",
-      "recibido",
-      "parcial",
-      "sin_info",
-      "falta_stock",
-      "rechazado",
-    ].includes(estado)
-  )
+  // Crear el aviso genera un item de recepción en estado "pendiente". Eso
+  // significa que Pañol todavía espera el material, no que ya lo tenga.
+  // Los estados de problema tampoco acreditan una recepción física.
+  if (["recibido", "parcial"].includes(String(estado || "").toLowerCase()))
     return "en_panol";
   return null;
 }

@@ -191,8 +191,8 @@ export default function CrearProductoTab({ isMobile = false, toast }) {
 
           {/* Duplicados EN VIVO: aparece mientras escriben descripción o código, antes de crear. */}
           {duplicados.length > 0 && (
-            <div style={{ border: `1px solid ${C.amberB}`, background: C.amberL, borderRadius: 12, padding: "10px 12px", display: "grid", gap: 7 }}>
-              <div style={{ display: "flex", alignItems: "center", gap: 7, fontSize: 11, fontWeight: 900, color: C.amber, textTransform: "uppercase", letterSpacing: 0.5 }}>
+            <div style={{ border: `1px solid ${C.violetB}`, background: C.violetL, borderRadius: 12, padding: "10px 12px", display: "grid", gap: 7 }}>
+              <div style={{ display: "flex", alignItems: "center", gap: 7, fontSize: 11, fontWeight: 900, color: C.violet, textTransform: "uppercase", letterSpacing: 0.5 }}>
                 <AlertTriangle size={13} /> Ojo · {duplicados.length} posible{duplicados.length === 1 ? "" : "s"} duplicado{duplicados.length === 1 ? "" : "s"} en el catálogo
               </div>
               <div style={{ display: "grid", gap: 5 }}>
@@ -200,7 +200,7 @@ export default function CrearProductoTab({ isMobile = false, toast }) {
                   const tag = s >= 105
                     ? { t: "IGUAL", c: C.red, bg: C.redL, br: C.redB }
                     : s >= 88
-                      ? { t: "MUY PARECIDO", c: C.amber, bg: C.amberL, br: C.amberB }
+                      ? { t: "MUY PARECIDO", c: C.violet, bg: C.violetL, br: C.violetB }
                       : { t: "PARECIDO", c: C.dim, bg: C.panel, br: C.border };
                   return (
                     <div key={m.id} style={{ display: "flex", alignItems: "center", gap: 8, fontSize: 12.5, color: C.text, padding: "6px 9px", background: C.panelSolid, borderRadius: 8, border: `1px solid ${C.border}` }}>
@@ -255,10 +255,10 @@ export default function CrearProductoTab({ isMobile = false, toast }) {
           </div>
 
           {/* Es consumible */}
-          <label style={{ display: "flex", alignItems: "center", gap: 9, cursor: "pointer", padding: "9px 11px", borderRadius: 9, border: `1px solid ${esConsumible ? C.amberB : C.border}`, background: esConsumible ? C.amberL : C.panelSolid }}>
+          <label style={{ display: "flex", alignItems: "center", gap: 9, cursor: "pointer", padding: "9px 11px", borderRadius: 9, border: `1px solid ${esConsumible ? C.violetB : C.border}`, background: esConsumible ? C.violetL : C.panelSolid }}>
             <input type="checkbox" checked={esConsumible} onChange={(e) => setEsConsumible(e.target.checked)} style={{ width: 17, height: 17, cursor: "pointer" }} />
             <div>
-              <div style={{ fontSize: 13, fontWeight: 850, color: esConsumible ? C.amber : C.text }}>Es consumible</div>
+              <div style={{ fontSize: 13, fontWeight: 850, color: esConsumible ? C.violet : C.text }}>Es consumible</div>
               <div style={{ fontSize: 11, color: C.dim, marginTop: 1 }}>Tornillos, lijas, acetona, etc. Va al fondo del catálogo, no molesta en la matriz del barco.</div>
             </div>
           </label>
@@ -308,9 +308,9 @@ export default function CrearProductoTab({ isMobile = false, toast }) {
           </div>
 
           {duplicateReview ? (
-            <div style={{ border: `1px solid ${C.amberB}`, background: C.amberL, borderRadius: 12, padding: 12, display: "grid", gap: 10 }}>
+            <div style={{ border: `1px solid ${C.violetB}`, background: C.violetL, borderRadius: 12, padding: 12, display: "grid", gap: 10 }}>
               <div style={{ display: "flex", alignItems: "flex-start", gap: 9 }}>
-                <span style={{ width: 28, height: 28, flexShrink: 0, borderRadius: 8, display: "grid", placeItems: "center", color: C.amber, background: C.panelSolid, border: `1px solid ${C.amberB}` }}><AlertTriangle size={15} /></span>
+                <span style={{ width: 28, height: 28, flexShrink: 0, borderRadius: 8, display: "grid", placeItems: "center", color: C.violet, background: C.panelSolid, border: `1px solid ${C.violetB}` }}><AlertTriangle size={15} /></span>
                 <span>
                   <b style={{ display: "block", color: C.text, fontSize: 12.5 }}>Advertencia final · 2 de 2</b>
                   <span style={{ display: "block", color: C.muted, fontSize: 11, lineHeight: 1.45, marginTop: 3 }}>Antes de crear “{duplicateReview.description}”, confirmá que no sea ninguno de estos productos. Un prefijo parecido ya no bloquea la creación.</span>
@@ -321,14 +321,14 @@ export default function CrearProductoTab({ isMobile = false, toast }) {
                   <div key={m.id} style={{ minWidth: 0, display: "flex", alignItems: "center", gap: 8, padding: "7px 9px", borderRadius: 8, border: `1px solid ${C.border}`, background: C.panelSolid }}>
                     <span style={{ minWidth: 0, flex: 1, color: C.text, fontSize: 11.5, fontWeight: 800, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{m.descripcion}</span>
                     {m.codigo && <span style={{ color: C.dim, fontFamily: C.mono, fontSize: 10.5, whiteSpace: "nowrap" }}>{m.codigo}</span>}
-                    <span style={{ color: C.amber, fontSize: 9, fontWeight: 950, textTransform: "uppercase", whiteSpace: "nowrap" }}>{s >= 105 ? "Mismo nombre" : s >= 88 ? "Muy parecido" : "Parecido"}</span>
+                    <span style={{ color: C.violet, fontSize: 9, fontWeight: 950, textTransform: "uppercase", whiteSpace: "nowrap" }}>{s >= 105 ? "Mismo nombre" : s >= 88 ? "Muy parecido" : "Parecido"}</span>
                   </div>
                 ))}
               </div>
               <div style={{ color: C.dim, fontSize: 10.5 }}>El único bloqueo definitivo es un código completo o código de barras idéntico.</div>
               <div style={{ display: "flex", gap: 8, justifyContent: "flex-end", flexWrap: "wrap" }}>
                 <button type="button" onClick={() => setDuplicateReview(null)} disabled={saving} style={{ border: `1px solid ${C.border}`, background: C.panelSolid, color: C.muted, borderRadius: 9, padding: "9px 13px", cursor: "pointer", fontSize: 12.5, fontWeight: 850 }}>Volver a revisar</button>
-                <button type="button" onClick={() => crear(true)} disabled={saving} style={{ border: `1px solid ${C.amberB}`, background: C.amber, color: "#fff", borderRadius: 9, padding: "9px 14px", cursor: saving ? "default" : "pointer", fontSize: 12.5, fontWeight: 950, display: "inline-flex", alignItems: "center", gap: 7, opacity: saving ? .6 : 1 }}><PackagePlus size={15} /> {saving ? "Creando..." : "Crear igualmente"}</button>
+                <button type="button" onClick={() => crear(true)} disabled={saving} style={{ border: `1px solid ${C.violetB}`, background: C.violet, color: "#fff", borderRadius: 9, padding: "9px 14px", cursor: saving ? "default" : "pointer", fontSize: 12.5, fontWeight: 950, display: "inline-flex", alignItems: "center", gap: 7, opacity: saving ? .6 : 1 }}><PackagePlus size={15} /> {saving ? "Creando..." : "Crear igualmente"}</button>
               </div>
             </div>
           ) : (

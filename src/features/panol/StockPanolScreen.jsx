@@ -199,9 +199,9 @@ function GlobalKpiBar({ rows, consumidoUsd = 0 }) {
         </div>
       </div>
       <div style={kpiStyle}>
-        <IconBox color={C.amber}><Inbox size={14} /></IconBox>
+        <IconBox color={C.violet}><Inbox size={14} /></IconBox>
         <div>
-          <div style={{ fontFamily: C.mono, fontSize: 17, fontWeight: 950, color: C.amber, lineHeight: 1 }}>{kpis.transito}</div>
+          <div style={{ fontFamily: C.mono, fontSize: 17, fontWeight: 950, color: C.violet, lineHeight: 1 }}>{kpis.transito}</div>
           <div style={{ color: C.text, fontSize: 11, fontWeight: 800, marginTop: 3 }}>Por recibir</div>
           <div style={{ color: C.dim, fontSize: 10, marginTop: 1 }}>en tránsito</div>
         </div>
@@ -295,7 +295,7 @@ function ObraCard({ obra, stats, onClick, canSeePrices = true }) {
   const consumido = (stats.costoUsdStd || 0) + (stats.costoUsdAdd || 0) + (stats.costoUsdStock || 0);
   const [hover, setHover] = useState(false);
   const estadoColors = {
-    activa: C.green, terminada: C.dim, pausada: C.amber,
+    activa: C.green, terminada: C.dim, pausada: C.violet,
     cancelada: C.red, archivada: C.dim,
   };
   const estadoColor = estadoColors[obra.estado] || C.dim;
@@ -410,7 +410,7 @@ const MOV_KIND = {
   reasignacion: { label: "Reasignación", color: C.violet, sign: "→" },
   asignacion_egreso:   { label: "Asign. -> egreso", color: C.red,    sign: "−" },
   reasignacion_egreso: { label: "Reasig. -> egreso", color: C.violet, sign: "−" },
-  liberacion:   { label: "A stock",      color: C.amber,  sign: "←" },
+  liberacion:   { label: "A stock",      color: C.violet,  sign: "←" },
   consumible:   { label: "Consumible",   color: C.violet, sign: "−" },
   creacion:     { label: "Producto creado", color: C.blue, sign: "" },
 };
@@ -1057,7 +1057,7 @@ export default function StockPanolScreen({ profile, signOut, embedded = false, m
                   {selObra && (() => {
                     const st = obraStatsMap.get(selObraId) || {};
                     const consumido = (st.costoUsdStd || 0) + (st.costoUsdAdd || 0) + (st.costoUsdStock || 0);
-                    const estadoColors = { activa: C.green, terminada: C.dim, pausada: C.amber, cancelada: C.red, archivada: C.dim };
+                    const estadoColors = { activa: C.green, terminada: C.dim, pausada: C.violet, cancelada: C.red, archivada: C.dim };
                     const estadoColor = estadoColors[selObra.estado] || C.dim;
                     return (
                       <div style={{ margin: "0 0 10px", padding: "9px 14px", border: `1px solid ${C.border}`, borderRadius: 12, background: C.panelSolid, display: "flex", alignItems: "center", gap: 12, flexWrap: "wrap" }}>

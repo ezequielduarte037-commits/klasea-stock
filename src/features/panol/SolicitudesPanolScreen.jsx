@@ -410,7 +410,7 @@ function SolicitudCard({ s, activa, onSelect }) {
         </span>
         {s.totalItems > 0 && (
           <span style={{ display: "block", marginTop: 6 }}>
-            <Progreso pct={pct} ancho="100%" color={s.itemsFaltantes ? C.amber : undefined} />
+            <Progreso pct={pct} ancho="100%" color={s.itemsFaltantes ? C.violet : undefined} />
           </span>
         )}
       </span>
@@ -997,7 +997,7 @@ export default function SolicitudesPanolScreen({ profile, signOut }) {
             }}>
               {!isMobile && (
                 <>
-                  <Kpi icon={ClipboardList} valor={abiertas} label="En curso" color="var(--amber)" soft="var(--amber-soft)" borde="var(--amber-border)" />
+                  <Kpi icon={ClipboardList} valor={abiertas} label="En curso" color="var(--violet)" soft="var(--violet-soft)" borde="var(--violet-border)" />
                   <Kpi icon={CheckCheck} valor={listas} label="Para retirar" color="var(--blue)" soft="var(--blue-soft)" borde="var(--blue-border)" />
                   {urgentes > 0 && (
                     <Kpi icon={AlertTriangle} valor={urgentes} label="Urgentes" color="var(--red)" soft="var(--red-soft)" borde="var(--red-border)" />

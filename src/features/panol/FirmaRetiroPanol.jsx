@@ -51,7 +51,7 @@ function Comprobante({ solicitud, onAnular, puedeEditar }) {
           {fechaHora(solicitud.retirado_at)}
         </div>
       </div>
-      <Pill color={porNfc ? C.green : C.amber} soft={porNfc ? C.greenL : C.amberL} borde={porNfc ? C.greenB : C.amberB}>
+      <Pill color={porNfc ? C.green : C.violet} soft={porNfc ? C.greenL : C.violetL} borde={porNfc ? C.greenB : C.violetB}>
         {porNfc ? <><Nfc size={10} /> NFC</> : <><UserCheck size={10} /> Manual</>}
       </Pill>
       {puedeEditar && <Ghost icon={RotateCcw} size="sm" tono="rojo" onClick={onAnular} title="Deshacer el retiro (sólo si se cargó por error)">Deshacer</Ghost>}
@@ -195,12 +195,12 @@ export default function FirmaRetiroPanol({
     return (
       <div style={{
         display: "flex", alignItems: "flex-start", gap: 10,
-        border: `1px solid ${C.amberB}`, background: C.amberL,
+        border: `1px solid ${C.violetB}`, background: C.violetL,
         borderRadius: 12, padding: "11px 13px",
       }}>
-        <AlertTriangle size={17} color={C.amber} style={{ flexShrink: 0, marginTop: 1 }} />
+        <AlertTriangle size={17} color={C.violet} style={{ flexShrink: 0, marginTop: 1 }} />
         <div>
-          <div style={{ ...LBL, color: C.amber }}>Retiro todavía bloqueado</div>
+          <div style={{ ...LBL, color: C.violet }}>Retiro todavía bloqueado</div>
           <div style={{ color: C.text, fontSize: 12.5, lineHeight: 1.5, marginTop: 3 }}>{bloqueo}</div>
         </div>
       </div>
@@ -224,7 +224,7 @@ export default function FirmaRetiroPanol({
         <span style={{ ...LBL }}>Firma de retiro</span>
         <span style={{
           display: "inline-flex", alignItems: "center", gap: 5, fontSize: 11, fontWeight: 750,
-          color: bridgeOk ? C.green : bridge.status === "connecting" ? C.blue : C.amber,
+          color: bridgeOk ? C.green : bridge.status === "connecting" ? C.blue : C.violet,
         }}>
           <span style={{ width: 7, height: 7, borderRadius: 999, background: "currentColor", flexShrink: 0 }} />
           {bridgeTexto}
@@ -244,10 +244,10 @@ export default function FirmaRetiroPanol({
         <div style={{
           display: "flex", alignItems: "flex-start", gap: 7,
           borderRadius: 9, padding: "7px 9px",
-          border: `1px solid ${C.amberB}`, background: C.amberL,
+          border: `1px solid ${C.violetB}`, background: C.violetL,
           color: C.muted, fontSize: 11.5, lineHeight: 1.45,
         }}>
-          <AlertTriangle size={13} color={C.amber} style={{ flexShrink: 0, marginTop: 1 }} />
+          <AlertTriangle size={13} color={C.violet} style={{ flexShrink: 0, marginTop: 1 }} />
           {aviso}
         </div>
       )}

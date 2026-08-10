@@ -333,10 +333,25 @@ export async function fetchMaterialesEgreso({ sede = null, estados = ["en_panol"
   if (materialIds.length) {
     let materiales = [];
     try {
+      // Escalera de selects de más completo a más viejo: la pantalla tiene que
+      // seguir funcionando en un entorno donde las migraciones nuevas todavía
+      // no se aplicaron, mostrando menos en vez de romper.
       let res = await supabase
         .from("panol_materiales")
-        .select("id,proveedor,categoria_id,codigo_barra,ubicacion,ubicacion_obs,variantes,stock_minimo")
+        .select("id,proveedor,categoria_id,codigo_barra,ubicacion,ubicacion_obs,variantes,stock_minimo,imagen_url,notas,verificacion_estado,verificado_at,verificacion_nota")
         .in("id", materialIds);
+      if (res.error && isMissingColumn(res.error)) {
+        res = await supabase
+          .from("panol_materiales")
+          .select("id,proveedor,categoria_id,codigo_barra,ubicacion,ubicacion_obs,variantes,stock_minimo,imagen_url,notas")
+          .in("id", materialIds);
+      }
+      if (res.error && isMissingColumn(res.error)) {
+        res = await supabase
+          .from("panol_materiales")
+          .select("id,proveedor,categoria_id,codigo_barra,ubicacion,ubicacion_obs,variantes,stock_minimo")
+          .in("id", materialIds);
+      }
       if (res.error && isMissingColumn(res.error)) {
         res = await supabase
           .from("panol_materiales")
@@ -450,6 +465,13 @@ export async function fetchMaterialesEgreso({ sede = null, estados = ["en_panol"
       ubicacion: meta?.ubicacion || null,
       ubicacion_obs: meta?.ubicacion_obs || null,
       stock_minimo: meta?.stock_minimo ?? null,
+      imagen_url: meta?.imagen_url || null,
+      notas: meta?.notas || null,
+      // Revisión del maestro. Si la migración todavía no corrió, meta no las
+      // trae y todo queda "pendiente", que es la lectura correcta.
+      verificacion_estado: meta?.verificacion_estado || "pendiente",
+      verificado_at: meta?.verificado_at || null,
+      verificacion_nota: meta?.verificacion_nota || null,
       categoria_id: categoriaId,
       categoria_nombre: row.categoria_nombre || (categoriaId ? categoriaById.get(categoriaId) : "") || "",
     };
@@ -1596,6 +1618,67 @@ export async function agregarNotaDevolucion(devolucionId, texto) {
   });
   if (error) throw error;
   return data;
+}
+
+/* ── Revisión del stock maestro ─────────────────────────────────────────── */
+
+// Los tres estados posibles de un producto en la revisión. "Pendiente" no es un
+// problema, es trabajo sin hacer: separarlos es lo que permite que el contador
+// de pendientes efectivamente baje.
+export const VERIFICACION_META = {
+  pendiente: { label: "Sin revisar", corto: "Sin revisar" },
+  ok: { label: "Revisado", corto: "Revisado" },
+  problema: { label: "Con problema", corto: "Problema" },
+};
+
+/** Marca la revisión de un producto y de paso corrige sus datos. Un solo viaje:
+ *  si fueran dos, la mitad de las veces se corrige y no se marca. */
+export async function verificarMaterial(materialId, estado, {
+  nota = null, ubicacion = null, ubicacionObs = null, descripcion = null,
+} = {}) {
+  if (!materialId) throw new Error("Falta el producto.");
+  if (estado === "problema" && !String(nota || "").trim()) {
+    throw new Error("Para marcar un problema hay que decir cuál es.");
+  }
+  const { error } = await supabase.rpc("panol_verificar_material", {
+    p_material_id: materialId,
+    p_estado: estado,
+    p_nota: nota,
+    p_ubicacion: ubicacion,
+    p_ubicacion_obs: ubicacionObs,
+    p_descripcion: descripcion,
+  });
+  if (error) throw error;
+}
+
+/** Cuántos van y cuántos faltan. Se calcula en la base: contar en el navegador
+ *  daría sólo los productos que entraron en la página actual. */
+export async function fetchVerificacionAvance() {
+  const { data, error } = await supabase
+    .from("panol_verificacion_avance")
+    .select("*")
+    .maybeSingle();
+  if (error) {
+    if (isMissingTable(error)) return null;
+    throw error;
+  }
+  return data ?? null;
+}
+
+/** Historial de revisiones de un producto. */
+export async function fetchVerificacionesMaterial(materialId) {
+  if (!materialId) return [];
+  const { data, error } = await supabase
+    .from("panol_material_verificaciones")
+    .select("id, estado, nota, ubicacion, created_at, autor:verificado_por(username)")
+    .eq("material_id", materialId)
+    .order("created_at", { ascending: false })
+    .limit(20);
+  if (error) {
+    if (isMissingTable(error)) return [];
+    throw error;
+  }
+  return (data ?? []).map((fila) => ({ ...fila, autor_nombre: fila.autor?.username || "" }));
 }
 
 /** Panel de devoluciones. Trae días y valor ya calculados desde la vista. */

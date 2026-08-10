@@ -458,19 +458,19 @@ function CatalogLinkRow({ item, catalog = [], proveedores = [], stockByMaterial 
                 type="button"
                 onClick={onCreate}
                 disabled={creating || !String(item.descripcion || "").trim()}
-                style={{ border: `1px solid ${C.amberB ?? C.b0}`, background: "rgba(245,158,11,0.08)", color: creating ? C.dim : C.amber, borderRadius: 7, padding: "7px 10px", fontSize: 11.5, fontWeight: 850, cursor: creating ? "default" : "pointer", fontFamily: C.sans, whiteSpace: "nowrap" }}
+                style={{ border: `1px solid ${C.violetB ?? C.b0}`, background: "rgba(245,158,11,0.08)", color: creating ? C.dim : C.violet, borderRadius: 7, padding: "7px 10px", fontSize: 11.5, fontWeight: 850, cursor: creating ? "default" : "pointer", fontFamily: C.sans, whiteSpace: "nowrap" }}
               >
                 {creating ? "Creando..." : "Crear nuevo"}
               </button>
             ) : (
-              <span style={{ color: C.amber, fontSize: 11, fontWeight: 800, whiteSpace: "nowrap" }}>↳ Creá el producto en la pestaña “Crear producto”</span>
+              <span style={{ color: C.violet, fontSize: 11, fontWeight: 800, whiteSpace: "nowrap" }}>↳ Creá el producto en la pestaña “Crear producto”</span>
             )}
           </>
         )}
       </div>
       {!selected && results.length > 0 && (
         <div style={{ display: "grid", gap: 6, marginLeft: 81 }}>
-          <div style={{ color: C.amber, fontSize: 11, fontWeight: 850 }}>
+          <div style={{ color: C.violet, fontSize: 11, fontWeight: 850 }}>
             Posibles coincidencias: elegí una para evitar duplicados.
           </div>
           {results.map((material) => {
@@ -514,9 +514,9 @@ function MiniMapaUbicacion({ selectedCode = "", onPick = null }) {
       </div>
       <svg viewBox={`0 0 ${PANOL_ROOM_W} ${PANOL_ROOM_H}`} style={{ width: "100%", height: "auto", display: "block", maxHeight: 170 }}>
         <rect x={0} y={0} width={PANOL_ROOM_W} height={PANOL_ROOM_H} rx={18} fill="rgba(148,163,184,0.08)" stroke="rgba(148,163,184,0.35)" strokeWidth={18} />
-        <rect x={105} y={PANOL_ROOM_H - 34} width={285} height={12} fill={C.amber} rx={5} opacity={0.8} />
+        <rect x={105} y={PANOL_ROOM_H - 34} width={285} height={12} fill={C.violet} rx={5} opacity={0.8} />
         <rect x={485} y={PANOL_ROOM_H - 34} width={195} height={12} fill="#38bdf8" rx={5} opacity={0.8} />
-        <rect x={1542} y={PANOL_ROOM_H - 34} width={275} height={12} fill={C.amber} rx={5} opacity={0.8} />
+        <rect x={1542} y={PANOL_ROOM_H - 34} width={275} height={12} fill={C.violet} rx={5} opacity={0.8} />
         {shelves.map(([shelfCode, layout]) => {
           const active = shelfCode === code;
           const zone = shelfCode.charAt(0);
@@ -628,7 +628,7 @@ function ItemObrasRow({ item, obras = [], onChange }) {
 
   const asignado = dist.reduce((s, d) => s + num(d.cantidad), 0);
   const resto = Math.round((total - asignado) * 100) / 100;
-  const okColor = asignado === total ? C.green : asignado > total ? C.red : C.amber;
+  const okColor = asignado === total ? C.green : asignado > total ? C.red : C.violet;
   const setRow = (idx, patch) => onChange({ distribucion: dist.map((d, k) => (k === idx ? { ...d, ...patch } : d)) });
   const addRow = () => onChange({ distribucion: [...dist, { obra_id: "", cantidad: resto > 0 ? String(resto) : "" }] });
   const removeRow = (idx) => { const next = dist.filter((_, k) => k !== idx); onChange({ distribucion: next.length ? next : null }); };
@@ -1642,8 +1642,8 @@ export default function EnviarAPanolModal({ open, onClose, prefill, showPrices =
             )}
 
             {aiSummary && (
-              <div style={{ display: "flex", alignItems: "center", gap: 8, padding: "9px 10px", border: `1px solid ${aiSummary.linkedPercent >= 70 ? C.greenB : C.amberB}`, background: aiSummary.linkedPercent >= 70 ? C.greenL : C.amberL, borderRadius: 9, color: C.t1, fontSize: 12, fontWeight: 750 }}>
-                <Bot size={14} style={{ color: aiSummary.linkedPercent >= 70 ? C.green : C.amber, flexShrink: 0 }} />
+              <div style={{ display: "flex", alignItems: "center", gap: 8, padding: "9px 10px", border: `1px solid ${aiSummary.linkedPercent >= 70 ? C.greenB : C.violetB}`, background: aiSummary.linkedPercent >= 70 ? C.greenL : C.violetL, borderRadius: 9, color: C.t1, fontSize: 12, fontWeight: 750 }}>
+                <Bot size={14} style={{ color: aiSummary.linkedPercent >= 70 ? C.green : C.violet, flexShrink: 0 }} />
                 <span>IA detecto <strong>{aiSummary.detected}</strong> items. <strong>{aiSummary.linked}/{aiSummary.detected}</strong> vinculados al catalogo ({aiSummary.linkedPercent}% de deteccion). {aiSummary.currencies?.ARS ? <strong>ARS {aiSummary.currencies.ARS}</strong> : null}{aiSummary.currencies?.ARS && aiSummary.currencies?.USD ? " · " : null}{aiSummary.currencies?.USD ? <strong>USD {aiSummary.currencies.USD}</strong> : null}</span>
               </div>
             )}

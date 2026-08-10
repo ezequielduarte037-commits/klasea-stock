@@ -22,7 +22,7 @@ const INP = { width: "100%", boxSizing: "border-box", background: C.panelSolid, 
 
 const norm = (s) => String(s ?? "").toLowerCase().normalize("NFD").replace(/[̀-ͯ]/g, "").trim();
 
-const COLOR_CALIDAD = { excelente: C.green, buena: C.green, aceptable: C.amber, pobre: C.red };
+const COLOR_CALIDAD = { excelente: C.green, buena: C.green, aceptable: C.violet, pobre: C.red };
 
 export default function CalibrarPesosScreen({ toast }) {
   const nav = useNavigate();
@@ -151,7 +151,7 @@ export default function CalibrarPesosScreen({ toast }) {
           </div>
         )}
         {bal.error && (
-          <div style={{ ...CARD, borderColor: C.amberB, background: "rgba(245,158,11,0.08)", fontSize: 12.5, color: C.amber, fontWeight: 700, display: "flex", gap: 8, alignItems: "flex-start" }}>
+          <div style={{ ...CARD, borderColor: C.violetB, background: "rgba(245,158,11,0.08)", fontSize: 12.5, color: C.violet, fontWeight: 700, display: "flex", gap: 8, alignItems: "flex-start" }}>
             <AlertTriangle size={16} style={{ flexShrink: 0, marginTop: 1 }} /> {bal.error}
           </div>
         )}
@@ -204,7 +204,7 @@ export default function CalibrarPesosScreen({ toast }) {
                         </span>
                       </>
                     ) : (
-                      <span style={{ fontSize: 10, fontWeight: 900, color: C.amber, background: "rgba(245,158,11,0.10)", border: `1px solid ${C.amberB}`, borderRadius: 999, padding: "2px 8px", whiteSpace: "nowrap" }}>PENDIENTE</span>
+                      <span style={{ fontSize: 10, fontWeight: 900, color: C.violet, background: "rgba(245,158,11,0.10)", border: `1px solid ${C.violetB}`, borderRadius: 999, padding: "2px 8px", whiteSpace: "nowrap" }}>PENDIENTE</span>
                     )}
                   </button>
                 );

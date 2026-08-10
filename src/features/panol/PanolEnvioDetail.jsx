@@ -934,7 +934,7 @@ export default function PanolEnvioDetail({ envioId, profile, canReceive, isManag
         {envio && (
           <div style={{ display: "grid", gridTemplateColumns: isMobile ? "1fr 1fr" : "repeat(4, minmax(150px, 1fr))", gap: 9 }}>
             <HeaderStat icon={ClipboardCheck} label="Recibidos" value={`${resumen.recibidos}/${resumen.total}`} color={C.green} />
-            <HeaderStat icon={Clock3} label="Pendientes" value={resumen.pendientes} color={C.amber} />
+            <HeaderStat icon={Clock3} label="Pendientes" value={resumen.pendientes} color={C.violet} />
             <HeaderStat icon={AlertTriangle} label="Problemas" value={resumen.problemas} color={C.red} />
             <div style={{ border: `1px solid ${C.border}`, background: C.panelSolid, borderRadius: 11, padding: "10px 12px", display: "grid", alignContent: "center", gap: 7 }}>
               <div style={{ display: "flex", justifyContent: "space-between", fontSize: 11, color: C.dim, fontWeight: 800, textTransform: "uppercase", letterSpacing: 0.9 }}>

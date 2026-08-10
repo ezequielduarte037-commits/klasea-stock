@@ -2,6 +2,8 @@ import { memo, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
   AlertTriangle,
   ArrowUpRight,
+  CheckCircle2,
+  CircleDashed,
   CreditCard,
   LayoutGrid,
   List,
@@ -12,10 +14,12 @@ import {
   Save,
   ScanLine,
   Search,
+  ShieldCheck,
   ShoppingCart,
   Warehouse,
   X,
 } from "lucide-react";
+import { MaterialThumb } from "@/features/materiales/MaterialExtras";
 import { C } from "@/theme";
 import BarcodeScanner from "@/features/panol/BarcodeScanner";
 import UbicacionPicker, { UbicacionChip } from "@/features/panol/UbicacionPicker";
@@ -46,6 +50,7 @@ import {
   registrarDevolucion,
   SEDES_PANOL,
   transferirProducto,
+  verificarMaterial,
   vincularMovimientosAMaterial,
 } from "@/features/panol/panolApi";
 
@@ -258,7 +263,7 @@ function RetiroNfcBox({ nfc, onClear, compact = false, materialIds = [] }) {
     : bridge?.status === "connecting"
       ? "Conectando lector NFC"
       : "Lector NFC desconectado";
-  const bridgeColor = bridgeOk ? C.green : bridge?.status === "connecting" ? C.blue : C.amber;
+  const bridgeColor = bridgeOk ? C.green : bridge?.status === "connecting" ? C.blue : C.violet;
   return (
     <div style={{ border: `1px solid ${border}`, background: bg, borderRadius: 12, padding: compact ? 10 : 12, display: "grid", gap: compact ? 8 : 10 }}>
       <AvisoReparosRetiro empleado={nfc.empleado} reparos={reparos} />
@@ -561,6 +566,11 @@ function emptyCatalogGroup(material, defaultSede = "Pampa", esAdicional = false)
     proveedor: material.proveedor || "",
     unidad: material.unidad || material.unidad_medida || "unidad",
     stockMinimo: material.stock_minimo ?? null,
+    imagenUrl: material.imagen_url || null,
+    notas: material.notas || null,
+    verificacion: material.verificacion_estado || "pendiente",
+    verificadoAt: material.verificado_at || null,
+    verificacionNota: material.verificacion_nota || null,
     total: 0,
     transitQty: 0,
     valueUsd: 0,
@@ -622,7 +632,14 @@ function buildProductGroups(rows = [], fObra = "todas") {
           unidad: row.unidad || "unidad",
           proveedor: row.proveedor || "",
           stock_minimo: row.stock_minimo ?? null,
+          imagen_url: row.imagen_url || null,
+          notas: row.notas || null,
         },
+        imagenUrl: row.imagen_url || null,
+        notas: row.notas || null,
+        verificacion: row.verificacion_estado || "pendiente",
+        verificadoAt: row.verificado_at || null,
+        verificacionNota: row.verificacion_nota || null,
         label: row.descripcion || "(sin descripcion)",
         codigo: row.codigo || "",
         codigo_barra: row.codigo_barra || "",
@@ -655,6 +672,17 @@ function buildProductGroups(rows = [], fObra = "todas") {
     if (!group.ubicacion && row.ubicacion) {
       group.ubicacion = row.ubicacion;
       group.ubicacion_obs = row.ubicacion_obs || null;
+    }
+    if (!group.imagenUrl && row.imagen_url) {
+      group.imagenUrl = row.imagen_url;
+      group.material.imagen_url = row.imagen_url;
+    }
+    // Entre varias filas del mismo producto gana la que ya fue revisada: el
+    // estado vive en la ficha, no en el renglón de stock.
+    if (group.verificacion === "pendiente" && row.verificacion_estado && row.verificacion_estado !== "pendiente") {
+      group.verificacion = row.verificacion_estado;
+      group.verificadoAt = row.verificado_at || null;
+      group.verificacionNota = row.verificacion_nota || null;
     }
     if (!group.codigo_barra && row.codigo_barra) {
       group.codigo_barra = row.codigo_barra;
@@ -767,6 +795,23 @@ function sortProductGroups(groups, orderBy) {
       return String(a.label || "").localeCompare(String(b.label || ""), "es", { numeric: true });
     });
   }
+  // Orden de trabajo para la revisión: primero lo que nadie miró, y dentro de
+  // eso lo que además le falta un dato, que es donde hay algo que hacer.
+  if (orderBy === "sin_revisar") {
+    const priority = { pendiente: 0, problema: 1, ok: 2 };
+    const rank = (g) => priority[g.verificacion === "ok" || g.verificacion === "problema" ? g.verificacion : "pendiente"];
+    return [...groups].sort((a, b) => {
+      const diff = rank(a) - rank(b);
+      if (diff !== 0) return diff;
+      const faltaA = (a.ubicacion ? 0 : 1) + (a.codigo ? 0 : 1);
+      const faltaB = (b.ubicacion ? 0 : 1) + (b.codigo ? 0 : 1);
+      if (faltaA !== faltaB) return faltaB - faltaA;
+      return String(a.label || "").localeCompare(String(b.label || ""), "es", { numeric: true });
+    });
+  }
+  if (orderBy === "alfabetico") {
+    return [...groups].sort((a, b) => String(a.label || "").localeCompare(String(b.label || ""), "es", { numeric: true }));
+  }
   if (orderBy !== "recientes") return groups;
   return [...groups].sort((a, b) => {
     const ta = new Date(a.updatedAt || 0).getTime();
@@ -793,9 +838,9 @@ function SelectFilter({ label, value, onChange, options }) {
 
 function StateChip({ negative, catalogOnly = false, transit = false, egresado = false, compact = false }) {
   if (compact && !egresado && !transit && !catalogOnly && !negative) return null;
-  const color = egresado ? C.red : transit ? C.amber : catalogOnly ? C.amber : negative ? C.red : C.green;
-  const border = egresado ? C.redB : transit ? C.amberB : catalogOnly ? C.amberB : negative ? C.redB : C.greenB;
-  const background = egresado ? C.redL : transit ? C.amberL : catalogOnly ? C.amberL : negative ? C.redL : C.greenL;
+  const color = egresado ? C.red : transit ? C.violet : catalogOnly ? C.violet : negative ? C.red : C.green;
+  const border = egresado ? C.redB : transit ? C.violetB : catalogOnly ? C.violetB : negative ? C.redB : C.greenB;
+  const background = egresado ? C.redL : transit ? C.violetL : catalogOnly ? C.violetL : negative ? C.redL : C.greenL;
   const label = egresado ? "Egresado" : transit ? "Por recibir" : catalogOnly ? "Sin registro" : negative ? "A reconciliar" : "Disponible";
   return (
     <span style={{
@@ -889,7 +934,7 @@ function stockLevel(group) {
     return { key: "critico", label: "Crítico", color: C.red, bg: C.redL, border: C.redB, minimum, configured: true, faltante: Math.max(0, minimum - current) };
   }
   if (minimum > 0 && current <= minimum) {
-    return { key: "alerta", label: "Bajo", color: C.amber, bg: C.amberL, border: C.amberB, minimum, configured: true, faltante: Math.max(0, minimum - current) };
+    return { key: "alerta", label: "Bajo", color: C.violet, bg: C.violetL, border: C.violetB, minimum, configured: true, faltante: Math.max(0, minimum - current) };
   }
   return { key: "ok", label: "OK", color: C.green, bg: C.greenL, border: C.greenB, minimum, configured: true, faltante: 0 };
 }
@@ -984,7 +1029,7 @@ const ProductCard = memo(function ProductCard({ group, active, onOpen, canSeePri
   // ── Variante DENSA (lista angosta con detalle abierto): 2 líneas, micro-chips ──
   if (dense) {
     const asigs = groupAsignaciones(group);
-    const estadoMini = group.egresado ? ["EGRESADO", C.red] : group.negativo ? ["NEGATIVO", C.red] : group.inTransit ? ["POR RECIBIR", C.amber] : null;
+    const estadoMini = group.egresado ? ["EGRESADO", C.red] : group.negativo ? ["NEGATIVO", C.red] : group.inTransit ? ["POR RECIBIR", C.violet] : null;
     const micro = (label, color) => (
       <span style={{ fontSize: 8.5, fontWeight: 950, color, border: `1px solid ${color}44`, background: `${color}12`, borderRadius: 999, padding: "0 5px", flexShrink: 0, whiteSpace: "nowrap", lineHeight: "13px" }}>{label}</span>
     );
@@ -1042,7 +1087,7 @@ const ProductCard = memo(function ProductCard({ group, active, onOpen, canSeePri
         gap: 7,
         border: `1px solid ${active || hover ? C.blueB : level.border}`,
         borderLeft: `3px solid ${level.color}`,
-        background: active ? C.blueL : level.key === "critico" ? C.redL : level.key === "alerta" ? C.amberL : hover ? "rgba(59,130,246,0.06)" : C.panelSolid,
+        background: active ? C.blueL : level.key === "critico" ? C.redL : level.key === "alerta" ? C.violetL : hover ? "rgba(59,130,246,0.06)" : C.panelSolid,
         borderRadius: 11,
         padding: "9px 10px",
         cursor: "pointer",
@@ -1070,7 +1115,7 @@ const ProductCard = memo(function ProductCard({ group, active, onOpen, canSeePri
         <AsignadoChip asignaciones={groupAsignaciones(group)} compact />
         <StateChip egresado={group.egresado} transit={group.inTransit} catalogOnly={group.catalogOnly} negative={group.negativo} compact />
         {sinUbicacion ? (
-          <span style={{ display: "inline-flex", alignItems: "center", gap: 4, color: C.amber, background: C.amberL, border: `1px solid ${C.amberB}`, borderRadius: 999, padding: "3px 9px", fontSize: 10, fontWeight: 900 }}>
+          <span style={{ display: "inline-flex", alignItems: "center", gap: 4, color: C.violet, background: C.violetL, border: `1px solid ${C.violetB}`, borderRadius: 999, padding: "3px 9px", fontSize: 10, fontWeight: 900 }}>
             <MapPin size={11} /> Sin ubicación
           </span>
         ) : (
@@ -1130,10 +1175,58 @@ const ProductCard = memo(function ProductCard({ group, active, onOpen, canSeePri
   );
 });
 
+// Grilla compartida por el encabezado y las filas. Una sola constante para que
+// no se desalineen cuando se toca una y se olvida la otra.
+const STOCK_ROW_COLS = "48px minmax(240px,2.1fr) 92px 132px 96px minmax(140px,1.1fr) 108px";
+const STOCK_ROW_MIN = 940;
+
+const VERIF_META = {
+  ok: { label: "Revisado", Icon: CheckCircle2, color: C.green, bg: C.greenL, border: C.greenB },
+  problema: { label: "Problema", Icon: AlertTriangle, color: C.red, bg: C.redL, border: C.redB },
+  pendiente: { label: "Sin revisar", Icon: CircleDashed, color: C.dim, bg: "transparent", border: C.border },
+};
+
+function VerificacionChip({ estado, compact = false }) {
+  const meta = VERIF_META[estado] || VERIF_META.pendiente;
+  const Icon = meta.Icon;
+  return (
+    <span title={meta.label} style={{
+      display: "inline-flex", alignItems: "center", gap: 5,
+      color: meta.color, border: `1px solid ${meta.border}`, background: meta.bg,
+      borderRadius: 999, padding: compact ? "2px 7px" : "3px 9px",
+      fontSize: compact ? 9 : 10, fontWeight: 950, whiteSpace: "nowrap",
+    }}>
+      <Icon size={compact ? 10 : 11} style={{ flexShrink: 0 }} />
+      {meta.label}
+    </span>
+  );
+}
+
+// Un dato que falta y hace falta. Se muestra como etiqueta en la fila porque el
+// objetivo de la revisión es justamente que estas etiquetas desaparezcan.
+function FaltaChip({ children }) {
+  return (
+    <span style={{
+      display: "inline-flex", alignItems: "center", gap: 4,
+      color: C.red, border: `1px dashed ${C.redB}`, background: C.redL,
+      borderRadius: 6, padding: "1px 6px", fontSize: 9.5, fontWeight: 900, whiteSpace: "nowrap",
+    }}>
+      falta {children}
+    </span>
+  );
+}
+
 const ProductStockRow = memo(function ProductStockRow({ group, active, onOpen, canEditMinimum, onSaveMinimum }) {
   const [hover, setHover] = useState(false);
   const level = stockLevel(group);
-  const location = group.ubicacion || group.locations?.find((item) => item.available > 0)?.label || "Sin ubicación";
+  const location = group.ubicacion || group.locations?.find((item) => item.available > 0)?.label || "";
+  const categoria = [...(group.categorias || [])].filter(Boolean)[0] || "";
+  // Lo que la revisión viene a completar. Se calcula acá y no en el detalle
+  // porque el valor está en verlo sin abrir: así se elige a cuál entrar.
+  const sinUbicacion = !group.ubicacion;
+  const sinCodigo = !group.codigo;
+  const descripcionPobre = String(group.label || "").trim().length < 12;
+
   return (
     <div
       role="button"
@@ -1148,41 +1241,79 @@ const ProductStockRow = memo(function ProductStockRow({ group, active, onOpen, c
       onMouseEnter={() => setHover(true)}
       onMouseLeave={() => setHover(false)}
       style={{
-        minWidth: 850,
+        minWidth: STOCK_ROW_MIN,
         display: "grid",
-        gridTemplateColumns: "112px minmax(230px,1.7fr) 100px 150px 105px minmax(150px,1fr)",
+        gridTemplateColumns: STOCK_ROW_COLS,
         alignItems: "center",
         gap: 12,
-        padding: "8px 12px",
+        padding: "9px 12px",
         borderBottom: `1px solid ${C.border}`,
-        borderLeft: `3px solid ${level.color}`,
-        background: active ? C.blueL : hover ? level.bg : C.panelSolid,
+        borderLeft: `3px solid ${active ? C.blue : level.color}`,
+        background: active ? C.blueL : hover ? C.panel : C.panelSolid,
         color: C.text,
         cursor: "pointer",
         outline: "none",
-        transition: "background .12s",
+        transition: "background .12s, box-shadow .12s",
+        boxShadow: hover && !active ? `inset 0 0 0 1px ${C.border2}` : "none",
       }}
     >
-      <StockLevelChip group={group} />
+      {/* La foto es el primer filtro visual: reconocer la pieza sin leer.
+          MaterialThumb ya trae el lightbox y frena la propagación del click. */}
+      <MaterialThumb material={{ imagen_url: group.imagenUrl, descripcion: group.label }} size={42} />
+
       <div style={{ minWidth: 0 }}>
-        <div style={{ color: C.text, fontSize: 12.5, fontWeight: 900, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{group.label}</div>
-        <div style={{ color: C.dim, fontSize: 10.5, marginTop: 2, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
-          {group.codigo || "sin código"}{group.proveedor ? ` · ${group.proveedor}` : ""}
+        <div style={{ display: "flex", alignItems: "center", gap: 7, minWidth: 0 }}>
+          <span style={{ color: C.text, fontSize: 12.5, fontWeight: 900, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+            {group.label}
+          </span>
+          <StockLevelChip group={group} compact hideUnset />
+        </div>
+        <div style={{ display: "flex", alignItems: "center", gap: 6, flexWrap: "wrap", marginTop: 3 }}>
+          <span style={{ color: C.dim, fontSize: 10.5, fontFamily: C.mono }}>{group.codigo || "sin código"}</span>
+          {group.proveedor && <span style={{ color: C.dim, fontSize: 10.5 }}>· {group.proveedor}</span>}
+          {categoria && <span style={{ color: C.dim, fontSize: 10.5 }}>· {categoria}</span>}
+          {sinCodigo && <FaltaChip>código</FaltaChip>}
+          {descripcionPobre && <FaltaChip>descripción</FaltaChip>}
         </div>
       </div>
+
       <div>
         <div style={{ color: level.color, fontFamily: C.mono, fontSize: 15, fontWeight: 950 }}>{fmtQty(group.total)}</div>
         <div style={{ color: C.dim, fontSize: 9.5 }}>{group.unidad || "u"}</div>
       </div>
+
       <MinimumEditor group={group} canEdit={canEditMinimum} onSave={onSaveMinimum} />
+
       <div>
         <div style={{ color: level.faltante > 0 ? level.color : C.dim, fontFamily: C.mono, fontSize: 13, fontWeight: 900 }}>
           {level.faltante > 0 ? fmtQty(level.faltante) : "—"}
         </div>
-        <div style={{ color: C.dim, fontSize: 9.5 }}>{level.faltante > 0 ? "para alcanzar mínimo" : "sin faltante"}</div>
+        <div style={{ color: C.dim, fontSize: 9.5 }}>{level.faltante > 0 ? "para el mínimo" : "sin faltante"}</div>
       </div>
-      <div style={{ minWidth: 0, color: group.ubicacion ? C.text : C.amber, fontSize: 11.5, fontWeight: 750, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
-        {location}
+
+      <div style={{ minWidth: 0 }}>
+        {sinUbicacion ? <FaltaChip>ubicación</FaltaChip> : (
+          <>
+            <div style={{ display: "flex", alignItems: "center", gap: 5, color: C.text, fontSize: 11.5, fontWeight: 800, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+              <MapPin size={11} style={{ color: C.dim, flexShrink: 0 }} />
+              {location}
+            </div>
+            {group.ubicacion_obs && (
+              <div style={{ color: C.dim, fontSize: 10, marginTop: 2, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+                {group.ubicacion_obs}
+              </div>
+            )}
+          </>
+        )}
+      </div>
+
+      <div style={{ minWidth: 0 }}>
+        <VerificacionChip estado={group.verificacion} compact />
+        {group.verificacion === "problema" && group.verificacionNota && (
+          <div style={{ color: C.dim, fontSize: 9.5, marginTop: 3, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+            {group.verificacionNota}
+          </div>
+        )}
       </div>
     </div>
   );
@@ -1220,7 +1351,7 @@ function LocationButton({ location, active, onClick }) {
           </span>
         )}
         {location.transitQty > 0 && (
-          <span style={{ display: "block", color: C.amber, fontSize: 10.5, marginTop: 2 }}>por recibir {fmtQty(location.transitQty)}</span>
+          <span style={{ display: "block", color: C.violet, fontSize: 10.5, marginTop: 2 }}>por recibir {fmtQty(location.transitQty)}</span>
         )}
       </span>
       <span style={{ color: location.available < 0 ? C.red : C.green, fontFamily: C.mono, fontSize: 14, fontWeight: 950 }}>{fmtQty(location.available)}</span>
@@ -1236,7 +1367,7 @@ function KardexRow({ row, onRevert, busy, obraById, onDevolucion }) {
   const isTransit = rowIsTransit(row);
   const egresoMeta = rowEgresoMeta(row);
   const label = isLocation ? "Ubicacion" : isAssignment ? egresoMeta.label : isTransit ? "Transito" : isOut ? egresoMeta.label : row.estado === "problema" ? "Problema" : "Ingreso";
-  const labelColor = isLocation ? C.blue : isAssignment ? egresoMeta.color : isTransit ? C.amber : isOut ? egresoMeta.color : C.green;
+  const labelColor = isLocation ? C.blue : isAssignment ? egresoMeta.color : isTransit ? C.violet : isOut ? egresoMeta.color : C.green;
   const descripcion = row.descripcion || "(sin descripcion)";
   const codigo = row.codigo ? ` · ${row.codigo}` : "";
   const variante = String(row.variante || "").trim();
@@ -1807,7 +1938,7 @@ function EgresoBatchPanel({ group, selectedLocation, obras, sedeLocked, canRecei
             </button>
           </div>
           {transitOnly && (
-            <div style={{ border: `1px solid ${C.amberB}`, background: C.amberL, color: C.amber, borderRadius: 10, padding: "8px 9px", fontSize: 12, lineHeight: 1.35 }}>
+            <div style={{ border: `1px solid ${C.violetB}`, background: C.violetL, color: C.violet, borderRadius: 10, padding: "8px 9px", fontSize: 12, lineHeight: 1.35 }}>
               Este material está por recibir (aún no lo recepcionó pañol). Podés egresarlo igual: queda negativo para reconciliar cuando cargues el ingreso.
             </div>
           )}
@@ -1895,7 +2026,7 @@ function EgresoBatchPanel({ group, selectedLocation, obras, sedeLocked, canRecei
       )}
       <label style={{ display: "grid", gap: 4 }}>
         <input value={retiradoPor} onChange={(event) => setRetiradoPor(event.target.value)} placeholder="Nombre y apellido de quien retira" style={{ background: C.bg, border: `1px solid ${retiradoError && retiradoPor.trim() ? C.redB : C.border}`, color: C.text, borderRadius: 9, padding: "9px 10px", fontSize: 12, fontFamily: C.sans, outline: "none" }} />
-        {retiradoError && <span style={{ color: C.amber, fontSize: 10.5, lineHeight: 1.3 }}>Obligatorio para egresos: nombre y apellido, no solo DNI ni un apellido.</span>}
+        {retiradoError && <span style={{ color: C.violet, fontSize: 10.5, lineHeight: 1.3 }}>Obligatorio para egresos: nombre y apellido, no solo DNI ni un apellido.</span>}
         {!retiradoError && !retiroNfc.empleado && <span style={{ color: C.dim, fontSize: 10.5, lineHeight: 1.3 }}>La tarjeta es opcional por ahora: con nombre y apellido alcanza.</span>}
       </label>
       <input value={sectorDestino} onChange={(event) => setSectorDestino(event.target.value)} placeholder="Sector / uso / entrega" style={{ background: C.bg, border: `1px solid ${C.border}`, color: C.text, borderRadius: 9, padding: "9px 10px", fontSize: 12, fontFamily: C.sans, outline: "none" }} />
@@ -2057,7 +2188,7 @@ function ProductActionPanel({ group, selectedLocation, setSelectedLocationKey, o
         <div style={{ color: C.dim, fontSize: 11.5, marginTop: 2 }}>{action === "egresar" ? "Cantidad, destino y receptor en un solo paso." : "Movimiento registrado en kardex."}</div>
       </div>
       {isCatalogOnly && (
-        <div style={{ color: C.amber, fontSize: 11, lineHeight: 1.35 }}>Sin registro digital: el egreso queda negativo a reconciliar.</div>
+        <div style={{ color: C.violet, fontSize: 11, lineHeight: 1.35 }}>Sin registro digital: el egreso queda negativo a reconciliar.</div>
       )}
       <div style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>
         <button type="button" onClick={() => setAction("egresar")} disabled={mode === "egreso"} style={{ border: `1px solid ${action === "egresar" ? C.greenB : C.border}`, background: action === "egresar" ? C.greenL : C.panel, color: action === "egresar" ? C.green : C.text, borderRadius: 9, padding: "7px 12px", fontSize: 12, fontWeight: 900, cursor: mode === "egreso" ? "default" : "pointer", fontFamily: C.sans }}>Egreso</button>
@@ -2130,7 +2261,7 @@ function ProductActionPanel({ group, selectedLocation, setSelectedLocationKey, o
       </label>
 
       {transitOnly && (
-        <div style={{ border: `1px solid ${C.amberB}`, background: C.amberL, color: C.amber, borderRadius: 10, padding: "9px 10px", fontSize: 12, lineHeight: 1.35 }}>
+        <div style={{ border: `1px solid ${C.violetB}`, background: C.violetL, color: C.violet, borderRadius: 10, padding: "9px 10px", fontSize: 12, lineHeight: 1.35 }}>
           Esta linea esta en transito y todavia no fue recibida por pañol. No cuenta como stock cargado.
         </div>
       )}
@@ -2146,19 +2277,19 @@ function ProductActionPanel({ group, selectedLocation, setSelectedLocationKey, o
         <>
           <label style={{ display: "grid", gap: 5 }}>
             <span style={{ color: C.dim, fontSize: 10, fontWeight: 850, textTransform: "uppercase", letterSpacing: 1 }}>Obra a la que va</span>
-            <select value={destinoObraId} onChange={(event) => setDestinoObraId(event.target.value)} style={{ background: C.bg, border: `1px solid ${!destinoObraId && !selectedLocation?.obraId ? C.amberB : C.border}`, color: C.text, borderRadius: 9, padding: "9px 10px", fontSize: 12, fontFamily: C.sans, outline: "none" }}>
+            <select value={destinoObraId} onChange={(event) => setDestinoObraId(event.target.value)} style={{ background: C.bg, border: `1px solid ${!destinoObraId && !selectedLocation?.obraId ? C.violetB : C.border}`, color: C.text, borderRadius: 9, padding: "9px 10px", fontSize: 12, fontFamily: C.sans, outline: "none" }}>
               <option value="">Sin obra (mantenimiento, río, etc.)</option>
               {obrasActivas.map((obra) => <option key={obra.id} value={obra.id}>{obra.codigo}</option>)}
             </select>
             {!destinoObraId && !selectedLocation?.obraId && (
-              <span style={{ color: C.amber, fontSize: 10.5 }}>Sin obra: es obligatorio detallar abajo a dónde va.</span>
+              <span style={{ color: C.violet, fontSize: 10.5 }}>Sin obra: es obligatorio detallar abajo a dónde va.</span>
             )}
           </label>
           <RetiroNfcBox nfc={retiroNfc} onClear={() => { retiroNfc.clear(); setRetiradoPor(""); }} compact materialIds={group?.material?.id ? [group.material.id] : []} />
           <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8 }}>
             <label style={{ display: "grid", gap: 4, minWidth: 0 }}>
               <input value={retiradoPor} onChange={(event) => setRetiradoPor(event.target.value)} placeholder="Nombre y apellido de quien retira" style={{ background: C.bg, border: `1px solid ${retiradoError && retiradoPor.trim() ? C.redB : C.border}`, color: C.text, borderRadius: 9, padding: "9px 10px", fontSize: 12, fontFamily: C.sans, outline: "none", minWidth: 0 }} />
-              {retiradoError && <span style={{ color: C.amber, fontSize: 10.5, lineHeight: 1.3 }}>Obligatorio: nombre y apellido.</span>}
+              {retiradoError && <span style={{ color: C.violet, fontSize: 10.5, lineHeight: 1.3 }}>Obligatorio: nombre y apellido.</span>}
               {!retiradoError && !retiroNfc.empleado && <span style={{ color: C.dim, fontSize: 10.5, lineHeight: 1.3 }}>La tarjeta es opcional por ahora: con nombre y apellido alcanza.</span>}
             </label>
             <input value={sectorDestino} onChange={(event) => setSectorDestino(event.target.value)} placeholder="Sector / uso" style={{ background: C.bg, border: `1px solid ${C.border}`, color: C.text, borderRadius: 9, padding: "9px 10px", fontSize: 12, fontFamily: C.sans, outline: "none", minWidth: 0 }} />
@@ -2177,6 +2308,123 @@ function ProductActionPanel({ group, selectedLocation, setSelectedLocationKey, o
           </button>
         );
       })()}
+    </div>
+  );
+}
+
+// Panel de revisión del maestro. Es el lugar donde el pañolero, con la pieza en
+// la mano, arregla lo que está mal y lo deja marcado.
+//
+// Los tres campos están acá y no repartidos por la pantalla a propósito: la
+// revisión se hace de a un producto y de una sentada, y si para completar la
+// ubicación hay que abrir otra pestaña, no se completa.
+function VerificacionPanel({ group, canEdit, onDone, toast }) {
+  const materialId = group?.material?.id || null;
+  const [descripcion, setDescripcion] = useState(group?.label || "");
+  const [ubicacion, setUbicacion] = useState(group?.ubicacion || "");
+  const [ubicacionObs, setUbicacionObs] = useState(group?.ubicacion_obs || "");
+  const [nota, setNota] = useState(group?.verificacionNota || "");
+  const [guardando, setGuardando] = useState("");
+
+  const estado = group?.verificacion === "ok" || group?.verificacion === "problema" ? group.verificacion : "pendiente";
+  const meta = VERIF_META[estado];
+  const sinUbicacion = !ubicacion.trim();
+
+  async function marcar(nuevoEstado) {
+    if (!materialId) {
+      toast?.warning?.("Este renglón no está vinculado al catálogo, no se puede revisar.");
+      return;
+    }
+    if (nuevoEstado === "problema" && !nota.trim()) {
+      toast?.warning?.("Escribí qué problema tiene antes de marcarlo.");
+      return;
+    }
+    setGuardando(nuevoEstado);
+    try {
+      await verificarMaterial(materialId, nuevoEstado, {
+        nota: nuevoEstado === "problema" ? nota.trim() : (nota.trim() || null),
+        ubicacion: ubicacion.trim() || null,
+        ubicacionObs,
+        descripcion: descripcion.trim() || null,
+      });
+      toast?.success?.(nuevoEstado === "ok" ? "Producto revisado." : nuevoEstado === "problema" ? "Marcado con problema." : "Vuelve a sin revisar.");
+      await onDone?.();
+    } catch (error) {
+      toast?.error?.(error.message || "No se pudo guardar la revisión.");
+    } finally {
+      setGuardando("");
+    }
+  }
+
+  if (!canEdit) return null;
+
+  return (
+    <div style={{
+      border: `1px solid ${estado === "pendiente" ? C.blueB : meta.border}`,
+      background: estado === "pendiente" ? C.blueL : meta.bg === "transparent" ? C.panelSolid : meta.bg,
+      borderRadius: 12, padding: 12, display: "grid", gap: 10,
+    }}>
+      <div style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
+        <ShieldCheck size={14} style={{ color: estado === "pendiente" ? C.blue : meta.color, flexShrink: 0 }} />
+        <span style={{ color: C.text, fontSize: 12.5, fontWeight: 950 }}>Revisión del maestro</span>
+        <VerificacionChip estado={estado} />
+        {group.verificadoAt && (
+          <span style={{ color: C.dim, fontSize: 10.5, marginLeft: "auto" }}>
+            {new Date(group.verificadoAt).toLocaleDateString("es-AR", { day: "2-digit", month: "2-digit", year: "numeric" })}
+          </span>
+        )}
+      </div>
+
+      <div style={{ color: C.muted, fontSize: 11, lineHeight: 1.45 }}>
+        Con el producto en la mano: que la descripción alcance para reconocerlo y
+        que la ubicación diga dónde está de verdad.
+      </div>
+
+      <label style={{ display: "grid", gap: 4, minWidth: 0 }}>
+        <span style={{ color: C.dim, fontSize: 9.5, fontWeight: 900, textTransform: "uppercase", letterSpacing: 0.8 }}>Descripción</span>
+        <input value={descripcion} size={1} onChange={(event) => setDescripcion(event.target.value)}
+          placeholder="Ej: Bisagra codo 18 + base con clip"
+          style={{ width: "100%", minWidth: 0, boxSizing: "border-box", background: C.panel, border: `1px solid ${C.border}`, color: C.text, borderRadius: 9, padding: "8px 10px", fontSize: 12.5, fontFamily: C.sans, outline: "none" }} />
+      </label>
+
+      <div style={{ display: "grid", gridTemplateColumns: "minmax(0,1fr) minmax(0,1.3fr)", gap: 8 }}>
+        <label style={{ display: "grid", gap: 4, minWidth: 0 }}>
+          <span style={{ color: C.dim, fontSize: 9.5, fontWeight: 900, textTransform: "uppercase", letterSpacing: 0.8 }}>Ubicación</span>
+          <input value={ubicacion} size={1} onChange={(event) => setUbicacion(event.target.value)}
+            placeholder="Ej: Estante C3"
+            style={{ width: "100%", minWidth: 0, boxSizing: "border-box", background: C.panel, border: `1px solid ${sinUbicacion ? C.redB : C.border}`, color: C.text, borderRadius: 9, padding: "8px 10px", fontSize: 12.5, fontFamily: C.sans, outline: "none" }} />
+        </label>
+        <label style={{ display: "grid", gap: 4, minWidth: 0 }}>
+          <span style={{ color: C.dim, fontSize: 9.5, fontWeight: 900, textTransform: "uppercase", letterSpacing: 0.8 }}>Detalle de dónde está</span>
+          <input value={ubicacionObs} size={1} onChange={(event) => setUbicacionObs(event.target.value)}
+            placeholder="Ej: afuera, contra el portón"
+            style={{ width: "100%", minWidth: 0, boxSizing: "border-box", background: C.panel, border: `1px solid ${C.border}`, color: C.text, borderRadius: 9, padding: "8px 10px", fontSize: 12.5, fontFamily: C.sans, outline: "none" }} />
+        </label>
+      </div>
+
+      <label style={{ display: "grid", gap: 4, minWidth: 0 }}>
+        <span style={{ color: C.dim, fontSize: 9.5, fontWeight: 900, textTransform: "uppercase", letterSpacing: 0.8 }}>Qué encontraste (si hay algo mal)</span>
+        <input value={nota} size={1} onChange={(event) => setNota(event.target.value)}
+          placeholder="Ej: el código no coincide con la etiqueta de la caja"
+          style={{ width: "100%", minWidth: 0, boxSizing: "border-box", background: C.panel, border: `1px solid ${C.border}`, color: C.text, borderRadius: 9, padding: "8px 10px", fontSize: 12.5, fontFamily: C.sans, outline: "none" }} />
+      </label>
+
+      <div style={{ display: "flex", gap: 7, flexWrap: "wrap" }}>
+        <button type="button" onClick={() => marcar("ok")} disabled={!!guardando}
+          style={{ flex: "1 1 150px", display: "inline-flex", alignItems: "center", justifyContent: "center", gap: 6, border: `1px solid ${C.greenB}`, background: C.greenL, color: C.green, borderRadius: 9, padding: "9px 12px", cursor: guardando ? "default" : "pointer", fontSize: 12.5, fontWeight: 950, fontFamily: C.sans, opacity: guardando ? 0.6 : 1 }}>
+          <CheckCircle2 size={14} /> {guardando === "ok" ? "Guardando…" : "Está correcto"}
+        </button>
+        <button type="button" onClick={() => marcar("problema")} disabled={!!guardando}
+          style={{ flex: "1 1 150px", display: "inline-flex", alignItems: "center", justifyContent: "center", gap: 6, border: `1px solid ${C.redB}`, background: C.redL, color: C.red, borderRadius: 9, padding: "9px 12px", cursor: guardando ? "default" : "pointer", fontSize: 12.5, fontWeight: 950, fontFamily: C.sans, opacity: guardando ? 0.6 : 1 }}>
+          <AlertTriangle size={14} /> {guardando === "problema" ? "Guardando…" : "Tiene un problema"}
+        </button>
+        {estado !== "pendiente" && (
+          <button type="button" onClick={() => marcar("pendiente")} disabled={!!guardando}
+            style={{ border: `1px solid ${C.border}`, background: C.panel, color: C.dim, borderRadius: 9, padding: "9px 11px", cursor: guardando ? "default" : "pointer", fontSize: 11.5, fontWeight: 850, fontFamily: C.sans }}>
+            Deshacer
+          </button>
+        )}
+      </div>
     </div>
   );
 }
@@ -2484,6 +2732,10 @@ function ProductDetail({ group, isMobile, obras, sedeLocked, canReceive, mode, o
         </div>
 
 
+        {mode !== "egreso" && !group.catalogOnly && (
+          <VerificacionPanel group={group} canEdit={canReceive} onDone={onDone} toast={toast} />
+        )}
+
         {mode !== "egreso" && renderLocationSection()}
 
         {group.esAdicional && detalleAdicional.length > 0 && (
@@ -2726,7 +2978,7 @@ function ProductDetail({ group, isMobile, obras, sedeLocked, canReceive, mode, o
               </button>
             </div>
             <div style={{ padding: 16, display: "grid", gap: 10 }}>
-              <div style={{ border: `1px solid ${C.amberB}`, background: C.amberL, color: C.amber, borderRadius: 10, padding: "9px 10px", fontSize: 12, lineHeight: 1.4 }}>
+              <div style={{ border: `1px solid ${C.violetB}`, background: C.violetL, color: C.violet, borderRadius: 10, padding: "9px 10px", fontSize: 12, lineHeight: 1.4 }}>
                 Esto crea el movimiento inverso y deja marcado el original como anulado. El motivo queda en el kardex.
               </div>
               <label style={{ display: "grid", gap: 6 }}>
@@ -3063,10 +3315,10 @@ function CartDrawer({ cart, setCart, obras, canReceive, onDone, toast, isMobile,
               {g.items.map((item) => {
                 const excede = !item.catalogOnly && qty(item.cantidad, 0) > item.available;
                 return (
-                  <div key={item.key} style={{ display: "grid", gridTemplateColumns: "minmax(0, 1fr) 84px 28px", gap: 8, alignItems: "center", padding: "8px 10px", border: `1px solid ${excede ? C.amberB : C.border}`, borderRadius: 10, background: C.panelSolid }}>
+                  <div key={item.key} style={{ display: "grid", gridTemplateColumns: "minmax(0, 1fr) 84px 28px", gap: 8, alignItems: "center", padding: "8px 10px", border: `1px solid ${excede ? C.violetB : C.border}`, borderRadius: 10, background: C.panelSolid }}>
                     <div style={{ minWidth: 0 }}>
                       <div style={{ color: C.text, fontSize: 12.5, fontWeight: 850, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{item.label}</div>
-                      <div style={{ color: excede ? C.amber : C.dim, fontSize: 10.5, marginTop: 1 }}>
+                      <div style={{ color: excede ? C.violet : C.dim, fontSize: 10.5, marginTop: 1 }}>
                         {item.catalogOnly ? "sin registro digital" : `disponible ${fmtQty(item.available)} ${item.unidad || ""}`}{excede ? " · queda negativo" : ""}
                       </div>
                       {item.variantes?.length > 0 && (
@@ -3098,7 +3350,7 @@ function CartDrawer({ cart, setCart, obras, canReceive, onDone, toast, isMobile,
                         </div>
                       )}
                     </div>
-                    <input type="number" min="0.01" step="any" value={item.cantidad} onChange={(event) => updateCartItem(item.key, { cantidad: event.target.value })} style={{ ...inp, fontFamily: C.mono, padding: "7px 8px", borderColor: excede ? C.amberB : C.border }} />
+                    <input type="number" min="0.01" step="any" value={item.cantidad} onChange={(event) => updateCartItem(item.key, { cantidad: event.target.value })} style={{ ...inp, fontFamily: C.mono, padding: "7px 8px", borderColor: excede ? C.violetB : C.border }} />
                     <button type="button" onClick={() => removeCartItem(item.key)} title="Quitar" style={{ border: `1px solid ${C.border}`, background: C.panelSolid, color: C.dim, borderRadius: 8, width: 28, height: 28, display: "grid", placeItems: "center", cursor: "pointer" }}>
                       <X size={13} />
                     </button>
@@ -3125,26 +3377,26 @@ function CartDrawer({ cart, setCart, obras, canReceive, onDone, toast, isMobile,
         {/* Destino */}
         <label style={{ display: "grid", gap: 5 }}>
           <span style={{ color: C.dim, fontSize: 10, fontWeight: 850, textTransform: "uppercase", letterSpacing: 1 }}>{movementKind === "transferir" ? "Asignar a la obra" : "Obra a la que va"}</span>
-          <select value={destinoObraId} onChange={(event) => setDestinoObraId(event.target.value)} style={{ ...inp, cursor: "pointer", borderColor: movementKind === "transferir" && !destinoObraId ? C.amberB : C.border }}>
+          <select value={destinoObraId} onChange={(event) => setDestinoObraId(event.target.value)} style={{ ...inp, cursor: "pointer", borderColor: movementKind === "transferir" && !destinoObraId ? C.violetB : C.border }}>
             <option value="">{movementKind === "transferir" ? "Elegir obra…" : "Cada ítem sale a su obra asignada (stock libre: detallar)"}</option>
             {obrasActivas.map((obra) => <option key={obra.id} value={obra.id}>{obra.codigo}</option>)}
           </select>
         </label>
 
         {/* Qué va a pasar */}
-        <div style={{ border: `1px dashed ${cruzados.length ? C.amberB : C.blueB}`, background: cruzados.length ? C.amberL : C.blueL, borderRadius: 11, padding: "9px 11px" }}>
-          <div style={{ fontSize: 10, fontWeight: 950, color: cruzados.length ? C.amber : C.blue, textTransform: "uppercase", letterSpacing: 0.7, marginBottom: 6 }}>Qué va a pasar</div>
+        <div style={{ border: `1px dashed ${cruzados.length ? C.violetB : C.blueB}`, background: cruzados.length ? C.violetL : C.blueL, borderRadius: 11, padding: "9px 11px" }}>
+          <div style={{ fontSize: 10, fontWeight: 950, color: cruzados.length ? C.violet : C.blue, textTransform: "uppercase", letterSpacing: 0.7, marginBottom: 6 }}>Qué va a pasar</div>
           <div style={{ display: "grid", gap: 4 }}>
             {preview.slice(0, 6).map((p) => (
-              <div key={p.key} style={{ fontSize: 11, lineHeight: 1.35, color: p.warn ? C.amber : C.text }}>
+              <div key={p.key} style={{ fontSize: 11, lineHeight: 1.35, color: p.warn ? C.violet : C.text }}>
                 <span style={{ fontWeight: 850 }}>{p.warn ? "⚠ " : ""}{p.label}</span>
-                <span style={{ color: p.warn ? C.amber : C.dim }}> — {p.det}</span>
+                <span style={{ color: p.warn ? C.violet : C.dim }}> — {p.det}</span>
               </div>
             ))}
             {preview.length > 6 && <div style={{ fontSize: 10.5, color: C.dim }}>… y {preview.length - 6} más</div>}
           </div>
           {cruzados.length > 0 && (
-            <div style={{ fontSize: 10.5, color: C.amber, fontWeight: 850, marginTop: 6 }}>
+            <div style={{ fontSize: 10.5, color: C.violet, fontWeight: 850, marginTop: 6 }}>
               ⚠ {cruzados.length} ítem{cruzados.length === 1 ? " está" : "s están"} asignado{cruzados.length === 1 ? "" : "s"} a otra obra: se pide confirmación al confirmar.
             </div>
           )}
@@ -3157,7 +3409,7 @@ function CartDrawer({ cart, setCart, obras, canReceive, onDone, toast, isMobile,
         <div style={{ display: "grid", gridTemplateColumns: movementKind === "consumir" ? "1fr 1fr" : "1fr", gap: 8 }}>
           <label style={{ display: "grid", gap: 4, minWidth: 0 }}>
             <input value={retiradoPor} onChange={(event) => setRetiradoPor(event.target.value)} placeholder="Nombre y apellido de quien retira" style={{ ...inp, borderColor: retiradoError && retiradoPor.trim() ? C.redB : C.border }} />
-            {retiradoError && <span style={{ color: C.amber, fontSize: 10.5, lineHeight: 1.3 }}>Obligatorio: nombre y apellido.</span>}
+            {retiradoError && <span style={{ color: C.violet, fontSize: 10.5, lineHeight: 1.3 }}>Obligatorio: nombre y apellido.</span>}
             {!retiradoError && !retiroNfc.empleado && <span style={{ color: C.dim, fontSize: 10.5, lineHeight: 1.3 }}>La tarjeta es opcional por ahora: con nombre y apellido alcanza.</span>}
           </label>
           {movementKind === "consumir" && <input value={sectorDestino} onChange={(event) => setSectorDestino(event.target.value)} placeholder="Sector / uso" style={inp} />}
@@ -3193,6 +3445,7 @@ export default function StockWmsPanel({ sedeLocked = null, isMobile = false, toa
   const [fCategoria, setFCategoria] = useState("todos");
   const [kindScope, setKindScope] = useState("todos");
   const [scope, setScope] = useState(initialScope);
+  const [verifScope, setVerifScope] = useState("todos");
   const [orderBy, setOrderBy] = useState(showCatalogInventory ? "estado" : "default");
   const [stockView, setStockView] = useState(() => readStoredStockView());
   const [egresoView, setEgresoView] = useState(() => readStoredEgresoView());
@@ -3395,23 +3648,40 @@ export default function StockWmsPanel({ sedeLocked = null, isMobile = false, toa
     productGroupsBase.forEach((group) => { counts[stockLevel(group).key] += 1; });
     return counts;
   }, [productGroupsBase]);
+  // Cuántos van y cuántos faltan de la revisión, sobre lo que hay cargado.
+  const verifCounts = useMemo(() => {
+    const counts = { todos: productGroupsBase.length, pendiente: 0, ok: 0, problema: 0, sin_datos: 0 };
+    productGroupsBase.forEach((group) => {
+      counts[group.verificacion === "ok" ? "ok" : group.verificacion === "problema" ? "problema" : "pendiente"] += 1;
+      if (!group.ubicacion || !group.codigo) counts.sin_datos += 1;
+    });
+    return counts;
+  }, [productGroupsBase]);
+
   const productGroups = useMemo(() => {
     const withDraft = draftGroup && norm(q) && norm(draftGroup.label).includes(norm(q))
       ? [draftGroup, ...productGroupsBase.filter((group) => group.key !== draftGroup.key)]
       : productGroupsBase;
-    if (scope === "sin_ubicacion") return sortProductGroups(withDraft.filter((group) => !group.ubicacion), orderBy);
+    // La revisión es una dimensión aparte del nivel de stock: se puede querer
+    // "lo crítico que además nadie revisó", así que se aplica encima.
+    const base = verifScope === "todos" ? withDraft : withDraft.filter((group) => {
+      if (verifScope === "sin_datos") return !group.ubicacion || !group.codigo;
+      const estado = group.verificacion === "ok" || group.verificacion === "problema" ? group.verificacion : "pendiente";
+      return estado === verifScope;
+    });
+    if (scope === "sin_ubicacion") return sortProductGroups(base.filter((group) => !group.ubicacion), orderBy);
     if (scope === "negativos") {
-      const negatives = withDraft.filter((group) => group.negativo);
+      const negatives = base.filter((group) => group.negativo);
       if (draftGroup && selectedKey === draftGroup.key && !negatives.some((group) => group.key === draftGroup.key)) {
         return [draftGroup, ...sortProductGroups(negatives, orderBy)];
       }
       return sortProductGroups(negatives, orderBy);
     }
     if (["critico", "alerta", "ok", "sin_minimo"].includes(scope)) {
-      return sortProductGroups(withDraft.filter((group) => stockLevel(group).key === scope), orderBy);
+      return sortProductGroups(base.filter((group) => stockLevel(group).key === scope), orderBy);
     }
-    return sortProductGroups(withDraft, orderBy);
-  }, [draftGroup, orderBy, productGroupsBase, q, scope, selectedKey]);
+    return sortProductGroups(base, orderBy);
+  }, [draftGroup, orderBy, productGroupsBase, q, scope, selectedKey, verifScope]);
 
   const historyRows = useMemo(
     () => searchedRows
@@ -3649,7 +3919,20 @@ export default function StockWmsPanel({ sedeLocked = null, isMobile = false, toa
             ["negativos", "A reconciliar"],
             ["sin_ubicacion", `Sin ubicación${kpis.sinUbicacion ? ` (${kpis.sinUbicacion})` : ""}`],
           ]} />
-          <SelectFilter label="Orden" value={orderBy} onChange={setOrderBy} options={[...(showCatalogInventory ? [["estado", "Estado de stock"]] : []), ["default", "Stock primero"], ["recientes", "Más recientes"]]} />
+          {showCatalogInventory && (
+            <SelectFilter label="Revisión" value={verifScope} onChange={setVerifScope} options={[
+              ["todos", `Todos (${verifCounts.todos})`],
+              ["pendiente", `Sin revisar (${verifCounts.pendiente})`],
+              ["problema", `Con problema (${verifCounts.problema})`],
+              ["ok", `Revisados (${verifCounts.ok})`],
+              ["sin_datos", `Sin ubicación o código (${verifCounts.sin_datos})`],
+            ]} />
+          )}
+          <SelectFilter label="Orden" value={orderBy} onChange={setOrderBy} options={[
+            ...(showCatalogInventory ? [["estado", "Estado de stock"], ["sin_revisar", "Sin revisar primero"], ["alfabetico", "Alfabético"]] : []),
+            ["default", "Stock primero"],
+            ["recientes", "Más recientes"],
+          ]} />
           <SelectFilter label="Tipo" value={kindScope} onChange={setKindScope} options={[["todos", `Todos (${kindCounts.todos})`], ["stock", `Stock pañol (${kindCounts.stock})`], ["estandar", `Asignado a obra (${kindCounts.estandar})`], ["adicional", `Adicionales (${kindCounts.adicional})`]]} />
           <SelectFilter label="Obra / stock" value={fObra} onChange={setFObra} options={obraOptions} />
           <SelectFilter label="Categoria" value={fCategoria} onChange={setFCategoria} options={categoriaOptions} />
@@ -3664,7 +3947,7 @@ export default function StockWmsPanel({ sedeLocked = null, isMobile = false, toa
             <div style={{ display: "flex", gap: 6, alignItems: "center", flexWrap: "wrap" }}>
               {[
                 ["critico", "Críticos", stockLevelCounts.critico, C.red, C.redL, C.redB],
-                ["alerta", "Bajos", stockLevelCounts.alerta, C.amber, C.amberL, C.amberB],
+                ["alerta", "Bajos", stockLevelCounts.alerta, C.violet, C.violetL, C.violetB],
                 ["ok", "Correctos", stockLevelCounts.ok, C.green, C.greenL, C.greenB],
                 ["sin_minimo", "Sin mínimo", stockLevelCounts.sin_minimo, C.dim, C.panel2, C.border],
               ].map(([key, label, count, color, background, border]) => (
@@ -3675,7 +3958,49 @@ export default function StockWmsPanel({ sedeLocked = null, isMobile = false, toa
               ))}
             </div>
             <div style={{ color: C.dim, fontSize: 10.5 }}>
-              Rojo: hasta 50% del mínimo · Amarillo: hasta el mínimo · Verde: por encima
+              Rojo: hasta 50% del mínimo · Violeta: hasta el mínimo · Verde: por encima
+            </div>
+          </div>
+        )}
+
+        {/* Avance de la revisión. Va arriba de todo y con barra porque una
+            pasada de cientos de productos no se termina si nadie ve si va por
+            la mitad o por el principio. */}
+        {showCatalogInventory && verifCounts.todos > 0 && (
+          <div style={{
+            display: "flex", alignItems: "center", gap: 12, flexWrap: "wrap",
+            border: `1px solid ${C.border}`, background: C.panelSolid,
+            borderRadius: 11, padding: "9px 12px",
+          }}>
+            <div style={{ display: "inline-flex", alignItems: "center", gap: 7, flexShrink: 0 }}>
+              <ShieldCheck size={14} style={{ color: C.blue }} />
+              <span style={{ color: C.text, fontSize: 11.5, fontWeight: 900 }}>Revisión del maestro</span>
+            </div>
+            <div style={{ flex: "1 1 180px", minWidth: 140, height: 6, borderRadius: 99, background: C.panel2, overflow: "hidden", display: "flex" }}>
+              <span style={{ width: `${Math.round((verifCounts.ok / verifCounts.todos) * 100)}%`, background: C.green, transition: "width .3s ease" }} />
+              <span style={{ width: `${Math.round((verifCounts.problema / verifCounts.todos) * 100)}%`, background: C.red, transition: "width .3s ease" }} />
+            </div>
+            <span style={{ color: C.text, fontFamily: C.mono, fontSize: 12, fontWeight: 950, flexShrink: 0 }}>
+              {verifCounts.ok + verifCounts.problema}/{verifCounts.todos}
+            </span>
+            <div style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>
+              {[
+                ["pendiente", `${verifCounts.pendiente} sin revisar`, C.dim, C.border],
+                ["problema", `${verifCounts.problema} con problema`, C.red, C.redB],
+                ["ok", `${verifCounts.ok} revisados`, C.green, C.greenB],
+              ].map(([key, label, color, border]) => (
+                <button key={key} type="button" onClick={() => setVerifScope(verifScope === key ? "todos" : key)}
+                  style={{
+                    display: "inline-flex", alignItems: "center", gap: 5,
+                    border: `1px solid ${verifScope === key ? color : border}`,
+                    background: verifScope === key ? `color-mix(in srgb, ${color} 12%, transparent)` : "transparent",
+                    color, borderRadius: 999, padding: "4px 9px", cursor: "pointer",
+                    fontSize: 10.5, fontWeight: 900, fontFamily: C.sans, whiteSpace: "nowrap",
+                  }}>
+                  <span style={{ width: 6, height: 6, borderRadius: 999, background: color }} />
+                  {label}
+                </button>
+              ))}
             </div>
           </div>
         )}
@@ -3713,13 +4038,14 @@ export default function StockWmsPanel({ sedeLocked = null, isMobile = false, toa
           </div>
           <div style={{ padding: showCatalogInventory && stockView === "lista" ? 0 : 8, display: "grid", gridTemplateColumns: !isMobile && !hasSelectedProduct && (!showCatalogInventory || stockView === "tarjetas") ? "repeat(auto-fill, minmax(280px, 1fr))" : "1fr", gap: showCatalogInventory && stockView === "lista" ? 0 : 7, overflowY: "auto", overflowX: showCatalogInventory && stockView === "lista" ? "auto" : "hidden" }}>
             {showCatalogInventory && stockView === "lista" && !loading && productGroups.length > 0 && (
-              <div style={{ minWidth: 850, position: "sticky", top: 0, zIndex: 2, display: "grid", gridTemplateColumns: "112px minmax(230px,1.7fr) 100px 150px 105px minmax(150px,1fr)", gap: 12, padding: "7px 12px", borderBottom: `1px solid ${C.border}`, background: C.topbarSoft, color: C.dim, fontSize: 9.5, fontWeight: 900, letterSpacing: 0.8, textTransform: "uppercase" }}>
-                <span>Estado</span>
+              <div style={{ minWidth: STOCK_ROW_MIN, position: "sticky", top: 0, zIndex: 2, display: "grid", gridTemplateColumns: STOCK_ROW_COLS, gap: 12, padding: "7px 12px", borderBottom: `1px solid ${C.border}`, background: C.topbarSoft, backdropFilter: "blur(10px)", WebkitBackdropFilter: "blur(10px)", color: C.dim, fontSize: 9.5, fontWeight: 900, letterSpacing: 0.8, textTransform: "uppercase" }}>
+                <span />
                 <span>Producto</span>
-                <span>Stock actual</span>
-                <span>Stock mínimo</span>
+                <span>Stock</span>
+                <span>Mínimo</span>
                 <span>Faltante</span>
                 <span>Ubicación</span>
+                <span>Revisión</span>
               </div>
             )}
             {loading ? (

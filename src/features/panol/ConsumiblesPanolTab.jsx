@@ -82,7 +82,7 @@ const QUICK_CANTIDADES = [1, 5, 10, 25, 50];
 // una explicación corta, para que el operario entienda qué toca stock y qué no.
 const MOV_OPCIONES = [
   { key: "egreso", label: "Egresar unidades", desc: "Descuenta stock del pañol", titulo: "Egreso de unidades", icon: Minus, color: C.red, bg: C.redL, border: C.redB },
-  { key: "retiro_peso", label: "Retiro por peso", desc: "Solo registro en gramos, no toca el stock", titulo: "Retiro por peso", icon: Scale, color: C.amber, bg: C.amberL, border: C.amberB },
+  { key: "retiro_peso", label: "Retiro por peso", desc: "Solo registro en gramos, no toca el stock", titulo: "Retiro por peso", icon: Scale, color: C.violet, bg: C.violetL, border: C.violetB },
   { key: "ingreso", label: "Ingresar stock", desc: "Suma stock al pañol", titulo: "Ingreso de stock", icon: Plus, color: C.green, bg: C.greenL, border: C.greenB },
 ];
 
@@ -131,7 +131,7 @@ function stockSedesArray(item = {}) {
 }
 
 function movimientoUi(row = {}) {
-  if (row.source === "consumible_retiro") return { label: "Retiro peso", color: C.amber, bg: C.amberL, border: C.amberB };
+  if (row.source === "consumible_retiro") return { label: "Retiro peso", color: C.violet, bg: C.violetL, border: C.violetB };
   const delta = rowDelta(row);
   const anulado = rowIsAnulado(row);
   const salida = rowIsEgreso(row) || delta < 0;
@@ -711,7 +711,7 @@ export default function ConsumiblesPanolTab({ isMobile = false, toast, sedeLocke
                   {item.codigo || "sin código"} · {item.proveedor || "Sin proveedor"}
                 </div>
                 <div style={{ display: "flex", gap: 6, flexWrap: "wrap", marginTop: 7 }}>
-                  {item.peso_unitario_g ? <StatusPill color={C.green} bg={C.greenL} border={C.greenB}>{fmtWeight(item.peso_unitario_g)}</StatusPill> : <StatusPill color={C.amber} bg={C.amberL} border={C.amberB}>Sin peso</StatusPill>}
+                  {item.peso_unitario_g ? <StatusPill color={C.green} bg={C.greenL} border={C.greenB}>{fmtWeight(item.peso_unitario_g)}</StatusPill> : <StatusPill color={C.violet} bg={C.violetL} border={C.violetB}>Sin peso</StatusPill>}
                   {(item.codigos_barra || []).length > 0 && <StatusPill color={C.violet} bg="var(--violet-soft)" border="var(--violet-border)">{item.codigos_barra.length} códigos</StatusPill>}
                   {stockSedesArray(item).slice(0, 2).map(([sede, qty]) => (
                     <StatusPill key={sede} color={qty > 0 ? C.blue : C.red} bg={qty > 0 ? C.blueL : C.redL} border={qty > 0 ? C.blueB : C.redB}>{sede}: {fmtQty(qty)}</StatusPill>
@@ -830,7 +830,7 @@ export default function ConsumiblesPanolTab({ isMobile = false, toast, sedeLocke
                 </div>
               )}
               {movimiento === "retiro_peso" && (
-                <div style={{ border: `1px solid ${C.amberB}`, background: C.amberL, color: C.amber, borderRadius: 10, padding: "8px 10px", fontSize: 12, fontWeight: 850, marginTop: 8 }}>
+                <div style={{ border: `1px solid ${C.violetB}`, background: C.violetL, color: C.violet, borderRadius: 10, padding: "8px 10px", fontSize: 12, fontWeight: 850, marginTop: 8 }}>
                   Registro temporal: guarda gramos retirados, persona y destino. No descuenta stock ni genera negativo.
                 </div>
               )}
@@ -912,7 +912,7 @@ export default function ConsumiblesPanolTab({ isMobile = false, toast, sedeLocke
               <MovIcon size={16} /> {confirmLabel}
             </button>
             {!canReceive && (
-              <div style={{ color: C.amber, fontSize: 12, fontWeight: 800 }}>Tu rol no tiene permisos para crear movimientos de pañol.</div>
+              <div style={{ color: C.violet, fontSize: 12, fontWeight: 800 }}>Tu rol no tiene permisos para crear movimientos de pañol.</div>
             )}
           </div>
         </div>
@@ -921,14 +921,14 @@ export default function ConsumiblesPanolTab({ isMobile = false, toast, sedeLocke
           title="Peso por pieza y calibración"
           icon={Scale}
           badge={selected.peso_unitario_g ? fmtWeight(selected.peso_unitario_g) : "Sin calibrar"}
-          badgeColor={selected.peso_unitario_g ? C.green : C.amber}
-          badgeBg={selected.peso_unitario_g ? C.greenL : C.amberL}
-          badgeBorder={selected.peso_unitario_g ? C.greenB : C.amberB}
+          badgeColor={selected.peso_unitario_g ? C.green : C.violet}
+          badgeBg={selected.peso_unitario_g ? C.greenL : C.violetL}
+          badgeBorder={selected.peso_unitario_g ? C.greenB : C.violetB}
         >
           <div style={{ display: "grid", gridTemplateColumns: isMobile ? "1fr" : "minmax(190px, 1fr) minmax(240px, 1.4fr)", gap: 10 }}>
             <div style={{ border: `1px solid ${C.border}`, background: C.panel, borderRadius: 12, padding: 10 }}>
               <div style={{ color: C.dim, fontSize: 11, fontWeight: 850 }}>Peso actual</div>
-              <div style={{ color: selected.peso_unitario_g ? C.green : C.amber, fontSize: 22, fontWeight: 950, fontFamily: C.mono, marginTop: 4 }}>{fmtWeight(selected.peso_unitario_g)}</div>
+              <div style={{ color: selected.peso_unitario_g ? C.green : C.violet, fontSize: 22, fontWeight: 950, fontFamily: C.mono, marginTop: 4 }}>{fmtWeight(selected.peso_unitario_g)}</div>
               <div style={{ display: "flex", gap: 7, marginTop: 10 }}>
                 <input value={pesoDirecto} onChange={(e) => setPesoDirecto(e.target.value)} placeholder="g/unidad" style={{ ...INPUT, fontFamily: C.mono }} />
                 <MiniButton onClick={guardarPesoDirecto} disabled={saving} tone="green"><Save size={15} /></MiniButton>
@@ -945,7 +945,7 @@ export default function ConsumiblesPanolTab({ isMobile = false, toast, sedeLocke
                 <MiniButton onClick={leerPesoMuestra} disabled={!balanza.soportado || !balanza.conectado} tone="violet"><Scale size={15} /> Leer</MiniButton>
               </div>
               <div style={{ display: "flex", gap: 8, alignItems: "center", justifyContent: "space-between", marginTop: 9, flexWrap: "wrap" }}>
-                <span style={{ color: calidad ? (calidad.nivel === "pobre" ? C.red : calidad.nivel === "aceptable" ? C.amber : C.green) : C.dim, fontSize: 12, fontWeight: 850 }}>
+                <span style={{ color: calidad ? (calidad.nivel === "pobre" ? C.red : calidad.nivel === "aceptable" ? C.violet : C.green) : C.dim, fontSize: 12, fontWeight: 850 }}>
                   {calidad ? `Calidad: ${calidad.texto}` : "Ideal: muestra de 250 g o más."}
                 </span>
                 <MiniButton onClick={guardarPesoMuestra} disabled={saving || gramosMuestra == null || num(piezasMuestra) <= 0} tone="green"><Check size={15} /> Guardar peso</MiniButton>
@@ -1040,13 +1040,13 @@ export default function ConsumiblesPanolTab({ isMobile = false, toast, sedeLocke
           <div style={{ display: "flex", gap: 7, flexWrap: "wrap" }}>
             <StatChip label="Consumibles" value={stats.consumibles} color={C.blue} active={panel === "operar" && filter === "todos"} onClick={() => { setPanel("operar"); setFilter("todos"); }} />
             <StatChip label="Stock total" value={fmtQty(stats.stock)} color={C.green} active={panel === "operar" && filter === "con_stock"} onClick={() => { setPanel("operar"); setFilter("con_stock"); }} />
-            <StatChip label="Sin peso" value={stats.sinPeso} color={C.amber} active={panel === "operar" && filter === "sin_peso"} onClick={() => { setPanel("operar"); setFilter("sin_peso"); }} />
+            <StatChip label="Sin peso" value={stats.sinPeso} color={C.violet} active={panel === "operar" && filter === "sin_peso"} onClick={() => { setPanel("operar"); setFilter("sin_peso"); }} />
             <StatChip label="Sin stock" value={stats.sinStock} color={C.red} active={panel === "operar" && filter === "sin_stock"} onClick={() => { setPanel("operar"); setFilter("sin_stock"); }} />
           </div>
         </div>
 
         {balanza.error && (
-          <div style={{ border: `1px solid ${C.amberB}`, background: C.amberL, color: C.amber, borderRadius: 10, padding: "8px 10px", fontSize: 12, fontWeight: 750, display: "flex", gap: 8 }}>
+          <div style={{ border: `1px solid ${C.violetB}`, background: C.violetL, color: C.violet, borderRadius: 10, padding: "8px 10px", fontSize: 12, fontWeight: 750, display: "flex", gap: 8 }}>
             <AlertTriangle size={16} /> {balanza.error}
           </div>
         )}
@@ -1152,7 +1152,7 @@ function MovimientosConsumiblesPanel({ rows = [], itemsById = new Map() }) {
           <div style={{ color: C.text, fontSize: 17, fontWeight: 950 }}>Movimientos de consumibles</div>
           <div style={{ color: C.dim, fontSize: 12, marginTop: 3 }}>Retiros por peso, ingresos y egresos registrados. Los retiros por peso no modifican stock.</div>
         </div>
-        <StatusPill color={C.amber} bg={C.amberL} border={C.amberB}>Registro temporal por gramos</StatusPill>
+        <StatusPill color={C.violet} bg={C.violetL} border={C.violetB}>Registro temporal por gramos</StatusPill>
       </div>
       {rows.length ? (
         <div style={{ display: "grid", gap: 8 }}>
