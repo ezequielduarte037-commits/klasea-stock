@@ -42,6 +42,7 @@ import {
   retiradoPorNombreCompletoError,
   DEVOLUCION_MOTIVOS,
   DEVOLUCION_NECESITA,
+  DEVOLUCION_RESPONSABLE,
   registrarDevolucion,
   SEDES_PANOL,
   transferirProducto,
@@ -2557,7 +2558,7 @@ function ProductDetail({ group, isMobile, obras, sedeLocked, canReceive, mode, o
               onRevert={(movimiento) => { setReversalTarget(movimiento); setReversalReason(""); }}
               busy={revertingId === row.id}
               obraById={obraById}
-              onDevolucion={(movimiento) => setDevolucionTarget({ row: movimiento, cantidad: String(Math.abs(rowDelta(movimiento)) || ""), motivo: "defectuoso", detalle: "", necesita: "esperando_reposicion" })}
+              onDevolucion={(movimiento) => setDevolucionTarget({ row: movimiento, cantidad: String(Math.abs(rowDelta(movimiento)) || ""), motivo: "defectuoso", detalle: "", necesita: "esperando_reposicion", responsable: "sin_definir" })}
             />
           )) : (
             <div style={{ color: C.dim, fontSize: 12, padding: "12px 0" }}>
@@ -2636,6 +2637,31 @@ function ProductDetail({ group, isMobile, obras, sedeLocked, canReceive, mode, o
                 </div>
               </div>
 
+              {/* Una rotura nuestra también se registra: el material salió y no
+                  vuelve al stock. Lo que cambia es que no se le puede reclamar
+                  al proveedor, y de eso depende el total del reclamo. */}
+              <div style={{ display: "grid", gap: 6 }}>
+                <span style={{ color: C.dim, fontSize: 10, fontWeight: 900, textTransform: "uppercase", letterSpacing: 0.8 }}>De quién fue</span>
+                <div style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>
+                  {DEVOLUCION_RESPONSABLE.map(([valor, label]) => {
+                    const on = devolucionTarget.responsable === valor;
+                    return (
+                      <button key={valor} type="button"
+                        onClick={() => setDevolucionTarget((p) => ({ ...p, responsable: valor }))}
+                        style={{
+                          padding: "7px 12px", borderRadius: 9, cursor: "pointer",
+                          border: `1px solid ${on ? C.blueB : C.border}`,
+                          background: on ? C.blueL : C.panel,
+                          color: on ? C.blue : C.muted,
+                          fontSize: 12, fontWeight: on ? 900 : 750, fontFamily: C.sans,
+                        }}>
+                        {label}
+                      </button>
+                    );
+                  })}
+                </div>
+              </div>
+
               <div style={{ border: `1px solid ${C.cyanB}`, background: C.cyanL, borderRadius: 10, padding: "9px 11px", color: C.muted, fontSize: 11.5, lineHeight: 1.45 }}>
                 Queda apartado, <b>no vuelve al stock</b>. Se avisa a Compras para que definan si
                 se manda a reparar o se reclama la reposición, y la obra queda con esa cantidad pendiente.
@@ -2659,6 +2685,8 @@ function ProductDetail({ group, isMobile, obras, sedeLocked, canReceive, mode, o
                       motivo: devolucionTarget.motivo,
                       detalle: devolucionTarget.detalle || null,
                       necesita: devolucionTarget.necesita,
+
+                      responsable: devolucionTarget.responsable,
                     });
                     setDevolucionTarget(null);
                     toast?.success?.("Devolución registrada. Compras fue avisado.");

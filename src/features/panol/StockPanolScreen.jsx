@@ -9,7 +9,7 @@ import StockWmsPanel from "@/features/panol/StockWmsPanel";
 import MapaPanolTab from "@/features/panol/MapaPanolTab";
 import PanolRetirosDashboard from "@/features/panol/PanolRetirosDashboard";
 import DevolucionesPanel from "@/features/panol/DevolucionesPanel";
-import { canonicalPanolSede, DEVOLUCION_MOTIVOS, DEVOLUCION_NECESITA, fetchMaterialesEgreso, fetchObrasEgreso, fetchPanolMaterialCreations, registrarDevolucion } from "@/features/panol/panolApi";
+import { canonicalPanolSede, DEVOLUCION_MOTIVOS, DEVOLUCION_NECESITA, DEVOLUCION_RESPONSABLE, fetchMaterialesEgreso, fetchObrasEgreso, fetchPanolMaterialCreations, registrarDevolucion } from "@/features/panol/panolApi";
 import { fmtDate, rowMovementAt, rowIsAnulado } from "@/features/panol/panolMovimientos";
 import { MODELOS, norm } from "@/features/materiales/materialesParser";
 import { hasAdminAccess } from "@/lib/permissions";
@@ -656,7 +656,7 @@ function MovimientosPanel({ rows = [], obras = [], materialCreations = [], isMob
         <div style={{ display: "grid", gap: 6 }}>
           {movimientos.slice(0, 500).map((m) => (
             <MovRow key={m.key} m={m} obraById={obraById}
-              onDevolucion={(row) => setDevolucion({ row, cantidad: String(Math.abs(Number(row.cantidad) || 0) || ""), motivo: "defectuoso", detalle: "", necesita: "esperando_reposicion" })} />
+              onDevolucion={(row) => setDevolucion({ row, cantidad: String(Math.abs(Number(row.cantidad) || 0) || ""), motivo: "defectuoso", detalle: "", necesita: "esperando_reposicion", responsable: "sin_definir" })} />
           ))}
           {movimientos.length > 500 && <div style={{ textAlign: "center", color: C.dim, fontSize: 12, padding: 10 }}>Mostrando 500 de {movimientos.length}. Afiná los filtros (fecha/producto) para ver el resto.</div>}
         </div>
@@ -720,6 +720,31 @@ function MovimientosPanel({ rows = [], obras = [], materialCreations = [], isMob
                 </div>
               </div>
 
+              {/* Una rotura nuestra también se registra: el material salió y no
+                  vuelve al stock. Lo que cambia es que no se le puede reclamar
+                  al proveedor, y de eso depende el total del reclamo. */}
+              <div style={{ display: "grid", gap: 6 }}>
+                <span style={{ color: C.dim, fontSize: 10, fontWeight: 900, textTransform: "uppercase", letterSpacing: 0.8 }}>De quién fue</span>
+                <div style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>
+                  {DEVOLUCION_RESPONSABLE.map(([valor, label]) => {
+                    const on = devolucion.responsable === valor;
+                    return (
+                      <button key={valor} type="button"
+                        onClick={() => setDevolucion((p) => ({ ...p, responsable: valor }))}
+                        style={{
+                          padding: "7px 12px", borderRadius: 9, cursor: "pointer",
+                          border: `1px solid ${on ? C.blueB : C.border}`,
+                          background: on ? C.blueL : C.panel,
+                          color: on ? C.blue : C.muted,
+                          fontSize: 12, fontWeight: on ? 900 : 750, fontFamily: C.sans,
+                        }}>
+                        {label}
+                      </button>
+                    );
+                  })}
+                </div>
+              </div>
+
               <div style={{ border: `1px solid ${C.cyanB}`, background: C.cyanL, borderRadius: 10, padding: "9px 11px", color: C.muted, fontSize: 11.5, lineHeight: 1.45 }}>
                 Esto <b>no deshace el egreso</b>: el material salió de verdad. Queda apartado sin volver al
                 stock, se avisa a Compras para que definan reparación o reposición, y la obra queda con esa
@@ -742,6 +767,7 @@ function MovimientosPanel({ rows = [], obras = [], materialCreations = [], isMob
                       motivo: devolucion.motivo,
                       detalle: devolucion.detalle || null,
                       necesita: devolucion.necesita,
+                      responsable: devolucion.responsable,
                     });
                     setDevolucion(null);
                     toastMov?.success?.("Devolución registrada. Compras fue avisado.");

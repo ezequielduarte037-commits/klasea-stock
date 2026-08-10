@@ -787,8 +787,20 @@ const COMPRA_META = {
   recibido_astillero: { label: "En astillero", color: C.green, soft: C.greenL, borde: C.greenB, paso: 3 },
 };
 
+// Un insumo no vuelve: es la materia prima con la que el tornero hace el
+// trabajo, no una pieza a trabajar. Su circuito termina en la entrega, así que
+// 'enviado' es su estado final y no hay regreso que esperar.
+function esInsumo(item) {
+  return !!item?.es_insumo;
+}
+
+function tramoCerrado(operation, item) {
+  if (operation.estado === "recibido") return true;
+  return esInsumo(item) && ["enviado", "parcial"].includes(operation.estado);
+}
+
 function routeIsComplete(row) {
-  return row.tramos.every((operation) => operation.estado === "recibido");
+  return row.tramos.every((operation) => tramoCerrado(operation, row.item));
 }
 
 // Cadena completa del circuito de un material, en un solo riel:
@@ -801,6 +813,7 @@ function routeIsComplete(row) {
 // tres veces empujaba el riel fuera de la card.
 function circuitoNodos({ item, tramos, conCompra }) {
   const nodos = [];
+  const insumo = esInsumo(item);
   const compraPaso = conCompra
     ? (COMPRA_META[item.compra_estado] ?? COMPRA_META.pendiente_solicitud).paso
     : 3; // sin tramo de compra, el material ya está donde tiene que estar
@@ -882,7 +895,9 @@ function circuitoNodos({ item, tramos, conCompra }) {
     nodos.push({
       key: `taller-${operation.id}`,
       label: workshopName(operation),
-      viaje: operation.viaje || i + 1,
+      // Un insumo tiene un solo destino, no una secuencia de viajes: numerarlo
+      // sugiere que después viene otro.
+      viaje: insumo ? null : (operation.viaje || i + 1),
       Icon: Wrench,
       activo: salioAlguna,
       color: taller, soft: tallerSoft, borde: tallerBorde,
@@ -890,6 +905,11 @@ function circuitoNodos({ item, tramos, conCompra }) {
       railCurso: listoEnvio && !salioAlguna,
       railColor: taller,
     });
+
+    // Acá termina el circuito de un insumo: llegó al taller y se queda ahí. Los
+    // nodos de retiro y de vuelta al astillero describen un regreso que nunca
+    // va a pasar, y dejarlos hace que el material figure eternamente pendiente.
+    if (insumo) return;
 
     nodos.push({
       key: `listo-retiro-${operation.id}`,
@@ -963,12 +983,18 @@ function tramoActual({ process, item, tramos, conCompra }) {
     ? (COMPRA_META[item.compra_estado] ?? COMPRA_META.pendiente_solicitud).paso
     : 3;
   if (conCompra && compraPaso < 3) return { tipo: "compra", compraPaso };
+  // Un insumo se cierra al entregarlo: lo que hay que mirar es lo enviado, no lo
+  // recibido. Si se mirara lo recibido —que para un insumo se queda en cero para
+  // siempre— el tramo nunca se daría por terminado.
+  const insumo = esInsumo(item);
   const operation = tramos.find((row) => {
     const componentes = (row.componentes || []).filter((component) => component.item_id === item.id);
-    if (!componentes.length) return row.estado !== "recibido";
-    return componentes.some(
-      (component) => Number(component.cantidad_recibida) < Number(component.cantidad_requerida),
-    );
+    if (!componentes.length) return !tramoCerrado(row, item);
+    return componentes.some((component) => (
+      insumo
+        ? Number(component.cantidad_enviada) < Number(component.cantidad_requerida)
+        : Number(component.cantidad_recibida) < Number(component.cantidad_requerida)
+    ));
   });
   if (!operation) return { tipo: "listo" };
   return { tipo: "viaje", operation, dependencias: dependencyRows(process, operation) };
@@ -1000,7 +1026,7 @@ function TramoActual({ process, item, tramos, conCompra, onMove, onReady, onPedi
     return (
       <div style={{ display: "grid", gap: 6 }}>
         <span style={{ display: "inline-flex", alignItems: "center", gap: 6, color: C.green, fontSize: 11.5, fontWeight: 850 }}>
-          <Check size={13} /> Circuito completo
+          <Check size={13} /> {esInsumo(item) ? "Entregado en el taller" : "Circuito completo"}
         </span>
         {tiempos}
       </div>
@@ -1087,10 +1113,12 @@ function TramoActual({ process, item, tramos, conCompra, onMove, onReady, onPedi
   const pendientesRetiro = components.filter(
     (component) => Number(component.cantidad_enviada) > Number(component.cantidad_recibida),
   );
-  const afuera = pendientesRetiro.length > 0;
+  // Para un insumo no hay nada pendiente de retiro: lo que salió, se entregó.
+  const insumo = esInsumo(item);
+  const afuera = !insumo && pendientesRetiro.length > 0;
   const listoEnvio = pendientesEnvio.length > 0
     && pendientesEnvio.every((component) => preparacionVigente(component, operation, "envio"));
-  const listoRetiro = pendientesRetiro.length > 0
+  const listoRetiro = afuera
     && pendientesRetiro.every((component) => preparacionVigente(component, operation, "retiro"));
   const destino = workshopName(operation);
   const tallerColor = operation.tipo === "plegadora" ? C.violet : C.blue;
@@ -1113,8 +1141,8 @@ function TramoActual({ process, item, tramos, conCompra, onMove, onReady, onPedi
   const diasEsperandoRetiro = listoRetiro ? diasDesde(listoRetiroAt) : null;
 
   let label = listoEnvio
-    ? "Listo para enviar"
-    : `${operation.origen || "Astillero"} · preparar salida`;
+    ? (insumo ? "Listo para entregar" : "Listo para enviar")
+    : `${operation.origen || "Astillero"} · preparar ${insumo ? "entrega" : "salida"}`;
   let color = listoEnvio ? C.green : C.blue;
   let soft = listoEnvio ? C.greenL : C.blueL;
   let borde = listoEnvio ? C.greenB : C.blueB;
@@ -1138,7 +1166,7 @@ function TramoActual({ process, item, tramos, conCompra, onMove, onReady, onPedi
           fontSize: 9.5, fontWeight: 850, whiteSpace: "nowrap",
         }}>
           <span style={{ width: 5, height: 5, borderRadius: "50%", background: color }} />
-          Viaje {operation.viaje || 1} · {label}
+          {insumo ? label : `Viaje ${operation.viaje || 1} · ${label}`}
         </span>
         {operation.nombre && (
           <span style={{ color: C.muted, fontSize: 11, fontWeight: 750 }}>{operation.nombre}</span>
@@ -1199,7 +1227,9 @@ function TramoActual({ process, item, tramos, conCompra, onMove, onReady, onPedi
             : listoEnvio ? <Truck size={14} /> : <Check size={14} />}
           {afuera
             ? listoRetiro ? "Registrar regreso" : "Marcar listo para retirar"
-            : listoEnvio ? "Registrar salida" : "Marcar listo para enviar"}
+            : listoEnvio
+              ? (insumo ? "Registrar entrega" : "Registrar salida")
+              : (insumo ? "Marcar listo para entregar" : "Marcar listo para enviar")}
         </button>
         {(listoEnvio || listoRetiro) && (
           <button
@@ -1249,12 +1279,14 @@ function StandaloneRouteCard({
   index = 0,
   onPedirCompra = null,
   onSkipPurchase = null,
+  onInsumo = null,
 }) {
   const { item, tramos } = row;
   const complete = routeIsComplete(row);
   // La pieza está afuera si alguno de sus tramos está en el taller. Da el color
   // de la espina, que es lo único que se lee sin acercarse a la pantalla.
-  const outside = tramos.some((op) => ["enviado", "parcial"].includes(op.estado));
+  // Un insumo entregado no está "afuera": llegó a donde tenía que llegar.
+  const outside = !complete && tramos.some((op) => ["enviado", "parcial"].includes(op.estado));
   const spine = complete ? C.green : outside ? C.violet : C.blue;
   return (
     <article className="tor-route-card" style={{
@@ -1288,14 +1320,50 @@ function StandaloneRouteCard({
         flexWrap: "wrap",
       }}>
         <div style={{ minWidth: 0 }}>
-          <div style={{ color: C.text, fontSize: 13.5, fontWeight: 900, lineHeight: 1.3 }}>
-            {item.descripcion}
+          <div style={{ display: "flex", alignItems: "center", gap: 7, flexWrap: "wrap" }}>
+            <span style={{ color: C.text, fontSize: 13.5, fontWeight: 900, lineHeight: 1.3 }}>
+              {item.descripcion}
+            </span>
+            {esInsumo(item) && (
+              <span title="Se entrega al taller y no vuelve" style={{
+                padding: "2px 8px", borderRadius: 999,
+                border: `1px solid ${C.tealB}`, background: C.tealL, color: C.teal,
+                fontSize: 9.5, fontWeight: 900, textTransform: "uppercase",
+              }}>
+                Insumo
+              </span>
+            )}
           </div>
           <CatalogTechnicalName item={item} />
           <div style={{ color: C.dim, fontSize: 10.5, marginTop: 3 }}>
-            {qty(item.cantidad)} {item.unidad} · {tramos.length === 1 ? "1 viaje" : `${tramos.length} viajes`}
+            {qty(item.cantidad)} {item.unidad} · {esInsumo(item)
+              ? "entrega sin regreso"
+              : tramos.length === 1 ? "1 viaje" : `${tramos.length} viajes`}
           </div>
         </div>
+        {/* El botón vive acá y no sólo en Materiales porque es acá donde se ve
+            el problema: mirás el riel, ves un Retiro que nunca va a pasar y lo
+            corregís sin cambiar de pestaña. */}
+        {!item.es_resultado && !item.no_lleva && onInsumo && (
+          <button
+            type="button"
+            onClick={() => onInsumo(item)}
+            title={esInsumo(item)
+              ? "Volver a tratarlo como pieza: sale, lo trabajan y vuelve"
+              : "Es materia prima del taller: se entrega y no vuelve"}
+            style={{
+              ...BUTTON,
+              minHeight: 27,
+              padding: "3px 8px",
+              fontSize: 10,
+              flexShrink: 0,
+              color: esInsumo(item) ? C.teal : C.dim,
+              borderColor: esInsumo(item) ? C.tealB : C.border,
+            }}
+          >
+            {esInsumo(item) ? "Es pieza" : "Es insumo"}
+          </button>
+        )}
       </div>
       <CircuitoMaterial
         process={process}
@@ -1525,7 +1593,7 @@ function TransformationFlow({
   );
 }
 
-function RecorridosPorItem({ process, onMove, onReady, query = "", onPedirCompra = null, onSkipPurchase = null }) {
+function RecorridosPorItem({ process, onMove, onReady, query = "", onPedirCompra = null, onSkipPurchase = null, onInsumo = null }) {
   const operations = (process.operaciones || []).filter((row) => row.activa !== false);
   // Lo que esta obra no lleva no entra al circuito: queda a la vista en
   // Materiales, tachado, para que se sepa que fue una decisión.
@@ -1756,6 +1824,7 @@ function RecorridosPorItem({ process, onMove, onReady, query = "", onPedirCompra
                     index={i}
                     onPedirCompra={onPedirCompra}
                     onSkipPurchase={onSkipPurchase}
+                    onInsumo={onInsumo}
                   />
                 ))}
               </div>
@@ -1957,6 +2026,7 @@ function CircuitTab({
   showSearch = true,
   onPedirCompra,
   onSkipPurchase,
+  onInsumo,
 }) {
   const operations = (process.operaciones || []).filter((row) => row.activa !== false);
   const [showManagement, setShowManagement] = useState(false);
@@ -1974,6 +2044,7 @@ function CircuitTab({
         query={search}
         onPedirCompra={onPedirCompra}
         onSkipPurchase={onSkipPurchase}
+        onInsumo={onInsumo}
       />
 
       <section style={{
@@ -2097,7 +2168,7 @@ function CircuitTab({
   );
 }
 
-function MaterialTab({ process, onEdit, onNew, onStatus, onConfirm, onPedirCompra, onNoLleva }) {
+function MaterialTab({ process, onEdit, onNew, onStatus, onConfirm, onPedirCompra, onNoLleva, onInsumo }) {
   const items = (process.items || []).filter((row) => row.activo !== false);
   const itemsByKey = new Map(items.map((row) => [row.clave, row]));
   const sinPedir = items.filter(
@@ -2177,6 +2248,20 @@ function MaterialTab({ process, onEdit, onNew, onStatus, onConfirm, onPedirCompr
                         textTransform: "uppercase",
                       }}>
                         No lleva
+                      </span>
+                    )}
+                    {item.es_insumo && (
+                      <span title="Se entrega al taller y no vuelve" style={{
+                        padding: "2px 8px",
+                        borderRadius: 999,
+                        border: `1px solid ${C.tealB}`,
+                        background: C.tealL,
+                        color: C.teal,
+                        fontSize: 9.5,
+                        fontWeight: 900,
+                        textTransform: "uppercase",
+                      }}>
+                        Insumo
                       </span>
                     )}
                     {item.es_resultado ? (
@@ -2358,6 +2443,27 @@ function MaterialTab({ process, onEdit, onNew, onStatus, onConfirm, onPedirCompr
                         }}
                       >
                         {item.no_lleva ? "Sí lleva" : "No lleva"}
+                      </button>
+                    )}
+                    {/* Un conjunto es por definición algo que se arma y vuelve:
+                        no puede ser insumo. */}
+                    {!item.es_resultado && !item.no_lleva && onInsumo && (
+                      <button
+                        type="button"
+                        onClick={() => onInsumo(item)}
+                        title={item.es_insumo
+                          ? "Volver a tratarla como pieza: sale, la trabajan y vuelve"
+                          : "Es materia prima del taller: se entrega y no vuelve"}
+                        style={{
+                          ...BUTTON,
+                          minHeight: 31,
+                          padding: "4px 9px",
+                          fontSize: 10.5,
+                          color: item.es_insumo ? C.teal : C.dim,
+                          borderColor: item.es_insumo ? C.tealB : C.border,
+                        }}
+                      >
+                        {item.es_insumo ? "Es pieza" : "Es insumo"}
                       </button>
                     )}
                     {item.requiere_confirmacion && !item.no_lleva && (
@@ -3671,6 +3777,28 @@ export default function TorneriaScreen({ profile, signOut }) {
     }
   }
 
+  // Insumo: sale una vez y se queda en el taller. Se avisa que la marca vale
+  // para toda la línea porque no es una decisión sobre este barco —como "no
+  // lleva"— sino sobre qué es ese material.
+  async function toggleInsumo(item) {
+    const marcando = !item.es_insumo;
+    if (marcando) {
+      const accepted = await confirm({
+        title: `¿${item.descripcion} es insumo del taller?`,
+        message: "Su circuito termina al entregarlo: no se espera el regreso. Como es una propiedad del material y no de esta obra, queda marcado también en las demás obras de la línea.",
+        confirmLabel: "Es insumo",
+      });
+      if (!accepted) return;
+    }
+    try {
+      await actualizarItem(item.id, { es_insumo: marcando });
+      await load({ quiet: true, preferId: selected.id });
+      toast.success(marcando ? "Marcado como insumo: no vuelve." : "Vuelve a tratarse como pieza.");
+    } catch (insumoError) {
+      toast.error(insumoError.message);
+    }
+  }
+
   async function confirmItem(item, value) {
     try {
       await actualizarItem(item.id, {
@@ -4514,6 +4642,7 @@ export default function TorneriaScreen({ profile, signOut }) {
                         showSearch={!isMobile}
                         onPedirCompra={pedirACompras}
                         onSkipPurchase={skipPurchase}
+                        onInsumo={toggleInsumo}
                       />
                     )}
                     {tab === "materiales" && (
@@ -4525,6 +4654,8 @@ export default function TorneriaScreen({ profile, signOut }) {
                         onConfirm={confirmItem}
                         onPedirCompra={pedirACompras}
                         onNoLleva={toggleNoLleva}
+
+                        onInsumo={toggleInsumo}
                       />
                     )}
                     {tab === "historial" && (

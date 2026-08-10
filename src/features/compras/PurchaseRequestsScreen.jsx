@@ -17,6 +17,7 @@ import {
   Plus,
   MessageSquare,
   Paperclip,
+  RotateCcw,
   Search,
   ShoppingCart,
   Table2,
@@ -2492,6 +2493,9 @@ function PendingComprasPanel({ requests = [], avisos = [], inbox, unreadIds, loa
           <div style={{ display: "flex", gap: 6, flexWrap: "wrap", marginTop: 7 }}>
             <Chip color={status.color} size="xs">{status.label}</Chip>
             <Chip color={priorityColors[aviso.prioridad] || C.blue} size="xs">{priority}</Chip>
+            {/* Se distingue en la lista: un aviso de devolución se resuelve en
+                otra pantalla, así que conviene reconocerlo sin abrirlo. */}
+            {aviso.origen === "panol_devolucion" && <Chip color={C.cyan} size="xs">Devolución</Chip>}
           </div>
         </div>
         <ChevronRight size={16} color={C.dim} />
@@ -3073,6 +3077,24 @@ function AvisoDetail({ aviso, comment, setComment, savingComment, savingStatus, 
           <div style={{ color: C.muted, fontSize: 13, lineHeight: 1.45, background: C.panel2, border: `1px solid ${C.border}`, borderRadius: 9, padding: 10 }}>
             {aviso.detalle}
           </div>
+        )}
+        {/* Un aviso de devolución no se resuelve acá: la decisión —reparar,
+            reclamar, descartar— se toma en el panel de pañol. Sin este atajo hay
+            que acordarse de que existe esa pantalla y buscarla a mano. */}
+        {aviso.origen === "panol_devolucion" && (
+          <a
+            href="/stock-panol?tab=devoluciones"
+            style={{
+              display: "inline-flex", alignItems: "center", gap: 7, justifySelf: "start",
+              border: `1px solid ${C.cyanB}`, background: C.cyanL, color: C.cyan,
+              borderRadius: 9, padding: "9px 13px",
+              fontSize: 12.5, fontWeight: 900, textDecoration: "none", fontFamily: C.sans,
+            }}
+          >
+            <RotateCcw size={14} />
+            Abrir el panel de devoluciones
+            <ChevronRight size={14} />
+          </a>
         )}
         {canManage && (
           <div style={{ display: "flex", gap: 7, flexWrap: "wrap", alignItems: "center" }}>

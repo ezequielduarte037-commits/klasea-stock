@@ -1501,9 +1501,43 @@ export const DEVOLUCION_NECESITA = [
   ["devuelto", "A definir con Compras"],
 ];
 
+// De quién es la culpa. Es lo que separa un reclamo de una pérdida propia: si
+// lo rompimos nosotros el material igual se aparta y se registra, pero no se le
+// puede pedir nada al proveedor. Mezclarlos infla el total del reclamo y lo
+// vuelve inservible para llamar por teléfono.
+export const DEVOLUCION_RESPONSABLE = [
+  ["proveedor", "Vino fallado"],
+  ["nosotros", "Lo rompimos nosotros"],
+  ["sin_definir", "Todavía no se sabe"],
+];
+
+export const RESPONSABLE_META = {
+  proveedor: { label: "Vino fallado", corto: "Del proveedor", reclamable: true },
+  nosotros: { label: "Lo rompimos nosotros", corto: "Nuestra", reclamable: false },
+  sin_definir: { label: "Sin definir", corto: "Sin definir", reclamable: false },
+};
+
+// A dónde va cuando se manda a arreglar. No es lo mismo devolvérselo al que lo
+// vendió (garantía, no se paga) que llevarlo a un taller (se paga) o arreglarlo
+// acá (cuesta horas nuestras).
+export const DEVOLUCION_DESTINO_TIPO = [
+  ["proveedor", "Al proveedor que lo vendió"],
+  ["taller", "A un taller de afuera"],
+  ["interno", "Lo arreglamos acá"],
+];
+
+export const DESTINO_TIPO_META = {
+  proveedor: { label: "Al proveedor", ph: "Ej: Rincón del Herraje", ayuda: "Va por garantía: no debería costarnos nada." },
+  taller: { label: "Taller externo", ph: "Ej: Trimer", ayuda: "Nos lo van a cobrar. Anotá el costo cuando lo sepas." },
+  interno: { label: "Taller propio", ph: "Ej: Herrería / Gustavo", ayuda: "Lo arregla gente nuestra: cuesta horas, no plata." },
+};
+
 /** Registra una devolución: la abre en el estado que corresponda, deja la
  *  cantidad en reclamo en la obra y avisa a Compras, todo en una transacción. */
-export async function registrarDevolucion({ snapshotId, cantidad, motivo = "defectuoso", detalle = null, necesita = "devuelto" }) {
+export async function registrarDevolucion({
+  snapshotId, cantidad, motivo = "defectuoso", detalle = null,
+  necesita = "devuelto", responsable = "sin_definir",
+}) {
   if (!snapshotId) throw new Error("Falta el egreso de origen.");
   const cant = Number(cantidad);
   if (!Number.isFinite(cant) || cant <= 0) throw new Error("La cantidad devuelta tiene que ser mayor a cero.");
@@ -1513,21 +1547,55 @@ export async function registrarDevolucion({ snapshotId, cantidad, motivo = "defe
     p_motivo: motivo,
     p_detalle: detalle,
     p_necesita: necesita,
+    p_responsable: responsable,
   });
   if (error) throw error;
   return data;
 }
 
-export async function resolverDevolucion(id, estado, { proveedorId = null, destino = null, notas = null } = {}) {
+export async function resolverDevolucion(id, estado, {
+  proveedorId = null, destino = null, notas = null,
+  destinoTipo = null, responsable = null, costoReparacion = null,
+} = {}) {
   if (!id || !estado) throw new Error("Faltan datos para resolver la devolución.");
+  const costo = costoReparacion === null || costoReparacion === "" ? null : Number(costoReparacion);
   const { error } = await supabase.rpc("panol_resolver_devolucion", {
     p_devolucion_id: id,
     p_estado: estado,
     p_proveedor_id: proveedorId,
     p_destino: destino,
     p_notas: notas,
+    p_destino_tipo: destinoTipo,
+    p_responsable: responsable,
+    p_costo_reparacion: Number.isFinite(costo) ? costo : null,
   });
   if (error) throw error;
+}
+
+/** Notas de seguimiento de una devolución, de la más nueva a la más vieja. */
+export async function fetchDevolucionNotas(devolucionId) {
+  if (!devolucionId) return [];
+  const { data, error } = await supabase
+    .from("panol_devoluciones_notas")
+    .select("id, texto, estado_en_ese_momento, created_at, autor:autor_id(username)")
+    .eq("devolucion_id", devolucionId)
+    .order("created_at", { ascending: false });
+  if (error) {
+    if (isMissingTable(error)) return [];
+    throw error;
+  }
+  return (data ?? []).map((fila) => ({ ...fila, autor_nombre: fila.autor?.username || "" }));
+}
+
+export async function agregarNotaDevolucion(devolucionId, texto) {
+  if (!devolucionId) throw new Error("Falta la devolución.");
+  if (!String(texto || "").trim()) throw new Error("La nota no puede estar vacía.");
+  const { data, error } = await supabase.rpc("panol_devolucion_nota", {
+    p_devolucion_id: devolucionId,
+    p_texto: String(texto).trim(),
+  });
+  if (error) throw error;
+  return data;
 }
 
 /** Panel de devoluciones. Trae días y valor ya calculados desde la vista. */
